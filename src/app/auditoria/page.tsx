@@ -33,27 +33,41 @@ export default function AuditoriaPage() {
   }, []);
 
   const fetchAuditLogs = async () => {
-    setLoading(true);
-    // Join manual ya que rpc o queries de join directos pueden requerir configuración de tipos
-    const { data: intentos, error } = await supabase
-      .from('intentos')
-      .select('*, profiles(full_name)')
-      .order('started_at', { ascending: false });
+    try {
+      setLoading(true);
+      // Solo procedemos si Supabase está configurado
+      const { isSupabaseConfigured } = await import('@/lib/supabase');
+      if (!isSupabaseConfigured()) {
+        console.warn('[Auditoria] Supabase no configurado.');
+        setLoading(false);
+        return;
+      }
 
-    if (intentos) {
-      const formatted: AuditLog[] = intentos.map((i: any) => ({
-        id: i.id,
-        student_name: i.profiles?.full_name || "Usuario Desconocido",
-        sim_id: i.sim_id,
-        status: i.status,
-        score: i.score,
-        total_time_seconds: i.total_time_seconds,
-        started_at: i.started_at,
-        completed_at: i.completed_at
-      }));
-      setLogs(formatted);
+      const { data: intentos, error } = await supabase
+        .from('intentos')
+        .select('*, profiles(full_name)')
+        .order('started_at', { ascending: false });
+
+      if (error) {
+        console.error('[Auditoria] Error fetching logs:', error.message);
+      } else if (intentos) {
+        const formatted: AuditLog[] = intentos.map((i: any) => ({
+          id: i.id,
+          student_name: i.profiles?.full_name || "Usuario Desconocido",
+          sim_id: i.sim_id,
+          status: i.status,
+          score: i.score,
+          total_time_seconds: i.total_time_seconds,
+          started_at: i.started_at,
+          completed_at: i.completed_at
+        }));
+        setLogs(formatted);
+      }
+    } catch (err) {
+      console.error('[Auditoria] Error crítico:', err);
+    } finally {
+      setLoading(false);
     }
-    setLoading(false);
   };
 
   const filteredLogs = logs.filter(log => {
