@@ -26,18 +26,15 @@ jobs:
         with:
           node-version: ${{ env.NODE_VERSION }}
           cache: 'npm'
-          cache-dependency-path: cen-dashboard/package-lock.json
+          cache-dependency-path: package-lock.json
 
       - name: Install dependencies
-        working-directory: cen-dashboard
         run: npm ci
 
       - name: Run ESLint
-        working-directory: cen-dashboard
         run: npm run lint || true
 
       - name: TypeScript check
-        working-directory: cen-dashboard
         run: npx tsc --noEmit || true
 
   # ============================================
@@ -57,14 +54,12 @@ jobs:
         with:
           node-version: ${{ env.NODE_VERSION }}
           cache: 'npm'
-          cache-dependency-path: cen-dashboard/package-lock.json
+          cache-dependency-path: package-lock.json
 
       - name: Install dependencies
-        working-directory: cen-dashboard
         run: npm ci
 
       - name: Build application
-        working-directory: cen-dashboard
         run: npm run build
         env:
           NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
@@ -74,7 +69,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: build
-          path: cen-dashboard/.next
+          path: .next
           retention-days: 7
 
   # ============================================
@@ -94,18 +89,15 @@ jobs:
         with:
           node-version: ${{ env.NODE_VERSION }}
           cache: 'npm'
-          cache-dependency-path: cen-dashboard/package-lock.json
+          cache-dependency-path: package-lock.json
 
       - name: Install dependencies
-        working-directory: cen-dashboard
         run: npm ci
 
       - name: Install test dependencies
-        working-directory: cen-dashboard
         run: npm install -D jest @testing-library/react @testing-library/jest-dom @types/jest ts-jest jest-environment-jsdom
 
       - name: Run tests
-        working-directory: cen-dashboard
         run: npm test || echo "Tests pending setup"
 
   # ============================================
@@ -126,18 +118,15 @@ jobs:
         with:
           node-version: ${{ env.NODE_VERSION }}
           cache: 'npm'
-          cache-dependency-path: cen-dashboard/package-lock.json
+          cache-dependency-path: package-lock.json
 
       - name: Install dependencies
-        working-directory: cen-dashboard
         run: npm ci
 
       - name: Build application
-        working-directory: cen-dashboard
         run: npm run build
 
       - name: Run Lighthouse
-        working-directory: cen-dashboard
         run: |
           npx playwright install --with-deps chromium
           npx next start &
@@ -149,7 +138,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: lighthouse-report
-          path: cen-dashboard/lighthouse-report.json
+          path: lighthouse-report.json
           retention-days: 30
 
   # ============================================
@@ -171,5 +160,4 @@ jobs:
           vercel-token: ${{ secrets.VERCEL_TOKEN }}
           vercel-org-id: ${{ secrets.VERCEL_ORG_ID }}
           vercel-project-id: ${{ secrets.VERCEL_PROJECT_ID }}
-          working-directory: cen-dashboard
           vercel-args: '--prod'
