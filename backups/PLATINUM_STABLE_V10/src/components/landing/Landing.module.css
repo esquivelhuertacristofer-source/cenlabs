@@ -1,0 +1,57 @@
+/* Infinite vertical scroll for lab carousel */
+@keyframes scrollUp {
+  0% {
+    transform: translateY(0);
+  }
+  100% {
+    transform: translateY(-50%);
+  }
+}
+
+.carouselTrack {
+  display: flex;
+  flex-direction: column;
+  animation: scrollUp 12s linear infinite;
+  will-change: transform;
+}
+
+.carouselTrack:hover {
+  animation-play-state: paused;
+}
+
+/* Background for School Grid pattern */
+.schoolGrid {
+  background-color: #EFF9FF;
+  background-image: 
+    linear-gradient(rgba(142, 202, 230, 0.2) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(142, 202, 230, 0.2) 1px, transparent 1px);
+  background-size: 32px 32px;
+}
+
+/* Horizontal Marquee Animation */
+@keyframes marquee {
+  0% { transform: translateX(0); }
+  100% { transform: translateX(-50%); }
+}
+
+.marqueeTrack {
+  display: flex;
+  width: max-content;
+  animation: marquee 30s linear infinite;
+}
+
+.marqueeElement {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  padding: 0 3rem;
+  opacity: 0.6;
+  transition: opacity 0.3s ease;
+  filter: grayscale(100%);
+}
+
+.marqueeElement:hover {
+  opacity: 1;
+  filter: grayscale(0%);
+}

@@ -1,0 +1,173 @@
+@import "tailwindcss";
+@import "tw-animate-css";
+@import "shadcn/tailwind.css";
+
+@custom-variant dark (&:is(.dark *));
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --font-sans: var(--font-outfit), ui-sans-serif, system-ui;
+  --font-mono: var(--font-geist-mono), ui-monospace, monospace;
+  --font-heading: var(--font-outfit), ui-sans-serif, system-ui;
+  --color-sidebar-ring: var(--sidebar-ring);
+  --color-sidebar-border: var(--sidebar-border);
+  --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
+  --color-sidebar-accent: var(--sidebar-accent);
+  --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
+  --color-sidebar-primary: var(--sidebar-primary);
+  --color-sidebar-foreground: var(--sidebar-foreground);
+  --color-sidebar: var(--sidebar);
+  --color-chart-5: var(--chart-5);
+  --color-chart-4: var(--chart-4);
+  --color-chart-3: var(--chart-3);
+  --color-chart-2: var(--chart-2);
+  --color-chart-1: var(--chart-1);
+  --color-ring: var(--ring);
+  --color-input: var(--input);
+  --color-border: var(--border);
+  --color-destructive: var(--destructive);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-accent: var(--accent);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-muted: var(--muted);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-secondary: var(--secondary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-primary: var(--primary);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-popover: var(--popover);
+  --color-card-foreground: var(--card-foreground);
+  --color-card: var(--card);
+  --radius-sm: calc(var(--radius) * 0.6);
+  --radius-md: calc(var(--radius) * 0.8);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) * 1.4);
+  --radius-2xl: calc(var(--radius) * 1.8);
+  --radius-3xl: calc(var(--radius) * 2.2);
+  --radius-4xl: calc(var(--radius) * 2.6);
+
+  /* Custom dashboard colors - CEN Palette */
+  --color-dash-bg: var(--dash-bg);
+  --color-dash-card: var(--dash-card);
+  --color-dash-card-alt: var(--dash-card-alt);
+  --color-dash-border: var(--dash-border);
+  --color-dash-muted: var(--dash-muted);
+  --color-dash-text: var(--dash-text);
+  --color-dash-accent: #219EBC;
+  --color-dash-accent-blue: #023047;
+}
+
+/* ====== LIGHT MODE (CEN Colors) ====== */
+:root {
+  --background: #EFF9FF;
+  --foreground: #023047;
+  --card: #ffffff;
+  --card-foreground: #023047;
+  --popover: #ffffff;
+  --popover-foreground: #023047;
+  --primary: #023047;
+  --primary-foreground: #ffffff;
+  --secondary: #eefbff;
+  --secondary-foreground: #023047;
+  --muted: #f1f7f9;
+  --muted-foreground: #64748b;
+  --accent: #eefbff;
+  --accent-foreground: #023047;
+  --destructive: oklch(0.577 0.245 27.325);
+  --border: rgba(2, 48, 71, 0.08);
+  --input: rgba(2, 48, 71, 0.05);
+  --ring: #219EBC;
+  --chart-1: #219EBC;
+  --chart-2: #023047;
+  --chart-3: #FB8500;
+  --chart-4: #FFB703;
+  --chart-5: #10b981;
+  --radius: 0.75rem;
+  --sidebar: #ffffff;
+  --sidebar-foreground: #64748b;
+  --sidebar-primary: #023047;
+  --sidebar-primary-foreground: #ffffff;
+  --sidebar-accent: rgba(33, 158, 188, 0.08);
+  --sidebar-accent-foreground: #023047;
+  --sidebar-border: rgba(2, 48, 71, 0.08);
+  --sidebar-ring: #219EBC;
+
+  /* Dashboard-specific tokens */
+  --dash-bg: #EFF9FF;
+  --dash-card: #ffffff;
+  --dash-card-alt: #f8fbff;
+  --dash-border: rgba(2, 48, 71, 0.08);
+  --dash-muted: #94a3b8;
+  --dash-text: #64748b;
+}
+
+/* ====== DARK MODE (CEN Dark) ====== */
+.dark {
+  --background: #011627;
+  --foreground: #EFF9FF;
+  --card: #023047;
+  --card-foreground: #EFF9FF;
+  --popover: #023047;
+  --popover-foreground: #EFF9FF;
+  --primary: #219EBC;
+  --primary-foreground: #ffffff;
+  --secondary: #0a405c;
+  --secondary-foreground: #EFF9FF;
+  --muted: #0a405c;
+  --muted-foreground: #8ECAE6;
+  --accent: #0a405c;
+  --accent-foreground: #EFF9FF;
+  --destructive: oklch(0.704 0.191 22.216);
+  --border: rgba(142, 202, 230, 0.1);
+  --input: rgba(142, 202, 230, 0.1);
+  --ring: #219EBC;
+  --chart-1: #219EBC;
+  --chart-2: #8ECAE6;
+  --chart-3: #FB8500;
+  --chart-4: #FFB703;
+  --chart-5: #10b981;
+  --sidebar: #011627;
+  --sidebar-foreground: #8ECAE6;
+  --sidebar-primary: #219EBC;
+  --sidebar-primary-foreground: #ffffff;
+  --sidebar-accent: rgba(33, 158, 188, 0.15);
+  --sidebar-accent-foreground: #EFF9FF;
+  --sidebar-border: rgba(142, 202, 230, 0.1);
+  --sidebar-ring: #219EBC;
+
+  /* Dashboard-specific tokens */
+  --dash-bg: #011627;
+  --dash-card: #023047;
+  --dash-card-alt: #0a405c;
+  --dash-border: rgba(142, 202, 230, 0.1);
+  --dash-muted: #8ECAE6;
+  --dash-text: #8ECAE6;
+}
+
+@layer base {
+  * {
+    @apply border-border outline-ring/50;
+  }
+  body {
+    @apply bg-background text-foreground;
+  }
+  html {
+    @apply font-sans;
+  }
+}
+
+/* Smooth scrollbar (Cerulean accented) */
+::-webkit-scrollbar {
+  width: 6px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: rgba(33, 158, 188, 0.2);
+  border-radius: 3px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(33, 158, 188, 0.4);
+}
