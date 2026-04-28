@@ -8,8 +8,8 @@
 
 import { createClient } from '@supabase/supabase-js';
 
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || 'https://wbvcclpxxwzkuddjxqig.supabase.co';
-const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || 'sb_publishable_WgQiBEqBJiTFNfms4xzw1Q_HpvRxcYt';
+const supabaseUrl = 'https://wbvcclpxxwzkuddjxqig.supabase.co';
+const supabaseAnonKey = 'sb_publishable_WgQiBEqBJiTFNfms4xzw1Q_HpvRxcYt';
 
 export const isSupabaseConfigured = (): boolean => !!(supabaseUrl && supabaseAnonKey);
 
