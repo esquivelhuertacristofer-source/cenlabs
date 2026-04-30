@@ -34,8 +34,14 @@ export const metadata: Metadata = {
     images: ["/images/landing/hero.png"],
   },
   icons: {
-    icon: "/icon-192.png",
-    apple: "/icon-192.png",
+    icon: [
+      { url: '/icon-192.png?v=2', type: 'image/png' },
+      { url: '/icon-192.png?v=2', sizes: '32x32', type: 'image/png' },
+      { url: '/icon-192.png?v=2', sizes: '16x16', type: 'image/png' },
+    ],
+    apple: [
+      { url: '/icon-192.png?v=2' },
+    ],
   }
 };
 
@@ -46,6 +52,9 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="es" suppressHydrationWarning className={outfit.variable}>
+      <head>
+        <link rel="icon" href="/icon-192.png?v=2" />
+      </head>
       <body className={`${outfit.className} ${geistMono.variable} antialiased`} suppressHydrationWarning>
         <ThemeProvider
           attribute="class"
