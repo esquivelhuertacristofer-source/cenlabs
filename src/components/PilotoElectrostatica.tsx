@@ -16,7 +16,7 @@ export default function PilotoElectrostatica() {
   const router = useRouter();
   const { 
     electrostatica9, setElectrostatica9, setBitacora, bitacoraData, 
-    stopTimer, setPasoActual, pasoActual, audio, setAsistente 
+    stopTimer, setPasoActual, pasoActual, audio, setAsistente, registrarHallazgo 
   } = useSimuladorStore();
   
   const { q1 = 1, q2 = -1, distancia = 0.5 } = electrostatica9 || { q1: 1, q2: -1, distancia: 0.5 };
@@ -61,6 +61,15 @@ export default function PilotoElectrostatica() {
         pose: 'happy',
         text: "¡Excelente! Has cuantificado la fuerza electrostática con precisión cuántica."
       });
+      registrarHallazgo('fis_electrostatica_coulomb', {
+        q1,
+        q2,
+        distancia_r: distancia,
+        fuerza_n: F,
+        tipo: isAtraccion ? 'ATRACCION' : 'REPULSION',
+        error_relativo: error
+      });
+
       stopTimer();
       setPasoActual(4);
       setBitacora({ 

@@ -347,28 +347,12 @@ export default function PilotoConstruccionAtomica({ isWorktableDark = true }: { 
             <Activity size={20} />
           </button>
           <button
-            onClick={async () => { 
+            onClick={() => { 
               const ok = validarEstructura(); 
               if (ok) {
                 audio.playSuccess(); 
-                // Guardado Diamond State: Enviar progreso a Supabase
-                try {
-                  const state = useSimuladorStore.getState();
-                  if (state.user) {
-                    await fetch('/api/resultados', {
-                      method: 'POST',
-                      headers: { 'Content-Type': 'application/json' },
-                      body: JSON.stringify({
-                        user_id: state.user.id,
-                        practica_id: 'quimica-1',
-                        // Estrellas: 3 = 100, 2 = 80, 1 = 60
-                        score: state.particulas.intentos === 0 ? 100 : state.particulas.intentos === 1 ? 80 : 60
-                      })
-                    });
-                  }
-                } catch (err) {
-                  console.error("Error conectando con la base de datos:", err);
-                }
+                registrarHallazgo(); // Registrar automáticamente en la bitácora JSON
+                // El SyncManager detectará el cambio en el store y sincronizará con Supabase
               } else {
                 audio.playError(); 
               }

@@ -21,7 +21,7 @@ const G = 9.81;
 
 export default function PilotoPrensaHidraulica() {
   const router = useRouter();
-  const { prensa5, setPrensa5, setBitacora, bitacoraData, audio, setAsistente } = useSimuladorStore();
+  const { prensa5, setPrensa5, setBitacora, bitacoraData, audio, setAsistente, registrarHallazgo, stopTimer, setPasoActual } = useSimuladorStore();
   const { f1 = 100, r1 = 1.0, r2 = 2.5, masaCarga = 500 } = prensa5 || {};
 
   // -- MOTOR FÍSICO (PASCAL) --
@@ -84,6 +84,19 @@ export default function PilotoPrensaHidraulica() {
     if (physics.isLifting && y2 > 0.3) {
       audio?.playSuccess();
       audio?.playNotification();
+      
+      registrarHallazgo('fis_prensa_pascal', {
+        fuerza_entrada_n: f1,
+        radio_piston_1_m: r1,
+        radio_piston_2_m: r2,
+        masa_elevada_kg: masaCarga,
+        ventaja_mecanica: physics.ratio,
+        presion_sistema_kpa: physics.presion / 1000
+      });
+
+      stopTimer();
+      setPasoActual(4);
+
       setBitacora({
         ...bitacoraData,
         fisica5: `✅ CERTIFICADO: Ley de Pascal verificada. Ganancia mecánica de ${physics.ratio.toFixed(2)}x. Masa de ${masaCarga}kg elevada con ${f1}N de entrada.`

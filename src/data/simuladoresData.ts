@@ -26,7 +26,7 @@ export interface SimuladorContenido {
 export const MASTER_DATA: Record<string, SimuladorContenido> = {
   "quimica-1": {
     titulo: "Construcción Atómica", 
-    videoUrl: "https://youtu.be/917vmRGfUcQ",
+    videoUrl: "",
     tituloEn: "Atomic Construction",
     mision: "¡Bienvenido al Forge Atómico de CEN Labs! Tu misión hoy es fundamental para la ciencia moderna: vamos a sintetizar un isótopo de Carbono-14, una variante esencial utilizada en la datación arqueológica. Deberás equilibrar con precisión la cantidad de protones para definir la identidad del elemento, añadir los neutrones necesarios para alcanzar la masa atómica requerida y finalmente ajustar la nube electrónica para lograr un estado de neutralidad eléctrica perfecto. ¡La estabilidad de la materia está bajo tu supervisión!", 
     misionEn: "Forge a Carbon-14 atom (Isotope)",
@@ -51,7 +51,7 @@ export const MASTER_DATA: Record<string, SimuladorContenido> = {
   },
   "quimica-2": {
     titulo: "Leyes de los Gases", 
-    videoUrl: "https://youtu.be/ooLnSYsMcZA",
+    videoUrl: "",
     tituloEn: "Gas Laws",
     mision: "¡Atención, investigador! Nos encontramos en la Cámara de Pruebas Térmicas de CEN Labs. Tu objetivo es validar experimentalmente la Ley de Gay-Lussac. Deberás manipular la energía cinética de las partículas de gas aumentando la temperatura del sistema, mientras mantienes el volumen rigurosamente constante en 10 litros. Tu meta es alcanzar una presión de 2.0 atmósferas sin comprometer la integridad estructural del contenedor. ¡Analiza cómo cada grado Kelvin impacta en la fuerza de colisión molecular!", 
     misionEn: "Study of Pressure vs Temperature (Gay-Lussac's Law)",
@@ -76,14 +76,15 @@ export const MASTER_DATA: Record<string, SimuladorContenido> = {
   },
   "quimica-3": {
     titulo: "Motor de Fusión Estequiométrica", 
-    mision: "¡Bienvenido al Motor de Fusión Estequiométrica! Tu objetivo es dominar el arte del balanceo químico para garantizar la eficiencia en procesos de síntesis industrial. Deberás aplicar la Ley de Lavoisier con precisión matemática, asegurando que cada átomo en los reactivos esté presente en los productos finales. Avanzarás a través de 6 niveles de complejidad creciente, desde la combustión de propano hasta la síntesis de metanol. Recuerda: en el universo, nada se crea ni se destruye, solo se transforma bajo tu supervisión. ¡Logra el equilibrio atómico!", 
-    ecuacion: "Ley de Conservación (Lavoisier)", 
-    formulaGfx: "Σ m(Reactivos) = Σ m(Productos)",
+    videoUrl: "",
+    mision: "¡Bienvenido al núcleo del Reactor CEN! Soy el Dr. Quantum y hoy vamos a certificar uno de los principios fundamentales del cosmos: la Conservación de la Materia. En un reactor químico, nada se crea ni se destruye por azar. Cada átomo de hidrógeno, carbono u oxígeno que entra en la reacción debe estar presente al final, aunque su estructura molecular haya cambiado por completo. Tu misión es balancear reacciones críticas asegurando que la balanza de masa sea perfecta. ¡Sincroniza el universo átomo por átomo!", 
+    ecuacion: "Σ m(Reactivos) = Σ m(Productos)", 
+    formulaGfx: "Ley de Lavoisier",
     pasos: [
-      { id: 1, text: "Analiza el estado de agregación (s, l, g, aq) de cada componente.", icon: "microscope" },
-      { id: 2, text: "Balancea la ecuación usando coeficientes estequiométricos enteros.", icon: "zap" },
-      { id: 3, text: "Verifica en tiempo real que la masa total se conserve (Sync al 100%).", icon: "scale" },
-      { id: 4, text: "Desbloquea el siguiente nivel de complejidad tras lograr el equilibrio.", icon: "lock" }
+      { id: 1, text: "Analiza los componentes moleculares y sus estados de agregación (s, l, g, aq).", icon: "microscope" },
+      { id: 2, text: "Ajusta los inyectores de masa hasta equilibrar el conteo atómico.", icon: "zap" },
+      { id: 3, text: "Observa la estabilización del núcleo de plasma en el motor 3D.", icon: "activity" },
+      { id: 4, text: "Redacta el informe técnico de 50 palabras para certificar la fusión.", icon: "file-text" }
     ],
     guiaMaestro: {
       objetivo: "Validar la estequiometría mediante la conservación de masa y el conteo atómico preciso.",
@@ -239,7 +240,7 @@ export const MASTER_DATA: Record<string, SimuladorContenido> = {
   },
   "fisica-1": {
     titulo: "Tiro Parabólico", 
-    videoUrl: "https://youtu.be/4wbTLJJwyng",
+    videoUrl: "",
     mision: "¡Bienvenido al polígono de pruebas de balística! Tu misión es dominar la cinemática bidimensional para alcanzar objetivos estratégicos con precisión milimétrica. Deberás descomponer vectorialmente la velocidad inicial, compensar la aceleración gravitatoria y calcular el ángulo de lanzamiento óptimo. Tu éxito técnico se medirá por la capacidad de predecir el punto de impacto exacto, dominando la relación entre el tiempo de vuelo y el alcance horizontal máximo. ¡Ajusta el cañón y convierte la física en precisión balística!", ecuacion: "y = x·tan(θ) - (g·x²) / (2·v₀²·cos²θ)", formulaGfx: "V₀x = V₀·cos(θ)",
     pasos: [
       { id: 1, text: "Ajusta el cañón a un ángulo de 45° para máximo alcance.", icon: "zap" },
@@ -446,7 +447,7 @@ export const MASTER_DATA: Record<string, SimuladorContenido> = {
   },
   "matematicas-1": {
     titulo: "Explorador de Cuadráticas", 
-    videoUrl: "https://youtu.be/lq3R6uPGWNA",
+    videoUrl: "",
     mision: "Ajusta los coeficientes para empatar la trayectoria objetivo", ecuacion: "f(x) = ax² + bx + c", formulaGfx: "Δ = b² - 4ac",
     pasos: [
       { id: 1, text: "Ajusta el coeficiente 'a' para controlar la apertura y concavidad.", icon: "zap" },
@@ -486,7 +487,7 @@ export const MASTER_DATA: Record<string, SimuladorContenido> = {
   },
   "matematicas-3": {
     titulo: "Escala Richter: Energía Sísmica", 
-    videoUrl: "https://youtu.be/B_0q1tpaZbk",
+    videoUrl: "",
     mision: "Calcula el factor de potencia entre sismos usando logaritmos", ecuacion: "E = 10^(1.5ΔM)", formulaGfx: "log₁₀(E₂/E₁) = 1.5(M₂ - M₁)",
     pasos: [
       { id: 1, text: "Usa el slider para ajustar la magnitud del sismo detectado.", icon: "activity" },
@@ -640,7 +641,7 @@ export const MASTER_DATA: Record<string, SimuladorContenido> = {
   },
   "biologia-1": {
     titulo: "Microscopio Virtual", 
-    videoUrl: "https://youtu.be/1elp96ecPGY",
+    videoUrl: "",
     mision: "Identifica orgánulos específicos en muestras celulares", ecuacion: "Resolución = 0.61λ / NA", formulaGfx: "Mag = Oc · Ob",
     pasos: [
       { id: 1, text: "Selecciona el portaobjetos con la muestra requerida.", icon: "layers" },

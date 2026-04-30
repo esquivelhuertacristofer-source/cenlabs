@@ -19,7 +19,7 @@ import { audio as audioEngine } from '@/utils/audioEngine';
 
 export default function PilotoCuadraticas() {
   const router = useRouter();
-  const { cuadraticas, setCoefsM1, validarM1, registrarHallazgoM1, resetM1, setAsistente, pasoActual, setPasoActual, bitacoraData, setBitacora } = useSimuladorStore();
+  const { cuadraticas, setCoefsM1, validarM1, registrarHallazgoM1, resetM1, setAsistente, pasoActual, setPasoActual, bitacoraData, setBitacora, registrarHallazgo, stopTimer } = useSimuladorStore();
   const { a, b, c, target, status } = cuadraticas;
   
   const calcReady = (cuadraticas.deltaVerified ?? false) && (cuadraticas.vertexVerified ?? false);
@@ -49,8 +49,21 @@ export default function PilotoCuadraticas() {
       if (pasoActual === 0) setPasoActual(1);
     }
     if (calcReady && pasoActual < 2) setPasoActual(2);
-    if (status === 'success' && pasoActual < 3) setPasoActual(3);
-  }, [a, b, c, calcReady, status, pasoActual, setPasoActual]);
+    if (status === 'success' && pasoActual < 3) {
+      setPasoActual(3);
+      stopTimer();
+      registrarHallazgo('mat_cuadraticas_sincronia', {
+        coef_a: a,
+        coef_b: b,
+        coef_c: c,
+        target_a: target.a,
+        target_b: target.b,
+        target_c: target.c,
+        delta: currentRes.delta,
+        vertice: currentRes.vertex
+      });
+    }
+  }, [a, b, c, calcReady, status, pasoActual, setPasoActual, stopTimer, registrarHallazgo, target, currentRes]);
 
   if (!mounted) return null;
 

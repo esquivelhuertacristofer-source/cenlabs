@@ -75,6 +75,17 @@ export default function PilotoDilatacionTermica() {
       audio?.playSuccess();
       stopTimer();
       setPasoActual(4);
+      
+      registrarHallazgo('fis_dilatacion_coeficiente', {
+        material,
+        longitud_inicial: longitud,
+        temp_inicial: tempIni,
+        temp_final: tempFin,
+        delta_l_medido: deltaL,
+        alpha_teorico: alphaActual,
+        alpha_alumno: val
+      });
+
       setBitacora({ 
         ...bitacoraData, 
         fisica7: `✅ VALIDADO: α=${(alphaActual * 1e6).toFixed(2)}x10⁻⁶. Material=${material}. ΔL=${deltaL.toFixed(4)}mm.` 

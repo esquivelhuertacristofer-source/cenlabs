@@ -41,6 +41,7 @@ export interface SimuladorState {
   updateScore: (points: number) => void;
   setPasoActual: (paso: number) => void;
   setBitacora: (data: Record<string, any>) => void;
+  registrarHallazgo: (tipo: string, data: any) => void;
   unlockBadge: (badgeId: string) => void;
   language: 'es' | 'en';
   setLanguage: (lang: 'es' | 'en') => void;
@@ -67,7 +68,6 @@ export interface SimuladorState {
   validarEstructura: () => boolean;
   setTargetElement: (z: number, a: number) => void;
   setTargetCharge: (charge: number) => void;
-  registrarHallazgo: () => void;
   resetParticulas: () => void;
 
   gases: { 
@@ -479,7 +479,20 @@ export interface SimuladorState {
   validarB9: () => boolean;
   resetB9: () => void;
 
-  ecosistema: { poblacionPresas: number; poblacionDepredadores: number; alfa: number; beta: number; gamma: number; delta: number; tiempoVirtual: number; historial: Array<{ t: number, presas: number, depredadores: number }>; simulando: boolean; status: 'idle' | 'success' | 'error' | 'extinction'; };
+  ecosistema: { 
+    poblacionPresas: number; 
+    poblacionDepredadores: number; 
+    parametros: {
+      alpha: number;
+      beta: number;
+      gamma: number;
+      delta: number;
+    };
+    tiempoVirtual: number; 
+    historial: Array<{ t: number, presas: number, depredadores: number }>; 
+    simulando: boolean; 
+    status: 'idle' | 'success' | 'error' | 'extinction'; 
+  };
   setEcosistema: (data: Partial<SimuladorState['ecosistema']>) => void;
   tickEcosistema: (dt: number) => void;
   generarSemillaB10: () => void;

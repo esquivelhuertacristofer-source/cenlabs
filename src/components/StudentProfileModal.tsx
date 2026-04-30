@@ -14,7 +14,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { Mail, MapPin, CheckCircle2, Clock, XCircle, FileText, BarChart3, TrendingUp, FileDown, Sparkles } from "lucide-react";
+import { Mail, MapPin, CheckCircle2, Clock, XCircle, FileText, BarChart3, TrendingUp, FileDown, Sparkles, Activity, Target, Zap, Clock4 } from "lucide-react";
 import { type PracticeRecord } from "@/lib/mockData";
 import { generateStudentReport, generateReinforcementReport } from "@/lib/reportUtils";
 
@@ -213,18 +213,61 @@ export default function StudentProfileModal({ student, isOpen, onClose }: Studen
                                      )}
                                  </div>
                                  
-                                 {practice.status === 'completada' && (
-                                   <button
-                                     onClick={() => generateReinforcementReport(student, practice)}
-                                     className="p-3 rounded-xl bg-dash-bg border border-dash-border text-[#023047] hover:bg-primary hover:text-white hover:border-primary transition-all group/btn shadow-sm"
-                                     title="Generar Ficha de Refuerzo"
-                                   >
-                                     <Sparkles className="h-4 w-4 group-hover/btn:animate-pulse" />
-                                   </button>
-                                 )}
-                             </div>
+                                  {practice.status === 'completada' && (
+                                    <div className="flex items-center gap-2">
+                                      <button
+                                        onClick={() => generateReinforcementReport(student, practice)}
+                                        className="p-3 rounded-xl bg-dash-bg border border-dash-border text-[#023047] hover:bg-primary hover:text-white hover:border-primary transition-all group/btn shadow-sm"
+                                        title="Generar Ficha de Refuerzo"
+                                      >
+                                        <Sparkles className="h-4 w-4 group-hover/btn:animate-pulse" />
+                                      </button>
+                                      
+                                      {/* NUEVO: Botón de Auditoría de Bitácora */}
+                                      <button
+                                        onClick={() => {
+                                            // En una implementación real, esto abriría un desglose del JSONB
+                                            console.log("Bitácora Data:", practice.bitacora_data);
+                                            alert("Desglose de Hallazgos:\n" + JSON.stringify(practice.bitacora_data || { info: "No hay datos detallados para esta versión de la práctica." }, null, 2));
+                                        }}
+                                        className="p-3 rounded-xl bg-dash-bg border border-dash-border text-primary hover:bg-primary/10 transition-all shadow-sm"
+                                        title="Ver Auditoría de Hallazgos"
+                                      >
+                                        <Activity className="h-4 w-4" />
+                                      </button>
+                                    </div>
+                                  )}
+                              </div>
                         </div>
                     ))}
+                    
+                    {/* Visualizador de Bitácora Profunda (UI Placeholder para Gold State) */}
+                    {student.practices?.some(p => p.bitacora_data) && (
+                        <div className="mt-8 p-8 rounded-[2rem] bg-primary/5 border border-primary/20">
+                            <div className="flex items-center gap-3 mb-6">
+                                <Zap className="h-5 w-5 text-primary" />
+                                <h4 className="text-[11px] font-black uppercase tracking-[0.3em] text-primary">Auditoría Científica Reciente</h4>
+                            </div>
+                            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                                <div className="p-4 bg-white rounded-2xl border border-primary/10">
+                                    <span className="block text-[8px] font-black text-muted-foreground uppercase mb-1">Precisión Promedio</span>
+                                    <span className="text-xl font-black text-primary">98.2%</span>
+                                </div>
+                                <div className="p-4 bg-white rounded-2xl border border-primary/10">
+                                    <span className="block text-[8px] font-black text-muted-foreground uppercase mb-1">Intentos Nucleares</span>
+                                    <span className="text-xl font-black text-primary">2.4</span>
+                                </div>
+                                <div className="p-4 bg-white rounded-2xl border border-primary/10">
+                                    <span className="block text-[8px] font-black text-muted-foreground uppercase mb-1">Tiempo en Teórico</span>
+                                    <span className="text-xl font-black text-primary">14m</span>
+                                </div>
+                                <div className="p-4 bg-white rounded-2xl border border-primary/10">
+                                    <span className="block text-[8px] font-black text-muted-foreground uppercase mb-1">Uso de Ayudas</span>
+                                    <span className="text-xl font-black text-primary">0</span>
+                                </div>
+                            </div>
+                        </div>
+                    )}
                     
                     {(!student.practices || student.practices.length === 0) && (
                       <div className="py-24 text-center">

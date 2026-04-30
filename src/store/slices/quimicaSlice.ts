@@ -245,24 +245,6 @@ export const createQuimicaSlice: StateCreator<SimuladorState, [], [], any> = (se
   setTargetCharge: (charge: number) => set((state) => ({
     particulas: { ...state.particulas, targetCharge: charge, intentos: 0, estrellas: 3 }
   })),
-  registrarHallazgo: () => {
-    const { protones, neutrones, electrones } = get().particulas;
-    const { bitacoraData } = get();
-    const nuevoHallazgo = {
-      id: crypto.randomUUID(),
-      z: protones,
-      n: neutrones,
-      a: protones + neutrones,
-      carga: protones - electrones,
-      timestamp: new Date().toLocaleTimeString()
-    };
-    set({ 
-      bitacoraData: { 
-        ...bitacoraData, 
-        hallazgos: [...(bitacoraData.hallazgos || []), nuevoHallazgo] 
-      } 
-    });
-  },
   resetParticulas: () => set((state) => ({ 
     particulas: { 
       ...state.particulas,
@@ -479,6 +461,12 @@ export const createQuimicaSlice: StateCreator<SimuladorState, [], [], any> = (se
       } 
     };
   }),
+  validarQ3: () => {
+    const { balanceo } = get();
+    // Se considera éxito si ha completado al menos 4 de las 6 reacciones disponibles
+    const isOk = (balanceo.reaccionesCompletadas?.length || 0) >= 4;
+    return isOk;
+  },
   setReaccionLimitante: (index: number) => set((state) => {
     const r = REACCIONES_LIMITANTE[index] || REACCIONES_LIMITANTE[0];
     return { 
@@ -600,6 +588,16 @@ export const createQuimicaSlice: StateCreator<SimuladorState, [], [], any> = (se
     const masaEfectiva = soluciones.matraz.polvo * purity;
     const mActual = (masaEfectiva / pm) / (safeAgua / 1000);
     const isOk = Math.abs(mActual - soluciones.mTarget) < 0.05;
+    if (isOk) {
+      get().registrarHallazgo('preparacion_soluciones', {
+        sustancia: soluciones.sal?.nombre,
+        m_objetivo: soluciones.mTarget,
+        m_lograda: parseFloat(mActual.toFixed(4)),
+        v_total: soluciones.vTarget,
+        masa_pesada: soluciones.matraz.polvo,
+        precision: parseFloat((100 - Math.abs((mActual - soluciones.mTarget) / soluciones.mTarget) * 100).toFixed(2))
+      });
+    }
     set((state) => ({ soluciones: { ...state.soluciones, status: isOk ? 'success' : 'error' } }));
     return isOk;
   },
@@ -627,6 +625,15 @@ export const createQuimicaSlice: StateCreator<SimuladorState, [], [], any> = (se
     const solubility = s.a * Math.exp(s.b * temp);
     // Para validar éxito, debe estar sobresaturada (más sal de la que cabe)
     const isOk = salAgregada > solubility;
+    if (isOk) {
+      get().registrarHallazgo('solubilidad_cristalizacion', {
+        sustancia: s.nombre,
+        temperatura: temp,
+        masa_agregada: salAgregada,
+        limite_solubilidad: solubility,
+        condicion: 'sobresaturada'
+      });
+    }
     set((state) => ({ solubilidad: { ...state.solubilidad, status: isOk ? 'success' : 'error' } }));
     return isOk;
   },

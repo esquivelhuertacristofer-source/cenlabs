@@ -39,7 +39,7 @@ const getResistorBands = (val: number) => {
 
 export default function PilotoLeyOhm() {
   const router = useRouter();
-  const { ohm8, setOhm8, setBitacora, bitacoraData, stopTimer, setPasoActual, audio, setAsistente } = useSimuladorStore();
+  const { ohm8, setOhm8, setBitacora, bitacoraData, stopTimer, setPasoActual, audio, setAsistente, registrarHallazgo } = useSimuladorStore();
   const { voltaje = 12, resistencia = 1000, switchOn = false, ledRoto = false } = ohm8 || {};
 
   const [alphaInput, setAlphaInput] = useState("");
@@ -87,6 +87,17 @@ export default function PilotoLeyOhm() {
       audio?.playSuccess();
       stopTimer();
       setPasoActual(4);
+      
+      // Registrar hallazgo eléctrico granular
+      registrarHallazgo('fisica_ohm_validacion', {
+        voltaje,
+        resistencia_objetivo: resistencia,
+        resistencia_ingresada: val,
+        intensidad_ma: parseFloat(corrienteMA.toFixed(2)),
+        potencia_w: parseFloat(potencia.toFixed(3)),
+        error_relativo: parseFloat(error.toFixed(4))
+      });
+
       setBitacora({ 
         ...bitacoraData, 
         fisica8: `✅ VALIDADO: V=${voltaje}V. R=${resistencia}Ω. I=${corrienteMA.toFixed(2)}mA. Potencia=${potencia.toFixed(3)}W.` 

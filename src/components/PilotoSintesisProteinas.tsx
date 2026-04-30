@@ -7,7 +7,7 @@ import { Dna, Zap, Cpu, Terminal, Diamond, MousePointer2, Keyboard, ArrowRight, 
 import Sintesis3DScene from './simuladores/bio03/Sintesis3DScene';
 
 export default function PilotoSintesisProteinas({ setShowSuccess }: { setShowSuccess: (val: boolean) => void }) {
-  const { sintesis, addNucleotido, advanceRibosoma, resetB3 } = useSimuladorStore();
+  const { sintesis, addNucleotido, advanceRibosoma, resetB3, registrarHallazgo } = useSimuladorStore();
   
   const s = sintesis || { 
     fase: 'transcripcion', 
@@ -24,9 +24,18 @@ export default function PilotoSintesisProteinas({ setShowSuccess }: { setShowSuc
 
   const handleInput = useCallback((val: string) => {
     if (fase === 'transcripcion') {
+      const isCorrect = adnPlantilla[arnMensajero.length] === val;
       addNucleotido(val.toUpperCase());
+      
+      // Registrar cada paso de la transcripción
+      registrarHallazgo('biologia_transcripcion', {
+        nucleotido_ingresado: val,
+        posicion: arnMensajero.length,
+        base_esperada: adnPlantilla[arnMensajero.length],
+        es_correcto: isCorrect
+      });
     }
-  }, [fase, addNucleotido]);
+  }, [fase, addNucleotido, adnPlantilla, arnMensajero.length, registrarHallazgo]);
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {

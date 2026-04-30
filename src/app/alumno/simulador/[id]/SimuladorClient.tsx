@@ -93,7 +93,7 @@ export default function SimuladorClient({ simuladorId }: { simuladorId: string }
   const resetPractica = useSimuladorStore(state => state.resetPractica);
   const setAsistente = useSimuladorStore(state => state.setAsistente);
   const setQuizQuestions = useSimuladorStore(state => state.setQuizQuestions);
-  const setShowQuiz = useSimuladorStore(state => state.setShowQuiz);
+  const syncStatus = useSimuladorStore(state => state.syncStatus);
   const showQuiz = useSimuladorStore(state => state.showQuiz);
   const quizQuestions = useSimuladorStore(state => state.quizQuestions);
   
@@ -197,14 +197,34 @@ export default function SimuladorClient({ simuladorId }: { simuladorId: string }
     }
   }, [pActual, nActual, eActual, targetZ, targetA, pasoActual, setPasoActual, normalizedId]);
 
-  // ── Auto-reparación de Estado (Diamond State Persistence Fix) ─────────
+  // ── Auto-reparación e Inicialización de Estado (Diamond State Persistence Fix) ─────────
   useEffect(() => {
-    if (mounted && normalizedId === 'quimica-3') {
+    if (mounted) {
       const state = useSimuladorStore.getState();
-      // Si el estado está corrupto (sin reacciones), forzar inicialización
-      if (!state.balanceo || !state.balanceo.reacciones || state.balanceo.reacciones.length === 0) {
-        console.log("Detectado estado de balanceo corrupto. Reparando...");
-        state.setReaccion(0);
+      
+      // Inicializadores de Biología
+      if (normalizedId === 'biologia-1') state.generarSemillaB1();
+      if (normalizedId === 'biologia-2') state.generarSemillaB2();
+      if (normalizedId === 'biologia-3') state.generarSemillaB3();
+      if (normalizedId === 'biologia-4') state.generarSemillaB4();
+      if (normalizedId === 'biologia-7') state.generarSemillaB7();
+      if (normalizedId === 'biologia-8') state.generarSemillaB8();
+      if (normalizedId === 'biologia-9') state.generarSemillaB9();
+      if (normalizedId === 'biologia-10') state.generarSemillaB10();
+
+      // Inicializadores de Matemáticas
+      if (normalizedId === 'matematicas-1') state.generarSemillaM1();
+      if (normalizedId === 'matematicas-2') state.generarSemillaM2();
+      if (normalizedId === 'matematicas-3') state.generarSemillaM3();
+      if (normalizedId === 'matematicas-4') state.generarSemillaM4();
+      if (normalizedId === 'matematicas-7') state.generarSemillaM7();
+      if (normalizedId === 'matematicas-10') state.generarSemillaM10();
+
+      if (normalizedId === 'quimica-3') {
+        // Si el estado está corrupto (sin reacciones), forzar inicialización
+        if (!state.balanceo || !state.balanceo.reacciones || state.balanceo.reacciones.length === 0) {
+          state.setReaccion(0);
+        }
       }
     }
   }, [mounted, normalizedId]);
@@ -327,7 +347,14 @@ export default function SimuladorClient({ simuladorId }: { simuladorId: string }
         case 'matematicas-9': ok = state.validarM9(0.4); break;
         case 'matematicas-10': ok = state.validarM10(); break;
 
-        // BIOLOGÍA
+        // QUÍMICA
+        case 'quimica-1': ok = state.validarQ1(); break;
+        case 'quimica-2': ok = state.validarQ2(); break;
+        case 'quimica-3': 
+          ok = state.validarQ3(); 
+          if (!ok) errorMsg = "Misión Incompleta. Debes balancear al menos 4 reacciones para certificar el protocolo.";
+          break;
+        case 'quimica-4': ok = state.validarP4(0, 0); break; // El modal maneja sus propios checks
         case 'biologia-1': 
           ok = state.validarB1(); 
           if (!ok) errorMsg = "Muestra fuera de foco o iluminación insuficiente. Revisa la magnificación requerida.";
@@ -850,15 +877,26 @@ export default function SimuladorClient({ simuladorId }: { simuladorId: string }
       </motion.aside>
 
       <main className="flex-1 flex flex-col relative bg-[#F8FAFC]">
-        <header className="h-20 bg-white border-b border-slate-100 px-10 flex items-center justify-between z-10">
-           <div className="flex items-center gap-6">
-              <div className="flex flex-col">
-                <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Sincronicación Escolar</span>
-                <span className="text-sm font-black text-[#023047]">Status: {isStable ? 'Estable' : 'Alerta'}</span>
-              </div>
-              <div className="h-8 w-px bg-slate-100" />
-              <LabTimer />
-           </div>
+        <header className="h-20 bg-white border-b border-slate-100 flex items-center justify-between px-8 z-20">
+            <div className="flex items-center gap-6">
+               <div className="flex flex-col">
+                 <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Sincronización Escolar</span>
+                 <div className="flex items-center gap-2">
+                   <div className={`w-2 h-2 rounded-full animate-pulse ${
+                     syncStatus === 'synced' ? 'bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.5)]' :
+                     syncStatus === 'pending' ? 'bg-amber-500 shadow-[0_0_8px_rgba(245,158,11,0.5)]' :
+                     'bg-rose-500 shadow-[0_0_8px_rgba(244,63,94,0.5)]'
+                   }`} />
+                   <span className="text-sm font-black text-[#023047] uppercase tracking-tight">
+                     {syncStatus === 'synced' ? 'Cloud Synced' : 
+                      syncStatus === 'pending' ? 'Actualizando...' : 
+                      syncStatus === 'error' ? 'Sync Error' : 'Offline Mode'}
+                   </span>
+                 </div>
+               </div>
+               <div className="h-8 w-px bg-slate-100" />
+               <LabTimer />
+            </div>
            
            <div className="flex items-center gap-3">
               <button 

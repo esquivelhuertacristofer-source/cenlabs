@@ -19,7 +19,7 @@ import {
 import { audio } from '@/utils/audioEngine';
 
 export default function PilotoArquimedes() {
-  const { arquimedes6, setArquimedes6, setAsistente } = useSimuladorStore();
+  const { arquimedes6, setArquimedes6, setAsistente, registrarHallazgo, stopTimer, setPasoActual, bitacoraData, setBitacora } = useSimuladorStore();
   const { 
     radio = 0.5, 
     densidadCuerpo = 800, 
@@ -29,20 +29,19 @@ export default function PilotoArquimedes() {
     isRunning = false
   } = arquimedes6 || {};
 
-  const [volumen, setVolumen] = useState(0);
+  const [volumenTotal, setVolumenTotal] = useState(0);
   const [masa, setMasa] = useState(0);
-  const [peso, setPeso] = useState(0);
+  const [pesoReal, setPesoReal] = useState(0);
   const [empuje, setEmpuje] = useState(0);
-  const [aceleracion, setAceleracion] = useState(0);
-  const [y, setY] = useState(0);
+  const [paso, setPaso] = useState(1);
 
   useEffect(() => {
     const V = (4/3) * Math.PI * Math.pow(radio, 3);
     const M = V * densidadCuerpo;
     const P = M * 9.81;
-    setVolumen(V);
+    setVolumenTotal(V);
     setMasa(M);
-    setPeso(P);
+    setPesoReal(P);
   }, [radio, densidadCuerpo]);
 
   useEffect(() => {
@@ -54,14 +53,43 @@ export default function PilotoArquimedes() {
     return () => setAsistente({ visible: false });
   }, []);
 
+  // Lógica de simulación de inmersión dinámica
   useEffect(() => {
     if (isRunning) {
       const interval = setInterval(() => {
-        setArquimedes6({ sumergido: Math.min(1, sumergido + 0.01) });
+        // El porcentaje de inmersión en equilibrio es DensidadCuerpo / DensidadLiquido
+        const targetSumergido = Math.min(1.1, densidadCuerpo / densidadLiquido);
+        
+        setArquimedes6({ 
+          sumergido: sumergido + (targetSumergido - sumergido) * 0.05 
+        });
+
+        if (Math.abs(sumergido - targetSumergido) < 0.001) {
+          setArquimedes6({ isRunning: false });
+          audio?.playSuccess();
+          
+          const E = targetSumergido >= 1 ? (volumenTotal * densidadLiquido * 9.81) : pesoReal;
+          
+          registrarHallazgo('fis_arquimedes_equilibrio', {
+            densidad_cuerpo: densidadCuerpo,
+            densidad_liquido: densidadLiquido,
+            volumen_m3: volumenTotal,
+            empuje_n: E,
+            sumergido_pct: targetSumergido * 100
+          });
+
+          stopTimer();
+          setPasoActual(4);
+
+          setBitacora({
+            ...bitacoraData,
+            fisica6: `✅ CERTIFICADO: Principio de Arquímedes validado. Cuerpo con densidad ${densidadCuerpo} kg/m³ en fluido de ${densidadLiquido} kg/m³. Empuje calculado: ${E.toFixed(2)} N.`
+          });
+        }
       }, 50);
       return () => clearInterval(interval);
     }
-  }, [isRunning, sumergido, setArquimedes6]);
+  }, [isRunning, sumergido, setArquimedes6, densidadCuerpo, densidadLiquido, pesoReal, volumenTotal]);
 
   const toggleSim = () => {
     const isNowRunning = !isRunning;
@@ -69,35 +97,11 @@ export default function PilotoArquimedes() {
     audio?.playPop();
     if (isNowRunning) {
       audio?.playNotification();
-      setAsistente({ text: "Sistemas nominales. Iniciando inmersión. Monitorea la curva de empuje en tu bitácora.", pose: "happy" });
-    } else {
-      setAsistente({ text: "Inmersión pausada. Analiza los datos recolectados hasta el momento.", pose: "thinking" });
-      
-      // Registro automático al pausar o terminar (Estilo Química)
-      const g = 9.81;
-      const P = peso;
-      const E = calculatedEmpuje;
-      const PA = Math.max(0, P - E);
-      
-      const nuevoLog = {
-        id: crypto.randomUUID(),
-        fluido: 'AGUA',
-        vol: (sumergido * 100).toFixed(0) + '%',
-        w_real: P.toFixed(3),
-        w_aparente: PA.toFixed(3),
-        empuje: E.toFixed(3),
-        timestamp: new Date().toLocaleTimeString()
-      };
-      
-      const logsPrevios = (useSimuladorStore.getState() as any).bitacoraData?.arquimedes_logs || [];
-      (useSimuladorStore.getState() as any).setBitacora({
-        ...(useSimuladorStore.getState() as any).bitacoraData,
-        arquimedes_logs: [nuevoLog, ...logsPrevios].slice(0, 10)
-      });
+      setAsistente({ text: "Iniciando inmersión. Monitorea el equilibrio de fuerzas.", pose: "happy" });
     }
   };
 
-  const calculatedEmpuje = sumergido * peso * 1.2;
+  const calculatedEmpuje = Math.min(sumergido, 1) * volumenTotal * densidadLiquido * 9.81;
 
   return (
     <div className="relative w-full h-full bg-[#010409] overflow-hidden font-['Outfit'] text-white">
@@ -179,7 +183,7 @@ export default function PilotoArquimedes() {
         </div>
 
         <div className="flex gap-4">
-           <HUDCard label="Peso (P)" value={`${peso.toFixed(2)} N`} icon={<Weight size={18} />} color="#E63946" highlight={isRunning} />
+           <HUDCard label="Peso (P)" value={`${pesoReal.toFixed(2)} N`} icon={<Weight size={18} />} color="#E63946" highlight={isRunning} />
            <HUDCard label="Empuje (E)" value={`${calculatedEmpuje.toFixed(2)} N`} icon={<ArrowUp size={18} />} color="#219EBC" highlight={isRunning} />
         </div>
       </div>

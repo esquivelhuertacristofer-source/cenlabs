@@ -149,104 +149,73 @@ export default function PilotoBalanceoEcuaciones() {
       </header>
 
       {/* ── DATA OVERLAYS ── */}
-      <main className="relative z-10 flex-1 w-full flex items-center justify-center pointer-events-none">
+      <main className="relative z-10 flex-1 w-full flex items-center justify-between px-12 pointer-events-none">
         
-        {/* CHECKLIST HUD (DIAMOND STANDARD) */}
-        <div className="absolute top-32 left-1/2 -translate-x-1/2 w-[500px] pointer-events-none">
-          <div className="bg-black/40 backdrop-blur-xl border border-white/10 rounded-[2rem] p-6 shadow-2xl">
-            <div className="flex items-center justify-between mb-4">
-              <span className="text-[10px] font-black text-cyan-400 uppercase tracking-widest flex items-center gap-2">
-                <Activity size={12} className="animate-pulse" /> Sincronía del Reactor
-              </span>
-              <span className="text-[10px] font-black text-white/40 uppercase tracking-widest">Lavoisier Protocol</span>
+        {/* PANEL IZQUIERDO (TELEMETRÍA DE ENTRADA) */}
+        <section className="w-72 z-20 pointer-events-auto">
+          <motion.div initial={{ x: -50, opacity: 0 }} animate={{ x: 0, opacity: 1 }} className="bg-black/40 backdrop-blur-2xl border border-white/10 rounded-[2.5rem] p-6 shadow-2xl space-y-6">
+            <div>
+               <h3 className="text-[10px] font-black text-cyan-400 uppercase tracking-[0.4em] mb-4 flex items-center gap-2">
+                 <Activity size={12} /> Reactivos (Entrada)
+               </h3>
+               <div className="flex justify-between items-end mb-4">
+                  <div className="flex flex-col">
+                     <span className="text-[8px] font-black text-white/30 uppercase tracking-widest">Masa Inyectada</span>
+                     <span className="text-2xl font-black font-mono text-cyan-100">{masaReactivos.toFixed(1)}<span className="text-[10px] ml-1 opacity-40">g</span></span>
+                  </div>
+                  <div className={`px-3 py-1 rounded-full border text-[8px] font-black ${isBalanced ? 'bg-emerald-500/20 border-emerald-500/30 text-emerald-400' : 'bg-white/5 border-white/10 text-white/40'}`}>
+                     {isBalanced ? 'SYNC OK' : 'WAITING'}
+                  </div>
+               </div>
+               <div className="space-y-3">
+                  {allSymbols.map(sym => (
+                    <div key={sym}>
+                      <div className="flex justify-between text-[10px] font-black font-mono mb-1">
+                        <span className="text-white/60">{sym}</span>
+                        <span className="text-cyan-400">{atomosReactivos[sym] || 0}</span>
+                      </div>
+                      <div className="h-1 bg-white/5 rounded-full overflow-hidden">
+                        <motion.div animate={{ width: `${Math.min(100, (atomosReactivos[sym] || 0) * 10)}%` }} className="h-full bg-cyan-500 shadow-[0_0_10px_#06b6d4]" />
+                      </div>
+                    </div>
+                  ))}
+               </div>
             </div>
-            
-            <div className="grid grid-cols-3 gap-4">
-              <div className={`p-4 rounded-2xl border transition-all ${isBalanced ? 'bg-emerald-500/10 border-emerald-500/30' : 'bg-white/5 border-white/5'}`}>
-                <div className="text-[8px] font-black uppercase text-white/40 mb-1">Equilibrio Atómico</div>
-                <div className={`text-xs font-black italic ${isBalanced ? 'text-emerald-400' : 'text-white'}`}>{isBalanced ? 'CONSERVADO' : 'EN DESFASE'}</div>
-              </div>
-              <div className={`p-4 rounded-2xl border transition-all ${Math.abs(masaReactivos - masaProductos) < 0.01 ? 'bg-emerald-500/10 border-emerald-500/30' : 'bg-white/5 border-white/5'}`}>
-                <div className="text-[8px] font-black uppercase text-white/40 mb-1">Masa Σm(R) = Σm(P)</div>
-                <div className={`text-xs font-black italic ${Math.abs(masaReactivos - masaProductos) < 0.01 ? 'text-emerald-400' : 'text-white'}`}>{Math.abs(masaReactivos - masaProductos) < 0.01 ? 'SYNC AL 100%' : `${Math.abs(masaReactivos - masaProductos).toFixed(1)}g DELTA`}</div>
-              </div>
-              <div className="p-4 rounded-2xl border border-white/5 bg-white/5">
-                <div className="text-[8px] font-black uppercase text-white/40 mb-1">Nivel Actual</div>
-                <div className="text-xs font-black text-white italic">{reaccionActual + 1} DE {reacciones.length}</div>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        {/* PANEL IZQUIERDO */}
-        <section className="absolute left-12 top-1/2 -translate-y-1/2 w-64 z-20 pointer-events-auto">
-          <motion.div initial={{ x: -50, opacity: 0 }} animate={{ x: 0, opacity: 1 }} className="bg-white/5 backdrop-blur-2xl border border-white/10 rounded-[2.5rem] p-6 shadow-2xl">
-            <h3 className="text-[10px] font-black text-[#8ECAE6] uppercase tracking-[0.4em] mb-6 flex items-center gap-2">
-              <Activity size={12} className="text-cyan-400" /> Reactivos (Entrada)
-            </h3>
-            {allSymbols.map(sym => (
-              <div key={sym} className="mb-4">
-                <div className="flex justify-between text-[10px] font-black font-mono mb-1">
-                  <span className="text-white/60">{sym}</span>
-                  <span className="text-cyan-400">{atomosReactivos[sym] || 0}</span>
-                </div>
-                <div className="h-1 bg-white/10 rounded-full overflow-hidden">
-                  <motion.div animate={{ width: `${Math.min(100, (atomosReactivos[sym] || 0) * 10)}%` }} className="h-full bg-cyan-500 shadow-[0_0_10px_#06b6d4]" />
-                </div>
-              </div>
-            ))}
           </motion.div>
         </section>
 
-        {/* PANEL DERECHO */}
-        <section className="absolute right-12 top-1/2 -translate-y-1/2 w-64 z-20 pointer-events-auto">
-           <motion.div initial={{ x: 50, opacity: 0 }} animate={{ x: 0, opacity: 1 }} className="bg-white/5 backdrop-blur-2xl border border-white/10 rounded-[2.5rem] p-6 shadow-2xl">
-            <h3 className="text-[10px] font-black text-orange-400 uppercase tracking-[0.4em] mb-6 flex items-center gap-2">
-              <Activity size={12} className="text-orange-400" /> Productos (Salida)
-            </h3>
-            {allSymbols.map(sym => (
-              <div key={sym} className="mb-4">
-                <div className="flex justify-between text-[10px] font-black font-mono mb-1">
-                  <span className="text-white/60">{sym}</span>
-                  <span className="text-orange-400">{atomosProductos[sym] || 0}</span>
-                </div>
-                <div className="h-1 bg-white/10 rounded-full overflow-hidden">
-                  <motion.div animate={{ width: `${Math.min(100, (atomosProductos[sym] || 0) * 10)}%` }} className="h-full bg-orange-500 shadow-[0_0_10px_#f97316]" />
-                </div>
-              </div>
-            ))}
+        {/* PANEL DERECHO (TELEMETRÍA DE SALIDA) */}
+        <section className="w-72 z-20 pointer-events-auto">
+           <motion.div initial={{ x: 50, opacity: 0 }} animate={{ x: 0, opacity: 1 }} className="bg-black/40 backdrop-blur-2xl border border-white/10 rounded-[2.5rem] p-6 shadow-2xl space-y-6">
+            <div>
+               <h3 className="text-[10px] font-black text-orange-400 uppercase tracking-[0.4em] mb-4 flex items-center gap-2">
+                 <Activity size={12} /> Productos (Salida)
+               </h3>
+               <div className="flex justify-between items-end mb-4">
+                  <div className="flex flex-col text-right">
+                     <span className="text-[8px] font-black text-white/30 uppercase tracking-widest">Masa Producida</span>
+                     <span className="text-2xl font-black font-mono text-orange-100">{masaProductos.toFixed(1)}<span className="text-[10px] ml-1 opacity-40">g</span></span>
+                  </div>
+                  <div className={`px-3 py-1 rounded-full border text-[8px] font-black ${isBalanced ? 'bg-emerald-500/20 border-emerald-500/30 text-emerald-400' : 'bg-white/5 border-white/10 text-white/40'}`}>
+                     {isBalanced ? 'SYNC OK' : 'WAITING'}
+                  </div>
+               </div>
+               <div className="space-y-3">
+                  {allSymbols.map(sym => (
+                    <div key={sym}>
+                      <div className="flex justify-between text-[10px] font-black font-mono mb-1">
+                        <span className="text-orange-400">{atomosProductos[sym] || 0}</span>
+                        <span className="text-white/60">{sym}</span>
+                      </div>
+                      <div className="h-1 bg-white/5 rounded-full overflow-hidden">
+                        <motion.div animate={{ width: `${Math.min(100, (atomosProductos[sym] || 0) * 10)}%` }} className="h-full bg-orange-500 shadow-[0_0_10px_#f97316]" />
+                      </div>
+                    </div>
+                  ))}
+               </div>
+            </div>
           </motion.div>
         </section>
-
-        {/* BARRA DE MASA CENTRAL (DIAMOND TELEMETRY) */}
-        <div className="absolute top-[500px] left-1/2 -translate-x-1/2 pointer-events-auto">
-           <motion.div layout className="flex items-center gap-12 px-12 py-8 bg-black/80 rounded-[3rem] border border-white/10 shadow-2xl backdrop-blur-3xl min-w-[500px] justify-between">
-              <div className="text-center">
-                <span className="text-[10px] font-black text-cyan-400 block uppercase mb-2 tracking-widest">Inyectado (R)</span>
-                <span className="text-4xl font-black font-mono text-cyan-100 drop-shadow-[0_0_15px_rgba(34,211,238,0.5)]">{masaReactivos.toFixed(1)}<span className="text-xs ml-1 opacity-40">g</span></span>
-              </div>
-              
-              <div className="flex-1 flex flex-col items-center">
-                 <div className="w-full h-1 bg-white/5 rounded-full overflow-hidden relative mb-4">
-                    <motion.div 
-                      animate={{ 
-                        left: `${(masaReactivos / (masaReactivos + masaProductos || 1)) * 100}%` 
-                      }} 
-                      className="absolute top-0 w-2 h-full bg-white shadow-[0_0_20px_white]" 
-                    />
-                    <div className="absolute inset-0 bg-gradient-to-r from-cyan-500/20 via-transparent to-orange-500/20" />
-                 </div>
-                 <span className={`text-[10px] font-black uppercase tracking-widest ${isBalanced ? 'text-emerald-400' : 'text-white/20'}`}>
-                    {isBalanced ? 'Sincronía Atómica' : 'Equilibrando Materia'}
-                 </span>
-              </div>
-
-              <div className="text-center">
-                <span className="text-[10px] font-black text-orange-400 block uppercase mb-2 tracking-widest">Producido (P)</span>
-                <span className="text-4xl font-black font-mono text-orange-100 drop-shadow-[0_0_15px_rgba(251,146,60,0.5)]">{masaProductos.toFixed(1)}<span className="text-xs ml-1 opacity-40">g</span></span>
-              </div>
-           </motion.div>
-        </div>
       </main>
 
       {/* ── DIAMOND DOCK (COEFFICIENT CONTROLS) ── */}

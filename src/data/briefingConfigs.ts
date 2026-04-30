@@ -42,7 +42,7 @@ export const ALL_BRIEFING_CONFIGS: Record<string, BriefingConfig> = {
     subtitulo: 'Sistemas de Ecuaciones 2x2',
     acento: '#219EBC',
     duracion: 35,
-    videoUrl: '',
+    videoUrl: 'https://youtu.be/MFX5Aofjyfk',
     bienvenida: `¡Bienvenido a la Estación de Rastreo Orbital! Soy el Dr. Quantum y hoy vamos a usar el álgebra lineal para localizar una señal en el espacio.\n\nUn sistema de dos ecuaciones con dos incógnitas representa visualmente la intersección de dos trayectorias. Encontrar esa solución (x, y) es la base de la navegación GPS y la triangulación de telecomunicaciones.\n\nTu misión: ajustar las pendientes y ordenadas de dos haces láser hasta interceptar el satélite guía en las coordenadas indicadas en el radar.`,
     conceptos: [
       { icono: '📈', nombre: 'Pendiente (m)', descripcion: 'Indica la inclinación del haz láser. Representa la tasa de cambio de la trayectoria.' },
@@ -164,30 +164,36 @@ export const ALL_BRIEFING_CONFIGS: Record<string, BriefingConfig> = {
   },
   'quimica-3': {
     codigo: 'QMI-03',
-    titulo: 'Balanceo de Ecuaciones',
-    subtitulo: 'Estequiometría y Conservación de Masa',
-    acento: '#FB8500',
-    duracion: 35,
-    videoUrl: '',
-    bienvenida: `¡Bienvenido a la Refinería Estequiométrica! Soy el Dr. Quantum. La materia no se crea ni se destruye, solo se transforma.\n\nBalancearemos reacciones industriales para asegurar la eficiencia del reactor. Un error aquí significa desperdicio de energía o subproductos tóxicos.\n\nTu misión: Sincronizar reactivos y productos hasta lograr el equilibrio perfecto.`,
+    titulo: 'Motor de Fusión Estequiométrica',
+    subtitulo: 'Sincronización de Masas y Ley de Lavoisier',
+    acento: '#06b6d4',
+    duracion: 50,
+    videoUrl: 'https://youtu.be/TNdAO9w06Ko',
+    bienvenida: `¡Bienvenido al núcleo del Reactor CEN! Soy el Dr. Quantum y hoy vamos a certificar uno de los principios fundamentales del cosmos: la Conservación de la Materia.\n\nEn un reactor químico, nada se crea ni se destruye por azar. Cada átomo de hidrógeno, carbono u oxígeno que entra en la reacción debe estar presente al final, aunque su estructura molecular haya cambiado por completo. Si tus coeficientes fallan, el reactor se vuelve inestable y la producción se detiene.\n\nTu misión: Balancear reacciones críticas, desde la combustión de propano hasta complejos procesos industriales, asegurando que la balanza de masa sea perfecta. ¡Sincroniza el universo átomo por átomo!`,
     conceptos: [
-      { icono: '⚖️', nombre: 'Ley de Lavoisier', descripcion: 'La masa total se conserva en toda reacción química.' },
-      { icono: '🔢', nombre: 'Coeficientes', descripcion: 'Proporciones molares de las sustancias.' },
-      { icono: '⚛️', nombre: 'Conteo Atómico', descripcion: 'Igual número de átomos en reactivos y productos.' },
-      { icono: '🔥', nombre: 'Combustión', descripcion: 'Reacción de hidrocarburos con oxígeno.' },
-      { icono: '🛡️', nombre: 'Eficiencia', descripcion: 'Punto óptimo de transformación de materia.' }
+      { icono: '⚖️', nombre: 'Ley de Lavoisier', descripcion: 'La masa total de los reactivos es idéntica a la de los productos en un sistema cerrado.' },
+      { icono: 'n', nombre: 'Coeficiente Molar', descripcion: 'Multiplicador que indica la cantidad de moléculas necesarias para el equilibrio.' },
+      { icono: 'uma', nombre: 'Masa Molar', descripcion: 'La suma de las masas atómicas de todos los átomos en una fórmula química.' },
+      { icono: '🔥', nombre: 'Combustión', descripcion: 'Reacción exotérmica donde un hidrocarburo se oxida para producir CO₂ y vapor de agua.' },
+      { icono: '⚛️', nombre: 'Estequiometría', descripcion: 'El cálculo de las relaciones cuantitativas entre sustancias en una reacción.' },
     ],
     mision: [
-      'Analiza la ecuación sin balancear.',
-      'Ajusta los coeficientes de los reactivos.',
-      'Sincroniza los productos.',
-      'Verifica el conteo de átomos en tiempo real.',
-      'Valida el balanceo al 100%.'
+      'Analiza la ECUACIÓN QUÍMICA en la pantalla de telemetría.',
+      'Identifica los átomos presentes en reactivos y productos.',
+      'Ajusta los INYECTORES DE MASA (coeficientes) en tu bitácora.',
+      'Observa el motor 3D: el núcleo se estabiliza con cada ajuste correcto.',
+      'Certifica el balanceo cuando la SINCRONÍA DE MASA sea del 100%.',
+      'Documenta tu hallazgo científico con un informe de al menos 50 palabras.',
     ],
     aplicaciones: [
-      { area: 'Refinación', ejemplo: 'Optimización de procesos para maximizar gasolina.' },
-      { area: 'Medio Ambiente', ejemplo: 'Cálculo de emisiones de CO2 industriales.' },
-      { area: 'Farmacia', ejemplo: 'Dosificación exacta en síntesis de medicamentos.' }
+      { area: 'Ingeniería Petroquímica', ejemplo: 'Optimización de la mezcla aire-combustible en motores de alto rendimiento.' },
+      { area: 'Farmacia Nuclear', ejemplo: 'Síntesis de isótopos con proporciones atómicas de precisión absoluta.' },
+      { area: 'Sostenibilidad', ejemplo: 'Captura de carbono mediante reacciones estequiométricas controladas.' },
+    ],
+    retos: [
+      'Combustión Total: Sincroniza el Octano (Gasolina) con coeficientes superiores a 20.',
+      'Fusión de Haber: Produce amoníaco con el mínimo consumo de nitrógeno.',
+      'Certificación Lavoisier: Logra el 100% de eficiencia en los 6 niveles del reactor.'
     ]
   },
   'quimica-4': {
@@ -196,7 +202,7 @@ export const ALL_BRIEFING_CONFIGS: Record<string, BriefingConfig> = {
     subtitulo: 'Optimización de Procesos',
     acento: '#22d3ee',
     duracion: 35,
-    videoUrl: '',
+    videoUrl: 'https://youtu.be/pEAJMi0eWiw',
     bienvenida: `¡Bienvenido a la Consola de Producción Molecular! Soy el Dr. Quantum.\n\nEn la industria, el reactivo limitante dicta el éxito económico. Aprenderás que la química reacciona en moles, no en gramos.\n\nTu misión: Operar el reactor para sintetizar compuestos con residuo cero.`,
     conceptos: [
       { icono: '📉', nombre: 'Reactivo Limitante', descripcion: 'Sustancia que se consume totalmente y detiene la reacción.' },
@@ -223,7 +229,7 @@ export const ALL_BRIEFING_CONFIGS: Record<string, BriefingConfig> = {
     subtitulo: 'Molaridad y Aforo',
     acento: '#219EBC',
     duracion: 35,
-    videoUrl: '',
+    videoUrl: 'https://youtu.be/-x7O0Tx7y8M',
     bienvenida: `¡Bienvenido al Laboratorio Analítico! Soy el Dr. Quantum. Prepararemos disoluciones de precisión quirúrgica.\n\nUna solución mal aforada invalida meses de investigación. Dominarás el pesaje analítico y el menisco perfecto.\n\nTu misión: Preparar NaCl a la molaridad exacta solicitada.`,
     conceptos: [
       { icono: '⚖️', nombre: 'Molaridad (M)', descripcion: 'Moles de soluto por litro de disolución.' },
@@ -250,7 +256,7 @@ export const ALL_BRIEFING_CONFIGS: Record<string, BriefingConfig> = {
     subtitulo: 'Termodinámica de Fases',
     acento: '#6366f1',
     duracion: 30,
-    videoUrl: '',
+    videoUrl: 'https://youtu.be/Pu7otmbiEeY',
     bienvenida: `¡Bienvenido al Taller de Purificación Térmica! Soy el Dr. Quantum.\n\nVerás cómo el orden emerge del caos mediante el control de la temperatura. Forzaremos la sobresaturación para crear cristales geométricos perfectos.\n\nTu misión: Recristalizar KNO3 mediante un choque térmico controlado.`,
     conceptos: [
       { icono: '📈', nombre: 'Solubilidad', descripcion: 'Máxima cantidad de soluto a una T específica.' },
@@ -277,7 +283,7 @@ export const ALL_BRIEFING_CONFIGS: Record<string, BriefingConfig> = {
     subtitulo: 'Valoración Volumétrica',
     acento: '#ec4899',
     duracion: 40,
-    videoUrl: '',
+    videoUrl: 'https://youtu.be/BkmkNzPkpY0',
     bienvenida: `¡Bienvenido al Laboratorio de Química Analítica Superior! Soy el Dr. Quantum.\n\nDeterminaremos concentraciones desconocidas gota a gota. La neutralización es una danza de protones que cambia el color de la realidad.\n\nTu misión: Encontrar el punto de equivalencia con precisión de mililitro.`,
     conceptos: [
       { icono: '⚖️', nombre: 'Punto de Equivalencia', descripcion: 'Moles de ácido = Moles de base.' },
@@ -304,7 +310,7 @@ export const ALL_BRIEFING_CONFIGS: Record<string, BriefingConfig> = {
     subtitulo: 'Principio de Le Châtelier',
     acento: '#f59e0b',
     duracion: 30,
-    videoUrl: '',
+    videoUrl: 'https://youtu.be/kzWxKfxu4DE',
     bienvenida: `¡Bienvenido al Observatorio de Dinámica Química! Soy el Dr. Quantum.\n\nLas reacciones no siempre terminan; a veces quedan atrapadas en un ciclo eterno. Veremos cómo el sistema se defiende de los cambios externos.\n\nTu misión: Predecir el desplazamiento del equilibrio del NO2 ante cambios de temperatura.`,
     conceptos: [
       { icono: '↔️', nombre: 'Equilibrio Dinámico', descripcion: 'Velocidad directa = Velocidad inversa.' },
@@ -331,7 +337,7 @@ export const ALL_BRIEFING_CONFIGS: Record<string, BriefingConfig> = {
     subtitulo: 'Electroquímica y Potenciales Redox',
     acento: '#3b82f6',
     duracion: 40,
-    videoUrl: '',
+    videoUrl: 'https://youtu.be/S36fqFGHIfo',
     bienvenida: `¡Bienvenido al Laboratorio de Energía Química! Soy el Dr. Quantum.\n\nConvertiremos el flujo de electrones en electricidad utilizable. Entenderás cómo funcionan las baterías que mueven el mundo moderno.\n\nTu misión: Ensamblar una pila funcional y medir su voltaje real.`,
     conceptos: [
       { icono: '🔋', nombre: 'Ánodo', descripcion: 'Electrodo donde ocurre la oxidación (pérdida de e-).' },
@@ -358,7 +364,7 @@ export const ALL_BRIEFING_CONFIGS: Record<string, BriefingConfig> = {
     subtitulo: 'Separación por Volatilidad',
     acento: '#8b5cf6',
     duracion: 45,
-    videoUrl: '',
+    videoUrl: 'https://youtu.be/G91Gkcm4rzM',
     bienvenida: `¡Bienvenido a la Torre de Fraccionamiento! Soy el Dr. Quantum.\n\nSepararemos mezclas complejas usando el calor como filtro. La precisión en la temperatura determinará la pureza de tu producto final.\n\nTu misión: Recuperar Etanol puro de una mezcla hidroalcohólica.`,
     conceptos: [
       { icono: '🌡️', nombre: 'Punto de Ebullición', descripcion: 'Temperatura de cambio de fase líquido-gas.' },
@@ -414,7 +420,7 @@ export const ALL_BRIEFING_CONFIGS: Record<string, BriefingConfig> = {
     subtitulo: 'Dinámica en Plano Inclinado',
     acento: '#ef4444',
     duracion: 35,
-    videoUrl: '',
+    videoUrl: 'https://youtu.be/ZmPbH8g5FZE',
     bienvenida: `¡Bienvenido al Plano de Pruebas Dinámicas! Soy el Dr. Quantum.\n\nEntenderemos por qué los objetos se mueven o se quedan quietos. La fricción y la gravedad lucharán en cada milímetro de la rampa.\n\nTu misión: Calcular la aceleración exacta de un bloque sobre una rampa inclinada.`,
     conceptos: [
       { icono: '🍎', nombre: '2da Ley de Newton', descripcion: 'Fuerza = Masa x Aceleración (F=ma).' },
@@ -441,7 +447,7 @@ export const ALL_BRIEFING_CONFIGS: Record<string, BriefingConfig> = {
     subtitulo: 'Movimiento Armónico Simple',
     acento: '#8b5cf6',
     duracion: 30,
-    videoUrl: '',
+    videoUrl: 'https://youtu.be/16JxXu7TD58',
     bienvenida: `¡Bienvenido al Laboratorio de Cronometría! Soy el Dr. Quantum.\n\nDescubriremos el secreto del tiempo escondido en una cuerda y una masa. La gravedad será nuestro motor de oscilación.\n\nTu misión: Medir la gravedad local usando el periodo del péndulo.`,
     conceptos: [
       { icono: '⏳', nombre: 'Periodo (T)', descripcion: 'Tiempo de una ida y vuelta completa.' },
@@ -468,7 +474,7 @@ export const ALL_BRIEFING_CONFIGS: Record<string, BriefingConfig> = {
     subtitulo: 'Elasticidad y Fuerzas Restauradoras',
     acento: '#ec4899',
     duracion: 30,
-    videoUrl: '',
+    videoUrl: 'https://youtu.be/199ZMPmYITk',
     bienvenida: `¡Bienvenido al Centro de Pruebas de Materiales! Soy el Dr. Quantum.\n\nAnalizaremos la memoria de los metales. Veremos cuánto puede estirarse un resorte antes de perder su forma original.\n\nTu misión: Determinar la constante elástica (k) de un resorte desconocido.`,
     conceptos: [
       { icono: '➰', nombre: 'Constante k', descripcion: 'Medida de la rigidez intrínseca del resorte.' },
@@ -495,7 +501,7 @@ export const ALL_BRIEFING_CONFIGS: Record<string, BriefingConfig> = {
     subtitulo: 'Principio de Pascal y Ventaja Mecánica',
     acento: '#0ea5e9',
     duracion: 35,
-    videoUrl: '',
+    videoUrl: "https://www.youtube.com/embed/-HO5kokr6Uo",
     bienvenida: `¡Bienvenido al Centro de Ingeniería Hidráulica! Soy el Dr. Quantum. Hoy vamos a dominar una de las fuerzas más potentes de la industria.\n\nEl Principio de Pascal nos dice que la presión ejercida sobre un fluido incompresible se transmite con igual intensidad en todas las direcciones. Esto nos permite usar el área de los émbolos como una palanca líquida para multiplicar nuestra fuerza.\n\nTu misión: Configurar los radios de los émbolos para elevar un vehículo de carga de 2 toneladas usando la mínima fuerza posible. ¡La física es tu multiplicador de poder!`,
     conceptos: [
       { icono: '💧', nombre: 'Principio de Pascal', descripcion: 'La presión (P=F/A) es constante en todo el fluido interconectado.' },
@@ -528,7 +534,7 @@ export const ALL_BRIEFING_CONFIGS: Record<string, BriefingConfig> = {
     subtitulo: 'Hidrostática y Empuje',
     acento: '#06b6d4',
     duracion: 30,
-    videoUrl: '',
+    videoUrl: 'https://youtu.be/GI9vhUIkqDg',
     bienvenida: `¡Bienvenido al Tanque de Flotabilidad! Soy el Dr. Quantum.\n\n"¡Eureka!" - Descubriremos por qué los barcos de acero flotan y las piedras pequeñas se hunden. El agua tiene una fuerza invisible hacia arriba.\n\nTu misión: Identificar un sólido misterioso mediante su densidad.`,
     conceptos: [
       { icono: '💧', nombre: 'Empuje (E)', descripcion: 'Fuerza igual al peso del fluido desalojado.' },
@@ -555,7 +561,7 @@ export const ALL_BRIEFING_CONFIGS: Record<string, BriefingConfig> = {
     subtitulo: 'Expansión de Sólidos',
     acento: '#ef4444',
     duracion: 35,
-    videoUrl: '',
+    videoUrl: 'https://youtu.be/_tznlKPd4f8',
     bienvenida: `¡Bienvenido al Horno de Precisión Micrométrica! Soy el Dr. Quantum.\n\nEl calor hace que los átomos se alejen. Veremos cómo estructuras masivas crecen milímetros imperceptibles pero peligrosos.\n\nTu misión: Medir el coeficiente de dilatación del Aluminio.`,
     conceptos: [
       { icono: '📏', nombre: 'Longitud Inicial', descripcion: 'Medida del material a temperatura ambiente.' },
@@ -582,7 +588,7 @@ export const ALL_BRIEFING_CONFIGS: Record<string, BriefingConfig> = {
     subtitulo: 'Circuitos Eléctricos CC',
     acento: '#eab308',
     duracion: 35,
-    videoUrl: '',
+    videoUrl: 'https://youtu.be/q_BMFXFf0TU',
     bienvenida: `¡Bienvenido a la Central Eléctrica Virtual! Soy el Dr. Quantum.\n\nDominaremos el flujo de electrones. Voltaje, Corriente y Resistencia forman la trinidad de la electrónica moderna.\n\nTu misión: Verificar la relación V = I·R en una resistencia fija.`,
     conceptos: [
       { icono: '⚡', nombre: 'Voltaje (V)', descripcion: 'Presión eléctrica o diferencia de potencial.' },
@@ -609,7 +615,7 @@ export const ALL_BRIEFING_CONFIGS: Record<string, BriefingConfig> = {
     subtitulo: 'Ley de Coulomb',
     acento: '#3b82f6',
     duracion: 30,
-    videoUrl: '',
+    videoUrl: 'https://youtu.be/nEPux_svXO8',
     bienvenida: `¡Bienvenido al Campo de Fuerzas Invisibles! Soy el Dr. Quantum.\n\nLas cargas eléctricas se atraen o se repelen a distancia. Veremos cómo la fuerza cae dramáticamente al alejarnos.\n\nTu misión: Calcular la fuerza neta sobre una carga central.`,
     conceptos: [
       { icono: '⚛️', nombre: 'Carga (q)', descripcion: 'Propiedad de la materia (en Coulombs).' },
@@ -636,7 +642,7 @@ export const ALL_BRIEFING_CONFIGS: Record<string, BriefingConfig> = {
     subtitulo: 'Inducción y Fuerza de Lorentz',
     acento: '#8b5cf6',
     duracion: 40,
-    videoUrl: '',
+    videoUrl: 'https://youtu.be/jj5WmYB4nxg',
     bienvenida: `¡Bienvenido al Taller de Electromovilidad! Soy el Dr. Quantum.\n\nConvertiremos electricidad en movimiento rotatorio. La magia sucede cuando el magnetismo empuja los electrones en movimiento.\n\nTu misión: Calibrar un motor para alcanzar las RPM objetivo.`,
     conceptos: [
       { icono: '🧲', nombre: 'Campo Magnético (B)', descripcion: 'Fuerza invisible de los imanes permanentes.' },
@@ -665,6 +671,7 @@ export const ALL_BRIEFING_CONFIGS: Record<string, BriefingConfig> = {
     subtitulo: 'Geometría y Áreas Dinámicas',
     acento: '#10b981',
     duracion: 30,
+    videoUrl: 'https://youtu.be/hYa1QOqYBao',
     bienvenida: `¡Bienvenido al Taller de Diseño Geométrico! Soy el Dr. Quantum.\n\nLa relación a² + b² = c² no es solo una fórmula; es un equilibrio físico de áreas. Verás cómo el agua de dos cuadrados llena exactamente el tercero.\n\nTu misión: Demostrar el teorema mediante la transferencia de fluidos.`,
     conceptos: [
       { icono: '📐', nombre: 'Hipotenusa', descripcion: 'Lado más largo opuesto al ángulo recto.' },
@@ -696,6 +703,7 @@ export const ALL_BRIEFING_CONFIGS: Record<string, BriefingConfig> = {
     subtitulo: 'Funciones Circulares y Ondas',
     acento: '#6366f1',
     duracion: 40,
+    videoUrl: 'https://youtu.be/AWhxHGpZfb0',
     bienvenida: `¡Bienvenido al Osciloscopio Geométrico! Soy el Dr. Quantum.\n\nTodo lo que gira se convierte en una onda. Entenderemos el Seno y el Coseno como las sombras de un punto que da vueltas.\n\nTu misión: Sincronizar la rotación para capturar ángulos específicos.`,
     conceptos: [
       { icono: '⭕', nombre: 'Círculo Unitario', descripcion: 'Círculo de radio 1 centrado en el origen.' },
@@ -722,6 +730,7 @@ export const ALL_BRIEFING_CONFIGS: Record<string, BriefingConfig> = {
     subtitulo: 'Isometrías y Homotecias',
     acento: '#f43f5e',
     duracion: 35,
+    videoUrl: 'https://youtu.be/vYE9qp-1PVw',
     bienvenida: `¡Bienvenido al Centro de Acoplamiento Espacial! Soy el Dr. Quantum.\n\nLas matemáticas nos permiten mover, rotar y escalar objetos con precisión absoluta. Usarás matrices para navegar una sonda.\n\nTu misión: Alinear la sonda con la plataforma fantasma.',`,
     conceptos: [
       { icono: '↔️', nombre: 'Traslación', descripcion: 'Desplazamiento sin rotación ni cambio de tamaño.' },
@@ -748,6 +757,7 @@ export const ALL_BRIEFING_CONFIGS: Record<string, BriefingConfig> = {
     subtitulo: 'Trigonometría y Óptica',
     acento: '#06b6d4',
     duracion: 35,
+    videoUrl: 'https://youtu.be/8Sc6BTbc9cU',
     bienvenida: `¡Bienvenido al Laboratorio de Refracción! Soy el Dr. Quantum.\n\nLa luz se dobla al cambiar de medio. Usaremos el Seno para calcular por qué vemos las cosas deformadas bajo el agua.\n\nTu misión: Identificar un cristal desconocido midiendo su ángulo de refracción.`,
     conceptos: [
       { icono: '🔦', nombre: 'Incidencia', descripcion: 'Ángulo del rayo de luz al entrar.' },
@@ -770,23 +780,24 @@ export const ALL_BRIEFING_CONFIGS: Record<string, BriefingConfig> = {
   },
   'matematicas-8': {
     codigo: 'MAT-08',
-    titulo: 'La Derivada',
-    subtitulo: 'Cálculo Diferencial y Razonamiento',
+    titulo: 'La Derivada: Propulsión Crítica',
+    subtitulo: 'Razón de Cambio y Velocidad Instantánea',
     acento: '#ef4444',
     duracion: 40,
-    bienvenida: `¡Bienvenido a la Pista de Pruebas de Cálculo! Soy el Dr. Quantum.\n\nLa derivada es la velocidad del cambio. En una montaña rusa, nos dirá dónde estamos en la cima o en el punto más bajo.\n\nTu misión: Encontrar los puntos de pendiente cero en la trayectoria.`,
+    videoUrl: 'https://youtu.be/pVSfAX2BG5E',
+    bienvenida: `¡Bienvenido al Centro de Control de Lanzamientos! Soy el Dr. Quantum. Hoy usaremos el poder del Cálculo Diferencial para evitar un desastre aeroespacial.\n\nLa derivada no es solo una fórmula; es la velocidad instantánea de un objeto. Si conocemos la función de posición s(t) de nuestro cohete, su derivada s'(t) nos dirá exactamente a qué velocidad viaja en cada microsegundo.\n\nTu misión: Analizar la telemetría del despegue, identificar el punto de máxima velocidad y calcular la aceleración para estabilizar el reactor.`,
     conceptos: [
-      { icono: '📈', nombre: 'Pendiente', descripcion: 'Inclinación de la recta tangente en un punto.' },
-      { icono: '🎯', nombre: 'Punto Crítico', descripcion: 'Lugar donde la derivada es exactamente cero.' },
-      { icono: '🏔️', nombre: 'Máximos y Mínimos', descripcion: 'Cimas y valles de la función.' },
-      { icono: '⚡', nombre: 'Razón de Cambio', descripcion: 'Qué tan rápido crece o cae la función.' }
+      { icono: '🚀', nombre: 'Velocidad Instantánea', descripcion: 'La derivada de la posición respecto al tiempo: v(t) = ds/dt.' },
+      { icono: '🔥', nombre: 'Aceleración', descripcion: 'La segunda derivada de la posición: a(t) = dv/dt.' },
+      { icono: '📈', nombre: 'Pendiente Tangente', descripcion: 'Representación geométrica de la derivada en un punto de la trayectoria.' },
+      { icono: '🎯', nombre: 'Optimización', descripcion: 'Búsqueda de máximos de empuje y mínimos de consumo de combustible.' }
     ],
     mision: [
-      'Activa el escáner de pendiente (recta tangente).',
-      'Recorre la pista buscando el equilibrio horizontal.',
-      'Identifica el punto más alto del recorrido.',
-      'Identifica el punto más bajo.',
-      'Valida las coordenadas de los puntos críticos.'
+      'Inicia la SECUENCIA DE DESPEGUE en el simulador.',
+      'Activa el ESCÁNER TANGENTE para visualizar la velocidad en tiempo real.',
+      'Identifica el instante exacto donde la pendiente es MÁXIMA.',
+      'Calcula la derivada analítica de la función de telemetría.',
+      'Valida el resultado para estabilizar la órbita del cohete.',
     ],
     aplicaciones: [
       { area: 'Finanzas', ejemplo: 'Optimización de ganancias y reducción de costos.' },
@@ -800,7 +811,7 @@ export const ALL_BRIEFING_CONFIGS: Record<string, BriefingConfig> = {
     subtitulo: 'Cálculo Integral y Áreas Curvas',
     acento: '#8b5cf6',
     duracion: 40,
-    videoUrl: '',
+    videoUrl: 'https://youtu.be/ntOBoqrNb6E',
     bienvenida: `¡Bienvenido al Taller de Integración Numérica! Soy el Dr. Quantum.\n\n¿Cómo medimos el área de algo que no tiene bordes rectos? Lo dividiremos en miles de pedazos diminutos.\n\nTu misión: Aproximar el área bajo la curva con error menor al 1%.`,
     conceptos: [
       { icono: '📊', nombre: 'Rectángulos', descripcion: 'Subdivisiones del área bajo la curva.' },
@@ -827,7 +838,7 @@ export const ALL_BRIEFING_CONFIGS: Record<string, BriefingConfig> = {
     subtitulo: 'Probabilidad y Estadística',
     acento: '#f59e0b',
     duracion: 35,
-    videoUrl: '',
+    videoUrl: 'https://youtu.be/mk1npkgh0ts',
     bienvenida: `¡Bienvenido al Casino de la Probabilidad! Soy el Dr. Quantum.\n\nVerás cómo del caos aleatorio surge un orden matemático perfecto. Cada rebote es una moneda al aire.\n\nTu misión: Comprobar el Teorema del Límite Central.',`,
     conceptos: [
       { icono: '🎲', nombre: 'Aleatoriedad', descripcion: 'Sucesos individuales impredecibles.' },
@@ -883,7 +894,7 @@ export const ALL_BRIEFING_CONFIGS: Record<string, BriefingConfig> = {
     subtitulo: 'Ósmosis y Tonicidad',
     acento: '#3b82f6',
     duracion: 30,
-    videoUrl: '',
+    videoUrl: 'https://youtu.be/_NCd2u1iMq4',
     bienvenida: `¡Bienvenido al Centro de Homeostasis Celular! Soy el Dr. Quantum.\n\nLas células son bolsas de agua que luchan por no explotar o secarse. Veremos cómo el soluto dicta el destino de la vida.\n\nTu misión: Alcanzar el equilibrio isotónico de un eritrocito.`,
     conceptos: [
       { icono: '💧', nombre: 'Ósmosis', descripcion: 'Movimiento de agua hacia mayor concentración de sal.' },
@@ -910,6 +921,7 @@ export const ALL_BRIEFING_CONFIGS: Record<string, BriefingConfig> = {
     subtitulo: 'Dogma Central de la Biología',
     acento: '#8b5cf6',
     duracion: 35,
+    videoUrl: 'https://youtu.be/QlBaQUJ0ddE',
     bienvenida: `¡Bienvenido a la Fábrica de la Vida! Soy el Dr. Quantum.\n\nTraduciremos el código secreto del ADN en máquinas moleculares llamadas proteínas. El lenguaje de la vida tiene solo 4 letras.\n\nTu misión: Ensamblar una proteína completa sin mutaciones.`,
     conceptos: [
       { icono: '🧬', nombre: 'Transcripción', descripcion: 'Copiado de ADN a ARNm en el núcleo.' },
@@ -936,6 +948,7 @@ export const ALL_BRIEFING_CONFIGS: Record<string, BriefingConfig> = {
     subtitulo: 'Metabolismo Vegetal y Fase Clara',
     acento: '#10b981',
     duracion: 35,
+    videoUrl: 'https://youtu.be/dSoFC4PyGOA',
     bienvenida: `¡Bienvenido al Reactor Cuántico Vegetal! Soy el Dr. Quantum.\n\nLas plantas roban energía al Sol para construir el mundo. Veremos cómo la luz rompe el agua para darnos oxígeno.\n\nTu misión: Optimizar la producción de O2 variando la longitud de onda.`,
     conceptos: [
       { icono: '☀️', nombre: 'Fotólisis', descripcion: 'Ruptura del agua usando fotones de luz.' },
@@ -962,6 +975,7 @@ export const ALL_BRIEFING_CONFIGS: Record<string, BriefingConfig> = {
     subtitulo: 'Genética Clásica y Herencia',
     acento: '#f43f5e',
     duracion: 35,
+    videoUrl: 'https://youtu.be/uV5Xtnoi_D8',
     bienvenida: `¡Bienvenido al Invernadero de Genética! Soy el Dr. Quantum.\n\nDescubriremos las reglas de la lotería biológica. Veremos por qué te pareces a tus abuelos pero no eres idéntico a tus padres.\n\nTu misión: Validar la proporción 9:3:3:1 en un cruce dihíbrido.`,
     conceptos: [
       { icono: '🧬', nombre: 'Alelo', descripcion: 'Variante de un gen (Dominante o Recesivo).' },
@@ -988,6 +1002,7 @@ export const ALL_BRIEFING_CONFIGS: Record<string, BriefingConfig> = {
     subtitulo: 'Evolución y Adaptación',
     acento: '#854d0e',
     duracion: 30,
+    videoUrl: 'https://youtu.be/HYn1W16L8wU',
     bienvenida: `¡Bienvenido a la Arena de Supervivencia! Soy el Dr. Quantum.\n\nSolo el más apto sobrevive. Serás el depredador en un mundo cambiante para ver cómo la evolución moldea la vida.\n\nTu misión: Observar el cambio de color de una población de polillas.`,
     conceptos: [
       { icono: '🦅', nombre: 'Presión Selectiva', descripcion: 'Factor ambiental que decide quién vive.' },
@@ -1014,7 +1029,7 @@ export const ALL_BRIEFING_CONFIGS: Record<string, BriefingConfig> = {
     subtitulo: 'Neurofisiología y Arco Reflejo',
     acento: '#f59e0b',
     duracion: 35,
-    videoUrl: '',
+    videoUrl: 'https://youtu.be/EJKf6BCdPGY',
     bienvenida: `¡Bienvenido al Centro de Control Neuronal! Soy el Dr. Quantum.\n\nLos impulsos viajan a la velocidad del rayo, pero requieren de cables aislados llamados mielina. Analizaremos tu velocidad de respuesta.\n\nTu misión: Evaluar el reflejo rotuliano bajo diferentes condiciones.`,
     conceptos: [
       { icono: '⚡', nombre: 'Potencial de Acción', descripcion: 'Impulso eléctrico que viaja por el axón.' },
@@ -1041,7 +1056,7 @@ export const ALL_BRIEFING_CONFIGS: Record<string, BriefingConfig> = {
     subtitulo: 'Fisiología Cardiovascular',
     acento: '#ef4444',
     duracion: 35,
-    videoUrl: '',
+    videoUrl: 'https://youtu.be/jKbnyd23BY0',
     bienvenida: `¡Bienvenido a la Clínica de Cardiología! Soy el Dr. Quantum.\n\nEscucharemos el ritmo de la vida. Cada latido es una coreografía eléctrica perfecta entre el nodo sinusal y los ventrículos.\n\nTu misión: Sincronizar el ECG de un paciente en esfuerzo.`,
     conceptos: [
       { icono: '❤️', nombre: 'Ciclo Cardíaco', descripcion: 'Sístole (contracción) y Diástole (relajación).' },
@@ -1068,6 +1083,7 @@ export const ALL_BRIEFING_CONFIGS: Record<string, BriefingConfig> = {
     subtitulo: 'Catálisis Enzimática y pH',
     acento: '#ea580c',
     duracion: 35,
+    videoUrl: 'https://youtu.be/GNChoscsc4A',
     bienvenida: `¡Bienvenido al Laboratorio de Bioquímica Digestiva! Soy el Dr. Quantum.\n\nSomos lo que digerimos. Veremos cómo las enzimas rompen las proteínas solo si el pH es el adecuado.\n\nTu misión: Digerir una muestra de carne optimizando el ambiente estomacal.`,
     conceptos: [
       { icono: '🔑', nombre: 'Enzima', descripcion: 'Llave biológica que acelera las reacciones.' },
@@ -1093,6 +1109,7 @@ export const ALL_BRIEFING_CONFIGS: Record<string, BriefingConfig> = {
     subtitulo: 'Ecología y Modelo Lotka-Volterra',
     acento: '#15803d',
     duracion: 40,
+    videoUrl: 'https://youtu.be/vxCiT_f0h-E',
     bienvenida: `¡Bienvenido al Observatorio de Ecosistemas! Soy el Dr. Quantum.\n\nLa vida es un equilibrio frágil entre presas y depredadores. Veremos cómo el caos se convierte en ciclos eternos.\n\nTu misión: Mantener el equilibrio del bosque por 50 años virtuales.`,
     conceptos: [
       { icono: '🐰', nombre: 'Capacidad de Carga', descripcion: 'Población máxima que el ambiente soporta.' },

@@ -10,7 +10,7 @@ import {
 import { useSimuladorStore } from '@/store/simuladorStore';
 import { audio } from '@/utils/audioEngine';
 
-export default function BitacoraEquilibrioQuimico() {
+export default function BitacoraEquilibrioQuimico({ onValidate }: { onValidate?: () => void }) {
   const { equilibrio, validarP8 } = useSimuladorStore();
   const [conclusionText, setConclusionText] = useState('');
 
@@ -148,7 +148,10 @@ export default function BitacoraEquilibrioQuimico() {
           <Trash2 size={20} />
         </button>
         <button 
-          onClick={() => { audio.playSuccess(); alert("Misión de Equilibrio Certificada."); }}
+          onClick={() => { 
+            if (onValidate) onValidate();
+            else { audio.playSuccess(); alert("Misión de Equilibrio Certificada."); }
+          }}
           disabled={!canValidate}
           className={`flex-1 rounded-2xl font-black text-[10px] uppercase tracking-[0.2em] transition-all flex items-center justify-center gap-3 shadow-xl ${canValidate ? 'bg-[#023047] text-white' : 'bg-slate-200 text-slate-400 cursor-not-allowed'}`}
         >

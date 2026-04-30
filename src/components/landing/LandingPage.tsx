@@ -7,7 +7,7 @@ import {
   Check, ArrowRight,
   Share2, MessageCircle, Camera, Tv,
   Monitor, FlaskConical, Landmark, Shield, GraduationCap, Mountain,
-  Cpu, AlertCircle, BarChart3
+  Cpu, AlertCircle, BarChart3, ShieldCheck
 } from "lucide-react";
 import styles from "./Landing.module.css";
 import Link from "next/link";
@@ -149,6 +149,16 @@ function HeroSection() {
             <h1 style={{ fontFamily: OUTFIT, fontWeight: 900, fontSize: "clamp(46px, 6vw, 76px)", color: "#023047", lineHeight: 1.05, letterSpacing: "-0.04em" }}>
               El Nuevo Estándar en<br />Laboratorios Virtuales.
             </h1>
+            <div className="flex items-center gap-3 mt-2 mb-4">
+              <div className="px-4 py-1 rounded-lg bg-emerald-500/10 border border-emerald-500/20 flex items-center gap-2">
+                <ShieldCheck size={14} className="text-emerald-600" />
+                <span className="text-[10px] font-black text-emerald-700 uppercase tracking-widest">Certificación Gold State</span>
+              </div>
+              <div className="px-4 py-1 rounded-lg bg-amber-500/10 border border-amber-500/20 flex items-center gap-2">
+                <BarChart3 size={14} className="text-amber-600" />
+                <span className="text-[10px] font-black text-amber-700 uppercase tracking-widest">Trazabilidad JSONB Full-Audit</span>
+              </div>
+            </div>
             <p style={{ fontFamily: OUTFIT, fontSize: 19, fontWeight: 500, color: "#5A5A72", lineHeight: 1.6, maxWidth: 560 }}>
               Accede a 40 simulaciones interactivas de ciencias exactas a través de un entorno digital de alto rendimiento. Diseñado para potenciar el análisis y la retención académica de tus alumnos.
             </p>

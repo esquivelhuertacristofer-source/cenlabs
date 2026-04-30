@@ -10,7 +10,7 @@ import {
 import { useSimuladorStore } from '@/store/simuladorStore';
 import { audio } from '@/utils/audioEngine';
 
-export default function BitacoraSolubilidadCristalizacion() {
+export default function BitacoraSolubilidadCristalizacion({ onValidate }: { onValidate?: () => void }) {
   const { solubilidad, validarP6 } = useSimuladorStore();
   const [tempInput, setTempInput] = useState("");
   const [conclusionText, setConclusionText] = useState("");
@@ -168,7 +168,10 @@ export default function BitacoraSolubilidadCristalizacion() {
           <Trash2 size={20} />
         </button>
         <button 
-          onClick={() => { audio.playSuccess(); alert("Certificación de Fase Completada."); }}
+          onClick={() => { 
+            if (onValidate) onValidate();
+            else { audio.playSuccess(); alert("Certificación de Fase Completada."); }
+          }}
           disabled={!canValidate}
           className={`flex-1 rounded-2xl font-black text-[10px] uppercase tracking-[0.2em] transition-all flex items-center justify-center gap-3 shadow-xl ${canValidate ? 'bg-[#023047] text-white' : 'bg-slate-200 text-slate-400 cursor-not-allowed'}`}
         >

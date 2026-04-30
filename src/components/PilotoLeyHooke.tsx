@@ -27,7 +27,7 @@ const GRAVEDAD = 9.81;
 
 export default function PilotoLeyHooke() {
   const router = useRouter();
-  const { setBitacora, bitacoraData, audio, setAsistente } = useSimuladorStore();
+  const { setBitacora, bitacoraData, audio, setAsistente, registrarHallazgo, stopTimer, setPasoActual } = useSimuladorStore();
 
   useEffect(() => {
     // Limpiar estado de aprobación de sesión anterior
@@ -179,6 +179,16 @@ export default function PilotoLeyHooke() {
       if (Math.abs(kCalc - seed.k) < 1.0) {
         audio?.playSuccess();
         setFase(5);
+        
+        registrarHallazgo('fis_hooke_rigidez', {
+          k_semilla: seed.k,
+          k_calculada: kCalc,
+          muestras_data: muestras
+        });
+
+        stopTimer();
+        setPasoActual(4);
+
         setBitacora({
           ...bitacoraData,
           fisica4: `✅ APROBADO: Tren de aterrizaje certificado con rigidez estructural de k=${seed.k} N/m tras superación de prueba de rebote con ${muestras.length} cargas de prueba.`

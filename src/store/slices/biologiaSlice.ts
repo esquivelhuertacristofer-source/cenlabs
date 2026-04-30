@@ -48,7 +48,20 @@ export const createBiologiaSlice: StateCreator<SimuladorState, [], [], any> = (s
   sistemaNervioso: { fuerzaGolpe: 50, integridadMielina: 100, estado: 'reposo', latenciaMedida: 0, velocidadConduccion: 120, status: 'idle' },
   cardio: { ritmoBPM: 70, estadoFisiologico: 'Reposo', faseActual: 'Diástole', targetBPM: 145, status: 'idle' },
   digestion: { macronutriente: 'proteina', enzimaSeleccionada: null, nivelPH: 7.0, estado: 'intacto', monomerosAbsorbidos: 0, status: 'idle' },
-  ecosistema: { poblacionPresas: 100, poblacionDepredadores: 20, alfa: 1.1, beta: 0.1, gamma: 0.4, delta: 0.05, tiempoVirtual: 0, historial: [], simulando: false, status: 'idle' },
+  ecosistema: { 
+    poblacionPresas: 100, 
+    poblacionDepredadores: 20, 
+    parametros: {
+      alpha: 1.1,
+      beta: 0.1,
+      gamma: 0.4,
+      delta: 0.05
+    },
+    tiempoVirtual: 0, 
+    historial: [], 
+    simulando: false, 
+    status: 'idle' 
+  },
 
   setMicroscopio: (data: Partial<SimuladorState['microscopio']>) => set((state) => ({ microscopio: { ...state.microscopio, ...data } })),
   generarSemillaB1: () => set((state) => {
@@ -316,12 +329,13 @@ export const createBiologiaSlice: StateCreator<SimuladorState, [], [], any> = (s
   setEcosistema: (data: Partial<SimuladorState['ecosistema']>) => set((state) => ({ ecosistema: { ...state.ecosistema, ...data } })),
   tickEcosistema: (dt: number) => set((state) => {
     if (!state.ecosistema.simulando) return state;
-    const { poblacionPresas: x, poblacionDepredadores: y, alfa, beta, gamma, delta } = state.ecosistema;
+    const { poblacionPresas: x, poblacionDepredadores: y, parametros } = state.ecosistema;
+    const { alpha, beta, gamma, delta } = parametros;
     
     // Ecuaciones de Lotka-Volterra
-    // dx/dt = alfa*x - beta*x*y
+    // dx/dt = alpha*x - beta*x*y
     // dy/dt = delta*x*y - gamma*y
-    const dx = (alfa * x - beta * x * y) * dt;
+    const dx = (alpha * x - beta * x * y) * dt;
     const dy = (delta * x * y - gamma * y) * dt;
 
     const newX = Math.max(0, x + dx);
@@ -339,7 +353,21 @@ export const createBiologiaSlice: StateCreator<SimuladorState, [], [], any> = (s
       } 
     };
   }),
-  generarSemillaB10: () => set((state) => ({ ecosistema: { ...state.ecosistema, poblacionPresas: 100, poblacionDepredadores: 20 } })),
+  generarSemillaB10: () => set((state) => ({ 
+    ecosistema: { 
+      ...state.ecosistema, 
+      poblacionPresas: 80 + Math.random() * 40, 
+      poblacionDepredadores: 15 + Math.random() * 10,
+      parametros: {
+        alpha: 1.0 + Math.random() * 0.2,
+        beta: 0.08 + Math.random() * 0.04,
+        gamma: 0.3 + Math.random() * 0.2,
+        delta: 0.04 + Math.random() * 0.02
+      },
+      historial: [],
+      tiempoVirtual: 0
+    } 
+  })),
   resetB10: () => set((state) => ({ ecosistema: { ...state.ecosistema, simulando: false, status: 'idle' } })),
   
   validarB3: () => {

@@ -21,7 +21,7 @@ const LAUNCH_TRACK = 14;
 
 export default function PilotoPlanoInclinado() {
   const router = useRouter();
-  const { setBitacora, bitacoraData, plano2, setPlano2, audio, setAsistente } = useSimuladorStore();
+  const { setBitacora, bitacoraData, plano2, setPlano2, audio, setAsistente, registrarHallazgo, stopTimer } = useSimuladorStore();
   
   const [isAnimating, setIsAnimating] = useState(false);
   const [mounted, setMounted] = useState(false);
@@ -130,6 +130,18 @@ export default function PilotoPlanoInclinado() {
        audio?.playNotification();
        setAsistente({ text: "¡Brillante! Has demostrado que la física clásica funciona bajo presión. Misión certificada.", pose: "happy" });
        setPlano2({ resultado: 'exito' });
+       
+       registrarHallazgo('fis_newton_plano', {
+         angulo,
+         friccion,
+         masa_total: totalMasa,
+         thrust: thrustPower,
+         a_teorica: aTeorica,
+         a_real: aReal,
+         error: errorAbsoluto
+       });
+       
+       stopTimer();
     } else {
        audio?.playError();
        audio?.playNotification();

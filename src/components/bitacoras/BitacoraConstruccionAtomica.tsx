@@ -10,7 +10,7 @@ import {
 import { useSimuladorStore } from '@/store/simuladorStore';
 import { audio } from '@/utils/audioEngine';
 
-export default function BitacoraConstruccionAtomica() {
+export default function BitacoraConstruccionAtomica({ onValidate }: { onValidate?: () => void }) {
   const { particulas, setParticulas, validarEstructura, bitacoraData } = useSimuladorStore();
   const [conclusionText, setConclusionText] = useState("");
 
@@ -175,7 +175,10 @@ export default function BitacoraConstruccionAtomica() {
            Registrar Isótopo
         </button>
         <button 
-          onClick={() => { audio.playSuccess(); alert("Síntesis Atómica Certificada."); }}
+          onClick={() => { 
+            if (onValidate) onValidate();
+            else { audio.playSuccess(); alert("Síntesis Atómica Certificada."); }
+          }}
           disabled={!canValidate}
           className={`flex-1 rounded-2xl font-black text-[10px] uppercase tracking-[0.2em] transition-all flex items-center justify-center gap-3 shadow-xl ${canValidate ? 'bg-[#023047] text-white' : 'bg-slate-200 text-slate-400 cursor-not-allowed'}`}
         >

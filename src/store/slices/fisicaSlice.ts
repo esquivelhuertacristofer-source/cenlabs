@@ -141,6 +141,7 @@ export const createFisicaSlice: StateCreator<SimuladorState, [], [], any> = (set
     }));
 
     setTimeout(() => {
+      const { registrarHallazgo, stopTimer, setPasoActual } = get();
       set((s) => {
         const res = resultadoFinal;
         const nuevoLog = {
@@ -153,6 +154,20 @@ export const createFisicaSlice: StateCreator<SimuladorState, [], [], any> = (set
           timestamp: new Date().toLocaleTimeString()
         };
 
+        if (res === 'exito') {
+           registrarHallazgo('fis_tiro_impacto', {
+             angulo: s.tiro1.angulo,
+             velocidad: s.tiro1.velocidad,
+             escenario: s.tiro1.escenario,
+             target_x: s.tiro1.targetX,
+             distancia_final: hitX,
+             viento: s.tiro1.viento,
+             precision: Math.abs(hitX - s.tiro1.targetX)
+           });
+           stopTimer();
+           setPasoActual(4);
+        }
+
         const logsPrevios = s.bitacoraData?.tiro_logs || [];
         
         return {
@@ -160,6 +175,7 @@ export const createFisicaSlice: StateCreator<SimuladorState, [], [], any> = (set
             ...s.tiro1,
             disparando: false,
             resultado: res,
+            estado: res === 'exito' ? 'success' : s.tiro1.estado
           },
           bitacoraData: {
             ...s.bitacoraData,

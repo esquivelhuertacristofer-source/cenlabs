@@ -48,6 +48,23 @@ export const createCoreSlice: StateCreator<SimuladorState, [], [], any> = (set, 
   setBitacora: (data: Record<string, any>) => set((state) => ({ 
     bitacoraData: { ...state.bitacoraData, ...data } 
   })),
+  registrarHallazgo: (tipo: string, data: any) => set((state) => {
+    const hallazgos = state.bitacoraData?.hallazgos || [];
+    return {
+      bitacoraData: {
+        ...state.bitacoraData,
+        hallazgos: [
+          ...hallazgos,
+          {
+            id: crypto.randomUUID(),
+            tipo,
+            data,
+            timestamp: new Date().toISOString()
+          }
+        ]
+      }
+    };
+  }),
   badges: [],
   unlockBadge: (badgeId: string) => set((state) => {
     if (state.badges.includes(badgeId)) return state;

@@ -30,54 +30,73 @@ export function SyncManager() {
   } = useSimuladorStore();
 
   const syncTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const stateRef = useRef({ user, score, timer, pasoActual, bitacoraData, simId });
 
+  // Mantener referencia actualizada para el cleanup/unload
   useEffect(() => {
-    // Solo sincronizar si el usuario está autenticado y estamos en un simulador
-    if (!user || !simId) return;
+    stateRef.current = { user, score, timer, pasoActual, bitacoraData, simId };
+  }, [user, score, timer, pasoActual, bitacoraData, simId]);
 
-    const performSync = async () => {
-      setSyncStatus('pending');
-      console.log('[SyncManager] Iniciando sincronización...');
+  const performSync = async (isClosing = false) => {
+    const state = stateRef.current;
+    if (!state.user || !state.simId) return;
 
-      const intentoData: Partial<Intento> = {
-        id_alumno: user.id,
-        sim_id: simId,
-        score: score,
-        total_time_seconds: timer,
-        last_step: pasoActual,
-        bitacora_data: bitacoraData,
-        status: 'in_progress', // El status se cambia a 'completed' solo al finalizar la práctica
-      };
+    if (!isClosing) setSyncStatus('pending');
 
-      // Si tenemos un ID previo (para editar el mismo intento), lo incluimos
-      // NOTA: El esquema propuesto usa un UNIQUE CONSTRAINT (id_alumno, sim_id, status)
-      // por lo que el upsert de Supabase encontrará la fila correcta sin necesidad del UUID exacto si el status es 'in_progress'.
-
-      const { data, error } = await syncIntento(intentoData);
-
-      if (error) {
-        console.error('[SyncManager] Error de sincronización:', error);
-        setSyncStatus('error');
-      } else {
-        console.log('[SyncManager] Sincronización exitosa.');
-        if (data && data[0] && !currentIntentoId) {
-          setCurrentIntentoId(data[0].id);
-        }
-        setSyncStatus('synced');
-      }
+    const intentoData: Partial<Intento> = {
+      id_alumno: state.user.id,
+      sim_id: state.simId,
+      score: state.score,
+      total_time_seconds: state.timer,
+      last_step: state.pasoActual,
+      bitacora_data: state.bitacoraData,
+      status: 'in_progress',
     };
 
-    // Debounce de 30 segundos según arquitectura propuesta (o 5s para pruebas rápidas)
+    try {
+      const { data, error } = await syncIntento(intentoData);
+      if (error) {
+        if (!isClosing) setSyncStatus('error');
+        console.error('[SyncManager] Error:', error);
+      } else {
+        if (!isClosing) {
+          setSyncStatus('synced');
+          if (data && data[0] && !currentIntentoId) {
+            setCurrentIntentoId(data[0].id);
+          }
+        }
+      }
+    } catch (e) {
+      if (!isClosing) setSyncStatus('error');
+    }
+  };
+
+  useEffect(() => {
+    if (!user || !simId) return;
+
     if (syncTimeoutRef.current) clearTimeout(syncTimeoutRef.current);
     
     syncTimeoutRef.current = setTimeout(() => {
       performSync();
-    }, 5000); 
+    }, 3000); // Reducido a 3s para mayor reactividad
 
     return () => {
       if (syncTimeoutRef.current) clearTimeout(syncTimeoutRef.current);
     };
   }, [score, timer, pasoActual, bitacoraData, user, simId]);
 
-  return null; // Componente invisible
+  // Respaldo para cierre de pestaña
+  useEffect(() => {
+    const handleUnload = () => {
+      // Intentar una última sincronización rápida (Fire and forget)
+      performSync(true);
+    };
+    window.addEventListener('beforeunload', handleUnload);
+    return () => {
+      window.removeEventListener('beforeunload', handleUnload);
+      performSync(true); // También al desmontar el componente (cambio de ruta)
+    };
+  }, []);
+
+  return null;
 }

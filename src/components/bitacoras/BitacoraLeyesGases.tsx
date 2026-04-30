@@ -15,7 +15,7 @@ import {
   Tooltip, ResponsiveContainer, YAxisProps 
 } from 'recharts';
 
-export default function BitacoraLeyesGases() {
+export default function BitacoraLeyesGases({ onValidate }: { onValidate?: () => void }) {
   const { gases, bitacoraData, setBitacora, updateGases, setGasesMission, setGasType } = useSimuladorStore();
   const { 
     missionId = 'sandbox',
@@ -320,13 +320,16 @@ export default function BitacoraLeyesGases() {
 
         <button 
           onClick={() => {
-            const diff = Math.abs(P - pTarget);
-            if (diff < 0.05) {
-              audio.playSuccess();
-              alert(`¡Excelente! Has estabilizado el sistema en ${P.toFixed(2)} atm.`);
-            } else {
-              audio.playError();
-              alert(`Aún no alcanzas el objetivo. Diferencia: ${diff.toFixed(2)} atm.`);
+            if (onValidate) onValidate();
+            else {
+              const diff = Math.abs(P - pTarget);
+              if (diff < 0.05) {
+                audio.playSuccess();
+                alert(`¡Excelente! Has estabilizado el sistema en ${P.toFixed(2)} atm.`);
+              } else {
+                audio.playError();
+                alert(`Aún no alcanzas el objetivo. Diferencia: ${diff.toFixed(2)} atm.`);
+              }
             }
           }}
           disabled={isExploded || missionId === 'sandbox'}

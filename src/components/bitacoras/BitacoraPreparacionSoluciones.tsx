@@ -10,7 +10,7 @@ import {
 import { useSimuladorStore } from '@/store/simuladorStore';
 import { audio } from '@/utils/audioEngine';
 
-export default function BitacoraPreparacionSoluciones() {
+export default function BitacoraPreparacionSoluciones({ onValidate }: { onValidate?: () => void }) {
   const { soluciones, validarP5 } = useSimuladorStore();
   const [conclusionText, setConclusionText] = useState("");
 
@@ -170,7 +170,10 @@ export default function BitacoraPreparacionSoluciones() {
           <Trash2 size={20} />
         </button>
         <button 
-          onClick={() => { audio.playSuccess(); alert("Certificación Analítica Completada."); }}
+          onClick={() => { 
+            if (onValidate) onValidate();
+            else { audio.playSuccess(); alert("Certificación Analítica Completada."); }
+          }}
           disabled={!canValidate}
           className={`flex-1 rounded-2xl font-black text-[10px] uppercase tracking-[0.2em] transition-all flex items-center justify-center gap-3 shadow-xl ${canValidate ? 'bg-[#023047] text-white' : 'bg-slate-200 text-slate-400 cursor-not-allowed'}`}
         >

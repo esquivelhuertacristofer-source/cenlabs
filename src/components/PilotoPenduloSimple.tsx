@@ -27,7 +27,7 @@ const DIALOGOS = {
 
 export default function PilotoPenduloSimple() {
   const router = useRouter();
-  const { setBitacora, bitacoraData, audio, setAsistente } = useSimuladorStore();
+  const { setBitacora, bitacoraData, audio, setAsistente, registrarHallazgo, stopTimer, setPasoActual } = useSimuladorStore();
 
   // -- SEMILLA: GRAVEDAD MISTERIOSA --
   const [seed] = useState(() => ({
@@ -184,6 +184,17 @@ export default function PilotoPenduloSimple() {
         audio?.playSuccess();
         audio?.playNotification();
         setFase(5);
+        
+        registrarHallazgo('fis_pendulo_gravity', {
+          gravedad_semilla: seed.g,
+          gravedad_calculada: g,
+          muestras_usadas: muestras.length,
+          muestras_data: muestras
+        });
+
+        stopTimer();
+        setPasoActual(4);
+
         setBitacora({
           ...bitacoraData,
           fisica3: `✅ AUDITORÍA GEOFÍSICA: g=${seed.g} m/s² descubierta usando regresión de ${muestras.length} muestras.`

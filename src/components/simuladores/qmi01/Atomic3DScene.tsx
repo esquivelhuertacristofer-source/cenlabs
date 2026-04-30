@@ -77,80 +77,91 @@ export default function Atomic3DScene({ protons, neutrons, electrons, instabilit
         const { protons: p, neutrons: n, electrons: e } = stateRef.current;
         if (!eng.scene || !eng.nucleusGroup || !eng.electronsGroup) return;
 
-        while(eng.nucleusGroup.children.length > 0) eng.nucleusGroup.remove(eng.nucleusGroup.children[0]); 
-        while(eng.electronsGroup.children.length > 0) eng.electronsGroup.remove(eng.electronsGroup.children[0]); 
-        eng.electronMeshes = []; eng.nucleonMeshes = [];
-
-        // MATERIALES VOLUMÉTRICOS (SIN PARPADEO)
-        const protonMat = new THREE.MeshPhysicalMaterial({
-            color: 0xff1a40,
-            emissive: 0xff1a40,
-            emissiveIntensity: 0.5, // Brillo propio para distribución uniforme
-            roughness: 0.3,
-            metalness: 0.1,
-            transmission: 0.05,
-            clearcoat: 0.5
-        });
-
-        const neutronMat = new THREE.MeshPhysicalMaterial({
-            color: 0x1a66ff,
-            emissive: 0x1a66ff,
-            emissiveIntensity: 0.5,
-            roughness: 0.3,
-            metalness: 0.1,
-            transmission: 0.05,
-            clearcoat: 0.5
-        });
-        const electronMat = new THREE.MeshBasicMaterial({ color: 0xffffff });
-        const cloudMat = new THREE.PointsMaterial({ color: 0x00ffcc, size: 0.04, transparent: true, opacity: 0.3, blending: THREE.AdditiveBlending, depthWrite: false });
-
-        // NUCLEO
+        // --- NUCLEUS UPDATE ---
         const totalNucleons = p + n;
-        const phi = Math.PI * (3 - Math.sqrt(5));
-        let nucleons: string[] = [];
-        for(let i=0; i<p; i++) nucleons.push('p');
-        for(let i=0; i<n; i++) nucleons.push('n');
-        for (let i = nucleons.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [nucleons[i], nucleons[j]] = [nucleons[j], nucleons[i]]; }
-
+        const currentNucleons = eng.nucleusGroup.children.length;
+        
+        // Materials (defined outside to avoid recreation)
+        const protonMat = new THREE.MeshPhysicalMaterial({
+            color: 0xff1a40, emissive: 0xff1a40, emissiveIntensity: 0.5,
+            roughness: 0.3, metalness: 0.1, transmission: 0.05, clearcoat: 0.5
+        });
+        const neutronMat = new THREE.MeshPhysicalMaterial({
+            color: 0x1a66ff, emissive: 0x1a66ff, emissiveIntensity: 0.5,
+            roughness: 0.3, metalness: 0.1, transmission: 0.05, clearcoat: 0.5
+        });
         const geoNuc = new THREE.SphereGeometry(0.45, 32, 32);
-        nucleons.forEach((type, i) => {
+
+        // Adjust nucleon count without clearing
+        if (totalNucleons > currentNucleons) {
+            for (let i = currentNucleons; i < totalNucleons; i++) {
+                const mesh = new THREE.Mesh(geoNuc, protonMat);
+                eng.nucleusGroup.add(mesh);
+                eng.nucleonMeshes.push({ mesh, basePos: new THREE.Vector3(), phase: Math.random() * Math.PI * 2 });
+            }
+        } else if (totalNucleons < currentNucleons) {
+            for (let i = currentNucleons - 1; i >= totalNucleons; i--) {
+                const mesh = eng.nucleusGroup.children[i];
+                eng.nucleusGroup.remove(mesh);
+                eng.nucleonMeshes.splice(i, 1);
+            }
+        }
+
+        // Update materials and target positions
+        const phi = Math.PI * (3 - Math.sqrt(5));
+        let typeList: string[] = [];
+        for(let i=0; i<p; i++) typeList.push('p');
+        for(let i=0; i<n; i++) typeList.push('n');
+        
+        eng.nucleonMeshes.forEach((nData, i) => {
+            nData.mesh.material = typeList[i] === 'p' ? protonMat : neutronMat;
             const y = 1 - (i / (totalNucleons - 1 || 1)) * 2; 
             const radius = Math.sqrt(1 - y * y); 
             const theta = phi * i; 
             const spread = Math.max(0.8, Math.pow(totalNucleons, 1/3) * 0.45);
-            const basePos = new THREE.Vector3(Math.cos(theta) * radius * spread, y * spread, Math.sin(theta) * radius * spread);
-            const mesh = new THREE.Mesh(geoNuc, type === 'p' ? protonMat : neutronMat);
-            mesh.position.copy(basePos);
-            eng.nucleonMeshes.push({ mesh, basePos, phase: Math.random() * Math.PI * 2 });
-            eng.nucleusGroup!.add(mesh);
+            nData.basePos.set(Math.cos(theta) * radius * spread, y * spread, Math.sin(theta) * radius * spread);
         });
 
-        // ELECTRONES
-        const eGeo = new THREE.SphereGeometry(0.15, 16, 16); 
-        for(let i = 0; i < e; i++) {
-            let sIdx = 0; let ePrev = 0;
-            const caps = [2, 8, 18, 32];
-            for(let s = 0; s < caps.length; s++) { if (i < ePrev + caps[s]) { sIdx = s; break; } ePrev += caps[s]; }
-            const oR = 4.5 + (sIdx * 3.5);
-            const oG = new THREE.Group();
-            oG.rotation.set(Math.random()*Math.PI, Math.random()*Math.PI, 0);
-            oG.add(new THREE.Mesh(new THREE.TorusGeometry(oR, 0.012, 16, 100), new THREE.MeshBasicMaterial({ color: 0x00ffcc, transparent: true, opacity: 0.25, blending: THREE.AdditiveBlending })));
-            
-            const cloudPtsGeo = new THREE.BufferGeometry();
-            const cloudArray = [];
-            for(let p = 0; p < 300; p++) {
-                const u = Math.random() * Math.PI * 2;
-                const rF = oR + (Math.random() + Math.random() - 1) * 0.4;
-                const hF = (Math.random() + Math.random() - 1) * 0.2;
-                cloudArray.push(Math.cos(u) * rF, hF, Math.sin(u) * rF);
-            }
-            cloudPtsGeo.setAttribute('position', new THREE.Float32BufferAttribute(cloudArray, 3));
-            oG.add(new THREE.Points(cloudPtsGeo, cloudMat));
+        // --- ELECTRONS UPDATE ---
+        const currentE = eng.electronsGroup.children.length;
+        const eGeo = new THREE.SphereGeometry(0.15, 16, 16);
+        const electronMat = new THREE.MeshBasicMaterial({ color: 0xffffff });
+        const cloudMat = new THREE.PointsMaterial({ color: 0x00ffcc, size: 0.04, transparent: true, opacity: 0.3, blending: THREE.AdditiveBlending, depthWrite: false });
 
-            const eM = new THREE.Mesh(eGeo, electronMat);
-            eM.add(new THREE.Mesh(new THREE.SphereGeometry(0.35, 16, 16), new THREE.MeshBasicMaterial({ color: 0x00ffcc, transparent: true, opacity: 0.4, blending: THREE.AdditiveBlending, depthWrite: false })));
-            oG.add(eM); eng.electronsGroup!.add(oG);
-            eng.electronMeshes.push({ mesh: eM, radius: oR, speed: (4 - sIdx * 0.6) * (Math.random() > 0.5 ? 1 : -1), angle: Math.random() * Math.PI * 2, flyOutDist: 0 });
+        if (e > currentE) {
+            for (let i = currentE; i < e; i++) {
+                let sIdx = 0; let ePrev = 0;
+                const caps = [2, 8, 18, 32];
+                for(let s = 0; s < caps.length; s++) { if (i < ePrev + caps[s]) { sIdx = s; break; } ePrev += caps[s]; }
+                const oR = 4.5 + (sIdx * 3.5);
+                
+                const oG = new THREE.Group();
+                oG.rotation.set(Math.random()*Math.PI, Math.random()*Math.PI, 0);
+                oG.add(new THREE.Mesh(new THREE.TorusGeometry(oR, 0.012, 16, 100), new THREE.MeshBasicMaterial({ color: 0x00ffcc, transparent: true, opacity: 0.25, blending: THREE.AdditiveBlending })));
+                
+                const cloudPtsGeo = new THREE.BufferGeometry();
+                const cloudArray = [];
+                for(let pIdx = 0; pIdx < 300; pIdx++) {
+                    const u = Math.random() * Math.PI * 2;
+                    const rF = oR + (Math.random() + Math.random() - 1) * 0.4;
+                    const hF = (Math.random() + Math.random() - 1) * 0.2;
+                    cloudArray.push(Math.cos(u) * rF, hF, Math.sin(u) * rF);
+                }
+                cloudPtsGeo.setAttribute('position', new THREE.Float32BufferAttribute(cloudArray, 3));
+                oG.add(new THREE.Points(cloudPtsGeo, cloudMat));
+
+                const eM = new THREE.Mesh(eGeo, electronMat);
+                eM.add(new THREE.Mesh(new THREE.SphereGeometry(0.35, 16, 16), new THREE.MeshBasicMaterial({ color: 0x00ffcc, transparent: true, opacity: 0.4, blending: THREE.AdditiveBlending, depthWrite: false })));
+                oG.add(eM);
+                eng.electronsGroup.add(oG);
+                eng.electronMeshes.push({ mesh: eM, radius: oR, speed: (4 - sIdx * 0.6) * (Math.random() > 0.5 ? 1 : -1), angle: Math.random() * Math.PI * 2, flyOutDist: 0 });
+            }
+        } else if (e < currentE) {
+            for (let i = currentE - 1; i >= e; i--) {
+                const group = eng.electronsGroup.children[i];
+                eng.electronsGroup.remove(group);
+                eng.electronMeshes.splice(i, 1);
+            }
         }
     };
 

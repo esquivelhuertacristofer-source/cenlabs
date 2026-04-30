@@ -17,8 +17,26 @@ const outfit = Outfit({
 });
 
 export const metadata: Metadata = {
-  title: "CEN Labs Simulator",
-  description: "Plataforma de laboratorios de alta fidelidad",
+  title: "CEN Labs | El Estándar en Laboratorios Virtuales 2.5D",
+  description: "Plataforma líder en simulaciones de ciencias exactas (Física, Química, Biología y Matemáticas) con pedagogía avanzada y tecnología de alto rendimiento para instituciones educativas.",
+  keywords: ["laboratorios virtuales", "simuladores de ciencias", "educación digital", "CEN Labs", "Física", "Química", "Biología", "Matemáticas", "STEM Mexico"],
+  authors: [{ name: "Campaña de Educación Nacional" }],
+  openGraph: {
+    title: "CEN Labs Simulator - El Futuro de la Educación en Ciencias",
+    description: "Accede a 40 simulaciones interactivas de alta fidelidad. Sin riesgos, sin consumibles, aprendizaje total.",
+    images: ["/images/landing/hero.png"],
+    type: "website",
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: "CEN Labs | Simuladores Científicos de Alta Fidelidad",
+    description: "Transforma tu institución con el ecosistema de laboratorios virtuales más avanzado de México.",
+    images: ["/images/landing/hero.png"],
+  },
+  icons: {
+    icon: "/icon-192.png",
+    apple: "/icon-192.png",
+  }
 };
 
 export default function RootLayout({

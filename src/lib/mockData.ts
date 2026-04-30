@@ -28,6 +28,7 @@ export interface PracticeRecord {
   timeSeconds: number;
   failedAttempts: number;
   hintsUsed: number;
+  bitacora_data?: any;
 }
 
 const generatePractices = (subject: string): PracticeRecord[] => [

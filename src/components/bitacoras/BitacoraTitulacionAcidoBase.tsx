@@ -6,10 +6,11 @@ import { FlaskConical, Calculator, CheckCircle2, AlertCircle, Info, ChevronRight
 import { useSimuladorStore } from '@/store/simuladorStore';
 import { audio } from '@/utils/audioEngine';
 
-export default function BitacoraTitulacionAcidoBase() {
+export default function BitacoraTitulacionAcidoBase({ onValidate }: { onValidate?: () => void }) {
   const { titulacion, validarP7 } = useSimuladorStore();
   const [molaridadInput, setMolaridadInput] = useState("");
   const [activeTab, setActiveTab] = useState<'registro' | 'teoria'>('registro');
+  const [conclusionText, setConclusionText] = useState("");
 
   // Mensaje para el Dr. Quantum
   const quantumMsg = "Observa el color de la solución con extrema atención. El punto de equivalencia se alcanza en el momento exacto en que el incoloro vira a un rosa muy tenue. Si la solución se vuelve fucsia intenso, habrás sobrepasado el límite y el cálculo de molaridad será inexacto. ¡Usa el modo gota a gota!";
@@ -38,8 +39,11 @@ export default function BitacoraTitulacionAcidoBase() {
     }
   };
 
+  const wordCount = conclusionText.trim().split(/\s+/).filter(Boolean).length;
+  const canValidate = titulacion.status === 'success' && wordCount >= 30;
+
   return (
-    <div className="flex flex-col h-full space-y-4 font-['Outfit'] animate-in fade-in slide-in-from-right-4 duration-700 pb-10">
+    <div className="flex flex-col h-full space-y-4 font-['Outfit'] animate-in fade-in slide-in-from-right-4 duration-700 pb-20">
       
       {/* PANEL ASISTENTE DE VOZ DR. QUANTUM */}
       <div className="bg-gradient-to-br from-[#023047] to-[#0A1121] p-6 rounded-[2.5rem] shadow-2xl border border-[#219EBC]/30 relative overflow-hidden group">
@@ -206,6 +210,35 @@ export default function BitacoraTitulacionAcidoBase() {
                     </motion.button>
                  </div>
               </div>
+
+              {/* ENSAYO CRÍTICO */}
+              <div className="p-6 bg-white border border-slate-200 rounded-[2.5rem] shadow-sm space-y-4">
+                  <div className="flex justify-between items-center">
+                     <div className="flex items-center gap-2">
+                        <BookOpen size={14} className="text-[#023047]" />
+                        <span className="text-[10px] font-black text-[#023047] uppercase tracking-widest">Análisis de Neutralización</span>
+                     </div>
+                     <span className={`text-[8px] font-black px-2 py-0.5 rounded-full ${wordCount >= 30 ? 'bg-emerald-500 text-white' : 'bg-slate-100 text-slate-400'}`}>{wordCount}/30</span>
+                  </div>
+                  <textarea 
+                     value={conclusionText} onChange={e => setConclusionText(e.target.value)}
+                     placeholder="Describe el proceso de neutralización a nivel molecular y explica por qué se usa un indicador para detectar el punto de equivalencia..."
+                     rows={4}
+                     className="w-full bg-slate-50 border border-slate-100 rounded-2xl p-4 text-[11px] font-medium text-slate-600 focus:outline-none focus:border-[#219EBC] italic"
+                  />
+              </div>
+
+              <button 
+                onClick={() => { 
+                  if (onValidate) onValidate();
+                  else { audio?.playSuccess(); alert("Titulación Certificada."); }
+                }}
+                disabled={!canValidate}
+                className={`w-full py-5 rounded-[2rem] font-black text-[10px] uppercase tracking-[0.2em] transition-all flex items-center justify-center gap-3 shadow-xl ${canValidate ? 'bg-[#023047] text-white' : 'bg-slate-200 text-slate-400 cursor-not-allowed'}`}
+              >
+                <ShieldCheck size={16} />
+                {canValidate ? 'Finalizar Misión' : 'Someter Análisis'}
+              </button>
             </motion.div>
           ) : (
             <motion.div 

@@ -10,7 +10,7 @@ import {
 import { useSimuladorStore } from '@/store/simuladorStore';
 import { audio } from '@/utils/audioEngine';
 
-export default function BitacoraReactivoLimitante() {
+export default function BitacoraReactivoLimitante({ onValidate }: { onValidate?: () => void }) {
   const { limitante, validarP4, resetP4 } = useSimuladorStore();
   const [ansLimitante, setAnsLimitante] = useState("");
   const [ansExceso, setAnsExceso] = useState("");
@@ -197,7 +197,10 @@ export default function BitacoraReactivoLimitante() {
           <Trash2 size={20} />
         </button>
         <button 
-          onClick={() => { audio.playSuccess(); alert("Certificación de Síntesis Completada."); }}
+          onClick={() => { 
+            if (onValidate) onValidate();
+            else { audio.playSuccess(); alert("Certificación de Síntesis Completada."); }
+          }}
           disabled={!canValidate}
           className={`flex-1 rounded-2xl font-black text-[10px] uppercase tracking-[0.2em] transition-all flex items-center justify-center gap-3 shadow-xl ${canValidate ? 'bg-[#023047] text-white' : 'bg-slate-200 text-slate-400 cursor-not-allowed'}`}
         >

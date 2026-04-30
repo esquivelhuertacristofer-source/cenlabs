@@ -69,6 +69,16 @@ export default function PilotoMotorElectrico() {
       audio?.playSuccess();
       audio?.playNotification();
       stopCwAnimation();
+      
+      registrarHallazgo('fis_motor_efficiency', {
+        voltaje,
+        espiras,
+        rpm_estimadas: val,
+        rpm_reales: absRPM,
+        error_relativo: error,
+        sentido: currentDir
+      });
+
       setBitacora({ 
         ...bitacoraData, 
         fisica10: `✅ VALIDADO: Motor P10. RPM=${absRPM}. V=${voltaje}V, N=${espiras}, B=${B}. Eficiencia Certificada.` 
