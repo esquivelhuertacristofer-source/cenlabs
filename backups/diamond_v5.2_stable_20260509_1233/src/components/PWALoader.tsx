@@ -1,0 +1,22 @@
+'use client';
+
+import { useEffect } from 'react';
+
+export default function PWALoader() {
+  useEffect(() => {
+    if ('serviceWorker' in navigator) {
+      window.addEventListener('load', () => {
+        navigator.serviceWorker
+          .register('/sw.js')
+          .then((registration) => {
+            console.log('CEN Labs PWA Registered:', registration.scope);
+          })
+          .catch((err) => {
+            console.log('CEN Labs PWA Registration failed:', err);
+          });
+      });
+    }
+  }, []);
+
+  return null;
+}
