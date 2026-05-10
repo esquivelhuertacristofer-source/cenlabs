@@ -1,5 +1,6 @@
 import { StateCreator } from 'zustand';
 import { SimuladorState, QuimicaSlice } from '../types';
+import * as QuimicaDomain from '@/domain/quimica';
 
 // Constantes físico-químicas
 const GAS_CONSTANT_R = 0.08206;      // L·atm/(mol·K)
@@ -218,38 +219,28 @@ export const createQuimicaSlice: StateCreator<SimuladorState, [], [], QuimicaSli
     particulas: { ...state.particulas, protones: Math.max(0, p), neutrones: Math.max(0, n), electrones: Math.max(0, e) } 
   })),
   validarEstructura: () => {
-    const { protones, neutrones, electrones, targetZ, targetA, targetCharge, intentos } = get().particulas;
-    const list: Record<number, string> = { 1: "Hidrógeno", 2: "Helio", 3: "Litio", 4: "Berilio", 5: "Boro", 6: "Carbono", 7: "Nitrógeno", 8: "Oxígeno", 9: "Flúor", 10: "Neón" };
-    const targetName = list[targetZ] || "Elemento";
-    const expectedElectrons = targetZ - targetCharge;
-    const isCorrectElement  = protones === targetZ;
-    const isCorrectIsotope  = (protones + neutrones) === targetA;
-    const isCorrectCharge   = electrones === expectedElectrons;
-
-    if (isCorrectElement && isCorrectIsotope && isCorrectCharge) {
-      const chargeLabel = targetCharge === 0 ? 'neutro' : `${targetCharge > 0 ? '+' : ''}${targetCharge}`;
-      const newEstrellas = intentos === 0 ? 3 : intentos === 1 ? 2 : 1;
-      set((state) => ({ 
-        particulas: { 
-          ...state.particulas, 
+    const particulas = get().particulas;
+    const result = QuimicaDomain.validarQ1(particulas);
+    if (result.isOk) {
+      set((state) => ({
+        particulas: {
+          ...state.particulas,
           isStable: true,
-          estrellas: newEstrellas,
-          message: `¡${targetName}${targetCharge !== 0 ? chargeLabel : ''} logrado! ${newEstrellas === 3 ? '¡Perfecto al primer intento!' : ''}`
-        }
+          estrellas: result.estrellas!,
+          message: result.message,
+        },
       }));
-      return true;
     } else {
-      let msg = "Configuración subatómica incorrecta.";
-      if (!isCorrectElement)  msg = `Elemento incorrecto: tienes Z=${protones} (${list[protones] ?? 'desconocido'}), necesitas Z=${targetZ} (${targetName}).`;
-      else if (!isCorrectIsotope) msg = `Masa atómica incorrecta: A=${protones+neutrones}, necesitas A=${targetA}. Verifica neutrones (N=${targetA-targetZ}).`;
-      else if (!isCorrectCharge) msg = targetCharge === 0
-        ? `Carga neta ≠ 0: tienes ${electrones} e⁻, necesitas ${expectedElectrons} para átomo neutro.`
-        : `Carga incorrecta: necesitas ${targetCharge > 0 ? 'ceder' : 'ganar'} ${Math.abs(targetCharge)} e⁻ (${expectedElectrons} e⁻ en total).`;
-      set((state) => ({ 
-        particulas: { ...state.particulas, isStable: false, intentos: intentos + 1, message: msg }
+      set((state) => ({
+        particulas: {
+          ...state.particulas,
+          isStable: false,
+          intentos: particulas.intentos + 1,
+          message: result.message,
+        },
       }));
-      return false;
     }
+    return result.isOk;
   },
   setTargetElement: (z: number, a: number) => set((state) => ({
     particulas: { ...state.particulas, targetZ: z, targetA: a, targetCharge: 0, intentos: 0, estrellas: 3 }
@@ -280,8 +271,7 @@ export const createQuimicaSlice: StateCreator<SimuladorState, [], [], QuimicaSli
     };
   }),
   validarQ2: () => {
-    const { P, V, pTarget, isExploded } = get().gases;
-    const isOk = !isExploded && Math.abs(P - pTarget) < 0.1;
+    const isOk = QuimicaDomain.validarQ2(get().gases);
     set((state) => ({ gases: { ...state.gases, status: isOk ? 'success' : 'error' } }));
     return isOk;
   },
@@ -474,12 +464,7 @@ export const createQuimicaSlice: StateCreator<SimuladorState, [], [], QuimicaSli
       } 
     };
   }),
-  validarQ3: () => {
-    const { balanceo } = get();
-    // Se considera éxito si ha completado al menos 4 de las 6 reacciones disponibles
-    const isOk = (balanceo.reaccionesCompletadas?.length || 0) >= 4;
-    return isOk;
-  },
+  validarQ3: () => QuimicaDomain.validarQ3(get().balanceo),
   setReaccionLimitante: (index: number) => set((state) => {
     const r = REACCIONES_LIMITANTE[index] || REACCIONES_LIMITANTE[0];
     return { 
@@ -567,8 +552,7 @@ export const createQuimicaSlice: StateCreator<SimuladorState, [], [], QuimicaSli
     };
   }),
   validarP4: (ansLimitanteIdx: number, ansExceso: number) => {
-    const { results = { limitingIdx: -1, excessMass: 0 } } = get().limitante || {};
-    const isOk = (ansLimitanteIdx === results.limitingIdx) && (Math.abs(ansExceso - (results.excessMass || 0)) < 0.1);
+    const isOk = QuimicaDomain.validarQ4(get().limitante, ansLimitanteIdx, ansExceso);
     set((state) => ({ limitante: { ...state.limitante, status: isOk ? 'success' : 'error', isRunning: isOk } }));
     return isOk;
   },
@@ -607,23 +591,19 @@ export const createQuimicaSlice: StateCreator<SimuladorState, [], [], QuimicaSli
     return { soluciones: { ...state.soluciones, sal: s, mRequerida, status: 'idle' } };
   }),
   validarP5: () => {
-    const { soluciones } = get();
-    const pm = soluciones.sal?.pm || 58.443;
-    const purity = soluciones.sal?.purity || 1.0;
-    const safeAgua = Math.max(1, soluciones.matraz.agua); // Protección división por cero
-    
-    // Masa Real = Masa pesada * Pureza
-    const masaEfectiva = soluciones.matraz.polvo * purity;
-    const mActual = (masaEfectiva / pm) / (safeAgua / 1000);
-    const isOk = Math.abs(mActual - soluciones.mTarget) < 0.05;
+    const soluciones = get().soluciones;
+    const isOk = QuimicaDomain.validarQ5(soluciones);
     if (isOk) {
+      const pm     = soluciones.sal?.pm ?? 58.443;
+      const purity = soluciones.sal?.purity ?? 1.0;
+      const mActual = (soluciones.matraz.polvo * purity / pm) / (Math.max(1, soluciones.matraz.agua) / 1000);
       get().registrarHallazgo('preparacion_soluciones', {
         sustancia: soluciones.sal?.nombre,
         m_objetivo: soluciones.mTarget,
         m_lograda: parseFloat(mActual.toFixed(4)),
         v_total: soluciones.vTarget,
         masa_pesada: soluciones.matraz.polvo,
-        precision: parseFloat((100 - Math.abs((mActual - soluciones.mTarget) / soluciones.mTarget) * 100).toFixed(2))
+        precision: parseFloat((100 - Math.abs((mActual - soluciones.mTarget) / soluciones.mTarget) * 100).toFixed(2)),
       });
     }
     set((state) => ({ soluciones: { ...state.soluciones, status: isOk ? 'success' : 'error' } }));
@@ -655,18 +635,16 @@ export const createQuimicaSlice: StateCreator<SimuladorState, [], [], QuimicaSli
     return { solubilidad: { ...state.solubilidad, temp: newTemp } };
   }),
   validarP6: () => {
-    const { temp, salAgregada, sustancias, sustanciaIdx } = get().solubilidad;
-    const s = sustancias[sustanciaIdx];
-    const solubility = s.a * Math.exp(s.b * temp);
-    // Para validar éxito, debe estar sobresaturada (más sal de la que cabe)
-    const isOk = salAgregada > solubility;
+    const solubilidad = get().solubilidad;
+    const isOk = QuimicaDomain.validarQ6(solubilidad);
     if (isOk) {
+      const s = solubilidad.sustancias[solubilidad.sustanciaIdx];
       get().registrarHallazgo('solubilidad_cristalizacion', {
-        sustancia: s.nombre,
-        temperatura: temp,
-        masa_agregada: salAgregada,
-        limite_solubilidad: solubility,
-        condicion: 'sobresaturada'
+        sustancia: s?.nombre,
+        temperatura: solubilidad.temp,
+        masa_agregada: solubilidad.salAgregada,
+        limite_solubilidad: s ? (s.a as number) * Math.exp((s.b as number) * solubilidad.temp) : 0,
+        condicion: 'sobresaturada',
       });
     }
     set((state) => ({ solubilidad: { ...state.solubilidad, status: isOk ? 'success' : 'error' } }));
@@ -700,7 +678,7 @@ export const createQuimicaSlice: StateCreator<SimuladorState, [], [], QuimicaSli
   toggleIndicadorP7: () => set((state) => ({ titulacion: { ...state.titulacion, indicador: !state.titulacion.indicador } })),
   togglePurgaP7: () => set((state) => ({ titulacion: { ...state.titulacion, purgada: !state.titulacion.purgada } })),
   validarP7: (ansCa: number) => {
-    const isOk = Math.abs(ansCa - get().titulacion.ca) < 0.01;
+    const isOk = QuimicaDomain.validarQ7(get().titulacion, ansCa);
     set((state) => ({ titulacion: { ...state.titulacion, status: isOk ? 'success' : 'error' } }));
     return isOk;
   },
@@ -720,9 +698,7 @@ export const createQuimicaSlice: StateCreator<SimuladorState, [], [], QuimicaSli
     }
   })),
   validarP8: (d1: string, d2: string, d3: string) => {
-    const { jeringas } = get().equilibrio;
-    const tHielo = jeringas.find(j => j.id === 3)?.temp || 20;
-    const isOk = tHielo < 10 && d1 === 'transparente' && d2 === 'cafe' && d3 === 'incoloro';
+    const isOk = QuimicaDomain.validarQ8(get().equilibrio, d1, d2, d3);
     set((state) => ({ equilibrio: { ...state.equilibrio, status: isOk ? 'success' : 'error' } }));
     return isOk;
   },
@@ -753,8 +729,7 @@ export const createQuimicaSlice: StateCreator<SimuladorState, [], [], QuimicaSli
   }),
 
   validarP9: (anodo: string, catodo: string, v: number) => {
-    const { vasoIzq, vasoDer, voltaje } = get().celda;
-    const isOk = vasoIzq === anodo && vasoDer === catodo && Math.abs(v - voltaje) < 0.05;
+    const isOk = QuimicaDomain.validarQ9(get().celda, anodo, catodo, v);
     set((state) => ({ celda: { ...state.celda, status: isOk ? 'success' : 'error' } }));
     return isOk;
   },
@@ -768,7 +743,7 @@ export const createQuimicaSlice: StateCreator<SimuladorState, [], [], QuimicaSli
     return { destilacion: { ...d, tempMezcla: newTemp, status: isBoiling ? 'boiling' : 'idle' } };
   }),
   validarP10: (pureza: number) => {
-    const isOk = get().destilacion.volDestilado > 50 && Math.abs(pureza - 95) < 5;
+    const isOk = QuimicaDomain.validarQ10(get().destilacion, pureza);
     set((state) => ({ destilacion: { ...state.destilacion, status: isOk ? 'success' : 'error', purezaDestilado: pureza } }));
     return isOk;
   },

@@ -1,5 +1,6 @@
 import { StateCreator } from 'zustand';
 import { SimuladorState, BiologiaSlice } from '../types';
+import * as BiologiaDomain from '@/domain/biologia';
 
 export const createBiologiaSlice: StateCreator<SimuladorState, [], [], BiologiaSlice> = (set, get) => ({
   microscopio: { 
@@ -99,19 +100,7 @@ export const createBiologiaSlice: StateCreator<SimuladorState, [], [], BiologiaS
     };
   }),
   validarB1: () => {
-    // La validación matemática de Abbe y Magnificación ahora actúa como gate.
-    // Solo validamos que la magnificación y luz sean correctas, y que no esté borroso.
-    const { microscopio, bitacoraData } = get();
-    const isMagOk = microscopio.objetivoMag >= (bitacoraData.magMin || 40);
-    const isLightOk = microscopio.iluminacion >= 60 && microscopio.iluminacion <= 95;
-    
-    // Focus diff must be minimal (within depth of field approximation)
-    const focusDiff = Math.abs(microscopio.enfoqueZ - microscopio.focoIdealZ);
-    // 100x has shallow depth of field, 4x has high. If aim is 100x, it has to be VERY precise.
-    const focusTolerance = microscopio.objetivoMag === 100 ? 1 : microscopio.objetivoMag === 40 ? 3 : 8;
-    const isFocused = focusDiff <= focusTolerance;
-
-    const isOk = isMagOk && isLightOk && isFocused;
+    const isOk = BiologiaDomain.validarB1(get().microscopio, get().bitacoraData.magMin ?? 40);
     set((state) => ({ microscopio: { ...state.microscopio, status: isOk ? 'success' : 'error' } }));
     return isOk;
   },
@@ -171,7 +160,7 @@ export const createBiologiaSlice: StateCreator<SimuladorState, [], [], BiologiaS
   }),
   generarSemillaB2: () => set((state) => ({ transporte: { ...state.transporte, concInt: 0.1 + Math.random() * 0.6, concExt: 0.3, volumen: 100, history: [], status: 'idle' } })),
   validarB2: () => {
-    const isOk = Math.abs(get().transporte.concExt - get().transporte.concInt) < 0.05;
+    const isOk = BiologiaDomain.validarB2(get().transporte);
     set((state) => ({ transporte: { ...state.transporte, status: isOk ? 'success' : 'error' } }));
     return isOk;
   },
@@ -472,46 +461,42 @@ export const createBiologiaSlice: StateCreator<SimuladorState, [], [], BiologiaS
   resetB10: () => set((state) => ({ ecosistema: { ...state.ecosistema, simulando: false, status: 'idle' } })),
   
   validarB3: () => {
-    const isOk = get().sintesis.status === 'success';
+    const isOk = BiologiaDomain.validarB3(get().sintesis);
     set((state) => ({ sintesis: { ...state.sintesis, status: isOk ? 'success' : 'error' } }));
     return isOk;
   },
   validarB4: () => {
-    const isOk = get().fotosintesis.status === 'success';
+    const isOk = BiologiaDomain.validarB4(get().fotosintesis);
     set((state) => ({ fotosintesis: { ...state.fotosintesis, status: isOk ? 'success' : 'error' } }));
     return isOk;
   },
   validarB5: () => {
-    const isOk = get().genetica.status === 'success';
+    const isOk = BiologiaDomain.validarB5(get().genetica);
     set((state) => ({ genetica: { ...state.genetica, status: isOk ? 'success' : 'error' } }));
     return isOk;
   },
   validarB6: () => {
-    const { evolucion } = get();
-    const isOk = evolucion.generacion >= 3;
+    const isOk = BiologiaDomain.validarB6(get().evolucion);
     set((state) => ({ evolucion: { ...state.evolucion, status: isOk ? 'success' : 'error' } }));
     return isOk;
   },
   validarB7: () => {
-    const isOk = get().sistemaNervioso.status === 'success';
+    const isOk = BiologiaDomain.validarB7(get().sistemaNervioso);
     set((state) => ({ sistemaNervioso: { ...state.sistemaNervioso, status: isOk ? 'success' : 'error' } }));
     return isOk;
   },
   validarB8: () => {
-    const { cardio } = get();
-    const isOk = Math.abs(cardio.ritmoBPM - cardio.targetBPM) < 5;
+    const isOk = BiologiaDomain.validarB8(get().cardio);
     set((state) => ({ cardio: { ...state.cardio, status: isOk ? 'success' : 'error' } }));
     return isOk;
   },
   validarB9: () => {
-    const { digestion } = get();
-    const isOk = digestion.monomerosAbsorbidos > 0;
+    const isOk = BiologiaDomain.validarB9(get().digestion);
     set((state) => ({ digestion: { ...state.digestion, status: isOk ? 'success' : 'error' } }));
     return isOk;
   },
   validarB10: () => {
-    const { ecosistema } = get();
-    const isOk = ecosistema.tiempoVirtual > 10;
+    const isOk = BiologiaDomain.validarB10(get().ecosistema);
     set((state) => ({ ecosistema: { ...state.ecosistema, status: isOk ? 'success' : 'error' } }));
     return isOk;
   },

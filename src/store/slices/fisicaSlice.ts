@@ -1,5 +1,6 @@
 import { StateCreator } from 'zustand';
 import { SimuladorState, FisicaSlice } from '../types';
+import * as FisicaDomain from '@/domain/fisica';
 
 export const createFisicaSlice: StateCreator<SimuladorState, [], [], FisicaSlice> = (set, get) => ({
   plano2: { angulo: 30, coefRozamiento: 0.3, friccion: 0.1, masa: 5, animando: false, resultado: null },
@@ -187,62 +188,48 @@ export const createFisicaSlice: StateCreator<SimuladorState, [], [], FisicaSlice
   },
 
   validarF1: () => {
-    const { tiro1 } = get();
-    if (tiro1.resultado === 'exito') {
-       set((state) => ({ tiro1: { ...state.tiro1, estado: 'success' } }));
-       return true;
-    }
-    return false;
+    const isOk = FisicaDomain.validarF1(get().tiro1);
+    if (isOk) set((state) => ({ tiro1: { ...state.tiro1, estado: 'success' } }));
+    return isOk;
   },
   validarF2: () => {
-    const { plano2 } = get();
-    const isOk = plano2.angulo > 0 && !!plano2.resultado;
+    const isOk = FisicaDomain.validarF2(get().plano2);
     set((state) => ({ plano2: { ...state.plano2, resultado: isOk ? 'exito' : 'error' } }));
     return isOk;
   },
   validarF3: () => {
-    const { pendulo3 } = get();
-    const isOk = pendulo3.longitud > 0 && pendulo3.periodo > 0;
+    const isOk = FisicaDomain.validarF3(get().pendulo3);
     set((state) => ({ pendulo3: { ...state.pendulo3, resultado: isOk ? 'exito' : 'error' } }));
     return isOk;
   },
   validarF4: () => {
-    const { hooke4 } = get();
-    const isOk = hooke4.masa > 0 && hooke4.k > 0 && hooke4.estiramiento !== 0;
+    const isOk = FisicaDomain.validarF4(get().hooke4);
     set((state) => ({ hooke4: { ...state.hooke4, resultado: isOk ? 'exito' : 'error' } }));
     return isOk;
   },
-  validarF5: () => {
-    const { bitacoraData } = get();
-    return !!bitacoraData.fisica5;
-  },
+  validarF5: () => FisicaDomain.validarF5(get().bitacoraData),
   validarF6: () => {
-    const { arquimedes6 } = get();
-    const isOk = arquimedes6.sumergido >= 1; // Inmersión total
+    const isOk = FisicaDomain.validarF6(get().arquimedes6);
     set((state) => ({ arquimedes6: { ...state.arquimedes6, resultado: isOk ? 'exito' : 'error' } }));
     return isOk;
   },
   validarF7: () => {
-    const { dilatacion7 } = get();
-    const isOk = (dilatacion7.tempFin - dilatacion7.tempIni) >= 50;
+    const isOk = FisicaDomain.validarF7(get().dilatacion7);
     set((state) => ({ dilatacion7: { ...state.dilatacion7, resultado: isOk ? 'exito' : 'error' } }));
     return isOk;
   },
   validarF8: () => {
-    const { ohm8 } = get();
-    const isOk = ohm8.voltaje > 0 && ohm8.resistencia > 0 && ohm8.switchOn;
+    const isOk = FisicaDomain.validarF8(get().ohm8);
     set((state) => ({ ohm8: { ...state.ohm8, resultado: isOk ? 'exito' : 'error' } }));
     return isOk;
   },
   validarF9: () => {
-    const { electrostatica9 } = get();
-    const isOk = Math.abs(electrostatica9.q1) > 0 && Math.abs(electrostatica9.q2) > 0;
+    const isOk = FisicaDomain.validarF9(get().electrostatica9);
     set((state) => ({ electrostatica9: { ...state.electrostatica9, resultado: isOk ? 'exito' : 'error' } }));
     return isOk;
   },
   validarF10: () => {
-    const { motor10 } = get();
-    const isOk = motor10.encendido && motor10.rpm > 0;
+    const isOk = FisicaDomain.validarF10(get().motor10);
     set((state) => ({ motor10: { ...state.motor10, resultado: isOk ? 'exito' : 'error' } }));
     return isOk;
   },

@@ -1,5 +1,6 @@
 import { StateCreator } from 'zustand';
 import { SimuladorState, MatematicasSlice } from '../types';
+import * as MatDomain from '@/domain/matematicas';
 
 export const createMatematicasSlice: StateCreator<SimuladorState, [], [], MatematicasSlice> = (set, get) => ({
   cuadraticas: { 
@@ -34,25 +35,16 @@ export const createMatematicasSlice: StateCreator<SimuladorState, [], [], Matema
     return { cuadraticas: { ...state.cuadraticas, target: { a: parseFloat(a.toFixed(1)), b, c }, status: 'idle', a: 1, b: 0, c: 0, deltaVerified: false, vertexVerified: false, escenario: esc } };
   }),
   validarM1: () => {
-    const { a, b, c, target, intentos } = get().cuadraticas;
-    const isOk = Math.abs(a - target.a) < 0.15 && Math.abs(b - target.b) < 0.3 && Math.abs(c - target.c) < 0.3;
-    
-    let feedback = "";
-    if (!isOk) {
-      if (Math.sign(a) !== Math.sign(target.a)) feedback = "ERROR: Concavidad invertida. Verifica el signo de 'a'.";
-      else if (Math.abs(a - target.a) > 0.5) feedback = "CONSEJO: Ajusta la apertura (|a|) para que coincida con la curva guía.";
-      else if (Math.abs(-b/(2*a) - (-target.b/(2*target.a))) > 0.5) feedback = "LOGÍSTICA: El vértice horizontal no está sincronizado. Revisa 'b'.";
-      else feedback = "AJUSTE FINO: Estás muy cerca de la trayectoria proyectada.";
-    }
-
+    const cuadraticas = get().cuadraticas;
+    const isOk = MatDomain.validarM1(cuadraticas);
     if (isOk) {
-      const newEstrellas = intentos <= 1 ? 3 : intentos <= 3 ? 2 : 1;
-      set((state) => ({ 
-        cuadraticas: { ...state.cuadraticas, status: 'success', estrellas: newEstrellas, mensajeFeedback: '¡Sincronía de Trayectoria Exitosa!' } 
+      const newEstrellas = cuadraticas.intentos <= 1 ? 3 : cuadraticas.intentos <= 3 ? 2 : 1;
+      set((state) => ({
+        cuadraticas: { ...state.cuadraticas, status: 'success', estrellas: newEstrellas, mensajeFeedback: '¡Sincronía de Trayectoria Exitosa!' }
       }));
     } else {
-      set((state) => ({ 
-        cuadraticas: { ...state.cuadraticas, status: 'error', intentos: intentos + 1, mensajeFeedback: feedback } 
+      set((state) => ({
+        cuadraticas: { ...state.cuadraticas, status: 'error', intentos: cuadraticas.intentos + 1, mensajeFeedback: MatDomain.feedbackM1(cuadraticas) }
       }));
     }
     return isOk;
@@ -92,22 +84,20 @@ export const createMatematicasSlice: StateCreator<SimuladorState, [], [], Matema
     return { sistemas2x2: { ...state.sistemas2x2, target: { x: tx, y: ty }, status: 'idle', m1: 1, b1: 5, m2: -1, b2: -5, escenario: esc } };
   }),
   validarM2: () => {
-    const { m1, b1, m2, b2, target } = get().sistemas2x2;
-    if (Math.abs(m1 - m2) < 0.001) return false;
-    const xi = (b2 - b1) / (m1 - m2), yi = m1 * xi + b1;
-    const isOk = Math.abs(xi - target.x) < 0.1 && Math.abs(yi - target.y) < 0.1;
-    if (isOk) {
+    const result = MatDomain.validarM2(get().sistemas2x2);
+    if (result.isOk) {
+      const { m1, b1, m2, b2, target } = get().sistemas2x2;
       const { registrarHallazgo, stopTimer, setPasoActual } = get();
       registrarHallazgo('mat_sistemas_interseccion', {
-        m1, b1, m2, b2, 
+        m1, b1, m2, b2,
         interseccion_teorica: { x: target.x, y: target.y },
-        interseccion_real: { x: xi, y: yi }
+        interseccion_real: result.interseccion,
       });
       stopTimer();
       setPasoActual(3);
     }
-    set((state) => ({ sistemas2x2: { ...state.sistemas2x2, status: isOk ? 'success' : 'error' } }));
-    return isOk;
+    set((state) => ({ sistemas2x2: { ...state.sistemas2x2, status: result.isOk ? 'success' : 'error' } }));
+    return result.isOk;
   },
   resetM2: () => set((state) => ({ sistemas2x2: { ...state.sistemas2x2, m1: 1, b1: 5, m2: -1, b2: -5, status: 'idle' } })),
   setMagnitudM3: (m: number) => set((state) => ({ richter: { ...state.richter, magnitudActual: m } })),
@@ -127,17 +117,16 @@ export const createMatematicasSlice: StateCreator<SimuladorState, [], [], Matema
     return { richter: { ...state.richter, targetM: esc.target, status: 'idle', magnitudActual: 6.0, userInputFactor: '', escenario: esc.id as any } };
   }),
   validarM3: () => {
-    const { targetM, magnitudBase, userInputFactor } = get().richter;
-    const realFactor = Math.pow(10, 1.5 * (targetM - magnitudBase)), userVal = parseFloat(userInputFactor);
-    const isOk = Math.abs(userVal - realFactor) / realFactor < 0.05;
+    const richter = get().richter;
+    const isOk = MatDomain.validarM3(richter);
     if (isOk) {
       const { registrarHallazgo, stopTimer, setPasoActual } = get();
       registrarHallazgo('mat_richter_logaritmos', {
-        magnitud_base: magnitudBase,
-        magnitud_target: targetM,
-        factor_energia_real: realFactor,
-        factor_alumno: userVal,
-        escenario: get().richter.escenario
+        magnitud_base: richter.magnitudBase,
+        magnitud_target: richter.targetM,
+        factor_energia_real: Math.pow(10, 1.5 * (richter.targetM - richter.magnitudBase)),
+        factor_alumno: parseFloat(richter.userInputFactor),
+        escenario: richter.escenario,
       });
       stopTimer();
       setPasoActual(3);
@@ -157,17 +146,16 @@ export const createMatematicasSlice: StateCreator<SimuladorState, [], [], Matema
     return { pitagoras: { ...state.pitagoras, catetoA: a, catetoB: b, llenado: 0, userInputC: '', status: 'idle', escenario: esc } };
   }),
   validarM4: () => {
-    const { catetoA, catetoB, userInputC } = get().pitagoras;
-    const realC = Math.sqrt(catetoA * catetoA + catetoB * catetoB), userVal = parseFloat(userInputC);
-    const isOk = Math.abs(userVal - realC) < 0.1;
+    const pitagoras = get().pitagoras;
+    const isOk = MatDomain.validarM4(pitagoras);
     if (isOk) {
       const { registrarHallazgo, stopTimer, setPasoActual } = get();
       registrarHallazgo('mat_pitagoras_geometria', {
-        cateto_a: catetoA,
-        cateto_b: catetoB,
-        hipotenusa_real: realC,
-        hipotenusa_alumno: userVal,
-        escenario: get().pitagoras.escenario
+        cateto_a: pitagoras.catetoA,
+        cateto_b: pitagoras.catetoB,
+        hipotenusa_real: Math.sqrt(pitagoras.catetoA ** 2 + pitagoras.catetoB ** 2),
+        hipotenusa_alumno: parseFloat(pitagoras.userInputC),
+        escenario: pitagoras.escenario,
       });
       stopTimer();
       setPasoActual(3);
@@ -198,16 +186,14 @@ export const createMatematicasSlice: StateCreator<SimuladorState, [], [], Matema
     };
   }),
   validarM5: () => {
-    const { angulo, hallazgos = [] } = get().trigonometria;
-    // La victoria requiere haber capturado al menos 2 puntos críticos
-    const tieneCriticos = hallazgos.length >= 2;
-    const isOk = tieneCriticos && (Math.abs(angulo - 45) <= 1 || Math.abs(angulo - 225) <= 1);
+    const trig = get().trigonometria;
+    const isOk = MatDomain.validarM5(trig);
     if (isOk) {
       const { registrarHallazgo, stopTimer, setPasoActual } = get();
       registrarHallazgo('mat_trigonometria_fase', {
-        angulo_final: angulo,
-        muestras_capturadas: hallazgos.length,
-        identidad_verificada: true
+        angulo_final: trig.angulo,
+        muestras_capturadas: (trig.hallazgos ?? []).length,
+        identidad_verificada: true,
       });
       stopTimer();
       setPasoActual(3);
@@ -223,15 +209,15 @@ export const createMatematicasSlice: StateCreator<SimuladorState, [], [], Matema
     return { geometria6: { ...state.geometria6, target: { tx, ty, rotacion: rot, escala: s }, status: 'idle', tx: 0, ty: 0, rotacion: 0, escala: 1.0 } };
   }),
   validarM6: () => {
-    const { tx, ty, rotacion, escala, target } = get().geometria6;
-    const isOk = tx === target.tx && ty === target.ty && rotacion === target.rotacion && escala === target.escala;
+    const geo = get().geometria6;
+    const isOk = MatDomain.validarM6(geo);
     if (isOk) {
       const { registrarHallazgo, stopTimer, setPasoActual } = get();
       registrarHallazgo('mat_geometria_transformacion', {
-        traslacion: { x: tx, y: ty },
-        rotacion,
-        escala,
-        target: target
+        traslacion: { x: geo.tx, y: geo.ty },
+        rotacion: geo.rotacion,
+        escala: geo.escala,
+        target: geo.target,
       });
       stopTimer();
       setPasoActual(3);
@@ -244,15 +230,15 @@ export const createMatematicasSlice: StateCreator<SimuladorState, [], [], Matema
   setUserInputM7: (val: string) => set((state) => ({ optica7: { ...state.optica7, userInputN2: val } })),
   generarSemillaM7: () => set((state) => ({ optica7: { ...state.optica7, n2Misterio: parseFloat((1.4 + Math.random() * 0.6).toFixed(2)), status: 'idle', userInputN2: '' } })),
   validarM7: () => {
-    const { userInputN2, n2Misterio } = get().optica7;
-    const isOk = Math.abs(parseFloat(userInputN2) - n2Misterio) <= 0.05;
+    const optica = get().optica7;
+    const isOk = MatDomain.validarM7(optica);
     if (isOk) {
       const { registrarHallazgo, stopTimer, setPasoActual } = get();
       registrarHallazgo('mat_optica_snell', {
-        n1: get().optica7.n1,
-        n2_real: n2Misterio,
-        n2_alumno: parseFloat(userInputN2),
-        angulo_incidencia: get().optica7.anguloIncidencia
+        n1: optica.n1,
+        n2_real: optica.n2Misterio,
+        n2_alumno: parseFloat(optica.userInputN2),
+        angulo_incidencia: optica.anguloIncidencia,
       });
       stopTimer();
       setPasoActual(3);
@@ -265,15 +251,15 @@ export const createMatematicasSlice: StateCreator<SimuladorState, [], [], Matema
   setMostrarDerivadaM8: (val: boolean) => set((state) => ({ derivada8: { ...state.derivada8, mostrarDerivada: val } })),
   setDerivada8: (data: Partial<SimuladorState['derivada8']>) => set((state) => ({ derivada8: { ...state.derivada8, ...data } })),
   validarM8: () => {
-    const { xActual } = get().derivada8;
-    const isOk = Math.abs(xActual * xActual - 4 * xActual + 3) <= 0.05;
+    const derivada = get().derivada8;
+    const isOk = MatDomain.validarM8(derivada);
     if (isOk) {
       const { registrarHallazgo, stopTimer, setPasoActual } = get();
       registrarHallazgo('mat_derivada_tangente', {
-        x_critico_real: 1.0, // O 3.0 según la función f(x) = x^3/3 - 2x^2 + 3x
-        x_alumno: xActual,
+        x_critico_real: 1.0,
+        x_alumno: derivada.xActual,
         valor_derivada: 0,
-        estado: 'OPTIMIZADO'
+        estado: 'OPTIMIZADO',
       });
       stopTimer();
       setPasoActual(3);
@@ -285,13 +271,13 @@ export const createMatematicasSlice: StateCreator<SimuladorState, [], [], Matema
   setIntegralM9: (n: number, metodo: 'izquierda' | 'derecha' | 'punto_medio') => set((state) => ({ integral9: { ...state.integral9, n, metodo } })),
   setAnimandoM9: (val: boolean) => set((state) => ({ integral9: { ...state.integral9, animandoLimite: val } })),
   validarM9: (err: number) => {
-    const isOk = err < 0.5;
+    const isOk = MatDomain.validarM9(err);
     if (isOk) {
       const { registrarHallazgo, stopTimer, setPasoActual } = get();
       registrarHallazgo('mat_integral_riemann', {
         rectangulos_n: get().integral9.n,
         metodo: get().integral9.metodo,
-        error_residual: err
+        error_residual: err,
       });
       stopTimer();
       setPasoActual(3);
@@ -316,15 +302,14 @@ export const createMatematicasSlice: StateCreator<SimuladorState, [], [], Matema
   })),
   vaciarGaltonM10: () => set((state) => ({ galton10: { ...state.galton10, contenedores: new Array(11).fill(0), status: 'idle' } })),
   validarM10: () => {
-    const { contenedores } = get().galton10;
-    const total = contenedores.reduce((a, b) => a + b, 0);
-    const isOk = total >= 200;
+    const galton = get().galton10;
+    const isOk = MatDomain.validarM10(galton);
     if (isOk) {
       const { registrarHallazgo, stopTimer, setPasoActual } = get();
       registrarHallazgo('mat_galton_probabilidad', {
-        probabilidad_p: get().galton10.probabilidad,
-        total_bolitas: total,
-        distribucion: contenedores
+        probabilidad_p: galton.probabilidad,
+        total_bolitas: galton.contenedores.reduce((a: number, b: number) => a + b, 0),
+        distribucion: galton.contenedores,
       });
       stopTimer();
       setPasoActual(3);
