@@ -11,11 +11,13 @@ export interface QuizQuestion {
 export interface BitacoraEntry {
   tipo: string;
   timestamp: string;
-  data: any;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  data: Record<string, any>;
 }
 
 export interface BitacoraData {
   hallazgos: BitacoraEntry[];
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   [key: string]: any;
 }
 
@@ -60,7 +62,8 @@ export interface SimuladorState {
   updateScore: (points: number) => void;
   setPasoActual: (paso: number) => void;
   setBitacora: (data: BitacoraData) => void;
-  registrarHallazgo: (tipo: string, data: any) => void;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  registrarHallazgo: (tipo: string, data: Record<string, any>) => void;
   unlockBadge: (badgeId: string) => void;
   language: 'es' | 'en';
   setLanguage: (lang: 'es' | 'en') => void;
@@ -112,9 +115,10 @@ export interface SimuladorState {
   setGasesMission: (missionId: 'sandbox' | 'boyle' | 'charles' | 'gaylussac' | 'avogadro') => void;
   setGasType: (type: 'He' | 'Ne' | 'CO2') => void;
 
-  balanceo: { 
-    reaccionActual: number; 
-    reacciones: any[]; 
+  balanceo: {
+    reaccionActual: number;
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    reacciones: any[];
     coeficientes: number[]; 
     isBalanced: boolean; 
     atomosReactivos: Record<string, number>;
@@ -127,8 +131,9 @@ export interface SimuladorState {
   setReaccion: (index: number) => void;
   resetBalanceo: () => void;
 
-  limitante: { 
-    reaccionActual: number; 
+  limitante: {
+    reaccionActual: number;
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     reacciones: any[];
     inputMasses: number[];
     targetYield: number;
@@ -172,6 +177,7 @@ export interface SimuladorState {
     ubicacion: 'mesa' | 'parrilla' | 'hielo'; 
     status: 'idle' | 'heating' | 'cooling' | 'success' | 'error'; 
     sustanciaIdx: number;
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     sustancias: any[];
   };
   setUbicacionVaso: (loc: 'mesa' | 'parrilla' | 'hielo') => void;
@@ -480,12 +486,14 @@ export interface SimuladorState {
   generarSemillaB4: () => void;
   resetB4: () => void;
 
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   genetica: { padre1: string; padre2: string; poblacionF1: any[]; tamanioMuestra: number; status: 'idle' | 'success' | 'error'; };
   setGenetica: (data: Partial<SimuladorState['genetica']>) => void;
   validarB5: () => boolean;
   generarF1: () => void;
   resetB5: () => void;
 
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   evolucion: { ambiente: 'limpio' | 'industrial'; generacion: number; clara: number; oscura: number; cazadasClaras: number; cazadasOscuras: number; tiempo: number; isRunning: boolean; historial: { gen: number; clara: number; oscura: number }[]; bugs: any[]; status: 'idle' | 'success' | 'error'; };
   setEvolucion: (data: Partial<SimuladorState['evolucion']>) => void;
   tickEvolucion: (dt: number) => void;

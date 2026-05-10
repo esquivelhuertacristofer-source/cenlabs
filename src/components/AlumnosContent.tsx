@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import Sidebar from "@/components/Sidebar";
 import { useAppContext } from "@/context/AppContext";
 import StudentProfileModal from "@/components/StudentProfileModal";
-import { Search, Filter, UserPlus, MoreHorizontal, Users, FileDown, Loader2 } from "lucide-react";
+import { Search, Filter, UserPlus, MoreHorizontal, Users, FileDown, Loader2, Layout, BarChart3 } from "lucide-react";
 import { supabase } from "@/lib/supabase";
 import { generateGroupReport } from "@/lib/reportUtils";
 
@@ -14,6 +14,7 @@ export default function AlumnosContent() {
   const [selectedStudent, setSelectedStudent] = useState<any>(null);
   const [allStudents, setAllStudents] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+  const [viewMode, setViewMode] = useState<'cards' | 'grid'>('cards');
 
   useEffect(() => {
     async function fetchStudents() {
@@ -170,6 +171,23 @@ export default function AlumnosContent() {
           </div>
           
           <div className="flex items-center gap-3">
+            <div className="flex items-center bg-white/50 backdrop-blur-md p-1 rounded-2xl border border-white shadow-sm mr-2">
+              <button 
+                onClick={() => setViewMode('cards')}
+                className={`flex items-center gap-2 px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${viewMode === 'cards' ? 'bg-[#023047] text-white shadow-lg' : 'text-[#023047]/40 hover:text-[#023047]'}`}
+              >
+                <Layout className="h-3.5 w-3.5" />
+                Fichas
+              </button>
+              <button 
+                onClick={() => setViewMode('grid')}
+                className={`flex items-center gap-2 px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${viewMode === 'grid' ? 'bg-[#023047] text-white shadow-lg' : 'text-[#023047]/40 hover:text-[#023047]'}`}
+              >
+                <BarChart3 className="h-3.5 w-3.5" />
+                Malla
+              </button>
+            </div>
+            
             <button className="flex items-center gap-2 rounded-xl border border-white bg-white/50 px-5 py-3 text-[10px] font-black uppercase tracking-widest text-[#023047]/60 hover:bg-white hover:text-[#023047] transition-all shadow-sm">
               <Filter className="h-4 w-4" />
               Más Filtros
@@ -186,7 +204,7 @@ export default function AlumnosContent() {
             <Loader2 className="h-12 w-12 animate-spin text-primary opacity-20" />
             <p className="text-xs font-black uppercase tracking-widest text-[#023047]/40">Sincronizando con Supabase...</p>
           </div>
-        ) : (
+        ) : viewMode === 'cards' ? (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-8">
             {filteredStudents.map((student) => (
               <div
@@ -238,6 +256,8 @@ export default function AlumnosContent() {
               </div>
             ))}
           </div>
+        ) : (
+          <ProgressGrid students={filteredStudents} />
         )}
 
         {!loading && filteredStudents.length === 0 && (
@@ -258,6 +278,92 @@ export default function AlumnosContent() {
           onClose={() => setSelectedStudent(null)}
         />
       </main>
+    </div>
+  );
+}
+
+// ─── Sub-component: ProgressGrid ─────────────────────────────────────────────
+
+function ProgressGrid({ students }: { students: any[] }) {
+  // Define the 40 labs organized by subject
+  const subjects = [
+    { name: 'Química', prefix: 'QMI', count: 10, color: 'text-emerald-500' },
+    { name: 'Física', prefix: 'FIS', count: 10, color: 'text-blue-500' },
+    { name: 'Biología', prefix: 'BIO', count: 10, color: 'text-amber-500' },
+    { name: 'Matemáticas', prefix: 'MAT', count: 10, color: 'text-purple-500' },
+  ];
+
+  return (
+    <div className="w-full overflow-x-auto rounded-[3rem] border border-white bg-white/50 backdrop-blur-xl shadow-sm">
+      <table className="w-full border-collapse">
+        <thead>
+          <tr className="border-b border-[#023047]/5">
+            <th className="sticky left-0 z-20 bg-white/80 p-6 text-left text-[10px] font-black uppercase tracking-widest text-[#023047]/40 backdrop-blur-md">Alumno</th>
+            {subjects.map(sub => (
+              <th key={sub.name} colSpan={sub.count} className={`p-4 text-center text-[10px] font-black uppercase tracking-[0.3em] border-l border-[#023047]/5 ${sub.color}`}>
+                {sub.name}
+              </th>
+            ))}
+          </tr>
+          <tr className="border-b border-[#023047]/5">
+             <th className="sticky left-0 z-20 bg-white/80 p-2 backdrop-blur-md"></th>
+             {subjects.map(sub => 
+               Array.from({ length: sub.count }).map((_, i) => (
+                 <th key={`${sub.prefix}-${i+1}`} className="p-2 text-[8px] font-black text-[#023047]/30 border-l border-[#023047]/5 min-w-[32px]">
+                   {i + 1}
+                 </th>
+               ))
+             )}
+          </tr>
+        </thead>
+        <tbody>
+          {students.map((student) => (
+            <tr key={student.id} className="border-b border-[#023047]/5 hover:bg-[#023047]/5 transition-colors group">
+              <td className="sticky left-0 z-10 bg-white/80 group-hover:bg-slate-50/80 p-6 backdrop-blur-md min-w-[200px]">
+                <div className="flex items-center gap-3">
+                   <div className={`w-8 h-8 rounded-lg ${student.color} flex items-center justify-center text-[10px] font-black text-white shadow-sm`}>
+                     {student.initials}
+                   </div>
+                   <span className="text-xs font-bold text-[#023047] truncate">{student.name}</span>
+                </div>
+              </td>
+              {subjects.map(sub => 
+                Array.from({ length: sub.count }).map((_, i) => {
+                  const simId = `${sub.prefix.toLowerCase()}-${i+1}`;
+                  const attempt = student.practices.find((p: any) => p.name.toLowerCase() === simId);
+                  
+                  let statusColor = 'bg-slate-100'; // Not started
+                  let tooltip = 'Pendiente';
+
+                  if (attempt) {
+                    if (attempt.status === 'completada' && (attempt.score || 0) >= 6) {
+                      statusColor = 'bg-emerald-500 shadow-[0_0_10px_rgba(16,185,129,0.4)]';
+                      tooltip = `Aprobado: ${attempt.score}/10`;
+                    } else {
+                      statusColor = 'bg-amber-400 shadow-[0_0_10px_rgba(251,191,36,0.4)]';
+                      tooltip = `En proceso: ${attempt.score || 0}/10`;
+                    }
+                  }
+
+                  return (
+                    <td key={simId} className="p-2 text-center border-l border-[#023047]/5">
+                      <div className="group/cell relative flex justify-center">
+                        <div className={`h-4 w-4 rounded-full transition-transform hover:scale-150 cursor-help ${statusColor}`} />
+                        {/* Simple Tooltip */}
+                        <div className="absolute bottom-full mb-2 hidden group-hover/cell:block z-30 pointer-events-none">
+                            <div className="bg-[#023047] text-white text-[8px] font-black uppercase tracking-widest px-3 py-1.5 rounded-lg shadow-xl whitespace-nowrap">
+                                {sub.name} {i+1}: {tooltip}
+                            </div>
+                        </div>
+                      </div>
+                    </td>
+                  );
+                })
+              )}
+            </tr>
+          ))}
+        </tbody>
+      </table>
     </div>
   );
 }

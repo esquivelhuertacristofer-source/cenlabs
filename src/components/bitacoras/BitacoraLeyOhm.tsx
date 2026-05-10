@@ -57,9 +57,9 @@ export default function BitacoraLeyOhm({ onValidate }: { onValidate?: () => void
           <div className="text-[11px] text-slate-500 font-medium mb-6 leading-relaxed space-y-2">
             <p>Presiona el botón para recibir instrucciones sobre la relación entre Voltaje, Corriente y Resistencia.</p>
             <div className="bg-slate-50 p-3 rounded-xl text-center border border-slate-100 text-[#023047]">
-               <InlineMath math="V = I \cdot R" />
+               <span role="math" aria-label="V es igual a I por R (Ley de Ohm)"><InlineMath math="V = I \cdot R" /></span>
                <span className="mx-4 text-slate-300">|</span>
-               <InlineMath math="P = I^2 \cdot R" />
+               <span role="math" aria-label="P es igual a I al cuadrado por R (Potencia eléctrica)"><InlineMath math="P = I^2 \cdot R" /></span>
             </div>
           </div>
           

@@ -44,7 +44,7 @@ export const useSimuladorStore = create<SimuladorState>()(
     {
       name: 'cen-sim-v10',
       merge: deepMergeState,
-      partialize: (state: any) => {
+      partialize: (state: SimuladorState) => {
         // Slice off fields that must NOT be persisted:
         //   - reacciones/sustancias: large constant arrays already in slice code
         //   - history/historial/bugs: ephemeral display-only data

@@ -316,8 +316,8 @@ export default function MissionBriefing({ config, onStart }: MissionBriefingProp
               >
                 <Lightbulb size={16} className="shrink-0 mt-0.5" style={{ color: acento }} />
                 <p className="text-[11px] font-bold leading-relaxed" style={{ color: `${acento}CC` }}>
-                  Tip del Dr. Quantum: Antes de ajustar los controles, calcula mentalmente el discriminante {mounted && <InlineMath math="\Delta = b^2 - 4ac" />}. 
-                  Si {mounted && <InlineMath math="\Delta > 0" />} habrá dos cortes reales; si {mounted && <InlineMath math="\Delta < 0" />} entraremos en el plano complejo. 
+                  Tip del Dr. Quantum: Antes de ajustar los controles, calcula mentalmente el discriminante {mounted && <span role="math" aria-label="delta es igual a b al cuadrado menos 4 a c"><InlineMath math="\Delta = b^2 - 4ac" /></span>}.
+                  Si {mounted && <span role="math" aria-label="delta mayor que cero"><InlineMath math="\Delta > 0" /></span>} habrá dos cortes reales; si {mounted && <span role="math" aria-label="delta menor que cero"><InlineMath math="\Delta < 0" /></span>} entraremos en el plano complejo. 
                   ¡Predice el comportamiento antes de experimentar!
                 </p>
               </div>

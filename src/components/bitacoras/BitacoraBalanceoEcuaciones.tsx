@@ -139,7 +139,7 @@ export default function BitacoraBalanceoEcuaciones({ onValidate }: { onValidate?
                <div key={idx} className="p-4 bg-slate-50 rounded-2xl border border-slate-100 flex items-center justify-between group hover:border-cyan-200 transition-colors">
                   <div className="flex flex-col">
                      <span className="text-sm font-black text-[#023047]">
-                        <InlineMath math={toLatex(mol.formula)} />
+                        <span role="math" aria-label={mol.formula}><InlineMath math={toLatex(mol.formula)} /></span>
                      </span>
                      <span className="text-[8px] font-bold text-slate-400 uppercase">{mol.molar} g/mol</span>
                   </div>
@@ -169,7 +169,7 @@ export default function BitacoraBalanceoEcuaciones({ onValidate }: { onValidate?
                  <div key={gIdx} className="p-4 bg-slate-50 rounded-2xl border border-slate-100 flex items-center justify-between group hover:border-orange-200 transition-colors">
                     <div className="flex flex-col">
                        <span className="text-sm font-black text-orange-600">
-                          <InlineMath math={toLatex(mol.formula)} />
+                          <span role="math" aria-label={mol.formula}><InlineMath math={toLatex(mol.formula)} /></span>
                        </span>
                        <span className="text-[8px] font-bold text-slate-400 uppercase">{mol.molar} g/mol</span>
                     </div>
