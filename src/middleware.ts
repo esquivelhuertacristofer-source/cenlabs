@@ -9,7 +9,7 @@ const SECURITY_HEADERS: Record<string, string> = {
   'Permissions-Policy': 'camera=(), microphone=(), geolocation=()',
 };
 
-const PROTECTED_PREFIXES = ['/alumno', '/admin'];
+const PROTECTED_PREFIXES = ['/alumno', '/admin', '/laboratorios', '/planeamiento', '/auditoria', '/alumnos'];
 
 function applySecurityHeaders(response: NextResponse) {
   Object.entries(SECURITY_HEADERS).forEach(([key, value]) => {

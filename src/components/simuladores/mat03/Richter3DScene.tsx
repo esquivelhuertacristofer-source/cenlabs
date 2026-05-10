@@ -129,12 +129,7 @@ function GroundPlane({ magnitud, isLightMode }: { magnitud: number, isLightMode:
 
 // ── GROUND CRACK (glowing fissure) ──
 function GroundCrack({ magnitud, isLightMode }: { magnitud: number, isLightMode: boolean }) {
-  if (magnitud < 5) return null;
-  const crackWidth = (magnitud - 5) * 0.08;
-  const crackLength = 4 + (magnitud - 5) * 4;
-  const intensity = Math.min((magnitud - 5) / 4, 1);
-  const color = magnitud > 7 ? (isLightMode ? "#9f1239" : "#ef4444") : (isLightMode ? "#9a3412" : "#fb923c");
-  
+  const crackLength = magnitud >= 5 ? 4 + (magnitud - 5) * 4 : 0;
   const crackPoints = useMemo(() => {
     const pts: THREE.Vector3[] = [];
     for (let i = 0; i <= 30; i++) {
@@ -144,6 +139,11 @@ function GroundCrack({ magnitud, isLightMode }: { magnitud: number, isLightMode:
     }
     return pts;
   }, [crackLength]);
+
+  if (magnitud < 5) return null;
+  const crackWidth = (magnitud - 5) * 0.08;
+  const intensity = Math.min((magnitud - 5) / 4, 1);
+  const color = magnitud > 7 ? (isLightMode ? "#9f1239" : "#ef4444") : (isLightMode ? "#9a3412" : "#fb923c");
 
   return (
     <group>

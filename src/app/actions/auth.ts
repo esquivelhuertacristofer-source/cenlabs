@@ -12,8 +12,6 @@ export async function ensureProfileServer(userId: string, email: string, metadat
     const role = metadata.role || 'alumno';
     const fullName = metadata.full_name || 'Usuario';
 
-    console.log(`[Server Action] Asegurando perfil para: ${email} (${role})`);
-
     const { data, error } = await adminClient
       .from('profiles')
       .upsert({

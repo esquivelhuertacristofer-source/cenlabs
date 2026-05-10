@@ -26,8 +26,6 @@ export default function PilotoTransporteCelular() {
     return isNaN(n) ? "0.00" : n.toFixed(d);
   };
 
-  if (!transporte) return <div className="w-full h-full bg-[#020617] flex items-center justify-center text-white font-black uppercase tracking-widest">Cargando Núcleo de Simulación...</div>;
-
   const concExt = transporte?.concExt ?? 0.3;
   const glucosaExt = transporte?.glucosaExt ?? 0.0;
   const temperatura = transporte?.temperatura ?? 25;
@@ -64,6 +62,8 @@ export default function PilotoTransporteCelular() {
     const interval = setInterval(() => store.tickTransporte(0.1), 100);
     return () => clearInterval(interval);
   }, [store?.tickTransporte]);
+
+  if (!transporte) return <div className="w-full h-full bg-[#020617] flex items-center justify-center text-white font-black uppercase tracking-widest">Cargando Núcleo de Simulación...</div>;
 
   return (
     <div className={`w-full h-full bg-[#020617] font-['Outfit'] text-white overflow-hidden relative transition-all duration-700 ${isCritical ? 'bg-red-950/20' : ''}`}>

@@ -1,7 +1,7 @@
 import { StateCreator } from 'zustand';
-import { SimuladorState } from '../types';
+import { SimuladorState, MatematicasSlice } from '../types';
 
-export const createMatematicasSlice: StateCreator<SimuladorState, [], [], any> = (set, get) => ({
+export const createMatematicasSlice: StateCreator<SimuladorState, [], [], MatematicasSlice> = (set, get) => ({
   cuadraticas: { 
     a: 1, b: 0, c: 0, 
     target: { a: 2, b: -2, c: -3 }, 
@@ -263,6 +263,7 @@ export const createMatematicasSlice: StateCreator<SimuladorState, [], [], any> =
   resetM7: () => set((state) => ({ optica7: { ...state.optica7, n1: 1.0, n2: 'misterio', anguloIncidencia: 45, userInputN2: '', status: 'idle' } })),
   setXActualM8: (x: number) => set((state) => ({ derivada8: { ...state.derivada8, xActual: x } })),
   setMostrarDerivadaM8: (val: boolean) => set((state) => ({ derivada8: { ...state.derivada8, mostrarDerivada: val } })),
+  setDerivada8: (data: Partial<SimuladorState['derivada8']>) => set((state) => ({ derivada8: { ...state.derivada8, ...data } })),
   validarM8: () => {
     const { xActual } = get().derivada8;
     const isOk = Math.abs(xActual * xActual - 4 * xActual + 3) <= 0.05;
@@ -331,14 +332,26 @@ export const createMatematicasSlice: StateCreator<SimuladorState, [], [], any> =
     set((state) => ({ galton10: { ...state.galton10, status: isOk ? 'success' : 'error' } }));
     return isOk;
   },
-  resetM10: () => set((state) => ({ 
-    galton10: { 
-      poblacion: 100, 
-      probabilidad: 0.50, 
-      simulando: false, 
-      contenedores: new Array(11).fill(0), 
+  resetM10: () => set((state) => ({
+    galton10: {
+      poblacion: 100,
+      probabilidad: 0.50,
+      simulando: false,
+      contenedores: new Array(11).fill(0),
       bolitasPendientes: 0,
-      status: 'idle' 
-    } 
+      status: 'idle'
+    }
   })),
+  resetMatematicas: () => {
+    get().resetM1();
+    get().resetM2();
+    get().resetM3();
+    get().resetM4();
+    get().resetM5();
+    get().resetM6();
+    get().resetM7();
+    get().resetM8();
+    get().resetM9();
+    get().resetM10();
+  },
 });

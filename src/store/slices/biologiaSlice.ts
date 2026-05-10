@@ -1,7 +1,7 @@
 import { StateCreator } from 'zustand';
-import { SimuladorState } from '../types';
+import { SimuladorState, BiologiaSlice } from '../types';
 
-export const createBiologiaSlice: StateCreator<SimuladorState, [], [], any> = (set, get) => ({
+export const createBiologiaSlice: StateCreator<SimuladorState, [], [], BiologiaSlice> = (set, get) => ({
   microscopio: { 
     muestra: 'vegetal', 
     objetivoMag: 4, 
@@ -519,7 +519,19 @@ export const createBiologiaSlice: StateCreator<SimuladorState, [], [], any> = (s
   tomarCaptura: (url: string) => set((state) => ({ 
     microscopio: { 
       ...state.microscopio, 
-      capturas: [url, ...state.microscopio.capturas].slice(0, 6) 
-    } 
+      capturas: [url, ...state.microscopio.capturas].slice(0, 6)
+    }
   })),
+  resetBiologia: () => {
+    get().resetB1();
+    get().resetB2();
+    get().resetB3();
+    get().resetB4();
+    get().resetB5();
+    get().resetB6();
+    get().resetB7();
+    get().resetB8();
+    get().resetB9();
+    get().resetB10();
+  },
 });

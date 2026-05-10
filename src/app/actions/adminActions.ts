@@ -34,14 +34,16 @@ export interface OnboardUser {
  * Motor de Fábrica de Usuarios: Procesa una lista de nombres y crea la infraestructura.
  */
 export async function onboardInstitutionalUsers(
-  names: string[], 
-  groupId: string | null, 
+  names: string[],
+  groupId: string | null,
   role: "alumno" | "profesor",
-  customPassword?: string
+  customPassword: string
 ) {
-  console.log(`[AdminAction] Iniciando Fábrica de Usuarios para ${names.length} nombres...`);
+  if (!customPassword || customPassword.trim().length < 8) {
+    throw new Error('Se requiere una contraseña de al menos 8 caracteres.');
+  }
   const admin = getAdminClient();
-  const password = customPassword || "CenLabs2026Password!";
+  const password = customPassword.trim();
   
   const results = {
     success: [] as { name: string; email: string }[],
@@ -56,7 +58,7 @@ export async function onboardInstitutionalUsers(
 
     try {
       // 1. Crear en Auth
-      const { data, error: authError } = await admin.auth.admin.createUser({
+      const { error: authError } = await admin.auth.admin.createUser({
         email,
         password,
         email_confirm: true,

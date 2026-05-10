@@ -11,7 +11,7 @@ import {
 } from "lucide-react";
 import { onboardInstitutionalUsers } from "../../actions/adminActions";
 import { supabase } from "@/lib/supabase-browser";
-import { getCurrentProfile, ensureProfile } from "@/lib/supabase";
+import { getCurrentProfile } from "@/lib/supabase";
 import { useRouter } from "next/navigation";
 import jsPDF from "jspdf";
 
@@ -28,6 +28,7 @@ export default function AdminUsersPage() {
   const [namesText, setNamesText] = useState("");
   const [selectedGroup, setSelectedGroup] = useState("");
   const [role, setRole] = useState<"alumno" | "profesor">("alumno");
+  const [customPassword, setCustomPassword] = useState("");
   const [groups, setGroups] = useState<Group[]>([]);
   const [isProcessing, setIsProcessing] = useState(false);
   const [results, setResults] = useState<{ success: {name: string, email: string}[]; errors: any[] } | null>(null);
@@ -37,20 +38,16 @@ export default function AdminUsersPage() {
   // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
   useEffect(() => {
     const checkAccess = async () => {
-      const { data: { session } } = await supabase.auth.getSession();
-      
-      if (!session) {
+      const { data: { user: authUser }, error: authError } = await supabase.auth.getUser();
+
+      if (!authUser || authError) {
         router.replace("/login");
         return;
       }
-      
-      let profile = await getCurrentProfile();
-      if (!profile) {
-        profile = await ensureProfile(session.user.id, session.user.email || '', session.user.user_metadata);
-      }
+
+      const profile = await getCurrentProfile();
 
       if (!profile || profile.role !== 'admin') {
-        // No es admin: expulsado silenciosamente al login
         await supabase.auth.signOut();
         router.replace("/login");
         return;
@@ -71,13 +68,14 @@ export default function AdminUsersPage() {
     const namesArray = namesText.split('\n').map(n => n.trim()).filter(n => n !== "");
     if (namesArray.length === 0) return alert("Por favor escribe o pega al menos un nombre.");
     if (!selectedGroup && role === 'alumno') return alert("Por favor selecciona un grupo de destino.");
+    if (!customPassword || customPassword.trim().length < 8) return alert("Define una contraseña de al menos 8 caracteres para este lote.");
 
     setIsProcessing(true);
     try {
-      const res = await onboardInstitutionalUsers(namesArray, selectedGroup || null, role);
+      const res = await onboardInstitutionalUsers(namesArray, selectedGroup || null, role, customPassword.trim());
       setResults(res);
-    } catch {
-      alert("Error: Verifica que el SERVICE_ROLE_KEY esté configurado.");
+    } catch (err: any) {
+      alert(`Error: ${err.message || "Verifica que el SERVICE_ROLE_KEY esté configurado."}`);
     } finally {
       setIsProcessing(false);
     }
@@ -113,19 +111,23 @@ export default function AdminUsersPage() {
     
     doc.setFont("helvetica", "bold");
     doc.text("NOMBRE COMPLETO", 10, 42);
-    doc.text("CORREO INSTITUCIONAL", 80, 42);
-    doc.text("CONTRASEÑA", 155, 42);
+    doc.text("CORREO INSTITUCIONAL", 110, 42);
     doc.line(10, 45, 200, 45);
-    
+
     doc.setFont("helvetica", "normal");
     let y = 52;
     results.success.forEach((user) => {
       if (y > 275) { doc.addPage(); y = 20; }
-      doc.text(user.name.substring(0, 35), 10, y);
-      doc.text(user.email.substring(0, 45), 80, y);
-      doc.text("CenLabs2026Password!", 155, y);
+      doc.text(user.name.substring(0, 50), 10, y);
+      doc.text(user.email.substring(0, 55), 110, y);
       y += 8;
     });
+
+    const pageCount = (doc as any).internal.getNumberOfPages();
+    doc.setPage(pageCount);
+    doc.setFontSize(8);
+    doc.setTextColor(150);
+    doc.text("La contraseña fue definida por el administrador al crear este lote. No se almacena en este documento.", 10, 285);
 
     doc.save(`Accesos_${groupName}_${new Date().toISOString().slice(0,10)}.pdf`);
   };
@@ -202,6 +204,16 @@ export default function AdminUsersPage() {
                   <option value="alumno">Alumno</option>
                   <option value="profesor">Profesor</option>
                 </select>
+              </div>
+              <div className="flex-1 min-w-[200px]">
+                <label className="block text-xs font-black uppercase text-gray-400 mb-2">Contraseña del Lote <span className="text-red-400">*</span></label>
+                <input
+                  type="password"
+                  value={customPassword}
+                  onChange={(e) => setCustomPassword(e.target.value)}
+                  placeholder="Mínimo 8 caracteres"
+                  className="w-full bg-gray-50 border border-gray-200 rounded-xl px-4 py-3 font-bold text-[#023047] focus:ring-2 focus:ring-[#FB8500] outline-none"
+                />
               </div>
               <div>
                 <label className="block text-xs font-black uppercase text-gray-400 mb-2">Desde CSV</label>
@@ -310,7 +322,7 @@ export default function AdminUsersPage() {
               </div>
               <div className="mt-6 pt-6 border-t border-gray-100">
                 <p className="text-[10px] text-gray-400 font-medium">
-                  <strong>Contraseña por defecto:</strong> CenLabs2026Password!<br/>
+                  <strong>Contraseña:</strong> Definida por el administrador por lote.<br/>
                   <strong>Dominio:</strong> @cenlaboratorios.com
                 </p>
               </div>

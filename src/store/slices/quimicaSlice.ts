@@ -1,5 +1,10 @@
 import { StateCreator } from 'zustand';
-import { SimuladorState } from '../types';
+import { SimuladorState, QuimicaSlice } from '../types';
+
+// Constantes físico-químicas
+const GAS_CONSTANT_R = 0.08206;      // L·atm/(mol·K)
+const MIN_VOLUME_L   = 0.1;          // litros — previene división por cero
+const EXPLOSION_THRESHOLD_ATM = 7.0; // presión máxima antes de fallo de cámara
 
 // --- REACCIONES CONSTANTES (Fuera del slice para estabilidad y reparación) ---
 // Enriquecidas con datos de nivel Licenciatura (Masa Molar)
@@ -155,14 +160,14 @@ export const SUSTANCIAS_SOLUCIONES = [
   { nombre: "Dicromato de Potasio", formula: "K2Cr2O7", pm: 294.185, purity: 0.97, color: "#f97316" }
 ];
 
-export const createQuimicaSlice: StateCreator<SimuladorState, [], [], any> = (set, get) => ({
+export const createQuimicaSlice: StateCreator<SimuladorState, [], [], QuimicaSlice> = (set, get) => ({
   particulas: { 
     protones: 0, neutrones: 0, electrones: 0, 
     targetZ: 6, targetA: 14, targetCharge: 0,
     intentos: 0, estrellas: 3,
     isStable: true, message: "" 
   },
-  gases: { T: 300, V: 10, P: 1.0, n: 0.406, pTarget: 3.5, isExploded: false, gasType: 'Argón', mw: 39.948 },
+  gases: { missionId: 'sandbox', T: 300, V: 10, P: 1.0, n: 0.406, pTarget: 3.5, isExploded: false, gasType: 'Argón', mw: 39.948 },
   balanceo: { 
     reaccionActual: 0,
     reacciones: REACCIONES_BALANCEO,
@@ -261,11 +266,10 @@ export const createQuimicaSlice: StateCreator<SimuladorState, [], [], any> = (se
   })),
   updateGases: (t: number, v: number, n?: number) => set((state) => {
     if (state.gases.isExploded) return state;
-    const R = 0.08206;
     const currentN = n !== undefined ? n : state.gases.n;
-    const safeV = Math.max(0.1, v); // Protección división por cero
-    const computedP = (currentN * R * t) / safeV;
-    const willExplode = computedP > 7.0;
+    const safeV = Math.max(MIN_VOLUME_L, v);
+    const computedP = (currentN * GAS_CONSTANT_R * t) / safeV;
+    const willExplode = computedP > EXPLOSION_THRESHOLD_ATM;
     return { 
       gases: { 
         ...state.gases, 
@@ -769,6 +773,18 @@ export const createQuimicaSlice: StateCreator<SimuladorState, [], [], any> = (se
     return isOk;
   },
   resetP10: () => set((state) => ({ destilacion: { calorManta: 20, tempMezcla: 20, volEtanolMatraz: 100, volAguaMatraz: 100, volDestilado: 0, purezaDestilado: 0, status: 'idle' } })),
+  resetQuimica: () => {
+    get().resetParticulas();
+    get().resetGases();
+    get().resetBalanceo();
+    get().resetP4();
+    get().resetP5();
+    get().resetP6();
+    get().resetP7();
+    get().resetP8();
+    get().resetP9();
+    get().resetP10();
+  },
 });
 
 // Helper de cálculo Electroquímico (Fuera del slice)

@@ -13,8 +13,15 @@
 import { NextRequest, NextResponse } from 'next/server';
 import crypto from 'crypto';
 import { createClient } from '@supabase/supabase-js';
+import { validatePracticaId, validateScore } from '@/utils/validators';
 
 export const dynamic = 'force-dynamic';
+
+// Singleton por warm start — evita re-crear el cliente en cada request
+const serverClient = createClient(
+  process.env.NEXT_PUBLIC_SUPABASE_URL!,
+  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+);
 
 // ============================================
 // RATE LIMITING (In-Memory)
@@ -47,15 +54,6 @@ function checkRateLimit(ip: string): { allowed: boolean; remaining: number; rese
 function hashIP(ip: string): string {
     const salt = process.env.IP_SALT || 'cen-labs-salt';
     return crypto.createHash('sha256').update(ip + salt).digest('hex').substring(0, 16);
-}
-
-function validatePracticaId(practicaId: string): boolean {
-    const regex = /^(quimica|fisica|matematicas|biologia)-\d{1,2}$/;
-    return regex.test(practicaId);
-}
-
-function validateScore(score: number): boolean {
-    return typeof score === 'number' && score >= 0 && score <= 100;
 }
 
 // ============================================
@@ -93,9 +91,6 @@ export async function POST(request: NextRequest) {
             return NextResponse.json({ success: false, error: 'No autorizado' }, { status: 401 });
         }
 
-        const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
-        const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
-        const serverClient = createClient(supabaseUrl, supabaseAnonKey);
         const { data: { user }, error: authError } = await serverClient.auth.getUser(token);
 
         if (authError || !user) {
@@ -147,9 +142,10 @@ export async function POST(request: NextRequest) {
         );
 
     } catch (error) {
-        console.error('[API/resultados] Error:', error);
+        const requestId = crypto.randomUUID();
+        console.error(`[API/resultados] Error (requestId=${requestId}):`, error);
         return NextResponse.json(
-            { success: false, error: 'Error interno del servidor' },
+            { success: false, error: 'Error interno del servidor', requestId },
             { status: 500 }
         );
     }

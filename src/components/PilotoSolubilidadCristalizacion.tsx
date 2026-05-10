@@ -84,8 +84,6 @@ export default function PilotoSolubilidadCristalizacion() {
 
 
 
-  if (!mounted) return null;
-
   // Fallback substances to avoid crashes if store state hasn't updated yet
   const sustanciasFallback = [
     { id: 'kno3', nombre: 'Nitrato de Potasio', formula: 'KNO₃', color: '#ffffff', a: 31.6, b: 0.02, desc: 'Alta dependencia térmica.' },
@@ -109,6 +107,8 @@ export default function PilotoSolubilidadCristalizacion() {
       audio?.playNotification();
     }
   }, [salSolida > 1, solubilidad.ubicacion === 'hielo']);
+
+  if (!mounted) return null;
 
   return (
     <div className="relative w-full h-full bg-[#020617] overflow-hidden flex flex-col items-center justify-center font-sans perspective-[2000px]">

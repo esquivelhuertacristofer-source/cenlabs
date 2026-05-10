@@ -174,7 +174,7 @@ const RUTAS_ESPECIALIZACION = [
 // ==========================================
 export default function AlumnoInicio() {
   const router = useRouter();
-  const { user, setUser, setSession, session } = useSimuladorStore();
+  const { user, setUser, setSession } = useSimuladorStore();
   
   const [quickResumeData, setQuickResumeData] = useState({ materia: "Química", modulo: "Electroquímica", path: "/alumno/simulador/quimica-9" });
   const [realProgress, setRealProgress] = useState<Record<string, number>>({
@@ -186,14 +186,15 @@ export default function AlumnoInicio() {
   
   useEffect(() => {
     const initAuth = async () => {
-      const { data: { session: currentSession } } = await supabase.auth.getSession();
-      
-      if (!currentSession) {
+      const { data: { user: authUser }, error: authError } = await supabase.auth.getUser();
+
+      if (!authUser || authError) {
         router.push("/login");
         return;
       }
 
-      setSession(currentSession);
+      const { data: { session: currentSession } } = await supabase.auth.getSession();
+      if (currentSession) setSession(currentSession);
       let currentUser = user;
       if (!user) {
         currentUser = await getCurrentProfile();
@@ -472,7 +473,7 @@ export default function AlumnoInicio() {
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-3 gap-10">
-            {RUTAS_ESPECIALIZACION.map((fac, i) => (
+            {RUTAS_ESPECIALIZACION.map((fac) => (
               <div 
                 key={fac.id} 
                 onClick={() => router.push(`/alumno/ruta/${fac.id}`)}

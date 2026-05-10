@@ -14,7 +14,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { Mail, MapPin, CheckCircle2, Clock, XCircle, FileText, BarChart3, TrendingUp, FileDown, Sparkles, Activity, Target, Zap, Clock4 } from "lucide-react";
+import { Mail, MapPin, CheckCircle2, Clock, XCircle, BarChart3, TrendingUp, FileDown, Sparkles, Activity, Zap } from "lucide-react";
 import { type PracticeRecord } from "@/lib/mockData";
 import { generateStudentReport, generateReinforcementReport } from "@/lib/reportUtils";
 
@@ -227,7 +227,6 @@ export default function StudentProfileModal({ student, isOpen, onClose }: Studen
                                       <button
                                         onClick={() => {
                                             // En una implementación real, esto abriría un desglose del JSONB
-                                            console.log("Bitácora Data:", practice.bitacora_data);
                                             alert("Desglose de Hallazgos:\n" + JSON.stringify(practice.bitacora_data || { info: "No hay datos detallados para esta versión de la práctica." }, null, 2));
                                         }}
                                         className="p-3 rounded-xl bg-dash-bg border border-dash-border text-primary hover:bg-primary/10 transition-all shadow-sm"

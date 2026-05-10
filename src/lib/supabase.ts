@@ -90,10 +90,12 @@ export async function getCurrentProfile(): Promise<Profile | null> {
 }
 
 /**
- * Helper: Asegurar que el perfil exista (Auto-reparación)
- * Si el perfil no existe, intenta crearlo usando la metadata del usuario.
+ * @deprecated Usa `ensureProfileServer` (server action en @/app/actions/auth.ts).
+ * Esta versión usa la anon key y falla si las políticas RLS impiden el upsert
+ * desde el cliente. Solo se mantiene por compatibilidad con tests legacy.
  */
 export async function ensureProfile(userId: string, email: string, metadata: any): Promise<Profile | null> {
+  console.warn('[Supabase] ensureProfile (anon key) está deprecado. Usa ensureProfileServer.');
   const role = metadata.role || 'alumno';
   const fullName = metadata.full_name || 'Usuario';
 
@@ -109,7 +111,7 @@ export async function ensureProfile(userId: string, email: string, metadata: any
     .single();
 
   if (error) {
-    console.error('[Supabase] Error en ensureProfile:', error.message);
+    console.error('[Supabase] Error en ensureProfile (anon key):', error.message);
     return null;
   }
 

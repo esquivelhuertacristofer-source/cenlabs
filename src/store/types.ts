@@ -1,12 +1,31 @@
+import { Session } from '@supabase/supabase-js';
 import { Profile } from '../lib/supabase';
+
+export interface QuizQuestion {
+  pregunta: string;
+  opciones: string[];
+  respuestaCorrecta: number;
+  explicacion: string;
+}
+
+export interface BitacoraEntry {
+  tipo: string;
+  timestamp: string;
+  data: any;
+}
+
+export interface BitacoraData {
+  hallazgos: BitacoraEntry[];
+  [key: string]: any;
+}
 
 export interface SimuladorState {
   // Auth & Sync
   user: Profile | null;
-  session: any | null;
+  session: Session | null;
   currentIntentoId: string | null;
   syncStatus: 'synced' | 'pending' | 'offline' | 'error';
-  setSession: (session: any) => void;
+  setSession: (session: Session | null) => void;
   setUser: (user: Profile | null) => void;
   setCurrentIntentoId: (id: string | null) => void;
   setSyncStatus: (status: 'synced' | 'pending' | 'offline' | 'error') => void;
@@ -16,7 +35,7 @@ export interface SimuladorState {
   isRunning: boolean;
   score: number;
   pasoActual: number;
-  bitacoraData: Record<string, any>;
+  bitacoraData: BitacoraData;
   badges: string[];
   audio: {
     playClick: () => void;
@@ -40,16 +59,20 @@ export interface SimuladorState {
   tick: () => void;
   updateScore: (points: number) => void;
   setPasoActual: (paso: number) => void;
-  setBitacora: (data: Record<string, any>) => void;
+  setBitacora: (data: BitacoraData) => void;
   registrarHallazgo: (tipo: string, data: any) => void;
   unlockBadge: (badgeId: string) => void;
   language: 'es' | 'en';
   setLanguage: (lang: 'es' | 'en') => void;
   resetPractica: () => void;
+  resetQuimica: () => void;
+  resetFisica: () => void;
+  resetBiologia: () => void;
+  resetMatematicas: () => void;
   showQuiz: boolean;
   setShowQuiz: (show: boolean) => void;
-  quizQuestions: any[];
-  setQuizQuestions: (questions: any[]) => void;
+  quizQuestions: QuizQuestion[];
+  setQuizQuestions: (questions: QuizQuestion[]) => void;
 
   // QUÍMICA
   particulas: { 
@@ -259,6 +282,15 @@ export interface SimuladorState {
   ejecutarDisparoF1: () => void;
   validarF1: () => boolean;
   resetF1: () => void;
+  resetF2: () => void;
+  resetF3: () => void;
+  resetF4: () => void;
+  resetF5: () => void;
+  resetF6: () => void;
+  resetF7: () => void;
+  resetF8: () => void;
+  resetF9: () => void;
+  resetF10: () => void;
 
   // MATEMÁTICAS
   cuadraticas: { 
@@ -501,3 +533,70 @@ export interface SimuladorState {
   validarB10: () => boolean;
   resetB10: () => void;
 }
+
+// ─── Slice type aliases for StateCreator 4th param ───────────────────────────
+export type CoreSlice = Pick<SimuladorState,
+  | 'user' | 'session' | 'currentIntentoId' | 'syncStatus'
+  | 'setSession' | 'setUser' | 'setCurrentIntentoId' | 'setSyncStatus'
+  | 'timer' | 'isRunning' | 'score' | 'pasoActual' | 'bitacoraData' | 'badges' | 'audio' | 'asistente' | 'language'
+  | 'setAsistente' | 'startTimer' | 'stopTimer' | 'resetTimer' | 'tick'
+  | 'updateScore' | 'setPasoActual' | 'setBitacora' | 'registrarHallazgo' | 'unlockBadge' | 'setLanguage'
+  | 'resetPractica' | 'showQuiz' | 'setShowQuiz' | 'quizQuestions' | 'setQuizQuestions'
+>;
+
+export type QuimicaSlice = Pick<SimuladorState,
+  | 'particulas' | 'setParticulas' | 'validarEstructura' | 'setTargetElement' | 'setTargetCharge' | 'resetParticulas'
+  | 'gases' | 'updateGases' | 'resetGases' | 'generarSemillaGases' | 'validarQ2' | 'validarQ3' | 'setGasesMission' | 'setGasType'
+  | 'balanceo' | 'setCoeficiente' | 'setReaccion' | 'resetBalanceo'
+  | 'limitante' | 'setReaccionLimitante' | 'setInputMass' | 'generarSemillaP4' | 'validarP4' | 'resetP4'
+  | 'soluciones' | 'generarSemillaP5' | 'addPolvo' | 'toggleTara' | 'transferirPolvo' | 'setAgua' | 'setHolding' | 'toggleJar' | 'setSal' | 'validarP5' | 'resetP5'
+  | 'solubilidad' | 'setUbicacionVaso' | 'setSustanciaSolubilidad' | 'addSalSolubilidad' | 'updateTemperaturaP6' | 'validarP6' | 'resetP6'
+  | 'titulacion' | 'generarSemillaP7' | 'addDropNaOH' | 'toggleIndicadorP7' | 'togglePurgaP7' | 'validarP7' | 'resetP7'
+  | 'equilibrio' | 'setUbicacionJeringa' | 'updateTemperaturaP8' | 'validarP8' | 'resetP8' | 'generarSemillaP8' | 'autoResolveP8'
+  | 'celda' | 'generarSemillaP9' | 'setMetalVaso' | 'togglePuenteSalino' | 'toggleCables' | 'validarP9' | 'resetP9'
+  | 'destilacion' | 'setCalorManta' | 'updateDestilacion' | 'validarP10' | 'resetP10'
+  | 'resetQuimica'
+>;
+
+export type FisicaSlice = Pick<SimuladorState,
+  | 'plano2' | 'setPlano2' | 'validarF2'
+  | 'pendulo3' | 'setPendulo3' | 'validarF3'
+  | 'hooke4' | 'setHooke4' | 'validarF4'
+  | 'prensa5' | 'setPrensa5' | 'validarF5'
+  | 'arquimedes6' | 'setArquimedes6' | 'validarF6'
+  | 'dilatacion7' | 'setDilatacion7' | 'validarF7'
+  | 'ohm8' | 'setOhm8' | 'validarF8'
+  | 'electrostatica9' | 'setElectrostatica9' | 'validarF9'
+  | 'motor10' | 'setMotor10' | 'validarF10'
+  | 'tiro1' | 'setTiro1' | 'generarSemillaF1' | 'ejecutarDisparoF1' | 'validarF1'
+  | 'resetF1' | 'resetF2' | 'resetF3' | 'resetF4' | 'resetF5' | 'resetF6' | 'resetF7' | 'resetF8' | 'resetF9' | 'resetF10'
+  | 'resetFisica'
+>;
+
+export type MatematicasSlice = Pick<SimuladorState,
+  | 'cuadraticas' | 'setCoefsM1' | 'generarSemillaM1' | 'validarM1' | 'registrarHallazgoM1' | 'resetM1' | 'setDeltaVerified' | 'setVertexVerified'
+  | 'sistemas2x2' | 'setSistemasCoefsM2' | 'generarSemillaM2' | 'validarM2' | 'resetM2'
+  | 'richter' | 'setMagnitudM3' | 'setUserInputM3' | 'toggleLogViewM3' | 'generarSemillaM3' | 'validarM3' | 'resetM3'
+  | 'pitagoras' | 'setCatetosM4' | 'setLlenadoM4' | 'setUserInputM4' | 'generarSemillaM4' | 'validarM4' | 'resetM4'
+  | 'trigonometria' | 'setAnguloM5' | 'setAnimandoM5' | 'setTogglesM5' | 'registrarHallazgoM5' | 'validarM5' | 'resetM5'
+  | 'geometria6' | 'setTransformM6' | 'generarSemillaM6' | 'validarM6' | 'resetM6'
+  | 'optica7' | 'setOpticaM7' | 'setUserInputM7' | 'generarSemillaM7' | 'validarM7' | 'resetM7'
+  | 'derivada8' | 'setXActualM8' | 'setMostrarDerivadaM8' | 'setDerivada8' | 'validarM8' | 'resetM8'
+  | 'integral9' | 'setIntegralM9' | 'setAnimandoM9' | 'validarM9' | 'resetM9'
+  | 'galton10' | 'setGaltonM10' | 'lanzarBolitasM10' | 'contarBolitaM10' | 'setSimulandoM10' | 'vaciarGaltonM10' | 'validarM10' | 'generarSemillaM10' | 'setGalton10' | 'resetM10'
+  | 'resetMatematicas'
+>;
+
+export type BiologiaSlice = Pick<SimuladorState,
+  | 'microscopio' | 'setMicroscopio' | 'generarSemillaB1' | 'validarB1' | 'resetB1' | 'tomarCaptura'
+  | 'transporte' | 'setTransporte' | 'tickTransporte' | 'generarSemillaB2' | 'validarB2' | 'resetB2'
+  | 'sintesis' | 'addNucleotido' | 'advanceRibosoma' | 'validarB3' | 'generarSemillaB3' | 'resetB3'
+  | 'fotosintesis' | 'setFotosintesis' | 'tickFotosintesis' | 'validarB4' | 'generarSemillaB4' | 'resetB4'
+  | 'genetica' | 'setGenetica' | 'validarB5' | 'generarF1' | 'resetB5'
+  | 'evolucion' | 'setEvolucion' | 'tickEvolucion' | 'cazarPolilla' | 'finalizarGeneracion' | 'validarB6' | 'resetB6'
+  | 'sistemaNervioso' | 'setB7State' | 'dispararReflejo' | 'validarB7' | 'generarSemillaB7' | 'resetB7'
+  | 'cardio' | 'setCardio' | 'generarSemillaB8' | 'validarB8' | 'resetB8'
+  | 'digestion' | 'setDigestion' | 'generarSemillaB9' | 'validarB9' | 'resetB9'
+  | 'ecosistema' | 'setEcosistema' | 'tickEcosistema' | 'generarSemillaB10' | 'validarB10' | 'resetB10'
+  | 'resetBiologia'
+>;

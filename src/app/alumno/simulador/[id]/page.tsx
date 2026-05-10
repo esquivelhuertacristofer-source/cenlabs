@@ -1,6 +1,16 @@
 import { Metadata } from 'next';
+import { notFound } from 'next/navigation';
 import SimuladorClient from './SimuladorClient';
 import { ALL_BRIEFING_CONFIGS } from '@/data/briefingConfigs';
+import { MASTER_DATA } from '@/data/simuladoresData';
+
+function normalizeId(id: string): string {
+  if (id.startsWith('qmi')) return `quimica-${parseInt(id.replace('qmi', ''))}`;
+  if (id.startsWith('mat')) return `matematicas-${parseInt(id.replace('mat', ''))}`;
+  if (id.startsWith('fis')) return `fisica-${parseInt(id.replace('fis', ''))}`;
+  if (id.startsWith('bio')) return `biologia-${parseInt(id.replace('bio', ''))}`;
+  return id;
+}
 
 export const dynamic = 'force-dynamic';
 
@@ -23,5 +33,7 @@ export async function generateMetadata({ params }: { params: Promise<{ id: strin
 
 export default async function SimuladorPage({ params }: { params: Promise<{ id: string }> }) {
   const resolvedParams = await params;
+  const normalizedId = normalizeId(resolvedParams.id);
+  if (!MASTER_DATA[normalizedId]) notFound();
   return <SimuladorClient simuladorId={resolvedParams.id} />;
 }

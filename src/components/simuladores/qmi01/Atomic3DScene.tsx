@@ -109,7 +109,7 @@ export default function Atomic3DScene({ protons, neutrons, electrons, instabilit
 
         // Update materials and target positions
         const phi = Math.PI * (3 - Math.sqrt(5));
-        let typeList: string[] = [];
+        const typeList: string[] = [];
         for(let i=0; i<p; i++) typeList.push('p');
         for(let i=0; i<n; i++) typeList.push('n');
         

@@ -9,8 +9,6 @@ export default function PilotoPoblaciones() {
   const { ecosistema, tickEcosistema, setEcosistema, registrarHallazgo, setBitacora, bitacoraData, stopTimer, setPasoActual, audio, setAsistente } = useSimuladorStore();
   const { poblacionPresas, poblacionDepredadores, historial, status, simulando, tiempoVirtual, parametros } = ecosistema;
   
-  // Guard for persisted state migrations
-  if (!parametros) return null;
   const [viewMode, setViewMode] = useState<'standard' | 'phase'>('standard');
   const requestRef = useRef<number>(undefined!);
   const lastTimeRef = useRef<number>(undefined!);
@@ -99,7 +97,7 @@ export default function PilotoPoblaciones() {
     }).join(" ");
   };
 
-  if (!mounted) return null;
+  if (!mounted || !parametros) return null;
 
   return (
     <div className="w-full h-full relative flex flex-col overflow-hidden bg-[#020617] font-['Outfit'] text-white">

@@ -1,14 +1,14 @@
 import { StateCreator } from 'zustand';
-import { SimuladorState } from '../types';
+import { SimuladorState, FisicaSlice } from '../types';
 
-export const createFisicaSlice: StateCreator<SimuladorState, [], [], any> = (set, get) => ({
+export const createFisicaSlice: StateCreator<SimuladorState, [], [], FisicaSlice> = (set, get) => ({
   plano2: { angulo: 30, coefRozamiento: 0.3, friccion: 0.1, masa: 5, animando: false, resultado: null },
   pendulo3: { longitud: 1.5, masa: 2.0, anguloInicial: 45, animando: false, periodo: 0, oscilando: false, resultado: null },
   hooke4: { k: 100, masa: 2.0, estiramiento: 0, amplitud: 0.5, oscilando: false, animando: false, t: 0, resultado: null },
   prensa5: { f1: 100, r1: 1.0, r2: 2.5, masaCarga: 500, ratio: 6.25, presion: 31830, isLifting: false, resultado: null },
   arquimedes6: { fluido: 'agua', densidadCuerpo: 800, densidadLiquido: 1000, volumenCuerpo: 0.001, sumergido: 0, radio: 0.5, isRunning: false, resultado: null },
   dilatacion7: { material: 'hierro', tempIni: 20, tempFin: 100, longitud: 1.0, resultado: null },
-  ohm8: { nivel: 1, voltaje: 5, resistencia: 220, switchOn: false, ledRoto: false, bateriaConectada: false, resistenciaConectada: false, ledConectado: false },
+  ohm8: { nivel: 1, voltaje: 5, resistencia: 220, switchOn: false, ledRoto: false, bateriaConectada: false, resistenciaConectada: false, ledConectado: false, resultado: null },
   electrostatica9: { q1: 1e-6, q2: 1e-6, distancia: 0.1, resultado: null },
   motor10: { imanIzq: 'N', imanDer: 'S', voltaje: 0, espiras: 10, interruptor: false, carga: 5, rpm: 0, encendido: false, resultado: null },
   tiro1: { angulo: 45, velocidad: 25, disparando: false,    targetX: 50,
@@ -258,4 +258,16 @@ export const createFisicaSlice: StateCreator<SimuladorState, [], [], any> = (set
   resetF8: () => set({ ohm8: { nivel: 1, voltaje: 5, resistencia: 220, switchOn: false, ledRoto: false, bateriaConectada: false, resistenciaConectada: false, ledConectado: false, resultado: null } }),
   resetF9: () => set({ electrostatica9: { q1: 1e-6, q2: 1e-6, distancia: 0.1, resultado: null } }),
   resetF10: () => set({ motor10: { imanIzq: 'N', imanDer: 'S', voltaje: 0, espiras: 10, interruptor: false, carga: 5, rpm: 0, encendido: false, resultado: null } }),
+  resetFisica: () => {
+    get().resetF1();
+    get().resetF2();
+    get().resetF3();
+    get().resetF4();
+    get().resetF5();
+    get().resetF6();
+    get().resetF7();
+    get().resetF8();
+    get().resetF9();
+    get().resetF10();
+  },
 });

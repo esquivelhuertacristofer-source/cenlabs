@@ -16,15 +16,15 @@ export default function Home() {
 
   useEffect(() => {
     const initAuth = async () => {
-      const { data: { session: supabaseSession } } = await supabase.auth.getSession();
-      
-      if (!supabaseSession) {
-        // Si no hay sesión, vamos al login
+      const { data: { user: authUser }, error: authError } = await supabase.auth.getUser();
+
+      if (!authUser || authError) {
         router.push("/login");
         return;
       }
 
-      setSession(supabaseSession);
+      const { data: { session: supabaseSession } } = await supabase.auth.getSession();
+      if (supabaseSession) setSession(supabaseSession);
       let currentUser = user;
       if (!user) {
         currentUser = await getCurrentProfile();

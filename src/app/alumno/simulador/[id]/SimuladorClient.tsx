@@ -1,4 +1,4 @@
-
+﻿
 "use client";
 
 import React, { useState, useEffect } from 'react';
@@ -16,7 +16,9 @@ import {
 import ErrorBoundary from '@/components/ErrorBoundary';
 
 import { useSimuladorStore } from '@/store/simuladorStore';
-import { supabase, getCurrentProfile } from '@/lib/supabase';
+import { useShallow } from 'zustand/react/shallow';
+import { supabase } from '@/lib/supabase-browser';
+import { getCurrentProfile } from '@/lib/supabase';
 import { SyncManager } from '@/components/SyncManager';
 import AsistenteVirtual from '@/components/AsistenteVirtual';
 import DrQuantumTutor, { TutorStep } from '@/components/DrQuantumTutor';
@@ -30,6 +32,8 @@ import { ALL_TUTOR_STEPS } from '@/data/tutorSteps';
 import LabQuiz from '@/components/LabQuiz';
 import { getQuizForPractice } from '@/data/quizQuestions';
 import { PILOTO_REGISTRY, BITACORA_REGISTRY } from '@/components/simulador/LabRegistry';
+import SuccessModal from '@/components/simulador/SuccessModal';
+import { getLabObjetivos } from '@/data/labObjetivos';
 import PeriodicTable from '@/components/tools/PeriodicTable';
 import StatisticalAnalysis from '@/components/tools/StatisticalAnalysis';
 import BitacoraDefault from '@/components/bitacoras/BitacoraDefault';
@@ -89,55 +93,49 @@ export default function SimuladorClient({ simuladorId }: { simuladorId: string }
   const category = normalizedId.split('-')[0];
   const hubPath = `/alumno/laboratorio/${category}`;
 
-  // Selectores de Zustand optimizados
-  const pasoActual = useSimuladorStore(state => state.pasoActual);
-  const setPasoActual = useSimuladorStore(state => state.setPasoActual);
-  const resetPractica = useSimuladorStore(state => state.resetPractica);
-  const setAsistente = useSimuladorStore(state => state.setAsistente);
-  const setQuizQuestions = useSimuladorStore(state => state.setQuizQuestions);
-  const syncStatus = useSimuladorStore(state => state.syncStatus);
-  const showQuiz = useSimuladorStore(state => state.showQuiz);
-  const setShowQuiz = useSimuladorStore(state => state.setShowQuiz);
-  const quizQuestions = useSimuladorStore(state => state.quizQuestions);
-  
-  const resetM1 = useSimuladorStore(state => state.resetM1);
-  const resetParticulas = useSimuladorStore(state => state.resetParticulas);
+  // Grupo 1 — Core / UI actions (1 suscripción con shallow comparison)
+  const { pasoActual, setPasoActual, resetPractica, setAsistente,
+          setQuizQuestions, syncStatus, showQuiz, setShowQuiz, quizQuestions } =
+    useSimuladorStore(useShallow(state => ({
+      pasoActual:       state.pasoActual,
+      setPasoActual:    state.setPasoActual,
+      resetPractica:    state.resetPractica,
+      setAsistente:     state.setAsistente,
+      setQuizQuestions: state.setQuizQuestions,
+      syncStatus:       state.syncStatus,
+      showQuiz:         state.showQuiz,
+      setShowQuiz:      state.setShowQuiz,
+      quizQuestions:    state.quizQuestions,
+    })));
 
-  // Selectores atómicos para labs específicos
-  const targetZ = useSimuladorStore(state => state.particulas.targetZ);
-  const targetA = useSimuladorStore(state => state.particulas.targetA);
-  const targetCharge = useSimuladorStore(state => state.particulas.targetCharge);
-  const pActual = useSimuladorStore(state => state.particulas.protones);
-  const nActual = useSimuladorStore(state => state.particulas.neutrones);
-  const eActual = useSimuladorStore(state => state.particulas.electrones);
-  const isStable = useSimuladorStore(state => state.particulas.isStable);
+  // Grupo 2 — Partículas (1 suscripción; propiedades derivadas por destructuring)
   const particulas = useSimuladorStore(state => state.particulas);
-  const cuadraticas = useSimuladorStore(state => state.cuadraticas);
-  const sistemas2x2 = useSimuladorStore(state => state.sistemas2x2);
-  const richter = useSimuladorStore(state => state.richter);
-  
-  // Selectores de Física (Diamond State)
-  const tiroParabolico = useSimuladorStore(state => state.tiro1);
-  const planoInclinado = useSimuladorStore(state => state.plano2);
-  const pendulo = useSimuladorStore(state => state.pendulo3);
-  const hooke = useSimuladorStore(state => state.hooke4);
-  const prensa = useSimuladorStore(state => state.prensa5);
-  const arquimedes = useSimuladorStore(state => state.arquimedes6);
-  const dilatacion = useSimuladorStore(state => state.dilatacion7);
-  const ohm = useSimuladorStore(state => state.ohm8);
-  const electrostatica = useSimuladorStore(state => state.electrostatica9);
-  const motor = useSimuladorStore(state => state.motor10);
+  const { targetZ, targetA, targetCharge,
+          protones: pActual, neutrones: nActual, electrones: eActual } = particulas ?? {};
 
-  // Selectores de Química (Diamond State)
-  const gases = useSimuladorStore(state => state.gases);
-  const balanceo = useSimuladorStore(state => state.balanceo);
-  const limitante = useSimuladorStore(state => state.limitante);
-  const soluciones = useSimuladorStore(state => state.soluciones);
-  const solubilidad = useSimuladorStore(state => state.solubilidad);
-  const titulacion = useSimuladorStore(state => state.titulacion);
-  const equilibrio = useSimuladorStore(state => state.equilibrio);
-  const celda = useSimuladorStore(state => state.celda);
-  const destilacion = useSimuladorStore(state => state.destilacion);
+  // Grupo 3 — Física: solo labs con uso en HUD (1 suscripción)
+  const { tiroParabolico, planoInclinado, pendulo, hooke } =
+    useSimuladorStore(useShallow(state => ({
+      tiroParabolico: state.tiro1,
+      planoInclinado: state.plano2,
+      pendulo:        state.pendulo3,
+      hooke:          state.hooke4,
+    })));
+
+  // Grupo 4 — Química: 9 labs (1 suscripción)
+  const { gases, balanceo, limitante, soluciones, solubilidad,
+          titulacion, equilibrio, celda, destilacion } =
+    useSimuladorStore(useShallow(state => ({
+      gases:       state.gases,
+      balanceo:    state.balanceo,
+      limitante:   state.limitante,
+      soluciones:  state.soluciones,
+      solubilidad: state.solubilidad,
+      titulacion:  state.titulacion,
+      equilibrio:  state.equilibrio,
+      celda:       state.celda,
+      destilacion: state.destilacion,
+    })));
 
   // Reset briefing on lab change
   useEffect(() => {
@@ -477,273 +475,13 @@ export default function SimuladorClient({ simuladorId }: { simuladorId: string }
                       pasoCompletado={pasoActual === 4 ? 8 : pasoActual}
                       mision={data.mision}
                       nombreAlumno="Estudiante"
-                      objetivos={normalizedId === 'quimica-1' ? [
-                        { 
-                          label: "Número Atómico (Z)", 
-                          current: pActual, 
-                          target: targetZ, 
-                          completed: pActual === targetZ 
-                        },
-                        { 
-                          label: "Masa Atómica (A)", 
-                          current: pActual + nActual, 
-                          target: targetA, 
-                          completed: (pActual + nActual) === targetA 
-                        },
-                        { 
-                          label: "Carga Neta", 
-                          current: pActual - eActual, 
-                          target: targetCharge, 
-                          completed: (pActual - eActual) === targetCharge 
-                        }
-                      ] : normalizedId === 'quimica-2' ? [
-                        { 
-                          label: "Volumen Constante (L)", 
-                          current: gases?.V || 0, 
-                          target: 10, 
-                          completed: Math.abs((gases?.V || 0) - 10) < 0.1 
-                        },
-                        { 
-                          label: "Presión Objetivo (atm)", 
-                          current: gases?.P || 0, 
-                          target: gases?.pTarget || 2.0, 
-                          completed: Math.abs((gases?.P || 0) - (gases?.pTarget || 2.0)) < 0.1 
-                        },
-                        { 
-                          label: "Integridad de Cámara", 
-                          current: gases?.P || 0, 
-                          target: 7.0, 
-                          completed: (gases?.P || 0) < 7.0 
-                        }
-                      ] : normalizedId === 'quimica-3' ? [
-                        { 
-                          label: "Equilibrio Atómico", 
-                          current: balanceo?.isBalanced ? 1 : 0, 
-                          target: 1, 
-                          completed: balanceo?.isBalanced || false 
-                        },
-                        { 
-                          label: "Ley de Lavoisier", 
-                          current: balanceo?.masaReactivos || 0, 
-                          target: balanceo?.masaProductos || 0, 
-                          completed: Math.abs((balanceo?.masaReactivos || 0) - (balanceo?.masaProductos || 0)) < 0.01 
-                        },
-                        { 
-                          label: "Nivel de Reactor", 
-                          current: (balanceo?.reaccionActual || 0) + 1, 
-                          target: balanceo?.reacciones?.length || 6, 
-                          completed: false 
-                        }
-                      ] : normalizedId === 'quimica-4' ? [
-                        { 
-                          label: "Reactivo Limitante", 
-                          current: limitante?.status === 'success' ? 1 : 0, 
-                          target: 1, 
-                          completed: limitante?.status === 'success' 
-                        },
-                        { 
-                          label: "Cálculo de Exceso", 
-                          current: limitante?.status === 'success' ? 1 : 0, 
-                          target: 1, 
-                          completed: limitante?.status === 'success' 
-                        },
-                        { 
-                          label: "Fase de Síntesis", 
-                          current: (limitante?.reaccionActual || 0) + 1, 
-                          target: limitante?.reacciones?.length || 4, 
-                          completed: false 
-                        }
-                      ] : normalizedId === 'quimica-5' ? [
-                        { 
-                          label: "Pesaje Analítico", 
-                          current: soluciones?.matraz?.polvo || 0, 
-                          target: soluciones?.mRequerida || 7.305, 
-                          completed: Math.abs((soluciones?.matraz?.polvo || 0) - (soluciones?.mRequerida || 7.305)) < 0.05 
-                        },
-                        { 
-                          label: "Exactitud de Aforo", 
-                          current: soluciones?.matraz?.agua || 0, 
-                          target: soluciones?.vTarget || 250, 
-                          completed: Math.abs((soluciones?.matraz?.agua || 0) - (soluciones?.vTarget || 250)) < 1.0 
-                        },
-                        { 
-                          label: "Certificación de M", 
-                          current: soluciones?.status === 'success' ? 1 : 0, 
-                          target: 1, 
-                          completed: soluciones?.status === 'success' 
-                        }
-                      ] : normalizedId === 'quimica-6' ? [
-                        { 
-                          label: "Homogeneidad Térmica", 
-                          current: solubilidad?.temp || 0, 
-                          target: 50, 
-                          completed: (solubilidad?.temp || 0) > 40 
-                        },
-                        { 
-                          label: "Punto de Saturación", 
-                          current: solubilidad?.status === 'success' ? 1 : 0, 
-                          target: 1, 
-                          completed: solubilidad?.status === 'success' 
-                        },
-                        { 
-                          label: "Análisis de Fase", 
-                          current: solubilidad?.status === 'success' ? 1 : 0, 
-                          target: 1, 
-                          completed: solubilidad?.status === 'success' 
-                        }
-                      ] : normalizedId === 'quimica-7' ? [
-                        { 
-                          label: "Calibración de Bureta", 
-                          current: titulacion?.purgada ? 1 : 0, 
-                          target: 1, 
-                          completed: titulacion?.purgada 
-                        },
-                        { 
-                          label: "Sensibilidad Visual", 
-                          current: titulacion?.indicador ? 1 : 0, 
-                          target: 1, 
-                          completed: titulacion?.indicador 
-                        },
-                        { 
-                          label: "Certificación de Ma", 
-                          current: titulacion?.status === 'success' ? 1 : 0, 
-                          target: 1, 
-                          completed: titulacion?.status === 'success' 
-                        }
-                      ] : normalizedId === 'quimica-8' ? [
-                        { 
-                          label: "Perturbación Térmica", 
-                          current: equilibrio?.jeringas?.some((j: any) => j.ubicacion === 'caliente') ? 1 : 0, 
-                          target: 1, 
-                          completed: equilibrio?.jeringas?.some((j: any) => j.ubicacion === 'caliente')
-                        },
-                        { 
-                          label: "Análisis Criogénico", 
-                          current: equilibrio?.jeringas?.some((j: any) => j.ubicacion === 'hielo') ? 1 : 0, 
-                          target: 1, 
-                          completed: equilibrio?.jeringas?.some((j: any) => j.ubicacion === 'hielo')
-                        },
-                        { 
-                          label: "Deducción de Le Châtelier", 
-                          current: equilibrio?.status === 'success' ? 1 : 0, 
-                          target: 1, 
-                          completed: equilibrio?.status === 'success' 
-                        }
-                      ] : normalizedId === 'quimica-9' ? [
-                        { 
-                          label: "Cierre del Circuito", 
-                          current: celda?.puenteSalino ? 1 : 0, 
-                          target: 1, 
-                          completed: celda?.puenteSalino 
-                        },
-                        { 
-                          label: "Diferencia de Potencial", 
-                          current: celda?.cablesConectados ? 1 : 0, 
-                          target: 1, 
-                          completed: celda?.cablesConectados 
-                        },
-                        { 
-                          label: "Eficiencia Energética (V+)", 
-                          current: celda?.voltaje > 0 ? 1 : 0, 
-                          target: 1, 
-                          completed: celda?.voltaje > 0 
-                        }
-                      ] : normalizedId === 'quimica-10' ? [
-                        { 
-                          label: "Estabilidad Térmica", 
-                          current: destilacion?.tempMezcla > 75 ? 1 : 0, 
-                          target: 1, 
-                          completed: destilacion?.tempMezcla > 75 
-                        },
-                        { 
-                          label: "Recuperación de Solvente", 
-                          current: Math.min(50, Math.round(destilacion?.volDestilado || 0)), 
-                          target: 50, 
-                          completed: destilacion?.volDestilado >= 50 
-                        },
-                        { 
-                          label: "Certificación de Pureza", 
-                          current: destilacion?.volDestilado > 50 ? 1 : 0, 
-                          target: 1, 
-                          completed: destilacion?.volDestilado > 50 
-                        }
-                      ] : normalizedId === 'fisica-1' ? [
-                        { 
-                          label: "Estabilidad de Lanzamiento", 
-                          current: tiroParabolico?.disparando || !!tiroParabolico?.resultado ? 1 : 0, 
-                          target: 1, 
-                          completed: tiroParabolico?.disparando || !!tiroParabolico?.resultado 
-                        },
-                        { 
-                          label: "Precisión Balística", 
-                          current: tiroParabolico?.resultado === 'exito' ? 1 : 0, 
-                          target: 1, 
-                          completed: tiroParabolico?.resultado === 'exito' 
-                        },
-                        { 
-                          label: "Optimización de Alcance", 
-                          current: tiroParabolico?.angulo === 45 ? 1 : 0, 
-                          target: 1, 
-                          completed: tiroParabolico?.angulo === 45 
-                        }
-                      ] : normalizedId === 'fisica-2' ? [
-                        { 
-                          label: "Configuración del Plano", 
-                          current: planoInclinado?.angulo > 0 ? 1 : 0, 
-                          target: 1, 
-                          completed: planoInclinado?.angulo > 0 
-                        },
-                        { 
-                          label: "Análisis de Rozamiento", 
-                          current: (planoInclinado?.coefRozamiento || 0) > 0 ? 1 : 0, 
-                          target: 1, 
-                          completed: (planoInclinado?.coefRozamiento || 0) > 0 
-                        },
-                        { 
-                          label: "Certificación Dinámica", 
-                          current: planoInclinado?.resultado === 'exito' ? 1 : 0, 
-                          target: 1, 
-                          completed: planoInclinado?.resultado === 'exito' 
-                        }
-                      ] : normalizedId === 'fisica-3' ? [
-                        { 
-                          label: "Configuración de Longitud", 
-                          current: pendulo?.longitud > 0 ? 1 : 0, 
-                          target: 1, 
-                          completed: pendulo?.longitud > 0 
-                        },
-                        { 
-                          label: "Sincronización de MAS", 
-                          current: pendulo?.oscilando ? 1 : 0, 
-                          target: 1, 
-                          completed: pendulo?.oscilando 
-                        },
-                        { 
-                          label: "Certificación Gravimétrica", 
-                          current: pendulo?.resultado === 'exito' ? 1 : 0, 
-                          target: 1, 
-                          completed: pendulo?.resultado === 'exito' 
-                        }
-                      ] : normalizedId === 'fisica-4' ? [
-                        { 
-                          label: "Prueba de Carga Estática", 
-                          current: hooke?.masa > 0 ? 1 : 0, 
-                          target: 1, 
-                          completed: hooke?.masa > 0 
-                        },
-                        { 
-                          label: "Análisis de Compresión", 
-                          current: (hooke?.estiramiento || 0) !== 0 ? 1 : 0, 
-                          target: 1, 
-                          completed: (hooke?.estiramiento || 0) !== 0 
-                        },
-                        { 
-                          label: "Certificación de Rigidez", 
-                          current: hooke?.resultado === 'exito' ? 1 : 0, 
-                          target: 1, 
-                          completed: hooke?.resultado === 'exito' 
-                        }
-                      ] : []}
+                    objetivos={getLabObjetivos(normalizedId, {
+                      pActual: pActual ?? 0, nActual: nActual ?? 0, eActual: eActual ?? 0,
+                      targetZ: targetZ ?? 0, targetA: targetA ?? 0, targetCharge: targetCharge ?? 0,
+                      gases, balanceo, limitante, soluciones, solubilidad,
+                      titulacion, equilibrio, celda, destilacion,
+                      tiroParabolico, planoInclinado, pendulo, hooke,
+                    })}
                     />
                   ) : (
                   <>
@@ -1030,409 +768,6 @@ export default function SimuladorClient({ simuladorId }: { simuladorId: string }
           )}
         </AnimatePresence>
       </main>
-    </div>
-  );
-}
-
-// ─── Sub-componente: SuccessModal ───────────────────────────────────────────
-function SuccessModal({ normalizedId, data, hubPath, resetPractica, onClose }: any) {
-  const router = useRouter();
-  const { particulas } = useSimuladorStore();
-  const { resetM1, resetM4, resetM5 } = useSimuladorStore();
-  const { resetB1, resetB3 } = useSimuladorStore();
-  const { resetP5 } = useSimuladorStore();
-
-  if (normalizedId === 'biologia-2') {
-    const { volumen, concExt, tipoCelula } = useSimuladorStore.getState().transporte;
-    return (
-      <div className="fixed inset-0 z-[500] flex items-center justify-center bg-[#020617]/95 backdrop-blur-3xl p-6">
-        <motion.div
-          initial={{ scale: 0.85, opacity: 0, y: 30 }} animate={{ scale: 1, opacity: 1, y: 0 }} exit={{ scale: 0.85, opacity: 0, y: 30 }}
-          className="bg-gradient-to-br from-[#020617] to-[#0f172a] rounded-[3rem] p-12 max-w-2xl w-full shadow-2xl text-white text-center border border-cyan-500/30 overflow-hidden relative"
-        >
-          <div className="absolute top-0 left-1/2 -translate-x-1/2 w-80 h-40 bg-cyan-500/10 blur-[80px] rounded-full" />
-          <div className="flex justify-center gap-4 mb-6">
-            {[1,2,3].map(s => (
-              <motion.div key={s} initial={{ scale: 0, rotate: -30 }} animate={{ scale: 1, rotate: 0 }} transition={{ delay: s * 0.15 }}>
-                <Award size={40} className="text-yellow-400 drop-shadow-[0_0_12px_rgba(250,204,21,0.5)]" fill="currentColor" />
-              </motion.div>
-            ))}
-          </div>
-          <div className="text-[10px] font-black text-cyan-400 uppercase tracking-[0.3em] mb-2">Certificación de Homeostasis</div>
-          <h3 className="text-4xl font-black uppercase tracking-tighter mb-8 italic">¡Equilibrio Logrado!</h3>
-          <div className="bg-white/5 border border-white/10 rounded-[2rem] p-8 grid grid-cols-2 gap-8 text-left mb-8">
-             <div>
-                <span className="text-[11px] font-black text-cyan-400 uppercase block mb-1">Volumen Final</span>
-                <span className="text-3xl font-black font-mono">{volumen.toFixed(1)}%</span>
-             </div>
-             <div>
-                <span className="text-[11px] font-black text-cyan-400 uppercase block mb-1">Solución Medio</span>
-                <span className="text-3xl font-black font-mono">{concExt.toFixed(2)} M</span>
-             </div>
-          </div>
-          <p className="text-sm text-slate-400 mb-10 px-6">Has estabilizado con éxito la muestra de {tipoCelula === 'animal' ? 'eritrocitos' : 'células vegetales'}. La presión osmótica se ha equilibrado evitando el colapso celular.</p>
-          <div className="flex gap-4">
-            <button onClick={onClose} className="flex-1 py-5 bg-white/5 text-white font-black text-[10px] uppercase rounded-2xl border border-white/10 hover:bg-white/10 transition-all">Seguir Experimentando</button>
-            <button onClick={() => { resetPractica(); router.push(hubPath); }} className="flex-1 py-5 bg-cyan-600 text-white font-black text-[10px] uppercase rounded-2xl shadow-lg shadow-cyan-600/20 hover:bg-cyan-500 transition-all">Finalizar Misión</button>
-          </div>
-        </motion.div>
-      </div>
-    );
-  }
-
-  if (normalizedId === 'quimica-1') {
-    const { estrellas = 3, targetZ: tz, targetA: ta, electrones } = particulas;
-    const tName = list[tz] ?? 'Elemento';
-    const configParts: string[] = [];
-    const sup: Record<number,string> = {1:'¹',2:'²',3:'³',4:'⁴',5:'⁵',6:'⁶'};
-    let rem = electrones;
-    for (const [lbl, cap] of [['1s',2],['2s',2],['2p',6]] as [string,number][]) {
-      if (rem <= 0) break;
-      const c = Math.min(rem, cap);
-      configParts.push(`${lbl}${sup[c] ?? c}`);
-      rem -= c;
-    }
-    // Fórmula de Bethe-Weizsäcker — 5 términos (Krane, 1988)
-    // Término de paridad δ: +11.2/√A (par-par), -11.2/√A (impar-impar), 0 (impar-A)
-    const N = ta - tz;
-    const delta_p = (tz % 2 === 0 && N % 2 === 0) ? +11.2 / Math.sqrt(ta)
-                  : (tz % 2 !== 0 && N % 2 !== 0) ? -11.2 / Math.sqrt(ta)
-                  : 0;
-    const rawBinding = tz > 0 && ta > 0
-      ? 15.753 * ta - 17.804 * Math.pow(ta, 2/3) - 0.7103 * tz * (tz-1) / Math.pow(ta, 1/3) - 23.69 * Math.pow(ta - 2*tz,2) / ta + delta_p
-      : 0;
-    const bindingTotal = Math.max(0, rawBinding).toFixed(1);
-    return (
-      <div className="fixed inset-0 z-[500] flex items-center justify-center bg-[#023047]/95 backdrop-blur-3xl p-6">
-        <motion.div
-          initial={{ scale: 0.85, opacity: 0, y: 30 }} animate={{ scale: 1, opacity: 1, y: 0 }} exit={{ scale: 0.85, opacity: 0, y: 30 }}
-          className="bg-gradient-to-br from-[#023047] to-[#0a1a2e] rounded-[3rem] p-12 max-w-2xl w-full shadow-2xl text-white text-center border border-emerald-500/30 overflow-hidden relative"
-        >
-          <div className="flex justify-center gap-4 mb-6">
-            {[1,2,3].map(s => (
-              <motion.div key={s} initial={{ scale: 0, rotate: -30 }} animate={{ scale: 1, rotate: 0 }} transition={{ delay: s * 0.15 }}>
-                <Award size={40} className="text-yellow-400 drop-shadow-[0_0_12px_rgba(250,204,21,0.5)]" fill="currentColor" />
-              </motion.div>
-            ))}
-          </div>
-          <h3 className="text-4xl font-black uppercase tracking-tighter mb-8 italic">¡Isótopo Forjado!</h3>
-          <div className="bg-white/5 border border-white/10 rounded-[2rem] p-6 grid grid-cols-2 gap-5 text-left mb-8">
-             <div><span className="text-[11px] font-black text-[#219EBC] block">Elemento</span><span className="text-2xl font-black">{tName}</span></div>
-             <div><span className="text-[11px] font-black text-[#219EBC] block">Energía de Enlace</span><span className="text-2xl font-black">{bindingTotal} MeV</span></div>
-          </div>
-          <div className="flex gap-3">
-            <button onClick={onClose} className="flex-1 py-5 bg-white/10 text-white font-black text-[10px] uppercase rounded-[1.5rem]">Seguir</button>
-            <button onClick={() => { resetPractica(); router.push(hubPath); }} className="flex-1 py-5 bg-emerald-500 text-white font-black text-[10px] uppercase rounded-[1.5rem]">Finalizar</button>
-          </div>
-        </motion.div>
-      </div>
-    );
-  }
-
-  if (normalizedId === 'matematicas-1') {
-    const state = useSimuladorStore.getState();
-    const { estrellas = 3, a, b, c } = state.cuadraticas;
-    const delta = b*b - 4*a*c;
-    return (
-      <div className="fixed inset-0 z-[500] flex items-center justify-center bg-[#0d1117]/95 backdrop-blur-3xl p-6">
-        <motion.div
-          initial={{ scale: 0.85, opacity: 0, y: 30 }} animate={{ scale: 1, opacity: 1, y: 0 }} exit={{ scale: 0.85, opacity: 0, y: 30 }}
-          className="bg-gradient-to-br from-[#0d1117] to-[#161b22] rounded-[3rem] p-12 max-w-2xl w-full shadow-2xl text-white text-center border border-rose-500/30 overflow-hidden relative"
-        >
-          <div className="absolute top-0 left-1/2 -translate-x-1/2 w-80 h-40 bg-rose-500/10 blur-[80px] rounded-full" />
-          <div className="flex justify-center gap-4 mb-6">
-            {[1,2,3].map(s => (
-              <motion.div key={s} initial={{ scale: 0, rotate: -30 }} animate={{ scale: 1, rotate: 0 }} transition={{ delay: s * 0.15 }}>
-                <Award size={40} className="text-yellow-400 drop-shadow-[0_0_12px_rgba(250,204,21,0.5)]" fill="currentColor" />
-              </motion.div>
-            ))}
-          </div>
-          <div className="text-[10px] font-black text-rose-400 uppercase tracking-[0.3em] mb-2">Certificación Algebraica</div>
-          <h3 className="text-4xl font-black uppercase tracking-tighter mb-8">¡Trayectoria Sincronizada!</h3>
-          <div className="bg-white/5 border border-white/10 rounded-[2rem] p-6 grid grid-cols-2 gap-5 text-left mb-8">
-            <div>
-              <span className="text-[11px] font-black text-rose-400 uppercase block mb-1">Modelo Final</span>
-              <span className="text-xl font-black font-mono">f(x) = {a}x² {b>=0?'+':''}{b}x {c>=0?'+':''}{c}</span>
-            </div>
-            <div>
-              <span className="text-[11px] font-black text-rose-400 uppercase block mb-1">Determinante</span>
-              <span className="text-xl font-black font-mono">Δ = {delta.toFixed(2)}</span>
-            </div>
-          </div>
-          <div className="flex gap-3">
-            <button onClick={onClose} className="flex-1 py-5 bg-white/10 hover:bg-white/20 text-white font-black text-[10px] uppercase tracking-widest rounded-[1.5rem] transition-all">Seguir</button>
-            <button onClick={() => { resetM1(); router.push(hubPath); }} className="flex-1 py-5 bg-rose-500 hover:bg-rose-400 text-white font-black text-[10px] uppercase tracking-widest rounded-[1.5rem] shadow-xl shadow-rose-500/20 transition-all">Finalizar</button>
-          </div>
-        </motion.div>
-      </div>
-    );
-  }
-
-  if (normalizedId === 'biologia-1') {
-    const state = useSimuladorStore.getState();
-    const { muestra, objetivoMag } = state.microscopio;
-    return (
-      <div className="fixed inset-0 z-[500] flex items-center justify-center bg-[#020617]/95 backdrop-blur-3xl p-6">
-        <motion.div
-          initial={{ scale: 0.85, opacity: 0, y: 30 }} animate={{ scale: 1, opacity: 1, y: 0 }} exit={{ scale: 0.85, opacity: 0, y: 30 }}
-          className="bg-gradient-to-br from-[#020617] to-[#0f172a] rounded-[3rem] p-12 max-w-2xl w-full shadow-2xl text-white text-center border border-emerald-500/30 overflow-hidden relative"
-        >
-          <div className="absolute top-0 left-1/2 -translate-x-1/2 w-80 h-40 bg-emerald-500/10 blur-[80px] rounded-full" />
-          <div className="flex justify-center gap-4 mb-6">
-            {[1,2,3].map(s => (
-              <motion.div key={s} initial={{ scale: 0, rotate: -30 }} animate={{ scale: 1, rotate: 0 }} transition={{ delay: s * 0.15 }}>
-                <Award size={40} className="text-emerald-400 drop-shadow-[0_0_12px_rgba(16,185,129,0.5)]" />
-              </motion.div>
-            ))}
-          </div>
-          <div className="text-[10px] font-black text-emerald-400 uppercase tracking-[0.3em] mb-2">Microscopía Virtual</div>
-          <h3 className="text-4xl font-black uppercase tracking-tighter mb-8 bg-gradient-to-r from-emerald-400 to-teal-400 bg-clip-text text-transparent">¡Micrografía Asegurada!</h3>
-          <div className="bg-white/5 border border-white/10 rounded-[2rem] p-6 grid grid-cols-2 gap-5 text-left mb-8">
-            <div>
-              <span className="text-[11px] font-black text-emerald-400/80 uppercase block mb-1">Muestra Analizada</span>
-              <span className="text-xl font-black uppercase">{muestra}</span>
-            </div>
-            <div>
-              <span className="text-[11px] font-black text-emerald-400/80 uppercase block mb-1">Ampliación Final</span>
-              <span className="text-xl font-black font-mono">{objetivoMag * 10}x</span>
-            </div>
-          </div>
-          <div className="flex gap-3">
-            <button onClick={onClose} className="flex-1 py-5 bg-white/5 hover:bg-white/10 text-white font-black text-[10px] uppercase tracking-widest rounded-[1.5rem] transition-all border border-white/10">Seguir Observando</button>
-            <button onClick={() => { resetB1(); router.push(hubPath); }} className="flex-1 py-5 bg-emerald-500 hover:bg-emerald-400 text-white font-black text-[10px] uppercase tracking-widest rounded-[1.5rem] shadow-xl shadow-emerald-500/20 transition-all">Finalizar</button>
-          </div>
-        </motion.div>
-      </div>
-    );
-  }
-
-  if (normalizedId === 'quimica-5') {
-    const state = useSimuladorStore.getState();
-    const { mTarget, matraz, sal } = state.soluciones;
-    const pm = Math.max(0.001, sal?.pm ?? 58.44);
-    const vol = Math.max(0.001, matraz.agua / 1000);
-    const currentMolarity = (sal && matraz.agua > 0)
-      ? (matraz.polvo * (sal.purity ?? 1.0)) / pm / vol
-      : 0;
-    const accuracy = mTarget > 0 ? Math.max(0, 100 - Math.abs((currentMolarity - mTarget) / mTarget) * 100) : 0;
-    return (
-      <div className="fixed inset-0 z-[500] flex items-center justify-center bg-[#030712]/95 backdrop-blur-3xl p-6">
-        <motion.div
-          initial={{ scale: 0.85, opacity: 0, y: 30 }} animate={{ scale: 1, opacity: 1, y: 0 }} exit={{ scale: 0.85, opacity: 0, y: 30 }}
-          className="bg-gradient-to-br from-[#030712] to-[#0f172a] rounded-[3rem] p-12 max-w-2xl w-full shadow-2xl text-white text-center border border-cyan-500/30 overflow-hidden relative"
-        >
-          <div className="absolute top-0 left-1/2 -translate-x-1/2 w-80 h-40 bg-cyan-500/10 blur-[80px] rounded-full" />
-          <div className="flex justify-center gap-4 mb-6">
-            {[1,2,3].map(s => (
-              <motion.div key={s} initial={{ scale: 0, rotate: -30 }} animate={{ scale: 1, rotate: 0 }} transition={{ delay: s * 0.15 }}>
-                <Award size={40} className="text-cyan-400 drop-shadow-[0_0_12px_rgba(34,211,238,0.5)]" />
-              </motion.div>
-            ))}
-          </div>
-          <div className="text-[10px] font-black text-cyan-400 uppercase tracking-[0.3em] mb-2">Certificación Química Analítica</div>
-          <h3 className="text-4xl font-black uppercase tracking-tighter mb-8 bg-gradient-to-r from-cyan-400 to-blue-400 bg-clip-text text-transparent">¡Solución Certificada!</h3>
-          <div className="bg-white/5 border border-white/10 rounded-[2rem] p-6 grid grid-cols-2 gap-5 text-left mb-8">
-            <div>
-              <span className="text-[11px] font-black text-cyan-400/80 uppercase block mb-1">Concentración Final</span>
-              <span className="text-xl font-black font-mono">{currentMolarity.toFixed(3)} M</span>
-            </div>
-            <div>
-              <span className="text-[11px] font-black text-cyan-400/80 uppercase block mb-1">Precisión Analítica</span>
-              <span className="text-xl font-black font-mono">{accuracy.toFixed(1)}%</span>
-            </div>
-          </div>
-          <div className="flex gap-3">
-            <button onClick={onClose} className="flex-1 py-5 bg-white/5 hover:bg-white/10 text-white font-black text-[10px] uppercase tracking-widest rounded-[1.5rem] transition-all border border-white/10">Seguir Experimentando</button>
-            <button onClick={() => { resetP5(); router.push(hubPath); }} className="flex-1 py-5 bg-cyan-600 hover:bg-cyan-500 text-white font-black text-[10px] uppercase tracking-widest rounded-[1.5rem] shadow-xl shadow-cyan-500/20 transition-all">Finalizar Práctica</button>
-          </div>
-        </motion.div>
-      </div>
-    );
-  }
-
-  if (normalizedId === 'matematicas-4') {
-    const state = useSimuladorStore.getState();
-    const { catetoA, catetoB } = state.pitagoras;
-    const hipotenusa = Math.sqrt(catetoA**2 + catetoB**2);
-    return (
-      <div className="fixed inset-0 z-[500] flex items-center justify-center bg-[#020617]/95 backdrop-blur-3xl p-6">
-        <motion.div
-          initial={{ scale: 0.85, opacity: 0, y: 30 }} animate={{ scale: 1, opacity: 1, y: 0 }} exit={{ scale: 0.85, opacity: 0, y: 30 }}
-          className="bg-gradient-to-br from-[#020617] to-[#0f172a] rounded-[3rem] p-12 max-w-2xl w-full shadow-2xl text-white text-center border border-emerald-500/30 overflow-hidden relative"
-        >
-          <div className="absolute top-0 left-1/2 -translate-x-1/2 w-80 h-40 bg-emerald-500/10 blur-[80px] rounded-full" />
-          <div className="flex justify-center gap-4 mb-6">
-            {[1,2,3].map(s => (
-              <motion.div key={s} initial={{ scale: 0, rotate: -30 }} animate={{ scale: 1, rotate: 0 }} transition={{ delay: s * 0.15 }}>
-                <Award size={40} className="text-emerald-400 drop-shadow-[0_0_12px_rgba(16,185,129,0.5)]" />
-              </motion.div>
-            ))}
-          </div>
-          <div className="text-[10px] font-black text-emerald-400 uppercase tracking-[0.3em] mb-2">Certificación en Geometría</div>
-          <h3 className="text-4xl font-black uppercase tracking-tighter mb-8 italic">¡Teorema Validado!</h3>
-          <div className="bg-white/5 border border-white/10 rounded-[2rem] p-6 grid grid-cols-2 gap-5 text-left mb-8 relative z-10">
-            <div>
-              <span className="text-[11px] font-black text-emerald-400/80 uppercase block mb-1">Terna Pitagórica</span>
-              <span className="text-xl font-black">{catetoA}² + {catetoB}² = {Math.round(hipotenusa**2)}</span>
-            </div>
-            <div>
-              <span className="text-[11px] font-black text-emerald-400/80 uppercase block mb-1">Hipotenusa (c)</span>
-              <span className="text-xl font-black font-mono">{hipotenusa.toFixed(2)}</span>
-            </div>
-          </div>
-          <div className="flex gap-3 relative z-10">
-            <button onClick={onClose} className="flex-1 py-5 bg-white/5 hover:bg-white/10 text-white font-black text-[10px] uppercase tracking-widest rounded-[1.5rem] transition-all border border-white/10">Seguir</button>
-            <button onClick={() => { resetM4(); router.push(hubPath); }} className="flex-1 py-5 bg-emerald-500 hover:bg-emerald-400 text-white font-black text-[10px] uppercase tracking-widest rounded-[1.5rem] shadow-xl shadow-emerald-500/20 transition-all">Finalizar</button>
-          </div>
-        </motion.div>
-      </div>
-    );
-  }
-
-  if (normalizedId === 'matematicas-5') {
-    const state = useSimuladorStore.getState();
-    const { angulo } = state.trigonometria;
-    const rad = (angulo * Math.PI) / 180;
-    return (
-      <div className="fixed inset-0 z-[500] flex items-center justify-center bg-[#020617]/95 backdrop-blur-3xl p-6">
-        <motion.div
-          initial={{ scale: 0.85, opacity: 0, y: 30 }} animate={{ scale: 1, opacity: 1, y: 0 }} exit={{ scale: 0.85, opacity: 0, y: 30 }}
-          className="bg-gradient-to-br from-[#020617] to-[#0a1a2e] rounded-[3rem] p-12 max-w-2xl w-full shadow-2xl text-white text-center border border-cyan-500/30 overflow-hidden relative"
-        >
-          <div className="absolute top-0 left-1/2 -translate-x-1/2 w-80 h-40 bg-cyan-500/10 blur-[80px] rounded-full" />
-          <div className="flex justify-center gap-4 mb-6">
-            {[1,2,3].map(s => (
-              <motion.div key={s} initial={{ scale: 0, rotate: -30 }} animate={{ scale: 1, rotate: 0 }} transition={{ delay: s * 0.15 }}>
-                <Award size={40} className="text-cyan-400 drop-shadow-[0_0_12px_rgba(34,211,238,0.5)]" />
-              </motion.div>
-            ))}
-          </div>
-          <div className="text-[10px] font-black text-cyan-400 uppercase tracking-[0.3em] mb-2">Certificación Trigonométrica</div>
-          <h3 className="text-4xl font-black uppercase tracking-tighter mb-8 italic">¡Fase Sincronizada!</h3>
-          <div className="bg-white/5 border border-white/10 rounded-[2rem] p-6 grid grid-cols-2 gap-5 text-left mb-8 relative z-10 font-mono">
-            <div>
-              <span className="text-[11px] font-black text-cyan-400/80 uppercase block mb-1">Seno (θ)</span>
-              <span className="text-xl font-black">{Math.sin(rad).toFixed(4)}</span>
-            </div>
-            <div>
-              <span className="text-[11px] font-black text-cyan-400/80 uppercase block mb-1">Coseno (θ)</span>
-              <span className="text-xl font-black">{Math.cos(rad).toFixed(4)}</span>
-            </div>
-          </div>
-          <div className="flex gap-3 relative z-10">
-            <button onClick={onClose} className="flex-1 py-5 bg-white/5 hover:bg-white/10 text-white font-black text-[10px] uppercase rounded-[1.5rem] transition-all border border-white/10">Seguir</button>
-            <button onClick={() => { resetM5(); router.push(hubPath); }} className="flex-1 py-5 bg-cyan-600 hover:bg-cyan-500 text-white font-black text-[10px] uppercase rounded-[1.5rem] shadow-xl shadow-cyan-500/20 transition-all">Finalizar</button>
-          </div>
-        </motion.div>
-      </div>
-    );
-  }
-
-  if (normalizedId === 'quimica-4') {
-    const state = useSimuladorStore.getState();
-    const { results, targetYield } = state.limitante;
-    const safeTargetYield = Math.max(0.001, targetYield);
-    const accuracy = Math.max(0, 100 - Math.abs((results.theoreticalYield - safeTargetYield) / safeTargetYield) * 100);
-    return (
-      <div className="fixed inset-0 z-[500] flex items-center justify-center bg-[#020617]/95 backdrop-blur-3xl p-6">
-        <motion.div
-          initial={{ scale: 0.85, opacity: 0, y: 30 }} animate={{ scale: 1, opacity: 1, y: 0 }} exit={{ scale: 0.85, opacity: 0, y: 30 }}
-          className="bg-gradient-to-br from-[#020617] to-[#0a1a2e] rounded-[3rem] p-12 max-w-2xl w-full shadow-2xl text-white text-center border border-cyan-500/30 overflow-hidden relative"
-        >
-          <div className="absolute top-0 left-1/2 -translate-x-1/2 w-80 h-40 bg-cyan-500/10 blur-[80px] rounded-full" />
-          <div className="flex justify-center gap-4 mb-6">
-            {[1,2,3].map(s => (
-              <motion.div key={s} initial={{ scale: 0, rotate: -30 }} animate={{ scale: 1, rotate: 0 }} transition={{ delay: s * 0.15 }}>
-                <Award size={40} className="text-cyan-400 drop-shadow-[0_0_12px_rgba(34,211,238,0.5)]" />
-              </motion.div>
-            ))}
-          </div>
-          <div className="text-[10px] font-black text-cyan-400 uppercase tracking-[0.3em] mb-2">Certificación Estequiométrica</div>
-          <h3 className="text-4xl font-black uppercase tracking-tighter mb-8 italic">¡Síntesis Validada!</h3>
-          <div className="bg-white/5 border border-white/10 rounded-[2rem] p-6 grid grid-cols-2 gap-5 text-left mb-8 relative z-10 font-mono">
-            <div>
-              <span className="text-[11px] font-black text-cyan-400/80 uppercase block mb-1">Rendimiento Real</span>
-              <span className="text-xl font-black">{results.theoreticalYield.toFixed(2)} g</span>
-            </div>
-            <div>
-              <span className="text-[11px] font-black text-cyan-400/80 uppercase block mb-1">Precisión de Masa</span>
-              <span className="text-xl font-black">{accuracy.toFixed(1)}%</span>
-            </div>
-          </div>
-          <div className="flex gap-3 relative z-10">
-            <button onClick={onClose} className="flex-1 py-5 bg-white/5 hover:bg-white/10 text-white font-black text-[10px] uppercase rounded-[1.5rem] transition-all border border-white/10">Seguir</button>
-            <button onClick={() => { resetPractica(); router.push(hubPath); }} className="flex-1 py-5 bg-cyan-600 hover:bg-cyan-500 text-white font-black text-[10px] uppercase rounded-[1.5rem] shadow-xl shadow-cyan-500/20 transition-all">Finalizar</button>
-          </div>
-        </motion.div>
-      </div>
-    );
-  }
-
-  if (normalizedId === 'biologia-3') {
-    const state = useSimuladorStore.getState();
-    const { proteina, errores } = state.sintesis;
-    return (
-      <div className="fixed inset-0 z-[500] flex items-center justify-center bg-[#020617]/95 backdrop-blur-3xl p-6">
-        <motion.div
-          initial={{ scale: 0.85, opacity: 0, y: 30 }} animate={{ scale: 1, opacity: 1, y: 0 }} exit={{ scale: 0.85, opacity: 0, y: 30 }}
-          className="bg-gradient-to-br from-[#020617] to-[#1e1b4b] rounded-[3rem] p-12 max-w-2xl w-full shadow-2xl text-white text-center border border-purple-500/30 overflow-hidden relative"
-        >
-          <div className="absolute top-0 left-1/2 -translate-x-1/2 w-80 h-40 bg-purple-500/10 blur-[80px] rounded-full" />
-          <div className="flex justify-center gap-4 mb-6">
-            {[1,2,3].map(s => (
-              <motion.div key={s} initial={{ scale: 0, rotate: -30 }} animate={{ scale: 1, rotate: 0 }} transition={{ delay: s * 0.15 }}>
-                <Award size={40} className="text-yellow-400 drop-shadow-[0_0_12px_rgba(250,204,21,0.5)]" fill="currentColor" />
-              </motion.div>
-            ))}
-          </div>
-          <div className="text-[10px] font-black text-purple-400 uppercase tracking-[0.3em] mb-2">Certificación en Bio-Sintética</div>
-          <h3 className="text-4xl font-black uppercase tracking-tighter mb-8 italic">¡Proteína Ensamblada!</h3>
-          <div className="bg-white/5 border border-white/10 rounded-[2rem] p-8 grid grid-cols-2 gap-8 text-left mb-8">
-             <div>
-                <span className="text-[11px] font-black text-purple-400 uppercase block mb-1">Longitud Peptídica</span>
-                <span className="text-3xl font-black font-mono">{proteina.length} AA</span>
-             </div>
-             <div>
-                <span className="text-[11px] font-black text-purple-400 uppercase block mb-1">Precisión Genética</span>
-                <span className="text-3xl font-black font-mono">{Math.max(0, 100 - errores * 5)}%</span>
-             </div>
-          </div>
-          <div className="flex gap-4">
-            <button onClick={onClose} className="flex-1 py-5 bg-white/5 text-white font-black text-[10px] uppercase rounded-2xl border border-white/10 hover:bg-white/10 transition-all">Seguir Analizando</button>
-            <button onClick={() => { resetB3(); router.push(hubPath); }} className="flex-1 py-5 bg-purple-600 text-white font-black text-[10px] uppercase rounded-2xl shadow-lg shadow-purple-600/20 hover:bg-purple-500 transition-all">Finalizar Misión</button>
-          </div>
-        </motion.div>
-      </div>
-    );
-  }
-
-  // MODAL POR DEFECTO PARA EL RESTO DE LAS 40 PRÁCTICAS
-  return (
-    <div className="fixed inset-0 z-[500] flex items-center justify-center bg-[#020617]/95 backdrop-blur-3xl p-6">
-      <motion.div
-        initial={{ scale: 0.85, opacity: 0, y: 30 }} animate={{ scale: 1, opacity: 1, y: 0 }} exit={{ scale: 0.85, opacity: 0, y: 30 }}
-        className="bg-gradient-to-br from-[#020617] to-[#0f172a] rounded-[3rem] p-12 max-w-2xl w-full shadow-2xl text-white text-center border border-emerald-500/30 overflow-hidden relative"
-      >
-        <div className="absolute top-0 left-1/2 -translate-x-1/2 w-80 h-40 bg-emerald-500/10 blur-[80px] rounded-full" />
-        <div className="flex justify-center gap-4 mb-6">
-          {[1,2,3].map(s => (
-            <motion.div key={s} initial={{ scale: 0, rotate: -30 }} animate={{ scale: 1, rotate: 0 }} transition={{ delay: s * 0.15 }}>
-              <Award size={40} className="text-yellow-400 drop-shadow-[0_0_12px_rgba(250,204,21,0.5)]" fill="currentColor" />
-            </motion.div>
-          ))}
-        </div>
-        <div className="text-[10px] font-black text-emerald-400 uppercase tracking-[0.3em] mb-2">Certificación de Competencia</div>
-        <h3 className="text-4xl font-black uppercase tracking-tighter mb-8 italic">¡Misión Completada!</h3>
-        <div className="bg-white/5 border border-white/10 rounded-[2rem] p-8 mb-8">
-           <span className="text-[11px] font-black text-emerald-400 uppercase block mb-1">Laboratorio</span>
-           <span className="text-2xl font-black uppercase tracking-tight">{data?.titulo}</span>
-        </div>
-        <p className="text-sm text-slate-400 mb-10 px-6">Has validado con éxito todos los parámetros técnicos de la práctica. Los resultados han sido registrados en tu expediente académico.</p>
-        <div className="flex gap-4">
-          <button onClick={onClose} className="flex-1 py-5 bg-white/5 text-white font-black text-[10px] uppercase rounded-2xl border border-white/10 hover:bg-white/10 transition-all">Revisar Bitácora</button>
-          <button onClick={() => { resetPractica(); router.push(hubPath); }} className="flex-1 py-5 bg-emerald-600 text-white font-black text-[10px] uppercase rounded-2xl shadow-lg shadow-emerald-600/20 hover:bg-emerald-500 transition-all">Finalizar y Salir</button>
-        </div>
-      </motion.div>
     </div>
   );
 }

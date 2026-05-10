@@ -28,9 +28,7 @@ export default function PilotoPitagoras() {
     return () => setAsistente({ visible: false });
   }, []);
 
-  if (!pitagoras) return null;
-
-  const { catetoA = 3, catetoB = 4, llenado = 0, userInputC = '', status = 'idle', escenario = 'pitagoras_basico' } = pitagoras;
+  const { catetoA = 3, catetoB = 4, llenado = 0, userInputC = '', status = 'idle', escenario = 'pitagoras_basico' } = pitagoras ?? {};
 
   const areaA = (catetoA || 3) * (catetoA || 3);
   const areaB = (catetoB || 4) * (catetoB || 4);
@@ -60,7 +58,7 @@ export default function PilotoPitagoras() {
     if (status === 'success' && pasoActual < 3) setPasoActual(3);
   }, [catetoA, catetoB, userInputC, status, pasoActual, setPasoActual]);
 
-  if (!mounted) return null;
+  if (!mounted || !pitagoras) return null;
 
   return (
     <div className="w-full h-full bg-[#020617] relative overflow-hidden flex flex-col font-['Outfit'] text-white">
