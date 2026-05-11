@@ -187,7 +187,7 @@ export default function LoginPage() {
                 <div className="space-y-2">
                   <div className="flex justify-between items-center px-4">
                     <label className="text-[10px] font-black text-[#023047]/30 uppercase tracking-[0.2em]">Contraseña</label>
-                    <Link href="#" className="text-[9px] font-black text-[#219EBC] hover:text-[#FB8500] uppercase tracking-widest transition-colors font-bold">Reiniciar</Link>
+                    <Link href="/forgot-password" className="text-[9px] font-black text-[#219EBC] hover:text-[#FB8500] uppercase tracking-widest transition-colors font-bold">Reiniciar</Link>
                   </div>
                   <div className="relative">
                     <input

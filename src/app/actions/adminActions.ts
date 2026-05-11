@@ -8,11 +8,15 @@ export interface UserImport {
   role: "alumno" | "profesor";
 }
 
+// Configurable via INSTITUTIONAL_EMAIL_DOMAIN env var; fallback al dominio CEN
+const DEFAULT_EMAIL_DOMAIN =
+  process.env.INSTITUTIONAL_EMAIL_DOMAIN ?? "cenlaboratorios.com";
+
 /**
  * Genera un correo electrónico institucional a partir de un nombre completo.
  * Ejemplo: "Juan Pérez" -> "juan.perez@cenlaboratorios.com"
  */
-function generateEmail(fullName: string, domain: string = "cenlaboratorios.com"): string {
+function generateEmail(fullName: string, domain: string = DEFAULT_EMAIL_DOMAIN): string {
   const clean = fullName
     .toLowerCase()
     .normalize("NFD")
