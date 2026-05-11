@@ -10,7 +10,7 @@ import {
   Tooltip,
   ResponsiveContainer,
 } from "recharts";
-import { supabase } from "@/lib/supabase";
+import { supabase } from "@/lib/supabase-browser";
 import { BarChart3, Loader2, ChevronDown } from "lucide-react";
 import { useAppContext } from "@/context/AppContext";
 

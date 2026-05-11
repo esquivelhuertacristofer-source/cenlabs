@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useSimuladorStore } from "@/store/simuladorStore";
-import { supabase } from "@/lib/supabase";
+import { supabase } from "@/lib/supabase-browser";
 
 export default function WelcomeBanner() {
   const { user } = useSimuladorStore();

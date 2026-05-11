@@ -3,7 +3,7 @@
 import { Users, LayoutGrid, CheckCircle, TrendingUp, TrendingDown, Loader2 } from "lucide-react";
 import { metricCards } from "@/lib/mockData";
 import { useAppContext } from "@/context/AppContext";
-import { supabase } from "@/lib/supabase";
+import { supabase } from "@/lib/supabase-browser";
 import { useEffect, useState } from "react";
 
 const icons = [Users, LayoutGrid, CheckCircle];

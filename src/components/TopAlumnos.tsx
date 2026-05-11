@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { supabase } from "@/lib/supabase";
+import { supabase } from "@/lib/supabase-browser";
 import { Trophy, Star, Users, Loader2 } from "lucide-react";
 import { useAppContext } from "@/context/AppContext";
 

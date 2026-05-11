@@ -2,7 +2,7 @@
 
 import * as React from "react";
 import { Calendar } from "@/components/ui/calendar";
-import { supabase } from "@/lib/supabase";
+import { supabase } from "@/lib/supabase-browser";
 import { ChevronRight, History, Calendar as CalendarIcon } from "lucide-react";
 import { useState, useEffect, useMemo } from "react";
 import { DayButton, type DayButtonProps } from "react-day-picker";

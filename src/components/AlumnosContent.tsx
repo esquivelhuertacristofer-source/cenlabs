@@ -5,7 +5,7 @@ import Sidebar from "@/components/Sidebar";
 import { useAppContext } from "@/context/AppContext";
 import StudentProfileModal from "@/components/StudentProfileModal";
 import { Search, Filter, UserPlus, MoreHorizontal, Users, FileDown, Loader2, Layout, BarChart3 } from "lucide-react";
-import { supabase } from "@/lib/supabase";
+import { supabase } from "@/lib/supabase-browser";
 import { generateGroupReport } from "@/lib/reportUtils";
 
 export default function AlumnosContent() {
@@ -15,6 +15,52 @@ export default function AlumnosContent() {
   const [allStudents, setAllStudents] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [viewMode, setViewMode] = useState<'cards' | 'grid'>('cards');
+  const [showVincularModal, setShowVincularModal] = useState(false);
+  const [vincularEmail, setVincularEmail] = useState('');
+  const [vincularLoading, setVincularLoading] = useState(false);
+  const [vincularMsg, setVincularMsg] = useState<{ type: 'ok' | 'err'; text: string } | null>(null);
+  const [refreshKey, setRefreshKey] = useState(0);
+
+  const handleVincular = async () => {
+    if (!vincularEmail.trim()) return;
+    if (selectedGroup === 'all') {
+      setVincularMsg({ type: 'err', text: 'Selecciona un grupo en el panel izquierdo antes de vincular.' });
+      return;
+    }
+    setVincularLoading(true);
+    setVincularMsg(null);
+    try {
+      const { data: profile } = await supabase
+        .from('profiles')
+        .select('id, full_name')
+        .eq('email', vincularEmail.toLowerCase().trim())
+        .single();
+      if (!profile) {
+        setVincularMsg({ type: 'err', text: 'No se encontró ningún alumno con ese correo.' });
+        return;
+      }
+      const { data: grupo } = await supabase
+        .from('grupos')
+        .select('id')
+        .eq('nombre', selectedGroup)
+        .single();
+      if (!grupo) {
+        setVincularMsg({ type: 'err', text: 'Grupo no encontrado.' });
+        return;
+      }
+      const { error } = await supabase
+        .from('alumnos_grupos')
+        .upsert({ id_alumno: profile.id, id_grupo: grupo.id }, { onConflict: 'id_alumno,id_grupo' });
+      if (error) throw error;
+      setVincularMsg({ type: 'ok', text: `${profile.full_name} vinculado a ${selectedGroup} correctamente.` });
+      setVincularEmail('');
+      setRefreshKey(k => k + 1);
+    } catch (e: any) {
+      setVincularMsg({ type: 'err', text: e.message || 'Error al vincular.' });
+    } finally {
+      setVincularLoading(false);
+    }
+  };
 
   useEffect(() => {
     async function fetchStudents() {
@@ -53,7 +99,7 @@ export default function AlumnosContent() {
               ? parseFloat((completed.reduce((acc: number, i: any) => acc + (i.score || 0), 0) / completed.length).toFixed(1))
               : 0;
 
-            const groupName = p.alumnos_grupos?.[0]?.grupos?.[0]?.nombre || "Sin Grupo";
+            const groupName = (p.alumnos_grupos?.[0]?.grupos as any)?.nombre || "Sin Grupo";
             const initials = p.full_name?.split(' ').map((n: string) => n[0]).slice(0, 2).join('').toUpperCase() || "??";
             
             // Generate stats for radar chart
@@ -66,11 +112,11 @@ export default function AlumnosContent() {
 
             completed.forEach((i: any) => {
               let cat = 'Matemáticas';
-              const sim = i.sim_id.toUpperCase();
-              if (sim.startsWith('QMI')) cat = 'Química';
-              else if (sim.startsWith('FIS')) cat = 'Física';
-              else if (sim.startsWith('BIO')) cat = 'Biología';
-              
+              const sim = (i.sim_id as string).toLowerCase();
+              if (sim.startsWith('quimica')) cat = 'Química';
+              else if (sim.startsWith('fisica')) cat = 'Física';
+              else if (sim.startsWith('biologia')) cat = 'Biología';
+
               categories[cat].total += (i.score || 0);
               categories[cat].count += 1;
             });
@@ -94,14 +140,21 @@ export default function AlumnosContent() {
               color: COLORS[colorIndex],
               lastActivity: "Recientemente", // Could be derived from completed_at
               stats,
-              practices: intentos.map((i: any) => ({
-                id: i.id,
-                name: i.sim_id,
-                subject: i.sim_id.split('-')[0].toUpperCase(),
-                status: i.status === 'completed' ? 'completada' : 'en_progreso',
-                score: i.score,
-                date: i.completed_at
-              })),
+              practices: intentos.map((i: any) => {
+                const prefix = (i.sim_id as string).split('-')[0].toLowerCase();
+                const subjectMap: Record<string, string> = {
+                  quimica: 'Química', fisica: 'Física',
+                  biologia: 'Biología', matematicas: 'Matemáticas',
+                };
+                return {
+                  id: i.id,
+                  name: i.sim_id,
+                  subject: subjectMap[prefix] ?? prefix.toUpperCase(),
+                  status: i.status === 'completed' ? 'completada' : 'en_progreso',
+                  score: i.score,
+                  date: i.completed_at,
+                };
+              }),
               completadas: completed.length
             };
           });
@@ -115,7 +168,7 @@ export default function AlumnosContent() {
     }
 
     fetchStudents();
-  }, []);
+  }, [refreshKey]);
 
   const filteredStudents = allStudents.filter((s) => {
     const matchesGroup = selectedGroup === "all" || s.group === selectedGroup;
@@ -150,7 +203,7 @@ export default function AlumnosContent() {
               <FileDown className="h-4 w-4" />
               Informe Grupal
             </button>
-            <button className="flex items-center gap-2 rounded-xl bg-[#023047] px-6 py-3 text-xs font-black uppercase tracking-widest text-white transition-all hover:bg-[#219EBC] shadow-lg shadow-primary/20 active:scale-95" style={{ fontFamily: "Outfit, sans-serif" }}>
+            <button onClick={() => { setShowVincularModal(true); setVincularMsg(null); setVincularEmail(''); }} className="flex items-center gap-2 rounded-xl bg-[#023047] px-6 py-3 text-xs font-black uppercase tracking-widest text-white transition-all hover:bg-[#219EBC] shadow-lg shadow-primary/20 active:scale-95" style={{ fontFamily: "Outfit, sans-serif" }}>
               <UserPlus className="h-4 w-4" />
               Vincular Alumno
             </button>
@@ -277,6 +330,57 @@ export default function AlumnosContent() {
           isOpen={!!selectedStudent}
           onClose={() => setSelectedStudent(null)}
         />
+
+        {showVincularModal && (
+          <div className="fixed inset-0 z-[200] flex items-center justify-center bg-[#023047]/50 backdrop-blur-sm" onClick={() => setShowVincularModal(false)}>
+            <div className="bg-white rounded-[2rem] p-8 w-full max-w-md shadow-2xl" onClick={e => e.stopPropagation()}>
+              <div className="flex items-center gap-3 mb-6">
+                <div className="w-10 h-10 rounded-xl bg-[#023047] flex items-center justify-center">
+                  <UserPlus className="h-5 w-5 text-white" />
+                </div>
+                <div>
+                  <h2 className="text-lg font-black text-[#023047] tracking-tighter" style={{ fontFamily: "Outfit, sans-serif" }}>Vincular Alumno</h2>
+                  <p className="text-[10px] font-bold text-[#023047]/40 uppercase tracking-widest">
+                    {selectedGroup === 'all' ? 'Selecciona un grupo primero' : selectedGroup}
+                  </p>
+                </div>
+              </div>
+              <div className="mb-4">
+                <label className="block text-[10px] font-black uppercase tracking-widest text-[#023047]/60 mb-2">Correo del alumno</label>
+                <input
+                  type="email"
+                  placeholder="alumno@cenlaboratorios.com"
+                  value={vincularEmail}
+                  onChange={e => setVincularEmail(e.target.value)}
+                  onKeyDown={e => e.key === 'Enter' && handleVincular()}
+                  className="w-full rounded-xl border border-slate-200 px-4 py-3 text-sm font-bold text-[#023047] outline-none focus:border-[#219EBC] focus:ring-4 focus:ring-[#219EBC]/10 transition-all"
+                  style={{ fontFamily: "Outfit, sans-serif" }}
+                  autoFocus
+                />
+              </div>
+              {vincularMsg && (
+                <div className={`mb-4 rounded-xl px-4 py-3 text-xs font-bold ${vincularMsg.type === 'ok' ? 'bg-emerald-50 text-emerald-700' : 'bg-red-50 text-red-600'}`}>
+                  {vincularMsg.text}
+                </div>
+              )}
+              <div className="flex gap-3">
+                <button
+                  onClick={() => setShowVincularModal(false)}
+                  className="flex-1 py-3 rounded-xl bg-slate-100 text-slate-500 text-xs font-black uppercase tracking-widest hover:bg-slate-200 transition-all"
+                >
+                  Cancelar
+                </button>
+                <button
+                  onClick={handleVincular}
+                  disabled={vincularLoading || !vincularEmail.trim()}
+                  className="flex-1 py-3 rounded-xl bg-[#023047] text-white text-xs font-black uppercase tracking-widest hover:bg-[#219EBC] transition-all disabled:opacity-50"
+                >
+                  {vincularLoading ? 'Vinculando…' : 'Vincular'}
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
       </main>
     </div>
   );

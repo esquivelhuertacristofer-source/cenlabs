@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react";
 import Link from "next/link";
 import Sidebar from "@/components/Sidebar";
-import { supabase } from "@/lib/supabase";
+import { supabase } from "@/lib/supabase-browser";
 import { PlayCircle, FlaskConical, Zap, Microscope, Calculator, BookOpen, Users, Activity } from "lucide-react";
 
 const LABS_REAL = [

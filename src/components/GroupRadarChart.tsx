@@ -9,7 +9,7 @@ import {
   PolarRadiusAxis,
   ResponsiveContainer,
 } from "recharts";
-import { supabase } from "@/lib/supabase";
+import { supabase } from "@/lib/supabase-browser";
 import { Activity, Loader2 } from "lucide-react";
 
 import { useAppContext } from "@/context/AppContext";
