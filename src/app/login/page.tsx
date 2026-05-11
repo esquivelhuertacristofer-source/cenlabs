@@ -9,6 +9,7 @@ import { supabase } from "@/lib/supabase-browser";
 import { getCurrentProfile, ensureProfile } from "@/lib/supabase";
 import { ensureProfileServer } from "@/app/actions/auth";
 import { useSimuladorStore } from "@/store/simuladorStore";
+import PrivacyConsentCheckbox from "@/components/PrivacyConsentCheckbox";
 
 const subjects = [
   { name: "Física", icon: Zap, color: "#FB8500" },
@@ -21,6 +22,7 @@ export default function LoginPage() {
   const [showPassword, setShowPassword] = useState(false);
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [privacyAccepted, setPrivacyAccepted] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [errorObj, setErrorObj] = useState<{message: string} | null>(null);
   const { setSession, setUser } = useSimuladorStore();
@@ -208,11 +210,16 @@ export default function LoginPage() {
                   </div>
                 </div>
 
+                <PrivacyConsentCheckbox
+                  checked={privacyAccepted}
+                  onChange={setPrivacyAccepted}
+                />
+
                 <button
                   type="submit"
-                  disabled={isLoading}
+                  disabled={isLoading || !privacyAccepted}
                   className={`w-full py-5 rounded-[28px] font-black text-sm uppercase tracking-[0.2em] transition-all relative overflow-hidden group
-                    ${isLoading ? "bg-gray-100 text-gray-400 cursor-wait shadow-inner" : "bg-[#FB8500] text-white shadow-[0_20px_50px_rgba(251,133,0,0.3)] hover:shadow-[0_25px_60px_rgba(251,133,0,0.45)] hover:-translate-y-1.5 active:translate-y-0.5"}
+                    ${isLoading ? "bg-gray-100 text-gray-400 cursor-wait shadow-inner" : !privacyAccepted ? "bg-gray-100 text-gray-400 cursor-not-allowed shadow-inner" : "bg-[#FB8500] text-white shadow-[0_20px_50px_rgba(251,133,0,0.3)] hover:shadow-[0_25px_60px_rgba(251,133,0,0.45)] hover:-translate-y-1.5 active:translate-y-0.5"}
                   `}
                   style={{ fontFamily: "Outfit, sans-serif" }}
                 >

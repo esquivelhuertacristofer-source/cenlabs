@@ -709,14 +709,58 @@ export default function SimuladorClient({ simuladorId }: { simuladorId: string }
           )}
 
           {showQuiz && (
-            <LabQuiz 
+            <LabQuiz
               key="lab-quiz"
               id={normalizedId}
               questions={quizQuestions}
-              onComplete={(quizScore) => {
+              onComplete={async (quizScore) => {
                 setShowQuiz(false);
                 setShowSuccess(true);
                 audio.playVictory();
+                const st = useSimuladorStore.getState();
+                const user = st.user;
+                // TECH DEBT: onComplete handles both UI transition and DB write.
+                // Fix 2 should decouple: fire DB write when quiz finishes (useEffect on
+                // isFinished in LabQuiz), keep this button for UI transition only.
+                // That way a slow user still gets their score saved even if they close
+                // the tab without clicking "Cerrar y Validar".
+                console.log('[onComplete] Iniciando guardado del intento', {
+                  sim_id: simuladorId,
+                  score: quizScore,
+                  user_id: user?.id ?? 'null — ¡ATENCIÓN: user no está en el store!',
+                });
+                if (!user) {
+                  console.error('[onComplete] user es null — el upsert NO se ejecutará. Verificar getCurrentProfile() y setUser().');
+                  return;
+                }
+                try {
+                  const { data, error, status: httpStatus } = await supabase
+                    .from('intentos')
+                    .upsert({
+                      id_alumno: user.id,
+                      sim_id: simuladorId,
+                      status: 'completed',
+                      score: quizScore,
+                      total_time_seconds: st.timer,
+                      completed_at: new Date().toISOString(),
+                      last_step: st.pasoActual,
+                    }, { onConflict: 'id_alumno, sim_id, status' })
+                    .select()
+                    .single();
+                  if (error) {
+                    console.error('[onComplete] Error al guardar intento:', {
+                      message: error.message,
+                      code: error.code,
+                      details: error.details,
+                      hint: (error as any).hint,
+                      httpStatus,
+                    });
+                  } else {
+                    console.log('[onComplete] ✅ Intento guardado exitosamente:', data);
+                  }
+                } catch (e) {
+                  console.error('[onComplete] Exception inesperada:', e);
+                }
               }}
               onCancel={() => setShowQuiz(false)}
             />

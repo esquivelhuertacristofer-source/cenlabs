@@ -46,3 +46,8 @@ next-env.d.ts
 .netlify
 
 .vercel
+
+# Generated credentials and pilot config — never commit
+/output/
+/scripts/piloto-config.ts
+/docs/CREDENCIALES-PILOTO-001.md
