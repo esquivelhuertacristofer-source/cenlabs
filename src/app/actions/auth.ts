@@ -1,6 +1,6 @@
 'use server'
 
-import { getAdminClient } from '@/lib/supabase';
+import { getAdminClient } from '@/lib/supabase-admin';
 
 /**
  * Asegura que el perfil del usuario exista en la tabla 'profiles'.

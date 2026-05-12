@@ -27,7 +27,7 @@ jest.mock('@/lib/rateLimiter', () => ({
   },
 }));
 
-jest.mock('@/lib/supabase', () => ({
+jest.mock('@/lib/supabase-helpers', () => ({
   guardarResultado: jest.fn().mockResolvedValue(undefined),
 }));
 
@@ -68,7 +68,7 @@ function getMockUser() {
 }
 function getMockGuardar() {
   // eslint-disable-next-line @typescript-eslint/no-require-imports
-  return require('@/lib/supabase').guardarResultado;
+  return require('@/lib/supabase-helpers').guardarResultado;
 }
 
 // ── GET /api/resultados ───────────────────────────────────────────────────────

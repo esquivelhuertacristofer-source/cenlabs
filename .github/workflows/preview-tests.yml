@@ -1,0 +1,39 @@
+name: Smoke - Verify Simulator Routes
+
+on:
+  workflow_dispatch:
+    inputs:
+      base_url:
+        description: 'Base URL to test (e.g. https://cen-labs.vercel.app)'
+        required: true
+        type: string
+
+jobs:
+  verify-routes:
+    name: HTTP check all 40 simulator routes
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - name: Verify simulator routes return 200
+        run: |
+          BASE="${{ github.event.inputs.base_url }}"
+          SUBJECTS="quimica fisica biologia matematicas"
+          FAILED=0
+
+          for subject in $SUBJECTS; do
+            for n in $(seq 1 10); do
+              URL="$BASE/alumno/simulador/$subject-$n"
+              STATUS=$(curl -s -o /dev/null -w "%{http_code}" --max-time 10 "$URL")
+              if [ "$STATUS" = "200" ]; then
+                echo "  OK  $subject-$n ($STATUS)"
+              else
+                echo "  FAIL  $subject-$n — got $STATUS"
+                FAILED=$((FAILED + 1))
+              fi
+            done
+          done
+
+          echo ""
+          echo "--- Result: $FAILED / 40 routes failed ---"
+          exit $FAILED

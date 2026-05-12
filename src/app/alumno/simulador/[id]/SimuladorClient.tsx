@@ -18,7 +18,7 @@ import ErrorBoundary from '@/components/ErrorBoundary';
 import { useSimuladorStore } from '@/store/simuladorStore';
 import { useShallow } from 'zustand/react/shallow';
 import { supabase } from '@/lib/supabase-browser';
-import { getCurrentProfile } from '@/lib/supabase';
+import { getCurrentProfile } from '@/lib/supabase-helpers';
 import { SyncManager } from '@/components/SyncManager';
 import AsistenteVirtual from '@/components/AsistenteVirtual';
 import DrQuantumTutor, { TutorStep } from '@/components/DrQuantumTutor';
@@ -233,7 +233,7 @@ export default function SimuladorClient({ simuladorId }: { simuladorId: string }
 
   if (!mounted) return <div className="fixed inset-0 bg-[#0A1121] flex items-center justify-center z-[200]"><div className="w-16 h-16 border-4 border-[#219EBC] border-t-transparent rounded-full animate-spin" /></div>;
 
-  const data = MASTER_DATA[simuladorId as SimuladorId];
+  const data = MASTER_DATA[normalizedId as SimuladorId];
   
   if (!data) return (
     <div className="h-screen w-screen bg-[#023047] flex flex-col items-center justify-center font-['Outfit']">

@@ -1,4 +1,4 @@
-name: CI/CD - CEN LABS
+name: CI
 
 on:
   push:
@@ -10,34 +10,37 @@ env:
   NODE_VERSION: '22'
 
 jobs:
-  deploy:
-    name: Build & Deploy to Vercel
+  quality:
+    name: Type-check, Test & Build
     runs-on: ubuntu-latest
-    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
-    
+    timeout-minutes: 15
+
+    env:
+      NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
+      NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY }}
+
     steps:
-      - name: Checkout code
+      - name: Checkout
         uses: actions/checkout@v4
 
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
           node-version: ${{ env.NODE_VERSION }}
-          cache: 'npm'
+          cache: npm
 
       - name: Install dependencies
-        run: npm install --no-frozen-lockfile
+        run: npm ci
 
-      - name: Build application
+      - name: Type-check
+        run: npx tsc --noEmit
+
+      - name: Test
+        run: npx jest --passWithNoTests --forceExit
+        env:
+          NODE_OPTIONS: --experimental-vm-modules
+
+      - name: Build
         run: npm run build
         env:
-          NEXT_PUBLIC_SUPABASE_URL: 'https://wbvcclpxxwzkuddjxqig.supabase.co'
-          NEXT_PUBLIC_SUPABASE_ANON_KEY: 'sb_publishable_WgQiBEqBJiTFNfms4xzw1Q_HpvRxcYt'
-
-      - name: Deploy to Vercel
-        uses: amondnet/vercel-action@v25
-        with:
-          vercel-token: ${{ secrets.VERCEL_TOKEN }}
-          vercel-org-id: ${{ secrets.VERCEL_ORG_ID }}
-          vercel-project-id: ${{ secrets.VERCEL_PROJECT_ID }}
-          vercel-args: '--prod'
+          SENTRY_SUPPRESS_GLOBAL_ERROR_HANDLER_FILE_WARNING: 1

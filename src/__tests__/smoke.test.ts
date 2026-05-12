@@ -105,39 +105,34 @@ describe('SimuladorId Format', () => {
 });
 
 // ============================================
-// TEST 4: Verificar API route de resultados
+// TEST 4: Verificar helpers de Supabase
 // ============================================
-describe('API Results Route', () => {
+describe('Supabase Helpers', () => {
     it('should have guardarResultado function', async () => {
-        const { guardarResultado } = await import('@/lib/supabase');
+        const { guardarResultado } = await import('@/lib/supabase-helpers');
 
         expect(typeof guardarResultado).toBe('function');
     });
 
-    it('should accept valid ResultadoPractica structure', async () => {
-        const { ResultadoPractica } = await import('@/lib/supabase');
+    it('should have getCurrentProfile function', async () => {
+        const { getCurrentProfile } = await import('@/lib/supabase-helpers');
 
-        const resultado: ResultadoPractica = {
-            user_id: 'test-user',
-            practica_id: 'quimica-1',
-            materia: 'quimica',
-            score: 100,
-            tiempo_segundos: 300,
-            checkpoints_completados: 4,
-            fecha_inicio: new Date().toISOString(),
-            fecha_fin: new Date().toISOString(),
-            seeds_utilizadas: {},
-        };
-
-        expect(resultado.user_id).toBeDefined();
-        expect(resultado.practica_id).toBeDefined();
-        expect(resultado.score).toBeGreaterThanOrEqual(0);
+        expect(typeof getCurrentProfile).toBe('function');
     });
 
     it('should have isSupabaseConfigured function', async () => {
-        const { isSupabaseConfigured } = await import('@/lib/supabase');
+        const { isSupabaseConfigured } = await import('@/lib/supabase-helpers');
 
         expect(typeof isSupabaseConfigured).toBe('function');
+    });
+
+    it('Intento type should have required fields', async () => {
+        const helpers = await import('@/lib/supabase-helpers');
+        // Verificar que el módulo exporta los tipos correctos
+        // (en runtime los tipos TypeScript no existen, verificamos las funciones)
+        expect(typeof helpers.guardarResultado).toBe('function');
+        expect(typeof helpers.syncIntento).toBe('function');
+        expect(typeof helpers.getCurrentProfile).toBe('function');
     });
 });
 

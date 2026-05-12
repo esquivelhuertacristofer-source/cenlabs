@@ -1,6 +1,6 @@
 "use server";
 
-import { getAdminClient } from "@/lib/supabase";
+import { getAdminClient } from "@/lib/supabase-admin";
 
 export interface UserImport {
   email: string;

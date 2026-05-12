@@ -1,6 +1,6 @@
 import { StateCreator } from 'zustand';
 import { SimuladorState, CoreSlice } from '../types';
-import { Profile } from '../../lib/supabase';
+import { Profile } from '../../lib/supabase-helpers';
 
 export const createCoreSlice: StateCreator<SimuladorState, [], [], CoreSlice> = (set, get) => ({
   timer: 0,

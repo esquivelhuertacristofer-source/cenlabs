@@ -7,7 +7,7 @@ import MainContent from "@/components/MainContent";
 import RightPanel from "@/components/RightPanel";
 import { useSimuladorStore } from '@/store/simuladorStore';
 import { supabase } from '@/lib/supabase-browser';
-import { getCurrentProfile } from '@/lib/supabase';
+import { getCurrentProfile } from '@/lib/supabase-helpers';
 
 export default function Home() {
   const router = useRouter();

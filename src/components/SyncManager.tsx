@@ -10,7 +10,7 @@
 
 import { useEffect, useRef } from 'react';
 import { useSimuladorStore } from '@/store/simuladorStore';
-import { Intento } from '@/lib/supabase';
+import { Intento } from '@/lib/supabase-helpers';
 import { syncIntentoServer } from '@/app/actions/auth';
 import { useParams } from 'next/navigation';
 

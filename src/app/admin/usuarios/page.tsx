@@ -11,7 +11,7 @@ import {
 } from "lucide-react";
 import { onboardInstitutionalUsers } from "../../actions/adminActions";
 import { supabase } from "@/lib/supabase-browser";
-import { getCurrentProfile } from "@/lib/supabase";
+import { getCurrentProfile } from "@/lib/supabase-helpers";
 import { useRouter } from "next/navigation";
 import jsPDF from "jspdf";
 

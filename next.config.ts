@@ -1,4 +1,5 @@
 import type { NextConfig } from "next";
+import { withSentryConfig } from "@sentry/nextjs";
 
 const nextConfig: NextConfig = {
   experimental: {
@@ -35,4 +36,26 @@ const nextConfig: NextConfig = {
   }
 };
 
-export default nextConfig;
+export default withSentryConfig(nextConfig, {
+  // Org y project de Sentry — configurar con variables de entorno si se usa multi-proyecto.
+  org: process.env.SENTRY_ORG,
+  project: process.env.SENTRY_PROJECT,
+
+  // Solo subir source maps si hay auth token. Sin token, el build sigue limpio.
+  authToken: process.env.SENTRY_AUTH_TOKEN,
+
+  // No bloquear el build si Sentry falla — producción no depende de Sentry.
+  silent: !process.env.SENTRY_AUTH_TOKEN,
+
+  // Ocultar source maps del bundle público (solo Sentry los recibe via upload).
+  sourcemaps: { disable: !process.env.SENTRY_AUTH_TOKEN },
+
+  // No hacer logging verbose del SDK de Sentry en consola de servidor.
+  disableLogger: true,
+
+  // Tuneles para evitar que ad blockers bloqueen los reportes de Sentry.
+  tunnelRoute: "/monitoring-tunnel",
+
+  // Deshabilitar telemetría interna de Sentry.
+  telemetry: false,
+});

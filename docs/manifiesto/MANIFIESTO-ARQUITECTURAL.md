@@ -400,6 +400,28 @@ Ver AP-11. Todo en `supabase/migrations/`. El schema completo debe ser reproduci
 
 ---
 
+### AP-12: Guards de `notFound()` sobre datos grandes con `as const` en serverless
+
+**Qué pasó en CEN Labs (2026-05-11 — incidente en producción):**  
+Se agregó un guard en `app/alumno/simulador/[id]/page.tsx`:
+
+```typescript
+import { MASTER_DATA } from '@/data/simuladoresData';
+if (!MASTER_DATA[normalizedId]) notFound();
+```
+
+El objeto `MASTER_DATA` tiene 40 entradas y usa modificador `as const`. En local funcionaba correctamente. En Vercel (serverless), el módulo se resolvía parcialmente antes del timeout — `quimica-1` (primera clave) resolvía; `fisica-*`, `biologia-*`, `matematicas-*` (claves posteriores) devolvían `undefined` y activaban `notFound()`. **30 de 40 simuladores cayeron durante una demo institucional en vivo.**
+
+**Root cause:**  
+Los módulos ESM grandes con `as const` pueden sufrir inicialización lazy en entornos serverless con límites de CPU. El guard asumía que el módulo siempre estaría completamente inicializado — asunción válida en Node.js persistente, no en lambdas con cold start.
+
+**El fix:**  
+Eliminar el guard completamente. El componente `SimuladorClient` ya maneja el caso `!data` con un UI de error amigable. No se necesita guardar en el servidor.
+
+**La regla:** No colocar guards de `notFound()` que dependan de la inicialización completa de objetos de datos grandes importados como módulo. Dejar el manejo al componente cliente.
+
+---
+
 ## 5. Stack base para proyectos nuevos
 
 Versiones validadas en CEN Labs (Mayo 2026). Actualizar con cautela — siempre leer changelogs antes de bump de versión mayor.
@@ -534,3 +556,4 @@ Este documento debe actualizarse cuando:
 | Versión | Fecha | Cambio |
 |---|---|---|
 | 1.0 | 2026-05-11 | Versión inicial — CEN Financiera + CEN Labs Sprint 1–3 |
+| 1.1 | 2026-05-11 | AP-12: incidente serverless `as const` guard — 30/40 simuladores caídos en producción |

@@ -6,7 +6,7 @@ import { useRouter } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
 import { MoveLeft, Eye, EyeOff, Beaker, Zap, Dna, Calculator, Loader2, AlertCircle } from "lucide-react";
 import { supabase } from "@/lib/supabase-browser";
-import { getCurrentProfile, ensureProfile } from "@/lib/supabase";
+import { getCurrentProfile, ensureProfile } from "@/lib/supabase-helpers";
 import { ensureProfileServer } from "@/app/actions/auth";
 import { useSimuladorStore } from "@/store/simuladorStore";
 import PrivacyConsentCheckbox from "@/components/PrivacyConsentCheckbox";

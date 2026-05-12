@@ -118,7 +118,7 @@ export async function POST(request: NextRequest) {
     };
 
     // ── 6. Guardar en Supabase ────────────────────────────────────────────────
-    const { guardarResultado } = await import('@/lib/supabase');
+    const { guardarResultado } = await import('@/lib/supabase-helpers');
     await guardarResultado(resultadoFinal);
 
     return NextResponse.json(

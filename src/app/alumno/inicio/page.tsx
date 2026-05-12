@@ -13,7 +13,7 @@ import { useRouter } from 'next/navigation';
 import ThemeToggle from '@/components/ThemeToggle';
 import { useSimuladorStore } from '@/store/simuladorStore';
 import { supabase } from '@/lib/supabase-browser';
-import { getCurrentProfile } from '@/lib/supabase';
+import { getCurrentProfile } from '@/lib/supabase-helpers';
 
 // ==========================================
 // Componentes de UI Auxiliares

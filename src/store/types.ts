@@ -1,5 +1,5 @@
 import { Session } from '@supabase/supabase-js';
-import { Profile } from '../lib/supabase';
+import { Profile } from '../lib/supabase-helpers';
 
 export interface QuizQuestion {
   pregunta: string;

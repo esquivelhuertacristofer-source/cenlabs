@@ -35,7 +35,7 @@ export default function AuditoriaContent() {
   const fetchAuditLogs = async () => {
     try {
       setLoading(true);
-      const { isSupabaseConfigured } = await import('@/lib/supabase');
+      const { isSupabaseConfigured } = await import('@/lib/supabase-helpers');
       if (!isSupabaseConfigured()) {
         console.warn('[Auditoria] Supabase no configurado.');
         setLoading(false);
