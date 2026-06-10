@@ -8,9 +8,9 @@ export const createFisicaSlice: StateCreator<SimuladorState, [], [], FisicaSlice
   hooke4: { k: 100, masa: 2.0, estiramiento: 0, amplitud: 0.5, oscilando: false, animando: false, t: 0, resultado: null },
   prensa5: { f1: 100, r1: 1.0, r2: 2.5, masaCarga: 500, ratio: 6.25, presion: 31830, isLifting: false, resultado: null },
   arquimedes6: { fluido: 'agua', densidadCuerpo: 800, densidadLiquido: 1000, volumenCuerpo: 0.001, sumergido: 0, radio: 0.5, isRunning: false, resultado: null },
-  dilatacion7: { material: 'hierro', tempIni: 20, tempFin: 100, longitud: 1.0, resultado: null },
-  ohm8: { nivel: 1, voltaje: 5, resistencia: 220, switchOn: false, ledRoto: false, bateriaConectada: false, resistenciaConectada: false, ledConectado: false, resultado: null },
-  electrostatica9: { q1: 1e-6, q2: 1e-6, distancia: 0.1, resultado: null },
+  dilatacion7: { material: 'aluminio', tempIni: 20, tempFin: 20, longitud: 500, resultado: null },
+  ohm8: { nivel: 1, voltaje: 12, resistencia: 220, switchOn: false, ledRoto: false, bateriaConectada: false, resistenciaConectada: false, ledConectado: false, resultado: null },
+  electrostatica9: { q1: 1, q2: 1, distancia: 0.1, resultado: null },
   motor10: { imanIzq: 'N', imanDer: 'S', voltaje: 0, espiras: 10, interruptor: false, carga: 5, rpm: 0, encendido: false, resultado: null },
   tiro1: { angulo: 45, velocidad: 25, disparando: false,    targetX: 50,
     y0: 0,
@@ -91,6 +91,7 @@ export const createFisicaSlice: StateCreator<SimuladorState, [], [], FisicaSlice
     let t = 0;
     let colisiona = false;
     let hitX = 0;
+    let lastPositiveY = y0;
 
     // Simulación paso a paso
     while (curY >= 0 && t < 10) {
@@ -108,13 +109,15 @@ export const createFisicaSlice: StateCreator<SimuladorState, [], [], FisicaSlice
       curY += vy * dt;
       t += dt;
 
+      if (curY >= 0) lastPositiveY = curY;
+
       // Verificar colisión con muro (obstáculo dinámico)
       if (!colisiona && Math.abs(curX - obsX) < 1.0 && curY <= obsY) {
         colisiona = true;
         hitX = curX;
         break;
       }
-      
+
       if (curY < 0) {
         hitX = curX;
         break;
@@ -135,7 +138,7 @@ export const createFisicaSlice: StateCreator<SimuladorState, [], [], FisicaSlice
         ...s.tiro1, 
         disparando: true, 
         distanciaReal: hitX,
-        yImpacto: curY, // Guardamos la altura del impacto
+        yImpacto: colisiona ? curY : lastPositiveY, // Guardamos la última altura positiva antes del impacto
         resultado: null,
         municion: s.tiro1.municion - 1
       } 
@@ -275,9 +278,9 @@ export const createFisicaSlice: StateCreator<SimuladorState, [], [], FisicaSlice
   resetF4: () => set({ hooke4: { k: 100, masa: 2.0, estiramiento: 0, amplitud: 0.5, oscilando: false, animando: false, t: 0, resultado: null } }),
   resetF5: () => set({ prensa5: { f1: 100, r1: 1.0, r2: 2.5, masaCarga: 500, ratio: 6.25, presion: 31830, isLifting: false, resultado: null } }),
   resetF6: () => set({ arquimedes6: { fluido: 'agua', densidadCuerpo: 800, densidadLiquido: 1000, volumenCuerpo: 0.001, sumergido: 0, radio: 0.5, isRunning: false, resultado: null } }),
-  resetF7: () => set({ dilatacion7: { material: 'hierro', tempIni: 20, tempFin: 100, longitud: 1.0, resultado: null } }),
-  resetF8: () => set({ ohm8: { nivel: 1, voltaje: 5, resistencia: 220, switchOn: false, ledRoto: false, bateriaConectada: false, resistenciaConectada: false, ledConectado: false, resultado: null } }),
-  resetF9: () => set({ electrostatica9: { q1: 1e-6, q2: 1e-6, distancia: 0.1, resultado: null } }),
+  resetF7: () => set((state) => ({ dilatacion7: { material: 'aluminio', tempIni: 20, tempFin: 20, longitud: 500, resultado: null }, bitacoraData: { ...state.bitacoraData, fisica7: null } })),
+  resetF8: () => set({ ohm8: { nivel: 1, voltaje: 12, resistencia: 220, switchOn: false, ledRoto: false, bateriaConectada: false, resistenciaConectada: false, ledConectado: false, resultado: null } }),
+  resetF9: () => set({ electrostatica9: { q1: 1, q2: 1, distancia: 0.1, resultado: null } }),
   resetF10: () => set({ motor10: { imanIzq: 'N', imanDer: 'S', voltaje: 0, espiras: 10, interruptor: false, carga: 5, rpm: 0, encendido: false, resultado: null } }),
   resetFisica: () => {
     get().resetF1();

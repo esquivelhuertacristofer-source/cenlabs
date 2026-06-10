@@ -46,8 +46,8 @@ export default function PilotoLeyesGases({ isWorktableDark, isProfesor, onValida
 
   useEffect(() => {
     setMounted(true);
-    if (!pTarget) generarSemillaGases();
-  }, [generarSemillaGases, pTarget]);
+    generarSemillaGases();
+  }, []);
 
   // Efecto para Audio de Error (Explosión)
   useEffect(() => {
@@ -60,8 +60,9 @@ export default function PilotoLeyesGases({ isWorktableDark, isProfesor, onValida
   const handleValidar = () => {
     const state = useSimuladorStore.getState();
     const isOk = state.validarQ2();
-    
+
     if (isOk) {
+      state.registrarHallazgo('qui_gases', { T, V, P, n, pTarget });
       if (onValidate) {
         onValidate();
       } else {

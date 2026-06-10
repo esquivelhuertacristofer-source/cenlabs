@@ -65,17 +65,16 @@ export function validarM4(pitagoras: PitaGorasState): boolean {
 // M5 — Trigonometría (puntos críticos sin/cos)
 export function validarM5(trig: TrigonometriaState): boolean {
   const hallazgos = trig.hallazgos ?? [];
-  const tieneCriticos = hallazgos.length >= 2;
-  return tieneCriticos && (Math.abs(trig.angulo - 45) <= 1 || Math.abs(trig.angulo - 225) <= 1);
+  return hallazgos.length >= 2;
 }
 
-// M6 — Transformaciones Geométricas (exactas)
+// M6 — Transformaciones Geométricas (tolerance-based)
 export function validarM6(geo: Geometria6State): boolean {
   return (
-    geo.tx === geo.target.tx &&
-    geo.ty === geo.target.ty &&
-    geo.rotacion === geo.target.rotacion &&
-    geo.escala === geo.target.escala
+    Math.abs(geo.tx - geo.target.tx) < 0.2 &&
+    Math.abs(geo.ty - geo.target.ty) < 0.2 &&
+    Math.abs(geo.rotacion - geo.target.rotacion) < 5 &&
+    Math.abs(geo.escala - geo.target.escala) < 0.1
   );
 }
 

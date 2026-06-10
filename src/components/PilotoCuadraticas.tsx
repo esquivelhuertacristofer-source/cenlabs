@@ -19,7 +19,7 @@ import { audio as audioEngine } from '@/utils/audioEngine';
 
 export default function PilotoCuadraticas() {
   const router = useRouter();
-  const { cuadraticas, setCoefsM1, validarM1, registrarHallazgoM1, resetM1, setAsistente, pasoActual, setPasoActual, bitacoraData, setBitacora, registrarHallazgo, stopTimer } = useSimuladorStore();
+  const { cuadraticas, setCoefsM1, validarM1, registrarHallazgoM1, resetM1, setAsistente, pasoActual, setPasoActual, bitacoraData, setBitacora, stopTimer, setDeltaVerified, setVertexVerified } = useSimuladorStore();
   const { a, b, c, target, status } = cuadraticas;
   
   const calcReady = (cuadraticas.deltaVerified ?? false) && (cuadraticas.vertexVerified ?? false);
@@ -52,18 +52,9 @@ export default function PilotoCuadraticas() {
     if (status === 'success' && pasoActual < 3) {
       setPasoActual(3);
       stopTimer();
-      registrarHallazgo('mat_cuadraticas_sincronia', {
-        coef_a: a,
-        coef_b: b,
-        coef_c: c,
-        target_a: target.a,
-        target_b: target.b,
-        target_c: target.c,
-        delta: currentRes.delta,
-        vertice: currentRes.vertex
-      });
+      registrarHallazgoM1();
     }
-  }, [a, b, c, calcReady, status, pasoActual, setPasoActual, stopTimer, registrarHallazgo, target, currentRes]);
+  }, [a, b, c, calcReady, status, pasoActual, setPasoActual, stopTimer, registrarHallazgoM1]);
 
   if (!mounted) return null;
 
@@ -140,9 +131,9 @@ export default function PilotoCuadraticas() {
              </div>
              <div className="flex items-center gap-3">
                 <div className="flex-1 h-2 bg-white/5 rounded-full overflow-hidden">
-                   <motion.div 
-                     animate={{ width: `${Math.max(5, 100 - Math.abs(a - target.a)*20 - Math.abs(b - target.b)*10)}%` }}
-                     className="h-full bg-gradient-to-r from-orange-500 to-amber-500" 
+                   <motion.div
+                     animate={{ width: `${Math.max(5, 100 - Math.abs(a - target.a)*20 - Math.abs(b - target.b)*10 - Math.abs(c - target.c)*10)}%` }}
+                     className="h-full bg-gradient-to-r from-orange-500 to-amber-500"
                    />
                 </div>
                 <span className="text-[9px] font-black text-[#FB8500]">SYNC</span>
@@ -194,7 +185,23 @@ export default function PilotoCuadraticas() {
              <button onClick={() => { resetM1(); audioEngine?.playPop(); setAsistente({ text: "Sistemas reiniciados. Ajusta los parámetros para una nueva trayectoria.", pose: "neutral" }); }} className="w-14 h-14 bg-white/5 hover:bg-white/10 rounded-2xl border border-white/10 flex items-center justify-center text-slate-500 transition-all">
                 <RefreshCcw size={20} />
              </button>
-             <button 
+             <button
+               onClick={() => { setDeltaVerified(true); audioEngine?.playPop(); }}
+               disabled={cuadraticas.deltaVerified ?? false}
+               className={`h-16 px-5 rounded-2xl font-black text-[9px] uppercase tracking-widest flex items-center gap-2 transition-all ${(cuadraticas.deltaVerified ?? false) ? 'bg-emerald-700 text-emerald-300' : 'bg-rose-900/60 hover:bg-rose-800 text-rose-300 border border-rose-700'}`}
+             >
+                <BookOpen size={14} />
+                He calculado el discriminante
+             </button>
+             <button
+               onClick={() => { setVertexVerified(true); audioEngine?.playPop(); }}
+               disabled={cuadraticas.vertexVerified ?? false}
+               className={`h-16 px-5 rounded-2xl font-black text-[9px] uppercase tracking-widest flex items-center gap-2 transition-all ${(cuadraticas.vertexVerified ?? false) ? 'bg-emerald-700 text-emerald-300' : 'bg-rose-900/60 hover:bg-rose-800 text-rose-300 border border-rose-700'}`}
+             >
+                <Pi size={14} />
+                He identificado el vértice
+             </button>
+             <button
                onClick={() => { const ok = validarM1(); if (ok) audioEngine?.playSuccess(); else audioEngine?.playError(); }}
                disabled={!calcReady && status !== 'success'}
                className={`h-16 px-8 rounded-2xl font-black text-[10px] uppercase tracking-widest flex items-center gap-3 shadow-xl transition-all ${status === 'success' ? 'bg-emerald-600' : calcReady ? 'bg-rose-600 shadow-rose-600/20' : 'bg-white/10 text-white/20'}`}
@@ -213,7 +220,7 @@ export default function PilotoCuadraticas() {
              <motion.div initial={{ scale: 0.9, y: 30 }} animate={{ scale: 1, y: 0 }} className="bg-slate-900 border border-rose-500/30 rounded-[4rem] p-20 max-w-2xl text-center shadow-[0_0_100px_rgba(244,63,94,0.15)]">
                 <Pi size={100} className="text-rose-500 mx-auto mb-8" />
                 <h3 className="text-5xl font-black text-white uppercase italic mb-6">Misión Completada</h3>
-                <p className="text-slate-400 text-lg font-medium mb-12 leading-relaxed">Has interceptado la trayectoria objetivo con precisión milimétrica. La sincronía de la función cuadrática ha sido validada bajo el estándar **Diamond State**.</p>
+                <p className="text-slate-400 text-lg font-medium mb-12 leading-relaxed">Has interceptado la trayectoria objetivo con precisión milimétrica. La sincronía de la función cuadrática ha sido validada bajo el estándar <strong>Diamond State</strong>.</p>
                 <button onClick={() => router.push('/alumno/laboratorio/matematicas')} className="w-full py-6 bg-rose-600 hover:bg-rose-500 text-white font-black rounded-[2rem] uppercase tracking-widest text-xs transition-colors shadow-lg shadow-rose-600/30">Cerrar Informe de Trayectoria</button>
              </motion.div>
           </motion.div>

@@ -19,7 +19,7 @@ export default function PilotoElectrostatica() {
     stopTimer, setPasoActual, pasoActual, audio, setAsistente, registrarHallazgo 
   } = useSimuladorStore();
   
-  const { q1 = 1, q2 = -1, distancia = 0.5 } = electrostatica9 || { q1: 1, q2: -1, distancia: 0.5 };
+  const { q1 = 1, q2 = 1, distancia = 0.5 } = electrostatica9 || { q1: 1, q2: 1, distancia: 0.5 };
 
   const [alphaInput, setAlphaInput] = useState("");
   const [mounted, setMounted] = useState(false);
@@ -203,6 +203,16 @@ export default function PilotoElectrostatica() {
                     </div>
                   </div>
                   <div className="space-y-3">
+                    <span className="text-[10px] font-black uppercase tracking-widest text-slate-500">Intensidad q₂ (μC)</span>
+                    <div className="flex gap-2">
+                      {[-5, -1, 1, 5].map(v => (
+                        <button key={v} onClick={() => handleUpdate({ q2: v })} className={`w-10 h-10 rounded-xl text-[10px] font-black transition-all ${q2 === v ? 'bg-red-600 text-white shadow-lg' : 'bg-white/5 text-slate-500 hover:bg-white/10'}`}>
+                          {v > 0 ? '+' : ''}{v}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                  <div className="space-y-3">
                     <span className="text-[10px] font-black uppercase tracking-widest text-slate-500">Posición r (m)</span>
                     <input type="range" min="0.1" max="2.5" step="0.05" value={distancia} onChange={(e) => handleUpdate({ distancia: parseFloat(e.target.value) })} className="w-32 h-2 bg-white/10 rounded-full appearance-none cursor-pointer accent-blue-500" />
                   </div>
@@ -218,7 +228,7 @@ export default function PilotoElectrostatica() {
                     <span className="text-xs font-black text-white uppercase tracking-widest">Validar Coulomb</span>
                   </button>
                </div>
-               <button onClick={() => { audio?.playPop(); setAlphaInput(""); handleUpdate({ q1: 1, q2: -1, distancia: 0.5 }); }} className="w-16 h-16 bg-white/5 hover:bg-white/10 rounded-2xl border border-white/10 flex items-center justify-center text-slate-500 hover:text-white transition-all">
+               <button onClick={() => { audio?.playPop(); setAlphaInput(""); handleUpdate({ q1: 1, q2: 1, distancia: 0.5 }); }} className="w-16 h-16 bg-white/5 hover:bg-white/10 rounded-2xl border border-white/10 flex items-center justify-center text-slate-500 hover:text-white transition-all">
                   <RotateCcw size={20} />
                </button>
             </motion.div>
@@ -246,7 +256,7 @@ export default function PilotoElectrostatica() {
               <Bot className="text-blue-400" size={24} />
               <span className="text-[10px] font-black text-white uppercase tracking-[0.2em]">Dr. Quantum: E-Field</span>
             </div>
-            <p className="text-[11px] text-slate-400 leading-relaxed italic">"Recuerda que k ≈ 8.99e9. Al usar microcoulombs (μC), el factor de escala es 10⁻⁶. La fuerza es proporcional al producto de las cargas e inversamente proporcional al cuadrado de la distancia r."</p>
+            <p className="text-[11px] text-slate-400 leading-relaxed italic">"Con cargas en μC y distancia en metros, usa la constante escalada K = 89.87 N·(μC)⁻²·m². La fórmula queda F = 89.87 · |q₁·q₂| / r², donde q₁, q₂ son valores enteros en μC."</p>
           </motion.div>
         )}
       </AnimatePresence>

@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { useSimuladorStore } from '@/store/simuladorStore';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -17,6 +17,7 @@ export default function PilotoPitagoras() {
   
   const [mounted, setMounted] = useState(false);
   const [isPouring, setIsPouring] = useState(false);
+  const llenadoRef = useRef(0);
 
   useEffect(() => { 
     setMounted(true); 
@@ -34,20 +35,23 @@ export default function PilotoPitagoras() {
   const areaB = (catetoB || 4) * (catetoB || 4);
   const sumAreas = areaA + areaB;
 
+  // Keep ref in sync with store value so interval closure is never stale
+  useEffect(() => { llenadoRef.current = llenado; }, [llenado]);
+
   // Animación de llenado
   useEffect(() => {
     if (!isPouring) return;
     const interval = setInterval(() => {
-      if (llenado < 100) {
-        setLlenadoM4(Math.min(100, llenado + 1));
-      } else {
+      const next = Math.min(100, llenadoRef.current + 2);
+      setLlenadoM4(next);
+      if (next >= 100) {
         setIsPouring(false);
-        clearInterval(interval);
         audio?.playSuccess();
+        clearInterval(interval);
       }
     }, 20);
     return () => clearInterval(interval);
-  }, [isPouring, llenado, setLlenadoM4]);
+  }, [isPouring, setLlenadoM4]);
 
   // -- PASOS DEL HUD --
   useEffect(() => {
@@ -151,20 +155,21 @@ export default function PilotoPitagoras() {
                 </div>
 
                 <div className="flex gap-3">
-                  <button 
-                    onClick={() => { setIsPouring(true); audio?.playSuccess(); }}
+                  <button
+                    onClick={() => { setIsPouring(true); audio?.playPop(); }}
                     disabled={isPouring || llenado === 100}
                     className="flex-1 bg-emerald-600 hover:bg-emerald-500 disabled:bg-emerald-900/50 disabled:text-white/30 text-white py-4 rounded-2xl font-black text-[10px] uppercase tracking-widest flex items-center justify-center gap-3 transition-all"
                   >
                     <Droplets size={18} className={isPouring ? 'animate-bounce' : ''} />
                     Verter Fluido
                   </button>
-                  <button onClick={() => { resetM4(); audio?.playPop(); setLlenadoM4(0); setIsPouring(false); }} className="w-16 h-16 rounded-2xl bg-white/5 border border-white/10 flex items-center justify-center text-slate-500 transition-all shadow-xl">
+                  <button onClick={() => { resetM4(); setLlenadoM4(0); setIsPouring(false); audio?.playPop(); }} className="w-16 h-16 rounded-2xl bg-white/5 border border-white/10 flex items-center justify-center text-slate-500 transition-all shadow-xl">
                     <RefreshCcw size={24} />
                   </button>
-                  <button 
+                  <button
                     onClick={() => { const ok = validarM4(); if (ok) audio?.playSuccess(); else audio?.playError(); }}
-                    className={`w-16 h-16 rounded-2xl border flex items-center justify-center transition-all shadow-2xl ${status === 'success' ? 'bg-emerald-500 border-emerald-400 text-white' : 'bg-emerald-600 border-emerald-500 text-white hover:scale-105 active:scale-95'}`}
+                    disabled={llenado < 100}
+                    className={`w-16 h-16 rounded-2xl border flex items-center justify-center transition-all shadow-2xl ${status === 'success' ? 'bg-emerald-500 border-emerald-400 text-white' : llenado >= 100 ? 'bg-emerald-600 border-emerald-500 text-white hover:scale-105 active:scale-95' : 'bg-white/10 border-white/10 text-white/20'}`}
                   >
                     {status === 'success' ? <ShieldCheck size={28} /> : <Target size={28} />}
                   </button>
@@ -180,7 +185,7 @@ export default function PilotoPitagoras() {
              <motion.div initial={{ scale: 0.9, y: 30 }} animate={{ scale: 1, y: 0 }} className="bg-slate-900 border border-emerald-500/30 rounded-[4rem] p-20 max-w-2xl text-center shadow-[0_0_100px_rgba(16,185,129,0.15)]">
                 <Triangle size={100} className="text-emerald-500 mx-auto mb-8 rotate-90" />
                 <h3 className="text-5xl font-black text-white uppercase italic mb-6">Teorema Validado</h3>
-                <p className="text-slate-400 text-lg font-medium mb-12 leading-relaxed">Has demostrado que la suma de los cuadrados de los catetos es igual al cuadrado de la hipotenusa mediante la transferencia de fluidos. La simulación ha sido validada bajo el estándar **Diamond State**.</p>
+                <p className="text-slate-400 text-lg font-medium mb-12 leading-relaxed">Has demostrado que la suma de los cuadrados de los catetos es igual al cuadrado de la hipotenusa mediante la transferencia de fluidos. La simulación ha sido validada bajo el estándar <strong>Diamond State</strong>.</p>
                 <button onClick={() => router.push('/alumno/laboratorio/matematicas')} className="w-full py-6 bg-emerald-600 hover:bg-emerald-500 text-white font-black rounded-[2rem] uppercase tracking-widest text-xs transition-colors shadow-lg shadow-emerald-600/30">Cerrar Informe Geométrico</button>
              </motion.div>
           </motion.div>

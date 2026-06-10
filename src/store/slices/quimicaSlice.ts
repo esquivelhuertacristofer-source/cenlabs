@@ -162,13 +162,13 @@ export const SUSTANCIAS_SOLUCIONES = [
 ];
 
 export const createQuimicaSlice: StateCreator<SimuladorState, [], [], QuimicaSlice> = (set, get) => ({
-  particulas: { 
-    protones: 0, neutrones: 0, electrones: 0, 
-    targetZ: 6, targetA: 14, targetCharge: 0,
+  particulas: {
+    protones: 0, neutrones: 0, electrones: 0,
+    targetZ: 6, targetA: 12, targetCharge: 0,
     intentos: 0, estrellas: 3,
-    isStable: true, message: "" 
+    isStable: true, message: ""
   },
-  gases: { missionId: 'sandbox', T: 300, V: 10, P: 1.0, n: 0.406, pTarget: 3.5, isExploded: false, gasType: 'Argón', mw: 39.948 },
+  gases: { missionId: 'sandbox', T: 300, V: 10, P: 1.0, n: 0.406, pTarget: 3.5, isExploded: false, gasType: 'He', mw: 4.002, status: 'idle' },
   balanceo: { 
     reaccionActual: 0,
     reacciones: REACCIONES_BALANCEO,
@@ -451,17 +451,19 @@ export const createQuimicaSlice: StateCreator<SimuladorState, [], [], QuimicaSli
     reac.reactivos.forEach((m: any) => mR += m.molar);
     reac.productos.forEach((m: any) => mP += m.molar);
 
-    return { 
-      balanceo: { 
-        ...b, 
+    return {
+      balanceo: {
+        ...b,
         reacciones: REACCIONES_BALANCEO,
         reaccionActual: 0,
-        coeficientes: Array(size).fill(1), 
+        coeficientes: Array(size).fill(1),
         isBalanced: false,
         reaccionesCompletadas: [],
+        atomosReactivos: {} as Record<string, number>,
+        atomosProductos: {} as Record<string, number>,
         masaReactivos: parseFloat(mR.toFixed(3)),
         masaProductos: parseFloat(mP.toFixed(3))
-      } 
+      }
     };
   }),
   validarQ3: () => QuimicaDomain.validarQ3(get().balanceo),
@@ -534,12 +536,13 @@ export const createQuimicaSlice: StateCreator<SimuladorState, [], [], QuimicaSli
     const nExcessNeeded = (nLimitante / reac.reactivos[limitingIdx].coef) * reac.reactivos[excessIdx].coef;
     const excessMass = (moles[excessIdx] - nExcessNeeded) * reac.reactivos[excessIdx].molar;
 
-    return { 
-      limitante: { 
-        ...l, 
+    return {
+      limitante: {
+        ...l,
         reacciones: REACCIONES_LIMITANTE, // Restaurar si faltaba
         reaccionActual: actIdx,
         inputMasses: [m1, m2],
+        targetYield: parseFloat(theoreticalYield.toFixed(3)),
         results: {
           moles: moles.map(n => parseFloat(n.toFixed(4))),
           limitingIdx,
@@ -548,11 +551,20 @@ export const createQuimicaSlice: StateCreator<SimuladorState, [], [], QuimicaSli
         },
         status: 'idle',
         isRunning: false
-      } 
+      }
     };
   }),
   validarP4: (ansLimitanteIdx: number, ansExceso: number) => {
     const isOk = QuimicaDomain.validarQ4(get().limitante, ansLimitanteIdx, ansExceso);
+    if (isOk) {
+      const l = get().limitante;
+      get().registrarHallazgo('reactivo_limitante', {
+        reaccion: l.reacciones?.[l.reaccionActual]?.nombre,
+        limitanteIdx: ansLimitanteIdx,
+        exceso: ansExceso,
+        rendimientoTeorico: l.results?.theoreticalYield,
+      });
+    }
     set((state) => ({ limitante: { ...state.limitante, status: isOk ? 'success' : 'error', isRunning: isOk } }));
     return isOk;
   },
@@ -577,7 +589,8 @@ export const createQuimicaSlice: StateCreator<SimuladorState, [], [], QuimicaSli
   }),
   addPolvo: (amount: number) => set((state) => {
     if (!state.soluciones.balanza.encendida) return state;
-    const next = Math.max(0, state.soluciones.balanza.polvo + amount);
+    const tara = state.soluciones.balanza.tara ? state.soluciones.balanza.polvo : 0;
+    const next = Math.max(0, state.soluciones.balanza.polvo + amount - tara);
     return { soluciones: { ...state.soluciones, balanza: { ...state.soluciones.balanza, polvo: next } } };
   }),
   toggleTara: () => set((state) => ({ soluciones: { ...state.soluciones, balanza: { ...state.soluciones.balanza, tara: !state.soluciones.balanza.tara } } })),
@@ -589,7 +602,16 @@ export const createQuimicaSlice: StateCreator<SimuladorState, [], [], QuimicaSli
     const s = SUSTANCIAS_SOLUCIONES[idx] || SUSTANCIAS_SOLUCIONES[0];
     const { mTarget, vTarget } = state.soluciones;
     const mRequerida = parseFloat(((mTarget * (vTarget / 1000) * s.pm) / s.purity).toFixed(3));
-    return { soluciones: { ...state.soluciones, sal: s, mRequerida, status: 'idle' } };
+    return {
+      soluciones: {
+        ...state.soluciones,
+        sal: s,
+        mRequerida,
+        status: 'idle',
+        balanza: { polvo: 0, tara: false, encendida: true },
+        matraz: { polvo: 0, agua: 0 },
+      }
+    };
   }),
   validarP5: () => {
     const soluciones = get().soluciones;
@@ -680,10 +702,20 @@ export const createQuimicaSlice: StateCreator<SimuladorState, [], [], QuimicaSli
   togglePurgaP7: () => set((state) => ({ titulacion: { ...state.titulacion, purgada: !state.titulacion.purgada } })),
   validarP7: (ansCa: number) => {
     const isOk = QuimicaDomain.validarQ7(get().titulacion, ansCa);
+    if (isOk) {
+      const t = get().titulacion;
+      get().registrarHallazgo('titulacion_acido_base', {
+        ca_real: t.ca,
+        ca_respuesta: ansCa,
+        vol_base: t.volumenBase,
+        cb: t.cb,
+        va: t.va,
+      });
+    }
     set((state) => ({ titulacion: { ...state.titulacion, status: isOk ? 'success' : 'error' } }));
     return isOk;
   },
-  resetP7: () => set((state) => ({ titulacion: { ...state.titulacion, volumenBase: 0, status: 'idle', history: [] } })),
+  resetP7: () => set((state) => ({ titulacion: { ...state.titulacion, volumenBase: 0, status: 'idle', history: [], purgada: false, indicador: false } })),
   setUbicacionJeringa: (id: number, loc: 'mesa' | 'caliente' | 'hielo') => set((state) => ({
     equilibrio: { ...state.equilibrio, jeringas: state.equilibrio.jeringas.map(j => j.id === id ? { ...j, ubicacion: loc } : j) }
   })),
@@ -700,6 +732,14 @@ export const createQuimicaSlice: StateCreator<SimuladorState, [], [], QuimicaSli
   })),
   validarP8: (d1: string, d2: string, d3: string) => {
     const isOk = QuimicaDomain.validarQ8(get().equilibrio, d1, d2, d3);
+    if (isOk) {
+      get().registrarHallazgo('equilibrio_quimico', {
+        obs_hielo: d1,
+        obs_caliente: d2,
+        obs_mesa: d3,
+        jeringas: get().equilibrio.jeringas.map(j => ({ id: j.id, ubicacion: j.ubicacion, temp: j.temp })),
+      });
+    }
     set((state) => ({ equilibrio: { ...state.equilibrio, status: isOk ? 'success' : 'error' } }));
     return isOk;
   },
@@ -735,13 +775,17 @@ export const createQuimicaSlice: StateCreator<SimuladorState, [], [], QuimicaSli
     return isOk;
   },
 
-  resetP9: () => set((state) => ({ celda: { ...state.celda, vasoIzq: null, vasoDer: null, puenteSalino: false, cablesConectados: false, status: 'idle', voltaje: 0 } })),
+  resetP9: () => set((state) => ({ celda: { ...state.celda, vasoIzq: null, vasoDer: null, puenteSalino: false, cablesConectados: false, status: 'idle', voltaje: 0, seedMetales: [] } })),
   setCalorManta: (temp: number) => set((state) => ({ destilacion: { ...state.destilacion, calorManta: temp } })),
   updateDestilacion: (dt: number) => set((state) => {
     const d = state.destilacion;
+    if (d.status === 'success') return state;
     const diff = d.calorManta - d.tempMezcla, step = diff * dt * 0.05;
-    const newTemp = d.tempMezcla + step, isBoiling = newTemp > 78;
-    return { destilacion: { ...d, tempMezcla: newTemp, status: isBoiling ? 'boiling' : 'idle' } };
+    const newTemp = d.tempMezcla + step;
+    const isBoiling = newTemp > 78;
+    const distillRate = isBoiling ? dt * 0.5 : 0;
+    const newVolDestilado = Math.min(d.volEtanolMatraz, d.volDestilado + distillRate);
+    return { destilacion: { ...d, tempMezcla: newTemp, volDestilado: newVolDestilado, status: isBoiling ? 'boiling' : 'idle' } };
   }),
   validarP10: (pureza: number) => {
     const isOk = QuimicaDomain.validarQ10(get().destilacion, pureza);

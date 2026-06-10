@@ -132,20 +132,26 @@ describe('validarQ5', () => {
 });
 
 // ── Q6 Solubilidad ────────────────────────────────────────────────────────────
+// Student must: place solution on ice AND have salt exceed solubility limit at that temp.
 describe('validarQ6', () => {
   const kno3 = { a: 31.6, b: 0.02 };
-  it('true when salt exceeds solubility limit', () => {
+  it('true when on ice and salt exceeds solubility limit', () => {
     const limit = kno3.a * Math.exp(kno3.b * 20); // ~46.8 at 20°C
-    const s = { temp: 20, salAgregada: limit + 1, sustanciaIdx: 0, sustancias: [kno3] };
+    const s = { temp: 20, salAgregada: limit + 1, sustanciaIdx: 0, sustancias: [kno3], ubicacion: 'hielo' };
     expect(validarQ6(s as any)).toBe(true);
   });
-  it('false when below solubility limit', () => {
+  it('false when not on ice even if salt exceeds limit', () => {
     const limit = kno3.a * Math.exp(kno3.b * 20);
-    const s = { temp: 20, salAgregada: limit - 1, sustanciaIdx: 0, sustancias: [kno3] };
+    const s = { temp: 20, salAgregada: limit + 1, sustanciaIdx: 0, sustancias: [kno3], ubicacion: 'mesa' };
+    expect(validarQ6(s as any)).toBe(false);
+  });
+  it('false when below solubility limit (even on ice)', () => {
+    const limit = kno3.a * Math.exp(kno3.b * 20);
+    const s = { temp: 20, salAgregada: limit - 1, sustanciaIdx: 0, sustancias: [kno3], ubicacion: 'hielo' };
     expect(validarQ6(s as any)).toBe(false);
   });
   it('false when sustanciaIdx out of bounds', () => {
-    const s = { temp: 20, salAgregada: 999, sustanciaIdx: 5, sustancias: [kno3] };
+    const s = { temp: 20, salAgregada: 999, sustanciaIdx: 5, sustancias: [kno3], ubicacion: 'hielo' };
     expect(validarQ6(s as any)).toBe(false);
   });
 });
@@ -187,8 +193,10 @@ describe('validarQ8', () => {
 });
 
 // ── Q9 Celda Galvánica ────────────────────────────────────────────────────────
+// Validator uses seedMetales to determine correct anode/cathode from reduction potentials.
+// Zn (-0.76V) < Cu (0.34V) → Zn is anode, Cu is cathode; E°cell = 0.34 - (-0.76) = 1.10V
 describe('validarQ9', () => {
-  const celda = { vasoIzq: 'Zn', vasoDer: 'Cu', voltaje: 1.10 };
+  const celda = { vasoIzq: 'Zn', vasoDer: 'Cu', voltaje: 1.10, seedMetales: ['Zn', 'Cu'] };
 
   it('true when anodo, catodo and voltage match', () => {
     expect(validarQ9(celda as any, 'Zn', 'Cu', 1.10)).toBe(true);
@@ -201,6 +209,9 @@ describe('validarQ9', () => {
   });
   it('false when voltage off by 0.06', () => {
     expect(validarQ9(celda as any, 'Zn', 'Cu', 1.16)).toBe(false);
+  });
+  it('false when seedMetales is missing', () => {
+    expect(validarQ9({ voltaje: 1.10 } as any, 'Zn', 'Cu', 1.10)).toBe(false);
   });
 });
 

@@ -19,14 +19,11 @@ const DIALOGOS = {
 
 export default function PilotoColisiones1D() {
   const router = useRouter();
-  const { setBitacora, bitacoraData } = useSimuladorStore();
+  const { setBitacora, bitacoraData, audio, setAsistente, registrarHallazgo, stopTimer, setPasoActual } = useSimuladorStore();
 
-  // Limpiar bitácora al entrar
   useEffect(() => {
-    useSimuladorStore.getState().setBitacora({
-      ...useSimuladorStore.getState().bitacoraData,
-      fisica5: null
-    });
+    setAsistente({ visible: true, text: "Bienvenido al laboratorio de colisiones. Determina el momento lineal total y analiza los distintos tipos de choque.", pose: "thinking" });
+    return () => setAsistente({ visible: false });
   }, []);
 
   // -- MAQUINA DE ESTADOS PEDAGÓGICA --
@@ -88,21 +85,25 @@ export default function PilotoColisiones1D() {
     if (fase === 1) {
       const pCalc = parseFloat(inputP);
       if (Math.abs(pCalc - physics.pi) < 0.2) {
+        audio?.playSuccess();
         setFase(2);
       } else {
-        showAlert(`Error: El momento inicial no es ${pCalc}. Multiplique las masas por sus velocidades (cuidado con los signos) y súmelas.`);
+        audio?.playError();
+        showAlert(`Error: El momento calculado (${pCalc}) no coincide con el esperado. Multiplique masas por velocidades (cuidado con los signos) y súmelas.`);
       }
-    } 
+    }
     else if (fase === 2) {
       const v2Calc = parseFloat(inputV2F);
       if (e !== 1.0) return showAlert("Debe fijar el coeficiente 'e' en 1.0 para esta prueba.");
       if (phase3D !== 'post-impact') return showAlert("Ejecute la colisión magnética primero.");
-      
+
       if (Math.abs(v2Calc - physics.v2f) < 0.2) {
+        audio?.playSuccess();
         setPhase3D('idle');
         setFase(3);
         setE(0.0);
       } else {
+        audio?.playError();
         showAlert("Discrepancia detectada en la velocidad del Pod 2.");
       }
     }
@@ -110,21 +111,34 @@ export default function PilotoColisiones1D() {
       const vAcoplada = parseFloat(inputVAcoplado);
       if (e !== 0.0) return showAlert("El escudo debe estar en e=0 para acoplamiento.");
       if (phase3D !== 'post-impact') return showAlert("Ejecute la colisión primero.");
-      
+
       if (Math.abs(vAcoplada - physics.v2f) < 0.2) {
+        audio?.playSuccess();
         setFase(4);
       } else {
+        audio?.playError();
         showAlert("Error. Al acoplarse, ambos pods comparten la misma velocidad. Calcule pTotal / MasaTotal.");
       }
     }
     else if (fase === 4) {
       const disCalc = parseFloat(inputDisipacion);
       if (Math.abs(disCalc - physics.disipacion) < 2.0) {
+        audio?.playSuccess();
+        registrarHallazgo('fis_colisiones', {
+          momento_inicial: physics.pi,
+          energia_inicial: physics.ki,
+          energia_final: physics.kf,
+          disipacion_pct: physics.disipacion,
+          seed
+        });
+        stopTimer();
+        setPasoActual(4);
         setBitacora({
           ...bitacoraData,
-          fisica5: `✅ CERTIFICADO: Análisis de colisiones validado. Momento Conservado (${physics.pi} kg·m/s). Disipación Térmica Inelástica: ${physics.disipacion.toFixed(1)}%.`
+          colisiones1d: `✅ CERTIFICADO: Análisis de colisiones validado. Momento Conservado (${physics.pi} kg·m/s). Disipación Térmica Inelástica: ${physics.disipacion.toFixed(1)}%.`
         });
       } else {
+        audio?.playError();
         showAlert("Cálculo térmico erróneo. Determine K_inicial y K_final de la fase inelástica.");
       }
     }
@@ -215,7 +229,7 @@ export default function PilotoColisiones1D() {
                )}
             </div>
 
-            {!bitacoraData.fisica5 && (
+            {!bitacoraData.colisiones1d && (
               <button onClick={handleValidarFase} className="w-full py-5 bg-amber-600 hover:bg-amber-500 text-white font-black text-xs uppercase tracking-[0.3em] rounded-[1.5rem] shadow-[0_0_30px_rgba(217,119,6,0.2)] hover:shadow-[0_0_40px_rgba(217,119,6,0.4)] transition-all flex items-center justify-center gap-3">
                 <Target size={18} /> Procesar Datos
               </button>
@@ -249,8 +263,17 @@ export default function PilotoColisiones1D() {
                >
                  <Play fill="currentColor" size={20} className="ml-1" />
                </button>
-               <button 
-                onClick={() => setPhase3D('idle')} 
+               <button
+                onClick={() => {
+                  setPhase3D('idle');
+                  setFase(1);
+                  setE(1.0);
+                  setInputP("");
+                  setInputV2F("");
+                  setInputVAcoplado("");
+                  setInputDisipacion("");
+                  audio?.playPop();
+                }}
                 className="h-14 w-14 rounded-full bg-slate-800 border border-slate-700 flex items-center justify-center hover:bg-slate-700 text-slate-300 transition-all"
                >
                  <RotateCcw size={20} />
@@ -261,7 +284,7 @@ export default function PilotoColisiones1D() {
 
       {/* ── MODAL ÉXITO FINAL ── */}
       <AnimatePresence>
-        {bitacoraData.fisica5 && (
+        {bitacoraData.colisiones1d && (
           <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="absolute inset-0 z-[200] flex items-center justify-center bg-[#020617]/95 backdrop-blur-3xl p-10 text-center pointer-events-auto">
              <motion.div initial={{ scale: 0.9, y: 30 }} animate={{ scale: 1, y: 0 }} className="bg-slate-900 border border-amber-500/30 rounded-[4rem] p-20 max-w-2xl shadow-[0_0_100px_rgba(217,119,6,0.2)]">
                 <ShieldCheck size={100} className="text-amber-500 mx-auto mb-8" />

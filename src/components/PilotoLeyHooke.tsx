@@ -27,7 +27,7 @@ const GRAVEDAD = 9.81;
 
 export default function PilotoLeyHooke() {
   const router = useRouter();
-  const { setBitacora, bitacoraData, audio, setAsistente, registrarHallazgo, stopTimer, setPasoActual } = useSimuladorStore();
+  const { setBitacora, bitacoraData, audio, setAsistente, registrarHallazgo, stopTimer, setPasoActual, setHooke4 } = useSimuladorStore();
 
   useEffect(() => {
     // Limpiar estado de aprobación de sesión anterior
@@ -201,24 +201,25 @@ export default function PilotoLeyHooke() {
 
   const handleAgregarMuestra = () => {
     if (tiempoTranscurrido === 0) return showAlert("Cronómetro inactivo. Debe medir un periodo antes de registrar el evento.");
-    
+
     if (muestras.some(m => m.m === masa)) {
       return showAlert(`Dato redundante. Ya existe un registro para Masa = ${masa}kg.`);
     }
 
     const tMedido = tiempoTranscurrido / 1000;
-    setMuestras([...muestras, { m: masa, T: parseFloat(tMedido.toFixed(2)) }]);
+    const kFromSample = (4 * Math.PI * Math.PI * masa) / (tMedido * tMedido);
+    const nuevasMuestras = [...muestras, { m: masa, T: parseFloat(tMedido.toFixed(2)) }];
+    setMuestras(nuevasMuestras);
+    setHooke4({ estiramiento: elongacionEstatica, k: kFromSample });
     audio?.playPop();
-    
+
     setCronometroActivo(false);
     setTiempoTranscurrido(0);
     setIsOscilando(false);
-    
-    if (muestras.length === 2) {
-      setTimeout(() => {
-        setAlertaCritica("Muestras recolectadas. Análisis cuantitativo desbloqueado.");
-        setFase(4);
-      }, 2000);
+
+    if (nuevasMuestras.length >= 3) {
+      setAlertaCritica("Muestras recolectadas. Análisis cuantitativo desbloqueado.");
+      setFase(4);
     }
   };
 
@@ -257,9 +258,9 @@ export default function PilotoLeyHooke() {
         </div>
       </div>
 
-      {/* GIANT ELASTICITY HUD (CENTRAL) */}
+      {/* GIANT ELASTICITY HUD (CENTRAL) — seed.k intentionally hidden */}
       <div className="absolute top-[40%] left-1/2 -translate-x-1/2 -translate-y-1/2 flex flex-col items-center pointer-events-none opacity-10">
-         <div className="text-[14rem] font-black font-mono leading-none tracking-tighter italic text-white/10">{seed.k.toFixed(0)}</div>
+         <div className="text-[14rem] font-black font-mono leading-none tracking-tighter italic text-white/10">???</div>
          <span className="text-xl font-black uppercase tracking-[1em] text-white/20">RIGIDEZ_NEWTON/M</span>
       </div>
 
@@ -429,7 +430,7 @@ export default function PilotoLeyHooke() {
             <div className="pl-4 border-l border-slate-700">
                <button 
                 onClick={() => {
-                  if (!isOscilando) audio.playPop();
+                  if (!isOscilando) audio?.playPop();
                   setIsOscilando(!isOscilando);
                 }} 
                 disabled={fase === 1 || fase === 4}

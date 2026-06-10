@@ -17,7 +17,7 @@ export function validarF1(tiro1: Tiro1State): boolean {
 
 // F2 — Plano Inclinado
 export function validarF2(plano2: Plano2State): boolean {
-  return plano2.angulo > 0 && !!plano2.resultado;
+  return plano2.angulo > 0 && plano2.resultado === 'exito';
 }
 
 // F3 — Péndulo Simple
@@ -37,7 +37,8 @@ export function validarF5(bitacoraData: BitacoraData): boolean {
 
 // F6 — Principio de Arquímedes
 export function validarF6(arquimedes6: Arquimedes6State): boolean {
-  return (arquimedes6.sumergido ?? 0) >= 1;
+  const targetSumergido = Math.min(1.1, (arquimedes6.densidadCuerpo ?? 800) / (arquimedes6.densidadLiquido ?? 1000));
+  return Math.abs((arquimedes6.sumergido ?? 0) - targetSumergido) < 0.05;
 }
 
 // F7 — Dilatación Térmica
@@ -51,8 +52,14 @@ export function validarF8(ohm8: Ohm8State): boolean {
 }
 
 // F9 — Electrostática (Ley de Coulomb)
+// K_SCALED = 89.87 N·(μC)^-2·m^2 (consistent with integer μC charges)
+const K_SCALED = 89.87;
 export function validarF9(electrostatica9: Electrostatica9State): boolean {
-  return Math.abs(electrostatica9.q1) > 0 && Math.abs(electrostatica9.q2) > 0;
+  const { q1, q2, distancia } = electrostatica9;
+  if (!q1 || !q2 || !distancia) return false;
+  const F_expected = K_SCALED * Math.abs(q1 * q2) / Math.pow(distancia, 2);
+  // The Piloto validates the student input; this domain check verifies setup is complete
+  return Math.abs(q1) > 0 && Math.abs(q2) > 0 && distancia > 0 && F_expected > 0;
 }
 
 // F10 — Motor Eléctrico

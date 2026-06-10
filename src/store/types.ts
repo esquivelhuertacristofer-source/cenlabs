@@ -96,16 +96,17 @@ export interface SimuladorState {
   setTargetCharge: (charge: number) => void;
   resetParticulas: () => void;
 
-  gases: { 
+  gases: {
     missionId: 'sandbox' | 'boyle' | 'charles' | 'gaylussac' | 'avogadro';
-    T: number; 
-    V: number; 
-    P: number; 
-    n: number; 
-    pTarget: number; 
-    isExploded: boolean; 
-    gasType: string; 
+    T: number;
+    V: number;
+    P: number;
+    n: number;
+    pTarget: number;
+    isExploded: boolean;
+    gasType: string;
     mw: number;
+    status: 'idle' | 'success' | 'error';
   };
   updateGases: (t: number, v: number, n?: number) => void;
   resetGases: () => void;
@@ -499,6 +500,7 @@ export interface SimuladorState {
   tickEvolucion: (dt: number) => void;
   cazarPolilla: (id: number) => void;
   finalizarGeneracion: () => void;
+  generarSemillaB6: () => void;
   validarB6: () => boolean;
   resetB6: () => void;
 
@@ -601,7 +603,7 @@ export type BiologiaSlice = Pick<SimuladorState,
   | 'sintesis' | 'addNucleotido' | 'advanceRibosoma' | 'validarB3' | 'generarSemillaB3' | 'resetB3'
   | 'fotosintesis' | 'setFotosintesis' | 'tickFotosintesis' | 'validarB4' | 'generarSemillaB4' | 'resetB4'
   | 'genetica' | 'setGenetica' | 'validarB5' | 'generarF1' | 'resetB5'
-  | 'evolucion' | 'setEvolucion' | 'tickEvolucion' | 'cazarPolilla' | 'finalizarGeneracion' | 'validarB6' | 'resetB6'
+  | 'evolucion' | 'setEvolucion' | 'tickEvolucion' | 'cazarPolilla' | 'finalizarGeneracion' | 'generarSemillaB6' | 'validarB6' | 'resetB6'
   | 'sistemaNervioso' | 'setB7State' | 'dispararReflejo' | 'validarB7' | 'generarSemillaB7' | 'resetB7'
   | 'cardio' | 'setCardio' | 'generarSemillaB8' | 'validarB8' | 'resetB8'
   | 'digestion' | 'setDigestion' | 'generarSemillaB9' | 'validarB9' | 'resetB9'

@@ -49,6 +49,12 @@ export default function PilotoBalanceoEcuaciones() {
       setShowLevelUp(true);
       audio?.playSuccess();
       audio?.playNotification();
+      useSimuladorStore.getState().registrarHallazgo('qui_balanceo', {
+        reaccion: currentReac?.nombre,
+        coeficientes,
+        masaReactivos,
+        masaProductos,
+      });
       const timer = setTimeout(() => setShowLevelUp(false), 3000);
       return () => clearTimeout(timer);
     }

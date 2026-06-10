@@ -13,14 +13,15 @@ import {
 import { audio } from '@/utils/audioEngine';
 
 export default function PilotoTitulacionAcidoBase() {
-  const { 
-    titulacion, addDropNaOH, toggleIndicadorP7, togglePurgaP7, resetP7, generarSemillaP7, audio
+  const {
+    titulacion, addDropNaOH, toggleIndicadorP7, togglePurgaP7, resetP7, generarSemillaP7, validarP7
   } = useSimuladorStore();
-  
+
   const [mounted, setMounted] = useState(false);
   const [isRotating, setIsRotating] = useState(false);
   const [valveValue, setValveValue] = useState(0);
   const [showRipples, setShowRipples] = useState<{ id: number; x: number }[]>([]);
+  const [ansCa, setAnsCa] = useState('');
   const flowInterval = useRef<NodeJS.Timeout | null>(null);
 
   // Parallax Balanceado
@@ -367,11 +368,50 @@ export default function PilotoTitulacionAcidoBase() {
             <button onClick={resetP7} className="w-16 h-16 bg-white/5 rounded-2xl flex items-center justify-center text-white/20 hover:text-red-400 hover:bg-white/10 transition-all border border-white/5 shadow-xl group">
                <RotateCcw size={24} className="group-hover:rotate-[-180deg] transition-transform duration-700" />
             </button>
-            <button className="h-16 px-12 bg-gradient-to-r from-blue-600 to-blue-400 text-white rounded-2xl font-black text-[10px] uppercase tracking-[0.3em] shadow-3xl shadow-blue-500/20 hover:scale-105 active:scale-95 transition-all">
-               Finalizar y Enviar Datos
-            </button>
+            <div className="flex items-center gap-3">
+               <input
+                 type="number"
+                 step="0.001"
+                 placeholder="[Ca²⁺] mol/L"
+                 value={ansCa}
+                 onChange={e => setAnsCa(e.target.value)}
+                 className="w-36 h-16 bg-white/5 border border-white/10 rounded-2xl px-4 text-white font-mono text-sm placeholder:text-white/20 outline-none focus:border-blue-400/60 transition-all"
+               />
+               <button
+                 onClick={() => {
+                   const val = parseFloat(ansCa);
+                   if (isNaN(val)) return;
+                   const ok = validarP7(val);
+                   if (ok) { audio?.playSuccess(); } else { audio?.playError(); }
+                 }}
+                 className="h-16 px-12 bg-gradient-to-r from-blue-600 to-blue-400 text-white rounded-2xl font-black text-[10px] uppercase tracking-[0.3em] shadow-3xl shadow-blue-500/20 hover:scale-105 active:scale-95 transition-all"
+               >
+                 Finalizar y Enviar Datos
+               </button>
+            </div>
          </div>
       </div>
+
+      {titulacion.status === 'success' && (
+        <div className="absolute inset-0 z-[200] flex items-center justify-center bg-black/70 backdrop-blur-xl pointer-events-auto">
+          <motion.div
+            initial={{ scale: 0.85, opacity: 0 }} animate={{ scale: 1, opacity: 1 }}
+            className="bg-[#071220] border border-blue-500/40 rounded-[3rem] p-12 max-w-md text-center shadow-[0_40px_100px_rgba(59,130,246,0.2)]"
+          >
+            <div className="w-20 h-20 mx-auto mb-6 rounded-[1.6rem] bg-blue-500/20 border border-blue-500/40 flex items-center justify-center">
+              <Target size={36} className="text-blue-400" />
+            </div>
+            <h2 className="text-3xl font-black text-white mb-3 uppercase tracking-tighter">¡Titulación Completada!</h2>
+            <p className="text-sm text-slate-300 mb-4">Concentración calculada correctamente.</p>
+            <div className="mb-8 px-6 py-3 bg-blue-500/10 border border-blue-500/20 rounded-2xl">
+              <span className="text-blue-300 font-black font-mono">[Ca] = {titulacion.ca?.toFixed(3)} mol/L</span>
+            </div>
+            <button onClick={resetP7} className="px-10 py-4 bg-blue-600 hover:bg-blue-500 text-white rounded-2xl font-black text-xs uppercase tracking-widest transition-all">
+              Nueva Titulación
+            </button>
+          </motion.div>
+        </div>
+      )}
 
       <style jsx>{`
         .preserve-3d { transform-style: preserve-3d; backface-visibility: hidden; }

@@ -142,7 +142,7 @@ export default function PilotoTrigonometria() {
                   disabled={animando}
                   className={`w-full mt-6 py-4 rounded-2xl flex items-center justify-center gap-3 text-[10px] font-black uppercase tracking-widest transition-all ${animando ? 'bg-white/5 text-slate-600 cursor-not-allowed' : 'bg-cyan-600 hover:bg-cyan-500 text-white shadow-lg'}`}
                 >
-                    <Zap size={14} /> {animando ? 'Pausar Captura' : 'Capturar Hallazgo'}
+                    <Zap size={14} /> {animando ? 'Detén la animación para capturar' : 'Capturar Hallazgo'}
                 </button>
             </div>
         </div>

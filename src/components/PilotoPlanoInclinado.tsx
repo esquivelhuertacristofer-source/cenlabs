@@ -8,7 +8,6 @@ import {
   Rocket, Zap
 } from 'lucide-react';
 import { useSimuladorStore } from '@/store/simuladorStore';
-import { audio } from '@/utils/audioEngine';
 import dynamic from 'next/dynamic';
 
 const PlanoInclinado3DScene = dynamic(() => import('./simuladores/fis02/PlanoInclinado3DScene'), { 
@@ -76,7 +75,7 @@ export default function PilotoPlanoInclinado() {
        }
     }
     return { rad, Wx, fk, a, N, fNetoBruto, status };
-  }, [angulo, friccion, totalMasa, thrustPower, isAnimating, physics.velocidad > 0.05]);
+  }, [angulo, friccion, totalMasa, thrustPower, isAnimating, physics.velocidad]);
 
   const handleStart = () => {
     if (!prediccionInput || isNaN(parseFloat(prediccionInput))) {
@@ -98,6 +97,9 @@ export default function PilotoPlanoInclinado() {
     audio?.playPop();
     setPlano2({ resultado: null });
     setPhysics({ pos: 0, tiempo: 0, velocidad: 0 });
+    setPrediccionInput("");
+    setThrustPower(0);
+    setPayloadExtra(0);
     setAlertaCritica(null);
     setAsistente({ text: "Sistema reseteado. ¿Listo para una nueva prueba?", pose: "neutral" });
   }, [setPlano2, audio, setAsistente]);

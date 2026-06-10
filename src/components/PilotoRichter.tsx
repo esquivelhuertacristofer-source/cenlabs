@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useMemo, useState, useEffect } from 'react';
+import { useRouter } from 'next/navigation';
 import { useSimuladorStore } from '@/store/simuladorStore';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Activity, Zap, ShieldCheck, Waves, AlertTriangle, ChevronRight, MapPin, Calendar, Skull, Flame, X, Sun, Moon } from 'lucide-react';
@@ -16,12 +17,14 @@ const EARTHQUAKES = [
 ];
 
 export default function PilotoRichter() {
-  const { richter, setMagnitudM3, toggleLogViewM3, audio, setAsistente, pasoActual, setPasoActual } = useSimuladorStore();
-  const { magnitudActual, magnitudBase, isLogView } = richter;
+  const router = useRouter();
+  const { richter, setMagnitudM3, toggleLogViewM3, setUserInputM3, validarM3, generarSemillaM3, audio, setAsistente, pasoActual, setPasoActual } = useSimuladorStore();
+  const { magnitudActual, magnitudBase, isLogView, status } = richter;
   const [mounted, setMounted] = useState(false);
   const [wavePoints, setWavePoints] = useState<number[]>([]);
   const [selectedEq, setSelectedEq] = useState<string | null>(null);
   const [isLightMode, setIsLightMode] = useState(false);
+  const [userInputFactor, setUserInputFactor] = useState('');
 
   const getModeColor = (color: string) => {
     if (!isLightMode) return color;
@@ -38,8 +41,9 @@ export default function PilotoRichter() {
     return map[color] || color;
   };
 
-  useEffect(() => { 
-    setMounted(true); 
+  useEffect(() => {
+    setMounted(true);
+    generarSemillaM3();
     setAsistente({ visible: true, text: "Bienvenido al Centro de Alerta Sísmica. Ajusta la magnitud para observar cómo la energía crece exponencialmente.", pose: "thinking" });
     return () => setAsistente({ visible: false });
   }, []);
@@ -73,8 +77,8 @@ export default function PilotoRichter() {
   useEffect(() => {
     if (magnitudActual !== 1 && pasoActual === 0) setPasoActual(1);
     if (isLogView && pasoActual < 2) setPasoActual(2);
-    if (selectedEq && pasoActual < 3) setPasoActual(3);
-  }, [magnitudActual, isLogView, selectedEq, pasoActual, setPasoActual]);
+    if (status !== 'idle' && pasoActual < 3) setPasoActual(3);
+  }, [magnitudActual, isLogView, status, pasoActual, setPasoActual]);
 
   if (!mounted) return null;
 
@@ -275,6 +279,30 @@ export default function PilotoRichter() {
                 className={`px-5 py-2.5 rounded-xl font-black text-[8px] uppercase tracking-widest transition-all border ${isLogView ? 'bg-rose-500 border-rose-400 text-white shadow-lg' : (isLightMode ? 'bg-slate-100 border-slate-200 text-slate-400 hover:bg-slate-200' : 'bg-white/5 border-white/10 text-white/40 hover:bg-white/10')}`}>
                 Escala Log
               </button>
+              <div className="flex flex-col gap-1">
+                <span className={`text-[7px] font-black uppercase tracking-widest ${isLightMode ? 'text-slate-500' : 'text-slate-500'}`}>
+                  Factor energético 10^(1.5·ΔM)
+                </span>
+                <div className="flex gap-2 items-center">
+                  <input
+                    type="number"
+                    step="0.01"
+                    value={userInputFactor}
+                    onChange={e => { setUserInputFactor(e.target.value); setUserInputM3(e.target.value); }}
+                    placeholder="Ej: 31.62"
+                    className={`w-28 px-3 py-2 rounded-xl text-[11px] font-black font-mono outline-none border transition-all ${isLightMode ? 'bg-white border-slate-200 text-slate-900' : 'bg-white/5 border-white/10 text-white focus:border-rose-500'}`}
+                  />
+                  <button
+                    onClick={() => { const ok = validarM3(); if (ok) audio?.playSuccess(); else audio?.playError(); }}
+                    className={`px-4 py-2 rounded-xl font-black text-[8px] uppercase tracking-widest transition-all border ${status === 'success' ? 'bg-emerald-600 border-emerald-400 text-white' : 'bg-rose-600 border-rose-500 text-white hover:bg-rose-500'}`}
+                  >
+                    {status === 'success' ? 'Verificado' : 'Verificar Factor'}
+                  </button>
+                  {status === 'error' && (
+                    <span className="text-[9px] font-black text-rose-400 uppercase tracking-widest">Revisa el cálculo</span>
+                  )}
+                </div>
+              </div>
               <div className={`w-[180px] h-12 rounded-xl overflow-hidden p-2 border ${isLightMode ? 'bg-white border-slate-200' : 'bg-black/40 border-white/5'}`}>
                 <svg width="100%" height="100%" viewBox="0 0 1000 200" preserveAspectRatio="none">
                   <polyline 
@@ -290,6 +318,23 @@ export default function PilotoRichter() {
           </div>
         </div>
       </div>
+
+      {/* SUCCESS / ERROR OVERLAY */}
+      <AnimatePresence>
+        {status === 'success' && (
+          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="absolute inset-0 z-[100] bg-[#020617]/95 backdrop-blur-3xl flex items-center justify-center p-12">
+            <motion.div initial={{ scale: 0.9, y: 30 }} animate={{ scale: 1, y: 0 }} className="bg-slate-900 border border-rose-500/30 rounded-[4rem] p-20 max-w-2xl text-center shadow-[0_0_100px_rgba(244,63,94,0.15)]">
+              <Waves size={100} className="text-rose-500 mx-auto mb-8" />
+              <h3 className="text-5xl font-black text-white uppercase italic mb-6">Factor Certificado</h3>
+              <p className="text-slate-400 text-lg font-medium mb-12 leading-relaxed">
+                Has calculado correctamente el factor energético usando la fórmula 10^(1.5·ΔM).
+                El análisis logarítmico ha sido validado bajo el estándar <strong>Diamond State</strong>.
+              </p>
+              <button onClick={() => router.push('/alumno/laboratorio/matematicas')} className="w-full py-6 bg-rose-600 hover:bg-rose-500 text-white font-black rounded-[2rem] uppercase tracking-widest text-xs transition-colors shadow-lg shadow-rose-600/30">Cerrar Informe Sísmico</button>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       {/* COLLAPSE WARNING */}
       <AnimatePresence>

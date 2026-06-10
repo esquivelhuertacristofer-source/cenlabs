@@ -14,9 +14,12 @@ interface Props {
 }
 
 export default function PilotoEquilibrioQuimico({ isWorktableDark = true }: Props) {
-  const { equilibrio, setUbicacionJeringa, updateTemperaturaP8, resetP8, generarSemillaP8, audio } = useSimuladorStore();
-  
+  const { equilibrio, setUbicacionJeringa, updateTemperaturaP8, resetP8, generarSemillaP8, validarP8 } = useSimuladorStore();
+
   const [mounted, setMounted] = useState(false);
+  const [d1, setD1] = useState('');
+  const [d2, setD2] = useState('');
+  const [d3, setD3] = useState('');
   const mouseX = useSpring(useMotionValue(0), { damping: 40, stiffness: 120 });
   const mouseY = useSpring(useMotionValue(0), { damping: 40, stiffness: 120 });
   const rotateX = useTransform(mouseY, [-500, 500], [8, -8]);
@@ -44,7 +47,7 @@ export default function PilotoEquilibrioQuimico({ isWorktableDark = true }: Prop
   const stations = [
     { id: 'hielo', name: 'Baño de Hielo', temp: 0, icon: <Snowflake size={28} className="text-blue-400" />, color: '#3b82f6', glow: 'shadow-[0_0_80px_rgba(59,130,246,0.3)]' },
     { id: 'mesa', name: 'Temp. Ambiente', temp: 20, icon: <MousePointer2 size={28} className="text-slate-400" />, color: '#94a3b8', glow: 'shadow-[0_0_80px_rgba(148,163,184,0.2)]' },
-    { id: 'caliente', name: 'Plancha Caliente', temp: 100, icon: <Flame size={28} className="text-orange-500" />, color: '#f59e0b', glow: 'shadow-[0_0_80px_rgba(245,158,11,0.3)]' }
+    { id: 'caliente', name: 'Plancha Caliente', temp: 80, icon: <Flame size={28} className="text-orange-500" />, color: '#f59e0b', glow: 'shadow-[0_0_80px_rgba(245,158,11,0.3)]' }
   ] as const;
 
   const getGasColor = (temp: number) => {
@@ -209,6 +212,56 @@ export default function PilotoEquilibrioQuimico({ isWorktableDark = true }: Prop
          </div>
       </div>
 
+      {/* ── PANEL DE OBSERVACIONES ── */}
+      <div className="absolute bottom-10 left-1/2 -translate-x-1/2 z-50 flex items-center gap-4 p-6 bg-black/60 backdrop-blur-3xl rounded-[3rem] border border-white/10 shadow-2xl pointer-events-auto">
+        {[
+          { label: 'Hielo', val: d1, set: setD1 },
+          { label: 'Caliente', val: d2, set: setD2 },
+          { label: 'Ambiente', val: d3, set: setD3 },
+        ].map(({ label, val, set }) => (
+          <div key={label} className="flex flex-col gap-1">
+            <span className="text-[9px] font-black text-white/40 uppercase tracking-widest">{label}</span>
+            <select
+              value={val}
+              onChange={e => set(e.target.value)}
+              className="bg-white/5 border border-white/10 rounded-xl px-3 py-2 text-white text-xs font-bold outline-none focus:border-orange-400/60 transition-all"
+            >
+              <option value="">Seleccionar...</option>
+              <option value="transparente">Transparente (N₂O₄)</option>
+              <option value="incoloro">Incoloro</option>
+              <option value="cafe">Café (NO₂)</option>
+            </select>
+          </div>
+        ))}
+        <button
+          onClick={() => {
+            const ok = validarP8(d1, d2, d3);
+            if (ok) { audio?.playSuccess(); } else { audio?.playError(); }
+          }}
+          className="px-8 py-3 bg-orange-500 hover:bg-orange-400 text-white rounded-2xl font-black text-xs uppercase tracking-widest transition-all active:scale-95 shadow-xl shadow-orange-500/30"
+        >
+          Verificar Equilibrio
+        </button>
+      </div>
+
+      {equilibrio.status === 'success' && (
+        <div className="absolute inset-0 z-[200] flex items-center justify-center bg-black/70 backdrop-blur-xl pointer-events-auto">
+          <motion.div
+            initial={{ scale: 0.85, opacity: 0 }} animate={{ scale: 1, opacity: 1 }}
+            className="bg-[#0a1a0a] border border-orange-500/40 rounded-[3rem] p-12 max-w-md text-center shadow-[0_40px_100px_rgba(245,158,11,0.2)]"
+          >
+            <div className="w-20 h-20 mx-auto mb-6 rounded-[1.6rem] bg-orange-500/20 border border-orange-500/40 flex items-center justify-center">
+              <Activity size={36} className="text-orange-400" />
+            </div>
+            <h2 className="text-3xl font-black text-white mb-3 uppercase tracking-tighter">¡Equilibrio Comprendido!</h2>
+            <p className="text-sm text-slate-300 mb-8">Identificaste correctamente el comportamiento del sistema N₂O₄ ⇌ 2NO₂ según Le Châtelier.</p>
+            <button onClick={resetP8} className="px-10 py-4 bg-orange-600 hover:bg-orange-500 text-white rounded-2xl font-black text-xs uppercase tracking-widest transition-all">
+              Nuevo Experimento
+            </button>
+          </motion.div>
+        </div>
+      )}
+
       <style jsx>{`
         .preserve-3d { transform-style: preserve-3d; backface-visibility: hidden; }
       `}</style>
@@ -227,7 +280,7 @@ function Syringe3D({ jeringa, color, setLoc }: { jeringa: any; color: string; se
         animate={{ scale: 1, y: 0 }}
         exit={{ scale: 0, opacity: 0 }}
         whileHover={{ scale: 1.15, y: -20 }}
-        onClick={() => { audio.playPop(); setShowMenu(!showMenu); }}
+        onClick={() => { audio?.playPop(); setShowMenu(!showMenu); }}
         className="cursor-pointer flex flex-col items-center group/sy"
       >
          {/* Temperatura Label */}
@@ -276,16 +329,10 @@ function Syringe3D({ jeringa, color, setLoc }: { jeringa: any; color: string; se
                   key={loc.id}
                   onClick={(e) => { 
                     e.stopPropagation(); 
-                    setLoc(jeringa.id, loc.id); 
-                    setShowMenu(false); 
-                    audio.playPop();
-                    if (loc.id === 'caliente') {
-                      audio.playNotification();
-                    } else if (loc.id === 'hielo') {
-                      audio.playNotification();
-                    } else {
-                      audio.playNotification();
-                    }
+                    setLoc(jeringa.id, loc.id);
+                    setShowMenu(false);
+                    audio?.playPop();
+                    audio?.playNotification();
                   }}
                   className={`w-20 h-20 rounded-3xl bg-white/5 flex flex-col items-center justify-center transition-all ${loc.color} group gap-2 shadow-xl border border-white/5 hover:scale-110 active:scale-90`}
                 >

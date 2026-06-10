@@ -313,7 +313,7 @@ export default function Fusion3DScene({ balanceo }: { balanceo: any }) {
   const theme = THEMES[currentReac.id] || THEMES.default;
 
   const handleIncrement = (idx: number, delta: number) => {
-    const newVal = (coeficientes[idx] || 1) + delta;
+    const newVal = Math.max(1, (coeficientes[idx] || 1) + delta);
     setCoeficiente(idx, newVal);
     setPulse(true);
     setGlitch(true);

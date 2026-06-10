@@ -88,6 +88,8 @@ export function validarQ5(soluciones: SolucionesState): boolean {
 export function validarQ6(solubilidad: SolubilidadState): boolean {
   const s = solubilidad.sustancias[solubilidad.sustanciaIdx];
   if (!s) return false;
+  if (solubilidad.ubicacion !== 'hielo') return false;
+  if (solubilidad.salAgregada <= 0) return false;
   const limiteSolubilidad = (s.a as number) * Math.exp((s.b as number) * solubilidad.temp);
   return solubilidad.salAgregada > limiteSolubilidad;
 }
@@ -111,7 +113,15 @@ export function validarQ9(
   celda: CeldaState,
   anodo: string, catodo: string, v: number,
 ): boolean {
-  return celda.vasoIzq === anodo && celda.vasoDer === catodo && Math.abs(v - celda.voltaje) < 0.05;
+  const pots: Record<string, number> = { Zn: -0.76, Cu: 0.34, Ag: 0.80, Mg: -2.37 };
+  const metals = celda.seedMetales ?? [];
+  if (metals.length < 2) return false;
+  const [m1, m2] = metals;
+  // Metal with lower reduction potential is the anode (oxidised)
+  const correctAnodo = (pots[m1] ?? 0) < (pots[m2] ?? 0) ? m1 : m2;
+  const correctCatodo = correctAnodo === m1 ? m2 : m1;
+  const expectedVoltage = Math.abs((pots[correctCatodo] ?? 0) - (pots[correctAnodo] ?? 0));
+  return anodo === correctAnodo && catodo === correctCatodo && Math.abs(v - expectedVoltage) < 0.05;
 }
 
 // Q10 — Destilación Fraccionada

@@ -4,11 +4,11 @@ import React, { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence, useMotionValue, useSpring, useTransform } from 'framer-motion';
 import { useSimuladorStore } from '@/store/simuladorStore';
 import { audio } from '@/utils/audioEngine';
-import { 
-  Flame, Snowflake, Thermometer, Zap, 
+import {
+  Flame, Snowflake, Thermometer, Zap,
   RotateCcw, Info, ArrowRight, Layout,
   MousePointer2, AlertCircle, Beaker as BeakerIcon,
-  Layers, Wind, Waves, Gauge, Activity
+  Layers, Wind, Waves, Gauge, Activity, CheckCircle2
 } from 'lucide-react';
 
 // --- COMPONENTE: PEDESTAL 3D (ISOMÉTRICO) ---
@@ -48,7 +48,7 @@ const Pedestal3D = ({ color, active, label, icon: Icon, onClick }: any) => {
 };
 
 export default function PilotoSolubilidadCristalizacion() {
-  const { solubilidad, setUbicacionVaso, addSalSolubilidad, setSustanciaSolubilidad, updateTemperaturaP6, resetP6 } = useSimuladorStore();
+  const { solubilidad, setUbicacionVaso, addSalSolubilidad, setSustanciaSolubilidad, updateTemperaturaP6, resetP6, validarP6 } = useSimuladorStore();
   const [mounted, setMounted] = useState(false);
   const tempInterval = useRef<NodeJS.Timeout | null>(null);
 
@@ -410,7 +410,17 @@ export default function PilotoSolubilidadCristalizacion() {
                 <ArrowRight className="w-4 h-4" />
               </button>
               
-              <button 
+              <button
+                onClick={() => {
+                  const ok = validarP6();
+                  if (ok) { audio.playSuccess(); } else { audio.playError(); }
+                }}
+                className="px-8 py-6 bg-cyan-600 hover:bg-cyan-500 text-white rounded-[2.5rem] font-black text-xs uppercase tracking-[0.2em] transition-all active:scale-95 shadow-2xl shadow-cyan-600/30"
+              >
+                Verificar Cristalización
+              </button>
+
+              <button
                 onClick={() => { resetP6(); audio.playRemove(); }}
                 className="w-20 h-20 bg-slate-800 hover:bg-red-500 text-white rounded-[2.5rem] flex items-center justify-center transition-all border border-white/5 shadow-xl"
                 title="Reset Reactor"
@@ -456,6 +466,24 @@ export default function PilotoSolubilidadCristalizacion() {
            </div>
         </div>
       </div>
+
+      {solubilidad.status === 'success' && (
+        <div className="absolute inset-0 z-[200] flex items-center justify-center bg-black/70 backdrop-blur-xl pointer-events-auto">
+          <motion.div
+            initial={{ scale: 0.85, opacity: 0 }} animate={{ scale: 1, opacity: 1 }}
+            className="bg-[#071a10] border border-emerald-500/40 rounded-[3rem] p-12 max-w-md text-center shadow-[0_40px_100px_rgba(16,185,129,0.2)]"
+          >
+            <div className="w-20 h-20 mx-auto mb-6 rounded-[1.6rem] bg-emerald-500/20 border border-emerald-500/40 flex items-center justify-center">
+              <CheckCircle2 size={36} className="text-emerald-400" />
+            </div>
+            <h2 className="text-3xl font-black text-white mb-3 uppercase tracking-tighter">¡Cristalización Exitosa!</h2>
+            <p className="text-sm text-slate-300 mb-8">Lograste la sobresaturación en condiciones de enfriamiento. Los cristales precipitan correctamente.</p>
+            <button onClick={resetP6} className="px-10 py-4 bg-emerald-600 hover:bg-emerald-500 text-white rounded-2xl font-black text-xs uppercase tracking-widest transition-all">
+              Nuevo Experimento
+            </button>
+          </motion.div>
+        </div>
+      )}
 
       <style jsx>{`
         .preserve-3d {

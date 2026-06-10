@@ -4,12 +4,9 @@ import React, { useEffect, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Activity } from 'lucide-react';
 import { useSimuladorStore } from '@/store/simuladorStore';
-import { audio } from '@/utils/audioEngine';
-
-const G_EARTH = 9.81;
 
 export default function PilotoTiroParabolico() {
-  const { tiro1, generarSemillaF1, audio, setAsistente } = useSimuladorStore();
+  const { tiro1, generarSemillaF1, ejecutarDisparoF1, resetF1, setTiro1, audio, setAsistente } = useSimuladorStore();
 
   const { angulo = 45, velocidad = 25, disparando = false, targetX = 60, resultado = null, distanciaReal = 0, y0 = 0, obsX = 0, obsY = 0, yImpacto = 0, escenario = 'tierra' } = tiro1;
 
@@ -176,31 +173,6 @@ export default function PilotoTiroParabolico() {
         )}
       </AnimatePresence>
 
-      {/* HUGE FEEDBACK TEXT OVERLAY */}
-      <AnimatePresence>
-        {resultado && (
-          <motion.div 
-            initial={{ opacity: 0, scale: 0.5, y: 20 }}
-            animate={{ opacity: 1, scale: 1, y: 0 }}
-            exit={{ opacity: 0, scale: 0.8 }}
-            className={`absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 z-50 flex flex-col items-center pointer-events-none p-10 rounded-3xl backdrop-blur-md border shadow-2xl ${
-                resultado === 'exito' ? 'bg-emerald-500/10 border-emerald-500/50 shadow-[0_0_100px_rgba(16,185,129,0.2)]' : 
-                resultado === 'colision' ? 'bg-orange-500/10 border-orange-500/50 shadow-[0_0_100px_rgba(249,115,22,0.2)]' :
-                'bg-red-500/10 border-red-500/50 shadow-[0_0_100px_rgba(239,68,68,0.2)]'}`}
-          >
-            <h2 className={`text-6xl font-black uppercase tracking-tighter drop-shadow-2xl ${
-                resultado === 'exito' ? 'text-emerald-400' : 
-                resultado === 'colision' ? 'text-orange-500' : 'text-red-500'}`}>
-              {resultado === 'exito' ? '¡BLANCO NEUTRALIZADO!' : resultado === 'colision' ? '¡IMPACTO FALLIDO!' : '¡MUNICIÓN PERDIDA!'}
-            </h2>
-            <p className={`mt-2 text-xl font-bold uppercase tracking-widest ${resultado === 'exito' ? 'text-emerald-200' : resultado === 'colision' ? 'text-orange-200' : 'text-red-200'}`}>
-              {resultado === 'exito' ? `Precisión Exacta: ${distanciaReal.toFixed(1)}m` 
-                : resultado === 'colision' ? `Dron destruido contra muro de contención en X=${obsX}m`
-                : `Dron fuera de límite operativo. Cae en X=${distanciaReal.toFixed(1)}m (Obj: ${targetX}m)`}
-            </p>
-          </motion.div>
-        )}
-      </AnimatePresence>
       
       {/* 📋 LIENZO DE PRÁCTICA */}
       <main className="flex-grow h-full w-full relative overflow-hidden flex flex-col z-20">
@@ -425,6 +397,41 @@ export default function PilotoTiroParabolico() {
                 </linearGradient>
               </defs>
            </motion.svg>
+        </div>
+
+        {/* ── DOCK DE CONTROL INFERIOR ── */}
+        <div className="absolute bottom-8 left-1/2 -translate-x-1/2 z-30 flex items-center gap-8 bg-black/70 backdrop-blur-xl border border-white/10 px-10 py-5 rounded-[2.5rem] shadow-2xl">
+          <div className="flex flex-col gap-1 min-w-[180px]">
+            <div className="flex justify-between">
+              <span className="text-[9px] font-black text-sky-400 uppercase tracking-widest">Ángulo</span>
+              <span className="text-sm font-black text-white">{angulo}°</span>
+            </div>
+            <input type="range" min={0} max={90} step={1} value={angulo}
+              onChange={(e) => setTiro1({ angulo: parseInt(e.target.value) })}
+              className="w-full h-1.5 bg-slate-700 rounded-full appearance-none cursor-pointer accent-sky-500" />
+          </div>
+          <div className="flex flex-col gap-1 min-w-[180px]">
+            <div className="flex justify-between">
+              <span className="text-[9px] font-black text-amber-400 uppercase tracking-widest">Velocidad</span>
+              <span className="text-sm font-black text-white">{velocidad} m/s</span>
+            </div>
+            <input type="range" min={0} max={100} step={1} value={velocidad}
+              onChange={(e) => setTiro1({ velocidad: parseInt(e.target.value) })}
+              className="w-full h-1.5 bg-slate-700 rounded-full appearance-none cursor-pointer accent-amber-500" />
+          </div>
+          <button
+            onClick={() => ejecutarDisparoF1()}
+            disabled={disparando || (tiro1.municion ?? 0) <= 0}
+            className="h-12 px-8 bg-sky-600 hover:bg-sky-500 disabled:opacity-40 disabled:cursor-not-allowed text-white font-black text-[10px] uppercase tracking-widest rounded-2xl transition-all active:scale-95 shadow-lg"
+          >
+            Disparar ({tiro1.municion ?? 0})
+          </button>
+          <button
+            onClick={() => resetF1()}
+            className="h-12 px-8 bg-slate-700 hover:bg-slate-600 text-white font-black text-[10px] uppercase tracking-widest rounded-2xl transition-all active:scale-95"
+          >
+            Nueva Misión
+          </button>
         </div>
 
         {/* MONITOR OSCILOSCOPIO: Vy vs t (Análisis Cinematográfico) */}

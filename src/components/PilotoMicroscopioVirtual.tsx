@@ -6,17 +6,17 @@ import { audio } from '@/utils/audioEngine';
 import { useSimuladorStore } from '@/store/simuladorStore';
 import { calculateTotalMagnification } from '@/utils/opticEngine';
 import Microscopio3DScene from './simuladores/bio01/Microscopio3DScene';
-import { 
-  Camera, Zap, Crosshair, 
+import {
+  Camera, Zap, Crosshair,
   Settings2, Search, Info, Activity,
   Maximize2, Move, Database, Droplets,
   Focus, Gauge, Layers
 } from 'lucide-react';
 
 export default function PilotoMicroscopioVirtual() {
-  const { microscopio, setMicroscopio, tomarCaptura } = useSimuladorStore();
-  const { 
-    muestra = 'vegetal', objetivoMag = 4, iluminacion = 80, 
+  const { microscopio, setMicroscopio, tomarCaptura, validarB1 } = useSimuladorStore();
+  const {
+    muestra = 'vegetal', objetivoMag = 4, iluminacion = 80,
     posicionX = 0, posicionY = 0, targetOrganelle,
     enfoqueMacro = 50, enfoqueMicro = 5
   } = microscopio || {};
@@ -40,7 +40,8 @@ export default function PilotoMicroscopioVirtual() {
     audio?.playLoading();
     setTimeout(() => {
       setIsScanning(false);
-      if (blurSurface < 0.5) {
+      const ok = validarB1();
+      if (ok) {
         setIdentified(true);
         audio?.playSuccess();
         setTimeout(() => setIdentified(false), 4000);
@@ -206,12 +207,18 @@ export default function PilotoMicroscopioVirtual() {
                     <div className="space-y-6">
                         <div className="space-y-3">
                            <div className="flex justify-between text-[9px] font-bold text-slate-500 uppercase"><span>Tornillo Macrométrico (Grueso)</span><span>{enfoqueMacro}</span></div>
-                           <input type="range" min="0" max="100" value={enfoqueMacro} onChange={e => setMicroscopio({ enfoqueMacro: parseInt(e.target.value) })}
+                           <input type="range" min="0" max="100" value={enfoqueMacro} onChange={e => {
+                             const newMacro = parseInt(e.target.value);
+                             setMicroscopio({ enfoqueMacro: newMacro, enfoqueZ: newMacro + enfoqueMicro / 10 });
+                           }}
                              className="w-full h-2.5 bg-white/10 rounded-full appearance-none accent-emerald-500 cursor-pointer" />
                         </div>
                         <div className="space-y-3">
                            <div className="flex justify-between text-[9px] font-bold text-slate-500 uppercase"><span>Tornillo Micrométrico (Fino)</span><span>{enfoqueMicro}</span></div>
-                           <input type="range" min="0" max="10" step="0.1" value={enfoqueMicro} onChange={e => setMicroscopio({ enfoqueMicro: parseFloat(e.target.value) })}
+                           <input type="range" min="0" max="10" step="0.1" value={enfoqueMicro} onChange={e => {
+                             const newMicro = parseFloat(e.target.value);
+                             setMicroscopio({ enfoqueMicro: newMicro, enfoqueZ: enfoqueMacro + newMicro / 10 });
+                           }}
                              className="w-full h-1.5 bg-white/10 rounded-full appearance-none accent-emerald-400 cursor-pointer" />
                         </div>
                     </div>
@@ -260,6 +267,13 @@ export default function PilotoMicroscopioVirtual() {
         </div>
       </div>
 
+    {microscopio.status === 'success' && (
+      <div className="absolute inset-0 z-[200] pointer-events-none flex items-end justify-center pb-10">
+        <div className="px-10 py-5 bg-emerald-600/90 backdrop-blur-xl border border-emerald-400/50 rounded-3xl shadow-2xl">
+          <span className="text-sm font-black uppercase tracking-widest text-white">Lab completado</span>
+        </div>
+      </div>
+    )}
     </div>
   );
 }

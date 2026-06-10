@@ -102,25 +102,20 @@ describe('validarM4', () => {
 });
 
 // ── M5 Trigonometría ──────────────────────────────────────────────────────────
+// Angle restriction removed (audit fix): only hallazgos count matters.
 describe('validarM5', () => {
   const twoHallazgos = [{ id: 1, angulo: 90 }, { id: 2, angulo: 180 }];
-  it('true at 45° with 2+ hallazgos', () => {
+  it('true with 2+ hallazgos at any angle', () => {
     expect(validarM5({ angulo: 45, hallazgos: twoHallazgos } as any)).toBe(true);
   });
-  it('true at 225° with 2+ hallazgos', () => {
-    expect(validarM5({ angulo: 225, hallazgos: twoHallazgos } as any)).toBe(true);
-  });
-  it('true at 44° (within ±1 tolerance)', () => {
-    expect(validarM5({ angulo: 44, hallazgos: twoHallazgos } as any)).toBe(true);
+  it('true with 2+ hallazgos regardless of angle', () => {
+    expect(validarM5({ angulo: 90, hallazgos: twoHallazgos } as any)).toBe(true);
   });
   it('false when fewer than 2 hallazgos', () => {
     expect(validarM5({ angulo: 45, hallazgos: [{ id: 1, angulo: 90 }] } as any)).toBe(false);
   });
   it('false when hallazgos is empty', () => {
     expect(validarM5({ angulo: 45, hallazgos: [] } as any)).toBe(false);
-  });
-  it('false at wrong angle even with hallazgos', () => {
-    expect(validarM5({ angulo: 90, hallazgos: twoHallazgos } as any)).toBe(false);
   });
 });
 

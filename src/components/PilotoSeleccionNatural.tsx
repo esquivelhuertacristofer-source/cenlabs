@@ -2,19 +2,28 @@
 
 import React, { useEffect, useRef, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
+import { useRouter } from 'next/navigation';
 import { useSimuladorStore } from '@/store/simuladorStore';
-import { Bird, Skull, CloudRain, Wind, Timer, Activity, Target, ShieldCheck, CheckCircle2, Bot } from 'lucide-react';
+import { Bird, Skull, Activity, ShieldCheck, CheckCircle2, Play, RefreshCcw } from 'lucide-react';
 
 export default function PilotoSeleccionNatural() {
-  const { evolucion, tickEvolucion, cazarPolilla, setEvolucion, registrarHallazgo, setBitacora, bitacoraData, stopTimer, setPasoActual, audio, setAsistente } = useSimuladorStore();
+  const { evolucion, tickEvolucion, cazarPolilla, setEvolucion, generarSemillaB6, validarB6, setBitacora, bitacoraData, stopTimer, setPasoActual, audio, setAsistente } = useSimuladorStore();
   const { ambiente, isRunning, bugs, tiempo, status } = evolucion;
-  
+  const router = useRouter();
+
   const requestRef = useRef<number | undefined>(undefined);
   const lastTimeRef = useRef<number | undefined>(undefined);
+  const isRunningRef = useRef(isRunning);
   const [mounted, setMounted] = useState(false);
+
+  // Keep isRunningRef in sync
+  useEffect(() => {
+    isRunningRef.current = isRunning;
+  }, [isRunning]);
 
   useEffect(() => {
     setMounted(true);
+    generarSemillaB6();
     setAsistente({
       visible: true,
       text: "Bienvenido al laboratorio de Genética de Poblaciones. Tu misión es actuar como el agente de selección natural para demostrar cómo el ambiente industrial favorece a las polillas oscuras sobre las claras.",
@@ -24,7 +33,7 @@ export default function PilotoSeleccionNatural() {
   }, []);
 
   const animate = (time: number) => {
-    if (lastTimeRef.current !== undefined && isRunning) {
+    if (lastTimeRef.current !== undefined && isRunningRef.current) {
       const dt = (time - lastTimeRef.current) / 1000;
       tickEvolucion(dt);
     }
@@ -52,30 +61,16 @@ export default function PilotoSeleccionNatural() {
   const p_freq = 1 - q_freq; // Frecuencia del alelo dominante (oscura)
 
   const handleValidar = () => {
-    if (ambiente === 'industrial' && p_freq > 0.8) {
+    const ok = validarB6();
+    if (ok) {
       audio?.playSuccess();
-      setEvolucion({ status: 'success', isRunning: false });
+      setEvolucion({ isRunning: false });
       stopTimer();
       setPasoActual(4);
-      
-      registrarHallazgo('bio_natural_selection', {
-        ambiente,
-        frecuencia_clara: q_freq,
-        frecuencia_oscura: p_freq,
-        total_moth_initial: 20,
-        moths_remaining: claras + oscuras
-      });
-
       setBitacora({
         ...bitacoraData,
-        bio6: `✅ SELECCIÓN NATURAL VALIDADA: Ambiente Industrial. Frecuencia Oscura (p)=${p_freq.toFixed(2)}. Adaptación fenotípica demostrada.`
+        bio6: `✅ SELECCIÓN NATURAL VALIDADA: Ambiente ${ambiente}. Frecuencia Oscura (p)=${p_freq.toFixed(2)}. Adaptación fenotípica demostrada.`
       });
-    } else if (ambiente === 'limpio' && q_freq > 0.8) {
-        audio?.playSuccess();
-        setEvolucion({ status: 'success', isRunning: false });
-        stopTimer();
-        setPasoActual(4);
-        registrarHallazgo('bio_natural_selection', { ambiente, frecuencia_clara: q_freq, frecuencia_oscura: p_freq });
     } else {
       audio?.playError();
       setAsistente({
@@ -174,12 +169,27 @@ export default function PilotoSeleccionNatural() {
 
              <div className="h-16 w-px bg-white/10" />
 
-             <div className="flex items-center gap-8">
-                <div className="flex flex-col gap-1 items-end">
+             <div className="flex items-center gap-4">
+                <div className="flex flex-col gap-1 items-end mr-4">
                    <span className="text-[9px] font-black text-slate-500 uppercase">Individuos Restantes</span>
                    <span className="text-2xl font-black text-white">{claras + oscuras}</span>
                 </div>
-                <button 
+                <button
+                  onClick={() => setEvolucion({ isRunning: true })}
+                  disabled={isRunning || status === 'success'}
+                  className="px-8 py-5 rounded-2xl font-black uppercase tracking-[0.2em] text-xs transition-all flex items-center gap-3 shadow-2xl bg-blue-600 hover:bg-blue-500 disabled:opacity-40"
+                >
+                  <Play size={16} fill="currentColor" />
+                  Iniciar
+                </button>
+                <button
+                  onClick={() => setEvolucion({ ambiente: ambiente === 'limpio' ? 'industrial' : 'limpio' })}
+                  className="px-8 py-5 rounded-2xl font-black uppercase tracking-[0.2em] text-xs transition-all flex items-center gap-3 shadow-2xl bg-slate-600 hover:bg-slate-500"
+                >
+                  <RefreshCcw size={16} />
+                  Cambiar Ambiente
+                </button>
+                <button
                   onClick={handleValidar}
                   className={`px-12 py-5 rounded-2xl font-black uppercase tracking-[0.2em] text-xs transition-all flex items-center gap-3 shadow-2xl ${status === 'success' ? 'bg-emerald-600' : 'bg-amber-600 hover:bg-amber-500'}`}
                 >

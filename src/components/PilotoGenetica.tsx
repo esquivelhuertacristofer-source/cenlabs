@@ -7,7 +7,7 @@ import { Dna, Zap, Cpu, Terminal, Diamond, Play, RotateCcw, BarChart3, Info, Che
 import Genetica3DScene from './simuladores/bio05/Genetica3DScene';
 
 export default function PilotoGenetica({ setShowSuccess }: { setShowSuccess: (val: boolean) => void }) {
-  const { genetica, setGenetica, generarF1, resetB5 } = useSimuladorStore();
+  const { genetica, setGenetica, generarF1, resetB5, validarB5 } = useSimuladorStore();
   const [loading, setLoading] = useState(false);
   
   const g = genetica || {
@@ -40,6 +40,7 @@ export default function PilotoGenetica({ setShowSuccess }: { setShowSuccess: (va
     setLoading(true);
     setTimeout(() => {
       generarF1();
+      validarB5();
       setLoading(false);
     }, 1500);
   };
@@ -158,7 +159,7 @@ export default function PilotoGenetica({ setShowSuccess }: { setShowSuccess: (va
                           </div>
                           <div className="text-center">
                              <span className="text-[9px] font-black text-white/40 uppercase tracking-widest block">Semillas Amarillas</span>
-                             <span className="text-3xl font-black text-white tabular-nums">{stats.amarillas}%</span>
+                             <span className="text-3xl font-black text-white tabular-nums">{(stats.amarillas / poblacionF1.length * 100).toFixed(1)}%</span>
                           </div>
                        </div>
                        <div className="flex flex-col items-center gap-3">
@@ -167,7 +168,7 @@ export default function PilotoGenetica({ setShowSuccess }: { setShowSuccess: (va
                           </div>
                           <div className="text-center">
                              <span className="text-[9px] font-black text-white/40 uppercase tracking-widest block">Semillas Verdes</span>
-                             <span className="text-3xl font-black text-white tabular-nums">{stats.verdes}%</span>
+                             <span className="text-3xl font-black text-white tabular-nums">{(stats.verdes / poblacionF1.length * 100).toFixed(1)}%</span>
                           </div>
                        </div>
                     </div>
@@ -181,7 +182,7 @@ export default function PilotoGenetica({ setShowSuccess }: { setShowSuccess: (va
                           </div>
                           <div className="text-center">
                              <span className="text-[9px] font-black text-white/40 uppercase tracking-widest block">Fenotipo Liso</span>
-                             <span className="text-3xl font-black text-white tabular-nums">{stats.lisas}%</span>
+                             <span className="text-3xl font-black text-white tabular-nums">{(stats.lisas / poblacionF1.length * 100).toFixed(1)}%</span>
                           </div>
                        </div>
                        <div className="flex flex-col items-center gap-3">
@@ -190,7 +191,7 @@ export default function PilotoGenetica({ setShowSuccess }: { setShowSuccess: (va
                           </div>
                           <div className="text-center">
                              <span className="text-[9px] font-black text-white/40 uppercase tracking-widest block">Fenotipo Rugoso</span>
-                             <span className="text-3xl font-black text-white tabular-nums">{stats.rugosas}%</span>
+                             <span className="text-3xl font-black text-white tabular-nums">{(stats.rugosas / poblacionF1.length * 100).toFixed(1)}%</span>
                           </div>
                        </div>
                     </div>

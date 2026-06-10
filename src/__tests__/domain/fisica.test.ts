@@ -40,11 +40,19 @@ describe('validarF5', () => {
 });
 
 // ── F6 Principio de Arquímedes ──────────────────────────────────────────────
+// Validator checks sumergido against physics-based target: min(1.1, densidadCuerpo/densidadLiquido).
+// Defaults: densidadCuerpo=800, densidadLiquido=1000 → targetSumergido=0.8
 describe('validarF6', () => {
-  it('true when sumergido >= 1', () => expect(validarF6({ sumergido: 1 } as any)).toBe(true));
-  it('true when sumergido > 1', () => expect(validarF6({ sumergido: 3 } as any)).toBe(true));
+  it('true when sumergido matches target (defaults: 0.8)', () => expect(validarF6({ sumergido: 0.8 } as any)).toBe(true));
+  it('true within tolerance of target', () => expect(validarF6({ sumergido: 0.83 } as any)).toBe(true));
+  it('false when far from target', () => expect(validarF6({ sumergido: 1.0 } as any)).toBe(false));
   it('false when sumergido is 0', () => expect(validarF6({ sumergido: 0 } as any)).toBe(false));
   it('false when sumergido is undefined (coerced to 0)', () => expect(validarF6({ sumergido: undefined } as any)).toBe(false));
+  it('accounts for explicit densidades', () => {
+    // densidadCuerpo=500, densidadLiquido=1000 → target=0.5
+    expect(validarF6({ sumergido: 0.5, densidadCuerpo: 500, densidadLiquido: 1000 } as any)).toBe(true);
+    expect(validarF6({ sumergido: 1.0, densidadCuerpo: 500, densidadLiquido: 1000 } as any)).toBe(false);
+  });
 });
 
 // ── F7 Dilatación Térmica ────────────────────────────────────────────────────
@@ -64,11 +72,13 @@ describe('validarF8', () => {
 });
 
 // ── F9 Electrostática ────────────────────────────────────────────────────────
+// Charges in integer μC (K_SCALED=89.87); distancia required.
 describe('validarF9', () => {
-  it('true with two positive charges', () => expect(validarF9({ q1: 1e-6, q2: 1e-6 } as any)).toBe(true));
-  it('true with opposite charges', () => expect(validarF9({ q1: 1e-6, q2: -1e-6 } as any)).toBe(true));
-  it('false when q1 is 0', () => expect(validarF9({ q1: 0, q2: 1e-6 } as any)).toBe(false));
-  it('false when q2 is 0', () => expect(validarF9({ q1: 1e-6, q2: 0 } as any)).toBe(false));
+  it('true with two positive charges and distancia', () => expect(validarF9({ q1: 1, q2: 1, distancia: 0.1 } as any)).toBe(true));
+  it('true with opposite charges and distancia', () => expect(validarF9({ q1: 1, q2: -1, distancia: 0.1 } as any)).toBe(true));
+  it('false when q1 is 0', () => expect(validarF9({ q1: 0, q2: 1, distancia: 0.1 } as any)).toBe(false));
+  it('false when q2 is 0', () => expect(validarF9({ q1: 1, q2: 0, distancia: 0.1 } as any)).toBe(false));
+  it('false when distancia missing', () => expect(validarF9({ q1: 1, q2: 1 } as any)).toBe(false));
 });
 
 // ── F10 Motor Eléctrico ──────────────────────────────────────────────────────

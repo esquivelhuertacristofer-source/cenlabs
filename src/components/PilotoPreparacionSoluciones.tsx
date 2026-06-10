@@ -301,7 +301,7 @@ export default function PilotoPreparacionSoluciones({
 }: {
   onValidate?: () => void;
 }) {
-  const { soluciones, addPolvo, toggleTara, transferirPolvo, setAgua, setSal, validarP5, resetP5 } =
+  const { soluciones, addPolvo, toggleTara, transferirPolvo, setAgua, setSal, validarP5, resetP5, generarSemillaP5 } =
     useSimuladorStore();
 
   const {
@@ -325,6 +325,11 @@ export default function PilotoPreparacionSoluciones({
   // ── Interval refs (no window.xxx hacks) ─────────────────────────────────────
   const polvoIntervalRef = useRef<NodeJS.Timeout | null>(null);
   const aguaIntervalRef  = useRef<NodeJS.Timeout | null>(null);
+
+  // ── Mount: generate seed on every mount ─────────────────────────────────────
+  useEffect(() => {
+    generarSemillaP5();
+  }, []);
 
   useEffect(() => () => {
     if (polvoIntervalRef.current) clearInterval(polvoIntervalRef.current);
@@ -396,7 +401,7 @@ export default function PilotoPreparacionSoluciones({
   const handleReset = () => {
     resetP5();
     setIsOverDiluted(false);
-    setPhase('weighing');
+    setPhase('prelab');
     audio?.playPop?.();
   };
 

@@ -7,7 +7,7 @@ import { Sun, Wind, Thermometer, Droplets, Lightbulb, Play, Square, Info, Zap, D
 import Fotosintesis3DScene from './simuladores/bio04/Fotosintesis3DScene';
 
 export default function PilotoFotosintesis({ setShowSuccess }: { setShowSuccess: (val: boolean) => void }) {
-  const { fotosintesis, setFotosintesis, tickFotosintesis, resetB4, generarSemillaB4 } = useSimuladorStore();
+  const { fotosintesis, setFotosintesis, tickFotosintesis, resetB4, generarSemillaB4, validarB4 } = useSimuladorStore();
   
   const f = fotosintesis || {
     escenario: 'optimizacion_espectro',
@@ -35,12 +35,13 @@ export default function PilotoFotosintesis({ setShowSuccess }: { setShowSuccess:
     return () => clearInterval(interval);
   }, [simulando, status, tickFotosintesis]);
 
-  // Asegurar que el modal se dispare al completar la meta
+  // Asegurar que el modal se dispare al completar la meta y registrar hallazgo
   useEffect(() => {
-    if (status === 'success' && oxigenoAcumulado >= targetO2) {
+    if (status === 'success') {
+      validarB4();
       if (setShowSuccess) setShowSuccess(true);
     }
-  }, [status, oxigenoAcumulado, targetO2, setShowSuccess]);
+  }, [status]);
 
   const scenarios = {
     'optimizacion_espectro': {

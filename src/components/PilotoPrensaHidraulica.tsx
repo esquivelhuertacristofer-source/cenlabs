@@ -9,7 +9,6 @@ import {
   Waves, Cpu, Bot
 } from 'lucide-react';
 import { useSimuladorStore } from '@/store/simuladorStore';
-import { audio } from '@/utils/audioEngine';
 import dynamic from 'next/dynamic';
 
 const PrensaHidraulica3DScene = dynamic(() => import('./simuladores/fis05/PrensaHidraulica3DScene'), { 
@@ -81,7 +80,7 @@ export default function PilotoPrensaHidraulica() {
   }, [physics.y1_target, physics.y2_target]);
 
   const handleValidar = () => {
-    if (physics.isLifting && y2 > 0.3) {
+    if (physics.isLifting) {
       audio?.playSuccess();
       audio?.playNotification();
       
@@ -195,9 +194,9 @@ export default function PilotoPrensaHidraulica() {
            </div>
 
            <div className="space-y-10 mb-12">
-              <ControlSlider label="Radio Entrada (r1)" value={r1} min={0.5} max={1.5} unit="m" color="sky" onChange={(val: number) => setPrensa5({ r1: val })} />
-              <ControlSlider label="Radio Salida (r2)" value={r2} min={2.0} max={4.0} unit="m" color="amber" onChange={(val: number) => setPrensa5({ r2: val })} />
-              <ControlSlider label="Fuerza Aplicada (F1)" value={f1} min={0} max={2000} unit="N" color="rose" onChange={(val: number) => setPrensa5({ f1: val })} />
+              <ControlSlider label="Radio Entrada (r1)" value={r1} min={0.5} max={1.5} unit="m" color="sky" onChange={(val: number) => setPrensa5({ r1: val })} onAudio={() => audio?.playPop()} />
+              <ControlSlider label="Radio Salida (r2)" value={r2} min={2.0} max={4.0} unit="m" color="amber" onChange={(val: number) => setPrensa5({ r2: val })} onAudio={() => audio?.playPop()} />
+              <ControlSlider label="Fuerza Aplicada (F1)" value={f1} min={0} max={2000} unit="N" color="rose" onChange={(val: number) => setPrensa5({ f1: val })} onAudio={() => audio?.playPop()} />
               
               <div className="pt-6 border-t border-slate-800">
                 <span className="text-[10px] font-black text-slate-500 uppercase tracking-widest block mb-5">Masa de Carga (Pistón 2)</span>
@@ -233,7 +232,7 @@ export default function PilotoPrensaHidraulica() {
         </motion.div>
 
         <div className="flex-shrink-0 bg-[#0f172a]/90 backdrop-blur-3xl border border-slate-700/50 p-6 rounded-[2.5rem] shadow-xl flex items-center gap-4 pointer-events-auto">
-           <button onClick={() => { audio.playPop(); router.push('/alumno/laboratorio/fisica'); }} className="p-4 bg-slate-800 hover:bg-slate-700 rounded-2xl text-slate-300 transition-colors">
+           <button onClick={() => { audio?.playPop(); router.push('/alumno/laboratorio/fisica'); }} className="p-4 bg-slate-800 hover:bg-slate-700 rounded-2xl text-slate-300 transition-colors">
               <RotateCcw size={20} />
            </button>
         </div>
@@ -249,7 +248,7 @@ export default function PilotoPrensaHidraulica() {
                 <p className="text-slate-400 text-lg font-medium mb-12">
                    Has demostrado el poder de la ventaja mecánica. Al optimizar el ratio de áreas, has logrado elevar <strong className="text-emerald-400">{masaCarga} kg</strong> con eficiencia industrial.
                 </p>
-                <button onClick={() => { audio.playSuccess(); router.push('/alumno/laboratorio/fisica'); }} className="w-full py-6 bg-emerald-600 hover:bg-emerald-500 text-white font-black rounded-[2rem] uppercase tracking-widest text-xs transition-colors shadow-lg shadow-emerald-600/30">
+                <button onClick={() => { audio?.playSuccess(); router.push('/alumno/laboratorio/fisica'); }} className="w-full py-6 bg-emerald-600 hover:bg-emerald-500 text-white font-black rounded-[2rem] uppercase tracking-widest text-xs transition-colors shadow-lg shadow-emerald-600/30">
                    Emitir Certificado Final
                 </button>
              </motion.div>
@@ -260,7 +259,7 @@ export default function PilotoPrensaHidraulica() {
   );
 }
 
-function ControlSlider({ label, value, min, max, unit, color, onChange }: any) {
+function ControlSlider({ label, value, min, max, unit, color, onChange, onAudio }: any) {
   const colors: any = {
     sky: 'accent-sky-500',
     amber: 'accent-amber-500',
@@ -273,10 +272,10 @@ function ControlSlider({ label, value, min, max, unit, color, onChange }: any) {
           <span className="text-[10px] font-black text-slate-500 uppercase tracking-widest">{label}</span>
           <span className="text-lg font-black text-white italic tracking-tighter">{value?.toFixed(1)} {unit}</span>
        </div>
-       <input 
-         type="range" min={min} max={max} step={0.1} value={value} 
-         onChange={(e) => { audio.playPop(); onChange(parseFloat(e.target.value)); }} 
-         className={`w-full h-1.5 bg-slate-800 rounded-full appearance-none cursor-pointer ${colors[color]}`} 
+       <input
+         type="range" min={min} max={max} step={0.1} value={value}
+         onChange={(e) => { onAudio?.(); onChange(parseFloat(e.target.value)); }}
+         className={`w-full h-1.5 bg-slate-800 rounded-full appearance-none cursor-pointer ${colors[color]}`}
        />
     </div>
   );

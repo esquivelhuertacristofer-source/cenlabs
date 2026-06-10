@@ -158,8 +158,8 @@ export default function PilotoConstruccionAtomica({ isWorktableDark = true }: { 
   }, [instabilityLevel, isExploded, protones, neutrones]);
 
   const handleReset = () => {
-    resetParticulas();
     setIsExploded(false);
+    resetParticulas();
   };
 
   // Orbital electron distribution
@@ -287,7 +287,7 @@ export default function PilotoConstruccionAtomica({ isWorktableDark = true }: { 
       {/* ── ELEMENT SELECTOR (Right rail) ── */}
       <div className="absolute right-6 top-1/2 -translate-y-1/2 flex flex-col gap-2 z-30">
         {ELEMENT_CATALOGUE.map((el) => {
-          const isSelected = targetZ === el.z && targetA === el.a && targetCharge === 0;
+          const isSelected = targetZ === el.z && targetA === el.a;
           return (
             <button
               key={`${el.z}-${el.a}`}

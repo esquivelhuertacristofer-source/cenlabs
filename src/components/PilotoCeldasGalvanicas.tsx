@@ -15,9 +15,11 @@ const METALES_CONFIG: Record<string, { label: string; color: string; pot: number
 };
 
 export default function PilotoCeldasGalvanicas({ isWorktableDark = true, isProfesor = false }: { isWorktableDark?: boolean; isProfesor?: boolean }) {
-  const { celda, setMetalVaso, togglePuenteSalino, toggleCables, generarSemillaP9 } = useSimuladorStore();
+  const { celda, setMetalVaso, togglePuenteSalino, toggleCables, generarSemillaP9, validarP9, resetP9 } = useSimuladorStore();
   const [selectedMetal, setSelectedMetal] = useState<string | null>(null);
   const [hoveredMetal, setHoveredMetal] = useState<string | null>(null);
+  const [ansAnodo, setAnsAnodo] = useState('');
+  const [ansCatodo, setAnsCatodo] = useState('');
 
   useEffect(() => {
     if (!celda.seedMetales || celda.seedMetales.length === 0) generarSemillaP9();
@@ -101,7 +103,7 @@ export default function PilotoCeldasGalvanicas({ isWorktableDark = true, isProfe
               </div>
               <div className={`p-4 rounded-2xl border transition-all ${celda.puenteSalino ? 'bg-emerald-500/10 border-emerald-500/30' : 'bg-white/5 border-white/5'}`}>
                 <div className="text-[8px] font-black uppercase text-white/40 mb-1">Puente Salino</div>
-                <div className={`text-xs font-black italic ${celda.puenteSalino ? 'text-emerald-400' : 'text-white'}`}>{celda.puenteSalino ? 'ACTIVO' : 'DISCONECTO'}</div>
+                <div className={`text-xs font-black italic ${celda.puenteSalino ? 'text-emerald-400' : 'text-white'}`}>{celda.puenteSalino ? 'ACTIVO' : 'DESCONECTADO'}</div>
               </div>
               <div className={`p-4 rounded-2xl border transition-all ${celda.cablesConectados ? 'bg-emerald-500/10 border-emerald-500/30' : 'bg-white/5 border-white/5'}`}>
                 <div className="text-[8px] font-black uppercase text-white/40 mb-1">Cables / Carga</div>
@@ -285,6 +287,68 @@ export default function PilotoCeldasGalvanicas({ isWorktableDark = true, isProfe
            <button onClick={generarSemillaP9} className="w-full py-5 bg-cyan-500 text-white rounded-2xl text-[10px] font-black uppercase shadow-[0_10px_30px_rgba(6,182,212,0.3)] hover:scale-[1.02] transition-all flex items-center justify-center gap-3">
              <RefreshCcw size={16} /> Reconfigurar Estación
            </button>
+        </div>
+      )}
+
+      {/* ── PANEL DE IDENTIFICACIÓN Y VALIDACIÓN ── */}
+      <div className="absolute bottom-10 left-1/2 -translate-x-1/2 z-20 flex items-center gap-4 p-5 bg-slate-950/80 backdrop-blur-3xl rounded-[3rem] border border-white/5 shadow-2xl pointer-events-auto">
+        <div className="flex flex-col gap-1">
+          <span className="text-[9px] font-black text-rose-400 uppercase tracking-widest">Ánodo (-)</span>
+          <select
+            value={ansAnodo}
+            onChange={e => setAnsAnodo(e.target.value)}
+            className="bg-white/5 border border-white/10 rounded-xl px-3 py-2 text-white text-xs font-bold outline-none focus:border-rose-400/60 transition-all"
+          >
+            <option value="">Seleccionar...</option>
+            {celda.seedMetales.map(m => <option key={m} value={m}>{m}</option>)}
+          </select>
+        </div>
+        <div className="flex flex-col gap-1">
+          <span className="text-[9px] font-black text-emerald-400 uppercase tracking-widest">Cátodo (+)</span>
+          <select
+            value={ansCatodo}
+            onChange={e => setAnsCatodo(e.target.value)}
+            className="bg-white/5 border border-white/10 rounded-xl px-3 py-2 text-white text-xs font-bold outline-none focus:border-emerald-400/60 transition-all"
+          >
+            <option value="">Seleccionar...</option>
+            {celda.seedMetales.map(m => <option key={m} value={m}>{m}</option>)}
+          </select>
+        </div>
+        <button
+          onClick={() => {
+            const ok = validarP9(ansAnodo, ansCatodo, celda.voltaje);
+            if (ok) { audio?.playSuccess(); } else { audio?.playError(); }
+          }}
+          className="px-8 py-3 bg-cyan-600 hover:bg-cyan-500 text-white rounded-2xl font-black text-xs uppercase tracking-widest transition-all active:scale-95 shadow-xl"
+        >
+          Validar Celda
+        </button>
+        <button
+          onClick={() => { resetP9(); audio?.playPop(); }}
+          className="w-12 h-12 bg-white/5 border border-white/10 rounded-2xl flex items-center justify-center text-white/30 hover:text-red-400 hover:bg-white/10 transition-all"
+        >
+          <RefreshCcw size={18} />
+        </button>
+      </div>
+
+      {celda.status === 'success' && (
+        <div className="absolute inset-0 z-[200] flex items-center justify-center bg-black/70 backdrop-blur-xl pointer-events-auto">
+          <motion.div
+            initial={{ scale: 0.85, opacity: 0 }} animate={{ scale: 1, opacity: 1 }}
+            className="bg-[#071220] border border-cyan-500/40 rounded-[3rem] p-12 max-w-md text-center shadow-[0_40px_100px_rgba(6,182,212,0.2)]"
+          >
+            <div className="w-20 h-20 mx-auto mb-6 rounded-[1.6rem] bg-cyan-500/20 border border-cyan-500/40 flex items-center justify-center">
+              <ShieldCheck size={36} className="text-cyan-400" />
+            </div>
+            <h2 className="text-3xl font-black text-white mb-3 uppercase tracking-tighter">¡Celda Validada!</h2>
+            <p className="text-sm text-slate-300 mb-4">Identificaste correctamente el ánodo y el cátodo según los potenciales de reducción.</p>
+            <div className="mb-8 px-6 py-3 bg-cyan-500/10 border border-cyan-500/20 rounded-2xl">
+              <span className="text-cyan-300 font-black font-mono">E°cell = {celda.voltaje.toFixed(2)} V</span>
+            </div>
+            <button onClick={() => { resetP9(); generarSemillaP9(); }} className="px-10 py-4 bg-cyan-600 hover:bg-cyan-500 text-white rounded-2xl font-black text-xs uppercase tracking-widest transition-all">
+              Nueva Celda
+            </button>
+          </motion.div>
         </div>
       )}
 

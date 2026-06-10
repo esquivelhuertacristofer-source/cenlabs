@@ -296,6 +296,8 @@ export default function Atomic3DScene({ protons, neutrons, electrons, instabilit
         res.observe(container);
         return () => {
             res.disconnect(); if (eng.frameId) cancelAnimationFrame(eng.frameId);
+            eng.nucleonMeshes.forEach(({ mesh }) => { mesh.geometry?.dispose(); (mesh.material as THREE.Material)?.dispose(); });
+            eng.electronMeshes.forEach(({ mesh }) => { mesh.geometry?.dispose(); (mesh.material as THREE.Material)?.dispose(); });
             if (eng.renderer) { eng.renderer.dispose(); if (container.contains(eng.renderer.domElement)) container.removeChild(eng.renderer.domElement); }
         };
     }, []);

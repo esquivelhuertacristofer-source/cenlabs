@@ -14,9 +14,10 @@ const LASER_OPTIONS: { id: string; label: string; color: string; bg: string }[] 
 ];
 
 export default function PilotoSnell() {
-  const { optica7, generarSemillaM7, resetM7, audio, setAsistente } = useSimuladorStore();
+  const { optica7, generarSemillaM7, resetM7, setUserInputM7, validarM7, audio, setAsistente } = useSimuladorStore();
   const { n1, n2, n2Misterio, anguloIncidencia, status } = optica7;
   const [laserColor, setLaserColor] = useState<'cyan' | 'red' | 'green' | 'violet' | 'white'>('white');
+  const [inputN2, setInputN2] = useState('');
 
   useEffect(() => {
     generarSemillaM7();
@@ -118,12 +119,47 @@ export default function PilotoSnell() {
                     ))}
                 </div>
 
-                <button 
-                    onClick={() => { resetM7(); generarSemillaM7(); audio?.playPop(); }}
+                <button
+                    onClick={() => { resetM7(); generarSemillaM7(); setInputN2(''); audio?.playPop(); }}
                     className="w-12 h-12 rounded-xl bg-white/5 border border-white/10 flex items-center justify-center text-white/30 hover:bg-white/10 hover:text-white transition-all group"
                 >
                     <RefreshCcw size={18} className="group-active:rotate-180 transition-transform duration-500" />
                 </button>
+
+                {/* Entrada de índice n2 */}
+                <div className="bg-black/50 backdrop-blur-xl border border-white/10 px-4 py-3 rounded-2xl flex items-center gap-3">
+                    <div className="flex flex-col gap-1">
+                        <span className="text-[8px] font-black text-slate-500 uppercase tracking-widest">Tu valor n₂</span>
+                        <input
+                            type="number"
+                            step="0.01"
+                            min="1"
+                            max="3"
+                            value={inputN2}
+                            onChange={e => setInputN2(e.target.value)}
+                            placeholder="1.50"
+                            className="w-24 bg-white/5 border border-white/10 rounded-xl px-3 py-1.5 text-sm font-black font-mono text-white outline-none focus:border-cyan-500 transition-all"
+                        />
+                    </div>
+                    <button
+                        onClick={() => {
+                            setUserInputM7(inputN2);
+                            const ok = validarM7();
+                            if (ok) audio?.playSuccess();
+                            else audio?.playError();
+                        }}
+                        className={`px-4 py-2 rounded-xl font-black text-[9px] uppercase tracking-widest transition-all border ${
+                            status === 'success'
+                                ? 'bg-emerald-600 border-emerald-400 text-white'
+                                : 'bg-cyan-600 border-cyan-500 text-white hover:bg-cyan-500'
+                        }`}
+                    >
+                        {status === 'success' ? 'Calibrado' : 'Calibrar / Verificar'}
+                    </button>
+                    {status === 'error' && (
+                        <span className="text-[9px] font-black text-rose-400 uppercase tracking-widest">Valor incorrecto</span>
+                    )}
+                </div>
 
                 <div className="bg-black/50 backdrop-blur-xl border border-white/5 px-5 py-3 rounded-2xl flex items-center gap-6">
                     <div>

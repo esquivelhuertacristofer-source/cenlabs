@@ -247,7 +247,7 @@ export default function PilotoDilatacionTermica() {
                     <span className="text-[10px] font-black uppercase tracking-widest text-slate-500">Material de Prueba</span>
                     <div className="flex gap-2">
                       {Object.entries(MATERIALES).map(([key, m]) => (
-                        <button key={key} onClick={() => { audio.playPop(); setDilatacion7({ material: key }); }} className={`px-4 py-2 rounded-xl text-[9px] font-black uppercase transition-all ${material === key ? 'bg-orange-600 text-white shadow-lg shadow-orange-600/20' : 'bg-white/5 text-slate-500 hover:bg-white/10'}`}>
+                        <button key={key} onClick={() => { audio?.playPop(); setDilatacion7({ material: key }); }} className={`px-4 py-2 rounded-xl text-[9px] font-black uppercase transition-all ${material === key ? 'bg-orange-600 text-white shadow-lg shadow-orange-600/20' : 'bg-white/5 text-slate-500 hover:bg-white/10'}`}>
                           {m.nombre}
                         </button>
                       ))}
@@ -282,7 +282,7 @@ export default function PilotoDilatacionTermica() {
                      <span className="text-xs font-black text-white uppercase">Certificar</span>
                   </button>
 
-                  <button onClick={() => { audio.playPop(); setAlphaInput(""); setDilatacion7({ tempFin: 20 }); setIsHeating(false); }} className="w-16 h-16 bg-white/5 hover:bg-white/10 rounded-2xl border border-white/10 flex items-center justify-center text-slate-500 hover:text-white transition-all">
+                  <button onClick={() => { audio?.playPop(); setAlphaInput(""); setDilatacion7({ material: 'aluminio', tempFin: 20, tempIni: 20, longitud: 500, resultado: null }); setIsHeating(false); setBitacora({ ...bitacoraData, fisica7: null }); }} className="w-16 h-16 bg-white/5 hover:bg-white/10 rounded-2xl border border-white/10 flex items-center justify-center text-slate-500 hover:text-white transition-all">
                      <RotateCcw size={20} />
                   </button>
                </div>

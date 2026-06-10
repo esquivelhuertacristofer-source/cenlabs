@@ -13,7 +13,7 @@ import Sistemas2x23DScene from './simuladores/mat02/Sistemas2x23DScene';
 
 export default function PilotoSistemas2x2() {
   const router = useRouter();
-  const { sistemas2x2, setSistemasCoefsM2, validarM2, generarSemillaM2, resetM2, audio, setAsistente, pasoActual, setPasoActual, bitacoraData } = useSimuladorStore();
+  const { sistemas2x2, setSistemasCoefsM2, validarM2, generarSemillaM2, resetM2, audio, setAsistente, pasoActual, setPasoActual } = useSimuladorStore();
   const { m1, b1, m2, b2, target, status } = sistemas2x2;
 
   const [mounted, setMounted] = useState(false);
@@ -32,16 +32,16 @@ export default function PilotoSistemas2x2() {
   const xi = !isParallel ? (b2 - b1) / (m1 - m2) : null;
   const yi = !isParallel ? m1 * xi! + b1 : null;
 
-  const isTargetLocked = xi !== null && Math.abs(xi - target.x) < 0.15 && Math.abs(yi! - target.y) < 0.15;
+  const isTargetLocked = xi !== null && Math.abs(xi - target.x) < 0.10 && Math.abs(yi! - target.y) < 0.10;
 
   // -- PASOS DEL HUD --
   useEffect(() => {
-    if (m1 !== 1 || b1 !== 0) {
+    if (m1 !== 1) {
       if (pasoActual === 0) setPasoActual(1);
     }
-    if ((m2 !== -1 || b2 !== 4) && pasoActual < 2) setPasoActual(2);
+    if (m2 !== -1 && pasoActual < 2) setPasoActual(2);
     if (status === 'success' && pasoActual < 3) setPasoActual(3);
-  }, [m1, b1, m2, b2, status, pasoActual, setPasoActual]);
+  }, [m1, m2, status, pasoActual, setPasoActual]);
 
   if (!mounted) return null;
 
@@ -164,12 +164,17 @@ export default function PilotoSistemas2x2() {
                 <button onClick={() => { resetM2(); generarSemillaM2(); audio?.playPop(); }} className="w-16 h-16 rounded-2xl bg-white/5 border border-white/10 flex items-center justify-center text-slate-500 hover:text-white transition-all shadow-xl">
                     <RefreshCcw size={24} />
                 </button>
-                <button 
+                <button
                   onClick={() => { const ok = validarM2(); if (ok) audio?.playSuccess(); else audio?.playError(); }}
                   className={`w-20 h-20 rounded-3xl border flex items-center justify-center transition-all shadow-2xl ${status === 'success' ? 'bg-emerald-600 border-emerald-400 text-white' : 'bg-cyan-600 border-cyan-500 text-white hover:scale-105 active:scale-95'}`}
                 >
                     {status === 'success' ? <ShieldCheck size={32} /> : <Target size={32} />}
                 </button>
+                {status === 'error' && (
+                  <div className="absolute bottom-full mb-3 right-0 bg-rose-900/90 border border-rose-500/50 text-rose-300 text-[10px] font-black uppercase tracking-widest px-4 py-2 rounded-xl shadow-lg whitespace-nowrap">
+                    Ajusta los ángulos
+                  </div>
+                )}
             </div>
         </div>
       </div>
@@ -181,7 +186,7 @@ export default function PilotoSistemas2x2() {
              <motion.div initial={{ scale: 0.9, y: 30 }} animate={{ scale: 1, y: 0 }} className="bg-slate-900 border border-cyan-500/30 rounded-[4rem] p-20 max-w-2xl text-center shadow-[0_0_100px_rgba(6,182,212,0.15)]">
                 <Crosshair size={100} className="text-cyan-500 mx-auto mb-8" />
                 <h3 className="text-5xl font-black text-white uppercase italic mb-6">Triangulación Exitosa</h3>
-                <p className="text-slate-400 text-lg font-medium mb-12 leading-relaxed">Has localizado el objetivo mediante un sistema de ecuaciones lineales perfecto. La sincronía de los haces ha sido validada bajo el estándar **Diamond State**.</p>
+                <p className="text-slate-400 text-lg font-medium mb-12 leading-relaxed">Has localizado el objetivo mediante un sistema de ecuaciones lineales perfecto. La sincronía de los haces ha sido validada bajo el estándar <strong>Diamond State</strong>.</p>
                 <button onClick={() => router.push('/alumno/laboratorio/matematicas')} className="w-full py-6 bg-cyan-600 hover:bg-cyan-500 text-white font-black rounded-[2rem] uppercase tracking-widest text-xs transition-colors shadow-lg shadow-cyan-600/30">Cerrar Informe de Sincronía</button>
              </motion.div>
           </motion.div>

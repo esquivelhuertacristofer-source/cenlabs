@@ -20,9 +20,11 @@ export function validarB1(microscopio: MicroscopioState, magMin: number = 40): b
   return isMagOk && isLightOk && focusDiff <= tolerance;
 }
 
-// B2 — Transporte Celular (equilibrio osmótico)
+// B2 — Transporte Celular (equilibrio osmótico — osmolaridad total)
 export function validarB2(transporte: TransporteState): boolean {
-  return Math.abs(transporte.concExt - transporte.concInt) < 0.05;
+  const osmExt = (2 * transporte.concExt) + (transporte.glucosaExt ?? 0);
+  const osmInt = 2 * transporte.concInt;
+  return Math.abs(osmExt - osmInt) < 0.05;
 }
 
 // B3 — Síntesis de Proteínas: traducción correcta (errores === 0 y proteína armada)

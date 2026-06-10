@@ -13,7 +13,7 @@ import {
 import Limitante3DScene from './simuladores/qmi04/Limitante3DScene';
 
 export default function PilotoReactivoLimitante() {
-  const { limitante, setInputMass, setReaccionLimitante, generarSemillaP4, audio, setAsistente } = useSimuladorStore();
+  const { limitante, setInputMass, setReaccionLimitante, generarSemillaP4, validarP4, audio, setAsistente } = useSimuladorStore();
   const [mounted, setMounted] = useState(false);
   const [isSynthesizing, setIsSynthesizing] = useState(false);
   const [showAcademicInfo, setShowAcademicInfo] = useState(false);
@@ -39,14 +39,15 @@ export default function PilotoReactivoLimitante() {
   useEffect(() => {
     if (injectingIdx !== null) {
       injectionInterval.current = setInterval(() => {
-        setInputMass(injectingIdx, inputMasses[injectingIdx] + 0.5);
+        const currentMass = useSimuladorStore.getState().limitante.inputMasses[injectingIdx];
+        setInputMass(injectingIdx, currentMass + 0.5);
         if (Math.random() > 0.7) audio?.playClick();
       }, 50);
     } else {
       clearInterval(injectionInterval.current);
     }
     return () => clearInterval(injectionInterval.current);
-  }, [injectingIdx, inputMasses]);
+  }, [injectingIdx]);
 
   useEffect(() => { 
     setMounted(true); 

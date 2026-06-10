@@ -9,7 +9,6 @@ import {
   Database, Plus, Lock, ChevronRight, Binary
 } from 'lucide-react';
 import { useSimuladorStore } from '@/store/simuladorStore';
-import { audio } from '@/utils/audioEngine';
 import dynamic from 'next/dynamic';
 
 const PenduloSimple3DScene = dynamic(() => import('./simuladores/fis03/PenduloSimple3DScene'), { 
@@ -27,7 +26,7 @@ const DIALOGOS = {
 
 export default function PilotoPenduloSimple() {
   const router = useRouter();
-  const { setBitacora, bitacoraData, audio, setAsistente, registrarHallazgo, stopTimer, setPasoActual } = useSimuladorStore();
+  const { setBitacora, bitacoraData, audio, setAsistente, registrarHallazgo, stopTimer, setPasoActual, setPendulo3 } = useSimuladorStore();
 
   // -- SEMILLA: GRAVEDAD MISTERIOSA --
   const [seed] = useState(() => ({
@@ -209,26 +208,26 @@ export default function PilotoPenduloSimple() {
 
   const handleAgregarMuestra = () => {
     if (tiempoTranscurrido === 0) return showAlert("Usa el cronómetro para medir un periodo antes de registrar.");
-    
+
     // Evitar muestras duplicadas de la misma longitud
     if (muestras.some(m => m.L === longitud)) {
       return showAlert(`Ya tienes una muestra registrada para L = ${longitud}m.`);
     }
 
     const tMedido = tiempoTranscurrido / 1000; // En segundos
-    setMuestras([...muestras, { L: longitud, T: parseFloat(tMedido.toFixed(2)) }]);
+    const nuevasMuestras = [...muestras, { L: longitud, T: parseFloat(tMedido.toFixed(2)) }];
+    setMuestras(nuevasMuestras);
+    setPendulo3({ periodo: parseFloat(tMedido.toFixed(2)) });
     audio?.playPop();
-    
+
     // Resetear cronómetro automáticamente para facilitar el workflow
     setCronometroActivo(false);
     setTiempoTranscurrido(0);
     setIsOscilando(false);
-    
-    if (muestras.length === 2) {
-      setTimeout(() => {
-        setAlertaCritica("Muestras recolectadas. Análisis estadístico desbloqueado.");
-        setFase(4);
-      }, 2000);
+
+    if (nuevasMuestras.length >= 3) {
+      setAlertaCritica("Muestras recolectadas. Análisis estadístico desbloqueado.");
+      setFase(4);
     }
   };
 
@@ -443,9 +442,9 @@ export default function PilotoPenduloSimple() {
                 onClick={() => {
                   const nextState = !isOscilando;
                   setIsOscilando(nextState);
-                  audio.playPop();
+                  audio?.playPop();
                   if (nextState) {
-                    audio.playNotification();
+                    audio?.playNotification();
                   }
                 }} 
                 className={`h-14 w-14 rounded-full flex items-center justify-center active:scale-95 transition-all shadow-lg ${isOscilando ? 'bg-rose-600 text-white shadow-rose-600/30' : 'bg-sky-600 text-white shadow-sky-600/30'}`}

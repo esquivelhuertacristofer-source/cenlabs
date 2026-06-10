@@ -148,12 +148,17 @@ export default function PilotoTransformaciones() {
                 <button onClick={() => { resetM6(); generarSemillaM6(); audio?.playPop(); }} className="w-16 h-16 rounded-2xl bg-white/5 border border-white/10 flex items-center justify-center text-slate-500 hover:text-white transition-all shadow-xl">
                     <RefreshCcw size={24} />
                 </button>
-                <button 
+                <button
                   onClick={() => { const ok = validarM6(); if (ok) audio?.playSuccess(); else audio?.playError(); }}
                   className={`w-20 h-20 rounded-3xl border flex items-center justify-center transition-all shadow-2xl ${status === 'success' ? 'bg-emerald-600 border-emerald-400 text-white' : 'bg-amber-600 border-amber-500 text-white hover:scale-105 active:scale-95'}`}
                 >
                     {status === 'success' ? <ShieldCheck size={32} /> : <Target size={32} />}
                 </button>
+                {status === 'error' && (
+                  <div className="bg-rose-900/90 border border-rose-500/50 text-rose-300 text-[9px] font-black uppercase tracking-widest px-3 py-2 rounded-xl shadow-lg text-center">
+                    Ajusta los vectores
+                  </div>
+                )}
             </div>
         </div>
       </div>
@@ -165,7 +170,7 @@ export default function PilotoTransformaciones() {
              <motion.div initial={{ scale: 0.9, y: 30 }} animate={{ scale: 1, y: 0 }} className="bg-slate-900 border border-amber-500/30 rounded-[4rem] p-20 max-w-2xl text-center shadow-[0_0_100px_rgba(245,158,11,0.15)]">
                 <Rocket size={100} className="text-amber-500 mx-auto mb-8" />
                 <h3 className="text-5xl font-black text-white uppercase italic mb-6">Misión Exitosa</h3>
-                <p className="text-slate-400 text-lg font-medium mb-12 leading-relaxed">Has alineado los vectores de la nave con precisión absoluta. El análisis de transformaciones lineales ha sido validado bajo el estándar **Diamond State**.</p>
+                <p className="text-slate-400 text-lg font-medium mb-12 leading-relaxed">Has alineado los vectores de la nave con precisión absoluta. El análisis de transformaciones lineales ha sido validado bajo el estándar <strong>Diamond State</strong>.</p>
                 <button onClick={() => router.push('/alumno/laboratorio/matematicas')} className="w-full py-6 bg-amber-600 hover:bg-amber-500 text-white font-black rounded-[2rem] uppercase tracking-widest text-xs transition-colors shadow-lg shadow-amber-600/30">Cerrar Informe de Vuelo</button>
              </motion.div>
           </motion.div>

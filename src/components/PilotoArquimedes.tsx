@@ -16,15 +16,14 @@ import {
   Thermometer,
   CloudRain
 } from 'lucide-react';
-import { audio } from '@/utils/audioEngine';
 
 export default function PilotoArquimedes() {
-  const { arquimedes6, setArquimedes6, setAsistente, registrarHallazgo, stopTimer, setPasoActual, bitacoraData, setBitacora } = useSimuladorStore();
-  const { 
-    radio = 0.5, 
-    densidadCuerpo = 800, 
-    densidadLiquido = 1000, 
-    sumergido = 0, 
+  const { arquimedes6, setArquimedes6, setAsistente, audio, registrarHallazgo, stopTimer, setPasoActual, bitacoraData, setBitacora } = useSimuladorStore();
+  const {
+    radio = 0.5,
+    densidadCuerpo = 800,
+    densidadLiquido = 1000,
+    sumergido = 0,
     resultado: status = 'idle',
     isRunning = false
   } = arquimedes6 || {};
@@ -34,6 +33,10 @@ export default function PilotoArquimedes() {
   const [pesoReal, setPesoReal] = useState(0);
   const [empuje, setEmpuje] = useState(0);
   const [paso, setPaso] = useState(1);
+
+  // Ref to avoid stale closure inside setInterval
+  const sumergidoRef = useRef(sumergido);
+  useEffect(() => { sumergidoRef.current = sumergido; }, [sumergido]);
 
   useEffect(() => {
     const V = (4/3) * Math.PI * Math.pow(radio, 3);
@@ -59,17 +62,17 @@ export default function PilotoArquimedes() {
       const interval = setInterval(() => {
         // El porcentaje de inmersión en equilibrio es DensidadCuerpo / DensidadLiquido
         const targetSumergido = Math.min(1.1, densidadCuerpo / densidadLiquido);
-        
-        setArquimedes6({ 
-          sumergido: sumergido + (targetSumergido - sumergido) * 0.05 
-        });
+        const current = sumergidoRef.current;
+        const next = current + (targetSumergido - current) * 0.05;
 
-        if (Math.abs(sumergido - targetSumergido) < 0.001) {
+        setArquimedes6({ sumergido: next });
+
+        if (Math.abs(current - targetSumergido) < 0.001) {
           setArquimedes6({ isRunning: false });
           audio?.playSuccess();
-          
+
           const E = targetSumergido >= 1 ? (volumenTotal * densidadLiquido * 9.81) : pesoReal;
-          
+
           registrarHallazgo('fis_arquimedes_equilibrio', {
             densidad_cuerpo: densidadCuerpo,
             densidad_liquido: densidadLiquido,
@@ -89,7 +92,7 @@ export default function PilotoArquimedes() {
       }, 50);
       return () => clearInterval(interval);
     }
-  }, [isRunning, sumergido, setArquimedes6, densidadCuerpo, densidadLiquido, pesoReal, volumenTotal]);
+  }, [isRunning, setArquimedes6, densidadCuerpo, densidadLiquido, pesoReal, volumenTotal, audio, registrarHallazgo, stopTimer, setPasoActual, setBitacora, bitacoraData]);
 
   const toggleSim = () => {
     const isNowRunning = !isRunning;
@@ -207,12 +210,33 @@ export default function PilotoArquimedes() {
         </div>
 
         <div className="flex items-center gap-10">
-           <div className="flex flex-col">
-              <span className="text-[10px] font-black text-white/30 uppercase tracking-widest mb-1">Densidad Fluido</span>
-              <span className="text-blue-400 font-black text-xs uppercase tracking-widest leading-none">Agua Destilada (1000 kg/m³)</span>
+           <div className="flex flex-col min-w-[200px]">
+              <div className="flex justify-between mb-1">
+                <span className="text-[10px] font-black text-white/30 uppercase tracking-widest">Densidad Cuerpo</span>
+                <span className="text-amber-400 font-black text-xs">{densidadCuerpo} kg/m³</span>
+              </div>
+              <input
+                type="range" min="100" max="2000" step="50"
+                value={densidadCuerpo}
+                onChange={(e) => setArquimedes6({ densidadCuerpo: parseInt(e.target.value) })}
+                className="w-full accent-amber-500 h-1.5"
+              />
            </div>
-           
-           <button 
+
+           <div className="flex flex-col min-w-[200px]">
+              <div className="flex justify-between mb-1">
+                <span className="text-[10px] font-black text-white/30 uppercase tracking-widest">Densidad Fluido</span>
+                <span className="text-blue-400 font-black text-xs">{densidadLiquido} kg/m³</span>
+              </div>
+              <input
+                type="range" min="500" max="13600" step="100"
+                value={densidadLiquido}
+                onChange={(e) => setArquimedes6({ densidadLiquido: parseInt(e.target.value) })}
+                className="w-full accent-blue-500 h-1.5"
+              />
+           </div>
+
+           <button
              onClick={toggleSim}
              className={`px-12 py-5 rounded-[1.5rem] font-black text-xs uppercase tracking-[0.2em] transition-all active:scale-95 flex items-center gap-4 ${isRunning ? 'bg-red-600 text-white shadow-xl shadow-red-600/30' : 'bg-blue-600 text-white shadow-xl shadow-blue-600/30'}`}
            >

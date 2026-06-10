@@ -163,7 +163,7 @@ export const createMatematicasSlice: StateCreator<SimuladorState, [], [], Matema
     set((state) => ({ pitagoras: { ...state.pitagoras, status: isOk ? 'success' : 'error' } }));
     return isOk;
   },
-  resetM4: () => set((state) => ({ pitagoras: { ...state.pitagoras, catetoA: 3, catetoB: 4, llenado: 0, userInputC: '', status: 'idle' } })),
+  resetM4: () => set((state) => ({ pitagoras: { ...state.pitagoras, catetoA: 3, catetoB: 4, llenado: 0, userInputC: '', status: 'idle', escenario: 'pitagoras_basico' } })),
   setAnguloM5: (a: number) => set((state) => ({ trigonometria: { ...state.trigonometria, angulo: a } })),
   setAnimandoM5: (val: boolean) => set((state) => ({ trigonometria: { ...state.trigonometria, animando: val } })),
   setTogglesM5: (s: boolean, c: boolean) => set((state) => ({ trigonometria: { ...state.trigonometria, verSeno: s, verCoseno: c } })),
@@ -205,7 +205,7 @@ export const createMatematicasSlice: StateCreator<SimuladorState, [], [], Matema
   setTransformM6: (tx: number, ty: number, rot: number, s: number) => set((state) => ({ geometria6: { ...state.geometria6, tx, ty, rotacion: rot, escala: s } })),
   generarSemillaM6: () => set((state) => {
     const tx = Math.floor(Math.random() * 17) - 8, ty = Math.floor(Math.random() * 17) - 8;
-    const rot = [0, 45, 90, 135, 180, 225, 270, 315][Math.floor(Math.random() * 8)], s = [0.5, 1.0, 1.5, 2.0, 2.5, 3.0][Math.floor(Math.random() * 6)];
+    const rot = [0, 45, 90, 135, 180, 225, 270, 315][Math.floor(Math.random() * 8)], s = [0.5, 1.0, 1.5, 2.0][Math.floor(Math.random() * 4)];
     return { geometria6: { ...state.geometria6, target: { tx, ty, rotacion: rot, escala: s }, status: 'idle', tx: 0, ty: 0, rotacion: 0, escala: 1.0 } };
   }),
   validarM6: () => {
@@ -228,7 +228,7 @@ export const createMatematicasSlice: StateCreator<SimuladorState, [], [], Matema
   resetM6: () => set((state) => ({ geometria6: { ...state.geometria6, tx: 0, ty: 0, rotacion: 0, escala: 1.0, status: 'idle' } })),
   setOpticaM7: (n1: number, n2: number | 'misterio', angulo: number) => set((state) => ({ optica7: { ...state.optica7, n1, n2, anguloIncidencia: angulo } })),
   setUserInputM7: (val: string) => set((state) => ({ optica7: { ...state.optica7, userInputN2: val } })),
-  generarSemillaM7: () => set((state) => ({ optica7: { ...state.optica7, n2Misterio: parseFloat((1.4 + Math.random() * 0.6).toFixed(2)), status: 'idle', userInputN2: '' } })),
+  generarSemillaM7: () => set((state) => ({ optica7: { ...state.optica7, n2Misterio: parseFloat((1.4 + Math.random() * 0.6).toFixed(2)), anguloIncidencia: Math.floor(15 + Math.random() * 61), status: 'idle', userInputN2: '' } })),
   validarM7: () => {
     const optica = get().optica7;
     const isOk = MatDomain.validarM7(optica);

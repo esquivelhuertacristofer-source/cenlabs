@@ -7,7 +7,7 @@ import { Dna, Zap, Cpu, Terminal, Diamond, MousePointer2, Keyboard, ArrowRight, 
 import Sintesis3DScene from './simuladores/bio03/Sintesis3DScene';
 
 export default function PilotoSintesisProteinas({ setShowSuccess }: { setShowSuccess: (val: boolean) => void }) {
-  const { sintesis, addNucleotido, advanceRibosoma, resetB3, registrarHallazgo } = useSimuladorStore();
+  const { sintesis, addNucleotido, advanceRibosoma, resetB3, validarB3, registrarHallazgo } = useSimuladorStore();
   
   const s = sintesis || { 
     fase: 'transcripcion', 
@@ -60,8 +60,9 @@ export default function PilotoSintesisProteinas({ setShowSuccess }: { setShowSuc
   }, [fase, arnMensajero.length, currentIndex]);
 
   useEffect(() => {
-    if (status === 'success' && setShowSuccess) {
-      setShowSuccess(true);
+    if (status === 'success') {
+      validarB3();
+      if (setShowSuccess) setShowSuccess(true);
     }
   }, [status, setShowSuccess]);
 
@@ -133,7 +134,7 @@ export default function PilotoSintesisProteinas({ setShowSuccess }: { setShowSuc
            {fase === 'transcripcion' ? (
               <div className="flex gap-6 pointer-events-auto">
                  {['A', 'U', 'C', 'G'].map((base) => (
-                    <motion.button key={base} whileHover={{ scale: 1.1, y: -10 }} whileTap={{ scale: 0.9 }} onClick={() => addNucleotido(base)} className={`w-24 h-24 rounded-3xl border-4 flex flex-col items-center justify-center shadow-2xl relative overflow-hidden ${base === 'A' ? 'bg-emerald-500/20 border-emerald-500 text-emerald-400' : base === 'U' ? 'bg-rose-500/20 border-rose-500 text-rose-400' : base === 'C' ? 'bg-cyan-500/20 border-cyan-500 text-cyan-400' : 'bg-orange-500/20 border-orange-500 text-orange-400'}`}><span className="text-4xl font-black font-mono">{base}</span><span className="text-[10px] font-black opacity-40">ENTRADA</span></motion.button>
+                    <motion.button key={base} whileHover={{ scale: 1.1, y: -10 }} whileTap={{ scale: 0.9 }} onClick={() => handleInput(base)} className={`w-24 h-24 rounded-3xl border-4 flex flex-col items-center justify-center shadow-2xl relative overflow-hidden ${base === 'A' ? 'bg-emerald-500/20 border-emerald-500 text-emerald-400' : base === 'U' ? 'bg-rose-500/20 border-rose-500 text-rose-400' : base === 'C' ? 'bg-cyan-500/20 border-cyan-500 text-cyan-400' : 'bg-orange-500/20 border-orange-500 text-orange-400'}`}><span className="text-4xl font-black font-mono">{base}</span><span className="text-[10px] font-black opacity-40">ENTRADA</span></motion.button>
                  ))}
               </div>
            ) : (

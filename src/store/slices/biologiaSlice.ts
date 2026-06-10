@@ -108,18 +108,20 @@ export const createBiologiaSlice: StateCreator<SimuladorState, [], [], BiologiaS
     }
     return isOk;
   },
-  resetB1: () => set((state) => ({ 
-    microscopio: { 
-      ...state.microscopio, 
-      objetivoMag: 4, 
-      enfoqueZ: 0, 
-      iluminacion: 50, 
-      posicionX: 0, 
-      posicionY: 0, 
+  resetB1: () => set((state) => ({
+    microscopio: {
+      ...state.microscopio,
+      objetivoMag: 4,
+      enfoqueZ: 0,
+      enfoqueMacro: 0,
+      enfoqueMicro: 0,
+      iluminacion: 50,
+      posicionX: 0,
+      posicionY: 0,
       status: 'idle',
       magnificacionVerified: false,
       abbeVerified: false,
-    } 
+    }
   })),
   setTransporte: (data: Partial<SimuladorState['transporte']>) => set((state) => ({ transporte: { ...state.transporte, ...data } })),
   tickTransporte: (dt: number) => set((state) => {
@@ -144,7 +146,7 @@ export const createBiologiaSlice: StateCreator<SimuladorState, [], [], BiologiaS
 
     // Límites Biológicos
     if (tipoCelula === 'animal') {
-      if (newVol > 180) newVol = 181; // Citólisis
+      if (newVol > 180) newVol = 181; // Citólisis — threshold at 180
       if (newVol < 40) newVol = 40;
     } else {
       if (newVol > 140) newVol = 140;
@@ -172,7 +174,7 @@ export const createBiologiaSlice: StateCreator<SimuladorState, [], [], BiologiaS
     }
     return isOk;
   },
-  resetB2: () => set((state) => ({ transporte: { ...state.transporte, concExt: 0.3, volumen: 100, history: [], status: 'idle' } })),
+  resetB2: () => set((state) => ({ transporte: { ...state.transporte, concExt: 0.3, concInt: 0.3, glucosaExt: 0.0, temperatura: 25, tipoCelula: 'animal', presionOsmotica: 7.4, volumen: 100, history: [], status: 'idle' } })),
   addNucleotido: (base: string) => set((state) => {
     const pairing: Record<string, string> = { 'A': 'U', 'T': 'A', 'C': 'G', 'G': 'C' };
     const target = pairing[state.sintesis.adnPlantilla[state.sintesis.currentIndex]];
@@ -248,7 +250,7 @@ export const createBiologiaSlice: StateCreator<SimuladorState, [], [], BiologiaS
 
     const aa = { id: crypto.randomUUID(), ...(geneticCode[codon] ?? { name: '???', color: '#64748b' }) };
 
-    if (aa.name === 'STOP') return { sintesis: { ...state.sintesis, status: 'success' } };
+    if (aa.name === 'STOP') return { sintesis: { ...state.sintesis, status: state.sintesis.errores === 0 ? 'success' : 'error' } };
     return { sintesis: { ...state.sintesis, proteina: [...proteina, aa], currentIndex: currentIndex + 3 } };
   }),
   generarSemillaB3: () => set((state) => {
@@ -398,7 +400,19 @@ export const createBiologiaSlice: StateCreator<SimuladorState, [], [], BiologiaS
     };
   }),
   finalizarGeneracion: () => set((state) => ({ evolucion: { ...state.evolucion, generacion: state.evolucion.generacion + 1 } })),
-  resetB6: () => set((state) => ({ evolucion: { ...state.evolucion, generacion: 1, clara: 50, oscura: 50, isRunning: false } })),
+  generarSemillaB6: () => set((state) => {
+    const ambiente = Math.random() > 0.5 ? 'industrial' : 'limpio';
+    const bugs = Array.from({ length: 20 }, (_, i) => ({
+      id: i,
+      tipo: i < 10 ? 'clara' : 'oscura',
+      x: 5 + Math.random() * 90,
+      y: 5 + Math.random() * 80,
+      angle: Math.random() * Math.PI * 2,
+      cazada: false,
+    }));
+    return { evolucion: { ...state.evolucion, ambiente: ambiente as any, bugs, generacion: 1, clara: 50, oscura: 50, cazadasClaras: 0, cazadasOscuras: 0, tiempo: 30, isRunning: false, status: 'idle', historial: [] } };
+  }),
+  resetB6: () => set((state) => ({ evolucion: { ...state.evolucion, generacion: 1, clara: 50, oscura: 50, cazadasClaras: 0, cazadasOscuras: 0, tiempo: 30, bugs: [], isRunning: false, status: 'idle', historial: [] } })),
   setB7State: (data: Partial<SimuladorState['sistemaNervioso']>) => set((state) => ({ sistemaNervioso: { ...state.sistemaNervioso, ...data } })),
   dispararReflejo: () => set((state) => ({ sistemaNervioso: { ...state.sistemaNervioso, status: 'success' } })),
   generarSemillaB7: () => set((state) => ({ sistemaNervioso: { ...state.sistemaNervioso, integridadMielina: 60 + Math.random() * 40 } })),

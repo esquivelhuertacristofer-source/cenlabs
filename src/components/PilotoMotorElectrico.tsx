@@ -9,13 +9,12 @@ import {
   Workflow, Cpu, Factory, Bot, Volume2
 } from 'lucide-react';
 import { useSimuladorStore } from '@/store/simuladorStore';
-import { audio } from '@/utils/audioEngine';
 
 const K_RPM_SCALE = 1.041; 
 
 export default function PilotoMotorElectrico() {
   const router = useRouter();
-  const { motor10, setMotor10, setBitacora, bitacoraData, stopTimer, setPasoActual, audio, setAsistente, registrarHallazgo } = useSimuladorStore();
+  const { motor10, setMotor10, resetF10, setBitacora, bitacoraData, stopTimer, setPasoActual, audio, setAsistente, registrarHallazgo } = useSimuladorStore();
   const { 
     imanIzq = 'N', imanDer = 'S', voltaje = 0, 
     espiras = 10, interruptor = false, encendido = false 
@@ -99,8 +98,15 @@ export default function PilotoMotorElectrico() {
     }
   };
 
+  // Turn motor off after success state is recorded
+  useEffect(() => {
+    if (motor10?.resultado === 'exito') {
+      setMotor10({ encendido: false });
+    }
+  }, [motor10?.resultado]);
+
   const stopCwAnimation = () => {
-    setMotor10({ encendido: false });
+    setMotor10({ rpm: absRPM, resultado: 'exito' });
   };
 
   const handleUpdate = (data: any) => {
@@ -305,9 +311,14 @@ export default function PilotoMotorElectrico() {
                     <p className="text-slate-400 text-lg font-medium mb-12 leading-relaxed">
                        Has calibrado con éxito un motor industrial de alta precisión. Con esta validación, has completado satisfactoriamente el programa de **Física Diamond State**.
                     </p>
-                    <button onClick={() => router.push('/alumno/laboratorio/fisica')} className="w-full py-6 bg-orange-600 hover:bg-orange-500 text-white font-black rounded-[2rem] uppercase tracking-widest text-xs transition-colors shadow-lg shadow-orange-600/30">
-                       Finalizar Programa de Física
-                    </button>
+                    <div className="flex gap-4">
+                      <button onClick={() => resetF10()} className="flex-1 py-6 bg-white/10 hover:bg-white/20 text-white font-black rounded-[2rem] uppercase tracking-widest text-xs transition-colors">
+                        Reiniciar
+                      </button>
+                      <button onClick={() => router.push('/alumno/laboratorio/fisica')} className="flex-1 py-6 bg-orange-600 hover:bg-orange-500 text-white font-black rounded-[2rem] uppercase tracking-widest text-xs transition-colors shadow-lg shadow-orange-600/30">
+                        Finalizar Programa de Física
+                      </button>
+                    </div>
                  </motion.div>
                </motion.div>
             ) : (

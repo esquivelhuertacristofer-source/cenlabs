@@ -9,7 +9,6 @@ import {
   Gauge, Battery, Target, Play, Pause, Bot, ShieldCheck
 } from 'lucide-react';
 import { useSimuladorStore } from '@/store/simuladorStore';
-import { audio } from '@/utils/audioEngine';
 import Ohm3DScene from './simuladores/fis08/Ohm3DScene';
 
 // ==========================================
@@ -64,7 +63,7 @@ export default function PilotoLeyOhm() {
 
   // -- EFECTO DE PROTECCIÓN Y AUDIO --
   useEffect(() => {
-    if (corrienteMA > 40 && !ledRoto) {
+    if (corrienteMA > 35 && !ledRoto) {
       audio?.playError();
       audio?.playNotification();
       setOhm8({ ledRoto: true, switchOn: false });
@@ -309,7 +308,7 @@ export default function PilotoLeyOhm() {
                     <span className="text-[10px] font-black uppercase tracking-widest text-slate-500">Impedancia de Carga</span>
                     <div className="flex gap-2">
                       {[100, 220, 470, 1000].map(r => (
-                        <button key={r} onClick={() => { audio.playPop(); setOhm8({ resistencia: r, ledRoto: false }); }} className={`px-4 py-2 rounded-xl text-[9px] font-black uppercase transition-all ${resistencia === r ? 'bg-blue-600 text-white shadow-lg shadow-blue-600/20' : 'bg-white/5 text-slate-500 hover:bg-white/10'}`}>
+                        <button key={r} onClick={() => { audio?.playPop(); setOhm8({ resistencia: r, ledRoto: false }); }} className={`px-4 py-2 rounded-xl text-[9px] font-black uppercase transition-all ${resistencia === r ? 'bg-blue-600 text-white shadow-lg shadow-blue-600/20' : 'bg-white/5 text-slate-500 hover:bg-white/10'}`}>
                           {r} Ω
                         </button>
                       ))}
@@ -344,7 +343,7 @@ export default function PilotoLeyOhm() {
                      <span className="text-xs font-black text-white uppercase">Validar V=IR</span>
                   </button>
 
-                  <button onClick={() => { audio.playPop(); setAlphaInput(""); setOhm8({ ledRoto: false, switchOn: false, resistencia: 1000 }); }} className="w-16 h-16 bg-white/5 hover:bg-white/10 rounded-2xl border border-white/10 flex items-center justify-center text-slate-500 hover:text-white transition-all">
+                  <button onClick={() => { audio?.playPop(); setAlphaInput(""); setOhm8({ ledRoto: false, switchOn: false, resistencia: 1000 }); }} className="w-16 h-16 bg-white/5 hover:bg-white/10 rounded-2xl border border-white/10 flex items-center justify-center text-slate-500 hover:text-white transition-all">
                      <RotateCcw size={20} />
                   </button>
                </div>

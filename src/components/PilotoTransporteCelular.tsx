@@ -38,19 +38,21 @@ export default function PilotoTransporteCelular() {
   const osmInt = useMemo(() => 2 * (concInt || 0.3), [concInt]);
   const deltaOsm = useMemo(() => osmExt - osmInt, [osmExt, osmInt]);
   
-  const isBurst = volumen > 178;
+  const isBurst = volumen > 180;
   const isCritical = volumen > 160 || volumen < 70;
 
   const [feedback, setFeedback] = useState<{ msg: string, type: 'error' | 'success' } | null>(null);
 
   const handleValidar = () => {
-    if (!store?.setTransporte) return;
-    const error = Math.abs(deltaOsm);
+    if (!store?.validarB2) return;
     if (isBurst) {
       setFeedback({ msg: "Muestra destruida por Citólisis. Reinicia.", type: 'error' });
-    } else if (error < 0.05 && Math.abs(volumen - 100) < 2) {
+      setTimeout(() => setFeedback(null), 3000);
+      return;
+    }
+    const ok = store.validarB2();
+    if (ok) {
       setFeedback({ msg: "¡Isotonía Detectada! Éxito.", type: 'success' });
-      store.setTransporte({ status: 'success' });
     } else {
       setFeedback({ msg: deltaOsm > 0 ? "Hipertónico: Baja solutos." : "Hipotónico: Sube solutos.", type: 'error' });
     }
