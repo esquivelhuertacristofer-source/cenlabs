@@ -23,7 +23,7 @@ const LABS_REAL = [
     id: "fisica",
     name: "Laboratorio de Física",
     subject: "Física",
-    description: "10 prácticas: tiro parabólico, plano inclinado, péndulo, ley de Hooke, colisiones y circuitos.",
+    description: "10 prácticas: tiro parabólico, plano inclinado, péndulo, ley de Hooke, prensa hidráulica, empuje, dilatación térmica y circuitos.",
     practices: 10,
     icon: Zap,
     color: "from-[#FB8500] to-[#E85D04]",

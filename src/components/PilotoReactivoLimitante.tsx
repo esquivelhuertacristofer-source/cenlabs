@@ -225,12 +225,12 @@ export default function PilotoReactivoLimitante() {
             <span className="text-[10px] font-black text-[#8ECAE6] uppercase tracking-[0.4em]">Stochiometric Analysis Unit</span>
           </div>
           <div className="flex items-center gap-4 bg-white/5 backdrop-blur-md p-4 rounded-[2rem] border border-white/10">
-            <button onClick={() => { setReaccionLimitante((reaccionActual + 3) % 4); audio?.playClick?.(); }} className="p-3 bg-white/5 hover:bg-white/10 rounded-2xl transition-all"><ChevronLeft size={20} /></button>
+            <button onClick={() => { setReaccionLimitante((reaccionActual + 3) % 4); audio?.playClick?.(); }} aria-label="Reacción anterior" className="p-3 bg-white/5 hover:bg-white/10 rounded-2xl transition-all"><ChevronLeft size={20} /></button>
             <div className="flex flex-col min-w-[200px] items-center">
               <span className="text-[8px] font-black text-white/30 uppercase tracking-[0.5em] mb-1">Cámara de Síntesis 0{reaccionActual + 1}</span>
               <h1 className="text-2xl font-black tracking-tighter uppercase italic">{currentReac.nombre}</h1>
             </div>
-            <button onClick={() => { setReaccionLimitante((reaccionActual + 1) % 4); audio?.playClick?.(); }} className="p-3 bg-white/5 hover:bg-white/10 rounded-2xl transition-all"><ChevronRight size={20} /></button>
+            <button onClick={() => { setReaccionLimitante((reaccionActual + 1) % 4); audio?.playClick?.(); }} aria-label="Siguiente reacción" className="p-3 bg-white/5 hover:bg-white/10 rounded-2xl transition-all"><ChevronRight size={20} /></button>
           </div>
         </motion.div>
 
@@ -243,8 +243,8 @@ export default function PilotoReactivoLimitante() {
                  <span className="text-2xl font-black italic tracking-tighter">OBJETIVO: {targetYield}g <span className="text-xs">de {currentReac.productos[0].formula}</span></span>
               </div>
            </div>
-           <button onClick={() => setShowAcademicInfo(true)} className="w-14 h-14 rounded-2xl bg-cyan-500/10 hover:bg-cyan-500/20 border border-cyan-500/20 flex items-center justify-center text-cyan-400 transition-all"><Info size={24} /></button>
-           <button onClick={() => { generarSemillaP4(); audio?.playClick?.(); }} className="w-14 h-14 rounded-2xl bg-white/5 hover:bg-white/10 border border-white/10 flex items-center justify-center text-white/40 transition-all hover:text-white"><RefreshCw size={24} /></button>
+           <button onClick={() => setShowAcademicInfo(true)} aria-label="Ver información académica" className="w-14 h-14 rounded-2xl bg-cyan-500/10 hover:bg-cyan-500/20 border border-cyan-500/20 flex items-center justify-center text-cyan-400 transition-all"><Info size={24} /></button>
+           <button onClick={() => { generarSemillaP4(); audio?.playClick?.(); }} aria-label="Nuevo ejercicio" className="w-14 h-14 rounded-2xl bg-white/5 hover:bg-white/10 border border-white/10 flex items-center justify-center text-white/40 transition-all hover:text-white"><RefreshCw size={24} /></button>
         </div>
       </header>
       {/* CHECKLIST HUD (DIAMOND STANDARD) */}

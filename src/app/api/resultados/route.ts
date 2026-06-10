@@ -18,11 +18,13 @@ import { ipLimiter, userLimiter } from '@/lib/rateLimiter';
 
 export const dynamic = 'force-dynamic';
 
-// ── Supabase client (singleton per warm start) ────────────────────────────────
-const serverClient = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-);
+// ── Supabase client factory (lazy — reads env vars at request time, not build time) ──
+function getServerClient() {
+  return createClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+  );
+}
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 function clientIP(req: NextRequest): string {
@@ -34,8 +36,9 @@ function clientIP(req: NextRequest): string {
 }
 
 function hashIP(ip: string): string {
-  const salt = process.env.IP_SALT || 'cen-labs-salt';
-  return crypto.createHash('sha256').update(ip + salt).digest('hex').substring(0, 16);
+  const salt = process.env.IP_SALT;
+  if (!salt) console.warn('[API/resultados] IP_SALT env var no configurado — pseudonymización degradada');
+  return crypto.createHash('sha256').update(ip + (salt ?? '')).digest('hex').substring(0, 16);
 }
 
 function rateLimitHeaders(remaining: number, limit: number): Record<string, string> {
@@ -68,7 +71,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ success: false, error: 'No autorizado' }, { status: 401 });
     }
 
-    const { data: { user }, error: authError } = await serverClient.auth.getUser(token);
+    const { data: { user }, error: authError } = await getServerClient().auth.getUser(token);
 
     if (authError || !user) {
       return NextResponse.json({ success: false, error: 'Token inválido o expirado' }, { status: 401 });
@@ -107,10 +110,19 @@ export async function POST(request: NextRequest) {
     }
 
     // ── 5. Construir resultado final ──────────────────────────────────────────
-    // user_id SIEMPRE del token verificado, nunca del body.
+    // Solo campos explícitamente permitidos — nunca spread del body del cliente.
+    const VALID_STATUS = ['in_progress', 'completed', 'abandoned'] as const;
     const serverTimestamp = new Date().toISOString();
     const resultadoFinal  = {
-      ...body,
+      practica_id:         String(body.practica_id),
+      score:               Number(body.score),
+      sim_id:              typeof body.sim_id === 'string'   ? body.sim_id   : undefined,
+      status:              VALID_STATUS.includes(body.status) ? body.status   : 'completed',
+      total_time_seconds:  typeof body.total_time_seconds === 'number' ? body.total_time_seconds : undefined,
+      last_step:           typeof body.last_step === 'number'           ? body.last_step          : undefined,
+      bitacora_data:       body.bitacora_data && typeof body.bitacora_data === 'object' ? body.bitacora_data : undefined,
+      // Campos del servidor — nunca del cliente
+      id_alumno:            user.id,
       user_id:              user.id,
       validation_server_ts: serverTimestamp,
       ip_hash:              hashIP(ip),
@@ -143,8 +155,8 @@ export async function POST(request: NextRequest) {
 
 // ── GET /api/resultados ───────────────────────────────────────────────────────
 export async function GET() {
-  return NextResponse.json({
-    success: true,
-    message: 'API de resultados CEN Labs v1.3. Usa POST con Bearer token para guardar resultados.',
-  });
+  return NextResponse.json(
+    { success: false, error: 'Method Not Allowed' },
+    { status: 405, headers: { Allow: 'POST' } }
+  );
 }

@@ -83,7 +83,7 @@ export default function PeriodicTable() {
             className="bg-[#023047] rounded-[2rem] p-6 text-white flex gap-6 items-center shadow-2xl relative overflow-hidden"
           >
             <div className="absolute top-0 right-0 p-4">
-               <button onClick={() => setSelected(null)} className="text-white/40 hover:text-white"><X size={18}/></button>
+               <button onClick={() => setSelected(null)} aria-label="Cerrar detalle del elemento" className="text-white/40 hover:text-white"><X size={18}/></button>
             </div>
             <div className="w-24 h-24 rounded-3xl bg-white/10 flex flex-col items-center justify-center border border-white/10">
                <span className="text-4xl font-black">{selected.symbol}</span>

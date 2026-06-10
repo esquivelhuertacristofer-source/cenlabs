@@ -74,12 +74,10 @@ function getMockGuardar() {
 // ── GET /api/resultados ───────────────────────────────────────────────────────
 
 describe('GET /api/resultados', () => {
-  it('retorna mensaje de info de la API', async () => {
+  it('retorna 405 Method Not Allowed', async () => {
     const res = await GET();
-    const json = await res.json();
-    expect(res.status).toBe(200);
-    expect(json.success).toBe(true);
-    expect(json.message).toMatch(/v1\.3/);
+    expect(res.status).toBe(405);
+    expect(res.headers.get('Allow')).toBe('POST');
   });
 });
 

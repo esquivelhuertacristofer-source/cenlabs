@@ -184,7 +184,7 @@ export default function Atomic3DScene({ protons, neutrons, electrons, instabilit
 
             eng.composer = new EffectComposer(eng.renderer);
             eng.composer.addPass(new RenderPass(eng.scene, eng.camera));
-            eng.composer.addPass(new UnrealBloomPass(new THREE.Vector2(container.clientWidth, container.clientHeight), 0.8, 0.5, 0.1));
+            eng.composer.addPass(new UnrealBloomPass(new THREE.Vector2(container.clientWidth, container.clientHeight), 0.55, 0.35, 0.55));
             eng.cinematicPass = new ShaderPass(CinematicShader);
             eng.composer.addPass(eng.cinematicPass);
 

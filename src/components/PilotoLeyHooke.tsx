@@ -330,7 +330,7 @@ export default function PilotoLeyHooke() {
                       <span className="text-[10px] font-black text-indigo-300 uppercase tracking-[0.2em]">Muestreo (n={muestras.length}/3)</span>
                     </div>
                     {fase === 3 && (
-                      <button onClick={handleAgregarMuestra} className="bg-indigo-600 hover:bg-indigo-500 text-white p-2 rounded-xl transition-colors"><Plus size={16} /></button>
+                      <button onClick={handleAgregarMuestra} aria-label="Agregar muestra" className="bg-indigo-600 hover:bg-indigo-500 text-white p-2 rounded-xl transition-colors"><Plus size={16} /></button>
                     )}
                  </div>
                  <div className="space-y-2">

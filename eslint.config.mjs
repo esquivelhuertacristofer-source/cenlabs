@@ -39,6 +39,18 @@ const eslintConfig = [
       // y apóstrofos que JSX interpreta como entidades sin escapar. Escaparlos
       // manualmente añadiría ruido de &ldquo;/&rdquo; en todo el texto de lab.
       "react/no-unescaped-entities": "warn",
+
+      // Error en producción: console.log expone datos de sesión del alumno en
+      // la consola del browser. Usar console.warn/error para logs legítimos, o
+      // envolver en `if (process.env.NODE_ENV === 'development')`.
+      "no-console": ["error", { allow: ["warn", "error", "debug"] }],
+    },
+  },
+  // LAST — overrides for test files (must come after the general rules block).
+  {
+    files: ["src/__tests__/**/*.ts", "src/__tests__/**/*.tsx"],
+    rules: {
+      "no-console": "off",
     },
   },
 ];

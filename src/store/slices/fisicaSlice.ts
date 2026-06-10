@@ -189,48 +189,82 @@ export const createFisicaSlice: StateCreator<SimuladorState, [], [], FisicaSlice
 
   validarF1: () => {
     const isOk = FisicaDomain.validarF1(get().tiro1);
-    if (isOk) set((state) => ({ tiro1: { ...state.tiro1, estado: 'success' } }));
+    if (isOk) {
+      set((state) => ({ tiro1: { ...state.tiro1, estado: 'success' } }));
+      const { angulo, velocidad, escenario, targetX, distanciaReal, viento } = get().tiro1;
+      get().registrarHallazgo('fis_tiro_parabolico', { angulo, velocidad, escenario, targetX, distanciaReal, viento });
+    }
     return isOk;
   },
   validarF2: () => {
     const isOk = FisicaDomain.validarF2(get().plano2);
     set((state) => ({ plano2: { ...state.plano2, resultado: isOk ? 'exito' : 'error' } }));
+    if (isOk) {
+      const { angulo, coefRozamiento, masa } = get().plano2;
+      get().registrarHallazgo('fis_plano_inclinado', { angulo, coefRozamiento, masa });
+    }
     return isOk;
   },
   validarF3: () => {
     const isOk = FisicaDomain.validarF3(get().pendulo3);
     set((state) => ({ pendulo3: { ...state.pendulo3, resultado: isOk ? 'exito' : 'error' } }));
+    if (isOk) {
+      const { longitud, masa, anguloInicial, periodo } = get().pendulo3;
+      get().registrarHallazgo('fis_pendulo', { longitud, masa, anguloInicial, periodo });
+    }
     return isOk;
   },
   validarF4: () => {
     const isOk = FisicaDomain.validarF4(get().hooke4);
     set((state) => ({ hooke4: { ...state.hooke4, resultado: isOk ? 'exito' : 'error' } }));
+    if (isOk) {
+      const { k, masa, amplitud } = get().hooke4;
+      get().registrarHallazgo('fis_hooke', { k, masa, amplitud });
+    }
     return isOk;
   },
-  validarF5: () => FisicaDomain.validarF5(get().bitacoraData),
+  validarF5: () => {
+    const isOk = FisicaDomain.validarF5(get().bitacoraData);
+    if (isOk) get().registrarHallazgo('fis_prensa_hidraulica', { resultado: 'exitoso' });
+    return isOk;
+  },
   validarF6: () => {
     const isOk = FisicaDomain.validarF6(get().arquimedes6);
     set((state) => ({ arquimedes6: { ...state.arquimedes6, resultado: isOk ? 'exito' : 'error' } }));
+    if (isOk) {
+      const { fluido, densidadCuerpo, densidadLiquido, volumenCuerpo } = get().arquimedes6;
+      get().registrarHallazgo('fis_arquimedes', { fluido, densidadCuerpo, densidadLiquido, volumenCuerpo });
+    }
     return isOk;
   },
   validarF7: () => {
     const isOk = FisicaDomain.validarF7(get().dilatacion7);
     set((state) => ({ dilatacion7: { ...state.dilatacion7, resultado: isOk ? 'exito' : 'error' } }));
+    if (isOk) {
+      const { material, tempIni, tempFin, longitud } = get().dilatacion7;
+      get().registrarHallazgo('fis_dilatacion', { material, tempIni, tempFin, longitud });
+    }
     return isOk;
   },
   validarF8: () => {
     const isOk = FisicaDomain.validarF8(get().ohm8);
     set((state) => ({ ohm8: { ...state.ohm8, resultado: isOk ? 'exito' : 'error' } }));
+    if (isOk) {
+      const { voltaje, resistencia, nivel } = get().ohm8;
+      get().registrarHallazgo('fis_ohm', { voltaje, resistencia, nivel });
+    }
     return isOk;
   },
   validarF9: () => {
     const isOk = FisicaDomain.validarF9(get().electrostatica9);
     set((state) => ({ electrostatica9: { ...state.electrostatica9, resultado: isOk ? 'exito' : 'error' } }));
+    if (isOk) get().registrarHallazgo('fis_electrostatica', { resultado: 'exitoso' });
     return isOk;
   },
   validarF10: () => {
     const isOk = FisicaDomain.validarF10(get().motor10);
     set((state) => ({ motor10: { ...state.motor10, resultado: isOk ? 'exito' : 'error' } }));
+    if (isOk) get().registrarHallazgo('fis_motor', { resultado: 'exitoso' });
     return isOk;
   },
 

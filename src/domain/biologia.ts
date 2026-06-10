@@ -25,19 +25,22 @@ export function validarB2(transporte: TransporteState): boolean {
   return Math.abs(transporte.concExt - transporte.concInt) < 0.05;
 }
 
-// B3 — Síntesis de Proteínas
+// B3 — Síntesis de Proteínas: traducción correcta (errores === 0 y proteína armada)
+// No depende de status para evitar exploit por localStorage.
 export function validarB3(sintesis: SintesisState): boolean {
-  return sintesis.status === 'success';
+  return sintesis.proteina.length > 0 && sintesis.errores === 0;
 }
 
-// B4 — Fotosíntesis
+// B4 — Fotosíntesis: O2 acumulado alcanza el objetivo real de la semilla
+// No depende de status para evitar exploit por localStorage.
 export function validarB4(fotosintesis: FotosintesisState): boolean {
-  return fotosintesis.status === 'success';
+  return fotosintesis.oxigenoAcumulado >= fotosintesis.targetO2;
 }
 
-// B5 — Genética Mendeliana
+// B5 — Genética Mendeliana: generación F1 producida (al menos una cruza ejecutada)
+// No depende de status para evitar exploit por localStorage.
 export function validarB5(genetica: GeneticaState): boolean {
-  return genetica.status === 'success';
+  return genetica.poblacionF1.length > 0;
 }
 
 // B6 — Evolución (Polilla del Abedul)

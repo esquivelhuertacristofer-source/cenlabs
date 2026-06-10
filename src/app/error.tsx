@@ -1,5 +1,6 @@
 'use client';
 
+import * as Sentry from '@sentry/nextjs';
 import { useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { RefreshCw, Home, AlertTriangle } from 'lucide-react';
@@ -12,7 +13,7 @@ interface ErrorPageProps {
 
 export default function ErrorPage({ error, reset }: ErrorPageProps) {
   useEffect(() => {
-    console.error('[CEN Labs] Runtime error:', error);
+    Sentry.captureException(error);
   }, [error]);
 
   return (

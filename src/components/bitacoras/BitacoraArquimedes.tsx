@@ -241,7 +241,7 @@ export default function BitacoraArquimedes() {
             <span className="text-[10px] font-black uppercase tracking-[0.2em] text-blue-200">Hydro Log v2.0</span>
           </div>
           {registros.length > 0 && (
-            <button onClick={clearRegistros} className="p-2 hover:bg-white/10 rounded-lg transition-colors text-white/40 hover:text-red-400">
+            <button onClick={clearRegistros} aria-label="Limpiar historial de mediciones" className="p-2 hover:bg-white/10 rounded-lg transition-colors text-white/40 hover:text-red-400">
               <Trash2 size={14} />
             </button>
           )}

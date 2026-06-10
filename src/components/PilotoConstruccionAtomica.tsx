@@ -394,8 +394,8 @@ function ControlModule({ label, count, color, onAdd, onSub }: { label: string; c
         </div>
       </div>
       <div className="flex bg-white/5 rounded-2xl p-1 border border-white/10">
-        <button onClick={onSub} className="w-9 h-9 flex items-center justify-center hover:bg-white/5 rounded-xl text-white/40 hover:text-white transition-all"><Minus size={14} /></button>
-        <button onClick={onAdd} className="w-9 h-9 flex items-center justify-center bg-white/10 hover:bg-white/20 rounded-xl text-white shadow-xl transition-all"><Plus size={14} /></button>
+        <button onClick={onSub} aria-label="Reducir cantidad" className="w-9 h-9 flex items-center justify-center hover:bg-white/5 rounded-xl text-white/40 hover:text-white transition-all"><Minus size={14} /></button>
+        <button onClick={onAdd} aria-label="Aumentar cantidad" className="w-9 h-9 flex items-center justify-center bg-white/10 hover:bg-white/20 rounded-xl text-white shadow-xl transition-all"><Plus size={14} /></button>
       </div>
     </div>
   );

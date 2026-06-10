@@ -159,13 +159,13 @@ export default function DrQuantumTutor({
 
       {/* ── NAVEGACIÓN ── */}
       <div className="flex items-center justify-between px-2">
-        <button disabled={isFirst} onClick={() => setCurrent(c => c - 1)} className="w-10 h-10 rounded-xl bg-white/5 border border-white/10 flex items-center justify-center text-white/40 hover:text-white disabled:opacity-10 transition-all"><ChevronLeft size={18} /></button>
+        <button disabled={isFirst} onClick={() => setCurrent(c => c - 1)} aria-label="Paso anterior" className="w-10 h-10 rounded-xl bg-white/5 border border-white/10 flex items-center justify-center text-white/40 hover:text-white disabled:opacity-10 transition-all"><ChevronLeft size={18} /></button>
         <div className="flex gap-2">
           {steps.map((_, i) => (
             <div key={i} className={`w-2 h-2 rounded-full transition-all ${i === current ? 'bg-blue-400 w-6' : 'bg-white/10'}`} />
           ))}
         </div>
-        <button disabled={isLast} onClick={() => setCurrent(c => c + 1)} className="w-10 h-10 rounded-xl bg-white/5 border border-white/10 flex items-center justify-center text-white/40 hover:text-white disabled:opacity-10 transition-all"><ChevronRight size={18} /></button>
+        <button disabled={isLast} onClick={() => setCurrent(c => c + 1)} aria-label="Siguiente paso" className="w-10 h-10 rounded-xl bg-white/5 border border-white/10 flex items-center justify-center text-white/40 hover:text-white disabled:opacity-10 transition-all"><ChevronRight size={18} /></button>
       </div>
     </div>
   );

@@ -5,7 +5,6 @@ import * as THREE from 'three';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
 import { EffectComposer } from 'three/examples/jsm/postprocessing/EffectComposer.js';
 import { RenderPass } from 'three/examples/jsm/postprocessing/RenderPass.js';
-import { UnrealBloomPass } from 'three/examples/jsm/postprocessing/UnrealBloomPass.js';
 import { ShaderPass } from 'three/examples/jsm/postprocessing/ShaderPass.js';
 
 interface Galvanic3DSceneProps {
@@ -168,9 +167,6 @@ export default function Galvanic3DScene({ metalIzq, metalDer, puenteSalino, cabl
         const composer = new EffectComposer(renderer);
         composer.addPass(new RenderPass(scene, camera));
         
-        const bloomPass = new UnrealBloomPass(new THREE.Vector2(width, height), 1.5, 0.4, 0.85);
-        composer.addPass(bloomPass);
-
         const cinematicPass = new ShaderPass(CinematicShader);
         composer.addPass(cinematicPass);
 
@@ -393,6 +389,7 @@ export default function Galvanic3DScene({ metalIzq, metalDer, puenteSalino, cabl
         return () => {
             if (engineRef.current) {
                 cancelAnimationFrame(engineRef.current.frameId);
+                composer.dispose();
                 renderer.dispose();
             }
         };

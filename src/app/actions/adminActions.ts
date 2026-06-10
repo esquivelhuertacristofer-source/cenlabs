@@ -1,6 +1,8 @@
 "use server";
 
 import { getAdminClient } from "@/lib/supabase-admin";
+import { createServerClient } from "@supabase/ssr";
+import { cookies } from "next/headers";
 
 export interface UserImport {
   email: string;
@@ -20,12 +22,39 @@ function generateEmail(fullName: string, domain: string = DEFAULT_EMAIL_DOMAIN):
   const clean = fullName
     .toLowerCase()
     .normalize("NFD")
-    .replace(/[\u0300-\u036f]/g, "") // Quitar acentos
-    .replace(/[^a-z0-9 ]/g, "")      // Quitar caracteres especiales
+    .replace(/\p{M}/gu, "")
+    .replace(/[^a-z0-9 ]/g, "")
     .trim()
-    .replace(/\s+/g, ".");           // Espacios a puntos
+    .replace(/\s+/g, ".");
 
   return `${clean}@${domain}`;
+}
+
+async function requireAdminRole(): Promise<void> {
+  const cookieStore = await cookies();
+  const supabase = createServerClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+    {
+      cookies: {
+        getAll() { return cookieStore.getAll(); },
+        setAll() {},
+      },
+    }
+  );
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) throw new Error('No autorizado');
+
+  const admin = getAdminClient();
+  const { data: profile } = await admin
+    .from('profiles')
+    .select('role')
+    .eq('id', user.id)
+    .single();
+
+  if (!profile || profile.role !== 'admin') {
+    throw new Error('Acceso denegado: se requiere rol de administrador');
+  }
 }
 
 export interface OnboardUser {
@@ -36,6 +65,7 @@ export interface OnboardUser {
 
 /**
  * Motor de Fábrica de Usuarios: Procesa una lista de nombres y crea la infraestructura.
+ * Requiere rol de administrador verificado en el servidor.
  */
 export async function onboardInstitutionalUsers(
   names: string[],
@@ -43,12 +73,14 @@ export async function onboardInstitutionalUsers(
   role: "alumno" | "profesor",
   customPassword: string
 ) {
+  await requireAdminRole();
+
   if (!customPassword || customPassword.trim().length < 8) {
     throw new Error('Se requiere una contraseña de al menos 8 caracteres.');
   }
   const admin = getAdminClient();
   const password = customPassword.trim();
-  
+
   const results = {
     success: [] as { name: string; email: string }[],
     errors: [] as { name: string; message: string }[],
@@ -74,14 +106,13 @@ export async function onboardInstitutionalUsers(
       });
 
       if (authError) {
-        // Si el usuario ya existe, lo omitimos o reportamos
         results.errors.push({ name, message: authError.message });
         continue;
       }
 
       // El Trigger se encargará de crear el perfil y vincularlo al grupo
       // gracias a que pasamos el group_id en la metadata.
-      
+
       results.success.push({ name, email });
 
     } catch (err: any) {

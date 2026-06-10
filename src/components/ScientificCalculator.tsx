@@ -1,10 +1,98 @@
 import React, { useState } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
-import { X, Delete, Equal, Calculator, Hash } from 'lucide-react';
+import { X, Delete, Calculator } from 'lucide-react';
 
 interface ScientificCalculatorProps {
   onClose?: () => void;
   language?: 'es' | 'en';
+}
+
+// Parser recursivo descendente — reemplaza new Function / eval.
+// Gramática: expr → term ((+|-) term)*
+//            term → pow ((*|/) pow)*
+//            pow  → unary (^ pow)?          ← asociativo a la derecha
+//            unary→ - unary | atom
+//            atom → sin(expr)|cos(expr)|tan(expr)|log(expr)|π|e|(expr)|num
+function evaluateExpr(raw: string): number {
+  const src = raw.replace(/×/g, '*').replace(/÷/g, '/').trim();
+  let pos = 0;
+
+  function skip() { while (pos < src.length && src[pos] === ' ') pos++; }
+  function peek() { skip(); return src[pos] ?? ''; }
+
+  function parseExpr(): number {
+    let v = parseTerm();
+    while (peek() === '+' || peek() === '-') {
+      const op = src[pos++];
+      v = op === '+' ? v + parseTerm() : v - parseTerm();
+    }
+    return v;
+  }
+
+  function parseTerm(): number {
+    let v = parsePow();
+    while (peek() === '*' || peek() === '/') {
+      const op = src[pos++];
+      const r = parsePow();
+      if (op === '/' && r === 0) throw new Error('División por cero');
+      v = op === '*' ? v * r : v / r;
+    }
+    return v;
+  }
+
+  function parsePow(): number {
+    const base = parseUnary();
+    if (peek() === '^') { pos++; return Math.pow(base, parsePow()); }
+    return base;
+  }
+
+  function parseUnary(): number {
+    if (peek() === '-') { pos++; return -parseUnary(); }
+    return parseAtom();
+  }
+
+  function readArg(): number {
+    skip();
+    if (src[pos] !== '(') throw new Error('Se esperaba (');
+    pos++;
+    const v = parseExpr();
+    skip();
+    if (src[pos] !== ')') throw new Error('Se esperaba )');
+    pos++;
+    return v;
+  }
+
+  function parseAtom(): number {
+    skip();
+    if (src.startsWith('sin', pos)) { pos += 3; return Math.sin(readArg()); }
+    if (src.startsWith('cos', pos)) { pos += 3; return Math.cos(readArg()); }
+    if (src.startsWith('tan', pos)) { pos += 3; return Math.tan(readArg()); }
+    if (src.startsWith('log', pos)) { pos += 3; return Math.log10(readArg()); }
+    if (src[pos] === 'π') { pos++; return Math.PI; }
+    if (src[pos] === 'e') { pos++; return Math.E; }
+    if (src[pos] === '(') {
+      pos++;
+      const v = parseExpr();
+      skip();
+      if (src[pos] !== ')') throw new Error('Se esperaba )');
+      pos++;
+      return v;
+    }
+    return parseNum();
+  }
+
+  function parseNum(): number {
+    skip();
+    let s = '';
+    while (pos < src.length && /[0-9.]/.test(src[pos])) s += src[pos++];
+    if (!s) throw new Error('Token inesperado');
+    return parseFloat(s);
+  }
+
+  const result = parseExpr();
+  skip();
+  if (pos !== src.length) throw new Error('Expresión inválida');
+  if (!isFinite(result)) throw new Error('Resultado inválido');
+  return result;
 }
 
 export default function ScientificCalculator({ onClose, language = 'es' }: ScientificCalculatorProps) {
@@ -26,23 +114,10 @@ export default function ScientificCalculator({ onClose, language = 'es' }: Scien
 
   const compute = () => {
     try {
-      // Reemplazos para funciones matemáticas
-      const expr = display
-        .replace(/×/g, '*')
-        .replace(/÷/g, '/')
-        .replace(/sin/g, 'Math.sin')
-        .replace(/cos/g, 'Math.cos')
-        .replace(/tan/g, 'Math.tan')
-        .replace(/deg/g, '* Math.PI / 180')
-        .replace(/log/g, 'Math.log10')
-        .replace(/π/g, 'Math.PI')
-        .replace(/e/g, 'Math.E')
-        .replace(/\^/g, '**');
-
-      const result = eval(expr);
+      const result = evaluateExpr(display);
       setHistory(display + ' =');
       setDisplay(String(Number(result.toFixed(8))));
-    } catch (e) {
+    } catch {
       setDisplay('Error');
     }
   };
@@ -95,14 +170,14 @@ export default function ScientificCalculator({ onClose, language = 'es' }: Scien
       </div>
 
       <div className="p-4 grid grid-cols-4 gap-2 bg-white">
-        <button 
+        <button
           onClick={del}
           className="col-span-2 py-3 rounded-xl bg-slate-100 text-slate-500 font-black text-xs uppercase flex items-center justify-center gap-2 hover:bg-slate-200"
         >
           <Delete size={14} /> {language === 'es' ? 'Borrar' : 'Delete'}
         </button>
         <div className="col-span-2" />
-        
+
         {buttons.map((btn, i) => (
           <button
             key={i}

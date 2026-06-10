@@ -64,6 +64,14 @@ export const useSimuladorStore = create<SimuladorState>()(
         const { hallazgos:  _cuh, ...cuadraticasSlim }  = state.cuadraticas;
         const { bolitasPendientes: _bp, ...galton10Slim } = state.galton10;
 
+        // B3/B4/B5/B7: status excluido — validarBX leen datos reales en su lugar.
+        // Un estudiante que edite localStorage no puede marcar estos simuladores
+        // como completados manipulando un único campo.
+        const { status: _sst, ...sintesisSlim }          = state.sintesis;
+        const { status: _sft, ...fotosintesisSlim }      = state.fotosintesis;
+        const { status: _sgt, ...geneticaSlim }          = state.genetica;
+        const { status: _snt, ...sistemaNerviosoSlim }   = state.sistemaNervioso;
+
         return {
           // Core
           bitacoraData: state.bitacoraData,
@@ -109,11 +117,11 @@ export const useSimuladorStore = create<SimuladorState>()(
           // Biología
           microscopio:     microscopioSlim,
           transporte:      transporteSlim,
-          sintesis:        state.sintesis,
-          fotosintesis:    state.fotosintesis,
-          genetica:        state.genetica,
+          sintesis:        sintesisSlim,
+          fotosintesis:    fotosintesisSlim,
+          genetica:        geneticaSlim,
           evolucion:       evolucionSlim,
-          sistemaNervioso: state.sistemaNervioso,
+          sistemaNervioso: sistemaNerviosoSlim,
           cardio:          state.cardio,
           digestion:       state.digestion,
           ecosistema:      ecosistemaSlim,

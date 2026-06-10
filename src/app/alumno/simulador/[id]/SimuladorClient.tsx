@@ -222,6 +222,7 @@ export default function SimuladorClient({ simuladorId }: { simuladorId: string }
 
       // Inicializadores de Química
       if (normalizedId === 'quimica-2') state.generarSemillaGases();
+      if (normalizedId === 'quimica-5') state.generarSemillaP5();
       if (normalizedId === 'quimica-3') {
         // Si el estado está corrupto (sin reacciones), forzar inicialización
         if (!state.balanceo || !state.balanceo.reacciones || state.balanceo.reacciones.length === 0) {
@@ -665,8 +666,9 @@ export default function SimuladorClient({ simuladorId }: { simuladorId: string }
 
         <div className="flex-1 flex overflow-hidden relative">
            <div className={`flex-1 relative shadow-inner overflow-hidden ${
-             normalizedId.startsWith('matematicas') ? 'bg-[#0A1121]' : 
-             normalizedId === 'quimica-1' ? 'bg-[#020205]' : 
+             normalizedId.startsWith('matematicas') ? 'bg-[#0A1121]' :
+             normalizedId === 'quimica-1' ? 'bg-[#020205]' :
+             normalizedId === 'quimica-5' ? 'bg-[#0c1828]' :
              'bg-slate-100'
            }`}>
              {/* Background Grid for Math/Science context */}
@@ -724,17 +726,18 @@ export default function SimuladorClient({ simuladorId }: { simuladorId: string }
                 // isFinished in LabQuiz), keep this button for UI transition only.
                 // That way a slow user still gets their score saved even if they close
                 // the tab without clicking "Cerrar y Validar".
-                console.log('[onComplete] Iniciando guardado del intento', {
-                  sim_id: simuladorId,
-                  score: quizScore,
-                  user_id: user?.id ?? 'null — ¡ATENCIÓN: user no está en el store!',
-                });
+                if (process.env.NODE_ENV === 'development') {
+                  console.debug('[onComplete] Iniciando guardado del intento', {
+                    sim_id: simuladorId,
+                    user_id: user?.id ? '[redacted]' : 'null — user no está en el store',
+                  });
+                }
                 if (!user) {
                   console.error('[onComplete] user es null — el upsert NO se ejecutará. Verificar getCurrentProfile() y setUser().');
                   return;
                 }
                 try {
-                  const { data, error, status: httpStatus } = await supabase
+                  const { error, status: httpStatus } = await supabase
                     .from('intentos')
                     .upsert({
                       id_alumno: user.id,
@@ -744,9 +747,7 @@ export default function SimuladorClient({ simuladorId }: { simuladorId: string }
                       total_time_seconds: st.timer,
                       completed_at: new Date().toISOString(),
                       last_step: st.pasoActual,
-                    }, { onConflict: 'id_alumno, sim_id, status' })
-                    .select()
-                    .single();
+                    }, { onConflict: 'id_alumno, sim_id, status' });
                   if (error) {
                     console.error('[onComplete] Error al guardar intento:', {
                       message: error.message,
@@ -756,7 +757,9 @@ export default function SimuladorClient({ simuladorId }: { simuladorId: string }
                       httpStatus,
                     });
                   } else {
-                    console.log('[onComplete] ✅ Intento guardado exitosamente:', data);
+                    if (process.env.NODE_ENV === 'development') {
+                      console.debug('[onComplete] Intento guardado exitosamente');
+                    }
                   }
                 } catch (e) {
                   console.error('[onComplete] Exception inesperada:', e);
@@ -798,7 +801,7 @@ export default function SimuladorClient({ simuladorId }: { simuladorId: string }
                         <Microscope size={32} className="text-[#219EBC]" />
                         <h3 className="text-3xl font-black text-[#023047] uppercase tracking-tighter">Toolkit Avanzado</h3>
                       </div>
-                      <button onClick={() => setShowTools(false)} className="w-12 h-12 rounded-2xl bg-slate-50 flex items-center justify-center text-slate-400 hover:text-red-500 transition-colors"><X size={24}/></button>
+                      <button onClick={() => setShowTools(false)} aria-label="Cerrar toolkit" className="w-12 h-12 rounded-2xl bg-slate-50 flex items-center justify-center text-slate-400 hover:text-red-500 transition-colors"><X size={24}/></button>
                   </div>
                   <div className="flex px-10 border-b border-slate-100 bg-slate-50/30">
                       <button onClick={() => setActivateAnalysis(false)} className={`py-4 px-6 text-[10px] font-black uppercase tracking-widest transition-all border-b-2 ${!activateAnalysis ? 'border-[#219EBC] text-[#219EBC]' : 'border-transparent text-slate-400'}`}>Tabla Periódica</button>

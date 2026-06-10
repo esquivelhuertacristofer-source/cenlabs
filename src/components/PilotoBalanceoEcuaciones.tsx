@@ -118,7 +118,7 @@ export default function PilotoBalanceoEcuaciones() {
             <span className="text-[10px] font-black text-[#8ECAE6] uppercase tracking-[0.4em]">Protocolo de Forge Atómico</span>
           </div>
           <div className="flex items-center gap-4 bg-white/5 backdrop-blur-md p-4 rounded-[2rem] border border-white/10 shadow-2xl">
-            <button onClick={() => handleLevelChange(-1)} className="p-3 bg-white/5 hover:bg-white/10 rounded-2xl transition-all"><ChevronLeft size={20} /></button>
+            <button onClick={() => handleLevelChange(-1)} aria-label="Cámara de reacción anterior" className="p-3 bg-white/5 hover:bg-white/10 rounded-2xl transition-all"><ChevronLeft size={20} /></button>
             <div className="flex flex-col min-w-[200px] items-center">
               <span className="text-[8px] font-black text-white/30 uppercase tracking-[0.5em] mb-1">Cámara de Reacción {reaccionActual + 1}</span>
               <h1 className="text-2xl font-black tracking-tighter uppercase italic">{currentReac.nombre}</h1>
@@ -144,7 +144,7 @@ export default function PilotoBalanceoEcuaciones() {
            >
              <Info size={16} /> Objetivos Pedagógicos
            </button>
-           <button onClick={resetBalanceo} className="w-12 h-12 rounded-2xl bg-white/5 hover:bg-white/10 border border-white/10 flex items-center justify-center text-white/40 transition-all hover:text-white shadow-2xl"><RefreshCw size={18} /></button>
+           <button onClick={resetBalanceo} aria-label="Reiniciar experimento" className="w-12 h-12 rounded-2xl bg-white/5 hover:bg-white/10 border border-white/10 flex items-center justify-center text-white/40 transition-all hover:text-white shadow-2xl"><RefreshCw size={18} /></button>
         </div>
       </header>
 
@@ -226,11 +226,11 @@ export default function PilotoBalanceoEcuaciones() {
               <span className="text-[10px] font-black text-cyan-400 uppercase tracking-widest rotate-180 [writing-mode:vertical-lr]">Reactivos</span>
               {currentReac.reactivos.map((mol: any, idx: number) => (
                 <div key={idx} className="flex flex-col items-center gap-3">
-                  <span className="text-[10px] font-black text-white/40 font-mono" dangerouslySetInnerHTML={{ __html: mol.formula.replace(/(\d+)/g, '<sub>$1</sub>') }} />
+                  <span className="text-[10px] font-black text-white/40 font-mono" dangerouslySetInnerHTML={{ __html: mol.formula.replace(/[&<>"']/g, (c: string) => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'} as Record<string,string>)[c]).replace(/(\d+)/g, '<sub>$1</sub>') }} />
                   <div className="flex flex-col items-center bg-white/5 rounded-2xl p-1 border border-white/5">
-                    <button onClick={() => handleCoefChange(idx, 1)} className="p-2 hover:bg-cyan-500 text-white rounded-xl transition-all active:scale-90"><ChevronLeft size={16} className="rotate-90" /></button>
+                    <button onClick={() => handleCoefChange(idx, 1)} aria-label="Aumentar coeficiente" className="p-2 hover:bg-cyan-500 text-white rounded-xl transition-all active:scale-90"><ChevronLeft size={16} className="rotate-90" /></button>
                     <div className="w-10 text-center font-black text-2xl text-cyan-400 font-mono py-2">{coeficientes[idx] || 1}</div>
-                    <button onClick={() => handleCoefChange(idx, -1)} className="p-2 hover:bg-white/10 text-white/40 rounded-xl transition-all active:scale-90"><ChevronLeft size={16} className="-rotate-90" /></button>
+                    <button onClick={() => handleCoefChange(idx, -1)} aria-label="Disminuir coeficiente" className="p-2 hover:bg-white/10 text-white/40 rounded-xl transition-all active:scale-90"><ChevronLeft size={16} className="-rotate-90" /></button>
                   </div>
                 </div>
               ))}
@@ -244,11 +244,11 @@ export default function PilotoBalanceoEcuaciones() {
                 const globalIdx = currentReac.reactivos.length + idx;
                 return (
                   <div key={globalIdx} className="flex flex-col items-center gap-3">
-                    <span className="text-[10px] font-black text-white/40 font-mono" dangerouslySetInnerHTML={{ __html: mol.formula.replace(/(\d+)/g, '<sub>$1</sub>') }} />
+                    <span className="text-[10px] font-black text-white/40 font-mono" dangerouslySetInnerHTML={{ __html: mol.formula.replace(/[&<>"']/g, (c: string) => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'} as Record<string,string>)[c]).replace(/(\d+)/g, '<sub>$1</sub>') }} />
                     <div className="flex flex-col items-center bg-white/5 rounded-2xl p-1 border border-white/5">
-                      <button onClick={() => handleCoefChange(globalIdx, 1)} className="p-2 hover:bg-orange-500 text-white rounded-xl transition-all active:scale-90"><ChevronLeft size={16} className="rotate-90" /></button>
+                      <button onClick={() => handleCoefChange(globalIdx, 1)} aria-label="Aumentar coeficiente" className="p-2 hover:bg-orange-500 text-white rounded-xl transition-all active:scale-90"><ChevronLeft size={16} className="rotate-90" /></button>
                       <div className="w-10 text-center font-black text-2xl text-orange-400 font-mono py-2">{coeficientes[globalIdx] || 1}</div>
-                      <button onClick={() => handleCoefChange(globalIdx, -1)} className="p-2 hover:bg-white/10 text-white/40 rounded-xl transition-all active:scale-90"><ChevronLeft size={16} className="-rotate-90" /></button>
+                      <button onClick={() => handleCoefChange(globalIdx, -1)} aria-label="Disminuir coeficiente" className="p-2 hover:bg-white/10 text-white/40 rounded-xl transition-all active:scale-90"><ChevronLeft size={16} className="-rotate-90" /></button>
                     </div>
                   </div>
                 );

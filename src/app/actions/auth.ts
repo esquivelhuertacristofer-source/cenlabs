@@ -1,6 +1,27 @@
 'use server'
 
 import { getAdminClient } from '@/lib/supabase-admin';
+import { createServerClient } from '@supabase/ssr';
+import { cookies } from 'next/headers';
+
+const VALID_ROLES = ['alumno', 'profesor', 'admin'] as const;
+type ValidRole = typeof VALID_ROLES[number];
+
+async function getAuthenticatedUser() {
+  const cookieStore = await cookies();
+  const supabase = createServerClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+    {
+      cookies: {
+        getAll() { return cookieStore.getAll(); },
+        setAll() {},
+      },
+    }
+  );
+  const { data: { user } } = await supabase.auth.getUser();
+  return user;
+}
 
 /**
  * Asegura que el perfil del usuario exista en la tabla 'profiles'.
@@ -9,8 +30,11 @@ import { getAdminClient } from '@/lib/supabase-admin';
 export async function ensureProfileServer(userId: string, email: string, metadata: any) {
   try {
     const adminClient = getAdminClient();
-    const role = metadata.role || 'alumno';
-    const fullName = metadata.full_name || 'Usuario';
+    const roleFromMeta = metadata?.role;
+    const role: ValidRole = VALID_ROLES.includes(roleFromMeta as ValidRole)
+      ? (roleFromMeta as ValidRole)
+      : 'alumno';
+    const fullName = metadata?.full_name || 'Usuario';
 
     const { data, error } = await adminClient
       .from('profiles')
@@ -37,16 +61,28 @@ export async function ensureProfileServer(userId: string, email: string, metadat
 
 /**
  * Sincroniza el progreso de un intento (Autosave) desde el servidor.
+ * Siempre usa el id del usuario autenticado — ignora cualquier id_alumno del cliente.
  */
 export async function syncIntentoServer(intento: any) {
   try {
+    const user = await getAuthenticatedUser();
+    if (!user) {
+      return { success: false, error: 'No autorizado' };
+    }
+
     const adminClient = getAdminClient();
-    
+
+    // id_alumno SIEMPRE del token verificado, nunca del cliente
+    const intentoSeguro = {
+      ...intento,
+      id_alumno: user.id,
+    };
+
     const { data, error } = await adminClient
       .from('intentos')
-      .upsert(intento, { 
+      .upsert(intentoSeguro, {
         onConflict: 'id_alumno, sim_id, status',
-        ignoreDuplicates: false 
+        ignoreDuplicates: false
       })
       .select();
 

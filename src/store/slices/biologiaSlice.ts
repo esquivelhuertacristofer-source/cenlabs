@@ -102,6 +102,10 @@ export const createBiologiaSlice: StateCreator<SimuladorState, [], [], BiologiaS
   validarB1: () => {
     const isOk = BiologiaDomain.validarB1(get().microscopio, get().bitacoraData.magMin ?? 40);
     set((state) => ({ microscopio: { ...state.microscopio, status: isOk ? 'success' : 'error' } }));
+    if (isOk) {
+      const { objetivoMag, iluminacion } = get().microscopio;
+      get().registrarHallazgo('bio_microscopio', { objetivoMag, iluminacion });
+    }
     return isOk;
   },
   resetB1: () => set((state) => ({ 
@@ -162,6 +166,10 @@ export const createBiologiaSlice: StateCreator<SimuladorState, [], [], BiologiaS
   validarB2: () => {
     const isOk = BiologiaDomain.validarB2(get().transporte);
     set((state) => ({ transporte: { ...state.transporte, status: isOk ? 'success' : 'error' } }));
+    if (isOk) {
+      const { concExt, concInt, volumen, temperatura, tipoCelula } = get().transporte;
+      get().registrarHallazgo('bio_transporte', { concExt, concInt, volumen, temperatura, tipoCelula });
+    }
     return isOk;
   },
   resetB2: () => set((state) => ({ transporte: { ...state.transporte, concExt: 0.3, volumen: 100, history: [], status: 'idle' } })),
@@ -463,41 +471,73 @@ export const createBiologiaSlice: StateCreator<SimuladorState, [], [], BiologiaS
   validarB3: () => {
     const isOk = BiologiaDomain.validarB3(get().sintesis);
     set((state) => ({ sintesis: { ...state.sintesis, status: isOk ? 'success' : 'error' } }));
+    if (isOk) {
+      const { fase, adnPlantilla, errores } = get().sintesis;
+      get().registrarHallazgo('bio_sintesis_proteica', { fase, adnPlantilla, errores });
+    }
     return isOk;
   },
   validarB4: () => {
     const isOk = BiologiaDomain.validarB4(get().fotosintesis);
     set((state) => ({ fotosintesis: { ...state.fotosintesis, status: isOk ? 'success' : 'error' } }));
+    if (isOk) {
+      const { escenario, distancia, color, oxigenoAcumulado, targetO2 } = get().fotosintesis;
+      get().registrarHallazgo('bio_fotosintesis', { escenario, distancia, color, oxigenoAcumulado, targetO2 });
+    }
     return isOk;
   },
   validarB5: () => {
     const isOk = BiologiaDomain.validarB5(get().genetica);
     set((state) => ({ genetica: { ...state.genetica, status: isOk ? 'success' : 'error' } }));
+    if (isOk) {
+      const { padre1, padre2, tamanioMuestra } = get().genetica;
+      get().registrarHallazgo('bio_genetica', { padre1, padre2, tamanioMuestra });
+    }
     return isOk;
   },
   validarB6: () => {
     const isOk = BiologiaDomain.validarB6(get().evolucion);
     set((state) => ({ evolucion: { ...state.evolucion, status: isOk ? 'success' : 'error' } }));
+    if (isOk) {
+      const { ambiente, generacion, clara, oscura } = get().evolucion;
+      get().registrarHallazgo('bio_evolucion', { ambiente, generacion, clara, oscura });
+    }
     return isOk;
   },
   validarB7: () => {
     const isOk = BiologiaDomain.validarB7(get().sistemaNervioso);
     set((state) => ({ sistemaNervioso: { ...state.sistemaNervioso, status: isOk ? 'success' : 'error' } }));
+    if (isOk) {
+      const { fuerzaGolpe, integridadMielina, velocidadConduccion, latenciaMedida } = get().sistemaNervioso;
+      get().registrarHallazgo('bio_sistema_nervioso', { fuerzaGolpe, integridadMielina, velocidadConduccion, latenciaMedida });
+    }
     return isOk;
   },
   validarB8: () => {
     const isOk = BiologiaDomain.validarB8(get().cardio);
     set((state) => ({ cardio: { ...state.cardio, status: isOk ? 'success' : 'error' } }));
+    if (isOk) {
+      const { ritmoBPM, estadoFisiologico, targetBPM } = get().cardio;
+      get().registrarHallazgo('bio_cardiovascular', { ritmoBPM, estadoFisiologico, targetBPM });
+    }
     return isOk;
   },
   validarB9: () => {
     const isOk = BiologiaDomain.validarB9(get().digestion);
     set((state) => ({ digestion: { ...state.digestion, status: isOk ? 'success' : 'error' } }));
+    if (isOk) {
+      const { macronutriente, enzimaSeleccionada, nivelPH, monomerosAbsorbidos } = get().digestion;
+      get().registrarHallazgo('bio_digestion', { macronutriente, enzimaSeleccionada, nivelPH, monomerosAbsorbidos });
+    }
     return isOk;
   },
   validarB10: () => {
     const isOk = BiologiaDomain.validarB10(get().ecosistema);
     set((state) => ({ ecosistema: { ...state.ecosistema, status: isOk ? 'success' : 'error' } }));
+    if (isOk) {
+      const { poblacionPresas, poblacionDepredadores, tiempoVirtual } = get().ecosistema;
+      get().registrarHallazgo('bio_ecosistema', { poblacionPresas, poblacionDepredadores, tiempoVirtual });
+    }
     return isOk;
   },
   

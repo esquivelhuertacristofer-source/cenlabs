@@ -9,6 +9,9 @@ const SECURITY_HEADERS: Record<string, string> = {
   'Permissions-Policy': 'camera=(), microphone=(), geolocation=()',
 };
 
+// Rutas que requieren autenticación por match exacto (no de prefijo)
+const PROTECTED_EXACT = new Set(['/']);
+// Rutas que requieren autenticación por prefijo
 const PROTECTED_PREFIXES = ['/alumno', '/admin', '/laboratorios', '/planeamiento', '/auditoria', '/alumnos'];
 
 function applySecurityHeaders(response: NextResponse) {
@@ -50,7 +53,9 @@ export async function middleware(request: NextRequest) {
   const { data: { user } } = await supabase.auth.getUser();
 
   const { pathname } = request.nextUrl;
-  const isProtected = PROTECTED_PREFIXES.some(p => pathname.startsWith(p));
+  const isProtected =
+    PROTECTED_EXACT.has(pathname) ||
+    PROTECTED_PREFIXES.some(p => pathname.startsWith(p));
 
   if (isProtected && !user) {
     const loginUrl = new URL('/login', request.url);

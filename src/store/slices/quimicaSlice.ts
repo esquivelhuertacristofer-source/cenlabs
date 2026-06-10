@@ -577,7 +577,8 @@ export const createQuimicaSlice: StateCreator<SimuladorState, [], [], QuimicaSli
   }),
   addPolvo: (amount: number) => set((state) => {
     if (!state.soluciones.balanza.encendida) return state;
-    return { soluciones: { ...state.soluciones, balanza: { ...state.soluciones.balanza, polvo: state.soluciones.balanza.polvo + amount } } };
+    const next = Math.max(0, state.soluciones.balanza.polvo + amount);
+    return { soluciones: { ...state.soluciones, balanza: { ...state.soluciones.balanza, polvo: next } } };
   }),
   toggleTara: () => set((state) => ({ soluciones: { ...state.soluciones, balanza: { ...state.soluciones.balanza, tara: !state.soluciones.balanza.tara } } })),
   transferirPolvo: () => set((state) => ({ soluciones: { ...state.soluciones, matraz: { ...state.soluciones.matraz, polvo: state.soluciones.balanza.polvo }, balanza: { ...state.soluciones.balanza, polvo: 0 }, status: 'transferred' } })),

@@ -9,10 +9,10 @@ export default function PWALoader() {
         navigator.serviceWorker
           .register('/sw.js')
           .then((registration) => {
-            console.log('CEN Labs PWA Registered:', registration.scope);
+            console.debug('CEN Labs PWA Registered:', registration.scope);
           })
           .catch((err) => {
-            console.log('CEN Labs PWA Registration failed:', err);
+            console.warn('CEN Labs PWA Registration failed:', err);
           });
       });
     }

@@ -32,6 +32,9 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
+      - name: Lint
+        run: npm run lint
+
       - name: Type-check
         run: npx tsc --noEmit
 
@@ -44,3 +47,28 @@ jobs:
         run: npm run build
         env:
           SENTRY_SUPPRESS_GLOBAL_ERROR_HANDLER_FILE_WARNING: 1
+
+      - name: Health check post-deploy
+        if: github.ref == 'refs/heads/main'
+        run: |
+          echo "Waiting 45s for Vercel to pick up the deployment..."
+          sleep 45
+
+          BASE_URL="https://www.cenlaboratorios.com.mx"
+          FAIL=0
+
+          for route in "/" "/laboratorios" "/api/health"; do
+            STATUS=$(curl -o /dev/null -s -w "%{http_code}" --max-time 15 "$BASE_URL$route")
+            if [ "$STATUS" -ne 200 ]; then
+              echo "FAIL: $BASE_URL$route → HTTP $STATUS"
+              FAIL=1
+            else
+              echo "OK:   $BASE_URL$route → HTTP $STATUS"
+            fi
+          done
+
+          if [ "$FAIL" -ne 0 ]; then
+            echo "Health check failed — one or more critical routes are not responding."
+            exit 1
+          fi
+          echo "All health checks passed."

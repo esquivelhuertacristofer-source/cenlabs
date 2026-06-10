@@ -34,22 +34,40 @@ describe('validarB2', () => {
 });
 
 // ── B3 Síntesis de Proteínas ─────────────────────────────────────────────────
+// Validator usa datos reales (no status) para evitar exploit por localStorage.
 describe('validarB3', () => {
-  it('true when status is success', () => expect(validarB3({ status: 'success' } as any)).toBe(true));
-  it('false when status is idle', () => expect(validarB3({ status: 'idle' } as any)).toBe(false));
-  it('false when status is error', () => expect(validarB3({ status: 'error' } as any)).toBe(false));
+  it('true when protein built with no errors', () =>
+    expect(validarB3({ proteina: [{ id: '1', name: 'Met', color: '#3b82f6' }], errores: 0 } as any)).toBe(true));
+  it('true with multiple amino acids and no errors', () =>
+    expect(validarB3({ proteina: [{ id: '1', name: 'Met', color: '#3b82f6' }, { id: '2', name: 'Val', color: '#a855f7' }], errores: 0 } as any)).toBe(true));
+  it('false when proteina is empty (no synthesis)', () =>
+    expect(validarB3({ proteina: [], errores: 0 } as any)).toBe(false));
+  it('false when errores > 0 even if protein exists', () =>
+    expect(validarB3({ proteina: [{ id: '1', name: 'Met', color: '#3b82f6' }], errores: 1 } as any)).toBe(false));
 });
 
 // ── B4 Fotosíntesis ──────────────────────────────────────────────────────────
+// Validator usa oxigenoAcumulado >= targetO2 (no status) para evitar exploit por localStorage.
 describe('validarB4', () => {
-  it('true when status is success', () => expect(validarB4({ status: 'success' } as any)).toBe(true));
-  it('false when status is idle', () => expect(validarB4({ status: 'idle' } as any)).toBe(false));
+  it('true when oxigenoAcumulado meets target', () =>
+    expect(validarB4({ oxigenoAcumulado: 50, targetO2: 50 } as any)).toBe(true));
+  it('true when oxigenoAcumulado exceeds target', () =>
+    expect(validarB4({ oxigenoAcumulado: 60, targetO2: 50 } as any)).toBe(true));
+  it('false when oxigenoAcumulado below target', () =>
+    expect(validarB4({ oxigenoAcumulado: 49.9, targetO2: 50 } as any)).toBe(false));
+  it('false at zero accumulation', () =>
+    expect(validarB4({ oxigenoAcumulado: 0, targetO2: 50 } as any)).toBe(false));
 });
 
 // ── B5 Genética Mendeliana ───────────────────────────────────────────────────
+// Validator usa poblacionF1.length > 0 (no status) para evitar exploit por localStorage.
 describe('validarB5', () => {
-  it('true when status is success', () => expect(validarB5({ status: 'success' } as any)).toBe(true));
-  it('false otherwise', () => expect(validarB5({ status: 'idle' } as any)).toBe(false));
+  it('true when F1 population has been generated', () =>
+    expect(validarB5({ poblacionF1: ['AaBb', 'aabb', 'AaBb'] } as any)).toBe(true));
+  it('true with full 100-sample population', () =>
+    expect(validarB5({ poblacionF1: new Array(100).fill('AaBb') } as any)).toBe(true));
+  it('false when poblacionF1 is empty (no cross performed)', () =>
+    expect(validarB5({ poblacionF1: [] } as any)).toBe(false));
 });
 
 // ── B6 Evolución ─────────────────────────────────────────────────────────────
