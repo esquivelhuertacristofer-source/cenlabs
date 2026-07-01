@@ -388,7 +388,7 @@ function Scene({ temp, salAgregada, salSolida, saturationRatio, color, ubicacion
         enableZoom
         minDistance={8}
         maxDistance={24}
-        autoRotate
+        autoRotate={false}
         autoRotateSpeed={0.5}
         target={[0, 0, 0]}
         minPolarAngle={Math.PI / 6}

@@ -259,7 +259,7 @@ function Scene({ q1, q2, distancia, isAtraccion }: { q1: number; q2: number; dis
         enableZoom
         minDistance={9}
         maxDistance={28}
-        autoRotate
+        autoRotate={false}
         autoRotateSpeed={0.5}
         minPolarAngle={Math.PI / 6}
         maxPolarAngle={Math.PI / 1.7}

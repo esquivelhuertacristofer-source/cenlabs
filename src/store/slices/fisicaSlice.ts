@@ -80,8 +80,10 @@ export const createFisicaSlice: StateCreator<SimuladorState, [], [], FisicaSlice
     const rad = (angulo * Math.PI) / 180;
     
     // FISICA AVANZADA: Integración Numérica (Módelo de Arrastre)
-    // Coeficiente de arrastre simplificado (C * rho * Area)
-    const K = 0.05 * densidadAire;
+    // Coeficiente de arrastre simplificado (C * rho * Area).
+    // C=0.003 mantiene el arrastre visible pero permite alcanzar objetivos
+    // a 50-85 m en todos los escenarios (con C=0.05 la Tierra topaba en ~46 m).
+    const K = 0.003 * densidadAire;
     const dt = 0.02; // s
     
     let curX = 0;

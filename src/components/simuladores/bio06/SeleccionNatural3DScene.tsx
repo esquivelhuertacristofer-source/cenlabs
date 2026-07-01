@@ -250,7 +250,7 @@ function Scene({ bugs, ambiente, generacion, onHunt }: {
         enableZoom
         minDistance={10}
         maxDistance={30}
-        autoRotate
+        autoRotate={false}
         autoRotateSpeed={0.45}
         minPolarAngle={Math.PI / 6}
         maxPolarAngle={Math.PI / 2.05}

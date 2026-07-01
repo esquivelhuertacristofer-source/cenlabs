@@ -390,7 +390,7 @@ export default function Fotosintesis3DScene({ simulando, colorLuz, intensidad }:
           enableZoom enablePan={false}
           minDistance={14} maxDistance={40}
           maxPolarAngle={Math.PI / 2.05} minPolarAngle={Math.PI / 5}
-          autoRotate={!active} autoRotateSpeed={0.4}
+          autoRotate={false} autoRotateSpeed={0.4}
         />
 
         <EffectComposer multisampling={8}>

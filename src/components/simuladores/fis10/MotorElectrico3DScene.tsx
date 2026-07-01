@@ -384,7 +384,7 @@ function Scene({ voltaje, campoB, espiras, rpm, encendido }: {
         enableZoom
         minDistance={7}
         maxDistance={26}
-        autoRotate={!spinning}
+        autoRotate={false}
         autoRotateSpeed={0.5}
         minPolarAngle={Math.PI / 6}
         maxPolarAngle={Math.PI / 1.7}

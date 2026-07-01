@@ -511,7 +511,7 @@ export default function Snell3DScene(props: Snell3DSceneProps) {
           minDistance={15}
           maxDistance={50}
           maxPolarAngle={Math.PI / 1.6}
-          autoRotate
+          autoRotate={false}
           autoRotateSpeed={0.3}
         />
 

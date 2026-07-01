@@ -45,7 +45,8 @@ function useTrajectory(
 ) {
   return useMemo(() => {
     const rad = (angulo * Math.PI) / 180;
-    const K = 0.05 * densidadAire;
+    // Debe coincidir con el motor del store (fisicaSlice ejecutarDisparoF1).
+    const K = 0.003 * densidadAire;
     const dt = 0.02;
 
     let curX = 0;
@@ -407,7 +408,7 @@ function Scene({
         minDistance={5}
         maxDistance={45}
         target={[m2w(Math.max(alcance, 10)) * 0.5, 1.5, 0]}
-        autoRotate={!volando}
+        autoRotate={false}
         autoRotateSpeed={0.4}
         minPolarAngle={Math.PI / 8}
         maxPolarAngle={Math.PI / 2.02}

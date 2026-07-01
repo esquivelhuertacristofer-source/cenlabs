@@ -450,7 +450,7 @@ function Scene({ volumenBase, ph, indicador, equivalenceVolume, flowRate, histor
         enableZoom
         minDistance={8}
         maxDistance={24}
-        autoRotate
+        autoRotate={false}
         autoRotateSpeed={0.4}
         minPolarAngle={Math.PI / 6}
         maxPolarAngle={Math.PI / 1.9}

@@ -417,7 +417,7 @@ function Scene({ ritmoBPM }: { ritmoBPM: number; faseActual: Fase }) {
         enableZoom
         minDistance={7}
         maxDistance={24}
-        autoRotate
+        autoRotate={false}
         autoRotateSpeed={0.45}
         minPolarAngle={Math.PI / 6}
         maxPolarAngle={Math.PI / 1.7}

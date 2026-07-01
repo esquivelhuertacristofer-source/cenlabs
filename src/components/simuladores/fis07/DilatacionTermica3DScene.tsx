@@ -360,7 +360,7 @@ function Scene({ alpha, longitud, tempIni, tempFin, color, encendido }: {
         enableZoom
         minDistance={9}
         maxDistance={28}
-        autoRotate
+        autoRotate={false}
         autoRotateSpeed={0.5}
         minPolarAngle={Math.PI / 6}
         maxPolarAngle={Math.PI / 1.8}

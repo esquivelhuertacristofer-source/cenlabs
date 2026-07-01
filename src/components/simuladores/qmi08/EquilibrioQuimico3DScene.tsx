@@ -297,7 +297,7 @@ function Scene({ temp }: { temp: number }) {
         enableZoom
         minDistance={11}
         maxDistance={34}
-        autoRotate
+        autoRotate={false}
         autoRotateSpeed={0.55}
         minPolarAngle={Math.PI / 6}
         maxPolarAngle={Math.PI / 1.6}
