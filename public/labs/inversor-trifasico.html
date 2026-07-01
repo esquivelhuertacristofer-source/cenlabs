@@ -4,6 +4,9 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>CEN Labs · Inversor Trifásico de Potencia — Laboratorio 3D</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
 <style>
   :root{
     --bg:#08201C;--panel:rgba(9,26,23,.86);--line:#1E3A34;--ink:#EAF4F1;
@@ -11,7 +14,7 @@
     --mono:'Courier New',ui-monospace,monospace;--disp:'Outfit','Arial Black',Impact,sans-serif;
   }
   *{box-sizing:border-box;margin:0;padding:0}
-  html,body{height:100%;overflow:hidden;background:var(--bg);color:var(--ink);font-family:system-ui,Segoe UI,Roboto,sans-serif}
+  html,body{height:100%;overflow:hidden;background:var(--bg);color:var(--ink);font-family:'Outfit',system-ui,Segoe UI,Roboto,sans-serif}
   #stage{position:fixed;inset:0}
   canvas{display:block;touch-action:none}
 
@@ -27,13 +30,13 @@
   .soundBtn.on{color:var(--accent);border-color:var(--accent)}
   .soundBtn:hover{transform:scale(1.08)}
 
-  .intro{position:fixed;inset:0;z-index:40;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:20px;background:radial-gradient(circle at 50% 45%,rgba(40,26,14,.6),rgba(7,10,13,.97));transition:opacity .8s;padding:24px;text-align:center}
+  .intro{position:fixed;inset:0;z-index:40;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:20px;background:radial-gradient(circle at 50% 38%,rgba(13,38,33,.97),rgba(5,16,14,.995));backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px);transition:opacity .8s;padding:24px;text-align:center}
   .intro.hide{opacity:0;pointer-events:none}
   .intro .sub{font-family:var(--mono);font-size:12px;letter-spacing:.2em;text-transform:uppercase;color:var(--accent2)}
   .intro .ttl{font-family:var(--disp);font-size:clamp(28px,5vw,54px);text-transform:uppercase;letter-spacing:-.02em;line-height:.95}
   .intro .ttl span{color:var(--accent)}
   .intro p{max-width:540px;color:var(--dim);font-size:14px;line-height:1.6}
-  .intro .obj{max-width:540px;text-align:left;background:rgba(14,20,28,.7);border:1px solid var(--line);border-radius:14px;padding:16px 20px}
+  .intro .obj{max-width:540px;text-align:left;background:rgba(9,26,23,.7);border:1px solid var(--line);border-radius:14px;padding:16px 20px}
   .intro .obj h4{font-family:var(--mono);font-size:10px;letter-spacing:.16em;text-transform:uppercase;color:var(--accent);margin-bottom:10px}
   .intro .obj ul{list-style:none;display:flex;flex-direction:column;gap:8px}
   .intro .obj li{font-size:13px;color:var(--dim);padding-left:22px;position:relative}
@@ -41,7 +44,7 @@
   .startbtn{font-family:var(--mono);font-size:13px;letter-spacing:.12em;text-transform:uppercase;color:#04211c;background:var(--accent);border:none;padding:15px 34px;border-radius:40px;cursor:pointer;transition:.2s;box-shadow:0 10px 40px rgba(42,157,143,.3)}
   .startbtn:hover{transform:translateY(-2px);box-shadow:0 16px 50px rgba(42,157,143,.45)}
   .modeToggle{display:flex;gap:8px;flex-wrap:wrap;justify-content:center;margin-top:2px}
-  .modeBtn{font-family:var(--mono);font-size:11px;letter-spacing:.04em;color:var(--dim);background:rgba(14,20,28,.7);border:1px solid var(--line);border-radius:30px;padding:9px 16px;cursor:pointer;transition:.15s}
+  .modeBtn{font-family:var(--mono);font-size:11px;letter-spacing:.04em;color:var(--dim);background:rgba(9,26,23,.7);border:1px solid var(--line);border-radius:30px;padding:9px 16px;cursor:pointer;transition:.15s}
   .modeBtn:hover{border-color:var(--accent)}
   .modeBtn.active{background:var(--accent);color:#04211c;border-color:var(--accent);font-weight:bold}
 
@@ -100,6 +103,15 @@
     .feedback{bottom:14px}.phase-mini{display:flex!important}
   }
   .phase-mini{display:none;position:fixed;top:62px;left:12px;z-index:18;font-family:var(--mono);font-size:10px;color:var(--accent);background:var(--panel);border:1px solid var(--line);border-radius:30px;padding:9px 13px}
+
+  /* pieceinfo — ficha flotante al seleccionar una pieza (patrón CEN) */
+  .pieceinfo{position:fixed;right:20px;bottom:24px;z-index:28;width:300px;max-width:calc(100% - 40px);background:rgba(6,18,16,.72);backdrop-filter:blur(28px);-webkit-backdrop-filter:blur(28px);border:1px solid rgba(79,209,197,.28);border-radius:22px;padding:18px 20px;box-shadow:0 24px 70px rgba(0,0,0,.55);opacity:0;transform:translateY(14px);pointer-events:none;transition:.32s cubic-bezier(.16,1,.3,1)}
+  .pieceinfo.show{opacity:1;transform:translateY(0);pointer-events:auto}
+  .pieceinfo .pi-type{font-family:var(--mono);font-size:10px;letter-spacing:.14em;text-transform:uppercase;color:var(--accent2);margin-bottom:4px}
+  .pieceinfo .pi-name{font-size:19px;font-weight:800;color:var(--ink);line-height:1.15;margin-bottom:9px}
+  .pieceinfo .pi-fn{font-size:13px;line-height:1.6;color:var(--dim)}
+  .pieceinfo .pi-x{position:absolute;top:12px;right:14px;background:none;border:none;color:var(--dim);cursor:pointer;font-size:16px;line-height:1}
+  @media(max-width:860px){.pieceinfo{left:8px;right:8px;bottom:96px;width:auto}}
 </style>
 </head>
 <body>
@@ -153,7 +165,14 @@
   <p id="fbText"></p>
 </div>
 
-<div class="hint" id="hint">Arrastra para orbitar · rueda para zoom</div>
+<div class="hint" id="hint">Arrastra para orbitar · rueda para zoom · toca una pieza para conocerla</div>
+
+<div class="pieceinfo" id="pieceInfo">
+  <button class="pi-x" id="piX" aria-label="Cerrar">✕</button>
+  <div class="pi-type" id="piType"></div>
+  <div class="pi-name" id="piName"></div>
+  <div class="pi-fn" id="piFn"></div>
+</div>
 
 <script type="importmap">
 { "imports": {
@@ -294,7 +313,7 @@ function gradientBG(top='#11161d',bottom='#05070a'){
   ctx.fillStyle=grd;ctx.fillRect(0,0,512,512);
   // subtle vignette glow center
   const rg=ctx.createRadialGradient(256,200,30,256,256,360);
-  rg.addColorStop(0,'rgba(255,120,40,0.10)');rg.addColorStop(1,'rgba(0,0,0,0)');
+  rg.addColorStop(0,'rgba(42,157,143,0.12)');rg.addColorStop(1,'rgba(0,0,0,0)');
   ctx.fillStyle=rg;ctx.fillRect(0,0,512,512);
   return tex(c,1,true);
 }
@@ -368,7 +387,7 @@ renderer.outputColorSpace=THREE.SRGBColorSpace;
 stage.appendChild(renderer.domElement); renderer.domElement.style.touchAction='none';
 
 const scene=new THREE.Scene();
-scene.background=gradientBG('#1a1108','#050505');
+scene.background=gradientBG('#141b24','#04060a');
 const pmrem=new THREE.PMREMGenerator(renderer);
 scene.environment=pmrem.fromScene(new RoomEnvironment(renderer),0.04).texture;
 scene.environmentIntensity=1.1;
@@ -385,7 +404,7 @@ const key=new THREE.DirectionalLight(0xffffff,2.6);key.position.set(5,9,6);key.c
 key.shadow.mapSize.set(2048,2048);key.shadow.camera.near=0.5;key.shadow.camera.far=40;
 const sd=8;Object.assign(key.shadow.camera,{left:-sd,right:sd,top:sd,bottom:-sd});
 key.shadow.bias=-0.0003;key.shadow.normalBias=0.02;scene.add(key);
-const rim=new THREE.SpotLight(0xff8a3a,60,30,Math.PI/5,0.4,1.5);rim.position.set(-7,6,-5);scene.add(rim);
+const rim=new THREE.SpotLight(0x4FD1C5,60,30,Math.PI/5,0.4,1.5);rim.position.set(-7,6,-5);scene.add(rim);
 const fill=new THREE.DirectionalLight(0x6fb6ff,0.5);fill.position.set(-4,3,7);scene.add(fill);
 scene.add(new THREE.HemisphereLight(0xc8b49f,0x0a0a0a,0.35));
 
@@ -401,11 +420,11 @@ const lightMode=/[?&]light/.test(location.search);
   }
   const glass=new THREE.Mesh(new THREE.CircleGeometry(40,80),new THREE.MeshStandardMaterial({color:0x080808,roughness:0.32,metalness:0.4,transparent:true,opacity:0.6,envMapIntensity:0.7}));
   glass.rotation.x=-Math.PI/2;glass.position.y=0.001;glass.receiveShadow=true;scene.add(glass);
-  for(let r=2;r<=8;r+=2){const ring=new THREE.Mesh(new THREE.RingGeometry(r-0.012,r+0.012,80),new THREE.MeshBasicMaterial({color:0x2a1f16,transparent:true,opacity:0.5,side:THREE.DoubleSide}));ring.rotation.x=-Math.PI/2;ring.position.y=0.004;scene.add(ring);}
+  for(let r=2;r<=8;r+=2){const ring=new THREE.Mesh(new THREE.RingGeometry(r-0.012,r+0.012,80),new THREE.MeshBasicMaterial({color:0x1f3038,transparent:true,opacity:0.5,side:THREE.DoubleSide}));ring.rotation.x=-Math.PI/2;ring.position.y=0.004;scene.add(ring);}
 })();
-const platform=new THREE.Mesh(new THREE.CylinderGeometry(1.8,2.0,0.2,48),new THREE.MeshStandardMaterial({color:0x1a1410,roughness:0.5,metalness:0.6}));
+const platform=new THREE.Mesh(new THREE.CylinderGeometry(1.8,2.0,0.2,48),new THREE.MeshStandardMaterial({color:0x1a222c,roughness:0.5,metalness:0.6}));
 platform.position.set(0,0.1,0);platform.receiveShadow=true;scene.add(platform);
-const platGlow=new THREE.Mesh(new THREE.RingGeometry(1.6,1.8,64),new THREE.MeshBasicMaterial({color:0xff8a3a,transparent:true,opacity:0.0,side:THREE.DoubleSide}));
+const platGlow=new THREE.Mesh(new THREE.RingGeometry(1.6,1.8,64),new THREE.MeshBasicMaterial({color:0x4FD1C5,transparent:true,opacity:0.0,side:THREE.DoubleSide}));
 platGlow.rotation.x=-Math.PI/2;platGlow.position.y=0.21;scene.add(platGlow);
 
 /* ---------- materials ---------- */
@@ -417,7 +436,7 @@ const MAT={
   cap:std({color:0x2a3038,roughness:0.4,metalness:0.7}),
   board:std({color:0x0d3b2e,roughness:0.6,metalness:0.2}),
   steel:std({color:0xc2cad3,roughness:0.3,metalness:1,map:Tsteel.map,roughnessMap:Tsteel.roughnessMap,normalMap:Tsteel.normalMap}),
-  ghost:std({color:0xff8a3a,transparent:true,opacity:0.16,side:THREE.DoubleSide}),
+  ghost:std({color:0x4FD1C5,transparent:true,opacity:0.16,side:THREE.DoubleSide}),
 };
 function rbox(w,h,d,m,rf=0.1){const r=Math.min(w,h,d)*rf;const x=new THREE.Mesh(new RoundedBoxGeometry(w,h,d,4,r),m);x.castShadow=x.receiveShadow=true;return x;}
 
@@ -477,7 +496,7 @@ const composer=new EffectComposer(renderer);
 composer.addPass(new RenderPass(scene,camera));
 if(!isMobile&&!noGtao){try{const g=new GTAOPass(scene,camera,innerWidth,innerHeight);g.output=GTAOPass.OUTPUT.Default;if(g.updateGtaoMaterial)g.updateGtaoMaterial({radius:0.5,distanceExponent:1,thickness:1,scale:1.1,samples:16});composer.addPass(g);}catch(e){}}
 const bloom=new UnrealBloomPass(new THREE.Vector2(innerWidth,innerHeight),0.42,0.5,0.9);composer.addPass(bloom);
-let bokeh=null; if(!isMobile&&!lightMode){bokeh=new BokehPass(scene,camera,{focus:8.5,aperture:0.00035,maxblur:0.006,width:innerWidth,height:innerHeight});composer.addPass(bokeh);}
+let bokeh=null; if(!isMobile&&!lightMode){bokeh=new BokehPass(scene,camera,{focus:8.5,aperture:0.00018,maxblur:0.004,width:innerWidth,height:innerHeight});composer.addPass(bokeh);}
 composer.addPass(new OutputPass());
 composer.addPass(new SMAAPass(innerWidth*renderer.getPixelRatio(),innerHeight*renderer.getPixelRatio()));
 addEventListener('resize',()=>{camera.aspect=innerWidth/innerHeight;camera.updateProjectionMatrix();renderer.setSize(innerWidth,innerHeight);composer.setSize(innerWidth,innerHeight);});
@@ -507,16 +526,16 @@ const KIT_POS={
 function rrPath(c,x,y,w,h,r){c.moveTo(x+r,y);c.lineTo(x+w-r,y);c.arcTo(x+w,y,x+w,y+r,r);c.lineTo(x+w,y+h-r);c.arcTo(x+w,y+h,x+w-r,y+h,r);c.lineTo(x+r,y+h);c.arcTo(x,y+h,x,y+h-r,r);c.lineTo(x,y+r);c.arcTo(x,y,x+r,y,r);c.closePath();}
 function smallLabel4(text,color){
   const cv=document.createElement('canvas');cv.width=560;cv.height=108;const c=cv.getContext('2d');
-  c.fillStyle='rgba(10,10,10,.92)';c.beginPath();rrPath(c,4,4,552,100,24);c.fill();
+  c.fillStyle='rgba(9,26,23,.94)';c.beginPath();rrPath(c,4,4,552,100,24);c.fill();
   c.strokeStyle=color;c.lineWidth=4;c.stroke();
-  c.font='bold 28px Courier New';c.textAlign='center';c.textBaseline='middle';c.fillStyle=color;
+  c.font='700 28px Outfit, system-ui, sans-serif';c.textAlign='center';c.textBaseline='middle';c.fillStyle=color;
   c.fillText(text,280,54);
   const tex=new THREE.CanvasTexture(cv);tex.colorSpace=THREE.SRGBColorSpace;
   const sp=new THREE.Sprite(new THREE.SpriteMaterial({map:tex,depthTest:false,transparent:true}));
   sp.scale.set(2.15,0.41,1);sp.renderOrder=999;return sp;
 }
 function trayPad4(pos,color){
-  const pad=new THREE.Mesh(new THREE.CylinderGeometry(0.85,0.95,0.12,40),new THREE.MeshStandardMaterial({color:0x120e0a,roughness:0.55,metalness:0.5}));
+  const pad=new THREE.Mesh(new THREE.CylinderGeometry(0.85,0.95,0.12,40),new THREE.MeshStandardMaterial({color:0x141c24,roughness:0.55,metalness:0.5}));
   pad.position.set(pos.x,0.06,pos.z);pad.receiveShadow=true;scene.add(pad);
   const ring=new THREE.Mesh(new THREE.RingGeometry(0.74,0.86,48),new THREE.MeshBasicMaterial({color,transparent:true,opacity:0,side:THREE.DoubleSide}));
   ring.rotation.x=-Math.PI/2;ring.position.set(pos.x,0.13,pos.z);scene.add(ring);
@@ -525,7 +544,7 @@ function trayPad4(pos,color){
 const PIECE_ORDER=['heatsink','cap','igbt','board','bus'];
 const PIECE_GROUP={heatsink:heatsinkGroup,cap:capGroup,igbt:igbtGroup,board:boardGroup,bus:busGroup};
 const PIECE_NAME={heatsink:'DISIPADOR',cap:'CAPACITORES DC',igbt:'MÓDULOS IGBT',board:'PLACA DE CONTROL',bus:'BUSBARRAS'};
-const PIECE_COLOR={heatsink:'#9aa3ad',cap:'#ffd166',igbt:'#ff8a3a',board:'#37e0c7',bus:'#f4475e'};
+const PIECE_COLOR={heatsink:'#9aa3ad',cap:'#FFB703',igbt:'#4FD1C5',board:'#4FD1C5',bus:'#FFB703'};
 const travel={},trays={},lbls={};
 PIECE_ORDER.forEach(k=>{
   const grp=PIECE_GROUP[k];
@@ -555,12 +574,13 @@ const ray=new THREE.Raycaster(),mouse=new THREE.Vector2();let down=null,onPick=n
 renderer.domElement.addEventListener('pointerdown',e=>down=[e.clientX,e.clientY]);
 renderer.domElement.addEventListener('pointerup',e=>{
   if(!down)return;const moved=Math.abs(e.clientX-down[0])+Math.abs(e.clientY-down[1])>6;down=null;
-  if(moved||!onPick)return;
+  if(moved)return;
   const r=renderer.domElement.getBoundingClientRect();
   mouse.x=((e.clientX-r.left)/r.width)*2-1;mouse.y=-((e.clientY-r.top)/r.height)*2+1;
   ray.setFromCamera(mouse,camera);
   const hits=ray.intersectObjects(invRoot.children,true);
-  onPick(hits[0]||null);
+  showPieceInfo(hits[0]||null);
+  if(onPick)onPick(hits[0]||null);
 });
 function onPickGeneric(hit){
   if(!hit)return;
@@ -573,6 +593,31 @@ function onPickGeneric(hit){
     }
   }
 }
+
+/* ============================================================
+   FICHA DE PIEZA — nombre + función al seleccionar (patrón CEN)
+   ============================================================ */
+const PIECE_INFO={
+  heatsink:{tipo:'Gestión térmica',nombre:'Disipador (heatsink)',funcion:'Base metálica aletada de aluminio que evacúa el calor generado por los transistores. Cada IGBT se monta en contacto térmico directo sobre él; sin esta refrigeración los semiconductores se destruirían por sobrecalentamiento en segundos.'},
+  cap:{tipo:'Filtrado del bus DC',nombre:'Capacitores del bus DC (DC-link)',funcion:'Estabilizan y filtran el voltaje de la batería antes de que llegue a los IGBT. Absorben los picos de voltaje (ringing) que produce cada conmutación, actuando como un "colchón" eléctrico que protege a los transistores.'},
+  igbt:{tipo:'Interruptor de potencia',nombre:'Módulos IGBT',funcion:'Los 6 transistores de potencia que conmutan miles de veces por segundo para trocear el bus DC y sintetizar las 3 fases de corriente alterna. Cada fase usa un par (uno hacia +DC, otro hacia −DC): 3 fases × 2 = 6. Son el corazón del inversor.'},
+  board:{tipo:'Control y disparo',nombre:'Placa de control + gate driver',funcion:'El "cerebro" del inversor. Ejecuta el algoritmo de PWM (modulación por ancho de pulso) y envía a cada IGBT la señal de compuerta que le dice cuándo encender y apagar, con el desfase de 120° exacto entre fases.'},
+  bus:{tipo:'Salida de potencia',nombre:'Busbarras de salida (U/V/W)',funcion:'Conductores planos de baja resistencia que llevan las 3 fases de corriente alterna ya sintetizadas hacia el motor. Son la salida real del inversor: transportan la potencia trifásica producida por la conmutación de los IGBT.'},
+};
+function identifyPiece(hit){
+  if(!hit||!hit.object)return null;
+  for(const k of PIECE_ORDER){ if(isInGroup(hit.object,PIECE_GROUP[k]))return k; }
+  return null;
+}
+function showPieceInfo(hit){
+  const key=identifyPiece(hit);
+  const box=$('pieceInfo');
+  if(!key||!PIECE_INFO[key]){box.classList.remove('show');return;}
+  const info=PIECE_INFO[key];
+  $('piType').textContent=info.tipo;$('piName').textContent=info.nombre;$('piFn').textContent=info.funcion;
+  box.classList.add('show');
+}
+$('piX').onclick=()=>$('pieceInfo').classList.remove('show');
 
 /* ---- cámara cinemática ---- */
 let cinematicSpin=false, lastDragTime=-99;
@@ -907,7 +952,10 @@ function animate(){
   bloom.strength=0.42+(switching?0.08:0);
 
   updateAudio(switching, fSwChoice);
-  controls.update();composer.render();
+  controls.update();
+  // Foco dinámico: el DOF sigue al objetivo de la cámara para que el sujeto quede nítido a cualquier zoom.
+  if(bokeh){ bokeh.uniforms['focus'].value=camera.position.distanceTo(controls.target); }
+  composer.render();
 }
 animate();
 

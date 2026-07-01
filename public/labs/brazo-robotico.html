@@ -4,6 +4,9 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>CEN Labs · Brazo Robótico de 4 Ejes — Laboratorio 3D</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
 <style>
   :root{
     --bg:#08201C;--panel:rgba(9,26,23,.86);--line:#1E3A34;--ink:#EAF4F1;
@@ -11,7 +14,7 @@
     --mono:'Courier New',ui-monospace,monospace;--disp:'Outfit','Arial Black',Impact,sans-serif;
   }
   *{box-sizing:border-box;margin:0;padding:0}
-  html,body{height:100%;overflow:hidden;background:var(--bg);color:var(--ink);font-family:system-ui,Segoe UI,Roboto,sans-serif}
+  html,body{height:100%;overflow:hidden;background:var(--bg);color:var(--ink);font-family:'Outfit',system-ui,Segoe UI,Roboto,sans-serif}
   #stage{position:fixed;inset:0}
   canvas{display:block;touch-action:none}
 
@@ -27,13 +30,13 @@
   .soundBtn.on{color:var(--accent);border-color:var(--accent)}
   .soundBtn:hover{transform:scale(1.08)}
 
-  .intro{position:fixed;inset:0;z-index:40;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:20px;background:radial-gradient(circle at 50% 45%,rgba(14,40,38,.6),rgba(7,12,14,.97));transition:opacity .8s;padding:24px;text-align:center}
+  .intro{position:fixed;inset:0;z-index:40;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:20px;background:radial-gradient(circle at 50% 38%,rgba(13,38,33,.97),rgba(5,16,14,.995));backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px);transition:opacity .8s;padding:24px;text-align:center}
   .intro.hide{opacity:0;pointer-events:none}
   .intro .sub{font-family:var(--mono);font-size:12px;letter-spacing:.2em;text-transform:uppercase;color:var(--accent2)}
   .intro .ttl{font-family:var(--disp);font-size:clamp(28px,5vw,54px);text-transform:uppercase;letter-spacing:-.02em;line-height:.95}
   .intro .ttl span{color:var(--accent)}
   .intro p{max-width:540px;color:var(--dim);font-size:14px;line-height:1.6}
-  .intro .obj{max-width:540px;text-align:left;background:rgba(12,22,24,.7);border:1px solid var(--line);border-radius:14px;padding:16px 20px}
+  .intro .obj{max-width:540px;text-align:left;background:rgba(9,26,23,.7);border:1px solid var(--line);border-radius:14px;padding:16px 20px}
   .intro .obj h4{font-family:var(--mono);font-size:10px;letter-spacing:.16em;text-transform:uppercase;color:var(--accent);margin-bottom:10px}
   .intro .obj ul{list-style:none;display:flex;flex-direction:column;gap:8px}
   .intro .obj li{font-size:13px;color:var(--dim);padding-left:22px;position:relative}
@@ -41,7 +44,7 @@
   .startbtn{font-family:var(--mono);font-size:13px;letter-spacing:.12em;text-transform:uppercase;color:#04211c;background:var(--accent);border:none;padding:15px 34px;border-radius:40px;cursor:pointer;transition:.2s;box-shadow:0 10px 40px rgba(42,157,143,.3)}
   .startbtn:hover{transform:translateY(-2px);box-shadow:0 16px 50px rgba(42,157,143,.45)}
   .modeToggle{display:flex;gap:8px;flex-wrap:wrap;justify-content:center;margin-top:2px}
-  .modeBtn{font-family:var(--mono);font-size:11px;letter-spacing:.04em;color:var(--dim);background:rgba(12,22,24,.7);border:1px solid var(--line);border-radius:30px;padding:9px 16px;cursor:pointer;transition:.15s}
+  .modeBtn{font-family:var(--mono);font-size:11px;letter-spacing:.04em;color:var(--dim);background:rgba(9,26,23,.7);border:1px solid var(--line);border-radius:30px;padding:9px 16px;cursor:pointer;transition:.15s}
   .modeBtn:hover{border-color:var(--accent)}
   .modeBtn.active{background:var(--accent);color:#04211c;border-color:var(--accent);font-weight:bold}
 
@@ -100,6 +103,15 @@
     .feedback{bottom:14px}.phase-mini{display:flex!important}
   }
   .phase-mini{display:none;position:fixed;top:62px;left:12px;z-index:18;font-family:var(--mono);font-size:10px;color:var(--accent);background:var(--panel);border:1px solid var(--line);border-radius:30px;padding:9px 13px}
+
+  /* pieceinfo — ficha flotante al seleccionar una pieza (patrón CEN) */
+  .pieceinfo{position:fixed;right:20px;bottom:24px;z-index:28;width:300px;max-width:calc(100% - 40px);background:rgba(6,18,16,.72);backdrop-filter:blur(28px);-webkit-backdrop-filter:blur(28px);border:1px solid rgba(79,209,197,.28);border-radius:22px;padding:18px 20px;box-shadow:0 24px 70px rgba(0,0,0,.55);opacity:0;transform:translateY(14px);pointer-events:none;transition:.32s cubic-bezier(.16,1,.3,1)}
+  .pieceinfo.show{opacity:1;transform:translateY(0);pointer-events:auto}
+  .pieceinfo .pi-type{font-family:var(--mono);font-size:10px;letter-spacing:.14em;text-transform:uppercase;color:var(--accent2);margin-bottom:4px}
+  .pieceinfo .pi-name{font-size:19px;font-weight:800;color:var(--ink);line-height:1.15;margin-bottom:9px}
+  .pieceinfo .pi-fn{font-size:13px;line-height:1.6;color:var(--dim)}
+  .pieceinfo .pi-x{position:absolute;top:12px;right:14px;background:none;border:none;color:var(--dim);cursor:pointer;font-size:16px;line-height:1}
+  @media(max-width:860px){.pieceinfo{left:8px;right:8px;bottom:96px;width:auto}}
 </style>
 </head>
 <body>
@@ -153,7 +165,14 @@
   <p id="fbText"></p>
 </div>
 
-<div class="hint" id="hint">Arrastra para orbitar · rueda para zoom</div>
+<div class="hint" id="hint">Arrastra para orbitar · rueda para zoom · toca una pieza para conocerla</div>
+
+<div class="pieceinfo" id="pieceInfo">
+  <button class="pi-x" id="piX" aria-label="Cerrar">✕</button>
+  <div class="pi-type" id="piType"></div>
+  <div class="pi-name" id="piName"></div>
+  <div class="pi-fn" id="piFn"></div>
+</div>
 
 <script type="importmap">
 { "imports": {
@@ -294,7 +313,7 @@ function gradientBG(top='#11161d',bottom='#05070a'){
   ctx.fillStyle=grd;ctx.fillRect(0,0,512,512);
   // subtle vignette glow center
   const rg=ctx.createRadialGradient(256,200,30,256,256,360);
-  rg.addColorStop(0,'rgba(255,120,40,0.10)');rg.addColorStop(1,'rgba(0,0,0,0)');
+  rg.addColorStop(0,'rgba(42,157,143,0.12)');rg.addColorStop(1,'rgba(0,0,0,0)');
   ctx.fillStyle=rg;ctx.fillRect(0,0,512,512);
   return tex(c,1,true);
 }
@@ -403,7 +422,7 @@ const key=new THREE.DirectionalLight(0xffffff,2.6);key.position.set(5,9,6);key.c
 key.shadow.mapSize.set(2048,2048);key.shadow.camera.near=0.5;key.shadow.camera.far=40;
 const sd=8;Object.assign(key.shadow.camera,{left:-sd,right:sd,top:sd,bottom:-sd});
 key.shadow.bias=-0.0003;key.shadow.normalBias=0.02;scene.add(key);
-const rim=new THREE.SpotLight(0x37e0c7,55,30,Math.PI/5,0.4,1.5);rim.position.set(-7,6,-5);scene.add(rim);
+const rim=new THREE.SpotLight(0x4FD1C5,55,30,Math.PI/5,0.4,1.5);rim.position.set(-7,6,-5);scene.add(rim);
 const fill=new THREE.DirectionalLight(0x9fd8ff,0.5);fill.position.set(-4,3,7);scene.add(fill);
 scene.add(new THREE.HemisphereLight(0x9fc8c4,0x0a1414,0.4));
 
@@ -423,7 +442,7 @@ const lightMode=/[?&]light/.test(location.search);
 })();
 const platform=new THREE.Mesh(new THREE.CylinderGeometry(1.6,1.8,0.2,48),new THREE.MeshStandardMaterial({color:0x0f2224,roughness:0.5,metalness:0.6}));
 platform.position.set(0,0.1,0);platform.receiveShadow=true;scene.add(platform);
-const platGlow=new THREE.Mesh(new THREE.RingGeometry(1.4,1.6,64),new THREE.MeshBasicMaterial({color:0x37e0c7,transparent:true,opacity:0.0,side:THREE.DoubleSide}));
+const platGlow=new THREE.Mesh(new THREE.RingGeometry(1.4,1.6,64),new THREE.MeshBasicMaterial({color:0x4FD1C5,transparent:true,opacity:0.0,side:THREE.DoubleSide}));
 platGlow.rotation.x=-Math.PI/2;platGlow.position.y=0.21;scene.add(platGlow);
 
 /* ---------- materials ---------- */
@@ -434,7 +453,7 @@ const MAT={
   joint:std({color:0x1a1d22,roughness:0.5,metalness:0.6,map:Tplast.map,roughnessMap:Tplast.roughnessMap,normalMap:Tplast.normalMap}),
   steel:std({color:0xc2cad3,roughness:0.3,metalness:1,map:Tsteel.map,roughnessMap:Tsteel.roughnessMap,normalMap:Tsteel.normalMap,envMapIntensity:1.4}),
   base:std({color:0x22282c,roughness:0.5,metalness:0.7,map:Talu.map,roughnessMap:Talu.roughnessMap,normalMap:Talu.normalMap}),
-  ghost:std({color:0x37e0c7,transparent:true,opacity:0.16,side:THREE.DoubleSide}),
+  ghost:std({color:0x4FD1C5,transparent:true,opacity:0.16,side:THREE.DoubleSide}),
 };
 function rbox(w,h,d,m,rf=0.15){const r=Math.min(w,h,d)*rf;const x=new THREE.Mesh(new RoundedBoxGeometry(w,h,d,4,r),m);x.castShadow=x.receiveShadow=true;return x;}
 function jointSphere(r,m=MAT.joint){const s=new THREE.Mesh(new THREE.SphereGeometry(r,28,28),m);s.castShadow=true;return s;}
@@ -447,33 +466,33 @@ const armRoot=new THREE.Group(); armRoot.position.set(0,0.2,0); scene.add(armRoo
 // ---- BASE (con motor de giro / yaw) ----
 const baseGroup=new THREE.Group(); armRoot.add(baseGroup);
 (function(){
-  const plate=new THREE.Mesh(new THREE.CylinderGeometry(0.75,0.85,0.22,40),MAT.base);plate.position.y=0.11;plate.castShadow=plate.receiveShadow=true;baseGroup.add(plate);
-  const collar=new THREE.Mesh(new THREE.CylinderGeometry(0.42,0.48,0.5,32),MAT.base);collar.position.y=0.22+0.25;collar.castShadow=true;baseGroup.add(collar);
-  const j0=jointSphere(0.32);j0.position.y=hBase;baseGroup.add(j0);
+  const plate=new THREE.Mesh(new THREE.CylinderGeometry(0.75,0.85,0.22,40),MAT.base);plate.position.y=0.11;plate.castShadow=plate.receiveShadow=true;plate.userData.piece='base';baseGroup.add(plate);
+  const collar=new THREE.Mesh(new THREE.CylinderGeometry(0.42,0.48,0.5,32),MAT.base);collar.position.y=0.22+0.25;collar.castShadow=true;collar.userData.piece='encoder';baseGroup.add(collar);
+  const j0=jointSphere(0.32);j0.position.y=hBase;j0.userData.piece='servo';baseGroup.add(j0);
 })();
 
 // ---- HOMBRO + BRAZO SUPERIOR (link 1) ----
 const shoulderGroup=new THREE.Group(); armRoot.add(shoulderGroup);
 (function(){
-  const link=rbox(L1,0.34,0.30,MAT.arm,0.28); link.position.x=L1/2; shoulderGroup.add(link); // se orienta luego en poseArm()
-  const cap=jointSphere(0.22,MAT.steel); cap.position.x=L1; shoulderGroup.add(cap);
+  const link=rbox(L1,0.34,0.30,MAT.arm,0.28); link.position.x=L1/2; link.userData.piece='link1'; shoulderGroup.add(link); // se orienta luego en poseArm()
+  const cap=jointSphere(0.22,MAT.steel); cap.position.x=L1; cap.userData.piece='servo'; shoulderGroup.add(cap);
 })();
 
 // ---- CODO + ANTEBRAZO (link 2) ----
 const elbowGroup=new THREE.Group(); armRoot.add(elbowGroup);
 (function(){
-  const link=rbox(L2,0.26,0.24,MAT.arm,0.3); link.position.x=L2/2; elbowGroup.add(link);
-  const cap=jointSphere(0.17,MAT.steel); cap.position.x=L2; elbowGroup.add(cap);
+  const link=rbox(L2,0.26,0.24,MAT.arm,0.3); link.position.x=L2/2; link.userData.piece='link2'; elbowGroup.add(link);
+  const cap=jointSphere(0.17,MAT.steel); cap.position.x=L2; cap.userData.piece='servo'; elbowGroup.add(cap);
 })();
 
 // ---- MUÑECA + PINZA (end effector) ----
 const wristGroup=new THREE.Group(); armRoot.add(wristGroup);
 const gripFingers=[];
 (function(){
-  const hub=jointSphere(0.14,MAT.joint); wristGroup.add(hub);
-  const palm=rbox(0.22,0.14,0.22,MAT.steel,0.2); palm.position.x=0.16; wristGroup.add(palm);
+  const hub=jointSphere(0.14,MAT.joint); hub.userData.piece='wrist'; wristGroup.add(hub);
+  const palm=rbox(0.22,0.14,0.22,MAT.steel,0.2); palm.position.x=0.16; palm.userData.piece='wrist'; wristGroup.add(palm);
   for(const s of [-1,1]){
-    const f=rbox(0.05,0.28,0.14,MAT.steel,0.25); f.position.set(0.30,0.12*s,0); wristGroup.add(f); gripFingers.push({mesh:f,sign:s});
+    const f=rbox(0.05,0.28,0.14,MAT.steel,0.25); f.position.set(0.30,0.12*s,0); f.userData.piece='gripper'; wristGroup.add(f); gripFingers.push({mesh:f,sign:s});
   }
 })();
 
@@ -519,7 +538,7 @@ const composer=new EffectComposer(renderer);
 composer.addPass(new RenderPass(scene,camera));
 if(!isMobile&&!noGtao){try{const g=new GTAOPass(scene,camera,innerWidth,innerHeight);g.output=GTAOPass.OUTPUT.Default;if(g.updateGtaoMaterial)g.updateGtaoMaterial({radius:0.5,distanceExponent:1,thickness:1,scale:1.1,samples:16});composer.addPass(g);}catch(e){}}
 const bloom=new UnrealBloomPass(new THREE.Vector2(innerWidth,innerHeight),0.42,0.5,0.9);composer.addPass(bloom);
-let bokeh=null; if(!isMobile&&!lightMode){bokeh=new BokehPass(scene,camera,{focus:8.5,aperture:0.00035,maxblur:0.006,width:innerWidth,height:innerHeight});composer.addPass(bokeh);}
+let bokeh=null; if(!isMobile&&!lightMode){bokeh=new BokehPass(scene,camera,{focus:8.5,aperture:0.00018,maxblur:0.004,width:innerWidth,height:innerHeight});composer.addPass(bokeh);}
 composer.addPass(new OutputPass());
 composer.addPass(new SMAAPass(innerWidth*renderer.getPixelRatio(),innerHeight*renderer.getPixelRatio()));
 addEventListener('resize',()=>{camera.aspect=innerWidth/innerHeight;camera.updateProjectionMatrix();renderer.setSize(innerWidth,innerHeight);composer.setSize(innerWidth,innerHeight);});
@@ -548,9 +567,9 @@ const KIT_POS={
 function rrPath(c,x,y,w,h,r){c.moveTo(x+r,y);c.lineTo(x+w-r,y);c.arcTo(x+w,y,x+w,y+r,r);c.lineTo(x+w,y+h-r);c.arcTo(x+w,y+h,x+w-r,y+h,r);c.lineTo(x+r,y+h);c.arcTo(x,y+h,x,y+h-r,r);c.lineTo(x,y+r);c.arcTo(x,y,x+r,y,r);c.closePath();}
 function smallLabel3(text,color){
   const cv=document.createElement('canvas');cv.width=520;cv.height=108;const c=cv.getContext('2d');
-  c.fillStyle='rgba(8,16,16,.92)';c.beginPath();rrPath(c,4,4,512,100,24);c.fill();
+  c.fillStyle='rgba(9,26,23,.94)';c.beginPath();rrPath(c,4,4,512,100,24);c.fill();
   c.strokeStyle=color;c.lineWidth=4;c.stroke();
-  c.font='bold 28px Courier New';c.textAlign='center';c.textBaseline='middle';c.fillStyle=color;
+  c.font='700 30px Outfit, system-ui, sans-serif';c.textAlign='center';c.textBaseline='middle';c.fillStyle=color;
   c.fillText(text,260,54);
   const tex=new THREE.CanvasTexture(cv);tex.colorSpace=THREE.SRGBColorSpace;
   const sp=new THREE.Sprite(new THREE.SpriteMaterial({map:tex,depthTest:false,transparent:true}));
@@ -566,7 +585,7 @@ function trayPad3(pos,color){
 const PIECE_ORDER=['base','shoulder','elbow','wrist'];
 const PIECE_GROUP={base:baseGroup,shoulder:shoulderGroup,elbow:elbowGroup,wrist:wristGroup};
 const PIECE_NAME={base:'BASE',shoulder:'HOMBRO',elbow:'CODO',wrist:'MUÑECA/PINZA'};
-const PIECE_COLOR={base:'#37e0c7',shoulder:'#ffd166',elbow:'#ff8a3a',wrist:'#f4475e'};
+const PIECE_COLOR={base:'#4FD1C5',shoulder:'#FFB703',elbow:'#ff8a3a',wrist:'#f4475e'};
 const travel={},trays={},lbls={};
 // posiciones/orientaciones "instaladas" en pose neutra (brazo extendido horizontal, θ1=0,θ2=0,θ3=0,φ=0)
 poseArm(0,0,0,0);
@@ -605,12 +624,13 @@ const ray=new THREE.Raycaster(),mouse=new THREE.Vector2();let down=null,onPick=n
 renderer.domElement.addEventListener('pointerdown',e=>down=[e.clientX,e.clientY]);
 renderer.domElement.addEventListener('pointerup',e=>{
   if(!down)return;const moved=Math.abs(e.clientX-down[0])+Math.abs(e.clientY-down[1])>6;down=null;
-  if(moved||!onPick)return;
+  if(moved)return;
   const r=renderer.domElement.getBoundingClientRect();
   mouse.x=((e.clientX-r.left)/r.width)*2-1;mouse.y=-((e.clientY-r.top)/r.height)*2+1;
   ray.setFromCamera(mouse,camera);
   const hits=ray.intersectObjects(armRoot.children,true);
-  onPick(hits[0]||null);
+  showPieceInfo(hits[0]||null);
+  if(onPick)onPick(hits[0]||null);
 });
 function onPickGeneric(hit){
   if(!hit)return;
@@ -623,6 +643,41 @@ function onPickGeneric(hit){
     }
   }
 }
+
+/* ============================================================
+   FICHA DE PIEZA — nombre + función al seleccionar (patrón CEN)
+   ============================================================ */
+const PIECE_INFO={
+  base:{tipo:'Estructura de soporte',nombre:'Base giratoria',funcion:'Ancla el robot al suelo y aloja el primer motor, que gira todo el brazo sobre su eje vertical (yaw), como una torreta. Es el origen del sistema de coordenadas: todos los demás eslabones se miden a partir de ella.'},
+  servo:{tipo:'Actuador',nombre:'Servomotor de articulación',funcion:'Motor con reductor que hace girar la junta y sostiene el peso del eslabón siguiente. Aplica el par necesario para mover y mantener el brazo en la posición ordenada por el controlador.'},
+  encoder:{tipo:'Sensor de posición',nombre:'Encoder de la junta',funcion:'Mide el ángulo real del eje y se lo informa al controlador para cerrar el lazo de control. Si se descalibra, el brazo "cree" estar en un ángulo distinto al real y falla la puntería del efector final.'},
+  link1:{tipo:'Eslabón móvil',nombre:'Hombro (brazo superior)',funcion:`Primer eslabón rígido, de ${(ROBOT.L1_m*100).toFixed(0)} cm. Su motor lo eleva entre 0° y 85° desde la horizontal; junto con el codo define el alcance y el espacio de trabajo del robot.`},
+  link2:{tipo:'Eslabón móvil',nombre:'Codo (antebrazo)',funcion:`Segundo eslabón, de ${(ROBOT.L2_m*100).toFixed(0)} cm. Se dobla respecto al hombro entre -10° y 95°. Combinando el ángulo del hombro y el del codo, la punta llega a cualquier punto de su espacio de trabajo (cinemática directa).`},
+  wrist:{tipo:'Muñeca',nombre:'Muñeca (efector)',funcion:'Lleva el último motor de rotación y orienta la herramienta. Es el punto donde la cinemática coloca el efector final; posiciona la pinza en el ángulo correcto para tomar o soltar la pieza.'},
+  gripper:{tipo:'Efector final',nombre:'Pinza (gripper)',funcion:'La parte que hace el trabajo: sus dedos se abren y cierran para sujetar objetos. Todo lo demás —base, hombro, codo, muñeca— existe solo para llevar esta pinza al punto exacto donde debe actuar.'},
+};
+function identifyPiece(hit){
+  if(!hit||!hit.object)return null;
+  let o=hit.object;
+  while(o){
+    if(o.userData&&o.userData.piece&&PIECE_INFO[o.userData.piece])return o.userData.piece;
+    if(o===baseGroup)return 'base';
+    if(o===shoulderGroup)return 'link1';
+    if(o===elbowGroup)return 'link2';
+    if(o===wristGroup)return 'wrist';
+    o=o.parent;
+  }
+  return null;
+}
+function showPieceInfo(hit){
+  const key=identifyPiece(hit);
+  const box=$('pieceInfo');
+  if(!key||!PIECE_INFO[key]){box.classList.remove('show');return;}
+  const info=PIECE_INFO[key];
+  $('piType').textContent=info.tipo;$('piName').textContent=info.nombre;$('piFn').textContent=info.funcion;
+  box.classList.add('show');
+}
+$('piX').onclick=()=>$('pieceInfo').classList.remove('show');
 
 /* ---- cámara cinemática para el reto de movimiento ---- */
 let cinematicSpin=false, lastDragTime=-99;
@@ -761,10 +816,10 @@ function finishPhase2(){
    ============================================================ */
 const sourcePos=new THREE.Vector3(2.6,0.72,0.9);
 const destPos=new THREE.Vector3(-1.0,0.62,2.8);
-const cube=new THREE.Mesh(new RoundedBoxGeometry(0.3,0.3,0.3,3,0.05),std({color:0x37e0c7,roughness:0.4,metalness:0.3,emissive:0x0a3330,emissiveIntensity:0.4}));
+const cube=new THREE.Mesh(new RoundedBoxGeometry(0.3,0.3,0.3,3,0.05),std({color:0x4FD1C5,roughness:0.4,metalness:0.3,emissive:0x0a3330,emissiveIntensity:0.4}));
 cube.position.copy(sourcePos); cube.castShadow=true; scene.add(cube);
 const srcPad=new THREE.Mesh(new THREE.CylinderGeometry(0.32,0.36,0.1,32),MAT.base); srcPad.position.set(sourcePos.x,0.06,sourcePos.z); scene.add(srcPad);
-const dstPad=new THREE.Mesh(new THREE.RingGeometry(0.24,0.32,32),new THREE.MeshBasicMaterial({color:0x37e0c7,transparent:true,opacity:0.5,side:THREE.DoubleSide}));
+const dstPad=new THREE.Mesh(new THREE.RingGeometry(0.24,0.32,32),new THREE.MeshBasicMaterial({color:0x4FD1C5,transparent:true,opacity:0.5,side:THREE.DoubleSide}));
 dstPad.rotation.x=-Math.PI/2; dstPad.position.set(destPos.x,0.11,destPos.z); scene.add(dstPad);
 
 /* ============================================================
@@ -1014,7 +1069,10 @@ function animate(){
   const angSpeed=(Math.abs(t1-prevT1)+Math.abs(t2-prevT2)+Math.abs(phi-prevPhi))/Math.max(dt,0.001);
   updateAudio(allInstalled&&(seqPlaying||running)?angSpeed:0);
   prevT1=t1;prevT2=t2;prevPhi=phi;
-  controls.update();composer.render();
+  controls.update();
+  // Foco dinámico: el DOF sigue al objetivo de la cámara para que el sujeto quede nítido a cualquier zoom.
+  if(bokeh){ bokeh.uniforms['focus'].value=camera.position.distanceTo(controls.target); }
+  composer.render();
 }
 animate();
 

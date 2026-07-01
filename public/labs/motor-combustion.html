@@ -4,6 +4,9 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>CEN Labs · Motor de Combustión Interna (4 Tiempos) — Laboratorio 3D</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
 <style>
   :root{
     --bg:#08201C;--panel:rgba(9,26,23,.86);--line:#1E3A34;--ink:#EAF4F1;
@@ -11,7 +14,7 @@
     --mono:'Courier New',ui-monospace,monospace;--disp:'Outfit','Arial Black',Impact,sans-serif;
   }
   *{box-sizing:border-box;margin:0;padding:0}
-  html,body{height:100%;overflow:hidden;background:var(--bg);color:var(--ink);font-family:system-ui,Segoe UI,Roboto,sans-serif}
+  html,body{height:100%;overflow:hidden;background:var(--bg);color:var(--ink);font-family:'Outfit',system-ui,Segoe UI,Roboto,sans-serif}
   #stage{position:fixed;inset:0}
   canvas{display:block;touch-action:none}
 
@@ -27,13 +30,13 @@
   .soundBtn.on{color:var(--accent);border-color:var(--accent)}
   .soundBtn:hover{transform:scale(1.08)}
 
-  .intro{position:fixed;inset:0;z-index:40;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:20px;background:radial-gradient(circle at 50% 45%,rgba(40,24,14,.6),rgba(10,9,8,.97));transition:opacity .8s;padding:24px;text-align:center}
+  .intro{position:fixed;inset:0;z-index:40;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:20px;background:radial-gradient(circle at 50% 38%,rgba(13,38,33,.97),rgba(5,16,14,.995));backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px);transition:opacity .8s;padding:24px;text-align:center}
   .intro.hide{opacity:0;pointer-events:none}
   .intro .sub{font-family:var(--mono);font-size:12px;letter-spacing:.2em;text-transform:uppercase;color:var(--accent2)}
   .intro .ttl{font-family:var(--disp);font-size:clamp(28px,5vw,54px);text-transform:uppercase;letter-spacing:-.02em;line-height:.95}
   .intro .ttl span{color:var(--accent)}
   .intro p{max-width:540px;color:var(--dim);font-size:14px;line-height:1.6}
-  .intro .obj{max-width:540px;text-align:left;background:rgba(26,20,16,.7);border:1px solid var(--line);border-radius:14px;padding:16px 20px}
+  .intro .obj{max-width:540px;text-align:left;background:rgba(9,26,23,.7);border:1px solid var(--line);border-radius:14px;padding:16px 20px}
   .intro .obj h4{font-family:var(--mono);font-size:10px;letter-spacing:.16em;text-transform:uppercase;color:var(--accent);margin-bottom:10px}
   .intro .obj ul{list-style:none;display:flex;flex-direction:column;gap:8px}
   .intro .obj li{font-size:13px;color:var(--dim);padding-left:22px;position:relative}
@@ -41,7 +44,7 @@
   .startbtn{font-family:var(--mono);font-size:13px;letter-spacing:.12em;text-transform:uppercase;color:#04211c;background:var(--accent);border:none;padding:15px 34px;border-radius:40px;cursor:pointer;transition:.2s;box-shadow:0 10px 40px rgba(42,157,143,.35)}
   .startbtn:hover{transform:translateY(-2px);box-shadow:0 16px 50px rgba(42,157,143,.5)}
   .modeToggle{display:flex;gap:8px;flex-wrap:wrap;justify-content:center;margin-top:2px}
-  .modeBtn{font-family:var(--mono);font-size:11px;letter-spacing:.04em;color:var(--dim);background:rgba(26,20,16,.7);border:1px solid var(--line);border-radius:30px;padding:9px 16px;cursor:pointer;transition:.15s}
+  .modeBtn{font-family:var(--mono);font-size:11px;letter-spacing:.04em;color:var(--dim);background:rgba(9,26,23,.7);border:1px solid var(--line);border-radius:30px;padding:9px 16px;cursor:pointer;transition:.15s}
   .modeBtn:hover{border-color:var(--accent)}
   .modeBtn.active{background:var(--accent);color:#04211c;border-color:var(--accent);font-weight:bold}
 
@@ -104,6 +107,15 @@
     .feedback{bottom:14px}.phase-mini{display:flex!important}
   }
   .phase-mini{display:none;position:fixed;top:62px;left:12px;z-index:18;font-family:var(--mono);font-size:10px;color:var(--accent);background:var(--panel);border:1px solid var(--line);border-radius:30px;padding:9px 13px}
+
+  /* pieceinfo — ficha flotante al seleccionar una pieza (patrón CEN) */
+  .pieceinfo{position:fixed;right:20px;bottom:24px;z-index:28;width:300px;max-width:calc(100% - 40px);background:rgba(6,18,16,.72);backdrop-filter:blur(28px);-webkit-backdrop-filter:blur(28px);border:1px solid rgba(79,209,197,.28);border-radius:22px;padding:18px 20px;box-shadow:0 24px 70px rgba(0,0,0,.55);opacity:0;transform:translateY(14px);pointer-events:none;transition:.32s cubic-bezier(.16,1,.3,1)}
+  .pieceinfo.show{opacity:1;transform:translateY(0);pointer-events:auto}
+  .pieceinfo .pi-type{font-family:var(--mono);font-size:10px;letter-spacing:.14em;text-transform:uppercase;color:var(--accent2);margin-bottom:4px}
+  .pieceinfo .pi-name{font-size:19px;font-weight:800;color:var(--ink);line-height:1.15;margin-bottom:9px}
+  .pieceinfo .pi-fn{font-size:13px;line-height:1.6;color:var(--dim)}
+  .pieceinfo .pi-x{position:absolute;top:12px;right:14px;background:none;border:none;color:var(--dim);cursor:pointer;font-size:16px;line-height:1}
+  @media(max-width:860px){.pieceinfo{left:8px;right:8px;bottom:96px;width:auto}}
 </style>
 </head>
 <body>
@@ -157,7 +169,14 @@
   <p id="fbText"></p>
 </div>
 
-<div class="hint" id="hint">Arrastra para orbitar · rueda para zoom</div>
+<div class="hint" id="hint">Arrastra para orbitar · rueda para zoom · toca una pieza para conocerla</div>
+
+<div class="pieceinfo" id="pieceInfo">
+  <button class="pi-x" id="piX" aria-label="Cerrar">✕</button>
+  <div class="pi-type" id="piType"></div>
+  <div class="pi-name" id="piName"></div>
+  <div class="pi-fn" id="piFn"></div>
+</div>
 
 <script type="importmap">
 { "imports": {
@@ -298,7 +317,7 @@ function gradientBG(top='#11161d',bottom='#05070a'){
   ctx.fillStyle=grd;ctx.fillRect(0,0,512,512);
   // subtle vignette glow center
   const rg=ctx.createRadialGradient(256,200,30,256,256,360);
-  rg.addColorStop(0,'rgba(255,120,40,0.10)');rg.addColorStop(1,'rgba(0,0,0,0)');
+  rg.addColorStop(0,'rgba(79,209,197,0.10)');rg.addColorStop(1,'rgba(0,0,0,0)');
   ctx.fillStyle=rg;ctx.fillRect(0,0,512,512);
   return tex(c,1,true);
 }
@@ -393,7 +412,7 @@ const key=new THREE.DirectionalLight(0xffffff,2.6);key.position.set(5,9,6);key.c
 key.shadow.mapSize.set(2048,2048);key.shadow.camera.near=0.5;key.shadow.camera.far=40;
 const sd=8;Object.assign(key.shadow.camera,{left:-sd,right:sd,top:sd,bottom:-sd});
 key.shadow.bias=-0.0003;key.shadow.normalBias=0.02;scene.add(key);
-const rim=new THREE.SpotLight(0xff7a2a,75,30,Math.PI/5,0.4,1.5);rim.position.set(-7,6,-5);scene.add(rim);
+const rim=new THREE.SpotLight(0x4FD1C5,75,30,Math.PI/5,0.4,1.5);rim.position.set(-7,6,-5);scene.add(rim);
 const fill=new THREE.DirectionalLight(0xffd9a0,0.5);fill.position.set(-4,3,7);scene.add(fill);
 scene.add(new THREE.HemisphereLight(0xc8b49f,0x140d08,0.4));
 
@@ -413,7 +432,7 @@ scene.add(new THREE.HemisphereLight(0xc8b49f,0x140d08,0.4));
 })();
 const platform=new THREE.Mesh(new THREE.CylinderGeometry(2.2,2.4,0.2,48),new THREE.MeshStandardMaterial({color:0x241a14,roughness:0.5,metalness:0.6}));
 platform.position.set(0,0.1,0);platform.receiveShadow=true;scene.add(platform);
-const platGlow=new THREE.Mesh(new THREE.RingGeometry(2.0,2.2,64),new THREE.MeshBasicMaterial({color:0xff6b1a,transparent:true,opacity:0.0,side:THREE.DoubleSide}));
+const platGlow=new THREE.Mesh(new THREE.RingGeometry(2.0,2.2,64),new THREE.MeshBasicMaterial({color:0x4FD1C5,transparent:true,opacity:0.0,side:THREE.DoubleSide}));
 platGlow.rotation.x=-Math.PI/2;platGlow.position.y=0.21;scene.add(platGlow);
 
 /* ---------- materials ---------- */
@@ -425,7 +444,7 @@ const MAT={
   steel:std({color:0xc2cad3,roughness:0.3,metalness:1,map:Tsteel.map,roughnessMap:Tsteel.roughnessMap,normalMap:Tsteel.normalMap,envMapIntensity:1.4}),
   chrome:std({color:0xeef2f6,roughness:0.06,metalness:1,envMapIntensity:1.7}),
   cover:std({color:0xffffff,roughness:0.3,metalness:0.25,map:Tpeel.map,normalMap:Tpeel.normalMap,normalScale:new THREE.Vector2(0.5,0.5)}),
-  ghost:std({color:0xff8a3a,transparent:true,opacity:0.16,side:THREE.DoubleSide}),
+  ghost:std({color:0x4FD1C5,transparent:true,opacity:0.16,side:THREE.DoubleSide}),
   boreGlass:std({color:0x3a4148,roughness:0.35,metalness:0.5,transparent:true,opacity:0.32,side:THREE.DoubleSide}),
 };
 const bolt=(s=0.05)=>{const b=new THREE.Mesh(new THREE.CylinderGeometry(s,s,s*0.7,6),std({color:0x9aa2ab,roughness:0.35,metalness:1}));b.castShadow=true;return b;};
@@ -440,20 +459,20 @@ const bY=0.0;
 // ---- BLOCK (cárter bajo: deja expuestos cilindros, pistones y cigüeñal — no es una caja sólida) ----
 const blockGroup=new THREE.Group(); motor.add(blockGroup);
 (function(){
-  const main=rbox(2.8,0.62,1.6,MAT.block);main.position.y=bY+0.31;blockGroup.add(main);
-  for(let i=0;i<3;i++){const fin=rbox(2.82,0.04,1.62,MAT.block);fin.position.y=bY+0.1+i*0.18;blockGroup.add(fin);}
+  const main=rbox(2.8,0.62,1.6,MAT.block);main.position.y=bY+0.31;main.userData.piece='block';blockGroup.add(main);
+  for(let i=0;i<3;i++){const fin=rbox(2.82,0.04,1.62,MAT.block);fin.position.y=bY+0.1+i*0.18;fin.userData.piece='block';blockGroup.add(fin);}
   // camisas de cilindro visibles — suben desde el cárter hasta justo bajo la culata
-  for(let i=0;i<4;i++){const bore=new THREE.Mesh(new THREE.CylinderGeometry(0.32,0.32,1.5,28,1,true),MAT.boreGlass);bore.position.set(-0.96+i*0.64,bY+0.92,0);blockGroup.add(bore);
-    const rim=new THREE.Mesh(new THREE.TorusGeometry(0.32,0.025,10,28),MAT.iron);rim.position.set(-0.96+i*0.64,bY+1.67,0);blockGroup.add(rim);}
-  const pan=rbox(2.5,0.4,1.3,MAT.iron);pan.position.y=bY-0.18;blockGroup.add(pan);
+  for(let i=0;i<4;i++){const bore=new THREE.Mesh(new THREE.CylinderGeometry(0.32,0.32,1.5,28,1,true),MAT.boreGlass);bore.position.set(-0.96+i*0.64,bY+0.92,0);bore.userData.piece='cylinder';blockGroup.add(bore);
+    const rim=new THREE.Mesh(new THREE.TorusGeometry(0.32,0.025,10,28),MAT.iron);rim.position.set(-0.96+i*0.64,bY+1.67,0);rim.userData.piece='cylinder';blockGroup.add(rim);}
+  const pan=rbox(2.5,0.4,1.3,MAT.iron);pan.position.y=bY-0.18;pan.userData.piece='block';blockGroup.add(pan);
   for(let x=-1.2;x<=1.2;x+=0.6)for(let z=-0.65;z<=0.65;z+=1.3){const b=bolt();b.position.set(x,bY+0.63,z);blockGroup.add(b);}
 })();
 
 // ---- CRANKSHAFT ----
 const crankGroup=new THREE.Group(); motor.add(crankGroup);
 (function(){
-  const shaft=new THREE.Mesh(new THREE.CylinderGeometry(0.14,0.14,2.9,24),MAT.steel);shaft.rotation.z=Math.PI/2;crankGroup.add(shaft);
-  for(let i=0;i<4;i++){const cw=rbox(0.16,0.6,0.5,MAT.steel);cw.position.set(-0.96+i*0.64,0,0.2*((i===0||i===3)?1:-1));crankGroup.add(cw);}
+  const shaft=new THREE.Mesh(new THREE.CylinderGeometry(0.14,0.14,2.9,24),MAT.steel);shaft.rotation.z=Math.PI/2;shaft.userData.piece='crank';crankGroup.add(shaft);
+  for(let i=0;i<4;i++){const cw=rbox(0.16,0.6,0.5,MAT.steel);cw.position.set(-0.96+i*0.64,0,0.2*((i===0||i===3)?1:-1));cw.userData.piece='crank';crankGroup.add(cw);}
   crankGroup.position.set(0,bY+0.3,0);
 })();
 
@@ -462,9 +481,9 @@ const pistonGroup=new THREE.Group(); motor.add(pistonGroup);
 const pistons=[];
 (function(){
   for(let i=0;i<4;i++){const u=new THREE.Group();
-    const crown=new THREE.Mesh(new THREE.CylinderGeometry(0.3,0.3,0.36,28),MAT.chrome);crown.castShadow=true;u.add(crown);
-    for(let r=0;r<3;r++){const ring=new THREE.Mesh(new THREE.TorusGeometry(0.305,0.012,8,28),MAT.steel);ring.rotation.x=Math.PI/2;ring.position.y=0.06-r*0.06;u.add(ring);}
-    const rod=rbox(0.1,0.66,0.12,MAT.steel);rod.position.y=-0.52;u.add(rod);
+    const crown=new THREE.Mesh(new THREE.CylinderGeometry(0.3,0.3,0.36,28),MAT.chrome);crown.castShadow=true;crown.userData.piece='piston';u.add(crown);
+    for(let r=0;r<3;r++){const ring=new THREE.Mesh(new THREE.TorusGeometry(0.305,0.012,8,28),MAT.steel);ring.rotation.x=Math.PI/2;ring.position.y=0.06-r*0.06;ring.userData.piece='piston';u.add(ring);}
+    const rod=rbox(0.1,0.66,0.12,MAT.steel);rod.position.y=-0.52;rod.userData.piece='rod';u.add(rod);
     // combustion flash light inside cylinder (for power stroke)
     const flash=new THREE.PointLight(0xff5a1e,0,1.5,2);flash.position.y=0.3;u.add(flash);
     u.position.set(-0.96+i*0.64,bY+1.28,0);pistonGroup.add(u);
@@ -476,10 +495,10 @@ const pistons=[];
 const headGroup=new THREE.Group(); motor.add(headGroup);
 const plugs=[];
 (function(){
-  const deck=rbox(2.9,0.42,1.65,MAT.block);deck.position.y=bY+1.92;headGroup.add(deck);
-  const cover=rbox(2.7,0.5,1.3,MAT.cover);cover.position.y=bY+2.35;headGroup.add(cover);
-  for(let x=-1.1;x<=1.1;x+=0.44)[0.55,-0.55].forEach(z=>{const b=bolt(0.045);b.position.set(x,bY+2.61,z);headGroup.add(b);});
-  for(let i=0;i<4;i++){const plug=new THREE.Mesh(new THREE.CylinderGeometry(0.05,0.07,0.32,16),MAT.chrome);plug.position.set(-0.96+i*0.64,bY+2.66,0);headGroup.add(plug);
+  const deck=rbox(2.9,0.42,1.65,MAT.block);deck.position.y=bY+1.92;deck.userData.piece='head';headGroup.add(deck);
+  const cover=rbox(2.7,0.5,1.3,MAT.cover);cover.position.y=bY+2.35;cover.userData.piece='head';headGroup.add(cover);
+  for(let x=-1.1;x<=1.1;x+=0.44)[0.55,-0.55].forEach(z=>{const b=bolt(0.045);b.position.set(x,bY+2.61,z);b.userData.piece='head';headGroup.add(b);});
+  for(let i=0;i<4;i++){const plug=new THREE.Mesh(new THREE.CylinderGeometry(0.05,0.07,0.32,16),MAT.chrome);plug.position.set(-0.96+i*0.64,bY+2.66,0);plug.userData.piece='plug';headGroup.add(plug);
     plugs.push({mesh:plug,cyl:i+1});}
 })();
 
@@ -494,7 +513,7 @@ const composer=new EffectComposer(renderer);
 composer.addPass(new RenderPass(scene,camera));
 if(!isMobile&&!noGtao){try{const g=new GTAOPass(scene,camera,innerWidth,innerHeight);g.output=GTAOPass.OUTPUT.Default;if(g.updateGtaoMaterial)g.updateGtaoMaterial({radius:0.5,distanceExponent:1,thickness:1,scale:1.1,samples:16});composer.addPass(g);}catch(e){}}
 const bloom=new UnrealBloomPass(new THREE.Vector2(innerWidth,innerHeight),0.4,0.5,0.9);composer.addPass(bloom);
-let bokeh=null; if(!isMobile&&!lightMode){bokeh=new BokehPass(scene,camera,{focus:8.5,aperture:0.00035,maxblur:0.006,width:innerWidth,height:innerHeight});composer.addPass(bokeh);}
+let bokeh=null; if(!isMobile&&!lightMode){bokeh=new BokehPass(scene,camera,{focus:8.5,aperture:0.00018,maxblur:0.004,width:innerWidth,height:innerHeight});composer.addPass(bokeh);}
 composer.addPass(new OutputPass());
 composer.addPass(new SMAAPass(innerWidth*renderer.getPixelRatio(),innerHeight*renderer.getPixelRatio()));
 addEventListener('resize',()=>{camera.aspect=innerWidth/innerHeight;camera.updateProjectionMatrix();renderer.setSize(innerWidth,innerHeight);composer.setSize(innerWidth,innerHeight);});
@@ -518,13 +537,49 @@ const ray=new THREE.Raycaster(),mouse=new THREE.Vector2();let down=null,onPick=n
 renderer.domElement.addEventListener('pointerdown',e=>down=[e.clientX,e.clientY]);
 renderer.domElement.addEventListener('pointerup',e=>{
   if(!down)return;const moved=Math.abs(e.clientX-down[0])+Math.abs(e.clientY-down[1])>6;down=null;
-  if(moved||!onPick)return;
+  if(moved)return;
   const r=renderer.domElement.getBoundingClientRect();
   mouse.x=((e.clientX-r.left)/r.width)*2-1;mouse.y=-((e.clientY-r.top)/r.height)*2+1;
   ray.setFromCamera(mouse,camera);
   const hits=ray.intersectObjects(motor.children,true);
-  onPick(hits[0]||null);
+  showPieceInfo(hits[0]||null);
+  if(onPick)onPick(hits[0]||null);
 });
+
+/* ============================================================
+   FICHA DE PIEZA — nombre + función al seleccionar (patrón CEN)
+   ============================================================ */
+const PIECE_INFO={
+  block:{tipo:'Estructura fija',nombre:'Bloque motor (monobloque)',funcion:'Cuerpo principal de aluminio que aloja los cilindros y sostiene el cigüeñal en su base. Es el esqueleto del motor: todo lo demás se monta sobre él y disipa gran parte del calor de la combustión.'},
+  cylinder:{tipo:'Cámara de trabajo',nombre:'Cilindro (camisa)',funcion:'Tubo pulido dentro del bloque por donde el pistón sube y baja. Guía su movimiento y, junto con la culata y la cabeza del pistón, forma la cámara donde se comprime y explota la mezcla.'},
+  crank:{tipo:'Componente rotativo',nombre:'Cigüeñal',funcion:'Convierte el movimiento lineal (arriba–abajo) de los pistones en giro. Sus muñequillas están a 180° entre sí en un 4 cilindros en línea, lo que equilibra el motor y permite el orden de encendido uniforme.'},
+  piston:{tipo:'Parte móvil',nombre:'Pistón',funcion:'Recibe el empuje de la explosión de la mezcla y lo transmite por la biela al cigüeñal. Sus anillos sellan la cámara para no perder compresión; si fugan, el motor pierde potencia.'},
+  rod:{tipo:'Enlace mecánico',nombre:'Biela',funcion:'Une el pistón con el cigüeñal. Transforma el movimiento rectilíneo del pistón en el giro del cigüeñal, soportando enormes fuerzas de compresión y tracción en cada ciclo.'},
+  head:{tipo:'Tapa superior',nombre:'Culata',funcion:'Cierra los cilindros por arriba y aloja las válvulas, el árbol de levas y las bujías. Con la cabeza del pistón define el volumen de la cámara de combustión y, por tanto, la relación de compresión.'},
+  plug:{tipo:'Encendido',nombre:'Bujía',funcion:'Genera la chispa eléctrica que enciende la mezcla aire–combustible comprimida en el momento exacto. Las 4 bujías disparan por turnos según el orden de encendido 1-3-4-2 para que el motor gire suave.'},
+};
+function identifyPiece(hit){
+  if(!hit||!hit.object)return null;
+  let o=hit.object;
+  while(o){
+    if(o.userData&&o.userData.piece&&PIECE_INFO[o.userData.piece])return o.userData.piece;
+    if(o===blockGroup)return 'block';
+    if(o===crankGroup)return 'crank';
+    if(o===pistonGroup)return 'piston';
+    if(o===headGroup)return 'head';
+    o=o.parent;
+  }
+  return null;
+}
+function showPieceInfo(hit){
+  const key=identifyPiece(hit);
+  const box=$('pieceInfo');
+  if(!key||!PIECE_INFO[key]){box.classList.remove('show');return;}
+  const info=PIECE_INFO[key];
+  $('piType').textContent=info.tipo;$('piName').textContent=info.nombre;$('piFn').textContent=info.funcion;
+  box.classList.add('show');
+}
+$('piX').onclick=()=>$('pieceInfo').classList.remove('show');
 
 /* ============================================================
    MESA DE PIEZAS — toda pieza visible ANTES de instalarse;
@@ -539,9 +594,9 @@ const KIT_POS={
 function rrPath(c,x,y,w,h,r){c.moveTo(x+r,y);c.lineTo(x+w-r,y);c.arcTo(x+w,y,x+w,y+r,r);c.lineTo(x+w,y+h-r);c.arcTo(x+w,y+h,x+w-r,y+h,r);c.lineTo(x+r,y+h);c.arcTo(x,y+h,x,y+h-r,r);c.lineTo(x,y+r);c.arcTo(x,y,x+r,y,r);c.closePath();}
 function smallLabel2(text,color){
   const cv=document.createElement('canvas');cv.width=560;cv.height=108;const c=cv.getContext('2d');
-  c.fillStyle='rgba(18,12,8,.92)';c.beginPath();rrPath(c,4,4,552,100,24);c.fill();
+  c.fillStyle='rgba(9,26,23,.94)';c.beginPath();rrPath(c,4,4,552,100,24);c.fill();
   c.strokeStyle=color;c.lineWidth=4;c.stroke();
-  c.font='bold 28px Courier New';c.textAlign='center';c.textBaseline='middle';c.fillStyle=color;
+  c.font='700 32px Outfit, system-ui, sans-serif';c.textAlign='center';c.textBaseline='middle';c.fillStyle=color;
   c.fillText(text,280,54);
   const tex=new THREE.CanvasTexture(cv);tex.colorSpace=THREE.SRGBColorSpace;
   const sp=new THREE.Sprite(new THREE.SpriteMaterial({map:tex,depthTest:false,transparent:true}));
@@ -557,7 +612,7 @@ function trayPad2(pos,color){
 const PIECE_ORDER=['block','crank','pistons','head'];
 const PIECE_GROUP={block:blockGroup,crank:crankGroup,pistons:pistonGroup,head:headGroup};
 const PIECE_NAME={block:'BLOQUE',crank:'CIGÜEÑAL',pistons:'PISTONES',head:'CULATA'};
-const PIECE_COLOR={block:'#ff8a3a',crank:'#ffd166',pistons:'#37e0c7',head:'#ff6b6a'};
+const PIECE_COLOR={block:'#4FD1C5',crank:'#FFB703',pistons:'#4FD1C5',head:'#FFB703'};
 const travel={},trays={},lbls={};
 PIECE_ORDER.forEach(k=>{
   const grp=PIECE_GROUP[k];
@@ -637,7 +692,7 @@ function step_block(){
   showTeach('Fase 1 · Paso 1','Instala el bloque motor',
     `<p>El <b>bloque</b> está sobre la mesa. Aloja los 4 cilindros donde suben y bajan los pistones. Es de aluminio con camisas de hierro.</p>
      <div class="why"><b>¿Por qué primero?</b> Todo el motor se construye sobre el bloque: cigüeñal abajo, pistones dentro de los cilindros, culata arriba. Sin bloque no hay dónde montar nada.</div>
-     <div class="task">Toca la pieza naranja de la mesa, o usa el botón, para instalar el bloque.</div>`);
+     <div class="task">Toca la pieza turquesa de la mesa, o usa el botón, para instalar el bloque.</div>`);
   setActions('Mesa de piezas',`<button class="b primary" data-act="place-block"><span class="ic">⬇</span> Instalar bloque (4 cilindros)</button>
      <button class="b" data-act="try-head-first"><span class="ic">⬇</span> Instalar culata primero</button>`);
   platGlow.material.opacity=0.25;
@@ -648,7 +703,7 @@ function step_crank(){
   showTeach('Fase 1 · Paso 2','Instala el cigüeñal',
     `<p>El <b>cigüeñal</b> espera en la mesa. Convierte el movimiento lineal de los pistones en giro. Sus muñequillas (codos) están a <b>180°</b> entre sí en un 4 cilindros.</p>
      <div class="why"><b>El secreto del 4 cilindros:</b> los pistones 1 y 4 suben juntos mientras 2 y 3 bajan. Esa disposición a 180° da equilibrio primario y permite el orden de encendido uniforme.</div>
-     <div class="task">Toca la pieza amarilla de la mesa, o usa el botón, para instalar el cigüeñal.</div>`);
+     <div class="task">Toca la pieza ámbar de la mesa, o usa el botón, para instalar el cigüeñal.</div>`);
   setActions('Mesa de piezas',`<button class="b primary" data-act="place-crank"><span class="ic">⬇</span> Instalar cigüeñal</button>`);
   if(autoMode)setTimeout(()=>{if(!travel.crank.installed)handleAction('place-crank',null);},1900);
 }
@@ -664,7 +719,7 @@ function step_head(){
   showTeach('Fase 1 · Paso 4','Monta la culata',
     `<p>La <b>culata</b> espera en la mesa. Cierra los cilindros por arriba. Aloja las válvulas, el árbol de levas y las bujías que encienden la mezcla.</p>
      <div class="why"><b>La cámara de combustión</b> se forma entre la cabeza del pistón y la culata. Su volumen define la <b>relación de compresión</b>, que calcularás en la Fase 2.</div>
-     <div class="task">Toca la pieza roja de la mesa, o usa el botón, para montar la culata.</div>`);
+     <div class="task">Toca la pieza ámbar de la mesa, o usa el botón, para montar la culata.</div>`);
   setActions('Mesa de piezas',`<button class="b primary" data-act="place-head"><span class="ic">⬇</span> Montar culata + bujías</button>`);
   if(autoMode)setTimeout(()=>{if(!travel.head.installed)handleAction('place-head',null);},1900);
 }
@@ -866,7 +921,7 @@ let showStrokes=false;
 const clock=new THREE.Clock();
 // labels for cylinders (canvas sprites)
 const cylLabels=pistons.map(p=>{const cv=document.createElement('canvas');cv.width=352;cv.height=88;const tex=new THREE.CanvasTexture(cv);tex.colorSpace=THREE.SRGBColorSpace;const sp=new THREE.Sprite(new THREE.SpriteMaterial({map:tex,depthTest:false,transparent:true}));sp.scale.set(1.05,0.26,1);sp.renderOrder=999;motor.add(sp);return {sp,cv,tex,last:-1};});
-function drawLabel(o,cyl,stroke){if(o.last===stroke)return;o.last=stroke;const c=o.cv.getContext('2d');c.clearRect(0,0,352,88);c.fillStyle='rgba(10,9,8,.94)';c.beginPath();rrPath(c,4,4,344,80,18);c.fill();c.strokeStyle=STROKE_COL[stroke];c.lineWidth=4;c.stroke();c.font='bold 26px Courier New';c.textAlign='center';c.textBaseline='middle';c.fillStyle='#a89684';c.fillText('CIL '+cyl,60,44);c.font='bold 30px Courier New';c.fillStyle=STROKE_COL[stroke];c.fillText(STROKE_NAMES[stroke],216,44);o.tex.needsUpdate=true;}
+function drawLabel(o,cyl,stroke){if(o.last===stroke)return;o.last=stroke;const c=o.cv.getContext('2d');c.clearRect(0,0,352,88);c.fillStyle='rgba(9,26,23,.94)';c.beginPath();rrPath(c,4,4,344,80,18);c.fill();c.strokeStyle=STROKE_COL[stroke];c.lineWidth=4;c.stroke();c.font='700 26px Outfit, system-ui, sans-serif';c.textAlign='center';c.textBaseline='middle';c.fillStyle='#8FB3AC';c.fillText('CIL '+cyl,60,44);c.font='800 28px Outfit, system-ui, sans-serif';c.fillStyle=STROKE_COL[stroke];c.fillText(STROKE_NAMES[stroke],216,44);o.tex.needsUpdate=true;}
 
 /* ============================================================
    SONIDO — rugido de motor de combustión con pulsos sincronizados al encendido
@@ -970,6 +1025,8 @@ function animate(){
   bloom.strength=0.4+(running?Math.min(0.22,(rpm/ICE.redline)*0.26):0);
 
   updateAudio(running?rpm:0, crankAngle);
+  // Foco dinámico: el DOF sigue al objetivo de la cámara para que el sujeto quede nítido a cualquier zoom.
+  if(bokeh){ bokeh.uniforms['focus'].value=camera.position.distanceTo(controls.target); }
   controls.update();composer.render();
 }
 animate();
