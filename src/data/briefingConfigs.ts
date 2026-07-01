@@ -11,7 +11,7 @@ export const ALL_BRIEFING_CONFIGS: Record<string, BriefingConfig> = {
     subtitulo: 'Autotrónica · Armado, fundamento y diagnóstico',
     acento: '#2A9D8F',
     duracion: 40,
-    videoUrl: '',
+    videoUrl: 'https://youtu.be/sHSAfaB59d8',
     bienvenida: `¡Bienvenido al taller de Autotrónica de CEN Labs! Soy el Dr. Quantum y hoy no vas a mirar una animación: vas a CONSTRUIR un motor eléctrico pieza por pieza.\n\nUn motor síncrono de imanes permanentes (PMSM) es el corazón de casi todos los vehículos eléctricos modernos. Ensamblarás el estátor, el rotor y los imanes con la polaridad correcta, aplicarás las fórmulas para hacerlo girar a una velocidad objetivo y diagnosticarás fallas reales.\n\nCada decisión tiene una consecuencia física, y cada error te enseña algo. ¡Manos a la obra!`,
     conceptos: [
       { icono: '🧲', nombre: 'Estátor y Rotor', descripcion: 'El campo giratorio del estátor arrastra al rotor de imanes permanentes en sincronía.' },
@@ -41,7 +41,7 @@ export const ALL_BRIEFING_CONFIGS: Record<string, BriefingConfig> = {
     subtitulo: 'Autotrónica · Ciclo Otto y diagnóstico',
     acento: '#2A9D8F',
     duracion: 45,
-    videoUrl: '',
+    videoUrl: 'https://youtu.be/L60Rv4_t8sc',
     bienvenida: `¡Bienvenido de nuevo al taller de Autotrónica! Hoy vas a ensamblar un motor de combustión interna de cuatro tiempos y entender por qué gira.\n\nMontarás el bloque, el cigüeñal, los pistones y la culata, y definirás el orden de encendido 1-3-4-2. Luego calcularás la eficiencia del ciclo Otto a partir de la relación de compresión y observarás los cuatro tiempos en acción. Finalmente, el motor fallará y tendrás que diagnosticar la causa.\n\nCada decisión tiene consecuencia física. ¡Vamos a armarlo!`,
     conceptos: [
       { icono: '⚙️', nombre: 'Ciclo de 4 Tiempos', descripcion: 'Admisión, compresión, explosión y escape: la secuencia que convierte combustible en movimiento.' },
@@ -71,7 +71,7 @@ export const ALL_BRIEFING_CONFIGS: Record<string, BriefingConfig> = {
     subtitulo: 'Mecatrónica · Cinemática, par y diagnóstico',
     acento: '#2A9D8F',
     duracion: 45,
-    videoUrl: '',
+    videoUrl: 'https://youtu.be/z62qgu7tMno',
     bienvenida: `¡Bienvenido al laboratorio de Mecatrónica! Hoy vas a ensamblar un brazo robótico eslabón por eslabón y a controlarlo con matemáticas.\n\nMontarás la base, el hombro, el codo y la muñeca/pinza en el orden estructural correcto. Después calcularás la posición del efector final con cinemática directa y el par necesario para levantar una carga. Por último, el brazo fallará en una tarea y tendrás que encontrar la avería.\n\nCada decisión tiene consecuencia física. ¡Construyamos un manipulador!`,
     conceptos: [
       { icono: '🦾', nombre: 'Eslabones y Articulaciones', descripcion: 'Base, hombro, codo y muñeca forman una cadena cinemática abierta.' },
@@ -101,7 +101,7 @@ export const ALL_BRIEFING_CONFIGS: Record<string, BriefingConfig> = {
     subtitulo: 'Autotrónica · Electrónica de potencia y diagnóstico',
     acento: '#2A9D8F',
     duracion: 40,
-    videoUrl: '',
+    videoUrl: 'https://youtu.be/7McpwVTjTiA',
     bienvenida: `¡Bienvenido al banco de electrónica de potencia de CEN Labs! Hoy vas a ensamblar un inversor trifásico, el dispositivo que convierte corriente continua en las tres fases que mueven un motor.\n\nMontarás el disipador, los capacitores del bus DC, los módulos IGBT, la placa de control y las busbarras. Luego calcularás el voltaje pico de salida y decidirás la frecuencia de conmutación, observando cómo se generan las tres fases. Finalmente diagnosticarás una falla real.\n\nCada decisión tiene consecuencia física. ¡A construir!`,
     conceptos: [
       { icono: '🔌', nombre: 'Bus DC', descripcion: 'Los capacitores estabilizan la tensión continua que alimenta al inversor.' },
@@ -131,7 +131,7 @@ export const ALL_BRIEFING_CONFIGS: Record<string, BriefingConfig> = {
     subtitulo: 'Autotrónica · Infraestructura de carga y diagnóstico',
     acento: '#2A9D8F',
     duracion: 40,
-    videoUrl: '',
+    videoUrl: 'https://youtu.be/Lfw-O9IZkd0',
     bienvenida: `¡Bienvenido a la estación de carga de CEN Labs! Hoy vas a ensamblar una estación de carga rápida en corriente continua para vehículos eléctricos.\n\nMontarás el gabinete, el módulo de potencia, las protecciones, el panel y el cable/conector. Después calcularás la corriente de carga y el tiempo necesario con física real, y observarás la curva de carga. Por último, la carga fallará y tendrás que diagnosticar la causa.\n\nCada decisión tiene consecuencia física. ¡Vamos a energizar!`,
     conceptos: [
       { icono: '🔋', nombre: 'Carga DC Rápida', descripcion: 'La estación entrega corriente continua directa a la batería, saltándose el cargador interno.' },
