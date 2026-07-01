@@ -43,6 +43,12 @@ export default function PilotoCuadraticas() {
 
   const { h: vh, k: vk } = currentRes.vertex;
 
+  // -- GEOMETRÍA DE LA PARÁBOLA: parámetro focal p = 1/4a --
+  const focusReady = Math.abs(a) >= 0.06;
+  const p = 1 / (4 * (Math.abs(a) < 1e-6 ? 1e-6 : a));
+  const focusY = vk + p;
+  const directrixY = vk - p;
+
   // -- PASOS DEL HUD --
   useEffect(() => {
     if (a !== 1 || b !== 0 || c !== 0) {
@@ -110,12 +116,18 @@ export default function PilotoCuadraticas() {
              <div className="grid grid-cols-2 gap-3">
                 <DataChip label="Vértice" value={`(${vh.toFixed(1)}, ${vk.toFixed(1)})`} color="slate" />
                 <DataChip label="Discriminante" value={currentRes.delta.toFixed(1)} color={currentRes.delta < 0 ? 'rose' : 'emerald'} />
+                <DataChip label="Foco" value={focusReady ? `(${vh.toFixed(1)}, ${focusY.toFixed(1)})` : '—'} color="cyan" />
+                <DataChip label="Directriz" value={focusReady ? `y = ${directrixY.toFixed(1)}` : '—'} color="rose" />
              </div>
           </div>
 
           <div className="bg-black/40 backdrop-blur-2xl p-6 rounded-[2rem] border border-white/5 space-y-4">
              <EquivFormRow label="Forma Vértice" color="rose" formula={forms.vertexForm} />
              {forms.factored && <EquivFormRow label="Forma Factorizada" color="amber" formula={forms.factored} />}
+             <div className="grid grid-cols-2 gap-3 pt-1">
+                <DataChip label="Vieta · Suma (−b/a)" value={Number.isFinite(domainInfo.vietaSum) ? domainInfo.vietaSum.toFixed(2) : '—'} color="cyan" />
+                <DataChip label="Vieta · Producto (c/a)" value={Number.isFinite(domainInfo.vietaProduct) ? domainInfo.vietaProduct.toFixed(2) : '—'} color="amber" />
+             </div>
           </div>
         </motion.div>
 
@@ -146,7 +158,7 @@ export default function PilotoCuadraticas() {
 
       {/* ── ESCENA GRÁFICA 3D ── */}
       <div className="absolute inset-0 z-10 pointer-events-auto">
-        <Cuadraticas3DScene a={a} b={b} c={c} target={target} currentRes={currentRes} />
+        <Cuadraticas3DScene a={a} b={b} c={c} target={target} currentRes={currentRes} escenario={cuadraticas.escenario as any} />
       </div>
 
       {/* ── DOCK DE CONTROL INFERIOR ── */}
@@ -232,7 +244,7 @@ export default function PilotoCuadraticas() {
 }
 
 function DataChip({ label, value, color }: any) {
-  const colors: any = { rose: 'text-rose-400', emerald: 'text-emerald-400', slate: 'text-slate-400' };
+  const colors: any = { rose: 'text-rose-400', emerald: 'text-emerald-400', slate: 'text-slate-400', cyan: 'text-cyan-400', amber: 'text-amber-400' };
   return (
     <div className="p-3 bg-white/5 rounded-2xl border border-white/5">
       <span className="text-[7px] font-black text-slate-500 uppercase block mb-1">{label}</span>
