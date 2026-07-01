@@ -5,9 +5,12 @@ const isDev = process.env.NODE_ENV === 'development';
 
 // Dev mode requires 'unsafe-eval' for Next.js HMR / React Refresh runtime.
 // Production omits it for stricter security.
+// Los labs 3D de Mecánica (public/labs/*.html) cargan three.js como módulos ES
+// desde jsdelivr vía importmap; deben estar permitidos en script-src o el
+// navegador bloquea el módulo entero y el lab se queda pegado en la intro.
 const scriptSrc = isDev
-  ? "'self' 'unsafe-inline' 'unsafe-eval' blob: https://www.youtube.com https://s.ytimg.com"
-  : "'self' 'unsafe-inline' blob: https://www.youtube.com https://s.ytimg.com";
+  ? "'self' 'unsafe-inline' 'unsafe-eval' blob: https://www.youtube.com https://s.ytimg.com https://cdn.jsdelivr.net"
+  : "'self' 'unsafe-inline' blob: https://www.youtube.com https://s.ytimg.com https://cdn.jsdelivr.net";
 
 const nextConfig: NextConfig = {
   experimental: {

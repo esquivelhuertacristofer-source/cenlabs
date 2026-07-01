@@ -3,12 +3,12 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>AutoLab 3D · Inversor Trifásico — Laboratorio Didáctico</title>
+<title>CEN Labs · Inversor Trifásico de Potencia — Laboratorio 3D</title>
 <style>
   :root{
-    --bg:#070a0d;--panel:rgba(14,20,28,.86);--line:#233240;--ink:#eaf1f6;
-    --dim:#8a9aa8;--accent:#ff8a3a;--accent2:#5eead4;--hv:#ffd166;--good:#7bd88f;--bad:#f4475e;
-    --mono:'Courier New',ui-monospace,monospace;--disp:'Arial Black',Impact,sans-serif;
+    --bg:#08201C;--panel:rgba(9,26,23,.86);--line:#1E3A34;--ink:#EAF4F1;
+    --dim:#8FB3AC;--accent:#2A9D8F;--accent2:#4FD1C5;--hv:#FFB703;--good:#34d399;--bad:#f4475e;
+    --mono:'Courier New',ui-monospace,monospace;--disp:'Outfit','Arial Black',Impact,sans-serif;
   }
   *{box-sizing:border-box;margin:0;padding:0}
   html,body{height:100%;overflow:hidden;background:var(--bg);color:var(--ink);font-family:system-ui,Segoe UI,Roboto,sans-serif}
@@ -21,7 +21,7 @@
   .phases{display:flex;gap:6px;pointer-events:auto}
   .phase-tab{font-family:var(--mono);font-size:10px;letter-spacing:.06em;text-transform:uppercase;padding:7px 13px;border-radius:30px;border:1px solid var(--line);color:var(--dim);background:rgba(14,20,28,.7);backdrop-filter:blur(8px);display:flex;align-items:center;gap:7px;transition:.2s}
   .phase-tab .nm{width:18px;height:18px;border-radius:50%;background:var(--line);color:var(--bg);display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:bold}
-  .phase-tab.active{border-color:var(--accent);color:var(--ink)} .phase-tab.active .nm{background:var(--accent);color:#1a1209}
+  .phase-tab.active{border-color:var(--accent);color:var(--ink)} .phase-tab.active .nm{background:var(--accent);color:#04211c}
   .phase-tab.done .nm{background:var(--good);color:#06201c} .phase-tab.done{color:var(--good);border-color:rgba(123,216,143,.4)}
   .soundBtn{font-size:16px;background:var(--panel);backdrop-filter:blur(12px);border:1px solid var(--line);border-radius:50%;width:38px;height:38px;cursor:pointer;color:var(--dim);transition:.15s}
   .soundBtn.on{color:var(--accent);border-color:var(--accent)}
@@ -38,21 +38,21 @@
   .intro .obj ul{list-style:none;display:flex;flex-direction:column;gap:8px}
   .intro .obj li{font-size:13px;color:var(--dim);padding-left:22px;position:relative}
   .intro .obj li::before{content:'▸';position:absolute;left:4px;color:var(--accent2)}
-  .startbtn{font-family:var(--mono);font-size:13px;letter-spacing:.12em;text-transform:uppercase;color:#1a1209;background:var(--accent);border:none;padding:15px 34px;border-radius:40px;cursor:pointer;transition:.2s;box-shadow:0 10px 40px rgba(255,138,58,.3)}
-  .startbtn:hover{transform:translateY(-2px);box-shadow:0 16px 50px rgba(255,138,58,.45)}
+  .startbtn{font-family:var(--mono);font-size:13px;letter-spacing:.12em;text-transform:uppercase;color:#04211c;background:var(--accent);border:none;padding:15px 34px;border-radius:40px;cursor:pointer;transition:.2s;box-shadow:0 10px 40px rgba(42,157,143,.3)}
+  .startbtn:hover{transform:translateY(-2px);box-shadow:0 16px 50px rgba(42,157,143,.45)}
   .modeToggle{display:flex;gap:8px;flex-wrap:wrap;justify-content:center;margin-top:2px}
   .modeBtn{font-family:var(--mono);font-size:11px;letter-spacing:.04em;color:var(--dim);background:rgba(14,20,28,.7);border:1px solid var(--line);border-radius:30px;padding:9px 16px;cursor:pointer;transition:.15s}
   .modeBtn:hover{border-color:var(--accent)}
-  .modeBtn.active{background:var(--accent);color:#1a1209;border-color:var(--accent);font-weight:bold}
+  .modeBtn.active{background:var(--accent);color:#04211c;border-color:var(--accent);font-weight:bold}
 
   .teach{position:fixed;top:74px;left:20px;z-index:15;width:330px;background:var(--panel);backdrop-filter:blur(16px);border:1px solid var(--line);border-radius:16px;padding:0;box-shadow:0 20px 60px rgba(0,0,0,.55);overflow:hidden;transition:.4s;opacity:0;transform:translateX(-12px)}
   .teach.show{opacity:1;transform:none}
-  .teach-head{padding:14px 18px;background:linear-gradient(90deg,rgba(255,138,58,.14),transparent);border-bottom:1px solid var(--line)}
+  .teach-head{padding:14px 18px;background:linear-gradient(90deg,rgba(42,157,143,.14),transparent);border-bottom:1px solid var(--line)}
   .teach-head .step-no{font-family:var(--mono);font-size:10px;letter-spacing:.1em;color:var(--accent);text-transform:uppercase}
   .teach-head h3{font-size:16px;margin-top:2px}
   .teach-body{padding:16px 18px}
   .teach-body p{font-size:13.5px;line-height:1.6;color:var(--ink);margin-bottom:12px}
-  .teach-body .why{font-size:12.5px;line-height:1.55;color:var(--dim);background:rgba(94,234,212,.08);border-left:2px solid var(--accent2);padding:10px 12px;border-radius:0 8px 8px 0;margin-bottom:12px}
+  .teach-body .why{font-size:12.5px;line-height:1.55;color:var(--dim);background:rgba(79,209,197,.08);border-left:2px solid var(--accent2);padding:10px 12px;border-radius:0 8px 8px 0;margin-bottom:12px}
   .teach-body .why b{color:var(--accent2)}
   .formula{font-family:var(--mono);color:var(--accent2);text-align:center;font-size:14px;margin:10px 0;padding:8px;background:rgba(0,0,0,.25);border-radius:8px}
   .task{font-family:var(--mono);font-size:12px;color:var(--hv);background:rgba(255,209,102,.08);border:1px dashed rgba(255,209,102,.35);border-radius:8px;padding:10px 12px;margin-bottom:6px}
@@ -64,7 +64,7 @@
   .opt{display:flex;flex-direction:column;gap:7px}
   .b{font-family:system-ui;font-size:13px;padding:11px 12px;border-radius:9px;cursor:pointer;border:1px solid var(--line);background:#121c26;color:var(--ink);transition:.15s;text-align:left;display:flex;align-items:center;gap:9px}
   .b:hover{border-color:var(--accent);background:#17232f}
-  .b.primary{background:var(--accent);color:#1a1209;border-color:var(--accent);font-weight:bold;justify-content:center}
+  .b.primary{background:var(--accent);color:#04211c;border-color:var(--accent);font-weight:bold;justify-content:center}
   .b.good{border-color:var(--good);color:var(--good)} .b.bad{border-color:var(--bad);color:var(--bad)}
   .b:disabled{opacity:.4;cursor:not-allowed} .b .ic{font-size:15px}
   .calcbox{margin-top:6px} .calcbox label{font-family:var(--mono);font-size:11px;color:var(--dim);display:block;margin-bottom:6px}
@@ -94,7 +94,7 @@
     .brand{font-size:15px}.phases{display:none}.hint{display:none}
     .sheetbar{display:flex;gap:8px;position:fixed;top:62px;right:12px;z-index:18}
     .sheetbar button{font-family:var(--mono);font-size:10px;letter-spacing:.08em;text-transform:uppercase;color:var(--ink);background:var(--panel);backdrop-filter:blur(12px);border:1px solid var(--line);border-radius:30px;padding:9px 12px;cursor:pointer}
-    .sheetbar button.on{background:var(--accent);color:#1a1209;border-color:var(--accent)}
+    .sheetbar button.on{background:var(--accent);color:#04211c;border-color:var(--accent)}
     .teach,.actions{position:fixed;left:8px;right:8px;bottom:96px;top:auto;width:auto;max-height:50vh;overflow-y:auto;transform:translateY(130%);opacity:0;pointer-events:none}
     .teach.open,.actions.open{transform:translateY(0)!important;opacity:1!important;pointer-events:auto}
     .feedback{bottom:14px}.phase-mini{display:flex!important}
@@ -106,7 +106,7 @@
 <div id="stage"></div>
 
 <div class="topbar">
-  <div class="brand">Auto<span>Lab</span> 3D</div>
+  <div class="brand">CEN<span> Labs</span></div>
   <div class="phases" id="phases">
     <div class="phase-tab active" data-ph="0"><span class="nm">1</span> Armado</div>
     <div class="phase-tab" data-ph="1"><span class="nm">2</span> Fundamento</div>
@@ -117,7 +117,7 @@
 <div class="phase-mini" id="phaseMini">FASE 1 · ARMADO</div>
 
 <div class="intro" id="intro">
-  <div class="sub">CONALEP · Autotrónica · Laboratorio guiado</div>
+  <div class="sub">CEN Labs · Autotrónica · Laboratorio guiado</div>
   <div class="ttl">Arma y entiende un<br><span>Inversor Trifásico</span></div>
   <p>No es una animación para mirar. Vas a <b>ensamblar el inversor</b> pieza por pieza, <b>calcular el voltaje de salida</b> y decidir la frecuencia de conmutación, y <b>diagnosticar fallas</b> reales de electrónica de potencia. Cada decisión tiene consecuencia física.</p>
   <div class="obj">
