@@ -206,7 +206,10 @@ function tex(canvas,repeat=1,srgb=false){
   const t=new THREE.CanvasTexture(canvas);
   t.wrapS=t.wrapT=THREE.RepeatWrapping;t.repeat.set(repeat,repeat);
   t.colorSpace = srgb?THREE.SRGBColorSpace:THREE.NoColorSpace;
-  t.anisotropy=8; return t;
+  // Sin mipmaps: en algunos GL/webview (p.ej. Antigravity) generateMipmap sobre una textura
+  // de <canvas> deja la textura "incompleta" y se muestrea NEGRA. Como en los metales el map
+  // define F0, esas piezas salían como fichas negras. LinearFilter conserva todo el detalle.
+  t.generateMipmaps=false; t.minFilter=THREE.LinearFilter; t.anisotropy=1; return t;
 }
 // build a normal map from a height function h(x,y)->0..1
 function normalFromHeight(size, hfn, strength=2.0){
@@ -576,7 +579,7 @@ function smallLabel3(text,color){
   c.strokeStyle=color;c.lineWidth=4;c.stroke();
   c.font='700 30px Outfit, system-ui, sans-serif';c.textAlign='center';c.textBaseline='middle';c.fillStyle=color;
   c.fillText(text,260,54);
-  const tex=new THREE.CanvasTexture(cv);tex.colorSpace=THREE.SRGBColorSpace;
+  const tex=new THREE.CanvasTexture(cv);tex.colorSpace=THREE.SRGBColorSpace;tex.generateMipmaps=false;tex.minFilter=THREE.LinearFilter;
   const sp=new THREE.Sprite(new THREE.SpriteMaterial({map:tex,depthTest:false,transparent:true}));
   sp.scale.set(2.0,0.42,1);sp.renderOrder=999;return sp;
 }

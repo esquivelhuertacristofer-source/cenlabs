@@ -210,7 +210,10 @@ function tex(canvas,repeat=1,srgb=false){
   const t=new THREE.CanvasTexture(canvas);
   t.wrapS=t.wrapT=THREE.RepeatWrapping;t.repeat.set(repeat,repeat);
   t.colorSpace = srgb?THREE.SRGBColorSpace:THREE.NoColorSpace;
-  t.anisotropy=8; return t;
+  // Sin mipmaps: en algunos GL/webview (p.ej. Antigravity) generateMipmap sobre una textura
+  // de <canvas> deja la textura "incompleta" y se muestrea NEGRA. Como en los metales el map
+  // define F0, esas piezas salían como fichas negras. LinearFilter conserva todo el detalle.
+  t.generateMipmaps=false; t.minFilter=THREE.LinearFilter; t.anisotropy=1; return t;
 }
 // build a normal map from a height function h(x,y)->0..1
 function normalFromHeight(size, hfn, strength=2.0){
@@ -603,7 +606,7 @@ function smallLabel2(text,color){
   c.strokeStyle=color;c.lineWidth=4;c.stroke();
   c.font='700 32px Outfit, system-ui, sans-serif';c.textAlign='center';c.textBaseline='middle';c.fillStyle=color;
   c.fillText(text,280,54);
-  const tex=new THREE.CanvasTexture(cv);tex.colorSpace=THREE.SRGBColorSpace;
+  const tex=new THREE.CanvasTexture(cv);tex.colorSpace=THREE.SRGBColorSpace;tex.generateMipmaps=false;tex.minFilter=THREE.LinearFilter;
   const sp=new THREE.Sprite(new THREE.SpriteMaterial({map:tex,depthTest:false,transparent:true}));
   sp.scale.set(2.15,0.41,1);sp.renderOrder=999;return sp;
 }
@@ -925,7 +928,7 @@ const STROKE_COL=['#ff5a1e','#8a99a8','#6fb6ff','#ffd166'];
 let showStrokes=false;
 const clock=new THREE.Clock();
 // labels for cylinders (canvas sprites)
-const cylLabels=pistons.map(p=>{const cv=document.createElement('canvas');cv.width=352;cv.height=88;const tex=new THREE.CanvasTexture(cv);tex.colorSpace=THREE.SRGBColorSpace;const sp=new THREE.Sprite(new THREE.SpriteMaterial({map:tex,depthTest:false,transparent:true}));sp.scale.set(1.05,0.26,1);sp.renderOrder=999;labelScene.add(sp);return {sp,cv,tex,last:-1};});
+const cylLabels=pistons.map(p=>{const cv=document.createElement('canvas');cv.width=352;cv.height=88;const tex=new THREE.CanvasTexture(cv);tex.colorSpace=THREE.SRGBColorSpace;tex.generateMipmaps=false;tex.minFilter=THREE.LinearFilter;const sp=new THREE.Sprite(new THREE.SpriteMaterial({map:tex,depthTest:false,transparent:true}));sp.scale.set(1.05,0.26,1);sp.renderOrder=999;labelScene.add(sp);return {sp,cv,tex,last:-1};});
 function drawLabel(o,cyl,stroke){if(o.last===stroke)return;o.last=stroke;const c=o.cv.getContext('2d');c.clearRect(0,0,352,88);c.fillStyle='rgba(9,26,23,.94)';c.beginPath();rrPath(c,4,4,344,80,18);c.fill();c.strokeStyle=STROKE_COL[stroke];c.lineWidth=4;c.stroke();c.font='700 26px Outfit, system-ui, sans-serif';c.textAlign='center';c.textBaseline='middle';c.fillStyle='#8FB3AC';c.fillText('CIL '+cyl,60,44);c.font='800 28px Outfit, system-ui, sans-serif';c.fillStyle=STROKE_COL[stroke];c.fillText(STROKE_NAMES[stroke],216,44);o.tex.needsUpdate=true;}
 
 /* ============================================================
