@@ -1,0 +1,594 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>CEN Labs · Inyección Electrónica MPFI — Laboratorio 3D</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#08201C;--panel:rgba(9,26,23,.86);--line:#1E3A34;--ink:#EAF4F1;
+    --dim:#8FB3AC;--accent:#2A9D8F;--accent2:#4FD1C5;--hv:#FFB703;--good:#34d399;--bad:#f4475e;
+    --mono:'Outfit',system-ui,'Segoe UI',Roboto,sans-serif;--disp:'Outfit','Arial Black',Impact,sans-serif;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  html,body{height:100%;background:var(--bg);color:var(--ink);font-family:'Outfit',system-ui,Segoe UI,Roboto,sans-serif}
+  body{overflow:hidden}
+  #stage{position:fixed;inset:0}
+  canvas{display:block;touch-action:none}
+
+  .topbar{position:fixed;top:0;left:0;right:0;height:56px;display:flex;align-items:center;gap:14px;padding:0 20px;z-index:20;background:linear-gradient(180deg,rgba(10,13,18,.92),transparent);pointer-events:none}
+  .brand{font-family:var(--disp);font-weight:bold;font-size:16px;text-transform:uppercase}
+  .brand span{color:var(--accent)}
+  .lt{font-family:var(--mono);font-size:11px;letter-spacing:.1em;text-transform:uppercase;color:var(--dim)}
+
+  .badge{position:fixed;top:16px;right:20px;z-index:20;font-family:var(--mono);font-size:9px;letter-spacing:.12em;text-transform:uppercase;background:rgba(255,209,102,.12);color:var(--hv);border:1px solid rgba(255,209,102,.35);padding:6px 12px;border-radius:20px}
+
+  .hud{position:fixed;top:70px;left:18px;z-index:15;max-width:320px;background:var(--panel);backdrop-filter:blur(14px);border:1px solid var(--line);border-radius:16px;padding:18px 20px}
+  .hud .eyebrow{font-family:var(--mono);font-size:10px;letter-spacing:.18em;text-transform:uppercase;color:var(--accent);margin-bottom:8px}
+  .hud h2{font-size:19px;line-height:1.15;margin-bottom:9px}
+  .hud p{font-size:13px;line-height:1.55;color:var(--dim);margin-bottom:10px}
+  .hud .formula{font-family:var(--mono);color:var(--accent2);text-align:center;font-size:13px;margin:8px 0;padding:8px;background:rgba(0,0,0,.25);border-radius:8px}
+  .hud .src{font-size:10.5px;color:#7a8894;font-style:italic;margin-top:4px}
+  .legend{display:flex;flex-direction:column;gap:6px;margin:12px 0;padding:10px 12px;background:rgba(0,0,0,.22);border-radius:10px}
+  .legend .li{display:flex;align-items:center;gap:8px;font-size:11.5px;color:#c4d0da}
+  .legend .dot{width:10px;height:10px;border-radius:50%;flex:0 0 auto}
+
+  .panel{position:fixed;top:70px;right:18px;z-index:15;width:236px;background:var(--panel);backdrop-filter:blur(14px);border:1px solid var(--line);border-radius:16px;padding:18px}
+  .panel h4{font-family:var(--mono);font-size:10px;letter-spacing:.14em;text-transform:uppercase;color:var(--dim);margin-bottom:12px}
+  .g{margin-bottom:11px}
+  .gl{display:flex;justify-content:space-between;font-family:var(--mono);font-size:11px;color:var(--dim)}
+  .gl b{color:var(--accent2)}
+  .btns{display:flex;flex-direction:column;gap:7px;margin-top:6px}
+  .b{font-family:system-ui;font-size:12.5px;padding:10px;border-radius:9px;cursor:pointer;border:1px solid var(--line);background:#1b242f;color:var(--ink);transition:.15s;text-align:center}
+  .b:hover{border-color:var(--accent);background:#202c38}
+  .b.on{background:var(--accent);color:#1a1209;border-color:var(--accent);font-weight:bold}
+
+  .hint{position:fixed;bottom:18px;left:18px;z-index:14;font-family:var(--mono);font-size:10px;color:var(--dim);background:var(--panel);padding:7px 12px;border-radius:9px;border:1px solid var(--line)}
+  .toast{position:fixed;top:80px;left:50%;transform:translateX(-50%);z-index:30;background:rgba(18,24,32,.95);border:1px solid var(--accent);padding:10px 20px;border-radius:40px;font-family:var(--mono);font-size:12px;opacity:0;transition:.3s;pointer-events:none}
+  .toast.show{opacity:1}
+  .soundBtn{position:fixed;top:14px;right:18px;z-index:21;font-size:16px;background:var(--panel);backdrop-filter:blur(12px);border:1px solid var(--line);border-radius:50%;width:36px;height:36px;cursor:pointer;color:var(--dim);transition:.15s}
+  .soundBtn.on{color:var(--accent);border-color:var(--accent)}
+  .soundBtn:hover{transform:scale(1.08)}
+  .inspectHint{position:fixed;bottom:18px;right:18px;z-index:14;font-family:var(--mono);font-size:10px;color:var(--accent2);background:var(--panel);padding:7px 12px;border-radius:9px;border:1px solid var(--line)}
+
+  @media(max-width:820px){
+    .hud,.panel{position:fixed;left:8px;right:8px;top:auto;bottom:8px;max-width:none;width:auto;max-height:42vh;overflow-y:auto}
+    .hud{bottom:calc(8px + 42vh + 8px)}
+    .hint{display:none}
+  }
+</style>
+</head>
+<body>
+<div id="stage"></div>
+<button class="soundBtn on" id="soundBtn">🔊</button>
+<div class="topbar">
+  <div class="brand">CEN<span> Labs</span></div>
+  <div class="lt">Inyección Electrónica MPFI</div>
+</div>
+<div class="hud" id="hud"></div>
+<div class="panel" id="panel"></div>
+<div class="hint">Arrastra para orbitar · rueda para zoom</div>
+<div class="inspectHint">👆 Toca una pieza para identificarla</div>
+<div class="toast" id="toast"></div>
+
+<script type="importmap">
+{ "imports": {
+  "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.min.js",
+  "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/"
+}}
+</script>
+<script type="module">
+import * as THREE from 'three';
+import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
+import { RoundedBoxGeometry } from 'three/addons/geometries/RoundedBoxGeometry.js';
+import { EffectComposer } from 'three/addons/postprocessing/EffectComposer.js';
+import { RenderPass } from 'three/addons/postprocessing/RenderPass.js';
+import { GTAOPass } from 'three/addons/postprocessing/GTAOPass.js';
+import { UnrealBloomPass } from 'three/addons/postprocessing/UnrealBloomPass.js';
+import { SMAAPass } from 'three/addons/postprocessing/SMAAPass.js';
+import { OutputPass } from 'three/addons/postprocessing/OutputPass.js';
+
+/* ===== textures (solo gradientBG del fondo) ===== */
+
+/* ============================================================
+   Texturas PBR procedurales (sin archivos externos)
+   Cada función devuelve {map, roughnessMap, normalMap?, metalnessMap?}
+   ============================================================ */
+
+function cv(s=512){const c=document.createElement('canvas');c.width=c.height=s;return c;}
+function tex(canvas,repeat=1,srgb=false){
+  const t=new THREE.CanvasTexture(canvas);
+  t.wrapS=t.wrapT=THREE.RepeatWrapping;t.repeat.set(repeat,repeat);
+  t.colorSpace = srgb?THREE.SRGBColorSpace:THREE.NoColorSpace;
+  t.generateMipmaps=false; t.minFilter=THREE.LinearFilter; t.anisotropy=1; return t;
+}
+// build a normal map from a height function h(x,y)->0..1
+function normalFromHeight(size, hfn, strength=2.0){
+  const c=cv(size),ctx=c.getContext('2d'),img=ctx.createImageData(size,size);
+  const H=(x,y)=>hfn((x+size)%size,(y+size)%size);
+  for(let y=0;y<size;y++)for(let x=0;x<size;x++){
+    const dx=(H(x+1,y)-H(x-1,y))*strength;
+    const dy=(H(x,y+1)-H(x,y-1))*strength;
+    const nz=1.0; const len=Math.hypot(dx,dy,nz);
+    const i=(y*size+x)*4;
+    img.data[i]  =((-dx/len)*0.5+0.5)*255;
+    img.data[i+1]=((-dy/len)*0.5+0.5)*255;
+    img.data[i+2]=((nz/len)*0.5+0.5)*255;
+    img.data[i+3]=255;
+  }
+  ctx.putImageData(img,0,0);return c;
+}
+function valueNoise(seed=1){
+  // simple hashed value noise
+  const g=(x,y)=>{const s=Math.sin((x*127.1+y*311.7)+seed*13.13)*43758.5453;return s-Math.floor(s);};
+  return (x,y)=>{
+    const xi=Math.floor(x),yi=Math.floor(y),xf=x-xi,yf=y-yi;
+    const u=xf*xf*(3-2*xf),v=yf*yf*(3-2*yf);
+    const a=g(xi,yi),b=g(xi+1,yi),c=g(xi,yi+1),d=g(xi+1,yi+1);
+    return a*(1-u)*(1-v)+b*u*(1-v)+c*(1-u)*v+d*u*v;
+  };
+}
+function fbm(noise,x,y,oct=4){let v=0,a=0.5,f=1;for(let i=0;i<oct;i++){v+=noise(x*f,y*f)*a;f*=2;a*=0.5;}return v;}
+
+/* ---------- ALUMINIO FUNDIDO (bloque, culata) ---------- */
+function castAluminum(){
+  const S=512, n=valueNoise(7);
+  // color: grain
+  const c=cv(S),ctx=c.getContext('2d'),img=ctx.createImageData(S,S);
+  for(let y=0;y<S;y++)for(let x=0;x<S;x++){
+    const v=fbm(n,x/22,y/22,5);
+    const por=Math.pow(n(x/3.1,y/3.1),8); // sparse pores
+    const base=150+v*38-por*70;
+    const i=(y*S+x)*4; img.data[i]=base; img.data[i+1]=base+4; img.data[i+2]=base+10; img.data[i+3]=255;
+  }
+  ctx.putImageData(img,0,0);
+  // roughness: pores rougher
+  const r=cv(S),rx=r.getContext('2d'),rimg=rx.createImageData(S,S);
+  for(let y=0;y<S;y++)for(let x=0;x<S;x++){
+    const v=fbm(n,x/18,y/18,4); const por=Math.pow(n(x/3.1,y/3.1),8);
+    const rough=120+v*40+por*90; const i=(y*S+x)*4;
+    rimg.data[i]=rimg.data[i+1]=rimg.data[i+2]=Math.min(255,rough); rimg.data[i+3]=255;
+  }
+  rx.putImageData(rimg,0,0);
+  const nrm=normalFromHeight(S,(x,y)=>fbm(n,x/16,y/16,5)+Math.pow(n(x/3.1,y/3.1),8)*0.6,3.0);
+  return {map:tex(c,1,true),roughnessMap:tex(r),normalMap:tex(nrm)};
+}
+
+/* ---------- METAL CEPILLADO (acero, pulleys) ---------- */
+function brushedMetal(){
+  const S=512, n=valueNoise(3);
+  const c=cv(S),ctx=c.getContext('2d'),img=ctx.createImageData(S,S);
+  for(let y=0;y<S;y++)for(let x=0;x<S;x++){
+    // anisotropic streaks along x
+    const streak=Math.sin(y*0.9)*2 + (n(x/120,y*0.5)-0.5)*40;
+    const base=185+streak; const i=(y*S+x)*4;
+    img.data[i]=base; img.data[i+1]=base+2; img.data[i+2]=base+6; img.data[i+3]=255;
+  }
+  ctx.putImageData(img,0,0);
+  const r=cv(S),rx=r.getContext('2d'),rimg=rx.createImageData(S,S);
+  for(let y=0;y<S;y++)for(let x=0;x<S;x++){
+    const streak=(n(x/120,y*0.5)-0.5)*60; const rough=40+Math.abs(streak); const i=(y*S+x)*4;
+    rimg.data[i]=rimg.data[i+1]=rimg.data[i+2]=Math.min(160,rough); rimg.data[i+3]=255;
+  }
+  rx.putImageData(rimg,0,0);
+  const nrm=normalFromHeight(S,(x,y)=>(n(x/120,y*0.5))*0.3+Math.sin(y*0.9)*0.02,1.2);
+  return {map:tex(c,1,true),roughnessMap:tex(r),normalMap:tex(nrm)};
+}
+
+/* ---------- PINTURA CÁSCARA DE NARANJA (tapa de balancines) ---------- */
+function orangePeel(r=0.70,g=0.25,b=0.09){
+  const S=512, n=valueNoise(11);
+  const c=cv(S),ctx=c.getContext('2d'),img=ctx.createImageData(S,S);
+  for(let y=0;y<S;y++)for(let x=0;x<S;x++){
+    const v=fbm(n,x/40,y/40,3)*0.12+0.94;
+    const i=(y*S+x)*4;
+    img.data[i]=r*255*v; img.data[i+1]=g*255*v; img.data[i+2]=b*255*v; img.data[i+3]=255;
+  }
+  ctx.putImageData(img,0,0);
+  // clearcoat-ish: low roughness but with the peel bumps
+  const nrm=normalFromHeight(S,(x,y)=>fbm(n,x/14,y/14,3),1.6);
+  const rough=cv(64),rc=rough.getContext('2d');rc.fillStyle='#444';rc.fillRect(0,0,64,64);
+  return {map:tex(c,1,true),roughnessMap:tex(rough),normalMap:tex(nrm)};
+}
+
+/* ---------- CAUCHO / MANGUERAS ---------- */
+function rubber(){
+  const S=256,n=valueNoise(5);
+  const nrm=normalFromHeight(S,(x,y)=>fbm(n,x/8,y/8,4),1.4);
+  const rough=cv(64),rc=rough.getContext('2d');rc.fillStyle='#e0e0e0';rc.fillRect(0,0,64,64);
+  return {roughnessMap:tex(rough),normalMap:tex(nrm,2)};
+}
+
+/* gradient environment background canvas (для scene.background) */
+function gradientBG(top='#11161d',bottom='#05070a'){
+  const c=cv(512),ctx=c.getContext('2d');
+  const grd=ctx.createLinearGradient(0,0,0,512);
+  grd.addColorStop(0,top);grd.addColorStop(1,bottom);
+  ctx.fillStyle=grd;ctx.fillRect(0,0,512,512);
+  // subtle vignette glow center
+  const rg=ctx.createRadialGradient(256,200,30,256,256,360);
+  rg.addColorStop(0,'rgba(255,120,40,0.10)');rg.addColorStop(1,'rgba(0,0,0,0)');
+  ctx.fillStyle=rg;ctx.fillRect(0,0,512,512);
+  return tex(c,1,true);
+}
+
+/* ---------- PINTURA AUTOMOTRIZ LISA (carrocería, brazo robot) ---------- */
+function carPaint(r=0.15,g=0.35,b=0.85){
+  const S=256, n=valueNoise(21);
+  const c=cv(S),ctx=c.getContext('2d'),img=ctx.createImageData(S,S);
+  for(let y=0;y<S;y++)for(let x=0;x<S;x++){
+    const v=fbm(n,x/60,y/60,2)*0.06+0.95;
+    const i=(y*S+x)*4;
+    img.data[i]=r*255*v; img.data[i+1]=g*255*v; img.data[i+2]=b*255*v; img.data[i+3]=255;
+  }
+  ctx.putImageData(img,0,0);
+  const rough=cv(32),rc=rough.getContext('2d');rc.fillStyle='#2a2a2a';rc.fillRect(0,0,32,32);
+  return {map:tex(c,1,true),roughnessMap:tex(rough)};
+}
+
+/* ---------- PLÁSTICO TÉCNICO (cubiertas, conector de carga) ---------- */
+function techPlastic(r=0.10,g=0.11,b=0.13){
+  const S=256,n=valueNoise(31);
+  const c=cv(S),ctx=c.getContext('2d'),img=ctx.createImageData(S,S);
+  for(let y=0;y<S;y++)for(let x=0;x<S;x++){
+    const v=fbm(n,x/30,y/30,3)*0.1+0.92; const i=(y*S+x)*4;
+    img.data[i]=r*255*v;img.data[i+1]=g*255*v;img.data[i+2]=b*255*v;img.data[i+3]=255;
+  }
+  ctx.putImageData(img,0,0);
+  const nrm=normalFromHeight(S,(x,y)=>fbm(n,x/10,y/10,3),0.8);
+  const rough=cv(64),rc=rough.getContext('2d');rc.fillStyle='#9a9a9a';rc.fillRect(0,0,64,64);
+  return {map:tex(c,1,true),roughnessMap:tex(rough),normalMap:tex(nrm)};
+}
+
+/* ---------- BOBINADO DE COBRE (motor eléctrico) ---------- */
+function copperWinding(){
+  const S=256;
+  const c=cv(S),ctx=c.getContext('2d');
+  // horizontal copper wire bands
+  for(let y=0;y<S;y+=6){
+    const sh=Math.sin(y*0.5)*20;
+    ctx.fillStyle=`rgb(${180+sh},${100+sh*0.5},${50+sh*0.3})`;
+    ctx.fillRect(0,y,S,5);
+    ctx.fillStyle='rgba(0,0,0,0.25)';ctx.fillRect(0,y+5,S,1);
+  }
+  const nrm=normalFromHeight(S,(x,y)=>Math.sin(y*0.5)*0.5+0.5,2.0);
+  const rough=cv(32),rc=rough.getContext('2d');rc.fillStyle='#5a5a5a';rc.fillRect(0,0,32,32);
+  return {map:tex(c,1,true),roughnessMap:tex(rough),normalMap:tex(nrm,1)};
+}
+
+
+/* ===== engine ===== */
+
+/* ============================================================
+   ENGINE — render premium compartido por todos los laboratorios
+   ============================================================ */
+function createStage(mount, opts={}){
+  const bgTop = opts.bgTop||'#141b24', bgBot = opts.bgBot||'#05070a';
+  const renderer = new THREE.WebGLRenderer({ antialias:true });
+  renderer.setPixelRatio(Math.min(devicePixelRatio,2));
+  renderer.setSize(mount.clientWidth, mount.clientHeight);
+  renderer.shadowMap.enabled = true;
+  renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+  renderer.toneMapping = THREE.ACESFilmicToneMapping;
+  renderer.toneMappingExposure = opts.exposure ?? 1.15;
+  renderer.outputColorSpace = THREE.SRGBColorSpace;
+  mount.appendChild(renderer.domElement);
+  renderer.domElement.style.touchAction='none';
+
+  const scene = new THREE.Scene();
+  scene.background = gradientBG(bgTop,bgBot);
+  const pmrem = new THREE.PMREMGenerator(renderer);
+  scene.environment = pmrem.fromScene(new RoomEnvironment(renderer), 0.04).texture;
+  scene.environmentIntensity = opts.envInt ?? 1.1;
+
+  const camera = new THREE.PerspectiveCamera(45, mount.clientWidth/mount.clientHeight, 0.1, 200);
+  const cam = opts.cam || [5.5,3.4,6.2];
+  camera.position.set(...cam);
+
+  const controls = new OrbitControls(camera, renderer.domElement);
+  controls.enableDamping = true; controls.dampingFactor = 0.07;
+  controls.minDistance = opts.minD ?? 3; controls.maxDistance = opts.maxD ?? 18;
+  controls.maxPolarAngle = Math.PI*0.52;
+  controls.target.set(...(opts.target||[0,1.4,0]));
+  controls.autoRotate = opts.autoRotate ?? false;
+  controls.autoRotateSpeed = opts.autoRotateSpeed ?? 0.6;
+
+  // lighting: studio 3-point + warm rim
+  const key = new THREE.DirectionalLight(0xffffff, 2.6);
+  key.position.set(5,9,6); key.castShadow=true;
+  key.shadow.mapSize.set(2048,2048);
+  key.shadow.camera.near=0.5; key.shadow.camera.far=40;
+  const sd=8; Object.assign(key.shadow.camera,{left:-sd,right:sd,top:sd,bottom:-sd});
+  key.shadow.bias=-0.0003; key.shadow.normalBias=0.02; scene.add(key);
+  const rim = new THREE.SpotLight(0xff7a2a, 60, 30, Math.PI/5, 0.4, 1.5);
+  rim.position.set(-7,6,-5); scene.add(rim);
+  const fill = new THREE.DirectionalLight(0x6fb6ff, 0.5); fill.position.set(-4,3,7); scene.add(fill);
+  scene.add(new THREE.HemisphereLight(0x9fb4c8, 0x10151b, 0.35));
+
+  // reflective showroom floor
+  if(opts.floor!==false){
+    const f = new THREE.Mesh(new THREE.CircleGeometry(40,80),
+      new THREE.MeshStandardMaterial({ color:0x0a0e13, roughness:0.18, metalness:0.55, envMapIntensity:0.9 }));
+    f.rotation.x=-Math.PI/2; f.receiveShadow=true; scene.add(f);
+    for(let r=2;r<=8;r+=2){
+      const ring=new THREE.Mesh(new THREE.RingGeometry(r-0.012,r+0.012,80),
+        new THREE.MeshBasicMaterial({color:0x1a2632,transparent:true,opacity:0.4}));
+      ring.rotation.x=-Math.PI/2; ring.position.y=0.002; scene.add(ring);
+    }
+  }
+
+  // post FX
+  const isMobile = /Mobi|Android|iPhone|iPad/i.test(navigator.userAgent) || innerWidth<820;
+  const noGtao = /[?&]nogtao/.test(location.search);
+  const composer = new EffectComposer(renderer);
+  composer.addPass(new RenderPass(scene,camera));
+  if(!isMobile && !noGtao){
+    try{
+      const g=new GTAOPass(scene,camera,mount.clientWidth,mount.clientHeight);
+      g.output=GTAOPass.OUTPUT.Default;
+      if(g.updateGtaoMaterial)g.updateGtaoMaterial({radius:0.5,distanceExponent:1,thickness:1,scale:1.1,samples:16});
+      composer.addPass(g);
+    }catch(e){}
+  }
+  const bloom=new UnrealBloomPass(new THREE.Vector2(mount.clientWidth,mount.clientHeight),opts.bloom??0.42,0.5,0.9);
+  composer.addPass(bloom);
+  composer.addPass(new OutputPass());
+  composer.addPass(new SMAAPass(mount.clientWidth*renderer.getPixelRatio(),mount.clientHeight*renderer.getPixelRatio()));
+
+  function resize(){
+    const w=mount.clientWidth,h=mount.clientHeight;
+    camera.aspect=w/h; camera.updateProjectionMatrix();
+    renderer.setSize(w,h); composer.setSize(w,h);
+  }
+  addEventListener('resize',resize);
+
+  const clock=new THREE.Clock();
+  let hook=null, raf=null;
+  const camCine={active:false,t:0,dur:1.4,from:new THREE.Vector3(),to:new THREE.Vector3(),fromT:new THREE.Vector3(),toT:new THREE.Vector3()};
+  let lastDrag=-99, cinematicIdle=false;
+  controls.addEventListener('start',()=>{ lastDrag=clock.elapsedTime; camCine.active=false; });
+  function easeInOutCubic(x){return x<0.5?4*x*x*x:1-Math.pow(-2*x+2,3)/2;}
+  function moveTo(pos,target,dur=1.4){
+    camCine.from.copy(camera.position); camCine.fromT.copy(controls.target);
+    camCine.to.set(...pos); camCine.toT.set(...target);
+    camCine.dur=dur; camCine.active=true; camCine.t=0;
+  }
+  function setCinematicIdle(v){ cinematicIdle=v; if(!v)controls.autoRotate=false; }
+  function loop(){ raf=requestAnimationFrame(loop); const dt=clock.getDelta(),t=clock.elapsedTime;
+    if(camCine.active){
+      camCine.t=Math.min(1,camCine.t+dt/camCine.dur);
+      const e=easeInOutCubic(camCine.t);
+      camera.position.lerpVectors(camCine.from,camCine.to,e);
+      controls.target.lerpVectors(camCine.fromT,camCine.toT,e);
+      if(camCine.t>=1)camCine.active=false;
+    } else if(cinematicIdle){
+      controls.autoRotate=(t-lastDrag)>1.4; controls.autoRotateSpeed=0.45;
+    }
+    if(hook)hook(dt,t); controls.update(); composer.render(); }
+  function start(){ if(!raf)loop(); }
+  function stop(){ cancelAnimationFrame(raf); raf=null; }
+
+  return { THREE, renderer, scene, camera, controls, composer, bloom,
+    setAnimate:fn=>hook=fn, start, stop, resize, clock,
+    flyTo:(v)=>{ controls.target.copy(v); }, moveTo, setCinematicIdle };
+}
+
+/* ---------- shared geometry/material helpers ---------- */
+function roundedBox(w,h,d,mat,rf=0.08){
+  const r=Math.min(w,h,d)*rf;
+  const m=new THREE.Mesh(new RoundedBoxGeometry(w,h,d,4,r),mat);
+  m.castShadow=m.receiveShadow=true; return m;
+}
+function pickerFor(scene,camera,dom,onHit){
+  const ray=new THREE.Raycaster(),mouse=new THREE.Vector2(); let down=null;
+  dom.addEventListener('pointerdown',e=>down=[e.clientX,e.clientY]);
+  dom.addEventListener('pointerup',e=>{
+    if(!down)return; const moved=Math.abs(e.clientX-down[0])+Math.abs(e.clientY-down[1])>6; down=null;
+    if(moved)return;
+    const r=dom.getBoundingClientRect();
+    mouse.x=((e.clientX-r.left)/r.width)*2-1; mouse.y=-((e.clientY-r.top)/r.height)*2+1;
+    ray.setFromCamera(mouse,camera);
+    const hits=ray.intersectObjects(scene.children,true);
+    onHit(hits[0]||null);
+  });
+}
+function labelSprite(text,color='#ffd166'){
+  const w = Math.max(280, Math.min(520, text.length*26+60));
+  const cv=document.createElement('canvas');cv.width=w;cv.height=96;
+  const c=cv.getContext('2d');c.fillStyle='rgba(8,11,16,.95)';
+  const rr=(x,y,ww,hh,r)=>{c.beginPath();c.moveTo(x+r,y);c.arcTo(x+ww,y,x+ww,y+hh,r);c.arcTo(x+ww,y+hh,x,y+hh,r);c.arcTo(x,y+hh,x,y,r);c.arcTo(x,y,x+ww,y,r);c.closePath();};
+  rr(3,3,w-6,90,18);c.fill();
+  c.strokeStyle=color;c.lineWidth=3;c.stroke();
+  c.font='bold 36px Outfit, system-ui, sans-serif';c.fillStyle=color;c.textAlign='center';c.textBaseline='middle';c.fillText(text,w/2,48);
+  const tx=new THREE.CanvasTexture(cv);tx.colorSpace=THREE.SRGBColorSpace;tx.generateMipmaps=false;tx.minFilter=THREE.LinearFilter;
+  const sp=new THREE.Sprite(new THREE.SpriteMaterial({map:tx,depthTest:false,transparent:true}));
+  const aspect=w/96;                 // mismo tamaño EN PANTALLA que antes (altura 0.38), solo más nítido
+  sp.scale.set(0.38*aspect,0.38,1);sp.renderOrder=999;return sp;
+}
+
+/* ============================================================
+   SYNTH — sintetizador Web Audio reutilizable (sin canvas, sin riesgo)
+   ============================================================ */
+function makeSynth(opts={}){
+  const type=opts.type||'sawtooth';
+  let ctx=null,oscA=null,oscB=null,gain=null,filter=null,soundOn=true;
+  function init(){
+    if(ctx)return;
+    try{
+      ctx=new (window.AudioContext||window.webkitAudioContext)();
+      oscA=ctx.createOscillator(); oscB=ctx.createOscillator();
+      oscA.type=type; oscB.type=opts.type2||'square';
+      filter=ctx.createBiquadFilter(); filter.type=opts.filterType||'lowpass'; filter.frequency.value=opts.filterFreq||500; filter.Q.value=opts.Q||3;
+      gain=ctx.createGain(); gain.gain.value=0;
+      oscA.connect(filter); oscB.connect(filter); filter.connect(gain); gain.connect(ctx.destination);
+      oscA.start(); oscB.start();
+    }catch(e){}
+  }
+  function update(freqA,freqB,vol,filterFreq){
+    if(!ctx||!soundOn){ if(gain)gain.gain.setTargetAtTime(0,ctx?.currentTime||0,0.1); return; }
+    oscA.frequency.setTargetAtTime(freqA,ctx.currentTime,0.04);
+    if(freqB!==undefined)oscB.frequency.setTargetAtTime(freqB,ctx.currentTime,0.04);
+    if(filterFreq!==undefined)filter.frequency.setTargetAtTime(filterFreq,ctx.currentTime,0.05);
+    gain.gain.setTargetAtTime(Math.max(0,vol),ctx.currentTime,0.06);
+  }
+  function beep(freq=880,dur=0.09,vol=0.06){
+    if(!ctx||!soundOn)return;
+    const o=ctx.createOscillator(),g=ctx.createGain();
+    o.type='sine'; o.frequency.value=freq;
+    g.gain.setValueAtTime(vol,ctx.currentTime); g.gain.exponentialRampToValueAtTime(0.001,ctx.currentTime+dur);
+    o.connect(g); g.connect(ctx.destination); o.start(); o.stop(ctx.currentTime+dur);
+  }
+  function toggle(){ soundOn=!soundOn; return soundOn; }
+  function resume(){ if(ctx&&ctx.state==='suspended')ctx.resume(); }
+  return { init, update, beep, toggle, resume, isOn:()=>soundOn, state:()=>ctx?.state||'none' };
+}
+
+
+/* ===== lab ===== */
+
+/* ============================================================
+   SISTEMA DE INYECCIÓN ELECTRÓNICA — LAB BÁSICO
+   Referencia: sistema MPFI (inyección multipunto) 4 cilindros, coherente
+   con el motor HR16DE ya usado en el set (mismo orden de encendido 1-3-4-2)
+   ============================================================ */
+const INJ={ AFR:14.7, deadTime:1.0, boreCyl:4, firing:[1,3,4,2] };
+function pulseWidthMs(loadPct,rpm){
+  // modelo didáctico: PW crece con carga, cae ligeramente con rpm alto (menos tiempo por ciclo)
+  const base = 2.2 + (loadPct/100)*13.0;
+  const rpmCorr = 1 - Math.min(0.15, rpm/40000);
+  return base*rpmCorr + INJ.deadTime;
+}
+
+const mount=document.getElementById('stage');
+const S=createStage(mount,{cam:[5.5,3.6,6.2],target:[0,1.4,0],bgTop:'#141a10',bgBot:'#04060a',bloom:0.4});
+const {scene}=S;
+const std=o=>new THREE.MeshStandardMaterial(o);
+const MAT={
+  rail:std({color:0x9aa3ad,roughness:0.35,metalness:0.95}),
+  inj:std({color:0x2a3038,roughness:0.4,metalness:0.7}),
+  ecu:std({color:0x14181c,roughness:0.5,metalness:0.4}),
+  manifold:std({color:0xc7ccd2,roughness:0.5,metalness:0.85}),
+  sensor:std({color:0xffd166,roughness:0.4,metalness:0.5}),
+  wire:std({color:0x1a1a1a,roughness:0.7}),
+};
+
+const group=new THREE.Group(); group.position.set(0,1.0,0); scene.add(group);
+// riel de combustible
+const rail=roundedBox(2.6,0.16,0.16,MAT.rail,0.4); rail.position.set(0,1.3,0.5); group.add(rail);
+// 4 inyectores colgando del riel hacia el múltiple
+const injectors=[]; const injFlash=[];
+for(let i=0;i<4;i++){
+  const x=-0.9+i*0.6;
+  const inj=roundedBox(0.14,0.4,0.14,MAT.inj,0.25); inj.position.set(x,1.05,0.5); group.add(inj); injectors.push(inj);
+  const tip=new THREE.Mesh(new THREE.ConeGeometry(0.05,0.12,12),std({color:0xffaa33,emissive:0x000000}));
+  tip.position.set(x,0.82,0.5); tip.rotation.x=Math.PI; group.add(tip); injFlash.push(tip);
+}
+// múltiple de admisión
+const manifold=roundedBox(2.4,0.5,0.9,MAT.manifold,0.2); manifold.position.set(0,0.55,0.15); group.add(manifold);
+for(let i=0;i<4;i++){const x=-0.9+i*0.6;const runner=new THREE.Mesh(new THREE.CylinderGeometry(0.12,0.14,0.4,16),MAT.manifold);runner.position.set(x,0.35,-0.25);group.add(runner);}
+// ECU
+const ecu=roundedBox(0.7,0.45,0.9,MAT.ecu,0.15); ecu.position.set(2.1,0.9,-0.6); group.add(ecu);
+// sensores
+const sensors=[
+  {name:'MAP',pos:[-2.0,0.9,-0.3]},
+  {name:'TPS',pos:[-1.6,1.0,0.8]},
+  {name:'O2',pos:[0.8,0.35,-1.0]},
+];
+sensors.forEach(sd=>{
+  const s=new THREE.Mesh(new THREE.CylinderGeometry(0.09,0.09,0.22,16),MAT.sensor); s.position.set(...sd.pos); group.add(s); sd.mesh=s;
+
+  const curve=new THREE.QuadraticBezierCurve3(new THREE.Vector3(...sd.pos),new THREE.Vector3(1.0,1.1,-0.4),new THREE.Vector3(2.1,1.15,-0.6));
+  group.add(new THREE.Mesh(new THREE.TubeGeometry(curve,20,0.02,8),MAT.wire));
+});
+const railWire=new THREE.Mesh(new THREE.TubeGeometry(new THREE.QuadraticBezierCurve3(new THREE.Vector3(0,1.3,0.58),new THREE.Vector3(1.2,1.4,-0.1),new THREE.Vector3(2.1,1.15,-0.6)),20,0.02,8),MAT.wire);
+group.add(railWire);
+
+/* ---- inspección por clic ---- */
+const parts=[
+  {obj:rail,name:'Riel de combustible',desc:'Mantiene la presión constante para los 4 inyectores.'},
+  {obj:manifold,name:'Múltiple de admisión',desc:'Distribuye el aire hacia cada cilindro.'},
+  {obj:ecu,name:'ECU',desc:'Calcula el ancho de pulso de cada inyector en tiempo real.'},
+];
+injectors.forEach((inj,i)=>parts.push({obj:inj,name:'Inyector '+(i+1),desc:'Abre por un pulso eléctrico calculado por la ECU.'}));
+sensors.forEach(sd=>parts.push({obj:sd.mesh,name:'Sensor '+sd.name,desc:sd.name==='MAP'?'Mide la presión del múltiple de admisión.':sd.name==='TPS'?'Mide la posición del acelerador.':'Mide el oxígeno residual en el escape.'}));
+const toast=document.getElementById('toast');
+function showToast(html){toast.innerHTML=html;toast.classList.add('show');clearTimeout(showToast._t);showToast._t=setTimeout(()=>toast.classList.remove('show'),2600);}
+pickerFor(scene,S.camera,S.renderer.domElement,hit=>{
+  if(!hit)return;
+  let o=hit.object;
+  while(o){ const p=parts.find(p=>p.obj===o); if(p){showToast(`<b style="color:var(--accent)">${p.name}</b><br><span style="color:var(--dim);font-size:11px">${p.desc}</span>`);return;} o=o.parent; }
+});
+
+/* explode */
+const homes={rail:rail.position.clone(),manifold:manifold.position.clone(),ecu:ecu.position.clone()};
+let exploded=false,running=false,loadPct=40,rpm=2000,t=0;
+const synth=makeSynth({type:'sawtooth',type2:'square',filterFreq:400,Q:4});
+
+S.setAnimate((dt,time)=>{
+  t=time;
+  const ex=exploded?1:0;
+  rail.position.y=THREE.MathUtils.lerp(rail.position.y,homes.rail.y+ex*0.9,0.1);
+  manifold.position.y=THREE.MathUtils.lerp(manifold.position.y,homes.manifold.y-ex*0.5,0.1);
+  ecu.position.x=THREE.MathUtils.lerp(ecu.position.x,homes.ecu.x+ex*0.8,0.1);
+  injectors.forEach((inj,i)=>{inj.position.y=THREE.MathUtils.lerp(inj.position.y,1.05+ex*0.45,0.1);});
+
+  if(running){
+    const pw=pulseWidthMs(loadPct,rpm);
+    const cycleHz=(rpm/60)/2; // cada cilindro inyecta cada 2 vueltas (4 tiempos)
+    INJ.firing.forEach((cyl,order)=>{
+      const idx=cyl-1;
+      const phase=(time*cycleHz*4 - order)%4;
+      const firing = phase>=0 && phase<(pw/1000)*cycleHz*4*3;
+      injFlash[idx].material.emissive.setHex(((Math.sin(time*cycleHz*4*Math.PI*2 - order*Math.PI/2))>0.7)?0xff8822:0x000000);
+    });
+    const pwEl=document.getElementById('t_pw'); if(pwEl)pwEl.textContent=pw.toFixed(1)+' ms';
+    const fuelEl=document.getElementById('t_fuel'); if(fuelEl)fuelEl.textContent=((loadPct/100)*4.2).toFixed(2)+' g/s';
+    const rpmEl=document.getElementById('t_rpm'); if(rpmEl)rpmEl.textContent=Math.round(rpm)+' rpm';
+    synth.update(70+rpm/60, 90+rpm/40, 0.02+loadPct/100*0.03, 300+rpm*0.05);
+  } else { synth.update(0,0,0); }
+});
+S.start();
+
+document.getElementById('hud').innerHTML=`
+  <div class="eyebrow">Autotrónica · Alimentación</div>
+  <h2>Inyección Electrónica MPFI</h2>
+  <p>Sistema de inyección multipunto: 4 inyectores (uno por cilindro), riel de combustible presurizado, ECU y sensores MAP/TPS/O2. Cada inyector abre por un pulso eléctrico calculado por la ECU.</p>
+  <div class="legend">
+    <div class="li"><span class="dot" style="background:#9aa3ad"></span>Riel de combustible (arriba)</div>
+    <div class="li"><span class="dot" style="background:#2a3038"></span>Inyectores (4, colgando del riel)</div>
+    <div class="li"><span class="dot" style="background:#c7ccd2"></span>Múltiple de admisión (abajo)</div>
+    <div class="li"><span class="dot" style="background:#ffd166"></span>Sensores MAP / TPS / O2</div>
+    <div class="li"><span class="dot" style="background:#14181c"></span>ECU (derecha)</div>
+  </div>
+  <div class="formula">PW = f(carga, rpm) + tiempo muerto</div>
+  <p style="font-size:12px">El ancho de pulso (PW) determina cuánto combustible entra: a mayor carga (más aire admitido), mayor PW.</p>
+  <div class="src">Ref: sistema MPFI 4 cilindros, AFR estequiométrico 14.7:1 (gasolina)</div>`;
+document.getElementById('panel').innerHTML=`
+  <h4>Telemetría</h4>
+  <div class="g"><div class="gl"><span>Ancho de pulso</span><b id="t_pw">— ms</b></div></div>
+  <div class="g"><div class="gl"><span>Flujo de combustible</span><b id="t_fuel">— g/s</b></div></div>
+  <div class="g"><div class="gl"><span>RPM</span><b id="t_rpm">— rpm</b></div></div>
+  <div class="sl" style="font-family:var(--mono);font-size:10px;color:var(--dim);margin:10px 0 4px">Carga del motor</div>
+  <input type="range" id="loadSlider" min="0" max="100" value="40" style="width:100%;accent-color:var(--accent)">
+  <div class="btns">
+    <button class="b" id="btnExplode">⤢ Despiece</button>
+    <button class="b" id="btnRun">▶ Simular inyección</button>
+  </div>`;
+document.getElementById('loadSlider').oninput=e=>{loadPct=+e.target.value; rpm=800+loadPct*45;};
+document.getElementById('btnExplode').onclick=(e)=>{exploded=!exploded;e.target.classList.toggle('on',exploded);};
+document.getElementById('btnRun').onclick=(e)=>{
+  synth.init(); synth.resume();
+  running=!running;e.target.classList.toggle('on',running);e.target.textContent=(running?'⏸':'▶')+' Simular inyección';
+  if(running){ S.moveTo([4.4,2.6,5.2],[0.3,0.9,0],1.3); S.setCinematicIdle(true); }
+  else { S.setCinematicIdle(false); }
+};
+const soundBtn=document.getElementById('soundBtn');
+soundBtn.onclick=()=>{const on=synth.toggle();soundBtn.textContent=on?'🔊':'🔇';soundBtn.classList.toggle('on',on);};
+
+</script>
+</body>
+</html>

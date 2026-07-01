@@ -34,6 +34,11 @@ const LAB_HTML: Record<string, string> = {
   "mecanica-3": "/labs/brazo-robotico.html",
   "mecanica-4": "/labs/inversor-trifasico.html",
   "mecanica-5": "/labs/carga-ev.html",
+  "mecanica-6": "/labs/inyeccion-electronica.html",
+  "mecanica-7": "/labs/frenos-abs.html",
+  "mecanica-8": "/labs/bateria-bms.html",
+  "mecanica-9": "/labs/plc-neumatica.html",
+  "mecanica-10": "/labs/direccion-eps.html",
 };
 
 export default function MecanicaLabClient({ simuladorId }: { simuladorId: string }) {

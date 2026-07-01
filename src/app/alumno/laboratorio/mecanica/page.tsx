@@ -19,8 +19,7 @@ interface Practica {
   destacada?: boolean;
 }
 
-// Los 5 primeros ya están construidos (three.js) y enlazan a /alumno/simulador/mecanica-N.
-// Los labs 6-10 quedan como "Propuesto" hasta su construcción.
+// Los 10 laboratorios están construidos (three.js) y enlazan a /alumno/simulador/mecanica-N.
 const practicasMecanica: Practica[] = [
   { id: 1, modulo: "Autotrónica", titulo: "Motor Eléctrico de Tracción (PMSM)", duracion: "40 min", teoria: "Arma un motor síncrono de imanes permanentes y comprende cómo el campo giratorio del estátor produce par sobre el rotor. Diagnostica fallas de fase.", estado: "activo", destacada: true },
   { id: 2, modulo: "Autotrónica", titulo: "Motor de Combustión Interna (4 Tiempos)", duracion: "45 min", teoria: "Ensambla el tren alternativo y recorre el ciclo Otto —admisión, compresión, explosión y escape— relacionando geometría, sincronización y potencia.", estado: "activo" },
@@ -28,11 +27,11 @@ const practicasMecanica: Practica[] = [
   { id: 4, modulo: "Autotrónica", titulo: "Inversor Trifásico de Potencia", duracion: "40 min", teoria: "Convierte corriente continua en trifásica mediante conmutación PWM de seis transistores y observa cómo se sintetiza la onda senoidal que alimenta al motor.", estado: "activo" },
   { id: 5, modulo: "Autotrónica", titulo: "Estación de Carga EV (DC Rápida)", duracion: "40 min", teoria: "Opera la infraestructura de carga rápida en corriente directa: handshake, curva de potencia, gestión térmica y diagnóstico de la sesión de carga.", estado: "activo" },
 
-  { id: 6, modulo: "Autotrónica", titulo: "Sistema de Inyección Electrónica", duracion: "40 min", teoria: "Dosificación de combustible por inyectores, mapa de carga del motor y lazo cerrado con la sonda lambda para optimizar la mezcla aire-combustible.", estado: "propuesto" },
-  { id: 7, modulo: "Autotrónica", titulo: "Frenos ABS (Antibloqueo)", duracion: "40 min", teoria: "Modula la presión hidráulica evitando el bloqueo de rueda; analiza el deslizamiento óptimo y la actuación del grupo hidráulico en frenado de emergencia.", estado: "propuesto" },
-  { id: 8, modulo: "Autotrónica", titulo: "Batería de Alto Voltaje y BMS", duracion: "45 min", teoria: "Arquitectura de celdas, balanceo del pack y gestión térmica; el BMS vigila estado de carga (SoC) y salud (SoH) para operar con seguridad.", estado: "propuesto" },
-  { id: 9, modulo: "Mecatrónica", titulo: "PLC y Automatización Neumática", duracion: "45 min", teoria: "Programa un controlador lógico para secuenciar actuadores neumáticos: lógica de escalera, sensores fin de carrera y ciclos automáticos de proceso.", estado: "propuesto" },
-  { id: 10, modulo: "Autotrónica", titulo: "Dirección Asistida Eléctrica (EPS)", duracion: "40 min", teoria: "Asistencia de par por motor eléctrico en función de la velocidad y el sensor de par en la columna; sintoniza la sensación de dirección y diagnostica fallas.", estado: "propuesto" },
+  { id: 6, modulo: "Autotrónica", titulo: "Sistema de Inyección Electrónica", duracion: "40 min", teoria: "Dosificación de combustible por inyectores, mapa de carga del motor y lazo cerrado con la sonda lambda para optimizar la mezcla aire-combustible.", estado: "activo" },
+  { id: 7, modulo: "Autotrónica", titulo: "Frenos ABS (Antibloqueo)", duracion: "40 min", teoria: "Modula la presión hidráulica evitando el bloqueo de rueda; analiza el deslizamiento óptimo y la actuación del grupo hidráulico en frenado de emergencia.", estado: "activo" },
+  { id: 8, modulo: "Autotrónica", titulo: "Batería de Alto Voltaje y BMS", duracion: "45 min", teoria: "Arquitectura de celdas, balanceo del pack y gestión térmica; el BMS vigila estado de carga (SoC) y salud (SoH) para operar con seguridad.", estado: "activo" },
+  { id: 9, modulo: "Mecatrónica", titulo: "PLC y Automatización Neumática", duracion: "45 min", teoria: "Programa un controlador lógico para secuenciar actuadores neumáticos: lógica de escalera, sensores fin de carrera y ciclos automáticos de proceso.", estado: "activo" },
+  { id: 10, modulo: "Autotrónica", titulo: "Dirección Asistida Eléctrica (EPS)", duracion: "40 min", teoria: "Asistencia de par por motor eléctrico en función de la velocidad y el sensor de par en la columna; sintoniza la sensación de dirección y diagnostica fallas.", estado: "activo" },
 ];
 
 // Iconos por lab propuesto (para las tarjetas bloqueadas)
@@ -299,20 +298,24 @@ export default function MecanicaCatalogPage() {
         </div>
 
         {/* 4. LABS PROPUESTOS */}
-        <div className="w-full flex items-center gap-6 mt-16 mb-8">
-            <h3 className="text-[#023047] dark:text-white font-black uppercase tracking-[0.3em] text-xs shrink-0 flex items-center gap-2">
-              <Sparkles size={14} className="text-[#2A9D8F]" />
-              Próximos laboratorios
-            </h3>
-            <div className="h-[1px] flex-grow bg-slate-200 dark:bg-slate-800"></div>
-            <span className="text-xs font-black text-slate-400 uppercase tracking-widest shrink-0">{propuestas.length} en diseño</span>
-        </div>
+        {propuestas.length > 0 && (
+          <>
+            <div className="w-full flex items-center gap-6 mt-16 mb-8">
+                <h3 className="text-[#023047] dark:text-white font-black uppercase tracking-[0.3em] text-xs shrink-0 flex items-center gap-2">
+                  <Sparkles size={14} className="text-[#2A9D8F]" />
+                  Próximos laboratorios
+                </h3>
+                <div className="h-[1px] flex-grow bg-slate-200 dark:bg-slate-800"></div>
+                <span className="text-xs font-black text-slate-400 uppercase tracking-widest shrink-0">{propuestas.length} en diseño</span>
+            </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-           {propuestas.map((practica) => (
-              <PropuestoCard key={practica.id} practica={practica} />
-           ))}
-        </div>
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+               {propuestas.map((practica) => (
+                  <PropuestoCard key={practica.id} practica={practica} />
+               ))}
+            </div>
+          </>
+        )}
       </main>
     </div>
   );
