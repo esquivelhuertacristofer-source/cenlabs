@@ -11,7 +11,7 @@
   :root{
     --bg:#08201C;--panel:rgba(9,26,23,.86);--line:#1E3A34;--ink:#EAF4F1;
     --dim:#8FB3AC;--accent:#2A9D8F;--accent2:#4FD1C5;--hv:#FFB703;--good:#34d399;--bad:#f4475e;
-    --mono:'Courier New',ui-monospace,monospace;--disp:'Outfit','Arial Black',Impact,sans-serif;
+    --mono:'Outfit',system-ui,'Segoe UI',Roboto,sans-serif;--disp:'Outfit','Arial Black',Impact,sans-serif;
   }
   *{box-sizing:border-box;margin:0;padding:0}
   html,body{height:100%;overflow:hidden;background:var(--bg);color:var(--ink);font-family:'Outfit',system-ui,Segoe UI,Roboto,sans-serif}
@@ -542,6 +542,11 @@ let bokeh=null; if(!isMobile&&!lightMode){bokeh=new BokehPass(scene,camera,{focu
 composer.addPass(new OutputPass());
 composer.addPass(new SMAAPass(innerWidth*renderer.getPixelRatio(),innerHeight*renderer.getPixelRatio()));
 addEventListener('resize',()=>{camera.aspect=innerWidth/innerHeight;camera.updateProjectionMatrix();renderer.setSize(innerWidth,innerHeight);composer.setSize(innerWidth,innerHeight);});
+// Escena de superposición para las etiquetas 3D (sprites). Los pases GTAO/Bokeh
+// usan scene.overrideMaterial en sus prepasses; bajo un material override los Sprites
+// pierden su billboard y se dibujan como cuadros inclinados (las "fichas negras").
+// Renderizándolas en una escena aparte, tras el composer, nunca entran a esos prepasses.
+const labelScene=new THREE.Scene();
 
 /* ============================================================
    UI HELPERS
@@ -603,7 +608,7 @@ PIECE_ORDER.forEach(k=>{
   grp.position.copy(KIT_POS[k]); grp.quaternion.identity(); grp.visible=true;
   trays[k]=trayPad3(KIT_POS[k],PIECE_COLOR[k]);
   const lbl=smallLabel3(PIECE_NAME[k]+' · toca para instalar',PIECE_COLOR[k]);
-  lbl.position.set(KIT_POS[k].x,2.0,KIT_POS[k].z); scene.add(lbl); lbls[k]=lbl;
+  lbl.position.set(KIT_POS[k].x,2.0,KIT_POS[k].z); labelScene.add(lbl); lbls[k]=lbl;
 });
 function easeOutBack(x){const c1=1.4,c3=c1+1;return 1+c3*Math.pow(x-1,3)+c1*Math.pow(x-1,2);}
 function isInGroup(obj,group){let o=obj;while(o){if(o===group)return true;o=o.parent;}return false;}
@@ -1073,6 +1078,8 @@ function animate(){
   // Foco dinámico: el DOF sigue al objetivo de la cámara para que el sujeto quede nítido a cualquier zoom.
   if(bokeh){ bokeh.uniforms['focus'].value=camera.position.distanceTo(controls.target); }
   composer.render();
+  // Etiquetas por encima del composer (fuera del DOF/GTAO) -> nítidas y sin cuadros negros.
+  renderer.autoClear=false; renderer.clearDepth(); renderer.render(labelScene,camera); renderer.autoClear=true;
 }
 animate();
 
