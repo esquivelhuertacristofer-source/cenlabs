@@ -147,7 +147,7 @@ export default function MissionBriefing({ config, onStart }: MissionBriefingProp
                   />
                   {!imgError ? (
                     <Image
-                      src="/assets/art/mascotas/dr_quantum_happy.png"
+                      src="/assets/art/mascotas/dr_quantum_happy.webp"
                       alt="Dr. Quantum"
                       fill
                       className="object-contain drop-shadow-[0_20px_40px_rgba(0,0,0,0.8)] relative z-10"

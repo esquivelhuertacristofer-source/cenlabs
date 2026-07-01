@@ -17,7 +17,7 @@ const LABS_REAL = [
     color: "from-[#219EBC] to-[#023047]",
     badgeColor: "bg-[#219EBC]",
     href: "/alumno/laboratorio/quimica",
-    image: "/images/quimica_3d.png"
+    image: "/images/quimica_3d.webp"
   },
   {
     id: "fisica",
@@ -29,7 +29,7 @@ const LABS_REAL = [
     color: "from-[#FB8500] to-[#E85D04]",
     badgeColor: "bg-[#FB8500]",
     href: "/alumno/laboratorio/fisica",
-    image: "/images/fisica_3d.png"
+    image: "/images/fisica_3d.webp"
   },
   {
     id: "biologia",
@@ -41,7 +41,7 @@ const LABS_REAL = [
     color: "from-[#8ECAE6] to-[#219EBC]",
     badgeColor: "bg-[#8ECAE6]",
     href: "/alumno/laboratorio/biologia",
-    image: "/images/biologia_3d.png"
+    image: "/images/biologia_3d.webp"
   },
   {
     id: "matematicas",
@@ -53,7 +53,7 @@ const LABS_REAL = [
     color: "from-[#FFB703] to-[#FB8500]",
     badgeColor: "bg-[#FFB703]",
     href: "/alumno/laboratorio/matematicas",
-    image: "/images/mates_3d.png"
+    image: "/images/mates_3d.webp"
   },
 ];
 

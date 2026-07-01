@@ -38,7 +38,7 @@ export default function AsistenteVirtual({
 
   if (!mounted) return null;
 
-  const mascotPath = `/assets/art/mascotas/${mascot}_${pose}.png`;
+  const mascotPath = `/assets/art/mascotas/${mascot}_${pose}.webp`;
 
   if (variant === 'sidebar-hud') {
     return (

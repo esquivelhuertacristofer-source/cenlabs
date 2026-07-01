@@ -16,7 +16,7 @@ export async function generateMetadata({ params }: { params: Promise<{ id: strin
     openGraph: {
       title: `Simulador Virtual: ${config.titulo}`,
       description: `Inicia la práctica de ${config.titulo} en el ecosistema 2.5D de CEN Labs.`,
-      images: [`/images/${resolvedParams.id.split('-')[0]}_3d.png`],
+      images: [`/images/${resolvedParams.id.split('-')[0]}_3d.webp`],
     }
   };
 }

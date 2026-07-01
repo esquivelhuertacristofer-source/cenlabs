@@ -74,10 +74,10 @@ function Navbar() {
 // ─── MOSAIC GRID (4-TILE PREMIUM) ─────────────────────────────────────────────
 function ShowcaseHero() {
   const tiles = [
-    { name: "Química", img: "/images/landing/quimica.png", icon: <FlaskConical className="w-4 h-4 text-emerald-500" /> },
-    { name: "Física", img: "/images/landing/fisica.png", icon: <Zap className="w-4 h-4 text-orange-500" /> },
-    { name: "Biología", img: "/images/landing/biologia.png", icon: <Dna className="w-4 h-4 text-rose-500" /> },
-    { name: "Matemáticas", img: "/images/landing/matematicas.png", icon: <Calculator className="w-4 h-4 text-blue-500" /> },
+    { name: "Química", img: "/images/landing/quimica.webp", icon: <FlaskConical className="w-4 h-4 text-emerald-500" /> },
+    { name: "Física", img: "/images/landing/fisica.webp", icon: <Zap className="w-4 h-4 text-orange-500" /> },
+    { name: "Biología", img: "/images/landing/biologia.webp", icon: <Dna className="w-4 h-4 text-rose-500" /> },
+    { name: "Matemáticas", img: "/images/landing/matematicas.webp", icon: <Calculator className="w-4 h-4 text-blue-500" /> },
   ];
 
   return (
@@ -402,7 +402,7 @@ function PlatformSection() {
             viewport={{ once: true }}
             className="md:col-span-2 md:row-span-2 relative rounded-[48px] bg-[#023047] overflow-hidden shadow-2xl group"
           >
-            <Image src="/images/landing/fisica.png" alt="Engine" fill className="object-cover opacity-40 group-hover:scale-105 transition-transform duration-1000" />
+            <Image src="/images/landing/fisica.webp" alt="Engine" fill className="object-cover opacity-40 group-hover:scale-105 transition-transform duration-1000" />
             <div className="absolute inset-0 bg-gradient-to-t from-[#023047] via-[#023047]/20 to-transparent" />
             <div className="absolute bottom-10 left-10 right-10 space-y-4">
               <div className="inline-flex px-3 py-1 rounded-lg bg-[#219EBC]/20 border border-[#219EBC]/30 text-[#8ECAE6] text-[10px] font-black uppercase tracking-widest">
@@ -473,7 +473,7 @@ function BenefitsSection() {
         <div className="relative h-[480px]">
           <div className="absolute" style={{ width: "85%", height: "80%", top: 0, right: 0, background: "#023047", borderRadius: "0 80px 80px 80px" }} />
           <Image 
-            src="/images/lab-quimica.png" 
+            src="/images/lab-quimica.webp" 
             alt="Teacher panel" 
             fill
             className="object-cover" 
@@ -487,10 +487,10 @@ function BenefitsSection() {
 
 // ─── CATALOG SECTION ────────────────────────────────────────────────────────────
 const CATALOG_CARDS = [
-  { title: "Laboratorio de Química", desc: "Estequiometría, titulación y enlaces moleculares avanzados.", img: "/images/quimica_3d.png", color: "#emerald" },
-  { title: "Laboratorio de Física", desc: "Vectores, cinemática y leyes universales de Newton.", img: "/images/fisica_3d.png", color: "#blue" },
-  { title: "Laboratorio de Biología", desc: "Microscopía, genética y síntesis de proteínas.", img: "/images/biologia_3d.png", color: "#rose" },
-  { title: "Laboratorio de Matemáticas", desc: "Álgebra, geometría plana y cálculo interactivo.", img: "/images/mates_3d.png", color: "#orange" },
+  { title: "Laboratorio de Química", desc: "Estequiometría, titulación y enlaces moleculares avanzados.", img: "/images/quimica_3d.webp", color: "#emerald" },
+  { title: "Laboratorio de Física", desc: "Vectores, cinemática y leyes universales de Newton.", img: "/images/fisica_3d.webp", color: "#blue" },
+  { title: "Laboratorio de Biología", desc: "Microscopía, genética y síntesis de proteínas.", img: "/images/biologia_3d.webp", color: "#rose" },
+  { title: "Laboratorio de Matemáticas", desc: "Álgebra, geometría plana y cálculo interactivo.", img: "/images/mates_3d.webp", color: "#orange" },
 ];
 
 function CatalogSection() {

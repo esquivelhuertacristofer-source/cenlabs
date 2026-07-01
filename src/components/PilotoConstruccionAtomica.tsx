@@ -65,10 +65,10 @@ function getElectronConfig(e: number): string {
 }
 
 const PARTICLE_PATHS = {
-  bg:       '/assets/art/fondos/atom_bg.png',
-  proton:   '/assets/art/simuladores/proton.png',
-  neutron:  '/assets/art/simuladores/neutron.png',
-  electron: '/assets/art/simuladores/electron.png',
+  bg:       '/assets/art/fondos/atom_bg.webp',
+  proton:   '/assets/art/simuladores/proton.webp',
+  neutron:  '/assets/art/simuladores/neutron.webp',
+  electron: '/assets/art/simuladores/electron.webp',
 };
 
 // ─── Main Component ─────────────────────────────────────────────────────────

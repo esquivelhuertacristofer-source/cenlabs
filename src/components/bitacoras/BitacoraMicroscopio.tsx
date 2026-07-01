@@ -35,10 +35,10 @@ export default function BitacoraMicroscopio({ onValidate }: { onValidate?: () =>
   const quantumMsg = "Ajusta la iluminación Köhler y el enfoque micrométrico para observar los orgánulos. Recuerda que para el objetivo de 100x es obligatorio aplicar aceite de inmersión para evitar la refracción del aire.";
 
   const handleCapture = () => {
-    const url = muestra === 'vegetal' ? '/assets/bio/plant_cells.png' : 
-                muestra === 'animal' ? '/assets/bio/animal_cells.png' :
-                muestra === 'bacteria' ? '/assets/bio/bacteria_sample.png' :
-                '/assets/bio/nerve_sample.png';
+    const url = muestra === 'vegetal' ? '/assets/bio/plant_cells.webp' : 
+                muestra === 'animal' ? '/assets/bio/animal_cells.webp' :
+                muestra === 'bacteria' ? '/assets/bio/bacteria_sample.webp' :
+                '/assets/bio/nerve_sample.webp';
     tomarCaptura(url);
     audio.playPop();
   };

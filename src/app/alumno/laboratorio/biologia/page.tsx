@@ -141,7 +141,7 @@ const SpotlightCard = ({ practica, accentBg, accentText }: { practica: Practica,
         <div className="absolute inset-y-0 right-0 w-[45%] md:w-[40%] lg:w-[35%] pointer-events-none hidden sm:block z-10">
             <div className="absolute inset-0 bg-gradient-to-r from-white dark:from-[#0A1121] via-transparent to-transparent z-20 w-full h-full"></div>
             <img 
-                src={`/images/biologia/bio_prac_${practica.id}.png`} 
+                src={`/images/biologia/bio_prac_${practica.id}.webp`} 
                 alt={`Render 3D ${practica.titulo}`} 
                 className="w-full h-full object-contain opacity-90 transition-transform duration-700 group-hover:scale-110 group-hover:opacity-100 object-center" 
             />
@@ -233,7 +233,7 @@ export default function BiologiaCatalogPage() {
            
            <div className="absolute top-0 right-0 w-[60%] md:w-[70%] lg:w-[55%] h-full z-0 pointer-events-none rounded-r-[40px] flex items-center justify-end overflow-hidden">
              <div className="absolute inset-0 bg-gradient-to-r from-teal-50 dark:from-[#0D1525] via-transparent to-transparent z-10 w-full" />
-             <img src="/images/biologia/bio_hero.png" alt="Biología 3D Scene" className="w-full h-full object-cover object-center opacity-100 transition-transform duration-1000 group-hover:scale-105" />
+             <img src="/images/biologia/bio_hero.webp" alt="Biología 3D Scene" className="w-full h-full object-cover object-center opacity-100 transition-transform duration-1000 group-hover:scale-105" />
            </div>
 
            <div className="relative z-10 w-full md:w-[60%] flex flex-col justify-center">

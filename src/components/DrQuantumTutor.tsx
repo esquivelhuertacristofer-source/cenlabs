@@ -114,7 +114,7 @@ export default function DrQuantumTutor({
           <div className="w-28 h-28 relative mb-6">
             {!imgError ? (
               <Image
-                src="/assets/art/mascotas/dr_quantum_neutral.png"
+                src="/assets/art/mascotas/dr_quantum_neutral.webp"
                 alt="Dr. Quantum"
                 fill
                 className="object-contain drop-shadow-[0_10px_40px_rgba(33,158,188,0.5)]"

@@ -148,7 +148,7 @@ const RUTAS_ESPECIALIZACION = [
     name: "Facultad de Ingenierías", 
     desc: "Física aplicada, Cálculo avanzado y Modelado de materiales.", 
     icon: <Zap className="w-8 h-8" />, 
-    image: "/images/ingenieria_claymorphic_3d_v5_1775860518999.png",
+    image: "/images/ingenieria_claymorphic_3d_v5_1775860518999.webp",
     color: "from-[#023047]/90 to-[#023047]/40"
   },
   { 
@@ -156,7 +156,7 @@ const RUTAS_ESPECIALIZACION = [
     name: "Ciencias de la Salud", 
     desc: "Bioquímica clínica, Anatomía y Genética molecular.", 
     icon: <Microscope className="w-8 h-8" />, 
-    image: "/images/salud_claymorphic_3d_v5_1775860532207.png",
+    image: "/images/salud_claymorphic_3d_v5_1775860532207.webp",
     color: "from-[#FB8500]/90 to-[#FB8500]/40"
   },
   { 
@@ -164,7 +164,7 @@ const RUTAS_ESPECIALIZACION = [
     name: "Ciencias Exactas", 
     desc: "Matemática pura, Mecánica cuántica y Análisis teórico.", 
     icon: <Calculator className="w-8 h-8" />, 
-    image: "/images/exactas_claymorphic_3d_v5_1775860544049.png",
+    image: "/images/exactas_claymorphic_3d_v5_1775860544049.webp",
     color: "from-[#219EBC]/90 to-[#219EBC]/40"
   }
 ];
@@ -265,7 +265,7 @@ export default function AlumnoInicio() {
       totalPractices: 10,
       lastPractice: realProgress.quimica > 0 ? "Última práctica completada" : "Sin actividad reciente",
       buttonColor: "bg-[#023047] hover:bg-[#126782]",
-      image: "/images/quimica_3d.png"
+      image: "/images/quimica_3d.webp"
     },
     {
       id: "fisica",
@@ -280,7 +280,7 @@ export default function AlumnoInicio() {
       totalPractices: 10,
       lastPractice: realProgress.fisica > 0 ? "Última práctica completada" : "Sin actividad reciente",
       buttonColor: "bg-[#FB8500] hover:bg-[#E85D04]",
-      image: "/images/fisica_3d.png"
+      image: "/images/fisica_3d.webp"
     },
     {
       id: "biologia",
@@ -295,7 +295,7 @@ export default function AlumnoInicio() {
       totalPractices: 10,
       lastPractice: realProgress.biologia > 0 ? "Última práctica completada" : "Sin actividad reciente",
       buttonColor: "bg-[#219EBC] hover:bg-[#126782]",
-      image: "/images/biologia_3d.png"
+      image: "/images/biologia_3d.webp"
     },
     {
       id: "matematicas",
@@ -310,7 +310,7 @@ export default function AlumnoInicio() {
       totalPractices: 10,
       lastPractice: realProgress.matematicas > 0 ? "Última práctica completada" : "Sin actividad reciente",
       buttonColor: "bg-[#FFB703] hover:bg-[#FB8500]",
-      image: "/images/mates_3d.png"
+      image: "/images/mates_3d.webp"
     },
   ], [realProgress]);
 

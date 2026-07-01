@@ -24,14 +24,14 @@ export const metadata: Metadata = {
   openGraph: {
     title: "CEN Labs Simulator - El Futuro de la Educación en Ciencias",
     description: "Accede a 40 simulaciones interactivas de alta fidelidad. Sin riesgos, sin consumibles, aprendizaje total.",
-    images: ["/images/landing/hero.png"],
+    images: ["/images/landing/hero.webp"],
     type: "website",
   },
   twitter: {
     card: "summary_large_image",
     title: "CEN Labs | Simuladores Científicos de Alta Fidelidad",
     description: "Transforma tu institución con el ecosistema de laboratorios virtuales más avanzado de México.",
-    images: ["/images/landing/hero.png"],
+    images: ["/images/landing/hero.webp"],
   },
   icons: {
     icon: [

@@ -128,7 +128,7 @@ const SpotlightCard = ({ practica, accentBg, accentText }: { practica: Practica,
             {/* Gradiente degradado tipo máscara para fusionar el borde izquierdo de la imagen con el fondo de la ficha */}
             <div className="absolute inset-0 bg-gradient-to-r from-white dark:from-[#0A1121] via-transparent to-transparent z-20 w-full h-full"></div>
             <img 
-                src={`/images/fisica/prac_${practica.id}.png`} 
+                src={`/images/fisica/prac_${practica.id}.webp`} 
                 alt={`Icono 3D ${practica.titulo}`} 
                 className="w-full h-full object-cover object-left md:object-center opacity-85 transition-transform duration-700 group-hover:scale-105 group-hover:opacity-100" 
             />
@@ -229,7 +229,7 @@ export default function FisicaCatalogPage() {
            <div className="absolute top-0 right-0 w-[60%] md:w-[70%] lg:w-[55%] h-full z-0 pointer-events-none rounded-r-[40px] flex items-center justify-end overflow-hidden">
              <div className="absolute inset-0 bg-gradient-to-r from-indigo-50 dark:from-[#0D1525] via-transparent to-transparent z-10 w-full" />
              {/* Imagen 3D Generada */}
-             <img src="/images/fisica/fisica_3d_hero.png" alt="Física Decoración" className="w-full h-full object-cover object-center opacity-100 transition-transform duration-700 hover:scale-105" />
+             <img src="/images/fisica/fisica_3d_hero.webp" alt="Física Decoración" className="w-full h-full object-cover object-center opacity-100 transition-transform duration-700 hover:scale-105" />
            </div>
 
            <div className="relative z-10 w-full md:w-[60%] flex flex-col justify-center bg-transparent backdrop-blur-none p-8 md:p-0 rounded-none border-none">
