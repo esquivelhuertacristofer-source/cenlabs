@@ -3,14 +3,14 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
 import { motion, AnimatePresence } from 'framer-motion';
-import { 
-  Zap, Compass, Activity, Target, Binary, ShieldCheck, 
-  RotateCw, RotateCcw, Gauge, Power, Settings2, 
-  Workflow, Cpu, Factory, Bot, Volume2
+import {
+  Zap, Compass, Activity, Target, ShieldCheck,
+  Gauge, Power, Workflow, Bot
 } from 'lucide-react';
 import { useSimuladorStore } from '@/store/simuladorStore';
+import MotorElectrico3DScene from './simuladores/fis10/MotorElectrico3DScene';
 
-const K_RPM_SCALE = 1.041; 
+const K_RPM_SCALE = 1.041;
 
 export default function PilotoMotorElectrico() {
   const router = useRouter();
@@ -43,8 +43,6 @@ export default function PilotoMotorElectrico() {
   const rpmCalculadas = encendido ? Math.floor(K_RPM_SCALE * voltaje * B * espiras) : 0;
   const absRPM = Math.abs(rpmCalculadas);
   const currentDir = rpmCalculadas > 0 ? 'CW' : (rpmCalculadas < 0 ? 'CCW' : 'STILL');
-  const animationDuration = absRPM > 0 ? 60 / absRPM : 0;
-  const isHot = encendido && B === 0 && voltaje > 0;
 
   // -- EFECTOS DE AUDIO --
   useEffect(() => {
@@ -118,10 +116,24 @@ export default function PilotoMotorElectrico() {
 
   return (
     <div className="flex h-full w-full overflow-hidden bg-[#010409] font-['Outfit'] relative text-white">
-      
+
+      {/* ── ESCENA 3D — MOTOR DC (fondo full-screen) ── */}
+      <div className="absolute inset-0 z-0">
+        <MotorElectrico3DScene
+          voltaje={voltaje}
+          campoB={B}
+          espiras={espiras}
+          rpm={rpmCalculadas}
+          encendido={encendido}
+        />
+      </div>
+
+      {/* velo de contraste para legibilidad del HUD */}
+      <div className="absolute inset-0 z-[1] pointer-events-none bg-gradient-to-b from-[#010409]/70 via-transparent to-[#010409]/80" />
+
       {/* ── ESCENA DE LABORATORIO ELECTROMECÁNICO ── */}
-      <main className="flex-grow h-full relative flex flex-col p-12 overflow-hidden">
-         
+      <main className="flex-grow h-full relative flex flex-col p-12 overflow-hidden z-10 pointer-events-none">
+
          {/* CHECKLIST HUD (DIAMOND STANDARD) */}
          <div className="absolute top-48 left-1/2 -translate-x-1/2 w-[600px] pointer-events-none z-50">
             <div className="bg-black/40 backdrop-blur-xl border border-white/10 rounded-[2rem] p-8 shadow-2xl">
@@ -174,81 +186,15 @@ export default function PilotoMotorElectrico() {
             </div>
          </div>
 
-         {/* BANCO DE PRUEBAS 3D (FAKE) */}
-         <div className="flex-grow flex items-center justify-center relative scale-125">
-            <svg width="600" height="400" viewBox="0 0 600 400" className="overflow-visible drop-shadow-[0_20px_60px_rgba(0,0,0,0.6)]">
-               
-               {/* LÍNEAS DE CAMPO DINÁMICAS */}
-               <AnimatePresence>
-                 {B !== 0 && encendido && (
-                    <g opacity="0.1">
-                       {Array.from({ length: 12 }).map((_, i) => (
-                          <motion.line 
-                            key={i}
-                            initial={{ x1: B > 0 ? 150 : 450, x2: B > 0 ? 150 : 450 }}
-                            animate={{ x1: B > 0 ? 450 : 150, x2: B > 0 ? 450 : 150 }}
-                            transition={{ duration: 0.5, repeat: Infinity, delay: i * 0.05 }}
-                            y1={120 + i * 15} y2={120 + i * 15}
-                            stroke="#818cf8" strokeWidth="1"
-                          />
-                       ))}
-                    </g>
-                 )}
-               </AnimatePresence>
-
-               {/* ESTÁTOR (IMANES) */}
-               <g transform="translate(100, 150)">
-                  <rect width="80" height="100" rx="12" fill={imanIzq === 'N' ? '#ef4444' : '#3b82f6'} className="shadow-2xl" />
-                  <text x="40" y="60" textAnchor="middle" fill="white" fontSize="40" fontWeight="black" opacity="0.3">{imanIzq}</text>
-               </g>
-               <g transform="translate(420, 150)">
-                  <rect width="80" height="100" rx="12" fill={imanDer === 'N' ? '#ef4444' : '#3b82f6'} className="shadow-2xl" />
-                  <text x="40" y="60" textAnchor="middle" fill="white" fontSize="40" fontWeight="black" opacity="0.3">{imanDer}</text>
-               </g>
-
-               {/* ROTOR ANIMADO */}
-               <g transform="translate(300, 200)">
-                  <foreignObject x="-60" y="-60" width="120" height="120">
-                    <div style={{
-                      width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', perspective: '1000px'
-                    }}>
-                      <motion.div 
-                        animate={{ rotateY: absRPM > 0 ? (currentDir === 'CW' ? 360 : -360) : 0 }}
-                        transition={{ repeat: Infinity, duration: animationDuration || 0, ease: "linear" }}
-                        style={{
-                          width: '100px', height: '100px',
-                          border: `4px solid ${isHot ? '#ff0000' : '#b45309'}`,
-                          borderRadius: '12px',
-                          backgroundColor: isHot ? 'rgba(255,0,0,0.2)' : 'rgba(180,83,9,0.1)',
-                          boxShadow: isHot ? '0 0 40px #ff0000' : (encendido ? '0 0 20px #b4530940' : 'none'),
-                          display: 'flex', alignItems: 'center', justifyContent: 'center', position: 'relative'
-                        }}
-                      >
-                         <div className="w-4 h-full bg-slate-800 rounded-full" />
-                         <div className="absolute inset-0 flex flex-col justify-around p-2">
-                            {Array.from({ length: Math.min(10, espiras/10) }).map((_, i) => (
-                               <div key={i} className="h-0.5 bg-[#d97706] w-full shadow-[0_0_5px_#d97706]" />
-                            ))}
-                         </div>
-                      </motion.div>
-                    </div>
-                  </foreignObject>
-               </g>
-
-               {/* CONMUTADOR Y ESCOBILLAS */}
-               <g transform="translate(300, 300)">
-                  <circle r="12" fill="#1e293b" />
-                  <rect x="-25" y="-5" width="10" height="10" fill="#334155" rx="2" />
-                  <rect x="15" y="-5" width="10" height="10" fill="#334155" rx="2" />
-               </g>
-            </svg>
-         </div>
+         {/* BANCO DE PRUEBAS — el motor DC 3D vive en el fondo (z-0). Este hueco
+             deja pasar la interacción con OrbitControls (arrastrar / zoom). */}
+         <div className="flex-grow" />
 
          {/* ── PANEL DE CONTROL INFERIOR (DOCK) ── */}
          <div className="absolute bottom-10 left-1/2 -translate-x-1/2 w-full max-w-6xl z-40">
             <motion.div 
               initial={{ y: 50, opacity: 0 }} animate={{ y: 0, opacity: 1 }}
-              className="bg-[#0A1121]/90 backdrop-blur-3xl border border-white/10 rounded-[3rem] p-8 shadow-2xl flex items-center justify-between gap-10"
+              className="bg-[#0A1121]/90 backdrop-blur-3xl border border-white/10 rounded-[3rem] p-8 shadow-2xl flex items-center justify-between gap-10 pointer-events-auto"
             >
                {/* Selectores de Ingeniería */}
                <div className="flex gap-8 items-center border-r border-white/10 pr-10">
@@ -304,7 +250,7 @@ export default function PilotoMotorElectrico() {
          {/* MENSAJE TUTOR / ÉXITO */}
          <AnimatePresence>
             {bitacoraData.fisica10 ? (
-               <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="absolute inset-0 z-[100] bg-[#020617]/95 backdrop-blur-3xl flex items-center justify-center p-12">
+               <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="absolute inset-0 z-[100] bg-[#020617]/95 backdrop-blur-3xl flex items-center justify-center p-12 pointer-events-auto">
                  <motion.div initial={{ scale: 0.9, y: 30 }} animate={{ scale: 1, y: 0 }} className="bg-slate-900 border border-orange-500/30 rounded-[4rem] p-20 max-w-2xl text-center shadow-[0_0_100px_rgba(249,115,22,0.15)]">
                     <ShieldCheck size={100} className="text-orange-500 mx-auto mb-8" />
                     <h3 className="text-5xl font-black text-white uppercase italic mb-6">Motor Certificado</h3>

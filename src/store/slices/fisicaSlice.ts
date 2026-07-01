@@ -4,9 +4,9 @@ import * as FisicaDomain from '@/domain/fisica';
 
 export const createFisicaSlice: StateCreator<SimuladorState, [], [], FisicaSlice> = (set, get) => ({
   plano2: { angulo: 30, coefRozamiento: 0.3, friccion: 0.1, masa: 5, animando: false, resultado: null },
-  pendulo3: { longitud: 1.5, masa: 2.0, anguloInicial: 45, animando: false, periodo: 0, oscilando: false, resultado: null },
+  pendulo3: { longitud: 1.5, masa: 2.0, anguloInicial: 10, animando: false, periodo: 0, oscilando: false, resultado: null },
   hooke4: { k: 100, masa: 2.0, estiramiento: 0, amplitud: 0.5, oscilando: false, animando: false, t: 0, resultado: null },
-  prensa5: { f1: 100, r1: 1.0, r2: 2.5, masaCarga: 500, ratio: 6.25, presion: 31830, isLifting: false, resultado: null },
+  prensa5: { f1: 100, r1: 1.0, r2: 2.5, masaCarga: 500, ratio: 6.25, presion: 318310, isLifting: false, resultado: null },
   arquimedes6: { fluido: 'agua', densidadCuerpo: 800, densidadLiquido: 1000, volumenCuerpo: 0.001, sumergido: 0, radio: 0.5, isRunning: false, resultado: null },
   dilatacion7: { material: 'aluminio', tempIni: 20, tempFin: 20, longitud: 500, resultado: null },
   ohm8: { nivel: 1, voltaje: 12, resistencia: 220, switchOn: false, ledRoto: false, bateriaConectada: false, resistenciaConectada: false, ledConectado: false, resultado: null },
@@ -274,9 +274,9 @@ export const createFisicaSlice: StateCreator<SimuladorState, [], [], FisicaSlice
   resetF1: () => get().generarSemillaF1(),
 
   resetF2: () => set({ plano2: { angulo: 30, coefRozamiento: 0.3, friccion: 0.1, masa: 5, animando: false, resultado: null } }),
-  resetF3: () => set({ pendulo3: { longitud: 1.5, masa: 2.0, anguloInicial: 45, animando: false, periodo: 0, oscilando: false, resultado: null } }),
+  resetF3: () => set({ pendulo3: { longitud: 1.5, masa: 2.0, anguloInicial: 10, animando: false, periodo: 0, oscilando: false, resultado: null } }),
   resetF4: () => set({ hooke4: { k: 100, masa: 2.0, estiramiento: 0, amplitud: 0.5, oscilando: false, animando: false, t: 0, resultado: null } }),
-  resetF5: () => set({ prensa5: { f1: 100, r1: 1.0, r2: 2.5, masaCarga: 500, ratio: 6.25, presion: 31830, isLifting: false, resultado: null } }),
+  resetF5: () => set({ prensa5: { f1: 100, r1: 1.0, r2: 2.5, masaCarga: 500, ratio: 6.25, presion: 318310, isLifting: false, resultado: null } }),
   resetF6: () => set({ arquimedes6: { fluido: 'agua', densidadCuerpo: 800, densidadLiquido: 1000, volumenCuerpo: 0.001, sumergido: 0, radio: 0.5, isRunning: false, resultado: null } }),
   resetF7: () => set((state) => ({ dilatacion7: { material: 'aluminio', tempIni: 20, tempFin: 20, longitud: 500, resultado: null }, bitacoraData: { ...state.bitacoraData, fisica7: null } })),
   resetF8: () => set({ ohm8: { nivel: 1, voltaje: 12, resistencia: 220, switchOn: false, ledRoto: false, bateriaConectada: false, resistenciaConectada: false, ledConectado: false, resultado: null } }),

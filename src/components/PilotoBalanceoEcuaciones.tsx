@@ -3,15 +3,17 @@
 import React, { useState, useEffect, useMemo } from "react";
 import { motion, AnimatePresence, useMotionValue, useTransform } from "framer-motion";
 import { useSimuladorStore } from "@/store/simuladorStore";
-import { 
-  Activity, ShieldCheck, RefreshCw, ChevronLeft, ChevronRight, 
+import {
+  Activity, ShieldCheck, RefreshCw, ChevronLeft, ChevronRight,
   Lock, BookOpen, Info
 } from "lucide-react";
 import { audio } from '@/utils/audioEngine';
+import { useRouter } from 'next/navigation';
 
 import Fusion3DScene from './simuladores/qmi03/Fusion3DScene';
 
 export default function PilotoBalanceoEcuaciones() {
+  const router = useRouter();
   const { balanceo, setReaccion, resetBalanceo, setCoeficiente } = useSimuladorStore();
   const [mounted, setMounted] = useState(false);
   const [showLevelUp, setShowLevelUp] = useState(false);
@@ -32,6 +34,7 @@ export default function PilotoBalanceoEcuaciones() {
   const currentReac = reacciones[reaccionActual] || reacciones[0];
   const isCurrentCompleted = reaccionesCompletadas.includes(currentReac?.id);
   const nextUnlocked = isCurrentCompleted;
+  const allDone = reacciones.length > 0 && reaccionesCompletadas.length >= reacciones.length;
 
   const allSymbols = useMemo(() => Array.from(new Set([
     ...Object.keys(atomosReactivos || {}),
@@ -265,6 +268,19 @@ export default function PilotoBalanceoEcuaciones() {
 
         <p className="text-[10px] font-bold text-white/20 uppercase tracking-[0.5em]">Ajusta los coeficientes para lograr el equilibrio atómico</p>
       </footer>
+
+      <AnimatePresence>
+        {allDone && (
+          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="absolute inset-0 z-[200] bg-[#010B13]/95 backdrop-blur-3xl flex items-center justify-center p-12">
+            <motion.div initial={{ scale: 0.9, y: 30 }} animate={{ scale: 1, y: 0 }} className="bg-slate-900 border border-emerald-500/30 rounded-[4rem] p-20 max-w-2xl text-center shadow-[0_0_100px_rgba(16,185,129,0.1)]">
+              <ShieldCheck size={100} className="text-emerald-500 mx-auto mb-8" />
+              <h3 className="text-5xl font-black text-white uppercase italic mb-6">Balanceo Maestro</h3>
+              <p className="text-slate-400 text-lg font-medium mb-12 leading-relaxed">Has balanceado correctamente todas las ecuaciones. La Ley de Conservación de la Materia ha sido demostrada y registrada en tu bitácora científica.</p>
+              <button onClick={() => router.push('/hub')} className="w-full py-6 bg-emerald-600 hover:bg-emerald-500 text-white font-black rounded-[2rem] uppercase tracking-widest text-xs transition-colors shadow-lg shadow-emerald-600/30">Cerrar Laboratorio</button>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
     </div>
   );

@@ -3,6 +3,7 @@
 import React, { useEffect, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useSimuladorStore } from '@/store/simuladorStore';
+import { useRouter } from 'next/navigation';
 import { Zap, Activity, Info, FlaskConical, MousePointer2, AlertCircle, ShieldCheck, Battery, RefreshCcw, Box, ArrowRightLeft } from 'lucide-react';
 import Galvanic3DScene from './simuladores/qmi09/Galvanic3DScene';
 import { audio } from '@/utils/audioEngine';
@@ -15,7 +16,8 @@ const METALES_CONFIG: Record<string, { label: string; color: string; pot: number
 };
 
 export default function PilotoCeldasGalvanicas({ isWorktableDark = true, isProfesor = false }: { isWorktableDark?: boolean; isProfesor?: boolean }) {
-  const { celda, setMetalVaso, togglePuenteSalino, toggleCables, generarSemillaP9, validarP9, resetP9 } = useSimuladorStore();
+  const router = useRouter();
+  const { celda, setMetalVaso, togglePuenteSalino, toggleCables, generarSemillaP9, validarP9, resetP9, registrarHallazgo } = useSimuladorStore();
   const [selectedMetal, setSelectedMetal] = useState<string | null>(null);
   const [hoveredMetal, setHoveredMetal] = useState<string | null>(null);
   const [ansAnodo, setAnsAnodo] = useState('');
@@ -317,7 +319,10 @@ export default function PilotoCeldasGalvanicas({ isWorktableDark = true, isProfe
         <button
           onClick={() => {
             const ok = validarP9(ansAnodo, ansCatodo, celda.voltaje);
-            if (ok) { audio?.playSuccess(); } else { audio?.playError(); }
+            if (ok) {
+              registrarHallazgo('qui_celda_galvanica', { anodo: ansAnodo, catodo: ansCatodo, voltaje: celda.voltaje });
+              audio?.playSuccess();
+            } else { audio?.playError(); }
           }}
           className="px-8 py-3 bg-cyan-600 hover:bg-cyan-500 text-white rounded-2xl font-black text-xs uppercase tracking-widest transition-all active:scale-95 shadow-xl"
         >
@@ -347,6 +352,9 @@ export default function PilotoCeldasGalvanicas({ isWorktableDark = true, isProfe
             </div>
             <button onClick={() => { resetP9(); generarSemillaP9(); }} className="px-10 py-4 bg-cyan-600 hover:bg-cyan-500 text-white rounded-2xl font-black text-xs uppercase tracking-widest transition-all">
               Nueva Celda
+            </button>
+            <button onClick={() => router.push('/hub')} className="w-full mt-3 py-3 bg-white/10 hover:bg-white/20 text-white rounded-2xl font-black text-xs uppercase tracking-widest transition-all">
+              Cerrar Laboratorio
             </button>
           </motion.div>
         </div>

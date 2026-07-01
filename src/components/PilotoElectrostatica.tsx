@@ -8,9 +8,11 @@ import {
   ShieldCheck, Bot, RotateCcw
 } from 'lucide-react';
 import { useSimuladorStore } from '@/store/simuladorStore';
+import Electrostatica3DScene from './simuladores/fis09/Electrostatica3DScene';
 
-// k_e * 10^9 * 1e-12 / 1e-2^2 = 8.987e9 * 1e-12 / 1e-4 ≈ 89.87 N
-const K_SCALED = 89.87; 
+// Con q en µC (1e-6 C) y r en cm (1e-2 m): k_e·(1e-6)²/(1e-2)² = 8.987e9·1e-12/1e-4 ≈ 89.87
+// => F[N] = 89.87 · |q1·q2[µC²]| / r²[cm²]. La distancia DEBE interpretarse en centímetros.
+const K_SCALED = 89.87;
 
 export default function PilotoElectrostatica() {
   const router = useRouter();
@@ -35,7 +37,6 @@ export default function PilotoElectrostatica() {
   // -- CÁLCULOS FÍSICOS --
   const F = (K_SCALED * Math.abs(q1 * q2)) / Math.pow(distancia, 2);
   const isAtraccion = (q1 * q2) < 0;
-  const vectorLen = q1 === 0 || q2 === 0 ? 0 : 20 + Math.min(100, 25 * Math.log10(F + 1));
 
   // -- EFECTOS DE AUDIO --
   useEffect(() => {
@@ -95,14 +96,15 @@ export default function PilotoElectrostatica() {
   if (!mounted) return null;
 
   return (
-    <div className="flex h-full w-full overflow-hidden bg-[#020617] font-['Outfit'] relative text-white">
-      
-      {/* ── GIANT TELEMETRY BACKGROUND ── */}
-      <div className="absolute inset-0 flex items-center justify-center pointer-events-none opacity-10 z-0">
-        <span className="text-[14rem] font-black font-mono text-blue-500 select-none">
-          {F.toFixed(3)}
-        </span>
+    <div className="flex h-full w-full overflow-hidden bg-[#03040a] font-['Outfit'] relative text-white">
+
+      {/* ── ESCENA 3D — CAMPO ELECTROSTÁTICO (fondo full-screen) ── */}
+      <div className="absolute inset-0 z-0">
+        <Electrostatica3DScene q1={q1} q2={q2} distancia={distancia} isAtraccion={isAtraccion} />
       </div>
+
+      {/* velo de contraste para legibilidad del HUD */}
+      <div className="absolute inset-0 z-[1] pointer-events-none bg-gradient-to-b from-[#03040a]/70 via-transparent to-[#03040a]/80" />
 
       {/* ── CHECKLIST HUD ── */}
       <div className="absolute top-12 left-1/2 -translate-x-1/2 z-50 w-full max-w-[600px] px-6 pointer-events-none">
@@ -133,14 +135,14 @@ export default function PilotoElectrostatica() {
         </div>
       </div>
 
-      <main className="flex-grow h-full relative flex flex-col p-12 overflow-hidden z-10">
+      <main className="flex-grow h-full relative flex flex-col p-12 overflow-hidden z-10 pointer-events-none">
          
          {/* HUD SUPERIOR */}
          <div className="flex justify-between items-start z-30 pointer-events-none mt-16">
             <div className="flex gap-4">
               <HUDCard label="Carga q₁ (Fixed)" value={`${q1 > 0 ? '+' : ''}${q1} μC`} icon={<Orbit size={14} />} color="#3b82f6" />
               <HUDCard label="Carga q₂ (Probe)" value={`${q2 > 0 ? '+' : ''}${q2} μC`} icon={<Target size={14} />} color="#ef4444" />
-              <HUDCard label="Separación (r)" value={`${distancia.toFixed(2)} m`} icon={<MoveHorizontal size={14} />} color="#a855f7" />
+              <HUDCard label="Separación (r)" value={`${distancia.toFixed(2)} cm`} icon={<MoveHorizontal size={14} />} color="#a855f7" />
             </div>
 
             <div className="bg-slate-900/40 backdrop-blur-2xl border border-white/5 p-6 rounded-[2rem] flex items-center gap-6 shadow-2xl">
@@ -154,43 +156,13 @@ export default function PilotoElectrostatica() {
             </div>
          </div>
 
-         {/* LABORATORIO VIRTUAL */}
-         <div className="flex-grow flex items-center justify-center relative scale-110">
-            <div className="absolute inset-x-0 top-1/2 -translate-y-1/2 h-1 bg-gradient-to-r from-transparent via-white/10 to-transparent z-0" />
-            
-            <svg width="800" height="400" viewBox="0 0 800 400" className="overflow-visible drop-shadow-[0_20px_60px_rgba(0,0,0,0.6)]">
-               <g transform="translate(200, 200)">
-                  <defs>
-                    <radialGradient id="q1-glow">
-                      <stop offset="0%" stopColor={q1 > 0 ? "#3b82f6" : "#ef4444"} stopOpacity="0.4" />
-                      <stop offset="100%" stopColor="#020617" stopOpacity="0" />
-                    </radialGradient>
-                  </defs>
-                  <motion.circle animate={{ scale: [1, 1.2, 1], opacity: [0.3, 0.6, 0.3] }} transition={{ repeat: Infinity, duration: 2 }} r="80" fill="url(#q1-glow)" />
-                  <circle r="25" fill={q1 > 0 ? "#3b82f6" : "#ef4444"} className="shadow-2xl" />
-                  <text textAnchor="middle" y="8" fill="white" fontSize="18" fontWeight="black">{q1 > 0 ? '+' : '-'}</text>
-                  {vectorLen > 0 && (
-                    <motion.line animate={{ x2: isAtraccion ? vectorLen : -vectorLen }} x1="0" y1="0" x2="0" y2="0" stroke="#facc15" strokeWidth="6" strokeLinecap="round" />
-                  )}
-               </g>
-
-               <motion.g animate={{ x: 200 + (distancia * 200) }} transition={{ type: "spring", stiffness: 60, damping: 15 }} transform="translate(0, 200)">
-                  <motion.circle animate={{ scale: [1, 1.2, 1], opacity: [0.3, 0.6, 0.3] }} transition={{ repeat: Infinity, duration: 2.2 }} r="80" fill="url(#q1-glow)" />
-                  <circle r="25" fill={q2 > 0 ? "#3b82f6" : "#ef4444"} className="shadow-2xl" />
-                  <text textAnchor="middle" y="8" fill="white" fontSize="18" fontWeight="black">{q2 > 0 ? '+' : '-'}</text>
-                  {vectorLen > 0 && (
-                    <motion.line animate={{ x2: isAtraccion ? -vectorLen : vectorLen }} x1="0" y1="0" x2="0" y2="0" stroke="#facc15" strokeWidth="6" strokeLinecap="round" />
-                  )}
-                  <line x1="0" y1="40" x2="0" y2="80" stroke="white" strokeWidth="1" strokeDasharray="4" opacity="0.3" />
-                  <text textAnchor="middle" y="100" fill="white" fontSize="10" fontWeight="black" className="uppercase tracking-widest opacity-40">Probe: q₂</text>
-               </motion.g>
-               <line x1="200" y1="200" x2={200 + (distancia * 200)} y2="200" stroke="white" strokeWidth="1" strokeDasharray="8" opacity="0.1" />
-            </svg>
-         </div>
+         {/* LABORATORIO VIRTUAL — el campo 3D vive en el fondo (z-0). Este hueco
+             deja pasar la interacción con OrbitControls (arrastrar / zoom). */}
+         <div className="flex-grow" />
 
          {/* PANEL DE CONTROL */}
          <div className="absolute bottom-10 left-1/2 -translate-x-1/2 w-full max-w-6xl z-40">
-            <motion.div initial={{ y: 50, opacity: 0 }} animate={{ y: 0, opacity: 1 }} className="bg-[#0A1121]/90 backdrop-blur-3xl border border-white/10 rounded-[3rem] p-8 shadow-2xl flex items-center justify-between gap-10">
+            <motion.div initial={{ y: 50, opacity: 0 }} animate={{ y: 0, opacity: 1 }} className="bg-[#0A1121]/90 backdrop-blur-3xl border border-white/10 rounded-[3rem] p-8 shadow-2xl flex items-center justify-between gap-10 pointer-events-auto">
                <div className="flex gap-8 items-center border-r border-white/10 pr-10">
                   <div className="space-y-3">
                     <span className="text-[10px] font-black uppercase tracking-widest text-slate-500">Intensidad q₁ (μC)</span>
@@ -213,7 +185,7 @@ export default function PilotoElectrostatica() {
                     </div>
                   </div>
                   <div className="space-y-3">
-                    <span className="text-[10px] font-black uppercase tracking-widest text-slate-500">Posición r (m)</span>
+                    <span className="text-[10px] font-black uppercase tracking-widest text-slate-500">Posición r (cm)</span>
                     <input type="range" min="0.1" max="2.5" step="0.05" value={distancia} onChange={(e) => handleUpdate({ distancia: parseFloat(e.target.value) })} className="w-32 h-2 bg-white/10 rounded-full appearance-none cursor-pointer accent-blue-500" />
                   </div>
                </div>
@@ -237,7 +209,7 @@ export default function PilotoElectrostatica() {
          {/* MODAL ÉXITO FINAL */}
          <AnimatePresence>
             {bitacoraData.fisica9 && (
-               <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="absolute inset-0 z-[100] bg-[#020617]/95 backdrop-blur-3xl flex items-center justify-center p-12">
+               <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="absolute inset-0 z-[100] bg-[#020617]/95 backdrop-blur-3xl flex items-center justify-center p-12 pointer-events-auto">
                  <motion.div initial={{ scale: 0.9, y: 30 }} animate={{ scale: 1, y: 0 }} className="bg-slate-900 border border-blue-500/30 rounded-[4rem] p-20 max-w-2xl text-center shadow-[0_0_100px_rgba(59,130,246,0.15)]">
                     <ShieldCheck size={100} className="text-blue-500 mx-auto mb-8" />
                     <h3 className="text-5xl font-black text-white uppercase italic mb-6">Misión Certificada</h3>

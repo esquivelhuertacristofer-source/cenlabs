@@ -25,8 +25,10 @@ export default function PilotoPrensaHidraulica() {
 
   // -- MOTOR FÍSICO (PASCAL) --
   const physics = useMemo(() => {
-    const area1 = Math.PI * Math.pow(r1, 2);
-    const area2 = Math.PI * Math.pow(r2, 2);
+    const r1_m = r1 * 0.01; // cm → m
+    const r2_m = r2 * 0.01; // cm → m
+    const area1 = Math.PI * Math.pow(r1_m, 2);
+    const area2 = Math.PI * Math.pow(r2_m, 2);
     const ratio = area2 / area1; // Ganancia mecánica
     
     const fuerzaSalida = f1 * ratio;
@@ -194,8 +196,8 @@ export default function PilotoPrensaHidraulica() {
            </div>
 
            <div className="space-y-10 mb-12">
-              <ControlSlider label="Radio Entrada (r1)" value={r1} min={0.5} max={1.5} unit="m" color="sky" onChange={(val: number) => setPrensa5({ r1: val })} onAudio={() => audio?.playPop()} />
-              <ControlSlider label="Radio Salida (r2)" value={r2} min={2.0} max={4.0} unit="m" color="amber" onChange={(val: number) => setPrensa5({ r2: val })} onAudio={() => audio?.playPop()} />
+              <ControlSlider label="Radio Entrada (r1)" value={r1} min={0.5} max={1.5} unit="cm" color="sky" onChange={(val: number) => setPrensa5({ r1: val })} onAudio={() => audio?.playPop()} />
+              <ControlSlider label="Radio Salida (r2)" value={r2} min={2.0} max={4.0} unit="cm" color="amber" onChange={(val: number) => setPrensa5({ r2: val })} onAudio={() => audio?.playPop()} />
               <ControlSlider label="Fuerza Aplicada (F1)" value={f1} min={0} max={2000} unit="N" color="rose" onChange={(val: number) => setPrensa5({ f1: val })} onAudio={() => audio?.playPop()} />
               
               <div className="pt-6 border-t border-slate-800">

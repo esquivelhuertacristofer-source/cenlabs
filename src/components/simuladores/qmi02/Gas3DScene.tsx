@@ -30,10 +30,9 @@ const CinematicShader = {
             float b = texture2D(tDiffuse, vUv - offset).b;
             vec3 color = vec3(r, g, b);
             vec2 uv = vUv * (1.0 - vUv.yx);
-            float vig = uv.x * uv.y * 15.0;
-            vig = pow(vig, 0.3);
-            color *= vig;
-            float noise = (rand(vUv * time) - 0.5) * 0.04;
+            float vig = clamp(uv.x * uv.y * 15.0, 0.0, 1.0);
+            color *= mix(0.82, 1.0, vig);
+            float noise = (rand(vUv * time) - 0.5) * 0.015;
             color += noise;
             gl_FragColor = vec4(color, 1.0);
         }
@@ -94,15 +93,16 @@ const Gas3DScene: React.FC<Gas3DSceneProps> = ({ temperature, volume, moles, isE
 
         // --- CONFIGURACIÓN BASE (MÁS ILUMINADA) ---
         const scene = new THREE.Scene();
-        scene.background = new THREE.Color(0x1e293b);
-        scene.fog = new THREE.FogExp2(0x1e293b, 0.005); // Neblina más suave
+        scene.background = new THREE.Color(0x0A1E3D);
+        scene.fog = new THREE.FogExp2(0x0A1E3D, 0.001);
 
         const camera = new THREE.PerspectiveCamera(45, 1, 0.1, 1000);
         camera.position.set(30, 10, 45);
 
         const renderer = new THREE.WebGLRenderer({ antialias: true });
         renderer.setPixelRatio(window.devicePixelRatio);
-        renderer.toneMapping = THREE.ACESFilmicToneMapping;
+        renderer.toneMapping = THREE.ReinhardToneMapping;
+        renderer.toneMappingExposure = 2.2;
         
         // FIX ESTRICTO: Purgar cualquier canvas "zombie" generado por el StrictMode de React 18
         while (containerRef.current.firstChild) {
@@ -116,7 +116,7 @@ const Gas3DScene: React.FC<Gas3DSceneProps> = ({ temperature, volume, moles, isE
 
         // --- POST-PROCESAMIENTO (BLOOM) EXACTO AL ORIGINAL ---
         const renderPass = new RenderPass(scene, camera);
-        const bloomPass = new UnrealBloomPass(new THREE.Vector2(1024, 1024), 0.7, 0.4, 0.85);
+        const bloomPass = new UnrealBloomPass(new THREE.Vector2(1024, 1024), 1.0, 0.5, 0.6);
         const composer = new EffectComposer(renderer);
         composer.addPass(renderPass);
         composer.addPass(bloomPass);
@@ -124,27 +124,31 @@ const Gas3DScene: React.FC<Gas3DSceneProps> = ({ temperature, volume, moles, isE
         composer.addPass(cinematicPass);
 
         // --- ENTORNO ORIGINAL (SUELO Y GRID MÁS CLAROS) ---
-        const floorMat = new THREE.MeshStandardMaterial({ color: 0x1e293b, roughness: 0.9, metalness: 0.1 });
+        const floorMat = new THREE.MeshStandardMaterial({ color: 0x1A3A6E, roughness: 0.8, metalness: 0.2 });
         const floor = new THREE.Mesh(new THREE.PlaneGeometry(500, 500), floorMat);
         floor.rotation.x = -Math.PI / 2;
         floor.position.y = -18;
         scene.add(floor);
 
-        const grid = new THREE.GridHelper(200, 40, 0x475569, 0x334155);
+        const grid = new THREE.GridHelper(200, 40, 0x5B85C8, 0x2D5A9E);
         grid.position.y = -17.9;
         scene.add(grid);
 
         // --- ILUMINACIÓN DE ESTUDIO REFORZADA ---
-        scene.add(new THREE.AmbientLight(0xffffff, 1.5)); // Base fuerte
-        
-        const hemiLight = new THREE.HemisphereLight(0x38bdf8, 0x1e293b, 1.0); // Rebote alineado al nuevo fondo
+        scene.add(new THREE.AmbientLight(0xffffff, 2.5));
+
+        const hemiLight = new THREE.HemisphereLight(0x38bdf8, 0x0D2040, 1.5);
         scene.add(hemiLight);
 
-        const frontLight = new THREE.DirectionalLight(0xffffff, 2.0); // Luz frontal directa para el cristal
+        const frontLight = new THREE.DirectionalLight(0xffffff, 3.5);
         frontLight.position.set(0, 20, 30);
         scene.add(frontLight);
 
-        const spotLight = new THREE.SpotLight(0xffffff, 2.0);
+        const backLight = new THREE.DirectionalLight(0x4488ff, 2.0);
+        backLight.position.set(0, 10, -30);
+        scene.add(backLight);
+
+        const spotLight = new THREE.SpotLight(0xffffff, 3.0);
         spotLight.position.set(20, 50, 20);
         spotLight.angle = Math.PI / 6;
         spotLight.penumbra = 0.5;
@@ -155,7 +159,7 @@ const Gas3DScene: React.FC<Gas3DSceneProps> = ({ temperature, volume, moles, isE
         scene.add(heatLight);
 
         // --- CONSTRUCCIÓN DEL CONTENEDOR EXACTO ---
-        const baseMat = new THREE.MeshStandardMaterial({ color: 0x1e293b, metalness: 0.6, roughness: 0.8 });
+        const baseMat = new THREE.MeshStandardMaterial({ color: 0x1E3F70, metalness: 0.6, roughness: 0.6 });
         const base = new THREE.Mesh(new THREE.CylinderGeometry(9.5, 11, 4, 32), baseMat);
         base.position.y = BASE_Y - 2;
         scene.add(base);

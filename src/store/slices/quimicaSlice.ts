@@ -43,7 +43,7 @@ const REACCIONES_BALANCEO = [
     nombre: 'Proceso de Haber (Amoníaco)',
     ecuacion: 'N2(g) + H2(g) → NH3(g)',
     reactivos: [
-      { formula: 'N2', atomos: { N: 2 }, molar: 28.013, estado: 'g' },
+      { formula: 'N2', atomos: { N: 2 }, molar: 28.014, estado: 'g' },
       { formula: 'H2', atomos: { H: 2 }, molar: 2.016, estado: 'g' }
     ],
     productos: [
@@ -112,7 +112,7 @@ const REACCIONES_LIMITANTE = [
     nombre: 'Proceso de Haber', 
     ecuacion: 'N2(g) + 3H2(g) → 2NH3(g)',
     reactivos: [
-      { formula: 'N2', molar: 28.013, coef: 1 },
+      { formula: 'N2', molar: 28.014, coef: 1 },
       { formula: 'H2', molar: 2.016, coef: 3 }
     ],
     productos: [
@@ -148,7 +148,7 @@ const REACCIONES_LIMITANTE = [
 ];
 
 const SUSTANCIAS_SOLUBILIDAD = [
-  { id: 'kno3', nombre: 'Nitrato de Potasio', formula: 'KNO₃', color: '#ffffff', a: 31.6, b: 0.02, desc: 'Alta dependencia térmica.' },
+  { id: 'kno3', nombre: 'Nitrato de Potasio', formula: 'KNO₃', color: '#ffffff', a: 13.3, b: 0.02, desc: 'Alta dependencia térmica.' },
   { id: 'nacl', nombre: 'Cloruro de Sodio', formula: 'NaCl', color: '#f8fafc', a: 35.7, b: 0.001, desc: 'Curva casi plana.' },
   { id: 'cuso4', nombre: 'Sulfato de Cobre (II)', formula: 'CuSO₄', color: '#3b82f6', a: 14.3, b: 0.025, desc: 'Cristales azules vibrantes.' },
   { id: 'kclo3', nombre: 'Clorato de Potasio', formula: 'KClO₃', color: '#e2e8f0', a: 3.3, b: 0.04, desc: 'Muy baja solubilidad en frío.' }
@@ -811,8 +811,9 @@ export const createQuimicaSlice: StateCreator<SimuladorState, [], [], QuimicaSli
 const calculateVoltaje = (celda: any) => {
   if (!celda.vasoIzq || !celda.vasoDer || !celda.puenteSalino || !celda.cablesConectados) return 0;
   const pots: Record<string, number> = { Zn: -0.76, Cu: 0.34, Ag: 0.80, Mg: -2.37 };
-  // E_celda = E_catodo (Der) - E_anodo (Izq)
+  // E°celda = E°cátodo - E°ánodo. Una celda galvánica (espontánea) tiene E°celda > 0,
+  // así que tomamos el valor absoluto: el cátodo es siempre el metal de mayor potencial.
   const eIzq = pots[celda.vasoIzq];
   const eDer = pots[celda.vasoDer];
-  return parseFloat((eDer - eIzq).toFixed(2));
+  return parseFloat(Math.abs(eDer - eIzq).toFixed(2));
 };

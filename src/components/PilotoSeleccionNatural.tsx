@@ -4,11 +4,12 @@ import React, { useEffect, useRef, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useRouter } from 'next/navigation';
 import { useSimuladorStore } from '@/store/simuladorStore';
-import { Bird, Skull, Activity, ShieldCheck, CheckCircle2, Play, RefreshCcw } from 'lucide-react';
+import { Bird, Activity, ShieldCheck, CheckCircle2, Play, RefreshCcw } from 'lucide-react';
+import SeleccionNatural3DScene from './simuladores/bio06/SeleccionNatural3DScene';
 
 export default function PilotoSeleccionNatural() {
-  const { evolucion, tickEvolucion, cazarPolilla, setEvolucion, generarSemillaB6, validarB6, setBitacora, bitacoraData, stopTimer, setPasoActual, audio, setAsistente } = useSimuladorStore();
-  const { ambiente, isRunning, bugs, tiempo, status } = evolucion;
+  const { evolucion, tickEvolucion, cazarPolilla, setEvolucion, generarSemillaB6, validarB6, finalizarGeneracion, setBitacora, bitacoraData, stopTimer, setPasoActual, audio, setAsistente } = useSimuladorStore();
+  const { ambiente, isRunning, bugs, tiempo, status, generacion } = evolucion;
   const router = useRouter();
 
   const requestRef = useRef<number | undefined>(undefined);
@@ -54,11 +55,16 @@ export default function PilotoSeleccionNatural() {
   }, [isRunning]);
 
   // Cálculos Hardy-Weinberg
-  const total = bugs.length || 1;
   const claras = bugs.filter(b => b.tipo === 'clara' && !b.cazada).length;
   const oscuras = bugs.filter(b => b.tipo === 'oscura' && !b.cazada).length;
   const q_freq = claras / (claras + oscuras || 1); // Frecuencia del alelo recesivo (clara)
   const p_freq = 1 - q_freq; // Frecuencia del alelo dominante (oscura)
+
+  const handleHunt = (id: number) => {
+    if (!isRunning) return;
+    cazarPolilla(id);
+    audio?.playPop();
+  };
 
   const handleValidar = () => {
     const ok = validarB6();
@@ -84,64 +90,33 @@ export default function PilotoSeleccionNatural() {
   if (!mounted) return null;
 
   return (
-    <div className="w-full h-full relative bg-[#020617] overflow-hidden cursor-crosshair font-['Outfit'] text-white">
-       
-       {/* 1. AMBIENTE DINÁMICO */}
-       <div className="absolute inset-0 transition-all duration-1000 overflow-hidden">
-          <motion.div 
-            initial={false}
-            animate={{ 
-              backgroundColor: ambiente === 'limpio' ? '#f8fafc' : '#0f172a',
-            }}
-            className="w-full h-full relative"
-          >
-             {/* Textura de Corteza */}
-             <div className={`absolute inset-0 opacity-20 mix-blend-multiply ${ambiente === 'industrial' ? 'bg-slate-900 grayscale' : 'bg-emerald-50'}`} />
-             <div className="absolute inset-0 bg-repeat opacity-5" style={{ backgroundImage: 'url("https://www.transparenttextures.com/patterns/cork-board.png")' }} />
-             
-             {/* Humo Industrial */}
-             {ambiente === 'industrial' && (
-               <div className="absolute inset-0 pointer-events-none overflow-hidden">
-                  {[...Array(8)].map((_, i) => (
-                    <motion.div 
-                      key={i}
-                      animate={{ x: [-100, 200, -100], opacity: [0.05, 0.2, 0.05] }}
-                      transition={{ duration: 15 + i * 5, repeat: Infinity }}
-                      className="absolute w-[1000px] h-[500px] bg-slate-900/60 blur-[120px]"
-                      style={{ top: i * 150, left: i * 50 }}
-                    />
-                  ))}
-               </div>
-             )}
-          </motion.div>
+    <div className="w-full h-full relative bg-[#020617] overflow-hidden font-['Outfit'] text-white">
+
+       {/* 1. ECOSISTEMA 3D — escena evolutiva a pantalla completa (fondo z-0).
+           Cada polilla es clickeable (actúa como depredador) mientras corre. */}
+       <div className="absolute inset-0 z-0">
+          <SeleccionNatural3DScene
+            bugs={bugs}
+            ambiente={ambiente}
+            generacion={generacion}
+            onHunt={handleHunt}
+          />
        </div>
 
-       {/* 2. ENJAMBRE DE POLILLAS */}
-       <div className="absolute inset-0 z-10 pointer-events-none">
-          <AnimatePresence>
-             {bugs.map((bug) => (
-                <Polilla 
-                  key={bug.id} 
-                  bug={bug} 
-                  ambiente={ambiente} 
-                  onHunt={() => {
-                    cazarPolilla(bug.id);
-                    audio?.playPop();
-                  }} 
-                  active={isRunning}
-                />
-             ))}
-          </AnimatePresence>
-       </div>
+       {/* velo de contraste para legibilidad del HUD */}
+       <div className="absolute inset-0 z-[1] pointer-events-none bg-gradient-to-b from-[#020617]/70 via-transparent to-[#020617]/80" />
+
+       {/* Capa de interfaz — deja pasar la interacción salvo en los paneles */}
+       <main className="absolute inset-0 z-10 pointer-events-none">
 
        {/* 3. TOP HUD: GENÉTICA DE POBLACIONES */}
        <div className="absolute top-10 left-0 right-0 z-50 px-10 flex justify-between items-start">
-          <div className="flex gap-6">
+          <div className="flex gap-6 pointer-events-auto">
              <HUDCard label="Alelo Dominante (p)" value={p_freq.toFixed(2)} icon={<Activity size={14} />} color={ambiente === 'industrial' ? "#3b82f6" : "#94a3b8"} highlight={ambiente === 'industrial' && p_freq > 0.8} />
              <HUDCard label="Alelo Recesivo (q)" value={q_freq.toFixed(2)} icon={<Activity size={14} />} color={ambiente === 'limpio' ? "#10b981" : "#94a3b8"} highlight={ambiente === 'limpio' && q_freq > 0.8} />
           </div>
 
-          <div className="bg-black/60 backdrop-blur-3xl border border-white/10 p-6 rounded-[2.5rem] flex items-center gap-8 shadow-2xl">
+          <div className="bg-black/60 backdrop-blur-3xl border border-white/10 p-6 rounded-[2.5rem] flex items-center gap-8 shadow-2xl pointer-events-auto">
              <div className="text-right">
                 <span className="text-[10px] font-black text-slate-500 uppercase tracking-widest block mb-1">Presión Selectiva</span>
                 <span className="text-2xl font-black text-amber-400 italic tracking-tighter uppercase">{ambiente === 'industrial' ? 'Industrial' : 'Natural'}</span>
@@ -155,15 +130,15 @@ export default function PilotoSeleccionNatural() {
        </div>
 
        {/* 4. DOCK DE CONTROL INFERIOR */}
-       <div className="absolute bottom-10 left-1/2 -translate-x-1/2 z-50 w-full max-w-5xl px-10">
-          <div className="bg-[#0f172a]/95 backdrop-blur-3xl border border-white/10 rounded-[3.5rem] p-8 shadow-2xl flex items-center justify-between gap-12">
+       <div className="absolute bottom-10 left-1/2 -translate-x-1/2 z-50 w-full max-w-5xl px-10 pointer-events-none">
+          <div className="bg-[#0f172a]/95 backdrop-blur-3xl border border-white/10 rounded-[3.5rem] p-8 shadow-2xl flex items-center justify-between gap-12 pointer-events-auto">
              <div className="flex items-center gap-6">
                 <div className="p-4 bg-amber-500/10 rounded-2xl">
                    <Bird className="text-amber-500" size={24} />
                 </div>
                 <div>
                    <h4 className="text-xs font-black text-white uppercase tracking-widest">Agente de Selección</h4>
-                   <p className="text-[10px] text-slate-500 font-bold uppercase mt-1 tracking-widest">Actúa como depredador para alterar las frecuencias alélicas.</p>
+                   <p className="text-[10px] text-slate-500 font-bold uppercase mt-1 tracking-widest">Haz clic sobre las polillas resaltadas para alterar las frecuencias alélicas.</p>
                 </div>
              </div>
 
@@ -181,6 +156,14 @@ export default function PilotoSeleccionNatural() {
                 >
                   <Play size={16} fill="currentColor" />
                   Iniciar
+                </button>
+                <button
+                  onClick={() => { finalizarGeneracion(); setEvolucion({ tiempo: 30, isRunning: false }); }}
+                  disabled={isRunning || tiempo > 0 || generacion >= 3 || status === 'success'}
+                  className="px-8 py-5 rounded-2xl font-black uppercase tracking-[0.2em] text-xs transition-all flex items-center gap-3 shadow-2xl bg-violet-600 hover:bg-violet-500 disabled:opacity-40"
+                >
+                  <Activity size={16} />
+                  Sig. Generación ({generacion}/3)
                 </button>
                 <button
                   onClick={() => setEvolucion({ ambiente: ambiente === 'limpio' ? 'industrial' : 'limpio' })}
@@ -203,71 +186,28 @@ export default function PilotoSeleccionNatural() {
        {/* SUCCESS MODAL */}
        <AnimatePresence>
           {status === 'success' && (
-             <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="absolute inset-0 z-[200] bg-[#020617]/95 backdrop-blur-3xl flex items-center justify-center p-12">
+             <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="absolute inset-0 z-[200] bg-[#020617]/95 backdrop-blur-3xl flex items-center justify-center p-12 pointer-events-auto">
                 <motion.div initial={{ scale: 0.9, y: 30 }} animate={{ scale: 1, y: 0 }} className="bg-slate-900 border border-emerald-500/30 rounded-[4rem] p-20 max-w-2xl text-center shadow-[0_0_100px_rgba(16,185,129,0.1)]">
                    <CheckCircle2 size={100} className="text-emerald-500 mx-auto mb-8" />
                    <h3 className="text-5xl font-black text-white uppercase italic mb-6">Selección Validada</h3>
                    <p className="text-slate-400 text-lg font-medium mb-12 leading-relaxed">
-                     Has demostrado el desplazamiento del **Equilibrio de Hardy-Weinberg** bajo presión selectiva. 
+                     Has demostrado el desplazamiento del **Equilibrio de Hardy-Weinberg** bajo presión selectiva.
                      La frecuencia del alelo favorable ha superado el 80%, consolidando la adaptación evolutiva del enjambre.
                    </p>
-                   <button onClick={() => window.location.reload()} className="w-full py-6 bg-emerald-600 hover:bg-emerald-500 text-white font-black rounded-[2rem] uppercase tracking-widest text-xs transition-all shadow-lg shadow-emerald-600/30">Finalizar Ciclo Evolutivo</button>
+                   <button onClick={() => router.push('/hub')} className="w-full py-6 bg-emerald-600 hover:bg-emerald-500 text-white font-black rounded-[2rem] uppercase tracking-widest text-xs transition-all shadow-lg shadow-emerald-600/30">Finalizar Ciclo Evolutivo</button>
                 </motion.div>
              </motion.div>
           )}
        </AnimatePresence>
 
+       </main>
     </div>
-  );
-};
-
-const Polilla = ({ bug, ambiente, onHunt, active }: any) => {
-  const isTargetClara = bug.tipo === 'clara';
-  const visibilidad = (ambiente === 'limpio') 
-    ? (isTargetClara ? 0.15 : 1.0) 
-    : (isTargetClara ? 1.0 : 0.15);
-
-  if (bug.cazada) {
-    return (
-      <motion.div 
-        initial={{ opacity: 1, scale: 1 }}
-        animate={{ opacity: 0, scale: 2, y: -20 }}
-        className="absolute z-10"
-        style={{ left: `${bug.x}%`, top: `${bug.y}%` }}
-      >
-         <Skull size={24} className="text-white/10" />
-      </motion.div>
-    );
-  }
-
-  return (
-    <motion.button
-      whileHover={{ scale: 1.1 }}
-      whileTap={{ scale: 0.8 }}
-      className="absolute pointer-events-auto z-[100] outline-none group"
-      style={{ 
-        left: `${bug.x}%`, 
-        top: `${bug.y}%`, 
-        rotate: `${bug.angle * (180/Math.PI)}deg`,
-        opacity: visibilidad 
-      }}
-      onClick={(e) => {
-        e.stopPropagation();
-        onHunt();
-      }}
-    >
-       <svg width="70" height="50" viewBox="0 0 100 80" className="drop-shadow-[0_0_15px_rgba(0,0,0,0.5)] group-hover:drop-shadow-[0_0_20px_rgba(251,133,0,0.4)] transition-all">
-          <path d="M50,40 Q10,0 10,40 Q10,80 50,45" fill={isTargetClara ? '#f8fafc' : '#0f172a'} />
-          <path d="M50,40 Q90,0 90,40 Q90,80 50,45" fill={isTargetClara ? '#f1f5f9' : '#020617'} />
-          <ellipse cx="50" cy="40" rx="6" ry="15" fill={isTargetClara ? '#cbd5e1' : '#000'} />
-       </svg>
-    </motion.button>
   );
 };
 
 function HUDCard({ label, value, icon, color, highlight = false }: any) {
   return (
-    <motion.div 
+    <motion.div
       animate={highlight ? { scale: [1, 1.05, 1], borderColor: [color, "#FFF", color] } : {}}
       transition={{ duration: 0.5, repeat: highlight ? Infinity : 0 }}
       className={`px-8 py-5 rounded-[2rem] border border-white/10 flex items-center gap-5 transition-all bg-[#0A1121]/80 backdrop-blur-md shadow-2xl`}

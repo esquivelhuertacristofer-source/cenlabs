@@ -1,15 +1,14 @@
 "use client";
 
-import React, { useState, useEffect, useMemo, useRef } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { motion, AnimatePresence } from 'framer-motion';
-import { 
-  Flame, Thermometer, RotateCcw, Zap, 
-  CheckCircle2, AlertCircle, Binary, 
-  Gauge, Activity, Bot, Target, Play, Pause, Ruler
+import {
+  Thermometer, RotateCcw,
+  CheckCircle2, Activity, Bot, Target, Play, Pause, Ruler
 } from 'lucide-react';
 import { useSimuladorStore } from '@/store/simuladorStore';
-import { audio } from '@/utils/audioEngine';
+import DilatacionTermica3DScene from './simuladores/fis07/DilatacionTermica3DScene';
 
 const MATERIALES = {
   aluminio: { nombre: 'Aluminio', alpha: 23e-6, color: '#CBD5E1' },
@@ -61,7 +60,6 @@ export default function PilotoDilatacionTermica() {
   const alphaActual = material === 'misterioso' ? rhoMisteriosa : MATERIALES[material as keyof typeof MATERIALES].alpha;
   const deltaL = alphaActual * longitud * (tempFin - tempIni);
   const heatFactor = (tempFin - tempIni) / 100;
-  const barGlow = `0 0 ${heatFactor * 25}px rgba(249, 115, 22, ${heatFactor})`;
 
   const handleValidar = () => {
     const val = parseFloat(alphaInput) * 1e-6;
@@ -107,10 +105,25 @@ export default function PilotoDilatacionTermica() {
 
   return (
     <div className="flex h-full w-full overflow-hidden bg-[#010409] font-['Outfit'] relative text-white">
-      
-      {/* ── ESCENA DE LABORATORIO 3D-SVG ── */}
-      <main className="flex-grow h-full relative flex flex-col p-12 overflow-hidden">
-         
+
+      {/* ── ESCENA 3D — DILATACIÓN TÉRMICA (fondo full-screen) ── */}
+      <div className="absolute inset-0 z-0">
+        <DilatacionTermica3DScene
+          alpha={alphaActual}
+          longitud={longitud}
+          tempIni={tempIni}
+          tempFin={tempFin}
+          color={MATERIALES[material as keyof typeof MATERIALES]?.color || '#CBD5E1'}
+          encendido={isHeating}
+        />
+      </div>
+
+      {/* velo de contraste para legibilidad del HUD */}
+      <div className="absolute inset-0 z-[1] pointer-events-none bg-gradient-to-b from-[#010409]/70 via-transparent to-[#010409]/80" />
+
+      {/* ── ESCENA DE LABORATORIO 3D ── */}
+      <main className="flex-grow h-full relative flex flex-col p-12 overflow-hidden z-10 pointer-events-none">
+
          {/* CHECKLIST HUD (DIAMOND STANDARD) */}
          <div className="absolute top-48 left-1/2 -translate-x-1/2 w-[600px] pointer-events-none z-50">
             <div className="bg-black/40 backdrop-blur-xl border border-white/10 rounded-[2rem] p-8 shadow-2xl">
@@ -173,73 +186,15 @@ export default function PilotoDilatacionTermica() {
             </div>
          </div>
 
-         {/* BANCO DE PRUEBAS METALÚRGICO */}
-         <div className="flex-grow flex items-center justify-center relative scale-110">
-            <svg width="800" height="400" viewBox="0 0 800 400" className="overflow-visible drop-shadow-[0_20px_50px_rgba(0,0,0,0.5)]">
-               {/* Soportes Industriales */}
-               <defs>
-                 <linearGradient id="supportGrad" x1="0%" y1="0%" x2="100%" y2="100%">
-                   <stop offset="0%" stopColor="#1e293b" />
-                   <stop offset="100%" stopColor="#0f172a" />
-                 </linearGradient>
-               </defs>
-               
-               <rect x="100" y="280" width="30" height="60" fill="url(#supportGrad)" rx="4" />
-               <rect x="670" y="280" width="30" height="60" fill="url(#supportGrad)" rx="4" />
-               <rect x="50" y="340" width="700" height="8" fill="#020617" rx="4" />
-
-               {/* Quemador Bunsen / Inyector Vapor */}
-               <motion.path 
-                 d="M200,340 L220,300 L580,300 L600,340 Z"
-                 animate={{ 
-                   fill: isHeating ? '#f9731633' : '#1e293b11',
-                   stroke: isHeating ? '#f97316' : '#1e293b'
-                 }}
-                 strokeWidth="2" strokeDasharray="4 4"
-               />
-
-               {/* ESPÉCIMEN METÁLICO (LA BARRA) */}
-               <motion.rect 
-                  x="120" y="285" 
-                  animate={{ 
-                    width: 580 + (deltaL * 15), // Escala exagerada para impacto visual
-                    fill: heatFactor > 0.6 ? '#f43f5e' : MATERIALES[material as keyof typeof MATERIALES].color 
-                  }}
-                  height="20" 
-                  rx="10"
-                  style={{ filter: `drop-shadow(${barGlow})` }}
-               />
-
-               {/* MICRÓMETRO DIGITAL (DOCK DERECHO) */}
-               <g transform="translate(720, 280)">
-                  <circle r="60" fill="#0f172a" stroke="#334155" strokeWidth="6" />
-                  <circle r="52" fill="#020617" />
-                  
-                  {/* Escala Graduada */}
-                  {Array.from({ length: 24 }).map((_, i) => (
-                    <line key={i} x1="0" y1="-45" x2="0" y2="-52" stroke="#334155" strokeWidth="2" transform={`rotate(${i * 15})`} />
-                  ))}
-                  
-                  {/* Aguja de Precisión */}
-                  <motion.g animate={{ rotate: deltaL * 7200 }}> {/* Alta sensibilidad */}
-                     <line x1="0" y1="0" x2="0" y2="-50" stroke="#f97316" strokeWidth="4" strokeLinecap="round" />
-                     <circle r="6" fill="#0f172a" stroke="#f97316" strokeWidth="3" />
-                  </motion.g>
-
-                  <text y="30" textAnchor="middle" fill="#94a3b8" fontSize="10" fontWeight="black" className="uppercase tracking-widest font-mono">ΔL MICRAS</text>
-               </g>
-
-               {/* Etiquetas Técnicas */}
-               <text x="120" y="270" fill="#475569" fontSize="11" fontWeight="black" className="uppercase tracking-widest">Base L₀</text>
-               <text x="580" y="270" fill="#475569" fontSize="11" fontWeight="black" className="uppercase tracking-widest text-right">Métrica ΔL</text>
-            </svg>
-         </div>
+         {/* BANCO DE PRUEBAS METALÚRGICO — vive en la escena 3D del fondo (z-0).
+             Este hueco deja pasar la interacción con OrbitControls (arrastrar / zoom). */}
+         <div className="flex-grow" />
 
          {/* ── PANEL DE CONTROL INFERIOR (DOCK) ── */}
          <div className="absolute bottom-10 left-1/2 -translate-x-1/2 w-full max-w-6xl z-40">
-            <motion.div 
+            <motion.div
               initial={{ y: 50, opacity: 0 }} animate={{ y: 0, opacity: 1 }}
-              className="bg-[#0A1121]/90 backdrop-blur-3xl border border-white/10 rounded-[3rem] p-8 shadow-2xl flex items-center justify-between gap-10"
+              className="bg-[#0A1121]/90 backdrop-blur-3xl border border-white/10 rounded-[3rem] p-8 shadow-2xl flex items-center justify-between gap-10 pointer-events-auto"
             >
                {/* Selectores */}
                <div className="flex gap-8 items-center border-r border-white/10 pr-10">
@@ -292,7 +247,7 @@ export default function PilotoDilatacionTermica() {
          {/* MENSAJE TUTOR / ÉXITO */}
          <AnimatePresence>
             {bitacoraData.fisica7 ? (
-               <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="absolute inset-0 z-[100] bg-[#020617]/95 backdrop-blur-3xl flex items-center justify-center p-12">
+               <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="absolute inset-0 z-[100] bg-[#020617]/95 backdrop-blur-3xl flex items-center justify-center p-12 pointer-events-auto">
                  <motion.div initial={{ scale: 0.9, y: 30 }} animate={{ scale: 1, y: 0 }} className="bg-slate-900 border border-orange-500/30 rounded-[4rem] p-20 max-w-2xl text-center shadow-[0_0_100px_rgba(249,115,22,0.15)]">
                     <CheckCircle2 size={100} className="text-orange-500 mx-auto mb-8" />
                     <h3 className="text-5xl font-black text-white uppercase italic mb-6">Metalurgia Certificada</h3>
@@ -305,7 +260,7 @@ export default function PilotoDilatacionTermica() {
                  </motion.div>
                </motion.div>
             ) : (
-               <motion.div initial={{ x: 50, opacity: 0 }} animate={{ x: 0, opacity: 1 }} className="absolute top-40 right-12 z-30 max-w-xs bg-[#0f172a]/90 backdrop-blur-xl p-8 rounded-[2.5rem] border border-white/10 shadow-2xl">
+               <motion.div initial={{ x: 50, opacity: 0 }} animate={{ x: 0, opacity: 1 }} className="absolute top-40 right-12 z-30 max-w-xs bg-[#0f172a]/90 backdrop-blur-xl p-8 rounded-[2.5rem] border border-white/10 shadow-2xl pointer-events-auto">
                   <div className="flex items-center gap-3 mb-4">
                      <Bot className="text-orange-400" size={24} />
                      <span className="text-[10px] font-black text-white uppercase tracking-[0.2em]">Dr. Quantum: Termo-Lab</span>

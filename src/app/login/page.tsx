@@ -1,22 +1,16 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
-import { MoveLeft, Eye, EyeOff, Beaker, Zap, Dna, Calculator, Loader2, AlertCircle } from "lucide-react";
+import { MoveLeft, Eye, EyeOff, Beaker, Loader2, AlertCircle } from "lucide-react";
 import { supabase } from "@/lib/supabase-browser";
-import { getCurrentProfile, ensureProfile } from "@/lib/supabase-helpers";
+import { getCurrentProfile } from "@/lib/supabase-helpers";
 import { ensureProfileServer } from "@/app/actions/auth";
 import { useSimuladorStore } from "@/store/simuladorStore";
 import PrivacyConsentCheckbox from "@/components/PrivacyConsentCheckbox";
 
-const subjects = [
-  { name: "Física", icon: Zap, color: "#FB8500" },
-  { name: "Química", icon: Beaker, color: "#8ECAE6" },
-  { name: "Biología", icon: Dna, color: "#219EBC" },
-  { name: "Matemáticas", icon: Calculator, color: "#FFB703" },
-];
 
 export default function LoginPage() {
   const [showPassword, setShowPassword] = useState(false);
@@ -88,14 +82,15 @@ export default function LoginPage() {
           />
           
           {/* ANIMATED ORBS (No Imágenes) */}
-          {[...Array(4)].map((_, i) => (
+          {([
+            { x: [0, 42, 0] as number[], y: [0, -28, 0] as number[] },
+            { x: [0, -37, 0] as number[], y: [0, 44, 0] as number[] },
+            { x: [0, 21, 0] as number[], y: [0, -38, 0] as number[] },
+            { x: [0, -48, 0] as number[], y: [0, 19, 0] as number[] },
+          ]).map((orb, i) => (
             <motion.div
               key={i}
-              animate={{ 
-                x: [0, Math.random() * 100 - 50, 0], 
-                y: [0, Math.random() * 100 - 50, 0],
-                opacity: [0.1, 0.3, 0.1]
-              }}
+              animate={{ x: orb.x, y: orb.y, opacity: [0.1, 0.3, 0.1] }}
               transition={{ duration: 10 + i * 2, repeat: Infinity, ease: "easeInOut" }}
               className="absolute w-32 h-32 bg-white rounded-full blur-[60px]"
               style={{ top: `${20 + i * 20}%`, left: `${20 + i * 15}%` }}
@@ -141,9 +136,6 @@ export default function LoginPage() {
 
       {/* ── LADO DERECHO: Login Claymorphic (50%) ── */}
       <div className="flex w-full lg:w-1/2 items-center justify-center p-6 sm:p-12 bg-[#F8FAFC]">
-        {/* TEXTURA DE RUIDO SUTIL */}
-        <div className="absolute inset-0 bg-[url('https://grainy-gradients.vercel.app/noise.svg')] opacity-[0.02] pointer-events-none"></div>
-        
         <motion.div 
           initial={{ opacity: 0, scale: 0.95 }}
           animate={{ opacity: 1, scale: 1 }}

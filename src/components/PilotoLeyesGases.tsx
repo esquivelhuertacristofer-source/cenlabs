@@ -41,6 +41,7 @@ export default function PilotoLeyesGases({ isWorktableDark, isProfesor, onValida
   const pTarget = useSimuladorStore(state => state.gases.pTarget || 3.5);
   const isExploded = useSimuladorStore(state => state.gases.isExploded || false);
   const gasType = useSimuladorStore(state => state.gases.gasType || 'He');
+  const gasStatus = useSimuladorStore(state => state.gases.status ?? 'idle');
 
   const [mounted, setMounted] = useState(false);
 
@@ -80,7 +81,7 @@ export default function PilotoLeyesGases({ isWorktableDark, isProfesor, onValida
   if (!mounted) return null;
 
   return (
-    <div className="w-full h-full relative select-none font-['Outfit'] overflow-hidden bg-[#0A1121]">
+    <div className="w-full h-full relative select-none font-['Outfit'] overflow-hidden bg-[#0D2040]">
       
       {/* 1. MOTOR 3D INMERSIVO (FULL SCREEN) */}
       <div className="absolute inset-0 z-0">
@@ -139,7 +140,7 @@ export default function PilotoLeyesGases({ isWorktableDark, isProfesor, onValida
         <motion.div 
           initial={{ y: 100, opacity: 0 }}
           animate={{ y: 0, opacity: 1 }}
-          className="bg-[#0A1121]/80 backdrop-blur-2xl border border-white/10 rounded-[2.5rem] p-8 shadow-[0_40px_100px_rgba(0,0,0,0.5)] flex items-center justify-between gap-12"
+          className="bg-[#0D2040]/85 backdrop-blur-2xl border border-white/15 rounded-[2.5rem] p-8 shadow-[0_40px_100px_rgba(0,0,0,0.4)] flex items-center justify-between gap-12"
         >
           {/* Controles de Variables */}
           <div className="flex-1 flex gap-12 items-center">
@@ -226,6 +227,19 @@ export default function PilotoLeyesGases({ isWorktableDark, isProfesor, onValida
         )}
       </AnimatePresence>
 
+      <AnimatePresence>
+        {gasStatus === 'success' && (
+          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="absolute inset-0 z-[200] bg-[#020617]/95 backdrop-blur-3xl flex items-center justify-center p-12">
+            <motion.div initial={{ scale: 0.9, y: 30 }} animate={{ scale: 1, y: 0 }} className="bg-slate-900 border border-sky-500/30 rounded-[4rem] p-20 max-w-2xl text-center shadow-[0_0_100px_rgba(14,165,233,0.1)]">
+              <CheckCircle2 size={100} className="text-sky-500 mx-auto mb-8" />
+              <h3 className="text-5xl font-black text-white uppercase italic mb-6">Presión Certificada</h3>
+              <p className="text-slate-400 text-lg font-medium mb-12 leading-relaxed">Has alcanzado el objetivo de presión aplicando correctamente la Ley del Gas Ideal. Los datos han sido registrados en tu bitácora científica.</p>
+              <button onClick={() => router.push('/hub')} className="w-full py-6 bg-sky-600 hover:bg-sky-500 text-white font-black rounded-[2rem] uppercase tracking-widest text-xs transition-colors shadow-lg shadow-sky-600/30">Cerrar Cámara de Presión</button>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
       {/* 5. HERRAMIENTAS LATERALES */}
       <div className="absolute top-1/2 -translate-y-1/2 right-8 flex flex-col gap-4 z-20">
         <ToolButton 
@@ -258,7 +272,7 @@ function HUDCard({ label, value, icon, color, highlight = false, isStatic = fals
     <motion.div 
       animate={highlight ? { scale: [1, 1.05, 1], borderColor: [color, "#FFF", color] } : {}}
       transition={{ duration: 0.5, repeat: highlight ? Infinity : 0 }}
-      className={`px-6 py-4 rounded-3xl border border-white/10 flex items-center gap-4 transition-all ${isStatic ? 'bg-white/5' : 'bg-[#0A1121]/60 backdrop-blur-md shadow-2xl'}`}
+      className={`px-6 py-4 rounded-3xl border border-white/15 flex items-center gap-4 transition-all ${isStatic ? 'bg-white/8' : 'bg-[#0D2040]/70 backdrop-blur-md shadow-2xl'}`}
     >
       <div className="w-10 h-10 rounded-2xl flex items-center justify-center" style={{ background: `${color}20`, color }}>
         {icon}
@@ -275,7 +289,7 @@ function ToolButton({ icon, label, onClick }: any) {
   return (
     <button 
       onClick={onClick}
-      className="group flex items-center gap-3 bg-[#0A1121]/60 backdrop-blur-md border border-white/10 p-4 rounded-2xl hover:bg-white/10 hover:border-white/20 transition-all active:scale-90"
+      className="group flex items-center gap-3 bg-[#0D2040]/70 backdrop-blur-md border border-white/15 p-4 rounded-2xl hover:bg-white/10 hover:border-white/20 transition-all active:scale-90"
     >
       <div className="text-white/40 group-hover:text-white transition-colors">
         {icon}

@@ -43,7 +43,7 @@ export default function PilotoRiemann() {
 
   const dx = 10 / n;
   
-  // Cálculo de área aproximada (f(x) = sin(x) + 2 en [0, 10])
+  // Cálculo de área aproximada (f(x) = -x² + 10x en [0, 10], la misma parábola que dibuja la escena 3D)
   const calculateArea = () => {
     let area = 0;
     for(let i=0; i<n; i++) {
@@ -52,14 +52,13 @@ export default function PilotoRiemann() {
       else if (metodo === 'derecha') xEval = (i+1) * dx;
       else xEval = (i + 0.5) * dx;
       
-      area += (Math.sin(xEval) + 2) * dx;
+      area += (-(xEval ** 2) + 10 * xEval) * dx;
     }
     return area;
   };
 
   const areaApprox = calculateArea();
-  const areaReal = 21.839; // Integral de sin(x)+2 de 0 a 10 es [-cos(x) + 2x]0^10 = (-cos(10) + 20) - (-cos(0) + 0) = -cos(10) + 20 + 1
-  // cos(10 rad) ≈ -0.839. -> -(-0.839) + 21 = 21.839
+  const areaReal = 166.667; // ∫₀¹⁰ (-x² + 10x) dx = [-x³/3 + 5x²]₀¹⁰ = -1000/3 + 500 = 166.667
 
   const handleValidar = () => {
     if (n >= 80) {
@@ -229,7 +228,7 @@ export default function PilotoRiemann() {
                 <p className="text-slate-400 text-lg font-medium mb-12 leading-relaxed">
                   Has demostrado la convergencia de la **Suma de Riemann** hacia la integral definida. Con n={n}, el error se ha minimizado por debajo del umbral de tolerancia científica.
                 </p>
-                <button onClick={() => window.location.reload()} className="w-full py-6 bg-emerald-600 hover:bg-emerald-500 text-white font-black rounded-[2rem] uppercase tracking-widest text-xs transition-colors shadow-lg shadow-emerald-600/30">Cerrar Informe Analítico</button>
+                <button onClick={() => router.push('/hub')} className="w-full py-6 bg-emerald-600 hover:bg-emerald-500 text-white font-black rounded-[2rem] uppercase tracking-widest text-xs transition-colors shadow-lg shadow-emerald-600/30">Cerrar Informe Analítico</button>
              </motion.div>
           </motion.div>
         )}

@@ -5,6 +5,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { useSimuladorStore } from '@/store/simuladorStore';
 import { Plus, Minus, Power, Activity, Target, Zap, FlaskConical, AlertTriangle, Volume2 } from 'lucide-react';
 import Image from 'next/image';
+import { useRouter } from 'next/navigation';
 import { audio } from '@/utils/audioEngine';
 import Atomic3DScene from './simuladores/qmi01/Atomic3DScene';
 import {
@@ -72,9 +73,11 @@ const PARTICLE_PATHS = {
 
 // ─── Main Component ─────────────────────────────────────────────────────────
 export default function PilotoConstruccionAtomica({ isWorktableDark = true }: { isWorktableDark?: boolean }) {
+  const router = useRouter();
   const { particulas, setParticulas, validarEstructura, registrarHallazgo, resetParticulas, setTargetElement, setTargetCharge } = useSimuladorStore();
   const [mounted, setMounted] = useState(false);
   const [assetErrors, setAssetErrors] = useState<Record<string, boolean>>({});
+  const [validated, setValidated] = useState(false);
 
   useEffect(() => { setMounted(true); }, []);
 
@@ -348,11 +351,11 @@ export default function PilotoConstruccionAtomica({ isWorktableDark = true }: { 
           </button>
           <button
             onClick={() => { 
-              const ok = validarEstructura(); 
+              const ok = validarEstructura();
               if (ok) {
-                audio.playSuccess(); 
-                registrarHallazgo('qmi01_success', { p: protones, n: neutrones, e: electrones }); // Registrar automáticamente en la bitácora JSON
-                // El SyncManager detectará el cambio en el store y sincronizará con Supabase
+                audio.playSuccess();
+                registrarHallazgo('qmi01_success', { p: protones, n: neutrones, e: electrones });
+                setValidated(true);
               } else {
                 audio.playError(); 
               }
@@ -375,6 +378,19 @@ export default function PilotoConstruccionAtomica({ isWorktableDark = true }: { 
             className={`absolute bottom-28 left-1/2 -translate-x-1/2 z-40 px-8 py-3 rounded-2xl border text-sm font-bold backdrop-blur-2xl shadow-2xl max-w-lg text-center ${isStable ? 'bg-green-500/20 border-green-500/40 text-green-300' : 'bg-red-500/20 border-red-500/40 text-red-300'}`}
           >
             {message}
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      <AnimatePresence>
+        {validated && (
+          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="absolute inset-0 z-[200] bg-[#020617]/95 backdrop-blur-3xl flex items-center justify-center p-12">
+            <motion.div initial={{ scale: 0.9, y: 30 }} animate={{ scale: 1, y: 0 }} className="bg-slate-900 border border-cyan-500/30 rounded-[4rem] p-20 max-w-2xl text-center shadow-[0_0_100px_rgba(33,158,188,0.1)]">
+              <Target size={100} className="text-cyan-500 mx-auto mb-8" />
+              <h3 className="text-5xl font-black text-white uppercase italic mb-6">Estructura Certificada</h3>
+              <p className="text-slate-400 text-lg font-medium mb-12 leading-relaxed">Has construido correctamente el átomo objetivo. La configuración nuclear e iónica ha sido verificada y registrada en la bitácora científica.</p>
+              <button onClick={() => router.push('/hub')} className="w-full py-6 bg-cyan-600 hover:bg-cyan-500 text-white font-black rounded-[2rem] uppercase tracking-widest text-xs transition-colors shadow-lg shadow-cyan-600/30">Cerrar Laboratorio</button>
+            </motion.div>
           </motion.div>
         )}
       </AnimatePresence>

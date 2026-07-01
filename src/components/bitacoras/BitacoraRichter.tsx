@@ -15,7 +15,7 @@ export default function BitacoraRichter({ onValidate }: { onValidate?: () => voi
   const { magnitudActual, magnitudBase, isLogView, status } = richter;
 
   const [conclusionText, setConclusionText] = useState('');
-  const quantumMsg = `Ajusta la magnitud del sismo. Recuerda que la escala de Richter es logarítmica; cada unidad de aumento representa aproximadamente 32 veces más energía liberada. ¡Analiza el impacto energético para certificar el informe sísmico!`;
+  const quantumMsg = `Ajusta la magnitud del sismo. Recuerda que la escala de Magnitud de Momento (Mw) es logarítmica; cada unidad de aumento representa aproximadamente 32 veces más energía liberada. ¡Analiza el impacto energético para certificar el informe sísmico!`;
 
   const handleReset = () => {
     setMagnitudM3(3.0);
@@ -164,7 +164,7 @@ export default function BitacoraRichter({ onValidate }: { onValidate?: () => voi
           </div>
           <textarea 
              value={conclusionText} onChange={e => setConclusionText(e.target.value)}
-             placeholder="Explica por qué un pequeño incremento en la magnitud de la escala de Richter resulta en un aumento tan masivo de la energía liberada..."
+             placeholder="Explica por qué un pequeño incremento en la magnitud de momento (Mw) resulta en un aumento tan masivo de la energía liberada..."
              rows={4}
              className="w-full bg-slate-50 border border-slate-100 rounded-2xl p-4 text-[11px] font-medium text-slate-600 focus:outline-none focus:border-rose-500 italic"
           />

@@ -63,7 +63,7 @@ describe('validarM2', () => {
   });
 });
 
-// ── M3 Escala Richter ─────────────────────────────────────────────────────────
+// ── M3 Magnitud de Momento (Mw) ───────────────────────────────────────────────
 describe('validarM3', () => {
   it('true when user value is exact', () => {
     const factor = Math.pow(10, 1.5 * (8.0 - 6.0));

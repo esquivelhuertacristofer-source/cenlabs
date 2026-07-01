@@ -9,6 +9,7 @@ import {
   Thermometer, Gauge, Microchip, Fingerprint
 } from 'lucide-react';
 import { AreaChart, Area, ResponsiveContainer, YAxis } from 'recharts';
+import { useRouter } from 'next/navigation';
 import dynamic from 'next/dynamic';
 
 const Transporte3DScene = dynamic(() => import('./simuladores/bio02/Transporte3DScene'), { 
@@ -17,6 +18,7 @@ const Transporte3DScene = dynamic(() => import('./simuladores/bio02/Transporte3D
 });
 
 export default function PilotoTransporteCelular() {
+  const router = useRouter();
   const store = useSimuladorStore();
   const transporte = store?.transporte;
 
@@ -33,6 +35,7 @@ export default function PilotoTransporteCelular() {
   const tipoCelula = transporte?.tipoCelula ?? 'animal';
   const volumen = transporte?.volumen ?? 100;
   const history = transporte?.history ?? [];
+  const transporteStatus = transporte?.status ?? 'idle';
 
   const osmExt = useMemo(() => (2 * (concExt || 0)) + (1 * (glucosaExt || 0)), [concExt, glucosaExt]);
   const osmInt = useMemo(() => 2 * (concInt || 0.3), [concInt]);
@@ -203,6 +206,18 @@ export default function PilotoTransporteCelular() {
          </div>
       </div>
 
+      <AnimatePresence>
+        {transporteStatus === 'success' && (
+          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="absolute inset-0 z-[200] bg-[#020617]/95 backdrop-blur-3xl flex items-center justify-center p-12">
+            <motion.div initial={{ scale: 0.9, y: 30 }} animate={{ scale: 1, y: 0 }} className="bg-slate-900 border border-emerald-500/30 rounded-[4rem] p-20 max-w-2xl text-center shadow-[0_0_100px_rgba(16,185,129,0.1)]">
+              <CheckCircle2 size={100} className="text-emerald-500 mx-auto mb-8" />
+              <h3 className="text-5xl font-black text-white uppercase italic mb-6">Isotonía Certificada</h3>
+              <p className="text-slate-400 text-lg font-medium mb-12 leading-relaxed">Has equilibrado correctamente la concentración osmótica de la muestra celular. Los parámetros de transporte han sido validados y registrados.</p>
+              <button onClick={() => router.push('/hub')} className="w-full py-6 bg-emerald-600 hover:bg-emerald-500 text-white font-black rounded-[2rem] uppercase tracking-widest text-xs transition-colors shadow-lg shadow-emerald-600/30">Finalizar Análisis Celular</button>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   );
 }

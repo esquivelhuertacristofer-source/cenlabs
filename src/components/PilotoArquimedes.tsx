@@ -1,24 +1,27 @@
 "use client";
 
 import React, { useState, useEffect, useRef } from 'react';
+import { useRouter } from 'next/navigation';
 import { useSimuladorStore } from '@/store/simuladorStore';
 import { motion, AnimatePresence } from 'framer-motion';
-import { 
-  Waves, 
-  Weight, 
-  Droplets, 
-  ArrowDown, 
+import {
+  Waves,
+  Weight,
+  Droplets,
+  ArrowDown,
   ArrowUp,
   Settings,
   Activity,
   Zap,
   Info,
   Thermometer,
-  CloudRain
+  CloudRain,
+  Award
 } from 'lucide-react';
 
 export default function PilotoArquimedes() {
-  const { arquimedes6, setArquimedes6, setAsistente, audio, registrarHallazgo, stopTimer, setPasoActual, bitacoraData, setBitacora } = useSimuladorStore();
+  const router = useRouter();
+  const { arquimedes6, setArquimedes6, setAsistente, audio, registrarHallazgo, stopTimer, setPasoActual, bitacoraData, setBitacora, resetF6 } = useSimuladorStore();
   const {
     radio = 0.5,
     densidadCuerpo = 800,
@@ -33,10 +36,18 @@ export default function PilotoArquimedes() {
   const [pesoReal, setPesoReal] = useState(0);
   const [empuje, setEmpuje] = useState(0);
   const [paso, setPaso] = useState(1);
+  const [showSuccess, setShowSuccess] = useState(false);
 
   // Ref to avoid stale closure inside setInterval
   const sumergidoRef = useRef(sumergido);
   useEffect(() => { sumergidoRef.current = sumergido; }, [sumergido]);
+
+  // Detectar fin de simulación y mostrar overlay de éxito
+  useEffect(() => {
+    if (!isRunning && sumergido > 0.1) {
+      setShowSuccess(true);
+    }
+  }, [isRunning, sumergido]);
 
   useEffect(() => {
     const V = (4/3) * Math.PI * Math.pow(radio, 3);
@@ -245,6 +256,89 @@ export default function PilotoArquimedes() {
            </button>
         </div>
       </div>
+
+      {/* OVERLAY DE ÉXITO — EQUILIBRIO HIDROSTÁTICO ALCANZADO */}
+      <AnimatePresence>
+        {showSuccess && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-[500] flex items-center justify-center bg-[#010409]/95 backdrop-blur-3xl p-6"
+          >
+            <motion.div
+              initial={{ scale: 0.85, opacity: 0, y: 30 }}
+              animate={{ scale: 1, opacity: 1, y: 0 }}
+              exit={{ scale: 0.85, opacity: 0, y: 30 }}
+              transition={{ type: 'spring', stiffness: 260, damping: 22 }}
+              className="bg-gradient-to-br from-[#020617] to-[#0f172a] rounded-[3rem] p-12 max-w-2xl w-full shadow-2xl text-white text-center border border-blue-500/30 overflow-hidden relative"
+            >
+              {/* Glow de fondo */}
+              <div className="absolute top-0 left-1/2 -translate-x-1/2 w-80 h-40 bg-blue-500/10 blur-[80px] rounded-full pointer-events-none" />
+
+              {/* Trofeos */}
+              <div className="flex justify-center gap-4 mb-6 relative z-10">
+                {[1, 2, 3].map((s) => (
+                  <motion.div
+                    key={s}
+                    initial={{ scale: 0, rotate: -30 }}
+                    animate={{ scale: 1, rotate: 0 }}
+                    transition={{ delay: s * 0.15 }}
+                  >
+                    <Award size={40} className="text-yellow-400 drop-shadow-[0_0_12px_rgba(250,204,21,0.5)]" fill="currentColor" />
+                  </motion.div>
+                ))}
+              </div>
+
+              <div className="text-[10px] font-black text-blue-400 uppercase tracking-[0.3em] mb-2 relative z-10">
+                Certificación Hidrostática
+              </div>
+              <h3 className="text-4xl font-black uppercase tracking-tighter mb-8 italic relative z-10">
+                ¡Equilibrio Alcanzado!
+              </h3>
+
+              {/* Datos del experimento */}
+              <div className="bg-white/5 border border-white/10 rounded-[2rem] p-8 grid grid-cols-2 gap-8 text-left mb-8 relative z-10">
+                <div>
+                  <span className="text-[11px] font-black text-blue-400 uppercase block mb-1">Densidad Cuerpo</span>
+                  <span className="text-3xl font-black font-mono">{densidadCuerpo} kg/m³</span>
+                </div>
+                <div>
+                  <span className="text-[11px] font-black text-blue-400 uppercase block mb-1">Densidad Fluido</span>
+                  <span className="text-3xl font-black font-mono">{densidadLiquido} kg/m³</span>
+                </div>
+                <div>
+                  <span className="text-[11px] font-black text-blue-400 uppercase block mb-1">Volumen Sumergido</span>
+                  <span className="text-3xl font-black font-mono">{(sumergido * 100).toFixed(1)}%</span>
+                </div>
+                <div>
+                  <span className="text-[11px] font-black text-blue-400 uppercase block mb-1">Empuje Final</span>
+                  <span className="text-3xl font-black font-mono">{(Math.min(sumergido, 1) * volumenTotal * densidadLiquido * 9.81).toFixed(2)} N</span>
+                </div>
+              </div>
+
+              <p className="text-sm text-slate-400 mb-10 px-6 relative z-10">
+                El principio de Arquímedes ha sido validado. El empuje del fluido compensa exactamente el peso del cuerpo en la proporción correcta de inmersión.
+              </p>
+
+              <div className="flex gap-3 relative z-10">
+                <button
+                  onClick={() => setShowSuccess(false)}
+                  className="flex-1 py-5 bg-white/5 hover:bg-white/10 text-white font-black text-[10px] uppercase tracking-widest rounded-[1.5rem] transition-all border border-white/10"
+                >
+                  Revisar Simulación
+                </button>
+                <button
+                  onClick={() => { resetF6(); router.push('/alumno/laboratorio/fisica'); }}
+                  className="flex-1 py-5 bg-blue-600 hover:bg-blue-500 text-white font-black text-[10px] uppercase tracking-widest rounded-[1.5rem] shadow-xl shadow-blue-600/30 transition-all"
+                >
+                  Finalizar y Salir
+                </button>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
     </div>
   );

@@ -486,7 +486,7 @@ export const MASTER_DATA: Record<string, SimuladorContenido> = {
     ]
   },
   "matematicas-3": {
-    titulo: "Escala Richter: Energía Sísmica", 
+    titulo: "Magnitud de Momento (Mw): Energía Sísmica",
     videoUrl: "",
     mision: "Calcula el factor de potencia entre sismos usando logaritmos", ecuacion: "E = 10^(1.5ΔM)", formulaGfx: "log₁₀(E₂/E₁) = 1.5(M₂ - M₁)",
     pasos: [

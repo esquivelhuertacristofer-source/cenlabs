@@ -47,7 +47,7 @@ export function validarM2(sistemas: Sistemas2x2State): ValidarM2Result {
   return { isOk, interseccion: { x: xi, y: yi } };
 }
 
-// M3 — Escala Richter (logaritmos)
+// M3 — Magnitud de Momento Mw (logaritmos)
 export function validarM3(richter: RichterState): boolean {
   const realFactor = Math.pow(10, 1.5 * (richter.targetM - richter.magnitudBase));
   const userVal    = parseFloat(richter.userInputFactor);

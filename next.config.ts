@@ -1,6 +1,14 @@
 import type { NextConfig } from "next";
 import { withSentryConfig } from "@sentry/nextjs";
 
+const isDev = process.env.NODE_ENV === 'development';
+
+// Dev mode requires 'unsafe-eval' for Next.js HMR / React Refresh runtime.
+// Production omits it for stricter security.
+const scriptSrc = isDev
+  ? "'self' 'unsafe-inline' 'unsafe-eval' blob: https://www.youtube.com https://s.ytimg.com"
+  : "'self' 'unsafe-inline' blob: https://www.youtube.com https://s.ytimg.com";
+
 const nextConfig: NextConfig = {
   experimental: {
     reactCompiler: false,
@@ -16,7 +24,7 @@ const nextConfig: NextConfig = {
           },
           {
             key: 'Content-Security-Policy',
-            value: "default-src 'self'; script-src 'self' 'unsafe-inline' blob: https://www.youtube.com https://s.ytimg.com; worker-src 'self' blob:; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; img-src 'self' blob: data: https://raw.githack.com https://cdn.jsdelivr.net https://i.ytimg.com https://images.unsplash.com; font-src 'self' data: https://fonts.gstatic.com; connect-src 'self' *.supabase.co https://raw.githack.com https://cdn.jsdelivr.net blob:; frame-src 'self' https://www.youtube.com https://youtube.com;"
+            value: `default-src 'self'; script-src ${scriptSrc}; worker-src 'self' blob:; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; img-src 'self' blob: data: https://raw.githack.com https://cdn.jsdelivr.net https://i.ytimg.com https://images.unsplash.com; font-src 'self' data: https://fonts.gstatic.com; connect-src 'self' *.supabase.co https://raw.githack.com https://cdn.jsdelivr.net blob:; frame-src 'self' https://www.youtube.com https://youtube.com;`
           },
           {
             key: 'X-Frame-Options',

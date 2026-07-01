@@ -3,9 +3,9 @@ import { SimuladorState, MatematicasSlice } from '../types';
 import * as MatDomain from '@/domain/matematicas';
 
 export const createMatematicasSlice: StateCreator<SimuladorState, [], [], MatematicasSlice> = (set, get) => ({
-  cuadraticas: { 
-    a: 1, b: 0, c: 0, 
-    target: { a: 2, b: -2, c: -3 }, 
+  cuadraticas: {
+    a: 1, b: 0, c: 0,
+    target: { a: 2, b: -2, c: -3 },
     status: 'idle',
     intentos: 0,
     estrellas: 3,
@@ -50,11 +50,11 @@ export const createMatematicasSlice: StateCreator<SimuladorState, [], [], Matema
     return isOk;
   },
   registrarHallazgoM1: () => {
-    const { a, b, c, hallazgos } = get().cuadraticas;
+    const { a, b, c } = get().cuadraticas;
     const h = -b / (2 * (a || 0.001));
     const k = a * h * h + b * h + c;
     const delta = b * b - 4 * a * c;
-    
+
     const newHallazgo = {
       id: crypto.randomUUID(),
       eq: `f(x) = ${a}x² ${b>=0?'+':''}${b}x ${c>=0?'+':''}${c}`,
@@ -63,16 +63,17 @@ export const createMatematicasSlice: StateCreator<SimuladorState, [], [], Matema
       k,
       timestamp: new Date().toLocaleTimeString()
     };
-    
+
     set((state) => ({
-      cuadraticas: { 
-        ...state.cuadraticas, 
-        hallazgos: [newHallazgo, ...state.cuadraticas.hallazgos].slice(0, 10) 
+      cuadraticas: {
+        ...state.cuadraticas,
+        hallazgos: [newHallazgo, ...state.cuadraticas.hallazgos].slice(0, 10)
       }
     }));
+    get().registrarHallazgo('mat_cuadraticas', { eq: newHallazgo.eq, delta, h: newHallazgo.h, k: newHallazgo.k });
   },
-  resetM1: () => set((state) => ({ 
-    cuadraticas: { ...state.cuadraticas, a: 1, b: 0, c: 0, status: 'idle', intentos: 0, estrellas: 3, mensajeFeedback: '', deltaVerified: false, vertexVerified: false } 
+  resetM1: () => set((state) => ({
+    cuadraticas: { ...state.cuadraticas, a: 1, b: 0, c: 0, status: 'idle', intentos: 0, estrellas: 3, mensajeFeedback: '', deltaVerified: false, vertexVerified: false }
   })),
   setDeltaVerified: (v: boolean) => set((state) => ({ cuadraticas: { ...state.cuadraticas, deltaVerified: v } })),
   setVertexVerified: (v: boolean) => set((state) => ({ cuadraticas: { ...state.cuadraticas, vertexVerified: v } })),
@@ -178,11 +179,11 @@ export const createMatematicasSlice: StateCreator<SimuladorState, [], [], Matema
     };
     // Evitar duplicados cercanos
     if (state.trigonometria.hallazgos?.some(h => Math.abs(h.angulo - angulo) < 1)) return state;
-    return { 
-        trigonometria: { 
-            ...state.trigonometria, 
-            hallazgos: [...(state.trigonometria.hallazgos || []), nuevo].slice(-4) // Guardar los últimos 4
-        } 
+    return {
+        trigonometria: {
+            ...state.trigonometria,
+            hallazgos: [...(state.trigonometria.hallazgos || []), nuevo].slice(-4)
+        }
     };
   }),
   validarM5: () => {
@@ -288,8 +289,8 @@ export const createMatematicasSlice: StateCreator<SimuladorState, [], [], Matema
   resetM9: () => set((state) => ({ integral9: { n: 4, metodo: 'izquierda', animandoLimite: false, status: 'idle' } })),
   setGaltonM10: (poblacion: number, probabilidad: number) => set((state) => ({ galton10: { ...state.galton10, poblacion, probabilidad } })),
   setSimulandoM10: (val: boolean) => set((state) => ({ galton10: { ...state.galton10, simulando: val } })),
-  lanzarBolitasM10: () => set((state) => ({ 
-    galton10: { ...state.galton10, bolitasPendientes: state.galton10.bolitasPendientes + 100 } 
+  lanzarBolitasM10: () => set((state) => ({
+    galton10: { ...state.galton10, bolitasPendientes: state.galton10.bolitasPendientes + 100 }
   })),
   contarBolitaM10: (bin: number) => set((state) => {
     const nuevosContenedores = [...state.galton10.contenedores];
@@ -297,8 +298,8 @@ export const createMatematicasSlice: StateCreator<SimuladorState, [], [], Matema
     return { galton10: { ...state.galton10, contenedores: nuevosContenedores } };
   }),
   setGalton10: (data: Partial<SimuladorState['galton10']>) => set((state) => ({ galton10: { ...state.galton10, ...data } })),
-  generarSemillaM10: () => set((state) => ({ 
-    galton10: { ...state.galton10, probabilidad: parseFloat((0.2 + Math.random() * 0.6).toFixed(2)), status: 'idle' } 
+  generarSemillaM10: () => set((state) => ({
+    galton10: { ...state.galton10, probabilidad: parseFloat((0.2 + Math.random() * 0.6).toFixed(2)), status: 'idle' }
   })),
   vaciarGaltonM10: () => set((state) => ({ galton10: { ...state.galton10, contenedores: new Array(11).fill(0), status: 'idle' } })),
   validarM10: () => {

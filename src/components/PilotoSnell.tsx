@@ -1,8 +1,10 @@
 "use client";
 
 import React, { useEffect, useState } from 'react';
+import { useRouter } from 'next/navigation';
 import { useSimuladorStore } from '@/store/simuladorStore';
-import { Zap, RefreshCcw, Info } from 'lucide-react';
+import { motion, AnimatePresence } from 'framer-motion';
+import { Zap, RefreshCcw, Info, CheckCircle2 } from 'lucide-react';
 import Snell3DScene from './simuladores/mat07/Snell3DScene';
 
 const LASER_OPTIONS: { id: string; label: string; color: string; bg: string }[] = [
@@ -14,7 +16,8 @@ const LASER_OPTIONS: { id: string; label: string; color: string; bg: string }[] 
 ];
 
 export default function PilotoSnell() {
-  const { optica7, generarSemillaM7, resetM7, setUserInputM7, validarM7, audio, setAsistente } = useSimuladorStore();
+  const router = useRouter();
+  const { optica7, generarSemillaM7, resetM7, setUserInputM7, validarM7, audio, setAsistente, setPasoActual } = useSimuladorStore();
   const { n1, n2, n2Misterio, anguloIncidencia, status } = optica7;
   const [laserColor, setLaserColor] = useState<'cyan' | 'red' | 'green' | 'violet' | 'white'>('white');
   const [inputN2, setInputN2] = useState('');
@@ -177,6 +180,50 @@ export default function PilotoSnell() {
             </div>
         </div>
       </div>
+
+      {/* ── MODAL DE ÉXITO ── */}
+      <AnimatePresence>
+        {status === 'success' && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="absolute inset-0 z-[200] bg-[#0c1222]/95 backdrop-blur-3xl flex items-center justify-center p-12"
+          >
+            <motion.div
+              initial={{ scale: 0.9, y: 30 }}
+              animate={{ scale: 1, y: 0 }}
+              className="bg-slate-900 border border-cyan-500/30 rounded-[4rem] p-20 max-w-2xl w-full text-center shadow-[0_0_100px_rgba(34,211,238,0.12)]"
+            >
+              <div className="w-24 h-24 bg-cyan-500/10 rounded-full flex items-center justify-center mx-auto mb-8">
+                <CheckCircle2 size={60} className="text-cyan-400" />
+              </div>
+              <h3 className="text-5xl font-black text-white uppercase tracking-tight mb-4">
+                Calibración Completada
+              </h3>
+              <p className="text-slate-400 text-lg font-medium mb-4 leading-relaxed">
+                Has identificado correctamente el índice de refracción del medio misterioso.
+              </p>
+              <div className="grid grid-cols-2 gap-4 mb-12">
+                <div className="bg-white/5 p-4 rounded-2xl border border-white/5">
+                  <span className="text-[10px] font-bold text-slate-500 uppercase block mb-1">n₂ Real</span>
+                  <span className="text-xl font-black text-cyan-400 font-mono">{n2Misterio.toFixed(3)}</span>
+                </div>
+                <div className="bg-white/5 p-4 rounded-2xl border border-white/5">
+                  <span className="text-[10px] font-bold text-slate-500 uppercase block mb-1">Tu Valor</span>
+                  <span className="text-xl font-black text-emerald-400 font-mono">{optica7.userInputN2}</span>
+                </div>
+              </div>
+              <button
+                onClick={() => { setPasoActual(3); router.push('/hub'); }}
+                className="w-full py-6 bg-cyan-600 hover:bg-cyan-500 text-white font-black rounded-[2rem] uppercase tracking-widest text-xs transition-all shadow-lg shadow-cyan-600/30"
+              >
+                Volver al Hub
+              </button>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   );
 }

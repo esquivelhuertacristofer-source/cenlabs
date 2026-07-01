@@ -156,7 +156,7 @@ export default function PilotoTrigonometria() {
                         <span className="text-[11px] font-black text-white uppercase tracking-widest">Ajuste Manual de Ángulo</span>
                     </div>
                     <div className="flex gap-3">
-                        {[0, 45, 90, 180, 270].map(val => (
+                        {[0, 30, 45, 60, 90, 180, 270].map(val => (
                             <button key={val} onClick={() => { setAnimandoM5(false); setAnguloM5(val); audio?.playPop(); }} className="px-5 py-2 bg-white/5 border border-white/10 rounded-xl text-[10px] font-black hover:bg-cyan-600 hover:text-white transition-all">{val}°</button>
                         ))}
                     </div>

@@ -1,27 +1,26 @@
 "use client";
 
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useSimuladorStore } from '@/store/simuladorStore';
 import { motion, AnimatePresence } from 'framer-motion';
-import { 
-  Activity, Target, RefreshCcw, ShieldCheck, 
-  Zap, Compass, Calculator, TrendingUp,
-  Bot, Binary, MoveHorizontal, Rocket, Flame, Gauge, Play
+import {
+  Activity, ShieldCheck,
+  Zap, Gauge, Play, Rocket
 } from 'lucide-react';
+import Derivadas3DScene from './simuladores/mat08/Derivadas3DScene';
 
-// Función de Telemetría: s(t) = -0.1t³ + 1.5t²
-// Velocidad v(t) = -0.3t² + 3t
-// Aceleración a(t) = -0.6t + 3
+// Función de Telemetría: s(t) = -0.1t³ + 1.5t²  (la curva s(t) se dibuja en la escena 3D)
+// Velocidad v(t) = s'(t) = -0.3t² + 3t   (pendiente de la tangente = la derivada)
+// Aceleración a(t) = v'(t) = -0.6t + 3
 // Máxima Velocidad en t = 5s (donde a(t)=0)
-const s = (t: number) => -0.1 * Math.pow(t, 3) + 1.5 * Math.pow(t, 2);
 const v = (t: number) => -0.3 * Math.pow(t, 2) + 3 * t;
 const a = (t: number) => -0.6 * t + 3;
 
 export default function PilotoDerivadas() {
   const router = useRouter();
-  const { derivada8, resetM8, audio, setAsistente, pasoActual, setPasoActual, bitacoraData, setDerivada8, registrarHallazgo, setBitacora, stopTimer } = useSimuladorStore();
-  const { xActual, mostrarDerivada, status } = derivada8;
+  const { derivada8, audio, setAsistente, setPasoActual, bitacoraData, setDerivada8, registrarHallazgo, setBitacora, stopTimer } = useSimuladorStore();
+  const { status } = derivada8;
 
   const [t, setT] = useState(0);
   const [isPlaying, setIsPlaying] = useState(false);
@@ -39,8 +38,7 @@ export default function PilotoDerivadas() {
 
   const currentV = v(t);
   const currentA = a(t);
-  const currentS = s(t);
-  
+
   const isVMax = Math.abs(t - 5) < 0.1;
 
   // -- LOGICA DE ANIMACIÓN --
@@ -81,19 +79,18 @@ export default function PilotoDerivadas() {
   if (!mounted) return null;
 
   return (
-    <div className="w-full h-full bg-[#020617] relative overflow-hidden flex flex-col font-['Outfit'] text-white">
-      
-      {/* ROCKET TELEMETRY GRID */}
-      <div className="absolute inset-0 pointer-events-none">
-        <div className="w-full h-full opacity-10" style={{ 
-          backgroundImage: `linear-gradient(to right, #3b82f6 1px, transparent 1px), linear-gradient(to bottom, #3b82f6 1px, transparent 1px)`,
-          backgroundSize: '60px 60px'
-        }} />
-        <div className="absolute inset-0 bg-gradient-to-t from-blue-900/20 to-transparent" />
+    <div className="w-full h-full bg-[#03040a] relative overflow-hidden flex flex-col font-['Outfit'] text-white">
+
+      {/* ── ESCENA 3D — DERIVADA COMO LÍMITE (fondo full-screen) ── */}
+      <div className="absolute inset-0 z-0">
+        <Derivadas3DScene t={t} />
       </div>
 
+      {/* velo de contraste para legibilidad del HUD */}
+      <div className="absolute inset-0 z-[1] pointer-events-none bg-gradient-to-b from-[#03040a]/75 via-transparent to-[#03040a]/85" />
+
       {/* TOP HUD: MISSION CRITICAL */}
-      <div className="absolute top-10 left-0 right-0 z-50 px-10 flex justify-between items-start">
+      <div className="absolute top-10 left-0 right-0 z-50 px-10 flex justify-between items-start pointer-events-none">
         <div className="flex gap-6">
            <HUDCard label="Velocidad (ds/dt)" value={`${currentV.toFixed(2)} m/s`} icon={<Gauge size={16} />} color={isVMax ? "#facc15" : "#3b82f6"} highlight={isVMax} />
            <HUDCard label="Aceleración (dv/dt)" value={`${currentA.toFixed(2)} m/s²`} icon={<Zap size={16} />} color="#ef4444" />
@@ -118,66 +115,13 @@ export default function PilotoDerivadas() {
         </div>
       </div>
 
-      {/* MAIN VISUALIZER: THE ROCKET TAKEOFF */}
-      <div className="flex-1 relative flex items-center justify-center">
-         
-         {/* SKY / SPACE CONTAINER */}
-         <div className="absolute inset-0 flex items-end justify-center pb-20 overflow-hidden">
-            {/* Launch Pad */}
-            <div className="w-64 h-4 bg-slate-800 rounded-full blur-sm opacity-50" />
-            
-            {/* The Rocket */}
-            <motion.div 
-              animate={{ y: -currentS * 5 }} 
-              className="relative flex flex-col items-center"
-            >
-               {/* Rocket Body */}
-               <div className="w-12 h-32 bg-gradient-to-b from-slate-200 to-slate-400 rounded-t-full relative">
-                  <div className="absolute top-8 left-1/2 -translate-x-1/2 w-4 h-4 rounded-full bg-slate-800/20" />
-                  <div className="absolute -left-4 top-20 w-4 h-12 bg-slate-500 rounded-l-full" />
-                  <div className="absolute -right-4 top-20 w-4 h-12 bg-slate-500 rounded-r-full" />
-               </div>
-               
-               {/* Flame Engine */}
-               {currentV > 0 && (
-                 <motion.div 
-                   animate={{ scaleY: [1, 1.5, 1], opacity: [0.8, 1, 0.8] }}
-                   transition={{ repeat: Infinity, duration: 0.1 }}
-                   className="w-8 h-24 bg-gradient-to-t from-transparent via-orange-500 to-yellow-400 rounded-b-full blur-md origin-top"
-                 />
-               )}
-            </motion.div>
-         </div>
-
-         {/* GRAPH OVERLAY (Miniature) */}
-         <div className="absolute right-12 top-1/2 -translate-y-1/2 bg-black/60 backdrop-blur-2xl border border-white/10 p-8 rounded-[3rem] w-80 shadow-2xl">
-            <h4 className="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-6">Curva de Propulsión</h4>
-            <div className="h-40 w-full relative border-l border-b border-white/20">
-               {/* Position Curve */}
-               <svg viewBox="0 0 100 100" className="absolute inset-0 overflow-visible">
-                  <path 
-                    d={`M 0 100 ${Array.from({length: 101}, (_, i) => `${i}, ${100 - (s(i/10) * 2)}`).join(' L ')}`} 
-                    fill="none" stroke="#3b82f6" strokeWidth="1" opacity="0.3" 
-                  />
-                  {/* Velocity Curve */}
-                  <path 
-                    d={`M 0 100 ${Array.from({length: 101}, (_, i) => `${i}, ${100 - (v(i/10) * 10)}`).join(' L ')}`} 
-                    fill="none" stroke="#ef4444" strokeWidth="2"
-                  />
-                  {/* Scanning Line */}
-                  <line x1={t * 10} y1="0" x2={t * 10} y2="100" stroke="#FFF" strokeWidth="1" strokeDasharray="2 2" />
-               </svg>
-            </div>
-            <div className="mt-4 flex justify-between text-[8px] font-black text-slate-500 uppercase tracking-widest">
-               <span>0s</span>
-               <span>T-Max (10s)</span>
-            </div>
-         </div>
-      </div>
+      {/* MAIN VISUALIZER: la curva/tangente/secante viven en la escena 3D del
+          fondo (z-0). Este hueco deja pasar la interacción con OrbitControls. */}
+      <div className="flex-1 relative pointer-events-none" />
 
       {/* CONTROLS: TIMELINE & VALIDATION */}
       <div className="absolute bottom-10 left-1/2 -translate-x-1/2 z-[100] w-full max-w-5xl px-10">
-         <div className="bg-[#0f172a]/95 backdrop-blur-3xl border border-white/10 rounded-[3.5rem] p-10 shadow-2xl flex items-center justify-between gap-12">
+         <div className="bg-[#0f172a]/95 backdrop-blur-3xl border border-white/10 rounded-[3.5rem] p-10 shadow-2xl flex items-center justify-between gap-12 pointer-events-auto">
             
             <div className="flex-1 flex flex-col gap-4">
                <div className="flex justify-between items-center px-2">
@@ -226,7 +170,7 @@ export default function PilotoDerivadas() {
                     Has localizado el punto de **Velocidad Máxima** en t=5.0s, donde la derivada de la posición alcanza su pico y la aceleración se anula.
                     La telemetría ha sido inyectada en el expediente Gold State.
                   </p>
-                  <button onClick={() => window.location.reload()} className="w-full py-6 bg-blue-600 hover:bg-blue-500 text-white font-black rounded-[2rem] uppercase tracking-widest text-xs transition-all shadow-lg shadow-blue-600/30">Cerrar Telemetría</button>
+                  <button onClick={() => router.push('/hub')} className="w-full py-6 bg-blue-600 hover:bg-blue-500 text-white font-black rounded-[2rem] uppercase tracking-widest text-xs transition-all shadow-lg shadow-blue-600/30">Cerrar Telemetría</button>
                </motion.div>
             </motion.div>
          )}

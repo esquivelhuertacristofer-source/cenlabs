@@ -2,33 +2,30 @@
 
 import React, { useEffect, useRef, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
+import { useRouter } from 'next/navigation';
 import { useSimuladorStore } from '@/store/simuladorStore';
-import { Activity, Heart, Zap, ShieldCheck, Thermometer, Droplets, Bot, RotateCcw, Play, CheckCircle2, AlertCircle } from 'lucide-react';
+import { Activity, Heart, ShieldCheck, Droplets, RotateCcw, CheckCircle2 } from 'lucide-react';
+import Electrocardiograma3DScene from './simuladores/bio08/Electrocardiograma3DScene';
 
 export default function PilotoElectrocardiograma() {
+  const router = useRouter();
   const { cardio, setCardio, generarSemillaB8, registrarHallazgo, setBitacora, bitacoraData, stopTimer, setPasoActual } = useSimuladorStore();
-  const { ritmoBPM, targetBPM, estadoFisiologico, status } = cardio;
+  const { ritmoBPM, targetBPM, status } = cardio;
 
   const [dosage, setDosage] = useState(0);
   const [lastDrug, setLastDrug] = useState<string | null>(null);
-  
-  // Refs para el trazado del ECG
-  const pathRef = useRef<SVGPathElement>(null);
-  const points = useRef<{ x: number; y: number }[]>([]);
+
+  // Reloj de fase (dirige el HUD "Fase del Ciclo"). El corazón/ECG 3D se
+  // sincronizan de forma autónoma con los mismos BPM dentro de la escena R3F.
   const lastTime = useRef<number>(0);
   const cycleProgress = useRef<number>(0);
 
   // Inicialización
   useEffect(() => {
     generarSemillaB8();
-    // Inicializar puntos de la rejilla
-    points.current = [];
-    for (let i = 0; i < 200; i++) {
-      points.current.push({ x: i * 5, y: 150 });
-    }
   }, []);
 
-  // Bucle de Animación del ECG (60fps)
+  // Bucle de fase del ciclo cardíaco (mantiene actualizado cardio.faseActual)
   useEffect(() => {
     let frameId: number;
 
@@ -55,31 +52,6 @@ export default function PilotoElectrocardiograma() {
 
       if (cardio.faseActual !== currentFase) {
         setCardio({ faseActual: currentFase });
-      }
-
-      let yOffset = 0;
-      if (currentFase === 'Onda P') {
-        yOffset = -15 * Math.sin((prog / 0.15) * Math.PI);
-      } else if (currentFase === 'QRS') {
-        const qrsProg = (prog - 0.25) / 0.15;
-        if (qrsProg < 0.2) yOffset = 10 * (qrsProg / 0.2);
-        else if (qrsProg < 0.5) yOffset = -60 * ((qrsProg - 0.2) / 0.3) + 10;
-        else if (qrsProg < 0.8) yOffset = 70 * ((qrsProg - 0.5) / 0.3) - 50;
-        else yOffset = -20 * ((qrsProg - 0.8) / 0.2) + 20;
-      } else if (currentFase === 'Onda T') {
-        yOffset = -25 * Math.sin(((prog - 0.60) / 0.25) * Math.PI);
-      }
-
-      if (pathRef.current) {
-        for (let i = 0; i < points.current.length - 1; i++) {
-          points.current[i].y = points.current[i + 1].y;
-        }
-        points.current[points.current.length - 1].y = 150 + yOffset;
-
-        const d = points.current.reduce((acc, p, i) => 
-          acc + `${i === 0 ? 'M' : 'L'} ${p.x} ${p.y}`, ""
-        );
-        pathRef.current.setAttribute("d", d);
       }
 
       frameId = requestAnimationFrame(animate);
@@ -127,18 +99,18 @@ export default function PilotoElectrocardiograma() {
   };
 
   return (
-    <div className="w-full h-full relative bg-[#020617] font-['Outfit'] overflow-hidden text-white">
-      
-      {/* MONITOR GRID BACKGROUND */}
-      <div className="absolute inset-0 pointer-events-none opacity-20">
-        <div className="w-full h-full" style={{ 
-          backgroundImage: `linear-gradient(to right, #1e293b 1px, transparent 1px), linear-gradient(to bottom, #1e293b 1px, transparent 1px)`,
-          backgroundSize: '40px 40px'
-        }} />
+    <div className="w-full h-full relative bg-[#04060f] font-['Outfit'] overflow-hidden text-white">
+
+      {/* ── ESCENA 3D — CORAZÓN LATIENDO + CONDUCCIÓN + ECG (fondo full-screen) ── */}
+      <div className="absolute inset-0 z-0">
+        <Electrocardiograma3DScene ritmoBPM={ritmoBPM} faseActual={cardio.faseActual} />
       </div>
 
+      {/* velo de contraste para legibilidad del HUD */}
+      <div className="absolute inset-0 z-[1] pointer-events-none bg-gradient-to-b from-[#04060f]/70 via-transparent to-[#04060f]/85" />
+
       {/* TOP HUD: STATUS & TELEMETRY */}
-      <div className="absolute top-8 left-0 right-0 z-50 px-10 flex justify-between items-start">
+      <div className="absolute top-8 left-0 right-0 z-50 px-10 flex justify-between items-start pointer-events-none">
         <div className="flex flex-col gap-4">
            <div className="bg-slate-900/80 backdrop-blur-2xl border border-white/10 p-6 rounded-[2.5rem] flex items-center gap-6 shadow-2xl">
               <div className="relative">
@@ -168,98 +140,46 @@ export default function PilotoElectrocardiograma() {
               <span className="text-[10px] font-black text-slate-500 uppercase tracking-widest block mb-1">Fase del Ciclo</span>
               <span className="text-xl font-black text-teal-400 uppercase italic tracking-tighter">{cardio.faseActual}</span>
            </div>
-           <button onClick={() => generarSemillaB8()} className="p-4 bg-white/5 hover:bg-white/10 rounded-2xl border border-white/10 transition-all group">
+           <button onClick={() => generarSemillaB8()} className="p-4 bg-white/5 hover:bg-white/10 rounded-2xl border border-white/10 transition-all group pointer-events-auto">
               <RotateCcw size={20} className="text-white/40 group-hover:rotate-180 transition-transform duration-500" />
            </button>
         </div>
       </div>
 
-      {/* MAIN VIEW: ANATOMICAL + OSCILLOSCOPE */}
-      <div className="absolute inset-0 flex flex-col pt-40">
-        
-        {/* HEART SIMULATION AREA */}
-        <div className="flex-1 relative flex items-center justify-center">
-           <svg viewBox="0 0 400 300" className="h-full max-h-[400px] overflow-visible drop-shadow-[0_0_80px_rgba(244,63,94,0.15)]">
-              <g transform="translate(200, 150)">
-                 {/* Aurículas */}
-                 <motion.path 
-                   animate={{ 
-                     scale: cardio.faseActual === 'Onda P' ? 1.1 : 1,
-                     fill: cardio.faseActual === 'Onda P' ? '#219EBC' : '#1e293b'
-                   }}
-                   d="M-60,-40 C-80,-80 80,-80 60,-40 C40,-20 -40,-20 -60,-40" 
-                   className="stroke-slate-700 stroke-[4] transition-colors"
-                 />
-                 {/* Ventrículos */}
-                 <motion.path 
-                   animate={{ 
-                     scale: cardio.faseActual === 'QRS' ? 1.05 : 1,
-                     fill: cardio.faseActual === 'QRS' ? '#f43f5e' : '#1e293b'
-                   }}
-                   d="M-70,-30 C-90,60 0,110 0,110 C0,110 90,60 70,-30 C50,-50 -50,-50 -70,-30" 
-                   className="stroke-slate-700 stroke-[4] transition-colors"
-                 />
-                 
-                 {/* Conduction System */}
-                 <g className="fill-none stroke-teal-400/30 stroke-[2]">
-                    <circle cx="-50" cy="-60" r="5" fill={cardio.faseActual === 'Onda P' ? '#2dd4bf' : 'none'} />
-                    <circle cx="0" cy="-10" r="4" fill={cardio.faseActual === 'QRS' ? '#2dd4bf' : 'none'} />
-                    <path d="M-50,-60 Q-20,-40 0,-10" strokeDasharray="4 4" />
-                    <path d="M0,-10 Q-30,40 -40,80" strokeDasharray="4 4" />
-                    <path d="M0,-10 Q30,40 40,80" strokeDasharray="4 4" />
-                 </g>
-              </g>
-           </svg>
+      {/* TELEMETRÍA LATERAL — el corazón 3D, la conducción y el ECG viven en el
+          fondo (z-0). Estos overlays sólo informan; dejan pasar OrbitControls. */}
+      <div className="absolute left-10 top-1/2 -translate-y-1/2 z-30 flex flex-col gap-6 pointer-events-none">
+         <div className="bg-black/40 backdrop-blur-xl border border-white/5 p-5 rounded-3xl">
+            <span className="text-[10px] font-black text-slate-500 uppercase tracking-widest block mb-1">Estado Sistólico</span>
+            <p className="text-sm font-bold text-white/80">{ritmoBPM > 140 ? 'Taquicardia Severa' : ritmoBPM < 50 ? 'Bradicardia' : 'Ritmo Sinusal Normal'}</p>
+         </div>
+         <div className="bg-black/40 backdrop-blur-xl border border-white/5 p-5 rounded-3xl">
+            <span className="text-[10px] font-black text-slate-500 uppercase tracking-widest block mb-1">Última Intervención</span>
+            <p className="text-sm font-bold text-teal-400">{lastDrug || 'Ninguna'}</p>
+         </div>
+      </div>
 
-           {/* LABELS DE ESTADO */}
-           <div className="absolute left-12 top-1/2 -translate-y-1/2 flex flex-col gap-6">
-              <div className="space-y-1">
-                 <span className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Estado Sistólico</span>
-                 <p className="text-sm font-bold text-white/80">{ritmoBPM > 140 ? 'Taquicardia Severa' : ritmoBPM < 50 ? 'Bradicardia' : 'Ritmo Sinusal Normal'}</p>
-              </div>
-              <div className="space-y-1">
-                 <span className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Última Intervención</span>
-                 <p className="text-sm font-bold text-teal-400">{lastDrug || 'Ninguna'}</p>
-              </div>
-           </div>
-        </div>
-
-        {/* OSCILLOSCOPE BOTTOM */}
-        <div className="h-64 bg-black/60 backdrop-blur-3xl border-t border-white/10 relative overflow-hidden">
-           <svg viewBox="0 0 1000 300" preserveAspectRatio="none" className="w-full h-full">
-              <path 
-                ref={pathRef}
-                fill="none" 
-                stroke="#2dd4bf" 
-                strokeWidth="5" 
-                strokeLinecap="round" 
-                strokeLinejoin="round" 
-                filter="drop-shadow(0 0 12px rgba(45, 212, 191, 0.4))"
-              />
-           </svg>
-           
-           {/* Monitor Overlays */}
-           <div className="absolute top-4 left-6 flex items-center gap-3">
-              <div className="h-2 w-2 rounded-full bg-teal-500 animate-pulse" />
-              <span className="text-[10px] font-black text-teal-400 uppercase tracking-widest">Live Trace • Lead II</span>
-           </div>
-
-           <div className="absolute bottom-6 right-8 flex gap-4">
-              <div className="bg-slate-900/80 border border-white/10 px-6 py-3 rounded-2xl flex flex-col items-center">
-                 <span className="text-[8px] font-black text-slate-500 uppercase tracking-widest">Frecuencia (f)</span>
-                 <span className="text-lg font-black text-white">{(ritmoBPM / 60).toFixed(2)} Hz</span>
-              </div>
-              <div className="bg-slate-900/80 border border-white/10 px-6 py-3 rounded-2xl flex flex-col items-center">
-                 <span className="text-[8px] font-black text-slate-500 uppercase tracking-widest">Intervalo R-R</span>
-                 <span className="text-lg font-black text-white">{(60000 / ritmoBPM).toFixed(0)} ms</span>
-              </div>
-           </div>
-        </div>
+      {/* MONITOR DIGITAL — frecuencia e intervalo R-R (derivados de BPM) */}
+      <div className="absolute bottom-44 right-10 z-30 flex gap-4 pointer-events-none">
+         <div className="bg-slate-900/70 backdrop-blur-xl border border-white/10 px-6 py-3 rounded-2xl flex flex-col items-center">
+            <span className="text-[8px] font-black text-slate-500 uppercase tracking-widest">Frecuencia (f)</span>
+            <span className="text-lg font-black text-white">{(ritmoBPM / 60).toFixed(2)} Hz</span>
+         </div>
+         <div className="bg-slate-900/70 backdrop-blur-xl border border-white/10 px-6 py-3 rounded-2xl flex flex-col items-center">
+            <span className="text-[8px] font-black text-slate-500 uppercase tracking-widest">Intervalo R-R</span>
+            <span className="text-lg font-black text-white">{(60000 / ritmoBPM).toFixed(0)} ms</span>
+         </div>
+         <div className="bg-slate-900/70 backdrop-blur-xl border border-teal-500/20 px-6 py-3 rounded-2xl flex flex-col items-center">
+            <div className="flex items-center gap-2">
+               <div className="h-2 w-2 rounded-full bg-teal-500 animate-pulse" />
+               <span className="text-[8px] font-black text-teal-400 uppercase tracking-widest">Live • Lead II</span>
+            </div>
+         </div>
       </div>
 
       {/* INTERACTIVE CONTROLS: DRUGS & VALIDATION */}
-      <div className="absolute bottom-10 left-1/2 -translate-x-1/2 z-[100] w-full max-w-5xl px-10">
-         <div className="bg-[#0f172a]/95 backdrop-blur-3xl border border-white/10 rounded-[3.5rem] p-10 shadow-[0_0_80px_rgba(0,0,0,0.5)] flex items-center justify-between gap-12">
+      <div className="absolute bottom-10 left-1/2 -translate-x-1/2 z-[100] w-full max-w-5xl px-10 pointer-events-none">
+         <div className="bg-[#0f172a]/95 backdrop-blur-3xl border border-white/10 rounded-[3.5rem] p-10 shadow-[0_0_80px_rgba(0,0,0,0.5)] flex items-center justify-between gap-12 pointer-events-auto">
             
             <div className="flex gap-6 items-center flex-1">
                <div className="p-3 bg-teal-500/10 rounded-2xl">
@@ -321,7 +241,7 @@ export default function PilotoElectrocardiograma() {
                        <span className="text-xs font-black text-slate-500 uppercase">Hallazgos Registrados</span>
                        <span className="text-teal-400 font-mono">BIO-08 SECURE</span>
                     </div>
-                    <button onClick={() => window.location.reload()} className="w-full py-6 bg-teal-600 hover:bg-teal-500 text-white font-black rounded-[2rem] uppercase tracking-widest text-xs transition-all shadow-lg shadow-teal-600/30">Finalizar Misión Médica</button>
+                    <button onClick={() => router.push('/hub')} className="w-full py-6 bg-teal-600 hover:bg-teal-500 text-white font-black rounded-[2rem] uppercase tracking-widest text-xs transition-all shadow-lg shadow-teal-600/30">Finalizar Misión Médica</button>
                   </div>
                </motion.div>
             </motion.div>

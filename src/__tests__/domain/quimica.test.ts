@@ -134,9 +134,9 @@ describe('validarQ5', () => {
 // ── Q6 Solubilidad ────────────────────────────────────────────────────────────
 // Student must: place solution on ice AND have salt exceed solubility limit at that temp.
 describe('validarQ6', () => {
-  const kno3 = { a: 31.6, b: 0.02 };
+  const kno3 = { a: 13.3, b: 0.02 };
   it('true when on ice and salt exceeds solubility limit', () => {
-    const limit = kno3.a * Math.exp(kno3.b * 20); // ~46.8 at 20°C
+    const limit = kno3.a * Math.exp(kno3.b * 20); // ~19.8 at 20°C
     const s = { temp: 20, salAgregada: limit + 1, sustanciaIdx: 0, sustancias: [kno3], ubicacion: 'hielo' };
     expect(validarQ6(s as any)).toBe(true);
   });

@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useMemo, useState, useEffect, useRef } from 'react';
+import { useRouter } from 'next/navigation';
 import { useSimuladorStore } from '@/store/simuladorStore';
 import { 
   Activity, RefreshCcw, BarChart3, Zap, ShieldCheck, CheckCircle2, Info, Timer
@@ -9,6 +10,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import Galton3DScene from './simuladores/mat10/Galton3DScene';
 
 export default function PilotoGalton() {
+  const router = useRouter();
   const { galton10, resetM10, setGalton10, audio, setAsistente, registrarHallazgo, setBitacora, bitacoraData, stopTimer, setPasoActual } = useSimuladorStore();
   const { probabilidad, contenedores, simulando, status } = galton10;
 
@@ -31,7 +33,7 @@ export default function PilotoGalton() {
   }, []);
 
   const handleValidar = () => {
-    if (totalBolitas >= 400) {
+    if (totalBolitas >= 200) {
       // Validar si la distribución es "razonable" para p=0.5 (opcionalmente)
       audio?.playSuccess();
       setSuccess(true);
@@ -54,7 +56,7 @@ export default function PilotoGalton() {
       audio?.playError();
       setAsistente({
         visible: true,
-        text: "Necesitamos una muestra más grande para certificar la distribución. Sigue soltando bolitas hasta llegar a 400.",
+        text: "Necesitamos una muestra más grande para certificar la distribución. Sigue soltando bolitas hasta llegar a 200.",
         pose: "disappointed"
       });
     }
@@ -112,13 +114,13 @@ export default function PilotoGalton() {
                 <span className="text-[10px] font-black uppercase tracking-widest text-amber-400">Objetivo de Misión</span>
              </div>
              <p className="text-xs font-medium text-slate-300 leading-relaxed italic">
-               "Recolecta al menos **400 muestras** para validar que la distribución se ajusta a la curva normal teórica."
+               "Recolecta al menos **200 muestras** para validar que la distribución se ajusta a la curva normal teórica."
              </p>
              <div className="mt-4 h-1.5 w-full bg-white/5 rounded-full overflow-hidden">
                 <motion.div 
                   className="h-full bg-amber-500" 
                   initial={{ width: 0 }} 
-                  animate={{ width: `${Math.min((totalBolitas/400)*100, 100)}%` }} 
+                  animate={{ width: `${Math.min((totalBolitas/200)*100, 100)}%` }}
                 />
              </div>
           </motion.div>
@@ -196,7 +198,7 @@ export default function PilotoGalton() {
                         <span className="text-xl font-black text-blue-400">{totalBolitas} units</span>
                      </div>
                   </div>
-                  <button onClick={() => window.location.reload()} className="w-full py-6 bg-blue-600 hover:bg-blue-500 text-white font-black rounded-[2rem] uppercase tracking-widest text-xs transition-all shadow-xl shadow-blue-600/30">Finalizar Laboratorio</button>
+                  <button onClick={() => router.push('/hub')} className="w-full py-6 bg-blue-600 hover:bg-blue-500 text-white font-black rounded-[2rem] uppercase tracking-widest text-xs transition-all shadow-xl shadow-blue-600/30">Finalizar Laboratorio</button>
                </motion.div>
             </motion.div>
          )}

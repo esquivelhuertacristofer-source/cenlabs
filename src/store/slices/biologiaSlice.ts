@@ -273,7 +273,7 @@ export const createBiologiaSlice: StateCreator<SimuladorState, [], [], BiologiaS
       'CTT','CTC',             // Glu (14b8a6)
       'ACG','ACA',             // Cys (fbbf24)
       'ACC',                   // Trp (8b5cf6)
-      'TCT','TCA','TCG',       // Arg (ef4444)
+      'TCT','TCC',             // Arg (ef4444)  [TCT→AGA, TCC→AGG]
     ];
     const STOPS = ['ATT', 'ATC']; // UAA, UAG
     const numMedio = 3 + Math.floor(Math.random() * 3);

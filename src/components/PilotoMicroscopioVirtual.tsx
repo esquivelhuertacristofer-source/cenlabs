@@ -4,6 +4,7 @@ import React, { useState, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { audio } from '@/utils/audioEngine';
 import { useSimuladorStore } from '@/store/simuladorStore';
+import { useRouter } from 'next/navigation';
 import { calculateTotalMagnification } from '@/utils/opticEngine';
 import Microscopio3DScene from './simuladores/bio01/Microscopio3DScene';
 import {
@@ -14,6 +15,7 @@ import {
 } from 'lucide-react';
 
 export default function PilotoMicroscopioVirtual() {
+  const router = useRouter();
   const { microscopio, setMicroscopio, tomarCaptura, validarB1 } = useSimuladorStore();
   const {
     muestra = 'vegetal', objetivoMag = 4, iluminacion = 80,
@@ -268,9 +270,12 @@ export default function PilotoMicroscopioVirtual() {
       </div>
 
     {microscopio.status === 'success' && (
-      <div className="absolute inset-0 z-[200] pointer-events-none flex items-end justify-center pb-10">
-        <div className="px-10 py-5 bg-emerald-600/90 backdrop-blur-xl border border-emerald-400/50 rounded-3xl shadow-2xl">
-          <span className="text-sm font-black uppercase tracking-widest text-white">Lab completado</span>
+      <div className="absolute inset-0 z-[200] pointer-events-auto flex items-center justify-center bg-[#010B13]/95 backdrop-blur-3xl">
+        <div className="bg-slate-900 border border-emerald-500/30 rounded-[4rem] p-16 max-w-md text-center shadow-[0_0_100px_rgba(16,185,129,0.1)]">
+          <Camera size={80} className="text-emerald-500 mx-auto mb-6" />
+          <h3 className="text-4xl font-black text-white uppercase italic mb-4">Muestra Identificada</h3>
+          <p className="text-slate-400 text-sm font-medium mb-10 leading-relaxed">Has completado el análisis microscópico. Los datos han sido registrados en tu bitácora científica.</p>
+          <button onClick={() => router.push('/hub')} className="w-full py-5 bg-emerald-600 hover:bg-emerald-500 text-white font-black rounded-[2rem] uppercase tracking-widest text-xs transition-colors">Cerrar Laboratorio</button>
         </div>
       </div>
     )}
