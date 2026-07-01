@@ -65,7 +65,7 @@ const SpotlightBentoCard = ({ subject, index }: { subject: any, index: number })
       onMouseMove={handleMouseMove}
       onMouseEnter={handleMouseEnter}
       onMouseLeave={handleMouseLeave}
-      className={`relative w-full h-[400px] md:h-[450px] rounded-[40px] ${subject.gradient} shadow-[0_20px_40px_-15px_rgba(0,0,0,0.08)] ${subject.shadowGlow} transition-all duration-700 group border border-white/60 dark:border-white/10 overflow-hidden flex flex-col sm:flex-row p-8 md:p-10 perspective-1000 stagger-${index}`}
+      className={`relative w-full ${subject.wide ? 'xl:col-span-2 min-h-[400px] md:min-h-[460px]' : 'h-[400px] md:h-[450px]'} rounded-[40px] ${subject.gradient} shadow-[0_20px_40px_-15px_rgba(0,0,0,0.08)] ${subject.shadowGlow} transition-all duration-700 group border border-white/60 dark:border-white/10 overflow-hidden flex flex-col sm:flex-row p-8 md:p-10 perspective-1000 stagger-${index}`}
     >
       {/* Spotlight Effect Element */}
       <div 
@@ -316,6 +316,7 @@ export default function AlumnoInicio() {
     {
       id: "mecanica",
       name: "Laboratorio de Mecánica e Ingeniería",
+      wide: true,
       icon: Cog,
       gradient: "bg-[#effaf7] dark:bg-[#08201C]",
       fadeColor: "from-[#effaf7] dark:from-[#08201C]",
