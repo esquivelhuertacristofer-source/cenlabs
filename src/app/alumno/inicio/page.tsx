@@ -7,7 +7,7 @@ import Link from 'next/link';
 import Image from 'next/image';
 import { 
   FlaskConical, Zap, Microscope, Calculator, Power,
-  Play, Award, ArrowRight, Atom
+  Play, Award, ArrowRight, Atom, Cog
 } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import ThemeToggle from '@/components/ThemeToggle';
@@ -22,7 +22,7 @@ import { getCurrentProfile } from '@/lib/supabase-helpers';
 const CircularProgress = ({ value, total, color }: { value: number, total: number, color: string }) => {
   const radius = 16;
   const circumference = 2 * Math.PI * radius;
-  const strokeDashoffset = circumference - (value / total) * circumference;
+  const strokeDashoffset = total > 0 ? circumference - (value / total) * circumference : circumference;
   
   return (
     <div className="relative w-10 h-10 flex items-center justify-center">
@@ -181,7 +181,8 @@ export default function AlumnoInicio() {
     quimica: 0,
     fisica: 0,
     biologia: 0,
-    matematicas: 0
+    matematicas: 0,
+    mecanica: 0
   });
   
   useEffect(() => {
@@ -219,7 +220,7 @@ export default function AlumnoInicio() {
           .order('started_at', { ascending: false });
 
         if (intentos) {
-          const counts: Record<string, number> = { quimica: 0, fisica: 0, biologia: 0, matematicas: 0 };
+          const counts: Record<string, number> = { quimica: 0, fisica: 0, biologia: 0, matematicas: 0, mecanica: 0 };
           intentos.forEach(i => {
             if (i.status === 'completed') {
               const materia = i.sim_id.split('-')[0];
@@ -312,6 +313,21 @@ export default function AlumnoInicio() {
       buttonColor: "bg-[#FFB703] hover:bg-[#FB8500]",
       image: "/images/mates_3d.webp"
     },
+    {
+      id: "mecanica",
+      name: "Laboratorio de Mecánica e Ingeniería",
+      icon: Cog,
+      gradient: "bg-[#effaf7] dark:bg-[#08201C]",
+      fadeColor: "from-[#effaf7] dark:from-[#08201C]",
+      accent: "text-[#2A9D8F] dark:text-[#4FD1C5]",
+      ringColor: "stroke-[#2A9D8F] dark:stroke-[#4FD1C5]",
+      shadowGlow: "hover:shadow-[0_20px_50px_-12px_rgba(42,157,143,0.35)] dark:hover:shadow-[0_20px_50px_-12px_rgba(42,157,143,0.6)]",
+      practices: realProgress.mecanica,
+      totalPractices: 0,
+      lastPractice: "Próximamente · nuevos laboratorios",
+      buttonColor: "bg-[#2A9D8F] hover:bg-[#1F776C]",
+      image: "/images/ingenieria_claymorphic_3d_v5_1775860518999.webp"
+    },
   ], [realProgress]);
 
   const totalCompletadas = subjects.reduce((acc, subj) => acc + subj.practices, 0);
@@ -330,6 +346,7 @@ export default function AlumnoInicio() {
       .stagger-1 { animation: slideUpFade 0.6s cubic-bezier(0.16, 1, 0.3, 1) 0.2s flex; animation-fill-mode: both; }
       .stagger-2 { animation: slideUpFade 0.6s cubic-bezier(0.16, 1, 0.3, 1) 0.3s flex; animation-fill-mode: both; }
       .stagger-3 { animation: slideUpFade 0.6s cubic-bezier(0.16, 1, 0.3, 1) 0.4s flex; animation-fill-mode: both; }
+      .stagger-4 { animation: slideUpFade 0.6s cubic-bezier(0.16, 1, 0.3, 1) 0.5s flex; animation-fill-mode: both; }
 
       ::-webkit-scrollbar {
         width: 10px;

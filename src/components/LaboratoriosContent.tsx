@@ -4,7 +4,7 @@ import { useState, useEffect } from "react";
 import Link from "next/link";
 import Sidebar from "@/components/Sidebar";
 import { supabase } from "@/lib/supabase-browser";
-import { PlayCircle, FlaskConical, Zap, Microscope, Calculator, BookOpen, Users, Activity } from "lucide-react";
+import { PlayCircle, FlaskConical, Zap, Microscope, Calculator, BookOpen, Users, Activity, Cog } from "lucide-react";
 
 const LABS_REAL = [
   {
@@ -55,6 +55,18 @@ const LABS_REAL = [
     href: "/alumno/laboratorio/matematicas",
     image: "/images/mates_3d.webp"
   },
+  {
+    id: "mecanica",
+    name: "Laboratorio de Mecánica e Ingeniería",
+    subject: "Mecánica e Ingeniería",
+    description: "Nueva disciplina en construcción: pronto sumaremos prácticas interactivas de mecánica aplicada, estática, dinámica y diseño de ingeniería.",
+    practices: 0,
+    icon: Cog,
+    color: "from-[#2A9D8F] to-[#023047]",
+    badgeColor: "bg-[#2A9D8F]",
+    href: "/alumno/laboratorio/mecanica",
+    image: "/images/ingenieria_claymorphic_3d_v5_1775860518999.webp"
+  },
 ];
 
 export default function LaboratoriosContent() {
@@ -94,7 +106,7 @@ export default function LaboratoriosContent() {
             </div>
             <div>
               <h1 className="text-3xl font-black text-foreground tracking-tight">Biblioteca de Laboratorios</h1>
-              <p className="text-sm text-muted-foreground font-medium">4 materias · 40 prácticas interactivas en total</p>
+              <p className="text-sm text-muted-foreground font-medium">5 materias · 40 prácticas interactivas en total</p>
             </div>
           </div>
         </div>
