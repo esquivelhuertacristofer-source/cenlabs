@@ -53,6 +53,21 @@ const eslintConfig = [
       "no-console": "off",
     },
   },
+  // Scripts CLI y archivos de configuración son herramientas Node de desarrollo:
+  // `console` es su salida legítima y `require()` es válido en los `.js` de config.
+  // No forman parte del bundle del navegador, así que estas reglas no aplican.
+  {
+    files: [
+      "scripts/**/*.{ts,js,mjs}",
+      "*.config.{js,mjs,ts}",
+      "jest.config.js",
+      "jest.setup.js",
+    ],
+    rules: {
+      "no-console": "off",
+      "@typescript-eslint/no-require-imports": "off",
+    },
+  },
 ];
 
 export default eslintConfig;
