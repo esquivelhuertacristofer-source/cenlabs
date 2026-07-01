@@ -70,6 +70,8 @@ export default function PilotoTiroParabolico() {
           obsY={obsY}
           targetX={targetX}
           volando={disparando}
+          escenario={escenario}
+          resultado={resultado}
         />
       </div>
 
