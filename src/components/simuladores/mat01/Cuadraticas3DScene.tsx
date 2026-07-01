@@ -139,7 +139,8 @@ function ParabolaTube({ points, accent, accent2 }: { points: THREE.Vector3[]; ac
   if (!geometry) return null;
   return (
     <mesh geometry={geometry}>
-      <meshStandardMaterial vertexColors emissive="#ffffff" emissiveIntensity={0.85} toneMapped={false} transparent opacity={0.95} />
+      {/* emissive tenue tintado por los propios vertexColors: conserva el degradado sin quemarse en el Bloom */}
+      <meshStandardMaterial vertexColors emissive="#334155" emissiveIntensity={0.3} metalness={0.2} roughness={0.4} toneMapped={false} transparent opacity={0.98} />
     </mesh>
   );
 }
@@ -205,23 +206,23 @@ function FocusDirectrix({ h, k, p, accent }: { h: number; k: number; p: number; 
   return (
     <group>
       {/* directriz */}
-      <Line points={[[-18, dirY, 0], [18, dirY, 0]]} color="#f43f5e" lineWidth={1.6} dashed dashSize={0.4} gapSize={0.25} transparent opacity={0.7} toneMapped={false} />
-      <Html position={[13, dirY - 0.7, 0]} center distanceFactor={24}>
-        <div className="text-[8px] font-black text-rose-400 uppercase tracking-widest select-none pointer-events-none whitespace-nowrap">Directriz y = {dirY.toFixed(1)}</div>
+      <Line points={[[-18, dirY, 0], [18, dirY, 0]]} color="#f43f5e" lineWidth={1.4} dashed dashSize={0.4} gapSize={0.28} transparent opacity={0.5} toneMapped={false} />
+      <Html position={[14.5, dirY - 0.6, 0]} center distanceFactor={24}>
+        <div className="text-[7px] font-black text-rose-400/70 uppercase tracking-widest select-none pointer-events-none whitespace-nowrap">directriz</div>
       </Html>
       {/* foco */}
       <group position={[h, focusY, 0]}>
         <mesh>
-          <sphereGeometry args={[0.22, 24, 24]} />
-          <meshStandardMaterial color="#fff7ed" emissive={accent} emissiveIntensity={4} toneMapped={false} />
+          <sphereGeometry args={[0.2, 24, 24]} />
+          <meshStandardMaterial color="#fff7ed" emissive={accent} emissiveIntensity={2.4} toneMapped={false} />
         </mesh>
         <mesh ref={pulse} rotation={[-Math.PI / 2, 0, 0]}>
           <ringGeometry args={[0.4, 0.5, 40]} />
-          <meshBasicMaterial color={accent} transparent opacity={0.5} side={THREE.DoubleSide} toneMapped={false} />
+          <meshBasicMaterial color={accent} transparent opacity={0.4} side={THREE.DoubleSide} toneMapped={false} />
         </mesh>
-        <pointLight color={accent} intensity={4} distance={7} />
-        <Html position={[0.6, 0.4, 0]} center distanceFactor={24}>
-          <div className="text-[8px] font-black uppercase tracking-widest select-none pointer-events-none whitespace-nowrap" style={{ color: accent }}>Foco ({h.toFixed(1)}, {focusY.toFixed(1)})</div>
+        <pointLight color={accent} intensity={2} distance={6} />
+        <Html position={[0.65, 0.35, 0]} center distanceFactor={24}>
+          <div className="text-[7px] font-black uppercase tracking-widest select-none pointer-events-none whitespace-nowrap" style={{ color: accent }}>Foco</div>
         </Html>
       </group>
     </group>
@@ -235,7 +236,7 @@ function ReflectionRays({ a, b, c, h, k, p, accent }: { a: number; b: number; c:
     const A = Math.abs(a) < 1e-6 ? 1e-6 : a;
     const span = THREE.MathUtils.clamp(Math.sqrt(20 / Math.abs(A)), 2, SPAN_CAP - 1);
     const arr: { x: number; yPar: number; yTop: number }[] = [];
-    const xs = [-0.8, -0.4, 0.4, 0.8];
+    const xs = [-0.7, 0.7];
     for (const f of xs) {
       const x = h + f * span;
       const yPar = fEval(a, b, c, x);
@@ -267,16 +268,16 @@ function ReflectionRays({ a, b, c, h, k, p, accent }: { a: number; b: number; c:
       {rays.map((r, i) => (
         <group key={`ray${i}`}>
           {/* rayo entrante paralelo al eje */}
-          <Line points={[[r.x, r.yTop, 0], [r.x, r.yPar, 0]]} color={accent} lineWidth={1} transparent opacity={0.3} toneMapped={false} />
+          <Line points={[[r.x, r.yTop, 0], [r.x, r.yPar, 0]]} color={accent} lineWidth={0.8} transparent opacity={0.16} toneMapped={false} />
           {/* rayo reflejado hacia el foco */}
-          <Line points={[[r.x, r.yPar, 0], [h, focusY, 0]]} color={accent} lineWidth={1} transparent opacity={0.45} toneMapped={false} />
+          <Line points={[[r.x, r.yPar, 0], [h, focusY, 0]]} color={accent} lineWidth={0.8} transparent opacity={0.28} toneMapped={false} />
           {/* fotón viajero */}
           <group ref={(el) => { if (el) photons.current[i] = el; }}>
             <mesh>
-              <sphereGeometry args={[0.11, 14, 14]} />
+              <sphereGeometry args={[0.1, 14, 14]} />
               <meshBasicMaterial color="#ffffff" toneMapped={false} />
             </mesh>
-            <pointLight color={accent} intensity={2} distance={3} />
+            <pointLight color={accent} intensity={1.2} distance={2.5} />
           </group>
         </group>
       ))}
@@ -325,14 +326,14 @@ function Traveler({ points, accent }: { points: THREE.Vector3[]; accent: string 
       <primitive object={trailLine} />
       <group ref={ref}>
         <mesh>
-          <sphereGeometry args={[0.16, 20, 20]} />
-          <meshStandardMaterial color="#ffffff" emissive={accent} emissiveIntensity={4} toneMapped={false} />
+          <sphereGeometry args={[0.15, 20, 20]} />
+          <meshStandardMaterial color="#ffffff" emissive={accent} emissiveIntensity={2.6} toneMapped={false} />
         </mesh>
         <mesh>
-          <sphereGeometry args={[0.32, 20, 20]} />
-          <meshBasicMaterial color={accent} transparent opacity={0.18} blending={THREE.AdditiveBlending} depthWrite={false} />
+          <sphereGeometry args={[0.3, 20, 20]} />
+          <meshBasicMaterial color={accent} transparent opacity={0.14} blending={THREE.AdditiveBlending} depthWrite={false} />
         </mesh>
-        <pointLight color={accent} intensity={5} distance={5} />
+        <pointLight color={accent} intensity={3} distance={4.5} />
       </group>
     </>
   );
@@ -346,8 +347,8 @@ function VertexMarker({ h, k, up, accent }: { h: number; k: number; up: boolean;
     <Float speed={2} rotationIntensity={0} floatIntensity={0.25} floatingRange={[0, 0.12]}>
       <group position={[h, k, 0]}>
         <mesh>
-          <sphereGeometry args={[0.26, 24, 24]} />
-          <meshStandardMaterial color="#ffffff" emissive={accent} emissiveIntensity={3} toneMapped={false} />
+          <sphereGeometry args={[0.24, 24, 24]} />
+          <meshStandardMaterial color="#ffffff" emissive={accent} emissiveIntensity={1.8} toneMapped={false} />
         </mesh>
         <group ref={ring} rotation={[-Math.PI / 2, 0, 0]}>
           <mesh><ringGeometry args={[0.42, 0.5, 40]} /><meshBasicMaterial color={accent} transparent opacity={0.8} side={THREE.DoubleSide} toneMapped={false} /></mesh>
@@ -358,10 +359,10 @@ function VertexMarker({ h, k, up, accent }: { h: number; k: number; up: boolean;
             </mesh>
           ))}
         </group>
-        <Sparkles count={16} scale={1.6} size={3} speed={0.4} color={accent} />
-        <Html position={[0.7, up ? -0.7 : 0.7, 0]} center distanceFactor={22}>
-          <div className="text-[9px] font-black uppercase tracking-widest select-none pointer-events-none whitespace-nowrap" style={{ color: accent }}>
-            {up ? 'Mín' : 'Máx'} V({h.toFixed(1)}, {k.toFixed(1)})
+        <Sparkles count={12} scale={1.4} size={2.4} speed={0.4} color={accent} />
+        <Html position={[0.8, up ? -0.7 : 0.7, 0]} center distanceFactor={22}>
+          <div className="text-[8px] font-black uppercase tracking-widest select-none pointer-events-none whitespace-nowrap" style={{ color: accent }}>
+            Vértice · {up ? 'mín' : 'máx'}
           </div>
         </Html>
       </group>
@@ -374,12 +375,9 @@ function YIntercept({ c }: { c: number }) {
   return (
     <group position={[0, c, 0]}>
       <mesh>
-        <sphereGeometry args={[0.15, 16, 16]} />
-        <meshStandardMaterial color="#a3e635" emissive="#65a30d" emissiveIntensity={2} toneMapped={false} />
+        <sphereGeometry args={[0.13, 16, 16]} />
+        <meshStandardMaterial color="#a3e635" emissive="#65a30d" emissiveIntensity={1.4} toneMapped={false} />
       </mesh>
-      <Html position={[-0.6, 0.5, 0]} center distanceFactor={24}>
-        <div className="text-[8px] font-black text-lime-400/80 uppercase tracking-widest select-none pointer-events-none whitespace-nowrap">y₀ = {c.toFixed(1)}</div>
-      </Html>
     </group>
   );
 }
@@ -391,9 +389,17 @@ function Roots({ roots, vertex }: { roots: ComplexRoot[]; vertex: Vertex }) {
     const t = state.clock.getElapsedTime();
     spin.current.forEach((g) => { if (g) g.rotation.z = t * 1.2; });
   });
+  // raíz doble (Δ=0): las dos raíces reales coinciden y caen sobre el vértice.
+  // Se colapsa a un solo marcador para no encimar etiquetas.
+  const isDoubleReal =
+    roots.length === 2 &&
+    roots[0].imaginary === 0 && roots[1].imaginary === 0 &&
+    Math.abs(roots[0].real - roots[1].real) < 1e-3;
+  const shown = isDoubleReal ? [roots[0]] : roots;
+
   return (
     <>
-      {roots.map((root, i) => {
+      {shown.map((root, i) => {
         const isComplex = root.imaginary !== 0;
         const z = i === 0 ? root.imaginary : -root.imaginary;
         const pos = new THREE.Vector3(root.real, isComplex ? 0 : 0, z);
@@ -403,21 +409,21 @@ function Roots({ roots, vertex }: { roots: ComplexRoot[]; vertex: Vertex }) {
           <group key={`root${i}`}>
             <group position={pos}>
               <mesh>
-                <sphereGeometry args={[0.3, 28, 28]} />
-                <meshStandardMaterial color={color} emissive={emis} emissiveIntensity={2.5} toneMapped={false} />
+                <sphereGeometry args={[0.26, 28, 28]} />
+                <meshStandardMaterial color={color} emissive={emis} emissiveIntensity={1.8} toneMapped={false} />
               </mesh>
               <group ref={(el) => { if (el) spin.current[i] = el; }} rotation={[-Math.PI / 2, 0, 0]}>
-                <mesh><ringGeometry args={[0.45, 0.53, 36]} /><meshBasicMaterial color={color} transparent opacity={0.7} side={THREE.DoubleSide} toneMapped={false} /></mesh>
+                <mesh><ringGeometry args={[0.42, 0.5, 36]} /><meshBasicMaterial color={color} transparent opacity={0.55} side={THREE.DoubleSide} toneMapped={false} /></mesh>
               </group>
-              <pointLight color={color} intensity={2} distance={5} />
-              <Html position={[0, 0.75, 0]} center zIndexRange={[100, 0]}>
-                <div className="bg-black/80 backdrop-blur border border-white/20 text-white px-2 py-1 rounded text-[10px] font-mono whitespace-nowrap pointer-events-none">
-                  x = {root.real.toFixed(2)}{isComplex ? ` ${i === 0 ? '+' : '−'} ${Math.abs(root.imaginary).toFixed(2)}i` : ''}
+              <pointLight color={color} intensity={1.3} distance={4.5} />
+              <Html position={[0, isComplex ? 0.75 : -0.9, 0]} center distanceFactor={22} zIndexRange={[100, 0]}>
+                <div className="text-[8px] font-black uppercase tracking-widest select-none pointer-events-none whitespace-nowrap" style={{ color }}>
+                  {isComplex ? `raíz ${root.real.toFixed(1)} ${i === 0 ? '+' : '−'} ${Math.abs(root.imaginary).toFixed(1)}i` : `raíz x = ${root.real.toFixed(1)}`}
                 </div>
               </Html>
             </group>
             {isComplex && (
-              <Line points={[[vertex.h, vertex.k, 0], [pos.x, pos.y, pos.z]]} color="#c084fc" lineWidth={1.6} dashed dashSize={0.2} gapSize={0.2} transparent opacity={0.7} toneMapped={false} />
+              <Line points={[[vertex.h, vertex.k, 0], [pos.x, pos.y, pos.z]]} color="#c084fc" lineWidth={1.4} dashed dashSize={0.2} gapSize={0.2} transparent opacity={0.55} toneMapped={false} />
             )}
           </group>
         );
@@ -479,8 +485,8 @@ function SceneLogic({ a, b, c, target, currentRes, escenario = 'parabola_basica'
       <YIntercept c={c} />
       <Roots roots={roots} vertex={vertex} />
 
-      <Sparkles count={70} scale={[42, 34, 20]} position={[0, 2, 0]} size={2.2} speed={0.2} color={theme.dust} opacity={0.4} />
-      <Stars radius={120} depth={60} count={1200} factor={4} saturation={0} fade speed={0.4} />
+      <Sparkles count={38} scale={[42, 34, 20]} position={[0, 2, 0]} size={1.8} speed={0.15} color={theme.dust} opacity={0.28} />
+      <Stars radius={120} depth={60} count={900} factor={3.4} saturation={0} fade speed={0.35} />
 
       <OrbitControls
         enablePan enableZoom
@@ -491,9 +497,10 @@ function SceneLogic({ a, b, c, target, currentRes, escenario = 'parabola_basica'
       />
 
       <EffectComposer multisampling={4}>
-        <Bloom luminanceThreshold={0.2} mipmapBlur intensity={1.15} radius={0.7} />
-        <ChromaticAberration offset={new THREE.Vector2(0.0005, 0.0005)} radialModulation={false} modulationOffset={0} />
-        <Vignette offset={0.25} darkness={1.0} />
+        {/* umbral más alto + intensidad menor: solo brillan focos/vértice, no toda la curva */}
+        <Bloom luminanceThreshold={0.62} mipmapBlur intensity={0.62} radius={0.5} />
+        <ChromaticAberration offset={new THREE.Vector2(0.00018, 0.00018)} radialModulation={false} modulationOffset={0} />
+        <Vignette offset={0.28} darkness={0.92} />
       </EffectComposer>
     </>
   );
