@@ -1,0 +1,940 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>AutoLab 3D · Inversor Trifásico — Laboratorio Didáctico</title>
+<style>
+  :root{
+    --bg:#070a0d;--panel:rgba(14,20,28,.86);--line:#233240;--ink:#eaf1f6;
+    --dim:#8a9aa8;--accent:#ff8a3a;--accent2:#5eead4;--hv:#ffd166;--good:#7bd88f;--bad:#f4475e;
+    --mono:'Courier New',ui-monospace,monospace;--disp:'Arial Black',Impact,sans-serif;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  html,body{height:100%;overflow:hidden;background:var(--bg);color:var(--ink);font-family:system-ui,Segoe UI,Roboto,sans-serif}
+  #stage{position:fixed;inset:0}
+  canvas{display:block;touch-action:none}
+
+  .topbar{position:fixed;top:0;left:0;right:0;height:60px;display:flex;align-items:center;gap:18px;padding:0 20px;z-index:20;background:linear-gradient(180deg,rgba(7,10,13,.94),transparent);pointer-events:none}
+  .brand{font-family:var(--disp);text-transform:uppercase;font-size:17px}
+  .brand span{color:var(--accent)}
+  .phases{display:flex;gap:6px;pointer-events:auto}
+  .phase-tab{font-family:var(--mono);font-size:10px;letter-spacing:.06em;text-transform:uppercase;padding:7px 13px;border-radius:30px;border:1px solid var(--line);color:var(--dim);background:rgba(14,20,28,.7);backdrop-filter:blur(8px);display:flex;align-items:center;gap:7px;transition:.2s}
+  .phase-tab .nm{width:18px;height:18px;border-radius:50%;background:var(--line);color:var(--bg);display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:bold}
+  .phase-tab.active{border-color:var(--accent);color:var(--ink)} .phase-tab.active .nm{background:var(--accent);color:#1a1209}
+  .phase-tab.done .nm{background:var(--good);color:#06201c} .phase-tab.done{color:var(--good);border-color:rgba(123,216,143,.4)}
+  .soundBtn{font-size:16px;background:var(--panel);backdrop-filter:blur(12px);border:1px solid var(--line);border-radius:50%;width:38px;height:38px;cursor:pointer;color:var(--dim);transition:.15s}
+  .soundBtn.on{color:var(--accent);border-color:var(--accent)}
+  .soundBtn:hover{transform:scale(1.08)}
+
+  .intro{position:fixed;inset:0;z-index:40;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:20px;background:radial-gradient(circle at 50% 45%,rgba(40,26,14,.6),rgba(7,10,13,.97));transition:opacity .8s;padding:24px;text-align:center}
+  .intro.hide{opacity:0;pointer-events:none}
+  .intro .sub{font-family:var(--mono);font-size:12px;letter-spacing:.2em;text-transform:uppercase;color:var(--accent2)}
+  .intro .ttl{font-family:var(--disp);font-size:clamp(28px,5vw,54px);text-transform:uppercase;letter-spacing:-.02em;line-height:.95}
+  .intro .ttl span{color:var(--accent)}
+  .intro p{max-width:540px;color:var(--dim);font-size:14px;line-height:1.6}
+  .intro .obj{max-width:540px;text-align:left;background:rgba(14,20,28,.7);border:1px solid var(--line);border-radius:14px;padding:16px 20px}
+  .intro .obj h4{font-family:var(--mono);font-size:10px;letter-spacing:.16em;text-transform:uppercase;color:var(--accent);margin-bottom:10px}
+  .intro .obj ul{list-style:none;display:flex;flex-direction:column;gap:8px}
+  .intro .obj li{font-size:13px;color:var(--dim);padding-left:22px;position:relative}
+  .intro .obj li::before{content:'▸';position:absolute;left:4px;color:var(--accent2)}
+  .startbtn{font-family:var(--mono);font-size:13px;letter-spacing:.12em;text-transform:uppercase;color:#1a1209;background:var(--accent);border:none;padding:15px 34px;border-radius:40px;cursor:pointer;transition:.2s;box-shadow:0 10px 40px rgba(255,138,58,.3)}
+  .startbtn:hover{transform:translateY(-2px);box-shadow:0 16px 50px rgba(255,138,58,.45)}
+  .modeToggle{display:flex;gap:8px;flex-wrap:wrap;justify-content:center;margin-top:2px}
+  .modeBtn{font-family:var(--mono);font-size:11px;letter-spacing:.04em;color:var(--dim);background:rgba(14,20,28,.7);border:1px solid var(--line);border-radius:30px;padding:9px 16px;cursor:pointer;transition:.15s}
+  .modeBtn:hover{border-color:var(--accent)}
+  .modeBtn.active{background:var(--accent);color:#1a1209;border-color:var(--accent);font-weight:bold}
+
+  .teach{position:fixed;top:74px;left:20px;z-index:15;width:330px;background:var(--panel);backdrop-filter:blur(16px);border:1px solid var(--line);border-radius:16px;padding:0;box-shadow:0 20px 60px rgba(0,0,0,.55);overflow:hidden;transition:.4s;opacity:0;transform:translateX(-12px)}
+  .teach.show{opacity:1;transform:none}
+  .teach-head{padding:14px 18px;background:linear-gradient(90deg,rgba(255,138,58,.14),transparent);border-bottom:1px solid var(--line)}
+  .teach-head .step-no{font-family:var(--mono);font-size:10px;letter-spacing:.1em;color:var(--accent);text-transform:uppercase}
+  .teach-head h3{font-size:16px;margin-top:2px}
+  .teach-body{padding:16px 18px}
+  .teach-body p{font-size:13.5px;line-height:1.6;color:var(--ink);margin-bottom:12px}
+  .teach-body .why{font-size:12.5px;line-height:1.55;color:var(--dim);background:rgba(94,234,212,.08);border-left:2px solid var(--accent2);padding:10px 12px;border-radius:0 8px 8px 0;margin-bottom:12px}
+  .teach-body .why b{color:var(--accent2)}
+  .formula{font-family:var(--mono);color:var(--accent2);text-align:center;font-size:14px;margin:10px 0;padding:8px;background:rgba(0,0,0,.25);border-radius:8px}
+  .task{font-family:var(--mono);font-size:12px;color:var(--hv);background:rgba(255,209,102,.08);border:1px dashed rgba(255,209,102,.35);border-radius:8px;padding:10px 12px;margin-bottom:6px}
+  .task::before{content:'⚡ TAREA: ';color:var(--accent);font-weight:bold}
+
+  .actions{position:fixed;top:74px;right:20px;z-index:15;width:250px;background:var(--panel);backdrop-filter:blur(16px);border:1px solid var(--line);border-radius:16px;padding:16px;box-shadow:0 20px 60px rgba(0,0,0,.55);transition:.4s;opacity:0;transform:translateX(12px)}
+  .actions.show{opacity:1;transform:none}
+  .actions h4{font-family:var(--mono);font-size:10px;letter-spacing:.14em;text-transform:uppercase;color:var(--dim);margin-bottom:12px}
+  .opt{display:flex;flex-direction:column;gap:7px}
+  .b{font-family:system-ui;font-size:13px;padding:11px 12px;border-radius:9px;cursor:pointer;border:1px solid var(--line);background:#121c26;color:var(--ink);transition:.15s;text-align:left;display:flex;align-items:center;gap:9px}
+  .b:hover{border-color:var(--accent);background:#17232f}
+  .b.primary{background:var(--accent);color:#1a1209;border-color:var(--accent);font-weight:bold;justify-content:center}
+  .b.good{border-color:var(--good);color:var(--good)} .b.bad{border-color:var(--bad);color:var(--bad)}
+  .b:disabled{opacity:.4;cursor:not-allowed} .b .ic{font-size:15px}
+  .calcbox{margin-top:6px} .calcbox label{font-family:var(--mono);font-size:11px;color:var(--dim);display:block;margin-bottom:6px}
+  .calcrow{display:flex;gap:8px}
+  .calcrow input{flex:1;background:#0a1219;border:1px solid var(--line);border-radius:8px;padding:10px;color:var(--ink);font-family:var(--mono);font-size:14px}
+  .calcrow input:focus{outline:none;border-color:var(--accent)}
+  .sl{font-family:var(--mono);font-size:10px;letter-spacing:.08em;text-transform:uppercase;color:var(--dim);margin:12px 0 5px}
+  input[type=range]{width:100%;accent-color:var(--accent)}
+  .mini{display:flex;justify-content:space-between;font-family:var(--mono);font-size:11px;color:var(--dim);margin-top:8px;padding-top:8px;border-top:1px solid var(--line)}
+  .mini b{color:var(--accent2)}
+
+  .feedback{position:fixed;left:50%;bottom:24px;transform:translateX(-50%) translateY(20px);z-index:30;max-width:560px;width:calc(100% - 40px);background:var(--panel);backdrop-filter:blur(16px);border:1px solid var(--line);border-radius:14px;padding:16px 20px;box-shadow:0 20px 60px rgba(0,0,0,.6);opacity:0;pointer-events:none;transition:.35s}
+  .feedback.show{opacity:1;transform:translateX(-50%);pointer-events:auto}
+  .feedback.good{border-color:var(--good)} .feedback.bad{border-color:var(--bad)}
+  .feedback .fh{display:flex;align-items:center;gap:10px;margin-bottom:6px}
+  .feedback .fi{width:24px;height:24px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:14px;font-weight:bold;flex:0 0 auto}
+  .feedback.good .fi{background:var(--good);color:#06201c} .feedback.bad .fi{background:var(--bad);color:#2a0810}
+  .feedback .ft{font-weight:bold;font-size:14px} .feedback.good .ft{color:var(--good)} .feedback.bad .ft{color:var(--bad)}
+  .feedback p{font-size:13px;line-height:1.55;color:var(--dim)}
+  .feedback .fx{position:absolute;top:12px;right:14px;background:none;border:none;color:var(--dim);cursor:pointer;font-size:16px}
+
+  .hint{position:fixed;bottom:24px;left:20px;z-index:12;font-family:var(--mono);font-size:10px;color:var(--dim);background:var(--panel);padding:8px 12px;border-radius:9px;border:1px solid var(--line);opacity:0;transition:.4s}
+  .hint.show{opacity:1}
+
+  .sheetbar{display:none}
+  @media(max-width:860px),(max-height:580px){
+    .brand{font-size:15px}.phases{display:none}.hint{display:none}
+    .sheetbar{display:flex;gap:8px;position:fixed;top:62px;right:12px;z-index:18}
+    .sheetbar button{font-family:var(--mono);font-size:10px;letter-spacing:.08em;text-transform:uppercase;color:var(--ink);background:var(--panel);backdrop-filter:blur(12px);border:1px solid var(--line);border-radius:30px;padding:9px 12px;cursor:pointer}
+    .sheetbar button.on{background:var(--accent);color:#1a1209;border-color:var(--accent)}
+    .teach,.actions{position:fixed;left:8px;right:8px;bottom:96px;top:auto;width:auto;max-height:50vh;overflow-y:auto;transform:translateY(130%);opacity:0;pointer-events:none}
+    .teach.open,.actions.open{transform:translateY(0)!important;opacity:1!important;pointer-events:auto}
+    .feedback{bottom:14px}.phase-mini{display:flex!important}
+  }
+  .phase-mini{display:none;position:fixed;top:62px;left:12px;z-index:18;font-family:var(--mono);font-size:10px;color:var(--accent);background:var(--panel);border:1px solid var(--line);border-radius:30px;padding:9px 13px}
+</style>
+</head>
+<body>
+<div id="stage"></div>
+
+<div class="topbar">
+  <div class="brand">Auto<span>Lab</span> 3D</div>
+  <div class="phases" id="phases">
+    <div class="phase-tab active" data-ph="0"><span class="nm">1</span> Armado</div>
+    <div class="phase-tab" data-ph="1"><span class="nm">2</span> Fundamento</div>
+    <div class="phase-tab" data-ph="2"><span class="nm">3</span> Diagnóstico</div>
+  </div>
+  <button class="soundBtn on" id="soundBtn" style="pointer-events:auto;margin-left:auto">🔊</button>
+</div>
+<div class="phase-mini" id="phaseMini">FASE 1 · ARMADO</div>
+
+<div class="intro" id="intro">
+  <div class="sub">CONALEP · Autotrónica · Laboratorio guiado</div>
+  <div class="ttl">Arma y entiende un<br><span>Inversor Trifásico</span></div>
+  <p>No es una animación para mirar. Vas a <b>ensamblar el inversor</b> pieza por pieza, <b>calcular el voltaje de salida</b> y decidir la frecuencia de conmutación, y <b>diagnosticar fallas</b> reales de electrónica de potencia. Cada decisión tiene consecuencia física.</p>
+  <div class="obj">
+    <h4>Lo que lograrás</h4>
+    <ul>
+      <li><b>Fase 1 · Armado:</b> monta disipador, capacitores del bus DC, módulos IGBT, placa de control y busbarras.</li>
+      <li><b>Fase 2 · Fundamento:</b> calcula el voltaje pico de salida y decide la frecuencia de conmutación; observa la conmutación generar las 3 fases.</li>
+      <li><b>Fase 3 · Diagnóstico:</b> el inversor falla; identifica si es un IGBT, la secuencia de disparo o sobrecalentamiento.</li>
+    </ul>
+  </div>
+  <div class="modeToggle" id="modeToggle">
+    <button class="modeBtn active" data-mode="manual">🖐️ Manual — yo armo cada pieza</button>
+    <button class="modeBtn" data-mode="auto">▶ Automático — ver la secuencia armarse sola</button>
+  </div>
+  <button class="startbtn" id="start">▶ Comenzar laboratorio</button>
+</div>
+
+<div class="sheetbar"><button id="tgTeach">Instrucción</button><button id="tgAct">Acciones</button></div>
+
+<div class="teach" id="teach">
+  <div class="teach-head"><div class="step-no" id="stepNo">Fase 1 · Paso 1</div><h3 id="stepTitle">—</h3></div>
+  <div class="teach-body" id="teachBody"></div>
+</div>
+
+<div class="actions" id="actions">
+  <h4 id="actHead">Acciones</h4>
+  <div class="opt" id="actOpt"></div>
+</div>
+
+<div class="feedback" id="feedback">
+  <button class="fx" id="fbX">✕</button>
+  <div class="fh"><div class="fi" id="fbIcon">!</div><div class="ft" id="fbTitle"></div></div>
+  <p id="fbText"></p>
+</div>
+
+<div class="hint" id="hint">Arrastra para orbitar · rueda para zoom</div>
+
+<script type="importmap">
+{ "imports": {
+  "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.min.js",
+  "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/"
+}}
+</script>
+<script type="module">
+import * as THREE from 'three';
+import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
+import { RoundedBoxGeometry } from 'three/addons/geometries/RoundedBoxGeometry.js';
+import { EffectComposer } from 'three/addons/postprocessing/EffectComposer.js';
+import { RenderPass } from 'three/addons/postprocessing/RenderPass.js';
+import { GTAOPass } from 'three/addons/postprocessing/GTAOPass.js';
+import { UnrealBloomPass } from 'three/addons/postprocessing/UnrealBloomPass.js';
+import { BokehPass } from 'three/addons/postprocessing/BokehPass.js';
+import { SMAAPass } from 'three/addons/postprocessing/SMAAPass.js';
+import { OutputPass } from 'three/addons/postprocessing/OutputPass.js';
+import { Reflector } from 'three/addons/objects/Reflector.js';
+
+/* ===== textures ===== */
+
+/* ============================================================
+   Texturas PBR procedurales (sin archivos externos)
+   Cada función devuelve {map, roughnessMap, normalMap?, metalnessMap?}
+   ============================================================ */
+
+function cv(s=512){const c=document.createElement('canvas');c.width=c.height=s;return c;}
+function tex(canvas,repeat=1,srgb=false){
+  const t=new THREE.CanvasTexture(canvas);
+  t.wrapS=t.wrapT=THREE.RepeatWrapping;t.repeat.set(repeat,repeat);
+  t.colorSpace = srgb?THREE.SRGBColorSpace:THREE.NoColorSpace;
+  t.anisotropy=8; return t;
+}
+// build a normal map from a height function h(x,y)->0..1
+function normalFromHeight(size, hfn, strength=2.0){
+  const c=cv(size),ctx=c.getContext('2d'),img=ctx.createImageData(size,size);
+  const H=(x,y)=>hfn((x+size)%size,(y+size)%size);
+  for(let y=0;y<size;y++)for(let x=0;x<size;x++){
+    const dx=(H(x+1,y)-H(x-1,y))*strength;
+    const dy=(H(x,y+1)-H(x,y-1))*strength;
+    const nz=1.0; const len=Math.hypot(dx,dy,nz);
+    const i=(y*size+x)*4;
+    img.data[i]  =((-dx/len)*0.5+0.5)*255;
+    img.data[i+1]=((-dy/len)*0.5+0.5)*255;
+    img.data[i+2]=((nz/len)*0.5+0.5)*255;
+    img.data[i+3]=255;
+  }
+  ctx.putImageData(img,0,0);return c;
+}
+function valueNoise(seed=1){
+  // simple hashed value noise
+  const g=(x,y)=>{const s=Math.sin((x*127.1+y*311.7)+seed*13.13)*43758.5453;return s-Math.floor(s);};
+  return (x,y)=>{
+    const xi=Math.floor(x),yi=Math.floor(y),xf=x-xi,yf=y-yi;
+    const u=xf*xf*(3-2*xf),v=yf*yf*(3-2*yf);
+    const a=g(xi,yi),b=g(xi+1,yi),c=g(xi,yi+1),d=g(xi+1,yi+1);
+    return a*(1-u)*(1-v)+b*u*(1-v)+c*(1-u)*v+d*u*v;
+  };
+}
+function fbm(noise,x,y,oct=4){let v=0,a=0.5,f=1;for(let i=0;i<oct;i++){v+=noise(x*f,y*f)*a;f*=2;a*=0.5;}return v;}
+
+/* ---------- ALUMINIO FUNDIDO (bloque, culata) ---------- */
+function castAluminum(){
+  const S=512, n=valueNoise(7);
+  // color: grain
+  const c=cv(S),ctx=c.getContext('2d'),img=ctx.createImageData(S,S);
+  for(let y=0;y<S;y++)for(let x=0;x<S;x++){
+    const v=fbm(n,x/22,y/22,5);
+    const por=Math.pow(n(x/3.1,y/3.1),8); // sparse pores
+    const base=150+v*38-por*70;
+    const i=(y*S+x)*4; img.data[i]=base; img.data[i+1]=base+4; img.data[i+2]=base+10; img.data[i+3]=255;
+  }
+  ctx.putImageData(img,0,0);
+  // roughness: pores rougher
+  const r=cv(S),rx=r.getContext('2d'),rimg=rx.createImageData(S,S);
+  for(let y=0;y<S;y++)for(let x=0;x<S;x++){
+    const v=fbm(n,x/18,y/18,4); const por=Math.pow(n(x/3.1,y/3.1),8);
+    const rough=120+v*40+por*90; const i=(y*S+x)*4;
+    rimg.data[i]=rimg.data[i+1]=rimg.data[i+2]=Math.min(255,rough); rimg.data[i+3]=255;
+  }
+  rx.putImageData(rimg,0,0);
+  const nrm=normalFromHeight(S,(x,y)=>fbm(n,x/16,y/16,5)+Math.pow(n(x/3.1,y/3.1),8)*0.6,3.0);
+  return {map:tex(c,1,true),roughnessMap:tex(r),normalMap:tex(nrm)};
+}
+
+/* ---------- METAL CEPILLADO (acero, pulleys) ---------- */
+function brushedMetal(){
+  const S=512, n=valueNoise(3);
+  const c=cv(S),ctx=c.getContext('2d'),img=ctx.createImageData(S,S);
+  for(let y=0;y<S;y++)for(let x=0;x<S;x++){
+    // anisotropic streaks along x
+    const streak=Math.sin(y*0.9)*2 + (n(x/120,y*0.5)-0.5)*40;
+    const base=185+streak; const i=(y*S+x)*4;
+    img.data[i]=base; img.data[i+1]=base+2; img.data[i+2]=base+6; img.data[i+3]=255;
+  }
+  ctx.putImageData(img,0,0);
+  const r=cv(S),rx=r.getContext('2d'),rimg=rx.createImageData(S,S);
+  for(let y=0;y<S;y++)for(let x=0;x<S;x++){
+    const streak=(n(x/120,y*0.5)-0.5)*60; const rough=40+Math.abs(streak); const i=(y*S+x)*4;
+    rimg.data[i]=rimg.data[i+1]=rimg.data[i+2]=Math.min(160,rough); rimg.data[i+3]=255;
+  }
+  rx.putImageData(rimg,0,0);
+  const nrm=normalFromHeight(S,(x,y)=>(n(x/120,y*0.5))*0.3+Math.sin(y*0.9)*0.02,1.2);
+  return {map:tex(c,1,true),roughnessMap:tex(r),normalMap:tex(nrm)};
+}
+
+/* ---------- PINTURA CÁSCARA DE NARANJA (tapa de balancines) ---------- */
+function orangePeel(r=0.70,g=0.25,b=0.09){
+  const S=512, n=valueNoise(11);
+  const c=cv(S),ctx=c.getContext('2d'),img=ctx.createImageData(S,S);
+  for(let y=0;y<S;y++)for(let x=0;x<S;x++){
+    const v=fbm(n,x/40,y/40,3)*0.12+0.94;
+    const i=(y*S+x)*4;
+    img.data[i]=r*255*v; img.data[i+1]=g*255*v; img.data[i+2]=b*255*v; img.data[i+3]=255;
+  }
+  ctx.putImageData(img,0,0);
+  // clearcoat-ish: low roughness but with the peel bumps
+  const nrm=normalFromHeight(S,(x,y)=>fbm(n,x/14,y/14,3),1.6);
+  const rough=cv(64),rc=rough.getContext('2d');rc.fillStyle='#444';rc.fillRect(0,0,64,64);
+  return {map:tex(c,1,true),roughnessMap:tex(rough),normalMap:tex(nrm)};
+}
+
+/* ---------- CAUCHO / MANGUERAS ---------- */
+function rubber(){
+  const S=256,n=valueNoise(5);
+  const nrm=normalFromHeight(S,(x,y)=>fbm(n,x/8,y/8,4),1.4);
+  const rough=cv(64),rc=rough.getContext('2d');rc.fillStyle='#e0e0e0';rc.fillRect(0,0,64,64);
+  return {roughnessMap:tex(rough),normalMap:tex(nrm,2)};
+}
+
+/* gradient environment background canvas (для scene.background) */
+function gradientBG(top='#11161d',bottom='#05070a'){
+  const c=cv(512),ctx=c.getContext('2d');
+  const grd=ctx.createLinearGradient(0,0,0,512);
+  grd.addColorStop(0,top);grd.addColorStop(1,bottom);
+  ctx.fillStyle=grd;ctx.fillRect(0,0,512,512);
+  // subtle vignette glow center
+  const rg=ctx.createRadialGradient(256,200,30,256,256,360);
+  rg.addColorStop(0,'rgba(255,120,40,0.10)');rg.addColorStop(1,'rgba(0,0,0,0)');
+  ctx.fillStyle=rg;ctx.fillRect(0,0,512,512);
+  return tex(c,1,true);
+}
+
+/* ---------- PINTURA AUTOMOTRIZ LISA (carrocería, brazo robot) ---------- */
+function carPaint(r=0.15,g=0.35,b=0.85){
+  const S=256, n=valueNoise(21);
+  const c=cv(S),ctx=c.getContext('2d'),img=ctx.createImageData(S,S);
+  for(let y=0;y<S;y++)for(let x=0;x<S;x++){
+    const v=fbm(n,x/60,y/60,2)*0.06+0.95;
+    const i=(y*S+x)*4;
+    img.data[i]=r*255*v; img.data[i+1]=g*255*v; img.data[i+2]=b*255*v; img.data[i+3]=255;
+  }
+  ctx.putImageData(img,0,0);
+  const rough=cv(32),rc=rough.getContext('2d');rc.fillStyle='#2a2a2a';rc.fillRect(0,0,32,32);
+  return {map:tex(c,1,true),roughnessMap:tex(rough)};
+}
+
+/* ---------- PLÁSTICO TÉCNICO (cubiertas, conector de carga) ---------- */
+function techPlastic(r=0.10,g=0.11,b=0.13){
+  const S=256,n=valueNoise(31);
+  const c=cv(S),ctx=c.getContext('2d'),img=ctx.createImageData(S,S);
+  for(let y=0;y<S;y++)for(let x=0;x<S;x++){
+    const v=fbm(n,x/30,y/30,3)*0.1+0.92; const i=(y*S+x)*4;
+    img.data[i]=r*255*v;img.data[i+1]=g*255*v;img.data[i+2]=b*255*v;img.data[i+3]=255;
+  }
+  ctx.putImageData(img,0,0);
+  const nrm=normalFromHeight(S,(x,y)=>fbm(n,x/10,y/10,3),0.8);
+  const rough=cv(64),rc=rough.getContext('2d');rc.fillStyle='#9a9a9a';rc.fillRect(0,0,64,64);
+  return {map:tex(c,1,true),roughnessMap:tex(rough),normalMap:tex(nrm)};
+}
+
+/* ---------- BOBINADO DE COBRE (motor eléctrico) ---------- */
+function copperWinding(){
+  const S=256;
+  const c=cv(S),ctx=c.getContext('2d');
+  // horizontal copper wire bands
+  for(let y=0;y<S;y+=6){
+    const sh=Math.sin(y*0.5)*20;
+    ctx.fillStyle=`rgb(${180+sh},${100+sh*0.5},${50+sh*0.3})`;
+    ctx.fillRect(0,y,S,5);
+    ctx.fillStyle='rgba(0,0,0,0.25)';ctx.fillRect(0,y+5,S,1);
+  }
+  const nrm=normalFromHeight(S,(x,y)=>Math.sin(y*0.5)*0.5+0.5,2.0);
+  const rough=cv(32),rc=rough.getContext('2d');rc.fillStyle='#5a5a5a';rc.fillRect(0,0,32,32);
+  return {map:tex(c,1,true),roughnessMap:tex(rough),normalMap:tex(nrm,1)};
+}
+
+
+/* ===== lab ===== */
+
+/* ============================================================
+   INVERSOR TRIFÁSICO — LABORATORIO DIDÁCTICO
+   Referencia: inversor Nissan LEAF (350V DC bus, 6 IGBT — mismo bus del motor EM57 del set)
+   ============================================================ */
+const INV={
+  V_dc:350, n_igbt:6,
+  f_sw_options:[2000,8000,15000,20000],
+};
+function peakPhaseVoltage(Vdc,m=1.0){ return m*Vdc/2; }
+function lineToLineRMS(Vdc,m=1.0){ return m*Vdc*Math.sqrt(3)/(2*Math.sqrt(2)); }
+
+/* ---------- renderer / scene ---------- */
+const stage=document.getElementById('stage');
+const renderer=new THREE.WebGLRenderer({antialias:true});
+renderer.setPixelRatio(Math.min(devicePixelRatio,2));
+renderer.setSize(innerWidth,innerHeight);
+renderer.shadowMap.enabled=true; renderer.shadowMap.type=THREE.PCFSoftShadowMap;
+renderer.toneMapping=THREE.ACESFilmicToneMapping; renderer.toneMappingExposure=1.15;
+renderer.outputColorSpace=THREE.SRGBColorSpace;
+stage.appendChild(renderer.domElement); renderer.domElement.style.touchAction='none';
+
+const scene=new THREE.Scene();
+scene.background=gradientBG('#1a1108','#050505');
+const pmrem=new THREE.PMREMGenerator(renderer);
+scene.environment=pmrem.fromScene(new RoomEnvironment(renderer),0.04).texture;
+scene.environmentIntensity=1.1;
+
+const camera=new THREE.PerspectiveCamera(44,innerWidth/innerHeight,0.1,200);
+camera.position.set(6.5,4.2,7.5);
+const controls=new OrbitControls(camera,renderer.domElement);
+controls.enableDamping=true;controls.dampingFactor=0.06;
+controls.minDistance=3;controls.maxDistance=18;controls.maxPolarAngle=Math.PI*0.54;
+controls.target.set(0,1.4,0);
+
+/* lights */
+const key=new THREE.DirectionalLight(0xffffff,2.6);key.position.set(5,9,6);key.castShadow=true;
+key.shadow.mapSize.set(2048,2048);key.shadow.camera.near=0.5;key.shadow.camera.far=40;
+const sd=8;Object.assign(key.shadow.camera,{left:-sd,right:sd,top:sd,bottom:-sd});
+key.shadow.bias=-0.0003;key.shadow.normalBias=0.02;scene.add(key);
+const rim=new THREE.SpotLight(0xff8a3a,60,30,Math.PI/5,0.4,1.5);rim.position.set(-7,6,-5);scene.add(rim);
+const fill=new THREE.DirectionalLight(0x6fb6ff,0.5);fill.position.set(-4,3,7);scene.add(fill);
+scene.add(new THREE.HemisphereLight(0xc8b49f,0x0a0a0a,0.35));
+
+/* floor */
+const lightMode=/[?&]light/.test(location.search);
+(function(){
+  if(!lightMode){
+    const mirror=new Reflector(new THREE.CircleGeometry(40,80),{clipBias:0.003,textureWidth:innerWidth*Math.min(devicePixelRatio,2),textureHeight:innerHeight*Math.min(devicePixelRatio,2),color:0x0a0a0a});
+    mirror.rotation.x=-Math.PI/2;scene.add(mirror);
+  } else {
+    const flat=new THREE.Mesh(new THREE.CircleGeometry(40,80),new THREE.MeshStandardMaterial({color:0x0a0a0a,roughness:0.2,metalness:0.6}));
+    flat.rotation.x=-Math.PI/2;flat.receiveShadow=true;scene.add(flat);
+  }
+  const glass=new THREE.Mesh(new THREE.CircleGeometry(40,80),new THREE.MeshStandardMaterial({color:0x080808,roughness:0.32,metalness:0.4,transparent:true,opacity:0.6,envMapIntensity:0.7}));
+  glass.rotation.x=-Math.PI/2;glass.position.y=0.001;glass.receiveShadow=true;scene.add(glass);
+  for(let r=2;r<=8;r+=2){const ring=new THREE.Mesh(new THREE.RingGeometry(r-0.012,r+0.012,80),new THREE.MeshBasicMaterial({color:0x2a1f16,transparent:true,opacity:0.5,side:THREE.DoubleSide}));ring.rotation.x=-Math.PI/2;ring.position.y=0.004;scene.add(ring);}
+})();
+const platform=new THREE.Mesh(new THREE.CylinderGeometry(1.8,2.0,0.2,48),new THREE.MeshStandardMaterial({color:0x1a1410,roughness:0.5,metalness:0.6}));
+platform.position.set(0,0.1,0);platform.receiveShadow=true;scene.add(platform);
+const platGlow=new THREE.Mesh(new THREE.RingGeometry(1.6,1.8,64),new THREE.MeshBasicMaterial({color:0xff8a3a,transparent:true,opacity:0.0,side:THREE.DoubleSide}));
+platGlow.rotation.x=-Math.PI/2;platGlow.position.y=0.21;scene.add(platGlow);
+
+/* ---------- materials ---------- */
+const Talu=castAluminum(),Tsteel=brushedMetal();
+const std=o=>new THREE.MeshStandardMaterial(o);
+const MAT={
+  heatsink:std({color:0x9aa3ad,roughness:0.4,metalness:0.95,map:Talu.map,roughnessMap:Talu.roughnessMap,normalMap:Talu.normalMap}),
+  igbt:std({color:0x16191d,roughness:0.5,metalness:0.3}),
+  cap:std({color:0x2a3038,roughness:0.4,metalness:0.7}),
+  board:std({color:0x0d3b2e,roughness:0.6,metalness:0.2}),
+  steel:std({color:0xc2cad3,roughness:0.3,metalness:1,map:Tsteel.map,roughnessMap:Tsteel.roughnessMap,normalMap:Tsteel.normalMap}),
+  ghost:std({color:0xff8a3a,transparent:true,opacity:0.16,side:THREE.DoubleSide}),
+};
+function rbox(w,h,d,m,rf=0.1){const r=Math.min(w,h,d)*rf;const x=new THREE.Mesh(new RoundedBoxGeometry(w,h,d,4,r),m);x.castShadow=x.receiveShadow=true;return x;}
+
+/* ============================================================
+   PIEZAS DEL INVERSOR (grupos ensamblables)
+   Orden real de un inversor automotriz: disipador -> capacitores DC ->
+   módulos IGBT -> placa de control/gate driver -> busbarras de salida
+   ============================================================ */
+const invRoot=new THREE.Group(); invRoot.position.set(0,1.0,0); scene.add(invRoot);
+
+// ---- DISIPADOR (heatsink base) ----
+const heatsinkGroup=new THREE.Group(); invRoot.add(heatsinkGroup);
+(function(){
+  const base=rbox(3.0,0.18,1.6,MAT.heatsink,0.15); base.position.y=0.09; heatsinkGroup.add(base);
+  for(let i=0;i<12;i++){const fin=rbox(3.0,0.32,0.05,MAT.heatsink,0.3); fin.position.set(0,0.18+0.16,-0.75+i*0.14); heatsinkGroup.add(fin);}
+})();
+
+// ---- CAPACITORES DEL BUS DC ----
+const capGroup=new THREE.Group(); invRoot.add(capGroup);
+const capMeshes=[];
+(function(){
+  for(let i=0;i<3;i++){const cap=new THREE.Mesh(new THREE.CylinderGeometry(0.26,0.26,0.72,28),MAT.cap);cap.position.set(-0.9+i*0.55,0.54,-0.5);cap.castShadow=true;capGroup.add(cap);capMeshes.push(cap);
+    const top=new THREE.Mesh(new THREE.CylinderGeometry(0.26,0.26,0.04,28),std({color:0x444b54,metalness:0.9,roughness:0.3}));top.position.set(-0.9+i*0.55,0.9,-0.5);capGroup.add(top);}
+})();
+
+// ---- MÓDULOS IGBT (6) ----
+const igbtGroup=new THREE.Group(); invRoot.add(igbtGroup);
+const igbtMeshes=[];
+(function(){
+  for(let i=0;i<6;i++){const g=rbox(0.38,0.18,0.46,MAT.igbt,0.12); g.position.set(-0.95+(i%3)*0.72,0.36,0.35+(i<3?0:0.5)); igbtGroup.add(g); igbtMeshes.push(g);}
+})();
+
+// ---- PLACA DE CONTROL + GATE DRIVER ----
+const boardGroup=new THREE.Group(); invRoot.add(boardGroup);
+(function(){
+  const pcb=rbox(2.6,0.05,1.2,MAT.board); pcb.position.y=0.62; boardGroup.add(pcb);
+  for(let i=0;i<6;i++){const chip=rbox(0.14,0.06,0.14,std({color:0x111318,roughness:0.5,metalness:0.4})); chip.position.set(-1.0+i*0.4,0.68,0); boardGroup.add(chip);}
+  const mcu=rbox(0.4,0.06,0.4,std({color:0x1a1d22,roughness:0.4,metalness:0.5})); mcu.position.set(0.9,0.68,-0.3); boardGroup.add(mcu);
+})();
+
+// ---- BUSBARRAS DE SALIDA (3 fases) ----
+const busGroup=new THREE.Group(); invRoot.add(busGroup);
+const busBars=[];
+(function(){
+  const cols=[0xff6b1a,0x37e0c7,0x6fb6ff];
+  for(let i=0;i<3;i++){const bar=rbox(0.14,0.08,1.3,std({color:cols[i],metalness:0.9,roughness:0.3,emissive:cols[i],emissiveIntensity:0.15}));
+    bar.position.set(1.75,0.32,-0.45+i*0.42); busGroup.add(bar); busBars.push(bar);}
+})();
+
+
+/* ============================================================
+   POST-PROCESSING
+   ============================================================ */
+const isMobile=/Mobi|Android|iPhone|iPad/i.test(navigator.userAgent)||innerWidth<860;
+const noGtao=/[?&]nogtao/.test(location.search);
+const composer=new EffectComposer(renderer);
+composer.addPass(new RenderPass(scene,camera));
+if(!isMobile&&!noGtao){try{const g=new GTAOPass(scene,camera,innerWidth,innerHeight);g.output=GTAOPass.OUTPUT.Default;if(g.updateGtaoMaterial)g.updateGtaoMaterial({radius:0.5,distanceExponent:1,thickness:1,scale:1.1,samples:16});composer.addPass(g);}catch(e){}}
+const bloom=new UnrealBloomPass(new THREE.Vector2(innerWidth,innerHeight),0.42,0.5,0.9);composer.addPass(bloom);
+let bokeh=null; if(!isMobile&&!lightMode){bokeh=new BokehPass(scene,camera,{focus:8.5,aperture:0.00035,maxblur:0.006,width:innerWidth,height:innerHeight});composer.addPass(bokeh);}
+composer.addPass(new OutputPass());
+composer.addPass(new SMAAPass(innerWidth*renderer.getPixelRatio(),innerHeight*renderer.getPixelRatio()));
+addEventListener('resize',()=>{camera.aspect=innerWidth/innerHeight;camera.updateProjectionMatrix();renderer.setSize(innerWidth,innerHeight);composer.setSize(innerWidth,innerHeight);});
+
+/* ============================================================
+   UI HELPERS
+   ============================================================ */
+const $=id=>document.getElementById(id);
+const teachEl=$('teach'),actionsEl=$('actions'),hintEl=$('hint');
+function showTeach(no,title,html){$('stepNo').textContent=no;$('stepTitle').textContent=title;$('teachBody').innerHTML=html;}
+function setActions(head,html){$('actHead').textContent=head;$('actOpt').innerHTML=html;$('actOpt').querySelectorAll('[data-act]').forEach(b=>b.onclick=()=>handleAction(b.dataset.act,b));}
+let fbTimer;
+function feedback(type,title,text,sticky=false){const f=$('feedback');f.className='feedback show '+type;$('fbIcon').textContent=type==='good'?'✓':'✕';$('fbTitle').textContent=title;$('fbText').innerHTML=text;clearTimeout(fbTimer);if(!sticky)fbTimer=setTimeout(()=>f.classList.remove('show'),6500);}
+$('fbX').onclick=()=>$('feedback').classList.remove('show');
+function setPhaseTab(i){document.querySelectorAll('.phase-tab').forEach((t,idx)=>{t.classList.toggle('active',idx===i);t.classList.toggle('done',idx<i);});$('phaseMini').textContent='FASE '+(i+1)+' · '+['ARMADO','FUNDAMENTO','DIAGNÓSTICO'][i];}
+
+/* ============================================================
+   MESA DE PIEZAS
+   ============================================================ */
+const KIT_POS={
+  heatsink:new THREE.Vector3(-4.4,-0.4,-2.4),
+  cap:     new THREE.Vector3( 4.4,-0.4,-2.4),
+  igbt:    new THREE.Vector3(-4.4,-0.4, 2.4),
+  board:   new THREE.Vector3( 4.4,-0.4, 2.4),
+  bus:     new THREE.Vector3( 0,  -0.4, 3.6),
+};
+function rrPath(c,x,y,w,h,r){c.moveTo(x+r,y);c.lineTo(x+w-r,y);c.arcTo(x+w,y,x+w,y+r,r);c.lineTo(x+w,y+h-r);c.arcTo(x+w,y+h,x+w-r,y+h,r);c.lineTo(x+r,y+h);c.arcTo(x,y+h,x,y+h-r,r);c.lineTo(x,y+r);c.arcTo(x,y,x+r,y,r);c.closePath();}
+function smallLabel4(text,color){
+  const cv=document.createElement('canvas');cv.width=560;cv.height=108;const c=cv.getContext('2d');
+  c.fillStyle='rgba(10,10,10,.92)';c.beginPath();rrPath(c,4,4,552,100,24);c.fill();
+  c.strokeStyle=color;c.lineWidth=4;c.stroke();
+  c.font='bold 28px Courier New';c.textAlign='center';c.textBaseline='middle';c.fillStyle=color;
+  c.fillText(text,280,54);
+  const tex=new THREE.CanvasTexture(cv);tex.colorSpace=THREE.SRGBColorSpace;
+  const sp=new THREE.Sprite(new THREE.SpriteMaterial({map:tex,depthTest:false,transparent:true}));
+  sp.scale.set(2.15,0.41,1);sp.renderOrder=999;return sp;
+}
+function trayPad4(pos,color){
+  const pad=new THREE.Mesh(new THREE.CylinderGeometry(0.85,0.95,0.12,40),new THREE.MeshStandardMaterial({color:0x120e0a,roughness:0.55,metalness:0.5}));
+  pad.position.set(pos.x,0.06,pos.z);pad.receiveShadow=true;scene.add(pad);
+  const ring=new THREE.Mesh(new THREE.RingGeometry(0.74,0.86,48),new THREE.MeshBasicMaterial({color,transparent:true,opacity:0,side:THREE.DoubleSide}));
+  ring.rotation.x=-Math.PI/2;ring.position.set(pos.x,0.13,pos.z);scene.add(ring);
+  return {pad,ring};
+}
+const PIECE_ORDER=['heatsink','cap','igbt','board','bus'];
+const PIECE_GROUP={heatsink:heatsinkGroup,cap:capGroup,igbt:igbtGroup,board:boardGroup,bus:busGroup};
+const PIECE_NAME={heatsink:'DISIPADOR',cap:'CAPACITORES DC',igbt:'MÓDULOS IGBT',board:'PLACA DE CONTROL',bus:'BUSBARRAS'};
+const PIECE_COLOR={heatsink:'#9aa3ad',cap:'#ffd166',igbt:'#ff8a3a',board:'#37e0c7',bus:'#f4475e'};
+const travel={},trays={},lbls={};
+PIECE_ORDER.forEach(k=>{
+  const grp=PIECE_GROUP[k];
+  travel[k]={active:false,t:0,dur:1.05,from:KIT_POS[k].clone(),to:new THREE.Vector3(0,0,0),installed:false,bump:0};
+  grp.position.copy(KIT_POS[k]); grp.visible=true;
+  trays[k]=trayPad4(KIT_POS[k],PIECE_COLOR[k]);
+  const lbl=smallLabel4(PIECE_NAME[k]+' · toca para instalar',PIECE_COLOR[k]);
+  lbl.position.set(KIT_POS[k].x,2.0,KIT_POS[k].z); scene.add(lbl); lbls[k]=lbl;
+});
+function easeOutBack(x){const c1=1.4,c3=c1+1;return 1+c3*Math.pow(x-1,3)+c1*Math.pow(x-1,2);}
+function isInGroup(obj,group){let o=obj;while(o){if(o===group)return true;o=o.parent;}return false;}
+function installPiece(key){ travel[key].active=true; travel[key].t=0; }
+function attemptBump(key){ travel[key].bump=1; }
+function nextRequired(){ return PIECE_ORDER.find(k=>!travel[k].installed); }
+function pieceWhyBlocked(key){
+  if(key==='cap')return 'Los capacitores del bus DC se atornillan sobre el disipador. Sin disipador, no hay base ni tornillería donde fijarlos.';
+  if(key==='igbt')return 'Los módulos IGBT necesitan contacto térmico directo con el disipador para no sobrecalentarse. Sin disipador instalado, no hay dónde montarlos.';
+  if(key==='board')return 'La placa de control se atornilla ENCIMA de los módulos IGBT (así conecta sus pines de compuerta). Sin IGBT, no hay a qué conectarla.';
+  if(key==='bus')return 'Las busbarras de salida se conectan a los IGBT ya energizados. Necesitas la placa de control lista antes de sacar las 3 fases.';
+  return 'Esa pieza va después en el orden de montaje.';
+}
+
+/* ============================================================
+   PICKING
+   ============================================================ */
+const ray=new THREE.Raycaster(),mouse=new THREE.Vector2();let down=null,onPick=null,autoMode=false;
+renderer.domElement.addEventListener('pointerdown',e=>down=[e.clientX,e.clientY]);
+renderer.domElement.addEventListener('pointerup',e=>{
+  if(!down)return;const moved=Math.abs(e.clientX-down[0])+Math.abs(e.clientY-down[1])>6;down=null;
+  if(moved||!onPick)return;
+  const r=renderer.domElement.getBoundingClientRect();
+  mouse.x=((e.clientX-r.left)/r.width)*2-1;mouse.y=-((e.clientY-r.top)/r.height)*2+1;
+  ray.setFromCamera(mouse,camera);
+  const hits=ray.intersectObjects(invRoot.children,true);
+  onPick(hits[0]||null);
+});
+function onPickGeneric(hit){
+  if(!hit)return;
+  const req=nextRequired(); if(!req)return;
+  for(const k of PIECE_ORDER){
+    if(isInGroup(hit.object,PIECE_GROUP[k])){
+      if(k===req)handleAction('place-'+k,null);
+      else if(!travel[k].installed){attemptBump(k);feedback('bad','Fuera de orden',pieceWhyBlocked(k)+' Instala primero: '+PIECE_NAME[req]+'.');}
+      return;
+    }
+  }
+}
+
+/* ---- cámara cinemática ---- */
+let cinematicSpin=false, lastDragTime=-99;
+const camCine={active:false,t:0,dur:1.5,from:new THREE.Vector3(),to:new THREE.Vector3(),fromTarget:new THREE.Vector3(),toTarget:new THREE.Vector3()};
+function easeInOutCubic(x){return x<0.5?4*x*x*x:1-Math.pow(-2*x+2,3)/2;}
+
+/* ============================================================
+   FASE 1: ARMADO
+   ============================================================ */
+let phase=0;
+function startPhase1(){
+  phase=0;setPhaseTab(0);
+  controls.target.set(0,0.5,0); controls.minDistance=2.5;
+  step_heatsink();
+}
+function step_heatsink(){
+  showTeach('Fase 1 · Paso 1','Instala el disipador',
+    `<p>El <b>disipador</b> (heatsink) es la base metálica aletada que evacúa el calor de los transistores. Está sobre la mesa.</p>
+     <div class="why"><b>¿Por qué primero?</b> Cada módulo IGBT necesita contacto térmico directo con el disipador para no quemarse. Todo lo demás se monta sobre o encima de él.</div>
+     <div class="task">Toca la pieza gris de la mesa, o usa el botón, para instalar el disipador.</div>`);
+  setActions('Mesa de piezas',`<button class="b primary" data-act="place-heatsink"><span class="ic">⬇</span> Instalar disipador</button>
+     <button class="b" data-act="try-bus-first"><span class="ic">⬇</span> Instalar busbarras primero</button>`);
+  platGlow.material.opacity=0.25;
+  onPick=onPickGeneric;
+  if(autoMode)setTimeout(()=>{if(!travel.heatsink.installed)handleAction('place-heatsink',null);},1900);
+}
+function step_cap(){
+  showTeach('Fase 1 · Paso 2','Instala los capacitores del bus DC',
+    `<p>Los <b>capacitores del bus DC</b> (DC-link) filtran y estabilizan el voltaje de la batería antes de que llegue a los IGBT. En un inversor real son de estructura plana, uno por cada módulo de potencia.</p>
+     <div class="why"><b>¿Por qué son necesarios?</b> Sin ellos, cada conmutación de los IGBT provocaría picos de voltaje (ringing) que dañarían los transistores. Actúan como un "colchón" eléctrico.</div>
+     <div class="task">Toca la pieza amarilla, o usa el botón, para instalar los capacitores.</div>`);
+  setActions('Mesa de piezas',`<button class="b primary" data-act="place-cap"><span class="ic">⬇</span> Instalar capacitores DC</button>`);
+  if(autoMode)setTimeout(()=>{if(!travel.cap.installed)handleAction('place-cap',null);},1900);
+}
+function step_igbt(){
+  showTeach('Fase 1 · Paso 3','Instala los módulos IGBT',
+    `<p>Los <b>6 IGBT</b> son los interruptores de potencia: conmutan el bus DC para sintetizar las 3 fases de salida. Van montados directamente sobre el disipador.</p>
+     <div class="why"><b>¿Por qué 6?</b> Cada fase necesita un par de IGBT (uno conecta a +DC, otro a -DC, alternando). 3 fases × 2 = 6 interruptores — el corazón del inversor.</div>
+     <div class="task">Toca la pieza naranja, o usa el botón, para instalar los 6 IGBT.</div>`);
+  setActions('Mesa de piezas',`<button class="b primary" data-act="place-igbt"><span class="ic">⬇</span> Instalar 6 módulos IGBT</button>`);
+  if(autoMode)setTimeout(()=>{if(!travel.igbt.installed)handleAction('place-igbt',null);},1900);
+}
+function step_board(){
+  showTeach('Fase 1 · Paso 4','Instala la placa de control',
+    `<p>La <b>placa de control</b> lleva los circuitos de disparo de compuerta (gate driver) que le dicen a cada IGBT cuándo encender y apagar.</p>
+     <div class="why"><b>El cerebro del inversor:</b> esta placa ejecuta el algoritmo de PWM (modulación por ancho de pulso) que calcularás en la Fase 2, generando la secuencia de encendido exacta de cada IGBT.</div>
+     <div class="task">Toca la pieza turquesa, o usa el botón, para instalar la placa de control.</div>`);
+  setActions('Mesa de piezas',`<button class="b primary" data-act="place-board"><span class="ic">⬇</span> Instalar placa de control</button>`);
+  if(autoMode)setTimeout(()=>{if(!travel.board.installed)handleAction('place-board',null);},1900);
+}
+function step_bus(){
+  showTeach('Fase 1 · Paso 5','Instala las busbarras de salida',
+    `<p>Las <b>busbarras</b> llevan las 3 fases de corriente alterna ya sintetizadas hacia el motor.</p>
+     <div class="why"><b>La salida real:</b> esto es lo que conecta al motor eléctrico — el mismo bus de 350V que viste en el laboratorio del motor. Todo lo anterior existe para producir esta señal.</div>
+     <div class="task">Toca la pieza roja, o usa el botón, para instalar las busbarras.</div>`);
+  setActions('Mesa de piezas',`<button class="b primary" data-act="place-bus"><span class="ic">⬇</span> Instalar busbarras (3 fases)</button>`);
+  if(autoMode)setTimeout(()=>{if(!travel.bus.installed)handleAction('place-bus',null);},1900);
+}
+function finishPhase1(){
+  feedback('good','¡Inversor armado! 🎉','Instalaste disipador, capacitores, IGBT, placa de control y busbarras en el orden correcto. Ahora vas a calcular su salida y verlo conmutar.',true);
+  document.querySelectorAll('.phase-tab')[0].classList.add('done');
+  controls.minDistance=3; onPick=null;
+  setTimeout(()=>startPhase2(),1200);
+}
+
+/* ============================================================
+   FASE 2: FUNDAMENTO
+   ============================================================ */
+function startPhase2(){
+  phase=1;setPhaseTab(1);
+  controls.target.set(0,1.4,0); platGlow.material.opacity=0;
+  challengeVoltage();
+}
+function challengeVoltage(){
+  const answer=peakPhaseVoltage(INV.V_dc,1.0);
+  window.__vAnswer=answer;
+  showTeach('Fase 2 · Reto 1','Calcula el voltaje pico de salida',
+    `<p>Este inversor toma el bus DC de <b>${INV.V_dc} V</b> (el mismo del motor eléctrico del set) y lo convierte en 3 fases de CA. Con modulación senoidal a máxima amplitud lineal, el voltaje pico de cada fase es:</p>
+     <div class="formula">V_fase,pico = Vdc / 2</div>
+     <div class="task">¿Cuál es el voltaje pico de fase, en V?</div>`);
+  setActions('Tu cálculo',
+    `<div class="calcbox"><label>Voltaje pico de fase (V)</label>
+       <div class="calcrow"><input id="ansV" type="number" step="1" placeholder="¿?"><button class="b primary" data-act="check-v" style="flex:0 0 auto">✓</button></div>
+       <div class="mini" data-act="hint-v" style="cursor:pointer;text-decoration:underline"><span>¿Necesitas una pista?</span></div></div>`);
+}
+let fSwChoice=15000;
+function challengeFreq(){
+  showTeach('Fase 2 · Reto 2','Elige la frecuencia de conmutación',
+    `<p>Los IGBT pueden conmutar a distintas frecuencias portadora (2kHz a 20kHz). Esta frecuencia NO es la frecuencia de salida del motor — es cuántas veces por segundo se "trocea" la señal para sintetizar la onda senoidal.</p>
+     <div class="why"><b>El tradeoff real:</b> a mayor frecuencia de conmutación, la onda de salida es más suave y el motor hace menos ruido audible (≥15kHz lo vuelve casi inaudible). Pero cada conmutación disipa energía en el IGBT como calor: más frecuencia = más pérdidas = más calor.</div>
+     <div class="task">Para un motor silencioso sin sobrecalentar el inversor, ¿qué frecuencia eliges?</div>`);
+  setActions('Tu decisión',
+    `<button class="b" data-act="freq-low"><span class="ic">▼</span> 2 kHz — bajas pérdidas, motor ruidoso</button>
+     <button class="b" data-act="freq-mid"><span class="ic">●</span> 15 kHz — equilibrio silencioso</button>
+     <button class="b" data-act="freq-high"><span class="ic">▲</span> 20 kHz — máxima suavidad, más calor</button>`);
+}
+function challengeSwitch(){
+  showTeach('Fase 2 · Reto 3','Observa la conmutación generar las 3 fases',
+    `<p>Ahora la placa de control empieza a disparar los 6 IGBT en secuencia. Observa el osciloscopio: cada fase (A, B, C) queda desfasada 120° de la siguiente — así se genera corriente trifásica desde un bus de CD.</p>
+     <div class="why"><b>Lo que estás viendo:</b> cada IGBT se enciende y apaga miles de veces por segundo (${(fSwChoice/1000).toFixed(0)}kHz que elegiste), con el ancho de cada pulso variando senoidalmente. El promedio de esos pulsos ES la onda senoidal que ves.</div>
+     <div class="task">Observa el osciloscopio y la telemetría en vivo.</div>`);
+  setActions('Inversor',
+    `<div class="mini"><span>Frecuencia conmutación</span><b id="d_fsw">0 kHz</b></div>
+     <div class="mini"><span>V pico de fase</span><b id="d_vp">0 V</b></div>
+     <div class="mini"><span>V línea-línea RMS</span><b id="d_vll">0 V</b></div>
+     <button class="b good" data-act="toggle-run" id="runBtn" style="margin-top:10px">▶ Activar conmutación</button>
+     <button class="b primary" data-act="to-phase3" style="margin-top:8px" disabled id="toP3">Continuar al diagnóstico →</button>`);
+  running=true;cinematicSpin=true;
+  camCine.from.copy(camera.position); camCine.fromTarget.copy(controls.target);
+  camCine.to.set(5.4,3.2,6.0); camCine.toTarget.set(0.3,1.0,0);
+  camCine.active=true; camCine.t=0;
+}
+
+/* ============================================================
+   OSCILOSCOPIO (canvas texture)
+   ============================================================ */
+const oscCanvas=document.createElement('canvas'); oscCanvas.width=512; oscCanvas.height=256;
+const oscCtx=oscCanvas.getContext('2d');
+const oscTex=new THREE.CanvasTexture(oscCanvas); oscTex.colorSpace=THREE.SRGBColorSpace;
+const oscScreen=new THREE.Mesh(new THREE.PlaneGeometry(2.6,1.3),new THREE.MeshBasicMaterial({map:oscTex}));
+oscScreen.position.set(0,1.9,-0.75); scene.add(oscScreen);
+const oscFrame=rbox(2.8,1.5,0.08,std({color:0x0a0a0a,metalness:0.5,roughness:0.4})); oscFrame.position.set(0,1.9,-0.79); scene.add(oscFrame);
+let running=false, switching=false;
+const cols3=['#ff6b1a','#37e0c7','#6fb6ff'];
+function drawOsc(t,freqHz,faultMode){
+  oscCtx.fillStyle='#020608';oscCtx.fillRect(0,0,512,256);
+  oscCtx.strokeStyle='#11331f';for(let y=0;y<256;y+=32){oscCtx.beginPath();oscCtx.moveTo(0,y);oscCtx.lineTo(512,y);oscCtx.stroke();}
+  const vis=Math.max(0.5,freqHz/3000);
+  for(let ph=0;ph<3;ph++){
+    if(faultMode==='igbt' && ph===2) continue; // fase C ausente
+    oscCtx.strokeStyle=cols3[ph];oscCtx.lineWidth=2.5;oscCtx.beginPath();
+    let phaseOffset=ph*Math.PI*2/3;
+    if(faultMode==='sequence') phaseOffset=ph*Math.PI*2/3*0.4; // fases mal espaciadas
+    for(let x=0;x<512;x++){
+      const a=(x/512)*Math.PI*2*vis + (switching?t*2.4:0) - phaseOffset;
+      let y=Math.sin(a);
+      if(faultMode==='overheat') y*=(0.5+0.5*Math.sin(t*1.2)); // amplitud degradándose
+      const py=128-y*92; x?oscCtx.lineTo(x,py):oscCtx.moveTo(x,py);
+    }
+    oscCtx.stroke();
+  }
+  oscTex.needsUpdate=true;
+}
+
+/* ============================================================
+   FASE 3: DIAGNÓSTICO
+   ============================================================ */
+let fault=null;
+function startPhase3(){
+  phase=2;setPhaseTab(2);running=true;switching=true;
+  const faults=['igbt','sequence','overheat'];fault=faults[Math.floor(Math.random()*faults.length)];
+  showTeach('Fase 3 · Diagnóstico','El inversor falla en operación',
+    `<p>El inversor está encendido pero algo anda mal. Observa el osciloscopio y el disipador, e <b>identifica la falla</b>.</p>
+     <div class="task" id="symptomTask">Observa el síntoma y elige el diagnóstico.</div>`);
+  setActions('¿Cuál es la falla?',
+    `<button class="b" data-act="dx-igbt"><span class="ic">⚡</span> IGBT en falla (fase ausente)</button>
+     <button class="b" data-act="dx-sequence"><span class="ic">🔀</span> Secuencia de disparo incorrecta</button>
+     <button class="b" data-act="dx-overheat"><span class="ic">🔥</span> Sobrecalentamiento</button>`);
+  setTimeout(()=>{const s=$('symptomTask');if(s)s.innerHTML=symptomInv(fault);},1200);
+}
+function symptomInv(f){
+  if(f==='igbt')return 'SÍNTOMA: en el osciloscopio solo se ven 2 de las 3 fases — la tercera está plana. ¿Qué lo causa?';
+  if(f==='sequence')return 'SÍNTOMA: las 3 fases se ven, pero no están espaciadas 120° entre sí — se ven amontonadas. ¿Qué lo causa?';
+  if(f==='overheat')return 'SÍNTOMA: la amplitud de las 3 fases sube y baja de forma irregular, y el disipador está visiblemente caliente (rojizo). ¿Qué lo causa?';
+}
+function diagnoseInv(choice){
+  const correct=(choice===fault);
+  if(correct){feedback('good','Diagnóstico correcto ✓',explainInvFault(fault)+' <b>Ahora corrígelo.</b>',true);
+    setActions('Reparación',`<button class="b primary good" data-act="repair-inv">🔧 Corregir la falla</button>`);
+  } else {feedback('bad','No es esa la falla','Eso ('+fnameInv(choice)+') daría otro síntoma: '+wrongExInv(choice)+' Observa otra vez.',true);}
+}
+function explainInvFault(f){
+  if(f==='igbt')return 'Uno de los IGBT quedó en circuito abierto (dañado). Sin ese transistor conmutando, esa fase simplemente no se genera — el osciloscopio la muestra plana.';
+  if(f==='sequence')return 'El firmware de la placa de control está disparando las compuertas con un desfase incorrecto (no 120°). Esto desbalancea el campo magnético del motor y causa vibración severa.';
+  if(f==='overheat')return 'La frecuencia de conmutación es demasiado alta para la capacidad de enfriamiento del disipador. El IGBT se calienta, su resistencia cambia, y la señal se degrada — justo el tradeoff que decidiste en la Fase 2.';
+}
+function fnameInv(f){return f==='igbt'?'IGBT en falla':f==='sequence'?'secuencia incorrecta':'sobrecalentamiento';}
+function wrongExInv(f){
+  if(f==='igbt')return 'un IGBT en falla dejaría una fase completamente plana, no las 3 amontonadas ni degradándose.';
+  if(f==='sequence')return 'una secuencia incorrecta amontona las 3 fases, no elimina una ni las degrada térmicamente.';
+  if(f==='overheat')return 'el sobrecalentamiento degrada la amplitud de las 3 fases gradualmente, no elimina una fase ni cambia su espaciado.';
+}
+function repairInv(){
+  fault=null;
+  feedback('good','¡Reparado! 🎉','El inversor vuelve a generar las 3 fases limpias y balanceadas. Completaste las tres fases: lo armaste, calculaste su salida y frecuencia, y diagnosticaste una falla real de electrónica de potencia.',true);
+  document.querySelectorAll('.phase-tab')[2].classList.add('done');
+  setActions('Laboratorio completado',`<button class="b primary" data-act="restart">↺ Reiniciar laboratorio</button>`);
+}
+
+/* ============================================================
+   ACTION ROUTER
+   ============================================================ */
+function handleAction(act,btn){
+  switch(act){
+    case 'place-heatsink':
+      if(travel.heatsink.installed||travel.heatsink.active)break;
+      installPiece('heatsink');
+      feedback('good','Disipador en camino','Lo ves trasladarse desde la mesa hasta la plataforma.');
+      setTimeout(()=>step_cap(),1150); break;
+    case 'try-bus-first':
+      if(travel.heatsink.installed)break;
+      attemptBump('bus');
+      feedback('bad','Las busbarras no pueden ir primero','Las busbarras sacan las 3 fases de los IGBT ya energizados. Sin disipador, capacitores ni IGBT, no hay nada que conectar. Instala primero el disipador.'); break;
+    case 'place-cap':
+      if(!travel.heatsink.installed||travel.cap.installed||travel.cap.active)break;
+      installPiece('cap');
+      feedback('good','Capacitores en camino','Se acoplan sobre el disipador.');
+      setTimeout(()=>step_igbt(),1150); break;
+    case 'place-igbt':
+      if(!travel.cap.installed||travel.igbt.installed||travel.igbt.active)break;
+      installPiece('igbt');
+      feedback('good','Módulos IGBT en camino','Los 6 se asientan sobre el disipador, en contacto térmico directo.');
+      setTimeout(()=>step_board(),1150); break;
+    case 'place-board':
+      if(!travel.igbt.installed||travel.board.installed||travel.board.active)break;
+      installPiece('board');
+      feedback('good','Placa de control en camino','Se acopla encima de los IGBT, conectando sus compuertas.');
+      setTimeout(()=>step_bus(),1150); break;
+    case 'place-bus':
+      if(!travel.board.installed||travel.bus.installed||travel.bus.active)break;
+      installPiece('bus');
+      feedback('good','Busbarras en camino','Se conectan a la salida de los IGBT. Inversor casi completo.');
+      setTimeout(()=>finishPhase1(),1150); break;
+    case 'check-v': checkVoltage(); break;
+    case 'hint-v': feedback('good','Pista',`V_fase,pico = Vdc/2 = ${INV.V_dc}/2. Solo divide entre 2.`); break;
+    case 'freq-low': feedback('bad','Insuficiente','2kHz da bajas pérdidas, pero el motor sonará como un zumbido audible molesto — nada silencioso. Para un vehículo real eso no es aceptable. Prueba de nuevo.'); break;
+    case 'freq-mid': fSwChoice=15000; feedback('good','Buena elección ✓','15kHz está justo en el punto donde el oído humano deja de percibir el zumbido de conmutación, con pérdidas manejables para un disipador bien diseñado. Es el estándar típico en tracción automotriz.'); setTimeout(()=>challengeSwitch(),1700); break;
+    case 'freq-high': feedback('bad','Cuidado con el calor','20kHz sí es inaudible, pero duplica casi las pérdidas de conmutación frente a 15kHz — exige un disipador y enfriamiento más grandes de lo necesario. No es la opción más eficiente. Prueba de nuevo.'); break;
+    case 'toggle-run':
+      switching=!switching;
+      if(btn){btn.textContent=(switching?'⏸':'▶')+' Conmutación'; btn.classList.toggle('good',switching);}
+      if(switching)setTimeout(()=>{const b=$('toP3');if(b)b.disabled=false;},2200);
+      break;
+    case 'to-phase3': running=true; cinematicSpin=false; controls.autoRotate=false; document.querySelectorAll('.phase-tab')[1].classList.add('done'); startPhase3(); break;
+    case 'dx-igbt': diagnoseInv('igbt'); break;
+    case 'dx-sequence': diagnoseInv('sequence'); break;
+    case 'dx-overheat': diagnoseInv('overheat'); break;
+    case 'repair-inv': repairInv(); break;
+    case 'restart': location.reload(); break;
+  }
+}
+function checkVoltage(){
+  const v=parseFloat(($('ansV')||{}).value); const correct=window.__vAnswer;
+  if(isNaN(v)){feedback('bad','Escribe un número','Ingresa el voltaje pico en V.');return;}
+  if(Math.abs(v-correct)<3){feedback('good','¡Correcto! ✓',`V_fase,pico = ${INV.V_dc}/2 = ${correct.toFixed(0)} V. Ese es el voltaje pico que alimenta al motor eléctrico del set — misma cifra, dos laboratorios conectados por la misma física.`);setTimeout(()=>challengeFreq(),1700);}
+  else{const d=v>correct?'alto':'bajo';feedback('bad','Revisa el cálculo',`Tu resultado (${v}V) está ${d}. V_fase,pico = Vdc/2 = ${INV.V_dc}/2 = ${correct.toFixed(0)} V.`);}
+}
+
+/* ============================================================
+   ANIMACIÓN
+   ============================================================ */
+const clock=new THREE.Clock();
+controls.addEventListener('start',()=>{ lastDragTime=clock.elapsedTime; camCine.active=false; });
+/* ============================================================
+   SONIDO — silbido de conmutación (más audible a baja frecuencia, casi inaudible a alta — igual que en la realidad)
+   ============================================================ */
+let audioCtx=null,oscA=null,audioGain=null,audioFilter=null,soundOn=true;
+function initAudio(){
+  if(audioCtx)return;
+  try{
+    audioCtx=new (window.AudioContext||window.webkitAudioContext)();
+    oscA=audioCtx.createOscillator(); oscA.type='square';
+    audioFilter=audioCtx.createBiquadFilter(); audioFilter.type='highpass'; audioFilter.frequency.value=200;
+    audioGain=audioCtx.createGain(); audioGain.gain.value=0;
+    oscA.connect(audioFilter); audioFilter.connect(audioGain); audioGain.connect(audioCtx.destination);
+    oscA.start();
+  }catch(e){}
+}
+function updateAudio(isSwitching,fsw){
+  if(!audioCtx||!soundOn){if(audioGain)audioGain.gain.setTargetAtTime(0,audioCtx?.currentTime||0,0.08);return;}
+  // tono audible proporcional a fsw (escalado), pero volumen INVERSO a fsw — a mayor fsw, menos audible (como en la realidad)
+  const f=Math.min(1800,200+fsw/14);
+  oscA.frequency.setTargetAtTime(f,audioCtx.currentTime,0.05);
+  const audibility=Math.max(0.15,1-(fsw-2000)/18000); // 2kHz=muy audible, 20kHz=casi inaudible
+  const vol=isSwitching?Math.min(0.05,0.05*audibility):0;
+  audioGain.gain.setTargetAtTime(vol,audioCtx.currentTime,0.1);
+}
+
+function animate(){
+  requestAnimationFrame(animate);
+  const dt=clock.getDelta(),t=clock.elapsedTime;
+
+  // mesa de piezas
+  PIECE_ORDER.forEach(key=>{
+    const grp=PIECE_GROUP[key]; const tr=travel[key];
+    if(tr.active){
+      tr.t=Math.min(1,tr.t+dt/tr.dur);
+      const e=easeOutBack(tr.t);
+      grp.position.lerpVectors(tr.from,tr.to,e);
+      if(tr.t>=1){tr.active=false;tr.installed=true;grp.position.copy(tr.to);}
+    } else if(tr.bump>0){
+      tr.bump=Math.max(0,tr.bump-dt*2.2);
+      const k=Math.sin(tr.bump*Math.PI)*0.22;
+      grp.position.lerpVectors(tr.from,tr.to,k);
+    }
+    const installed=tr.installed;
+    trays[key].ring.material.opacity=installed?0:(nextRequired()===key?(0.22+0.22*Math.sin(t*3)):0.06);
+    lbls[key].visible=!installed; trays[key].pad.visible=!installed;
+  });
+
+  const allInstalled=PIECE_ORDER.every(k=>travel[k].installed);
+  oscScreen.visible=allInstalled && phase>=1;
+  oscFrame.visible=oscScreen.visible;
+  if(allInstalled && running){
+    drawOsc(t,fSwChoice,fault);
+    // IGBT emissive pulse
+    igbtMeshes.forEach((m,i)=>{const on=switching&&Math.sin(t*8+i)>0;m.material.emissive=m.material.emissive||new THREE.Color();m.material.emissive.setHex(on?0x552200:0);});
+    // heatsink glow if overheat fault
+    if(fault==='overheat'){heatsinkGroup.traverse(o=>{if(o.isMesh){o.material.emissive=o.material.emissive||new THREE.Color();o.material.emissive.setRGB(0.5+0.2*Math.sin(t*2),0.08,0);}});}
+    else{heatsinkGroup.traverse(o=>{if(o.isMesh&&o.material.emissive)o.material.emissive.setRGB(0,0,0);});}
+    // busbar glow
+    busBars.forEach((b,i)=>{b.material.emissiveIntensity=switching?(0.3+0.2*Math.sin(t*3+i)):0.1;});
+    if(phase===1){
+      const set=(id,v)=>{const e=$(id);if(e)e.textContent=v;};
+      set('d_fsw',(fSwChoice/1000).toFixed(0)+' kHz');
+      set('d_vp',peakPhaseVoltage(INV.V_dc).toFixed(0)+' V');
+      set('d_vll',lineToLineRMS(INV.V_dc).toFixed(0)+' V');
+    }
+  }
+
+  // cámara cinemática
+  if(camCine.active){
+    camCine.t=Math.min(1,camCine.t+dt/camCine.dur);
+    const e=easeInOutCubic(camCine.t);
+    camera.position.lerpVectors(camCine.from,camCine.to,e);
+    controls.target.lerpVectors(camCine.fromTarget,camCine.toTarget,e);
+    if(camCine.t>=1)camCine.active=false;
+  } else if(cinematicSpin){
+    const idle=(t-lastDragTime)>1.4;
+    controls.autoRotate=idle; controls.autoRotateSpeed=0.42;
+  } else { controls.autoRotate=false; }
+  bloom.strength=0.42+(switching?0.08:0);
+
+  updateAudio(switching, fSwChoice);
+  controls.update();composer.render();
+}
+animate();
+
+/* intro + modo + sheets */
+document.querySelectorAll('.modeBtn').forEach(b=>b.onclick=()=>{
+  document.querySelectorAll('.modeBtn').forEach(x=>x.classList.remove('active'));
+  b.classList.add('active'); autoMode = b.dataset.mode==='auto';
+});
+$('start').onclick=()=>{$('intro').classList.add('hide');teachEl.classList.add('show');actionsEl.classList.add('show');hintEl.classList.add('show');initAudio();if(audioCtx&&audioCtx.state==='suspended')audioCtx.resume();startPhase1();};
+const soundBtn=$('soundBtn');
+if(soundBtn)soundBtn.onclick=()=>{soundOn=!soundOn;soundBtn.textContent=soundOn?'🔊':'🔇';soundBtn.classList.toggle('on',soundOn);};
+const bT=$('tgTeach'),bA=$('tgAct');
+function closeSheets(){teachEl.classList.remove('open');actionsEl.classList.remove('open');bT.classList.remove('on');bA.classList.remove('on');}
+if(bT)bT.onclick=()=>{const o=teachEl.classList.contains('open');closeSheets();if(!o){teachEl.classList.add('open');bT.classList.add('on');}};
+if(bA)bA.onclick=()=>{const o=actionsEl.classList.contains('open');closeSheets();if(!o){actionsEl.classList.add('open');bA.classList.add('on');}};
+
+window.__test={
+  start:()=>$('start').click(),
+  action:(a)=>handleAction(a,null),
+  setAns:(id,v)=>{const e=$(id);if(e)e.value=v;},
+  setAutoMode:(v)=>{autoMode=v; document.querySelectorAll('.modeBtn').forEach(b=>b.classList.toggle('active',(b.dataset.mode==='auto')===v));},
+  state:()=>({phase,fault,
+    heatsinkInstalled:travel.heatsink.installed,capInstalled:travel.cap.installed,
+    igbtInstalled:travel.igbt.installed,boardInstalled:travel.board.installed,busInstalled:travel.bus.installed}),
+  audioState:()=>({ctxState:audioCtx?.state||'none', vol:audioGain?.gain.value||0, freq:oscA?.frequency.value||0, soundOn}),
+};
+
+</script>
+</body>
+</html>

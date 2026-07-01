@@ -1,0 +1,971 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>AutoLab 3D · Estación de Carga EV — Laboratorio Didáctico</title>
+<style>
+  :root{
+    --bg:#06090d;--panel:rgba(12,20,26,.86);--line:#1f333d;--ink:#e8f2f5;
+    --dim:#88a0a8;--accent:#37e0c7;--accent2:#6fb6ff;--hv:#ffd166;--good:#7bd88f;--bad:#f4475e;
+    --mono:'Courier New',ui-monospace,monospace;--disp:'Arial Black',Impact,sans-serif;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  html,body{height:100%;overflow:hidden;background:var(--bg);color:var(--ink);font-family:system-ui,Segoe UI,Roboto,sans-serif}
+  #stage{position:fixed;inset:0}
+  canvas{display:block;touch-action:none}
+
+  .topbar{position:fixed;top:0;left:0;right:0;height:60px;display:flex;align-items:center;gap:18px;padding:0 20px;z-index:20;background:linear-gradient(180deg,rgba(6,9,13,.94),transparent);pointer-events:none}
+  .brand{font-family:var(--disp);text-transform:uppercase;font-size:17px}
+  .brand span{color:var(--accent)}
+  .phases{display:flex;gap:6px;pointer-events:auto}
+  .phase-tab{font-family:var(--mono);font-size:10px;letter-spacing:.06em;text-transform:uppercase;padding:7px 13px;border-radius:30px;border:1px solid var(--line);color:var(--dim);background:rgba(12,20,26,.7);backdrop-filter:blur(8px);display:flex;align-items:center;gap:7px;transition:.2s}
+  .phase-tab .nm{width:18px;height:18px;border-radius:50%;background:var(--line);color:var(--bg);display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:bold}
+  .phase-tab.active{border-color:var(--accent);color:var(--ink)} .phase-tab.active .nm{background:var(--accent);color:#062220}
+  .phase-tab.done .nm{background:var(--good);color:#06201c} .phase-tab.done{color:var(--good);border-color:rgba(123,216,143,.4)}
+  .soundBtn{font-size:16px;background:var(--panel);backdrop-filter:blur(12px);border:1px solid var(--line);border-radius:50%;width:38px;height:38px;cursor:pointer;color:var(--dim);transition:.15s}
+  .soundBtn.on{color:var(--accent);border-color:var(--accent)}
+  .soundBtn:hover{transform:scale(1.08)}
+
+  .intro{position:fixed;inset:0;z-index:40;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:20px;background:radial-gradient(circle at 50% 45%,rgba(14,36,40,.6),rgba(6,9,13,.97));transition:opacity .8s;padding:24px;text-align:center}
+  .intro.hide{opacity:0;pointer-events:none}
+  .intro .sub{font-family:var(--mono);font-size:12px;letter-spacing:.2em;text-transform:uppercase;color:var(--accent2)}
+  .intro .ttl{font-family:var(--disp);font-size:clamp(28px,5vw,54px);text-transform:uppercase;letter-spacing:-.02em;line-height:.95}
+  .intro .ttl span{color:var(--accent)}
+  .intro p{max-width:540px;color:var(--dim);font-size:14px;line-height:1.6}
+  .intro .obj{max-width:540px;text-align:left;background:rgba(12,20,26,.7);border:1px solid var(--line);border-radius:14px;padding:16px 20px}
+  .intro .obj h4{font-family:var(--mono);font-size:10px;letter-spacing:.16em;text-transform:uppercase;color:var(--accent);margin-bottom:10px}
+  .intro .obj ul{list-style:none;display:flex;flex-direction:column;gap:8px}
+  .intro .obj li{font-size:13px;color:var(--dim);padding-left:22px;position:relative}
+  .intro .obj li::before{content:'▸';position:absolute;left:4px;color:var(--accent2)}
+  .startbtn{font-family:var(--mono);font-size:13px;letter-spacing:.12em;text-transform:uppercase;color:#062220;background:var(--accent);border:none;padding:15px 34px;border-radius:40px;cursor:pointer;transition:.2s;box-shadow:0 10px 40px rgba(55,224,199,.3)}
+  .startbtn:hover{transform:translateY(-2px);box-shadow:0 16px 50px rgba(55,224,199,.45)}
+  .modeToggle{display:flex;gap:8px;flex-wrap:wrap;justify-content:center;margin-top:2px}
+  .modeBtn{font-family:var(--mono);font-size:11px;letter-spacing:.04em;color:var(--dim);background:rgba(12,20,26,.7);border:1px solid var(--line);border-radius:30px;padding:9px 16px;cursor:pointer;transition:.15s}
+  .modeBtn:hover{border-color:var(--accent)}
+  .modeBtn.active{background:var(--accent);color:#062220;border-color:var(--accent);font-weight:bold}
+
+  .teach{position:fixed;top:74px;left:20px;z-index:15;width:330px;background:var(--panel);backdrop-filter:blur(16px);border:1px solid var(--line);border-radius:16px;padding:0;box-shadow:0 20px 60px rgba(0,0,0,.55);overflow:hidden;transition:.4s;opacity:0;transform:translateX(-12px)}
+  .teach.show{opacity:1;transform:none}
+  .teach-head{padding:14px 18px;background:linear-gradient(90deg,rgba(55,224,199,.14),transparent);border-bottom:1px solid var(--line)}
+  .teach-head .step-no{font-family:var(--mono);font-size:10px;letter-spacing:.1em;color:var(--accent);text-transform:uppercase}
+  .teach-head h3{font-size:16px;margin-top:2px}
+  .teach-body{padding:16px 18px}
+  .teach-body p{font-size:13.5px;line-height:1.6;color:var(--ink);margin-bottom:12px}
+  .teach-body .why{font-size:12.5px;line-height:1.55;color:var(--dim);background:rgba(111,182,255,.08);border-left:2px solid var(--accent2);padding:10px 12px;border-radius:0 8px 8px 0;margin-bottom:12px}
+  .teach-body .why b{color:var(--accent2)}
+  .formula{font-family:var(--mono);color:var(--accent2);text-align:center;font-size:14px;margin:10px 0;padding:8px;background:rgba(0,0,0,.25);border-radius:8px}
+  .task{font-family:var(--mono);font-size:12px;color:var(--hv);background:rgba(255,209,102,.08);border:1px dashed rgba(255,209,102,.35);border-radius:8px;padding:10px 12px;margin-bottom:6px}
+  .task::before{content:'⚡ TAREA: ';color:var(--accent);font-weight:bold}
+
+  .actions{position:fixed;top:74px;right:20px;z-index:15;width:250px;background:var(--panel);backdrop-filter:blur(16px);border:1px solid var(--line);border-radius:16px;padding:16px;box-shadow:0 20px 60px rgba(0,0,0,.55);transition:.4s;opacity:0;transform:translateX(12px)}
+  .actions.show{opacity:1;transform:none}
+  .actions h4{font-family:var(--mono);font-size:10px;letter-spacing:.14em;text-transform:uppercase;color:var(--dim);margin-bottom:12px}
+  .opt{display:flex;flex-direction:column;gap:7px}
+  .b{font-family:system-ui;font-size:13px;padding:11px 12px;border-radius:9px;cursor:pointer;border:1px solid var(--line);background:#0e1a20;color:var(--ink);transition:.15s;text-align:left;display:flex;align-items:center;gap:9px}
+  .b:hover{border-color:var(--accent);background:#132530}
+  .b.primary{background:var(--accent);color:#062220;border-color:var(--accent);font-weight:bold;justify-content:center}
+  .b.good{border-color:var(--good);color:var(--good)} .b.bad{border-color:var(--bad);color:var(--bad)}
+  .b:disabled{opacity:.4;cursor:not-allowed} .b .ic{font-size:15px}
+  .calcbox{margin-top:6px} .calcbox label{font-family:var(--mono);font-size:11px;color:var(--dim);display:block;margin-bottom:6px}
+  .calcrow{display:flex;gap:8px}
+  .calcrow input{flex:1;background:#081014;border:1px solid var(--line);border-radius:8px;padding:10px;color:var(--ink);font-family:var(--mono);font-size:14px}
+  .calcrow input:focus{outline:none;border-color:var(--accent)}
+  .sl{font-family:var(--mono);font-size:10px;letter-spacing:.08em;text-transform:uppercase;color:var(--dim);margin:12px 0 5px}
+  input[type=range]{width:100%;accent-color:var(--accent)}
+  .mini{display:flex;justify-content:space-between;font-family:var(--mono);font-size:11px;color:var(--dim);margin-top:8px;padding-top:8px;border-top:1px solid var(--line)}
+  .mini b{color:var(--accent2)}
+
+  .feedback{position:fixed;left:50%;bottom:24px;transform:translateX(-50%) translateY(20px);z-index:30;max-width:560px;width:calc(100% - 40px);background:var(--panel);backdrop-filter:blur(16px);border:1px solid var(--line);border-radius:14px;padding:16px 20px;box-shadow:0 20px 60px rgba(0,0,0,.6);opacity:0;pointer-events:none;transition:.35s}
+  .feedback.show{opacity:1;transform:translateX(-50%);pointer-events:auto}
+  .feedback.good{border-color:var(--good)} .feedback.bad{border-color:var(--bad)}
+  .feedback .fh{display:flex;align-items:center;gap:10px;margin-bottom:6px}
+  .feedback .fi{width:24px;height:24px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:14px;font-weight:bold;flex:0 0 auto}
+  .feedback.good .fi{background:var(--good);color:#06201c} .feedback.bad .fi{background:var(--bad);color:#2a0810}
+  .feedback .ft{font-weight:bold;font-size:14px} .feedback.good .ft{color:var(--good)} .feedback.bad .ft{color:var(--bad)}
+  .feedback p{font-size:13px;line-height:1.55;color:var(--dim)}
+  .feedback .fx{position:absolute;top:12px;right:14px;background:none;border:none;color:var(--dim);cursor:pointer;font-size:16px}
+
+  .hint{position:fixed;bottom:24px;left:20px;z-index:12;font-family:var(--mono);font-size:10px;color:var(--dim);background:var(--panel);padding:8px 12px;border-radius:9px;border:1px solid var(--line);opacity:0;transition:.4s}
+  .hint.show{opacity:1}
+
+  .sheetbar{display:none}
+  @media(max-width:860px),(max-height:580px){
+    .brand{font-size:15px}.phases{display:none}.hint{display:none}
+    .sheetbar{display:flex;gap:8px;position:fixed;top:62px;right:12px;z-index:18}
+    .sheetbar button{font-family:var(--mono);font-size:10px;letter-spacing:.08em;text-transform:uppercase;color:var(--ink);background:var(--panel);backdrop-filter:blur(12px);border:1px solid var(--line);border-radius:30px;padding:9px 12px;cursor:pointer}
+    .sheetbar button.on{background:var(--accent);color:#062220;border-color:var(--accent)}
+    .teach,.actions{position:fixed;left:8px;right:8px;bottom:96px;top:auto;width:auto;max-height:50vh;overflow-y:auto;transform:translateY(130%);opacity:0;pointer-events:none}
+    .teach.open,.actions.open{transform:translateY(0)!important;opacity:1!important;pointer-events:auto}
+    .feedback{bottom:14px}.phase-mini{display:flex!important}
+  }
+  .phase-mini{display:none;position:fixed;top:62px;left:12px;z-index:18;font-family:var(--mono);font-size:10px;color:var(--accent);background:var(--panel);border:1px solid var(--line);border-radius:30px;padding:9px 13px}
+</style>
+</head>
+<body>
+<div id="stage"></div>
+
+<div class="topbar">
+  <div class="brand">Auto<span>Lab</span> 3D</div>
+  <div class="phases" id="phases">
+    <div class="phase-tab active" data-ph="0"><span class="nm">1</span> Armado</div>
+    <div class="phase-tab" data-ph="1"><span class="nm">2</span> Fundamento</div>
+    <div class="phase-tab" data-ph="2"><span class="nm">3</span> Diagnóstico</div>
+  </div>
+  <button class="soundBtn on" id="soundBtn" style="pointer-events:auto;margin-left:auto">🔊</button>
+</div>
+<div class="phase-mini" id="phaseMini">FASE 1 · ARMADO</div>
+
+<div class="intro" id="intro">
+  <div class="sub">CONALEP · Autotrónica · Laboratorio guiado</div>
+  <div class="ttl">Arma y entiende una<br><span>Estación de Carga EV</span></div>
+  <p>No es una animación para mirar. Vas a <b>ensamblar la estación de carga</b> pieza por pieza, <b>calcular la corriente y el tiempo de carga</b> con física real, y <b>diagnosticar fallas</b> reales de infraestructura de carga. Cada decisión tiene consecuencia física.</p>
+  <div class="obj">
+    <h4>Lo que lograrás</h4>
+    <ul>
+      <li><b>Fase 1 · Armado:</b> monta gabinete, módulo de potencia, protección, panel y cable/conector.</li>
+      <li><b>Fase 2 · Fundamento:</b> calcula la corriente de carga y el tiempo necesario; observa la curva de carga real.</li>
+      <li><b>Fase 3 · Diagnóstico:</b> la carga falla; identifica si es el conector, la autenticación o un límite térmico.</li>
+    </ul>
+  </div>
+  <div class="modeToggle" id="modeToggle">
+    <button class="modeBtn active" data-mode="manual">🖐️ Manual — yo armo cada pieza</button>
+    <button class="modeBtn" data-mode="auto">▶ Automático — ver la secuencia armarse sola</button>
+  </div>
+  <button class="startbtn" id="start">▶ Comenzar laboratorio</button>
+</div>
+
+<div class="sheetbar"><button id="tgTeach">Instrucción</button><button id="tgAct">Acciones</button></div>
+
+<div class="teach" id="teach">
+  <div class="teach-head"><div class="step-no" id="stepNo">Fase 1 · Paso 1</div><h3 id="stepTitle">—</h3></div>
+  <div class="teach-body" id="teachBody"></div>
+</div>
+
+<div class="actions" id="actions">
+  <h4 id="actHead">Acciones</h4>
+  <div class="opt" id="actOpt"></div>
+</div>
+
+<div class="feedback" id="feedback">
+  <button class="fx" id="fbX">✕</button>
+  <div class="fh"><div class="fi" id="fbIcon">!</div><div class="ft" id="fbTitle"></div></div>
+  <p id="fbText"></p>
+</div>
+
+<div class="hint" id="hint">Arrastra para orbitar · rueda para zoom</div>
+
+<script type="importmap">
+{ "imports": {
+  "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.min.js",
+  "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/"
+}}
+</script>
+<script type="module">
+import * as THREE from 'three';
+import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
+import { RoundedBoxGeometry } from 'three/addons/geometries/RoundedBoxGeometry.js';
+import { EffectComposer } from 'three/addons/postprocessing/EffectComposer.js';
+import { RenderPass } from 'three/addons/postprocessing/RenderPass.js';
+import { GTAOPass } from 'three/addons/postprocessing/GTAOPass.js';
+import { UnrealBloomPass } from 'three/addons/postprocessing/UnrealBloomPass.js';
+import { BokehPass } from 'three/addons/postprocessing/BokehPass.js';
+import { SMAAPass } from 'three/addons/postprocessing/SMAAPass.js';
+import { OutputPass } from 'three/addons/postprocessing/OutputPass.js';
+import { Reflector } from 'three/addons/objects/Reflector.js';
+
+/* ===== textures ===== */
+
+/* ============================================================
+   Texturas PBR procedurales (sin archivos externos)
+   Cada función devuelve {map, roughnessMap, normalMap?, metalnessMap?}
+   ============================================================ */
+
+function cv(s=512){const c=document.createElement('canvas');c.width=c.height=s;return c;}
+function tex(canvas,repeat=1,srgb=false){
+  const t=new THREE.CanvasTexture(canvas);
+  t.wrapS=t.wrapT=THREE.RepeatWrapping;t.repeat.set(repeat,repeat);
+  t.colorSpace = srgb?THREE.SRGBColorSpace:THREE.NoColorSpace;
+  t.anisotropy=8; return t;
+}
+// build a normal map from a height function h(x,y)->0..1
+function normalFromHeight(size, hfn, strength=2.0){
+  const c=cv(size),ctx=c.getContext('2d'),img=ctx.createImageData(size,size);
+  const H=(x,y)=>hfn((x+size)%size,(y+size)%size);
+  for(let y=0;y<size;y++)for(let x=0;x<size;x++){
+    const dx=(H(x+1,y)-H(x-1,y))*strength;
+    const dy=(H(x,y+1)-H(x,y-1))*strength;
+    const nz=1.0; const len=Math.hypot(dx,dy,nz);
+    const i=(y*size+x)*4;
+    img.data[i]  =((-dx/len)*0.5+0.5)*255;
+    img.data[i+1]=((-dy/len)*0.5+0.5)*255;
+    img.data[i+2]=((nz/len)*0.5+0.5)*255;
+    img.data[i+3]=255;
+  }
+  ctx.putImageData(img,0,0);return c;
+}
+function valueNoise(seed=1){
+  // simple hashed value noise
+  const g=(x,y)=>{const s=Math.sin((x*127.1+y*311.7)+seed*13.13)*43758.5453;return s-Math.floor(s);};
+  return (x,y)=>{
+    const xi=Math.floor(x),yi=Math.floor(y),xf=x-xi,yf=y-yi;
+    const u=xf*xf*(3-2*xf),v=yf*yf*(3-2*yf);
+    const a=g(xi,yi),b=g(xi+1,yi),c=g(xi,yi+1),d=g(xi+1,yi+1);
+    return a*(1-u)*(1-v)+b*u*(1-v)+c*(1-u)*v+d*u*v;
+  };
+}
+function fbm(noise,x,y,oct=4){let v=0,a=0.5,f=1;for(let i=0;i<oct;i++){v+=noise(x*f,y*f)*a;f*=2;a*=0.5;}return v;}
+
+/* ---------- ALUMINIO FUNDIDO (bloque, culata) ---------- */
+function castAluminum(){
+  const S=512, n=valueNoise(7);
+  // color: grain
+  const c=cv(S),ctx=c.getContext('2d'),img=ctx.createImageData(S,S);
+  for(let y=0;y<S;y++)for(let x=0;x<S;x++){
+    const v=fbm(n,x/22,y/22,5);
+    const por=Math.pow(n(x/3.1,y/3.1),8); // sparse pores
+    const base=150+v*38-por*70;
+    const i=(y*S+x)*4; img.data[i]=base; img.data[i+1]=base+4; img.data[i+2]=base+10; img.data[i+3]=255;
+  }
+  ctx.putImageData(img,0,0);
+  // roughness: pores rougher
+  const r=cv(S),rx=r.getContext('2d'),rimg=rx.createImageData(S,S);
+  for(let y=0;y<S;y++)for(let x=0;x<S;x++){
+    const v=fbm(n,x/18,y/18,4); const por=Math.pow(n(x/3.1,y/3.1),8);
+    const rough=120+v*40+por*90; const i=(y*S+x)*4;
+    rimg.data[i]=rimg.data[i+1]=rimg.data[i+2]=Math.min(255,rough); rimg.data[i+3]=255;
+  }
+  rx.putImageData(rimg,0,0);
+  const nrm=normalFromHeight(S,(x,y)=>fbm(n,x/16,y/16,5)+Math.pow(n(x/3.1,y/3.1),8)*0.6,3.0);
+  return {map:tex(c,1,true),roughnessMap:tex(r),normalMap:tex(nrm)};
+}
+
+/* ---------- METAL CEPILLADO (acero, pulleys) ---------- */
+function brushedMetal(){
+  const S=512, n=valueNoise(3);
+  const c=cv(S),ctx=c.getContext('2d'),img=ctx.createImageData(S,S);
+  for(let y=0;y<S;y++)for(let x=0;x<S;x++){
+    // anisotropic streaks along x
+    const streak=Math.sin(y*0.9)*2 + (n(x/120,y*0.5)-0.5)*40;
+    const base=185+streak; const i=(y*S+x)*4;
+    img.data[i]=base; img.data[i+1]=base+2; img.data[i+2]=base+6; img.data[i+3]=255;
+  }
+  ctx.putImageData(img,0,0);
+  const r=cv(S),rx=r.getContext('2d'),rimg=rx.createImageData(S,S);
+  for(let y=0;y<S;y++)for(let x=0;x<S;x++){
+    const streak=(n(x/120,y*0.5)-0.5)*60; const rough=40+Math.abs(streak); const i=(y*S+x)*4;
+    rimg.data[i]=rimg.data[i+1]=rimg.data[i+2]=Math.min(160,rough); rimg.data[i+3]=255;
+  }
+  rx.putImageData(rimg,0,0);
+  const nrm=normalFromHeight(S,(x,y)=>(n(x/120,y*0.5))*0.3+Math.sin(y*0.9)*0.02,1.2);
+  return {map:tex(c,1,true),roughnessMap:tex(r),normalMap:tex(nrm)};
+}
+
+/* ---------- PINTURA CÁSCARA DE NARANJA (tapa de balancines) ---------- */
+function orangePeel(r=0.70,g=0.25,b=0.09){
+  const S=512, n=valueNoise(11);
+  const c=cv(S),ctx=c.getContext('2d'),img=ctx.createImageData(S,S);
+  for(let y=0;y<S;y++)for(let x=0;x<S;x++){
+    const v=fbm(n,x/40,y/40,3)*0.12+0.94;
+    const i=(y*S+x)*4;
+    img.data[i]=r*255*v; img.data[i+1]=g*255*v; img.data[i+2]=b*255*v; img.data[i+3]=255;
+  }
+  ctx.putImageData(img,0,0);
+  // clearcoat-ish: low roughness but with the peel bumps
+  const nrm=normalFromHeight(S,(x,y)=>fbm(n,x/14,y/14,3),1.6);
+  const rough=cv(64),rc=rough.getContext('2d');rc.fillStyle='#444';rc.fillRect(0,0,64,64);
+  return {map:tex(c,1,true),roughnessMap:tex(rough),normalMap:tex(nrm)};
+}
+
+/* ---------- CAUCHO / MANGUERAS ---------- */
+function rubber(){
+  const S=256,n=valueNoise(5);
+  const nrm=normalFromHeight(S,(x,y)=>fbm(n,x/8,y/8,4),1.4);
+  const rough=cv(64),rc=rough.getContext('2d');rc.fillStyle='#e0e0e0';rc.fillRect(0,0,64,64);
+  return {roughnessMap:tex(rough),normalMap:tex(nrm,2)};
+}
+
+/* gradient environment background canvas (для scene.background) */
+function gradientBG(top='#11161d',bottom='#05070a'){
+  const c=cv(512),ctx=c.getContext('2d');
+  const grd=ctx.createLinearGradient(0,0,0,512);
+  grd.addColorStop(0,top);grd.addColorStop(1,bottom);
+  ctx.fillStyle=grd;ctx.fillRect(0,0,512,512);
+  // subtle vignette glow center
+  const rg=ctx.createRadialGradient(256,200,30,256,256,360);
+  rg.addColorStop(0,'rgba(255,120,40,0.10)');rg.addColorStop(1,'rgba(0,0,0,0)');
+  ctx.fillStyle=rg;ctx.fillRect(0,0,512,512);
+  return tex(c,1,true);
+}
+
+/* ---------- PINTURA AUTOMOTRIZ LISA (carrocería, brazo robot) ---------- */
+function carPaint(r=0.15,g=0.35,b=0.85){
+  const S=256, n=valueNoise(21);
+  const c=cv(S),ctx=c.getContext('2d'),img=ctx.createImageData(S,S);
+  for(let y=0;y<S;y++)for(let x=0;x<S;x++){
+    const v=fbm(n,x/60,y/60,2)*0.06+0.95;
+    const i=(y*S+x)*4;
+    img.data[i]=r*255*v; img.data[i+1]=g*255*v; img.data[i+2]=b*255*v; img.data[i+3]=255;
+  }
+  ctx.putImageData(img,0,0);
+  const rough=cv(32),rc=rough.getContext('2d');rc.fillStyle='#2a2a2a';rc.fillRect(0,0,32,32);
+  return {map:tex(c,1,true),roughnessMap:tex(rough)};
+}
+
+/* ---------- PLÁSTICO TÉCNICO (cubiertas, conector de carga) ---------- */
+function techPlastic(r=0.10,g=0.11,b=0.13){
+  const S=256,n=valueNoise(31);
+  const c=cv(S),ctx=c.getContext('2d'),img=ctx.createImageData(S,S);
+  for(let y=0;y<S;y++)for(let x=0;x<S;x++){
+    const v=fbm(n,x/30,y/30,3)*0.1+0.92; const i=(y*S+x)*4;
+    img.data[i]=r*255*v;img.data[i+1]=g*255*v;img.data[i+2]=b*255*v;img.data[i+3]=255;
+  }
+  ctx.putImageData(img,0,0);
+  const nrm=normalFromHeight(S,(x,y)=>fbm(n,x/10,y/10,3),0.8);
+  const rough=cv(64),rc=rough.getContext('2d');rc.fillStyle='#9a9a9a';rc.fillRect(0,0,64,64);
+  return {map:tex(c,1,true),roughnessMap:tex(rough),normalMap:tex(nrm)};
+}
+
+/* ---------- BOBINADO DE COBRE (motor eléctrico) ---------- */
+function copperWinding(){
+  const S=256;
+  const c=cv(S),ctx=c.getContext('2d');
+  // horizontal copper wire bands
+  for(let y=0;y<S;y+=6){
+    const sh=Math.sin(y*0.5)*20;
+    ctx.fillStyle=`rgb(${180+sh},${100+sh*0.5},${50+sh*0.3})`;
+    ctx.fillRect(0,y,S,5);
+    ctx.fillStyle='rgba(0,0,0,0.25)';ctx.fillRect(0,y+5,S,1);
+  }
+  const nrm=normalFromHeight(S,(x,y)=>Math.sin(y*0.5)*0.5+0.5,2.0);
+  const rough=cv(32),rc=rough.getContext('2d');rc.fillStyle='#5a5a5a';rc.fillRect(0,0,32,32);
+  return {map:tex(c,1,true),roughnessMap:tex(rough),normalMap:tex(nrm,1)};
+}
+
+
+/* ===== lab ===== */
+
+/* ============================================================
+   ESTACIÓN DE CARGA EV — LABORATORIO DIDÁCTICO
+   Referencia: carga DC rápida CHAdeMO Nissan LEAF (40kWh, pico 50kW, bus 350V —
+   mismo vehículo/bus del motor e inversor del set)
+   ============================================================ */
+const EVCHG={
+  V_bus:350, P_max:50, capacity_kWh:40,
+  taperStartSOC:0.55,   // inicio de atenuación (curva real documentada ~50-60%)
+};
+function maxCurrent(P_kW,V){ return P_kW*1000/V; }
+function chargeTimeHours(dSOC,capacity_kWh,P_kW){ return (dSOC*capacity_kWh)/P_kW; }
+function powerAtSOC(soc){ // curva de carga real: plana hasta ~55%, luego atenúa
+  if(soc<EVCHG.taperStartSOC) return EVCHG.P_max;
+  const f=(soc-EVCHG.taperStartSOC)/(1-EVCHG.taperStartSOC);
+  return Math.max(4, EVCHG.P_max*(1-f*0.82));
+}
+
+/* ---------- renderer / scene ---------- */
+const stage=document.getElementById('stage');
+const renderer=new THREE.WebGLRenderer({antialias:true});
+renderer.setPixelRatio(Math.min(devicePixelRatio,2));
+renderer.setSize(innerWidth,innerHeight);
+renderer.shadowMap.enabled=true; renderer.shadowMap.type=THREE.PCFSoftShadowMap;
+renderer.toneMapping=THREE.ACESFilmicToneMapping; renderer.toneMappingExposure=1.15;
+renderer.outputColorSpace=THREE.SRGBColorSpace;
+stage.appendChild(renderer.domElement); renderer.domElement.style.touchAction='none';
+
+const scene=new THREE.Scene();
+scene.background=gradientBG('#0c1a1c','#040808');
+const pmrem=new THREE.PMREMGenerator(renderer);
+scene.environment=pmrem.fromScene(new RoomEnvironment(renderer),0.04).texture;
+scene.environmentIntensity=1.1;
+
+const camera=new THREE.PerspectiveCamera(44,innerWidth/innerHeight,0.1,200);
+camera.position.set(7.5,4.4,8.2);
+const controls=new OrbitControls(camera,renderer.domElement);
+controls.enableDamping=true;controls.dampingFactor=0.06;
+controls.minDistance=3;controls.maxDistance=20;controls.maxPolarAngle=Math.PI*0.54;
+controls.target.set(0,1.2,0);
+
+/* lights */
+const key=new THREE.DirectionalLight(0xffffff,2.6);key.position.set(5,9,6);key.castShadow=true;
+key.shadow.mapSize.set(2048,2048);key.shadow.camera.near=0.5;key.shadow.camera.far=40;
+const sd=9;Object.assign(key.shadow.camera,{left:-sd,right:sd,top:sd,bottom:-sd});
+key.shadow.bias=-0.0003;key.shadow.normalBias=0.02;scene.add(key);
+const rim=new THREE.SpotLight(0x37e0c7,55,30,Math.PI/5,0.4,1.5);rim.position.set(-7,6,-5);scene.add(rim);
+const fill=new THREE.DirectionalLight(0x9fd8ff,0.5);fill.position.set(-4,3,7);scene.add(fill);
+scene.add(new THREE.HemisphereLight(0x9fc8c4,0x0a1414,0.4));
+
+/* floor */
+const lightMode=/[?&]light/.test(location.search);
+(function(){
+  if(!lightMode){
+    const mirror=new Reflector(new THREE.CircleGeometry(44,80),{clipBias:0.003,textureWidth:innerWidth*Math.min(devicePixelRatio,2),textureHeight:innerHeight*Math.min(devicePixelRatio,2),color:0x081414});
+    mirror.rotation.x=-Math.PI/2;scene.add(mirror);
+  } else {
+    const flat=new THREE.Mesh(new THREE.CircleGeometry(44,80),new THREE.MeshStandardMaterial({color:0x081414,roughness:0.2,metalness:0.6}));
+    flat.rotation.x=-Math.PI/2;flat.receiveShadow=true;scene.add(flat);
+  }
+  const glass=new THREE.Mesh(new THREE.CircleGeometry(44,80),new THREE.MeshStandardMaterial({color:0x061010,roughness:0.32,metalness:0.4,transparent:true,opacity:0.6,envMapIntensity:0.7}));
+  glass.rotation.x=-Math.PI/2;glass.position.y=0.001;glass.receiveShadow=true;scene.add(glass);
+  for(let r=2;r<=10;r+=2){const ring=new THREE.Mesh(new THREE.RingGeometry(r-0.012,r+0.012,80),new THREE.MeshBasicMaterial({color:0x123030,transparent:true,opacity:0.5,side:THREE.DoubleSide}));ring.rotation.x=-Math.PI/2;ring.position.y=0.004;scene.add(ring);}
+})();
+const platform=new THREE.Mesh(new THREE.CylinderGeometry(1.7,1.9,0.2,48),new THREE.MeshStandardMaterial({color:0x0f2224,roughness:0.5,metalness:0.6}));
+platform.position.set(-2.2,0.1,0);platform.receiveShadow=true;scene.add(platform);
+const platGlow=new THREE.Mesh(new THREE.RingGeometry(1.5,1.7,64),new THREE.MeshBasicMaterial({color:0x37e0c7,transparent:true,opacity:0.0,side:THREE.DoubleSide}));
+platGlow.rotation.x=-Math.PI/2;platGlow.position.set(-2.2,0.21,0);scene.add(platGlow);
+
+/* ---------- materials ---------- */
+const Talu=castAluminum(),Tsteel=brushedMetal(),Tpaint=carPaint(0.12,0.35,0.85),Tplast=techPlastic(0.08,0.09,0.11);
+const std=o=>new THREE.MeshStandardMaterial(o);
+const MAT={
+  cabinet:std({color:0x12161c,roughness:0.5,metalness:0.4,map:Tplast.map,roughnessMap:Tplast.roughnessMap,normalMap:Tplast.normalMap}),
+  power:std({color:0x2a3038,roughness:0.4,metalness:0.7}),
+  steel:std({color:0xc2cad3,roughness:0.3,metalness:1,map:Tsteel.map,roughnessMap:Tsteel.roughnessMap,normalMap:Tsteel.normalMap}),
+  screen:std({color:0x000000,emissive:0x002211,emissiveIntensity:0.4}),
+  cable:std({color:0x111111,roughness:0.7,metalness:0.05}),
+  car:std({color:0xffffff,roughness:0.25,metalness:0.5,map:Tpaint.map,roughnessMap:Tpaint.roughnessMap,envMapIntensity:1.3}),
+  glass:std({color:0x111820,roughness:0.05,metalness:0.4,transparent:true,opacity:0.55,envMapIntensity:1.5}),
+  tire:std({color:0x111417,roughness:0.9,metalness:0}),
+  ghost:std({color:0x37e0c7,transparent:true,opacity:0.16,side:THREE.DoubleSide}),
+};
+function rbox(w,h,d,m,rf=0.12){const r=Math.min(w,h,d)*rf;const x=new THREE.Mesh(new RoundedBoxGeometry(w,h,d,4,r),m);x.castShadow=x.receiveShadow=true;return x;}
+
+/* ============================================================
+   PIEZAS DE LA ESTACIÓN (grupos ensamblables)
+   Orden real: gabinete -> módulo de potencia -> protección/tierra -> panel -> cable/conector
+   ============================================================ */
+const stRoot=new THREE.Group(); stRoot.position.set(-2.2,0.2,0); scene.add(stRoot);
+
+// ---- GABINETE (enclosure) — armazón tipo panel de servicio abierto, no una caja sólida ----
+const cabinetGroup=new THREE.Group(); stRoot.add(cabinetGroup);
+(function(){
+  const back=rbox(0.66,2.0,0.06,MAT.cabinet,0.12); back.position.set(0,1.05,-0.24); cabinetGroup.add(back);
+  const sideL=rbox(0.06,2.0,0.5,MAT.cabinet,0.15); sideL.position.set(-0.32,1.05,0); cabinetGroup.add(sideL);
+  const sideR=rbox(0.06,2.0,0.5,MAT.cabinet,0.15); sideR.position.set(0.32,1.05,0); cabinetGroup.add(sideR);
+  const top=rbox(0.7,0.06,0.55,MAT.cabinet,0.2); top.position.set(0,2.06,0); cabinetGroup.add(top);
+  const base=rbox(0.85,0.15,0.7,MAT.steel,0.15); base.position.y=0.075; cabinetGroup.add(base);
+})();
+
+// ---- MÓDULO DE POTENCIA (rectificador AC-DC + convertidor DC-DC) ----
+const powerGroup=new THREE.Group(); stRoot.add(powerGroup);
+(function(){
+  const mod=rbox(0.5,0.62,0.4,MAT.power,0.15); mod.position.set(0,1.05,0); powerGroup.add(mod);
+  for(let i=0;i<5;i++){const fin=rbox(0.5,0.5,0.02,MAT.steel); fin.position.set(0,1.05,-0.2+i*0.1); powerGroup.add(fin);}
+})();
+
+// ---- PROTECCIÓN / TIERRA ----
+const groundGroup=new THREE.Group(); stRoot.add(groundGroup);
+(function(){
+  const box=rbox(0.3,0.24,0.16,std({color:0xffcc33,roughness:0.5,metalness:0.3}),0.15); box.position.set(0.42,0.5,0); groundGroup.add(box);
+  const rod=new THREE.Mesh(new THREE.CylinderGeometry(0.025,0.025,0.5,10),MAT.steel); rod.position.set(0.42,0.25,0.32); groundGroup.add(rod);
+  const wire=new THREE.Mesh(new THREE.TubeGeometry(new THREE.QuadraticBezierCurve3(new THREE.Vector3(0.4,0.5,0),new THREE.Vector3(0.42,0.4,0.2),new THREE.Vector3(0.42,0.28,0.3)),16,0.015,8),std({color:0xffcc33,roughness:0.6}));
+  groundGroup.add(wire);
+})();
+
+// ---- PANEL / PANTALLA (HMI) ----
+const panelGroup=new THREE.Group(); stRoot.add(panelGroup);
+(function(){
+  const scr=rbox(0.5,0.6,0.06,MAT.screen); scr.position.set(0,1.6,0.29); panelGroup.add(scr);
+  const led=new THREE.Mesh(new THREE.SphereGeometry(0.1,20,20),std({color:0xff6b1a,emissive:0xff6b1a,emissiveIntensity:0.6})); led.position.set(0,2.05,0.27); panelGroup.add(led);
+})();
+
+// ---- CABLE + CONECTOR ----
+const cableGroup=new THREE.Group(); stRoot.add(cableGroup);
+let connectorTip=null;
+(function(){
+  // cable coiled representation near the base
+  for(let i=0;i<5;i++){const c=new THREE.Mesh(new THREE.TorusGeometry(0.22-i*0.01,0.035,8,24),MAT.cable);c.position.set(-0.35,0.32+i*0.01,0.25);c.rotation.x=Math.PI/2;cableGroup.add(c);}
+  const tip=new THREE.Mesh(new RoundedBoxGeometry(0.18,0.28,0.14,2,0.05),MAT.power); tip.position.set(-0.35,0.55,0.25); cableGroup.add(tip);
+  connectorTip=tip;
+})();
+
+/* ============================================================
+   AUTO (prop fijo — no se ensambla, solo se le conecta el cable)
+   ============================================================ */
+const carGroup=new THREE.Group(); carGroup.position.set(2.0,0,0.4); scene.add(carGroup);
+(function(){
+  const lower=rbox(3.3,0.68,1.55,MAT.car,0.18); lower.position.y=0.68; carGroup.add(lower);
+  const cabin=rbox(1.95,0.68,1.45,MAT.car,0.22); cabin.position.set(-0.1,1.22,0); carGroup.add(cabin);
+  const glass=rbox(1.8,0.52,1.38,MAT.glass,0.2); glass.position.set(-0.1,1.28,0); carGroup.add(glass);
+  const hood=rbox(1.15,0.34,1.5,MAT.car,0.16); hood.position.set(1.15,0.92,0); carGroup.add(hood);
+  [[-1.0,-0.8],[-1.0,0.8],[1.0,-0.8],[1.0,0.8]].forEach(([x,z])=>{
+    const t=new THREE.Mesh(new THREE.CylinderGeometry(0.4,0.4,0.3,28),MAT.tire);t.rotation.x=Math.PI/2;t.position.set(x,0.4,z);t.castShadow=true;carGroup.add(t);
+    const r=new THREE.Mesh(new THREE.CylinderGeometry(0.22,0.22,0.32,8),MAT.steel);r.rotation.x=Math.PI/2;r.position.set(x,0.4,z);carGroup.add(r);
+  });
+})();
+const chargePort=rbox(0.16,0.26,0.28,std({color:0x0a0a0a,emissive:0x000000}),0.1);
+chargePort.position.set(0.55,0.58,0.78); carGroup.add(chargePort);
+
+/* cable dinámico (se dibuja entre el conector y el auto durante la sesión) */
+let cableLine=null;
+function drawCable(connected){
+  if(cableLine){scene.remove(cableLine);cableLine=null;}
+  const start=new THREE.Vector3(); connectorTip.getWorldPosition(start);
+  const carPort=new THREE.Vector3(); chargePort.getWorldPosition(carPort);
+  const end=connected?carPort:start.clone().add(new THREE.Vector3(0,-0.15,0.1));
+  const mid=new THREE.Vector3((start.x+end.x)/2,Math.min(start.y,end.y)-0.5,(start.z+end.z)/2);
+  const curve=new THREE.QuadraticBezierCurve3(start,mid,end);
+  cableLine=new THREE.Mesh(new THREE.TubeGeometry(curve,28,0.045,10),MAT.cable); scene.add(cableLine);
+}
+
+
+/* ============================================================
+   POST-PROCESSING
+   ============================================================ */
+const isMobile=/Mobi|Android|iPhone|iPad/i.test(navigator.userAgent)||innerWidth<860;
+const noGtao=/[?&]nogtao/.test(location.search);
+const composer=new EffectComposer(renderer);
+composer.addPass(new RenderPass(scene,camera));
+if(!isMobile&&!noGtao){try{const g=new GTAOPass(scene,camera,innerWidth,innerHeight);g.output=GTAOPass.OUTPUT.Default;if(g.updateGtaoMaterial)g.updateGtaoMaterial({radius:0.5,distanceExponent:1,thickness:1,scale:1.1,samples:16});composer.addPass(g);}catch(e){}}
+const bloom=new UnrealBloomPass(new THREE.Vector2(innerWidth,innerHeight),0.42,0.5,0.9);composer.addPass(bloom);
+let bokeh=null; if(!isMobile&&!lightMode){bokeh=new BokehPass(scene,camera,{focus:9,aperture:0.00035,maxblur:0.006,width:innerWidth,height:innerHeight});composer.addPass(bokeh);}
+composer.addPass(new OutputPass());
+composer.addPass(new SMAAPass(innerWidth*renderer.getPixelRatio(),innerHeight*renderer.getPixelRatio()));
+addEventListener('resize',()=>{camera.aspect=innerWidth/innerHeight;camera.updateProjectionMatrix();renderer.setSize(innerWidth,innerHeight);composer.setSize(innerWidth,innerHeight);});
+
+/* ============================================================
+   UI HELPERS
+   ============================================================ */
+const $=id=>document.getElementById(id);
+const teachEl=$('teach'),actionsEl=$('actions'),hintEl=$('hint');
+function showTeach(no,title,html){$('stepNo').textContent=no;$('stepTitle').textContent=title;$('teachBody').innerHTML=html;}
+function setActions(head,html){$('actHead').textContent=head;$('actOpt').innerHTML=html;$('actOpt').querySelectorAll('[data-act]').forEach(b=>b.onclick=()=>handleAction(b.dataset.act,b));}
+let fbTimer;
+function feedback(type,title,text,sticky=false){const f=$('feedback');f.className='feedback show '+type;$('fbIcon').textContent=type==='good'?'✓':'✕';$('fbTitle').textContent=title;$('fbText').innerHTML=text;clearTimeout(fbTimer);if(!sticky)fbTimer=setTimeout(()=>f.classList.remove('show'),6500);}
+$('fbX').onclick=()=>$('feedback').classList.remove('show');
+function setPhaseTab(i){document.querySelectorAll('.phase-tab').forEach((t,idx)=>{t.classList.toggle('active',idx===i);t.classList.toggle('done',idx<i);});$('phaseMini').textContent='FASE '+(i+1)+' · '+['ARMADO','FUNDAMENTO','DIAGNÓSTICO'][i];}
+
+/* ============================================================
+   MESA DE PIEZAS
+   ============================================================ */
+const KIT_POS={
+  cabinet:new THREE.Vector3(-3.6,-0.15,-2.4),
+  power:  new THREE.Vector3( 3.4,-0.15,-2.4),
+  ground: new THREE.Vector3(-3.6,-0.15, 2.6),
+  panel:  new THREE.Vector3( 3.4,-0.15, 2.6),
+  cable:  new THREE.Vector3( 0,  -0.15, 3.8),
+};
+function rrPath(c,x,y,w,h,r){c.moveTo(x+r,y);c.lineTo(x+w-r,y);c.arcTo(x+w,y,x+w,y+r,r);c.lineTo(x+w,y+h-r);c.arcTo(x+w,y+h,x+w-r,y+h,r);c.lineTo(x+r,y+h);c.arcTo(x,y+h,x,y+h-r,r);c.lineTo(x,y+r);c.arcTo(x,y,x+r,y,r);c.closePath();}
+function smallLabel5(text,color){
+  const cv=document.createElement('canvas');cv.width=560;cv.height=108;const c=cv.getContext('2d');
+  c.fillStyle='rgba(8,16,16,.92)';c.beginPath();rrPath(c,4,4,552,100,24);c.fill();
+  c.strokeStyle=color;c.lineWidth=4;c.stroke();
+  c.font='bold 28px Courier New';c.textAlign='center';c.textBaseline='middle';c.fillStyle=color;
+  c.fillText(text,280,54);
+  const tex=new THREE.CanvasTexture(cv);tex.colorSpace=THREE.SRGBColorSpace;
+  const sp=new THREE.Sprite(new THREE.SpriteMaterial({map:tex,depthTest:false,transparent:true}));
+  sp.scale.set(2.15,0.41,1);sp.renderOrder=999;return sp;
+}
+function trayPad5(pos,color){
+  const pad=new THREE.Mesh(new THREE.CylinderGeometry(0.8,0.9,0.12,40),new THREE.MeshStandardMaterial({color:0x0e1c1c,roughness:0.55,metalness:0.5}));
+  pad.position.set(pos.x,0.06,pos.z);pad.receiveShadow=true;scene.add(pad);
+  const ring=new THREE.Mesh(new THREE.RingGeometry(0.7,0.82,48),new THREE.MeshBasicMaterial({color,transparent:true,opacity:0,side:THREE.DoubleSide}));
+  ring.rotation.x=-Math.PI/2;ring.position.set(pos.x,0.13,pos.z);scene.add(ring);
+  return {pad,ring};
+}
+const PIECE_ORDER=['cabinet','power','ground','panel','cable'];
+const PIECE_GROUP={cabinet:cabinetGroup,power:powerGroup,ground:groundGroup,panel:panelGroup,cable:cableGroup};
+const PIECE_NAME={cabinet:'GABINETE',power:'MÓDULO DE POTENCIA',ground:'PROTECCIÓN/TIERRA',panel:'PANTALLA',cable:'CABLE + CONECTOR'};
+const PIECE_COLOR={cabinet:'#8a99a8',power:'#ff8a3a',ground:'#ffcc33',panel:'#37e0c7',cable:'#f4475e'};
+const travel={},trays={},lbls={};
+PIECE_ORDER.forEach(k=>{
+  const grp=PIECE_GROUP[k];
+  travel[k]={active:false,t:0,dur:1.05,from:KIT_POS[k].clone(),to:new THREE.Vector3(0,0,0),installed:false,bump:0};
+  grp.position.copy(KIT_POS[k]); grp.visible=true;
+  trays[k]=trayPad5(KIT_POS[k],PIECE_COLOR[k]);
+  const lbl=smallLabel5(PIECE_NAME[k]+' · toca para instalar',PIECE_COLOR[k]);
+  lbl.position.set(KIT_POS[k].x,2.0,KIT_POS[k].z); scene.add(lbl); lbls[k]=lbl;
+});
+function easeOutBack(x){const c1=1.4,c3=c1+1;return 1+c3*Math.pow(x-1,3)+c1*Math.pow(x-1,2);}
+function isInGroup(obj,group){let o=obj;while(o){if(o===group)return true;o=o.parent;}return false;}
+function installPiece(key){ travel[key].active=true; travel[key].t=0; }
+function attemptBump(key){ travel[key].bump=1; }
+function nextRequired(){ return PIECE_ORDER.find(k=>!travel[k].installed); }
+function pieceWhyBlocked(key){
+  if(key==='power')return 'El módulo de potencia se atornilla dentro del gabinete. Sin gabinete, no hay estructura ni protección donde montarlo.';
+  if(key==='ground')return 'La protección y puesta a tierra se conecta al módulo de potencia — es lo que lo protege a él y al usuario. Necesitas el módulo antes.';
+  if(key==='panel')return 'La pantalla muestra el estado del módulo de potencia y las protecciones. Sin ellos, no hay nada que mostrar.';
+  if(key==='cable')return 'El cable y el conector llevan la energía que el módulo de potencia ya convirtió. Es lo último que se conecta, después de que todo lo demás funciona.';
+  return 'Esa pieza va después en el orden de montaje.';
+}
+
+/* ============================================================
+   PICKING
+   ============================================================ */
+const ray=new THREE.Raycaster(),mouse=new THREE.Vector2();let down=null,onPick=null,autoMode=false;
+renderer.domElement.addEventListener('pointerdown',e=>down=[e.clientX,e.clientY]);
+renderer.domElement.addEventListener('pointerup',e=>{
+  if(!down)return;const moved=Math.abs(e.clientX-down[0])+Math.abs(e.clientY-down[1])>6;down=null;
+  if(moved||!onPick)return;
+  const r=renderer.domElement.getBoundingClientRect();
+  mouse.x=((e.clientX-r.left)/r.width)*2-1;mouse.y=-((e.clientY-r.top)/r.height)*2+1;
+  ray.setFromCamera(mouse,camera);
+  const hits=ray.intersectObjects(stRoot.children,true);
+  onPick(hits[0]||null);
+});
+function onPickGeneric(hit){
+  if(!hit)return;
+  const req=nextRequired(); if(!req)return;
+  for(const k of PIECE_ORDER){
+    if(isInGroup(hit.object,PIECE_GROUP[k])){
+      if(k===req)handleAction('place-'+k,null);
+      else if(!travel[k].installed){attemptBump(k);feedback('bad','Fuera de orden',pieceWhyBlocked(k)+' Instala primero: '+PIECE_NAME[req]+'.');}
+      return;
+    }
+  }
+}
+
+/* ---- cámara cinemática ---- */
+let cinematicSpin=false, lastDragTime=-99;
+const camCine={active:false,t:0,dur:1.5,from:new THREE.Vector3(),to:new THREE.Vector3(),fromTarget:new THREE.Vector3(),toTarget:new THREE.Vector3()};
+function easeInOutCubic(x){return x<0.5?4*x*x*x:1-Math.pow(-2*x+2,3)/2;}
+
+/* ============================================================
+   FASE 1: ARMADO
+   ============================================================ */
+let phase=0;
+function startPhase1(){
+  phase=0;setPhaseTab(0);
+  controls.target.set(-2.2,0.9,0); controls.minDistance=2.5;
+  step_cabinet();
+}
+function step_cabinet(){
+  showTeach('Fase 1 · Paso 1','Instala el gabinete',
+    `<p>El <b>gabinete</b> es la estructura y carcasa de la estación: protege todo lo interno del clima y de manipulación. Está sobre la mesa.</p>
+     <div class="why"><b>¿Por qué primero?</b> Todo componente eléctrico interno necesita protección física antes de poder instalarse con seguridad.</div>
+     <div class="task">Toca la pieza gris de la mesa, o usa el botón, para instalar el gabinete.</div>`);
+  setActions('Mesa de piezas',`<button class="b primary" data-act="place-cabinet"><span class="ic">⬇</span> Instalar gabinete</button>
+     <button class="b" data-act="try-cable-first"><span class="ic">⬇</span> Instalar cable primero</button>`);
+  platGlow.material.opacity=0.25;
+  onPick=onPickGeneric;
+  if(autoMode)setTimeout(()=>{if(!travel.cabinet.installed)handleAction('place-cabinet',null);},1900);
+}
+function step_power(){
+  showTeach('Fase 1 · Paso 2','Instala el módulo de potencia',
+    `<p>El <b>módulo de potencia</b> contiene el rectificador AC-DC y el convertidor DC-DC: toma la corriente alterna de la red y la convierte en la corriente directa que la batería necesita.</p>
+     <div class="why"><b>Conexión con lo que ya sabes:</b> esta electrónica de potencia trabaja con los mismos principios que el inversor que ya armaste — solo que en sentido inverso (AC→DC en vez de DC→AC).</div>
+     <div class="task">Toca la pieza naranja, o usa el botón, para instalar el módulo de potencia.</div>`);
+  setActions('Mesa de piezas',`<button class="b primary" data-act="place-power"><span class="ic">⬇</span> Instalar módulo de potencia</button>`);
+  if(autoMode)setTimeout(()=>{if(!travel.power.installed)handleAction('place-power',null);},1900);
+}
+function step_ground(){
+  showTeach('Fase 1 · Paso 3','Instala la protección y tierra',
+    `<p>El sistema de <b>protección y puesta a tierra</b> desconecta la estación instantáneamente ante cualquier fuga de corriente, protegiendo al usuario.</p>
+     <div class="why"><b>No es opcional:</b> a los voltajes y corrientes de una carga rápida (cientos de volts, más de 100A), una falla sin protección sería letal. Esta pieza es la que hace segura toda la instalación.</div>
+     <div class="task">Toca la pieza amarilla, o usa el botón, para instalar la protección.</div>`);
+  setActions('Mesa de piezas',`<button class="b primary" data-act="place-ground"><span class="ic">⬇</span> Instalar protección/tierra</button>`);
+  if(autoMode)setTimeout(()=>{if(!travel.ground.installed)handleAction('place-ground',null);},1900);
+}
+function step_panel(){
+  showTeach('Fase 1 · Paso 4','Instala la pantalla',
+    `<p>La <b>pantalla</b> (HMI) muestra el estado de la carga al usuario: potencia, tiempo, porcentaje de batería.</p>
+     <div class="why"><b>La interfaz humana:</b> todo lo que armaste hasta ahora funciona internamente; esta pantalla es lo único que el usuario ve y con lo que interactúa directamente.</div>
+     <div class="task">Toca la pieza turquesa, o usa el botón, para instalar la pantalla.</div>`);
+  setActions('Mesa de piezas',`<button class="b primary" data-act="place-panel"><span class="ic">⬇</span> Instalar pantalla</button>`);
+  if(autoMode)setTimeout(()=>{if(!travel.panel.installed)handleAction('place-panel',null);},1900);
+}
+function step_cable(){
+  showTeach('Fase 1 · Paso 5','Instala el cable y el conector',
+    `<p>El <b>cable y conector</b> (CHAdeMO) es la última pieza: lleva la corriente directa ya convertida hasta la batería del vehículo.</p>
+     <div class="why"><b>Por qué al final:</b> conectar el cable antes de tener el resto funcionando sería enchufar un vehículo a una estación sin protección ni conversión de energía — peligroso e inútil.</div>
+     <div class="task">Toca la pieza roja, o usa el botón, para instalar el cable y el conector.</div>`);
+  setActions('Mesa de piezas',`<button class="b primary" data-act="place-cable"><span class="ic">⬇</span> Instalar cable + conector</button>`);
+  if(autoMode)setTimeout(()=>{if(!travel.cable.installed)handleAction('place-cable',null);},1900);
+}
+function finishPhase1(){
+  feedback('good','¡Estación armada! 🎉','Instalaste gabinete, módulo de potencia, protección, pantalla y cable en el orden correcto. Ahora vas a calcular la carga y ver una sesión real.',true);
+  document.querySelectorAll('.phase-tab')[0].classList.add('done');
+  controls.minDistance=3; onPick=null;
+  setTimeout(()=>startPhase2(),1200);
+}
+
+/* ============================================================
+   FASE 2: FUNDAMENTO
+   ============================================================ */
+function startPhase2(){
+  phase=1;setPhaseTab(1);
+  controls.target.set(-2.2,1.2,0); platGlow.material.opacity=0;
+  challengeCurrent();
+}
+function challengeCurrent(){
+  const answer=maxCurrent(EVCHG.P_max,EVCHG.V_bus);
+  window.__iAnswer=answer;
+  showTeach('Fase 2 · Reto 1','Calcula la corriente de carga',
+    `<p>Esta estación entrega hasta <b>${EVCHG.P_max} kW</b> al bus de <b>${EVCHG.V_bus} V</b> del vehículo (el mismo bus del motor e inversor que ya armaste). La corriente que circula por el cable es:</p>
+     <div class="formula">I = P / V</div>
+     <div class="task">¿Cuál es la corriente máxima, en A?</div>`);
+  setActions('Tu cálculo',
+    `<div class="calcbox"><label>Corriente (A)</label>
+       <div class="calcrow"><input id="ansI" type="number" step="1" placeholder="¿?"><button class="b primary" data-act="check-i" style="flex:0 0 auto">✓</button></div>
+       <div class="mini" data-act="hint-i" style="cursor:pointer;text-decoration:underline"><span>¿Necesitas una pista?</span></div></div>`);
+}
+function challengeTime(){
+  const answer=chargeTimeHours(0.30,EVCHG.capacity_kWh,EVCHG.P_max)*60; // minutos
+  window.__tAnswer=answer;
+  showTeach('Fase 2 · Reto 2','Calcula el tiempo de carga',
+    `<p>La batería tiene <b>${EVCHG.capacity_kWh} kWh</b> de capacidad. Vas a cargar del 20% al 50% de SOC, dentro de la zona de <b>potencia constante</b> (${EVCHG.P_max}kW) de la curva de carga.</p>
+     <div class="formula">t = (ΔSOC · capacidad) / potencia</div>
+     <p>ΔSOC = 30% = 0.30</p>
+     <div class="task">¿Cuánto tiempo toma, en minutos?</div>`);
+  setActions('Tu cálculo',
+    `<div class="calcbox"><label>Tiempo (min)</label>
+       <div class="calcrow"><input id="ansT" type="number" step="0.1" placeholder="¿?"><button class="b primary" data-act="check-t" style="flex:0 0 auto">✓</button></div>
+       <div class="mini" data-act="hint-t" style="cursor:pointer;text-decoration:underline"><span>¿Necesitas una pista?</span></div></div>`);
+}
+function challengeSession(){
+  showTeach('Fase 2 · Reto 3','Observa una sesión de carga real',
+    `<p>Ahora vas a ejecutar la secuencia real: conectar, autenticar, y cargar. Observa cómo la <b>potencia cae</b> automáticamente después del 55% de SOC — así es la curva de carga real de una batería de litio.</p>
+     <div class="why"><b>Por qué cae la potencia:</b> cargar rápido cuando la batería está casi llena generaría calor excesivo y dañaría las celdas. El sistema de gestión de batería (BMS) reduce la corriente por seguridad — el mismo principio que "no puedes llenar un vaso de un jalón cuando ya casi está lleno".</div>
+     <div class="task">Sigue la secuencia y observa la telemetría en vivo.</div>`);
+  setActions('Estación de carga',
+    `<div class="mini"><span>SOC batería</span><b id="d_soc">20%</b></div>
+     <div class="mini"><span>Potencia</span><b id="d_pow">0 kW</b></div>
+     <div class="mini"><span>Corriente</span><b id="d_cur">0 A</b></div>
+     <div class="btns" style="display:flex;flex-direction:column;gap:7px;margin-top:10px">
+       <button class="b primary" data-act="plug"><span class="ic">🔌</span> Conectar conector</button>
+       <button class="b" data-act="auth"><span class="ic">💳</span> Autenticar</button>
+       <button class="b" data-act="chgstart"><span class="ic">▶</span> Iniciar carga</button>
+     </div>
+     <button class="b primary" data-act="to-phase3" style="margin-top:8px" disabled id="toP3">Continuar al diagnóstico →</button>`);
+  running=true;cinematicSpin=true; sessionState=0; soc=0.20;
+  camCine.from.copy(camera.position); camCine.fromTarget.copy(controls.target);
+  camCine.to.set(4.6,3.0,6.4); camCine.toTarget.set(-0.4,1.0,0.3);
+  camCine.active=true; camCine.t=0;
+  drawCable(false);
+}
+function finishPhase2(){ document.querySelectorAll('.phase-tab')[1].classList.add('done'); }
+
+/* ============================================================
+   FASE 3: DIAGNÓSTICO
+   ============================================================ */
+let fault=null;
+function startPhase3(){
+  phase=2;setPhaseTab(2);running=true;sessionState=3;soc=0.30;
+  const faults=['connector','auth','thermal'];fault=faults[Math.floor(Math.random()*faults.length)];
+  showTeach('Fase 3 · Diagnóstico','La carga falla en operación',
+    `<p>La sesión de carga está activa pero algo anda mal. Observa la telemetría e <b>identifica la falla</b>.</p>
+     <div class="task" id="symptomTask">Observa el síntoma y elige el diagnóstico.</div>`);
+  setActions('¿Cuál es la falla?',
+    `<button class="b" data-act="dx-connector"><span class="ic">🔌</span> Mal contacto en el conector</button>
+     <button class="b" data-act="dx-auth"><span class="ic">💳</span> Falla de autenticación/comunicación</button>
+     <button class="b" data-act="dx-thermal"><span class="ic">🌡️</span> Límite térmico del cable</button>`);
+  setTimeout(()=>{const s=$('symptomTask');if(s)s.innerHTML=symptomEV(fault);},1300);
+}
+function symptomEV(f){
+  if(f==='connector')return 'SÍNTOMA: la carga inició, pero la potencia real es mucho menor a los 50kW esperados, y es inestable (sube y baja). ¿Qué lo causa?';
+  if(f==='auth')return 'SÍNTOMA: conectaste el cable, pero la sesión nunca pasa de "autenticando" — la carga no arranca. ¿Qué lo causa?';
+  if(f==='thermal')return 'SÍNTOMA: la carga arrancó bien a 50kW, pero después de un rato la potencia cae bruscamente aunque la batería sigue baja de SOC (no debería estar en zona de atenuación todavía). ¿Qué lo causa?';
+}
+function diagnoseEV(choice){
+  const correct=(choice===fault);
+  if(correct){feedback('good','Diagnóstico correcto ✓',explainEVFault(fault)+' <b>Ahora corrígelo.</b>',true);
+    setActions('Reparación',`<button class="b primary good" data-act="repair-ev">🔧 Corregir la falla</button>`);
+  } else {feedback('bad','No es esa la falla','Eso ('+fnameEV(choice)+') daría otro síntoma: '+wrongExEV(choice)+' Observa otra vez.',true);}
+}
+function explainEVFault(f){
+  if(f==='connector')return 'Un pin del conector con mal contacto (suciedad, desgaste) aumenta la resistencia de contacto. Eso limita la corriente real que puede pasar y la hace inestable, aunque el sistema "pida" 50kW.';
+  if(f==='auth')return 'El protocolo de comunicación entre el vehículo y la estación (que verifica que ambos estén listos y autorizados) no completa su handshake. Sin esa confirmación, por seguridad, la estación nunca habilita la potencia.';
+  if(f==='thermal')return 'El cable se calienta con la corriente alta sostenida. Si el sistema de enfriamiento del cable es insuficiente, la estación reduce la potencia para proteger el aislamiento — igual que el tradeoff de frecuencia que viste en el inversor, pero aplicado al cable.';
+}
+function fnameEV(f){return f==='connector'?'mal contacto':f==='auth'?'falla de autenticación':'límite térmico';}
+function wrongExEV(f){
+  if(f==='connector')return 'un mal contacto da potencia baja e inestable desde el inicio, no impide la autenticación ni causa una caída repentina después de operar bien.';
+  if(f==='auth')return 'una falla de autenticación impide que la carga arranque del todo, no causa potencia inestable ni una caída a mitad de sesión.';
+  if(f==='thermal')return 'el límite térmico causa una caída de potencia DESPUÉS de operar bien un rato, no potencia inestable desde el inicio ni bloqueo en autenticación.';
+}
+function repairEV(){
+  fault=null;
+  feedback('good','¡Reparado! 🎉','La estación vuelve a cargar de forma estable. Completaste las tres fases: la armaste, calculaste su corriente y tiempo de carga, y diagnosticaste una falla real de infraestructura EV.',true);
+  document.querySelectorAll('.phase-tab')[2].classList.add('done');
+  setActions('Laboratorio completado',`<button class="b primary" data-act="restart">↺ Reiniciar laboratorio</button>`);
+}
+
+/* ============================================================
+   SESIÓN DE CARGA — estado
+   ============================================================ */
+let running=false, sessionState=0, soc=0.20, ledMesh=null;
+const sessionNames=['Desconectado','Conectado · autenticando','Listo','Cargando'];
+
+/* ============================================================
+   ACTION ROUTER
+   ============================================================ */
+function handleAction(act,btn){
+  switch(act){
+    case 'place-cabinet':
+      if(travel.cabinet.installed||travel.cabinet.active)break;
+      installPiece('cabinet');
+      feedback('good','Gabinete en camino','Lo ves trasladarse desde la mesa hasta la plataforma.');
+      setTimeout(()=>step_power(),1150); break;
+    case 'try-cable-first':
+      if(travel.cabinet.installed)break;
+      attemptBump('cable');
+      feedback('bad','El cable no puede ir primero','El cable lleva la energía que el módulo de potencia convierte, protegida por el gabinete y la tierra. Sin ellos, conectar el cable no serviría de nada y sería inseguro. Instala primero el gabinete.'); break;
+    case 'place-power':
+      if(!travel.cabinet.installed||travel.power.installed||travel.power.active)break;
+      installPiece('power');
+      feedback('good','Módulo de potencia en camino','Se acopla dentro del gabinete.');
+      setTimeout(()=>step_ground(),1150); break;
+    case 'place-ground':
+      if(!travel.power.installed||travel.ground.installed||travel.ground.active)break;
+      installPiece('ground');
+      feedback('good','Protección en camino','Se conecta al módulo de potencia para proteger a los usuarios.');
+      setTimeout(()=>step_panel(),1150); break;
+    case 'place-panel':
+      if(!travel.ground.installed||travel.panel.installed||travel.panel.active)break;
+      installPiece('panel');
+      feedback('good','Pantalla en camino','Se monta en el frente del gabinete.');
+      setTimeout(()=>step_cable(),1150); break;
+    case 'place-cable':
+      if(!travel.panel.installed||travel.cable.installed||travel.cable.active)break;
+      installPiece('cable');
+      feedback('good','Cable y conector en camino','Se conectan a la salida del módulo de potencia. Estación casi completa.');
+      setTimeout(()=>finishPhase1(),1150); break;
+    case 'check-i': checkCurrent(); break;
+    case 'hint-i': feedback('good','Pista',`I = P/V = ${EVCHG.P_max*1000}/${EVCHG.V_bus}. Divide potencia (en watts) entre voltaje.`); break;
+    case 'check-t': checkTime(); break;
+    case 'hint-t': feedback('good','Pista',`t = (0.30 × ${EVCHG.capacity_kWh}) / ${EVCHG.P_max} horas. Multiplica primero arriba, luego divide, luego convierte a minutos (×60).`); break;
+    case 'plug': if(sessionState===0){sessionState=1;drawCable(true);updateSessionUI();beep(660);feedback('good','Conector acoplado','El cable ya está conectado al puerto del vehículo.');}break;
+    case 'auth': if(sessionState===1){sessionState=2;updateSessionUI();beep(880);feedback('good','Autenticado','Handshake completo entre vehículo y estación.');}else{beep(220,0.15);feedback('bad','Conecta primero','Primero acopla el conector.');}break;
+    case 'chgstart': if(sessionState===2){sessionState=3;updateSessionUI();beep(1100);feedback('good','Carga iniciada','Observa la potencia y el SOC subir en tiempo real.');setTimeout(()=>{const b=$('toP3');if(b)b.disabled=false;},2500);}else{beep(220,0.15);feedback('bad','Autentica primero','Primero completa la autenticación.');}break;
+    case 'to-phase3': running=true; cinematicSpin=false; controls.autoRotate=false; finishPhase2(); startPhase3(); break;
+    case 'dx-connector': diagnoseEV('connector'); break;
+    case 'dx-auth': diagnoseEV('auth'); break;
+    case 'dx-thermal': diagnoseEV('thermal'); break;
+    case 'repair-ev': repairEV(); break;
+    case 'restart': location.reload(); break;
+  }
+}
+function updateSessionUI(){
+  if(ledMesh){const cols=[0xff6b1a,0xffd166,0x6fb6ff,0x37e0c7];ledMesh.material.color.setHex(cols[sessionState]);ledMesh.material.emissive.setHex(cols[sessionState]);}
+}
+function checkCurrent(){
+  const v=parseFloat(($('ansI')||{}).value); const correct=window.__iAnswer;
+  if(isNaN(v)){feedback('bad','Escribe un número','Ingresa la corriente en A.');return;}
+  if(Math.abs(v-correct)<3){feedback('good','¡Correcto! ✓',`I = ${EVCHG.P_max*1000}/${EVCHG.V_bus} = ${correct.toFixed(0)} A. Esa corriente es la que circula por el cable y el conector durante la carga rápida.`);setTimeout(()=>challengeTime(),1700);}
+  else{const d=v>correct?'alta':'baja';feedback('bad','Revisa el cálculo',`Tu resultado (${v}A) está ${d}. I = P/V = ${EVCHG.P_max*1000}/${EVCHG.V_bus} = ${correct.toFixed(0)} A.`);}
+}
+function checkTime(){
+  const v=parseFloat(($('ansT')||{}).value); const correct=window.__tAnswer;
+  if(isNaN(v)){feedback('bad','Escribe un número','Ingresa el tiempo en minutos.');return;}
+  if(Math.abs(v-correct)<2){feedback('good','¡Correcto! ✓',`t = (0.30×${EVCHG.capacity_kWh})/${EVCHG.P_max} = ${(correct/60).toFixed(2)} h = ${correct.toFixed(1)} min. Así se calcula el tiempo real de una parada de carga rápida.`);setTimeout(()=>challengeSession(),1700);}
+  else{const d=v>correct?'alto':'bajo';feedback('bad','Revisa el cálculo',`Tu resultado (${v}min) está ${d}. t = (0.30×${EVCHG.capacity_kWh})/${EVCHG.P_max} horas = ${correct.toFixed(1)} min.`);}
+}
+
+/* ============================================================
+   ANIMACIÓN
+   ============================================================ */
+const clock=new THREE.Clock();
+controls.addEventListener('start',()=>{ lastDragTime=clock.elapsedTime; camCine.active=false; });
+// LED en la pantalla (referencia visual del estado)
+function findLed(){ let m=null; panelGroup.traverse(o=>{if(o.isMesh&&o.geometry.type==='SphereGeometry')m=o;}); return m; }
+/* ============================================================
+   SONIDO — beeps de confirmación + zumbido de transformador durante la carga
+   ============================================================ */
+let audioCtx=null,oscHum=null,audioGain=null,soundOn=true;
+function initAudio(){
+  if(audioCtx)return;
+  try{
+    audioCtx=new (window.AudioContext||window.webkitAudioContext)();
+    oscHum=audioCtx.createOscillator(); oscHum.type='sine'; oscHum.frequency.value=120;
+    audioGain=audioCtx.createGain(); audioGain.gain.value=0;
+    oscHum.connect(audioGain); audioGain.connect(audioCtx.destination);
+    oscHum.start();
+  }catch(e){}
+}
+function updateAudio(isCharging,powerKW){
+  if(!audioCtx||!soundOn){if(audioGain)audioGain.gain.setTargetAtTime(0,audioCtx?.currentTime||0,0.1);return;}
+  const vol=isCharging?Math.min(0.045,0.015+powerKW/50*0.03):0;
+  audioGain.gain.setTargetAtTime(vol,audioCtx.currentTime,0.15);
+}
+function beep(freq=880,dur=0.09){
+  if(!audioCtx||!soundOn)return;
+  const osc=audioCtx.createOscillator(),g=audioCtx.createGain();
+  osc.type='sine'; osc.frequency.value=freq;
+  g.gain.setValueAtTime(0.05,audioCtx.currentTime); g.gain.exponentialRampToValueAtTime(0.001,audioCtx.currentTime+dur);
+  osc.connect(g); g.connect(audioCtx.destination); osc.start(); osc.stop(audioCtx.currentTime+dur);
+}
+
+function animate(){
+  requestAnimationFrame(animate);
+  const dt=clock.getDelta(),t=clock.elapsedTime;
+  if(!ledMesh)ledMesh=findLed();
+
+  // mesa de piezas
+  PIECE_ORDER.forEach(key=>{
+    const grp=PIECE_GROUP[key]; const tr=travel[key];
+    if(tr.active){
+      tr.t=Math.min(1,tr.t+dt/tr.dur);
+      const e=easeOutBack(tr.t);
+      grp.position.lerpVectors(tr.from,tr.to,e);
+      if(tr.t>=1){tr.active=false;tr.installed=true;grp.position.copy(tr.to);}
+    } else if(tr.bump>0){
+      tr.bump=Math.max(0,tr.bump-dt*2.2);
+      const k=Math.sin(tr.bump*Math.PI)*0.22;
+      grp.position.lerpVectors(tr.from,tr.to,k);
+    }
+    const installed=tr.installed;
+    trays[key].ring.material.opacity=installed?0:(nextRequired()===key?(0.22+0.22*Math.sin(t*3)):0.06);
+    lbls[key].visible=!installed; trays[key].pad.visible=!installed;
+  });
+
+  const allInstalled=PIECE_ORDER.every(k=>travel[k].installed);
+  if(allInstalled && running){
+    if(ledMesh)ledMesh.material.emissiveIntensity=0.4+0.4*Math.sin(t*(sessionState===3?8:2));
+    if(sessionState===3 && soc<1){
+      let P=powerAtSOC(soc);
+      if(fault==='connector') P*=0.35+0.15*Math.sin(t*6);
+      if(fault==='thermal' && soc>0.28) P=Math.max(6,P*0.3);
+      if(fault==='auth'){P=0; sessionState=1;} // nunca debería llegar aquí si auth falla; salvaguarda
+      soc=Math.min(1,soc+ P*(dt/3600)/EVCHG.capacity_kWh * 90); // acelerado x90 para demo (~30-40s ver la curva completa)
+      const I=maxCurrent(P,EVCHG.V_bus);
+      const set=(id,v)=>{const e=$(id);if(e)e.textContent=v;};
+      set('d_soc',Math.round(soc*100)+'%'); set('d_pow',P.toFixed(1)+' kW'); set('d_cur',I.toFixed(0)+' A');
+      updateAudio(true,P);
+      if(soc>=1){sessionState=3;feedback('good','Carga completa','Batería al 100%.');}
+    } else { updateAudio(false,0); }
+  } else { updateAudio(false,0); }
+
+  // cámara cinemática
+  if(camCine.active){
+    camCine.t=Math.min(1,camCine.t+dt/camCine.dur);
+    const e=easeInOutCubic(camCine.t);
+    camera.position.lerpVectors(camCine.from,camCine.to,e);
+    controls.target.lerpVectors(camCine.fromTarget,camCine.toTarget,e);
+    if(camCine.t>=1)camCine.active=false;
+  } else if(cinematicSpin){
+    const idle=(t-lastDragTime)>1.4;
+    controls.autoRotate=idle; controls.autoRotateSpeed=0.4;
+  } else { controls.autoRotate=false; }
+  bloom.strength=0.42+(sessionState===3?0.08:0);
+
+  controls.update();composer.render();
+}
+animate();
+
+/* intro + modo + sheets */
+document.querySelectorAll('.modeBtn').forEach(b=>b.onclick=()=>{
+  document.querySelectorAll('.modeBtn').forEach(x=>x.classList.remove('active'));
+  b.classList.add('active'); autoMode = b.dataset.mode==='auto';
+});
+$('start').onclick=()=>{$('intro').classList.add('hide');teachEl.classList.add('show');actionsEl.classList.add('show');hintEl.classList.add('show');initAudio();if(audioCtx&&audioCtx.state==='suspended')audioCtx.resume();startPhase1();};
+const soundBtn=$('soundBtn');
+if(soundBtn)soundBtn.onclick=()=>{soundOn=!soundOn;soundBtn.textContent=soundOn?'🔊':'🔇';soundBtn.classList.toggle('on',soundOn);};
+const bT=$('tgTeach'),bA=$('tgAct');
+function closeSheets(){teachEl.classList.remove('open');actionsEl.classList.remove('open');bT.classList.remove('on');bA.classList.remove('on');}
+if(bT)bT.onclick=()=>{const o=teachEl.classList.contains('open');closeSheets();if(!o){teachEl.classList.add('open');bT.classList.add('on');}};
+if(bA)bA.onclick=()=>{const o=actionsEl.classList.contains('open');closeSheets();if(!o){actionsEl.classList.add('open');bA.classList.add('on');}};
+
+window.__test={
+  start:()=>$('start').click(),
+  action:(a)=>handleAction(a,null),
+  setAns:(id,v)=>{const e=$(id);if(e)e.value=v;},
+  setAutoMode:(v)=>{autoMode=v; document.querySelectorAll('.modeBtn').forEach(b=>b.classList.toggle('active',(b.dataset.mode==='auto')===v));},
+  state:()=>({phase,fault,sessionState,soc:Math.round(soc*100),
+    cabinetInstalled:travel.cabinet.installed,powerInstalled:travel.power.installed,
+    groundInstalled:travel.ground.installed,panelInstalled:travel.panel.installed,cableInstalled:travel.cable.installed}),
+  audioState:()=>({ctxState:audioCtx?.state||'none', vol:audioGain?.gain.value||0, soundOn}),
+};
+
+</script>
+</body>
+</html>

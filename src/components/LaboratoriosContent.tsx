@@ -59,8 +59,8 @@ const LABS_REAL = [
     id: "mecanica",
     name: "Laboratorio de Mecánica e Ingeniería",
     subject: "Mecánica e Ingeniería",
-    description: "Nueva disciplina en construcción: pronto sumaremos prácticas interactivas de mecánica aplicada, estática, dinámica y diseño de ingeniería.",
-    practices: 0,
+    description: "5 simuladores 3D de Autotrónica y Mecatrónica: motor eléctrico PMSM, motor de combustión, brazo robótico, inversor trifásico y estación de carga EV.",
+    practices: 5,
     icon: Cog,
     color: "from-[#2A9D8F] to-[#023047]",
     badgeColor: "bg-[#2A9D8F]",
@@ -106,7 +106,7 @@ export default function LaboratoriosContent() {
             </div>
             <div>
               <h1 className="text-3xl font-black text-foreground tracking-tight">Biblioteca de Laboratorios</h1>
-              <p className="text-sm text-muted-foreground font-medium">5 materias · 40 prácticas interactivas en total</p>
+              <p className="text-sm text-muted-foreground font-medium">5 materias · 45 prácticas interactivas en total</p>
             </div>
           </div>
         </div>

@@ -324,8 +324,8 @@ export default function AlumnoInicio() {
       ringColor: "stroke-[#2A9D8F] dark:stroke-[#4FD1C5]",
       shadowGlow: "hover:shadow-[0_20px_50px_-12px_rgba(42,157,143,0.35)] dark:hover:shadow-[0_20px_50px_-12px_rgba(42,157,143,0.6)]",
       practices: realProgress.mecanica,
-      totalPractices: 0,
-      lastPractice: "Próximamente · nuevos laboratorios",
+      totalPractices: 5,
+      lastPractice: realProgress.mecanica > 0 ? "Última práctica completada" : "Autotrónica y Mecatrónica · nuevo",
       buttonColor: "bg-[#2A9D8F] hover:bg-[#1F776C]",
       image: "/images/ingenieria_claymorphic_3d_v5_1775860518999.webp"
     },

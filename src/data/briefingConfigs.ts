@@ -1,6 +1,160 @@
 import { BriefingConfig } from '@/components/MissionBriefing';
 
 export const ALL_BRIEFING_CONFIGS: Record<string, BriefingConfig> = {
+  // ═══════════════════════════════════════════════════════════════════════════
+  // MECÁNICA E INGENIERÍA — Laboratorios 3D didácticos (CONALEP)
+  // Videos pendientes: dejar videoUrl vacío como placeholder hasta recibirlos.
+  // ═══════════════════════════════════════════════════════════════════════════
+  'mecanica-1': {
+    codigo: 'MEC-01',
+    titulo: 'Motor Eléctrico de Tracción (PMSM)',
+    subtitulo: 'Autotrónica · Armado, fundamento y diagnóstico',
+    acento: '#2A9D8F',
+    duracion: 40,
+    videoUrl: '',
+    bienvenida: `¡Bienvenido al taller de Autotrónica de CEN Labs! Soy el Dr. Quantum y hoy no vas a mirar una animación: vas a CONSTRUIR un motor eléctrico pieza por pieza.\n\nUn motor síncrono de imanes permanentes (PMSM) es el corazón de casi todos los vehículos eléctricos modernos. Ensamblarás el estátor, el rotor y los imanes con la polaridad correcta, aplicarás las fórmulas para hacerlo girar a una velocidad objetivo y diagnosticarás fallas reales.\n\nCada decisión tiene una consecuencia física, y cada error te enseña algo. ¡Manos a la obra!`,
+    conceptos: [
+      { icono: '🧲', nombre: 'Estátor y Rotor', descripcion: 'El campo giratorio del estátor arrastra al rotor de imanes permanentes en sincronía.' },
+      { icono: '🔁', nombre: 'Polaridad', descripcion: 'El orden y la polaridad de los imanes definen si el motor gira o se traba.' },
+      { icono: '⚡', nombre: 'Frecuencia y Polos', descripcion: 'La velocidad n = 120·f / P depende de la frecuencia eléctrica y el número de polos.' },
+      { icono: '🔧', nombre: 'Diagnóstico', descripcion: 'Un motor averiado revela su falla en el par, la vibración o el consumo.' },
+    ],
+    mision: [
+      'FASE 1 · Armado: ensambla estátor, rotor e imanes en el orden y polaridad correctos.',
+      'FASE 2 · Fundamento: calcula la frecuencia y elige los polos para alcanzar la velocidad objetivo.',
+      'FASE 3 · Diagnóstico: el motor llega averiado; encuentra y corrige la falla.',
+      'Usa el modo Manual para armar pieza por pieza o el Automático para ver la secuencia.',
+    ],
+    aplicaciones: [
+      { area: 'Vehículos Eléctricos', ejemplo: 'El motor de tracción de un Tesla o Nissan Leaf es un PMSM.' },
+      { area: 'Robótica Industrial', ejemplo: 'Los servomotores de precisión usan el mismo principio síncrono.' },
+      { area: 'Electrodomésticos', ejemplo: 'Compresores y ventiladores de alta eficiencia energética.' },
+    ],
+    retos: [
+      'Alcanza la velocidad objetivo con el mínimo número de polos posible.',
+      'Diagnostica la falla en menos de tres intentos.',
+    ],
+  },
+  'mecanica-2': {
+    codigo: 'MEC-02',
+    titulo: 'Motor de Combustión Interna (4 Tiempos)',
+    subtitulo: 'Autotrónica · Ciclo Otto y diagnóstico',
+    acento: '#2A9D8F',
+    duracion: 45,
+    videoUrl: '',
+    bienvenida: `¡Bienvenido de nuevo al taller de Autotrónica! Hoy vas a ensamblar un motor de combustión interna de cuatro tiempos y entender por qué gira.\n\nMontarás el bloque, el cigüeñal, los pistones y la culata, y definirás el orden de encendido 1-3-4-2. Luego calcularás la eficiencia del ciclo Otto a partir de la relación de compresión y observarás los cuatro tiempos en acción. Finalmente, el motor fallará y tendrás que diagnosticar la causa.\n\nCada decisión tiene consecuencia física. ¡Vamos a armarlo!`,
+    conceptos: [
+      { icono: '⚙️', nombre: 'Ciclo de 4 Tiempos', descripcion: 'Admisión, compresión, explosión y escape: la secuencia que convierte combustible en movimiento.' },
+      { icono: '🔥', nombre: 'Relación de Compresión', descripcion: 'A mayor compresión, mayor eficiencia térmica del ciclo Otto (hasta el límite de detonación).' },
+      { icono: '🔢', nombre: 'Orden de Encendido', descripcion: 'La secuencia 1-3-4-2 reparte los impulsos y equilibra las vibraciones del motor.' },
+      { icono: '🩺', nombre: 'Diagnóstico', descripcion: 'Detonación, cilindro muerto u orden incorrecto: cada falla tiene su síntoma.' },
+    ],
+    mision: [
+      'FASE 1 · Armado: monta bloque, cigüeñal, pistones y culata; define el orden de encendido 1-3-4-2.',
+      'FASE 2 · Fundamento: calcula la eficiencia del ciclo Otto según la relación de compresión.',
+      'FASE 3 · Diagnóstico: identifica si la falla es orden de encendido, detonación o un cilindro muerto.',
+      'Observa el ciclo de 4 tiempos animado mientras ajustas los parámetros.',
+    ],
+    aplicaciones: [
+      { area: 'Automóviles', ejemplo: 'La inmensa mayoría de coches a gasolina usan este ciclo.' },
+      { area: 'Motocicletas y Náutica', ejemplo: 'Motores compactos de alta relación potencia/peso.' },
+      { area: 'Maquinaria Agrícola', ejemplo: 'Tractores y generadores portátiles de combustión.' },
+    ],
+    retos: [
+      'Maximiza la eficiencia sin cruzar el umbral de detonación.',
+      'Diagnostica el cilindro muerto solo con la firma de vibración.',
+    ],
+  },
+  'mecanica-3': {
+    codigo: 'MEC-03',
+    titulo: 'Brazo Robótico de 4 Ejes',
+    subtitulo: 'Mecatrónica · Cinemática, par y diagnóstico',
+    acento: '#2A9D8F',
+    duracion: 45,
+    videoUrl: '',
+    bienvenida: `¡Bienvenido al laboratorio de Mecatrónica! Hoy vas a ensamblar un brazo robótico eslabón por eslabón y a controlarlo con matemáticas.\n\nMontarás la base, el hombro, el codo y la muñeca/pinza en el orden estructural correcto. Después calcularás la posición del efector final con cinemática directa y el par necesario para levantar una carga. Por último, el brazo fallará en una tarea y tendrás que encontrar la avería.\n\nCada decisión tiene consecuencia física. ¡Construyamos un manipulador!`,
+    conceptos: [
+      { icono: '🦾', nombre: 'Eslabones y Articulaciones', descripcion: 'Base, hombro, codo y muñeca forman una cadena cinemática abierta.' },
+      { icono: '📐', nombre: 'Cinemática Directa', descripcion: 'Con los ángulos de cada eje se calcula la posición exacta del efector final.' },
+      { icono: '🏋️', nombre: 'Par (Torque)', descripcion: 'El par necesario depende de la carga y la distancia al eje: τ = F · d.' },
+      { icono: '🔍', nombre: 'Diagnóstico', descripcion: 'Encoder, pinza o sobrecarga: cada falla del manipulador tiene su síntoma.' },
+    ],
+    mision: [
+      'FASE 1 · Armado: monta base, hombro, codo y muñeca/pinza en el orden correcto.',
+      'FASE 2 · Fundamento: calcula la posición del efector final y el par necesario para una carga.',
+      'FASE 3 · Diagnóstico: identifica si la falla es el encoder, la pinza o una sobrecarga.',
+      'Usa el modo Manual o Automático para el ensamblaje.',
+    ],
+    aplicaciones: [
+      { area: 'Manufactura', ejemplo: 'Robots de soldadura y ensamblaje en líneas automotrices.' },
+      { area: 'Logística', ejemplo: 'Brazos de pick-and-place en centros de distribución.' },
+      { area: 'Cirugía Asistida', ejemplo: 'Manipuladores de precisión milimétrica en quirófanos.' },
+    ],
+    retos: [
+      'Alcanza el punto objetivo con la combinación de ángulos más eficiente.',
+      'Calcula el par exacto para la carga máxima sin sobrecargar el servo.',
+    ],
+  },
+  'mecanica-4': {
+    codigo: 'MEC-04',
+    titulo: 'Inversor Trifásico de Potencia',
+    subtitulo: 'Autotrónica · Electrónica de potencia y diagnóstico',
+    acento: '#2A9D8F',
+    duracion: 40,
+    videoUrl: '',
+    bienvenida: `¡Bienvenido al banco de electrónica de potencia de CEN Labs! Hoy vas a ensamblar un inversor trifásico, el dispositivo que convierte corriente continua en las tres fases que mueven un motor.\n\nMontarás el disipador, los capacitores del bus DC, los módulos IGBT, la placa de control y las busbarras. Luego calcularás el voltaje pico de salida y decidirás la frecuencia de conmutación, observando cómo se generan las tres fases. Finalmente diagnosticarás una falla real.\n\nCada decisión tiene consecuencia física. ¡A construir!`,
+    conceptos: [
+      { icono: '🔌', nombre: 'Bus DC', descripcion: 'Los capacitores estabilizan la tensión continua que alimenta al inversor.' },
+      { icono: '🔺', nombre: 'Módulos IGBT', descripcion: 'Los transistores de potencia conmutan miles de veces por segundo para sintetizar la CA.' },
+      { icono: '〰️', nombre: 'PWM y 3 Fases', descripcion: 'La modulación por ancho de pulso genera tres ondas senoidales desfasadas 120°.' },
+      { icono: '🌡️', nombre: 'Diagnóstico', descripcion: 'IGBT, secuencia de disparo o sobrecalentamiento: cada falla tiene su firma.' },
+    ],
+    mision: [
+      'FASE 1 · Armado: monta disipador, capacitores del bus DC, IGBT, placa de control y busbarras.',
+      'FASE 2 · Fundamento: calcula el voltaje pico de salida y decide la frecuencia de conmutación.',
+      'FASE 3 · Diagnóstico: identifica si la falla es un IGBT, la secuencia de disparo o sobrecalentamiento.',
+      'Observa la conmutación generar las tres fases en tiempo real.',
+    ],
+    aplicaciones: [
+      { area: 'Vehículos Eléctricos', ejemplo: 'El inversor traduce la batería DC en la CA que mueve el motor.' },
+      { area: 'Energía Solar', ejemplo: 'Convierte la corriente continua de los paneles en CA para la red.' },
+      { area: 'Industria', ejemplo: 'Variadores de frecuencia para controlar motores industriales.' },
+    ],
+    retos: [
+      'Alcanza el voltaje de salida objetivo eligiendo la frecuencia óptima.',
+      'Diagnostica el IGBT dañado sin desmontar todo el módulo.',
+    ],
+  },
+  'mecanica-5': {
+    codigo: 'MEC-05',
+    titulo: 'Estación de Carga EV (DC Rápida)',
+    subtitulo: 'Autotrónica · Infraestructura de carga y diagnóstico',
+    acento: '#2A9D8F',
+    duracion: 40,
+    videoUrl: '',
+    bienvenida: `¡Bienvenido a la estación de carga de CEN Labs! Hoy vas a ensamblar una estación de carga rápida en corriente continua para vehículos eléctricos.\n\nMontarás el gabinete, el módulo de potencia, las protecciones, el panel y el cable/conector. Después calcularás la corriente de carga y el tiempo necesario con física real, y observarás la curva de carga. Por último, la carga fallará y tendrás que diagnosticar la causa.\n\nCada decisión tiene consecuencia física. ¡Vamos a energizar!`,
+    conceptos: [
+      { icono: '🔋', nombre: 'Carga DC Rápida', descripcion: 'La estación entrega corriente continua directa a la batería, saltándose el cargador interno.' },
+      { icono: '📈', nombre: 'Curva de Carga', descripcion: 'La potencia baja al acercarse al 100% para proteger las celdas (curva CC-CV).' },
+      { icono: '⏱️', nombre: 'Corriente y Tiempo', descripcion: 'El tiempo de carga depende de la capacidad (kWh) y la corriente entregada (A).' },
+      { icono: '⚠️', nombre: 'Diagnóstico', descripcion: 'Conector, autenticación o límite térmico: cada falla tiene su síntoma.' },
+    ],
+    mision: [
+      'FASE 1 · Armado: monta gabinete, módulo de potencia, protección, panel y cable/conector.',
+      'FASE 2 · Fundamento: calcula la corriente de carga y el tiempo necesario; observa la curva real.',
+      'FASE 3 · Diagnóstico: identifica si la falla es el conector, la autenticación o un límite térmico.',
+      'Usa el modo Manual o Automático para el ensamblaje.',
+    ],
+    aplicaciones: [
+      { area: 'Movilidad Eléctrica', ejemplo: 'Electrolineras de carga rápida en carreteras y ciudades.' },
+      { area: 'Flotas Comerciales', ejemplo: 'Depósitos de autobuses y camiones eléctricos.' },
+      { area: 'Red Eléctrica', ejemplo: 'Gestión de demanda y balance de carga en la red.' },
+    ],
+    retos: [
+      'Carga la batería al 80% en el menor tiempo respetando el límite térmico.',
+      'Diagnostica el fallo de autenticación sin reiniciar la estación.',
+    ],
+  },
   'matematicas-1': {
     codigo: 'MAT-01',
     titulo: 'Ecuaciones Cuadráticas',

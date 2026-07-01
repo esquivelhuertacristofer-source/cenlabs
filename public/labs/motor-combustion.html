@@ -1,0 +1,1001 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>AutoLab 3D · Motor de Combustión — Laboratorio Didáctico</title>
+<style>
+  :root{
+    --bg:#0a0908;--panel:rgba(26,20,16,.86);--line:#3a2c22;--ink:#f5efe8;
+    --dim:#a89684;--accent:#ff6b1a;--accent2:#ffb347;--hv:#ffd166;--good:#7bd88f;--bad:#f4475e;
+    --mono:'Courier New',ui-monospace,monospace;--disp:'Arial Black',Impact,sans-serif;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  html,body{height:100%;overflow:hidden;background:var(--bg);color:var(--ink);font-family:system-ui,Segoe UI,Roboto,sans-serif}
+  #stage{position:fixed;inset:0}
+  canvas{display:block;touch-action:none}
+
+  .topbar{position:fixed;top:0;left:0;right:0;height:60px;display:flex;align-items:center;gap:18px;padding:0 20px;z-index:20;background:linear-gradient(180deg,rgba(10,9,8,.94),transparent);pointer-events:none}
+  .brand{font-family:var(--disp);text-transform:uppercase;font-size:17px}
+  .brand span{color:var(--accent)}
+  .phases{display:flex;gap:6px;pointer-events:auto}
+  .phase-tab{font-family:var(--mono);font-size:10px;letter-spacing:.06em;text-transform:uppercase;padding:7px 13px;border-radius:30px;border:1px solid var(--line);color:var(--dim);background:rgba(26,20,16,.7);backdrop-filter:blur(8px);display:flex;align-items:center;gap:7px;transition:.2s}
+  .phase-tab .nm{width:18px;height:18px;border-radius:50%;background:var(--line);color:var(--bg);display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:bold}
+  .phase-tab.active{border-color:var(--accent);color:var(--ink)} .phase-tab.active .nm{background:var(--accent);color:#1a1209}
+  .phase-tab.done .nm{background:var(--good);color:#06201c} .phase-tab.done{color:var(--good);border-color:rgba(123,216,143,.4)}
+  .soundBtn{font-size:16px;background:var(--panel);backdrop-filter:blur(12px);border:1px solid var(--line);border-radius:50%;width:38px;height:38px;cursor:pointer;color:var(--dim);transition:.15s}
+  .soundBtn.on{color:var(--accent);border-color:var(--accent)}
+  .soundBtn:hover{transform:scale(1.08)}
+
+  .intro{position:fixed;inset:0;z-index:40;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:20px;background:radial-gradient(circle at 50% 45%,rgba(40,24,14,.6),rgba(10,9,8,.97));transition:opacity .8s;padding:24px;text-align:center}
+  .intro.hide{opacity:0;pointer-events:none}
+  .intro .sub{font-family:var(--mono);font-size:12px;letter-spacing:.2em;text-transform:uppercase;color:var(--accent2)}
+  .intro .ttl{font-family:var(--disp);font-size:clamp(28px,5vw,54px);text-transform:uppercase;letter-spacing:-.02em;line-height:.95}
+  .intro .ttl span{color:var(--accent)}
+  .intro p{max-width:540px;color:var(--dim);font-size:14px;line-height:1.6}
+  .intro .obj{max-width:540px;text-align:left;background:rgba(26,20,16,.7);border:1px solid var(--line);border-radius:14px;padding:16px 20px}
+  .intro .obj h4{font-family:var(--mono);font-size:10px;letter-spacing:.16em;text-transform:uppercase;color:var(--accent);margin-bottom:10px}
+  .intro .obj ul{list-style:none;display:flex;flex-direction:column;gap:8px}
+  .intro .obj li{font-size:13px;color:var(--dim);padding-left:22px;position:relative}
+  .intro .obj li::before{content:'▸';position:absolute;left:4px;color:var(--accent2)}
+  .startbtn{font-family:var(--mono);font-size:13px;letter-spacing:.12em;text-transform:uppercase;color:#1a1209;background:var(--accent);border:none;padding:15px 34px;border-radius:40px;cursor:pointer;transition:.2s;box-shadow:0 10px 40px rgba(255,107,26,.35)}
+  .startbtn:hover{transform:translateY(-2px);box-shadow:0 16px 50px rgba(255,107,26,.5)}
+  .modeToggle{display:flex;gap:8px;flex-wrap:wrap;justify-content:center;margin-top:2px}
+  .modeBtn{font-family:var(--mono);font-size:11px;letter-spacing:.04em;color:var(--dim);background:rgba(26,20,16,.7);border:1px solid var(--line);border-radius:30px;padding:9px 16px;cursor:pointer;transition:.15s}
+  .modeBtn:hover{border-color:var(--accent)}
+  .modeBtn.active{background:var(--accent);color:#1a1209;border-color:var(--accent);font-weight:bold}
+
+  .teach{position:fixed;top:74px;left:20px;z-index:15;width:330px;background:var(--panel);backdrop-filter:blur(16px);border:1px solid var(--line);border-radius:16px;padding:0;box-shadow:0 20px 60px rgba(0,0,0,.55);overflow:hidden;transition:.4s;opacity:0;transform:translateX(-12px)}
+  .teach.show{opacity:1;transform:none}
+  .teach-head{padding:14px 18px;background:linear-gradient(90deg,rgba(255,107,26,.16),transparent);border-bottom:1px solid var(--line)}
+  .teach-head .step-no{font-family:var(--mono);font-size:10px;letter-spacing:.1em;color:var(--accent);text-transform:uppercase}
+  .teach-head h3{font-size:16px;margin-top:2px}
+  .teach-body{padding:16px 18px}
+  .teach-body p{font-size:13.5px;line-height:1.6;color:var(--ink);margin-bottom:12px}
+  .teach-body .why{font-size:12.5px;line-height:1.55;color:var(--dim);background:rgba(255,179,71,.08);border-left:2px solid var(--accent2);padding:10px 12px;border-radius:0 8px 8px 0;margin-bottom:12px}
+  .teach-body .why b{color:var(--accent2)}
+  .formula{font-family:var(--mono);color:var(--accent2);text-align:center;font-size:15px;margin:10px 0;padding:8px;background:rgba(0,0,0,.25);border-radius:8px}
+  .task{font-family:var(--mono);font-size:12px;color:var(--hv);background:rgba(255,209,102,.08);border:1px dashed rgba(255,209,102,.35);border-radius:8px;padding:10px 12px;margin-bottom:6px}
+  .task::before{content:'⚡ TAREA: ';color:var(--accent);font-weight:bold}
+
+  .actions{position:fixed;top:74px;right:20px;z-index:15;width:250px;background:var(--panel);backdrop-filter:blur(16px);border:1px solid var(--line);border-radius:16px;padding:16px;box-shadow:0 20px 60px rgba(0,0,0,.55);transition:.4s;opacity:0;transform:translateX(12px)}
+  .actions.show{opacity:1;transform:none}
+  .actions h4{font-family:var(--mono);font-size:10px;letter-spacing:.14em;text-transform:uppercase;color:var(--dim);margin-bottom:12px}
+  .opt{display:flex;flex-direction:column;gap:7px}
+  .b{font-family:system-ui;font-size:13px;padding:11px 12px;border-radius:9px;cursor:pointer;border:1px solid var(--line);background:#241a14;color:var(--ink);transition:.15s;text-align:left;display:flex;align-items:center;gap:9px}
+  .b:hover{border-color:var(--accent);background:#2c2018}
+  .b.primary{background:var(--accent);color:#1a1209;border-color:var(--accent);font-weight:bold;justify-content:center}
+  .b.good{border-color:var(--good);color:var(--good)} .b.bad{border-color:var(--bad);color:var(--bad)}
+  .b:disabled{opacity:.4;cursor:not-allowed} .b .ic{font-size:15px}
+  .calcbox{margin-top:6px} .calcbox label{font-family:var(--mono);font-size:11px;color:var(--dim);display:block;margin-bottom:6px}
+  .calcrow{display:flex;gap:8px}
+  .calcrow input{flex:1;background:#160f0a;border:1px solid var(--line);border-radius:8px;padding:10px;color:var(--ink);font-family:var(--mono);font-size:14px}
+  .calcrow input:focus{outline:none;border-color:var(--accent)}
+  .sl{font-family:var(--mono);font-size:10px;letter-spacing:.08em;text-transform:uppercase;color:var(--dim);margin:12px 0 5px}
+  input[type=range]{width:100%;accent-color:var(--accent)}
+  .mini{display:flex;justify-content:space-between;font-family:var(--mono);font-size:11px;color:var(--dim);margin-top:8px;padding-top:8px;border-top:1px solid var(--line)}
+  .mini b{color:var(--accent2)}
+  .firerow{display:flex;gap:5px;margin-top:8px}
+  .firecell{flex:1;text-align:center;font-family:var(--mono);font-size:14px;padding:9px 0;border-radius:7px;border:1px solid var(--line);background:#160f0a;cursor:pointer;transition:.15s}
+  .firecell:hover{border-color:var(--accent)}
+  .firecell.set{background:var(--accent);color:#1a1209;font-weight:bold;border-color:var(--accent)}
+
+  .feedback{position:fixed;left:50%;bottom:24px;transform:translateX(-50%) translateY(20px);z-index:30;max-width:560px;width:calc(100% - 40px);background:var(--panel);backdrop-filter:blur(16px);border:1px solid var(--line);border-radius:14px;padding:16px 20px;box-shadow:0 20px 60px rgba(0,0,0,.6);opacity:0;pointer-events:none;transition:.35s}
+  .feedback.show{opacity:1;transform:translateX(-50%);pointer-events:auto}
+  .feedback.good{border-color:var(--good)} .feedback.bad{border-color:var(--bad)}
+  .feedback .fh{display:flex;align-items:center;gap:10px;margin-bottom:6px}
+  .feedback .fi{width:24px;height:24px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:14px;font-weight:bold;flex:0 0 auto}
+  .feedback.good .fi{background:var(--good);color:#06201c} .feedback.bad .fi{background:var(--bad);color:#2a0810}
+  .feedback .ft{font-weight:bold;font-size:14px} .feedback.good .ft{color:var(--good)} .feedback.bad .ft{color:var(--bad)}
+  .feedback p{font-size:13px;line-height:1.55;color:var(--dim)}
+  .feedback .fx{position:absolute;top:12px;right:14px;background:none;border:none;color:var(--dim);cursor:pointer;font-size:16px}
+
+  .hint{position:fixed;bottom:24px;left:20px;z-index:12;font-family:var(--mono);font-size:10px;color:var(--dim);background:var(--panel);padding:8px 12px;border-radius:9px;border:1px solid var(--line);opacity:0;transition:.4s}
+  .hint.show{opacity:1}
+
+  .sheetbar{display:none}
+  @media(max-width:860px),(max-height:580px){
+    .brand{font-size:15px}.phases{display:none}.hint{display:none}
+    .sheetbar{display:flex;gap:8px;position:fixed;top:62px;right:12px;z-index:18}
+    .sheetbar button{font-family:var(--mono);font-size:10px;letter-spacing:.08em;text-transform:uppercase;color:var(--ink);background:var(--panel);backdrop-filter:blur(12px);border:1px solid var(--line);border-radius:30px;padding:9px 12px;cursor:pointer}
+    .sheetbar button.on{background:var(--accent);color:#1a1209;border-color:var(--accent)}
+    .teach,.actions{position:fixed;left:8px;right:8px;bottom:96px;top:auto;width:auto;max-height:50vh;overflow-y:auto;transform:translateY(130%);opacity:0;pointer-events:none}
+    .teach.open,.actions.open{transform:translateY(0)!important;opacity:1!important;pointer-events:auto}
+    .feedback{bottom:14px}.phase-mini{display:flex!important}
+  }
+  .phase-mini{display:none;position:fixed;top:62px;left:12px;z-index:18;font-family:var(--mono);font-size:10px;color:var(--accent);background:var(--panel);border:1px solid var(--line);border-radius:30px;padding:9px 13px}
+</style>
+</head>
+<body>
+<div id="stage"></div>
+
+<div class="topbar">
+  <div class="brand">Auto<span>Lab</span> 3D</div>
+  <div class="phases" id="phases">
+    <div class="phase-tab active" data-ph="0"><span class="nm">1</span> Armado</div>
+    <div class="phase-tab" data-ph="1"><span class="nm">2</span> Fundamento</div>
+    <div class="phase-tab" data-ph="2"><span class="nm">3</span> Diagnóstico</div>
+  </div>
+  <button class="soundBtn on" id="soundBtn" style="pointer-events:auto;margin-left:auto">🔊</button>
+</div>
+<div class="phase-mini" id="phaseMini">FASE 1 · ARMADO</div>
+
+<div class="intro" id="intro">
+  <div class="sub">CONALEP · Autotrónica · Laboratorio guiado</div>
+  <div class="ttl">Arma y entiende un<br><span>Motor de Combustión</span></div>
+  <p>No es una animación para mirar. Vas a <b>ensamblar el motor</b>, definir el <b>orden de encendido</b>, <b>calcular su eficiencia</b> con la termodinámica real, y <b>diagnosticar fallas</b>. Cada decisión tiene consecuencia física.</p>
+  <div class="obj">
+    <h4>Lo que lograrás</h4>
+    <ul>
+      <li><b>Fase 1 · Armado:</b> monta bloque, cigüeñal, pistones y culata, y define el orden de encendido 1-3-4-2.</li>
+      <li><b>Fase 2 · Fundamento:</b> calcula la eficiencia del ciclo Otto a partir de la relación de compresión y observa el ciclo de 4 tiempos.</li>
+      <li><b>Fase 3 · Diagnóstico:</b> el motor falla; identifica si es orden de encendido, detonación o un cilindro muerto.</li>
+    </ul>
+  </div>
+  <div class="modeToggle" id="modeToggle">
+    <button class="modeBtn active" data-mode="manual">🖐️ Manual — yo armo cada pieza</button>
+    <button class="modeBtn" data-mode="auto">▶ Automático — ver la secuencia armarse sola</button>
+  </div>
+  <button class="startbtn" id="start">▶ Comenzar laboratorio</button>
+</div>
+
+<div class="sheetbar"><button id="tgTeach">Instrucción</button><button id="tgAct">Acciones</button></div>
+
+<div class="teach" id="teach">
+  <div class="teach-head"><div class="step-no" id="stepNo">Fase 1 · Paso 1</div><h3 id="stepTitle">—</h3></div>
+  <div class="teach-body" id="teachBody"></div>
+</div>
+
+<div class="actions" id="actions">
+  <h4 id="actHead">Acciones</h4>
+  <div class="opt" id="actOpt"></div>
+</div>
+
+<div class="feedback" id="feedback">
+  <button class="fx" id="fbX">✕</button>
+  <div class="fh"><div class="fi" id="fbIcon">!</div><div class="ft" id="fbTitle"></div></div>
+  <p id="fbText"></p>
+</div>
+
+<div class="hint" id="hint">Arrastra para orbitar · rueda para zoom</div>
+
+<script type="importmap">
+{ "imports": {
+  "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.min.js",
+  "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/"
+}}
+</script>
+<script type="module">
+import * as THREE from 'three';
+import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
+import { RoundedBoxGeometry } from 'three/addons/geometries/RoundedBoxGeometry.js';
+import { EffectComposer } from 'three/addons/postprocessing/EffectComposer.js';
+import { RenderPass } from 'three/addons/postprocessing/RenderPass.js';
+import { GTAOPass } from 'three/addons/postprocessing/GTAOPass.js';
+import { UnrealBloomPass } from 'three/addons/postprocessing/UnrealBloomPass.js';
+import { BokehPass } from 'three/addons/postprocessing/BokehPass.js';
+import { SMAAPass } from 'three/addons/postprocessing/SMAAPass.js';
+import { OutputPass } from 'three/addons/postprocessing/OutputPass.js';
+import { Reflector } from 'three/addons/objects/Reflector.js';
+
+/* ===== textures ===== */
+
+/* ============================================================
+   Texturas PBR procedurales (sin archivos externos)
+   Cada función devuelve {map, roughnessMap, normalMap?, metalnessMap?}
+   ============================================================ */
+
+function cv(s=512){const c=document.createElement('canvas');c.width=c.height=s;return c;}
+function tex(canvas,repeat=1,srgb=false){
+  const t=new THREE.CanvasTexture(canvas);
+  t.wrapS=t.wrapT=THREE.RepeatWrapping;t.repeat.set(repeat,repeat);
+  t.colorSpace = srgb?THREE.SRGBColorSpace:THREE.NoColorSpace;
+  t.anisotropy=8; return t;
+}
+// build a normal map from a height function h(x,y)->0..1
+function normalFromHeight(size, hfn, strength=2.0){
+  const c=cv(size),ctx=c.getContext('2d'),img=ctx.createImageData(size,size);
+  const H=(x,y)=>hfn((x+size)%size,(y+size)%size);
+  for(let y=0;y<size;y++)for(let x=0;x<size;x++){
+    const dx=(H(x+1,y)-H(x-1,y))*strength;
+    const dy=(H(x,y+1)-H(x,y-1))*strength;
+    const nz=1.0; const len=Math.hypot(dx,dy,nz);
+    const i=(y*size+x)*4;
+    img.data[i]  =((-dx/len)*0.5+0.5)*255;
+    img.data[i+1]=((-dy/len)*0.5+0.5)*255;
+    img.data[i+2]=((nz/len)*0.5+0.5)*255;
+    img.data[i+3]=255;
+  }
+  ctx.putImageData(img,0,0);return c;
+}
+function valueNoise(seed=1){
+  // simple hashed value noise
+  const g=(x,y)=>{const s=Math.sin((x*127.1+y*311.7)+seed*13.13)*43758.5453;return s-Math.floor(s);};
+  return (x,y)=>{
+    const xi=Math.floor(x),yi=Math.floor(y),xf=x-xi,yf=y-yi;
+    const u=xf*xf*(3-2*xf),v=yf*yf*(3-2*yf);
+    const a=g(xi,yi),b=g(xi+1,yi),c=g(xi,yi+1),d=g(xi+1,yi+1);
+    return a*(1-u)*(1-v)+b*u*(1-v)+c*(1-u)*v+d*u*v;
+  };
+}
+function fbm(noise,x,y,oct=4){let v=0,a=0.5,f=1;for(let i=0;i<oct;i++){v+=noise(x*f,y*f)*a;f*=2;a*=0.5;}return v;}
+
+/* ---------- ALUMINIO FUNDIDO (bloque, culata) ---------- */
+function castAluminum(){
+  const S=512, n=valueNoise(7);
+  // color: grain
+  const c=cv(S),ctx=c.getContext('2d'),img=ctx.createImageData(S,S);
+  for(let y=0;y<S;y++)for(let x=0;x<S;x++){
+    const v=fbm(n,x/22,y/22,5);
+    const por=Math.pow(n(x/3.1,y/3.1),8); // sparse pores
+    const base=150+v*38-por*70;
+    const i=(y*S+x)*4; img.data[i]=base; img.data[i+1]=base+4; img.data[i+2]=base+10; img.data[i+3]=255;
+  }
+  ctx.putImageData(img,0,0);
+  // roughness: pores rougher
+  const r=cv(S),rx=r.getContext('2d'),rimg=rx.createImageData(S,S);
+  for(let y=0;y<S;y++)for(let x=0;x<S;x++){
+    const v=fbm(n,x/18,y/18,4); const por=Math.pow(n(x/3.1,y/3.1),8);
+    const rough=120+v*40+por*90; const i=(y*S+x)*4;
+    rimg.data[i]=rimg.data[i+1]=rimg.data[i+2]=Math.min(255,rough); rimg.data[i+3]=255;
+  }
+  rx.putImageData(rimg,0,0);
+  const nrm=normalFromHeight(S,(x,y)=>fbm(n,x/16,y/16,5)+Math.pow(n(x/3.1,y/3.1),8)*0.6,3.0);
+  return {map:tex(c,1,true),roughnessMap:tex(r),normalMap:tex(nrm)};
+}
+
+/* ---------- METAL CEPILLADO (acero, pulleys) ---------- */
+function brushedMetal(){
+  const S=512, n=valueNoise(3);
+  const c=cv(S),ctx=c.getContext('2d'),img=ctx.createImageData(S,S);
+  for(let y=0;y<S;y++)for(let x=0;x<S;x++){
+    // anisotropic streaks along x
+    const streak=Math.sin(y*0.9)*2 + (n(x/120,y*0.5)-0.5)*40;
+    const base=185+streak; const i=(y*S+x)*4;
+    img.data[i]=base; img.data[i+1]=base+2; img.data[i+2]=base+6; img.data[i+3]=255;
+  }
+  ctx.putImageData(img,0,0);
+  const r=cv(S),rx=r.getContext('2d'),rimg=rx.createImageData(S,S);
+  for(let y=0;y<S;y++)for(let x=0;x<S;x++){
+    const streak=(n(x/120,y*0.5)-0.5)*60; const rough=40+Math.abs(streak); const i=(y*S+x)*4;
+    rimg.data[i]=rimg.data[i+1]=rimg.data[i+2]=Math.min(160,rough); rimg.data[i+3]=255;
+  }
+  rx.putImageData(rimg,0,0);
+  const nrm=normalFromHeight(S,(x,y)=>(n(x/120,y*0.5))*0.3+Math.sin(y*0.9)*0.02,1.2);
+  return {map:tex(c,1,true),roughnessMap:tex(r),normalMap:tex(nrm)};
+}
+
+/* ---------- PINTURA CÁSCARA DE NARANJA (tapa de balancines) ---------- */
+function orangePeel(r=0.70,g=0.25,b=0.09){
+  const S=512, n=valueNoise(11);
+  const c=cv(S),ctx=c.getContext('2d'),img=ctx.createImageData(S,S);
+  for(let y=0;y<S;y++)for(let x=0;x<S;x++){
+    const v=fbm(n,x/40,y/40,3)*0.12+0.94;
+    const i=(y*S+x)*4;
+    img.data[i]=r*255*v; img.data[i+1]=g*255*v; img.data[i+2]=b*255*v; img.data[i+3]=255;
+  }
+  ctx.putImageData(img,0,0);
+  // clearcoat-ish: low roughness but with the peel bumps
+  const nrm=normalFromHeight(S,(x,y)=>fbm(n,x/14,y/14,3),1.6);
+  const rough=cv(64),rc=rough.getContext('2d');rc.fillStyle='#444';rc.fillRect(0,0,64,64);
+  return {map:tex(c,1,true),roughnessMap:tex(rough),normalMap:tex(nrm)};
+}
+
+/* ---------- CAUCHO / MANGUERAS ---------- */
+function rubber(){
+  const S=256,n=valueNoise(5);
+  const nrm=normalFromHeight(S,(x,y)=>fbm(n,x/8,y/8,4),1.4);
+  const rough=cv(64),rc=rough.getContext('2d');rc.fillStyle='#e0e0e0';rc.fillRect(0,0,64,64);
+  return {roughnessMap:tex(rough),normalMap:tex(nrm,2)};
+}
+
+/* gradient environment background canvas (для scene.background) */
+function gradientBG(top='#11161d',bottom='#05070a'){
+  const c=cv(512),ctx=c.getContext('2d');
+  const grd=ctx.createLinearGradient(0,0,0,512);
+  grd.addColorStop(0,top);grd.addColorStop(1,bottom);
+  ctx.fillStyle=grd;ctx.fillRect(0,0,512,512);
+  // subtle vignette glow center
+  const rg=ctx.createRadialGradient(256,200,30,256,256,360);
+  rg.addColorStop(0,'rgba(255,120,40,0.10)');rg.addColorStop(1,'rgba(0,0,0,0)');
+  ctx.fillStyle=rg;ctx.fillRect(0,0,512,512);
+  return tex(c,1,true);
+}
+
+/* ---------- PINTURA AUTOMOTRIZ LISA (carrocería, brazo robot) ---------- */
+function carPaint(r=0.15,g=0.35,b=0.85){
+  const S=256, n=valueNoise(21);
+  const c=cv(S),ctx=c.getContext('2d'),img=ctx.createImageData(S,S);
+  for(let y=0;y<S;y++)for(let x=0;x<S;x++){
+    const v=fbm(n,x/60,y/60,2)*0.06+0.95;
+    const i=(y*S+x)*4;
+    img.data[i]=r*255*v; img.data[i+1]=g*255*v; img.data[i+2]=b*255*v; img.data[i+3]=255;
+  }
+  ctx.putImageData(img,0,0);
+  const rough=cv(32),rc=rough.getContext('2d');rc.fillStyle='#2a2a2a';rc.fillRect(0,0,32,32);
+  return {map:tex(c,1,true),roughnessMap:tex(rough)};
+}
+
+/* ---------- PLÁSTICO TÉCNICO (cubiertas, conector de carga) ---------- */
+function techPlastic(r=0.10,g=0.11,b=0.13){
+  const S=256,n=valueNoise(31);
+  const c=cv(S),ctx=c.getContext('2d'),img=ctx.createImageData(S,S);
+  for(let y=0;y<S;y++)for(let x=0;x<S;x++){
+    const v=fbm(n,x/30,y/30,3)*0.1+0.92; const i=(y*S+x)*4;
+    img.data[i]=r*255*v;img.data[i+1]=g*255*v;img.data[i+2]=b*255*v;img.data[i+3]=255;
+  }
+  ctx.putImageData(img,0,0);
+  const nrm=normalFromHeight(S,(x,y)=>fbm(n,x/10,y/10,3),0.8);
+  const rough=cv(64),rc=rough.getContext('2d');rc.fillStyle='#9a9a9a';rc.fillRect(0,0,64,64);
+  return {map:tex(c,1,true),roughnessMap:tex(rough),normalMap:tex(nrm)};
+}
+
+/* ---------- BOBINADO DE COBRE (motor eléctrico) ---------- */
+function copperWinding(){
+  const S=256;
+  const c=cv(S),ctx=c.getContext('2d');
+  // horizontal copper wire bands
+  for(let y=0;y<S;y+=6){
+    const sh=Math.sin(y*0.5)*20;
+    ctx.fillStyle=`rgb(${180+sh},${100+sh*0.5},${50+sh*0.3})`;
+    ctx.fillRect(0,y,S,5);
+    ctx.fillStyle='rgba(0,0,0,0.25)';ctx.fillRect(0,y+5,S,1);
+  }
+  const nrm=normalFromHeight(S,(x,y)=>Math.sin(y*0.5)*0.5+0.5,2.0);
+  const rough=cv(32),rc=rough.getContext('2d');rc.fillStyle='#5a5a5a';rc.fillRect(0,0,32,32);
+  return {map:tex(c,1,true),roughnessMap:tex(rough),normalMap:tex(nrm,1)};
+}
+
+
+/* ===== lab ===== */
+
+/* ============================================================
+   MOTOR DE COMBUSTIÓN — LABORATORIO DIDÁCTICO
+   Física: Nissan HR16DE (1.6L I4), ciclo Otto, orden 1-3-4-2
+   ============================================================ */
+const ICE={
+  cyl:4, disp_cc:1598, CR:9.8, bore:0.078, stroke:0.0836,
+  power_kw:80, power_rpm:6000, torque_nm:153, torque_rpm:4000, redline:6500, idle:750,
+  firing:[1,3,4,2], gamma:1.40,
+};
+// thermodynamics
+const ottoEff = (cr,g=ICE.gamma)=> 1 - 1/Math.pow(cr,g-1);
+function torqueAt(rpm){ if(rpm<ICE.idle)return 0; const x=rpm/ICE.torque_rpm;
+  const t=ICE.torque_nm*(1.15-0.55*(x-1)*(x-1)-0.1*x); return Math.max(0,Math.min(ICE.torque_nm*1.02,t)); }
+const powerKW = rpm => torqueAt(rpm)*(2*Math.PI*rpm/60)/1000;
+
+/* ---------- renderer / scene ---------- */
+const stage=document.getElementById('stage');
+const renderer=new THREE.WebGLRenderer({antialias:true});
+renderer.setPixelRatio(Math.min(devicePixelRatio,2));
+renderer.setSize(innerWidth,innerHeight);
+renderer.shadowMap.enabled=true; renderer.shadowMap.type=THREE.PCFSoftShadowMap;
+renderer.toneMapping=THREE.ACESFilmicToneMapping; renderer.toneMappingExposure=1.16;
+renderer.outputColorSpace=THREE.SRGBColorSpace;
+stage.appendChild(renderer.domElement); renderer.domElement.style.touchAction='none';
+
+const scene=new THREE.Scene();
+scene.background=gradientBG('#1c140e','#05030a');
+const pmrem=new THREE.PMREMGenerator(renderer);
+scene.environment=pmrem.fromScene(new RoomEnvironment(renderer),0.04).texture;
+scene.environmentIntensity=1.1;
+
+const camera=new THREE.PerspectiveCamera(44,innerWidth/innerHeight,0.1,200);
+camera.position.set(6.5,4,7.5);
+const controls=new OrbitControls(camera,renderer.domElement);
+controls.enableDamping=true;controls.dampingFactor=0.06;
+controls.minDistance=3;controls.maxDistance=18;controls.maxPolarAngle=Math.PI*0.54;
+controls.target.set(0,1.4,0);
+
+/* lights */
+const key=new THREE.DirectionalLight(0xffffff,2.6);key.position.set(5,9,6);key.castShadow=true;
+key.shadow.mapSize.set(2048,2048);key.shadow.camera.near=0.5;key.shadow.camera.far=40;
+const sd=8;Object.assign(key.shadow.camera,{left:-sd,right:sd,top:sd,bottom:-sd});
+key.shadow.bias=-0.0003;key.shadow.normalBias=0.02;scene.add(key);
+const rim=new THREE.SpotLight(0xff7a2a,75,30,Math.PI/5,0.4,1.5);rim.position.set(-7,6,-5);scene.add(rim);
+const fill=new THREE.DirectionalLight(0xffd9a0,0.5);fill.position.set(-4,3,7);scene.add(fill);
+scene.add(new THREE.HemisphereLight(0xc8b49f,0x140d08,0.4));
+
+/* reflective floor */
+(function(){
+  const _light=/[?&]light/.test(location.search);
+  if(!_light){
+    const mirror=new Reflector(new THREE.CircleGeometry(40,80),{clipBias:0.003,textureWidth:innerWidth*Math.min(devicePixelRatio,2),textureHeight:innerHeight*Math.min(devicePixelRatio,2),color:0x0a0806});
+    mirror.rotation.x=-Math.PI/2;scene.add(mirror);
+  } else {
+    const m=new THREE.Mesh(new THREE.CircleGeometry(40,80),new THREE.MeshStandardMaterial({color:0x0a0806,roughness:0.2,metalness:0.6}));
+    m.rotation.x=-Math.PI/2;m.receiveShadow=true;scene.add(m);
+  }
+  const glass=new THREE.Mesh(new THREE.CircleGeometry(40,80),new THREE.MeshStandardMaterial({color:0x0a0806,roughness:0.34,metalness:0.4,transparent:true,opacity:0.62,envMapIntensity:0.7}));
+  glass.rotation.x=-Math.PI/2;glass.position.y=0.001;glass.receiveShadow=true;scene.add(glass);
+  for(let r=2;r<=8;r+=2){const ring=new THREE.Mesh(new THREE.RingGeometry(r-0.012,r+0.012,80),new THREE.MeshBasicMaterial({color:0x2a1f16,transparent:true,opacity:0.5,side:THREE.DoubleSide}));ring.rotation.x=-Math.PI/2;ring.position.y=0.004;scene.add(ring);}
+})();
+const platform=new THREE.Mesh(new THREE.CylinderGeometry(2.2,2.4,0.2,48),new THREE.MeshStandardMaterial({color:0x241a14,roughness:0.5,metalness:0.6}));
+platform.position.set(0,0.1,0);platform.receiveShadow=true;scene.add(platform);
+const platGlow=new THREE.Mesh(new THREE.RingGeometry(2.0,2.2,64),new THREE.MeshBasicMaterial({color:0xff6b1a,transparent:true,opacity:0.0,side:THREE.DoubleSide}));
+platGlow.rotation.x=-Math.PI/2;platGlow.position.y=0.21;scene.add(platGlow);
+
+/* ---------- materials ---------- */
+const Talu=castAluminum(),Tsteel=brushedMetal(),Tpeel=orangePeel(0.62,0.22,0.08),Trub=rubber();
+const std=o=>new THREE.MeshStandardMaterial(o);
+const MAT={
+  block:std({color:0x8893a0,roughness:0.55,metalness:0.92,map:Talu.map,roughnessMap:Talu.roughnessMap,normalMap:Talu.normalMap,normalScale:new THREE.Vector2(0.6,0.6),envMapIntensity:1.1}),
+  iron:std({color:0x515a64,roughness:0.78,metalness:0.8,map:Talu.map,roughnessMap:Talu.roughnessMap,normalMap:Talu.normalMap,normalScale:new THREE.Vector2(0.9,0.9)}),
+  steel:std({color:0xc2cad3,roughness:0.3,metalness:1,map:Tsteel.map,roughnessMap:Tsteel.roughnessMap,normalMap:Tsteel.normalMap,envMapIntensity:1.4}),
+  chrome:std({color:0xeef2f6,roughness:0.06,metalness:1,envMapIntensity:1.7}),
+  cover:std({color:0xffffff,roughness:0.3,metalness:0.25,map:Tpeel.map,normalMap:Tpeel.normalMap,normalScale:new THREE.Vector2(0.5,0.5)}),
+  ghost:std({color:0xff8a3a,transparent:true,opacity:0.16,side:THREE.DoubleSide}),
+  boreGlass:std({color:0x3a4148,roughness:0.35,metalness:0.5,transparent:true,opacity:0.32,side:THREE.DoubleSide}),
+};
+const bolt=(s=0.05)=>{const b=new THREE.Mesh(new THREE.CylinderGeometry(s,s,s*0.7,6),std({color:0x9aa2ab,roughness:0.35,metalness:1}));b.castShadow=true;return b;};
+function rbox(w,h,d,m,rf=0.08){const r=Math.min(w,h,d)*rf;const x=new THREE.Mesh(new RoundedBoxGeometry(w,h,d,4,r),m);x.castShadow=x.receiveShadow=true;return x;}
+
+/* ============================================================
+   MOTOR — partes ensamblables
+   ============================================================ */
+const motor=new THREE.Group(); motor.position.set(0,1.0,0); scene.add(motor);
+const bY=0.0;
+
+// ---- BLOCK (cárter bajo: deja expuestos cilindros, pistones y cigüeñal — no es una caja sólida) ----
+const blockGroup=new THREE.Group(); motor.add(blockGroup);
+(function(){
+  const main=rbox(2.8,0.62,1.6,MAT.block);main.position.y=bY+0.31;blockGroup.add(main);
+  for(let i=0;i<3;i++){const fin=rbox(2.82,0.04,1.62,MAT.block);fin.position.y=bY+0.1+i*0.18;blockGroup.add(fin);}
+  // camisas de cilindro visibles — suben desde el cárter hasta justo bajo la culata
+  for(let i=0;i<4;i++){const bore=new THREE.Mesh(new THREE.CylinderGeometry(0.32,0.32,1.5,28,1,true),MAT.boreGlass);bore.position.set(-0.96+i*0.64,bY+0.92,0);blockGroup.add(bore);
+    const rim=new THREE.Mesh(new THREE.TorusGeometry(0.32,0.025,10,28),MAT.iron);rim.position.set(-0.96+i*0.64,bY+1.67,0);blockGroup.add(rim);}
+  const pan=rbox(2.5,0.4,1.3,MAT.iron);pan.position.y=bY-0.18;blockGroup.add(pan);
+  for(let x=-1.2;x<=1.2;x+=0.6)for(let z=-0.65;z<=0.65;z+=1.3){const b=bolt();b.position.set(x,bY+0.63,z);blockGroup.add(b);}
+})();
+
+// ---- CRANKSHAFT ----
+const crankGroup=new THREE.Group(); motor.add(crankGroup);
+(function(){
+  const shaft=new THREE.Mesh(new THREE.CylinderGeometry(0.14,0.14,2.9,24),MAT.steel);shaft.rotation.z=Math.PI/2;crankGroup.add(shaft);
+  for(let i=0;i<4;i++){const cw=rbox(0.16,0.6,0.5,MAT.steel);cw.position.set(-0.96+i*0.64,0,0.2*((i===0||i===3)?1:-1));crankGroup.add(cw);}
+  crankGroup.position.set(0,bY+0.3,0);
+})();
+
+// ---- PISTONS (4) with rods — timing per firing order ----
+const pistonGroup=new THREE.Group(); motor.add(pistonGroup);
+const pistons=[];
+(function(){
+  for(let i=0;i<4;i++){const u=new THREE.Group();
+    const crown=new THREE.Mesh(new THREE.CylinderGeometry(0.3,0.3,0.36,28),MAT.chrome);crown.castShadow=true;u.add(crown);
+    for(let r=0;r<3;r++){const ring=new THREE.Mesh(new THREE.TorusGeometry(0.305,0.012,8,28),MAT.steel);ring.rotation.x=Math.PI/2;ring.position.y=0.06-r*0.06;u.add(ring);}
+    const rod=rbox(0.1,0.66,0.12,MAT.steel);rod.position.y=-0.52;u.add(rod);
+    // combustion flash light inside cylinder (for power stroke)
+    const flash=new THREE.PointLight(0xff5a1e,0,1.5,2);flash.position.y=0.3;u.add(flash);
+    u.position.set(-0.96+i*0.64,bY+1.28,0);pistonGroup.add(u);
+    pistons.push({grp:u,flash,cyl:i+1}); // cyl number = position+1
+  }
+})();
+
+// ---- HEAD + cam cover + spark plugs ----
+const headGroup=new THREE.Group(); motor.add(headGroup);
+const plugs=[];
+(function(){
+  const deck=rbox(2.9,0.42,1.65,MAT.block);deck.position.y=bY+1.92;headGroup.add(deck);
+  const cover=rbox(2.7,0.5,1.3,MAT.cover);cover.position.y=bY+2.35;headGroup.add(cover);
+  for(let x=-1.1;x<=1.1;x+=0.44)[0.55,-0.55].forEach(z=>{const b=bolt(0.045);b.position.set(x,bY+2.61,z);headGroup.add(b);});
+  for(let i=0;i<4;i++){const plug=new THREE.Mesh(new THREE.CylinderGeometry(0.05,0.07,0.32,16),MAT.chrome);plug.position.set(-0.96+i*0.64,bY+2.66,0);headGroup.add(plug);
+    plugs.push({mesh:plug,cyl:i+1});}
+})();
+
+
+/* ============================================================
+   POST-PROCESSING
+   ============================================================ */
+const isMobile=/Mobi|Android|iPhone|iPad/i.test(navigator.userAgent)||innerWidth<860;
+const noGtao=/[?&]nogtao/.test(location.search);
+const lightMode=/[?&]light/.test(location.search);   // captura: desactiva pasadas pesadas
+const composer=new EffectComposer(renderer);
+composer.addPass(new RenderPass(scene,camera));
+if(!isMobile&&!noGtao){try{const g=new GTAOPass(scene,camera,innerWidth,innerHeight);g.output=GTAOPass.OUTPUT.Default;if(g.updateGtaoMaterial)g.updateGtaoMaterial({radius:0.5,distanceExponent:1,thickness:1,scale:1.1,samples:16});composer.addPass(g);}catch(e){}}
+const bloom=new UnrealBloomPass(new THREE.Vector2(innerWidth,innerHeight),0.4,0.5,0.9);composer.addPass(bloom);
+let bokeh=null; if(!isMobile&&!lightMode){bokeh=new BokehPass(scene,camera,{focus:8.5,aperture:0.00035,maxblur:0.006,width:innerWidth,height:innerHeight});composer.addPass(bokeh);}
+composer.addPass(new OutputPass());
+composer.addPass(new SMAAPass(innerWidth*renderer.getPixelRatio(),innerHeight*renderer.getPixelRatio()));
+addEventListener('resize',()=>{camera.aspect=innerWidth/innerHeight;camera.updateProjectionMatrix();renderer.setSize(innerWidth,innerHeight);composer.setSize(innerWidth,innerHeight);});
+
+/* ============================================================
+   UI HELPERS
+   ============================================================ */
+const $=id=>document.getElementById(id);
+const teachEl=$('teach'),actionsEl=$('actions'),hintEl=$('hint');
+function showTeach(no,title,html){$('stepNo').textContent=no;$('stepTitle').textContent=title;$('teachBody').innerHTML=html;}
+function setActions(head,html){$('actHead').textContent=head;$('actOpt').innerHTML=html;$('actOpt').querySelectorAll('[data-act]').forEach(b=>b.onclick=()=>handleAction(b.dataset.act,b));}
+let fbTimer;
+function feedback(type,title,text,sticky=false){const f=$('feedback');f.className='feedback show '+type;$('fbIcon').textContent=type==='good'?'✓':'✕';$('fbTitle').textContent=title;$('fbText').innerHTML=text;clearTimeout(fbTimer);if(!sticky)fbTimer=setTimeout(()=>f.classList.remove('show'),6500);}
+$('fbX').onclick=()=>$('feedback').classList.remove('show');
+function setPhaseTab(i){document.querySelectorAll('.phase-tab').forEach((t,idx)=>{t.classList.toggle('active',idx===i);t.classList.toggle('done',idx<i);});$('phaseMini').textContent='FASE '+(i+1)+' · '+['ARMADO','FUNDAMENTO','DIAGNÓSTICO'][i];}
+
+/* ============================================================
+   PICKING (mesa de piezas)
+   ============================================================ */
+const ray=new THREE.Raycaster(),mouse=new THREE.Vector2();let down=null,onPick=null,autoMode=false;
+renderer.domElement.addEventListener('pointerdown',e=>down=[e.clientX,e.clientY]);
+renderer.domElement.addEventListener('pointerup',e=>{
+  if(!down)return;const moved=Math.abs(e.clientX-down[0])+Math.abs(e.clientY-down[1])>6;down=null;
+  if(moved||!onPick)return;
+  const r=renderer.domElement.getBoundingClientRect();
+  mouse.x=((e.clientX-r.left)/r.width)*2-1;mouse.y=-((e.clientY-r.top)/r.height)*2+1;
+  ray.setFromCamera(mouse,camera);
+  const hits=ray.intersectObjects(motor.children,true);
+  onPick(hits[0]||null);
+});
+
+/* ============================================================
+   MESA DE PIEZAS — toda pieza visible ANTES de instalarse;
+   instalar = viaje físico real hacia su lugar, nunca aparición mágica.
+   ============================================================ */
+const KIT_POS={
+  block:  new THREE.Vector3(-4.3,-0.7,-2.5),
+  crank:  new THREE.Vector3( 4.3,-0.7,-2.5),
+  pistons:new THREE.Vector3(-4.3,-0.7, 2.5),
+  head:   new THREE.Vector3( 4.3,-0.7, 2.5),
+};
+function rrPath(c,x,y,w,h,r){c.moveTo(x+r,y);c.lineTo(x+w-r,y);c.arcTo(x+w,y,x+w,y+r,r);c.lineTo(x+w,y+h-r);c.arcTo(x+w,y+h,x+w-r,y+h,r);c.lineTo(x+r,y+h);c.arcTo(x,y+h,x,y+h-r,r);c.lineTo(x,y+r);c.arcTo(x,y,x+r,y,r);c.closePath();}
+function smallLabel2(text,color){
+  const cv=document.createElement('canvas');cv.width=560;cv.height=108;const c=cv.getContext('2d');
+  c.fillStyle='rgba(18,12,8,.92)';c.beginPath();rrPath(c,4,4,552,100,24);c.fill();
+  c.strokeStyle=color;c.lineWidth=4;c.stroke();
+  c.font='bold 28px Courier New';c.textAlign='center';c.textBaseline='middle';c.fillStyle=color;
+  c.fillText(text,280,54);
+  const tex=new THREE.CanvasTexture(cv);tex.colorSpace=THREE.SRGBColorSpace;
+  const sp=new THREE.Sprite(new THREE.SpriteMaterial({map:tex,depthTest:false,transparent:true}));
+  sp.scale.set(2.15,0.41,1);sp.renderOrder=999;return sp;
+}
+function trayPad2(pos,color){
+  const pad=new THREE.Mesh(new THREE.CylinderGeometry(0.95,1.05,0.12,40),new THREE.MeshStandardMaterial({color:0x1c1410,roughness:0.55,metalness:0.5}));
+  pad.position.set(pos.x,0.06,pos.z);pad.receiveShadow=true;scene.add(pad);
+  const ring=new THREE.Mesh(new THREE.RingGeometry(0.82,0.94,48),new THREE.MeshBasicMaterial({color,transparent:true,opacity:0,side:THREE.DoubleSide}));
+  ring.rotation.x=-Math.PI/2;ring.position.set(pos.x,0.13,pos.z);scene.add(ring);
+  return {pad,ring};
+}
+const PIECE_ORDER=['block','crank','pistons','head'];
+const PIECE_GROUP={block:blockGroup,crank:crankGroup,pistons:pistonGroup,head:headGroup};
+const PIECE_NAME={block:'BLOQUE',crank:'CIGÜEÑAL',pistons:'PISTONES',head:'CULATA'};
+const PIECE_COLOR={block:'#ff8a3a',crank:'#ffd166',pistons:'#37e0c7',head:'#ff6b6a'};
+const travel={},trays={},lbls={};
+PIECE_ORDER.forEach(k=>{
+  const grp=PIECE_GROUP[k];
+  travel[k]={active:false,t:0,dur:1.05,from:KIT_POS[k].clone(),to:new THREE.Vector3(0,0,0),installed:false,bump:0};
+  grp.position.copy(KIT_POS[k]); grp.visible=true;
+  trays[k]=trayPad2(KIT_POS[k],PIECE_COLOR[k]);
+  const lbl=smallLabel2(PIECE_NAME[k]+' · toca para instalar',PIECE_COLOR[k]);
+  lbl.position.set(KIT_POS[k].x,2.05,KIT_POS[k].z); scene.add(lbl); lbls[k]=lbl;
+});
+function easeOutBack(x){const c1=1.4,c3=c1+1;return 1+c3*Math.pow(x-1,3)+c1*Math.pow(x-1,2);}
+function isInGroup(obj,group){let o=obj;while(o){if(o===group)return true;o=o.parent;}return false;}
+function installPiece(key){ travel[key].active=true; travel[key].t=0; }
+function attemptBump(key){ travel[key].bump=1; }
+function nextRequired(){ return PIECE_ORDER.find(k=>!travel[k].installed); }
+function pieceWhyBlocked(key){
+  if(key==='crank')return 'El cigüeñal va sobre la base del bloque. Sin bloque, no hay dónde apoyarlo ni alinear sus cojinetes.';
+  if(key==='pistons')return 'Los pistones se insertan en los cilindros DEL bloque y se conectan al cigüeñal. Necesitas ambos antes.';
+  if(key==='head')return 'La culata cierra los cilindros por ARRIBA, sobre los pistones ya instalados. Sin ellos no hay nada que cerrar.';
+  return 'Esa pieza va después en el orden de montaje.';
+}
+
+/* ============================================================
+   MOTOR STATE — 4-stroke timing engine
+   ============================================================ */
+
+let rpm=0,trpm=0,running=false,crankAngle=0;
+
+/* ---- cámara cinemática para "observa el ciclo de 4 tiempos": encuadre + auto-órbita que cede al usuario ---- */
+let cinematicSpin=false, lastDragTime=-99;
+const camCine={active:false,t:0,dur:1.5,from:new THREE.Vector3(),to:new THREE.Vector3(),fromTarget:new THREE.Vector3(),toTarget:new THREE.Vector3()};
+function easeInOutCubic(x){return x<0.5?4*x*x*x:1-Math.pow(-2*x+2,3)/2;}
+controls.addEventListener('start',()=>{ lastDragTime=clock.elapsedTime; camCine.active=false; });
+let firingOrder=[1,3,4,2];          // student-set; default correct
+let deadCylinder=0;                  // 0=none; diagnosis fault
+let knock=false;                     // detonation fault
+let compRatio=ICE.CR;
+
+// Each cylinder's power stroke happens at a crank angle.
+// Firing order maps: 1st in order powers at 0°, 2nd at 180°, 3rd at 360°, 4th at 540° (720° cycle)
+function powerAngleFor(cyl){ const idx=firingOrder.indexOf(cyl); return idx<0?0:idx*180; }
+// piston vertical position: 2 mechanical revs = 720° cycle. Piston goes up/down each 180° (every stroke).
+// Physical piston height depends only on crank (180° period), but WHICH stroke depends on cycle phase.
+function pistonHeight(cyl, cycleDeg){
+  // crank position: piston at TDC at 0,360,720; BDC at 180,540 -> use cos on mechanical angle
+  const mechRev = (cycleDeg)%360;
+  return Math.cos(mechRev*Math.PI/180); // +1 at TDC, -1 at BDC
+}
+function strokeOf(cyl, cycleDeg){
+  // at this cyl's power angle, it's at START of power (TDC). Strokes: intake,comp,power,exhaust
+  const rel=((cycleDeg - powerAngleFor(cyl))%720+720)%720;
+  // rel=0 -> power begins. So: [0-180)=power,[180-360)=exhaust,[360-540)=intake,[540-720)=compression
+  return Math.floor(rel/180); // 0=power,1=exhaust,2=intake,3=compression
+}
+
+/* ============================================================
+   PHASE 1: ARMADO
+   ============================================================ */
+let phase=0;
+const asm={block:false,crank:false,pistons:false,head:false,firing:false};
+function startPhase1(){
+  phase=0;setPhaseTab(0);
+  controls.target.set(0,0.4,0); controls.minDistance=2.5;
+  step_block();
+}
+function onPickGeneric(hit){
+  if(!hit)return;
+  const req=nextRequired(); if(!req)return;
+  for(const k of PIECE_ORDER){
+    if(isInGroup(hit.object,PIECE_GROUP[k])){
+      if(k===req)handleAction('place-'+k,null);
+      else if(!travel[k].installed){attemptBump(k);feedback('bad','Fuera de orden',pieceWhyBlocked(k)+' Instala primero: '+PIECE_NAME[req]+'.');}
+      return;
+    }
+  }
+}
+function step_block(){
+  showTeach('Fase 1 · Paso 1','Instala el bloque motor',
+    `<p>El <b>bloque</b> está sobre la mesa. Aloja los 4 cilindros donde suben y bajan los pistones. Es de aluminio con camisas de hierro.</p>
+     <div class="why"><b>¿Por qué primero?</b> Todo el motor se construye sobre el bloque: cigüeñal abajo, pistones dentro de los cilindros, culata arriba. Sin bloque no hay dónde montar nada.</div>
+     <div class="task">Toca la pieza naranja de la mesa, o usa el botón, para instalar el bloque.</div>`);
+  setActions('Mesa de piezas',`<button class="b primary" data-act="place-block"><span class="ic">⬇</span> Instalar bloque (4 cilindros)</button>
+     <button class="b" data-act="try-head-first"><span class="ic">⬇</span> Instalar culata primero</button>`);
+  platGlow.material.opacity=0.25;
+  onPick=onPickGeneric;
+  if(autoMode)setTimeout(()=>{if(!travel.block.installed)handleAction('place-block',null);},1900);
+}
+function step_crank(){
+  showTeach('Fase 1 · Paso 2','Instala el cigüeñal',
+    `<p>El <b>cigüeñal</b> espera en la mesa. Convierte el movimiento lineal de los pistones en giro. Sus muñequillas (codos) están a <b>180°</b> entre sí en un 4 cilindros.</p>
+     <div class="why"><b>El secreto del 4 cilindros:</b> los pistones 1 y 4 suben juntos mientras 2 y 3 bajan. Esa disposición a 180° da equilibrio primario y permite el orden de encendido uniforme.</div>
+     <div class="task">Toca la pieza amarilla de la mesa, o usa el botón, para instalar el cigüeñal.</div>`);
+  setActions('Mesa de piezas',`<button class="b primary" data-act="place-crank"><span class="ic">⬇</span> Instalar cigüeñal</button>`);
+  if(autoMode)setTimeout(()=>{if(!travel.crank.installed)handleAction('place-crank',null);},1900);
+}
+function step_pistons(){
+  showTeach('Fase 1 · Paso 3','Inserta los pistones',
+    `<p>Los <b>pistones</b> con sus bielas esperan en la mesa, ya preensamblados (como llegan de fábrica). Cada uno sella su cilindro con anillos y transmite la fuerza de la explosión al cigüeñal.</p>
+     <div class="why"><b>Anillos del pistón:</b> sellan la cámara de combustión. Si fugaran, se perdería compresión y el motor perdería potencia — una de las fallas que verás en el diagnóstico.</div>
+     <div class="task">Toca la pieza turquesa de la mesa, o usa el botón, para insertar los 4 pistones.</div>`);
+  setActions('Mesa de piezas',`<button class="b primary" data-act="place-pistons"><span class="ic">⬇</span> Insertar 4 pistones + bielas</button>`);
+  if(autoMode)setTimeout(()=>{if(!travel.pistons.installed)handleAction('place-pistons',null);},1900);
+}
+function step_head(){
+  showTeach('Fase 1 · Paso 4','Monta la culata',
+    `<p>La <b>culata</b> espera en la mesa. Cierra los cilindros por arriba. Aloja las válvulas, el árbol de levas y las bujías que encienden la mezcla.</p>
+     <div class="why"><b>La cámara de combustión</b> se forma entre la cabeza del pistón y la culata. Su volumen define la <b>relación de compresión</b>, que calcularás en la Fase 2.</div>
+     <div class="task">Toca la pieza roja de la mesa, o usa el botón, para montar la culata.</div>`);
+  setActions('Mesa de piezas',`<button class="b primary" data-act="place-head"><span class="ic">⬇</span> Montar culata + bujías</button>`);
+  if(autoMode)setTimeout(()=>{if(!travel.head.installed)handleAction('place-head',null);},1900);
+}
+function step_firing(){
+  showTeach('Fase 1 · Paso 5','Define el orden de encendido',
+    `<p>Las 4 bujías no encienden a la vez ni en orden 1-2-3-4. El <b>orden de encendido</b> define la secuencia para que el motor gire suave. Cada cilindro enciende cada <b>180°</b> de cigüeñal.</p>
+     <div class="why"><b>¿Por qué no 1-2-3-4?</b> Encender cilindros adyacentes seguidos (1 y 2) concentra esfuerzos y vibración. El orden <b>1-3-4-2</b> separa los encendidos para equilibrar el cigüeñal. Toca las casillas para fijar la secuencia.</div>
+     <div class="task">Define el orden de encendido tocando los cilindros en secuencia.</div>`);
+  setActions('Orden de encendido',
+    `<div style="font-family:var(--mono);font-size:11px;color:var(--dim);margin-bottom:4px">Secuencia (toca en orden):</div>
+     <div class="firerow" id="fireRow">
+       <div class="firecell" data-fire="1">1</div><div class="firecell" data-fire="2">2</div>
+       <div class="firecell" data-fire="3">3</div><div class="firecell" data-fire="4">4</div></div>
+     <div class="mini"><span>Tu secuencia</span><b id="fireSeq">—</b></div>
+     <button class="b" data-act="fire-reset" style="margin-top:8px">↺ Reiniciar secuencia</button>
+     <button class="b primary" data-act="fire-confirm" style="margin-top:6px" disabled id="fireOk">Confirmar orden</button>`);
+  fireSeq=[]; onPick=null;
+  $('fireRow').querySelectorAll('[data-fire]').forEach(c=>c.onclick=()=>fireTap(parseInt(c.dataset.fire),c));
+  if(autoMode)setTimeout(()=>{ [1,3,4,2].forEach((n,i)=>setTimeout(()=>{const c=$('fireRow')&&$('fireRow').querySelector(`[data-fire="${n}"]`);if(c)fireTap(n,c);},i*450)); setTimeout(()=>handleAction('fire-confirm',null),2200); },1600);
+}
+let fireSeq=[];
+function fireTap(n,cell){
+  if(fireSeq.includes(n))return;
+  fireSeq.push(n);cell.classList.add('set');
+  $('fireSeq').textContent=fireSeq.join('-');
+  if(fireSeq.length===4)$('fireOk').disabled=false;
+}
+function finishPhase1(){
+  feedback('good','¡Motor armado! 🎉','Ensamblaste bloque, cigüeñal, pistones y culata, y definiste el orden de encendido. Ahora vas a estudiar su termodinámica y verlo funcionar con la sincronía real de 4 tiempos.',true);
+  document.querySelectorAll('.phase-tab')[0].classList.add('done');
+  controls.minDistance=3;
+  setTimeout(()=>startPhase2(),1200);
+}
+
+/* ============================================================
+   PHASE 2: FUNDAMENTO
+   ============================================================ */
+function startPhase2(){phase=1;setPhaseTab(1);
+  blockGroup.visible=crankGroup.visible=pistonGroup.visible=headGroup.visible=true;platGlow.material.opacity=0;
+  controls.target.set(0,1.4,0);challengeEff();}
+function challengeEff(){
+  showTeach('Fase 2 · Reto 1','Calcula la eficiencia del ciclo Otto',
+    `<p>La eficiencia térmica máxima de un motor de gasolina depende de su <b>relación de compresión</b> (r). La fórmula del ciclo Otto es:</p>
+     <div class="formula">η = 1 − 1/r^(γ−1)</div>
+     <p>con γ = 1.4 (aire). Este motor tiene <b>r = ${ICE.CR}</b>.</p>
+     <div class="why"><b>Pista:</b> r^(γ−1) = ${ICE.CR}^0.4. Eso es ${Math.pow(ICE.CR,0.4).toFixed(3)}. Luego η = 1 − 1/${Math.pow(ICE.CR,0.4).toFixed(3)}. Da el resultado en porcentaje.</div>
+     <div class="task">¿Cuál es la eficiencia teórica (%) para r = ${ICE.CR}?</div>`);
+  setActions('Tu cálculo',
+    `<div class="calcbox"><label>Eficiencia térmica (%)</label>
+       <div class="calcrow"><input id="ansEff" type="number" step="0.1" placeholder="¿?"><button class="b primary" data-act="check-eff" style="flex:0 0 auto">✓</button></div>
+       <div class="mini" data-act="hint-eff" style="cursor:pointer;text-decoration:underline"><span>¿Necesitas una pista?</span></div></div>`);
+}
+function challengeCR(){
+  showTeach('Fase 2 · Reto 2','Más eficiencia: ¿subir o bajar la compresión?',
+    `<p>Quieres un motor más eficiente. Tienes la fórmula η = 1 − 1/r^(γ−1) en la mano.</p>
+     <div class="why"><b>Pero cuidado:</b> subir la compresión mejora la eficiencia, pero si te pasas (más de ~10-11 con gasolina normal) aparece la <b>detonación</b> (knock): la mezcla se autoenciende antes de tiempo y daña el motor. Es justo la falla que verás en el diagnóstico.</div>
+     <div class="task">Para más eficiencia (sin pasarte y causar detonación), ¿qué haces con la relación de compresión?</div>`);
+  setActions('Tu decisión',
+    `<button class="b" data-act="cr-up"><span class="ic">▲</span> Subir la relación de compresión</button>
+     <button class="b" data-act="cr-down"><span class="ic">▼</span> Bajar la relación de compresión</button>`);
+}
+function challengeCycle(){
+  showTeach('Fase 2 · Reto 3','Observa el ciclo de 4 tiempos',
+    `<p>Ahora arranca el motor. Observa los <b>4 tiempos</b> (admisión, compresión, explosión, escape) y cómo los cilindros encienden en el orden <b>${firingOrder.join('-')}</b>, cada uno a destiempo del otro.</p>
+     <div class="why"><b>Sincronía real:</b> cuando el cilindro 1 hace explosión, el 3 comprime, el 4 admite y el 2 escapa. Por eso siempre hay un cilindro entregando fuerza: el motor gira continuo. Mira las etiquetas de cada cilindro.</div>
+     <div class="task">Acelera y observa el orden de encendido y los 4 tiempos. Sube por encima de ${ICE.torque_rpm} rpm.</div>`);
+  setActions('Acelerador',
+    `<div class="sl">Acelerador</div><input type="range" id="thr2" min="0" max="100" value="0">
+     <div class="mini"><span>RPM</span><b id="d_rpm">0</b></div>
+     <div class="mini"><span>Par</span><b id="d_trq">0 N·m</b></div>
+     <div class="mini"><span>Potencia</span><b id="d_pow">0 kW</b></div>
+     <button class="b good" data-act="toggle-strokes" id="strokeBtn" style="margin-top:10px">🏷️ Etiquetas de tiempos: ON</button>
+     <button class="b primary" data-act="to-phase3" style="margin-top:8px" disabled id="toP3">Continuar al diagnóstico →</button>`);
+  running=true;showStrokes=true;cinematicSpin=true;
+  camCine.from.copy(camera.position); camCine.fromTarget.copy(controls.target);
+  camCine.to.set(5.8,2.6,6.6); camCine.toTarget.set(0,1.2,0);
+  camCine.active=true; camCine.t=0;
+  $('thr2').oninput=e=>{trpm=ICE.idle+(+e.target.value/100)*(ICE.redline-ICE.idle);if(rpm>ICE.torque_rpm-200){const b=$('toP3');if(b)b.disabled=false;}};
+}
+
+/* ============================================================
+   PHASE 3: DIAGNÓSTICO
+   ============================================================ */
+let fault=null;
+function startPhase3(){phase=2;setPhaseTab(2);running=true;trpm=2500;
+  const faults=['firing','knock','dead'];fault=faults[Math.floor(Math.random()*faults.length)];
+  applyFault(fault);
+  showTeach('Fase 3 · Diagnóstico','El motor llegó fallando',
+    `<p>Un motor llega al taller funcionando mal. Obsérvalo (gíralo, escucha el ritmo, mira los cilindros) e <b>identifica la falla</b>.</p>
+     <div class="task" id="symptomTask">Observa el síntoma y elige el diagnóstico.</div>`);
+  setActions('¿Cuál es la falla?',
+    `<button class="b" data-act="dx-firing"><span class="ic">🔀</span> Orden de encendido incorrecto</button>
+     <button class="b" data-act="dx-knock"><span class="ic">💥</span> Detonación (knock / compresión alta)</button>
+     <button class="b" data-act="dx-dead"><span class="ic">⚰️</span> Cilindro muerto (sin chispa/compresión)</button>`);
+  setTimeout(()=>{const s=$('symptomTask');if(s)s.innerHTML=symptom(fault);},800);
+}
+function symptom(f){
+  if(f==='firing')return 'SÍNTOMA: el motor vibra muy fuerte, petardea y apenas gira; suena completamente desordenado. ¿Qué lo causa?';
+  if(f==='knock')return 'SÍNTOMA: se oye un "cascabeleo" metálico agudo, sobre todo al acelerar, y el motor se calienta. ¿Qué lo causa?';
+  if(f==='dead')return 'SÍNTOMA: el motor tiembla con un ritmo desigual (pa-pa-_-pa), le falta potencia y uno de los cilindros no aporta. ¿Qué lo causa?';
+}
+function applyFault(f){
+  if(f==='firing'){firingOrder=[1,2,3,4];}        // wrong order -> rough
+  if(f==='knock'){knock=true;compRatio=12.5;}
+  if(f==='dead'){deadCylinder=3;}                  // cyl 3 dead
+}
+function diagnose(choice){
+  const correct=(choice===fault);
+  if(correct){feedback('good','Diagnóstico correcto ✓',explainFault(fault)+' <b>Ahora corrígelo.</b>',true);
+    setActions('Reparación',`<button class="b primary good" data-act="repair">🔧 Corregir la falla</button>`);
+  } else {feedback('bad','No es esa la falla','Eso ('+fname(choice)+') daría otro síntoma: '+wrongEx(choice)+' Observa otra vez y prueba de nuevo.',true);}
+}
+function explainFault(f){
+  if(f==='firing')return 'El orden 1-2-3-4 hace que cilindros adyacentes enciendan seguidos: el cigüeñal recibe golpes desbalanceados, vibra brutalmente y el motor casi no gira. Por eso el orden correcto es 1-3-4-2.';
+  if(f==='knock')return 'Una compresión demasiado alta (12.5:1 con gasolina normal) autoenciende la mezcla antes de la chispa: ese es el cascabeleo del knock, y daña pistones y bielas.';
+  if(f==='dead')return 'El cilindro 3 no enciende (sin chispa o sin compresión): los otros 3 trabajan pero el motor pierde 1/4 de su fuerza y tiembla con ritmo desigual.';
+}
+function fname(f){return f==='firing'?'orden incorrecto':f==='knock'?'detonación':'cilindro muerto';}
+function wrongEx(f){
+  if(f==='firing')return 'un orden incorrecto daría vibración extrema y petardeo constante, no un cascabeleo agudo ni un ritmo desigual de un solo cilindro.';
+  if(f==='knock')return 'la detonación daría un cascabeleo metálico agudo al acelerar, no una vibración general ni la pérdida de un cilindro.';
+  if(f==='dead')return 'un cilindro muerto daría un temblor de ritmo desigual, no un cascabeleo ni un desorden total.';
+}
+function repair(){
+  if(fault==='firing')firingOrder=[1,3,4,2];
+  if(fault==='knock'){knock=false;compRatio=ICE.CR;}
+  if(fault==='dead')deadCylinder=0;
+  fault=null;
+  feedback('good','¡Reparado! 🎉','El motor vuelve a funcionar suave. Completaste las tres fases: lo armaste, calculaste su termodinámica y diagnosticaste una falla real. Ese es el trabajo de un técnico automotriz.',true);
+  document.querySelectorAll('.phase-tab')[2].classList.add('done');
+  setActions('Laboratorio completado',`<button class="b primary" data-act="restart">↺ Reiniciar laboratorio</button>`);
+}
+
+/* ============================================================
+   ACTION ROUTER
+   ============================================================ */
+function handleAction(act,btn){
+  switch(act){
+    case 'place-block':
+      if(travel.block.installed||travel.block.active)break;
+      installPiece('block'); asm.block=true;
+      feedback('good','Bloque en camino','Obsérvalo trasladarse desde la mesa hasta la plataforma. El bloque con sus 4 cilindros se está asentando.');
+      setTimeout(()=>step_crank(),1150); break;
+    case 'try-head-first':
+      if(travel.block.installed)break;
+      attemptBump('head');
+      feedback('bad','La culata no puede ir primero','La culata cierra los cilindros POR ARRIBA. Sin el bloque (que los contiene) y sin pistones dentro, no hay nada que cerrar. Instala primero el bloque.'); break;
+    case 'place-crank':
+      if(!travel.block.installed||travel.crank.installed||travel.crank.active)break;
+      installPiece('crank'); asm.crank=true;
+      feedback('good','Cigüeñal en camino','Se desliza hasta la base del bloque. Fíjate en sus codos a 180°: ahí se conectarán las bielas de los pistones.');
+      setTimeout(()=>step_pistons(),1150); break;
+    case 'place-pistons':
+      if(!travel.crank.installed||travel.pistons.installed||travel.pistons.active)break;
+      installPiece('pistons'); asm.pistons=true;
+      feedback('good','Pistones en camino','Los 4 pistones con sus bielas bajan hasta sus cilindros, conectándose al cigüeñal.');
+      setTimeout(()=>step_head(),1150); break;
+    case 'place-head':
+      if(!travel.pistons.installed||travel.head.installed||travel.head.active)break;
+      installPiece('head'); asm.head=true;
+      feedback('good','Culata en camino','Desciende para cerrar los cilindros por arriba. Motor casi listo: falta lo invisible pero crucial.');
+      setTimeout(()=>step_firing(),1150); break;
+    case 'fire-reset': fireSeq=[];$('fireRow').querySelectorAll('[data-fire]').forEach(c=>c.classList.remove('set'));$('fireSeq').textContent='—';$('fireOk').disabled=true;break;
+    case 'fire-confirm': confirmFiring();break;
+    case 'check-eff': checkEff();break;
+    case 'hint-eff': feedback('good','Pista',`η = 1 − 1/${ICE.CR}^0.4. Primero ${ICE.CR}^0.4 = ${Math.pow(ICE.CR,0.4).toFixed(3)}. Luego 1/${Math.pow(ICE.CR,0.4).toFixed(3)} = ${(1/Math.pow(ICE.CR,0.4)).toFixed(3)}. Entonces η = 1 − ${(1/Math.pow(ICE.CR,0.4)).toFixed(3)} = ${(ottoEff(ICE.CR)).toFixed(3)} = ${(ottoEff(ICE.CR)*100).toFixed(1)}%.`);break;
+    case 'cr-up': feedback('good','Correcto ✓','Subir la compresión sube la eficiencia (más expansión de los gases = más trabajo extraído). El límite: con gasolina normal, pasar de ~10-11:1 causa detonación. Por eso los motores de alto rendimiento usan gasolina de mayor octanaje, que resiste más compresión.');setTimeout(()=>challengeCycle(),1700);break;
+    case 'cr-down': feedback('bad','Al revés','Bajar la compresión REDUCE la eficiencia. La fórmula η = 1 − 1/r^(γ−1) crece con r. Para más eficiencia hay que SUBIR r (con cuidado de no detonar). Inténtalo de nuevo.');break;
+    case 'toggle-strokes': showStrokes=!showStrokes;if(btn){btn.textContent='🏷️ Etiquetas de tiempos: '+(showStrokes?'ON':'OFF');btn.classList.toggle('good',showStrokes);}break;
+    case 'to-phase3': running=true;showStrokes=false;cinematicSpin=false;controls.autoRotate=false;startPhase3();break;
+    case 'dx-firing': diagnose('firing');break;
+    case 'dx-knock': diagnose('knock');break;
+    case 'dx-dead': diagnose('dead');break;
+    case 'repair': repair();break;
+    case 'restart': location.reload();break;
+  }
+}
+function confirmFiring(){
+  firingOrder=fireSeq.slice();
+  const correct=fireSeq.join('-')==='1-3-4-2';
+  const alsoValid=fireSeq.join('-')==='1-2-4-3'; // the reverse-rotation valid order
+  if(correct){feedback('good','¡Orden correcto! 1-3-4-2','Perfecto. Es el orden estándar de un 4 cilindros en línea: separa los encendidos para equilibrar el cigüeñal y dar marcha suave.');setTimeout(()=>finishPhase1(),1400);}
+  else if(alsoValid){feedback('good','1-2-4-3 — también válido','Buen razonamiento: 1-2-4-3 es el orden correcto pero para giro inverso del cigüeñal. También equilibra. Usaremos este.');setTimeout(()=>finishPhase1(),1600);}
+  else{feedback('bad','Ese orden desbalancea el motor',`Tu secuencia ${fireSeq.join('-')} hace encender cilindros adyacentes muy seguidos, lo que causa vibración fuerte y marcha irregular. El orden correcto para un 4 cilindros en línea es 1-3-4-2. Reinicia e inténtalo.`);}
+}
+function checkEff(){
+  const v=parseFloat(($('ansEff')||{}).value);const correct=ottoEff(ICE.CR)*100;
+  if(isNaN(v)){feedback('bad','Escribe un número','Ingresa la eficiencia en porcentaje.');return;}
+  if(Math.abs(v-correct)<1.5){feedback('good','¡Correcto! ✓',`η = 1 − 1/${ICE.CR}^0.4 = <b>${correct.toFixed(1)}%</b>. Esa es la eficiencia TEÓRICA del ciclo Otto. Ojo: la real efectiva de un motor así es ~30-35%, porque hay pérdidas por fricción, bombeo y calor que el ciclo ideal no considera.`);setTimeout(()=>challengeCR(),1800);}
+  else{const d=v>correct?'alta':'baja';feedback('bad','Revisa el cálculo',`Tu resultado (${v}%) está ${d}. η = 1 − 1/${ICE.CR}^0.4 = 1 − ${(1/Math.pow(ICE.CR,0.4)).toFixed(3)} = ${correct.toFixed(1)}%. ¿Elevaste a 0.4 (que es γ−1) y luego dividiste 1 entre eso?`);}
+}
+
+/* ============================================================
+   ANIMATION — 4-stroke synced pistons + combustion
+   ============================================================ */
+const STROKE_NAMES=['EXPLOSIÓN','ESCAPE','ADMISIÓN','COMPRESIÓN'];
+const STROKE_COL=['#ff5a1e','#8a99a8','#6fb6ff','#ffd166'];
+let showStrokes=false;
+const clock=new THREE.Clock();
+// labels for cylinders (canvas sprites)
+const cylLabels=pistons.map(p=>{const cv=document.createElement('canvas');cv.width=352;cv.height=88;const tex=new THREE.CanvasTexture(cv);tex.colorSpace=THREE.SRGBColorSpace;const sp=new THREE.Sprite(new THREE.SpriteMaterial({map:tex,depthTest:false,transparent:true}));sp.scale.set(1.05,0.26,1);sp.renderOrder=999;motor.add(sp);return {sp,cv,tex,last:-1};});
+function drawLabel(o,cyl,stroke){if(o.last===stroke)return;o.last=stroke;const c=o.cv.getContext('2d');c.clearRect(0,0,352,88);c.fillStyle='rgba(10,9,8,.94)';c.beginPath();rrPath(c,4,4,344,80,18);c.fill();c.strokeStyle=STROKE_COL[stroke];c.lineWidth=4;c.stroke();c.font='bold 26px Courier New';c.textAlign='center';c.textBaseline='middle';c.fillStyle='#a89684';c.fillText('CIL '+cyl,60,44);c.font='bold 30px Courier New';c.fillStyle=STROKE_COL[stroke];c.fillText(STROKE_NAMES[stroke],216,44);o.tex.needsUpdate=true;}
+
+/* ============================================================
+   SONIDO — rugido de motor de combustión con pulsos sincronizados al encendido
+   ============================================================ */
+let audioCtx=null,oscA=null,oscB=null,audioGain=null,audioFilter=null,soundOn=true;
+function initAudio(){
+  if(audioCtx)return;
+  try{
+    audioCtx=new (window.AudioContext||window.webkitAudioContext)();
+    oscA=audioCtx.createOscillator(); oscB=audioCtx.createOscillator();
+    oscA.type='sawtooth'; oscB.type='square';
+    audioFilter=audioCtx.createBiquadFilter(); audioFilter.type='lowpass'; audioFilter.frequency.value=350; audioFilter.Q.value=3;
+    audioGain=audioCtx.createGain(); audioGain.gain.value=0;
+    oscA.connect(audioFilter); oscB.connect(audioFilter); audioFilter.connect(audioGain); audioGain.connect(audioCtx.destination);
+    oscA.start(); oscB.start();
+  }catch(e){}
+}
+function updateAudio(rpmNow,crankDeg){
+  if(!audioCtx||!soundOn){if(audioGain)audioGain.gain.setTargetAtTime(0,audioCtx?.currentTime||0,0.1);return;}
+  const f=28+rpmNow/22;                 // más grave que un motor eléctrico
+  oscA.frequency.setTargetAtTime(f,audioCtx.currentTime,0.04);
+  oscB.frequency.setTargetAtTime(f*0.5,audioCtx.currentTime,0.04);
+  audioFilter.frequency.setTargetAtTime(220+rpmNow*0.35,audioCtx.currentTime,0.05);
+  // pulso rítmico sincronizado a cada explosión (4 veces por 720°)
+  const pulse=Math.max(0,Math.sin((crankDeg%180)/180*Math.PI));
+  const baseVol=rpmNow<20?0:Math.min(0.11,0.02+rpmNow/6500*0.09);
+  const vol=baseVol*(0.55+0.45*pulse);
+  audioGain.gain.setTargetAtTime(vol,audioCtx.currentTime,0.03);
+}
+
+function animate(){
+  requestAnimationFrame(animate);
+  const dt=clock.getDelta(),t=clock.elapsedTime;
+
+  // mesa de piezas: las 4 partes viajan físicamente a su lugar al instalarse
+  PIECE_ORDER.forEach(key=>{
+    const grp=PIECE_GROUP[key]; const tr=travel[key];
+    if(tr.active){
+      tr.t=Math.min(1,tr.t+dt/tr.dur);
+      const e=easeOutBack(tr.t);
+      grp.position.lerpVectors(tr.from,tr.to,e);
+      if(tr.t>=1){tr.active=false;tr.installed=true;grp.position.copy(tr.to);}
+    } else if(tr.bump>0){
+      tr.bump=Math.max(0,tr.bump-dt*2.2);
+      const k=Math.sin(tr.bump*Math.PI)*0.22;
+      grp.position.lerpVectors(tr.from,tr.to,k);
+    }
+    const installed=tr.installed;
+    trays[key].ring.material.opacity=installed?0:(nextRequired()===key?(0.22+0.22*Math.sin(t*3)):0.06);
+    lbls[key].visible=!installed; trays[key].pad.visible=!installed;
+  });
+
+  // rpm dynamics; knock adds roughness
+  if(running){rpm+=(trpm-rpm)*0.05;}else{rpm+=(0-rpm)*0.05;}
+  let effRpm=rpm;
+  // crank angle advances; 1 mech rev = 360°, cycle = 720°
+  const cycleSpeed = rpm/60*360*dt*0.4; // scaled for visibility
+  crankAngle=(crankAngle+cycleSpeed)%720;
+  if(travel.crank.installed)crankGroup.rotation.x=crankAngle*Math.PI/180*2; // visual spin
+  // pistons: height by mechanical angle, stroke by cycle phase + firing order
+  if(travel.pistons.installed){
+    pistons.forEach((p,i)=>{
+      const cyl=p.cyl;
+      const h=pistonHeight(cyl, crankAngle); // -1..1
+      // firing-order vibration: wrong order makes pistons jolt
+      p.grp.position.y=bY+1.0+h*0.34;
+      const st=strokeOf(cyl,crankAngle);
+      // combustion flash at start of power stroke (st===0 and near TDC)
+      const dead=(deadCylinder===cyl);
+      const rel=((crankAngle-powerAngleFor(cyl))%720+720)%720;
+      if(!dead && rel<40 && rpm>50){p.flash.intensity=knock?2.6:1.6*(0.6+0.4*Math.sin(t*40));
+        p.flash.color.setHex(knock?0xffaa33:0xff5a1e);}
+      else p.flash.intensity*=0.8;
+      // labels — alternadas en altura para no encimarse
+      if(showStrokes && travel.pistons.installed){cylLabels[i].sp.visible=true;
+        const yOff = (i%2===0)?3.15:3.62;   // alterna alto/bajo
+        cylLabels[i].sp.position.set(p.grp.position.x,bY+yOff,0.6);
+        drawLabel(cylLabels[i],cyl,dead?1:st);}
+      else cylLabels[i].sp.visible=false;
+      // spark plug glow
+      const pl=plugs[i];if(pl){pl.mesh.material.emissive||=new THREE.Color();
+        pl.mesh.material.emissive.setHex((!dead&&rel<60&&rpm>50)?0x66ccff:0x000000);}
+    });
+  }
+  // telemetry phase 2
+  if(phase===1){const T=deadCylinder?torqueAt(rpm)*0.72:torqueAt(rpm);const P=T*(2*Math.PI*rpm/60)/1000;
+    const set=(id,v)=>{const e=$(id);if(e)e.textContent=v;};
+    set('d_rpm',Math.round(rpm));set('d_trq',T.toFixed(0)+' N·m');set('d_pow',P.toFixed(1)+' kW');}
+
+  // cámara cinemática: encuadre al entrar al reto del ciclo, luego auto-órbita que cede al usuario
+  if(camCine.active){
+    camCine.t=Math.min(1,camCine.t+dt/camCine.dur);
+    const e=easeInOutCubic(camCine.t);
+    camera.position.lerpVectors(camCine.from,camCine.to,e);
+    controls.target.lerpVectors(camCine.fromTarget,camCine.toTarget,e);
+    if(camCine.t>=1)camCine.active=false;
+  } else if(cinematicSpin){
+    const idle=(t-lastDragTime)>1.4;
+    controls.autoRotate=idle; controls.autoRotateSpeed=0.4;
+  } else { controls.autoRotate=false; }
+  bloom.strength=0.4+(running?Math.min(0.22,(rpm/ICE.redline)*0.26):0);
+
+  updateAudio(running?rpm:0, crankAngle);
+  controls.update();composer.render();
+}
+animate();
+
+/* intro + sheets */
+document.querySelectorAll('.modeBtn').forEach(b=>b.onclick=()=>{
+  document.querySelectorAll('.modeBtn').forEach(x=>x.classList.remove('active'));
+  b.classList.add('active'); autoMode = b.dataset.mode==='auto';
+});
+$('start').onclick=()=>{$('intro').classList.add('hide');teachEl.classList.add('show');actionsEl.classList.add('show');hintEl.classList.add('show');initAudio();if(audioCtx&&audioCtx.state==='suspended')audioCtx.resume();startPhase1();};
+const soundBtn=$('soundBtn');
+if(soundBtn)soundBtn.onclick=()=>{soundOn=!soundOn;soundBtn.textContent=soundOn?'🔊':'🔇';soundBtn.classList.toggle('on',soundOn);};
+const bT=$('tgTeach'),bA=$('tgAct');
+function closeSheets(){teachEl.classList.remove('open');actionsEl.classList.remove('open');bT.classList.remove('on');bA.classList.remove('on');}
+if(bT)bT.onclick=()=>{const o=teachEl.classList.contains('open');closeSheets();if(!o){teachEl.classList.add('open');bT.classList.add('on');}};
+if(bA)bA.onclick=()=>{const o=actionsEl.classList.contains('open');closeSheets();if(!o){actionsEl.classList.add('open');bA.classList.add('on');}};
+
+window.__test={start:()=>$('start').click(),action:(a)=>handleAction(a,null),
+  fireSeq:(arr)=>{fireSeq=arr.slice();firingOrder=arr.slice();},
+  setAns:(id,v)=>{const e=$(id);if(e)e.value=v;},
+  setAutoMode:(v)=>{autoMode=v; document.querySelectorAll('.modeBtn').forEach(b=>b.classList.toggle('active',(b.dataset.mode==='auto')===v));},
+  state:()=>({phase,rpm:Math.round(rpm),fault,firingOrder:firingOrder.join('-'),
+    blockInstalled:travel.block.installed,crankInstalled:travel.crank.installed,
+    pistonsInstalled:travel.pistons.installed,headInstalled:travel.head.installed}),
+  audioState:()=>({ctxState:audioCtx?.state||'none', vol:audioGain?.gain.value||0, freq:oscA?.frequency.value||0, soundOn})};
+
+</script>
+</body>
+</html>
