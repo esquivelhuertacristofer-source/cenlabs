@@ -9,10 +9,7 @@ import {
   Sparkles,
   Html,
   Line,
-  Trail,
   Float,
-  Cloud,
-  MeshReflectorMaterial,
 } from '@react-three/drei';
 import { EffectComposer, Bloom, ChromaticAberration, Vignette } from '@react-three/postprocessing';
 import * as THREE from 'three';
@@ -223,12 +220,28 @@ function Projectile({
     [samples],
   );
 
+  // Estela manual: buffer circular de las últimas posiciones (THREE.Line puro
+  // montado vía <primitive> para evitar la colisión del intrínseco <line> con SVG).
+  const TRAIL = 46;
+  const trailLine = useMemo(() => {
+    const g = new THREE.BufferGeometry();
+    g.setAttribute('position', new THREE.BufferAttribute(new Float32Array(TRAIL * 3), 3));
+    g.setDrawRange(0, 0);
+    const m = new THREE.LineBasicMaterial({
+      color: '#22d3ee', transparent: true, opacity: 0.7,
+      toneMapped: false, blending: THREE.AdditiveBlending, depthWrite: false,
+    });
+    return new THREE.Line(g, m);
+  }, []);
+  const trail = useRef<THREE.Vector3[]>([]);
+
   useFrame((_, delta) => {
     if (!ref.current) return;
     const n = samples.length;
     progress.current += delta * (playing ? 30 : 14);
     if (progress.current >= n - 1) {
       progress.current = 0;
+      trail.current = [];
       const endX = samples[n - 1].p.x;
       onLoop(endX);
     }
@@ -238,6 +251,18 @@ function Projectile({
     const a = samples[i];
     const b = samples[Math.min(i + 1, n - 1)];
     ref.current.position.lerpVectors(a.p, b.p, frac);
+
+    // actualiza la estela con la posición mundial actual
+    trail.current.push(ref.current.position.clone());
+    if (trail.current.length > TRAIL) trail.current.shift();
+    const geo = trailLine.geometry;
+    const arr = geo.attributes.position.array as Float32Array;
+    for (let k = 0; k < trail.current.length; k++) {
+      const p = trail.current[k];
+      arr[k * 3] = p.x; arr[k * 3 + 1] = p.y; arr[k * 3 + 2] = p.z;
+    }
+    geo.setDrawRange(0, trail.current.length);
+    geo.attributes.position.needsUpdate = true;
 
     if (shadowRef.current) {
       shadowRef.current.position.x = ref.current.position.x;
@@ -272,13 +297,15 @@ function Projectile({
         <meshBasicMaterial color="#000000" transparent opacity={0.3} depthWrite={false} />
       </mesh>
 
+      {/* estela emisiva (THREE.Line en espacio mundial) */}
+      <primitive object={trailLine} />
+
       <group ref={ref}>
-        <Trail width={5} length={8} color={'#22d3ee'} attenuation={(w) => w * w}>
-          <mesh>
-            <sphereGeometry args={[0.17, 24, 24]} />
-            <meshStandardMaterial color="#ecfeff" emissive="#22d3ee" emissiveIntensity={4} toneMapped={false} />
-          </mesh>
-        </Trail>
+        {/* núcleo brillante del proyectil */}
+        <mesh>
+          <sphereGeometry args={[0.17, 24, 24]} />
+          <meshStandardMaterial color="#ecfeff" emissive="#22d3ee" emissiveIntensity={4} toneMapped={false} />
+        </mesh>
         {/* halo aditivo */}
         <mesh>
           <sphereGeometry args={[0.34, 24, 24]} />
@@ -485,23 +512,17 @@ function DistanceRuler({ maxM, accent }: { maxM: number; accent: string }) {
   );
 }
 
-/* ── Suelo reflectante temático ──────────────────────────────────────────────── */
+/* ── Suelo pulido temático (material estándar, sin pase de reflexión) ─────────── */
 function ReflectiveFloor({ theme, centerX }: { theme: Theme; centerX: number }) {
   return (
     <mesh rotation={[-Math.PI / 2, 0, 0]} position={[centerX, 0, 0]}>
-      <planeGeometry args={[120, 60]} />
-      <MeshReflectorMaterial
-        resolution={512}
-        mixBlur={1}
-        mixStrength={theme.stars > 2000 ? 25 : 40}
-        blur={[300, 100]}
-        mirror={0.35}
-        minDepthThreshold={0.4}
-        maxDepthThreshold={1.2}
-        depthScale={1}
-        roughness={0.9}
-        metalness={0.2}
+      <planeGeometry args={[140, 70]} />
+      <meshStandardMaterial
         color={theme.ground}
+        emissive={theme.groundTint}
+        emissiveIntensity={0.12}
+        metalness={0.85}
+        roughness={0.32}
       />
     </mesh>
   );
@@ -570,12 +591,7 @@ function Scene({
       <Target x={alcance} label="Alcance" color="#10b981" spin={-0.6} />
 
       {/* polvo atmosférico temático */}
-      <Sparkles count={80} scale={[m2w(spanM) + 10, 9, 14]} position={[centerXw, 4, 0]} size={2.4} speed={0.25} color={theme.dust} opacity={0.45} />
-      {theme.clouds && (
-        <Float speed={0.6} floatIntensity={1} rotationIntensity={0}>
-          <Cloud position={[centerXw, m2w(maxY) + 5, -10]} opacity={0.06} speed={0.1} bounds={[16, 3, 6]} color={theme.dust} segments={12} />
-        </Float>
-      )}
+      <Sparkles count={90} scale={[m2w(spanM) + 10, 9, 14]} position={[centerXw, 4, 0]} size={2.4} speed={0.25} color={theme.dust} opacity={0.5} />
       <Stars radius={100} depth={50} count={theme.stars} factor={4} saturation={0} fade speed={0.5} />
 
       <OrbitControls
