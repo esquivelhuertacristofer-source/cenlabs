@@ -469,7 +469,7 @@ const capMeshes=[];
 const igbtGroup=new THREE.Group(); invRoot.add(igbtGroup);
 const igbtMeshes=[];
 (function(){
-  for(let i=0;i<6;i++){const g=rbox(0.38,0.18,0.46,MAT.igbt,0.12); g.position.set(-0.95+(i%3)*0.72,0.36,0.35+(i<3?0:0.5)); igbtGroup.add(g); igbtMeshes.push(g);}
+  for(let i=0;i<6;i++){const g=rbox(0.38,0.18,0.46,MAT.igbt.clone(),0.12); g.position.set(-0.95+(i%3)*0.72,0.36,0.35+(i<3?0:0.5)); igbtGroup.add(g); igbtMeshes.push(g);}
 })();
 
 // ---- PLACA DE CONTROL + GATE DRIVER ----

@@ -493,7 +493,7 @@ for(let m=0;m<4;m++){
   for(let r=0;r<4;r++)for(let c=0;c<3;c++){
     const cell=new THREE.Mesh(new THREE.CylinderGeometry(0.06,0.06,0.5,16),MAT.cell);
     cell.position.set(-0.15+c*0.15,0.25,-0.3+r*0.2); modGrp.add(cell);
-    const top=new THREE.Mesh(new THREE.CylinderGeometry(0.062,0.062,0.02,16),MAT.cellTop);
+    const top=new THREE.Mesh(new THREE.CylinderGeometry(0.062,0.062,0.02,16),MAT.cellTop.clone());
     top.position.set(cell.position.x,0.51,cell.position.z); modGrp.add(top);
     cellMeshes.push(top);
   }

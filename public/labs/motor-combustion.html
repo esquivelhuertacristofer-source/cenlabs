@@ -501,7 +501,7 @@ const plugs=[];
   const deck=rbox(2.9,0.42,1.65,MAT.block);deck.position.y=bY+1.92;deck.userData.piece='head';headGroup.add(deck);
   const cover=rbox(2.7,0.5,1.3,MAT.cover);cover.position.y=bY+2.35;cover.userData.piece='head';headGroup.add(cover);
   for(let x=-1.1;x<=1.1;x+=0.44)[0.55,-0.55].forEach(z=>{const b=bolt(0.045);b.position.set(x,bY+2.61,z);b.userData.piece='head';headGroup.add(b);});
-  for(let i=0;i<4;i++){const plug=new THREE.Mesh(new THREE.CylinderGeometry(0.05,0.07,0.32,16),MAT.chrome);plug.position.set(-0.96+i*0.64,bY+2.66,0);plug.userData.piece='plug';headGroup.add(plug);
+  for(let i=0;i<4;i++){const plug=new THREE.Mesh(new THREE.CylinderGeometry(0.05,0.07,0.32,16),MAT.chrome.clone());plug.position.set(-0.96+i*0.64,bY+2.66,0);plug.userData.piece='plug';headGroup.add(plug);
     plugs.push({mesh:plug,cyl:i+1});}
 })();
 
@@ -1017,7 +1017,8 @@ function animate(){
   // telemetry phase 2
   if(phase===1){const T=deadCylinder?torqueAt(rpm)*0.72:torqueAt(rpm);const P=T*(2*Math.PI*rpm/60)/1000;
     const set=(id,v)=>{const e=$(id);if(e)e.textContent=v;};
-    set('d_rpm',Math.round(rpm));set('d_trq',T.toFixed(0)+' N·m');set('d_pow',P.toFixed(1)+' kW');}
+    set('d_rpm',Math.round(rpm));set('d_trq',T.toFixed(0)+' N·m');set('d_pow',P.toFixed(1)+' kW');
+    if(rpm>ICE.torque_rpm-200){const b=$('toP3');if(b)b.disabled=false;}}
 
   // cámara cinemática: encuadre al entrar al reto del ciclo, luego auto-órbita que cede al usuario
   if(camCine.active){

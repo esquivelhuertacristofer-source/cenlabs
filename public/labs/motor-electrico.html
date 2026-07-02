@@ -486,7 +486,7 @@ const statorGroup=new THREE.Group(); motor.add(statorGroup);
   const core=new THREE.Mesh(new THREE.CylinderGeometry(1.18,1.18,0.9,64,1,true),MAT.laminate);core.rotation.x=Math.PI/2;statorGroup.add(core);
   for(let i=0;i<EM57.slots;i++){const a=i/EM57.slots*Math.PI*2;
     const tooth=new THREE.Mesh(new RoundedBoxGeometry(0.085,0.42,0.86,2,0.02),MAT.steel);tooth.position.set(Math.cos(a)*0.95,Math.sin(a)*0.95,0);tooth.rotation.z=a+Math.PI/2;statorGroup.add(tooth);
-    [0.37,-0.37].forEach(z=>{const c=new THREE.Mesh(new THREE.TorusGeometry(0.07,0.045,8,14),MAT.copper);c.position.set(Math.cos(a)*0.95,Math.sin(a)*0.95,z);c.rotation.y=Math.PI/2;c.rotation.z=a;c.userData.phase=i%3;statorGroup.add(c);});
+    [0.37,-0.37].forEach(z=>{const c=new THREE.Mesh(new THREE.TorusGeometry(0.07,0.045,8,14),MAT.copper.clone());c.position.set(Math.cos(a)*0.95,Math.sin(a)*0.95,z);c.rotation.y=Math.PI/2;c.rotation.z=a;c.userData.phase=i%3;statorGroup.add(c);});
   }
 })();
 
