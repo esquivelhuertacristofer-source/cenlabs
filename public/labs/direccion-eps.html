@@ -527,7 +527,7 @@ S.setAnimate((dt,t)=>{
 
   if(running){
     steerAngle=Math.sin(t*0.8)*0.6;
-    wheelGrp.rotation.x=steerAngle*1.5;
+    wheelGrp.rotation.y=steerAngle*1.5;
     rack.position.x=0.4+Math.sin(t*0.8)*0.15;
     assistMotor.rotation.x+=dt*(2+vKmh*0.05);
     const gain=assistGain(vKmh);

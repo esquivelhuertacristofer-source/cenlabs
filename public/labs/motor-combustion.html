@@ -665,7 +665,9 @@ function powerAngleFor(cyl){ const idx=firingOrder.indexOf(cyl); return idx<0?0:
 // Physical piston height depends only on crank (180° period), but WHICH stroke depends on cycle phase.
 function pistonHeight(cyl, cycleDeg){
   // crank position: piston at TDC at 0,360,720; BDC at 180,540 -> use cos on mechanical angle
-  const mechRev = (cycleDeg)%360;
+  // inline-4: cyls 1&4 move together; cyls 2&3 are 180° out of phase
+  const phase = (cyl===2||cyl===3)?180:0;
+  const mechRev = (cycleDeg+phase)%360;
   return Math.cos(mechRev*Math.PI/180); // +1 at TDC, -1 at BDC
 }
 function strokeOf(cyl, cycleDeg){
@@ -988,7 +990,7 @@ function animate(){
   // crank angle advances; 1 mech rev = 360°, cycle = 720°
   const cycleSpeed = rpm/60*360*dt*0.4; // scaled for visibility
   crankAngle=(crankAngle+cycleSpeed)%720;
-  if(travel.crank.installed)crankGroup.rotation.x=crankAngle*Math.PI/180*2; // visual spin
+  if(travel.crank.installed)crankGroup.rotation.x=crankAngle*Math.PI/180; // visual spin
   // pistons: height by mechanical angle, stroke by cycle phase + firing order
   if(travel.pistons.installed){
     pistons.forEach((p,i)=>{

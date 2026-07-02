@@ -521,7 +521,7 @@ chargePort.position.set(0.55,0.58,0.78); chargePort.userData.piece='port'; carGr
 /* cable dinámico (se dibuja entre el conector y el auto durante la sesión) */
 let cableLine=null;
 function drawCable(connected){
-  if(cableLine){scene.remove(cableLine);cableLine=null;}
+  if(cableLine){if(cableLine.geometry)cableLine.geometry.dispose();scene.remove(cableLine);cableLine=null;}
   const start=new THREE.Vector3(); connectorTip.getWorldPosition(start);
   const carPort=new THREE.Vector3(); chargePort.getWorldPosition(carPort);
   const end=connected?carPort:start.clone().add(new THREE.Vector3(0,-0.15,0.1));
@@ -584,10 +584,11 @@ function smallLabel5(text,color){
   sp.scale.set(2.15,0.41,1);sp.renderOrder=999;return sp;
 }
 function trayPad5(pos,color){
+  const wx=stRoot.position.x+pos.x, wz=stRoot.position.z+pos.z;
   const pad=new THREE.Mesh(new THREE.CylinderGeometry(0.8,0.9,0.12,40),new THREE.MeshStandardMaterial({color:0x0e1c1c,roughness:0.55,metalness:0.5}));
-  pad.position.set(pos.x,0.06,pos.z);pad.receiveShadow=true;scene.add(pad);
+  pad.position.set(wx,0.06,wz);pad.receiveShadow=true;scene.add(pad);
   const ring=new THREE.Mesh(new THREE.RingGeometry(0.7,0.82,48),new THREE.MeshBasicMaterial({color,transparent:true,opacity:0,side:THREE.DoubleSide}));
-  ring.rotation.x=-Math.PI/2;ring.position.set(pos.x,0.13,pos.z);scene.add(ring);
+  ring.rotation.x=-Math.PI/2;ring.position.set(wx,0.13,wz);scene.add(ring);
   return {pad,ring};
 }
 const PIECE_ORDER=['cabinet','power','ground','panel','cable'];
@@ -601,7 +602,7 @@ PIECE_ORDER.forEach(k=>{
   grp.position.copy(KIT_POS[k]); grp.visible=true;
   trays[k]=trayPad5(KIT_POS[k],PIECE_COLOR[k]);
   const lbl=smallLabel5(PIECE_NAME[k]+' · toca para instalar',PIECE_COLOR[k]);
-  lbl.position.set(KIT_POS[k].x,2.0,KIT_POS[k].z); labelScene.add(lbl); lbls[k]=lbl;
+  lbl.position.set(stRoot.position.x+KIT_POS[k].x,2.0,stRoot.position.z+KIT_POS[k].z); labelScene.add(lbl); lbls[k]=lbl;
 });
 function easeOutBack(x){const c1=1.4,c3=c1+1;return 1+c3*Math.pow(x-1,3)+c1*Math.pow(x-1,2);}
 function isInGroup(obj,group){let o=obj;while(o){if(o===group)return true;o=o.parent;}return false;}

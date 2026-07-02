@@ -552,6 +552,12 @@ S.setAnimate((dt,t)=>{
     const set=(id,v)=>{const e=document.getElementById(id);if(e)e.textContent=v;};
     set('t_step',(seqIdx+1)+'/4 — '+step);
     set('t_posA',(posA*100).toFixed(0)+'%'); set('t_posB',(posB*100).toFixed(0)+'%');
+  } else {
+    cylA.valve.material.emissive.setHex(0x000000);
+    cylB.valve.material.emissive.setHex(0x000000);
+    cylA.led.material.emissive.setHex(0x000000);
+    cylB.led.material.emissive.setHex(0x000000);
+    leds.forEach(led=>led.material.emissive.setHex(0x000000));
   }
 });
 S.start();

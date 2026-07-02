@@ -431,9 +431,10 @@ scene.add(new THREE.HemisphereLight(0x9fc8c4,0x0a1414,0.4));
 
 /* floor */
 const lightMode=/[?&]light/.test(location.search);
+let mirror=null;
 (function(){
   if(!lightMode){
-    const mirror=new Reflector(new THREE.CircleGeometry(40,80),{clipBias:0.003,textureWidth:innerWidth*Math.min(devicePixelRatio,2),textureHeight:innerHeight*Math.min(devicePixelRatio,2),color:0x081414});
+    mirror=new Reflector(new THREE.CircleGeometry(40,80),{clipBias:0.003,textureWidth:innerWidth*Math.min(devicePixelRatio,2),textureHeight:innerHeight*Math.min(devicePixelRatio,2),color:0x081414});
     mirror.rotation.x=-Math.PI/2;scene.add(mirror);
   } else {
     const flat=new THREE.Mesh(new THREE.CircleGeometry(40,80),new THREE.MeshStandardMaterial({color:0x081414,roughness:0.2,metalness:0.6}));
@@ -544,7 +545,7 @@ const bloom=new UnrealBloomPass(new THREE.Vector2(innerWidth,innerHeight),0.42,0
 let bokeh=null; if(!isMobile&&!lightMode){bokeh=new BokehPass(scene,camera,{focus:8.5,aperture:0.00018,maxblur:0.004,width:innerWidth,height:innerHeight});composer.addPass(bokeh);}
 composer.addPass(new OutputPass());
 composer.addPass(new SMAAPass(innerWidth*renderer.getPixelRatio(),innerHeight*renderer.getPixelRatio()));
-addEventListener('resize',()=>{camera.aspect=innerWidth/innerHeight;camera.updateProjectionMatrix();renderer.setSize(innerWidth,innerHeight);composer.setSize(innerWidth,innerHeight);});
+addEventListener('resize',()=>{camera.aspect=innerWidth/innerHeight;camera.updateProjectionMatrix();renderer.setSize(innerWidth,innerHeight);composer.setSize(innerWidth,innerHeight);if(mirror)mirror.getRenderTarget().setSize(innerWidth*Math.min(devicePixelRatio,2),innerHeight*Math.min(devicePixelRatio,2));});
 // Escena de superposición para las etiquetas 3D (sprites). Los pases GTAO/Bokeh
 // usan scene.overrideMaterial en sus prepasses; bajo un material override los Sprites
 // pierden su billboard y se dibujan como cuadros inclinados (las "fichas negras").
@@ -1042,8 +1043,8 @@ function animate(){
 
     // objeto: sigue a la pinza si se sostiene; se cae si hay falla de pinza a medio camino
     if(holding && !(fault==='gripper' && seqT>4.2)){
-      const wp=new THREE.Vector3(); wristGroup.getWorldPosition(wp);
-      cube.position.lerp(wp.clone().add(new THREE.Vector3(0.32,0,0)),0.6);
+      const wp=wristGroup.localToWorld(new THREE.Vector3(0.32,0,0));
+      cube.position.lerp(wp,0.6);
       cube.position.y=Math.max(cube.position.y,0.2);
     } else if(!holding && seqT<8.2){
       // en reposo en origen o cayendo
@@ -1054,7 +1055,7 @@ function animate(){
     // telemetría fase 2
     if(phase===1){
       const r=reachOf(t1,t2)*1000;
-      const tau=torqueRequired(payloadKg||0.4,reachOf(t1,t2));
+      const tau=torqueRequired(payloadKg||0.4,Math.abs(fwdKin(t1,t2).px));
       const set=(id,v)=>{const e=$(id);if(e)e.textContent=v;};
       set('d_t1',t1.toFixed(0)+'°'); set('d_t2',t2.toFixed(0)+'°');
       set('d_reach',r.toFixed(0)+' mm'); set('d_torque',tau.toFixed(2)+' N·m');

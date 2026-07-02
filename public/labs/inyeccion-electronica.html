@@ -554,7 +554,7 @@ S.setAnimate((dt,time)=>{
       const idx=cyl-1;
       const phase=(time*cycleHz*4 - order)%4;
       const firing = phase>=0 && phase<(pw/1000)*cycleHz*4*3;
-      injFlash[idx].material.emissive.setHex(((Math.sin(time*cycleHz*4*Math.PI*2 - order*Math.PI/2))>0.7)?0xff8822:0x000000);
+      injFlash[idx].material.emissive.setHex(firing?0xff8822:0x000000);
     });
     const pwEl=document.getElementById('t_pw'); if(pwEl)pwEl.textContent=pw.toFixed(1)+' ms';
     const fuelEl=document.getElementById('t_fuel'); if(fuelEl)fuelEl.textContent=((loadPct/100)*4.2).toFixed(2)+' g/s';

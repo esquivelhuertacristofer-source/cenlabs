@@ -503,7 +503,7 @@ const modulator=roundedBox(0.6,0.4,0.5,MAT.modulator,0.2); modulator.position.se
 // ECU
 const ecu=roundedBox(0.55,0.35,0.6,MAT.ecu,0.15); ecu.position.set(2.1,0.55,0); group.add(ecu);
 // mangueras/cables
-const line1=new THREE.Mesh(new THREE.TubeGeometry(new THREE.QuadraticBezierCurve3(new THREE.Vector3(-1.05,0.35,0),new THREE.Vector3(0.1,0.55,0),new THREE.Vector3(0.9,0.7,0)),20,0.025,8),MAT.modulator);
+const line1=new THREE.Mesh(new THREE.TubeGeometry(new THREE.QuadraticBezierCurve3(new THREE.Vector3(-1.05,0.35,0),new THREE.Vector3(0.1,0.55,0),new THREE.Vector3(0.9,0.7,0)),20,0.025,8),MAT.modulator.clone());
 group.add(line1);
 const wire1=new THREE.Mesh(new THREE.TubeGeometry(new THREE.QuadraticBezierCurve3(new THREE.Vector3(-1.0,0.46,0),new THREE.Vector3(0.3,0.9,0),new THREE.Vector3(1.9,0.7,0)),20,0.018,8),MAT.wire);
 group.add(wire1);

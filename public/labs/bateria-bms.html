@@ -522,7 +522,6 @@ pickerFor(scene,S.camera,S.renderer.domElement,hit=>{
   while(o){ const p=parts.find(p=>p.obj===o); if(p){showToast(`<b style="color:var(--accent)">${p.name}</b><br><span style="color:var(--dim);font-size:11px">${p.desc}</span>`);return;} o=o.parent; }
 });
 
-const homesMod=modules.map(m=>m.position.clone());
 let exploded=false,running=false,soc=0.65,balancing=0;
 const synth=makeSynth({type:'sine',type2:'sine',filterFreq:800,Q:2});
 
@@ -542,7 +541,8 @@ S.setAnimate((dt,t)=>{
     soc=Math.min(1,soc+dt*0.01);
     const set=(id,v)=>{const e=document.getElementById(id);if(e)e.textContent=v;};
     set('t_soc',(soc*100).toFixed(0)+'%');
-    set('t_vpack',V_pack.toFixed(0)+' V');
+    const vCellNow=THREE.MathUtils.lerp(3.0,PACK.Vcell,soc);
+    set('t_vpack',(vCellNow*PACK.cellsSeries).toFixed(0)+' V');
     synth.update(180,182,0.012+0.008*Math.abs(Math.sin(balancing*4)),700);
   } else { synth.update(0,0,0); }
 });

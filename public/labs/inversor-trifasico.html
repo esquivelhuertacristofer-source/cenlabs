@@ -756,13 +756,13 @@ function drawOsc(t,freqHz,faultMode){
   oscCtx.strokeStyle='#11331f';for(let y=0;y<256;y+=32){oscCtx.beginPath();oscCtx.moveTo(0,y);oscCtx.lineTo(512,y);oscCtx.stroke();}
   const vis=Math.max(0.5,freqHz/3000);
   for(let ph=0;ph<3;ph++){
-    if(faultMode==='igbt' && ph===2) continue; // fase C ausente
+    const flatIgbt=(faultMode==='igbt' && ph===2); // fase C plana (IGBT en falla)
     oscCtx.strokeStyle=cols3[ph];oscCtx.lineWidth=2.5;oscCtx.beginPath();
     let phaseOffset=ph*Math.PI*2/3;
     if(faultMode==='sequence') phaseOffset=ph*Math.PI*2/3*0.4; // fases mal espaciadas
     for(let x=0;x<512;x++){
       const a=(x/512)*Math.PI*2*vis + (switching?t*2.4:0) - phaseOffset;
-      let y=Math.sin(a);
+      let y=flatIgbt?0:Math.sin(a);
       if(faultMode==='overheat') y*=(0.5+0.5*Math.sin(t*1.2)); // amplitud degradándose
       const py=128-y*92; x?oscCtx.lineTo(x,py):oscCtx.moveTo(x,py);
     }
