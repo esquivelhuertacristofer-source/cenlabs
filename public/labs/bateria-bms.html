@@ -91,6 +91,7 @@ import { GTAOPass } from 'three/addons/postprocessing/GTAOPass.js';
 import { UnrealBloomPass } from 'three/addons/postprocessing/UnrealBloomPass.js';
 import { SMAAPass } from 'three/addons/postprocessing/SMAAPass.js';
 import { OutputPass } from 'three/addons/postprocessing/OutputPass.js';
+import { BokehPass } from 'three/addons/postprocessing/BokehPass.js';
 
 /* ===== textures (solo gradientBG del fondo) ===== */
 
@@ -274,7 +275,7 @@ function createStage(mount, opts={}){
   renderer.shadowMap.enabled = true;
   renderer.shadowMap.type = THREE.PCFSoftShadowMap;
   renderer.toneMapping = THREE.ACESFilmicToneMapping;
-  renderer.toneMappingExposure = opts.exposure ?? 1.15;
+  renderer.toneMappingExposure = opts.exposure ?? 1.18;
   renderer.outputColorSpace = THREE.SRGBColorSpace;
   mount.appendChild(renderer.domElement);
   renderer.domElement.style.touchAction='none';
@@ -283,7 +284,7 @@ function createStage(mount, opts={}){
   scene.background = gradientBG(bgTop,bgBot);
   const pmrem = new THREE.PMREMGenerator(renderer);
   scene.environment = pmrem.fromScene(new RoomEnvironment(renderer), 0.04).texture;
-  scene.environmentIntensity = opts.envInt ?? 1.1;
+  scene.environmentIntensity = opts.envInt ?? 1.15;
 
   const camera = new THREE.PerspectiveCamera(45, mount.clientWidth/mount.clientHeight, 0.1, 200);
   const cam = opts.cam || [5.5,3.4,6.2];
@@ -298,7 +299,7 @@ function createStage(mount, opts={}){
   controls.autoRotateSpeed = opts.autoRotateSpeed ?? 0.6;
 
   // lighting: studio 3-point + warm rim
-  const key = new THREE.DirectionalLight(0xffffff, 2.6);
+  const key = new THREE.DirectionalLight(0xffffff, 2.7);
   key.position.set(5,9,6); key.castShadow=true;
   key.shadow.mapSize.set(2048,2048);
   key.shadow.camera.near=0.5; key.shadow.camera.far=40;
@@ -312,7 +313,7 @@ function createStage(mount, opts={}){
   // reflective showroom floor
   if(opts.floor!==false){
     const f = new THREE.Mesh(new THREE.CircleGeometry(40,80),
-      new THREE.MeshStandardMaterial({ color:0x0a0e13, roughness:0.18, metalness:0.55, envMapIntensity:0.9 }));
+      new THREE.MeshStandardMaterial({ color:0x0a0e13, roughness:0.14, metalness:0.62, envMapIntensity:1.15 }));
     f.rotation.x=-Math.PI/2; f.receiveShadow=true; scene.add(f);
     for(let r=2;r<=8;r+=2){
       const ring=new THREE.Mesh(new THREE.RingGeometry(r-0.012,r+0.012,80),
@@ -336,6 +337,14 @@ function createStage(mount, opts={}){
   }
   const bloom=new UnrealBloomPass(new THREE.Vector2(mount.clientWidth,mount.clientHeight),opts.bloom??0.42,0.5,0.9);
   composer.addPass(bloom);
+  // Profundidad de campo cinematográfica: el foco sigue al punto que orbita el
+  // usuario, así el sujeto queda siempre nítido. Se desactiva en móvil o con ?flat.
+  let bokeh=null;
+  const flat=/[?&]flat/.test(location.search);
+  if(!isMobile && !flat){
+    bokeh=new BokehPass(scene,camera,{focus:8.5,aperture:opts.aperture??0.00018,maxblur:opts.maxblur??0.004,width:mount.clientWidth,height:mount.clientHeight});
+    composer.addPass(bokeh);
+  }
   composer.addPass(new OutputPass());
   composer.addPass(new SMAAPass(mount.clientWidth*renderer.getPixelRatio(),mount.clientHeight*renderer.getPixelRatio()));
 
@@ -368,7 +377,9 @@ function createStage(mount, opts={}){
     } else if(cinematicIdle){
       controls.autoRotate=(t-lastDrag)>1.4; controls.autoRotateSpeed=0.45;
     }
-    if(hook)hook(dt,t); controls.update(); composer.render(); }
+    if(hook)hook(dt,t); controls.update();
+    if(bokeh) bokeh.uniforms['focus'].value = camera.position.distanceTo(controls.target);
+    composer.render(); }
   function start(){ if(!raf)loop(); }
   function stop(){ cancelAnimationFrame(raf); raf=null; }
 
