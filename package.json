@@ -6,7 +6,11 @@
     "node": "22.x"
   },
   "scripts": {
+    "gen:labs": "node scripts/gen-lab-registry.mjs",
+    "gen:labs:check": "node scripts/gen-lab-registry.mjs --check",
+    "predev": "node scripts/gen-lab-registry.mjs",
     "dev": "next dev -p 3001",
+    "prebuild": "node scripts/gen-lab-registry.mjs",
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
