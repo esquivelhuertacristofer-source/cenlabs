@@ -17,9 +17,9 @@
 
 import React, { useState, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
-import { motion, AnimatePresence } from "framer-motion";
+import { AnimatePresence } from "framer-motion";
 import {
-  Menu, Maximize2, Minimize2, Power,
+  Menu, Maximize2, Minimize2, Power, X,
   Play, FileText, Globe2, Target, ChevronRight, Timer,
 } from "lucide-react";
 import MissionBriefing from "@/components/MissionBriefing";
@@ -72,6 +72,7 @@ export default function MecanicaShellClient({
   const [mounted, setMounted]           = useState(false);
   const [showBriefing, setShowBriefing] = useState(true);
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
+  const [isBitacoraOpen, setIsBitacoraOpen] = useState(false);
   const [activeTab, setActiveTab]       = useState<"guia" | "docente">("guia");
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [showExitModal, setShowExitModal] = useState(false);
@@ -140,9 +141,21 @@ export default function MecanicaShellClient({
       {/* ══════════════════════════════════════════════════════════════
           BARRA LATERAL IZQUIERDA
       ══════════════════════════════════════════════════════════════ */}
-      <motion.aside
-        animate={{ width: isSidebarOpen ? "30%" : "80px" }}
-        className="bg-[#023047] text-white flex flex-col z-20 shadow-2xl overflow-hidden relative shrink-0"
+      {/* Backdrop del drawer de guía (solo móvil) */}
+      {isSidebarOpen && (
+        <div
+          onClick={() => setIsSidebarOpen(false)}
+          className="fixed inset-0 bg-black/50 z-40 md:hidden"
+          aria-hidden
+        />
+      )}
+
+      <aside
+        className={`bg-[#023047] text-white flex flex-col shadow-2xl overflow-hidden
+          fixed inset-y-0 left-0 z-50 w-[86%] max-w-xs transition-all duration-300
+          ${isSidebarOpen ? "translate-x-0" : "-translate-x-full"}
+          md:relative md:z-20 md:translate-x-0 md:max-w-none md:shrink-0
+          ${isSidebarOpen ? "md:w-[30%]" : "md:w-20"}`}
       >
         {/* Header de la barra */}
         <div className="p-6 border-b border-white/10 flex items-center justify-between">
@@ -352,15 +365,23 @@ export default function MecanicaShellClient({
             </div>
           </div>
         )}
-      </motion.aside>
+      </aside>
 
       {/* ══════════════════════════════════════════════════════════════
           MAIN AREA (header + lab + bitácora)
       ══════════════════════════════════════════════════════════════ */}
       <main className="flex-1 flex flex-col relative overflow-hidden">
         {/* Header */}
-        <header className="h-20 bg-[#023047] border-b border-white/10 flex items-center justify-between px-8 z-20 shrink-0">
-          <div className="flex items-center gap-4">
+        <header className="h-20 bg-[#023047] border-b border-white/10 flex items-center justify-between px-4 md:px-8 z-20 shrink-0">
+          <div className="flex items-center gap-3 md:gap-4">
+            {/* Abrir guía (solo móvil) */}
+            <button
+              onClick={() => setIsSidebarOpen(true)}
+              className="md:hidden w-11 h-11 rounded-xl bg-white/5 border border-white/10 text-white flex items-center justify-center hover:bg-white/10 transition-all shrink-0"
+              aria-label="Abrir guía"
+            >
+              <Menu size={20} />
+            </button>
             {/* Código del lab */}
             <div
               className="px-4 py-2 rounded-xl border text-[10px] font-black uppercase tracking-widest shrink-0"
@@ -375,17 +396,25 @@ export default function MecanicaShellClient({
             <LabTimer active={!showBriefing} />
           </div>
 
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-2 md:gap-3">
+            {/* Abrir bitácora (solo móvil) */}
+            <button
+              onClick={() => setIsBitacoraOpen(true)}
+              className="md:hidden w-11 h-11 rounded-xl bg-white/5 border border-white/10 text-white flex items-center justify-center hover:bg-white/10 transition-all shrink-0"
+              aria-label="Abrir bitácora"
+            >
+              <FileText size={18} />
+            </button>
             <button
               onClick={toggleFullscreen}
               title={isFullscreen ? "Salir de pantalla completa" : "Pantalla completa"}
-              className="w-10 h-10 rounded-xl bg-white/5 border border-white/10 text-white/70 flex items-center justify-center hover:bg-white/10 hover:text-white transition-all"
+              className="hidden md:flex w-10 h-10 rounded-xl bg-white/5 border border-white/10 text-white/70 items-center justify-center hover:bg-white/10 hover:text-white transition-all"
             >
               {isFullscreen ? <Minimize2 size={16} /> : <Maximize2 size={16} />}
             </button>
             <button
               onClick={() => setShowExitModal(true)}
-              className="w-10 h-10 rounded-xl bg-white/5 border border-white/10 text-white/70 flex items-center justify-center hover:text-red-400 hover:border-red-400/50 transition-all"
+              className="w-11 h-11 md:w-10 md:h-10 rounded-xl bg-white/5 border border-white/10 text-white/70 flex items-center justify-center hover:text-red-400 hover:border-red-400/50 transition-all shrink-0"
               title="Salir del laboratorio"
             >
               <Power size={16} />
@@ -408,13 +437,36 @@ export default function MecanicaShellClient({
             )}
           </div>
 
+          {/* Backdrop de la bitácora (solo móvil) */}
+          {isBitacoraOpen && (
+            <div
+              onClick={() => setIsBitacoraOpen(false)}
+              className="fixed inset-0 bg-black/50 z-30 md:hidden"
+              aria-hidden
+            />
+          )}
+
           {/* Derecha: Bitácora */}
-          <div className="w-[380px] bg-slate-50 border-l border-slate-200 flex flex-col shrink-0">
-            <div className="p-5 border-b border-slate-100 bg-white/80 backdrop-blur-sm flex items-center gap-2">
-              <FileText size={12} className="text-slate-400" />
-              <span className="font-black text-[10px] text-slate-400 uppercase tracking-widest">
-                Bitácora de Observaciones
+          <div
+            className={`bg-slate-50 border-l border-slate-200 flex flex-col
+              fixed inset-y-0 right-0 z-40 w-[86%] max-w-sm transition-transform duration-300
+              ${isBitacoraOpen ? "translate-x-0" : "translate-x-full"}
+              md:relative md:inset-auto md:z-auto md:translate-x-0 md:w-[380px] md:max-w-none md:shrink-0`}
+          >
+            <div className="p-5 border-b border-slate-100 bg-white/80 backdrop-blur-sm flex items-center justify-between gap-2">
+              <span className="flex items-center gap-2">
+                <FileText size={12} className="text-slate-400" />
+                <span className="font-black text-[10px] text-slate-400 uppercase tracking-widest">
+                  Bitácora de Observaciones
+                </span>
               </span>
+              <button
+                onClick={() => setIsBitacoraOpen(false)}
+                className="md:hidden w-8 h-8 rounded-lg bg-slate-100 flex items-center justify-center text-slate-500"
+                aria-label="Cerrar bitácora"
+              >
+                <X size={16} />
+              </button>
             </div>
             <div className="flex-1 overflow-y-auto p-5">
               <BitacoraMecanica config={config} simuladorId={simuladorId} />

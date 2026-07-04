@@ -82,6 +82,7 @@ export default function SimuladorClient({ simuladorId }: { simuladorId: string }
   // UI State
   const [activeTab, setActiveTab] = useState<'guia' | 'maestro' | 'config'>('guia');
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
+  const [isBitacoraOpen, setIsBitacoraOpen] = useState(false);
   const [showBriefing, setShowBriefing] = useState(true);
   const [mounted, setMounted] = useState(false);
   const [showTools, setShowTools] = useState(false);
@@ -435,9 +436,21 @@ export default function SimuladorClient({ simuladorId }: { simuladorId: string }
       
 
       
-      <motion.aside 
-        animate={{ width: isSidebarOpen ? '30%' : '80px' }}
-        className="bg-[#023047] text-white flex flex-col z-20 shadow-2xl overflow-hidden relative shrink-0"
+      {/* Backdrop del drawer de guía (solo móvil) */}
+      {isSidebarOpen && (
+        <div
+          onClick={() => setIsSidebarOpen(false)}
+          className="fixed inset-0 bg-black/50 z-40 md:hidden"
+          aria-hidden
+        />
+      )}
+
+      <aside
+        className={`bg-[#023047] text-white flex flex-col shadow-2xl overflow-hidden
+          fixed inset-y-0 left-0 z-50 w-[86%] max-w-xs transition-all duration-300
+          ${isSidebarOpen ? 'translate-x-0' : '-translate-x-full'}
+          md:relative md:z-20 md:translate-x-0 md:max-w-none md:shrink-0
+          ${isSidebarOpen ? 'md:w-[30%]' : 'md:w-20'}`}
       >
         <div className="p-6 border-b border-white/10 flex items-center justify-between">
             <h1 className={`font-black uppercase tracking-tighter transition-all ${isSidebarOpen ? 'text-2xl' : 'text-xs scale-0'}`}>CEN Labs</h1>
@@ -615,12 +628,19 @@ export default function SimuladorClient({ simuladorId }: { simuladorId: string }
             )}
           </div>
         )}
-      </motion.aside>
+      </aside>
 
       <main className="flex-1 flex flex-col relative bg-[#F8FAFC]">
-        <header className="h-20 bg-white border-b border-slate-100 flex items-center justify-between px-8 z-20">
-            <div className="flex items-center gap-6">
-               <div className="flex flex-col">
+        <header className="h-20 bg-white border-b border-slate-100 flex items-center justify-between px-4 md:px-8 z-20">
+            <div className="flex items-center gap-3 md:gap-6">
+               <button
+                 onClick={() => setIsSidebarOpen(true)}
+                 className="md:hidden w-11 h-11 rounded-xl bg-slate-100 flex items-center justify-center text-[#023047] shrink-0"
+                 aria-label="Abrir guía"
+               >
+                 <Menu size={20} />
+               </button>
+               <div className="hidden sm:flex flex-col">
                  <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Sincronización Escolar</span>
                  <div className="flex items-center gap-2">
                    <div className={`w-2 h-2 rounded-full animate-pulse ${
@@ -629,37 +649,40 @@ export default function SimuladorClient({ simuladorId }: { simuladorId: string }
                      'bg-rose-500 shadow-[0_0_8px_rgba(244,63,94,0.5)]'
                    }`} />
                    <span className="text-sm font-black text-[#023047] uppercase tracking-tight">
-                     {syncStatus === 'synced' ? 'Cloud Synced' : 
-                      syncStatus === 'pending' ? 'Actualizando...' : 
+                     {syncStatus === 'synced' ? 'Cloud Synced' :
+                      syncStatus === 'pending' ? 'Actualizando...' :
                       syncStatus === 'error' ? 'Sync Error' : 'Offline Mode'}
                    </span>
                  </div>
                </div>
-               <div className="h-8 w-px bg-slate-100" />
+               <div className="hidden sm:block h-8 w-px bg-slate-100" />
                <LabTimer />
             </div>
            
-           <div className="flex items-center gap-3">
-              <button 
+           <div className="flex items-center gap-2 md:gap-3">
+              <button
                 onClick={handleManualValidation}
                 disabled={isValidating}
-                className={`h-12 px-8 rounded-2xl flex items-center gap-3 font-black text-[10px] uppercase tracking-widest transition-all ${isValidating ? 'bg-slate-100 text-slate-400 cursor-not-allowed' : 'bg-[#023047] text-white hover:bg-emerald-600 shadow-lg shadow-[#023047]/20 shadow-xl'}`}
+                className={`h-11 md:h-12 px-4 md:px-8 rounded-2xl flex items-center gap-2 md:gap-3 font-black text-[10px] uppercase tracking-widest transition-all shrink-0 ${isValidating ? 'bg-slate-100 text-slate-400 cursor-not-allowed' : 'bg-[#023047] text-white hover:bg-emerald-600 shadow-lg shadow-[#023047]/20 shadow-xl'}`}
               >
                 {isValidating ? (
                   <div className="w-4 h-4 border-2 border-slate-300 border-t-transparent rounded-full animate-spin" />
                 ) : <ShieldCheck size={18} />}
-                {isValidating ? 'Validando...' : 'Validar Práctica'}
+                <span className="hidden sm:inline">{isValidating ? 'Validando...' : 'Validar Práctica'}</span>
               </button>
-              
-              <div className="w-px h-8 bg-slate-100 mx-2" />
 
-              <button onClick={() => { setActivateAnalysis(true); setShowTools(true); }} className="w-12 h-12 rounded-2xl bg-indigo-50 text-indigo-600 flex items-center justify-center hover:bg-indigo-600 hover:text-white transition-all">
+              <div className="hidden md:block w-px h-8 bg-slate-100 mx-2" />
+
+              <button onClick={() => { setActivateAnalysis(true); setShowTools(true); }} className="hidden md:flex w-12 h-12 rounded-2xl bg-indigo-50 text-indigo-600 items-center justify-center hover:bg-indigo-600 hover:text-white transition-all">
                 <TrendingUp size={20} />
               </button>
-              <button onClick={() => setShowTools(true)} className="px-6 py-3 bg-white border border-slate-200 text-[#023047] rounded-2xl text-[10px] font-black uppercase tracking-widest hover:border-[#219EBC] transition-all flex items-center gap-2">
-                <Microscope size={16} /> Herramientas
+              <button onClick={() => setShowTools(true)} className="h-11 md:h-auto px-3 md:px-6 md:py-3 bg-white border border-slate-200 text-[#023047] rounded-2xl text-[10px] font-black uppercase tracking-widest hover:border-[#219EBC] transition-all flex items-center gap-2 shrink-0">
+                <Microscope size={16} /> <span className="hidden md:inline">Herramientas</span>
               </button>
-              <button onClick={() => setShowExitModal(true)} className="w-12 h-12 rounded-2xl bg-white border border-slate-200 text-slate-400 flex items-center justify-center hover:text-red-500 hover:border-red-500 transition-all">
+              <button onClick={() => setIsBitacoraOpen(true)} className="md:hidden w-11 h-11 rounded-2xl bg-white border border-slate-200 text-[#023047] flex items-center justify-center hover:border-[#219EBC] transition-all shrink-0" aria-label="Abrir bitácora">
+                <FileText size={18} />
+              </button>
+              <button onClick={() => setShowExitModal(true)} className="w-11 h-11 md:w-12 md:h-12 rounded-2xl bg-white border border-slate-200 text-slate-400 flex items-center justify-center hover:text-red-500 hover:border-red-500 transition-all shrink-0">
                 <Power size={20} />
               </button>
            </div>
@@ -692,9 +715,20 @@ export default function SimuladorClient({ simuladorId }: { simuladorId: string }
              {!showBriefing && renderPiloto()}
            </div>
            
-           <div className="w-[400px] bg-slate-50 border-l border-slate-100 flex flex-col">
-              <div className="p-6 border-b border-slate-100 bg-white/50 backdrop-blur-sm font-black text-[10px] text-slate-400 uppercase tracking-widest flex items-center gap-2">
-                 <FileText size={12} /> Bitácora de Observaciones
+           {/* Backdrop de la bitácora (solo móvil) */}
+           {isBitacoraOpen && (
+             <div onClick={() => setIsBitacoraOpen(false)} className="fixed inset-0 bg-black/50 z-30 md:hidden" aria-hidden />
+           )}
+
+           <div className={`bg-slate-50 border-l border-slate-100 flex flex-col
+             fixed inset-y-0 right-0 z-40 w-[86%] max-w-sm transition-transform duration-300
+             ${isBitacoraOpen ? 'translate-x-0' : 'translate-x-full'}
+             md:relative md:inset-auto md:z-auto md:translate-x-0 md:w-[400px] md:max-w-none`}>
+              <div className="p-6 border-b border-slate-100 bg-white/50 backdrop-blur-sm font-black text-[10px] text-slate-400 uppercase tracking-widest flex items-center justify-between gap-2">
+                 <span className="flex items-center gap-2"><FileText size={12} /> Bitácora de Observaciones</span>
+                 <button onClick={() => setIsBitacoraOpen(false)} className="md:hidden w-8 h-8 rounded-lg bg-slate-100 flex items-center justify-center text-slate-500" aria-label="Cerrar bitácora">
+                   <X size={16} />
+                 </button>
               </div>
               <div className="flex-1 overflow-y-auto p-6">
                  {renderBitacora()}
