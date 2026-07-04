@@ -40,8 +40,8 @@ const ConcentricRings = ({ progress, colorClass }: { progress: number, colorClas
   const globalOffset = 100 - progress;
 
   return (
-    <div className="relative w-28 h-28 flex items-center justify-center">
-      <svg className="w-full h-full transform -rotate-90">
+    <div className="relative w-20 h-20 sm:w-28 sm:h-28 flex items-center justify-center">
+      <svg className="w-full h-full transform -rotate-90" viewBox="0 0 112 112">
         <circle className="stroke-black/5 dark:stroke-white/5" strokeWidth="6" fill="transparent" r="48" cx="56" cy="56" />
         <circle
           className={`${colorClass} transition-all duration-1000 ease-out`}
@@ -92,7 +92,7 @@ const SpotlightCard = ({ practica, accentBg, accentText }: { practica: Practica,
         />
 
         {/* Contenido (Izquierda) */}
-        <div className="relative z-20 w-full p-8 lg:p-10 flex flex-col md:flex-row md:items-center justify-between gap-6 md:pr-[35%] lg:pr-[30%] pointer-events-none">
+        <div className="relative z-20 w-full p-4 sm:p-8 lg:p-10 flex flex-col md:flex-row md:items-center justify-between gap-6 md:pr-[35%] lg:pr-[30%] pointer-events-none">
            <div className="w-full">
                <span className={`inline-flex items-center gap-2 px-4 py-1.5 ${practica.estado === 'completado' ? 'bg-green-500/10 text-green-500' : 'bg-[#e8f6f9] dark:bg-[#126782]/20 ' + accentText} rounded-lg text-xs font-black uppercase tracking-widest mb-4 border ${practica.estado === 'completado' ? 'border-green-500/20' : 'border-[#219EBC]/20'}`}>
                  <div className={`w-2 h-2 rounded-full ${practica.estado === 'completado' ? 'bg-green-500' : 'bg-[#219EBC] animate-pulse'}`}></div>
@@ -254,7 +254,7 @@ export default function QuimicaCatalogPage() {
               <div className="absolute inset-0 bg-[url('https://www.transparenttextures.com/patterns/cubes.png')] mix-blend-overlay"></div>
            </div>
            
-           <div className="absolute top-0 right-0 w-[60%] md:w-[70%] lg:w-[55%] h-full z-0 pointer-events-none rounded-r-[40px] flex items-center justify-end overflow-hidden">
+           <div className="hidden sm:flex absolute top-0 right-0 w-[60%] md:w-[70%] lg:w-[55%] h-full z-0 pointer-events-none rounded-r-[40px] items-center justify-end overflow-hidden">
              {/* Fade horizontal para integrar perfectamente con el background */}
              <div className="absolute inset-0 bg-gradient-to-r from-[#e8f6f9] dark:from-[#0D1B2A] via-transparent to-transparent z-10 w-full" />
              <img src="/images/quimica_3d.webp" alt="Química Decoración" className="w-full h-full object-cover object-center opacity-100 transition-transform duration-700 hover:scale-105" />
@@ -270,7 +270,7 @@ export default function QuimicaCatalogPage() {
                  </span>
               </div>
               
-              <h1 className="text-5xl md:text-6xl lg:text-[72px] font-black text-[#023047] dark:text-white leading-tight tracking-tight mb-4 transition-colors">
+              <h1 className="text-3xl sm:text-5xl md:text-6xl lg:text-[72px] font-black text-[#023047] dark:text-white leading-tight tracking-tight mb-4 transition-colors">
                 Laboratorio de Química
               </h1>
               <p className="text-xl text-slate-600 dark:text-slate-400 font-bold mb-10 w-[90%] leading-snug">
@@ -303,7 +303,7 @@ export default function QuimicaCatalogPage() {
 
         {/* 3. TABS NAVIGATION & SEARCH ROW */}
         <div className="w-full flex flex-col lg:flex-row justify-between items-start lg:items-center gap-6 border-b border-gray-200 dark:border-gray-800 pb-4 mb-10">
-            <h2 className="text-4xl font-black text-[#023047] dark:text-white tracking-tight shrink-0">Prácticas</h2>
+            <h2 className="text-2xl sm:text-4xl font-black text-[#023047] dark:text-white tracking-tight shrink-0">Prácticas</h2>
             
             <div className="flex flex-col md:flex-row items-center gap-6 w-full lg:w-auto">
                 <div className="flex gap-4 overflow-x-auto pt-4 pb-4 w-full md:w-auto snap-x hidden-scrollbar">
@@ -314,7 +314,7 @@ export default function QuimicaCatalogPage() {
                             <button
                                 key={tab}
                                 onClick={() => handleTabChange(tab)}
-                                className={`snap-center shrink-0 px-8 py-3.5 rounded-2xl text-base font-black transition-all flex items-center gap-3 shadow-sm ${isActiveTab ? 'bg-[#219EBC] dark:bg-[#219EBC] text-white border-2 border-[#219EBC] -translate-y-1 shadow-lg shadow-[#219EBC]/30' : 'bg-white dark:bg-[#0A1121] text-slate-500 dark:text-slate-400 border border-slate-200 dark:border-slate-800 hover:bg-slate-50 dark:hover:bg-slate-800 hover:-translate-y-0.5'}`}
+                                className={`snap-center shrink-0 px-4 sm:px-8 py-3.5 rounded-2xl text-sm sm:text-base font-black transition-all flex items-center gap-3 shadow-sm ${isActiveTab ? 'bg-[#219EBC] dark:bg-[#219EBC] text-white border-2 border-[#219EBC] -translate-y-1 shadow-lg shadow-[#219EBC]/30' : 'bg-white dark:bg-[#0A1121] text-slate-500 dark:text-slate-400 border border-slate-200 dark:border-slate-800 hover:bg-slate-50 dark:hover:bg-slate-800 hover:-translate-y-0.5'}`}
                             >
                                 {tab}
                                 <span className={`px-3 py-1 rounded-lg text-xs font-bold ${isActiveTab ? 'bg-white/20 text-white' : 'bg-slate-100 dark:bg-slate-800 text-slate-500'}`}>
@@ -365,7 +365,7 @@ export default function QuimicaCatalogPage() {
 
         {/* 4. GRID BENTO ROW PARA PRÁCTICAS */}
         {filteredPracticas.length > 0 ? (
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 sm:gap-6 md:gap-8">
              {filteredPracticas.map((practica) => (
                 <SpotlightCard 
                   key={practica.id} 

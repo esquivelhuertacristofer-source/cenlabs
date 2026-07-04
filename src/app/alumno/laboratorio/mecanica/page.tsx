@@ -51,8 +51,8 @@ const ConcentricRings = ({ progress, colorClass }: { progress: number, colorClas
   const globalOffset = 100 - progress;
 
   return (
-    <div className="relative w-28 h-28 flex items-center justify-center">
-      <svg className="w-full h-full transform -rotate-90">
+    <div className="relative w-20 h-20 sm:w-28 sm:h-28 flex items-center justify-center">
+      <svg className="w-full h-full transform -rotate-90" viewBox="0 0 112 112">
         <circle className="stroke-black/5 dark:stroke-white/5" strokeWidth="6" fill="transparent" r="48" cx="56" cy="56" />
         <circle
           className={`${colorClass} transition-all duration-1000 ease-out`}
@@ -97,7 +97,7 @@ const SpotlightCard = ({ practica }: { practica: Practica }) => {
             }}
         />
 
-        <div className="relative z-20 w-full p-8 lg:p-10 flex flex-col md:flex-row md:items-center justify-between gap-6 md:pr-[35%] lg:pr-[30%] pointer-events-none">
+        <div className="relative z-20 w-full p-4 sm:p-8 lg:p-10 flex flex-col md:flex-row md:items-center justify-between gap-6 md:pr-[35%] lg:pr-[30%] pointer-events-none">
            <div className="w-full">
                <span className="inline-flex items-center gap-2 px-4 py-1.5 bg-[#effaf7] dark:bg-[#2A9D8F]/20 text-[#2A9D8F] dark:text-[#4FD1C5] rounded-lg text-xs font-black uppercase tracking-widest mb-4 border border-[#2A9D8F]/20">
                  <div className="w-2 h-2 rounded-full bg-[#2A9D8F] animate-pulse"></div>
@@ -233,7 +233,7 @@ export default function MecanicaCatalogPage() {
               <div className="absolute inset-0 bg-[url('https://www.transparenttextures.com/patterns/cubes.png')] mix-blend-overlay"></div>
            </div>
 
-           <div className="absolute top-0 right-0 w-[60%] md:w-[70%] lg:w-[55%] h-full z-0 pointer-events-none rounded-r-[40px] flex items-center justify-end overflow-hidden">
+           <div className="hidden sm:flex absolute top-0 right-0 w-[60%] md:w-[70%] lg:w-[55%] h-full z-0 pointer-events-none rounded-r-[40px] items-center justify-end overflow-hidden">
              <div className="absolute inset-0 bg-gradient-to-r from-[#effaf7] dark:from-[#08201C] via-transparent to-transparent z-10 w-full" />
              <img src="/images/ingenieria_claymorphic_3d_v5_1775860518999.webp" alt="Mecánica e Ingeniería Decoración" className="w-full h-full object-cover object-center opacity-100 transition-transform duration-700 hover:scale-105" />
            </div>
@@ -248,7 +248,7 @@ export default function MecanicaCatalogPage() {
                  </span>
               </div>
 
-              <h1 className="text-5xl md:text-6xl lg:text-[64px] font-black text-[#023047] dark:text-white leading-tight tracking-tight mb-4 transition-colors">
+              <h1 className="text-3xl sm:text-5xl md:text-6xl lg:text-[64px] font-black text-[#023047] dark:text-white leading-tight tracking-tight mb-4 transition-colors">
                 Mecánica e Ingeniería
               </h1>
               <p className="text-xl text-slate-600 dark:text-slate-400 font-bold mb-10 w-[90%] leading-snug">
@@ -287,11 +287,11 @@ export default function MecanicaCatalogPage() {
 
         {/* 3. LABS ACTIVOS */}
         <div className="w-full flex justify-between items-end border-b border-gray-200 dark:border-gray-800 pb-4 mb-10">
-            <h2 className="text-4xl font-black text-[#023047] dark:text-white tracking-tight">Prácticas disponibles</h2>
+            <h2 className="text-2xl sm:text-4xl font-black text-[#023047] dark:text-white tracking-tight">Prácticas disponibles</h2>
             <span className="text-sm font-black text-[#2A9D8F] dark:text-[#4FD1C5] uppercase tracking-widest">{activas.length} labs 3D</span>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 sm:gap-6 md:gap-8">
            {activas.map((practica) => (
               <SpotlightCard key={practica.id} practica={practica} />
            ))}
