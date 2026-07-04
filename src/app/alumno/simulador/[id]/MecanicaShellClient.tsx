@@ -71,7 +71,7 @@ export default function MecanicaShellClient({
 
   const [mounted, setMounted]           = useState(false);
   const [showBriefing, setShowBriefing] = useState(true);
-  const [isSidebarOpen, setIsSidebarOpen] = useState(true);
+  const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [activeTab, setActiveTab]       = useState<"guia" | "docente">("guia");
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [showExitModal, setShowExitModal] = useState(false);
@@ -83,6 +83,7 @@ export default function MecanicaShellClient({
   // Registro de visita (mismo patrón que MecanicaLabClient / SimuladorClient)
   useEffect(() => {
     setMounted(true);
+    setIsSidebarOpen(window.innerWidth >= 768);
     const recordVisit = async () => {
       try {
         localStorage.setItem("last_simulation_id", simuladorId);
@@ -192,7 +193,7 @@ export default function MecanicaShellClient({
               <div className="flex gap-2">
                 <button
                   onClick={() => setActiveTab("guia")}
-                  className="flex-1 py-3 rounded-2xl text-[10px] font-black uppercase tracking-widest transition-all"
+                  className="flex-1 py-3 min-h-[44px] rounded-2xl text-[10px] font-black uppercase tracking-widest transition-all"
                   style={
                     activeTab === "guia"
                       ? { backgroundColor: acento, color: "#fff" }
@@ -203,7 +204,7 @@ export default function MecanicaShellClient({
                 </button>
                 <button
                   onClick={() => setActiveTab("docente")}
-                  className={`flex-1 py-3 rounded-2xl text-[10px] font-black uppercase tracking-widest transition-all ${
+                  className={`flex-1 py-3 min-h-[44px] rounded-2xl text-[10px] font-black uppercase tracking-widest transition-all ${
                     activeTab === "docente"
                       ? "bg-[#FB8500] text-white"
                       : "bg-white/5 text-slate-400"

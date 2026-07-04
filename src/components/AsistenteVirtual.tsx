@@ -91,7 +91,7 @@ export default function AsistenteVirtual({
           initial={{ opacity: 0, scale: 0.9, y: 50 }}
           animate={{ opacity: 1, scale: 1, y: 0 }}
           exit={{ opacity: 0, scale: 0.9, y: 50 }}
-          className={`${variant === 'fixed' ? 'fixed bottom-10 left-10 z-[110] max-w-md' : 'relative w-full z-10'} flex flex-col items-start gap-2 pointer-events-none`}
+          className={`${variant === 'fixed' ? 'fixed bottom-4 left-4 right-4 sm:bottom-10 sm:left-10 sm:right-auto sm:max-w-md z-[110]' : 'relative w-full z-10'} flex flex-col items-start gap-2 pointer-events-none`}
         >
           {/* Burbuja de Diálogo Glassmorphic */}
           <div className="relative bg-white/10 backdrop-blur-2xl border border-white/20 p-8 rounded-[2.5rem] shadow-[0_25px_80px_rgba(0,0,0,0.3)] pointer-events-auto">

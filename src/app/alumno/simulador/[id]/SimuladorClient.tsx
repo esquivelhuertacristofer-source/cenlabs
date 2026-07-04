@@ -81,7 +81,7 @@ export default function SimuladorClient({ simuladorId }: { simuladorId: string }
 
   // UI State
   const [activeTab, setActiveTab] = useState<'guia' | 'maestro' | 'config'>('guia');
-  const [isSidebarOpen, setIsSidebarOpen] = useState(true);
+  const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [showBriefing, setShowBriefing] = useState(true);
   const [mounted, setMounted] = useState(false);
   const [showTools, setShowTools] = useState(false);
@@ -148,6 +148,7 @@ export default function SimuladorClient({ simuladorId }: { simuladorId: string }
 
   useEffect(() => {
     setMounted(true);
+    setIsSidebarOpen(window.innerWidth >= 768);
 
     // --- REGISTRO DE ACTIVIDAD (Backend & Local) ---
     const recordVisit = async () => {
@@ -436,7 +437,7 @@ export default function SimuladorClient({ simuladorId }: { simuladorId: string }
       
       <motion.aside 
         animate={{ width: isSidebarOpen ? '30%' : '80px' }}
-        className="bg-[#023047] text-white flex flex-col z-20 shadow-2xl overflow-hidden relative"
+        className="bg-[#023047] text-white flex flex-col z-20 shadow-2xl overflow-hidden relative shrink-0"
       >
         <div className="p-6 border-b border-white/10 flex items-center justify-between">
             <h1 className={`font-black uppercase tracking-tighter transition-all ${isSidebarOpen ? 'text-2xl' : 'text-xs scale-0'}`}>CEN Labs</h1>
@@ -463,8 +464,8 @@ export default function SimuladorClient({ simuladorId }: { simuladorId: string }
               </div>
 
               <div className="flex gap-2">
-                <button onClick={() => setActiveTab('guia')} className={`flex-1 py-3 rounded-2xl text-[10px] font-black uppercase tracking-widest transition-all ${activeTab === 'guia' ? 'bg-[#219EBC] text-white' : 'bg-white/5 text-slate-400'}`}>Guía</button>
-                <button onClick={() => setActiveTab('maestro')} className={`flex-1 py-3 rounded-2xl text-[10px] font-black uppercase tracking-widest transition-all ${activeTab === 'maestro' ? 'bg-[#FB8500] text-white' : 'bg-white/5 text-slate-400'}`}>Docente</button>
+                <button onClick={() => setActiveTab('guia')} className={`flex-1 py-3 min-h-[44px] rounded-2xl text-[10px] font-black uppercase tracking-widest transition-all ${activeTab === 'guia' ? 'bg-[#219EBC] text-white' : 'bg-white/5 text-slate-400'}`}>Guía</button>
+                <button onClick={() => setActiveTab('maestro')} className={`flex-1 py-3 min-h-[44px] rounded-2xl text-[10px] font-black uppercase tracking-widest transition-all ${activeTab === 'maestro' ? 'bg-[#FB8500] text-white' : 'bg-white/5 text-slate-400'}`}>Docente</button>
               </div>
 
               {activeTab === 'guia' && (

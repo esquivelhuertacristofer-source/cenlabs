@@ -53,6 +53,7 @@ export default function RootLayout({
   return (
     <html lang="es" suppressHydrationWarning className={outfit.variable}>
       <head>
+        <meta name="viewport" content="width=device-width, initial-scale=1" />
         <link rel="icon" href="/icon-192.png?v=2" />
       </head>
       <body className={`${outfit.className} ${geistMono.variable} antialiased`} suppressHydrationWarning>
