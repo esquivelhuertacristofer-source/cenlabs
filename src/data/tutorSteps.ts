@@ -1,6 +1,7 @@
 import { TutorStep } from '@/components/DrQuantumTutor';
+import { fromRegistry } from '@/labs/_registry';
 
-export const ALL_TUTOR_STEPS: Record<string, TutorStep[]> = {
+const LEGACY_ALL_TUTOR_STEPS: Record<string, TutorStep[]> = {
   'matematicas-1': [
     {
       id: 1, tipo: 'intro', pista: '¡Bienvenida!',
@@ -869,4 +870,9 @@ export const ALL_TUTOR_STEPS: Record<string, TutorStep[]> = {
       accion: 'Certificar Pureza',
     }
   ]
+};
+
+export const ALL_TUTOR_STEPS: Record<string, TutorStep[]> = {
+  ...LEGACY_ALL_TUTOR_STEPS,
+  ...fromRegistry('tutorSteps'),
 };

@@ -1,6 +1,7 @@
 import { BriefingConfig } from '@/components/MissionBriefing';
+import { fromRegistry } from '@/labs/_registry';
 
-export const ALL_BRIEFING_CONFIGS: Record<string, BriefingConfig> = {
+const LEGACY_ALL_BRIEFING_CONFIGS: Record<string, BriefingConfig> = {
   // ═══════════════════════════════════════════════════════════════════════════
   // MECÁNICA E INGENIERÍA — Laboratorios 3D didácticos (CONALEP)
   // Videos pendientes: dejar videoUrl vacío como placeholder hasta recibirlos.
@@ -1429,4 +1430,9 @@ export const ALL_BRIEFING_CONFIGS: Record<string, BriefingConfig> = {
       { area: 'Salud', ejemplo: 'Propagación de virus en una población (modelos SIR).' }
     ]
   },
+};
+
+export const ALL_BRIEFING_CONFIGS: Record<string, BriefingConfig> = {
+  ...LEGACY_ALL_BRIEFING_CONFIGS,
+  ...fromRegistry('briefing'),
 };

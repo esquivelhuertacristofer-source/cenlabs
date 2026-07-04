@@ -2,6 +2,7 @@
 
 import React from 'react';
 import dynamic from 'next/dynamic';
+import { LAB_COMPONENTS } from '@/labs/_components';
 
 const Loader = () => (
   <div className="flex h-full w-full items-center justify-center bg-slate-50/50 animate-pulse">
@@ -13,7 +14,7 @@ const Loader = () => (
 );
 
 // --- PILOTOS ---
-export const PILOTO_REGISTRY: Record<string, any> = {
+const LEGACY_PILOTO_REGISTRY: Record<string, any> = {
   'quimica-1': dynamic(() => import('@/components/PilotoConstruccionAtomica'), { loading: Loader }),
   'quimica-2': dynamic(() => import('@/components/PilotoLeyesGases'), { loading: Loader }),
   'quimica-3': dynamic(() => import('@/components/PilotoBalanceoEcuaciones'), { loading: Loader }),
@@ -60,7 +61,7 @@ export const PILOTO_REGISTRY: Record<string, any> = {
 };
 
 // --- BITÁCORAS ---
-export const BITACORA_REGISTRY: Record<string, any> = {
+const LEGACY_BITACORA_REGISTRY: Record<string, any> = {
   'quimica-1': dynamic(() => import('@/components/bitacoras/BitacoraConstruccionAtomica'), { loading: Loader }),
   'quimica-2': dynamic(() => import('@/components/bitacoras/BitacoraLeyesGases'), { loading: Loader }),
   'quimica-3': dynamic(() => import('@/components/bitacoras/BitacoraBalanceoEcuaciones'), { loading: Loader }),
@@ -104,4 +105,20 @@ export const BITACORA_REGISTRY: Record<string, any> = {
   'biologia-8': dynamic(() => import('@/components/bitacoras/BitacoraElectrocardiograma'), { loading: Loader }),
   'biologia-9': dynamic(() => import('@/components/bitacoras/BitacoraSistemaDigestivo'), { loading: Loader }),
   'biologia-10': dynamic(() => import('@/components/bitacoras/BitacoraPoblaciones'), { loading: Loader }),
+};
+
+// --- MERGE con el registro nuevo (labs migrados a src/labs/{id}/components) ---
+// El registro sobrescribe al legacy; vacío ⇒ comportamiento idéntico.
+export const PILOTO_REGISTRY: Record<string, any> = {
+  ...LEGACY_PILOTO_REGISTRY,
+  ...Object.fromEntries(
+    Object.entries(LAB_COMPONENTS).map(([id, c]) => [id, c.Piloto])
+  ),
+};
+
+export const BITACORA_REGISTRY: Record<string, any> = {
+  ...LEGACY_BITACORA_REGISTRY,
+  ...Object.fromEntries(
+    Object.entries(LAB_COMPONENTS).map(([id, c]) => [id, c.Bitacora])
+  ),
 };

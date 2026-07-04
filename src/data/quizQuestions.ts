@@ -1,6 +1,7 @@
 import { Question } from "@/components/LabQuiz";
+import { fromRegistry } from '@/labs/_registry';
 
-export const ALL_QUIZZES: Record<string, Question[]> = {
+const LEGACY_ALL_QUIZZES: Record<string, Question[]> = {
   'matematicas-1': [
     {
       pregunta: "¿Qué indica un discriminante (Δ) mayor a cero en una función cuadrática?",
@@ -3499,4 +3500,9 @@ export const getQuizForPractice = (id: string): Question[] => {
 
   // Retornamos un set de 7 preguntas para mantener la consistencia del UI
   return shuffled.slice(0, 7);
+};
+
+export const ALL_QUIZZES: Record<string, Question[]> = {
+  ...LEGACY_ALL_QUIZZES,
+  ...fromRegistry('quiz'),
 };

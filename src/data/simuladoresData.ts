@@ -1,3 +1,5 @@
+import { fromRegistry } from '@/labs/_registry';
+
 export interface SimuladorContenido {
   titulo: string;
   tituloEn?: string;
@@ -23,7 +25,7 @@ export interface SimuladorContenido {
   videoUrl?: string;
 }
 
-export const MASTER_DATA: Record<string, SimuladorContenido> = {
+const LEGACY_MASTER_DATA: Record<string, SimuladorContenido> = {
   "quimica-1": {
     titulo: "Construcción Atómica", 
     videoUrl: "",
@@ -832,5 +834,10 @@ export const MASTER_DATA: Record<string, SimuladorContenido> = {
     ]
   }
 } as const;
+
+export const MASTER_DATA: Record<string, SimuladorContenido> = {
+  ...LEGACY_MASTER_DATA,
+  ...fromRegistry('contenido'),
+};
 
 export type SimuladorId = keyof typeof MASTER_DATA;

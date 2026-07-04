@@ -1,3 +1,5 @@
+import { LABS } from '@/labs/_registry';
+
 export type Objetivo = { label: string; current: number; target: number; completed: boolean };
 
 export interface ObjetivosState {
@@ -9,6 +11,9 @@ export interface ObjetivosState {
 }
 
 export function getLabObjetivos(normalizedId: string, s: ObjetivosState): Objetivo[] {
+  const desdeRegistro = LABS[normalizedId]?.objetivos;
+  if (desdeRegistro) return desdeRegistro(s);
+
   const { pActual, nActual, eActual, targetZ, targetA, targetCharge,
           gases, balanceo, limitante, soluciones, solubilidad,
           titulacion, equilibrio, celda, destilacion,
