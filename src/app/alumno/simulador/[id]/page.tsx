@@ -1,6 +1,6 @@
 import { Metadata } from 'next';
 import SimuladorClient from './SimuladorClient';
-import MecanicaLabClient from './MecanicaLabClient';
+import MecanicaShellClient from './MecanicaShellClient';
 import { ALL_BRIEFING_CONFIGS } from '@/data/briefingConfigs';
 
 export const dynamic = 'force-dynamic';
@@ -28,7 +28,7 @@ export default async function SimuladorPage({ params }: { params: Promise<{ id: 
   // Los labs de Mecánica e Ingeniería son experiencias 3D autónomas (three.js)
   // que se embeben a pantalla completa con su propio shell dedicado.
   if (resolvedParams.id.startsWith('mecanica-')) {
-    return <MecanicaLabClient simuladorId={resolvedParams.id} />;
+    return <MecanicaShellClient simuladorId={resolvedParams.id} />;
   }
 
   return <SimuladorClient simuladorId={resolvedParams.id} />;
