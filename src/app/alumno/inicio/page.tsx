@@ -65,7 +65,7 @@ const SpotlightBentoCard = ({ subject, index }: { subject: any, index: number })
       onMouseMove={handleMouseMove}
       onMouseEnter={handleMouseEnter}
       onMouseLeave={handleMouseLeave}
-      className={`relative w-full ${subject.wide ? 'xl:col-span-2 min-h-[400px] md:min-h-[460px]' : 'h-[400px] md:h-[450px]'} rounded-[40px] ${subject.gradient} shadow-[0_20px_40px_-15px_rgba(0,0,0,0.08)] ${subject.shadowGlow} transition-all duration-700 group border border-white/60 dark:border-white/10 overflow-hidden flex flex-col sm:flex-row p-8 md:p-10 perspective-1000 stagger-${index}`}
+      className={`relative w-full ${subject.wide ? 'xl:col-span-2 min-h-[400px] md:min-h-[460px]' : 'h-[400px] md:h-[450px]'} rounded-[40px] ${subject.gradient} shadow-[0_20px_40px_-15px_rgba(0,0,0,0.08)] ${subject.shadowGlow} transition-all duration-700 group border border-white/60 dark:border-white/10 overflow-hidden flex flex-col sm:flex-row p-4 sm:p-8 md:p-10 perspective-1000 stagger-${index}`}
     >
       {/* Spotlight Effect Element */}
       <div 
@@ -82,7 +82,7 @@ const SpotlightBentoCard = ({ subject, index }: { subject: any, index: number })
       </div>
 
       {/* 3D Render Image con Fade integrado */}
-      <div className="absolute top-0 right-0 w-[60%] md:w-[55%] lg:w-[60%] h-full z-0 pointer-events-none rounded-r-[40px] transition-transform duration-700 ease-out group-hover:scale-105 origin-right">
+      <div className="hidden sm:block absolute top-0 right-0 w-[60%] md:w-[55%] lg:w-[60%] h-full z-0 pointer-events-none rounded-r-[40px] transition-transform duration-700 ease-out group-hover:scale-105 origin-right">
          <div className={`absolute inset-0 bg-gradient-to-r ${subject.fadeColor} via-transparent to-transparent z-10 w-full h-full`}></div>
          <Image 
             src={subject.image} 
@@ -105,7 +105,7 @@ const SpotlightBentoCard = ({ subject, index }: { subject: any, index: number })
             <span className="text-sm font-bold text-[#023047]/60 dark:text-slate-400 tracking-widest uppercase transition-colors">Materia</span>
           </div>
           
-          <h2 className="text-[32px] md:text-[40px] font-black text-[#023047] dark:text-white leading-tight mb-8 transition-colors group-hover:text-black dark:group-hover:text-white">
+          <h2 className="text-[22px] sm:text-[32px] md:text-[40px] font-black text-[#023047] dark:text-white leading-tight mb-8 transition-colors group-hover:text-black dark:group-hover:text-white">
             {subject.name.replace("Laboratorio de ", "")}
           </h2>
 
@@ -423,7 +423,7 @@ export default function AlumnoInicio() {
         {/* Encabezado Principal y Consolidado de Progreso */}
         <div className="w-full max-w-[1600px] mb-12 flex flex-col lg:flex-row items-center justify-between gap-8 stagger-0">
           <div className="text-center lg:text-left">
-            <h1 className="font-black text-5xl md:text-6xl text-[#023047] dark:text-white mb-2 tracking-tight transition-colors">Tus <span className="text-transparent bg-clip-text bg-gradient-to-r from-[#023047] to-[#219EBC] dark:from-white dark:to-[#8ECAE6]">Laboratorios</span></h1>
+            <h1 className="font-black text-3xl sm:text-5xl md:text-6xl text-[#023047] dark:text-white mb-2 tracking-tight transition-colors">Tus <span className="text-transparent bg-clip-text bg-gradient-to-r from-[#023047] to-[#219EBC] dark:from-white dark:to-[#8ECAE6]">Laboratorios</span></h1>
             <p className="text-[#126782] dark:text-[#8ECAE6] text-lg font-medium transition-colors opacity-70">Dominio científico a través de la experimentación.</p>
           </div>
 
@@ -473,7 +473,7 @@ export default function AlumnoInicio() {
            <div className="h-[1px] flex-grow bg-slate-200 dark:bg-slate-800 ml-6"></div>
         </div>
 
-        <div className="w-full max-w-[1600px] grid grid-cols-1 xl:grid-cols-2 gap-8 md:gap-10 stagger-3 mb-24">
+        <div className="w-full max-w-[1600px] grid grid-cols-1 xl:grid-cols-2 gap-4 sm:gap-8 md:gap-10 stagger-3 mb-24">
           {subjects.map((subject, index) => (
              <SpotlightBentoCard 
                key={subject.id} 
@@ -495,7 +495,7 @@ export default function AlumnoInicio() {
               <div 
                 key={fac.id} 
                 onClick={() => router.push(`/alumno/ruta/${fac.id}`)}
-                className="group relative cursor-pointer h-[400px] rounded-[60px] overflow-hidden shadow-[0_30px_60px_-15px_rgba(0,0,0,0.3)] hover:shadow-[0_60px_100px_-20px_rgba(0,0,0,0.4)] transition-all duration-700 hover:-translate-y-4"
+                className="group relative cursor-pointer h-[280px] sm:h-[400px] rounded-[60px] overflow-hidden shadow-[0_30px_60px_-15px_rgba(0,0,0,0.3)] hover:shadow-[0_60px_100px_-20px_rgba(0,0,0,0.4)] transition-all duration-700 hover:-translate-y-4"
               >
                 {/* Fondo Cinemático 3D */}
                 <Image 
