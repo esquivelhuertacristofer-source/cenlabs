@@ -399,7 +399,7 @@ function torqueRequired(payloadKg,reachM){ return payloadKg*ROBOT.g*reachM; }
 
 /* ---------- renderer / scene ---------- */
 const stage=document.getElementById('stage');
-const renderer=new THREE.WebGLRenderer({antialias:true});
+const renderer=new THREE.WebGLRenderer({antialias:true,powerPreference:'high-performance'});
 renderer.setPixelRatio(Math.min(devicePixelRatio,2));
 renderer.setSize(innerWidth,innerHeight);
 renderer.shadowMap.enabled=true; renderer.shadowMap.type=THREE.PCFSoftShadowMap;
@@ -433,7 +433,8 @@ scene.add(new THREE.HemisphereLight(0x9fc8c4,0x0a1414,0.4));
 const lightMode=/[?&]light/.test(location.search);
 let mirror=null;
 (function(){
-  if(!lightMode){
+  const isMobileFloor=/Mobi|Android|iPhone|iPad/i.test(navigator.userAgent)||innerWidth<860;
+  if(!lightMode&&!isMobileFloor){
     mirror=new Reflector(new THREE.CircleGeometry(40,80),{clipBias:0.003,textureWidth:innerWidth*Math.min(devicePixelRatio,2),textureHeight:innerHeight*Math.min(devicePixelRatio,2),color:0x081414});
     mirror.rotation.x=-Math.PI/2;scene.add(mirror);
   } else {
@@ -545,7 +546,8 @@ const bloom=new UnrealBloomPass(new THREE.Vector2(innerWidth,innerHeight),0.42,0
 let bokeh=null; if(!isMobile&&!lightMode){bokeh=new BokehPass(scene,camera,{focus:8.5,aperture:0.00018,maxblur:0.004,width:innerWidth,height:innerHeight});composer.addPass(bokeh);}
 composer.addPass(new OutputPass());
 composer.addPass(new SMAAPass(innerWidth*renderer.getPixelRatio(),innerHeight*renderer.getPixelRatio()));
-addEventListener('resize',()=>{camera.aspect=innerWidth/innerHeight;camera.updateProjectionMatrix();renderer.setSize(innerWidth,innerHeight);composer.setSize(innerWidth,innerHeight);if(mirror)mirror.getRenderTarget().setSize(innerWidth*Math.min(devicePixelRatio,2),innerHeight*Math.min(devicePixelRatio,2));});
+function onResize(){camera.aspect=innerWidth/innerHeight;camera.updateProjectionMatrix();renderer.setSize(innerWidth,innerHeight);composer.setSize(innerWidth,innerHeight);if(mirror)mirror.getRenderTarget().setSize(innerWidth*Math.min(devicePixelRatio,2),innerHeight*Math.min(devicePixelRatio,2));}
+window.addEventListener('resize',onResize);
 // Escena de superposición para las etiquetas 3D (sprites). Los pases GTAO/Bokeh
 // usan scene.overrideMaterial en sus prepasses; bajo un material override los Sprites
 // pierden su billboard y se dibujan como cuadros inclinados (las "fichas negras").
@@ -1000,8 +1002,9 @@ function clickGrip(){
   osc.connect(g); g.connect(audioCtx.destination); osc.start(); osc.stop(audioCtx.currentTime+0.06);
 }
 
+let animId;
 function animate(){
-  requestAnimationFrame(animate);
+  animId=requestAnimationFrame(animate);
   const dt=clock.getDelta(),t=clock.elapsedTime;
 
   // mesa de piezas: viaje físico real al instalarse

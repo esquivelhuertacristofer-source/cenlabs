@@ -389,7 +389,7 @@ const powerKW = rpm => torqueAt(rpm)*(2*Math.PI*rpm/60)/1000;
 
 /* ---------- renderer / scene ---------- */
 const stage=document.getElementById('stage');
-const renderer=new THREE.WebGLRenderer({antialias:true});
+const renderer=new THREE.WebGLRenderer({antialias:true,powerPreference:'high-performance'});
 renderer.setPixelRatio(Math.min(devicePixelRatio,2));
 renderer.setSize(innerWidth,innerHeight);
 renderer.shadowMap.enabled=true; renderer.shadowMap.type=THREE.PCFSoftShadowMap;
@@ -422,7 +422,8 @@ scene.add(new THREE.HemisphereLight(0xc8b49f,0x140d08,0.4));
 /* reflective floor */
 (function(){
   const _light=/[?&]light/.test(location.search);
-  if(!_light){
+  const _mobile=/Mobi|Android|iPhone|iPad/i.test(navigator.userAgent)||innerWidth<860;
+  if(!_light&&!_mobile){
     const mirror=new Reflector(new THREE.CircleGeometry(40,80),{clipBias:0.003,textureWidth:innerWidth*Math.min(devicePixelRatio,2),textureHeight:innerHeight*Math.min(devicePixelRatio,2),color:0x0a0806});
     mirror.rotation.x=-Math.PI/2;scene.add(mirror);
   } else {
@@ -519,7 +520,8 @@ const bloom=new UnrealBloomPass(new THREE.Vector2(innerWidth,innerHeight),0.4,0.
 let bokeh=null; if(!isMobile&&!lightMode){bokeh=new BokehPass(scene,camera,{focus:8.5,aperture:0.00018,maxblur:0.004,width:innerWidth,height:innerHeight});composer.addPass(bokeh);}
 composer.addPass(new OutputPass());
 composer.addPass(new SMAAPass(innerWidth*renderer.getPixelRatio(),innerHeight*renderer.getPixelRatio()));
-addEventListener('resize',()=>{camera.aspect=innerWidth/innerHeight;camera.updateProjectionMatrix();renderer.setSize(innerWidth,innerHeight);composer.setSize(innerWidth,innerHeight);});
+function onResize(){camera.aspect=innerWidth/innerHeight;camera.updateProjectionMatrix();renderer.setSize(innerWidth,innerHeight);composer.setSize(innerWidth,innerHeight);}
+addEventListener('resize',onResize);
 // Escena de superposición para las etiquetas 3D (sprites). Los pases GTAO/Bokeh
 // usan scene.overrideMaterial en sus prepasses; bajo un material override los Sprites
 // pierden su billboard y se dibujan como cuadros inclinados (las "fichas negras").
@@ -962,8 +964,9 @@ function updateAudio(rpmNow,crankDeg){
   audioGain.gain.setTargetAtTime(vol,audioCtx.currentTime,0.03);
 }
 
+let animId;
 function animate(){
-  requestAnimationFrame(animate);
+  animId=requestAnimationFrame(animate);
   const dt=clock.getDelta(),t=clock.elapsedTime;
 
   // mesa de piezas: las 4 partes viajan físicamente a su lugar al instalarse

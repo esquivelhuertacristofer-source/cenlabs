@@ -399,7 +399,7 @@ function torqueAt(rpm){const w=rpm*2*Math.PI/60;return rpm<=EM57.rpm_base?EM57.T
 
 /* ---------- renderer / scene ---------- */
 const stage=document.getElementById('stage');
-const renderer=new THREE.WebGLRenderer({antialias:true});
+const renderer=new THREE.WebGLRenderer({antialias:true,powerPreference:'high-performance'});
 renderer.setPixelRatio(Math.min(devicePixelRatio,2));
 renderer.setSize(innerWidth,innerHeight);
 renderer.shadowMap.enabled=true; renderer.shadowMap.type=THREE.PCFSoftShadowMap;
@@ -431,8 +431,9 @@ scene.add(new THREE.HemisphereLight(0x9fb4c8,0x0d1218,0.4));
 
 /* floor — reflejo planar REAL (con modo "light" para equipos modestos) */
 const lightMode=/[?&]light/.test(location.search);
+const isMobileEarly=/Mobi|Android|iPhone|iPad/i.test(navigator.userAgent)||innerWidth<860;
 (function(){
-  if(!lightMode){
+  if(!lightMode&&!isMobileEarly){
     const mirror=new Reflector(new THREE.CircleGeometry(40,80),{
       clipBias:0.003, textureWidth:innerWidth*Math.min(devicePixelRatio,2),
       textureHeight:innerHeight*Math.min(devicePixelRatio,2), color:0x0a0e13 });
@@ -518,7 +519,8 @@ let bokeh=null;
 if(!isMobile&&!lightMode){ bokeh=new BokehPass(scene,camera,{focus:8.5,aperture:0.00018,maxblur:0.004,width:innerWidth,height:innerHeight}); composer.addPass(bokeh); }
 composer.addPass(new OutputPass());
 composer.addPass(new SMAAPass(innerWidth*renderer.getPixelRatio(),innerHeight*renderer.getPixelRatio()));
-addEventListener('resize',()=>{camera.aspect=innerWidth/innerHeight;camera.updateProjectionMatrix();renderer.setSize(innerWidth,innerHeight);composer.setSize(innerWidth,innerHeight);});
+function onResize(){camera.aspect=innerWidth/innerHeight;camera.updateProjectionMatrix();renderer.setSize(innerWidth,innerHeight);composer.setSize(innerWidth,innerHeight);}
+window.addEventListener('resize',onResize);
 // Escena de superposición para las etiquetas 3D (sprites). Los pases GTAO/Bokeh
 // usan scene.overrideMaterial en sus prepasses; bajo un material override los Sprites
 // pierden su billboard y se dibujan como cuadros inclinados (las "fichas negras").
@@ -979,8 +981,9 @@ function updateAudio(rpmNow){
   audioGain.gain.setTargetAtTime(vol,audioCtx.currentTime,0.08);
 }
 
+let animFrameId=null;
 function animate(){
-  requestAnimationFrame(animate);
+  animFrameId=requestAnimationFrame(animate);
   const dt=clock.getDelta(),t=clock.elapsedTime;
 
   // mesa de piezas: estátor y rotor viajan físicamente a su lugar al instalarse

@@ -269,7 +269,7 @@ function copperWinding(){
    ============================================================ */
 function createStage(mount, opts={}){
   const bgTop = opts.bgTop||'#141b24', bgBot = opts.bgBot||'#05070a';
-  const renderer = new THREE.WebGLRenderer({ antialias:true });
+  const renderer = new THREE.WebGLRenderer({ antialias:true, powerPreference:'high-performance' });
   renderer.setPixelRatio(Math.min(devicePixelRatio,2));
   renderer.setSize(mount.clientWidth, mount.clientHeight);
   renderer.shadowMap.enabled = true;
@@ -353,7 +353,7 @@ function createStage(mount, opts={}){
     camera.aspect=w/h; camera.updateProjectionMatrix();
     renderer.setSize(w,h); composer.setSize(w,h);
   }
-  addEventListener('resize',resize);
+  window.addEventListener('resize',resize);
 
   const clock=new THREE.Clock();
   let hook=null, raf=null;
@@ -381,7 +381,7 @@ function createStage(mount, opts={}){
     if(bokeh) bokeh.uniforms['focus'].value = camera.position.distanceTo(controls.target);
     composer.render(); }
   function start(){ if(!raf)loop(); }
-  function stop(){ cancelAnimationFrame(raf); raf=null; }
+  function stop(){ cancelAnimationFrame(raf); raf=null; window.removeEventListener('resize',resize); renderer.dispose(); }
 
   return { THREE, renderer, scene, camera, controls, composer, bloom,
     setAnimate:fn=>hook=fn, start, stop, resize, clock,

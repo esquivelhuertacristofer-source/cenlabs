@@ -387,7 +387,7 @@ function powerAtSOC(soc){ // curva de carga real: plana hasta ~55%, luego atenú
 
 /* ---------- renderer / scene ---------- */
 const stage=document.getElementById('stage');
-const renderer=new THREE.WebGLRenderer({antialias:true});
+const renderer=new THREE.WebGLRenderer({antialias:true,powerPreference:'high-performance'});
 renderer.setPixelRatio(Math.min(devicePixelRatio,2));
 renderer.setSize(innerWidth,innerHeight);
 renderer.shadowMap.enabled=true; renderer.shadowMap.type=THREE.PCFSoftShadowMap;
@@ -420,7 +420,8 @@ scene.add(new THREE.HemisphereLight(0x9fc8c4,0x0a1414,0.4));
 /* floor */
 const lightMode=/[?&]light/.test(location.search);
 (function(){
-  if(!lightMode){
+  const isMobileFloor=/Mobi|Android|iPhone|iPad/i.test(navigator.userAgent)||innerWidth<860;
+  if(!lightMode&&!isMobileFloor){
     const mirror=new Reflector(new THREE.CircleGeometry(44,80),{clipBias:0.003,textureWidth:innerWidth*Math.min(devicePixelRatio,2),textureHeight:innerHeight*Math.min(devicePixelRatio,2),color:0x081414});
     mirror.rotation.x=-Math.PI/2;scene.add(mirror);
   } else {
@@ -521,7 +522,7 @@ chargePort.position.set(0.55,0.58,0.78); chargePort.userData.piece='port'; carGr
 /* cable dinámico (se dibuja entre el conector y el auto durante la sesión) */
 let cableLine=null;
 function drawCable(connected){
-  if(cableLine){if(cableLine.geometry)cableLine.geometry.dispose();scene.remove(cableLine);cableLine=null;}
+  if(cableLine){scene.remove(cableLine);if(cableLine.geometry)cableLine.geometry.dispose();cableLine=null;}
   const start=new THREE.Vector3(); connectorTip.getWorldPosition(start);
   const carPort=new THREE.Vector3(); chargePort.getWorldPosition(carPort);
   const end=connected?carPort:start.clone().add(new THREE.Vector3(0,-0.15,0.1));
@@ -543,7 +544,8 @@ const bloom=new UnrealBloomPass(new THREE.Vector2(innerWidth,innerHeight),0.42,0
 let bokeh=null; if(!isMobile&&!lightMode){bokeh=new BokehPass(scene,camera,{focus:9,aperture:0.00018,maxblur:0.004,width:innerWidth,height:innerHeight});composer.addPass(bokeh);}
 composer.addPass(new OutputPass());
 composer.addPass(new SMAAPass(innerWidth*renderer.getPixelRatio(),innerHeight*renderer.getPixelRatio()));
-addEventListener('resize',()=>{camera.aspect=innerWidth/innerHeight;camera.updateProjectionMatrix();renderer.setSize(innerWidth,innerHeight);composer.setSize(innerWidth,innerHeight);});
+function onResize(){camera.aspect=innerWidth/innerHeight;camera.updateProjectionMatrix();renderer.setSize(innerWidth,innerHeight);composer.setSize(innerWidth,innerHeight);}
+addEventListener('resize',onResize);
 // Escena de superposición para las etiquetas 3D (sprites). Los pases GTAO/Bokeh
 // usan scene.overrideMaterial en sus prepasses; bajo un material override los Sprites
 // pierden su billboard y se dibujan como cuadros inclinados (las "fichas negras").
@@ -954,8 +956,9 @@ function beep(freq=880,dur=0.09){
   osc.connect(g); g.connect(audioCtx.destination); osc.start(); osc.stop(audioCtx.currentTime+dur);
 }
 
+let animFrameId;
 function animate(){
-  requestAnimationFrame(animate);
+  animFrameId=requestAnimationFrame(animate);
   const dt=clock.getDelta(),t=clock.elapsedTime;
   if(!ledMesh)ledMesh=findLed();
 
