@@ -8,6 +8,7 @@
   "scripts": {
     "gen:labs": "node scripts/gen-lab-registry.mjs",
     "gen:labs:check": "node scripts/gen-lab-registry.mjs --check",
+    "new:lab": "node scripts/new-lab.mjs",
     "predev": "node scripts/gen-lab-registry.mjs",
     "dev": "next dev -p 3001",
     "prebuild": "node scripts/gen-lab-registry.mjs",
