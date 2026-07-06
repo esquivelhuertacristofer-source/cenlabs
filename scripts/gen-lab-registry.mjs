@@ -1,13 +1,17 @@
 /**
  * scripts/gen-lab-registry.mjs
  * ─────────────────────────────────────────────────────────────────────────────
- * Codegen del registro de labs. Escanea `src/labs/<id>/` y escribe DOS archivos:
+ * Codegen del registro de labs. Escanea `src/labs/<id>/` y escribe TRES archivos:
  *
- *   src/labs/_registry.generated.ts    → LABS (datos, server-safe)
+ *   src/labs/_registry.generated.ts    → LABS (datos pesados, server-safe)
  *   src/labs/_components.generated.ts  → LAB_COMPONENTS ('use client')
+ *   src/labs/_catalogo.generated.ts    → CATALOGO (metadatos livianos de catálogo)
  *
- * Un lab entra al registro de datos si tiene `index.ts`, y al de componentes si
- * tiene `components.ts`. La salida son imports estáticos explícitos (greppeable,
+ * Un lab entra al registro de datos si tiene `index.ts`, al de componentes si
+ * tiene `components.ts`, y al de catálogo si tiene `catalogo.ts`. El registro de
+ * catálogo va aparte a propósito: es string data puro que consumen las páginas
+ * "use client" sin arrastrar los datos pesados del lab (ver _catalogo.ts).
+ * La salida son imports estáticos explícitos (greppeable,
  * depurable, sin magia del bundler) — importante por el fork custom de Next.js.
  *
  * Se corre solo en `predev` y `prebuild` (ver package.json). El humano NUNCA
@@ -89,6 +93,22 @@ function buildComponentsRegistry(dirs) {
   );
 }
 
+function buildCatalogoRegistry(dirs) {
+  const labs = dirs.filter((id) => existsSync(join(LABS_DIR, id, 'catalogo.ts')));
+  const imports = labs
+    .map((id) => `import ${toIdent(id)} from './${id}/catalogo';`)
+    .join('\n');
+  const entries = labs
+    .map((id) => `  '${id}': ${toIdent(id)},`)
+    .join('\n');
+  return (
+    BANNER +
+    `import type { CatalogoEntry } from './_types';\n` +
+    (imports ? imports + '\n' : '') +
+    `\nexport const CATALOGO: Record<string, CatalogoEntry> = {\n${entries}${entries ? '\n' : ''}};\n`
+  );
+}
+
 function emit(relPath, content) {
   const abs = join(LABS_DIR, relPath);
   const prev = existsSync(abs) ? readFileSync(abs, 'utf8') : null;
@@ -110,7 +130,8 @@ console.log(`[gen-lab-registry] ${dirs.length} carpeta(s) de lab detectada(s).`)
 
 const okData = emit('_registry.generated.ts', buildDataRegistry(dirs));
 const okComp = emit('_components.generated.ts', buildComponentsRegistry(dirs));
+const okCat = emit('_catalogo.generated.ts', buildCatalogoRegistry(dirs));
 
-if (CHECK && (!okData || !okComp)) {
+if (CHECK && (!okData || !okComp || !okCat)) {
   process.exit(1);
 }

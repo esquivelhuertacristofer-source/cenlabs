@@ -4,6 +4,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import Link from 'next/link';
 import { Play, ArrowLeft, Clock, Target, User, Search, Filter, CheckCircle2, Zap, Wind, Binary, Activity } from 'lucide-react';
 import ThemeToggle from '@/components/ThemeToggle';
+import { catalogoDeCategoria } from '@/labs/_catalogo';
 
 // ==========================================
 // Tipos e Interfaces
@@ -19,18 +20,22 @@ interface Practica {
   destacada?: boolean;
 }
 
-const practicasFisica: Practica[] = [
-  { id: 1, modulo: "Mecánica", titulo: "Tiro Parabólico", duracion: "30 min", teoria: "Analiza la trayectoria de un proyectil descomponiendo la velocidad inicial en sus vectores X e Y bajo la influencia de la gravedad.", estado: "activo", destacada: true },
-  { id: 2, modulo: "Mecánica", titulo: "Leyes de Newton (Plano Inclinado)", duracion: "40 min", teoria: "Observa la interacción de las fuerzas normal, peso y fricción en un bloque sobre una rampa con ángulo ajustable.", estado: "activo" },
-  { id: 3, modulo: "Mecánica", titulo: "Péndulo Simple", duracion: "35 min", teoria: "Explora la conservación de la energía mecánica y calcula la gravedad alterando la longitud de la cuerda y la masa.", estado: "activo" },
-  { id: 4, modulo: "Mecánica", titulo: "Ley de Hooke (Oscilador Armónico)", duracion: "30 min", teoria: "Determina la constante elástica de un resorte y grafica su movimiento senoidal en tiempo real.", estado: "activo" },
-  { id: 5, modulo: "Fluidos y Calor", titulo: "Sistemas Hidráulicos (Prensa)", duracion: "45 min", teoria: "Aplica el Principio de Pascal para multiplicar fuerzas en un sistema de émbolos incompresibles y elevar grandes cargas.", estado: "activo" },
-  { id: 6, modulo: "Fluidos y Calor", titulo: "Principio de Arquímedes", duracion: "40 min", teoria: "Calcula la fuerza de empuje y la densidad sumergiendo distintos materiales en líquidos de diferente densidad.", estado: "activo" },
-  { id: 7, modulo: "Fluidos y Calor", titulo: "Dilatación Térmica", duracion: "35 min", teoria: "Mide la expansión lineal de barras metálicas sometidas a incrementos controlados de temperatura.", estado: "activo" },
-  { id: 8, modulo: "Electromagnetismo", titulo: "Ley de Ohm (Circuitos DC)", duracion: "45 min", teoria: "Construye un circuito básico y analiza la relación directa e inversa entre voltaje, corriente y resistencia.", estado: "activo" },
-  { id: 9, modulo: "Electromagnetismo", titulo: "Electrostática", duracion: "30 min", teoria: "Experimenta la atracción y repulsión entre cargas puntuales basándote en la magnitud y distancia de separación.", estado: "activo" },
-  { id: 10, modulo: "Electromagnetismo", titulo: "Motor Eléctrico Simple", duracion: "50 min", teoria: "Ensambla un motor básico y descubre cómo el flujo de corriente en un campo magnético genera torque mecánico.", estado: "activo" }
-];
+// Los datos de catálogo viven en cada src/labs/fisica-<n>/catalogo.ts (registro
+// liviano CATALOGO). `id` es el número derivado del id de carpeta (ordenDeId).
+const practicasFisica: Practica[] = catalogoDeCategoria('fisica').map((c) => ({
+  id: c.orden,
+  modulo: c.modulo,
+  titulo: c.titulo,
+  duracion: c.duracion,
+  teoria: c.teoria,
+  estado: c.estado,
+  destacada: c.destacada,
+}));
+
+// Pestañas de módulo derivadas del catálogo, en su orden de aparición (== orden
+// por número de lab). Un lab nuevo en un módulo existente NO requiere tocar esta
+// página; uno que estrene un módulo aparece como pestaña nueva automáticamente.
+const modulosFisica = [...new Set(practicasFisica.map((p) => p.modulo))];
 
 // ==========================================
 // Componentes Secundarios
@@ -143,7 +148,7 @@ const SpotlightCard = ({ practica, accentBg, accentText }: { practica: Practica,
 // ==========================================
 
 export default function FisicaCatalogPage() {
-  const [activeTab, setActiveTab] = useState("Mecánica");
+  const [activeTab, setActiveTab] = useState(modulosFisica[0]);
   const [searchQuery, setSearchQuery] = useState("");
   const [filterDuration, setFilterDuration] = useState<"all" | "<40" | ">=40">("all");
   const [isMounted, setIsMounted] = useState(false);
@@ -279,7 +284,7 @@ export default function FisicaCatalogPage() {
             
             <div className="flex flex-col md:flex-row items-center gap-6 w-full lg:w-auto">
                 <div className="flex gap-4 overflow-x-auto pt-4 pb-4 w-full md:w-auto snap-x hidden-scrollbar">
-                    {["Mecánica", "Fluidos y Calor", "Electromagnetismo"].map((tab) => {
+                    {modulosFisica.map((tab) => {
                         const count = practicasFisica.filter(p => p.modulo === tab).length;
                         const isActiveTab = activeTab === tab;
                         return (

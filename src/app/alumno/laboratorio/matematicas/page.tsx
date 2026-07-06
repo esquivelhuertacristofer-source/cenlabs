@@ -4,6 +4,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import Link from 'next/link';
 import { Play, ArrowLeft, Clock, Target, User, Search, Filter, CheckCircle2, Zap, Wind, Binary, Activity, FunctionSquare, Calculator, Pi, Shapes, Spline, LineChart, LayoutGrid } from 'lucide-react';
 import ThemeToggle from '@/components/ThemeToggle';
+import { catalogoDeCategoria } from '@/labs/_catalogo';
 
 // ==========================================
 // Tipos e Interfaces
@@ -19,18 +20,22 @@ interface Practica {
   destacada?: boolean;
 }
 
-const practicasMatematicas: Practica[] = [
-  { id: 1, modulo: "Álgebra y Funciones", titulo: "Explorador de Cuadráticas", duracion: "30 min", teoria: "Manipula los coeficientes a, b y c de una parábola y observa en tiempo real cómo se transforman sus raíces y su vértice en el plano cartesiano.", estado: "activo", destacada: true },
-  { id: 2, modulo: "Álgebra y Funciones", titulo: "Sistemas 2x2", duracion: "35 min", teoria: "Ajusta las pendientes y ordenadas de dos rectas para encontrar visual y analíticamente su punto exacto de intersección.", estado: "activo" },
-  { id: 3, modulo: "Álgebra y Funciones", titulo: "Logaritmos y Magnitud de Momento (Mw)", duracion: "40 min", teoria: "Descubre el poder del crecimiento exponencial. Compara la energía liberada entre diferentes magnitudes de sismos usando bases logarítmicas.", estado: "activo" },
-  { id: 4, modulo: "Geometría y Trigonometría", titulo: "Teorema de Pitágoras", duracion: "25 min", teoria: "Comprueba visualmente la relación fundamental de los triángulos rectángulos mediante la demostración de áreas dinámicas.", estado: "activo" },
-  { id: 5, modulo: "Geometría y Trigonometría", titulo: "El Círculo Trigonométrico", duracion: "45 min", teoria: "Proyecta el movimiento circular sobre un eje de tiempo para trazar el origen exacto de las ondas Seno y Coseno.", estado: "activo" },
-  { id: 6, modulo: "Geometría y Trigonometría", titulo: "Transformaciones Geométricas", duracion: "35 min", teoria: "Aplica matrices de rotación, traslación y escala sobre polígonos, descubriendo las matemáticas detrás de la animación digital.", estado: "activo" },
-  { id: 7, modulo: "Geometría y Trigonometría", titulo: "Refracción de la Luz (Snell)", duracion: "40 min", teoria: "Ajusta el ángulo de un láser al cambiar de medio (aire a vidrio) y calcula el índice de refracción usando funciones trigonométricas.", estado: "activo" },
-  { id: 8, modulo: "Cálculo y Probabilidad", titulo: "La Derivada", duracion: "45 min", teoria: "Desliza un punto sobre una curva y observa cómo la recta tangente actúa como un balancín, revelando la tasa de cambio instantánea.", estado: "activo" },
-  { id: 9, modulo: "Cálculo y Probabilidad", titulo: "Sumas de Riemann", duracion: "40 min", teoria: "Aumenta la resolución de los rectángulos bajo la curva para aproximar el área exacta, la base del cálculo integral.", estado: "activo" },
-  { id: 10, modulo: "Cálculo y Probabilidad", titulo: "Máquina de Galton", duracion: "30 min", teoria: "Deja caer cientos de esferas a través de un tablero de probabilidad y observa cómo el caos converge perfectamente en la Campana de Gauss.", estado: "activo" }
-];
+// Los datos de catálogo viven en cada src/labs/matematicas-<n>/catalogo.ts (registro
+// liviano CATALOGO). `id` es el número derivado del id de carpeta (ordenDeId).
+const practicasMatematicas: Practica[] = catalogoDeCategoria('matematicas').map((c) => ({
+  id: c.orden,
+  modulo: c.modulo,
+  titulo: c.titulo,
+  duracion: c.duracion,
+  teoria: c.teoria,
+  estado: c.estado,
+  destacada: c.destacada,
+}));
+
+// Pestañas de módulo derivadas del catálogo, en su orden de aparición (== orden
+// por número de lab). Un lab nuevo en un módulo existente NO requiere tocar esta
+// página; uno que estrene un módulo aparece como pestaña nueva automáticamente.
+const modulosMatematicas = [...new Set(practicasMatematicas.map((p) => p.modulo))];
 
 // ==========================================
 // Componentes Secundarios
@@ -148,7 +153,7 @@ const SpotlightCard = ({ practica, accentBg, accentText }: { practica: Practica,
 // ==========================================
 
 export default function MatematicasCatalogPage() {
-  const [activeTab, setActiveTab] = useState("Álgebra y Funciones");
+  const [activeTab, setActiveTab] = useState(modulosMatematicas[0]);
   const [searchQuery, setSearchQuery] = useState("");
   const [isMounted, setIsMounted] = useState(false);
 
@@ -276,7 +281,7 @@ export default function MatematicasCatalogPage() {
             
             <div className="flex flex-col md:flex-row items-center gap-6 w-full lg:w-auto">
                 <div className="flex gap-4 overflow-x-auto pt-4 pb-4 w-full md:w-auto snap-x no-scrollbar">
-                    {["Álgebra y Funciones", "Geometría y Trigonometría", "Cálculo y Probabilidad"].map((tab) => {
+                    {modulosMatematicas.map((tab) => {
                         const count = practicasMatematicas.filter(p => p.modulo === tab).length;
                         const isActiveTab = activeTab === tab;
                         return (

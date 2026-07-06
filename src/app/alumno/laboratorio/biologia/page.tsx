@@ -7,6 +7,7 @@ import {
   Droplets, Zap, Binary, Wind, Brain, Heart, FlaskConical, Users, Activity
 } from 'lucide-react';
 import ThemeToggle from '@/components/ThemeToggle';
+import { catalogoDeCategoria } from '@/labs/_catalogo';
 
 // ==========================================
 // Tipos e Interfaces
@@ -22,18 +23,22 @@ interface Practica {
   destacada?: boolean;
 }
 
-const practicasBiologia: Practica[] = [
-  { id: 1, modulo: "Biología Celular y Molecular", titulo: "Microscopio Virtual", duracion: "30 min", teoria: "Explora la ultraestructura celular haciendo zoom profundo desde el tejido hasta los orgánulos operando en tiempo real.", estado: "activo", destacada: true },
-  { id: 2, modulo: "Biología Celular y Molecular", titulo: "Transporte Celular", duracion: "35 min", teoria: "Manipula los gradientes de concentración y observa la ósmosis y la difusión a través de una membrana semipermeable.", estado: "activo" },
-  { id: 3, modulo: "Biología Celular y Molecular", titulo: "Síntesis de Proteínas", duracion: "40 min", teoria: "Simula el dogma central de la biología: transcribe ADN a ARN mensajero y traduce el código en una cadena de aminoácidos.", estado: "activo" },
-  { id: 4, modulo: "Biología Celular y Molecular", titulo: "Laboratorio de Fotosíntesis", duracion: "45 min", teoria: "Ajusta la intensidad luminosa y el espectro de color para maximizar la producción de oxígeno en una planta acuática.", estado: "activo" },
-  { id: 5, modulo: "Genética y Evolución", titulo: "Leyes de Mendel", duracion: "30 min", teoria: "Cruza fenotipos parentales y analiza estadísticamente las proporciones genéticas de cientos de descendientes generados al instante.", estado: "activo" },
-  { id: 6, modulo: "Genética y Evolución", titulo: "Selección Natural", duracion: "40 min", teoria: "Ejerce presión selectiva como depredador en diferentes ecosistemas y observa cómo la población de polillas se adapta para sobrevivir.", estado: "activo" },
-  { id: 7, modulo: "Anatomía y Ecología", titulo: "Sistema Nervioso (Arco Reflejo)", duracion: "35 min", teoria: "Aplica un estímulo físico y rastrea el impulso eléctrico desde el nervio sensorial hasta la contracción muscular involuntaria.", estado: "activo" },
-  { id: 8, modulo: "Anatomía y Ecología", titulo: "Electrocardiograma (ECG)", duracion: "40 min", teoria: "Monitorea la actividad eléctrica del corazón y observa cómo responde el trazado de la onda PQRST ante cambios fisiológicos.", estado: "activo" },
-  { id: 9, modulo: "Anatomía y Ecología", titulo: "Sistema Digestivo", duracion: "45 min", teoria: "Visualiza la acción enzimática descomponiendo macronutrientes a nivel molecular y su posterior absorción en el torrente sanguíneo.", estado: "activo" },
-  { id: 10, modulo: "Anatomía y Ecología", titulo: "Dinámica de Poblaciones", duracion: "35 min", teoria: "Altera las tasas de natalidad y depredación en un ecosistema simulado para observar las fluctuaciones del modelo Depredador-Presa.", estado: "activo" }
-];
+// Los datos de catálogo viven en cada src/labs/biologia-<n>/catalogo.ts (registro
+// liviano CATALOGO). `id` es el número derivado del id de carpeta (ordenDeId).
+const practicasBiologia: Practica[] = catalogoDeCategoria('biologia').map((c) => ({
+  id: c.orden,
+  modulo: c.modulo,
+  titulo: c.titulo,
+  duracion: c.duracion,
+  teoria: c.teoria,
+  estado: c.estado,
+  destacada: c.destacada,
+}));
+
+// Pestañas de módulo derivadas del catálogo, en su orden de aparición (== orden
+// por número de lab). Un lab nuevo en un módulo existente NO requiere tocar esta
+// página; uno que estrene un módulo aparece como pestaña nueva automáticamente.
+const modulosBiologia = [...new Set(practicasBiologia.map((p) => p.modulo))];
 
 // ==========================================
 // Componentes Secundarios
@@ -155,7 +160,7 @@ const SpotlightCard = ({ practica, accentBg, accentText }: { practica: Practica,
 // ==========================================
 
 export default function BiologiaCatalogPage() {
-  const [activeTab, setActiveTab] = useState("Biología Celular y Molecular");
+  const [activeTab, setActiveTab] = useState(modulosBiologia[0]);
   const [searchQuery, setSearchQuery] = useState("");
   const [isMounted, setIsMounted] = useState(false);
 
@@ -283,7 +288,7 @@ export default function BiologiaCatalogPage() {
             
             <div className="flex flex-col md:flex-row items-center gap-6 w-full lg:w-auto">
                 <div className="flex gap-4 overflow-x-auto pt-4 pb-4 w-full md:w-auto snap-x no-scrollbar">
-                    {["Biología Celular y Molecular", "Genética y Evolución", "Anatomía y Ecología"].map((tab) => {
+                    {modulosBiologia.map((tab) => {
                         const count = practicasBiologia.filter(p => p.modulo === tab).length;
                         const isActiveTab = activeTab === tab;
                         return (

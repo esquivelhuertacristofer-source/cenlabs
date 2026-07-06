@@ -52,6 +52,29 @@ export interface LabComponents {
   Bitacora: ComponentType<any>;
 }
 
+/**
+ * Metadatos de presentación de un lab para la página de catálogo de su categoría
+ * (src/app/alumno/laboratorio/<cat>/page.tsx). Vive en un registro APARTE de
+ * LabModule (CATALOGO, ver _catalogo.ts): cada src/labs/<id>/catalogo.ts sólo
+ * importa este tipo (import type, se borra en runtime), así el registro es puro
+ * string data. Separarlo de LabModule evita que una página "use client" arrastre
+ * los datos pesados del lab (contenido/briefing/tutorSteps/quiz) al bundle.
+ *
+ * `id` y `orden` NO son campos: se derivan del nombre de la carpeta (ver
+ * CatalogoItem en _catalogo.ts), igual que en LabModule.
+ */
+export interface CatalogoEntry {
+  /** Módulo/pestaña dentro de la categoría, p.ej. 'Estequiometría'. */
+  modulo: string;
+  titulo: string;
+  duracion: string;
+  teoria: string;
+  /** 'activo' | 'completado' | 'propuesto' … (controla el estilo de la ficha). */
+  estado: string;
+  /** Marca la práctica sugerida/destacada de la categoría. */
+  destacada?: boolean;
+}
+
 /** Deriva la categoría a partir del id ('quimica-1' → 'quimica'). */
 export function categoriaDeId(id: string): Categoria {
   return id.split('-')[0] as Categoria;

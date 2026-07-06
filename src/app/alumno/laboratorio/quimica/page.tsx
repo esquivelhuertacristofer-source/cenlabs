@@ -4,6 +4,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import Link from 'next/link';
 import { FlaskConical, Play, ArrowLeft, Clock, Target, User, Search, Filter, CheckCircle2 } from 'lucide-react';
 import ThemeToggle from '@/components/ThemeToggle';
+import { catalogoDeCategoria } from '@/labs/_catalogo';
 
 // ==========================================
 // Tipos e Interfaces
@@ -19,18 +20,22 @@ interface Practica {
   destacada?: boolean;
 }
 
-const practicasQuimica: Practica[] = [
-  { id: 1, modulo: "Fundamentos", titulo: "Construcción Atómica e Isótopos", duracion: "30 min", teoria: "Comprende la relación de partículas subatómicas, calculando la masa y carga neta para lograr la estabilidad isotópica.", estado: "activo" },
-  { id: 2, modulo: "Fundamentos", titulo: "Leyes de los Gases (Cámara de Presión)", duracion: "40 min", teoria: "Analiza la relación PV=nRT y las leyes de Boyle y Charles alterando el volumen y la temperatura bajo estrés de presión.", estado: "activo" },
-  { id: 3, modulo: "Estequiometría", titulo: "Balanceo Estequiométrico", duracion: "35 min", teoria: "Aplica la ley de la conservación de la masa ajustando los coeficientes matemáticos de reactivos y productos.", estado: "activo" },
-  { id: 4, modulo: "Estequiometría", titulo: "Fábrica de Reactivo Limitante", duracion: "45 min", teoria: "Identifica matemáticamente el reactivo que se consume primero en una síntesis y calcula el sobrante en exceso.", estado: "activo" },
-  { id: 5, modulo: "Estequiometría", titulo: "Preparación de Soluciones Molares", duracion: "45 min", teoria: "Domina la técnica analítica: cálculo exacto de molaridad, pesaje descontando tara y técnica precisa de aforo.", estado: "activo" },
-  { id: 6, modulo: "Estequiometría", titulo: "Solubilidad y Cristalización", duracion: "35 min", teoria: "Experimenta la sobresaturación dependiente de temperatura y provoca la precipitación por choque térmico.", estado: "activo" },
-  { id: 7, modulo: "Fisicoquímica", titulo: "Titulación Ácido-Base", duracion: "50 min", teoria: "Determina concentraciones desconocidas calculando la curva de pH y dominando el control de la bureta gota a gota.", estado: "activo", destacada: true },
-  { id: 8, modulo: "Fisicoquímica", titulo: "Equilibrio Químico (Le Châtelier)", duracion: "35 min", teoria: "Observa y documenta el desplazamiento visual de una reacción reversible al someter el sistema a estrés térmico.", estado: "activo" },
-  { id: 9, modulo: "Fisicoquímica", titulo: "Celdas Galvánicas (Electroquímica)", duracion: "45 min", teoria: "Ensambla una pila funcional identificando ánodo y cátodo, asegurando el flujo de electrones y el potencial de celda.", estado: "activo" },
-  { id: 10, modulo: "Fisicoquímica", titulo: "Destilación Fraccionada", duracion: "40 min", teoria: "Separa mezclas homogéneas controlando finamente la temperatura basándote en los puntos de ebullición específicos.", estado: "activo" }
-];
+// Los datos de catálogo viven en cada src/labs/quimica-<n>/catalogo.ts (registro
+// liviano CATALOGO). `id` es el número derivado del id de carpeta (ordenDeId).
+const practicasQuimica: Practica[] = catalogoDeCategoria('quimica').map((c) => ({
+  id: c.orden,
+  modulo: c.modulo,
+  titulo: c.titulo,
+  duracion: c.duracion,
+  teoria: c.teoria,
+  estado: c.estado,
+  destacada: c.destacada,
+}));
+
+// Pestañas de módulo derivadas del catálogo, en su orden de aparición (== orden
+// por número de lab). Un lab nuevo en un módulo existente NO requiere tocar esta
+// página; uno que estrene un módulo aparece como pestaña nueva automáticamente.
+const modulosQuimica = [...new Set(practicasQuimica.map((p) => p.modulo))];
 
 // ==========================================
 // Componentes Secundarios
@@ -143,7 +148,7 @@ const SpotlightCard = ({ practica, accentBg, accentText }: { practica: Practica,
 // ==========================================
 
 export default function QuimicaCatalogPage() {
-  const [activeTab, setActiveTab] = useState("Fundamentos");
+  const [activeTab, setActiveTab] = useState(modulosQuimica[0]);
   const [searchQuery, setSearchQuery] = useState("");
   const [filterDuration, setFilterDuration] = useState<"all" | "<40" | ">=40">("all");
   const [isMounted, setIsMounted] = useState(false);
@@ -152,7 +157,7 @@ export default function QuimicaCatalogPage() {
   useEffect(() => {
     setIsMounted(true);
     const savedTab = localStorage.getItem("quimica_active_tab");
-    if (savedTab && ["Fundamentos", "Estequiometría", "Fisicoquímica"].includes(savedTab)) {
+    if (savedTab && modulosQuimica.includes(savedTab)) {
       setActiveTab(savedTab);
     }
 
@@ -307,7 +312,7 @@ export default function QuimicaCatalogPage() {
             
             <div className="flex flex-col md:flex-row items-center gap-6 w-full lg:w-auto">
                 <div className="flex gap-4 overflow-x-auto pt-4 pb-4 w-full md:w-auto snap-x hidden-scrollbar">
-                    {["Fundamentos", "Estequiometría", "Fisicoquímica"].map((tab) => {
+                    {modulosQuimica.map((tab) => {
                         const count = practicasQuimica.filter(p => p.modulo === tab).length;
                         const isActiveTab = activeTab === tab;
                         return (
