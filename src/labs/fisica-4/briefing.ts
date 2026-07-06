@@ -1,0 +1,31 @@
+import type { BriefingConfig } from '@/components/MissionBriefing';
+
+const briefing: BriefingConfig = {
+    codigo: 'FIS-04',
+    titulo: 'Ley de Hooke',
+    subtitulo: 'Elasticidad y Fuerzas Restauradoras',
+    acento: '#ec4899',
+    duracion: 30,
+    videoUrl: 'https://youtu.be/199ZMPmYITk',
+    bienvenida: `¡Bienvenido al Centro de Pruebas de Materiales! Soy el Dr. Quantum.\n\nAnalizaremos la memoria de los metales. Veremos cuánto puede estirarse un resorte antes de perder su forma original.\n\nTu misión: Determinar la constante elástica (k) de un resorte desconocido.`,
+    conceptos: [
+      { icono: '➰', nombre: 'Constante k', descripcion: 'Medida de la rigidez intrínseca del resorte.' },
+      { icono: '📏', nombre: 'Elongación (x)', descripcion: 'Cambio de longitud respecto al equilibrio.' },
+      { icono: '🎯', nombre: 'Fuerza Elástica', descripcion: 'Fuerza que intenta volver al reposo (F=-kx).' },
+      { icono: '⚠️', nombre: 'Límite Elástico', descripcion: 'Punto donde el material se deforma permanentemente.' }
+    ],
+    mision: [
+      'Mide la longitud inicial del resorte.',
+      'Cuelga masas de peso creciente.',
+      'Registra el estiramiento para cada masa.',
+      'Grafica Fuerza vs Distancia.',
+      'Calcula la pendiente (k) de la recta.'
+    ],
+    aplicaciones: [
+      { area: 'Automotriz', ejemplo: 'Sistemas de suspensión y amortiguadores.' },
+      { area: 'Construcción', ejemplo: 'Diseño de estructuras sismorresistentes.' },
+      { area: 'Medicina', ejemplo: 'Prótesis elásticas y ortodoncia.' }
+    ]
+  };
+
+export default briefing;

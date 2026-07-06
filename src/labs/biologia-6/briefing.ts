@@ -1,0 +1,31 @@
+import type { BriefingConfig } from '@/components/MissionBriefing';
+
+const briefing: BriefingConfig = {
+    codigo: 'BIO-06',
+    titulo: 'Selección Natural',
+    subtitulo: 'Evolución y Adaptación',
+    acento: '#854d0e',
+    duracion: 30,
+    videoUrl: 'https://youtu.be/HYn1W16L8wU',
+    bienvenida: `¡Bienvenido a la Arena de Supervivencia! Soy el Dr. Quantum.\n\nSolo el más apto sobrevive. Serás el depredador en un mundo cambiante para ver cómo la evolución moldea la vida.\n\nTu misión: Observar el cambio de color de una población de polillas.`,
+    conceptos: [
+      { icono: '🦅', nombre: 'Presión Selectiva', descripcion: 'Factor ambiental que decide quién vive.' },
+      { icono: '🌫️', nombre: 'Mimetismo', descripcion: 'Capacidad de esconderse en el entorno.' },
+      { icono: '📈', nombre: 'Frecuencia Alélica', descripcion: 'Proporción de rasgos en la población total.' },
+      { icono: '🌳', nombre: 'Adaptación', descripcion: 'Rasgo que da ventaja de supervivencia.' }
+    ],
+    mision: [
+      'Inicia en un bosque limpio con polillas blancas.',
+      'Cambia el ambiente a industrial (hollín negro).',
+      'Actúa como el ave cazadora por 30 segundos.',
+      'Analiza la gráfica de población tras 5 generaciones.',
+      'Valida el predominio del rasgo oscuro.'
+    ],
+    aplicaciones: [
+      { area: 'Salud', ejemplo: 'Resistencia de las bacterias a los antibióticos.' },
+      { area: 'Conservación', ejemplo: 'Protección de especies en peligro.' },
+      { area: 'Algoritmos', ejemplo: 'Programación genética inspirada en la evolución.' }
+    ]
+  };
+
+export default briefing;

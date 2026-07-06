@@ -1,0 +1,31 @@
+import type { BriefingConfig } from '@/components/MissionBriefing';
+
+const briefing: BriefingConfig = {
+    codigo: 'FIS-03',
+    titulo: 'Péndulo Simple',
+    subtitulo: 'Movimiento Armónico Simple',
+    acento: '#8b5cf6',
+    duracion: 30,
+    videoUrl: 'https://youtu.be/16JxXu7TD58',
+    bienvenida: `¡Bienvenido al Laboratorio de Cronometría! Soy el Dr. Quantum.\n\nDescubriremos el secreto del tiempo escondido en una cuerda y una masa. La gravedad será nuestro motor de oscilación.\n\nTu misión: Medir la gravedad local usando el periodo del péndulo.`,
+    conceptos: [
+      { icono: '⏳', nombre: 'Periodo (T)', descripcion: 'Tiempo de una ida y vuelta completa.' },
+      { icono: '📏', nombre: 'Longitud (L)', descripcion: 'Única variable que afecta el tiempo en la Tierra.' },
+      { icono: '🔄', nombre: 'Isocronismo', descripcion: 'Propiedad de oscilar igual en ángulos pequeños.' },
+      { icono: '⚡', nombre: 'Energía', descripcion: 'Intercambio constante entre potencial y cinética.' }
+    ],
+    mision: [
+      'Ajusta la longitud de la cuerda a 1.0m.',
+      'Desplaza la masa exactamente 10 grados.',
+      'Cronometra 10 oscilaciones completas.',
+      'Calcula el periodo promedio.',
+      'Despeja g de la fórmula T = 2π√(L/g).'
+    ],
+    aplicaciones: [
+      { area: 'Relojería', ejemplo: 'Relojes de péndulo clásicos.' },
+      { area: 'Geología', ejemplo: 'Detección de variaciones en la densidad terrestre.' },
+      { area: 'Sismología', ejemplo: 'Sensores de movimiento de baja frecuencia.' }
+    ]
+  };
+
+export default briefing;

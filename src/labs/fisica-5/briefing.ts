@@ -1,0 +1,37 @@
+import type { BriefingConfig } from '@/components/MissionBriefing';
+
+const briefing: BriefingConfig = {
+    codigo: 'FIS-05',
+    titulo: 'Prensa Hidráulica',
+    subtitulo: 'Principio de Pascal y Ventaja Mecánica',
+    acento: '#0ea5e9',
+    duracion: 35,
+    videoUrl: "https://www.youtube.com/embed/-HO5kokr6Uo",
+    bienvenida: `¡Bienvenido al Centro de Ingeniería Hidráulica! Soy el Dr. Quantum. Hoy vamos a dominar una de las fuerzas más potentes de la industria.\n\nEl Principio de Pascal nos dice que la presión ejercida sobre un fluido incompresible se transmite con igual intensidad en todas las direcciones. Esto nos permite usar el área de los émbolos como una palanca líquida para multiplicar nuestra fuerza.\n\nTu misión: Configurar los radios de los émbolos para elevar un vehículo de carga de 2 toneladas usando la mínima fuerza posible. ¡La física es tu multiplicador de poder!`,
+    conceptos: [
+      { icono: '💧', nombre: 'Principio de Pascal', descripcion: 'La presión (P=F/A) es constante en todo el fluido interconectado.' },
+      { icono: '⚙️', nombre: 'Ventaja Mecánica', descripcion: 'Relación entre las áreas (A2/A1) que determina cuánto se multiplica la fuerza.' },
+      { icono: '⚖️', nombre: 'Equilibrio de Fuerzas', descripcion: 'Punto donde la presión de entrada iguala al peso de la carga.' },
+      { icono: '📏', nombre: 'Conservación de Trabajo', descripcion: 'Lo que ganas en fuerza lo pierdes en distancia de recorrido (W = F·d).' }
+    ],
+    mision: [
+      'Observa la MASA DE CARGA asignada en el pistón mayor.',
+      'Ajusta el RADIO del émbolo de entrada (r1) y de salida (r2).',
+      'Calcula la PRESIÓN necesaria para romper la inercia.',
+      'Aplica la FUERZA DE ENTRADA (F1) gradualmente.',
+      'Logra elevar la carga por encima del umbral de seguridad.',
+      'Registra la Ganancia Mecánica final en tu bitácora.'
+    ],
+    aplicaciones: [
+      { area: 'Automotriz', ejemplo: 'Sistemas de frenos hidráulicos y gatos para levantar autos.' },
+      { area: 'Industria Pesada', ejemplo: 'Prensas de forja y maquinaria de construcción (excavadoras).' },
+      { area: 'Aeronáutica', ejemplo: 'Control de trenes de aterrizaje y flaps en aviones.' }
+    ],
+    retos: [
+      'Eficiencia Máxima: Eleva 1000kg usando menos de 200N de fuerza de entrada.',
+      'Calibración de Precisión: Mantén la carga levitando exactamente a 1 metro de altura.',
+      'Diseño Compacto: Logra la elevación reduciendo el radio de salida al mínimo posible.'
+    ]
+  };
+
+export default briefing;

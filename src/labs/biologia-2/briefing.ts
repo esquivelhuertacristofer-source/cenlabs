@@ -1,0 +1,31 @@
+import type { BriefingConfig } from '@/components/MissionBriefing';
+
+const briefing: BriefingConfig = {
+    codigo: 'BIO-02',
+    titulo: 'Transporte Celular',
+    subtitulo: 'Ósmosis y Tonicidad',
+    acento: '#3b82f6',
+    duracion: 30,
+    videoUrl: 'https://youtu.be/_NCd2u1iMq4',
+    bienvenida: `¡Bienvenido al Centro de Homeostasis Celular! Soy el Dr. Quantum.\n\nLas células son bolsas de agua que luchan por no explotar o secarse. Veremos cómo el soluto dicta el destino de la vida.\n\nTu misión: Alcanzar el equilibrio isotónico de un eritrocito.`,
+    conceptos: [
+      { icono: '💧', nombre: 'Ósmosis', descripcion: 'Movimiento de agua hacia mayor concentración de sal.' },
+      { icono: '⚖️', nombre: 'Isotonía', descripcion: 'Estado de equilibrio donde la célula mantiene su forma.' },
+      { icono: '💥', nombre: 'Lisis', descripcion: 'Ruptura celular por exceso de agua (medio hipotónico).' },
+      { icono: '🍂', nombre: 'Plasmólisis', descripcion: 'Deshidratación celular en medios hipertónicos.' }
+    ],
+    mision: [
+      'Selecciona el modelo de célula animal.',
+      'Aumenta la salinidad del medio externo.',
+      'Observa la deformación de la membrana.',
+      'Ajusta la concentración a 0.9% NaCl.',
+      'Valida el estado de salud celular.'
+    ],
+    aplicaciones: [
+      { area: 'Medicina', ejemplo: 'Uso de soluciones salinas en hidratación.' },
+      { area: 'Agricultura', ejemplo: 'Efecto de la salinidad del suelo en los cultivos.' },
+      { area: 'Alimentos', ejemplo: 'Conservación de carnes mediante salado (deshidratación).' }
+    ]
+  };
+
+export default briefing;

@@ -1,0 +1,36 @@
+import type { BriefingConfig } from '@/components/MissionBriefing';
+
+const briefing: BriefingConfig = {
+    codigo: 'MAT-04',
+    titulo: 'Teorema de Pitágoras',
+    subtitulo: 'Geometría y Áreas Dinámicas',
+    acento: '#10b981',
+    duracion: 30,
+    videoUrl: 'https://youtu.be/hYa1QOqYBao',
+    bienvenida: `¡Bienvenido al Taller de Diseño Geométrico! Soy el Dr. Quantum.\n\nLa relación a² + b² = c² no es solo una fórmula; es un equilibrio físico de áreas. Verás cómo el agua de dos cuadrados llena exactamente el tercero.\n\nTu misión: Demostrar el teorema mediante la transferencia de fluidos.`,
+    conceptos: [
+      { icono: '📐', nombre: 'Hipotenusa', descripcion: 'Lado más largo opuesto al ángulo recto.' },
+      { icono: '📏', nombre: 'Catetos', descripcion: 'Lados que forman el ángulo de 90 grados.' },
+      { icono: '⬛', nombre: 'Suma de Áreas', descripcion: 'Principio fundamental del Teorema.' },
+      { icono: '🔄', nombre: 'Terna Pitagórica', descripcion: 'Números enteros que cumplen la relación (3,4,5).' }
+    ],
+    mision: [
+      'Ajusta los catetos A y B.',
+      'Calcula el área de los cuadrados laterales.',
+      'Vierte el contenido líquido hacia la hipotenusa.',
+      'Verifica que el nivel llegue al 100%.',
+      'Calcula el valor decimal de C.'
+    ],
+    aplicaciones: [
+      { area: 'Arquitectura', ejemplo: 'Asegurar que las paredes estén a escuadra (90°).' },
+      { area: 'Pantallas', ejemplo: 'Cálculo de pulgadas en monitores y TVs.' },
+      { area: 'Mapa', ejemplo: 'Cálculo de distancias en línea recta entre coordenadas.' }
+    ],
+    retos: [
+      'Diseño de Rampa: Calcula la hipotenusa necesaria para una rampa de 2m de altura.',
+      'Navegación Perdida: Encuentra la distancia directa entre dos barcos usando sus coordenadas.',
+      'Terna Maestra: Encuentra una combinación de catetos que resulte en un valor entero de C.',
+    ]
+  };
+
+export default briefing;

@@ -1,0 +1,31 @@
+import type { BriefingConfig } from '@/components/MissionBriefing';
+
+const briefing: BriefingConfig = {
+    codigo: 'BIO-10',
+    titulo: 'Dinámica de Poblaciones',
+    subtitulo: 'Ecología y Modelo Lotka-Volterra',
+    acento: '#15803d',
+    duracion: 40,
+    videoUrl: 'https://youtu.be/vxCiT_f0h-E',
+    bienvenida: `¡Bienvenido al Observatorio de Ecosistemas! Soy el Dr. Quantum.\n\nLa vida es un equilibrio frágil entre presas y depredadores. Veremos cómo el caos se convierte en ciclos eternos.\n\nTu misión: Mantener el equilibrio del bosque por 50 años virtuales.`,
+    conceptos: [
+      { icono: '🐰', nombre: 'Capacidad de Carga', descripcion: 'Población máxima que el ambiente soporta.' },
+      { icono: '🐺', nombre: 'Depredación', descripcion: 'Control natural de la población de presas.' },
+      { icono: '🔄', nombre: 'Ciclos de Población', descripcion: 'Oscilaciones naturales de crecimiento y caída.' },
+      { icono: '📉', nombre: 'Extinción', descripcion: 'Peligro cuando la población llega a cero.' }
+    ],
+    mision: [
+      'Inicia la simulación con 100 conejos y 10 lobos.',
+      'Ajusta la tasa de reproducción de las presas.',
+      'Observa el aumento de depredadores ante el festín.',
+      'Evita que los lobos se coman a todos los conejos.',
+      'Estabiliza las ondas de población.'
+    ],
+    aplicaciones: [
+      { area: 'Conservación', ejemplo: 'Reintroducción de lobos en parques nacionales.' },
+      { area: 'Economía', ejemplo: 'Modelado de mercados y competencia de empresas.' },
+      { area: 'Salud', ejemplo: 'Propagación de virus en una población (modelos SIR).' }
+    ]
+  };
+
+export default briefing;

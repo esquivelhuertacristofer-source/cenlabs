@@ -1,0 +1,31 @@
+import type { BriefingConfig } from '@/components/MissionBriefing';
+
+const briefing: BriefingConfig = {
+    codigo: 'FIS-09',
+    titulo: 'Electrostática',
+    subtitulo: 'Ley de Coulomb',
+    acento: '#3b82f6',
+    duracion: 30,
+    videoUrl: 'https://youtu.be/nEPux_svXO8',
+    bienvenida: `¡Bienvenido al Campo de Fuerzas Invisibles! Soy el Dr. Quantum.\n\nLas cargas eléctricas se atraen o se repelen a distancia. Veremos cómo la fuerza cae dramáticamente al alejarnos.\n\nTu misión: Calcular la fuerza neta sobre una carga central.`,
+    conceptos: [
+      { icono: '⚛️', nombre: 'Carga (q)', descripcion: 'Propiedad de la materia (en Coulombs).' },
+      { icono: '📐', nombre: 'Ley Cuadrática Inversa', descripcion: 'La fuerza cae con el cuadrado de la distancia.' },
+      { icono: '⚡', nombre: 'Campo Eléctrico', descripcion: 'Zona de influencia de una carga en el espacio.' },
+      { icono: '🎯', nombre: 'Superposición', descripcion: 'Suma vectorial de fuerzas de múltiples cargas.' }
+    ],
+    mision: [
+      'Coloca las cargas fijas en el riel.',
+      'Mide la distancia entre ellas.',
+      'Calcula la fuerza teórica de Coulomb.',
+      'Observa el vector de fuerza resultante.',
+      'Valida el valor en Newtons.'
+    ],
+    aplicaciones: [
+      { area: 'Filtros', ejemplo: 'Precipitadores electrostáticos para limpiar aire.' },
+      { area: 'Impresión', ejemplo: 'Funcionamiento de impresoras láser y fotocopiadoras.' },
+      { area: 'Pintura', ejemplo: 'Pintado electrostático de autos sin desperdicio.' }
+    ]
+  };
+
+export default briefing;

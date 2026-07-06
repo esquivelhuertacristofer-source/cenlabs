@@ -1,0 +1,33 @@
+import type { BriefingConfig } from '@/components/MissionBriefing';
+
+const briefing: BriefingConfig = {
+    codigo: 'QMI-01',
+    titulo: 'Arquitectura Atómica',
+    subtitulo: 'Isótopos y Estabilidad Nuclear',
+    acento: '#06B6D4',
+    duracion: 30,
+    videoUrl: 'https://youtu.be/917vmRGfUcQ',
+    bienvenida: `¡Bienvenido al Colisionador de Hadrones Virtual! Soy el Dr. Quantum y hoy serás un arquitecto de la materia.\n\nTodo lo que ves a tu alrededor está definido por la configuración exacta de partículas subatómicas. Vamos a manipular protones para definir la identidad, neutrones para ajustar la masa y electrones para equilibrar la carga eléctrica.\n\nTu misión: Forjar un átomo de Carbono-14, un isótopo clave para entender la cronología de nuestra civilización.`,
+    conceptos: [
+      { icono: '⚛️', nombre: 'Número Atómico (Z)', descripcion: 'La cantidad de protones en el núcleo. Define la identidad del elemento.' },
+      { icono: '⚖️', nombre: 'Número de Masa (A)', descripcion: 'La suma de protones y neutrones.' },
+      { icono: '⚡', nombre: 'Carga Neta', descripcion: 'El balance entre protones (+) y electrones (-).' },
+      { icono: '🔄', nombre: 'Isótopos', descripcion: 'Átomos del mismo elemento con diferente cantidad de neutrones.' },
+      { icono: '🛡️', nombre: 'Banda de Estabilidad', descripcion: 'La proporción necesaria para que un núcleo no se desintegre.' },
+      { icono: '🌀', nombre: 'Principio de Pauli', descripcion: 'Regla que dicta cómo se distribuyen los electrones en orbitales.' }
+    ],
+    mision: [
+      'Añade exactamente 6 protones para crear la base del Carbono.',
+      'Añade 8 neutrones para alcanzar la masa del isótopo 14.',
+      'Sincroniza la nube electrónica añadiendo 6 electrones.',
+      'Verifica en el Diagrama de Segré que tu isótopo sea estable.',
+      'Valida la integridad del átomo.'
+    ],
+    aplicaciones: [
+      { area: 'Arqueología', ejemplo: 'Uso del Carbono-14 para datar restos orgánicos antiguos.' },
+      { area: 'Medicina Nuclear', ejemplo: 'Creación de isótopos para tomografías (PET).' },
+      { area: 'Energía Limpia', ejemplo: 'Comprensión de los procesos de fusión estelar.' }
+    ]
+  };
+
+export default briefing;

@@ -1,0 +1,31 @@
+import type { BriefingConfig } from '@/components/MissionBriefing';
+
+const briefing: BriefingConfig = {
+    codigo: 'QMI-04',
+    titulo: 'Reactivo Limitante',
+    subtitulo: 'Optimización de Procesos',
+    acento: '#22d3ee',
+    duracion: 35,
+    videoUrl: 'https://youtu.be/pEAJMi0eWiw',
+    bienvenida: `¡Bienvenido a la Consola de Producción Molecular! Soy el Dr. Quantum.\n\nEn la industria, el reactivo limitante dicta el éxito económico. Aprenderás que la química reacciona en moles, no en gramos.\n\nTu misión: Operar el reactor para sintetizar compuestos con residuo cero.`,
+    conceptos: [
+      { icono: '📉', nombre: 'Reactivo Limitante', descripcion: 'Sustancia que se consume totalmente y detiene la reacción.' },
+      { icono: '📈', nombre: 'Reactivo en Exceso', descripcion: 'Materia sobrante tras la reacción.' },
+      { icono: '🧮', nombre: 'Rendimiento Teórico', descripcion: 'Máxima producción posible según estequiometría.' },
+      { icono: '🔄', nombre: 'Masa vs Mol', descripcion: 'La masa se pesa, el mol es el que reacciona.' }
+    ],
+    mision: [
+      'Analiza los Pesos Moleculares (PM) de los reactivos.',
+      'Ajusta inyectores y observa la conversión a moles.',
+      'Identifica el reactivo limitante.',
+      'Optimiza los niveles hasta desperdicio nulo.',
+      'Ejecuta la síntesis certificada.'
+    ],
+    aplicaciones: [
+      { area: 'Proceso Haber', ejemplo: 'Síntesis de amoníaco a escala global.' },
+      { area: 'Medicamentos', ejemplo: 'Control de precursores costosos.' },
+      { area: 'Industria', ejemplo: 'Reducción de residuos químicos.' }
+    ]
+  };
+
+export default briefing;
