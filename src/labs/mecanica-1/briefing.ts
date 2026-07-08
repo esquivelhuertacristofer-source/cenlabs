@@ -1,0 +1,34 @@
+import type { BriefingConfig } from '@/components/MissionBriefing';
+
+const briefing: BriefingConfig = {
+    codigo: 'MEC-01',
+    titulo: 'Motor Eléctrico de Tracción (PMSM)',
+    subtitulo: 'Autotrónica · Armado, fundamento y diagnóstico',
+    acento: '#2A9D8F',
+    duracion: 40,
+    videoUrl: 'https://youtu.be/sHSAfaB59d8',
+    bienvenida: `¡Bienvenido al taller de Autotrónica de CEN Labs! Soy el Dr. Quantum y hoy no vas a mirar una animación: vas a CONSTRUIR un motor eléctrico pieza por pieza.\n\nUn motor síncrono de imanes permanentes (PMSM) es el corazón de casi todos los vehículos eléctricos modernos. Ensamblarás el estátor, el rotor y los imanes con la polaridad correcta, aplicarás las fórmulas para hacerlo girar a una velocidad objetivo y diagnosticarás fallas reales.\n\nCada decisión tiene una consecuencia física, y cada error te enseña algo. ¡Manos a la obra!`,
+    conceptos: [
+      { icono: '🧲', nombre: 'Estátor y Rotor', descripcion: 'El campo giratorio del estátor arrastra al rotor de imanes permanentes en sincronía.' },
+      { icono: '🔁', nombre: 'Polaridad', descripcion: 'El orden y la polaridad de los imanes definen si el motor gira o se traba.' },
+      { icono: '⚡', nombre: 'Frecuencia y Polos', descripcion: 'La velocidad n = 120·f / P depende de la frecuencia eléctrica y el número de polos.' },
+      { icono: '🔧', nombre: 'Diagnóstico', descripcion: 'Un motor averiado revela su falla en el par, la vibración o el consumo.' },
+    ],
+    mision: [
+      'FASE 1 · Armado: ensambla estátor, rotor e imanes en el orden y polaridad correctos.',
+      'FASE 2 · Fundamento: calcula la frecuencia y elige los polos para alcanzar la velocidad objetivo.',
+      'FASE 3 · Diagnóstico: el motor llega averiado; encuentra y corrige la falla.',
+      'Usa el modo Manual para armar pieza por pieza o el Automático para ver la secuencia.',
+    ],
+    aplicaciones: [
+      { area: 'Vehículos Eléctricos', ejemplo: 'El motor de tracción de un Tesla o Nissan Leaf es un PMSM.' },
+      { area: 'Robótica Industrial', ejemplo: 'Los servomotores de precisión usan el mismo principio síncrono.' },
+      { area: 'Electrodomésticos', ejemplo: 'Compresores y ventiladores de alta eficiencia energética.' },
+    ],
+    retos: [
+      'Alcanza la velocidad objetivo con el mínimo número de polos posible.',
+      'Diagnostica la falla en menos de tres intentos.',
+    ],
+  };
+
+export default briefing;

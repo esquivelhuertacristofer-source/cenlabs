@@ -1,0 +1,33 @@
+import type { BriefingConfig } from '@/components/MissionBriefing';
+
+const briefing: BriefingConfig = {
+    codigo: 'MEC-10',
+    titulo: 'Dirección Asistida Eléctrica (EPS)',
+    subtitulo: 'Autotrónica · Armado, fundamento y diagnóstico',
+    acento: '#2A9D8F',
+    duracion: 40,
+    bienvenida: `¡Bienvenido al taller de Autotrónica de CEN Labs! Hoy vas a montar un sistema de dirección asistida eléctrica (EPS), el que reemplazó a la vieja dirección hidráulica.\n\nInstalarás la columna de dirección, el sensor de par, el motor eléctrico, la reductora y la ECU de dirección. Luego calcularás el par de asistencia según la velocidad y observarás la curva de asistencia variable. Por último, diagnosticarás una falla real.\n\nCada decisión tiene consecuencia física. ¡A tomar el volante!`,
+    conceptos: [
+      { icono: '🎚️', nombre: 'Sensor de Par', descripcion: 'Mide el esfuerzo que aplica el conductor al volante para calcular la asistencia.' },
+      { icono: '⚙️', nombre: 'Motor y Reductora', descripcion: 'El motor eléctrico aporta el par extra a través de una reductora sobre la columna o cremallera.' },
+      { icono: '📉', nombre: 'Asistencia Variable', descripcion: 'La asistencia es mayor a baja velocidad y menor en carretera para dar precisión.' },
+      { icono: '🧮', nombre: 'Curva de Asistencia', descripcion: 'La ECU calcula el par objetivo combinando par de entrada y velocidad del vehículo.' },
+    ],
+    mision: [
+      'FASE 1 · Armado: monta columna, sensor de par, motor eléctrico, reductora y ECU de dirección.',
+      'FASE 2 · Fundamento: calcula el par de asistencia según la velocidad del vehículo.',
+      'FASE 3 · Diagnóstico: identifica si la falla es el sensor de par, el motor o la ECU.',
+      'Observa la curva de asistencia variable responder en tiempo real.',
+    ],
+    aplicaciones: [
+      { area: 'Automotriz', ejemplo: 'Dirección de prácticamente todos los vehículos modernos.' },
+      { area: 'Conducción Autónoma', ejemplo: 'La EPS permite el control de dirección por software (Lane Keeping, autoparking).' },
+      { area: 'Eficiencia', ejemplo: 'Ahorra combustible al no depender de una bomba hidráulica permanente.' },
+    ],
+    retos: [
+      'Ajusta la curva para lograr dirección ligera en ciudad y firme en carretera.',
+      'Diagnostica el sensor de par que anula la asistencia.',
+    ],
+  };
+
+export default briefing;

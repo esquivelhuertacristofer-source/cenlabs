@@ -34,14 +34,31 @@ export type Categoria =
   | 'biologia'
   | 'mecanica';
 
-/** Datos autocontenidos de un lab (server-safe: sin componentes cliente). */
+/**
+ * Datos autocontenidos de un lab (server-safe: sin componentes cliente).
+ *
+ * DOS clases de lab conviven en este contrato:
+ *   - Labs "2.5D" (química/física/matemáticas/biología): definen `contenido`,
+ *     `tutorSteps` y `quiz` — el simulador es React (Piloto/Bitácora) y el
+ *     alumno resuelve un quiz.
+ *   - Labs "iframe 3D" (mecánica): el simulador es un HTML three.js embebido por
+ *     `<iframe>` (ver CatalogoEntry.simuladorHtml). NO tienen contenido/tutor/quiz,
+ *     por eso esos campos son opcionales. `fromRegistry` ya omite los `undefined`,
+ *     así que un lab iframe solo aporta su `briefing` a ALL_BRIEFING_CONFIGS y no
+ *     ensucia MASTER_DATA / ALL_TUTOR_STEPS / ALL_QUIZZES.
+ * `briefing` es el único campo de datos que TODO lab debe tener (la portada de
+ * misión es común a ambas clases).
+ */
 export interface LabModule {
   /** Identidad canónica, p.ej. 'quimica-1'. Debe coincidir con el nombre de la carpeta. */
   id: string;
-  contenido: SimuladorContenido;
   briefing: BriefingConfig;
-  tutorSteps: TutorStep[];
-  quiz: Question[];
+  /** Solo labs 2.5D (React): datos del simulador. Ausente en labs iframe 3D. */
+  contenido?: SimuladorContenido;
+  /** Solo labs 2.5D (React): pasos del tutor. Ausente en labs iframe 3D. */
+  tutorSteps?: TutorStep[];
+  /** Solo labs 2.5D (React): preguntas del quiz. Ausente en labs iframe 3D. */
+  quiz?: Question[];
   /** Opcional: solo ~14 labs definen objetivos hoy. */
   objetivos?: (state: ObjetivosState) => Objetivo[];
 }
@@ -73,6 +90,14 @@ export interface CatalogoEntry {
   estado: string;
   /** Marca la práctica sugerida/destacada de la categoría. */
   destacada?: boolean;
+  /**
+   * Solo labs iframe 3D (mecánica): ruta pública del HTML three.js que el shell
+   * embebe por `<iframe>` (p.ej. '/labs/motor-electrico.html'). Vive aquí — en el
+   * registro LIVIANO client-safe — a propósito: el shell (MecanicaShellClient,
+   * "use client") lo lee sin arrastrar datos pesados, y así NO toca BriefingConfig
+   * (que está congelado byte-a-byte por el golden de ALL_BRIEFING_CONFIGS).
+   */
+  simuladorHtml?: string;
 }
 
 /** Deriva la categoría a partir del id ('quimica-1' → 'quimica'). */

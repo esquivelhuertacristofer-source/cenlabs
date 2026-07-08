@@ -32,6 +32,16 @@ import matematicas_7 from './matematicas-7';
 import matematicas_8 from './matematicas-8';
 import matematicas_9 from './matematicas-9';
 import matematicas_10 from './matematicas-10';
+import mecanica_1 from './mecanica-1';
+import mecanica_2 from './mecanica-2';
+import mecanica_3 from './mecanica-3';
+import mecanica_4 from './mecanica-4';
+import mecanica_5 from './mecanica-5';
+import mecanica_6 from './mecanica-6';
+import mecanica_7 from './mecanica-7';
+import mecanica_8 from './mecanica-8';
+import mecanica_9 from './mecanica-9';
+import mecanica_10 from './mecanica-10';
 import quimica_1 from './quimica-1';
 import quimica_2 from './quimica-2';
 import quimica_3 from './quimica-3';
@@ -74,6 +84,16 @@ export const LABS: Record<string, LabModule> = {
   'matematicas-8': matematicas_8,
   'matematicas-9': matematicas_9,
   'matematicas-10': matematicas_10,
+  'mecanica-1': mecanica_1,
+  'mecanica-2': mecanica_2,
+  'mecanica-3': mecanica_3,
+  'mecanica-4': mecanica_4,
+  'mecanica-5': mecanica_5,
+  'mecanica-6': mecanica_6,
+  'mecanica-7': mecanica_7,
+  'mecanica-8': mecanica_8,
+  'mecanica-9': mecanica_9,
+  'mecanica-10': mecanica_10,
   'quimica-1': quimica_1,
   'quimica-2': quimica_2,
   'quimica-3': quimica_3,

@@ -1,0 +1,34 @@
+import type { BriefingConfig } from '@/components/MissionBriefing';
+
+const briefing: BriefingConfig = {
+    codigo: 'MEC-05',
+    titulo: 'Estación de Carga EV (DC Rápida)',
+    subtitulo: 'Autotrónica · Infraestructura de carga y diagnóstico',
+    acento: '#2A9D8F',
+    duracion: 40,
+    videoUrl: 'https://youtu.be/Lfw-O9IZkd0',
+    bienvenida: `¡Bienvenido a la estación de carga de CEN Labs! Hoy vas a ensamblar una estación de carga rápida en corriente continua para vehículos eléctricos.\n\nMontarás el gabinete, el módulo de potencia, las protecciones, el panel y el cable/conector. Después calcularás la corriente de carga y el tiempo necesario con física real, y observarás la curva de carga. Por último, la carga fallará y tendrás que diagnosticar la causa.\n\nCada decisión tiene consecuencia física. ¡Vamos a energizar!`,
+    conceptos: [
+      { icono: '🔋', nombre: 'Carga DC Rápida', descripcion: 'La estación entrega corriente continua directa a la batería, saltándose el cargador interno.' },
+      { icono: '📈', nombre: 'Curva de Carga', descripcion: 'La potencia baja al acercarse al 100% para proteger las celdas (curva CC-CV).' },
+      { icono: '⏱️', nombre: 'Corriente y Tiempo', descripcion: 'El tiempo de carga depende de la capacidad (kWh) y la corriente entregada (A).' },
+      { icono: '⚠️', nombre: 'Diagnóstico', descripcion: 'Conector, autenticación o límite térmico: cada falla tiene su síntoma.' },
+    ],
+    mision: [
+      'FASE 1 · Armado: monta gabinete, módulo de potencia, protección, panel y cable/conector.',
+      'FASE 2 · Fundamento: calcula la corriente de carga y el tiempo necesario; observa la curva real.',
+      'FASE 3 · Diagnóstico: identifica si la falla es el conector, la autenticación o un límite térmico.',
+      'Usa el modo Manual o Automático para el ensamblaje.',
+    ],
+    aplicaciones: [
+      { area: 'Movilidad Eléctrica', ejemplo: 'Electrolineras de carga rápida en carreteras y ciudades.' },
+      { area: 'Flotas Comerciales', ejemplo: 'Depósitos de autobuses y camiones eléctricos.' },
+      { area: 'Red Eléctrica', ejemplo: 'Gestión de demanda y balance de carga en la red.' },
+    ],
+    retos: [
+      'Carga la batería al 80% en el menor tiempo respetando el límite térmico.',
+      'Diagnostica el fallo de autenticación sin reiniciar la estación.',
+    ],
+  };
+
+export default briefing;

@@ -17,7 +17,7 @@
 import { catalogoDeCategoria, CATALOGO } from '@/labs/_catalogo';
 import type { Categoria } from '@/labs/_types';
 
-const CATEGORIAS: Categoria[] = ['quimica', 'fisica', 'matematicas', 'biologia'];
+const CATEGORIAS: Categoria[] = ['quimica', 'fisica', 'matematicas', 'biologia', 'mecanica'];
 
 describe('golden master — catálogo por categoría (invariante ante extracción a src/labs)', () => {
   it('inventario de ids del catálogo es estable', () => {
@@ -30,7 +30,7 @@ describe('golden master — catálogo por categoría (invariante ante extracció
     });
   }
 
-  it('cada categoría estándar tiene 10 prácticas con orden 1..10 contiguo', () => {
+  it('cada categoría tiene 10 prácticas con orden 1..10 contiguo', () => {
     for (const cat of CATEGORIAS) {
       const orden = catalogoDeCategoria(cat).map((i) => i.orden);
       expect(orden).toEqual([1, 2, 3, 4, 5, 6, 7, 8, 9, 10]);
@@ -43,7 +43,7 @@ describe('golden master — catálogo por categoría (invariante ante extracció
       fisica: 'fisica-1',
       matematicas: 'matematicas-1',
       biologia: 'biologia-1',
-      mecanica: '', // sin carpeta/catálogo — bespoke
+      mecanica: 'mecanica-1', // == destacada del practicasMecanica original
     };
     for (const cat of CATEGORIAS) {
       const destacada = catalogoDeCategoria(cat).find((i) => i.destacada);
@@ -69,5 +69,6 @@ describe('golden master — catálogo por categoría (invariante ante extracció
       'Genética y Evolución',
       'Anatomía y Ecología',
     ]);
+    expect(modulosDe('mecanica')).toEqual(['Autotrónica', 'Mecatrónica']);
   });
 });

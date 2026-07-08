@@ -32,6 +32,16 @@ import matematicas_7 from './matematicas-7/catalogo';
 import matematicas_8 from './matematicas-8/catalogo';
 import matematicas_9 from './matematicas-9/catalogo';
 import matematicas_10 from './matematicas-10/catalogo';
+import mecanica_1 from './mecanica-1/catalogo';
+import mecanica_2 from './mecanica-2/catalogo';
+import mecanica_3 from './mecanica-3/catalogo';
+import mecanica_4 from './mecanica-4/catalogo';
+import mecanica_5 from './mecanica-5/catalogo';
+import mecanica_6 from './mecanica-6/catalogo';
+import mecanica_7 from './mecanica-7/catalogo';
+import mecanica_8 from './mecanica-8/catalogo';
+import mecanica_9 from './mecanica-9/catalogo';
+import mecanica_10 from './mecanica-10/catalogo';
 import quimica_1 from './quimica-1/catalogo';
 import quimica_2 from './quimica-2/catalogo';
 import quimica_3 from './quimica-3/catalogo';
@@ -74,6 +84,16 @@ export const CATALOGO: Record<string, CatalogoEntry> = {
   'matematicas-8': matematicas_8,
   'matematicas-9': matematicas_9,
   'matematicas-10': matematicas_10,
+  'mecanica-1': mecanica_1,
+  'mecanica-2': mecanica_2,
+  'mecanica-3': mecanica_3,
+  'mecanica-4': mecanica_4,
+  'mecanica-5': mecanica_5,
+  'mecanica-6': mecanica_6,
+  'mecanica-7': mecanica_7,
+  'mecanica-8': mecanica_8,
+  'mecanica-9': mecanica_9,
+  'mecanica-10': mecanica_10,
   'quimica-1': quimica_1,
   'quimica-2': quimica_2,
   'quimica-3': quimica_3,

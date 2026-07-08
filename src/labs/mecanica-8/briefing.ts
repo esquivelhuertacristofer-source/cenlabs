@@ -1,0 +1,33 @@
+import type { BriefingConfig } from '@/components/MissionBriefing';
+
+const briefing: BriefingConfig = {
+    codigo: 'MEC-08',
+    titulo: 'Batería de Alto Voltaje y BMS',
+    subtitulo: 'Autotrónica · Armado, fundamento y diagnóstico',
+    acento: '#2A9D8F',
+    duracion: 45,
+    bienvenida: `¡Bienvenido al taller de Autotrónica de CEN Labs! Hoy vas a construir un paquete de batería de alto voltaje con su sistema de gestión (BMS), el corazón energético de un vehículo eléctrico.\n\nEnsamblarás los módulos de celdas, las interconexiones, el contactor, el sensor de corriente y la placa BMS. Luego calcularás el voltaje del paquete y el estado de carga (SOC), y observarás el balanceo de celdas. Finalmente diagnosticarás una falla real.\n\nCada decisión tiene consecuencia física. ¡A energizar con seguridad!`,
+    conceptos: [
+      { icono: '🔋', nombre: 'Celdas en Serie/Paralelo', descripcion: 'La configuración S/P define el voltaje total y la capacidad del paquete.' },
+      { icono: '📊', nombre: 'Estado de Carga (SOC)', descripcion: 'El SOC estima la energía disponible a partir del voltaje y la corriente integrada.' },
+      { icono: '⚖️', nombre: 'Balanceo de Celdas', descripcion: 'El BMS iguala la carga entre celdas para maximizar vida útil y seguridad.' },
+      { icono: '🛡️', nombre: 'Protección', descripcion: 'El contactor y el BMS aíslan el paquete ante sobretensión, sobrecorriente o temperatura.' },
+    ],
+    mision: [
+      'FASE 1 · Armado: monta módulos de celdas, interconexiones, contactor, sensor de corriente y BMS.',
+      'FASE 2 · Fundamento: calcula el voltaje del paquete y el estado de carga (SOC).',
+      'FASE 3 · Diagnóstico: identifica si la falla es una celda desbalanceada, el contactor o un sensor.',
+      'Observa el balanceo de celdas actuar en tiempo real.',
+    ],
+    aplicaciones: [
+      { area: 'Vehículos Eléctricos', ejemplo: 'Almacenamiento de energía en autos, buses y motos eléctricas.' },
+      { area: 'Almacenamiento en Red', ejemplo: 'Bancos de baterías para respaldo y estabilización de la red.' },
+      { area: 'Seguridad', ejemplo: 'Prevención de fugas térmicas mediante gestión térmica y de voltaje.' },
+    ],
+    retos: [
+      'Alcanza el SOC objetivo manteniendo todas las celdas balanceadas.',
+      'Diagnostica la celda débil sin descargar todo el paquete.',
+    ],
+  };
+
+export default briefing;

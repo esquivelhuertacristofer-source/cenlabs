@@ -51,3 +51,8 @@ next-env.d.ts
 /output/
 /scripts/piloto-config.ts
 /docs/CREDENCIALES-PILOTO-001.md
+
+# Insumos de currículas de mecánica — currículas del cliente, no commitear
+# (se conserva solo el instructivo LEEME.md)
+/docs/curriculas-mecanica/*
+!/docs/curriculas-mecanica/LEEME.md
