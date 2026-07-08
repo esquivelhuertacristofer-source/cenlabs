@@ -2,46 +2,19 @@
 
 import React, { useState, useEffect, useRef } from 'react';
 import Link from 'next/link';
-import { Cog, Play, ArrowLeft, Clock, Target, User, Lock, Sparkles, Zap, Flame, Bot, CircuitBoard, BatteryCharging } from 'lucide-react';
+import { Cog, Play, ArrowLeft, Clock, Target, User, Lock, Sparkles } from 'lucide-react';
 import ThemeToggle from '@/components/ThemeToggle';
+import { catalogoDeCategoria, type CatalogoItem } from '@/labs/_catalogo';
 
 // ==========================================
-// Tipos e Interfaces
+// Datos
 // ==========================================
 
-interface Practica {
-  id: number;
-  modulo: string;          // Autotrónica | Mecatrónica
-  titulo: string;
-  duracion: string;
-  teoria: string;
-  estado: 'activo' | 'propuesto';
-  destacada?: boolean;
-}
-
-// Los 10 laboratorios están construidos (three.js) y enlazan a /alumno/simulador/mecanica-N.
-const practicasMecanica: Practica[] = [
-  { id: 1, modulo: "Autotrónica", titulo: "Motor Eléctrico de Tracción (PMSM)", duracion: "40 min", teoria: "Arma un motor síncrono de imanes permanentes y comprende cómo el campo giratorio del estátor produce par sobre el rotor. Diagnostica fallas de fase.", estado: "activo", destacada: true },
-  { id: 2, modulo: "Autotrónica", titulo: "Motor de Combustión Interna (4 Tiempos)", duracion: "45 min", teoria: "Ensambla el tren alternativo y recorre el ciclo Otto —admisión, compresión, explosión y escape— relacionando geometría, sincronización y potencia.", estado: "activo" },
-  { id: 3, modulo: "Mecatrónica", titulo: "Brazo Robótico de 4 Ejes", duracion: "45 min", teoria: "Controla la cinemática de un manipulador articulado: posiciona el efector final, calcula el par por articulación y diagnostica el espacio de trabajo.", estado: "activo" },
-  { id: 4, modulo: "Autotrónica", titulo: "Inversor Trifásico de Potencia", duracion: "40 min", teoria: "Convierte corriente continua en trifásica mediante conmutación PWM de seis transistores y observa cómo se sintetiza la onda senoidal que alimenta al motor.", estado: "activo" },
-  { id: 5, modulo: "Autotrónica", titulo: "Estación de Carga EV (DC Rápida)", duracion: "40 min", teoria: "Opera la infraestructura de carga rápida en corriente directa: handshake, curva de potencia, gestión térmica y diagnóstico de la sesión de carga.", estado: "activo" },
-
-  { id: 6, modulo: "Autotrónica", titulo: "Sistema de Inyección Electrónica", duracion: "40 min", teoria: "Dosificación de combustible por inyectores, mapa de carga del motor y lazo cerrado con la sonda lambda para optimizar la mezcla aire-combustible.", estado: "activo" },
-  { id: 7, modulo: "Autotrónica", titulo: "Frenos ABS (Antibloqueo)", duracion: "40 min", teoria: "Modula la presión hidráulica evitando el bloqueo de rueda; analiza el deslizamiento óptimo y la actuación del grupo hidráulico en frenado de emergencia.", estado: "activo" },
-  { id: 8, modulo: "Autotrónica", titulo: "Batería de Alto Voltaje y BMS", duracion: "45 min", teoria: "Arquitectura de celdas, balanceo del pack y gestión térmica; el BMS vigila estado de carga (SoC) y salud (SoH) para operar con seguridad.", estado: "activo" },
-  { id: 9, modulo: "Mecatrónica", titulo: "PLC y Automatización Neumática", duracion: "45 min", teoria: "Programa un controlador lógico para secuenciar actuadores neumáticos: lógica de escalera, sensores fin de carrera y ciclos automáticos de proceso.", estado: "activo" },
-  { id: 10, modulo: "Autotrónica", titulo: "Dirección Asistida Eléctrica (EPS)", duracion: "40 min", teoria: "Asistencia de par por motor eléctrico en función de la velocidad y el sensor de par en la columna; sintoniza la sensación de dirección y diagnostica fallas.", estado: "activo" },
-];
-
-// Iconos por lab propuesto (para las tarjetas bloqueadas)
-const propuestoIcons: Record<number, React.ComponentType<{ className?: string }>> = {
-  6: Flame,
-  7: Zap,
-  8: BatteryCharging,
-  9: CircuitBoard,
-  10: Bot,
-};
+// El catálogo de mecánica se deriva por codegen de src/labs/mecanica-*/catalogo.ts
+// (registro CATALOGO → catalogoDeCategoria). Agregar una práctica es crear su
+// carpeta; esta página NO se toca. Cada item ya trae `id` ('mecanica-N') y `orden`
+// (1..10) derivados del nombre de la carpeta, y viene ordenado por `orden`.
+const practicasMecanica: CatalogoItem[] = catalogoDeCategoria('mecanica');
 
 // ==========================================
 // Componentes Secundarios
@@ -69,7 +42,7 @@ const ConcentricRings = ({ progress, colorClass }: { progress: number, colorClas
 };
 
 // Spotlight Card para labs ACTIVOS (resplandor que sigue al ratón)
-const SpotlightCard = ({ practica }: { practica: Practica }) => {
+const SpotlightCard = ({ practica }: { practica: CatalogoItem }) => {
   const divRef = useRef<HTMLDivElement>(null);
   const [position, setPosition] = useState({ x: 0, y: 0 });
   const [opacity, setOpacity] = useState(0);
@@ -82,7 +55,7 @@ const SpotlightCard = ({ practica }: { practica: Practica }) => {
 
   return (
     <div
-        id={`mecanica-${practica.id}`}
+        id={practica.id}
         ref={divRef}
         onMouseMove={handleMouseMove}
         onMouseEnter={() => setOpacity(1)}
@@ -101,7 +74,7 @@ const SpotlightCard = ({ practica }: { practica: Practica }) => {
            <div className="w-full">
                <span className="inline-flex items-center gap-2 px-4 py-1.5 bg-[#effaf7] dark:bg-[#2A9D8F]/20 text-[#2A9D8F] dark:text-[#4FD1C5] rounded-lg text-xs font-black uppercase tracking-widest mb-4 border border-[#2A9D8F]/20">
                  <div className="w-2 h-2 rounded-full bg-[#2A9D8F] animate-pulse"></div>
-                 {practica.modulo} • ID: MECANICA-{practica.id}
+                 {practica.modulo} • ID: {practica.id.toUpperCase()}
                </span>
                <h3 className="text-3xl font-black text-[#023047] dark:text-white leading-tight mb-4 group-hover:text-[#2A9D8F] transition-colors">{practica.titulo}</h3>
                <p className="text-slate-600 dark:text-slate-400 font-medium mb-8 text-base leading-relaxed">{practica.teoria}</p>
@@ -119,7 +92,7 @@ const SpotlightCard = ({ practica }: { practica: Practica }) => {
            </div>
 
            <div className="relative z-20 w-full md:w-auto mt-4 md:mt-0 flex md:block justify-start md:justify-end pointer-events-auto">
-              <Link href={`/alumno/simulador/mecanica-${practica.id}`} className="px-6 py-4 md:w-16 md:h-16 md:px-0 md:py-0 md:rounded-full rounded-xl bg-[#2A9D8F] hover:bg-[#023047] text-white flex items-center justify-center shadow-xl transition-transform hover:scale-110 active:scale-95 gap-2 font-bold">
+              <Link href={`/alumno/simulador/${practica.id}`} className="px-6 py-4 md:w-16 md:h-16 md:px-0 md:py-0 md:rounded-full rounded-xl bg-[#2A9D8F] hover:bg-[#023047] text-white flex items-center justify-center shadow-xl transition-transform hover:scale-110 active:scale-95 gap-2 font-bold">
                  <span className="md:hidden">Iniciar Simulación</span>
                  <Play fill="currentColor" size={24} className="md:ml-1 hidden md:block" />
               </Link>
@@ -136,8 +109,8 @@ const SpotlightCard = ({ practica }: { practica: Practica }) => {
 };
 
 // Tarjeta para labs PROPUESTOS (bloqueada)
-const PropuestoCard = ({ practica }: { practica: Practica }) => {
-  const Icon = propuestoIcons[practica.id] || Cog;
+const PropuestoCard = ({ practica }: { practica: CatalogoItem }) => {
+  const Icon = Cog;
   return (
     <div className="relative bg-slate-50/60 dark:bg-[#0A1121]/60 border border-dashed border-slate-300 dark:border-slate-700 rounded-[28px] p-8 overflow-hidden flex flex-col">
        <div className="flex items-center justify-between mb-5">
@@ -149,7 +122,7 @@ const PropuestoCard = ({ practica }: { practica: Practica }) => {
              Propuesto
           </span>
        </div>
-       <span className="text-[11px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest mb-2">{practica.modulo} • ID: MECANICA-{practica.id}</span>
+       <span className="text-[11px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest mb-2">{practica.modulo} • ID: {practica.id.toUpperCase()}</span>
        <h4 className="text-xl font-black text-slate-600 dark:text-slate-300 mb-2 tracking-tight leading-tight">{practica.titulo}</h4>
        <p className="text-sm text-slate-400 dark:text-slate-500 font-medium leading-relaxed flex-grow">{practica.teoria}</p>
        <div className="mt-6 flex items-center gap-2 text-slate-400 dark:text-slate-600 font-bold text-sm">
@@ -278,7 +251,7 @@ export default function MecanicaCatalogPage() {
                </div>
              </div>
 
-             <Link href={`/alumno/simulador/mecanica-${destacada.id}`} className="px-8 py-4 rounded-xl font-black text-white text-lg bg-[#2A9D8F] hover:bg-[#023047] shadow-xl hover:shadow-2xl hover:shadow-[#2A9D8F]/40 transition-all hover:-translate-y-1 active:translate-y-0 flex items-center gap-3 whitespace-nowrap">
+             <Link href={`/alumno/simulador/${destacada.id}`} className="px-8 py-4 rounded-xl font-black text-white text-lg bg-[#2A9D8F] hover:bg-[#023047] shadow-xl hover:shadow-2xl hover:shadow-[#2A9D8F]/40 transition-all hover:-translate-y-1 active:translate-y-0 flex items-center gap-3 whitespace-nowrap">
                <Play size={20} fill="currentColor" />
                Iniciar Simulación
              </Link>

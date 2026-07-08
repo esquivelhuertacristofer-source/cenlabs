@@ -5,8 +5,8 @@
  * ─────────────────────────────────────────────────────────────────────────────
  * Shell de plataforma para los 10 laboratorios 3D de Mecánica e Ingeniería.
  *
- * Sustituye al MecanicaLabClient (iframe fullscreen sin chrome) con el shell
- * estándar de dos barras laterales de CEN Labs:
+ * Reemplazó al antiguo iframe fullscreen sin chrome con el shell estándar de dos
+ * barras laterales de CEN Labs:
  *   - Izquierda (30%): guía de misión, conceptos clave, tab docente
  *   - Centro (flex-1): iframe del lab three.js (los HTML se preservan intactos)
  *   - Derecha (380px): BitacoraMecanica con conceptos de referencia y notas
@@ -25,22 +25,10 @@ import {
 import MissionBriefing from "@/components/MissionBriefing";
 import AsistenteVirtual from "@/components/AsistenteVirtual";
 import { ALL_BRIEFING_CONFIGS } from "@/data/briefingConfigs";
+import { CATALOGO } from "@/labs/_catalogo";
 import { supabase } from "@/lib/supabase-browser";
 import { getCurrentProfile } from "@/lib/supabase-helpers";
 import BitacoraMecanica from "@/components/bitacoras/BitacoraMecanica";
-
-const LAB_HTML: Record<string, string> = {
-  "mecanica-1":  "/labs/motor-electrico.html",
-  "mecanica-2":  "/labs/motor-combustion.html",
-  "mecanica-3":  "/labs/brazo-robotico.html",
-  "mecanica-4":  "/labs/inversor-trifasico.html",
-  "mecanica-5":  "/labs/carga-ev.html",
-  "mecanica-6":  "/labs/inyeccion-electronica.html",
-  "mecanica-7":  "/labs/frenos-abs.html",
-  "mecanica-8":  "/labs/bateria-bms.html",
-  "mecanica-9":  "/labs/plc-neumatica.html",
-  "mecanica-10": "/labs/direccion-eps.html",
-};
 
 // ─── Timer local (no necesita el store de Zustand) ────────────────────────────
 function LabTimer({ active }: { active: boolean }) {
@@ -77,11 +65,14 @@ export default function MecanicaShellClient({
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [showExitModal, setShowExitModal] = useState(false);
 
-  const htmlSrc = LAB_HTML[simuladorId] ?? LAB_HTML["mecanica-1"];
+  // La ruta del HTML three.js vive en el registro liviano CATALOGO (simuladorHtml),
+  // derivado por codegen de src/labs/<id>/catalogo.ts. Ya no hay mapa hardcodeado:
+  // agregar un lab de mecánica es crear su carpeta, sin tocar este shell.
+  const htmlSrc = CATALOGO[simuladorId]?.simuladorHtml ?? CATALOGO["mecanica-1"]?.simuladorHtml;
   const config  = ALL_BRIEFING_CONFIGS[simuladorId] ?? ALL_BRIEFING_CONFIGS["mecanica-1"];
   const acento  = config?.acento ?? "#2A9D8F";
 
-  // Registro de visita (mismo patrón que MecanicaLabClient / SimuladorClient)
+  // Registro de visita (mismo patrón que SimuladorClient)
   useEffect(() => {
     setMounted(true);
     setIsSidebarOpen(window.innerWidth >= 768);

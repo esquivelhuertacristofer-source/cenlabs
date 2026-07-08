@@ -15,8 +15,7 @@
  *   node scripts/new-lab.mjs <id> [opciones]
  *
  *   <id>                 obligatorio, formato <categoria>-<n>, p.ej. quimica-11
- *                        categoría ∈ {quimica, fisica, matematicas, biologia}
- *                        (mecanica es bespoke: no usa el modelo de carpeta).
+ *                        categoría ∈ {quimica, fisica, matematicas, biologia, mecanica}
  *
  *   --titulo   "..."     título de la práctica (default: "TODO: título")
  *   --modulo   "..."     módulo/pestaña de la categoría (default: "TODO: módulo")
@@ -24,12 +23,21 @@
  *   --piloto   Nombre    usa @/components/Piloto<Nombre> en vez del placeholder
  *   --bitacora Nombre    usa @/components/bitacoras/Bitacora<Nombre>
  *   --objetivos          además genera objetivos.ts (barra de objetivos del HUD)
+ *   --iframe   /labs/x.html  crea un lab "iframe 3D" (three.js embebido): sólo
+ *                        genera index+briefing+catalogo (con simuladorHtml), SIN
+ *                        contenido/tutorSteps/quiz/components. Es el patrón de
+ *                        mecánica, pero funciona en cualquier categoría.
  *   --no-gen             no regenera los registros (hazlo luego con npm run gen:labs)
  *
- * Ejemplo:
+ * Ejemplos:
+ *   # Lab 2.5D (React) estándar:
  *   node scripts/new-lab.mjs quimica-11 --titulo "Gases Reales" \
  *     --modulo "Fisicoquímica" --duracion "40 min" --piloto GasesReales \
  *     --bitacora GasesReales --objetivos
+ *
+ *   # Lab iframe 3D (mecánica): el simulador es un HTML three.js ya construido.
+ *   node scripts/new-lab.mjs mecanica-11 --titulo "Turbocompresor" \
+ *     --modulo "Autotrónica" --duracion "40 min" --iframe /labs/turbo.html
  */
 import { readdirSync, existsSync, mkdirSync, writeFileSync } from 'node:fs';
 import { join, dirname } from 'node:path';
@@ -41,9 +49,11 @@ const ROOT = join(__dirname, '..');
 const LABS_DIR = join(ROOT, 'src', 'labs');
 const GEN_SCRIPT = join(__dirname, 'gen-lab-registry.mjs');
 
-const CATEGORIAS = ['quimica', 'fisica', 'matematicas', 'biologia'];
+const CATEGORIAS = ['quimica', 'fisica', 'matematicas', 'biologia', 'mecanica'];
 /** Prefijo de código de briefing por categoría (cosmético; el autor puede cambiarlo). */
-const PREFIJO_CODIGO = { quimica: 'QMI', fisica: 'FIS', matematicas: 'MAT', biologia: 'BIO' };
+const PREFIJO_CODIGO = { quimica: 'QMI', fisica: 'FIS', matematicas: 'MAT', biologia: 'BIO', mecanica: 'MEC' };
+/** Acento de marca por categoría, usado en el stub de briefing (cosmético). */
+const ACENTO_CATEGORIA = { quimica: '#219EBC', fisica: '#219EBC', matematicas: '#219EBC', biologia: '#219EBC', mecanica: '#2A9D8F' };
 
 // ─── Parseo de argumentos ─────────────────────────────────────────────────────
 function parseArgs(argv) {
@@ -57,6 +67,7 @@ function parseArgs(argv) {
     else if (a === '--duracion') opts.duracion = argv[++i];
     else if (a === '--piloto') opts.piloto = argv[++i];
     else if (a === '--bitacora') opts.bitacora = argv[++i];
+    else if (a === '--iframe') opts.iframe = argv[++i];
     else if (a.startsWith('--')) fail(`Opción desconocida: ${a}`);
     else opts._.push(a);
   }
@@ -100,7 +111,7 @@ const briefing: BriefingConfig = {
   codigo: ${JSON.stringify(c.codigo)},
   titulo: ${JSON.stringify(c.titulo)},
   subtitulo: ${JSON.stringify(c.modulo)},
-  acento: '#219EBC',
+  acento: ${JSON.stringify(c.acento)},
   duracion: ${c.duracionMin},
   videoUrl: '',
   bienvenida: 'TODO: bienvenida del Dr. Quantum. Puede usar \\n para saltos de línea.',
@@ -202,6 +213,23 @@ const catalogo: CatalogoEntry = {
 export default catalogo;
 `;
 
+// Catálogo de un lab "iframe 3D": añade simuladorHtml (ruta pública del HTML
+// three.js que el shell embebe por <iframe>). Es lo que distingue a un lab iframe
+// de uno 2.5D (criterio funcional, no por prefijo del id).
+const catalogoIframeTs = (c) => `import type { CatalogoEntry } from '../_types';
+
+const catalogo: CatalogoEntry = {
+  modulo: ${JSON.stringify(c.modulo)},
+  titulo: ${JSON.stringify(c.titulo)},
+  duracion: ${JSON.stringify(c.duracion)},
+  teoria: "TODO: una o dos frases que describan la teoría de la práctica.",
+  estado: "activo",
+  simuladorHtml: ${JSON.stringify(c.simuladorHtml)},
+};
+
+export default catalogo;
+`;
+
 const indexTs = (c) => {
   const imports = [
     `import type { LabModule } from '../_types';`,
@@ -224,6 +252,22 @@ export default lab;
 `;
 };
 
+// index.ts de un lab "iframe 3D": el simulador es un HTML three.js embebido (ver
+// catalogo.simuladorHtml), no un simulador React. Por eso el módulo sólo aporta
+// `briefing` — sin contenido/tutorSteps/quiz — que es el único campo de datos
+// común a ambas clases de lab. fromRegistry omite los undefined, así que este lab
+// no ensucia MASTER_DATA / ALL_TUTOR_STEPS / ALL_QUIZZES.
+const indexIframeTs = (c) => `import type { LabModule } from '../_types';
+import briefing from './briefing';
+
+const lab: LabModule = {
+  id: '${c.id}',
+  briefing,
+};
+
+export default lab;
+`;
+
 // ─── Main ─────────────────────────────────────────────────────────────────────
 const opts = parseArgs(process.argv.slice(2));
 const id = opts._[0];
@@ -233,11 +277,19 @@ if (!id) fail('Falta el <id>. Uso: node scripts/new-lab.mjs <categoria>-<n> [opc
 const m = /^([a-z]+)-(\d+)$/.exec(id);
 if (!m) fail(`Id inválido: "${id}". Debe ser <categoria>-<n>, p.ej. quimica-11.`);
 const [, categoria, numStr] = m;
-if (categoria === 'mecanica') {
-  fail('mecanica es bespoke (iframe, conjunto cerrado) y no usa el modelo de carpeta.');
-}
 if (!CATEGORIAS.includes(categoria)) {
   fail(`Categoría inválida: "${categoria}". Válidas: ${CATEGORIAS.join(', ')}.`);
+}
+
+// Un lab es "iframe 3D" si se pasa --iframe <ruta>. La ruta debe ser pública
+// (arranca con '/', servida desde public/). Es un criterio funcional, no por
+// categoría, aunque hoy sólo mecánica lo usa.
+const esIframe = Boolean(opts.iframe);
+if (esIframe && !opts.iframe.startsWith('/')) {
+  fail(`--iframe debe ser una ruta pública que empiece con '/', p.ej. /labs/turbo.html (recibí "${opts.iframe}").`);
+}
+if (esIframe && (opts.piloto || opts.bitacora || opts.objetivos)) {
+  console.warn('⚠  --piloto/--bitacora/--objetivos se ignoran en un lab --iframe (no tiene simulador React).');
 }
 
 const dir = join(LABS_DIR, id);
@@ -254,31 +306,44 @@ const ctx = {
   modulo: opts.modulo || 'TODO: módulo',
   duracion,
   duracionMin,
+  acento: ACENTO_CATEGORIA[categoria] || '#219EBC',
   codigo: `${PREFIJO_CODIGO[categoria]}-${String(orden).padStart(2, '0')}`,
   piloto: opts.piloto,
   bitacora: opts.bitacora,
   objetivos: opts.objetivos,
+  simuladorHtml: opts.iframe,
 };
 
-const files = {
-  'index.ts': indexTs(ctx),
-  'contenido.ts': contenidoTs(ctx),
-  'briefing.ts': briefingTs(ctx),
-  'tutorSteps.ts': tutorStepsTs(ctx),
-  'quiz.ts': quizTs(ctx),
-  'components.ts': componentsTs(ctx),
-  'catalogo.ts': catalogoTs(ctx),
-};
-if (ctx.objetivos) files['objetivos.ts'] = objetivosTs(ctx);
+// Dos variantes de lab conviven en el contrato (ver src/labs/_types.ts):
+//   - iframe 3D → sólo index+briefing+catalogo (con simuladorHtml).
+//   - 2.5D React → index+contenido+briefing+tutorSteps+quiz+components+catalogo.
+const files = esIframe
+  ? {
+      'index.ts': indexIframeTs(ctx),
+      'briefing.ts': briefingTs(ctx),
+      'catalogo.ts': catalogoIframeTs(ctx),
+    }
+  : {
+      'index.ts': indexTs(ctx),
+      'contenido.ts': contenidoTs(ctx),
+      'briefing.ts': briefingTs(ctx),
+      'tutorSteps.ts': tutorStepsTs(ctx),
+      'quiz.ts': quizTs(ctx),
+      'components.ts': componentsTs(ctx),
+      'catalogo.ts': catalogoTs(ctx),
+    };
+if (!esIframe && ctx.objetivos) files['objetivos.ts'] = objetivosTs(ctx);
 
 mkdirSync(dir, { recursive: true });
 for (const [name, content] of Object.entries(files)) {
   writeFileSync(join(dir, name), content, 'utf8');
 }
 
-console.log(`\n✓ Lab andamiado en src/labs/${id}/`);
+console.log(`\n✓ Lab ${esIframe ? 'iframe 3D' : '2.5D'} andamiado en src/labs/${id}/`);
 console.log(`  Archivos: ${Object.keys(files).join(', ')}`);
-if (!ctx.piloto || !ctx.bitacora) {
+if (esIframe) {
+  console.log(`  Simulador → ${ctx.simuladorHtml} (asegúrate de que el HTML exista en public${ctx.simuladorHtml}).`);
+} else if (!ctx.piloto || !ctx.bitacora) {
   console.log('  Piloto/Bitácora → ../_placeholder (reemplázalos por los reales en components.ts).');
 }
 
@@ -290,8 +355,13 @@ if (opts.gen) {
 }
 
 console.log(`\nSiguientes pasos para ${id}:`);
-console.log(`  1. Rellena los TODO en src/labs/${id}/ (contenido, briefing, tutorSteps, quiz, catalogo).`);
-console.log(`  2. Enchufa el simulador real en components.ts (Piloto/Bitácora).`);
+if (esIframe) {
+  console.log(`  1. Rellena los TODO en src/labs/${id}/ (briefing, catalogo.teoria).`);
+  console.log(`  2. Coloca el HTML three.js en public${ctx.simuladorHtml} (el shell lo embebe por <iframe>).`);
+} else {
+  console.log(`  1. Rellena los TODO en src/labs/${id}/ (contenido, briefing, tutorSteps, quiz, catalogo).`);
+  console.log(`  2. Enchufa el simulador real en components.ts (Piloto/Bitácora).`);
+}
 console.log(`  3. Verifica: npx tsc --noEmit && npm test && npm run gen:labs:check\n`);
 
 // Confirma que el lab quedó registrado y no rompe el discovery (readdir determinista).
