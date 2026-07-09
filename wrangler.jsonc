@@ -5,6 +5,14 @@
   "compatibility_date": "2025-03-25",
   "compatibility_flags": ["nodejs_compat"],
   "workers_dev": true,
+  // Dominio de producción (cutover Vercel -> Cloudflare). Custom Domains: Cloudflare
+  // crea/gestiona el registro DNS (proxied) y el certificado SSL. Sobrescribe los
+  // registros previos de Vercel (www CNAME cname.vercel-dns.com / apex A 76.76.21.21).
+  // Rollback = re-apuntar estos hostnames a Vercel en el panel de DNS de Cloudflare.
+  "routes": [
+    { "pattern": "www.cenlaboratorios.com.mx", "custom_domain": true },
+    { "pattern": "cenlaboratorios.com.mx", "custom_domain": true }
+  ],
   // Sirve los estáticos generados por OpenNext (incluye public/labs/*.html).
   // html_handling "none": servir los .html tal cual (paridad con Vercel), sin el
   // redirect 307 .html -> URL sin extensión. Los labs se cargan por /labs/<x>.html.
