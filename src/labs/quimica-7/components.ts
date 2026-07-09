@@ -3,5 +3,5 @@
 import dynamic from 'next/dynamic';
 import { Loader } from '../_loader';
 
-export const Piloto = dynamic(() => import('@/components/PilotoTitulacionAcidoBase'), { loading: Loader });
-export const Bitacora = dynamic(() => import('@/components/bitacoras/BitacoraTitulacionAcidoBase'), { loading: Loader });
+export const Piloto = dynamic(() => import('@/components/PilotoTitulacionAcidoBase'), { ssr: false, loading: Loader });
+export const Bitacora = dynamic(() => import('@/components/bitacoras/BitacoraTitulacionAcidoBase'), { ssr: false, loading: Loader });

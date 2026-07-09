@@ -1,6 +1,5 @@
 'use client';
 
-import * as Sentry from '@sentry/nextjs';
 import { useEffect } from 'react';
 import { RefreshCw } from 'lucide-react';
 
@@ -11,7 +10,10 @@ interface GlobalErrorProps {
 
 export default function GlobalError({ error, reset }: GlobalErrorProps) {
   useEffect(() => {
-    Sentry.captureException(error);
+    // Sentry se carga de forma diferida solo si hay DSN configurado en el build.
+    // Sin DSN, el minificador elimina este import: el SDK no entra al bundle.
+    if (!process.env.NEXT_PUBLIC_SENTRY_DSN) return;
+    void import('@sentry/nextjs').then((Sentry) => Sentry.captureException(error));
   }, [error]);
 
   return (

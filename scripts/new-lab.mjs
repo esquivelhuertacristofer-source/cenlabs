@@ -195,8 +195,8 @@ const componentsTs = (c) => {
 ${todo}import dynamic from 'next/dynamic';
 import { Loader } from '../_loader';
 
-export const Piloto = dynamic(() => import('${pilotoImport}'), { loading: Loader });
-export const Bitacora = dynamic(() => import('${bitacoraImport}'), { loading: Loader });
+export const Piloto = dynamic(() => import('${pilotoImport}'), { ssr: false, loading: Loader });
+export const Bitacora = dynamic(() => import('${bitacoraImport}'), { ssr: false, loading: Loader });
 `;
 };
 

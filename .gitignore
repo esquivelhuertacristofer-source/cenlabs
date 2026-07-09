@@ -35,6 +35,12 @@ yarn-error.log*
 ENTREGA_CREDENTIALS.md
 *.log
 
+# cloudflare / opennext (artefactos de build y secretos locales)
+/.open-next/
+/.wrangler/
+.dev.vars
+.dev.vars.*
+
 # vercel
 .vercel
 

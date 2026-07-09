@@ -1,0 +1,959 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>CEN Labs · Freno de Disco Hidráulico — Ensamble 3D</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#08201C;--panel:rgba(9,26,23,.86);--line:#1E3A34;--ink:#EAF4F1;
+    --dim:#8FB3AC;--accent:#2A9D8F;--accent2:#4FD1C5;--hv:#FFB703;--good:#34d399;--bad:#f4475e;
+    --mono:'Outfit',system-ui,'Segoe UI',Roboto,sans-serif;--disp:'Outfit','Arial Black',Impact,sans-serif;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  html,body{height:100%;background:var(--bg);color:var(--ink);font-family:'Outfit',system-ui,Segoe UI,Roboto,sans-serif}
+  body{overflow:hidden}
+  #stage{position:fixed;inset:0}
+  canvas{display:block;touch-action:none}
+
+  .topbar{position:fixed;top:0;left:0;right:0;height:56px;display:flex;align-items:center;gap:14px;padding:0 20px;z-index:20;background:linear-gradient(180deg,rgba(10,13,18,.92),transparent);pointer-events:none}
+  .brand{font-family:var(--disp);font-weight:bold;font-size:16px;text-transform:uppercase}
+  .brand span{color:var(--accent)}
+  .lt{font-family:var(--mono);font-size:11px;letter-spacing:.1em;text-transform:uppercase;color:var(--dim)}
+
+  .badge{position:fixed;top:16px;right:20px;z-index:20;font-family:var(--mono);font-size:9px;letter-spacing:.12em;text-transform:uppercase;background:rgba(255,209,102,.12);color:var(--hv);border:1px solid rgba(255,209,102,.35);padding:6px 12px;border-radius:20px}
+
+  .hud{position:fixed;top:70px;left:18px;z-index:15;max-width:330px;background:var(--panel);backdrop-filter:blur(14px);border:1px solid var(--line);border-radius:16px;padding:18px 20px;max-height:calc(100vh - 150px);overflow-y:auto}
+  .hud .eyebrow{font-family:var(--mono);font-size:10px;letter-spacing:.18em;text-transform:uppercase;color:var(--accent);margin-bottom:8px}
+  .hud h2{font-size:19px;line-height:1.15;margin-bottom:9px}
+  .hud p{font-size:13px;line-height:1.55;color:var(--dim);margin-bottom:10px}
+  .hud .formula{font-family:var(--mono);color:var(--accent2);text-align:center;font-size:12.5px;margin:8px 0;padding:8px;background:rgba(0,0,0,.25);border-radius:8px;line-height:1.5}
+  .hud .src{font-size:10.5px;color:#7a8894;font-style:italic;margin-top:4px;line-height:1.5}
+  .legend{display:flex;flex-direction:column;gap:6px;margin:12px 0;padding:10px 12px;background:rgba(0,0,0,.22);border-radius:10px}
+  .legend .li{display:flex;align-items:center;gap:8px;font-size:11px;color:#c4d0da}
+  .legend .dot{width:10px;height:10px;border-radius:50%;flex:0 0 auto}
+  .fid{margin:10px 0 2px;padding:10px 12px;background:rgba(0,0,0,.22);border-radius:10px;border:1px solid rgba(79,209,197,.18)}
+  .fid .ft{font-family:var(--mono);font-size:9.5px;letter-spacing:.14em;text-transform:uppercase;color:var(--accent2);margin-bottom:6px}
+  .fid .fl{font-size:11px;color:#c4d0da;line-height:1.5;margin-bottom:5px}
+  .fid .fl b{color:var(--ink)}
+  .fid .fl.no b{color:var(--hv)}
+
+  .panel{position:fixed;top:70px;right:18px;z-index:15;width:262px;background:var(--panel);backdrop-filter:blur(14px);border:1px solid var(--line);border-radius:16px;padding:16px;max-height:calc(100vh - 150px);overflow-y:auto}
+  .panel h4{font-family:var(--mono);font-size:10px;letter-spacing:.14em;text-transform:uppercase;color:var(--dim);margin:2px 0 10px}
+  .panel h4.sec{margin-top:16px;border-top:1px solid var(--line);padding-top:14px}
+  .g{margin-bottom:6px}
+  .gl{display:flex;justify-content:space-between;font-family:var(--mono);font-size:11px;color:var(--dim)}
+  .gl b{color:var(--accent2)}
+  .gl b.good{color:var(--good)}.gl b.warn{color:var(--hv)}.gl b.bad{color:var(--bad)}
+  .modebar{display:flex;gap:5px;margin-bottom:8px}
+  .modebar .b{flex:1;padding:8px 4px;font-size:11px}
+  .btns{display:flex;flex-direction:column;gap:7px;margin-top:6px}
+  .b{font-family:system-ui;font-size:12.5px;padding:10px;border-radius:9px;cursor:pointer;border:1px solid var(--line);background:#1b242f;color:var(--ink);transition:.15s;text-align:center}
+  .b:hover{border-color:var(--accent);background:#202c38}
+  .b.on{background:var(--accent);color:#06120f;border-color:var(--accent);font-weight:bold}
+  .b.primary{background:var(--accent);color:#06120f;border-color:var(--accent);font-weight:bold}
+  .b.auto{border-color:var(--hv);color:var(--hv);background:rgba(255,183,3,.10);font-weight:bold}
+  .b.auto:hover{background:rgba(255,183,3,.18);border-color:var(--hv)}
+  .b.auto:disabled{opacity:.6;cursor:default}
+  .b.dx{text-align:left;font-size:12px}
+  .b.dx.right{background:rgba(52,211,153,.18);border-color:var(--good);color:var(--good);font-weight:bold}
+  .b.dx.wrong{background:rgba(244,71,94,.15);border-color:var(--bad);color:var(--bad)}
+  .console{font-family:var(--mono);font-size:11px;line-height:1.55;color:#c4d0da;background:rgba(0,0,0,.28);border-radius:9px;padding:10px 12px;margin-bottom:8px;min-height:56px}
+  .console .dtc{color:var(--bad);font-weight:bold}
+  .console .ok{color:var(--good)}
+  .console .mono{color:var(--dim)}
+
+  .hint{position:fixed;bottom:18px;left:18px;z-index:14;font-family:var(--mono);font-size:10px;color:var(--dim);background:var(--panel);padding:7px 12px;border-radius:9px;border:1px solid var(--line)}
+  .toast{position:fixed;top:80px;left:50%;transform:translateX(-50%);z-index:30;background:rgba(18,24,32,.95);border:1px solid var(--accent);padding:10px 20px;border-radius:40px;font-family:var(--mono);font-size:12px;opacity:0;transition:.3s;pointer-events:none;max-width:80vw;text-align:center}
+  .toast.show{opacity:1}
+  .soundBtn{position:fixed;top:14px;right:18px;z-index:21;font-size:16px;background:var(--panel);backdrop-filter:blur(12px);border:1px solid var(--line);border-radius:50%;width:36px;height:36px;cursor:pointer;color:var(--dim);transition:.15s}
+  .soundBtn.on{color:var(--accent);border-color:var(--accent)}
+  .soundBtn:hover{transform:scale(1.08)}
+  .inspectHint{position:fixed;bottom:18px;right:18px;z-index:14;font-family:var(--mono);font-size:10px;color:var(--accent2);background:var(--panel);padding:7px 12px;border-radius:9px;border:1px solid var(--line)}
+
+  @media(max-width:820px){
+    .hud,.panel{position:fixed;left:8px;right:8px;top:auto;bottom:8px;max-width:none;width:auto;max-height:42vh;overflow-y:auto}
+    .hud{bottom:calc(8px + 42vh + 8px)}
+    .hint,.inspectHint{display:none}
+  }
+</style>
+</head>
+<body>
+<div id="stage"></div>
+<button class="soundBtn on" id="soundBtn">🔊</button>
+<div class="topbar">
+  <div class="brand">CEN<span> Labs</span></div>
+  <div class="lt">Freno de disco · Ensamble 3D</div>
+</div>
+<div class="hud" id="hud"></div>
+<div class="panel" id="panel"></div>
+<div class="hint">Arrastra para orbitar · rueda para zoom</div>
+<div class="inspectHint">👆 Toca una pieza y luego su hueco luminoso</div>
+<div class="toast" id="toast"></div>
+
+<script type="importmap">
+{ "imports": {
+  "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.min.js",
+  "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/"
+}}
+</script>
+<script type="module">
+import * as THREE from 'three';
+import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
+import { RoundedBoxGeometry } from 'three/addons/geometries/RoundedBoxGeometry.js';
+import { EffectComposer } from 'three/addons/postprocessing/EffectComposer.js';
+import { RenderPass } from 'three/addons/postprocessing/RenderPass.js';
+import { GTAOPass } from 'three/addons/postprocessing/GTAOPass.js';
+import { UnrealBloomPass } from 'three/addons/postprocessing/UnrealBloomPass.js';
+import { SMAAPass } from 'three/addons/postprocessing/SMAAPass.js';
+import { OutputPass } from 'three/addons/postprocessing/OutputPass.js';
+import { BokehPass } from 'three/addons/postprocessing/BokehPass.js';
+
+/* ============================================================
+   Texturas PBR procedurales (sin archivos externos) — compartidas
+   ============================================================ */
+function cv(s=512){const c=document.createElement('canvas');c.width=c.height=s;return c;}
+function tex(canvas,repeat=1,srgb=false){
+  const t=new THREE.CanvasTexture(canvas);
+  t.wrapS=t.wrapT=THREE.RepeatWrapping;t.repeat.set(repeat,repeat);
+  t.colorSpace = srgb?THREE.SRGBColorSpace:THREE.NoColorSpace;
+  t.generateMipmaps=false; t.minFilter=THREE.LinearFilter; t.anisotropy=1; return t;
+}
+function normalFromHeight(size, hfn, strength=2.0){
+  const c=cv(size),ctx=c.getContext('2d'),img=ctx.createImageData(size,size);
+  const H=(x,y)=>hfn((x+size)%size,(y+size)%size);
+  for(let y=0;y<size;y++)for(let x=0;x<size;x++){
+    const dx=(H(x+1,y)-H(x-1,y))*strength;
+    const dy=(H(x,y+1)-H(x,y-1))*strength;
+    const nz=1.0; const len=Math.hypot(dx,dy,nz);
+    const i=(y*size+x)*4;
+    img.data[i]  =((-dx/len)*0.5+0.5)*255;
+    img.data[i+1]=((-dy/len)*0.5+0.5)*255;
+    img.data[i+2]=((nz/len)*0.5+0.5)*255;
+    img.data[i+3]=255;
+  }
+  ctx.putImageData(img,0,0);return c;
+}
+function valueNoise(seed=1){
+  const g=(x,y)=>{const s=Math.sin((x*127.1+y*311.7)+seed*13.13)*43758.5453;return s-Math.floor(s);};
+  return (x,y)=>{
+    const xi=Math.floor(x),yi=Math.floor(y),xf=x-xi,yf=y-yi;
+    const u=xf*xf*(3-2*xf),v=yf*yf*(3-2*yf);
+    const a=g(xi,yi),b=g(xi+1,yi),c=g(xi,yi+1),d=g(xi+1,yi+1);
+    return a*(1-u)*(1-v)+b*u*(1-v)+c*(1-u)*v+d*u*v;
+  };
+}
+function fbm(noise,x,y,oct=4){let v=0,a=0.5,f=1;for(let i=0;i<oct;i++){v+=noise(x*f,y*f)*a;f*=2;a*=0.5;}return v;}
+
+function castAluminum(){
+  const S=512, n=valueNoise(7);
+  const c=cv(S),ctx=c.getContext('2d'),img=ctx.createImageData(S,S);
+  for(let y=0;y<S;y++)for(let x=0;x<S;x++){
+    const v=fbm(n,x/22,y/22,5);
+    const por=Math.pow(n(x/3.1,y/3.1),8);
+    const base=150+v*38-por*70;
+    const i=(y*S+x)*4; img.data[i]=base; img.data[i+1]=base+4; img.data[i+2]=base+10; img.data[i+3]=255;
+  }
+  ctx.putImageData(img,0,0);
+  const r=cv(S),rx=r.getContext('2d'),rimg=rx.createImageData(S,S);
+  for(let y=0;y<S;y++)for(let x=0;x<S;x++){
+    const v=fbm(n,x/18,y/18,4); const por=Math.pow(n(x/3.1,y/3.1),8);
+    const rough=120+v*40+por*90; const i=(y*S+x)*4;
+    rimg.data[i]=rimg.data[i+1]=rimg.data[i+2]=Math.min(255,rough); rimg.data[i+3]=255;
+  }
+  rx.putImageData(rimg,0,0);
+  const nrm=normalFromHeight(S,(x,y)=>fbm(n,x/16,y/16,5)+Math.pow(n(x/3.1,y/3.1),8)*0.6,3.0);
+  return {map:tex(c,1,true),roughnessMap:tex(r),normalMap:tex(nrm)};
+}
+function brushedMetal(){
+  const S=512, n=valueNoise(3);
+  const c=cv(S),ctx=c.getContext('2d'),img=ctx.createImageData(S,S);
+  for(let y=0;y<S;y++)for(let x=0;x<S;x++){
+    const streak=Math.sin(y*0.9)*2 + (n(x/120,y*0.5)-0.5)*40;
+    const base=185+streak; const i=(y*S+x)*4;
+    img.data[i]=base; img.data[i+1]=base+2; img.data[i+2]=base+6; img.data[i+3]=255;
+  }
+  ctx.putImageData(img,0,0);
+  const r=cv(S),rx=r.getContext('2d'),rimg=rx.createImageData(S,S);
+  for(let y=0;y<S;y++)for(let x=0;x<S;x++){
+    const streak=(n(x/120,y*0.5)-0.5)*60; const rough=40+Math.abs(streak); const i=(y*S+x)*4;
+    rimg.data[i]=rimg.data[i+1]=rimg.data[i+2]=Math.min(160,rough); rimg.data[i+3]=255;
+  }
+  rx.putImageData(rimg,0,0);
+  const nrm=normalFromHeight(S,(x,y)=>(n(x/120,y*0.5))*0.3+Math.sin(y*0.9)*0.02,1.2);
+  return {map:tex(c,1,true),roughnessMap:tex(r),normalMap:tex(nrm)};
+}
+function rubber(){
+  const S=256,n=valueNoise(5);
+  const nrm=normalFromHeight(S,(x,y)=>fbm(n,x/8,y/8,4),1.4);
+  const rough=cv(64),rc=rough.getContext('2d');rc.fillStyle='#e0e0e0';rc.fillRect(0,0,64,64);
+  return {roughnessMap:tex(rough),normalMap:tex(nrm,2)};
+}
+function gradientBG(top='#11161d',bottom='#05070a'){
+  const c=cv(512),ctx=c.getContext('2d');
+  const grd=ctx.createLinearGradient(0,0,0,512);
+  grd.addColorStop(0,top);grd.addColorStop(1,bottom);
+  ctx.fillStyle=grd;ctx.fillRect(0,0,512,512);
+  const rg=ctx.createRadialGradient(256,200,30,256,256,360);
+  rg.addColorStop(0,'rgba(42,157,143,0.10)');rg.addColorStop(1,'rgba(0,0,0,0)');
+  ctx.fillStyle=rg;ctx.fillRect(0,0,512,512);
+  return tex(c,1,true);
+}
+function techPlastic(r=0.10,g=0.11,b=0.13){
+  const S=256,n=valueNoise(31);
+  const c=cv(S),ctx=c.getContext('2d'),img=ctx.createImageData(S,S);
+  for(let y=0;y<S;y++)for(let x=0;x<S;x++){
+    const v=fbm(n,x/30,y/30,3)*0.1+0.92; const i=(y*S+x)*4;
+    img.data[i]=r*255*v;img.data[i+1]=g*255*v;img.data[i+2]=b*255*v;img.data[i+3]=255;
+  }
+  ctx.putImageData(img,0,0);
+  const nrm=normalFromHeight(S,(x,y)=>fbm(n,x/10,y/10,3),0.8);
+  const rough=cv(64),rc=rough.getContext('2d');rc.fillStyle='#9a9a9a';rc.fillRect(0,0,64,64);
+  return {map:tex(c,1,true),roughnessMap:tex(rough),normalMap:tex(nrm)};
+}
+
+/* ============================================================
+   ENGINE — render premium compartido por todos los laboratorios
+   ============================================================ */
+function createStage(mount, opts={}){
+  const bgTop = opts.bgTop||'#141b24', bgBot = opts.bgBot||'#05070a';
+  const renderer = new THREE.WebGLRenderer({ antialias:true, powerPreference:'high-performance' });
+  renderer.setPixelRatio(Math.min(devicePixelRatio,2));
+  renderer.setSize(mount.clientWidth, mount.clientHeight);
+  renderer.shadowMap.enabled = true;
+  renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+  renderer.toneMapping = THREE.ACESFilmicToneMapping;
+  renderer.toneMappingExposure = opts.exposure ?? 1.18;
+  renderer.outputColorSpace = THREE.SRGBColorSpace;
+  mount.appendChild(renderer.domElement);
+  renderer.domElement.style.touchAction='none';
+
+  const scene = new THREE.Scene();
+  scene.background = gradientBG(bgTop,bgBot);
+  const pmrem = new THREE.PMREMGenerator(renderer);
+  scene.environment = pmrem.fromScene(new RoomEnvironment(renderer), 0.04).texture;
+  scene.environmentIntensity = opts.envInt ?? 1.15;
+
+  const camera = new THREE.PerspectiveCamera(45, mount.clientWidth/mount.clientHeight, 0.1, 200);
+  const cam = opts.cam || [5.5,3.4,6.2];
+  camera.position.set(...cam);
+
+  const controls = new OrbitControls(camera, renderer.domElement);
+  controls.enableDamping = true; controls.dampingFactor = 0.07;
+  controls.minDistance = opts.minD ?? 3; controls.maxDistance = opts.maxD ?? 18;
+  controls.maxPolarAngle = Math.PI*0.52;
+  controls.target.set(...(opts.target||[0,1.4,0]));
+  controls.autoRotate = opts.autoRotate ?? false;
+  controls.autoRotateSpeed = opts.autoRotateSpeed ?? 0.6;
+
+  const key = new THREE.DirectionalLight(0xffffff, 2.7);
+  key.position.set(5,9,6); key.castShadow=true;
+  key.shadow.mapSize.set(2048,2048);
+  key.shadow.camera.near=0.5; key.shadow.camera.far=40;
+  const sd=8; Object.assign(key.shadow.camera,{left:-sd,right:sd,top:sd,bottom:-sd});
+  key.shadow.bias=-0.0003; key.shadow.normalBias=0.02; scene.add(key);
+  const rim = new THREE.SpotLight(0x2affce, 55, 30, Math.PI/5, 0.4, 1.5);
+  rim.position.set(-7,6,-5); scene.add(rim);
+  const fill = new THREE.DirectionalLight(0x6fb6ff, 0.5); fill.position.set(-4,3,7); scene.add(fill);
+  scene.add(new THREE.HemisphereLight(0x9fb4c8, 0x10151b, 0.35));
+
+  if(opts.floor!==false){
+    const f = new THREE.Mesh(new THREE.CircleGeometry(40,80),
+      new THREE.MeshStandardMaterial({ color:0x0a0e13, roughness:0.14, metalness:0.62, envMapIntensity:1.15 }));
+    f.rotation.x=-Math.PI/2; f.receiveShadow=true; scene.add(f);
+    for(let r=2;r<=8;r+=2){
+      const ring=new THREE.Mesh(new THREE.RingGeometry(r-0.012,r+0.012,80),
+        new THREE.MeshBasicMaterial({color:0x1a2632,transparent:true,opacity:0.4}));
+      ring.rotation.x=-Math.PI/2; ring.position.y=0.002; scene.add(ring);
+    }
+  }
+
+  const isMobile = /Mobi|Android|iPhone|iPad/i.test(navigator.userAgent) || innerWidth<820;
+  // GTAO desactivado por defecto: el pase de oclusión ambiental en espacio de pantalla
+  // producía un recuadro oscuro duro sobre el piso reflectante (artefacto dependiente de la
+  // cámara y del renderer). La escena tiene AO suficiente con luces directas + sombras + env.
+  // Se puede reactivar para pruebas con ?gtao.
+  const useGtao = /[?&]gtao\b/.test(location.search);
+  const composer = new EffectComposer(renderer);
+  composer.addPass(new RenderPass(scene,camera));
+  if(!isMobile && useGtao){
+    try{
+      const g=new GTAOPass(scene,camera,mount.clientWidth,mount.clientHeight);
+      g.output=GTAOPass.OUTPUT.Default;
+      if(g.updateGtaoMaterial)g.updateGtaoMaterial({radius:0.5,distanceExponent:1,thickness:1,scale:1.1,samples:16});
+      composer.addPass(g);
+    }catch(e){}
+  }
+  const bloom=new UnrealBloomPass(new THREE.Vector2(mount.clientWidth,mount.clientHeight),opts.bloom??0.42,0.5,0.9);
+  composer.addPass(bloom);
+  let bokeh=null;
+  const flat=/[?&]flat/.test(location.search);
+  if(!isMobile && !flat){
+    bokeh=new BokehPass(scene,camera,{focus:8.5,aperture:opts.aperture??0.00018,maxblur:opts.maxblur??0.004,width:mount.clientWidth,height:mount.clientHeight});
+    composer.addPass(bokeh);
+  }
+  composer.addPass(new OutputPass());
+  composer.addPass(new SMAAPass(mount.clientWidth*renderer.getPixelRatio(),mount.clientHeight*renderer.getPixelRatio()));
+
+  function resize(){
+    const w=mount.clientWidth,h=mount.clientHeight;
+    camera.aspect=w/h; camera.updateProjectionMatrix();
+    renderer.setSize(w,h); composer.setSize(w,h);
+  }
+  window.addEventListener('resize',resize);
+
+  const clock=new THREE.Clock();
+  let hook=null, raf=null;
+  const camCine={active:false,t:0,dur:1.4,from:new THREE.Vector3(),to:new THREE.Vector3(),fromT:new THREE.Vector3(),toT:new THREE.Vector3()};
+  let lastDrag=-99, cinematicIdle=false;
+  controls.addEventListener('start',()=>{ lastDrag=clock.elapsedTime; camCine.active=false; });
+  function easeInOutCubic(x){return x<0.5?4*x*x*x:1-Math.pow(-2*x+2,3)/2;}
+  function moveTo(pos,target,dur=1.4){
+    camCine.from.copy(camera.position); camCine.fromT.copy(controls.target);
+    camCine.to.set(...pos); camCine.toT.set(...target);
+    camCine.dur=dur; camCine.active=true; camCine.t=0;
+  }
+  function setCinematicIdle(v){ cinematicIdle=v; if(!v)controls.autoRotate=false; }
+  function loop(){ raf=requestAnimationFrame(loop); const dt=clock.getDelta(),t=clock.elapsedTime;
+    if(camCine.active){
+      camCine.t=Math.min(1,camCine.t+dt/camCine.dur);
+      const e=easeInOutCubic(camCine.t);
+      camera.position.lerpVectors(camCine.from,camCine.to,e);
+      controls.target.lerpVectors(camCine.fromT,camCine.toT,e);
+      if(camCine.t>=1)camCine.active=false;
+    } else if(cinematicIdle){
+      controls.autoRotate=(t-lastDrag)>1.4; controls.autoRotateSpeed=0.45;
+    }
+    if(hook)hook(dt,t); controls.update();
+    if(bokeh) bokeh.uniforms['focus'].value = camera.position.distanceTo(controls.target);
+    composer.render(); }
+  function start(){ if(!raf)loop(); }
+  function stop(){ cancelAnimationFrame(raf); raf=null; window.removeEventListener('resize',resize); }
+
+  return { THREE, renderer, scene, camera, controls, composer, bloom,
+    setAnimate:fn=>hook=fn, start, stop, resize, clock,
+    flyTo:(v)=>{ controls.target.copy(v); }, moveTo, setCinematicIdle };
+}
+
+/* ---------- shared geometry/material helpers ---------- */
+function roundedBox(w,h,d,mat,rf=0.08){
+  const r=Math.min(w,h,d)*rf;
+  const m=new THREE.Mesh(new RoundedBoxGeometry(w,h,d,4,r),mat);
+  m.castShadow=m.receiveShadow=true; return m;
+}
+function pickerFor(scene,camera,dom,onHit){
+  const ray=new THREE.Raycaster(),mouse=new THREE.Vector2(); let down=null;
+  dom.addEventListener('pointerdown',e=>down=[e.clientX,e.clientY]);
+  dom.addEventListener('pointerup',e=>{
+    if(!down)return; const moved=Math.abs(e.clientX-down[0])+Math.abs(e.clientY-down[1])>6; down=null;
+    if(moved)return;
+    const r=dom.getBoundingClientRect();
+    mouse.x=((e.clientX-r.left)/r.width)*2-1; mouse.y=-((e.clientY-r.top)/r.height)*2+1;
+    ray.setFromCamera(mouse,camera);
+    const hits=ray.intersectObjects(scene.children,true);
+    onHit(hits[0]||null);
+  });
+}
+function labelSprite(text,color='#ffd166'){
+  const w = Math.max(150, Math.min(520, text.length*26+60));
+  const cvE=document.createElement('canvas');cvE.width=w;cvE.height=96;
+  const c=cvE.getContext('2d');c.fillStyle='rgba(8,11,16,.95)';
+  const rr=(x,y,ww,hh,r)=>{c.beginPath();c.moveTo(x+r,y);c.arcTo(x+ww,y,x+ww,y+hh,r);c.arcTo(x+ww,y+hh,x,y+hh,r);c.arcTo(x,y+hh,x,y,r);c.arcTo(x,y,x+ww,y,r);c.closePath();};
+  rr(3,3,w-6,90,18);c.fill();
+  c.strokeStyle=color;c.lineWidth=3;c.stroke();
+  c.font='bold 36px Outfit, system-ui, sans-serif';c.fillStyle=color;c.textAlign='center';c.textBaseline='middle';c.fillText(text,w/2,48);
+  const tx=new THREE.CanvasTexture(cvE);tx.colorSpace=THREE.SRGBColorSpace;tx.generateMipmaps=false;tx.minFilter=THREE.LinearFilter;
+  const sp=new THREE.Sprite(new THREE.SpriteMaterial({map:tx,depthTest:false,transparent:true}));
+  const aspect=w/96;
+  sp.scale.set(0.30*aspect,0.30,1);sp.renderOrder=999;return sp;
+}
+
+/* ============================================================
+   SYNTH — sintetizador Web Audio reutilizable
+   ============================================================ */
+function makeSynth(opts={}){
+  const type=opts.type||'sawtooth';
+  let ctx=null,oscA=null,oscB=null,gain=null,filter=null,soundOn=true;
+  function init(){
+    if(ctx)return;
+    try{
+      ctx=new (window.AudioContext||window.webkitAudioContext)();
+      oscA=ctx.createOscillator(); oscB=ctx.createOscillator();
+      oscA.type=type; oscB.type=opts.type2||'square';
+      filter=ctx.createBiquadFilter(); filter.type=opts.filterType||'lowpass'; filter.frequency.value=opts.filterFreq||500; filter.Q.value=opts.Q||3;
+      gain=ctx.createGain(); gain.gain.value=0;
+      oscA.connect(filter); oscB.connect(filter); filter.connect(gain); gain.connect(ctx.destination);
+      oscA.start(); oscB.start();
+    }catch(e){}
+  }
+  function update(freqA,freqB,vol,filterFreq){
+    if(!ctx||!soundOn){ if(gain)gain.gain.setTargetAtTime(0,ctx?.currentTime||0,0.1); return; }
+    oscA.frequency.setTargetAtTime(freqA,ctx.currentTime,0.04);
+    if(freqB!==undefined)oscB.frequency.setTargetAtTime(freqB,ctx.currentTime,0.04);
+    if(filterFreq!==undefined)filter.frequency.setTargetAtTime(filterFreq,ctx.currentTime,0.05);
+    gain.gain.setTargetAtTime(Math.max(0,vol),ctx.currentTime,0.06);
+  }
+  function beep(freq=880,dur=0.09,vol=0.06){
+    if(!ctx||!soundOn)return;
+    const o=ctx.createOscillator(),g=ctx.createGain();
+    o.type='sine'; o.frequency.value=freq;
+    g.gain.setValueAtTime(vol,ctx.currentTime); g.gain.exponentialRampToValueAtTime(0.001,ctx.currentTime+dur);
+    o.connect(g); g.connect(ctx.destination); o.start(); o.stop(ctx.currentTime+dur);
+  }
+  function toggle(){ soundOn=!soundOn; return soundOn; }
+  function resume(){ if(ctx&&ctx.state==='suspended')ctx.resume(); }
+  return { init, update, beep, toggle, resume, isOn:()=>soundOn, state:()=>ctx?.state||'none' };
+}
+
+/* ============================================================
+   LAB — FRENO DE DISCO HIDRÁULICO · ENSAMBLE 3D INTERACTIVO
+   (Dominio: mecánica de chasis · sistemas de frenado)
+   MOLDE v2 — barra de calidad para las prácticas del sector:
+     · Render premium compartido (IBL RoomEnvironment + PBR + sombras + post)
+     · Interacción "tocar pieza → tocar hueco" (robusta en táctil/pizarrón)
+     · Física de gobierno verificable (no animación decorativa)
+   Normatividad / referencia de ingeniería:
+     · FMVSS 135 / ECE R13-H — desempeño de frenos de servicio
+     · Principio de Pascal: la presión se transmite íntegra en el líquido
+     · Mordaza flotante de un pistón (single-piston floating caliper)
+   Modelo de ingeniería (didáctico, freno delantero de turismo):
+     · F_apriete = P · A_pistón           (presión hidráulica → fuerza)
+     · F_fricción = 2 · μ · F_apriete     (dos caras de pastilla)
+     · τ_freno = F_fricción · r_ef        (par que frena la rueda)
+     · Calor: ΔT = E_disipada /(m·c)      (energía cinética → temperatura)
+   Parámetros: μ≈0.40, r_ef≈0.11 m, Ø pistón 54 mm, disco hierro fundido 7 kg,
+               c(Fe)=460 J/kg·K, masa por rueda ≈375 kg, radio de rueda 0.31 m.
+   ============================================================ */
+const mount=document.getElementById('stage');
+const S=createStage(mount,{cam:[5.4,3.2,6.1],target:[1.0,1.55,0.4],bgTop:'#101a22',bgBot:'#05070a',bloom:0.42,minD:3.0,maxD:18});
+const {scene}=S;
+const std=o=>new THREE.MeshStandardMaterial(o);
+const el=id=>document.getElementById(id);
+const tf=(x,d=0)=>Number(x).toFixed(d);
+function ease(x){return x<0.5?4*x*x*x:1-Math.pow(-2*x+2,3)/2;}
+
+/* ---------- toast ---------- */
+let toastT=null;
+function showToast(html,ms=3300){ const t=el('toast'); t.innerHTML=html; t.classList.add('show'); clearTimeout(toastT); toastT=setTimeout(()=>t.classList.remove('show'),ms); }
+
+/* ---------- materiales PBR (biblioteca compartida) ---------- */
+const alu=castAluminum(), brush=brushedMetal(), rub=rubber();
+const MAT={
+  iron:   std({...brush, color:0x9aa1a9, metalness:0.9, roughness:0.42, envMapIntensity:1.3}),   // cara de fricción (se clona en el rotor)
+  ironDk: std({...brush, color:0x5b6167, metalness:0.85, roughness:0.6}),                          // aletas/ventilación
+  hat:    std({...alu, color:0x6f767e, metalness:0.8, roughness:0.55, envMapIntensity:1.15}),      // campana del disco
+  caliper:new THREE.MeshPhysicalMaterial({color:0xc21f2e, metalness:0.35, roughness:0.34, clearcoat:0.95, clearcoatRoughness:0.14, envMapIntensity:1.35}), // pintura brillante
+  padBack:std({...brush, color:0x767c82, metalness:0.9, roughness:0.45}),                           // placa de acero
+  padFric:std({color:0x27231f, roughness:0.96, metalness:0.05}),                                   // material de fricción
+  piston: std({...brush, color:0xc3cad1, metalness:0.96, roughness:0.2, envMapIntensity:1.4}),      // pistón pulido
+  boot:   std({...rub, color:0x0e1113, roughness:0.95, metalness:0.0}),                             // guardapolvo
+  hose:   std({...rub, color:0x121517, roughness:0.9, metalness:0.0}),
+  brass:  std({...brush, color:0xc7a24a, metalness:1.0, roughness:0.3}),
+  knuckle:std({...alu, color:0x565c63, metalness:0.7, roughness:0.6}),
+  stud:   std({...brush, color:0xd6dbe0, metalness:1.0, roughness:0.24}),
+  dark:   std({color:0x05070a, roughness:0.8, metalness:0.2}),
+  bench:  std({...brush, color:0x2b3138, metalness:0.55, roughness:0.5, envMapIntensity:0.7}),    // cubierta de acero del banco
+  benchLeg:std({color:0x171b20, metalness:0.7, roughness:0.4}),                                    // patas / faldón
+  ped:    std({...brush, color:0x3a4149, metalness:0.85, roughness:0.42, envMapIntensity:0.85}),   // poste del pedestal
+  pedTop: std({...brush, color:0x828a93, metalness:0.95, roughness:0.28, envMapIntensity:1.15}),   // plato donde reposa la pieza
+  pedRing:std({color:0x2A9D8F, metalness:0.3, roughness:0.5, emissive:0x1e6f63, emissiveIntensity:0.5}), // aro indicador (verde al colocar)
+};
+
+/* ---------- constructores de piezas (three.js primitivo) ---------- */
+const ROT_R=1.02;                 // radio del disco
+function buildRotor(){
+  const g=new THREE.Group();
+  const t=0.05, gap=0.14;
+  const m1=MAT.iron.clone(), m2=MAT.iron.clone();   // materiales propios → el brillo térmico no contamina otras piezas
+  g.userData.glow=[m1,m2];
+  const plate=new THREE.CylinderGeometry(ROT_R,ROT_R,t,72);
+  const front=new THREE.Mesh(plate,m1); front.rotation.x=Math.PI/2; front.position.z=gap/2+t/2; front.castShadow=front.receiveShadow=true;
+  const back=new THREE.Mesh(plate,m2);  back.rotation.x=Math.PI/2;  back.position.z=-(gap/2+t/2); back.castShadow=back.receiveShadow=true;
+  g.add(front,back);
+  // aletas de ventilación en el canto
+  const vane=new THREE.BoxGeometry(0.16,0.028,gap*0.86);
+  for(let i=0;i<40;i++){ const a=i/40*Math.PI*2; const v=new THREE.Mesh(vane,MAT.ironDk);
+    v.position.set(Math.cos(a)*(ROT_R-0.09),Math.sin(a)*(ROT_R-0.09),0); v.rotation.z=a; v.castShadow=true; g.add(v); }
+  // canto exterior
+  const rim=new THREE.Mesh(new THREE.CylinderGeometry(ROT_R,ROT_R,gap+t*2,72,1,true),MAT.ironDk); rim.rotation.x=Math.PI/2; g.add(rim);
+  // campana (top-hat) + cara de montaje
+  const hat=new THREE.Mesh(new THREE.CylinderGeometry(0.4,0.44,0.28,48),MAT.hat); hat.rotation.x=Math.PI/2; hat.position.z=0.16; hat.castShadow=true; g.add(hat);
+  const hface=new THREE.Mesh(new THREE.CircleGeometry(0.4,48),MAT.hat); hface.position.z=0.30; g.add(hface);
+  // barrenos de birlo
+  for(let i=0;i<5;i++){ const a=i/5*Math.PI*2; const h=new THREE.Mesh(new THREE.CylinderGeometry(0.048,0.048,0.34,16),MAT.dark);
+    h.rotation.x=Math.PI/2; h.position.set(Math.cos(a)*0.25,Math.sin(a)*0.25,0.16); g.add(h); }
+  return g;
+}
+function buildPad(faceZ){   // faceZ = +1 (fricción hacia -Z) ó -1
+  const g=new THREE.Group();
+  const back=roundedBox(0.5,0.34,0.05,MAT.padBack,0.1); back.position.z=0.03*faceZ;
+  const fric=roundedBox(0.46,0.30,0.055,MAT.padFric,0.06); fric.position.z=-0.03*faceZ;
+  g.add(back,fric);
+  // orejas de la placa
+  const ear=new THREE.Mesh(new THREE.BoxGeometry(0.58,0.06,0.045),MAT.padBack); ear.position.set(0,0.18,0.03*faceZ); g.add(ear);
+  return g;
+}
+function buildPiston(){
+  const g=new THREE.Group();
+  const p=new THREE.Mesh(new THREE.CylinderGeometry(0.16,0.16,0.24,36),MAT.piston); p.rotation.x=Math.PI/2; p.castShadow=true; g.add(p);
+  const cap=new THREE.Mesh(new THREE.CircleGeometry(0.135,36),MAT.dark); cap.position.z=0.121; g.add(cap);   // hueco del pistón
+  const boot=new THREE.Mesh(new THREE.TorusGeometry(0.16,0.028,12,36),MAT.boot); boot.position.z=0.02; g.add(boot);
+  return g;
+}
+function buildCaliper(){
+  const g=new THREE.Group();
+  const inner=roundedBox(0.66,0.74,0.26,MAT.caliper,0.14); inner.position.set(0,0,-0.3);   // cuerpo (aloja pistón)
+  const outer=roundedBox(0.66,0.74,0.14,MAT.caliper,0.14); outer.position.set(0,0,0.26);    // dedos exteriores
+  const bridge=roundedBox(0.42,0.26,0.68,MAT.caliper,0.16); bridge.position.set(0,0.34,-0.02);// puente superior
+  g.add(inner,outer,bridge);
+  // boss de entrada + purga (latón)
+  const boss=new THREE.Mesh(new THREE.CylinderGeometry(0.06,0.06,0.16,16),MAT.brass); boss.position.set(0.24,0.2,-0.3); boss.rotation.z=Math.PI/2*0.7; g.add(boss);
+  const bleed=new THREE.Mesh(new THREE.CylinderGeometry(0.03,0.03,0.14,12),MAT.brass); bleed.position.set(-0.22,0.32,-0.3); g.add(bleed);
+  // orejas de montaje a la mangueta
+  for(const s of [-1,1]){ const eye=new THREE.Mesh(new THREE.CylinderGeometry(0.075,0.075,0.16,18),MAT.caliper);
+    eye.rotation.x=Math.PI/2; eye.position.set(s*0.34,-0.3,-0.3); g.add(eye); }
+  return g;
+}
+function buildHose(){
+  const g=new THREE.Group();
+  const curve=new THREE.CatmullRomCurve3([
+    new THREE.Vector3(0,0,0), new THREE.Vector3(0.16,0.34,-0.06),
+    new THREE.Vector3(0.02,0.66,0.02), new THREE.Vector3(-0.2,0.94,0)]);
+  const tube=new THREE.Mesh(new THREE.TubeGeometry(curve,48,0.045,14),MAT.hose); tube.castShadow=true; g.add(tube);
+  const banjo=new THREE.Mesh(new THREE.CylinderGeometry(0.08,0.08,0.12,18),MAT.brass); banjo.rotation.x=Math.PI/2; banjo.position.set(0,0,0.02); g.add(banjo);
+  const fit=new THREE.Mesh(new THREE.CylinderGeometry(0.06,0.06,0.14,14),MAT.brass); fit.position.set(-0.2,0.94,0); g.add(fit);
+  const brk=roundedBox(0.16,0.1,0.1,MAT.knuckle,0.2); brk.position.set(-0.28,0.98,0); g.add(brk);
+  return g;
+}
+/* pieza fija de referencia: mangueta + brida de rueda + birlos */
+function buildKnuckle(){
+  const g=new THREE.Group();
+  const axle=new THREE.Mesh(new THREE.CylinderGeometry(0.15,0.15,0.5,28),MAT.knuckle); axle.rotation.x=Math.PI/2; axle.position.z=-0.12; axle.castShadow=true; g.add(axle);
+  const flange=new THREE.Mesh(new THREE.CylinderGeometry(0.33,0.33,0.06,36),MAT.knuckle); flange.rotation.x=Math.PI/2; flange.position.z=0.13; flange.castShadow=true; g.add(flange);
+  for(let i=0;i<5;i++){ const a=i/5*Math.PI*2; const s=new THREE.Mesh(new THREE.CylinderGeometry(0.032,0.032,0.42,14),MAT.stud);
+    s.rotation.x=Math.PI/2; s.position.set(Math.cos(a)*0.25,Math.sin(a)*0.25,0.34); s.castShadow=true; g.add(s); }
+  // brazo hacia arriba con bosses de mordaza (donde se atornilla el caliper)
+  const arm=roundedBox(0.26,1.05,0.24,MAT.knuckle,0.14); arm.position.set(0,0.66,-0.3); g.add(arm);
+  for(const s of [-1,1]){ const b=new THREE.Mesh(new THREE.CylinderGeometry(0.07,0.07,0.2,18),MAT.knuckle);
+    b.rotation.x=Math.PI/2; b.position.set(s*0.34,0.98,-0.3); g.add(b); }
+  const lb=labelSprite('Mangueta (fija)','#8A94A0'); lb.position.set(0,1.4,-0.3); lb.scale.multiplyScalar(0.72); g.add(lb);
+  return g;
+}
+
+/* ---------- registro de piezas (posición HOGAR en mundo) ---------- */
+const HUB=[0.3,1.35,0];                 // centro del cubo/eje
+const V=(x,y,z)=>new THREE.Vector3(x,y,z);
+const H=(dx,dy,dz)=>V(HUB[0]+dx,HUB[1]+dy,HUB[2]+dz);
+const PARTS=[
+  {id:'rotor',  name:'Disco (rotor ventilado)', build:()=>buildRotor(),  home:H(0,0,0),        note:'Cara de fricción de hierro fundido; los canales internos disipan el calor. Se monta primero sobre los birlos.'},
+  {id:'inpad',  name:'Pastilla interior',        build:()=>buildPad(1),   home:H(0,0.9,-0.17),  note:'Material de fricción sobre placa de acero. Es la que empuja el pistón.'},
+  {id:'outpad', name:'Pastilla exterior',        build:()=>buildPad(-1),  home:H(0,0.9,0.17),   note:'La mordaza flotante la aprieta por reacción contra la cara externa del disco.'},
+  {id:'piston', name:'Pistón hidráulico',        build:()=>buildPiston(), home:H(0,0.9,-0.34),  note:'Convierte la presión del líquido en fuerza: F = P × A. Ø 54 mm.'},
+  {id:'caliper',name:'Mordaza (caliper)',        build:()=>buildCaliper(),home:H(0,0.98,-0.03), note:'Aloja el pistón y abraza el disco; se atornilla a la mangueta.'},
+  {id:'hose',   name:'Manguera de freno',        build:()=>buildHose(),   home:H(0.02,1.2,-0.32),note:'Lleva el líquido a presión desde el circuito hasta la mordaza (principio de Pascal).'},
+];
+const ORDER=PARTS.map(p=>p.id);
+const PART=Object.fromEntries(PARTS.map(p=>[p.id,p]));
+
+/* ---------- estado ---------- */
+const STAGE_S=0.42;                       // escala de exhibición de cada pieza sobre su pedestal
+const groups={}, ghosts={}, labels={};
+let placed={}, selectedId=null, progress=0, simUnlocked=false;
+const tweens=[];
+const trayObjs=[], ghostObjs=[], scratch=[];
+const knuckle=buildKnuckle(); knuckle.position.set(...HUB); scene.add(knuckle);
+
+/* ---------- banco de trabajo + pedestales (las piezas REPOSAN, no flotan) ----------
+   Parametrico para cualquier N de piezas → plantilla reutilizable en las 150 practicas. */
+const BENCH={cx:2.7, cz:0.7, top:0.95, cols:2, dx:0.98, dz:1.02, pedH:0.30};
+const N_ROWS=Math.ceil(PARTS.length/BENCH.cols);
+const PED_TOP_Y=BENCH.top+BENCH.pedH;      // altura del plato donde se apoya la pieza
+function pedBaseXZ(i){ const c=i%BENCH.cols, r=(i/BENCH.cols)|0;
+  return { x:BENCH.cx+(c-(BENCH.cols-1)/2)*BENCH.dx, z:BENCH.cz+(r-(N_ROWS-1)/2)*BENCH.dz }; }
+const pedestals=[];
+(function buildStaging(){
+  const staging=new THREE.Group(); scene.add(staging);
+  const spanX=(BENCH.cols-1)*BENCH.dx+1.25, spanZ=(N_ROWS-1)*BENCH.dz+1.25;
+  const topSlab=roundedBox(spanX,0.16,spanZ,MAT.bench,0.05); topSlab.position.set(BENCH.cx,BENCH.top-0.08,BENCH.cz); topSlab.receiveShadow=true; staging.add(topSlab);
+  const legH=BENCH.top-0.08;
+  for(const sx of [-1,1]) for(const sz of [-1,1]){
+    const leg=new THREE.Mesh(new THREE.BoxGeometry(0.13,legH,0.13),MAT.benchLeg);
+    leg.position.set(BENCH.cx+sx*(spanX/2-0.18),legH/2,BENCH.cz+sz*(spanZ/2-0.18)); leg.castShadow=true; staging.add(leg);
+  }
+  const rail=roundedBox(spanX-0.1,0.05,spanZ-0.1,MAT.benchLeg,0.03); rail.position.set(BENCH.cx,0.18,BENCH.cz); staging.add(rail);
+  PARTS.forEach((p,i)=>{
+    const {x,z}=pedBaseXZ(i);
+    const pg=new THREE.Group(); pg.position.set(x,0,z);
+    const post=new THREE.Mesh(new THREE.CylinderGeometry(0.24,0.30,BENCH.pedH,28),MAT.ped); post.position.y=BENCH.top+BENCH.pedH/2; post.castShadow=true; pg.add(post);
+    const plate=new THREE.Mesh(new THREE.CylinderGeometry(0.34,0.34,0.05,40),MAT.pedTop); plate.position.y=PED_TOP_Y; plate.receiveShadow=true; pg.add(plate);
+    const ring=new THREE.Mesh(new THREE.TorusGeometry(0.345,0.02,12,44),MAT.pedRing.clone()); ring.rotation.x=Math.PI/2; ring.position.y=PED_TOP_Y+0.035; pg.add(ring);
+    const lb=labelSprite(p.name.split('(')[0].trim(),'#9fb2c0'); lb.position.set(0,BENCH.top+0.14,0.4); lb.scale.multiplyScalar(0.7); pg.add(lb);
+    const ck=labelSprite('✓ colocada','#43D9AD'); ck.position.set(0,PED_TOP_Y+0.42,0); ck.scale.multiplyScalar(0.66); ck.visible=false; pg.add(ck);
+    staging.add(pg);
+    pedestals[i]={g:pg, ring, plate, label:lb, check:ck};
+  });
+})();
+function resetPedestals(){ pedestals.forEach(pd=>{ pd.check.visible=false; if(pd.label)pd.label.visible=true;
+  pd.ring.material.color.set(0x2A9D8F); pd.ring.material.emissive.set(0x1e6f63); pd.ring.material.emissiveIntensity=0.5; }); }
+function markPedestalDone(i){ const pd=pedestals[i]; if(!pd)return; pd.check.visible=true; if(pd.label)pd.label.visible=false;
+  pd.ring.material.color.set(0x43D9AD); pd.ring.material.emissive.set(0x2f9e86); pd.ring.material.emissiveIntensity=0.9; }
+
+function ghostMat(){ return new THREE.MeshStandardMaterial({color:0x4FD1C5, transparent:true, opacity:0.3, metalness:0.0, roughness:0.6, emissive:0x2A9D8F, emissiveIntensity:0.6, depthWrite:false}); }
+
+function makeGhost(part){
+  const gh=part.build(); const gm=ghostMat();
+  gh.traverse(o=>{ if(o.isMesh){ o.material=gm; o.castShadow=false; o.receiveShadow=false; } });
+  gh.position.copy(part.home); gh.userData={kind:'slot',id:part.id,gm,homeX:part.home.x,shake:0,fading:false}; return gh;
+}
+// El hueco fantasma aparece SOLO para la pieza seleccionada (sin amontonarse, sin ambigüedad al tocar).
+function showGhostFor(id){
+  ghostObjs.forEach(gh=>{ if(gh.parent) scene.remove(gh); });
+  if(id && !placed[id] && ghosts[id]){ const gh=ghosts[id]; gh.userData.fading=false; gh.userData.gm.opacity=0.3; gh.visible=true; scene.add(gh); }
+}
+function updateLabels(){ pedestals.forEach((pd,i)=>{ if(pd&&pd.label) pd.label.visible=!placed[PARTS[i].id]; }); }
+function makePart(part,i){
+  const g=part.build(); g.scale.setScalar(STAGE_S);
+  const {x,z}=pedBaseXZ(i);
+  const box=new THREE.Box3().setFromObject(g);          // pieza en el origen → caja relativa al origen
+  const baseY=PED_TOP_Y+0.03-box.min.y;                 // apoya el punto más bajo sobre el plato (holgura 3 cm)
+  g.position.set(x,baseY,z);
+  Object.assign(g.userData,{kind:'part',id:part.id,baseY,phase:i*1.7,lift:0});   // merge — no pisar userData.glow del rotor
+  return g;
+}
+
+function initAssembly(){
+  // limpiar
+  [...trayObjs,...ghostObjs,...scratch].forEach(o=>scene.remove(o));
+  trayObjs.length=ghostObjs.length=scratch.length=tweens.length=0;
+  placed={}; selectedId=null; progress=0; simUnlocked=false;
+  resetPedestals();
+  PARTS.forEach((p,i)=>{
+    const g=makePart(p,i); groups[p.id]=g; scene.add(g); trayObjs.push(g);
+    const gh=makeGhost(p); ghosts[p.id]=gh; ghostObjs.push(gh);   // el hueco se añade a la escena sólo al seleccionar la pieza
+  });
+  showGhostFor(null);
+  SIM.v=0; SIM.temp=AMB; SIM.pressure=0; SIM.spinning=false; SIM.hold=false;
+  if(groups.rotor) groups.rotor.rotation.z=0;
+  el('sl_p').value=0; el('sl_p').disabled=true; el('btnBrake').disabled=true;
+  updateLabels(); renderChecklist(); renderProg(); renderTelemetry();
+  S.moveTo([5.4,3.2,6.1],[1.0,1.55,0.4],1.2);
+  el('asmStatus').innerHTML='Toca una <b>pieza</b> del banco (derecha) y luego su <b>hueco luminoso</b>.';
+}
+
+/* ---------- selección / colocación ---------- */
+function selectPart(id){
+  if(placed[id]) return;
+  selectedId=id;
+  updateLabels(); showGhostFor(id);
+  el('asmStatus').innerHTML=`▶ <b style="color:var(--accent2)">${PART[id].name}</b> seleccionada — ahora toca su <b>hueco luminoso</b> en el freno.`;
+  synth.beep(660,0.06,0.05);
+  renderChecklist();
+}
+function deselect(){ selectedId=null; updateLabels(); showGhostFor(null); renderChecklist(); }
+
+function placePart(id){
+  const p=PART[id], g=groups[id], gh=ghosts[id];
+  tweens.push({obj:g, fromP:g.position.clone(), toP:p.home.clone(), fromS:g.scale.x, toS:1, t:0, dur:0.9, roty0:g.rotation.y, onDone:()=>{ g.rotation.set(0,0,0); }});
+  if(gh){ gh.userData.fading=true; }   // el hueco (ya en escena por estar seleccionado) se desvanece
+  g.userData.kind='placed';
+  placed[id]=true; selectedId=null; progress++;
+  markPedestalDone(ORDER.indexOf(id));
+  updateLabels();
+  synth.beep(880,0.08,0.05); setTimeout(()=>synth.beep(1174,0.1,0.05),110);
+  showToast(`<span style="color:var(--good)">✔ ${p.name} colocada.</span><br><span style="color:var(--dim);font-size:11px">${p.note}</span>`);
+  renderChecklist(); renderProg();
+  if(progress>=PARTS.length) finishAssembly();
+  else el('asmStatus').innerHTML=`Bien. Faltan <b>${PARTS.length-progress}</b>. Toca otra pieza y luego su hueco.`;
+}
+function wrongSlot(slotId){
+  synth.beep(180,0.16,0.06);
+  const g=ghosts[slotId]; if(g) g.userData.shake=0.5;
+  showToast(`<span style="color:var(--bad)">✗ Ahí no va esa pieza.</span><br><span style="color:var(--dim);font-size:11px">Ese hueco es para: ${PART[slotId].name}.</span>`);
+}
+function finishAssembly(){
+  simUnlocked=true;
+  el('sl_p').disabled=false; el('btnBrake').disabled=false;
+  el('asmStatus').innerHTML='<span style="color:var(--good)">✅ Ensamble completo.</span> Ahora aplica presión o pulsa <b>Simular frenada</b>.';
+  showToast('<span style="color:var(--good)">✅ Freno ensamblado.</span><br><span style="color:var(--dim);font-size:11px">Prueba una frenada: la presión se vuelve fuerza y ésta, par de frenado.</span>',4200);
+  synth.beep(1046,0.14,0.06); setTimeout(()=>synth.beep(1568,0.16,0.06),150);
+  S.moveTo([3.2,2.9,4.2],[0.3,2.05,0],1.4); S.setCinematicIdle(true);
+}
+
+/* ---------- picker: tocar pieza → tocar hueco ---------- */
+function tagged(obj){ let o=obj; while(o){ if(o.userData && o.userData.kind) return o; o=o.parent; } return null; }
+pickerFor(scene,S.camera,mount,(hit)=>{
+  const t=hit?tagged(hit.object):null;
+  if(!t){ if(selectedId) deselect(); return; }
+  if(t.userData.kind==='part'){ selectPart(t.userData.id); }
+  else if(t.userData.kind==='slot'){
+    if(!selectedId){ el('asmStatus').innerHTML='Primero toca una <b>pieza</b> del banco (derecha) →'; synth.beep(300,0.08,0.05); }
+    else if(selectedId===t.userData.id){ placePart(selectedId); }
+    else { wrongSlot(t.userData.id); }
+  }
+  else if(t.userData.kind==='placed'){ const p=PART[t.userData.id]; if(p) showToast(`<b>${p.name}</b><br><span style="color:var(--dim);font-size:11px">${p.note}</span>`); }
+});
+
+/* ---------- checklist / progreso / telemetría ---------- */
+function renderChecklist(){
+  el('checklist').innerHTML=PARTS.map(p=>{
+    const done=placed[p.id], sel=selectedId===p.id;
+    const mk=done?'<span style="color:var(--good)">●</span>':sel?'<span style="color:var(--accent2)">◉</span>':'<span style="color:#48555f">○</span>';
+    const c=done?'color:var(--good)':sel?'color:var(--accent2)':'color:var(--dim)';
+    return `<div style="${c}">${mk} ${p.name}</div>`;
+  }).join('');
+}
+function renderProg(){ el('p_prog').textContent=`${progress} / ${PARTS.length}`; el('p_prog').className=progress>=PARTS.length?'good':''; }
+
+/* ---------- simulación física del frenado ---------- */
+const AMB=25, R_WHEEL=0.31, A_PIST=Math.PI*0.027*0.027, MU=0.40, R_EFF=0.11;
+const I_EFF=375*R_WHEEL*R_WHEEL, M_ROTOR=3.6, C_IRON=460;   // I: inercia reflejada de ¼ del vehículo · M: masa del anillo de fricción (temp. de superficie)
+// fade térmico: μ efectivo cae de 0.40 a ~0.22 entre 350 y 700 °C (pérdida de eficacia por calor)
+const muEff=T=>MU*(1-0.45*Math.max(0,Math.min(1,(T-350)/350)));
+const SIM={ v:0, temp:AMB, pressure:0, spinning:false, hold:false };
+let telAcc=0;
+function renderTelemetry(){
+  const Ppa=SIM.pressure*1e5, Fc=Ppa*A_PIST, mu=muEff(SIM.temp), Ff=2*mu*Fc, tq=Ff*R_EFF, omega=SIM.v/3.6/R_WHEEL, rpm=omega*60/(2*Math.PI);
+  el('t_p').textContent=`${tf(SIM.pressure)} bar (${tf(SIM.pressure*14.5)} psi)`;
+  el('t_clamp').textContent=simUnlocked?`${tf(Fc)} N`:'—';
+  el('t_fric').textContent=simUnlocked?`${tf(Ff)} N (μ ${mu.toFixed(2)})`:'—';
+  el('t_torque').textContent=simUnlocked?`${tf(tq)} N·m`:'—';
+  el('t_v').textContent=simUnlocked?`${tf(SIM.v)} km/h`:'—';
+  el('t_rpm').textContent=simUnlocked?`${tf(rpm)} rpm`:'—';
+  const tb=el('t_temp'); tb.textContent=simUnlocked?`${tf(SIM.temp)} °C`:'—';
+  tb.className=SIM.temp>500?'bad':SIM.temp>300?'warn':'good';
+}
+
+/* ---------- lazo de animación ---------- */
+let idleT=0;
+S.setAnimate((dt,t)=>{
+  // tweens de colocación
+  for(let i=tweens.length-1;i>=0;i--){ const w=tweens[i]; w.t=Math.min(1,w.t+dt/w.dur); const e=ease(w.t);
+    w.obj.position.lerpVectors(w.fromP,w.toP,e); const s=w.fromS+(w.toS-w.fromS)*e; w.obj.scale.setScalar(s);
+    if('roty0' in w) w.obj.rotation.y=w.roty0*(1-e);
+    if(w.t>=1){ if(w.onDone)w.onDone(); tweens.splice(i,1); } }
+  // piezas en el banco: reposan sobre su pedestal (leve flotación); al seleccionar, se elevan y giran (vitrina)
+  trayObjs.forEach(g=>{ if(g.userData.kind!=='part')return; const id=g.userData.id; if(placed[id])return;
+    const sel=selectedId===id;
+    g.userData.lift=Math.max(0,Math.min(1,(g.userData.lift||0)+(sel?1:-1)*dt*3.2));
+    const L=ease(g.userData.lift);
+    g.position.y=g.userData.baseY + L*0.5 + (1-L)*0.02*Math.sin(t*1.8+g.userData.phase);
+    if(sel) g.rotation.y+=dt*1.25; else g.rotation.y*=(1-Math.min(1,dt*5));   // gira sólo la seleccionada; regresa a 0 al soltar
+    g.scale.setScalar(STAGE_S*(1+L*0.06)); });
+  // hueco fantasma (sólo el de la pieza seleccionada está en escena): latido + desvanecer al colocar
+  ghostObjs.forEach(gh=>{ if(!gh.parent) return; const gm=gh.userData.gm;
+    if(gh.userData.fading){ gm.opacity=Math.max(0,gm.opacity-dt*1.4); if(gm.opacity<=0){ gh.visible=false; scene.remove(gh); } return; }
+    gm.opacity=0.24+0.14*Math.sin(t*3.2);
+    if(gh.userData.shake>0){ gh.userData.shake=Math.max(0,gh.userData.shake-dt*2.2); gh.position.x=gh.userData.homeX+Math.sin(t*45)*0.05*gh.userData.shake; }
+    else if(gh.position.x!==gh.userData.homeX){ gh.position.x=gh.userData.homeX; } });
+  // simulación
+  if(simUnlocked){
+    const Ppa=SIM.pressure*1e5, tq=2*muEff(SIM.temp)*(Ppa*A_PIST)*R_EFF;
+    if(SIM.spinning && SIM.v>0.1){
+      let omega=SIM.v/3.6/R_WHEEL; const alpha=tq/I_EFF;
+      if(!SIM.hold) omega=Math.max(0,omega-alpha*dt);   // hold: descenso sostenido — la gravedad mantiene la velocidad y el freno sólo disipa calor
+      SIM.temp += (tq*omega)*dt/(M_ROTOR*C_IRON);
+      SIM.v=omega*R_WHEEL*3.6; if(groups.rotor) groups.rotor.rotation.z-=omega*dt;
+      if(!SIM.hold && SIM.v<=0.1){ SIM.spinning=false; showToast('🛑 Rueda detenida.'); }
+    }
+    SIM.temp += -0.02*(SIM.temp-AMB)*dt;
+    if(groups.rotor && groups.rotor.userData.glow){ const hot=Math.max(0,Math.min(1,(SIM.temp-430)/220));   // el hierro fundido empieza a verse al rojo ~430 °C
+      groups.rotor.userData.glow.forEach(m=>{ m.emissive.setRGB(hot,hot*hot*0.12,0); m.emissiveIntensity=hot*2.4; m.envMapIntensity=1-hot*0.82; }); }  // el hierro al rojo deja de reflejar el entorno y su propia emisión (rojo cereza) domina; florece con el bloom
+    telAcc+=dt; if(telAcc>0.1){ telAcc=0; renderTelemetry(); }
+  }
+});
+S.start();
+
+/* ---------- HUD ---------- */
+el('hud').innerHTML=`
+  <div class="eyebrow">Sistema de frenos · Ensamble 3D</div>
+  <h2>Freno de disco hidráulico</h2>
+  <p>Arma el freno pieza por pieza (<b>toca la pieza, luego su hueco</b>) y después prueba una frenada. La mordaza convierte la presión del líquido en fuerza de apriete y ésta, por fricción, en par de frenado.</p>
+  <div class="formula">F_apriete = P · A_pistón<br>τ_freno = 2 · μ · F_apriete · r_ef</div>
+  <div class="legend">
+    <div class="li"><span class="dot" style="background:#c21f2e"></span>Mordaza (aloja el pistón)</div>
+    <div class="li"><span class="dot" style="background:#9aa1a9"></span>Disco de hierro fundido</div>
+    <div class="li"><span class="dot" style="background:#27231f"></span>Material de fricción (μ≈0.40)</div>
+    <div class="li"><span class="dot" style="background:#c3cad1"></span>Pistón hidráulico (Ø54 mm)</div>
+  </div>
+  <div class="fid">
+    <div class="ft">Contrato de fidelidad</div>
+    <div class="fl">SÍ modela: <b>presión→fuerza (P·A), par por fricción (2·μ·F·r), calentamiento por energía disipada y una caída simplificada de μ por temperatura (fade).</b></div>
+    <div class="fl no">NO modela: <b>rigidez hidráulica real, distribución de calor en el disco ni la modulación ABS (ver lab Frenos ABS).</b></div>
+    <div class="fl no">Geometría <b>didáctica</b>: omite ménsula, pernos guía, sellos, guardapolvo, purgador y herrajes → detalle completo en la Ficha técnica.</div>
+  </div>
+  <div class="src">Representa un freno de disco hidráulico <b>delantero de turismo</b> (mordaza flotante de un pistón). μ≈0.40, r_ef≈0.11 m, Ø pistón 54 mm; la temperatura estima la <b>superficie del anillo de fricción</b> (~3.6 kg, c=460 J/kg·K).</div>
+  <button id="fichaBtn" class="b" style="width:100%;margin-top:9px">📋 Ficha técnica · componentes, torques, herramientas y fuentes</button>`;
+
+/* ---------- PANEL ---------- */
+el('panel').innerHTML=`
+  <h4>① Ensamble — toca pieza, toca hueco</h4>
+  <div class="console" id="asmStatus">Toca una <b>pieza</b> del banco (derecha) y luego su <b>hueco luminoso</b>.</div>
+  <div class="g"><div class="gl"><span>Piezas colocadas</span><b id="p_prog">0 / 6</b></div></div>
+  <div id="checklist" style="font-family:var(--mono);font-size:11px;line-height:1.85;margin:6px 0"></div>
+  <h4 class="sec">② Simulación de frenado</h4>
+  <div class="g"><div class="gl"><span>Presión de línea</span><b id="t_p">0 bar</b></div>
+    <input id="sl_p" type="range" min="0" max="110" value="0" step="1" style="width:100%;margin-top:4px" disabled></div>
+  <div class="g"><div class="gl"><span>Apriete / pastilla</span><b id="t_clamp">—</b></div></div>
+  <div class="g"><div class="gl"><span>Fricción total</span><b id="t_fric">—</b></div></div>
+  <div class="g"><div class="gl"><span>Par de frenado</span><b id="t_torque">—</b></div></div>
+  <div class="g"><div class="gl"><span>Velocidad</span><b id="t_v">—</b></div></div>
+  <div class="g"><div class="gl"><span>RPM del disco</span><b id="t_rpm">—</b></div></div>
+  <div class="g"><div class="gl"><span>Temp. superficie disco</span><b id="t_temp">—</b></div></div>
+  <div class="btns">
+    <button class="b auto" id="btnAuto">✨ Armado y frenada automáticos (guiado)</button>
+    <button class="b primary" id="btnBrake" disabled>🚗 Simular frenada (100 km/h)</button>
+    <button class="b" id="btnReset">↺ Reiniciar ensamble</button>
+  </div>`;
+
+/* ---------- FICHA TÉCNICA (overlay) — capa de documentación de fidelidad ----------
+   Esquema estándar reutilizable para las 150 prácticas: Representa · Componentes (+omitidos) ·
+   Fijaciones/torques · Herramientas · Real vs didáctico · Física · Normas y fuentes. */
+document.body.insertAdjacentHTML('beforeend', `
+<style>
+ #fichaOv{position:fixed;inset:0;z-index:80;display:none;align-items:center;justify-content:center;background:rgba(4,7,10,.74);backdrop-filter:blur(4px);padding:20px}
+ #fichaOv.show{display:flex}
+ #fichaCard{width:min(780px,94vw);max-height:88vh;overflow:auto;background:#0d151b;border:1px solid rgba(79,209,197,.22);border-radius:16px;padding:22px 24px;color:#c6d2da;font:13px/1.55 system-ui,Segoe UI,Roboto,sans-serif;box-shadow:0 24px 60px rgba(0,0,0,.6)}
+ #fichaCard h3{margin:0;font-size:17px;color:#eaf2f5;font-weight:700}
+ #fichaCard .eyf{font:600 11px/1 var(--mono,monospace);letter-spacing:.14em;text-transform:uppercase;color:#4FD1C5;margin-bottom:6px}
+ #fichaCard .fhrow{display:flex;justify-content:space-between;align-items:flex-start;gap:12px;border-bottom:1px solid rgba(255,255,255,.08);padding-bottom:12px;margin-bottom:4px}
+ #fichaClose{flex:none;background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.14);color:#c6d2da;width:30px;height:30px;border-radius:8px;cursor:pointer;font-size:15px;line-height:1}
+ #fichaClose:hover{background:rgba(255,255,255,.12)}
+ #fichaCard .fh{color:#4FD1C5;font-weight:700;font-size:13px;margin:16px 0 5px;letter-spacing:.02em}
+ #fichaCard p{margin:5px 0}
+ #fichaCard ul{margin:5px 0;padding-left:2px;list-style:none}
+ #fichaCard li{margin:4px 0;padding-left:15px;position:relative}
+ #fichaCard li:before{content:"▸";position:absolute;left:0;color:#4FD1C5;opacity:.7}
+ #fichaCard li.omit:before{content:"○";color:#F6AD55}
+ #fichaCard .refs li:before{content:"—";color:#8fa2b0}
+ #fichaCard b{color:#eaf2f5}
+ #fichaCard .warn{background:rgba(246,173,85,.09);border:1px solid rgba(246,173,85,.28);border-radius:9px;padding:8px 11px;margin:8px 0;color:#F6AD55;font-size:12px}
+ #fichaCard table{width:100%;border-collapse:collapse;margin:7px 0;font-size:12px}
+ #fichaCard th,#fichaCard td{text-align:left;padding:6px 8px;border-bottom:1px solid rgba(255,255,255,.07);vertical-align:top}
+ #fichaCard th{color:#8fa2b0;font-weight:600;font-size:11px;text-transform:uppercase;letter-spacing:.05em}
+ #fichaCard td.tq{font-family:var(--mono,monospace);color:#eaf2f5;white-space:nowrap}
+ #fichaCard .foot{margin-top:16px;padding-top:11px;border-top:1px solid rgba(255,255,255,.08);color:#7f8c96;font-size:11px}
+</style>
+<div id="fichaOv"><div id="fichaCard">
+  <div class="fhrow">
+    <div><div class="eyf">Ficha técnica · ¿en qué se basa?</div>
+      <h3>Freno de disco hidráulico — delantero de turismo</h3></div>
+    <button id="fichaClose" title="Cerrar">✕</button>
+  </div>
+  <p>Este laboratorio representa un <b>freno de disco hidráulico de eje delantero</b> con <b>mordaza flotante de un pistón</b>. Las piezas que ves son los componentes principales reales; la geometría es <b>procedural y didáctica</b> (no es el CAD de un fabricante). Donde el modelo 3D simplifica, aquí se documenta explícitamente para no dejar huecos de conocimiento.</p>
+
+  <div class="fh">1 · Componentes de un freno real</div>
+  <p><b>Presentes en el modelo:</b> disco ventilado, pastilla interior y exterior, pistón hidráulico, mordaza (caliper), manguera de freno y mangueta de referencia.</p>
+  <p><b>Omitidos en el 3D</b> (existen en el freno real y son clave):</p>
+  <ul>
+    <li class="omit"><b>Ménsula / soporte de mordaza</b> (bracket): ancla la mordaza a la mangueta y guía las pastillas. En el modelo la mordaza se atornilla directo — simplificación.</li>
+    <li class="omit"><b>Pernos guía / bulones deslizantes</b> + guardapolvos: dejan que la mordaza flotante se deslice; van engrasados con grasa de silicona.</li>
+    <li class="omit"><b>Sello cuadrado del pistón</b> (square-cut seal): sella y produce el <i>roll-back</i> (retrae el pistón al soltar).</li>
+    <li class="omit"><b>Guardapolvo del pistón</b> (dust boot): evita entrada de agua y suciedad.</li>
+    <li class="omit"><b>Purgador</b> (bleeder screw): permite sangrar el aire del circuito.</li>
+    <li class="omit"><b>Herrajes de pastilla</b>: clips antivibración/antichirrido (shims), muelles y testigo de desgaste.</li>
+    <li class="omit"><b>Tornillo de retención del disco, maza, balero de rueda, guardapolvo (splash shield) y anillo dentado del ABS</b> (tone ring).</li>
+  </ul>
+
+  <div class="fh">2 · Fijaciones y pares de apriete</div>
+  <div class="warn">⚠ Valores <b>representativos</b> (auto de pasajeros). Los pares y medidas <b>varían por vehículo</b>: usa siempre el manual de taller (FSM) del modelo específico.</div>
+  <table>
+    <tr><th>Unión</th><th>Fijación típica</th><th>Par (repr.)</th></tr>
+    <tr><td>Ménsula ↔ mangueta</td><td>2 × perno M12 (a veces de un solo uso)</td><td class="tq">85–130 N·m</td></tr>
+    <tr><td>Mordaza ↔ ménsula (pernos guía)</td><td>2 × M9–M10</td><td class="tq">25–35 N·m</td></tr>
+    <tr><td>Manguera (banjo) ↔ mordaza</td><td>perno banjo + arandelas de cobre <b>nuevas</b></td><td class="tq">30–40 N·m</td></tr>
+    <tr><td>Purgador</td><td>—</td><td class="tq">7–10 N·m</td></tr>
+    <tr><td>Tornillo del disco (si lleva)</td><td>M6–M8 Torx/Phillips</td><td class="tq">4–14 N·m</td></tr>
+    <tr><td>Tuercas / birlos de rueda</td><td>4–5 × M12–M14</td><td class="tq">100–140 N·m</td></tr>
+  </table>
+
+  <div class="fh">3 · Herramientas de servicio</div>
+  <ul>
+    <li>Llave <b>dinamométrica</b>, juego de dados y matracas, barra de fuerza.</li>
+    <li><b>Retractor / compresor de pistón</b> (o prensa en C) para retraer el pistón antes de poner pastillas nuevas. Con <b>freno de mano eléctrico (EPB)</b>: retraer con <b>escáner</b>, nunca a la fuerza.</li>
+    <li><b>Grasa de silicona</b> para pernos guía y apoyos de pastilla; <b>antiadherente</b> en la maza — <b>nunca</b> en las caras de fricción.</li>
+    <li>Kit de purga y líquido DOT nuevo; arandelas de cobre nuevas para el banjo.</li>
+    <li>Limpiador de frenos, alambre para colgar la mordaza (jamás de la manguera), gato con torres y calzos.</li>
+  </ul>
+
+  <div class="fh">4 · Ensamble didáctico vs. procedimiento real</div>
+  <p>El orden del laboratorio es una <b>descomposición pedagógica</b> (para ver cada pieza por separado). Un servicio real <b>añade</b>:</p>
+  <ul>
+    <li>Retraer el pistón antes de montar pastillas nuevas (más gruesas).</li>
+    <li>Lubricar pernos guía y apoyos; montar clips/shims antivibración.</li>
+    <li>Apretar <b>todo a par</b> con su secuencia; reemplazar bulones de un solo uso.</li>
+    <li><b>Purgar</b> el circuito hidráulico (sangrar aire) y verificar el nivel de líquido.</li>
+    <li><b>Asentado (bed-in):</b> serie de frenadas progresivas para acoplar pastilla-disco.</li>
+    <li>Tuercas de rueda a par en <b>patrón de estrella</b>; re-apretar tras ~50–100 km.</li>
+  </ul>
+
+  <div class="fh">5 · Física — qué modela y qué no</div>
+  <p><b>Sí modela:</b> presión→fuerza (F = P·A), par por fricción (τ = 2·μ·F·r_ef), calentamiento por energía disipada (ΔT = E/(m·c)) y una caída simplificada de μ por temperatura (fade).</p>
+  <p><b>No modela:</b> rigidez y retardo hidráulico reales, distribución 3D del calor en el disco, modulación ABS, desgaste de pastilla ni el roll-back del sello.</p>
+
+  <div class="fh">6 · Normas y fuentes (diagramas y manuales reales)</div>
+  <ul class="refs">
+    <li><b>FMVSS 135</b> (EE. UU.) / <b>ECE R13-H</b> (ONU): desempeño de frenado de turismos.</li>
+    <li><b>SAE J866</b>: clasificación del coeficiente de fricción del material (código de letras, p. ej. "FF"). <b>SAE J431</b>: hierro gris de discos. <b>SAE J2784</b>: rotores.</li>
+    <li><b>Bosch Automotive Handbook</b>: teoría, fórmulas y diagramas.</li>
+    <li><b>Manual de taller del fabricante (FSM)</b> / Haynes / Chilton / Mitchell1 / ALLDATA: procedimiento y pares exactos del vehículo específico.</li>
+    <li>Principio de Pascal: base de la transmisión hidráulica de la presión.</li>
+  </ul>
+
+  <div class="foot">Modelo didáctico CEN Labs · geometría procedural en three.js · física de parámetros concentrados con valores representativos de un turismo compacto. La fidelidad geométrica 1:1 se prevé en una fase posterior con modelos CAD reales.</div>
+</div></div>`);
+(function(){ const ov=el('fichaOv'), openB=el('fichaBtn'), closeB=el('fichaClose');
+  const show=v=>ov.classList.toggle('show',v);
+  if(openB) openB.onclick=()=>show(true);
+  if(closeB) closeB.onclick=()=>show(false);
+  ov.addEventListener('click',e=>{ if(e.target===ov) show(false); });
+  window.addEventListener('keydown',e=>{ if(e.key==='Escape') show(false); });
+})();
+
+/* ---------- síntesis + interacción de UI ---------- */
+const synth=makeSynth({type:'sine'});
+const soundBtn=el('soundBtn');
+soundBtn.onclick=()=>{ synth.init(); synth.resume(); const on=synth.toggle(); soundBtn.textContent=on?'🔊':'🔇'; soundBtn.classList.toggle('on',on); };
+
+el('sl_p').oninput=e=>{ SIM.pressure=+e.target.value; renderTelemetry(); };
+el('btnBrake').onclick=()=>{ if(!simUnlocked)return; synth.init(); synth.resume();
+  SIM.v=100; SIM.spinning=true; SIM.hold=false; if(+el('sl_p').value<20){ el('sl_p').value=80; SIM.pressure=80; }
+  showToast('🚗 Rueda a 100 km/h — aplica presión con el deslizador para frenar.'); renderTelemetry(); };
+el('btnReset').onclick=()=>{ initAssembly(); showToast('↺ Ensamble reiniciado — vuelve a colocar las piezas.'); };
+
+/* ---------- modo automático (guiado) — para quien no es ingeniero ---------- */
+const sleep=ms=>new Promise(r=>setTimeout(r,ms));
+let autoRunning=false;
+async function runAuto(){
+  if(autoRunning) return; autoRunning=true; synth.init(); synth.resume();
+  const btn=el('btnAuto'), label=btn.textContent; btn.disabled=true; btn.classList.add('on'); btn.textContent='⏳ Demostración en curso…';
+  try{
+    if(progress<PARTS.length){
+      showToast('Paso 1 · Armamos el freno pieza por pieza. Observa dónde va cada una.'); await sleep(1700);
+      for(const id of ORDER){ if(placed[id])continue; selectPart(id); await sleep(700); placePart(id); await sleep(1500); }
+    }
+    await sleep(600);
+    showToast('Paso 2 · Ponemos la rueda a 100 km/h y aplicamos presión de freno.');
+    SIM.v=100; SIM.spinning=true; SIM.hold=false; el('sl_p').value=90; SIM.pressure=90; renderTelemetry(); await sleep(2600);
+    showToast('Fíjate: la presión (90 bar) se vuelve <b>fuerza de apriete</b> y ésta, por fricción, en <b>par de frenado</b> — el disco se detiene y se calienta.'); await sleep(3200);
+    showToast('<span style="color:var(--good)">✔ Así frena un disco:</span> presión → fuerza (P·A) → par (2·μ·F·r). La energía del auto se convierte en calor en el disco.',4200); await sleep(3600);
+    // Paso 3 · descenso sostenido → el disco se pone al rojo (calor visible, riesgo de fade)
+    showToast('Paso 3 · Ahora un <b>descenso largo de montaña</b>: el freno disipa energía sin parar y el disco se calienta muchísimo.'); await sleep(2400);
+    SIM.v=55; SIM.spinning=true; SIM.hold=true; el('sl_p').value=90; SIM.pressure=90; renderTelemetry();
+    for(let i=0;i<260 && SIM.temp<560;i++){ await sleep(90); }   // esperar a que el disco brille (~430 °C) — máx ~23 s
+    showToast('🔥 El disco se pone <b>al rojo</b> (&gt;500 °C). Aquí aparece el <b>fade</b>: μ cae con el calor y el freno pierde eficacia.',4200); await sleep(3600);
+    SIM.hold=false;   // se suelta el freno: ahora sí la rueda se detiene y el disco empieza a enfriarse
+    showToast('<span style="color:var(--good)">✔ Regla de oro:</span> en bajadas largas usa <b>freno motor</b>; no “planches” el freno o se sobrecalienta.',4600);
+  } finally { btn.disabled=false; btn.classList.remove('on'); btn.textContent=label; autoRunning=false; }
+}
+
+/* ---------- arranque ---------- */
+initAssembly();
+el('btnAuto').onclick=runAuto;
+showToast('👆 Toca una pieza del banco y luego su hueco luminoso para armar el freno.',4200);
+</script>
+</body>
+</html>

@@ -1,0 +1,26 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "cen-dashboard",
+  "main": ".open-next/worker.js",
+  "compatibility_date": "2025-03-25",
+  "compatibility_flags": ["nodejs_compat"],
+  "workers_dev": true,
+  // Sirve los estáticos generados por OpenNext (incluye public/labs/*.html).
+  // html_handling "none": servir los .html tal cual (paridad con Vercel), sin el
+  // redirect 307 .html -> URL sin extensión. Los labs se cargan por /labs/<x>.html.
+  "assets": {
+    "binding": "ASSETS",
+    "directory": ".open-next/assets",
+    "html_handling": "none"
+  },
+  // Caché incremental de Next (ISR / data cache) — ver open-next.config.ts.
+  "kv_namespaces": [
+    {
+      "binding": "NEXT_INC_CACHE_KV",
+      "id": "0da92b588ccb44aa9af534d2596f541b"
+    }
+  ],
+  "observability": {
+    "enabled": true
+  }
+}
