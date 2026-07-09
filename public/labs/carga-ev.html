@@ -536,10 +536,10 @@ function drawCable(connected){
    POST-PROCESSING
    ============================================================ */
 const isMobile=/Mobi|Android|iPhone|iPad/i.test(navigator.userAgent)||innerWidth<860;
-const noGtao=/[?&]nogtao/.test(location.search);
+const useGtao=/[?&]gtao\b/.test(location.search); // GTAO opt-in: apagado por defecto (evita el recuadro oscuro del AO)
 const composer=new EffectComposer(renderer);
 composer.addPass(new RenderPass(scene,camera));
-if(!isMobile&&!noGtao){try{const g=new GTAOPass(scene,camera,innerWidth,innerHeight);g.output=GTAOPass.OUTPUT.Default;if(g.updateGtaoMaterial)g.updateGtaoMaterial({radius:0.5,distanceExponent:1,thickness:1,scale:1.1,samples:16});composer.addPass(g);}catch(e){}}
+if(!isMobile&&useGtao){try{const g=new GTAOPass(scene,camera,innerWidth,innerHeight);g.output=GTAOPass.OUTPUT.Default;if(g.updateGtaoMaterial)g.updateGtaoMaterial({radius:0.5,distanceExponent:1,thickness:1,scale:1.1,samples:16});composer.addPass(g);}catch(e){}}
 const bloom=new UnrealBloomPass(new THREE.Vector2(innerWidth,innerHeight),0.42,0.5,0.9);composer.addPass(bloom);
 let bokeh=null; if(!isMobile&&!lightMode){bokeh=new BokehPass(scene,camera,{focus:9,aperture:0.00018,maxblur:0.004,width:innerWidth,height:innerHeight});composer.addPass(bokeh);}
 composer.addPass(new OutputPass());

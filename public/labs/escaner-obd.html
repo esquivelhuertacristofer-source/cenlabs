@@ -1,0 +1,901 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>CEN Labs · Escáner OBD-II y Diagnóstico — Laboratorio 3D</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#08201C;--panel:rgba(9,26,23,.86);--line:#1E3A34;--ink:#EAF4F1;
+    --dim:#8FB3AC;--accent:#2A9D8F;--accent2:#4FD1C5;--hv:#FFB703;--good:#34d399;--bad:#f4475e;
+    --mono:'Outfit',system-ui,'Segoe UI',Roboto,sans-serif;--disp:'Outfit','Arial Black',Impact,sans-serif;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  html,body{height:100%;background:var(--bg);color:var(--ink);font-family:'Outfit',system-ui,Segoe UI,Roboto,sans-serif}
+  body{overflow:hidden}
+  #stage{position:fixed;inset:0}
+  canvas{display:block;touch-action:none}
+
+  .topbar{position:fixed;top:0;left:0;right:0;height:56px;display:flex;align-items:center;gap:14px;padding:0 20px;z-index:20;background:linear-gradient(180deg,rgba(10,13,18,.92),transparent);pointer-events:none}
+  .brand{font-family:var(--disp);font-weight:bold;font-size:16px;text-transform:uppercase}
+  .brand span{color:var(--accent)}
+  .lt{font-family:var(--mono);font-size:11px;letter-spacing:.1em;text-transform:uppercase;color:var(--dim)}
+
+  .badge{position:fixed;top:16px;right:20px;z-index:20;font-family:var(--mono);font-size:9px;letter-spacing:.12em;text-transform:uppercase;background:rgba(255,209,102,.12);color:var(--hv);border:1px solid rgba(255,209,102,.35);padding:6px 12px;border-radius:20px}
+
+  .hud{position:fixed;top:70px;left:18px;z-index:15;max-width:330px;background:var(--panel);backdrop-filter:blur(14px);border:1px solid var(--line);border-radius:16px;padding:18px 20px;max-height:calc(100vh - 150px);overflow-y:auto}
+  .hud .eyebrow{font-family:var(--mono);font-size:10px;letter-spacing:.18em;text-transform:uppercase;color:var(--accent);margin-bottom:8px}
+  .hud h2{font-size:19px;line-height:1.15;margin-bottom:9px}
+  .hud p{font-size:13px;line-height:1.55;color:var(--dim);margin-bottom:10px}
+  .hud .formula{font-family:var(--mono);color:var(--accent2);text-align:center;font-size:12.5px;margin:8px 0;padding:8px;background:rgba(0,0,0,.25);border-radius:8px;line-height:1.5}
+  .hud .src{font-size:10.5px;color:#7a8894;font-style:italic;margin-top:4px;line-height:1.5}
+  .legend{display:flex;flex-direction:column;gap:6px;margin:12px 0;padding:10px 12px;background:rgba(0,0,0,.22);border-radius:10px}
+  .legend .li{display:flex;align-items:center;gap:8px;font-size:11px;color:#c4d0da}
+  .legend .dot{width:10px;height:10px;border-radius:50%;flex:0 0 auto}
+  .fid{margin:10px 0 2px;padding:10px 12px;background:rgba(0,0,0,.22);border-radius:10px;border:1px solid rgba(79,209,197,.18)}
+  .fid .ft{font-family:var(--mono);font-size:9.5px;letter-spacing:.14em;text-transform:uppercase;color:var(--accent2);margin-bottom:6px}
+  .fid .fl{font-size:11px;color:#c4d0da;line-height:1.5;margin-bottom:5px}
+  .fid .fl b{color:var(--ink)}
+  .fid .fl.no b{color:var(--hv)}
+
+  .panel{position:fixed;top:70px;right:18px;z-index:15;width:262px;background:var(--panel);backdrop-filter:blur(14px);border:1px solid var(--line);border-radius:16px;padding:16px;max-height:calc(100vh - 150px);overflow-y:auto}
+  .panel h4{font-family:var(--mono);font-size:10px;letter-spacing:.14em;text-transform:uppercase;color:var(--dim);margin:2px 0 10px}
+  .panel h4.sec{margin-top:16px;border-top:1px solid var(--line);padding-top:14px}
+  .g{margin-bottom:6px}
+  .gl{display:flex;justify-content:space-between;font-family:var(--mono);font-size:11px;color:var(--dim)}
+  .gl b{color:var(--accent2)}
+  .gl b.good{color:var(--good)}.gl b.warn{color:var(--hv)}.gl b.bad{color:var(--bad)}
+  .modebar{display:flex;gap:5px;margin-bottom:8px}
+  .modebar .b{flex:1;padding:8px 4px;font-size:11px}
+  .btns{display:flex;flex-direction:column;gap:7px;margin-top:6px}
+  .b{font-family:system-ui;font-size:12.5px;padding:10px;border-radius:9px;cursor:pointer;border:1px solid var(--line);background:#1b242f;color:var(--ink);transition:.15s;text-align:center}
+  .b:hover{border-color:var(--accent);background:#202c38}
+  .b.on{background:var(--accent);color:#06120f;border-color:var(--accent);font-weight:bold}
+  .b.primary{background:var(--accent);color:#06120f;border-color:var(--accent);font-weight:bold}
+  .b.auto{border-color:var(--hv);color:var(--hv);background:rgba(255,183,3,.10);font-weight:bold}
+  .b.auto:hover{background:rgba(255,183,3,.18);border-color:var(--hv)}
+  .b.auto:disabled{opacity:.6;cursor:default}
+  .b.dx{text-align:left;font-size:12px}
+  .b.dx.right{background:rgba(52,211,153,.18);border-color:var(--good);color:var(--good);font-weight:bold}
+  .b.dx.wrong{background:rgba(244,71,94,.15);border-color:var(--bad);color:var(--bad)}
+  .console{font-family:var(--mono);font-size:11px;line-height:1.55;color:#c4d0da;background:rgba(0,0,0,.28);border-radius:9px;padding:10px 12px;margin-bottom:8px;min-height:56px}
+  .console .dtc{color:var(--bad);font-weight:bold}
+  .console .ok{color:var(--good)}
+  .console .mono{color:var(--dim)}
+
+  .hint{position:fixed;bottom:18px;left:18px;z-index:14;font-family:var(--mono);font-size:10px;color:var(--dim);background:var(--panel);padding:7px 12px;border-radius:9px;border:1px solid var(--line)}
+  .toast{position:fixed;top:80px;left:50%;transform:translateX(-50%);z-index:30;background:rgba(18,24,32,.95);border:1px solid var(--accent);padding:10px 20px;border-radius:40px;font-family:var(--mono);font-size:12px;opacity:0;transition:.3s;pointer-events:none;max-width:80vw;text-align:center}
+  .toast.show{opacity:1}
+  .soundBtn{position:fixed;top:14px;right:18px;z-index:21;font-size:16px;background:var(--panel);backdrop-filter:blur(12px);border:1px solid var(--line);border-radius:50%;width:36px;height:36px;cursor:pointer;color:var(--dim);transition:.15s}
+  .soundBtn.on{color:var(--accent);border-color:var(--accent)}
+  .soundBtn:hover{transform:scale(1.08)}
+  .inspectHint{position:fixed;bottom:18px;right:18px;z-index:14;font-family:var(--mono);font-size:10px;color:var(--accent2);background:var(--panel);padding:7px 12px;border-radius:9px;border:1px solid var(--line)}
+
+  @media(max-width:820px){
+    .hud,.panel{position:fixed;left:8px;right:8px;top:auto;bottom:8px;max-width:none;width:auto;max-height:42vh;overflow-y:auto}
+    .hud{bottom:calc(8px + 42vh + 8px)}
+    .hint,.inspectHint{display:none}
+  }
+</style>
+</head>
+<body>
+<div id="stage"></div>
+<button class="soundBtn on" id="soundBtn">🔊</button>
+<div class="topbar">
+  <div class="brand">CEN<span> Labs</span></div>
+  <div class="lt">Escáner OBD-II · Diagnóstico</div>
+</div>
+<div class="hud" id="hud"></div>
+<div class="panel" id="panel"></div>
+<div class="hint">Arrastra para orbitar · rueda para zoom</div>
+<div class="inspectHint">👆 Toca un pin o sensor para identificarlo</div>
+<div class="toast" id="toast"></div>
+
+<script type="importmap">
+{ "imports": {
+  "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.min.js",
+  "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/"
+}}
+</script>
+<script type="module">
+import * as THREE from 'three';
+import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
+import { RoundedBoxGeometry } from 'three/addons/geometries/RoundedBoxGeometry.js';
+import { EffectComposer } from 'three/addons/postprocessing/EffectComposer.js';
+import { RenderPass } from 'three/addons/postprocessing/RenderPass.js';
+import { GTAOPass } from 'three/addons/postprocessing/GTAOPass.js';
+import { UnrealBloomPass } from 'three/addons/postprocessing/UnrealBloomPass.js';
+import { SMAAPass } from 'three/addons/postprocessing/SMAAPass.js';
+import { OutputPass } from 'three/addons/postprocessing/OutputPass.js';
+import { BokehPass } from 'three/addons/postprocessing/BokehPass.js';
+
+/* ============================================================
+   Texturas PBR procedurales (sin archivos externos) — compartidas
+   ============================================================ */
+function cv(s=512){const c=document.createElement('canvas');c.width=c.height=s;return c;}
+function tex(canvas,repeat=1,srgb=false){
+  const t=new THREE.CanvasTexture(canvas);
+  t.wrapS=t.wrapT=THREE.RepeatWrapping;t.repeat.set(repeat,repeat);
+  t.colorSpace = srgb?THREE.SRGBColorSpace:THREE.NoColorSpace;
+  t.generateMipmaps=false; t.minFilter=THREE.LinearFilter; t.anisotropy=1; return t;
+}
+function normalFromHeight(size, hfn, strength=2.0){
+  const c=cv(size),ctx=c.getContext('2d'),img=ctx.createImageData(size,size);
+  const H=(x,y)=>hfn((x+size)%size,(y+size)%size);
+  for(let y=0;y<size;y++)for(let x=0;x<size;x++){
+    const dx=(H(x+1,y)-H(x-1,y))*strength;
+    const dy=(H(x,y+1)-H(x,y-1))*strength;
+    const nz=1.0; const len=Math.hypot(dx,dy,nz);
+    const i=(y*size+x)*4;
+    img.data[i]  =((-dx/len)*0.5+0.5)*255;
+    img.data[i+1]=((-dy/len)*0.5+0.5)*255;
+    img.data[i+2]=((nz/len)*0.5+0.5)*255;
+    img.data[i+3]=255;
+  }
+  ctx.putImageData(img,0,0);return c;
+}
+function valueNoise(seed=1){
+  const g=(x,y)=>{const s=Math.sin((x*127.1+y*311.7)+seed*13.13)*43758.5453;return s-Math.floor(s);};
+  return (x,y)=>{
+    const xi=Math.floor(x),yi=Math.floor(y),xf=x-xi,yf=y-yi;
+    const u=xf*xf*(3-2*xf),v=yf*yf*(3-2*yf);
+    const a=g(xi,yi),b=g(xi+1,yi),c=g(xi,yi+1),d=g(xi+1,yi+1);
+    return a*(1-u)*(1-v)+b*u*(1-v)+c*(1-u)*v+d*u*v;
+  };
+}
+function fbm(noise,x,y,oct=4){let v=0,a=0.5,f=1;for(let i=0;i<oct;i++){v+=noise(x*f,y*f)*a;f*=2;a*=0.5;}return v;}
+
+function castAluminum(){
+  const S=512, n=valueNoise(7);
+  const c=cv(S),ctx=c.getContext('2d'),img=ctx.createImageData(S,S);
+  for(let y=0;y<S;y++)for(let x=0;x<S;x++){
+    const v=fbm(n,x/22,y/22,5);
+    const por=Math.pow(n(x/3.1,y/3.1),8);
+    const base=150+v*38-por*70;
+    const i=(y*S+x)*4; img.data[i]=base; img.data[i+1]=base+4; img.data[i+2]=base+10; img.data[i+3]=255;
+  }
+  ctx.putImageData(img,0,0);
+  const r=cv(S),rx=r.getContext('2d'),rimg=rx.createImageData(S,S);
+  for(let y=0;y<S;y++)for(let x=0;x<S;x++){
+    const v=fbm(n,x/18,y/18,4); const por=Math.pow(n(x/3.1,y/3.1),8);
+    const rough=120+v*40+por*90; const i=(y*S+x)*4;
+    rimg.data[i]=rimg.data[i+1]=rimg.data[i+2]=Math.min(255,rough); rimg.data[i+3]=255;
+  }
+  rx.putImageData(rimg,0,0);
+  const nrm=normalFromHeight(S,(x,y)=>fbm(n,x/16,y/16,5)+Math.pow(n(x/3.1,y/3.1),8)*0.6,3.0);
+  return {map:tex(c,1,true),roughnessMap:tex(r),normalMap:tex(nrm)};
+}
+function brushedMetal(){
+  const S=512, n=valueNoise(3);
+  const c=cv(S),ctx=c.getContext('2d'),img=ctx.createImageData(S,S);
+  for(let y=0;y<S;y++)for(let x=0;x<S;x++){
+    const streak=Math.sin(y*0.9)*2 + (n(x/120,y*0.5)-0.5)*40;
+    const base=185+streak; const i=(y*S+x)*4;
+    img.data[i]=base; img.data[i+1]=base+2; img.data[i+2]=base+6; img.data[i+3]=255;
+  }
+  ctx.putImageData(img,0,0);
+  const r=cv(S),rx=r.getContext('2d'),rimg=rx.createImageData(S,S);
+  for(let y=0;y<S;y++)for(let x=0;x<S;x++){
+    const streak=(n(x/120,y*0.5)-0.5)*60; const rough=40+Math.abs(streak); const i=(y*S+x)*4;
+    rimg.data[i]=rimg.data[i+1]=rimg.data[i+2]=Math.min(160,rough); rimg.data[i+3]=255;
+  }
+  rx.putImageData(rimg,0,0);
+  const nrm=normalFromHeight(S,(x,y)=>(n(x/120,y*0.5))*0.3+Math.sin(y*0.9)*0.02,1.2);
+  return {map:tex(c,1,true),roughnessMap:tex(r),normalMap:tex(nrm)};
+}
+function rubber(){
+  const S=256,n=valueNoise(5);
+  const nrm=normalFromHeight(S,(x,y)=>fbm(n,x/8,y/8,4),1.4);
+  const rough=cv(64),rc=rough.getContext('2d');rc.fillStyle='#e0e0e0';rc.fillRect(0,0,64,64);
+  return {roughnessMap:tex(rough),normalMap:tex(nrm,2)};
+}
+function gradientBG(top='#11161d',bottom='#05070a'){
+  const c=cv(512),ctx=c.getContext('2d');
+  const grd=ctx.createLinearGradient(0,0,0,512);
+  grd.addColorStop(0,top);grd.addColorStop(1,bottom);
+  ctx.fillStyle=grd;ctx.fillRect(0,0,512,512);
+  const rg=ctx.createRadialGradient(256,200,30,256,256,360);
+  rg.addColorStop(0,'rgba(42,157,143,0.10)');rg.addColorStop(1,'rgba(0,0,0,0)');
+  ctx.fillStyle=rg;ctx.fillRect(0,0,512,512);
+  return tex(c,1,true);
+}
+function techPlastic(r=0.10,g=0.11,b=0.13){
+  const S=256,n=valueNoise(31);
+  const c=cv(S),ctx=c.getContext('2d'),img=ctx.createImageData(S,S);
+  for(let y=0;y<S;y++)for(let x=0;x<S;x++){
+    const v=fbm(n,x/30,y/30,3)*0.1+0.92; const i=(y*S+x)*4;
+    img.data[i]=r*255*v;img.data[i+1]=g*255*v;img.data[i+2]=b*255*v;img.data[i+3]=255;
+  }
+  ctx.putImageData(img,0,0);
+  const nrm=normalFromHeight(S,(x,y)=>fbm(n,x/10,y/10,3),0.8);
+  const rough=cv(64),rc=rough.getContext('2d');rc.fillStyle='#9a9a9a';rc.fillRect(0,0,64,64);
+  return {map:tex(c,1,true),roughnessMap:tex(rough),normalMap:tex(nrm)};
+}
+
+/* ============================================================
+   ENGINE — render premium compartido por todos los laboratorios
+   ============================================================ */
+function createStage(mount, opts={}){
+  const bgTop = opts.bgTop||'#141b24', bgBot = opts.bgBot||'#05070a';
+  const renderer = new THREE.WebGLRenderer({ antialias:true, powerPreference:'high-performance' });
+  renderer.setPixelRatio(Math.min(devicePixelRatio,2));
+  renderer.setSize(mount.clientWidth, mount.clientHeight);
+  renderer.shadowMap.enabled = true;
+  renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+  renderer.toneMapping = THREE.ACESFilmicToneMapping;
+  renderer.toneMappingExposure = opts.exposure ?? 1.18;
+  renderer.outputColorSpace = THREE.SRGBColorSpace;
+  mount.appendChild(renderer.domElement);
+  renderer.domElement.style.touchAction='none';
+
+  const scene = new THREE.Scene();
+  scene.background = gradientBG(bgTop,bgBot);
+  const pmrem = new THREE.PMREMGenerator(renderer);
+  scene.environment = pmrem.fromScene(new RoomEnvironment(renderer), 0.04).texture;
+  scene.environmentIntensity = opts.envInt ?? 1.15;
+
+  const camera = new THREE.PerspectiveCamera(45, mount.clientWidth/mount.clientHeight, 0.1, 200);
+  const cam = opts.cam || [5.5,3.4,6.2];
+  camera.position.set(...cam);
+
+  const controls = new OrbitControls(camera, renderer.domElement);
+  controls.enableDamping = true; controls.dampingFactor = 0.07;
+  controls.minDistance = opts.minD ?? 3; controls.maxDistance = opts.maxD ?? 18;
+  controls.maxPolarAngle = Math.PI*0.52;
+  controls.target.set(...(opts.target||[0,1.4,0]));
+  controls.autoRotate = opts.autoRotate ?? false;
+  controls.autoRotateSpeed = opts.autoRotateSpeed ?? 0.6;
+
+  const key = new THREE.DirectionalLight(0xffffff, 2.7);
+  key.position.set(5,9,6); key.castShadow=true;
+  key.shadow.mapSize.set(2048,2048);
+  key.shadow.camera.near=0.5; key.shadow.camera.far=40;
+  const sd=8; Object.assign(key.shadow.camera,{left:-sd,right:sd,top:sd,bottom:-sd});
+  key.shadow.bias=-0.0003; key.shadow.normalBias=0.02; scene.add(key);
+  const rim = new THREE.SpotLight(0x2affce, 55, 30, Math.PI/5, 0.4, 1.5);
+  rim.position.set(-7,6,-5); scene.add(rim);
+  const fill = new THREE.DirectionalLight(0x6fb6ff, 0.5); fill.position.set(-4,3,7); scene.add(fill);
+  scene.add(new THREE.HemisphereLight(0x9fb4c8, 0x10151b, 0.35));
+
+  if(opts.floor!==false){
+    const f = new THREE.Mesh(new THREE.CircleGeometry(40,80),
+      new THREE.MeshStandardMaterial({ color:0x0a0e13, roughness:0.14, metalness:0.62, envMapIntensity:1.15 }));
+    f.rotation.x=-Math.PI/2; f.receiveShadow=true; scene.add(f);
+    for(let r=2;r<=8;r+=2){
+      const ring=new THREE.Mesh(new THREE.RingGeometry(r-0.012,r+0.012,80),
+        new THREE.MeshBasicMaterial({color:0x1a2632,transparent:true,opacity:0.4}));
+      ring.rotation.x=-Math.PI/2; ring.position.y=0.002; scene.add(ring);
+    }
+  }
+
+  const isMobile = /Mobi|Android|iPhone|iPad/i.test(navigator.userAgent) || innerWidth<820;
+  // GTAO desactivado por defecto: el pase de oclusión ambiental en espacio de pantalla
+  // producía un recuadro oscuro duro sobre el piso reflectante (artefacto dependiente de la
+  // cámara y del renderer). La escena tiene AO suficiente con luces directas + sombras + env.
+  // Se puede reactivar para pruebas con ?gtao.
+  const useGtao = /[?&]gtao\b/.test(location.search);
+  const composer = new EffectComposer(renderer);
+  composer.addPass(new RenderPass(scene,camera));
+  if(!isMobile && useGtao){
+    try{
+      const g=new GTAOPass(scene,camera,mount.clientWidth,mount.clientHeight);
+      g.output=GTAOPass.OUTPUT.Default;
+      if(g.updateGtaoMaterial)g.updateGtaoMaterial({radius:0.5,distanceExponent:1,thickness:1,scale:1.1,samples:16});
+      composer.addPass(g);
+    }catch(e){}
+  }
+  const bloom=new UnrealBloomPass(new THREE.Vector2(mount.clientWidth,mount.clientHeight),opts.bloom??0.42,0.5,0.9);
+  composer.addPass(bloom);
+  let bokeh=null;
+  const flat=/[?&]flat/.test(location.search);
+  if(!isMobile && !flat){
+    bokeh=new BokehPass(scene,camera,{focus:8.5,aperture:opts.aperture??0.00018,maxblur:opts.maxblur??0.004,width:mount.clientWidth,height:mount.clientHeight});
+    composer.addPass(bokeh);
+  }
+  composer.addPass(new OutputPass());
+  composer.addPass(new SMAAPass(mount.clientWidth*renderer.getPixelRatio(),mount.clientHeight*renderer.getPixelRatio()));
+
+  function resize(){
+    const w=mount.clientWidth,h=mount.clientHeight;
+    camera.aspect=w/h; camera.updateProjectionMatrix();
+    renderer.setSize(w,h); composer.setSize(w,h);
+  }
+  window.addEventListener('resize',resize);
+
+  const clock=new THREE.Clock();
+  let hook=null, raf=null;
+  const camCine={active:false,t:0,dur:1.4,from:new THREE.Vector3(),to:new THREE.Vector3(),fromT:new THREE.Vector3(),toT:new THREE.Vector3()};
+  let lastDrag=-99, cinematicIdle=false;
+  controls.addEventListener('start',()=>{ lastDrag=clock.elapsedTime; camCine.active=false; });
+  function easeInOutCubic(x){return x<0.5?4*x*x*x:1-Math.pow(-2*x+2,3)/2;}
+  function moveTo(pos,target,dur=1.4){
+    camCine.from.copy(camera.position); camCine.fromT.copy(controls.target);
+    camCine.to.set(...pos); camCine.toT.set(...target);
+    camCine.dur=dur; camCine.active=true; camCine.t=0;
+  }
+  function setCinematicIdle(v){ cinematicIdle=v; if(!v)controls.autoRotate=false; }
+  function loop(){ raf=requestAnimationFrame(loop); const dt=clock.getDelta(),t=clock.elapsedTime;
+    if(camCine.active){
+      camCine.t=Math.min(1,camCine.t+dt/camCine.dur);
+      const e=easeInOutCubic(camCine.t);
+      camera.position.lerpVectors(camCine.from,camCine.to,e);
+      controls.target.lerpVectors(camCine.fromT,camCine.toT,e);
+      if(camCine.t>=1)camCine.active=false;
+    } else if(cinematicIdle){
+      controls.autoRotate=(t-lastDrag)>1.4; controls.autoRotateSpeed=0.45;
+    }
+    if(hook)hook(dt,t); controls.update();
+    if(bokeh) bokeh.uniforms['focus'].value = camera.position.distanceTo(controls.target);
+    composer.render(); }
+  function start(){ if(!raf)loop(); }
+  function stop(){ cancelAnimationFrame(raf); raf=null; window.removeEventListener('resize',resize); }
+
+  return { THREE, renderer, scene, camera, controls, composer, bloom,
+    setAnimate:fn=>hook=fn, start, stop, resize, clock,
+    flyTo:(v)=>{ controls.target.copy(v); }, moveTo, setCinematicIdle };
+}
+
+/* ---------- shared geometry/material helpers ---------- */
+function roundedBox(w,h,d,mat,rf=0.08){
+  const r=Math.min(w,h,d)*rf;
+  const m=new THREE.Mesh(new RoundedBoxGeometry(w,h,d,4,r),mat);
+  m.castShadow=m.receiveShadow=true; return m;
+}
+function pickerFor(scene,camera,dom,onHit){
+  const ray=new THREE.Raycaster(),mouse=new THREE.Vector2(); let down=null;
+  dom.addEventListener('pointerdown',e=>down=[e.clientX,e.clientY]);
+  dom.addEventListener('pointerup',e=>{
+    if(!down)return; const moved=Math.abs(e.clientX-down[0])+Math.abs(e.clientY-down[1])>6; down=null;
+    if(moved)return;
+    const r=dom.getBoundingClientRect();
+    mouse.x=((e.clientX-r.left)/r.width)*2-1; mouse.y=-((e.clientY-r.top)/r.height)*2+1;
+    ray.setFromCamera(mouse,camera);
+    const hits=ray.intersectObjects(scene.children,true);
+    onHit(hits[0]||null);
+  });
+}
+function labelSprite(text,color='#ffd166'){
+  const w = Math.max(150, Math.min(520, text.length*26+60));
+  const cvE=document.createElement('canvas');cvE.width=w;cvE.height=96;
+  const c=cvE.getContext('2d');c.fillStyle='rgba(8,11,16,.95)';
+  const rr=(x,y,ww,hh,r)=>{c.beginPath();c.moveTo(x+r,y);c.arcTo(x+ww,y,x+ww,y+hh,r);c.arcTo(x+ww,y+hh,x,y+hh,r);c.arcTo(x,y+hh,x,y,r);c.arcTo(x,y,x+ww,y,r);c.closePath();};
+  rr(3,3,w-6,90,18);c.fill();
+  c.strokeStyle=color;c.lineWidth=3;c.stroke();
+  c.font='bold 36px Outfit, system-ui, sans-serif';c.fillStyle=color;c.textAlign='center';c.textBaseline='middle';c.fillText(text,w/2,48);
+  const tx=new THREE.CanvasTexture(cvE);tx.colorSpace=THREE.SRGBColorSpace;tx.generateMipmaps=false;tx.minFilter=THREE.LinearFilter;
+  const sp=new THREE.Sprite(new THREE.SpriteMaterial({map:tx,depthTest:false,transparent:true}));
+  const aspect=w/96;
+  sp.scale.set(0.30*aspect,0.30,1);sp.renderOrder=999;return sp;
+}
+
+/* ============================================================
+   SYNTH — sintetizador Web Audio reutilizable
+   ============================================================ */
+function makeSynth(opts={}){
+  const type=opts.type||'sawtooth';
+  let ctx=null,oscA=null,oscB=null,gain=null,filter=null,soundOn=true;
+  function init(){
+    if(ctx)return;
+    try{
+      ctx=new (window.AudioContext||window.webkitAudioContext)();
+      oscA=ctx.createOscillator(); oscB=ctx.createOscillator();
+      oscA.type=type; oscB.type=opts.type2||'square';
+      filter=ctx.createBiquadFilter(); filter.type=opts.filterType||'lowpass'; filter.frequency.value=opts.filterFreq||500; filter.Q.value=opts.Q||3;
+      gain=ctx.createGain(); gain.gain.value=0;
+      oscA.connect(filter); oscB.connect(filter); filter.connect(gain); gain.connect(ctx.destination);
+      oscA.start(); oscB.start();
+    }catch(e){}
+  }
+  function update(freqA,freqB,vol,filterFreq){
+    if(!ctx||!soundOn){ if(gain)gain.gain.setTargetAtTime(0,ctx?.currentTime||0,0.1); return; }
+    oscA.frequency.setTargetAtTime(freqA,ctx.currentTime,0.04);
+    if(freqB!==undefined)oscB.frequency.setTargetAtTime(freqB,ctx.currentTime,0.04);
+    if(filterFreq!==undefined)filter.frequency.setTargetAtTime(filterFreq,ctx.currentTime,0.05);
+    gain.gain.setTargetAtTime(Math.max(0,vol),ctx.currentTime,0.06);
+  }
+  function beep(freq=880,dur=0.09,vol=0.06){
+    if(!ctx||!soundOn)return;
+    const o=ctx.createOscillator(),g=ctx.createGain();
+    o.type='sine'; o.frequency.value=freq;
+    g.gain.setValueAtTime(vol,ctx.currentTime); g.gain.exponentialRampToValueAtTime(0.001,ctx.currentTime+dur);
+    o.connect(g); g.connect(ctx.destination); o.start(); o.stop(ctx.currentTime+dur);
+  }
+  function toggle(){ soundOn=!soundOn; return soundOn; }
+  function resume(){ if(ctx&&ctx.state==='suspended')ctx.resume(); }
+  return { init, update, beep, toggle, resume, isOn:()=>soundOn, state:()=>ctx?.state||'none' };
+}
+
+/* ============================================================
+   LAB — ESCÁNER OBD-II Y DIAGNÓSTICO (Dominio D10 · instrumentación)
+   Normatividad de referencia:
+     · SAE J1979 / ISO 15031-5  — modos de diagnóstico y PIDs ($01 datos en vivo,
+       $02 cuadro congelado, $03 lectura de DTC)
+     · SAE J2012 / ISO 15031-6  — formato del código DTC (P0xxx = tren motriz)
+     · ISO 15765-4 (CAN) e ISO 9141-2 / SAE J1850 — protocolos físicos del bus
+     · SAE J1962 — conector de diagnóstico DLC de 16 pines
+     · NOM-047-SEMARNAT-2014 — OBD y monitores de disponibilidad (verificación MX)
+   Modelo de ingeniería (didáctico, 4 cilindros gasolina PFI):
+     · AFR estequiométrico = 14.7:1 ⇒ λ = AFR_real / 14.7
+     · Ajuste de combustible total = STFT + LTFT; positivo = ECU añade combustible
+       (mezcla pobre). |STFT+LTFT| > ~25 % dispara P0171 (pobre) / P0172 (rica).
+     · Sonda O2 de banda estrecha (Nernst, ZrO2): 0.1–0.9 V, conmuta en 0.45 V;
+       una sonda sana conmuta varias veces por segundo en lazo cerrado.
+   ============================================================ */
+const mount=document.getElementById('stage');
+const S=createStage(mount,{cam:[5.2,3.2,6.6],target:[-0.2,1.25,0],bgTop:'#0d1a17',bgBot:'#04060a',bloom:0.4,minD:3.2,maxD:16});
+const {scene}=S;
+const std=o=>new THREE.MeshStandardMaterial(o);
+
+const alu=castAluminum(), brush=brushedMetal(), plas=techPlastic(0.09,0.10,0.12), rub=rubber();
+const MAT={
+  block: std({...alu, metalness:0.55, roughness:0.7}),
+  housing: std({...plas, metalness:0.2, roughness:0.6}),
+  tool: std({color:0x14201d, roughness:0.5, metalness:0.35}),
+  toolGrip: std({...rub, color:0x0c1512, roughness:1.0, metalness:0.0}),
+  pin: std({...brush, color:0xd8b24a, metalness:1.0, roughness:0.28}),
+  cable: std({...rub, color:0x111917, roughness:0.95, metalness:0.0}),
+  sensor: std({color:0xffd166, roughness:0.4, metalness:0.5}),
+  o2: std({color:0x4FD1C5, roughness:0.35, metalness:0.6}),
+  cyl: std({color:0xb8c0c8, roughness:0.45, metalness:0.85}),
+  screen: std({color:0x06120f, emissive:0x0a2a24, emissiveIntensity:0.6, roughness:0.3, metalness:0.1}),
+};
+// colores de código del pinout (informativos, tipo leyenda de cableado)
+const PINCOL={ power:0xf4475e, ground:0x8a9299, can:0x4FD1C5, kline:0xFFB703, disc:0xd8b24a };
+
+/* ---------- 1) CONECTOR DLC J1962 (16 pines, 2 filas de 8) ---------- */
+const conn=new THREE.Group(); conn.position.set(-2.35,1.25,0.9); conn.rotation.y=0.5; scene.add(conn);
+const housing=roundedBox(1.9,0.95,0.5,MAT.housing,0.12); conn.add(housing);
+// cavidad frontal (bisel) — un marco oscuro hacia +Z
+const bezel=roundedBox(1.7,0.78,0.12,std({color:0x05100d,roughness:0.8,metalness:0.2}),0.1);
+bezel.position.set(0,0,0.24); conn.add(bezel);
+// pines: fila superior (A) 1..8 izq→der ; fila inferior (B) 9..16 izq→der
+const PIN_FN={
+  1:'Discrecional del fabricante', 2:'J1850 Bus+ (PWM/VPW)', 3:'Discrecional del fabricante',
+  4:'Tierra de chasis', 5:'Tierra de señal', 6:'CAN High (ISO 15765-4)',
+  7:'Línea K (ISO 9141-2 / KWP2000)', 8:'Discrecional del fabricante',
+  9:'Discrecional del fabricante', 10:'J1850 Bus−', 11:'Discrecional del fabricante',
+  12:'Discrecional del fabricante', 13:'Discrecional del fabricante', 14:'CAN Low (ISO 15765-4)',
+  15:'Línea L (ISO 9141-2, opcional)', 16:'+12 V de batería (permanente)',
+};
+function pinColor(n){
+  if(n===16)return PINCOL.power; if(n===4||n===5)return PINCOL.ground;
+  if(n===6||n===14)return PINCOL.can; if(n===7||n===15)return PINCOL.kline; return PINCOL.disc;
+}
+const pinMeshes=[];
+for(let n=1;n<=16;n++){
+  const row=n<=8?0:1;               // 0 arriba, 1 abajo
+  const col=(n-1)%8;                // 0..7 izq→der
+  const x=-0.72+col*0.206;
+  const y=row===0? 0.17 : -0.17;
+  const m=new THREE.Mesh(new THREE.CylinderGeometry(0.035,0.035,0.18,14), MAT.pin.clone());
+  m.rotation.x=Math.PI/2; m.position.set(x,y,0.28); m.castShadow=true;
+  const col3=pinColor(n);
+  m.material.emissive=new THREE.Color(col3); m.material.emissiveIntensity=0.28;
+  conn.add(m); m.userData={pin:n}; pinMeshes.push(m);
+}
+const HOVER_LABELS=new Map();   // pieza → etiqueta (se muestra solo al pasar el cursor)
+const connLabel=labelSprite('OBD-II · J1962','#4FD1C5'); connLabel.position.set(0,0.85,0);
+connLabel.visible=false; connLabel.raycast=()=>{}; conn.add(connLabel); HOVER_LABELS.set(conn,connLabel);
+
+/* ---------- 2) ESCÁNER (herramienta de exploración) ---------- */
+const tool=new THREE.Group(); tool.position.set(2.15,1.15,1.15); tool.rotation.y=-0.55; tool.rotation.x=-0.12; scene.add(tool);
+const toolBody=roundedBox(1.15,1.7,0.24,MAT.tool,0.14); tool.add(toolBody);
+const grip=roundedBox(1.2,0.55,0.3,MAT.toolGrip,0.35); grip.position.set(0,-0.62,0); tool.add(grip);
+// pantalla emisiva con textura canvas actualizable
+const scrCanvas=document.createElement('canvas'); scrCanvas.width=320; scrCanvas.height=384;
+const scrTex=new THREE.CanvasTexture(scrCanvas); scrTex.colorSpace=THREE.SRGBColorSpace; scrTex.minFilter=THREE.LinearFilter; scrTex.generateMipmaps=false;
+const screen=new THREE.Mesh(new THREE.PlaneGeometry(0.92,1.05),
+  new THREE.MeshBasicMaterial({map:scrTex,toneMapped:false}));
+screen.position.set(0,0.28,0.13); tool.add(screen);
+// botonera decorativa
+for(let i=0;i<4;i++){ const b=roundedBox(0.18,0.12,0.06,std({color:0x1a2622,roughness:0.6,metalness:0.3}),0.2);
+  b.position.set(-0.33+i*0.22,-0.35,0.13); tool.add(b); }
+
+/* ---------- 3) CABLE escáner → DLC ---------- */
+const cableCurve=new THREE.CatmullRomCurve3([
+  new THREE.Vector3(1.85,1.55,1.05),
+  new THREE.Vector3(0.6,0.55,1.4),
+  new THREE.Vector3(-1.0,0.5,1.5),
+  new THREE.Vector3(-2.05,1.15,1.15),
+]);
+const cable=new THREE.Mesh(new THREE.TubeGeometry(cableCurve,48,0.045,10), MAT.cable);
+cable.castShadow=true; scene.add(cable);
+
+/* ---------- 4) MOTOR estilizado + sensores (origen de los datos) ---------- */
+const eng=new THREE.Group(); eng.position.set(0.9,0,-1.55); scene.add(eng);
+const block=roundedBox(2.3,1.0,1.35,MAT.block,0.06); block.position.set(0,0.95,0); eng.add(block);
+const head=roundedBox(2.35,0.4,1.4,MAT.block,0.08); head.position.set(0,1.55,0); eng.add(head);
+// 4 cilindros (indicadores de encendido)
+const cylMarks=[];
+for(let i=0;i<4;i++){
+  const x=-0.78+i*0.52;
+  const c=new THREE.Mesh(new THREE.CylinderGeometry(0.17,0.17,0.34,20), MAT.cyl.clone());
+  c.position.set(x,1.9,0); c.castShadow=true; eng.add(c);
+  c.material.emissive=new THREE.Color(0x123028); cylMarks.push(c);
+  const lb=labelSprite(String(i+1),'#8FB3AC'); lb.position.set(x,2.28,0); lb.scale.multiplyScalar(0.6);
+  lb.visible=false; lb.raycast=()=>{}; eng.add(lb); HOVER_LABELS.set(c,lb);
+}
+// sensores clicables (con etiqueta corta)
+const SENSORS=[
+  {key:'MAF', pos:[-1.55,1.35,0.55], desc:'Sensor MAF — mide el flujo másico de aire admitido (g/s). Un MAF sucio subreporta el flujo.'},
+  {key:'MAP', pos:[-1.1,1.9,-0.35],  desc:'Sensor MAP — presión absoluta del múltiple (kPa). A ralentí hay alto vacío (baja presión).'},
+  {key:'TPS', pos:[-1.65,0.95,-0.4], desc:'Sensor TPS — posición de la mariposa del acelerador (%).'},
+  {key:'O2',  pos:[1.5,0.7,0.5],     desc:'Sonda O2 banda estrecha (B1S1) — 0.1–0.9 V, conmuta en 0.45 V. Debe conmutar rápido en lazo cerrado.'},
+  {key:'ECT', pos:[1.35,1.5,-0.35],  desc:'Sensor ECT — temperatura del refrigerante del motor (°C). El lazo cerrado exige motor caliente.'},
+];
+SENSORS.forEach(sn=>{
+  const mat=(sn.key==='O2')?MAT.o2.clone():MAT.sensor.clone();
+  const s=new THREE.Mesh(new THREE.CylinderGeometry(0.12,0.14,0.22,18), mat);
+  s.position.set(...sn.pos); s.castShadow=true; eng.add(s); sn.mesh=s;
+  const lb=labelSprite(sn.key, sn.key==='O2'?'#4FD1C5':'#ffd166');
+  lb.position.set(sn.pos[0],sn.pos[1]+0.42,sn.pos[2]); lb.scale.multiplyScalar(0.72);
+  lb.visible=false; lb.raycast=()=>{}; eng.add(lb); HOVER_LABELS.set(s,lb);
+  // cable fino sensor → bloque
+  const cw=new THREE.Mesh(new THREE.TubeGeometry(new THREE.CatmullRomCurve3([
+    new THREE.Vector3(...sn.pos), new THREE.Vector3(sn.pos[0]*0.5,1.5,sn.pos[2]*0.5), new THREE.Vector3(0,1.55,0)
+  ]),16,0.016,7), MAT.cable); eng.add(cw);
+});
+
+/* ---------- inspección por clic (pines y sensores) ---------- */
+const toast=document.getElementById('toast');
+function showToast(html){toast.innerHTML=html;toast.classList.add('show');clearTimeout(showToast._t);showToast._t=setTimeout(()=>toast.classList.remove('show'),3200);}
+pickerFor(scene,S.camera,S.renderer.domElement,hit=>{
+  if(!hit)return; let o=hit.object;
+  while(o){
+    if(o.userData&&o.userData.pin){
+      const n=o.userData.pin;
+      showToast(`<b style="color:var(--accent2)">Pin ${n} · DLC J1962</b><br><span style="color:var(--dim);font-size:11px">${PIN_FN[n]}</span>`);
+      return;
+    }
+    const sn=SENSORS.find(s=>s.mesh===o);
+    if(sn){ showToast(`<b style="color:var(--accent)">${sn.key}</b><br><span style="color:var(--dim);font-size:11px">${sn.desc}</span>`); return; }
+    o=o.parent;
+  }
+});
+
+/* ---------- etiquetas al pasar el cursor: escena limpia, rótulo bajo demanda ---------- */
+(function(){
+  const dom=S.renderer.domElement, ray=new THREE.Raycaster(), m=new THREE.Vector2();
+  let shown=null;
+  const setShown=lb=>{ if(shown===lb)return; if(shown)shown.visible=false; shown=lb; if(lb)lb.visible=true; };
+  dom.addEventListener('pointermove',e=>{
+    const r=dom.getBoundingClientRect();
+    m.x=((e.clientX-r.left)/r.width)*2-1; m.y=-((e.clientY-r.top)/r.height)*2+1;
+    ray.setFromCamera(m,S.camera);
+    const hits=ray.intersectObjects(scene.children,true);
+    let lb=null;
+    if(hits[0]){ let o=hits[0].object; while(o){ if(HOVER_LABELS.has(o)){ lb=HOVER_LABELS.get(o); break; } o=o.parent; } }
+    setShown(lb); dom.style.cursor = lb ? 'pointer' : '';
+  });
+  dom.addEventListener('pointerleave',()=>setShown(null));
+})();
+
+/* ============================================================
+   MODELO DE DATOS OBD-II — 4 escenarios de falla + estado sano
+   ============================================================ */
+const SCEN_ORDER=['vacuum','maf','misfire','o2'];
+const SCEN_META={
+  vacuum:{ nombre:'Fuga de vacío', dtc:[['P0171','Sistema demasiado POBRE (Banco 1)']],
+           monitor:'Sistema de combustible', respuesta:'vacuum' },
+  maf:{    nombre:'Sensor MAF sucio', dtc:[['P0101','Rendimiento/rango del sensor MAF']],
+           monitor:'Sistema de combustible', respuesta:'maf' },
+  misfire:{nombre:'Fallo de encendido cil. 3', dtc:[['P0303','Fallo de encendido — cilindro 3'],['P0300','Fallo de encendido aleatorio/múltiple']],
+           monitor:'Fallo de encendido', respuesta:'misfire' },
+  o2:{     nombre:'Sonda O2 perezosa', dtc:[['P0133','Respuesta lenta de la sonda O2 (B1S1)']],
+           monitor:'Sensor de O2', respuesta:'o2' },
+};
+// pistas didácticas (la prueba que discrimina la causa)
+const DX_HINT={
+  vacuum:'La mezcla pobre MEJORA al subir a 2500 rpm: el aire no medido pesa mucho a ralentí y poco a alto flujo. Compara LTFT en ralentí vs 2500.',
+  maf:'El ajuste sigue alto en TODO el rango Y el valor de MAF es bajo para ese TPS/RPM ⇒ el propio sensor MAF miente.',
+  misfire:'RPM inestable + conteo de fallo en el cilindro 3 (cuadro congelado): es encendido/compresión, no mezcla.',
+  o2:'El voltaje de O2 se mueve LENTO (baja frecuencia de conmutación) aunque el nivel parezca normal ⇒ sonda O2 envejecida.',
+};
+
+let scenarioKey=SCEN_ORDER[0];
+let rpmMode='idle';      // 'idle' | 'rev'
+let connected=false;
+let mode='01';           // '01' datos en vivo · '02' cuadro congelado · '03' DTC
+let solved=false;
+
+function computeSteady(){
+  const rev=rpmMode==='rev';
+  const d = rev
+    ? {rpm:2500,spd:0,ect:90,map:42,maf:11.5,tps:17,load:33,stft:1,ltft:2,o2freq:2.4,o2bias:0,o2amp:0.35,rpmJit:12,misfire:0}
+    : {rpm:820, spd:0,ect:89,map:32,maf:3.4, tps:0, load:21,stft:1,ltft:2,o2freq:1.6,o2bias:0,o2amp:0.35,rpmJit:8, misfire:0};
+  if(scenarioKey==='vacuum'){
+    if(rev){ d.ltft=6; d.stft=2; d.map+=3; d.o2bias=-0.03; }
+    else   { d.ltft=22; d.stft=7; d.map+=6; d.maf+=0.3; d.o2bias=-0.12; d.load+=4; }
+  }else if(scenarioKey==='maf'){
+    if(rev){ d.maf=7.0; d.ltft=15; d.stft=4; d.o2bias=-0.06; }
+    else   { d.maf=2.1; d.ltft=16; d.stft=5; d.o2bias=-0.08; }
+  }else if(scenarioKey==='misfire'){
+    d.rpmJit=rev?60:95; d.misfire=rev?9:24; d.ltft=4; d.stft=2; d.o2bias=-0.05; d.o2amp=0.28;
+  }else if(scenarioKey==='o2'){
+    d.o2freq=0.3; d.o2amp=0.22; d.ltft=rev?8:9; d.stft=6;
+  }
+  return d;
+}
+let steady=computeSteady();
+let freeze=null;         // cuadro congelado (se captura al leer DTC en Modo 03)
+
+/* ---------- síntesis: zumbido suave de flujo de datos + bips ---------- */
+const synth=makeSynth({type:'sine',type2:'sine',filterFreq:900,Q:1});
+
+/* ============================================================
+   ANIMACIÓN
+   ============================================================ */
+let o2vLive=0.45, rpmLive=820, misfirePhase=0;
+S.setAnimate((dt,time)=>{
+  // pines del CAN parpadean suave (tráfico del bus) al estar conectado
+  const busPulse=connected?0.28+Math.abs(Math.sin(time*6))*0.5:0.28;
+  pinMeshes.forEach(m=>{ if(m.userData.pin===6||m.userData.pin===14) m.material.emissiveIntensity=busPulse; });
+  // pin 16 (+12V) siempre presente
+  // señal O2 en vivo (banda estrecha) — oscila alrededor de 0.45 V
+  const target=0.45 + steady.o2amp*Math.sin(2*Math.PI*steady.o2freq*time) + steady.o2bias;
+  o2vLive += (Math.min(0.92,Math.max(0.05,target))-o2vLive)*Math.min(1,dt*8);
+  // rpm en vivo con jitter (inestabilidad = fallo de encendido)
+  rpmLive += (steady.rpm - rpmLive)*Math.min(1,dt*4);
+  const jit=(Math.sin(time*13.3)+Math.sin(time*7.7))*0.5*steady.rpmJit;
+  // cilindros: encendido rítmico; en misfire el cil.3 falla intermitente
+  const bank=(time*8)%4|0;
+  cylMarks.forEach((c,i)=>{
+    let fire=(i===bank);
+    if(scenarioKey==='misfire' && i===2){ misfirePhase+=dt; if(Math.sin(time*9.1)>0.2) fire=false; }
+    c.material.emissive.setHex(fire?0x2A9D8F:0x102a24);
+    c.material.emissiveIntensity=fire?0.9:0.25;
+  });
+  // telemetría en vivo (solo si conectado)
+  if(connected) updateLive(rpmLive+jit);
+  // pantalla del escáner
+  if(time-(updateScreen._t||0)>0.25){ updateScreen(rpmLive+jit); updateScreen._t=time; }
+  // audio: zumbido de datos + rugido leve del motor
+  if(connected){
+    const roar=48+rpmLive/55;
+    synth.update(roar, roar*1.5, 0.008+ (rpmMode==='rev'?0.006:0), 700+rpmLive*0.08);
+  } else synth.update(0,0,0);
+});
+S.start();
+
+/* ============================================================
+   HUD (izquierda) — concepto + contrato de fidelidad
+   ============================================================ */
+document.getElementById('hud').innerHTML=`
+  <div class="eyebrow">Autotrónica · Diagnóstico OBD-II</div>
+  <h2>Escáner OBD-II y Diagnóstico</h2>
+  <p>Conecta el escáner al conector <b>DLC J1962</b>, lee los datos en vivo (Modo $01), el cuadro congelado (Modo $02) y los códigos de falla — DTC (Modo $03). Con la evidencia, deduce la <b>causa raíz</b>.</p>
+  <div class="formula">λ = AFR_real / 14.7<br>Ajuste total = STFT + LTFT<br>(+) = ECU añade combustible ⇒ mezcla pobre</div>
+  <div class="legend">
+    <div class="li"><span class="dot" style="background:#f4475e"></span>Pin 16 · +12 V batería</div>
+    <div class="li"><span class="dot" style="background:#4FD1C5"></span>Pines 6/14 · CAN High/Low</div>
+    <div class="li"><span class="dot" style="background:#FFB703"></span>Pin 7 · Línea K (ISO 9141)</div>
+    <div class="li"><span class="dot" style="background:#8a9299"></span>Pines 4/5 · Tierras</div>
+  </div>
+  <div class="fid">
+    <div class="ft">🔒 Contrato de fidelidad</div>
+    <div class="fl"><b>Sí modela:</b> ajuste de combustible (STFT/LTFT), conmutación de la sonda O2 de banda estrecha, dependencia de la mezcla con las rpm, lectura de DTC y cuadro congelado, pinout real del DLC.</div>
+    <div class="fl no"><b>NO modela:</b> tramas ni tiempos reales del bus CAN (ISO-TP), dinámica Nernst de la sonda con difusión, el controlador PI real de lazo cerrado, ni la eficiencia del catalizador (P0420). Los valores son típicos de un 4 cil. gasolina PFI, no de una calibración de ECU específica.</div>
+  </div>
+  <div class="src">Ref: SAE J1979/J2012 · ISO 15031-5/6 · ISO 15765-4 · SAE J1962 · NOM-047-SEMARNAT-2014</div>`;
+
+/* ============================================================
+   PANEL (derecha) — escáner
+   ============================================================ */
+function tf(v,dp=0){return (v===undefined||v===null)?'—':(+v).toFixed(dp);}
+document.getElementById('panel').innerHTML=`
+  <h4>Escáner · <span id="p_case" style="color:var(--accent2)">Caso 1/4</span></h4>
+  <div class="modebar">
+    <button class="b on" id="m01">$01 En vivo</button>
+    <button class="b" id="m02">$02 Congelado</button>
+    <button class="b" id="m03">$03 DTC</button>
+  </div>
+  <div class="console" id="console">Conecta el escáner al DLC (pin 16 = +12 V) para iniciar el flujo de datos.</div>
+  <div id="tele">
+    <div class="g"><div class="gl"><span>RPM</span><b id="t_rpm">—</b></div></div>
+    <div class="g"><div class="gl"><span>Velocidad</span><b id="t_spd">—</b></div></div>
+    <div class="g"><div class="gl"><span>Refrigerante (ECT)</span><b id="t_ect">—</b></div></div>
+    <div class="g"><div class="gl"><span>MAP</span><b id="t_map">—</b></div></div>
+    <div class="g"><div class="gl"><span>MAF</span><b id="t_maf">—</b></div></div>
+    <div class="g"><div class="gl"><span>TPS</span><b id="t_tps">—</b></div></div>
+    <div class="g"><div class="gl"><span>O2 B1S1</span><b id="t_o2">—</b></div></div>
+    <div class="g"><div class="gl"><span>STFT</span><b id="t_stft">—</b></div></div>
+    <div class="g"><div class="gl"><span>LTFT</span><b id="t_ltft">—</b></div></div>
+    <div class="g"><div class="gl"><span>Ajuste total</span><b id="t_tot">—</b></div></div>
+    <div class="g"><div class="gl"><span>Carga calculada</span><b id="t_load">—</b></div></div>
+    <div class="g"><div class="gl"><span>Conmut. O2</span><b id="t_of">—</b></div></div>
+  </div>
+  <h4 class="sec">Condición de prueba</h4>
+  <div class="modebar">
+    <button class="b on" id="r_idle">Ralentí</button>
+    <button class="b" id="r_rev">2500 rpm</button>
+  </div>
+  <h4 class="sec">Diagnóstico · causa raíz</h4>
+  <div class="btns">
+    <button class="b dx" data-dx="vacuum">A · Fuga de vacío (aire no medido)</button>
+    <button class="b dx" data-dx="maf">B · Sensor MAF sucio / fuera de rango</button>
+    <button class="b dx" data-dx="misfire">C · Fallo de encendido en un cilindro</button>
+    <button class="b dx" data-dx="o2">D · Sonda O2 lenta (envejecida)</button>
+  </div>
+  <div class="btns">
+    <button class="b auto" id="btnAuto">✨ Armado y llenado automático (guiado)</button>
+    <button class="b primary" id="btnConnect">🔌 Conectar escáner</button>
+    <button class="b" id="btnNew">🔀 Nuevo caso</button>
+  </div>`;
+
+const el=id=>document.getElementById(id);
+const consoleEl=el('console');
+
+function setConsole(){
+  if(!connected){ consoleEl.innerHTML='Conecta el escáner al DLC (pin 16 = +12 V) para iniciar el flujo de datos.'; return; }
+  const meta=SCEN_META[scenarioKey];
+  if(mode==='03'){
+    // capturar cuadro congelado en la primera lectura de DTC
+    if(!freeze){ const prev={sk:scenarioKey,rm:rpmMode}; rpmMode='idle'; freeze=computeSteady(); freeze.rpmMode='idle'; rpmMode=prev.rm; steady=computeSteady(); }
+    const rows=meta.dtc.map(([c,t])=>`<span class="dtc">${c}</span> <span class="mono">${t}</span>`).join('<br>');
+    consoleEl.innerHTML=`<b>Modo $03 · Códigos almacenados</b><br>${rows}<br><span class="mono">MIL: ENCENDIDA · Formato SAE J2012</span>`;
+    synth.beep(660,0.08,0.05); setTimeout(()=>synth.beep(880,0.09,0.05),120);
+  }else if(mode==='02'){
+    if(!freeze){ consoleEl.innerHTML=`<b>Modo $02 · Cuadro congelado</b><br><span class="mono">Sin cuadro. Lee primero los DTC (Modo $03).</span>`; return; }
+    const f=freeze;
+    consoleEl.innerHTML=`<b>Modo $02 · Cuadro congelado</b> <span class="mono">(al fijar el DTC)</span><br>`+
+      `<span class="mono">RPM ${tf(f.rpm)} · Carga ${tf(f.load)}% · ECT ${tf(f.ect)}°C</span><br>`+
+      `<span class="mono">MAP ${tf(f.map)} kPa · MAF ${tf(f.maf,1)} g/s</span><br>`+
+      `<span class="mono">Ajuste total ${(f.stft+f.ltft>=0?'+':'')}${tf(f.stft+f.ltft)}%`+
+      (scenarioKey==='misfire'?` · Fallos cil.3: ${tf(f.misfire)}`:'')+`</span>`;
+  }else{
+    const ready = 7; // 8 monitores, 1 incompleto por la falla activa
+    consoleEl.innerHTML=`<b>Modo $01 · Datos en vivo (PID $01…)</b><br>`+
+      `<span class="mono">Lazo: CERRADO · Protocolo: ISO 15765-4 (CAN)</span><br>`+
+      `<span class="mono">Monitores listos: ${ready}/8 — incompleto: ${SCEN_META[scenarioKey].monitor}</span>`;
+  }
+}
+
+function updateLive(rpmShown){
+  if(!connected) return;
+  const d=steady;
+  el('t_rpm').textContent=Math.round(rpmShown)+' rpm';
+  el('t_spd').textContent=tf(d.spd)+' km/h';
+  el('t_ect').textContent=tf(d.ect)+' °C';
+  el('t_map').textContent=tf(d.map)+' kPa';
+  const mafB=el('t_maf'); mafB.textContent=tf(d.maf,1)+' g/s';
+  mafB.className = (scenarioKey==='maf')?'bad':'';
+  el('t_tps').textContent=tf(d.tps)+' %';
+  const o2b=el('t_o2'); o2b.textContent=o2vLive.toFixed(2)+' V';
+  o2b.className = o2vLive<0.45?'warn':'good';
+  el('t_stft').textContent=(d.stft>=0?'+':'')+tf(d.stft)+' %';
+  el('t_ltft').textContent=(d.ltft>=0?'+':'')+tf(d.ltft)+' %';
+  const tot=d.stft+d.ltft; const totB=el('t_tot');
+  totB.textContent=(tot>=0?'+':'')+tf(tot)+' %';
+  totB.className = Math.abs(tot)>25?'bad':Math.abs(tot)>10?'warn':'good';
+  el('t_load').textContent=tf(d.load)+' %';
+  const ofB=el('t_of'); ofB.textContent=tf(d.o2freq,1)+' Hz';
+  ofB.className = d.o2freq<0.8?'bad':'good';
+}
+
+function updateScreen(rpmShown){
+  const c=scrCanvas.getContext('2d');
+  c.fillStyle='#04120e'; c.fillRect(0,0,320,384);
+  c.strokeStyle='rgba(79,209,197,.4)'; c.lineWidth=2; c.strokeRect(6,6,308,372);
+  c.fillStyle='#4FD1C5'; c.font='bold 26px Outfit, sans-serif'; c.textAlign='left';
+  c.fillText('CEN · OBD-II', 20, 42);
+  c.font='16px Outfit, sans-serif'; c.fillStyle='#8FB3AC';
+  if(!connected){
+    c.fillText('DESCONECTADO', 20, 90);
+    c.fillText('Conecta al DLC J1962', 20, 118);
+  }else{
+    c.fillText('Modo $'+mode+'  ·  '+(rpmMode==='rev'?'2500 rpm':'ralentí'), 20, 84);
+    c.fillStyle='#EAF4F1'; c.font='bold 34px Outfit, sans-serif';
+    c.fillText(Math.round(rpmShown)+' rpm', 20, 132);
+    c.font='18px Outfit, sans-serif'; c.fillStyle='#8FB3AC';
+    const tot=steady.stft+steady.ltft;
+    c.fillText('LTFT '+(steady.ltft>=0?'+':'')+steady.ltft+'%', 20, 172);
+    c.fillStyle=Math.abs(tot)>25?'#f4475e':Math.abs(tot)>10?'#FFB703':'#34d399';
+    c.fillText('Ajuste '+(tot>=0?'+':'')+tot+'%', 20, 202);
+    c.fillStyle=o2vLive<0.45?'#FFB703':'#34d399';
+    c.fillText('O2 '+o2vLive.toFixed(2)+' V', 20, 232);
+    // mini traza O2
+    c.strokeStyle='#4FD1C5'; c.lineWidth=2; c.beginPath();
+    for(let i=0;i<=120;i++){ const t=i/12; const v=0.45+steady.o2amp*Math.sin(2*Math.PI*steady.o2freq*t)+steady.o2bias;
+      const yy=300 - Math.min(0.92,Math.max(0.05,v))*70; const xx=20+i*2.3; i?c.lineTo(xx,yy):c.moveTo(xx,yy); }
+    c.stroke();
+    c.fillStyle='#5b6f6a'; c.font='13px Outfit, sans-serif'; c.fillText('sonda O2 B1S1', 20, 330);
+    if(mode==='03'){ c.fillStyle='#f4475e'; c.font='bold 20px Outfit, sans-serif';
+      c.fillText(SCEN_META[scenarioKey].dtc[0][0], 20, 366); }
+  }
+  scrTex.needsUpdate=true;
+}
+
+/* ---------- interacción ---------- */
+function refreshCaseLabel(){ el('p_case').textContent='Caso '+(SCEN_ORDER.indexOf(scenarioKey)+1)+'/4'; }
+function clearDx(){ document.querySelectorAll('.b.dx').forEach(b=>b.classList.remove('right','wrong')); }
+
+function setMode(m){ mode=m; ['m01','m02','m03'].forEach(id=>el(id).classList.toggle('on', id==='m'+m)); setConsole(); }
+el('m01').onclick=()=>setMode('01');
+el('m02').onclick=()=>setMode('02');
+el('m03').onclick=()=>setMode('03');
+
+function setRpm(mode2){ rpmMode=mode2; el('r_idle').classList.toggle('on',mode2==='idle'); el('r_rev').classList.toggle('on',mode2==='rev'); steady=computeSteady(); if(mode==='01') setConsole(); }
+el('r_idle').onclick=()=>setRpm('idle');
+el('r_rev').onclick=()=>setRpm('rev');
+
+el('btnConnect').onclick=(e)=>{
+  connected=!connected;
+  synth.init(); synth.resume();
+  e.target.classList.toggle('on',connected);
+  e.target.textContent=connected?'🔌 Desconectar':'🔌 Conectar escáner';
+  if(connected){ S.moveTo([3.4,2.3,5.2],[-0.4,1.2,0.4],1.3); S.setCinematicIdle(true); synth.beep(880,0.1,0.06); }
+  else { S.setCinematicIdle(false); }
+  setConsole();
+  if(!connected){ ['t_rpm','t_spd','t_ect','t_map','t_maf','t_tps','t_o2','t_stft','t_ltft','t_tot','t_load','t_of'].forEach(id=>{el(id).textContent='—';el(id).className='';}); }
+};
+
+el('btnNew').onclick=()=>{
+  const i=(SCEN_ORDER.indexOf(scenarioKey)+1)%SCEN_ORDER.length;
+  scenarioKey=SCEN_ORDER[i];
+  solved=false; freeze=null; rpmMode='idle';
+  steady=computeSteady(); clearDx(); setRpm('idle'); refreshCaseLabel(); setMode('03');
+  showToast('🔀 Nuevo caso cargado — lee los DTC (Modo $03) y diagnostica.');
+};
+
+document.querySelectorAll('.b.dx').forEach(btn=>{
+  btn.onclick=()=>{
+    if(!connected){ showToast('Primero conecta el escáner al DLC.'); return; }
+    const pick=btn.dataset.dx; clearDx();
+    if(pick===SCEN_META[scenarioKey].respuesta){
+      btn.classList.add('right'); solved=true; synth.beep(1046,0.12,0.06);
+      showToast(`<span style="color:var(--good)">✔ Correcto: ${SCEN_META[scenarioKey].nombre}.</span><br><span style="color:var(--dim);font-size:11px">${DX_HINT[scenarioKey]}</span>`);
+    }else{
+      btn.classList.add('wrong'); synth.beep(220,0.15,0.06);
+      showToast(`<span style="color:var(--bad)">✗ Revisa la evidencia.</span><br><span style="color:var(--dim);font-size:11px">${DX_HINT[pick]}</span>`);
+    }
+  };
+});
+
+const soundBtn=document.getElementById('soundBtn');
+soundBtn.onclick=()=>{const on=synth.toggle();soundBtn.textContent=on?'🔊':'🔇';soundBtn.classList.toggle('on',on);};
+
+/* ---------- Modo automático (guiado) — para quien no es ingeniero ----------
+   Conecta el escáner y recorre toda la evidencia paso a paso, con explicación
+   en lenguaje sencillo, y revela la causa raíz. Es una demostración que muestra
+   el laboratorio completo funcionando; no sustituye el diagnóstico manual. */
+const AUTO_WATCH={
+  vacuum:'Fíjate: el ajuste de combustible (LTFT) BAJA mucho al subir a 2500 rpm — el aire no medido pesa a ralentí.',
+  maf:'Fíjate: el ajuste sigue ALTO en todo el rango y el MAF marca bajo (en rojo) — el propio sensor miente.',
+  misfire:'Fíjate: las rpm tiemblan y hay conteo de fallos en el cilindro 3 — es encendido, no mezcla.',
+  o2:'Fíjate: la conmutación de la sonda O2 es LENTA (Hz en rojo) — sonda envejecida.',
+};
+const sleep=ms=>new Promise(r=>setTimeout(r,ms));
+let autoRunning=false;
+async function runAuto(){
+  if(autoRunning) return;
+  autoRunning=true;
+  const btn=el('btnAuto'); const label=btn.textContent;
+  btn.disabled=true; btn.classList.add('on'); btn.textContent='⏳ Demostración en curso…';
+  try{
+    clearDx();
+    if(!connected){ showToast('Paso 1 · Conectamos el escáner al conector DLC (pin 16 = +12 V).'); el('btnConnect').click(); await sleep(1600); }
+    setMode('03'); showToast('Paso 2 · Leemos los códigos de falla (DTC) guardados en la computadora.'); await sleep(2300);
+    setMode('02'); showToast('Paso 3 · Cuadro congelado: cómo estaba el motor cuando se registró la falla.'); await sleep(2300);
+    setMode('01'); setRpm('idle'); showToast('Paso 4 · Datos en vivo a ralentí. Observa el ajuste de combustible.'); await sleep(2400);
+    const key=scenarioKey;
+    setRpm('rev'); showToast('Paso 5 · Prueba clave: subimos a 2500 rpm. '+AUTO_WATCH[key]); await sleep(3000);
+    const meta=SCEN_META[key];
+    const dxBtn=document.querySelector('.b.dx[data-dx="'+meta.respuesta+'"]');
+    clearDx();
+    if(dxBtn){ dxBtn.classList.add('right'); solved=true; synth.beep(1046,0.12,0.06); }
+    showToast('<span style="color:var(--good)">✔ Causa raíz: '+meta.nombre+'.</span><br><span style="color:var(--dim);font-size:11px">'+DX_HINT[key]+'</span>');
+  } finally {
+    btn.disabled=false; btn.classList.remove('on'); btn.textContent=label;
+    autoRunning=false;
+  }
+}
+el('btnAuto').onclick=runAuto;
+
+refreshCaseLabel();
+</script>
+</body>
+</html>

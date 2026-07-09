@@ -391,6 +391,16 @@ exports[`golden master — catálogo por categoría (invariante ante extracción
     "teoria": "Asistencia de par por motor eléctrico en función de la velocidad y el sensor de par en la columna; sintoniza la sensación de dirección y diagnostica fallas.",
     "titulo": "Dirección Asistida Eléctrica (EPS)",
   },
+  {
+    "duracion": "45 min",
+    "estado": "activo",
+    "id": "mecanica-11",
+    "modulo": "Autotrónica",
+    "orden": 11,
+    "simuladorHtml": "/labs/escaner-obd.html",
+    "teoria": "El diagnóstico a bordo (OBD-II) vigila el motor y las emisiones vía el conector DLC J1962. El alumno lee datos en vivo, cuadro congelado y códigos DTC, y deduce la causa raíz interpretando el ajuste de combustible y la sonda O₂. Normas SAE J1979/J2012, ISO 15031/15765 y NOM-047-SEMARNAT-2014.",
+    "titulo": "Escáner OBD-II y Diagnóstico",
+  },
 ]
 `;
 
@@ -524,6 +534,7 @@ exports[`golden master — catálogo por categoría (invariante ante extracción
   "matematicas-9",
   "mecanica-1",
   "mecanica-10",
+  "mecanica-11",
   "mecanica-2",
   "mecanica-3",
   "mecanica-4",

@@ -30,10 +30,17 @@ describe('golden master — catálogo por categoría (invariante ante extracció
     });
   }
 
-  it('cada categoría tiene 10 prácticas con orden 1..10 contiguo', () => {
+  it('cada categoría tiene orden contiguo 1..N (sin huecos ni duplicados)', () => {
+    // Invariante durable ante el crecimiento del catálogo (se añaden labs nuevos):
+    // el `orden` derivado del id debe ir 1..N sin saltos ni repetidos, y
+    // catalogoDeCategoria debe devolverlos en ese orden ascendente.
+    // (Cazar un hueco/duplicado sigue funcionando aunque N crezca; NO fijamos N=10
+    //  porque el proyecto suma prácticas nuevas — p. ej. mecánica ya tiene 11.)
     for (const cat of CATEGORIAS) {
       const orden = catalogoDeCategoria(cat).map((i) => i.orden);
-      expect(orden).toEqual([1, 2, 3, 4, 5, 6, 7, 8, 9, 10]);
+      const esperado = orden.map((_, idx) => idx + 1); // [1, 2, …, N]
+      expect(orden).toEqual(esperado);
+      expect(orden.length).toBeGreaterThanOrEqual(10); // ninguna categoría encoge
     }
   });
 
