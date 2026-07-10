@@ -411,6 +411,16 @@ exports[`golden master — catálogo por categoría (invariante ante extracción
     "teoria": "El DMM entrega lectura ± incertidumbre: U = ±(% de lectura + dígitos) con resolución = rango/6000. El alumno resuelve 4 mediciones (fuente, red de 127 V~, resistor y divisor de alta impedancia), elige rango, interpreta el efecto de carga de los 10 MΩ de entrada y respeta las categorías CAT II/III/IV. Normas IEC 61010-1 y JCGM 100 (GUM) / NMX-CH-140-IMNC-2002.",
     "titulo": "Domina el multímetro: exactitud, resolución y categorías",
   },
+  {
+    "duracion": "40 min",
+    "estado": "activo",
+    "id": "mecanica-13",
+    "modulo": "Circuitos Eléctricos",
+    "orden": 13,
+    "simuladorHtml": "/labs/kirchhoff.html",
+    "teoria": "Una red de 3 mallas (2 fuentes, 5 resistores) resuelta en vivo por análisis nodal modificado (MNA) — el mismo motor de los simuladores SPICE. El alumno verifica con números reales que ΣI = 0 en cada nodo (LCK) y ΣV = 0 en cada malla (LVK), y en el reto resuelve el sistema 2×2 para predecir V_A y V_B antes de que el esquema los revele. Esquema normalizado IEC 60617; resistores con código de colores de la serie E12.",
+    "titulo": "Leyes de Kirchhoff: redes multimalla en vivo",
+  },
 ]
 `;
 
@@ -546,6 +556,7 @@ exports[`golden master — catálogo por categoría (invariante ante extracción
   "mecanica-10",
   "mecanica-11",
   "mecanica-12",
+  "mecanica-13",
   "mecanica-2",
   "mecanica-3",
   "mecanica-4",

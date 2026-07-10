@@ -1,0 +1,1243 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>CEN Labs · Leyes de Kirchhoff: Redes Multimalla — Laboratorio 3D</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#08201C;--panel:rgba(9,26,23,.86);--line:#1E3A34;--ink:#EAF4F1;
+    --dim:#8FB3AC;--accent:#2A9D8F;--accent2:#4FD1C5;--hv:#FFB703;--good:#34d399;--bad:#f4475e;
+    --mono:'Outfit',system-ui,'Segoe UI',Roboto,sans-serif;--disp:'Outfit','Arial Black',Impact,sans-serif;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  html,body{height:100%;background:var(--bg);color:var(--ink);font-family:'Outfit',system-ui,Segoe UI,Roboto,sans-serif}
+  body{overflow:hidden}
+  #stage{position:fixed;inset:0}
+  canvas{display:block;touch-action:none}
+
+  .topbar{position:fixed;top:0;left:0;right:0;height:56px;display:flex;align-items:center;gap:14px;padding:0 20px;z-index:20;background:linear-gradient(180deg,rgba(10,13,18,.92),transparent);pointer-events:none}
+  .brand{font-family:var(--disp);font-weight:bold;font-size:16px;text-transform:uppercase}
+  .brand span{color:var(--accent)}
+  .lt{font-family:var(--mono);font-size:11px;letter-spacing:.1em;text-transform:uppercase;color:var(--dim)}
+
+  .badge{position:fixed;top:16px;right:20px;z-index:20;font-family:var(--mono);font-size:9px;letter-spacing:.12em;text-transform:uppercase;background:rgba(255,209,102,.12);color:var(--hv);border:1px solid rgba(255,209,102,.35);padding:6px 12px;border-radius:20px}
+
+  .hud{position:fixed;top:70px;left:18px;z-index:15;max-width:330px;background:var(--panel);backdrop-filter:blur(14px);border:1px solid var(--line);border-radius:16px;padding:18px 20px;max-height:calc(100vh - 150px);overflow-y:auto}
+  .hud .eyebrow{font-family:var(--mono);font-size:10px;letter-spacing:.18em;text-transform:uppercase;color:var(--accent);margin-bottom:8px}
+  .hud h2{font-size:19px;line-height:1.15;margin-bottom:9px}
+  .hud p{font-size:13px;line-height:1.55;color:var(--dim);margin-bottom:10px}
+  .hud .formula{font-family:var(--mono);color:var(--accent2);text-align:center;font-size:12.5px;margin:8px 0;padding:8px;background:rgba(0,0,0,.25);border-radius:8px;line-height:1.5}
+  .hud .src{font-size:10.5px;color:#7a8894;font-style:italic;margin-top:4px;line-height:1.5}
+  .legend{display:flex;flex-direction:column;gap:6px;margin:12px 0;padding:10px 12px;background:rgba(0,0,0,.22);border-radius:10px}
+  .legend .li{display:flex;align-items:center;gap:8px;font-size:11px;color:#c4d0da}
+  .legend .dot{width:10px;height:10px;border-radius:50%;flex:0 0 auto}
+  .fid{margin:10px 0 2px;padding:10px 12px;background:rgba(0,0,0,.22);border-radius:10px;border:1px solid rgba(79,209,197,.18)}
+  .fid .ft{font-family:var(--mono);font-size:9.5px;letter-spacing:.14em;text-transform:uppercase;color:var(--accent2);margin-bottom:6px}
+  .fid .fl{font-size:11px;color:#c4d0da;line-height:1.5;margin-bottom:5px}
+  .fid .fl b{color:var(--ink)}
+  .fid .fl.no b{color:var(--hv)}
+
+  .panel{position:fixed;top:70px;right:18px;z-index:15;width:262px;background:var(--panel);backdrop-filter:blur(14px);border:1px solid var(--line);border-radius:16px;padding:16px;max-height:calc(100vh - 150px);overflow-y:auto}
+  .panel h4{font-family:var(--mono);font-size:10px;letter-spacing:.14em;text-transform:uppercase;color:var(--dim);margin:2px 0 10px}
+  .panel h4.sec{margin-top:16px;border-top:1px solid var(--line);padding-top:14px}
+  .g{margin-bottom:6px}
+  .gl{display:flex;justify-content:space-between;font-family:var(--mono);font-size:11px;color:var(--dim)}
+  .gl b{color:var(--accent2)}
+  .gl b.good{color:var(--good)}.gl b.warn{color:var(--hv)}.gl b.bad{color:var(--bad)}
+  .modebar{display:flex;gap:5px;margin-bottom:8px}
+  .modebar .b{flex:1;padding:8px 4px;font-size:11px}
+  .btns{display:flex;flex-direction:column;gap:7px;margin-top:6px}
+  .b{font-family:system-ui;font-size:12.5px;padding:10px;border-radius:9px;cursor:pointer;border:1px solid var(--line);background:#1b242f;color:var(--ink);transition:.15s;text-align:center}
+  .b:hover{border-color:var(--accent);background:#202c38}
+  .b.on{background:var(--accent);color:#06120f;border-color:var(--accent);font-weight:bold}
+  .b.primary{background:var(--accent);color:#06120f;border-color:var(--accent);font-weight:bold}
+  .b.auto{border-color:var(--hv);color:var(--hv);background:rgba(255,183,3,.10);font-weight:bold}
+  .b.auto:hover{background:rgba(255,183,3,.18);border-color:var(--hv)}
+  .b.auto:disabled{opacity:.6;cursor:default}
+  .b.dx{text-align:left;font-size:12px}
+  .b.dx.right{background:rgba(52,211,153,.18);border-color:var(--good);color:var(--good);font-weight:bold}
+  .b.dx.wrong{background:rgba(244,71,94,.15);border-color:var(--bad);color:var(--bad)}
+  .console{font-family:var(--mono);font-size:11px;line-height:1.55;color:#c4d0da;background:rgba(0,0,0,.28);border-radius:9px;padding:10px 12px;margin-bottom:8px;min-height:56px}
+  .console .dtc{color:var(--bad);font-weight:bold}
+  .console .ok{color:var(--good)}
+  .console .mono{color:var(--dim)}
+
+  .hint{position:fixed;bottom:18px;left:18px;z-index:14;font-family:var(--mono);font-size:10px;color:var(--dim);background:var(--panel);padding:7px 12px;border-radius:9px;border:1px solid var(--line)}
+  .toast{position:fixed;top:80px;left:50%;transform:translateX(-50%);z-index:30;background:rgba(18,24,32,.95);border:1px solid var(--accent);padding:10px 20px;border-radius:40px;font-family:var(--mono);font-size:12px;opacity:0;transition:.3s;pointer-events:none;max-width:80vw;text-align:center}
+  .toast.show{opacity:1}
+  .soundBtn{position:fixed;top:14px;right:18px;z-index:21;font-size:16px;background:var(--panel);backdrop-filter:blur(12px);border:1px solid var(--line);border-radius:50%;width:36px;height:36px;cursor:pointer;color:var(--dim);transition:.15s}
+  .soundBtn.on{color:var(--accent);border-color:var(--accent)}
+  .soundBtn:hover{transform:scale(1.08)}
+  .inspectHint{position:fixed;bottom:18px;right:18px;z-index:14;font-family:var(--mono);font-size:10px;color:var(--accent2);background:var(--panel);padding:7px 12px;border-radius:9px;border:1px solid var(--line)}
+
+  @media(max-width:820px){
+    .hud,.panel{position:fixed;left:8px;right:8px;top:auto;bottom:8px;max-width:none;width:auto;max-height:42vh;overflow-y:auto}
+    .hud{bottom:calc(8px + 42vh + 8px)}
+    .hint,.inspectHint{display:none}
+  }
+</style>
+</head>
+<body>
+<div id="stage"></div>
+<button class="soundBtn on" id="soundBtn">🔊</button>
+<div class="topbar">
+  <div class="brand">CEN<span> Labs</span></div>
+  <div class="lt">Leyes de Kirchhoff · Circuitos Eléctricos</div>
+</div>
+<div class="hud" id="hud"></div>
+<div class="panel" id="panel"></div>
+<div class="hint">Arrastra para orbitar · rueda para zoom</div>
+<div class="inspectHint">👆 Toca el esquema (nodos, mallas, componentes) o los elementos del banco</div>
+<div class="toast" id="toast"></div>
+
+<script type="importmap">
+{ "imports": {
+  "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.min.js",
+  "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/"
+}}
+</script>
+<script type="module">
+import * as THREE from 'three';
+import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
+import { RoundedBoxGeometry } from 'three/addons/geometries/RoundedBoxGeometry.js';
+import { EffectComposer } from 'three/addons/postprocessing/EffectComposer.js';
+import { RenderPass } from 'three/addons/postprocessing/RenderPass.js';
+import { GTAOPass } from 'three/addons/postprocessing/GTAOPass.js';
+import { UnrealBloomPass } from 'three/addons/postprocessing/UnrealBloomPass.js';
+import { SMAAPass } from 'three/addons/postprocessing/SMAAPass.js';
+import { OutputPass } from 'three/addons/postprocessing/OutputPass.js';
+import { BokehPass } from 'three/addons/postprocessing/BokehPass.js';
+
+/* ============================================================
+   Texturas PBR procedurales (sin archivos externos) — compartidas
+   ============================================================ */
+function cv(s=512){const c=document.createElement('canvas');c.width=c.height=s;return c;}
+function tex(canvas,repeat=1,srgb=false){
+  const t=new THREE.CanvasTexture(canvas);
+  t.wrapS=t.wrapT=THREE.RepeatWrapping;t.repeat.set(repeat,repeat);
+  t.colorSpace = srgb?THREE.SRGBColorSpace:THREE.NoColorSpace;
+  t.generateMipmaps=false; t.minFilter=THREE.LinearFilter; t.anisotropy=1; return t;
+}
+function normalFromHeight(size, hfn, strength=2.0){
+  const c=cv(size),ctx=c.getContext('2d'),img=ctx.createImageData(size,size);
+  const H=(x,y)=>hfn((x+size)%size,(y+size)%size);
+  for(let y=0;y<size;y++)for(let x=0;x<size;x++){
+    const dx=(H(x+1,y)-H(x-1,y))*strength;
+    const dy=(H(x,y+1)-H(x,y-1))*strength;
+    const nz=1.0; const len=Math.hypot(dx,dy,nz);
+    const i=(y*size+x)*4;
+    img.data[i]  =((-dx/len)*0.5+0.5)*255;
+    img.data[i+1]=((-dy/len)*0.5+0.5)*255;
+    img.data[i+2]=((nz/len)*0.5+0.5)*255;
+    img.data[i+3]=255;
+  }
+  ctx.putImageData(img,0,0);return c;
+}
+function valueNoise(seed=1){
+  const g=(x,y)=>{const s=Math.sin((x*127.1+y*311.7)+seed*13.13)*43758.5453;return s-Math.floor(s);};
+  return (x,y)=>{
+    const xi=Math.floor(x),yi=Math.floor(y),xf=x-xi,yf=y-yi;
+    const u=xf*xf*(3-2*xf),v=yf*yf*(3-2*yf);
+    const a=g(xi,yi),b=g(xi+1,yi),c=g(xi,yi+1),d=g(xi+1,yi+1);
+    return a*(1-u)*(1-v)+b*u*(1-v)+c*(1-u)*v+d*u*v;
+  };
+}
+function fbm(noise,x,y,oct=4){let v=0,a=0.5,f=1;for(let i=0;i<oct;i++){v+=noise(x*f,y*f)*a;f*=2;a*=0.5;}return v;}
+
+function castAluminum(){
+  const S=512, n=valueNoise(7);
+  const c=cv(S),ctx=c.getContext('2d'),img=ctx.createImageData(S,S);
+  for(let y=0;y<S;y++)for(let x=0;x<S;x++){
+    const v=fbm(n,x/22,y/22,5);
+    const por=Math.pow(n(x/3.1,y/3.1),8);
+    const base=150+v*38-por*70;
+    const i=(y*S+x)*4; img.data[i]=base; img.data[i+1]=base+4; img.data[i+2]=base+10; img.data[i+3]=255;
+  }
+  ctx.putImageData(img,0,0);
+  const r=cv(S),rx=r.getContext('2d'),rimg=rx.createImageData(S,S);
+  for(let y=0;y<S;y++)for(let x=0;x<S;x++){
+    const v=fbm(n,x/18,y/18,4); const por=Math.pow(n(x/3.1,y/3.1),8);
+    const rough=120+v*40+por*90; const i=(y*S+x)*4;
+    rimg.data[i]=rimg.data[i+1]=rimg.data[i+2]=Math.min(255,rough); rimg.data[i+3]=255;
+  }
+  rx.putImageData(rimg,0,0);
+  const nrm=normalFromHeight(S,(x,y)=>fbm(n,x/16,y/16,5)+Math.pow(n(x/3.1,y/3.1),8)*0.6,3.0);
+  return {map:tex(c,1,true),roughnessMap:tex(r),normalMap:tex(nrm)};
+}
+function brushedMetal(){
+  const S=512, n=valueNoise(3);
+  const c=cv(S),ctx=c.getContext('2d'),img=ctx.createImageData(S,S);
+  for(let y=0;y<S;y++)for(let x=0;x<S;x++){
+    const streak=Math.sin(y*0.9)*2 + (n(x/120,y*0.5)-0.5)*40;
+    const base=185+streak; const i=(y*S+x)*4;
+    img.data[i]=base; img.data[i+1]=base+2; img.data[i+2]=base+6; img.data[i+3]=255;
+  }
+  ctx.putImageData(img,0,0);
+  const r=cv(S),rx=r.getContext('2d'),rimg=rx.createImageData(S,S);
+  for(let y=0;y<S;y++)for(let x=0;x<S;x++){
+    const streak=(n(x/120,y*0.5)-0.5)*60; const rough=40+Math.abs(streak); const i=(y*S+x)*4;
+    rimg.data[i]=rimg.data[i+1]=rimg.data[i+2]=Math.min(160,rough); rimg.data[i+3]=255;
+  }
+  rx.putImageData(rimg,0,0);
+  const nrm=normalFromHeight(S,(x,y)=>(n(x/120,y*0.5))*0.3+Math.sin(y*0.9)*0.02,1.2);
+  return {map:tex(c,1,true),roughnessMap:tex(r),normalMap:tex(nrm)};
+}
+function rubber(){
+  const S=256,n=valueNoise(5);
+  const nrm=normalFromHeight(S,(x,y)=>fbm(n,x/8,y/8,4),1.4);
+  const rough=cv(64),rc=rough.getContext('2d');rc.fillStyle='#e0e0e0';rc.fillRect(0,0,64,64);
+  return {roughnessMap:tex(rough),normalMap:tex(nrm,2)};
+}
+function gradientBG(top='#11161d',bottom='#05070a'){
+  const c=cv(512),ctx=c.getContext('2d');
+  const grd=ctx.createLinearGradient(0,0,0,512);
+  grd.addColorStop(0,top);grd.addColorStop(1,bottom);
+  ctx.fillStyle=grd;ctx.fillRect(0,0,512,512);
+  const rg=ctx.createRadialGradient(256,200,30,256,256,360);
+  rg.addColorStop(0,'rgba(42,157,143,0.10)');rg.addColorStop(1,'rgba(0,0,0,0)');
+  ctx.fillStyle=rg;ctx.fillRect(0,0,512,512);
+  return tex(c,1,true);
+}
+function techPlastic(r=0.10,g=0.11,b=0.13){
+  const S=256,n=valueNoise(31);
+  const c=cv(S),ctx=c.getContext('2d'),img=ctx.createImageData(S,S);
+  for(let y=0;y<S;y++)for(let x=0;x<S;x++){
+    const v=fbm(n,x/30,y/30,3)*0.1+0.92; const i=(y*S+x)*4;
+    img.data[i]=r*255*v;img.data[i+1]=g*255*v;img.data[i+2]=b*255*v;img.data[i+3]=255;
+  }
+  ctx.putImageData(img,0,0);
+  const nrm=normalFromHeight(S,(x,y)=>fbm(n,x/10,y/10,3),0.8);
+  const rough=cv(64),rc=rough.getContext('2d');rc.fillStyle='#9a9a9a';rc.fillRect(0,0,64,64);
+  return {map:tex(c,1,true),roughnessMap:tex(rough),normalMap:tex(nrm)};
+}
+
+/* ============================================================
+   ENGINE — render premium compartido por todos los laboratorios
+   ============================================================ */
+function createStage(mount, opts={}){
+  const bgTop = opts.bgTop||'#141b24', bgBot = opts.bgBot||'#05070a';
+  const renderer = new THREE.WebGLRenderer({ antialias:true, powerPreference:'high-performance' });
+  renderer.setPixelRatio(Math.min(devicePixelRatio,2));
+  renderer.setSize(mount.clientWidth, mount.clientHeight);
+  renderer.shadowMap.enabled = true;
+  renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+  renderer.toneMapping = THREE.ACESFilmicToneMapping;
+  renderer.toneMappingExposure = opts.exposure ?? 1.18;
+  renderer.outputColorSpace = THREE.SRGBColorSpace;
+  mount.appendChild(renderer.domElement);
+  renderer.domElement.style.touchAction='none';
+
+  const scene = new THREE.Scene();
+  scene.background = gradientBG(bgTop,bgBot);
+  const pmrem = new THREE.PMREMGenerator(renderer);
+  scene.environment = pmrem.fromScene(new RoomEnvironment(renderer), 0.04).texture;
+  scene.environmentIntensity = opts.envInt ?? 1.15;
+
+  const camera = new THREE.PerspectiveCamera(45, mount.clientWidth/mount.clientHeight, 0.1, 200);
+  const cam = opts.cam || [5.5,3.4,6.2];
+  camera.position.set(...cam);
+
+  const controls = new OrbitControls(camera, renderer.domElement);
+  controls.enableDamping = true; controls.dampingFactor = 0.07;
+  controls.minDistance = opts.minD ?? 3; controls.maxDistance = opts.maxD ?? 18;
+  controls.maxPolarAngle = Math.PI*0.52;
+  controls.target.set(...(opts.target||[0,1.4,0]));
+  controls.autoRotate = opts.autoRotate ?? false;
+  controls.autoRotateSpeed = opts.autoRotateSpeed ?? 0.6;
+
+  const key = new THREE.DirectionalLight(0xffffff, 2.7);
+  key.position.set(5,9,6); key.castShadow=true;
+  key.shadow.mapSize.set(2048,2048);
+  key.shadow.camera.near=0.5; key.shadow.camera.far=40;
+  const sd=8; Object.assign(key.shadow.camera,{left:-sd,right:sd,top:sd,bottom:-sd});
+  key.shadow.bias=-0.0003; key.shadow.normalBias=0.02; scene.add(key);
+  const rim = new THREE.SpotLight(0x2affce, 55, 30, Math.PI/5, 0.4, 1.5);
+  rim.position.set(-7,6,-5); scene.add(rim);
+  const fill = new THREE.DirectionalLight(0x6fb6ff, 0.5); fill.position.set(-4,3,7); scene.add(fill);
+  scene.add(new THREE.HemisphereLight(0x9fb4c8, 0x10151b, 0.35));
+
+  if(opts.floor!==false){
+    const f = new THREE.Mesh(new THREE.CircleGeometry(40,80),
+      new THREE.MeshStandardMaterial({ color:0x0a0e13, roughness:0.14, metalness:0.62, envMapIntensity:1.15 }));
+    f.rotation.x=-Math.PI/2; f.receiveShadow=true; scene.add(f);
+    for(let r=2;r<=8;r+=2){
+      const ring=new THREE.Mesh(new THREE.RingGeometry(r-0.012,r+0.012,80),
+        new THREE.MeshBasicMaterial({color:0x1a2632,transparent:true,opacity:0.4}));
+      ring.rotation.x=-Math.PI/2; ring.position.y=0.002; scene.add(ring);
+    }
+  }
+
+  const isMobile = /Mobi|Android|iPhone|iPad/i.test(navigator.userAgent) || innerWidth<820;
+  // GTAO desactivado por defecto: el pase de oclusión ambiental en espacio de pantalla
+  // producía un recuadro oscuro duro sobre el piso reflectante (artefacto dependiente de la
+  // cámara y del renderer). La escena tiene AO suficiente con luces directas + sombras + env.
+  // Se puede reactivar para pruebas con ?gtao.
+  const useGtao = /[?&]gtao\b/.test(location.search);
+  const composer = new EffectComposer(renderer);
+  composer.addPass(new RenderPass(scene,camera));
+  if(!isMobile && useGtao){
+    try{
+      const g=new GTAOPass(scene,camera,mount.clientWidth,mount.clientHeight);
+      g.output=GTAOPass.OUTPUT.Default;
+      if(g.updateGtaoMaterial)g.updateGtaoMaterial({radius:0.5,distanceExponent:1,thickness:1,scale:1.1,samples:16});
+      composer.addPass(g);
+    }catch(e){}
+  }
+  const bloom=new UnrealBloomPass(new THREE.Vector2(mount.clientWidth,mount.clientHeight),opts.bloom??0.42,0.5,0.9);
+  composer.addPass(bloom);
+  let bokeh=null;
+  const flat=/[?&]flat/.test(location.search);
+  if(!isMobile && !flat){
+    bokeh=new BokehPass(scene,camera,{focus:8.5,aperture:opts.aperture??0.00018,maxblur:opts.maxblur??0.004,width:mount.clientWidth,height:mount.clientHeight});
+    composer.addPass(bokeh);
+  }
+  composer.addPass(new OutputPass());
+  composer.addPass(new SMAAPass(mount.clientWidth*renderer.getPixelRatio(),mount.clientHeight*renderer.getPixelRatio()));
+
+  function resize(){
+    const w=mount.clientWidth,h=mount.clientHeight;
+    camera.aspect=w/h; camera.updateProjectionMatrix();
+    renderer.setSize(w,h); composer.setSize(w,h);
+  }
+  window.addEventListener('resize',resize);
+
+  const clock=new THREE.Clock();
+  let hook=null, raf=null;
+  const camCine={active:false,t:0,dur:1.4,from:new THREE.Vector3(),to:new THREE.Vector3(),fromT:new THREE.Vector3(),toT:new THREE.Vector3()};
+  let lastDrag=-99, cinematicIdle=false;
+  controls.addEventListener('start',()=>{ lastDrag=clock.elapsedTime; camCine.active=false; });
+  function easeInOutCubic(x){return x<0.5?4*x*x*x:1-Math.pow(-2*x+2,3)/2;}
+  function moveTo(pos,target,dur=1.4){
+    camCine.from.copy(camera.position); camCine.fromT.copy(controls.target);
+    camCine.to.set(...pos); camCine.toT.set(...target);
+    camCine.dur=dur; camCine.active=true; camCine.t=0;
+  }
+  function setCinematicIdle(v){ cinematicIdle=v; if(!v)controls.autoRotate=false; }
+  function loop(){ raf=requestAnimationFrame(loop); const dt=clock.getDelta(),t=clock.elapsedTime;
+    if(camCine.active){
+      camCine.t=Math.min(1,camCine.t+dt/camCine.dur);
+      const e=easeInOutCubic(camCine.t);
+      camera.position.lerpVectors(camCine.from,camCine.to,e);
+      controls.target.lerpVectors(camCine.fromT,camCine.toT,e);
+      if(camCine.t>=1)camCine.active=false;
+    } else if(cinematicIdle){
+      controls.autoRotate=(t-lastDrag)>1.4; controls.autoRotateSpeed=0.45;
+    }
+    if(hook)hook(dt,t); controls.update();
+    if(bokeh) bokeh.uniforms['focus'].value = camera.position.distanceTo(controls.target);
+    composer.render(); }
+  function start(){ if(!raf)loop(); }
+  function stop(){ cancelAnimationFrame(raf); raf=null; window.removeEventListener('resize',resize); }
+
+  return { THREE, renderer, scene, camera, controls, composer, bloom,
+    setAnimate:fn=>hook=fn, start, stop, resize, clock,
+    flyTo:(v)=>{ controls.target.copy(v); }, moveTo, setCinematicIdle };
+}
+
+/* ---------- shared geometry/material helpers ---------- */
+function roundedBox(w,h,d,mat,rf=0.08){
+  const r=Math.min(w,h,d)*rf;
+  const m=new THREE.Mesh(new RoundedBoxGeometry(w,h,d,4,r),mat);
+  m.castShadow=m.receiveShadow=true; return m;
+}
+function pickerFor(scene,camera,dom,onHit){
+  const ray=new THREE.Raycaster(),mouse=new THREE.Vector2(); let down=null;
+  dom.addEventListener('pointerdown',e=>down=[e.clientX,e.clientY]);
+  dom.addEventListener('pointerup',e=>{
+    if(!down)return; const moved=Math.abs(e.clientX-down[0])+Math.abs(e.clientY-down[1])>6; down=null;
+    if(moved)return;
+    const r=dom.getBoundingClientRect();
+    mouse.x=((e.clientX-r.left)/r.width)*2-1; mouse.y=-((e.clientY-r.top)/r.height)*2+1;
+    ray.setFromCamera(mouse,camera);
+    const hits=ray.intersectObjects(scene.children,true);
+    onHit(hits[0]||null);
+  });
+}
+function labelSprite(text,color='#ffd166'){
+  const w = Math.max(150, Math.min(520, text.length*26+60));
+  const cvE=document.createElement('canvas');cvE.width=w;cvE.height=96;
+  const c=cvE.getContext('2d');c.fillStyle='rgba(8,11,16,.95)';
+  const rr=(x,y,ww,hh,r)=>{c.beginPath();c.moveTo(x+r,y);c.arcTo(x+ww,y,x+ww,y+hh,r);c.arcTo(x+ww,y+hh,x,y+hh,r);c.arcTo(x,y+hh,x,y,r);c.arcTo(x,y,x+ww,y,r);c.closePath();};
+  rr(3,3,w-6,90,18);c.fill();
+  c.strokeStyle=color;c.lineWidth=3;c.stroke();
+  c.font='bold 36px Outfit, system-ui, sans-serif';c.fillStyle=color;c.textAlign='center';c.textBaseline='middle';c.fillText(text,w/2,48);
+  const tx=new THREE.CanvasTexture(cvE);tx.colorSpace=THREE.SRGBColorSpace;tx.generateMipmaps=false;tx.minFilter=THREE.LinearFilter;
+  const sp=new THREE.Sprite(new THREE.SpriteMaterial({map:tx,depthTest:false,transparent:true}));
+  const aspect=w/96;
+  sp.scale.set(0.30*aspect,0.30,1);sp.renderOrder=999;return sp;
+}
+
+/* ============================================================
+   SYNTH — sintetizador Web Audio reutilizable
+   ============================================================ */
+function makeSynth(opts={}){
+  const type=opts.type||'sawtooth';
+  let ctx=null,oscA=null,oscB=null,gain=null,filter=null,soundOn=true;
+  function init(){
+    if(ctx)return;
+    try{
+      ctx=new (window.AudioContext||window.webkitAudioContext)();
+      oscA=ctx.createOscillator(); oscB=ctx.createOscillator();
+      oscA.type=type; oscB.type=opts.type2||'square';
+      filter=ctx.createBiquadFilter(); filter.type=opts.filterType||'lowpass'; filter.frequency.value=opts.filterFreq||500; filter.Q.value=opts.Q||3;
+      gain=ctx.createGain(); gain.gain.value=0;
+      oscA.connect(filter); oscB.connect(filter); filter.connect(gain); gain.connect(ctx.destination);
+      oscA.start(); oscB.start();
+    }catch(e){}
+  }
+  function update(freqA,freqB,vol,filterFreq){
+    if(!ctx||!soundOn){ if(gain)gain.gain.setTargetAtTime(0,ctx?.currentTime||0,0.1); return; }
+    oscA.frequency.setTargetAtTime(freqA,ctx.currentTime,0.04);
+    if(freqB!==undefined)oscB.frequency.setTargetAtTime(freqB,ctx.currentTime,0.04);
+    if(filterFreq!==undefined)filter.frequency.setTargetAtTime(filterFreq,ctx.currentTime,0.05);
+    gain.gain.setTargetAtTime(Math.max(0,vol),ctx.currentTime,0.06);
+  }
+  function beep(freq=880,dur=0.09,vol=0.06){
+    if(!ctx||!soundOn)return;
+    const o=ctx.createOscillator(),g=ctx.createGain();
+    o.type='sine'; o.frequency.value=freq;
+    g.gain.setValueAtTime(vol,ctx.currentTime); g.gain.exponentialRampToValueAtTime(0.001,ctx.currentTime+dur);
+    o.connect(g); g.connect(ctx.destination); o.start(); o.stop(ctx.currentTime+dur);
+  }
+  function toggle(){ soundOn=!soundOn; return soundOn; }
+  function resume(){ if(ctx&&ctx.state==='suspended')ctx.resume(); }
+  return { init, update, beep, toggle, resume, isOn:()=>soundOn, state:()=>ctx?.state||'none' };
+}
+
+/* ============================================================
+   LAB — LEYES DE KIRCHHOFF: REDES MULTIMALLA
+   (Dominio D1 · circuitos eléctricos — molde S: esquemático + simulación numérica)
+   Normatividad / referencia:
+     · LCK y LVK (G. Kirchhoff, 1845): conservación de la carga en cada
+       nodo (ΣI = 0) y de la energía por unidad de carga en cada lazo
+       cerrado (ΣV = 0).
+     · IEC 60617 — símbolos gráficos para esquemas (resistor rectangular,
+       batería, tierra). Se cita como estándar de REPRESENTACIÓN; el
+       ancla física del lab son las propias leyes.
+   Modelo de ingeniería (didáctico):
+     · La red se declara como DATOS (nodos + ramas {tipo, valor, a, b}) y
+       se resuelve EN VIVO por análisis nodal modificado (MNA): matriz de
+       conductancias + fuentes de tensión como incógnitas de corriente,
+       eliminación gaussiana con pivoteo parcial.
+     · El MISMO motor (solveMNA + pizarrón esquemático) se reutiliza en
+       las demás prácticas del molde S (divisores, Thévenin, máxima
+       transferencia): solo cambia la declaración de la red.
+     · Fuentes ideales y resistores exactos: el contrato de fidelidad
+       declara explícitamente lo que el modelo NO incluye.
+   ============================================================ */
+
+const mount=document.getElementById('stage');
+const S=createStage(mount,{cam:[3.1,2.5,7.2],target:[0.5,1.3,0.1],bgTop:'#0d1a17',bgBot:'#04060a',bloom:0.35,minD:3.0,maxD:18});
+const {scene}=S;
+const synth=makeSynth({type:'sine',type2:'triangle',filterFreq:2600,Q:0.8});
+
+/* ============================================================
+   1) RED ELÉCTRICA COMO DATOS + SOLVER MNA (reutilizable molde S)
+   ============================================================ */
+/* Nodos: 0=ref (tierra), 1=P, 2=A, 3=B, 4=Q. Incógnitas reales: V_A y V_B
+   (P y Q los fijan las fuentes ideales V1 y V2). */
+const NODE_NAME=['ref','P','A','B','Q'];
+const NET={
+  nodes:4,
+  elems:[
+    {id:'V1',type:'V',a:1,b:0,value:12},
+    {id:'R1',type:'R',a:1,b:2,value:1000},
+    {id:'R2',type:'R',a:2,b:0,value:2200},
+    {id:'R3',type:'R',a:2,b:3,value:3300},
+    {id:'R4',type:'R',a:3,b:0,value:4700},
+    {id:'R5',type:'R',a:4,b:3,value:1500},
+    {id:'V2',type:'V',a:4,b:0,value:5},
+  ],
+};
+const EL=id=>NET.elems.find(e=>e.id===id);
+
+/* Análisis nodal modificado: incógnitas = n voltajes de nodo + 1 corriente
+   por fuente de tensión. Gaussiana con pivoteo parcial. */
+function solveMNA(net){
+  const n=net.nodes;
+  const vs=net.elems.filter(e=>e.type==='V');
+  const N=n+vs.length;
+  const A=Array.from({length:N},()=>new Array(N).fill(0));
+  const z=new Array(N).fill(0);
+  net.elems.forEach(e=>{
+    if(e.type==='R'){
+      const g=1/e.value, a=e.a-1, b=e.b-1;
+      if(a>=0)A[a][a]+=g;
+      if(b>=0)A[b][b]+=g;
+      if(a>=0&&b>=0){A[a][b]-=g;A[b][a]-=g;}
+    }
+  });
+  vs.forEach((e,k)=>{
+    const r=n+k, a=e.a-1, b=e.b-1;
+    if(a>=0){A[r][a]=1;A[a][r]=1;}
+    if(b>=0){A[r][b]=-1;A[b][r]=-1;}
+    z[r]=e.value;
+  });
+  // eliminación gaussiana con pivoteo parcial
+  for(let c=0;c<N;c++){
+    let p=c;
+    for(let r=c+1;r<N;r++)if(Math.abs(A[r][c])>Math.abs(A[p][c]))p=r;
+    [A[c],A[p]]=[A[p],A[c]];[z[c],z[p]]=[z[p],z[c]];
+    for(let r=c+1;r<N;r++){
+      const f=A[r][c]/A[c][c];
+      if(!f)continue;
+      for(let k=c;k<N;k++)A[r][k]-=f*A[c][k];
+      z[r]-=f*z[c];
+    }
+  }
+  const x=new Array(N).fill(0);
+  for(let r=N-1;r>=0;r--){
+    let s=z[r];
+    for(let k=r+1;k<N;k++)s-=A[r][k]*x[k];
+    x[r]=s/A[r][r];
+  }
+  return {V:[0,...x.slice(0,n)],srcI:x.slice(n)};
+}
+
+let SOL=null;
+function resolve(){SOL=solveMNA(NET);}
+
+/* Corrientes SIEMPRE derivadas de los resistores (convención: positiva de a→b) */
+const iThru=e=>(SOL.V[e.a]-SOL.V[e.b])/e.value;
+/* Para la LCK en ref: la corriente de cada fuente es la de su resistor en serie */
+const SRC_SERIES={V1:'R1',V2:'R5'};
+
+function nodeCurrents(k){
+  const list=[];
+  NET.elems.forEach(e=>{
+    if(e.type==='R'&&(e.a===k||e.b===k)){
+      const otro=e.a===k?e.b:e.a;
+      list.push({id:e.id,otro:NODE_NAME[otro],into:(SOL.V[otro]-SOL.V[k])/e.value});
+    }else if(e.type==='V'&&e.b===k){
+      list.push({id:e.id,otro:NODE_NAME[e.a],into:-iThru(EL(SRC_SERIES[e.id]))});
+    }
+  });
+  return list;
+}
+const kclSum=k=>nodeCurrents(k).reduce((s,f)=>s+f.into,0)*1e3;   // en mA
+
+/* Mallas: recorrido nodo a nodo; LVK = Σ(V[to]−V[from]) = 0 */
+const MESHES=[
+  {nombre:'Malla 1 (V1–R1–R2)',color:'#4FD1C5',pasos:[{el:'V1',from:0,to:1},{el:'R1',from:1,to:2},{el:'R2',from:2,to:0}]},
+  {nombre:'Malla 2 (R2–R3–R4) · sin fuentes',color:'#FFB703',pasos:[{el:'R2',from:0,to:2},{el:'R3',from:2,to:3},{el:'R4',from:3,to:0}]},
+  {nombre:'Malla 3 (R4–R5–V2)',color:'#c084fc',pasos:[{el:'R4',from:0,to:3},{el:'R5',from:3,to:4},{el:'V2',from:4,to:0}]},
+];
+function kvlSteps(mi){
+  return MESHES[mi].pasos.map(p=>{
+    const e=EL(p.el), dV=SOL.V[p.to]-SOL.V[p.from];
+    const det=e.type==='V'
+      ?(dV>=0?'fuente, de − a +':'fuente, de + a −')
+      :(dV<0?'caída I·R, a favor de la corriente':'subida I·R, contra la corriente');
+    return {desde:NODE_NAME[p.from],hasta:NODE_NAME[p.to],el:p.el,dV,det};
+  });
+}
+const kvlSum=mi=>MESHES[mi].pasos.reduce((s,p)=>s+SOL.V[p.to]-SOL.V[p.from],0);  // en V
+
+/* Formato (ASCII en signos: los tests hacen grep) */
+const fmtR=v=>v>=1000?(((v/1000)%1)?(v/1000).toFixed(1):String(Math.round(v/1000)))+' kΩ':v+' Ω';
+const fmtV=v=>(v%1?v.toFixed(1):String(v))+' V';
+const sg=x=>(x>=0?'+':'-')+Math.abs(x).toFixed(3);
+const fmtSum=x=>{const v=Math.abs(x)<5e-7?0:x;return(v>=0?'+':'-')+Math.abs(v).toFixed(6);};
+
+/* Código de colores REAL (E12, ±5 %): bandas en vivo sobre los resistores 3D */
+const BAND_COLORS=['#1a1a1a','#6b4226','#c73a3a','#d2691e','#e8c832','#3f8f3f','#2b5fb8','#7d3fc4','#8a8a8a','#e8e8e8'];
+const BAND_NAMES=['negro','café','rojo','naranja','amarillo','verde','azul','violeta','gris','blanco'];
+function bandsFor(v){
+  const exp=Math.floor(Math.log10(v))-1;
+  const dd=Math.round(v/Math.pow(10,exp));
+  return {d1:Math.floor(dd/10),d2:dd%10,mult:exp};
+}
+const E12=[1.0,1.2,1.5,1.8,2.2,2.7,3.3,3.9,4.7,5.6,6.8,8.2];
+
+/* ============================================================
+   2) ESTADO
+   ============================================================ */
+let mode='explora';       // explora | nodos | mallas | reto
+let selNode=2;            // 2=A, 3=B, 0=ref
+let selMesh=0;
+let retoSolved=false;     // en reto: V_A/V_B/corrientes ocultos hasta acertar
+let retoMsg='';
+let solved=false;         // pregunta de ingeniería del modo actual
+let autoRunning=false;
+let QUIZ={};
+
+/* ============================================================
+   3) MATERIALES (regla: los roughnessMap procedurales MULTIPLICAN
+      la roughness → carcasas con roughness alta y metalness ~0)
+   ============================================================ */
+const std=o=>new THREE.MeshStandardMaterial(o);
+const sh=m=>{m.castShadow=true;m.receiveShadow=true;return m;};
+const alu=castAluminum(), brush=brushedMetal(), rub=rubber(), plas=techPlastic(0.16,0.19,0.18);
+const MAT={
+  bench:  std({...plas.maps,color:0x3a464d,roughness:0.85,metalness:0.05}),
+  frame:  std({...plas.maps,color:0x232a2e,roughness:0.95,metalness:0}),
+  leg:    std({...brush.maps,color:0x77828a,metalness:0.35,roughness:0.85}),
+  pcb:    std({color:0x14532d,roughness:0.62,metalness:0}),
+  trace:  std({...brush.maps,color:0xc08a3e,metalness:0.8,roughness:0.5}),
+  psu:    std({...brush.maps,color:0x707c85,metalness:0.35,roughness:0.85}),
+  lead:   std({...brush.maps,color:0xbfc8ce,metalness:0.9,roughness:0.35}),
+  jackRed:std({color:0xc23434,roughness:0.55,metalness:0}),
+  jackBlk:std({color:0x14181c,roughness:0.55,metalness:0}),
+  cableRed:std({...rub.maps,color:0x9e2b2b,roughness:1.0,metalness:0}),
+  cableBlk:std({...rub.maps,color:0x15181b,roughness:1.0,metalness:0}),
+};
+
+const HOVER_LABELS=new Map();
+function addHoverLabel(obj,text,color,pos,scale){
+  const lb=labelSprite(text,color);
+  lb.position.copy(pos);if(scale)lb.scale.multiplyScalar(scale);
+  lb.visible=false;lb.raycast=()=>{};
+  obj.add(lb);HOVER_LABELS.set(obj,lb);
+}
+
+/* ============================================================
+   4) PIZARRÓN — esquema IEC 60617 vivo (canvas → textura)
+   ============================================================ */
+const boardG=new THREE.Group();boardG.position.set(-1.05,0,-0.85);boardG.rotation.y=0.16;scene.add(boardG);
+const frame=sh(roundedBox(3.62,2.77,0.12,MAT.frame,0.03));frame.position.set(0,1.85,0);boardG.add(frame);
+[-1.5,1.5].forEach(x=>{
+  const leg=sh(new THREE.Mesh(new THREE.CylinderGeometry(0.05,0.06,0.56,10),MAT.leg));
+  leg.position.set(x,0.28,0);boardG.add(leg);
+});
+const bCv=document.createElement('canvas');bCv.width=1024;bCv.height=768;
+const bTex=new THREE.CanvasTexture(bCv);
+bTex.colorSpace=THREE.SRGBColorSpace;bTex.minFilter=THREE.LinearFilter;bTex.generateMipmaps=false;
+const board=new THREE.Mesh(new THREE.PlaneGeometry(3.4,2.55),new THREE.MeshBasicMaterial({map:bTex,toneMapped:false}));
+board.position.set(0,1.85,0.065);boardG.add(board);
+frame.userData={title:'Pizarrón del esquema',info:'Esquema vivo de la red (símbolos IEC 60617). Toca nodos, insignias de malla o componentes.'};
+addHoverLabel(frame,'Esquema vivo · clic: nodos, mallas, componentes','#4FD1C5',new THREE.Vector3(0,1.65,0.3),1.0);
+
+/* Geometría del esquema en px del canvas (1024×768) */
+const NODE_XY={2:[390,150],3:[650,150],0:[520,640],1:[110,150],4:[930,150]};
+const HIT=[
+  {x:390,y:150,r:48,node:2},{x:650,y:150,r:48,node:3},{x:520,y:640,r:70,node:0},
+  {x:250,y:470,r:44,mesh:0},{x:520,y:470,r:44,mesh:1},{x:790,y:470,r:44,mesh:2},
+  {x:250,y:150,r:52,el:'R1'},{x:520,y:150,r:52,el:'R3'},{x:790,y:150,r:52,el:'R5'},
+  {x:390,y:395,r:55,el:'R2'},{x:650,y:395,r:55,el:'R4'},
+  {x:110,y:395,r:55,el:'V1'},{x:930,y:395,r:55,el:'V2'},
+];
+
+function line(c,x1,y1,x2,y2){c.beginPath();c.moveTo(x1,y1);c.lineTo(x2,y2);c.stroke();}
+function rr(c,x,y,w,h,r){
+  c.beginPath();
+  c.moveTo(x+r,y);c.lineTo(x+w-r,y);c.arcTo(x+w,y,x+w,y+r,r);
+  c.lineTo(x+w,y+h-r);c.arcTo(x+w,y+h,x+w-r,y+h,r);
+  c.lineTo(x+r,y+h);c.arcTo(x,y+h,x,y+h-r,r);
+  c.lineTo(x,y+r);c.arcTo(x,y,x+r,y,r);c.closePath();
+}
+function ah(c,x,y,dx,dy){ // punta de flecha
+  const nx=-dy,ny=dx;
+  c.beginPath();c.moveTo(x+dx*13,y+dy*13);
+  c.lineTo(x-dx*4+nx*8,y-dy*4+ny*8);c.lineTo(x-dx*4-nx*8,y-dy*4-ny*8);
+  c.closePath();c.fill();
+}
+function resH(c,cx,cy,id){
+  const e=EL(id);
+  c.fillStyle='#0c1512';c.fillRect(cx-52,cy-19,104,38);
+  c.strokeStyle='#cfe8e2';c.lineWidth=3;c.strokeRect(cx-48,cy-15,96,30);
+  c.fillStyle='#8FB3AC';c.font='bold 19px Outfit, sans-serif';c.textAlign='center';
+  c.fillText(id+' · '+fmtR(e.value),cx,cy-28);
+}
+function resV(c,cx,cy,id){
+  const e=EL(id);
+  c.fillStyle='#0c1512';c.fillRect(cx-19,cy-52,38,104);
+  c.strokeStyle='#cfe8e2';c.lineWidth=3;c.strokeRect(cx-15,cy-48,30,96);
+  c.fillStyle='#8FB3AC';c.font='bold 19px Outfit, sans-serif';c.textAlign='left';
+  c.fillText(id+' · '+fmtR(e.value),cx+24,cy+6);
+}
+function battV(c,cx,cy,id){
+  const e=EL(id);
+  c.fillStyle='#0c1512';c.fillRect(cx-30,cy-26,60,52);
+  c.strokeStyle='#cfe8e2';
+  c.lineWidth=3;line(c,cx-26,cy-9,cx+26,cy-9);   // placa larga (+ hacia arriba)
+  c.lineWidth=9;line(c,cx-13,cy+9,cx+13,cy+9);   // placa corta (−)
+  c.lineWidth=3;
+  c.fillStyle='#f0a5a5';c.font='bold 22px Outfit, sans-serif';c.textAlign='center';
+  c.fillText('+',cx<512?cx-42:cx+42,cy-4);   // '+' hacia afuera: la etiqueta ocupa el lado interior
+  c.font='bold 19px Outfit, sans-serif';
+  c.textAlign=cx<512?'left':'right';
+  c.fillText(id+' · '+fmtV(e.value),cx<512?cx+40:cx-40,cy+6);
+}
+function earth(c,x,y){
+  c.strokeStyle='#cfe8e2';c.lineWidth=3;
+  line(c,x,y,x,y+22);line(c,x-20,y+22,x+20,y+22);
+  line(c,x-13,y+32,x+13,y+32);line(c,x-6,y+42,x+6,y+42);
+}
+function curH(c,x,y,name,e,geoDir,hide){
+  const i=iThru(e), dir=(i>=0?1:-1)*geoDir;
+  c.fillStyle='#FFB703';c.strokeStyle='#FFB703';c.lineWidth=4;
+  line(c,x-16,y,x+16,y);ah(c,x+dir*10,y,dir,0);
+  c.font='bold 18px Outfit, sans-serif';c.textAlign='center';
+  c.fillText(name+' = '+(hide?'¿?':(Math.abs(i)*1e3).toFixed(3)+' mA'),x,y+40);
+}
+function curV(c,x,y,name,e,hide){
+  const i=iThru(e), dir=i>=0?1:-1;  // positiva = hacia abajo (a arriba, b abajo)
+  c.fillStyle='#FFB703';c.strokeStyle='#FFB703';c.lineWidth=4;
+  line(c,x,y-16,x,y+16);ah(c,x,y+dir*10,0,dir);
+  c.font='bold 18px Outfit, sans-serif';c.textAlign='left';
+  c.fillText(name+' = '+(hide?'¿?':(Math.abs(i)*1e3).toFixed(3)+' mA'),x+16,y+6);
+}
+function nodeDot(c,x,y,big){
+  c.beginPath();c.arc(x,y,big?9:6,0,7);
+  c.fillStyle=big?'#4FD1C5':'#cfe8e2';c.fill();
+}
+
+function drawBoard(){
+  const c=bCv.getContext('2d');
+  const hide=mode==='reto'&&!retoSolved;
+  c.fillStyle='#0c1512';c.fillRect(0,0,1024,768);
+  c.fillStyle='rgba(79,209,197,0.06)';
+  for(let gx=64;gx<1024;gx+=64)for(let gy=64;gy<768;gy+=64)c.fillRect(gx-1,gy-1,3,3);
+  c.fillStyle='#8FB3AC';c.font='bold 22px Outfit, sans-serif';c.textAlign='left';
+  c.fillText('RED MULTIMALLA · símbolos IEC 60617',26,44);
+  if(hide){c.fillStyle='#FFB703';c.textAlign='right';c.fillText('🎯 RETO: calcula V_A y V_B',998,44);}
+  // malla seleccionada (lazo resaltado detrás de los cables)
+  if(mode==='mallas'){
+    const MX=[[110,390],[390,650],[650,930]][selMesh];
+    c.strokeStyle=MESHES[selMesh].color;c.globalAlpha=0.22;c.lineWidth=18;
+    rr(c,MX[0],150,MX[1]-MX[0],490,26);c.stroke();c.globalAlpha=1;
+  }
+  // nodo seleccionado (halo)
+  if(mode==='nodos'){
+    const p=NODE_XY[selNode];
+    const g=c.createRadialGradient(p[0],p[1],4,p[0],p[1],46);
+    g.addColorStop(0,'rgba(79,209,197,0.55)');g.addColorStop(1,'rgba(79,209,197,0)');
+    c.fillStyle=g;c.beginPath();c.arc(p[0],p[1],46,0,7);c.fill();
+  }
+  // cables
+  c.strokeStyle='#cfe8e2';c.lineWidth=3;
+  line(c,110,150,930,150);line(c,110,640,930,640);
+  line(c,110,150,110,640);line(c,930,150,930,640);
+  line(c,390,150,390,640);line(c,650,150,650,640);
+  // elementos (pintan encima del cable)
+  resH(c,250,150,'R1');resH(c,520,150,'R3');resH(c,790,150,'R5');
+  resV(c,390,395,'R2');resV(c,650,395,'R4');
+  battV(c,110,395,'V1');battV(c,930,395,'V2');
+  earth(c,520,640);
+  // insignias de malla
+  [[250,'M1'],[520,'M2'],[790,'M3']].forEach(([mx,t],i)=>{
+    const on=mode==='mallas'&&selMesh===i;
+    c.beginPath();c.arc(mx,470,24,0,7);
+    c.fillStyle=on?MESHES[i].color:'rgba(207,232,226,0.10)';c.fill();
+    c.fillStyle=on?'#06110e':'#8FB3AC';c.font='bold 20px Outfit, sans-serif';c.textAlign='center';
+    c.fillText(t,mx,477);
+  });
+  // nodos + etiquetas
+  nodeDot(c,390,150,true);nodeDot(c,650,150,true);
+  nodeDot(c,110,150,false);nodeDot(c,930,150,false);
+  c.font='bold 26px Outfit, sans-serif';c.textAlign='center';c.fillStyle='#4FD1C5';
+  c.fillText('A · '+(hide?'¿?':SOL.V[2].toFixed(3)+' V'),390,112);
+  c.fillText('B · '+(hide?'¿?':SOL.V[3].toFixed(3)+' V'),650,112);
+  c.font='18px Outfit, sans-serif';c.fillStyle='#8FB3AC';
+  c.fillText('P · '+fmtV(EL('V1').value),110,112);
+  c.fillText('Q · '+fmtV(EL('V2').value),930,112);
+  c.fillText('ref · 0 V',520,712);
+  // corrientes de rama (dirección real según el signo de la solución)
+  curH(c,344,150,'I1',EL('R1'),1,hide);
+  curH(c,609,150,'I3',EL('R3'),1,hide);
+  curH(c,884,150,'I5',EL('R5'),-1,hide);
+  curV(c,390,555,'I2',EL('R2'),hide);
+  curV(c,650,555,'I4',EL('R4'),hide);
+  bTex.needsUpdate=true;
+}
+
+function boardClick(u,v){
+  const x=u*1024, y=(1-v)*768;
+  let best=null,bd=1e9;
+  HIT.forEach(h=>{const d=Math.hypot(x-h.x,y-h.y);if(d<h.r&&d<bd){bd=d;best=h;}});
+  if(!best)return;
+  if(best.el)toastEl(best.el);
+  else if(best.mesh!==undefined){if(mode!=='mallas')setMode('mallas');selectMesh(best.mesh);}
+  else{if(mode!=='nodos')setMode('nodos');selectNode(best.node);}
+}
+
+/* ============================================================
+   5) BANCO 3D — realización física de la red
+   ============================================================ */
+const bench=sh(roundedBox(3.1,0.5,1.9,MAT.bench,0.05));bench.position.set(1.7,0.25,0.9);scene.add(bench);
+bench.userData={title:'Banco de trabajo',info:'La misma red del esquema, montada físicamente: fuentes, resistores con su código de colores y puntos de prueba.'};
+const pcb=sh(roundedBox(2.3,0.06,1.3,MAT.pcb,0.02));pcb.position.set(1.7,0.53,1.05);scene.add(pcb);
+pcb.userData={title:'Tarjeta de la red',info:'Cada resistor lleva las bandas de su valor REAL (código de colores E12 ±5 %). Tócalos para leerlos.'};
+addHoverLabel(pcb,'Realización física de la red','#4FD1C5',new THREE.Vector3(0,0.62,0),0.9);
+
+function trace(x1,z1,x2,z2){
+  const w=Math.abs(x2-x1)||0.045,d=Math.abs(z2-z1)||0.045;
+  const t=new THREE.Mesh(new THREE.BoxGeometry(Math.max(w,0.045),0.015,Math.max(d,0.045)),MAT.trace);
+  t.position.set((x1+x2)/2,0.565,(z1+z2)/2);t.receiveShadow=true;scene.add(t);
+}
+// riel superior segmentado entre terminales (P→R1→A→R3→B→R5→Q)
+trace(0.80,0.70,0.955,0.70);trace(1.295,0.70,1.45,0.70);trace(1.45,0.70,1.575,0.70);
+trace(1.925,0.70,2.05,0.70);trace(2.05,0.70,2.175,0.70);trace(2.525,0.70,2.65,0.70);
+// derivaciones verticales A y B (a R2 / R4)
+trace(1.45,0.70,1.45,0.93);trace(1.45,1.27,1.45,1.50);
+trace(2.05,0.70,2.05,0.93);trace(2.05,1.27,2.05,1.50);
+// riel de referencia (un solo nodo: continuo)
+trace(0.80,1.50,2.65,1.50);
+
+const RES3D={};
+function makeRes3D(id,x,z,vert){
+  const g=new THREE.Group();g.position.set(x,0.62,z);if(vert)g.rotation.y=Math.PI/2;
+  const body=sh(new THREE.Mesh(new THREE.CylinderGeometry(0.045,0.045,0.20,16),std({color:0x9a815c,roughness:0.9,metalness:0})));
+  body.rotation.z=Math.PI/2;g.add(body);
+  [-1,1].forEach(s=>{
+    const l=new THREE.Mesh(new THREE.CylinderGeometry(0.008,0.008,0.075,8),MAT.lead);
+    l.rotation.z=Math.PI/2;l.position.x=s*0.1375;g.add(l);
+    const pin=new THREE.Mesh(new THREE.CylinderGeometry(0.008,0.008,0.06,8),MAT.lead);
+    pin.position.set(s*0.17,-0.03,0);g.add(pin);
+  });
+  const bands=[];
+  [-0.060,-0.020,0.020,0.070].forEach(bx=>{
+    const b=new THREE.Mesh(new THREE.CylinderGeometry(0.047,0.047,0.02,16),std({color:0x1a1a1a,roughness:0.6,metalness:0}));
+    b.rotation.z=Math.PI/2;b.position.x=bx;g.add(b);bands.push(b);
+  });
+  g.userData={el:id};
+  scene.add(g);RES3D[id]={g,bands};
+}
+makeRes3D('R1',1.125,0.70,false);makeRes3D('R3',1.75,0.70,false);makeRes3D('R5',2.35,0.70,false);
+makeRes3D('R2',1.45,1.10,true);makeRes3D('R4',2.05,1.10,true);
+
+const psCv=[],psTex=[];
+function makePSU(i,x,id){
+  const g=new THREE.Group();g.position.set(x,0.72,0.25);scene.add(g);
+  const box=sh(roundedBox(0.52,0.44,0.40,MAT.psu,0.06));g.add(box);
+  const cv=document.createElement('canvas');cv.width=256;cv.height=96;
+  const tx=new THREE.CanvasTexture(cv);
+  tx.colorSpace=THREE.SRGBColorSpace;tx.minFilter=THREE.LinearFilter;tx.generateMipmaps=false;
+  const pl=new THREE.Mesh(new THREE.PlaneGeometry(0.40,0.15),new THREE.MeshBasicMaterial({map:tx,toneMapped:false}));
+  pl.position.set(0,0.06,0.205);g.add(pl);
+  const postR=sh(new THREE.Mesh(new THREE.CylinderGeometry(0.03,0.03,0.10,10),MAT.jackRed));postR.position.set(-0.13,0.27,0.10);g.add(postR);
+  const postB=sh(new THREE.Mesh(new THREE.CylinderGeometry(0.03,0.03,0.10,10),MAT.jackBlk));postB.position.set(0.13,0.27,0.10);g.add(postB);
+  g.userData={el:id};
+  psCv[i]=cv;psTex[i]=tx;
+  addHoverLabel(g,'Fuente '+id,'#f0a5a5',new THREE.Vector3(0,0.55,0),0.8);
+}
+makePSU(0,0.85,'V1');makePSU(1,2.55,'V2');
+function drawPSU(i){
+  const cv=psCv[i],c=cv.getContext('2d'),v=EL(i===0?'V1':'V2').value;
+  c.fillStyle='#071410';c.fillRect(0,0,256,96);
+  c.strokeStyle='rgba(79,209,197,0.4)';c.lineWidth=3;c.strokeRect(3,3,250,90);
+  c.fillStyle='#4FD1C5';c.font='bold 40px Outfit, sans-serif';c.textAlign='center';
+  c.fillText(v.toFixed(2)+' V',128,62);
+  psTex[i].needsUpdate=true;
+}
+
+function cable(ax,ay,az,bx,by,bz,mat){
+  const a=new THREE.Vector3(ax,ay,az),b=new THREE.Vector3(bx,by,bz);
+  const m=a.clone().lerp(b,0.5);m.y=Math.max(a.y,b.y)+0.18;
+  const t=new THREE.Mesh(new THREE.TubeGeometry(new THREE.CatmullRomCurve3([a,m,b]),24,0.015,8),mat);
+  t.castShadow=true;scene.add(t);
+}
+cable(0.72,0.99,0.35,0.80,0.60,0.70,MAT.cableRed);
+cable(0.98,0.99,0.35,0.80,0.60,1.50,MAT.cableBlk);
+cable(2.42,0.99,0.35,2.65,0.60,0.70,MAT.cableRed);
+cable(2.68,0.99,0.35,2.65,0.60,1.50,MAT.cableBlk);
+
+const TP_GLOW={};
+function makeTP(node,x,z,mat,color,name,info){
+  const g=new THREE.Group();g.position.set(x,0,z);scene.add(g);
+  const post=sh(new THREE.Mesh(new THREE.CylinderGeometry(0.028,0.034,0.16,12),mat));post.position.y=0.66;g.add(post);
+  const glow=new THREE.Mesh(new THREE.SphereGeometry(0.045,12,10),new THREE.MeshBasicMaterial({color,transparent:true,opacity:0.45,toneMapped:false}));
+  glow.position.y=0.78;glow.raycast=()=>{};g.add(glow);TP_GLOW[node]=glow;
+  g.userData={node,title:name,info};
+  addHoverLabel(g,name,'#4FD1C5',new THREE.Vector3(0,1.02,0),0.7);
+}
+makeTP(2,1.45,0.70,MAT.jackRed,0x4FD1C5,'TP-A · nodo A','Punto de prueba del nodo A: clic para ver su balance de corrientes (LCK).');
+makeTP(3,2.05,0.70,MAT.jackRed,0x4FD1C5,'TP-B · nodo B','Punto de prueba del nodo B: clic para ver su balance de corrientes (LCK).');
+makeTP(0,1.75,1.50,MAT.jackBlk,0x8a9299,'TP-ref · 0 V','Referencia de la red (la tierra del esquema): también cumple la LCK.');
+
+function refreshNet3D(){
+  ['R1','R2','R3','R4','R5'].forEach(id=>{
+    const e=EL(id),r=RES3D[id],b=bandsFor(e.value);
+    [b.d1,b.d2,b.mult].forEach((dig,i)=>r.bands[i].material.color.set(BAND_COLORS[dig]));
+    r.bands[3].material.color.set('#c9a227'); // oro = ±5 % (serie E12)
+  });
+  drawPSU(0);drawPSU(1);
+}
+
+/* ============================================================
+   6) HUD + PANEL
+   ============================================================ */
+document.getElementById('hud').innerHTML=`
+  <div class="eyebrow">Circuitos eléctricos · Análisis de redes (D1)</div>
+  <h2>Leyes de Kirchhoff: la red multimalla</h2>
+  <p>Una red de <b>3 mallas</b> con 2 fuentes y 5 resistores, resuelta en vivo por
+  <b>análisis nodal modificado (MNA)</b>. Verifica con números reales que ΣI = 0 en cada
+  <b>nodo</b> y ΣV = 0 en cada <b>malla</b> — y en el reto, predice V_A y V_B
+  <b>antes</b> de que el esquema los revele.</p>
+  <div class="formula">LCK: ΣI = 0 en cada nodo<br>LVK: ΣV = 0 en cada lazo cerrado<br>nodo A: (V_P−V_A)/R1 = V_A/R2 + (V_A−V_B)/R3</div>
+  <div class="legend">
+    <div class="li"><span class="dot" style="background:#4FD1C5"></span>Nodos incógnita A y B</div>
+    <div class="li"><span class="dot" style="background:#FFB703"></span>Corrientes de rama I1…I5</div>
+    <div class="li"><span class="dot" style="background:#f0a5a5"></span>Fuentes ideales V1 y V2</div>
+    <div class="li"><span class="dot" style="background:#8a9299"></span>Referencia (ref · 0 V)</div>
+  </div>
+  <div class="fid">
+    <div class="ft">🔒 Contrato de fidelidad</div>
+    <div class="fl"><b>Sí modela:</b> red resistiva lineal en CD con fuentes ideales, resuelta en vivo por análisis nodal modificado (MNA, eliminación gaussiana); corrientes y voltajes exactos del modelo con verificación numérica de LCK y LVK; código de colores real de cada resistor (serie E12).</div>
+    <div class="fl no"><b>NO modela:</b> tolerancias reales de los componentes (±5 % de las bandas), resistencia interna de las fuentes, resistencia de conductores y contactos, deriva térmica, elementos parásitos (L, C) ni transitorios — es el circuito ideal de parámetros concentrados. En un montaje físico, cada medición lleva su incertidumbre (ver la práctica del multímetro).</div>
+  </div>
+  <div class="src">Ref: LCK/LVK (Kirchhoff, 1845) · IEC 60617 · MNA (1975)</div>`;
+
+document.getElementById('panel').innerHTML=`
+  <h4>Red de Kirchhoff · <span id="p_mode" style="color:var(--accent2)">Explora</span></h4>
+  <div class="modebar">
+    <button class="b on" id="m_explora">🔍 Explora</button>
+    <button class="b" id="m_nodos">ΣI=0 · Nodos</button>
+    <button class="b" id="m_mallas">ΣV=0 · Mallas</button>
+    <button class="b" id="m_reto">🎯 Reto</button>
+  </div>
+  <div class="modebar" id="selbar" style="display:none"></div>
+  <div id="tele">
+    <div class="g"><div class="l">V_A (nodo A)</div><b id="t_va">—</b></div>
+    <div class="g"><div class="l">V_B (nodo B)</div><b id="t_vb">—</b></div>
+    <div class="g"><div class="l">ΣI nodo A</div><b id="t_ia">—</b></div>
+    <div class="g"><div class="l">ΣI nodo B</div><b id="t_ib">—</b></div>
+    <div class="g"><div class="l">ΣV malla</div><b id="t_vm">—</b></div>
+    <div class="g"><div class="l">Estado</div><b id="t_est">—</b></div>
+  </div>
+  <div class="console" id="report"></div>
+  <h4 class="sec" id="retoTitle" style="display:none">Tu predicción (análisis nodal)</h4>
+  <div id="retoBox" style="display:none">
+    <div style="font-size:12px;color:var(--ink);margin:2px 0 8px">Con los valores del esquema, plantea LCK en A y B (sistema 2×2), resuelve y escribe tu predicción (tolerancia ±1 % o ±0.02 V):</div>
+    <div style="display:flex;gap:6px 14px;align-items:center;flex-wrap:wrap;margin-bottom:8px;font-size:12px;color:var(--ink)">
+      <span style="display:inline-flex;gap:6px;align-items:center;white-space:nowrap"><label for="inVA">V_A =</label><input id="inVA" inputmode="decimal" autocomplete="off" style="width:64px;background:#0a1411;border:1px solid rgba(79,209,197,.35);color:#EAF4F1;border-radius:8px;padding:6px 8px;font:inherit;font-size:13px"><span>V</span></span>
+      <span style="display:inline-flex;gap:6px;align-items:center;white-space:nowrap"><label for="inVB">V_B =</label><input id="inVB" inputmode="decimal" autocomplete="off" style="width:64px;background:#0a1411;border:1px solid rgba(79,209,197,.35);color:#EAF4F1;border-radius:8px;padding:6px 8px;font:inherit;font-size:13px"><span>V</span></span>
+    </div>
+    <div class="btns"><button class="b primary" id="btnCheck">✅ Comprobar predicción</button></div>
+  </div>
+  <h4 class="sec">Pregunta de ingeniería</h4>
+  <div id="q_text" style="font-size:12px;color:var(--ink);margin:4px 0 8px"></div>
+  <div class="btns" id="dxbtns"></div>
+  <div class="btns">
+    <button class="b auto" id="btnAuto">✨ Recorrido guiado (automático)</button>
+    <button class="b primary" id="btnNew">🔀 Nueva red (reto)</button>
+  </div>`;
+
+const el=id=>document.getElementById(id);
+
+/* ============================================================
+   7) TOASTS + INFO DE ELEMENTO
+   ============================================================ */
+function showToast(html){
+  const t=el('toast');t.innerHTML=html;t.classList.add('show');
+  clearTimeout(showToast._t);showToast._t=setTimeout(()=>t.classList.remove('show'),3200);
+}
+function toastEl(id){
+  const e=EL(id),hide=mode==='reto'&&!retoSolved;
+  let info;
+  if(e.type==='V'){
+    info=`Fuente ideal de ${fmtV(e.value)}: fija el potencial del nodo ${NODE_NAME[e.a]} y entrega la corriente que la red le pida (sin resistencia interna — modelo).`;
+  }else{
+    const i=iThru(e),b=bandsFor(e.value);
+    const bandas=`${BAND_NAMES[b.d1]}-${BAND_NAMES[b.d2]}-${BAND_NAMES[b.mult]}-oro`;
+    info=`Conecta ${NODE_NAME[e.a]} con ${NODE_NAME[e.b]} · bandas: ${bandas}. I = ΔV/R = ${hide?'¿? (resuélvelo)':(Math.abs(i)*1e3).toFixed(3)+' mA ('+(i>=0?NODE_NAME[e.a]+'→'+NODE_NAME[e.b]:NODE_NAME[e.b]+'→'+NODE_NAME[e.a])+')'}`;
+  }
+  showToast(`<b style="color:var(--accent2)">${id} · ${e.type==='V'?fmtV(e.value):fmtR(e.value)}</b><br><span style="color:var(--dim);font-size:11px">${info}</span>`);
+}
+
+/* ============================================================
+   8) MODOS + SELECCIÓN
+   ============================================================ */
+const MODE_META={
+  explora:{nombre:'Explora',cam:[[3.1,2.5,7.2],[0.5,1.3,0.1]],mision:'Reconoce la red: 2 fuentes, 5 resistores, los nodos A y B, y las 3 mallas.'},
+  nodos:{nombre:'Nodos · LCK',cam:[[-0.2,2.1,3.9],[-0.9,1.75,-0.8]],mision:'LCK: en cada nodo, la suma algebraica de corrientes es cero. Selecciona un nodo.'},
+  mallas:{nombre:'Mallas · LVK',cam:[[-0.1,2.2,4.3],[-0.9,1.75,-0.8]],mision:'LVK: alrededor de cualquier lazo cerrado, subidas y caídas de tensión suman cero.'},
+  reto:{nombre:'Reto',cam:[[0.6,2.3,5.6],[0.2,1.3,0.2]],mision:'Predice V_A y V_B ANTES de que el simulador te los muestre.'},
+};
+function setMode(k){
+  mode=k;
+  ['explora','nodos','mallas','reto'].forEach(m=>el('m_'+m).classList.toggle('on',m===k));
+  el('p_mode').textContent=MODE_META[k].nombre;
+  buildSelBar();
+  const reto=k==='reto';
+  el('retoTitle').style.display=reto?'':'none';
+  el('retoBox').style.display=reto?'':'none';
+  solved=false;clearDx();refreshQuestion();
+  S.moveTo(MODE_META[k].cam[0],MODE_META[k].cam[1],1.3);
+  refreshAll();
+}
+function buildSelBar(){
+  const bar=el('selbar');
+  if(mode==='nodos'){
+    bar.style.display='';
+    bar.innerHTML=`<button class="b" id="n_a">Nodo A</button><button class="b" id="n_b">Nodo B</button><button class="b" id="n_ref">Nodo ref</button>`;
+    el('n_a').onclick=()=>selectNode(2);el('n_b').onclick=()=>selectNode(3);el('n_ref').onclick=()=>selectNode(0);
+    syncNodeBtns();
+  }else if(mode==='mallas'){
+    bar.style.display='';
+    bar.innerHTML=[0,1,2].map(i=>`<button class="b" id="mm_${i+1}">Malla ${i+1}</button>`).join('');
+    [0,1,2].forEach(i=>{el('mm_'+(i+1)).onclick=()=>selectMesh(i);});
+    syncMeshBtns();
+  }else{bar.style.display='none';bar.innerHTML='';}
+}
+function syncNodeBtns(){if(mode!=='nodos')return;[['n_a',2],['n_b',3],['n_ref',0]].forEach(([id,k])=>el(id).classList.toggle('on',selNode===k));}
+function syncMeshBtns(){if(mode!=='mallas')return;[0,1,2].forEach(i=>el('mm_'+(i+1)).classList.toggle('on',selMesh===i));}
+function selectNode(k){selNode=k;syncNodeBtns();synth.beep(660,0.05,0.04);refreshAll();}
+function selectMesh(i){selMesh=i;syncMeshBtns();synth.beep(660,0.05,0.04);refreshAll();}
+
+/* ============================================================
+   9) TELEMETRÍA + REPORTE
+   ============================================================ */
+function updateTele(){
+  const hide=mode==='reto'&&!retoSolved;
+  const set=(id,txt,cls)=>{const b=el(id);b.textContent=txt;b.className=cls||'';};
+  set('t_va',hide?'?':SOL.V[2].toFixed(3)+' V',hide?'warn':'good');
+  set('t_vb',hide?'?':SOL.V[3].toFixed(3)+' V',hide?'warn':'good');
+  set('t_ia',hide?'?':fmtSum(kclSum(2))+' mA',hide?'warn':'good');
+  set('t_ib',hide?'?':fmtSum(kclSum(3))+' mA',hide?'warn':'good');
+  set('t_vm',hide?'?':fmtSum(kvlSum(selMesh))+' V · M'+(selMesh+1),hide?'warn':'good');
+  set('t_est',mode!=='reto'?'RESUELTA · MNA':(retoSolved?'✔ PREDICCIÓN OK':'RETO · predice'),mode!=='reto'?'good':(retoSolved?'good':'warn'));
+}
+function updateReport(){
+  let html=`<b>${MODE_META[mode].mision}</b><br>`;
+  if(mode==='explora'){
+    const t1=iThru(EL('R1'))*1e3,t2=iThru(EL('R2'))*1e3,t3=iThru(EL('R3'))*1e3;
+    const u5=iThru(EL('R5'))*1e3,u4=iThru(EL('R4'))*1e3;
+    html+=`<span class="mono">LCK nodo A: (V_P−V_A)/R1 − V_A/R2 − (V_A−V_B)/R3 = 0</span><br>`+
+      `<span class="mono">→ ${sg(t1)} ${sg(-t2)} ${sg(-t3)} = ${fmtSum(t1-t2-t3)} mA <span class="ok">✔</span></span><br>`+
+      `<span class="mono">LCK nodo B: (V_A−V_B)/R3 + (V_Q−V_B)/R5 − V_B/R4 = 0</span><br>`+
+      `<span class="mono">→ ${sg(t3)} ${sg(u5)} ${sg(-u4)} = ${fmtSum(t3+u5-u4)} mA <span class="ok">✔</span></span><br>`+
+      `<span class="mono">Toca el esquema: nodos A/B/ref, insignias M1–M3 y componentes.</span>`;
+  }else if(mode==='nodos'){
+    const flows=nodeCurrents(selNode);
+    html+=`<span class="mono"><b>LCK — nodo ${NODE_NAME[selNode]}</b></span><br>`+
+      flows.map(f=>`<span class="mono">${f.into>=0?'entra':'sale'} ${(Math.abs(f.into)*1e3).toFixed(3)} mA por ${f.id} (${f.into>=0?'desde':'hacia'} ${f.otro})</span>`).join('<br>')+
+      `<br><span class="mono">ΣI = ${fmtSum(kclSum(selNode))} mA <span class="ok">✔ carga conservada</span></span>`;
+  }else if(mode==='mallas'){
+    html+=`<span class="mono"><b>LVK — ${MESHES[selMesh].nombre}</b></span><br>`+
+      kvlSteps(selMesh).map(s=>`<span class="mono">${s.desde} → ${s.hasta} · ${s.el}: ${sg(s.dV)} V (${s.det})</span>`).join('<br>')+
+      `<br><span class="mono">ΣV = ${fmtSum(kvlSum(selMesh))} V <span class="ok">✔ el lazo regresa al mismo potencial</span></span>`;
+  }else{
+    html+=retoMsg||`<span class="mono">Los valores de R y de las fuentes están en el esquema; V_A, V_B y las corrientes están OCULTOS. Resuelve el sistema 2×2 y escribe tu predicción abajo.</span>`;
+  }
+  el('report').innerHTML=html;
+}
+function refreshAll(){drawBoard();updateTele();updateReport();}
+
+/* ============================================================
+   10) RETO — predicción numérica + red aleatoria
+   ============================================================ */
+function checkReto(){
+  const pa=parseFloat((el('inVA').value||'').replace(',','.'));
+  const pb=parseFloat((el('inVB').value||'').replace(',','.'));
+  if(!isFinite(pa)||!isFinite(pb)){showToast('Escribe ambas predicciones (en volts).');return;}
+  const ta=SOL.V[2],tb=SOL.V[3];
+  const tol=v=>Math.max(0.02,Math.abs(v)*0.01);
+  const okA=Math.abs(pa-ta)<=tol(ta),okB=Math.abs(pb-tb)<=tol(tb);
+  if(okA&&okB){
+    retoSolved=true;synth.beep(1046,0.12,0.06);
+    retoMsg=`<span class="mono"><span class="ok">✔ Predicción verificada.</span> V_A = ${ta.toFixed(3)} V (tuyo: ${pa.toFixed(3)}) · V_B = ${tb.toFixed(3)} V (tuyo: ${pb.toFixed(3)}). El esquema revela voltajes y corrientes.</span>`;
+  }else{
+    synth.beep(220,0.15,0.06);
+    retoMsg=`<span class="mono"><span class="dtc">✗ Aún no.</span> ${okA?'V_A ✓':'V_A fuera de tolerancia'} · ${okB?'V_B ✓':'V_B fuera de tolerancia'}. Plantea LCK en A y en B (2 ecuaciones, 2 incógnitas) y reintenta.</span>`;
+  }
+  refreshAll();
+}
+function newNetwork(){
+  const pick=a=>a[Math.floor(Math.random()*a.length)];
+  ['R1','R2','R3','R4','R5'].forEach(id=>{EL(id).value=Math.round(pick(E12)*1000);});
+  EL('V1').value=pick([9,12,15,18,24]);
+  EL('V2').value=pick([3.3,5,9]);
+  resolve();buildQuiz();refreshNet3D();
+  retoSolved=false;retoMsg='';
+  el('inVA').value='';el('inVB').value='';
+  if(mode!=='reto')setMode('reto');
+  else{solved=false;clearDx();refreshQuestion();refreshAll();}
+  showToast('🔀 <b>Red nueva.</b> Los valores están en el esquema (y en las bandas de colores); V_A y V_B te esperan.');
+  synth.beep(520,0.08,0.05);
+}
+
+/* ============================================================
+   11) PREGUNTAS DE INGENIERÍA (reconstruidas con la red viva)
+   ============================================================ */
+function buildQuiz(){
+  const fA=nodeCurrents(2);
+  const ins=fA.filter(f=>f.into>=0),outs=fA.filter(f=>f.into<0);
+  const txt=fs=>fs.map(f=>`${(Math.abs(f.into)*1e3).toFixed(3)} mA (${f.id})`).join(' + ');
+  const okBal=`Entra${ins.length>1?'n':''} ${txt(ins)} y sale${outs.length>1?'n':''} ${txt(outs)}`;
+  const allIn=`Entran ${fA.map(f=>`${(Math.abs(f.into)*1e3).toFixed(3)} mA (${f.id})`).join(' + ')} — todas hacia el nodo`;
+  let swapBal;
+  if(outs.length===2&&Math.abs(Math.abs(outs[0].into)-Math.abs(outs[1].into))>0.005*Math.max(Math.abs(outs[0].into),Math.abs(outs[1].into))){
+    swapBal=`Entra${ins.length>1?'n':''} ${txt(ins)} y salen ${(Math.abs(outs[1].into)*1e3).toFixed(3)} mA (${outs[0].id}) + ${(Math.abs(outs[0].into)*1e3).toFixed(3)} mA (${outs[1].id})`;
+  }else swapBal='La corriente se reparte a partes iguales entre las ramas conectadas al nodo';
+  const alt=JSON.parse(JSON.stringify(NET));
+  alt.elems.find(e=>e.id==='R4').value*=2;
+  const vb2=solveMNA(alt).V[3],vb=SOL.V[3];
+  const cR2=Math.abs(iThru(EL('R2')))*EL('R2').value,cR4=Math.abs(iThru(EL('R4')))*EL('R4').value;
+  QUIZ={
+    explora:{
+      pregunta:'Para resolver esta red por <b>análisis nodal</b>, ¿cuántas incógnitas de voltaje necesitas?',
+      opciones:[
+        {t:'5 — una por cada nodo (P, A, B, Q y ref)',ok:false,why:'ref es el cero por definición, y P y Q los fijan las fuentes ideales (V_P = V1, V_Q = V2). No son incógnitas.'},
+        {t:'2 — solo V_A y V_B (P y Q los fijan las fuentes)',ok:true,why:'Con ref = 0, V_P = V1 y V_Q = V2, quedan V_A y V_B: dos ecuaciones LCK, sistema 2×2. Eso resuelve TODA la red.'},
+        {t:'3 — una por cada malla',ok:false,why:'Las mallas dan CORRIENTES en el método de mallas; en análisis nodal las incógnitas son voltajes de nodo.'},
+        {t:'1 — solo V_A, porque V_B depende de él',ok:false,why:'V_B es un nodo independiente: sin su propia ecuación LCK el sistema queda indeterminado.'},
+      ],
+    },
+    nodos:{
+      pregunta:'Con la red resuelta, ¿cuál es el balance de corrientes (LCK) correcto en el <b>nodo A</b>?',
+      opciones:[
+        {t:allIn,ok:false,why:'Si TODAS las corrientes entraran, ΣI > 0 y el nodo acumularía carga. La LCK exige que lo que entra, salga.'},
+        {t:okBal,ok:true,why:'Cada rama lleva I = ΔV/R con la solución nodal; la suma algebraica en el nodo es exactamente cero (conservación de la carga).'},
+        {t:swapBal,ok:false,why:'Las magnitudes no se reparten por igual ni se intercambian: cada rama toma I = ΔV/R con SU resistencia y SU diferencia de potencial.'},
+        {t:'No se puede saber sin medir físicamente cada rama',ok:false,why:'El análisis nodal lo determina por completo: conocidos V_A y V_B, cada corriente es ΔV/R. Medir sirve para VERIFICAR el modelo.'},
+      ],
+    },
+    mallas:{
+      pregunta:'La malla 2 (R2–R3–R4) <b>no contiene ninguna fuente</b>. ¿Por qué su ΣV sigue siendo 0?',
+      opciones:[
+        {t:'Porque el potencial es función de punto: al cerrar el lazo regresas al mismo potencial',ok:true,why:'LVK es conservación de energía por unidad de carga: con o sin fuentes, el lazo cerrado vuelve al nodo (y potencial) de partida.'},
+        {t:'Porque no circula corriente por esa malla',ok:false,why:'Sí circula: I2, I3 e I4 son distintas de cero. La LVK se cumple CON corrientes presentes.'},
+        {t:'Porque las caídas de R2 y R4 se cancelan entre sí',ok:false,why:`No se cancelan por pareja: valen ${cR2.toFixed(3)} V y ${cR4.toFixed(3)} V. Es la suma algebraica del LAZO completo la que da cero.`},
+        {t:'Solo las mallas que contienen una fuente cumplen la LVK',ok:false,why:'La LVK vale para TODO lazo cerrado de cualquier red de parámetros concentrados, tenga o no fuentes.'},
+      ],
+    },
+    reto:{
+      pregunta:`Reto de diseño: si duplicas R4 (${fmtR(EL('R4').value)} → ${fmtR(EL('R4').value*2)}), ¿qué pasa con V_B?`,
+      opciones:[
+        {t:'V_B no cambia: lo fija la fuente V2',ok:false,why:'V2 fija el nodo Q, no B: entre ellos está R5. V_B resulta del balance de TODA la red.'},
+        {t:`V_B sube a ${vb2.toFixed(3)} V`,ok:true,why:`Con más resistencia hacia ref, el nodo B "se descarga" menos: el MNA con R4 duplicado da V_B = ${vb2.toFixed(3)} V (antes ${vb.toFixed(3)} V).`},
+        {t:`V_B se duplica (${(vb*2).toFixed(3)} V)`,ok:false,why:'La red no es proporcional a un solo elemento: V_B depende de todas las conductancias (sistema 2×2), no linealmente de R4.'},
+        {t:'V_B baja: más resistencia significa menos voltaje',ok:false,why:'Al revés: R4 conecta B con ref (0 V). Debilitar ese lazo (más Ω) deja a B más cerca de los potenciales positivos.'},
+      ],
+    },
+  };
+}
+function clearDx(){el('dxbtns').querySelectorAll('.b.dx').forEach(b=>b.classList.remove('right','wrong'));}
+function refreshQuestion(){
+  const q=QUIZ[mode];
+  el('q_text').innerHTML=q.pregunta;
+  el('dxbtns').innerHTML=q.opciones.map((o,i)=>`<button class="b dx" data-i="${i}">${'ABCD'[i]} · ${o.t}</button>`).join('');
+  el('dxbtns').querySelectorAll('.b.dx').forEach(btn=>{btn.onclick=()=>answer(+btn.dataset.i);});
+}
+function answer(i){
+  const o=QUIZ[mode].opciones[i];clearDx();
+  const btn=el('dxbtns').children[i];
+  if(o.ok){
+    btn.classList.add('right');solved=true;synth.beep(1046,0.12,0.06);
+    showToast(`<span style="color:var(--good)">✔ Correcto.</span><br><span style="color:var(--dim);font-size:11px">${o.why}</span>`);
+  }else{
+    btn.classList.add('wrong');synth.beep(220,0.15,0.06);
+    showToast(`<span style="color:var(--bad)">✗ Revisa el modelo.</span><br><span style="color:var(--dim);font-size:11px">${o.why}</span>`);
+  }
+}
+
+/* ============================================================
+   12) PICKING — pizarrón (por UV) + banco (por userData)
+   ============================================================ */
+pickerFor(scene,S.camera,S.renderer.domElement,hit=>{
+  if(!hit)return;
+  if(hit.object===board&&hit.uv){boardClick(hit.uv.x,hit.uv.y);return;}
+  let o=hit.object;
+  while(o){
+    const u=o.userData||{};
+    if(u.el){toastEl(u.el);return;}
+    if(u.node!==undefined){if(mode!=='nodos')setMode('nodos');selectNode(u.node);return;}
+    if(u.title){showToast(`<b style="color:var(--accent2)">${u.title}</b><br><span style="color:var(--dim);font-size:11px">${u.info}</span>`);return;}
+    o=o.parent;
+  }
+});
+
+/* hover: etiquetas flotantes + cursor */
+(()=>{
+  const ray=new THREE.Raycaster(),v2=new THREE.Vector2();
+  S.renderer.domElement.addEventListener('pointermove',ev=>{
+    const r=S.renderer.domElement.getBoundingClientRect();
+    v2.x=((ev.clientX-r.left)/r.width)*2-1;v2.y=-((ev.clientY-r.top)/r.height)*2+1;
+    ray.setFromCamera(v2,S.camera);
+    const hits=ray.intersectObjects(scene.children,true);
+    HOVER_LABELS.forEach(lb=>lb.visible=false);
+    let cursor='default';
+    if(hits.length){
+      let o=hits[0].object;
+      while(o){
+        if(HOVER_LABELS.has(o)){HOVER_LABELS.get(o).visible=true;cursor='pointer';break;}
+        if(o.userData&&(o.userData.el||o.userData.node!==undefined||o.userData.title||o===board))cursor='pointer';
+        o=o.parent;
+      }
+      if(hits[0].object===board)cursor='pointer';
+    }
+    S.renderer.domElement.style.cursor=cursor;
+  });
+})();
+
+/* ============================================================
+   13) RECORRIDO AUTOMÁTICO
+   ============================================================ */
+const sleep=ms=>new Promise(r=>setTimeout(r,ms));
+async function runAuto(){
+  if(autoRunning)return;autoRunning=true;
+  const btn=el('btnAuto'),label=btn.textContent;
+  btn.disabled=true;btn.classList.add('on');btn.textContent='⏳ Recorrido guiado en curso…';
+  try{
+    synth.init();synth.resume();
+    clearDx();
+    setMode('explora');
+    showToast('Paso 1 · La red: V1 y V2 alimentan 5 resistores. Solo hay 2 incógnitas: V_A y V_B.');await sleep(2600);
+    setMode('nodos');selectNode(2);
+    const fA=nodeCurrents(2),ins=fA.filter(f=>f.into>=0),outs=fA.filter(f=>f.into<0);
+    const res=fs=>fs.map(f=>`${(Math.abs(f.into)*1e3).toFixed(3)} mA (${f.id})`).join(' y ');
+    showToast(`Paso 2 · LCK en A: entra ${res(ins)}; sale ${res(outs)} — la suma algebraica es 0.`);await sleep(3000);
+    selectNode(3);
+    showToast('Paso 3 · LCK en B: mismo principio. ΣI = 0.000000 mA, sin importar cuántas ramas lleguen.');await sleep(2600);
+    setMode('mallas');selectMesh(0);
+    showToast('Paso 4 · LVK malla 1: la subida de V1 se gasta exactamente en R1 y R2. ΣV = 0.');await sleep(3000);
+    selectMesh(1);
+    showToast('Paso 5 · Malla 2, SIN fuentes: el lazo regresa al mismo potencial — ΣV = 0 de todos modos.');await sleep(3000);
+    setMode('reto');
+    showToast('Paso 6 · El reto: predecir V_A y V_B. Planteamos LCK en A y B y resolvemos el sistema 2×2…');await sleep(2800);
+    el('inVA').value=SOL.V[2].toFixed(3);el('inVB').value=SOL.V[3].toFixed(3);
+    checkReto();await sleep(2200);
+    const q=QUIZ.reto,i=q.opciones.findIndex(o=>o.ok);
+    clearDx();
+    const dxBtn=el('dxbtns').children[i];
+    if(dxBtn){dxBtn.classList.add('right');solved=true;synth.beep(1046,0.12,0.06);}
+    showToast(`<span style="color:var(--good)">✔ ${q.opciones[i].t}</span><br><span style="color:var(--dim);font-size:11px">${q.opciones[i].why}</span>`);
+  }finally{
+    btn.disabled=false;btn.classList.remove('on');btn.textContent=label;autoRunning=false;
+  }
+}
+
+/* ============================================================
+   14) ANIMACIÓN + SONIDO + INIT
+   ============================================================ */
+S.setAnimate((dt,time)=>{
+  const s=1+Math.sin(time*4)*0.25;
+  [2,3,0].forEach(k=>{
+    const g=TP_GLOW[k];if(!g)return;
+    const on=(mode==='nodos'&&selNode===k);
+    g.material.opacity=on?0.85:0.45;
+    g.scale.setScalar(on?s:1);
+  });
+});
+
+['explora','nodos','mallas','reto'].forEach(m=>{el('m_'+m).onclick=()=>{if(!autoRunning)setMode(m);};});
+el('btnAuto').onclick=runAuto;
+el('btnNew').onclick=newNetwork;
+el('btnCheck').onclick=checkReto;
+['inVA','inVB'].forEach(id=>{el(id).addEventListener('keydown',e=>{if(e.key==='Enter')checkReto();});});
+el('soundBtn').onclick=()=>{const on=synth.toggle();el('soundBtn').textContent=on?'🔊 Sonido':'🔇 Sonido';};
+document.addEventListener('pointerdown',()=>{synth.init();synth.resume();},{once:true});
+
+resolve();buildQuiz();refreshNet3D();
+S.start();
+setMode('explora');
+
+/* gancho de verificación independiente (tests re-resuelven la red en Node) */
+window.__labDebug={
+  net:()=>JSON.parse(JSON.stringify(NET)),
+  sol:()=>({V:SOL.V.slice()}),
+  boardClick,
+  mode:()=>mode,
+};
+</script>
+  <!-- Ficha técnica · Capa B del molde de lab 3D (componente compartido + contenido del lab) -->
+  <script src="_ficha-tecnica.js"></script>
+  <script src="_ficha-kirchhoff.js"></script>
+</body>
+</html>

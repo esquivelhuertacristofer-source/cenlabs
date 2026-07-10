@@ -1,0 +1,34 @@
+import type { BriefingConfig } from '@/components/MissionBriefing';
+
+const briefing: BriefingConfig = {
+  codigo: 'MEC-13',
+  titulo: 'Leyes de Kirchhoff: redes multimalla en vivo',
+  subtitulo: 'Circuitos Eléctricos · Análisis de redes',
+  acento: '#2A9D8F',
+  duracion: 40,
+  bienvenida: `¡Bienvenido al banco de análisis de circuitos de CEN Labs! Las dos leyes que Gustav Kirchhoff enunció en 1845 — la suma de corrientes en un nodo es cero (LCK) y la suma de voltajes en un lazo cerrado es cero (LVK) — son la base de TODO el análisis de circuitos: desde un divisor de voltaje hasta el simulador SPICE que usan los ingenieros.\n\nEn el pizarrón tienes una red de 3 mallas con 2 fuentes y 5 resistores, dibujada con símbolos normalizados IEC 60617 y resuelta en vivo por análisis nodal modificado (MNA), el mismo algoritmo que corre dentro de SPICE. Toca cada nodo y cada malla para ver su balance con números reales — no con letras.\n\nY cuando creas dominarlo, el reto: una red nueva con valores comerciales (serie E12) donde voltajes y corrientes están OCULTOS. Plantea las ecuaciones de nodo, resuelve el sistema 2×2 y predice V_A y V_B antes de que el simulador los revele. Así se estudia circuitos de verdad: prediciendo, no mirando.`,
+  conceptos: [
+    { icono: '🔵', nombre: 'LCK — ley de corrientes', descripcion: 'ΣI = 0 en cada nodo: la carga se conserva, lo que entra sale. El lab la verifica numéricamente en los nodos A, B y ref.' },
+    { icono: '🔁', nombre: 'LVK — ley de voltajes', descripcion: 'ΣV = 0 en cada lazo cerrado: recorre cualquier malla sumando subidas y caídas y regresas al potencial de partida.' },
+    { icono: '🧮', nombre: 'Análisis nodal (MNA)', descripcion: 'Referencia en 0 V, LCK en los nodos incógnita y un sistema lineal 2×2. La versión "modificada" (1975) es el motor interno de SPICE.' },
+    { icono: '🎨', nombre: 'Código de colores E12', descripcion: 'Cada resistor del banco lleva sus 4 bandas reales (2 cifras + multiplicador + oro ±5 %); el generador de redes usa la serie comercial E12.' },
+  ],
+  mision: [
+    'FASE 1 · Explora: reconoce nodos, mallas y componentes en el esquema IEC 60617 y lee las ecuaciones de la red resuelta.',
+    'FASE 2 · Nodos: verifica LCK en A, B y ref — la suma algebraica de corrientes de cada nodo debe dar exactamente 0 mA.',
+    'FASE 3 · Mallas: recorre M1, M2 y M3 sumando subidas y caídas de voltaje y comprueba que ΣV = 0 en cada lazo.',
+    'FASE 4 · Reto: con una red nueva de valores E12, resuelve el sistema 2×2 en papel y predice V_A y V_B antes de que el esquema los revele (tolerancia ±1 %).',
+  ],
+  aplicaciones: [
+    { area: 'Diseño electrónico', ejemplo: 'Todo simulador SPICE (LTspice, ngspice) resuelve los circuitos con el mismo MNA de este lab — entender el motor es entender la herramienta.' },
+    { area: 'Diagnóstico automotriz', ejemplo: 'Las caídas de voltaje en un arnés se rastrean con LVK: la suma de caídas del circuito debe reconstruir el voltaje de batería.' },
+    { area: 'Instalaciones eléctricas', ejemplo: 'El reparto de corrientes entre ramas en paralelo (LCK) dimensiona conductores y protecciones en un tablero.' },
+  ],
+  retos: [
+    'Predice qué pasa con V_B si duplicas R4 — y verifícalo con la pregunta de ingeniería del modo Reto.',
+    'En la malla 2 no hay fuentes: explica por qué ΣV = 0 se cumple igual (¿qué "empuja" la corriente ahí?).',
+    'Monta la red canónica en protoboard con resistores E12 reales y compara tus mediciones contra la predicción del lab (ver la práctica del multímetro).',
+  ],
+};
+
+export default briefing;

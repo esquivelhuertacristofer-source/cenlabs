@@ -1,0 +1,9 @@
+{
+  "donor": "escaner-obd.html",
+  "out": "kirchhoff.html",
+  "title": "CEN Labs · Leyes de Kirchhoff: Redes Multimalla — Laboratorio 3D",
+  "lt": "Leyes de Kirchhoff · Circuitos Eléctricos",
+  "inspectHint": "👆 Toca el esquema (nodos, mallas, componentes) o los elementos del banco",
+  "body": "kirchhoff.body.js",
+  "fichas": ["_ficha-tecnica.js", "_ficha-kirchhoff.js"]
+}
