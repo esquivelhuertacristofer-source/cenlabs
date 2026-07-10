@@ -113,4 +113,9 @@ export default sentryEnabled
 // Solo activo durante `next dev`: expone los bindings de Cloudflare (KV, etc.)
 // vía getCloudflareContext() en desarrollo. Es no-op en `next build` (Vercel),
 // así que no afecta el despliegue actual en Vercel.
-initOpenNextCloudflareForDev();
+// Guard de test: next/jest también carga este archivo, y el guard interno de la
+// función (globalThis.AsyncLocalStorage) pasa en cualquier Node moderno, así que
+// sin este if arranca un workerd (miniflare) cuyo handle vivo cuelga a jest.
+if (process.env.NODE_ENV !== "test") {
+  initOpenNextCloudflareForDev();
+}
