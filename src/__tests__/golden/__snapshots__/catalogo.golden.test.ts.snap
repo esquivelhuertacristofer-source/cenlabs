@@ -401,6 +401,16 @@ exports[`golden master — catálogo por categoría (invariante ante extracción
     "teoria": "El diagnóstico a bordo (OBD-II) vigila el motor y las emisiones vía el conector DLC J1962. El alumno lee datos en vivo, cuadro congelado y códigos DTC, y deduce la causa raíz interpretando el ajuste de combustible y la sonda O₂. Normas SAE J1979/J2012, ISO 15031/15765 y NOM-047-SEMARNAT-2014.",
     "titulo": "Escáner OBD-II y Diagnóstico",
   },
+  {
+    "duracion": "45 min",
+    "estado": "activo",
+    "id": "mecanica-12",
+    "modulo": "Instrumentación",
+    "orden": 12,
+    "simuladorHtml": "/labs/multimetro.html",
+    "teoria": "El DMM entrega lectura ± incertidumbre: U = ±(% de lectura + dígitos) con resolución = rango/6000. El alumno resuelve 4 mediciones (fuente, red de 127 V~, resistor y divisor de alta impedancia), elige rango, interpreta el efecto de carga de los 10 MΩ de entrada y respeta las categorías CAT II/III/IV. Normas IEC 61010-1 y JCGM 100 (GUM) / NMX-CH-140-IMNC-2002.",
+    "titulo": "Domina el multímetro: exactitud, resolución y categorías",
+  },
 ]
 `;
 
@@ -535,6 +545,7 @@ exports[`golden master — catálogo por categoría (invariante ante extracción
   "mecanica-1",
   "mecanica-10",
   "mecanica-11",
+  "mecanica-12",
   "mecanica-2",
   "mecanica-3",
   "mecanica-4",

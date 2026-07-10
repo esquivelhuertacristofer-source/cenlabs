@@ -1,0 +1,9 @@
+{
+  "donor": "escaner-obd.html",
+  "out": "multimetro.html",
+  "title": "CEN Labs · Multímetro Digital: Exactitud y Categorías — Laboratorio 3D",
+  "lt": "Multímetro Digital · Instrumentación",
+  "inspectHint": "👆 Toca un borne, la perilla o el display para identificarlo",
+  "body": "multimetro.body.js",
+  "fichas": ["_ficha-tecnica.js", "_ficha-multimetro.js"]
+}
