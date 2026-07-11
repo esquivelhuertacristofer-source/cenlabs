@@ -1,0 +1,9 @@
+{
+  "donor": "escaner-obd.html",
+  "out": "zener.html",
+  "title": "CEN Labs · Diodo Zener: Regulador Shunt de Voltaje — Laboratorio 3D",
+  "lt": "Regulador zener shunt · Electrónica",
+  "inspectHint": "👆 Toca el esquema, la gráfica V-I o los componentes del banco",
+  "body": "zener.body.js",
+  "fichas": ["_ficha-tecnica.js", "_ficha-zener.js"]
+}

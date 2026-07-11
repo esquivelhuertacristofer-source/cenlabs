@@ -441,6 +441,16 @@ exports[`golden master — catálogo por categoría (invariante ante extracción
     "teoria": "Compara media onda, center-tap y puente sobre el mismo motor de diodo Shockley de la práctica de la curva I-V, ahora con el transitorio exacto del capacitor de filtro integrado por Runge-Kutta 4 (C·dVc/dt = I_diodo(t) − Vc/R_L) en vez de la fórmula lineal de rizo. Calcula PIV específico por topología (Vm−VF en puente vs. 2Vm−VF en media onda con filtro y center-tap), la duplicación de la frecuencia de rizo en las topologías de onda completa, y verifica márgenes de seguridad de corriente y voltaje contra los ratings del diodo elegido (Si 1N4007, Schottky 1N5819 o puente integrado DB107) en cuatro modos: Explora, Predicción, Barrido de capacitancia y Reto de diseño.",
     "titulo": "Rectificadores: Media Onda, Center-Tap y Puente",
   },
+  {
+    "duracion": "40 min",
+    "estado": "activo",
+    "id": "mecanica-16",
+    "modulo": "Electrónica",
+    "orden": 16,
+    "simuladorHtml": "/labs/zener.html",
+    "teoria": "Modela un diodo zener en avalancha controlada como regulador shunt (Rs serie + zener en paralelo con RL), resolviendo el punto de operación exacto por bisección numérica sobre el modelo lineal por tramos de hoja de datos (corte, codo, avalancha) para tres dispositivos reales (1N4728A, 1N4733A, 1N5231B). Verifica la ventana de corriente segura (Izk ≤ Iz ≤ Izm) y mide la regulación de línea contra la fórmula teórica de pequeña señal Rp/(Rp+Rs) en cuatro modos: Explora, Predicción, Barrido y Reto de diseño de Rs.",
+    "titulo": "Diodo Zener: Regulador Shunt de Voltaje",
+  },
 ]
 `;
 
@@ -579,6 +589,7 @@ exports[`golden master — catálogo por categoría (invariante ante extracción
   "mecanica-13",
   "mecanica-14",
   "mecanica-15",
+  "mecanica-16",
   "mecanica-2",
   "mecanica-3",
   "mecanica-4",
