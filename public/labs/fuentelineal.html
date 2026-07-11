@@ -1,0 +1,1450 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>CEN Labs · Fuente de Alimentación Lineal Regulada — Laboratorio 3D</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#08201C;--panel:rgba(9,26,23,.86);--line:#1E3A34;--ink:#EAF4F1;
+    --dim:#8FB3AC;--accent:#2A9D8F;--accent2:#4FD1C5;--hv:#FFB703;--good:#34d399;--bad:#f4475e;
+    --mono:'Outfit',system-ui,'Segoe UI',Roboto,sans-serif;--disp:'Outfit','Arial Black',Impact,sans-serif;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  html,body{height:100%;background:var(--bg);color:var(--ink);font-family:'Outfit',system-ui,Segoe UI,Roboto,sans-serif}
+  body{overflow:hidden}
+  #stage{position:fixed;inset:0}
+  canvas{display:block;touch-action:none}
+
+  .topbar{position:fixed;top:0;left:0;right:0;height:56px;display:flex;align-items:center;gap:14px;padding:0 20px;z-index:20;background:linear-gradient(180deg,rgba(10,13,18,.92),transparent);pointer-events:none}
+  .brand{font-family:var(--disp);font-weight:bold;font-size:16px;text-transform:uppercase}
+  .brand span{color:var(--accent)}
+  .lt{font-family:var(--mono);font-size:11px;letter-spacing:.1em;text-transform:uppercase;color:var(--dim)}
+
+  .badge{position:fixed;top:16px;right:20px;z-index:20;font-family:var(--mono);font-size:9px;letter-spacing:.12em;text-transform:uppercase;background:rgba(255,209,102,.12);color:var(--hv);border:1px solid rgba(255,209,102,.35);padding:6px 12px;border-radius:20px}
+
+  .hud{position:fixed;top:70px;left:18px;z-index:15;max-width:330px;background:var(--panel);backdrop-filter:blur(14px);border:1px solid var(--line);border-radius:16px;padding:18px 20px;max-height:calc(100vh - 150px);overflow-y:auto}
+  .hud .eyebrow{font-family:var(--mono);font-size:10px;letter-spacing:.18em;text-transform:uppercase;color:var(--accent);margin-bottom:8px}
+  .hud h2{font-size:19px;line-height:1.15;margin-bottom:9px}
+  .hud p{font-size:13px;line-height:1.55;color:var(--dim);margin-bottom:10px}
+  .hud .formula{font-family:var(--mono);color:var(--accent2);text-align:center;font-size:12.5px;margin:8px 0;padding:8px;background:rgba(0,0,0,.25);border-radius:8px;line-height:1.5}
+  .hud .src{font-size:10.5px;color:#7a8894;font-style:italic;margin-top:4px;line-height:1.5}
+  .legend{display:flex;flex-direction:column;gap:6px;margin:12px 0;padding:10px 12px;background:rgba(0,0,0,.22);border-radius:10px}
+  .legend .li{display:flex;align-items:center;gap:8px;font-size:11px;color:#c4d0da}
+  .legend .dot{width:10px;height:10px;border-radius:50%;flex:0 0 auto}
+  .fid{margin:10px 0 2px;padding:10px 12px;background:rgba(0,0,0,.22);border-radius:10px;border:1px solid rgba(79,209,197,.18)}
+  .fid .ft{font-family:var(--mono);font-size:9.5px;letter-spacing:.14em;text-transform:uppercase;color:var(--accent2);margin-bottom:6px}
+  .fid .fl{font-size:11px;color:#c4d0da;line-height:1.5;margin-bottom:5px}
+  .fid .fl b{color:var(--ink)}
+  .fid .fl.no b{color:var(--hv)}
+
+  .panel{position:fixed;top:70px;right:18px;z-index:15;width:262px;background:var(--panel);backdrop-filter:blur(14px);border:1px solid var(--line);border-radius:16px;padding:16px;max-height:calc(100vh - 150px);overflow-y:auto}
+  .panel h4{font-family:var(--mono);font-size:10px;letter-spacing:.14em;text-transform:uppercase;color:var(--dim);margin:2px 0 10px}
+  .panel h4.sec{margin-top:16px;border-top:1px solid var(--line);padding-top:14px}
+  .g{margin-bottom:6px}
+  .gl{display:flex;justify-content:space-between;font-family:var(--mono);font-size:11px;color:var(--dim)}
+  .gl b{color:var(--accent2)}
+  .gl b.good{color:var(--good)}.gl b.warn{color:var(--hv)}.gl b.bad{color:var(--bad)}
+  .modebar{display:flex;gap:5px;margin-bottom:8px}
+  .modebar .b{flex:1;padding:8px 4px;font-size:11px}
+  .btns{display:flex;flex-direction:column;gap:7px;margin-top:6px}
+  .b{font-family:system-ui;font-size:12.5px;padding:10px;border-radius:9px;cursor:pointer;border:1px solid var(--line);background:#1b242f;color:var(--ink);transition:.15s;text-align:center}
+  .b:hover{border-color:var(--accent);background:#202c38}
+  .b.on{background:var(--accent);color:#06120f;border-color:var(--accent);font-weight:bold}
+  .b.primary{background:var(--accent);color:#06120f;border-color:var(--accent);font-weight:bold}
+  .b.auto{border-color:var(--hv);color:var(--hv);background:rgba(255,183,3,.10);font-weight:bold}
+  .b.auto:hover{background:rgba(255,183,3,.18);border-color:var(--hv)}
+  .b.auto:disabled{opacity:.6;cursor:default}
+  .b.dx{text-align:left;font-size:12px}
+  .b.dx.right{background:rgba(52,211,153,.18);border-color:var(--good);color:var(--good);font-weight:bold}
+  .b.dx.wrong{background:rgba(244,71,94,.15);border-color:var(--bad);color:var(--bad)}
+  .console{font-family:var(--mono);font-size:11px;line-height:1.55;color:#c4d0da;background:rgba(0,0,0,.28);border-radius:9px;padding:10px 12px;margin-bottom:8px;min-height:56px}
+  .console .dtc{color:var(--bad);font-weight:bold}
+  .console .ok{color:var(--good)}
+  .console .mono{color:var(--dim)}
+
+  .hint{position:fixed;bottom:18px;left:18px;z-index:14;font-family:var(--mono);font-size:10px;color:var(--dim);background:var(--panel);padding:7px 12px;border-radius:9px;border:1px solid var(--line)}
+  .toast{position:fixed;top:80px;left:50%;transform:translateX(-50%);z-index:30;background:rgba(18,24,32,.95);border:1px solid var(--accent);padding:10px 20px;border-radius:40px;font-family:var(--mono);font-size:12px;opacity:0;transition:.3s;pointer-events:none;max-width:80vw;text-align:center}
+  .toast.show{opacity:1}
+  .soundBtn{position:fixed;top:14px;right:18px;z-index:21;font-size:16px;background:var(--panel);backdrop-filter:blur(12px);border:1px solid var(--line);border-radius:50%;width:36px;height:36px;cursor:pointer;color:var(--dim);transition:.15s}
+  .soundBtn.on{color:var(--accent);border-color:var(--accent)}
+  .soundBtn:hover{transform:scale(1.08)}
+  .inspectHint{position:fixed;bottom:18px;right:18px;z-index:14;font-family:var(--mono);font-size:10px;color:var(--accent2);background:var(--panel);padding:7px 12px;border-radius:9px;border:1px solid var(--line)}
+
+  @media(max-width:820px){
+    .hud,.panel{position:fixed;left:8px;right:8px;top:auto;bottom:8px;max-width:none;width:auto;max-height:42vh;overflow-y:auto}
+    .hud{bottom:calc(8px + 42vh + 8px)}
+    .hint,.inspectHint{display:none}
+  }
+</style>
+</head>
+<body>
+<div id="stage"></div>
+<button class="soundBtn on" id="soundBtn">🔊</button>
+<div class="topbar">
+  <div class="brand">CEN<span> Labs</span></div>
+  <div class="lt">Fuente lineal regulada · Electrónica</div>
+</div>
+<div class="hud" id="hud"></div>
+<div class="panel" id="panel"></div>
+<div class="hint">Arrastra para orbitar · rueda para zoom</div>
+<div class="inspectHint">👆 Toca el esquema, el osciloscopio o los componentes del banco</div>
+<div class="toast" id="toast"></div>
+
+<script type="importmap">
+{ "imports": {
+  "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.min.js",
+  "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/"
+}}
+</script>
+<script type="module">
+import * as THREE from 'three';
+import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
+import { RoundedBoxGeometry } from 'three/addons/geometries/RoundedBoxGeometry.js';
+import { EffectComposer } from 'three/addons/postprocessing/EffectComposer.js';
+import { RenderPass } from 'three/addons/postprocessing/RenderPass.js';
+import { GTAOPass } from 'three/addons/postprocessing/GTAOPass.js';
+import { UnrealBloomPass } from 'three/addons/postprocessing/UnrealBloomPass.js';
+import { SMAAPass } from 'three/addons/postprocessing/SMAAPass.js';
+import { OutputPass } from 'three/addons/postprocessing/OutputPass.js';
+import { BokehPass } from 'three/addons/postprocessing/BokehPass.js';
+
+/* ============================================================
+   Texturas PBR procedurales (sin archivos externos) — compartidas
+   ============================================================ */
+function cv(s=512){const c=document.createElement('canvas');c.width=c.height=s;return c;}
+function tex(canvas,repeat=1,srgb=false){
+  const t=new THREE.CanvasTexture(canvas);
+  t.wrapS=t.wrapT=THREE.RepeatWrapping;t.repeat.set(repeat,repeat);
+  t.colorSpace = srgb?THREE.SRGBColorSpace:THREE.NoColorSpace;
+  t.generateMipmaps=false; t.minFilter=THREE.LinearFilter; t.anisotropy=1; return t;
+}
+function normalFromHeight(size, hfn, strength=2.0){
+  const c=cv(size),ctx=c.getContext('2d'),img=ctx.createImageData(size,size);
+  const H=(x,y)=>hfn((x+size)%size,(y+size)%size);
+  for(let y=0;y<size;y++)for(let x=0;x<size;x++){
+    const dx=(H(x+1,y)-H(x-1,y))*strength;
+    const dy=(H(x,y+1)-H(x,y-1))*strength;
+    const nz=1.0; const len=Math.hypot(dx,dy,nz);
+    const i=(y*size+x)*4;
+    img.data[i]  =((-dx/len)*0.5+0.5)*255;
+    img.data[i+1]=((-dy/len)*0.5+0.5)*255;
+    img.data[i+2]=((nz/len)*0.5+0.5)*255;
+    img.data[i+3]=255;
+  }
+  ctx.putImageData(img,0,0);return c;
+}
+function valueNoise(seed=1){
+  const g=(x,y)=>{const s=Math.sin((x*127.1+y*311.7)+seed*13.13)*43758.5453;return s-Math.floor(s);};
+  return (x,y)=>{
+    const xi=Math.floor(x),yi=Math.floor(y),xf=x-xi,yf=y-yi;
+    const u=xf*xf*(3-2*xf),v=yf*yf*(3-2*yf);
+    const a=g(xi,yi),b=g(xi+1,yi),c=g(xi,yi+1),d=g(xi+1,yi+1);
+    return a*(1-u)*(1-v)+b*u*(1-v)+c*(1-u)*v+d*u*v;
+  };
+}
+function fbm(noise,x,y,oct=4){let v=0,a=0.5,f=1;for(let i=0;i<oct;i++){v+=noise(x*f,y*f)*a;f*=2;a*=0.5;}return v;}
+
+function castAluminum(){
+  const S=512, n=valueNoise(7);
+  const c=cv(S),ctx=c.getContext('2d'),img=ctx.createImageData(S,S);
+  for(let y=0;y<S;y++)for(let x=0;x<S;x++){
+    const v=fbm(n,x/22,y/22,5);
+    const por=Math.pow(n(x/3.1,y/3.1),8);
+    const base=150+v*38-por*70;
+    const i=(y*S+x)*4; img.data[i]=base; img.data[i+1]=base+4; img.data[i+2]=base+10; img.data[i+3]=255;
+  }
+  ctx.putImageData(img,0,0);
+  const r=cv(S),rx=r.getContext('2d'),rimg=rx.createImageData(S,S);
+  for(let y=0;y<S;y++)for(let x=0;x<S;x++){
+    const v=fbm(n,x/18,y/18,4); const por=Math.pow(n(x/3.1,y/3.1),8);
+    const rough=120+v*40+por*90; const i=(y*S+x)*4;
+    rimg.data[i]=rimg.data[i+1]=rimg.data[i+2]=Math.min(255,rough); rimg.data[i+3]=255;
+  }
+  rx.putImageData(rimg,0,0);
+  const nrm=normalFromHeight(S,(x,y)=>fbm(n,x/16,y/16,5)+Math.pow(n(x/3.1,y/3.1),8)*0.6,3.0);
+  return {map:tex(c,1,true),roughnessMap:tex(r),normalMap:tex(nrm)};
+}
+function brushedMetal(){
+  const S=512, n=valueNoise(3);
+  const c=cv(S),ctx=c.getContext('2d'),img=ctx.createImageData(S,S);
+  for(let y=0;y<S;y++)for(let x=0;x<S;x++){
+    const streak=Math.sin(y*0.9)*2 + (n(x/120,y*0.5)-0.5)*40;
+    const base=185+streak; const i=(y*S+x)*4;
+    img.data[i]=base; img.data[i+1]=base+2; img.data[i+2]=base+6; img.data[i+3]=255;
+  }
+  ctx.putImageData(img,0,0);
+  const r=cv(S),rx=r.getContext('2d'),rimg=rx.createImageData(S,S);
+  for(let y=0;y<S;y++)for(let x=0;x<S;x++){
+    const streak=(n(x/120,y*0.5)-0.5)*60; const rough=40+Math.abs(streak); const i=(y*S+x)*4;
+    rimg.data[i]=rimg.data[i+1]=rimg.data[i+2]=Math.min(160,rough); rimg.data[i+3]=255;
+  }
+  rx.putImageData(rimg,0,0);
+  const nrm=normalFromHeight(S,(x,y)=>(n(x/120,y*0.5))*0.3+Math.sin(y*0.9)*0.02,1.2);
+  return {map:tex(c,1,true),roughnessMap:tex(r),normalMap:tex(nrm)};
+}
+function rubber(){
+  const S=256,n=valueNoise(5);
+  const nrm=normalFromHeight(S,(x,y)=>fbm(n,x/8,y/8,4),1.4);
+  const rough=cv(64),rc=rough.getContext('2d');rc.fillStyle='#e0e0e0';rc.fillRect(0,0,64,64);
+  return {roughnessMap:tex(rough),normalMap:tex(nrm,2)};
+}
+function gradientBG(top='#11161d',bottom='#05070a'){
+  const c=cv(512),ctx=c.getContext('2d');
+  const grd=ctx.createLinearGradient(0,0,0,512);
+  grd.addColorStop(0,top);grd.addColorStop(1,bottom);
+  ctx.fillStyle=grd;ctx.fillRect(0,0,512,512);
+  const rg=ctx.createRadialGradient(256,200,30,256,256,360);
+  rg.addColorStop(0,'rgba(42,157,143,0.10)');rg.addColorStop(1,'rgba(0,0,0,0)');
+  ctx.fillStyle=rg;ctx.fillRect(0,0,512,512);
+  return tex(c,1,true);
+}
+function techPlastic(r=0.10,g=0.11,b=0.13){
+  const S=256,n=valueNoise(31);
+  const c=cv(S),ctx=c.getContext('2d'),img=ctx.createImageData(S,S);
+  for(let y=0;y<S;y++)for(let x=0;x<S;x++){
+    const v=fbm(n,x/30,y/30,3)*0.1+0.92; const i=(y*S+x)*4;
+    img.data[i]=r*255*v;img.data[i+1]=g*255*v;img.data[i+2]=b*255*v;img.data[i+3]=255;
+  }
+  ctx.putImageData(img,0,0);
+  const nrm=normalFromHeight(S,(x,y)=>fbm(n,x/10,y/10,3),0.8);
+  const rough=cv(64),rc=rough.getContext('2d');rc.fillStyle='#9a9a9a';rc.fillRect(0,0,64,64);
+  return {map:tex(c,1,true),roughnessMap:tex(rough),normalMap:tex(nrm)};
+}
+
+/* ============================================================
+   ENGINE — render premium compartido por todos los laboratorios
+   ============================================================ */
+function createStage(mount, opts={}){
+  const bgTop = opts.bgTop||'#141b24', bgBot = opts.bgBot||'#05070a';
+  const renderer = new THREE.WebGLRenderer({ antialias:true, powerPreference:'high-performance' });
+  renderer.setPixelRatio(Math.min(devicePixelRatio,2));
+  renderer.setSize(mount.clientWidth, mount.clientHeight);
+  renderer.shadowMap.enabled = true;
+  renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+  renderer.toneMapping = THREE.ACESFilmicToneMapping;
+  renderer.toneMappingExposure = opts.exposure ?? 1.18;
+  renderer.outputColorSpace = THREE.SRGBColorSpace;
+  mount.appendChild(renderer.domElement);
+  renderer.domElement.style.touchAction='none';
+
+  const scene = new THREE.Scene();
+  scene.background = gradientBG(bgTop,bgBot);
+  const pmrem = new THREE.PMREMGenerator(renderer);
+  scene.environment = pmrem.fromScene(new RoomEnvironment(renderer), 0.04).texture;
+  scene.environmentIntensity = opts.envInt ?? 1.15;
+
+  const camera = new THREE.PerspectiveCamera(45, mount.clientWidth/mount.clientHeight, 0.1, 200);
+  const cam = opts.cam || [5.5,3.4,6.2];
+  camera.position.set(...cam);
+
+  const controls = new OrbitControls(camera, renderer.domElement);
+  controls.enableDamping = true; controls.dampingFactor = 0.07;
+  controls.minDistance = opts.minD ?? 3; controls.maxDistance = opts.maxD ?? 18;
+  controls.maxPolarAngle = Math.PI*0.52;
+  controls.target.set(...(opts.target||[0,1.4,0]));
+  controls.autoRotate = opts.autoRotate ?? false;
+  controls.autoRotateSpeed = opts.autoRotateSpeed ?? 0.6;
+
+  const key = new THREE.DirectionalLight(0xffffff, 2.7);
+  key.position.set(5,9,6); key.castShadow=true;
+  key.shadow.mapSize.set(2048,2048);
+  key.shadow.camera.near=0.5; key.shadow.camera.far=40;
+  const sd=8; Object.assign(key.shadow.camera,{left:-sd,right:sd,top:sd,bottom:-sd});
+  key.shadow.bias=-0.0003; key.shadow.normalBias=0.02; scene.add(key);
+  const rim = new THREE.SpotLight(0x2affce, 55, 30, Math.PI/5, 0.4, 1.5);
+  rim.position.set(-7,6,-5); scene.add(rim);
+  const fill = new THREE.DirectionalLight(0x6fb6ff, 0.5); fill.position.set(-4,3,7); scene.add(fill);
+  scene.add(new THREE.HemisphereLight(0x9fb4c8, 0x10151b, 0.35));
+
+  if(opts.floor!==false){
+    const f = new THREE.Mesh(new THREE.CircleGeometry(40,80),
+      new THREE.MeshStandardMaterial({ color:0x0a0e13, roughness:0.14, metalness:0.62, envMapIntensity:1.15 }));
+    f.rotation.x=-Math.PI/2; f.receiveShadow=true; scene.add(f);
+    for(let r=2;r<=8;r+=2){
+      const ring=new THREE.Mesh(new THREE.RingGeometry(r-0.012,r+0.012,80),
+        new THREE.MeshBasicMaterial({color:0x1a2632,transparent:true,opacity:0.4}));
+      ring.rotation.x=-Math.PI/2; ring.position.y=0.002; scene.add(ring);
+    }
+  }
+
+  const isMobile = /Mobi|Android|iPhone|iPad/i.test(navigator.userAgent) || innerWidth<820;
+  // GTAO desactivado por defecto: el pase de oclusión ambiental en espacio de pantalla
+  // producía un recuadro oscuro duro sobre el piso reflectante (artefacto dependiente de la
+  // cámara y del renderer). La escena tiene AO suficiente con luces directas + sombras + env.
+  // Se puede reactivar para pruebas con ?gtao.
+  const useGtao = /[?&]gtao\b/.test(location.search);
+  const composer = new EffectComposer(renderer);
+  composer.addPass(new RenderPass(scene,camera));
+  if(!isMobile && useGtao){
+    try{
+      const g=new GTAOPass(scene,camera,mount.clientWidth,mount.clientHeight);
+      g.output=GTAOPass.OUTPUT.Default;
+      if(g.updateGtaoMaterial)g.updateGtaoMaterial({radius:0.5,distanceExponent:1,thickness:1,scale:1.1,samples:16});
+      composer.addPass(g);
+    }catch(e){}
+  }
+  const bloom=new UnrealBloomPass(new THREE.Vector2(mount.clientWidth,mount.clientHeight),opts.bloom??0.42,0.5,0.9);
+  composer.addPass(bloom);
+  let bokeh=null;
+  const flat=/[?&]flat/.test(location.search);
+  if(!isMobile && !flat){
+    bokeh=new BokehPass(scene,camera,{focus:8.5,aperture:opts.aperture??0.00018,maxblur:opts.maxblur??0.004,width:mount.clientWidth,height:mount.clientHeight});
+    composer.addPass(bokeh);
+  }
+  composer.addPass(new OutputPass());
+  composer.addPass(new SMAAPass(mount.clientWidth*renderer.getPixelRatio(),mount.clientHeight*renderer.getPixelRatio()));
+
+  function resize(){
+    const w=mount.clientWidth,h=mount.clientHeight;
+    camera.aspect=w/h; camera.updateProjectionMatrix();
+    renderer.setSize(w,h); composer.setSize(w,h);
+  }
+  window.addEventListener('resize',resize);
+
+  const clock=new THREE.Clock();
+  let hook=null, raf=null;
+  const camCine={active:false,t:0,dur:1.4,from:new THREE.Vector3(),to:new THREE.Vector3(),fromT:new THREE.Vector3(),toT:new THREE.Vector3()};
+  let lastDrag=-99, cinematicIdle=false;
+  controls.addEventListener('start',()=>{ lastDrag=clock.elapsedTime; camCine.active=false; });
+  function easeInOutCubic(x){return x<0.5?4*x*x*x:1-Math.pow(-2*x+2,3)/2;}
+  function moveTo(pos,target,dur=1.4){
+    camCine.from.copy(camera.position); camCine.fromT.copy(controls.target);
+    camCine.to.set(...pos); camCine.toT.set(...target);
+    camCine.dur=dur; camCine.active=true; camCine.t=0;
+  }
+  function setCinematicIdle(v){ cinematicIdle=v; if(!v)controls.autoRotate=false; }
+  function loop(){ raf=requestAnimationFrame(loop); const dt=clock.getDelta(),t=clock.elapsedTime;
+    if(camCine.active){
+      camCine.t=Math.min(1,camCine.t+dt/camCine.dur);
+      const e=easeInOutCubic(camCine.t);
+      camera.position.lerpVectors(camCine.from,camCine.to,e);
+      controls.target.lerpVectors(camCine.fromT,camCine.toT,e);
+      if(camCine.t>=1)camCine.active=false;
+    } else if(cinematicIdle){
+      controls.autoRotate=(t-lastDrag)>1.4; controls.autoRotateSpeed=0.45;
+    }
+    if(hook)hook(dt,t); controls.update();
+    if(bokeh) bokeh.uniforms['focus'].value = camera.position.distanceTo(controls.target);
+    composer.render(); }
+  function start(){ if(!raf)loop(); }
+  function stop(){ cancelAnimationFrame(raf); raf=null; window.removeEventListener('resize',resize); }
+
+  return { THREE, renderer, scene, camera, controls, composer, bloom,
+    setAnimate:fn=>hook=fn, start, stop, resize, clock,
+    flyTo:(v)=>{ controls.target.copy(v); }, moveTo, setCinematicIdle };
+}
+
+/* ---------- shared geometry/material helpers ---------- */
+function roundedBox(w,h,d,mat,rf=0.08){
+  const r=Math.min(w,h,d)*rf;
+  const m=new THREE.Mesh(new RoundedBoxGeometry(w,h,d,4,r),mat);
+  m.castShadow=m.receiveShadow=true; return m;
+}
+function pickerFor(scene,camera,dom,onHit){
+  const ray=new THREE.Raycaster(),mouse=new THREE.Vector2(); let down=null;
+  dom.addEventListener('pointerdown',e=>down=[e.clientX,e.clientY]);
+  dom.addEventListener('pointerup',e=>{
+    if(!down)return; const moved=Math.abs(e.clientX-down[0])+Math.abs(e.clientY-down[1])>6; down=null;
+    if(moved)return;
+    const r=dom.getBoundingClientRect();
+    mouse.x=((e.clientX-r.left)/r.width)*2-1; mouse.y=-((e.clientY-r.top)/r.height)*2+1;
+    ray.setFromCamera(mouse,camera);
+    const hits=ray.intersectObjects(scene.children,true);
+    onHit(hits[0]||null);
+  });
+}
+function labelSprite(text,color='#ffd166'){
+  const w = Math.max(150, Math.min(520, text.length*26+60));
+  const cvE=document.createElement('canvas');cvE.width=w;cvE.height=96;
+  const c=cvE.getContext('2d');c.fillStyle='rgba(8,11,16,.95)';
+  const rr=(x,y,ww,hh,r)=>{c.beginPath();c.moveTo(x+r,y);c.arcTo(x+ww,y,x+ww,y+hh,r);c.arcTo(x+ww,y+hh,x,y+hh,r);c.arcTo(x,y+hh,x,y,r);c.arcTo(x,y,x+ww,y,r);c.closePath();};
+  rr(3,3,w-6,90,18);c.fill();
+  c.strokeStyle=color;c.lineWidth=3;c.stroke();
+  c.font='bold 36px Outfit, system-ui, sans-serif';c.fillStyle=color;c.textAlign='center';c.textBaseline='middle';c.fillText(text,w/2,48);
+  const tx=new THREE.CanvasTexture(cvE);tx.colorSpace=THREE.SRGBColorSpace;tx.generateMipmaps=false;tx.minFilter=THREE.LinearFilter;
+  const sp=new THREE.Sprite(new THREE.SpriteMaterial({map:tx,depthTest:false,transparent:true}));
+  const aspect=w/96;
+  sp.scale.set(0.30*aspect,0.30,1);sp.renderOrder=999;return sp;
+}
+
+/* ============================================================
+   SYNTH — sintetizador Web Audio reutilizable
+   ============================================================ */
+function makeSynth(opts={}){
+  const type=opts.type||'sawtooth';
+  let ctx=null,oscA=null,oscB=null,gain=null,filter=null,soundOn=true;
+  function init(){
+    if(ctx)return;
+    try{
+      ctx=new (window.AudioContext||window.webkitAudioContext)();
+      oscA=ctx.createOscillator(); oscB=ctx.createOscillator();
+      oscA.type=type; oscB.type=opts.type2||'square';
+      filter=ctx.createBiquadFilter(); filter.type=opts.filterType||'lowpass'; filter.frequency.value=opts.filterFreq||500; filter.Q.value=opts.Q||3;
+      gain=ctx.createGain(); gain.gain.value=0;
+      oscA.connect(filter); oscB.connect(filter); filter.connect(gain); gain.connect(ctx.destination);
+      oscA.start(); oscB.start();
+    }catch(e){}
+  }
+  function update(freqA,freqB,vol,filterFreq){
+    if(!ctx||!soundOn){ if(gain)gain.gain.setTargetAtTime(0,ctx?.currentTime||0,0.1); return; }
+    oscA.frequency.setTargetAtTime(freqA,ctx.currentTime,0.04);
+    if(freqB!==undefined)oscB.frequency.setTargetAtTime(freqB,ctx.currentTime,0.04);
+    if(filterFreq!==undefined)filter.frequency.setTargetAtTime(filterFreq,ctx.currentTime,0.05);
+    gain.gain.setTargetAtTime(Math.max(0,vol),ctx.currentTime,0.06);
+  }
+  function beep(freq=880,dur=0.09,vol=0.06){
+    if(!ctx||!soundOn)return;
+    const o=ctx.createOscillator(),g=ctx.createGain();
+    o.type='sine'; o.frequency.value=freq;
+    g.gain.setValueAtTime(vol,ctx.currentTime); g.gain.exponentialRampToValueAtTime(0.001,ctx.currentTime+dur);
+    o.connect(g); g.connect(ctx.destination); o.start(); o.stop(ctx.currentTime+dur);
+  }
+  function toggle(){ soundOn=!soundOn; return soundOn; }
+  function resume(){ if(ctx&&ctx.state==='suspended')ctx.resume(); }
+  return { init, update, beep, toggle, resume, isOn:()=>soundOn, state:()=>ctx?.state||'none' };
+}
+
+/* ============================================================
+   LAB — Fuente de Alimentación Lineal Regulada
+   ============================================================
+   CONTRATO DE FIDELIDAD
+   SÍ modela: onda de línea CA con variación realista de tensión (114 a
+   140V, nominal 127V/60Hz México), transformador ideal (relación fija
+   por Vsec de catálogo), puente rectificador de silicio (modelo de
+   Shockley de DOS uniones en serie — mismos parámetros Is/n que el banco
+   de rectificación d2-02: Is=8.4e-10 A, n=1.85), integración EXACTA por
+   Runge-Kutta 4 del capacitor de filtro contra una carga de corriente
+   casi constante (el regulador + su carga), caída de "dropout" del
+   regulador lineal Vdo=Vdo0+Vdo_k·Iout, limitación de corriente con
+   "foldback" ilustrativo, disipación de potencia EXACTA promediada en el
+   periodo Pd=(Vfiltro−Vout)·Iout+Vfiltro·Iq, y temperatura de unión en
+   estado ESTABLE Tj=Ta+Pd·θtotal contra Tj,max≈125°C (regulador tipo
+   LM7805, hoja de datos TI SNOSBR7).
+   NO modela: tiempo de recuperación inversa de los diodos (trr — cifra
+   NO confiable para la familia 1N400x/DB10x, se omite por completo),
+   saturación de núcleo o armónicos del transformador, dinámica térmica
+   TRANSITORIA real (solo estado estable), tolerancias de componentes,
+   apagado térmico real del regulador, ruido/EMI de conmutación, ni el
+   valor numérico preciso de la corriente de recarga pico de los diodos
+   (solo se reporta su tendencia cualitativa al variar C).
+   Fuentes: LM78XX (Texas Instruments, lit. SNOSBR7) · 1N4001-4007
+   (ON Semiconductor Rev.13; Diodes Inc. DS28002) · DB101-DB107 (Diodes
+   Inc. DS21211) · Boylestad & Nashelsky, "Electronic Devices and Circuit
+   Theory" · Sedra & Smith, "Microelectronic Circuits" · JCGM 200:2012.
+   ============================================================ */
+const mount=document.getElementById('stage');
+const S=createStage(mount,{cam:[3.2,2.4,7.4],target:[0.4,1.25,0.05],bgTop:'#0d1a17',bgBot:'#04060a',bloom:0.35,minD:3.0,maxD:18});
+const synth=makeSynth({type:'sine',type2:'triangle',filterFreq:2600,Q:0.8});
+
+/* ---------- modelo físico ---------- */
+const KB=1.380649e-23, QE=1.602176634e-19, TNOM=300.15;
+const VTN=KB*TNOM/QE;
+const DIODE={name:'Puente de silicio', Is:8.4e-10, n:1.85, ifAvg:1.0, ifsm:30, vrrm:1000};
+
+const XFMR=[{vsec:6},{vsec:9},{vsec:12},{vsec:15},{vsec:18}];
+const XLBL=XFMR.map(x=>x.vsec+'V');
+const CVALS=[100e-6,220e-6,470e-6,1000e-6,2200e-6,4700e-6];
+const CLBL=['100µ','220µ','470µ','1000µ','2200µ','4700µ'];
+const FREQS=[50,60];
+const FLBL=['50 Hz','60 Hz (MX)'];
+const HS=[
+  {theta:80,name:'Sin disipador'},
+  {theta:58,name:'PCB, buen cobre'},
+  {theta:30,name:'Disipador pequeño'},
+  {theta:12,name:'Disipador grande'},
+];
+const HLBL=HS.map(h=>h.name);
+const TA_OPTS=[25,40];
+const TALBL=['25°C','40°C'];
+
+const REG={vout:5.0, iqTyp:0.005, iqMax:0.008, vdo0:1.7, vdoK:0.3, tjMax:125, tjWarn:100, ilimTyp:1.2, ilimCollapse:1.35};
+
+function idExpl2(d,v){ return d.Is*Math.expm1(v/(2*d.n*VTN)); }
+function vinInst(t,vrms,freq){ return Math.SQRT2*vrms*Math.sin(2*Math.PI*freq*t); }
+function vLineToVsecRms(vsecNom,vline){ return vsecNom*(vline/127); }
+
+function actualIout(ioutReq){
+  if(ioutReq<=REG.ilimTyp) return ioutReq;
+  if(ioutReq>=REG.ilimCollapse) return 0;
+  const frac=(ioutReq-REG.ilimTyp)/(REG.ilimCollapse-REG.ilimTyp);
+  return REG.ilimTyp*(1-frac);
+}
+
+const STEPS_PER_PERIOD=480, MAXP=60;
+
+function simulate(vsecNom,vline,freq,c,ioutReq,iqSel){
+  const vsecRms=vLineToVsecRms(vsecNom,vline);
+  const iq=iqSel==='max'?REG.iqMax:REG.iqTyp;
+  const ioutAct=actualIout(ioutReq);
+  const vdoAct=REG.vdo0+REG.vdoK*ioutAct;
+  const T=1/freq, N=STEPS_PER_PERIOD, dt=T/N;
+  function iloadTotal(v){ const taper=Math.min(1,Math.max(0,v/0.3)); return (ioutAct+iq)*taper; }
+  function deriv(t,v){ const va=Math.abs(vinInst(t,vsecRms,freq)); const id=idExpl2(DIODE,va-v); return (id-iloadTotal(v))/c; }
+  let v=Math.max(0,Math.SQRT2*vsecRms-1.6-vdoAct);
+  let t=0, prevVdc=null, converged=false, samples=[];
+  for(let p=0;p<MAXP;p++){
+    samples=[]; let sum=0;
+    for(let k=0;k<N;k++){
+      const k1=deriv(t,v);
+      const k2=deriv(t+dt/2,v+dt/2*k1);
+      const k3=deriv(t+dt/2,v+dt/2*k2);
+      const k4=deriv(t+dt,v+dt*k3);
+      v=Math.max(0,v+dt/6*(k1+2*k2+2*k3+k4));
+      t+=dt;
+      samples.push({t,v});
+      sum+=v;
+    }
+    const vdcP=sum/N;
+    if(prevVdc!==null && Math.abs(vdcP-prevVdc)<=0.002*Math.max(Math.abs(vdcP),0.05)){ converged=true; break; }
+    prevVdc=vdcP;
+  }
+  let vMax=-Infinity, vMin=Infinity, vSum=0;
+  for(const s of samples){ if(s.v>vMax)vMax=s.v; if(s.v<vMin)vMin=s.v; vSum+=s.v; }
+  const vFilterAvg=vSum/samples.length;
+  const vFilterRpp=vMax-vMin;
+
+  const voutSamples=samples.map(s=>({t:s.t, v:Math.max(0,Math.min(REG.vout,s.v-vdoAct))}));
+  let voutMax=-Infinity, voutMin=Infinity, voutSum=0, dropoutCount=0;
+  for(const s of voutSamples){ if(s.v>voutMax)voutMax=s.v; if(s.v<voutMin)voutMin=s.v; voutSum+=s.v; if(s.v<REG.vout-0.005)dropoutCount++; }
+  const voutAvg=voutSum/voutSamples.length;
+  const voutRpp=voutMax-voutMin;
+  const dropoutFrac=dropoutCount/voutSamples.length;
+
+  let pdSum=0;
+  for(let i=0;i<samples.length;i++){ pdSum += (samples[i].v-voutSamples[i].v)*ioutAct + samples[i].v*iq; }
+  const pdExact=pdSum/samples.length;
+  const pdFormula=(vFilterAvg-REG.vout)*ioutAct+vFilterAvg*iq;
+  const headroomMargin=(vMin-vdoAct)-REG.vout;
+
+  return {vsecRms,iq,ioutReq,ioutAct,vdoAct,samples,voutSamples,vFilterAvg,vFilterRpp,vMax,vMin,
+    voutAvg,voutRpp,voutMax,voutMin,dropoutFrac,pdExact,pdFormula,headroomMargin,converged,T};
+}
+
+function thermal(pd,theta,ta){ const tj=ta+pd*theta; return {tj, warn:tj>REG.tjWarn, bad:tj>=REG.tjMax}; }
+
+/* ---------- estado ---------- */
+let mode='explora';
+let xIdx=2, freqIdx=1, Cidx=3, hsIdx=1, taIdx=0;
+let Vline=127, Iout=0.3;
+let RES=null, solved=false;
+let filterRevealed=false, voutRevealed=false;
+let PRED=null, predRevealed=false, predSolved=false;
+let RETO=null, retoSolved=false;
+let SWEEP=[], sweepMode='iout', sweeping=false, autoRunning=false;
+const sleep=ms=>new Promise(r=>setTimeout(r,ms));
+const el=id=>document.getElementById(id);
+
+const curX=()=>XFMR[xIdx];
+const curF=()=>FREQS[freqIdx];
+const curC=()=>CVALS[Cidx];
+const curHS=()=>HS[hsIdx];
+const curTA=()=>TA_OPTS[taIdx];
+function iqSelActive(){ return mode==='reto'?'max':'typ'; }
+
+function fmtV(v){ const av=Math.abs(v); if(av<1) return (v*1000).toFixed(0)+' mV'; return v.toFixed(2)+' V'; }
+function fmtI(i){ const ai=Math.abs(i); if(ai<1e-3) return (i*1e6).toFixed(0)+' µA'; if(ai<1) return (i*1000).toFixed(1)+' mA'; return i.toFixed(3)+' A'; }
+function fmtC(c){ return (c*1e6).toFixed(0)+' µF'; }
+function fmtP(p){ const ap=Math.abs(p); if(ap<1) return (p*1000).toFixed(0)+' mW'; return p.toFixed(2)+' W'; }
+function fmtT(t){ return t.toFixed(1)+' °C'; }
+
+function genPredice(){
+  const stressed=Math.random()<0.4;
+  xIdx = stressed ? (Math.random()<0.6?0:1) : Math.floor(Math.random()*XFMR.length);
+  freqIdx = Math.random()<0.5?0:1;
+  Cidx = stressed ? Math.floor(Math.random()*2) : Math.floor(Math.random()*CVALS.length);
+  hsIdx = stressed ? (Math.random()<0.6?0:1) : Math.floor(Math.random()*HS.length);
+  taIdx = stressed && Math.random()<0.6 ? 1 : Math.floor(Math.random()*TA_OPTS.length);
+  Vline = stressed ? 114+Math.random()*4 : 118+Math.random()*18;
+  Iout = stressed ? 0.7+Math.random()*0.5 : 0.15+Math.random()*0.7;
+  const res=simulate(curX().vsec,Vline,curF(),curC(),Iout,'typ');
+  const th=thermal(res.pdExact,curHS().theta,curTA());
+  PRED={xIdx,freqIdx,Cidx,hsIdx,taIdx,Vline,Iout,
+    vsecRms:res.vsecRms, vFiltro:res.vFilterAvg, pd:res.pdExact,
+    headroomOk:res.headroomMargin>=0, thermalSafe:!th.bad};
+  predRevealed=false; predSolved=false;
+}
+
+function genReto(){
+  const ioutTarget=0.2+Math.random()*0.6;
+  RETO={ioutTarget, vline:114.3, ta:40, freqIdx:1};
+  retoSolved=false;
+}
+
+/* ---------- materiales ---------- */
+const std=o=>new THREE.MeshStandardMaterial(o);
+const MAT={
+  bench: std({color:0x0e1512,roughness:0.9,metalness:0.05}),
+  frame: std({color:0x1c2b26,roughness:0.6,metalness:0.3}),
+  pcb: std({color:0x0f2a22,roughness:0.75,metalness:0.1}),
+  psu: std({color:0x2a3b36,roughness:0.5,metalness:0.4}),
+  scope: std({color:0x111a17,roughness:0.4,metalness:0.5}),
+  lead: std({color:0xc9c9c9,roughness:0.35,metalness:0.85}),
+  trace: std({color:0xb5824a,roughness:0.4,metalness:0.7}),
+  jackRed: std({color:0xd23b3b,roughness:0.4,metalness:0.3}),
+  jackBlk: std({color:0x1a1a1a,roughness:0.4,metalness:0.3}),
+  cableRed: std({color:0xb02c2c,roughness:0.55,metalness:0.05}),
+  cableBlk: std({color:0x141414,roughness:0.55,metalness:0.05}),
+  cap: std({color:0x2e6fe0,roughness:0.35,metalness:0.5}),
+  xfmr: std({color:0x8a8a8a,roughness:0.45,metalness:0.6}),
+  reg: std({color:0x1a1a1a,roughness:0.5,metalness:0.2}),
+  regTab: std({color:0xb0b0b0,roughness:0.3,metalness:0.9}),
+  hsFin: std({color:0xc7c7cf,roughness:0.3,metalness:0.85}),
+  load: std({color:0x3a2e12,roughness:0.7,metalness:0.2}),
+};
+
+/* ---------- lienzo del esquema ---------- */
+const bCv=document.createElement('canvas'); bCv.width=1024; bCv.height=768;
+const bCx=bCv.getContext('2d');
+const bTex=new THREE.CanvasTexture(bCv); bTex.colorSpace=THREE.SRGBColorSpace;
+
+const PX0=130, PX1=940, WY=150, BY=250;
+
+function line(c,x0,y0,x1,y1,col,w,dash){ c.strokeStyle=col; c.lineWidth=w||2; c.setLineDash(dash||[]); c.beginPath(); c.moveTo(x0,y0); c.lineTo(x1,y1); c.stroke(); c.setLineDash([]); }
+function rr(c,x,y,w,h,r,fill,stroke,sw){ c.beginPath(); c.roundRect(x,y,w,h,r); if(fill){c.fillStyle=fill;c.fill();} if(stroke){c.strokeStyle=stroke;c.lineWidth=sw||1;c.stroke();} }
+function diodeGlyph(c,cx,cy,ang,color,label){
+  c.save(); c.translate(cx,cy); c.rotate(ang);
+  c.strokeStyle=color; c.fillStyle=color; c.lineWidth=2;
+  c.beginPath(); c.moveTo(-8,-8); c.lineTo(-8,8); c.lineTo(8,0); c.closePath(); c.fill();
+  c.beginPath(); c.moveTo(8,-9); c.lineTo(8,9); c.stroke();
+  c.restore();
+  if(label){ c.fillStyle='#9fb8b0'; c.font='11px system-ui'; c.textAlign='center'; c.fillText(label,cx,cy+22); }
+}
+function acSourceGlyph(c,cx,cy,r){
+  c.strokeStyle='#7fa89e'; c.lineWidth=2; c.beginPath(); c.arc(cx,cy,r,0,Math.PI*2); c.stroke();
+  c.beginPath(); c.moveTo(cx-r*0.55,cy);
+  for(let i=0;i<=20;i++){ const xx=cx-r*0.55+r*1.1*i/20; const yy=cy-Math.sin(i/20*Math.PI*2)*r*0.4; c.lineTo(xx,yy); }
+  c.stroke();
+}
+function groundGlyph(c,x,y){
+  line(c,x,y,x,y+14,'#3d5750',2);
+  line(c,x-12,y+14,x+12,y+14,'#3d5750',2);
+  line(c,x-7,y+20,x+7,y+20,'#3d5750',2);
+  line(c,x-3,y+26,x+3,y+26,'#3d5750',2);
+}
+function capGlyph(c,cx,y0,y1,active,label){
+  const cy=(y0+y1)/2;
+  line(c,cx,y0,cx,cy-8,active?'#4FD1C5':'#3d5750',3);
+  line(c,cx,cy+8,cx,y1,active?'#4FD1C5':'#3d5750',3);
+  line(c,cx-18,cy-8,cx+18,cy-8,active?'#4FD1C5':'#3d5750',4);
+  line(c,cx-18,cy+8,cx+18,cy+8,active?'#4FD1C5':'#3d5750',4);
+  if(label){ c.fillStyle='#9fb8b0'; c.font='11px system-ui'; c.textAlign='center'; c.fillText(label,cx,y1+16); }
+}
+function transformerGlyph(c,cx,cyTop,cyBot,color){
+  const n=4, step=(cyBot-cyTop)/n;
+  c.strokeStyle=color; c.lineWidth=2.5;
+  c.beginPath(); c.moveTo(cx-6,cyTop-8); c.lineTo(cx-6,cyBot+8); c.stroke();
+  c.beginPath(); c.moveTo(cx+6,cyTop-8); c.lineTo(cx+6,cyBot+8); c.stroke();
+  c.beginPath();
+  for(let i=0;i<n;i++){ const y0=cyTop+i*step, y1=y0+step; c.arc(cx-6,(y0+y1)/2,step/2-1,Math.PI/2,-Math.PI/2,true); }
+  c.stroke();
+  c.beginPath();
+  for(let i=0;i<n;i++){ const y0=cyTop+i*step, y1=y0+step; c.arc(cx+6,(y0+y1)/2,step/2-1,-Math.PI/2,Math.PI/2,true); }
+  c.stroke();
+}
+function regulatorGlyph(c,x,y,w,h,color,name){
+  rr(c,x,y,w,h,6,'#1a2420',color,2);
+  c.fillStyle='#EAF4F1'; c.font='bold 13px system-ui'; c.textAlign='center';
+  c.fillText(name,x+w/2,y+h/2+5);
+}
+function currentLoadGlyph(c,cx,y0,y1,color,label){
+  const cy=(y0+y1)/2, r=22;
+  line(c,cx,y0,cx,cy-r,color,3);
+  line(c,cx,cy+r,cx,y1,color,3);
+  c.strokeStyle=color; c.lineWidth=3; c.beginPath(); c.arc(cx,cy,r,0,Math.PI*2); c.stroke();
+  line(c,cx,cy-r+6,cx,cy+r-6,color,2.5);
+  c.beginPath(); c.moveTo(cx,cy+r-6); c.lineTo(cx-5,cy+r-14); c.lineTo(cx+5,cy+r-14); c.closePath();
+  c.fillStyle=color; c.fill();
+  if(label){ c.fillStyle='#9fb8b0'; c.font='11px system-ui'; c.textAlign='center'; c.fillText(label,cx,y1+16); }
+}
+function drawBridgeDiamond(c,cx,cy,r,color){
+  const T={x:cx,y:cy-r}, B={x:cx,y:cy+r}, L={x:cx-r,y:cy}, R={x:cx+r,y:cy};
+  const mid=(p,q)=>({x:(p.x+q.x)/2,y:(p.y+q.y)/2});
+  const ang=(p,q)=>Math.atan2(q.y-p.y,q.x-p.x);
+  [[T,R],[R,B],[B,L],[L,T]].forEach(([p,q])=>{ const m=mid(p,q); diodeGlyph(c,m.x,m.y,ang(p,q),color,''); });
+  c.strokeStyle='#3d5750'; c.lineWidth=1.5;
+  c.beginPath(); c.moveTo(T.x,T.y); c.lineTo(R.x,R.y); c.lineTo(B.x,B.y); c.lineTo(L.x,L.y); c.closePath(); c.stroke();
+  return {T,B,L,R};
+}
+
+let HIT=[];
+function drawSchematic(c){
+  HIT=[];
+  const acX=180, xfmrX=300, bridgeX=460, capX=600, regX=740, loadX=880;
+  const diaR=44;
+  line(c,acX,WY,acX,BY,'#3d5750',2);
+  acSourceGlyph(c,acX,(WY+BY)/2,26);
+  c.fillStyle='#9fb8b0'; c.font='12px system-ui'; c.textAlign='center';
+  c.fillText(Vline.toFixed(0)+'V CA · '+FLBL[freqIdx],acX,BY+22);
+  HIT.push({x:acX,y:(WY+BY)/2,r:30,act:'src'});
+
+  transformerGlyph(c,xfmrX,WY+16,BY-16,'#7fa89e');
+  c.fillStyle='#9fb8b0'; c.fillText(curX().vsec+'V sec.',xfmrX,BY+22);
+  HIT.push({x:xfmrX,y:(WY+BY)/2,r:34,act:'xfmr'});
+  line(c,acX+26,WY+10,xfmrX-20,WY+10,'#3d5750',2);
+  line(c,acX+26,BY-10,xfmrX-20,BY-10,'#3d5750',2);
+
+  const bd=drawBridgeDiamond(c,bridgeX,(WY+BY)/2,diaR,'#d88a2e');
+  c.fillStyle='#EAF4F1'; c.font='bold 11px system-ui'; c.fillText('PUENTE',bridgeX,BY+34);
+  HIT.push({x:bridgeX,y:(WY+BY)/2,r:diaR+6,act:'bridge'});
+  line(c,xfmrX+20,WY+16,bd.L.x-2,bd.L.y-2,'#3d5750',2);
+  line(c,xfmrX+20,BY-16,bd.L.x-2,bd.L.y+2,'#3d5750',2);
+  line(c,bd.R.x,bd.R.y,bd.R.x+18,bd.R.y,'#3d5750',1);
+
+  line(c,bd.T.x,bd.T.y,capX,WY,'#3d5750',2);
+  line(c,bd.B.x,bd.B.y,capX,BY,'#3d5750',2);
+  capGlyph(c,capX,WY,BY,curC()>0,'C filtro '+fmtC(curC()));
+  HIT.push({x:capX,y:(WY+BY)/2,r:30,act:'cap'});
+  c.fillStyle='#4FD1C5'; c.font='12px system-ui'; c.fillText('V_filtro',capX,WY-14);
+
+  line(c,capX,WY,regX-40,WY,'#3d5750',2);
+  regulatorGlyph(c,regX-40,WY+36,80,BY-WY-72,'#7fa89e','7805');
+  line(c,regX,WY+36,regX,WY,'#3d5750',2);
+  line(c,regX,BY-36,regX,BY,'#3d5750',2);
+  HIT.push({x:regX,y:(WY+BY)/2,r:44,act:'reg'});
+
+  line(c,regX,WY,loadX,WY,'#3d5750',2);
+  line(c,regX,BY,loadX,BY,'#3d5750',2);
+  currentLoadGlyph(c,loadX,WY,BY,'#E8871E','I_out '+fmtI(Iout));
+  HIT.push({x:loadX,y:(WY+BY)/2,r:30,act:'load'});
+  c.fillStyle='#E8871E'; c.font='12px system-ui'; c.fillText('V_out',loadX,WY-14);
+
+  groundGlyph(c,acX,BY);
+  groundGlyph(c,capX,BY);
+  groundGlyph(c,loadX,BY);
+}
+function drawLoadLabel(c){}
+
+function vinTraceFor(res){ if(!res) return []; return res.samples.map(s=>({t:s.t, v:Math.abs(vinInst(s.t,res.vsecRms,curF()))})); }
+
+function drawScopePane(c,y0,y1,title,vMax,traces,refLine){
+  rr(c,PX0-14,y0-30,PX1-PX0+28,y1-y0+48,8,'#0a1512','#1E3A34',1);
+  c.fillStyle='#EAF4F1'; c.font='bold 14px system-ui'; c.textAlign='left';
+  c.fillText(title,PX0,y0-12);
+  const rows=4;
+  c.font='11px system-ui';
+  for(let i=0;i<=rows;i++){
+    const gy=y0+(y1-y0)*i/rows;
+    c.strokeStyle='#16241f'; c.lineWidth=1;
+    c.beginPath(); c.moveTo(PX0,gy); c.lineTo(PX1,gy); c.stroke();
+    c.fillStyle='#6f8a83'; c.textAlign='right';
+    c.fillText((vMax*(1-i/rows)).toFixed(1)+'V',PX0-8,gy+4);
+  }
+  function xy(t0,t1,tv,v){
+    const px=PX0+(PX1-PX0)*(tv-t0)/Math.max(1e-9,(t1-t0));
+    const py=y1-(y1-y0)*Math.min(1,Math.max(0,v/vMax));
+    return [px,py];
+  }
+  for(const tr of traces){
+    if(!tr.samples||!tr.samples.length) continue;
+    const t0=tr.samples[0].t, t1=tr.samples[tr.samples.length-1].t;
+    c.strokeStyle=tr.color; c.lineWidth=tr.width||2; c.setLineDash(tr.dash||[]);
+    c.beginPath();
+    tr.samples.forEach((p,i)=>{ const [px,py]=xy(t0,t1,p.t,p.v); if(i===0)c.moveTo(px,py); else c.lineTo(px,py); });
+    c.stroke(); c.setLineDash([]);
+  }
+  if(refLine!=null){
+    const py=y1-(y1-y0)*Math.min(1,Math.max(0,refLine/vMax));
+    c.strokeStyle='#FFB703'; c.lineWidth=1.5; c.setLineDash([6,4]);
+    c.beginPath(); c.moveTo(PX0,py); c.lineTo(PX1,py); c.stroke(); c.setLineDash([]);
+    c.fillStyle='#FFB703'; c.textAlign='left'; c.font='11px system-ui';
+    c.fillText(refLine.toFixed(2)+'V objetivo',PX1-130,py-6);
+  }
+  c.textAlign='right'; c.font='11px system-ui';
+  traces.forEach((tr,i)=>{ c.fillStyle=tr.color; c.fillText('— '+tr.label, PX1, y0+14+i*15); });
+}
+function drawHiddenPane(c,y0,y1,msg){
+  rr(c,PX0-14,y0-30,PX1-PX0+28,y1-y0+48,8,'#0a1512','#1E3A34',1);
+  c.fillStyle='#7fa89e'; c.font='bold 15px system-ui'; c.textAlign='center';
+  c.fillText('¿ ? — '+msg,(PX0+PX1)/2,(y0+y1)/2);
+}
+
+function drawBoard(){
+  const c=bCx;
+  c.clearRect(0,0,1024,768);
+  const grad=c.createLinearGradient(0,0,0,768); grad.addColorStop(0,'#0c1613'); grad.addColorStop(1,'#060b09');
+  c.fillStyle=grad; c.fillRect(0,0,1024,768);
+  c.fillStyle='#EAF4F1'; c.font='bold 20px system-ui'; c.textAlign='left';
+  c.fillText('Fuente lineal regulada · 7805',24,34);
+  c.fillStyle='#7fa89e'; c.font='13px system-ui';
+  c.fillText('Vlínea → Transformador → Puente → Filtro → Regulador → Carga',24,54);
+
+  drawSchematic(c);
+
+  const vMax1=RES?Math.max(6,Math.ceil((RES.vMax)*1.15)):16;
+  const hideS1=(mode==='explora'&&!filterRevealed)||(mode==='predice'&&!predRevealed);
+  if(hideS1){
+    drawHiddenPane(c,300,452,'Osc. 1 · V puente / V_filtro — toca el capacitor para revelar');
+  } else {
+    drawScopePane(c,300,452,'Osc. 1 · V puente sin filtrar (punteado) / V_filtro (sólido)',vMax1,[
+      {samples:vinTraceFor(RES), color:'#5f8078', width:2, dash:[5,4], label:'V puente'},
+      {samples:RES?RES.samples:[], color:'#4FD1C5', width:3, label:'V_filtro'},
+    ]);
+  }
+  const hideS2=(mode==='explora'&&!voutRevealed)||(mode==='predice'&&!predRevealed);
+  if(hideS2){
+    drawHiddenPane(c,490,642,'Osc. 2 · V_out regulado — toca el regulador para revelar');
+  } else {
+    drawScopePane(c,490,642,'Osc. 2 · V_out regulado',6,[
+      {samples:RES?RES.voutSamples:[], color:'#E8871E', width:3, label:'V_out'},
+    ],REG.vout);
+  }
+  bTex.needsUpdate=true;
+}
+
+function boardClick(u,v){
+  const px=u*1024, py=(1-v)*768;
+  let best=null, bd=Infinity;
+  for(const h of HIT){ const d=Math.hypot(px-h.x,py-h.y); if(d<h.r && d<bd){ bd=d; best=h; } }
+  if(!best) return;
+  if(best.act==='src'){
+    showToast('Fuente de CA de línea: '+Vline.toFixed(0)+'V @ '+FLBL[freqIdx]+'. En México la red nominal es 127V/60Hz, con variación real de hasta ±10%.');
+  } else if(best.act==='xfmr'){
+    showToast('Transformador reductor ideal: entrega '+curX().vsec+'V rms nominales en el secundario. Vs_rms escala con Vlínea: Vs = Vsec·(Vlínea/127).');
+  } else if(best.act==='bridge'){
+    showToast('Puente rectificador de silicio: 2 diodos conducen en cada semiciclo (caída ≈2·VF). Convierte CA en pulsos de CD sin filtrar, con el doble de la frecuencia de línea.');
+  } else if(best.act==='cap'){
+    if(mode==='explora' && !filterRevealed){ filterRevealed=true; showToast('¡Revelado! El capacitor de filtro suaviza los pulsos del puente, cargándose en cada pico y sosteniendo el voltaje entre ellos.'); refreshAll(); }
+    else showToast('Capacitor de filtro ('+fmtC(curC())+'): entre más grande, menor rizo — pero más corriente de recarga pico en los diodos (efecto cualitativo, no modelado en cifra exacta aquí).');
+  } else if(best.act==='reg'){
+    if(mode==='explora' && !voutRevealed){
+      if(!filterRevealed){ showToast('Primero revisa el capacitor de filtro — el regulador necesita ver esa señal para poder regular.'); }
+      else { voutRevealed=true; showToast('¡Revelado! El regulador 7805 recorta el voltaje filtrado a 5V estables, siempre que sobre suficiente "margen de cabeza" (headroom).'); refreshAll(); }
+    } else {
+      showToast('Regulador lineal 7805: mantiene Vout=5V mientras Vfiltro−Vdropout ≥ Vout. Si el margen se agota, pierde regulación y el rizo se filtra hacia la salida.');
+    }
+  } else if(best.act==='load'){
+    showToast('Carga de corriente constante: demanda '+fmtI(Iout)+' independientemente del voltaje — modela un consumo electrónico típico (no una resistencia fija).');
+  }
+}
+
+/* ---------- banco 3D ---------- */
+function trace(x0,z0,x1,z1,w){
+  const len=Math.hypot(x1-x0,z1-z0);
+  const g=new THREE.BoxGeometry(len,0.006,w||0.03);
+  const m=new THREE.Mesh(g,MAT.trace);
+  m.position.set((x0+x1)/2,0.001,(z0+z1)/2);
+  m.rotation.y=-Math.atan2(z1-z0,x1-x0);
+  return m;
+}
+function leads(g){
+  const lg=new THREE.CylinderGeometry(0.012,0.012,0.12,10);
+  const l1=new THREE.Mesh(lg,MAT.lead); l1.rotation.z=Math.PI/2; l1.position.x=-0.16; g.add(l1);
+  const l2=new THREE.Mesh(lg,MAT.lead); l2.rotation.z=Math.PI/2; l2.position.x=0.16; g.add(l2);
+}
+function cable(pts,mat){
+  const curve=new THREE.CatmullRomCurve3(pts.map(p=>new THREE.Vector3(...p)));
+  const g=new THREE.TubeGeometry(curve,20,0.014,8,false);
+  return new THREE.Mesh(g,mat);
+}
+function makeDisplayBox(w,h,dp,cw,ch){
+  const g=new THREE.Group();
+  const body=new THREE.Mesh(new THREE.BoxGeometry(w,h,dp),MAT.scope); g.add(body);
+  const cv=document.createElement('canvas'); cv.width=cw; cv.height=ch;
+  const cx=cv.getContext('2d');
+  const tex=new THREE.CanvasTexture(cv); tex.colorSpace=THREE.SRGBColorSpace;
+  const screen=new THREE.Mesh(new THREE.PlaneGeometry(w*0.86,h*0.8),new THREE.MeshBasicMaterial({map:tex}));
+  screen.position.z=dp/2+0.002;
+  g.add(screen);
+  return {g,cv,cx,tex,screen};
+}
+
+const boardG=new THREE.Group();
+const boardPlane=new THREE.Mesh(new THREE.PlaneGeometry(2.6,1.95),new THREE.MeshBasicMaterial({map:bTex}));
+boardPlane.userData.title='Esquema y osciloscopios';
+const boardFrame=new THREE.Mesh(new THREE.BoxGeometry(2.68,2.03,0.05),MAT.frame);
+boardFrame.position.z=-0.03;
+boardG.add(boardFrame,boardPlane);
+boardG.position.set(-1.05,1.75,-0.85);
+boardG.rotation.y=0.16;
+S.scene.add(boardG);
+
+const benchG=new THREE.Group();
+const mesa=new THREE.Mesh(new THREE.BoxGeometry(3.6,0.22,2.2),MAT.bench); mesa.position.y=-0.11; benchG.add(mesa);
+const pcb=new THREE.Mesh(new THREE.BoxGeometry(3.2,0.02,1.7),MAT.pcb); pcb.position.set(0.1,0.01,1.0); benchG.add(pcb);
+
+const fuenteBox=makeDisplayBox(0.62,0.42,0.14,256,180);
+fuenteBox.g.position.set(-0.15,0.42,0.55);
+benchG.add(fuenteBox.g);
+
+const medidorBox=makeDisplayBox(0.62,0.42,0.14,256,180);
+medidorBox.g.position.set(0.55,0.42,0.55);
+benchG.add(medidorBox.g);
+
+const xfmrG=new THREE.Group();
+{
+  const core=new THREE.Mesh(new THREE.BoxGeometry(0.22,0.24,0.18),MAT.xfmr); xfmrG.add(core);
+  const c1=new THREE.Mesh(new THREE.CylinderGeometry(0.09,0.09,0.14,16),MAT.psu); c1.rotation.z=Math.PI/2; c1.position.x=-0.15; xfmrG.add(c1);
+  const c2=new THREE.Mesh(new THREE.CylinderGeometry(0.09,0.09,0.14,16),MAT.psu); c2.rotation.z=Math.PI/2; c2.position.x=0.15; xfmrG.add(c2);
+}
+xfmrG.userData.act='xfmr3d'; xfmrG.userData.title='Transformador reductor';
+xfmrG.position.set(-1.55,0.24,1.15);
+benchG.add(xfmrG);
+
+const DIO3D=[];
+for(let i=0;i<4;i++){
+  const g=new THREE.Group();
+  const body=new THREE.Mesh(new THREE.CylinderGeometry(0.05,0.05,0.16,14),std({color:DIODE.color||0xd88a2e,roughness:0.4,metalness:0.3}));
+  body.rotation.z=Math.PI/2; g.add(body);
+  const band=new THREE.Mesh(new THREE.CylinderGeometry(0.052,0.052,0.02,14),std({color:0xe8e8e8,roughness:0.3}));
+  band.rotation.z=Math.PI/2; band.position.x=0.05; g.add(band);
+  leads(g);
+  g.userData.act='bridge3d'; g.userData.title='Red de diodos del puente';
+  g.position.set(-1.05+i*0.16,0.24,1.15);
+  DIO3D.push(g); benchG.add(g);
+}
+
+const capG=new THREE.Group();
+{
+  const body=new THREE.Mesh(new THREE.CylinderGeometry(0.08,0.08,0.2,18),MAT.cap); capG.add(body);
+  const top=new THREE.Mesh(new THREE.CylinderGeometry(0.081,0.081,0.01,18),std({color:0xdedede,roughness:0.3})); top.position.y=0.105; capG.add(top);
+  leads(capG);
+}
+capG.userData.act='cap3d'; capG.userData.title='Capacitor de filtro';
+capG.position.set(-0.25,0.24,1.15);
+benchG.add(capG);
+
+const regG=new THREE.Group();
+{
+  const body=new THREE.Mesh(new THREE.BoxGeometry(0.14,0.18,0.05),MAT.reg); regG.add(body);
+  const tab=new THREE.Mesh(new THREE.BoxGeometry(0.09,0.1,0.01),MAT.regTab); tab.position.set(0,0.06,0.03); regG.add(tab);
+  const pinG=new THREE.CylinderGeometry(0.007,0.007,0.1,8);
+  for(let i=-1;i<=1;i++){ const p=new THREE.Mesh(pinG,MAT.lead); p.position.set(i*0.035,-0.14,0); regG.add(p); }
+}
+regG.userData.act='reg3d'; regG.userData.title='Regulador lineal 7805 (TO-220)';
+regG.position.set(0.2,0.28,1.15);
+benchG.add(regG);
+
+const hsG=new THREE.Group();
+for(let i=0;i<4;i++){
+  const fin=new THREE.Mesh(new THREE.BoxGeometry(0.01,0.14,0.12),MAT.hsFin);
+  fin.position.set(0.03+i*0.015,0,0);
+  hsG.add(fin);
+}
+hsG.userData.act='hs3d'; hsG.userData.title='Disipador de calor del regulador';
+hsG.position.set(0.24,0.38,1.13);
+benchG.add(hsG);
+
+const loadG=new THREE.Group();
+{
+  const body=new THREE.Mesh(new THREE.BoxGeometry(0.18,0.14,0.14),MAT.load); loadG.add(body);
+  leads(loadG);
+}
+loadG.userData.act='load3d'; loadG.userData.title='Carga electrónica (fuente de corriente)';
+loadG.position.set(0.65,0.24,1.15);
+benchG.add(loadG);
+
+{
+  const rp1=[-1.7,0.36,1.05], rp2=[-0.3,0.24,1.15];
+  benchG.add(cable([rp1,[-1.0,0.5,1.3],rp2],MAT.cableRed));
+  const bp1=[-1.65,0.15,1.25], bp2=[-0.32,0.16,1.28];
+  benchG.add(cable([bp1,[-1.0,0.05,1.5],bp2],MAT.cableBlk));
+}
+
+benchG.traverse(o=>{ if(o.isMesh){ o.castShadow=true; o.receiveShadow=true; } });
+boardPlane.castShadow=false; boardFrame.receiveShadow=true;
+S.scene.add(benchG);
+
+/* ---------- pantallas ---------- */
+function drawFuenteScreen(){
+  const cx=fuenteBox.cx, cv=fuenteBox.cv;
+  cx.clearRect(0,0,cv.width,cv.height);
+  cx.fillStyle='#06110d'; cx.fillRect(0,0,cv.width,cv.height);
+  cx.fillStyle='#4FD1C5'; cx.font='bold 40px system-ui'; cx.textAlign='center';
+  cx.fillText(Vline.toFixed(0)+' V',cv.width/2,74);
+  cx.fillStyle='#7fa89e'; cx.font='16px system-ui';
+  cx.fillText('Vlínea · '+FLBL[freqIdx],cv.width/2,104);
+  cx.fillStyle='#9fb8b0'; cx.font='14px system-ui';
+  cx.fillText('Secundario '+curX().vsec+'V',cv.width/2,134);
+  cx.fillText('Vs_rms = '+(RES?RES.vsecRms.toFixed(2):'—')+' V',cv.width/2,156);
+  fuenteBox.tex.needsUpdate=true;
+}
+function drawMedidorScreen(){
+  const cx=medidorBox.cx, cv=medidorBox.cv;
+  cx.clearRect(0,0,cv.width,cv.height);
+  cx.fillStyle='#06110d'; cx.fillRect(0,0,cv.width,cv.height);
+  const hide=(mode==='explora'&&(!filterRevealed||!voutRevealed))||(mode==='predice'&&!predRevealed);
+  if(hide || !RES){
+    cx.fillStyle='#7fa89e'; cx.font='bold 34px system-ui'; cx.textAlign='center';
+    cx.fillText('¿ ?',cv.width/2,cv.height/2+12);
+    medidorBox.tex.needsUpdate=true; return;
+  }
+  const th=thermal(RES.pdExact,curHS().theta,curTA());
+  cx.fillStyle='#E8871E'; cx.font='bold 38px system-ui'; cx.textAlign='center';
+  cx.fillText(RES.voutAvg.toFixed(2)+' V',cv.width/2,66);
+  cx.fillStyle='#9fb8b0'; cx.font='14px system-ui';
+  cx.fillText('V_out · rizo '+(RES.voutRpp*1000).toFixed(0)+' mV',cv.width/2,92);
+  cx.fillStyle=th.bad?'#e05a4e':(th.warn?'#e8c34e':'#6fd08a'); cx.font='bold 20px system-ui';
+  cx.fillText('Tj ≈ '+th.tj.toFixed(1)+' °C',cv.width/2,128);
+  cx.fillStyle='#7fa89e'; cx.font='13px system-ui';
+  cx.fillText('Pd = '+fmtP(RES.pdExact),cv.width/2,154);
+  medidorBox.tex.needsUpdate=true;
+}
+function refreshBenchSel(){
+  DIO3D.forEach(g=>{ g.visible=true; });
+  const capScale=0.7+0.3*(Cidx/(CVALS.length-1));
+  capG.scale.set(1,capScale,1);
+  capG.visible=curC()>0;
+  const hsScale=0.4+0.9*((HS.length-1-hsIdx)/(HS.length-1));
+  hsG.scale.set(hsScale,hsScale,hsScale);
+  hsG.visible=hsIdx>0;
+}
+function refreshBenchDyn(){ drawFuenteScreen(); drawMedidorScreen(); }
+
+/* ---------- HUD / panel ---------- */
+document.getElementById('hud').innerHTML=`
+  <div class="eyebrow">Electrónica analógica y de potencia (D2)</div>
+  <h2>Fuente de Alimentación Lineal Regulada</h2>
+  <p>Un transformador reduce la tensión de línea, un <b>puente de diodos</b> la rectifica, un
+  <b>capacitor de filtro</b> la suaviza y un <b>regulador lineal 7805</b> la recorta a 5V estables
+  — siempre que sobre suficiente "margen de cabeza" (headroom) por encima de su voltaje de dropout.</p>
+  <div class="formula">Vs_rms = Vsec·(Vlínea/127) · Pd = (Vfiltro−Vout)·Iout + Vfiltro·Iq · Tj = Ta + Pd·θ</div>
+  <div class="legend">
+    <span class="li"><span class="dot" style="background:#5f8078"></span>V puente (punteado)</span>
+    <span class="li"><span class="dot" style="background:#4FD1C5"></span>V_filtro</span>
+    <span class="li"><span class="dot" style="background:#E8871E"></span>V_out regulado</span>
+  </div>
+  <div class="fid">
+    <span class="ft">CONTRATO DE FIDELIDAD</span>
+    <span class="fl">SÍ:</span> cadena completa Vlínea→transformador→puente (Shockley 2 uniones)→filtro
+    (RK4 exacto)→regulador (dropout + foldback) con condición real de pérdida de regulación,
+    disipación y Tj de estado estable contra Tj,max.<br>
+    <span class="no">NO:</span> trr de los diodos, saturación/armónicos del transformador, dinámica
+    térmica transitoria, tolerancias de componentes, ni la cifra exacta de corriente pico de recarga.
+    <div class="src">Ref: TI SNOSBR7 (LM78XX) · ON Semi Rev.13 y Diodes Inc. DS28002 (1N400x) ·
+    Diodes Inc. DS21211 (puentes DB10x) · Boylestad-Nashelsky · Sedra-Smith.</div>
+  </div>
+`;
+
+document.getElementById('panel').innerHTML=`
+  <h4>Banco de fuente lineal · <span id="p_mode">Explora</span></h4>
+  <div class="modebar">
+    <button class="b on" id="m_explora">Explora</button>
+    <button class="b" id="m_predice">Predice</button>
+    <button class="b" id="m_barrido">Barrido</button>
+    <button class="b" id="m_reto">Reto</button>
+  </div>
+  <p id="p_mision"></p>
+
+  <div class="g"><span class="l">Transformador (secundario)</span></div>
+  <div class="modebar" id="xbar">${XFMR.map((x,i)=>`<button class="b${i===xIdx?' on':''}" id="x_${i}" style="flex:1 0 18%">${XLBL[i]}</button>`).join('')}</div>
+
+  <div class="g"><span class="l">Frecuencia de línea</span></div>
+  <div class="modebar" id="fbar">${FLBL.map((f,i)=>`<button class="b${i===freqIdx?' on':''}" id="f_${i}" style="flex:1 0 45%">${f}</button>`).join('')}</div>
+
+  <div class="g"><span class="l">Vlínea <b id="vlv">${Vline.toFixed(0)}V</b></span></div>
+  <input type="range" id="sVline" min="114" max="140" step="1" value="${Vline}">
+
+  <div class="g"><span class="l">Iout (carga) <b id="iov">${fmtI(Iout)}</b></span></div>
+  <input type="range" id="sIout" min="0" max="1.4" step="0.02" value="${Iout}">
+
+  <div class="g"><span class="l">Capacitor de filtro</span></div>
+  <div class="modebar" id="cbar">${CVALS.map((c,i)=>`<button class="b${i===Cidx?' on':''}" id="c_${i}" style="flex:1 0 30%">${CLBL[i]}</button>`).join('')}</div>
+
+  <div class="g"><span class="l">Disipador de calor</span></div>
+  <div class="modebar" id="hsbar">${HLBL.map((h,i)=>`<button class="b${i===hsIdx?' on':''}" id="hs_${i}" style="flex:1 0 45%">${h}</button>`).join('')}</div>
+
+  <div class="g"><span class="l">Temperatura ambiente</span></div>
+  <div class="modebar" id="tabar">${TALBL.map((t,i)=>`<button class="b${i===taIdx?' on':''}" id="ta_${i}" style="flex:1 0 45%">${t}</button>`).join('')}</div>
+
+  <div id="tele">
+    <div class="g"><span class="l">Vs_rms</span><b id="t_vsec">—</b></div>
+    <div class="g"><span class="l">V_filtro (avg)</span><b id="t_vfiltro">—</b></div>
+    <div class="g"><span class="l">Rizo filtro (pp)</span><b id="t_vrppf">—</b></div>
+    <div class="g"><span class="l">V_out (avg)</span><b id="t_vout">—</b></div>
+    <div class="g"><span class="l">Rizo salida (pp)</span><b id="t_vrppo">—</b></div>
+    <div class="g"><span class="l">Margen (headroom)</span><b id="t_headroom">—</b></div>
+    <div class="g"><span class="l">Disipación Pd</span><b id="t_pd">—</b></div>
+    <div class="g"><span class="l">Tj estimada</span><b id="t_tj">—</b></div>
+    <div class="g"><span class="l">Iout entregada</span><b id="t_ioact">—</b></div>
+  </div>
+
+  <div class="console" id="report"></div>
+
+  <div id="predBox" style="display:none">
+    <p id="predHint"></p>
+    <div class="g"><span class="l">Vs_rms (V)</span></div>
+    <input type="text" id="inVsec" style="background:#11201c;border:1px solid #1E3A34;color:#EAF4F1;border-radius:6px;padding:4px">
+    <div class="g"><span class="l">V_filtro (V)</span></div>
+    <input type="text" id="inVdcF" style="background:#11201c;border:1px solid #1E3A34;color:#EAF4F1;border-radius:6px;padding:4px">
+    <div class="g"><span class="l">Pd (W)</span></div>
+    <input type="text" id="inPd" style="background:#11201c;border:1px solid #1E3A34;color:#EAF4F1;border-radius:6px;padding:4px">
+    <div class="g"><span class="l">¿Hay margen de regulación (headroom)?</span></div>
+    <div class="modebar" id="phbar">
+      <button class="b on" id="ph_si" style="flex:1 0 45%">Sí</button>
+      <button class="b" id="ph_no" style="flex:1 0 45%">No</button>
+    </div>
+    <div class="g"><span class="l">¿Tj se mantiene segura (&lt;125°C)?</span></div>
+    <div class="modebar" id="ptbar">
+      <button class="b on" id="pt_si" style="flex:1 0 45%">Sí</button>
+      <button class="b" id="pt_no" style="flex:1 0 45%">No</button>
+    </div>
+    <button class="b primary" id="btnPred">Comprobar predicción</button>
+    <div id="predOut"></div>
+  </div>
+
+  <div id="barBox" style="display:none">
+    <p id="barHint">Barre Iout (0→1.3A) o C — observa cómo cambian V_out, el rizo y Tj.</p>
+    <div class="modebar" id="smbar">
+      <button class="b on" id="sm_iout" style="flex:1 0 45%">Barrer Iout</button>
+      <button class="b" id="sm_c" style="flex:1 0 45%">Barrer C</button>
+    </div>
+    <button class="b primary" id="btnSweep">Ejecutar barrido</button>
+  </div>
+
+  <div id="retoBox" style="display:none">
+    <p id="retoHint"></p>
+    <button class="b primary" id="btnReto">Verificar diseño</button>
+    <div id="retoOut"></div>
+    <button class="b" id="btnNewReto">Nuevo reto</button>
+  </div>
+
+  <div class="sec">
+    <p id="q_text"></p>
+    <div class="btns" id="dxbtns"></div>
+  </div>
+
+  <div class="btns"><button class="b auto" id="btnAuto">▶ Recorrido guiado</button></div>
+`;
+
+/* ---------- toast ---------- */
+let toastT=null;
+function showToast(msg){ const t=el('toast'); t.textContent=msg; t.classList.add('show'); clearTimeout(toastT); toastT=setTimeout(()=>t.classList.remove('show'),4200); }
+
+/* ---------- modos ---------- */
+const MODE_META={
+  explora:{ nombre:'Explora', cam:[[3.2,2.4,7.4],[0.4,1.25,0.05]],
+    mision:'Toca el capacitor y el regulador en el esquema para revelar cada etapa. Cambia transformador, capacitor, disipador, Vlínea e Iout y observa cómo se comporta la cadena completa.' },
+  predice:{ nombre:'Predice', cam:[[-0.1,2.2,4.3],[-0.9,1.75,-0.8]],
+    mision:'Se te da un escenario completo (fijo). Antes de revelar los osciloscopios, predice Vs_rms, V_filtro, Pd, y si hay margen de regulación y seguridad térmica.' },
+  barrido:{ nombre:'Barrido', cam:[[-0.2,2.1,3.9],[-0.9,1.75,-0.8]],
+    mision:'Barre Iout o C automáticamente y observa la tendencia en V_out, rizo y Tj.' },
+  reto:{ nombre:'Reto de diseño', cam:[[0.6,2.3,5.6],[0.2,1.3,0.2]],
+    mision:'Se te da un Iout objetivo y el peor caso de línea/temperatura/Iq. Elige transformador, capacitor y disipador para mantener margen y temperatura seguros.' },
+};
+
+function lockSet(ids,disabled){ ids.forEach(id=>{ const n=el(id); if(n) n.disabled=disabled; }); }
+
+function setMode(k){
+  mode=k; solved=false;
+  ['explora','predice','barrido','reto'].forEach(m=>el('m_'+m).classList.toggle('on',m===k));
+  const meta=MODE_META[k];
+  el('p_mode').textContent=meta.nombre;
+  el('p_mision').textContent=meta.mision;
+  el('predBox').style.display=k==='predice'?'block':'none';
+  el('barBox').style.display=k==='barrido'?'block':'none';
+  el('retoBox').style.display=k==='reto'?'block':'none';
+
+  const allCtrl=['sVline','sIout'];
+  const btnGroups=[['x_0','x_1','x_2','x_3','x_4'],['f_0','f_1'],['c_0','c_1','c_2','c_3','c_4','c_5'],['hs_0','hs_1','hs_2','hs_3'],['ta_0','ta_1']];
+  lockSet(allCtrl,false);
+  btnGroups.forEach(g=>lockSet(g,false));
+
+  if(k==='predice'){
+    if(!PRED) genPredice(); else { xIdx=PRED.xIdx; freqIdx=PRED.freqIdx; Cidx=PRED.Cidx; hsIdx=PRED.hsIdx; taIdx=PRED.taIdx; Vline=PRED.Vline; Iout=PRED.Iout; }
+    lockSet(allCtrl,true);
+    btnGroups.forEach(g=>lockSet(g,true));
+    el('predHint').innerHTML=`Escenario dado — <b>no puedes cambiarlo</b>: transformador ${XLBL[xIdx]}, ${FLBL[freqIdx]},
+      Vlínea ${Vline.toFixed(1)}V, C=${CLBL[Cidx]}F, disipador "${HLBL[hsIdx]}", Ta=${TALBL[taIdx]}, Iout objetivo=${fmtI(Iout)}.
+      Tolerancias: Vs_rms y V_filtro ±5%, Pd ±20%.`;
+    el('predOut').innerHTML='';
+    el('inVsec').value=''; el('inVdcF').value=''; el('inPd').value='';
+  } else if(k==='reto'){
+    if(!RETO) genReto();
+    Vline=RETO.vline; taIdx=1; freqIdx=RETO.freqIdx; Iout=RETO.ioutTarget;
+    lockSet(['sVline','sIout'],true);
+    lockSet(['f_0','f_1'],true); lockSet(['ta_0','ta_1'],true);
+    el('retoHint').innerHTML=`Diseña para Iout objetivo = <b>${fmtI(RETO.ioutTarget)}</b> en el PEOR caso:
+      Vlínea=${RETO.vline.toFixed(1)}V, Ta=40°C, Iq=máx, ${FLBL[RETO.freqIdx]}.
+      Elige transformador, capacitor y disipador. Meta: margen ≥0.3V, Tj≤110°C, rizo de salida ≤20mV.`;
+    el('retoOut').innerHTML='';
+  }
+  syncCtrlBtns();
+  clearDx(); refreshQuestion(); refreshBenchSel(); refreshAll();
+  S.moveTo(meta.cam[0],meta.cam[1],1.3);
+}
+
+function syncCtrlBtns(){
+  XFMR.forEach((_,i)=>el('x_'+i).classList.toggle('on',i===xIdx));
+  FREQS.forEach((_,i)=>el('f_'+i).classList.toggle('on',i===freqIdx));
+  CVALS.forEach((_,i)=>el('c_'+i).classList.toggle('on',i===Cidx));
+  HS.forEach((_,i)=>el('hs_'+i).classList.toggle('on',i===hsIdx));
+  TA_OPTS.forEach((_,i)=>el('ta_'+i).classList.toggle('on',i===taIdx));
+  el('vlv').textContent=Vline.toFixed(0)+'V';
+  el('iov').textContent=fmtI(Iout);
+  el('sVline').value=Vline; el('sIout').value=Iout;
+}
+
+function onChange(){ syncCtrlBtns(); buildQuiz(); clearDx(); refreshQuestion(); refreshBenchSel(); refreshAll(); }
+
+/* ---------- telemetría / reporte ---------- */
+function set(id,txt,cls){ const n=el(id); n.textContent=txt; n.classList.remove('good','warn','bad'); if(cls) n.classList.add(cls); }
+
+function updateTele(){
+  const ids=['t_vsec','t_vfiltro','t_vrppf','t_vout','t_vrppo','t_headroom','t_pd','t_tj','t_ioact'];
+  if(!RES){ ids.forEach(id=>set(id,'—')); return; }
+  const hidden=(mode==='explora'&&(!filterRevealed||!voutRevealed))||(mode==='predice'&&!predRevealed);
+  if(hidden){ ids.forEach(id=>set(id,'¿?','warn')); return; }
+  const th=thermal(RES.pdExact,curHS().theta,curTA());
+  set('t_vsec',fmtV(RES.vsecRms));
+  set('t_vfiltro',fmtV(RES.vFilterAvg));
+  set('t_vrppf',fmtV(RES.vFilterRpp), RES.vFilterRpp>RES.vFilterAvg*0.15?'warn':'good');
+  set('t_vout',fmtV(RES.voutAvg), RES.voutAvg<REG.vout*0.95?'bad':(RES.voutAvg<REG.vout*0.99?'warn':'good'));
+  set('t_vrppo',fmtV(RES.voutRpp), RES.voutRpp>0.05?'bad':(RES.voutRpp>0.01?'warn':'good'));
+  set('t_headroom',fmtV(RES.headroomMargin), RES.headroomMargin<0?'bad':(RES.headroomMargin<0.3?'warn':'good'));
+  set('t_pd',fmtP(RES.pdExact));
+  set('t_tj',fmtT(th.tj), th.bad?'bad':(th.warn?'warn':'good'));
+  set('t_ioact',fmtI(RES.ioutAct), RES.ioutAct<Iout-0.001?'bad':'good');
+}
+
+function updateReport(){
+  const L=[];
+  if(!RES){ el('report').innerHTML=''; return; }
+  const th=thermal(RES.pdExact,curHS().theta,curTA());
+  if(mode==='explora'){
+    L.push('Integración RK4: '+(RES.converged?'convergió':'no convergió en '+MAXP+' periodos')+' · puente de silicio (Is=8.4e-10, n=1.85 por unión).');
+    L.push('Disipación del regulador — exacta (RK4, promedio muestra a muestra) = '+fmtP(RES.pdExact)+' · fórmula de libro de texto (con Vfiltro promedio) = '+fmtP(RES.pdFormula)+(RES.pdFormula<0?' ⚠ la fórmula simple da un valor sin sentido físico cuando el regulador pasa la mayor parte del ciclo en dropout: aquí se ve su límite.':'')+'.');
+    L.push('Pérdida de regulación (headroom insuficiente) '+(RES.headroomMargin<0?'SÍ ocurre':'no ocurre')+' en este punto: margen = '+fmtV(RES.headroomMargin)+'.');
+    L.push('Fracción del periodo en dropout: '+(RES.dropoutFrac*100).toFixed(1)+'%.');
+    if(RES.ioutAct<Iout-0.001) L.push('⚠ Limitación de corriente (foldback) activa: se solicitaron '+fmtI(Iout)+' pero solo se entregan '+fmtI(RES.ioutAct)+'.');
+  } else if(mode==='predice'){
+    L.push(predRevealed?'Predicción evaluada — revisa el detalle abajo.':'Predice los 5 valores/booleanos y pulsa "Comprobar predicción" para revelar los osciloscopios.');
+  } else if(mode==='barrido'){
+    if(SWEEP.length){
+      L.push('Barrido de '+(sweepMode==='iout'?'Iout':'C')+': '+SWEEP.length+' puntos.');
+      SWEEP.forEach(p=>{ const lbl=sweepMode==='iout'?fmtI(p.x):fmtC(p.x); L.push('• '+lbl+' → Vout='+p.vout.toFixed(2)+'V, rizo='+(p.vrpp*1000).toFixed(0)+'mV, Tj='+p.tj.toFixed(1)+'°C'); });
+    } else L.push('Aún no hay barrido. Elige qué variable barrer y pulsa "Ejecutar barrido".');
+  } else if(mode==='reto'){
+    L.push('Iout objetivo: '+fmtI(RETO.ioutTarget)+' · entregado actualmente: '+fmtI(RES.ioutAct)+'.');
+    L.push('Margen actual: '+fmtV(RES.headroomMargin)+' (meta ≥0.3V) · Tj actual: '+fmtT(th.tj)+' (meta ≤110°C) · rizo salida: '+(RES.voutRpp*1000).toFixed(0)+'mV (meta ≤20mV).');
+  }
+  el('report').innerHTML=L.map(x=>'<div>• '+x+'</div>').join('');
+}
+
+function refreshAll(){
+  RES=simulate(curX().vsec,Vline,curF(),curC(),Iout,iqSelActive());
+  drawBoard(); updateTele(); updateReport(); refreshBenchDyn();
+}
+
+/* ---------- barrido ---------- */
+async function runSweep(){
+  if(sweeping) return; sweeping=true;
+  const lock={xIdx,freqIdx,hsIdx,taIdx,Vline};
+  SWEEP=[];
+  const pts = sweepMode==='iout' ? Array.from({length:14},(_,i)=>+(i*0.1).toFixed(2)) : CVALS;
+  for(const val of pts){
+    if(xIdx!==lock.xIdx||freqIdx!==lock.freqIdx||hsIdx!==lock.hsIdx||taIdx!==lock.taIdx||Vline!==lock.Vline) break;
+    if(sweepMode==='iout') Iout=val; else Cidx=CVALS.indexOf(val);
+    RES=simulate(curX().vsec,Vline,curF(),curC(),Iout,iqSelActive());
+    const th=thermal(RES.pdExact,curHS().theta,curTA());
+    SWEEP.push({x:val, vout:RES.voutAvg, vrpp:RES.voutRpp, tj:th.tj, headroom:RES.headroomMargin});
+    synth.beep(500+18*SWEEP.length,.05,.05);
+    syncCtrlBtns(); refreshAll();
+    await sleep(240);
+  }
+  sweeping=false;
+  showToast('Barrido completo.');
+  refreshAll();
+}
+
+/* ---------- predice / reto ---------- */
+function checkPredice(){
+  const vsecIn=parseFloat(el('inVsec').value), vdcIn=parseFloat(el('inVdcF').value), pdIn=parseFloat(el('inPd').value);
+  const hOk=el('ph_si').classList.contains('on');
+  const tOk=el('pt_si').classList.contains('on');
+  const okVsec=isFinite(vsecIn)&&Math.abs(vsecIn-PRED.vsecRms)<=0.05*PRED.vsecRms;
+  const okVdc=isFinite(vdcIn)&&Math.abs(vdcIn-PRED.vFiltro)<=0.05*PRED.vFiltro;
+  const okPd=isFinite(pdIn)&&Math.abs(pdIn-PRED.pd)<=0.20*Math.max(PRED.pd,0.01);
+  const okH=hOk===PRED.headroomOk;
+  const okT=tOk===PRED.thermalSafe;
+  predSolved=okVsec&&okVdc&&okPd&&okH&&okT;
+  predRevealed=true; solved=predSolved;
+  const chip=(ok,txt)=>`<div>${ok?'✔':'✘'} ${txt}</div>`;
+  el('predOut').innerHTML =
+    chip(okVsec,'Vs_rms real = '+fmtV(PRED.vsecRms)) +
+    chip(okVdc,'V_filtro real = '+fmtV(PRED.vFiltro)) +
+    chip(okPd,'Pd real = '+fmtP(PRED.pd)) +
+    chip(okH,'Headroom real: '+(PRED.headroomOk?'Sí hay margen':'Sin margen')) +
+    chip(okT,'Térmico real: '+(PRED.thermalSafe?'Seguro':'Excede Tj,max')) +
+    `<div style="margin-top:6px;font-weight:600">${predSolved?'✔ Predicción correcta':'✘ Revisa los valores fallidos'}</div>`;
+  synth.beep(predSolved?980:220,.15,.07);
+  refreshAll();
+}
+function newPredice(){ genPredice(); setMode('predice'); }
+
+function checkReto(){
+  const th=thermal(RES.pdExact,curHS().theta,curTA());
+  const okHeadroom=RES.headroomMargin>=0.3;
+  const okTj=th.tj<=110;
+  const okRipple=RES.voutRpp<=0.02;
+  retoSolved=okHeadroom&&okTj&&okRipple; solved=retoSolved;
+  const chip=(ok,txt)=>`<div>${ok?'✔':'✘'} ${txt}</div>`;
+  el('retoOut').innerHTML =
+    chip(okHeadroom,'Margen = '+fmtV(RES.headroomMargin)+' (meta ≥0.3V)') +
+    chip(okTj,'Tj = '+fmtT(th.tj)+' (meta ≤110°C)') +
+    chip(okRipple,'Rizo salida = '+(RES.voutRpp*1000).toFixed(0)+'mV (meta ≤20mV)') +
+    `<div style="margin-top:6px;font-weight:600">${retoSolved?'✔ Diseño aprobado':'✘ Ajusta transformador / capacitor / disipador'}</div>`;
+  synth.beep(retoSolved?980:220,.15,.07);
+  refreshAll();
+}
+function newReto(){ genReto(); setMode('reto'); }
+
+/* ---------- quiz ---------- */
+let QUIZ={};
+function buildQuiz(){
+  QUIZ={
+    explora:{ pregunta:'¿Qué le pasa a V_out si V_filtro cae por debajo de Vout+Vdropout en el valle del rizo?',
+      opciones:[
+        {t:'Vout se mantiene perfectamente regulado', ok:false, why:'No: el regulador solo puede sostener Vout mientras tenga suficiente voltaje de entrada por encima del mínimo (dropout). Por debajo de ese margen, el transistor de paso ya no puede regular.'},
+        {t:'Vout cae y el rizo del filtro se "filtra" hacia la salida', ok:true, why:'Correcto: al perder margen de regulación, el regulador deja de recortar y Vout sigue aproximadamente a V_filtro−Vdropout, incluyendo su rizo.'},
+        {t:'El regulador se apaga por completo', ok:false, why:'No: no se apaga (salvo protección térmica), solo pierde regulación mientras siga habiendo algo de voltaje de entrada.'},
+      ]},
+    predice:{ pregunta:'¿Por qué el rizo del filtro tiene el doble de la frecuencia de línea, aunque la carga sea casi constante?',
+      opciones:[
+        {t:'El puente conduce en ambos semiciclos, entregando un pulso de carga al capacitor 2 veces por ciclo de línea', ok:true, why:'Correcto: a diferencia de un rectificador de media onda, el puente recarga el capacitor en cada semiciclo — el doble de veces por segundo que la frecuencia de línea.'},
+        {t:'La corriente de quiescente Iq del regulador duplica la frecuencia', ok:false, why:'No: Iq es prácticamente constante y no tiene relación con la frecuencia del rizo.'},
+        {t:'El transformador invierte la fase', ok:false, why:'No: el transformador solo escala la amplitud; la duplicación de frecuencia viene del puente rectificador.'},
+      ]},
+    barrido:{ pregunta:'Al barrer Iout, ¿cómo cambia la disipación de potencia Pd del regulador?',
+      opciones:[
+        {t:'Crece aproximadamente lineal con Iout mientras (Vfiltro−Vout) se mantenga casi constante', ok:true, why:'Correcto: Pd≈(Vfiltro−Vout)·Iout+Vfiltro·Iq — el primer término crece linealmente con Iout si el resto se mantiene estable.'},
+        {t:'Se mantiene constante sin importar Iout', ok:false, why:'No: el término (Vfiltro−Vout)·Iout depende directamente de Iout.'},
+        {t:'Decrece porque el regulador se vuelve más eficiente a mayor corriente', ok:false, why:'No: un regulador lineal no gana eficiencia con la corriente — al contrario, disipa más.'},
+      ]},
+    reto:{ pregunta:'¿Por qué el modo Reto exige diseñar contra Vlínea mínima (114V) y no contra el valor nominal (127V)?',
+      opciones:[
+        {t:'Porque a menor Vlínea, menor Vs_rms y menor V_filtro — el peor caso para el margen de regulación', ok:true, why:'Correcto: el peor caso de headroom ocurre cuando la línea está en su valor mínimo garantizado, no en el nominal.'},
+        {t:'Porque a menor Vlínea el regulador siempre disipa más potencia, y eso es lo único que importa', ok:false, why:'Incompleto: a menor Vlínea el regulador en realidad disipa MENOS (menor Vfiltro−Vout) — el riesgo real es perder margen de regulación, no el calor.'},
+        {t:'Porque el fabricante solo garantiza el diseño a 114V', ok:false, why:'No: esa cifra no viene del fabricante del regulador, sino de la variación real de la red eléctrica que el propio diseño debe tolerar.'},
+      ]},
+  };
+}
+function clearDx(){ el('dxbtns').innerHTML=''; }
+function refreshQuestion(){
+  const q=QUIZ[mode]; if(!q) return;
+  el('q_text').textContent=q.pregunta;
+  el('dxbtns').innerHTML=q.opciones.map((o,i)=>`<button class="b" data-i="${i}">${'ABC'[i]}) ${o.t}</button>`).join('');
+  Array.from(el('dxbtns').children).forEach(btn=>{
+    btn.onclick=()=>{
+      if(btn.classList.contains('right')||btn.classList.contains('wrong')) return;
+      const o=q.opciones[+btn.dataset.i];
+      btn.classList.add(o.ok?'right':'wrong');
+      showToast(o.why);
+      synth.beep(o.ok?880:220,.12,.06);
+    };
+  });
+}
+
+/* ---------- picking / tour / init ---------- */
+pickerFor(S.scene,S.camera,S.renderer.domElement,hit=>{
+  if(hit.object===boardPlane && hit.uv){ boardClick(hit.uv.x,hit.uv.y); return; }
+  let o=hit.object;
+  while(o){
+    if(o.userData&&o.userData.act){
+      const act=o.userData.act;
+      if(act==='xfmr3d'){ if(mode==='predice'||mode==='reto'){ showToast('Bloqueado en este modo.'); } else { xIdx=(xIdx+1)%XFMR.length; onChange(); } }
+      else if(act==='cap3d'){ if(mode==='predice'||mode==='reto'){ showToast('Bloqueado en este modo.'); } else { Cidx=(Cidx+1)%CVALS.length; onChange(); } }
+      else if(act==='hs3d'){ if(mode==='predice'){ showToast('Bloqueado en este modo.'); } else { hsIdx=(hsIdx+1)%HS.length; onChange(); } }
+      else if(act==='reg3d'){ showToast('Regulador lineal 7805: recorta el voltaje filtrado a 5V mientras haya margen suficiente.'); }
+      else if(act==='load3d'){ showToast('Carga de corriente constante: '+fmtI(Iout)+'.'); }
+      else if(act==='bridge3d'){ showToast('Puente rectificador de silicio (4 diodos).'); }
+      return;
+    }
+    o=o.parent;
+  }
+});
+
+const raycaster=new THREE.Raycaster();
+const pmouse=new THREE.Vector2();
+S.renderer.domElement.addEventListener('pointermove',(e)=>{
+  const rect=S.renderer.domElement.getBoundingClientRect();
+  pmouse.x=((e.clientX-rect.left)/rect.width)*2-1;
+  pmouse.y=-((e.clientY-rect.top)/rect.height)*2+1;
+  raycaster.setFromCamera(pmouse,S.camera);
+  const hits=raycaster.intersectObjects(S.scene.children,true);
+  let title='';
+  if(hits.length){
+    let o=hits[0].object;
+    while(o){ if(o.userData&&o.userData.title){ title=o.userData.title; break; } o=o.parent; }
+  }
+  S.renderer.domElement.style.cursor=title?'pointer':'default';
+  S.renderer.domElement.title=title;
+});
+
+async function runAuto(){
+  if(autoRunning) return; autoRunning=true;
+  const btn=el('btnAuto'); const prevTxt=btn.textContent; btn.textContent='Recorriendo…'; btn.disabled=true;
+  try{
+    setMode('explora'); filterRevealed=false; voutRevealed=false; refreshAll();
+    showToast('Paso 1/5: esta es la fuente de línea sin revelar — toca el capacitor.'); await sleep(2800);
+    filterRevealed=true; refreshAll();
+    showToast('Paso 2/5: el capacitor de filtro suaviza los pulsos del puente.'); await sleep(2800);
+    voutRevealed=true; refreshAll();
+    showToast('Paso 3/5: el regulador 7805 recorta V_filtro a 5V estables.'); await sleep(2800);
+    setMode('barrido'); sweepMode='iout'; el('sm_iout').classList.add('on'); el('sm_c').classList.remove('on');
+    showToast('Paso 4/5: barriendo Iout para ver el efecto de la carga y el foldback.'); await runSweep(); await sleep(2000);
+    setMode('reto');
+    showToast('Paso 5/5: ahora diseña tú una fuente que cumpla el peor caso.'); await sleep(2600);
+  } finally {
+    autoRunning=false; btn.textContent=prevTxt; btn.disabled=false;
+  }
+}
+
+S.setAnimate(()=>{});
+
+el('m_explora').onclick=()=>setMode('explora');
+el('m_predice').onclick=()=>setMode('predice');
+el('m_barrido').onclick=()=>setMode('barrido');
+el('m_reto').onclick=()=>setMode('reto');
+
+XFMR.forEach((_,i)=>el('x_'+i).onclick=()=>{ if(mode==='predice'||mode==='reto'){ showToast('Bloqueado en este modo.'); return; } xIdx=i; onChange(); });
+FREQS.forEach((_,i)=>el('f_'+i).onclick=()=>{ if(mode==='predice'||mode==='reto'){ showToast('Bloqueado en este modo.'); return; } freqIdx=i; onChange(); });
+CVALS.forEach((_,i)=>el('c_'+i).onclick=()=>{ if(mode==='predice'||mode==='reto'){ showToast('Bloqueado en este modo.'); return; } Cidx=i; onChange(); });
+HS.forEach((_,i)=>el('hs_'+i).onclick=()=>{ if(mode==='predice'){ showToast('Bloqueado en este modo.'); return; } hsIdx=i; onChange(); });
+TA_OPTS.forEach((_,i)=>el('ta_'+i).onclick=()=>{ if(mode==='predice'||mode==='reto'){ showToast('Bloqueado en este modo.'); return; } taIdx=i; onChange(); });
+
+el('sVline').addEventListener('input',e=>{ if(mode==='predice'||mode==='reto') return; Vline=parseFloat(e.target.value); syncCtrlBtns(); refreshAll(); });
+el('sIout').addEventListener('input',e=>{ if(mode==='predice'||mode==='reto') return; Iout=parseFloat(e.target.value); syncCtrlBtns(); refreshAll(); });
+
+el('sm_iout').onclick=()=>{ sweepMode='iout'; el('sm_iout').classList.add('on'); el('sm_c').classList.remove('on'); };
+el('sm_c').onclick=()=>{ sweepMode='c'; el('sm_c').classList.add('on'); el('sm_iout').classList.remove('on'); };
+el('btnSweep').onclick=()=>runSweep();
+
+el('ph_si').onclick=()=>{ el('ph_si').classList.add('on'); el('ph_no').classList.remove('on'); };
+el('ph_no').onclick=()=>{ el('ph_no').classList.add('on'); el('ph_si').classList.remove('on'); };
+el('pt_si').onclick=()=>{ el('pt_si').classList.add('on'); el('pt_no').classList.remove('on'); };
+el('pt_no').onclick=()=>{ el('pt_no').classList.add('on'); el('pt_si').classList.remove('on'); };
+el('btnPred').onclick=()=>checkPredice();
+
+el('btnReto').onclick=()=>checkReto();
+el('btnNewReto').onclick=()=>newReto();
+
+el('btnAuto').onclick=()=>runAuto();
+
+genReto();
+buildQuiz();
+syncCtrlBtns();
+refreshBenchSel();
+S.start();
+setMode('explora');
+
+window.__labDebug={
+  state:()=>({mode,xIdx,freqIdx,Cidx,hsIdx,taIdx,Vline,Iout,filterRevealed,voutRevealed}),
+  res:()=>RES?{...RES,samples:RES.samples.map(p=>({...p})),voutSamples:RES.voutSamples.map(p=>({...p}))}:null,
+  pred:()=>PRED, reto:()=>RETO, sweep:()=>SWEEP,
+  simulate:(vsec,vline,freq,c,iout,iq)=>simulate(vsec,vline,freq,c,iout,iq),
+  thermal:(pd,theta,ta)=>thermal(pd,theta,ta),
+  setMode, setX:i=>{xIdx=i;onChange();}, setC:i=>{Cidx=i;onChange();}, setHS:i=>{hsIdx=i;onChange();},
+  setVline:v=>{Vline=v;refreshAll();}, setIout:v=>{Iout=v;refreshAll();},
+  checkPredice, newPredice, checkReto, newReto, sweepC:runSweep, boardClick,
+};
+</script>
+  <!-- Ficha técnica · Capa B del molde de lab 3D (componente compartido + contenido del lab) -->
+  <script src="_ficha-tecnica.js"></script>
+  <script src="_ficha-fuentelineal.js"></script>
+</body>
+</html>

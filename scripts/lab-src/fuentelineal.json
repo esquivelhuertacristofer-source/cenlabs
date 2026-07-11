@@ -1,0 +1,9 @@
+{
+  "donor": "escaner-obd.html",
+  "out": "fuentelineal.html",
+  "title": "CEN Labs · Fuente de Alimentación Lineal Regulada — Laboratorio 3D",
+  "lt": "Fuente lineal regulada · Electrónica",
+  "inspectHint": "👆 Toca el esquema, el osciloscopio o los componentes del banco",
+  "body": "fuentelineal.body.js",
+  "fichas": ["_ficha-tecnica.js", "_ficha-fuentelineal.js"]
+}
