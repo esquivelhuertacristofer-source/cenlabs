@@ -491,6 +491,16 @@ exports[`golden master — catálogo por categoría (invariante ante extracción
     "teoria": "Al abrir el switch que alimenta una carga inductiva (relevador de 5 V, relevador/solenoide de 12 V o motor DC con rotor detenido), la energía almacenada en el campo magnético de la bobina (E=½·L·I²) exige una trayectoria de descarga. El simulador resuelve en forma cerrada tres topologías de protección — sin protección (cualitativo, sin física real), diodo de marcha libre (decaimiento exponencial, τ=L/R, con comparación explícita entre la energía disipada exacta y la aproximación de bolsillo ≈2·Vf/Vsupply) y clamp activo por zener (decaimiento lineal más rápido, Vclamp=Vz+Vf, a costa de un voltaje pico mayor sobre el switch) — y siempre declara el factor de cámara lenta con el que reproduce el transitorio real de microsegundos a milisegundos. Cuatro modos: Explora, Predicción, Medición/Barrido con verificación de τ, y Reto de diseño con solvabilidad garantizada.",
     "titulo": "Conmutación de Carga Inductiva y Diodo de Marcha Libre",
   },
+  {
+    "duracion": "35 min",
+    "estado": "activo",
+    "id": "mecanica-21",
+    "modulo": "Electrónica",
+    "orden": 21,
+    "simuladorHtml": "/labs/amplificadorbjt.html",
+    "teoria": "Un BJT polarizado en la región activa por un divisor de voltaje (VBE=0.7V constante, β dentro del rango de hoja de datos, punto Q resuelto en forma cerrada) puede amplificar una señal AC pequeña superpuesta a ese punto de operación mediante el modelo de pequeña señal hybrid-π (gm=ICQ/VT, rπ=β/gm, VT=25mV). Con RE bypaseada por capacitor, la ganancia de voltaje Av=−gm·(RC‖RL) depende de una propiedad interna del transistor; sin bypass, Av=−β·(RC‖RL)/[rπ+(β+1)·RE] queda fijada casi enteramente por resistencias externas, mucho más predecible pero varias veces menor. El simulador resuelve además la recta de carga DC y la recta de carga AC (con pendientes distintas, pivotando ambas sobre el mismo punto Q) y muestra explícitamente el recorte de la señal de salida al exceder los límites de corte o saturación. Tres transistores con datos de hoja verificados (BC547B, 2N3904, 2N2222A) y un modo avanzado opcional con resistencia de salida Early (ro), declarado explícitamente como estimación de orden de magnitud y no como cifra de catálogo. Cuatro modos: Explora, Predicción, Medición del recorte contra la recta de carga AC, y Reto de diseño robusto a la variación completa de β.",
+    "titulo": "Amplificador BJT en Emisor Común: Ganancia de Pequeña Señal",
+  },
 ]
 `;
 
@@ -635,6 +645,7 @@ exports[`golden master — catálogo por categoría (invariante ante extracción
   "mecanica-19",
   "mecanica-2",
   "mecanica-20",
+  "mecanica-21",
   "mecanica-3",
   "mecanica-4",
   "mecanica-5",

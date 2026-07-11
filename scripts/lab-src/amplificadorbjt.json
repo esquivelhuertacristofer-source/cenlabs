@@ -1,0 +1,9 @@
+{
+  "donor": "escaner-obd.html",
+  "out": "amplificadorbjt.html",
+  "title": "CEN Labs · Amplificador BJT en Emisor Común: Ganancia de Pequeña Señal — Laboratorio 3D",
+  "lt": "Diseña un amplificador BJT en emisor común con polarización por divisor, compara RE con y sin capacitor de bypass, y observa cómo la señal se recorta al exceder la recta de carga AC.",
+  "inspectHint": "Ajusta VCC/R1/R2/RC/RE/RL, activa o desactiva el bypass de RE, y observa la ganancia Av y el recorte de la señal en el osciloscopio.",
+  "body": "amplificadorbjt.body.js",
+  "fichas": ["_ficha-tecnica.js", "_ficha-amplificadorbjt.js"]
+}
