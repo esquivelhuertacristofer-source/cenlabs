@@ -1,0 +1,9 @@
+{
+  "donor": "escaner-obd.html",
+  "out": "polarizacionbjt.html",
+  "title": "CEN Labs · Polarización de BJT: Punto de Operación Q — Laboratorio 3D",
+  "lt": "Compara polarización fija y por divisor de voltaje sobre el mismo transistor BJT, y observa cómo cada una responde a la dispersión real de β entre unidades.",
+  "inspectHint": "Cambia entre Fija y Divisor, ajusta VCC/RC/RE y β, y observa el punto Q sobre la recta de carga.",
+  "body": "polarizacionbjt.body.js",
+  "fichas": ["_ficha-tecnica.js", "_ficha-polarizacionbjt.js"]
+}
