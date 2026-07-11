@@ -1,0 +1,39 @@
+import type { BriefingConfig } from '@/components/MissionBriefing';
+
+const briefing: BriefingConfig = {
+  codigo: "MEC-22",
+  titulo: "MOSFET de Canal N en Fuente Común: Regiones de Operación y Driver de Compuerta",
+  subtitulo: "Electrónica analógica y de potencia · Ley cuadrática, dispersión de fábrica de Vth y dimensionamiento del driver",
+  acento: "#2A9D8F",
+  duracion: 35,
+  videoUrl: '',
+  bienvenida: `En las prácticas anteriores controlaste un BJT por corriente de base. Ahora vas a controlar un transistor completamente distinto: el MOSFET no necesita corriente de entrada en régimen permanente — su compuerta es, eléctricamente, un capacitor. Basta con un voltaje VGS por encima de un umbral Vth para que aparezca un canal conductor entre drenaje y fuente, sin gastar corriente DC en sostenerlo.
+
+En esta práctica vas a caracterizar las tres regiones de operación de un MOSFET de canal N en fuente común — corte, saturación y óhmica (triodo) — resueltas de forma cerrada y autoconsistente con la recta de carga, incluyendo la transición continua hacia la zona óhmica sin recurrir a atajos lineales. Vas a descubrir que Vth no es una cifra fija: cada MOSFET real sale de fábrica con un umbral distinto dentro de un rango, y esa dispersión por sí sola puede desplazar el punto de operación de un circuito que no la considere — algo que vas a comprobar recorriendo ese rango completo, no solo un valor "típico".
+
+También vas a enfrentar un problema muy real de electrónica de potencia: un MOSFET no se enciende instantáneamente. Su compuerta hay que cargarla, y esa carga (Qg) toma tiempo en función de cuánta corriente le entregue el circuito que la maneja. Vas a comparar cuatro niveles de driver — desde un GPIO directo hasta un driver dedicado de alta corriente — y ver por qué, en electrónica de potencia real, un driver débil no es un detalle menor.`,
+  conceptos: [
+    { icono: '🚪', nombre: 'Control por voltaje, no por corriente', descripcion: 'A diferencia del BJT (corriente de base controla corriente de colector), el MOSFET se controla por voltaje: VGS por encima del umbral Vth abre un canal conductor sin consumir corriente DC de entrada en régimen permanente — la compuerta es capacitiva.' },
+    { icono: '📐', nombre: 'Ley cuadrática y tres regiones', descripcion: 'Corte (VGS≤Vth ⇒ ID=0), saturación (ID=k·VOV² con VOV=VGS−Vth) y óhmica/triodo, resueltas en forma cerrada y autoconsistente con la recta de carga — sin aproximaciones lineales en la transición entre regiones.' },
+    { icono: '🎲', nombre: 'Vth como rango de fábrica, no un valor fijo', descripcion: 'Cada MOSFET real sale de fábrica con un umbral Vth distinto dentro de un rango mínimo–máximo de hoja de datos — nunca un "típico" inventado — y esa dispersión por sí sola puede desplazar el punto de operación de un circuito.' },
+    { icono: '⚡', nombre: 'Carga de compuerta Qg y el driver', descripcion: 'Encender un MOSFET significa cargar su compuerta capacitiva: el tiempo aproximado ton≈Qg/Idriver depende de cuánta corriente entregue el circuito manejador, desde un GPIO directo (~20 mA) hasta un driver dedicado (~2 A).' },
+  ],
+  mision: [
+    'FASE 1 · Explora: ajusta VDD/RD/VGS y el umbral Vth, elige entre tres MOSFET (IRF540N, IRLZ44N, 2N7000) y cuatro niveles de driver, y observa cómo cambian la región de operación, el punto de trabajo y el tiempo de encendido estimado sobre el banco 3D.',
+    'FASE 2 · Predicción: predice la región de operación del MOSFET, o los valores aproximados de ID y VDS, antes de que el simulador lo confirme — con un Vth sorteado dentro del rango real de fábrica del dispositivo.',
+    'FASE 3 · Barrido: recorre Vth dentro de su rango real de fábrica y observa cuánto se desplaza el punto de operación solo por dispersión de manufactura entre unidades del mismo modelo.',
+    'FASE 4 · Reto de diseño: ajusta VGS para que el MOSFET quede en región óhmica de forma robusta en ambos extremos del rango de Vth de fábrica — no solo para un umbral "típico".',
+  ],
+  aplicaciones: [
+    { area: 'Conmutación de potencia', ejemplo: 'Motores DC, electroválvulas y relevadores de estado sólido se conmutan casi siempre con MOSFET en vez de BJT: la compuerta capacitiva permite manejarlos desde un microcontrolador con muy poca corriente de control, algo que un BJT de potencia equivalente no permite sin una etapa adicional.' },
+    { area: 'Selección de driver de compuerta', ejemplo: 'Un GPIO de microcontrolador puede encender un MOSFET pequeño de señal, pero un MOSFET de potencia con Qg grande necesita un driver dedicado — de lo contrario el tiempo de encendido se alarga y, en un circuito conmutando a alta frecuencia, eso se traduce en pérdidas de energía adicionales.' },
+    { area: 'Diseño robusto a tolerancia de fabricación', ejemplo: 'Como Vth varía entre unidades del mismo modelo (p. ej. 2.0–4.0 V en el IRF540N), un diseño de conmutación confiable — como el que exige el modo Reto — debe funcionar para cualquier unidad real del lote de producción, no solo para la que se usó al prototipar.' },
+  ],
+  retos: [
+    'Si dos MOSFET del mismo modelo salen de fábrica con Vth distinto dentro del rango de catálogo, ¿por qué un circuito diseñado para un solo valor "típico" puede fallar al cambiar de unidad?',
+    'Comparaste el tiempo de encendido estimado con distintos niveles de corriente de driver. ¿Por qué un driver más fuerte no cuesta nada en la región óhmica del MOSFET, pero sí importa mucho en el instante de la conmutación?',
+    'El simulador no usa RDS(on) para calcular nada, solo lo muestra como referencia. Si tuvieras que estimar cuánto calor disipa este MOSFET ya encendido y conduciendo corriente, ¿qué cifra del panel usarías y cómo?',
+  ],
+};
+
+export default briefing;

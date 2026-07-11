@@ -501,6 +501,16 @@ exports[`golden master — catálogo por categoría (invariante ante extracción
     "teoria": "Un BJT polarizado en la región activa por un divisor de voltaje (VBE=0.7V constante, β dentro del rango de hoja de datos, punto Q resuelto en forma cerrada) puede amplificar una señal AC pequeña superpuesta a ese punto de operación mediante el modelo de pequeña señal hybrid-π (gm=ICQ/VT, rπ=β/gm, VT=25mV). Con RE bypaseada por capacitor, la ganancia de voltaje Av=−gm·(RC‖RL) depende de una propiedad interna del transistor; sin bypass, Av=−β·(RC‖RL)/[rπ+(β+1)·RE] queda fijada casi enteramente por resistencias externas, mucho más predecible pero varias veces menor. El simulador resuelve además la recta de carga DC y la recta de carga AC (con pendientes distintas, pivotando ambas sobre el mismo punto Q) y muestra explícitamente el recorte de la señal de salida al exceder los límites de corte o saturación. Tres transistores con datos de hoja verificados (BC547B, 2N3904, 2N2222A) y un modo avanzado opcional con resistencia de salida Early (ro), declarado explícitamente como estimación de orden de magnitud y no como cifra de catálogo. Cuatro modos: Explora, Predicción, Medición del recorte contra la recta de carga AC, y Reto de diseño robusto a la variación completa de β.",
     "titulo": "Amplificador BJT en Emisor Común: Ganancia de Pequeña Señal",
   },
+  {
+    "duracion": "35 min",
+    "estado": "activo",
+    "id": "mecanica-22",
+    "modulo": "Electrónica",
+    "orden": 22,
+    "simuladorHtml": "/labs/mosfet.html",
+    "teoria": "Un MOSFET de canal N se controla por voltaje de compuerta (VGS), no por corriente de base como el BJT: la compuerta es capacitiva y no consume corriente DC en régimen permanente. El simulador resuelve las tres regiones de operación en forma cerrada y autoconsistente con la recta de carga — corte (VGS≤Vth), saturación (ID=k·(VGS−Vth)² por ley cuadrática de canal largo) y óhmica/triodo (solución cuadrática exacta, no una aproximación lineal por RDS(on)) — verificado por el autor contra un barrido numérico de fuerza bruta independiente. El umbral Vth se trata como un rango real de fábrica, nunca un valor 'típico' inventado, explorable con slider, sorteo y barrido animado. Un sub-laboratorio de dimensionamiento estima el tiempo de encendido ton≈Qg/Idriver sobre cuatro niveles de corriente de driver, declarando explícitamente cuando Qg no está disponible en la hoja de datos (2N7000) en vez de aproximarlo. Tres dispositivos con parámetros de hoja de datos verificados (IRF540N, IRLZ44N, 2N7000); RDS(on) se muestra solo como referencia de catálogo, sin participar en el cálculo — su uso real para pérdidas de conducción es el eje de la práctica siguiente (PWM). Cuatro modos: Explora, Predicción, Barrido de Vth de fábrica, y Reto de diseño robusto a ambos extremos de esa dispersión.",
+    "titulo": "MOSFET de Canal N en Fuente Común: Regiones de Operación y Driver de Compuerta",
+  },
 ]
 `;
 
@@ -646,6 +656,7 @@ exports[`golden master — catálogo por categoría (invariante ante extracción
   "mecanica-2",
   "mecanica-20",
   "mecanica-21",
+  "mecanica-22",
   "mecanica-3",
   "mecanica-4",
   "mecanica-5",

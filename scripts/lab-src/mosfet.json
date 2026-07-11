@@ -1,0 +1,9 @@
+{
+  "donor": "escaner-obd.html",
+  "out": "mosfet.html",
+  "title": "CEN Labs · Caracteriza el MOSFET y su Driver de Compuerta — Laboratorio 3D",
+  "lt": "Caracteriza un MOSFET de canal N en fuente común (corte/saturación/óhmica) sobre su recta de carga, y dimensiona el driver de compuerta a partir de la carga de compuerta Qg del dispositivo.",
+  "inspectHint": "Ajusta VDD/RD/VGS y el umbral Vth del transistor, elige el dispositivo, y observa la región de operación y el punto de trabajo sobre la recta de carga.",
+  "body": "mosfet.body.js",
+  "fichas": ["_ficha-tecnica.js", "_ficha-mosfet.js"]
+}
