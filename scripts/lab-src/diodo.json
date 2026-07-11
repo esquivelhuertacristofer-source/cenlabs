@@ -1,0 +1,9 @@
+{
+  "donor": "escaner-obd.html",
+  "out": "diodo.html",
+  "title": "CEN Labs · Curva I–V del Diodo: Trazador y Ajuste — Laboratorio 3D",
+  "lt": "Curva I–V del diodo · Electrónica",
+  "inspectHint": "👆 Toca el esquema, la gráfica (LIN/LOG) o los componentes del banco",
+  "body": "diodo.body.js",
+  "fichas": ["_ficha-tecnica.js", "_ficha-diodo.js"]
+}

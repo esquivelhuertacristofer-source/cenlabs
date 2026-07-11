@@ -421,6 +421,16 @@ exports[`golden master — catálogo por categoría (invariante ante extracción
     "teoria": "Una red de 3 mallas (2 fuentes, 5 resistores) resuelta en vivo por análisis nodal modificado (MNA) — el mismo motor de los simuladores SPICE. El alumno verifica con números reales que ΣI = 0 en cada nodo (LCK) y ΣV = 0 en cada malla (LVK), y en el reto resuelve el sistema 2×2 para predecir V_A y V_B antes de que el esquema los revele. Esquema normalizado IEC 60617; resistores con código de colores de la serie E12.",
     "titulo": "Leyes de Kirchhoff: redes multimalla en vivo",
   },
+  {
+    "duracion": "40 min",
+    "estado": "activo",
+    "id": "mecanica-14",
+    "modulo": "Electrónica",
+    "orden": 14,
+    "simuladorHtml": "/labs/diodo.html",
+    "teoria": "Un circuito fuente–resistor–diodo resuelto en vivo con la ecuación de Shockley (I = Is·(e^(V/(n·VT)) − 1)) y la ley de temperatura de SPICE2 para Is(T), de la que emerge el coeficiente térmico del silicio (≈ −2 mV/K) sin estar programado a mano. El punto de operación Q se calcula exactamente por bisección sobre la recta de carga; el trazador impone corrientes fijas para levantar la curva en escala lineal y semilogarítmica, y el modo Ajuste extrae n e Is por el método de 2 puntos. El reto pide predecir Vd e Id de un dispositivo desconocido antes de revelar la curva.",
+    "titulo": "Curva I-V del diodo: trazador y ajuste exponencial",
+  },
 ]
 `;
 
@@ -557,6 +567,7 @@ exports[`golden master — catálogo por categoría (invariante ante extracción
   "mecanica-11",
   "mecanica-12",
   "mecanica-13",
+  "mecanica-14",
   "mecanica-2",
   "mecanica-3",
   "mecanica-4",
