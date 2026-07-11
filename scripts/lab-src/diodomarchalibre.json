@@ -1,0 +1,9 @@
+{
+  "donor": "escaner-obd.html",
+  "out": "diodomarchalibre.html",
+  "title": "CEN Labs · Conmutación de Carga Inductiva y Diodo de Marcha Libre — Laboratorio 3D",
+  "lt": "Abre el switch que alimenta un relevador o un motor DC y observa el colapso del campo magnético de la bobina — compara qué tan rápido, y a qué costo de voltaje, se apaga la corriente sin protección, con diodo de marcha libre o con un clamp activo por zener.",
+  "inspectHint": "Cambia la carga, el diodo y la topología de protección, abre el switch y observa la corriente colapsar en el osciloscopio.",
+  "body": "diodomarchalibre.body.js",
+  "fichas": ["_ficha-tecnica.js", "_ficha-diodomarchalibre.js"]
+}

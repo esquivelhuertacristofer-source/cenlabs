@@ -1,0 +1,890 @@
+/* ============================================================
+   LAB — CONMUTACIÓN DE CARGA INDUCTIVA Y DIODO DE MARCHA LIBRE
+   (Dominio D2 · Electrónica de potencia — molde S+P: esquemático IEC 60617
+    con motor de cálculo + banco de instrumentos 3D)
+   Trazabilidad curricular: EM-I.3 ⚑ (mapeo sugerido, ver ficha técnica).
+
+   Referencias de dispositivo (mismas familias ya usadas en otras prácticas
+   de la Tanda 1/D2): 1N4007 (rectificador, mecanica-14/15), 1N5819
+   Schottky (mecanica-18), 1N4742A/1N4744A zener (familia de mecanica-16),
+   MOSFET IRF540N — Rds(on) CORREGIDO tras contraste adversarial: la cifra
+   0.052–0.077 Ω que circula en algunas fuentes secundarias corresponde al
+   IRF540 SIN sufijo "N" (dispositivo predecesor distinto); el IRF540N real
+   especifica Rds(on) = 0.033–0.044 Ω máx a Vgs=10V.
+
+   Motor de cálculo — transitorio RL resuelto en FORMA CERRADA (no
+   integración numérica paso a paso), evaluado en el instante t desde que
+   se abre el switch:
+
+     Estado estable (switch cerrado): I0 = Vsupply / R_bobina.
+
+     SIN protección / diodo en reversa: NO se modela cuantitativamente —
+       el colapso real depende de arco/avalancha del propio switch, fuera
+       de alcance de este simulador. Solo se anima una advertencia
+       cualitativa (ver "NO modela" abajo).
+
+     Diodo de marcha libre (Vf constante): de L·dI/dt + R·I + Vf = 0,
+       I(t) = (I0+Vf/R)·e^(−t/τ) − Vf/R,   τ = L/R,
+       t_off = τ·ln(1 + I0·R/Vf).
+       Energía disipada en el diodo — forma CERRADA EXACTA bajo este
+       modelo (no la aproximación ≈2·Vf/Vsupply que a veces circula como
+       regla rápida; el contraste adversarial de esta práctica encontró
+       hasta ~60% de error relativo en ella para cargas de bajo voltaje —
+       se muestra en el simulador junto al valor exacto, con el error
+       real, como ejercicio de por qué no usarla):
+         E_diodo = Vf·(τ·I0 − (Vf/R)·t_off)
+
+     Clamp activo (zener + diodo en serie): mientras (Vz+Vf) domina sobre
+       la caída I·R, el decaimiento es aproximadamente lineal:
+         I(t) ≈ I0 − [(Vz+Vf)/L]·t,   t_off ≈ I0·L/(Vz+Vf).
+       Energía disipada en el clamp por conservación de energía, con la
+       resistencia de bobina calculada exactamente (integral de I(t)²
+       bajo decaimiento lineal):
+         E_R = R·I0²·t_off/3,   E_clamp = E_total − E_R.
+
+   NO modela (declarado también en la ficha técnica):
+     - Física de arco/avalancha del switch sin protección: el colapso
+       "SIN protección" / diodo en reversa es solo una animación
+       cualitativa de advertencia, sin cifras de voltaje o tiempo reales.
+     - Recuperación inversa (trr/Qrr) de ningún diodo: el encendido se
+       trata como instantáneo. Relevante en conmutación PWM repetitiva de
+       alta frecuencia (por eso 1N5819 es preferible a 1N4007 en un motor
+       PWM), no en este transitorio de un solo pulso.
+     - Fuerza contraelectromotriz (back-EMF) de un motor en rotación: la
+       carga "motor" se trata como R+L puro (análogo a rotor detenido en
+       el instante de la conmutación), no como motor girando con carga
+       mecánica real.
+     - Inductancia de bobina como dato de catálogo: ningún fabricante de
+       relevador publica L en su hoja de datos (TE Connectivity AN
+       13C3344). L se trata siempre como parámetro típico/ajustable por
+       el estudiante, nunca como cifra verificada de fabricante.
+     - Segundo orden: snubber RC, capacitancia parásita, timbreo/ringing.
+       Fuera de alcance de esta versión base.
+   ============================================================ */
+
+const mount=document.getElementById('stage');
+const S=createStage(mount,{cam:[3.1,2.4,7.0],target:[0.4,1.2,0.1],bgTop:'#0d1a17',bgBot:'#04060a',bloom:0.35,minD:3.0,maxD:18});
+const synth=makeSynth({type:'sine',type2:'triangle',filterFreq:2600,Q:0.8});
+
+/* ---------- 1) Modelo físico ---------- */
+const DIODES={
+  d4007:{name:'1N4007 (rectificador de Si)',vf:1.1,vrrm:1000,color:0x2e2e2e,speedTxt:'no especificado por el fabricante para conmutación rápida — uso general'},
+  d5819:{name:'1N5819 (Schottky)',vf:0.45,vrrm:40,color:0x9a9a9a,speedTxt:'< 5 ns (recuperación inversa despreciable) — preferido en conmutación PWM repetitiva'},
+};
+const ZENERS={
+  z12:{name:'1N4742A (zener 12 V)',vz:12},
+  z15:{name:'1N4744A (zener 15 V)',vz:15},
+};
+const SWITCH_TXT_MOSFET='MOSFET IRF540N (Rds(on) 0.033–0.044 Ω máx a Vgs=10V)';
+const LOADS={
+  songle:{name:'Relevador Songle SRD-05VDC-SL-C',vsupply:5,r:70,lTyp:0.30,lLo:0.10,lHi:0.80,diode:'d4007',switchTxt:'BJT (BC547B/2N2222) — módulo de relevador típico para microcontrolador',context:'Módulo de relevador de 5 V para microcontrolador (Arduino/hobbista). R=70Ω es la cifra de hoja de datos del fabricante (±10%); I nominal ≈71mA @5V coincide con ese dato.'},
+  relay12:{name:'Relevador/solenoide 12 V (genérico)',vsupply:12,r:100,lTyp:0.50,lLo:0.15,lHi:1.20,diode:'d4007',switchTxt:SWITCH_TXT_MOSFET,context:'Salida de control industrial/automotriz de 12 V, sin número de parte específico verificado — R y L son valores típicos ilustrativos, no cifras de catálogo.'},
+  motor:{name:'Motor DC de escobillas (bajo-lado, PWM)',vsupply:12,r:4,lTyp:0.003,lLo:0.0005,lHi:0.008,diode:'d5819',switchTxt:SWITCH_TXT_MOSFET,context:'Motor de escobillas genérico conmutado en bajo-lado. Se modela como R+L puro en el instante de la conmutación — NO incluye la fuerza contraelectromotriz de un rotor en giro real.'},
+};
+
+const KVOFF=1e-9;
+function tauOf(L,R){return L/R;}
+function sleep(ms){return new Promise(function(res){setTimeout(res,ms);});}
+
+function solveDiode(load,R,L,Vf){
+  const tau=tauOf(L,R);
+  const I0=load.vsupply/R;
+  const A=I0+Vf/R;
+  const tOff=Vf>KVOFF? tau*Math.log(1+I0*R/Vf) : 5*tau;
+  function I(t){ if(t<=0)return I0; if(t>=tOff)return 0; return A*Math.exp(-t/tau)-Vf/R; }
+  const Etot=0.5*L*I0*I0;
+  const Ediodo=Math.max(Vf*(tau*I0-(Vf/R)*tOff),0);
+  const Ebobina=Math.max(Etot-Ediodo,0);
+  const approx=Etot*(2*Vf/load.vsupply);
+  const errPct=Ediodo>KVOFF? Math.abs(approx-Ediodo)/Ediodo*100 : 0;
+  return {kind:'diode',tau:tau,I0:I0,tOff:tOff,I:I,Etot:Etot,Eprot:Ediodo,Ebobina:Ebobina,vPeak:load.vsupply+Vf,approx:approx,errPct:errPct};
+}
+function solveClamp(load,R,L,Vf,Vz){
+  const I0=load.vsupply/R;
+  const Vclamp=Vz+Vf;
+  const slope=Vclamp/L;
+  const tOff=slope>KVOFF? I0/slope : 0;
+  function I(t){ if(t<=0)return I0; if(t>=tOff)return 0; return I0-slope*t; }
+  const Etot=0.5*L*I0*I0;
+  const Ebobina=R*I0*I0*tOff/3;
+  const Eprot=Math.max(Etot-Ebobina,0);
+  return {kind:'clamp',tau:null,I0:I0,tOff:tOff,I:I,Etot:Etot,Eprot:Eprot,Ebobina:Ebobina,vPeak:load.vsupply+Vclamp,slope:slope};
+}
+function solveNone(load,R,L){
+  const I0=load.vsupply/R;
+  const Etot=0.5*L*I0*I0;
+  const tOffQual=Math.max(tauOf(L,R)*0.06,2e-5);
+  function I(t){ if(t<=0)return I0; if(t>=tOffQual)return 0; return I0*(1-t/tOffQual); }
+  return {kind:'none',tau:null,I0:I0,tOff:tOffQual,I:I,Etot:Etot,Eprot:0,Ebobina:0,vPeak:null};
+}
+function solveFor(load,R,L,topo,diode,zener,reversed){
+  if(topo==='clamp') return solveClamp(load,R,L,diode.vf,zener.vz);
+  if(topo==='diode'&&!reversed) return solveDiode(load,R,L,diode.vf);
+  return solveNone(load,R,L);
+}
+
+function fmtI(i){ if(i==null||!isFinite(i))return '—'; const a=Math.abs(i); if(a>=1)return i.toFixed(3)+' A'; if(a>=0.001)return (i*1000).toFixed(1)+' mA'; return (i*1e6).toFixed(0)+' µA'; }
+function fmtV(v){ if(v==null||!isFinite(v))return '—'; return v.toFixed(2)+' V'; }
+function fmtT(t){ if(t==null||!isFinite(t))return '—'; const a=Math.abs(t); if(a>=1)return t.toFixed(3)+' s'; if(a>=0.001)return (t*1000).toFixed(2)+' ms'; return (t*1e6).toFixed(1)+' µs'; }
+function fmtE(j){ if(j==null||!isFinite(j))return '—'; const a=Math.abs(j); if(a>=1)return j.toFixed(3)+' J'; if(a>=0.001)return (j*1000).toFixed(2)+' mJ'; return (j*1e6).toFixed(1)+' µJ'; }
+function fmtR(r){ return r>=1000?(r/1000).toFixed(2)+' kΩ':r.toFixed(1)+' Ω'; }
+function fmtL(l){ return l>=1?l.toFixed(2)+' H':(l*1000).toFixed(1)+' mH'; }
+
+/* ---------- 2) Estado ---------- */
+let loadKey='songle';
+let diodeKey=LOADS.songle.diode;
+let zenerKey='z12';
+let topo='diode';
+let reversed=false;
+let Lval=LOADS.songle.lTyp;
+let switchClosed=true;
+let animating=false, animT0=0, animScale=1, animRes=null, animPoints=[];
+let CAPTURED=null;
+let cursorFrac=0.3;
+let mode='explora', solved=false;
+let PRED=null, predSolved=false, predRevealed=false;
+let RETO=null, retoSolved=false;
+let compareOn=false;
+const DISPLAY_DURATION=1.6;
+
+function curLoad(){ return LOADS[loadKey]; }
+function curDiode(){ return DIODES[diodeKey]; }
+function curZener(){ return ZENERS[zenerKey]; }
+function curR(){ return curLoad().r; }
+function curRes(){ return solveFor(curLoad(),curR(),Lval,topo,curDiode(),curZener(),reversed); }
+
+/* ---------- 3) Materiales ---------- */
+const std=function(o){ return new THREE.MeshStandardMaterial(o); };
+const MAT={
+  chasis: std({color:0x1c2622,metalness:0.5,roughness:0.55}),
+  pcb: std({color:0x0c3d2e,metalness:0.1,roughness:0.85}),
+  cobre: std({color:0xc98a4b,metalness:0.85,roughness:0.3}),
+  coilBody: std({color:0x2c3a44,metalness:0.6,roughness:0.4,emissive:0x000000,emissiveIntensity:0}),
+  switchBase: std({color:0x22282c,metalness:0.4,roughness:0.6}),
+  switchLeverSafe: std({color:0x2a9d8f,metalness:0.3,roughness:0.4,emissive:0x0f4038,emissiveIntensity:0.4}),
+  switchLeverDanger: std({color:0xe0523f,metalness:0.3,roughness:0.4,emissive:0x5a140c,emissiveIntensity:0.6}),
+  diodeBody: std({color:0x2e2e2e,metalness:0.2,roughness:0.5}),
+  diodeBand: std({color:0xe8e8e8,metalness:0.3,roughness:0.4}),
+  zenerBody: std({color:0x1c3c66,metalness:0.3,roughness:0.4}),
+  glass: std({color:0x0a1512,metalness:0,roughness:0.15,transparent:true,opacity:0.35}),
+};
+
+/* ---------- 4) Ayudantes de dibujo 2D ---------- */
+function line(c,x0,y0,x1,y1,color,w){ c.strokeStyle=color; c.lineWidth=w||2; c.beginPath(); c.moveTo(x0,y0); c.lineTo(x1,y1); c.stroke(); }
+function rr(c,x,y,w,h,r,fill,stroke){ c.beginPath(); c.moveTo(x+r,y); c.arcTo(x+w,y,x+w,y+h,r); c.arcTo(x+w,y+h,x,y+h,r); c.arcTo(x,y+h,x,y,r); c.arcTo(x,y,x+w,y,r); c.closePath(); if(fill){c.fillStyle=fill;c.fill();} if(stroke){c.strokeStyle=stroke;c.lineWidth=2;c.stroke();} }
+
+/* ---------- 5) Pizarrón: esquemático + osciloscopio ---------- */
+const bCv=document.createElement('canvas'); bCv.width=1024; bCv.height=768;
+const bCx=bCv.getContext('2d');
+const bTex=new THREE.CanvasTexture(bCv);
+const PX0=90,PX1=970,PY0=430,PY1=690;
+let HIT=[];
+
+function graphTMax(){
+  if(topo==='none'||(topo==='diode'&&reversed)) return 1;
+  const r=curRes();
+  return Math.max(r.tOff*1.18,1e-6);
+}
+function xPix(t,tmax){ return PX0+(t/tmax)*(PX1-PX0); }
+function yPix(i,imax){ return PY1-(i/imax)*(PY1-PY0); }
+
+function drawSchematic(c){
+  c.save(); c.translate(60,40);
+  const w=900,h=340;
+  rr(c,0,0,w,h,10,'#0a1512','#183a30');
+  const load=curLoad();
+  line(c,60,60,60,280,'#8fe0c9',3);
+  c.fillStyle='#8fe0c9'; c.font='20px monospace'; c.fillText('+',48,55);
+  line(c,60,60,220,60,'#8fe0c9',3);
+  const swX=280;
+  c.save(); c.translate(swX,60);
+  c.strokeStyle=switchClosed?'#2a9d8f':'#e0523f'; c.lineWidth=3;
+  c.beginPath(); c.moveTo(-60,0); c.lineTo(-18,0); c.stroke();
+  c.beginPath();
+  if(switchClosed){ c.moveTo(-18,0); c.lineTo(18,0); } else { c.moveTo(-18,0); c.lineTo(14,-22); }
+  c.stroke();
+  c.beginPath(); c.arc(-18,0,3,0,7); c.fill();
+  c.beginPath(); c.moveTo(18,0); c.lineTo(60,0); c.stroke();
+  c.fillStyle='#cfe8df'; c.font='16px monospace'; c.textAlign='center'; c.fillText('SWITCH',0,26);
+  c.restore();
+  line(c,swX+60,60,720,60,'#8fe0c9',3);
+  line(c,720,60,720,280,'#8fe0c9',3);
+  c.save(); c.translate(760,60);
+  c.strokeStyle='#8fe0c9'; c.lineWidth=3;
+  for(let i=0;i<4;i++){ c.beginPath(); c.arc(0,20+i*40,18,Math.PI*0.15,Math.PI*1.85); c.stroke(); }
+  c.fillStyle='#cfe8df'; c.font='16px monospace'; c.textAlign='left'; c.fillText('L (bobina)',34,110);
+  c.fillText('R='+fmtR(load.r),34,130);
+  c.restore();
+  line(c,60,280,720,280,'#8fe0c9',3);
+  c.fillStyle='#cfe8df'; c.font='16px monospace'; c.textAlign='left'; c.fillText('Vs='+fmtV(load.vsupply),20,300);
+  if(topo!=='none'){
+    const d=curDiode();
+    c.save(); c.translate(820,170);
+    c.strokeStyle= reversed&&topo==='diode' ? '#e0523f':'#8fe0c9';
+    c.lineWidth=3;
+    c.beginPath(); c.moveTo(0,-100); c.lineTo(0,-30); c.stroke();
+    c.save();
+    if(reversed&&topo==='diode') c.rotate(Math.PI);
+    c.beginPath(); c.moveTo(-18,-30); c.lineTo(18,-30); c.lineTo(0,10); c.closePath(); c.stroke();
+    line(c,-18,10,18,10,c.strokeStyle,4);
+    c.restore();
+    c.beginPath(); c.moveTo(0,30); c.lineTo(0,100); c.stroke();
+    c.fillStyle= reversed&&topo==='diode' ? '#e0523f':'#cfe8df'; c.font='15px monospace'; c.textAlign='left';
+    c.fillText(d.name.split(' ')[0]+(reversed&&topo==='diode'?' (invertido)':''),20,-10);
+    if(topo==='clamp'){
+      const z=curZener();
+      c.strokeStyle='#5aa7ff';
+      c.beginPath(); c.moveTo(60,-100); c.lineTo(60,-30); c.stroke();
+      c.beginPath(); c.moveTo(42,-30); c.lineTo(78,-30); c.lineTo(60,10); c.closePath(); c.stroke();
+      line(c,42,10,60,-4,'#5aa7ff',4); line(c,60,-4,78,10,'#5aa7ff',4); line(c,50,16,70,16,'#5aa7ff',3);
+      c.beginPath(); c.moveTo(60,16); c.lineTo(60,100); c.stroke();
+      c.fillStyle='#5aa7ff'; c.fillText(z.name.split(' ')[0],86,-10);
+    }
+    c.restore();
+  } else {
+    c.fillStyle='#e0523f'; c.font='16px monospace'; c.fillText('SIN protección',780,170);
+  }
+  c.restore();
+}
+function drawGraph(c){
+  c.save();
+  rr(c,PX0-40,PY0-30,PX1-PX0+80,PY1-PY0+70,10,'#04100c','#183a30');
+  c.strokeStyle='#183a30'; c.lineWidth=1;
+  for(let k=0;k<=4;k++){ const y=PY0+((PY1-PY0)/4)*k; line(c,PX0,y,PX1,y,'#153229',1); }
+  for(let k=0;k<=6;k++){ const x=PX0+((PX1-PX0)/6)*k; line(c,x,PY0,x,PY1,'#153229',1); }
+  c.fillStyle='#7fdcc4'; c.font='14px monospace'; c.textAlign='left';
+  c.fillText('I (corriente en la bobina)',PX0,PY0-12);
+  c.textAlign='right'; c.fillText('t',PX1,PY1+22);
+
+  const dangerous = topo==='none'||(topo==='diode'&&reversed);
+  if(dangerous){
+    c.strokeStyle='#e0523f'; c.lineWidth=3;
+    c.beginPath();
+    const midY=(PY0+PY1)/2;
+    c.moveTo(PX0,PY0+10);
+    for(let i=0;i<7;i++){ const x=PX0+((PX1-PX0)/7)*i; const y= i%2===0? midY-70:midY+70; c.lineTo(x,y); }
+    c.lineTo(PX1,midY);
+    c.stroke();
+    c.fillStyle='#e0523f'; c.font='bold 18px monospace'; c.textAlign='center';
+    c.fillText('⚡ COLAPSO — SOLO CUALITATIVO ⚡',(PX0+PX1)/2,PY0+50);
+    c.font='13px monospace'; c.fillStyle='#f0a898';
+    c.fillText('No se modelan cifras de voltaje/tiempo reales de arco o avalancha.',(PX0+PX1)/2,PY0+72);
+    c.restore(); return;
+  }
+
+  const r=curRes();
+  const tmax=graphTMax();
+  const imax=r.I0*1.12;
+  const pts = (mode==='explora' && animating) ? animPoints : sampleCurve(r,tmax);
+
+  c.strokeStyle='#2a9d8f'; c.lineWidth=3; c.beginPath();
+  for(let i=0;i<pts.length;i++){ const x=xPix(pts[i].t,tmax),y=yPix(pts[i].i,imax); if(i===0)c.moveTo(x,y);else c.lineTo(x,y); }
+  c.stroke();
+
+  if(compareOn && mode==='barrido' && topo!=='none'){
+    const other = topo==='diode'? solveClamp(curLoad(),curR(),Lval,curDiode().vf,curZener()) : solveDiode(curLoad(),curR(),Lval,curDiode().vf);
+    const otherPts=sampleCurve(other,tmax);
+    c.strokeStyle='#f2b705'; c.lineWidth=2; c.setLineDash([6,5]); c.beginPath();
+    for(let i=0;i<otherPts.length;i++){ const x=xPix(otherPts[i].t,tmax),y=yPix(otherPts[i].i,imax); if(i===0)c.moveTo(x,y);else c.lineTo(x,y); }
+    c.stroke(); c.setLineDash([]);
+    c.fillStyle='#f2b705'; c.font='13px monospace'; c.textAlign='left';
+    c.fillText('┄ '+(topo==='diode'?'con clamp':'solo diodo'),PX0,PY0-30);
+  }
+
+  c.fillStyle='#7fdcc4'; c.font='13px monospace'; c.textAlign='left';
+  c.fillText('I0='+fmtI(r.I0),PX0,PY1+40);
+  c.textAlign='right';
+  c.fillText('t_off='+fmtT(r.tOff),PX1,PY1+40);
+
+  if(mode==='barrido'){
+    const cx=xPix(cursorFrac*tmax,tmax);
+    line(c,cx,PY0,cx,PY1,'#f2b705',2);
+    const ic=r.I(cursorFrac*tmax);
+    c.fillStyle='#f2b705'; c.font='13px monospace'; c.textAlign='center';
+    c.fillText(fmtT(cursorFrac*tmax)+' · '+fmtI(ic),cx,PY0-8);
+  }
+  c.restore();
+}
+function sampleCurve(r,tmax){
+  const N=90; const pts=[];
+  for(let i=0;i<=N;i++){ const t=(i/N)*tmax; pts.push({t:t,i:Math.max(r.I(t),0)}); }
+  return pts;
+}
+function drawBoard(){
+  const c=bCx;
+  c.clearRect(0,0,bCv.width,bCv.height);
+  c.fillStyle='#04100c'; c.fillRect(0,0,bCv.width,bCv.height);
+  drawSchematic(c);
+  drawGraph(c);
+  bTex.needsUpdate=true;
+}
+
+/* ---------- 6) Banco 3D ---------- */
+function makeDisplayBox(w,h,dp,cw,ch){
+  const g=new THREE.Group();
+  const body=new THREE.Mesh(new THREE.BoxGeometry(w,h,dp),MAT.chasis);
+  g.add(body);
+  const cv=document.createElement('canvas'); cv.width=cw; cv.height=ch;
+  const cx=cv.getContext('2d');
+  const tex=new THREE.CanvasTexture(cv);
+  const screen=new THREE.Mesh(new THREE.PlaneGeometry(w*0.86,h*0.72),new THREE.MeshBasicMaterial({map:tex}));
+  screen.position.z=dp/2+0.006;
+  g.add(screen);
+  return {g:g,cv:cv,cx:cx,tex:tex,screen:screen};
+}
+function paintDisplay(d,lines,accent){
+  const cx=d.cx,cv=d.cv;
+  cx.clearRect(0,0,cv.width,cv.height);
+  cx.fillStyle='#04100c'; cx.fillRect(0,0,cv.width,cv.height);
+  cx.strokeStyle='#183a30'; cx.lineWidth=6; cx.strokeRect(3,3,cv.width-6,cv.height-6);
+  cx.fillStyle=accent||'#7fdcc4'; cx.font='bold 40px monospace'; cx.textAlign='left';
+  let y=54;
+  for(let i=0;i<lines.length;i++){ cx.fillText(lines[i],20,y); y+=48; }
+  d.tex.needsUpdate=true;
+}
+
+const boardG=new THREE.Group();
+const boardFrame=new THREE.Mesh(new THREE.BoxGeometry(4.4,3.35,0.08),MAT.chasis);
+boardG.add(boardFrame);
+const board=new THREE.Mesh(new THREE.PlaneGeometry(4.2,3.15),new THREE.MeshBasicMaterial({map:bTex}));
+board.position.z=0.05;
+boardG.add(board);
+boardG.position.set(0.4,2.35,-1.2);
+S.scene.add(boardG);
+
+const benchG=new THREE.Group();
+const mesa=new THREE.Mesh(new THREE.BoxGeometry(6.2,0.18,3.2),MAT.pcb);
+mesa.position.set(0.4,0.0,0.2);
+benchG.add(mesa);
+
+const fuenteD=makeDisplayBox(1.0,0.7,0.5,340,220);
+fuenteD.g.position.set(-2.1,0.55,1.1);
+fuenteD.g.userData={act:'fuente',title:'Fuente — voltaje de suministro'};
+benchG.add(fuenteD.g);
+
+const medidorD=makeDisplayBox(1.15,0.75,0.5,380,240);
+medidorD.g.position.set(-0.7,0.55,1.35);
+medidorD.g.userData={act:'medidor',title:'Medidor — corriente en la bobina'};
+benchG.add(medidorD.g);
+
+const switchG=new THREE.Group();
+const swBase=new THREE.Mesh(new THREE.BoxGeometry(0.5,0.14,0.4),MAT.switchBase);
+switchG.add(swBase);
+const swLever=new THREE.Mesh(new THREE.BoxGeometry(0.42,0.06,0.1),MAT.switchLeverSafe);
+swLever.position.set(0,0.1,0);
+switchG.add(swLever);
+switchG.position.set(0.5,0.62,1.35);
+switchG.userData={act:'switch3d',title:'Switch — abre/cierra el circuito'};
+benchG.add(switchG);
+
+const coilG=new THREE.Group();
+for(let i=0;i<5;i++){
+  const ring=new THREE.Mesh(new THREE.TorusGeometry(0.26,0.06,10,20),MAT.coilBody);
+  ring.rotation.y=Math.PI/2;
+  ring.position.x=i*0.16;
+  coilG.add(ring);
+}
+const coilCore=new THREE.Mesh(new THREE.CylinderGeometry(0.07,0.07,0.9,10),MAT.cobre);
+coilCore.rotation.z=Math.PI/2;
+coilCore.position.x=0.32;
+coilG.add(coilCore);
+coilG.position.set(1.9,0.72,1.35);
+coilG.userData={act:'coil',title:'Bobina de carga — campo magnético'};
+benchG.add(coilG);
+
+function makeDiode3D(colorHex){
+  const g=new THREE.Group();
+  const body=new THREE.Mesh(new THREE.CylinderGeometry(0.09,0.09,0.42,14),std({color:colorHex,metalness:0.25,roughness:0.5}));
+  body.rotation.z=Math.PI/2;
+  g.add(body);
+  const band=new THREE.Mesh(new THREE.CylinderGeometry(0.093,0.093,0.05,14),MAT.diodeBand);
+  band.rotation.z=Math.PI/2; band.position.x=0.15;
+  g.add(band);
+  const lead1=new THREE.Mesh(new THREE.CylinderGeometry(0.015,0.015,0.3,6),MAT.cobre);
+  lead1.rotation.z=Math.PI/2; lead1.position.x=-0.36; g.add(lead1);
+  const lead2=lead1.clone(); lead2.position.x=0.36; g.add(lead2);
+  return g;
+}
+const diodeG=makeDiode3D(0x2e2e2e);
+diodeG.position.set(2.9,0.85,0.75);
+diodeG.userData={act:'diode3d',title:'Diodo de protección'};
+benchG.add(diodeG);
+
+const zenerG=makeDiode3D(0x1c3c66);
+zenerG.position.set(2.9,0.85,1.75);
+zenerG.userData={act:'zener3d',title:'Zener de clamp activo'};
+benchG.add(zenerG);
+
+benchG.position.set(0,0,0.2);
+S.scene.add(benchG);
+
+function refreshBenchSel(){
+  const load=curLoad();
+  diodeG.visible = topo!=='none';
+  zenerG.visible = topo==='clamp';
+  swLever.material = (topo==='none'||(topo==='diode'&&reversed)) ? MAT.switchLeverDanger : MAT.switchLeverSafe;
+  swLever.rotation.z = switchClosed? 0 : -0.62;
+  paintDisplay(fuenteD,['Vs='+fmtV(load.vsupply),load.name.slice(0,16)],'#7fdcc4');
+}
+function refreshBenchDyn(iNow){
+  const load=curLoad();
+  const frac = iNow!=null && solveDiode(load,curR(),Lval,0.001).I0>0 ? Math.min(iNow/(load.vsupply/curR()),1) : (switchClosed?1:0);
+  coilG.children.forEach(function(m){ if(m.material&&m.material.emissive){ m.material.emissiveIntensity=0.15+frac*1.1; m.material.emissive.setHex(frac>0.02?0x1c8a6a:0x000000); } });
+  paintDisplay(medidorD,[switchClosed&&iNow==null?fmtI(load.vsupply/curR()):fmtI(iNow!=null?iNow:0),'I bobina'],iNow!=null&&iNow>0.0005?'#f2b705':'#7fdcc4');
+}
+
+/* ---------- 7) HUD + panel ---------- */
+function loadBtns(){
+  return Object.keys(LOADS).map(function(k){ return '<button class="ctrlBtn" id="l_'+k+'" data-k="'+k+'">'+LOADS[k].name+'</button>'; }).join('');
+}
+function diodeBtns(){
+  return Object.keys(DIODES).map(function(k){ return '<button class="ctrlBtn" id="d_'+k+'" data-k="'+k+'">'+DIODES[k].name+'</button>'; }).join('');
+}
+function zenerBtns(){
+  return Object.keys(ZENERS).map(function(k){ return '<button class="ctrlBtn" id="z_'+k+'" data-k="'+k+'">'+ZENERS[k].name+'</button>'; }).join('');
+}
+
+document.getElementById('hud').innerHTML =
+  '<div class="hudTop">'+
+    '<div class="eyebrow">D2 · Electrónica de potencia — Práctica d2-07</div>'+
+    '<div class="hudTitle">Conmutación de Carga Inductiva y Diodo de Marcha Libre</div>'+
+    '<div class="hudSub" id="modeLabel">Explora</div>'+
+  '</div>'+
+  '<div class="modeBar">'+
+    '<button class="modeBtn" id="m_explora">1 · Explora</button>'+
+    '<button class="modeBtn" id="m_predice">2 · Predice</button>'+
+    '<button class="modeBtn" id="m_barrido">3 · Medición</button>'+
+    '<button class="modeBtn" id="m_reto">4 · Reto</button>'+
+  '</div>'+
+  '<div class="mision" id="misionTxt"></div>'+
+  '<div class="toast" id="toast"></div>';
+
+document.getElementById('panel').innerHTML =
+  '<div class="secTitle">Carga</div><div class="btnGrid" id="gridLoad">'+loadBtns()+'</div>'+
+  '<div class="secTitle">Diodo</div><div class="btnGrid" id="gridDiode">'+diodeBtns()+'</div>'+
+  '<div class="secTitle">Topología de protección</div><div class="btnGrid">'+
+    '<button class="ctrlBtn" id="t_none">Sin protección</button>'+
+    '<button class="ctrlBtn" id="t_diode">Diodo de marcha libre</button>'+
+    '<button class="ctrlBtn" id="t_clamp">Clamp activo (zener)</button>'+
+  '</div>'+
+  '<div class="secTitle" id="secZener">Zener del clamp</div><div class="btnGrid" id="gridZener">'+zenerBtns()+'</div>'+
+  '<div class="secTitle" id="secRev"><label><input type="checkbox" id="chkReversed"/> Diodo instalado en reversa (Explora)</label></div>'+
+  '<div class="secTitle">Inductancia de bobina L <span class="hint">(típica/ajustable — ningún fabricante la publica)</span></div>'+
+  '<input type="range" id="sL" min="0" max="100" value="50"/> <span id="vL"></span>'+
+  '<div class="secTitle" id="secSwitch"><button class="ctrlBtn wide" id="btnSwitch">Abrir switch</button></div>'+
+  '<div class="secTitle" id="secCursor">Cursor de tiempo</div>'+
+  '<input type="range" id="sCursor" min="0" max="100" value="30"/>'+
+  '<div class="readout" id="cursorReadout"></div>'+
+  '<button class="ctrlBtn wide" id="btnVerifTau">Verificar τ en el cursor</button>'+
+  '<button class="ctrlBtn wide" id="btnCompare">⇄ Comparar topologías</button>'+
+  '<div class="secTitle" id="secPred">Predicción</div>'+
+  '<div id="predBox"></div>'+
+  '<div class="secTitle" id="secReto">Reto de diseño</div>'+
+  '<div id="retoBox"></div>'+
+  '<div class="secTitle">Telemetría</div>'+
+  '<div class="tele" id="tele"></div>'+
+  '<div class="secTitle">Reporte</div>'+
+  '<div class="report" id="report"></div>';
+
+const el=function(id){ return document.getElementById(id); };
+let toastT=null;
+function showToast(msg){
+  const t=el('toast'); if(!t)return;
+  t.textContent=msg; t.classList.add('show');
+  if(toastT)clearTimeout(toastT);
+  toastT=setTimeout(function(){ t.classList.remove('show'); },2600);
+}
+
+/* ---------- 8) Modos ---------- */
+const MODES=['explora','predice','barrido','reto'];
+const MODE_META={
+  explora:{label:'Explora',cam:[[3.1,2.4,7.0],[0.4,1.2,0.1]]},
+  predice:{label:'Predice',cam:[[1.6,3.0,5.6],[0.4,2.1,-0.4]]},
+  barrido:{label:'Medición',cam:[[1.4,3.1,5.4],[0.4,2.2,-0.6]]},
+  reto:{label:'Reto de diseño',cam:[[2.2,2.6,6.2],[0.4,1.6,0.0]]},
+};
+const MISIONES={
+  explora:'Abre el switch y observa cómo colapsa la corriente en la bobina. Cambia la topología de protección y la carga para comparar.',
+  predice:'Con la carga y topología mostradas, predice el valor pedido antes de revelarlo.',
+  barrido:'Captura el transitorio, mide τ con el cursor y compara la energía disipada exacta contra la aproximación rápida.',
+  reto:'Diseña la topología de protección (y el zener, si aplica) para cumplir el tiempo de apagado y el presupuesto de voltaje del switch.',
+};
+
+function syncCtrlBtns(){
+  Object.keys(LOADS).forEach(function(k){ el('l_'+k).classList.toggle('active',k===loadKey); });
+  Object.keys(DIODES).forEach(function(k){ el('d_'+k).classList.toggle('active',k===diodeKey); });
+  Object.keys(ZENERS).forEach(function(k){ el('z_'+k).classList.toggle('active',k===zenerKey); });
+  el('t_none').classList.toggle('active',topo==='none');
+  el('t_diode').classList.toggle('active',topo==='diode');
+  el('t_clamp').classList.toggle('active',topo==='clamp');
+  el('secZener').style.display = topo==='clamp'? '':'none';
+  el('gridZener').style.display = topo==='clamp'? '':'none';
+  el('secRev').style.display = (mode==='explora')? '':'none';
+  el('chkReversed').checked=reversed;
+  el('secSwitch').style.display = mode==='explora'? '':'none';
+  el('btnSwitch').textContent = switchClosed? 'Abrir switch':'Cerrar switch';
+  const retoActive = mode==='reto';
+  el('t_none').disabled=retoActive; el('chkReversed').disabled=retoActive;
+  const vL=Lval; el('vL').textContent=fmtL(vL);
+  const load=curLoad();
+  el('sL').min=Math.round(load.lLo*1e6); el('sL').max=Math.round(load.lHi*1e6); el('sL').value=Math.round(Lval*1e6);
+  el('sL').disabled = (mode==='reto'||mode==='predice');
+}
+function selLoad(k){
+  loadKey=k; diodeKey=LOADS[k].diode; Lval=LOADS[k].lTyp;
+  animating=false; CAPTURED=null;
+  syncCtrlBtns(); refreshBenchSel(); refreshAll();
+}
+function selDiode(k){ diodeKey=k; refreshAll(); }
+function selZener(k){ zenerKey=k; refreshAll(); }
+function selTopo(k){
+  topo=k;
+  if(k!=='diode') reversed=false;
+  syncCtrlBtns(); refreshBenchSel(); refreshAll();
+}
+function setMode(k){
+  mode=k; solved=false;
+  const meta=MODE_META[k];
+  S.moveTo(meta.cam[0],meta.cam[1],1.3);
+  MODES.forEach(function(m){ el('m_'+m).classList.toggle('active',m===k); });
+  el('modeLabel').textContent=meta.label;
+  el('misionTxt').textContent=MISIONES[k];
+  el('secPred').style.display = k==='predice'? '':'none';
+  el('predBox').style.display = k==='predice'? '':'none';
+  el('secReto').style.display = k==='reto'? '':'none';
+  el('retoBox').style.display = k==='reto'? '':'none';
+  el('secCursor').style.display = k==='barrido'? '':'none';
+  el('sCursor').style.display = k==='barrido'? '':'none';
+  el('cursorReadout').style.display = k==='barrido'? '':'none';
+  el('btnVerifTau').style.display = k==='barrido'? '':'none';
+  el('btnCompare').style.display = k==='barrido'? '':'none';
+  if(k==='predice'&&!PRED) genPredice();
+  if(k==='reto'&&!RETO) newReto();
+  animating=false;
+  if(k!=='explora') switchClosed=true;
+  syncCtrlBtns(); refreshBenchSel(); refreshAll();
+}
+
+/* ---------- 9) Telemetría + reporte ---------- */
+function set(id,txt,cls){ const n=el(id); if(!n)return; n.textContent=txt; if(cls)n.className=cls; }
+function updateTele(){
+  const load=curLoad(); const r=curRes();
+  const dangerous = topo==='none'||(topo==='diode'&&reversed);
+  let html='';
+  html+='<div class="row"><span>Carga</span><b>'+load.name+'</b></div>';
+  html+='<div class="row"><span>Vsupply</span><b>'+fmtV(load.vsupply)+'</b></div>';
+  html+='<div class="row"><span>R bobina</span><b>'+fmtR(load.r)+'</b></div>';
+  html+='<div class="row"><span>L bobina</span><b>'+fmtL(Lval)+'</b></div>';
+  html+='<div class="row"><span>I0 (estable)</span><b>'+fmtI(r.I0)+'</b></div>';
+  if(dangerous){
+    html+='<div class="row warn"><span>Estado</span><b>SIN protección cuantitativa</b></div>';
+  } else {
+    if(r.tau!=null) html+='<div class="row"><span>τ = L/R</span><b>'+fmtT(r.tau)+'</b></div>';
+    html+='<div class="row"><span>t_off</span><b>'+fmtT(r.tOff)+'</b></div>';
+    html+='<div class="row"><span>Vpico en switch</span><b>'+fmtV(r.vPeak)+'</b></div>';
+  }
+  el('tele').innerHTML=html;
+}
+function updateReport(){
+  const load=curLoad(); const r=curRes();
+  const dangerous = topo==='none'||(topo==='diode'&&reversed);
+  const L=[];
+  L.push('Carga: '+load.name+' — '+load.context);
+  if(dangerous){
+    L.push('Sin trayectoria de descarga controlada: el campo magnético de la bobina se colapsa contra el switch abierto. La energía almacenada ('+fmtE(r.Etot)+') se disipa en un arco/avalancha que este simulador NO modela cuantitativamente — en un circuito real esto puede destruir el switch.');
+  } else if(topo==='diode'){
+    L.push('Diodo de marcha libre: '+curDiode().name+' (Vf≈'+fmtV(curDiode().vf)+').');
+    L.push('t_off = τ·ln(1+I0·R/Vf) = '+fmtT(r.tOff)+' (τ='+fmtT(r.tau)+').');
+    L.push('Energía en el diodo (forma cerrada exacta) = '+fmtE(r.Eprot)+'.');
+    L.push('Aproximación rápida ≈2·Vf/Vsupply·Etotal = '+fmtE(r.approx)+' — error relativo frente al valor exacto: '+r.errPct.toFixed(0)+'%.');
+    L.push('Energía restante disipada en R de la bobina = '+fmtE(r.Ebobina)+'.');
+  } else {
+    L.push('Clamp activo: '+curDiode().name+' + '+curZener().name+' (Vclamp≈Vz+Vf='+fmtV(curZener().vz+curDiode().vf)+').');
+    L.push('t_off ≈ I0·L/(Vz+Vf) = '+fmtT(r.tOff)+' — mucho más rápido que el diodo simple, a costa de un voltaje pico de '+fmtV(r.vPeak)+' sobre el switch.');
+    L.push('Energía en el clamp ≈ '+fmtE(r.Eprot)+'; energía en R de la bobina (decaimiento lineal, forma cerrada) ≈ '+fmtE(r.Ebobina)+'.');
+  }
+  el('report').innerHTML=L.map(function(x){ return '<div class="reportLine">• '+x+'</div>'; }).join('');
+}
+function refreshAll(){
+  drawBoard();
+  refreshBenchDyn(mode==='explora'&&animating? (animPoints.length?animPoints[animPoints.length-1].i:null) : null);
+  updateTele();
+  updateReport();
+}
+
+/* ---------- 10) Captura + cursor (Medición) ---------- */
+function captureNow(){
+  const dangerous = topo==='none'||(topo==='diode'&&reversed);
+  if(dangerous){ showToast('Sin protección no hay transitorio cuantitativo que capturar.'); return; }
+  const r=curRes();
+  CAPTURED={topo:topo,res:r,tmax:graphTMax()};
+  showToast('Transitorio capturado.');
+  refreshAll();
+}
+function verifTau(){
+  if(topo!=='diode'||reversed){ showToast('τ solo aplica al diodo de marcha libre (decaimiento exponencial).'); return; }
+  const r=curRes(); const tmax=graphTMax();
+  const guess=cursorFrac*tmax;
+  const err=Math.abs(guess-r.tau)/r.tau;
+  if(err<=0.15){ showToast('¡Correcto! En τ='+fmtT(r.tau)+' la corriente cae a ≈36.8% de I0.'); synth.beep(880,.06,.05); solved=true; }
+  else { showToast('Aún no. τ=L/R='+fmtT(r.tau)+' — mueve el cursor hasta donde I caiga a ≈36.8% de I0.'); synth.beep(220,.08,.05); }
+}
+function toggleCompare(){ compareOn=!compareOn; el('btnCompare').classList.toggle('active',compareOn); refreshAll(); }
+
+/* ---------- 11) Predicción ---------- */
+function predAskText(){
+  if(!PRED) return '';
+  if(PRED.type==='A') return 'Con '+PRED.loadName+' y diodo de marcha libre ('+PRED.diodeName+', Vf≈'+fmtV(PRED.vf)+'), predice t_off en milisegundos.';
+  return 'Con '+PRED.loadName+' y clamp activo ('+PRED.zenerName+'), predice el voltaje pico sobre el switch en volts.';
+}
+function genPredice(){
+  const keys=Object.keys(LOADS);
+  const lk=keys[Math.floor(Math.random()*keys.length)];
+  const load=LOADS[lk];
+  const d=DIODES[load.diode];
+  const type= Math.random()<0.5?'A':'B';
+  loadKey=lk; diodeKey=load.diode; Lval=load.lTyp;
+  let target,zk=null;
+  if(type==='A'){
+    topo='diode'; reversed=false;
+    const r=solveDiode(load,load.r,load.lTyp,d.vf);
+    target=r.tOff*1000;
+  } else {
+    zk=Math.random()<0.5?'z12':'z15';
+    topo='clamp'; zenerKey=zk;
+    const r=solveClamp(load,load.r,load.lTyp,d.vf,ZENERS[zk].vz);
+    target=r.vPeak;
+  }
+  PRED={type:type,loadKey:lk,loadName:load.name,diodeKey:load.diode,diodeName:d.name,vf:d.vf,zenerKey:zk,zenerName:zk?ZENERS[zk].name:null,target:target};
+  predSolved=false; predRevealed=false;
+  renderPred();
+  syncCtrlBtns(); refreshBenchSel(); refreshAll();
+}
+function renderPred(){
+  if(!PRED) return;
+  const unit=PRED.type==='A'?'ms':'V';
+  el('predBox').innerHTML=
+    '<div class="ask">'+predAskText()+'</div>'+
+    '<input type="number" id="predInput" step="any" placeholder="valor en '+unit+'"/>'+
+    '<button class="ctrlBtn wide" id="btnPredCheck">Verificar</button>'+
+    '<button class="ctrlBtn wide" id="btnPredNew">Nueva predicción</button>'+
+    '<div id="predResult"></div>';
+  el('btnPredCheck').onclick=checkPredice;
+  el('btnPredNew').onclick=genPredice;
+}
+function checkPredice(){
+  const v=parseFloat(el('predInput').value);
+  if(isNaN(v)){ showToast('Escribe un número.'); return; }
+  const tol = PRED.type==='A'? 0.22 : 0.10;
+  const err=Math.abs(v-PRED.target)/Math.abs(PRED.target);
+  predRevealed=true;
+  const unit=PRED.type==='A'?'ms':'V';
+  const shown = PRED.type==='A'? PRED.target.toFixed(2) : PRED.target.toFixed(2);
+  if(err<=tol){ predSolved=true; solved=true; showToast('¡Correcto! Valor real: '+shown+' '+unit); synth.beep(880,.06,.05); }
+  else { predSolved=false; showToast('No coincide. Valor real: '+shown+' '+unit); synth.beep(220,.08,.05); }
+  el('predResult').innerHTML='<div class="'+(predSolved?'ok':'bad')+'">Real: '+shown+' '+unit+' · tu respuesta: '+v+' '+unit+'</div>';
+}
+
+/* ---------- 12) Reto de diseño ---------- */
+function newReto(){
+  const keys=Object.keys(LOADS);
+  const lk=keys[Math.floor(Math.random()*keys.length)];
+  const load=LOADS[lk];
+  const dk=load.diode; const d=DIODES[dk];
+  const R=load.r, L=load.lTyp;
+  const resDiode=solveDiode(load,R,L,d.vf);
+  const factor=0.3+Math.random()*0.9;
+  const maxTOffMs=resDiode.tOff*1000*factor;
+  const margin=1.5+Math.random()*5.5;
+  const vSwitchBudget=load.vsupply+ZENERS.z12.vz+d.vf+margin;
+  RETO={loadKey:lk,loadName:load.name,diodeKey:dk,diodeName:d.name,maxTOffMs:maxTOffMs,vSwitchBudget:vSwitchBudget};
+  loadKey=lk; diodeKey=dk; Lval=L; topo='diode'; reversed=false; zenerKey='z12';
+  retoSolved=false;
+  renderReto();
+  syncCtrlBtns(); refreshBenchSel(); refreshAll();
+}
+function renderReto(){
+  if(!RETO) return;
+  el('retoBox').innerHTML=
+    '<div class="ask">Carga: <b>'+RETO.loadName+'</b> con '+RETO.diodeName+'.<br/>'+
+    'Meta: apaga la corriente en ≤ '+RETO.maxTOffMs.toFixed(2)+' ms, y el switch debe soportar ≤ '+RETO.vSwitchBudget.toFixed(1)+' V de pico.<br/>'+
+    'Elige la topología (diodo / clamp) y, si usas clamp, el zener.</div>'+
+    '<button class="ctrlBtn wide" id="btnRetoCheck">Verificar diseño</button>'+
+    '<button class="ctrlBtn wide" id="btnRetoNew">Nuevo reto</button>'+
+    '<div id="retoResult"></div>';
+  el('btnRetoCheck').onclick=checkReto;
+  el('btnRetoNew').onclick=newReto;
+}
+function chip(ok){ return '<span class="'+(ok?'ok':'bad')+'">'+(ok?'✔':'✘')+'</span>'; }
+function checkReto(){
+  if(!RETO) return;
+  const load=LOADS[RETO.loadKey]; const d=DIODES[RETO.diodeKey];
+  let res;
+  if(topo==='diode'){ res=solveDiode(load,load.r,load.lTyp,d.vf); }
+  else if(topo==='clamp'){ res=solveClamp(load,load.r,load.lTyp,d.vf,curZener().vz); }
+  else { showToast('Sin protección no cumple ningún criterio.'); return; }
+  const tOffMs=res.tOff*1000;
+  const okT=tOffMs<=RETO.maxTOffMs;
+  const okV=res.vPeak<=RETO.vSwitchBudget;
+  retoSolved=okT&&okV; solved=retoSolved;
+  let html='<div class="row">'+chip(okT)+' t_off='+tOffMs.toFixed(2)+' ms (meta ≤'+RETO.maxTOffMs.toFixed(2)+' ms)</div>';
+  html+='<div class="row">'+chip(okV)+' Vpico='+res.vPeak.toFixed(1)+' V (presupuesto ≤'+RETO.vSwitchBudget.toFixed(1)+' V)</div>';
+  html+='<div class="'+(retoSolved?'ok':'bad')+'">'+(retoSolved?'¡Diseño válido!':'Aún no cumple ambos criterios.')+'</div>';
+  el('retoResult').innerHTML=html;
+  if(retoSolved) synth.beep(880,.07,.05); else synth.beep(220,.08,.05);
+}
+
+/* ---------- 13) Quiz ---------- */
+const QUIZ={
+  explora:{pregunta:'¿Por qué es peligroso abrir el switch de una carga inductiva sin ninguna protección?',opciones:[
+    {t:'Porque la bobina exige mantener su corriente; sin trayectoria de descarga, V=L·dI/dt se dispara a un pico muy alto.',ok:true,why:'La bobina se opone a un cambio brusco de corriente — al no tener por dónde seguir circulando, el voltaje entre sus terminales se dispara.'},
+    {t:'Porque el switch consume más corriente al abrirse.',ok:false,why:'Un switch abierto no consume corriente; el problema es el colapso del campo magnético de la bobina.'},
+    {t:'Porque la fuente se cortocircuita al abrir el switch.',ok:false,why:'Al contrario: se interrumpe el circuito, y es justamente esa interrupción la que genera el pico de voltaje.'},
+  ]},
+  predice:{pregunta:'¿Por qué se prefiere un diodo Schottky (1N5819) sobre uno de silicio (1N4007) en un motor conmutado por PWM?',opciones:[
+    {t:'Porque su recuperación inversa (trr) es despreciable, y en PWM se conmuta miles de veces por segundo.',ok:true,why:'A alta frecuencia de conmutación, un trr no despreciable como el del 1N4007 sí importa; el Schottky enciende y apaga casi instantáneamente.'},
+    {t:'Porque tiene mayor Vf, disipando más energía y protegiendo mejor.',ok:false,why:'Es al revés: el Schottky tiene MENOR Vf que el 1N4007.'},
+    {t:'Porque soporta mayor voltaje inverso (Vrrm).',ok:false,why:'El 1N4007 tiene mayor Vrrm (1000V) que el 1N5819 (40V); la razón de preferirlo aquí es la velocidad, no el voltaje inverso.'},
+  ]},
+  barrido:{pregunta:'Con un diodo de marcha libre de Vf constante, ¿qué determina qué tan rápido decae la corriente?',opciones:[
+    {t:'τ=L/R fija la escala de tiempo, pero un Vf mayor añade más "empuje" de descarga y acelera el apagado (t_off menor).',ok:true,why:'t_off=τ·ln(1+I0·R/Vf): a mayor Vf, menor t_off para el mismo τ e I0.'},
+    {t:'Solo τ=L/R importa; Vf no afecta el tiempo de apagado.',ok:false,why:'Vf sí importa — aparece explícitamente en la fórmula de t_off, no solo τ.'},
+    {t:'Un Vf mayor siempre hace más lento el apagado.',ok:false,why:'Es lo contrario: un Vf mayor acelera el apagado, porque añade más voltaje de descarga contra la bobina.'},
+  ]},
+  reto:{pregunta:'¿Por qué un clamp activo (zener+diodo) apaga la corriente más rápido que un diodo de marcha libre simple, y qué cuesta a cambio?',opciones:[
+    {t:'El clamp fuerza un voltaje de descarga mucho mayor (Vz+Vf), acelerando dI/dt — pero el switch debe soportar Vsupply+Vz+Vf, un pico más alto.',ok:true,why:'Más voltaje de descarga = apagado más rápido, pero ese mismo voltaje aparece como estrés adicional sobre el switch.'},
+    {t:'El clamp no cambia la velocidad, solo protege contra sobrecorriente.',ok:false,why:'El clamp sí acelera el apagado — su propósito principal es justamente reducir t_off frente al diodo simple.'},
+    {t:'El clamp es más lento pero más barato.',ok:false,why:'Es lo contrario en velocidad: el clamp es más rápido, a costa de mayor voltaje pico sobre el switch.'},
+  ]},
+};
+function buildQuiz(){ refreshQuestion(); }
+function clearDx(){
+  const box=el('quizBox'); if(!box)return;
+  Array.prototype.forEach.call(box.querySelectorAll('.quizOpt'),function(b){ b.classList.remove('right','wrong'); });
+}
+function refreshQuestion(){}
+
+/* ---------- 14) Picking, hover, animación, eventos, init ---------- */
+function boardClick(u,v){
+  const px=PX0+u*(PX1-PX0), py=PY1-v*(PY1-PY0);
+  if(mode==='barrido' && px>=PX0 && px<=PX1 && py>=PY0-10 && py<=PY1+10){
+    cursorFrac=Math.min(Math.max((px-PX0)/(PX1-PX0),0),1);
+    el('sCursor').value=Math.round(cursorFrac*100);
+    updateCursorReadout();
+    refreshAll();
+  } else if(mode==='explora'){
+    toggleSwitch();
+  }
+}
+pickerFor(S.scene,S.camera,S.renderer.domElement,function(hit){
+  if(hit.object===board){ boardClick(hit.uv.x,hit.uv.y); return; }
+  let o=hit.object;
+  while(o){ if(o.userData&&o.userData.act){ dispatch3D(o.userData.act); return; } o=o.parent; }
+});
+function dispatch3D(act){
+  synth.beep(720,.05,.05);
+  if(act==='switch3d'){ toggleSwitch(); return; }
+  if(act==='fuente') showToast('Fuente: '+fmtV(curLoad().vsupply)+' de suministro.');
+  else if(act==='medidor') showToast('Medidor de corriente en la bobina.');
+  else if(act==='coil') showToast('Bobina de carga — almacena energía en su campo magnético (E=½·L·I²).');
+  else if(act==='diode3d') showToast(topo==='none'?'No hay diodo instalado en esta topología.':'Diodo: '+curDiode().name+' — Vf≈'+fmtV(curDiode().vf));
+  else if(act==='zener3d') showToast(topo==='clamp'?'Zener: '+curZener().name:'El clamp no está activo — selecciónalo en Topología.');
+}
+function toggleSwitch(){
+  if(mode!=='explora'){ showToast('El switch solo se manipula en el modo Explora.'); return; }
+  switchClosed=!switchClosed;
+  if(!switchClosed){
+    animRes=curRes();
+    animT0=S.clock.elapsedTime;
+    const span = animRes.tOff>0? animRes.tOff : 0.05;
+    animScale=Math.max(span/DISPLAY_DURATION,1e-9);
+    animPoints=[{t:0,i:animRes.I0}];
+    animating=true;
+    showToast('Switch abierto — cámara lenta ~'+Math.max(Math.round(animScale),1)+'x (la física real dura '+fmtT(span)+').');
+  } else {
+    animating=false; animPoints=[];
+    showToast('Switch cerrado — corriente estable I0='+fmtI(curRes().I0));
+  }
+  syncCtrlBtns(); refreshBenchSel(); refreshAll();
+}
+function updateCursorReadout(){
+  if(topo==='none'||(topo==='diode'&&reversed)){ el('cursorReadout').textContent='Sin protección: no hay curva cuantitativa que medir.'; return; }
+  const r=curRes(); const tmax=graphTMax(); const t=cursorFrac*tmax; const i=r.I(t);
+  el('cursorReadout').textContent='t='+fmtT(t)+' · I='+fmtI(i)+' · '+((i/r.I0)*100).toFixed(1)+'% de I0';
+}
+
+(function(){
+  const dom=S.renderer.domElement;
+  const ray=new THREE.Raycaster();
+  dom.addEventListener('pointermove',function(e){
+    const rect=dom.getBoundingClientRect();
+    const mx=((e.clientX-rect.left)/rect.width)*2-1;
+    const my=-((e.clientY-rect.top)/rect.height)*2+1;
+    ray.setFromCamera({x:mx,y:my},S.camera);
+    const hits=ray.intersectObjects(S.scene.children,true);
+    let title='';
+    for(let i=0;i<hits.length;i++){
+      let o=hits[i].object;
+      while(o){ if(o.userData&&o.userData.title){ title=o.userData.title; break; } o=o.parent; }
+      if(title)break;
+    }
+    dom.style.cursor=title?'pointer':'default';
+    dom.title=title;
+  });
+})();
+
+MODES.forEach(function(m){ el('m_'+m).onclick=function(){ setMode(m); }; });
+Object.keys(LOADS).forEach(function(k){ el('l_'+k).onclick=function(){ selLoad(k); }; });
+Object.keys(DIODES).forEach(function(k){ el('d_'+k).onclick=function(){ selDiode(k); }; });
+Object.keys(ZENERS).forEach(function(k){ el('z_'+k).onclick=function(){ selZener(k); }; });
+el('t_none').onclick=function(){ selTopo('none'); };
+el('t_diode').onclick=function(){ selTopo('diode'); };
+el('t_clamp').onclick=function(){ selTopo('clamp'); };
+el('chkReversed').onchange=function(){ reversed=el('chkReversed').checked; refreshBenchSel(); refreshAll(); };
+el('sL').oninput=function(){ Lval=parseFloat(el('sL').value)/1e6; el('vL').textContent=fmtL(Lval); refreshAll(); };
+el('btnSwitch').onclick=toggleSwitch;
+el('sCursor').oninput=function(){ cursorFrac=parseFloat(el('sCursor').value)/100; updateCursorReadout(); refreshAll(); };
+el('btnVerifTau').onclick=verifTau;
+el('btnCompare').onclick=toggleCompare;
+
+S.setAnimate(function(dt,t){
+  if(!animating||mode!=='explora') return;
+  const tPhys=(t-animT0)*animScale;
+  const span = animRes.tOff>0? animRes.tOff : 0.05;
+  if(tPhys>=span){
+    animating=false;
+    animPoints.push({t:span,i:0});
+    refreshBenchDyn(0);
+    drawBoard();
+    return;
+  }
+  const iNow=Math.max(animRes.I(tPhys),0);
+  animPoints.push({t:tPhys,i:iNow});
+  refreshBenchDyn(iNow);
+  drawBoard();
+});
+
+newReto();
+genPredice();
+loadKey='songle'; diodeKey=LOADS.songle.diode; Lval=LOADS.songle.lTyp; topo='diode'; reversed=false; mode='explora';
+syncCtrlBtns();
+refreshBenchSel();
+S.start();
+setMode('explora');
+updateCursorReadout();
+
+window.__labDebug={
+  state:function(){ return {loadKey:loadKey,diodeKey:diodeKey,zenerKey:zenerKey,topo:topo,reversed:reversed,Lval:Lval,switchClosed:switchClosed,mode:mode,animating:animating}; },
+  res:function(){ return curRes(); },
+  solveDiode:solveDiode, solveClamp:solveClamp, solveNone:solveNone,
+  setLoad:selLoad, setDiode:selDiode, setZener:selZener, setTopo:selTopo,
+  setReversed:function(v){ reversed=v; el('chkReversed').checked=v; refreshBenchSel(); refreshAll(); },
+  setL:function(v){ Lval=v; refreshAll(); },
+  mode:function(){ return mode; }, setMode:setMode,
+  toggleSwitch:toggleSwitch,
+  pred:function(){ return PRED; }, newPredice:genPredice, checkPredice:checkPredice,
+  setPredInput:function(v){ if(el('predInput'))el('predInput').value=v; },
+  reto:function(){ return RETO; }, newReto:newReto, checkReto:checkReto,
+  captureNow:captureNow, verifTau:verifTau, setCursor:function(f){ cursorFrac=f; updateCursorReadout(); refreshAll(); },
+  toggleCompare:toggleCompare,
+};

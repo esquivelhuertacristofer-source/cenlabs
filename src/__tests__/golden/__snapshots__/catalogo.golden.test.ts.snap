@@ -481,6 +481,16 @@ exports[`golden master — catálogo por categoría (invariante ante extracción
     "teoria": "Compara polarización fija (una resistencia RB desde VCC) y por divisor de voltaje (R1/R2 más resistencia de emisor RE) sobre el mismo transistor NPN (BC547B o 2N3904), usando el modelo estándar de VBE(on)=0.7 V constante y una fórmula unificada de Thevenin IB=(VBB−VBE(on))/(RBB+(β+1)·RE) evaluada por regiones de operación (corte, activa, saturación) para ubicar el punto Q real sobre la recta de carga. El criterio de 'divisor rígido' (RBB≤0.1·β·RE) muestra por qué el divisor de voltaje estabiliza el punto Q frente a la dispersión real de fábrica de β, mientras que la polarización fija no. Cuatro modos: Explora, Predicción, Barrido de β y Reto de diseño de divisor rígido.",
     "titulo": "Polarización de BJT: Punto de Operación Q",
   },
+  {
+    "duracion": "35 min",
+    "estado": "activo",
+    "id": "mecanica-20",
+    "modulo": "Electrónica",
+    "orden": 20,
+    "simuladorHtml": "/labs/diodomarchalibre.html",
+    "teoria": "Al abrir el switch que alimenta una carga inductiva (relevador de 5 V, relevador/solenoide de 12 V o motor DC con rotor detenido), la energía almacenada en el campo magnético de la bobina (E=½·L·I²) exige una trayectoria de descarga. El simulador resuelve en forma cerrada tres topologías de protección — sin protección (cualitativo, sin física real), diodo de marcha libre (decaimiento exponencial, τ=L/R, con comparación explícita entre la energía disipada exacta y la aproximación de bolsillo ≈2·Vf/Vsupply) y clamp activo por zener (decaimiento lineal más rápido, Vclamp=Vz+Vf, a costa de un voltaje pico mayor sobre el switch) — y siempre declara el factor de cámara lenta con el que reproduce el transitorio real de microsegundos a milisegundos. Cuatro modos: Explora, Predicción, Medición/Barrido con verificación de τ, y Reto de diseño con solvabilidad garantizada.",
+    "titulo": "Conmutación de Carga Inductiva y Diodo de Marcha Libre",
+  },
 ]
 `;
 
@@ -624,6 +634,7 @@ exports[`golden master — catálogo por categoría (invariante ante extracción
   "mecanica-18",
   "mecanica-19",
   "mecanica-2",
+  "mecanica-20",
   "mecanica-3",
   "mecanica-4",
   "mecanica-5",
