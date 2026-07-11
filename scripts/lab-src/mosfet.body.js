@@ -58,7 +58,7 @@ const DEVS={
     qgNote:'48 nC típico @ ID=25 A, VDS=44 V, referencia de meseta Miller VGS=5 V.',
     rdsOn:0.022,
     ptot:110,
-    ptotNote:'110 W confirmado por dos documentos oficiales independientes (International Rectifier 1997 + reedición Infineon 2003). La cifra de 83 W que circula en algunas fuentes secundarias no pudo confirmarse en ninguna hoja de datos oficial.',
+    ptotNote:'110 W según International Rectifier PD-9.1346B (25/8/97) — única hoja de datos localizada para este número de parte pese a búsqueda exhaustiva; no se encontró una reedición Infineon posterior que la reconfirme. La cifra de 83 W que circula en algunas fuentes secundarias no pudo confirmarse en ninguna hoja de datos oficial.',
     idMax:47,vdsMax:55,
     color:0x203a2e,
   },
