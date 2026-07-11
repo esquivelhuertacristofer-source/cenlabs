@@ -1,0 +1,9 @@
+{
+  "donor": "escaner-obd.html",
+  "out": "protecciondiodo.html",
+  "title": "CEN Labs · LED, Schottky y TVS: Selección de Dispositivo y Protección — Laboratorio 3D",
+  "lt": "Compara LED, Schottky y silicio en conducción, y zener contra TVS en protección de circuitos, con esquema IEC 60617 y solución exacta por bisección.",
+  "inspectHint": "Cambia entre Conducción y Protección, elige el dispositivo y Rs, y observa el punto de operación en la gráfica V-I.",
+  "body": "protecciondiodo.body.js",
+  "fichas": ["_ficha-tecnica.js", "_ficha-protecciondiodo.js"]
+}
