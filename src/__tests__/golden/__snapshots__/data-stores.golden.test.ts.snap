@@ -2076,6 +2076,65 @@ En el modo Ajuste vas a extraer n e Is de solo dos mediciones — así se caract
     "subtitulo": "Electrónica · Caracterización de dispositivos",
     "titulo": "Curva I–V del diodo: trazador y ajuste exponencial",
   },
+  "mecanica-15": {
+    "acento": "#2A9D8F",
+    "aplicaciones": [
+      {
+        "area": "Fuentes lineales",
+        "ejemplo": "Toda fuente de alimentación lineal (adaptadores, equipos de banco, cargadores simples) empieza con un puente rectificador y un capacitor de filtro dimensionados exactamente con estas fórmulas de PIV y rizo.",
+      },
+      {
+        "area": "Selección de componentes",
+        "ejemplo": "Elegir un 1N4007 (VRRM=1000V) frente a un Schottky 1N5819 (VRRM=40V, VF más bajo) depende de si el circuito es de alto voltaje o de baja caída — y de dejar margen de seguridad sobre el PIV calculado.",
+      },
+      {
+        "area": "Diseño de transformadores",
+        "ejemplo": "La topología center-tap requiere un secundario con derivación central mientras que el puente usa un devanado simple — una decisión que afecta el costo y la complejidad del transformador antes incluso de elegir los diodos.",
+      },
+    ],
+    "bienvenida": "¡Bienvenido al banco de rectificación de CEN Labs! Convertir corriente alterna en corriente continua parece trivial — "pon un diodo" — pero la ingeniería real vive en los detalles: ¿qué topología eliges, cuántos diodos necesitas, qué voltaje inverso debe soportar cada uno, y cómo el capacitor de filtro transforma esa serie de pulsos en algo parecido a CD?
+
+En este banco comparas las tres topologías clásicas — media onda, center-tap y puente — sobre el mismo motor de diodo Shockley que ya usaste en la práctica de la curva I-V. El transitorio del capacitor de filtro no se aproxima: se integra en vivo la ecuación diferencial exacta C·dVc/dt = I_diodo(t) − Vc/R_L, así que el pico de corriente de carga y la caída exponencial del rizo son reales, no una fórmula de libro dibujada encima.
+
+En el modo Predicción vas a calcular Vdc, el rizo Vr(pp) y el PIV requerido ANTES de ver el osciloscopio — y a decidir si el diodo elegido es seguro. En el Reto de diseño, un objetivo de Vdc y rizo máximo te espera: tú eliges topología, transformador y capacitor.",
+    "codigo": "MEC-15",
+    "conceptos": [
+      {
+        "descripcion": "Media onda (1 diodo, rizo a 1× la frecuencia de línea), center-tap (2 diodos, rizo a 2×) y puente (4 diodos, rizo a 2× con la mitad del PIV que el center-tap).",
+        "icono": "⚡",
+        "nombre": "Las tres topologías",
+      },
+      {
+        "descripcion": "El voltaje inverso de pico NO es el mismo en las tres: PIV≈2Vm−VF en media onda (con filtro) y center-tap, pero solo PIV≈Vm−VF en puente — la razón por la que el puente domina en la práctica.",
+        "icono": "🧮",
+        "nombre": "PIV por topología",
+      },
+      {
+        "descripcion": "C·dVc/dt = I_diodo(t) − Vc/R_L, integrada en vivo por Runge-Kutta 4 — el mismo rigor numérico que ya viste en el punto de operación del diodo, ahora aplicado al transitorio completo.",
+        "icono": "🔋",
+        "nombre": "EDO exacta del capacitor de filtro",
+      },
+      {
+        "descripcion": "El rizo pico a pico crece con la corriente de carga y decrece con la capacitancia y la frecuencia de rizo (k=1 media onda, k=2 onda completa) — la fórmula lineal clásica, contrastada aquí contra la solución exacta.",
+        "icono": "📉",
+        "nombre": "Rizo Vr(pp) ∝ Idc/(k·f·C)",
+      },
+    ],
+    "duracion": 40,
+    "mision": [
+      "FASE 1 · Explora: compara las tres topologías con y sin capacitor de filtro. Observa cómo cambian Vdc, Vr(pp), la frecuencia de rizo y el PIV requerido en el esquema y el osciloscopio.",
+      "FASE 2 · Predice: dado un circuito completo (topología + dispositivo + Vrms + f + R_L + C), predice el múltiplo de frecuencia de rizo, Vdc, Vr(pp), el PIV requerido y si el diodo propuesto es seguro — ANTES de que el osciloscopio se revele.",
+      "FASE 3 · Barrido: recorre la capacitancia de filtro con todo lo demás fijo y confirma en una gráfica log-log que Vr(pp) escala aproximadamente como 1/C.",
+      "FASE 4 · Reto de diseño: con R_L y frecuencia de línea fijas, elige topología, dispositivo, Vrms y C para cumplir un objetivo de Vdc y rizo máximo, dejando margen de seguridad de PIV sobre el VRRM del diodo.",
+    ],
+    "retos": [
+      "Predice cómo cambia el PIV requerido si pasas de center-tap a puente con el mismo transformador — y verifica con el selector de topología.",
+      "Compara el rizo exacto (integración RK4) contra la aproximación lineal Vr(pp)≈Idc/(k·f·C) en el modo Barrido: ¿en qué extremo de C empiezan a separarse?",
+      "Con un transformador con derivación central, 4 diodos 1N4007, un capacitor electrolítico y un osciloscopio reales, arma las tres topologías y mide Vdc, Vr(pp) y la frecuencia de rizo — contrasta contra este modelo.",
+    ],
+    "subtitulo": "Electrónica · De CA a CD",
+    "titulo": "Rectificadores: Media Onda, Center-Tap y Puente",
+  },
   "mecanica-2": {
     "acento": "#2A9D8F",
     "aplicaciones": [
@@ -12808,6 +12867,7 @@ exports[`golden master — stores de datos (invariante ante la migración a src/
   "mecanica-12": [],
   "mecanica-13": [],
   "mecanica-14": [],
+  "mecanica-15": [],
   "mecanica-2": [],
   "mecanica-3": [],
   "mecanica-4": [],
@@ -13057,6 +13117,7 @@ exports[`golden master — stores de datos (invariante ante la migración a src/
   "mecanica-12",
   "mecanica-13",
   "mecanica-14",
+  "mecanica-15",
   "mecanica-2",
   "mecanica-3",
   "mecanica-4",

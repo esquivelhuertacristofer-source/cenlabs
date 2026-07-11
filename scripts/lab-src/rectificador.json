@@ -1,0 +1,9 @@
+{
+  "donor": "escaner-obd.html",
+  "out": "rectificador.html",
+  "title": "CEN Labs · Rectificadores: Media Onda, Center-Tap y Puente — Laboratorio 3D",
+  "lt": "Rectificadores CA→CD · Electrónica",
+  "inspectHint": "👆 Toca el esquema, el osciloscopio o los componentes del banco",
+  "body": "rectificador.body.js",
+  "fichas": ["_ficha-tecnica.js", "_ficha-rectificador.js"]
+}

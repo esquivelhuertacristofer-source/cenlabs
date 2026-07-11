@@ -431,6 +431,16 @@ exports[`golden master — catálogo por categoría (invariante ante extracción
     "teoria": "Un circuito fuente–resistor–diodo resuelto en vivo con la ecuación de Shockley (I = Is·(e^(V/(n·VT)) − 1)) y la ley de temperatura de SPICE2 para Is(T), de la que emerge el coeficiente térmico del silicio (≈ −2 mV/K) sin estar programado a mano. El punto de operación Q se calcula exactamente por bisección sobre la recta de carga; el trazador impone corrientes fijas para levantar la curva en escala lineal y semilogarítmica, y el modo Ajuste extrae n e Is por el método de 2 puntos. El reto pide predecir Vd e Id de un dispositivo desconocido antes de revelar la curva.",
     "titulo": "Curva I-V del diodo: trazador y ajuste exponencial",
   },
+  {
+    "duracion": "40 min",
+    "estado": "activo",
+    "id": "mecanica-15",
+    "modulo": "Electrónica",
+    "orden": 15,
+    "simuladorHtml": "/labs/rectificador.html",
+    "teoria": "Compara media onda, center-tap y puente sobre el mismo motor de diodo Shockley de la práctica de la curva I-V, ahora con el transitorio exacto del capacitor de filtro integrado por Runge-Kutta 4 (C·dVc/dt = I_diodo(t) − Vc/R_L) en vez de la fórmula lineal de rizo. Calcula PIV específico por topología (Vm−VF en puente vs. 2Vm−VF en media onda con filtro y center-tap), la duplicación de la frecuencia de rizo en las topologías de onda completa, y verifica márgenes de seguridad de corriente y voltaje contra los ratings del diodo elegido (Si 1N4007, Schottky 1N5819 o puente integrado DB107) en cuatro modos: Explora, Predicción, Barrido de capacitancia y Reto de diseño.",
+    "titulo": "Rectificadores: Media Onda, Center-Tap y Puente",
+  },
 ]
 `;
 
@@ -568,6 +578,7 @@ exports[`golden master — catálogo por categoría (invariante ante extracción
   "mecanica-12",
   "mecanica-13",
   "mecanica-14",
+  "mecanica-15",
   "mecanica-2",
   "mecanica-3",
   "mecanica-4",
