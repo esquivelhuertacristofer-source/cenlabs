@@ -511,6 +511,16 @@ exports[`golden master — catálogo por categoría (invariante ante extracción
     "teoria": "Un MOSFET de canal N se controla por voltaje de compuerta (VGS), no por corriente de base como el BJT: la compuerta es capacitiva y no consume corriente DC en régimen permanente. El simulador resuelve las tres regiones de operación en forma cerrada y autoconsistente con la recta de carga — corte (VGS≤Vth), saturación (ID=k·(VGS−Vth)² por ley cuadrática de canal largo) y óhmica/triodo (solución cuadrática exacta, no una aproximación lineal por RDS(on)) — verificado por el autor contra un barrido numérico de fuerza bruta independiente. El umbral Vth se trata como un rango real de fábrica, nunca un valor 'típico' inventado, explorable con slider, sorteo y barrido animado. Un sub-laboratorio de dimensionamiento estima el tiempo de encendido ton≈Qg/Idriver sobre cuatro niveles de corriente de driver, declarando explícitamente cuando Qg no está disponible en la hoja de datos (2N7000) en vez de aproximarlo. Tres dispositivos con parámetros de hoja de datos verificados (IRF540N, IRLZ44N, 2N7000); RDS(on) se muestra solo como referencia de catálogo, sin participar en el cálculo — su uso real para pérdidas de conducción es el eje de la práctica siguiente (PWM). Cuatro modos: Explora, Predicción, Barrido de Vth de fábrica, y Reto de diseño robusto a ambos extremos de esa dispersión.",
     "titulo": "MOSFET de Canal N en Fuente Común: Regiones de Operación y Driver de Compuerta",
   },
+  {
+    "duracion": "35 min",
+    "estado": "activo",
+    "id": "mecanica-23",
+    "modulo": "Electrónica",
+    "orden": 23,
+    "simuladorHtml": "/labs/mosfet-pwm.html",
+    "teoria": "Un MOSFET conmutando en PWM disipa energía por dos mecanismos independientes que este simulador calcula por separado. La pérdida de conducción Pcond=D·I²·RDS(on) usa el RDS(on) máximo garantizado de hoja de datos — la misma cifra que en la práctica anterior se mostraba solo como referencia, ahora sí participa en el cálculo. La pérdida de conmutación Psw=½·V·I·fsw·(tr+tf) usa la aproximación lineal estándar de libro de texto de electrónica de potencia, con tr+tf tomado directamente de hoja de datos a la condición de prueba del fabricante. El simulador despeja algebraicamente la frecuencia de cruce fsw*=2·D·I·RDS(on)/(V·(tr+tf)) — el punto donde ambas pérdidas se igualan — y la marca en vivo sobre una gráfica de Pcond/Psw/Ptot contra fsw, con un modo Barrido que anima la frecuencia y se detiene en el cruce exacto. Tres dispositivos con parámetros de hoja de datos verificados (IRF540N, IRLZ44N, 2N7000); para el 2N7000, ninguna hoja de datos consultada especifica tr+tf, así que el simulador muestra 'no disponible' para su pérdida de conmutación en vez de inventar una cifra, y solo calcula su pérdida de conducción. Cuatro modos: Explora, Predicción, Barrido de frecuencia con cruce animado, y Reto de diseño dentro de los límites de catálogo del dispositivo.",
+    "titulo": "Pérdidas de un MOSFET de Potencia en PWM: Conducción, Conmutación y Frecuencia de Cruce",
+  },
 ]
 `;
 
@@ -657,6 +667,7 @@ exports[`golden master — catálogo por categoría (invariante ante extracción
   "mecanica-20",
   "mecanica-21",
   "mecanica-22",
+  "mecanica-23",
   "mecanica-3",
   "mecanica-4",
   "mecanica-5",

@@ -1,0 +1,9 @@
+{
+  "donor": "escaner-obd.html",
+  "out": "mosfet-pwm.html",
+  "title": "CEN Labs · Pérdidas de un MOSFET de Potencia en PWM — Laboratorio 3D",
+  "lt": "Evalúa las pérdidas de conducción y conmutación de un MOSFET de potencia operando en PWM (Pcond=D·I²·RDS(on), Psw=½·V·I·fsw·(tr+tf)) y encuentra la frecuencia de cruce donde ambas se igualan.",
+  "inspectHint": "Ajusta el bus V, la corriente de carga I, el ciclo de trabajo D y la frecuencia de conmutación fsw, y observa cómo se reparten las pérdidas de conducción y conmutación del MOSFET.",
+  "body": "mosfet-pwm.body.js",
+  "fichas": ["_ficha-tecnica.js", "_ficha-mosfet-pwm.js"]
+}
