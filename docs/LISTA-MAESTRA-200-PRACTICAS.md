@@ -296,7 +296,7 @@ Notación de trazabilidad: `MEC-I.2` = Mecatrónica, Módulo I, Submódulo 2.
 | 4 | d10-04 | Aplica FFT, cursores y sondas atenuadas 10:1 | P | Ancho de banda; aliasing | IEC 61010-1 + IEC 61010-031 (seguridad, sonda) · sin norma de exactitud | ETR-I.2 |
 | 5 | d10-05 | Caracteriza sistemas con el generador de funciones | P | Respuesta en frecuencia; impedancia de salida 50 Ω | IEC 61010-1 (seguridad, generador de funciones — sin norma particular Parte 2 aplicable) · sin norma de exactitud | ETR-I |
 | 6 | d10-06 | Opera el escáner OBD-II: DTC, datos vivos y freeze frame | P | PID; códigos P0xxx | SAE J1979/J1978; ISO 15031 | AUT-Y OBD; AUT-C escáner |
-| 7 | d10-07 | Diagnostica un misfire P0300 con árbol de decisión | P+S | Contadores de misfire; modo 06 | SAE J1979 | AUT-Y OBD |
+| 7 | d10-07 | Diagnostica un misfire P0300 con árbol de decisión | P+S | Tipo A/B (200/1000 rev); MIL parpadeo/continuo; DTC pendiente→confirmado modo $03/$07 (no modo $06) | SAE J1979; 13 CCR §1968.2 (CARB) | AUT-Y OBD |
 | 8 | d10-08 | Verifica monitores y readiness para la verificación vehicular | P | Ciclos de manejo; OBD I vs II | NOM-167-SEMARNAT-2017 (método SDB); NOM-047-SEMARNAT | AUT-Y OBD S1 |
 | 9 | d10-09 | Analiza la trama CAN y diagnostica el bus con osciloscopio | P+S | CAN H/L; arbitraje; terminación 120 Ω/extremo (≈60 Ω combinados) | ISO 11898-1:2024 / ISO 11898-2:2026 | AUT-C TT3; AUT-Y ECU |
 | 10 | d10-10 | Diagnostica la ECU: alimentaciones, tierras y comunicación | P+S | Pinout; tensiones de referencia | — | AUT-Y ECU S2 |
