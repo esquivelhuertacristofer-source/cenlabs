@@ -33,7 +33,8 @@ desarrollo:            # 🔒 los pasos técnicos — revisión experta
   - "Para la sonda O2, evalúa la FRECUENCIA de conmutación alrededor de 0.45 V, no sólo el voltaje: conmutación lenta ⇒ sonda perezosa (P0133)."
   - "Relaciona la falla con el monitor de disponibilidad (readiness) que queda incompleto, según la lógica de verificación de la NOM-047-SEMARNAT-2014."
 normatividad:          # 🔒 verificar clave y vigencia
-  - "SAE J1979 / ISO 15031-5 — modos de diagnóstico y PIDs"
+  - "SAE J1978 — requisitos del equipo/escáner de diagnóstico OBD-II (el instrumento, no el vehículo)"
+  - "SAE J1979 / ISO 15031-5 — modos de diagnóstico y PIDs (vehículo)"
   - "SAE J2012 / ISO 15031-6 — formato de los códigos DTC"
   - "ISO 15765-4 — diagnóstico sobre CAN (transporte)"
   - "ISO 9141-2 / SAE J1850 (PWM/VPW) — protocolos físicos heredados"
@@ -65,16 +66,18 @@ desarrollo: "Práctica en el simulador: conectar → leer modos → aplicar prue
 cierre: "Selección de causa raíz con retroalimentación que explica la prueba discriminante."
 # --- Veracidad ---
 fuentes:               # 🔒 sin fuente = marcar 'verificar'
+  - "SAE J1978_202205 — OBD II Scan Tool (requisitos del equipo)."
   - "SAE J1979 / ISO 15031-5:2015 — Road vehicles — Communication between vehicle and external equipment for emissions-related diagnostics — Part 5: Emissions-related diagnostic services."
-  - "SAE J2012 / ISO 15031-6:2015 — Part 6: Diagnostic trouble code definitions."
+  - "SAE J2012_202509 / ISO 15031-6:2015 — Part 6: Diagnostic trouble code definitions."
   - "ISO 15765-4:2021 — Diagnostic communication over CAN (DoCAN) — Part 4: Requirements for emissions-related systems."
-  - "SAE J1962:2016 — Diagnostic Connector Equivalent to ISO/DIS 15031-3 (pinout del DLC)."
+  - "SAE J1962_201607 — Diagnostic Connector Equivalent to ISO/DIS 15031-3 (pinout del DLC)."
   - "DOF — NOM-047-SEMARNAT-2014 (características del equipo y procedimiento de medición para verificación de emisiones; requisitos OBD)."
 banderas_incertidumbre:
   - "⚑ Anclaje curricular (programa_oficial / modulo / submodulo / ocupacion_SINCO): faltan las CLAVES exactas del plan vigente de autotrónica; verificar contra el documento oficial antes de publicar la trazabilidad."
   - "⚑ Los valores numéricos de los escenarios (LTFT +22 % a ralentí para la fuga de vacío, MAF 2.1 g/s para el MAF sucio, etc.) son representativos y coherentes con la literatura de diagnóstico, pero NO están tomados de una medición de banco específica; un experto debería validar los rangos por motor típico del programa."
   - "⚑ La frecuencia de conmutación 'sana' de la sonda O2 (~1.5–2.4 Hz) es orientativa; el umbral real de P0133 depende del fabricante/tiempo de respuesta específico."
   - "⚑ La lógica 'un monitor incompleto por falla activa' es una simplificación pedagógica de la matriz real de monitores de disponibilidad de la NOM-047."
+  - "⚑ ISO 15031-5:2015 e ISO 15031-6:2015 entraron en revisión periódica ISO (stage 90.20) el 2026-04-15; siguen siendo la edición vigente hoy pero conviene reverificar en 6–12 meses por si ISO publica una nueva edición."
 ```
 
 ## Notas para el revisor experto

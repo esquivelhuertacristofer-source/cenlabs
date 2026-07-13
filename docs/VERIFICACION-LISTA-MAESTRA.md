@@ -72,3 +72,54 @@ Conclusión del contraste: la selección temática no es idiosincrática; reprod
 **La lista maestra queda VERIFICADA y autorizada para construcción por tandas**, sujeta a las dos compuertas técnicas del §5 de la propia lista: (1) Fases 0–2 del PLAN-ESCALABILIDAD antes de cualquier lab nuevo, y (2) implementación de referencia de los moldes P (d10-01) y S (d1-02).
 
 **Vigilancia futura:** re-verificar anclas normativas al inicio de cada tanda que las use (las NOM se renuevan; p. ej. el umbral CFE 0.95→0.97 cambia en abr-2026, ya reflejado). Los campos 🔒 de las fichas YAML siguen requiriendo revisión experta humana antes de publicar cada lab.
+
+---
+
+## 6. Re-verificación previa a Tanda 2 (d10-01…d10-10, instrumentos + OBD/CAN)
+
+> **Fecha:** 2026-07-12 · **Método:** 2 investigaciones independientes con fuentes primarias (SAE Mobilus, iso.org — triangulado vía organismos miembro SIS/NEN y catálogos espejo genorma.com cuando iso.org bloqueó fetch directo con 403; DOF/SIDOF para normas mexicanas).
+
+d10-01 (multímetro, IEC 61010-1) y d10-06 (escáner OBD-II) ya existen como `mecanica-12` y `mecanica-11` respectivamente; esta ronda solo cubre las normas que gobiernan los 8 labs nuevos de la tanda (d10-02…d10-05, d10-07…d10-10).
+
+| Norma | Edición asumida | Edición vigente 2026 confirmada | Acción |
+|---|---|---|---|
+| SAE J1978 | — (faltaba citar) | J1978_202205 | Añadida a la ficha de d10-06 (`mecanica-11`) |
+| SAE J1979 | sin año | J1979_202505 (reafirmada, sin cambio técnico) | Sin cambio |
+| SAE J2012 | sin año / 2016 | **J2012_202509** | Ficha de d10-06 actualizada con edición explícita |
+| SAE J1850 / ISO 9141-2 | legacy | J1850_202212 ("Stabilized", no retirado) / ISO 9141-2:1994+Amd1:1996 (confirmada 2021) | Sin cambio — siguen citables como legacy |
+| SAE J1962 | 2016 | J1962_201607 | Sin cambio de fondo |
+| ISO 15031-5 / -6 | 2015 | **2015 confirmado vigente**, pero en revisión periódica ISO (stage 90.20) desde 2026-04-15 | Sin cambio ahora; ⚑ añadida en ficha de d10-06 para reverificar en 6–12 meses |
+| ISO 15765-4 | 2021 | ISO 15765-4:2021 | Sin cambio |
+| **ISO 11898-1** | 2015 (supuesto) | **2024** (ed. 3; la 2015 está retirada) | Usar `ISO 11898-1:2024` al construir d10-09 |
+| **ISO 11898-2** | 2016 (supuesto) | **2026** (ed. 4, publicada may-2026, ~7 semanas antes de esta verificación; corrige inconsistencias de figuras de la ed. 2024 detectadas por CiA — valor eléctrico 120 Ω/extremo sin evidencia de cambio) | Usar `ISO 11898-2:2026` al construir d10-09 |
+| ISO 11898-3 | 2006 | 2006 (ed. 1, reconfirmada 2026-05-27) | Sin cambio; enmarcar como legacy pedagógico (bus de confort pre-CAN de alta velocidad) en d10-09 |
+| NOM-047-SEMARNAT | 2014 | 2014 confirmada | Sin cambio |
+| NOM-167-SEMARNAT | 2017 | 2017 confirmada (PROY-NOM-167-SEMARNAT-2023 sigue en consulta pública, no publicado como definitivo) | Sin cambio; vigilar el proyecto 2023 a futuro |
+| NOM-041-SEMARNAT | 2015 | 2015 confirmada | Sin cambio |
+
+**Hallazgo relevante:** el par ISO 11898-1/-2 tuvo movimiento normativo real en los últimos ~24 meses (retiros en 2024-03, 2024-05, 2026-03 y 2026-05-21, con nueva edición 11898-2 apenas semanas antes de esta verificación). De haber construido d10-09 con la edición 2016 asumida por defecto, la cita habría quedado obsoleta en dos ediciones. La cifra técnica de terminación (120 Ω ±1 % en cada extremo físico del bus; ≈60 Ω es la resistencia diferencial combinada vista desde cualquier nodo, no un componente instalado) no tiene evidencia de haber cambiado — se usa esa redacción precisa en el lab, no la forma abreviada "terminación 60 Ω".
+
+**Acción aplicada:** norma ancla de d10-09 en `LISTA-MAESTRA-200-PRACTICAS.md` actualizada a `ISO 11898-1:2024 / ISO 11898-2:2026`; ficha de `mecanica-11` (d10-06) actualizada con SAE J1978, edición explícita de J2012, y bandera de revisión periódica ISO 15031-5/-6.
+
+**Veredicto:** ✅ **Tanda 2 (d10-02…d10-10) autorizada para construcción** con las ediciones normativas de la tabla anterior.
+
+---
+
+## 7. Corrección terminológica y normativa d10-02 (pinza + shunt) — previa a `mecanica-24`
+
+> **Fecha:** 2026-07-12 · **Método:** 2 investigaciones independientes con fuentes primarias (datasheets de fabricante — Fluke, Klein, UNI-T, Extech, Kyoritsu, Milwaukee, AEMC, Tektronix, Ohmite, Riedon, Vishay, Isabellenhütte, Eaton —; IEC webstore triangulado vía SIS/NEN/genorma/ANSI/CSA/GlobalSpec; CENAM, TESOEM, UNADM, UNLP; OpenStax College Physics 2e).
+
+d10-02 ("mide corriente con gancho y shunt sin alterar el circuito") no tiene norma curricular en disputa (ETR-I.1 ya verificada en §2), pero la física de gobierno y la norma ancla de la fila original en la lista maestra no estaban verificadas contra literatura real. El mandato exige investigación exhaustiva incluso cuando no hay una norma de cumplimiento externa qué contrastar, así que se investigó a fondo la ingeniería de pinzas amperimétricas y shunts antes de escribir una sola línea del simulador.
+
+| Hallazgo | Verificación | Corrección aplicada |
+|---|---|---|
+| Física de gobierno | "Efecto de inserción" no está atestiguado en fuentes de metrología en español (choca incluso con jerga no relacionada de producción de audio); el término primario correcto es **"efecto de carga"**, confirmado textualmente por CENAM ("existe un efecto de carga que debe ser considerado") y por TESOEM/UNADM; **"error de inserción"** es un sinónimo aceptado (UNLP y TESOEM lo equiparan explícitamente) | `Efecto de inserción` → `Efecto de carga (error de inserción)` |
+| Norma ancla | **IEC 61010-2-032 Ed. 5.0:2023-09-20** ("Particular requirements for hand-held and hand-manipulated current sensors for electrical test and measurement") es la norma de seguridad real y vigente para pinzas de corriente, confirmada en 8 fuentes (IEC webstore directo + SIS/NEN/genorma/ANSI/CSA/GlobalSpec). Hallazgo negativo confirmado por ambas investigaciones: **no existe** norma IEC/IEEE de EXACTITUD para pinzas ni para shunts de propósito general — IEEE C57.13/IEC 61869 solo cubren TCs de instalación fija, IEC 60051 solo cubre accesorios de instrumentos analógicos de bobina móvil; la exactitud de ambos instrumentos es enteramente de hoja de datos del fabricante, igual que un DMM | `—` → `IEC 61010-2-032 (seguridad, pinza) · sin norma de exactitud` |
+
+**Hallazgo relevante (informa el diseño de `mecanica-24`):** una pinza de efecto Hall mide CD y CA (requiere "puesta en cero" antes de CD, para anular offset/campo terrestre); una pinza de transformador de corriente (CT) mide **solo CA**, no por limitación de fabricación sino porque la ley de Faraday (E=−N·dΦ/dt) exige flujo *cambiante* — con CD el secundario del CT simplemente no induce corriente. Pinzar ambos conductores (vivo+neutro) de un circuito CA monofásico cancela casi toda la lectura por ley de Ampère — error clásico documentado verbatim por Fluke y AEMC, y es además el principio de operación de las pinzas/interruptores diferenciales (GFCI/RCD). A diferencia de la pinza (genuinamente no invasiva, cero resistencia insertada), el shunt **sí** perturba el circuito medido — el efecto de carga es una perturbación real y cuantificable, no solo una advertencia cualitativa, y así se modelará en el simulador (ΔI y %error calculados en vivo, no afirmados).
+
+**Fuentes primarias clave:** Fluke y Tektronix (artículos técnicos de "burden voltage" con ejemplos numéricos resueltos); CENAM, TESOEM, UNADM, UNLP (terminología en español); IEC webstore + organismos espejo (61010-2-032); Riedon/Ohmite/Vishay/Isabellenhütte (datasheets de shunt Kelvin de 4 terminales); OpenStax College Physics 2e (física de carga de amperímetro); AEMC (manual de pinza — error de posición/centrado ~0.5 %).
+
+**Acción aplicada:** fila d10-02 de `LISTA-MAESTRA-200-PRACTICAS.md` corregida (columnas "Física de gobierno" y "Norma ancla"; ver §3 para el formato de tabla). La corrección se aplicó ANTES de construir `mecanica-24`, no como parche posterior a un simulador ya escrito con el término impreciso.
+
+**Veredicto:** ✅ terminología y norma ancla de d10-02 verificadas y corregidas; `mecanica-24` (pinza-shunt) autorizado para construcción con esta base.

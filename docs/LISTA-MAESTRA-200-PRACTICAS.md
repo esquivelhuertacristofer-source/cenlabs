@@ -291,14 +291,14 @@ Notación de trazabilidad: `MEC-I.2` = Mecatrónica, Módulo I, Submódulo 2.
 | # | ID | Práctica (actividad clave) | Molde | Física de gobierno | Norma ancla | Trazabilidad |
 |---|----|---------------------------|-------|--------------------|-------------|--------------|
 | 1 | d10-01 | Domina el multímetro: exactitud, resolución y categorías | P | ±(% lectura + dígitos) | IEC 61010-1 (CAT I–IV) | ETR-I.1; AUT-Y eléctrico |
-| 2 | d10-02 | Mide corriente con gancho y shunt sin alterar el circuito | P | Efecto de inserción | — | ETR-I.1 |
+| 2 | d10-02 | Mide corriente con gancho y shunt sin alterar el circuito | P | Efecto de carga (error de inserción) | IEC 61010-2-032 (seguridad, pinza) · sin norma de exactitud | ETR-I.1 |
 | 3 | d10-03 | Configura el osciloscopio: base de tiempo, acoplamiento y trigger | P | Vpp; frecuencia; fase | — | ETR-I.1 |
 | 4 | d10-04 | Aplica FFT, cursores y sondas atenuadas 10:1 | P | Ancho de banda; aliasing | — | ETR-I.2 |
 | 5 | d10-05 | Caracteriza sistemas con el generador de funciones | P | Respuesta en frecuencia | — | ETR-I |
 | 6 | d10-06 | Opera el escáner OBD-II: DTC, datos vivos y freeze frame | P | PID; códigos P0xxx | SAE J1979/J1978; ISO 15031 | AUT-Y OBD; AUT-C escáner |
 | 7 | d10-07 | Diagnostica un misfire P0300 con árbol de decisión | P+S | Contadores de misfire; modo 06 | SAE J1979 | AUT-Y OBD |
 | 8 | d10-08 | Verifica monitores y readiness para la verificación vehicular | P | Ciclos de manejo; OBD I vs II | NOM-167-SEMARNAT-2017 (método SDB); NOM-047-SEMARNAT | AUT-Y OBD S1 |
-| 9 | d10-09 | Analiza la trama CAN y diagnostica el bus con osciloscopio | P+S | CAN H/L; arbitraje; terminación 60 Ω | ISO 11898 | AUT-C TT3; AUT-Y ECU |
+| 9 | d10-09 | Analiza la trama CAN y diagnostica el bus con osciloscopio | P+S | CAN H/L; arbitraje; terminación 120 Ω/extremo (≈60 Ω combinados) | ISO 11898-1:2024 / ISO 11898-2:2026 | AUT-C TT3; AUT-Y ECU |
 | 10 | d10-10 | Diagnostica la ECU: alimentaciones, tierras y comunicación | P+S | Pinout; tensiones de referencia | — | AUT-Y ECU S2 |
 | 11 | d10-11 | Mide con calibrador Vernier y estima su incertidumbre | E+P | Resolución 0.05 mm; paralaje | — | UAX metrología; EM-III |
 | 12 | d10-12 | Mide con micrómetro y comparador: runout y planitud | E+P | Resolución 0.01 mm | — | UAX metrología |
