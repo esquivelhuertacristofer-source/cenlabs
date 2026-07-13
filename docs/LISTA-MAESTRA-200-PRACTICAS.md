@@ -294,7 +294,7 @@ Notación de trazabilidad: `MEC-I.2` = Mecatrónica, Módulo I, Submódulo 2.
 | 2 | d10-02 | Mide corriente con gancho y shunt sin alterar el circuito | P | Efecto de carga (error de inserción) | IEC 61010-2-032 (seguridad, pinza) · sin norma de exactitud | ETR-I.1 |
 | 3 | d10-03 | Configura el osciloscopio: base de tiempo, acoplamiento y trigger | P | Vpp; frecuencia; fase | IEC 61010-1 + IEC 61010-2-030 (seguridad, osciloscopio) · sin norma de exactitud | ETR-I.1 |
 | 4 | d10-04 | Aplica FFT, cursores y sondas atenuadas 10:1 | P | Ancho de banda; aliasing | IEC 61010-1 + IEC 61010-031 (seguridad, sonda) · sin norma de exactitud | ETR-I.2 |
-| 5 | d10-05 | Caracteriza sistemas con el generador de funciones | P | Respuesta en frecuencia | — | ETR-I |
+| 5 | d10-05 | Caracteriza sistemas con el generador de funciones | P | Respuesta en frecuencia; impedancia de salida 50 Ω | IEC 61010-1 (seguridad, generador de funciones — sin norma particular Parte 2 aplicable) · sin norma de exactitud | ETR-I |
 | 6 | d10-06 | Opera el escáner OBD-II: DTC, datos vivos y freeze frame | P | PID; códigos P0xxx | SAE J1979/J1978; ISO 15031 | AUT-Y OBD; AUT-C escáner |
 | 7 | d10-07 | Diagnostica un misfire P0300 con árbol de decisión | P+S | Contadores de misfire; modo 06 | SAE J1979 | AUT-Y OBD |
 | 8 | d10-08 | Verifica monitores y readiness para la verificación vehicular | P | Ciclos de manejo; OBD I vs II | NOM-167-SEMARNAT-2017 (método SDB); NOM-047-SEMARNAT | AUT-Y OBD S1 |
