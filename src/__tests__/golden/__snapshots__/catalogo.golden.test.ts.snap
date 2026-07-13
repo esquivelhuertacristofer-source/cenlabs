@@ -531,6 +531,16 @@ exports[`golden master — catálogo por categoría (invariante ante extracción
     "teoria": "La pinza amperimétrica mide sin abrir el circuito: por efecto Hall (CD + CA) o por transformador de corriente / TC (solo CA, requiere flujo cambiante según la ley de Faraday). El shunt sí se inserta en serie y por eso perturba la corriente real — efecto de carga o error de inserción, cuantificable como %error = (I_sin − I_con)/I_sin. El alumno resuelve 3 casos (arranque + shunt, calefactor con cancelación de Ampère al abrazar vivo y neutro, y testigo con offset de cero) y explora el modo TC sobre CD (falla esperada). Norma IEC 61010-2-032 (seguridad de pinzas); no existe norma IEC/IEEE de exactitud para pinzas o shunts de uso general — la exactitud es de hoja de datos del fabricante.",
     "titulo": "Pinza y shunt: mide corriente con y sin alterar el circuito",
   },
+  {
+    "duracion": "45 min",
+    "estado": "activo",
+    "id": "mecanica-25",
+    "modulo": "Instrumentación",
+    "orden": 25,
+    "simuladorHtml": "/labs/osciloscopio.html",
+    "teoria": "El osciloscopio digital muestra la señal contra el tiempo, a diferencia del multímetro que solo da un número. El alumno domina sus 3 controles básicos: base de tiempo (T = divisiones × time/div, f = 1/T), acoplamiento (DC = señal completa, AC = filtro paso-alto que aísla la CA de la CD, GND = referencia de 0 V) y disparo (Auto fuerza un barrido, Normal solo dispara si se cumple la condición, Single captura un evento único y lo retiene). Resuelve 4 casos: lectura correcta de base de tiempo y volts/div (Vpp = 2×V_pico, V_rms = V_pico×0.707), aislamiento del offset de CD vía acoplamiento, máquina de estados del disparo con el nivel fuera de rango, y medición de desfase entre 2 canales por cruces por cero (Δφ° = 360°×Δt/T). Norma IEC 61010-1 + IEC 61010-2-030 (seguridad, osciloscopio); sin norma de exactitud — ancho de banda y muestreo son de hoja de datos del fabricante.",
+    "titulo": "Osciloscopio digital: base de tiempo, acoplamiento y disparo",
+  },
 ]
 `;
 
@@ -679,6 +689,7 @@ exports[`golden master — catálogo por categoría (invariante ante extracción
   "mecanica-22",
   "mecanica-23",
   "mecanica-24",
+  "mecanica-25",
   "mecanica-3",
   "mecanica-4",
   "mecanica-5",

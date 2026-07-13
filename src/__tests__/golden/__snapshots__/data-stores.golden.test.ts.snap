@@ -2736,6 +2736,66 @@ Al final compararás dos filosofías de medición: la pinza (Hall o transformado
     "titulo": "Pinza y shunt: mide corriente con y sin alterar el circuito",
     "videoUrl": "",
   },
+  "mecanica-25": {
+    "acento": "#2A9D8F",
+    "aplicaciones": [
+      {
+        "area": "Mantenimiento industrial",
+        "ejemplo": "Diagnóstico de señales de sensores y actuadores en tiempo real — ver la forma de la señal revela fallas que un multímetro (solo un número) no puede mostrar.",
+      },
+      {
+        "area": "Electrónica",
+        "ejemplo": "Verificación de filtros, osciladores y circuitos de disparo midiendo periodo, amplitud y fase directamente en pantalla.",
+      },
+      {
+        "area": "Automotriz",
+        "ejemplo": "Captura de eventos únicos (arranque, chispa, señal de sensor) con disparo Single antes de que el transitorio se pierda.",
+      },
+    ],
+    "bienvenida": "¡Bienvenido al banco de instrumentación de CEN Labs! El multímetro te da un número; hoy subes de nivel al instrumento que te deja VER la forma de una señal contra el tiempo: el osciloscopio digital. Antes de medir nada con él tienes que dominar sus 3 controles básicos — base de tiempo, acoplamiento y disparo (trigger) — porque un osciloscopio mal configurado miente con la misma confianza que uno bien configurado.
+
+Vas a resolver 4 casos guiados. En el Caso 1 ajustas la base de tiempo y volts/división hasta que la traza se lea correctamente (2 a 5 ciclos completos, sin recortarse) y calculas T, f, Vpp y V_rms desde la cuadrícula. En el Caso 2 comparas los 3 modos de acoplamiento — DC (señal completa), AC (filtro paso-alto que quita la componente de CD) y GND (referencia de 0 V) — para aislar el offset de CD de la componente de CA de una misma señal. En el Caso 3 exploras la máquina de estados del disparo: por qué el modo Normal se congela SIN DISPARO cuando el nivel cae fuera del rango de la señal, por qué Auto fuerza un barrido igual, y cómo Single captura un evento único que se queda retenido hasta que lo rearmas. En el Caso 4 mides el desfase entre 2 canales por cruces por cero — el mismo método que usarás para diagnosticar filtros, motores y circuitos de disparo.
+
+Al final habrás resuelto la pregunta que separa a quien "ve una onda" de quien la LEE: sin base de tiempo, volts/div, acoplamiento y disparo correctos, la pantalla del osciloscopio no es un dato — es ruido con forma. ¡A leer con criterio!",
+    "codigo": "MEC-25",
+    "conceptos": [
+      {
+        "descripcion": "El eje horizontal se mide en divisiones × time/div. Contar cuántas divisiones ocupa un ciclo completo y multiplicarlas por time/div da el periodo T; la frecuencia es f = 1/T.",
+        "icono": "🕐",
+        "nombre": "Base de tiempo y f = 1/T",
+      },
+      {
+        "descripcion": "DC muestra la señal completa (incluida su componente de CD); AC es un filtro paso-alto (corte típico 5–10 Hz) que aísla la variación sobre una CD grande; GND desconecta la entrada y marca solo la referencia de 0 V.",
+        "icono": "🔀",
+        "nombre": "Acoplamiento AC / DC / GND",
+      },
+      {
+        "descripcion": "El disparo fija el punto de inicio del barrido. Normal solo dispara si se cumple la condición (si no, pantalla congelada); Auto fuerza un barrido periódico igual; Single captura un solo evento y retiene la traza hasta que lo rearmas.",
+        "icono": "⚡",
+        "nombre": "Modos de disparo (Auto/Normal/Single)",
+      },
+      {
+        "descripcion": "Δφ° = 360° × (Δt/T), donde Δt es la distancia horizontal entre cruces por cero equivalentes de 2 canales — el método estándar para medir fase entre una señal de referencia y su respuesta filtrada.",
+        "icono": "📐",
+        "nombre": "Desfase por cruces por cero",
+      },
+    ],
+    "duracion": 45,
+    "mision": [
+      "FASE 1 · Caso Base de tiempo — ajusta time/div y volts/div de una señal de 500 Hz hasta leerla correctamente y calcula T, f, Vpp y V_rms desde la cuadrícula.",
+      "FASE 2 · Caso Acoplamiento — compara DC, AC y GND sobre la misma señal para aislar su offset de CD de su componente de CA.",
+      "FASE 3 · Caso Disparo — explora Normal (sin disparo fuera de rango), Auto (barrido forzado) y Single (captura única retenida) sobre el mismo nivel de disparo.",
+      "FASE 4 · Caso Fase — mide el desfase entre CH1 y CH2 por cruces por cero y calcula Δφ° = 360°×(Δt/T).",
+    ],
+    "retos": [
+      "Calcula qué time/div usarías para ver 3 ciclos completos de una señal de 2 kHz en una pantalla de 10 divisiones horizontales.",
+      "Explica por qué el modo GND es útil para fijar la referencia de 0 V en pantalla antes de medir, aunque no muestre la señal.",
+      "Predice qué pasaría con el desfase medido entre CH1 y CH2 si la punta de CH2 estuviera mal compensada (ver la ficha técnica).",
+    ],
+    "subtitulo": "Instrumentación · Lectura correcta de señales en el tiempo",
+    "titulo": "Osciloscopio digital: base de tiempo, acoplamiento y disparo",
+    "videoUrl": "",
+  },
   "mecanica-3": {
     "acento": "#2A9D8F",
     "aplicaciones": [
@@ -13420,6 +13480,7 @@ exports[`golden master — stores de datos (invariante ante la migración a src/
   "mecanica-22": [],
   "mecanica-23": [],
   "mecanica-24": [],
+  "mecanica-25": [],
   "mecanica-3": [],
   "mecanica-4": [],
   "mecanica-5": [],
@@ -13679,6 +13740,7 @@ exports[`golden master — stores de datos (invariante ante la migración a src/
   "mecanica-22",
   "mecanica-23",
   "mecanica-24",
+  "mecanica-25",
   "mecanica-3",
   "mecanica-4",
   "mecanica-5",

@@ -1,0 +1,9 @@
+{
+  "donor": "escaner-obd.html",
+  "out": "osciloscopio.html",
+  "title": "CEN Labs · Osciloscopio Digital: Base de Tiempo, Acoplamiento y Disparo — Laboratorio 3D",
+  "lt": "Osciloscopio · Instrumentación",
+  "inspectHint": "👆 Toca el osciloscopio, las puntas o el generador de señales para identificarlo",
+  "body": "osciloscopio.body.js",
+  "fichas": ["_ficha-tecnica.js", "_ficha-osciloscopio.js"]
+}
