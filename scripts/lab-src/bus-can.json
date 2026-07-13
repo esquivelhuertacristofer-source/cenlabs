@@ -1,0 +1,9 @@
+{
+  "donor": "escaner-obd.html",
+  "out": "bus-can.html",
+  "title": "CEN Labs · Bus CAN y Diagnóstico con Osciloscopio — Laboratorio 3D",
+  "lt": "Autotrónica · Bus CAN y diagnóstico con osciloscopio",
+  "inspectHint": "👆 Toca un nodo, terminador o el conector de diagnóstico para identificarlo",
+  "body": "bus-can.body.js",
+  "fichas": ["_ficha-tecnica.js", "_ficha-bus-can.js"]
+}
