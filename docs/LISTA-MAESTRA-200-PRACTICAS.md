@@ -299,7 +299,7 @@ Notación de trazabilidad: `MEC-I.2` = Mecatrónica, Módulo I, Submódulo 2.
 | 7 | d10-07 | Diagnostica un misfire P0300 con árbol de decisión | P+S | Tipo A/B (200/1000 rev); MIL parpadeo/continuo; DTC pendiente→confirmado modo $03/$07 (no modo $06) | SAE J1979; 13 CCR §1968.2 (CARB) | AUT-Y OBD |
 | 8 | d10-08 | Verifica monitores y readiness para la verificación vehicular | P | Monitores obligatorios "completados" del 4.1.1, cero tolerancia (TABLA 1); corte real 2006+ SDB vs. pre-2006 Dinámica (TABLA 9) | NOM-167-SEMARNAT-2017 (método SDB, §4.1/Anexo I); NOM-047-SEMARNAT-2014 | AUT-Y OBD S1 |
 | 9 | d10-09 | Analiza la trama CAN y diagnostica el bus con osciloscopio | P+S | CAN H/L; arbitraje; terminación 120 Ω/extremo (≈60 Ω combinados) | ISO 11898-1:2024 / ISO 11898-2:2026 | AUT-C TT3; AUT-Y ECU |
-| 10 | d10-10 | Diagnostica la ECU: alimentaciones, tierras y comunicación | P+S | Pinout; tensiones de referencia | — | AUT-Y ECU S2 |
+| 10 | d10-10 | Diagnostica la ECU: alimentaciones, tierras y comunicación | P+S | Pinout; tensiones de referencia | SAE J1962 (pinout conector diagnóstico — parcial: no cubre referencia de 5 V, específica de ECU/fabricante) | AUT-Y ECU S2 |
 | 11 | d10-11 | Mide con calibrador Vernier y estima su incertidumbre | E+P | Resolución 0.05 mm; paralaje | — | UAX metrología; EM-III |
 | 12 | d10-12 | Mide con micrómetro y comparador: runout y planitud | E+P | Resolución 0.01 mm | — | UAX metrología |
 | 13 | d10-13 | Calcula la incertidumbre y verifica la trazabilidad de una medición | S | GUM: uc=√Σu²; k=2 | JCGM 100 (GUM); trazabilidad CENAM | UAX metrología |
