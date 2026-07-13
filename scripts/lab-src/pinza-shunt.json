@@ -1,0 +1,9 @@
+{
+  "donor": "escaner-obd.html",
+  "out": "pinza-shunt.html",
+  "title": "CEN Labs · Pinza Amperimétrica y Shunt: Medición sin Alterar el Circuito — Laboratorio 3D",
+  "lt": "Pinza + Shunt · Instrumentación",
+  "inspectHint": "👆 Toca la pinza, el shunt o el circuito para identificarlo",
+  "body": "pinza-shunt.body.js",
+  "fichas": ["_ficha-tecnica.js", "_ficha-pinza-shunt.js"]
+}
