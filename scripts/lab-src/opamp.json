@@ -1,0 +1,9 @@
+{
+  "donor": "escaner-obd.html",
+  "out": "opamp.html",
+  "title": "CEN Labs · Amplificador Operacional: Inversor y No Inversor Limitado por GBW — Laboratorio 3D",
+  "lt": "Diseña amplificadores inversores y no inversores con LM358 o TL072, ajusta Ri/Rf/±Vs/Vin/frecuencia, y observa cómo el producto ganancia×ancho de banda (GBW) limita la respuesta — hasta el recorte por swing o la distorsión por slew-rate.",
+  "inspectHint": "Ajusta Ri/Rf/±Vs/Vin/f, cambia de topología (inversor/no inversor) y de op-amp (LM358/TL072), y observa la curva de Bode y el osciloscopio.",
+  "body": "opamp.body.js",
+  "fichas": ["_ficha-tecnica.js", "_ficha-opamp.js"]
+}

@@ -601,6 +601,16 @@ exports[`golden master — catálogo por categoría (invariante ante extracción
     "teoria": "El conector de diagnóstico estandariza solo una parte de lo que rodea a una ECU: el pin de alimentación de batería es siempre vivo, con o sin contacto, para que un escáner pueda energizarse con la llave apagada; otros pines, en cambio, dependen del estado de la llave, y leer 0 V en ellos con el motor apagado es exactamente el comportamiento esperado, no una falla de continuidad. Lo que el conector de diagnóstico NO estandariza es la referencia de 5 V que alimenta a los sensores analógicos (MAP, TPS): ese riel regulado vive en el conector propio de cada ECU, específico de fabricante, y suele compartirse entre varios sensores a la vez — un solo sensor con un corto interno a tierra puede arrastrar todo el riel compartido y producir códigos de falla simultáneos en sensores que en realidad están sanos. Algo similar ocurre con las tierras: la ECU mide cada sensor como una diferencia de voltaje contra su propia tierra de señal, dedicada y de baja resistencia, deliberadamente separada de las tierras de potencia que sí cargan corrientes grandes (inyectores, actuadores) y generan ruido. Si la tierra de señal gana resistencia por corrosión o un mal contacto, no apaga al sensor: desplaza silenciosamente cada una de sus lecturas, un desplazamiento que un voltímetro en reposo casi nunca revela, porque solo aparece cuando hay corriente real circulando por el punto dañado. Por eso la prueba de referencia es la caída de tensión bajo carga, no un voltaje estático: una tierra sana cae ≤0.1 V bajo carga, mientras que una caída mayor a 0.3 V indica corrosión o cableado defectuoso — valores típicos de la práctica de diagnóstico automotriz, no una cifra de norma única.",
     "titulo": "Diagnóstico de la ECU: Alimentaciones, Tierras y Comunicación",
   },
+  {
+    "duracion": "40 min",
+    "estado": "activo",
+    "id": "mecanica-32",
+    "modulo": "Electrónica",
+    "orden": 32,
+    "simuladorHtml": "/labs/opamp.html",
+    "teoria": "Un amplificador operacional real se comporta como el modelo ideal de libro de texto — Av=−Rf/Ri en la topología inversora, Av=1+Rf/Ri en la no inversora — solo mientras la ganancia en lazo abierto siga siendo enorme frente a la ganancia de lazo cerrado pedida. Este simulador añade la limitación que el modelo ideal no muestra: el producto ganancia×ancho de banda (GBW) de un op-amp real es aproximadamente constante, así que fc=GBW/|Av| — subir la ganancia baja el ancho de banda disponible, graficado en vivo como una curva de Bode de magnitud con el punto de operación marcado sobre ella. Dos chips con personalidades distintas: LM358 (entrada bipolar, GBW≈1MHz, slew rate≈0.3V/µs, swing de salida asimétrico) y TL072 (entrada JFET, GBW≈3MHz, slew rate≈13V/µs, swing casi simétrico). El modelo separa dos límites independientes de la salida real: el recorte por headroom cuando la amplitud ideal excede el techo o el piso reales frente a ±Vs, y la distorsión por slew-rate — cuando la pendiente 2π·f·Vout que exige la señal excede la velocidad máxima de respuesta del dispositivo, la senoidal se deforma en un triángulo en el osciloscopio virtual. Cuatro modos: Explora (Ri/Rf/topología/dispositivo libres), Predicción (ganancia o ancho de banda antes de revelar), Medición (barrido automático de frecuencia deslizando el punto de operación por la curva de Bode) y Reto (diseñar Ri/Rf y elegir el op-amp correcto para cumplir a la vez una ganancia mínima y un ancho de banda mínimo, con el ancho de banda máximo alcanzable como retroalimentación cuando el objetivo es imposible con el dispositivo elegido).",
+    "titulo": "Diseña amplificadores inversor y no inversor con op-amp",
+  },
 ]
 `;
 
@@ -757,6 +767,7 @@ exports[`golden master — catálogo por categoría (invariante ante extracción
   "mecanica-3",
   "mecanica-30",
   "mecanica-31",
+  "mecanica-32",
   "mecanica-4",
   "mecanica-5",
   "mecanica-6",

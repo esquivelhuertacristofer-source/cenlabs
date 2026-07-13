@@ -1,0 +1,41 @@
+import type { BriefingConfig } from '@/components/MissionBriefing';
+
+const briefing: BriefingConfig = {
+  codigo: "MEC-32",
+  titulo: "Diseña amplificadores inversor y no inversor con op-amp",
+  subtitulo: "Electrónica analógica · Av=−Rf/Ri (inversor), Av=1+Rf/Ri (no inversor) y el límite del producto ganancia×ancho de banda",
+  acento: "#2A9D8F",
+  duracion: 40,
+  videoUrl: '',
+  bienvenida: `Hasta ahora armaste circuitos con dispositivos discretos — diodos, BJTs, MOSFETs — donde cada componente hace una sola cosa y tú calculas el resto. El amplificador operacional es tu primer circuito integrado de esta serie: un bloque completo, ya diseñado y fabricado, que tú configuras con solo dos resistores para que haga la ganancia exacta que necesitas.
+
+La fórmula de libro de texto es engañosamente simple: Av=−Rf/Ri en la topología inversora, Av=1+Rf/Ri en la no inversora. Pero la ganancia "casi infinita" que hace posible esa fórmula ideal tiene un precio oculto: el producto ganancia×ancho de banda (GBW) de cualquier op-amp real es aproximadamente constante. Pide más ganancia y el ancho de banda disponible baja en la misma proporción — fc=GBW/|Av|.
+
+En el banco tienes dos chips con personalidades eléctricas opuestas: el LM358 (entrada bipolar, económico, swing de salida asimétrico) y el TL072 (entrada JFET, GBW y slew rate mucho mayores, swing casi simétrico). Sube la amplitud o la frecuencia lo suficiente y vas a toparte con dos límites distintos — el recorte por falta de headroom contra la fuente, y la distorsión por slew-rate que convierte una senoidal en un triángulo — y vas a descubrir que aparecen en momentos distintos según el chip que elijas.
+
+En el modo Reto vas a diseñar Ri y Rf, y elegir el op-amp correcto, para cumplir a la vez una ganancia mínima y un ancho de banda mínimo. Si el objetivo es imposible con el chip que elegiste, el simulador te lo va a decir directamente — y esa retroalimentación es, en sí misma, el criterio real que usa un diseñador para elegir componente por GBW.`,
+  conceptos: [
+    { icono: '⚡', nombre: 'Ganancia ideal en lazo cerrado', descripcion: 'Av=−Rf/Ri en la topología inversora, Av=1+Rf/Ri en la no inversora — válida mientras la ganancia en lazo abierto del op-amp sea muchísimo mayor que la ganancia pedida.' },
+    { icono: '📉', nombre: 'Producto ganancia×ancho de banda (GBW)', descripcion: 'fc=GBW/|Av|: el GBW de un op-amp real es aproximadamente constante, así que pedir más ganancia reduce el ancho de banda disponible en la misma proporción.' },
+    { icono: '🌀', nombre: 'Slew rate y distorsión triangular', descripcion: 'Cuando la pendiente 2π·f·Vout que exige la señal excede el slew rate del dispositivo, la salida deja de ser una senoidal limpia y se deforma en un triángulo — un límite independiente del recorte por swing.' },
+    { icono: '🔀', nombre: 'LM358 vs. TL072', descripcion: 'Entrada bipolar (LM358: GBW≈1MHz, SR≈0.3V/µs, swing asimétrico) frente a entrada JFET (TL072: GBW≈3MHz, SR≈13V/µs, swing casi simétrico) — la misma Ri/Rf se comporta distinto según el chip.' },
+  ],
+  mision: [
+    'FASE 1 · Explora: ajusta Ri, Rf, la topología (inversor/no inversor) y el op-amp (LM358/TL072), y observa cómo cambian Av, fc y la forma de onda de salida en el osciloscopio virtual.',
+    'FASE 2 · Predicción: predice la ganancia o si la frecuencia actual cae dentro del ancho de banda disponible, antes de que el simulador lo revele.',
+    'FASE 3 · Medición: barre la frecuencia automáticamente y observa el punto de operación deslizarse por la curva de Bode mientras el osciloscopio muestra el paso de régimen lineal a recorte o a distorsión por slew.',
+    'FASE 4 · Reto: diseña Ri/Rf y elige el op-amp correcto para cumplir a la vez una ganancia mínima y un ancho de banda mínimo — si el objetivo es imposible con el chip elegido, el simulador te dice el ancho de banda máximo alcanzable a esa ganancia.',
+  ],
+  aplicaciones: [
+    { area: 'Preamplificación de sensores', ejemplo: 'Un puente de galgas o un micrófono entregan señales de milivolts — un op-amp no inversor de alta Zin las amplifica sin cargar la fuente, el primer bloque de casi cualquier cadena de instrumentación.' },
+    { area: 'Filtros activos y acondicionamiento de señal', ejemplo: 'Los filtros activos e integradores/diferenciadores más adelante en este módulo son variaciones directas del inversor/no inversor que armaste aquí, con Rf y Ri reemplazados por combinaciones de R y C.' },
+    { area: 'Selección de componente por GBW', ejemplo: 'Elegir entre un op-amp de propósito general (GBW bajo, barato) y uno de alta velocidad (GBW alto, caro) depende exactamente de este cálculo: fc=GBW/|Av| debe quedar por encima de la frecuencia más alta que el circuito necesita amplificar.' },
+  ],
+  retos: [
+    'Predice qué le pasa a fc si duplicas Rf sin tocar Ri, y verifica con los deslizadores — ¿la relación es lineal, cuadrática o inversa?',
+    'Con el mismo Ri/Rf, cambia de LM358 a TL072 a una frecuencia y amplitud donde el LM358 ya distorsiona por slew-rate. ¿Por qué el TL072 no distorsiona en las mismas condiciones?',
+    'Arma un inversor real con un LM358 o TL072, un generador de funciones y un osciloscopio de doble canal: mide Av a baja frecuencia y contrástalo contra −Rf/Ri.',
+  ],
+};
+
+export default briefing;
