@@ -1,0 +1,9 @@
+{
+  "donor": "escaner-obd.html",
+  "out": "fallo-encendido.html",
+  "title": "CEN Labs · Diagnóstico de Fallo de Encendido: Código Pendiente, Confirmado, Cuadro Congelado y Testigo MIL — Laboratorio 3D",
+  "lt": "Diagnóstico de fallo de encendido · Autotrónica",
+  "inspectHint": "👆 Toca el escáner, el tablero o el motor para identificarlo",
+  "body": "fallo-encendido.body.js",
+  "fichas": ["_ficha-tecnica.js", "_ficha-fallo-encendido.js"]
+}
