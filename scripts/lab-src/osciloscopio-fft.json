@@ -1,0 +1,9 @@
+{
+  "donor": "escaner-obd.html",
+  "out": "osciloscopio-fft.html",
+  "title": "CEN Labs · Sonda de Osciloscopio: Atenuación, Compensación, Cursores y FFT — Laboratorio 3D",
+  "lt": "Sonda y FFT · Instrumentación",
+  "inspectHint": "👆 Toca la sonda, el osciloscopio o el generador de señales para identificarlo",
+  "body": "osciloscopio-fft.body.js",
+  "fichas": ["_ficha-tecnica.js", "_ficha-osciloscopio-fft.js"]
+}
