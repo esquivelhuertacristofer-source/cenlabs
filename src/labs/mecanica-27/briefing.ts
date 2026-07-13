@@ -1,0 +1,35 @@
+import type { BriefingConfig } from '@/components/MissionBriefing';
+
+const briefing: BriefingConfig = {
+  codigo: "MEC-27",
+  titulo: "Generador de funciones: carga, forma de onda, barrido en frecuencia y offset de CD",
+  subtitulo: "Instrumentación · La fuente, la carga y la respuesta en frecuencia",
+  acento: "#2A9D8F",
+  duracion: 45,
+  videoUrl: '',
+  bienvenida: `¡De vuelta al banco de instrumentación de CEN Labs! En la práctica anterior la sonda y el osciloscopio fueron protagonistas: instrumentos que <b>reciben</b> una señal ya dada y la muestran con fidelidad, o la deforman si no se usan bien. Hoy el protagonista cambia de lado: es el <b>generador de funciones</b>, el instrumento que <b>crea</b> la señal desde cero — y cada una de sus perillas esconde una física que, mal entendida, produce mediciones erróneas que no tienen nada que ver con el circuito bajo prueba.\n\nVas a resolver 4 casos guiados. En el Caso 1 descubres por qué el ajuste de carga (Load: 50 Ω / Hi-Z) del generador no es un detalle cosmético: si no coincide con la impedancia realmente conectada, la amplitud que ves en el osciloscopio puede ser el doble — o la mitad — de lo que el panel del generador anuncia. En el Caso 2 comparas una onda senoidal pura contra una onda cuadrada de la misma frecuencia, viendo en vivo, mediante una FFT calculada en tiempo real, por qué la cuadrada aparece como un peine de armónicos impares y la senoidal como un solo tono limpio. En el Caso 3 barres la frecuencia del generador a través de un filtro RC de un polo y registras la ganancia en cada paso, hasta ubicar el punto donde la señal cae a −3 dB. En el Caso 4 sumas un offset de CD a una señal alterna y ves el momento exacto en que la suma excede el rango disponible del circuito y la señal se recorta (clipping).\n\nAl final vas a entender por qué ningún técnico confía en la amplitud indicada en el panel de un generador sin antes verificar la carga, la forma de onda y el rango disponible del circuito. ¡Enciende el generador y empecemos!`,
+  conceptos: [
+    { icono: '⚡', nombre: 'Impedancia de carga (Load)', descripcion: 'El ajuste 50 Ω / Hi-Z del generador debe coincidir con la impedancia real conectada; si no coincide, la amplitud entregada es el doble o la mitad de la programada.' },
+    { icono: '🌊', nombre: 'Contenido espectral', descripcion: 'Toda onda periódica no senoidal es una fundamental más una serie de armónicos (Fourier); la FFT hace visible ese contenido que el osciloscopio, en el dominio del tiempo, no muestra directamente.' },
+    { icono: '📉', nombre: 'Punto de −3 dB', descripcion: 'La frecuencia donde la ganancia de un filtro cae a ≈70.7 % de su valor máximo: la definición convencional del ancho de banda o frecuencia de corte (f_c) de un circuito.' },
+    { icono: '🎚️', nombre: 'Offset de CD y recorte', descripcion: 'Sumar un offset de CD a una señal alterna desplaza toda la forma de onda; si la suma de offset y amplitud excede el rango disponible, la señal se recorta (clipping).' },
+  ],
+  mision: [
+    'FASE 1 · Caso Carga — ajusta el selector de carga (Load: 50 Ω / Hi-Z) del generador y la carga realmente conectada, y explica la diferencia de amplitud cuando no coinciden.',
+    'FASE 2 · Caso Forma de onda — compara el espectro de una onda senoidal contra una onda cuadrada de 100 Hz y explica el origen de los armónicos impares.',
+    'FASE 3 · Caso Barrido — barre la frecuencia a través de un filtro RC y localiza el punto de −3 dB del circuito.',
+    'FASE 4 · Caso Offset — programa un offset de CD creciente sobre una señal AC y determina cuándo se recorta (clipping).',
+  ],
+  aplicaciones: [
+    { area: 'Mantenimiento industrial', ejemplo: 'Inyectar una señal de prueba conocida en un lazo de control o sensor para verificar la respuesta del sistema, en vez de esperar a que falle en operación.' },
+    { area: 'Electrónica', ejemplo: 'Caracterizar el ancho de banda real de un filtro o amplificador recién armado, comparando la respuesta medida contra la calculada.' },
+    { area: 'Automotriz', ejemplo: 'Simular la señal de un sensor (por ejemplo, uno de velocidad de tipo senoidal) para verificar si una ECU o un tablero responden correctamente sin depender del vehículo completo.' },
+  ],
+  retos: [
+    'Calcula qué amplitud real medirías si un generador ajustado a Load=50 Ω (panel: 2.0 Vpp) alimenta la entrada de alta impedancia de un osciloscopio sin terminador.',
+    'Explica por qué una onda cuadrada necesita más ancho de banda de muestreo que una onda senoidal de la misma frecuencia fundamental para representarse fielmente en un espectro FFT.',
+    'Calcula el offset de CD máximo que admite un circuito con rango ±2.5 V si necesitas montar sobre él una señal AC de 1.5 V de amplitud pico (ver la ficha técnica).',
+  ],
+};
+
+export default briefing;

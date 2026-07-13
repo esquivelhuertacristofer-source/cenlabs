@@ -1,0 +1,9 @@
+{
+  "donor": "escaner-obd.html",
+  "out": "generador-funciones.html",
+  "title": "CEN Labs · Generador de Funciones: Carga, Forma de Onda, Barrido en Frecuencia y Offset de CD — Laboratorio 3D",
+  "lt": "Generador de funciones · Instrumentación",
+  "inspectHint": "👆 Toca el generador de funciones o el osciloscopio para identificarlo",
+  "body": "generador-funciones.body.js",
+  "fichas": ["_ficha-tecnica.js", "_ficha-generador-funciones.js"]
+}
