@@ -2975,6 +2975,65 @@ Al final vas a entender que el mismo código DTC puede significar "vigílalo en 
     "subtitulo": "Autotrónica · Del código pendiente al testigo MIL",
     "titulo": "Fallo de Encendido: Árbol de Decisión P0300",
   },
+  "mecanica-29": {
+    "acento": "#2A9D8F",
+    "aplicaciones": [
+      {
+        "area": "Verificación vehicular",
+        "ejemplo": "Decidir en un Programa de Verificación Vehicular Obligatoria si un vehículo aprueba, aplicando los tres criterios de la Tabla 1 en el orden correcto.",
+      },
+      {
+        "area": "Taller automotriz",
+        "ejemplo": "Explicarle a un cliente por qué su vehículo con "readiness perfecto" fue rechazado (DTC confirmado) o por qué fue aprobado con monitores no obligatorios incompletos.",
+      },
+      {
+        "area": "Autotrónica de posventa",
+        "ejemplo": "Distinguir un vehículo con VVT (EGR legítimamente "no soportado") de uno con una falla real en un monitor obligatorio.",
+      },
+    ],
+    "bienvenida": "¡Un vehículo más en la bahía de CEN Labs! Ya usaste el escáner OBD-II para leer datos en vivo y códigos de falla, y para clasificar un fallo de encendido de pendiente a confirmado. Hoy usas ese mismo escáner para la pregunta con la que se diseñó todo el sistema: ¿este vehículo aprueba o no la verificación vehicular?
+
+La norma responde con la Tabla 1: tres candados independientes que deben abrirse los tres, no basta con uno. En el Caso 1 el escáner intenta conectar con el SDB y falla — descubres que el procedimiento reintenta hasta tres veces y que, si aun así no conecta, NO hay una ruta automática a "rechazado" ni a "aprobado". En el Caso 2 los 5 monitores obligatorios están completados y no hay códigos confirmados: APROBADO, aunque dos monitores no obligatorios sigan incompletos — la Tabla 1 solo exige los del num. 4.1.1. En el Caso 3 el readiness es perfecto, los 11 monitores completados, pero hay un código P0300 confirmado: RECHAZADO, porque el criterio "sin códigos confirmados" pesa aparte y un readiness perfecto no lo rescata. En el Caso 4 un monitor obligatorio queda "no completado" mientras otro no obligatorio aparece "no soportado" por diseño (EGR sustituido por VVT en ese vehículo) — aprendes a no confundir un distractor honesto con el verdadero bloqueo.
+
+Al final vas a poder mirar cualquier combinación de conexión, monitores y códigos, y decir con certeza si ese vehículo aprueba, se rechaza, o todavía no es evaluable — sin adivinar. ¡A verificar!",
+    "codigo": "MEC-29",
+    "conceptos": [
+      {
+        "descripcion": "Conexión exitosa con el SDB, sin códigos de falla confirmados en los monitores del num. 4.1.1, y esos monitores "completados". Los tres son independientes: ninguno sustituye a otro.",
+        "icono": "🔐",
+        "nombre": "Tabla 1 · tres candados",
+      },
+      {
+        "descripcion": "De los 11 monitores, solo 5 son obligatorios para este tipo de SDB (num. 4.1.1.1). Un solo obligatorio "no completado" ya impide la aprobación, sin importar los demás.",
+        "icono": "⭐",
+        "nombre": "Cero tolerancia en obligatorios",
+      },
+      {
+        "descripcion": "Un monitor no soportado no viene de fábrica en ese vehículo por diseño (num. 3.20) — no es una falla. "No completado" (num. 3.21) sí puede bloquear la verificación si el monitor es obligatorio.",
+        "icono": "🔍",
+        "nombre": ""No soportado" ≠ "no completado"",
+      },
+      {
+        "descripcion": "El método SDB aplica a vehículos año-modelo 2006 en adelante con OBD-II/EOBD; antes de 2006 aplica el método Dinámica (Tabla 9) — un vehículo no elige el método, la norma lo asigna por año.",
+        "icono": "📅",
+        "nombre": "Corte 2006: SDB vs. Dinámica",
+      },
+    ],
+    "duracion": 45,
+    "mision": [
+      "FASE 1 · Caso Conexión no exitosa — agota los 3 intentos de conexión con el SDB y explica por qué eso no produce un veredicto automático.",
+      "FASE 2 · Caso Aprobado — confirma que los 5 monitores obligatorios completados y sin DTC bastan para aprobar, aunque otros monitores sigan incompletos.",
+      "FASE 3 · Caso Rechazado — reconoce que un DTC confirmado rechaza el vehículo incluso con readiness perfecto (11/11).",
+      "FASE 4 · Caso No evaluable — distingue el monitor obligatorio "no completado" que sí bloquea, del monitor "no soportado" por diseño que no bloquea.",
+    ],
+    "retos": [
+      "Explica por qué un vehículo con 9 de 11 monitores completados puede aprobar, mientras otro con 10 de 11 es rechazado.",
+      "Dado un listado de estados de monitores y códigos, decide sin ver el veredicto si el resultado es aprobado, rechazado o no evaluable, aplicando los tres criterios de la Tabla 1 en el orden correcto.",
+      "Distingue, en un caso concreto, si un monitor "no soportado" es un distractor honesto o el verdadero motivo de un resultado no evaluable.",
+    ],
+    "subtitulo": "Autotrónica · Aprobación, rechazo y readiness en la verificación vehicular",
+    "titulo": "Monitores de Disponibilidad (Readiness) y Tabla 1",
+  },
   "mecanica-3": {
     "acento": "#2A9D8F",
     "aplicaciones": [
@@ -13663,6 +13722,7 @@ exports[`golden master — stores de datos (invariante ante la migración a src/
   "mecanica-26": [],
   "mecanica-27": [],
   "mecanica-28": [],
+  "mecanica-29": [],
   "mecanica-3": [],
   "mecanica-4": [],
   "mecanica-5": [],
@@ -13926,6 +13986,7 @@ exports[`golden master — stores de datos (invariante ante la migración a src/
   "mecanica-26",
   "mecanica-27",
   "mecanica-28",
+  "mecanica-29",
   "mecanica-3",
   "mecanica-4",
   "mecanica-5",

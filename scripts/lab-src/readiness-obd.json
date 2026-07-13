@@ -1,0 +1,9 @@
+{
+  "donor": "escaner-obd.html",
+  "out": "readiness-obd.html",
+  "title": "CEN Labs · Monitores de Disponibilidad (Readiness): Conexión SDB, Tabla 1 y Resultado de Verificación — Laboratorio 3D",
+  "lt": "Monitores de disponibilidad (readiness) · Verificación vehicular",
+  "inspectHint": "👆 Toca el conector DLC, el escáner o el tablero para identificarlo",
+  "body": "readiness-obd.body.js",
+  "fichas": ["_ficha-tecnica.js", "_ficha-readiness-obd.js"]
+}

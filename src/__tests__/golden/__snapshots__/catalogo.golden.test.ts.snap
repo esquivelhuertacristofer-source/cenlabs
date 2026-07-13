@@ -571,6 +571,16 @@ exports[`golden master — catálogo por categoría (invariante ante extracción
     "teoria": "Continuación del escáner OBD-II: un fallo de encendido nace como código PENDIENTE (Modo $07) y solo se CONFIRMA (Modo $03) si se repite en un ciclo de manejo posterior. Si la gran mayoría de los eventos proviene de un mismo cilindro, el código pasa de P0300 genérico a P030X específico. El testigo MIL distingue dos umbrales: fijo/continuo si se cruza el umbral de emisiones (Tipo B), parpadeante en tiempo real si se cruza el umbral de riesgo para el catalizador (Tipo A). Normas SAE J1979/J2012, CARB 13 CCR §1968.2, ISO 15031-5/6 y NOM-047-SEMARNAT-2014.",
     "titulo": "Fallo de Encendido: Árbol de Decisión P0300",
   },
+  {
+    "duracion": "45 min",
+    "estado": "activo",
+    "id": "mecanica-29",
+    "modulo": "Autotrónica",
+    "orden": 29,
+    "simuladorHtml": "/labs/readiness-obd.html",
+    "teoria": "El Sistema de Diagnóstico a Bordo (SDB) no solo lee códigos de falla: también reporta el estado de 11 monitores de disponibilidad (readiness) — 3 continuos y 8 no continuos. La Tabla 1 exige tres criterios independientes para aprobar la verificación vehicular: conexión exitosa con el SDB, sin códigos de falla confirmados en los monitores del num. 4.1.1, y esos monitores obligatorios (5 para SDB tipo OBD-II/EOBD Euro 5+) 'completados' con cero tolerancia. 'No soportado' no es lo mismo que 'no completado': un monitor ausente de fábrica por diseño no cuenta en contra. El método SDB aplica a vehículos año-modelo 2006 en adelante; antes de 2006 aplica el método Dinámica. Normas NOM-167-SEMARNAT-2017 (método SDB) y NOM-047-SEMARNAT-2014.",
+    "titulo": "Monitores de Disponibilidad (Readiness) y Tabla 1",
+  },
 ]
 `;
 
@@ -723,6 +733,7 @@ exports[`golden master — catálogo por categoría (invariante ante extracción
   "mecanica-26",
   "mecanica-27",
   "mecanica-28",
+  "mecanica-29",
   "mecanica-3",
   "mecanica-4",
   "mecanica-5",

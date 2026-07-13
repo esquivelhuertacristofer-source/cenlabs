@@ -1,0 +1,1000 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>CEN Labs · Monitores de Disponibilidad (Readiness): Conexión SDB, Tabla 1 y Resultado de Verificación — Laboratorio 3D</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#08201C;--panel:rgba(9,26,23,.86);--line:#1E3A34;--ink:#EAF4F1;
+    --dim:#8FB3AC;--accent:#2A9D8F;--accent2:#4FD1C5;--hv:#FFB703;--good:#34d399;--bad:#f4475e;
+    --mono:'Outfit',system-ui,'Segoe UI',Roboto,sans-serif;--disp:'Outfit','Arial Black',Impact,sans-serif;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  html,body{height:100%;background:var(--bg);color:var(--ink);font-family:'Outfit',system-ui,Segoe UI,Roboto,sans-serif}
+  body{overflow:hidden}
+  #stage{position:fixed;inset:0}
+  canvas{display:block;touch-action:none}
+
+  .topbar{position:fixed;top:0;left:0;right:0;height:56px;display:flex;align-items:center;gap:14px;padding:0 20px;z-index:20;background:linear-gradient(180deg,rgba(10,13,18,.92),transparent);pointer-events:none}
+  .brand{font-family:var(--disp);font-weight:bold;font-size:16px;text-transform:uppercase}
+  .brand span{color:var(--accent)}
+  .lt{font-family:var(--mono);font-size:11px;letter-spacing:.1em;text-transform:uppercase;color:var(--dim)}
+
+  .badge{position:fixed;top:16px;right:20px;z-index:20;font-family:var(--mono);font-size:9px;letter-spacing:.12em;text-transform:uppercase;background:rgba(255,209,102,.12);color:var(--hv);border:1px solid rgba(255,209,102,.35);padding:6px 12px;border-radius:20px}
+
+  .hud{position:fixed;top:70px;left:18px;z-index:15;max-width:330px;background:var(--panel);backdrop-filter:blur(14px);border:1px solid var(--line);border-radius:16px;padding:18px 20px;max-height:calc(100vh - 150px);overflow-y:auto}
+  .hud .eyebrow{font-family:var(--mono);font-size:10px;letter-spacing:.18em;text-transform:uppercase;color:var(--accent);margin-bottom:8px}
+  .hud h2{font-size:19px;line-height:1.15;margin-bottom:9px}
+  .hud p{font-size:13px;line-height:1.55;color:var(--dim);margin-bottom:10px}
+  .hud .formula{font-family:var(--mono);color:var(--accent2);text-align:center;font-size:12.5px;margin:8px 0;padding:8px;background:rgba(0,0,0,.25);border-radius:8px;line-height:1.5}
+  .hud .src{font-size:10.5px;color:#7a8894;font-style:italic;margin-top:4px;line-height:1.5}
+  .legend{display:flex;flex-direction:column;gap:6px;margin:12px 0;padding:10px 12px;background:rgba(0,0,0,.22);border-radius:10px}
+  .legend .li{display:flex;align-items:center;gap:8px;font-size:11px;color:#c4d0da}
+  .legend .dot{width:10px;height:10px;border-radius:50%;flex:0 0 auto}
+  .fid{margin:10px 0 2px;padding:10px 12px;background:rgba(0,0,0,.22);border-radius:10px;border:1px solid rgba(79,209,197,.18)}
+  .fid .ft{font-family:var(--mono);font-size:9.5px;letter-spacing:.14em;text-transform:uppercase;color:var(--accent2);margin-bottom:6px}
+  .fid .fl{font-size:11px;color:#c4d0da;line-height:1.5;margin-bottom:5px}
+  .fid .fl b{color:var(--ink)}
+  .fid .fl.no b{color:var(--hv)}
+
+  .panel{position:fixed;top:70px;right:18px;z-index:15;width:262px;background:var(--panel);backdrop-filter:blur(14px);border:1px solid var(--line);border-radius:16px;padding:16px;max-height:calc(100vh - 150px);overflow-y:auto}
+  .panel h4{font-family:var(--mono);font-size:10px;letter-spacing:.14em;text-transform:uppercase;color:var(--dim);margin:2px 0 10px}
+  .panel h4.sec{margin-top:16px;border-top:1px solid var(--line);padding-top:14px}
+  .g{margin-bottom:6px}
+  .gl{display:flex;justify-content:space-between;font-family:var(--mono);font-size:11px;color:var(--dim)}
+  .gl b{color:var(--accent2)}
+  .gl b.good{color:var(--good)}.gl b.warn{color:var(--hv)}.gl b.bad{color:var(--bad)}
+  .modebar{display:flex;gap:5px;margin-bottom:8px}
+  .modebar .b{flex:1;padding:8px 4px;font-size:11px}
+  .btns{display:flex;flex-direction:column;gap:7px;margin-top:6px}
+  .b{font-family:system-ui;font-size:12.5px;padding:10px;border-radius:9px;cursor:pointer;border:1px solid var(--line);background:#1b242f;color:var(--ink);transition:.15s;text-align:center}
+  .b:hover{border-color:var(--accent);background:#202c38}
+  .b.on{background:var(--accent);color:#06120f;border-color:var(--accent);font-weight:bold}
+  .b.primary{background:var(--accent);color:#06120f;border-color:var(--accent);font-weight:bold}
+  .b.auto{border-color:var(--hv);color:var(--hv);background:rgba(255,183,3,.10);font-weight:bold}
+  .b.auto:hover{background:rgba(255,183,3,.18);border-color:var(--hv)}
+  .b.auto:disabled{opacity:.6;cursor:default}
+  .b.dx{text-align:left;font-size:12px}
+  .b.dx.right{background:rgba(52,211,153,.18);border-color:var(--good);color:var(--good);font-weight:bold}
+  .b.dx.wrong{background:rgba(244,71,94,.15);border-color:var(--bad);color:var(--bad)}
+  .console{font-family:var(--mono);font-size:11px;line-height:1.55;color:#c4d0da;background:rgba(0,0,0,.28);border-radius:9px;padding:10px 12px;margin-bottom:8px;min-height:56px}
+  .console .dtc{color:var(--bad);font-weight:bold}
+  .console .ok{color:var(--good)}
+  .console .mono{color:var(--dim)}
+
+  .hint{position:fixed;bottom:18px;left:18px;z-index:14;font-family:var(--mono);font-size:10px;color:var(--dim);background:var(--panel);padding:7px 12px;border-radius:9px;border:1px solid var(--line)}
+  .toast{position:fixed;top:80px;left:50%;transform:translateX(-50%);z-index:30;background:rgba(18,24,32,.95);border:1px solid var(--accent);padding:10px 20px;border-radius:40px;font-family:var(--mono);font-size:12px;opacity:0;transition:.3s;pointer-events:none;max-width:80vw;text-align:center}
+  .toast.show{opacity:1}
+  .soundBtn{position:fixed;top:14px;right:18px;z-index:21;font-size:16px;background:var(--panel);backdrop-filter:blur(12px);border:1px solid var(--line);border-radius:50%;width:36px;height:36px;cursor:pointer;color:var(--dim);transition:.15s}
+  .soundBtn.on{color:var(--accent);border-color:var(--accent)}
+  .soundBtn:hover{transform:scale(1.08)}
+  .inspectHint{position:fixed;bottom:18px;right:18px;z-index:14;font-family:var(--mono);font-size:10px;color:var(--accent2);background:var(--panel);padding:7px 12px;border-radius:9px;border:1px solid var(--line)}
+
+  @media(max-width:820px){
+    .hud,.panel{position:fixed;left:8px;right:8px;top:auto;bottom:8px;max-width:none;width:auto;max-height:42vh;overflow-y:auto}
+    .hud{bottom:calc(8px + 42vh + 8px)}
+    .hint,.inspectHint{display:none}
+  }
+</style>
+</head>
+<body>
+<div id="stage"></div>
+<button class="soundBtn on" id="soundBtn">🔊</button>
+<div class="topbar">
+  <div class="brand">CEN<span> Labs</span></div>
+  <div class="lt">Monitores de disponibilidad (readiness) · Verificación vehicular</div>
+</div>
+<div class="hud" id="hud"></div>
+<div class="panel" id="panel"></div>
+<div class="hint">Arrastra para orbitar · rueda para zoom</div>
+<div class="inspectHint">👆 Toca el conector DLC, el escáner o el tablero para identificarlo</div>
+<div class="toast" id="toast"></div>
+
+<script type="importmap">
+{ "imports": {
+  "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.min.js",
+  "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/"
+}}
+</script>
+<script type="module">
+import * as THREE from 'three';
+import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
+import { RoundedBoxGeometry } from 'three/addons/geometries/RoundedBoxGeometry.js';
+import { EffectComposer } from 'three/addons/postprocessing/EffectComposer.js';
+import { RenderPass } from 'three/addons/postprocessing/RenderPass.js';
+import { GTAOPass } from 'three/addons/postprocessing/GTAOPass.js';
+import { UnrealBloomPass } from 'three/addons/postprocessing/UnrealBloomPass.js';
+import { SMAAPass } from 'three/addons/postprocessing/SMAAPass.js';
+import { OutputPass } from 'three/addons/postprocessing/OutputPass.js';
+import { BokehPass } from 'three/addons/postprocessing/BokehPass.js';
+
+/* ============================================================
+   Texturas PBR procedurales (sin archivos externos) — compartidas
+   ============================================================ */
+function cv(s=512){const c=document.createElement('canvas');c.width=c.height=s;return c;}
+function tex(canvas,repeat=1,srgb=false){
+  const t=new THREE.CanvasTexture(canvas);
+  t.wrapS=t.wrapT=THREE.RepeatWrapping;t.repeat.set(repeat,repeat);
+  t.colorSpace = srgb?THREE.SRGBColorSpace:THREE.NoColorSpace;
+  t.generateMipmaps=false; t.minFilter=THREE.LinearFilter; t.anisotropy=1; return t;
+}
+function normalFromHeight(size, hfn, strength=2.0){
+  const c=cv(size),ctx=c.getContext('2d'),img=ctx.createImageData(size,size);
+  const H=(x,y)=>hfn((x+size)%size,(y+size)%size);
+  for(let y=0;y<size;y++)for(let x=0;x<size;x++){
+    const dx=(H(x+1,y)-H(x-1,y))*strength;
+    const dy=(H(x,y+1)-H(x,y-1))*strength;
+    const nz=1.0; const len=Math.hypot(dx,dy,nz);
+    const i=(y*size+x)*4;
+    img.data[i]  =((-dx/len)*0.5+0.5)*255;
+    img.data[i+1]=((-dy/len)*0.5+0.5)*255;
+    img.data[i+2]=((nz/len)*0.5+0.5)*255;
+    img.data[i+3]=255;
+  }
+  ctx.putImageData(img,0,0);return c;
+}
+function valueNoise(seed=1){
+  const g=(x,y)=>{const s=Math.sin((x*127.1+y*311.7)+seed*13.13)*43758.5453;return s-Math.floor(s);};
+  return (x,y)=>{
+    const xi=Math.floor(x),yi=Math.floor(y),xf=x-xi,yf=y-yi;
+    const u=xf*xf*(3-2*xf),v=yf*yf*(3-2*yf);
+    const a=g(xi,yi),b=g(xi+1,yi),c=g(xi,yi+1),d=g(xi+1,yi+1);
+    return a*(1-u)*(1-v)+b*u*(1-v)+c*(1-u)*v+d*u*v;
+  };
+}
+function fbm(noise,x,y,oct=4){let v=0,a=0.5,f=1;for(let i=0;i<oct;i++){v+=noise(x*f,y*f)*a;f*=2;a*=0.5;}return v;}
+
+function castAluminum(){
+  const S=512, n=valueNoise(7);
+  const c=cv(S),ctx=c.getContext('2d'),img=ctx.createImageData(S,S);
+  for(let y=0;y<S;y++)for(let x=0;x<S;x++){
+    const v=fbm(n,x/22,y/22,5);
+    const por=Math.pow(n(x/3.1,y/3.1),8);
+    const base=150+v*38-por*70;
+    const i=(y*S+x)*4; img.data[i]=base; img.data[i+1]=base+4; img.data[i+2]=base+10; img.data[i+3]=255;
+  }
+  ctx.putImageData(img,0,0);
+  const r=cv(S),rx=r.getContext('2d'),rimg=rx.createImageData(S,S);
+  for(let y=0;y<S;y++)for(let x=0;x<S;x++){
+    const v=fbm(n,x/18,y/18,4); const por=Math.pow(n(x/3.1,y/3.1),8);
+    const rough=120+v*40+por*90; const i=(y*S+x)*4;
+    rimg.data[i]=rimg.data[i+1]=rimg.data[i+2]=Math.min(255,rough); rimg.data[i+3]=255;
+  }
+  rx.putImageData(rimg,0,0);
+  const nrm=normalFromHeight(S,(x,y)=>fbm(n,x/16,y/16,5)+Math.pow(n(x/3.1,y/3.1),8)*0.6,3.0);
+  return {map:tex(c,1,true),roughnessMap:tex(r),normalMap:tex(nrm)};
+}
+function brushedMetal(){
+  const S=512, n=valueNoise(3);
+  const c=cv(S),ctx=c.getContext('2d'),img=ctx.createImageData(S,S);
+  for(let y=0;y<S;y++)for(let x=0;x<S;x++){
+    const streak=Math.sin(y*0.9)*2 + (n(x/120,y*0.5)-0.5)*40;
+    const base=185+streak; const i=(y*S+x)*4;
+    img.data[i]=base; img.data[i+1]=base+2; img.data[i+2]=base+6; img.data[i+3]=255;
+  }
+  ctx.putImageData(img,0,0);
+  const r=cv(S),rx=r.getContext('2d'),rimg=rx.createImageData(S,S);
+  for(let y=0;y<S;y++)for(let x=0;x<S;x++){
+    const streak=(n(x/120,y*0.5)-0.5)*60; const rough=40+Math.abs(streak); const i=(y*S+x)*4;
+    rimg.data[i]=rimg.data[i+1]=rimg.data[i+2]=Math.min(160,rough); rimg.data[i+3]=255;
+  }
+  rx.putImageData(rimg,0,0);
+  const nrm=normalFromHeight(S,(x,y)=>(n(x/120,y*0.5))*0.3+Math.sin(y*0.9)*0.02,1.2);
+  return {map:tex(c,1,true),roughnessMap:tex(r),normalMap:tex(nrm)};
+}
+function rubber(){
+  const S=256,n=valueNoise(5);
+  const nrm=normalFromHeight(S,(x,y)=>fbm(n,x/8,y/8,4),1.4);
+  const rough=cv(64),rc=rough.getContext('2d');rc.fillStyle='#e0e0e0';rc.fillRect(0,0,64,64);
+  return {roughnessMap:tex(rough),normalMap:tex(nrm,2)};
+}
+function gradientBG(top='#11161d',bottom='#05070a'){
+  const c=cv(512),ctx=c.getContext('2d');
+  const grd=ctx.createLinearGradient(0,0,0,512);
+  grd.addColorStop(0,top);grd.addColorStop(1,bottom);
+  ctx.fillStyle=grd;ctx.fillRect(0,0,512,512);
+  const rg=ctx.createRadialGradient(256,200,30,256,256,360);
+  rg.addColorStop(0,'rgba(42,157,143,0.10)');rg.addColorStop(1,'rgba(0,0,0,0)');
+  ctx.fillStyle=rg;ctx.fillRect(0,0,512,512);
+  return tex(c,1,true);
+}
+function techPlastic(r=0.10,g=0.11,b=0.13){
+  const S=256,n=valueNoise(31);
+  const c=cv(S),ctx=c.getContext('2d'),img=ctx.createImageData(S,S);
+  for(let y=0;y<S;y++)for(let x=0;x<S;x++){
+    const v=fbm(n,x/30,y/30,3)*0.1+0.92; const i=(y*S+x)*4;
+    img.data[i]=r*255*v;img.data[i+1]=g*255*v;img.data[i+2]=b*255*v;img.data[i+3]=255;
+  }
+  ctx.putImageData(img,0,0);
+  const nrm=normalFromHeight(S,(x,y)=>fbm(n,x/10,y/10,3),0.8);
+  const rough=cv(64),rc=rough.getContext('2d');rc.fillStyle='#9a9a9a';rc.fillRect(0,0,64,64);
+  return {map:tex(c,1,true),roughnessMap:tex(rough),normalMap:tex(nrm)};
+}
+
+/* ============================================================
+   ENGINE — render premium compartido por todos los laboratorios
+   ============================================================ */
+function createStage(mount, opts={}){
+  const bgTop = opts.bgTop||'#141b24', bgBot = opts.bgBot||'#05070a';
+  const renderer = new THREE.WebGLRenderer({ antialias:true, powerPreference:'high-performance' });
+  renderer.setPixelRatio(Math.min(devicePixelRatio,2));
+  renderer.setSize(mount.clientWidth, mount.clientHeight);
+  renderer.shadowMap.enabled = true;
+  renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+  renderer.toneMapping = THREE.ACESFilmicToneMapping;
+  renderer.toneMappingExposure = opts.exposure ?? 1.18;
+  renderer.outputColorSpace = THREE.SRGBColorSpace;
+  mount.appendChild(renderer.domElement);
+  renderer.domElement.style.touchAction='none';
+
+  const scene = new THREE.Scene();
+  scene.background = gradientBG(bgTop,bgBot);
+  const pmrem = new THREE.PMREMGenerator(renderer);
+  scene.environment = pmrem.fromScene(new RoomEnvironment(renderer), 0.04).texture;
+  scene.environmentIntensity = opts.envInt ?? 1.15;
+
+  const camera = new THREE.PerspectiveCamera(45, mount.clientWidth/mount.clientHeight, 0.1, 200);
+  const cam = opts.cam || [5.5,3.4,6.2];
+  camera.position.set(...cam);
+
+  const controls = new OrbitControls(camera, renderer.domElement);
+  controls.enableDamping = true; controls.dampingFactor = 0.07;
+  controls.minDistance = opts.minD ?? 3; controls.maxDistance = opts.maxD ?? 18;
+  controls.maxPolarAngle = Math.PI*0.52;
+  controls.target.set(...(opts.target||[0,1.4,0]));
+  controls.autoRotate = opts.autoRotate ?? false;
+  controls.autoRotateSpeed = opts.autoRotateSpeed ?? 0.6;
+
+  const key = new THREE.DirectionalLight(0xffffff, 2.7);
+  key.position.set(5,9,6); key.castShadow=true;
+  key.shadow.mapSize.set(2048,2048);
+  key.shadow.camera.near=0.5; key.shadow.camera.far=40;
+  const sd=8; Object.assign(key.shadow.camera,{left:-sd,right:sd,top:sd,bottom:-sd});
+  key.shadow.bias=-0.0003; key.shadow.normalBias=0.02; scene.add(key);
+  const rim = new THREE.SpotLight(0x2affce, 55, 30, Math.PI/5, 0.4, 1.5);
+  rim.position.set(-7,6,-5); scene.add(rim);
+  const fill = new THREE.DirectionalLight(0x6fb6ff, 0.5); fill.position.set(-4,3,7); scene.add(fill);
+  scene.add(new THREE.HemisphereLight(0x9fb4c8, 0x10151b, 0.35));
+
+  if(opts.floor!==false){
+    const f = new THREE.Mesh(new THREE.CircleGeometry(40,80),
+      new THREE.MeshStandardMaterial({ color:0x0a0e13, roughness:0.14, metalness:0.62, envMapIntensity:1.15 }));
+    f.rotation.x=-Math.PI/2; f.receiveShadow=true; scene.add(f);
+    for(let r=2;r<=8;r+=2){
+      const ring=new THREE.Mesh(new THREE.RingGeometry(r-0.012,r+0.012,80),
+        new THREE.MeshBasicMaterial({color:0x1a2632,transparent:true,opacity:0.4}));
+      ring.rotation.x=-Math.PI/2; ring.position.y=0.002; scene.add(ring);
+    }
+  }
+
+  const isMobile = /Mobi|Android|iPhone|iPad/i.test(navigator.userAgent) || innerWidth<820;
+  // GTAO desactivado por defecto: el pase de oclusión ambiental en espacio de pantalla
+  // producía un recuadro oscuro duro sobre el piso reflectante (artefacto dependiente de la
+  // cámara y del renderer). La escena tiene AO suficiente con luces directas + sombras + env.
+  // Se puede reactivar para pruebas con ?gtao.
+  const useGtao = /[?&]gtao\b/.test(location.search);
+  const composer = new EffectComposer(renderer);
+  composer.addPass(new RenderPass(scene,camera));
+  if(!isMobile && useGtao){
+    try{
+      const g=new GTAOPass(scene,camera,mount.clientWidth,mount.clientHeight);
+      g.output=GTAOPass.OUTPUT.Default;
+      if(g.updateGtaoMaterial)g.updateGtaoMaterial({radius:0.5,distanceExponent:1,thickness:1,scale:1.1,samples:16});
+      composer.addPass(g);
+    }catch(e){}
+  }
+  const bloom=new UnrealBloomPass(new THREE.Vector2(mount.clientWidth,mount.clientHeight),opts.bloom??0.42,0.5,0.9);
+  composer.addPass(bloom);
+  let bokeh=null;
+  const flat=/[?&]flat/.test(location.search);
+  if(!isMobile && !flat){
+    bokeh=new BokehPass(scene,camera,{focus:8.5,aperture:opts.aperture??0.00018,maxblur:opts.maxblur??0.004,width:mount.clientWidth,height:mount.clientHeight});
+    composer.addPass(bokeh);
+  }
+  composer.addPass(new OutputPass());
+  composer.addPass(new SMAAPass(mount.clientWidth*renderer.getPixelRatio(),mount.clientHeight*renderer.getPixelRatio()));
+
+  function resize(){
+    const w=mount.clientWidth,h=mount.clientHeight;
+    camera.aspect=w/h; camera.updateProjectionMatrix();
+    renderer.setSize(w,h); composer.setSize(w,h);
+  }
+  window.addEventListener('resize',resize);
+
+  const clock=new THREE.Clock();
+  let hook=null, raf=null;
+  const camCine={active:false,t:0,dur:1.4,from:new THREE.Vector3(),to:new THREE.Vector3(),fromT:new THREE.Vector3(),toT:new THREE.Vector3()};
+  let lastDrag=-99, cinematicIdle=false;
+  controls.addEventListener('start',()=>{ lastDrag=clock.elapsedTime; camCine.active=false; });
+  function easeInOutCubic(x){return x<0.5?4*x*x*x:1-Math.pow(-2*x+2,3)/2;}
+  function moveTo(pos,target,dur=1.4){
+    camCine.from.copy(camera.position); camCine.fromT.copy(controls.target);
+    camCine.to.set(...pos); camCine.toT.set(...target);
+    camCine.dur=dur; camCine.active=true; camCine.t=0;
+  }
+  function setCinematicIdle(v){ cinematicIdle=v; if(!v)controls.autoRotate=false; }
+  function loop(){ raf=requestAnimationFrame(loop); const dt=clock.getDelta(),t=clock.elapsedTime;
+    if(camCine.active){
+      camCine.t=Math.min(1,camCine.t+dt/camCine.dur);
+      const e=easeInOutCubic(camCine.t);
+      camera.position.lerpVectors(camCine.from,camCine.to,e);
+      controls.target.lerpVectors(camCine.fromT,camCine.toT,e);
+      if(camCine.t>=1)camCine.active=false;
+    } else if(cinematicIdle){
+      controls.autoRotate=(t-lastDrag)>1.4; controls.autoRotateSpeed=0.45;
+    }
+    if(hook)hook(dt,t); controls.update();
+    if(bokeh) bokeh.uniforms['focus'].value = camera.position.distanceTo(controls.target);
+    composer.render(); }
+  function start(){ if(!raf)loop(); }
+  function stop(){ cancelAnimationFrame(raf); raf=null; window.removeEventListener('resize',resize); }
+
+  return { THREE, renderer, scene, camera, controls, composer, bloom,
+    setAnimate:fn=>hook=fn, start, stop, resize, clock,
+    flyTo:(v)=>{ controls.target.copy(v); }, moveTo, setCinematicIdle };
+}
+
+/* ---------- shared geometry/material helpers ---------- */
+function roundedBox(w,h,d,mat,rf=0.08){
+  const r=Math.min(w,h,d)*rf;
+  const m=new THREE.Mesh(new RoundedBoxGeometry(w,h,d,4,r),mat);
+  m.castShadow=m.receiveShadow=true; return m;
+}
+function pickerFor(scene,camera,dom,onHit){
+  const ray=new THREE.Raycaster(),mouse=new THREE.Vector2(); let down=null;
+  dom.addEventListener('pointerdown',e=>down=[e.clientX,e.clientY]);
+  dom.addEventListener('pointerup',e=>{
+    if(!down)return; const moved=Math.abs(e.clientX-down[0])+Math.abs(e.clientY-down[1])>6; down=null;
+    if(moved)return;
+    const r=dom.getBoundingClientRect();
+    mouse.x=((e.clientX-r.left)/r.width)*2-1; mouse.y=-((e.clientY-r.top)/r.height)*2+1;
+    ray.setFromCamera(mouse,camera);
+    const hits=ray.intersectObjects(scene.children,true);
+    onHit(hits[0]||null);
+  });
+}
+function labelSprite(text,color='#ffd166'){
+  const w = Math.max(150, Math.min(520, text.length*26+60));
+  const cvE=document.createElement('canvas');cvE.width=w;cvE.height=96;
+  const c=cvE.getContext('2d');c.fillStyle='rgba(8,11,16,.95)';
+  const rr=(x,y,ww,hh,r)=>{c.beginPath();c.moveTo(x+r,y);c.arcTo(x+ww,y,x+ww,y+hh,r);c.arcTo(x+ww,y+hh,x,y+hh,r);c.arcTo(x,y+hh,x,y,r);c.arcTo(x,y,x+ww,y,r);c.closePath();};
+  rr(3,3,w-6,90,18);c.fill();
+  c.strokeStyle=color;c.lineWidth=3;c.stroke();
+  c.font='bold 36px Outfit, system-ui, sans-serif';c.fillStyle=color;c.textAlign='center';c.textBaseline='middle';c.fillText(text,w/2,48);
+  const tx=new THREE.CanvasTexture(cvE);tx.colorSpace=THREE.SRGBColorSpace;tx.generateMipmaps=false;tx.minFilter=THREE.LinearFilter;
+  const sp=new THREE.Sprite(new THREE.SpriteMaterial({map:tx,depthTest:false,transparent:true}));
+  const aspect=w/96;
+  sp.scale.set(0.30*aspect,0.30,1);sp.renderOrder=999;return sp;
+}
+
+/* ============================================================
+   SYNTH — sintetizador Web Audio reutilizable
+   ============================================================ */
+function makeSynth(opts={}){
+  const type=opts.type||'sawtooth';
+  let ctx=null,oscA=null,oscB=null,gain=null,filter=null,soundOn=true;
+  function init(){
+    if(ctx)return;
+    try{
+      ctx=new (window.AudioContext||window.webkitAudioContext)();
+      oscA=ctx.createOscillator(); oscB=ctx.createOscillator();
+      oscA.type=type; oscB.type=opts.type2||'square';
+      filter=ctx.createBiquadFilter(); filter.type=opts.filterType||'lowpass'; filter.frequency.value=opts.filterFreq||500; filter.Q.value=opts.Q||3;
+      gain=ctx.createGain(); gain.gain.value=0;
+      oscA.connect(filter); oscB.connect(filter); filter.connect(gain); gain.connect(ctx.destination);
+      oscA.start(); oscB.start();
+    }catch(e){}
+  }
+  function update(freqA,freqB,vol,filterFreq){
+    if(!ctx||!soundOn){ if(gain)gain.gain.setTargetAtTime(0,ctx?.currentTime||0,0.1); return; }
+    oscA.frequency.setTargetAtTime(freqA,ctx.currentTime,0.04);
+    if(freqB!==undefined)oscB.frequency.setTargetAtTime(freqB,ctx.currentTime,0.04);
+    if(filterFreq!==undefined)filter.frequency.setTargetAtTime(filterFreq,ctx.currentTime,0.05);
+    gain.gain.setTargetAtTime(Math.max(0,vol),ctx.currentTime,0.06);
+  }
+  function beep(freq=880,dur=0.09,vol=0.06){
+    if(!ctx||!soundOn)return;
+    const o=ctx.createOscillator(),g=ctx.createGain();
+    o.type='sine'; o.frequency.value=freq;
+    g.gain.setValueAtTime(vol,ctx.currentTime); g.gain.exponentialRampToValueAtTime(0.001,ctx.currentTime+dur);
+    o.connect(g); g.connect(ctx.destination); o.start(); o.stop(ctx.currentTime+dur);
+  }
+  function toggle(){ soundOn=!soundOn; return soundOn; }
+  function resume(){ if(ctx&&ctx.state==='suspended')ctx.resume(); }
+  return { init, update, beep, toggle, resume, isOn:()=>soundOn, state:()=>ctx?.state||'none' };
+}
+
+/* ============================================================
+   LAB — MONITORES DE DISPONIBILIDAD (READINESS) PARA LA VERIFICACIÓN VEHICULAR (Dominio D10 · instrumentación)
+   Continúa a "Escáner OBD-II y Diagnóstico" (mecanica-11) y a "Diagnóstico
+   de Fallo de Encendido" (mecanica-28): ahí ya se leyó un DTC y se
+   entendió el ciclo pendiente→confirmado. Aquí el foco es la lógica de
+   aprobación/rechazo completa de la Tabla 1 — el conjunto exacto de
+   monitores que deben estar "completados", la diferencia entre "no
+   completado" y "no soportado", y qué ocurre cuando el escáner
+   simplemente no logra conectar con el vehículo.
+   Normatividad de referencia:
+     · NOM-167-SEMARNAT-2017 — método de prueba SDB (Sistema de
+       Diagnóstico a Bordo): Anexo normativo I (procedimiento e
+       intentos de conexión, num. 2.3/2.6), num. 4.1.1.1 (monitores
+       obligatorios para SDB tipo OBD-II/EOBD Euro 5+), Tabla 1
+       (criterios de aprobación), num. 3.17–3.21 (monitor continuo/
+       no continuo/soportado/no soportado)
+     · NOM-047-SEMARNAT-2014 — delega el procedimiento para los
+       vehículos que no pueden evaluarse por el método SDB
+   Modelo de ingeniería (didáctico):
+     · 11 monitores en el orden de los num. 3.17–3.19: 3 continuos
+       (Ignición en cilindros, Combustible, Componentes integrales) +
+       8 no continuos (Eficiencia del convertidor catalítico, Sensores
+       de oxígeno, Calentamiento del convertidor catalítico,
+       Evaporativo, Secundario de aire, Fugas de aire acondicionado,
+       Calentamiento del sensor de oxígeno, EGR). De estos, 5 son
+       obligatorios para SDB tipo OBD-II/EOBD Euro 5+ (num. 4.1.1.1):
+       Ignición en cilindros, Eficiencia del convertidor catalítico,
+       Combustible, Sensores de oxígeno, Componentes integrales.
+     · Tabla 1 exige exactamente 3 criterios: (1) conexión exitosa con
+       el SDB, (2) sin códigos de falla confirmados del tren motriz
+       asociados a los monitores del num. 4.1.1, (3) todos esos
+       monitores obligatorios "completados". Los monitores NO
+       obligatorios no entran en el criterio 3.
+     · "No soportado" (num. 3.20/3.21) ≠ "no completado": un monitor
+       no soportado no viene de fábrica en ese vehículo por diseño
+       (p. ej., EGR sustituido por VVT); no es una falla y no bloquea
+       la verificación por sí solo.
+     · Conexión no exitosa: el sistema reintenta hasta en tres
+       ocasiones (Anexo normativo I, num. 2.6). Si aun así falla, se
+       registran las características del vehículo y se notifica al
+       propietario — no equivale a un rechazo ni a una aprobación.
+   ============================================================ */
+const mount=document.getElementById('stage');
+const S=createStage(mount,{cam:[5.4,3.3,6.6],target:[-0.3,1.25,0],bgTop:'#0d1a17',bgBot:'#04060a',bloom:0.42,minD:3.4,maxD:17});
+const {scene}=S;
+const std=o=>new THREE.MeshStandardMaterial(o);
+
+const alu=castAluminum(), plas=techPlastic(0.08,0.12,0.11), rub=rubber();
+const MAT={
+  housing: std({...plas, metalness:0.2, roughness:0.6}),
+  bezel: std({color:0x05100d, roughness:0.8, metalness:0.2}),
+  tool: std({color:0x142420, roughness:0.5, metalness:0.35}),
+  toolGrip: std({...rub, color:0x0c1512, roughness:1.0, metalness:0.0}),
+  cable: std({...rub, color:0x111917, roughness:0.95, metalness:0.0}),
+  connectorBody: std({color:0x1a1f22, roughness:0.55, metalness:0.4}),
+  pin: std({color:0xc9a227, roughness:0.35, metalness:0.85}),
+  bracket: std({...alu, metalness:0.6, roughness:0.6}),
+};
+
+const HOVER_LABELS=new Map();
+
+/* ---------- 1) PANEL BAJO EL TABLERO + CONECTOR DLC + TESTIGO MIL ---------- */
+const dash=new THREE.Group(); dash.position.set(-2.2,1.3,0.6); dash.rotation.y=0.35; scene.add(dash);
+const dashBody=roundedBox(1.6,1.0,0.4,MAT.housing,0.14); dashBody.castShadow=true; dash.add(dashBody);
+const dashBezel=roundedBox(1.4,0.8,0.08,MAT.bezel,0.08); dashBezel.position.set(0,0.05,0.2); dash.add(dashBezel);
+
+const dlcGroup=new THREE.Group(); dlcGroup.position.set(0,-0.55,0.3); dash.add(dlcGroup);
+const dlcBracket=roundedBox(0.56,0.38,0.03,MAT.bracket,0.03); dlcBracket.position.set(0,0,-0.09); dlcGroup.add(dlcBracket);
+const dlcHousing=roundedBox(0.46,0.30,0.14,MAT.connectorBody,0.06); dlcHousing.castShadow=true; dlcGroup.add(dlcHousing);
+const pinGeo=new THREE.CylinderGeometry(0.012,0.012,0.05,8);
+for(let row=0;row<2;row++){
+  for(let i=0;i<8;i++){
+    const p=new THREE.Mesh(pinGeo, MAT.pin);
+    p.rotation.x=Math.PI/2;
+    p.position.set(-0.175+i*0.05, row===0?0.055:-0.055, 0.095);
+    dlcGroup.add(p);
+  }
+}
+const connLed=new THREE.Mesh(new THREE.SphereGeometry(0.025,10,10), std({color:0x1a1a1a,emissive:0x333333,emissiveIntensity:0.2}));
+connLed.position.set(0.19,0.11,0.09); dlcGroup.add(connLed);
+
+const milMat=std({color:0x2a1a0c, emissive:0xffb703, emissiveIntensity:0.0, roughness:0.45, metalness:0.2});
+const mil=new THREE.Mesh(new THREE.BoxGeometry(0.22,0.16,0.04), milMat);
+mil.position.set(0.5,0.15,0.22); dash.add(mil);
+
+const dashLabel=labelSprite('Panel bajo el tablero','#4FD1C5'); dashLabel.position.set(0,0.7,0);
+dashLabel.visible=false; dashLabel.raycast=()=>{}; dash.add(dashLabel); HOVER_LABELS.set(dashBody,dashLabel);
+const dlcLabel=labelSprite('Conector DLC · 16 pines','#FFB703'); dlcLabel.position.set(0,0.22,0);
+dlcLabel.visible=false; dlcLabel.raycast=()=>{}; dlcGroup.add(dlcLabel); HOVER_LABELS.set(dlcHousing,dlcLabel);
+const milLabel=labelSprite('Testigo MIL','#FFB703'); milLabel.position.set(0.5,0.32,0.22);
+milLabel.visible=false; milLabel.raycast=()=>{}; dash.add(milLabel); HOVER_LABELS.set(mil,milLabel);
+
+/* ---------- 2) ESCÁNER (pantalla con canvas actualizable) ---------- */
+const tool=new THREE.Group(); tool.position.set(2.3,1.2,1.0); tool.rotation.y=-0.5; tool.rotation.x=-0.1; scene.add(tool);
+const toolBody=roundedBox(1.15,1.7,0.24,MAT.tool,0.14); toolBody.castShadow=true; tool.add(toolBody);
+const grip=roundedBox(1.2,0.55,0.3,MAT.toolGrip,0.35); grip.position.set(0,-0.62,0); tool.add(grip);
+const scrCanvas=document.createElement('canvas'); scrCanvas.width=320; scrCanvas.height=384;
+const scrTex=new THREE.CanvasTexture(scrCanvas); scrTex.colorSpace=THREE.SRGBColorSpace; scrTex.minFilter=THREE.LinearFilter; scrTex.generateMipmaps=false;
+const screen=new THREE.Mesh(new THREE.PlaneGeometry(0.92,1.05), new THREE.MeshBasicMaterial({map:scrTex,toneMapped:false}));
+screen.position.set(0,0.28,0.13); tool.add(screen);
+for(let i=0;i<4;i++){ const b=roundedBox(0.18,0.12,0.06,std({color:0x1a2622,roughness:0.6,metalness:0.3}),0.2);
+  b.position.set(-0.33+i*0.22,-0.35,0.13); tool.add(b); }
+const toolLabel=labelSprite('Escáner SDB','#4FD1C5'); toolLabel.position.set(0,1.1,0);
+toolLabel.visible=false; toolLabel.raycast=()=>{}; tool.add(toolLabel); HOVER_LABELS.set(toolBody,toolLabel);
+
+/* ---------- 3) CABLE (escáner → conector DLC) ---------- */
+const cableCurve=new THREE.CatmullRomCurve3([
+  new THREE.Vector3(2.0,1.5,0.9), new THREE.Vector3(0.3,0.6,1.3),
+  new THREE.Vector3(-1.1,0.9,1.0), new THREE.Vector3(-2.0,0.85,0.75),
+]);
+const cable=new THREE.Mesh(new THREE.TubeGeometry(cableCurve,48,0.045,10), MAT.cable); cable.castShadow=true; scene.add(cable);
+
+/* ---------- 4) inspección por clic ---------- */
+const toast=document.getElementById('toast');
+function showToast(html){toast.innerHTML=html;toast.classList.add('show');clearTimeout(showToast._t);showToast._t=setTimeout(()=>toast.classList.remove('show'),3200);}
+
+const PART_DESC=new Map([
+  [dashBody,{name:'Panel bajo el tablero',desc:'Zona donde se ubica el conector de enlace de datos (DLC) — su posición exacta varía por fabricante (Anexo normativo I, num. 3).'}],
+  [dlcHousing,{name:'Conector DLC (Data Link Connector)',desc:'16 pines · SAE J1962 / ISO 15031-3. Punto de conexión del escáner con la ECU. Si está en mal estado o hay un dispositivo intermedio, la conexión se considera no exitosa (Anexo I, num. 2.3).'}],
+  [mil,{name:'Testigo MIL',desc:'Dato adicional que registra el escáner (Anexo I, num. 1). Aquí es solo informativo: no determina por sí solo el resultado de la Tabla 1 — revisa la ficha técnica.'}],
+  [toolBody,{name:'Escáner de diagnóstico (SDB)',desc:'Cumple SAE J1978 / ISO 15031-4. Lee los monitores obligatorios del num. 4.1.1, códigos de falla confirmados y datos del vehículo.'}],
+]);
+pickerFor(scene,S.camera,S.renderer.domElement,hit=>{
+  if(!hit)return; let o=hit.object;
+  while(o){
+    if(PART_DESC.has(o)){ const p=PART_DESC.get(o); showToast(`<b style="color:var(--accent2)">${p.name}</b><br><span style="color:var(--dim);font-size:11px">${p.desc}</span>`); return; }
+    o=o.parent;
+  }
+});
+
+(function(){
+  const dom=S.renderer.domElement, ray=new THREE.Raycaster(), m=new THREE.Vector2();
+  let shown=null;
+  const setShown=lb=>{ if(shown===lb)return; if(shown)shown.visible=false; shown=lb; if(lb)lb.visible=true; };
+  dom.addEventListener('pointermove',e=>{
+    const r=dom.getBoundingClientRect();
+    m.x=((e.clientX-r.left)/r.width)*2-1; m.y=-((e.clientY-r.top)/r.height)*2+1;
+    ray.setFromCamera(m,S.camera);
+    const hits=ray.intersectObjects(scene.children,true);
+    let lb=null;
+    if(hits[0]){ let o=hits[0].object; while(o){ if(HOVER_LABELS.has(o)){ lb=HOVER_LABELS.get(o); break; } o=o.parent; } }
+    setShown(lb); dom.style.cursor = lb ? 'pointer' : '';
+  });
+  dom.addEventListener('pointerleave',()=>setShown(null));
+})();
+
+/* ============================================================
+   MODELO DE DATOS — 11 monitores · 4 casos guiados
+   ============================================================ */
+const MONITORS=[
+  {key:'ignicion',   label:'Ignición en cilindros (detección de fallo)', tipo:'continuo',    ob:true},
+  {key:'combustible', label:'Sistema del combustible',                    tipo:'continuo',    ob:true},
+  {key:'integrales',  label:'Componentes integrales',                     tipo:'continuo',    ob:true},
+  {key:'catEff',      label:'Eficiencia del convertidor catalítico',      tipo:'no continuo', ob:true},
+  {key:'o2',          label:'Sensores de oxígeno',                        tipo:'no continuo', ob:true},
+  {key:'catHeat',     label:'Calentamiento del convertidor catalítico',   tipo:'no continuo', ob:false},
+  {key:'evap',        label:'Sistema evaporativo',                        tipo:'no continuo', ob:false},
+  {key:'airSec',      label:'Sistema secundario de aire',                 tipo:'no continuo', ob:false},
+  {key:'acLeak',      label:'Fugas de aire acondicionado',                tipo:'no continuo', ob:false},
+  {key:'o2Heat',      label:'Calentamiento del sensor de oxígeno',        tipo:'no continuo', ob:false},
+  {key:'egr',         label:'Recirculación de gases de escape (EGR)',     tipo:'no continuo', ob:false},
+];
+
+const SCEN_ORDER=['noComm','aprobado','rechazado','noEvaluable'];
+const SCEN_LABEL={
+  noComm:'Conexión no exitosa (3 intentos)',
+  aprobado:'Aprobado · readiness parcial válido',
+  rechazado:'Rechazado · DTC confirmado',
+  noEvaluable:'No evaluable · doble trampa',
+};
+const CASES={
+  noComm:{ noComm:true, estados:{}, dtc:null },
+  aprobado:{ estados:{
+      ignicion:'completado', combustible:'completado', integrales:'completado',
+      catEff:'completado', o2:'completado', catHeat:'completado',
+      evap:'no completado', airSec:'completado', acLeak:'no completado',
+      o2Heat:'completado', egr:'completado',
+    }, dtc:null },
+  rechazado:{ estados:{
+      ignicion:'completado', combustible:'completado', integrales:'completado',
+      catEff:'completado', o2:'completado', catHeat:'completado',
+      evap:'completado', airSec:'completado', acLeak:'completado',
+      o2Heat:'completado', egr:'completado',
+    }, dtc:{code:'P0300', label:'Fallo de encendido aleatorio/múltiple — CONFIRMADO', monitor:'ignicion'} },
+  noEvaluable:{ estados:{
+      ignicion:'completado', combustible:'completado', integrales:'completado',
+      catEff:'no completado', o2:'completado', catHeat:'completado',
+      evap:'completado', airSec:'completado', acLeak:'completado',
+      o2Heat:'completado', egr:'no soportado',
+    }, dtc:null },
+};
+const QUESTIONS={
+  noComm:{ prompt:'El sistema intentó conectar con el SDB y no lo logró. El DLC se ve en buen estado. ¿Qué determina el procedimiento?',
+    opts:[
+      {t:'El sistema reintenta la conexión hasta en tres ocasiones; si no se logra, se registran marca, submarca y año modelo del vehículo y se notifica al propietario — no es un rechazo ni una aprobación.',ok:true},
+      {t:'Al no conectar, el vehículo se rechaza automáticamente por incumplimiento.',ok:false},
+      {t:'Al no conectar, el vehículo pasa automáticamente al método Dinámica sin importar el año modelo.',ok:false},
+      {t:'El sistema debe seguir intentando indefinidamente hasta lograr conexión.',ok:false},
+    ]},
+  aprobado:{ prompt:'Los 5 monitores obligatorios del num. 4.1.1 están completados, 2 monitores NO obligatorios (Evaporativo y Fugas de A/C) siguen "no completado", y no hay códigos de falla confirmados. ¿Cuál es el resultado?',
+    opts:[
+      {t:'APROBADO — la Tabla 1 exige monitores completados solo entre los señalados en el num. 4.1.1 (los obligatorios); los demás no entran en esa decisión.',ok:true},
+      {t:'NO EVALUABLE, porque no todos los 11 monitores están completados.',ok:false},
+      {t:'RECHAZADO, porque cualquier monitor incompleto invalida la verificación.',ok:false},
+      {t:'APROBADO, pero solo si además esos 2 monitores se completan en la siguiente revisión.',ok:false},
+    ]},
+  rechazado:{ prompt:'Los 11 monitores están completados (readiness perfecto), pero el SDB reporta un código de falla confirmado P0300 en el monitor de Ignición en cilindros. ¿Cuál es el resultado?',
+    opts:[
+      {t:'RECHAZADO — la Tabla 1 exige que no existan códigos de falla confirmados asociados a los monitores del 4.1.1; esto pesa aparte de que los monitores estén completados.',ok:true},
+      {t:'APROBADO, porque todos los monitores están completados y eso es lo único que exige la norma.',ok:false},
+      {t:'NO EVALUABLE, porque un código confirmado siempre significa que falta información.',ok:false},
+      {t:'El resultado depende del color del testigo MIL, no del código confirmado.',ok:false},
+    ]},
+  noEvaluable:{ prompt:'El monitor de Eficiencia del convertidor catalítico (obligatorio) aparece "no completado". El monitor EGR aparece "no soportado" — el vehículo usa VVT en vez de EGR. No hay códigos confirmados. ¿Cuál es el resultado y por qué?',
+    opts:[
+      {t:'NO EVALUABLE — por el monitor obligatorio "no completado" (Eficiencia del convertidor catalítico); el EGR "no soportado" no es un problema: ese monitor no aplica por diseño y tampoco es obligatorio.',ok:true},
+      {t:'NO EVALUABLE por el EGR, ya que un monitor no soportado siempre bloquea la verificación.',ok:false},
+      {t:'APROBADO, porque "no soportado" se cuenta como si estuviera completado.',ok:false},
+      {t:'RECHAZADO, porque dos monitores presentan alguna anomalía.',ok:false},
+    ]},
+};
+const DX_HINT={
+  noComm:'El Anexo normativo I (num. 2.6) es explícito: si la conexión no es exitosa, el sistema reintenta hasta en tres ocasiones. Si aun así no logra comunicarse, el procedimiento es registrar las características del vehículo y notificar al propietario — no hay una ruta automática a "rechazado", "aprobado" ni al método Dinámica por el simple hecho de no conectar.',
+  aprobado:'La Tabla 1 dice literalmente "todos los monitores... señalados en el numeral 4.1.1" — es decir, solo los 5 obligatorios para este tipo de SDB. Los monitores no obligatorios (aquí, Evaporativo y Fugas de aire acondicionado) pueden seguir "no completados" sin que eso mueva el resultado.',
+  rechazado:'La Tabla 1 tiene tres criterios independientes y los tres deben cumplirse. El criterio de "sin códigos de falla confirmados" pesa aparte de "monitores completados": un readiness perfecto no rescata un DTC confirmado en un monitor obligatorio.',
+  noEvaluable:'Dos ideas separadas de los num. 3.20/3.21: "no soportado" significa que el monitor no viene de fábrica en ese vehículo (aquí, EGR fue sustituido por VVT) — no es una falla y no bloquea nada, menos aún siendo un monitor no obligatorio. El bloqueo real es el monitor OBLIGATORIO "no completado" (Eficiencia del convertidor catalítico): eso sí impide cumplir el criterio 3 de la Tabla 1.',
+};
+
+let connected=false, sdbLinked=null, connAttempt=0, connGen=0;
+let scenarioKey=SCEN_ORDER[0], mode='con';
+
+function obligatoriosCompletados(){
+  const cs=CASES[scenarioKey];
+  const obligatorios=MONITORS.filter(m=>m.ob);
+  const n=obligatorios.filter(m=>cs.estados[m.key]==='completado').length;
+  return {n, total:obligatorios.length};
+}
+function computeVerdict(){
+  const cs=CASES[scenarioKey];
+  if(sdbLinked!==true) return {code:'NO_APLICABLE', c1:false, c2:null, c3:null};
+  const c2 = !cs.dtc;
+  const obligatorios=MONITORS.filter(m=>m.ob);
+  const c3 = obligatorios.every(m=>cs.estados[m.key]==='completado');
+  let code;
+  if(!c2) code='RECHAZADO';
+  else if(!c3) code='NO_EVALUABLE';
+  else code='APROBADO';
+  return {code, c1:true, c2, c3};
+}
+
+/* ---------- síntesis: sonidos de UI ---------- */
+const synth=makeSynth({type:'sine',type2:'sine',filterFreq:800,Q:1});
+
+/* ============================================================
+   ANIMACIÓN
+   ============================================================ */
+S.setAnimate((dt,time)=>{
+  let ledColor=0x333333, ledI=0.15;
+  if(connAttempt>0){ ledColor=0xffb703; ledI=(Math.sin(time*2*Math.PI*2.5)>0)?1.0:0.15; }
+  else if(sdbLinked===true){ ledColor=0x34d399; ledI=0.8; }
+  else if(sdbLinked===false){ ledColor=0xf4475e; ledI=0.75; }
+  connLed.material.emissive.setHex(ledColor);
+  connLed.material.emissiveIntensity += (ledI-connLed.material.emissiveIntensity)*Math.min(1,dt*10);
+
+  const milTarget=(connected&&sdbLinked===true&&CASES[scenarioKey].dtc)?0.85:0.0;
+  milMat.emissiveIntensity += (milTarget-milMat.emissiveIntensity)*Math.min(1,dt*8);
+
+  synth.update(0,0,0);
+});
+S.start();
+
+/* ============================================================
+   HUD (izquierda)
+   ============================================================ */
+document.getElementById('hud').innerHTML=`
+  <div class="eyebrow">Autotrónica · Verificación vehicular OBD-II</div>
+  <h2>Monitores de Disponibilidad (Readiness)</h2>
+  <p>Ya sabes leer un DTC y diagnosticar un fallo de encendido. Ahora aplicas la <b>Tabla 1</b> completa: ¿conectó el escáner?, ¿hay códigos de falla confirmados?, ¿están completados los monitores <b>obligatorios</b> del num. 4.1.1? De esas tres respuestas sale el resultado.</p>
+  <div class="formula">Conexión exitosa + sin DTC confirmado (4.1.1) + obligatorios completados ⇒ APROBADO<br>Cualquier DTC confirmado ⇒ RECHAZADO (sin importar los monitores)<br>Monitor obligatorio "no completado" y sin DTC ⇒ NO EVALUABLE</div>
+  <div class="legend">
+    <div class="li"><span class="dot" style="background:#34d399"></span>Monitor completado</div>
+    <div class="li"><span class="dot" style="background:#FFB703"></span>Monitor no soportado (no es falla)</div>
+    <div class="li"><span class="dot" style="background:#f4475e"></span>Monitor no completado</div>
+  </div>
+  <div class="fid">
+    <div class="ft">🔒 Contrato de fidelidad</div>
+    <div class="fl"><b>Sí modela:</b> los 3 criterios exactos de la Tabla 1, el conjunto de 5 monitores obligatorios del num. 4.1.1.1, la distinción "no completado" vs. "no soportado" (num. 3.20/3.21), y el límite de 3 intentos de conexión del Anexo normativo I (num. 2.6).</div>
+    <div class="fl no"><b>NO modela:</b> la luz MIL como criterio de aptitud para intentar el método SDB (Artículo Transitorio Décimo Segundo — provisión temporal mientras no se actualice la NOM-047), el Catálogo Vehicular del num. 4.1.1.3, los tipos de conector alterno del num. 4, ni el protocolo eléctrico real del bus. Consulta la ficha técnica y el manual del verificador para el procedimiento completo.</div>
+  </div>
+  <div class="src">Ref: NOM-167-SEMARNAT-2017 (Anexo normativo I, Tabla 1, num. 3.17–3.21, 4.1.1.1) · NOM-047-SEMARNAT-2014</div>`;
+
+/* ============================================================
+   PANEL (derecha)
+   ============================================================ */
+document.getElementById('panel').innerHTML=`
+  <h4>Escáner · <span id="p_case" style="color:var(--accent2)">Caso 1/4</span></h4>
+  <div class="modebar">
+    <button class="b" id="s_noComm">1 · Sin conexión</button>
+    <button class="b" id="s_aprobado">2 · Aprobado</button>
+    <button class="b" id="s_rechazado">3 · Rechazado</button>
+    <button class="b" id="s_noEvaluable">4 · No evaluable</button>
+  </div>
+  <div class="modebar">
+    <button class="b on" id="m_con">Conexión</button>
+    <button class="b" id="m_mon">Monitores</button>
+    <button class="b" id="m_dtc">Códigos</button>
+    <button class="b" id="m_ver">Resultado</button>
+  </div>
+  <div class="console" id="console">Energiza el sistema para iniciar el flujo de datos.</div>
+  <div id="tele">
+    <div class="g"><div class="gl"><span>Conexión SDB</span><b id="t_con">—</b></div></div>
+    <div class="g"><div class="gl"><span>Obligatorios (4.1.1)</span><b id="t_ob">—</b></div></div>
+    <div class="g"><div class="gl"><span>Códigos confirmados</span><b id="t_dtc">—</b></div></div>
+    <div class="g"><div class="gl"><span>Testigo MIL</span><b id="t_mil">—</b></div></div>
+    <div class="g"><div class="gl"><span>Resultado</span><b id="t_ver">—</b></div></div>
+  </div>
+  <h4 class="sec" id="q_prompt">Pregunta diagnóstica</h4>
+  <div class="btns" id="dxWrap"></div>
+  <div class="btns">
+    <button class="b auto" id="btnAuto">✨ Demostración guiada</button>
+    <button class="b primary" id="btnEnergize">🔌 Conectar escáner</button>
+    <button class="b" id="btnNext">🔀 Siguiente caso</button>
+  </div>`;
+
+const el=id=>document.getElementById(id);
+const consoleEl=el('console');
+
+function renderConexion(){
+  let statusLine;
+  if(connAttempt>0) statusLine=`<span style="color:var(--hv)">Interrogando al SDB… intento ${connAttempt}/3</span>`;
+  else if(sdbLinked===true) statusLine=`<span class="ok">✔ Conexión exitosa con la ECU.</span>`;
+  else if(sdbLinked===false) statusLine=`<span class="dtc">✗ Conexión NO exitosa tras 3 intentos.</span><br><span class="mono">Se registran las características del vehículo (marca, submarca, año modelo) y se notifica al propietario (Anexo normativo I, num. 2.6). Esto no equivale a un rechazo ni a una aprobación.</span>`;
+  else statusLine=`<span class="mono">Sin intentar todavía.</span>`;
+  return `<b>Conexión con el SDB</b><br><span class="mono">DLC: SAE J1962 / ISO 15031-3 · 16 pines</span><br>${statusLine}`;
+}
+function renderMonTable(){
+  if(sdbLinked!==true) return `<b>Monitores de disponibilidad</b><br><span class="mono">Requiere conexión exitosa con el SDB.</span>`;
+  const cs=CASES[scenarioKey];
+  const rows=MONITORS.map(m=>{
+    const st=cs.estados[m.key];
+    const cls = st==='completado' ? 'good' : st==='no soportado' ? 'warn' : 'bad';
+    const tag = m.ob ? ' <span style="color:var(--hv)">★</span>' : '';
+    return `<div class="g"><div class="gl"><span>${m.label}${tag}</span><b class="${cls}">${st}</b></div></div>`;
+  }).join('');
+  return `<div style="margin-bottom:6px;font-size:10.5px;color:var(--dim)">★ = obligatorio (num. 4.1.1.1 · SDB tipo OBD-II/EOBD Euro 5+)</div>${rows}`;
+}
+function renderDtc(){
+  if(sdbLinked!==true) return `<b>Códigos de falla confirmados</b><br><span class="mono">Requiere conexión exitosa con el SDB.</span>`;
+  const cs=CASES[scenarioKey];
+  if(!cs.dtc) return `<b>Códigos de falla confirmados</b><br><span class="ok mono">Sin códigos de falla confirmados del tren motriz asociados a los monitores del numeral 4.1.1.</span>`;
+  return `<b>Códigos de falla confirmados</b><br><span class="dtc">${cs.dtc.code}</span> <span class="mono">${cs.dtc.label}</span>`;
+}
+function renderVerdict(){
+  if(sdbLinked!==true){
+    const msg = sdbLinked===false
+      ? 'Conexión NO exitosa tras 3 intentos (Anexo normativo I, num. 2.6). Se registran las características del vehículo y se notifica al propietario — el método de prueba no pudo aplicarse; esto NO es un rechazo ni una aprobación.'
+      : 'Aún no hay conexión con el SDB — el método de prueba no puede aplicarse todavía.';
+    return `<b>Resultado de la verificación</b><br><span class="mono">${msg}</span>`;
+  }
+  const v=computeVerdict();
+  const chk=ok=> ok?'<b class="good">cumple</b>':'<b class="bad">no cumple</b>';
+  const bannerColor = v.code==='APROBADO'?'var(--good)':v.code==='RECHAZADO'?'var(--bad)':'var(--hv)';
+  const bannerTxt = {APROBADO:'✔ APROBADO', RECHAZADO:'✘ RECHAZADO', NO_EVALUABLE:'⚠ NO EVALUABLE'}[v.code];
+  return `<b>Tabla 1 · criterios de evaluación SDB</b>
+    <div class="g"><div class="gl"><span>1. Conexión con el SDB</span>${chk(v.c1)}</div></div>
+    <div class="g"><div class="gl"><span>2. Sin códigos confirmados (4.1.1)</span>${chk(v.c2)}</div></div>
+    <div class="g"><div class="gl"><span>3. Monitores 4.1.1 completados</span>${chk(v.c3)}</div></div>
+    <div style="margin-top:10px;padding:8px;border-radius:8px;text-align:center;font-weight:bold;font-size:14px;background:rgba(0,0,0,.25);color:${bannerColor}">${bannerTxt}</div>`;
+}
+function setConsole(){
+  if(!connected){ consoleEl.innerHTML='Energiza el sistema para iniciar el flujo de datos.'; drawToolScreen(); updateTele(); return; }
+  if(mode==='con') consoleEl.innerHTML=renderConexion();
+  else if(mode==='mon') consoleEl.innerHTML=renderMonTable();
+  else if(mode==='dtc') consoleEl.innerHTML=renderDtc();
+  else if(mode==='ver') consoleEl.innerHTML=renderVerdict();
+  drawToolScreen();
+  updateTele();
+}
+function updateTele(){
+  if(!connected||sdbLinked!==true){
+    const conB=el('t_con');
+    if(connAttempt>0){ conB.textContent='intento '+connAttempt+'/3'; conB.className='warn'; }
+    else if(sdbLinked===false){ conB.textContent='no exitosa'; conB.className='bad'; }
+    else { conB.textContent='—'; conB.className=''; }
+    ['t_ob','t_dtc','t_mil','t_ver'].forEach(id=>{el(id).textContent='—';el(id).className='';});
+    return;
+  }
+  el('t_con').textContent='exitosa'; el('t_con').className='good';
+  const {n,total}=obligatoriosCompletados();
+  const obB=el('t_ob'); obB.textContent=n+'/'+total; obB.className=n===total?'good':'bad';
+  const cs=CASES[scenarioKey];
+  const dtcB=el('t_dtc'); dtcB.textContent=cs.dtc?cs.dtc.code:'ninguno'; dtcB.className=cs.dtc?'bad':'good';
+  const milB=el('t_mil'); milB.textContent=cs.dtc?'encendido':'apagado'; milB.className=cs.dtc?'warn':'good';
+  const v=computeVerdict();
+  const verB=el('t_ver');
+  verB.textContent=v.code.replace('_',' ');
+  verB.className=v.code==='APROBADO'?'good':v.code==='RECHAZADO'?'bad':'warn';
+}
+
+function wrapText(ctx,text,x,y,maxW,lh){
+  const words=text.split(' '); let line='',yy=y;
+  for(const w of words){
+    const test=line+w+' ';
+    if(ctx.measureText(test).width>maxW&&line){ ctx.fillText(line,x,yy); line=w+' '; yy+=lh; }
+    else line=test;
+  }
+  ctx.fillText(line,x,yy);
+}
+function drawToolScreen(){
+  const c=scrCanvas.getContext('2d');
+  c.fillStyle='#04120e'; c.fillRect(0,0,320,384);
+  c.strokeStyle='rgba(79,209,197,.4)'; c.lineWidth=2; c.strokeRect(6,6,308,372);
+  c.fillStyle='#4FD1C5'; c.font='bold 20px Outfit, sans-serif'; c.textAlign='left';
+  c.fillText('CEN · Monitores SDB',18,34);
+  c.font='13px Outfit, sans-serif'; c.fillStyle='#8FB3AC';
+  if(!connected){ c.fillText('DESCONECTADO',18,80); c.fillText('Energiza el sistema',18,104); scrTex.needsUpdate=true; return; }
+  c.fillText(SCEN_LABEL[scenarioKey],18,58);
+  if(connAttempt>0){
+    c.fillStyle='#FFB703'; c.font='bold 22px Outfit, sans-serif';
+    c.fillText('Intento '+connAttempt+'/3…',18,140);
+    c.font='13px Outfit, sans-serif'; c.fillStyle='#8FB3AC';
+    c.fillText('Interrogando al SDB',18,166);
+    scrTex.needsUpdate=true; return;
+  }
+  if(sdbLinked===false){
+    c.fillStyle='#f4475e'; c.font='bold 19px Outfit, sans-serif';
+    wrapText(c,'CONEXIÓN NO EXITOSA',18,132,282,24);
+    c.font='13px Outfit, sans-serif'; c.fillStyle='#8FB3AC';
+    wrapText(c,'Se registran las características del vehículo y se notifica al propietario.',18,168,282,17);
+    scrTex.needsUpdate=true; return;
+  }
+  if(sdbLinked!==true){ scrTex.needsUpdate=true; return; }
+  const {n,total}=obligatoriosCompletados();
+  c.fillStyle='#EAF4F1'; c.font='bold 26px Outfit, sans-serif';
+  c.fillText(n+'/'+total+' obligatorios',18,110);
+  c.font='13px Outfit, sans-serif'; c.fillStyle='#8FB3AC';
+  c.fillText('completados (num. 4.1.1)',18,132);
+  const cs=CASES[scenarioKey];
+  if(cs.dtc){
+    c.fillStyle='#f4475e'; c.font='bold 17px Outfit, sans-serif';
+    c.fillText(cs.dtc.code+' confirmado',18,168);
+  }else{
+    c.fillStyle='#34d399'; c.font='13px Outfit, sans-serif';
+    c.fillText('Sin códigos confirmados',18,168);
+  }
+  const v=computeVerdict();
+  const bannerTxt={APROBADO:'APROBADO',RECHAZADO:'RECHAZADO',NO_EVALUABLE:'NO EVALUABLE'}[v.code];
+  const bannerColor={APROBADO:'#34d399',RECHAZADO:'#f4475e',NO_EVALUABLE:'#FFB703'}[v.code];
+  c.fillStyle=bannerColor; c.font='bold 24px Outfit, sans-serif'; c.textAlign='center';
+  c.fillText(bannerTxt,160,340);
+  c.textAlign='left';
+  scrTex.needsUpdate=true;
+}
+
+/* ---------- pregunta diagnóstica ---------- */
+function renderQuestion(){
+  const q=QUESTIONS[scenarioKey];
+  el('q_prompt').textContent=q.prompt;
+  const wrap=el('dxWrap'); wrap.innerHTML='';
+  q.opts.forEach((o,i)=>{
+    const b=document.createElement('button');
+    b.className='b dx'; b.dataset.i=String(i); b.dataset.ok=o.ok?'1':'0';
+    b.textContent=String.fromCharCode(65+i)+' · '+o.t;
+    wrap.appendChild(b);
+  });
+  wireDx();
+}
+function wireDx(){
+  document.querySelectorAll('#dxWrap .b.dx').forEach(btn=>{
+    btn.onclick=()=>{
+      if(!connected||connAttempt>0){ showToast('Primero logra la conexión con el SDB.'); return; }
+      clearDx();
+      if(btn.dataset.ok==='1'){
+        btn.classList.add('right'); synth.beep(1046,0.12,0.06);
+        showToast(`<span style="color:var(--good)">✔ Correcto.</span><br><span style="color:var(--dim);font-size:11px">${DX_HINT[scenarioKey]}</span>`);
+      }else{
+        btn.classList.add('wrong'); synth.beep(220,0.15,0.06);
+        showToast(`<span style="color:var(--bad)">✗ Revisa la evidencia en el escáner.</span>`);
+      }
+    };
+  });
+}
+function clearDx(){ document.querySelectorAll('#dxWrap .b.dx').forEach(b=>b.classList.remove('right','wrong')); }
+
+/* ---------- conexión ---------- */
+async function tryConnect(){
+  const myGen=++connGen;
+  if(scenarioKey!=='noComm'){ sdbLinked=true; connAttempt=0; setConsole(); return; }
+  sdbLinked=null;
+  for(let i=1;i<=3;i++){
+    connAttempt=i; setConsole();
+    showToast(`Interrogación al SDB · intento ${i}/3…`);
+    await sleep(700);
+    if(myGen!==connGen) return;
+  }
+  connAttempt=0; sdbLinked=false; setConsole();
+  showToast('✗ Conexión no exitosa tras 3 intentos. Se registran los datos del vehículo y se notifica al propietario.');
+}
+async function connectScanner(){
+  connected=true;
+  synth.init(); synth.resume();
+  el('btnEnergize').classList.add('on'); el('btnEnergize').textContent='🔌 Desconectar';
+  S.moveTo([3.0,2.1,4.8],[-0.3,1.05,0.5],1.3); S.setCinematicIdle(true); synth.beep(880,0.1,0.06);
+  await tryConnect();
+}
+function disconnectScanner(){
+  connGen++;
+  connected=false; sdbLinked=null; connAttempt=0;
+  S.setCinematicIdle(false);
+  el('btnEnergize').classList.remove('on'); el('btnEnergize').textContent='🔌 Conectar escáner';
+  setConsole();
+}
+
+/* ---------- interacción ---------- */
+function setScenario(key){
+  scenarioKey=key;
+  SCEN_ORDER.forEach(k=>el('s_'+k).classList.toggle('on',k===key));
+  el('p_case').textContent='Caso '+(SCEN_ORDER.indexOf(key)+1)+'/4 · '+SCEN_LABEL[key];
+  renderQuestion(); clearDx();
+  if(connected) return tryConnect();
+  setConsole();
+  return Promise.resolve();
+}
+function setMode(m){
+  mode=m;
+  ['con','mon','dtc','ver'].forEach(id=>el('m_'+id).classList.toggle('on',id===m));
+  setConsole();
+}
+SCEN_ORDER.forEach(k=>{ el('s_'+k).onclick=()=>setScenario(k); });
+el('m_con').onclick=()=>setMode('con');
+el('m_mon').onclick=()=>setMode('mon');
+el('m_dtc').onclick=()=>setMode('dtc');
+el('m_ver').onclick=()=>setMode('ver');
+
+el('btnEnergize').onclick=()=>{ connected?disconnectScanner():connectScanner(); };
+
+el('btnNext').onclick=()=>{
+  const i=(SCEN_ORDER.indexOf(scenarioKey)+1)%SCEN_ORDER.length;
+  setScenario(SCEN_ORDER[i]);
+  showToast('🔀 Nuevo caso cargado.');
+};
+
+const soundBtn=document.getElementById('soundBtn');
+soundBtn.onclick=()=>{const on=synth.toggle();soundBtn.textContent=on?'🔊':'🔇';soundBtn.classList.toggle('on',on);};
+
+/* ---------- Modo automático (guiado) ---------- */
+const sleep=ms=>new Promise(r=>setTimeout(r,ms));
+let autoRunning=false;
+async function runAuto(){
+  if(autoRunning) return;
+  autoRunning=true;
+  const btn=el('btnAuto'); const label=btn.textContent;
+  btn.disabled=true; btn.classList.add('on'); btn.textContent='⏳ Demostración en curso…';
+  try{
+    showToast('Paso 1 · Caso 1: el DLC se ve en buen estado. Energizamos el sistema y probamos la conexión.');
+    if(connected) await setScenario('noComm'); else await connectScanner();
+    setMode('con'); await sleep(1200);
+    document.querySelector('#dxWrap .b.dx[data-ok="1"]').click(); await sleep(2600);
+
+    await setScenario('aprobado'); setMode('mon');
+    showToast('Paso 2 · Caso 2: los 5 monitores obligatorios (★) están completados; 2 no obligatorios siguen pendientes y no afectan el criterio 3.'); await sleep(3200);
+    setMode('ver'); await sleep(2000);
+    document.querySelector('#dxWrap .b.dx[data-ok="1"]').click(); await sleep(2600);
+
+    await setScenario('rechazado'); setMode('dtc');
+    showToast('Paso 3 · Caso 3: readiness perfecto (11/11), pero un código P0300 confirmado en un monitor obligatorio.'); await sleep(3000);
+    setMode('ver'); await sleep(2000);
+    document.querySelector('#dxWrap .b.dx[data-ok="1"]').click(); await sleep(2600);
+
+    await setScenario('noEvaluable'); setMode('mon');
+    showToast('Paso 4 · Caso 4: doble trampa — Eficiencia del convertidor catalítico (obligatorio) "no completado", EGR "no soportado" (vehículo con VVT, y tampoco es obligatorio).'); await sleep(3600);
+    setMode('ver'); await sleep(2000);
+    document.querySelector('#dxWrap .b.dx[data-ok="1"]').click(); await sleep(2200);
+
+    showToast('✔ Demostración completa. Recorre los 4 casos libremente con los modos Conexión/Monitores/Códigos/Resultado.');
+  }finally{
+    btn.disabled=false; btn.classList.remove('on'); btn.textContent=label;
+    autoRunning=false;
+  }
+}
+el('btnAuto').onclick=runAuto;
+
+setScenario(SCEN_ORDER[0]);
+</script>
+  <!-- Ficha técnica · Capa B del molde de lab 3D (componente compartido + contenido del lab) -->
+  <script src="_ficha-tecnica.js"></script>
+  <script src="_ficha-readiness-obd.js"></script>
+</body>
+</html>
