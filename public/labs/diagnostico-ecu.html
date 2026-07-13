@@ -1,0 +1,1088 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>CEN Labs · Diagnóstico de la ECU: Alimentaciones, Tierras y Comunicación — Laboratorio 3D</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#08201C;--panel:rgba(9,26,23,.86);--line:#1E3A34;--ink:#EAF4F1;
+    --dim:#8FB3AC;--accent:#2A9D8F;--accent2:#4FD1C5;--hv:#FFB703;--good:#34d399;--bad:#f4475e;
+    --mono:'Outfit',system-ui,'Segoe UI',Roboto,sans-serif;--disp:'Outfit','Arial Black',Impact,sans-serif;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  html,body{height:100%;background:var(--bg);color:var(--ink);font-family:'Outfit',system-ui,Segoe UI,Roboto,sans-serif}
+  body{overflow:hidden}
+  #stage{position:fixed;inset:0}
+  canvas{display:block;touch-action:none}
+
+  .topbar{position:fixed;top:0;left:0;right:0;height:56px;display:flex;align-items:center;gap:14px;padding:0 20px;z-index:20;background:linear-gradient(180deg,rgba(10,13,18,.92),transparent);pointer-events:none}
+  .brand{font-family:var(--disp);font-weight:bold;font-size:16px;text-transform:uppercase}
+  .brand span{color:var(--accent)}
+  .lt{font-family:var(--mono);font-size:11px;letter-spacing:.1em;text-transform:uppercase;color:var(--dim)}
+
+  .badge{position:fixed;top:16px;right:20px;z-index:20;font-family:var(--mono);font-size:9px;letter-spacing:.12em;text-transform:uppercase;background:rgba(255,209,102,.12);color:var(--hv);border:1px solid rgba(255,209,102,.35);padding:6px 12px;border-radius:20px}
+
+  .hud{position:fixed;top:70px;left:18px;z-index:15;max-width:330px;background:var(--panel);backdrop-filter:blur(14px);border:1px solid var(--line);border-radius:16px;padding:18px 20px;max-height:calc(100vh - 150px);overflow-y:auto}
+  .hud .eyebrow{font-family:var(--mono);font-size:10px;letter-spacing:.18em;text-transform:uppercase;color:var(--accent);margin-bottom:8px}
+  .hud h2{font-size:19px;line-height:1.15;margin-bottom:9px}
+  .hud p{font-size:13px;line-height:1.55;color:var(--dim);margin-bottom:10px}
+  .hud .formula{font-family:var(--mono);color:var(--accent2);text-align:center;font-size:12.5px;margin:8px 0;padding:8px;background:rgba(0,0,0,.25);border-radius:8px;line-height:1.5}
+  .hud .src{font-size:10.5px;color:#7a8894;font-style:italic;margin-top:4px;line-height:1.5}
+  .legend{display:flex;flex-direction:column;gap:6px;margin:12px 0;padding:10px 12px;background:rgba(0,0,0,.22);border-radius:10px}
+  .legend .li{display:flex;align-items:center;gap:8px;font-size:11px;color:#c4d0da}
+  .legend .dot{width:10px;height:10px;border-radius:50%;flex:0 0 auto}
+  .fid{margin:10px 0 2px;padding:10px 12px;background:rgba(0,0,0,.22);border-radius:10px;border:1px solid rgba(79,209,197,.18)}
+  .fid .ft{font-family:var(--mono);font-size:9.5px;letter-spacing:.14em;text-transform:uppercase;color:var(--accent2);margin-bottom:6px}
+  .fid .fl{font-size:11px;color:#c4d0da;line-height:1.5;margin-bottom:5px}
+  .fid .fl b{color:var(--ink)}
+  .fid .fl.no b{color:var(--hv)}
+
+  .panel{position:fixed;top:70px;right:18px;z-index:15;width:262px;background:var(--panel);backdrop-filter:blur(14px);border:1px solid var(--line);border-radius:16px;padding:16px;max-height:calc(100vh - 150px);overflow-y:auto}
+  .panel h4{font-family:var(--mono);font-size:10px;letter-spacing:.14em;text-transform:uppercase;color:var(--dim);margin:2px 0 10px}
+  .panel h4.sec{margin-top:16px;border-top:1px solid var(--line);padding-top:14px}
+  .g{margin-bottom:6px}
+  .gl{display:flex;justify-content:space-between;font-family:var(--mono);font-size:11px;color:var(--dim)}
+  .gl b{color:var(--accent2)}
+  .gl b.good{color:var(--good)}.gl b.warn{color:var(--hv)}.gl b.bad{color:var(--bad)}
+  .modebar{display:flex;gap:5px;margin-bottom:8px}
+  .modebar .b{flex:1;padding:8px 4px;font-size:11px}
+  .btns{display:flex;flex-direction:column;gap:7px;margin-top:6px}
+  .b{font-family:system-ui;font-size:12.5px;padding:10px;border-radius:9px;cursor:pointer;border:1px solid var(--line);background:#1b242f;color:var(--ink);transition:.15s;text-align:center}
+  .b:hover{border-color:var(--accent);background:#202c38}
+  .b.on{background:var(--accent);color:#06120f;border-color:var(--accent);font-weight:bold}
+  .b.primary{background:var(--accent);color:#06120f;border-color:var(--accent);font-weight:bold}
+  .b.auto{border-color:var(--hv);color:var(--hv);background:rgba(255,183,3,.10);font-weight:bold}
+  .b.auto:hover{background:rgba(255,183,3,.18);border-color:var(--hv)}
+  .b.auto:disabled{opacity:.6;cursor:default}
+  .b.dx{text-align:left;font-size:12px}
+  .b.dx.right{background:rgba(52,211,153,.18);border-color:var(--good);color:var(--good);font-weight:bold}
+  .b.dx.wrong{background:rgba(244,71,94,.15);border-color:var(--bad);color:var(--bad)}
+  .console{font-family:var(--mono);font-size:11px;line-height:1.55;color:#c4d0da;background:rgba(0,0,0,.28);border-radius:9px;padding:10px 12px;margin-bottom:8px;min-height:56px}
+  .console .dtc{color:var(--bad);font-weight:bold}
+  .console .ok{color:var(--good)}
+  .console .mono{color:var(--dim)}
+
+  .hint{position:fixed;bottom:18px;left:18px;z-index:14;font-family:var(--mono);font-size:10px;color:var(--dim);background:var(--panel);padding:7px 12px;border-radius:9px;border:1px solid var(--line)}
+  .toast{position:fixed;top:80px;left:50%;transform:translateX(-50%);z-index:30;background:rgba(18,24,32,.95);border:1px solid var(--accent);padding:10px 20px;border-radius:40px;font-family:var(--mono);font-size:12px;opacity:0;transition:.3s;pointer-events:none;max-width:80vw;text-align:center}
+  .toast.show{opacity:1}
+  .soundBtn{position:fixed;top:14px;right:18px;z-index:21;font-size:16px;background:var(--panel);backdrop-filter:blur(12px);border:1px solid var(--line);border-radius:50%;width:36px;height:36px;cursor:pointer;color:var(--dim);transition:.15s}
+  .soundBtn.on{color:var(--accent);border-color:var(--accent)}
+  .soundBtn:hover{transform:scale(1.08)}
+  .inspectHint{position:fixed;bottom:18px;right:18px;z-index:14;font-family:var(--mono);font-size:10px;color:var(--accent2);background:var(--panel);padding:7px 12px;border-radius:9px;border:1px solid var(--line)}
+
+  @media(max-width:820px){
+    .hud,.panel{position:fixed;left:8px;right:8px;top:auto;bottom:8px;max-width:none;width:auto;max-height:42vh;overflow-y:auto}
+    .hud{bottom:calc(8px + 42vh + 8px)}
+    .hint,.inspectHint{display:none}
+  }
+</style>
+</head>
+<body>
+<div id="stage"></div>
+<button class="soundBtn on" id="soundBtn">🔊</button>
+<div class="topbar">
+  <div class="brand">CEN<span> Labs</span></div>
+  <div class="lt">Autotrónica · Diagnóstico de la ECU: alimentaciones, tierras y comunicación</div>
+</div>
+<div class="hud" id="hud"></div>
+<div class="panel" id="panel"></div>
+<div class="hint">Arrastra para orbitar · rueda para zoom</div>
+<div class="inspectHint">👆 Toca un pin del conector, el multímetro, la carga o la llave para identificarlo</div>
+<div class="toast" id="toast"></div>
+
+<script type="importmap">
+{ "imports": {
+  "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.min.js",
+  "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/"
+}}
+</script>
+<script type="module">
+import * as THREE from 'three';
+import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
+import { RoundedBoxGeometry } from 'three/addons/geometries/RoundedBoxGeometry.js';
+import { EffectComposer } from 'three/addons/postprocessing/EffectComposer.js';
+import { RenderPass } from 'three/addons/postprocessing/RenderPass.js';
+import { GTAOPass } from 'three/addons/postprocessing/GTAOPass.js';
+import { UnrealBloomPass } from 'three/addons/postprocessing/UnrealBloomPass.js';
+import { SMAAPass } from 'three/addons/postprocessing/SMAAPass.js';
+import { OutputPass } from 'three/addons/postprocessing/OutputPass.js';
+import { BokehPass } from 'three/addons/postprocessing/BokehPass.js';
+
+/* ============================================================
+   Texturas PBR procedurales (sin archivos externos) — compartidas
+   ============================================================ */
+function cv(s=512){const c=document.createElement('canvas');c.width=c.height=s;return c;}
+function tex(canvas,repeat=1,srgb=false){
+  const t=new THREE.CanvasTexture(canvas);
+  t.wrapS=t.wrapT=THREE.RepeatWrapping;t.repeat.set(repeat,repeat);
+  t.colorSpace = srgb?THREE.SRGBColorSpace:THREE.NoColorSpace;
+  t.generateMipmaps=false; t.minFilter=THREE.LinearFilter; t.anisotropy=1; return t;
+}
+function normalFromHeight(size, hfn, strength=2.0){
+  const c=cv(size),ctx=c.getContext('2d'),img=ctx.createImageData(size,size);
+  const H=(x,y)=>hfn((x+size)%size,(y+size)%size);
+  for(let y=0;y<size;y++)for(let x=0;x<size;x++){
+    const dx=(H(x+1,y)-H(x-1,y))*strength;
+    const dy=(H(x,y+1)-H(x,y-1))*strength;
+    const nz=1.0; const len=Math.hypot(dx,dy,nz);
+    const i=(y*size+x)*4;
+    img.data[i]  =((-dx/len)*0.5+0.5)*255;
+    img.data[i+1]=((-dy/len)*0.5+0.5)*255;
+    img.data[i+2]=((nz/len)*0.5+0.5)*255;
+    img.data[i+3]=255;
+  }
+  ctx.putImageData(img,0,0);return c;
+}
+function valueNoise(seed=1){
+  const g=(x,y)=>{const s=Math.sin((x*127.1+y*311.7)+seed*13.13)*43758.5453;return s-Math.floor(s);};
+  return (x,y)=>{
+    const xi=Math.floor(x),yi=Math.floor(y),xf=x-xi,yf=y-yi;
+    const u=xf*xf*(3-2*xf),v=yf*yf*(3-2*yf);
+    const a=g(xi,yi),b=g(xi+1,yi),c=g(xi,yi+1),d=g(xi+1,yi+1);
+    return a*(1-u)*(1-v)+b*u*(1-v)+c*(1-u)*v+d*u*v;
+  };
+}
+function fbm(noise,x,y,oct=4){let v=0,a=0.5,f=1;for(let i=0;i<oct;i++){v+=noise(x*f,y*f)*a;f*=2;a*=0.5;}return v;}
+
+function castAluminum(){
+  const S=512, n=valueNoise(7);
+  const c=cv(S),ctx=c.getContext('2d'),img=ctx.createImageData(S,S);
+  for(let y=0;y<S;y++)for(let x=0;x<S;x++){
+    const v=fbm(n,x/22,y/22,5);
+    const por=Math.pow(n(x/3.1,y/3.1),8);
+    const base=150+v*38-por*70;
+    const i=(y*S+x)*4; img.data[i]=base; img.data[i+1]=base+4; img.data[i+2]=base+10; img.data[i+3]=255;
+  }
+  ctx.putImageData(img,0,0);
+  const r=cv(S),rx=r.getContext('2d'),rimg=rx.createImageData(S,S);
+  for(let y=0;y<S;y++)for(let x=0;x<S;x++){
+    const v=fbm(n,x/18,y/18,4); const por=Math.pow(n(x/3.1,y/3.1),8);
+    const rough=120+v*40+por*90; const i=(y*S+x)*4;
+    rimg.data[i]=rimg.data[i+1]=rimg.data[i+2]=Math.min(255,rough); rimg.data[i+3]=255;
+  }
+  rx.putImageData(rimg,0,0);
+  const nrm=normalFromHeight(S,(x,y)=>fbm(n,x/16,y/16,5)+Math.pow(n(x/3.1,y/3.1),8)*0.6,3.0);
+  return {map:tex(c,1,true),roughnessMap:tex(r),normalMap:tex(nrm)};
+}
+function brushedMetal(){
+  const S=512, n=valueNoise(3);
+  const c=cv(S),ctx=c.getContext('2d'),img=ctx.createImageData(S,S);
+  for(let y=0;y<S;y++)for(let x=0;x<S;x++){
+    const streak=Math.sin(y*0.9)*2 + (n(x/120,y*0.5)-0.5)*40;
+    const base=185+streak; const i=(y*S+x)*4;
+    img.data[i]=base; img.data[i+1]=base+2; img.data[i+2]=base+6; img.data[i+3]=255;
+  }
+  ctx.putImageData(img,0,0);
+  const r=cv(S),rx=r.getContext('2d'),rimg=rx.createImageData(S,S);
+  for(let y=0;y<S;y++)for(let x=0;x<S;x++){
+    const streak=(n(x/120,y*0.5)-0.5)*60; const rough=40+Math.abs(streak); const i=(y*S+x)*4;
+    rimg.data[i]=rimg.data[i+1]=rimg.data[i+2]=Math.min(160,rough); rimg.data[i+3]=255;
+  }
+  rx.putImageData(rimg,0,0);
+  const nrm=normalFromHeight(S,(x,y)=>(n(x/120,y*0.5))*0.3+Math.sin(y*0.9)*0.02,1.2);
+  return {map:tex(c,1,true),roughnessMap:tex(r),normalMap:tex(nrm)};
+}
+function rubber(){
+  const S=256,n=valueNoise(5);
+  const nrm=normalFromHeight(S,(x,y)=>fbm(n,x/8,y/8,4),1.4);
+  const rough=cv(64),rc=rough.getContext('2d');rc.fillStyle='#e0e0e0';rc.fillRect(0,0,64,64);
+  return {roughnessMap:tex(rough),normalMap:tex(nrm,2)};
+}
+function gradientBG(top='#11161d',bottom='#05070a'){
+  const c=cv(512),ctx=c.getContext('2d');
+  const grd=ctx.createLinearGradient(0,0,0,512);
+  grd.addColorStop(0,top);grd.addColorStop(1,bottom);
+  ctx.fillStyle=grd;ctx.fillRect(0,0,512,512);
+  const rg=ctx.createRadialGradient(256,200,30,256,256,360);
+  rg.addColorStop(0,'rgba(42,157,143,0.10)');rg.addColorStop(1,'rgba(0,0,0,0)');
+  ctx.fillStyle=rg;ctx.fillRect(0,0,512,512);
+  return tex(c,1,true);
+}
+function techPlastic(r=0.10,g=0.11,b=0.13){
+  const S=256,n=valueNoise(31);
+  const c=cv(S),ctx=c.getContext('2d'),img=ctx.createImageData(S,S);
+  for(let y=0;y<S;y++)for(let x=0;x<S;x++){
+    const v=fbm(n,x/30,y/30,3)*0.1+0.92; const i=(y*S+x)*4;
+    img.data[i]=r*255*v;img.data[i+1]=g*255*v;img.data[i+2]=b*255*v;img.data[i+3]=255;
+  }
+  ctx.putImageData(img,0,0);
+  const nrm=normalFromHeight(S,(x,y)=>fbm(n,x/10,y/10,3),0.8);
+  const rough=cv(64),rc=rough.getContext('2d');rc.fillStyle='#9a9a9a';rc.fillRect(0,0,64,64);
+  return {map:tex(c,1,true),roughnessMap:tex(rough),normalMap:tex(nrm)};
+}
+
+/* ============================================================
+   ENGINE — render premium compartido por todos los laboratorios
+   ============================================================ */
+function createStage(mount, opts={}){
+  const bgTop = opts.bgTop||'#141b24', bgBot = opts.bgBot||'#05070a';
+  const renderer = new THREE.WebGLRenderer({ antialias:true, powerPreference:'high-performance' });
+  renderer.setPixelRatio(Math.min(devicePixelRatio,2));
+  renderer.setSize(mount.clientWidth, mount.clientHeight);
+  renderer.shadowMap.enabled = true;
+  renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+  renderer.toneMapping = THREE.ACESFilmicToneMapping;
+  renderer.toneMappingExposure = opts.exposure ?? 1.18;
+  renderer.outputColorSpace = THREE.SRGBColorSpace;
+  mount.appendChild(renderer.domElement);
+  renderer.domElement.style.touchAction='none';
+
+  const scene = new THREE.Scene();
+  scene.background = gradientBG(bgTop,bgBot);
+  const pmrem = new THREE.PMREMGenerator(renderer);
+  scene.environment = pmrem.fromScene(new RoomEnvironment(renderer), 0.04).texture;
+  scene.environmentIntensity = opts.envInt ?? 1.15;
+
+  const camera = new THREE.PerspectiveCamera(45, mount.clientWidth/mount.clientHeight, 0.1, 200);
+  const cam = opts.cam || [5.5,3.4,6.2];
+  camera.position.set(...cam);
+
+  const controls = new OrbitControls(camera, renderer.domElement);
+  controls.enableDamping = true; controls.dampingFactor = 0.07;
+  controls.minDistance = opts.minD ?? 3; controls.maxDistance = opts.maxD ?? 18;
+  controls.maxPolarAngle = Math.PI*0.52;
+  controls.target.set(...(opts.target||[0,1.4,0]));
+  controls.autoRotate = opts.autoRotate ?? false;
+  controls.autoRotateSpeed = opts.autoRotateSpeed ?? 0.6;
+
+  const key = new THREE.DirectionalLight(0xffffff, 2.7);
+  key.position.set(5,9,6); key.castShadow=true;
+  key.shadow.mapSize.set(2048,2048);
+  key.shadow.camera.near=0.5; key.shadow.camera.far=40;
+  const sd=8; Object.assign(key.shadow.camera,{left:-sd,right:sd,top:sd,bottom:-sd});
+  key.shadow.bias=-0.0003; key.shadow.normalBias=0.02; scene.add(key);
+  const rim = new THREE.SpotLight(0x2affce, 55, 30, Math.PI/5, 0.4, 1.5);
+  rim.position.set(-7,6,-5); scene.add(rim);
+  const fill = new THREE.DirectionalLight(0x6fb6ff, 0.5); fill.position.set(-4,3,7); scene.add(fill);
+  scene.add(new THREE.HemisphereLight(0x9fb4c8, 0x10151b, 0.35));
+
+  if(opts.floor!==false){
+    const f = new THREE.Mesh(new THREE.CircleGeometry(40,80),
+      new THREE.MeshStandardMaterial({ color:0x0a0e13, roughness:0.14, metalness:0.62, envMapIntensity:1.15 }));
+    f.rotation.x=-Math.PI/2; f.receiveShadow=true; scene.add(f);
+    for(let r=2;r<=8;r+=2){
+      const ring=new THREE.Mesh(new THREE.RingGeometry(r-0.012,r+0.012,80),
+        new THREE.MeshBasicMaterial({color:0x1a2632,transparent:true,opacity:0.4}));
+      ring.rotation.x=-Math.PI/2; ring.position.y=0.002; scene.add(ring);
+    }
+  }
+
+  const isMobile = /Mobi|Android|iPhone|iPad/i.test(navigator.userAgent) || innerWidth<820;
+  // GTAO desactivado por defecto: el pase de oclusión ambiental en espacio de pantalla
+  // producía un recuadro oscuro duro sobre el piso reflectante (artefacto dependiente de la
+  // cámara y del renderer). La escena tiene AO suficiente con luces directas + sombras + env.
+  // Se puede reactivar para pruebas con ?gtao.
+  const useGtao = /[?&]gtao\b/.test(location.search);
+  const composer = new EffectComposer(renderer);
+  composer.addPass(new RenderPass(scene,camera));
+  if(!isMobile && useGtao){
+    try{
+      const g=new GTAOPass(scene,camera,mount.clientWidth,mount.clientHeight);
+      g.output=GTAOPass.OUTPUT.Default;
+      if(g.updateGtaoMaterial)g.updateGtaoMaterial({radius:0.5,distanceExponent:1,thickness:1,scale:1.1,samples:16});
+      composer.addPass(g);
+    }catch(e){}
+  }
+  const bloom=new UnrealBloomPass(new THREE.Vector2(mount.clientWidth,mount.clientHeight),opts.bloom??0.42,0.5,0.9);
+  composer.addPass(bloom);
+  let bokeh=null;
+  const flat=/[?&]flat/.test(location.search);
+  if(!isMobile && !flat){
+    bokeh=new BokehPass(scene,camera,{focus:8.5,aperture:opts.aperture??0.00018,maxblur:opts.maxblur??0.004,width:mount.clientWidth,height:mount.clientHeight});
+    composer.addPass(bokeh);
+  }
+  composer.addPass(new OutputPass());
+  composer.addPass(new SMAAPass(mount.clientWidth*renderer.getPixelRatio(),mount.clientHeight*renderer.getPixelRatio()));
+
+  function resize(){
+    const w=mount.clientWidth,h=mount.clientHeight;
+    camera.aspect=w/h; camera.updateProjectionMatrix();
+    renderer.setSize(w,h); composer.setSize(w,h);
+  }
+  window.addEventListener('resize',resize);
+
+  const clock=new THREE.Clock();
+  let hook=null, raf=null;
+  const camCine={active:false,t:0,dur:1.4,from:new THREE.Vector3(),to:new THREE.Vector3(),fromT:new THREE.Vector3(),toT:new THREE.Vector3()};
+  let lastDrag=-99, cinematicIdle=false;
+  controls.addEventListener('start',()=>{ lastDrag=clock.elapsedTime; camCine.active=false; });
+  function easeInOutCubic(x){return x<0.5?4*x*x*x:1-Math.pow(-2*x+2,3)/2;}
+  function moveTo(pos,target,dur=1.4){
+    camCine.from.copy(camera.position); camCine.fromT.copy(controls.target);
+    camCine.to.set(...pos); camCine.toT.set(...target);
+    camCine.dur=dur; camCine.active=true; camCine.t=0;
+  }
+  function setCinematicIdle(v){ cinematicIdle=v; if(!v)controls.autoRotate=false; }
+  function loop(){ raf=requestAnimationFrame(loop); const dt=clock.getDelta(),t=clock.elapsedTime;
+    if(camCine.active){
+      camCine.t=Math.min(1,camCine.t+dt/camCine.dur);
+      const e=easeInOutCubic(camCine.t);
+      camera.position.lerpVectors(camCine.from,camCine.to,e);
+      controls.target.lerpVectors(camCine.fromT,camCine.toT,e);
+      if(camCine.t>=1)camCine.active=false;
+    } else if(cinematicIdle){
+      controls.autoRotate=(t-lastDrag)>1.4; controls.autoRotateSpeed=0.45;
+    }
+    if(hook)hook(dt,t); controls.update();
+    if(bokeh) bokeh.uniforms['focus'].value = camera.position.distanceTo(controls.target);
+    composer.render(); }
+  function start(){ if(!raf)loop(); }
+  function stop(){ cancelAnimationFrame(raf); raf=null; window.removeEventListener('resize',resize); }
+
+  return { THREE, renderer, scene, camera, controls, composer, bloom,
+    setAnimate:fn=>hook=fn, start, stop, resize, clock,
+    flyTo:(v)=>{ controls.target.copy(v); }, moveTo, setCinematicIdle };
+}
+
+/* ---------- shared geometry/material helpers ---------- */
+function roundedBox(w,h,d,mat,rf=0.08){
+  const r=Math.min(w,h,d)*rf;
+  const m=new THREE.Mesh(new RoundedBoxGeometry(w,h,d,4,r),mat);
+  m.castShadow=m.receiveShadow=true; return m;
+}
+function pickerFor(scene,camera,dom,onHit){
+  const ray=new THREE.Raycaster(),mouse=new THREE.Vector2(); let down=null;
+  dom.addEventListener('pointerdown',e=>down=[e.clientX,e.clientY]);
+  dom.addEventListener('pointerup',e=>{
+    if(!down)return; const moved=Math.abs(e.clientX-down[0])+Math.abs(e.clientY-down[1])>6; down=null;
+    if(moved)return;
+    const r=dom.getBoundingClientRect();
+    mouse.x=((e.clientX-r.left)/r.width)*2-1; mouse.y=-((e.clientY-r.top)/r.height)*2+1;
+    ray.setFromCamera(mouse,camera);
+    const hits=ray.intersectObjects(scene.children,true);
+    onHit(hits[0]||null);
+  });
+}
+function labelSprite(text,color='#ffd166'){
+  const w = Math.max(150, Math.min(520, text.length*26+60));
+  const cvE=document.createElement('canvas');cvE.width=w;cvE.height=96;
+  const c=cvE.getContext('2d');c.fillStyle='rgba(8,11,16,.95)';
+  const rr=(x,y,ww,hh,r)=>{c.beginPath();c.moveTo(x+r,y);c.arcTo(x+ww,y,x+ww,y+hh,r);c.arcTo(x+ww,y+hh,x,y+hh,r);c.arcTo(x,y+hh,x,y,r);c.arcTo(x,y,x+ww,y,r);c.closePath();};
+  rr(3,3,w-6,90,18);c.fill();
+  c.strokeStyle=color;c.lineWidth=3;c.stroke();
+  c.font='bold 36px Outfit, system-ui, sans-serif';c.fillStyle=color;c.textAlign='center';c.textBaseline='middle';c.fillText(text,w/2,48);
+  const tx=new THREE.CanvasTexture(cvE);tx.colorSpace=THREE.SRGBColorSpace;tx.generateMipmaps=false;tx.minFilter=THREE.LinearFilter;
+  const sp=new THREE.Sprite(new THREE.SpriteMaterial({map:tx,depthTest:false,transparent:true}));
+  const aspect=w/96;
+  sp.scale.set(0.30*aspect,0.30,1);sp.renderOrder=999;return sp;
+}
+
+/* ============================================================
+   SYNTH — sintetizador Web Audio reutilizable
+   ============================================================ */
+function makeSynth(opts={}){
+  const type=opts.type||'sawtooth';
+  let ctx=null,oscA=null,oscB=null,gain=null,filter=null,soundOn=true;
+  function init(){
+    if(ctx)return;
+    try{
+      ctx=new (window.AudioContext||window.webkitAudioContext)();
+      oscA=ctx.createOscillator(); oscB=ctx.createOscillator();
+      oscA.type=type; oscB.type=opts.type2||'square';
+      filter=ctx.createBiquadFilter(); filter.type=opts.filterType||'lowpass'; filter.frequency.value=opts.filterFreq||500; filter.Q.value=opts.Q||3;
+      gain=ctx.createGain(); gain.gain.value=0;
+      oscA.connect(filter); oscB.connect(filter); filter.connect(gain); gain.connect(ctx.destination);
+      oscA.start(); oscB.start();
+    }catch(e){}
+  }
+  function update(freqA,freqB,vol,filterFreq){
+    if(!ctx||!soundOn){ if(gain)gain.gain.setTargetAtTime(0,ctx?.currentTime||0,0.1); return; }
+    oscA.frequency.setTargetAtTime(freqA,ctx.currentTime,0.04);
+    if(freqB!==undefined)oscB.frequency.setTargetAtTime(freqB,ctx.currentTime,0.04);
+    if(filterFreq!==undefined)filter.frequency.setTargetAtTime(filterFreq,ctx.currentTime,0.05);
+    gain.gain.setTargetAtTime(Math.max(0,vol),ctx.currentTime,0.06);
+  }
+  function beep(freq=880,dur=0.09,vol=0.06){
+    if(!ctx||!soundOn)return;
+    const o=ctx.createOscillator(),g=ctx.createGain();
+    o.type='sine'; o.frequency.value=freq;
+    g.gain.setValueAtTime(vol,ctx.currentTime); g.gain.exponentialRampToValueAtTime(0.001,ctx.currentTime+dur);
+    o.connect(g); g.connect(ctx.destination); o.start(); o.stop(ctx.currentTime+dur);
+  }
+  function toggle(){ soundOn=!soundOn; return soundOn; }
+  function resume(){ if(ctx&&ctx.state==='suspended')ctx.resume(); }
+  return { init, update, beep, toggle, resume, isOn:()=>soundOn, state:()=>ctx?.state||'none' };
+}
+
+/* ============================================================
+   LAB — DIAGNÓSTICO DE LA ECU: ALIMENTACIONES, TIERRAS Y
+   COMUNICACIÓN (Dominio D10 · instrumentación)
+   Cierra el tramo de instrumentación del dominio D10 (escáner
+   OBD-II → monitores de disponibilidad → bus CAN): antes de
+   sospechar de la ECU misma, un técnico revisa lo que la rodea.
+   Normatividad y física de referencia (ver docs/VERIFICACION-
+   LISTA-MAESTRA.md §14 para el detalle verificado):
+     · SAE J1962 — pinout del conector de diagnóstico (norma
+       ancla PARCIAL: cubre alimentación de batería siempre viva
+       y tierras de chasis/señal, pero NO la referencia de 5 V,
+       que vive en el conector propio de la ECU, específico de
+       cada fabricante — por eso este laboratorio usa un conector
+       de ECU GENÉRICO Y REPRESENTATIVO, no un clon de J1962).
+     · Convención ampliamente documentada en diagnóstico
+       automotriz (triangulada entre múltiples fuentes, no una
+       única norma primaria de acceso público): referencia de
+       5 V compartida entre varios sensores, umbral de caída de
+       tensión en tierra bajo carga (≤0.1 V aceptable / >0.3 V
+       falla), y la separación funcional entre tierra de potencia
+       y tierra de señal.
+   Modelo de ingeniería (didáctico):
+     · Los 4 casos comparten el mismo conector de 9 pines; lo
+       único que cambia es el estado eléctrico real del sistema.
+       Los Casos 2 y 4 empiezan en su estado "sano en apariencia"
+       a propósito — el punto didáctico es que la prueba ingenua
+       (sin carga / sin revisar la llave) no revela la falla. El
+       Caso 3 empieza ya fallado, como llegaría un vehículo real.
+     · CAN_H/CAN_L se mantienen sanas en los 4 casos: ninguno de
+       ellos involucra al bus — recordatorio de que no todo lo
+       que se inspecciona resulta estar fallando.
+   ============================================================ */
+const mount=document.getElementById('stage');
+const S=createStage(mount,{cam:[3.8,2.7,5.0],target:[-0.2,0.55,0.35],bgTop:'#0a1620',bgBot:'#03060a',bloom:0.36,minD:3,maxD:15});
+const {scene}=S;
+const std=o=>new THREE.MeshStandardMaterial(o);
+const brush=brushedMetal(), plas=techPlastic(0.08,0.09,0.11), rub=rubber();
+const MAT={
+  bench: std({...plas, metalness:0.15, roughness:0.75}),
+  nodeBody: std({...plas, color:0x1c2230, metalness:0.3, roughness:0.55}),
+  tapBody: std({...plas, color:0x22282f, metalness:0.3, roughness:0.5}),
+  groundStud: std({...brush, color:0xc7cdd6, metalness:0.9, roughness:0.25}),
+  wireBlack: std({...rub, color:0x1a1a1a, roughness:0.85, metalness:0.0}),
+  wireRed: std({...rub, color:0xe0483c, roughness:0.85, metalness:0.0}),
+  meterBody: std({...plas, color:0x1c2230, metalness:0.35, roughness:0.55}),
+  jackRed: std({...brush, color:0xe0483c, metalness:0.85, roughness:0.3}),
+  jackBlack: std({...brush, color:0x2a2a2a, metalness:0.85, roughness:0.3}),
+  busLed: std({color:0x0a1210, emissive:0x3ad9c2, emissiveIntensity:0.05, roughness:0.35, metalness:0.1}),
+  cargaBody: std({...plas, color:0x2a2015, metalness:0.2, roughness:0.6}),
+  cargaGlow: std({color:0x2a1a05, emissive:0xffb703, emissiveIntensity:0.05, roughness:0.4, metalness:0.1}),
+  llaveBody: std({...plas, color:0x22282f, metalness:0.3, roughness:0.5}),
+  llaveGlow: std({color:0x1a1005, emissive:0xff8c42, emissiveIntensity:0.05, roughness:0.35, metalness:0.1}),
+};
+
+const PARTS=[];
+const HOVER_LABELS=new Map();
+function registerPart(mesh,name,desc,color){
+  const part={mesh,name,desc};
+  PARTS.push(part);
+  const lb=labelSprite(name,color||'#ffd166');
+  lb.position.copy(mesh.position);
+  lb.position.y+=0.62;
+  lb.visible=false; lb.raycast=()=>{};
+  (mesh.parent||scene).add(lb);
+  HOVER_LABELS.set(mesh,lb);
+  return part;
+}
+function setInspectable(mesh,on){
+  if(!mesh._origRaycast) mesh._origRaycast=mesh.raycast.bind(mesh);
+  mesh.visible=on;
+  mesh.raycast = on ? mesh._origRaycast : ()=>{};
+}
+
+const toast=document.getElementById('toast');
+function showToast(html){
+  toast.innerHTML=html;
+  toast.classList.add('show');
+  clearTimeout(showToast._t);
+  showToast._t=setTimeout(()=>toast.classList.remove('show'),3200);
+}
+
+/* ---------- 1) BANCO ---------- */
+const bench=roundedBox(5.6,0.28,2.8,MAT.bench,0.05);
+bench.position.set(-0.2,-0.02,0.3);
+scene.add(bench);
+
+/* ---------- 2) ECU + CONECTOR DE 9 PINES ---------- */
+const ecuGroup=new THREE.Group(); ecuGroup.position.set(-2.05,0.62,0); scene.add(ecuGroup);
+const ecuBody=roundedBox(0.85,0.62,0.42,MAT.nodeBody,0.07);
+ecuGroup.add(ecuBody);
+registerPart(ecuBody,'Módulo de la ECU','La computadora del motor. Aquí llegan alimentaciones, tierras y señales de sensores para procesarse — antes de sospechar de ella, un técnico revisa primero lo que la rodea.','#8fb3ac');
+
+const connBody=roundedBox(0.52,0.42,0.16,MAT.tapBody,0.05);
+connBody.position.set(0,0,0.29);
+ecuGroup.add(connBody);
+registerPart(connBody,'Conector de la ECU (representativo)','Conector genérico con fines didácticos: agrupa las categorías de pines más comunes de una ECU real, pero no es un clon de ningún conector estandarizado. El conector real de diagnóstico (SAE J1962), por ejemplo, no lleva la referencia de 5 V — esa referencia vive en el conector propio de la ECU, específico de cada fabricante.','#5eead4');
+
+const PINS=[
+  {key:'bateria', short:'BATERÍA', label:'Alimentación de batería (constante)', x:-0.16, y:0.14, color:'#ffb703',
+   desc:'Alimentación directa de la batería. Debe estar presente con la llave apagada o encendida — es la que mantiene viva la memoria/configuración de la ECU.'},
+  {key:'conmutada', short:'CONMUTADA', label:'Alimentación conmutada (con la llave)', x:0, y:0.14, color:'#ff8c42',
+   desc:'Solo tiene voltaje con la llave en contacto o marcha. Leer 0 V con la llave apagada es exactamente el comportamiento esperado, no una falla.'},
+  {key:'tierraPot', short:'TIERRA POT.', label:'Tierra de potencia (chasis)', x:0.16, y:0.14, color:'#8fb3ac',
+   desc:'Retorno de las corrientes más grandes (actuadores/inyectores). Tolera algo más de caída de tensión que la tierra de señal.'},
+  {key:'tierraSenal', short:'TIERRA SEÑAL', label:'Tierra de señal (sensores)', x:-0.16, y:0, color:'#5eead4',
+   desc:'Retorno dedicado y de baja impedancia para las señales de los sensores. Debe caer ≤0.1 V bajo carga — cualquier sensor referido a esta tierra hereda su error.'},
+  {key:'ref5v', short:'REF. 5V', label:'Referencia de 5 V (sensores)', x:0, y:0, color:'#b98cff',
+   desc:'Riel regulado que alimenta a varios sensores a la vez (potenciométricos y algunos de presión). Un corto interno en cualquiera de ellos puede arrastrar a todos los demás.'},
+  {key:'canH', short:'CAN H', label:'CAN High', x:0.16, y:0, color:'#ffd166',
+   desc:'Línea de comunicación del bus CAN (ver mecanica-30 para el detalle de la codificación diferencial). Ninguno de los 4 casos de este laboratorio involucra al bus.'},
+  {key:'canL', short:'CAN L', label:'CAN Low', x:-0.16, y:-0.14, color:'#4fd1c5',
+   desc:'Segunda línea del par diferencial CAN. Se mantiene sana en los 4 casos de este laboratorio.'},
+  {key:'sensorA', short:'SENSOR A', label:'Sensor A · MAP (presión absoluta del múltiple)', x:0, y:-0.14, color:'#eaf4f1',
+   desc:'Sensor potenciométrico alimentado por la referencia de 5 V compartida.'},
+  {key:'sensorB', short:'SENSOR B', label:'Sensor B · TPS (posición del acelerador)', x:0.16, y:-0.14, color:'#c8f0e6',
+   desc:'Otro sensor que comparte la misma referencia de 5 V que el Sensor A.'},
+];
+const PIN_BY_MESH=new Map();
+const pinMat=hex=>std({...brush, color:new THREE.Color(hex), metalness:0.85, roughness:0.3});
+PINS.forEach(p=>{
+  const m=new THREE.Mesh(new THREE.CylinderGeometry(0.022,0.022,0.05,12), pinMat(p.color));
+  m.rotation.x=Math.PI/2;
+  m.position.set(p.x,p.y,0.37);
+  ecuGroup.add(m);
+  p.mesh=m;
+  registerPart(m,p.label,p.desc,p.color);
+  PIN_BY_MESH.set(m,p.key);
+});
+
+/* ---------- 3) PUNTO DE REFERENCIA DE TIERRA ---------- */
+const groundStud=new THREE.Mesh(new THREE.CylinderGeometry(0.05,0.06,0.10,16),MAT.groundStud);
+groundStud.position.set(-1.15,0.30,0.65);
+scene.add(groundStud);
+registerPart(groundStud,'Punto de referencia de tierra (chasis, verificado)','Punto de tierra confiable y ya verificado. La punta negra del multímetro permanece aquí siempre — así se hace una prueba real de caída de tensión: nunca comparando un pin sospechoso contra sí mismo.','#c7cdd6');
+
+/* ---------- 4) CONSUMIDOR DE PRUEBA (CARGA, CASO 2) ---------- */
+const cargaGroup=new THREE.Group(); cargaGroup.position.set(-1.55,0.28,0.65); scene.add(cargaGroup);
+const cargaBodyMesh=roundedBox(0.22,0.16,0.16,MAT.cargaBody,0.04);
+cargaGroup.add(cargaBodyMesh);
+const cargaBulb=new THREE.Mesh(new THREE.SphereGeometry(0.045,12,12),MAT.cargaGlow);
+cargaBulb.position.set(0,0.13,0);
+cargaGroup.add(cargaBulb);
+registerPart(cargaBodyMesh,'Consumidor de prueba (carga)','Actívalo para hacer circular corriente real por la tierra de señal. Solo bajo carga se revela una tierra en alta resistencia; en reposo, sin corriente fluyendo, la misma tierra dañada puede parecer sana.','#ffb703');
+
+/* ---------- 5) INTERRUPTOR DE CONTACTO (LLAVE, CASO 4) ---------- */
+const llaveGroup=new THREE.Group(); llaveGroup.position.set(-2.05,0.28,0.65); scene.add(llaveGroup);
+const llaveBodyMesh=roundedBox(0.18,0.20,0.14,MAT.llaveBody,0.04);
+llaveGroup.add(llaveBodyMesh);
+const llaveRing=new THREE.Mesh(new THREE.TorusGeometry(0.055,0.014,10,20),MAT.llaveGlow);
+llaveRing.position.set(0,0,0.08);
+llaveGroup.add(llaveRing);
+registerPart(llaveBodyMesh,'Interruptor de contacto (llave)','Con la llave apagada, el pin de alimentación conmutada debe leer 0 V — es diseño, no una falla. Solo la alimentación constante debe seguir viva en esa posición.','#ff8c42');
+
+/* ---------- 6) MULTÍMETRO ---------- */
+const meterGroup=new THREE.Group(); meterGroup.position.set(1.7,0.78,0.9); scene.add(meterGroup);
+const meterBody=roundedBox(0.62,0.95,0.16,MAT.meterBody,0.06);
+meterGroup.add(meterBody);
+registerPart(meterBody,'Multímetro','Instrumento que mide el voltaje entre la punta roja (el pin que elijas) y la punta negra (fija en la referencia de tierra verificada).','#5eead4');
+
+const scrCanvas=document.createElement('canvas');
+scrCanvas.width=240; scrCanvas.height=180;
+const scrTex=new THREE.CanvasTexture(scrCanvas);
+scrTex.colorSpace=THREE.SRGBColorSpace;
+scrTex.minFilter=THREE.LinearFilter;
+scrTex.generateMipmaps=false;
+const screenMesh=new THREE.Mesh(new THREE.PlaneGeometry(0.48,0.37),new THREE.MeshBasicMaterial({map:scrTex,toneMapped:false}));
+screenMesh.position.set(0,0.22,0.085);
+meterGroup.add(screenMesh);
+registerPart(screenMesh,'Pantalla del multímetro','Muestra el pin actualmente sondeado y su lectura en vivo.','#5eead4');
+
+const jackRed=new THREE.Mesh(new THREE.CylinderGeometry(0.028,0.028,0.04,14),MAT.jackRed);
+jackRed.rotation.x=Math.PI/2; jackRed.position.set(-0.10,-0.34,0.085);
+meterGroup.add(jackRed);
+registerPart(jackRed,'Entrada roja (V, sonda móvil)','Aquí sale la punta roja, la que mueves de pin en pin al tocar el conector de la ECU.','#e0483c');
+
+const jackBlack=new THREE.Mesh(new THREE.CylinderGeometry(0.028,0.028,0.04,14),MAT.jackBlack);
+jackBlack.rotation.x=Math.PI/2; jackBlack.position.set(0.10,-0.34,0.085);
+meterGroup.add(jackBlack);
+registerPart(jackBlack,'Entrada negra (COM, fija)','Aquí sale la punta negra (COM), fija en la referencia de tierra verificada durante todo el laboratorio.','#2a2a2a');
+
+const meterLed=new THREE.Mesh(new THREE.SphereGeometry(0.03,12,12),MAT.busLed);
+meterLed.position.set(0.24,0.42,0.085);
+meterGroup.add(meterLed);
+registerPart(meterLed,'Indicador de actividad de bus (CAN)','Se mantiene en verde en los 4 casos de este laboratorio: ninguno de ellos involucra al bus CAN — un recordatorio de que no todo lo que inspeccionas resulta estar fallando.','#3ad9c2');
+
+/* ---------- 7) PUNTAS DE PRUEBA ---------- */
+function cableTube(points,radius,mat){
+  const curve=new THREE.CatmullRomCurve3(points.map(p=>new THREE.Vector3(...p)));
+  const m=new THREE.Mesh(new THREE.TubeGeometry(curve,40,radius,8,false),mat);
+  scene.add(m);
+  return m;
+}
+const _v=new THREE.Vector3();
+function worldOf(mesh){ mesh.getWorldPosition(_v); return [_v.x,_v.y,_v.z]; }
+
+const jB=worldOf(jackBlack), gS=worldOf(groundStud);
+const probeBlack=cableTube([jB,[(jB[0]+gS[0])/2,Math.max(jB[1],gS[1])+0.22,(jB[2]+gS[2])/2],gS],0.014,MAT.wireBlack);
+registerPart(probeBlack,'Punta negra (COM)','Cable fijo entre el multímetro y el punto de referencia de tierra ya verificado.','#2a2a2a');
+
+let probeRed=null;
+function rebuildProbeRed(targetMesh){
+  if(probeRed){ probeRed.geometry.dispose(); scene.remove(probeRed); }
+  const j=worldOf(jackRed), t=worldOf(targetMesh);
+  const mid=[(j[0]+t[0])/2,Math.max(j[1],t[1])+0.28,(j[2]+t[2])/2];
+  probeRed=cableTube([j,mid,t],0.014,MAT.wireRed);
+}
+
+/* ---------- 8) MODELO DE DATOS ---------- */
+const SCEN_ORDER=['sano','tierra','corto5v','conmutada'];
+const SCEN_LABEL={
+  sano:'Caso 1 · ECU sana',
+  tierra:'Caso 2 · Tierra en alta resistencia',
+  corto5v:'Caso 3 · Corto en la referencia de 5 V',
+  conmutada:'Caso 4 · Alimentación conmutada',
+};
+
+let scenarioKey='sano';
+let energized=false;
+let cargaActiva=false;
+let cortoActivo=false;
+let sensorADesconectado=false;
+let llaveOn=false;
+let selectedPin='bateria';
+const answered={sano:false,tierra:false,corto5v:false,conmutada:false};
+
+function computeReading(key){
+  switch(key){
+    case 'bateria': {
+      if(scenarioKey==='conmutada') return llaveOn?{v:'14.2 V',cls:'good',note:'motor en marcha'}:{v:'12.6 V',cls:'good',note:'contacto apagado'};
+      return {v:'12.6–14.2 V',cls:'good',note:'según estado del motor'};
+    }
+    case 'conmutada': {
+      if(scenarioKey==='conmutada') return llaveOn?{v:'12.6 V',cls:'good',note:'con la llave en marcha'}:{v:'0 V',cls:'warn',note:'llave apagada — esperado'};
+      return {v:'0–12.6 V',cls:'good',note:'según la llave'};
+    }
+    case 'tierraPot':
+      return {v:'≤0.1 V',cls:'good',note:'caída bajo carga'};
+    case 'tierraSenal': {
+      if(scenarioKey==='tierra') return cargaActiva?{v:'0.45 V',cls:'bad',note:'bajo carga — falla'}:{v:'0.05 V',cls:'warn',note:'en reposo, parece sana'};
+      return {v:'≤0.1 V',cls:'good',note:'caída bajo carga'};
+    }
+    case 'ref5v': {
+      if(scenarioKey==='corto5v' && cortoActivo && !sensorADesconectado) return {v:'≈0.3 V',cls:'bad',note:'arrastrada por Sensor A'};
+      return {v:'5.0 V',cls:'good',note:'riel de referencia'};
+    }
+    case 'canH': return {v:'2.5↔3.5 V',cls:'good',note:'transiciones limpias'};
+    case 'canL': return {v:'2.5↔1.5 V',cls:'good',note:'transiciones limpias'};
+    case 'sensorA': {
+      if(scenarioKey==='tierra') return cargaActiva?{v:'2.55 V',cls:'warn',note:'desplazada +0.45 V'}:{v:'2.1 V',cls:'good',note:'dentro de rango'};
+      if(scenarioKey==='corto5v'){
+        if(!cortoActivo) return {v:'2.1 V',cls:'good',note:'dentro de rango'};
+        if(sensorADesconectado) return {v:'— V',cls:'muted',note:'desconectado a propósito'};
+        return {v:'≈0.1 V',cls:'bad',note:'colapsada, corto interno'};
+      }
+      return {v:'2.1 V',cls:'good',note:'dentro de rango'};
+    }
+    case 'sensorB': {
+      if(scenarioKey==='tierra') return cargaActiva?{v:'1.35 V',cls:'warn',note:'desplazada +0.45 V'}:{v:'0.9 V',cls:'good',note:'dentro de rango'};
+      if(scenarioKey==='corto5v'){
+        if(!cortoActivo) return {v:'0.9 V',cls:'good',note:'dentro de rango'};
+        if(sensorADesconectado) return {v:'0.9 V',cls:'good',note:'recuperado'};
+        return {v:'≈0.15 V',cls:'bad',note:'arrastrada por el riel'};
+      }
+      return {v:'0.9 V',cls:'good',note:'dentro de rango'};
+    }
+  }
+  return {v:'—',cls:'',note:''};
+}
+function worstClassNow(){
+  if(!energized) return null;
+  let worst='good';
+  for(const p of PINS){
+    const r=computeReading(p.key);
+    if(r.cls==='bad') return 'bad';
+    if(r.cls==='warn') worst='warn';
+  }
+  return worst;
+}
+
+const QUESTIONS={
+  sano:{
+    prompt:'La batería marca 12.6 V con la llave apagada y 14.2 V con el motor en marcha; ambas tierras caen ≤0.1 V bajo carga; la referencia de 5 V está en 5.0 V. ¿Qué concluyes?',
+    opts:[
+      {t:'Hay un problema de tierra: el voltaje no debería cambiar entre 12.6 V y 14.2 V',ok:false},
+      {t:'Todo dentro de rango esperado: alimentación constante presente, tierras limpias y referencia estable — la ECU tiene una base eléctrica sana para trabajar',ok:true},
+      {t:'La referencia de 5 V debería ser idéntica a la de batería; hay una falla de regulación',ok:false},
+      {t:'El cambio de 12.6 V a 14.2 V indica un cortocircuito intermitente',ok:false},
+    ],
+  },
+  tierra:{
+    prompt:'Sin carga, la tierra de señal marca solo 0.05 V — parece sana. Al activar un consumidor y repetir la medición bajo carga, sube a 0.45 V, y los sensores MAP y TPS leen ambos más alto de lo esperado. ¿Qué está pasando?',
+    opts:[
+      {t:'Los dos sensores fallaron al mismo tiempo, por coincidencia',ok:false},
+      {t:'La tierra de señal tiene alta resistencia (corrosión o mal contacto): no se nota en reposo, pero bajo carga cae más de 0.3 V, y ese desplazamiento se suma a cada lectura de sensor referida a esa tierra',ok:true},
+      {t:'La referencia de 5 V está arrastrada por un corto interno',ok:false},
+      {t:'Es un problema de la alimentación conmutada, no de la tierra',ok:false},
+    ],
+  },
+  corto5v:{
+    prompt:'La referencia de 5 V cae a ≈0.3 V y, al mismo tiempo, los sensores MAP y TPS —alimentados por esa misma referencia— muestran lecturas fuera de rango. Al desconectar el Sensor A, la referencia se recupera a 5.0 V y el Sensor B vuelve a leer normal. ¿Qué falla real hay?',
+    opts:[
+      {t:'Tres fallas independientes y simultáneas: la referencia, el Sensor A y el Sensor B',ok:false},
+      {t:'El Sensor A tiene un corto interno a tierra que arrastra toda la referencia de 5 V compartida; el Sensor B nunca estuvo dañado — solo parecía fallar porque comparte el mismo riel',ok:true},
+      {t:'El Sensor B es el dañado, porque fue el que "se arregló" al desconectar A',ok:false},
+      {t:'La ECU necesita reprogramarse',ok:false},
+    ],
+  },
+  conmutada:{
+    prompt:'Con la llave apagada, el pin de alimentación conmutada marca 0 V. A simple vista parece un circuito abierto. ¿Qué haces antes de concluir eso?',
+    opts:[
+      {t:'Declarar de inmediato un circuito abierto y reemplazar el arnés',ok:false},
+      {t:'Confirmar el estado de la llave: este pin está diseñado para leer 0 V con la llave apagada y solo energizarse con contacto o marcha — hay que repetir la medición con la llave en marcha antes de concluir nada',ok:true},
+      {t:'Medir la tierra de potencia, porque el problema seguro está ahí',ok:false},
+      {t:'Es normal que cualquier pin de la ECU lea 0 V en algún momento; no amerita revisión',ok:false},
+    ],
+  },
+};
+const DX_HINT={
+  sano:'Una ECU sana no tiene un solo "voltaje correcto": tiene un patrón esperado por pin. La alimentación constante varía legítimamente entre el reposo (batería sola, ≈12.6 V) y el motor en marcha (alternador cargando, ≈14.2 V) — eso no es una falla. Las tierras limpias (≤0.1 V bajo carga) y la referencia de 5 V estable (4.9–5.1 V) son la base eléctrica que todo sensor necesita para dar una lectura confiable.',
+  tierra:'El multímetro en reposo —sin corriente real fluyendo por esa tierra— casi nunca revela una tierra en alta resistencia: la caída de tensión solo aparece cuando hay corriente pasando por el punto dañado. Por eso la prueba correcta es la caída de tensión BAJO CARGA, no un voltaje en reposo. Y como la ECU mide cada sensor contra su tierra de señal, si esa tierra se desplaza +0.45 V, cada sensor referido a ella parece leer +0.45 V más alto: la falla no apaga nada, desplaza silenciosamente cada lectura.',
+  corto5v:'Cuando varios sensores comparten un mismo riel de referencia de 5 V, un solo sensor con corto interno a tierra puede arrastrar TODO el riel — y entonces todos los sensores que dependen de esa referencia parecen fallar a la vez, aunque solo uno esté realmente dañado. La forma de aislar al culpable real es desconectar los sensores del riel compartido uno a la vez: en cuanto se desconecta el que tiene el corto, la referencia se recupera y los demás vuelven a leer normal.',
+  conmutada:'Un pin de alimentación conmutada está diseñado para leer 0 V con la llave apagada — eso es exactamente lo esperado, no una falla. Confundir "sin voltaje ahora" con "circuito abierto" es un error común: antes de declarar una falla de continuidad hay que confirmar el estado de la llave y repetir la medición con contacto o marcha.',
+};
+
+/* ---------- 9) RENDERIZADO DE PANTALLA ---------- */
+function updateScreen(){
+  const ctx=scrCanvas.getContext('2d');
+  const W=scrCanvas.width, H=scrCanvas.height;
+  ctx.clearRect(0,0,W,H);
+  ctx.fillStyle='#03110c'; ctx.fillRect(0,0,W,H);
+  if(!energized){
+    ctx.font='11px monospace'; ctx.fillStyle='#3a5a52'; ctx.textAlign='center';
+    ctx.fillText('— sin señal —',W/2,H/2);
+    scrTex.needsUpdate=true; return;
+  }
+  const pin=PINS.find(p=>p.key===selectedPin)||PINS[0];
+  const r=computeReading(pin.key);
+  const color = r.cls==='bad'?'#ff6b6b': r.cls==='warn'?'#ffd166': r.cls==='muted'?'#8fb3ac':'#3ad9c2';
+  ctx.font='12px monospace'; ctx.fillStyle='#8fb3ac'; ctx.textAlign='center';
+  ctx.fillText(pin.short, W/2, 24);
+  ctx.font='bold 26px monospace'; ctx.fillStyle=color; ctx.textAlign='center';
+  ctx.fillText(r.v, W/2, H/2+8);
+  ctx.font='10px monospace'; ctx.fillStyle='#3a5a52'; ctx.textAlign='center';
+  ctx.fillText(r.note, W/2, H-16);
+  scrTex.needsUpdate=true;
+}
+
+/* ---------- 10) SELECCIÓN DE PIN ---------- */
+function selectPin(key){
+  selectedPin=key;
+  const pin=PINS.find(p=>p.key===key);
+  if(pin) rebuildProbeRed(pin.mesh);
+  updateScreen();
+}
+
+/* ---------- 11) INSPECCIÓN POR CLIC ---------- */
+pickerFor(scene,S.camera,S.renderer.domElement,hit=>{
+  if(!hit) return;
+  let o=hit.object;
+  while(o){
+    if(PIN_BY_MESH.has(o)){
+      const key=PIN_BY_MESH.get(o);
+      if(energized){ selectPin(key); updateTele(); }
+      const p=PARTS.find(x=>x.mesh===o);
+      const extra=energized?'':'<br><span style="color:var(--dim);font-size:11px">Conecta las puntas para tomar la lectura.</span>';
+      showToast(`<b style="color:var(--accent)">${p.name}</b><br><span style="color:var(--dim);font-size:11px">${p.desc}</span>${extra}`);
+      return;
+    }
+    const p=PARTS.find(x=>x.mesh===o);
+    if(p){ showToast(`<b style="color:var(--accent)">${p.name}</b><br><span style="color:var(--dim);font-size:11px">${p.desc}</span>`); return; }
+    o=o.parent;
+  }
+});
+
+/* ---------- 12) ETIQUETAS HOVER ---------- */
+(function(){
+  const dom=S.renderer.domElement, ray=new THREE.Raycaster(), mv=new THREE.Vector2();
+  let shown=null;
+  const setShown=lb=>{
+    if(shown===lb) return;
+    if(shown) shown.visible=false;
+    shown=lb;
+    if(shown) shown.visible=true;
+  };
+  dom.addEventListener('pointermove',e=>{
+    const r=dom.getBoundingClientRect();
+    mv.x=((e.clientX-r.left)/r.width)*2-1;
+    mv.y=-((e.clientY-r.top)/r.height)*2+1;
+    ray.setFromCamera(mv,S.camera);
+    const hits=ray.intersectObjects(scene.children,true);
+    let found=null;
+    for(const h of hits){
+      let o=h.object;
+      while(o){
+        if(HOVER_LABELS.has(o)){ found=HOVER_LABELS.get(o); break; }
+        o=o.parent;
+      }
+      if(found) break;
+    }
+    setShown(found);
+  });
+  dom.addEventListener('pointerleave',()=>setShown(null));
+})();
+
+/* ---------- 13) ANIMACIÓN ---------- */
+const synth=makeSynth({type:'sine',type2:'sine',filterFreq:2200,Q:0.7});
+S.setAnimate((dt,time)=>{
+  const pulse=0.5+0.5*Math.sin(time*3.2);
+  meterLed.material.emissiveIntensity = !energized?0.05:(0.5+0.3*pulse);
+  cargaBulb.material.emissiveIntensity = (energized && scenarioKey==='tierra' && cargaActiva) ? (0.6+0.4*pulse) : 0.05;
+  llaveRing.material.emissiveIntensity = (energized && scenarioKey==='conmutada' && llaveOn) ? (0.6+0.4*pulse) : 0.05;
+
+  if(time-(updateScreen._t||0)>0.22){ updateScreen(); updateScreen._t=time; }
+
+  const w=worstClassNow();
+  const freqNow = w==='bad'?150:w==='warn'?340:520;
+  synth.update(freqNow,freqNow,(energized&&w)?0.025:0,2000);
+});
+
+/* ---------- 14) HUD ---------- */
+document.getElementById('hud').innerHTML=`
+<div class="eyebrow">Dominio D10 · Instrumentación</div>
+<h2>Diagnóstico de la ECU: Alimentaciones, Tierras y Comunicación</h2>
+<p>Antes de sospechar de la ECU misma, un técnico revisa lo que la rodea: ¿tiene alimentación?, ¿tiene una tierra limpia?, ¿la referencia que comparten sus sensores está sana? La mayoría de las "ECU dañadas" en un taller resultan ser exactamente esto — un pin de su entorno, no la computadora.</p>
+<div class="formula">Tierra bajo carga: ≤0.1 V bien · &gt;0.3 V falla · Referencia de 5 V: 4.9–5.1 V<br>Conmutada: 0 V (llave off) / ≈12.6 V (llave on) · Batería: ≈12.6 V (reposo) / ≈14.2 V (motor en marcha)</div>
+<div class="legend">
+  <div class="li"><span class="dot" style="background:#ffb703"></span>Alimentación constante</div>
+  <div class="li"><span class="dot" style="background:#ff8c42"></span>Alimentación conmutada</div>
+  <div class="li"><span class="dot" style="background:#5eead4"></span>Tierra de señal</div>
+  <div class="li"><span class="dot" style="background:#b98cff"></span>Referencia de 5 V</div>
+</div>
+<div class="fid">
+  <div class="ft">🔒 Contrato de fidelidad</div>
+  <div class="fl"><b>Sí modela:</b> la diferencia entre alimentación constante y conmutada (y por qué 0 V con la llave apagada no es una falla en la segunda); la separación entre tierra de potencia y tierra de señal; la prueba de caída de tensión bajo carga como único método confiable para detectar una tierra en alta resistencia (en reposo puede parecer sana); y el efecto de un corto interno en un sensor que arrastra un riel de referencia de 5 V compartido, produciendo códigos simultáneos en sensores realmente sanos.</div>
+  <div class="fl no"><b>NO modela:</b> un clon literal de ningún conector estandarizado — este es un conector de ECU genérico y representativo con fines didácticos (el conector real de diagnóstico SAE J1962, por ejemplo, no lleva la referencia de 5 V: esa referencia vive en el conector propio de la ECU, específico de cada fabricante); tampoco decodifica tramas CAN reales (ver mecanica-30) ni sustituye el diagrama de pines oficial de un vehículo específico.</div>
+</div>
+<div class="src">Ref: SAE J1962 (pinout del conector de diagnóstico — parcial, no cubre la referencia de 5 V) · práctica de diagnóstico automotriz ampliamente documentada (prueba de caída de tensión, referencia de 5 V compartida, separación de tierras) — consulta el manual del fabricante (FSM) para las cifras exactas de tu vehículo.</div>
+`;
+
+/* ---------- 15) PANEL ---------- */
+document.getElementById('panel').innerHTML=`
+<h4>Diagnóstico de ECU · <span id="p_case" style="color:var(--accent2)">Caso 1/4</span> · <span id="p_progress" style="color:var(--dim);font-size:11px">0/4 ✔</span></h4>
+<div class="modebar">
+  <button class="b on" id="s_sano">ECU sana</button>
+  <button class="b" id="s_tierra">Tierra alta R</button>
+  <button class="b" id="s_corto5v">Corto ref. 5V</button>
+  <button class="b" id="s_conmutada">Conmutada</button>
+</div>
+<div class="console" id="console">Pulsa "🔌 Conectar puntas" para iniciar.</div>
+<div id="tele">
+  <div class="g"><div class="gl"><span>Batería (constante)</span><b id="t_bateria">—</b></div></div>
+  <div class="g"><div class="gl"><span>Conmutada (llave)</span><b id="t_conmutada">—</b></div></div>
+  <div class="g"><div class="gl"><span>Tierra de potencia</span><b id="t_tierraPot">—</b></div></div>
+  <div class="g"><div class="gl"><span>Tierra de señal</span><b id="t_tierraSenal">—</b></div></div>
+  <div class="g"><div class="gl"><span>Referencia 5 V</span><b id="t_ref5v">—</b></div></div>
+  <div class="g"><div class="gl"><span>CAN High</span><b id="t_canH">—</b></div></div>
+  <div class="g"><div class="gl"><span>CAN Low</span><b id="t_canL">—</b></div></div>
+  <div class="g"><div class="gl"><span>Sensor A · MAP</span><b id="t_sensorA">—</b></div></div>
+  <div class="g"><div class="gl"><span>Sensor B · TPS</span><b id="t_sensorB">—</b></div></div>
+</div>
+
+<div id="ctrlTierra" style="display:none">
+  <h4 class="sec">Prueba de caída de tensión</h4>
+  <div class="btns"><button class="b" id="btnCarga">⚡ Aplicar carga (activar consumidor)</button></div>
+</div>
+<div id="ctrlCorto5v" style="display:none">
+  <h4 class="sec">Aislar el riel compartido</h4>
+  <div class="btns">
+    <button class="b" id="btnCorto5v">🔻 Reparar Sensor A</button>
+    <button class="b" id="btnDescA">🔌 Desconectar Sensor A</button>
+  </div>
+</div>
+<div id="ctrlConmutada" style="display:none">
+  <h4 class="sec">Estado de la llave</h4>
+  <div class="btns"><button class="b" id="btnLlave">🔑 Girar la llave a marcha (contacto)</button></div>
+</div>
+
+<h4 class="sec" id="q_prompt">—</h4>
+<div class="btns" id="dxWrap">
+  <button class="b dx" data-i="0">A</button>
+  <button class="b dx" data-i="1">B</button>
+  <button class="b dx" data-i="2">C</button>
+  <button class="b dx" data-i="3">D</button>
+</div>
+
+<div class="btns">
+  <button class="b auto" id="btnAuto">✨ Demostración guiada (4 casos)</button>
+  <button class="b primary" id="btnEnergize">🔌 Conectar puntas</button>
+  <button class="b" id="btnNext">🔀 Siguiente caso</button>
+</div>
+`;
+
+/* ---------- 16) HELPERS DE UI ---------- */
+const el=id=>document.getElementById(id);
+const consoleEl=el('console');
+
+function setConsole(){
+  if(!energized){
+    consoleEl.innerHTML=`Puntas desconectadas. Pulsa <span style="color:var(--accent)">"🔌 Conectar puntas"</span> para empezar a medir.`;
+    return;
+  }
+  const desc={
+    sano:'Referencia: así se ve una ECU con una base eléctrica sana. Toca cualquier pin del conector para inspeccionarlo.',
+    tierra:'La tierra de señal tiene alta resistencia. Prueba primero sin carga, luego actívala — compara.',
+    corto5v:'Llegó con 3 códigos de sensor "fuera de rango" a la vez. Antes de cambiar tres sensores, aísla el riel compartido.',
+    conmutada:'El pin conmutado marca 0 V con la llave apagada. ¿Falla real o comportamiento esperado?',
+  }[scenarioKey];
+  consoleEl.innerHTML=`<b>${SCEN_LABEL[scenarioKey]}</b><br>${desc}`;
+}
+
+function updateTele(){
+  if(!energized){
+    PINS.forEach(p=>{ const e=el('t_'+p.key); if(e){ e.textContent='—'; e.className=''; } });
+    return;
+  }
+  PINS.forEach(p=>{
+    const r=computeReading(p.key);
+    const e=el('t_'+p.key);
+    if(e){ e.textContent=r.v+' · '+r.note; e.className=r.cls; }
+  });
+}
+
+function refreshAll(){ updateTele(); updateScreen(); setConsole(); }
+function refreshCaseLabel(){ el('p_case').textContent='Caso '+(SCEN_ORDER.indexOf(scenarioKey)+1)+'/4'; }
+function refreshProgress(){ const n=Object.values(answered).filter(Boolean).length; el('p_progress').textContent=n+'/4 ✔'; }
+function clearDx(){ document.querySelectorAll('.b.dx').forEach(b=>b.classList.remove('right','wrong')); }
+function renderQuestion(){
+  const q=QUESTIONS[scenarioKey];
+  const qEl=el('q_prompt');
+  qEl.textContent=q.prompt;
+  document.querySelectorAll('#dxWrap .b.dx').forEach((btn,i)=>{
+    const o=q.opts[i];
+    btn.textContent=String.fromCharCode(65+i)+' · '+o.t;
+    btn.dataset.ok=o.ok?'1':'0';
+  });
+}
+
+/* ---------- 17) INTERACCIÓN ---------- */
+function applyCargaState(){
+  const btn=el('btnCarga'); if(btn) btn.textContent = cargaActiva?'⚡ Quitar carga':'⚡ Aplicar carga (activar consumidor)';
+}
+function applyCortoState(){
+  const btn=el('btnCorto5v'); if(btn) btn.textContent = cortoActivo?'🔻 Reparar Sensor A':'🔻 Provocar corto en Sensor A';
+  const btnD=el('btnDescA'); if(btnD) btnD.textContent = sensorADesconectado?'🔌 Reconectar Sensor A':'🔌 Desconectar Sensor A';
+}
+function applyLlaveState(){
+  const btn=el('btnLlave'); if(btn) btn.textContent = llaveOn?'🔑 Apagar la llave':'🔑 Girar la llave a marcha (contacto)';
+}
+
+function setScenario(key){
+  scenarioKey=key;
+  clearDx();
+  cargaActiva=false;
+  cortoActivo=(key==='corto5v');
+  sensorADesconectado=false;
+  llaveOn=false;
+  ['s_sano','s_tierra','s_corto5v','s_conmutada'].forEach(id=>el(id).classList.toggle('on',id==='s_'+key));
+  el('ctrlTierra').style.display = key==='tierra'?'':'none';
+  el('ctrlCorto5v').style.display = key==='corto5v'?'':'none';
+  el('ctrlConmutada').style.display = key==='conmutada'?'':'none';
+  applyCargaState();
+  applyCortoState();
+  applyLlaveState();
+  const defaultPin={sano:'bateria',tierra:'tierraSenal',corto5v:'ref5v',conmutada:'conmutada'}[key];
+  selectPin(defaultPin);
+  renderQuestion();
+  refreshCaseLabel();
+  refreshAll();
+}
+
+el('s_sano').onclick=()=>setScenario('sano');
+el('s_tierra').onclick=()=>setScenario('tierra');
+el('s_corto5v').onclick=()=>setScenario('corto5v');
+el('s_conmutada').onclick=()=>setScenario('conmutada');
+
+el('btnCarga').onclick=()=>{ cargaActiva=!cargaActiva; applyCargaState(); refreshAll(); synth.beep(cargaActiva?260:660,0.1,0.05); };
+el('btnCorto5v').onclick=()=>{ cortoActivo=!cortoActivo; if(!cortoActivo) sensorADesconectado=false; applyCortoState(); refreshAll(); synth.beep(cortoActivo?180:660,0.1,0.05); };
+el('btnDescA').onclick=()=>{ sensorADesconectado=!sensorADesconectado; applyCortoState(); refreshAll(); synth.beep(sensorADesconectado?880:440,0.08,0.04); };
+el('btnLlave').onclick=()=>{ llaveOn=!llaveOn; applyLlaveState(); refreshAll(); synth.beep(llaveOn?660:300,0.1,0.05); };
+
+document.querySelectorAll('#dxWrap .b.dx').forEach(btn=>{
+  btn.onclick=()=>{
+    if(!energized){ showToast('Primero conecta las puntas del multímetro.'); return; }
+    const ok=btn.dataset.ok==='1';
+    clearDx();
+    if(ok){
+      btn.classList.add('right');
+      answered[scenarioKey]=true;
+      refreshProgress();
+      synth.beep(1046,0.12,0.06);
+      showToast(`<span style="color:var(--good)">✔ Correcto</span><br><span style="color:var(--dim);font-size:11px">${DX_HINT[scenarioKey]}</span>`);
+    } else {
+      btn.classList.add('wrong');
+      synth.beep(220,0.15,0.06);
+      showToast(`<span style="color:var(--bad)">✗ No es correcta.</span><br><span style="color:var(--dim);font-size:11px">Revisa la telemetría y el estado actual del sistema, luego inténtalo de nuevo.</span>`);
+    }
+  };
+});
+
+el('btnEnergize').onclick=(e)=>{
+  energized=!energized;
+  synth.init(); synth.resume();
+  e.target.classList.toggle('on',energized);
+  e.target.textContent=energized?'⏻ Desconectar puntas':'🔌 Conectar puntas';
+  if(energized){
+    S.moveTo([2.6,1.9,3.6],[-0.15,0.55,0.5],1.3);
+    S.setCinematicIdle(true);
+    synth.beep(660,0.1,0.06);
+  } else {
+    S.setCinematicIdle(false);
+  }
+  refreshAll();
+};
+
+el('btnNext').onclick=()=>{
+  const i=SCEN_ORDER.indexOf(scenarioKey);
+  setScenario(SCEN_ORDER[(i+1)%SCEN_ORDER.length]);
+};
+
+const soundBtn=document.getElementById('soundBtn');
+soundBtn.onclick=()=>{ const on=synth.toggle(); soundBtn.textContent=on?'🔊':'🔇'; soundBtn.classList.toggle('on',on); };
+
+const sleep=ms=>new Promise(r=>setTimeout(r,ms));
+let autoRunning=false;
+async function runAuto(){
+  if(autoRunning) return;
+  autoRunning=true;
+  const btn=el('btnAuto'); const label=btn.textContent;
+  btn.disabled=true; btn.classList.add('on'); btn.textContent='⏳ Demostración en curso…';
+  try{
+    setScenario('sano');
+    if(!energized){ showToast('Paso 1 · Conectando las puntas del multímetro…'); el('btnEnergize').click(); await sleep(1600); }
+    selectPin('bateria'); refreshAll();
+    showToast('Paso 2 · ECU sana: batería 12.6 V en reposo, tierras limpias, referencia de 5 V estable.'); await sleep(2800);
+    document.querySelector('#dxWrap .b.dx[data-ok="1"]').click(); await sleep(2400);
+
+    setScenario('tierra');
+    selectPin('tierraSenal'); refreshAll();
+    showToast('Paso 3 · Sin carga, la tierra de señal marca 0.05 V — parece sana.'); await sleep(2600);
+    el('btnCarga').click();
+    showToast('Paso 4 · Con un consumidor activo, la misma tierra sube a 0.45 V: recién ahora aparece la falla.'); await sleep(2800);
+    selectPin('sensorA'); refreshAll();
+    showToast('Paso 5 · Y cada sensor referido a esa tierra queda desplazado por la misma cantidad.'); await sleep(2600);
+    document.querySelector('#dxWrap .b.dx[data-ok="1"]').click(); await sleep(2400);
+
+    setScenario('corto5v');
+    selectPin('ref5v'); refreshAll();
+    showToast('Paso 6 · Llega con 3 códigos de sensor "fuera de rango" a la vez — la referencia de 5 V está arrastrada a ≈0.3 V.'); await sleep(2800);
+    el('btnDescA').click();
+    showToast('Paso 7 · Al desconectar el Sensor A, la referencia se recupera y el Sensor B —que nunca estuvo dañado— vuelve a leer normal.'); await sleep(3000);
+    document.querySelector('#dxWrap .b.dx[data-ok="1"]').click(); await sleep(2400);
+
+    setScenario('conmutada');
+    selectPin('conmutada'); refreshAll();
+    showToast('Paso 8 · Con la llave apagada, este pin marca 0 V — a simple vista, parece un circuito abierto.'); await sleep(2800);
+    el('btnLlave').click();
+    showToast('Paso 9 · Con la llave en marcha, el mismo pin sube a 12.6 V: nunca estuvo abierto, solo estaba diseñado para apagarse con la llave.'); await sleep(3000);
+    document.querySelector('#dxWrap .b.dx[data-ok="1"]').click(); await sleep(2400);
+
+    showToast('<span style="color:var(--good)">✔ Fin de la demostración: cuatro pines, cuatro comportamientos distintos — y solo uno de ellos era realmente una falla en la ECU misma.</span>');
+  } finally {
+    btn.disabled=false; btn.classList.remove('on'); btn.textContent=label;
+    autoRunning=false;
+  }
+}
+el('btnAuto').onclick=runAuto;
+
+/* ---------- 18) INIT ---------- */
+setScenario('sano');
+refreshProgress();
+S.start();
+</script>
+  <!-- Ficha técnica · Capa B del molde de lab 3D (componente compartido + contenido del lab) -->
+  <script src="_ficha-tecnica.js"></script>
+  <script src="_ficha-diagnostico-ecu.js"></script>
+</body>
+</html>

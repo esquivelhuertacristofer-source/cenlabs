@@ -1,0 +1,9 @@
+{
+  "donor": "escaner-obd.html",
+  "out": "diagnostico-ecu.html",
+  "title": "CEN Labs · Diagnóstico de la ECU: Alimentaciones, Tierras y Comunicación — Laboratorio 3D",
+  "lt": "Autotrónica · Diagnóstico de la ECU: alimentaciones, tierras y comunicación",
+  "inspectHint": "👆 Toca un pin del conector, el multímetro, la carga o la llave para identificarlo",
+  "body": "diagnostico-ecu.body.js",
+  "fichas": ["_ficha-tecnica.js", "_ficha-diagnostico-ecu.js"]
+}

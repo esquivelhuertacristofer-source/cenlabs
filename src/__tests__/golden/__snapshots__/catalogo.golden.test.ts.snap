@@ -591,6 +591,16 @@ exports[`golden master — catálogo por categoría (invariante ante extracción
     "teoria": "El bus CAN (Controller Area Network) conecta las ECU de un vehículo moderno por un solo par de hilos trenzados, CAN_H y CAN_L, en vez de un cableado dedicado por señal. La clave es la señalización diferencial: los receptores decodifican la diferencia de voltaje entre ambos hilos, no su valor absoluto, lo que vuelve al bus muy resistente al ruido eléctrico del compartimento del motor. En reposo (bit recesivo) ambos hilos convergen cerca de 2.5 V y la diferencial es ≈0 V; al transmitir un bit dominante, un nodo separa los hilos y la diferencial salta a valores del orden de 2 V. El bus físico requiere un resistor de 120 Ω en cada uno de sus dos extremos; vistos desde cualquier nodo intermedio, el par en paralelo equivale a una resistencia diferencial combinada de ≈60 Ω, efecto conjunto de los dos terminadores y no un componente instalado aparte. Un terminador faltante no calla el bus de inmediato, pero deja una firma de reflexión (ringing) visible en el osciloscopio antes de que la señal se asiente. Un cortocircuito entre CAN_H y CAN_L, en cambio, impide que la diferencial se desarrolle: el bus queda mudo. Finalmente, cuando dos nodos transmiten a la vez, CAN resuelve el conflicto por arbitraje bit a bit no destructivo: gana el identificador con más bits dominantes tempranos, y el nodo perdedor simplemente deja de transmitir sin que su mensaje se pierda como colisión — muy distinto al CSMA/CD de una red Ethernet clásica.",
     "titulo": "Bus CAN: Diagnóstico con Osciloscopio",
   },
+  {
+    "duracion": "45 min",
+    "estado": "activo",
+    "id": "mecanica-31",
+    "modulo": "Autotrónica",
+    "orden": 31,
+    "simuladorHtml": "/labs/diagnostico-ecu.html",
+    "teoria": "El conector de diagnóstico estandariza solo una parte de lo que rodea a una ECU: el pin de alimentación de batería es siempre vivo, con o sin contacto, para que un escáner pueda energizarse con la llave apagada; otros pines, en cambio, dependen del estado de la llave, y leer 0 V en ellos con el motor apagado es exactamente el comportamiento esperado, no una falla de continuidad. Lo que el conector de diagnóstico NO estandariza es la referencia de 5 V que alimenta a los sensores analógicos (MAP, TPS): ese riel regulado vive en el conector propio de cada ECU, específico de fabricante, y suele compartirse entre varios sensores a la vez — un solo sensor con un corto interno a tierra puede arrastrar todo el riel compartido y producir códigos de falla simultáneos en sensores que en realidad están sanos. Algo similar ocurre con las tierras: la ECU mide cada sensor como una diferencia de voltaje contra su propia tierra de señal, dedicada y de baja resistencia, deliberadamente separada de las tierras de potencia que sí cargan corrientes grandes (inyectores, actuadores) y generan ruido. Si la tierra de señal gana resistencia por corrosión o un mal contacto, no apaga al sensor: desplaza silenciosamente cada una de sus lecturas, un desplazamiento que un voltímetro en reposo casi nunca revela, porque solo aparece cuando hay corriente real circulando por el punto dañado. Por eso la prueba de referencia es la caída de tensión bajo carga, no un voltaje estático: una tierra sana cae ≤0.1 V bajo carga, mientras que una caída mayor a 0.3 V indica corrosión o cableado defectuoso — valores típicos de la práctica de diagnóstico automotriz, no una cifra de norma única.",
+    "titulo": "Diagnóstico de la ECU: Alimentaciones, Tierras y Comunicación",
+  },
 ]
 `;
 
@@ -746,6 +756,7 @@ exports[`golden master — catálogo por categoría (invariante ante extracción
   "mecanica-29",
   "mecanica-3",
   "mecanica-30",
+  "mecanica-31",
   "mecanica-4",
   "mecanica-5",
   "mecanica-6",
