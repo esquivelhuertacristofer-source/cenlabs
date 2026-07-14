@@ -1,0 +1,9 @@
+{
+  "donor": "escaner-obd.html",
+  "out": "calibrador-vernier.html",
+  "title": "CEN Labs · Calibrador Vernier: Lectura, Error de Cero y Repetibilidad — Laboratorio 3D",
+  "lt": "Calibrador Vernier · Metrología Dimensional",
+  "inspectHint": "👆 Toca la escala, el nonio, la varilla de profundidad o la pieza para identificarla",
+  "body": "calibrador-vernier.body.js",
+  "fichas": ["_ficha-tecnica.js", "_ficha-calibrador-vernier.js"]
+}

@@ -681,6 +681,16 @@ exports[`golden master — catálogo por categoría (invariante ante extracción
     "teoria": "Una etapa de salida push-pull complementaria (un transistor NPN y uno PNP en configuración seguidor de emisor, alimentados por rieles simétricos ±Vcc) entrega corriente a una carga RL: el NPN conduce el semiciclo positivo, el PNP el negativo. Sin polarización (Clase B pura) aparece distorsión de cruce, una zona muerta cerca del cruce por cero donde ninguno de los dos transistores conduce todavía; se elimina polarizando ambos transistores con una pequeña corriente de reposo mediante una red "multiplicador VBE" (V_CE=VBE·(1+R1/R2)), dando la Clase AB. La potencia entregada a la carga es P_load=Vo_pk²/(2·RL); la potencia tomada de la fuente es P_supply=(2/π)·Vcc·Vo_pk/RL (derivada de la corriente promedio de media onda rectificada por riel); la disipación en los transistores es P_diss=P_supply−P_load. Derivando P_diss respecto a Vo_pk e igualando a cero se obtiene el punto de disipación máxima, Vo_pk=2Vcc/π≈0.637·Vcc, con P_diss_max=2Vcc²/(π²RL) — un resultado contraintuitivo: la etapa disipa más calor a una amplitud intermedia que al volumen máximo. Ese calor generado en la unión de silicio (Tj) debe salir hacia el ambiente (Ta) a través de una cadena de resistencias térmicas, Tj=Ta+P·(RθJC+RθCS+RθSA) con disipador o Tj=Ta+P·RθJA sin disipador, y no puede superar la Tj_max del transistor sin arriesgar su destrucción. Este laboratorio usa como referencia el par complementario TIP31C/TIP32C (ON Semiconductor, TO-220), y permite explorar cómo Vcc, RL, la amplitud, la polarización y el disipador elegido determinan si el diseño es térmicamente seguro.",
     "titulo": "Etapa de salida Clase AB: disipación, polarización VBE y disipador",
   },
+  {
+    "duracion": "50 min",
+    "estado": "activo",
+    "id": "mecanica-40",
+    "modulo": "Instrumentación",
+    "orden": 40,
+    "simuladorHtml": "/labs/calibrador-vernier.html",
+    "teoria": "Un calibrador vernier combina una escala principal fija (en milímetros) con un cursor deslizante que porta una segunda escala, el nonio: si el nonio tiene N divisiones que abarcan exactamente (N−1) mm de la escala principal, cada división del nonio mide (N−1)/N mm, y la mínima lectura discernible (LC, "lowest count") es LC=1mm/N — 0.05 mm para N=20, 0.02 mm para N=50. La lectura se obtiene sumando los milímetros completos de la escala principal antes del cero del nonio, más la división del nonio que coincide exactamente con una línea de la escala principal, multiplicada por LC. Todo calibrador real tiene un error de cero propio (la lectura con las mordazas cerradas no es exactamente 0.000), que debe restarse (con su signo) de cada lectura cruda: Lectura corregida = Lectura cruda − Error de cero. Incluso con esta corrección, mediciones repetidas del mismo objeto por el mismo operador muestran una dispersión (repetibilidad) descrita por la media, el rango y la desviación estándar muestral s, que se compara —no se descarta— contra la incertidumbre de resolución del instrumento, ±LC/2.",
+    "titulo": "Calibrador Vernier: Lectura, Error de Cero y Repetibilidad",
+  },
 ]
 `;
 
@@ -846,6 +856,7 @@ exports[`golden master — catálogo por categoría (invariante ante extracción
   "mecanica-38",
   "mecanica-39",
   "mecanica-4",
+  "mecanica-40",
   "mecanica-5",
   "mecanica-6",
   "mecanica-7",
