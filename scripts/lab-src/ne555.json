@@ -1,0 +1,9 @@
+{
+  "donor": "escaner-obd.html",
+  "out": "ne555.html",
+  "title": "CEN Labs · Temporizador 555 Astable: f=1.44/((RA+2RB)C) — Laboratorio 3D",
+  "lt": "Diseña un multivibrador astable con el NE555, ajusta RA/RB/C/Vcc, y observa cómo el capacitor carga y descarga entre los umbrales 1/3 Vcc y 2/3 Vcc para fijar la frecuencia y el ciclo de trabajo de la oscilación.",
+  "inspectHint": "Ajusta RA/RB/C/Vcc, observa la curva de carga/descarga del capacitor entre los umbrales del 555 y el osciloscopio, y comprueba la advertencia si RA baja de 1kΩ.",
+  "body": "ne555.body.js",
+  "fichas": ["_ficha-tecnica.js", "_ficha-ne555.js"]
+}

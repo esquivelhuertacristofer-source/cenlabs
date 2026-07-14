@@ -621,6 +621,16 @@ exports[`golden master — catálogo por categoría (invariante ante extracción
     "teoria": "Un comparador simple decide \"alto\" o \"bajo\" contra un único umbral — y cuando la señal es ruidosa y cruza ese umbral lentamente, la salida rebota (chatter) decenas de veces antes de asentarse, un defecto real de cualquier comparador sin realimentación. El Schmitt trigger resuelve esto con histéresis: en vez de un umbral usa dos — VTH (umbral de subida) y VTL (umbral de bajada) — realimentando una fracción de la propia salida hacia la entrada no inversora mediante R1/R2. En la topología inversora, VTH=Vcc·R1/(R1+R2) y VTL=Vol·R1/(R1+R2), con Vol el voltaje de saturación baja del comparador; en la no inversora, ambos umbrales quedan centrados alrededor de Vcc/2 y, si R1/R2 se eligen mal, pueden salirse del rango 0–Vcc y dejar la salida enganchada en un solo estado. El simulador usa el LM393, un comparador dual de colector abierto que exige un resistor de pull-up externo (Rpu) para producir un nivel alto. Cuatro modos: Explora (R1/R2/Vcc/ruido y topología libres, con el lazo de histéresis y el osciloscopio en vivo), Predicción (VTH, VTL o el comportamiento frente a ruido antes de revelar), Medición (barrido automático de R2 que muestra cómo se abre o cierra la ventana de histéresis ΔV=VTH−VTL) y Reto (diseñar R1/R2 para que la ventana de histéresis supere el ruido pico-pico esperado, sin volverse tan ancha que el comparador pierda sensibilidad a cambios reales de la señal).",
     "titulo": "Diseña un comparador Schmitt trigger con histéresis (LM393)",
   },
+  {
+    "duracion": "35 min",
+    "estado": "activo",
+    "id": "mecanica-34",
+    "modulo": "Electrónica",
+    "orden": 34,
+    "simuladorHtml": "/labs/ne555.html",
+    "teoria": "El 555 contiene un divisor interno de tres resistores iguales que fija dos umbrales de voltaje: 2/3 Vcc (threshold, dispara la descarga) y 1/3 Vcc (trigger, dispara la carga). En la configuración astable de 3 terminales, el capacitor C se carga a través de RA+RB hasta 2/3 Vcc, y se descarga solo a través de RB hasta 1/3 Vcc, reiniciando el ciclo sin necesitar ninguna señal de entrada: tHigh=0.693(RA+RB)C, tLow=0.693·RB·C, f=1/(tHigh+tLow)=1.44/((RA+2RB)C), y duty=(RA+RB)/(RA+2RB) — siempre ≥50%, porque la carga (por RA+RB) tarda más que la descarga (solo por RB). El simulador dibuja la curva exponencial real de carga/descarga del capacitor (no una rampa lineal) y advierte cuando RA se diseña por debajo del mínimo recomendado (1kΩ), la guía que protege al transistor interno de descarga. Cuatro modos: Explora (Vcc/RA/RB/C libres, con la curva del capacitor y el osciloscopio en vivo), Predicción (frecuencia o duty cycle antes de revelar), Medición (barrido automático de RB que muestra cómo el duty cycle se acerca a 50% mientras baja la frecuencia) y Reto (diseñar RA/RB/C para alcanzar una frecuencia objetivo manteniendo el duty cycle cerca de 50% y RA sobre el mínimo recomendado).",
+    "titulo": "Genera temporizaciones y oscilaciones con el 555 (astable)",
+  },
 ]
 `;
 
@@ -779,6 +789,7 @@ exports[`golden master — catálogo por categoría (invariante ante extracción
   "mecanica-31",
   "mecanica-32",
   "mecanica-33",
+  "mecanica-34",
   "mecanica-4",
   "mecanica-5",
   "mecanica-6",

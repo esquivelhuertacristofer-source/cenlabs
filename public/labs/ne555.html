@@ -1,0 +1,1176 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>CEN Labs · Temporizador 555 Astable: f=1.44/((RA+2RB)C) — Laboratorio 3D</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#08201C;--panel:rgba(9,26,23,.86);--line:#1E3A34;--ink:#EAF4F1;
+    --dim:#8FB3AC;--accent:#2A9D8F;--accent2:#4FD1C5;--hv:#FFB703;--good:#34d399;--bad:#f4475e;
+    --mono:'Outfit',system-ui,'Segoe UI',Roboto,sans-serif;--disp:'Outfit','Arial Black',Impact,sans-serif;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  html,body{height:100%;background:var(--bg);color:var(--ink);font-family:'Outfit',system-ui,Segoe UI,Roboto,sans-serif}
+  body{overflow:hidden}
+  #stage{position:fixed;inset:0}
+  canvas{display:block;touch-action:none}
+
+  .topbar{position:fixed;top:0;left:0;right:0;height:56px;display:flex;align-items:center;gap:14px;padding:0 20px;z-index:20;background:linear-gradient(180deg,rgba(10,13,18,.92),transparent);pointer-events:none}
+  .brand{font-family:var(--disp);font-weight:bold;font-size:16px;text-transform:uppercase}
+  .brand span{color:var(--accent)}
+  .lt{font-family:var(--mono);font-size:11px;letter-spacing:.1em;text-transform:uppercase;color:var(--dim)}
+
+  .badge{position:fixed;top:16px;right:20px;z-index:20;font-family:var(--mono);font-size:9px;letter-spacing:.12em;text-transform:uppercase;background:rgba(255,209,102,.12);color:var(--hv);border:1px solid rgba(255,209,102,.35);padding:6px 12px;border-radius:20px}
+
+  .hud{position:fixed;top:70px;left:18px;z-index:15;max-width:330px;background:var(--panel);backdrop-filter:blur(14px);border:1px solid var(--line);border-radius:16px;padding:18px 20px;max-height:calc(100vh - 150px);overflow-y:auto}
+  .hud .eyebrow{font-family:var(--mono);font-size:10px;letter-spacing:.18em;text-transform:uppercase;color:var(--accent);margin-bottom:8px}
+  .hud h2{font-size:19px;line-height:1.15;margin-bottom:9px}
+  .hud p{font-size:13px;line-height:1.55;color:var(--dim);margin-bottom:10px}
+  .hud .formula{font-family:var(--mono);color:var(--accent2);text-align:center;font-size:12.5px;margin:8px 0;padding:8px;background:rgba(0,0,0,.25);border-radius:8px;line-height:1.5}
+  .hud .src{font-size:10.5px;color:#7a8894;font-style:italic;margin-top:4px;line-height:1.5}
+  .legend{display:flex;flex-direction:column;gap:6px;margin:12px 0;padding:10px 12px;background:rgba(0,0,0,.22);border-radius:10px}
+  .legend .li{display:flex;align-items:center;gap:8px;font-size:11px;color:#c4d0da}
+  .legend .dot{width:10px;height:10px;border-radius:50%;flex:0 0 auto}
+  .fid{margin:10px 0 2px;padding:10px 12px;background:rgba(0,0,0,.22);border-radius:10px;border:1px solid rgba(79,209,197,.18)}
+  .fid .ft{font-family:var(--mono);font-size:9.5px;letter-spacing:.14em;text-transform:uppercase;color:var(--accent2);margin-bottom:6px}
+  .fid .fl{font-size:11px;color:#c4d0da;line-height:1.5;margin-bottom:5px}
+  .fid .fl b{color:var(--ink)}
+  .fid .fl.no b{color:var(--hv)}
+
+  .panel{position:fixed;top:70px;right:18px;z-index:15;width:262px;background:var(--panel);backdrop-filter:blur(14px);border:1px solid var(--line);border-radius:16px;padding:16px;max-height:calc(100vh - 150px);overflow-y:auto}
+  .panel h4{font-family:var(--mono);font-size:10px;letter-spacing:.14em;text-transform:uppercase;color:var(--dim);margin:2px 0 10px}
+  .panel h4.sec{margin-top:16px;border-top:1px solid var(--line);padding-top:14px}
+  .g{margin-bottom:6px}
+  .gl{display:flex;justify-content:space-between;font-family:var(--mono);font-size:11px;color:var(--dim)}
+  .gl b{color:var(--accent2)}
+  .gl b.good{color:var(--good)}.gl b.warn{color:var(--hv)}.gl b.bad{color:var(--bad)}
+  .modebar{display:flex;gap:5px;margin-bottom:8px}
+  .modebar .b{flex:1;padding:8px 4px;font-size:11px}
+  .btns{display:flex;flex-direction:column;gap:7px;margin-top:6px}
+  .b{font-family:system-ui;font-size:12.5px;padding:10px;border-radius:9px;cursor:pointer;border:1px solid var(--line);background:#1b242f;color:var(--ink);transition:.15s;text-align:center}
+  .b:hover{border-color:var(--accent);background:#202c38}
+  .b.on{background:var(--accent);color:#06120f;border-color:var(--accent);font-weight:bold}
+  .b.primary{background:var(--accent);color:#06120f;border-color:var(--accent);font-weight:bold}
+  .b.auto{border-color:var(--hv);color:var(--hv);background:rgba(255,183,3,.10);font-weight:bold}
+  .b.auto:hover{background:rgba(255,183,3,.18);border-color:var(--hv)}
+  .b.auto:disabled{opacity:.6;cursor:default}
+  .b.dx{text-align:left;font-size:12px}
+  .b.dx.right{background:rgba(52,211,153,.18);border-color:var(--good);color:var(--good);font-weight:bold}
+  .b.dx.wrong{background:rgba(244,71,94,.15);border-color:var(--bad);color:var(--bad)}
+  .console{font-family:var(--mono);font-size:11px;line-height:1.55;color:#c4d0da;background:rgba(0,0,0,.28);border-radius:9px;padding:10px 12px;margin-bottom:8px;min-height:56px}
+  .console .dtc{color:var(--bad);font-weight:bold}
+  .console .ok{color:var(--good)}
+  .console .mono{color:var(--dim)}
+
+  .hint{position:fixed;bottom:18px;left:18px;z-index:14;font-family:var(--mono);font-size:10px;color:var(--dim);background:var(--panel);padding:7px 12px;border-radius:9px;border:1px solid var(--line)}
+  .toast{position:fixed;top:80px;left:50%;transform:translateX(-50%);z-index:30;background:rgba(18,24,32,.95);border:1px solid var(--accent);padding:10px 20px;border-radius:40px;font-family:var(--mono);font-size:12px;opacity:0;transition:.3s;pointer-events:none;max-width:80vw;text-align:center}
+  .toast.show{opacity:1}
+  .soundBtn{position:fixed;top:14px;right:18px;z-index:21;font-size:16px;background:var(--panel);backdrop-filter:blur(12px);border:1px solid var(--line);border-radius:50%;width:36px;height:36px;cursor:pointer;color:var(--dim);transition:.15s}
+  .soundBtn.on{color:var(--accent);border-color:var(--accent)}
+  .soundBtn:hover{transform:scale(1.08)}
+  .inspectHint{position:fixed;bottom:18px;right:18px;z-index:14;font-family:var(--mono);font-size:10px;color:var(--accent2);background:var(--panel);padding:7px 12px;border-radius:9px;border:1px solid var(--line)}
+
+  @media(max-width:820px){
+    .hud,.panel{position:fixed;left:8px;right:8px;top:auto;bottom:8px;max-width:none;width:auto;max-height:42vh;overflow-y:auto}
+    .hud{bottom:calc(8px + 42vh + 8px)}
+    .hint,.inspectHint{display:none}
+  }
+</style>
+</head>
+<body>
+<div id="stage"></div>
+<button class="soundBtn on" id="soundBtn">🔊</button>
+<div class="topbar">
+  <div class="brand">CEN<span> Labs</span></div>
+  <div class="lt">Diseña un multivibrador astable con el NE555, ajusta RA/RB/C/Vcc, y observa cómo el capacitor carga y descarga entre los umbrales 1/3 Vcc y 2/3 Vcc para fijar la frecuencia y el ciclo de trabajo de la oscilación.</div>
+</div>
+<div class="hud" id="hud"></div>
+<div class="panel" id="panel"></div>
+<div class="hint">Arrastra para orbitar · rueda para zoom</div>
+<div class="inspectHint">Ajusta RA/RB/C/Vcc, observa la curva de carga/descarga del capacitor entre los umbrales del 555 y el osciloscopio, y comprueba la advertencia si RA baja de 1kΩ.</div>
+<div class="toast" id="toast"></div>
+
+<script type="importmap">
+{ "imports": {
+  "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.min.js",
+  "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/"
+}}
+</script>
+<script type="module">
+import * as THREE from 'three';
+import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
+import { RoundedBoxGeometry } from 'three/addons/geometries/RoundedBoxGeometry.js';
+import { EffectComposer } from 'three/addons/postprocessing/EffectComposer.js';
+import { RenderPass } from 'three/addons/postprocessing/RenderPass.js';
+import { GTAOPass } from 'three/addons/postprocessing/GTAOPass.js';
+import { UnrealBloomPass } from 'three/addons/postprocessing/UnrealBloomPass.js';
+import { SMAAPass } from 'three/addons/postprocessing/SMAAPass.js';
+import { OutputPass } from 'three/addons/postprocessing/OutputPass.js';
+import { BokehPass } from 'three/addons/postprocessing/BokehPass.js';
+
+/* ============================================================
+   Texturas PBR procedurales (sin archivos externos) — compartidas
+   ============================================================ */
+function cv(s=512){const c=document.createElement('canvas');c.width=c.height=s;return c;}
+function tex(canvas,repeat=1,srgb=false){
+  const t=new THREE.CanvasTexture(canvas);
+  t.wrapS=t.wrapT=THREE.RepeatWrapping;t.repeat.set(repeat,repeat);
+  t.colorSpace = srgb?THREE.SRGBColorSpace:THREE.NoColorSpace;
+  t.generateMipmaps=false; t.minFilter=THREE.LinearFilter; t.anisotropy=1; return t;
+}
+function normalFromHeight(size, hfn, strength=2.0){
+  const c=cv(size),ctx=c.getContext('2d'),img=ctx.createImageData(size,size);
+  const H=(x,y)=>hfn((x+size)%size,(y+size)%size);
+  for(let y=0;y<size;y++)for(let x=0;x<size;x++){
+    const dx=(H(x+1,y)-H(x-1,y))*strength;
+    const dy=(H(x,y+1)-H(x,y-1))*strength;
+    const nz=1.0; const len=Math.hypot(dx,dy,nz);
+    const i=(y*size+x)*4;
+    img.data[i]  =((-dx/len)*0.5+0.5)*255;
+    img.data[i+1]=((-dy/len)*0.5+0.5)*255;
+    img.data[i+2]=((nz/len)*0.5+0.5)*255;
+    img.data[i+3]=255;
+  }
+  ctx.putImageData(img,0,0);return c;
+}
+function valueNoise(seed=1){
+  const g=(x,y)=>{const s=Math.sin((x*127.1+y*311.7)+seed*13.13)*43758.5453;return s-Math.floor(s);};
+  return (x,y)=>{
+    const xi=Math.floor(x),yi=Math.floor(y),xf=x-xi,yf=y-yi;
+    const u=xf*xf*(3-2*xf),v=yf*yf*(3-2*yf);
+    const a=g(xi,yi),b=g(xi+1,yi),c=g(xi,yi+1),d=g(xi+1,yi+1);
+    return a*(1-u)*(1-v)+b*u*(1-v)+c*(1-u)*v+d*u*v;
+  };
+}
+function fbm(noise,x,y,oct=4){let v=0,a=0.5,f=1;for(let i=0;i<oct;i++){v+=noise(x*f,y*f)*a;f*=2;a*=0.5;}return v;}
+
+function castAluminum(){
+  const S=512, n=valueNoise(7);
+  const c=cv(S),ctx=c.getContext('2d'),img=ctx.createImageData(S,S);
+  for(let y=0;y<S;y++)for(let x=0;x<S;x++){
+    const v=fbm(n,x/22,y/22,5);
+    const por=Math.pow(n(x/3.1,y/3.1),8);
+    const base=150+v*38-por*70;
+    const i=(y*S+x)*4; img.data[i]=base; img.data[i+1]=base+4; img.data[i+2]=base+10; img.data[i+3]=255;
+  }
+  ctx.putImageData(img,0,0);
+  const r=cv(S),rx=r.getContext('2d'),rimg=rx.createImageData(S,S);
+  for(let y=0;y<S;y++)for(let x=0;x<S;x++){
+    const v=fbm(n,x/18,y/18,4); const por=Math.pow(n(x/3.1,y/3.1),8);
+    const rough=120+v*40+por*90; const i=(y*S+x)*4;
+    rimg.data[i]=rimg.data[i+1]=rimg.data[i+2]=Math.min(255,rough); rimg.data[i+3]=255;
+  }
+  rx.putImageData(rimg,0,0);
+  const nrm=normalFromHeight(S,(x,y)=>fbm(n,x/16,y/16,5)+Math.pow(n(x/3.1,y/3.1),8)*0.6,3.0);
+  return {map:tex(c,1,true),roughnessMap:tex(r),normalMap:tex(nrm)};
+}
+function brushedMetal(){
+  const S=512, n=valueNoise(3);
+  const c=cv(S),ctx=c.getContext('2d'),img=ctx.createImageData(S,S);
+  for(let y=0;y<S;y++)for(let x=0;x<S;x++){
+    const streak=Math.sin(y*0.9)*2 + (n(x/120,y*0.5)-0.5)*40;
+    const base=185+streak; const i=(y*S+x)*4;
+    img.data[i]=base; img.data[i+1]=base+2; img.data[i+2]=base+6; img.data[i+3]=255;
+  }
+  ctx.putImageData(img,0,0);
+  const r=cv(S),rx=r.getContext('2d'),rimg=rx.createImageData(S,S);
+  for(let y=0;y<S;y++)for(let x=0;x<S;x++){
+    const streak=(n(x/120,y*0.5)-0.5)*60; const rough=40+Math.abs(streak); const i=(y*S+x)*4;
+    rimg.data[i]=rimg.data[i+1]=rimg.data[i+2]=Math.min(160,rough); rimg.data[i+3]=255;
+  }
+  rx.putImageData(rimg,0,0);
+  const nrm=normalFromHeight(S,(x,y)=>(n(x/120,y*0.5))*0.3+Math.sin(y*0.9)*0.02,1.2);
+  return {map:tex(c,1,true),roughnessMap:tex(r),normalMap:tex(nrm)};
+}
+function rubber(){
+  const S=256,n=valueNoise(5);
+  const nrm=normalFromHeight(S,(x,y)=>fbm(n,x/8,y/8,4),1.4);
+  const rough=cv(64),rc=rough.getContext('2d');rc.fillStyle='#e0e0e0';rc.fillRect(0,0,64,64);
+  return {roughnessMap:tex(rough),normalMap:tex(nrm,2)};
+}
+function gradientBG(top='#11161d',bottom='#05070a'){
+  const c=cv(512),ctx=c.getContext('2d');
+  const grd=ctx.createLinearGradient(0,0,0,512);
+  grd.addColorStop(0,top);grd.addColorStop(1,bottom);
+  ctx.fillStyle=grd;ctx.fillRect(0,0,512,512);
+  const rg=ctx.createRadialGradient(256,200,30,256,256,360);
+  rg.addColorStop(0,'rgba(42,157,143,0.10)');rg.addColorStop(1,'rgba(0,0,0,0)');
+  ctx.fillStyle=rg;ctx.fillRect(0,0,512,512);
+  return tex(c,1,true);
+}
+function techPlastic(r=0.10,g=0.11,b=0.13){
+  const S=256,n=valueNoise(31);
+  const c=cv(S),ctx=c.getContext('2d'),img=ctx.createImageData(S,S);
+  for(let y=0;y<S;y++)for(let x=0;x<S;x++){
+    const v=fbm(n,x/30,y/30,3)*0.1+0.92; const i=(y*S+x)*4;
+    img.data[i]=r*255*v;img.data[i+1]=g*255*v;img.data[i+2]=b*255*v;img.data[i+3]=255;
+  }
+  ctx.putImageData(img,0,0);
+  const nrm=normalFromHeight(S,(x,y)=>fbm(n,x/10,y/10,3),0.8);
+  const rough=cv(64),rc=rough.getContext('2d');rc.fillStyle='#9a9a9a';rc.fillRect(0,0,64,64);
+  return {map:tex(c,1,true),roughnessMap:tex(rough),normalMap:tex(nrm)};
+}
+
+/* ============================================================
+   ENGINE — render premium compartido por todos los laboratorios
+   ============================================================ */
+function createStage(mount, opts={}){
+  const bgTop = opts.bgTop||'#141b24', bgBot = opts.bgBot||'#05070a';
+  const renderer = new THREE.WebGLRenderer({ antialias:true, powerPreference:'high-performance' });
+  renderer.setPixelRatio(Math.min(devicePixelRatio,2));
+  renderer.setSize(mount.clientWidth, mount.clientHeight);
+  renderer.shadowMap.enabled = true;
+  renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+  renderer.toneMapping = THREE.ACESFilmicToneMapping;
+  renderer.toneMappingExposure = opts.exposure ?? 1.18;
+  renderer.outputColorSpace = THREE.SRGBColorSpace;
+  mount.appendChild(renderer.domElement);
+  renderer.domElement.style.touchAction='none';
+
+  const scene = new THREE.Scene();
+  scene.background = gradientBG(bgTop,bgBot);
+  const pmrem = new THREE.PMREMGenerator(renderer);
+  scene.environment = pmrem.fromScene(new RoomEnvironment(renderer), 0.04).texture;
+  scene.environmentIntensity = opts.envInt ?? 1.15;
+
+  const camera = new THREE.PerspectiveCamera(45, mount.clientWidth/mount.clientHeight, 0.1, 200);
+  const cam = opts.cam || [5.5,3.4,6.2];
+  camera.position.set(...cam);
+
+  const controls = new OrbitControls(camera, renderer.domElement);
+  controls.enableDamping = true; controls.dampingFactor = 0.07;
+  controls.minDistance = opts.minD ?? 3; controls.maxDistance = opts.maxD ?? 18;
+  controls.maxPolarAngle = Math.PI*0.52;
+  controls.target.set(...(opts.target||[0,1.4,0]));
+  controls.autoRotate = opts.autoRotate ?? false;
+  controls.autoRotateSpeed = opts.autoRotateSpeed ?? 0.6;
+
+  const key = new THREE.DirectionalLight(0xffffff, 2.7);
+  key.position.set(5,9,6); key.castShadow=true;
+  key.shadow.mapSize.set(2048,2048);
+  key.shadow.camera.near=0.5; key.shadow.camera.far=40;
+  const sd=8; Object.assign(key.shadow.camera,{left:-sd,right:sd,top:sd,bottom:-sd});
+  key.shadow.bias=-0.0003; key.shadow.normalBias=0.02; scene.add(key);
+  const rim = new THREE.SpotLight(0x2affce, 55, 30, Math.PI/5, 0.4, 1.5);
+  rim.position.set(-7,6,-5); scene.add(rim);
+  const fill = new THREE.DirectionalLight(0x6fb6ff, 0.5); fill.position.set(-4,3,7); scene.add(fill);
+  scene.add(new THREE.HemisphereLight(0x9fb4c8, 0x10151b, 0.35));
+
+  if(opts.floor!==false){
+    const f = new THREE.Mesh(new THREE.CircleGeometry(40,80),
+      new THREE.MeshStandardMaterial({ color:0x0a0e13, roughness:0.14, metalness:0.62, envMapIntensity:1.15 }));
+    f.rotation.x=-Math.PI/2; f.receiveShadow=true; scene.add(f);
+    for(let r=2;r<=8;r+=2){
+      const ring=new THREE.Mesh(new THREE.RingGeometry(r-0.012,r+0.012,80),
+        new THREE.MeshBasicMaterial({color:0x1a2632,transparent:true,opacity:0.4}));
+      ring.rotation.x=-Math.PI/2; ring.position.y=0.002; scene.add(ring);
+    }
+  }
+
+  const isMobile = /Mobi|Android|iPhone|iPad/i.test(navigator.userAgent) || innerWidth<820;
+  // GTAO desactivado por defecto: el pase de oclusión ambiental en espacio de pantalla
+  // producía un recuadro oscuro duro sobre el piso reflectante (artefacto dependiente de la
+  // cámara y del renderer). La escena tiene AO suficiente con luces directas + sombras + env.
+  // Se puede reactivar para pruebas con ?gtao.
+  const useGtao = /[?&]gtao\b/.test(location.search);
+  const composer = new EffectComposer(renderer);
+  composer.addPass(new RenderPass(scene,camera));
+  if(!isMobile && useGtao){
+    try{
+      const g=new GTAOPass(scene,camera,mount.clientWidth,mount.clientHeight);
+      g.output=GTAOPass.OUTPUT.Default;
+      if(g.updateGtaoMaterial)g.updateGtaoMaterial({radius:0.5,distanceExponent:1,thickness:1,scale:1.1,samples:16});
+      composer.addPass(g);
+    }catch(e){}
+  }
+  const bloom=new UnrealBloomPass(new THREE.Vector2(mount.clientWidth,mount.clientHeight),opts.bloom??0.42,0.5,0.9);
+  composer.addPass(bloom);
+  let bokeh=null;
+  const flat=/[?&]flat/.test(location.search);
+  if(!isMobile && !flat){
+    bokeh=new BokehPass(scene,camera,{focus:8.5,aperture:opts.aperture??0.00018,maxblur:opts.maxblur??0.004,width:mount.clientWidth,height:mount.clientHeight});
+    composer.addPass(bokeh);
+  }
+  composer.addPass(new OutputPass());
+  composer.addPass(new SMAAPass(mount.clientWidth*renderer.getPixelRatio(),mount.clientHeight*renderer.getPixelRatio()));
+
+  function resize(){
+    const w=mount.clientWidth,h=mount.clientHeight;
+    camera.aspect=w/h; camera.updateProjectionMatrix();
+    renderer.setSize(w,h); composer.setSize(w,h);
+  }
+  window.addEventListener('resize',resize);
+
+  const clock=new THREE.Clock();
+  let hook=null, raf=null;
+  const camCine={active:false,t:0,dur:1.4,from:new THREE.Vector3(),to:new THREE.Vector3(),fromT:new THREE.Vector3(),toT:new THREE.Vector3()};
+  let lastDrag=-99, cinematicIdle=false;
+  controls.addEventListener('start',()=>{ lastDrag=clock.elapsedTime; camCine.active=false; });
+  function easeInOutCubic(x){return x<0.5?4*x*x*x:1-Math.pow(-2*x+2,3)/2;}
+  function moveTo(pos,target,dur=1.4){
+    camCine.from.copy(camera.position); camCine.fromT.copy(controls.target);
+    camCine.to.set(...pos); camCine.toT.set(...target);
+    camCine.dur=dur; camCine.active=true; camCine.t=0;
+  }
+  function setCinematicIdle(v){ cinematicIdle=v; if(!v)controls.autoRotate=false; }
+  function loop(){ raf=requestAnimationFrame(loop); const dt=clock.getDelta(),t=clock.elapsedTime;
+    if(camCine.active){
+      camCine.t=Math.min(1,camCine.t+dt/camCine.dur);
+      const e=easeInOutCubic(camCine.t);
+      camera.position.lerpVectors(camCine.from,camCine.to,e);
+      controls.target.lerpVectors(camCine.fromT,camCine.toT,e);
+      if(camCine.t>=1)camCine.active=false;
+    } else if(cinematicIdle){
+      controls.autoRotate=(t-lastDrag)>1.4; controls.autoRotateSpeed=0.45;
+    }
+    if(hook)hook(dt,t); controls.update();
+    if(bokeh) bokeh.uniforms['focus'].value = camera.position.distanceTo(controls.target);
+    composer.render(); }
+  function start(){ if(!raf)loop(); }
+  function stop(){ cancelAnimationFrame(raf); raf=null; window.removeEventListener('resize',resize); }
+
+  return { THREE, renderer, scene, camera, controls, composer, bloom,
+    setAnimate:fn=>hook=fn, start, stop, resize, clock,
+    flyTo:(v)=>{ controls.target.copy(v); }, moveTo, setCinematicIdle };
+}
+
+/* ---------- shared geometry/material helpers ---------- */
+function roundedBox(w,h,d,mat,rf=0.08){
+  const r=Math.min(w,h,d)*rf;
+  const m=new THREE.Mesh(new RoundedBoxGeometry(w,h,d,4,r),mat);
+  m.castShadow=m.receiveShadow=true; return m;
+}
+function pickerFor(scene,camera,dom,onHit){
+  const ray=new THREE.Raycaster(),mouse=new THREE.Vector2(); let down=null;
+  dom.addEventListener('pointerdown',e=>down=[e.clientX,e.clientY]);
+  dom.addEventListener('pointerup',e=>{
+    if(!down)return; const moved=Math.abs(e.clientX-down[0])+Math.abs(e.clientY-down[1])>6; down=null;
+    if(moved)return;
+    const r=dom.getBoundingClientRect();
+    mouse.x=((e.clientX-r.left)/r.width)*2-1; mouse.y=-((e.clientY-r.top)/r.height)*2+1;
+    ray.setFromCamera(mouse,camera);
+    const hits=ray.intersectObjects(scene.children,true);
+    onHit(hits[0]||null);
+  });
+}
+function labelSprite(text,color='#ffd166'){
+  const w = Math.max(150, Math.min(520, text.length*26+60));
+  const cvE=document.createElement('canvas');cvE.width=w;cvE.height=96;
+  const c=cvE.getContext('2d');c.fillStyle='rgba(8,11,16,.95)';
+  const rr=(x,y,ww,hh,r)=>{c.beginPath();c.moveTo(x+r,y);c.arcTo(x+ww,y,x+ww,y+hh,r);c.arcTo(x+ww,y+hh,x,y+hh,r);c.arcTo(x,y+hh,x,y,r);c.arcTo(x,y,x+ww,y,r);c.closePath();};
+  rr(3,3,w-6,90,18);c.fill();
+  c.strokeStyle=color;c.lineWidth=3;c.stroke();
+  c.font='bold 36px Outfit, system-ui, sans-serif';c.fillStyle=color;c.textAlign='center';c.textBaseline='middle';c.fillText(text,w/2,48);
+  const tx=new THREE.CanvasTexture(cvE);tx.colorSpace=THREE.SRGBColorSpace;tx.generateMipmaps=false;tx.minFilter=THREE.LinearFilter;
+  const sp=new THREE.Sprite(new THREE.SpriteMaterial({map:tx,depthTest:false,transparent:true}));
+  const aspect=w/96;
+  sp.scale.set(0.30*aspect,0.30,1);sp.renderOrder=999;return sp;
+}
+
+/* ============================================================
+   SYNTH — sintetizador Web Audio reutilizable
+   ============================================================ */
+function makeSynth(opts={}){
+  const type=opts.type||'sawtooth';
+  let ctx=null,oscA=null,oscB=null,gain=null,filter=null,soundOn=true;
+  function init(){
+    if(ctx)return;
+    try{
+      ctx=new (window.AudioContext||window.webkitAudioContext)();
+      oscA=ctx.createOscillator(); oscB=ctx.createOscillator();
+      oscA.type=type; oscB.type=opts.type2||'square';
+      filter=ctx.createBiquadFilter(); filter.type=opts.filterType||'lowpass'; filter.frequency.value=opts.filterFreq||500; filter.Q.value=opts.Q||3;
+      gain=ctx.createGain(); gain.gain.value=0;
+      oscA.connect(filter); oscB.connect(filter); filter.connect(gain); gain.connect(ctx.destination);
+      oscA.start(); oscB.start();
+    }catch(e){}
+  }
+  function update(freqA,freqB,vol,filterFreq){
+    if(!ctx||!soundOn){ if(gain)gain.gain.setTargetAtTime(0,ctx?.currentTime||0,0.1); return; }
+    oscA.frequency.setTargetAtTime(freqA,ctx.currentTime,0.04);
+    if(freqB!==undefined)oscB.frequency.setTargetAtTime(freqB,ctx.currentTime,0.04);
+    if(filterFreq!==undefined)filter.frequency.setTargetAtTime(filterFreq,ctx.currentTime,0.05);
+    gain.gain.setTargetAtTime(Math.max(0,vol),ctx.currentTime,0.06);
+  }
+  function beep(freq=880,dur=0.09,vol=0.06){
+    if(!ctx||!soundOn)return;
+    const o=ctx.createOscillator(),g=ctx.createGain();
+    o.type='sine'; o.frequency.value=freq;
+    g.gain.setValueAtTime(vol,ctx.currentTime); g.gain.exponentialRampToValueAtTime(0.001,ctx.currentTime+dur);
+    o.connect(g); g.connect(ctx.destination); o.start(); o.stop(ctx.currentTime+dur);
+  }
+  function toggle(){ soundOn=!soundOn; return soundOn; }
+  function resume(){ if(ctx&&ctx.state==='suspended')ctx.resume(); }
+  return { init, update, beep, toggle, resume, isOn:()=>soundOn, state:()=>ctx?.state||'none' };
+}
+
+/**
+ * FICHA DE FIDELIDAD — Temporizador 555 astable (NE555)
+ *
+ * SÍ verificado:
+ * - Fórmulas estándar de multivibrador astable con NE555 (topología clásica
+ *   RA/RB/C): tHigh=0.693·(RA+RB)·C, tLow=0.693·RB·C, T=tHigh+tLow,
+ *   f=1/T≈1.44/((RA+2RB)·C), duty=tHigh/T=(RA+RB)/(RA+2RB) — siempre ≥50%
+ *   en esta topología básica de 3 terminales (sin diodo en paralelo con RB).
+ * - Umbrales internos del divisor resistivo de 3 resistores iguales del 555
+ *   (el origen del nombre "555"): threshold (pin 6) dispara la descarga al
+ *   llegar a 2/3 Vcc; trigger (pin 2) dispara la carga al caer a 1/3 Vcc.
+ * - Curva de carga/descarga real (exponencial RC), no una rampa lineal:
+ *   durante tHigh el capacitor carga hacia Vcc a través de RA+RB con
+ *   τ_carga=(RA+RB)·C, partiendo de Vcc/3; durante tLow descarga a través
+ *   de RB únicamente (pin de descarga, pin 7, a tierra) con τ_descarga=RB·C,
+ *   partiendo de 2Vcc/3 — verificado en TI SLFS022I y Diodes Inc NE555.
+ * - Rango de alimentación NE555: 4.5V–16V (hasta 18V en la variante SE555).
+ * - Guía de diseño ampliamente citada: RA no debe ser demasiado pequeña
+ *   (práctica común: no bajar de ~1kΩ) porque el transistor interno de
+ *   descarga conduce la corriente de RA a tierra durante tLow, y una RA muy
+ *   baja eleva esa corriente hacia el límite del transistor.
+ *
+ * NO modelado:
+ * - El pin de control de voltaje (pin 5), normalmente desacoplado a tierra
+ *   con un capacitor de 0.01–0.1µF; este simulador no expone ese pin ni
+ *   permite alterar el umbral 2/3 Vcc con una tensión externa.
+ * - La tolerancia empírica de fabricación de RA/RB/C ni del propio 555: las
+ *   fórmulas de diseño del temporizador son aproximaciones que, según nota
+ *   de varias fuentes técnicas consultadas, pueden diferir hasta ~20% del
+ *   resultado medido en un circuito real — este simulador calcula f/duty de
+ *   forma exacta según las fórmulas ideales, sin variabilidad de componente.
+ * - El nivel de salida baja real (VOL) del 555 como un pequeño voltaje de
+ *   saturación, no 0V exacto (aproximación estándar de la mayoría de los
+ *   tratamientos introductorios, igual que la usada aquí).
+ * - Corriente máxima de salida (~200mA típica), disipación de potencia y
+ *   calentamiento del encapsulado a alta frecuencia o alta corriente.
+ *
+ * Nota de rigor:
+ * - El límite de "RA≥1kΩ" es una guía de diseño ampliamente citada por
+ *   fabricantes y tutoriales, no una cifra absoluta de una única hoja de
+ *   datos con un valor numérico único — se presenta aquí como advertencia
+ *   de diseño, no como un límite estricto de hoja de datos.
+ *
+ * Fuentes:
+ * - Texas Instruments, "NE555 Precision Timers" (SLFS022I) —
+ *   https://www.ti.com/lit/ds/symlink/ne555.pdf
+ * - Diodes Incorporated, "NE555/SA555/NA555" datasheet —
+ *   https://www.diodes.com/datasheet/download/NE555.pdf
+ * - Daycounter, "NE555 Astable Multivibrator Frequency and Duty Cycle
+ *   Calculator" — https://www.daycounter.com/Calculators/NE555-Calculator.phtml
+ * - All About Circuits, "555 Timer Astable Oscillator Circuit" —
+ *   https://www.allaboutcircuits.com/tools/555-timer-astable-circuit/
+ * - Electronics Tutorials, "555 Oscillator Tutorial - The Astable
+ *   Multivibrator" — https://www.electronics-tutorials.ws/waveforms/555_oscillator.html
+ * - Electronics Club, "555 Astable" — https://electronicsclub.info/555astable.htm
+ */
+(function () {
+  'use strict';
+  const mount = document.getElementById('stage');
+  const S = createStage(mount, { cam: [3.4, 2.6, 7.6], target: [0.5, 1.2, 0.3], bgTop: '#0d1a1a', bgBot: '#040a08', bloom: 0.35, minD: 3.0, maxD: 18 });
+  const synth = makeSynth();
+
+  function el(id) { return document.getElementById(id); }
+  function showToast(msg, kind) {
+    const t = el('toast');
+    if (!t) return;
+    clearTimeout(showToast._h);
+    t.textContent = msg;
+    t.className = 'toast show' + (kind ? ' ' + kind : '');
+    showToast._h = setTimeout(() => { t.className = 'toast'; }, 2600);
+  }
+  function sleep(ms) { return new Promise(r => setTimeout(r, ms)); }
+
+  // ---------- Constantes del dispositivo ----------
+  const DEV = { name: 'NE555', vccMin: 4.5, vccMax: 16, raMinRec: 1000, color: 0x1a1a2e };
+  const UTP_FRAC = 2 / 3, LTP_FRAC = 1 / 3;
+
+  // ---------- Física ----------
+  function solveAstable(Vcc, RA, RB, C) {
+    const tHigh = 0.693 * (RA + RB) * C;
+    const tLow = 0.693 * RB * C;
+    const T = tHigh + tLow;
+    const f = 1 / T;
+    const duty = tHigh / T;
+    const warnRA = RA < DEV.raMinRec;
+    return { Vcc, RA, RB, C, tHigh, tLow, T, f, duty, warnRA };
+  }
+
+  function curveVC(res, nTotal) {
+    nTotal = nTotal || 160;
+    const nCharge = Math.max(2, Math.round(nTotal * res.duty));
+    const nDischarge = Math.max(2, nTotal - nCharge);
+    const tauC = (res.RA + res.RB) * res.C, tauD = res.RB * res.C;
+    const pts = [];
+    for (let i = 0; i <= nCharge; i++) {
+      const t = (i / nCharge) * res.tHigh;
+      const v = res.Vcc - (2 * res.Vcc / 3) * Math.exp(-t / tauC);
+      pts.push({ tFrac: t / res.T, v, phase: 'charge' });
+    }
+    for (let i = 1; i <= nDischarge; i++) {
+      const t = (i / nDischarge) * res.tLow;
+      const v = (2 * res.Vcc / 3) * Math.exp(-t / tauD);
+      pts.push({ tFrac: (res.tHigh + t) / res.T, v, phase: 'discharge' });
+    }
+    return pts;
+  }
+  function outAt(tFrac, res) { return tFrac < res.duty ? res.Vcc : 0; }
+
+  function fmtV(v) {
+    const av = Math.abs(v);
+    if (av < 1) return (v * 1000).toFixed(0) + ' mV';
+    return v.toFixed(2) + ' V';
+  }
+  function fmtR(r) {
+    if (r >= 1000) { const k = r / 1000; return (Number.isInteger(k) ? k.toFixed(0) : k.toFixed(1)) + ' kΩ'; }
+    return r.toFixed(0) + ' Ω';
+  }
+  function fmtC(c) {
+    if (c >= 1e-6) return (c * 1e6).toFixed(1).replace(/\.0$/, '') + ' µF';
+    return (c * 1e9).toFixed(0) + ' nF';
+  }
+  function fmtHz(f) {
+    if (f >= 1000) return (f / 1000).toFixed(f >= 10000 ? 1 : 2) + ' kHz';
+    return f.toFixed(f >= 10 ? 0 : 1) + ' Hz';
+  }
+  function fmtT(t) {
+    if (t < 1e-6) return (t * 1e9).toFixed(0) + ' ns';
+    if (t < 1e-3) return (t * 1e6).toFixed(1) + ' µs';
+    if (t < 1) return (t * 1e3).toFixed(2) + ' ms';
+    return t.toFixed(2) + ' s';
+  }
+  function fmtPct(x) { return (x * 100).toFixed(1) + '%'; }
+
+  // ---------- Estado ----------
+  const VCC_VALS = [5, 9, 12];
+  const RA_VALS = [470, 1000, 2200, 4700, 10000, 22000, 47000];
+  const RB_VALS = [2200, 4700, 10000, 22000, 47000, 100000];
+  const C_VALS = [1e-8, 4.7e-8, 1e-7, 4.7e-7, 1e-6, 4.7e-6];
+
+  const state = {
+    iVCC: 1, iRA: 2, iRB: 2, iC: 2,
+    mode: 'explora', hide: false, _revealed: false,
+    _sweepTrace: null, _predType: 'f', _reto: null,
+  };
+
+  function curVCC() { return VCC_VALS[state.iVCC]; }
+  function curRA() { return RA_VALS[state.iRA]; }
+  function curRB() { return RB_VALS[state.iRB]; }
+  function curC() { return C_VALS[state.iC]; }
+  function curSolve() { return solveAstable(curVCC(), curRA(), curRB(), curC()); }
+
+  // ---------- Materiales y geometría 3D ----------
+  const MAT = {
+    board: { color: 0x2b2f36, roughness: 0.85, metalness: 0.1 },
+    resistorBody: { color: 0xd8c08a, roughness: 0.6, metalness: 0.05 },
+    lead: { color: 0xc7c7c7, roughness: 0.35, metalness: 0.8 },
+    icBody: { color: 0x1a1a2e, roughness: 0.5, metalness: 0.2 },
+    notch: { color: 0x08080c, roughness: 0.5, metalness: 0.1 },
+    capBody: { color: 0x2255aa, roughness: 0.4, metalness: 0.3 },
+  };
+  function std(spec) { return new THREE.MeshStandardMaterial(spec); }
+
+  const BAND_COLORS = [0x1a1a1a, 0x8B4513, 0xff0000, 0xffa500, 0xffff00, 0x00ff00, 0x0000ff, 0x8B00FF, 0x808080, 0xffffff];
+  function bandsFor(ohms) {
+    const s = ohms.toExponential(1).split('e');
+    const digit1 = Math.floor(Number(s[0]));
+    const digit2 = Math.round((Number(s[0]) - digit1) * 10);
+    const exp = Number(s[1]);
+    return [BAND_COLORS[digit1], BAND_COLORS[digit2], BAND_COLORS[Math.max(0, exp)] || 0x1a1a1a];
+  }
+  function paintBands(group, ohms) {
+    const bands = bandsFor(ohms);
+    if (group.userData.bandMeshes) {
+      group.userData.bandMeshes.forEach((m, i) => m.material.color.setHex(bands[i]));
+    }
+  }
+  function makeResistor3D() {
+    const g = new THREE.Group();
+    const bodyGeo = new THREE.CylinderGeometry(0.045, 0.045, 0.26, 16);
+    const body = new THREE.Mesh(bodyGeo, std(MAT.resistorBody));
+    body.rotation.z = Math.PI / 2;
+    g.add(body);
+    const bandMeshes = [];
+    for (let i = 0; i < 3; i++) {
+      const bg = new THREE.Mesh(new THREE.CylinderGeometry(0.047, 0.047, 0.02, 16), std({ color: 0x1a1a1a }));
+      bg.rotation.z = Math.PI / 2;
+      bg.position.x = -0.06 + i * 0.06;
+      g.add(bg); bandMeshes.push(bg);
+    }
+    for (let s = -1; s <= 1; s += 2) {
+      const leg = new THREE.Mesh(new THREE.CylinderGeometry(0.008, 0.008, 0.12, 8), std(MAT.lead));
+      leg.rotation.z = Math.PI / 2;
+      leg.position.x = s * 0.19;
+      g.add(leg);
+    }
+    g.userData.bandMeshes = bandMeshes;
+    g.userData.body = body;
+    return g;
+  }
+  function makeCapacitor3D() {
+    const g = new THREE.Group();
+    const body = new THREE.Mesh(new THREE.CylinderGeometry(0.09, 0.09, 0.16, 20), std(MAT.capBody));
+    g.add(body);
+    const top = new THREE.Mesh(new THREE.CylinderGeometry(0.09, 0.09, 0.01, 20), std({ color: 0xd7dee6, roughness: 0.5, metalness: 0.2 }));
+    top.position.y = 0.085;
+    g.add(top);
+    for (let s = -1; s <= 1; s += 2) {
+      const leg = new THREE.Mesh(new THREE.CylinderGeometry(0.006, 0.006, 0.1, 8), std(MAT.lead));
+      leg.position.set(s * 0.04, -0.13, 0);
+      g.add(leg);
+    }
+    g.userData.body = body;
+    return g;
+  }
+  function makeDIP3D() {
+    const g = new THREE.Group();
+    const body = new THREE.Mesh(new THREE.BoxGeometry(0.32, 0.09, 0.16), std(MAT.icBody));
+    g.add(body);
+    const notch = new THREE.Mesh(new THREE.CylinderGeometry(0.015, 0.015, 0.1, 12), std(MAT.notch));
+    notch.rotation.x = Math.PI / 2;
+    notch.position.set(-0.14, 0.05, 0);
+    g.add(notch);
+    for (let side = -1; side <= 1; side += 2) {
+      for (let i = 0; i < 4; i++) {
+        const leg = new THREE.Mesh(new THREE.CylinderGeometry(0.006, 0.006, 0.06, 6), std(MAT.lead));
+        leg.position.set(-0.12 + i * 0.08, -0.06, side * 0.09);
+        g.add(leg);
+      }
+    }
+    g.userData.body = body;
+    return g;
+  }
+  function makeDisplayBox(w, h, dp, cw, ch) {
+    const g = new THREE.Group();
+    const frame = new THREE.Mesh(new THREE.BoxGeometry(w, h, dp), std({ color: 0x111318, roughness: 0.7, metalness: 0.2 }));
+    g.add(frame);
+    const canvas = document.createElement('canvas');
+    canvas.width = cw; canvas.height = ch;
+    const ctx = canvas.getContext('2d');
+    const tex = new THREE.CanvasTexture(canvas);
+    const screen = new THREE.Mesh(new THREE.PlaneGeometry(w * 0.9, h * 0.82), new THREE.MeshBasicMaterial({ map: tex }));
+    screen.position.z = dp / 2 + 0.002;
+    g.add(screen);
+    g.userData = { canvas, ctx, tex };
+    return g;
+  }
+
+  // ---------- Glifos de esquemático ----------
+  function line(ctx, x1, y1, x2, y2, w, col) {
+    ctx.strokeStyle = col || '#8fe3d0'; ctx.lineWidth = w || 2;
+    ctx.beginPath(); ctx.moveTo(x1, y1); ctx.lineTo(x2, y2); ctx.stroke();
+  }
+  function groundGlyph(ctx, x, y) {
+    line(ctx, x, y, x, y + 10, 2, '#8fe3d0');
+    line(ctx, x - 14, y + 10, x + 14, y + 10, 2, '#8fe3d0');
+    line(ctx, x - 8, y + 16, x + 8, y + 16, 2, '#8fe3d0');
+    line(ctx, x - 3, y + 22, x + 3, y + 22, 2, '#8fe3d0');
+  }
+  function vResistorGlyph(ctx, x, y, h, col) {
+    ctx.strokeStyle = col || '#e8c568'; ctx.lineWidth = 2;
+    ctx.strokeRect(x - 8, y, 16, h);
+  }
+  function capGlyph(ctx, x, y, col) {
+    ctx.strokeStyle = col || '#5fb8ff'; ctx.lineWidth = 3;
+    line(ctx, x - 16, y, x + 16, y, 3, col || '#5fb8ff');
+    line(ctx, x - 16, y + 10, x + 16, y + 10, 3, col || '#5fb8ff');
+  }
+  function icBoxGlyph(ctx, x, y, w, h, label, col) {
+    ctx.strokeStyle = col || '#8fe3d0'; ctx.lineWidth = 2;
+    ctx.strokeRect(x, y, w, h);
+    ctx.fillStyle = col || '#8fe3d0'; ctx.font = 'bold 16px sans-serif';
+    ctx.fillText(label, x + w / 2 - 18, y + h / 2 + 6);
+  }
+
+  // ---------- Layout ----------
+  const PX0 = 40, PX1 = 620, PY0 = 40, PY1 = 460;
+  const GX0 = 660, GX1 = 1000, GY0 = 40, GY1 = 460;
+  const RAIL_Y = 70, NODE_A_Y = 190, NODE_B_Y = 300, GND_Y = 420;
+  const LADDER_X = 150, IC_X = 340, IC_Y = 150, IC_W = 150, IC_H = 160, OUT_X = 560;
+
+  let HIT = [];
+  function addHit(id, x, y, w, h) { HIT.push({ id, x, y, w, h }); }
+
+  function drawSchematic(ctx) {
+    HIT = [];
+    ctx.clearRect(PX0 - 10, PY0 - 10, PX1 - PX0 + 20, PY1 - PY0 + 20);
+    ctx.fillStyle = '#0b1310'; ctx.fillRect(PX0 - 10, PY0 - 10, PX1 - PX0 + 20, PY1 - PY0 + 20);
+
+    // Riel Vcc
+    line(ctx, LADDER_X - 40, RAIL_Y, LADDER_X + 40, RAIL_Y, 2, '#8fe3d0');
+    ctx.fillStyle = '#8fe3d0'; ctx.font = '12px sans-serif';
+    ctx.fillText('+Vcc', LADDER_X - 20, RAIL_Y - 10);
+    addHit('vcc', LADDER_X - 40, RAIL_Y - 16, 80, 16);
+    line(ctx, LADDER_X, RAIL_Y, LADDER_X, NODE_A_Y, 2, '#8fe3d0');
+
+    // RA: Vcc -> nodo A (descarga, pin 7)
+    vResistorGlyph(ctx, LADDER_X, NODE_A_Y - 60, 60, '#e8c568');
+    addHit('ra', LADDER_X, NODE_A_Y - 60, 16, 60);
+    ctx.fillStyle = '#e8c568'; ctx.fillText('RA', LADDER_X + 20, NODE_A_Y - 26);
+    line(ctx, LADDER_X, NODE_A_Y, LADDER_X, NODE_A_Y, 2, '#8fe3d0');
+    ctx.fillStyle = '#8fe3d0'; ctx.font = 'bold 11px sans-serif';
+    ctx.fillText('DIS (pin 7)', LADDER_X + 20, NODE_A_Y + 4);
+
+    // RB: nodo A -> nodo B (threshold/trigger, pines 6+2)
+    vResistorGlyph(ctx, LADDER_X, NODE_A_Y + 50, 60, '#e8c568');
+    addHit('rb', LADDER_X, NODE_A_Y + 50, 16, 60);
+    ctx.fillStyle = '#e8c568'; ctx.font = '12px sans-serif';
+    ctx.fillText('RB', LADDER_X + 20, NODE_A_Y + 84);
+    line(ctx, LADDER_X, NODE_A_Y + 110, LADDER_X, NODE_B_Y, 2, '#8fe3d0');
+    ctx.fillStyle = '#8fe3d0'; ctx.font = 'bold 11px sans-serif';
+    ctx.fillText('THR/TRIG (pines 6+2)', LADDER_X + 20, NODE_B_Y + 4);
+
+    // C: nodo B -> GND
+    line(ctx, LADDER_X, NODE_B_Y, LADDER_X, NODE_B_Y + 60, 2, '#8fe3d0');
+    capGlyph(ctx, LADDER_X, NODE_B_Y + 65, '#5fb8ff');
+    addHit('c', LADDER_X - 16, NODE_B_Y + 55, 32, 30);
+    ctx.fillStyle = '#5fb8ff'; ctx.font = '12px sans-serif';
+    ctx.fillText('C', LADDER_X + 24, NODE_B_Y + 74);
+    line(ctx, LADDER_X, NODE_B_Y + 76, LADDER_X, GND_Y, 2, '#8fe3d0');
+    groundGlyph(ctx, LADDER_X, GND_Y);
+
+    // 555
+    icBoxGlyph(ctx, IC_X, IC_Y, IC_W, IC_H, '555', '#8fe3d0');
+    addHit('ic', IC_X, IC_Y, IC_W, IC_H);
+    line(ctx, LADDER_X, NODE_A_Y, IC_X, IC_Y + 40, 2, '#8fe3d0');
+    line(ctx, LADDER_X, NODE_B_Y, IC_X, IC_Y + 100, 2, '#8fe3d0');
+    line(ctx, IC_X - 40, IC_Y + 40, IC_X, IC_Y + 40, 0, '#8fe3d0');
+
+    // Salida
+    line(ctx, IC_X + IC_W, IC_Y + IC_H / 2, OUT_X, IC_Y + IC_H / 2, 2, '#8fe3d0');
+    addHit('out', IC_X + IC_W, IC_Y + IC_H / 2 - 10, OUT_X - IC_X - IC_W + 20, 20);
+    ctx.fillStyle = '#8fe3d0'; ctx.font = '12px sans-serif';
+    ctx.fillText('Vout (pin 3)', OUT_X - 30, IC_Y + IC_H / 2 - 12);
+
+    const res = curSolve();
+    ctx.font = 'bold 13px sans-serif';
+    if (res.warnRA) { ctx.fillStyle = '#ef4444'; ctx.fillText('⚠ RA por debajo del mínimo recomendado (1kΩ)', PX0 + 10, PY1 - 12); }
+    else { ctx.fillStyle = '#22c55e'; ctx.fillText('f=' + fmtHz(res.f) + ' · duty=' + fmtPct(res.duty), PX0 + 10, PY1 - 12); }
+  }
+
+  // ---------- Gráfica: curva de carga/descarga del capacitor ----------
+  function xPixT(tFrac) { return GX0 + 30 + tFrac * (GX1 - GX0 - 50); }
+  function yPixV(v, Vcc) { return GY1 - 30 - (v / Vcc) * (GY1 - GY0 - 50); }
+
+  function drawGraph(ctx) {
+    ctx.clearRect(GX0 - 10, GY0 - 10, GX1 - GX0 + 20, GY1 - GY0 + 20);
+    ctx.fillStyle = '#0b1310'; ctx.fillRect(GX0 - 10, GY0 - 10, GX1 - GX0 + 20, GY1 - GY0 + 20);
+    const res = curSolve();
+    const Vcc = res.Vcc;
+    line(ctx, GX0 + 30, GY0 + 10, GX0 + 30, GY1 - 30, 1, '#233532');
+    line(ctx, GX0 + 30, GY1 - 30, GX1 - 20, GY1 - 30, 1, '#233532');
+    ctx.fillStyle = '#6b8a83'; ctx.font = '11px sans-serif';
+    ctx.fillText('t / T', GX1 - 36, GY1 - 12);
+    ctx.save(); ctx.translate(GX0 + 12, GY0 + 20); ctx.rotate(-Math.PI / 2);
+    ctx.fillText('Vc', 0, 0); ctx.restore();
+
+    const yUTP = yPixV(UTP_FRAC * Vcc, Vcc), yLTP = yPixV(LTP_FRAC * Vcc, Vcc);
+    ctx.setLineDash([4, 4]); ctx.lineWidth = 1;
+    line(ctx, GX0 + 30, yUTP, GX1 - 20, yUTP, 1, '#5fb8ff');
+    line(ctx, GX0 + 30, yLTP, GX1 - 20, yLTP, 1, '#f59e0b');
+    ctx.setLineDash([]);
+    ctx.fillStyle = '#5fb8ff'; ctx.font = '11px sans-serif';
+    ctx.fillText('UTP=2/3 Vcc', GX0 + 34, yUTP - 4);
+    ctx.fillStyle = '#f59e0b';
+    ctx.fillText('LTP=1/3 Vcc', GX0 + 34, yLTP + 14);
+
+    const pts = curveVC(res, 160);
+    ctx.lineWidth = 2.5;
+    for (let i = 1; i < pts.length; i++) {
+      const a = pts[i - 1], b = pts[i];
+      const col = b.phase === 'charge' ? '#5fb8ff' : '#f59e0b';
+      line(ctx, xPixT(a.tFrac), yPixV(a.v, Vcc), xPixT(b.tFrac), yPixV(b.v, Vcc), 2.5, col);
+    }
+
+    if (state.mode === 'medicion' && state._sweepTrace && state._sweepTrace.length) {
+      ctx.fillStyle = '#c084fc'; ctx.font = '10px sans-serif';
+      let ty = GY0 + 40;
+      ctx.fillText('Barrido RB → f / duty:', GX0 + 34, ty);
+      state._sweepTrace.forEach(pt => {
+        ty += 13;
+        ctx.fillText(fmtR(pt.rb) + ' → ' + fmtHz(pt.f) + ' · ' + fmtPct(pt.duty), GX0 + 34, ty);
+      });
+    }
+  }
+
+  function drawBoard() { drawSchematic(bctx); drawGraph(bctx); }
+
+  function boardClick(u, v) {
+    const px = u * 1024, py = (1 - v) * 768;
+    for (const h of HIT) {
+      if (px >= h.x && px <= h.x + h.w && py >= h.y && py <= h.y + h.h) {
+        actToast(h.id); dispatch3D(h.id); return;
+      }
+    }
+  }
+
+  // ---------- Escena: tablero ----------
+  const boardCanvas = document.createElement('canvas');
+  boardCanvas.width = 1024; boardCanvas.height = 768;
+  const bctx = boardCanvas.getContext('2d');
+  const boardTex = new THREE.CanvasTexture(boardCanvas);
+  const boardMat = new THREE.MeshBasicMaterial({ map: boardTex });
+  const boardPlane = new THREE.Mesh(new THREE.PlaneGeometry(4.2, 3.15), boardMat);
+  boardPlane.position.set(0.5, 2.0, -1.2);
+  const boardFrame = new THREE.Mesh(new THREE.BoxGeometry(4.32, 3.27, 0.06), std({ color: 0x1b1f24, roughness: 0.8, metalness: 0.2 }));
+  boardFrame.position.set(0.5, 2.0, -1.24);
+  const boardG = new THREE.Group();
+  boardG.add(boardFrame, boardPlane);
+  S.scene.add(boardG);
+
+  // ---------- Escena: banco ----------
+  const benchG = new THREE.Group();
+  const mesa = new THREE.Mesh(new THREE.BoxGeometry(3.6, 0.12, 1.8), std({ color: 0x2b2f36, roughness: 0.85, metalness: 0.1 }));
+  mesa.position.set(0.5, 0.55, 1.0);
+  const pcb = new THREE.Mesh(new THREE.BoxGeometry(2.6, 0.03, 1.2), std({ color: 0x0e4d33, roughness: 0.7, metalness: 0.1 }));
+  pcb.position.set(0.5, 0.62, 1.0);
+  benchG.add(mesa, pcb);
+
+  const raG = makeResistor3D(); raG.position.set(-0.7, 0.68, 1.0); benchG.add(raG);
+  const rbG = makeResistor3D(); rbG.position.set(-0.1, 0.68, 1.0); benchG.add(rbG);
+  const capG = makeCapacitor3D(); capG.position.set(0.5, 0.76, 1.0); benchG.add(capG);
+  const icG = makeDIP3D(); icG.position.set(1.15, 0.7, 1.0); benchG.add(icG);
+  S.scene.add(benchG);
+
+  function refreshBenchSel() {
+    paintBands(raG, curRA());
+    paintBands(rbG, curRB());
+    icG.userData.body.material.color.setHex(DEV.color);
+  }
+
+  const fuenteBox = makeDisplayBox(0.7, 0.42, 0.06, 220, 132);
+  fuenteBox.position.set(-1.35, 0.95, 1.0); fuenteBox.rotation.y = 0.06 * Math.PI;
+  const medidorBox = makeDisplayBox(0.7, 0.5, 0.06, 220, 156);
+  medidorBox.position.set(1.75, 0.98, 1.0); medidorBox.rotation.y = -0.06 * Math.PI;
+  const scopeBox = makeDisplayBox(1.0, 0.62, 0.06, 260, 160);
+  scopeBox.position.set(0.5, 1.42, 0.62); scopeBox.rotation.x = -0.06 * Math.PI;
+  benchG.add(fuenteBox, medidorBox, scopeBox);
+
+  function drawFuenteScreen() {
+    const { ctx, canvas, tex } = fuenteBox.userData;
+    ctx.fillStyle = '#0b1310'; ctx.fillRect(0, 0, canvas.width, canvas.height);
+    ctx.fillStyle = '#8fe3d0'; ctx.font = 'bold 16px sans-serif';
+    ctx.fillText('Vcc = ' + fmtV(curVCC()), 14, 30);
+    ctx.font = '13px sans-serif';
+    ctx.fillText(DEV.name + ' astable', 14, 54);
+    ctx.fillText('RA=' + fmtR(curRA()) + ' RB=' + fmtR(curRB()), 14, 74);
+    ctx.fillText('C=' + fmtC(curC()), 14, 94);
+    tex.needsUpdate = true;
+  }
+  function drawMedidorScreen() {
+    const { ctx, canvas, tex } = medidorBox.userData;
+    ctx.fillStyle = '#0b1310'; ctx.fillRect(0, 0, canvas.width, canvas.height);
+    ctx.font = '13px sans-serif';
+    if (state.hide) {
+      ctx.fillStyle = '#6b8a83'; ctx.font = 'bold 18px sans-serif';
+      ctx.fillText('f: ?   duty: ?', 14, 40);
+      ctx.fillText('¿cuánto valen?', 14, 66);
+    } else {
+      const res = curSolve();
+      ctx.fillStyle = '#5fb8ff'; ctx.fillText('f = ' + fmtHz(res.f), 14, 26);
+      ctx.fillStyle = '#8fe3d0'; ctx.fillText('T = ' + fmtT(res.T), 14, 46);
+      ctx.fillText('tHigh = ' + fmtT(res.tHigh), 14, 66);
+      ctx.fillStyle = '#f59e0b'; ctx.fillText('tLow = ' + fmtT(res.tLow), 14, 86);
+      ctx.fillStyle = '#8fe3d0'; ctx.fillText('duty = ' + fmtPct(res.duty), 14, 106);
+      ctx.font = 'bold 13px sans-serif';
+      if (res.warnRA) { ctx.fillStyle = '#ef4444'; ctx.fillText('RA < 1kΩ recomendado', 14, 128); }
+      else { ctx.fillStyle = '#22c55e'; ctx.fillText('OK', 14, 128); }
+    }
+    tex.needsUpdate = true;
+  }
+  function drawScopeScreen() {
+    const { ctx, canvas, tex } = scopeBox.userData;
+    ctx.fillStyle = '#05100c'; ctx.fillRect(0, 0, canvas.width, canvas.height);
+    ctx.strokeStyle = '#12312a'; ctx.lineWidth = 1;
+    for (let i = 0; i <= 4; i++) { const y = 10 + i * (canvas.height - 20) / 4; line(ctx, 10, y, canvas.width - 10, y, 1, '#12312a'); }
+    const res = curSolve();
+    const pts = curveVC(res, 160);
+    const Vcc = res.Vcc;
+    const toX = t => 10 + t * (canvas.width - 20);
+    const toY = v => (canvas.height - 10) - (v / Vcc) * (canvas.height - 20);
+    ctx.strokeStyle = '#5fb8ff'; ctx.lineWidth = 1.5; ctx.beginPath();
+    pts.forEach((p, i) => { const x = toX(p.tFrac), y = toY(p.v); if (i === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y); });
+    ctx.stroke();
+    ctx.strokeStyle = res.warnRA ? '#ef4444' : '#22c55e'; ctx.lineWidth = 1.5; ctx.beginPath();
+    const nSteps = 160;
+    for (let i = 0; i <= nSteps; i++) {
+      const t = i / nSteps;
+      const x = toX(t), y = toY(outAt(t, res));
+      if (i === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
+    }
+    ctx.stroke();
+    ctx.fillStyle = '#6b8a83'; ctx.font = '10px sans-serif';
+    ctx.fillText('Vc / Vout · osciloscopio', 12, canvas.height - 4);
+    tex.needsUpdate = true;
+  }
+  function refreshBenchDyn() { drawFuenteScreen(); drawMedidorScreen(); drawScopeScreen(); }
+
+  // ---------- HUD ----------
+  el('hud').innerHTML = `
+    <div class="eyebrow">MEC · D2 · Electrónica integrada</div>
+    <div class="h2">Temporizador 555 astable (NE555)</div>
+    <div class="p">El 555 contiene un divisor interno de tres resistores iguales que fija dos umbrales: <b>2/3 Vcc</b> (threshold, dispara la descarga) y <b>1/3 Vcc</b> (trigger, dispara la carga). En el modo astable, RA y RB fijan cuánto tarda el capacitor en cargar (a través de RA+RB) y descargar (solo a través de RB) entre esos dos umbrales, generando una oscilación continua sin ninguna señal de entrada.</div>
+    <div class="formula">f=1.44/((RA+2RB)·C) · tHigh=0.693(RA+RB)C · tLow=0.693·RB·C</div>
+    <div class="formula">duty=(RA+RB)/(RA+2RB) — siempre ≥50% en esta topología de 3 terminales</div>
+    <div class="legend">
+      <span class="li"><span class="dot" style="background:#5fb8ff"></span>Carga — Vc sube hacia Vcc (salida alta, tHigh)</span>
+      <span class="li"><span class="dot" style="background:#f59e0b"></span>Descarga — Vc baja hacia 0 (salida baja, tLow)</span>
+      <span class="li"><span class="dot" style="background:#22c55e"></span>Vout — onda cuadrada resultante</span>
+    </div>
+    <div class="fid"><b>SÍ verificado:</b> fórmulas estándar de astable (tHigh/tLow/f/duty) con curva de carga/descarga RC real (no rampa lineal) · umbrales 2/3 Vcc y 1/3 Vcc del divisor interno · alimentación NE555 4.5–16V · guía de diseño RA≥1kΩ (protección del transistor de descarga interno).<br><b>NO modelado:</b> pin de control de voltaje (pin 5) ni su efecto sobre el umbral 2/3 Vcc · tolerancia real de RA/RB/C ni del 555 (±20% posible según varias fuentes) · VOL como saturación real (se aproxima a 0V) · corriente máxima de salida ni calentamiento.</div>
+    <div class="src">Fuentes: TI NE555 datasheet (SLFS022I) · Diodes Inc NE555 datasheet · Daycounter, All About Circuits y Electronics Tutorials (calculadoras/tutoriales de astable 555)</div>
+  `;
+
+  // ---------- Panel ----------
+  el('panel').innerHTML = `
+    <h4>Temporizador 555 · <span id="p_mode">Explora</span></h4>
+    <div class="modebar">
+      <button class="b on" id="btn-mode-explora">🔍 Explora</button>
+      <button class="b" id="btn-mode-predice">🧠 Predicción</button>
+      <button class="b" id="btn-mode-medicion">📏 Medición</button>
+      <button class="b" id="btn-mode-reto">🎯 Reto</button>
+    </div>
+    <div id="missionText" style="font-size:12px;color:#8FB3AC;margin-bottom:8px"></div>
+    <div style="margin-top:10px;display:grid;grid-template-columns:1fr auto auto auto;gap:6px 8px;align-items:center;font-size:12px;color:#EAF4F1">
+      <div>Vcc</div><button class="b" id="vccDec" style="padding:2px 8px">−</button><span id="vVCC">—</span><button class="b" id="vccInc" style="padding:2px 8px">+</button>
+      <div>RA</div><button class="b" id="raDec" style="padding:2px 8px">−</button><span id="vRA">—</span><button class="b" id="raInc" style="padding:2px 8px">+</button>
+      <div>RB</div><button class="b" id="rbDec" style="padding:2px 8px">−</button><span id="vRB">—</span><button class="b" id="rbInc" style="padding:2px 8px">+</button>
+      <div>C</div><button class="b" id="cDec" style="padding:2px 8px">−</button><span id="vC">—</span><button class="b" id="cInc" style="padding:2px 8px">+</button>
+    </div>
+    <div id="telemetry" style="margin-top:10px;font-size:12px;color:#EAF4F1;line-height:1.5"></div>
+    <div id="predWrap" style="display:none;margin-top:10px">
+      <div id="predBox"></div>
+      <div class="btns" style="margin-top:6px">
+        <button class="b" id="predNew" style="flex:1 0 48%">Nuevo</button>
+        <button class="b" id="predCheck" style="flex:1 0 48%">Comprobar</button>
+      </div>
+    </div>
+    <div id="retoWrap" style="display:none;margin-top:10px">
+      <div id="retoBox"></div>
+      <div class="btns" style="margin-top:6px">
+        <button class="b" id="retoNew" style="flex:1 0 48%">Nuevo reto</button>
+        <button class="b" id="retoCheck" style="flex:1 0 48%">Comprobar</button>
+      </div>
+    </div>
+    <div id="sweepWrap" style="display:none;margin-top:10px">
+      <button class="b" id="sweepRun" style="width:100%">▶ Ejecutar barrido de RB</button>
+    </div>
+    <div id="report" style="margin-top:10px;font-size:11px;color:#8FB3AC;line-height:1.5"></div>
+    <div style="margin-top:14px;border-top:1px solid #1E3A34;padding-top:10px" id="quizBox"></div>
+    <button class="b" id="autoTour" style="width:100%;margin-top:10px">🎬 Tour guiado</button>
+  `;
+
+  const MODES = ['explora', 'predice', 'medicion', 'reto'];
+  const MODE_META = {
+    explora: { label: 'Explora', icon: '🔍' },
+    predice: { label: 'Predicción', icon: '🧠' },
+    medicion: { label: 'Medición', icon: '📏' },
+    reto: { label: 'Reto', icon: '🎯' },
+  };
+  const MISIONES = {
+    explora: 'Ajusta Vcc, RA, RB y C, y observa cómo cambian tHigh, tLow, f y el duty cycle, junto con la curva de carga/descarga del capacitor y el osciloscopio.',
+    predice: 'Antes de revelar el valor, predice la frecuencia f o el duty cycle con los valores actuales.',
+    medicion: 'Ejecuta el barrido automático de RB y observa cómo el duty cycle se acerca a 50% mientras la frecuencia baja al crecer RB.',
+    reto: 'Diseña RA/RB/C para lograr una frecuencia objetivo manteniendo el duty cycle lo más cercano posible a 50%, sin bajar RA de 1kΩ.',
+  };
+
+  function setMode(m) {
+    state.mode = m;
+    state.hide = (m === 'predice' && !state._revealed);
+    el('predWrap').style.display = m === 'predice' ? 'block' : 'none';
+    el('retoWrap').style.display = m === 'reto' ? 'block' : 'none';
+    el('sweepWrap').style.display = m === 'medicion' ? 'block' : 'none';
+    if (m === 'predice') genPredice();
+    if (m === 'reto') newReto();
+    el('missionText').textContent = MISIONES[m];
+    refreshAll();
+  }
+
+  function syncCtrlBtns() {
+    MODES.forEach(m => { const b = el('btn-mode-' + m); if (b) b.classList.toggle('on', state.mode === m); });
+    el('p_mode').textContent = MODE_META[state.mode].label;
+    const spans = { vVCC: fmtV(curVCC()), vRA: fmtR(curRA()), vRB: fmtR(curRB()), vC: fmtC(curC()) };
+    Object.keys(spans).forEach(id => { const s = el(id); if (s) s.textContent = spans[id]; });
+  }
+
+  function genPredice() {
+    state._revealed = false; state.hide = true;
+    state._predType = Math.random() < 0.5 ? 'f' : 'duty';
+    const box = el('predBox');
+    if (state._predType === 'f') {
+      box.innerHTML = '<p>Predice la <b>frecuencia f</b> (Hz) con los valores actuales:</p>' +
+        '<input id="predInput" type="number" step="0.1" placeholder="Hz" style="width:100%;background:#0c1a16;color:#EAF4F1;border:1px solid #1E3A34;padding:6px;border-radius:6px">';
+    } else {
+      box.innerHTML = '<p>Predice el <b>duty cycle</b> (%) con los valores actuales:</p>' +
+        '<input id="predInput" type="number" step="0.1" placeholder="%" style="width:100%;background:#0c1a16;color:#EAF4F1;border:1px solid #1E3A34;padding:6px;border-radius:6px">';
+    }
+    refreshAll();
+  }
+  function checkPredice() {
+    const res = curSolve();
+    const guess = parseFloat(el('predInput').value);
+    let target, real, tol;
+    if (state._predType === 'f') { target = res.f; real = fmtHz(target); tol = 0.15 * target; }
+    else { target = res.duty * 100; real = fmtPct(res.duty); tol = 3; }
+    const ok = !isNaN(guess) && Math.abs(guess - target) <= tol;
+    state._revealed = true; state.hide = false;
+    refreshAll();
+    showToast(ok ? '✅ Correcto — valor real: ' + real : '❌ No — valor real: ' + real, ok ? 'ok' : 'warn');
+  }
+
+  function newReto() {
+    const raI = 1 + Math.floor(Math.random() * (RA_VALS.length - 1));
+    const rbI = Math.floor(Math.random() * RB_VALS.length);
+    const cI = Math.floor(Math.random() * C_VALS.length);
+    const target = solveAstable(curVCC(), RA_VALS[raI], RB_VALS[rbI], C_VALS[cI]).f;
+    state._reto = { fTarget: target, tol: 0.15 };
+    el('retoBox').innerHTML = `<p>Diseña RA, RB y C para lograr f ≈ <b>${fmtHz(target)}</b> (±15%), con duty cycle ≤ 55% y RA ≥ 1kΩ.</p>`;
+    refreshAll();
+  }
+  function checkReto() {
+    const res = curSolve();
+    const target = state._reto.fTarget;
+    const errRel = Math.abs(res.f - target) / target;
+    if (res.warnRA) {
+      showToast('RA=' + fmtR(res.RA) + ' está por debajo del mínimo recomendado (1kΩ): sube RA.', 'warn');
+    } else if (errRel > state._reto.tol) {
+      showToast(`f=${fmtHz(res.f)} está lejos del objetivo ${fmtHz(target)}: ajusta RB o C (f ∝ 1/((RA+2RB)·C)).`, 'warn');
+    } else if (res.duty > 0.55) {
+      showToast(`duty=${fmtPct(res.duty)} supera 55%: sube RB respecto a RA para acercarte a 50%.`, 'warn');
+    } else {
+      showToast(`✅ Diseño válido: f=${fmtHz(res.f)}, duty=${fmtPct(res.duty)}.`, 'ok');
+    }
+  }
+
+  async function runSweep() {
+    state._sweepTrace = [];
+    for (let i = 0; i < RB_VALS.length; i++) {
+      state.iRB = i;
+      const res = curSolve();
+      state._sweepTrace.push({ rb: RB_VALS[i], f: res.f, duty: res.duty });
+      refreshAll();
+      await sleep(400);
+    }
+    updateReport();
+  }
+
+  function updateTele() {
+    const t = el('telemetry');
+    if (!t) return;
+    if (state.hide) { t.innerHTML = '<div>f: ? · duty: ?</div><div style="color:#8FB3AC">Predice antes de revelar.</div>'; return; }
+    const res = curSolve();
+    t.innerHTML = '<div>f: ' + fmtHz(res.f) + ' · T: ' + fmtT(res.T) + ' · duty: ' + fmtPct(res.duty) + '</div>' +
+      '<div>tHigh: ' + fmtT(res.tHigh) + ' · tLow: ' + fmtT(res.tLow) + '</div>' +
+      (res.warnRA ? '<div style="color:#ef4444">⚠ RA < 1kΩ recomendado (corriente del transistor de descarga)</div>' : '<div style="color:#6a7a80">Umbrales: 2/3 Vcc (' + fmtV(2 * curVCC() / 3) + ') / 1/3 Vcc (' + fmtV(curVCC() / 3) + ')</div>');
+  }
+  function updateReport() {
+    const rep = el('report');
+    if (!rep) return;
+    if (state.mode !== 'medicion' || !state._sweepTrace || !state._sweepTrace.length) { rep.innerHTML = ''; return; }
+    let rows = state._sweepTrace.map(pt => `<tr><td>${fmtR(pt.rb)}</td><td>${fmtHz(pt.f)}</td><td>${fmtPct(pt.duty)}</td></tr>`).join('');
+    rep.innerHTML = `<table class="repTable"><thead><tr><th>RB</th><th>f</th><th>duty</th></tr></thead><tbody>${rows}</tbody></table>`;
+  }
+
+  function onChange() { refreshAll(); }
+  function refreshAll() {
+    drawBoard();
+    boardTex.needsUpdate = true;
+    refreshBenchSel();
+    refreshBenchDyn();
+    updateTele();
+    syncCtrlBtns();
+    if (state.mode === 'medicion') updateReport();
+  }
+
+  // ---------- Quiz ----------
+  const QUIZ = [
+    { q: '¿Por qué la descarga del capacitor pasa solo por RB, mientras que la carga pasa por RA+RB juntas?', a: ['Porque el pin de descarga (pin 7) conecta a tierra internamente durante tLow, dejando fuera a RA', 'Porque RA se desconecta físicamente durante tLow', 'Porque el 555 invierte la corriente'], correct: 0 },
+    { q: 'Si duplicas RB dejando RA y C fijos, ¿qué le pasa al duty cycle?', a: ['Se acerca más a 50%, porque (RA+RB)/(RA+2RB) tiende a 1/2 cuando RB≫RA', 'Se aleja de 50%', 'No cambia'], correct: 0 },
+    { q: '¿Por qué el duty cycle de este astable de 3 terminales nunca puede ser menor a 50%?', a: ['Porque tHigh=0.693(RA+RB)C siempre es mayor o igual que tLow=0.693·RB·C, ya que RA≥0', 'Porque el 555 lo limita por software', 'Porque Vcc lo impide'], correct: 0 },
+  ];
+  let quizIdx = 0;
+  function buildQuiz() { quizIdx = Math.floor(Math.random() * QUIZ.length); refreshQuestion(); }
+  function refreshQuestion() {
+    const item = QUIZ[quizIdx];
+    const box = el('quizBox');
+    if (!box) return;
+    let html = '<div style="font-size:12px;color:#8FB3AC;margin-bottom:6px">Quiz rápido</div>';
+    html += '<div style="font-size:13px;color:#EAF4F1;margin-bottom:8px">' + item.q + '</div>';
+    item.a.forEach((opt, i) => { html += '<button class="b quizOpt" data-i="' + i + '" style="width:100%;text-align:left;margin-bottom:4px">' + opt + '</button>'; });
+    box.innerHTML = html;
+    box.querySelectorAll('.quizOpt').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const i = Number(btn.dataset.i);
+        if (i === item.correct) { showToast('✅ Correcto', 'ok'); quizIdx = (quizIdx + 1) % QUIZ.length; refreshQuestion(); }
+        else { showToast('❌ Intenta de nuevo', 'warn'); }
+      });
+    });
+  }
+
+  // ---------- Interacción 3D ----------
+  function actToast(id) {
+    const labels = { ra: 'RA', rb: 'RB', c: 'C', ic: 'NE555', vcc: 'Vcc', out: 'Vout' };
+    if (labels[id]) showToast(labels[id], 'info');
+  }
+  function resolveActor(name) { return { ra: raG, rb: rbG, c: capG, ic: icG }[name]; }
+  function dispatch3D(id) {
+    const actor = resolveActor(id);
+    if (!actor) return;
+    const s0 = actor.scale.clone();
+    actor.scale.multiplyScalar(1.15);
+    setTimeout(() => actor.scale.copy(s0), 220);
+  }
+  const ACTOR_NAMES = ['ra', 'rb', 'c', 'ic'];
+  pickerFor(S.scene, S.camera, S.renderer.domElement, (hit) => {
+    if (hit && hit.object === boardPlane && hit.uv) { boardClick(hit.uv.x, hit.uv.y); return; }
+    let o = hit && hit.object;
+    while (o) {
+      for (const name of ACTOR_NAMES) { if (resolveActor(name) === o) { actToast(name); dispatch3D(name); return; } }
+      o = o.parent;
+    }
+  });
+
+  async function runAuto() {
+    setMode('explora'); await sleep(600);
+    state.iVCC = 1; state.iRA = 2; state.iRB = 1; state.iC = 2; refreshAll(); await sleep(900);
+    state.iRB = 4; refreshAll(); await sleep(900);
+    setMode('medicion'); await runSweep();
+  }
+
+  // ---------- Wiring ----------
+  MODES.forEach(m => { const b = el('btn-mode-' + m); if (b) b.addEventListener('click', () => setMode(m)); });
+  function wireStep(id, getIdx, setIdx, max) {
+    const dec = el(id + 'Dec'), inc = el(id + 'Inc');
+    if (dec) dec.addEventListener('click', () => { setIdx(Math.max(0, getIdx() - 1)); onChange(); });
+    if (inc) inc.addEventListener('click', () => { setIdx(Math.min(max, getIdx() + 1)); onChange(); });
+  }
+  wireStep('vcc', () => state.iVCC, v => state.iVCC = v, VCC_VALS.length - 1);
+  wireStep('ra', () => state.iRA, v => state.iRA = v, RA_VALS.length - 1);
+  wireStep('rb', () => state.iRB, v => state.iRB = v, RB_VALS.length - 1);
+  wireStep('c', () => state.iC, v => state.iC = v, C_VALS.length - 1);
+  el('predNew').addEventListener('click', genPredice);
+  el('predCheck').addEventListener('click', checkPredice);
+  el('retoNew').addEventListener('click', newReto);
+  el('retoCheck').addEventListener('click', checkReto);
+  el('sweepRun').addEventListener('click', runSweep);
+  el('autoTour').addEventListener('click', runAuto);
+
+  // ---------- Init ----------
+  setMode('explora');
+  buildQuiz();
+  refreshAll();
+  S.start();
+
+  window.__labDebug = {
+    state, DEV, solveAstable, curSolve, curveVC,
+    setMode, genPredice, checkPredice, newReto, checkReto,
+    runSweep, refreshAll,
+  };
+})();
+</script>
+  <!-- Ficha técnica · Capa B del molde de lab 3D (componente compartido + contenido del lab) -->
+  <script src="_ficha-tecnica.js"></script>
+  <script src="_ficha-ne555.js"></script>
+</body>
+</html>
