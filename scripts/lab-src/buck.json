@@ -1,0 +1,9 @@
+{
+  "donor": "escaner-obd.html",
+  "out": "buck.html",
+  "title": "CEN Labs · Convertidor Reductor (Buck): Ciclo de Trabajo, Rizo de IL y CCM/DCM — Laboratorio 3D",
+  "lt": "Diseña un convertidor reductor (buck) tipo LM2596: ajusta Vout, L, C e Iout, y observa cómo D=Vout/Vin y el rizo de corriente del inductor ΔIL=Vout(1−D)/(L·fsw) determinan si el convertidor opera en conducción continua (CCM) o discontinua (DCM).",
+  "inspectHint": "Ajusta Vout/L/C/Iout, observa el ciclo de trabajo D, la forma de onda triangular de IL, la frontera CCM/DCM (Icrit=ΔIL/2), y las barras de composición del rizo de salida ΔVout.",
+  "body": "buck.body.js",
+  "fichas": ["_ficha-tecnica.js", "_ficha-buck.js"]
+}

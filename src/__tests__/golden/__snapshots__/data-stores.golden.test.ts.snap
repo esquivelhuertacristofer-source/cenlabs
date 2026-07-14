@@ -3463,6 +3463,66 @@ El valor de Q determina el \"carácter\" de la curva. Con Q bajo (K cercano a 1)
     "titulo": "Diseña filtros activos Sallen-Key de 2.º orden (fc, Q, Butterworth)",
     "videoUrl": "",
   },
+  "mecanica-36": {
+    "acento": "#E76F51",
+    "aplicaciones": [
+      {
+        "area": "Fuentes de alimentación de equipo industrial",
+        "ejemplo": "Un módulo basado en LM2596 reduce un bus de 12 V o 24 V a los 5 V o 3.3 V que necesita la lógica de control, con mucha menos disipación de calor que un regulador lineal equivalente.",
+      },
+      {
+        "area": "Cargadores y adaptadores de corriente",
+        "ejemplo": "La etapa de salida de un cargador de laptop o de batería usa una topología buck (o una variante derivada) para regular el voltaje de carga mientras entrega varios amperios con alta eficiencia.",
+      },
+      {
+        "area": "Reguladores punto de carga en tarjetas de control",
+        "ejemplo": "Microcontroladores, sensores y drivers en una misma tarjeta a menudo requieren distintos voltajes; convertidores buck pequeños generan cada riel localmente, cerca de la carga, minimizando pérdidas por distribución.",
+      },
+    ],
+    "bienvenida": "Casi todas las fuentes de alimentación que vas a encontrar en equipo real —desde el cargador de un laptop hasta el regulador de 5 V en una tarjeta de control industrial— usan un convertidor conmutado en lugar de un regulador lineal, porque un convertidor conmutado puede entregar un voltaje menor con muy poca pérdida de energía, en vez de simplemente "quemar" el excedente como calor. El convertidor reductor (buck) es la topología más simple de esa familia: un transistor que conmuta a una frecuencia fija, un diodo de rueda libre, un inductor que almacena y libera energía en cada ciclo, y un capacitor de salida que filtra el resultado.
+
+Cuando el convertidor opera en modo de conducción continua (CCM) —la corriente del inductor nunca llega a cero— el balance volt-segundo del inductor obliga a que el ciclo de trabajo D sea exactamente D=Vout/Vin, sin importar cuánta corriente esté pidiendo la carga. Es una relación sorprendentemente simple para un circuito que está conmutando cientos de miles de veces por segundo. Pero esa simplicidad tiene un límite: mientras el transistor está encendido, la corriente del inductor sube; mientras está apagado, baja. La diferencia entre el pico y el valle de esa forma de onda triangular es el rizo ΔIL=Vout(1−D)/(L·fsw) — y si la corriente que pide la carga cae por debajo de la mitad de ese rizo (la corriente crítica Icrit=ΔIL/2), la corriente del inductor llega a cero antes de que termine el periodo de conmutación. Ahí el convertidor cruza a modo de conducción discontinua (DCM), y la ecuación D=Vout/Vin deja de ser válida.
+
+El capacitor de salida no elimina el rizo de corriente del inductor, lo convierte en rizo de voltaje: parte por la carga y descarga del propio capacitor, parte por su resistencia serie equivalente (ESR), que en componentes electrolíticos reales suele dominar el resultado. En este laboratorio vas a trabajar con un diseño de referencia basado en el regulador integrado LM2596 —muy usado en fuentes reductoras comerciales, con frecuencia de conmutación fija de 150 kHz— y vas a poder llevar el circuito hasta la frontera entre CCM y DCM para ver exactamente dónde se cruza esa línea.",
+    "codigo": "MEC-36",
+    "conceptos": [
+      {
+        "descripcion": "En modo de conducción continua, el balance volt-segundo del inductor fija el ciclo de trabajo D como la simple razón entre el voltaje de salida y el de entrada — independiente de la corriente de carga.",
+        "icono": "⚙️",
+        "nombre": "D=Vout/Vin en CCM",
+      },
+      {
+        "descripcion": "La corriente del inductor sube durante el encendido y baja durante el apagado, formando una onda triangular cuyo rizo pico a pico depende de Vout, D, la inductancia L y la frecuencia de conmutación fsw.",
+        "icono": "📐",
+        "nombre": "ΔIL=Vout(1−D)/(L·fsw)",
+      },
+      {
+        "descripcion": "Si la corriente de salida cae por debajo de la mitad del rizo del inductor, la corriente llega a cero antes de terminar el periodo y el convertidor entra en modo de conducción discontinua, donde D=Vout/Vin deja de aplicar.",
+        "icono": "🚧",
+        "nombre": "Frontera CCM/DCM: Icrit=ΔIL/2",
+      },
+      {
+        "descripcion": "El rizo de voltaje de salida se compone de un término por la carga/descarga del capacitor y un término por su resistencia serie equivalente — en capacitores electrolíticos reales, la ESR suele dominar el resultado.",
+        "icono": "📊",
+        "nombre": "ΔVout: capacitivo + ESR",
+      },
+    ],
+    "duracion": 35,
+    "mision": [
+      "FASE 1 · Explora: ajusta Vout, L, C e Iout, y observa cómo cambian D, ΔIL y el modo de conducción (CCM/DCM), junto con la forma de onda del inductor y la composición del rizo de salida.",
+      "FASE 2 · Predicción: predice D, el rizo ΔVout o el modo de conducción (CCM/DCM) antes de que el simulador revele el valor real con los parámetros actuales.",
+      "FASE 3 · Medición: ejecuta el barrido automático de corriente de salida y observa en una tabla cómo D, ΔIL y el modo de conducción cambian punto por punto.",
+      "FASE 4 · Reto: diseña un punto de operación (Vout, Iout) que se mantenga en modo CCM con un rizo de salida menor al 2% del voltaje nominal.",
+    ],
+    "retos": [
+      "Predice qué le pasa a D si duplicas Vout sin tocar Vin, y verifica con los deslizadores — ¿por qué esa relación no depende de L, C ni de la corriente de carga?",
+      "Reduce Iout poco a poco manteniendo L y Vout fijos hasta que el simulador clasifique el modo como DCM. ¿Por qué reducir la corriente de carga —y no cambiar L o Vout— es lo que empuja al convertidor hacia esa frontera?",
+      "Arma un convertidor buck real con un LM2596 y mide con un osciloscopio la forma de onda del nodo de conmutación y, si es posible, la corriente del inductor con una sonda de corriente: contrasta el ciclo de trabajo y el rizo medidos contra los que calcula este simulador para los mismos componentes.",
+    ],
+    "subtitulo": "Electrónica de potencia · fuente conmutada tipo LM2596 — D=Vout/Vin fija la conversión, L y fsw fijan el rizo de corriente",
+    "titulo": "Convertidor reductor (buck): ciclo de trabajo, rizo de IL y CCM/DCM",
+    "videoUrl": "",
+  },
   "mecanica-4": {
     "acento": "#2A9D8F",
     "aplicaciones": [
@@ -14100,6 +14160,7 @@ exports[`golden master — stores de datos (invariante ante la migración a src/
   "mecanica-33": [],
   "mecanica-34": [],
   "mecanica-35": [],
+  "mecanica-36": [],
   "mecanica-4": [],
   "mecanica-5": [],
   "mecanica-6": [],
@@ -14370,6 +14431,7 @@ exports[`golden master — stores de datos (invariante ante la migración a src/
   "mecanica-33",
   "mecanica-34",
   "mecanica-35",
+  "mecanica-36",
   "mecanica-4",
   "mecanica-5",
   "mecanica-6",

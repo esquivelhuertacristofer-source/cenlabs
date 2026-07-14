@@ -641,6 +641,16 @@ exports[`golden master — catálogo por categoría (invariante ante extracción
     "teoria": "El filtro Sallen-Key es la topología de filtro activo de 2.º orden más común, construida con un solo amplificador operacional en configuración no inversora y dos resistores más dos capacitores iguales entre sí (R1=R2=R, C1=C2=C). Esa igualdad de componentes simplifica el diseño a dos ecuaciones: la frecuencia de corte fc=1/(2πRC), que depende solo de R y C, y el factor de calidad Q=1/(3−K), que depende solo de la ganancia K=1+Rf/Rg fijada por el divisor resistivo de realimentación positiva del op-amp. Ajustar R o C mueve fc sin tocar Q; ajustar K (vía Rf) mueve Q sin tocar fc — un desacoplo que hace del Sallen-Key una topología muy usada en la práctica. Cuando K≈1.586, Q≈0.7071 (1/√2), el punto de respuesta Butterworth: la curva de magnitud más plana posible en la banda de paso, sin ningún pico de resonancia. Si K se acerca a 3, Q crece sin límite y el filtro se vuelve inestable (oscila). El simulador dibuja la curva de Bode (magnitud y fase, normalizada a f/fc) en vivo, un osciloscopio que muestra la atenuación y el desfase reales de la señal de salida frente a la de entrada, y clasifica automáticamente la respuesta (sobre-amortiguada, Butterworth, con pico de resonancia, o inestable) según el valor de Q. Cuatro modos: Explora (R/C/Rf libres, con Bode y osciloscopio en vivo), Predicción (fc, Q o el tipo de respuesta antes de revelar), Medición (barrido de la relación f/fc que traza la curva de atenuación punto por punto) y Reto (diseñar R y C para alcanzar una fc objetivo mientras se mantiene la respuesta en el punto Butterworth).",
     "titulo": "Diseña filtros activos Sallen-Key de 2.º orden (fc, Q, Butterworth)",
   },
+  {
+    "duracion": "35 min",
+    "estado": "activo",
+    "id": "mecanica-36",
+    "modulo": "Electrónica",
+    "orden": 36,
+    "simuladorHtml": "/labs/buck.html",
+    "teoria": "Un convertidor reductor (buck) es una fuente de alimentación conmutada que produce un voltaje de salida menor al de entrada mediante la conmutación periódica de un transistor a una frecuencia fija, seguido de un diodo de rueda libre, un inductor de almacenamiento de energía y un capacitor de filtrado. En modo de conducción continua (CCM), el balance volt-segundo del inductor determina que el ciclo de trabajo D sea simplemente D=Vout/Vin, independiente de la carga. Durante la fase de encendido el inductor acumula energía y su corriente sube; durante la fase de apagado el diodo conduce y la corriente del inductor baja, generando una forma de onda triangular cuyo rizo pico a pico es ΔIL=Vout(1−D)/(L·fsw). Si la corriente de salida cae por debajo de la mitad de ese rizo (Icrit=ΔIL/2), la corriente del inductor llega a cero antes de terminar el periodo de conmutación y el convertidor entra en modo de conducción discontinua (DCM), donde D=Vout/Vin deja de ser válido. El capacitor de salida filtra el rizo de corriente del inductor y produce un rizo de voltaje ΔVout compuesto por un término capacitivo (relacionado con la carga/descarga del capacitor) y un término resistivo debido a su resistencia serie equivalente (ESR). Este laboratorio permite explorar estos fenómenos con un diseño de referencia basado en el regulador integrado LM2596, ampliamente usado en fuentes reductoras comerciales.",
+    "titulo": "Convertidor reductor (buck): ciclo de trabajo, rizo de IL y CCM/DCM",
+  },
 ]
 `;
 
@@ -801,6 +811,7 @@ exports[`golden master — catálogo por categoría (invariante ante extracción
   "mecanica-33",
   "mecanica-34",
   "mecanica-35",
+  "mecanica-36",
   "mecanica-4",
   "mecanica-5",
   "mecanica-6",
