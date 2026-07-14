@@ -1,0 +1,9 @@
+{
+  "donor": "escaner-obd.html",
+  "out": "boost.html",
+  "title": "CEN Labs · Convertidor Elevador (Boost): Ganancia 1/(1−D), Frontera CCM/DCM y M(D,K) — Laboratorio 3D",
+  "lt": "Diseña un convertidor elevador (boost) tipo TPS61030: ajusta Vin, D, L y la carga R, y observa cómo Vout=Vin/(1−D) en conducción continua (CCM) deja de cumplirse en conducción discontinua (DCM), donde la ganancia real es M(D,K)=[1+√(1+4D²/K)]/2.",
+  "inspectHint": "Ajusta Vin/D/L/R, observa la frontera CCM/DCM (K contra Kcrit(D)=D(1−D)²), la forma de onda real de IL(t) en ambos modos, y cómo Vout real se separa de la predicción ingenua Vin/(1−D) al entrar en DCM.",
+  "body": "boost.body.js",
+  "fichas": ["_ficha-tecnica.js", "_ficha-boost.js"]
+}

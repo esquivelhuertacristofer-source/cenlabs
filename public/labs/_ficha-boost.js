@@ -1,0 +1,65 @@
+fichaTecnica({
+  title: 'Ficha técnica — Convertidor elevador (boost): Vout=Vin/(1−D), frontera CCM/DCM y M(D,K)',
+  intro: 'Este laboratorio modela un convertidor elevador (boost) tipo TPS61030 tanto en modo de conducción continua (CCM) como en modo de conducción discontinua (DCM): la ganancia ideal Vout/Vin=1/(1−D) en CCM, el rizo de corriente del inductor ΔIL=Vin·D/(L·fsw), la frontera CCM/DCM mediante el parámetro K=2L/(R·Ts) contra el valor crítico Kcrit(D)=D(1−D)², la ganancia real M(D,K) cuando el convertidor entra en DCM, y la composición del rizo de voltaje de salida ΔVout entre el término capacitivo y el término resistivo (ESR).',
+  s1: {
+    presentes: [
+      'Regulador elevador (boost) síncrono tipo TPS61030/TPS61031/TPS61032',
+      'Inductor L (2.2–22 µH, núcleo de tambor) entre la fuente y el nodo de conmutación',
+      'Diodo de salida (modelo idealizado; el TPS61030 real usa rectificación síncrona)',
+      'Capacitor de entrada Cin y de salida Cout (electrolíticos, con ESR)',
+      'Resistencia de carga R ajustable',
+    ],
+    omitidos: [
+      'Rectificación síncrona (el TPS61030 real usa un MOSFET en vez del diodo idealizado)',
+      'Lazo de realimentación y compensación (control de modo de voltaje/corriente) — D se controla en lazo abierto de forma deliberada',
+      'Pérdidas de conmutación y de conducción (eficiencia η<100%)',
+      'Límite de corriente interno del interruptor de potencia (hasta 4 A en el TPS61030 real)',
+      'Física de aislamiento galvánico, transformador y snubber de un flyback real (solo se cita su ganancia CCM de forma cualitativa)',
+      'Tolerancia real de componentes y saturación del núcleo del inductor',
+    ],
+  },
+  s2: {
+    title: 'Parámetros del regulador (TPS61030, versión síncrona)',
+    warn: 'Los valores de ESR en la tabla de capacitores son cifras típicas genéricas para fines didácticos, no datos literales de un fabricante específico — consulta siempre la hoja de datos del componente real.',
+    rows: [
+      ['Rango de Vin del TPS61030 (ajustable en este laboratorio)', '1.8 V – 5.5 V'],
+      ['Frecuencia de conmutación fsw', '600 kHz (fija, típica del TPS61030)'],
+      ['Corriente de salida de diseño (punto de referencia)', '2 A'],
+      ['Límite de corriente interno del interruptor (no modelado)', 'hasta 4 A'],
+      ['Inductor L (ajustable en este laboratorio)', '2.2 µH – 22 µH'],
+      ['Capacitor de salida Cout (ajustable)', '100 µF – 1000 µF, con ESR típica 0.025–0.15 Ω'],
+      ['Resistencia de carga R (ajustable)', '2.5 Ω – 250 Ω'],
+    ],
+  },
+  s3: [
+    'Fuente de alimentación CC ajustable (1.8 V – 5.5 V)',
+    'Módulo convertidor boost basado en TPS61030 (o equivalente)',
+    'Multímetro (medición de Vout, Iout)',
+    'Osciloscopio (medición de rizo de IL y del nodo de conmutación)',
+    'Carga electrónica o resistencia de potencia variable',
+  ],
+  s4: {
+    intro: 'Procedimiento físico de referencia que este simulador modela de forma simplificada:',
+    items: [
+      'Fijar Vin y seleccionar D mediante el lazo de control del TPS61030 (aquí, D se ajusta directamente).',
+      'Seleccionar L y Cout según el punto de operación deseado (R, rizo máximo aceptable).',
+      'Medir con osciloscopio la forma de onda de IL (o del nodo de conmutación) para verificar el modo de conducción (CCM vs. DCM).',
+      'Medir el voltaje real de salida y compararlo contra la predicción ingenua de CCM (Vin/(1−D)) para detectar la elevación de Vout en carga ligera al entrar en DCM.',
+      'Repetir para distintos valores de R y verificar el punto donde K cruza Kcrit(D) y el convertidor cambia de CCM a DCM.',
+    ],
+  },
+  s5: {
+    modela: 'El simulador calcula Vout/Vin=1/(1−D) (balance volt-segundo en CCM), ΔIL=Vin·D/(L·fsw), K=2L/(R·Ts), Kcrit(D)=D(1−D)², la clasificación CCM/DCM comparando K contra Kcrit, la ganancia real M(D,K)=[1+√(1+4D²/K)]/2 y el voltaje real de salida en DCM, la forma de onda de tres subintervalos de IL en DCM (con D2=Vin·D/(Vout−Vin) e ILavg=0.5·Ipico·(D+D2)), ΔVout≈Iout·D/(C·fsw)+ESR·Iout, y la corriente promedio de entrada igual a la del inductor (IinAvg=ILavg). Usa el punto de referencia del TPS61030 (Vin=3.6 V, D=28%, L=6.8 µH, Cout=220 µF/80 mΩ, R=2.5 Ω → Vout=5 V, Iout=2 A, CCM) como caso verificado contra la hoja de datos.',
+    noModela: 'NO modela la rectificación síncrona (usa un diodo idealizado), la dinámica de lazo cerrado y su compensación, las pérdidas por conmutación y conducción ni la eficiencia η, el límite de corriente interno del interruptor de potencia, la física completa de un convertidor flyback real (solo cita su ganancia CCM de forma cualitativa), ni la tolerancia real de componentes o la saturación del núcleo del inductor.',
+  },
+  s6: [
+    { name: 'Robert W. Erickson y Dragan Maksimovic — "Fundamentals of Power Electronics", cap. 5', note: 'Fundamento teórico de CCM, DCM, la frontera K/Kcrit(D) y la ganancia real M(D,K).' },
+    { name: 'Texas Instruments, SLVA061 — "Basic Calculation of a Boost Converter\'s Power Stage"', note: 'Ecuaciones de Vout/Vin, ΔIL, la frontera CCM/DCM, M(D,K) y el rizo de salida.' },
+    { name: 'Texas Instruments, TPS61030/TPS61031/TPS61032 datasheet (SLUS534G)', note: 'Parámetros del regulador y punto de referencia de diseño (tabla 2).' },
+    { name: 'Texas Instruments, SNVA603 — "Flyback Converter Design"', note: 'Mención cualitativa de la topología flyback como pariente del boost.' },
+    { name: 'Coilcraft — guía de diseño de convertidores flyback', note: 'Mención cualitativa adicional del flyback.' },
+    { name: 'Analog Devices, AN-2583 — "Design Considerations for a Flyback Converter"', note: 'Mención cualitativa adicional del flyback.' },
+    { name: 'Nota curricular ⚑', note: 'La relación entre esta práctica y el programa oficial del sector mecánica-electrónica se documenta con trazabilidad en ficha.md; se recomienda validación por un experto en electrónica de potencia.' },
+    { name: 'Notas para el revisor experto', note: 'Se actualizará tras verificación técnica final del laboratorio.' },
+  ],
+});

@@ -1,0 +1,980 @@
+/**
+ * FICHA DE FIDELIDAD — Convertidor Elevador (Boost) en CCM y DCM: Vout=Vin/(1−D), frontera Kcrit(D) y ganancia real M(D,K)
+ *
+ * SÍ verificado:
+ * - Ciclo de trabajo ideal en conducción continua (CCM), convertidor sin
+ *   pérdidas: Vout/Vin=1/(1−D) — balance volt-segundo del inductor en
+ *   estado estable (Robert W. Erickson y Dragan Maksimovic, "Fundamentals
+ *   of Power Electronics", cap.5, revisión de CCM en boost; Texas
+ *   Instruments SLVA061 "Basic Calculation of a Boost Converter's Power
+ *   Stage", sección 2.1).
+ * - Rizo de corriente de inductor pico a pico: ΔIL=Vin·D/(L·fsw) —
+ *   deducido de la pendiente de subida del inductor durante el intervalo
+ *   de encendido, idéntico en CCM y DCM porque la corriente siempre
+ *   parte de un valor conocido al inicio de ese intervalo (TI SLVA061
+ *   sección 2.2; hoja de datos TPS61030/TPS61031/TPS61032, SLUS534G,
+ *   ecuación 5, como verificación cruzada).
+ * - Frontera CCM/DCM expresada con el parámetro adimensional K=2L/(R·Ts)
+ *   contra el valor crítico Kcrit(D)=D·(1−D)²: el convertidor permanece
+ *   en conducción continua mientras K≥Kcrit(D); por debajo de ese punto
+ *   la corriente de inductor llega a cero antes de terminar el ciclo
+ *   (conducción discontinua, DCM) — Erickson & Maksimovic, tabla 5.1;
+ *   TI SLVA061 sección 2.3.
+ * - Ganancia de voltaje real en DCM: M(D,K)=Vout/Vin=[1+√(1+4D²/K)]/2 —
+ *   Erickson & Maksimovic, tabla 5.2 y su deducción completa a partir
+ *   del balance de carga del capacitor de salida; TI SLVA061 sección
+ *   2.4, re-deducción independiente que confirma la misma expresión. Se
+ *   verificó numéricamente que M(D,K) es continua en la frontera: en
+ *   K=Kcrit(D), M(D,K) coincide exactamente con el valor de CCM 1/(1−D).
+ * - Forma de onda de corriente de inductor en DCM, de tres subintervalos:
+ *   (1) el interruptor conduce durante D·Ts y la corriente sube en línea
+ *   recta de 0 a Ipico=Vin·D·Ts/L; (2) el diodo conduce durante D2·Ts y
+ *   la corriente baja en línea recta de Ipico a 0, con
+ *   D2=Vin·D/(Vout−Vin) obtenido de igualar la pendiente de bajada al
+ *   voltaje (Vout−Vin)/L durante ese intervalo; (3) ni el interruptor ni
+ *   el diodo conducen durante el resto del periodo y la corriente
+ *   permanece en cero — misma fuente que da M(D,K) (Erickson &
+ *   Maksimovic cap.5); la corriente promedio de inductor
+ *   ILavg=0.5·Ipico·(D+D2) es la consecuencia geométrica directa (área
+ *   de un triángulo entre 0 y (D+D2)·Ts) de esos mismos valores, no una
+ *   fórmula citada por separado.
+ * - Rizo de voltaje de salida aproximado como la suma del término
+ *   capacitivo (carga/descarga de C por la corriente de salida durante
+ *   el intervalo en que el diodo no conduce) y el término resistivo
+ *   (caída en la ESR del capacitor): ΔVout≈Iout·D/(C·fsw) + ESR·Iout —
+ *   TI SLVA061 sección 2.5; hoja de datos TPS61030 ecuaciones 6-7 como
+ *   verificación cruzada.
+ * - Corriente de inductor promedio igual a la corriente de entrada
+ *   promedio (ILavg=IinAvg) porque en un boost el inductor está en serie
+ *   con la fuente durante todo el periodo, en ambos subintervalos de
+ *   conducción — consecuencia directa de la topología, no una fórmula
+ *   citada por separado.
+ * - Corriente de salida derivada como Iout=Vout/R, con R como resistencia
+ *   de carga (variable de control, no la corriente) — convención
+ *   estándar de Erickson & Maksimovic y de TI SLVA061, que definen K y
+ *   Kcrit en términos de R=Vout/Iout; usar Iout como variable de control
+ *   directa produciría una dependencia circular en DCM (R haría falta
+ *   para calcular K, pero R=Vout/Iout requiere el propio Vout que K
+ *   determina), por lo que R es la variable físicamente correcta.
+ * - Referencia real: familia TPS61030/TPS61031/TPS61032 (Texas
+ *   Instruments, hoja de datos SLUS534G), convertidor elevador síncrono
+ *   monolítico con interruptor de potencia interno de hasta 4A y
+ *   frecuencia de conmutación típica de 600kHz; el punto de diseño de
+ *   referencia de este simulador (Vin=3.6V, D=28%, L=6.8µH,
+ *   Cout=220µF/80mΩ, R=2.5Ω → Vout=5V, Iout=2A, CCM) reproduce el
+ *   ejemplo de diseño de la tabla 2 de esa hoja de datos.
+ * - Ganancia CCM de un convertidor flyback aislado: Vout/Vin=n·D/(1−D),
+ *   con n la relación de vueltas del transformador — mencionada solo de
+ *   forma cualitativa como topología emparentada (TI SNVA603 "Flyback
+ *   Converter Design"; guía de diseño de Coilcraft para flyback; Analog
+ *   Devices AN-2583).
+ *
+ * NO modelado:
+ * - Rectificación síncrona: el TPS61030 real usa un MOSFET de baja
+ *   RDS(on) en vez de un diodo para la rectificación de salida; este
+ *   simulador usa un diodo ideal genérico para mantener las ecuaciones
+ *   de M(D,K) y del límite CCM/DCM en su forma estándar de libro de
+ *   texto — el comportamiento de conducción/no-conducción es equivalente
+ *   para efectos de este modelo, pero la caída de voltaje directo real
+ *   del MOSFET síncrono es menor que la de un diodo.
+ * - Dinámica de lazo cerrado: D es una variable que el usuario controla
+ *   directamente (lazo abierto), no el resultado de un lazo de
+ *   realimentación que ajuste D para mantener Vout constante. Es una
+ *   decisión de diseño deliberada: permite observar el fenómeno de
+ *   subida de Vout en carga ligera al entrar en DCM — en un regulador
+ *   real de lazo cerrado, el control reduciría D automáticamente al
+ *   aligerar la carga, ocultando este efecto.
+ * - Pérdidas por conmutación, conducción del interruptor/diodo, y
+ *   eficiencia (η<100%): este simulador trata el convertidor como ideal
+ *   (Pin=Pout exactamente), aunque el TPS61030 real alcanza típicamente
+ *   ~96% de eficiencia, no 100%.
+ * - Límite de corriente interno del interruptor de potencia (hasta 4A en
+ *   el TPS61030 real): este simulador no recorta ni advierte si la
+ *   corriente pico calculada superaría ese límite físico.
+ * - Física de aislamiento galvánico, inductancia de fuga y snubber de un
+ *   flyback real: solo se cita la fórmula de ganancia CCM del flyback y
+ *   su aplicación típica, sin modelar su forma de onda ni su diseño.
+ * - Tolerancia real de fabricación de L y C, deriva térmica de la ESR, y
+ *   saturación del inductor a alta corriente.
+ *
+ * Nota de rigor:
+ * - Los valores de ESR listados para cada capacitor son cifras típicas
+ *   de capacitores de baja ESR (tantalio/electrolítico) en esos rangos
+ *   de capacitancia, no una cifra literal tomada de la hoja de datos de
+ *   un fabricante específico — consulta siempre la hoja de datos del
+ *   capacitor real antes de diseñar con una cifra exacta.
+ * - Regla de honestidad: no se inventan cifras de eficiencia, pérdidas ni
+ *   límites de corriente que no estén citados en las fuentes; se listan
+ *   como advertencias cualitativas en "NO modelado".
+ *
+ * Fuentes:
+ * - Robert W. Erickson y Dragan Maksimovic, "Fundamentals of Power
+ *   Electronics", cap.5 (CCM y DCM en convertidores no aislados)
+ * - Texas Instruments, SLVA061, "Basic Calculation of a Boost Converter's
+ *   Power Stage" — https://www.ti.com/lit/an/slva061/slva061.pdf
+ * - Texas Instruments, hoja de datos TPS61030/TPS61031/TPS61032
+ *   (SLUS534G) — https://www.ti.com/lit/ds/symlink/tps61030.pdf
+ * - Texas Instruments, SNVA603, "Flyback Converter Design" —
+ *   https://www.ti.com/lit/an/snva603/snva603.pdf
+ * - Coilcraft, guía de diseño de convertidores flyback
+ * - Analog Devices, AN-2583, "Design Considerations for a Flyback
+ *   Converter"
+ */
+(function () {
+  'use strict';
+  const mount = document.getElementById('stage');
+  const S = createStage(mount, { cam: [3.4, 2.6, 7.6], target: [0.5, 1.2, 0.3], bgTop: '#0d1420', bgBot: '#04060a', bloom: 0.35, minD: 3.0, maxD: 18 });
+  const synth = makeSynth();
+
+  function el(id) { return document.getElementById(id); }
+  function showToast(msg, kind) {
+    const t = el('toast');
+    if (!t) return;
+    clearTimeout(showToast._h);
+    t.textContent = msg;
+    t.className = 'toast show' + (kind ? ' ' + kind : '');
+    showToast._h = setTimeout(() => { t.className = 'toast'; }, 2600);
+  }
+  function sleep(ms) { return new Promise(r => setTimeout(r, ms)); }
+
+  // ---------- Dispositivo ----------
+  const DEVS = {
+    tps61030: {
+      name: 'TPS61030 (elevador síncrono, TI)',
+      vinMin: 1.8, vinMax: 5.5, ioutMax: 2, fswTyp: 600000,
+      note: 'Convertidor elevador (boost) síncrono monolítico — interruptor de potencia interno de hasta 4A, usado típicamente para elevar una celda Li-Ion (1.8–5.5V) a un riel regulado de 3.3V o 5V',
+      color: 0x4a4a52,
+    },
+    diode: { name: 'Diodo Schottky de salida (modelo idealizado)', note: 'En la versión síncrona real del TPS61030 el "diodo" es en realidad un MOSFET síncrono de baja RDS(on); aquí se representa como diodo de rueda libre genérico para simplificar el modelo ideal.' },
+  };
+
+  // ---------- Física ----------
+  const FSW = 600000;
+
+  function solveBoost(Vin, D, L, C, ESR, Fsw, R) {
+    const Ts = 1 / Fsw;
+    const K = 2 * L / (R * Ts);
+    const Kcrit = D * (1 - D) * (1 - D);
+    const mode = K >= Kcrit ? 'CCM' : 'DCM';
+    const VoutCCM = Vin / (1 - D);
+    const deltaIL = Vin * D / (L * Fsw);
+    let Vout, ILavg, ILpeak, ILvalley, D2;
+    if (mode === 'CCM') {
+      Vout = VoutCCM;
+      const IoutCCM = Vout / R;
+      ILavg = IoutCCM / (1 - D);
+      ILpeak = ILavg + deltaIL / 2;
+      ILvalley = ILavg - deltaIL / 2;
+      D2 = 1 - D;
+    } else {
+      const M = (1 + Math.sqrt(1 + 4 * D * D / K)) / 2;
+      Vout = Vin * M;
+      ILpeak = deltaIL;
+      ILvalley = 0;
+      D2 = Vin * D / (Vout - Vin);
+      ILavg = 0.5 * ILpeak * (D + D2);
+    }
+    const Iout = Vout / R;
+    const IinAvg = ILavg;
+    const deltaVoutC = Iout * D / (C * Fsw);
+    const deltaVoutESR = Iout * ESR;
+    const deltaVout = deltaVoutC + deltaVoutESR;
+    return { Vin, D, L, C, ESR, Fsw, R, K, Kcrit, mode, VoutCCM, Vout, Iout, deltaIL, ILavg, ILpeak, ILvalley, D2, IinAvg, deltaVoutC, deltaVoutESR, deltaVout };
+  }
+  function classifyMode(res) {
+    if (res.mode === 'DCM') return { key: 'dcm', label: 'DCM — conducción discontinua (IL llega a 0 antes de terminar el ciclo)', color: '#f59e0b' };
+    const margin = (res.K - res.Kcrit) / Math.max(res.Kcrit, 1e-12);
+    if (margin < 0.25) return { key: 'ccm_near', label: 'CCM — cerca de la frontera con DCM', color: '#eab308' };
+    return { key: 'ccm', label: 'CCM — conducción continua', color: '#22c55e' };
+  }
+  function ilWaveform(res, N) {
+    N = N || 120;
+    const T = 1 / res.Fsw;
+    const tOn = res.D * T;
+    const pts = [];
+    if (res.mode === 'CCM') {
+      for (let i = 0; i <= N; i++) {
+        const t = (i / N) * T;
+        let il;
+        if (t <= tOn) il = res.ILvalley + (res.ILpeak - res.ILvalley) * (t / tOn);
+        else il = res.ILpeak - (res.ILpeak - res.ILvalley) * ((t - tOn) / (T - tOn));
+        pts.push({ t, il });
+      }
+    } else {
+      const tOff2 = tOn + res.D2 * T;
+      for (let i = 0; i <= N; i++) {
+        const t = (i / N) * T;
+        let il;
+        if (t <= tOn) il = res.ILpeak * (t / tOn);
+        else if (t <= tOff2) il = res.ILpeak * (1 - (t - tOn) / (tOff2 - tOn));
+        else il = 0;
+        pts.push({ t, il });
+      }
+    }
+    return pts;
+  }
+
+  function fmtV(v) { return v.toFixed(v >= 10 ? 1 : 2) + ' V'; }
+  function fmtVsmall(v) { return v < 1 ? (v * 1000).toFixed(0) + ' mV' : v.toFixed(3) + ' V'; }
+  function fmtA(a) { return a >= 1 ? a.toFixed(2) + ' A' : (a * 1000).toFixed(0) + ' mA'; }
+  function fmtL(l) { return (l * 1e6).toFixed(1) + ' µH'; }
+  function fmtCuF(c) { return (c * 1e6).toFixed(0) + ' µF'; }
+  function fmtOhmSmall(r) { return r < 1 ? (r * 1000).toFixed(0) + ' mΩ' : r.toFixed(2) + ' Ω'; }
+  function fmtD(d) { return (d * 100).toFixed(1) + ' %'; }
+  function fmtPct(p) { return p.toFixed(2) + ' %'; }
+  function fmtUs(t) { return (t * 1e6).toFixed(2) + ' µs'; }
+  function fmtR(r) { return (Number.isInteger(r) ? r.toFixed(0) : r.toFixed(2)) + ' Ω'; }
+
+  // ---------- Estado ----------
+  const VIN_VALS = [1.8, 2.4, 3.0, 3.6, 4.2, 4.8, 5.5];
+  const D_VALS = [0.2, 0.28, 0.35, 0.45, 0.5, 0.6, 0.7];
+  const L_VALS = [2.2e-6, 3.3e-6, 4.7e-6, 6.8e-6, 10e-6, 15e-6, 22e-6];
+  const CAP_TABLE = [
+    { c: 100e-6, v: 10, esr: 0.15 },
+    { c: 220e-6, v: 10, esr: 0.08 },
+    { c: 330e-6, v: 16, esr: 0.06 },
+    { c: 470e-6, v: 16, esr: 0.045 },
+    { c: 1000e-6, v: 25, esr: 0.025 },
+  ];
+  const R_VALS = [2.5, 5, 10, 25, 50, 100, 250];
+
+  const state = {
+    iVIN: 3, iD: 1, iL: 3, iC: 1, iR: 0,
+    mode: 'explora', hide: false, _revealed: false,
+    _sweepTrace: null, _predType: 'vout', _reto: null,
+  };
+
+  function curVIN() { return VIN_VALS[state.iVIN]; }
+  function curD() { return D_VALS[state.iD]; }
+  function curL() { return L_VALS[state.iL]; }
+  function curCEntry() { return CAP_TABLE[state.iC]; }
+  function curC() { return curCEntry().c; }
+  function curESR() { return curCEntry().esr; }
+  function curR() { return R_VALS[state.iR]; }
+  function curSolveBoost() { return solveBoost(curVIN(), curD(), curL(), curC(), curESR(), FSW, curR()); }
+
+  // ---------- Materiales y geometría 3D ----------
+  const MAT = {
+    board: { color: 0x2b2f36, roughness: 0.85, metalness: 0.1 },
+    lead: { color: 0xc7c7c7, roughness: 0.35, metalness: 0.8 },
+    icBody: { color: 0x4a4a52, roughness: 0.5, metalness: 0.2 },
+    notch: { color: 0x08080c, roughness: 0.5, metalness: 0.1 },
+    capBody: { color: 0x2255aa, roughness: 0.4, metalness: 0.3 },
+    diodeBody: { color: 0x1a1a1a, roughness: 0.5, metalness: 0.2 },
+    diodeBand: { color: 0xd7dee6, roughness: 0.4, metalness: 0.3 },
+    windCopper: { color: 0xb87333, roughness: 0.35, metalness: 0.75 },
+  };
+  function std(spec) { return new THREE.MeshStandardMaterial(spec); }
+
+  function makeCapacitor3D() {
+    const g = new THREE.Group();
+    const body = new THREE.Mesh(new THREE.CylinderGeometry(0.09, 0.09, 0.16, 20), std(MAT.capBody));
+    g.add(body);
+    const top = new THREE.Mesh(new THREE.CylinderGeometry(0.09, 0.09, 0.01, 20), std({ color: 0xd7dee6, roughness: 0.5, metalness: 0.2 }));
+    top.position.y = 0.085;
+    g.add(top);
+    for (let s = -1; s <= 1; s += 2) {
+      const leg = new THREE.Mesh(new THREE.CylinderGeometry(0.006, 0.006, 0.1, 8), std(MAT.lead));
+      leg.position.set(s * 0.04, -0.13, 0);
+      g.add(leg);
+    }
+    g.userData.body = body;
+    return g;
+  }
+  function makeDIP3D() {
+    const g = new THREE.Group();
+    const body = new THREE.Mesh(new THREE.BoxGeometry(0.32, 0.09, 0.16), std(MAT.icBody));
+    g.add(body);
+    const notch = new THREE.Mesh(new THREE.CylinderGeometry(0.015, 0.015, 0.1, 12), std(MAT.notch));
+    notch.rotation.x = Math.PI / 2;
+    notch.position.set(-0.14, 0.05, 0);
+    g.add(notch);
+    for (let side = -1; side <= 1; side += 2) {
+      for (let i = 0; i < 4; i++) {
+        const leg = new THREE.Mesh(new THREE.CylinderGeometry(0.006, 0.006, 0.06, 6), std(MAT.lead));
+        leg.position.set(-0.12 + i * 0.08, -0.06, side * 0.09);
+        g.add(leg);
+      }
+    }
+    g.userData.body = body;
+    return g;
+  }
+  function makeDiode3D() {
+    const g = new THREE.Group();
+    const body = new THREE.Mesh(new THREE.CylinderGeometry(0.05, 0.05, 0.2, 16), std(MAT.diodeBody));
+    body.rotation.z = Math.PI / 2;
+    g.add(body);
+    const band = new THREE.Mesh(new THREE.CylinderGeometry(0.052, 0.052, 0.02, 16), std(MAT.diodeBand));
+    band.rotation.z = Math.PI / 2;
+    band.position.x = 0.07;
+    g.add(band);
+    for (let s = -1; s <= 1; s += 2) {
+      const leg = new THREE.Mesh(new THREE.CylinderGeometry(0.007, 0.007, 0.1, 8), std(MAT.lead));
+      leg.rotation.z = Math.PI / 2;
+      leg.position.x = s * 0.15;
+      g.add(leg);
+    }
+    g.userData.body = body;
+    return g;
+  }
+  function makeInductor3D() {
+    const g = new THREE.Group();
+    const body = new THREE.Mesh(new THREE.CylinderGeometry(0.13, 0.14, 0.12, 20), std({ color: 0x2b2b2b, roughness: 0.6, metalness: 0.3 }));
+    g.add(body);
+    const wind = new THREE.Mesh(new THREE.TorusGeometry(0.1, 0.025, 10, 24), std(MAT.windCopper));
+    wind.rotation.x = Math.PI / 2;
+    wind.position.y = 0.03;
+    g.add(wind);
+    for (let s = -1; s <= 1; s += 2) {
+      const leg = new THREE.Mesh(new THREE.CylinderGeometry(0.01, 0.01, 0.08, 8), std(MAT.lead));
+      leg.position.set(s * 0.1, -0.1, 0);
+      g.add(leg);
+    }
+    g.userData.body = body;
+    return g;
+  }
+  function makeDisplayBox(w, h, dp, cw, ch) {
+    const g = new THREE.Group();
+    const frame = new THREE.Mesh(new THREE.BoxGeometry(w, h, dp), std({ color: 0x111318, roughness: 0.7, metalness: 0.2 }));
+    g.add(frame);
+    const canvas = document.createElement('canvas');
+    canvas.width = cw; canvas.height = ch;
+    const ctx = canvas.getContext('2d');
+    const tex = new THREE.CanvasTexture(canvas);
+    const screen = new THREE.Mesh(new THREE.PlaneGeometry(w * 0.9, h * 0.82), new THREE.MeshBasicMaterial({ map: tex }));
+    screen.position.z = dp / 2 + 0.002;
+    g.add(screen);
+    g.userData = { canvas, ctx, tex };
+    return g;
+  }
+
+  // ---------- Glifos de esquemático ----------
+  function line(ctx, x1, y1, x2, y2, w, col) {
+    ctx.strokeStyle = col || '#8fe3d0'; ctx.lineWidth = w || 2;
+    ctx.beginPath(); ctx.moveTo(x1, y1); ctx.lineTo(x2, y2); ctx.stroke();
+  }
+  function groundGlyph(ctx, x, y) {
+    line(ctx, x, y, x, y + 10, 2, '#8fe3d0');
+    line(ctx, x - 14, y + 10, x + 14, y + 10, 2, '#8fe3d0');
+    line(ctx, x - 8, y + 16, x + 8, y + 16, 2, '#8fe3d0');
+    line(ctx, x - 3, y + 22, x + 3, y + 22, 2, '#8fe3d0');
+  }
+  function vResistorGlyph(ctx, x, y, h, col) {
+    ctx.strokeStyle = col || '#e8c568'; ctx.lineWidth = 2;
+    ctx.strokeRect(x - 8, y, 16, h);
+  }
+  function capGlyph(ctx, x, y, col) {
+    ctx.strokeStyle = col || '#5fb8ff'; ctx.lineWidth = 3;
+    line(ctx, x - 16, y, x + 16, y, 3, col || '#5fb8ff');
+    line(ctx, x - 16, y + 10, x + 16, y + 10, 3, col || '#5fb8ff');
+  }
+  function dcSourceGlyph(ctx, x, y, r, col) {
+    ctx.strokeStyle = col || '#8fe3d0'; ctx.lineWidth = 2;
+    ctx.beginPath(); ctx.arc(x, y, r, 0, Math.PI * 2); ctx.stroke();
+    ctx.fillStyle = col || '#8fe3d0'; ctx.font = 'bold 15px sans-serif';
+    ctx.fillText('+', x - 5, y - r * 0.3);
+    ctx.font = 'bold 15px sans-serif';
+    ctx.fillText('−', x - 5, y + r * 0.75);
+  }
+  function inductorGlyph(ctx, x0, x1, y, col) {
+    ctx.strokeStyle = col || '#8fe3d0'; ctx.lineWidth = 2;
+    const n = 5, w = (x1 - x0) / n;
+    ctx.beginPath();
+    for (let i = 0; i < n; i++) {
+      const cx = x0 + w * i + w / 2;
+      ctx.arc(cx, y, w / 2 - 1, Math.PI, 0, false);
+    }
+    ctx.stroke();
+  }
+  function switchBoxGlyphV(ctx, x, y0, y1, col) {
+    ctx.strokeStyle = col || '#e8c568'; ctx.lineWidth = 2;
+    ctx.strokeRect(x - 12, y0, 24, y1 - y0);
+    ctx.beginPath(); ctx.moveTo(x - 7, y1 - 5); ctx.lineTo(x + 7, y0 + 7); ctx.stroke();
+    ctx.fillStyle = col || '#e8c568'; ctx.font = 'bold 11px sans-serif';
+    ctx.fillText('SW', x + 16, (y0 + y1) / 2 + 4);
+  }
+  function diodeGlyphH(ctx, x0, x1, y, col) {
+    ctx.strokeStyle = col || '#e8c568'; ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.moveTo(x0, y - 10); ctx.lineTo(x0, y + 10); ctx.lineTo(x1, y); ctx.closePath(); ctx.stroke();
+    line(ctx, x1, y - 10, x1, y + 10, 3, col || '#e8c568');
+  }
+
+  // ---------- Layout ----------
+  const PX0 = 40, PX1 = 620, PY0 = 40, PY1 = 460;
+  const GX0 = 660, GX1 = 1000, GY0 = 40, GY1 = 460;
+  const SRC_X = 90, SRC_Y = 260;
+  const RAIL_Y = 90, GND_Y = 430;
+  const CIN_X = 150;
+  const IND_X0 = 200, IND_X1 = 340;
+  const SWNODE_X = 340;
+  const SW_Y0 = 150, SW_Y1 = 195;
+  const DIODE_X0 = 340, DIODE_X1 = 400;
+  const OUTNODE_X = 460, COUT_X = 510, LOAD_X = 570;
+
+  let HIT = [];
+  function addHit(id, x, y, w, h, label) { HIT.push({ id, x, y, w, h, label }); }
+
+  function drawSchematic(ctx) {
+    HIT = [];
+    ctx.clearRect(PX0 - 10, PY0 - 10, PX1 - PX0 + 20, PY1 - PY0 + 20);
+    ctx.fillStyle = '#0b1310'; ctx.fillRect(PX0 - 10, PY0 - 10, PX1 - PX0 + 20, PY1 - PY0 + 20);
+
+    ctx.fillStyle = '#8fe3d0'; ctx.font = 'bold 14px sans-serif';
+    ctx.fillText('CONVERTIDOR ELEVADOR (BOOST) — TPS61030', PX0 + 10, PY0 + 14);
+
+    // Fuente Vin
+    dcSourceGlyph(ctx, SRC_X, SRC_Y, 28, '#8fe3d0');
+    addHit('src', SRC_X - 20, SRC_Y - 28, 40, 56, 'Vin (ajustable)');
+    ctx.fillStyle = '#8fe3d0'; ctx.font = '12px sans-serif';
+    ctx.fillText('Vin=' + fmtV(curVIN()), SRC_X - 24, SRC_Y - 36);
+    line(ctx, SRC_X, SRC_Y - 28, SRC_X, RAIL_Y, 2, '#8fe3d0');
+    line(ctx, SRC_X, SRC_Y + 28, SRC_X, GND_Y, 2, '#8fe3d0');
+    groundGlyph(ctx, SRC_X, GND_Y);
+
+    // Riel Vin+
+    line(ctx, SRC_X, RAIL_Y, IND_X0, RAIL_Y, 2, '#8fe3d0');
+
+    // Cin
+    line(ctx, CIN_X, RAIL_Y, CIN_X, 195, 2, '#8fe3d0');
+    capGlyph(ctx, CIN_X, 200, '#5fb8ff');
+    addHit('cin', CIN_X - 16, 192, 32, 24, 'Cin (entrada)');
+    ctx.fillStyle = '#5fb8ff'; ctx.font = '12px sans-serif'; ctx.fillText('Cin', CIN_X + 12, 208);
+    line(ctx, CIN_X, 211, CIN_X, GND_Y, 2, '#8fe3d0');
+
+    // Inductor — en serie con la fuente durante todo el ciclo (a diferencia del buck)
+    inductorGlyph(ctx, IND_X0, IND_X1, RAIL_Y, '#8fe3d0');
+    addHit('l', IND_X0 + 4, RAIL_Y - 16, (IND_X1 - IND_X0) - 8, 32, 'Inductor L');
+    ctx.fillStyle = '#8fe3d0'; ctx.fillText('L', (IND_X0 + IND_X1) / 2 - 4, RAIL_Y - 20);
+
+    // Interruptor interno — a tierra desde el nodo de conmutación
+    line(ctx, SWNODE_X, RAIL_Y, SWNODE_X, SW_Y0, 2, '#8fe3d0');
+    switchBoxGlyphV(ctx, SWNODE_X, SW_Y0, SW_Y1, '#e8c568');
+    addHit('sw', SWNODE_X - 15, SW_Y0 - 5, 55, (SW_Y1 - SW_Y0) + 10, 'TPS61030 — interruptor interno (SW)');
+    line(ctx, SWNODE_X, SW_Y1, SWNODE_X, GND_Y, 2, '#8fe3d0');
+
+    // Diodo de salida
+    diodeGlyphH(ctx, DIODE_X0, DIODE_X1, RAIL_Y, '#e8c568');
+    addHit('diode', DIODE_X0 - 4, RAIL_Y - 12, (DIODE_X1 - DIODE_X0) + 8, 24, 'Diodo de salida (D1)');
+    ctx.fillStyle = '#e8c568'; ctx.fillText('D1', (DIODE_X0 + DIODE_X1) / 2 - 8, RAIL_Y - 16);
+    line(ctx, DIODE_X1, RAIL_Y, OUTNODE_X, RAIL_Y, 2, '#8fe3d0');
+
+    // Riel Vout
+    addHit('out', OUTNODE_X, RAIL_Y - 16, LOAD_X - OUTNODE_X, 16, 'Vout');
+
+    // Cout
+    line(ctx, COUT_X, RAIL_Y, COUT_X, 195, 2, '#8fe3d0');
+    capGlyph(ctx, COUT_X, 200, '#5fb8ff');
+    addHit('cout', COUT_X - 16, 192, 32, 24, 'Cout (salida)');
+    ctx.fillStyle = '#5fb8ff'; ctx.fillText('Cout', COUT_X + 12, 208);
+    line(ctx, COUT_X, 211, COUT_X, GND_Y, 2, '#8fe3d0');
+
+    // Carga
+    line(ctx, LOAD_X, RAIL_Y, LOAD_X, 190, 2, '#8fe3d0');
+    vResistorGlyph(ctx, LOAD_X, 190, 70, '#c084fc');
+    addHit('load', LOAD_X - 8, 190, 16, 70, 'Carga (R)');
+    ctx.fillStyle = '#c084fc'; ctx.font = '12px sans-serif'; ctx.fillText('Carga', LOAD_X + 12, 230);
+    line(ctx, LOAD_X, 260, LOAD_X, GND_Y, 2, '#8fe3d0');
+
+    // Riel GND
+    line(ctx, SRC_X, GND_Y, LOAD_X, GND_Y, 2, '#8fe3d0');
+    groundGlyph(ctx, LOAD_X, GND_Y);
+
+    const res = curSolveBoost();
+    const cls = classifyMode(res);
+    ctx.font = 'bold 13px sans-serif'; ctx.fillStyle = cls.color;
+    ctx.fillText('Vin=' + fmtV(res.Vin) + ' · D=' + fmtD(res.D) + ' · K=' + res.K.toFixed(3) + ' · Kcrit=' + res.Kcrit.toFixed(3) + ' · ' + cls.label, PX0 + 10, PY1 - 12);
+  }
+
+  // ---------- Gráfica: IL(t) + barras de rizo de Vout ----------
+  const IL_Y0 = 60, IL_Y1 = 300;
+  const RIP_Y0 = 340, RIP_Y1 = 440;
+  const GXA = GX0 + 55, GXB = GX1 - 15;
+
+  function drawGraph(ctx) {
+    ctx.clearRect(GX0 - 10, GY0 - 10, GX1 - GX0 + 20, GY1 - GY0 + 20);
+    ctx.fillStyle = '#0b1310'; ctx.fillRect(GX0 - 10, GY0 - 10, GX1 - GX0 + 20, GY1 - GY0 + 20);
+    const res = curSolveBoost();
+    const cls = classifyMode(res);
+    const T = 1 / res.Fsw;
+
+    const loIL = -0.05 * res.ILpeak - 0.002;
+    const hiIL = res.ILpeak * 1.2 + 0.005;
+    const xPixT = t => GXA + (t / T) * (GXB - GXA);
+    const yPixIL = il => IL_Y1 - (il - loIL) / (hiIL - loIL) * (IL_Y1 - IL_Y0);
+
+    // Ejes
+    line(ctx, GXA, IL_Y0, GXA, IL_Y1, 1, '#233532');
+    line(ctx, GXA, IL_Y1, GXB, IL_Y1, 1, '#233532');
+    ctx.fillStyle = '#6b8a83'; ctx.font = '10px sans-serif';
+    ctx.fillText('IL(t)=Iin(t) durante un periodo de conmutación', GXA, IL_Y0 - 8);
+
+    // Línea de cero
+    const y0 = yPixIL(0);
+    ctx.setLineDash([2, 3]); line(ctx, GXA, y0, GXB, y0, 1, '#4a5a56'); ctx.setLineDash([]);
+    ctx.fillText('0 A', GX0 + 2, y0 + 3);
+
+    // ILavg
+    const yAvg = yPixIL(res.ILavg);
+    ctx.setLineDash([4, 4]); line(ctx, GXA, yAvg, GXB, yAvg, 1, '#8fb3ac'); ctx.setLineDash([]);
+    ctx.fillStyle = '#8fb3ac'; ctx.fillText('IL_avg=Iin_avg=' + fmtA(res.ILavg), GXA + 4, yAvg - 4);
+
+    // Marca de tOn (y de (D+D2)·T en DCM)
+    const xOn = xPixT(res.D * T);
+    ctx.setLineDash([2, 3]); line(ctx, xOn, IL_Y0, xOn, IL_Y1, 1, '#1a2b27'); ctx.setLineDash([]);
+    ctx.fillStyle = '#6b8a83'; ctx.fillText('D·T=' + fmtUs(res.D * T), xOn - 20, IL_Y1 + 14);
+    if (res.mode === 'DCM') {
+      const xOff2 = xPixT((res.D + res.D2) * T);
+      ctx.setLineDash([2, 3]); line(ctx, xOff2, IL_Y0, xOff2, IL_Y1, 1, '#1a2b27'); ctx.setLineDash([]);
+      ctx.fillStyle = '#6b8a83'; ctx.fillText('(D+D2)·T', xOff2 - 24, IL_Y1 + 28);
+    }
+    ctx.fillText('T=' + fmtUs(T), GXB - 60, IL_Y1 + 14);
+
+    // Curva real de IL(t): triángulo en CCM, tres subintervalos en DCM
+    const pts = ilWaveform(res, 120);
+    ctx.strokeStyle = cls.color; ctx.lineWidth = 2;
+    ctx.beginPath();
+    pts.forEach((p, i) => { const x = xPixT(p.t), y = yPixIL(p.il); if (i === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y); });
+    ctx.stroke();
+
+    ctx.fillStyle = '#EAF4F1'; ctx.font = '11px sans-serif';
+    if (res.mode === 'DCM') {
+      ctx.fillText('Predicción ingenua CCM: Vout=Vin/(1−D)=' + fmtV(res.VoutCCM) + '  ·  Vout real (DCM): ' + fmtV(res.Vout), GXA + 4, IL_Y0 + 14);
+    } else {
+      ctx.fillText('Vout=Vin/(1−D)=' + fmtV(res.Vout) + ' (CCM)', GXA + 4, IL_Y0 + 14);
+    }
+
+    // ---------- Barras de rizo de Vout ----------
+    ctx.fillStyle = '#6b8a83'; ctx.font = '10px sans-serif';
+    ctx.fillText('Composición del rizo de Vout: ΔVout = Iout·D/(C·fsw) + ESR·Iout', GXA, RIP_Y0 - 8);
+    const barX0 = GXA, barW = GXB - GXA, barY = RIP_Y0 + 10, barH = 26;
+    const total = Math.max(res.deltaVout, 1e-9);
+    const wC = barW * (res.deltaVoutC / total), wESR = barW * (res.deltaVoutESR / total);
+    ctx.fillStyle = '#5fb8ff'; ctx.fillRect(barX0, barY, wC, barH);
+    ctx.fillStyle = '#f59e0b'; ctx.fillRect(barX0 + wC, barY, wESR, barH);
+    ctx.strokeStyle = '#233532'; ctx.lineWidth = 1; ctx.strokeRect(barX0, barY, barW, barH);
+    ctx.fillStyle = '#EAF4F1'; ctx.font = 'bold 12px sans-serif';
+    ctx.fillText('ΔVout total ≈ ' + fmtVsmall(res.deltaVout) + ' (' + fmtPct(res.deltaVout / res.Vout * 100) + ' de Vout)', barX0, barY + barH + 18);
+    ctx.font = '11px sans-serif';
+    ctx.fillStyle = '#5fb8ff'; ctx.fillText('■ capacitivo: ' + fmtVsmall(res.deltaVoutC), barX0, barY + barH + 36);
+    ctx.fillStyle = '#f59e0b'; ctx.fillText('■ ESR: ' + fmtVsmall(res.deltaVoutESR), barX0 + 160, barY + barH + 36);
+  }
+
+  function drawBoard() { drawSchematic(bctx); drawGraph(bctx); }
+
+  function boardClick(u, v) {
+    const px = u * 1024, py = (1 - v) * 768;
+    for (const h of HIT) {
+      if (px >= h.x && px <= h.x + h.w && py >= h.y && py <= h.y + h.h) {
+        actToast(h.id); dispatch3D(h.id); return;
+      }
+    }
+  }
+
+  // ---------- Escena: tablero ----------
+  const boardCanvas = document.createElement('canvas');
+  boardCanvas.width = 1024; boardCanvas.height = 768;
+  const bctx = boardCanvas.getContext('2d');
+  const boardTex = new THREE.CanvasTexture(boardCanvas);
+  const boardMat = new THREE.MeshBasicMaterial({ map: boardTex });
+  const boardPlane = new THREE.Mesh(new THREE.PlaneGeometry(4.2, 3.15), boardMat);
+  boardPlane.position.set(0.5, 2.0, -1.2);
+  const boardFrame = new THREE.Mesh(new THREE.BoxGeometry(4.32, 3.27, 0.06), std({ color: 0x1b1f24, roughness: 0.8, metalness: 0.2 }));
+  boardFrame.position.set(0.5, 2.0, -1.24);
+  const boardG = new THREE.Group();
+  boardG.add(boardFrame, boardPlane);
+  S.scene.add(boardG);
+
+  // ---------- Escena: banco ----------
+  const benchG = new THREE.Group();
+  const mesa = new THREE.Mesh(new THREE.BoxGeometry(4.4, 0.12, 1.8), std({ color: 0x2b2f36, roughness: 0.85, metalness: 0.1 }));
+  mesa.position.set(0.5, 0.55, 1.0);
+  const pcb = new THREE.Mesh(new THREE.BoxGeometry(3.2, 0.03, 1.2), std({ color: 0x0e4d33, roughness: 0.7, metalness: 0.1 }));
+  pcb.position.set(0.5, 0.62, 1.0);
+  benchG.add(mesa, pcb);
+
+  const cinG = makeCapacitor3D(); cinG.position.set(-0.9, 0.76, 1.0); benchG.add(cinG);
+  const indG = makeInductor3D(); indG.position.set(-0.25, 0.72, 1.0); benchG.add(indG);
+  const icG = makeDIP3D(); icG.position.set(0.35, 0.7, 1.0); benchG.add(icG);
+  const diodeG = makeDiode3D(); diodeG.position.set(1.0, 0.68, 1.0); benchG.add(diodeG);
+  const coutG = makeCapacitor3D(); coutG.position.set(1.6, 0.76, 1.0); benchG.add(coutG);
+  S.scene.add(benchG);
+
+  function refreshBenchSel() {
+    icG.userData.body.material.color.setHex(DEVS.tps61030.color);
+    const scale = 0.85 + Math.min(0.4, curL() / 22e-6 * 0.4);
+    indG.scale.setScalar(scale);
+    const cScale = 0.8 + Math.min(0.5, curC() / 1000e-6 * 0.5);
+    coutG.scale.setScalar(cScale);
+  }
+
+  const fuenteBox = makeDisplayBox(0.7, 0.42, 0.06, 220, 132);
+  fuenteBox.position.set(-1.9, 0.95, 1.0); fuenteBox.rotation.y = 0.06 * Math.PI;
+  const medidorBox = makeDisplayBox(0.7, 0.5, 0.06, 220, 156);
+  medidorBox.position.set(2.6, 0.98, 1.0); medidorBox.rotation.y = -0.06 * Math.PI;
+  const scopeBox = makeDisplayBox(1.0, 0.62, 0.06, 260, 160);
+  scopeBox.position.set(0.6, 1.42, 0.62); scopeBox.rotation.x = -0.06 * Math.PI;
+  benchG.add(fuenteBox, medidorBox, scopeBox);
+
+  function drawFuenteScreen() {
+    const { ctx, canvas, tex } = fuenteBox.userData;
+    ctx.fillStyle = '#0b1310'; ctx.fillRect(0, 0, canvas.width, canvas.height);
+    ctx.fillStyle = '#8fe3d0'; ctx.font = 'bold 16px sans-serif';
+    ctx.fillText('Vin=' + fmtV(curVIN()) + '  D=' + fmtD(curD()), 14, 30);
+    ctx.font = '13px sans-serif';
+    ctx.fillText('L=' + fmtL(curL()) + '  C=' + fmtCuF(curC()) + '/' + curCEntry().v + 'V', 14, 54);
+    ctx.fillText('ESR≈' + fmtOhmSmall(curESR()) + '  R=' + fmtR(curR()), 14, 74);
+    ctx.fillText(DEVS.tps61030.name + ' · fsw=600kHz', 14, 94);
+    tex.needsUpdate = true;
+  }
+  function drawMedidorScreen() {
+    const { ctx, canvas, tex } = medidorBox.userData;
+    ctx.fillStyle = '#0b1310'; ctx.fillRect(0, 0, canvas.width, canvas.height);
+    ctx.font = '13px sans-serif';
+    if (state.hide) {
+      ctx.fillStyle = '#6b8a83'; ctx.font = 'bold 18px sans-serif';
+      ctx.fillText('Vout: ?  Modo: ?', 14, 40);
+      ctx.fillText('¿CCM o DCM?', 14, 66);
+    } else {
+      const res = curSolveBoost();
+      const cls = classifyMode(res);
+      ctx.fillStyle = '#5fb8ff'; ctx.fillText('Vout = ' + fmtV(res.Vout), 14, 26);
+      ctx.fillStyle = '#f59e0b'; ctx.fillText('K = ' + res.K.toFixed(3) + '  Kcrit = ' + res.Kcrit.toFixed(3), 14, 46);
+      ctx.fillStyle = cls.color; ctx.font = 'bold 13px sans-serif'; ctx.fillText(cls.label, 14, 68, 200);
+      ctx.fillStyle = '#8fe3d0'; ctx.font = '13px sans-serif';
+      ctx.fillText('ILpk=' + fmtA(res.ILpeak) + ' ILval=' + fmtA(res.ILvalley), 14, 92);
+      ctx.fillText('Iout=' + fmtA(res.Iout) + ' ΔVout≈' + fmtVsmall(res.deltaVout), 14, 112);
+    }
+    tex.needsUpdate = true;
+  }
+  function drawScopeScreen() {
+    const { ctx, canvas, tex } = scopeBox.userData;
+    ctx.fillStyle = '#05100c'; ctx.fillRect(0, 0, canvas.width, canvas.height);
+    ctx.strokeStyle = '#12312a'; ctx.lineWidth = 1;
+    for (let i = 0; i <= 4; i++) { const y = 10 + i * (canvas.height - 20) / 4; line(ctx, 10, y, canvas.width - 10, y, 1, '#12312a'); }
+    const res = curSolveBoost();
+    const cycles = 2.2, N = 220;
+    const toX = i => 10 + (i / N) * (canvas.width - 20);
+    const hi = canvas.height - 24, lo = 20;
+    ctx.strokeStyle = '#e8c568'; ctx.lineWidth = 1.5; ctx.beginPath();
+    for (let i = 0; i <= N; i++) {
+      const t = (i / N) * cycles;
+      const frac = t - Math.floor(t);
+      const v = frac < res.D ? lo : hi;
+      const x = toX(i);
+      if (i === 0) ctx.moveTo(x, v); else ctx.lineTo(x, v);
+    }
+    ctx.stroke();
+    ctx.fillStyle = '#6b8a83'; ctx.font = '10px sans-serif';
+    ctx.fillText('nodo de conmutación (SW) · bajo=switch a GND, alto=diodo a Vout · D=' + fmtD(res.D), 12, canvas.height - 4);
+    tex.needsUpdate = true;
+  }
+  function refreshBenchDyn() { drawFuenteScreen(); drawMedidorScreen(); drawScopeScreen(); }
+
+  // ---------- HUD ----------
+  el('hud').innerHTML = `
+    <div class="eyebrow">MEC · D2 · Electrónica de potencia</div>
+    <div class="h2">Convertidor Elevador (Boost): Ganancia 1/(1−D), Frontera CCM/DCM y M(D,K)</div>
+    <div class="p">El convertidor elevador (boost) resuelve el problema inverso al reductor (buck): producir un voltaje de salida MAYOR al de entrada, típico de elevar una sola celda de batería de Litio (1.8–4.2V) a un riel regulado de 5V. Usa los mismos tres componentes de almacenamiento de energía —inductor, interruptor y diodo— pero en un arreglo distinto: el <b>inductor está en serie con la fuente durante todo el ciclo</b>, el interruptor lo conecta a tierra para acumular energía, y el diodo lo conecta a la salida para entregarla.</div>
+    <div class="p">En conducción continua (CCM), el balance volt-segundo del inductor fija la ganancia <b>Vout/Vin=1/(1−D)</b> — pero solo mientras la corriente de carga sea suficiente para que la corriente del inductor no llegue nunca a cero. Esa frontera se expresa con el parámetro <b>K=2L/(R·Ts)</b> contra el valor crítico <b>Kcrit(D)=D(1−D)²</b>: si K cae por debajo de Kcrit, el convertidor entra en <b>conducción discontinua (DCM)</b> y Vout=Vin/(1−D) deja de cumplirse. En DCM la ganancia real es <b>M(D,K)=[1+√(1+4D²/K)]/2</b> — una expresión que hace que Vout SUBA por encima de la predicción ingenua de CCM al aligerar la carga, justo el motivo por el que un regulador real de lazo cerrado reduce D automáticamente al bajar la carga.</div>
+    <div class="formula">Vout=Vin/(1−D) en CCM · Kcrit(D)=D(1−D)² · M(D,K)=[1+√(1+4D²/K)]/2 en DCM</div>
+    <div class="legend">
+      <span class="li"><span class="dot" style="background:#5fb8ff"></span>Vout — voltaje de salida real (CCM: Vin/(1−D); DCM: Vin·M(D,K))</span>
+      <span class="li"><span class="dot" style="background:#f59e0b"></span>K vs Kcrit(D) — frontera entre conducción continua y discontinua</span>
+      <span class="li"><span class="dot" style="background:#22c55e"></span>Modo — CCM (continua) o DCM (discontinua) según K vs Kcrit</span>
+    </div>
+    <div class="fid"><b>SÍ verificado:</b> Vout/Vin=1/(1−D) en CCM y ΔIL=Vin·D/(L·fsw) deducidos del balance volt-segundo del inductor · frontera CCM/DCM en K=2L/(R·Ts) vs Kcrit(D)=D(1−D)² · ganancia real en DCM M(D,K)=[1+√(1+4D²/K)]/2 y forma de onda de tres subintervalos (Erickson &amp; Maksimovic; TI SLVA061) · IC de referencia TPS61030 (TI SLUS534G, 600kHz, hasta 4A).<br><b>NO modelado:</b> rectificación síncrona real (se usa diodo ideal) · dinámica de lazo cerrado (D es de lazo abierto, a propósito, para mostrar la subida de Vout en carga ligera) · pérdidas/eficiencia (η&lt;100%) · límite de corriente interna del interruptor · física de aislamiento de un flyback real (solo se cita su fórmula de ganancia).</div>
+    <div class="src">Fuentes: Erickson &amp; Maksimovic, "Fundamentals of Power Electronics" cap.5 · TI SLVA061 "Basic Calculation of a Boost Converter's Power Stage" · hoja de datos TPS61030/TPS61031/TPS61032 (TI, SLUS534G) · TI SNVA603 "Flyback Converter Design" · guía de diseño flyback de Coilcraft · Analog Devices AN-2583</div>
+  `;
+
+  // ---------- Panel ----------
+  el('panel').innerHTML = `
+    <h4>Boost (TPS61030) · <span id="p_mode">Explora</span></h4>
+    <div class="modebar">
+      <button class="b on" id="btn-mode-explora">🔍 Explora</button>
+      <button class="b" id="btn-mode-predice">🧠 Predicción</button>
+      <button class="b" id="btn-mode-medicion">📏 Medición</button>
+      <button class="b" id="btn-mode-reto">🎯 Reto</button>
+    </div>
+    <div id="missionText" style="font-size:12px;color:#8FB3AC;margin-bottom:8px"></div>
+    <div class="btns" style="margin-top:8px">
+      <button class="b" id="btnRef" style="flex:1 0 48%">⭐ Punto de referencia</button>
+      <button class="b" id="btnDCM" style="flex:1 0 48%">⚠ Forzar DCM</button>
+    </div>
+    <div style="margin-top:10px;display:grid;grid-template-columns:1fr auto auto auto;gap:6px 8px;align-items:center;font-size:12px;color:#EAF4F1">
+      <div>Vin</div><button class="b" id="vinDec" style="padding:2px 8px">−</button><span id="vVIN">—</span><button class="b" id="vinInc" style="padding:2px 8px">+</button>
+      <div>D</div><button class="b" id="dDec" style="padding:2px 8px">−</button><span id="vD">—</span><button class="b" id="dInc" style="padding:2px 8px">+</button>
+      <div>L</div><button class="b" id="lDec" style="padding:2px 8px">−</button><span id="vL">—</span><button class="b" id="lInc" style="padding:2px 8px">+</button>
+      <div>C (salida)</div><button class="b" id="cDec" style="padding:2px 8px">−</button><span id="vC">—</span><button class="b" id="cInc" style="padding:2px 8px">+</button>
+      <div>R (carga)</div><button class="b" id="rDec" style="padding:2px 8px">−</button><span id="vR">—</span><button class="b" id="rInc" style="padding:2px 8px">+</button>
+    </div>
+    <div id="telemetry" style="margin-top:10px;font-size:12px;color:#EAF4F1;line-height:1.5"></div>
+    <div id="predWrap" style="display:none;margin-top:10px">
+      <div id="predBox"></div>
+      <div class="btns" style="margin-top:6px">
+        <button class="b" id="predNew" style="flex:1 0 48%">Nuevo</button>
+        <button class="b" id="predCheck" style="flex:1 0 48%">Comprobar</button>
+      </div>
+    </div>
+    <div id="retoWrap" style="display:none;margin-top:10px">
+      <div id="retoBox"></div>
+      <div class="btns" style="margin-top:6px">
+        <button class="b" id="retoNew" style="flex:1 0 48%">Nuevo reto</button>
+        <button class="b" id="retoCheck" style="flex:1 0 48%">Comprobar</button>
+      </div>
+    </div>
+    <div id="sweepWrap" style="display:none;margin-top:10px">
+      <button class="b" id="sweepRun" style="width:100%">▶ Ejecutar barrido de R (carga)</button>
+    </div>
+    <div id="report" style="margin-top:10px;font-size:11px;color:#8FB3AC;line-height:1.5"></div>
+    <div style="margin-top:14px;border-top:1px solid #1E3A34;padding-top:10px" id="quizBox"></div>
+    <button class="b" id="autoTour" style="width:100%;margin-top:10px">🎬 Tour guiado</button>
+  `;
+
+  const MODES = ['explora', 'predice', 'medicion', 'reto'];
+  const MODE_META = {
+    explora: { label: 'Explora', icon: '🔍' },
+    predice: { label: 'Predicción', icon: '🧠' },
+    medicion: { label: 'Medición', icon: '📏' },
+    reto: { label: 'Reto', icon: '🎯' },
+  };
+  const MISIONES = {
+    explora: 'Ajusta Vin, D, L, C y R; observa cómo cambian Vout, ΔIL y si el convertidor opera en CCM o DCM. Prueba los atajos Punto de referencia y Forzar DCM.',
+    predice: 'Antes de revelar el valor, predice Vout real, el rizo de IL, o si el modo es CCM/DCM con los valores actuales.',
+    medicion: 'Ejecuta el barrido automático de R (de carga pesada a carga ligera) y mide cómo Vout y el modo (CCM/DCM) cambian con la resistencia de carga.',
+    reto: 'Con el Vin y D asignados, ajusta R, L y C para alcanzar el Vout objetivo en CCM, con un rizo de salida ΔVout menor al 2% de Vout.',
+  };
+
+  function setMode(m) {
+    state.mode = m;
+    state.hide = (m === 'predice' && !state._revealed);
+    el('predWrap').style.display = m === 'predice' ? 'block' : 'none';
+    el('retoWrap').style.display = m === 'reto' ? 'block' : 'none';
+    el('sweepWrap').style.display = m === 'medicion' ? 'block' : 'none';
+    if (m === 'predice') genPredice();
+    if (m === 'reto') newReto();
+    el('missionText').textContent = MISIONES[m];
+    refreshAll();
+  }
+
+  function syncCtrlBtns() {
+    MODES.forEach(m => { const b = el('btn-mode-' + m); if (b) b.classList.toggle('on', state.mode === m); });
+    el('p_mode').textContent = MODE_META[state.mode].label;
+    const spans = { vVIN: fmtV(curVIN()), vD: fmtD(curD()), vL: fmtL(curL()), vC: fmtCuF(curC()) + '/' + curCEntry().v + 'V', vR: fmtR(curR()) };
+    Object.keys(spans).forEach(id => { const s = el(id); if (s) s.textContent = spans[id]; });
+  }
+
+  function genPredice() {
+    state._revealed = false; state.hide = true;
+    const p = Math.random();
+    state._predType = p < 0.34 ? 'vout' : (p < 0.67 ? 'ripple' : 'mode');
+    const box = el('predBox');
+    if (state._predType === 'vout') {
+      box.innerHTML = '<p>Predice el voltaje de salida real <b>Vout</b> (V) con los valores actuales de Vin, D, L y R — recuerda que en DCM Vout deja de ser simplemente Vin/(1−D):</p>' +
+        '<input id="predInput" type="number" step="0.01" placeholder="V" style="width:100%;background:#0c1a16;color:#EAF4F1;border:1px solid #1E3A34;padding:6px;border-radius:6px">';
+    } else if (state._predType === 'ripple') {
+      box.innerHTML = '<p>Predice el rizo de corriente <b>ΔIL</b> (mA) con los valores actuales de Vin, D y L:</p>' +
+        '<input id="predInput" type="number" step="1" placeholder="mA" style="width:100%;background:#0c1a16;color:#EAF4F1;border:1px solid #1E3A34;padding:6px;border-radius:6px">';
+    } else {
+      box.innerHTML = '<p>¿El convertidor opera en CCM o DCM con los valores actuales (compara K contra Kcrit(D)=D(1−D)²)?</p>' +
+        '<select id="predSelect" style="width:100%;background:#0c1a16;color:#EAF4F1;border:1px solid #1E3A34;padding:6px;border-radius:6px">' +
+        '<option value="ccm">CCM (conducción continua)</option>' +
+        '<option value="dcm">DCM (conducción discontinua)</option>' +
+        '</select>';
+    }
+    refreshAll();
+  }
+  function checkPredice() {
+    const res = curSolveBoost();
+    let ok, real;
+    if (state._predType === 'vout') {
+      const guess = parseFloat(el('predInput').value);
+      real = fmtV(res.Vout);
+      const tol = Math.max(0.15 * res.Vout, 0.1);
+      ok = !isNaN(guess) && Math.abs(guess - res.Vout) <= tol;
+    } else if (state._predType === 'ripple') {
+      const guess = parseFloat(el('predInput').value);
+      const realMA = res.deltaIL * 1000;
+      real = fmtA(res.deltaIL);
+      const tol = Math.max(0.15 * realMA, 5);
+      ok = !isNaN(guess) && Math.abs(guess - realMA) <= tol;
+    } else {
+      real = res.mode === 'CCM' ? 'CCM (conducción continua)' : 'DCM (conducción discontinua)';
+      ok = el('predSelect').value === (res.mode === 'CCM' ? 'ccm' : 'dcm');
+    }
+    state._revealed = true; state.hide = false;
+    refreshAll();
+    showToast(ok ? '✅ Correcto — valor real: ' + real : '❌ No — valor real: ' + real, ok ? 'ok' : 'warn');
+  }
+
+  function newReto() {
+    const vi = Math.floor(Math.random() * VIN_VALS.length);
+    const di = Math.floor(Math.random() * D_VALS.length);
+    const vin = VIN_VALS[vi], d = D_VALS[di];
+    const voutTarget = vin / (1 - d);
+    const ri = Math.floor(Math.random() * 4);
+    state._reto = { vin, d, vout: voutTarget, r: R_VALS[ri], rippleMaxPct: 2 };
+    el('retoBox').innerHTML = `<p>Objetivo: con <b>Vin=${fmtV(vin)}</b> y <b>D=${fmtD(d)}</b>, alcanza <b>Vout=${fmtV(voutTarget)}</b> sobre una carga <b>R=${fmtR(R_VALS[ri])}</b>, en <b>CCM</b>, con rizo de salida ΔVout ≤ <b>2%</b> de Vout. Ajusta Vin, D y R a esos valores, y elige L y C adecuados.</p>`;
+    refreshAll();
+  }
+  function checkReto() {
+    const res = curSolveBoost();
+    const t = state._reto;
+    const vinOk = Math.abs(curVIN() - t.vin) < 1e-9;
+    const dOk = Math.abs(curD() - t.d) < 1e-9;
+    const rOk = Math.abs(curR() - t.r) < 1e-9;
+    const ccmOk = res.mode === 'CCM';
+    const voutOk = Math.abs(res.Vout - t.vout) <= Math.max(0.05 * t.vout, 0.05);
+    const ripplePct = res.deltaVout / res.Vout * 100;
+    const rippleOk = ripplePct <= t.rippleMaxPct;
+    if (vinOk && dOk && rOk && ccmOk && voutOk && rippleOk) {
+      showToast(`✅ Diseño válido: Vout=${fmtV(res.Vout)}, ${res.mode}, rizo=${fmtPct(ripplePct)}`, 'ok');
+    } else if (!vinOk) {
+      showToast(`Ajusta Vin a ${fmtV(t.vin)} (actual: ${fmtV(curVIN())}).`, 'warn');
+    } else if (!dOk) {
+      showToast(`Ajusta D a ${fmtD(t.d)} (actual: ${fmtD(curD())}).`, 'warn');
+    } else if (!rOk) {
+      showToast(`Ajusta R a ${fmtR(t.r)} (actual: ${fmtR(curR())}).`, 'warn');
+    } else if (!ccmOk) {
+      showToast(`Estás en DCM (K=${res.K.toFixed(3)} < Kcrit=${res.Kcrit.toFixed(3)}). Sube L para subir K por encima de Kcrit.`, 'warn');
+    } else if (!voutOk) {
+      showToast(`Vout=${fmtV(res.Vout)} se alejó del objetivo ${fmtV(t.vout)}.`, 'warn');
+    } else {
+      showToast(`Rizo de salida ${fmtPct(ripplePct)} > 2%. Sube C, baja la ESR (elige otro capacitor), o sube L.`, 'warn');
+    }
+  }
+
+  async function runSweep() {
+    state._sweepTrace = [];
+    for (let i = 0; i < R_VALS.length; i++) {
+      state.iR = i;
+      const res = curSolveBoost();
+      state._sweepTrace.push({ r: R_VALS[i], vout: res.Vout, voutCCM: res.VoutCCM, mode: res.mode, deltaIL: res.deltaIL });
+      refreshAll();
+      await sleep(350);
+    }
+    updateReport();
+  }
+
+  function updateTele() {
+    const t = el('telemetry');
+    if (!t) return;
+    if (state.hide) { t.innerHTML = '<div>Vout: ? · Modo: ? · ΔIL: ?</div><div style="color:#8FB3AC">Predice antes de revelar.</div>'; return; }
+    const res = curSolveBoost();
+    const cls = classifyMode(res);
+    t.innerHTML = '<div>Vout: ' + fmtV(res.Vout) + ' (CCM ideal: ' + fmtV(res.VoutCCM) + ') · ΔIL: ' + fmtA(res.deltaIL) + '</div>' +
+      '<div style="color:' + cls.color + '">' + cls.label + ' · K=' + res.K.toFixed(3) + ' Kcrit=' + res.Kcrit.toFixed(3) + '</div>' +
+      '<div>ILpk: ' + fmtA(res.ILpeak) + ' · ILval: ' + fmtA(res.ILvalley) + ' · ΔVout: ' + fmtVsmall(res.deltaVout) + '</div>' +
+      '<div>Iout: ' + fmtA(res.Iout) + ' · Iin_avg: ' + fmtA(res.IinAvg) + '</div>' +
+      '<div style="color:#6a7a80">TPS61030: fsw=600kHz típ · Iout_max=2A (no limitan aquí)</div>';
+  }
+  function updateReport() {
+    const rep = el('report');
+    if (!rep) return;
+    if (state.mode !== 'medicion' || !state._sweepTrace || !state._sweepTrace.length) { rep.innerHTML = ''; return; }
+    let rows = state._sweepTrace.map(pt => `<tr><td>${fmtR(pt.r)}</td><td>${fmtV(pt.vout)}</td><td>${fmtV(pt.voutCCM)}</td><td>${pt.mode}</td></tr>`).join('');
+    rep.innerHTML = `<table class="repTable"><thead><tr><th>R</th><th>Vout real</th><th>Vout CCM ideal</th><th>Modo</th></tr></thead><tbody>${rows}</tbody></table>`;
+  }
+
+  function onChange() { refreshAll(); }
+  function refreshAll() {
+    drawBoard();
+    boardTex.needsUpdate = true;
+    refreshBenchSel();
+    refreshBenchDyn();
+    updateTele();
+    syncCtrlBtns();
+    if (state.mode === 'medicion') updateReport();
+  }
+
+  // ---------- Quiz ----------
+  const QUIZ = [
+    { q: '¿Por qué el ciclo de trabajo en CCM da Vout/Vin=1/(1−D) en un boost?', a: ['Porque el balance volt-segundo del inductor en estado estable exige que el área de subida (durante D·Ts) y de bajada (durante (1−D)·Ts) sean iguales', 'Porque el diodo limita Vout a un valor fijo sin importar D', 'Porque D no afecta a Vout en un boost'], correct: 0 },
+    { q: 'Si a un D y Vin fijos vas reduciendo la corriente de carga (subiendo R) hasta cruzar a DCM, ¿qué le pasa al Vout real comparado con la predicción ingenua Vin/(1−D)?', a: ['Se queda exactamente igual', 'Sube por encima de la predicción de CCM — es el fenómeno de "subida de voltaje en carga ligera" que obliga a los reguladores reales a reducir D cuando baja la carga', 'Baja por debajo de la predicción de CCM'], correct: 1 },
+    { q: 'El TPS61030 real usa rectificación síncrona (un MOSFET en vez de diodo). ¿Por qué este simulador sigue modelando un diodo?', a: ['Porque el diodo ideal simplifica el modelo y mantiene las ecuaciones de M(D,K) y del límite CCM/DCM en su forma estándar de libro de texto, sin cambiar el comportamiento de conducción/no-conducción que determina el modo', 'Porque el TPS61030 realmente usa un diodo, no un MOSFET', 'Porque el diodo hace que el convertidor sea más eficiente que el MOSFET'], correct: 0 },
+  ];
+  let quizIdx = 0;
+  function buildQuiz() { quizIdx = Math.floor(Math.random() * QUIZ.length); refreshQuestion(); }
+  function refreshQuestion() {
+    const item = QUIZ[quizIdx];
+    const box = el('quizBox');
+    if (!box) return;
+    let html = '<div style="font-size:12px;color:#8FB3AC;margin-bottom:6px">Quiz rápido</div>';
+    html += '<div style="font-size:13px;color:#EAF4F1;margin-bottom:8px">' + item.q + '</div>';
+    item.a.forEach((opt, i) => { html += '<button class="b quizOpt" data-i="' + i + '" style="width:100%;text-align:left;margin-bottom:4px">' + opt + '</button>'; });
+    box.innerHTML = html;
+    box.querySelectorAll('.quizOpt').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const i = Number(btn.dataset.i);
+        if (i === item.correct) { showToast('✅ Correcto', 'ok'); quizIdx = (quizIdx + 1) % QUIZ.length; refreshQuestion(); }
+        else { showToast('❌ Intenta de nuevo', 'warn'); }
+      });
+    });
+  }
+
+  // ---------- Interacción 3D ----------
+  function actToast(id) {
+    const labels = { src: 'Fuente Vin (ajustable)', cin: 'Cin (entrada)', l: 'Inductor L', sw: 'TPS61030 — interruptor interno (SW)', diode: 'Diodo de salida (D1)', out: 'Vout', cout: 'Cout (salida)', load: 'Carga (R)' };
+    if (labels[id]) showToast(labels[id], 'info');
+  }
+  function resolveActor(name) { return { cin: cinG, sw: icG, diode: diodeG, l: indG, cout: coutG }[name]; }
+  function dispatch3D(id) {
+    const actor = resolveActor(id);
+    if (!actor) return;
+    const s0 = actor.scale.clone();
+    actor.scale.multiplyScalar(1.15);
+    setTimeout(() => actor.scale.copy(s0), 220);
+  }
+  const ACTOR_NAMES = ['cin', 'sw', 'diode', 'l', 'cout'];
+  pickerFor(S.scene, S.camera, S.renderer.domElement, (hit) => {
+    if (hit && hit.object === boardPlane && hit.uv) { boardClick(hit.uv.x, hit.uv.y); return; }
+    let o = hit && hit.object;
+    while (o) {
+      for (const name of ACTOR_NAMES) { if (resolveActor(name) === o) { actToast(name); dispatch3D(name); return; } }
+      o = o.parent;
+    }
+  });
+
+  async function runAuto() {
+    setMode('explora'); await sleep(600);
+    state.iVIN = 3; state.iD = 1; state.iL = 3; state.iC = 1; state.iR = 0; refreshAll(); await sleep(900);
+    state.iR = 6; refreshAll(); await sleep(1000);
+    state.iR = 0; refreshAll(); await sleep(400);
+    setMode('medicion'); await runSweep();
+  }
+
+  // ---------- Wiring ----------
+  MODES.forEach(m => { const b = el('btn-mode-' + m); if (b) b.addEventListener('click', () => setMode(m)); });
+  function wireStep(id, getIdx, setIdx, max) {
+    const dec = el(id + 'Dec'), inc = el(id + 'Inc');
+    if (dec) dec.addEventListener('click', () => { setIdx(Math.max(0, getIdx() - 1)); onChange(); });
+    if (inc) inc.addEventListener('click', () => { setIdx(Math.min(max, getIdx() + 1)); onChange(); });
+  }
+  wireStep('vin', () => state.iVIN, v => state.iVIN = v, VIN_VALS.length - 1);
+  wireStep('d', () => state.iD, v => state.iD = v, D_VALS.length - 1);
+  wireStep('l', () => state.iL, v => state.iL = v, L_VALS.length - 1);
+  wireStep('c', () => state.iC, v => state.iC = v, CAP_TABLE.length - 1);
+  wireStep('r', () => state.iR, v => state.iR = v, R_VALS.length - 1);
+  el('btnRef').addEventListener('click', () => { state.iVIN = 3; state.iD = 1; state.iL = 3; state.iC = 1; state.iR = 0; refreshAll(); showToast('Vin=3.6V, D=28%, L=6.8µH, Cout=220µF/80mΩ, R=2.5Ω — punto de referencia TPS61030 (Vout=5V, Iout=2A, CCM)', 'info'); });
+  el('btnDCM').addEventListener('click', () => { state.iR = 6; refreshAll(); showToast('R=250Ω: carga ligera, K cae por debajo de Kcrit con L/D/Vin actuales → DCM', 'warn'); });
+  el('predNew').addEventListener('click', genPredice);
+  el('predCheck').addEventListener('click', checkPredice);
+  el('retoNew').addEventListener('click', newReto);
+  el('retoCheck').addEventListener('click', checkReto);
+  el('sweepRun').addEventListener('click', runSweep);
+  el('autoTour').addEventListener('click', runAuto);
+
+  // ---------- Init ----------
+  setMode('explora');
+  buildQuiz();
+  refreshAll();
+  S.start();
+
+  window.__labDebug = {
+    state, DEVS, FSW, VIN_VALS, D_VALS, L_VALS, CAP_TABLE, R_VALS,
+    solveBoost, classifyMode, ilWaveform,
+    curSolveBoost,
+    setMode, genPredice, checkPredice, newReto, checkReto,
+    runSweep, refreshAll,
+  };
+})();
