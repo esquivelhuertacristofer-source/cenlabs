@@ -1,0 +1,864 @@
+/**
+ * FICHA DE FIDELIDAD — Filtro Activo Sallen-Key de 2.º Orden (Pasa-Bajas, TL072)
+ *
+ * SÍ verificado:
+ * - Topología Sallen-Key no inversora de ganancia K, con componentes iguales
+ *   (R1=R2=R, C1=C2=C): fc=1/(2πRC), K=1+Rf/Rg, Q=1/(3−K) — deducción
+ *   estándar de teoría de filtros activos (Texas Instruments SLOA024B
+ *   "Analysis of the Sallen-Key Architecture", J. Karki; T. Kugelstadt,
+ *   "Active Filter Design Techniques", cap.16 de "Op Amps for Everyone",
+ *   TI SLOA088; Sedra & Smith, "Microelectronic Circuits").
+ * - Función de transferencia H(jf)=K/[(1−r²)+j(r/Q)] con r=f/fc: magnitud
+ *   en dB y fase deducidas y verificadas algebraicamente por el equipo de
+ *   este simulador (fase 0° en r→0, −90° en r=1, −180° en r→∞ — respuesta
+ *   típica de pasa-bajas de 2.º orden).
+ * - Punto Butterworth (respuesta máximamente plana, sin pico) en K≈1.586
+ *   → Q≈0.7071=1/√2, verificado contra el ejemplo numérico de TI SLOA024B
+ *   y calculadoras de diseño independientes (elprocus.com/sallen-key-filter,
+ *   simplified.tools/calculate_sallen_key_filter).
+ * - Ejemplo de alta Q cercano a inestabilidad (K≈2.9 → Q≈10) verificado
+ *   contra el ejemplo trabajado de TI SLOA024B, que ilustra la fuerte
+ *   sensibilidad de Q respecto a K cuando K→3.
+ * - Ganancia de banda pasante (r→0) = K, no 0 dB — el Sallen-Key no
+ *   inversor amplifica la señal en banda pasante según el divisor Rf/Rg.
+ * - TL072: op-amp dual JFET, GBW=3.0 MHz típ, slew rate=13 V/µs típ,
+ *   Vos=3 mV típ/10 mV máx — hoja de datos vigente de Texas Instruments
+ *   (mismo modelo ya verificado en el laboratorio de op-amp de esta serie).
+ *   Este circuito usa un solo amplificador del TL072 dual; el segundo
+ *   queda sin conectar, como en un diseño real con esta parte.
+ *
+ * NO modelado:
+ * - Ancho de banda de ganancia finita (GBP) del op-amp: TI SLOA088 §16.8.4
+ *   recomienda GBP ≥ 100×(K·fc) como regla práctica de diseño para que el
+ *   op-amp no limite la respuesta; este simulador trata el op-amp como
+ *   ideal (GBP infinito) y no calcula ese margen.
+ * - Slew rate: a gran señal el TL072 real (13 V/µs) puede distorsionar la
+ *   salida si la pendiente requerida lo supera; no se modela aquí.
+ * - Sensibilidad de fc/Q a la tolerancia real de R y C — TI SLOA024B
+ *   documenta que esta sensibilidad crece fuertemente cuando K→3 (Q alta);
+ *   este simulador usa valores ideales exactos, sin tolerancia.
+ * - Ruido de entrada y offset de salida del op-amp.
+ *
+ * Nota de rigor:
+ * - El "punto Butterworth" (K≈1.586) se ofrece como opción discreta en la
+ *   lista de Rf disponibles (5.86 kΩ con Rg=10 kΩ fijo) para que se pueda
+ *   localizar con precisión; en un diseño real, K=1.586 rara vez cae en una
+ *   razón exacta de resistores comerciales E12/E24 y se aproxima con la
+ *   combinación más cercana disponible.
+ * - Regla de honestidad: no se inventan cifras de tolerancia, sensibilidad
+ *   numérica o comportamiento a gran señal que no estén citadas en las
+ *   fuentes; se listan como advertencias cualitativas en "NO modelado".
+ *
+ * Fuentes:
+ * - Texas Instruments, SLOA024B, "Analysis of the Sallen-Key Architecture"
+ *   (J. Karki) — https://www.ti.com/lit/an/sloa024b/sloa024b.pdf
+ * - Texas Instruments, SLOA088, "Active Filter Design Techniques"
+ *   (T. Kugelstadt, cap.16 de "Op Amps for Everyone")
+ * - Texas Instruments, SBOA226, "Analog Engineer's Circuit: Single-supply,
+ *   2nd-order, Sallen-Key low-pass filter circuit"
+ * - Texas Instruments, hoja de datos TL072 — https://www.ti.com/lit/ds/symlink/tl072.pdf
+ * - Kenneth A. Kuhn, "Sallen-Key Low-pass Filter" — kennethkuhn.com
+ * - elprocus.com/sallen-key-filter/ · simplified.tools/calculate_sallen_key_filter
+ * - electronics-tutorials.ws/filter/sallen-key-filter.html
+ * - sciencedirect.com/topics/engineering/sallen-key
+ * - Sedra & Smith, "Microelectronic Circuits"
+ */
+(function () {
+  'use strict';
+  const mount = document.getElementById('stage');
+  const S = createStage(mount, { cam: [3.4, 2.6, 7.6], target: [0.5, 1.2, 0.3], bgTop: '#0d1420', bgBot: '#04060a', bloom: 0.35, minD: 3.0, maxD: 18 });
+  const synth = makeSynth();
+
+  function el(id) { return document.getElementById(id); }
+  function showToast(msg, kind) {
+    const t = el('toast');
+    if (!t) return;
+    clearTimeout(showToast._h);
+    t.textContent = msg;
+    t.className = 'toast show' + (kind ? ' ' + kind : '');
+    showToast._h = setTimeout(() => { t.className = 'toast'; }, 2600);
+  }
+  function sleep(ms) { return new Promise(r => setTimeout(r, ms)); }
+
+  // ---------- Dispositivo ----------
+  const DEVS = {
+    tl072: {
+      name: 'TL072',
+      gbw: 3.0e6, sr: 13e6, vosTyp: 0.003, vosMax: 0.010,
+      note: 'Op-amp dual JFET — un canal usado; tratado como ideal para fc/Q en este simulador',
+      color: 0x1a1a2e,
+    },
+  };
+
+  // ---------- Física ----------
+  function solveSallenKey(R, C, Rf, Rg) {
+    const K = 1 + Rf / Rg;
+    const f0 = 1 / (2 * Math.PI * R * C);
+    const Q = 1 / (3 - K);
+    return { R, C, Rf, Rg, K, f0, Q };
+  }
+  function sallenKeyResponse(res, r) {
+    const Q = res.Q, K = res.K;
+    const denomRe = 1 - r * r;
+    const denomIm = r / Q;
+    const denomMag = Math.sqrt(denomRe * denomRe + denomIm * denomIm);
+    const magAbs = K / denomMag;
+    const magDb = 20 * Math.log10(magAbs);
+    const phaseDeg = -Math.atan2(denomIm, denomRe) * 180 / Math.PI;
+    return { r, magAbs, magDb, phaseDeg };
+  }
+  function classifyQ(Q) {
+    const bw = Math.SQRT1_2;
+    if (Math.abs(Q - bw) <= 0.03) return { key: 'butter', label: 'Butterworth (máx. plana)', color: '#22c55e' };
+    if (Q > 8) return { key: 'unstable', label: 'Cerca de inestabilidad (K→3)', color: '#ef4444' };
+    if (Q > bw) return { key: 'peak', label: 'Con pico cerca de fc (Q>0.707)', color: '#f59e0b' };
+    return { key: 'over', label: 'Sobreamortiguada (Q<0.707, sin pico)', color: '#5fb8ff' };
+  }
+
+  function fmtHz(f) {
+    if (f >= 1000) return (f / 1000).toFixed(f / 1000 >= 100 ? 0 : 1) + ' kHz';
+    return f.toFixed(1) + ' Hz';
+  }
+  function fmtR(r) {
+    if (r >= 1000) { const k = r / 1000; return (Number.isInteger(k) ? k.toFixed(0) : k.toFixed(2)) + ' kΩ'; }
+    return r.toFixed(0) + ' Ω';
+  }
+  function fmtC(c) { return (c * 1e9).toFixed(1) + ' nF'; }
+  function fmtDb(db) { return (db >= 0 ? '+' : '') + db.toFixed(1) + ' dB'; }
+  function fmtQ(q) { return q.toFixed(3); }
+  function fmtK(k) { return k.toFixed(3); }
+  function fmtPhase(deg) { return deg.toFixed(0) + '°'; }
+
+  // ---------- Estado ----------
+  const R_VALS = [1000, 2200, 4700, 10000, 22000, 47000];
+  const C_VALS = [1e-9, 2.2e-9, 4.7e-9, 10e-9, 22e-9, 47e-9];
+  const RG = 10000;
+  const RF_VALS = [0, 1000, 2200, 3300, 4700, 5860, 8200, 10000, 12000, 15000, 18000, 19000];
+  const TESTR_VALS = [0.1, 0.3, 0.5, 0.7071, 1, 1.4142, 2, 3, 5, 10];
+
+  const state = {
+    iR: 2, iC: 3, iRF: 5, iTESTR: 4,
+    mode: 'explora', hide: false, _revealed: false,
+    _sweepTrace: null, _predType: 'f0', _reto: null,
+  };
+
+  function curR() { return R_VALS[state.iR]; }
+  function curC() { return C_VALS[state.iC]; }
+  function curRF() { return RF_VALS[state.iRF]; }
+  function curTestR() { return TESTR_VALS[state.iTESTR]; }
+  function curSolveSallenKey() { return solveSallenKey(curR(), curC(), curRF(), RG); }
+  function curResponse(res) { return sallenKeyResponse(res || curSolveSallenKey(), curTestR()); }
+
+  // ---------- Materiales y geometría 3D ----------
+  const MAT = {
+    board: { color: 0x2b2f36, roughness: 0.85, metalness: 0.1 },
+    resistorBody: { color: 0xd8c08a, roughness: 0.6, metalness: 0.05 },
+    lead: { color: 0xc7c7c7, roughness: 0.35, metalness: 0.8 },
+    icBody: { color: 0x1a1a2e, roughness: 0.5, metalness: 0.2 },
+    notch: { color: 0x08080c, roughness: 0.5, metalness: 0.1 },
+    capBody: { color: 0x2255aa, roughness: 0.4, metalness: 0.3 },
+  };
+  function std(spec) { return new THREE.MeshStandardMaterial(spec); }
+
+  const BAND_COLORS = [0x1a1a1a, 0x8B4513, 0xff0000, 0xffa500, 0xffff00, 0x00ff00, 0x0000ff, 0x8B00FF, 0x808080, 0xffffff];
+  function bandsFor(ohms) {
+    if (ohms <= 0) return [0x1a1a1a, 0x1a1a1a, 0x1a1a1a];
+    const s = ohms.toExponential(1).split('e');
+    const digit1 = Math.floor(Number(s[0]));
+    const digit2 = Math.round((Number(s[0]) - digit1) * 10);
+    const exp = Number(s[1]);
+    return [BAND_COLORS[digit1], BAND_COLORS[digit2], BAND_COLORS[Math.max(0, exp)] || 0x1a1a1a];
+  }
+  function paintBands(group, ohms) {
+    const bands = bandsFor(ohms);
+    if (group.userData.bandMeshes) {
+      group.userData.bandMeshes.forEach((m, i) => m.material.color.setHex(bands[i]));
+    }
+  }
+  function makeResistor3D() {
+    const g = new THREE.Group();
+    const bodyGeo = new THREE.CylinderGeometry(0.045, 0.045, 0.26, 16);
+    const body = new THREE.Mesh(bodyGeo, std(MAT.resistorBody));
+    body.rotation.z = Math.PI / 2;
+    g.add(body);
+    const bandMeshes = [];
+    for (let i = 0; i < 3; i++) {
+      const bg = new THREE.Mesh(new THREE.CylinderGeometry(0.047, 0.047, 0.02, 16), std({ color: 0x1a1a1a }));
+      bg.rotation.z = Math.PI / 2;
+      bg.position.x = -0.06 + i * 0.06;
+      g.add(bg); bandMeshes.push(bg);
+    }
+    for (let s = -1; s <= 1; s += 2) {
+      const leg = new THREE.Mesh(new THREE.CylinderGeometry(0.008, 0.008, 0.12, 8), std(MAT.lead));
+      leg.rotation.z = Math.PI / 2;
+      leg.position.x = s * 0.19;
+      g.add(leg);
+    }
+    g.userData.bandMeshes = bandMeshes;
+    g.userData.body = body;
+    return g;
+  }
+  function makeCapacitor3D() {
+    const g = new THREE.Group();
+    const body = new THREE.Mesh(new THREE.CylinderGeometry(0.09, 0.09, 0.16, 20), std(MAT.capBody));
+    g.add(body);
+    const top = new THREE.Mesh(new THREE.CylinderGeometry(0.09, 0.09, 0.01, 20), std({ color: 0xd7dee6, roughness: 0.5, metalness: 0.2 }));
+    top.position.y = 0.085;
+    g.add(top);
+    for (let s = -1; s <= 1; s += 2) {
+      const leg = new THREE.Mesh(new THREE.CylinderGeometry(0.006, 0.006, 0.1, 8), std(MAT.lead));
+      leg.position.set(s * 0.04, -0.13, 0);
+      g.add(leg);
+    }
+    g.userData.body = body;
+    return g;
+  }
+  function makeDIP3D() {
+    const g = new THREE.Group();
+    const body = new THREE.Mesh(new THREE.BoxGeometry(0.32, 0.09, 0.16), std(MAT.icBody));
+    g.add(body);
+    const notch = new THREE.Mesh(new THREE.CylinderGeometry(0.015, 0.015, 0.1, 12), std(MAT.notch));
+    notch.rotation.x = Math.PI / 2;
+    notch.position.set(-0.14, 0.05, 0);
+    g.add(notch);
+    for (let side = -1; side <= 1; side += 2) {
+      for (let i = 0; i < 4; i++) {
+        const leg = new THREE.Mesh(new THREE.CylinderGeometry(0.006, 0.006, 0.06, 6), std(MAT.lead));
+        leg.position.set(-0.12 + i * 0.08, -0.06, side * 0.09);
+        g.add(leg);
+      }
+    }
+    g.userData.body = body;
+    return g;
+  }
+  function makeDisplayBox(w, h, dp, cw, ch) {
+    const g = new THREE.Group();
+    const frame = new THREE.Mesh(new THREE.BoxGeometry(w, h, dp), std({ color: 0x111318, roughness: 0.7, metalness: 0.2 }));
+    g.add(frame);
+    const canvas = document.createElement('canvas');
+    canvas.width = cw; canvas.height = ch;
+    const ctx = canvas.getContext('2d');
+    const tex = new THREE.CanvasTexture(canvas);
+    const screen = new THREE.Mesh(new THREE.PlaneGeometry(w * 0.9, h * 0.82), new THREE.MeshBasicMaterial({ map: tex }));
+    screen.position.z = dp / 2 + 0.002;
+    g.add(screen);
+    g.userData = { canvas, ctx, tex };
+    return g;
+  }
+
+  // ---------- Glifos de esquemático ----------
+  function line(ctx, x1, y1, x2, y2, w, col) {
+    ctx.strokeStyle = col || '#8fe3d0'; ctx.lineWidth = w || 2;
+    ctx.beginPath(); ctx.moveTo(x1, y1); ctx.lineTo(x2, y2); ctx.stroke();
+  }
+  function groundGlyph(ctx, x, y) {
+    line(ctx, x, y, x, y + 10, 2, '#8fe3d0');
+    line(ctx, x - 14, y + 10, x + 14, y + 10, 2, '#8fe3d0');
+    line(ctx, x - 8, y + 16, x + 8, y + 16, 2, '#8fe3d0');
+    line(ctx, x - 3, y + 22, x + 3, y + 22, 2, '#8fe3d0');
+  }
+  function vResistorGlyph(ctx, x, y, h, col) {
+    ctx.strokeStyle = col || '#e8c568'; ctx.lineWidth = 2;
+    ctx.strokeRect(x - 8, y, 16, h);
+  }
+  function hResistorGlyph(ctx, x, y, w, col) {
+    ctx.strokeStyle = col || '#e8c568'; ctx.lineWidth = 2;
+    ctx.strokeRect(x, y - 8, w, 16);
+  }
+  function capGlyph(ctx, x, y, col) {
+    ctx.strokeStyle = col || '#5fb8ff'; ctx.lineWidth = 3;
+    line(ctx, x - 16, y, x + 16, y, 3, col || '#5fb8ff');
+    line(ctx, x - 16, y + 10, x + 16, y + 10, 3, col || '#5fb8ff');
+  }
+  function acSourceGlyph(ctx, x, y, r, col) {
+    ctx.strokeStyle = col || '#8fe3d0'; ctx.lineWidth = 2;
+    ctx.beginPath(); ctx.arc(x, y, r, 0, Math.PI * 2); ctx.stroke();
+    ctx.beginPath();
+    for (let i = 0; i <= 20; i++) {
+      const t = i / 20, xx = x - r * 0.6 + t * r * 1.2, yy = y + Math.sin(t * Math.PI * 2) * r * 0.35;
+      if (i === 0) ctx.moveTo(xx, yy); else ctx.lineTo(xx, yy);
+    }
+    ctx.stroke();
+  }
+  function opampGlyph(ctx, x, y, w, h, col) {
+    ctx.strokeStyle = col || '#8fe3d0'; ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.moveTo(x, y - h / 2);
+    ctx.lineTo(x, y + h / 2);
+    ctx.lineTo(x + w, y);
+    ctx.closePath();
+    ctx.stroke();
+    ctx.fillStyle = col || '#8fe3d0'; ctx.font = 'bold 13px sans-serif';
+    ctx.fillText('−', x + 8, y - h / 4 + 6);
+    ctx.fillText('+', x + 8, y + h / 4 + 6);
+  }
+
+  // ---------- Layout ----------
+  const PX0 = 40, PX1 = 620, PY0 = 40, PY1 = 460;
+  const GX0 = 660, GX1 = 1000, GY0 = 40, GY1 = 460;
+  const OA_X = 340, OA_Y = 250, OA_W = 70, OA_H = 100;
+  const MINUS_Y = OA_Y - 25, PLUS_Y = OA_Y + 25;
+  const SRC_X = 90, OUT_STUB = OA_X + OA_W + 30;
+  const GND_Y = 430, RAIL_Y = 50, RFDIV_X = 500, JUNCTION_X = 195;
+
+  let HIT = [];
+  function addHit(id, x, y, w, h, label) { HIT.push({ id, x, y, w, h, label }); }
+
+  function drawSchematic(ctx) {
+    HIT = [];
+    ctx.clearRect(PX0 - 10, PY0 - 10, PX1 - PX0 + 20, PY1 - PY0 + 20);
+    ctx.fillStyle = '#0b1310'; ctx.fillRect(PX0 - 10, PY0 - 10, PX1 - PX0 + 20, PY1 - PY0 + 20);
+
+    ctx.fillStyle = '#8fe3d0'; ctx.font = 'bold 14px sans-serif';
+    ctx.fillText('SALLEN-KEY · PASA-BAJAS 2.º ORDEN', PX0 + 10, PY0 + 14);
+
+    // Op-amp
+    opampGlyph(ctx, OA_X, OA_Y, OA_W, OA_H, '#8fe3d0');
+    addHit('opamp', OA_X - 5, OA_Y - OA_H / 2 - 5, OA_W + 10, OA_H + 10, 'TL072 (U1)');
+
+    // Fuente vin
+    acSourceGlyph(ctx, SRC_X, PLUS_Y, 18, '#8fe3d0');
+    addHit('src', SRC_X - 18, PLUS_Y - 18, 36, 36, 'vin');
+    ctx.fillStyle = '#8fe3d0'; ctx.font = '12px sans-serif';
+    ctx.fillText('vin', SRC_X - 10, PLUS_Y - 26);
+    groundGlyph(ctx, SRC_X, GND_Y - 20);
+    line(ctx, SRC_X, PLUS_Y + 18, SRC_X, GND_Y - 20, 2, '#8fe3d0');
+    line(ctx, SRC_X + 18, PLUS_Y, 120, PLUS_Y, 2, '#8fe3d0');
+
+    // R1: vin -> nodo A
+    hResistorGlyph(ctx, 120, PLUS_Y, 60, '#e8c568');
+    addHit('r1', 120, PLUS_Y - 8, 60, 16, 'R1 = R');
+    ctx.fillStyle = '#e8c568'; ctx.fillText('R1', 138, PLUS_Y - 14);
+    line(ctx, 180, PLUS_Y, 210, PLUS_Y, 2, '#8fe3d0');
+
+    // R2: nodo A -> V+
+    hResistorGlyph(ctx, 210, PLUS_Y, 60, '#e8c568');
+    addHit('r2', 210, PLUS_Y - 8, 60, 16, 'R2 = R');
+    ctx.fillStyle = '#e8c568'; ctx.fillText('R2', 228, PLUS_Y - 14);
+    line(ctx, 270, PLUS_Y, OA_X, PLUS_Y, 2, '#8fe3d0');
+
+    // C2: V+ -> GND
+    line(ctx, 270, PLUS_Y, 270, 315, 2, '#8fe3d0');
+    capGlyph(ctx, 270, 320, '#5fb8ff');
+    addHit('c2', 254, 312, 32, 24, 'C2 = C (a GND)');
+    ctx.fillStyle = '#5fb8ff'; ctx.fillText('C2', 280, 328);
+    line(ctx, 270, 331, 270, GND_Y, 2, '#8fe3d0');
+    groundGlyph(ctx, 270, GND_Y);
+
+    // Riel superior desde Vout
+    line(ctx, OA_X + OA_W, OA_Y, OUT_STUB, OA_Y, 2, '#8fe3d0');
+    addHit('out', OA_X + OA_W, OA_Y - 10, 60, 20, 'Vout');
+    ctx.fillStyle = '#8fe3d0'; ctx.fillText('Vout', OUT_STUB + 4, OA_Y + 4);
+    line(ctx, OUT_STUB, OA_Y, OUT_STUB, RAIL_Y, 2, '#8fe3d0');
+    line(ctx, JUNCTION_X, RAIL_Y, RFDIV_X, RAIL_Y, 2, '#8fe3d0');
+
+    // C1: realimentación Vout -> nodo A (entre R1 y R2)
+    line(ctx, JUNCTION_X, RAIL_Y, JUNCTION_X, 225, 2, '#8fe3d0');
+    capGlyph(ctx, JUNCTION_X, 230, '#5fb8ff');
+    addHit('c1', 179, 222, 32, 24, 'C1 = C (realimentación)');
+    ctx.fillStyle = '#5fb8ff'; ctx.fillText('C1', 199, 220);
+    line(ctx, JUNCTION_X, 241, JUNCTION_X, PLUS_Y, 2, '#8fe3d0');
+
+    // Rf / Rg: divisor de ganancia en V-
+    line(ctx, RFDIV_X, RAIL_Y, RFDIV_X, 125, 2, '#8fe3d0');
+    vResistorGlyph(ctx, RFDIV_X, 125, 70, '#e8c568');
+    addHit('rf', RFDIV_X - 8, 125, 16, 70, 'Rf');
+    ctx.fillStyle = '#e8c568'; ctx.fillText('Rf', RFDIV_X + 12, 162);
+    line(ctx, RFDIV_X, 195, RFDIV_X, MINUS_Y, 2, '#8fe3d0');
+    line(ctx, RFDIV_X, MINUS_Y, OA_X, MINUS_Y, 2, '#8fe3d0');
+    vResistorGlyph(ctx, RFDIV_X, MINUS_Y, 70, '#e8c568');
+    addHit('rg', RFDIV_X - 8, MINUS_Y, 16, 70, 'Rg (fijo 10 kΩ)');
+    ctx.fillStyle = '#e8c568'; ctx.fillText('Rg', RFDIV_X + 12, MINUS_Y + 40);
+    line(ctx, RFDIV_X, MINUS_Y + 70, RFDIV_X, GND_Y, 2, '#8fe3d0');
+    groundGlyph(ctx, RFDIV_X, GND_Y);
+
+    const res = curSolveSallenKey();
+    const cls = classifyQ(res.Q);
+    ctx.font = 'bold 13px sans-serif'; ctx.fillStyle = cls.color;
+    ctx.fillText('fc=' + fmtHz(res.f0) + ' · K=' + fmtK(res.K) + ' · Q=' + fmtQ(res.Q) + ' · ' + cls.label, PX0 + 10, PY1 - 12);
+  }
+
+  // ---------- Gráfica: Bode (magnitud + fase) ----------
+  const LOGR_MIN = -1.7, LOGR_MAX = 1.7;
+  const MAG_Y0 = 60, MAG_Y1 = 270;
+  const PH_Y0 = 310, PH_Y1 = 450;
+  const GXA = GX0 + 50, GXB = GX1 - 15;
+
+  function xPixLogR(logR) { return GXA + (logR - LOGR_MIN) / (LOGR_MAX - LOGR_MIN) * (GXB - GXA); }
+  function yPixMag(db) { return MAG_Y1 - (db - (-60)) / (30 - (-60)) * (MAG_Y1 - MAG_Y0); }
+  function yPixPhase(deg) { return PH_Y1 - (deg - (-180)) / (0 - (-180)) * (PH_Y1 - PH_Y0); }
+
+  function drawGraph(ctx) {
+    ctx.clearRect(GX0 - 10, GY0 - 10, GX1 - GX0 + 20, GY1 - GY0 + 20);
+    ctx.fillStyle = '#0b1310'; ctx.fillRect(GX0 - 10, GY0 - 10, GX1 - GX0 + 20, GY1 - GY0 + 20);
+    const res = curSolveSallenKey();
+    const cls = classifyQ(res.Q);
+
+    // Ejes magnitud
+    line(ctx, GXA, MAG_Y0, GXA, MAG_Y1, 1, '#233532');
+    line(ctx, GXA, MAG_Y1, GXB, MAG_Y1, 1, '#233532');
+    ctx.fillStyle = '#6b8a83'; ctx.font = '10px sans-serif';
+    ctx.fillText('Magnitud (dB)', GXA, MAG_Y0 - 8);
+    [-60, -40, -20, 0, 20].forEach(db => { const y = yPixMag(db); line(ctx, GXA - 4, y, GXA, y, 1, '#233532'); ctx.fillText(db + 'dB', GX0 + 2, y + 3); });
+
+    // Ejes fase
+    line(ctx, GXA, PH_Y0, GXA, PH_Y1, 1, '#233532');
+    line(ctx, GXA, PH_Y1, GXB, PH_Y1, 1, '#233532');
+    ctx.fillText('Fase', GXA, PH_Y0 - 8);
+    [-180, -90, 0].forEach(d => { const y = yPixPhase(d); line(ctx, GXA - 4, y, GXA, y, 1, '#233532'); ctx.fillText(d + '°', GX0 + 2, y + 3); });
+
+    // Ticks x (log r)
+    [-1, 0, 1].forEach(lr => {
+      const x = xPixLogR(lr);
+      ctx.setLineDash([2, 3]); line(ctx, x, MAG_Y0, x, PH_Y1, 1, '#1a2b27'); ctx.setLineDash([]);
+      const label = lr === 0 ? 'fc' : (Math.pow(10, lr)).toFixed(lr < 0 ? 1 : 0) + '×fc';
+      ctx.fillStyle = '#6b8a83'; ctx.fillText(label, x - 14, PH_Y1 + 14);
+    });
+
+    // Referencia de ganancia de banda pasante K
+    const passDb = 20 * Math.log10(res.K);
+    ctx.setLineDash([4, 4]);
+    line(ctx, GXA, yPixMag(passDb), GXB, yPixMag(passDb), 1, '#8fb3ac');
+    ctx.setLineDash([]);
+    ctx.fillStyle = '#8fb3ac'; ctx.fillText('20·log(K)=' + passDb.toFixed(1) + 'dB', GXA + 4, yPixMag(passDb) - 4);
+
+    // Curva de magnitud
+    const N = 240;
+    ctx.strokeStyle = cls.color; ctx.lineWidth = 2; ctx.beginPath();
+    for (let i = 0; i <= N; i++) {
+      const logR = LOGR_MIN + (i / N) * (LOGR_MAX - LOGR_MIN);
+      const resp = sallenKeyResponse(res, Math.pow(10, logR));
+      const x = xPixLogR(logR), y = yPixMag(Math.max(-60, Math.min(30, resp.magDb)));
+      if (i === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
+    }
+    ctx.stroke();
+
+    // Curva de fase
+    ctx.strokeStyle = '#c084fc'; ctx.lineWidth = 2; ctx.beginPath();
+    for (let i = 0; i <= N; i++) {
+      const logR = LOGR_MIN + (i / N) * (LOGR_MAX - LOGR_MIN);
+      const resp = sallenKeyResponse(res, Math.pow(10, logR));
+      const x = xPixLogR(logR), y = yPixPhase(resp.phaseDeg);
+      if (i === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
+    }
+    ctx.stroke();
+
+    // Cursor en la razón de prueba actual
+    const r0 = curTestR();
+    const resp0 = sallenKeyResponse(res, r0);
+    const xC = xPixLogR(Math.log10(r0));
+    ctx.setLineDash([3, 3]); line(ctx, xC, MAG_Y0, xC, PH_Y1, 1, '#EAF4F1'); ctx.setLineDash([]);
+    ctx.fillStyle = '#EAF4F1';
+    ctx.beginPath(); ctx.arc(xC, yPixMag(Math.max(-60, Math.min(30, resp0.magDb))), 4, 0, Math.PI * 2); ctx.fill();
+    ctx.beginPath(); ctx.arc(xC, yPixPhase(resp0.phaseDeg), 4, 0, Math.PI * 2); ctx.fill();
+    ctx.font = '11px sans-serif';
+    ctx.fillText(fmtDb(resp0.magDb) + ' · ' + fmtPhase(resp0.phaseDeg) + ' @ ' + r0.toFixed(2) + '×fc', Math.min(xC + 8, GXB - 150), MAG_Y0 + 14);
+  }
+
+  function drawBoard() { drawSchematic(bctx); drawGraph(bctx); }
+
+  function boardClick(u, v) {
+    const px = u * 1024, py = (1 - v) * 768;
+    for (const h of HIT) {
+      if (px >= h.x && px <= h.x + h.w && py >= h.y && py <= h.y + h.h) {
+        actToast(h.id); dispatch3D(h.id); return;
+      }
+    }
+  }
+
+  // ---------- Escena: tablero ----------
+  const boardCanvas = document.createElement('canvas');
+  boardCanvas.width = 1024; boardCanvas.height = 768;
+  const bctx = boardCanvas.getContext('2d');
+  const boardTex = new THREE.CanvasTexture(boardCanvas);
+  const boardMat = new THREE.MeshBasicMaterial({ map: boardTex });
+  const boardPlane = new THREE.Mesh(new THREE.PlaneGeometry(4.2, 3.15), boardMat);
+  boardPlane.position.set(0.5, 2.0, -1.2);
+  const boardFrame = new THREE.Mesh(new THREE.BoxGeometry(4.32, 3.27, 0.06), std({ color: 0x1b1f24, roughness: 0.8, metalness: 0.2 }));
+  boardFrame.position.set(0.5, 2.0, -1.24);
+  const boardG = new THREE.Group();
+  boardG.add(boardFrame, boardPlane);
+  S.scene.add(boardG);
+
+  // ---------- Escena: banco ----------
+  const benchG = new THREE.Group();
+  const mesa = new THREE.Mesh(new THREE.BoxGeometry(4.4, 0.12, 1.8), std({ color: 0x2b2f36, roughness: 0.85, metalness: 0.1 }));
+  mesa.position.set(0.5, 0.55, 1.0);
+  const pcb = new THREE.Mesh(new THREE.BoxGeometry(3.2, 0.03, 1.2), std({ color: 0x0e4d33, roughness: 0.7, metalness: 0.1 }));
+  pcb.position.set(0.5, 0.62, 1.0);
+  benchG.add(mesa, pcb);
+
+  const r1G = makeResistor3D(); r1G.position.set(-0.8, 0.68, 1.0); benchG.add(r1G);
+  const r2G = makeResistor3D(); r2G.position.set(-0.35, 0.68, 1.0); benchG.add(r2G);
+  const c1G = makeCapacitor3D(); c1G.position.set(0.1, 0.76, 1.0); benchG.add(c1G);
+  const c2G = makeCapacitor3D(); c2G.position.set(0.55, 0.76, 1.0); benchG.add(c2G);
+  const rfG = makeResistor3D(); rfG.position.set(1.0, 0.68, 1.0); benchG.add(rfG);
+  const rgG = makeResistor3D(); rgG.position.set(1.45, 0.68, 1.0); benchG.add(rgG);
+  const icG = makeDIP3D(); icG.position.set(2.0, 0.7, 1.0); benchG.add(icG);
+  S.scene.add(benchG);
+
+  function refreshBenchSel() {
+    paintBands(r1G, curR());
+    paintBands(r2G, curR());
+    paintBands(rfG, curRF());
+    paintBands(rgG, RG);
+    icG.userData.body.material.color.setHex(DEVS.tl072.color);
+  }
+
+  const fuenteBox = makeDisplayBox(0.7, 0.42, 0.06, 220, 132);
+  fuenteBox.position.set(-1.9, 0.95, 1.0); fuenteBox.rotation.y = 0.06 * Math.PI;
+  const medidorBox = makeDisplayBox(0.7, 0.5, 0.06, 220, 156);
+  medidorBox.position.set(2.6, 0.98, 1.0); medidorBox.rotation.y = -0.06 * Math.PI;
+  const scopeBox = makeDisplayBox(1.0, 0.62, 0.06, 260, 160);
+  scopeBox.position.set(0.6, 1.42, 0.62); scopeBox.rotation.x = -0.06 * Math.PI;
+  benchG.add(fuenteBox, medidorBox, scopeBox);
+
+  function drawFuenteScreen() {
+    const { ctx, canvas, tex } = fuenteBox.userData;
+    ctx.fillStyle = '#0b1310'; ctx.fillRect(0, 0, canvas.width, canvas.height);
+    ctx.fillStyle = '#8fe3d0'; ctx.font = 'bold 16px sans-serif';
+    ctx.fillText('R=' + fmtR(curR()) + ' C=' + fmtC(curC()), 14, 30);
+    ctx.font = '13px sans-serif';
+    ctx.fillText('Rf=' + fmtR(curRF()) + '  Rg=' + fmtR(RG), 14, 54);
+    ctx.fillText(DEVS.tl072.name + ' (U1)', 14, 74);
+    ctx.fillText('R1=R2=R · C1=C2=C', 14, 94);
+    tex.needsUpdate = true;
+  }
+  function drawMedidorScreen() {
+    const { ctx, canvas, tex } = medidorBox.userData;
+    ctx.fillStyle = '#0b1310'; ctx.fillRect(0, 0, canvas.width, canvas.height);
+    ctx.font = '13px sans-serif';
+    if (state.hide) {
+      ctx.fillStyle = '#6b8a83'; ctx.font = 'bold 18px sans-serif';
+      ctx.fillText('fc: ?  Q: ?', 14, 40);
+      ctx.fillText('¿qué tipo de curva?', 14, 66);
+    } else {
+      const res = curSolveSallenKey();
+      const resp = curResponse(res);
+      const cls = classifyQ(res.Q);
+      ctx.fillStyle = '#5fb8ff'; ctx.fillText('fc = ' + fmtHz(res.f0), 14, 26);
+      ctx.fillStyle = '#f59e0b'; ctx.fillText('K = ' + fmtK(res.K) + '  Q = ' + fmtQ(res.Q), 14, 46);
+      ctx.fillStyle = cls.color; ctx.font = 'bold 13px sans-serif'; ctx.fillText(cls.label, 14, 68);
+      ctx.fillStyle = '#8fe3d0'; ctx.font = '13px sans-serif';
+      ctx.fillText('@ ' + curTestR().toFixed(2) + '×fc: ' + fmtDb(resp.magDb) + ' · ' + fmtPhase(resp.phaseDeg), 14, 92);
+    }
+    tex.needsUpdate = true;
+  }
+  function drawScopeScreen() {
+    const { ctx, canvas, tex } = scopeBox.userData;
+    ctx.fillStyle = '#05100c'; ctx.fillRect(0, 0, canvas.width, canvas.height);
+    ctx.strokeStyle = '#12312a'; ctx.lineWidth = 1;
+    for (let i = 0; i <= 4; i++) { const y = 10 + i * (canvas.height - 20) / 4; line(ctx, 10, y, canvas.width - 10, y, 1, '#12312a'); }
+    const res = curSolveSallenKey();
+    const resp = curResponse(res);
+    const cls = classifyQ(res.Q);
+    const cycles = 2, N = 200;
+    const scale = Math.max(1.2, resp.magAbs * 1.15);
+    const toX = i => 10 + (i / N) * (canvas.width - 20);
+    const toY = v => (canvas.height / 2) - (v / scale) * (canvas.height / 2 - 10);
+    ctx.strokeStyle = '#5fb8ff'; ctx.lineWidth = 1.5; ctx.beginPath();
+    for (let i = 0; i <= N; i++) { const t = i / N; const v = Math.sin(2 * Math.PI * cycles * t); const x = toX(i), y = toY(v); if (i === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y); }
+    ctx.stroke();
+    const phaseRad = resp.phaseDeg * Math.PI / 180;
+    ctx.strokeStyle = cls.color; ctx.lineWidth = 1.5; ctx.beginPath();
+    for (let i = 0; i <= N; i++) { const t = i / N; const v = resp.magAbs * Math.sin(2 * Math.PI * cycles * t + phaseRad); const x = toX(i), y = toY(v); if (i === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y); }
+    ctx.stroke();
+    ctx.fillStyle = '#6b8a83'; ctx.font = '10px sans-serif';
+    ctx.fillText('vin / vout @ ' + curTestR().toFixed(2) + '×fc · osciloscopio', 12, canvas.height - 4);
+    tex.needsUpdate = true;
+  }
+  function refreshBenchDyn() { drawFuenteScreen(); drawMedidorScreen(); drawScopeScreen(); }
+
+  // ---------- HUD ----------
+  el('hud').innerHTML = `
+    <div class="eyebrow">MEC · D2 · Electrónica integrada</div>
+    <div class="h2">Filtro Activo Sallen-Key de 2.º Orden (Pasa-Bajas)</div>
+    <div class="p">Un filtro RC pasivo de un solo orden atenúa suavemente pero no puede lograr una caída pronunciada sin cargar la etapa siguiente. El Sallen-Key añade un op-amp con <b>realimentación positiva</b> hacia C1, logrando una caída de 2.º orden (−40 dB/década) cuya forma —de sobreamortiguada a Butterworth (máx. plana) a con pico— depende solo de la ganancia K.</div>
+    <div class="formula">fc = 1/(2πRC) · K = 1+Rf/Rg · Q = 1/(3−K)</div>
+    <div class="legend">
+      <span class="li"><span class="dot" style="background:#5fb8ff"></span>fc — frecuencia de corte (la fijan R y C)</span>
+      <span class="li"><span class="dot" style="background:#f59e0b"></span>K — ganancia de banda pasante (la fijan Rf y Rg)</span>
+      <span class="li"><span class="dot" style="background:#22c55e"></span>Q — factor de calidad / forma de la curva cerca de fc</span>
+    </div>
+    <div class="fid"><b>SÍ verificado:</b> fc, K, Q deducidos de la topología Sallen-Key no inversora con componentes iguales (R1=R2=R, C1=C2=C) · función de transferencia (magnitud y fase) verificada algebraicamente · punto Butterworth K≈1.586→Q≈0.707 y ejemplo de alta Q (K≈2.9→Q≈10) verificados contra TI SLOA024B · op-amp TL072 de hoja de datos TI.<br><b>NO modelado:</b> ancho de banda de ganancia finita (GBP) ni slew rate del op-amp (se trata como ideal) · sensibilidad de fc/Q a la tolerancia real de R/C, especialmente cerca de K→3 · ruido y offset de salida del op-amp.</div>
+    <div class="src">Fuentes: TI SLOA024B "Analysis of the Sallen-Key Architecture" · TI SLOA088 "Active Filter Design Techniques" (cap.16, Kugelstadt) · TI SBOA226 · hoja de datos TL072 (TI) · Kenneth Kuhn, "Sallen-Key Low-pass Filter" · Sedra &amp; Smith, "Microelectronic Circuits"</div>
+  `;
+
+  // ---------- Panel ----------
+  el('panel').innerHTML = `
+    <h4>Sallen-Key · <span id="p_mode">Explora</span></h4>
+    <div class="modebar">
+      <button class="b on" id="btn-mode-explora">🔍 Explora</button>
+      <button class="b" id="btn-mode-predice">🧠 Predicción</button>
+      <button class="b" id="btn-mode-medicion">📏 Medición</button>
+      <button class="b" id="btn-mode-reto">🎯 Reto</button>
+    </div>
+    <div id="missionText" style="font-size:12px;color:#8FB3AC;margin-bottom:8px"></div>
+    <div class="btns" style="margin-top:8px">
+      <button class="b" id="btnButter" style="flex:1 0 48%">⭐ Butterworth</button>
+      <button class="b" id="btnUnstable" style="flex:1 0 48%">⚠ Alta Q</button>
+    </div>
+    <div style="margin-top:10px;display:grid;grid-template-columns:1fr auto auto auto;gap:6px 8px;align-items:center;font-size:12px;color:#EAF4F1">
+      <div>R</div><button class="b" id="rDec" style="padding:2px 8px">−</button><span id="vR">—</span><button class="b" id="rInc" style="padding:2px 8px">+</button>
+      <div>C</div><button class="b" id="cDec" style="padding:2px 8px">−</button><span id="vC">—</span><button class="b" id="cInc" style="padding:2px 8px">+</button>
+      <div>Rf</div><button class="b" id="rfDec" style="padding:2px 8px">−</button><span id="vRF">—</span><button class="b" id="rfInc" style="padding:2px 8px">+</button>
+      <div>f/fc (prueba)</div><button class="b" id="trDec" style="padding:2px 8px">−</button><span id="vTR">—</span><button class="b" id="trInc" style="padding:2px 8px">+</button>
+    </div>
+    <div id="telemetry" style="margin-top:10px;font-size:12px;color:#EAF4F1;line-height:1.5"></div>
+    <div id="predWrap" style="display:none;margin-top:10px">
+      <div id="predBox"></div>
+      <div class="btns" style="margin-top:6px">
+        <button class="b" id="predNew" style="flex:1 0 48%">Nuevo</button>
+        <button class="b" id="predCheck" style="flex:1 0 48%">Comprobar</button>
+      </div>
+    </div>
+    <div id="retoWrap" style="display:none;margin-top:10px">
+      <div id="retoBox"></div>
+      <div class="btns" style="margin-top:6px">
+        <button class="b" id="retoNew" style="flex:1 0 48%">Nuevo reto</button>
+        <button class="b" id="retoCheck" style="flex:1 0 48%">Comprobar</button>
+      </div>
+    </div>
+    <div id="sweepWrap" style="display:none;margin-top:10px">
+      <button class="b" id="sweepRun" style="width:100%">▶ Ejecutar barrido de f/fc</button>
+    </div>
+    <div id="report" style="margin-top:10px;font-size:11px;color:#8FB3AC;line-height:1.5"></div>
+    <div style="margin-top:14px;border-top:1px solid #1E3A34;padding-top:10px" id="quizBox"></div>
+    <button class="b" id="autoTour" style="width:100%;margin-top:10px">🎬 Tour guiado</button>
+  `;
+
+  const MODES = ['explora', 'predice', 'medicion', 'reto'];
+  const MODE_META = {
+    explora: { label: 'Explora', icon: '🔍' },
+    predice: { label: 'Predicción', icon: '🧠' },
+    medicion: { label: 'Medición', icon: '📏' },
+    reto: { label: 'Reto', icon: '🎯' },
+  };
+  const MISIONES = {
+    explora: 'Ajusta R, C y Rf; observa cómo fc y Q mueven la curva de Bode (magnitud y fase). Prueba los atajos Butterworth y Alta Q.',
+    predice: 'Antes de revelar el valor, predice fc, Q, o el tipo de respuesta con los valores actuales.',
+    medicion: 'Ejecuta el barrido automático de f/fc y mide la atenuación (dB) y el desfase en cada punto — como con un generador de funciones y un osciloscopio reales.',
+    reto: 'Diseña R, C y Rf para alcanzar una fc objetivo (±10%) con respuesta Butterworth (Q dentro de ±0.05 de 0.707).',
+  };
+
+  function setMode(m) {
+    state.mode = m;
+    state.hide = (m === 'predice' && !state._revealed);
+    el('predWrap').style.display = m === 'predice' ? 'block' : 'none';
+    el('retoWrap').style.display = m === 'reto' ? 'block' : 'none';
+    el('sweepWrap').style.display = m === 'medicion' ? 'block' : 'none';
+    if (m === 'predice') genPredice();
+    if (m === 'reto') newReto();
+    el('missionText').textContent = MISIONES[m];
+    refreshAll();
+  }
+
+  function syncCtrlBtns() {
+    MODES.forEach(m => { const b = el('btn-mode-' + m); if (b) b.classList.toggle('on', state.mode === m); });
+    el('p_mode').textContent = MODE_META[state.mode].label;
+    const spans = { vR: fmtR(curR()), vC: fmtC(curC()), vRF: fmtR(curRF()), vTR: curTestR().toFixed(2) + '×fc' };
+    Object.keys(spans).forEach(id => { const s = el(id); if (s) s.textContent = spans[id]; });
+  }
+
+  function genPredice() {
+    state._revealed = false; state.hide = true;
+    const p = Math.random();
+    state._predType = p < 0.34 ? 'f0' : (p < 0.67 ? 'q' : 'type');
+    const box = el('predBox');
+    if (state._predType === 'f0') {
+      box.innerHTML = '<p>Predice <b>fc</b> (Hz) con los valores actuales de R y C:</p>' +
+        '<input id="predInput" type="number" step="0.1" placeholder="Hz" style="width:100%;background:#0c1a16;color:#EAF4F1;border:1px solid #1E3A34;padding:6px;border-radius:6px">';
+    } else if (state._predType === 'q') {
+      box.innerHTML = '<p>Predice <b>Q</b> con el Rf actual (Rg=10 kΩ fijo):</p>' +
+        '<input id="predInput" type="number" step="0.01" placeholder="Q" style="width:100%;background:#0c1a16;color:#EAF4F1;border:1px solid #1E3A34;padding:6px;border-radius:6px">';
+    } else {
+      box.innerHTML = '<p>¿Qué tipo de respuesta tiene el filtro con los valores actuales?</p>' +
+        '<select id="predSelect" style="width:100%;background:#0c1a16;color:#EAF4F1;border:1px solid #1E3A34;padding:6px;border-radius:6px">' +
+        '<option value="over">Sobreamortiguada (sin pico)</option>' +
+        '<option value="butter">Butterworth (máx. plana)</option>' +
+        '<option value="peak">Con pico cerca de fc</option>' +
+        '<option value="unstable">Cerca de inestabilidad</option>' +
+        '</select>';
+    }
+    refreshAll();
+  }
+  function checkPredice() {
+    const res = curSolveSallenKey();
+    let ok, real;
+    if (state._predType === 'f0') {
+      const guess = parseFloat(el('predInput').value);
+      real = fmtHz(res.f0);
+      const tol = Math.max(0.15 * res.f0, 1);
+      ok = !isNaN(guess) && Math.abs(guess - res.f0) <= tol;
+    } else if (state._predType === 'q') {
+      const guess = parseFloat(el('predInput').value);
+      real = fmtQ(res.Q);
+      const tol = Math.max(0.15 * res.Q, 0.05);
+      ok = !isNaN(guess) && Math.abs(guess - res.Q) <= tol;
+    } else {
+      const cls = classifyQ(res.Q);
+      real = cls.label;
+      ok = el('predSelect').value === cls.key;
+    }
+    state._revealed = true; state.hide = false;
+    refreshAll();
+    showToast(ok ? '✅ Correcto — valor real: ' + real : '❌ No — valor real: ' + real, ok ? 'ok' : 'warn');
+  }
+
+  function newReto() {
+    const ri = Math.floor(Math.random() * R_VALS.length);
+    const ci = Math.floor(Math.random() * C_VALS.length);
+    const target = solveSallenKey(R_VALS[ri], C_VALS[ci], RF_VALS[5], RG).f0;
+    state._reto = { targetF0: target };
+    el('retoBox').innerHTML = `<p>Objetivo: <b>fc ≈ ${fmtHz(target)}</b> con respuesta <b>Butterworth</b> (Q≈0.707). Ajusta R y C para fc, y Rf para Q.</p>`;
+    refreshAll();
+  }
+  function checkReto() {
+    const res = curSolveSallenKey();
+    const target = state._reto.targetF0;
+    const fOk = Math.abs(res.f0 - target) / target <= 0.10;
+    const qOk = Math.abs(res.Q - Math.SQRT1_2) <= 0.05;
+    if (fOk && qOk) {
+      showToast(`✅ Diseño válido: fc=${fmtHz(res.f0)} (objetivo ${fmtHz(target)}), Q=${fmtQ(res.Q)}`, 'ok');
+    } else if (!fOk) {
+      showToast(`fc actual ${fmtHz(res.f0)} está lejos del objetivo ${fmtHz(target)} (±10%). Ajusta R o C — fc=1/(2πRC).`, 'warn');
+    } else {
+      showToast(`fc está bien, pero Q=${fmtQ(res.Q)} no es Butterworth (~0.707 ±0.05). Ajusta Rf.`, 'warn');
+    }
+  }
+
+  async function runSweep() {
+    state._sweepTrace = [];
+    for (let i = 0; i < TESTR_VALS.length; i++) {
+      state.iTESTR = i;
+      const res = curSolveSallenKey();
+      const resp = sallenKeyResponse(res, TESTR_VALS[i]);
+      state._sweepTrace.push({ r: TESTR_VALS[i], magDb: resp.magDb, phaseDeg: resp.phaseDeg });
+      refreshAll();
+      await sleep(350);
+    }
+    updateReport();
+  }
+
+  function updateTele() {
+    const t = el('telemetry');
+    if (!t) return;
+    if (state.hide) { t.innerHTML = '<div>fc: ? · K: ? · Q: ?</div><div style="color:#8FB3AC">Predice antes de revelar.</div>'; return; }
+    const res = curSolveSallenKey();
+    const resp = curResponse(res);
+    const cls = classifyQ(res.Q);
+    t.innerHTML = '<div>fc: ' + fmtHz(res.f0) + ' · K: ' + fmtK(res.K) + ' · Q: ' + fmtQ(res.Q) + '</div>' +
+      '<div style="color:' + cls.color + '">' + cls.label + '</div>' +
+      '<div>@ ' + curTestR().toFixed(2) + '×fc: ' + fmtDb(resp.magDb) + ' · ' + fmtPhase(resp.phaseDeg) + '</div>' +
+      '<div style="color:#6a7a80">TL072: GBW ' + (DEVS.tl072.gbw / 1e6).toFixed(1) + ' MHz típ · SR ' + (DEVS.tl072.sr / 1e6).toFixed(0) + ' V/µs típ (no limitan aquí)</div>';
+  }
+  function updateReport() {
+    const rep = el('report');
+    if (!rep) return;
+    if (state.mode !== 'medicion' || !state._sweepTrace || !state._sweepTrace.length) { rep.innerHTML = ''; return; }
+    let rows = state._sweepTrace.map(pt => `<tr><td>${pt.r.toFixed(2)}×fc</td><td>${fmtDb(pt.magDb)}</td><td>${fmtPhase(pt.phaseDeg)}</td></tr>`).join('');
+    rep.innerHTML = `<table class="repTable"><thead><tr><th>f/fc</th><th>Magnitud</th><th>Fase</th></tr></thead><tbody>${rows}</tbody></table>`;
+  }
+
+  function onChange() { refreshAll(); }
+  function refreshAll() {
+    drawBoard();
+    boardTex.needsUpdate = true;
+    refreshBenchSel();
+    refreshBenchDyn();
+    updateTele();
+    syncCtrlBtns();
+    if (state.mode === 'medicion') updateReport();
+  }
+
+  // ---------- Quiz ----------
+  const QUIZ = [
+    { q: '¿Por qué un filtro Sallen-Key Butterworth (Q≈0.707) se considera de respuesta "máximamente plana"?', a: ['Porque la magnitud decae monótonamente hacia fc sin generar un pico de resonancia', 'Porque no tiene op-amp', 'Porque fc no depende de R ni de C'], correct: 0 },
+    { q: 'Si aumentas Rf (y por tanto K) dejando R y C fijos, ¿qué le pasa a fc?', a: ['No cambia — fc=1/(2πRC) solo depende de R y C', 'fc sube proporcionalmente a K', 'fc baja a la mitad'], correct: 0 },
+    { q: '¿Qué pasa cuando K se acerca a 3 (Rf muy grande frente a Rg)?', a: ['Nada relevante, el filtro sigue igual', 'Q crece sin límite y el circuito se acerca a la inestabilidad (oscilación)', 'fc se vuelve negativa'], correct: 1 },
+  ];
+  let quizIdx = 0;
+  function buildQuiz() { quizIdx = Math.floor(Math.random() * QUIZ.length); refreshQuestion(); }
+  function refreshQuestion() {
+    const item = QUIZ[quizIdx];
+    const box = el('quizBox');
+    if (!box) return;
+    let html = '<div style="font-size:12px;color:#8FB3AC;margin-bottom:6px">Quiz rápido</div>';
+    html += '<div style="font-size:13px;color:#EAF4F1;margin-bottom:8px">' + item.q + '</div>';
+    item.a.forEach((opt, i) => { html += '<button class="b quizOpt" data-i="' + i + '" style="width:100%;text-align:left;margin-bottom:4px">' + opt + '</button>'; });
+    box.innerHTML = html;
+    box.querySelectorAll('.quizOpt').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const i = Number(btn.dataset.i);
+        if (i === item.correct) { showToast('✅ Correcto', 'ok'); quizIdx = (quizIdx + 1) % QUIZ.length; refreshQuestion(); }
+        else { showToast('❌ Intenta de nuevo', 'warn'); }
+      });
+    });
+  }
+
+  // ---------- Interacción 3D ----------
+  function actToast(id) {
+    const labels = { r1: 'R1', r2: 'R2', c1: 'C1 (realimentación)', c2: 'C2 (a GND)', rf: 'Rf', rg: 'Rg (fijo)', opamp: 'TL072 (U1)', src: 'Fuente vin', out: 'Vout' };
+    if (labels[id]) showToast(labels[id], 'info');
+  }
+  function resolveActor(name) { return { r1: r1G, r2: r2G, c1: c1G, c2: c2G, rf: rfG, rg: rgG, opamp: icG }[name]; }
+  function dispatch3D(id) {
+    const actor = resolveActor(id);
+    if (!actor) return;
+    const s0 = actor.scale.clone();
+    actor.scale.multiplyScalar(1.15);
+    setTimeout(() => actor.scale.copy(s0), 220);
+  }
+  const ACTOR_NAMES = ['r1', 'r2', 'c1', 'c2', 'rf', 'rg', 'opamp'];
+  pickerFor(S.scene, S.camera, S.renderer.domElement, (hit) => {
+    if (hit && hit.object === boardPlane && hit.uv) { boardClick(hit.uv.x, hit.uv.y); return; }
+    let o = hit && hit.object;
+    while (o) {
+      for (const name of ACTOR_NAMES) { if (resolveActor(name) === o) { actToast(name); dispatch3D(name); return; } }
+      o = o.parent;
+    }
+  });
+
+  async function runAuto() {
+    setMode('explora'); await sleep(600);
+    state.iR = 2; state.iC = 3; state.iRF = 0; refreshAll(); await sleep(800);
+    state.iRF = 5; refreshAll(); await sleep(900);
+    state.iRF = 11; refreshAll(); await sleep(900);
+    state.iRF = 5; refreshAll(); await sleep(400);
+    setMode('medicion'); await runSweep();
+  }
+
+  // ---------- Wiring ----------
+  MODES.forEach(m => { const b = el('btn-mode-' + m); if (b) b.addEventListener('click', () => setMode(m)); });
+  function wireStep(id, getIdx, setIdx, max) {
+    const dec = el(id + 'Dec'), inc = el(id + 'Inc');
+    if (dec) dec.addEventListener('click', () => { setIdx(Math.max(0, getIdx() - 1)); onChange(); });
+    if (inc) inc.addEventListener('click', () => { setIdx(Math.min(max, getIdx() + 1)); onChange(); });
+  }
+  wireStep('r', () => state.iR, v => state.iR = v, R_VALS.length - 1);
+  wireStep('c', () => state.iC, v => state.iC = v, C_VALS.length - 1);
+  wireStep('rf', () => state.iRF, v => state.iRF = v, RF_VALS.length - 1);
+  wireStep('tr', () => state.iTESTR, v => state.iTESTR = v, TESTR_VALS.length - 1);
+  el('btnButter').addEventListener('click', () => { state.iRF = 5; refreshAll(); showToast('Rf=5.86 kΩ → K≈1.586 → Q≈0.707 (Butterworth)', 'info'); });
+  el('btnUnstable').addEventListener('click', () => { state.iRF = RF_VALS.length - 1; refreshAll(); showToast('Rf=19 kΩ → K≈2.9 → Q≈10 (cerca de inestabilidad)', 'warn'); });
+  el('predNew').addEventListener('click', genPredice);
+  el('predCheck').addEventListener('click', checkPredice);
+  el('retoNew').addEventListener('click', newReto);
+  el('retoCheck').addEventListener('click', checkReto);
+  el('sweepRun').addEventListener('click', runSweep);
+  el('autoTour').addEventListener('click', runAuto);
+
+  // ---------- Init ----------
+  setMode('explora');
+  buildQuiz();
+  refreshAll();
+  S.start();
+
+  window.__labDebug = {
+    state, DEVS, RG, R_VALS, C_VALS, RF_VALS, TESTR_VALS,
+    solveSallenKey, sallenKeyResponse, classifyQ,
+    curSolveSallenKey, curResponse,
+    setMode, genPredice, checkPredice, newReto, checkReto,
+    runSweep, refreshAll,
+  };
+})();

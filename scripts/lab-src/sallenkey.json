@@ -1,0 +1,9 @@
+{
+  "donor": "escaner-obd.html",
+  "out": "sallenkey.html",
+  "title": "CEN Labs · Filtro Activo Sallen-Key de 2.º Orden: fc, Q y Butterworth — Laboratorio 3D",
+  "lt": "Diseña un filtro pasa-bajas Sallen-Key de 2.º orden con componentes iguales (R1=R2=R, C1=C2=C), ajusta R/C/ganancia K, y observa cómo fc=1/(2πRC) y Q=1/(3−K) moldean la curva de Bode y el punto óptimo Butterworth (Q≈0.707).",
+  "inspectHint": "Ajusta R/C/Rf, observa la curva de Bode (magnitud/fase) normalizada a f/fc, el osciloscopio de atenuación en vivo, y busca el punto Butterworth (K≈1.586).",
+  "body": "sallenkey.body.js",
+  "fichas": ["_ficha-tecnica.js", "_ficha-sallenkey.js"]
+}

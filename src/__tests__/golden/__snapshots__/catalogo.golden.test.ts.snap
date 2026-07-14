@@ -631,6 +631,16 @@ exports[`golden master — catálogo por categoría (invariante ante extracción
     "teoria": "El 555 contiene un divisor interno de tres resistores iguales que fija dos umbrales de voltaje: 2/3 Vcc (threshold, dispara la descarga) y 1/3 Vcc (trigger, dispara la carga). En la configuración astable de 3 terminales, el capacitor C se carga a través de RA+RB hasta 2/3 Vcc, y se descarga solo a través de RB hasta 1/3 Vcc, reiniciando el ciclo sin necesitar ninguna señal de entrada: tHigh=0.693(RA+RB)C, tLow=0.693·RB·C, f=1/(tHigh+tLow)=1.44/((RA+2RB)C), y duty=(RA+RB)/(RA+2RB) — siempre ≥50%, porque la carga (por RA+RB) tarda más que la descarga (solo por RB). El simulador dibuja la curva exponencial real de carga/descarga del capacitor (no una rampa lineal) y advierte cuando RA se diseña por debajo del mínimo recomendado (1kΩ), la guía que protege al transistor interno de descarga. Cuatro modos: Explora (Vcc/RA/RB/C libres, con la curva del capacitor y el osciloscopio en vivo), Predicción (frecuencia o duty cycle antes de revelar), Medición (barrido automático de RB que muestra cómo el duty cycle se acerca a 50% mientras baja la frecuencia) y Reto (diseñar RA/RB/C para alcanzar una frecuencia objetivo manteniendo el duty cycle cerca de 50% y RA sobre el mínimo recomendado).",
     "titulo": "Genera temporizaciones y oscilaciones con el 555 (astable)",
   },
+  {
+    "duracion": "35 min",
+    "estado": "activo",
+    "id": "mecanica-35",
+    "modulo": "Electrónica",
+    "orden": 35,
+    "simuladorHtml": "/labs/sallenkey.html",
+    "teoria": "El filtro Sallen-Key es la topología de filtro activo de 2.º orden más común, construida con un solo amplificador operacional en configuración no inversora y dos resistores más dos capacitores iguales entre sí (R1=R2=R, C1=C2=C). Esa igualdad de componentes simplifica el diseño a dos ecuaciones: la frecuencia de corte fc=1/(2πRC), que depende solo de R y C, y el factor de calidad Q=1/(3−K), que depende solo de la ganancia K=1+Rf/Rg fijada por el divisor resistivo de realimentación positiva del op-amp. Ajustar R o C mueve fc sin tocar Q; ajustar K (vía Rf) mueve Q sin tocar fc — un desacoplo que hace del Sallen-Key una topología muy usada en la práctica. Cuando K≈1.586, Q≈0.7071 (1/√2), el punto de respuesta Butterworth: la curva de magnitud más plana posible en la banda de paso, sin ningún pico de resonancia. Si K se acerca a 3, Q crece sin límite y el filtro se vuelve inestable (oscila). El simulador dibuja la curva de Bode (magnitud y fase, normalizada a f/fc) en vivo, un osciloscopio que muestra la atenuación y el desfase reales de la señal de salida frente a la de entrada, y clasifica automáticamente la respuesta (sobre-amortiguada, Butterworth, con pico de resonancia, o inestable) según el valor de Q. Cuatro modos: Explora (R/C/Rf libres, con Bode y osciloscopio en vivo), Predicción (fc, Q o el tipo de respuesta antes de revelar), Medición (barrido de la relación f/fc que traza la curva de atenuación punto por punto) y Reto (diseñar R y C para alcanzar una fc objetivo mientras se mantiene la respuesta en el punto Butterworth).",
+    "titulo": "Diseña filtros activos Sallen-Key de 2.º orden (fc, Q, Butterworth)",
+  },
 ]
 `;
 
@@ -790,6 +800,7 @@ exports[`golden master — catálogo por categoría (invariante ante extracción
   "mecanica-32",
   "mecanica-33",
   "mecanica-34",
+  "mecanica-35",
   "mecanica-4",
   "mecanica-5",
   "mecanica-6",
