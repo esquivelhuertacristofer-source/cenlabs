@@ -671,6 +671,16 @@ exports[`golden master — catálogo por categoría (invariante ante extracción
     "teoria": "Una galga extensométrica es un resistor cuyo valor cambia ligeramente cuando se deforma junto con la superficie sobre la que está montada, según el factor de galga GF=(ΔR/R)/ε (para galgas de constantano, GF≈2.0–2.1). Ese cambio de resistencia, del orden de partes por diez mil, se convierte en un voltaje medible montando la galga en un puente de Wheatstone. Con una sola galga activa (cuarto de puente) la salida sigue la fórmula exacta Vout/Vex=(GF·ε/4)/(1+GF·ε/2), que incluye un término no lineal en el denominador; con dos galgas activas en oposición (medio puente, típico de una viga en flexión) el término no lineal se cancela y la relación es exactamente Vout/Vex=GF·ε/2; con cuatro galgas activas (puente completo) la relación es Vout/Vex=GF·ε, con el doble de sensibilidad del medio puente. En cualquier configuración, la señal diferencial resultante son apenas unos milivoltios montados sobre un voltaje de modo común Vcm≈Vex/2 —del orden de voltios—, mucho mayor que la señal de interés. Amplificar esa señal exige un amplificador de instrumentación de alto CMRR (razón de rechazo de modo común); el INA128 de Texas Instruments fija su ganancia con una sola resistencia externa, G=1+50kΩ/R_G (rango G=1 a 10,000), y alcanza hasta 130 dB de CMRR típico según la ganancia elegida, según su hoja de datos. El error de salida inducido por el CMRR se calcula como error≈G·Vcm/CMRR_lineal, y depende únicamente de la ganancia G, el voltaje de excitación Vex y el CMRR de la hoja de datos a esa ganancia —no del tipo de puente elegido—, aunque el error relativo a la señal sí es menor en el puente completo por tener mayor señal de partida. Este laboratorio permite explorar estos fenómenos con un diseño de referencia basado en el INA128.",
     "titulo": "Amplificador de instrumentación INA128 + puente de galgas: sensibilidad y CMRR",
   },
+  {
+    "duracion": "35 min",
+    "estado": "activo",
+    "id": "mecanica-39",
+    "modulo": "Electrónica",
+    "orden": 39,
+    "simuladorHtml": "/labs/etapa-clase-ab.html",
+    "teoria": "Una etapa de salida push-pull complementaria (un transistor NPN y uno PNP en configuración seguidor de emisor, alimentados por rieles simétricos ±Vcc) entrega corriente a una carga RL: el NPN conduce el semiciclo positivo, el PNP el negativo. Sin polarización (Clase B pura) aparece distorsión de cruce, una zona muerta cerca del cruce por cero donde ninguno de los dos transistores conduce todavía; se elimina polarizando ambos transistores con una pequeña corriente de reposo mediante una red "multiplicador VBE" (V_CE=VBE·(1+R1/R2)), dando la Clase AB. La potencia entregada a la carga es P_load=Vo_pk²/(2·RL); la potencia tomada de la fuente es P_supply=(2/π)·Vcc·Vo_pk/RL (derivada de la corriente promedio de media onda rectificada por riel); la disipación en los transistores es P_diss=P_supply−P_load. Derivando P_diss respecto a Vo_pk e igualando a cero se obtiene el punto de disipación máxima, Vo_pk=2Vcc/π≈0.637·Vcc, con P_diss_max=2Vcc²/(π²RL) — un resultado contraintuitivo: la etapa disipa más calor a una amplitud intermedia que al volumen máximo. Ese calor generado en la unión de silicio (Tj) debe salir hacia el ambiente (Ta) a través de una cadena de resistencias térmicas, Tj=Ta+P·(RθJC+RθCS+RθSA) con disipador o Tj=Ta+P·RθJA sin disipador, y no puede superar la Tj_max del transistor sin arriesgar su destrucción. Este laboratorio usa como referencia el par complementario TIP31C/TIP32C (ON Semiconductor, TO-220), y permite explorar cómo Vcc, RL, la amplitud, la polarización y el disipador elegido determinan si el diseño es térmicamente seguro.",
+    "titulo": "Etapa de salida Clase AB: disipación, polarización VBE y disipador",
+  },
 ]
 `;
 
@@ -834,6 +844,7 @@ exports[`golden master — catálogo por categoría (invariante ante extracción
   "mecanica-36",
   "mecanica-37",
   "mecanica-38",
+  "mecanica-39",
   "mecanica-4",
   "mecanica-5",
   "mecanica-6",

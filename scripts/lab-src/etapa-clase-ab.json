@@ -1,0 +1,9 @@
+{
+  "donor": "escaner-obd.html",
+  "out": "etapa-clase-ab.html",
+  "title": "CEN Labs · Etapa de Salida Clase AB + Disipador: Distorsión de Cruce y Tj=Ta+P·ΣRθ — Laboratorio 3D",
+  "lt": "Dimensiona una etapa de salida push-pull clase AB (par complementario TIP31C/TIP32C): ajusta Vcc, RL, amplitud de salida, polarización (multiplicador VBE) y disipador, y observa por qué la disipación máxima NO ocurre a volumen máximo sino en Vo_pk=2Vcc/π≈0.637·Vcc, y cómo Tj=Ta+P·ΣRθ define el límite térmico seguro.",
+  "inspectHint": "Ajusta Vcc/RL/amplitud/polarización/disipador, observa la curva de transferencia (distorsión de cruce cuando la polarización es insuficiente) y la curva Pdiss(Vo_pk) con su pico marcado en 2/π, y compara Tj contra Tj_max según el disipador elegido.",
+  "body": "etapa-clase-ab.body.js",
+  "fichas": ["_ficha-tecnica.js", "_ficha-etapa-clase-ab.js"]
+}

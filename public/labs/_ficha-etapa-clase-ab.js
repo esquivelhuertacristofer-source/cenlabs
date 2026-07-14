@@ -1,0 +1,67 @@
+fichaTecnica({
+  title: 'Ficha técnica — Etapa de salida Clase AB: disipación, polarización VBE y límite térmico Tj=Ta+P·ΣRθ',
+  intro: 'Este laboratorio modela una etapa de salida push-pull complementaria en Clase AB (par TIP31C/TIP32C) polarizada con un multiplicador VBE (transistor + R1/R2): la disipación de potencia en cada transistor en función de la amplitud de salida Vo_pk, el punto de disipación máxima Vo_pk=2Vcc/π≈0.637·Vcc (que NO coincide con el volumen máximo), la distorsión de cruce cuando la polarización es insuficiente, y la cadena térmica Tj=Ta+P·(RθJC+RθCS+RθSA) con disipador o Tj=Ta+P·RθJA sin disipador.',
+  s1: {
+    presentes: [
+      'Par complementario de salida TIP31C (NPN) / TIP32C (PNP), TO-220, en configuración push-pull seguidor de emisor',
+      'Red de polarización tipo "multiplicador VBE" (transistor TO-92 + R1/R2) que fija V_CE=VBE·(1+R1/R2)',
+      'Rieles de alimentación simétricos ±Vcc ajustables',
+      'Resistencia de carga RL ajustable',
+      'Disipador de calor intercambiable (5 presets, desde "sin disipador" hasta "grande + ventilador forzado")',
+    ],
+    omitidos: [
+      'Física exponencial completa de Ebers-Moll para calcular ICQ real (se usan valores ilustrativos redondos por preset de polarización, no derivados de la curva I-V del transistor)',
+      'Curvas de área de operación segura (SOA) del transistor — solo se compara Tj contra Tj_max, no la trayectoria de carga completa',
+      'Respuesta térmica transitoria (solo se modela el estado estacionario Tj=Ta+P·ΣRθ, no la capacitancia térmica ni constantes de tiempo)',
+      'Etapa driver/preamplificadora previa a la etapa de salida',
+      'Protección activa de corriente (limitación de corriente de cortocircuito, foldback)',
+      'Disipación de calor por trazas de PCB o por convección/radiación detallada más allá del RθSA nominal del disipador elegido',
+    ],
+  },
+  s2: {
+    title: 'Parámetros del par de referencia (TIP31C/TIP32C, ON Semiconductor)',
+    warn: 'RθJC, RθJA (sin disipador) y Tj_max son cifras representativas de la hoja de datos del fabricante — consulta siempre la hoja de datos vigente del transistor real elegido antes de un diseño de producción. ICQ por preset de polarización son valores ilustrativos redondos, no medidos ni derivados de Ebers-Moll.',
+    rows: [
+      ['Rango de Vcc (riel simétrico, ajustable)', '12 V – 40 V'],
+      ['Rango de RL (ajustable)', '4 Ω – 100 Ω'],
+      ['RθJC (unión-cápsula)', '≈3.13 °C/W'],
+      ['RθCS (interfaz térmica cápsula-disipador, típica)', '≈1.0 °C/W'],
+      ['RθJA sin disipador', '≈62.5 °C/W'],
+      ['Tj_max', '≈150 °C (consulta la hoja de datos: algunos dispositivos similares llegan a 175–200 °C)'],
+      ['Margen de diseño usado en el modo Reto (Tj_seguro)', '130 °C (20 °C bajo Tj_max, elección pedagógica de margen, no una cifra de fabricante)'],
+      ['Umbral de bias total para eliminar distorsión de cruce', '≈1.2 V (≈2×VBE de conducción)'],
+    ],
+  },
+  s3: [
+    'Fuente de alimentación dual ajustable (±Vcc)',
+    'Par complementario TIP31C/TIP32C (u otro par complementario equivalente)',
+    'Red multiplicador VBE (transistor + potenciómetro o resistencias R1/R2)',
+    'Disipadores de calor intercambiables con distinta RθSA',
+    'Multímetro y osciloscopio (medición de Vo, distorsión de cruce)',
+    'Sensor de temperatura de cápsula o termopar (verificación práctica de Tj estimada)',
+    'Carga resistiva de potencia variable',
+  ],
+  s4: {
+    intro: 'Procedimiento físico de referencia que este simulador modela de forma simplificada:',
+    items: [
+      'Fijar Vcc y RL, y ajustar la red multiplicador VBE hasta que la distorsión de cruce desaparezca en el osciloscopio (bias total ≥ umbral).',
+      'Barrer la amplitud de salida Vo_pk desde niveles bajos hasta el máximo (Vo_pk≈Vcc) y registrar la disipación de cada transistor en cada punto.',
+      'Identificar el punto de disipación máxima (teóricamente Vo_pk=2Vcc/π≈0.637·Vcc) y verificar que NO ocurre al volumen máximo.',
+      'Calcular Tj=Ta+Pdiss·ΣRθ para el disipador instalado y compararlo contra Tj_max con el margen de diseño elegido.',
+      'Repetir el barrido con un disipador de menor RθSA (o sin disipador) para verificar cuánto se reduce el margen térmico disponible.',
+    ],
+  },
+  s5: {
+    modela: 'El simulador calcula P_load=Vo_pk²/(2·RL), P_supply=(2/π)·Vcc·Vo_pk/RL (corriente promedio de media onda rectificada por riel), P_diss_señal=P_supply−P_load, la potencia de polarización en reposo Pq=VBE_total·ICQ (sumada a la disipación por señal), el punto de disipación máxima teórico Vo_pk=2Vcc/π (obtenido derivando P_diss respecto a Vo_pk e igualando a cero) con P_diss_max_total=2·Vcc²/(π²·RL), la cadena térmica Tj=Ta+Pdiss_cada_transistor·(RθJC+RθCS+RθSA) con disipador o Tj=Ta+Pdiss·RθJA sin disipador, la fórmula del multiplicador VBE V_CE=VBE·(1+R1/R2), y un modelo de curva de transferencia con zona muerta (distorsión de cruce) cuando el bias total es insuficiente.',
+    noModela: 'NO modela la física exponencial de Ebers-Moll para derivar ICQ real a partir de la curva I-V (usa valores ilustrativos por preset), las curvas de área de operación segura (SOA) del transistor, la respuesta térmica transitoria ni la capacitancia térmica del sistema (solo estado estacionario), la etapa driver/preamplificadora previa, la protección activa de corriente, ni la disipación por trazas de PCB o convección/radiación más allá del RθSA nominal del disipador.',
+  },
+  s6: [
+    { name: 'Adel S. Sedra y Kenneth C. Smith — "Microelectronic Circuits", cap. de etapas de salida y amplificadores de potencia', note: 'Fundamento teórico de las etapas Clase A/B/AB, P_load, P_supply, disipación y el punto de máxima disipación.' },
+    { name: 'Robert L. Boylestad y Louis Nashelsky — "Electronic Devices and Circuit Theory"', note: 'Análisis de la red multiplicador VBE (V_CE=VBE·(1+R1/R2)) y polarización de etapas push-pull.' },
+    { name: 'ON Semiconductor — hoja de datos TIP31C/TIP32C', note: 'RθJC, RθJA (sin disipador) y Tj_max de referencia del par complementario TO-220.' },
+    { name: 'ON Semiconductor — nota de aplicación "Thermal Resistance — Theory and Practice"', note: 'Cadena térmica Tj=Ta+P·ΣRθ y criterios de selección de disipador.' },
+    { name: 'JEDEC JESD51 (familia) y JESD51-14', note: 'JESD51 es la familia general de estándares de caracterización térmica bajo convección natural; JESD51-14 es el método específico de "doble interfaz transitoria" para medir RθJC de forma más precisa que una estimación basada solo en RθJA — consúltese al evaluar hojas de datos reales de disipadores y transistores.' },
+    { name: 'Nota curricular ⚑', note: 'La relación entre esta práctica y el programa oficial del sector mecánica-electrónica se documenta con trazabilidad en ficha.md; se recomienda validación por un experto en electrónica de potencia.' },
+    { name: 'Notas para el revisor experto', note: 'Se actualizará tras verificación técnica final del laboratorio.' },
+  ],
+});
