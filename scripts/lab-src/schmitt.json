@@ -1,0 +1,9 @@
+{
+  "donor": "escaner-obd.html",
+  "out": "schmitt.html",
+  "title": "CEN Labs · Comparador Schmitt Trigger: Histéresis VTH/VTL con LM393 — Laboratorio 3D",
+  "lt": "Diseña comparadores con histéresis (Schmitt trigger) inversor y no inversor con LM393, ajusta R1/R2/Vcc/ruido, y observa cómo el lazo VTH/VTL elimina el rebote (chatter) que produce un comparador simple frente a una señal ruidosa.",
+  "inspectHint": "Ajusta R1/R2/Vcc/ruido, cambia de topología (inversor/no inversor), y observa el lazo de histéresis y el osciloscopio con el conteo de transiciones.",
+  "body": "schmitt.body.js",
+  "fichas": ["_ficha-tecnica.js", "_ficha-schmitt.js"]
+}
