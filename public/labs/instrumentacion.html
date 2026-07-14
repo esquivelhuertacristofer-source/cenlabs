@@ -1042,49 +1042,53 @@ function makeSynth(opts={}){
   };
 
   el('panel').innerHTML = `
-    <div class="mode-bar">
-      ${MODES.map((m) => `<button id="btn-mode-${m}" class="mode-btn">${MODE_META[m].icon} ${MODE_META[m].label}</button>`).join('')}
+    <div class="modebar">
+      ${MODES.map((m) => `<button id="btn-mode-${m}" class="b">${MODE_META[m].icon} ${MODE_META[m].label}</button>`).join('')}
     </div>
-    <div id="missionText" class="mission"></div>
+    <div id="missionText" style="font-size:12px;color:#8FB3AC;margin-bottom:8px"></div>
 
-    <div class="ref-row">
-      <button id="btnRef" class="ref-btn">📍 Punto de referencia</button>
-      <button id="btnHighError" class="ref-btn">⚠ Error alto (G↑, ε↓)</button>
-    </div>
-
-    <div class="bridge-row">
-      ${BRIDGE_TYPES.map((b) => `<button id="btn-bridge-${b.key}" class="bridge-btn">${b.short}</button>`).join('')}
+    <div class="btns" style="margin-top:8px">
+      <button id="btnRef" class="b" style="flex:1 0 48%">📍 Punto de referencia</button>
+      <button id="btnHighError" class="b" style="flex:1 0 48%">⚠ Error alto (G↑, ε↓)</button>
     </div>
 
-    <div class="ctrl-grid">
-      <div class="ctrl"><label>Vex</label><button id="vexDec">−</button><span id="vVEX"></span><button id="vexInc">+</button></div>
-      <div class="ctrl"><label>ε</label><button id="epsDec">−</button><span id="vEPS"></span><button id="epsInc">+</button></div>
-      <div class="ctrl"><label>G</label><button id="gDec">−</button><span id="vG"></span><button id="gInc">+</button></div>
+    <div class="btns" style="margin-top:8px">
+      ${BRIDGE_TYPES.map((b) => `<button id="btn-bridge-${b.key}" class="b">${b.short}</button>`).join('')}
     </div>
 
-    <div id="telemetry" class="telemetry"></div>
+    <div style="margin-top:10px;display:grid;grid-template-columns:1fr auto auto auto;gap:6px 8px;align-items:center;font-size:12px;color:#EAF4F1">
+      <div>Vex</div><button class="b" id="vexDec" style="padding:2px 8px">−</button><span id="vVEX">—</span><button class="b" id="vexInc" style="padding:2px 8px">+</button>
+      <div>ε</div><button class="b" id="epsDec" style="padding:2px 8px">−</button><span id="vEPS">—</span><button class="b" id="epsInc" style="padding:2px 8px">+</button>
+      <div>G</div><button class="b" id="gDec" style="padding:2px 8px">−</button><span id="vG">—</span><button class="b" id="gInc" style="padding:2px 8px">+</button>
+    </div>
 
-    <div id="predWrap" class="pred-wrap" style="display:none">
+    <div id="telemetry" style="margin-top:10px;font-size:12px;color:#EAF4F1;line-height:1.5"></div>
+
+    <div id="predWrap" style="display:none;margin-top:10px">
       <div id="predBox"></div>
-      <button id="predNew">Nueva predicción</button>
-      <button id="predCheck">Comprobar</button>
+      <div class="btns" style="margin-top:6px">
+        <button class="b" id="predNew" style="flex:1 0 48%">Nueva predicción</button>
+        <button class="b" id="predCheck" style="flex:1 0 48%">Comprobar</button>
+      </div>
     </div>
 
-    <div id="sweepWrap" class="sweep-wrap" style="display:none">
-      <button id="sweepRun">▶ Ejecutar barrido de ε</button>
+    <div id="sweepWrap" style="display:none;margin-top:10px">
+      <button class="b" id="sweepRun" style="width:100%">▶ Ejecutar barrido de ε</button>
     </div>
 
-    <div id="retoWrap" class="reto-wrap" style="display:none">
+    <div id="retoWrap" style="display:none;margin-top:10px">
       <div id="retoBox"></div>
-      <button id="retoNew">Nuevo reto</button>
-      <button id="retoCheck">Verificar diseño</button>
+      <div class="btns" style="margin-top:6px">
+        <button class="b" id="retoNew" style="flex:1 0 48%">Nuevo reto</button>
+        <button class="b" id="retoCheck" style="flex:1 0 48%">Verificar diseño</button>
+      </div>
     </div>
 
-    <div id="report" class="report"></div>
+    <div id="report" style="margin-top:10px;font-size:11px;color:#8FB3AC;line-height:1.5"></div>
 
-    <div id="quizBox" class="quiz"></div>
+    <div id="quizBox" style="margin-top:14px;border-top:1px solid #1E3A34;padding-top:10px"></div>
 
-    <button id="autoTour" class="auto-tour">▶ Recorrido guiado</button>
+    <button id="autoTour" class="b" style="width:100%;margin-top:10px">▶ Recorrido guiado</button>
   `;
 
   function setMode(m) {
@@ -1100,8 +1104,8 @@ function makeSynth(opts={}){
   }
 
   function syncCtrlBtns() {
-    MODES.forEach((m) => { el('btn-mode-' + m).className = 'mode-btn' + (state.mode === m ? ' on' : ''); });
-    BRIDGE_TYPES.forEach((b) => { el('btn-bridge-' + b.key).className = 'bridge-btn' + (curBridge() === b.key ? ' on' : ''); });
+    MODES.forEach((m) => { el('btn-mode-' + m).className = 'b' + (state.mode === m ? ' on' : ''); });
+    BRIDGE_TYPES.forEach((b) => { el('btn-bridge-' + b.key).className = 'b' + (curBridge() === b.key ? ' on' : ''); });
     el('vVEX').textContent = fmtVex(curVex());
     el('vEPS').textContent = fmtEps(curEps());
     el('vG').textContent = fmtG(curG());
@@ -1206,22 +1210,22 @@ function makeSynth(opts={}){
 
   function updateTele() {
     const t = el('telemetry');
-    if (state.hide) { t.innerHTML = '<p class="hidden-note">— valores ocultos hasta responder —</p>'; return; }
+    if (state.hide) { t.innerHTML = '<p style="color:#8FB3AC">— valores ocultos hasta responder —</p>'; return; }
     const res = curSolve();
     t.innerHTML = `
-      <div class="tele-row"><span>Vbridge</span><b>${fmtMv(res.Vbridge)}</b></div>
-      <div class="tele-row"><span>VoutIdeal</span><b>${fmtVAuto(res.VoutIdeal)}</b></div>
-      <div class="tele-row"><span>Vcm</span><b>${fmtVAuto(res.Vcm)}</b></div>
-      <div class="tele-row"><span>CMRR</span><b>${fmtDb(res.cmrrMinDb)} mín / ${fmtDb(res.cmrrTypDb)} típ</b></div>
-      <div class="tele-row"><span>error (peor caso)</span><b>${fmtVAuto(res.errOutMin)} (${fmtPct(res.errPctMin)})</b></div>
-      <div class="tele-row"><span>R_G</span><b>${fmtRG(res.RG)}</b></div>
+      <div class="g"><div class="gl"><span>Vbridge</span><b>${fmtMv(res.Vbridge)}</b></div></div>
+      <div class="g"><div class="gl"><span>VoutIdeal</span><b>${fmtVAuto(res.VoutIdeal)}</b></div></div>
+      <div class="g"><div class="gl"><span>Vcm</span><b>${fmtVAuto(res.Vcm)}</b></div></div>
+      <div class="g"><div class="gl"><span>CMRR</span><b>${fmtDb(res.cmrrMinDb)} mín / ${fmtDb(res.cmrrTypDb)} típ</b></div></div>
+      <div class="g"><div class="gl"><span>error (peor caso)</span><b>${fmtVAuto(res.errOutMin)} (${fmtPct(res.errPctMin)})</b></div></div>
+      <div class="g"><div class="gl"><span>R_G</span><b>${fmtRG(res.RG)}</b></div></div>
     `;
   }
 
   function updateReport() {
     const r = el('report');
     if (!state._sweepTrace || !state._sweepTrace.length) { r.innerHTML = ''; return; }
-    r.innerHTML = '<table class="report-table"><tr><th>ε</th><th>Vbridge</th><th>VoutIdeal</th><th>error%</th></tr>' +
+    r.innerHTML = '<table class="repTable"><tr><th>ε</th><th>Vbridge</th><th>VoutIdeal</th><th>error%</th></tr>' +
       state._sweepTrace.map((p) => `<tr><td>${fmtEps(p.epsilon)}</td><td>${fmtMv(p.Vbridge)}</td><td>${fmtVAuto(p.VoutIdeal)}</td><td>${fmtPct(p.errPct)}</td></tr>`).join('') +
       '</table>';
   }
@@ -1271,11 +1275,13 @@ function makeSynth(opts={}){
   function buildQuiz() { quizIdx = 0; refreshQuestion(); }
   function refreshQuestion() {
     const box = el('quizBox');
-    if (quizIdx >= QUIZ.length) { box.innerHTML = '<p class="quiz-done">✅ Cuestionario completo.</p>'; return; }
+    if (quizIdx >= QUIZ.length) { box.innerHTML = '<p style="color:#8FB3AC">✅ Cuestionario completo.</p>'; return; }
     const item = QUIZ[quizIdx];
-    box.innerHTML = `<p class="quiz-q">${item.q}</p>` +
-      item.a.map((a, i) => `<button class="quiz-opt" data-i="${i}">${a}</button>`).join('');
-    box.querySelectorAll('.quiz-opt').forEach((btn) => {
+    let html = '<div style="font-size:12px;color:#8FB3AC;margin-bottom:6px">Quiz rápido</div>';
+    html += '<div style="font-size:13px;color:#EAF4F1;margin-bottom:8px">' + item.q + '</div>';
+    item.a.forEach((a, i) => { html += `<button class="b quizOpt" data-i="${i}" style="width:100%;text-align:left;margin-bottom:4px">${a}</button>`; });
+    box.innerHTML = html;
+    box.querySelectorAll('.quizOpt').forEach((btn) => {
       btn.addEventListener('click', () => {
         const i = parseInt(btn.dataset.i, 10);
         if (i === item.correct) {
