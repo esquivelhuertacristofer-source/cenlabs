@@ -1,0 +1,9 @@
+{
+  "donor": "escaner-obd.html",
+  "out": "instrumentacion.html",
+  "title": "CEN Labs · Amplificador de Instrumentación INA128 + Puente de Galgas: CMRR y Sensibilidad — Laboratorio 3D",
+  "lt": "Acondiciona una galga extensométrica montada en un puente de Wheatstone (¼, ½ o completo) con un amplificador de instrumentación INA128: ajusta Vex, deformación ε y ganancia G=1+50kΩ/R_G, y observa cómo el CMRR limita el error de salida frente al voltaje de modo común.",
+  "inspectHint": "Ajusta Vex/ε/tipo de puente/G, observa cómo Vbridge y VoutIdeal cambian según la fórmula de cada configuración (¼ puente no lineal, ½ y completo exactamente lineales), y cómo el error de salida inducido por CMRR depende de G y Vex pero no del tipo de puente.",
+  "body": "instrumentacion.body.js",
+  "fichas": ["_ficha-tecnica.js", "_ficha-instrumentacion.js"]
+}
