@@ -701,6 +701,16 @@ exports[`golden master — catálogo por categoría (invariante ante extracción
     "teoria": "El micrómetro convierte el giro del tambor en desplazamiento lineal del husillo mediante un tornillo de paso 0.5 mm/vuelta; el tambor tiene 50 divisiones, así que cada división vale 0.01 mm y la lectura se forma sumando los milímetros enteros del manguito, la media vuelta si la marca intermedia está descubierta, y la división del tambor alineada con la línea de referencia. Como todo instrumento real, tiene un error de cero propio que debe restarse (con su signo) de la lectura cruda; en el instrumento físico esa corrección se hace mecánicamente con la llave de ajuste, aquí se resuelve aritméticamente por comparación con el vernier. El comparador de carátula, en cambio, no mide una dimensión absoluta: registra el desplazamiento relativo de un émbolo (tipo plunger) respecto a una referencia, y se usa para dos evaluaciones geométricas — runout (TIR = lectura máxima − lectura mínima al girar la pieza) y planitud (máxima − mínima entre varios puntos palpados sobre una superficie), ambas comparadas contra una tolerancia de aceptación.",
     "titulo": "Micrómetro y Comparador de Carátula: Resolución 0.01 mm",
   },
+  {
+    "duracion": "35-45 min",
+    "estado": "activo",
+    "id": "mecanica-42",
+    "modulo": "Instrumentación",
+    "orden": 42,
+    "simuladorHtml": "/labs/incertidumbre-trazabilidad.html",
+    "teoria": "La incertidumbre de medición (GUM, JCGM 100:2008) cuantifica el rango de valores razonablemente atribuible a una medición. La incertidumbre Tipo A se evalúa estadísticamente a partir de lecturas repetidas (u_A = s/√n); las incertidumbres Tipo B provienen de otras fuentes, como la resolución del instrumento (u = resolución/√12) o el certificado de calibración de un patrón (u = U/k). Todas se combinan por suma cuadrática (u_c = √Σuᵢ²) y se multiplican por un factor de cobertura k para obtener la incertidumbre expandida U = k·u_c que se reporta. La trazabilidad metrológica (VIM, JCGM 200:2012) es la cadena documentada de calibraciones —en México, de CENAM a un laboratorio acreditado EMA y de ahí al instrumento de taller— que vincula cada medición a una referencia, y cuyo contenido mínimo en un certificado está definido por ISO/IEC 17025:2017 §7.8.",
+    "titulo": "Incertidumbre GUM y Trazabilidad Metrológica",
+  },
 ]
 `;
 
@@ -868,6 +878,7 @@ exports[`golden master — catálogo por categoría (invariante ante extracción
   "mecanica-4",
   "mecanica-40",
   "mecanica-41",
+  "mecanica-42",
   "mecanica-5",
   "mecanica-6",
   "mecanica-7",

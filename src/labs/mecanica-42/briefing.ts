@@ -1,0 +1,36 @@
+import type { BriefingConfig } from '@/components/MissionBriefing';
+
+const briefing: BriefingConfig = {
+  codigo: "MEC-42",
+  titulo: "Incertidumbre GUM y Trazabilidad Metrológica",
+  subtitulo: "Metrología e Instrumentación",
+  acento: "#2A9D8F",
+  duracion: 35,
+  videoUrl: '',
+  bienvenida: `Hasta ahora medimos con vernier y micrómetro y aceptamos cada lectura como si fuera un valor exacto. Esta práctica rompe esa ilusión: ninguna medición es un punto, es un rango. El GUM (Guide to the Expression of Uncertainty in Measurement, JCGM 100:2008) es la norma que casi toda la metrología del mundo usa para declarar ese rango de forma honesta y comparable entre laboratorios.
+
+Vamos a construir un presupuesto de incertidumbre completo sobre un caso real: un comparador de carátula midiendo cinco veces el mismo bloque patrón. Primero calculamos la incertidumbre Tipo A — la que viene de la dispersión estadística de las lecturas repetidas (desviación estándar entre la raíz de n). Después sumamos dos incertidumbres Tipo B, que no vienen de repetir mediciones sino de datos externos: la resolución del instrumento y el certificado de calibración del bloque patrón. Las tres se combinan por suma cuadrática — nunca sumando directamente los números — porque así se combinan errores estadísticamente independientes. El resultado final se multiplica por un factor de cobertura k (típicamente 2) para obtener la incertidumbre expandida, la que de verdad se reporta.
+
+La segunda mitad cambia de tema pero no de espíritu: la trazabilidad metrológica. Un bloque patrón no vale nada si nadie puede probar de dónde salió su valor. Vas a recorrer la cadena real que usa México: CENAM (el instituto nacional de metrología) calibra a un laboratorio acreditado por la EMA, y ese laboratorio calibra el instrumento de tu taller. Cada eslabón de esa cadena debe declarar su propia incertidumbre — la trazabilidad sin incertidumbre declarada no sirve de nada, lo dice el propio VIM (JCGM 200:2012). Y vas a revisar un certificado de calibración real para descubrir qué debe contener por norma (ISO/IEC 17025) y qué NO es obligatorio a menos que tú lo pidas explícitamente.`,
+  conceptos: [
+    { icono: '📊', nombre: 'Incertidumbre Tipo A: la dispersión que mides tú mismo', descripcion: 'Se evalúa por métodos estadísticos a partir de una serie de observaciones repetidas. u_A = s/√n, donde s es la desviación estándar muestral de las lecturas y n el número de repeticiones (JCGM 100:2008, cláusula 4.2).' },
+    { icono: '📋', nombre: 'Incertidumbre Tipo B: la que viene de otra parte', descripcion: 'Se evalúa por cualquier medio distinto al estadístico: especificaciones del fabricante, certificados de calibración, datos publicados. La resolución de un instrumento aporta u = resolución/√12 (distribución rectangular, JCGM 100:2008 Anexo F.2.2.1); un certificado aporta u = U_certificado/k_certificado.' },
+    { icono: '➕', nombre: 'Combinación cuadrática, nunca suma directa', descripcion: 'Las incertidumbres independientes se combinan como u_c = √(u₁² + u₂² + u₃² + ...), no sumándolas linealmente. Sumar directamente sobrestima la incertidumbre real porque ignora que los errores no ocurren todos en la misma dirección al mismo tiempo (JCGM 100:2008, cláusula 5.1).' },
+    { icono: '🎯', nombre: 'Incertidumbre expandida U = k·u_c', descripcion: 'La incertidumbre combinada u_c rara vez se reporta sola: se multiplica por un factor de cobertura k (típicamente k=2) para dar un intervalo con un nivel de confianza aproximado — con k=2, "aproximadamente 95%", nunca exactamente, salvo que se calculen los grados de libertad efectivos (JCGM 100:2008, cláusula 6.3.3).' },
+    { icono: '🔗', nombre: 'Trazabilidad metrológica: una cadena, no un sello', descripcion: 'Propiedad de un resultado de medición por la cual puede relacionarse con una referencia mediante una cadena ininterrumpida y documentada de calibraciones, cada una contribuyendo a la incertidumbre (VIM, JCGM 200:2012, 2.41). Un certificado sin incertidumbre declarada rompe la cadena aunque tenga sello y firma.' },
+    { icono: '📄', nombre: 'Qué exige de verdad un certificado de calibración', descripcion: 'ISO/IEC 17025:2017 §7.8 define el contenido mínimo obligatorio de un certificado. Un dato que se asume "siempre obligatorio" —como la próxima fecha de calibración— en realidad solo es obligatorio si el cliente lo solicita o una reglamentación lo exige (§7.8.4.3); no es un requisito universal.' },
+  ],
+  mision: [
+    'FASE 1 · Mide: observa las cinco lecturas repetidas del comparador sobre el mismo bloque patrón y calcula su incertidumbre Tipo A a partir de la desviación estándar.',
+    'FASE 2 · Suma lo que no se repite: calcula la incertidumbre Tipo B de la resolución del instrumento y la del certificado del bloque patrón — dos fuentes que no vienen de repetir mediciones.',
+    'FASE 3 · Combina y expande: combina las tres incertidumbres por suma cuadrática y aplica el factor de cobertura para obtener la incertidumbre expandida que realmente se reporta.',
+    'FASE 4 · Sigue la cadena: recorre los tres eslabones de la trazabilidad —CENAM, laboratorio acreditado EMA, instrumento de taller— y revisa un certificado de calibración para distinguir lo obligatorio de lo opcional.',
+  ],
+  aplicaciones: [
+    { area: 'Reportes de calibración y certificados', ejemplo: 'Todo certificado de calibración emitido por un laboratorio acreditado bajo ISO/IEC 17025 debe declarar una incertidumbre expandida con su factor de cobertura — sin ese dato, el certificado no permite decidir si una pieza cumple o no su tolerancia cerca del límite.' },
+    { area: 'Decisiones de conformidad (pasa/no pasa)', ejemplo: 'Cuando una medición cae cerca del límite de tolerancia, la incertidumbre determina si se puede declarar conformidad con confianza o si el resultado es ambiguo — ignorar la incertidumbre lleva a aceptar piezas fuera de especificación o rechazar piezas buenas.' },
+    { area: 'Acreditación de laboratorios (EMA, CENAM)', ejemplo: 'La Entidad Mexicana de Acreditación (EMA) evalúa que los laboratorios calculen y declaren su incertidumbre siguiendo el GUM como condición para mantener su acreditación, y que su cadena de trazabilidad termine en CENAM, el instituto nacional de metrología de México.' },
+  ],
+};
+
+export default briefing;

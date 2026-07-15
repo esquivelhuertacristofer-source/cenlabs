@@ -73,6 +73,7 @@ import mecanica_38 from './mecanica-38/catalogo';
 import mecanica_39 from './mecanica-39/catalogo';
 import mecanica_40 from './mecanica-40/catalogo';
 import mecanica_41 from './mecanica-41/catalogo';
+import mecanica_42 from './mecanica-42/catalogo';
 import quimica_1 from './quimica-1/catalogo';
 import quimica_2 from './quimica-2/catalogo';
 import quimica_3 from './quimica-3/catalogo';
@@ -156,6 +157,7 @@ export const CATALOGO: Record<string, CatalogoEntry> = {
   'mecanica-39': mecanica_39,
   'mecanica-40': mecanica_40,
   'mecanica-41': mecanica_41,
+  'mecanica-42': mecanica_42,
   'quimica-1': quimica_1,
   'quimica-2': quimica_2,
   'quimica-3': quimica_3,

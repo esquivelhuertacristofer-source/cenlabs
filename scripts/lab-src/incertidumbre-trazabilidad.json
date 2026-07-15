@@ -1,0 +1,9 @@
+{
+  "donor": "escaner-obd.html",
+  "out": "incertidumbre-trazabilidad.html",
+  "title": "CEN Labs · Incertidumbre de Medición (GUM) y Trazabilidad Metrológica — Laboratorio 3D",
+  "lt": "Incertidumbre GUM y Trazabilidad · Metrología",
+  "inspectHint": "👆 Toca el comparador, el bloque patrón, el certificado o los nodos de la cadena de trazabilidad para identificarlos",
+  "body": "incertidumbre-trazabilidad.body.js",
+  "fichas": ["_ficha-tecnica.js", "_ficha-incertidumbre-trazabilidad.js"]
+}
