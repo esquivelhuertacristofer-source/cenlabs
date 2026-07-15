@@ -751,6 +751,16 @@ exports[`golden master — catálogo por categoría (invariante ante extracción
     "teoria": "Un banco trifásico de tres transformadores monofásicos idénticos se arma conectando cada lado (primario o secundario) en estrella (Y) o en delta (D). La topología de cada lado aporta un ángulo de referencia θ_ref: 0° en estrella (la tensión de línea coincide en fase con la de fase) y 30° en delta (la tensión de línea es la resta fasorial de dos tensiones de fase). Invertir la polaridad de referencia del lado de alta tensión (cuál extremo se llama H1) gira ese fasor de referencia 180° adicionales. El ángulo de salida es θ1−θ_ref(secundario), donde θ1=θ_ref(primario)+180°·(polaridad invertida); el desfase que "atrasa" baja tensión respecto de alta tensión es ((−ángulo_salida) mod 360)°, y la hora del reloj es ese desfase dividido entre 30° y redondeado. El rótulo del grupo vectorial combina la letra de la topología primaria, la letra de la topología secundaria (con "n" si tiene neutro accesible) y la hora calculada — por ejemplo, delta en alta y estrella con neutro en baja, con polaridad normal, produce Dyn11 (IEC 60076-1:2011, Cláusula 3.10.6 y su Nota 2, Cláusula 7.1.5).",
     "titulo": "Grupo Vectorial: Bancos Trifásicos y Desfase Angular",
   },
+  {
+    "duracion": "40 min",
+    "estado": "activo",
+    "id": "mecanica-47",
+    "modulo": "Instrumentación",
+    "orden": 47,
+    "simuladorHtml": "/labs/par-velocidad-motor-cd.html",
+    "teoria": "Un motor de CD de excitación independiente alimenta por separado el circuito de campo (que crea el flujo Φ) y el circuito de armadura (que gira). El flujo relativo es KΦ=KM·(If/If_nominal); en estado estacionario, la corriente de armadura queda fijada por la carga y el campo, Ia=TL/KΦ —no por la tensión aplicada—; la fuerza contraelectromotriz es Ea=Va−Ia·Ra, y la velocidad angular resultante es ω=Ea/KΦ. El par electromagnético T=KΦ·Ia iguala al par de carga en régimen permanente. El laboratorio arma primero el motor pieza por pieza y solo después desbloquea los controles de simulación.",
+    "titulo": "Motor de CD: Par y Velocidad",
+  },
 ]
 `;
 
@@ -923,6 +933,7 @@ exports[`golden master — catálogo por categoría (invariante ante extracción
   "mecanica-44",
   "mecanica-45",
   "mecanica-46",
+  "mecanica-47",
   "mecanica-5",
   "mecanica-6",
   "mecanica-7",

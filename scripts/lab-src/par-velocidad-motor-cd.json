@@ -1,0 +1,9 @@
+{
+  "donor": "escaner-obd.html",
+  "out": "par-velocidad-motor-cd.html",
+  "title": "CEN Labs · Motor de CD: Par y Velocidad — Laboratorio 3D",
+  "lt": "Motor de CD · Par y velocidad",
+  "inspectHint": "👆 Toca una pieza del corte o arma el motor pieza por pieza",
+  "body": "par-velocidad-motor-cd.body.js",
+  "fichas": ["_ficha-tecnica.js", "_ficha-par-velocidad-motor-cd.js"]
+}
