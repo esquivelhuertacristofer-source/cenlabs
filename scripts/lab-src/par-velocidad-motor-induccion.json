@@ -1,0 +1,9 @@
+{
+  "donor": "escaner-obd.html",
+  "out": "par-velocidad-motor-induccion.html",
+  "title": "CEN Labs · Motor de Inducción: Deslizamiento y Curva Par-Velocidad — Laboratorio 3D",
+  "lt": "Motor de inducción · Deslizamiento y par-velocidad",
+  "inspectHint": "👆 Toca una pieza del motor jaula de ardilla o arma la máquina paso a paso",
+  "body": "par-velocidad-motor-induccion.body.js",
+  "fichas": ["_ficha-tecnica.js", "_ficha-par-velocidad-motor-induccion.js"]
+}

@@ -771,6 +771,16 @@ exports[`golden master — catálogo por categoría (invariante ante extracción
     "teoria": "En un generador de CD shunt, el campo se autoexcita: toma su corriente If de los mismos bornes que produce. La curva de magnetización de vacío satura con la forma E0(If)=Em·If/(Ik+If) y escala con la velocidad, E(If,n)=E0(If)·(n/n0). El punto de operación es la intersección exacta entre esa curva y la recta Vt=Rf·If del circuito de campo, If*=máx(0, Em·(n/n0)/Rf−Ik). Existe solo si Rf está por debajo de la resistencia crítica Rc(n)=Rc0·(n/n0), con Rc0=Em/Ik la pendiente de la curva en el origen — por encima de ese umbral, el generador no autoexcita y la tensión colapsa a cero.",
     "titulo": "Generador de CD Autoexcitado: Curva de Magnetización",
   },
+  {
+    "duracion": "40 min",
+    "estado": "activo",
+    "id": "mecanica-49",
+    "modulo": "Instrumentación",
+    "orden": 49,
+    "simuladorHtml": "/labs/par-velocidad-motor-induccion.html",
+    "teoria": "En un motor de inducción trifásico, el estátor genera un campo magnético giratorio a la velocidad síncrona ns=120·f/p; el rotor de jaula de ardilla nunca alcanza esa velocidad —gira más despacio, con un deslizamiento s=(ns−n)/ns— porque necesita ese atraso relativo para inducir la corriente que produce su propio par. La curva simplificada de Kloss, T(s)=2·Tmáx/(s/sm+sm/s), describe cómo ese par depende del deslizamiento: crece desde el arranque hasta un máximo (par de vuelco) y luego decae. Para cualquier par de carga TL≤Tmáx existe un único punto de operación estable; si TL supera a Tmáx, el motor se cala. El laboratorio arma primero el motor pieza por pieza y solo después desbloquea los controles de simulación.",
+    "titulo": "Motor de Inducción: Deslizamiento y Curva Par-Velocidad",
+  },
 ]
 `;
 
@@ -945,6 +955,7 @@ exports[`golden master — catálogo por categoría (invariante ante extracción
   "mecanica-46",
   "mecanica-47",
   "mecanica-48",
+  "mecanica-49",
   "mecanica-5",
   "mecanica-6",
   "mecanica-7",
