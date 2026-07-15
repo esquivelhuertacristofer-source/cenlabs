@@ -1,0 +1,9 @@
+{
+  "donor": "escaner-obd.html",
+  "out": "relacion-polaridad-transformador.html",
+  "title": "CEN Labs · Relación de Transformación y Prueba de Polaridad — Laboratorio 3D",
+  "lt": "Relación de transformación y polaridad · Transformadores",
+  "inspectHint": "👆 Toca una terminal, el puente o la placa de datos para identificarla",
+  "body": "relacion-polaridad-transformador.body.js",
+  "fichas": ["_ficha-tecnica.js", "_ficha-relacion-polaridad-transformador.js"]
+}
