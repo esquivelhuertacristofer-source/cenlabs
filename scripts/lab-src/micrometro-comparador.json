@@ -1,0 +1,9 @@
+{
+  "donor": "escaner-obd.html",
+  "out": "micrometro-comparador.html",
+  "title": "CEN Labs · Micrómetro y Comparador de Carátula: Resolución 0.01 mm, Runout y Planitud — Laboratorio 3D",
+  "lt": "Micrómetro y Comparador · Metrología de Precisión",
+  "inspectHint": "👆 Toca el husillo, el tambor, la carátula o la pieza para identificarla",
+  "body": "micrometro-comparador.body.js",
+  "fichas": ["_ficha-tecnica.js", "_ficha-micrometro-comparador.js"]
+}

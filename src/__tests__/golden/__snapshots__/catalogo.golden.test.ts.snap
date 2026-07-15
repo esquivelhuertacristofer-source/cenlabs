@@ -691,6 +691,16 @@ exports[`golden master — catálogo por categoría (invariante ante extracción
     "teoria": "Un calibrador vernier combina una escala principal fija (en milímetros) con un cursor deslizante que porta una segunda escala, el nonio: si el nonio tiene N divisiones que abarcan exactamente (N−1) mm de la escala principal, cada división del nonio mide (N−1)/N mm, y la mínima lectura discernible (LC, "lowest count") es LC=1mm/N — 0.05 mm para N=20, 0.02 mm para N=50. La lectura se obtiene sumando los milímetros completos de la escala principal antes del cero del nonio, más la división del nonio que coincide exactamente con una línea de la escala principal, multiplicada por LC. Todo calibrador real tiene un error de cero propio (la lectura con las mordazas cerradas no es exactamente 0.000), que debe restarse (con su signo) de cada lectura cruda: Lectura corregida = Lectura cruda − Error de cero. Incluso con esta corrección, mediciones repetidas del mismo objeto por el mismo operador muestran una dispersión (repetibilidad) descrita por la media, el rango y la desviación estándar muestral s, que se compara —no se descarta— contra la incertidumbre de resolución del instrumento, ±LC/2.",
     "titulo": "Calibrador Vernier: Lectura, Error de Cero y Repetibilidad",
   },
+  {
+    "duracion": "50 min",
+    "estado": "activo",
+    "id": "mecanica-41",
+    "modulo": "Instrumentación",
+    "orden": 41,
+    "simuladorHtml": "/labs/micrometro-comparador.html",
+    "teoria": "El micrómetro convierte el giro del tambor en desplazamiento lineal del husillo mediante un tornillo de paso 0.5 mm/vuelta; el tambor tiene 50 divisiones, así que cada división vale 0.01 mm y la lectura se forma sumando los milímetros enteros del manguito, la media vuelta si la marca intermedia está descubierta, y la división del tambor alineada con la línea de referencia. Como todo instrumento real, tiene un error de cero propio que debe restarse (con su signo) de la lectura cruda; en el instrumento físico esa corrección se hace mecánicamente con la llave de ajuste, aquí se resuelve aritméticamente por comparación con el vernier. El comparador de carátula, en cambio, no mide una dimensión absoluta: registra el desplazamiento relativo de un émbolo (tipo plunger) respecto a una referencia, y se usa para dos evaluaciones geométricas — runout (TIR = lectura máxima − lectura mínima al girar la pieza) y planitud (máxima − mínima entre varios puntos palpados sobre una superficie), ambas comparadas contra una tolerancia de aceptación.",
+    "titulo": "Micrómetro y Comparador de Carátula: Resolución 0.01 mm",
+  },
 ]
 `;
 
@@ -857,6 +867,7 @@ exports[`golden master — catálogo por categoría (invariante ante extracción
   "mecanica-39",
   "mecanica-4",
   "mecanica-40",
+  "mecanica-41",
   "mecanica-5",
   "mecanica-6",
   "mecanica-7",
