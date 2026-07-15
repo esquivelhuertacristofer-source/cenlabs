@@ -1,0 +1,9 @@
+{
+  "donor": "escaner-obd.html",
+  "out": "arranque-motor-induccion.html",
+  "title": "CEN Labs · Métodos de Arranque de Motores de Inducción: Corriente de Irrupción — Laboratorio 3D",
+  "lt": "Métodos de arranque de motores · Máquinas eléctricas",
+  "inspectHint": "👆 Toca el motor, el panel de arranque o la gráfica para comparar los métodos",
+  "body": "arranque-motor-induccion.body.js",
+  "fichas": ["_ficha-tecnica.js", "_ficha-arranque-motor-induccion.js"]
+}

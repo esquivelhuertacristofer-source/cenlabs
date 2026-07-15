@@ -781,6 +781,16 @@ exports[`golden master — catálogo por categoría (invariante ante extracción
     "teoria": "En un motor de inducción trifásico, el estátor genera un campo magnético giratorio a la velocidad síncrona ns=120·f/p; el rotor de jaula de ardilla nunca alcanza esa velocidad —gira más despacio, con un deslizamiento s=(ns−n)/ns— porque necesita ese atraso relativo para inducir la corriente que produce su propio par. La curva simplificada de Kloss, T(s)=2·Tmáx/(s/sm+sm/s), describe cómo ese par depende del deslizamiento: crece desde el arranque hasta un máximo (par de vuelco) y luego decae. Para cualquier par de carga TL≤Tmáx existe un único punto de operación estable; si TL supera a Tmáx, el motor se cala. El laboratorio arma primero el motor pieza por pieza y solo después desbloquea los controles de simulación.",
     "titulo": "Motor de Inducción: Deslizamiento y Curva Par-Velocidad",
   },
+  {
+    "duracion": "40 min",
+    "estado": "activo",
+    "id": "mecanica-50",
+    "modulo": "Instrumentación",
+    "orden": 50,
+    "simuladorHtml": "/labs/arranque-motor-induccion.html",
+    "teoria": "Con el rotor detenido, un motor de inducción se comporta como un transformador con el secundario en corto: toma una corriente de irrupción varias veces mayor que la nominal (ILR) y entrega un par de arranque también múltiplo del nominal (TLR). El arranque directo (DOL) no reduce ninguno de los dos. El arranque estrella-delta reduce ambos a un tercio de forma fija (k=1/3), porque el devanado ve tensión de fase en vez de tensión de línea. El arranque por autotransformador con derivación a reduce ambos por a² (k=a²) del lado de línea, pero por solo a del lado del motor —una asimetría propia de que el autotransformador es él mismo un transformador— y existe una derivación exacta, a=1/√3≈0.577, en la que reproduce la misma reducción que estrella-delta. El laboratorio compara los tres métodos sobre el mismo motor y expone el compromiso central: toda reducción de corriente de irrupción cuesta par de arranque disponible.",
+    "titulo": "Métodos de Arranque de Motores de Inducción: Corriente de Irrupción",
+  },
 ]
 `;
 
@@ -957,6 +967,7 @@ exports[`golden master — catálogo por categoría (invariante ante extracción
   "mecanica-48",
   "mecanica-49",
   "mecanica-5",
+  "mecanica-50",
   "mecanica-6",
   "mecanica-7",
   "mecanica-8",
