@@ -1,0 +1,9 @@
+{
+  "donor": "escaner-obd.html",
+  "out": "grupo-vectorial-transformador.html",
+  "title": "CEN Labs · Grupo Vectorial: Bancos Trifásicos de Transformadores — Laboratorio 3D",
+  "lt": "Grupo Vectorial (Dyn11, Yyn0...) · Transformadores",
+  "inspectHint": "👆 Toca el pizarrón (primario, secundario, reloj) o las unidades del banco",
+  "body": "grupo-vectorial-transformador.body.js",
+  "fichas": ["_ficha-tecnica.js", "_ficha-grupo-vectorial-transformador.js"]
+}
