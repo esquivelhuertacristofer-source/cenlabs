@@ -1,0 +1,9 @@
+{
+  "donor": "escaner-obd.html",
+  "out": "termopar-rtd-infrarrojo.html",
+  "title": "CEN Labs · Termopar, RTD e Infrarrojo: Medición de Temperatura — Laboratorio 3D",
+  "lt": "Termopar · RTD · IR · Instrumentación",
+  "inspectHint": "👆 Toca el termopar, la RTD, la pistola infrarroja o el bloque caliente para identificarlo",
+  "body": "termopar-rtd-infrarrojo.body.js",
+  "fichas": ["_ficha-tecnica.js", "_ficha-termopar-rtd-infrarrojo.js"]
+}
