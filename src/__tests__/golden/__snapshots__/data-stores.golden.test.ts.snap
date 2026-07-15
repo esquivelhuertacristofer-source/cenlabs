@@ -4199,6 +4199,58 @@ Antes de poder jugar con esa relación, hay que construir el motor: en la primer
     "titulo": "Motor de CD: Par y Velocidad",
     "videoUrl": "",
   },
+  "mecanica-48": {
+    "acento": "#3A6EA5",
+    "aplicaciones": [
+      {
+        "area": "Puesta en marcha de plantas generadoras de CD aisladas",
+        "ejemplo": "Antes de operar un generador shunt como fuente autónoma, el técnico debe verificar que el reóstato de campo quede por debajo de la resistencia crítica a la velocidad de trabajo prevista — de lo contrario la máquina gira sin producir tensión útil.",
+      },
+      {
+        "area": "Diagnóstico de falla de "no levanta tensión" en generadores de CD",
+        "ejemplo": "Cuando un generador shunt no produce salida, una de las primeras verificaciones de diagnóstico es comparar el ajuste del reóstato de campo contra la resistencia crítica esperada a la velocidad medida, antes de sospechar de una falla de magnetismo remanente o de devanado.",
+      },
+      {
+        "area": "Diseño del rango de ajuste de un reóstato de campo",
+        "ejemplo": "Especificar el rango de un reóstato de campo para un generador shunt requiere conocer la resistencia crítica de la máquina en todo su rango de velocidad de operación, para garantizar que el ajuste de control de tensión nunca cruce accidentalmente ese umbral.",
+      },
+    ],
+    "bienvenida": "Un generador de CD conectado en derivación (shunt) tiene un truco de arranque poco intuitivo: no recibe corriente de campo desde una fuente externa, sino de sus propios bornes de salida. El devanado de campo se conecta a la misma tensión que el generador produce, formando un lazo cerrado que se retroalimenta a sí mismo — por eso el fenómeno se llama autoexcitación. Ese lazo solo se cierra con éxito si el reóstato de campo Rf está por debajo de un umbral preciso, la resistencia crítica: por encima de ese umbral, el generador simplemente no levanta tensión, sin importar cuánto tiempo lo dejes girando.
+
+Este laboratorio pone ese umbral bajo tu control directo: ajusta el reóstato de campo y la velocidad del primomotor, y observa en tiempo real dónde la recta del circuito de campo cruza la curva de magnetización de la máquina — ese cruce es el punto de operación exacto. Cuando la recta deja de cruzar la curva, el generador colapsa a cero.",
+    "codigo": "MEC-48",
+    "conceptos": [
+      {
+        "descripcion": "En un generador shunt, el devanado de campo no recibe corriente de una fuente aparte: toma la suya de los mismos bornes que el generador produce. Ese lazo cerrado —campo alimenta tensión, tensión alimenta campo— es lo que distingue a un generador autoexcitado de uno con excitación independiente.",
+        "icono": "🔁",
+        "nombre": "Autoexcitación: el campo se alimenta de su propia salida",
+      },
+      {
+        "descripcion": "La fem que produce el campo en vacío no crece proporcionalmente a la corriente de campo para siempre: al pasar cierto punto, el núcleo se satura y la curva se aplana. Esa forma de saturación es la que determina si el lazo de autoexcitación encuentra un punto de equilibrio o no.",
+        "icono": "📈",
+        "nombre": "La curva de magnetización se satura, no crece sin límite",
+      },
+      {
+        "descripcion": "La recta Vt=Rf·If del circuito de campo debe cruzar la curva de magnetización para que exista un punto de operación con tensión distinta de cero. Esa recta se vuelve tangente a la curva en el origen justo cuando Rf iguala exactamente la pendiente inicial de la curva — la resistencia crítica Rc. Por encima de Rc, la recta ya no cruza la curva y el generador no autoexcita.",
+        "icono": "⚠️",
+        "nombre": "Resistencia crítica: el umbral entre autoexcitar y colapsar",
+      },
+      {
+        "descripcion": "Como la fem escala con la velocidad (Faraday, a flujo constante), la resistencia crítica también escala con la velocidad: Rc(n)=Rc0·(n/n0). Un reóstato que permite autoexcitar a velocidad nominal puede dejar de hacerlo si el primomotor gira más lento — el umbral no es un número fijo, depende de las dos variables a la vez.",
+        "icono": "⚙️",
+        "nombre": "La velocidad desplaza el umbral, no solo la tensión",
+      },
+    ],
+    "duracion": 40,
+    "mision": [
+      "EXPLORA · Ajusta el reóstato de campo Rf y la velocidad n, y observa cómo se desplaza el punto de operación sobre la curva de magnetización.",
+      "CURVA · Identifica visualmente la resistencia crítica Rc(n): la frontera exacta entre un generador que autoexcita y uno que colapsa a tensión cero.",
+      "RETO · Dado un Rf y una n específicos, predice si el generador autoexcita o no, y calcula la tensión de bornes resultante antes de verificarla contra el simulador.",
+    ],
+    "subtitulo": "Transformadores · Generadores de corriente directa",
+    "titulo": "Generador de CD Autoexcitado: Curva de Magnetización",
+    "videoUrl": "",
+  },
   "mecanica-5": {
     "acento": "#2A9D8F",
     "aplicaciones": [
@@ -14790,6 +14842,7 @@ exports[`golden master — stores de datos (invariante ante la migración a src/
   "mecanica-45": [],
   "mecanica-46": [],
   "mecanica-47": [],
+  "mecanica-48": [],
   "mecanica-5": [],
   "mecanica-6": [],
   "mecanica-7": [],
@@ -15072,6 +15125,7 @@ exports[`golden master — stores de datos (invariante ante la migración a src/
   "mecanica-45",
   "mecanica-46",
   "mecanica-47",
+  "mecanica-48",
   "mecanica-5",
   "mecanica-6",
   "mecanica-7",

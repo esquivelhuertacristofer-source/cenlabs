@@ -1,0 +1,9 @@
+{
+  "donor": "escaner-obd.html",
+  "out": "generador-cd-magnetizacion.html",
+  "title": "CEN Labs · Generador de CD Autoexcitado: Curva de Magnetización — Laboratorio 3D",
+  "lt": "Generador de CD autoexcitado · Máquinas eléctricas",
+  "inspectHint": "👆 Toca el generador, el reóstato de campo o la gráfica de magnetización",
+  "body": "generador-cd-magnetizacion.body.js",
+  "fichas": ["_ficha-tecnica.js", "_ficha-generador-cd-magnetizacion.js"]
+}
