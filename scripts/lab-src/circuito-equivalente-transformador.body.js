@@ -3,10 +3,10 @@
    (Dominio D5 · transformadores — molde E+P: ensamble/servicio 3D +
    panel-instrumento, con esquemático interactivo tipo S+P)
    Normatividad de referencia:
-     · IEC 60076-1 — Cláusula 11.4 "Measurement of the no-load loss and
-       current" (ensayo de vacío: Voc, Ioc, Poc) y Cláusula 11.5
-       "Measurement of short-circuit impedance and load loss" (ensayo de
-       cortocircuito: Vsc, Isc, Psc).
+     · IEC 60076-1 — Cláusula 11.4 "Measurement of short-circuit impedance
+       and load loss" (ensayo de cortocircuito: Vsc, Isc, Psc) y Cláusula
+       11.5 "Measurement of the no-load loss and current" (ensayo de
+       vacío: Voc, Ioc, Poc).
      · ANSI/IEEE C57.12.90 — Cláusula 8, ensayos de rutina de vacío y
        cortocircuito sobre transformadores de potencia y distribución.
      Los números de cláusula se citan de la mejor referencia disponible al

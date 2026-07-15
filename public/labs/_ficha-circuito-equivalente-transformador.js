@@ -43,7 +43,7 @@ fichaTecnica({
     noModela: 'la ubicación exacta aproximada-vs-exacta de la rama de magnetización (shunt) dentro del circuito equivalente — se usa el modelo aproximado estándar, sin comparar contra el circuito exacto con la rama shunt del lado de la fuente; la variación de Rc y Xm con el nivel de saturación del núcleo — se tratan como constantes obtenidas de un único punto de ensayo; la separación de pérdidas dispersas dentro de Psc; la corrección de Req por temperatura de referencia normativa; ni la equivalencia de la norma mexicana NMX-J-116/169 con IEC o ANSI — ANCE la declara explícitamente NO equivalente directa.',
   },
   s6: [
-    '<b>IEC 60076-1</b> — Transformadores de potencia, Parte 1: Generalidades. Cláusula 11.4 (medición de la pérdida y corriente en vacío) y Cláusula 11.5 (medición de la impedancia de cortocircuito y la pérdida de carga).',
+    '<b>IEC 60076-1</b> — Transformadores de potencia, Parte 1: Generalidades. Cláusula 11.4 (medición de la impedancia de cortocircuito y la pérdida de carga) y Cláusula 11.5 (medición de la pérdida y corriente en vacío).',
     '<b>ANSI/IEEE C57.12.90</b> — Test Code for Liquid-Immersed Distribution, Power, and Regulating Transformers. Cláusula 8 (ensayos de rutina de vacío y cortocircuito).',
     '<b>CFE K0000-04</b> — Especificación de transformadores de distribución y potencia (práctica mexicana, convención de terminales H1/H2-X1/X2, misma unidad de ejemplo que d5-01).',
     '<b>NMX-J-116-ANCE / NMX-J-169-ANCE</b> — normas mexicanas de transformadores de distribución y potencia; ANCE las declara NO equivalentes directas a IEC ni a ANSI/IEEE.',
