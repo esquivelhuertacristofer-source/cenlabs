@@ -1,0 +1,9 @@
+{
+  "donor": "escaner-obd.html",
+  "out": "circuito-equivalente-transformador.html",
+  "title": "CEN Labs · Circuito Equivalente por Ensayos de Vacío y Cortocircuito — Laboratorio 3D",
+  "lt": "Circuito Equivalente (OC/SC) · Transformadores",
+  "inspectHint": "👆 Toca la fuente, los instrumentos o el devanado bajo prueba para identificarlos",
+  "body": "circuito-equivalente-transformador.body.js",
+  "fichas": ["_ficha-tecnica.js", "_ficha-circuito-equivalente-transformador.js"]
+}

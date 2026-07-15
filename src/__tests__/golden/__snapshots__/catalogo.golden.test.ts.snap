@@ -731,6 +731,16 @@ exports[`golden master — catálogo por categoría (invariante ante extracción
     "teoria": "La relación de transformación en vacío de un transformador monofásico se define como a=N1/N2=V1/V2, donde N1/N2 son las vueltas de los devanados de alta y baja tensión: la placa de datos declara un valor nominal que debe verificarse aplicando una tensión reducida al devanado primario (jamás la tensión nominal) y comparando la relación medida contra la de placa, con una tolerancia de ±0.5% (IEC 60076-1, Cláusula 10, Tabla 1, ítem 2) — fuera de ese margen, el devanado tiene una falla (cortocircuito entre espiras, número de vueltas incorrecto). La prueba de polaridad, independiente de la anterior, determina si el devanado secundario es aditivo o sustractivo: se conecta un puente entre una terminal de alta (H1) y la adyacente de baja (X1), se aplica tensión reducida entre H1-H2 y se mide entre H2-X2; si la lectura es mayor que la tensión aplicada (V=Vap·(1+N_BT/N_AT)) la polaridad es aditiva, si es menor (V=Vap·(1−N_BT/N_AT)) es sustractiva. La norma ANSI/IEEE C57.12.00 (Cláusula 5.7.1) fija además una regla de fábrica: transformadores de ≤200 kVA y ≤8660 V de alta tensión se construyen con polaridad aditiva; el resto, sustractiva — una regla de diseño que la prueba de campo debe confirmar, no asumir.",
     "titulo": "Relación de Transformación y Prueba de Polaridad",
   },
+  {
+    "duracion": "50 min",
+    "estado": "activo",
+    "id": "mecanica-45",
+    "modulo": "Instrumentación",
+    "orden": 45,
+    "simuladorHtml": "/labs/circuito-equivalente-transformador.html",
+    "teoria": "El circuito equivalente de un transformador monofásico se obtiene de dos ensayos de rutina complementarios. El ensayo de vacío excita el devanado de baja tensión (X1-X2) con tensión reducida, dejando el de alta tensión (H1-H2) en circuito abierto: del triángulo de potencias S0=Voc·Ioc, Q0=√(S0²−Poc²) se obtiene la rama de magnetización Rc=Voc²/Poc (pérdidas en el núcleo) y Xm=Voc²/Q0 (reactancia de magnetización), referidas al lado de alta tensión multiplicando por a²=(N1/N2)². El ensayo de cortocircuito cortocircuita el devanado de baja tensión y excita el de alta hasta la corriente nominal: del triángulo de impedancias Zeq=Vsc/Isc, Req=Psc/Isc², Xeq=√(Zeq²−Req²) se obtiene la rama serie equivalente. Con Req y Xeq ya referidos, la regulación de voltaje a plena carga se estima con la fórmula aproximada %VR=%Req·cosθ+%Xeq·sinθ+(%Xeq·cosθ−%Req·sinθ)²/200 (FP en atraso), y la eficiencia se calcula directamente de las pérdidas medidas con η(x)=x·S·FP/(x·S·FP+Poc+x²·Psc), cuyo máximo ocurre cuando las pérdidas fijas igualan a las variables, x_máx=√(Poc/Psc) (IEC 60076-1, Cláusulas 11.4 y 11.5; ANSI/IEEE C57.12.90, Cláusula 8).",
+    "titulo": "Circuito Equivalente por Ensayos de Vacío y Cortocircuito",
+  },
 ]
 `;
 
@@ -901,6 +911,7 @@ exports[`golden master — catálogo por categoría (invariante ante extracción
   "mecanica-42",
   "mecanica-43",
   "mecanica-44",
+  "mecanica-45",
   "mecanica-5",
   "mecanica-6",
   "mecanica-7",
