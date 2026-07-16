@@ -281,65 +281,57 @@ function tf(n, d = 2) { return Number.isFinite(n) ? n.toFixed(d) : '—'; }
 
 /* ===================== 8. HUD y panel (estático, se llena una vez) ===================== */
 el('hud').innerHTML = `
-  <div class="hpanel">
-    <div class="htitle">🌡️ Termopar · RTD · Infrarrojo</div>
-    <div class="formula">
-      Termopar: V = S_K·(T − T_amb) &nbsp;|&nbsp; T_ind = V/S_K (+T_amb si hay CJC)<br/>
-      RTD: R = R₀·(1+α·T) &nbsp;|&nbsp; T_ind = (R/R₀ − 1)/α<br/>
-      IR: T_ap[K] = T_real[K]·(ε_real/ε_config)^¼
-    </div>
-    <div class="legend">
-      <span class="lg"><i style="background:#2e8b57"></i>Cable termopar (verde, IEC 60584-3)</span>
-      <span class="lg"><i style="background:#b8342f"></i>Hilo RTD (rojo)</span>
-      <span class="lg"><i style="background:#d9d5c8"></i>Hilo RTD (blanco)</span>
-      <span class="lg"><i style="background:#ff2b2b"></i>Punto láser (sólo puntería, no mide)</span>
-    </div>
-    <div class="fid">
-      <div class="ft">✔ Sí modela</div>
-      <ul class="fl">
-        <li>Efecto Seebeck lineal (Tipo K) y el error real de omitir la compensación de junta fría (CJC), igual en magnitud a la temperatura ambiente de la unión de referencia.</li>
-        <li>Ecuación de Callendar–Van Dusen simplificada a su forma lineal (coeficiente medio α, IEC 60751) y el error real de conexión a 2 hilos frente a 4 hilos (Kelvin) por resistencia de cable.</li>
-        <li>Relación graybody simplificada entre radiación emitida, emisividad y temperatura, y el riesgo real y documentado de subestimar la temperatura de superficies metálicas brillantes si no se corrige la emisividad.</li>
-      </ul>
-      <div class="ft no">✘ NO modela</div>
-      <ul class="fl">
-        <li>Termopar: la tabla de referencia no lineal completa Tipo K (curva polinómica IEC 60584-1); aquí se usa un coeficiente de Seebeck promedio constante, válido como aproximación didáctica, no para uso metrológico.</li>
-        <li>RTD: la forma cuadrática completa de Callendar–Van Dusen, el autocalentamiento por corriente de excitación, ni la tolerancia de clase de una Pt100 individual.</li>
-        <li>IR: radiación de fondo reflejada, transmisión atmosférica, tamaño de punto (spot size)/distancia focal, ni ruido del detector.</li>
-      </ul>
-    </div>
+  <div class="eyebrow">Instrumentación · Medición de temperatura</div>
+  <h2>🌡️ Termopar · RTD · Infrarrojo</h2>
+  <div class="formula">
+    Termopar: V = S_K·(T − T_amb) &nbsp;|&nbsp; T_ind = V/S_K (+T_amb si hay CJC)<br/>
+    RTD: R = R₀·(1+α·T) &nbsp;|&nbsp; T_ind = (R/R₀ − 1)/α<br/>
+    IR: T_ap[K] = T_real[K]·(ε_real/ε_config)^¼
+  </div>
+  <div class="legend">
+    <div class="li"><span class="dot" style="background:#2e8b57"></span>Cable termopar (verde, IEC 60584-3)</div>
+    <div class="li"><span class="dot" style="background:#b8342f"></span>Hilo RTD (rojo)</div>
+    <div class="li"><span class="dot" style="background:#d9d5c8"></span>Hilo RTD (blanco)</div>
+    <div class="li"><span class="dot" style="background:#ff2b2b"></span>Punto láser (sólo puntería, no mide)</div>
+  </div>
+  <div class="fid">
+    <div class="ft">✔ Sí modela</div>
+    <div class="fl">Efecto Seebeck lineal (Tipo K) y el error real de omitir la compensación de junta fría (CJC), igual en magnitud a la temperatura ambiente de la unión de referencia.</div>
+    <div class="fl">Ecuación de Callendar–Van Dusen simplificada a su forma lineal (coeficiente medio α, IEC 60751) y el error real de conexión a 2 hilos frente a 4 hilos (Kelvin) por resistencia de cable.</div>
+    <div class="fl">Relación graybody simplificada entre radiación emitida, emisividad y temperatura, y el riesgo real y documentado de subestimar la temperatura de superficies metálicas brillantes si no se corrige la emisividad.</div>
+    <div class="ft no">✘ NO modela</div>
+    <div class="fl no">Termopar: la tabla de referencia no lineal completa Tipo K (curva polinómica IEC 60584-1); aquí se usa un coeficiente de Seebeck promedio constante, válido como aproximación didáctica, no para uso metrológico.</div>
+    <div class="fl no">RTD: la forma cuadrática completa de Callendar–Van Dusen, el autocalentamiento por corriente de excitación, ni la tolerancia de clase de una Pt100 individual.</div>
+    <div class="fl no">IR: radiación de fondo reflejada, transmisión atmosférica, tamaño de punto (spot size)/distancia focal, ni ruido del detector.</div>
   </div>`;
 
 el('panel').innerHTML = `
-  <div class="ppanel">
-    <div class="ptitle" id="p_title">Termopar Tipo K</div>
-    <div class="scenbar">
-      <button class="b" id="btnNew">🔀 Otro instrumento</button>
-      <button class="b" id="btnMedir">🌡️ Iniciar medición</button>
-    </div>
-    <div class="modebar" id="modebar">
-      <button class="b on" id="btnModeA"></button>
-      <button class="b" id="btnModeB"></button>
-    </div>
-    <div class="telegrid">
-      <div class="trow"><span>T real del punto</span><b id="t_treal">—</b></div>
-      <div class="trow"><span>Señal cruda del sensor</span><b id="t_signal">—</b></div>
-      <div class="trow"><span>T indicada por el instrumento</span><b id="t_tind">—</b></div>
-      <div class="trow"><span>Error (indicada − real)</span><b id="t_error">—</b></div>
-      <div class="trow"><span>Modo del instrumento</span><b id="t_modo">—</b></div>
-    </div>
-    <div class="dxblock">
-      <div class="dxq">¿Cuál es la causa del error observado?</div>
-      <div class="dxbtns">
-        <button class="dxb" data-dx="junta_fria">A · Falta de compensación de junta fría (CJC)</button>
-        <button class="dxb" data-dx="resistencia_cable">B · Resistencia de los cables de extensión (2 hilos)</button>
-        <button class="dxb" data-dx="emisividad">C · Emisividad configurada distinta a la real</button>
-        <button class="dxb" data-dx="falla">D · El instrumento está descalibrado o dañado</button>
-      </div>
-      <div class="dxfeedback" id="dxfeedback"></div>
-    </div>
-    <button class="b wide" id="btnAuto">▶️ Demostración guiada</button>
-    <div id="toast" class="toast"></div>
+  <h4 id="p_title">Termopar Tipo K</h4>
+  <div class="modebar">
+    <button class="b" id="btnNew">🔀 Otro instrumento</button>
+    <button class="b" id="btnMedir">🌡️ Iniciar medición</button>
+  </div>
+  <div class="modebar" id="modebar">
+    <button class="b on" id="btnModeA"></button>
+    <button class="b" id="btnModeB"></button>
+  </div>
+  <div id="tele">
+    <div class="g"><div class="gl"><span>T real del punto</span><b id="t_treal">—</b></div></div>
+    <div class="g"><div class="gl"><span>Señal cruda del sensor</span><b id="t_signal">—</b></div></div>
+    <div class="g"><div class="gl"><span>T indicada por el instrumento</span><b id="t_tind">—</b></div></div>
+    <div class="g"><div class="gl"><span>Error (indicada − real)</span><b id="t_error">—</b></div></div>
+    <div class="g"><div class="gl"><span>Modo del instrumento</span><b id="t_modo">—</b></div></div>
+  </div>
+  <h4 class="sec">¿Cuál es la causa del error observado?</h4>
+  <div class="btns" id="dxbtns">
+    <button class="b dx" data-dx="junta_fria">A · Falta de compensación de junta fría (CJC)</button>
+    <button class="b dx" data-dx="resistencia_cable">B · Resistencia de los cables de extensión (2 hilos)</button>
+    <button class="b dx" data-dx="emisividad">C · Emisividad configurada distinta a la real</button>
+    <button class="b dx" data-dx="falla">D · El instrumento está descalibrado o dañado</button>
+  </div>
+  <div class="console" id="dxfeedback"></div>
+  <div class="btns">
+    <button class="b auto" id="btnAuto">▶️ Demostración guiada</button>
   </div>`;
 
 /* ===================== 9. Render de pantallas canvas ===================== */
@@ -410,7 +402,7 @@ function refreshModeBar() {
 }
 
 function clearDx() {
-  document.querySelectorAll('.dxb').forEach(b => b.classList.remove('correct', 'wrong'));
+  document.querySelectorAll('.b.dx').forEach(b => b.classList.remove('right', 'wrong'));
   el('dxfeedback').textContent = '';
 }
 
@@ -445,14 +437,14 @@ el('btnNew').addEventListener('click', () => {
 el('btnMedir').addEventListener('click', () => setMedir(!midiendo));
 el('btnModeA').addEventListener('click', () => setMode(false));
 el('btnModeB').addEventListener('click', () => setMode(true));
-document.querySelectorAll('.dxb').forEach(btn => {
+document.querySelectorAll('.b.dx').forEach(btn => {
   btn.addEventListener('click', () => {
     const key = btn.getAttribute('data-dx');
     const correct = SCEN_META[scenarioKey].respuesta;
     clearDx();
-    btn.classList.add(key === correct ? 'correct' : 'wrong');
+    btn.classList.add(key === correct ? 'right' : 'wrong');
     if (key !== correct) {
-      document.querySelector(`.dxb[data-dx="${correct}"]`).classList.add('correct');
+      document.querySelector(`.b.dx[data-dx="${correct}"]`).classList.add('right');
     }
     el('dxfeedback').textContent = DX_HINT[key];
   });
@@ -480,7 +472,7 @@ el('btnAuto').addEventListener('click', async () => {
     setMedir(true);
     showToast('Termopar sin compensación de junta fría: la lectura queda por debajo de la temperatura real.');
     await sleep(2800);
-    document.querySelector('.dxb[data-dx="junta_fria"]').click();
+    document.querySelector('.b.dx[data-dx="junta_fria"]').click();
     await sleep(2400);
     setMode(true);
     showToast('Con CJC activada, el lector suma la temperatura de su propia unión de referencia y corrige el error.');
@@ -490,7 +482,7 @@ el('btnAuto').addEventListener('click', async () => {
     setMode(false);
     showToast('RTD a 2 hilos: la resistencia de los cables de extensión se suma a la de la RTD y eleva la lectura.');
     await sleep(2800);
-    document.querySelector('.dxb[data-dx="resistencia_cable"]').click();
+    document.querySelector('.b.dx[data-dx="resistencia_cable"]').click();
     await sleep(2400);
     setMode(true);
     showToast('A 4 hilos (Kelvin), un par mide corriente y el otro mide tensión sin caída por los cables: el error desaparece.');
@@ -500,7 +492,7 @@ el('btnAuto').addEventListener('click', async () => {
     setMode(false);
     showToast('Pistola IR con emisividad de fábrica (0.95) sobre metal pulido (ε real ≈ 0.20): subestima la temperatura drásticamente.');
     await sleep(3000);
-    document.querySelector('.dxb[data-dx="emisividad"]').click();
+    document.querySelector('.b.dx[data-dx="emisividad"]').click();
     await sleep(2400);
     setMode(true);
     showToast('Al configurar la emisividad real de la superficie, la pistola IR indica la temperatura correcta.');

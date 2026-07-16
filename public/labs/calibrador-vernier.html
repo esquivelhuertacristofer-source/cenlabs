@@ -809,7 +809,11 @@ function updateReport(rawMM){
     html=`<b>${c.mision}</b><br><span class="mono">Lecturas: ${st.readings.map(r=>r.toFixed(2)).join(' · ')} mm<br>Media = ${st.mean.toFixed(3)} mm · Rango = ${st.range.toFixed(2)} mm · s = ${st.s.toFixed(4)} mm<br>Incertidumbre de resolución ±LC/2 = ±${st.uRes.toFixed(3)} mm</span>`;
   }else{
     const {lc}=RES_CFG[resKey]; const zeroErrorQ=quantize(c.zeroErrorRaw,lc); const correctedQ=rawMM-zeroErrorQ;
-    html=`<b>${c.mision}</b><br><span class="mono">Lectura cruda del nonio: <b>${rawMM.toFixed(3)} mm</b><br>Error de cero del instrumento: <b>${(zeroErrorQ>=0?'+':'')+zeroErrorQ.toFixed(3)} mm</b><br>Lectura corregida = cruda − error de cero = ${rawMM.toFixed(3)} − (${zeroErrorQ.toFixed(3)}) = <b>${correctedQ.toFixed(3)} mm</b></span>`;
+    if(solved){
+      html=`<b>${c.mision}</b><br><span class="mono">Lectura cruda del nonio: <b>${rawMM.toFixed(3)} mm</b><br>Error de cero del instrumento: <b>${(zeroErrorQ>=0?'+':'')+zeroErrorQ.toFixed(3)} mm</b><br>Lectura corregida = cruda − error de cero = ${rawMM.toFixed(3)} − (${zeroErrorQ.toFixed(3)}) = <b>${correctedQ.toFixed(3)} mm</b></span>`;
+    }else{
+      html=`<b>${c.mision}</b><br><span class="mono">Lectura cruda del nonio: <b>${rawMM.toFixed(3)} mm</b><br>Error de cero del instrumento: <b>${(zeroErrorQ>=0?'+':'')+zeroErrorQ.toFixed(3)} mm</b><br>Aplica <b>Lectura corregida = cruda − error de cero</b> y responde abajo — la lectura corregida se revela aquí al contestar.</span>`;
+    }
   }
   el('report').innerHTML=html;
 }
