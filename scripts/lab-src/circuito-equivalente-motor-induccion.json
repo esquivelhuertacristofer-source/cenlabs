@@ -1,0 +1,9 @@
+{
+  "donor": "escaner-obd.html",
+  "out": "circuito-equivalente-motor-induccion.html",
+  "title": "CEN Labs · Circuito Equivalente del Motor de Inducción por Ensayos de Vacío y Rotor Bloqueado — Laboratorio 3D",
+  "lt": "Circuito Equivalente (ensayos) · Motor de Inducción",
+  "inspectHint": "👆 Toca el motor, el tablero de ensayo o el esquemático para identificarlos",
+  "body": "circuito-equivalente-motor-induccion.body.js",
+  "fichas": ["_ficha-tecnica.js", "_ficha-circuito-equivalente-motor-induccion.js"]
+}

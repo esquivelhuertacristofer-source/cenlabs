@@ -791,6 +791,16 @@ exports[`golden master — catálogo por categoría (invariante ante extracción
     "teoria": "Con el rotor detenido, un motor de inducción se comporta como un transformador con el secundario en corto: toma una corriente de irrupción varias veces mayor que la nominal (ILR) y entrega un par de arranque también múltiplo del nominal (TLR). El arranque directo (DOL) no reduce ninguno de los dos. El arranque estrella-delta reduce ambos a un tercio de forma fija (k=1/3), porque el devanado ve tensión de fase en vez de tensión de línea. El arranque por autotransformador con derivación a reduce ambos por a² (k=a²) del lado de línea, pero por solo a del lado del motor —una asimetría propia de que el autotransformador es él mismo un transformador— y existe una derivación exacta, a=1/√3≈0.577, en la que reproduce la misma reducción que estrella-delta. El laboratorio compara los tres métodos sobre el mismo motor y expone el compromiso central: toda reducción de corriente de irrupción cuesta par de arranque disponible.",
     "titulo": "Métodos de Arranque de Motores de Inducción: Corriente de Irrupción",
   },
+  {
+    "duracion": "45 min",
+    "estado": "activo",
+    "id": "mecanica-51",
+    "modulo": "Instrumentación",
+    "orden": 51,
+    "simuladorHtml": "/labs/circuito-equivalente-motor-induccion.html",
+    "teoria": "El circuito equivalente en T de un motor de inducción (R1, X1, Xm, R2', X2') no viene en la placa del motor: se deriva combinando tres ensayos normados por IEEE Std 112. El ensayo de CD, con el motor detenido, mide la resistencia entre terminales de línea del estátor y da R1=Rll/2 (conexión estrella). El ensayo de vacío, con el motor girando sin carga, aísla la rama de magnetización: la impedancia Znl=Vf/Inl se separa en Rnl_eff (pérdidas en el cobre del estátor más pérdidas rotacionales) y Xnl≈Xm+X1. El ensayo de rotor bloqueado, hecho a frecuencia reducida (≤25% de la nominal, IEEE 112 §5.9.1) para no distorsionar R2' por efecto piel, aísla la impedancia serie: Zbl=Vf/Ibl da Rbl (con R2'=Rbl−R1) y Xbl, que tras corregirse linealmente a la frecuencia nominal se reparte según NEMA Diseño B (X1=0.4·Xbl, X2'=0.6·Xbl) y permite despejar Xm=Xnl−X1. Con el circuito completo, el equivalente de Thévenin en las terminales del rotor permite calcular la curva par-deslizamiento completa —incluyendo el par de arranque (s=1) y el par máximo (s=R2'/√(Rth²+(Xth+X2')²))— sin necesidad de ensayar jamás el motor a plena carga.",
+    "titulo": "Circuito Equivalente del Motor de Inducción por Ensayos",
+  },
 ]
 `;
 
@@ -968,6 +978,7 @@ exports[`golden master — catálogo por categoría (invariante ante extracción
   "mecanica-49",
   "mecanica-5",
   "mecanica-50",
+  "mecanica-51",
   "mecanica-6",
   "mecanica-7",
   "mecanica-8",
