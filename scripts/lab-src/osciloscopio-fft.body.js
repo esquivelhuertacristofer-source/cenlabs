@@ -414,6 +414,7 @@ let compKey='sub';
 let cursorType='v', cursorVKey='ok', cursorTKey='ok';
 let fftFreqKey='f200';
 let fftSpectrum=[], fftPeak=null, fftFreqNominal=FFT_FREQS[0].hz;
+let solved=false;
 
 function computeSpectrum(freqHz){
   const mags=[];
@@ -607,7 +608,7 @@ function updateTele(){
     const match=probePosKey===channelKey;
     setTele(
       ['Sonda (posición física)','Canal (ajuste en el osciloscopio)','V pico mostrado en pantalla','V pico REAL en la punta','¿Coinciden sonda y canal?'],
-      [probePosKey.toUpperCase(),channelKey.toUpperCase(),tf(displayed,2)+' V',tf(PROBE_V_TRUE,2)+' V',match?'Sí':'No'],
+      [probePosKey.toUpperCase(),channelKey.toUpperCase(),tf(displayed,2)+' V',solved?tf(PROBE_V_TRUE,2)+' V':'— (calcula: mostrado × factor real de la sonda)',match?'Sí':'No'],
       ['',(match?'good':'bad'),(match?'good':'bad'),'',(match?'good':'bad')]
     );
   } else if(scenarioKey==='compensacion'){
@@ -663,6 +664,7 @@ function renderQuestion(){
 function setScenario(key){
   scenarioKey=key;
   clearDx();
+  solved=false;
   ['s_sonda','s_compensacion','s_cursores','s_fft'].forEach(id=>el(id).classList.toggle('on',id==='s_'+key));
   el('ctrlSonda').style.display=key==='sonda'?'':'none';
   el('ctrlCompensacion').style.display=key==='compensacion'?'':'none';
@@ -706,6 +708,7 @@ document.querySelectorAll('#dxWrap .b.dx').forEach(btn=>{
     const ok=btn.dataset.ok==='1';
     btn.classList.add(ok?'right':'wrong');
     if(ok){
+      solved=true;
       synth.beep(1100,0.09,0.05);
       showToast(`<b>✔ Correcto</b><br>${DX_HINT[scenarioKey]}`);
     } else {

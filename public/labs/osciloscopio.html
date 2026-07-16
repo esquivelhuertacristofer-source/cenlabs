@@ -764,6 +764,7 @@ let triggerMode='normal';
 let triggerLevelKey='alto';
 let single={armed:false,captured:false};
 let phaseKey='fase0';
+let solved=false;
 
 /* ---------- 9) ANIMACIÓN ---------- */
 const synth=makeSynth({type:'sine',type2:'sine',filterFreq:2200,Q:0.7});
@@ -919,10 +920,16 @@ function updateTele(){
     const td=C1_TIMEDIV.find(x=>x.key===timeDivKey), vd=C1_VOLTDIV.find(x=>x.key===voltDivKey);
     el('t_vpp').textContent = vd.ok?`${C1_VPP.toFixed(2)} V (Vrms ${C1_VRMS.toFixed(2)} V)`:'— (ajusta volts/div)';
     el('t_vpp').className = vd.ok?'good':'warn';
-    el('t_t').textContent = td.ok?C1_T_MS.toFixed(2)+' ms':'— (ajusta base de tiempo)';
-    el('t_t').className = td.ok?'good':'warn';
-    el('t_f').textContent = td.ok?C1_FREQ.toFixed(0)+' Hz':'—';
-    el('t_f').className = td.ok?'good':'';
+    if(!td.ok){
+      el('t_t').textContent='— (ajusta base de tiempo)'; el('t_t').className='warn';
+      el('t_f').textContent='—'; el('t_f').className='';
+    } else if(!solved){
+      el('t_t').textContent='✔ base correcta — cuenta las divisiones de un ciclo en pantalla'; el('t_t').className='good';
+      el('t_f').textContent='—'; el('t_f').className='';
+    } else {
+      el('t_t').textContent=C1_T_MS.toFixed(2)+' ms'; el('t_t').className='good';
+      el('t_f').textContent=C1_FREQ.toFixed(0)+' Hz'; el('t_f').className='good';
+    }
     el('t_coup').textContent='—'; el('t_coup').className='';
     el('t_trig').textContent='—'; el('t_trig').className='';
     el('t_trigstate').textContent='—'; el('t_trigstate').className='';
@@ -963,7 +970,9 @@ function updateTele(){
     el('t_trig').textContent='—'; el('t_trig').className='';
     el('t_trigstate').textContent='—'; el('t_trigstate').className='';
     const dt=C4_T_MS*(ph.deg/360);
-    el('t_phase').textContent='Δt = '+dt.toFixed(3)+' ms → Δφ = '+ph.deg.toFixed(0)+'°';
+    el('t_phase').textContent = solved
+      ? 'Δt = '+dt.toFixed(3)+' ms → Δφ = '+ph.deg.toFixed(0)+'°'
+      : 'Δt = '+dt.toFixed(3)+' ms (calcula Δφ con la fórmula del reto)';
     el('t_phase').className='good';
   }
 }
@@ -987,6 +996,7 @@ function setScenario(key){
   scenarioKey=key;
   clearDx();
   single.armed=false; single.captured=false;
+  solved=false;
   ['s_basetiempo','s_acoplamiento','s_trigger','s_fase'].forEach(id=>el(id).classList.toggle('on',id==='s_'+key));
   el('ctrlBasetiempo').style.display = key==='basetiempo'?'':'none';
   el('ctrlAcoplamiento').style.display = key==='acoplamiento'?'':'none';
@@ -1041,6 +1051,7 @@ document.querySelectorAll('#dxWrap .b.dx').forEach(btn=>{
     clearDx();
     if(ok){
       btn.classList.add('right');
+      solved=true;
       synth.beep(1046,0.12,0.06);
       showToast(`<span style="color:var(--good)">✔ Correcto</span><br><span style="color:var(--dim);font-size:11px">${DX_HINT[scenarioKey]}</span>`);
     } else {

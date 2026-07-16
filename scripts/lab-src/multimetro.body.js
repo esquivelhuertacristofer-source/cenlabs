@@ -557,12 +557,17 @@ function updateReport(m){
           `<span class="mono">Lectura: <b>${fmtVal(m.reading,func,m.range)}</b> → intervalo [${lo} … ${hi}] ${s.u}</span>`;
     if(scenarioKey==='tomacorriente'&&func==='vac'){
       const em=ENV_META[envKey];
-      html+= em.ok
-        ? `<br><span class="ok">✔ ${em.nombre} = ${em.cat} — dentro de la categoría del DMM (CAT III 600 V).</span>`
-        : `<br><span class="dtc">⚠ ${em.nombre} = ${em.cat} — EXCEDE la categoría del DMM (IEC 61010-1). No midas aquí con este instrumento.</span>`;
+      html+=`<br><span class="mono">Punto medido: ${em.nombre} — ${em.cat}. Compara con la clasificación impresa en la carátula del DMM.</span>`;
+      if(solved){
+        html+= em.ok
+          ? `<br><span class="ok">✔ ${em.cat} — dentro de la categoría del DMM (CAT III 600 V).</span>`
+          : `<br><span class="dtc">⚠ ${em.cat} — EXCEDE la categoría del DMM (IEC 61010-1). No midas aquí con este instrumento.</span>`;
+      }
     }
     if(scenarioKey==='divisor'&&func==='vdc'){
-      html+=`<br><span class="mono">Divisor ideal sin cargar: ${VNODE_IDEAL.toFixed(3)} V — la diferencia es el efecto de carga de Z_in = 10 MΩ.</span>`;
+      html+=`<br><span class="mono">Divisor ideal sin cargar: ${VNODE_IDEAL.toFixed(3)} V.`+
+            (solved?` — la diferencia es el efecto de carga de Z_in = 10 MΩ.`:``)+
+            `</span>`;
     }
   }
   el('report').innerHTML=html;
@@ -599,7 +604,12 @@ function setEnv(k){
   envKey=k;
   ['cat2','cat3','cat4'].forEach(e=>el('e_'+e).classList.toggle('on',e===k));
   drawEnvLabel(); refreshMeter();
-  if(!ENV_META[k].ok){ synth.beep(240,0.18,0.06); showToast('<span style="color:var(--bad)">⚠ Acometida = CAT IV.</span><br><span style="color:var(--dim);font-size:11px">Este DMM es CAT III 600 V: ahí NO se usa, aunque el voltaje sea el mismo.</span>'); }
+  if(!ENV_META[k].ok){
+    synth.beep(240,0.18,0.06);
+    showToast(solved
+      ? '<span style="color:var(--bad)">⚠ Acometida = CAT IV.</span><br><span style="color:var(--dim);font-size:11px">Este DMM es CAT III 600 V: ahí NO se usa, aunque el voltaje sea el mismo.</span>'
+      : '<span style="color:var(--bad)">⚠ Acometida = CAT IV.</span><br><span style="color:var(--dim);font-size:11px">Antes de medir aquí, compara esta categoría con la clasificación impresa en la carátula del DMM.</span>');
+  }
 }
 ['cat2','cat3','cat4'].forEach(k=>{ el('e_'+k).onclick=()=>setEnv(k); });
 
