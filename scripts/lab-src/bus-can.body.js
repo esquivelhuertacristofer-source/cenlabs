@@ -502,19 +502,21 @@ function updateTele(){
   } else if(scenarioKey==='sin_term'){
     const r=terminadoBRemoved;
     el('t_estado').textContent = r?'Comunicando, con ringing':'Comunicando'; el('t_estado').className = r?'warn':'good';
-    el('t_vh').textContent = r?'2.5 V ↔ ~4.0 V (con sobreoscilación)':'2.5 V ↔ 3.5 V'; el('t_vh').className = r?'warn':'good';
-    el('t_vl').textContent = r?'~1.0 V ↔ 2.5 V (con sobreoscilación)':'1.5 V ↔ 2.5 V'; el('t_vl').className = r?'warn':'good';
-    el('t_vdiff').textContent = r?'≈0 V ↔ ≈2 V, con rebote en cada flanco':'≈0 V ↔ ≈2 V'; el('t_vdiff').className = r?'warn':'good';
+    el('t_vh').textContent = r?'2.5 V ↔ 3.5 V, con sobreoscilación en cada flanco':'2.5 V ↔ 3.5 V'; el('t_vh').className = r?'warn':'good';
+    el('t_vl').textContent = r?'1.5 V ↔ 2.5 V, con sobreoscilación en cada flanco':'1.5 V ↔ 2.5 V'; el('t_vl').className = r?'warn':'good';
+    el('t_vdiff').textContent = r?'≈0 V ↔ ≈2 V, con rebote (y posible inversión breve de polaridad) en cada flanco':'≈0 V ↔ ≈2 V'; el('t_vdiff').className = r?'warn':'good';
     el('t_term').textContent = r?'Falta el extremo B (abierto)':'Ambos extremos, ≈120 Ω c/u'; el('t_term').className = r?'bad':'good';
   } else if(scenarioKey==='corto'){
     const a=cortoActivo;
+    const reveal=answered.corto;
     el('t_estado').textContent = a?'Sin comunicación':'Comunicando'; el('t_estado').className = a?'bad':'good';
     el('t_vh').textContent = a?'~2.5 V (fija)':'2.5 V ↔ 3.5 V'; el('t_vh').className = a?'bad':'good';
     el('t_vl').textContent = a?'~2.5 V (fija)':'1.5 V ↔ 2.5 V'; el('t_vl').className = a?'bad':'good';
     el('t_vdiff').textContent = a?'≈0 V constante (no se desarrolla)':'≈0 V ↔ ≈2 V'; el('t_vdiff').className = a?'bad':'good';
-    el('t_term').textContent = a?'Cortocircuito CAN_H–CAN_L':'Ambos extremos, ≈120 Ω c/u'; el('t_term').className = a?'bad':'good';
+    el('t_term').textContent = a?(reveal?'Cortocircuito CAN_H–CAN_L':'Anómala (diagnostica con la pantalla)'):'Ambos extremos, ≈120 Ω c/u'; el('t_term').className = a?'bad':'good';
   } else if(scenarioKey==='arbitraje'){
-    el('t_estado').textContent='Arbitraje en curso (normal)'; el('t_estado').className='good';
+    const reveal=showGhost||answered.arbitraje;
+    el('t_estado').textContent = reveal?'Arbitraje en curso (normal)':'Trama interrumpida — inspecciona antes de concluir'; el('t_estado').className = reveal?'good':'warn';
     el('t_vh').textContent='2.5 V ↔ 3.5 V'; el('t_vh').className='good';
     el('t_vl').textContent='1.5 V ↔ 2.5 V'; el('t_vl').className='good';
     el('t_vdiff').textContent='≈0 V ↔ ≈2 V'; el('t_vdiff').className='good';
@@ -525,13 +527,22 @@ function updateTele(){
 function refreshCaseLabel(){ el('p_case').textContent='Caso '+(SCEN_ORDER.indexOf(scenarioKey)+1)+'/4'; }
 function refreshProgress(){ const n=Object.values(answered).filter(Boolean).length; el('p_progress').textContent=n+'/4 ✔'; }
 function clearDx(){ document.querySelectorAll('.b.dx').forEach(b=>b.classList.remove('right','wrong')); }
+function shuffled(arr){
+  const a=arr.slice();
+  for(let i=a.length-1;i>0;i--){
+    const j=Math.floor(Math.random()*(i+1));
+    [a[i],a[j]]=[a[j],a[i]];
+  }
+  return a;
+}
 function renderQuestion(){
   const q=QUESTIONS[scenarioKey];
   const qEl=el('q_prompt');
   qEl.textContent=q.prompt;
   qEl.style.textTransform='none'; // uppercase would turn "µs" into "Ms" (Griega mu ≈ Latina M)
+  const opts=shuffled(q.opts);
   document.querySelectorAll('#dxWrap .b.dx').forEach((btn,i)=>{
-    const o=q.opts[i];
+    const o=opts[i];
     btn.textContent=String.fromCharCode(65+i)+' · '+o.t;
     btn.dataset.ok=o.ok?'1':'0';
   });
@@ -582,7 +593,7 @@ el('s_arbitraje').onclick=()=>setScenario('arbitraje');
 
 el('btnTerm').onclick=()=>{ terminadoBRemoved=!terminadoBRemoved; applyTermState(); synth.beep(terminadoBRemoved?300:660,0.1,0.05); };
 el('btnCorto').onclick=()=>{ cortoActivo=!cortoActivo; applyCortoState(); synth.beep(cortoActivo?180:660,0.1,0.05); };
-el('btnGhost').onclick=()=>{ showGhost=!showGhost; applyGhostState(); synth.beep(showGhost?880:440,0.08,0.04); };
+el('btnGhost').onclick=()=>{ showGhost=!showGhost; applyGhostState(); updateTele(); synth.beep(showGhost?880:440,0.08,0.04); };
 
 document.querySelectorAll('#dxWrap .b.dx').forEach(btn=>{
   btn.onclick=()=>{
@@ -593,6 +604,7 @@ document.querySelectorAll('#dxWrap .b.dx').forEach(btn=>{
       btn.classList.add('right');
       answered[scenarioKey]=true;
       refreshProgress();
+      updateTele();
       synth.beep(1046,0.12,0.06);
       showToast(`<span style="color:var(--good)">✔ Correcto</span><br><span style="color:var(--dim);font-size:11px">${DX_HINT[scenarioKey]}</span>`);
     } else {

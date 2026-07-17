@@ -639,6 +639,7 @@ const DX_HINT={
 
 let connected=false, sdbLinked=null, connAttempt=0, connGen=0;
 let scenarioKey=SCEN_ORDER[0], mode='con';
+let dxSolved={noComm:false,aprobado:false,rechazado:false,noEvaluable:false};
 
 function obligatoriosCompletados(){
   const cs=CASES[scenarioKey];
@@ -740,7 +741,9 @@ function renderConexion(){
   let statusLine;
   if(connAttempt>0) statusLine=`<span style="color:var(--hv)">Interrogando al SDB… intento ${connAttempt}/3</span>`;
   else if(sdbLinked===true) statusLine=`<span class="ok">✔ Conexión exitosa con la ECU.</span>`;
-  else if(sdbLinked===false) statusLine=`<span class="dtc">✗ Conexión NO exitosa tras 3 intentos.</span><br><span class="mono">Se registran las características del vehículo (marca, submarca, año modelo) y se notifica al propietario (Anexo normativo I, num. 2.6). Esto no equivale a un rechazo ni a una aprobación.</span>`;
+  else if(sdbLinked===false) statusLine = dxSolved.noComm
+    ? `<span class="dtc">✗ Conexión NO exitosa tras 3 intentos.</span><br><span class="mono">Se registran las características del vehículo (marca, submarca, año modelo) y se notifica al propietario (Anexo normativo I, num. 2.6). Esto no equivale a un rechazo ni a una aprobación.</span>`
+    : `<span class="dtc">✗ Conexión NO exitosa tras 3 intentos.</span><br><span class="mono">Consulta el procedimiento aplicable en la ficha técnica.</span>`;
   else statusLine=`<span class="mono">Sin intentar todavía.</span>`;
   return `<b>Conexión con el SDB</b><br><span class="mono">DLC: SAE J1962 / ISO 15031-3 · 16 pines</span><br>${statusLine}`;
 }
@@ -764,14 +767,17 @@ function renderDtc(){
 function renderVerdict(){
   if(sdbLinked!==true){
     const msg = sdbLinked===false
-      ? 'Conexión NO exitosa tras 3 intentos (Anexo normativo I, num. 2.6). Se registran las características del vehículo y se notifica al propietario — el método de prueba no pudo aplicarse; esto NO es un rechazo ni una aprobación.'
+      ? (dxSolved.noComm
+          ? 'Conexión NO exitosa tras 3 intentos (Anexo normativo I, num. 2.6). Se registran las características del vehículo y se notifica al propietario — el método de prueba no pudo aplicarse; esto NO es un rechazo ni una aprobación.'
+          : 'Conexión NO exitosa tras 3 intentos. Consulta el procedimiento aplicable en la ficha técnica.')
       : 'Aún no hay conexión con el SDB — el método de prueba no puede aplicarse todavía.';
     return `<b>Resultado de la verificación</b><br><span class="mono">${msg}</span>`;
   }
   const v=computeVerdict();
   const chk=ok=> ok?'<b class="good">cumple</b>':'<b class="bad">no cumple</b>';
-  const bannerColor = v.code==='APROBADO'?'var(--good)':v.code==='RECHAZADO'?'var(--bad)':'var(--hv)';
-  const bannerTxt = {APROBADO:'✔ APROBADO', RECHAZADO:'✘ RECHAZADO', NO_EVALUABLE:'⚠ NO EVALUABLE'}[v.code];
+  const reveal=dxSolved[scenarioKey];
+  const bannerColor = reveal ? (v.code==='APROBADO'?'var(--good)':v.code==='RECHAZADO'?'var(--bad)':'var(--hv)') : 'var(--dim)';
+  const bannerTxt = reveal ? {APROBADO:'✔ APROBADO', RECHAZADO:'✘ RECHAZADO', NO_EVALUABLE:'⚠ NO EVALUABLE'}[v.code] : '? Responde la pregunta diagnóstica para ver el resultado';
   return `<b>Tabla 1 · criterios de evaluación SDB</b>
     <div class="g"><div class="gl"><span>1. Conexión con el SDB</span>${chk(v.c1)}</div></div>
     <div class="g"><div class="gl"><span>2. Sin códigos confirmados (4.1.1)</span>${chk(v.c2)}</div></div>
@@ -804,8 +810,9 @@ function updateTele(){
   const milB=el('t_mil'); milB.textContent=cs.dtc?'encendido':'apagado'; milB.className=cs.dtc?'warn':'good';
   const v=computeVerdict();
   const verB=el('t_ver');
-  verB.textContent=v.code.replace('_',' ');
-  verB.className=v.code==='APROBADO'?'good':v.code==='RECHAZADO'?'bad':'warn';
+  const reveal=dxSolved[scenarioKey];
+  verB.textContent=reveal?v.code.replace('_',' '):'responde la pregunta';
+  verB.className=reveal?(v.code==='APROBADO'?'good':v.code==='RECHAZADO'?'bad':'warn'):'';
 }
 
 function wrapText(ctx,text,x,y,maxW,lh){
@@ -837,7 +844,7 @@ function drawToolScreen(){
     c.fillStyle='#f4475e'; c.font='bold 19px Outfit, sans-serif';
     wrapText(c,'CONEXIÓN NO EXITOSA',18,132,282,24);
     c.font='13px Outfit, sans-serif'; c.fillStyle='#8FB3AC';
-    wrapText(c,'Se registran las características del vehículo y se notifica al propietario.',18,168,282,17);
+    wrapText(c, dxSolved.noComm ? 'Se registran las características del vehículo y se notifica al propietario.' : 'Consulta el procedimiento aplicable.',18,168,282,17);
     scrTex.needsUpdate=true; return;
   }
   if(sdbLinked!==true){ scrTex.needsUpdate=true; return; }
@@ -855,8 +862,9 @@ function drawToolScreen(){
     c.fillText('Sin códigos confirmados',18,168);
   }
   const v=computeVerdict();
-  const bannerTxt={APROBADO:'APROBADO',RECHAZADO:'RECHAZADO',NO_EVALUABLE:'NO EVALUABLE'}[v.code];
-  const bannerColor={APROBADO:'#34d399',RECHAZADO:'#f4475e',NO_EVALUABLE:'#FFB703'}[v.code];
+  const reveal=dxSolved[scenarioKey];
+  const bannerTxt=reveal?{APROBADO:'APROBADO',RECHAZADO:'RECHAZADO',NO_EVALUABLE:'NO EVALUABLE'}[v.code]:'? ? ?';
+  const bannerColor=reveal?{APROBADO:'#34d399',RECHAZADO:'#f4475e',NO_EVALUABLE:'#FFB703'}[v.code]:'#8FB3AC';
   c.fillStyle=bannerColor; c.font='bold 24px Outfit, sans-serif'; c.textAlign='center';
   c.fillText(bannerTxt,160,340);
   c.textAlign='left';
@@ -864,11 +872,20 @@ function drawToolScreen(){
 }
 
 /* ---------- pregunta diagnóstica ---------- */
+function shuffled(arr){
+  const a=arr.slice();
+  for(let i=a.length-1;i>0;i--){
+    const j=Math.floor(Math.random()*(i+1));
+    [a[i],a[j]]=[a[j],a[i]];
+  }
+  return a;
+}
 function renderQuestion(){
   const q=QUESTIONS[scenarioKey];
   el('q_prompt').textContent=q.prompt;
   const wrap=el('dxWrap'); wrap.innerHTML='';
-  q.opts.forEach((o,i)=>{
+  const opts=shuffled(q.opts);
+  opts.forEach((o,i)=>{
     const b=document.createElement('button');
     b.className='b dx'; b.dataset.i=String(i); b.dataset.ok=o.ok?'1':'0';
     b.textContent=String.fromCharCode(65+i)+' · '+o.t;
@@ -883,6 +900,7 @@ function wireDx(){
       clearDx();
       if(btn.dataset.ok==='1'){
         btn.classList.add('right'); synth.beep(1046,0.12,0.06);
+        dxSolved[scenarioKey]=true; setConsole();
         showToast(`<span style="color:var(--good)">✔ Correcto.</span><br><span style="color:var(--dim);font-size:11px">${DX_HINT[scenarioKey]}</span>`);
       }else{
         btn.classList.add('wrong'); synth.beep(220,0.15,0.06);

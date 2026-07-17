@@ -226,7 +226,7 @@ const answered={sano:false,tierra:false,corto5v:false,conmutada:false};
 function computeReading(key){
   switch(key){
     case 'bateria': {
-      if(scenarioKey==='conmutada') return llaveOn?{v:'14.2 V',cls:'good',note:'motor en marcha'}:{v:'12.6 V',cls:'good',note:'contacto apagado'};
+      if(scenarioKey==='conmutada') return {v:'12.6 V',cls:'good',note:'constante, no depende de la llave'};
       return {v:'12.6–14.2 V',cls:'good',note:'según estado del motor'};
     }
     case 'conmutada': {
@@ -524,12 +524,21 @@ function refreshAll(){ updateTele(); updateScreen(); setConsole(); }
 function refreshCaseLabel(){ el('p_case').textContent='Caso '+(SCEN_ORDER.indexOf(scenarioKey)+1)+'/4'; }
 function refreshProgress(){ const n=Object.values(answered).filter(Boolean).length; el('p_progress').textContent=n+'/4 ✔'; }
 function clearDx(){ document.querySelectorAll('.b.dx').forEach(b=>b.classList.remove('right','wrong')); }
+function shuffled(arr){
+  const a=arr.slice();
+  for(let i=a.length-1;i>0;i--){
+    const j=Math.floor(Math.random()*(i+1));
+    [a[i],a[j]]=[a[j],a[i]];
+  }
+  return a;
+}
 function renderQuestion(){
   const q=QUESTIONS[scenarioKey];
   const qEl=el('q_prompt');
   qEl.textContent=q.prompt;
+  const opts=shuffled(q.opts);
   document.querySelectorAll('#dxWrap .b.dx').forEach((btn,i)=>{
-    const o=q.opts[i];
+    const o=opts[i];
     btn.textContent=String.fromCharCode(65+i)+' · '+o.t;
     btn.dataset.ok=o.ok?'1':'0';
   });

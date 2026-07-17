@@ -210,6 +210,7 @@ const DX_HINT={
 
 let connected=false, mode='01', scenarioKey=SCEN_ORDER[0], cargaAlta=false;
 let rpmLive=0, stumbleFactor=1;
+let dxSolved={pendiente:false,confirmadoB:false,confirmadoA:false,sintesis:false};
 
 function currentMisfireRate(){
   const cs=CASES[scenarioKey];
@@ -363,8 +364,9 @@ function setConsole(){
   }else if(mode==='03'){
     if(cs.confirmedDTC){
       const st=milEffectiveState();
-      const milTxt = st==='blink' ? '<span style="color:var(--bad)">PARPADEANDO (Tipo A · riesgo para el catalizador)</span>'
-                   : st==='solid' ? '<span style="color:var(--hv)">FIJA / continua (Tipo B · umbral de emisiones)</span>'
+      const reveal=dxSolved[scenarioKey];
+      const milTxt = st==='blink' ? (reveal?'<span style="color:var(--bad)">PARPADEANDO (Tipo A · riesgo para el catalizador)</span>':'<span style="color:var(--bad)">PARPADEANDO</span>')
+                   : st==='solid' ? (reveal?'<span style="color:var(--hv)">FIJA / continua (Tipo B · umbral de emisiones)</span>':'<span style="color:var(--hv)">FIJA / continua</span>')
                    : 'apagada';
       consoleEl.innerHTML=`<b>Modo $03 · Códigos confirmados</b><br><span class="dtc">${cs.confirmedDTC[0]}</span> <span class="mono">${cs.confirmedDTC[1]}</span><br><span class="mono">MIL: </span>${milTxt}`;
     }else{
@@ -448,11 +450,20 @@ function drawToolScreen(rpmShown){
 }
 
 /* ---------- pregunta diagnóstica ---------- */
+function shuffled(arr){
+  const a=arr.slice();
+  for(let i=a.length-1;i>0;i--){
+    const j=Math.floor(Math.random()*(i+1));
+    [a[i],a[j]]=[a[j],a[i]];
+  }
+  return a;
+}
 function renderQuestion(){
   const q=QUESTIONS[scenarioKey];
   el('q_prompt').textContent=q.prompt;
   const wrap=el('dxWrap'); wrap.innerHTML='';
-  q.opts.forEach((o,i)=>{
+  const opts=shuffled(q.opts);
+  opts.forEach((o,i)=>{
     const b=document.createElement('button');
     b.className='b dx'; b.dataset.i=String(i); b.dataset.ok=o.ok?'1':'0';
     b.textContent=String.fromCharCode(65+i)+' · '+o.t;
@@ -467,6 +478,7 @@ function wireDx(){
       clearDx();
       if(btn.dataset.ok==='1'){
         btn.classList.add('right'); synth.beep(1046,0.12,0.06);
+        dxSolved[scenarioKey]=true; setConsole();
         showToast(`<span style="color:var(--good)">✔ Correcto.</span><br><span style="color:var(--dim);font-size:11px">${DX_HINT[scenarioKey]}</span>`);
       }else{
         btn.classList.add('wrong'); synth.beep(220,0.15,0.06);
@@ -480,6 +492,8 @@ function clearDx(){ document.querySelectorAll('#dxWrap .b.dx').forEach(b=>b.clas
 /* ---------- interacción ---------- */
 function setScenario(key){
   scenarioKey=key;
+  mode='01';
+  ['01','07','03','02'].forEach(id=>el('m'+id).classList.toggle('on',id==='01'));
   SCEN_ORDER.forEach(k=>el('s_'+k).classList.toggle('on',k===key));
   el('ctrlSintesis').style.display=(key==='sintesis')?'':'none';
   if(key==='sintesis'){ cargaAlta=false; el('c_ligera').classList.add('on'); el('c_alta').classList.remove('on'); }

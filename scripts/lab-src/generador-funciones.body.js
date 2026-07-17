@@ -119,12 +119,12 @@ const ampKnob=makeKnob(srcGroup,-0.50,-0.16,0.362,'Perilla de amplitud','Ajusta 
 const freqKnob=makeKnob(srcGroup,-0.22,-0.16,0.362,'Perilla de frecuencia','Ajusta la frecuencia de la señal de salida — variable en el Caso 3 (Barrido/Bode).');
 const offsetKnob=makeKnob(srcGroup,0.08,-0.16,0.362,'Perilla de offset de CD','Suma un nivel de voltaje de corriente directa constante sobre la señal alterna — Caso 4.');
 
-const waveBtnSine=new THREE.Mesh(new THREE.BoxGeometry(0.10,0.055,0.02),MAT.btnLit);
+const waveBtnSine=new THREE.Mesh(new THREE.BoxGeometry(0.10,0.055,0.02),MAT.btnLit.clone());
 waveBtnSine.position.set(0.40,0.02,0.362);
 srcGroup.add(waveBtnSine);
 registerPart(waveBtnSine,'Forma de onda: senoidal','Selecciona una salida senoidal — espectralmente pura, un único tono. Caso 2.','#5eead4');
 
-const waveBtnSquare=new THREE.Mesh(new THREE.BoxGeometry(0.10,0.055,0.02),MAT.btnLit);
+const waveBtnSquare=new THREE.Mesh(new THREE.BoxGeometry(0.10,0.055,0.02),MAT.btnLit.clone());
 waveBtnSquare.position.set(0.40,-0.12,0.362);
 srcGroup.add(waveBtnSquare);
 registerPart(waveBtnSquare,'Forma de onda: cuadrada','Selecciona una salida cuadrada — contiene una fundamental más armónicos impares (3f, 5f, 7f…). Caso 2.','#5eead4');
@@ -440,7 +440,7 @@ const DX_HINT={
 
 let scenarioKey='carga';
 let energized=false;
-let genLoadKey='50', actualLoadKey='hiz';
+let genLoadKey='50', actualLoadKey='50';
 let waveKey='sine';
 let formaSpectrum=[];
 let bodeFreqKey='f100';
@@ -508,9 +508,9 @@ document.getElementById('hud').innerHTML=`
     V<sub>pico</sub> = V<sub>offset</sub> + V<sub>amplitud</sub> (recorte si supera el rango del circuito)
   </div>
   <div class="legend">
-    <span><i style="background:#ffd166"></i> Traza / medición activa</span>
-    <span><i style="background:#5eead4"></i> Espectro / curva teórica</span>
-    <span><i style="background:#e879f9"></i> Filtro RC / f<sub>c</sub></span>
+    <div class="li"><span class="dot" style="background:#ffd166"></span>Traza / medición activa</div>
+    <div class="li"><span class="dot" style="background:#5eead4"></span>Espectro / curva teórica</div>
+    <div class="li"><span class="dot" style="background:#e879f9"></span>Filtro RC / f<sub>c</sub></div>
   </div>
   <div class="fid">
     <div class="ft">🔒 Contrato de fidelidad</div>
@@ -643,11 +643,10 @@ function updateTele(){
     const f=BODE_FREQS.find(x=>x.key===bodeFreqKey);
     const gain=bodeGain(f.hz), gainDb=bodeGainDb(f.hz);
     const vout=BODE_VIN_PP*gain;
-    const nearCutoff=Math.abs(gainDb-(-3))<1.5;
     setTele(
       ['Frecuencia actual','Vin (lectura confiable del generador)','Vout (medido en el osciloscopio)','Ganancia (Vout/Vin)','Ganancia en dB'],
       [f.label,tf(BODE_VIN_PP,2)+' Vpp',tf(vout,2)+' Vpp',tf(gain,3)+' V/V',tf(gainDb,1)+' dB'],
-      ['','','','',(nearCutoff?'warn':'')]
+      ['','','','','']
     );
   } else if(scenarioKey==='offset'){
     const lvl=OFFSET_LEVELS.find(x=>x.key===offsetKey);
@@ -664,13 +663,23 @@ function updateTele(){
 function refreshCaseLabel(){ el('p_case').textContent=`Caso ${SCEN_ORDER.indexOf(scenarioKey)+1}/4`; }
 function clearDx(){ document.querySelectorAll('#dxWrap .b.dx').forEach(b=>b.classList.remove('right','wrong')); }
 
+function shuffled(arr){
+  const a=arr.slice();
+  for(let i=a.length-1;i>0;i--){
+    const j=Math.floor(Math.random()*(i+1));
+    [a[i],a[j]]=[a[j],a[i]];
+  }
+  return a;
+}
+
 const qEl=el('q_prompt');
 function renderQuestion(){
   qEl.style.textTransform='none';
   const q=QUESTIONS[scenarioKey];
   qEl.textContent=q.prompt;
+  const opts=shuffled(q.opts);
   const btns=document.querySelectorAll('#dxWrap .b.dx');
-  btns.forEach((b,i)=>{ b.textContent=`${String.fromCharCode(65+i)}. ${q.opts[i].t}`; b.dataset.ok=q.opts[i].ok?'1':'0'; });
+  btns.forEach((b,i)=>{ b.textContent=`${String.fromCharCode(65+i)}. ${opts[i].t}`; b.dataset.ok=opts[i].ok?'1':'0'; });
   clearDx();
 }
 
@@ -818,6 +827,6 @@ async function runAuto(){
 el('btnAuto').onclick=runAuto;
 
 // ===== Init =====
-setActualLoad('hiz');
+setActualLoad('50');
 setScenario('carga');
 S.start();
