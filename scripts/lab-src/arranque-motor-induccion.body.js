@@ -177,20 +177,20 @@ function drawBoard(){
   for(let v=0;v<=AMAX+1e-9;v+=ATICK){const x=xPix(v);
     line(c,x,PY0,x,PY1,'#1E3A34',1);
     c.textAlign='center';c.fillStyle='#8FB3AC';c.fillText(v.toFixed(1),x,PY1+22);}
-  line(c,PX0,yPix(ILR/3),xPix(AY),yPix(ILR/3),'#f0a5a5',1,[6,6]);
-  line(c,PX0,yPix(TLR/3),xPix(AY),yPix(TLR/3),'#f0a5a5',1,[6,6]);
-  line(c,xPix(AY),PY0,xPix(AY),PY1,'#f0a5a5',1,[6,6]);
-  c.font='13px system-ui';c.fillStyle='#f0a5a5';c.textAlign='left';
-  c.fillText('Y-Δ equivalente: a = 1/√3 ≈ '+(AY*100).toFixed(1)+' %',xPix(AY)+8,PY0+18);
-  TAPS_TIPICOS.forEach(t=>{
-    const px=xPix(t);
-    c.beginPath();c.arc(px,yPix(ILR*t*t),4,0,Math.PI*2);c.fillStyle='#4FD1C5';c.fill();
-    c.beginPath();c.arc(px,yPix(TLR*t*t),4,0,Math.PI*2);c.fillStyle='#FFB703';c.fill();
-  });
-  rr(c,776,PY0-38,158,28,8,'#11201c','#4FD1C5',2);
-  c.font='bold 13px system-ui';c.textAlign='center';c.fillStyle='#4FD1C5';
-  c.fillText('taps típicos: 50/65/80 %',855,PY0-18);
   if(!hideQ){
+    line(c,PX0,yPix(ILR/3),xPix(AY),yPix(ILR/3),'#f0a5a5',1,[6,6]);
+    line(c,PX0,yPix(TLR/3),xPix(AY),yPix(TLR/3),'#f0a5a5',1,[6,6]);
+    line(c,xPix(AY),PY0,xPix(AY),PY1,'#f0a5a5',1,[6,6]);
+    c.font='13px system-ui';c.fillStyle='#f0a5a5';c.textAlign='left';
+    c.fillText('Y-Δ equivalente: a = 1/√3 ≈ '+(AY*100).toFixed(1)+' %',xPix(AY)+8,PY0+18);
+    TAPS_TIPICOS.forEach(t=>{
+      const px=xPix(t);
+      c.beginPath();c.arc(px,yPix(ILR*t*t),4,0,Math.PI*2);c.fillStyle='#4FD1C5';c.fill();
+      c.beginPath();c.arc(px,yPix(TLR*t*t),4,0,Math.PI*2);c.fillStyle='#FFB703';c.fill();
+    });
+    rr(c,776,PY0-38,158,28,8,'#11201c','#4FD1C5',2);
+    c.font='bold 13px system-ui';c.textAlign='center';c.fillStyle='#4FD1C5';
+    c.fillText('taps típicos: 50/65/80 %',855,PY0-18);
     plotFn(c,v=>ILR*v*v,'#4FD1C5',5);
     plotFn(c,v=>TLR*v*v,'#FFB703',4);
     const aa=effA(method,a);
@@ -295,10 +295,12 @@ cable([[1.95,0.62,0.65],[2.2,0.62,0.45],[2.42,0.60,0.30]],MAT.cableBlk);
 board.castShadow=false;
 
 function drawPanelD(){const c=panelD.cv.getContext('2d');
+  const hideQ=(mode==='reto'&&!retoSolved),hideTap=!!(hideQ&&MYST&&MYST.kind==='tap');
   c.fillStyle='#04120e';c.fillRect(0,0,256,128);
   c.font='bold 24px monospace';c.fillStyle='#4FD1C5';c.textAlign='center';
   c.fillText(method.toUpperCase(),128,52);
-  c.font='bold 22px monospace';c.fillStyle='#FFB703';c.fillText('a = '+(a*100).toFixed(0)+' %',128,88);
+  c.font='bold 22px monospace';c.fillStyle='#FFB703';
+  c.fillText('a = '+(method!=='auto'?'— (no aplica)':(hideTap?'¿?':(a*100).toFixed(0)+' %')),128,88);
   c.font='13px monospace';c.fillStyle='#8FB3AC';c.fillText('método · tap autotrafo',128,112);
   panelD.tx.needsUpdate=true;}
 function drawMeter3D(){const c=meter.cv.getContext('2d'),hideQ=(mode==='reto'&&!retoSolved);
@@ -399,6 +401,12 @@ const MODE_META={
   reto:{nombre:'Reto',cam:[[0.5,2.1,5.4],[0.1,1.2,0.1]],
     mision:'Dato desconocido: calcula la corriente, el par o el tap requerido — ANTES de revelar la gráfica.'},
 };
+function tolText(m){
+  return m.kind==='tap'?m.tol.toFixed(1)+' puntos %':m.tol.toFixed(3);
+}
+function syncTapEnabled(){
+  el('sTap').disabled=(mode==='reto')||method!=='auto';
+}
 function setMode(k){
   mode=k;solved=false;
   ['explora','comparar','reto'].forEach(m=>el('m_'+m).classList.toggle('on',m===k));
@@ -406,24 +414,24 @@ function setMode(k){
   el('p_mision').textContent=MODE_META[k].mision;
   el('retoBox').style.display=(k==='reto')?'block':'none';
   const locked=(k==='reto');
-  el('sTap').disabled=locked;
   ['dol','yd','auto'].forEach(m=>el('mm_'+m).disabled=locked);
   if(k==='reto'){
     if(!MYST)genMystery();
     if(MYST.kind==='tap'){
       method='auto';
       ['dol','yd','auto'].forEach(m=>el('mm_'+m).classList.toggle('on',m==='auto'));
-      el('retoHint').textContent='Arranque directo: I_línea/I_FL = '+ILR+'. Se exige limitar la corriente de arranque a un máximo de '+MYST.Xmax.toFixed(2)+'×I_FL usando un autotransformador. ¿Qué tap a (%) se necesita?';
+      el('retoHint').textContent='Arranque directo: I_línea/I_FL = '+ILR+'. Se exige limitar la corriente de arranque a un máximo de '+MYST.Xmax.toFixed(2)+'×I_FL usando un autotransformador. ¿Qué tap a (%) se necesita? Tolerancia: ±'+tolText(MYST)+'.';
       el('retoUnit').textContent='% (tap)';
     }else{
       method=MYST.method;
       ['dol','yd','auto'].forEach(m=>el('mm_'+m).classList.toggle('on',m===method));
       if(MYST.tap!=null){a=MYST.tap;el('sTap').value=(a*100).toFixed(0);el('av').textContent=(a*100).toFixed(0)+' %';}
       el('retoHint').textContent='Método: '+fmtMethod(MYST.method)+(MYST.tap!=null?' · tap a = '+(MYST.tap*100).toFixed(0)+' %':'')
-        +' · calcula '+(MYST.kind==='iline'?'I_línea/I_FL':'T_arranque/T_FL')+' (usa ILR='+ILR+', TLR='+TLR+').';
+        +' · calcula '+(MYST.kind==='iline'?'I_línea/I_FL':'T_arranque/T_FL')+' (usa ILR='+ILR+', TLR='+TLR+'). Tolerancia: ±'+tolText(MYST)+'.';
       el('retoUnit').textContent='× I_FL';
     }
   }
+  syncTapEnabled();
   clearDx();refreshQuestion();refreshAll();
   S.moveTo(MODE_META[k].cam[0],MODE_META[k].cam[1],1.3);
 }
@@ -431,6 +439,7 @@ function setMethod(m){
   if(mode==='reto')return;
   method=m;
   ['dol','yd','auto'].forEach(mm=>el('mm_'+mm).classList.toggle('on',mm===m));
+  syncTapEnabled();
   refreshAll();
 }
 
@@ -488,7 +497,7 @@ function checkReto(){
     synth.beep(880,.1,.08);setTimeout(()=>synth.beep(1175,.15,.08),140);
   }else{
     retoMsg='';
-    el('retoOut').innerHTML='<span class="dtc">✘ Aún no. Tolerancia: ±'+(MYST.kind==='tap'?MYST.tol.toFixed(1)+' puntos %':MYST.tol.toFixed(3))+'</span>';
+    el('retoOut').innerHTML='<span class="dtc">✘ Aún no. Tolerancia: ±'+tolText(MYST)+'</span>';
     synth.beep(220,.15,.08);
   }
   refreshAll();
@@ -501,10 +510,18 @@ function newMystery(){
 }
 
 /* ---------- 11 · Quiz de ingeniería (valores calculados en vivo) ---------- */
+function shuffle(arr){
+  const a2=arr.slice();
+  for(let i=a2.length-1;i>0;i--){
+    const j=Math.floor(Math.random()*(i+1));
+    [a2[i],a2[j]]=[a2[j],a2[i]];
+  }
+  return a2;
+}
 let QUIZ={};
 function buildQuiz(){
   QUIZ.explora={pregunta:'¿Por qué la corriente de arranque en autotransformador (I_línea) se reduce por a² mientras que la corriente que ve el propio motor (I_motor) solo se reduce por a?',
-    opciones:[
+    opciones:shuffle([
       {t:'Porque el autotransformador refleja la impedancia del motor hacia la línea por a² (como cualquier transformador), pero el motor conectado al secundario ve directamente la tensión reducida por a sobre su propia impedancia',ok:true,
        why:'Correcto: la línea ve la impedancia del motor reflejada por a², pero el devanado del motor solo experimenta la tensión reducida a·V — por eso I_motor=ILR·a mientras I_línea=ILR·a².'},
       {t:'Es un error de notación: ambas corrientes son siempre iguales en cualquier método de arranque',ok:false,
@@ -512,9 +529,9 @@ function buildQuiz(){
       {t:'Porque el motor tiene menos vueltas en su devanado que el autotransformador',ok:false,
        why:'La razón no es el número de vueltas del motor sino la relación de transformación del autotrafo: refleja impedancia hacia la línea por a², pero solo escala tensión/corriente hacia el motor por a.'},
       {t:'Porque el par de arranque siempre es igual a la corriente de línea',ok:false,
-       why:'El par de arranque escala con a² igual que I_línea (ambos con el mismo factor k=a²) — pero eso no explica la asimetría entre I_línea e I_motor, que es un efecto de transformación, no de par.'}]};
+       why:'El par de arranque escala con a² igual que I_línea (ambos con el mismo factor k=a²) — pero eso no explica la asimetría entre I_línea e I_motor, que es un efecto de transformación, no de par.'}])};
   QUIZ.comparar={pregunta:'¿Por qué el tap a=1/√3≈57.7% del autotransformador iguala EXACTAMENTE a Y-Δ en corriente y par de arranque?',
-    opciones:[
+    opciones:shuffle([
       {t:'Porque en ambos casos k=1/3: Y-Δ reduce la tensión de fase por 1/√3 (y la corriente/par de línea por (1/√3)²=1/3); el autotrafo con a=1/√3 da k=a²=1/3 — el mismo factor',ok:true,
        why:'Correcto: ambos métodos reducen k a exactamente 1/3 en ese punto — como I_línea/I_FL y T_arranque/T_FL dependen solo de k, coinciden en TODOS sus valores, no solo en uno.'},
       {t:'Es una coincidencia numérica sin relación física',ok:false,
@@ -522,11 +539,11 @@ function buildQuiz(){
       {t:'Porque a=1/√3 es el tap más usado comercialmente',ok:false,
        why:'Los taps comerciales típicos (≈50/65/80%) son distintos de 1/√3≈57.7% — ese valor es un punto de igualdad matemática con Y-Δ, no necesariamente un tap estándar de catálogo.'},
       {t:'Porque a esa altura el motor alcanza su velocidad nominal',ok:false,
-       why:'Este modelo compara solo el INSTANTE de arranque (rotor bloqueado), no la aceleración del motor — la velocidad no interviene en la comparación de k(a).'}]};
+       why:'Este modelo compara solo el INSTANTE de arranque (rotor bloqueado), no la aceleración del motor — la velocidad no interviene en la comparación de k(a).'}])};
   if(MYST){
     if(MYST.kind==='tap'){
       QUIZ.reto={pregunta:'Para limitar I_línea/I_FL a un máximo de '+MYST.Xmax.toFixed(2)+' (con ILR='+ILR+'), ¿qué ecuación despeja el tap a?',
-        opciones:[
+        opciones:shuffle([
           {t:'ILR·a² = Xmax → a = √(Xmax/ILR)',ok:true,
            why:'Correcto: I_línea/I_FL = ILR·a² es la relación del autotransformador — despejando a de esa igualdad se obtiene la raíz cuadrada del cociente.'},
           {t:'ILR·a = Xmax → a = Xmax/ILR',ok:false,
@@ -534,11 +551,11 @@ function buildQuiz(){
           {t:'a = Xmax/3',ok:false,
            why:'1/3 es el factor k de Y-Δ, no una fórmula general para el tap del autotransformador — el autotrafo no está limitado a k=1/3.'},
           {t:'a no depende de Xmax, solo de ILR',ok:false,
-           why:'Al revés: el tap necesario SÍ depende de cuánto quieras limitar la corriente (Xmax) — a mayor restricción (Xmax más bajo), menor tap requerido.'}]};
+           why:'Al revés: el tap necesario SÍ depende de cuánto quieras limitar la corriente (Xmax) — a mayor restricción (Xmax más bajo), menor tap requerido.'}])};
     }else{
       const kind=MYST.kind;
       QUIZ.reto={pregunta:'Para el método '+fmtMethod(MYST.method)+(MYST.tap!=null?' con tap a='+(MYST.tap*100).toFixed(0)+'%':'')+', ¿qué fórmula da '+(kind==='iline'?'I_línea/I_FL':'T_arranque/T_FL')+'?',
-        opciones:[
+        opciones:shuffle([
           {t:(kind==='iline'?'ILR':'TLR')+'·k, con k=1 (DOL), 1/3 (Y-Δ) o a² (Auto)',ok:true,
            why:'Correcto: tanto la corriente como el par de arranque, expresados como múltiplos de plena carga, se escalan por el MISMO factor k según el método.'},
           {t:(kind==='iline'?'TLR':'ILR')+'·k — se usa el factor del otro múltiplo',ok:false,
@@ -546,7 +563,7 @@ function buildQuiz(){
           {t:'k por sí solo, sin multiplicar por ILR ni TLR',ok:false,
            why:'k es solo el factor de REDUCCIÓN relativo al arranque directo — hay que multiplicarlo por el valor de arranque directo (ILR o TLR) para obtener el múltiplo real de plena carga.'},
           {t:'La fórmula depende de la velocidad del motor, no del método',ok:false,
-           why:'Este modelo compara el instante de arranque (rotor bloqueado) entre métodos — la velocidad del rotor no es una variable de esta comparación.'}]};
+           why:'Este modelo compara el instante de arranque (rotor bloqueado) entre métodos — la velocidad del rotor no es una variable de esta comparación.'}])};
     }
   }
 }
@@ -570,10 +587,10 @@ pickerFor(S.scene,S.camera,S.renderer.domElement,hit=>{
   while(o){if(o.userData&&o.userData.act){act=o.userData.act;break;}o=o.parent;}
   if(!act)return;
   synth.beep(700,.05,.05);
-  const cur=calc(method,a),hideQ=(mode==='reto'&&!retoSolved);
+  const cur=calc(method,a),hideQ=(mode==='reto'&&!retoSolved),hideTap=!!(hideQ&&MYST&&MYST.kind==='tap');
   if(act==='mot3d')showToast('Motor de inducción — devanado conectado según el método activo: '+fmtMethod(method)+'.');
-  else if(act==='starter3d')showToast('Equipo de arranque — método: '+fmtMethod(method)+(method==='auto'?', tap a = '+(a*100).toFixed(0)+' %':'')+'. Ajusta con los controles.');
-  else if(act==='panelD')showToast('Panel: método '+fmtMethod(method)+(method==='auto'?' · tap '+(a*100).toFixed(0)+' %':'')+'.');
+  else if(act==='starter3d')showToast('Equipo de arranque — método: '+fmtMethod(method)+(method==='auto'?', tap a = '+(hideTap?'¿?':(a*100).toFixed(0)+' %'):'')+'. Ajusta con los controles.');
+  else if(act==='panelD')showToast('Panel: método '+fmtMethod(method)+(method==='auto'?' · tap '+(hideTap?'¿?':(a*100).toFixed(0)+' %'):'')+'.');
   else if(act==='meter3d')showToast(hideQ?'Medidor vendado en el reto: calcula tú el dato pedido.':'I_línea/I_FL = '+cur.Iline.toFixed(2)+' · T_arranque/T_FL = '+cur.Tstart.toFixed(2)+' · I_motor/I_FL = '+cur.Imotor.toFixed(2)+'.');
 });
 (function(){ // hover con etiquetas
@@ -624,7 +641,9 @@ async function runAuto(){
     await sleep(1000);checkReto();await sleep(2200);
     const q=QUIZ.reto;const idx=q?q.opciones.findIndex(o=>o.ok):-1;
     const btn=idx>=0?el('dxbtns').children[idx]:null;if(btn)btn.click();
-    showToast('5/5 · Recorrido completo: compara otros métodos y taps, o pide otro caso misterioso (🔀).');
+    await sleep(1400);
+    newMystery();
+    showToast('5/5 · Recorrido completo: te dejo un caso misterioso nuevo sin resolver — inténtalo tú, o pide otro (🔀).');
   }finally{autoRunning=false;b.disabled=false;b.textContent='✨ Recorrido guiado';}
 }
 S.setAnimate(()=>{ // la polea gira más rápido cuanto mayor es la corriente de arranque actual
@@ -632,7 +651,14 @@ S.setAnimate(()=>{ // la polea gira más rápido cuanto mayor es la corriente de
   pulleyG.rotation.x+=0.003+0.012*(cur.Iline/ILR);
 });
 /* wiring */
-['explora','comparar','reto'].forEach(m=>el('m_'+m).onclick=()=>setMode(m));
+['explora','comparar','reto'].forEach(m=>el('m_'+m).onclick=()=>{
+  if(mode==='reto'&&!retoSolved&&m!=='reto'){
+    showToast('<span style="color:var(--bad)">🔒 Resuelve el reto (o pide otro caso con 🔀) antes de salir a otro modo — así no ves la gráfica ni la telemetría con el dato pedido.</span>');
+    synth.beep(220,0.1,0.05);
+    return;
+  }
+  setMode(m);
+});
 ['dol','yd','auto'].forEach(m=>el('mm_'+m).onclick=()=>setMethod(m));
 el('sTap').addEventListener('input',()=>{a=parseFloat(el('sTap').value)/100;
   el('av').textContent=(a*100).toFixed(0)+' %';refreshAll();});

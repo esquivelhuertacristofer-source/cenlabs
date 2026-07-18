@@ -585,48 +585,52 @@ function caseTargets(key){
   return {v:0, i:0, p:0};
 }
 
-/* ---------- rotateArr (mezcla determinista, sin Math.random) ---------- */
-function rotateArr(arr,seed){
-  let h=0; for(let i=0;i<seed.length;i++) h=(h*31+seed.charCodeAt(i))>>>0;
-  const r=h%arr.length; return arr.slice(r).concat(arr.slice(0,r));
+/* ---------- shuffle (Fisher-Yates) ---------- */
+function shuffle(arr){
+  const a=arr.slice();
+  for(let i=a.length-1;i>0;i--){
+    const j=Math.floor(Math.random()*(i+1));
+    [a[i],a[j]]=[a[j],a[i]];
+  }
+  return a;
 }
 
 /* ---------- generadores de pregunta ---------- */
 function dcQuizText(){
   return { pregunta:`Mediste R_línea-línea = ${DC.Rll} Ω entre dos terminales del estátor (conexión estrella), motor detenido y desenergizado. ¿Cuál es R1 (resistencia de una fase)?`,
-    opciones: rotateArr([
+    opciones: shuffle([
       {t:`R1 = R_línea-línea / 2 = ${DC.R1.toFixed(3)} Ω`, ok:true, why:'En estrella, entre dos terminales de línea hay DOS devanados en serie (R1+R1=2R1), así que R1=Rll/2.'},
       {t:`R1 = R_línea-línea = ${DC.Rll.toFixed(3)} Ω`, ok:false, why:'Eso ignora que la medición entre dos terminales en estrella incluye dos fases en serie, no una sola.'},
       {t:`R1 = R_línea-línea / 3 = ${(DC.Rll/3).toFixed(3)} Ω`, ok:false, why:'Dividir entre 3 confunde con un promedio trifásico o con la conexión delta; en estrella el factor correcto es 2.'},
       {t:`R1 = (R_línea-línea / 2) × 1.15 (factor de corrección CA)`, ok:false, why:'IEEE 112 no define ningún factor de corrección CA/efecto piel para R1 en el ensayo de CD — esa cifra no existe en la norma.'},
-    ],'dc-r1') };
+    ]) };
 }
 function vacioQuizText(){
   return { pregunta:`En el ensayo de vacío: Vlínea=${VAC.Vline}V, I=${VAC.I}A, P3φ=${VAC.P3}W. P3φ incluye pérdidas en el cobre del estátor (3·I²·R1) ADEMÁS de las pérdidas rotacionales (núcleo + fricción y ventilación). ¿Cómo se obtiene Prot?`,
-    opciones: rotateArr([
+    opciones: shuffle([
       {t:`Prot = P3φ − 3·Inl²·R1 = ${VAC.Prot.toFixed(2)} W`, ok:true, why:`Pscl=3·${VAC.I}²·${DC.R1.toFixed(3)}=${VAC.Pscl.toFixed(2)}W es cobre del estátor; el resto, ${VAC.Prot.toFixed(2)}W, son pérdidas rotacionales agrupadas (núcleo+F&V).`},
       {t:`Prot = P3φ = ${VAC.P3} W directamente`, ok:false, why:'Confunde la potencia total de entrada en vacío con las pérdidas rotacionales puras — ignora el cobre del estátor.'},
       {t:`Prot = P3φ − Znl·Inl² = ${(VAC.P3-VAC.Znl*VAC.I*VAC.I).toFixed(2)} W`, ok:false, why:'Usa la impedancia total Znl en vez de R1 (o Rnl_ef) para estimar pérdidas — mezcla resistencia con impedancia.'},
       {t:`Prot = P3φ / 3 = ${(VAC.P3/3).toFixed(2)} W`, ok:false, why:'Dividir entre 3 no tiene sentido físico aquí: P3φ ya es la potencia trifásica total, no hay que repartirla entre fases para esta resta.'},
-    ],'vacio-prot') };
+    ]) };
 }
 function rotorQuizText(){
   return { pregunta:`El ensayo de rotor bloqueado se hizo a f=${RB.fTest}Hz (25% de la nominal ${RB.fRated}Hz) para evitar que el efecto piel distorsione la resistencia del rotor. Mediste Rbl=${RB.Rbl.toFixed(3)}Ω y Xbl(${RB.fTest}Hz)=${RB.XblTest.toFixed(3)}Ω. ¿Cómo se refieren a la frecuencia nominal?`,
-    opciones: rotateArr([
+    opciones: shuffle([
       {t:`Rbl no se corrige; Xbl(${RB.fRated}Hz) = (${RB.fRated}/${RB.fTest})·Xbl(${RB.fTest}Hz) = ${RB.XblRated.toFixed(3)} Ω`, ok:true, why:'La reactancia escala linealmente con la frecuencia (X=ωL); la resistencia de CD/rotor bloqueado no depende de f de esta forma.'},
       {t:`Ambas, Rbl y Xbl, se multiplican por ${RB.fRated}/${RB.fTest}=${(RB.fRated/RB.fTest).toFixed(0)}`, ok:false, why:'La corrección por frecuencia aplica solo a la reactancia (X=ωL); aplicarla también a R sobrestimaría R2\' drásticamente.'},
       {t:`Xbl(${RB.fRated}Hz) = Xbl(${RB.fTest}Hz) × (${RB.fTest}/${RB.fRated}) = ${(RB.XblTest*RB.fTest/RB.fRated).toFixed(4)} Ω`, ok:false, why:'Invierte la razón de frecuencias: al subir la frecuencia la reactancia debe AUMENTAR, no disminuir.'},
       {t:'No se corrige nada: el ensayo ya se hizo "a la frecuencia correcta"', ok:false, why:'El ensayo se hace deliberadamente a frecuencia REDUCIDA (para no distorsionar R2\' por efecto piel) y luego se refiere a la nominal — omitir ese paso invalida Xbl.'},
-    ],'rotor-fcorr') };
+    ]) };
 }
 function equivQuizText(){
   return { pregunta:`Con Xbl(${RB.fRated}Hz)=${RB.XblRated.toFixed(3)}Ω y el motor clasificado NEMA Diseño B, ¿cómo se reparte esta reactancia entre X1 (estátor) y X2' (rotor referido), y cómo se obtiene Xm?`,
-    opciones: rotateArr([
+    opciones: shuffle([
       {t:`X1=0.4·Xbl=${CIR.X1.toFixed(3)}Ω, X2'=0.6·Xbl=${CIR.X2.toFixed(3)}Ω; Xm=Xnl−X1=${CIR.Xnl.toFixed(3)}−${CIR.X1.toFixed(3)}=${CIR.Xm.toFixed(3)}Ω`, ok:true, why:'Diseño B reparte 40/60 (más peso al rotor); Xm se obtiene restando la reactancia de fuga del estátor de la reactancia total de vacío.'},
       {t:`X1=X2'=0.5·Xbl=${(RB.XblRated/2).toFixed(3)}Ω (reparto igual)`, ok:false, why:'El reparto 50/50 corresponde a Diseño A/D o rotor devanado — el motor de este ensayo es Diseño B (40/60), no ese caso.'},
       {t:`Xm=Xnl=${CIR.Xnl.toFixed(3)}Ω directamente, sin restar X1`, ok:false, why:'Xnl ya incluye la reactancia de fuga del estátor X1 en serie con Xm; hay que restarla o Xm queda sobrestimado.'},
       {t:`X1=0.6·Xbl=${(0.6*RB.XblRated).toFixed(3)}Ω, X2'=0.4·Xbl=${(0.4*RB.XblRated).toFixed(3)}Ω (reparto invertido)`, ok:false, why:'Invierte la tabla NEMA — Diseño B da MÁS peso a X2\' (0.6) que a X1 (0.4), no al revés.'},
-    ],'equiv-split') };
+    ]) };
 }
 function currentQuiz(){
   switch(caseKey){
@@ -724,25 +728,26 @@ function dc_col(){ return '#dfe7ee'; }
 /* ---------- circuito equivalente en T + curva par-deslizamiento ---------- */
 function drawEquivCircuit(ctx){
   HIT=[]; scheHeader(ctx,'Circuito equivalente en T (Diseño NEMA B)');
+  const hideAns=!solved, pend=t=>hideAns?t+' = ¿? (resuelve la pregunta)':t;
   const y=180, x0=90, x1=260, xNode=430, x2=620, xEnd=880;
   line(ctx,x0,y,x0,y-40,3,'#8fd1ff'); acSourceGlyph(ctx,x0,y-40,26,'#8fd1ff'); addHit('src',x0-26,y-92,52,52,'Fuente — tensión de fase nominal V1');
   line(ctx,x0,y,x1,y,3,'#dfe7ee');
-  hResistorGlyph(ctx,x1,y,90,'#d64545'); addHit('r1',x1,y-14,90,28,`R1 (estátor) = ${CIR.R1.toFixed(3)} Ω`);
+  hResistorGlyph(ctx,x1,y,90,'#d64545'); addHit('r1',x1,y-14,90,28, hideAns?pend('R1 (estátor)'):`R1 (estátor) = ${CIR.R1.toFixed(3)} Ω`);
   labelAt(ctx,x1+45,y-24,'R1','#d64545',15,'center');
   line(ctx,x1+90,y,x1+150,y,3,'#dfe7ee');
-  hCoilGlyph(ctx,x1+150,y,90,'#e0b23c'); addHit('x1',x1+150,y-14,90,28,`X1 (fuga estátor) = ${CIR.X1.toFixed(3)} Ω`);
+  hCoilGlyph(ctx,x1+150,y,90,'#e0b23c'); addHit('x1',x1+150,y-14,90,28, hideAns?pend('X1 (fuga estátor)'):`X1 (fuga estátor) = ${CIR.X1.toFixed(3)} Ω`);
   labelAt(ctx,x1+195,y-24,'X1','#e0b23c',15,'center');
   line(ctx,x1+240,y,xNode,y,3,'#dfe7ee');
   ctx.beginPath(); ctx.arc(xNode,y,5,0,Math.PI*2); ctx.fillStyle='#dfe7ee'; ctx.fill();
   line(ctx,xNode,y,xNode,y+120,3,'#3d7fd6');
-  vCoilGlyph(ctx,xNode-14,y+120,90,'#3d7fd6'); addHit('xm',xNode-28,y+120,56,90,`Xm (magnetización) = ${CIR.Xm.toFixed(3)} Ω`);
+  vCoilGlyph(ctx,xNode-14,y+120,90,'#3d7fd6'); addHit('xm',xNode-28,y+120,56,90, hideAns?pend('Xm (magnetización)'):`Xm (magnetización) = ${CIR.Xm.toFixed(3)} Ω`);
   labelAt(ctx,xNode+34,y+165,'Xm','#3d7fd6',15,'left');
   line(ctx,xNode,y+210,xNode,y+236,3,'#3d7fd6'); line(ctx,xNode-30,y+236,xNode+30,y+236,3,'#3d7fd6');
   line(ctx,xNode,y,x2,y,3,'#dfe7ee');
-  hResistorGlyph(ctx,x2,y,90,'#43D9AD'); addHit('r2s',x2,y-14,90,28,`R2'/s (rotor referido / deslizamiento) — a s=1: ${CIR.R2.toFixed(3)} Ω`);
+  hResistorGlyph(ctx,x2,y,90,'#43D9AD'); addHit('r2s',x2,y-14,90,28, hideAns?pend("R2'/s (rotor referido / deslizamiento)"):`R2'/s (rotor referido / deslizamiento) — a s=1: ${CIR.R2.toFixed(3)} Ω`);
   labelAt(ctx,x2+45,y-24,"R2'/s",'#43D9AD',15,'center');
   line(ctx,x2+90,y,x2+150,y,3,'#dfe7ee');
-  hCoilGlyph(ctx,x2+150,y,90,'#f4c95d'); addHit('x2',x2+150,y-14,90,28,`X2' (fuga rotor referida) = ${CIR.X2.toFixed(3)} Ω`);
+  hCoilGlyph(ctx,x2+150,y,90,'#f4c95d'); addHit('x2',x2+150,y-14,90,28, hideAns?pend("X2' (fuga rotor referida)"):`X2' (fuga rotor referida) = ${CIR.X2.toFixed(3)} Ω`);
   labelAt(ctx,x2+195,y-24,"X2'",'#f4c95d',15,'center');
   line(ctx,x2+240,y,xEnd,y,3,'#dfe7ee');
   line(ctx,xEnd,y,xEnd,y+236,3,'#dfe7ee'); line(ctx,xEnd,y+236,xNode,y+236,0,'transparent');
@@ -863,7 +868,9 @@ function drawParams(){
   const {cx,cv,tx}=params; cx.clearRect(0,0,cv.width,cv.height); cx.fillStyle='#0b1116'; cx.fillRect(0,0,cv.width,cv.height);
   cx.fillStyle='#f4c95d'; cx.font='16px monospace'; cx.textAlign='left'; cx.fillText('PARÁMETROS',12,26);
   cx.font='14px monospace'; cx.fillStyle='#dfe7ee';
-  if(caseKey==='ensayoDC') cx.fillText(`R1 = ${DC.R1.toFixed(3)} Ω`,12,66);
+  if(!solved){
+    cx.fillStyle='#8FB3AC'; cx.fillText('Resuelve la pregunta',12,60); cx.fillText('para ver el resultado.',12,82);
+  } else if(caseKey==='ensayoDC') cx.fillText(`R1 = ${DC.R1.toFixed(3)} Ω`,12,66);
   else if(caseKey==='ensayoVacio'){ cx.fillText(`Znl = ${VAC.Znl.toFixed(3)} Ω`,12,60); cx.fillText(`Xnl = ${VAC.Xnl.toFixed(3)} Ω`,12,86); cx.fillText(`Prot = ${VAC.Prot.toFixed(1)} W`,12,112); }
   else if(caseKey==='rotorBloqueado'){ cx.fillText(`Rbl = ${RB.Rbl.toFixed(3)} Ω`,12,60); cx.fillText(`Xbl(fn) = ${RB.XblRated.toFixed(3)} Ω`,12,86); }
   else { cx.fillText(`X1=${CIR.X1.toFixed(3)}Ω  X2'=${CIR.X2.toFixed(3)}Ω`,12,60); cx.fillText(`Xm=${CIR.Xm.toFixed(3)}Ω  R2'=${CIR.R2.toFixed(3)}Ω`,12,86); }
@@ -926,16 +933,39 @@ const TELE_LABELS={
   circuitoEquivalente:['X1 (estátor)',"X2' (rotor)",'Xm','R2\' (rotor)','Tarranque','Tmáx'],
 };
 function caseParams(key){
-  if(key==='ensayoDC') return [fmtOhm(DC.Rll),fmtOhm(DC.R1),'—','—','—',active?'Energizado':'Desenergizado'];
-  if(key==='ensayoVacio') return [fmtV(VAC.Vf),fmtA(VAC.I),fmtW(VAC.P3),fmtOhm(VAC.Znl),fmtOhm(VAC.Xnl),fmtW(VAC.Prot)];
-  if(key==='rotorBloqueado') return [fmtV(RB.Vf),fmtA(RB.I),fmtW(RB.P3),fmtOhm(RB.Zbl),fmtOhm(RB.Rbl),fmtOhm(RB.XblRated)];
-  return [fmtOhm(CIR.X1),fmtOhm(CIR.X2),fmtOhm(CIR.Xm),fmtOhm(CIR.R2),fmtNm(CIR.Tstart),fmtNm(CIR.Tmax)];
+  const s=solved, a=active;
+  if(key==='ensayoDC') return [
+    a?fmtOhm(DC.Rll):'—',
+    s?fmtOhm(DC.R1):'¿?',
+    '—','—','—',
+    active?'Energizado':'Desenergizado'
+  ];
+  if(key==='ensayoVacio') return [
+    a?fmtV(VAC.Vf):'—', a?fmtA(VAC.I):'—', a?fmtW(VAC.P3):'—',
+    (a&&s)?fmtOhm(VAC.Znl):'¿?', (a&&s)?fmtOhm(VAC.Xnl):'¿?', (a&&s)?fmtW(VAC.Prot):'¿?'
+  ];
+  if(key==='rotorBloqueado') return [
+    a?fmtV(RB.Vf):'—', a?fmtA(RB.I):'—', a?fmtW(RB.P3):'—',
+    (a&&s)?fmtOhm(RB.Zbl):'¿?', (a&&s)?fmtOhm(RB.Rbl):'¿?', (a&&s)?fmtOhm(RB.XblRated):'¿?'
+  ];
+  return [
+    s?fmtOhm(CIR.X1):'¿?', s?fmtOhm(CIR.X2):'¿?', s?fmtOhm(CIR.Xm):'¿?', s?fmtOhm(CIR.R2):'¿?',
+    s?fmtNm(CIR.Tstart):'¿?', s?fmtNm(CIR.Tmax):'¿?'
+  ];
 }
 function updateTele(){
   const labels=TELE_LABELS[caseKey], vals=caseParams(caseKey);
-  for(let i=0;i<6;i++){ el('l'+(i+1)).textContent=labels[i]; const v=el('t_'+(i+1)); v.textContent=vals[i]; v.className=(!active && caseKey!=='circuitoEquivalente')?'dim':''; }
+  for(let i=0;i<6;i++){
+    el('l'+(i+1)).textContent=labels[i];
+    const v=el('t_'+(i+1)); v.textContent=vals[i];
+    v.style.color = vals[i]==='¿?' ? 'var(--hv)' : (vals[i]==='—' ? 'var(--dim)' : '');
+  }
 }
 function updateReport(){
+  if(!solved){
+    el('report').innerHTML=`<span style="color:var(--dim)">Responde la pregunta de ingeniería para ver la derivación completa de este ensayo.</span>`;
+    return;
+  }
   let html='';
   if(caseKey==='ensayoDC'){
     html=`R1 = Rll/2 = ${DC.Rll}/2 = <b>${DC.R1.toFixed(3)} Ω</b> (estátor conectado en estrella; entre dos terminales de línea hay dos fases en serie).`;
@@ -973,6 +1003,7 @@ function answer(i,q){
   solved=o.ok;
   synth.beep(o.ok?1046:220,o.ok?0.14:0.16,0.06);
   showToast(`<b style="color:${o.ok?'var(--good)':'var(--bad)'}">${o.ok?'✔ Correcto.':'✗ No es correcto.'}</b><br><span style="color:var(--dim);font-size:11px">${o.why}</span>`,4600);
+  refreshAll();
 }
 
 /* ---------- máquina de casos ---------- */

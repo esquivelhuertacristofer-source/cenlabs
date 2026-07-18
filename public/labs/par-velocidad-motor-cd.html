@@ -845,7 +845,7 @@ function setMode(k){
 function syncCtrlbar(){ modes.forEach(m=>{ const b=el('m_'+m); if(b && m!=='ensamble') b.disabled=!simUnlocked; }); }
 
 /* ---------- reto numérico ---------- */
-const VA_SET=[60,90,120,130], IF_SET=[0.4,0.7,1.0,1.3], TL_SET=[1,2.5,4,5,6], KIND_SET=['Ia','Ea','T','n'];
+const VA_SET=[60,90,120,130], IF_SET=[0.4,0.7,1.0,1.3], TL_SET=[1,2.5,4,5,6], KIND_SET=['Ia','Ea','n'];
 let RETO={active:false, Va:120, If:1.0, TL:5, kind:'Ia', target:0};
 let retoSolved=false;
 function newChallenge(){
@@ -989,7 +989,14 @@ el('panel').innerHTML=`
   </div>`;
 
 /* ---------- wiring ---------- */
-modes.forEach(m=>{ const b=el('m_'+m); if(b) b.onclick=()=>setMode(m); });
+modes.forEach(m=>{ const b=el('m_'+m); if(b) b.onclick=()=>{
+  if(mode==='reto'&&!retoSolved&&m!=='reto'){
+    showToast('🔒 Resuelve el reto (calcula el valor pedido a partir de Va, If y TL) antes de salir a otro modo — en Circuito/Curva podrías reproducir estos mismos valores y leer la respuesta en la telemetría.');
+    synth.beep(220,0.1,0.05);
+    return;
+  }
+  setMode(m);
+}; });
 el('btnReset').onclick=()=>initAssembly();
 el('btnAuto').onclick=()=>autoAssemble();
 el('btnAuto2').onclick=()=>autoSweep();

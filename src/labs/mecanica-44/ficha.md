@@ -117,7 +117,7 @@ banderas_incertidumbre:
 3. **Verificación de implementación:** ✅ **Verificado.** Recomputación numérica manual de
    `ratioStats()`/`polarityStats()` (script Node independiente, reimplementado desde el
    entendimiento documentado de las fórmulas, no copiado del código fuente) contra los
-   valores esperados: caso sano a=9.181969949916526 (dev=0.16690848384993134%, PASA), caso
+   valores esperados: caso sano a=9.181969949916526 (dev=0.16694490818029420%, PASA), caso
    falla a=9.565217391304348 (dev=4.347788142306288%, FALLA), caso aditivo V=26.4 V exactos,
    caso sustractivo V=54.0 V exactos — acuerdo exacto con las funciones reales del código
    fuente (`relacion-polaridad-transformador.body.js`). Corrida completa de Jest tras

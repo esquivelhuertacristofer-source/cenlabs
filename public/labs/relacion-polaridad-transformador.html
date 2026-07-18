@@ -483,29 +483,29 @@ const HOVER_LABELS=new Map();
    ============================================================ */
 const CASES={
   ratioSano:{
-    tipo:'ratio', nombre:'Relación · unidad sana',
+    tipo:'ratio', nombre:'Relación · unidad A',
     unidad:'Transformador de control 500 VA, 220/24 V — unidad #1',
     aNameplate:220/24, kva:0.5, v1n:220, v2n:24,
     Vap:110, V2meas:11.98, scaleAp:150, scaleMeas:20,
-    mision:'Caso 1 · RELACIÓN EN VACÍO (unidad sana) — con X1-X2 en circuito abierto, aplica tensión reducida a H1-H2 y lee V2 para calcular la relación medida y compararla contra la tolerancia de placa.',
+    mision:'Caso 1 · RELACIÓN EN VACÍO — con X1-X2 en circuito abierto, aplica tensión reducida a H1-H2 y lee V2 para calcular la relación medida y compararla contra la tolerancia de placa.',
   },
   ratioFalla:{
-    tipo:'ratio', nombre:'Relación · unidad con falla',
-    unidad:'Transformador de control 500 VA, 220/24 V — unidad #2 (falla simulada)',
+    tipo:'ratio', nombre:'Relación · unidad B',
+    unidad:'Transformador de control 500 VA, 220/24 V — unidad #2',
     aNameplate:220/24, kva:0.5, v1n:220, v2n:24,
     Vap:110, V2meas:11.50, scaleAp:150, scaleMeas:20,
-    mision:'Caso 2 · RELACIÓN EN VACÍO (falla simulada) — misma prueba sobre una unidad distinta: compara si la relación medida sigue dentro de tolerancia.',
+    mision:'Caso 2 · RELACIÓN EN VACÍO — misma prueba sobre una unidad distinta: compara si la relación medida sigue dentro de tolerancia.',
   },
   polAditiva:{
-    tipo:'polaridad', nombre:'Polaridad · aditiva',
-    unidad:'Transformador de control 150 VA, 240/24 V — clase ANSI aditiva',
+    tipo:'polaridad', nombre:'Polaridad · unidad C',
+    unidad:'Transformador de control 150 VA, 240/24 V',
     aNameplate:240/24, kva:0.15, v1n:240, v2n:24,
     Vap:24, modo:'aditiva', scaleAp:30, scaleMeas:30,
     mision:'Caso 3 · PRUEBA DE POLARIDAD (unidad de control) — puentea H1 con X1, aplica tensión reducida a H1-H2 y lee la tensión entre las terminales libres H2-X2.',
   },
   polSustractiva:{
-    tipo:'polaridad', nombre:'Polaridad · sustractiva',
-    unidad:'Transformador de distribución 300 kVA, 13200/240 V — clase ANSI sustractiva',
+    tipo:'polaridad', nombre:'Polaridad · unidad D',
+    unidad:'Transformador de distribución 300 kVA, 13200/240 V',
     aNameplate:13200/240, kva:300, v1n:13200, v2n:240,
     Vap:55, modo:'sustractiva', scaleAp:60, scaleMeas:60,
     mision:'Caso 4 · PRUEBA DE POLARIDAD (unidad de distribución) — misma prueba sobre una unidad de mayor potencia: confirma la clasificación de fábrica.',
@@ -538,9 +538,13 @@ function polarityStats(key){
 }
 
 /* ---------- generador de opciones de quiz ---------- */
-function rotateArr(arr,seed){
-  let h=0; for(let i=0;i<seed.length;i++)h=(h*31+seed.charCodeAt(i))>>>0;
-  const r=h%arr.length; return arr.slice(r).concat(arr.slice(0,r));
+function shuffle(arr){
+  const a=arr.slice();
+  for(let i=a.length-1;i>0;i--){
+    const j=Math.floor(Math.random()*(i+1));
+    [a[i],a[j]]=[a[j],a[i]];
+  }
+  return a;
 }
 function ratioQuizText(key){
   const c=CASES[key]; const st=ratioStats(key);
@@ -555,7 +559,7 @@ function ratioQuizText(key){
     {t: st.pass ? 'La desviación calculada excede la tolerancia de ±0.5% y el transformador debe rechazarse.' : 'La desviación calculada está dentro de la tolerancia de ±0.5% y el transformador es aceptable.', ok:false,
       why:`Esta afirmación invierte el resultado real: la desviación de ${st.devPct.toFixed(2)}% ${st.pass?'SÍ cumple':'NO cumple'} la tolerancia de ±0.5% de la IEC 60076-1.`},
   ];
-  return {pregunta, opciones:rotateArr(opciones,'ratio'+key)};
+  return {pregunta, opciones:shuffle(opciones)};
 }
 function polarityQuizText(key){
   const c=CASES[key]; const st=polarityStats(key); const aInv=1/c.aNameplate;
@@ -571,7 +575,7 @@ function polarityQuizText(key){
     {t:'La polaridad no importa para la operación del transformador mientras la relación de vueltas sea correcta.', ok:false,
       why:'La polaridad es crítica al conectar transformadores en paralelo, en bancos trifásicos o en instrumentos de medición (TP/TC): unir en paralelo dos unidades de polaridad opuesta produce, en esencia, un cortocircuito entre sus devanados secundarios.'},
   ];
-  return {pregunta, opciones:rotateArr(opciones,'pol'+key)};
+  return {pregunta, opciones:shuffle(opciones)};
 }
 function currentQuiz(){
   return CASES[caseKey].tipo==='ratio' ? ratioQuizText(caseKey) : polarityQuizText(caseKey);
@@ -723,10 +727,10 @@ document.getElementById('hud').innerHTML=`
 document.getElementById('panel').innerHTML=`
   <h4>Banco de pruebas · <span id="p_case" style="color:var(--accent2)">Caso 1/4</span></h4>
   <div class="modebar" id="casebar">
-    <button class="b on" id="c_ratioSano">Relación · sana</button>
-    <button class="b" id="c_ratioFalla">Relación · con falla</button>
-    <button class="b" id="c_polAditiva">Polaridad · aditiva</button>
-    <button class="b" id="c_polSustractiva">Polaridad · sustractiva</button>
+    <button class="b on" id="c_ratioSano">Caso 1</button>
+    <button class="b" id="c_ratioFalla">Caso 2</button>
+    <button class="b" id="c_polAditiva">Caso 3</button>
+    <button class="b" id="c_polSustractiva">Caso 4</button>
   </div>
   <div id="tele">
     <div class="g"><div class="gl"><span>Tensión aplicada (Vap)</span><b id="t_ap">—</b></div></div>
@@ -780,12 +784,16 @@ function updateTele(){
   set('t_meas', measNow!==null? measNow.toFixed(2)+' V':'—', active?'good':'');
   set('t_a', c.aNameplate.toFixed(4), '');
   set('t_case', c.unidad, '');
-  if(c.tipo==='ratio'){
+  if(!active){
+    set('t_est','Banco apagado','warn');
+  }else if(!solved){
+    set('t_est','Calcula con Vap y V medida ↓','warn');
+  }else if(c.tipo==='ratio'){
     const st=ratioStats(caseKey);
-    set('t_est', active ? (st.pass?'CUMPLE tolerancia (±0.5%)':'NO CUMPLE tolerancia') : 'Banco apagado', active?(st.pass?'good':'bad'):'warn');
+    set('t_est', st.pass?'CUMPLE tolerancia (±0.5%)':'NO CUMPLE tolerancia', st.pass?'good':'bad');
   }else{
     const st=polarityStats(caseKey);
-    set('t_est', active ? ('Polaridad '+st.detected.toUpperCase()) : 'Banco apagado', active?'good':'warn');
+    set('t_est', 'Polaridad '+st.detected.toUpperCase(), 'good');
   }
 }
 function updateReport(){
@@ -793,11 +801,17 @@ function updateReport(){
   if(!active){
     html='<span class="mono">Banco apagado. Pulsa "Energizar banco" para aplicar la tensión reducida y leer los voltímetros.</span>';
   }else if(c.tipo==='ratio'){
-    const st=ratioStats(caseKey);
-    html=`<b>${c.mision}</b><br><span class="mono">Vap = ${c.Vap.toFixed(2)} V · V2 medida = ${c.V2meas.toFixed(2)} V<br>a medida = Vap/V2 = ${st.aMeasured.toFixed(4)} (nominal = ${c.aNameplate.toFixed(4)})<br>Desviación = ${st.devPct.toFixed(2)}% → ${st.pass?'CUMPLE':'NO CUMPLE'} ±0.5% (IEC 60076-1, Cl. 10)</span>`;
+    html=`<b>${c.mision}</b><br><span class="mono">Vap = ${c.Vap.toFixed(2)} V · V2 medida = ${c.V2meas.toFixed(2)} V (nominal a = ${c.aNameplate.toFixed(4)})</span>`;
+    if(solved){
+      const st=ratioStats(caseKey);
+      html+=`<br><span class="mono">a medida = Vap/V2 = ${st.aMeasured.toFixed(4)}<br>Desviación = ${st.devPct.toFixed(2)}% → ${st.pass?'CUMPLE':'NO CUMPLE'} ±0.5% (IEC 60076-1, Cl. 10)</span>`;
+    }
   }else{
-    const st=polarityStats(caseKey); const aInv=1/c.aNameplate;
-    html=`<b>${c.mision}</b><br><span class="mono">Vap = ${c.Vap.toFixed(2)} V (H1-H2, con H1↔X1 puenteado)<br>V medida (H2-X2) = ${st.Vmeas.toFixed(2)} V<br>N_BT/N_AT = 1/a = ${aInv.toFixed(5)}<br>V medida ${st.detected==='sustractiva'?'<':'>'} V aplicada ⇒ polaridad <b>${st.detected.toUpperCase()}</b></span>`;
+    const aInv=1/c.aNameplate; const st0=polarityStats(caseKey);
+    html=`<b>${c.mision}</b><br><span class="mono">Vap = ${c.Vap.toFixed(2)} V (H1-H2, con H1↔X1 puenteado)<br>V medida (H2-X2) = ${st0.Vmeas.toFixed(2)} V<br>N_BT/N_AT = 1/a = ${aInv.toFixed(5)}</span>`;
+    if(solved){
+      html+=`<br><span class="mono">V medida ${st0.detected==='sustractiva'?'<':'>'} V aplicada ⇒ polaridad <b>${st0.detected.toUpperCase()}</b></span>`;
+    }
   }
   el('report').innerHTML=html;
 }
@@ -818,6 +832,7 @@ function answer(i){
   const btn=el('dxbtns').children[i];
   if(o.ok){
     btn.classList.add('right'); solved=true; synth.beep(1046,0.12,0.06);
+    updateTele(); updateReport();
     showToast(`<span style="color:var(--good)">✔ Correcto.</span><br><span style="color:var(--dim);font-size:11px">${o.why}</span>`);
   }else{
     btn.classList.add('wrong'); synth.beep(220,0.15,0.06);
@@ -892,6 +907,8 @@ async function runAuto(){
   autoRunning=true;
   const btn=el('btnAuto'); const label=btn.textContent;
   btn.disabled=true; btn.classList.add('on'); btn.textContent='⏳ Prueba guiada en curso…';
+  const lockedBtns=[el('btnNew'), ...CASE_ORDER.map(k=>el('c_'+k))];
+  lockedBtns.forEach(b=>{ b.disabled=true; });
   try{
     clearDx();
     const c=CASES[caseKey];
@@ -910,10 +927,11 @@ async function runAuto(){
     const q=currentQuiz(); const i=q.opciones.findIndex(o=>o.ok);
     clearDx();
     const dxBtn=el('dxbtns').children[i];
-    if(dxBtn){ dxBtn.classList.add('right'); solved=true; synth.beep(1046,0.12,0.06); }
+    if(dxBtn){ dxBtn.classList.add('right'); solved=true; synth.beep(1046,0.12,0.06); updateTele(); updateReport(); }
     showToast('<span style="color:var(--good)">✔ '+q.opciones[i].t+'</span><br><span style="color:var(--dim);font-size:11px">'+q.opciones[i].why+'</span>');
   } finally {
     btn.disabled=false; btn.classList.remove('on'); btn.textContent=label;
+    lockedBtns.forEach(b=>{ b.disabled=false; });
     autoRunning=false;
   }
 }

@@ -608,7 +608,14 @@ el('panel').innerHTML=`
   </div>`;
 
 /* ---------- wiring ---------- */
-modes.forEach(m=>{ const b=el('m_'+m); if(b) b.onclick=()=>setMode(m); });
+modes.forEach(m=>{ const b=el('m_'+m); if(b) b.onclick=()=>{
+  if(mode==='reto'&&!retoSolved&&m!=='reto'){
+    showToast('<span style="color:var(--bad)">🔒 Resuelve el reto (calcula el valor pedido a partir de f, p y los datos dados) antes de salir a otro modo — en Operación/Curva podrías reproducir estos mismos f/p y leer la respuesta en la telemetría.</span>');
+    synth.beep(220,0.1,0.05);
+    return;
+  }
+  setMode(m);
+}; });
 el('btnReset').onclick=()=>initAssembly();
 el('btnAuto').onclick=()=>autoAssemble();
 el('btnAuto2').onclick=()=>autoSweep();

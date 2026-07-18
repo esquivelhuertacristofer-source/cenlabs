@@ -626,7 +626,7 @@ function boardClick(u,v){
   if(!best)return;
   synth.beep(720,.05,.05);
   if(best.act==='gen')showToast('Armadura movida por el primomotor a n = '+fmtRPM(nRpm)+' — la fem generada escala con n (Faraday): E(If,n) = E0(If)·(n/n0).');
-  if(best.act==='rheo')showToast('Reóstato de campo Rf = '+fmtOhm(Rf)+' — fija la pendiente de la recta Vt = Rf·If. Resistencia crítica a esta velocidad: Rc('+fmtRPM(nRpm)+') = '+fmtOhm(Rc(nRpm))+'.');
+  if(best.act==='rheo')showToast('Reóstato de campo Rf = '+fmtOhm(Rf)+' — fija la pendiente de la recta Vt = Rf·If.'+(hideQ?' Resistencia crítica vendada en el reto: calcula tú Rc(n) antes de comparar.':' Resistencia crítica a esta velocidad: Rc('+fmtRPM(nRpm)+') = '+fmtOhm(Rc(nRpm))+'.'));
   if(best.act==='coil')showToast('Devanado de campo — en conexión SHUNT (derivación) toma su corriente If de los mismos bornes que genera, formando el lazo de autoexcitación.');
   if(best.act==='meter')showToast(hideQ?'Medidor vendado en el reto — predice Vt tú.':'Vt = '+fmtV(bu.Vt)+' en bornes abiertos (sin carga externa) — toda la energía generada se disipa en el propio circuito de campo.');
 }
@@ -811,7 +811,7 @@ function setMode(k){
     el('sRf').value=Rf;el('rfv').textContent=fmtOhm(Rf);
     el('sN').value=nRpm;el('nv').textContent=fmtRPM(nRpm);
     el('retoHint').textContent='Condición dada: Rf = '+fmtOhm(MYST.Rf)+', n = '+fmtRPM(MYST.n)
-      +' · constantes conocidas: Em = '+Em+' V, Ik = '+Ik+' A, n0 = '+n0+' rpm · tolerancia: ±5 % en Vt (o ≈0 si predices colapso)';
+      +' · constantes conocidas: Em = '+Em+' V, Ik = '+Ik+' A, n0 = '+n0+' rpm · tolerancia en Vt: máx(2 V, 5 % de Vt) si autoexcita, ±1.5 V si predices colapso';
   }
   clearDx();refreshQuestion();refreshAll();
   S.moveTo(MODE_META[k].cam[0],MODE_META[k].cam[1],1.3);
@@ -895,11 +895,19 @@ function newMystery(){
 }
 
 /* ---------- 11 · Quiz de ingeniería (valores calculados en vivo) ---------- */
+function shuffle(arr){
+  const a=arr.slice();
+  for(let i=a.length-1;i>0;i--){
+    const j=Math.floor(Math.random()*(i+1));
+    [a[i],a[j]]=[a[j],a[i]];
+  }
+  return a;
+}
 let QUIZ={};
 function buildQuiz(){
   const rc1200=Rc(1200);
   QUIZ.explora={pregunta:'A n = 1200 rpm (n0), la resistencia crítica es Rc = '+fmtOhm(rc1200)+'. Si subes Rf de 150 Ω a 240 Ω sin tocar n, ¿qué pasa con If* y Vt*?',
-    opciones:[
+    opciones:shuffle([
       {t:'Bajan los dos: la recta del campo gira hacia arriba y cruza la curva más cerca del origen',ok:true,
        why:'Correcto: a mayor Rf, la recta Vt=Rf·If tiene más pendiente y corta E0(If) en un punto con If y Vt menores — cada vez más cerca del origen conforme Rf → Rc(n).'},
       {t:'No cambian: el generador siempre entrega la misma Vt en vacío',ok:false,
@@ -907,9 +915,9 @@ function buildQuiz(){
       {t:'Suben los dos: más resistencia siempre autoexcita mejor',ok:false,
        why:'Es lo contrario: más Rf empuja la recta hacia la tangente con la curva — más cerca del colapso, no más lejos.'},
       {t:'If* baja pero Vt* sube (Vt = Rf·If con Rf mayor)',ok:false,
-       why:'If* baja MÁS rápido de lo que Rf sube: el producto Rf·If* (que es Vt*) también cae al acercarte a la resistencia crítica.'}]};
+       why:'If* baja MÁS rápido de lo que Rf sube: el producto Rf·If* (que es Vt*) también cae al acercarte a la resistencia crítica.'}])};
   QUIZ.curva={pregunta:'¿Qué representa la pendiente de E0(If) evaluada en If = 0 (el origen)?',
-    opciones:[
+    opciones:shuffle([
       {t:'La resistencia crítica a n0: Rc0 = Em/Ik = '+fmtOhm(Rc0),ok:true,
        why:'Correcto: cerca del origen E0(If) ≈ (Em/Ik)·If (lineal), así que su pendiente inicial ES Rc0. Cualquier Rf por arriba de esa pendiente nunca cruza la curva con If>0.'},
       {t:'La tensión nominal Em = '+Em+' V',ok:false,
@@ -917,19 +925,18 @@ function buildQuiz(){
       {t:'La corriente de rodilla Ik = '+Ik+' A',ok:false,
        why:'Ik marca dónde la curva empieza a "doblar" hacia la saturación, no la pendiente inicial (que es el cociente Em/Ik).'},
       {t:'Cero: toda curva de magnetización arranca plana',ok:false,
-       why:'Al revés: E0(If) = Em·If/(Ik+If) tiene su pendiente MÁXIMA justo en If=0 — por eso ahí vive la resistencia crítica.'}]};
+       why:'Al revés: E0(If) = Em·If/(Ik+If) tiene su pendiente MÁXIMA justo en If=0 — por eso ahí vive la resistencia crítica.'}])};
   if(MYST){
-    const rc=Rc(MYST.n);
-    QUIZ.reto={pregunta:'Para esta condición (Rf = '+fmtOhm(MYST.Rf)+', n = '+fmtRPM(MYST.n)+'), Rc(n) = '+fmtOhm(rc)+'. ¿Cómo se usa ese número para decidir si autoexcita?',
-      opciones:[
-        {t:'Si Rf < Rc(n) autoexcita; si Rf ≥ Rc(n) colapsa — aquí Rf '+(MYST.Rf<rc?'< Rc(n): SÍ autoexcita':'≥ Rc(n): NO autoexcita'),ok:true,
+    QUIZ.reto={pregunta:'En el modo Reto te dan Rf y n; con las constantes conocidas puedes calcular Rc(n) = (Em/Ik)·(n/n0). ¿Cómo se usa ese número para decidir si autoexcita?',
+      opciones:shuffle([
+        {t:'Si Rf < Rc(n) autoexcita; si Rf ≥ Rc(n) colapsa',ok:true,
          why:'Correcto: Rc(n) es la pendiente crítica. Por debajo de ella la recta del campo SIEMPRE cruza la curva de saturación en un punto con If>0; por encima, nunca lo hace (fuera del origen).'},
         {t:'Si Rf < Rc(n) colapsa; si Rf ≥ Rc(n) autoexcita',ok:false,
          why:'Es al revés: MÁS resistencia de campo dificulta la autoexcitación, no la favorece — una recta más empinada corta la curva saturante más cerca del origen, hasta perder el cruce.'},
         {t:'Rc(n) no importa si n > 0: siempre autoexcita mientras gire',ok:false,
          why:'No — girar (n>0) es NECESARIO pero no suficiente: si Rf es demasiado grande para esa velocidad, el lazo de autoexcitación nunca cierra.'},
         {t:'Hay que comparar Rf contra Em, no contra Rc(n)',ok:false,
-         why:'Em es la asíntota de tensión, no un umbral de resistencia — el criterio de autoexcitación es geométrico: pendiente de la recta (Rf) vs. pendiente inicial de la curva (Rc(n)).'}]};
+         why:'Em es la asíntota de tensión, no un umbral de resistencia — el criterio de autoexcitación es geométrico: pendiente de la recta (Rf) vs. pendiente inicial de la curva (Rc(n)).'}])};
   }
 }
 function clearDx(){el('dxbtns').innerHTML='';}
@@ -1004,7 +1011,9 @@ async function runAuto(){
     await sleep(1000);checkReto();await sleep(2200);
     const q=QUIZ.reto;const idx=q?q.opciones.findIndex(o=>o.ok):-1;
     const btn=idx>=0?el('dxbtns').children[idx]:null;if(btn)btn.click();
-    showToast('4/4 · Recorrido completo: explora otras combinaciones de Rf y n, o pide otro caso misterioso (🔀).');
+    await sleep(1400);
+    newMystery();
+    showToast('4/4 · Recorrido completo: te dejo un caso misterioso nuevo sin resolver — inténtalo tú, o pide otro (🔀).');
   }finally{autoRunning=false;b.disabled=false;b.textContent='✨ Recorrido guiado';}
 }
 S.setAnimate(()=>{ // la polea del primomotor siempre gira, proporcional a n

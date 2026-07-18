@@ -1,7 +1,7 @@
 /* ============================================================
    LAB — CIRCUITO EQUIVALENTE POR ENSAYOS DE VACÍO Y CORTOCIRCUITO
-   (Dominio D5 · transformadores — molde E+P: ensamble/servicio 3D +
-   panel-instrumento, con esquemático interactivo tipo S+P)
+   (Dominio D5 · transformadores — molde S+P: esquemático interactivo
+   + panel de instrumentos virtual, sin ensamble mecánico)
    Normatividad de referencia:
      · IEC 60076-1 — Cláusula 11.4 "Measurement of short-circuit impedance
        and load loss" (ensayo de cortocircuito: Vsc, Isc, Psc) y Cláusula
@@ -159,9 +159,13 @@ const fmtW=v=>v.toFixed(2)+' W';
 const fmtOhm=v=>v.toFixed(2)+' Ω';
 const fmtPct=v=>v.toFixed(2)+'%';
 
-function rotateArr(arr,seed){
-  let h=0; for(let i=0;i<seed.length;i++)h=(h*31+seed.charCodeAt(i))>>>0;
-  const r=h%arr.length; return arr.slice(r).concat(arr.slice(0,r));
+function shuffle(arr){
+  const a=arr.slice();
+  for(let i=a.length-1;i>0;i--){
+    const j=Math.floor(Math.random()*(i+1));
+    [a[i],a[j]]=[a[j],a[i]];
+  }
+  return a;
 }
 function vacioQuizText(){
   const c=CASES.ensayoVacio; const st=vacioStats();
@@ -176,7 +180,7 @@ function vacioQuizText(){
     {t:`Al referir de BT a AT se divide entre a²: Rc(AT)=${(st.RcLV/st.a2).toFixed(4)} Ω.`, ok:false,
       why:`Referir una impedancia del lado de BAJA tensión al lado de ALTA tensión requiere MULTIPLICAR por a²=(N1/N2)², no dividir — las impedancias crecen al referirse hacia el lado de mayor número de vueltas.`},
   ];
-  return {pregunta, opciones:rotateArr(opciones,'vacio')};
+  return {pregunta, opciones:shuffle(opciones)};
 }
 function cortoQuizText(){
   const c=CASES.ensayoCortocircuito; const st=cortoStats();
@@ -191,7 +195,7 @@ function cortoQuizText(){
     {t:`%Z=Vsc/V2n×100=${(c.Vsc/c.v2n*100).toFixed(2)}% (usa la tensión nominal de BT en vez de la de AT).`, ok:false,
       why:`Vsc se aplicó y midió en el lado de AT, así que el %Z de placa debe referirse a V1n=${c.v1n} V, no a V2n.`},
   ];
-  return {pregunta, opciones:rotateArr(opciones,'corto')};
+  return {pregunta, opciones:shuffle(opciones)};
 }
 function regulacionQuizText(){
   const c=CASES.regulacionVoltaje; const st=regulacionStats();
@@ -206,7 +210,7 @@ function regulacionQuizText(){
     {t:`%VR=%Req+%Xeq=${(st.ReqPct+st.XeqPct).toFixed(2)}% (suma directa de magnitudes, ignorando el factor de potencia de la carga).`, ok:false,
       why:`Sumar %Req y %Xeq directamente ignora que ambas caídas se proyectan sobre el fasor de corriente según el ángulo de la carga.`},
   ];
-  return {pregunta, opciones:rotateArr(opciones,'regulacion')};
+  return {pregunta, opciones:shuffle(opciones)};
 }
 function eficienciaQuizText(){
   const c=CASES.eficiencia; const st=eficienciaStats();
@@ -221,7 +225,7 @@ function eficienciaQuizText(){
     {t:`Las pérdidas variables a una carga x se calculan como x·Psc (proporcionales a la corriente, no a su cuadrado).`, ok:false,
       why:`Las pérdidas variables son proporcionales al CUADRADO de la corriente: P_Cu(x)=x²·Psc, porque Psc=I²·Req.`},
   ];
-  return {pregunta, opciones:rotateArr(opciones,'eficiencia')};
+  return {pregunta, opciones:shuffle(opciones)};
 }
 function currentQuiz(){
   switch(caseKey){
@@ -615,16 +619,33 @@ function updateTele(){
   set('t_i', active? fmtA(tg.i):'—', active?'good':'');
   set('t_p', active? fmtW(tg.p):'—', active?'good':'');
   if(!active){ set('t_par1','—',''); set('t_par2','—',''); set('t_res','Banco apagado','warn'); return; }
+  if(!solved){ set('t_par1','—',''); set('t_par2','—',''); set('t_res','Calcula y responde ↓','warn'); return; }
   const cp=caseParams(caseKey);
   set('t_par1',cp.par1,''); set('t_par2',cp.par2,''); set('t_res',cp.res,'good');
 }
 function updateReport(){
   const c=CASES[caseKey]; let html='';
   if(!active){ html='<span class="mono">Banco apagado. Pulsa "Energizar banco" para aplicar la excitación de prueba y leer los instrumentos.</span>'; }
-  else if(caseKey==='ensayoVacio'){ const st=vacioStats(); html=`<b>${c.mision}</b><br><span class="mono">Voc=${fmtV(c.Voc)} · Ioc=${fmtA(c.Ioc)} · Poc=${fmtW(c.Poc)}<br>S0=Voc·Ioc=${st.S0.toFixed(2)} VA · Q0=√(S0²−Poc²)=${st.Q0.toFixed(2)} VAR<br>Rc(BT)=${fmtOhm(st.RcLV)} · Xm(BT)=${fmtOhm(st.XmLV)}<br>Referidos a AT (a²=${st.a2.toFixed(2)}): Rc(AT)=${fmtOhm(st.RcHV)} · Xm(AT)=${fmtOhm(st.XmHV)}</span>`; }
-  else if(caseKey==='ensayoCortocircuito'){ const st=cortoStats(); html=`<b>${c.mision}</b><br><span class="mono">Vsc=${fmtV(c.Vsc)} · Isc=${fmtA(st.IpRated)} · Psc=${fmtW(c.Psc)}<br>Zeq=Vsc/Isc=${fmtOhm(st.Zeq)} · Req=Psc/Isc²=${fmtOhm(st.Req)} · Xeq=√(Zeq²−Req²)=${fmtOhm(st.Xeq)}<br>%Z=Vsc/V1n×100=${fmtPct(st.pctZ)}</span>`; }
-  else if(caseKey==='regulacionVoltaje'){ const st=regulacionStats(); html=`<b>${c.mision}</b><br><span class="mono">%Req=${fmtPct(st.ReqPct)} · %Xeq=${fmtPct(st.XeqPct)} · FP=0.80 en atraso (cosθ=0.80, sinθ=0.60)<br>%VR=%Req·cosθ+%Xeq·sinθ+(%Xeq·cosθ−%Req·sinθ)²/200=${fmtPct(st.vr)}</span>`; }
-  else { const st=eficienciaStats(); html=`<b>${c.mision}</b><br><span class="mono">Poc=${fmtW(st.Poc)} · Psc=${fmtW(st.Psc)} · S=${st.Srated.toFixed(0)} VA<br>η(x=1,FP=1.0)=${fmtPct(st.etaRated*100)}<br>x_máx=√(Poc/Psc)=${st.xMax.toFixed(2)} → η_máx=${fmtPct(st.etaMax*100)}</span>`; }
+  else if(caseKey==='ensayoVacio'){
+    const st=vacioStats();
+    html=`<b>${c.mision}</b><br><span class="mono">Voc=${fmtV(c.Voc)} · Ioc=${fmtA(c.Ioc)} · Poc=${fmtW(c.Poc)}</span>`;
+    if(solved) html+=`<br><span class="mono">S0=Voc·Ioc=${st.S0.toFixed(2)} VA · Q0=√(S0²−Poc²)=${st.Q0.toFixed(2)} VAR<br>Rc(BT)=${fmtOhm(st.RcLV)} · Xm(BT)=${fmtOhm(st.XmLV)}<br>Referidos a AT (a²=${st.a2.toFixed(2)}): Rc(AT)=${fmtOhm(st.RcHV)} · Xm(AT)=${fmtOhm(st.XmHV)}</span>`;
+  }
+  else if(caseKey==='ensayoCortocircuito'){
+    const st=cortoStats();
+    html=`<b>${c.mision}</b><br><span class="mono">Vsc=${fmtV(c.Vsc)} · Isc=${fmtA(st.IpRated)} · Psc=${fmtW(c.Psc)}</span>`;
+    if(solved) html+=`<br><span class="mono">Zeq=Vsc/Isc=${fmtOhm(st.Zeq)} · Req=Psc/Isc²=${fmtOhm(st.Req)} · Xeq=√(Zeq²−Req²)=${fmtOhm(st.Xeq)}<br>%Z=Vsc/V1n×100=${fmtPct(st.pctZ)}</span>`;
+  }
+  else if(caseKey==='regulacionVoltaje'){
+    const st=regulacionStats();
+    html=`<b>${c.mision}</b><br><span class="mono">%Req=${fmtPct(st.ReqPct)} · %Xeq=${fmtPct(st.XeqPct)} · FP=0.80 en atraso (cosθ=0.80, sinθ=0.60)</span>`;
+    if(solved) html+=`<br><span class="mono">%VR=%Req·cosθ+%Xeq·sinθ+(%Xeq·cosθ−%Req·sinθ)²/200=${fmtPct(st.vr)}</span>`;
+  }
+  else {
+    const st=eficienciaStats();
+    html=`<b>${c.mision}</b><br><span class="mono">Poc=${fmtW(st.Poc)} · Psc=${fmtW(st.Psc)} · S=${st.Srated.toFixed(0)} VA</span>`;
+    if(solved) html+=`<br><span class="mono">η(x=1,FP=1.0)=${fmtPct(st.etaRated*100)}<br>x_máx=√(Poc/Psc)=${st.xMax.toFixed(2)} → η_máx=${fmtPct(st.etaMax*100)}</span>`;
+  }
   el('report').innerHTML=html;
 }
 function refreshAll(){ drawPlate(caseKey); updateTele(); updateReport(); drawBoard(); }
@@ -652,6 +673,7 @@ function answer(i,q){
   });
   solved=chosen.ok;
   synth.beep(chosen.ok?880:220,0.12,0.05);
+  updateTele(); updateReport();
   showToast(`<b style="color:${chosen.ok?'var(--good)':'var(--bad)'}">${chosen.ok?'✔ Correcto':'✘ Revisa'}</b><br><span style="font-size:11px">${chosen.why}</span>`);
 }
 
