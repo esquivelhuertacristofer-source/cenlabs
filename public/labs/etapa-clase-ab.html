@@ -828,10 +828,15 @@ function makeSynth(opts={}){
     addHit('heatsink', Q1_X - 40, Q1_Y - 46, 80, Q2_Y - Q1_Y + 92, 'Disipador (' + curHS().short + ')');
     ctx.fillStyle = '#9aa0a6'; ctx.font = '10px sans-serif'; ctx.fillText('disipador: ' + curHS().short, Q1_X - 38, Q2_Y + 62);
 
-    const res = curSolve();
-    const cls = classifyTj(res.Tj);
-    ctx.font = 'bold 13px sans-serif'; ctx.fillStyle = cls.color;
-    ctx.fillText('Vo_pk=' + fmtV(res.VoPk) + ' · Pdiss(c/u)=' + fmtW(res.PdissEach) + ' · Tj=' + fmtC(res.Tj) + ' · ' + cls.label, PX0 + 10, PY1 - 12);
+    if (state.hide) {
+      ctx.font = 'bold 13px sans-serif'; ctx.fillStyle = '#556677';
+      ctx.fillText('Vo_pk / Pdiss / Tj ocultos — predice antes de revelar', PX0 + 10, PY1 - 12);
+    } else {
+      const res = curSolve();
+      const cls = classifyTj(res.Tj);
+      ctx.font = 'bold 13px sans-serif'; ctx.fillStyle = cls.color;
+      ctx.fillText('Vo_pk=' + fmtV(res.VoPk) + ' · Pdiss(c/u)=' + fmtW(res.PdissEach) + ' · Tj=' + fmtC(res.Tj) + ' · ' + cls.label, PX0 + 10, PY1 - 12);
+    }
   }
 
   // ---------- Gráfica: curva de transferencia (cruce) + Pdiss vs Vo_pk ----------
@@ -844,7 +849,7 @@ function makeSynth(opts={}){
     ctx.fillStyle = '#0b1310'; ctx.fillRect(GX0 - 10, GY0 - 10, GX1 - GX0 + 20, GY1 - GY0 + 20);
     const res = curSolve();
 
-    // ---------- Curva de transferencia (distorsión de cruce) ----------
+    // ---------- Curva de transferencia (distorsión de cruce) — escaffold seguro ----------
     ctx.fillStyle = '#6b8a83'; ctx.font = '10px sans-serif';
     ctx.fillText('Curva de transferencia Vout(Vin) — zona muerta de cruce', GXA, XFER_Y0 - 8);
     const half = XFER_Y1 - XFER_Y0;
@@ -857,6 +862,26 @@ function makeSynth(opts={}){
     line(ctx, GXA, XFER_Y0 + (half - (half)), GXB, XFER_Y0, 1, '#2a3d38');
     ctx.strokeStyle = '#3a4d47'; ctx.beginPath(); ctx.moveTo(GXA, XFER_Y1); ctx.lineTo(GXB, XFER_Y0); ctx.stroke();
     ctx.setLineDash([]);
+
+    // ---------- Pdiss(Vo_pk) — escaffold seguro (ejes + marca de peor caso, sin magnitud) ----------
+    ctx.fillStyle = '#6b8a83'; ctx.font = '10px sans-serif';
+    ctx.fillText('Disipación por transistor vs amplitud de salida Vo_pk', GXA, PCURVE_Y0 - 8);
+    const xFrac = f => GXA + f * (GXB - GXA);
+    line(ctx, GXA, PCURVE_Y1, GXB, PCURVE_Y1, 1, '#233532');
+    line(ctx, GXA, PCURVE_Y0, GXA, PCURVE_Y1, 1, '#233532');
+    // Marca del peor caso teórico (2Vcc/π ≈ 0.637) — sólo posición en x, depende de Vcc/RL (visibles), no de Pdiss
+    const xWorst = xFrac(2 / Math.PI);
+    ctx.setLineDash([3, 3]); line(ctx, xWorst, PCURVE_Y0, xWorst, PCURVE_Y1, 1, '#eab308'); ctx.setLineDash([]);
+    ctx.fillStyle = '#eab308'; ctx.font = 'bold 11px sans-serif';
+    ctx.fillText('peor caso: Vo_pk=2Vcc/π≈0.637·Vcc', xWorst - 90, PCURVE_Y0 - 8 + 20);
+
+    if (state.hide) {
+      ctx.fillStyle = '#556677'; ctx.font = 'bold 12px sans-serif';
+      ctx.fillText('Curva y distorsión ocultas — predice antes de revelar', GXA + 4, yMid + 4);
+      ctx.fillText('Curva de Pdiss oculta — predice antes de revelar', GXA + 4, (PCURVE_Y0 + PCURVE_Y1) / 2);
+      return;
+    }
+
     const pts = transferCurve(res.VoPk, res.deadzoneV, 100);
     ctx.strokeStyle = res.distortion ? '#ef4444' : '#22c55e'; ctx.lineWidth = 2;
     ctx.beginPath();
@@ -868,14 +893,8 @@ function makeSynth(opts={}){
     ctx.fillStyle = res.distortion ? '#ef4444' : '#22c55e'; ctx.font = 'bold 12px sans-serif';
     ctx.fillText(res.distortion ? 'Distorsión de cruce presente (zona muerta ≈' + fmtV(res.deadzoneV) + ')' : 'Sin distorsión de cruce', GXA + 4, XFER_Y0 + 14);
 
-    // ---------- Pdiss(Vo_pk) — el "pico oculto" en 2Vcc/π ----------
-    ctx.fillStyle = '#6b8a83'; ctx.font = '10px sans-serif';
-    ctx.fillText('Disipación por transistor vs amplitud de salida Vo_pk', GXA, PCURVE_Y0 - 8);
     const pMaxDisplay = pdissEachAtFrac(res.Vcc, res.RL, 2 / Math.PI, curBias()) * 1.15;
-    const xFrac = f => GXA + f * (GXB - GXA);
     const yP = p => PCURVE_Y1 - Math.min(1, p / Math.max(pMaxDisplay, 1e-9)) * (PCURVE_Y1 - PCURVE_Y0);
-    line(ctx, GXA, PCURVE_Y1, GXB, PCURVE_Y1, 1, '#233532');
-    line(ctx, GXA, PCURVE_Y0, GXA, PCURVE_Y1, 1, '#233532');
     ctx.strokeStyle = '#8fe3d0'; ctx.lineWidth = 2; ctx.beginPath();
     for (let i = 0; i <= 60; i++) {
       const f = i / 60;
@@ -884,11 +903,6 @@ function makeSynth(opts={}){
       if (i === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
     }
     ctx.stroke();
-    // Marca del peor caso teórico (2Vcc/π ≈ 0.637)
-    const xWorst = xFrac(2 / Math.PI);
-    ctx.setLineDash([3, 3]); line(ctx, xWorst, PCURVE_Y0, xWorst, PCURVE_Y1, 1, '#eab308'); ctx.setLineDash([]);
-    ctx.fillStyle = '#eab308'; ctx.font = 'bold 11px sans-serif';
-    ctx.fillText('peor caso: Vo_pk=2Vcc/π≈0.637·Vcc', xWorst - 90, PCURVE_Y0 - 8 + 20);
     // Punto de operación actual
     const xCur = xFrac(res.VoPkFrac), yCur = yP(res.PdissEach);
     ctx.fillStyle = '#5fb8ff'; ctx.beginPath(); ctx.arc(xCur, yCur, 5, 0, Math.PI * 2); ctx.fill();
@@ -1024,6 +1038,14 @@ function makeSynth(opts={}){
     ctx.fillStyle = '#05100c'; ctx.fillRect(0, 0, canvas.width, canvas.height);
     ctx.strokeStyle = '#12312a'; ctx.lineWidth = 1;
     for (let i = 0; i <= 4; i++) { const y = 10 + i * (canvas.height - 20) / 4; line(ctx, 10, y, canvas.width - 10, y, 1, '#12312a'); }
+
+    if (state.hide) {
+      ctx.fillStyle = '#556677'; ctx.font = '11px sans-serif';
+      ctx.fillText('Vout(t) oculto — predice antes de revelar', 12, canvas.height / 2);
+      tex.needsUpdate = true;
+      return;
+    }
+
     const res = curSolve();
     const N = 200;
     const toX = i => 10 + (i / N) * (canvas.width - 20);
@@ -1180,10 +1202,25 @@ function makeSynth(opts={}){
     showToast(ok ? '✅ Correcto — valor real: ' + real : '❌ No — valor real: ' + real, ok ? 'ok' : 'warn');
   }
 
+  function retoFeasible(vcc, rl) {
+    // ¿existe al menos una combinación (polarización sin distorsión, disipador) que
+    // mantenga Tj≤TJ_SAFE_MAX incluso en el peor caso? Si no, el reto es irresoluble.
+    for (const bias of BIAS_VALS) {
+      if (bias.vbeTotal < DEADZONE_THRESHOLD) continue;
+      for (const hs of HEATSINK_VALS) {
+        if (solveClaseAB(vcc, rl, 2 / Math.PI, bias, hs, TA).TjWorst <= TJ_SAFE_MAX) return true;
+      }
+    }
+    return false;
+  }
   function newReto() {
-    const vi = Math.floor(Math.random() * VCC_VALS.length);
-    const ri = Math.floor(Math.random() * RL_VALS.length);
-    const vcc = VCC_VALS[vi], rl = RL_VALS[ri];
+    let vcc, rl, tries = 0;
+    do {
+      const vi = Math.floor(Math.random() * VCC_VALS.length);
+      const ri = Math.floor(Math.random() * RL_VALS.length);
+      vcc = VCC_VALS[vi]; rl = RL_VALS[ri];
+      tries++;
+    } while (!retoFeasible(vcc, rl) && tries < 40);
     state._reto = { vcc, rl };
     el('retoBox').innerHTML = `<p>Objetivo: con <b>Vcc=±${fmtV(vcc)}</b> y <b>RL=${fmtOhm(rl)}</b>, elige una polarización <b>sin distorsión de cruce</b> y el disipador <b>más pequeño</b> que mantenga <b>Tj≤130°C</b> incluso en el PEOR CASO de amplitud (Vo_pk=0.637·Vcc) — no solo en el Vo_pk que tengas ajustado ahora mismo.</p>`;
     refreshAll();
@@ -1262,20 +1299,30 @@ function makeSynth(opts={}){
     { q: '¿Por qué una etapa Clase AB necesita algo de corriente de reposo (polarización) en vez de operar en Clase B pura (sin polarización)?', a: ['Porque sin polarización ningún transistor conduce cerca del cruce por cero de la señal, produciendo distorsión de cruce — una pequeña corriente de reposo mantiene ambos transistores apenas encendidos ahí', 'Porque sin polarización los transistores se dañan permanentemente', 'Porque la Clase B pura no puede alimentar cargas resistivas'], correct: 0 },
     { q: 'El multiplicador de VBE usa un transistor con dos resistores para fijar la polarización en vez de solo dos diodos. ¿Cuál es la ventaja térmica de que sea un transistor y no diodos fijos?', a: ['Su VBE decrece con la temperatura igual que el VBE de los transistores de salida, así que la polarización seguida térmicamente compensa la deriva de la corriente de reposo cuando el disipador se calienta', 'Los transistores son más baratos que los diodos', 'Un transistor permite ajustar la ganancia de voltaje de la etapa de salida'], correct: 0 },
   ];
+  function shuffled(arr) {
+    const a = arr.slice();
+    for (let i = a.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      const tmp = a[i]; a[i] = a[j]; a[j] = tmp;
+    }
+    return a;
+  }
   let quizIdx = 0;
+  let quizOpts = [];
   function buildQuiz() { quizIdx = Math.floor(Math.random() * QUIZ.length); refreshQuestion(); }
   function refreshQuestion() {
     const item = QUIZ[quizIdx];
     const box = el('quizBox');
     if (!box) return;
+    quizOpts = shuffled(item.a.map((opt, i) => ({ t: opt, ok: i === item.correct })));
     let html = '<div style="font-size:12px;color:#8FB3AC;margin-bottom:6px">Quiz rápido</div>';
     html += '<div style="font-size:13px;color:#EAF4F1;margin-bottom:8px">' + item.q + '</div>';
-    item.a.forEach((opt, i) => { html += '<button class="b quizOpt" data-i="' + i + '" style="width:100%;text-align:left;margin-bottom:4px">' + opt + '</button>'; });
+    quizOpts.forEach((opt, i) => { html += '<button class="b quizOpt" data-i="' + i + '" style="width:100%;text-align:left;margin-bottom:4px">' + opt.t + '</button>'; });
     box.innerHTML = html;
     box.querySelectorAll('.quizOpt').forEach(btn => {
       btn.addEventListener('click', () => {
         const i = Number(btn.dataset.i);
-        if (i === item.correct) { showToast('✅ Correcto', 'ok'); quizIdx = (quizIdx + 1) % QUIZ.length; refreshQuestion(); }
+        if (quizOpts[i].ok) { showToast('✅ Correcto', 'ok'); quizIdx = (quizIdx + 1) % QUIZ.length; refreshQuestion(); }
         else { showToast('❌ Intenta de nuevo', 'warn'); }
       });
     });
@@ -1342,7 +1389,7 @@ function makeSynth(opts={}){
   window.__labDebug = {
     state, DEV, VBE, RTH_JC, RTH_CS, RTH_JA_NO_HS, TJ_MAX, TJ_SAFE_MAX, DEADZONE_THRESHOLD,
     VCC_VALS, RL_VALS, VOPK_FRAC_VALS, BIAS_VALS, HEATSINK_VALS,
-    solveClaseAB, pdissEachAtFrac, classifyTj, transferCurve,
+    solveClaseAB, pdissEachAtFrac, classifyTj, transferCurve, retoFeasible,
     curSolve,
     setMode, genPredice, checkPredice, newReto, checkReto,
     runSweep, refreshAll,

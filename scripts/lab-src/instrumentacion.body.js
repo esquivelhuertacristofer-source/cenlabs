@@ -441,6 +441,12 @@
     ctx.fillStyle = '#94a3b8'; ctx.font = '10px monospace'; ctx.textAlign = 'left';
     ctx.fillText('rojo=mín  verde=típ  ámbar=G actual', plotX0, plotY0 - 4);
 
+    if (state.hide) {
+      ctx.fillStyle = '#556677'; ctx.font = 'bold 12px monospace'; ctx.textAlign = 'left';
+      ctx.fillText('Vbridge / VoutIdeal / error ocultos — predice antes de revelar', GX0, plotY1 + 60);
+      return;
+    }
+
     const res = curSolve();
     const barY = plotY1 + 40, barH = 20, barX0 = plotX0, barW = plotX1 - plotX0;
     const cls = classifyError(res);
@@ -747,7 +753,7 @@
   }
 
   function newReto() {
-    let vex, epsilon, hiddenBridge, hiddenG, voutTarget;
+    let vex, epsilon, hiddenBridge, hiddenG, voutTarget, hiddenErrPct;
     let tries = 0;
     do {
       vex = VEX_VALS[Math.floor(Math.random() * VEX_VALS.length)];
@@ -756,8 +762,11 @@
       hiddenG = GAIN_VALS[Math.floor(Math.random() * GAIN_VALS.length)];
       const eps = epsilon * 1e-6;
       voutTarget = hiddenG * bridgeOutput(hiddenBridge, vex, eps, GF);
+      hiddenErrPct = solveInstrumentacion(vex, epsilon, hiddenBridge, GF, hiddenG).errPctMin;
       tries++;
-    } while (Math.abs(voutTarget) > 12 && tries < 40);
+      // el objetivo debe ser alcanzable por la combinación oculta misma: |VoutIdeal| en rango
+      // realista Y error de CMRR ≤ 2%, o ningún par (puente,G) del grid resolverá el reto
+    } while ((Math.abs(voutTarget) > 12 || hiddenErrPct > 2) && tries < 40);
     state._reto = { vex, epsilon, voutTarget, errorMaxPct: 2 };
     el('retoBox').innerHTML = `
       <p>Con <b>Vex=${fmtVex(vex)}</b> y <b>ε=${fmtEps(epsilon)}</b> (fijos), elige el tipo de puente y la ganancia G para lograr:</p>

@@ -415,10 +415,15 @@
     line(ctx, SRC_X, GND_Y, LOAD_X, GND_Y, 2, '#8fe3d0');
     groundGlyph(ctx, LOAD_X, GND_Y);
 
-    const res = curSolveBuck();
-    const cls = classifyMode(res);
-    ctx.font = 'bold 13px sans-serif'; ctx.fillStyle = cls.color;
-    ctx.fillText('D=' + fmtD(res.D) + ' · ΔIL=' + fmtA(res.deltaIL) + ' · Icrit=' + fmtA(res.Icrit) + ' · ' + cls.label, PX0 + 10, PY1 - 12);
+    ctx.font = 'bold 13px sans-serif';
+    if (state.hide) {
+      ctx.fillStyle = '#556677'; ctx.fillText('Estado oculto — predice antes de revelar', PX0 + 10, PY1 - 12);
+    } else {
+      const res = curSolveBuck();
+      const cls = classifyMode(res);
+      ctx.fillStyle = cls.color;
+      ctx.fillText('D=' + fmtD(res.D) + ' · ΔIL=' + fmtA(res.deltaIL) + ' · Icrit=' + fmtA(res.Icrit) + ' · ' + cls.label, PX0 + 10, PY1 - 12);
+    }
   }
 
   // ---------- Gráfica: IL(t) + barras de rizo de Vout ----------
@@ -430,19 +435,26 @@
     ctx.clearRect(GX0 - 10, GY0 - 10, GX1 - GX0 + 20, GY1 - GY0 + 20);
     ctx.fillStyle = '#0b1310'; ctx.fillRect(GX0 - 10, GY0 - 10, GX1 - GX0 + 20, GY1 - GY0 + 20);
     const res = curSolveBuck();
-    const cls = classifyMode(res);
     const T = 1 / res.Fsw;
-
-    const loIL = Math.min(0, res.ILvalley) * 1.25 - 0.005;
-    const hiIL = res.ILpeak * 1.2 + 0.005;
     const xPixT = t => GXA + (t / T) * (GXB - GXA);
-    const yPixIL = il => IL_Y1 - (il - loIL) / (hiIL - loIL) * (IL_Y1 - IL_Y0);
 
-    // Ejes
+    // Ejes (seguros: no dependen de D, ΔIL ni del modo)
     line(ctx, GXA, IL_Y0, GXA, IL_Y1, 1, '#233532');
     line(ctx, GXA, IL_Y1, GXB, IL_Y1, 1, '#233532');
     ctx.fillStyle = '#6b8a83'; ctx.font = '10px sans-serif';
     ctx.fillText('IL(t) durante un periodo de conmutación', GXA, IL_Y0 - 8);
+    ctx.fillText('T=' + fmtUs(T), GXB - 60, IL_Y1 + 14);
+
+    if (state.hide) {
+      ctx.fillStyle = '#556677'; ctx.font = 'bold 13px sans-serif';
+      ctx.fillText('Curva y rizo ocultos — predice antes de revelar', GXA + 4, (IL_Y0 + IL_Y1) / 2);
+      return;
+    }
+
+    const cls = classifyMode(res);
+    const loIL = Math.min(0, res.ILvalley) * 1.25 - 0.005;
+    const hiIL = res.ILpeak * 1.2 + 0.005;
+    const yPixIL = il => IL_Y1 - (il - loIL) / (hiIL - loIL) * (IL_Y1 - IL_Y0);
 
     // Línea de cero (crítica en DCM)
     const y0 = yPixIL(0);
@@ -458,7 +470,6 @@
     const xOn = xPixT(res.D * T);
     ctx.setLineDash([2, 3]); line(ctx, xOn, IL_Y0, xOn, IL_Y1, 1, '#1a2b27'); ctx.setLineDash([]);
     ctx.fillStyle = '#6b8a83'; ctx.fillText('D·T=' + fmtUs(res.D * T), xOn - 20, IL_Y1 + 14);
-    ctx.fillText('T=' + fmtUs(T), GXB - 60, IL_Y1 + 14);
 
     // Curva "ingenua" (fórmula CCM, puede ir bajo 0 si Iout<Icrit)
     const pts = ilTriangleNaive(res, 120);
@@ -586,6 +597,12 @@
     ctx.fillStyle = '#05100c'; ctx.fillRect(0, 0, canvas.width, canvas.height);
     ctx.strokeStyle = '#12312a'; ctx.lineWidth = 1;
     for (let i = 0; i <= 4; i++) { const y = 10 + i * (canvas.height - 20) / 4; line(ctx, 10, y, canvas.width - 10, y, 1, '#12312a'); }
+    if (state.hide) {
+      ctx.fillStyle = '#556677'; ctx.font = '10px sans-serif';
+      ctx.fillText('nodo de conmutación oculto — predice antes de revelar', 12, canvas.height - 4);
+      tex.needsUpdate = true;
+      return;
+    }
     const res = curSolveBuck();
     const cycles = 2.2, N = 220;
     const toX = i => 10 + (i / N) * (canvas.width - 20);
@@ -878,7 +895,15 @@
   wireStep('c', () => state.iC, v => state.iC = v, CAP_TABLE.length - 1);
   wireStep('iout', () => state.iIOUT, v => state.iIOUT = v, IOUT_VALS.length - 1);
   el('btnRef').addEventListener('click', () => { state.iVOUT = 3; state.iL = 3; state.iC = 1; state.iIOUT = 6; refreshAll(); showToast('Vout=5V, L=68µH, Cout=220µF/25V, Iout=3A — punto de referencia LM2596', 'info'); });
-  el('btnDCM').addEventListener('click', () => { state.iIOUT = 0; refreshAll(); showToast('Iout=0.1A: por debajo de Icrit con L/Vout actuales → DCM', 'warn'); });
+  el('btnDCM').addEventListener('click', () => {
+    state.iIOUT = 0; refreshAll();
+    const res = curSolveBuck();
+    if (res.mode === 'DCM') {
+      showToast('Iout=0.1A: por debajo de Icrit=' + fmtA(res.Icrit) + ' con L/Vout actuales → DCM', 'warn');
+    } else {
+      showToast('Iout=0.1A: con L/Vout actuales, Icrit=' + fmtA(res.Icrit) + ' — sigue en CCM. Sube L o Vout para forzar DCM aquí.', 'info');
+    }
+  });
   el('predNew').addEventListener('click', genPredice);
   el('predCheck').addEventListener('click', checkPredice);
   el('retoNew').addEventListener('click', newReto);

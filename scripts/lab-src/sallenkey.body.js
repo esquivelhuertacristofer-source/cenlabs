@@ -372,10 +372,15 @@
     line(ctx, RFDIV_X, MINUS_Y + 70, RFDIV_X, GND_Y, 2, '#8fe3d0');
     groundGlyph(ctx, RFDIV_X, GND_Y);
 
-    const res = curSolveSallenKey();
-    const cls = classifyQ(res.Q);
-    ctx.font = 'bold 13px sans-serif'; ctx.fillStyle = cls.color;
-    ctx.fillText('fc=' + fmtHz(res.f0) + ' · K=' + fmtK(res.K) + ' · Q=' + fmtQ(res.Q) + ' · ' + cls.label, PX0 + 10, PY1 - 12);
+    ctx.font = 'bold 13px sans-serif';
+    if (state.hide) {
+      ctx.fillStyle = '#556677'; ctx.fillText('Estado oculto — predice antes de revelar', PX0 + 10, PY1 - 12);
+    } else {
+      const res = curSolveSallenKey();
+      const cls = classifyQ(res.Q);
+      ctx.fillStyle = cls.color;
+      ctx.fillText('fc=' + fmtHz(res.f0) + ' · K=' + fmtK(res.K) + ' · Q=' + fmtQ(res.Q) + ' · ' + cls.label, PX0 + 10, PY1 - 12);
+    }
   }
 
   // ---------- Gráfica: Bode (magnitud + fase) ----------
@@ -391,8 +396,6 @@
   function drawGraph(ctx) {
     ctx.clearRect(GX0 - 10, GY0 - 10, GX1 - GX0 + 20, GY1 - GY0 + 20);
     ctx.fillStyle = '#0b1310'; ctx.fillRect(GX0 - 10, GY0 - 10, GX1 - GX0 + 20, GY1 - GY0 + 20);
-    const res = curSolveSallenKey();
-    const cls = classifyQ(res.Q);
 
     // Ejes magnitud
     line(ctx, GXA, MAG_Y0, GXA, MAG_Y1, 1, '#233532');
@@ -414,6 +417,15 @@
       const label = lr === 0 ? 'fc' : (Math.pow(10, lr)).toFixed(lr < 0 ? 1 : 0) + '×fc';
       ctx.fillStyle = '#6b8a83'; ctx.fillText(label, x - 14, PH_Y1 + 14);
     });
+
+    if (state.hide) {
+      ctx.fillStyle = '#556677'; ctx.font = 'bold 13px sans-serif';
+      ctx.fillText('Curva oculta — predice antes de revelar', GXA + 20, (MAG_Y1 + PH_Y0) / 2);
+      return;
+    }
+
+    const res = curSolveSallenKey();
+    const cls = classifyQ(res.Q);
 
     // Referencia de ganancia de banda pasante K
     const passDb = 20 * Math.log10(res.K);
@@ -549,16 +561,22 @@
     ctx.fillStyle = '#05100c'; ctx.fillRect(0, 0, canvas.width, canvas.height);
     ctx.strokeStyle = '#12312a'; ctx.lineWidth = 1;
     for (let i = 0; i <= 4; i++) { const y = 10 + i * (canvas.height - 20) / 4; line(ctx, 10, y, canvas.width - 10, y, 1, '#12312a'); }
-    const res = curSolveSallenKey();
-    const resp = curResponse(res);
-    const cls = classifyQ(res.Q);
     const cycles = 2, N = 200;
-    const scale = Math.max(1.2, resp.magAbs * 1.15);
+    const scale = state.hide ? 1.2 : Math.max(1.2, curResponse().magAbs * 1.15);
     const toX = i => 10 + (i / N) * (canvas.width - 20);
     const toY = v => (canvas.height / 2) - (v / scale) * (canvas.height / 2 - 10);
     ctx.strokeStyle = '#5fb8ff'; ctx.lineWidth = 1.5; ctx.beginPath();
     for (let i = 0; i <= N; i++) { const t = i / N; const v = Math.sin(2 * Math.PI * cycles * t); const x = toX(i), y = toY(v); if (i === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y); }
     ctx.stroke();
+    if (state.hide) {
+      ctx.fillStyle = '#556677'; ctx.font = '10px sans-serif';
+      ctx.fillText('vout oculto — predice antes de revelar', 12, canvas.height - 4);
+      tex.needsUpdate = true;
+      return;
+    }
+    const res = curSolveSallenKey();
+    const resp = curResponse(res);
+    const cls = classifyQ(res.Q);
     const phaseRad = resp.phaseDeg * Math.PI / 180;
     ctx.strokeStyle = cls.color; ctx.lineWidth = 1.5; ctx.beginPath();
     for (let i = 0; i <= N; i++) { const t = i / N; const v = resp.magAbs * Math.sin(2 * Math.PI * cycles * t + phaseRad); const x = toX(i), y = toY(v); if (i === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y); }
@@ -777,20 +795,30 @@
     { q: 'Si aumentas Rf (y por tanto K) dejando R y C fijos, ¿qué le pasa a fc?', a: ['No cambia — fc=1/(2πRC) solo depende de R y C', 'fc sube proporcionalmente a K', 'fc baja a la mitad'], correct: 0 },
     { q: '¿Qué pasa cuando K se acerca a 3 (Rf muy grande frente a Rg)?', a: ['Nada relevante, el filtro sigue igual', 'Q crece sin límite y el circuito se acerca a la inestabilidad (oscilación)', 'fc se vuelve negativa'], correct: 1 },
   ];
+  function shuffled(arr) {
+    const a = arr.slice();
+    for (let i = a.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      const tmp = a[i]; a[i] = a[j]; a[j] = tmp;
+    }
+    return a;
+  }
   let quizIdx = 0;
+  let quizOpts = [];
   function buildQuiz() { quizIdx = Math.floor(Math.random() * QUIZ.length); refreshQuestion(); }
   function refreshQuestion() {
     const item = QUIZ[quizIdx];
     const box = el('quizBox');
     if (!box) return;
+    quizOpts = shuffled(item.a.map((opt, i) => ({ t: opt, ok: i === item.correct })));
     let html = '<div style="font-size:12px;color:#8FB3AC;margin-bottom:6px">Quiz rápido</div>';
     html += '<div style="font-size:13px;color:#EAF4F1;margin-bottom:8px">' + item.q + '</div>';
-    item.a.forEach((opt, i) => { html += '<button class="b quizOpt" data-i="' + i + '" style="width:100%;text-align:left;margin-bottom:4px">' + opt + '</button>'; });
+    quizOpts.forEach((opt, i) => { html += '<button class="b quizOpt" data-i="' + i + '" style="width:100%;text-align:left;margin-bottom:4px">' + opt.t + '</button>'; });
     box.innerHTML = html;
     box.querySelectorAll('.quizOpt').forEach(btn => {
       btn.addEventListener('click', () => {
         const i = Number(btn.dataset.i);
-        if (i === item.correct) { showToast('✅ Correcto', 'ok'); quizIdx = (quizIdx + 1) % QUIZ.length; refreshQuestion(); }
+        if (quizOpts[i].ok) { showToast('✅ Correcto', 'ok'); quizIdx = (quizIdx + 1) % QUIZ.length; refreshQuestion(); }
         else { showToast('❌ Intenta de nuevo', 'warn'); }
       });
     });

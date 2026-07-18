@@ -743,10 +743,14 @@ function makeSynth(opts={}){
     ctx.fillStyle = '#8fe3d0'; ctx.font = '12px sans-serif';
     ctx.fillText('Vout (pin 3)', OUT_X - 30, IC_Y + IC_H / 2 - 12);
 
-    const res = curSolve();
     ctx.font = 'bold 13px sans-serif';
-    if (res.warnRA) { ctx.fillStyle = '#ef4444'; ctx.fillText('⚠ RA por debajo del mínimo recomendado (1kΩ)', PX0 + 10, PY1 - 12); }
-    else { ctx.fillStyle = '#22c55e'; ctx.fillText('f=' + fmtHz(res.f) + ' · duty=' + fmtPct(res.duty), PX0 + 10, PY1 - 12); }
+    if (state.hide) {
+      ctx.fillStyle = '#556677'; ctx.fillText('Estado oculto — predice antes de revelar', PX0 + 10, PY1 - 12);
+    } else {
+      const res = curSolve();
+      if (res.warnRA) { ctx.fillStyle = '#ef4444'; ctx.fillText('⚠ RA por debajo del mínimo recomendado (1kΩ)', PX0 + 10, PY1 - 12); }
+      else { ctx.fillStyle = '#22c55e'; ctx.fillText('f=' + fmtHz(res.f) + ' · duty=' + fmtPct(res.duty), PX0 + 10, PY1 - 12); }
+    }
   }
 
   // ---------- Gráfica: curva de carga/descarga del capacitor ----------
@@ -756,8 +760,7 @@ function makeSynth(opts={}){
   function drawGraph(ctx) {
     ctx.clearRect(GX0 - 10, GY0 - 10, GX1 - GX0 + 20, GY1 - GY0 + 20);
     ctx.fillStyle = '#0b1310'; ctx.fillRect(GX0 - 10, GY0 - 10, GX1 - GX0 + 20, GY1 - GY0 + 20);
-    const res = curSolve();
-    const Vcc = res.Vcc;
+    const Vcc = curVCC();
     line(ctx, GX0 + 30, GY0 + 10, GX0 + 30, GY1 - 30, 1, '#233532');
     line(ctx, GX0 + 30, GY1 - 30, GX1 - 20, GY1 - 30, 1, '#233532');
     ctx.fillStyle = '#6b8a83'; ctx.font = '11px sans-serif';
@@ -775,6 +778,13 @@ function makeSynth(opts={}){
     ctx.fillStyle = '#f59e0b';
     ctx.fillText('LTP=1/3 Vcc', GX0 + 34, yLTP + 14);
 
+    if (state.hide) {
+      ctx.fillStyle = '#556677'; ctx.font = 'bold 13px sans-serif';
+      ctx.fillText('Curva oculta — predice antes de revelar', GX0 + 40, (GY0 + GY1) / 2 + 30);
+      return;
+    }
+
+    const res = curSolve();
     const pts = curveVC(res, 160);
     ctx.lineWidth = 2.5;
     for (let i = 1; i < pts.length; i++) {
@@ -884,6 +894,12 @@ function makeSynth(opts={}){
     ctx.fillStyle = '#05100c'; ctx.fillRect(0, 0, canvas.width, canvas.height);
     ctx.strokeStyle = '#12312a'; ctx.lineWidth = 1;
     for (let i = 0; i <= 4; i++) { const y = 10 + i * (canvas.height - 20) / 4; line(ctx, 10, y, canvas.width - 10, y, 1, '#12312a'); }
+    if (state.hide) {
+      ctx.fillStyle = '#556677'; ctx.font = '11px sans-serif';
+      ctx.fillText('Vc / Vout ocultos — predice antes de revelar', 12, canvas.height / 2);
+      tex.needsUpdate = true;
+      return;
+    }
     const res = curSolve();
     const pts = curveVC(res, 160);
     const Vcc = res.Vcc;
@@ -1019,11 +1035,27 @@ function makeSynth(opts={}){
     showToast(ok ? '✅ Correcto — valor real: ' + real : '❌ No — valor real: ' + real, ok ? 'ok' : 'warn');
   }
 
+  function retoFeasible(target, tol) {
+    for (const RA of RA_VALS) {
+      if (RA < DEV.raMinRec) continue;
+      for (const RB of RB_VALS) {
+        for (const C of C_VALS) {
+          const r = solveAstable(curVCC(), RA, RB, C);
+          if (Math.abs(r.f - target) / target <= tol && r.duty <= 0.55) return true;
+        }
+      }
+    }
+    return false;
+  }
   function newReto() {
-    const raI = 1 + Math.floor(Math.random() * (RA_VALS.length - 1));
-    const rbI = Math.floor(Math.random() * RB_VALS.length);
-    const cI = Math.floor(Math.random() * C_VALS.length);
-    const target = solveAstable(curVCC(), RA_VALS[raI], RB_VALS[rbI], C_VALS[cI]).f;
+    let target, tries = 0;
+    do {
+      const raI = 1 + Math.floor(Math.random() * (RA_VALS.length - 1));
+      const rbI = Math.floor(Math.random() * RB_VALS.length);
+      const cI = Math.floor(Math.random() * C_VALS.length);
+      target = solveAstable(curVCC(), RA_VALS[raI], RB_VALS[rbI], C_VALS[cI]).f;
+      tries++;
+    } while (!retoFeasible(target, 0.15) && tries < 200);
     state._reto = { fTarget: target, tol: 0.15 };
     el('retoBox').innerHTML = `<p>Diseña RA, RB y C para lograr f ≈ <b>${fmtHz(target)}</b> (±15%), con duty cycle ≤ 55% y RA ≥ 1kΩ.</p>`;
     refreshAll();
@@ -1089,20 +1121,30 @@ function makeSynth(opts={}){
     { q: 'Si duplicas RB dejando RA y C fijos, ¿qué le pasa al duty cycle?', a: ['Se acerca más a 50%, porque (RA+RB)/(RA+2RB) tiende a 1/2 cuando RB≫RA', 'Se aleja de 50%', 'No cambia'], correct: 0 },
     { q: '¿Por qué el duty cycle de este astable de 3 terminales nunca puede ser menor a 50%?', a: ['Porque tHigh=0.693(RA+RB)C siempre es mayor o igual que tLow=0.693·RB·C, ya que RA≥0', 'Porque el 555 lo limita por software', 'Porque Vcc lo impide'], correct: 0 },
   ];
+  function shuffled(arr) {
+    const a = arr.slice();
+    for (let i = a.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      const tmp = a[i]; a[i] = a[j]; a[j] = tmp;
+    }
+    return a;
+  }
   let quizIdx = 0;
+  let quizOpts = [];
   function buildQuiz() { quizIdx = Math.floor(Math.random() * QUIZ.length); refreshQuestion(); }
   function refreshQuestion() {
     const item = QUIZ[quizIdx];
     const box = el('quizBox');
     if (!box) return;
+    quizOpts = shuffled(item.a.map((opt, i) => ({ t: opt, ok: i === item.correct })));
     let html = '<div style="font-size:12px;color:#8FB3AC;margin-bottom:6px">Quiz rápido</div>';
     html += '<div style="font-size:13px;color:#EAF4F1;margin-bottom:8px">' + item.q + '</div>';
-    item.a.forEach((opt, i) => { html += '<button class="b quizOpt" data-i="' + i + '" style="width:100%;text-align:left;margin-bottom:4px">' + opt + '</button>'; });
+    quizOpts.forEach((opt, i) => { html += '<button class="b quizOpt" data-i="' + i + '" style="width:100%;text-align:left;margin-bottom:4px">' + opt.t + '</button>'; });
     box.innerHTML = html;
     box.querySelectorAll('.quizOpt').forEach(btn => {
       btn.addEventListener('click', () => {
         const i = Number(btn.dataset.i);
-        if (i === item.correct) { showToast('✅ Correcto', 'ok'); quizIdx = (quizIdx + 1) % QUIZ.length; refreshQuestion(); }
+        if (quizOpts[i].ok) { showToast('✅ Correcto', 'ok'); quizIdx = (quizIdx + 1) % QUIZ.length; refreshQuestion(); }
         else { showToast('❌ Intenta de nuevo', 'warn'); }
       });
     });
@@ -1164,7 +1206,7 @@ function makeSynth(opts={}){
 
   window.__labDebug = {
     state, DEV, solveAstable, curSolve, curveVC,
-    setMode, genPredice, checkPredice, newReto, checkReto,
+    setMode, genPredice, checkPredice, newReto, checkReto, retoFeasible,
     runSweep, refreshAll,
   };
 })();

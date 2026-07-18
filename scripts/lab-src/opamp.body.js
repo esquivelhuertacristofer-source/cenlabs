@@ -6,8 +6,10 @@ SÍ (verificado / modelo estándar de libro de texto):
   estándar (Sedra & Smith; Boylestad & Nashelsky), válidas porque el Avol real de ambos
   dispositivos (~100 dB ≈ 10^5 V/V típico) es varios órdenes de magnitud mayor que cualquier
   ganancia de lazo cerrado usada en esta práctica (Avol→∞ es una aproximación excelente aquí).
-- Ancho de banda de polo dominante: fc=GBW/|Av|; |Av(f)|=|Av|/√(1+(f/fc)²) — modelo estándar
-  de un solo polo para amplificadores realimentados con ganancia-ancho de banda constante.
+- Ancho de banda de polo dominante: fc=GBW/NG, con NG=1+Rf/Ri la ganancia de ruido (NG=Av en el no
+  inversor; NG=|Av|+1 en el inversor, porque el sumador realimenta la misma NG en ambas topologías
+  aunque Av difiera); |Av(f)|=|Av|/√(1+(f/fc)²) — modelo estándar de un solo polo para
+  amplificadores realimentados con ganancia-ancho de banda constante.
 - LM358: GBW≈1 MHz típico, SR≈0.3 V/µs típico, Vos=2 mV típ/7 mV máx, Ib=20 nA típ/250 nA máx
   — hoja de datos Texas Instruments, confirmados por convergencia de múltiples fuentes
   secundarias (ver Nota de rigor).
@@ -103,7 +105,8 @@ Boylestad & Nashelsky, "Electronic Devices and Circuit Theory".
   function solveOpAmp(dev, topology, Ri, Rf, Vs, freq, vinAmp) {
     const avIdeal = topology === 'inv' ? -(Rf / Ri) : (1 + Rf / Ri);
     const avMag = Math.abs(avIdeal);
-    const fc = dev.gbw / avMag; // polo dominante: fc = GBW / |Av|
+    const noiseGain = 1 + Rf / Ri; // ganancia de ruido: misma fórmula en ambas topologías
+    const fc = dev.gbw / noiseGain; // polo dominante: fc = GBW / NG (NG, no |Av|: en el inversor Av≠NG)
     const ratio = freq / fc;
     const avMagAtF = avMag / Math.sqrt(1 + ratio * ratio);
     const avAtF = (avIdeal < 0 ? -1 : 1) * avMagAtF;
@@ -118,7 +121,7 @@ Boylestad & Nashelsky, "Electronic Devices and Circuit Theory".
     const slewLimited = requiredSlew > dev.sr;
 
     return {
-      avIdeal: avIdeal, avMag: avMag, fc: fc, avAtF: avAtF, avMagAtF: avMagAtF,
+      avIdeal: avIdeal, avMag: avMag, noiseGain: noiseGain, fc: fc, avAtF: avAtF, avMagAtF: avMagAtF,
       voutIdealAmp: voutIdealAmp, ceil: ceil, floorMag: floorMag,
       swingClipped: swingClipped, voutRealAmp: voutRealAmp,
       requiredSlew: requiredSlew, slewLimited: slewLimited, zinInv: Ri,
@@ -422,6 +425,10 @@ Boylestad & Nashelsky, "Electronic Devices and Circuit Theory".
 
   // ---------- Gráfica de Bode ----------
   function graphRange() {
+    if (state.hide) {
+      // Rango fijo mientras se oculta el resultado: evita que la escala vertical filtre Av.
+      return { lfmin: Math.log10(50), lfmax: Math.log10(2e6), dbmin: -30, dbmax: 40 };
+    }
     const res = curSolveOpAmp();
     const topDB = Math.ceil((20 * Math.log10(res.avMag) + 10) / 10) * 10;
     const botDB = topDB - 70;
@@ -450,6 +457,12 @@ Boylestad & Nashelsky, "Electronic Devices and Circuit Theory".
       ctx.fillStyle = '#6a7a80'; ctx.font = '10px monospace';
       ctx.fillText(fmtHz(f), x - 14, GY1 + 30);
     });
+
+    if (state.hide) {
+      ctx.fillStyle = '#556677'; ctx.font = 'bold 13px monospace';
+      ctx.fillText('Curva oculta — predice antes de revelar', GX0 + 30, (GY0 + GY1) / 2);
+      return;
+    }
 
     const res = curSolveOpAmp();
     const dev = curDev();
@@ -616,6 +629,13 @@ Boylestad & Nashelsky, "Electronic Devices and Circuit Theory".
     }
     c.stroke();
 
+    if (state.hide) {
+      c.fillStyle = '#556677'; c.font = '11px monospace';
+      c.fillText('vout oculto — predice antes de revelar', 8, H - 8);
+      scopeBox.userData.tex.needsUpdate = true;
+      return;
+    }
+
     const res = curSolveOpAmp();
     const pts = waveformPoints(res, curFreq(), curDev().sr, 64);
     const maxAbs = Math.max(1e-6, res.ceil, res.floorMag);
@@ -649,7 +669,8 @@ Boylestad & Nashelsky, "Electronic Devices and Circuit Theory".
     'swing asimétrico) con el TL072 (entrada JFET, GBW≈3MHz, SR≈13V/µs, swing casi simétrico) para ' +
     'ver cómo el mismo diseño se comporta distinto según el chip.</div>' +
     '<div class="formula">Ganancia ideal — Inversor: Av=−Rf/Ri · No inversor: Av=1+Rf/Ri<br>' +
-    'Ancho de banda (polo dominante): fc=GBW/|Av| · |Av(f)|=|Av|/√(1+(f/fc)²)<br>' +
+    'Ancho de banda (polo dominante): fc=GBW/NG, con NG=1+Rf/Ri (NG=Av en no inversor; NG=|Av|+1 ' +
+    'en inversor) · |Av(f)|=|Av|/√(1+(f/fc)²)<br>' +
     'Distorsión por slew-rate si 2π·f·Vout,pico &gt; SR</div>' +
     '<div class="legend">' +
     '<span class="li"><span class="dot" style="background:#3fae3f"></span>Lineal</span>' +
@@ -658,7 +679,7 @@ Boylestad & Nashelsky, "Electronic Devices and Circuit Theory".
     '<span class="li"><span class="dot" style="background:#c9a8ff"></span>Traza de barrido</span>' +
     '</div>' +
     '<div class="fid">' +
-    '<b>SÍ verificado:</b> Av ideal (Rf/Ri) · modelo de polo dominante fc=GBW/|Av| · GBW y SR ' +
+    '<b>SÍ verificado:</b> Av ideal (Rf/Ri) · modelo de polo dominante fc=GBW/NG (NG=1+Rf/Ri) · GBW y SR ' +
     'típicos de LM358/TL072 (convergencia de fuentes) · swing mínimo garantizado del TL072 · ' +
     'distorsión por slew-rate cuando el slew requerido excede el SR.<br>' +
     '<b>NO modelado:</b> headroom de salida como función real de la carga/temperatura (se usa un ' +
@@ -810,10 +831,35 @@ Boylestad & Nashelsky, "Electronic Devices and Circuit Theory".
   }
 
   // ---------- Reto ----------
+  function retoFeasible(avTarget, bwTargetHz) {
+    // Recorre la rejilla discreta real (Ri×Rf×dispositivo×topología) para confirmar que existe
+    // al menos una combinación que cumpla Av≥avTarget y fc≥bwTargetHz con la fc corregida (GBW/NG).
+    for (const key in DEVS) {
+      const dev = DEVS[key];
+      for (let i = 0; i < RI_VALS.length; i++) {
+        for (let j = 0; j < RF_VALS.length; j++) {
+          const Ri = RI_VALS[i], Rf = RF_VALS[j];
+          const ng = 1 + Rf / Ri;
+          const fc = dev.gbw / ng;
+          if (fc < bwTargetHz) continue;
+          const avMagNoninv = ng;      // no inversor: Av = NG
+          const avMagInv = Rf / Ri;    // inversor: Av = NG − 1
+          if (avMagNoninv >= avTarget || avMagInv >= avTarget) return true;
+        }
+      }
+    }
+    return false;
+  }
+
   function newReto() {
-    const avTarget = 5 + Math.floor(Math.random() * 46);
-    const bwTargetKHz = 5 + Math.floor(Math.random() * 76);
-    state._reto = { avTarget: avTarget, bwTargetHz: bwTargetKHz * 1000 };
+    let avTarget, bwTargetKHz, bwTargetHz, tries = 0;
+    do {
+      avTarget = 5 + Math.floor(Math.random() * 46);
+      bwTargetKHz = 5 + Math.floor(Math.random() * 76);
+      bwTargetHz = bwTargetKHz * 1000;
+      tries++;
+    } while (!retoFeasible(avTarget, bwTargetHz) && tries < 200);
+    state._reto = { avTarget: avTarget, bwTargetHz: bwTargetHz };
     const box = el('retoBox');
     if (box) {
       box.innerHTML = '<p>Diseña Ri/Rf (elige también el op-amp si hace falta) para lograr ' +

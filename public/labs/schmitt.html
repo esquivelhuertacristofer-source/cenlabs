@@ -789,13 +789,17 @@ function makeSynth(opts={}){
       ctx.fillText('NO INVERSOR', PX0 + 10, PY0 + 14);
     }
 
-    const res = curSolveSchmitt();
     ctx.font = 'bold 13px sans-serif';
-    if (res.outOfRange) { ctx.fillStyle = '#ef4444'; ctx.fillText('ENGANCHADO (fuera de 0–Vcc)', PX0 + 10, PY1 - 12); }
-    else {
-      const sim = curSimChatter(res);
-      if (sim.transitions > 2) { ctx.fillStyle = '#f59e0b'; ctx.fillText('REBOTE (chatter)', PX0 + 10, PY1 - 12); }
-      else { ctx.fillStyle = '#22c55e'; ctx.fillText('CONMUTACIÓN LIMPIA', PX0 + 10, PY1 - 12); }
+    if (state.hide) {
+      ctx.fillStyle = '#556677'; ctx.fillText('Estado oculto — predice antes de revelar', PX0 + 10, PY1 - 12);
+    } else {
+      const res = curSolveSchmitt();
+      if (res.outOfRange) { ctx.fillStyle = '#ef4444'; ctx.fillText('ENGANCHADO (fuera de 0–Vcc)', PX0 + 10, PY1 - 12); }
+      else {
+        const sim = curSimChatter(res);
+        if (sim.transitions > 2) { ctx.fillStyle = '#f59e0b'; ctx.fillText('REBOTE (chatter)', PX0 + 10, PY1 - 12); }
+        else { ctx.fillStyle = '#22c55e'; ctx.fillText('CONMUTACIÓN LIMPIA', PX0 + 10, PY1 - 12); }
+      }
     }
   }
 
@@ -806,8 +810,7 @@ function makeSynth(opts={}){
   function drawGraph(ctx) {
     ctx.clearRect(GX0 - 10, GY0 - 10, GX1 - GX0 + 20, GY1 - GY0 + 20);
     ctx.fillStyle = '#0b1310'; ctx.fillRect(GX0 - 10, GY0 - 10, GX1 - GX0 + 20, GY1 - GY0 + 20);
-    const res = curSolveSchmitt();
-    const Vcc = res.Vcc;
+    const Vcc = curVCC();
     ctx.strokeStyle = '#233532'; ctx.lineWidth = 1;
     line(ctx, GX0 + 30, GY0 + 10, GX0 + 30, GY1 - 30, 1, '#233532');
     line(ctx, GX0 + 30, GY1 - 30, GX1 - 20, GY1 - 30, 1, '#233532');
@@ -816,6 +819,13 @@ function makeSynth(opts={}){
     ctx.save(); ctx.translate(GX0 + 12, GY0 + 20); ctx.rotate(-Math.PI / 2);
     ctx.fillText('Vout', 0, 0); ctx.restore();
 
+    if (state.hide) {
+      ctx.fillStyle = '#556677'; ctx.font = 'bold 13px sans-serif';
+      ctx.fillText('Lazo oculto — predice antes de revelar', GX0 + 40, (GY0 + GY1) / 2);
+      return;
+    }
+
+    const res = curSolveSchmitt();
     const vth = Math.max(0, Math.min(Vcc, res.VTH));
     const vtl = Math.max(0, Math.min(Vcc, res.VTL));
     const xTH = xPixV(vth, Vcc), xTL = xPixV(vtl, Vcc);
@@ -972,6 +982,14 @@ function makeSynth(opts={}){
     ctx.strokeStyle = '#5fb8ff'; ctx.lineWidth = 1.5; ctx.beginPath();
     sim.vin.forEach((v, i) => { const x = toX(i), y = toY(v); if (i === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y); });
     ctx.stroke();
+
+    if (state.hide) {
+      ctx.fillStyle = '#556677'; ctx.font = '11px sans-serif';
+      ctx.fillText('vout oculto — predice antes de revelar', 12, canvas.height - 4);
+      tex.needsUpdate = true;
+      return;
+    }
+
     ctx.strokeStyle = res.outOfRange ? '#ef4444' : (sim.transitions > 2 ? '#f59e0b' : '#22c55e');
     ctx.lineWidth = 1.5; ctx.beginPath();
     sim.vout.forEach((v, i) => { const x = toX(i), y = toY(v); if (i === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y); });
@@ -1128,16 +1146,15 @@ function makeSynth(opts={}){
   function checkReto() {
     const res = curSolveSchmitt();
     const noisePP = state._reto.noisePP;
-    const minDelta = noisePP * 1.5;
     const maxDelta = 0.6 * curVCC();
     if (res.outOfRange) {
       showToast('Estos R1/R2 sacan un umbral fuera de 0–Vcc: el comparador se queda enganchado. Reduce la relación R1/R2.', 'warn');
-    } else if (res.deltaV < minDelta) {
-      showToast(`ΔV=${fmtV(res.deltaV)} < 1.5×ruido (${fmtV(minDelta)}): va a rebotar. Sube R1 o baja R2.`, 'warn');
+    } else if (curSimChatter(res).transitions > 2) {
+      showToast(`ΔV=${fmtV(res.deltaV)} no basta frente al ruido de ${fmtV(noisePP)} pico-a-pico: la simulación muestra rebote. Sube R1 o baja R2.`, 'warn');
     } else if (res.deltaV > maxDelta) {
       showToast(`ΔV=${fmtV(res.deltaV)} supera 60% de Vcc (${fmtV(maxDelta)}): demasiado insensible. Baja R1 o sube R2.`, 'warn');
     } else {
-      showToast(`✅ Diseño válido: ΔV=${fmtV(res.deltaV)} está dentro del rango seguro.`, 'ok');
+      showToast(`✅ Diseño válido: ΔV=${fmtV(res.deltaV)} está dentro del rango seguro (sin rebote en la simulación).`, 'ok');
     }
   }
 

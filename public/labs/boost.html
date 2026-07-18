@@ -891,10 +891,15 @@ function makeSynth(opts={}){
     line(ctx, SRC_X, GND_Y, LOAD_X, GND_Y, 2, '#8fe3d0');
     groundGlyph(ctx, LOAD_X, GND_Y);
 
-    const res = curSolveBoost();
-    const cls = classifyMode(res);
-    ctx.font = 'bold 13px sans-serif'; ctx.fillStyle = cls.color;
-    ctx.fillText('Vin=' + fmtV(res.Vin) + ' · D=' + fmtD(res.D) + ' · K=' + res.K.toFixed(3) + ' · Kcrit=' + res.Kcrit.toFixed(3) + ' · ' + cls.label, PX0 + 10, PY1 - 12);
+    ctx.font = 'bold 13px sans-serif';
+    if (state.hide) {
+      ctx.fillStyle = '#556677'; ctx.fillText('Estado oculto — predice antes de revelar', PX0 + 10, PY1 - 12);
+    } else {
+      const res = curSolveBoost();
+      const cls = classifyMode(res);
+      ctx.fillStyle = cls.color;
+      ctx.fillText('Vin=' + fmtV(res.Vin) + ' · D=' + fmtD(res.D) + ' · K=' + res.K.toFixed(3) + ' · Kcrit=' + res.Kcrit.toFixed(3) + ' · ' + cls.label, PX0 + 10, PY1 - 12);
+    }
   }
 
   // ---------- Gráfica: IL(t) + barras de rizo de Vout ----------
@@ -906,19 +911,26 @@ function makeSynth(opts={}){
     ctx.clearRect(GX0 - 10, GY0 - 10, GX1 - GX0 + 20, GY1 - GY0 + 20);
     ctx.fillStyle = '#0b1310'; ctx.fillRect(GX0 - 10, GY0 - 10, GX1 - GX0 + 20, GY1 - GY0 + 20);
     const res = curSolveBoost();
-    const cls = classifyMode(res);
     const T = 1 / res.Fsw;
-
-    const loIL = -0.05 * res.ILpeak - 0.002;
-    const hiIL = res.ILpeak * 1.2 + 0.005;
     const xPixT = t => GXA + (t / T) * (GXB - GXA);
-    const yPixIL = il => IL_Y1 - (il - loIL) / (hiIL - loIL) * (IL_Y1 - IL_Y0);
 
-    // Ejes
+    // Ejes (seguros: no dependen de D, K ni del modo)
     line(ctx, GXA, IL_Y0, GXA, IL_Y1, 1, '#233532');
     line(ctx, GXA, IL_Y1, GXB, IL_Y1, 1, '#233532');
     ctx.fillStyle = '#6b8a83'; ctx.font = '10px sans-serif';
     ctx.fillText('IL(t)=Iin(t) durante un periodo de conmutación', GXA, IL_Y0 - 8);
+    ctx.fillText('T=' + fmtUs(T), GXB - 60, IL_Y1 + 14);
+
+    if (state.hide) {
+      ctx.fillStyle = '#556677'; ctx.font = 'bold 13px sans-serif';
+      ctx.fillText('Curva y Vout ocultos — predice antes de revelar', GXA + 4, (IL_Y0 + IL_Y1) / 2);
+      return;
+    }
+
+    const cls = classifyMode(res);
+    const loIL = -0.05 * res.ILpeak - 0.002;
+    const hiIL = res.ILpeak * 1.2 + 0.005;
+    const yPixIL = il => IL_Y1 - (il - loIL) / (hiIL - loIL) * (IL_Y1 - IL_Y0);
 
     // Línea de cero
     const y0 = yPixIL(0);
@@ -939,7 +951,6 @@ function makeSynth(opts={}){
       ctx.setLineDash([2, 3]); line(ctx, xOff2, IL_Y0, xOff2, IL_Y1, 1, '#1a2b27'); ctx.setLineDash([]);
       ctx.fillStyle = '#6b8a83'; ctx.fillText('(D+D2)·T', xOff2 - 24, IL_Y1 + 28);
     }
-    ctx.fillText('T=' + fmtUs(T), GXB - 60, IL_Y1 + 14);
 
     // Curva real de IL(t): triángulo en CCM, tres subintervalos en DCM
     const pts = ilWaveform(res, 120);
@@ -1063,6 +1074,12 @@ function makeSynth(opts={}){
     ctx.fillStyle = '#05100c'; ctx.fillRect(0, 0, canvas.width, canvas.height);
     ctx.strokeStyle = '#12312a'; ctx.lineWidth = 1;
     for (let i = 0; i <= 4; i++) { const y = 10 + i * (canvas.height - 20) / 4; line(ctx, 10, y, canvas.width - 10, y, 1, '#12312a'); }
+    if (state.hide) {
+      ctx.fillStyle = '#556677'; ctx.font = '10px sans-serif';
+      ctx.fillText('nodo de conmutación oculto — predice antes de revelar', 12, canvas.height - 4);
+      tex.needsUpdate = true;
+      return;
+    }
     const res = curSolveBoost();
     const cycles = 2.2, N = 220;
     const toX = i => 10 + (i / N) * (canvas.width - 20);
@@ -1367,7 +1384,15 @@ function makeSynth(opts={}){
   wireStep('c', () => state.iC, v => state.iC = v, CAP_TABLE.length - 1);
   wireStep('r', () => state.iR, v => state.iR = v, R_VALS.length - 1);
   el('btnRef').addEventListener('click', () => { state.iVIN = 3; state.iD = 1; state.iL = 3; state.iC = 1; state.iR = 0; refreshAll(); showToast('Vin=3.6V, D=28%, L=6.8µH, Cout=220µF/80mΩ, R=2.5Ω — punto de referencia TPS61030 (Vout=5V, Iout=2A, CCM)', 'info'); });
-  el('btnDCM').addEventListener('click', () => { state.iR = 6; refreshAll(); showToast('R=250Ω: carga ligera, K cae por debajo de Kcrit con L/D/Vin actuales → DCM', 'warn'); });
+  el('btnDCM').addEventListener('click', () => {
+    state.iR = 6; refreshAll();
+    const res = curSolveBoost();
+    if (res.mode === 'DCM') {
+      showToast('R=250Ω: carga ligera, K=' + res.K.toFixed(3) + ' cae por debajo de Kcrit=' + res.Kcrit.toFixed(3) + ' con L/D actuales → DCM', 'warn');
+    } else {
+      showToast('R=250Ω: con L/D actuales, K=' + res.K.toFixed(3) + ' sigue ≥ Kcrit=' + res.Kcrit.toFixed(3) + ' — sigue en CCM. Baja L o sube D para forzar DCM aquí.', 'info');
+    }
+  });
   el('predNew').addEventListener('click', genPredice);
   el('predCheck').addEventListener('click', checkPredice);
   el('retoNew').addEventListener('click', newReto);

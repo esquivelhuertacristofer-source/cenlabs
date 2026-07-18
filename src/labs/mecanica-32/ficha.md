@@ -27,7 +27,8 @@ ocupacion_SINCO: "2641/7541 — Técnicos e instaladores/reparadores de equipos 
 resultado_de_aprendizaje: >
   Al finalizar, el estudiante será capaz de calcular la ganancia ideal en lazo cerrado de un
   amplificador inversor (Av=−Rf/Ri) y no inversor (Av=1+Rf/Ri); explicar y aplicar el
-  producto ganancia×ancho de banda (GBW) para predecir la frecuencia de corte fc=GBW/|Av|;
+  producto ganancia×ancho de banda (GBW) para predecir la frecuencia de corte fc=GBW/NG, con
+  NG=1+Rf/Ri la ganancia de ruido (NG=Av en el no inversor, NG=|Av|+1 en el inversor);
   distinguir el recorte de salida por headroom insuficiente frente a ±Vs de la distorsión
   por slew-rate, reconociendo sus firmas visuales distintas (recorte plano vs. onda
   triangular); seleccionar entre dos op-amps con parámetros de hoja de datos distintos
@@ -50,7 +51,7 @@ desarrollo:            # 🔒 los pasos técnicos — revisión experta
   - "Reconoce la topología sobre el esquema y el banco 3D: fuente AC vin, resistores Ri (entrada/realimentación) y Rf (realimentación), op-amp (LM358 o TL072) y salida Vout, con la topología inversora o no inversora alternable con un botón — molde S+P ya usado en mecanica-12/13/14 (d2-anteriores), ahora con un dispositivo activo de ganancia interna finita en vez de una red puramente pasiva."
   - "Modo Explora: ajusta Ri, Rf, la topología y el dispositivo con los steppers del panel, y observa Av (ideal y a la frecuencia actual), fc, Vout y la curva de Bode de magnitud actualizarse en tiempo real, con el punto de operación marcado sobre la curva."
   - "Verifica que la ganancia ideal se calcula por fórmula cerrada: Av=−Rf/Ri en la topología inversora, Av=1+Rf/Ri en la no inversora — el signo y la topología determinan cuál fórmula aplica, y ambas asumen implícitamente que la ganancia en lazo abierto del dispositivo es mucho mayor que |Av|."
-  - "Verifica que la frecuencia de corte fc=GBW/|Av| se calcula dividiendo el GBW de hoja de datos del dispositivo elegido entre la magnitud de la ganancia ideal, y que la respuesta en magnitud sobre la curva de Bode sigue el modelo de un solo polo dominante |Av(f)|=|Av|/√(1+(f/fc)²)."
+  - "Verifica que la frecuencia de corte fc=GBW/NG se calcula dividiendo el GBW de hoja de datos del dispositivo elegido entre la ganancia de ruido NG=1+Rf/Ri (no entre |Av|: en la topología inversora Av=−Rf/Ri≠NG, así que usar |Av| en vez de NG subestimaría el peso de Rf/Ri y sobreestimaría fc), y que la respuesta en magnitud sobre la curva de Bode sigue el modelo de un solo polo dominante |Av(f)|=|Av|/√(1+(f/fc)²)."
   - "Confirma que el recorte de salida (clipping) se activa cuando la amplitud ideal de salida excede el techo o el piso reales de headroom frente a ±Vs — asimétrico para el LM358 (piso cercano a 0V, techo con ~1.5V de margen) y aproximadamente simétrico para el TL072 (~3V de margen a ambos lados) — y que ese headroom se trata como un valor fijo por dispositivo, no como función de la carga."
   - "Confirma que la distorsión por slew-rate es un fenómeno independiente del recorte por swing: se activa cuando la pendiente requerida 2π·f·Vout,pico excede el slew rate de hoja de datos del dispositivo, y se visualiza en el osciloscopio como una deformación triangular de la senoidal, no como un recorte plano."
   - "Modo Predicción: predice la ganancia (tipo A) o si la frecuencia actual cae dentro o fuera del ancho de banda disponible (tipo B) antes de que el simulador confirme la respuesta."
@@ -62,7 +63,7 @@ normatividad:          # 🔒 verificar clave y vigencia
   - "⚑ No se identificó una norma que aplique directamente al diseño de circuitos con amplificador operacional a nivel de componente — mismo hueco normativo ya documentado en mecanica-19/d2-06 a mecanica-23/d2-10; el ancla técnica de esta práctica es el modelo analítico de libro de texto (Sedra y Smith), no una norma."
 simulador_modela:      # 🔒
   - "Ganancia ideal en lazo cerrado para ambas topologías (Av=−Rf/Ri inversor, Av=1+Rf/Ri no inversor), tratando la ganancia en lazo abierto como suficientemente grande para despreciar el error de lazo cerrado — aproximación estándar de libro de texto."
-  - "Modelo de polo dominante de un solo orden para el ancho de banda (fc=GBW/|Av|, |Av(f)|=|Av|/√(1+(f/fc)²)), graficado como curva de Bode de magnitud con el punto de operación actual marcado sobre la curva."
+  - "Modelo de polo dominante de un solo orden para el ancho de banda (fc=GBW/NG con NG=1+Rf/Ri, |Av(f)|=|Av|/√(1+(f/fc)²)), graficado como curva de Bode de magnitud con el punto de operación actual marcado sobre la curva."
   - "Selección entre dos op-amps con parámetros propios de hoja de datos (GBW, slew rate, offset de entrada Vos, corriente de polarización de entrada Ib, y headroom de salida) que cambian visiblemente el comportamiento del mismo diseño de Ri/Rf: LM358 (bipolar, GBW/SR bajos, swing asimétrico) y TL072 (JFET, GBW/SR altos, swing casi simétrico)."
   - "Recorte de salida por headroom real frente a ±Vs, modelado de forma asimétrica para el LM358 y aproximadamente simétrica para el TL072."
   - "Distorsión por slew-rate independiente del recorte por swing, visualizada como deformación triangular de la senoidal en el osciloscopio virtual cuando la pendiente requerida excede el slew rate del dispositivo."
