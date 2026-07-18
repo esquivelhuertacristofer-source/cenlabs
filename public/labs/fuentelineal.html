@@ -960,7 +960,8 @@ function drawFuenteScreen(){
   cx.fillText('Vlínea · '+FLBL[freqIdx],cv.width/2,104);
   cx.fillStyle='#9fb8b0'; cx.font='14px system-ui';
   cx.fillText('Secundario '+curX().vsec+'V',cv.width/2,134);
-  cx.fillText('Vs_rms = '+(RES?RES.vsecRms.toFixed(2):'—')+' V',cv.width/2,156);
+  const hideVsec=(mode==='explora'&&(!filterRevealed||!voutRevealed))||(mode==='predice'&&!predRevealed);
+  cx.fillText('Vs_rms = '+(hideVsec?'¿ ?':(RES?RES.vsecRms.toFixed(2)+' V':'—')),cv.width/2,156);
   fuenteBox.tex.needsUpdate=true;
 }
 function drawMedidorScreen(){
@@ -1327,11 +1328,16 @@ function clearDx(){ el('dxbtns').innerHTML=''; }
 function refreshQuestion(){
   const q=QUIZ[mode]; if(!q) return;
   el('q_text').textContent=q.pregunta;
-  el('dxbtns').innerHTML=q.opciones.map((o,i)=>`<button class="b" data-i="${i}">${'ABC'[i]}) ${o.t}</button>`).join('');
+  const opciones=q.opciones.slice();
+  for(let i=opciones.length-1;i>0;i--){
+    const j=Math.floor(Math.random()*(i+1));
+    const tmp=opciones[i];opciones[i]=opciones[j];opciones[j]=tmp;
+  }
+  el('dxbtns').innerHTML=opciones.map((o,i)=>`<button class="b" data-i="${i}">${'ABC'[i]}) ${o.t}</button>`).join('');
   Array.from(el('dxbtns').children).forEach(btn=>{
     btn.onclick=()=>{
       if(btn.classList.contains('right')||btn.classList.contains('wrong')) return;
-      const o=q.opciones[+btn.dataset.i];
+      const o=opciones[+btn.dataset.i];
       btn.classList.add(o.ok?'right':'wrong');
       showToast(o.why);
       synth.beep(o.ok?880:220,.12,.06);

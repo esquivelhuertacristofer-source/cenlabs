@@ -450,19 +450,21 @@ function solveBJT(topo,dev,beta,VCC,RC,RE,RB,R1,R2){
   let VBB,RBB;
   if(topo==='fija'){VBB=VCC;RBB=RB;}
   else{VBB=VCC*R2/(R1+R2);RBB=(R1*R2)/(R1+R2);}
-  const IB=(VBB-VBE_ON)/(RBB+(beta+1)*RE);
-  if(IB<=0){
+  const IBact=(VBB-VBE_ON)/(RBB+(beta+1)*RE);
+  if(IBact<=0){
     return {region:'corte',IB:0,IC:0,IE:0,VCE:VCC,VBB:VBB,RBB:RBB};
   }
-  const ICact=beta*IB;
-  const IEact=ICact+IB;
+  const ICact=beta*IBact;
+  const IEact=ICact+IBact;
   const VCEact=VCC-ICact*RC-IEact*RE;
   const ICsat=(VCC-dev.vceSat)/(RC+RE);
   if(ICact>=ICsat){
-    const IC=ICsat,IE=IC+IB,VCE=dev.vceSat;
+    const IC=ICsat;
+    const IB=(VBB-VBE_ON-IC*RE)/(RBB+RE);
+    const IE=IC+IB,VCE=dev.vceSat;
     return {region:'saturacion',IB:IB,IC:IC,IE:IE,VCE:VCE,VBB:VBB,RBB:RBB,betaForced:IC/IB};
   }
-  return {region:'activa',IB:IB,IC:ICact,IE:IEact,VCE:VCEact,VBB:VBB,RBB:RBB};
+  return {region:'activa',IB:IBact,IC:ICact,IE:IEact,VCE:VCEact,VBB:VBB,RBB:RBB};
 }
 function isRigido(RBB,beta,RE){return RE>0 && RBB<=0.1*beta*RE;}
 function sleep(ms){return new Promise(function(r){setTimeout(r,ms);});}
@@ -1114,6 +1116,16 @@ async function runSweep(){
 
 function updateTele(){
   if(!RES)return;
+  const hide=(mode==='predice'&&!predRevealed);
+  if(hide){
+    el('teleIB').textContent='¿?';
+    el('teleIC').textContent='¿?';
+    el('teleIE').textContent='¿?';
+    el('teleVCE').textContent='¿?';
+    el('teleRegion').textContent='¿?';
+    el('teleRegion').style.color='#8a8a8a';
+    return;
+  }
   el('teleIB').textContent=fmtI(RES.IB);
   el('teleIC').textContent=fmtI(RES.IC);
   el('teleIE').textContent=fmtI(RES.IE);

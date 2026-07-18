@@ -895,7 +895,10 @@ document.getElementById('panel').innerHTML =
   '<div class="secTitle">Telemetría</div>'+
   '<div class="tele" id="tele"></div>'+
   '<div class="secTitle">Reporte</div>'+
-  '<div class="report" id="report"></div>';
+  '<div class="report" id="report"></div>'+
+  '<div class="secTitle">Autoevaluación</div>'+
+  '<div id="q_text" class="mono" style="font-size:12px;margin-bottom:6px"></div>'+
+  '<div id="dxbtns" class="btns"></div>';
 
 const el=function(id){ return document.getElementById(id); };
 let toastT=null;
@@ -973,7 +976,7 @@ function setMode(k){
   if(k==='reto'&&!RETO) newReto();
   animating=false;
   if(k!=='explora') switchClosed=true;
-  syncCtrlBtns(); refreshBenchSel(); refreshAll();
+  syncCtrlBtns(); clearDx(); refreshQuestion(); refreshBenchSel(); refreshAll();
 }
 
 /* ---------- 9) Telemetría + reporte ---------- */
@@ -981,13 +984,18 @@ function set(id,txt,cls){ const n=el(id); if(!n)return; n.textContent=txt; if(cl
 function updateTele(){
   const load=curLoad(); const r=curRes();
   const dangerous = topo==='none'||(topo==='diode'&&reversed);
+  const hide=(mode==='predice'&&!predRevealed);
   let html='';
   html+='<div class="row"><span>Carga</span><b>'+load.name+'</b></div>';
   html+='<div class="row"><span>Vsupply</span><b>'+fmtV(load.vsupply)+'</b></div>';
   html+='<div class="row"><span>R bobina</span><b>'+fmtR(load.r)+'</b></div>';
   html+='<div class="row"><span>L bobina</span><b>'+fmtL(Lval)+'</b></div>';
   html+='<div class="row"><span>I0 (estable)</span><b>'+fmtI(r.I0)+'</b></div>';
-  if(dangerous){
+  if(hide){
+    html+='<div class="row"><span>τ = L/R</span><b>¿?</b></div>';
+    html+='<div class="row"><span>t_off</span><b>¿?</b></div>';
+    html+='<div class="row"><span>Vpico en switch</span><b>¿?</b></div>';
+  } else if(dangerous){
     html+='<div class="row warn"><span>Estado</span><b>SIN protección cuantitativa</b></div>';
   } else {
     if(r.tau!=null) html+='<div class="row"><span>τ = L/R</span><b>'+fmtT(r.tau)+'</b></div>';
@@ -1094,6 +1102,7 @@ function checkPredice(){
   if(err<=tol){ predSolved=true; solved=true; showToast('¡Correcto! Valor real: '+shown+' '+unit); synth.beep(880,.06,.05); }
   else { predSolved=false; showToast('No coincide. Valor real: '+shown+' '+unit); synth.beep(220,.08,.05); }
   el('predResult').innerHTML='<div class="'+(predSolved?'ok':'bad')+'">Real: '+shown+' '+unit+' · tu respuesta: '+v+' '+unit+'</div>';
+  refreshAll();
 }
 
 /* ---------- 12) Reto de diseño ---------- */
@@ -1107,7 +1116,8 @@ function newReto(){
   const factor=0.3+Math.random()*0.9;
   const maxTOffMs=resDiode.tOff*1000*factor;
   const margin=1.5+Math.random()*5.5;
-  const vSwitchBudget=load.vsupply+ZENERS.z12.vz+d.vf+margin;
+  // z15 (mayor Vz de las opciones) para que el presupuesto siga siendo válido si ese es el zener que el diseño realmente exige
+  const vSwitchBudget=load.vsupply+ZENERS.z15.vz+d.vf+margin;
   RETO={loadKey:lk,loadName:load.name,diodeKey:dk,diodeName:d.name,maxTOffMs:maxTOffMs,vSwitchBudget:vSwitchBudget};
   loadKey=lk; diodeKey=dk; Lval=L; topo='diode'; reversed=false; zenerKey='z12';
   retoSolved=false;
@@ -1170,10 +1180,30 @@ const QUIZ={
 };
 function buildQuiz(){ refreshQuestion(); }
 function clearDx(){
-  const box=el('quizBox'); if(!box)return;
-  Array.prototype.forEach.call(box.querySelectorAll('.quizOpt'),function(b){ b.classList.remove('right','wrong'); });
+  const box=el('dxbtns'); if(!box)return;
+  Array.prototype.forEach.call(box.querySelectorAll('button'),function(b){ b.classList.remove('right','wrong'); });
 }
-function refreshQuestion(){}
+function refreshQuestion(){
+  const q=QUIZ[mode];
+  if(!q)return;
+  el('q_text').textContent=q.pregunta;
+  const opciones=q.opciones.slice();
+  for(let i=opciones.length-1;i>0;i--){
+    const j=Math.floor(Math.random()*(i+1));
+    const tmp=opciones[i]; opciones[i]=opciones[j]; opciones[j]=tmp;
+  }
+  el('dxbtns').innerHTML=opciones.map(function(o,i){ return '<button class="b dx" data-i="'+i+'">'+o.t+'</button>'; }).join('');
+  const btns=el('dxbtns').querySelectorAll('button');
+  btns.forEach(function(b,i){
+    b.onclick=function(){
+      if(b.classList.contains('right')||b.classList.contains('wrong'))return;
+      const o=opciones[i];
+      b.classList.add(o.ok?'right':'wrong');
+      showToast(o.why);
+      synth.beep(o.ok?880:220,.08,.06);
+    };
+  });
+}
 
 /* ---------- 14) Picking, hover, animación, eventos, init ---------- */
 function boardClick(u,v){

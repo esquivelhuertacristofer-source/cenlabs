@@ -296,7 +296,9 @@ function drawBoard(){
   bTex.needsUpdate=true;
 }
 function curColor(){
-  if(!RES)return '#4FD1C5';
+  // Oculto en Predicción hasta verificar — el color por región delataría la respuesta
+  // tanto en el esquemático como en el MOSFET 3D del banco.
+  if(!RES||(mode==='predice'&&!predRevealed))return '#4FD1C5';
   if(RES.region==='triodo')return '#E8871E';
   if(RES.region==='corte')return '#8a8a8a';
   return '#3fae3f';
@@ -715,6 +717,15 @@ async function runSweep(){
 }
 
 function updateTele(){
+  if(mode==='predice'&&!predRevealed){
+    el('teleID').textContent='¿?';
+    el('teleVDS').textContent='¿?';
+    el('teleVOV').textContent='¿?';
+    el('teleRegion').textContent='¿?';
+    el('teleRegion').style.color='#8FB3AC';
+    el('teleWarn').textContent='';
+    return;
+  }
   if(!RES)return;
   el('teleID').textContent=fmtI(RES.ID);
   el('teleVDS').textContent=fmtV(RES.VDS);
@@ -772,7 +783,10 @@ function refreshQuestion(){
 
 function actToast(act){
   if(act==='rd3d')showToast('RD = '+fmtR(curRD())+' — resistor de drenaje, junto con VDD fija la recta de carga.');
-  else if(act==='mosfet3d')showToast(curDev().name+' — Vth actual = '+vth.toFixed(2)+'V, región: '+(RES?RES.region:'—'));
+  else if(act==='mosfet3d'){
+    const hideRegion=(mode==='predice'&&!predRevealed);
+    showToast(curDev().name+' — Vth actual = '+vth.toFixed(2)+'V, región: '+(hideRegion?'oculta (predicción activa)':(RES?RES.region:'—')));
+  }
   else if(act==='src3d')showToast('Fuente VDD = '+curVDD().toFixed(0)+' V (ideal, sin resistencia interna).');
   else if(act==='driver3d'){
     const t=tOn();

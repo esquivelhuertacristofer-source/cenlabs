@@ -113,6 +113,10 @@ function pickStep(maxVal){
 
 // ===== Sección 2: Estado =====
 const V_VALS=[12,24,36,48,72,96];
+// Techo único de fsw: coincide con el dominio de la gráfica y del barrido (0-300 kHz).
+// 1/(tr+tf) como "techo físico" alternativo llega a 10-14 MHz para estos dispositivos —
+// muy por fuera de lo que la gráfica dibuja y de lo que un PWM de potencia real usa.
+const FSW_MAX=300000;
 
 let devKey='irf540n';
 let Vidx=2;
@@ -212,7 +216,7 @@ const HIT=[
 ];
 
 function graphRange(){
-  const fMaxG=300000;
+  const fMaxG=FSW_MAX;
   const dev=curDev();
   const pc=curPcond();
   let pMaxCandidate=Math.max(dev.ptot*1.15,pc*1.15);
@@ -227,6 +231,7 @@ function gyPix(p){const g=graphRange();return PY1-(Math.max(Math.min(p,g.pMaxG),
 
 function curColor(){
   if(!RES)return '#4FD1C5';
+  if(mode==='predice'&&!predRevealed)return '#4FD1C5';
   const dev=curDev();
   const ref=RES.Ptot==null?RES.Pcond:RES.Ptot;
   const ratio=ref/dev.ptot;
@@ -304,10 +309,12 @@ function drawGraph(c){
   c.fillText('Ptot máx catálogo ('+fmtP(dev.ptot)+')',PX0+6,ceilY-6);
 
   const pc=curPcond();
-  const pcY=gyPix(pc);
-  line(c,PX0,pcY,PX1,pcY,'#4FD1C5',2);
-  c.fillStyle='#4FD1C5';c.font='11px monospace';c.textAlign='left';
-  c.fillText('Pcond ('+fmtP(pc)+', no depende de fsw)',PX0+6,pcY-6<PY0+14?pcY+16:pcY-6);
+  if(!hidden){
+    const pcY=gyPix(pc);
+    line(c,PX0,pcY,PX1,pcY,'#4FD1C5',2);
+    c.fillStyle='#4FD1C5';c.font='11px monospace';c.textAlign='left';
+    c.fillText('Pcond ('+fmtP(pc)+', no depende de fsw)',PX0+6,pcY-6<PY0+14?pcY+16:pcY-6);
+  }
 
   if(dev.trPlusTf!=null&&!hidden){
     c.beginPath();
@@ -751,18 +758,7 @@ function checkPredice(kind,val){
 }
 
 function syncFswRange(){
-  let max=300000;
-  if(mode==='reto'){
-    const dev=curDev();
-    if(dev.trPlusTf!=null){
-      const pc=curPcond();
-      if(pc<dev.ptot){
-        const fMaxReal=(dev.ptot-pc)/(0.5*curV()*curI()*dev.trPlusTf);
-        const fPhysCeil=1/dev.trPlusTf;
-        max=Math.min(Math.max(300000,fMaxReal*1.3),fPhysCeil);
-      }
-    }
-  }
+  const max=FSW_MAX;
   el('sFsw').max=max;
   el('sFsw').step=Math.max(Math.round(max/300),1);
   if(fswHz>max){
@@ -780,6 +776,10 @@ function refreshRetoText(){
     return;
   }
   el('btnReto').style.display='block';
+  if(overVoltage()){
+    el('retoAsk').textContent='V='+fmtV(curV())+' ya excede VDS máx de catálogo ('+dev.vdsMax+' V) para '+dev.name+' — ningún valor de fsw arregla un bus fuera del rango de voltaje del dispositivo. Baja V primero.';
+    return;
+  }
   const pc=curPcond();
   if(pc>=dev.ptot){
     el('retoAsk').textContent='Con V='+fmtV(curV())+', I='+fmtI(curI())+' y D='+Dpct.toFixed(0)+'%, Pcond ya vale '+fmtP(pc)+' — por sí sola excede el máximo de catálogo ('+fmtP(dev.ptot)+') sin sumar nada de Psw. No existe ninguna fsw que salve este diseño: baja I o D primero.';
@@ -796,24 +796,35 @@ function newReto(){
 function checkReto(){
   const dev=curDev();
   if(dev.trPlusTf==null)return;
+  if(overVoltage()){
+    el('retoResult').textContent='V ('+fmtV(curV())+') ya excede VDS máx de catálogo ('+dev.vdsMax+' V) — ninguna fsw arregla un bus fuera del rango de voltaje del dispositivo. Baja V primero.';
+    el('retoResult').style.color='#d23b3b';
+    retoSolved=false;
+    return;
+  }
   const pc=curPcond();
   if(pc>=dev.ptot){
     el('retoResult').textContent='Este diseño no tiene solución válida — baja I o D para que Pcond quede por debajo de Ptot máx antes de buscar una fsw.';
     el('retoResult').style.color='#d23b3b';
     return;
   }
-  const fMaxReal=(dev.ptot-pc)/(0.5*curV()*curI()*dev.trPlusTf);
+  const fMaxRealRaw=(dev.ptot-pc)/(0.5*curV()*curI()*dev.trPlusTf);
+  const offChart=fMaxRealRaw>FSW_MAX;
+  const fMaxReal=Math.min(fMaxRealRaw,FSW_MAX);
   const f=curFsw();
   const tol=Math.max(fMaxReal*0.1,1000);
   const ok=f<=fMaxReal&&f>=fMaxReal-tol;
   retoSolved=ok;
   let msg;
-  if(f>fMaxReal){
-    msg='Muy alto — a fsw='+fmtHz(f)+' Ptot ya excede el máximo de catálogo. El límite real es fsw≈'+fmtHz(fMaxReal)+'.';
+  if(offChart&&f>=fMaxReal){
+    msg='Con estos parámetros Ptot se mantiene por debajo del máximo de catálogo en todo el rango visible (hasta '+fmtHz(FSW_MAX)+') — el cruce real fsw≈'+fmtHz(fMaxRealRaw)+' queda fuera del rango práctico de PWM de potencia, así que la respuesta esperada es el tope del rango: '+fmtHz(FSW_MAX)+'.';
+    retoSolved=ok;
+  }else if(f>fMaxReal){
+    msg='Muy alto — a fsw='+fmtHz(f)+' Ptot ya excede el máximo de catálogo. El límite real es fsw≈'+fmtHz(fMaxRealRaw)+'.';
   }else if(ok){
-    msg='¡Diseño válido! fsw='+fmtHz(f)+' está dentro del 10% del límite real (fsw máx≈'+fmtHz(fMaxReal)+').';
+    msg='¡Diseño válido! fsw='+fmtHz(f)+' está dentro del 10% del límite '+(offChart?('práctico (tope de rango '+fmtHz(FSW_MAX)+')'):('real (fsw máx≈'+fmtHz(fMaxRealRaw)+')'));
   }else{
-    msg='Válido pero conservador — fsw='+fmtHz(f)+' deja margen de sobra. El límite real más ajustado es fsw≈'+fmtHz(fMaxReal)+'.';
+    msg='Válido pero conservador — fsw='+fmtHz(f)+' deja margen de sobra. El límite '+(offChart?('práctico es el tope de rango: '+fmtHz(FSW_MAX)):('real más ajustado es fsw≈'+fmtHz(fMaxRealRaw)))+'.';
   }
   el('retoResult').textContent=msg;
   el('retoResult').style.color=ok?'#3fae3f':(f>fMaxReal?'#d23b3b':'#E8871E');
@@ -889,16 +900,26 @@ const QUIZ=[
   {q:'En la frecuencia de cruce fsw*, ¿qué es cierto?',opts:['Psw=0','Pcond=Psw','Ptot es mínimo'],a:1},
   {q:'El 2N7000 no tiene tr/tf publicado por su fabricante. ¿Qué hace este simulador al respecto?',opts:['Inventa un valor típico razonable','Solo calcula Pcond y declara explícitamente que Psw no es computable','Usa el tr/tf del IRF540N como aproximación'],a:1},
 ];
+function shuffled(arr){
+  const a=arr.slice();
+  for(let i=a.length-1;i>0;i--){
+    const j=Math.floor(Math.random()*(i+1));
+    const tmp=a[i];a[i]=a[j];a[j]=tmp;
+  }
+  return a;
+}
 let qIdx=0;
+let qOpts=[];
 function buildQuiz(){qIdx=0;refreshQuestion();}
 function refreshQuestion(){
   const q=QUIZ[qIdx];
   el('quizQ').textContent=q.q;
-  el('quizOpts').innerHTML=q.opts.map(function(o,i){return '<button class="b" data-i="'+i+'">'+o+'</button>';}).join('');
+  qOpts=shuffled(q.opts.map(function(o,i){return {t:o,ok:i===q.a};}));
+  el('quizOpts').innerHTML=qOpts.map(function(o,i){return '<button class="b" data-i="'+i+'">'+o.t+'</button>';}).join('');
   el('quizOpts').querySelectorAll('button').forEach(function(btn){
     btn.addEventListener('click',function(){
       const i=parseInt(btn.getAttribute('data-i'),10);
-      const ok=i===q.a;
+      const ok=qOpts[i].ok;
       showToast(ok?'¡Correcto!':'No — repasa la definición.');
       synth.beep(ok?880:220,.08,.06);
       qIdx=(qIdx+1)%QUIZ.length;
@@ -913,6 +934,7 @@ function actToast(act){
   else if(act==='src3d')showToast('Bus V = '+fmtV(curV())+' (fuente ideal, sin resistencia interna).');
   else if(act==='medidor3d'){
     if(!RES)return;
+    if(mode==='predice'&&!predRevealed){showToast('Medidor de pérdidas — oculto mientras la predicción está activa. Revela tu respuesta para ver Pcond/Psw/Ptot.');return;}
     showToast('Pcond='+fmtP(RES.Pcond)+(RES.Psw==null?' · Psw no disponible':' · Psw='+fmtP(RES.Psw)+' · Ptot='+fmtP(RES.Ptot)));
   }
   else if(act==='pwm3d')showToast('Señal PWM de compuerta: D='+Dpct.toFixed(0)+'% a fsw='+fmtHz(curFsw())+'.');

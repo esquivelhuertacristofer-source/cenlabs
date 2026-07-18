@@ -861,12 +861,14 @@ function makeSynth(opts={}){
       ctx.setLineDash([]);
     }
 
-    // Punto Q
-    const qpx = xPix(dc.VCE, rng), qpy = gyPix(dc.IC, rng);
-    ctx.fillStyle = curColor();
-    ctx.beginPath(); ctx.arc(qpx, qpy, 5, 0, Math.PI * 2); ctx.fill();
-    ctx.fillStyle = '#cfd8dc'; ctx.font = '12px monospace';
-    ctx.fillText('Q', qpx + 8, qpy - 8);
+    // Punto Q (oculto en Predicción hasta verificar — su posición delata la respuesta)
+    if (!state.hide) {
+      const qpx = xPix(dc.VCE, rng), qpy = gyPix(dc.IC, rng);
+      ctx.fillStyle = curColor();
+      ctx.beginPath(); ctx.arc(qpx, qpy, 5, 0, Math.PI * 2); ctx.fill();
+      ctx.fillStyle = '#cfd8dc'; ctx.font = '12px monospace';
+      ctx.fillText('Q', qpx + 8, qpy - 8);
+    }
 
     // Insignia de estado del bypass
     ctx.fillStyle = state.bypass ? '#3fae3f' : '#8a8a8a';
@@ -1047,6 +1049,14 @@ function makeSynth(opts={}){
   function drawMedidorScreen() {
     const c = medidorBox.userData.ctx, W = medidorBox.userData.canvas.width, H = medidorBox.userData.canvas.height;
     c.fillStyle = '#0a0a12'; c.fillRect(0, 0, W, H);
+    if (state.hide) {
+      c.fillStyle = '#8a8a8a'; c.font = 'bold 15px monospace';
+      c.fillText('— predicción activa —', 14, 40);
+      c.font = '12px monospace';
+      c.fillText('valores ocultos hasta verificar', 14, 64);
+      medidorBox.userData.tex.needsUpdate = true;
+      return;
+    }
     const dc = curSolveDC();
     const ac = curSolveAC();
     c.fillStyle = '#ffd54a'; c.font = 'bold 15px monospace';
@@ -1082,17 +1092,22 @@ function makeSynth(opts={}){
       if (i === 0) c.moveTo(x, y); else c.lineTo(x, y);
     }
     c.stroke();
-    const ac = curSolveAC();
-    const pts = waveformPoints(ac, curVIN(), 64);
-    const maxAbs = Math.max(1e-6, ac.valid ? Math.max(ac.upSwing, ac.downSwing) : 1);
-    c.strokeStyle = ac.valid ? '#ffb347' : '#8a8a8a'; c.lineWidth = 2;
-    c.beginPath();
-    pts.forEach(function (v, i) {
-      const x = (i / (pts.length - 1)) * W;
-      const y = midY - (v / maxAbs) * (H / 2 - 6);
-      if (i === 0) c.moveTo(x, y); else c.lineTo(x, y);
-    });
-    c.stroke();
+    if (state.hide) {
+      c.fillStyle = '#8a8a8a'; c.font = '12px monospace';
+      c.fillText('vout oculto — modo predicción', 8, midY + 4);
+    } else {
+      const ac = curSolveAC();
+      const pts = waveformPoints(ac, curVIN(), 64);
+      const maxAbs = Math.max(1e-6, ac.valid ? Math.max(ac.upSwing, ac.downSwing) : 1);
+      c.strokeStyle = ac.valid ? '#ffb347' : '#8a8a8a'; c.lineWidth = 2;
+      c.beginPath();
+      pts.forEach(function (v, i) {
+        const x = (i / (pts.length - 1)) * W;
+        const y = midY - (v / maxAbs) * (H / 2 - 6);
+        if (i === 0) c.moveTo(x, y); else c.lineTo(x, y);
+      });
+      c.stroke();
+    }
     c.fillStyle = '#cfcfcf'; c.font = '11px monospace';
     c.fillText('vin/vout · osciloscopio', 8, H - 8);
     scopeBox.userData.tex.needsUpdate = true;
@@ -1280,7 +1295,10 @@ function makeSynth(opts={}){
   function newReto() {
     const dev = curDev();
     const betaLo = dev.hfeMin, betaHi = dev.hfeMax;
-    const icTarget = (curVCC() / (2 * curRC())) * (0.6 + Math.random() * 0.3);
+    // ICsat real (incluye RE, a diferencia de la fórmula anterior VCC/(2·RC) que la ignoraba
+    // y podía pedir un ICQ objetivo por encima de ICsat — un reto imposible por construcción).
+    const ICsatReal = (curVCC() - dev.vceSat) / (curRC() + curRE());
+    const icTarget = ICsatReal * (0.3 + Math.random() * 0.35);
     state._reto = { icTarget: icTarget, betaLo: betaLo, betaHi: betaHi };
     const box = el('retoBox');
     if (box) {
@@ -1327,10 +1345,14 @@ function makeSynth(opts={}){
   }
 
   function updateTele() {
-    const dc = curSolveDC();
-    const ac = curSolveAC();
     const t = el('telemetry');
     if (!t) return;
+    if (state.hide) {
+      t.innerHTML = '<div>IB ¿? · IC ¿? · VCE ¿?</div><div>gm ¿? · rπ ¿?</div><div>Av ¿? · swing± ¿?</div>';
+      return;
+    }
+    const dc = curSolveDC();
+    const ac = curSolveAC();
     let html = '<div>IB ' + fmtI(dc.IB) + ' · IC ' + fmtI(dc.IC) + ' · VCE ' + fmtV(dc.VCE) + '</div>';
     if (ac.valid) {
       html += '<div>gm ' + fmtS(ac.gm) + ' · rπ ' + fmtR(ac.rpi) + (ac.ro ? ' · ro ' + fmtR(ac.ro) : '') + '</div>';

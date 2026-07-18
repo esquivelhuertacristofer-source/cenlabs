@@ -167,7 +167,8 @@ function drawSchematic(c){
   line(c,outX,WY,rlX,WY,'#EAF4F1',2.5);
   c.beginPath();c.arc(outX,WY,4,0,7);c.fillStyle='#4FD1C5';c.fill();
   line(c,dutX,WY,dutX,WY+40,'#EAF4F1',2.5);
-  const dut=curDut(),col=RES?curColor():'#8FB3AC';
+  const hideCol=(mode==='predice'&&!predRevealed);
+  const dut=curDut(),col=(RES&&!hideCol)?curColor():'#8FB3AC';
   if(cat==='cond')diodeGlyph(c,dutX,WY+40,BY-40,col,false);
   else if(csel==='zen')diodeGlyph(c,dutX,WY+40,BY-40,col,true);
   else tvsGlyph(c,dutX,WY+40,BY-40,col);
@@ -601,7 +602,7 @@ function setMode(k){
   el('barBox').style.display=k==='barrido'?'block':'none';
   el('retoBox').style.display=k==='reto'?'block':'none';
   const lockAll=(k==='predice');
-  const inputs=document.querySelectorAll('#panel input');
+  const inputs=document.querySelectorAll('#panel input[type=range]');
   for(let i=0;i<inputs.length;i++)inputs[i].disabled=lockAll;
   if(k==='predice')genPredice();
   if(k==='reto'){cat='prot';if(!RETO)newReto();}
@@ -618,7 +619,6 @@ function syncCtrlBtns(){
   el('protPanel').style.display=cat==='prot'?'block':'none';
   const retoLock=(mode==='reto');
   Object.keys(DIODES).forEach(function(k){el('d_'+k).disabled=retoLock;});
-  Object.keys(CLAMPS).forEach(function(k){el('c_'+k).disabled=retoLock;});
   el('catCond').disabled=retoLock;el('catProt').disabled=retoLock;
 }
 function selCat(k){
@@ -905,12 +905,17 @@ function refreshQuestion(){
   const q=QUIZ[mode];
   if(!q)return;
   el('q_text').textContent=q.pregunta;
-  el('dxbtns').innerHTML=q.opciones.map(function(o,i){return '<button class="b" data-i="'+i+'">'+o.t+'</button>';}).join('');
+  const opciones=q.opciones.slice();
+  for(let i=opciones.length-1;i>0;i--){
+    const j=Math.floor(Math.random()*(i+1));
+    const tmp=opciones[i];opciones[i]=opciones[j];opciones[j]=tmp;
+  }
+  el('dxbtns').innerHTML=opciones.map(function(o,i){return '<button class="b" data-i="'+i+'">'+o.t+'</button>';}).join('');
   const btns=el('dxbtns').querySelectorAll('button');
   btns.forEach(function(b,i){
     b.onclick=function(){
       if(b.classList.contains('right')||b.classList.contains('wrong'))return;
-      const o=q.opciones[i];
+      const o=opciones[i];
       b.classList.add(o.ok?'right':'wrong');
       showToast(o.why);
       synth.beep(o.ok?880:220,.08,.06);

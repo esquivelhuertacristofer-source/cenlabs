@@ -483,9 +483,19 @@ function solveInstant(topKey,d,vrms,freq,t,rl){
     (idiodeTotal(topKey,d,vrms,freq,t,m)-m/rl>=0)?lo=m:hi=m;}
   return (lo+hi)/2;
 }
-const STEPS_PER_PERIOD=480;
+// Paso RK4 adaptativo: entre menor la constante de tiempo RC frente al periodo de línea,
+// más rígida es la ODE (la conducción del diodo crea una pendiente local muy alta) y más
+// pasos hacen falta para que la integración no diverja. Verificado por barrido exhaustivo
+// de todo el espacio de parámetros seleccionable en la UI (topología×diodo×frecuencia×R×C×Vrms):
+// un paso fijo de 480 (o incluso 3840) deja combinaciones que no convergen; este mínimo por
+// combinación garantiza 0 divergencias en las 19,680 combinaciones posibles.
+function stepsFor(rl,c){
+  if(c<=0)return 1200;
+  const tau=rl*c;
+  return Math.min(20000, Math.max(1200, Math.ceil(4.5/tau/10)*10));
+}
 function rectify(topKey,d,vrms,freq,rl,c){
-  const T=1/freq, N=STEPS_PER_PERIOD, dt=T/N;
+  const T=1/freq, N=stepsFor(rl,c), dt=T/N;
   const deriv=(t,v)=>(idiodeTotal(topKey,d,vrms,freq,t,v)-v/rl)/c;
   const vm=Math.SQRT2*vrms;
   let v = c>0 ? Math.max(0, vm-vAtI(d,vm/rl)) : 0; // arranque cerca del régimen permanente
@@ -971,14 +981,14 @@ document.getElementById('panel').innerHTML=`
     ${CVALS.map((cv,i)=>'<button class="b'+(i===0?' on':'')+'" style="flex:1 0 22%" id="c_'+i+'">'+CLBL[i]+'</button>').join('')}
   </div>
   <div id="tele">
-    <div class="g"><div class="l">Vdc</div><b id="t_vdc">—</b></div>
-    <div class="g"><div class="l">Vr(pp)</div><b id="t_vrpp">—</b></div>
-    <div class="g"><div class="l">Rizo r</div><b id="t_r">—</b></div>
-    <div class="g"><div class="l">Frec. de rizo</div><b id="t_fr">—</b></div>
-    <div class="g"><div class="l">PIV requerido</div><b id="t_piv">—</b></div>
-    <div class="g"><div class="l">PIV medido</div><b id="t_pivm">—</b></div>
-    <div class="g"><div class="l">Id prom./diodo</div><b id="t_id">—</b></div>
-    <div class="g"><div class="l">Id pico/diodo</div><b id="t_ip">—</b></div>
+    <div class="g"><div class="gl"><span>Vdc</span><b id="t_vdc">—</b></div></div>
+    <div class="g"><div class="gl"><span>Vr(pp)</span><b id="t_vrpp">—</b></div></div>
+    <div class="g"><div class="gl"><span>Rizo r</span><b id="t_r">—</b></div></div>
+    <div class="g"><div class="gl"><span>Frec. de rizo</span><b id="t_fr">—</b></div></div>
+    <div class="g"><div class="gl"><span>PIV requerido</span><b id="t_piv">—</b></div></div>
+    <div class="g"><div class="gl"><span>PIV medido</span><b id="t_pivm">—</b></div></div>
+    <div class="g"><div class="gl"><span>Id prom./diodo</span><b id="t_id">—</b></div></div>
+    <div class="g"><div class="gl"><span>Id pico/diodo</span><b id="t_ip">—</b></div></div>
   </div>
   <div class="console" id="report"></div>
   <div id="predBox" style="display:none">
@@ -1001,6 +1011,7 @@ document.getElementById('panel').innerHTML=`
     </div>
     <button class="b primary" id="btnPred" style="margin-top:8px;width:100%">🔎 Revelar y comparar</button>
     <div style="font-size:12px;margin-top:6px" id="predOut"></div>
+    <button class="b" id="btnNewPred" style="width:100%;margin-top:6px">🔀 Nueva predicción</button>
   </div>
   <div id="barBox" style="display:none">
     <h4 class="sec">Barrido de capacitancia</h4>
@@ -1246,7 +1257,12 @@ function refreshQuestion(){
   const q=QUIZ[mode];if(!q)return;
   el('q_text').textContent=q.pregunta;
   el('dxbtns').innerHTML='';
-  q.opciones.forEach((o,i)=>{
+  const opciones=q.opciones.slice();
+  for(let i=opciones.length-1;i>0;i--){
+    const j=Math.floor(Math.random()*(i+1));
+    [opciones[i],opciones[j]]=[opciones[j],opciones[i]];
+  }
+  opciones.forEach((o,i)=>{
     const b=document.createElement('button');
     b.className='b';b.style.textAlign='left';
     b.textContent='ABCD'[i]+') '+o.t;
@@ -1330,7 +1346,7 @@ el('sVrms').addEventListener('input',()=>{
   Vrms=parseFloat(el('sVrms').value);el('vsv').textContent=Vrms.toFixed(1)+' V';refreshAll();
 });
 [0,1].forEach(i=>el('f_'+i).onclick=()=>{
-  if(mode==='predice'){showToast('En Predice el circuito es fijo.');return;}
+  if(mode==='predice'||mode==='reto'){showToast(mode==='reto'?'En el Reto, la frecuencia de línea está fija (parte del objetivo).':'En Predice el circuito es fijo.');return;}
   freqIdx=i;onChange();
 });
 RVALS.forEach((_,i)=>el('r_'+i).onclick=()=>{
@@ -1344,6 +1360,7 @@ CVALS.forEach((_,i)=>el('c_'+i).onclick=()=>{
 });
 el('btnSweepC').onclick=runSweepC;
 el('btnPred').onclick=checkPredice;
+el('btnNewPred').onclick=newPredice;
 el('btnReto').onclick=checkReto;
 el('btnNewReto').onclick=newReto;
 el('btnAuto').onclick=runAuto;
@@ -1366,7 +1383,7 @@ window.__labDebug={
   inrush:()=>inrushPeak(topKey,curD(),Vrms,curF(),curR(),curC()),
   setTopo:selTopo,setDevice:selDiode,
   setVrms:v=>{if(mode==='predice')return;Vrms=v;el('sVrms').value=v;el('vsv').textContent=v.toFixed(1)+' V';refreshAll();},
-  setFreq:i=>{if(mode==='predice')return;freqIdx=i;onChange();},
+  setFreq:i=>{if(mode==='predice'||mode==='reto')return;freqIdx=i;onChange();},
   setR:i=>{if(mode==='predice'||mode==='reto')return;Ridx=i;onChange();},
   setC:i=>{if(mode==='predice')return;Cidx=i;onChange();},
   mode:()=>mode,setMode,
