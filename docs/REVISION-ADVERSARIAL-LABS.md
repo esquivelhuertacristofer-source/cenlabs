@@ -334,10 +334,111 @@ Hallazgos MENOR no bloqueantes de esta tanda: ninguno reportado por los revisore
 
 ## Tanda 5 — D5 máquinas eléctricas (mecanica-44..51)
 
-_(pendiente)_
+_Nota metodológica: los hallazgos detallados de los 16 revisores originales de esta tanda (2 por lab) se perdieron en compactaciones de contexto de sesiones anteriores; solo sobrevivió un resumen de una línea por lab en las notas de trabajo. Los 8 labs recibieron veredicto 🔴 en esa ronda. Para no inventar citas de revisor ni cifras de verificación no computadas en esta sesión, las 8 secciones siguientes se reconstruyen a partir del `git diff` real de cada lab contra su commit de creación — evidencia objetiva de qué cambió — en vez de la memoria de las transcripciones originales. Por eso la tabla resumen de esta tanda usa una columna "Hallazgo principal" en vez de la columna Revisor A / Revisor B de tandas anteriores._
+
+### mecanica-44 — Relación de polaridad de transformador (d5-01) — 🔴 No aprobado (corregido en este mismo turno, ver commit)
+- **Fuga de identidad de caso**: los nombres/descripciones de las 4 unidades bajo prueba (`'Relación · unidad sana'`, `'Relación · unidad con falla'`, `'Polaridad · aditiva'`, `'Polaridad · sustractiva'`, más las menciones "(falla simulada)"/"clase ANSI aditiva/sustractiva" en las descripciones) revelaban en la propia UI si la unidad tenía falla y qué polaridad tenía, antes de que el estudiante hiciera ninguna medición. Corregido a etiquetas neutras ("Caso 1"–"Caso 4") sin pistas de resultado.
+- **Fuga de resultado sin gating**: `updateTele()` mostraba la conclusión de razón/polaridad en cuanto el banco estaba activo, y `updateReport()` mostraba la derivación completa (desviación %, pasa/no pasa, o polaridad detectada), ambos sin esperar a `solved`. Ahora solo muestran las lecturas crudas (Vap, V medida) hasta que el quiz está resuelto.
+- **Quiz sin aleatorización real**: `rotateArr()` calculaba un desplazamiento fijo por hash del texto de la semilla en vez de barajar — la opción correcta caía siempre en la misma posición visual para una semilla dada. Reemplazado por un shuffle Fisher-Yates genuino en `ratioQuizText()` y `polarityQuizText()`.
+- **Demo guiada sin bloquear controles**: `runAuto()` no deshabilitaba los botones de caso/nuevo-banco durante el recorrido guiado, permitiendo cambiar de caso a mitad de la demostración; ahora los bloquea y libera en un `finally`.
+- **Corrección de documentación**: `src/labs/mecanica-44/ficha.md` tenía una cifra de verificación de desviación porcentual con precisión incorrecta (`0.16690848...%` → `0.16694490...%`), corregida para coincidir con el cálculo real.
+
+### mecanica-45 — Circuito equivalente de transformador (d5-02) — 🔴 No aprobado (corregido en este mismo turno, ver commit)
+- **Fuga de resultado sin gating**, replicada en los 4 casos del lab (ensayo de vacío, ensayo de cortocircuito, regulación de voltaje, eficiencia): `updateTele()` y `updateReport()` mostraban la conclusión derivada (impedancias, % de regulación, % de eficiencia) sin esperar a `solved`. Los 4 branches de `updateReport()` se reestructuraron para mostrar solo lecturas crudas incondicionalmente, con el resultado calculado apareciendo únicamente tras resolver.
+- **Quiz sin aleatorización real**: mismo `rotateArr()` determinista que mecanica-44, reemplazado por shuffle Fisher-Yates en las 4 funciones de texto de quiz (vacío/corto/regulación/eficiencia).
+- **Metadato de clasificación incorrecto**: el comentario de cabecera del archivo describía el lab con el "molde E+P" (ensamble 3D + panel), pero el lab no tiene ensamble mecánico — es esquemático interactivo + panel ("molde S+P"). Corregido para reflejar la arquitectura real.
+
+### mecanica-46 — Grupo vectorial de transformador (d5-03) — 🔴 No aprobado (corregido en este mismo turno, ver commit)
+- **Fuga de cruce de modos vía clic en el tablero** (variante nueva de este patrón): `boardClick()` invocaba `setMode()` directamente desde los manejadores de clic de las zonas primario/secundario/reloj del esquemático, así que un estudiante en un reto sin resolver podía sacarse a sí mismo del modo "reto" con un solo clic sobre el tablero (no solo desde las pestañas de modo, que sí tenían guard) y reproducir el mismo desfase/hora oculto en "Conexión"/"Fasor" para leer la respuesta ahí. Corregido extendiendo el guard `lockedReto` también a los manejadores de clic del tablero.
+- **Orden de inicialización defectuoso**: `newChallenge()` llamaba `refreshNet3D()` primero, antes de resetear `retoSolved` y fijar `mode='reto'` — el render 3D de la placa/red podía reflejar el estado nuevo antes de que el reset de estado oculto surtiera efecto. Reordenado para que `refreshNet3D()` sea la última llamada de la función.
+- **Quiz parcialmente sin aleatorizar**: 3 de los 4 arreglos de opciones (`QUIZ.explora`, `QUIZ.conexion`, `QUIZ.reto`) eran literales fijos sin shuffle; el cuarto (`buildFasorOptions()`) usaba una rotación determinista por índice (`rot=idx%4`) en vez de un shuffle real. Los 4 ahora usan un shuffle Fisher-Yates genuino.
+
+### mecanica-47 — Par y velocidad del motor de CD (d5-04) — 🔴 No aprobado (corregido en este mismo turno, ver commit)
+- **Fuga de cruce de modos**: mismo patrón que mecanica-46 — el manejador de clic de las pestañas de modo permitía salir de un reto sin resolver y reproducir los mismos Va/If/TL en "Circuito"/"Curva" para leer la respuesta en la telemetría. Corregido con un guard de bloqueo en el `onclick` de las pestañas, con aviso explicando por qué.
+- **Pregunta de quiz trivial**: `KIND_SET=['Ia','Ea','T','n']` incluía `'T'` (par desarrollado) como cantidad a calcular en el reto, pero en estado estacionario T es idéntico al par de carga ya dado como dato (`TL`) — no exige ningún cálculo real, solo copiar el dato. Eliminado de `KIND_SET`, dejando `['Ia','Ea','n']`.
+
+### mecanica-48 — Generador de CD autoexcitado, curva de magnetización (d5-05) — 🔴 No aprobado (corregido en este mismo turno, ver commit)
+- **Fuga en el toast de interacción**: al hacer clic en el reóstato de campo, `boardClick()` revelaba la resistencia crítica calculada `Rc(nRpm)` en el mensaje aunque hubiera un reto sin resolver activo (`hideQ`); ahora el mensaje se sustituye por un aviso de "vendado" mientras `hideQ` está activo.
+- **Texto de tolerancia incorrecto**: `retoHint` afirmaba "tolerancia: ±5% en Vt (o ≈0 si predices colapso)" — una fórmula que no correspondía al criterio real evaluado por `checkReto()`. Corregido a "tolerancia en Vt: máx(2V, 5% de Vt) si autoexcita, ±1.5V si predices colapso", coincidiendo con el criterio real.
+- **Respuesta embebida en el propio texto de la pregunta**: `QUIZ.reto` calculaba `Rc(MYST.n)` y lo mostraba junto con la conclusión concreta ("aquí Rf < Rc(n): SÍ autoexcita") directamente en el texto de la opción correcta — revelaba el resultado del caso en el enunciado mismo, antes de que el estudiante razonara nada. Reescrito para plantear el criterio general (Rf vs. Rc(n)) sin resolver el caso concreto en el texto.
+- **Quiz parcialmente sin aleatorizar**: 3 arreglos de opciones (`explora`, `curva`, `reto`) sin shuffle — ahora con un shuffle Fisher-Yates.
+- **Demo guiada deja un reto ya resuelto activo**: `runAuto()` terminaba invitando a "explorar otras combinaciones" sobre el mismo caso misterioso que la propia demo acababa de resolver — nada quedaba oculto para el estudiante después. Ahora genera un caso misterioso nuevo sin resolver al final de la demo.
+
+### mecanica-49 — Par y velocidad del motor de inducción (d5-06) — 🔴 No aprobado (corregido en este mismo turno, ver commit)
+- **Fuga de cruce de modos**, idéntica en estructura a mecanica-46/47: guard de bloqueo agregado al manejador de clic de las pestañas de modo, con aviso explicando que en "Operación"/"Curva" se podrían reproducir los mismos f/p del reto y leer la respuesta en la telemetría.
+
+### mecanica-50 — Arranque de motores de inducción: DOL, Y-Δ, autotransformador (d5-07) — 🔴 No aprobado (corregido en este mismo turno, ver commit)
+- **Fuga de marcadores de referencia**: `drawBoard()` dibujaba incondicionalmente las líneas de equivalencia Y-Δ, los puntos de taps típicos (50/65/80%) y su etiqueta — visibles incluso durante un reto sin resolver, permitiendo inferir la respuesta por comparación visual contra esas referencias. Todo ese bloque se envolvió en `if(!hideQ)`.
+- **Fuga del valor de tap en 3 superficies**: el panel 3D (`drawPanelD()`) mostraba siempre el porcentaje de tap `a`, y el toast de clic sobre el equipo de arranque/panel también lo revelaba, incluso con un reto de tipo "tap" sin resolver. Las 3 superficies ahora muestran `¿?` mientras `hideTap` está activo.
+- **Tolerancia mostrada solo tras fallar**: el texto de tolerancia solo aparecía en el mensaje de fallo de `checkReto()`, no en el `retoHint` inicial que plantea la pregunta — el estudiante no sabía el margen exigido hasta fallar una vez. Nuevo helper `tolText()` centraliza el cálculo y se usa en ambos lugares.
+- **Control de UI sin deshabilitar correctamente**: el slider de tap (`sTap`) solo se bloqueaba en modo "reto", pero permanecía activo sin efecto real en modos donde el método no era "autotransformador". Nuevo `syncTapEnabled()` lo deshabilita también cuando `method!=='auto'`.
+- **Quiz sin aleatorizar** en los 4 arreglos de opciones — mismo shuffle Fisher-Yates del resto del catálogo.
+- **Fuga de cruce de modos**, mismo patrón que mecanica-46/47/49 — guard agregado al manejador de clic de pestañas de modo.
+- **Demo guiada deja un reto ya resuelto activo** — mismo problema que mecanica-48; `runAuto()` ahora genera un caso misterioso nuevo sin resolver al terminar.
+
+### mecanica-51 — Circuito equivalente del motor de inducción, ensayos IEEE 112 (d5-08) — 🔴 No aprobado (corregido en este mismo turno, ver commit)
+- **Quiz sin aleatorización real**: `rotateArr()` determinista en las 4 preguntas del reto, reemplazado por shuffle Fisher-Yates.
+- **Fuga en tooltips del esquemático**: `drawEquivCircuit()` mostraba los valores calculados de r1/x1/xm/r2s/x2 al pasar el cursor sobre el circuito equivalente, incluso sin resolver el reto. Ahora condicionados a `solved`, mostrando `= ¿? (resuelve la pregunta)` mientras tanto.
+- **Fuga en `caseParams()`**: los 4 casos del panel de instrumentos (ensayo DC, ensayo de vacío, rotor bloqueado, circuito equivalente) mezclaban lecturas crudas y valores derivados/calculados sin distinguir el gating. Reescrito para mostrar lecturas crudas mientras el ensayo está activo (`active`) y valores derivados (R1, Znl, Xnl, Prot, Rbl, Xbl, X1, X2, Xm, R2, Tstart, Tmax) solo tras `solved`.
+- **`updateTele()` con clase CSS inexistente**: usaba `v.className='dim'`, una clase sin ninguna regla definida en el framework — el color de "dato oculto" nunca se aplicaba visualmente. Reemplazada por un color inline funcional (`var(--hv)`/`var(--dim)`) que sí distingue lecturas ocultas/pendientes/normales.
+- **`updateReport()` sin gating**: mostraba la derivación completa del ensayo sin esperar a `solved`. Ahora un placeholder explícito hasta que el estudiante resuelve la pregunta de ingeniería.
+- **`drawParams()` (pantalla 3D del panel) sin gating**: mismo problema, ahora dibuja un placeholder mientras no está resuelto.
+- **Refresco incompleto tras responder**: `answer(i,q)` no refrescaba las 4 superficies recién gateadas; ahora llama a `refreshAll()`, que cubre telemetría, informe, esquemático y pantalla 3D del panel.
+
+### Tabla resumen — Tanda 5
+
+| Lab | d-número | Hallazgo principal (reconstruido de diff) | Sello final |
+|---|---|---|---|
+| mecanica-44 (relación de polaridad, transformador) | d5-01 | Fuga de identidad de caso (nombres revelan falla/polaridad) + fuga de resultado sin gating | 🔴 → corregido en este turno |
+| mecanica-45 (circuito equivalente, transformador) | d5-02 | Fuga de resultado sin gating en los 4 casos | 🔴 → corregido en este turno |
+| mecanica-46 (grupo vectorial, transformador) | d5-03 | Fuga de cruce de modos vía clic en el tablero (no solo pestañas) | 🔴 → corregido en este turno |
+| mecanica-47 (par-velocidad, motor CD) | d5-04 | Fuga de cruce de modos + pregunta de quiz trivial (T≡TL) | 🔴 → corregido en este turno |
+| mecanica-48 (generador CD, curva de magnetización) | d5-05 | Respuesta embebida en el texto de la pregunta + tolerancia incorrecta | 🔴 → corregido en este turno |
+| mecanica-49 (par-velocidad, motor de inducción) | d5-06 | Fuga de cruce de modos | 🔴 → corregido en este turno |
+| mecanica-50 (arranque de motores de inducción) | d5-07 | Fuga de marcadores de referencia + fuga de tap en 3 superficies + fuga de cruce de modos | 🔴 → corregido en este turno |
+| mecanica-51 (circuito equivalente, motor de inducción) | d5-08 | Fuga en tooltips/panel/informe sin gating (4 superficies) | 🔴 → corregido en este turno |
+
+### Correcciones aplicadas tras Tanda 5
+
+Esta tanda cierra el dominio D5 (8/8) y, con él, el mandato completo de revisión adversarial de los 41 labs `mecanica-11..51`. Combina 8 familias de corrección:
+
+1. **Quiz sin aleatorización real** (8/8 labs, todos): variantes de `rotateArr(arr,seed)` (desplazamiento fijo por hash de semilla) o rotación por índice (`rot=idx%4`) que hacían que la opción correcta cayera siempre en la misma posición visual — reemplazadas uniformemente por un helper `shuffle()` con algoritmo Fisher-Yates genuino en los 8 labs.
+2. **Fuga de resultado en telemetría/informe/tooltips sin gating por `solved`** (mecanica-44, 45, 51): patrón ya establecido desde Tanda 2 ("leak de respuesta") — funciones como `updateTele()`, `updateReport()`, tooltips del esquemático y la pantalla 3D del panel mostraban el resultado calculado tan pronto el banco estaba activo, sin esperar a que el estudiante resolviera la pregunta. Corregido gateando cada superficie tras `solved`, mostrando solo lecturas crudas o placeholders explícitos mientras tanto.
+3. **Fuga de cruce de modos** (mecanica-46, 47, 49, 50): un estudiante en un reto de "único misterio" sin resolver podía cambiar a otro modo (Circuito/Operación/Curva/Conexión) y reproducir ahí los mismos parámetros ocultos, leyendo la respuesta en la telemetría de ese otro modo. Corregido con un guard `lockedReto`/`mode==='reto'&&!retoSolved` en los manejadores de clic de las pestañas de modo (los 4 labs) y, en mecanica-46, extendido también a los manejadores de clic del propio tablero 3D (que también llamaban `setMode()` internamente).
+4. **Fuga de identidad de caso** (mecanica-44): los nombres/descripciones de los 4 casos revelaban directamente si la unidad tenía falla y qué tipo de polaridad tenía, antes de cualquier medición — reemplazados por etiquetas neutras.
+5. **Pregunta de quiz trivial** (mecanica-47): el conjunto de tipos de reto incluía una cantidad (`T`, par desarrollado) que en estado estacionario es idéntica a un dato ya dado al estudiante (`TL`) — eliminada del conjunto de tipos posibles.
+6. **Respuesta embebida en el texto de la pregunta** (mecanica-48): el enunciado del quiz de reto calculaba y mostraba la resistencia crítica del caso concreto junto con la conclusión ya resuelta, en vez de plantear el criterio general — reescrito para no resolver el caso en el propio enunciado.
+7. **Texto de tolerancia incorrecto o incompleto** (mecanica-48: fórmula de tolerancia que no correspondía al criterio real evaluado; mecanica-50: tolerancia visible solo tras fallar, no en el planteamiento inicial) — ambos corregidos para mostrar la tolerancia real y hacerlo desde el enunciado inicial.
+8. **Miscelánea de UI/documentación** (mecanica-50: slider de tap sin deshabilitar fuera del método autotransformador; mecanica-48 y mecanica-50: demo guiada dejaba un caso ya resuelto activo al terminar, en vez de generar uno nuevo sin resolver; mecanica-45: comentario de cabecera clasificaba el lab con el molde 3D incorrecto; mecanica-44: cifra de precisión incorrecta en `ficha.md`; mecanica-51: clase CSS `.dim` referenciada sin tener ninguna regla definida en el framework).
+
+Los 8 labs fueron regenerados vía `build-lab.mjs` (`node --check` limpio en los 8, sin errores de sintaxis). Esta tanda no incluye verificación numérica por barrido `node -e` de retos irresolubles (a diferencia de Tanda 4) porque ninguno de los 8 hallazgos reconstruidos de esta tanda es del tipo "reto irresoluble por construcción" — son fugas de información y bugs de UI/quiz, verificados por inspección directa del código fuente y del flujo `solved`/`hideQ`/`lockedReto`, siguiendo el mismo patrón ya validado visualmente con Playwright en Tandas 1-3. Suite Jest completa (834/834 tests, 14/14 suites, 12/12 snapshots) sin regresiones tras los 8 fixes. Commit de las correcciones: `55fdfdd`.
+
+Hallazgos MENOR no bloqueantes de esta tanda: ninguno registrado por separado — todos los hallazgos reconstruidos de los diffs se trataron como parte de las correcciones aplicadas arriba.
 
 ---
 
 ## Resumen final
 
-_(se completa al cerrar la tanda 5)_
+El mandato de revisión adversarial (2026-07-16) cubrió los 41 labs `mecanica-11..51` del backlog de 150 prácticas, en 5 tandas, con 2 revisores independientes por lab (Revisor A: implementación + dinámica pedagógica; Revisor B: precisión técnica/re-verificación de fórmulas) para las Tandas 1-4, y reconstrucción por `git diff` para la Tanda 5 tras la pérdida de las transcripciones originales en compactaciones de contexto.
+
+**Resultado agregado por tanda:**
+
+| Tanda | Dominio | Labs | 🔴 No aprobado → corregidos | 🟡 Aprobado con observaciones |
+|---|---|---|---|---|
+| 1 | D1 + D10 metrología | mecanica-13, 40-43 (5) | 2 | 3 |
+| 2 | D10 automotriz | mecanica-11,12,24-31 (10) | 8 | 2 |
+| 3 | D2 electrónica (parte 1) | mecanica-14..23 (10) | 9 | 1 |
+| 4 | D2 electrónica (parte 2) | mecanica-32..39 (8) | 8 | 0 |
+| 5 | D5 máquinas eléctricas | mecanica-44..51 (8) | 8 | 0 |
+| **Total** | | **41** | **35** | **6** |
+
+Ningún lab de los 41 recibió un sello final ✅ completamente limpio — los 6 labs con sello 🟡 tuvieron hallazgos MENOR/COSMÉTICO no bloqueantes (típicamente: quiz sin aleatorizar, ausencia de gating de progreso, dependencia exclusiva de canvas sin respaldo textual en el DOM), documentados pero no corregidos por no ser bloqueantes. Los 35 labs con sello 🔴 fueron corregidos en el mismo turno en que se identificó el hallazgo, regenerados vía `build-lab.mjs`, y verificados contra la suite Jest completa sin regresiones.
+
+**Patrones sistémicos identificados y corregidos a través de las 5 tandas** (categorías que aparecieron en más de una tanda):
+- **Fuga de resultado en modo predicción sin gating** ("leak de respuesta"): el hallazgo más frecuente del mandato completo — presente de una forma u otra en labs de las 5 tandas, con variantes cada vez más sutiles (directa en Tandas 1-3; por escala/eje compartido y por curva de referencia = predicción directa en Tanda 4; por cruce de modos en Tanda 5).
+- **Quiz sin aleatorización real**: posición de la respuesta correcta determinista por diseño (rotación fija, hash de semilla, o simplemente sin shuffle) — encontrado y corregido con un shuffle Fisher-Yates en decenas de labs a lo largo de las 5 tandas; se convirtió en el fix más replicado del mandato.
+- **Retos irresolubles por construcción**: el sorteo de parámetros ocultos no garantizaba que existiera una solución válida dentro de las restricciones del lab — encontrado en Tandas 3 y 4 (electrónica), corregido con un idiom de bucle de rechazo (`retoFeasible()` + reintento acotado) y verificado numéricamente por barrido `node -e` en cada caso.
+- **CSS huérfano o clases inventadas sin regla definida**: al menos 2 casos (mecanica-43 en Tanda 1, mecanica-51 en Tanda 5) donde una superficie del lab se renderizaba sin ningún estilo o color por referenciar clases que no existían en el framework compartido.
+- **Bugs de física/lógica genuinos** (no solo fugas de UI): encontrados principalmente en Tanda 4 (fc=GBW/|Av| en vez de GBW/NG en op-amp; heurística de rebote falsa en Schmitt trigger) y de forma puntual en Tanda 3.
+
+Con el cierre de esta tanda, el mandato de revisión adversarial (`mandato_revision_adversarial_labs.md`) queda **completo**: los 41 labs `mecanica-11..51` tienen sello final (🔴 corregido o 🟡 con observaciones documentadas) y quedan desbloqueados para continuar el backlog de 150 prácticas desde `d5-09` en adelante.
