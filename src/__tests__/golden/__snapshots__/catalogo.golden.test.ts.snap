@@ -801,6 +801,16 @@ exports[`golden master — catálogo por categoría (invariante ante extracción
     "teoria": "El circuito equivalente en T de un motor de inducción (R1, X1, Xm, R2', X2') no viene en la placa del motor: se deriva combinando tres ensayos normados por IEEE Std 112. El ensayo de CD, con el motor detenido, mide la resistencia entre terminales de línea del estátor y da R1=Rll/2 (conexión estrella). El ensayo de vacío, con el motor girando sin carga, aísla la rama de magnetización: la impedancia Znl=Vf/Inl se separa en Rnl_eff (pérdidas en el cobre del estátor más pérdidas rotacionales) y Xnl≈Xm+X1. El ensayo de rotor bloqueado, hecho a frecuencia reducida (≤25% de la nominal, IEEE 112 §5.9.1) para no distorsionar R2' por efecto piel, aísla la impedancia serie: Zbl=Vf/Ibl da Rbl (con R2'=Rbl−R1) y Xbl, que tras corregirse linealmente a la frecuencia nominal se reparte según NEMA Diseño B (X1=0.4·Xbl, X2'=0.6·Xbl) y permite despejar Xm=Xnl−X1. Con el circuito completo, el equivalente de Thévenin en las terminales del rotor permite calcular la curva par-deslizamiento completa —incluyendo el par de arranque (s=1) y el par máximo (s=R2'/√(Rth²+(Xth+X2')²))— sin necesidad de ensayar jamás el motor a plena carga.",
     "titulo": "Circuito Equivalente del Motor de Inducción por Ensayos",
   },
+  {
+    "duracion": "40 min",
+    "estado": "activo",
+    "id": "mecanica-52",
+    "modulo": "Instrumentación",
+    "orden": 52,
+    "simuladorHtml": "/labs/placa-datos-motor.html",
+    "teoria": "La placa de datos de un motor de inducción codifica, en NEMA MG-1, todo lo necesario para seleccionarlo correctamente. La letra de código (A–V, sin I ni O) da el rango de kVA/HP a rotor bloqueado, de donde se calcula la corriente de arranque: I_LR=(kVA/HP·HP·1000)/(√3·V_línea). El Factor de Servicio (FS) multiplica el HP nominal para dar el HP continuo máximo permitido —un margen de sobrecarga, no una recomendación de operación sostenida— y el Diseño NEMA (B, C o D) fija la curva par-deslizamiento apropiada para el tipo de carga a arrancar. En México, NOM-016-ENER-2025 exige mínimos de eficiencia propios en su Tabla 1, sin adoptar las etiquetas IE1–IE4 de IEC 60034-30-1: son dos sistemas de clasificación distintos que no deben confundirse al leer una placa.",
+    "titulo": "Interpreta Placas de Datos y Selecciona Motores",
+  },
 ]
 `;
 
@@ -979,6 +989,7 @@ exports[`golden master — catálogo por categoría (invariante ante extracción
   "mecanica-5",
   "mecanica-50",
   "mecanica-51",
+  "mecanica-52",
   "mecanica-6",
   "mecanica-7",
   "mecanica-8",

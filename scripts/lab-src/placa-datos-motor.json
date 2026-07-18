@@ -1,0 +1,9 @@
+{
+  "donor": "escaner-obd.html",
+  "out": "placa-datos-motor.html",
+  "title": "Placas de datos y selección de motores",
+  "lt": "NEMA MG-1 · NOM-016-ENER-2025",
+  "inspectHint": "👆 Toca la placa o el motor para inspeccionar",
+  "body": "placa-datos-motor.body.js",
+  "fichas": ["_ficha-tecnica.js", "_ficha-placa-datos-motor.js"]
+}
