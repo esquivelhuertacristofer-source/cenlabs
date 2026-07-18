@@ -1,0 +1,9 @@
+{
+  "donor": "escaner-obd.html",
+  "out": "diagnostico-motor-monofasico-capacitor.html",
+  "title": "CEN Labs · Motor Monofásico: Fase Partida y Capacitor — Diagnóstico — Laboratorio 3D",
+  "lt": "Motor monofásico · Tipos y diagnóstico de fallas",
+  "inspectHint": "👆 Toca una pieza del motor monofásico o arma la máquina paso a paso",
+  "body": "diagnostico-motor-monofasico-capacitor.body.js",
+  "fichas": ["_ficha-tecnica.js", "_ficha-diagnostico-motor-monofasico-capacitor.js"]
+}

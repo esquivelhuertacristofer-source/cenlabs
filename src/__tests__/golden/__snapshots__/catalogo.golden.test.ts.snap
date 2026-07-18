@@ -811,6 +811,16 @@ exports[`golden master — catálogo por categoría (invariante ante extracción
     "teoria": "La placa de datos de un motor de inducción codifica, en NEMA MG-1, todo lo necesario para seleccionarlo correctamente. La letra de código (A–V, sin I ni O) da el rango de kVA/HP a rotor bloqueado, de donde se calcula la corriente de arranque: I_LR=(kVA/HP·HP·1000)/(√3·V_línea). El Factor de Servicio (FS) multiplica el HP nominal para dar el HP continuo máximo permitido —un margen de sobrecarga, no una recomendación de operación sostenida— y el Diseño NEMA (B, C o D) fija la curva par-deslizamiento apropiada para el tipo de carga a arrancar. En México, NOM-016-ENER-2025 exige mínimos de eficiencia propios en su Tabla 1, sin adoptar las etiquetas IE1–IE4 de IEC 60034-30-1: son dos sistemas de clasificación distintos que no deben confundirse al leer una placa.",
     "titulo": "Interpreta Placas de Datos y Selecciona Motores",
   },
+  {
+    "duracion": "40 min",
+    "estado": "activo",
+    "id": "mecanica-53",
+    "modulo": "Instrumentación",
+    "orden": 53,
+    "simuladorHtml": "/labs/diagnostico-motor-monofasico-capacitor.html",
+    "teoria": "Un motor monofásico de jaula de ardilla no puede arrancar solo con su devanado principal: una sola fase de corriente alterna produce un campo pulsante, no giratorio, así que en reposo el par neto es cero. Para arrancar, el motor añade un devanado auxiliar —de calibre más delgado y mayor resistencia, a veces en serie con un capacitor— que desfasa su corriente respecto a la del devanado principal y crea, mientras dura el arranque, un campo giratorio suficiente para poner al rotor en movimiento. Según qué tan grande sea ese desfase y si el motor conserva o no el capacitor durante la marcha, existen cuatro arquitecturas típicas (fase partida, capacitor de arranque, capacitor permanente, capacitor de arranque y marcha) con pares de arranque muy distintos. El laboratorio arma primero el motor pieza por pieza y solo después desbloquea los modos de comparación de tipos y de diagnóstico de fallas por lectura de resistencia en los terminales C-S-R.",
+    "titulo": "Motor Monofásico: Fase Partida y Capacitor — Diagnóstico",
+  },
 ]
 `;
 
@@ -990,6 +1000,7 @@ exports[`golden master — catálogo por categoría (invariante ante extracción
   "mecanica-50",
   "mecanica-51",
   "mecanica-52",
+  "mecanica-53",
   "mecanica-6",
   "mecanica-7",
   "mecanica-8",
