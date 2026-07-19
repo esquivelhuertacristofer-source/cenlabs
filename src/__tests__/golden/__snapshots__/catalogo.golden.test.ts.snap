@@ -831,6 +831,16 @@ exports[`golden master — catálogo por categoría (invariante ante extracción
     "teoria": "Antes de cerrar el interruptor que conecta un alternador a una red ya energizada, deben cumplirse cuatro condiciones independientes: la tensión del generador debe igualar a la de la red (dentro de una tolerancia), su frecuencia también (o el generador "desliza" respecto a la red), su secuencia de fases debe coincidir exactamente (una secuencia invertida produce un cortocircuito franco al cerrar, la falla más severa de las cuatro), y el ángulo de fase instantáneo debe estar cerca de cero (un ángulo residual grande produce un par pulsante transitorio, el "choque de sincronización"). El sincronoscopio —una aguja que gira mientras la frecuencia no coincide y se detiene al llegar a ángulo cero— y el indicador de tres lámparas —que revela una secuencia invertida por su patrón de parpadeo rotativo— son los dos instrumentos clásicos para verificar estas condiciones antes de la maniobra. El laboratorio expone las cuatro condiciones de forma simultánea e independiente, y en modo Reto exige identificar cuál de las cuatro es la que falla en un escenario dado.",
     "titulo": "Sincronización de un Alternador a la Red",
   },
+  {
+    "duracion": "35 min",
+    "estado": "activo",
+    "id": "mecanica-55",
+    "modulo": "Instrumentación",
+    "orden": 55,
+    "simuladorHtml": "/labs/curvas-v-motor-sincrono.html",
+    "teoria": "Un motor síncrono de rotor liso, alimentado a tensión y frecuencia fijas, puede ajustar su corriente de campo (If) sin cambiar de velocidad ni de carga mecánica. Para cada nivel de carga, la corriente de armadura (Ia) trazada contra If dibuja una curva en forma de "V": un mínimo exacto en el punto donde el motor opera a factor de potencia unitario. A la izquierda de ese mínimo (subexcitación) el motor consume reactivos de la red igual que un motor de inducción; a la derecha (sobreexcitación) los entrega, comportándose como un capacitor — el principio detrás de usar un motor síncrono como compensador de factor de potencia en una planta industrial que comparte el mismo bus con cargas inductivas. El laboratorio permite explorar la familia de curvas V para tres niveles de carga, comparar cómo se desplaza el mínimo de cada una, y en modo Reto resolver dos tipos de problema: calcular a mano la corriente mínima de una curva, o ajustar el reóstato de campo hasta maximizar el factor de potencia total del bus frente a una carga industrial inductiva dada — respetando siempre el límite térmico de la armadura.",
+    "titulo": "Curvas V del Motor Síncrono",
+  },
 ]
 `;
 
@@ -1012,6 +1022,7 @@ exports[`golden master — catálogo por categoría (invariante ante extracción
   "mecanica-52",
   "mecanica-53",
   "mecanica-54",
+  "mecanica-55",
   "mecanica-6",
   "mecanica-7",
   "mecanica-8",

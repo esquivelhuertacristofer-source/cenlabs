@@ -1,0 +1,9 @@
+{
+  "donor": "escaner-obd.html",
+  "out": "curvas-v-motor-sincrono.html",
+  "title": "CEN Labs · Curvas V del Motor Síncrono — Laboratorio 3D",
+  "lt": "Curvas V · Motor síncrono",
+  "inspectHint": "👆 Toca el reóstato de campo, el motor o el tablero para explorar",
+  "body": "curvas-v-motor-sincrono.body.js",
+  "fichas": ["_ficha-tecnica.js", "_ficha-curvas-v-motor-sincrono.js"]
+}
