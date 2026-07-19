@@ -1,0 +1,9 @@
+{
+  "donor": "escaner-obd.html",
+  "out": "sincronizacion-alternador-red.html",
+  "title": "CEN Labs · Sincronización de un Alternador a la Red — Laboratorio 3D",
+  "lt": "Sincronización de alternadores · Máquinas eléctricas",
+  "inspectHint": "👆 Toca el alternador, el interruptor o los medidores para sincronizar",
+  "body": "sincronizacion-alternador-red.body.js",
+  "fichas": ["_ficha-tecnica.js", "_ficha-sincronizacion-alternador-red.js"]
+}

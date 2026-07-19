@@ -821,6 +821,16 @@ exports[`golden master — catálogo por categoría (invariante ante extracción
     "teoria": "Un motor monofásico de jaula de ardilla no puede arrancar solo con su devanado principal: una sola fase de corriente alterna produce un campo pulsante, no giratorio, así que en reposo el par neto es cero. Para arrancar, el motor añade un devanado auxiliar —de calibre más delgado y mayor resistencia, a veces en serie con un capacitor— que desfasa su corriente respecto a la del devanado principal y crea, mientras dura el arranque, un campo giratorio suficiente para poner al rotor en movimiento. Según qué tan grande sea ese desfase y si el motor conserva o no el capacitor durante la marcha, existen cuatro arquitecturas típicas (fase partida, capacitor de arranque, capacitor permanente, capacitor de arranque y marcha) con pares de arranque muy distintos. El laboratorio arma primero el motor pieza por pieza y solo después desbloquea los modos de comparación de tipos y de diagnóstico de fallas por lectura de resistencia en los terminales C-S-R.",
     "titulo": "Motor Monofásico: Fase Partida y Capacitor — Diagnóstico",
   },
+  {
+    "duracion": "35 min",
+    "estado": "activo",
+    "id": "mecanica-54",
+    "modulo": "Instrumentación",
+    "orden": 54,
+    "simuladorHtml": "/labs/sincronizacion-alternador-red.html",
+    "teoria": "Antes de cerrar el interruptor que conecta un alternador a una red ya energizada, deben cumplirse cuatro condiciones independientes: la tensión del generador debe igualar a la de la red (dentro de una tolerancia), su frecuencia también (o el generador "desliza" respecto a la red), su secuencia de fases debe coincidir exactamente (una secuencia invertida produce un cortocircuito franco al cerrar, la falla más severa de las cuatro), y el ángulo de fase instantáneo debe estar cerca de cero (un ángulo residual grande produce un par pulsante transitorio, el "choque de sincronización"). El sincronoscopio —una aguja que gira mientras la frecuencia no coincide y se detiene al llegar a ángulo cero— y el indicador de tres lámparas —que revela una secuencia invertida por su patrón de parpadeo rotativo— son los dos instrumentos clásicos para verificar estas condiciones antes de la maniobra. El laboratorio expone las cuatro condiciones de forma simultánea e independiente, y en modo Reto exige identificar cuál de las cuatro es la que falla en un escenario dado.",
+    "titulo": "Sincronización de un Alternador a la Red",
+  },
 ]
 `;
 
@@ -1001,6 +1011,7 @@ exports[`golden master — catálogo por categoría (invariante ante extracción
   "mecanica-51",
   "mecanica-52",
   "mecanica-53",
+  "mecanica-54",
   "mecanica-6",
   "mecanica-7",
   "mecanica-8",
