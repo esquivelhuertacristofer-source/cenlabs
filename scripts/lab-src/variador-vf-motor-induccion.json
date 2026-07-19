@@ -1,0 +1,9 @@
+{
+  "donor": "escaner-obd.html",
+  "out": "variador-vf-motor-induccion.html",
+  "title": "CEN Labs · Variador V/f del Motor de Inducción — Laboratorio 3D",
+  "lt": "Variador V/f · Motor de inducción",
+  "inspectHint": "👆 Toca el variador, la perilla, el motor o el tablero para explorar",
+  "body": "variador-vf-motor-induccion.body.js",
+  "fichas": ["_ficha-tecnica.js", "_ficha-variador-vf-motor-induccion.js"]
+}

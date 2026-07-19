@@ -1,0 +1,32 @@
+import type { BriefingConfig } from '@/components/MissionBriefing';
+
+const briefing: BriefingConfig = {
+  codigo: "MEC-56",
+  titulo: "Variador V/f del Motor de Inducción",
+  subtitulo: "Máquinas eléctricas · Control escalar de velocidad con relación V/f constante",
+  acento: "#FFB703",
+  duracion: 35,
+  videoUrl: '',
+  bienvenida: `Un motor de inducción conectado directo a la red gira a una velocidad casi fija, marcada por la frecuencia de línea. Un variador de frecuencia (VFD) rompe esa restricción: cambia la frecuencia que alimenta al motor, y con ella su velocidad síncrona — pero solo si mantiene la relación entre tensión y frecuencia (V/f) constante, para no perder ni ganar flujo magnético en el entrehierro.
+
+Este laboratorio te pone frente al mismo control que usaría un técnico de planta: una perilla de frecuencia que comanda el variador, y un bloque de carga mecánica que el motor debe sostener a cada velocidad. Descubrirás que, por debajo de la frecuencia nominal, el motor conserva el mismo par máximo disponible sin importar qué tan lento gire — la razón por la que un variador puede arrancar una carga pesada con mucho más par que un arranque directo a la red. En el modo Reto usarás la misma ecuación que traza las curvas del pizarrón para encontrar, a mano o por tanteo, la frecuencia mínima a la que el motor puede sostener una carga dada antes de calarse.`,
+  conceptos: [
+    { icono: '🎛️', nombre: 'V/f constante: la misma curva de par, desplazada', descripcion: 'Mientras el variador mantenga la tensión proporcional a la frecuencia, el flujo magnético del entrehierro se mantiene constante y, con él, el par máximo que el motor puede entregar — la curva par-velocidad completa simplemente se desplaza a la nueva velocidad síncrona, sin cambiar de forma ni de altura.' },
+    { icono: '🚀', nombre: 'Arrancar lento da más par, no menos', descripcion: 'A baja frecuencia, el deslizamiento donde ocurre el par máximo crece mucho; eso pone el arranque (deslizamiento=1) muy cerca de la zona de par máximo de la curva, en vez de muy lejos de ella como ocurre en un arranque directo a 60 Hz. Por eso una rampa de frecuencia baja arranca cargas pesadas con mucho más par que un arranque directo a la red.' },
+    { icono: '⚠️', nombre: 'Por encima de la frecuencia base, el motor pierde fuerza', descripcion: 'El variador no puede entregar más del 100% de la tensión nominal; por encima de la frecuencia base, la relación V/f ya no puede mantenerse constante, el flujo del entrehierro disminuye, y el par máximo disponible cae — la región de "debilitamiento de campo".' },
+    { icono: '🛑', nombre: 'Toda carga tiene una frecuencia mínima antes de calarse', descripcion: 'Para cada par resistente que el motor debe sostener, existe una frecuencia por debajo de la cual el par máximo disponible ya no alcanza para vencer la carga y el motor se cala. Esa frontera se puede calcular en forma cerrada a partir de la misma ecuación que traza la curva par-velocidad.' },
+  ],
+  mision: [
+    'EXPLORA · Mueve la perilla de frecuencia y el bloque de carga, y observa cómo cambia la velocidad estable del motor y qué tan cerca está de calarse.',
+    'COMPARA · Observa las curvas par-velocidad de cuatro frecuencias de referencia juntas y localiza el punto de operación en vivo sobre la curva activa.',
+    'DEMUESTRA · Corre las demostraciones guiadas de arranque directo (DOL) y arranque en rampa, y compara el par de arranque disponible en cada caso.',
+    'RETO · Calcula a mano la frecuencia mínima antes de calado para una carga dada, o encuéntrala por tanteo moviendo el deslizador de frecuencia.',
+  ],
+  aplicaciones: [
+    { area: 'Arranque suave de bandas transportadoras y bombas', ejemplo: 'Un variador que rampa la frecuencia desde un valor bajo evita el golpe de arranque de un motor conectado directo a la red, y además entrega más par de arranque disponible — útil para arrancar una banda transportadora ya cargada o una bomba contra una columna de agua llena.' },
+    { area: 'Control de velocidad de ventiladores y bombas centrífugas', ejemplo: 'En cargas cuyo par resistente crece con el cuadrado de la velocidad (ventiladores, bombas centrífugas), variar la frecuencia para reducir la velocidad ahorra energía de forma mucho más eficiente que estrangular una válvula o una compuerta a velocidad fija.' },
+    { area: 'Evitar el calado bajo carga variable', ejemplo: 'Un técnico que conoce la frontera de calado de su motor a cada frecuencia puede anticipar si una carga súbita (una banda que se atasca, una bomba que golpea un sólido) va a hacer que el motor pierda sincronismo, en vez de descubrirlo cuando el motor ya se detuvo.' },
+  ],
+};
+
+export default briefing;
