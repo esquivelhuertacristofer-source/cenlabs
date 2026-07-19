@@ -851,6 +851,16 @@ exports[`golden master — catálogo por categoría (invariante ante extracción
     "teoria": "Un variador de frecuencia (VFD) cambia la velocidad de un motor de inducción cambiando la frecuencia de la tensión que le entrega, pero para no perder par debe mantener la relación entre tensión y frecuencia (V/f) constante hasta la frecuencia nominal del motor: así conserva el flujo del entrehierro y, con él, el par máximo disponible en toda la región de "par constante". Por encima de esa frecuencia base, la tensión ya no puede seguir creciendo (queda topada al 100%), el flujo disminuye y el par máximo cae — la región de "debilitamiento de campo". El laboratorio permite explorar cómo cambia la velocidad estable del motor al mover la frecuencia comandada y la carga mecánica, comparar las curvas par-velocidad de cuatro frecuencias de referencia, correr dos demostraciones guiadas que contrastan un arranque directo a la red contra un arranque en rampa desde baja frecuencia, y en modo Reto encontrar —a mano o por tanteo— la frecuencia mínima a la que el motor sostiene una carga dada antes de calarse.",
     "titulo": "Variador V/f del Motor de Inducción",
   },
+  {
+    "duracion": "35 min",
+    "estado": "activo",
+    "id": "mecanica-57",
+    "modulo": "Instrumentación",
+    "orden": 57,
+    "simuladorHtml": "/labs/conmutacion-bldc-pmsm.html",
+    "teoria": "Un motor BLDC/PMSM no tiene escobillas: un inversor trifásico debe conmutar la corriente de cada fase en el instante exacto en que la FEM inducida de esa fase está en su tramo plano, siguiendo la posición del rotor que reportan los sensores Hall. Cuando la conmutación está perfectamente alineada con la FEM (error δ=0), el par instantáneo es plano e igual al ideal. Un error de temporización δ —por adelanto, atraso, o por el retardo fijo que introduce una detección "sensorless" del cruce por cero de la FEM— reduce el par promedio disponible y produce rizo de par, porque cada fase deja de conducir exactamente durante su ventana de FEM constante. El laboratorio permite explorar cómo cambian el par promedio y el rizo al mover el error de conmutación y la corriente comandada, comparar una conmutación con sensores Hall contra una conmutación sensorless cuyo error angular efectivo crece con la velocidad del rotor, y en modo Reto encontrar —a mano o por tanteo— la corriente comandada o el error de conmutación que producen un par objetivo dado.",
+    "titulo": "Conmutación de un Motor BLDC/PMSM",
+  },
 ]
 `;
 
@@ -1034,6 +1044,7 @@ exports[`golden master — catálogo por categoría (invariante ante extracción
   "mecanica-54",
   "mecanica-55",
   "mecanica-56",
+  "mecanica-57",
   "mecanica-6",
   "mecanica-7",
   "mecanica-8",

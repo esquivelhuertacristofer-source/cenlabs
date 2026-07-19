@@ -1,0 +1,9 @@
+{
+  "donor": "escaner-obd.html",
+  "out": "conmutacion-bldc-pmsm.html",
+  "title": "CEN Labs · Conmutación de un Motor BLDC/PMSM — Laboratorio 3D",
+  "lt": "Conmutación seis pasos · BLDC/PMSM",
+  "inspectHint": "👆 Toca el inversor, los sensores Hall o el tablero para explorar",
+  "body": "conmutacion-bldc-pmsm.body.js",
+  "fichas": ["_ficha-tecnica.js", "_ficha-conmutacion-bldc-pmsm.js"]
+}

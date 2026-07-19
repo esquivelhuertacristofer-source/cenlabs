@@ -4734,6 +4734,59 @@ Este laboratorio te pone frente al mismo control que usaría un técnico de plan
     "titulo": "Variador V/f del Motor de Inducción",
     "videoUrl": "",
   },
+  "mecanica-57": {
+    "acento": "#4FD1C5",
+    "aplicaciones": [
+      {
+        "area": "Drones y aeromodelismo eléctrico",
+        "ejemplo": "Los controladores electrónicos de velocidad (ESC) de un dron detectan la posición del rotor sin sensores Hall, midiendo el cruce por cero de la FEM inducida en la fase no energizada — a las altas revoluciones de un motor de dron, un pequeño retardo de detección se traduce en un error de conmutación angular significativo, tal como demuestra el modo Comparar de este laboratorio.",
+      },
+      {
+        "area": "Vehículos eléctricos ligeros (bicicletas y patines eléctricos)",
+        "ejemplo": "Los motores BLDC de tracción de bicicletas y patines eléctricos suelen usar sensores Hall físicos precisamente porque necesitan par de arranque confiable a muy baja velocidad, donde una detección sensorless por cruce por cero de la FEM aún no tiene una señal utilizable.",
+      },
+      {
+        "area": "Ventiladores de PC y discos duros",
+        "ejemplo": "Los motores BLDC de bajo costo en ventiladores de computadora y discos duros usan casi siempre conmutación sensorless, porque a velocidad prácticamente constante el error de conmutación que introduce el retardo fijo del detector es predecible y aceptable, evitando el costo de sensores Hall físicos.",
+      },
+    ],
+    "bienvenida": "El motor BLDC/PMSM que armaste en mecanica-1 no tiene escobillas: algo tiene que encargarse de conmutar la corriente de cada fase en el instante exacto, tarea que en un motor de CD convencional resuelve mecánicamente el conmutador. Ese "algo" es un inversor trifásico que sigue la posición del rotor —reportada por sensores Hall, o inferida sin sensores— y conmuta la corriente en seis pasos, 120° de conducción por fase.
+
+Este laboratorio te pone frente al control de temporización que un ingeniero de accionamientos debe dominar: un deslizador de error de conmutación (δ) que desplaza el instante de conmutación respecto de la FEM real inducida por el rotor, y un deslizador de corriente comandada. Descubrirás que un pequeño error de conmutación cuesta relativamente poco par, pero uno grande cuesta mucho más que proporcionalmente —la caída es cuadrática, no lineal— y que además genera un rizo de par creciente. En el modo Comparar contrastarás una conmutación con sensores Hall (siempre perfecta) contra una conmutación "sensorless" cuyo error angular efectivo crece con la velocidad del rotor, aunque el retardo de detección sea el mismo tiempo fijo. En el modo Reto usarás la misma ecuación que traza la curva de par del pizarrón para encontrar, a mano o por tanteo, la corriente o el error de conmutación que producen un par objetivo dado.",
+    "codigo": "MEC-57",
+    "conceptos": [
+      {
+        "descripcion": "El inversor conmuta cada fase entre +I, 0 y −I siguiendo la posición del rotor, de modo que la corriente conduce durante los 120° eléctricos en que la FEM inducida de esa fase está en su tramo plano — el instante correcto de conmutación depende de conocer con precisión el ángulo eléctrico del rotor.",
+        "icono": "⚡",
+        "nombre": "Seis pasos: 120° de corriente, 60° flotante",
+      },
+      {
+        "descripcion": "Un error de temporización δ entre la conmutación y la FEM real reduce el par promedio según T_avg(δ)=(1−δ²/7200)·T_ideal: triplicar el error angular (de 15° a 45°) no triplica la caída de par, la multiplica más de nueve veces, porque cada grado adicional muerde una porción creciente de la ventana de FEM constante de cada fase.",
+        "icono": "📉",
+        "nombre": "El error de conmutación cuesta par cuadráticamente, no linealmente",
+      },
+      {
+        "descripcion": "Una conmutación "sensorless" que detecta el cruce por cero de la FEM introduce un retardo de tiempo fijo antes de conmutar; ese retardo fijo se traduce en un error angular eléctrico que crece con la velocidad del rotor (δ_ef=6·PP·rpm·t_d), así que el mismo circuito de detección empeora su desempeño de par mientras más rápido gira el motor.",
+        "icono": "🌀",
+        "nombre": "El mismo retardo de tiempo, un error angular distinto según la velocidad",
+      },
+      {
+        "descripcion": "Las mismas ecuaciones cerradas que trazan la curva de par del pizarrón se pueden invertir: conocido el error de conmutación, despejar la corriente comandada que produce un par objetivo; o, conocida la corriente, despejar el error de conmutación que produce un porcentaje de par objetivo.",
+        "icono": "🎯",
+        "nombre": "Invertir la curva de par para encontrar la corriente o el error",
+      },
+    ],
+    "duracion": 35,
+    "mision": [
+      "EXPLORA · Mueve el deslizador de error de conmutación δ y el de corriente comandada, y observa cómo cambian el par promedio y el rizo de par en el pizarrón.",
+      "COMPARA · Corre las demostraciones guiadas de conmutación con sensores Hall vs. conmutación sensorless, y observa cómo el error angular efectivo crece con la velocidad del rotor.",
+      "DEMUESTRA · Observa en el pizarrón las tres FEM/corrientes de fase trapezoidales junto con la curva de par instantáneo contra el ángulo eléctrico del rotor.",
+      "RETO · Calcula a mano la corriente comandada que produce un par objetivo dado el error de conmutación, o encuentra por tanteo el error de conmutación que produce un porcentaje de par objetivo.",
+    ],
+    "subtitulo": "Máquinas eléctricas · Conmutación electrónica de seis pasos",
+    "titulo": "Conmutación de un Motor BLDC/PMSM",
+    "videoUrl": "",
+  },
   "mecanica-6": {
     "acento": "#2A9D8F",
     "aplicaciones": [
@@ -15276,6 +15329,7 @@ exports[`golden master — stores de datos (invariante ante la migración a src/
   "mecanica-54": [],
   "mecanica-55": [],
   "mecanica-56": [],
+  "mecanica-57": [],
   "mecanica-6": [],
   "mecanica-7": [],
   "mecanica-8": [],
@@ -15567,6 +15621,7 @@ exports[`golden master — stores de datos (invariante ante la migración a src/
   "mecanica-54",
   "mecanica-55",
   "mecanica-56",
+  "mecanica-57",
   "mecanica-6",
   "mecanica-7",
   "mecanica-8",
