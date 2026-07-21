@@ -3357,7 +3357,7 @@ En el modo Reto vas a diseñar R1 y R2 para que la ventana de histéresis sea ma
         "ejemplo": "Contadores, registros de desplazamiento y otros circuitos digitales de laboratorio a menudo usan un 555 astable como fuente de reloj barata y fácil de ajustar en frecuencia, sin necesitar un cristal de cuarzo.",
       },
     ],
-    "bienvenida": "El 555 es probablemente el circuito integrado más fabricado de la historia — miles de millones de unidades, en producción ininterrumpida desde 1972. Su secreto es simple: adentro solo hay un divisor resistivo de tres resistores iguales (el origen del nombre \"555\") que fija dos umbrales de voltaje, un par de comparadores que vigilan esos umbrales, y un latch que decide el estado de salida. Con eso, y tres componentes externos —dos resistores y un capacitor—, se construye un oscilador completo, sin necesitar ninguna señal de entrada.
+    "bienvenida": "El 555 es probablemente el circuito integrado más fabricado de la historia — miles de millones de unidades, en producción ininterrumpida desde 1972. Su secreto es simple: adentro solo hay un divisor resistivo de tres resistores iguales (el origen del nombre "555") que fija dos umbrales de voltaje, un par de comparadores que vigilan esos umbrales, y un latch que decide el estado de salida. Con eso, y tres componentes externos —dos resistores y un capacitor—, se construye un oscilador completo, sin necesitar ninguna señal de entrada.
 
 En la configuración astable, el capacitor C se carga a través de RA+RB hasta llegar a 2/3 Vcc (el umbral de threshold, pin 6). En ese instante el 555 activa internamente el pin de descarga (pin 7), que conecta a tierra y descarga C — pero esta vez la corriente de descarga pasa solo por RB, no por RA. C sigue bajando hasta 1/3 Vcc (el umbral de trigger, pin 2), donde el ciclo se reinicia: carga de nuevo a través de RA+RB. Como la carga siempre tarda más que la descarga (RA+RB > RB, mientras RA no sea cero), el tiempo en alto tHigh siempre es mayor o igual que el tiempo en bajo tLow — el duty cycle de este circuito nunca puede bajar de 50%, sin importar qué valores elijas.
 
@@ -3423,7 +3423,7 @@ Hay una guía de diseño que vale la pena interiorizar: no conviene elegir RA po
 
 La primera fija la frecuencia de corte: fc=1/(2πRC). Solo depende de R y C — subir o bajar cualquiera de los dos mueve fc sin tocar nada más. La segunda fija el factor de calidad Q, que describe la forma de la curva cerca de fc: Q=1/(3−K), donde K=1+Rf/Rg es la ganancia de la etapa no inversora fijada por el divisor Rf/Rg. Ese desacoplo —R y C controlan dónde está el codo del filtro, K controla qué tan pronunciado es— es la razón por la que el Sallen-Key sigue siendo la topología de referencia para enseñar filtros activos.
 
-El valor de Q determina el \"carácter\" de la curva. Con Q bajo (K cercano a 1), la respuesta es sobre-amortiguada: cae suave y gradualmente, sin ningún pico. En Q=1/√2≈0.7071 —que se alcanza con K≈1.586— la curva entra en el punto de respuesta Butterworth: la más plana posible en la banda de paso, el punto de diseño más buscado en la práctica porque no introduce ninguna resonancia ni distorsión de amplitud cerca de fc. Si sigues subiendo K más allá de ese punto, aparece un pico de resonancia cada vez más pronunciado —Q alto—, y si K se acerca a 3, Q crece sin límite: el filtro deja de ser un filtro y se convierte en un oscilador. Vas a poder llevar el circuito hasta ese límite en este simulador, de forma segura, y ver exactamente dónde se cruza la frontera entre \"filtro con pico\" e \"inestable\".",
+El valor de Q determina el "carácter" de la curva. Con Q bajo (K cercano a 1), la respuesta es sobre-amortiguada: cae suave y gradualmente, sin ningún pico. En Q=1/√2≈0.7071 —que se alcanza con K≈1.586— la curva entra en el punto de respuesta Butterworth: la más plana posible en la banda de paso, el punto de diseño más buscado en la práctica porque no introduce ninguna resonancia ni distorsión de amplitud cerca de fc. Si sigues subiendo K más allá de ese punto, aparece un pico de resonancia cada vez más pronunciado —Q alto—, y si K se acerca a 3, Q crece sin límite: el filtro deja de ser un filtro y se convierte en un oscilador. Vas a poder llevar el circuito hasta ese límite en este simulador, de forma segura, y ver exactamente dónde se cruza la frontera entre "filtro con pico" e "inestable".",
     "codigo": "MEC-35",
     "conceptos": [
       {
@@ -3541,7 +3541,7 @@ El capacitor de salida no elimina el rizo de corriente del inductor, lo conviert
     ],
     "bienvenida": "En la práctica anterior viste el convertidor reductor (buck), que entrega un voltaje menor al de entrada. El convertidor elevador (boost) resuelve el problema contrario —producir un voltaje mayor al de entrada— con exactamente los mismos cuatro componentes (transistor, diodo, inductor, capacitor), pero acomodados en un orden distinto: el inductor se conecta directamente entre la fuente y el nodo de conmutación. Mientras el transistor está encendido, el inductor toma energía de la entrada y su corriente sube; cuando el transistor se apaga, esa energía almacenada se suma al voltaje de entrada y se entrega a la salida a través del diodo. Es la topología que hace posible que una sola pila de 1.5 V o una batería de litio parcialmente descargada sigan alimentando un circuito que necesita 5 V.
 
-En modo de conducción continua (CCM) —la corriente del inductor nunca llega a cero— el balance volt-segundo obliga a que la ganancia de voltaje sea Vout/Vin=1/(1−D): a diferencia del buck, esta ganancia no tiene techo teórico conforme D se acerca a 1, aunque en un circuito real las pérdidas y la resistencia del inductor sí lo limitan. Pero si la carga es lo bastante ligera, la corriente del inductor puede agotarse antes de que termine el periodo de conmutación, y el convertidor cruza a modo de conducción discontinua (DCM), donde 1/(1−D) deja de cumplirse y aparece una \"elevación en carga ligera\": el voltaje real de salida termina siendo más alto que el que predice ingenuamente la fórmula de CCM. La frontera entre ambos modos se calcula comparando un parámetro K=2L/(R·Ts) contra un valor crítico Kcrit(D)=D(1−D)² que depende únicamente del ciclo de trabajo. En este laboratorio vas a trabajar con un diseño de referencia basado en el regulador integrado TPS61030 —un elevador síncrono de Texas Instruments muy usado en electrónica portátil alimentada por batería— y vas a poder cruzar deliberadamente esa frontera para ver, en la forma de onda real del inductor, exactamente qué cambia.",
+En modo de conducción continua (CCM) —la corriente del inductor nunca llega a cero— el balance volt-segundo obliga a que la ganancia de voltaje sea Vout/Vin=1/(1−D): a diferencia del buck, esta ganancia no tiene techo teórico conforme D se acerca a 1, aunque en un circuito real las pérdidas y la resistencia del inductor sí lo limitan. Pero si la carga es lo bastante ligera, la corriente del inductor puede agotarse antes de que termine el periodo de conmutación, y el convertidor cruza a modo de conducción discontinua (DCM), donde 1/(1−D) deja de cumplirse y aparece una "elevación en carga ligera": el voltaje real de salida termina siendo más alto que el que predice ingenuamente la fórmula de CCM. La frontera entre ambos modos se calcula comparando un parámetro K=2L/(R·Ts) contra un valor crítico Kcrit(D)=D(1−D)² que depende únicamente del ciclo de trabajo. En este laboratorio vas a trabajar con un diseño de referencia basado en el regulador integrado TPS61030 —un elevador síncrono de Texas Instruments muy usado en electrónica portátil alimentada por batería— y vas a poder cruzar deliberadamente esa frontera para ver, en la forma de onda real del inductor, exactamente qué cambia.",
     "codigo": "MEC-37",
     "conceptos": [
       {
@@ -3560,7 +3560,7 @@ En modo de conducción continua (CCM) —la corriente del inductor nunca llega a
         "nombre": "Frontera CCM/DCM: K vs Kcrit(D)=D(1−D)²",
       },
       {
-        "descripcion": "En conducción discontinua la ganancia real M(D,K)=[1+√(1+4D²/K)]/2 supera a la predicción ingenua de CCM 1/(1−D) — el voltaje de salida \"se eleva\" cuando la carga se aligera lo suficiente.",
+        "descripcion": "En conducción discontinua la ganancia real M(D,K)=[1+√(1+4D²/K)]/2 supera a la predicción ingenua de CCM 1/(1−D) — el voltaje de salida "se eleva" cuando la carga se aligera lo suficiente.",
         "icono": "📈",
         "nombre": "M(D,K) en DCM: elevación en carga ligera",
       },
@@ -3652,12 +3652,12 @@ El problema es que incluso en el mejor de los casos esa señal del puente son un
       },
       {
         "area": "Diseño de disipadores en electrónica de potencia",
-        "ejemplo": "Cualquier técnico que selecciona un disipador comercial para un transistor de potencia debe leer su hoja de datos (RθJC, y a veces datos de doble interfaz transitoria según JEDEC JESD51-14) y calcular el peor caso de disipación del circuito específico, no solo el caso \"típico\".",
+        "ejemplo": "Cualquier técnico que selecciona un disipador comercial para un transistor de potencia debe leer su hoja de datos (RθJC, y a veces datos de doble interfaz transitoria según JEDEC JESD51-14) y calcular el peor caso de disipación del circuito específico, no solo el caso "típico".",
       },
     ],
-    "bienvenida": "Esta es la última práctica de la Tanda 1 (D2 — Electrónica analógica y de potencia), y cierra el arco con el mismo tipo de circuito que probablemente ya usaste sin saberlo: la etapa de salida de cualquier amplificador de audio, desde una bocina Bluetooth hasta un equipo de sonido de banda. Un amplificador Clase AB usa dos transistores complementarios (uno NPN, uno PNP) conectados en configuración push-pull: uno empuja corriente hacia la carga en el semiciclo positivo, el otro la absorbe en el semiciclo negativo. Si no se polarizan en absoluto (Clase B pura), aparece un defecto audible llamado distorsión de cruce: una pequeña \"zona muerta\" cerca del cruce por cero donde ningún transistor conduce todavía. La solución es polarizar ambos transistores con una corriente de reposo pequeña, típicamente mediante una red llamada \"multiplicador VBE\" (un tercer transistor configurado para replicar y amplificar su propia caída base-emisor).
+    "bienvenida": "Esta es la última práctica de la Tanda 1 (D2 — Electrónica analógica y de potencia), y cierra el arco con el mismo tipo de circuito que probablemente ya usaste sin saberlo: la etapa de salida de cualquier amplificador de audio, desde una bocina Bluetooth hasta un equipo de sonido de banda. Un amplificador Clase AB usa dos transistores complementarios (uno NPN, uno PNP) conectados en configuración push-pull: uno empuja corriente hacia la carga en el semiciclo positivo, el otro la absorbe en el semiciclo negativo. Si no se polarizan en absoluto (Clase B pura), aparece un defecto audible llamado distorsión de cruce: una pequeña "zona muerta" cerca del cruce por cero donde ningún transistor conduce todavía. La solución es polarizar ambos transistores con una corriente de reposo pequeña, típicamente mediante una red llamada "multiplicador VBE" (un tercer transistor configurado para replicar y amplificar su propia caída base-emisor).
 
-Pero polarizar tiene un costo: cada transistor de salida disipa calor, y ese calor tiene que salir de la unión de silicio (Tj) a través de la cápsula, hacia un disipador, hacia el aire — una cadena térmica Tj=Ta+P·ΣRθ que no puede violarse sin destruir el transistor. Aquí aparece la sorpresa central de esta práctica: la disipación de potencia en los transistores NO es máxima cuando el amplificador suena más fuerte. Es máxima en un punto intermedio, Vo_pk=2Vcc/π≈63.7% del riel de alimentación — un resultado que se obtiene derivando la fórmula de disipación e igualándola a cero, no por intuición. Diseñar el disipador pensando solo en \"el volumen máximo\" es un error común: hay que diseñar para el peor caso real, que ocurre a volumen moderado-alto, no al tope.",
+Pero polarizar tiene un costo: cada transistor de salida disipa calor, y ese calor tiene que salir de la unión de silicio (Tj) a través de la cápsula, hacia un disipador, hacia el aire — una cadena térmica Tj=Ta+P·ΣRθ que no puede violarse sin destruir el transistor. Aquí aparece la sorpresa central de esta práctica: la disipación de potencia en los transistores NO es máxima cuando el amplificador suena más fuerte. Es máxima en un punto intermedio, Vo_pk=2Vcc/π≈63.7% del riel de alimentación — un resultado que se obtiene derivando la fórmula de disipación e igualándola a cero, no por intuición. Diseñar el disipador pensando solo en "el volumen máximo" es un error común: hay que diseñar para el peor caso real, que ocurre a volumen moderado-alto, no al tope.",
     "codigo": "MEC-39",
     "conceptos": [
       {
@@ -3676,7 +3676,7 @@ Pero polarizar tiene un costo: cada transistor de salida disipa calor, y ese cal
         "nombre": "Cadena térmica: Tj=Ta+P·ΣRθ",
       },
       {
-        "descripcion": "Un transistor conectado como \"multiplicador VBE\" (con dos resistores R1/R2) fija con precisión la tensión de polarización de reposo entre las bases de los transistores de salida, y además compensa automáticamente con la temperatura porque su propia VBE cambia con Tj de forma similar a los transistores de potencia.",
+        "descripcion": "Un transistor conectado como "multiplicador VBE" (con dos resistores R1/R2) fija con precisión la tensión de polarización de reposo entre las bases de los transistores de salida, y además compensa automáticamente con la temperatura porque su propia VBE cambia con Tj de forma similar a los transistores de potencia.",
         "icono": "⚡",
         "nombre": "Multiplicador VBE: V_CE=VBE·(1+R1/R2)",
       },
@@ -3689,8 +3689,8 @@ Pero polarizar tiene un costo: cada transistor de salida disipa calor, y ese cal
       "FASE 4 · Reto: para un Vcc y RL objetivo, elige la polarización y el disipador que eliminen la distorsión de cruce y mantengan la unión por debajo del margen de diseño seguro, incluso en el peor caso de amplitud.",
     ],
     "retos": [
-      "Con Vcc y RL fijos, activa el botón de \"peor caso\" que cambia SOLO la amplitud de salida al punto 2/π — compara la temperatura de unión resultante contra la del punto de referencia a volumen bajo, sin tocar ningún otro parámetro.",
-      "Reduce la polarización del multiplicador VBE hasta \"bases unidas\" (Clase B pura) y observa en la curva de transferencia cómo aparece la zona muerta de distorsión de cruce; luego auméntala hasta el nivel nominal y verifica que la zona muerta desaparece.",
+      "Con Vcc y RL fijos, activa el botón de "peor caso" que cambia SOLO la amplitud de salida al punto 2/π — compara la temperatura de unión resultante contra la del punto de referencia a volumen bajo, sin tocar ningún otro parámetro.",
+      "Reduce la polarización del multiplicador VBE hasta "bases unidas" (Clase B pura) y observa en la curva de transferencia cómo aparece la zona muerta de distorsión de cruce; luego auméntala hasta el nivel nominal y verifica que la zona muerta desaparece.",
       "Arma (o simula en un software de circuitos) una etapa de salida Clase AB real con un par complementario de transistores de potencia y un multiplicador VBE, mide con un termopar la temperatura de la cápsula a distintas amplitudes de señal, y contrasta el punto de mayor temperatura contra la predicción Vo_pk=2Vcc/π de este simulador.",
     ],
     "subtitulo": "Electrónica de potencia · par complementario TIP31C/TIP32C, distorsión de cruce y Tj=Ta+P·ΣRθ",
@@ -4949,6 +4949,59 @@ Cada decisión tiene consecuencia física. ¡Manos a la obra!",
     ],
     "subtitulo": "Autotrónica · Armado, fundamento y diagnóstico",
     "titulo": "Sistema de Inyección Electrónica (MPFI)",
+  },
+  "mecanica-60": {
+    "acento": "#2A9D8F",
+    "aplicaciones": [
+      {
+        "area": "Control de calidad en manufactura electrónica",
+        "ejemplo": "Una línea de producción prueba una muestra de cada lote de resistores contra su tolerancia declarada antes de soldarlos — exactamente el veredicto PASA/FALLA de este laboratorio, a escala industrial.",
+      },
+      {
+        "area": "Caracterización de componentes desconocidos",
+        "ejemplo": "Un resistor sin marcado legible (quemado, borrado, o de un componente recuperado) se identifica midiendo su curva V–I real, no adivinando por su banda de color.",
+      },
+      {
+        "area": "Verificación de instrumentos de banco",
+        "ejemplo": "Antes de confiar en un multímetro para trabajo de precisión, se verifica su exactitud midiendo una resistencia patrón y comparando contra el certificado de calibración.",
+      },
+    ],
+    "bienvenida": "Georg Simon Ohm publicó en 1827 la relación más citada de toda la electrónica: V = I·R. Parece trivial — pero medirla de verdad, con un instrumento real y un componente real, no lo es: cada lectura de voltaje y de corriente trae su propia incertidumbre, y un solo punto medido nunca te dice si el resistor que tienes en la mano cumple o no la tolerancia que promete su código de colores.
+
+En este banco tomas 8 pares (V, I) sobre un resistor con un multímetro simulado de 6000 cuentas — el mismo modelo de incertidumbre ±(% de lectura + dígitos) que usarías con un instrumento de mesa real. Con esos 8 puntos, ya ruidosos, ajustas una recta por mínimos cuadrados forzada por el origen (porque V=IR pasa por (0,0)) y obtienes R̂: tu mejor estimación del valor real del resistor. La pregunta que resuelve cada práctica de control de calidad es la misma: ¿R̂ cae dentro del nominal ± tolerancia marcado en las bandas de color (IEC 60062), o el componente está fuera de especificación?
+
+En el modo Reto no hay pistas: te dan un resistor "misterioso" con bandas ocultas, tú tomas tus propios 8 puntos, ajustas tu propia recta, y decides PASA o FALLA — y el simulador te califica contra tu propio ajuste, no contra un valor que no mediste.",
+    "codigo": "MEC-60",
+    "conceptos": [
+      {
+        "descripcion": "La relación lineal entre voltaje y corriente en un resistor ideal (Ohm, 1827): la pendiente de la recta V–I es exactamente el valor de la resistencia.",
+        "icono": "⚡",
+        "nombre": "Ley de Ohm: V = I·R",
+      },
+      {
+        "descripcion": "Cada lectura de V y de I trae su propia incertidumbre según el rango y las cuentas del instrumento (6000 cuentas, autorrango) — ningún punto medido es el valor "verdadero".",
+        "icono": "📏",
+        "nombre": "Incertidumbre del multímetro: ±(% lectura + dígitos)",
+      },
+      {
+        "descripcion": "Con varios puntos ruidosos, la recta que mejor los explica (Gauss/Legendre, ca. 1805) promedia el ruido y da una estimación R̂ mucho más confiable que un solo punto.",
+        "icono": "📐",
+        "nombre": "Ajuste por mínimos cuadrados",
+      },
+      {
+        "descripcion": "Las bandas de un resistor codifican su valor nominal y su tolerancia (±1 %, ±2 %, ±5 %, ±10 %) — la serie de valores preferidos la fija IEC 60063.",
+        "icono": "🎨",
+        "nombre": "Código de colores IEC 60062",
+      },
+    ],
+    "duracion": 30,
+    "mision": [
+      "EXPLORA · Elige uno de 4 resistores conocidos, toma sus 8 puntos V–I con el multímetro simulado, y observa cómo el ajuste por mínimos cuadrados converge a R̂ mientras el veredicto PASA/FALLA se decide contra la tolerancia real de cada resistor.",
+      "RETO · Un resistor con bandas ocultas: toma tus propios 8 puntos, ajusta tu propia recta, y decide si R̂ cae dentro de la tolerancia declarada — sin que el simulador te revele el valor real hasta que respondas.",
+    ],
+    "subtitulo": "Circuitos Eléctricos · Caracterización y control de calidad",
+    "titulo": "Curva V–I de Resistores y Validación de Tolerancias",
+    "videoUrl": "",
   },
   "mecanica-7": {
     "acento": "#2A9D8F",
@@ -15438,6 +15491,7 @@ exports[`golden master — stores de datos (invariante ante la migración a src/
   "mecanica-58": [],
   "mecanica-59": [],
   "mecanica-6": [],
+  "mecanica-60": [],
   "mecanica-7": [],
   "mecanica-8": [],
   "mecanica-9": [],
@@ -15732,6 +15786,7 @@ exports[`golden master — stores de datos (invariante ante la migración a src/
   "mecanica-58",
   "mecanica-59",
   "mecanica-6",
+  "mecanica-60",
   "mecanica-7",
   "mecanica-8",
   "mecanica-9",

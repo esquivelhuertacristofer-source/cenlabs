@@ -1,0 +1,32 @@
+import type { BriefingConfig } from '@/components/MissionBriefing';
+
+const briefing: BriefingConfig = {
+  codigo: 'MEC-60',
+  titulo: 'Curva V–I de Resistores y Validación de Tolerancias',
+  subtitulo: 'Circuitos Eléctricos · Caracterización y control de calidad',
+  acento: '#2A9D8F',
+  duracion: 30,
+  videoUrl: '',
+  bienvenida: `Georg Simon Ohm publicó en 1827 la relación más citada de toda la electrónica: V = I·R. Parece trivial — pero medirla de verdad, con un instrumento real y un componente real, no lo es: cada lectura de voltaje y de corriente trae su propia incertidumbre, y un solo punto medido nunca te dice si el resistor que tienes en la mano cumple o no la tolerancia que promete su código de colores.
+
+En este banco tomas 8 pares (V, I) sobre un resistor con un multímetro simulado de 6000 cuentas — el mismo modelo de incertidumbre ±(% de lectura + dígitos) que usarías con un instrumento de mesa real. Con esos 8 puntos, ya ruidosos, ajustas una recta por mínimos cuadrados forzada por el origen (porque V=IR pasa por (0,0)) y obtienes R̂: tu mejor estimación del valor real del resistor. La pregunta que resuelve cada práctica de control de calidad es la misma: ¿R̂ cae dentro del nominal ± tolerancia marcado en las bandas de color (IEC 60062), o el componente está fuera de especificación?
+
+En el modo Reto no hay pistas: te dan un resistor "misterioso" con bandas ocultas, tú tomas tus propios 8 puntos, ajustas tu propia recta, y decides PASA o FALLA — y el simulador te califica contra tu propio ajuste, no contra un valor que no mediste.`,
+  conceptos: [
+    { icono: '⚡', nombre: 'Ley de Ohm: V = I·R', descripcion: 'La relación lineal entre voltaje y corriente en un resistor ideal (Ohm, 1827): la pendiente de la recta V–I es exactamente el valor de la resistencia.' },
+    { icono: '📏', nombre: 'Incertidumbre del multímetro: ±(% lectura + dígitos)', descripcion: 'Cada lectura de V y de I trae su propia incertidumbre según el rango y las cuentas del instrumento (6000 cuentas, autorrango) — ningún punto medido es el valor "verdadero".' },
+    { icono: '📐', nombre: 'Ajuste por mínimos cuadrados', descripcion: 'Con varios puntos ruidosos, la recta que mejor los explica (Gauss/Legendre, ca. 1805) promedia el ruido y da una estimación R̂ mucho más confiable que un solo punto.' },
+    { icono: '🎨', nombre: 'Código de colores IEC 60062', descripcion: 'Las bandas de un resistor codifican su valor nominal y su tolerancia (±1 %, ±2 %, ±5 %, ±10 %) — la serie de valores preferidos la fija IEC 60063.' },
+  ],
+  mision: [
+    'EXPLORA · Elige uno de 4 resistores conocidos, toma sus 8 puntos V–I con el multímetro simulado, y observa cómo el ajuste por mínimos cuadrados converge a R̂ mientras el veredicto PASA/FALLA se decide contra la tolerancia real de cada resistor.',
+    'RETO · Un resistor con bandas ocultas: toma tus propios 8 puntos, ajusta tu propia recta, y decide si R̂ cae dentro de la tolerancia declarada — sin que el simulador te revele el valor real hasta que respondas.',
+  ],
+  aplicaciones: [
+    { area: 'Control de calidad en manufactura electrónica', ejemplo: 'Una línea de producción prueba una muestra de cada lote de resistores contra su tolerancia declarada antes de soldarlos — exactamente el veredicto PASA/FALLA de este laboratorio, a escala industrial.' },
+    { area: 'Caracterización de componentes desconocidos', ejemplo: 'Un resistor sin marcado legible (quemado, borrado, o de un componente recuperado) se identifica midiendo su curva V–I real, no adivinando por su banda de color.' },
+    { area: 'Verificación de instrumentos de banco', ejemplo: 'Antes de confiar en un multímetro para trabajo de precisión, se verifica su exactitud midiendo una resistencia patrón y comparando contra el certificado de calibración.' },
+  ],
+};
+
+export default briefing;

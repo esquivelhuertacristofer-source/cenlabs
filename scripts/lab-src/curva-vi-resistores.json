@@ -1,0 +1,9 @@
+{
+  "donor": "escaner-obd.html",
+  "out": "curva-vi-resistores.html",
+  "title": "CEN Labs · Curva V–I de Resistores y Validación de Tolerancias — Laboratorio 3D",
+  "lt": "Curva V–I de Resistores · Circuitos Eléctricos",
+  "inspectHint": "👆 Toca el resistor, el multímetro o los controles del banco",
+  "body": "curva-vi-resistores.body.js",
+  "fichas": ["_ficha-tecnica.js", "_ficha-curva-vi-resistores.js"]
+}
