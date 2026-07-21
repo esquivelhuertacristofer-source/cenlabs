@@ -871,6 +871,16 @@ exports[`golden master — catálogo por categoría (invariante ante extracción
     "teoria": "Un arrancador reversible controla un motor trifásico en dos sentidos de giro intercambiando dos de sus tres fases: el contactor KM1 (Adelante) conecta L1-U, L2-V, L3-W, mientras que KM2 (Reversa) invierte dos líneas para conectar L1-W, L2-V, L3-U. Energizar ambos contactores a la vez produciría un cortocircuito fase-fase, así que todo arrancador reversible requiere dos barreras independientes: un enclavamiento mecánico (una barra física que impide cerrar un contactor si el otro ya está cerrado) y un enclavamiento eléctrico (un contacto normalmente cerrado de cada contactor cableado en la bobina del contrario). El laboratorio arma primero ese arrancador pieza por pieza y solo después desbloquea un tablero de circuito —donde se puede desactivar el enclavamiento a propósito para ver la falla que previene—, un tablero térmico que aplica la fórmula de IEC 60947-4-1 para el tiempo máximo de disparo de un relevador térmico de clase 10/20/30, y un modo de reto de selección de clase.",
     "titulo": "Inversión de Giro con Contactores y Enclavamiento",
   },
+  {
+    "duracion": "35 min",
+    "estado": "activo",
+    "id": "mecanica-59",
+    "modulo": "Instrumentación",
+    "orden": 59,
+    "simuladorHtml": "/labs/frenado-dinamico-regenerativo-contracorriente.html",
+    "teoria": "Detener eléctricamente un motor exige decidir a dónde va la energía cinética Ek=½Jω² almacenada en el rotor y la carga. El frenado dinámico la disipa por completo como calor, repartida entre un banco de resistencias externo y la resistencia interna del motor, con una constante de tiempo exponencial exacta τ=J(Rext+Ra)/kφ² y un tiempo de frenado al 95% (t95=τ·ln20). El frenado regenerativo devuelve una fracción de esa energía a la red o a un banco de baterías a través de un inversor, con una eficiencia de conversión η siempre menor al 100%. El frenado a contracorriente (plugging) invierte dos fases con el motor aún girando —el campo magnético gira en sentido contrario al rotor—, lo que produce el paro más rápido de los tres a cambio de disipar bastante más energía que la cinética original (idealmente 3× en el caso sin carga) y una corriente pico varias veces mayor que la nominal. Esta práctica no tiene norma ancla asignada en la lista maestra, así que las constantes del motor (J, Ra, kφ) son valores ilustrativos elegidos para un orden de magnitud pedagógico razonable, contrastados con literatura general de máquinas eléctricas y con el rango de corriente pico que reporta NEMA MG-1 para arranque/frenado a contracorriente. El laboratorio permite explorar cada método por separado, compararlos lado a lado para la misma velocidad inicial, y resolver un modo Reto con un escenario curado por método.",
+    "titulo": "Frenado Dinámico, Regenerativo y a Contracorriente",
+  },
 ]
 `;
 
@@ -1056,6 +1066,7 @@ exports[`golden master — catálogo por categoría (invariante ante extracción
   "mecanica-56",
   "mecanica-57",
   "mecanica-58",
+  "mecanica-59",
   "mecanica-6",
   "mecanica-7",
   "mecanica-8",

@@ -4840,6 +4840,58 @@ Por eso todo arrancador reversible lleva una doble barrera: un enclavamiento mec
     "titulo": "Inversión de Giro con Contactores y Enclavamiento",
     "videoUrl": "",
   },
+  "mecanica-59": {
+    "acento": "#E9724C",
+    "aplicaciones": [
+      {
+        "area": "Paro de emergencia de una banda transportadora o grúa",
+        "ejemplo": "El frenado dinámico es común en grúas y montacargas para lograr un paro controlado sin necesitar infraestructura de regeneración hacia la red — solo un banco de resistencias.",
+      },
+      {
+        "area": "Frenado regenerativo en elevadores y trenes ligeros",
+        "ejemplo": "Un elevador que desciende con un contrapeso más ligero que la cabina, o un tren ligero al frenar en cada estación, regeneran energía hacia el bus del edificio o la catenaria en vez de desperdiciarla como calor.",
+      },
+      {
+        "area": "Frenado a contracorriente en máquinas-herramienta con paro casi instantáneo",
+        "ejemplo": "Sierras y prensas donde el tiempo de paro es crítico por seguridad usan frenado a contracorriente para detener el husillo casi de inmediato, a costa de un mayor esfuerzo térmico y mecánico en cada frenado.",
+      },
+    ],
+    "bienvenida": "Detener un motor eléctrico no es solo "apagarlo": la energía cinética almacenada en el rotor y en la carga mecánica que mueve tiene que ir a algún lado, y cómo se le hace ir ahí define tres estrategias muy distintas de frenado eléctrico. El frenado dinámico es el más simple: se desconecta el motor de la línea y se conecta a un banco de resistencias, donde toda esa energía cinética se convierte en calor. El frenado regenerativo es más sofisticado: en vez de quemar la energía, un inversor la devuelve a la red o a un banco de baterías, con una eficiencia de conversión que nunca es del 100%. El frenado a contracorriente —o "plugging"— es el más brusco de los tres: se invierten dos de las tres fases con el motor aún girando, de modo que el campo magnético gira en sentido contrario al rotor; esto detiene el motor mucho más rápido, pero a costa de disipar bastante más energía que la cinética original y de una corriente pico varias veces mayor que la nominal.
+
+Este laboratorio no tiene una norma ancla asignada en la lista maestra —no existe una cláusula numerada específica que compare estos tres métodos—, así que el ejercicio es comparar, con un modelo físico honesto y verificado, cuánta energía disipa o recupera cada método, qué tan rápido detiene al motor, y qué corriente pico exige, para que puedas decidir cuál conviene según la aplicación: ¿importa más la velocidad de paro, el ahorro de energía, o la simplicidad y el costo del equipo?",
+    "codigo": "MEC-59",
+    "conceptos": [
+      {
+        "descripcion": "Toda estrategia de frenado eléctrico parte del mismo punto: la energía cinética almacenada en el rotor y la carga, que depende del momento de inercia J y del cuadrado de la velocidad angular ω. Esa energía no desaparece al frenar — se transforma, y la pregunta es en qué y hacia dónde.",
+        "icono": "⚡",
+        "nombre": "Energía cinética a disipar: Ek=½Jω²",
+      },
+      {
+        "descripcion": "El motor se desconecta de la línea y se conecta a un banco de resistencias externo. Toda la energía cinética se disipa como calor, repartida entre la resistencia externa y la resistencia interna del propio motor, con una constante de tiempo exponencial exacta que depende de esa suma de resistencias.",
+        "icono": "🔥",
+        "nombre": "Frenado dinámico: toda la energía se disipa como calor",
+      },
+      {
+        "descripcion": "Un inversor con capacidad de flujo de potencia bidireccional devuelve parte de la energía cinética a la red o a un banco de baterías, en vez de quemarla. La fracción que realmente se recupera depende de la eficiencia de conversión, siempre menor al 100%.",
+        "icono": "🔋",
+        "nombre": "Frenado regenerativo: parte de la energía regresa",
+      },
+      {
+        "descripcion": "Se invierten dos fases con el motor aún girando, forzando al campo magnético a girar en sentido contrario al rotor. El paro es mucho más rápido que en frenado dinámico, pero se disipa bastante más energía que la cinética original y la corriente pico puede ser varias veces la nominal.",
+        "icono": "⚠️",
+        "nombre": "Frenado a contracorriente: el más rápido, el más agresivo",
+      },
+    ],
+    "duracion": 35,
+    "mision": [
+      "EXPLORA · Elige uno de los tres métodos de frenado (dinámico, regenerativo, a contracorriente) y ajusta la velocidad inicial y el parámetro propio de cada método; observa en el pizarrón cómo se reparte la energía cinética entre calor disipado y energía recuperada.",
+      "COMPARA · Observa lado a lado la energía disipada/recuperada y la corriente pico ilustrativa de los tres métodos para la misma velocidad inicial, y entiende por qué el frenado a contracorriente es el más rápido y también el más agresivo.",
+      "RETO · Resuelve un escenario curado por método: calcula la energía disipada externamente en frenado dinámico, la energía recuperada en frenado regenerativo, o la energía total disipada a contracorriente.",
+    ],
+    "subtitulo": "Máquinas eléctricas · Comparación de métodos de frenado eléctrico",
+    "titulo": "Frenado Dinámico, Regenerativo y a Contracorriente",
+    "videoUrl": "",
+  },
   "mecanica-6": {
     "acento": "#2A9D8F",
     "aplicaciones": [
@@ -15384,6 +15436,7 @@ exports[`golden master — stores de datos (invariante ante la migración a src/
   "mecanica-56": [],
   "mecanica-57": [],
   "mecanica-58": [],
+  "mecanica-59": [],
   "mecanica-6": [],
   "mecanica-7": [],
   "mecanica-8": [],
@@ -15677,6 +15730,7 @@ exports[`golden master — stores de datos (invariante ante la migración a src/
   "mecanica-56",
   "mecanica-57",
   "mecanica-58",
+  "mecanica-59",
   "mecanica-6",
   "mecanica-7",
   "mecanica-8",

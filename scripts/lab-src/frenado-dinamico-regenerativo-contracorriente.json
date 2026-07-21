@@ -1,0 +1,9 @@
+{
+  "donor": "escaner-obd.html",
+  "out": "frenado-dinamico-regenerativo-contracorriente.html",
+  "title": "CEN Labs · Frenado Dinámico, Regenerativo y a Contracorriente — Laboratorio 3D",
+  "lt": "Frenado dinámico · regenerativo · contracorriente",
+  "inspectHint": "👆 Toca el motor-volante, el banco de resistencias, el enlace a red o los contactores de inversión",
+  "body": "frenado-dinamico-regenerativo-contracorriente.body.js",
+  "fichas": ["_ficha-tecnica.js", "_ficha-frenado-dinamico-regenerativo-contracorriente.js"]
+}
