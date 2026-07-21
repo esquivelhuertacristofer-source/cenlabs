@@ -1,0 +1,9 @@
+{
+  "donor": "escaner-obd.html",
+  "out": "inversion-giro-contactores.html",
+  "title": "CEN Labs · Inversión de Giro con Contactores y Enclavamiento — Laboratorio 3D",
+  "lt": "Inversión de giro · Contactores y enclavamiento",
+  "inspectHint": "👆 Toca una pieza del arrancador o arma el tablero paso a paso",
+  "body": "inversion-giro-contactores.body.js",
+  "fichas": ["_ficha-tecnica.js", "_ficha-inversion-giro-contactores.js"]
+}

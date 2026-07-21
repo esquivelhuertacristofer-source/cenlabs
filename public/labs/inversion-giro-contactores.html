@@ -1,0 +1,1329 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>CEN Labs · Inversión de Giro con Contactores y Enclavamiento — Laboratorio 3D</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#08201C;--panel:rgba(9,26,23,.86);--line:#1E3A34;--ink:#EAF4F1;
+    --dim:#8FB3AC;--accent:#2A9D8F;--accent2:#4FD1C5;--hv:#FFB703;--good:#34d399;--bad:#f4475e;
+    --mono:'Outfit',system-ui,'Segoe UI',Roboto,sans-serif;--disp:'Outfit','Arial Black',Impact,sans-serif;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  html,body{height:100%;background:var(--bg);color:var(--ink);font-family:'Outfit',system-ui,Segoe UI,Roboto,sans-serif}
+  body{overflow:hidden}
+  #stage{position:fixed;inset:0}
+  canvas{display:block;touch-action:none}
+
+  .topbar{position:fixed;top:0;left:0;right:0;height:56px;display:flex;align-items:center;gap:14px;padding:0 20px;z-index:20;background:linear-gradient(180deg,rgba(10,13,18,.92),transparent);pointer-events:none}
+  .brand{font-family:var(--disp);font-weight:bold;font-size:16px;text-transform:uppercase}
+  .brand span{color:var(--accent)}
+  .lt{font-family:var(--mono);font-size:11px;letter-spacing:.1em;text-transform:uppercase;color:var(--dim)}
+
+  .badge{position:fixed;top:16px;right:20px;z-index:20;font-family:var(--mono);font-size:9px;letter-spacing:.12em;text-transform:uppercase;background:rgba(255,209,102,.12);color:var(--hv);border:1px solid rgba(255,209,102,.35);padding:6px 12px;border-radius:20px}
+
+  .hud{position:fixed;top:70px;left:18px;z-index:15;max-width:330px;background:var(--panel);backdrop-filter:blur(14px);border:1px solid var(--line);border-radius:16px;padding:18px 20px;max-height:calc(100vh - 150px);overflow-y:auto}
+  .hud .eyebrow{font-family:var(--mono);font-size:10px;letter-spacing:.18em;text-transform:uppercase;color:var(--accent);margin-bottom:8px}
+  .hud h2{font-size:19px;line-height:1.15;margin-bottom:9px}
+  .hud p{font-size:13px;line-height:1.55;color:var(--dim);margin-bottom:10px}
+  .hud .formula{font-family:var(--mono);color:var(--accent2);text-align:center;font-size:12.5px;margin:8px 0;padding:8px;background:rgba(0,0,0,.25);border-radius:8px;line-height:1.5}
+  .hud .src{font-size:10.5px;color:#7a8894;font-style:italic;margin-top:4px;line-height:1.5}
+  .legend{display:flex;flex-direction:column;gap:6px;margin:12px 0;padding:10px 12px;background:rgba(0,0,0,.22);border-radius:10px}
+  .legend .li{display:flex;align-items:center;gap:8px;font-size:11px;color:#c4d0da}
+  .legend .dot{width:10px;height:10px;border-radius:50%;flex:0 0 auto}
+  .fid{margin:10px 0 2px;padding:10px 12px;background:rgba(0,0,0,.22);border-radius:10px;border:1px solid rgba(79,209,197,.18)}
+  .fid .ft{font-family:var(--mono);font-size:9.5px;letter-spacing:.14em;text-transform:uppercase;color:var(--accent2);margin-bottom:6px}
+  .fid .fl{font-size:11px;color:#c4d0da;line-height:1.5;margin-bottom:5px}
+  .fid .fl b{color:var(--ink)}
+  .fid .fl.no b{color:var(--hv)}
+
+  .panel{position:fixed;top:70px;right:18px;z-index:15;width:262px;background:var(--panel);backdrop-filter:blur(14px);border:1px solid var(--line);border-radius:16px;padding:16px;max-height:calc(100vh - 150px);overflow-y:auto}
+  .panel h4{font-family:var(--mono);font-size:10px;letter-spacing:.14em;text-transform:uppercase;color:var(--dim);margin:2px 0 10px}
+  .panel h4.sec{margin-top:16px;border-top:1px solid var(--line);padding-top:14px}
+  .g{margin-bottom:6px}
+  .gl{display:flex;justify-content:space-between;font-family:var(--mono);font-size:11px;color:var(--dim)}
+  .gl b{color:var(--accent2)}
+  .gl b.good{color:var(--good)}.gl b.warn{color:var(--hv)}.gl b.bad{color:var(--bad)}
+  .modebar{display:flex;gap:5px;margin-bottom:8px}
+  .modebar .b{flex:1;padding:8px 4px;font-size:11px}
+  .btns{display:flex;flex-direction:column;gap:7px;margin-top:6px}
+  .b{font-family:system-ui;font-size:12.5px;padding:10px;border-radius:9px;cursor:pointer;border:1px solid var(--line);background:#1b242f;color:var(--ink);transition:.15s;text-align:center}
+  .b:hover{border-color:var(--accent);background:#202c38}
+  .b.on{background:var(--accent);color:#06120f;border-color:var(--accent);font-weight:bold}
+  .b.primary{background:var(--accent);color:#06120f;border-color:var(--accent);font-weight:bold}
+  .b.auto{border-color:var(--hv);color:var(--hv);background:rgba(255,183,3,.10);font-weight:bold}
+  .b.auto:hover{background:rgba(255,183,3,.18);border-color:var(--hv)}
+  .b.auto:disabled{opacity:.6;cursor:default}
+  .b.dx{text-align:left;font-size:12px}
+  .b.dx.right{background:rgba(52,211,153,.18);border-color:var(--good);color:var(--good);font-weight:bold}
+  .b.dx.wrong{background:rgba(244,71,94,.15);border-color:var(--bad);color:var(--bad)}
+  .console{font-family:var(--mono);font-size:11px;line-height:1.55;color:#c4d0da;background:rgba(0,0,0,.28);border-radius:9px;padding:10px 12px;margin-bottom:8px;min-height:56px}
+  .console .dtc{color:var(--bad);font-weight:bold}
+  .console .ok{color:var(--good)}
+  .console .mono{color:var(--dim)}
+
+  .hint{position:fixed;bottom:18px;left:18px;z-index:14;font-family:var(--mono);font-size:10px;color:var(--dim);background:var(--panel);padding:7px 12px;border-radius:9px;border:1px solid var(--line)}
+  .toast{position:fixed;top:80px;left:50%;transform:translateX(-50%);z-index:30;background:rgba(18,24,32,.95);border:1px solid var(--accent);padding:10px 20px;border-radius:40px;font-family:var(--mono);font-size:12px;opacity:0;transition:.3s;pointer-events:none;max-width:80vw;text-align:center}
+  .toast.show{opacity:1}
+  .soundBtn{position:fixed;top:14px;right:18px;z-index:21;font-size:16px;background:var(--panel);backdrop-filter:blur(12px);border:1px solid var(--line);border-radius:50%;width:36px;height:36px;cursor:pointer;color:var(--dim);transition:.15s}
+  .soundBtn.on{color:var(--accent);border-color:var(--accent)}
+  .soundBtn:hover{transform:scale(1.08)}
+  .inspectHint{position:fixed;bottom:18px;right:18px;z-index:14;font-family:var(--mono);font-size:10px;color:var(--accent2);background:var(--panel);padding:7px 12px;border-radius:9px;border:1px solid var(--line)}
+
+  @media(max-width:820px){
+    .hud,.panel{position:fixed;left:8px;right:8px;top:auto;bottom:8px;max-width:none;width:auto;max-height:42vh;overflow-y:auto}
+    .hud{bottom:calc(8px + 42vh + 8px)}
+    .hint,.inspectHint{display:none}
+  }
+</style>
+</head>
+<body>
+<div id="stage"></div>
+<button class="soundBtn on" id="soundBtn">🔊</button>
+<div class="topbar">
+  <div class="brand">CEN<span> Labs</span></div>
+  <div class="lt">Inversión de giro · Contactores y enclavamiento</div>
+</div>
+<div class="hud" id="hud"></div>
+<div class="panel" id="panel"></div>
+<div class="hint">Arrastra para orbitar · rueda para zoom</div>
+<div class="inspectHint">👆 Toca una pieza del arrancador o arma el tablero paso a paso</div>
+<div class="toast" id="toast"></div>
+
+<script type="importmap">
+{ "imports": {
+  "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.min.js",
+  "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/"
+}}
+</script>
+<script type="module">
+import * as THREE from 'three';
+import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
+import { RoundedBoxGeometry } from 'three/addons/geometries/RoundedBoxGeometry.js';
+import { EffectComposer } from 'three/addons/postprocessing/EffectComposer.js';
+import { RenderPass } from 'three/addons/postprocessing/RenderPass.js';
+import { GTAOPass } from 'three/addons/postprocessing/GTAOPass.js';
+import { UnrealBloomPass } from 'three/addons/postprocessing/UnrealBloomPass.js';
+import { SMAAPass } from 'three/addons/postprocessing/SMAAPass.js';
+import { OutputPass } from 'three/addons/postprocessing/OutputPass.js';
+import { BokehPass } from 'three/addons/postprocessing/BokehPass.js';
+
+/* ============================================================
+   Texturas PBR procedurales (sin archivos externos) — compartidas
+   ============================================================ */
+function cv(s=512){const c=document.createElement('canvas');c.width=c.height=s;return c;}
+function tex(canvas,repeat=1,srgb=false){
+  const t=new THREE.CanvasTexture(canvas);
+  t.wrapS=t.wrapT=THREE.RepeatWrapping;t.repeat.set(repeat,repeat);
+  t.colorSpace = srgb?THREE.SRGBColorSpace:THREE.NoColorSpace;
+  t.generateMipmaps=false; t.minFilter=THREE.LinearFilter; t.anisotropy=1; return t;
+}
+function normalFromHeight(size, hfn, strength=2.0){
+  const c=cv(size),ctx=c.getContext('2d'),img=ctx.createImageData(size,size);
+  const H=(x,y)=>hfn((x+size)%size,(y+size)%size);
+  for(let y=0;y<size;y++)for(let x=0;x<size;x++){
+    const dx=(H(x+1,y)-H(x-1,y))*strength;
+    const dy=(H(x,y+1)-H(x,y-1))*strength;
+    const nz=1.0; const len=Math.hypot(dx,dy,nz);
+    const i=(y*size+x)*4;
+    img.data[i]  =((-dx/len)*0.5+0.5)*255;
+    img.data[i+1]=((-dy/len)*0.5+0.5)*255;
+    img.data[i+2]=((nz/len)*0.5+0.5)*255;
+    img.data[i+3]=255;
+  }
+  ctx.putImageData(img,0,0);return c;
+}
+function valueNoise(seed=1){
+  const g=(x,y)=>{const s=Math.sin((x*127.1+y*311.7)+seed*13.13)*43758.5453;return s-Math.floor(s);};
+  return (x,y)=>{
+    const xi=Math.floor(x),yi=Math.floor(y),xf=x-xi,yf=y-yi;
+    const u=xf*xf*(3-2*xf),v=yf*yf*(3-2*yf);
+    const a=g(xi,yi),b=g(xi+1,yi),c=g(xi,yi+1),d=g(xi+1,yi+1);
+    return a*(1-u)*(1-v)+b*u*(1-v)+c*(1-u)*v+d*u*v;
+  };
+}
+function fbm(noise,x,y,oct=4){let v=0,a=0.5,f=1;for(let i=0;i<oct;i++){v+=noise(x*f,y*f)*a;f*=2;a*=0.5;}return v;}
+
+function castAluminum(){
+  const S=512, n=valueNoise(7);
+  const c=cv(S),ctx=c.getContext('2d'),img=ctx.createImageData(S,S);
+  for(let y=0;y<S;y++)for(let x=0;x<S;x++){
+    const v=fbm(n,x/22,y/22,5);
+    const por=Math.pow(n(x/3.1,y/3.1),8);
+    const base=150+v*38-por*70;
+    const i=(y*S+x)*4; img.data[i]=base; img.data[i+1]=base+4; img.data[i+2]=base+10; img.data[i+3]=255;
+  }
+  ctx.putImageData(img,0,0);
+  const r=cv(S),rx=r.getContext('2d'),rimg=rx.createImageData(S,S);
+  for(let y=0;y<S;y++)for(let x=0;x<S;x++){
+    const v=fbm(n,x/18,y/18,4); const por=Math.pow(n(x/3.1,y/3.1),8);
+    const rough=120+v*40+por*90; const i=(y*S+x)*4;
+    rimg.data[i]=rimg.data[i+1]=rimg.data[i+2]=Math.min(255,rough); rimg.data[i+3]=255;
+  }
+  rx.putImageData(rimg,0,0);
+  const nrm=normalFromHeight(S,(x,y)=>fbm(n,x/16,y/16,5)+Math.pow(n(x/3.1,y/3.1),8)*0.6,3.0);
+  return {map:tex(c,1,true),roughnessMap:tex(r),normalMap:tex(nrm)};
+}
+function brushedMetal(){
+  const S=512, n=valueNoise(3);
+  const c=cv(S),ctx=c.getContext('2d'),img=ctx.createImageData(S,S);
+  for(let y=0;y<S;y++)for(let x=0;x<S;x++){
+    const streak=Math.sin(y*0.9)*2 + (n(x/120,y*0.5)-0.5)*40;
+    const base=185+streak; const i=(y*S+x)*4;
+    img.data[i]=base; img.data[i+1]=base+2; img.data[i+2]=base+6; img.data[i+3]=255;
+  }
+  ctx.putImageData(img,0,0);
+  const r=cv(S),rx=r.getContext('2d'),rimg=rx.createImageData(S,S);
+  for(let y=0;y<S;y++)for(let x=0;x<S;x++){
+    const streak=(n(x/120,y*0.5)-0.5)*60; const rough=40+Math.abs(streak); const i=(y*S+x)*4;
+    rimg.data[i]=rimg.data[i+1]=rimg.data[i+2]=Math.min(160,rough); rimg.data[i+3]=255;
+  }
+  rx.putImageData(rimg,0,0);
+  const nrm=normalFromHeight(S,(x,y)=>(n(x/120,y*0.5))*0.3+Math.sin(y*0.9)*0.02,1.2);
+  return {map:tex(c,1,true),roughnessMap:tex(r),normalMap:tex(nrm)};
+}
+function rubber(){
+  const S=256,n=valueNoise(5);
+  const nrm=normalFromHeight(S,(x,y)=>fbm(n,x/8,y/8,4),1.4);
+  const rough=cv(64),rc=rough.getContext('2d');rc.fillStyle='#e0e0e0';rc.fillRect(0,0,64,64);
+  return {roughnessMap:tex(rough),normalMap:tex(nrm,2)};
+}
+function gradientBG(top='#11161d',bottom='#05070a'){
+  const c=cv(512),ctx=c.getContext('2d');
+  const grd=ctx.createLinearGradient(0,0,0,512);
+  grd.addColorStop(0,top);grd.addColorStop(1,bottom);
+  ctx.fillStyle=grd;ctx.fillRect(0,0,512,512);
+  const rg=ctx.createRadialGradient(256,200,30,256,256,360);
+  rg.addColorStop(0,'rgba(42,157,143,0.10)');rg.addColorStop(1,'rgba(0,0,0,0)');
+  ctx.fillStyle=rg;ctx.fillRect(0,0,512,512);
+  return tex(c,1,true);
+}
+function techPlastic(r=0.10,g=0.11,b=0.13){
+  const S=256,n=valueNoise(31);
+  const c=cv(S),ctx=c.getContext('2d'),img=ctx.createImageData(S,S);
+  for(let y=0;y<S;y++)for(let x=0;x<S;x++){
+    const v=fbm(n,x/30,y/30,3)*0.1+0.92; const i=(y*S+x)*4;
+    img.data[i]=r*255*v;img.data[i+1]=g*255*v;img.data[i+2]=b*255*v;img.data[i+3]=255;
+  }
+  ctx.putImageData(img,0,0);
+  const nrm=normalFromHeight(S,(x,y)=>fbm(n,x/10,y/10,3),0.8);
+  const rough=cv(64),rc=rough.getContext('2d');rc.fillStyle='#9a9a9a';rc.fillRect(0,0,64,64);
+  return {map:tex(c,1,true),roughnessMap:tex(rough),normalMap:tex(nrm)};
+}
+
+/* ============================================================
+   ENGINE — render premium compartido por todos los laboratorios
+   ============================================================ */
+function createStage(mount, opts={}){
+  const bgTop = opts.bgTop||'#141b24', bgBot = opts.bgBot||'#05070a';
+  const renderer = new THREE.WebGLRenderer({ antialias:true, powerPreference:'high-performance' });
+  renderer.setPixelRatio(Math.min(devicePixelRatio,2));
+  renderer.setSize(mount.clientWidth, mount.clientHeight);
+  renderer.shadowMap.enabled = true;
+  renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+  renderer.toneMapping = THREE.ACESFilmicToneMapping;
+  renderer.toneMappingExposure = opts.exposure ?? 1.18;
+  renderer.outputColorSpace = THREE.SRGBColorSpace;
+  mount.appendChild(renderer.domElement);
+  renderer.domElement.style.touchAction='none';
+
+  const scene = new THREE.Scene();
+  scene.background = gradientBG(bgTop,bgBot);
+  const pmrem = new THREE.PMREMGenerator(renderer);
+  scene.environment = pmrem.fromScene(new RoomEnvironment(renderer), 0.04).texture;
+  scene.environmentIntensity = opts.envInt ?? 1.15;
+
+  const camera = new THREE.PerspectiveCamera(45, mount.clientWidth/mount.clientHeight, 0.1, 200);
+  const cam = opts.cam || [5.5,3.4,6.2];
+  camera.position.set(...cam);
+
+  const controls = new OrbitControls(camera, renderer.domElement);
+  controls.enableDamping = true; controls.dampingFactor = 0.07;
+  controls.minDistance = opts.minD ?? 3; controls.maxDistance = opts.maxD ?? 18;
+  controls.maxPolarAngle = Math.PI*0.52;
+  controls.target.set(...(opts.target||[0,1.4,0]));
+  controls.autoRotate = opts.autoRotate ?? false;
+  controls.autoRotateSpeed = opts.autoRotateSpeed ?? 0.6;
+
+  const key = new THREE.DirectionalLight(0xffffff, 2.7);
+  key.position.set(5,9,6); key.castShadow=true;
+  key.shadow.mapSize.set(2048,2048);
+  key.shadow.camera.near=0.5; key.shadow.camera.far=40;
+  const sd=8; Object.assign(key.shadow.camera,{left:-sd,right:sd,top:sd,bottom:-sd});
+  key.shadow.bias=-0.0003; key.shadow.normalBias=0.02; scene.add(key);
+  const rim = new THREE.SpotLight(0x2affce, 55, 30, Math.PI/5, 0.4, 1.5);
+  rim.position.set(-7,6,-5); scene.add(rim);
+  const fill = new THREE.DirectionalLight(0x6fb6ff, 0.5); fill.position.set(-4,3,7); scene.add(fill);
+  scene.add(new THREE.HemisphereLight(0x9fb4c8, 0x10151b, 0.35));
+
+  if(opts.floor!==false){
+    const f = new THREE.Mesh(new THREE.CircleGeometry(40,80),
+      new THREE.MeshStandardMaterial({ color:0x0a0e13, roughness:0.14, metalness:0.62, envMapIntensity:1.15 }));
+    f.rotation.x=-Math.PI/2; f.receiveShadow=true; scene.add(f);
+    for(let r=2;r<=8;r+=2){
+      const ring=new THREE.Mesh(new THREE.RingGeometry(r-0.012,r+0.012,80),
+        new THREE.MeshBasicMaterial({color:0x1a2632,transparent:true,opacity:0.4}));
+      ring.rotation.x=-Math.PI/2; ring.position.y=0.002; scene.add(ring);
+    }
+  }
+
+  const isMobile = /Mobi|Android|iPhone|iPad/i.test(navigator.userAgent) || innerWidth<820;
+  // GTAO desactivado por defecto: el pase de oclusión ambiental en espacio de pantalla
+  // producía un recuadro oscuro duro sobre el piso reflectante (artefacto dependiente de la
+  // cámara y del renderer). La escena tiene AO suficiente con luces directas + sombras + env.
+  // Se puede reactivar para pruebas con ?gtao.
+  const useGtao = /[?&]gtao\b/.test(location.search);
+  const composer = new EffectComposer(renderer);
+  composer.addPass(new RenderPass(scene,camera));
+  if(!isMobile && useGtao){
+    try{
+      const g=new GTAOPass(scene,camera,mount.clientWidth,mount.clientHeight);
+      g.output=GTAOPass.OUTPUT.Default;
+      if(g.updateGtaoMaterial)g.updateGtaoMaterial({radius:0.5,distanceExponent:1,thickness:1,scale:1.1,samples:16});
+      composer.addPass(g);
+    }catch(e){}
+  }
+  const bloom=new UnrealBloomPass(new THREE.Vector2(mount.clientWidth,mount.clientHeight),opts.bloom??0.42,0.5,0.9);
+  composer.addPass(bloom);
+  let bokeh=null;
+  const flat=/[?&]flat/.test(location.search);
+  if(!isMobile && !flat){
+    bokeh=new BokehPass(scene,camera,{focus:8.5,aperture:opts.aperture??0.00018,maxblur:opts.maxblur??0.004,width:mount.clientWidth,height:mount.clientHeight});
+    composer.addPass(bokeh);
+  }
+  composer.addPass(new OutputPass());
+  composer.addPass(new SMAAPass(mount.clientWidth*renderer.getPixelRatio(),mount.clientHeight*renderer.getPixelRatio()));
+
+  function resize(){
+    const w=mount.clientWidth,h=mount.clientHeight;
+    camera.aspect=w/h; camera.updateProjectionMatrix();
+    renderer.setSize(w,h); composer.setSize(w,h);
+  }
+  window.addEventListener('resize',resize);
+
+  const clock=new THREE.Clock();
+  let hook=null, raf=null;
+  const camCine={active:false,t:0,dur:1.4,from:new THREE.Vector3(),to:new THREE.Vector3(),fromT:new THREE.Vector3(),toT:new THREE.Vector3()};
+  let lastDrag=-99, cinematicIdle=false;
+  controls.addEventListener('start',()=>{ lastDrag=clock.elapsedTime; camCine.active=false; });
+  function easeInOutCubic(x){return x<0.5?4*x*x*x:1-Math.pow(-2*x+2,3)/2;}
+  function moveTo(pos,target,dur=1.4){
+    camCine.from.copy(camera.position); camCine.fromT.copy(controls.target);
+    camCine.to.set(...pos); camCine.toT.set(...target);
+    camCine.dur=dur; camCine.active=true; camCine.t=0;
+  }
+  function setCinematicIdle(v){ cinematicIdle=v; if(!v)controls.autoRotate=false; }
+  function loop(){ raf=requestAnimationFrame(loop); const dt=clock.getDelta(),t=clock.elapsedTime;
+    if(camCine.active){
+      camCine.t=Math.min(1,camCine.t+dt/camCine.dur);
+      const e=easeInOutCubic(camCine.t);
+      camera.position.lerpVectors(camCine.from,camCine.to,e);
+      controls.target.lerpVectors(camCine.fromT,camCine.toT,e);
+      if(camCine.t>=1)camCine.active=false;
+    } else if(cinematicIdle){
+      controls.autoRotate=(t-lastDrag)>1.4; controls.autoRotateSpeed=0.45;
+    }
+    if(hook)hook(dt,t); controls.update();
+    if(bokeh) bokeh.uniforms['focus'].value = camera.position.distanceTo(controls.target);
+    composer.render(); }
+  function start(){ if(!raf)loop(); }
+  function stop(){ cancelAnimationFrame(raf); raf=null; window.removeEventListener('resize',resize); }
+
+  return { THREE, renderer, scene, camera, controls, composer, bloom,
+    setAnimate:fn=>hook=fn, start, stop, resize, clock,
+    flyTo:(v)=>{ controls.target.copy(v); }, moveTo, setCinematicIdle };
+}
+
+/* ---------- shared geometry/material helpers ---------- */
+function roundedBox(w,h,d,mat,rf=0.08){
+  const r=Math.min(w,h,d)*rf;
+  const m=new THREE.Mesh(new RoundedBoxGeometry(w,h,d,4,r),mat);
+  m.castShadow=m.receiveShadow=true; return m;
+}
+function pickerFor(scene,camera,dom,onHit){
+  const ray=new THREE.Raycaster(),mouse=new THREE.Vector2(); let down=null;
+  dom.addEventListener('pointerdown',e=>down=[e.clientX,e.clientY]);
+  dom.addEventListener('pointerup',e=>{
+    if(!down)return; const moved=Math.abs(e.clientX-down[0])+Math.abs(e.clientY-down[1])>6; down=null;
+    if(moved)return;
+    const r=dom.getBoundingClientRect();
+    mouse.x=((e.clientX-r.left)/r.width)*2-1; mouse.y=-((e.clientY-r.top)/r.height)*2+1;
+    ray.setFromCamera(mouse,camera);
+    const hits=ray.intersectObjects(scene.children,true);
+    onHit(hits[0]||null);
+  });
+}
+function labelSprite(text,color='#ffd166'){
+  const w = Math.max(150, Math.min(520, text.length*26+60));
+  const cvE=document.createElement('canvas');cvE.width=w;cvE.height=96;
+  const c=cvE.getContext('2d');c.fillStyle='rgba(8,11,16,.95)';
+  const rr=(x,y,ww,hh,r)=>{c.beginPath();c.moveTo(x+r,y);c.arcTo(x+ww,y,x+ww,y+hh,r);c.arcTo(x+ww,y+hh,x,y+hh,r);c.arcTo(x,y+hh,x,y,r);c.arcTo(x,y,x+ww,y,r);c.closePath();};
+  rr(3,3,w-6,90,18);c.fill();
+  c.strokeStyle=color;c.lineWidth=3;c.stroke();
+  c.font='bold 36px Outfit, system-ui, sans-serif';c.fillStyle=color;c.textAlign='center';c.textBaseline='middle';c.fillText(text,w/2,48);
+  const tx=new THREE.CanvasTexture(cvE);tx.colorSpace=THREE.SRGBColorSpace;tx.generateMipmaps=false;tx.minFilter=THREE.LinearFilter;
+  const sp=new THREE.Sprite(new THREE.SpriteMaterial({map:tx,depthTest:false,transparent:true}));
+  const aspect=w/96;
+  sp.scale.set(0.30*aspect,0.30,1);sp.renderOrder=999;return sp;
+}
+
+/* ============================================================
+   SYNTH — sintetizador Web Audio reutilizable
+   ============================================================ */
+function makeSynth(opts={}){
+  const type=opts.type||'sawtooth';
+  let ctx=null,oscA=null,oscB=null,gain=null,filter=null,soundOn=true;
+  function init(){
+    if(ctx)return;
+    try{
+      ctx=new (window.AudioContext||window.webkitAudioContext)();
+      oscA=ctx.createOscillator(); oscB=ctx.createOscillator();
+      oscA.type=type; oscB.type=opts.type2||'square';
+      filter=ctx.createBiquadFilter(); filter.type=opts.filterType||'lowpass'; filter.frequency.value=opts.filterFreq||500; filter.Q.value=opts.Q||3;
+      gain=ctx.createGain(); gain.gain.value=0;
+      oscA.connect(filter); oscB.connect(filter); filter.connect(gain); gain.connect(ctx.destination);
+      oscA.start(); oscB.start();
+    }catch(e){}
+  }
+  function update(freqA,freqB,vol,filterFreq){
+    if(!ctx||!soundOn){ if(gain)gain.gain.setTargetAtTime(0,ctx?.currentTime||0,0.1); return; }
+    oscA.frequency.setTargetAtTime(freqA,ctx.currentTime,0.04);
+    if(freqB!==undefined)oscB.frequency.setTargetAtTime(freqB,ctx.currentTime,0.04);
+    if(filterFreq!==undefined)filter.frequency.setTargetAtTime(filterFreq,ctx.currentTime,0.05);
+    gain.gain.setTargetAtTime(Math.max(0,vol),ctx.currentTime,0.06);
+  }
+  function beep(freq=880,dur=0.09,vol=0.06){
+    if(!ctx||!soundOn)return;
+    const o=ctx.createOscillator(),g=ctx.createGain();
+    o.type='sine'; o.frequency.value=freq;
+    g.gain.setValueAtTime(vol,ctx.currentTime); g.gain.exponentialRampToValueAtTime(0.001,ctx.currentTime+dur);
+    o.connect(g); g.connect(ctx.destination); o.start(); o.stop(ctx.currentTime+dur);
+  }
+  function toggle(){ soundOn=!soundOn; return soundOn; }
+  function resume(){ if(ctx&&ctx.state==='suspended')ctx.resume(); }
+  return { init, update, beep, toggle, resume, isOn:()=>soundOn, state:()=>ctx?.state||'none' };
+}
+
+/* ============================================================
+   LAB — Inversión de giro con contactores y enclavamiento (mecanica-58 / d5-15)
+   Molde E+S: Ensamble 3D del arrancador (banco de trabajo, 8 piezas móviles
+   sobre un panel de montaje fijo) → desbloquea 3 modos de simulación
+   esquemática: Circuito (fuerza+control con enclavamiento eléctrico/mecánico),
+   Térmico (clase de disparo del relevador térmico IEC 60947-4-1) y Reto
+   (elige la clase de disparo mínima correcta dado un escenario de arranque).
+   Contrato de fidelidad (declarado también en el HUD y en la ficha técnica):
+   SÍ modela: la lógica de enclavamiento eléctrico+mecánico de un arrancador
+   reversible (por qué NO se pueden energizar KM1/KM2 a la vez), la secuencia
+   de fases invertida en el motor (L1-U/L2-V/L3-W vs L1-W/L2-V/L3-U), y la
+   fórmula de tiempo de disparo máximo de un relevador térmico de clase 10/20/30
+   a 7.2×In según IEC 60947-4-1 (t = t_max_clase · (7.2/m)²).
+   NO modela: el circuito de control completo con bobinas/fusibles/protecciones
+   dibujado a nivel de esquemático eléctrico normalizado (solo un diagrama
+   simplificado didáctico), la dinámica térmica real del relevador (curva
+   completa min/max de disparo — IEC 60947-4-1 solo fija el máximo por clase,
+   el mínimo depende del fabricante y no se modela), ni el dimensionamiento de
+   calibre de conductor o corriente de plena carga del motor.
+   ============================================================ */
+
+const mount = document.getElementById('stage');
+const S = createStage(mount, {
+  cam: [3.2, 2.4, 4.2],
+  target: [0, 1.35, 0],
+  bgTop: '#0d1720',
+  bgBot: '#050a0e',
+  bloom: 0.32,
+  minD: 1.8,
+  maxD: 9,
+});
+const { scene } = S;
+const synth = makeSynth({ freq: 220 });
+const std = (o) => new THREE.MeshStandardMaterial(o);
+const el = (id) => document.getElementById(id);
+const tf = (x, d = 0) => Number(x).toFixed(d);
+function ease(x) { return x < 0.5 ? 4 * x * x * x : 1 - Math.pow(-2 * x + 2, 3) / 2; }
+
+let toastT = null;
+function showToast(html, ms = 3300) {
+  const t = el('toast');
+  if (!t) return;
+  t.innerHTML = html;
+  t.classList.add('show');
+  clearTimeout(toastT);
+  toastT = setTimeout(() => t.classList.remove('show'), ms);
+}
+
+/* ---------------- Materiales ---------------- */
+const alu = castAluminum(), brush = brushedMetal();
+const MAT = {
+  panel: std({ ...brush, color: 0x2b323a, metalness: 0.55, roughness: 0.55, envMapIntensity: 0.9 }),
+  dinRail: std({ ...alu, color: 0x9aa4ad, metalness: 0.75, roughness: 0.35, envMapIntensity: 1.0 }),
+  contactorBody: std({ color: 0x23272c, metalness: 0.15, roughness: 0.75 }),
+  contactorClear: std({ color: 0x8fd1ff, metalness: 0.1, roughness: 0.2, transparent: true, opacity: 0.35 }),
+  termMetal: std({ ...alu, color: 0xb9c1c8, metalness: 0.8, roughness: 0.3, envMapIntensity: 1.0 }),
+  dark: std({ color: 0x1b1f24, metalness: 0.2, roughness: 0.8 }),
+  termLid: std({ color: 0xd8d2c2, metalness: 0.05, roughness: 0.6 }),
+  needleRed: std({ color: 0xd64545, emissive: 0x4a0e0e, emissiveIntensity: 0.4, metalness: 0.3, roughness: 0.4 }),
+  wireInterlock: std({ color: 0xf4c95d, metalness: 0.1, roughness: 0.5 }),
+  bench: std({ color: 0x2a2f35, metalness: 0.3, roughness: 0.7 }),
+  benchLeg: std({ ...alu, color: 0x7a828a, metalness: 0.7, roughness: 0.4 }),
+  ped: std({ color: 0x1c2126, metalness: 0.25, roughness: 0.7 }),
+  pedTop: std({ color: 0x3a4149, metalness: 0.3, roughness: 0.55 }),
+  pedRing: std({ color: 0x43D9AD, emissive: 0x0e3d30, emissiveIntensity: 0.5, metalness: 0.2, roughness: 0.4 }),
+};
+
+/* ============================================================
+   Datos de ingeniería — CERO Math.random() salvo en newChallenge()
+   Fuente: IEC 60947-4-1 (arrancadores electromecánicos) — norma ancla real
+   de d5-15 según docs/LISTA-MAESTRA-200-PRACTICAS.md. La norma fija el
+   TIEMPO MÁXIMO de disparo a 7.2×In por clase de relevador térmico; el
+   tiempo mínimo real depende del fabricante y NO se modela aquí (hedge
+   declarado también en el HUD/ficha técnica).
+   ============================================================ */
+const TRIP_CLASSES = {
+  10: { nombre: 'Clase 10', maxTime: 10 },
+  20: { nombre: 'Clase 20', maxTime: 20 },
+  30: { nombre: 'Clase 30', maxTime: 30 },
+};
+const CLASS_ORDER = [10, 20, 30];
+function tripTime(m, clase) { return TRIP_CLASSES[clase].maxTime * Math.pow(7.2 / m, 2); }
+function minClassFor(m, ts) {
+  for (const c of CLASS_ORDER) { if (tripTime(m, c) > ts) return c; }
+  return null;
+}
+// Verificado con `node -e` (recomputación fresca, no a mano): las 9 combinaciones
+// producen minClassFor con margen positivo saludable (4.6s–15.6s) entre el tiempo
+// de disparo de la clase elegida y el tiempo real de arranque del motor.
+const RETO_SCENARIOS = [
+  { m: 4.5, ts: 10 }, { m: 6.0, ts: 8 }, { m: 7.0, ts: 6 },
+  { m: 6.0, ts: 20 }, { m: 6.5, ts: 18 }, { m: 7.0, ts: 15 },
+  { m: 6.5, ts: 30 }, { m: 7.0, ts: 26 }, { m: 7.5, ts: 23 },
+];
+
+/* ---------------- Constructores de piezas ---------------- */
+function buildPanelMontaje() {
+  const g = new THREE.Group();
+  const back = roundedBox(1.5, 2.5, 0.06, MAT.panel, 0.03);
+  back.position.set(0, 0, -0.06);
+  back.castShadow = true; back.receiveShadow = true;
+  g.add(back);
+  for (let i = 0; i < 4; i++) {
+    const rail = new THREE.Mesh(new THREE.BoxGeometry(1.4, 0.035, 0.03), MAT.dinRail);
+    rail.position.set(0, 1.0 - i * 0.6, -0.02);
+    rail.castShadow = true; rail.receiveShadow = true;
+    g.add(rail);
+  }
+  const lb = labelSprite('Panel de montaje', '#8A94A0');
+  lb.position.set(0, -1.4, 0.05);
+  lb.scale.multiplyScalar(0.6);
+  g.add(lb);
+  return g;
+}
+
+function buildTerminalBlock(labelText, tags) {
+  const g = new THREE.Group();
+  const base = roundedBox(0.5, 0.16, 0.16, MAT.termLid, 0.02);
+  base.castShadow = true; base.receiveShadow = true;
+  g.add(base);
+  for (let i = 0; i < 3; i++) {
+    const post = new THREE.Mesh(new THREE.CylinderGeometry(0.018, 0.018, 0.05, 12), MAT.termMetal);
+    post.position.set(-0.16 + i * 0.16, 0.1, 0);
+    post.castShadow = true;
+    g.add(post);
+    const tl = labelSprite(tags[i], '#dfe7ee');
+    tl.position.set(-0.16 + i * 0.16, 0.17, 0);
+    tl.scale.multiplyScalar(0.22);
+    g.add(tl);
+  }
+  const lb = labelSprite(labelText, '#8A94A0');
+  lb.position.set(0, -0.16, 0);
+  lb.scale.multiplyScalar(0.52);
+  g.add(lb);
+  return g;
+}
+function buildTerminalesLinea() { return buildTerminalBlock('Terminales de línea', ['L1', 'L2', 'L3']); }
+function buildTerminalesMotor() { return buildTerminalBlock('Terminales al motor', ['U', 'V', 'W']); }
+
+function buildContactorBody(labelText, hex) {
+  const cssColor = '#' + hex.toString(16).padStart(6, '0');
+  const g = new THREE.Group();
+  const body = roundedBox(0.34, 0.4, 0.28, MAT.contactorBody, 0.04);
+  body.castShadow = true; body.receiveShadow = true;
+  g.add(body);
+  const clear = roundedBox(0.24, 0.16, 0.02, MAT.contactorClear, 0.02);
+  clear.position.set(0, 0.1, 0.15);
+  g.add(clear);
+  for (let i = 0; i < 3; i++) {
+    const term = new THREE.Mesh(new THREE.CylinderGeometry(0.014, 0.014, 0.05, 10), MAT.termMetal);
+    term.position.set(-0.1 + i * 0.1, 0.22, 0);
+    term.castShadow = true;
+    g.add(term);
+    const term2 = term.clone();
+    term2.position.set(-0.1 + i * 0.1, -0.22, 0);
+    g.add(term2);
+  }
+  const led = new THREE.Mesh(new THREE.SphereGeometry(0.028, 14, 10), std({
+    color: hex, emissive: hex, emissiveIntensity: 0.05, metalness: 0.2, roughness: 0.4,
+  }));
+  led.position.set(0, -0.05, 0.15);
+  g.add(led);
+  g.userData.coilLed = led;
+  const lb = labelSprite(labelText, cssColor);
+  lb.position.set(0, -0.32, 0);
+  lb.scale.multiplyScalar(0.55);
+  g.add(lb);
+  return g;
+}
+function buildKM1() { return buildContactorBody('KM1 · Adelante', 0x43D9AD); }
+function buildKM2() { return buildContactorBody('KM2 · Reversa', 0xe0b23c); }
+
+function buildEnclavamientoMecanico() {
+  const g = new THREE.Group();
+  const bar = roundedBox(0.46, 0.05, 0.05, MAT.dark, 0.015);
+  bar.castShadow = true; bar.receiveShadow = true;
+  g.add(bar);
+  for (let i = -1; i <= 1; i += 2) {
+    const bolt = new THREE.Mesh(new THREE.CylinderGeometry(0.02, 0.02, 0.07, 10), MAT.termMetal);
+    bolt.rotation.z = Math.PI / 2;
+    bolt.position.set(i * 0.2, 0, 0);
+    bolt.castShadow = true;
+    g.add(bolt);
+  }
+  const lb = labelSprite('Enclavamiento mecánico', '#8A94A0');
+  lb.position.set(0, -0.14, 0);
+  lb.scale.multiplyScalar(0.5);
+  g.add(lb);
+  return g;
+}
+
+function buildPuenteElectrico() {
+  const g = new THREE.Group();
+  const curve = new THREE.CatmullRomCurve3([
+    new THREE.Vector3(-0.22, 0.06, 0),
+    new THREE.Vector3(0, 0.14, 0.05),
+    new THREE.Vector3(0.22, 0.06, 0),
+  ]);
+  const tube = new THREE.Mesh(new THREE.TubeGeometry(curve, 24, 0.012, 8, false), MAT.wireInterlock);
+  tube.castShadow = true;
+  g.add(tube);
+  const curve2 = new THREE.CatmullRomCurve3([
+    new THREE.Vector3(-0.22, -0.06, 0),
+    new THREE.Vector3(0, -0.14, 0.05),
+    new THREE.Vector3(0.22, -0.06, 0),
+  ]);
+  const tube2 = new THREE.Mesh(new THREE.TubeGeometry(curve2, 24, 0.012, 8, false), MAT.wireInterlock);
+  tube2.castShadow = true;
+  g.add(tube2);
+  const lb = labelSprite('Enclavamiento eléctrico (NC cruzado)', '#f4c95d');
+  lb.position.set(0, -0.28, 0);
+  lb.scale.multiplyScalar(0.48);
+  g.add(lb);
+  return g;
+}
+
+function buildRelevadorTermico() {
+  const g = new THREE.Group();
+  const body = roundedBox(0.4, 0.32, 0.2, MAT.termMetal, 0.03);
+  body.castShadow = true; body.receiveShadow = true;
+  g.add(body);
+  const dial = new THREE.Mesh(new THREE.CylinderGeometry(0.09, 0.09, 0.015, 24), MAT.dark);
+  dial.rotation.x = Math.PI / 2;
+  dial.position.set(0, 0.02, 0.11);
+  g.add(dial);
+  const needleGeo = new THREE.BoxGeometry(0.075, 0.008, 0.006);
+  needleGeo.translate(0.0375, 0, 0);
+  const needle = new THREE.Mesh(needleGeo, MAT.needleRed);
+  needle.position.set(0, 0.02, 0.12);
+  g.add(needle);
+  g.userData.needle = needle;
+  for (let i = 0; i < 3; i++) {
+    const term = new THREE.Mesh(new THREE.CylinderGeometry(0.014, 0.014, 0.04, 10), MAT.termMetal);
+    term.position.set(-0.12 + i * 0.12, -0.19, 0);
+    term.castShadow = true;
+    g.add(term);
+  }
+  const lb = labelSprite('Relevador térmico', '#8A94A0');
+  lb.position.set(0, -0.32, 0);
+  lb.scale.multiplyScalar(0.5);
+  g.add(lb);
+  return g;
+}
+
+function buildBotonera() {
+  const g = new THREE.Group();
+  const box = roundedBox(0.3, 0.5, 0.16, MAT.panel, 0.04);
+  box.castShadow = true; box.receiveShadow = true;
+  g.add(box);
+  const btns = [
+    { y: 0.15, color: 0x43D9AD, name: 'Adelante' },
+    { y: 0, color: 0xd64545, name: 'Paro' },
+    { y: -0.15, color: 0xe0b23c, name: 'Reversa' },
+  ];
+  btns.forEach((b) => {
+    const knob = new THREE.Mesh(new THREE.CylinderGeometry(0.055, 0.055, 0.05, 20), std({
+      color: b.color, metalness: 0.3, roughness: 0.4,
+    }));
+    knob.rotation.x = Math.PI / 2;
+    knob.position.set(0, b.y, 0.1);
+    knob.castShadow = true;
+    g.add(knob);
+  });
+  const lb = labelSprite('Botonera 3 hilos', '#8A94A0');
+  lb.position.set(0, -0.32, 0);
+  lb.scale.multiplyScalar(0.55);
+  g.add(lb);
+  return g;
+}
+
+/* ---------------- Registro de piezas ---------------- */
+const HUB = [0, 1.35, 0];
+const V = (x, y, z) => new THREE.Vector3(x, y, z);
+const H = (dx, dy, dz) => V(HUB[0] + dx, HUB[1] + dy, HUB[2] + dz);
+
+const PARTS = [
+  { id: 'terminalesLinea', name: 'Terminales de línea', build: () => buildTerminalesLinea(), home: H(0, 0.62, 0.12), note: 'L1, L2, L3 llegan aquí desde la acometida trifásica — el punto de partida del circuito de fuerza.' },
+  { id: 'km1', name: 'Contactor KM1 (Adelante)', build: () => buildKM1(), home: H(-0.42, 0.16, 0.15), note: 'KM1 energizado conecta L1→U, L2→V, L3→W: el motor gira en sentido Adelante.' },
+  { id: 'km2', name: 'Contactor KM2 (Reversa)', build: () => buildKM2(), home: H(0.42, 0.16, 0.15), note: 'KM2 energizado invierte dos fases: L1→W, L2→V, L3→U — el motor gira en sentido Reversa.' },
+  { id: 'enclavamiento', name: 'Enclavamiento mecánico', build: () => buildEnclavamientoMecanico(), home: H(0, 0.16, 0.3), note: 'Barra física entre KM1 y KM2: si uno está cerrado, impide mecánicamente que el otro cierre.' },
+  { id: 'puenteElectrico', name: 'Enclavamiento eléctrico', build: () => buildPuenteElectrico(), home: H(0, 0.4, 0.24), note: 'Contacto NC de cada contactor cableado en la bobina del otro: segunda barrera, independiente de la mecánica.' },
+  { id: 'relevadorTermico', name: 'Relevador térmico', build: () => buildRelevadorTermico(), home: H(0, -0.24, 0.15), note: 'Protege el motor por sobrecarga sostenida — su clase de disparo (10/20/30) se explora en el modo Térmico.' },
+  { id: 'terminalesMotor', name: 'Terminales al motor', build: () => buildTerminalesMotor(), home: H(0, -0.6, 0.12), note: 'U, V, W: el lado de carga del arrancador, cableado al motor trifásico.' },
+  { id: 'botonera', name: 'Botonera de 3 hilos', build: () => buildBotonera(), home: H(1.3, 0, 0.06), note: 'Paro (NC), Adelante (NO) y Reversa (NO) con contacto de sello — el circuito de control clásico de arranque reversible.' },
+];
+const ORDER = PARTS.map((p) => p.id);
+const PART = Object.fromEntries(PARTS.map((p) => [p.id, p]));
+
+const panelMontaje = buildPanelMontaje();
+panelMontaje.position.set(...HUB);
+scene.add(panelMontaje);
+
+/* ---------------- Estado de ensamble (patrón genérico — reutilizable en las 150 prácticas) ---------------- */
+const STAGE_S = 0.42;
+const groups = {}, ghosts = {}, labels = {};
+let placed = {}, selectedId = null, progress = 0, simUnlocked = false;
+const tweens = [];
+const trayObjs = [], ghostObjs = [], scratch = [];
+
+const benchG = new THREE.Group();
+scene.add(benchG);
+function pedBaseXZ(i) {
+  const n = PARTS.length;
+  const cols = 4;
+  const row = Math.floor(i / cols), col = i % cols;
+  const x = -1.7 + col * 0.62;
+  const z = 2.0 + row * 0.62;
+  return [x, z];
+}
+(() => {
+  const top = roundedBox(3.0, 0.08, 1.6, MAT.bench, 0.02);
+  top.position.set(-0.5, -0.05, 2.3);
+  top.receiveShadow = true;
+  benchG.add(top);
+  [[-1.9, -0.55, 1.55], [-1.9, -0.55, 3.05], [0.9, -0.55, 1.55], [0.9, -0.55, 3.05]].forEach((p) => {
+    const leg = new THREE.Mesh(new THREE.CylinderGeometry(0.03, 0.03, 0.9, 10), MAT.benchLeg);
+    leg.position.set(p[0], p[1], p[2]);
+    leg.castShadow = true;
+    benchG.add(leg);
+  });
+})();
+function resetPedestals() {
+  benchG.children.slice(2).forEach((c) => benchG.remove(c));
+  PARTS.forEach((p, i) => {
+    const [x, z] = pedBaseXZ(i);
+    const ped = new THREE.Mesh(new THREE.CylinderGeometry(0.16, 0.18, 0.08, 20), MAT.ped);
+    ped.position.set(x, 0.03, z);
+    ped.receiveShadow = true;
+    benchG.add(ped);
+    const top = new THREE.Mesh(new THREE.CylinderGeometry(0.14, 0.14, 0.02, 20), MAT.pedTop);
+    top.position.set(x, 0.08, z);
+    benchG.add(top);
+    const ring = new THREE.Mesh(new THREE.TorusGeometry(0.15, 0.008, 8, 24), MAT.pedRing);
+    ring.rotation.x = Math.PI / 2;
+    ring.position.set(x, 0.09, z);
+    ring.material = ring.material.clone();
+    ring.material.opacity = 0;
+    ring.material.transparent = true;
+    benchG.add(ring);
+    p._ped = { ped, top, ring, x, z };
+  });
+}
+function markPedestalDone(i) {
+  const p = PARTS[i];
+  if (!p._ped) return;
+  p._ped.ring.material.opacity = 1;
+}
+resetPedestals();
+
+function ghostMat() {
+  return new THREE.MeshBasicMaterial({ color: 0x8fd1ff, transparent: true, opacity: 0.18, wireframe: false, depthWrite: false });
+}
+function makeGhost(part) {
+  const g = part.build();
+  g.traverse((o) => { if (o.isMesh) { o.material = ghostMat(); o.castShadow = false; o.receiveShadow = false; } });
+  g.position.copy(part.home);
+  g.userData.kind = 'slot';
+  g.userData.partId = part.id;
+  scene.add(g);
+  ghostObjs.push(g);
+  return g;
+}
+function showGhostFor(id) { if (ghosts[id]) ghosts[id].visible = true; }
+function updateLabels() {}
+
+function tagged(obj) { let o = obj; while (o && !o.userData.kind) o = o.parent; return o; }
+
+function makePart(part, i) {
+  const g = part.build();
+  const [x, z] = pedBaseXZ(i);
+  g.position.set(x, 0.14, z);
+  g.scale.setScalar(STAGE_S * 0 + 1);
+  g.userData.kind = 'part';
+  g.userData.partId = part.id;
+  g.userData.homePos = { x, y: 0.14, z };
+  scene.add(g);
+  trayObjs.push(g);
+  return g;
+}
+
+function initAssembly() {
+  Object.values(groups).forEach((g) => scene.remove(g));
+  ghostObjs.forEach((g) => scene.remove(g));
+  trayObjs.length = 0; ghostObjs.length = 0;
+  Object.keys(groups).forEach((k) => delete groups[k]);
+  Object.keys(ghosts).forEach((k) => delete ghosts[k]);
+  placed = {}; selectedId = null; progress = 0; simUnlocked = false;
+  resetPedestals();
+  PARTS.forEach((part, i) => {
+    const g = makePart(part, i);
+    groups[part.id] = g;
+    const gh = makeGhost(part);
+    gh.visible = false;
+    ghosts[part.id] = gh;
+  });
+  renderChecklist();
+  renderProg();
+  S.moveTo([3.2, 2.4, 4.2], [0, 1.35, 0], 1.3);
+}
+
+function selectPart(id) {
+  if (placed[id]) return;
+  selectedId = id;
+  showGhostFor(id);
+  showToast(`Seleccionaste: <b>${PART[id].name}</b>. Toca el pedestal marcado para colocarla.`, 2000);
+  synth.beep(440, 0.06, 0.04);
+}
+function deselect() {
+  if (selectedId && ghosts[selectedId]) ghosts[selectedId].visible = false;
+  selectedId = null;
+}
+function placePart(id) {
+  const part = PART[id];
+  const g = groups[id];
+  const i = ORDER.indexOf(id);
+  const targetPos = part.home.clone();
+  tweens.push({
+    obj: g, t: 0, dur: 0.75,
+    from: g.position.clone(), to: targetPos,
+    onDone: () => {
+      placed[id] = true;
+      progress++;
+      markPedestalDone(i);
+      g.userData.kind = 'placed';
+      if (ghosts[id]) ghosts[id].visible = false;
+      showToast(`✔ ${part.name} colocado. ${part.note}`, 3600);
+      synth.beep(880, 0.09, 0.05);
+      renderChecklist(); renderProg();
+      if (progress >= PARTS.length) finishAssembly();
+    },
+  });
+  if (selectedId === id) deselect();
+}
+function wrongSlot(slotId) {
+  showToast('<span style="color:var(--bad)">✗ Esa pieza no va en ese pedestal.</span>', 1800);
+  synth.beep(160, 0.12, 0.06);
+  const gh = ghosts[slotId];
+  if (gh) scratch.push({ obj: gh, t: 0 });
+}
+function finishAssembly() {
+  simUnlocked = true;
+  syncCtrlbar();
+  S.setCinematicIdle(true);
+  showToast('🔓 Arrancador armado. Se desbloquearon los modos Circuito, Térmico y Reto.', 4200);
+  synth.beep(660, 0.1, 0.05); setTimeout(() => synth.beep(990, 0.14, 0.06), 140);
+}
+
+pickerFor(scene, S.camera, mount, (hit) => {
+  const t = tagged(hit);
+  if (!t) return;
+  if (t.userData.kind === 'part') {
+    if (selectedId === t.userData.partId) placePart(t.userData.partId);
+    else selectPart(t.userData.partId);
+  } else if (t.userData.kind === 'slot') {
+    if (selectedId && selectedId === t.userData.partId) placePart(selectedId);
+    else if (selectedId) wrongSlot(t.userData.partId);
+  } else if (t.userData.kind === 'placed') {
+    showToast(`<b>${PART[t.userData.partId].name}</b> ya está en su lugar. ${PART[t.userData.partId].note}`, 2600);
+  }
+});
+
+function renderChecklist() {
+  const box = el('checklist');
+  if (!box) return;
+  box.innerHTML = ORDER.map((id) => {
+    const done = !!placed[id];
+    return `<div class="li"><span class="dot" style="background:${done ? '#43D9AD' : '#3a4149'}"></span>${PART[id].name}${done ? ' ✔' : ''}</div>`;
+  }).join('');
+}
+function renderProg() {
+  const p = el('progTxt');
+  if (p) p.textContent = `${progress}/${PARTS.length}`;
+}
+
+/* ---------------- Tablero de simulación (canvas 1024×768) ---------------- */
+const boardG = new THREE.Group();
+const bFrame = roundedBox(1.66, 1.26, 0.06, MAT.termLid, 0.04);
+boardG.add(bFrame);
+const bCv = document.createElement('canvas');
+bCv.width = 1024; bCv.height = 768;
+const bCx = bCv.getContext('2d');
+const bTex = new THREE.CanvasTexture(bCv);
+const board = new THREE.Mesh(new THREE.PlaneGeometry(1.56, 1.16), new THREE.MeshBasicMaterial({ map: bTex, toneMapped: false }));
+board.position.set(0, 0, 0.015);
+boardG.add(board);
+boardG.position.set(-2.6, 1.65, -0.2);
+boardG.rotation.y = 0.28;
+scene.add(boardG);
+
+function line(x1, y1, x2, y2, color, w = 3) {
+  bCx.strokeStyle = color; bCx.lineWidth = w;
+  bCx.beginPath(); bCx.moveTo(x1, y1); bCx.lineTo(x2, y2); bCx.stroke();
+}
+function labelAt(x, y, text, color = '#dfe7ee', size = 20, align = 'left') {
+  bCx.fillStyle = color; bCx.font = `${size}px system-ui, sans-serif`; bCx.textAlign = align;
+  bCx.fillText(text, x, y);
+}
+function wrapText(x, y, text, color, size, maxW, lh = size * 1.35) {
+  bCx.fillStyle = color; bCx.font = `${size}px system-ui, sans-serif`; bCx.textAlign = 'left';
+  const words = text.split(' ');
+  let line1 = '', yy = y;
+  for (const w of words) {
+    const test = line1 ? line1 + ' ' + w : w;
+    if (bCx.measureText(test).width > maxW && line1) { bCx.fillText(line1, x, yy); line1 = w; yy += lh; }
+    else line1 = test;
+  }
+  if (line1) { bCx.fillText(line1, x, yy); yy += lh; }
+  return yy;
+}
+
+const STATE = {
+  circ: { mode: 'parado', interlockOn: true, fault: false },
+  term: { m: 6.0, clase: 20 },
+};
+
+function drawCircuito() {
+  const c = STATE.circ;
+  bCx.clearRect(0, 0, 1024, 768); bCx.fillStyle = '#0b1116'; bCx.fillRect(0, 0, 1024, 768);
+  labelAt(40, 50, 'Circuito de fuerza — arranque reversible con enclavamiento', '#8fd1ff', 26);
+  const busY = 100, busX = [300, 380, 460];
+  ['L1', 'L2', 'L3'].forEach((t, i) => { labelAt(busX[i], busY - 16, t, '#8A94A0', 16, 'center'); line(busX[i], busY, busX[i], 140, '#5b6672', 3); });
+  const km1X = 180, km1On = c.mode === 'adelante' || c.mode === 'ambos';
+  const km1Color = c.fault ? '#d64545' : (km1On ? '#43D9AD' : '#3a4149');
+  const boxKM1 = { x: km1X - 90, y: 150, w: 180, h: 70 };
+  bCx.strokeStyle = km1Color; bCx.lineWidth = 3; bCx.strokeRect(boxKM1.x, boxKM1.y, boxKM1.w, boxKM1.h);
+  labelAt(km1X, 185, 'KM1 · ADELANTE', km1Color, 18, 'center');
+  labelAt(km1X, 208, km1On ? 'ENERGIZADO' : 'abierto', km1Color, 14, 'center');
+  const km2X = 580, km2On = c.mode === 'reversa' || c.mode === 'ambos';
+  const km2Color = c.fault ? '#d64545' : (km2On ? '#e0b23c' : '#3a4149');
+  const boxKM2 = { x: km2X - 90, y: 150, w: 180, h: 70 };
+  bCx.strokeStyle = km2Color; bCx.lineWidth = 3; bCx.strokeRect(boxKM2.x, boxKM2.y, boxKM2.w, boxKM2.h);
+  labelAt(km2X, 185, 'KM2 · REVERSA', km2Color, 18, 'center');
+  labelAt(km2X, 208, km2On ? 'ENERGIZADO' : 'abierto', km2Color, 14, 'center');
+  labelAt(km1X, 240, 'L1→U  L2→V  L3→W', km1On ? '#43D9AD' : '#5b6672', 15, 'center');
+  labelAt(km2X, 240, 'L1→W  L2→V  L3→U', km2On ? '#e0b23c' : '#5b6672', 15, 'center');
+  const mx = 380, my = 340, mr = 70;
+  bCx.strokeStyle = c.fault ? '#d64545' : '#8fd1ff'; bCx.lineWidth = 3;
+  bCx.beginPath(); bCx.arc(mx, my, mr, 0, Math.PI * 2); bCx.stroke();
+  labelAt(mx, my - 4, 'M', c.fault ? '#d64545' : '#dfe7ee', 30, 'center');
+  labelAt(mx, my + 22, '3~', c.fault ? '#d64545' : '#8A94A0', 16, 'center');
+  line(km1X, 220, mx - 30, my - mr, km1On ? km1Color : '#2a2f35', km1On ? 3 : 2);
+  line(km2X, 220, mx + 30, my - mr, km2On ? km2Color : '#2a2f35', km2On ? 3 : 2);
+  const rot = c.fault ? '⚡ FALLA' : (c.mode === 'adelante' ? '⟳ Horario (CW)' : (c.mode === 'reversa' ? '⟲ Antihorario (CCW)' : '— detenido'));
+  labelAt(mx, my + mr + 34, rot, c.fault ? '#d64545' : (c.mode === 'parado' ? '#5b6672' : '#43D9AD'), 20, 'center');
+  const ey = 470;
+  labelAt(40, ey, 'Enclavamiento mecánico: presente (barra física entre KM1 y KM2)', '#8A94A0', 16);
+  labelAt(40, ey + 30, `Enclavamiento eléctrico (NC cruzado): ${c.interlockOn ? 'ACTIVO' : 'DESACTIVADO (bypass didáctico)'}`, c.interlockOn ? '#43D9AD' : '#f4c95d', 18);
+  if (c.fault) {
+    labelAt(40, ey + 70, '⚡ CORTOCIRCUITO FASE-FASE: KM1 y KM2 energizados a la vez alimentan al motor con dos secuencias de fase distintas al mismo tiempo.', '#d64545', 16);
+    wrapText(40, ey + 100, 'Esto es exactamente lo que el enclavamiento (mecánico + eléctrico) existe para impedir. En campo, jamás se desactivan ambos enclavamientos a la vez.', '#f4c95d', 15, 920);
+  } else {
+    wrapText(40, ey + 70, 'Con el enclavamiento activo, el circuito de control impide físicamente cerrar KM2 mientras KM1 está energizado (y viceversa): hay que pasar por Paro para cambiar de sentido.', '#8A94A0', 15, 920);
+  }
+  bTex.needsUpdate = true;
+  const rt = el('circStatus');
+  if (rt) rt.textContent = `Estado: ${c.mode.toUpperCase()} · Enclavamiento eléctrico: ${c.interlockOn ? 'ON' : 'OFF'}` + (c.fault ? ' · ⚡ FALLA: cortocircuito fase-fase' : '');
+}
+
+function drawTermico() {
+  const { m, clase } = STATE.term;
+  bCx.clearRect(0, 0, 1024, 768); bCx.fillStyle = '#0b1116'; bCx.fillRect(0, 0, 1024, 768);
+  labelAt(40, 50, 'Relevador térmico — tiempo de disparo a 7.2× In', '#8fd1ff', 26);
+  labelAt(40, 90, `Múltiplo de sobrecarga actual: m = ${tf(m, 1)} × Ir`, '#dfe7ee', 20);
+  const ox = 280, oy = 140, barH = 56, gap = 34, maxT = 100, w = 620;
+  CLASS_ORDER.forEach((c, i) => {
+    const t = tripTime(m, c);
+    const y = oy + i * (barH + gap);
+    const sel = c === clase;
+    const bw = Math.min(w, (t / maxT) * w);
+    bCx.fillStyle = sel ? (c === 10 ? '#43D9AD' : c === 20 ? '#e0b23c' : '#d64545') : '#2a2f35';
+    bCx.fillRect(ox, y, bw, barH);
+    labelAt(ox - 16, y + barH * 0.65, `Clase ${c}`, sel ? '#dfe7ee' : '#7a8a96', 18, 'right');
+    labelAt(ox + bw + 14, y + barH * 0.65, `${tf(t, 1)} s`, sel ? '#dfe7ee' : '#5b6672', 16, 'left');
+  });
+  const axisBottom = oy + CLASS_ORDER.length * (barH + gap) - gap + 10;
+  line(ox, oy - 14, ox, axisBottom, '#5b6672', 2);
+  for (let s = 0; s <= maxT; s += 20) { const x = ox + (s / maxT) * w; line(x, oy - 14, x, axisBottom, '#20262c', 1); labelAt(x, oy - 22, `${s}s`, '#5b6672', 14, 'center'); }
+  const py = axisBottom + 50;
+  labelAt(40, py, `Clase seleccionada: ${TRIP_CLASSES[clase].nombre}`, '#8fd1ff', 22);
+  labelAt(40, py + 36, `Tiempo de disparo máximo a m=${tf(m, 1)}×Ir: ${tf(tripTime(m, clase), 2)} s`, '#dfe7ee', 18);
+  wrapText(40, py + 72, 'IEC 60947-4-1 solo fija el tiempo MÁXIMO de disparo a 7.2×Ir por clase (10A/10/20/30); el tiempo mínimo real depende del fabricante y no se modela aquí.', '#8A94A0', 15, 920);
+  bTex.needsUpdate = true;
+  const rt = el('termStatus');
+  if (rt) rt.textContent = `m=${tf(m, 1)}×Ir · Clase ${clase} · t_disparo(máx)=${tf(tripTime(m, clase), 2)} s`;
+}
+
+let RETO = { active: false, m: 6, ts: 8, answer: 20 };
+let retoSolved = false;
+function pick(a) { return a[Math.floor(Math.random() * a.length)]; }
+function drawReto() {
+  const r = RETO;
+  bCx.clearRect(0, 0, 1024, 768); bCx.fillStyle = '#0b1116'; bCx.fillRect(0, 0, 1024, 768);
+  labelAt(40, 50, 'Reto — ¿qué clase de relevador térmico eliges?', '#8fd1ff', 26);
+  labelAt(40, 110, 'Escenario:', '#8fd1ff', 20);
+  labelAt(40, 150, `Corriente de arranque del motor: m = ${tf(r.m, 1)} × Ir (equivalente a 7.2× In en la curva de disparo)`, '#dfe7ee', 18);
+  labelAt(40, 185, `Tiempo real de arranque del motor: ts = ${r.ts} s`, '#dfe7ee', 20);
+  const yy = wrapText(40, 230, 'Elige la clase de disparo (10, 20 o 30) más rápida que NO dispare en falso durante este arranque, pero sí proteja el motor ante una sobrecarga sostenida.', '#dfe7ee', 18, 920);
+  labelAt(40, yy + 40, '¿Cuál es la clase mínima correcta? (elige abajo)', '#f4c95d', 22);
+  if (retoSolved) labelAt(40, yy + 80, `✔ Correcto: Clase ${r.answer}`, '#43D9AD', 22);
+  bTex.needsUpdate = true;
+  const rt = el('retoText');
+  if (rt) rt.textContent = `m=${tf(r.m, 1)}×Ir · ts=${r.ts}s` + (retoSolved ? ` ✔ Correcto: Clase ${r.answer}` : '');
+}
+function newChallenge() {
+  const s = pick(RETO_SCENARIOS);
+  RETO = { active: true, m: s.m, ts: s.ts, answer: minClassFor(s.m, s.ts) };
+  retoSolved = false;
+  drawReto();
+  showToast('🎲 Nuevo escenario de arranque generado.');
+  synth.beep(520, 0.08, 0.05);
+}
+function checkReto(guessClase) {
+  const ok = Number(guessClase) === RETO.answer;
+  retoSolved = ok;
+  if (ok) { showToast('<span style="color:var(--good)">✔ Correcto: clase mínima que no dispara en falso durante el arranque.</span>'); synth.beep(1046, 0.12, 0.06); }
+  else { showToast('<span style="color:var(--bad)">✗ No es correcto. Compara el tiempo de disparo de cada clase contra el tiempo de arranque.</span>'); synth.beep(180, 0.14, 0.06); }
+  drawReto();
+}
+
+function drawBoard() {
+  if (mode === 'circuito') drawCircuito();
+  else if (mode === 'termico') drawTermico();
+  else if (mode === 'reto') drawReto();
+}
+function updateTele() {
+  const c = STATE.circ;
+  const tm = el('t_circMode'); if (tm) tm.textContent = c.mode.toUpperCase();
+  const ti = el('t_circInterlock'); if (ti) ti.textContent = c.interlockOn ? 'activo' : 'desactivado (bypass)';
+  const tfa = el('t_circFault'); if (tfa) tfa.textContent = c.fault ? '⚡ SÍ — cortocircuito fase-fase' : 'no';
+  const { m, clase } = STATE.term;
+  const tmm = el('t_termM'); if (tmm) tmm.textContent = `${tf(m, 1)} × Ir`;
+  const tc = el('t_termClase'); if (tc) tc.textContent = TRIP_CLASSES[clase].nombre;
+  const tt = el('t_termTiempo'); if (tt) tt.textContent = `${tf(tripTime(m, clase), 2)} s`;
+}
+function refreshAll() { updateTele(); if (mode === 'circuito' || mode === 'termico' || mode === 'reto') drawBoard(); }
+
+/* ---------------- Controles de circuito ---------------- */
+function pressParo() {
+  STATE.circ.mode = 'parado'; STATE.circ.fault = false;
+  refreshAll();
+  showToast('⏹ Paro — circuito de control abierto.');
+  synth.beep(300, 0.08, 0.05);
+}
+function pressAdelante() {
+  const c = STATE.circ;
+  if (c.interlockOn && c.mode === 'reversa') { showToast('<span style="color:var(--bad)">🔒 Enclavado: primero pulsa Paro para cambiar de sentido.</span>'); synth.beep(220, 0.1, 0.05); return; }
+  c.mode = (!c.interlockOn && c.mode === 'reversa') ? 'ambos' : 'adelante';
+  c.fault = c.mode === 'ambos';
+  refreshAll();
+  if (c.fault) { showToast('<span style="color:var(--bad)">⚡ Sin enclavamiento: KM1 y KM2 energizados a la vez — cortocircuito fase-fase.</span>'); synth.beep(140, 0.2, 0.07); }
+  else { showToast('▶ KM1 energizado — Adelante.'); synth.beep(660, 0.08, 0.05); }
+}
+function pressReversa() {
+  const c = STATE.circ;
+  if (c.interlockOn && c.mode === 'adelante') { showToast('<span style="color:var(--bad)">🔒 Enclavado: primero pulsa Paro para cambiar de sentido.</span>'); synth.beep(220, 0.1, 0.05); return; }
+  c.mode = (!c.interlockOn && c.mode === 'adelante') ? 'ambos' : 'reversa';
+  c.fault = c.mode === 'ambos';
+  refreshAll();
+  if (c.fault) { showToast('<span style="color:var(--bad)">⚡ Sin enclavamiento: KM1 y KM2 energizados a la vez — cortocircuito fase-fase.</span>'); synth.beep(140, 0.2, 0.07); }
+  else { showToast('◀ KM2 energizado — Reversa.'); synth.beep(560, 0.08, 0.05); }
+}
+function toggleInterlock() {
+  const c = STATE.circ;
+  c.interlockOn = !c.interlockOn;
+  if (c.interlockOn && c.mode === 'ambos') { c.mode = 'parado'; c.fault = false; showToast('🔒 Enclavamiento restaurado — el circuito fuerza Paro.'); }
+  else { showToast(c.interlockOn ? '🔒 Enclavamiento eléctrico reactivado.' : '<span style="color:var(--bad)">⚠ Enclavamiento eléctrico desactivado (solo fines didácticos).</span>'); }
+  refreshAll();
+}
+function setTermM(delta) {
+  STATE.term.m = Math.max(4, Math.min(8, +(STATE.term.m + delta).toFixed(1)));
+  refreshAll();
+}
+function setTermClase(c) { STATE.term.clase = Number(c); refreshAll(); }
+
+/* ---------------- Modos ---------------- */
+const MODE_META = {
+  ensamble: { nombre: 'Ensamble', cam: [[3.2, 2.4, 4.2], [0, 1.35, 0]] },
+  circuito: { nombre: 'Circuito', cam: [[-1.0, 2.05, 2.35], [-2.6, 1.65, -0.2]] },
+  termico: { nombre: 'Térmico', cam: [[-1.0, 2.05, 2.35], [-2.6, 1.65, -0.2]] },
+  reto: { nombre: 'Reto', cam: [[-1.0, 2.05, 2.35], [-2.6, 1.65, -0.2]] },
+};
+const modes = ['ensamble', 'circuito', 'termico', 'reto'];
+let mode = 'ensamble';
+
+function setMode(k) {
+  if (k !== 'ensamble' && !simUnlocked) {
+    showToast('<span style="color:var(--bad)">🔒 Arma primero el arrancador completo en el modo Ensamble.</span>');
+    return;
+  }
+  mode = k;
+  document.querySelectorAll('.modebar .b').forEach((b) => b.classList.toggle('on', b.dataset.mode === k));
+  modes.forEach((m) => { const sec = el('sec' + m[0].toUpperCase() + m.slice(1)); if (sec) sec.style.display = m === k ? '' : 'none'; });
+  const meta = MODE_META[k];
+  S.moveTo(meta.cam[0], meta.cam[1], 1.3);
+  if (k === 'reto' && !RETO.active) newChallenge();
+  refreshAll();
+}
+function syncCtrlbar() {
+  document.querySelectorAll('.modebar .b').forEach((b) => {
+    if (b.dataset.mode === 'ensamble') return;
+    b.disabled = !simUnlocked;
+  });
+}
+
+/* ---------------- Recorridos guiados ---------------- */
+const sleep = (ms) => new Promise((res) => setTimeout(res, ms));
+let autoRunning = false;
+async function autoAssemble() {
+  if (autoRunning) return; autoRunning = true;
+  const btn = el('btnAutoEns'); if (btn) btn.disabled = true;
+  for (const id of ORDER) {
+    if (placed[id]) continue;
+    selectPart(id); await sleep(550);
+    placePart(id); await sleep(950);
+  }
+  if (btn) btn.disabled = false; autoRunning = false;
+}
+async function autoCircuitoTour() {
+  if (autoRunning) return; autoRunning = true;
+  const btn = el('btnAutoCirc'); if (btn) btn.disabled = true;
+  pressParo(); await sleep(900);
+  pressAdelante(); await sleep(1600);
+  pressParo(); await sleep(700);
+  pressReversa(); await sleep(1600);
+  pressParo(); await sleep(700);
+  toggleInterlock(); await sleep(700);
+  pressAdelante(); await sleep(900);
+  pressReversa(); await sleep(1800);
+  toggleInterlock(); await sleep(1200);
+  if (btn) btn.disabled = false; autoRunning = false;
+}
+async function autoTermicoTour() {
+  if (autoRunning) return; autoRunning = true;
+  const btn = el('btnAutoTerm'); if (btn) btn.disabled = true;
+  for (const clase of CLASS_ORDER) {
+    STATE.term.clase = clase;
+    const sel = el('selClase'); if (sel) sel.value = String(clase);
+    refreshAll(); await sleep(1500);
+  }
+  for (const m of [4, 5, 6, 7, 8]) { STATE.term.m = m; refreshAll(); await sleep(1200); }
+  if (btn) btn.disabled = false; autoRunning = false;
+}
+
+/* ---------------- Loop de animación ---------------- */
+S.setAnimate((dt, t) => {
+  for (let i = tweens.length - 1; i >= 0; i--) {
+    const tw = tweens[i];
+    tw.t += dt / tw.dur;
+    const k = ease(Math.min(1, tw.t));
+    tw.obj.position.lerpVectors(tw.from, tw.to, k);
+    if (tw.t >= 1) { tw.obj.position.copy(tw.to); tweens.splice(i, 1); if (tw.onDone) tw.onDone(); }
+  }
+  for (let i = scratch.length - 1; i >= 0; i--) {
+    const sc = scratch[i];
+    sc.t += dt;
+    sc.obj.position.x += Math.sin(sc.t * 40) * 0.002;
+    if (sc.t > 0.3) { sc.obj.position.x = sc.obj.userData.partId ? PART[sc.obj.userData.partId].home.x : sc.obj.position.x; scratch.splice(i, 1); }
+  }
+  trayObjs.forEach((g) => {
+    const isSel = g.userData.partId === selectedId;
+    const home = g.userData.homePos;
+    if (!home) return;
+    const targetY = home.y + (isSel ? 0.08 + Math.sin(t * 3) * 0.02 : 0);
+    g.position.y += (targetY - g.position.y) * Math.min(1, dt * 6);
+    if (isSel) g.rotation.y += dt * 1.4;
+  });
+  ghostObjs.forEach((g) => {
+    if (!g.visible) return;
+    g.traverse((o) => { if (o.isMesh) o.material.opacity = 0.14 + 0.12 * (0.5 + 0.5 * Math.sin(t * 3)); });
+  });
+  if (groups.relevadorTermico && groups.relevadorTermico.userData.needle) {
+    const nd = groups.relevadorTermico.userData.needle;
+    const frac = (STATE.term.m - 4) / (8 - 4);
+    const targetRot = -0.9 + frac * 1.8;
+    nd.rotation.z += (targetRot - nd.rotation.z) * Math.min(1, dt * 4);
+  }
+  if (mode === 'circuito') {
+    const km1On = STATE.circ.mode === 'adelante' || STATE.circ.mode === 'ambos';
+    const km2On = STATE.circ.mode === 'reversa' || STATE.circ.mode === 'ambos';
+    if (groups.km1 && groups.km1.userData.coilLed) groups.km1.userData.coilLed.material.emissiveIntensity = km1On ? (0.6 + 0.4 * Math.sin(t * 6)) : 0.05;
+    if (groups.km2 && groups.km2.userData.coilLed) groups.km2.userData.coilLed.material.emissiveIntensity = km2On ? (0.6 + 0.4 * Math.sin(t * 6)) : 0.05;
+  }
+});
+S.start();
+
+/* ---------------- HUD ---------------- */
+document.getElementById('hud').innerHTML = `
+  <div class="eyebrow">Máquinas eléctricas · D5</div>
+  <h2>Inversión de giro con contactores y enclavamiento</h2>
+  <p>Arma un arrancador reversible sobre un panel de montaje —dos contactores, enclavamiento mecánico y eléctrico, relevador térmico y botonera de 3 hilos— y luego explora por qué el enclavamiento es obligatorio, cómo se elige la clase de disparo de un relevador térmico y resuelve retos de selección.</p>
+  <div class="formula">t_disparo = t_máx(clase) · (7.2 / m)²  ·  clases 10 / 20 / 30 según IEC 60947-4-1</div>
+  <div class="legend">
+    <div class="li"><span class="dot" style="background:#43D9AD"></span>KM1 · Adelante (L1-U, L2-V, L3-W)</div>
+    <div class="li"><span class="dot" style="background:#e0b23c"></span>KM2 · Reversa (L1-W, L2-V, L3-U)</div>
+    <div class="li"><span class="dot" style="background:#f4c95d"></span>Enclavamiento eléctrico (NC cruzado)</div>
+    <div class="li"><span class="dot" style="background:#d64545"></span>Relevador térmico (aguja de clase)</div>
+    <div class="li"><span class="dot" style="background:#8A94A0"></span>Terminales de línea / motor</div>
+  </div>
+  <div class="fid">
+    <div class="ft">Contrato de fidelidad</div>
+    <div class="fl">SÍ modela: la lógica de enclavamiento eléctrico+mecánico de un arrancador reversible y por qué es obligatorio; la secuencia de fases invertida entre Adelante y Reversa; el tiempo MÁXIMO de disparo de un relevador térmico de clase 10/20/30 a 7.2×In según IEC 60947-4-1.</div>
+    <div class="fl no">NO modela: el esquemático eléctrico completo con bobinas/fusibles a nivel normalizado; el tiempo MÍNIMO real de disparo (depende del fabricante, no lo fija la norma); el dimensionamiento de calibre de conductor o corriente de plena carga del motor.</div>
+    <div class="fl">Norma ancla: IEC 60947-4-1 (arrancadores electromecánicos de baja tensión) — se cita el tiempo máximo de disparo a 7.2×In por clase; el mínimo no se modela.</div>
+  </div>
+  <div class="src">Fuente: IEC 60947-4-1 · convenciones estándar de arrancadores reversibles con enclavamiento eléctrico/mecánico.</div>
+  <div class="modebar">
+    <button class="b on" data-mode="ensamble">① Ensamble</button>
+    <button class="b" data-mode="circuito" disabled>② Circuito</button>
+    <button class="b" data-mode="termico" disabled>③ Térmico</button>
+    <button class="b" data-mode="reto" disabled>④ Reto</button>
+  </div>
+`;
+
+/* ---------------- PANEL ---------------- */
+document.getElementById('panel').innerHTML = `
+  <div id="secEnsamble">
+    <div class="panel">
+      <div class="fid" style="margin-bottom:10px"><div class="ft">Progreso: <span id="progTxt">0/8</span></div></div>
+      <div id="checklist" class="legend"></div>
+      <div class="btns"><button class="b auto" id="btnAutoEns">▶ Recorrido guiado</button></div>
+    </div>
+  </div>
+  <div id="secCircuito" style="display:none">
+    <div class="panel">
+      <div class="console"><span id="circStatus">Estado: PARADO</span></div>
+      <div class="btns">
+        <button class="b primary" id="btnAdelante">▶ Adelante</button>
+        <button class="b" id="btnParo">⏹ Paro</button>
+        <button class="b" id="btnReversa">◀ Reversa</button>
+      </div>
+      <div class="btns"><button class="b" id="btnToggleInterlock">🔒 Alternar enclavamiento eléctrico</button></div>
+      <div class="legend">
+        <div class="li">Modo: <span id="t_circMode">PARADO</span></div>
+        <div class="li">Enclavamiento: <span id="t_circInterlock">activo</span></div>
+        <div class="li">Falla fase-fase: <span id="t_circFault">no</span></div>
+      </div>
+      <div class="btns"><button class="b auto" id="btnAutoCirc">▶ Recorrido guiado</button></div>
+    </div>
+  </div>
+  <div id="secTermico" style="display:none">
+    <div class="panel">
+      <div class="console"><span id="termStatus">m=6.0×Ir · Clase 20</span></div>
+      <div class="btns">
+        <button class="b" id="btnTermMinus">− m</button>
+        <button class="b" id="btnTermPlus">+ m</button>
+      </div>
+      <select id="selClase">
+        <option value="10">Clase 10</option>
+        <option value="20" selected>Clase 20</option>
+        <option value="30">Clase 30</option>
+      </select>
+      <div class="legend">
+        <div class="li">m actual: <span id="t_termM">6.0 × Ir</span></div>
+        <div class="li">Clase: <span id="t_termClase">Clase 20</span></div>
+        <div class="li">t_disparo(máx): <span id="t_termTiempo">28.80 s</span></div>
+      </div>
+      <div class="btns"><button class="b auto" id="btnAutoTerm">▶ Recorrido guiado</button></div>
+    </div>
+  </div>
+  <div id="secReto" style="display:none">
+    <div class="panel">
+      <div class="console"><span id="retoText">—</span></div>
+      <div class="btns">
+        <button class="b dx" id="btnReto10">Clase 10</button>
+        <button class="b dx" id="btnReto20">Clase 20</button>
+        <button class="b dx" id="btnReto30">Clase 30</button>
+      </div>
+      <div class="btns"><button class="b" id="btnNewChallenge">🎲 Nuevo escenario</button></div>
+    </div>
+  </div>
+`;
+
+/* ---------------- Wiring adicional ---------------- */
+const soundBtn = el('soundBtn');
+if (soundBtn) soundBtn.onclick = () => { synth.resume(); synth.toggle(); soundBtn.classList.toggle('on', synth.isOn()); };
+document.querySelectorAll('.modebar .b').forEach((b) => {
+  b.addEventListener('click', (ev) => {
+    const m = b.dataset.mode;
+    if (mode === 'reto' && !retoSolved && m !== 'reto') {
+      ev.stopImmediatePropagation();
+      showToast('<span style="color:var(--bad)">🔒 Resuelve el reto actual antes de cambiar de modo.</span>');
+    }
+  }, true);
+  b.addEventListener('click', () => setMode(b.dataset.mode));
+});
+el('btnAutoEns').onclick = () => autoAssemble();
+el('btnAdelante').onclick = () => pressAdelante();
+el('btnParo').onclick = () => pressParo();
+el('btnReversa').onclick = () => pressReversa();
+el('btnToggleInterlock').onclick = () => toggleInterlock();
+el('btnAutoCirc').onclick = () => autoCircuitoTour();
+el('btnTermMinus').onclick = () => setTermM(-0.5);
+el('btnTermPlus').onclick = () => setTermM(0.5);
+el('selClase').onchange = (ev) => setTermClase(ev.target.value);
+el('btnAutoTerm').onclick = () => autoTermicoTour();
+el('btnReto10').onclick = () => checkReto(10);
+el('btnReto20').onclick = () => checkReto(20);
+el('btnReto30').onclick = () => checkReto(30);
+el('btnNewChallenge').onclick = () => newChallenge();
+
+initAssembly();
+syncCtrlbar();
+setMode('ensamble');
+
+window.__labDebug = {
+  state: STATE,
+  get mode() { return mode; },
+  get progress() { return progress; },
+  get simUnlocked() { return simUnlocked; },
+  get reto() { return { ...RETO, solved: retoSolved }; },
+  tripTime, minClassFor,
+};
+</script>
+  <!-- Ficha técnica · Capa B del molde de lab 3D (componente compartido + contenido del lab) -->
+  <script src="_ficha-tecnica.js"></script>
+  <script src="_ficha-inversion-giro-contactores.js"></script>
+</body>
+</html>
