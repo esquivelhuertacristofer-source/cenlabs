@@ -901,6 +901,16 @@ exports[`golden master — catálogo por categoría (invariante ante extracción
     "teoria": "Un divisor de tensión (V, R1, R2) resuelto en vivo por el mismo motor de análisis nodal modificado (MNA) de Kirchhoff (mecanica-13): el alumno primero observa el caso ideal sin carga, luego conecta una resistencia RL y cuantifica cómo Vo cae por debajo del valor de libro (efecto de carga), y contrasta el resultado contra la equivalencia de Thévenin del propio divisor. Un segundo circuito con una fuente de corriente ideal introduce el divisor de corriente (I1, I2). En el reto, el alumno no predice: diseña — propone valores de R1 y R2 que alcancen un voltaje objetivo respetando un presupuesto de error de carga (≤5 %) y de corriente de reposo (≤25 mA), la misma disyuntiva rigidez-vs-consumo de un divisor real. Esquema IEC 60617; resistores con código de colores E12.",
     "titulo": "Divisores de Tensión y Corriente: Diseño con Efecto de Carga",
   },
+  {
+    "duracion": "35 min",
+    "estado": "activo",
+    "id": "mecanica-62",
+    "modulo": "Circuitos Eléctricos",
+    "orden": 62,
+    "simuladorHtml": "/labs/equivalente-thevenin-norton.html",
+    "teoria": "Una red resistiva de dos terminales (fuente + 3 resistores) se resuelve en vivo por el mismo motor de análisis nodal modificado (MNA) de Kirchhoff y los divisores, extendido con un nuevo elemento de amperímetro ideal (fuente de 0 V) que permite leer la corriente de cortocircuito directamente del solver. El alumno mide el voltaje de circuito abierto (Voc = Vth) y la corriente de cortocircuito (Isc) con dos botones de instrumento virtual, calcula Rth = Voc/Isc y lo contrasta contra el método teórico de desactivar la fuente y combinar resistencias. Verifica que el equivalente de Thévenin predice exactamente el voltaje y la corriente de la red completa sobre cualquier carga externa, convierte el resultado a su equivalente Norton, y en el reto caracteriza una caja negra real usando solo las mediciones de Voc e Isc — sin ver los componentes internos.",
+    "titulo": "Equivalentes de Thévenin y Norton: Caracterización Experimental de Caja Negra",
+  },
 ]
 `;
 
@@ -1090,6 +1100,7 @@ exports[`golden master — catálogo por categoría (invariante ante extracción
   "mecanica-6",
   "mecanica-60",
   "mecanica-61",
+  "mecanica-62",
   "mecanica-7",
   "mecanica-8",
   "mecanica-9",

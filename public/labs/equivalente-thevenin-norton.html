@@ -1,0 +1,1336 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>CEN Labs · Equivalentes de Thévenin y Norton: Caracterización Experimental de Caja Negra — Laboratorio 3D</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#08201C;--panel:rgba(9,26,23,.86);--line:#1E3A34;--ink:#EAF4F1;
+    --dim:#8FB3AC;--accent:#2A9D8F;--accent2:#4FD1C5;--hv:#FFB703;--good:#34d399;--bad:#f4475e;
+    --mono:'Outfit',system-ui,'Segoe UI',Roboto,sans-serif;--disp:'Outfit','Arial Black',Impact,sans-serif;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  html,body{height:100%;background:var(--bg);color:var(--ink);font-family:'Outfit',system-ui,Segoe UI,Roboto,sans-serif}
+  body{overflow:hidden}
+  #stage{position:fixed;inset:0}
+  canvas{display:block;touch-action:none}
+
+  .topbar{position:fixed;top:0;left:0;right:0;height:56px;display:flex;align-items:center;gap:14px;padding:0 20px;z-index:20;background:linear-gradient(180deg,rgba(10,13,18,.92),transparent);pointer-events:none}
+  .brand{font-family:var(--disp);font-weight:bold;font-size:16px;text-transform:uppercase}
+  .brand span{color:var(--accent)}
+  .lt{font-family:var(--mono);font-size:11px;letter-spacing:.1em;text-transform:uppercase;color:var(--dim)}
+
+  .badge{position:fixed;top:16px;right:20px;z-index:20;font-family:var(--mono);font-size:9px;letter-spacing:.12em;text-transform:uppercase;background:rgba(255,209,102,.12);color:var(--hv);border:1px solid rgba(255,209,102,.35);padding:6px 12px;border-radius:20px}
+
+  .hud{position:fixed;top:70px;left:18px;z-index:15;max-width:330px;background:var(--panel);backdrop-filter:blur(14px);border:1px solid var(--line);border-radius:16px;padding:18px 20px;max-height:calc(100vh - 150px);overflow-y:auto}
+  .hud .eyebrow{font-family:var(--mono);font-size:10px;letter-spacing:.18em;text-transform:uppercase;color:var(--accent);margin-bottom:8px}
+  .hud h2{font-size:19px;line-height:1.15;margin-bottom:9px}
+  .hud p{font-size:13px;line-height:1.55;color:var(--dim);margin-bottom:10px}
+  .hud .formula{font-family:var(--mono);color:var(--accent2);text-align:center;font-size:12.5px;margin:8px 0;padding:8px;background:rgba(0,0,0,.25);border-radius:8px;line-height:1.5}
+  .hud .src{font-size:10.5px;color:#7a8894;font-style:italic;margin-top:4px;line-height:1.5}
+  .legend{display:flex;flex-direction:column;gap:6px;margin:12px 0;padding:10px 12px;background:rgba(0,0,0,.22);border-radius:10px}
+  .legend .li{display:flex;align-items:center;gap:8px;font-size:11px;color:#c4d0da}
+  .legend .dot{width:10px;height:10px;border-radius:50%;flex:0 0 auto}
+  .fid{margin:10px 0 2px;padding:10px 12px;background:rgba(0,0,0,.22);border-radius:10px;border:1px solid rgba(79,209,197,.18)}
+  .fid .ft{font-family:var(--mono);font-size:9.5px;letter-spacing:.14em;text-transform:uppercase;color:var(--accent2);margin-bottom:6px}
+  .fid .fl{font-size:11px;color:#c4d0da;line-height:1.5;margin-bottom:5px}
+  .fid .fl b{color:var(--ink)}
+  .fid .fl.no b{color:var(--hv)}
+
+  .panel{position:fixed;top:70px;right:18px;z-index:15;width:262px;background:var(--panel);backdrop-filter:blur(14px);border:1px solid var(--line);border-radius:16px;padding:16px;max-height:calc(100vh - 150px);overflow-y:auto}
+  .panel h4{font-family:var(--mono);font-size:10px;letter-spacing:.14em;text-transform:uppercase;color:var(--dim);margin:2px 0 10px}
+  .panel h4.sec{margin-top:16px;border-top:1px solid var(--line);padding-top:14px}
+  .g{margin-bottom:6px}
+  .gl{display:flex;justify-content:space-between;font-family:var(--mono);font-size:11px;color:var(--dim)}
+  .gl b{color:var(--accent2)}
+  .gl b.good{color:var(--good)}.gl b.warn{color:var(--hv)}.gl b.bad{color:var(--bad)}
+  .modebar{display:flex;gap:5px;margin-bottom:8px}
+  .modebar .b{flex:1;padding:8px 4px;font-size:11px}
+  .btns{display:flex;flex-direction:column;gap:7px;margin-top:6px}
+  .b{font-family:system-ui;font-size:12.5px;padding:10px;border-radius:9px;cursor:pointer;border:1px solid var(--line);background:#1b242f;color:var(--ink);transition:.15s;text-align:center}
+  .b:hover{border-color:var(--accent);background:#202c38}
+  .b.on{background:var(--accent);color:#06120f;border-color:var(--accent);font-weight:bold}
+  .b.primary{background:var(--accent);color:#06120f;border-color:var(--accent);font-weight:bold}
+  .b.auto{border-color:var(--hv);color:var(--hv);background:rgba(255,183,3,.10);font-weight:bold}
+  .b.auto:hover{background:rgba(255,183,3,.18);border-color:var(--hv)}
+  .b.auto:disabled{opacity:.6;cursor:default}
+  .b.dx{text-align:left;font-size:12px}
+  .b.dx.right{background:rgba(52,211,153,.18);border-color:var(--good);color:var(--good);font-weight:bold}
+  .b.dx.wrong{background:rgba(244,71,94,.15);border-color:var(--bad);color:var(--bad)}
+  .console{font-family:var(--mono);font-size:11px;line-height:1.55;color:#c4d0da;background:rgba(0,0,0,.28);border-radius:9px;padding:10px 12px;margin-bottom:8px;min-height:56px}
+  .console .dtc{color:var(--bad);font-weight:bold}
+  .console .ok{color:var(--good)}
+  .console .mono{color:var(--dim)}
+
+  .hint{position:fixed;bottom:18px;left:18px;z-index:14;font-family:var(--mono);font-size:10px;color:var(--dim);background:var(--panel);padding:7px 12px;border-radius:9px;border:1px solid var(--line)}
+  .toast{position:fixed;top:80px;left:50%;transform:translateX(-50%);z-index:30;background:rgba(18,24,32,.95);border:1px solid var(--accent);padding:10px 20px;border-radius:40px;font-family:var(--mono);font-size:12px;opacity:0;transition:.3s;pointer-events:none;max-width:80vw;text-align:center}
+  .toast.show{opacity:1}
+  .soundBtn{position:fixed;top:14px;right:18px;z-index:21;font-size:16px;background:var(--panel);backdrop-filter:blur(12px);border:1px solid var(--line);border-radius:50%;width:36px;height:36px;cursor:pointer;color:var(--dim);transition:.15s}
+  .soundBtn.on{color:var(--accent);border-color:var(--accent)}
+  .soundBtn:hover{transform:scale(1.08)}
+  .inspectHint{position:fixed;bottom:18px;right:18px;z-index:14;font-family:var(--mono);font-size:10px;color:var(--accent2);background:var(--panel);padding:7px 12px;border-radius:9px;border:1px solid var(--line)}
+
+  @media(max-width:820px){
+    .hud,.panel{position:fixed;left:8px;right:8px;top:auto;bottom:8px;max-width:none;width:auto;max-height:42vh;overflow-y:auto}
+    .hud{bottom:calc(8px + 42vh + 8px)}
+    .hint,.inspectHint{display:none}
+  }
+</style>
+</head>
+<body>
+<div id="stage"></div>
+<button class="soundBtn on" id="soundBtn">🔊</button>
+<div class="topbar">
+  <div class="brand">CEN<span> Labs</span></div>
+  <div class="lt">Equivalentes de Thévenin y Norton · Circuitos Eléctricos</div>
+</div>
+<div class="hud" id="hud"></div>
+<div class="panel" id="panel"></div>
+<div class="hint">Arrastra para orbitar · rueda para zoom</div>
+<div class="inspectHint">👆 Toca el esquema o los elementos del banco (terminales, RL)</div>
+<div class="toast" id="toast"></div>
+
+<script type="importmap">
+{ "imports": {
+  "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.min.js",
+  "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/"
+}}
+</script>
+<script type="module">
+import * as THREE from 'three';
+import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
+import { RoundedBoxGeometry } from 'three/addons/geometries/RoundedBoxGeometry.js';
+import { EffectComposer } from 'three/addons/postprocessing/EffectComposer.js';
+import { RenderPass } from 'three/addons/postprocessing/RenderPass.js';
+import { GTAOPass } from 'three/addons/postprocessing/GTAOPass.js';
+import { UnrealBloomPass } from 'three/addons/postprocessing/UnrealBloomPass.js';
+import { SMAAPass } from 'three/addons/postprocessing/SMAAPass.js';
+import { OutputPass } from 'three/addons/postprocessing/OutputPass.js';
+import { BokehPass } from 'three/addons/postprocessing/BokehPass.js';
+
+/* ============================================================
+   Texturas PBR procedurales (sin archivos externos) — compartidas
+   ============================================================ */
+function cv(s=512){const c=document.createElement('canvas');c.width=c.height=s;return c;}
+function tex(canvas,repeat=1,srgb=false){
+  const t=new THREE.CanvasTexture(canvas);
+  t.wrapS=t.wrapT=THREE.RepeatWrapping;t.repeat.set(repeat,repeat);
+  t.colorSpace = srgb?THREE.SRGBColorSpace:THREE.NoColorSpace;
+  t.generateMipmaps=false; t.minFilter=THREE.LinearFilter; t.anisotropy=1; return t;
+}
+function normalFromHeight(size, hfn, strength=2.0){
+  const c=cv(size),ctx=c.getContext('2d'),img=ctx.createImageData(size,size);
+  const H=(x,y)=>hfn((x+size)%size,(y+size)%size);
+  for(let y=0;y<size;y++)for(let x=0;x<size;x++){
+    const dx=(H(x+1,y)-H(x-1,y))*strength;
+    const dy=(H(x,y+1)-H(x,y-1))*strength;
+    const nz=1.0; const len=Math.hypot(dx,dy,nz);
+    const i=(y*size+x)*4;
+    img.data[i]  =((-dx/len)*0.5+0.5)*255;
+    img.data[i+1]=((-dy/len)*0.5+0.5)*255;
+    img.data[i+2]=((nz/len)*0.5+0.5)*255;
+    img.data[i+3]=255;
+  }
+  ctx.putImageData(img,0,0);return c;
+}
+function valueNoise(seed=1){
+  const g=(x,y)=>{const s=Math.sin((x*127.1+y*311.7)+seed*13.13)*43758.5453;return s-Math.floor(s);};
+  return (x,y)=>{
+    const xi=Math.floor(x),yi=Math.floor(y),xf=x-xi,yf=y-yi;
+    const u=xf*xf*(3-2*xf),v=yf*yf*(3-2*yf);
+    const a=g(xi,yi),b=g(xi+1,yi),c=g(xi,yi+1),d=g(xi+1,yi+1);
+    return a*(1-u)*(1-v)+b*u*(1-v)+c*(1-u)*v+d*u*v;
+  };
+}
+function fbm(noise,x,y,oct=4){let v=0,a=0.5,f=1;for(let i=0;i<oct;i++){v+=noise(x*f,y*f)*a;f*=2;a*=0.5;}return v;}
+
+function castAluminum(){
+  const S=512, n=valueNoise(7);
+  const c=cv(S),ctx=c.getContext('2d'),img=ctx.createImageData(S,S);
+  for(let y=0;y<S;y++)for(let x=0;x<S;x++){
+    const v=fbm(n,x/22,y/22,5);
+    const por=Math.pow(n(x/3.1,y/3.1),8);
+    const base=150+v*38-por*70;
+    const i=(y*S+x)*4; img.data[i]=base; img.data[i+1]=base+4; img.data[i+2]=base+10; img.data[i+3]=255;
+  }
+  ctx.putImageData(img,0,0);
+  const r=cv(S),rx=r.getContext('2d'),rimg=rx.createImageData(S,S);
+  for(let y=0;y<S;y++)for(let x=0;x<S;x++){
+    const v=fbm(n,x/18,y/18,4); const por=Math.pow(n(x/3.1,y/3.1),8);
+    const rough=120+v*40+por*90; const i=(y*S+x)*4;
+    rimg.data[i]=rimg.data[i+1]=rimg.data[i+2]=Math.min(255,rough); rimg.data[i+3]=255;
+  }
+  rx.putImageData(rimg,0,0);
+  const nrm=normalFromHeight(S,(x,y)=>fbm(n,x/16,y/16,5)+Math.pow(n(x/3.1,y/3.1),8)*0.6,3.0);
+  return {map:tex(c,1,true),roughnessMap:tex(r),normalMap:tex(nrm)};
+}
+function brushedMetal(){
+  const S=512, n=valueNoise(3);
+  const c=cv(S),ctx=c.getContext('2d'),img=ctx.createImageData(S,S);
+  for(let y=0;y<S;y++)for(let x=0;x<S;x++){
+    const streak=Math.sin(y*0.9)*2 + (n(x/120,y*0.5)-0.5)*40;
+    const base=185+streak; const i=(y*S+x)*4;
+    img.data[i]=base; img.data[i+1]=base+2; img.data[i+2]=base+6; img.data[i+3]=255;
+  }
+  ctx.putImageData(img,0,0);
+  const r=cv(S),rx=r.getContext('2d'),rimg=rx.createImageData(S,S);
+  for(let y=0;y<S;y++)for(let x=0;x<S;x++){
+    const streak=(n(x/120,y*0.5)-0.5)*60; const rough=40+Math.abs(streak); const i=(y*S+x)*4;
+    rimg.data[i]=rimg.data[i+1]=rimg.data[i+2]=Math.min(160,rough); rimg.data[i+3]=255;
+  }
+  rx.putImageData(rimg,0,0);
+  const nrm=normalFromHeight(S,(x,y)=>(n(x/120,y*0.5))*0.3+Math.sin(y*0.9)*0.02,1.2);
+  return {map:tex(c,1,true),roughnessMap:tex(r),normalMap:tex(nrm)};
+}
+function rubber(){
+  const S=256,n=valueNoise(5);
+  const nrm=normalFromHeight(S,(x,y)=>fbm(n,x/8,y/8,4),1.4);
+  const rough=cv(64),rc=rough.getContext('2d');rc.fillStyle='#e0e0e0';rc.fillRect(0,0,64,64);
+  return {roughnessMap:tex(rough),normalMap:tex(nrm,2)};
+}
+function gradientBG(top='#11161d',bottom='#05070a'){
+  const c=cv(512),ctx=c.getContext('2d');
+  const grd=ctx.createLinearGradient(0,0,0,512);
+  grd.addColorStop(0,top);grd.addColorStop(1,bottom);
+  ctx.fillStyle=grd;ctx.fillRect(0,0,512,512);
+  const rg=ctx.createRadialGradient(256,200,30,256,256,360);
+  rg.addColorStop(0,'rgba(42,157,143,0.10)');rg.addColorStop(1,'rgba(0,0,0,0)');
+  ctx.fillStyle=rg;ctx.fillRect(0,0,512,512);
+  return tex(c,1,true);
+}
+function techPlastic(r=0.10,g=0.11,b=0.13){
+  const S=256,n=valueNoise(31);
+  const c=cv(S),ctx=c.getContext('2d'),img=ctx.createImageData(S,S);
+  for(let y=0;y<S;y++)for(let x=0;x<S;x++){
+    const v=fbm(n,x/30,y/30,3)*0.1+0.92; const i=(y*S+x)*4;
+    img.data[i]=r*255*v;img.data[i+1]=g*255*v;img.data[i+2]=b*255*v;img.data[i+3]=255;
+  }
+  ctx.putImageData(img,0,0);
+  const nrm=normalFromHeight(S,(x,y)=>fbm(n,x/10,y/10,3),0.8);
+  const rough=cv(64),rc=rough.getContext('2d');rc.fillStyle='#9a9a9a';rc.fillRect(0,0,64,64);
+  return {map:tex(c,1,true),roughnessMap:tex(rough),normalMap:tex(nrm)};
+}
+
+/* ============================================================
+   ENGINE — render premium compartido por todos los laboratorios
+   ============================================================ */
+function createStage(mount, opts={}){
+  const bgTop = opts.bgTop||'#141b24', bgBot = opts.bgBot||'#05070a';
+  const renderer = new THREE.WebGLRenderer({ antialias:true, powerPreference:'high-performance' });
+  renderer.setPixelRatio(Math.min(devicePixelRatio,2));
+  renderer.setSize(mount.clientWidth, mount.clientHeight);
+  renderer.shadowMap.enabled = true;
+  renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+  renderer.toneMapping = THREE.ACESFilmicToneMapping;
+  renderer.toneMappingExposure = opts.exposure ?? 1.18;
+  renderer.outputColorSpace = THREE.SRGBColorSpace;
+  mount.appendChild(renderer.domElement);
+  renderer.domElement.style.touchAction='none';
+
+  const scene = new THREE.Scene();
+  scene.background = gradientBG(bgTop,bgBot);
+  const pmrem = new THREE.PMREMGenerator(renderer);
+  scene.environment = pmrem.fromScene(new RoomEnvironment(renderer), 0.04).texture;
+  scene.environmentIntensity = opts.envInt ?? 1.15;
+
+  const camera = new THREE.PerspectiveCamera(45, mount.clientWidth/mount.clientHeight, 0.1, 200);
+  const cam = opts.cam || [5.5,3.4,6.2];
+  camera.position.set(...cam);
+
+  const controls = new OrbitControls(camera, renderer.domElement);
+  controls.enableDamping = true; controls.dampingFactor = 0.07;
+  controls.minDistance = opts.minD ?? 3; controls.maxDistance = opts.maxD ?? 18;
+  controls.maxPolarAngle = Math.PI*0.52;
+  controls.target.set(...(opts.target||[0,1.4,0]));
+  controls.autoRotate = opts.autoRotate ?? false;
+  controls.autoRotateSpeed = opts.autoRotateSpeed ?? 0.6;
+
+  const key = new THREE.DirectionalLight(0xffffff, 2.7);
+  key.position.set(5,9,6); key.castShadow=true;
+  key.shadow.mapSize.set(2048,2048);
+  key.shadow.camera.near=0.5; key.shadow.camera.far=40;
+  const sd=8; Object.assign(key.shadow.camera,{left:-sd,right:sd,top:sd,bottom:-sd});
+  key.shadow.bias=-0.0003; key.shadow.normalBias=0.02; scene.add(key);
+  const rim = new THREE.SpotLight(0x2affce, 55, 30, Math.PI/5, 0.4, 1.5);
+  rim.position.set(-7,6,-5); scene.add(rim);
+  const fill = new THREE.DirectionalLight(0x6fb6ff, 0.5); fill.position.set(-4,3,7); scene.add(fill);
+  scene.add(new THREE.HemisphereLight(0x9fb4c8, 0x10151b, 0.35));
+
+  if(opts.floor!==false){
+    const f = new THREE.Mesh(new THREE.CircleGeometry(40,80),
+      new THREE.MeshStandardMaterial({ color:0x0a0e13, roughness:0.14, metalness:0.62, envMapIntensity:1.15 }));
+    f.rotation.x=-Math.PI/2; f.receiveShadow=true; scene.add(f);
+    for(let r=2;r<=8;r+=2){
+      const ring=new THREE.Mesh(new THREE.RingGeometry(r-0.012,r+0.012,80),
+        new THREE.MeshBasicMaterial({color:0x1a2632,transparent:true,opacity:0.4}));
+      ring.rotation.x=-Math.PI/2; ring.position.y=0.002; scene.add(ring);
+    }
+  }
+
+  const isMobile = /Mobi|Android|iPhone|iPad/i.test(navigator.userAgent) || innerWidth<820;
+  // GTAO desactivado por defecto: el pase de oclusión ambiental en espacio de pantalla
+  // producía un recuadro oscuro duro sobre el piso reflectante (artefacto dependiente de la
+  // cámara y del renderer). La escena tiene AO suficiente con luces directas + sombras + env.
+  // Se puede reactivar para pruebas con ?gtao.
+  const useGtao = /[?&]gtao\b/.test(location.search);
+  const composer = new EffectComposer(renderer);
+  composer.addPass(new RenderPass(scene,camera));
+  if(!isMobile && useGtao){
+    try{
+      const g=new GTAOPass(scene,camera,mount.clientWidth,mount.clientHeight);
+      g.output=GTAOPass.OUTPUT.Default;
+      if(g.updateGtaoMaterial)g.updateGtaoMaterial({radius:0.5,distanceExponent:1,thickness:1,scale:1.1,samples:16});
+      composer.addPass(g);
+    }catch(e){}
+  }
+  const bloom=new UnrealBloomPass(new THREE.Vector2(mount.clientWidth,mount.clientHeight),opts.bloom??0.42,0.5,0.9);
+  composer.addPass(bloom);
+  let bokeh=null;
+  const flat=/[?&]flat/.test(location.search);
+  if(!isMobile && !flat){
+    bokeh=new BokehPass(scene,camera,{focus:8.5,aperture:opts.aperture??0.00018,maxblur:opts.maxblur??0.004,width:mount.clientWidth,height:mount.clientHeight});
+    composer.addPass(bokeh);
+  }
+  composer.addPass(new OutputPass());
+  composer.addPass(new SMAAPass(mount.clientWidth*renderer.getPixelRatio(),mount.clientHeight*renderer.getPixelRatio()));
+
+  function resize(){
+    const w=mount.clientWidth,h=mount.clientHeight;
+    camera.aspect=w/h; camera.updateProjectionMatrix();
+    renderer.setSize(w,h); composer.setSize(w,h);
+  }
+  window.addEventListener('resize',resize);
+
+  const clock=new THREE.Clock();
+  let hook=null, raf=null;
+  const camCine={active:false,t:0,dur:1.4,from:new THREE.Vector3(),to:new THREE.Vector3(),fromT:new THREE.Vector3(),toT:new THREE.Vector3()};
+  let lastDrag=-99, cinematicIdle=false;
+  controls.addEventListener('start',()=>{ lastDrag=clock.elapsedTime; camCine.active=false; });
+  function easeInOutCubic(x){return x<0.5?4*x*x*x:1-Math.pow(-2*x+2,3)/2;}
+  function moveTo(pos,target,dur=1.4){
+    camCine.from.copy(camera.position); camCine.fromT.copy(controls.target);
+    camCine.to.set(...pos); camCine.toT.set(...target);
+    camCine.dur=dur; camCine.active=true; camCine.t=0;
+  }
+  function setCinematicIdle(v){ cinematicIdle=v; if(!v)controls.autoRotate=false; }
+  function loop(){ raf=requestAnimationFrame(loop); const dt=clock.getDelta(),t=clock.elapsedTime;
+    if(camCine.active){
+      camCine.t=Math.min(1,camCine.t+dt/camCine.dur);
+      const e=easeInOutCubic(camCine.t);
+      camera.position.lerpVectors(camCine.from,camCine.to,e);
+      controls.target.lerpVectors(camCine.fromT,camCine.toT,e);
+      if(camCine.t>=1)camCine.active=false;
+    } else if(cinematicIdle){
+      controls.autoRotate=(t-lastDrag)>1.4; controls.autoRotateSpeed=0.45;
+    }
+    if(hook)hook(dt,t); controls.update();
+    if(bokeh) bokeh.uniforms['focus'].value = camera.position.distanceTo(controls.target);
+    composer.render(); }
+  function start(){ if(!raf)loop(); }
+  function stop(){ cancelAnimationFrame(raf); raf=null; window.removeEventListener('resize',resize); }
+
+  return { THREE, renderer, scene, camera, controls, composer, bloom,
+    setAnimate:fn=>hook=fn, start, stop, resize, clock,
+    flyTo:(v)=>{ controls.target.copy(v); }, moveTo, setCinematicIdle };
+}
+
+/* ---------- shared geometry/material helpers ---------- */
+function roundedBox(w,h,d,mat,rf=0.08){
+  const r=Math.min(w,h,d)*rf;
+  const m=new THREE.Mesh(new RoundedBoxGeometry(w,h,d,4,r),mat);
+  m.castShadow=m.receiveShadow=true; return m;
+}
+function pickerFor(scene,camera,dom,onHit){
+  const ray=new THREE.Raycaster(),mouse=new THREE.Vector2(); let down=null;
+  dom.addEventListener('pointerdown',e=>down=[e.clientX,e.clientY]);
+  dom.addEventListener('pointerup',e=>{
+    if(!down)return; const moved=Math.abs(e.clientX-down[0])+Math.abs(e.clientY-down[1])>6; down=null;
+    if(moved)return;
+    const r=dom.getBoundingClientRect();
+    mouse.x=((e.clientX-r.left)/r.width)*2-1; mouse.y=-((e.clientY-r.top)/r.height)*2+1;
+    ray.setFromCamera(mouse,camera);
+    const hits=ray.intersectObjects(scene.children,true);
+    onHit(hits[0]||null);
+  });
+}
+function labelSprite(text,color='#ffd166'){
+  const w = Math.max(150, Math.min(520, text.length*26+60));
+  const cvE=document.createElement('canvas');cvE.width=w;cvE.height=96;
+  const c=cvE.getContext('2d');c.fillStyle='rgba(8,11,16,.95)';
+  const rr=(x,y,ww,hh,r)=>{c.beginPath();c.moveTo(x+r,y);c.arcTo(x+ww,y,x+ww,y+hh,r);c.arcTo(x+ww,y+hh,x,y+hh,r);c.arcTo(x,y+hh,x,y,r);c.arcTo(x,y,x+ww,y,r);c.closePath();};
+  rr(3,3,w-6,90,18);c.fill();
+  c.strokeStyle=color;c.lineWidth=3;c.stroke();
+  c.font='bold 36px Outfit, system-ui, sans-serif';c.fillStyle=color;c.textAlign='center';c.textBaseline='middle';c.fillText(text,w/2,48);
+  const tx=new THREE.CanvasTexture(cvE);tx.colorSpace=THREE.SRGBColorSpace;tx.generateMipmaps=false;tx.minFilter=THREE.LinearFilter;
+  const sp=new THREE.Sprite(new THREE.SpriteMaterial({map:tx,depthTest:false,transparent:true}));
+  const aspect=w/96;
+  sp.scale.set(0.30*aspect,0.30,1);sp.renderOrder=999;return sp;
+}
+
+/* ============================================================
+   SYNTH — sintetizador Web Audio reutilizable
+   ============================================================ */
+function makeSynth(opts={}){
+  const type=opts.type||'sawtooth';
+  let ctx=null,oscA=null,oscB=null,gain=null,filter=null,soundOn=true;
+  function init(){
+    if(ctx)return;
+    try{
+      ctx=new (window.AudioContext||window.webkitAudioContext)();
+      oscA=ctx.createOscillator(); oscB=ctx.createOscillator();
+      oscA.type=type; oscB.type=opts.type2||'square';
+      filter=ctx.createBiquadFilter(); filter.type=opts.filterType||'lowpass'; filter.frequency.value=opts.filterFreq||500; filter.Q.value=opts.Q||3;
+      gain=ctx.createGain(); gain.gain.value=0;
+      oscA.connect(filter); oscB.connect(filter); filter.connect(gain); gain.connect(ctx.destination);
+      oscA.start(); oscB.start();
+    }catch(e){}
+  }
+  function update(freqA,freqB,vol,filterFreq){
+    if(!ctx||!soundOn){ if(gain)gain.gain.setTargetAtTime(0,ctx?.currentTime||0,0.1); return; }
+    oscA.frequency.setTargetAtTime(freqA,ctx.currentTime,0.04);
+    if(freqB!==undefined)oscB.frequency.setTargetAtTime(freqB,ctx.currentTime,0.04);
+    if(filterFreq!==undefined)filter.frequency.setTargetAtTime(filterFreq,ctx.currentTime,0.05);
+    gain.gain.setTargetAtTime(Math.max(0,vol),ctx.currentTime,0.06);
+  }
+  function beep(freq=880,dur=0.09,vol=0.06){
+    if(!ctx||!soundOn)return;
+    const o=ctx.createOscillator(),g=ctx.createGain();
+    o.type='sine'; o.frequency.value=freq;
+    g.gain.setValueAtTime(vol,ctx.currentTime); g.gain.exponentialRampToValueAtTime(0.001,ctx.currentTime+dur);
+    o.connect(g); g.connect(ctx.destination); o.start(); o.stop(ctx.currentTime+dur);
+  }
+  function toggle(){ soundOn=!soundOn; return soundOn; }
+  function resume(){ if(ctx&&ctx.state==='suspended')ctx.resume(); }
+  return { init, update, beep, toggle, resume, isOn:()=>soundOn, state:()=>ctx?.state||'none' };
+}
+
+/*
+ * Equivalentes de Thévenin y Norton — Caracterización Experimental de Caja Negra
+ * Motor: análisis nodal modificado (MNA) — Ho, Ruehli, Brennan (1975) — el mismo
+ * de Kirchhoff (mecanica-13) y los divisores (mecanica-61), extendido con un nuevo
+ * tipo de elemento 'AMM' (amperímetro ideal = fuente de 0 V) que permite leer la
+ * corriente de cortocircuito directamente del solver, sin fórmulas ad-hoc.
+ * Símbolos: IEC 60617. Bandas de color de resistores: IEC 60063 (serie E12).
+ * Teoremas: Hayt/Kemmerly/Durbin, Análisis de circuitos en ingeniería (McGraw-Hill).
+ * Las tolerancias del modo Reto (±3–5 % relativas) son un margen PEDAGÓGICO de este
+ * ejercicio, no una especificación de fabricante ni de instrumento real.
+ */
+
+// ============================== 1) ESCENA ==============================
+const mount=document.getElementById('stage');
+const S=createStage(mount,{cam:[3.1,2.5,7.2],target:[0.5,1.3,0.1],bgTop:'#0d1a17',bgBot:'#04060a',bloom:0.35,minD:3.0,maxD:18});
+const {scene}=S;
+const synth=makeSynth({type:'sine',type2:'triangle',filterFreq:2600,Q:0.8});
+
+// ============================== 2) RED Y MOTOR MNA ==============================
+// Topología: node1=V+ (tras V1), node2=nodo de unión, node3=terminal A. Terminal B = tierra (node0).
+const NET={nodes:3,elems:[
+  {id:'V1',type:'V',a:1,b:0,value:12},
+  {id:'R1',type:'R',a:1,b:2,value:1000},
+  {id:'R2',type:'R',a:2,b:0,value:2200},
+  {id:'R3',type:'R',a:2,b:3,value:470},
+  {id:'RL',type:'R',a:3,b:0,value:2200,on:false},
+  {id:'AMM',type:'AMM',a:3,b:0,value:0,on:false},
+]};
+const EL=id=>NET.elems.find(e=>e.id===id);
+
+function solveMNA(net){
+  const n=net.nodes;
+  const vs=net.elems.filter(e=>e.type==='V'||(e.type==='AMM'&&e.on!==false));
+  const N=n+vs.length;
+  const A=Array.from({length:N},()=>new Array(N).fill(0));
+  const z=new Array(N).fill(0);
+  net.elems.forEach(e=>{
+    if(e.type==='R'&&e.on!==false){
+      const g=1/e.value, a=e.a-1, b=e.b-1;
+      if(a>=0)A[a][a]+=g;
+      if(b>=0)A[b][b]+=g;
+      if(a>=0&&b>=0){A[a][b]-=g;A[b][a]-=g;}
+    }
+  });
+  vs.forEach((e,k)=>{
+    const r=n+k, a=e.a-1, b=e.b-1;
+    if(a>=0){A[r][a]=1;A[a][r]=1;}
+    if(b>=0){A[r][b]=-1;A[b][r]=-1;}
+    z[r]=e.value;
+  });
+  for(let c=0;c<N;c++){
+    let p=c;
+    for(let r=c+1;r<N;r++)if(Math.abs(A[r][c])>Math.abs(A[p][c]))p=r;
+    [A[c],A[p]]=[A[p],A[c]];[z[c],z[p]]=[z[p],z[c]];
+    for(let r=c+1;r<N;r++){
+      const f=A[r][c]/A[c][c];
+      if(!f)continue;
+      for(let k=c;k<N;k++)A[r][k]-=f*A[c][k];
+      z[r]-=f*z[c];
+    }
+  }
+  const x=new Array(N).fill(0);
+  for(let r=N-1;r>=0;r--){
+    let s=z[r];
+    for(let k=r+1;k<N;k++)s-=A[r][k]*x[k];
+    x[r]=s/A[r][r];
+  }
+  return {V:[0,...x.slice(0,n)],srcI:x.slice(n),vsList:vs};
+}
+function ammIsc(sol){const idx=sol.vsList.findIndex(e=>e.type==='AMM');return idx>=0?Math.abs(sol.srcI[idx]):0;}
+const iThru=e=>(SOL.V[e.a]-SOL.V[e.b])/e.value;
+function rthTeorico(){return EL('R3').value+(EL('R1').value*EL('R2').value)/(EL('R1').value+EL('R2').value);}
+
+const fmtR=v=>v>=1000?(((v/1000)%1)?(v/1000).toFixed(1):String(Math.round(v/1000)))+' kΩ':v+' Ω';
+const fmtV=v=>(v%1?v.toFixed(1):String(v))+' V';
+const fmtI=v=>{const m=v*1000;return(Math.abs(m%1)>1e-9?m.toFixed(1):String(Math.round(m)))+' mA';};
+const BAND_COLORS=['#1a1a1a','#6b4226','#c73a3a','#d2691e','#e8c832','#3f8f3f','#2b5fb8','#7d3fc4','#8a8a8a','#e8e8e8'];
+const BAND_NAMES=['negro','café','rojo','naranja','amarillo','verde','azul','violeta','gris','blanco'];
+function bandsFor(v){const exp=Math.floor(Math.log10(v))-1;const dd=Math.round(v/Math.pow(10,exp));return{d1:Math.floor(dd/10),d2:dd%10,mult:exp};}
+
+// ============================== 3) ESTADO ==============================
+let mode='explora'; // explora | carga | norton | reto
+let selR1=1000,selR2=2200,selR3=470,selRL=2200,cargaOn=false;
+let measuredVoc=false,measuredIsc=false;
+let retoIdx=0,retoSolved=false,retoMsg='';
+let solved=false,autoRunning=false,QUIZ={};
+const R_CANDIDATES=[470,1000,2200,3300,4700,6800,10000];
+const RL_CANDIDATES=[1000,2200,4700,10000];
+const RETO_SCENARIOS=[
+  {V:12,R1:1500,R2:3300,R3:680},
+  {V:12,R1:4700,R2:2200,R3:1000},
+  {V:12,R1:6800,R2:3300,R3:2200},
+  {V:12,R1:1000,R2:1500,R3:330},
+  {V:12,R1:2200,R2:6800,R3:1500},
+  {V:12,R1:3300,R2:1000,R3:470},
+];
+
+function numOr(id){const v=parseFloat((el(id).value||'').replace(',','.'));return isFinite(v)?v:NaN;}
+function syncNet(){
+  if(mode==='reto'){
+    const sc=RETO_SCENARIOS[retoIdx];
+    EL('V1').value=sc.V; EL('R1').value=sc.R1; EL('R2').value=sc.R2; EL('R3').value=sc.R3;
+    EL('RL').on=false;
+  }else{
+    EL('V1').value=12; EL('R1').value=selR1; EL('R2').value=selR2; EL('R3').value=selR3; EL('RL').value=selRL;
+    EL('RL').on=(mode==='carga')&&cargaOn;
+  }
+  EL('AMM').on=false;
+}
+let SOL=null,SOL_OPEN=null,SOL_SHORT=null;
+function resolve(){
+  syncNet();
+  SOL=solveMNA(NET);
+  const netOpen=JSON.parse(JSON.stringify(NET));
+  netOpen.elems.find(e=>e.id==='RL').on=false; netOpen.elems.find(e=>e.id==='AMM').on=false;
+  SOL_OPEN=solveMNA(netOpen);
+  const netShort=JSON.parse(JSON.stringify(NET));
+  netShort.elems.find(e=>e.id==='RL').on=false; netShort.elems.find(e=>e.id==='AMM').on=true;
+  SOL_SHORT=solveMNA(netShort);
+}
+const vocReal=()=>SOL_OPEN.V[3];
+const iscReal=()=>ammIsc(SOL_SHORT);
+const rthReal=()=>vocReal()/iscReal();
+function vRLIfConnected(RLval){
+  const net2=JSON.parse(JSON.stringify(NET));
+  net2.elems.find(e=>e.id==='RL').value=RLval;
+  net2.elems.find(e=>e.id==='RL').on=true;
+  net2.elems.find(e=>e.id==='AMM').on=false;
+  return solveMNA(net2).V[3];
+}
+
+// ============================== 4) MATERIALES ==============================
+const std=o=>new THREE.MeshStandardMaterial(o);
+const sh=m=>{m.castShadow=true;m.receiveShadow=true;return m;};
+const brush=brushedMetal(), rub=rubber(), plas=techPlastic(0.16,0.19,0.18);
+const MAT={
+  bench:std({...plas.maps,color:0x3a464d,roughness:0.85,metalness:0.05}),
+  frame:std({...plas.maps,color:0x232a2e,roughness:0.95,metalness:0}),
+  leg:std({...brush.maps,color:0x77828a,metalness:0.35,roughness:0.85}),
+  pcb:std({color:0x14532d,roughness:0.62,metalness:0}),
+  trace:std({...brush.maps,color:0xc08a3e,metalness:0.8,roughness:0.5}),
+  psu:std({...brush.maps,color:0x707c85,metalness:0.35,roughness:0.85}),
+  lead:std({...brush.maps,color:0xbfc8ce,metalness:0.9,roughness:0.35}),
+  jackRed:std({color:0xc23434,roughness:0.55,metalness:0}),
+  jackBlk:std({color:0x14181c,roughness:0.55,metalness:0}),
+  cableRed:std({...rub.maps,color:0x9e2b2b,roughness:1.0,metalness:0}),
+  cableBlk:std({...rub.maps,color:0x15181b,roughness:1.0,metalness:0}),
+  caja:std({...plas.maps,color:0x1b2420,roughness:0.9,metalness:0.05}),
+};
+
+const HOVER_LABELS=new Map();
+function addHoverLabel(obj,text,color,pos,scale){
+  const lb=labelSprite(text,color);lb.position.copy(pos);if(scale)lb.scale.multiplyScalar(scale);
+  lb.visible=false;lb.raycast=()=>{};obj.add(lb);HOVER_LABELS.set(obj,lb);
+}
+
+// ============================== 5) PIZARRÓN (esquema 2D en canvas) ==============================
+const boardG=new THREE.Group();boardG.position.set(-1.05,0,-0.85);boardG.rotation.y=0.16;scene.add(boardG);
+const frame=sh(roundedBox(3.62,2.77,0.12,MAT.frame,0.03));frame.position.set(0,1.85,0);boardG.add(frame);
+[-1.5,1.5].forEach(x=>{
+  const leg=sh(new THREE.Mesh(new THREE.CylinderGeometry(0.05,0.06,0.56,10),MAT.leg));
+  leg.position.set(x,0.28,0);boardG.add(leg);
+});
+const bCv=document.createElement('canvas');bCv.width=1024;bCv.height=768;
+const bTex=new THREE.CanvasTexture(bCv);
+bTex.colorSpace=THREE.SRGBColorSpace;bTex.minFilter=THREE.LinearFilter;bTex.generateMipmaps=false;
+const board=new THREE.Mesh(new THREE.PlaneGeometry(3.4,2.55),new THREE.MeshBasicMaterial({map:bTex,toneMapped:false}));
+board.position.set(0,1.85,0.065);boardG.add(board);
+frame.userData={title:'Pizarrón del esquema',info:'Esquema vivo de la red (símbolos IEC 60617). Toca los componentes, el interruptor o las terminales A/B.'};
+addHoverLabel(frame,'Esquema vivo · clic: componentes y terminales','#4FD1C5',new THREE.Vector3(0,1.65,0.3),1.0);
+
+function line(c,x1,y1,x2,y2){c.beginPath();c.moveTo(x1,y1);c.lineTo(x2,y2);c.stroke();}
+function rr(c,x,y,w,h,r){c.beginPath();c.moveTo(x+r,y);c.arcTo(x+w,y,x+w,y+h,r);c.arcTo(x+w,y+h,x,y+h,r);c.arcTo(x,y+h,x,y,r);c.arcTo(x,y,x+w,y,r);c.closePath();}
+function ah(c,x,y,dx,dy){const s=10;c.beginPath();c.moveTo(x,y);c.lineTo(x-dx*s-dy*s*0.5,y-dy*s+dx*s*0.5);c.lineTo(x-dx*s+dy*s*0.5,y-dy*s-dx*s*0.5);c.closePath();c.fill();}
+function earth(c,x,y){c.strokeStyle='#cfe8e2';c.lineWidth=3;line(c,x,y,x,y+14);[16,11,6].forEach((w,i)=>line(c,x-w,y+14+i*8,x+w,y+14+i*8));}
+function nodeDot(c,x,y,big){c.fillStyle='#4FD1C5';c.beginPath();c.arc(x,y,big?6:4,0,7);c.fill();}
+function curHgeneric(c,x,y,name,ima,geoDir,hide){
+  if(hide)return;
+  c.strokeStyle='#FFB703';c.lineWidth=2.5;const dx=geoDir>=0?1:-1;
+  line(c,x-24*dx,y-24,x+24*dx,y-24);ah(c,x+24*dx,y-24,dx,0);
+  c.fillStyle='#FFB703';c.font='13px Outfit, sans-serif';c.textAlign='center';
+  c.fillText(name+' '+fmtI(Math.abs(ima)/1000),x,y-32);
+}
+function curVgeneric(c,x,y,name,ima,hide){
+  if(hide)return;
+  c.strokeStyle='#FFB703';c.lineWidth=2.5;
+  line(c,x+30,y-24,x+30,y+24);ah(c,x+30,y+24,0,1);
+  c.fillStyle='#FFB703';c.font='13px Outfit, sans-serif';c.textAlign='left';
+  c.fillText(name+' '+fmtI(Math.abs(ima)/1000),x+38,y+4);
+}
+function resH(c,cx,cy,id){
+  const e=EL(id),off=e.on===false;
+  c.strokeStyle=off?'#4a5a56':'#cfe8e2';c.lineWidth=3;
+  c.fillStyle=off?'#0c1512':'#132420';rr(c,cx-70,cy-24,140,48,8);c.fill();c.stroke();
+  c.fillStyle=off?'#5a6b66':'#EAF4F1';c.font='bold 18px Outfit, sans-serif';c.textAlign='center';
+  c.fillText(id,cx,cy-3);c.font='13px Outfit, sans-serif';c.fillText(fmtR(e.value),cx,cy+16);
+}
+function resV(c,cx,cy,id){
+  const e=EL(id),off=e.on===false;
+  c.strokeStyle=off?'#4a5a56':'#cfe8e2';c.lineWidth=3;
+  c.fillStyle=off?'#0c1512':'#132420';rr(c,cx-24,cy-70,48,140,8);c.fill();c.stroke();
+  c.fillStyle=off?'#5a6b66':'#EAF4F1';c.font='bold 18px Outfit, sans-serif';c.textAlign='center';
+  c.save();c.translate(cx,cy);c.rotate(-Math.PI/2);
+  c.fillText(id+' · '+fmtR(e.value),0,5);c.restore();
+}
+function battV(c,cx,cy,id){
+  const e=EL(id);
+  c.strokeStyle='#cfe8e2';c.lineWidth=3;
+  line(c,cx,cy-40,cx,cy-14);line(c,cx-22,cy-14,cx+22,cy-14);
+  line(c,cx,cy+14,cx,cy+40);c.lineWidth=6;line(c,cx-12,cy+14,cx+12,cy+14);
+  c.fillStyle='#f0a5a5';c.font='bold 19px Outfit, sans-serif';c.textAlign='left';
+  c.fillText(id+' · '+fmtV(e.value),cx+34,cy+6);
+  c.fillStyle='#cfe8e2';c.font='14px Outfit, sans-serif';
+  c.fillText('+',cx-38,cy-6);c.fillText('−',cx-38,cy+24);
+}
+function swV(c,x,y1,y2,closed){
+  c.strokeStyle=closed?'#4FD1C5':'#FFB703';c.lineWidth=3;
+  line(c,x,y1,x,y1+16);nodeDot(c,x,y1+16,false);
+  if(closed){line(c,x,y1+16,x,y2-4);}
+  else{c.save();c.translate(x,y1+16);c.rotate(-0.55);line(c,0,0,0,y2-y1-24);c.restore();}
+  nodeDot(c,x,y2-4,false);line(c,x,y2-4,x,y2);
+  c.fillStyle=closed?'#4FD1C5':'#FFB703';c.font='bold 13px Outfit, sans-serif';c.textAlign='left';
+  c.fillText(closed?'RL conectada':'RL desconectada',x+16,(y1+y2)/2);
+}
+function srcIVv(c,cx,cy,label,ampsValue){
+  c.fillStyle='#0c1512';c.beginPath();c.arc(cx,cy,30,0,7);c.fill();
+  c.strokeStyle='#cfe8e2';c.lineWidth=3;c.beginPath();c.arc(cx,cy,30,0,7);c.stroke();
+  c.strokeStyle='#f0a5a5';c.lineWidth=4;
+  line(c,cx,cy+16,cx,cy-16);ah(c,cx,cy-10,0,-1);
+  c.fillStyle='#f0a5a5';c.font='bold 17px Outfit, sans-serif';c.textAlign='center';
+  c.fillText(label,cx,cy-46);c.font='13px Outfit, sans-serif';c.fillText(fmtI(ampsValue),cx,cy+58);
+}
+function resVv(c,cx,cy,label,ohmValue){
+  c.strokeStyle='#cfe8e2';c.lineWidth=3;
+  c.fillStyle='#132420';rr(c,cx-24,cy-70,48,140,8);c.fill();c.stroke();
+  c.fillStyle='#EAF4F1';c.font='bold 17px Outfit, sans-serif';c.textAlign='center';
+  c.fillText(label,cx,cy-46);c.font='13px Outfit, sans-serif';c.fillText(fmtR(ohmValue),cx,cy+58);
+}
+
+function drawBoardCircuito(){
+  const c=bCv.getContext('2d');
+  c.fillStyle='#0c1512';c.fillRect(0,0,1024,768);
+  c.fillStyle='rgba(79,209,197,0.06)';
+  for(let gx=64;gx<1024;gx+=64)for(let gy=64;gy<768;gy+=64)c.fillRect(gx-1,gy-1,3,3);
+  c.fillStyle='#8FB3AC';c.font='bold 22px Outfit, sans-serif';c.textAlign='left';
+  c.fillText('RED DE DOS TERMINALES · símbolos IEC 60617',26,44);
+  if(mode==='carga'){c.fillStyle='#FFB703';c.textAlign='right';c.fillText('⚠️ Verificando equivalente con carga',998,44);}
+  c.strokeStyle='#cfe8e2';c.lineWidth=3;
+  line(c,120,150,920,150);
+  line(c,120,150,120,640);
+  line(c,120,640,920,640);
+  line(c,520,150,520,640);
+  const rlOn=EL('RL').on;
+  line(c,920,210,920,640);
+  battV(c,120,395,'V1');
+  resH(c,320,150,'R1');
+  resV(c,520,395,'R2');
+  resH(c,720,150,'R3');
+  resV(c,920,395,'RL');
+  swV(c,920,150,210,rlOn);
+  earth(c,300,640);
+  nodeDot(c,520,150,true);
+  nodeDot(c,920,150,true);
+  c.font='bold 20px Outfit, sans-serif';c.textAlign='center';c.fillStyle='#4FD1C5';
+  c.fillText('Terminal A',920,112);
+  c.font='18px Outfit, sans-serif';c.fillStyle='#8FB3AC';c.textAlign='left';
+  c.fillText('Terminal B · ref · 0 V',232,706);
+  const i1=iThru(EL('R1'));
+  curHgeneric(c,420,150,'I1',i1,1,false);
+  if(rlOn){const il=iThru(EL('RL'));curVgeneric(c,920,555,'IL',il,false);}
+  bTex.needsUpdate=true;
+}
+function drawBoardNorton(){
+  const c=bCv.getContext('2d');
+  c.fillStyle='#0c1512';c.fillRect(0,0,1024,768);
+  c.fillStyle='rgba(79,209,197,0.06)';
+  for(let gx=64;gx<1024;gx+=64)for(let gy=64;gy<768;gy+=64)c.fillRect(gx-1,gy-1,3,3);
+  c.fillStyle='#8FB3AC';c.font='bold 22px Outfit, sans-serif';c.textAlign='left';
+  c.fillText('EQUIVALENTE DE NORTON · símbolos IEC 60617',26,44);
+  c.strokeStyle='#cfe8e2';c.lineWidth=3;
+  line(c,220,200,820,200);
+  line(c,220,200,220,550);
+  line(c,820,200,820,550);
+  line(c,220,550,820,550);
+  line(c,520,200,520,550);
+  const rlv=EL('RL').value;
+  const vRL=vRLIfConnected(rlv);
+  srcIVv(c,220,375,'In',iscReal());
+  resVv(c,520,375,'Rn',rthReal());
+  resVv(c,820,375,'RL',rlv);
+  earth(c,400,550);
+  nodeDot(c,520,200,true);
+  c.font='bold 24px Outfit, sans-serif';c.textAlign='center';c.fillStyle='#4FD1C5';
+  c.fillText('V(RL) · '+vRL.toFixed(3)+' V',520,172);
+  c.font='16px Outfit, sans-serif';c.fillStyle='#8FB3AC';
+  c.fillText('ref · 0 V',400,612);
+  const iRL=vRL/rlv;
+  curVgeneric(c,820,470,'IL',iRL,false);
+  bTex.needsUpdate=true;
+}
+function drawBoardCaja(){
+  const c=bCv.getContext('2d');
+  c.fillStyle='#0c1512';c.fillRect(0,0,1024,768);
+  c.fillStyle='rgba(79,209,197,0.06)';
+  for(let gx=64;gx<1024;gx+=64)for(let gy=64;gy<768;gy+=64)c.fillRect(gx-1,gy-1,3,3);
+  c.fillStyle='#8FB3AC';c.font='bold 22px Outfit, sans-serif';c.textAlign='left';
+  c.fillText('CAJA NEGRA · caracterización experimental',26,44);
+  c.fillStyle='#FFB703';c.textAlign='right';c.fillText('🎯 mide y reporta Vth, Rth',998,44);
+  c.strokeStyle='#cfe8e2';c.lineWidth=3;
+  line(c,180,300,340,300);
+  line(c,180,480,340,480);
+  rr(c,340,220,340,340,18);
+  c.fillStyle='#12201c';c.fill();
+  c.strokeStyle='#cfe8e2';c.lineWidth=3;c.stroke();
+  c.fillStyle='#4FD1C5';c.font='bold 140px Outfit, sans-serif';c.textAlign='center';
+  c.fillText('?',510,420);
+  nodeDot(c,180,300,true);
+  nodeDot(c,180,480,true);
+  earth(c,150,480);
+  c.font='bold 20px Outfit, sans-serif';c.textAlign='left';c.fillStyle='#8FB3AC';
+  c.fillText('Terminal A',195,285);
+  c.fillText('Terminal B · ref · 0 V',195,555);
+  c.font='bold 20px Outfit, sans-serif';c.textAlign='left';
+  c.fillStyle=measuredVoc?'#4FD1C5':'#5a6b66';
+  c.fillText('Voc · '+(measuredVoc?vocReal().toFixed(3)+' V':'🔒 sin medir'),730,300);
+  c.fillStyle=measuredIsc?'#4FD1C5':'#5a6b66';
+  c.fillText('Isc · '+(measuredIsc?(iscReal()*1000).toFixed(3)+' mA':'🔒 sin medir'),730,360);
+  bTex.needsUpdate=true;
+}
+function drawBoard(){if(mode==='norton')drawBoardNorton();else if(mode==='reto')drawBoardCaja();else drawBoardCircuito();}
+
+const HIT_CIRCUITO=[
+  {x:120,y:395,r:55,el:'V1'},{x:320,y:150,r:55,el:'R1'},{x:520,y:395,r:55,el:'R2'},
+  {x:720,y:150,r:55,el:'R3'},{x:920,y:395,r:55,el:'RL'},{x:920,y:180,r:34,sw:true},
+  {x:920,y:112,r:40,term:'A'},{x:232,y:706,r:70,term:'B'},
+];
+const HIT_NORTON=[{x:220,y:375,r:55,nel:'In'},{x:520,y:375,r:55,nel:'Rn'},{x:820,y:375,r:55,el:'RL'}];
+const HIT_CAJA=[{x:180,y:300,r:50,term:'A'},{x:180,y:480,r:50,term:'B'}];
+function boardClick(u,v){
+  const x=u*1024,y=(1-v)*768;
+  const HIT=mode==='norton'?HIT_NORTON:(mode==='reto'?HIT_CAJA:HIT_CIRCUITO);
+  let best=null,bd=1e9;
+  HIT.forEach(h=>{const d=Math.hypot(x-h.x,y-h.y);if(d<h.r&&d<bd){bd=d;best=h;}});
+  if(!best)return;
+  if(best.sw){ if(mode==='carga'){toggleCarga();} else{showToast('El interruptor de RL se controla desde el modo Carga.');} return; }
+  if(best.term){toastTerminal(best.term);return;}
+  if(best.nel){toastNortonEl(best.nel);return;}
+  toastEl(best.el);
+}
+
+// ============================== 6) BANCO 3D ==============================
+const bench=sh(roundedBox(3.4,0.5,1.9,MAT.bench,0.05));bench.position.set(1.85,0.25,0.9);scene.add(bench);
+bench.userData={title:'Banco de trabajo',info:'La red de dos terminales montada físicamente: fuente, R1, R2, R3 y la carga externa RL.'};
+const pcb=sh(roundedBox(2.6,0.06,1.3,MAT.pcb,0.02));pcb.position.set(1.85,0.53,1.05);scene.add(pcb);
+pcb.userData={title:'Tarjeta de la red',info:'En modo Reto la fuente y los resistores internos quedan sellados dentro de la caja negra — solo accedes a las terminales A y B.'};
+addHoverLabel(pcb,'Realización física de la red','#4FD1C5',new THREE.Vector3(0,0.62,0),0.9);
+
+function trace(x1,z1,x2,z2){
+  const w=Math.abs(x2-x1)||0.045,d=Math.abs(z2-z1)||0.045;
+  const t=new THREE.Mesh(new THREE.BoxGeometry(Math.max(w,0.045),0.015,Math.max(d,0.045)),MAT.trace);
+  t.position.set((x1+x2)/2,0.565,(z1+z2)/2);t.receiveShadow=true;scene.add(t);
+  return t;
+}
+
+const RES3D={};
+function makeRes3D(id,x,z,vert){
+  const g=new THREE.Group();g.position.set(x,0.62,z);if(vert)g.rotation.y=Math.PI/2;
+  const body=sh(new THREE.Mesh(new THREE.CylinderGeometry(0.045,0.045,0.20,16),std({color:0x9a815c,roughness:0.9,metalness:0})));
+  body.rotation.z=Math.PI/2;g.add(body);
+  [-1,1].forEach(s=>{
+    const l=new THREE.Mesh(new THREE.CylinderGeometry(0.008,0.008,0.075,8),MAT.lead);
+    l.rotation.z=Math.PI/2;l.position.x=s*0.1375;g.add(l);
+    const pin=new THREE.Mesh(new THREE.CylinderGeometry(0.008,0.008,0.06,8),MAT.lead);
+    pin.position.set(s*0.17,-0.03,0);g.add(pin);
+  });
+  const bands=[];
+  [-0.060,-0.020,0.020,0.070].forEach(bx=>{
+    const b=new THREE.Mesh(new THREE.CylinderGeometry(0.047,0.047,0.02,16),std({color:0x1a1a1a,roughness:0.6,metalness:0}));
+    b.rotation.z=Math.PI/2;b.position.x=bx;g.add(b);bands.push(b);
+  });
+  g.userData={el:id};
+  scene.add(g);RES3D[id]={g,bands};
+}
+makeRes3D('R1',1.35,0.70,false);
+makeRes3D('R2',1.65,1.10,true);
+makeRes3D('R3',1.95,0.70,false);
+makeRes3D('RL',2.25,1.10,true);
+
+const psCv=[],psTex=[];
+function makePSU(i,x,id){
+  const g=new THREE.Group();g.position.set(x,0.72,0.25);scene.add(g);
+  const box=sh(roundedBox(0.52,0.44,0.40,MAT.psu,0.06));g.add(box);
+  const cv=document.createElement('canvas');cv.width=256;cv.height=96;
+  const tx=new THREE.CanvasTexture(cv);
+  tx.colorSpace=THREE.SRGBColorSpace;tx.minFilter=THREE.LinearFilter;tx.generateMipmaps=false;
+  const pl=new THREE.Mesh(new THREE.PlaneGeometry(0.40,0.15),new THREE.MeshBasicMaterial({map:tx,toneMapped:false}));
+  pl.position.set(0,0.06,0.205);g.add(pl);
+  const postR=sh(new THREE.Mesh(new THREE.CylinderGeometry(0.03,0.03,0.10,10),MAT.jackRed));postR.position.set(-0.13,0.27,0.10);g.add(postR);
+  const postB=sh(new THREE.Mesh(new THREE.CylinderGeometry(0.03,0.03,0.10,10),MAT.jackBlk));postB.position.set(0.13,0.27,0.10);g.add(postB);
+  g.userData={el:id};
+  psCv[i]=cv;psTex[i]=tx;
+  addHoverLabel(g,'Fuente '+id,'#f0a5a5',new THREE.Vector3(0,0.55,0),0.8);
+  return g;
+}
+const psuGroup=makePSU(0,1.05,'V1');
+function drawPSU(i){
+  const cv=psCv[i],c=cv.getContext('2d'),v=EL('V1').value;
+  c.fillStyle='#071410';c.fillRect(0,0,256,96);
+  c.strokeStyle='rgba(79,209,197,0.4)';c.lineWidth=3;c.strokeRect(3,3,250,90);
+  c.fillStyle='#4FD1C5';c.font='bold 40px Outfit, sans-serif';c.textAlign='center';
+  c.fillText(v.toFixed(2)+' V',128,62);
+  psTex[i].needsUpdate=true;
+}
+
+function cable(ax,ay,az,bx,by,bz,mat){
+  const a=new THREE.Vector3(ax,ay,az),b=new THREE.Vector3(bx,by,bz);
+  const m=a.clone().lerp(b,0.5);m.y=Math.max(a.y,b.y)+0.18;
+  const t=new THREE.Mesh(new THREE.TubeGeometry(new THREE.CatmullRomCurve3([a,m,b]),24,0.015,8),mat);
+  t.castShadow=true;scene.add(t);
+  return t;
+}
+const cbl1=cable(0.92,0.99,0.35,0.95,0.60,0.70,MAT.cableRed);
+const cbl2=cable(1.18,0.99,0.35,0.95,0.60,1.50,MAT.cableBlk);
+
+const tr1=trace(0.95,0.70,1.18,0.70);
+const tr2=trace(1.52,0.70,1.65,0.70);
+const tr3=trace(1.65,0.70,1.65,0.93);
+const tr4=trace(1.65,1.27,1.65,1.50);
+const tr5=trace(1.65,0.70,1.78,0.70);
+const tr6=trace(2.12,0.70,2.25,0.70);
+trace(2.25,0.70,2.25,0.93);
+trace(2.25,1.27,2.25,1.50);
+trace(2.25,0.70,2.55,0.70);
+trace(0.95,1.50,2.55,1.50);
+
+const blackBoxGroup=new THREE.Group();scene.add(blackBoxGroup);
+blackBoxGroup.add(psuGroup,RES3D['R1'].g,RES3D['R2'].g,RES3D['R3'].g,cbl1,cbl2,tr1,tr2,tr3,tr4,tr5,tr6);
+
+const cajaBox=sh(roundedBox(1.55,0.62,1.05,MAT.caja,0.06));
+cajaBox.position.set(1.5,0.84,0.9);
+cajaBox.visible=false;
+cajaBox.userData={title:'Caja negra',info:'Sella la fuente y los tres resistores internos. Solo puedes medir desde las terminales A y B — usa "Medir Voc" y "Medir Isc".'};
+scene.add(cajaBox);
+const cajaLabel=labelSprite('❓ CAJA NEGRA','#FFB703');
+cajaLabel.position.set(1.5,1.05,0.9);
+cajaLabel.visible=false;
+scene.add(cajaLabel);
+
+const TP_GLOW={};
+function makeTerm(term,x,z,mat,color,label){
+  const g=new THREE.Group();g.position.set(x,0,z);scene.add(g);
+  const post=sh(new THREE.Mesh(new THREE.CylinderGeometry(0.028,0.034,0.16,12),mat));post.position.y=0.66;g.add(post);
+  const glow=new THREE.Mesh(new THREE.SphereGeometry(0.045,12,10),new THREE.MeshBasicMaterial({color,transparent:true,opacity:0.55,toneMapped:false}));
+  glow.position.y=0.78;glow.raycast=()=>{};g.add(glow);TP_GLOW[term]=glow;
+  g.userData={terminal:term};
+  addHoverLabel(g,label,'#4FD1C5',new THREE.Vector3(0,1.02,0),0.7);
+}
+makeTerm('A',2.55,0.70,MAT.jackRed,0x4FD1C5,'Terminal A');
+makeTerm('B',2.55,1.50,MAT.jackBlk,0x8a9299,'Terminal B · 0 V');
+
+function refreshNet3D(){
+  ['R1','R2','R3','RL'].forEach(id=>{
+    const e=EL(id),r=RES3D[id],b=bandsFor(e.value);
+    [b.d1,b.d2,b.mult].forEach((dig,i)=>r.bands[i].material.color.set(BAND_COLORS[dig]));
+    r.bands[3].material.color.set('#c9a227');
+  });
+  drawPSU(0);
+  blackBoxGroup.visible=(mode!=='reto');
+  cajaBox.visible=(mode==='reto');
+  cajaLabel.visible=(mode==='reto');
+}
+
+// ============================== 7) HUD Y PANEL ==============================
+document.getElementById('hud').innerHTML=`
+  <div class="eyebrow">Circuitos eléctricos · Caracterización experimental (D1)</div>
+  <h2>Equivalentes de Thévenin y Norton</h2>
+  <p>Cualquier red lineal de resistores y fuentes, vista desde solo <b>dos terminales</b>, se comporta
+  exactamente igual que una fuente de voltaje en serie con una resistencia — sin importar qué tan
+  compleja sea por dentro. Este banco reutiliza el mismo motor de <b>análisis nodal modificado (MNA)</b>
+  de Kirchhoff y los divisores, extendido con un nuevo elemento: un <b>amperímetro ideal</b> (fuente de
+  0 V) que permite leer la corriente de cortocircuito directamente del solver, sin desarmar la red.
+  Mides Voc e Isc, calculas Vth y Rth, y contrastas el resultado contra el método teórico y contra la
+  red completa bajo carga — hasta caracterizar, en el reto, una caja negra real que nunca ves por dentro.</p>
+  <div class="formula">Vth = Voc · Rth = Voc/Isc · In = Isc · Rn = Rth · V(RL) = Vth·RL/(RL+Rth)</div>
+  <div class="legend">
+    <div class="li"><span class="dot" style="background:#4FD1C5"></span>Terminales A/B de la red</div>
+    <div class="li"><span class="dot" style="background:#FFB703"></span>Corrientes de rama</div>
+    <div class="li"><span class="dot" style="background:#f0a5a5"></span>Fuentes ideales (V1, In)</div>
+    <div class="li"><span class="dot" style="background:#8a9299"></span>Referencia (Terminal B · 0 V)</div>
+  </div>
+  <div class="fid">
+    <div class="ft">🔒 Contrato de fidelidad</div>
+    <div class="fl"><b>Sí modela:</b> red resistiva de dos terminales resuelta en vivo por análisis nodal modificado (MNA), extendido con un amperímetro ideal para medir Isc sin ad-hoc; equivalencia exacta de Thévenin/Norton verificada por dos caminos independientes (experimental Voc/Isc y teórico R3+R1‖R2 con la fuente desactivada) y contra la red completa bajo cualquier carga.</div>
+    <div class="fl no"><b>NO modela:</b> redes con múltiples fuentes o elementos no lineales, componentes reactivos ni CA — es un circuito resistivo de CD de parámetros concentrados. Las tolerancias del reto (±3–5 % relativas) son un margen PEDAGÓGICO de este ejercicio, no una especificación de fabricante ni de instrumento real.</div>
+  </div>
+  <div class="src">Ref: Hayt/Kemmerly/Durbin · IEC 60617 · IEC 60063 · MNA (Ho/Ruehli/Brennan, 1975)</div>`;
+
+document.getElementById('panel').innerHTML=`
+  <h4>Thévenin / Norton · <span id="p_mode" style="color:var(--accent2)">Explora</span></h4>
+  <div class="modebar">
+    <button class="b on" id="m_explora">🔍 Explora</button>
+    <button class="b" id="m_carga">⚠️ Carga</button>
+    <button class="b" id="m_norton">🔀 Norton</button>
+    <button class="b" id="m_reto">🎯 Reto</button>
+  </div>
+  <div class="modebar" id="selbar" style="display:none"></div>
+  <div class="btns" id="medirBox" style="display:none">
+    <button class="b" id="btnVoc">🔓 Medir Voc</button>
+    <button class="b" id="btnIsc">⚡ Medir Isc</button>
+  </div>
+  <div id="tele"></div>
+  <div class="console" id="report"></div>
+  <h4 class="sec" id="retoTitle" style="display:none">Caracterización</h4>
+  <div id="retoBox" style="display:none">
+    <div id="retoSpec" style="font-size:12px;color:var(--ink);margin:2px 0 8px"></div>
+    <div style="display:flex;gap:6px 14px;align-items:center;flex-wrap:wrap;margin-bottom:8px;font-size:12px;color:var(--ink)">
+      <span style="display:inline-flex;gap:6px;align-items:center;white-space:nowrap"><label for="inVth">Vth =</label><input id="inVth" inputmode="decimal" autocomplete="off" style="width:72px;background:#0a1411;border:1px solid rgba(79,209,197,.35);color:#EAF4F1;border-radius:8px;padding:6px 8px;font:inherit;font-size:13px"><span>V</span></span>
+      <span style="display:inline-flex;gap:6px;align-items:center;white-space:nowrap"><label for="inRth">Rth =</label><input id="inRth" inputmode="decimal" autocomplete="off" style="width:72px;background:#0a1411;border:1px solid rgba(79,209,197,.35);color:#EAF4F1;border-radius:8px;padding:6px 8px;font:inherit;font-size:13px"><span>Ω</span></span>
+    </div>
+    <div class="btns"><button class="b primary" id="btnCheck">✅ Comprobar caracterización</button></div>
+  </div>
+  <h4 class="sec">Pregunta de ingeniería</h4>
+  <div id="q_text" style="font-size:12px;color:var(--ink);margin:4px 0 8px"></div>
+  <div class="btns" id="dxbtns"></div>
+  <div class="btns">
+    <button class="b auto" id="btnAuto">✨ Recorrido guiado (automático)</button>
+    <button class="b primary" id="btnNew">🔀 Nueva caja negra</button>
+  </div>`;
+
+const el=id=>document.getElementById(id);
+
+// ============================== 8) TOASTS ==============================
+function showToast(html){
+  const t=el('toast');t.innerHTML=html;t.classList.add('show');
+  clearTimeout(showToast._t);showToast._t=setTimeout(()=>t.classList.remove('show'),3200);
+}
+function toastEl(id){
+  if(mode==='reto'&&id!=='RL'){
+    showToast('🔒 Caja negra: no puedes inspeccionar los componentes internos. Usa "Medir Voc" y "Medir Isc".');
+    return;
+  }
+  const e=EL(id);
+  if(e.type==='V'){
+    showToast(`<b style="color:var(--accent2)">${id} · ${fmtV(e.value)}</b><br><span style="color:var(--dim);font-size:11px">Fuente ideal: alimenta la red (sin resistencia interna — modelo).</span>`);
+    return;
+  }
+  const off=e.on===false;
+  const i=off?0:iThru(e);
+  const b=bandsFor(e.value);
+  const bandas=`${BAND_NAMES[b.d1]}-${BAND_NAMES[b.d2]}-${BAND_NAMES[b.mult]}-oro`;
+  const info=off?`Bandas: ${bandas}. Sin conectar en este modo: I = 0 mA.`:`Bandas: ${bandas}. I = ${fmtI(Math.abs(i))}.`;
+  showToast(`<b style="color:var(--accent2)">${id} · ${fmtR(e.value)}${off?' · sin conectar':''}</b><br><span style="color:var(--dim);font-size:11px">${info}</span>`);
+}
+function toastTerminal(term){
+  if(term==='A'){
+    showToast(`<b style="color:var(--accent2)">Terminal A</b><br><span style="color:var(--dim);font-size:11px">Terminal de salida de la red. Aquí se conecta la carga externa o el instrumento de medición (voltímetro para Voc, amperímetro para Isc).</span>`);
+  }else{
+    showToast(`<b style="color:var(--accent2)">Terminal B · 0 V</b><br><span style="color:var(--dim);font-size:11px">Terminal de referencia (tierra) de la red. Toda medición se hace entre A y B.</span>`);
+  }
+}
+function toastNortonEl(kind){
+  if(kind==='In'){
+    showToast(`<b style="color:var(--accent2)">In · ${fmtI(iscReal())}</b><br><span style="color:var(--dim);font-size:11px">Fuente de corriente de Norton: entrega la misma corriente de cortocircuito que la red original, In = Isc.</span>`);
+  }else{
+    showToast(`<b style="color:var(--accent2)">Rn · ${fmtR(rthReal())}</b><br><span style="color:var(--dim);font-size:11px">Resistencia de Norton: idéntica a la de Thévenin, Rn = Rth — en paralelo con la fuente de corriente.</span>`);
+  }
+}
+
+// ============================== 9) MODOS ==============================
+const MODE_META={
+  explora:{nombre:'Explora',cam:[[3.1,2.5,7.2],[0.5,1.3,0.1]],mision:'Mide Voc e Isc en las terminales de la red visible y obtén Vth y Rth — contrástalos contra el método teórico.'},
+  carga:{nombre:'Carga',cam:[[-0.2,2.1,3.9],[-0.9,1.75,-0.8]],mision:'Conecta una RL cualquiera y comprueba que el equivalente de Thévenin predice EXACTO el voltaje de la red completa.'},
+  norton:{nombre:'Norton',cam:[[-0.1,2.2,4.3],[-0.9,1.75,-0.8]],mision:'Convierte el mismo equivalente a Norton (In, Rn) y confirma que predice idéntico resultado sobre la misma carga.'},
+  reto:{nombre:'Reto',cam:[[0.6,2.3,5.6],[0.2,1.3,0.2]],mision:'Caja negra real: usa solo "Medir Voc" y "Medir Isc" para reportar Vth y Rth dentro de tolerancia.'},
+};
+function selHtml(id,label,vals,fmt){
+  return `<span style="display:inline-flex;gap:6px;align-items:center;font-size:12px;color:var(--ink);margin-right:8px"><label for="${id}">${label}</label><select id="${id}" style="background:#0a1411;border:1px solid rgba(79,209,197,.35);color:#EAF4F1;border-radius:8px;padding:5px 6px;font:inherit;font-size:12px">${vals.map(v=>`<option value="${v}">${fmt(v)}</option>`).join('')}</select></span>`;
+}
+function wireSel(id,cb){
+  const cur={selR1,selR2,selR3,selRL}[id];
+  el(id).value=String(cur);
+  el(id).onchange=()=>cb(parseFloat(el(id).value));
+}
+function buildSelBar(){
+  const bar=el('selbar');
+  if(mode==='explora'){
+    bar.style.display='';
+    bar.innerHTML=selHtml('selR1','R1',R_CANDIDATES,fmtR)+selHtml('selR2','R2',R_CANDIDATES,fmtR)+selHtml('selR3','R3',R_CANDIDATES,fmtR);
+    wireSel('selR1',v=>{selR1=v;afterEdit();});
+    wireSel('selR2',v=>{selR2=v;afterEdit();});
+    wireSel('selR3',v=>{selR3=v;afterEdit();});
+  }else if(mode==='carga'){
+    bar.style.display='';
+    bar.innerHTML=selHtml('selR1','R1',R_CANDIDATES,fmtR)+selHtml('selR2','R2',R_CANDIDATES,fmtR)+selHtml('selR3','R3',R_CANDIDATES,fmtR)+selHtml('selRL','RL',RL_CANDIDATES,fmtR)+`<button class="b" id="btnToggleRL">${cargaOn?'🔌 Desconectar RL':'🔌 Conectar RL'}</button>`;
+    wireSel('selR1',v=>{selR1=v;afterEdit();});
+    wireSel('selR2',v=>{selR2=v;afterEdit();});
+    wireSel('selR3',v=>{selR3=v;afterEdit();});
+    wireSel('selRL',v=>{selRL=v;afterLoadEdit();});
+    el('btnToggleRL').onclick=toggleCarga;
+  }else if(mode==='norton'){
+    bar.style.display='';
+    bar.innerHTML=selHtml('selRL','RL',RL_CANDIDATES,fmtR);
+    wireSel('selRL',v=>{selRL=v;afterLoadEdit();});
+  }else{
+    bar.style.display='none';bar.innerHTML='';
+  }
+}
+function setMode(k){
+  mode=k;
+  measuredVoc=false;measuredIsc=false;
+  ['explora','carga','norton','reto'].forEach(m=>el('m_'+m).classList.toggle('on',m===k));
+  el('p_mode').textContent=MODE_META[k].nombre;
+  buildSelBar();
+  const reto=k==='reto';
+  el('retoTitle').style.display=reto?'':'none';
+  el('retoBox').style.display=reto?'':'none';
+  el('medirBox').style.display=(k==='explora'||k==='reto')?'':'none';
+  if(reto)updateRetoSpec();
+  solved=false;clearDx();
+  resolve();buildQuiz();refreshQuestion();
+  S.moveTo(MODE_META[k].cam[0],MODE_META[k].cam[1],1.3);
+  refreshAll();
+}
+function afterEdit(){measuredVoc=false;measuredIsc=false;resolve();buildQuiz();solved=false;clearDx();refreshQuestion();refreshAll();}
+function afterLoadEdit(){resolve();buildQuiz();solved=false;clearDx();refreshQuestion();refreshAll();}
+function toggleCarga(){cargaOn=!cargaOn;synth.beep(cargaOn?880:440,0.08,0.05);afterLoadEdit();}
+
+// ============================== 10) TELEMETRÍA Y REPORTE ==============================
+function teleRow(l,v,cls){return `<div class="g"><div class="l">${l}</div><b class="${cls||''}">${v}</b></div>`;}
+function updateTele(){
+  const t=el('tele');
+  const rt=rthTeorico();
+  if(mode==='explora'){
+    const gated=measuredVoc&&measuredIsc;
+    t.innerHTML=
+      teleRow('V1',fmtV(EL('V1').value))+
+      teleRow('R1',fmtR(EL('R1').value))+
+      teleRow('R2',fmtR(EL('R2').value))+
+      teleRow('R3',fmtR(EL('R3').value))+
+      teleRow('Voc (Vth)',measuredVoc?vocReal().toFixed(3)+' V':'🔒 sin medir',measuredVoc?'good':'warn')+
+      teleRow('Isc',measuredIsc?(iscReal()*1000).toFixed(3)+' mA':'🔒 sin medir',measuredIsc?'good':'warn')+
+      teleRow('Rth (medida = Voc/Isc)',gated?rthReal().toFixed(1)+' Ω':'—',gated?'good':'')+
+      teleRow('Rth (teórica = R3+R1‖R2)',fmtR(Math.round(rt)))+
+      teleRow('Estado',gated?'✔ Rth coincide':'Mide Voc e Isc',gated?'good':'warn');
+  }else if(mode==='carga'){
+    const rlv=EL('RL').value,on=EL('RL').on;
+    const vth=vocReal(),rth=rthReal();
+    const vRLth=vth*rlv/(rlv+rth);
+    t.innerHTML=
+      teleRow('Vth',vth.toFixed(3)+' V')+
+      teleRow('Rth',fmtR(Math.round(rth)))+
+      teleRow('RL',fmtR(rlv))+
+      teleRow('V(RL) — predicho por Thévenin',vRLth.toFixed(3)+' V')+
+      teleRow('V(RL) — red completa',on?SOL.V[3].toFixed(3)+' V':'— (RL abierta)',on?'good':'warn')+
+      teleRow('Estado',on?'✔ coinciden':'Conecta RL',on?'good':'warn');
+  }else if(mode==='norton'){
+    const rlv=EL('RL').value;
+    const isc=iscReal(),rth=rthReal();
+    const vRLnorton=isc*(rth*rlv/(rth+rlv));
+    const vRLfull=vRLIfConnected(rlv);
+    t.innerHTML=
+      teleRow('In',fmtI(isc))+
+      teleRow('Rn',fmtR(Math.round(rth)))+
+      teleRow('RL',fmtR(rlv))+
+      teleRow('V(RL) — predicho por Norton',vRLnorton.toFixed(3)+' V')+
+      teleRow('V(RL) — red completa',vRLfull.toFixed(3)+' V','good')+
+      teleRow('Estado','✔ coinciden','good');
+  }else{
+    const gated=measuredVoc&&measuredIsc;
+    t.innerHTML=
+      teleRow('Voc (Vth)',measuredVoc?vocReal().toFixed(3)+' V':'🔒 sin medir',measuredVoc?'good':'warn')+
+      teleRow('Isc',measuredIsc?(iscReal()*1000).toFixed(3)+' mA':'🔒 sin medir',measuredIsc?'good':'warn')+
+      teleRow('Tu Vth',(el('inVth')&&el('inVth').value)?el('inVth').value+' V':'—')+
+      teleRow('Tu Rth',(el('inRth')&&el('inRth').value)?el('inRth').value+' Ω':'—')+
+      teleRow('Estado',retoSolved?'✔ CARACTERIZACIÓN VALIDADA':(gated?'Escribe Vth y Rth':'Mide Voc e Isc'),retoSolved?'good':'warn');
+  }
+}
+function updateReport(){
+  let html=`<b>${MODE_META[mode].mision}</b><br>`;
+  if(mode==='explora'){
+    const gated=measuredVoc&&measuredIsc;
+    const rt=rthTeorico();
+    if(gated){
+      html+=`<span class="mono">Vth = Voc = ${vocReal().toFixed(3)} V</span><br>`+
+        `<span class="mono">Rth = Voc/Isc = ${vocReal().toFixed(3)}/${(iscReal()*1000).toFixed(3)}mA = ${rthReal().toFixed(1)} Ω</span><br>`+
+        `<span class="mono">Rth teórica = R3+(R1‖R2) = ${EL('R3').value}+${Math.round(EL('R1').value*EL('R2').value/(EL('R1').value+EL('R2').value))} = ${rt.toFixed(1)} Ω <span class="ok">✔ coincide</span></span>`;
+    }else{
+      html+=`<span class="mono">Pulsa "Medir Voc" y "Medir Isc" en el panel para caracterizar la red por el método experimental.</span>`;
+    }
+  }else if(mode==='carga'){
+    const rlv=EL('RL').value,on=EL('RL').on;
+    if(on){
+      const vth=vocReal(),rth=rthReal();
+      html+=`<span class="mono">V(RL) = Vth·RL/(RL+Rth) = ${vth.toFixed(3)}·${rlv}/(${rlv}+${rth.toFixed(1)}) = ${(vth*rlv/(rlv+rth)).toFixed(3)} V</span><br>`+
+        `<span class="mono">Red completa (MNA): V(RL) = ${SOL.V[3].toFixed(3)} V <span class="ok">✔ coincide</span></span>`;
+    }else{
+      html+=`<span class="mono">RL está desconectada. Toca el interruptor del esquema (o "Conectar RL") para verificar la predicción de Thévenin.</span>`;
+    }
+  }else if(mode==='norton'){
+    const rlv=EL('RL').value,isc=iscReal(),rth=rthReal();
+    html+=`<span class="mono">In = Isc = ${fmtI(isc)} · Rn = Rth = ${rth.toFixed(1)} Ω (siempre iguales)</span><br>`+
+      `<span class="mono">V(RL) por Norton = In·(Rn‖RL) = ${(isc*(rth*rlv/(rth+rlv))).toFixed(3)} V</span><br>`+
+      `<span class="mono">Red completa (MNA): V(RL) = ${vRLIfConnected(rlv).toFixed(3)} V <span class="ok">✔ coincide</span></span>`;
+  }else{
+    html+=retoMsg||`<span class="mono">Caja negra sellada. Usa "Medir Voc" y "Medir Isc", calcula Vth y Rth, y pulsa "Comprobar caracterización".</span>`;
+  }
+  el('report').innerHTML=html;
+}
+function refreshAll(){drawBoard();updateTele();updateReport();refreshNet3D();}
+
+// ============================== 11) RETO ==============================
+function medirVoc(){measuredVoc=true;synth.beep(660,0.08,0.05);refreshAll();showToast(`Medida: Voc = ${vocReal().toFixed(3)} V (terminales en circuito abierto).`);}
+function medirIsc(){measuredIsc=true;synth.beep(760,0.08,0.05);refreshAll();showToast(`Medida: Isc = ${(iscReal()*1000).toFixed(3)} mA (terminales en cortocircuito, vía amperímetro ideal).`);}
+function checkReto(){
+  if(!(measuredVoc&&measuredIsc)){showToast('Primero mide Voc e Isc.');return;}
+  const vthGuess=numOr('inVth'),rthGuess=numOr('inRth');
+  if(!isFinite(vthGuess)||!isFinite(rthGuess)){showToast('Escribe Vth (V) y Rth (Ω).');return;}
+  const vocR=vocReal(),iscR=iscReal(),rthR=vocR/iscR;
+  const tolV=Math.max(0.15,vocR*0.03),tolR=Math.max(15,rthR*0.05);
+  const okV=Math.abs(vthGuess-vocR)<=tolV, okR=Math.abs(rthGuess-rthR)<=tolR;
+  if(okV&&okR){
+    retoSolved=true;synth.beep(1046,0.12,0.06);
+    retoMsg=`<span class="mono"><span class="ok">✔ Caracterización correcta.</span> Vth=${vthGuess} V y Rth=${rthGuess} Ω están dentro de tolerancia (±${tolV.toFixed(2)} V, ±${tolR.toFixed(1)} Ω).</span>`;
+  }else{
+    synth.beep(220,0.15,0.06);
+    retoMsg=`<span class="mono"><span class="dtc">✗ Aún no.</span> Vth ${okV?'✓ dentro de tolerancia':'✗ fuera de tolerancia'} · Rth ${okR?'✓ dentro de tolerancia':'✗ fuera de tolerancia'}. Vuelve a medir Voc/Isc con cuidado y recalcula.</span>`;
+  }
+  resolve();refreshAll();
+}
+function updateRetoSpec(){
+  el('retoSpec').innerHTML=`Caja negra sellada con dos terminales (A, B). Usa <b>"Medir Voc"</b> y <b>"Medir Isc"</b>, calcula Vth=Voc y Rth=Voc/Isc, y repórtalos.<br><span style="color:var(--dim)">Las tolerancias (±3–5 % relativas) son un margen pedagógico de este ejercicio, no una especificación de fabricante.</span>`;
+}
+function newScenario(){
+  const pick=()=>Math.floor(Math.random()*RETO_SCENARIOS.length);
+  let idx=pick();
+  if(RETO_SCENARIOS.length>1)while(idx===retoIdx)idx=pick();
+  retoIdx=idx;retoSolved=false;retoMsg='';measuredVoc=false;measuredIsc=false;
+  el('inVth').value='';el('inRth').value='';
+  if(mode!=='reto'){setMode('reto');}
+  else{updateRetoSpec();resolve();buildQuiz();solved=false;clearDx();refreshQuestion();refreshAll();}
+  showToast('🔀 <b>Nueva caja negra.</b> Vuelve a medir Voc e Isc desde cero.');
+  synth.beep(520,0.08,0.05);
+}
+function onRetoInput(){if(mode!=='reto')return;retoSolved=false;retoMsg='';refreshAll();}
+
+// ============================== 12) QUIZ ==============================
+function buildQuiz(){
+  const rt=rthTeorico();
+  const vth=vocReal(),rth=rthReal(),isc=iscReal();
+  const rlv=EL('RL').value;
+  const vRLth=vth*rlv/(rlv+rth);
+  const vRLnorton=isc*(rth*rlv/(rth+rlv));
+  const vRLfull=vRLIfConnected(rlv);
+  QUIZ={
+    explora:{
+      pregunta:'¿Por qué hacen falta DOS mediciones (Voc e Isc) para caracterizar por completo una red de dos terminales, y no basta con una sola?',
+      opciones:[
+        {t:'Porque el equivalente de Thévenin tiene DOS parámetros independientes (Vth y Rth): Voc da directamente Vth, pero Rth solo se obtiene combinando Voc con Isc',ok:true,why:'Exacto: una sola medición (por ejemplo solo Voc) determina Vth, pero NO dice nada sobre la resistencia interna. Se necesita una segunda medición independiente (Isc) para despejar Rth = Voc/Isc.'},
+        {t:'Porque Voc mide el voltaje y Isc mide la corriente, y son unidades distintas que no se pueden comparar',ok:false,why:'Sí se combinan: Rth=Voc/Isc tiene unidades de Ω, perfectamente válidas. El motivo real es que hacen falta DOS ecuaciones independientes para DOS incógnitas (Vth, Rth).'},
+        {t:'No hacen falta las dos: con solo medir Isc ya se puede calcular Vth y Rth',ok:false,why:'Isc por sí sola solo da un punto de la relación V-I de la red; sin Voc (u otra medición independiente) no hay forma de despejar Rth.'},
+        {t:'Se pide por seguridad, para verificar dos veces el mismo valor de Vth',ok:false,why:'Voc e Isc miden cosas distintas (circuito abierto vs. cortocircuito) — no son una repetición de la misma medición, son las dos ecuaciones necesarias para resolver el sistema.'},
+      ],
+    },
+    carga:{
+      pregunta:`Con RL=${fmtR(rlv)}, el equivalente de Thévenin predice V(RL)=${vRLth.toFixed(3)} V y la red completa (MNA) da V(RL)=${vRLfull.toFixed(3)} V. ¿Por qué coinciden exactamente?`,
+      opciones:[
+        {t:'Porque el teorema de Thévenin garantiza que, visto desde las terminales, el equivalente de dos parámetros predice EXACTO el comportamiento de la red original ante cualquier carga',ok:true,why:'Esa es la promesa central del teorema: no es una aproximación — el equivalente de Thévenin reproduce EXACTAMENTE el voltaje y la corriente en las terminales, para cualquier RL, mientras la red interna sea lineal.'},
+        {t:'Coinciden solo por casualidad, con esta RL en particular',ok:false,why:'No es casualidad: prueba con cualquier otro valor de RL en el selector y la coincidencia se mantiene siempre — es una propiedad del teorema, no de este valor específico.'},
+        {t:'Porque RL es igual a Rth en este caso',ok:false,why:`No es necesario que RL=Rth para que la predicción coincida (aquí RL=${fmtR(rlv)} y Rth=${fmtR(Math.round(rth))} no son iguales). El teorema vale para CUALQUIER RL.`},
+        {t:'No coinciden realmente: la pequeña diferencia se debe a redondeo',ok:false,why:'La diferencia entre ambos valores es, dentro de la precisión de punto flotante, cero — no es un error de redondeo, es una igualdad matemática exacta.'},
+      ],
+    },
+    norton:{
+      pregunta:`El equivalente Norton (In=${fmtI(isc)}, Rn=${fmtR(Math.round(rth))}) predice V(RL)=${vRLnorton.toFixed(3)} V, idéntico al de Thévenin (${vRLth.toFixed(3)} V). ¿Qué relación hay SIEMPRE entre Rn y Rth?`,
+      opciones:[
+        {t:'Rn = Rth siempre — son la misma resistencia interna, solo cambia si se combina con una fuente de voltaje en serie (Thévenin) o de corriente en paralelo (Norton)',ok:true,why:'Correcto: Thévenin y Norton son dos representaciones del MISMO equivalente. La resistencia interna es una sola (Rth=Rn); lo que cambia es si la fuente ideal se coloca en serie (Vth) o en paralelo (In=Isc).'},
+        {t:'Rn siempre es menor que Rth, porque está en paralelo con la fuente de corriente',ok:false,why:'No hay tal reducción: Rn y Rth son numéricamente el mismo valor. Estar "en paralelo" en el circuito Norton no cambia el valor de la resistencia, solo su rol topológico.'},
+        {t:'Rn y Rth no tienen relación fija: dependen de qué carga RL se conecte',ok:false,why:'Rn=Rth es una propiedad de la red vista desde las terminales — no depende en absoluto de qué RL se conecte después.'},
+        {t:'Rn = Rth solo cuando la red tiene una única fuente',ok:false,why:'La equivalencia Rn=Rth vale para cualquier red lineal de dos terminales, sin importar cuántas fuentes tenga por dentro.'},
+      ],
+    },
+    reto:{
+      pregunta:'¿Por qué basta con reportar el par (Vth, Rth) para predecir el comportamiento de la caja negra ante cualquier carga, sin conocer los componentes internos?',
+      opciones:[
+        {t:'Porque el teorema de Thévenin garantiza que toda red lineal de dos terminales es indistinguible, desde afuera, de una fuente ideal en serie con una resistencia — dos números bastan para reproducir su comportamiento completo',ok:true,why:'Ese es exactamente el punto del teorema: sin importar cuántos componentes haya adentro (una fuente y tres resistores, o cien), desde las dos terminales la red se comporta idéntico a (Vth, Rth). Dos parámetros capturan TODA la información relevante para cualquier carga externa.'},
+        {t:'Porque todas las cajas negras tienen internamente la misma cantidad de componentes',ok:false,why:'No hace ninguna suposición sobre el número o tipo de componentes internos — el teorema vale igual si adentro hay 1 resistor o 50, siempre que la red sea lineal.'},
+        {t:'No basta en realidad: hacen falta también los valores exactos de R1, R2 y R3 para predecir el comportamiento',ok:false,why:'Es precisamente lo que el teorema evita: (Vth, Rth) predicen el comportamiento en las terminales sin necesidad de conocer la topología ni los valores internos.'},
+        {t:'Porque Vth y Rth son un promedio de todos los componentes internos',ok:false,why:'No son un promedio: son el resultado exacto de resolver la red completa vista desde las terminales (Vth=Voc, Rth=Voc/Isc), no una aproximación estadística.'},
+      ],
+    },
+  };
+}
+function clearDx(){el('dxbtns').querySelectorAll('.b.dx').forEach(b=>b.classList.remove('right','wrong'));}
+function refreshQuestion(){
+  const q=QUIZ[mode];
+  el('q_text').innerHTML=q.pregunta;
+  el('dxbtns').innerHTML=q.opciones.map((o,i)=>`<button class="b dx" data-i="${i}">${'ABCD'[i]} · ${o.t}</button>`).join('');
+  el('dxbtns').querySelectorAll('.b.dx').forEach(btn=>{btn.onclick=()=>answer(+btn.dataset.i);});
+}
+function answer(i){
+  const o=QUIZ[mode].opciones[i];clearDx();
+  const btn=el('dxbtns').children[i];
+  if(o.ok){
+    btn.classList.add('right');solved=true;synth.beep(1046,0.12,0.06);
+    showToast(`<span style="color:var(--good)">✔ Correcto.</span><br><span style="color:var(--dim);font-size:11px">${o.why}</span>`);
+  }else{
+    btn.classList.add('wrong');synth.beep(220,0.15,0.06);
+    showToast(`<span style="color:var(--bad)">✗ Revisa el modelo.</span><br><span style="color:var(--dim);font-size:11px">${o.why}</span>`);
+  }
+}
+
+// ============================== 13) PICKING Y HOVER ==============================
+pickerFor(scene,S.camera,S.renderer.domElement,hit=>{
+  if(!hit)return;
+  if(hit.object===board&&hit.uv){boardClick(hit.uv.x,hit.uv.y);return;}
+  let o=hit.object;
+  while(o){
+    const u=o.userData||{};
+    if(u.terminal){toastTerminal(u.terminal);return;}
+    if(u.el){toastEl(u.el);return;}
+    if(u.title){showToast(`<b style="color:var(--accent2)">${u.title}</b><br><span style="color:var(--dim);font-size:11px">${u.info}</span>`);return;}
+    o=o.parent;
+  }
+});
+
+(()=>{
+  const ray=new THREE.Raycaster(),v2=new THREE.Vector2();
+  S.renderer.domElement.addEventListener('pointermove',ev=>{
+    const r=S.renderer.domElement.getBoundingClientRect();
+    v2.x=((ev.clientX-r.left)/r.width)*2-1;v2.y=-((ev.clientY-r.top)/r.height)*2+1;
+    ray.setFromCamera(v2,S.camera);
+    const hits=ray.intersectObjects(scene.children,true);
+    HOVER_LABELS.forEach(lb=>lb.visible=false);
+    let cursor='default';
+    if(hits.length){
+      let o=hits[0].object;
+      while(o){
+        if(HOVER_LABELS.has(o)){HOVER_LABELS.get(o).visible=true;cursor='pointer';break;}
+        if(o.userData&&(o.userData.el||o.userData.title||o.userData.terminal||o===board))cursor='pointer';
+        o=o.parent;
+      }
+      if(hits[0].object===board)cursor='pointer';
+    }
+    S.renderer.domElement.style.cursor=cursor;
+  });
+})();
+
+// ============================== 14) RECORRIDO AUTOMÁTICO ==============================
+const sleep=ms=>new Promise(r=>setTimeout(r,ms));
+async function runAuto(){
+  if(autoRunning)return;autoRunning=true;
+  const btn=el('btnAuto'),label=btn.textContent;
+  btn.disabled=true;btn.classList.add('on');btn.textContent='⏳ Recorrido guiado en curso…';
+  try{
+    synth.init();synth.resume();
+    clearDx();
+    setMode('explora');
+    showToast('Paso 1 · Red visible: mide Voc e Isc en las terminales.');await sleep(1800);
+    medirVoc();await sleep(1600);
+    medirIsc();await sleep(1600);
+    showToast(`Rth medida = ${rthReal().toFixed(1)} Ω vs. Rth teórica = ${rthTeorico().toFixed(1)} Ω <span style="color:var(--good)">✔ coinciden</span>`);await sleep(2600);
+    setMode('carga');
+    if(!EL('RL').on)toggleCarga();
+    showToast(`Paso 2 · Con RL conectada, V(RL) predicho por Thévenin coincide EXACTO con la red completa: ${SOL.V[3].toFixed(3)} V.`);await sleep(3000);
+    setMode('norton');
+    showToast(`Paso 3 · Equivalente Norton: In=${fmtI(iscReal())}, Rn=${fmtR(Math.round(rthReal()))} — misma predicción que Thévenin.`);await sleep(3000);
+    setMode('reto');
+    showToast('Paso 4 · Caja negra real: mide Voc e Isc y reporta Vth y Rth.');await sleep(2200);
+    medirVoc();await sleep(1400);
+    medirIsc();await sleep(1400);
+    el('inVth').value=vocReal().toFixed(3);
+    el('inRth').value=Math.round(rthReal());
+    checkReto();await sleep(2400);
+    const q=QUIZ.reto,i=q.opciones.findIndex(o=>o.ok);
+    clearDx();
+    const dxBtn=el('dxbtns').children[i];
+    if(dxBtn){dxBtn.classList.add('right');solved=true;synth.beep(1046,0.12,0.06);}
+    showToast(`<span style="color:var(--good)">✔ ${q.opciones[i].t}</span><br><span style="color:var(--dim);font-size:11px">${q.opciones[i].why}</span>`);
+  }finally{
+    btn.disabled=false;btn.classList.remove('on');btn.textContent=label;autoRunning=false;
+  }
+}
+
+// ============================== 15) ANIMACIÓN, EVENTOS E INICIO ==============================
+S.setAnimate((dt,time)=>{
+  const s=1+Math.sin(time*4)*0.18;
+  Object.values(TP_GLOW).forEach(g=>g.scale.setScalar(s));
+});
+
+['explora','carga','norton','reto'].forEach(m=>{el('m_'+m).onclick=()=>{if(!autoRunning)setMode(m);};});
+el('btnAuto').onclick=runAuto;
+el('btnNew').onclick=newScenario;
+el('btnCheck').onclick=checkReto;
+el('btnVoc').onclick=medirVoc;
+el('btnIsc').onclick=medirIsc;
+['inVth','inRth'].forEach(id=>{
+  el(id).addEventListener('input',onRetoInput);
+  el(id).addEventListener('keydown',e=>{if(e.key==='Enter')checkReto();});
+});
+el('soundBtn').onclick=()=>{const on=synth.toggle();el('soundBtn').textContent=on?'🔊 Sonido':'🔇 Sonido';};
+document.addEventListener('pointerdown',()=>{synth.init();synth.resume();},{once:true});
+
+resolve();buildQuiz();refreshNet3D();
+S.start();
+setMode('explora');
+
+window.__labDebug={
+  net:()=>JSON.parse(JSON.stringify(NET)),
+  sol:()=>({V:SOL.V.slice()}),
+  solOpen:()=>({V:SOL_OPEN.V.slice()}),
+  solShort:()=>({V:SOL_SHORT.V.slice(),srcI:SOL_SHORT.srcI.slice()}),
+  vth:()=>vocReal(),
+  rth:()=>rthReal(),
+  isc:()=>iscReal(),
+  boardClick,
+  mode:()=>mode,
+  retoSolved:()=>retoSolved,
+  measured:()=>({voc:measuredVoc,isc:measuredIsc}),
+};
+</script>
+  <!-- Ficha técnica · Capa B del molde de lab 3D (componente compartido + contenido del lab) -->
+  <script src="_ficha-tecnica.js"></script>
+  <script src="_ficha-equivalente-thevenin-norton.js"></script>
+</body>
+</html>

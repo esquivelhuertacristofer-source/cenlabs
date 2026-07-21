@@ -1,0 +1,34 @@
+import type { BriefingConfig } from '@/components/MissionBriefing';
+
+const briefing: BriefingConfig = {
+  codigo: 'MEC-62',
+  titulo: 'Equivalentes de Thévenin y Norton: Caracterización Experimental de Caja Negra',
+  subtitulo: 'Circuitos Eléctricos · Caracterización experimental',
+  acento: '#2A9D8F',
+  duracion: 35,
+  videoUrl: '',
+  bienvenida: `Imagina que te entregan una caja sellada con solo dos terminales expuestas. Adentro puede haber una batería con un puñado de resistores, un panel solar, la salida de un sensor — no lo sabes, y no puedes abrirla. ¿Cómo predices cómo se va a comportar esa caja cuando la conectes a cualquier carga? Esa es exactamente la pregunta que resuelven los teoremas de Thévenin y Norton, y es la razón por la que un ingeniero casi nunca analiza un circuito completo cada vez que cambia la carga: reduce TODO lo que hay dentro de la caja a un equivalente de dos parámetros.
+
+En este banco reutilizas el mismo motor de análisis nodal (MNA) de los laboratorios de Kirchhoff y de los divisores, extendido con un nuevo elemento: un amperímetro ideal (fuente de 0 V) que te permite medir la corriente de cortocircuito sin desarmar la red. Primero exploras una red visible de tres resistores y una fuente, midiendo el voltaje de circuito abierto (Voc) y la corriente de cortocircuito (Isc) en las terminales — de ahí sale Vth = Voc y Rth = Voc/Isc. Verificas ese resultado por DOS caminos independientes: el experimental (Voc/Isc) y el teórico (desactivar la fuente y combinar resistencias) — si no coinciden, algo está mal en tu análisis.
+
+Después conectas una carga cualquiera y compruebas que el equivalente de dos parámetros predice EXACTAMENTE el mismo voltaje y corriente que la red completa — la promesa central del teorema. Conviertes ese mismo equivalente a su versión Norton (fuente de corriente en paralelo) y confirmas que ambos predicen lo mismo. Y en el reto final, la caja se vuelve opaca de verdad: solo tienes los dos botones de medición y debes reportar Vth y Rth de un circuito que nunca ves.`,
+  conceptos: [
+    { icono: '📦', nombre: 'Caja negra / dos terminales', descripcion: 'Cualquier red lineal de resistores y fuentes, vista desde solo dos terminales, se comporta exactamente igual que una fuente de voltaje en serie con una resistencia — sin importar qué tan compleja sea por dentro.' },
+    { icono: '🔓', nombre: 'Voltaje de circuito abierto (Voc)', descripcion: 'Con las terminales sin conectar a nada, el voltaje medido entre ellas ES el voltaje de Thévenin: Vth = Voc. No requiere fórmula adicional, es una lectura directa.' },
+    { icono: '⚡', nombre: 'Corriente de cortocircuito (Isc)', descripcion: 'Al unir las dos terminales con un amperímetro ideal (resistencia cero), la corriente que circula es Isc. Junto con Voc, determina la resistencia interna: Rth = Voc/Isc.' },
+    { icono: '🔀', nombre: 'Equivalencia Thévenin ↔ Norton', descripcion: 'La misma caja tiene una versión Norton: una fuente de corriente In = Isc en paralelo con Rn = Rth. Ambos equivalentes predicen idéntico voltaje y corriente sobre cualquier carga externa.' },
+  ],
+  mision: [
+    'EXPLORA · Sobre una red visible (fuente + 3 resistores), mide Voc y Isc en las terminales con los botones del panel, calcula Vth y Rth, y verifica que Rth coincide con el método teórico de desactivar la fuente y combinar resistencias.',
+    'CARGA · Conecta una resistencia externa cualquiera a las terminales y comprueba que el voltaje y la corriente que predice el equivalente de Thévenin (Vth, Rth) coinciden exactamente con los que entrega la red completa — la carga puede ser cualquiera, la predicción siempre coincide.',
+    'NORTON · Convierte el mismo equivalente a su versión Norton (In, Rn) y confirma que predice idéntico resultado sobre la misma carga — Thévenin y Norton son dos caras de la misma moneda.',
+    'RETO · Caja negra real: sin ver los componentes internos, usa solo "Medir Voc" y "Medir Isc" para caracterizar la red y reporta Vth y Rth dentro de tolerancia — el mismo procedimiento que un técnico aplica sobre un circuito desconocido en un banco de pruebas.',
+  ],
+  aplicaciones: [
+    { area: 'Diseño de fuentes de alimentación', ejemplo: 'Todo fabricante de fuentes reporta un voltaje nominal y una resistencia (o impedancia) de salida — es literalmente el equivalente de Thévenin de la fuente, y determina cuánto cae el voltaje al conectar una carga real.' },
+    { area: 'Acoplamiento de impedancias', ejemplo: 'Para transferir la máxima potencia de una etapa a la siguiente, la carga debe igualar la resistencia de Thévenin de la fuente que la alimenta — un cálculo imposible sin antes reducir el circuito fuente a su equivalente.' },
+    { area: 'Caracterización de sensores y transductores', ejemplo: 'Un técnico que no tiene el diagrama interno de un sensor puede caracterizarlo igual que en este laboratorio: mide Voc y Isc en el banco y obtiene el modelo equivalente que necesita para diseñar la etapa de acondicionamiento.' },
+  ],
+};
+
+export default briefing;

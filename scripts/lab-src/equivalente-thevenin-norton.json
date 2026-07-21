@@ -1,0 +1,9 @@
+{
+  "donor": "escaner-obd.html",
+  "out": "equivalente-thevenin-norton.html",
+  "title": "CEN Labs · Equivalentes de Thévenin y Norton: Caracterización Experimental de Caja Negra — Laboratorio 3D",
+  "lt": "Equivalentes de Thévenin y Norton · Circuitos Eléctricos",
+  "inspectHint": "👆 Toca el esquema o los elementos del banco (terminales, RL)",
+  "body": "equivalente-thevenin-norton.body.js",
+  "fichas": ["_ficha-tecnica.js", "_ficha-equivalente-thevenin-norton.js"]
+}
