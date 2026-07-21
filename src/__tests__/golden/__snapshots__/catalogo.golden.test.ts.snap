@@ -891,6 +891,16 @@ exports[`golden master — catálogo por categoría (invariante ante extracción
     "teoria": "La Ley de Ohm (Ohm, 1827) establece V = I·R: la recta V–I de un resistor ideal pasa por el origen con pendiente R. En la práctica, cada lectura de un multímetro trae su propia incertidumbre ±(% de lectura + dígitos) según su rango y resolución (6000 cuentas, autorrango) — un solo punto medido nunca es el valor exacto. Este laboratorio toma 8 pares (V, I) sobre un resistor con un multímetro simulado y ajusta una recta por mínimos cuadrados forzada por el origen (R̂ = Σ(V·I)/Σ(I²), Gauss/Legendre ca. 1805), que promedia el ruido de los 8 puntos en una sola estimación confiable. El veredicto de control de calidad —¿el resistor cumple su tolerancia?— se decide comparando R̂ contra el nominal ± tolerancia que codifican las bandas de color del componente (IEC 60062), con tolerancias tomadas de la serie de valores preferidos IEC 60063. El modo Explora usa 4 resistores conocidos (uno deliberadamente fuera de tolerancia); el modo Reto presenta un resistor con bandas ocultas que el estudiante debe caracterizar y calificar con sus propios puntos medidos.",
     "titulo": "Curva V–I de Resistores y Validación de Tolerancias",
   },
+  {
+    "duracion": "35 min",
+    "estado": "activo",
+    "id": "mecanica-61",
+    "modulo": "Circuitos Eléctricos",
+    "orden": 61,
+    "simuladorHtml": "/labs/divisor-tension-corriente.html",
+    "teoria": "Un divisor de tensión (V, R1, R2) resuelto en vivo por el mismo motor de análisis nodal modificado (MNA) de Kirchhoff (mecanica-13): el alumno primero observa el caso ideal sin carga, luego conecta una resistencia RL y cuantifica cómo Vo cae por debajo del valor de libro (efecto de carga), y contrasta el resultado contra la equivalencia de Thévenin del propio divisor. Un segundo circuito con una fuente de corriente ideal introduce el divisor de corriente (I1, I2). En el reto, el alumno no predice: diseña — propone valores de R1 y R2 que alcancen un voltaje objetivo respetando un presupuesto de error de carga (≤5 %) y de corriente de reposo (≤25 mA), la misma disyuntiva rigidez-vs-consumo de un divisor real. Esquema IEC 60617; resistores con código de colores E12.",
+    "titulo": "Divisores de Tensión y Corriente: Diseño con Efecto de Carga",
+  },
 ]
 `;
 
@@ -1079,6 +1089,7 @@ exports[`golden master — catálogo por categoría (invariante ante extracción
   "mecanica-59",
   "mecanica-6",
   "mecanica-60",
+  "mecanica-61",
   "mecanica-7",
   "mecanica-8",
   "mecanica-9",

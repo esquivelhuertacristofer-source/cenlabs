@@ -1,0 +1,9 @@
+{
+  "donor": "escaner-obd.html",
+  "out": "divisor-tension-corriente.html",
+  "title": "CEN Labs · Divisores de Tensión y Corriente: Diseño con Efecto de Carga — Laboratorio 3D",
+  "lt": "Divisores de Tensión y Corriente · Circuitos Eléctricos",
+  "inspectHint": "👆 Toca el esquema (nodos, componentes) o los elementos del banco",
+  "body": "divisor-tension-corriente.body.js",
+  "fichas": ["_ficha-tecnica.js", "_ficha-divisor-tension-corriente.js"]
+}
