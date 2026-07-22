@@ -1,0 +1,33 @@
+import type { BriefingConfig } from '@/components/MissionBriefing';
+
+const briefing: BriefingConfig = {
+  codigo: 'MEC-64',
+  titulo: 'Transitorio RC: Mide la Constante de Tiempo τ en el Osciloscopio',
+  subtitulo: 'Circuitos Eléctricos · Régimen transitorio',
+  acento: '#2A9D8F',
+  duracion: 35,
+  videoUrl: '',
+  bienvenida: `Hasta ahora has trabajado con circuitos en estado estable: la fuente enciende, esperas, y mides voltajes y corrientes que ya no cambian. Pero el instante en que una fuente se conecta o se desconecta —el "transitorio"— tiene su propia física, y es exactamente la que hace posible temporizadores, filtros, memoria dinámica y el debounce de cualquier botón mecánico.
+
+Conecta un capacitor descargado a una fuente de CD a través de un resistor y el voltaje sobre el capacitor no salta instantáneamente a V: sube siguiendo una curva exponencial, v(t) = V·(1−e^(−t/τ)), donde τ = R·C es la constante de tiempo del circuito. τ no es un tiempo arbitrario: es el tiempo que tarda el voltaje en alcanzar el 63.2 % de su valor final, y es la misma constante que gobierna la descarga (esta vez cayendo como v(t) = V·e^(−t/τ)). Cinco constantes de tiempo (5τ) bastan para que el circuito esté al 99.3 % de su valor asintótico — la convención práctica de "circuito ya estable" que vas a usar en el laboratorio.
+
+En este banco no solo ves la curva: la mides con un osciloscopio simulado. Eliges una base de tiempo (time/div) razonable para la τ que tienes enfrente —una elección mal hecha comprime la curva contra el eje o la deja plana en la pantalla, inútil para medir nada— y usas un cursor deslizante para leer directamente en la traza el tiempo al que el voltaje cruza el 63.2 % de V, comparándolo contra el τ = R·C calculado de los componentes. En el reto final, la caja se sella parcialmente: conoces R pero no C, y debes despejar C = τ_medido / R a partir de una medición real hecha con tus propias manos sobre el osciloscopio — el mismo procedimiento que usa un técnico para caracterizar un capacitor de valor desconocido o degradado en campo.`,
+  conceptos: [
+    { icono: '📉', nombre: 'Constante de tiempo τ = R·C', descripcion: 'Producto de la resistencia de carga/descarga y la capacitancia. Fija la escala temporal completa del transitorio: cuánto tarda el circuito en "olvidar" su condición inicial y asentarse en el nuevo estado estable.' },
+    { icono: '📈', nombre: 'Carga exponencial', descripcion: 'v(t) = V·(1−e^(−t/τ)) al conectar la fuente a un capacitor descargado. A t=τ el voltaje alcanza el 63.2 % de V; a t=5τ, el 99.3 % — el criterio práctico de "ya llegó".' },
+    { icono: '📉', nombre: 'Descarga exponencial', descripcion: 'v(t) = V·e^(−t/τ) al desconectar la fuente y dejar que el capacitor se descargue sobre el mismo resistor. Es la imagen especular de la carga: cae al 36.8 % de V en t=τ.' },
+    { icono: '🖥️', nombre: 'Medición en el osciloscopio', descripcion: 'τ se mide leyendo, sobre la traza capturada, el instante en que la señal cruza el 63.2 % de su excursión total — un procedimiento real de laboratorio, no una lectura directa del dial. La base de tiempo (time/div) debe elegirse para que ese cruce sea visible y legible.' },
+  ],
+  mision: [
+    'EXPLORA · Cambia R y C, observa cómo cambia la forma de la curva de carga y verifica que τ = R·C predice correctamente el tiempo al 63.2 % en cada combinación.',
+    'MEDICIÓN · Elige una base de tiempo (time/div) adecuada para la τ actual, dispara la traza de carga o descarga en el osciloscopio, y usa el cursor para medir τ directamente sobre la pantalla — contrastando tu lectura contra el valor calculado de R·C.',
+    'RETO · Caja parcialmente sellada: conoces R pero el capacitor es desconocido. Mide τ en el osciloscopio y despeja C = τ/R, el mismo procedimiento que usa un técnico para caracterizar un componente de valor incierto.',
+  ],
+  aplicaciones: [
+    { area: 'Temporizadores y generadores de pulso', ejemplo: 'Circuitos como el 555 astable (que ya viste en electrónica) fijan sus tiempos de encendido y apagado exactamente con constantes RC — cambiar R o C ahí es cambiar τ directamente.' },
+    { area: 'Antirrebote (debounce) de interruptores mecánicos', ejemplo: 'Un botón físico "rebota" varias veces en milisegundos al presionarse; un filtro RC con τ bien elegido suaviza esos rebotes antes de que lleguen a un microcontrolador.' },
+    { area: 'Diagnóstico de capacitores en campo', ejemplo: 'Un técnico que sospecha que un capacitor perdió capacitancia (por envejecimiento o falla) puede medir τ = R·C con un resistor conocido y un osciloscopio, y comparar el C medido contra el valor nominal impreso en el componente.' },
+  ],
+};
+
+export default briefing;

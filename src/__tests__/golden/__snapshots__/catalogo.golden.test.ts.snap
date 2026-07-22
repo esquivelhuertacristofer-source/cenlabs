@@ -921,6 +921,16 @@ exports[`golden master — catálogo por categoría (invariante ante extracción
     "teoria": "El teorema de máxima transferencia de potencia demuestra que una fuente con resistencia interna Rth entrega su máxima potencia a una carga cuando RL = Rth — no cuando RL es muy grande ni muy pequeña — y en ese punto la eficiencia es exactamente 50 %.",
     "titulo": "Máxima Transferencia de Potencia",
   },
+  {
+    "duracion": "35 min",
+    "estado": "activo",
+    "id": "mecanica-64",
+    "modulo": "Circuitos Eléctricos",
+    "orden": 64,
+    "simuladorHtml": "/labs/transitorio-rc.html",
+    "teoria": "Al conectar o desconectar una fuente de CD de un capacitor a través de un resistor, el voltaje no cambia instantáneamente: sigue una curva exponencial gobernada por τ = R·C, la constante de tiempo. Este laboratorio mide τ directamente en un osciloscopio simulado y la contrasta contra el cálculo de R·C.",
+    "titulo": "Transitorio RC: Mide la Constante de Tiempo τ en el Osciloscopio",
+  },
 ]
 `;
 
@@ -1112,6 +1122,7 @@ exports[`golden master — catálogo por categoría (invariante ante extracción
   "mecanica-61",
   "mecanica-62",
   "mecanica-63",
+  "mecanica-64",
   "mecanica-7",
   "mecanica-8",
   "mecanica-9",

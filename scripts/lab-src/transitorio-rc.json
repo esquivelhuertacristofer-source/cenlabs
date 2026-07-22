@@ -1,0 +1,9 @@
+{
+  "donor": "escaner-obd.html",
+  "out": "transitorio-rc.html",
+  "title": "CEN Labs · Transitorio RC: Mide la Constante de Tiempo τ en el Osciloscopio — Laboratorio 3D",
+  "lt": "Transitorio RC · Circuitos Eléctricos",
+  "inspectHint": "👆 Toca el pizarrón (esquema u osciloscopio) o los componentes del banco (R, C, V)",
+  "body": "transitorio-rc.body.js",
+  "fichas": ["_ficha-tecnica.js", "_ficha-transitorio-rc.js"]
+}
