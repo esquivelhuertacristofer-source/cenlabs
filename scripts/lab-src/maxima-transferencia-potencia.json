@@ -1,0 +1,9 @@
+{
+  "donor": "escaner-obd.html",
+  "out": "maxima-transferencia-potencia.html",
+  "title": "CEN Labs · Máxima Transferencia de Potencia: Curva P(RL) y Eficiencia — Laboratorio 3D",
+  "lt": "Máxima Transferencia de Potencia · Circuitos Eléctricos",
+  "inspectHint": "👆 Toca el pizarrón (curva) o los elementos del banco (R1, R2, R3, RL)",
+  "body": "maxima-transferencia-potencia.body.js",
+  "fichas": ["_ficha-tecnica.js", "_ficha-maxima-transferencia-potencia.js"]
+}
