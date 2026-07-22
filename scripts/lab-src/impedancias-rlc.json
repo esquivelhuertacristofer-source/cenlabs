@@ -1,0 +1,9 @@
+{
+  "donor": "escaner-obd.html",
+  "out": "impedancias-rlc.html",
+  "title": "CEN Labs · Impedancias RLC: Calcula y Mide un Circuito Serie o Paralelo — Laboratorio 3D",
+  "lt": "Impedancias RLC · Circuitos Eléctricos",
+  "inspectHint": "👆 Toca el pizarrón (fasores u osciloscopio) o los elementos del banco (fuente, sensor de corriente)",
+  "body": "impedancias-rlc.body.js",
+  "fichas": ["_ficha-tecnica.js", "_ficha-impedancias-rlc.js"]
+}
