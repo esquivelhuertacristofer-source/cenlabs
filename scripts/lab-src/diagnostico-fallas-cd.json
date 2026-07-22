@@ -1,0 +1,9 @@
+{
+  "donor": "escaner-obd.html",
+  "out": "diagnostico-fallas-cd.html",
+  "title": "CEN Labs · Diagnóstico de Fallas en CD: Localización por Bisección — Laboratorio 3D",
+  "lt": "Diagnóstico de Fallas en CD · Circuitos Eléctricos",
+  "inspectHint": "👆 Toca el pizarrón (esquema) o los resistores y la fuente del banco",
+  "body": "diagnostico-fallas-cd.body.js",
+  "fichas": ["_ficha-tecnica.js", "_ficha-diagnostico-fallas-cd.js"]
+}

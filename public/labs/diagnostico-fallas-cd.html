@@ -1,0 +1,1211 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>CEN Labs · Diagnóstico de Fallas en CD: Localización por Bisección — Laboratorio 3D</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#08201C;--panel:rgba(9,26,23,.86);--line:#1E3A34;--ink:#EAF4F1;
+    --dim:#8FB3AC;--accent:#2A9D8F;--accent2:#4FD1C5;--hv:#FFB703;--good:#34d399;--bad:#f4475e;
+    --mono:'Outfit',system-ui,'Segoe UI',Roboto,sans-serif;--disp:'Outfit','Arial Black',Impact,sans-serif;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  html,body{height:100%;background:var(--bg);color:var(--ink);font-family:'Outfit',system-ui,Segoe UI,Roboto,sans-serif}
+  body{overflow:hidden}
+  #stage{position:fixed;inset:0}
+  canvas{display:block;touch-action:none}
+
+  .topbar{position:fixed;top:0;left:0;right:0;height:56px;display:flex;align-items:center;gap:14px;padding:0 20px;z-index:20;background:linear-gradient(180deg,rgba(10,13,18,.92),transparent);pointer-events:none}
+  .brand{font-family:var(--disp);font-weight:bold;font-size:16px;text-transform:uppercase}
+  .brand span{color:var(--accent)}
+  .lt{font-family:var(--mono);font-size:11px;letter-spacing:.1em;text-transform:uppercase;color:var(--dim)}
+
+  .badge{position:fixed;top:16px;right:20px;z-index:20;font-family:var(--mono);font-size:9px;letter-spacing:.12em;text-transform:uppercase;background:rgba(255,209,102,.12);color:var(--hv);border:1px solid rgba(255,209,102,.35);padding:6px 12px;border-radius:20px}
+
+  .hud{position:fixed;top:70px;left:18px;z-index:15;max-width:330px;background:var(--panel);backdrop-filter:blur(14px);border:1px solid var(--line);border-radius:16px;padding:18px 20px;max-height:calc(100vh - 150px);overflow-y:auto}
+  .hud .eyebrow{font-family:var(--mono);font-size:10px;letter-spacing:.18em;text-transform:uppercase;color:var(--accent);margin-bottom:8px}
+  .hud h2{font-size:19px;line-height:1.15;margin-bottom:9px}
+  .hud p{font-size:13px;line-height:1.55;color:var(--dim);margin-bottom:10px}
+  .hud .formula{font-family:var(--mono);color:var(--accent2);text-align:center;font-size:12.5px;margin:8px 0;padding:8px;background:rgba(0,0,0,.25);border-radius:8px;line-height:1.5}
+  .hud .src{font-size:10.5px;color:#7a8894;font-style:italic;margin-top:4px;line-height:1.5}
+  .legend{display:flex;flex-direction:column;gap:6px;margin:12px 0;padding:10px 12px;background:rgba(0,0,0,.22);border-radius:10px}
+  .legend .li{display:flex;align-items:center;gap:8px;font-size:11px;color:#c4d0da}
+  .legend .dot{width:10px;height:10px;border-radius:50%;flex:0 0 auto}
+  .fid{margin:10px 0 2px;padding:10px 12px;background:rgba(0,0,0,.22);border-radius:10px;border:1px solid rgba(79,209,197,.18)}
+  .fid .ft{font-family:var(--mono);font-size:9.5px;letter-spacing:.14em;text-transform:uppercase;color:var(--accent2);margin-bottom:6px}
+  .fid .fl{font-size:11px;color:#c4d0da;line-height:1.5;margin-bottom:5px}
+  .fid .fl b{color:var(--ink)}
+  .fid .fl.no b{color:var(--hv)}
+
+  .panel{position:fixed;top:70px;right:18px;z-index:15;width:262px;background:var(--panel);backdrop-filter:blur(14px);border:1px solid var(--line);border-radius:16px;padding:16px;max-height:calc(100vh - 150px);overflow-y:auto}
+  .panel h4{font-family:var(--mono);font-size:10px;letter-spacing:.14em;text-transform:uppercase;color:var(--dim);margin:2px 0 10px}
+  .panel h4.sec{margin-top:16px;border-top:1px solid var(--line);padding-top:14px}
+  .g{margin-bottom:6px}
+  .gl{display:flex;justify-content:space-between;font-family:var(--mono);font-size:11px;color:var(--dim)}
+  .gl b{color:var(--accent2)}
+  .gl b.good{color:var(--good)}.gl b.warn{color:var(--hv)}.gl b.bad{color:var(--bad)}
+  .modebar{display:flex;gap:5px;margin-bottom:8px}
+  .modebar .b{flex:1;padding:8px 4px;font-size:11px}
+  .btns{display:flex;flex-direction:column;gap:7px;margin-top:6px}
+  .b{font-family:system-ui;font-size:12.5px;padding:10px;border-radius:9px;cursor:pointer;border:1px solid var(--line);background:#1b242f;color:var(--ink);transition:.15s;text-align:center}
+  .b:hover{border-color:var(--accent);background:#202c38}
+  .b.on{background:var(--accent);color:#06120f;border-color:var(--accent);font-weight:bold}
+  .b.primary{background:var(--accent);color:#06120f;border-color:var(--accent);font-weight:bold}
+  .b.auto{border-color:var(--hv);color:var(--hv);background:rgba(255,183,3,.10);font-weight:bold}
+  .b.auto:hover{background:rgba(255,183,3,.18);border-color:var(--hv)}
+  .b.auto:disabled{opacity:.6;cursor:default}
+  .b.dx{text-align:left;font-size:12px}
+  .b.dx.right{background:rgba(52,211,153,.18);border-color:var(--good);color:var(--good);font-weight:bold}
+  .b.dx.wrong{background:rgba(244,71,94,.15);border-color:var(--bad);color:var(--bad)}
+  .console{font-family:var(--mono);font-size:11px;line-height:1.55;color:#c4d0da;background:rgba(0,0,0,.28);border-radius:9px;padding:10px 12px;margin-bottom:8px;min-height:56px}
+  .console .dtc{color:var(--bad);font-weight:bold}
+  .console .ok{color:var(--good)}
+  .console .mono{color:var(--dim)}
+
+  .hint{position:fixed;bottom:18px;left:18px;z-index:14;font-family:var(--mono);font-size:10px;color:var(--dim);background:var(--panel);padding:7px 12px;border-radius:9px;border:1px solid var(--line)}
+  .toast{position:fixed;top:80px;left:50%;transform:translateX(-50%);z-index:30;background:rgba(18,24,32,.95);border:1px solid var(--accent);padding:10px 20px;border-radius:40px;font-family:var(--mono);font-size:12px;opacity:0;transition:.3s;pointer-events:none;max-width:80vw;text-align:center}
+  .toast.show{opacity:1}
+  .soundBtn{position:fixed;top:14px;right:18px;z-index:21;font-size:16px;background:var(--panel);backdrop-filter:blur(12px);border:1px solid var(--line);border-radius:50%;width:36px;height:36px;cursor:pointer;color:var(--dim);transition:.15s}
+  .soundBtn.on{color:var(--accent);border-color:var(--accent)}
+  .soundBtn:hover{transform:scale(1.08)}
+  .inspectHint{position:fixed;bottom:18px;right:18px;z-index:14;font-family:var(--mono);font-size:10px;color:var(--accent2);background:var(--panel);padding:7px 12px;border-radius:9px;border:1px solid var(--line)}
+
+  @media(max-width:820px){
+    .hud,.panel{position:fixed;left:8px;right:8px;top:auto;bottom:8px;max-width:none;width:auto;max-height:42vh;overflow-y:auto}
+    .hud{bottom:calc(8px + 42vh + 8px)}
+    .hint,.inspectHint{display:none}
+  }
+</style>
+</head>
+<body>
+<div id="stage"></div>
+<button class="soundBtn on" id="soundBtn">🔊</button>
+<div class="topbar">
+  <div class="brand">CEN<span> Labs</span></div>
+  <div class="lt">Diagnóstico de Fallas en CD · Circuitos Eléctricos</div>
+</div>
+<div class="hud" id="hud"></div>
+<div class="panel" id="panel"></div>
+<div class="hint">Arrastra para orbitar · rueda para zoom</div>
+<div class="inspectHint">👆 Toca el pizarrón (esquema) o los resistores y la fuente del banco</div>
+<div class="toast" id="toast"></div>
+
+<script type="importmap">
+{ "imports": {
+  "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.min.js",
+  "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/"
+}}
+</script>
+<script type="module">
+import * as THREE from 'three';
+import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
+import { RoundedBoxGeometry } from 'three/addons/geometries/RoundedBoxGeometry.js';
+import { EffectComposer } from 'three/addons/postprocessing/EffectComposer.js';
+import { RenderPass } from 'three/addons/postprocessing/RenderPass.js';
+import { GTAOPass } from 'three/addons/postprocessing/GTAOPass.js';
+import { UnrealBloomPass } from 'three/addons/postprocessing/UnrealBloomPass.js';
+import { SMAAPass } from 'three/addons/postprocessing/SMAAPass.js';
+import { OutputPass } from 'three/addons/postprocessing/OutputPass.js';
+import { BokehPass } from 'three/addons/postprocessing/BokehPass.js';
+
+/* ============================================================
+   Texturas PBR procedurales (sin archivos externos) — compartidas
+   ============================================================ */
+function cv(s=512){const c=document.createElement('canvas');c.width=c.height=s;return c;}
+function tex(canvas,repeat=1,srgb=false){
+  const t=new THREE.CanvasTexture(canvas);
+  t.wrapS=t.wrapT=THREE.RepeatWrapping;t.repeat.set(repeat,repeat);
+  t.colorSpace = srgb?THREE.SRGBColorSpace:THREE.NoColorSpace;
+  t.generateMipmaps=false; t.minFilter=THREE.LinearFilter; t.anisotropy=1; return t;
+}
+function normalFromHeight(size, hfn, strength=2.0){
+  const c=cv(size),ctx=c.getContext('2d'),img=ctx.createImageData(size,size);
+  const H=(x,y)=>hfn((x+size)%size,(y+size)%size);
+  for(let y=0;y<size;y++)for(let x=0;x<size;x++){
+    const dx=(H(x+1,y)-H(x-1,y))*strength;
+    const dy=(H(x,y+1)-H(x,y-1))*strength;
+    const nz=1.0; const len=Math.hypot(dx,dy,nz);
+    const i=(y*size+x)*4;
+    img.data[i]  =((-dx/len)*0.5+0.5)*255;
+    img.data[i+1]=((-dy/len)*0.5+0.5)*255;
+    img.data[i+2]=((nz/len)*0.5+0.5)*255;
+    img.data[i+3]=255;
+  }
+  ctx.putImageData(img,0,0);return c;
+}
+function valueNoise(seed=1){
+  const g=(x,y)=>{const s=Math.sin((x*127.1+y*311.7)+seed*13.13)*43758.5453;return s-Math.floor(s);};
+  return (x,y)=>{
+    const xi=Math.floor(x),yi=Math.floor(y),xf=x-xi,yf=y-yi;
+    const u=xf*xf*(3-2*xf),v=yf*yf*(3-2*yf);
+    const a=g(xi,yi),b=g(xi+1,yi),c=g(xi,yi+1),d=g(xi+1,yi+1);
+    return a*(1-u)*(1-v)+b*u*(1-v)+c*(1-u)*v+d*u*v;
+  };
+}
+function fbm(noise,x,y,oct=4){let v=0,a=0.5,f=1;for(let i=0;i<oct;i++){v+=noise(x*f,y*f)*a;f*=2;a*=0.5;}return v;}
+
+function castAluminum(){
+  const S=512, n=valueNoise(7);
+  const c=cv(S),ctx=c.getContext('2d'),img=ctx.createImageData(S,S);
+  for(let y=0;y<S;y++)for(let x=0;x<S;x++){
+    const v=fbm(n,x/22,y/22,5);
+    const por=Math.pow(n(x/3.1,y/3.1),8);
+    const base=150+v*38-por*70;
+    const i=(y*S+x)*4; img.data[i]=base; img.data[i+1]=base+4; img.data[i+2]=base+10; img.data[i+3]=255;
+  }
+  ctx.putImageData(img,0,0);
+  const r=cv(S),rx=r.getContext('2d'),rimg=rx.createImageData(S,S);
+  for(let y=0;y<S;y++)for(let x=0;x<S;x++){
+    const v=fbm(n,x/18,y/18,4); const por=Math.pow(n(x/3.1,y/3.1),8);
+    const rough=120+v*40+por*90; const i=(y*S+x)*4;
+    rimg.data[i]=rimg.data[i+1]=rimg.data[i+2]=Math.min(255,rough); rimg.data[i+3]=255;
+  }
+  rx.putImageData(rimg,0,0);
+  const nrm=normalFromHeight(S,(x,y)=>fbm(n,x/16,y/16,5)+Math.pow(n(x/3.1,y/3.1),8)*0.6,3.0);
+  return {map:tex(c,1,true),roughnessMap:tex(r),normalMap:tex(nrm)};
+}
+function brushedMetal(){
+  const S=512, n=valueNoise(3);
+  const c=cv(S),ctx=c.getContext('2d'),img=ctx.createImageData(S,S);
+  for(let y=0;y<S;y++)for(let x=0;x<S;x++){
+    const streak=Math.sin(y*0.9)*2 + (n(x/120,y*0.5)-0.5)*40;
+    const base=185+streak; const i=(y*S+x)*4;
+    img.data[i]=base; img.data[i+1]=base+2; img.data[i+2]=base+6; img.data[i+3]=255;
+  }
+  ctx.putImageData(img,0,0);
+  const r=cv(S),rx=r.getContext('2d'),rimg=rx.createImageData(S,S);
+  for(let y=0;y<S;y++)for(let x=0;x<S;x++){
+    const streak=(n(x/120,y*0.5)-0.5)*60; const rough=40+Math.abs(streak); const i=(y*S+x)*4;
+    rimg.data[i]=rimg.data[i+1]=rimg.data[i+2]=Math.min(160,rough); rimg.data[i+3]=255;
+  }
+  rx.putImageData(rimg,0,0);
+  const nrm=normalFromHeight(S,(x,y)=>(n(x/120,y*0.5))*0.3+Math.sin(y*0.9)*0.02,1.2);
+  return {map:tex(c,1,true),roughnessMap:tex(r),normalMap:tex(nrm)};
+}
+function rubber(){
+  const S=256,n=valueNoise(5);
+  const nrm=normalFromHeight(S,(x,y)=>fbm(n,x/8,y/8,4),1.4);
+  const rough=cv(64),rc=rough.getContext('2d');rc.fillStyle='#e0e0e0';rc.fillRect(0,0,64,64);
+  return {roughnessMap:tex(rough),normalMap:tex(nrm,2)};
+}
+function gradientBG(top='#11161d',bottom='#05070a'){
+  const c=cv(512),ctx=c.getContext('2d');
+  const grd=ctx.createLinearGradient(0,0,0,512);
+  grd.addColorStop(0,top);grd.addColorStop(1,bottom);
+  ctx.fillStyle=grd;ctx.fillRect(0,0,512,512);
+  const rg=ctx.createRadialGradient(256,200,30,256,256,360);
+  rg.addColorStop(0,'rgba(42,157,143,0.10)');rg.addColorStop(1,'rgba(0,0,0,0)');
+  ctx.fillStyle=rg;ctx.fillRect(0,0,512,512);
+  return tex(c,1,true);
+}
+function techPlastic(r=0.10,g=0.11,b=0.13){
+  const S=256,n=valueNoise(31);
+  const c=cv(S),ctx=c.getContext('2d'),img=ctx.createImageData(S,S);
+  for(let y=0;y<S;y++)for(let x=0;x<S;x++){
+    const v=fbm(n,x/30,y/30,3)*0.1+0.92; const i=(y*S+x)*4;
+    img.data[i]=r*255*v;img.data[i+1]=g*255*v;img.data[i+2]=b*255*v;img.data[i+3]=255;
+  }
+  ctx.putImageData(img,0,0);
+  const nrm=normalFromHeight(S,(x,y)=>fbm(n,x/10,y/10,3),0.8);
+  const rough=cv(64),rc=rough.getContext('2d');rc.fillStyle='#9a9a9a';rc.fillRect(0,0,64,64);
+  return {map:tex(c,1,true),roughnessMap:tex(rough),normalMap:tex(nrm)};
+}
+
+/* ============================================================
+   ENGINE — render premium compartido por todos los laboratorios
+   ============================================================ */
+function createStage(mount, opts={}){
+  const bgTop = opts.bgTop||'#141b24', bgBot = opts.bgBot||'#05070a';
+  const renderer = new THREE.WebGLRenderer({ antialias:true, powerPreference:'high-performance' });
+  renderer.setPixelRatio(Math.min(devicePixelRatio,2));
+  renderer.setSize(mount.clientWidth, mount.clientHeight);
+  renderer.shadowMap.enabled = true;
+  renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+  renderer.toneMapping = THREE.ACESFilmicToneMapping;
+  renderer.toneMappingExposure = opts.exposure ?? 1.18;
+  renderer.outputColorSpace = THREE.SRGBColorSpace;
+  mount.appendChild(renderer.domElement);
+  renderer.domElement.style.touchAction='none';
+
+  const scene = new THREE.Scene();
+  scene.background = gradientBG(bgTop,bgBot);
+  const pmrem = new THREE.PMREMGenerator(renderer);
+  scene.environment = pmrem.fromScene(new RoomEnvironment(renderer), 0.04).texture;
+  scene.environmentIntensity = opts.envInt ?? 1.15;
+
+  const camera = new THREE.PerspectiveCamera(45, mount.clientWidth/mount.clientHeight, 0.1, 200);
+  const cam = opts.cam || [5.5,3.4,6.2];
+  camera.position.set(...cam);
+
+  const controls = new OrbitControls(camera, renderer.domElement);
+  controls.enableDamping = true; controls.dampingFactor = 0.07;
+  controls.minDistance = opts.minD ?? 3; controls.maxDistance = opts.maxD ?? 18;
+  controls.maxPolarAngle = Math.PI*0.52;
+  controls.target.set(...(opts.target||[0,1.4,0]));
+  controls.autoRotate = opts.autoRotate ?? false;
+  controls.autoRotateSpeed = opts.autoRotateSpeed ?? 0.6;
+
+  const key = new THREE.DirectionalLight(0xffffff, 2.7);
+  key.position.set(5,9,6); key.castShadow=true;
+  key.shadow.mapSize.set(2048,2048);
+  key.shadow.camera.near=0.5; key.shadow.camera.far=40;
+  const sd=8; Object.assign(key.shadow.camera,{left:-sd,right:sd,top:sd,bottom:-sd});
+  key.shadow.bias=-0.0003; key.shadow.normalBias=0.02; scene.add(key);
+  const rim = new THREE.SpotLight(0x2affce, 55, 30, Math.PI/5, 0.4, 1.5);
+  rim.position.set(-7,6,-5); scene.add(rim);
+  const fill = new THREE.DirectionalLight(0x6fb6ff, 0.5); fill.position.set(-4,3,7); scene.add(fill);
+  scene.add(new THREE.HemisphereLight(0x9fb4c8, 0x10151b, 0.35));
+
+  if(opts.floor!==false){
+    const f = new THREE.Mesh(new THREE.CircleGeometry(40,80),
+      new THREE.MeshStandardMaterial({ color:0x0a0e13, roughness:0.14, metalness:0.62, envMapIntensity:1.15 }));
+    f.rotation.x=-Math.PI/2; f.receiveShadow=true; scene.add(f);
+    for(let r=2;r<=8;r+=2){
+      const ring=new THREE.Mesh(new THREE.RingGeometry(r-0.012,r+0.012,80),
+        new THREE.MeshBasicMaterial({color:0x1a2632,transparent:true,opacity:0.4}));
+      ring.rotation.x=-Math.PI/2; ring.position.y=0.002; scene.add(ring);
+    }
+  }
+
+  const isMobile = /Mobi|Android|iPhone|iPad/i.test(navigator.userAgent) || innerWidth<820;
+  // GTAO desactivado por defecto: el pase de oclusión ambiental en espacio de pantalla
+  // producía un recuadro oscuro duro sobre el piso reflectante (artefacto dependiente de la
+  // cámara y del renderer). La escena tiene AO suficiente con luces directas + sombras + env.
+  // Se puede reactivar para pruebas con ?gtao.
+  const useGtao = /[?&]gtao\b/.test(location.search);
+  const composer = new EffectComposer(renderer);
+  composer.addPass(new RenderPass(scene,camera));
+  if(!isMobile && useGtao){
+    try{
+      const g=new GTAOPass(scene,camera,mount.clientWidth,mount.clientHeight);
+      g.output=GTAOPass.OUTPUT.Default;
+      if(g.updateGtaoMaterial)g.updateGtaoMaterial({radius:0.5,distanceExponent:1,thickness:1,scale:1.1,samples:16});
+      composer.addPass(g);
+    }catch(e){}
+  }
+  const bloom=new UnrealBloomPass(new THREE.Vector2(mount.clientWidth,mount.clientHeight),opts.bloom??0.42,0.5,0.9);
+  composer.addPass(bloom);
+  let bokeh=null;
+  const flat=/[?&]flat/.test(location.search);
+  if(!isMobile && !flat){
+    bokeh=new BokehPass(scene,camera,{focus:8.5,aperture:opts.aperture??0.00018,maxblur:opts.maxblur??0.004,width:mount.clientWidth,height:mount.clientHeight});
+    composer.addPass(bokeh);
+  }
+  composer.addPass(new OutputPass());
+  composer.addPass(new SMAAPass(mount.clientWidth*renderer.getPixelRatio(),mount.clientHeight*renderer.getPixelRatio()));
+
+  function resize(){
+    const w=mount.clientWidth,h=mount.clientHeight;
+    camera.aspect=w/h; camera.updateProjectionMatrix();
+    renderer.setSize(w,h); composer.setSize(w,h);
+  }
+  window.addEventListener('resize',resize);
+
+  const clock=new THREE.Clock();
+  let hook=null, raf=null;
+  const camCine={active:false,t:0,dur:1.4,from:new THREE.Vector3(),to:new THREE.Vector3(),fromT:new THREE.Vector3(),toT:new THREE.Vector3()};
+  let lastDrag=-99, cinematicIdle=false;
+  controls.addEventListener('start',()=>{ lastDrag=clock.elapsedTime; camCine.active=false; });
+  function easeInOutCubic(x){return x<0.5?4*x*x*x:1-Math.pow(-2*x+2,3)/2;}
+  function moveTo(pos,target,dur=1.4){
+    camCine.from.copy(camera.position); camCine.fromT.copy(controls.target);
+    camCine.to.set(...pos); camCine.toT.set(...target);
+    camCine.dur=dur; camCine.active=true; camCine.t=0;
+  }
+  function setCinematicIdle(v){ cinematicIdle=v; if(!v)controls.autoRotate=false; }
+  function loop(){ raf=requestAnimationFrame(loop); const dt=clock.getDelta(),t=clock.elapsedTime;
+    if(camCine.active){
+      camCine.t=Math.min(1,camCine.t+dt/camCine.dur);
+      const e=easeInOutCubic(camCine.t);
+      camera.position.lerpVectors(camCine.from,camCine.to,e);
+      controls.target.lerpVectors(camCine.fromT,camCine.toT,e);
+      if(camCine.t>=1)camCine.active=false;
+    } else if(cinematicIdle){
+      controls.autoRotate=(t-lastDrag)>1.4; controls.autoRotateSpeed=0.45;
+    }
+    if(hook)hook(dt,t); controls.update();
+    if(bokeh) bokeh.uniforms['focus'].value = camera.position.distanceTo(controls.target);
+    composer.render(); }
+  function start(){ if(!raf)loop(); }
+  function stop(){ cancelAnimationFrame(raf); raf=null; window.removeEventListener('resize',resize); }
+
+  return { THREE, renderer, scene, camera, controls, composer, bloom,
+    setAnimate:fn=>hook=fn, start, stop, resize, clock,
+    flyTo:(v)=>{ controls.target.copy(v); }, moveTo, setCinematicIdle };
+}
+
+/* ---------- shared geometry/material helpers ---------- */
+function roundedBox(w,h,d,mat,rf=0.08){
+  const r=Math.min(w,h,d)*rf;
+  const m=new THREE.Mesh(new RoundedBoxGeometry(w,h,d,4,r),mat);
+  m.castShadow=m.receiveShadow=true; return m;
+}
+function pickerFor(scene,camera,dom,onHit){
+  const ray=new THREE.Raycaster(),mouse=new THREE.Vector2(); let down=null;
+  dom.addEventListener('pointerdown',e=>down=[e.clientX,e.clientY]);
+  dom.addEventListener('pointerup',e=>{
+    if(!down)return; const moved=Math.abs(e.clientX-down[0])+Math.abs(e.clientY-down[1])>6; down=null;
+    if(moved)return;
+    const r=dom.getBoundingClientRect();
+    mouse.x=((e.clientX-r.left)/r.width)*2-1; mouse.y=-((e.clientY-r.top)/r.height)*2+1;
+    ray.setFromCamera(mouse,camera);
+    const hits=ray.intersectObjects(scene.children,true);
+    onHit(hits[0]||null);
+  });
+}
+function labelSprite(text,color='#ffd166'){
+  const w = Math.max(150, Math.min(520, text.length*26+60));
+  const cvE=document.createElement('canvas');cvE.width=w;cvE.height=96;
+  const c=cvE.getContext('2d');c.fillStyle='rgba(8,11,16,.95)';
+  const rr=(x,y,ww,hh,r)=>{c.beginPath();c.moveTo(x+r,y);c.arcTo(x+ww,y,x+ww,y+hh,r);c.arcTo(x+ww,y+hh,x,y+hh,r);c.arcTo(x,y+hh,x,y,r);c.arcTo(x,y,x+ww,y,r);c.closePath();};
+  rr(3,3,w-6,90,18);c.fill();
+  c.strokeStyle=color;c.lineWidth=3;c.stroke();
+  c.font='bold 36px Outfit, system-ui, sans-serif';c.fillStyle=color;c.textAlign='center';c.textBaseline='middle';c.fillText(text,w/2,48);
+  const tx=new THREE.CanvasTexture(cvE);tx.colorSpace=THREE.SRGBColorSpace;tx.generateMipmaps=false;tx.minFilter=THREE.LinearFilter;
+  const sp=new THREE.Sprite(new THREE.SpriteMaterial({map:tx,depthTest:false,transparent:true}));
+  const aspect=w/96;
+  sp.scale.set(0.30*aspect,0.30,1);sp.renderOrder=999;return sp;
+}
+
+/* ============================================================
+   SYNTH — sintetizador Web Audio reutilizable
+   ============================================================ */
+function makeSynth(opts={}){
+  const type=opts.type||'sawtooth';
+  let ctx=null,oscA=null,oscB=null,gain=null,filter=null,soundOn=true;
+  function init(){
+    if(ctx)return;
+    try{
+      ctx=new (window.AudioContext||window.webkitAudioContext)();
+      oscA=ctx.createOscillator(); oscB=ctx.createOscillator();
+      oscA.type=type; oscB.type=opts.type2||'square';
+      filter=ctx.createBiquadFilter(); filter.type=opts.filterType||'lowpass'; filter.frequency.value=opts.filterFreq||500; filter.Q.value=opts.Q||3;
+      gain=ctx.createGain(); gain.gain.value=0;
+      oscA.connect(filter); oscB.connect(filter); filter.connect(gain); gain.connect(ctx.destination);
+      oscA.start(); oscB.start();
+    }catch(e){}
+  }
+  function update(freqA,freqB,vol,filterFreq){
+    if(!ctx||!soundOn){ if(gain)gain.gain.setTargetAtTime(0,ctx?.currentTime||0,0.1); return; }
+    oscA.frequency.setTargetAtTime(freqA,ctx.currentTime,0.04);
+    if(freqB!==undefined)oscB.frequency.setTargetAtTime(freqB,ctx.currentTime,0.04);
+    if(filterFreq!==undefined)filter.frequency.setTargetAtTime(filterFreq,ctx.currentTime,0.05);
+    gain.gain.setTargetAtTime(Math.max(0,vol),ctx.currentTime,0.06);
+  }
+  function beep(freq=880,dur=0.09,vol=0.06){
+    if(!ctx||!soundOn)return;
+    const o=ctx.createOscillator(),g=ctx.createGain();
+    o.type='sine'; o.frequency.value=freq;
+    g.gain.setValueAtTime(vol,ctx.currentTime); g.gain.exponentialRampToValueAtTime(0.001,ctx.currentTime+dur);
+    o.connect(g); g.connect(ctx.destination); o.start(); o.stop(ctx.currentTime+dur);
+  }
+  function toggle(){ soundOn=!soundOn; return soundOn; }
+  function resume(){ if(ctx&&ctx.state==='suspended')ctx.resume(); }
+  return { init, update, beep, toggle, resume, isOn:()=>soundOn, state:()=>ctx?.state||'none' };
+}
+
+// ============================== 1) ESCENA ==============================
+const mount=document.getElementById('stage');
+const S=createStage(mount,{cam:[2.6,3.1,6.3],target:[1.3,1.1,0.5],bgTop:'#0d1a17',bgBot:'#04060a',bloom:0.3,minD:2.6,maxD:14});
+const {scene}=S;
+const synth=makeSynth({type:'sine',type2:'square',filterFreq:1200,Q:1});
+
+// ============================== 2) FÍSICA ==============================
+const RNOM=[220,330,470,150,680,100,390,560];
+const V_SRC=24;
+function effR(k,ftype,fidx,dfac){
+  const nom=RNOM[k-1];
+  if(k!==fidx||ftype==='ninguna')return nom;
+  if(ftype==='abierto')return 1e9;
+  if(ftype==='corto')return 0;
+  if(ftype==='deriva')return nom*dfac;
+  return nom;
+}
+function solveChain(ftype,fidx,dfac){
+  const Reffs=RNOM.map((_,i)=>effR(i+1,ftype,fidx,dfac));
+  const Rtot=Reffs.reduce((a,b)=>a+b,0);
+  const I=V_SRC/Rtot;
+  const nodeV=[V_SRC];
+  for(let i=1;i<=8;i++)nodeV.push(nodeV[i-1]-I*Reffs[i-1]);
+  return {Reffs,Rtot,I,nodeV};
+}
+function randomDriftFactor(){
+  return Math.random()<0.5 ? 3+Math.random()*3 : 0.15+Math.random()*0.2;
+}
+function fmtR(v){
+  if(v>=1e6)return (v/1e6).toFixed(2)+' MΩ';
+  if(v>=1e3)return (v/1e3).toFixed(2)+' kΩ';
+  return Math.round(v)+' Ω';
+}
+function fmtV(v){return v.toFixed(2)+' V';}
+const BAND_COLORS=['#1a1a1a','#7B4B2A','#D62828','#F4A300','#F4E04D','#4CAF50','#2E6FF2','#9B59B6','#B0B0B0','#FFFFFF'];
+const BAND_NAMES=['negro','café','rojo','naranja','amarillo','verde','azul','violeta','gris','blanco'];
+function bandsFor(v){
+  const exp=Math.floor(Math.log10(v)+1e-9);
+  const twoDig=Math.round(v/Math.pow(10,exp-1));
+  return {d1:Math.floor(twoDig/10),d2:twoDig%10,mult:exp-1};
+}
+
+// ============================== 3) ESTADO ==============================
+let mode='explora'; // explora | diagnostico | reto
+const DRIFT_CANDIDATES=[0.2,0.3,3,5];
+let exType='ninguna', exIdx=1, exDriftFactor=3;
+let dxIdx=1+Math.floor(Math.random()*8), dxPrevIdx=null, dxInterval={lo:0,hi:8}, dxLog=[], dxDone=false;
+const FAULT_TYPES=['abierto','corto','deriva'];
+let retoType=FAULT_TYPES[Math.floor(Math.random()*3)], retoIdx=1+Math.floor(Math.random()*8);
+let retoDriftFactor=randomDriftFactor();
+let retoLog=[], retoMeasCount=0, retoSolved=false, retoMsg='';
+let retoGuessType='abierto', retoGuessIdx=1;
+let solved=false, autoRunning=false;
+let QUIZ={};
+
+// ============================== 4) MATERIALES ==============================
+const std=o=>new THREE.MeshStandardMaterial(o);
+const sh=m=>{m.castShadow=true;m.receiveShadow=true;return m;};
+const MAT={
+  bench: std({color:0x1c2622,roughness:0.85,metalness:0.05}),
+  psu: std({color:0x24302b,roughness:0.55,metalness:0.25}),
+  lead: std({color:0xc9c9c9,roughness:0.35,metalness:0.7}),
+  jackRed: std({color:0xD62828,roughness:0.4,metalness:0.3}),
+  jackBlk: std({color:0x141414,roughness:0.4,metalness:0.3}),
+  cableRed: std({color:0x8a1f1f,roughness:0.7,metalness:0}),
+  cableBlk: std({color:0x161616,roughness:0.7,metalness:0}),
+  trace: std({color:0x0e3b33,roughness:0.6,metalness:0.1}),
+};
+const HOVER_LABELS=new Map();
+function addHoverLabel(obj,text,color,pos,scale){
+  const lbl=labelSprite(text,color);
+  lbl.position.copy(obj.position.clone().add(pos));
+  lbl.scale.multiplyScalar(scale||1);
+  lbl.visible=false;
+  scene.add(lbl);
+  HOVER_LABELS.set(obj,lbl);
+}
+
+// ============================== 5) PIZARRÓN ==============================
+function line(c,x1,y1,x2,y2){c.beginPath();c.moveTo(x1,y1);c.lineTo(x2,y2);c.stroke();}
+function nodeDot(c,x,y,big){
+  c.beginPath();c.arc(x,y,big?7:5,0,Math.PI*2);c.fillStyle='#4FD1C5';c.fill();
+  c.lineWidth=1.5;c.strokeStyle='#0c1512';c.stroke();
+}
+function wrapText(c,text,x,y,maxW,lh){
+  const words=text.split(' ');
+  let ln='',yy=y;
+  for(const w of words){
+    const test=ln?ln+' '+w:w;
+    if(c.measureText(test).width>maxW&&ln){c.fillText(ln,x,yy);ln=w;yy+=lh;}
+    else ln=test;
+  }
+  if(ln)c.fillText(ln,x,yy);
+}
+function earth(c,x,y){
+  c.strokeStyle='#cfe8e2';c.lineWidth=2;
+  line(c,x,y,x,y+10);
+  [14,9,4].forEach((w,i)=>line(c,x-w/2,y+10+i*6,x+w/2,y+10+i*6));
+}
+function drawSourceSym(c,x,yTop,yBot){
+  const midY=(yTop+yBot)/2;
+  c.strokeStyle='#cfe8e2';c.lineWidth=3;
+  line(c,x,yTop,x,midY-24);
+  line(c,x,midY+24,x,yBot);
+  c.lineWidth=4;line(c,x-16,midY-24,x+16,midY-24);
+  c.lineWidth=2;line(c,x-9,midY-8,x+9,midY-8);
+  c.lineWidth=4;line(c,x-16,midY+8,x+16,midY+8);
+  c.lineWidth=2;line(c,x-9,midY+24,x+9,midY+24);
+  c.save();
+  c.translate(x-34,midY);c.rotate(-Math.PI/2);
+  c.fillStyle='#4FD1C5';c.font='bold 15px Outfit, sans-serif';c.textAlign='center';
+  c.fillText('V1 = 24 V',0,0);
+  c.restore();
+}
+function drawZigzagH(c,cx,cy,halfW){
+  const x0=cx-halfW,seg=(halfW*2)/6,amp=14;
+  line(c,x0,cy,x0+seg,cy-amp);
+  line(c,x0+seg,cy-amp,x0+2*seg,cy+amp);
+  line(c,x0+2*seg,cy+amp,x0+3*seg,cy-amp);
+  line(c,x0+3*seg,cy-amp,x0+4*seg,cy+amp);
+  line(c,x0+4*seg,cy+amp,x0+5*seg,cy-amp);
+  line(c,x0+5*seg,cy-amp,x0+6*seg,cy);
+}
+
+const NODE_XY=[[80,230],[280,230],[480,230],[680,230],[880,230],[680,430],[480,430],[280,430],[80,430]];
+const RES_CENTER=[null,[180,230],[380,230],[580,230],[780,230],[780,430],[580,430],[380,430],[180,430]];
+const RES_HALF_W=60;
+
+function drawFaultDecoration(c,k){
+  const [rcx,rcy]=RES_CENTER[k];
+  if(exType==='abierto'){
+    c.strokeStyle='#e05a5a';c.lineWidth=4;
+    line(c,rcx-8,rcy-10,rcx+8,rcy+10);
+    line(c,rcx-8,rcy+10,rcx+8,rcy-10);
+    c.fillStyle='#e05a5a';c.font='bold 12px Outfit, sans-serif';c.textAlign='center';
+    c.fillText('ABIERTO',rcx,rcy-34);
+  }else if(exType==='corto'){
+    c.strokeStyle='#3fbf6f';c.lineWidth=3;
+    c.beginPath();c.moveTo(rcx-RES_HALF_W,rcy);c.quadraticCurveTo(rcx,rcy-34,rcx+RES_HALF_W,rcy);c.stroke();
+    c.fillStyle='#3fbf6f';c.font='bold 12px Outfit, sans-serif';c.textAlign='center';
+    c.fillText('CORTO',rcx,rcy-40);
+  }else if(exType==='deriva'){
+    c.fillStyle='#FFB703';c.font='bold 12px Outfit, sans-serif';c.textAlign='center';
+    c.fillText('DERIVA ×'+exDriftFactor.toFixed(2),rcx,rcy-34);
+  }
+}
+function nodeStatusLabel(i){
+  if(i===0)return {text:'24.0 V',color:'#8FB3AC'};
+  if(i===8)return {text:'0.0 V',color:'#8FB3AC'};
+  if(mode==='explora'){
+    const v=solveChain(exType,exIdx,exDriftFactor).nodeV[i];
+    return {text:v.toFixed(1)+' V',color:'#8FB3AC'};
+  }
+  if(mode==='diagnostico'){
+    const rec=dxLog.find(l=>l.node===i);
+    if(!rec)return {text:'?',color:'#5a6b66'};
+    return rec.isHigh?{text:'ALTO',color:'#3fbf6f'}:{text:'BAJO',color:'#e05a5a'};
+  }
+  const rec=retoLog.find(l=>l.node===i);
+  if(!rec)return {text:'?',color:'#5a6b66'};
+  return {text:rec.v.toFixed(2)+' V',color:'#4FD1C5'};
+}
+function drawSchem(c){
+  c.fillStyle='#8FB3AC';c.font='bold 19px Outfit, sans-serif';c.textAlign='left';
+  c.fillText('ESQUEMA · CADENA SERIE DE 8 RESISTORES (CD)',20,38);
+
+  for(let k=1;k<=8;k++){
+    const [fx,fy]=(k===5)?[880,430]:NODE_XY[k-1];
+    const [tx]=NODE_XY[k];
+    const [rcx,rcy]=RES_CENTER[k];
+    const leftX=Math.min(fx,tx),rightX=Math.max(fx,tx);
+    c.strokeStyle='#cfe8e2';c.lineWidth=3;
+    line(c,leftX,rcy,rcx-RES_HALF_W,rcy);
+    line(c,rcx+RES_HALF_W,rcy,rightX,rcy);
+    drawZigzagH(c,rcx,rcy,RES_HALF_W);
+    c.fillStyle='#4FD1C5';c.font='bold 14px Outfit, sans-serif';c.textAlign='center';
+    c.fillText('R'+k,rcx,rcy-24);
+    c.font='11px Outfit, sans-serif';c.fillStyle='#5a6b66';
+    c.fillText(fmtR(RNOM[k-1]),rcx,rcy+32);
+    if(mode==='explora'&&exType!=='ninguna'&&exIdx===k)drawFaultDecoration(c,k);
+  }
+  c.strokeStyle='#cfe8e2';c.lineWidth=3;
+  line(c,880,230,880,430);
+  drawSourceSym(c,80,230,430);
+  earth(c,80,430);
+
+  NODE_XY.forEach((p,i)=>{
+    nodeDot(c,p[0],p[1],i===0||i===8);
+    c.fillStyle='#cfe8e2';c.font='bold 13px Outfit, sans-serif';c.textAlign='center';
+    c.fillText('P'+i,p[0],p[1]-16);
+    const st=nodeStatusLabel(i);
+    c.fillStyle=st.color;c.font='11px Outfit, sans-serif';
+    c.fillText(st.text,p[0],p[1]+22);
+  });
+}
+function drawProfileGraph(c){
+  const x0=80,w=800,y0=530,h=170;
+  c.fillStyle='#8FB3AC';c.font='bold 14px Outfit, sans-serif';c.textAlign='left';
+  c.fillText('PERFIL DE VOLTAJE P0→P8',x0,y0-12);
+  c.fillStyle='#07120e';c.fillRect(x0,y0,w,h);
+  c.strokeStyle='rgba(79,209,197,0.22)';c.lineWidth=1;
+  for(let i=0;i<=8;i++){const x=x0+(i/8)*w;line(c,x,y0,x,y0+h);}
+  for(let g=0;g<=4;g++){const y=y0+(g/4)*h;line(c,x0,y,x0+w,y);}
+  const {nodeV}=solveChain(exType,exIdx,exDriftFactor);
+  const xToPx=i=>x0+(i/8)*w, yToPx=v=>y0+h-(Math.max(0,Math.min(V_SRC,v))/V_SRC)*h;
+  c.strokeStyle='#4FD1C5';c.lineWidth=2.5;c.beginPath();
+  nodeV.forEach((v,i)=>{const px=xToPx(i),py=yToPx(v);if(i===0)c.moveTo(px,py);else c.lineTo(px,py);});
+  c.stroke();
+  nodeV.forEach((v,i)=>{
+    const px=xToPx(i),py=yToPx(v);
+    c.fillStyle='#4FD1C5';c.beginPath();c.arc(px,py,4,0,Math.PI*2);c.fill();
+    c.fillStyle='#8FB3AC';c.font='11px Outfit, sans-serif';c.textAlign='center';
+    c.fillText('P'+i,px,y0+h+18);
+  });
+}
+function drawIntervalBar(c){
+  const x0=80,w=800,y=590,h=40;
+  c.fillStyle='#8FB3AC';c.font='bold 14px Outfit, sans-serif';c.textAlign='left';
+  c.fillText('TRAMO SOSPECHOSO (bisección)',x0,y-14);
+  const segW=w/8;
+  for(let k=1;k<=8;k++){
+    const inRange=k>dxInterval.lo&&k<=dxInterval.hi;
+    c.fillStyle=inRange?'rgba(255,183,3,0.35)':'rgba(255,255,255,0.03)';
+    c.fillRect(x0+(k-1)*segW,y,segW,h);
+    c.strokeStyle='rgba(207,232,226,0.25)';c.lineWidth=1;
+    c.strokeRect(x0+(k-1)*segW,y,segW,h);
+    c.fillStyle='#cfe8e2';c.font='12px Outfit, sans-serif';c.textAlign='center';
+    c.fillText('R'+k,x0+(k-1)*segW+segW/2,y+h/2+4);
+  }
+  c.fillStyle='#8FB3AC';c.font='12px Outfit, sans-serif';c.textAlign='left';
+  c.fillText(dxDone?('Localizado: R'+dxInterval.hi+' ('+dxLog.length+' mediciones, óptimo 3)'):('Mediciones: '+dxLog.length+' · óptimo 3'),x0,y+h+22);
+}
+function drawRetoLegend(c){
+  const x0=80,y=560;
+  c.fillStyle='#8FB3AC';c.font='bold 14px Outfit, sans-serif';c.textAlign='left';
+  c.fillText('FALLA SELLADA · tipo y posición desconocidos',x0,y);
+  c.font='12px Outfit, sans-serif';c.fillStyle='#5a6b66';
+  wrapText(c,'Mide los nodos P1–P7 con el circuito energizado y compara contra el perfil sano esperado (24 V a 0 V, decreciente). Reporta el tipo de falla y el resistor afectado con los controles del panel.',x0,y+26,800,16);
+  c.fillStyle='#8FB3AC';c.font='12px Outfit, sans-serif';
+  c.fillText('Mediciones realizadas: '+retoLog.length,x0,y+90);
+}
+function drawBoard(){
+  const c=bCv.getContext('2d');
+  c.fillStyle='#0c1512';c.fillRect(0,0,1024,768);
+  drawSchem(c);
+  if(mode==='explora')drawProfileGraph(c);
+  else if(mode==='diagnostico')drawIntervalBar(c);
+  else drawRetoLegend(c);
+  bTex.needsUpdate=true;
+}
+const boardG=new THREE.Group();
+boardG.position.set(1.3,1.95,-0.55);
+scene.add(boardG);
+const bFrame=sh(roundedBox(3.2,2.0,0.08,std({color:0x1a2420,roughness:0.7}),0.04));
+boardG.add(bFrame);
+[-1.35,1.35].forEach(sx=>{
+  const leg=sh(new THREE.Mesh(new THREE.CylinderGeometry(0.05,0.05,1.85,10),MAT.bench));
+  leg.position.set(sx,-1.9,-0.02);
+  boardG.add(leg);
+});
+const bCv=document.createElement('canvas');bCv.width=1024;bCv.height=768;
+const bTex=new THREE.CanvasTexture(bCv);
+bTex.colorSpace=THREE.SRGBColorSpace;bTex.minFilter=THREE.LinearFilter;bTex.generateMipmaps=false;
+const board=new THREE.Mesh(new THREE.PlaneGeometry(3.0,2.25),new THREE.MeshBasicMaterial({map:bTex,toneMapped:false}));
+board.position.set(0,0,0.045);
+boardG.add(board);
+
+function boardClick(u,v){
+  const px=u*1024, py=(1-v)*768;
+  let bestNode=-1,bestNodeD=Infinity;
+  NODE_XY.forEach((p,i)=>{const d=Math.hypot(px-p[0],py-p[1]);if(d<bestNodeD){bestNodeD=d;bestNode=i;}});
+  if(bestNodeD<32){handleNodeClick(bestNode);return;}
+  let bestRes=-1,bestResD=Infinity;
+  for(let k=1;k<=8;k++){const p=RES_CENTER[k];const d=Math.hypot(px-p[0],py-p[1]);if(d<bestResD){bestResD=d;bestRes=k;}}
+  if(bestResD<60){toastResistor(bestRes);return;}
+  showToast('Toca un nodo (círculo) para medir su voltaje, o un resistor (zigzag) para ver su valor nominal.');
+}
+function handleNodeClick(i){
+  if(i===0||i===8){
+    showToast('Nodo P'+i+' es trivial por definición ('+(i===0?'24.0 V, terminal + de la fuente':'0.0 V, referencia — retorno de la fuente')+') — no cuenta como medición.');
+    return;
+  }
+  if(mode==='explora'){
+    const v=solveChain(exType,exIdx,exDriftFactor).nodeV[i];
+    showToast('Nodo P'+i+': <b>'+v.toFixed(2)+' V</b> (medición directa, modo Explora).');
+    return;
+  }
+  if(mode==='diagnostico'){probeDiagnostico(i);return;}
+  probeReto(i);
+}
+function toastResistor(k){
+  const {d1,d2,mult}=bandsFor(RNOM[k-1]);
+  showToast('R'+k+' · valor nominal <b>'+fmtR(RNOM[k-1])+'</b><br><span style="color:var(--dim);font-size:11px">Bandas: '+BAND_NAMES[d1]+'-'+BAND_NAMES[d2]+'-'+BAND_NAMES[mult]+'-oro. El valor nominal siempre es visible, como en una hoja de datos real — no revela si este es el resistor fallado.</span>');
+}
+
+// ============================== 6) BANCO 3D ==============================
+const bench=sh(roundedBox(3.0,0.5,1.9,MAT.bench,0.05));
+bench.position.set(1.3,0.25,0.7);
+scene.add(bench);
+
+const RES_X=[0.35,0.95,1.55,2.15];
+const RES_X_REV=[...RES_X].reverse();
+const RES3D={};
+function makeRes3D(id,x,z){
+  const g=new THREE.Group();g.position.set(x,0.58,z);
+  const body=sh(new THREE.Mesh(new THREE.CylinderGeometry(0.045,0.045,0.20,16),std({color:0x9a815c,roughness:0.9,metalness:0})));
+  body.rotation.z=Math.PI/2;g.add(body);
+  [-1,1].forEach(s=>{
+    const l=new THREE.Mesh(new THREE.CylinderGeometry(0.008,0.008,0.075,8),MAT.lead);
+    l.rotation.z=Math.PI/2;l.position.x=s*0.1375;g.add(l);
+    const pin=new THREE.Mesh(new THREE.CylinderGeometry(0.008,0.008,0.06,8),MAT.lead);
+    pin.position.set(s*0.17,-0.03,0);g.add(pin);
+  });
+  const bands=[];
+  [-0.060,-0.020,0.020,0.070].forEach(bx=>{
+    const b=new THREE.Mesh(new THREE.CylinderGeometry(0.047,0.047,0.02,16),std({color:0x1a1a1a,roughness:0.6,metalness:0}));
+    b.rotation.z=Math.PI/2;b.position.x=bx;g.add(b);bands.push(b);
+  });
+  g.userData={el:id};
+  scene.add(g);RES3D[id]={g,bands};
+  addHoverLabel(g,id,'#4FD1C5',new THREE.Vector3(0,0.16,0),0.7);
+}
+RES_X.forEach((x,i)=>makeRes3D('R'+(i+1),x,0.35));
+RES_X_REV.forEach((x,i)=>makeRes3D('R'+(5+i),x,1.05));
+for(let k=1;k<=8;k++){
+  const {d1,d2,mult}=bandsFor(RNOM[k-1]);
+  const r=RES3D['R'+k];
+  [d1,d2,mult].forEach((dig,i)=>r.bands[i].material.color.set(BAND_COLORS[dig]));
+  r.bands[3].material.color.set('#c9a227');
+}
+
+function trace(x1,z1,x2,z2){
+  const dx=x2-x1,dz=z2-z1,len=Math.hypot(dx,dz);
+  const m=sh(new THREE.Mesh(new THREE.BoxGeometry(len,0.012,0.05),MAT.trace));
+  m.position.set((x1+x2)/2,0.515,(z1+z2)/2);
+  m.rotation.y=-Math.atan2(dz,dx);
+  scene.add(m);
+  return m;
+}
+for(let k=1;k<4;k++)trace(RES_X[k-1]+0.17,0.35,RES_X[k]-0.17,0.35);
+for(let k=0;k<3;k++)trace(RES_X_REV[k]-0.17,1.05,RES_X_REV[k+1]+0.17,1.05);
+trace(2.15,0.35+0.17,2.15,1.05-0.17);
+
+function cable(ax,ay,az,bx,by,bz,mat){
+  const a=new THREE.Vector3(ax,ay,az),b=new THREE.Vector3(bx,by,bz);
+  const m=a.clone().lerp(b,0.5);m.y=Math.max(a.y,b.y)+0.16;
+  const t=new THREE.Mesh(new THREE.TubeGeometry(new THREE.CatmullRomCurve3([a,m,b]),24,0.015,8),mat);
+  t.castShadow=true;scene.add(t);
+  return t;
+}
+
+const psCv=[],psTex=[];
+function makePSU(x,z){
+  const g=new THREE.Group();g.position.set(x,0.72,z);scene.add(g);
+  const box=sh(roundedBox(0.52,0.44,0.40,MAT.psu,0.06));g.add(box);
+  const cv=document.createElement('canvas');cv.width=256;cv.height=96;
+  const tx=new THREE.CanvasTexture(cv);
+  tx.colorSpace=THREE.SRGBColorSpace;tx.minFilter=THREE.LinearFilter;tx.generateMipmaps=false;
+  const pl=new THREE.Mesh(new THREE.PlaneGeometry(0.40,0.15),new THREE.MeshBasicMaterial({map:tx,toneMapped:false}));
+  pl.position.set(0,0.06,0.205);g.add(pl);
+  const postR=sh(new THREE.Mesh(new THREE.CylinderGeometry(0.03,0.03,0.10,10),MAT.jackRed));postR.position.set(-0.13,0.27,0.10);g.add(postR);
+  const postB=sh(new THREE.Mesh(new THREE.CylinderGeometry(0.03,0.03,0.10,10),MAT.jackBlk));postB.position.set(0.13,0.27,0.10);g.add(postB);
+  g.userData={el:'V'};
+  psCv[0]=cv;psTex[0]=tx;
+  addHoverLabel(g,'Fuente V','#f0a5a5',new THREE.Vector3(0,0.55,0),0.8);
+  return g;
+}
+function drawPSU(){
+  const cv=psCv[0],c=cv.getContext('2d');
+  c.fillStyle='#071410';c.fillRect(0,0,256,96);
+  c.strokeStyle='rgba(79,209,197,0.4)';c.lineWidth=3;c.strokeRect(3,3,250,90);
+  c.fillStyle='#4FD1C5';c.font='bold 40px Outfit, sans-serif';c.textAlign='center';
+  c.fillText(V_SRC.toFixed(2)+' V',128,62);
+  psTex[0].needsUpdate=true;
+}
+const psuGroup=makePSU(-0.05,0.35);
+drawPSU();
+
+const groundPost=sh(new THREE.Mesh(new THREE.CylinderGeometry(0.028,0.034,0.16,12),MAT.jackBlk));
+groundPost.position.set(-0.05,0.58,1.05);
+groundPost.userData={title:'Referencia (P8)',info:'Terminal de referencia (0 V) — el retorno de la fuente ideal.'};
+scene.add(groundPost);
+
+cable(-0.05-0.13,0.99,0.35+0.10, RES_X[0]-0.17,0.58,0.35, MAT.cableRed);
+cable(-0.05+0.13,0.99,0.35+0.10, -0.05,0.58,1.05, MAT.cableBlk);
+cable(-0.05,0.58,1.05, RES_X_REV[3]-0.17,0.58,1.05, MAT.cableBlk);
+
+function refreshNet3D(){drawPSU();}
+
+// ============================== 7) HUD Y PANEL ==============================
+document.getElementById('hud').innerHTML=`
+  <div class="eyebrow">Circuitos eléctricos CD (D1) · Diagnóstico y localización de fallas</div>
+  <h2>Diagnóstico de Fallas en CD · Localización por Bisección</h2>
+  <p>Cadena serie de 8 resistores alimentada por una fuente ideal de 24 V. Un circuito abierto detiene
+  la corriente de TODA la cadena y absorbe TODO el voltaje de la fuente de un solo salto, produciendo un
+  escalón limpio en un solo nodo — la firma que permite localizar la falla por bisección (half-splitting):
+  mides el nodo de en medio del tramo sospechoso, descartas la mitad, repites. Un corto o una deriva de
+  valor no anulan la corriente, la alteran — desplazan el perfil completo de forma más sutil.</p>
+  <div class="formula">I=V/R_tot (Ohm) · V(Pk)=V(Pk−1)−I·R_ef(k) (KVL) · bisección: cada medición descarta la mitad del tramo sospechoso</div>
+  <div class="legend">
+    <div class="li"><span class="dot" style="background:#4FD1C5"></span>Nodo medido / voltaje exacto</div>
+    <div class="li"><span class="dot" style="background:#3fbf6f"></span>ALTO (≈24 V)</div>
+    <div class="li"><span class="dot" style="background:#e05a5a"></span>BAJO (≈0 V) / falla abierta</div>
+    <div class="li"><span class="dot" style="background:#FFB703"></span>Tramo sospechoso / deriva</div>
+  </div>
+  <div class="fid">
+    <div class="ft">🔒 Contrato de fidelidad</div>
+    <div class="fl"><b>Sí modela:</b> firma de escalón limpio de un circuito abierto en una cadena serie, verificada algebraicamente por KVL; bisección formal sobre circuito abierto (óptimo ⌈log₂8⌉=3 mediciones, con seguimiento del conteo real); comparación libre de las 3 firmas de falla en Explora, con gráfica de perfil de voltaje nodo a nodo; diagnóstico de tipo Y posición desconocidos en Reto, verificado de forma independiente.</div>
+    <div class="fl no"><b>NO modela:</b> la garantía formal de bisección NO se extiende a corto ni deriva de valor — ambas desplazan el perfil completo de voltaje en vez de producir un escalón limpio en un solo nodo, así que se exploran libremente pero sin la ayuda de un algoritmo de localización. Tampoco modela el efecto de carga del multímetro (impedancia infinita, ideal), fallas simultáneas, tolerancias de fabricación de los resistores, ni efectos térmicos o de arco progresivos en un corto real.</div>
+  </div>
+  <div class="src">Ref: EC&amp;M "The Beauty of Half-Splitting" · AllAboutCircuits · Hayt/Kemmerly/Durbin · IEC 60617 · IEC 60063</div>`;
+
+document.getElementById('panel').innerHTML=`
+  <h4>Diagnóstico de fallas · <span id="p_mode" style="color:var(--accent2)">Explora</span></h4>
+  <div class="modebar">
+    <button class="b on" id="m_explora">🔬 Explora</button>
+    <button class="b" id="m_diagnostico">🎯 Diagnóstico</button>
+    <button class="b" id="m_reto">🏆 Reto</button>
+  </div>
+  <div class="modebar" id="selbar" style="display:none"></div>
+  <div style="margin:6px 0 10px">
+    <div style="font-size:11px;color:var(--dim);margin-bottom:4px">Sondas de medición (P1–P7):</div>
+    <div class="btns" id="probeBtnsDiag" style="display:none"></div>
+    <div class="btns" id="probeBtnsReto" style="display:none"></div>
+  </div>
+  <div id="tele"></div>
+  <div class="console" id="report"></div>
+  <div class="btns" id="diagNewBox" style="display:none;margin-top:8px">
+    <button class="b" id="btnNewDx">🔀 Nueva falla (abierto)</button>
+  </div>
+  <div class="btns" id="retoNewBox" style="display:none;margin-top:8px">
+    <button class="b" id="btnNewReto">🔀 Nueva falla sellada</button>
+  </div>
+  <h4 class="sec" id="retoTitle" style="display:none">Reporta tu diagnóstico</h4>
+  <div id="retoBox" style="display:none">
+    <div class="btns">
+      <select id="guessType" class="b sm"><option value="abierto">Abierto</option><option value="corto">Corto</option><option value="deriva">Deriva</option></select>
+      <select id="guessIdx" class="b sm">${[1,2,3,4,5,6,7,8].map(i=>`<option value="${i}">R${i}</option>`).join('')}</select>
+      <button class="b primary" id="btnCheckReto">✔ Verificar diagnóstico</button>
+    </div>
+  </div>
+  <h4 class="sec">Pregunta de ingeniería</h4>
+  <div id="q_text" style="font-size:12px;color:var(--ink);margin:4px 0 8px"></div>
+  <div class="btns" id="dxbtns"></div>
+  <div class="btns">
+    <button class="b auto" id="btnAuto">✨ Recorrido guiado (automático)</button>
+  </div>`;
+
+const el=id=>document.getElementById(id);
+function buildProbeBtns(containerId,handler){
+  const box=el(containerId);
+  box.innerHTML=[1,2,3,4,5,6,7].map(i=>`<button class="b sm" data-p="${i}">P${i}</button>`).join('');
+  box.querySelectorAll('[data-p]').forEach(b=>{b.onclick=()=>handler(+b.dataset.p);});
+}
+
+// ============================== 8) TOASTS ==============================
+function showToast(html){
+  const t=el('toast');t.innerHTML=html;t.classList.add('show');
+  clearTimeout(showToast._t);showToast._t=setTimeout(()=>t.classList.remove('show'),3200);
+}
+function toastPart(id){
+  if(id==='V'){
+    showToast(`<b style="color:var(--accent2)">V · Fuente ideal de CD</b><br><span style="color:var(--dim);font-size:11px">${fmtV(V_SRC)} — sin resistencia interna (modelo).</span>`);
+    return;
+  }
+  if(id[0]==='R'){toastResistor(+id.slice(1));}
+}
+
+// ============================== 9) MODOS Y SELBAR ==============================
+const MODE_META={
+  explora:{nombre:'Explora',cam:[[2.6,3.1,6.3],[1.3,1.1,0.5]],mision:'Provoca cualquier falla en cualquier resistor y compara las 3 firmas de voltaje en la gráfica de perfil.'},
+  diagnostico:{nombre:'Diagnóstico',cam:[[2.2,2.7,5.6],[1.3,1.4,-0.1]],mision:'Localiza el circuito abierto sellado por bisección — mide el punto medio del tramo sospechoso.'},
+  reto:{nombre:'Reto',cam:[[2.2,2.7,5.6],[1.3,1.4,-0.1]],mision:'Falla sellada de tipo Y posición desconocidos. Mide libremente y reporta tu diagnóstico.'},
+};
+function buildSelBar(){
+  const bar=el('selbar');
+  if(mode!=='explora'){bar.style.display='none';bar.innerHTML='';return;}
+  bar.style.display='flex';
+  let html=`<div class="selgrp"><span class="lbl" style="font-size:11px;color:var(--dim);margin-right:4px">Falla:</span>`+
+    ['ninguna','abierto','corto','deriva'].map(t=>`<button class="b sm ${exType===t?'on':''}" data-ft="${t}">${t==='ninguna'?'Ninguna':t[0].toUpperCase()+t.slice(1)}</button>`).join('')+
+    `</div>`;
+  if(exType!=='ninguna'){
+    html+=`<div class="selgrp"><span class="lbl" style="font-size:11px;color:var(--dim);margin:0 4px">Resistor:</span>`+
+      [1,2,3,4,5,6,7,8].map(i=>`<button class="b sm ${exIdx===i?'on':''}" data-fr="${i}">R${i}</button>`).join('')+
+      `</div>`;
+  }
+  if(exType==='deriva'){
+    html+=`<div class="selgrp"><span class="lbl" style="font-size:11px;color:var(--dim);margin:0 4px">Factor:</span>`+
+      DRIFT_CANDIDATES.map(f=>`<button class="b sm ${Math.abs(exDriftFactor-f)<1e-6?'on':''}" data-fd="${f}">×${f}</button>`).join('')+
+      `</div>`;
+  }
+  bar.innerHTML=html;
+  bar.querySelectorAll('[data-ft]').forEach(b=>{b.onclick=()=>{exType=b.dataset.ft;if(exType==='deriva')exDriftFactor=DRIFT_CANDIDATES[0];afterEdit();};});
+  bar.querySelectorAll('[data-fr]').forEach(b=>{b.onclick=()=>{exIdx=+b.dataset.fr;afterEdit();};});
+  bar.querySelectorAll('[data-fd]').forEach(b=>{b.onclick=()=>{exDriftFactor=+b.dataset.fd;afterEdit();};});
+}
+function setMode(k){
+  mode=k;
+  ['explora','diagnostico','reto'].forEach(m=>el('m_'+m).classList.toggle('on',m===k));
+  el('p_mode').textContent=MODE_META[k].nombre;
+  el('probeBtnsDiag').style.display=(k==='diagnostico')?'':'none';
+  el('probeBtnsReto').style.display=(k==='reto')?'':'none';
+  el('diagNewBox').style.display=(k==='diagnostico')?'':'none';
+  el('retoNewBox').style.display=(k==='reto')?'':'none';
+  el('retoBox').style.display=(k==='reto')?'':'none';
+  el('retoTitle').style.display=(k==='reto')?'':'none';
+  buildSelBar();
+  solved=false;clearDx();buildQuiz();refreshQuestion();
+  const {cam}=MODE_META[k];
+  S.moveTo(cam[0],cam[1],1.3);
+  refreshAll();
+}
+function afterEdit(){
+  buildSelBar();
+  solved=false;clearDx();buildQuiz();refreshQuestion();
+  refreshAll();
+}
+
+// ============================== 10) TELEMETRÍA Y REPORTE ==============================
+function teleRow(l,v,cls){return `<div class="g"><div class="l">${l}</div><b class="${cls||''}">${v}</b></div>`;}
+function updateTele(){
+  let h='';
+  if(mode==='explora'){
+    const {Rtot,I,nodeV}=solveChain(exType,exIdx,exDriftFactor);
+    h+=teleRow('Falla activa',exType==='ninguna'?'ninguna (sano)':exType+' en R'+exIdx);
+    h+=teleRow('R total',fmtR(Rtot));
+    h+=teleRow('Corriente I',(I*1000).toFixed(2)+' mA');
+    h+=teleRow('V(P8) [debe ser 0 V]',nodeV[8].toFixed(3)+' V',Math.abs(nodeV[8])<0.01?'good':'warn');
+  }else if(mode==='diagnostico'){
+    h+=teleRow('Tramo sospechoso','R'+(dxInterval.lo+1)+'–R'+dxInterval.hi);
+    h+=teleRow('Mediciones',dxLog.length+' (óptimo 3)',dxLog.length<=3?'good':'warn');
+    h+=teleRow('Estado',dxDone?('Localizada en R'+dxInterval.hi):'En curso');
+  }else{
+    h+=teleRow('Mediciones tomadas',String(retoLog.length));
+    h+=teleRow('Diagnóstico reportado',retoSolved?'Correcto':(retoMsg?'Incorrecto':'—'),retoSolved?'good':'');
+  }
+  el('tele').innerHTML=h;
+}
+function updateReport(){
+  let h='<b>'+MODE_META[mode].mision+'</b><br>';
+  if(mode==='explora'){
+    h+='<span class="mono">Toca cualquier nodo o resistor. El voltaje de nodo cae de forma monótona de 24 V a 0 V en un circuito sano; observa cómo cada tipo de falla altera ese perfil.</span>';
+  }else if(mode==='diagnostico'){
+    const mid=Math.round((dxInterval.lo+dxInterval.hi)/2);
+    h+='<span class="mono">'+(dxDone?'Falla localizada — pulsa "Nueva falla" para otra ronda.':('Mide el nodo P'+mid+' (punto medio del tramo actual) para una bisección óptima.'))+'</span>';
+  }else{
+    h+='<span class="mono">'+(retoMsg||'Mide los nodos que necesites, luego selecciona el tipo de falla y el resistor y verifica.')+'</span>';
+  }
+  el('report').innerHTML=h;
+}
+function refreshAll(){drawBoard();updateTele();updateReport();refreshNet3D();}
+
+// ============================== 11) MEDICIÓN Y DIAGNÓSTICO ==============================
+function probeDiagnostico(node){
+  if(node<1||node>7)return;
+  if(dxDone){showToast('Ya localizaste la falla en R'+dxInterval.hi+'. Pulsa "Nueva falla" para otra ronda.');return;}
+  const {nodeV}=solveChain('abierto',dxIdx,1);
+  const v=nodeV[node];
+  const isHigh=v>V_SRC/2;
+  const optimal=node===Math.round((dxInterval.lo+dxInterval.hi)/2);
+  dxLog=dxLog.filter(l=>l.node!==node);
+  dxLog.push({node,isHigh,optimal,v});
+  if(isHigh)dxInterval={lo:Math.max(dxInterval.lo,node),hi:dxInterval.hi};
+  else dxInterval={lo:dxInterval.lo,hi:Math.min(dxInterval.hi,node)};
+  const justDone=dxInterval.hi-dxInterval.lo===1;
+  if(justDone){dxDone=true;solved=true;}
+  synth.beep(optimal?1046:660,0.12,0.06);
+  if(justDone){
+    showToast(`<span style="color:var(--good)">✔ Falla localizada: R${dxInterval.hi}</span> · ${dxLog.length} mediciones (óptimo 3)${dxLog.length===3?' — ¡bisección perfecta!':''}.`);
+  }else{
+    showToast('P'+node+': <b>'+v.toFixed(2)+' V</b> → '+(isHigh?'ALTO':'BAJO')+'. Tramo sospechoso ahora: R'+(dxInterval.lo+1)+'–R'+dxInterval.hi+(optimal?' · medición óptima':''));
+  }
+  refreshAll();
+}
+function newDiagnostico(){
+  let next=dxIdx;
+  while(next===dxIdx)next=1+Math.floor(Math.random()*8);
+  dxPrevIdx=dxIdx;dxIdx=next;
+  dxInterval={lo:0,hi:8};dxLog=[];dxDone=false;
+  showToast('🔀 Nueva falla sellada (circuito abierto) generada.');
+  synth.beep(440,0.1,0.05);
+  afterEdit();
+}
+function probeReto(node){
+  if(node<1||node>7)return;
+  const {nodeV}=solveChain(retoType,retoIdx,retoDriftFactor);
+  const v=nodeV[node];
+  retoLog=retoLog.filter(l=>l.node!==node);
+  retoLog.push({node,v});
+  retoMeasCount++;
+  synth.beep(880,0.08,0.05);
+  showToast('P'+node+': <b>'+v.toFixed(2)+' V</b>');
+  refreshAll();
+}
+function checkReto(){
+  if(retoLog.length===0){showToast('⚠️ Mide al menos un nodo antes de reportar tu diagnóstico.');return;}
+  const typeOk=retoGuessType===retoType;
+  const idxOk=retoGuessIdx===retoIdx;
+  retoSolved=typeOk&&idxOk;
+  const tOk='<span class="'+(typeOk?'ok':'dtc')+'">'+(typeOk?'✔':'✗')+' tipo</span>';
+  const iOk='<span class="'+(idxOk?'ok':'dtc')+'">'+(idxOk?'✔':'✗')+' resistor</span>';
+  retoMsg='<span class="mono">'+tOk+' · '+iOk+(retoSolved?' — <b>Diagnóstico correcto.</b>':' — revisa tu razonamiento (no se revela la respuesta).')+'</span>';
+  if(retoSolved){synth.beep(1046,0.14,0.07);solved=true;}
+  else synth.beep(220,0.16,0.07);
+  showToast(retoSolved?'<span style="color:var(--good)">✔ Diagnóstico correcto</span>':'Diagnóstico incompleto o incorrecto — sigue midiendo.');
+  refreshAll();
+}
+function newReto(){
+  let nt,ni;
+  do{
+    nt=FAULT_TYPES[Math.floor(Math.random()*3)];
+    ni=1+Math.floor(Math.random()*8);
+  }while(nt===retoType&&ni===retoIdx);
+  retoType=nt;retoIdx=ni;retoDriftFactor=randomDriftFactor();
+  retoLog=[];retoMeasCount=0;retoSolved=false;retoMsg='';
+  retoGuessType='abierto';retoGuessIdx=1;
+  el('guessType').value='abierto';el('guessIdx').value='1';
+  showToast('🔀 Nueva falla sellada (tipo y posición desconocidos).');
+  synth.beep(440,0.1,0.05);
+  afterEdit();
+}
+
+// ============================== 12) QUIZ ==============================
+function buildQuiz(){
+  QUIZ={
+    explora:{
+      pregunta:'Cuando un resistor de la cadena se abre, ¿qué ocurre con el voltaje de los nodos posteriores a la falla?',
+      opciones:[
+        {t:'Caen a 0 V, porque la corriente de toda la cadena se vuelve prácticamente cero',ok:true,why:'El resistor abierto absorbe todo el voltaje de la fuente; sin corriente, no hay caída de voltaje en los resistores restantes.'},
+        {t:'Suben a 24 V, porque el resistor abierto actúa como cortocircuito',ok:false,why:'Un abierto es lo opuesto de un corto: bloquea la corriente, no la desvía.'},
+        {t:'No cambian, porque cada resistor es independiente',ok:false,why:'En un circuito serie todos los resistores comparten la misma corriente — una falla afecta a toda la cadena.'},
+        {t:'Oscilan aleatoriamente hasta estabilizarse',ok:false,why:'El modelo es estático (Ley de Ohm + KVL), no hay dinámica oscilatoria.'},
+      ],
+    },
+    diagnostico:{
+      pregunta:'¿Por qué conviene medir el nodo de en medio del tramo sospechoso primero, en vez de un extremo?',
+      opciones:[
+        {t:'Porque cada medición bien colocada descarta la mitad del tramo restante (bisección)',ok:true,why:'Es la esencia del half-splitting: minimizar el número esperado de mediciones necesarias.'},
+        {t:'Porque el nodo de en medio siempre es la falla',ok:false,why:'No necesariamente — solo reduce el tramo a la mitad, no localiza directamente salvo que ya quede un solo resistor.'},
+        {t:'Porque los nodos extremos del circuito no se pueden medir',ok:false,why:'P0 y P8 sí se pueden medir, pero son triviales por definición y no aportan información nueva.'},
+        {t:'Porque el multímetro solo funciona en el centro del circuito',ok:false,why:'El multímetro simulado es ideal y mide cualquier nodo accesible por igual.'},
+      ],
+    },
+    reto:{
+      pregunta:'¿Por qué en este banco la bisección formal solo se garantiza para el circuito abierto, y no para el corto o la deriva?',
+      opciones:[
+        {t:'Porque el abierto produce un escalón limpio en un solo nodo; corto y deriva desplazan todo el perfil, sin localización binaria directa',ok:true,why:'Es la firma de falla lo que permite o no la bisección — no una limitación arbitraria del instrumento.'},
+        {t:'Porque el corto y la deriva son fallas menos importantes en la práctica',ok:false,why:'Al contrario: ambas son comunes en campo, solo requieren una técnica de diagnóstico distinta (comparar contra los valores nominales esperados).'},
+        {t:'Porque el simulador no puede calcular el voltaje bajo corto o deriva',ok:false,why:'El simulador sí calcula esos voltajes (los ves libremente en Explora y Reto); lo que no ofrece es la garantía formal de convergencia por bisección.'},
+        {t:'Porque el corto y la deriva nunca ocurren en una cadena serie real',ok:false,why:'Sí ocurren — por ejemplo, daño térmico o envejecimiento producen derivas de valor con frecuencia.'},
+      ],
+    },
+  };
+}
+function clearDx(){el('dxbtns').querySelectorAll('.b.dx').forEach(b=>b.classList.remove('right','wrong'));}
+function refreshQuestion(){
+  const q=QUIZ[mode];
+  el('q_text').innerHTML=q.pregunta;
+  el('dxbtns').innerHTML=q.opciones.map((o,i)=>`<button class="b dx" data-i="${i}">${'ABCD'[i]} · ${o.t}</button>`).join('');
+  el('dxbtns').querySelectorAll('.b.dx').forEach(btn=>{btn.onclick=()=>answer(+btn.dataset.i);});
+}
+function answer(i){
+  const o=QUIZ[mode].opciones[i];clearDx();
+  const btn=el('dxbtns').children[i];
+  if(o.ok){
+    btn.classList.add('right');solved=true;synth.beep(1046,0.12,0.06);
+    showToast(`<span style="color:var(--good)">✔ Correcto.</span><br><span style="color:var(--dim);font-size:11px">${o.why}</span>`);
+  }else{
+    btn.classList.add('wrong');synth.beep(220,0.15,0.06);
+    showToast(`<span style="color:var(--bad)">✗ Revisa el modelo.</span><br><span style="color:var(--dim);font-size:11px">${o.why}</span>`);
+  }
+}
+
+// ============================== 13) PICKING Y HOVER ==============================
+pickerFor(scene,S.camera,S.renderer.domElement,hit=>{
+  if(!hit)return;
+  if(hit.object===board&&hit.uv){boardClick(hit.uv.x,hit.uv.y);return;}
+  let o=hit.object;
+  while(o){
+    const u=o.userData||{};
+    if(u.el){toastPart(u.el);return;}
+    if(u.title){showToast(`<b style="color:var(--accent2)">${u.title}</b><br><span style="color:var(--dim);font-size:11px">${u.info}</span>`);return;}
+    o=o.parent;
+  }
+});
+
+(()=>{
+  const ray=new THREE.Raycaster(),v2=new THREE.Vector2();
+  S.renderer.domElement.addEventListener('pointermove',ev=>{
+    const r=S.renderer.domElement.getBoundingClientRect();
+    v2.x=((ev.clientX-r.left)/r.width)*2-1;v2.y=-((ev.clientY-r.top)/r.height)*2+1;
+    ray.setFromCamera(v2,S.camera);
+    const hits=ray.intersectObjects(scene.children,true);
+    HOVER_LABELS.forEach(lb=>lb.visible=false);
+    let cursor='default';
+    if(hits.length){
+      let o=hits[0].object;
+      while(o){
+        if(HOVER_LABELS.has(o)){HOVER_LABELS.get(o).visible=true;cursor='pointer';break;}
+        if(o.userData&&(o.userData.el||o.userData.title||o===board))cursor='pointer';
+        o=o.parent;
+      }
+      if(hits[0].object===board)cursor='pointer';
+    }
+    S.renderer.domElement.style.cursor=cursor;
+  });
+})();
+
+// ============================== 14) RECORRIDO AUTOMÁTICO ==============================
+const sleep=ms=>new Promise(r=>setTimeout(r,ms));
+async function runAuto(){
+  if(autoRunning)return;autoRunning=true;
+  const btn=el('btnAuto'),label=btn.textContent;
+  btn.disabled=true;btn.classList.add('on');btn.textContent='⏳ Recorrido guiado en curso…';
+  try{
+    synth.init();synth.resume();
+    clearDx();
+    setMode('explora');
+    exType='ninguna';afterEdit();
+    showToast('Paso 1 · Circuito sano: el voltaje cae suavemente de 24 V a 0 V, nodo por nodo.');await sleep(2200);
+    exType='abierto';exIdx=5;afterEdit();
+    showToast('Ahora provoca un ABIERTO en R5: observa el escalón limpio — nodos antes en 24 V, después en 0 V.');await sleep(2600);
+    exType='corto';exIdx=3;afterEdit();
+    showToast('Ahora un CORTO en R3: la corriente total sube y el perfil se desplaza, sin escalón limpio.');await sleep(2600);
+    exType='deriva';exIdx=6;exDriftFactor=4;afterEdit();
+    showToast('Ahora una DERIVA ×4 en R6: el perfil se desplaza de forma más sutil todavía.');await sleep(2600);
+    answer(QUIZ.explora.opciones.findIndex(o=>o.ok));await sleep(1800);
+
+    setMode('diagnostico');
+    newDiagnostico();
+    showToast('Paso 2 · Localiza el circuito abierto sellado por bisección.');await sleep(2000);
+    let guard=0;
+    while(!dxDone&&guard<6){
+      const m=Math.round((dxInterval.lo+dxInterval.hi)/2);
+      probeDiagnostico(m);
+      await sleep(1700);
+      guard++;
+    }
+    await sleep(1000);
+    answer(QUIZ.diagnostico.opciones.findIndex(o=>o.ok));await sleep(1800);
+
+    setMode('reto');
+    newReto();
+    showToast('Paso 3 · Falla sellada de tipo Y posición desconocidos. Mide libremente.');await sleep(2000);
+    for(const n of [1,4,7]){probeReto(n);await sleep(1400);}
+    retoGuessType=retoType;retoGuessIdx=retoIdx;
+    el('guessType').value=retoGuessType;el('guessIdx').value=String(retoGuessIdx);
+    checkReto();await sleep(2400);
+    const q=QUIZ.reto,qi=q.opciones.findIndex(o=>o.ok);
+    clearDx();
+    const dxBtn=el('dxbtns').children[qi];
+    if(dxBtn){dxBtn.classList.add('right');solved=true;synth.beep(1046,0.12,0.06);}
+    showToast(`<span style="color:var(--good)">✔ ${q.opciones[qi].t}</span><br><span style="color:var(--dim);font-size:11px">${q.opciones[qi].why}</span>`);
+  }finally{
+    btn.disabled=false;btn.classList.remove('on');btn.textContent=label;autoRunning=false;
+  }
+}
+
+// ============================== 15) EVENTOS E INICIO ==============================
+['explora','diagnostico','reto'].forEach(m=>{el('m_'+m).onclick=()=>{if(!autoRunning)setMode(m);};});
+el('btnAuto').onclick=runAuto;
+el('btnNewDx').onclick=()=>newDiagnostico();
+el('btnNewReto').onclick=()=>newReto();
+el('btnCheckReto').onclick=()=>checkReto();
+el('guessType').onchange=()=>{retoGuessType=el('guessType').value;};
+el('guessIdx').onchange=()=>{retoGuessIdx=+el('guessIdx').value;};
+el('soundBtn').onclick=()=>{const on=synth.toggle();el('soundBtn').textContent=on?'🔊 Sonido':'🔇 Sonido';};
+document.addEventListener('pointerdown',()=>{synth.init();synth.resume();},{once:true});
+
+buildProbeBtns('probeBtnsDiag',probeDiagnostico);
+buildProbeBtns('probeBtnsReto',probeReto);
+buildQuiz();refreshNet3D();
+S.start();
+setMode('explora');
+
+window.__labDebug={
+  mode:()=>mode,
+  RNOM:()=>RNOM.slice(), V_SRC:()=>V_SRC,
+  profile:(ftype,idx,dfac)=>solveChain(ftype??exType,idx??exIdx,dfac??exDriftFactor),
+  nodeVoltage:i=>solveChain(exType,exIdx,exDriftFactor).nodeV[i],
+  exType:()=>exType, exIdx:()=>exIdx, exDriftFactor:()=>exDriftFactor,
+  setExplora:(t,i,f)=>{exType=t;if(i!=null)exIdx=i;if(f!=null)exDriftFactor=f;afterEdit();},
+  dxIdx:()=>dxIdx, dxInterval:()=>({...dxInterval}), dxLog:()=>dxLog.slice(), dxDone:()=>dxDone,
+  probeDiagnostico:node=>probeDiagnostico(node), newDiagnostico:()=>newDiagnostico(),
+  retoType:()=>retoType, retoIdx:()=>retoIdx, retoDriftFactor:()=>retoDriftFactor,
+  retoLog:()=>retoLog.slice(), retoMeasCount:()=>retoMeasCount, retoSolved:()=>retoSolved, retoMsg:()=>retoMsg,
+  probeReto:node=>probeReto(node),
+  setGuess:(t,i)=>{retoGuessType=t;retoGuessIdx=i;el('guessType').value=t;el('guessIdx').value=String(i);},
+  checkReto:()=>checkReto(), newReto:()=>newReto(),
+  boardClick:(u,v)=>boardClick(u,v), setMode:k=>setMode(k),
+  reportText:()=>el('report').innerText,
+  quizAnswer:i=>answer(i), quizCorrectIndex:()=>QUIZ[mode].opciones.findIndex(o=>o.ok),
+  solved:()=>solved,
+};
+</script>
+  <!-- Ficha técnica · Capa B del molde de lab 3D (componente compartido + contenido del lab) -->
+  <script src="_ficha-tecnica.js"></script>
+  <script src="_ficha-diagnostico-fallas-cd.js"></script>
+</body>
+</html>

@@ -1,0 +1,33 @@
+import type { BriefingConfig } from '@/components/MissionBriefing';
+
+const briefing: BriefingConfig = {
+  codigo: 'MEC-66',
+  titulo: 'Diagnóstico de Fallas en CD: Localización por Bisección de Mediciones',
+  subtitulo: 'Circuitos Eléctricos · Diagnóstico y localización de fallas',
+  acento: '#D62828',
+  duracion: 30,
+  videoUrl: '',
+  bienvenida: `Hasta ahora has resuelto circuitos que funcionan correctamente. En el taller, el problema casi nunca es "calcula el voltaje de este nodo" — es "esta cadena de 8 resistores en serie dejó de alimentar la carga y no sabes cuál de los 8 componentes falló". Abrir la cadena y medir resistor por resistor es lento y, en un tablero energizado, a veces ni siquiera es seguro. La alternativa que usa cualquier técnico experimentado es medir voltajes con el circuito ENERGIZADO y razonar hacia atrás con la Ley de voltajes de Kirchhoff — sin desarmar nada.
+
+En un circuito serie sano, la corriente es la misma en todos los puntos y el voltaje se reparte entre los resistores en proporción a su resistencia: el voltaje va cayendo suavemente de la fuente (24 V) a la referencia (0 V), nodo por nodo. Cuando un resistor se abre (circuito abierto), dos cosas ocurren a la vez: la corriente en TODA la cadena cae a prácticamente cero, y el resistor abierto absorbe TODO el voltaje de la fuente de un solo salto — todos los nodos antes de la falla miden 24 V y todos los nodos después miden 0 V. Esa firma de "escalón limpio" es precisamente lo que hace posible una técnica poderosa: la localización por bisección (half-splitting). En vez de medir los 8 nodos uno por uno, mides el nodo de en medio: si está en 24 V, la falla está en la mitad que sigue; si está en 0 V, la falla está en la mitad que ya pasaste. Cada medición descarta la mitad de lo que queda por revisar — con 8 resistores, 3 mediciones bien colocadas bastan para señalar exactamente cuál falló, en vez de hasta 7.
+
+Un corto circuito y una deriva de valor (resistor que cambió su resistencia por daño térmico o envejecimiento) son fallas distintas: no anulan la corriente, la alteran — un corto reduce la resistencia total y sube la corriente de TODA la cadena; una deriva la sube o la baja según se haya desviado el valor. Ninguna de las dos da un escalón limpio de 24 V a 0 V en un solo nodo, así que en este banco la bisección se practica formalmente solo contra la falla de circuito abierto —la única con una firma de un solo nodo que se puede localizar por bisección con honestidad—, mientras que el corto y la deriva se exploran libremente y se enfrentan sin ayuda en el reto final, donde tú decides qué medir y cómo interpretarlo.`,
+  conceptos: [
+    { icono: '🔍', nombre: 'Localización por bisección (half-splitting)', descripcion: 'Medir el punto medio del tramo sospechoso primero, no un extremo: cada medición bien colocada descarta la mitad de los componentes restantes. Con 8 resistores en serie, 3 mediciones bastan en vez de hasta 7.' },
+    { icono: '⚡', nombre: 'Firma de circuito abierto', descripcion: 'Un resistor abierto detiene la corriente de TODA la cadena serie y absorbe TODO el voltaje de la fuente de un solo salto: los nodos antes de la falla miden el voltaje de fuente, los nodos después miden cero.' },
+    { icono: '🌡️', nombre: 'Corto y deriva: firmas más sutiles', descripcion: 'Un corto o una deriva de valor no anulan la corriente, la alteran — desplazan el perfil de voltaje completo de la cadena en vez de producir un escalón limpio en un solo nodo, y exigen comparar contra los valores nominales esperados.' },
+    { icono: '🧭', nombre: 'Diagnóstico con el circuito energizado', descripcion: 'Medir voltajes de nodo a tierra con el circuito funcionando permite localizar una falla sin desarmar la cadena — más rápido y, en muchos tableros, más seguro que desconectar y medir resistencia componente por componente.' },
+  ],
+  mision: [
+    'EXPLORA · Provoca tú mismo un circuito abierto, un corto o una deriva en cualquier resistor de la cadena, y compara las tres firmas de voltaje resultantes en la gráfica de perfil de nodo a nodo.',
+    'DIAGNÓSTICO · El sistema esconde un circuito abierto en algún resistor. Localízalo por bisección: mide el nodo de en medio del tramo sospechoso, descarta la mitad, repite — el sistema lleva la cuenta de cuántas mediciones usaste contra el óptimo de 3.',
+    'RETO · Falla sellada de tipo Y posición desconocidos (abierto, corto o deriva). Mide donde quieras, con el presupuesto de mediciones que necesites, y reporta tu diagnóstico: qué tipo de falla es y en qué resistor está.',
+  ],
+  aplicaciones: [
+    { area: 'Mantenimiento de tableros de control industrial', ejemplo: 'Localizar un fusible o una conexión abierta en una cadena de sensores o indicadores en serie midiendo voltajes de nodo con el tablero energizado, en vez de desconectar y medir cada componente por separado.' },
+    { area: 'Diagnóstico automotriz de arneses', ejemplo: 'Un arnés con múltiples conectores en serie (luces, sensores) que dejó de energizar la carga se diagnostica igual: medir a la mitad del arnés primero, no desde el conector más cercano a la batería.' },
+    { area: 'Electrónica de consumo y reparación de placas', ejemplo: 'Rastrear un componente abierto o en corto en una cadena de resistores de una placa —por ejemplo, una tira LED con resistores limitadores en serie— usando el mismo principio de bisección antes de reemplazar componentes al azar.' },
+  ],
+};
+
+export default briefing;
