@@ -951,6 +951,16 @@ exports[`golden master — catálogo por categoría (invariante ante extracción
     "teoria": "En una cadena de resistores en serie, un circuito abierto detiene la corriente y absorbe todo el voltaje de la fuente de un solo salto, produciendo un escalón limpio de voltaje en el nodo fallado — una firma que permite localizar la falla midiendo el punto medio del tramo sospechoso primero (bisección), en vez de resistor por resistor. Un corto o una deriva de valor alteran el perfil de voltaje completo de forma más sutil. Este laboratorio practica la localización por bisección sobre circuitos abiertos y explora las tres firmas de falla con el circuito energizado.",
     "titulo": "Diagnóstico de Fallas en CD: Localización por Bisección de Mediciones",
   },
+  {
+    "duracion": "30 min",
+    "estado": "activo",
+    "id": "mecanica-67",
+    "modulo": "Circuitos Eléctricos",
+    "orden": 67,
+    "simuladorHtml": "/labs/fasores-desfase.html",
+    "teoria": "Una señal senoidal de corriente alterna v(t)=Vm·sen(ωt+φ) se representa como un fasor: un vector de magnitud Vm y ángulo φ que 'congela' la rotación implícita a la frecuencia angular ω. Comparar dos señales de la misma frecuencia se reduce entonces a comparar sus fasores en un diagrama polar, y la diferencia angular entre ellas —el desfase— se mide con un osciloscopio de dos canales ubicando el instante en que cada señal cruza cero en el mismo sentido, nunca comparando picos. Este laboratorio practica esa técnica de medición con un osciloscopio de dos trazos y un diagrama fasorial sincronizados en tiempo real.",
+    "titulo": "Fasores de Señales Senoidales: Representación y Medición de Desfase",
+  },
 ]
 `;
 
@@ -1145,6 +1155,7 @@ exports[`golden master — catálogo por categoría (invariante ante extracción
   "mecanica-64",
   "mecanica-65",
   "mecanica-66",
+  "mecanica-67",
   "mecanica-7",
   "mecanica-8",
   "mecanica-9",

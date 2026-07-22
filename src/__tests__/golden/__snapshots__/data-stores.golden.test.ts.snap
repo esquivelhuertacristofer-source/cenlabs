@@ -5329,6 +5329,60 @@ Un corto circuito y una deriva de valor (resistor que cambió su resistencia por
     "titulo": "Diagnóstico de Fallas en CD: Localización por Bisección de Mediciones",
     "videoUrl": "",
   },
+  "mecanica-67": {
+    "acento": "#2A9D8F",
+    "aplicaciones": [
+      {
+        "area": "Corrección del factor de potencia industrial",
+        "ejemplo": "Medir el desfase entre el voltaje y la corriente de un motor de inducción es el primer paso para dimensionar el banco de capacitores que lo corrige — un desfase mayor significa más potencia reactiva que penaliza la factura eléctrica.",
+      },
+      {
+        "area": "Mantenimiento predictivo por análisis de vibración",
+        "ejemplo": "Comparar la fase entre dos acelerómetros colocados en distintos puntos de una máquina rotativa distingue un desbalanceo (fase ~0°) de una desalineación de flecha (fase ~180°), usando el mismo principio de comparación fasorial.",
+      },
+      {
+        "area": "Sincronismo de sistemas eléctricos",
+        "ejemplo": "Antes de conectar un generador a la red, o dos fases de un sistema trifásico entre sí, se verifica que el desfase esperado se cumpla — los relevadores de sincronismo reales usan el mismo método de cruces por cero que practicas en este banco.",
+      },
+    ],
+    "bienvenida": "Hasta ahora cada circuito que analizaste era de corriente directa: los voltajes y corrientes eran números fijos que no cambiaban en el tiempo. La corriente alterna es distinta — el voltaje sube y baja siguiendo una curva senoidal, v(t)=Vm·sen(ωt+φ), miles de veces por segundo. Comparar dos señales así "a ojo" en una gráfica es difícil: ¿cuál va adelantada? ¿por cuántos grados? Los ingenieros resolvieron este problema hace más de un siglo con una herramienta simple y poderosa: el fasor. Un fasor "congela" una señal senoidal en un solo vector —longitud igual a su amplitud, ángulo igual a su fase— y convierte un problema de curvas que se mueven en el tiempo en un problema de geometría con vectores fijos.
+
+El fasor solo tiene sentido cuando comparas señales de la MISMA frecuencia: no le preguntas "¿en qué ángulo está esta señal en este instante?" sino "¿cuánto le adelanta o le atrasa a la otra?". Esa diferencia angular es el desfase (φ), y es exactamente lo que vas a medir en este banco con un instrumento real: el osciloscopio de dos canales. La técnica de instrumentación estándar no es comparar los picos de las dos curvas —difícil de ubicar con precisión— sino ubicar el instante en que cada señal cruza el cero, en el MISMO sentido (las dos subiendo, o las dos bajando), y convertir esa diferencia de tiempo a grados. Mezclar un cruce ascendente de un canal con uno descendente del otro es un error de referencia clásico: te da un desfase equivocado por exactamente 180°, aunque el resto de tu medición sea perfecta.
+
+Este es el primer banco del sector centrado en corriente alterna. El canal 1 es tu referencia fija (10 V, 0°); el canal 2 es la señal que vas a caracterizar —su amplitud, su frecuencia y, sobre todo, su fase respecto al canal 1— usando un osciloscopio de dos trazos y un diagrama fasorial polar que se mueven juntos, en tiempo real, mientras ajustas los controles.",
+    "codigo": "MEC-67",
+    "conceptos": [
+      {
+        "descripcion": "Representación vectorial de una señal senoidal v(t)=Vm·sen(ωt+φ): un vector de magnitud Vm y ángulo φ. El diagrama fasorial "congela" la rotación implícita a ω y muestra solo la relación relativa entre señales de la misma frecuencia.",
+        "icono": "🌀",
+        "nombre": "Fasor",
+      },
+      {
+        "descripcion": "Diferencia angular entre dos señales senoidales de la misma frecuencia. Una señal "adelanta" o "atrasa" a la otra según el signo de esa diferencia — se mide en grados, nunca en unidades de tiempo por sí solas.",
+        "icono": "📐",
+        "nombre": "Desfase (φ)",
+      },
+      {
+        "descripcion": "Técnica de instrumentación real: en vez de comparar picos —difíciles de ubicar con precisión—, se ubica el instante en que cada señal cruza cero en el mismo sentido y se convierte la diferencia de tiempo a grados.",
+        "icono": "⏱️",
+        "nombre": "Medición por cruce por cero",
+      },
+      {
+        "descripcion": "Comparar un cruce ascendente de una señal contra un cruce descendente de la otra introduce un error sistemático de 180°. El desfase solo tiene sentido cuando se mide contra la MISMA referencia temporal en ambas señales.",
+        "icono": "⚠️",
+        "nombre": "Referencia consistente",
+      },
+    ],
+    "duracion": 30,
+    "mision": [
+      "EXPLORA · Ajusta libremente la amplitud, la frecuencia y el desfase del canal 2 respecto al canal 1 (referencia fija) y observa en tiempo real cómo cambian el osciloscopio de dos trazos y el diagrama fasorial polar.",
+      "MEDICIÓN · El sistema sella el desfase del canal 2. Usa los dos cursores del osciloscopio —uno por canal, cada uno se ajusta automáticamente al cruce por cero más cercano— para medirlo, cuidando de usar el mismo tipo de cruce en ambos canales.",
+      "RETO · El sistema sella tanto la amplitud como el desfase del canal 2. Lee la amplitud directamente de la rejilla volts/división y mide el desfase con los cursores; ambos valores se califican de forma independiente.",
+    ],
+    "subtitulo": "Circuitos Eléctricos · Corriente alterna (CA)",
+    "titulo": "Fasores de Señales Senoidales: Representación y Medición de Desfase",
+    "videoUrl": "",
+  },
   "mecanica-7": {
     "acento": "#2A9D8F",
     "aplicaciones": [
@@ -15824,6 +15878,7 @@ exports[`golden master — stores de datos (invariante ante la migración a src/
   "mecanica-64": [],
   "mecanica-65": [],
   "mecanica-66": [],
+  "mecanica-67": [],
   "mecanica-7": [],
   "mecanica-8": [],
   "mecanica-9": [],
@@ -16125,6 +16180,7 @@ exports[`golden master — stores de datos (invariante ante la migración a src/
   "mecanica-64",
   "mecanica-65",
   "mecanica-66",
+  "mecanica-67",
   "mecanica-7",
   "mecanica-8",
   "mecanica-9",

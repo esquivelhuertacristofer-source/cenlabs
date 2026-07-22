@@ -1,0 +1,9 @@
+{
+  "donor": "escaner-obd.html",
+  "out": "fasores-desfase.html",
+  "title": "CEN Labs · Fasores de Señales Senoidales: Mide el Desfase en el Osciloscopio — Laboratorio 3D",
+  "lt": "Fasores y Desfase · Circuitos Eléctricos",
+  "inspectHint": "👆 Toca el pizarrón (fasores u osciloscopio) o los generadores del banco (CH1, CH2)",
+  "body": "fasores-desfase.body.js",
+  "fichas": ["_ficha-tecnica.js", "_ficha-fasores-desfase.js"]
+}
