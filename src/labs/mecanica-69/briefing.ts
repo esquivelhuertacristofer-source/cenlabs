@@ -1,0 +1,33 @@
+import type { BriefingConfig } from '@/components/MissionBriefing';
+
+const briefing: BriefingConfig = {
+  codigo: 'MEC-69',
+  titulo: 'Resonancia RLC: Sintoniza, Mide Q y Caracteriza el Ancho de Banda',
+  subtitulo: 'Circuitos Eléctricos · Corriente alterna (CA)',
+  acento: '#2A9D8F',
+  duracion: 30,
+  videoUrl: '',
+  bienvenida: `En la práctica anterior calculaste y mediste la impedancia Z=R+jX de un circuito RLC en una sola frecuencia a la vez: fijabas f, leías |Z| y θz, y listo. Pero XL=ωL crece con la frecuencia mientras XC=1/(ωC) decrece — existe entonces una frecuencia exacta, f₀, donde ambas reactancias se cancelan (XL=XC) y el circuito se comporta de la forma más extrema posible: en serie, Z cae a su mínimo (solo queda R, la corriente es máxima); en paralelo, Z sube a su máximo (la corriente de línea es mínima). Esa frecuencia especial es la resonancia, y es el principio detrás de sintonizar una estación de radio, diseñar un filtro o evitar que un banco de capacitores de corrección de factor de potencia entre en resonancia peligrosa con la red.
+
+Este banco te da el mismo circuito RLC de la práctica anterior, pero ahora en vez de leer Z en un solo punto vas a barrer la frecuencia y observar la curva completa |Z(f)| en un analizador simulado. Sobre esa curva vas a medir tres cantidades con cursores: la frecuencia de resonancia f₀ (donde la curva toca su extremo), y las dos frecuencias de "media potencia" f₁ y f₂ (donde |Z| se aleja de ese extremo por un factor √2) — su separación es el ancho de banda, Δf=f₂−f₁. De esas tres lecturas se deriva el factor de calidad Q=f₀/Δf, el número que dice qué tan "afilada" o "selectiva" es la resonancia: un Q alto es una sintonía precisa pero intolerante a desajustes; un Q bajo es una banda ancha y tolerante pero menos selectiva.
+
+En el modo Reto, uno de los tres componentes (R, L o C) queda sellado. Tu trabajo es barrer la curva, medir f₀ y Q con los cursores, y despejar el valor del componente oculto invirtiendo las ecuaciones de resonancia de la topología activa — el mismo principio de "medir para calcular lo que no puedes ver directamente" que ya practicaste con Z y θz, aplicado ahora a una curva completa en vez de un punto.`,
+  conceptos: [
+    { icono: '🎯', nombre: 'Resonancia f₀=1/(2π√LC)', descripcion: 'Frecuencia donde XL=ωL se cancela exactamente con XC=1/(ωC), sin importar la topología ni el valor de R. En serie, Z cae a su mínimo (Z=R); en paralelo, Z sube a su máximo (Z=R).' },
+    { icono: '📶', nombre: 'Ancho de banda y frecuencias de media potencia', descripcion: 'f₁ y f₂ son las frecuencias donde |Z| se aleja del extremo de resonancia por un factor √2 (≈70.7%). Su separación, Δf=f₂−f₁, mide qué tan "ancha" es la región donde el circuito responde con fuerza cercana a la máxima.' },
+    { icono: '🔬', nombre: 'Factor de calidad Q=f₀/Δf', descripcion: 'Relación adimensional entre la frecuencia de resonancia y el ancho de banda. Un Q alto describe una resonancia angosta y selectiva (típica de un filtro de sintonía fina); un Q bajo describe una resonancia amplia y tolerante. En serie, Q=ω₀L/R; en paralelo, Q=R/(ω₀L) — la MISMA combinación de R, L, C produce un Q muy distinto según la topología.' },
+    { icono: '📈', nombre: 'Barrido de frecuencia', descripcion: 'En vez de leer Z en un solo punto, se recorre un rango continuo de frecuencias alrededor de f₀ y se traza |Z(f)| completa — la curva revela de un vistazo la forma de la resonancia, algo que ninguna medición puntual puede mostrar.' },
+  ],
+  mision: [
+    'EXPLORA · Elige la topología (serie o paralelo) y ajusta libremente R, L, C. Observa en tiempo real cómo se mueve f₀ sobre la curva |Z(f)| y cómo cambia de forma (angosta o ancha) según Q.',
+    'MEDICIÓN · El circuito es conocido, pero f₀ y Q quedan sellados. Arrastra los tres cursores del analizador (pico/valle, y los dos de media potencia) y mide la resonancia; compárala contra el valor real calculado internamente.',
+    'RETO · Un componente (R, L o C, según la ronda) queda sellado. Mide f₀ y Q con el analizador y despeja el valor del componente oculto a partir de las ecuaciones de resonancia de la topología activa.',
+  ],
+  aplicaciones: [
+    { area: 'Sintonía de receptores de radio', ejemplo: 'Un circuito RLC en paralelo sintonizado a la frecuencia de una estación selecciona esa señal y rechaza las demás; el Q del circuito determina qué tan bien separa estaciones cercanas en el cuadrante — exactamente la relación f₀/Δf que mides en este banco.' },
+    { area: 'Corrección de factor de potencia y resonancia peligrosa', ejemplo: 'Un banco de capacitores instalado para corregir el factor de potencia de una planta puede entrar en resonancia no deseada con la inductancia de la red a cierta frecuencia armónica, amplificando corrientes en vez de reducirlas — anticipar esa f₀ exige el mismo cálculo que practicas aquí.' },
+    { area: 'Diseño de filtros pasa-banda y rechaza-banda', ejemplo: 'Un ecualizador de audio o un filtro de radiofrecuencia usa la posición de f₀ y el ancho de la curva de resonancia (controlado por Q) para dejar pasar o bloquear una banda específica de frecuencias con la forma deseada.' },
+  ],
+};
+
+export default briefing;

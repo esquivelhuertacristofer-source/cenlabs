@@ -971,6 +971,16 @@ exports[`golden master — catálogo por categoría (invariante ante extracción
     "teoria": "Un circuito con resistencia (R), inductancia (L) y capacitancia (C) presenta una impedancia compleja Z=R+jX que combina oposición resistiva y reactiva. En serie, los tres elementos comparten la misma corriente y Z=R+j(ωL−1/ωC); en paralelo comparten el mismo voltaje y se suman las admitancias, Y=1/R+j(ωC−1/ωL) con Z=1/Y. La magnitud |Z| limita la corriente (I=V/|Z|) y el ángulo θz es el desfase entre voltaje y corriente. Este laboratorio mide ese desfase con la misma técnica de osciloscopio de dos canales de la práctica anterior —canal 1 sobre el voltaje aplicado, canal 2 sobre el voltaje de un resistor shunt proporcional a la corriente— y usa la medición para despejar un componente sellado en el modo Reto.",
     "titulo": "Impedancias RLC: Calcula y Mide un Circuito Serie o Paralelo",
   },
+  {
+    "duracion": "30 min",
+    "estado": "activo",
+    "id": "mecanica-69",
+    "modulo": "Circuitos Eléctricos",
+    "orden": 69,
+    "simuladorHtml": "/labs/resonancia-rlc.html",
+    "teoria": "Un circuito RLC tiene una frecuencia de resonancia f₀=1/(2π√LC) donde la reactancia inductiva XL=ωL se cancela exactamente con la capacitiva XC=1/(ωC). En serie, la impedancia cae a su mínimo (Z=R) en f₀; en paralelo, sube a su máximo (Z=R). Alrededor de f₀, las frecuencias de media potencia f₁ y f₂ —donde |Z| se aleja del extremo por un factor √2— definen el ancho de banda Δf=f₂−f₁, y su relación con f₀ da el factor de calidad Q=f₀/Δf, que en serie equivale a ω₀L/R y en paralelo a R/(ω₀L). Este laboratorio traza la curva |Z(f)| completa con un analizador de barrido, mide f₀ y Q con tres cursores, y usa esa medición para despejar un componente sellado en el modo Reto.",
+    "titulo": "Resonancia RLC: Sintoniza, Mide Q y Caracteriza el Ancho de Banda",
+  },
 ]
 `;
 
@@ -1167,6 +1177,7 @@ exports[`golden master — catálogo por categoría (invariante ante extracción
   "mecanica-66",
   "mecanica-67",
   "mecanica-68",
+  "mecanica-69",
   "mecanica-7",
   "mecanica-8",
   "mecanica-9",

@@ -1,0 +1,9 @@
+{
+  "donor": "escaner-obd.html",
+  "out": "resonancia-rlc.html",
+  "title": "CEN Labs · Resonancia RLC: Sintoniza, Mide Q y Caracteriza el Ancho de Banda — Laboratorio 3D",
+  "lt": "Resonancia RLC · Circuitos Eléctricos",
+  "inspectHint": "👆 Toca el pizarrón (triángulo de impedancia u osciloscopio de barrido) o los elementos del banco (generador, detector de nivel)",
+  "body": "resonancia-rlc.body.js",
+  "fichas": ["_ficha-tecnica.js", "_ficha-resonancia-rlc.js"]
+}
