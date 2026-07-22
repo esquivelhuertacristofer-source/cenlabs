@@ -5221,6 +5221,60 @@ En este banco no solo ves la curva: la mides con un osciloscopio simulado. Elige
     "titulo": "Transitorio RC: Mide la Constante de Tiempo τ en el Osciloscopio",
     "videoUrl": "",
   },
+  "mecanica-65": {
+    "acento": "#E76F51",
+    "aplicaciones": [
+      {
+        "area": "Relevadores y contactores electromecánicos",
+        "ejemplo": "La bobina de un relevador es un inductor. Sin un diodo de rueda libre en antiparalelo, cada apertura del circuito de control genera un arco que erosiona los contactos y puede dañar el transistor o el microcontrolador que lo conmuta.",
+      },
+      {
+        "area": "Motores y solenoides en control industrial",
+        "ejemplo": "Cualquier bobina de motor, solenoide de válvula o embrague electromagnético requiere protección de flyback en su circuito de conmutación — omitirla es una causa común y evitable de falla prematura de componentes de potencia.",
+      },
+      {
+        "area": "Diagnóstico de bobinas en campo",
+        "ejemplo": "Un técnico que sospecha que la inductancia de una bobina cambió (por daño en el devanado o el núcleo) puede medir τ con un resistor conocido y un osciloscopio, y comparar la L medida contra el valor nominal del fabricante.",
+      },
+    ],
+    "bienvenida": "En mecanica-64 mediste cómo un capacitor se opone a cambios bruscos de voltaje. Un inductor hace lo simétrico: se opone a cambios bruscos de corriente, según v = L·(di/dt). Esa oposición es inofensiva mientras la corriente cambia suavemente —pero se vuelve peligrosa en el instante en que abres un interruptor que alimenta una bobina, un relevador o un motor: el inductor "insiste" en mantener su corriente, y si no le das a dónde ir, esa insistencia se convierte en una sobretensión que puede saltar como arco destructivo sobre los contactos del propio interruptor.
+
+Al energizar un circuito RL serie, la corriente —y por tanto el voltaje sobre la resistencia de la bobina, v_R— sube exponencialmente con la misma forma matemática que ya conoces: v_R(t) = V·(1−e^(−t/τ)), pero ahora τ = L/R. Nota la diferencia clave con τ = R·C: aquí τ es inversamente proporcional a R, no directamente proporcional. Al interrumpir la corriente dándole una ruta alterna —un diodo de rueda libre (flyback) conectado en antiparalelo sobre la bobina— la corriente decae de forma igualmente exponencial y seguriza: v_R(t) = V·e^(−t/τ). Pero si interrumpes sin esa ruta alterna, no hay una τ que medir: el colapso es forzado y casi instantáneo, y esa violencia es exactamente lo que fabrica el arco.
+
+En este banco mides τ = L/R con el mismo osciloscopio simulado de mecanica-64 —eligiendo una base de tiempo razonable y leyendo con un cursor el cruce del 63.2 %/36.8 % de la excursión— y comparas tres escenarios: energizar, interrumpir con diodo (seguro, medible) e interrumpir sin diodo (peligroso, no medible en esta traza). En el reto final, la bobina se sella: conoces R, mides τ en la interrupción protegida, y despejas L = τ_medido · R — el procedimiento real que usa un técnico para verificar la inductancia de un relevador o una bobina de contactor sin abrirla.",
+    "codigo": "MEC-65",
+    "conceptos": [
+      {
+        "descripcion": "Cociente de la inductancia entre la resistencia serie de la bobina. A diferencia de τ=R·C, aquí duplicar R reduce τ a la mitad — la relación es inversa, no directa.",
+        "icono": "🌀",
+        "nombre": "Constante de tiempo τ = L/R",
+      },
+      {
+        "descripcion": "Un inductor genera un voltaje proporcional a qué tan rápido cambia su corriente, no a la corriente misma. Un cambio de corriente muy abrupto (di/dt grande) produce un voltaje instantáneo muy grande, incluso destructivo.",
+        "icono": "⚡",
+        "nombre": "v = L·di/dt",
+      },
+      {
+        "descripcion": "Conectado en antiparalelo sobre la bobina, le da a la corriente inductiva una ruta segura para decaer exponencialmente (v_R(t)=V·e^(−t/τ)) al abrir el interruptor, en vez de forzar un colapso instantáneo.",
+        "icono": "🔁",
+        "nombre": "Diodo de rueda libre (flyback)",
+      },
+      {
+        "descripcion": "Interrumpir la corriente de una bobina sin ruta alterna fuerza un di/dt enorme durante un instante brevísimo — la fuente física real de la chispa/arco que erosiona los contactos de relevadores e interruptores desprotegidos.",
+        "icono": "💥",
+        "nombre": "Sobretensión sin protección",
+      },
+    ],
+    "duracion": 35,
+    "mision": [
+      "EXPLORA · Cambia R y L, alterna entre energizar e interrumpir (con y sin diodo), y verifica que τ=L/R responde de forma INVERSA a R —lo opuesto de lo que viste con τ=R·C en mecanica-64.",
+      "SOBRETENSIÓN · Elige una base de tiempo adecuada y mide τ en el osciloscopio durante la interrupción protegida por el diodo; luego activa el escenario sin diodo y observa por qué esa traza no tiene una τ medible.",
+      "RETO · Bobina sellada: conoces R, mides τ en la interrupción con diodo, y despejas L = τ_medido · R — el mismo procedimiento que usa un técnico para verificar la inductancia de un relevador sin desarmarlo.",
+    ],
+    "subtitulo": "Circuitos Eléctricos · Régimen transitorio",
+    "titulo": "Transitorio RL y Sobretensión Inductiva: el Diodo de Rueda Libre",
+    "videoUrl": "",
+  },
   "mecanica-7": {
     "acento": "#2A9D8F",
     "aplicaciones": [
@@ -15714,6 +15768,7 @@ exports[`golden master — stores de datos (invariante ante la migración a src/
   "mecanica-62": [],
   "mecanica-63": [],
   "mecanica-64": [],
+  "mecanica-65": [],
   "mecanica-7": [],
   "mecanica-8": [],
   "mecanica-9": [],
@@ -16013,6 +16068,7 @@ exports[`golden master — stores de datos (invariante ante la migración a src/
   "mecanica-62",
   "mecanica-63",
   "mecanica-64",
+  "mecanica-65",
   "mecanica-7",
   "mecanica-8",
   "mecanica-9",

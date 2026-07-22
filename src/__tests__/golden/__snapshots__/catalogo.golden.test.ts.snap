@@ -931,6 +931,16 @@ exports[`golden master — catálogo por categoría (invariante ante extracción
     "teoria": "Al conectar o desconectar una fuente de CD de un capacitor a través de un resistor, el voltaje no cambia instantáneamente: sigue una curva exponencial gobernada por τ = R·C, la constante de tiempo. Este laboratorio mide τ directamente en un osciloscopio simulado y la contrasta contra el cálculo de R·C.",
     "titulo": "Transitorio RC: Mide la Constante de Tiempo τ en el Osciloscopio",
   },
+  {
+    "duracion": "35 min",
+    "estado": "activo",
+    "id": "mecanica-65",
+    "modulo": "Circuitos Eléctricos",
+    "orden": 65,
+    "simuladorHtml": "/labs/transitorio-rl.html",
+    "teoria": "Un inductor se opone a cambios bruscos de corriente (v=L·di/dt). Al energizar un circuito RL serie, la corriente —y por tanto v_R— sube exponencialmente con τ=L/R; al interrumpir la corriente sin dar una ruta alterna, el colapso súbito de corriente genera una sobretensión destructiva en el interruptor. Este laboratorio mide τ en un osciloscopio simulado y compara la interrupción segura (con diodo de rueda libre) contra la interrupción sin protección.",
+    "titulo": "Transitorio RL y Sobretensión Inductiva: el Diodo de Rueda Libre",
+  },
 ]
 `;
 
@@ -1123,6 +1133,7 @@ exports[`golden master — catálogo por categoría (invariante ante extracción
   "mecanica-62",
   "mecanica-63",
   "mecanica-64",
+  "mecanica-65",
   "mecanica-7",
   "mecanica-8",
   "mecanica-9",

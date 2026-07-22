@@ -1,0 +1,9 @@
+{
+  "donor": "escaner-obd.html",
+  "out": "transitorio-rl.html",
+  "title": "CEN Labs · Transitorio RL: Mide τ y la Sobretensión Inductiva — Laboratorio 3D",
+  "lt": "Transitorio RL · Circuitos Eléctricos",
+  "inspectHint": "👆 Toca el pizarrón (esquema u osciloscopio) o los componentes del banco (R, L, diodo, V)",
+  "body": "transitorio-rl.body.js",
+  "fichas": ["_ficha-tecnica.js", "_ficha-transitorio-rl.js"]
+}
