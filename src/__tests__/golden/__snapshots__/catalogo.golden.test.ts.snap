@@ -991,6 +991,16 @@ exports[`golden master — catálogo por categoría (invariante ante extracción
     "teoria": "En corriente alterna, una carga con impedancia Z=R+jX consume potencia activa P=S·cos θ (la que hace trabajo útil, en watts), potencia reactiva Q=S·sin θ (la que oscila entre la fuente y los campos magnético/eléctrico de la carga, en VAR) y potencia aparente S=V·I (la que realmente dimensiona cables y transformadores, en VA), donde θ es el ángulo entre voltaje y corriente. El factor de potencia FP=cos θ=P/S mide qué tan eficientemente se usa esa capacidad instalada. Cuando dos cargas reales comparten el mismo bus, sus potencias activa y reactiva se SUMAN directamente (P_total=P1+P2, Q_total=Q1+Q2), pero la potencia aparente total NO es la suma de las aparentes individuales — debe recalcularse como S_total=√(P_total²+Q_total²), porque S1 y S2 no están en fase entre sí. Este laboratorio combina dos cargas reales en paralelo, visualiza el triángulo de potencias resultante y mide P, Q, S y FP con un osciloscopio de dos canales.",
     "titulo": "Potencia en CA: Mide P, Q, S y el Factor de Potencia de Cargas Reales",
   },
+  {
+    "duracion": "30 min",
+    "estado": "activo",
+    "id": "mecanica-71",
+    "modulo": "Circuitos Eléctricos",
+    "orden": 71,
+    "simuladorHtml": "/labs/correccion-factor-potencia.html",
+    "teoria": "Una carga inductiva consume potencia reactiva Q para magnetizarse, lo que reduce su factor de potencia FP=cos θ por debajo de 1 y obliga a sobredimensionar la instalación eléctrica que la alimenta — por eso CFE exige un FP mínimo (0.90 en cargas menores a 1 MW) y penaliza económicamente cuando cae por debajo. La corrección estándar es instalar un banco de capacitores en paralelo con la carga: el capacitor aporta potencia reactiva de signo contrario, cancelando parte de la Q original sin tocar P. La cantidad necesaria es Qc=P·(tan φ₁−tan φ₂), donde φ₁ es el ángulo de potencia actual y φ₂ el ángulo objetivo (típicamente FP=0.95). Los bancos comerciales vienen en pasos estándar discretos (5 a 50 kVAR por unidad), así que diseñar el banco es una combinatoria: encontrar qué pasos conectar para caer dentro de la banda de cumplimiento, minimizando el kVAR total instalado.",
+    "titulo": "Corrección de Factor de Potencia: Diseña el Banco de Capacitores",
+  },
 ]
 `;
 
@@ -1190,6 +1200,7 @@ exports[`golden master — catálogo por categoría (invariante ante extracción
   "mecanica-69",
   "mecanica-7",
   "mecanica-70",
+  "mecanica-71",
   "mecanica-8",
   "mecanica-9",
   "quimica-1",

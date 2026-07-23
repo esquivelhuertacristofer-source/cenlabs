@@ -1,0 +1,9 @@
+{
+  "donor": "escaner-obd.html",
+  "out": "correccion-factor-potencia.html",
+  "title": "CEN Labs · Corrección de Factor de Potencia: Diseña el Banco de Capacitores — Laboratorio 3D",
+  "lt": "Corrección de FP · Circuitos Eléctricos",
+  "inspectHint": "👆 Toca el pizarrón (triángulo de potencias) o los pasos del banco de capacitores",
+  "body": "correccion-factor-potencia.body.js",
+  "fichas": ["_ficha-tecnica.js", "_ficha-correccion-factor-potencia.js"]
+}
