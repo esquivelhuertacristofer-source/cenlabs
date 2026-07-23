@@ -1,0 +1,9 @@
+{
+  "donor": "escaner-obd.html",
+  "out": "potencia-ac.html",
+  "title": "CEN Labs · Potencia en CA: Mide P, Q, S y el Factor de Potencia de Cargas Reales — Laboratorio 3D",
+  "lt": "Potencia en CA · Circuitos Eléctricos",
+  "inspectHint": "👆 Toca el pizarrón (triángulo de potencias u osciloscopio) o los elementos del banco (bus de voltaje, sensor de corriente)",
+  "body": "potencia-ac.body.js",
+  "fichas": ["_ficha-tecnica.js", "_ficha-potencia-ac.js"]
+}

@@ -1,0 +1,1435 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>CEN Labs · Potencia en CA: Mide P, Q, S y el Factor de Potencia de Cargas Reales — Laboratorio 3D</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#08201C;--panel:rgba(9,26,23,.86);--line:#1E3A34;--ink:#EAF4F1;
+    --dim:#8FB3AC;--accent:#2A9D8F;--accent2:#4FD1C5;--hv:#FFB703;--good:#34d399;--bad:#f4475e;
+    --mono:'Outfit',system-ui,'Segoe UI',Roboto,sans-serif;--disp:'Outfit','Arial Black',Impact,sans-serif;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  html,body{height:100%;background:var(--bg);color:var(--ink);font-family:'Outfit',system-ui,Segoe UI,Roboto,sans-serif}
+  body{overflow:hidden}
+  #stage{position:fixed;inset:0}
+  canvas{display:block;touch-action:none}
+
+  .topbar{position:fixed;top:0;left:0;right:0;height:56px;display:flex;align-items:center;gap:14px;padding:0 20px;z-index:20;background:linear-gradient(180deg,rgba(10,13,18,.92),transparent);pointer-events:none}
+  .brand{font-family:var(--disp);font-weight:bold;font-size:16px;text-transform:uppercase}
+  .brand span{color:var(--accent)}
+  .lt{font-family:var(--mono);font-size:11px;letter-spacing:.1em;text-transform:uppercase;color:var(--dim)}
+
+  .badge{position:fixed;top:16px;right:20px;z-index:20;font-family:var(--mono);font-size:9px;letter-spacing:.12em;text-transform:uppercase;background:rgba(255,209,102,.12);color:var(--hv);border:1px solid rgba(255,209,102,.35);padding:6px 12px;border-radius:20px}
+
+  .hud{position:fixed;top:70px;left:18px;z-index:15;max-width:330px;background:var(--panel);backdrop-filter:blur(14px);border:1px solid var(--line);border-radius:16px;padding:18px 20px;max-height:calc(100vh - 150px);overflow-y:auto}
+  .hud .eyebrow{font-family:var(--mono);font-size:10px;letter-spacing:.18em;text-transform:uppercase;color:var(--accent);margin-bottom:8px}
+  .hud h2{font-size:19px;line-height:1.15;margin-bottom:9px}
+  .hud p{font-size:13px;line-height:1.55;color:var(--dim);margin-bottom:10px}
+  .hud .formula{font-family:var(--mono);color:var(--accent2);text-align:center;font-size:12.5px;margin:8px 0;padding:8px;background:rgba(0,0,0,.25);border-radius:8px;line-height:1.5}
+  .hud .src{font-size:10.5px;color:#7a8894;font-style:italic;margin-top:4px;line-height:1.5}
+  .legend{display:flex;flex-direction:column;gap:6px;margin:12px 0;padding:10px 12px;background:rgba(0,0,0,.22);border-radius:10px}
+  .legend .li{display:flex;align-items:center;gap:8px;font-size:11px;color:#c4d0da}
+  .legend .dot{width:10px;height:10px;border-radius:50%;flex:0 0 auto}
+  .fid{margin:10px 0 2px;padding:10px 12px;background:rgba(0,0,0,.22);border-radius:10px;border:1px solid rgba(79,209,197,.18)}
+  .fid .ft{font-family:var(--mono);font-size:9.5px;letter-spacing:.14em;text-transform:uppercase;color:var(--accent2);margin-bottom:6px}
+  .fid .fl{font-size:11px;color:#c4d0da;line-height:1.5;margin-bottom:5px}
+  .fid .fl b{color:var(--ink)}
+  .fid .fl.no b{color:var(--hv)}
+
+  .panel{position:fixed;top:70px;right:18px;z-index:15;width:262px;background:var(--panel);backdrop-filter:blur(14px);border:1px solid var(--line);border-radius:16px;padding:16px;max-height:calc(100vh - 150px);overflow-y:auto}
+  .panel h4{font-family:var(--mono);font-size:10px;letter-spacing:.14em;text-transform:uppercase;color:var(--dim);margin:2px 0 10px}
+  .panel h4.sec{margin-top:16px;border-top:1px solid var(--line);padding-top:14px}
+  .g{margin-bottom:6px}
+  .gl{display:flex;justify-content:space-between;font-family:var(--mono);font-size:11px;color:var(--dim)}
+  .gl b{color:var(--accent2)}
+  .gl b.good{color:var(--good)}.gl b.warn{color:var(--hv)}.gl b.bad{color:var(--bad)}
+  .modebar{display:flex;gap:5px;margin-bottom:8px}
+  .modebar .b{flex:1;padding:8px 4px;font-size:11px}
+  .btns{display:flex;flex-direction:column;gap:7px;margin-top:6px}
+  .b{font-family:system-ui;font-size:12.5px;padding:10px;border-radius:9px;cursor:pointer;border:1px solid var(--line);background:#1b242f;color:var(--ink);transition:.15s;text-align:center}
+  .b:hover{border-color:var(--accent);background:#202c38}
+  .b.on{background:var(--accent);color:#06120f;border-color:var(--accent);font-weight:bold}
+  .b.primary{background:var(--accent);color:#06120f;border-color:var(--accent);font-weight:bold}
+  .b.auto{border-color:var(--hv);color:var(--hv);background:rgba(255,183,3,.10);font-weight:bold}
+  .b.auto:hover{background:rgba(255,183,3,.18);border-color:var(--hv)}
+  .b.auto:disabled{opacity:.6;cursor:default}
+  .b.dx{text-align:left;font-size:12px}
+  .b.dx.right{background:rgba(52,211,153,.18);border-color:var(--good);color:var(--good);font-weight:bold}
+  .b.dx.wrong{background:rgba(244,71,94,.15);border-color:var(--bad);color:var(--bad)}
+  .console{font-family:var(--mono);font-size:11px;line-height:1.55;color:#c4d0da;background:rgba(0,0,0,.28);border-radius:9px;padding:10px 12px;margin-bottom:8px;min-height:56px}
+  .console .dtc{color:var(--bad);font-weight:bold}
+  .console .ok{color:var(--good)}
+  .console .mono{color:var(--dim)}
+
+  .hint{position:fixed;bottom:18px;left:18px;z-index:14;font-family:var(--mono);font-size:10px;color:var(--dim);background:var(--panel);padding:7px 12px;border-radius:9px;border:1px solid var(--line)}
+  .toast{position:fixed;top:80px;left:50%;transform:translateX(-50%);z-index:30;background:rgba(18,24,32,.95);border:1px solid var(--accent);padding:10px 20px;border-radius:40px;font-family:var(--mono);font-size:12px;opacity:0;transition:.3s;pointer-events:none;max-width:80vw;text-align:center}
+  .toast.show{opacity:1}
+  .soundBtn{position:fixed;top:14px;right:18px;z-index:21;font-size:16px;background:var(--panel);backdrop-filter:blur(12px);border:1px solid var(--line);border-radius:50%;width:36px;height:36px;cursor:pointer;color:var(--dim);transition:.15s}
+  .soundBtn.on{color:var(--accent);border-color:var(--accent)}
+  .soundBtn:hover{transform:scale(1.08)}
+  .inspectHint{position:fixed;bottom:18px;right:18px;z-index:14;font-family:var(--mono);font-size:10px;color:var(--accent2);background:var(--panel);padding:7px 12px;border-radius:9px;border:1px solid var(--line)}
+
+  @media(max-width:820px){
+    .hud,.panel{position:fixed;left:8px;right:8px;top:auto;bottom:8px;max-width:none;width:auto;max-height:42vh;overflow-y:auto}
+    .hud{bottom:calc(8px + 42vh + 8px)}
+    .hint,.inspectHint{display:none}
+  }
+</style>
+</head>
+<body>
+<div id="stage"></div>
+<button class="soundBtn on" id="soundBtn">🔊</button>
+<div class="topbar">
+  <div class="brand">CEN<span> Labs</span></div>
+  <div class="lt">Potencia en CA · Circuitos Eléctricos</div>
+</div>
+<div class="hud" id="hud"></div>
+<div class="panel" id="panel"></div>
+<div class="hint">Arrastra para orbitar · rueda para zoom</div>
+<div class="inspectHint">👆 Toca el pizarrón (triángulo de potencias u osciloscopio) o los elementos del banco (bus de voltaje, sensor de corriente)</div>
+<div class="toast" id="toast"></div>
+
+<script type="importmap">
+{ "imports": {
+  "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.min.js",
+  "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/"
+}}
+</script>
+<script type="module">
+import * as THREE from 'three';
+import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
+import { RoundedBoxGeometry } from 'three/addons/geometries/RoundedBoxGeometry.js';
+import { EffectComposer } from 'three/addons/postprocessing/EffectComposer.js';
+import { RenderPass } from 'three/addons/postprocessing/RenderPass.js';
+import { GTAOPass } from 'three/addons/postprocessing/GTAOPass.js';
+import { UnrealBloomPass } from 'three/addons/postprocessing/UnrealBloomPass.js';
+import { SMAAPass } from 'three/addons/postprocessing/SMAAPass.js';
+import { OutputPass } from 'three/addons/postprocessing/OutputPass.js';
+import { BokehPass } from 'three/addons/postprocessing/BokehPass.js';
+
+/* ============================================================
+   Texturas PBR procedurales (sin archivos externos) — compartidas
+   ============================================================ */
+function cv(s=512){const c=document.createElement('canvas');c.width=c.height=s;return c;}
+function tex(canvas,repeat=1,srgb=false){
+  const t=new THREE.CanvasTexture(canvas);
+  t.wrapS=t.wrapT=THREE.RepeatWrapping;t.repeat.set(repeat,repeat);
+  t.colorSpace = srgb?THREE.SRGBColorSpace:THREE.NoColorSpace;
+  t.generateMipmaps=false; t.minFilter=THREE.LinearFilter; t.anisotropy=1; return t;
+}
+function normalFromHeight(size, hfn, strength=2.0){
+  const c=cv(size),ctx=c.getContext('2d'),img=ctx.createImageData(size,size);
+  const H=(x,y)=>hfn((x+size)%size,(y+size)%size);
+  for(let y=0;y<size;y++)for(let x=0;x<size;x++){
+    const dx=(H(x+1,y)-H(x-1,y))*strength;
+    const dy=(H(x,y+1)-H(x,y-1))*strength;
+    const nz=1.0; const len=Math.hypot(dx,dy,nz);
+    const i=(y*size+x)*4;
+    img.data[i]  =((-dx/len)*0.5+0.5)*255;
+    img.data[i+1]=((-dy/len)*0.5+0.5)*255;
+    img.data[i+2]=((nz/len)*0.5+0.5)*255;
+    img.data[i+3]=255;
+  }
+  ctx.putImageData(img,0,0);return c;
+}
+function valueNoise(seed=1){
+  const g=(x,y)=>{const s=Math.sin((x*127.1+y*311.7)+seed*13.13)*43758.5453;return s-Math.floor(s);};
+  return (x,y)=>{
+    const xi=Math.floor(x),yi=Math.floor(y),xf=x-xi,yf=y-yi;
+    const u=xf*xf*(3-2*xf),v=yf*yf*(3-2*yf);
+    const a=g(xi,yi),b=g(xi+1,yi),c=g(xi,yi+1),d=g(xi+1,yi+1);
+    return a*(1-u)*(1-v)+b*u*(1-v)+c*(1-u)*v+d*u*v;
+  };
+}
+function fbm(noise,x,y,oct=4){let v=0,a=0.5,f=1;for(let i=0;i<oct;i++){v+=noise(x*f,y*f)*a;f*=2;a*=0.5;}return v;}
+
+function castAluminum(){
+  const S=512, n=valueNoise(7);
+  const c=cv(S),ctx=c.getContext('2d'),img=ctx.createImageData(S,S);
+  for(let y=0;y<S;y++)for(let x=0;x<S;x++){
+    const v=fbm(n,x/22,y/22,5);
+    const por=Math.pow(n(x/3.1,y/3.1),8);
+    const base=150+v*38-por*70;
+    const i=(y*S+x)*4; img.data[i]=base; img.data[i+1]=base+4; img.data[i+2]=base+10; img.data[i+3]=255;
+  }
+  ctx.putImageData(img,0,0);
+  const r=cv(S),rx=r.getContext('2d'),rimg=rx.createImageData(S,S);
+  for(let y=0;y<S;y++)for(let x=0;x<S;x++){
+    const v=fbm(n,x/18,y/18,4); const por=Math.pow(n(x/3.1,y/3.1),8);
+    const rough=120+v*40+por*90; const i=(y*S+x)*4;
+    rimg.data[i]=rimg.data[i+1]=rimg.data[i+2]=Math.min(255,rough); rimg.data[i+3]=255;
+  }
+  rx.putImageData(rimg,0,0);
+  const nrm=normalFromHeight(S,(x,y)=>fbm(n,x/16,y/16,5)+Math.pow(n(x/3.1,y/3.1),8)*0.6,3.0);
+  return {map:tex(c,1,true),roughnessMap:tex(r),normalMap:tex(nrm)};
+}
+function brushedMetal(){
+  const S=512, n=valueNoise(3);
+  const c=cv(S),ctx=c.getContext('2d'),img=ctx.createImageData(S,S);
+  for(let y=0;y<S;y++)for(let x=0;x<S;x++){
+    const streak=Math.sin(y*0.9)*2 + (n(x/120,y*0.5)-0.5)*40;
+    const base=185+streak; const i=(y*S+x)*4;
+    img.data[i]=base; img.data[i+1]=base+2; img.data[i+2]=base+6; img.data[i+3]=255;
+  }
+  ctx.putImageData(img,0,0);
+  const r=cv(S),rx=r.getContext('2d'),rimg=rx.createImageData(S,S);
+  for(let y=0;y<S;y++)for(let x=0;x<S;x++){
+    const streak=(n(x/120,y*0.5)-0.5)*60; const rough=40+Math.abs(streak); const i=(y*S+x)*4;
+    rimg.data[i]=rimg.data[i+1]=rimg.data[i+2]=Math.min(160,rough); rimg.data[i+3]=255;
+  }
+  rx.putImageData(rimg,0,0);
+  const nrm=normalFromHeight(S,(x,y)=>(n(x/120,y*0.5))*0.3+Math.sin(y*0.9)*0.02,1.2);
+  return {map:tex(c,1,true),roughnessMap:tex(r),normalMap:tex(nrm)};
+}
+function rubber(){
+  const S=256,n=valueNoise(5);
+  const nrm=normalFromHeight(S,(x,y)=>fbm(n,x/8,y/8,4),1.4);
+  const rough=cv(64),rc=rough.getContext('2d');rc.fillStyle='#e0e0e0';rc.fillRect(0,0,64,64);
+  return {roughnessMap:tex(rough),normalMap:tex(nrm,2)};
+}
+function gradientBG(top='#11161d',bottom='#05070a'){
+  const c=cv(512),ctx=c.getContext('2d');
+  const grd=ctx.createLinearGradient(0,0,0,512);
+  grd.addColorStop(0,top);grd.addColorStop(1,bottom);
+  ctx.fillStyle=grd;ctx.fillRect(0,0,512,512);
+  const rg=ctx.createRadialGradient(256,200,30,256,256,360);
+  rg.addColorStop(0,'rgba(42,157,143,0.10)');rg.addColorStop(1,'rgba(0,0,0,0)');
+  ctx.fillStyle=rg;ctx.fillRect(0,0,512,512);
+  return tex(c,1,true);
+}
+function techPlastic(r=0.10,g=0.11,b=0.13){
+  const S=256,n=valueNoise(31);
+  const c=cv(S),ctx=c.getContext('2d'),img=ctx.createImageData(S,S);
+  for(let y=0;y<S;y++)for(let x=0;x<S;x++){
+    const v=fbm(n,x/30,y/30,3)*0.1+0.92; const i=(y*S+x)*4;
+    img.data[i]=r*255*v;img.data[i+1]=g*255*v;img.data[i+2]=b*255*v;img.data[i+3]=255;
+  }
+  ctx.putImageData(img,0,0);
+  const nrm=normalFromHeight(S,(x,y)=>fbm(n,x/10,y/10,3),0.8);
+  const rough=cv(64),rc=rough.getContext('2d');rc.fillStyle='#9a9a9a';rc.fillRect(0,0,64,64);
+  return {map:tex(c,1,true),roughnessMap:tex(rough),normalMap:tex(nrm)};
+}
+
+/* ============================================================
+   ENGINE — render premium compartido por todos los laboratorios
+   ============================================================ */
+function createStage(mount, opts={}){
+  const bgTop = opts.bgTop||'#141b24', bgBot = opts.bgBot||'#05070a';
+  const renderer = new THREE.WebGLRenderer({ antialias:true, powerPreference:'high-performance' });
+  renderer.setPixelRatio(Math.min(devicePixelRatio,2));
+  renderer.setSize(mount.clientWidth, mount.clientHeight);
+  renderer.shadowMap.enabled = true;
+  renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+  renderer.toneMapping = THREE.ACESFilmicToneMapping;
+  renderer.toneMappingExposure = opts.exposure ?? 1.18;
+  renderer.outputColorSpace = THREE.SRGBColorSpace;
+  mount.appendChild(renderer.domElement);
+  renderer.domElement.style.touchAction='none';
+
+  const scene = new THREE.Scene();
+  scene.background = gradientBG(bgTop,bgBot);
+  const pmrem = new THREE.PMREMGenerator(renderer);
+  scene.environment = pmrem.fromScene(new RoomEnvironment(renderer), 0.04).texture;
+  scene.environmentIntensity = opts.envInt ?? 1.15;
+
+  const camera = new THREE.PerspectiveCamera(45, mount.clientWidth/mount.clientHeight, 0.1, 200);
+  const cam = opts.cam || [5.5,3.4,6.2];
+  camera.position.set(...cam);
+
+  const controls = new OrbitControls(camera, renderer.domElement);
+  controls.enableDamping = true; controls.dampingFactor = 0.07;
+  controls.minDistance = opts.minD ?? 3; controls.maxDistance = opts.maxD ?? 18;
+  controls.maxPolarAngle = Math.PI*0.52;
+  controls.target.set(...(opts.target||[0,1.4,0]));
+  controls.autoRotate = opts.autoRotate ?? false;
+  controls.autoRotateSpeed = opts.autoRotateSpeed ?? 0.6;
+
+  const key = new THREE.DirectionalLight(0xffffff, 2.7);
+  key.position.set(5,9,6); key.castShadow=true;
+  key.shadow.mapSize.set(2048,2048);
+  key.shadow.camera.near=0.5; key.shadow.camera.far=40;
+  const sd=8; Object.assign(key.shadow.camera,{left:-sd,right:sd,top:sd,bottom:-sd});
+  key.shadow.bias=-0.0003; key.shadow.normalBias=0.02; scene.add(key);
+  const rim = new THREE.SpotLight(0x2affce, 55, 30, Math.PI/5, 0.4, 1.5);
+  rim.position.set(-7,6,-5); scene.add(rim);
+  const fill = new THREE.DirectionalLight(0x6fb6ff, 0.5); fill.position.set(-4,3,7); scene.add(fill);
+  scene.add(new THREE.HemisphereLight(0x9fb4c8, 0x10151b, 0.35));
+
+  if(opts.floor!==false){
+    const f = new THREE.Mesh(new THREE.CircleGeometry(40,80),
+      new THREE.MeshStandardMaterial({ color:0x0a0e13, roughness:0.14, metalness:0.62, envMapIntensity:1.15 }));
+    f.rotation.x=-Math.PI/2; f.receiveShadow=true; scene.add(f);
+    for(let r=2;r<=8;r+=2){
+      const ring=new THREE.Mesh(new THREE.RingGeometry(r-0.012,r+0.012,80),
+        new THREE.MeshBasicMaterial({color:0x1a2632,transparent:true,opacity:0.4}));
+      ring.rotation.x=-Math.PI/2; ring.position.y=0.002; scene.add(ring);
+    }
+  }
+
+  const isMobile = /Mobi|Android|iPhone|iPad/i.test(navigator.userAgent) || innerWidth<820;
+  // GTAO desactivado por defecto: el pase de oclusión ambiental en espacio de pantalla
+  // producía un recuadro oscuro duro sobre el piso reflectante (artefacto dependiente de la
+  // cámara y del renderer). La escena tiene AO suficiente con luces directas + sombras + env.
+  // Se puede reactivar para pruebas con ?gtao.
+  const useGtao = /[?&]gtao\b/.test(location.search);
+  const composer = new EffectComposer(renderer);
+  composer.addPass(new RenderPass(scene,camera));
+  if(!isMobile && useGtao){
+    try{
+      const g=new GTAOPass(scene,camera,mount.clientWidth,mount.clientHeight);
+      g.output=GTAOPass.OUTPUT.Default;
+      if(g.updateGtaoMaterial)g.updateGtaoMaterial({radius:0.5,distanceExponent:1,thickness:1,scale:1.1,samples:16});
+      composer.addPass(g);
+    }catch(e){}
+  }
+  const bloom=new UnrealBloomPass(new THREE.Vector2(mount.clientWidth,mount.clientHeight),opts.bloom??0.42,0.5,0.9);
+  composer.addPass(bloom);
+  let bokeh=null;
+  const flat=/[?&]flat/.test(location.search);
+  if(!isMobile && !flat){
+    bokeh=new BokehPass(scene,camera,{focus:8.5,aperture:opts.aperture??0.00018,maxblur:opts.maxblur??0.004,width:mount.clientWidth,height:mount.clientHeight});
+    composer.addPass(bokeh);
+  }
+  composer.addPass(new OutputPass());
+  composer.addPass(new SMAAPass(mount.clientWidth*renderer.getPixelRatio(),mount.clientHeight*renderer.getPixelRatio()));
+
+  function resize(){
+    const w=mount.clientWidth,h=mount.clientHeight;
+    camera.aspect=w/h; camera.updateProjectionMatrix();
+    renderer.setSize(w,h); composer.setSize(w,h);
+  }
+  window.addEventListener('resize',resize);
+
+  const clock=new THREE.Clock();
+  let hook=null, raf=null;
+  const camCine={active:false,t:0,dur:1.4,from:new THREE.Vector3(),to:new THREE.Vector3(),fromT:new THREE.Vector3(),toT:new THREE.Vector3()};
+  let lastDrag=-99, cinematicIdle=false;
+  controls.addEventListener('start',()=>{ lastDrag=clock.elapsedTime; camCine.active=false; });
+  function easeInOutCubic(x){return x<0.5?4*x*x*x:1-Math.pow(-2*x+2,3)/2;}
+  function moveTo(pos,target,dur=1.4){
+    camCine.from.copy(camera.position); camCine.fromT.copy(controls.target);
+    camCine.to.set(...pos); camCine.toT.set(...target);
+    camCine.dur=dur; camCine.active=true; camCine.t=0;
+  }
+  function setCinematicIdle(v){ cinematicIdle=v; if(!v)controls.autoRotate=false; }
+  function loop(){ raf=requestAnimationFrame(loop); const dt=clock.getDelta(),t=clock.elapsedTime;
+    if(camCine.active){
+      camCine.t=Math.min(1,camCine.t+dt/camCine.dur);
+      const e=easeInOutCubic(camCine.t);
+      camera.position.lerpVectors(camCine.from,camCine.to,e);
+      controls.target.lerpVectors(camCine.fromT,camCine.toT,e);
+      if(camCine.t>=1)camCine.active=false;
+    } else if(cinematicIdle){
+      controls.autoRotate=(t-lastDrag)>1.4; controls.autoRotateSpeed=0.45;
+    }
+    if(hook)hook(dt,t); controls.update();
+    if(bokeh) bokeh.uniforms['focus'].value = camera.position.distanceTo(controls.target);
+    composer.render(); }
+  function start(){ if(!raf)loop(); }
+  function stop(){ cancelAnimationFrame(raf); raf=null; window.removeEventListener('resize',resize); }
+
+  return { THREE, renderer, scene, camera, controls, composer, bloom,
+    setAnimate:fn=>hook=fn, start, stop, resize, clock,
+    flyTo:(v)=>{ controls.target.copy(v); }, moveTo, setCinematicIdle };
+}
+
+/* ---------- shared geometry/material helpers ---------- */
+function roundedBox(w,h,d,mat,rf=0.08){
+  const r=Math.min(w,h,d)*rf;
+  const m=new THREE.Mesh(new RoundedBoxGeometry(w,h,d,4,r),mat);
+  m.castShadow=m.receiveShadow=true; return m;
+}
+function pickerFor(scene,camera,dom,onHit){
+  const ray=new THREE.Raycaster(),mouse=new THREE.Vector2(); let down=null;
+  dom.addEventListener('pointerdown',e=>down=[e.clientX,e.clientY]);
+  dom.addEventListener('pointerup',e=>{
+    if(!down)return; const moved=Math.abs(e.clientX-down[0])+Math.abs(e.clientY-down[1])>6; down=null;
+    if(moved)return;
+    const r=dom.getBoundingClientRect();
+    mouse.x=((e.clientX-r.left)/r.width)*2-1; mouse.y=-((e.clientY-r.top)/r.height)*2+1;
+    ray.setFromCamera(mouse,camera);
+    const hits=ray.intersectObjects(scene.children,true);
+    onHit(hits[0]||null);
+  });
+}
+function labelSprite(text,color='#ffd166'){
+  const w = Math.max(150, Math.min(520, text.length*26+60));
+  const cvE=document.createElement('canvas');cvE.width=w;cvE.height=96;
+  const c=cvE.getContext('2d');c.fillStyle='rgba(8,11,16,.95)';
+  const rr=(x,y,ww,hh,r)=>{c.beginPath();c.moveTo(x+r,y);c.arcTo(x+ww,y,x+ww,y+hh,r);c.arcTo(x+ww,y+hh,x,y+hh,r);c.arcTo(x,y+hh,x,y,r);c.arcTo(x,y,x+ww,y,r);c.closePath();};
+  rr(3,3,w-6,90,18);c.fill();
+  c.strokeStyle=color;c.lineWidth=3;c.stroke();
+  c.font='bold 36px Outfit, system-ui, sans-serif';c.fillStyle=color;c.textAlign='center';c.textBaseline='middle';c.fillText(text,w/2,48);
+  const tx=new THREE.CanvasTexture(cvE);tx.colorSpace=THREE.SRGBColorSpace;tx.generateMipmaps=false;tx.minFilter=THREE.LinearFilter;
+  const sp=new THREE.Sprite(new THREE.SpriteMaterial({map:tx,depthTest:false,transparent:true}));
+  const aspect=w/96;
+  sp.scale.set(0.30*aspect,0.30,1);sp.renderOrder=999;return sp;
+}
+
+/* ============================================================
+   SYNTH — sintetizador Web Audio reutilizable
+   ============================================================ */
+function makeSynth(opts={}){
+  const type=opts.type||'sawtooth';
+  let ctx=null,oscA=null,oscB=null,gain=null,filter=null,soundOn=true;
+  function init(){
+    if(ctx)return;
+    try{
+      ctx=new (window.AudioContext||window.webkitAudioContext)();
+      oscA=ctx.createOscillator(); oscB=ctx.createOscillator();
+      oscA.type=type; oscB.type=opts.type2||'square';
+      filter=ctx.createBiquadFilter(); filter.type=opts.filterType||'lowpass'; filter.frequency.value=opts.filterFreq||500; filter.Q.value=opts.Q||3;
+      gain=ctx.createGain(); gain.gain.value=0;
+      oscA.connect(filter); oscB.connect(filter); filter.connect(gain); gain.connect(ctx.destination);
+      oscA.start(); oscB.start();
+    }catch(e){}
+  }
+  function update(freqA,freqB,vol,filterFreq){
+    if(!ctx||!soundOn){ if(gain)gain.gain.setTargetAtTime(0,ctx?.currentTime||0,0.1); return; }
+    oscA.frequency.setTargetAtTime(freqA,ctx.currentTime,0.04);
+    if(freqB!==undefined)oscB.frequency.setTargetAtTime(freqB,ctx.currentTime,0.04);
+    if(filterFreq!==undefined)filter.frequency.setTargetAtTime(filterFreq,ctx.currentTime,0.05);
+    gain.gain.setTargetAtTime(Math.max(0,vol),ctx.currentTime,0.06);
+  }
+  function beep(freq=880,dur=0.09,vol=0.06){
+    if(!ctx||!soundOn)return;
+    const o=ctx.createOscillator(),g=ctx.createGain();
+    o.type='sine'; o.frequency.value=freq;
+    g.gain.setValueAtTime(vol,ctx.currentTime); g.gain.exponentialRampToValueAtTime(0.001,ctx.currentTime+dur);
+    o.connect(g); g.connect(ctx.destination); o.start(); o.stop(ctx.currentTime+dur);
+  }
+  function toggle(){ soundOn=!soundOn; return soundOn; }
+  function resume(){ if(ctx&&ctx.state==='suspended')ctx.resume(); }
+  return { init, update, beep, toggle, resume, isOn:()=>soundOn, state:()=>ctx?.state||'none' };
+}
+
+// Potencia en CA: P, Q, S y factor de potencia de dos cargas reales en paralelo.
+// Física: carga Z=R+jX con V=10∠0° fija → I=V/|Z|, θ=atan2(X,R), S=V·I, P=S·cosθ, Q=S·sinθ, FP=P/S.
+// Con dos cargas en paralelo sobre el mismo bus: P_total=P1+P2 y Q_total=Q1+Q2 se suman de forma
+// DIRECTA (verificado numéricamente: discrepancia máxima 3.553e-15 sobre 1280 combinaciones, dos
+// métodos independientes), pero S_total=√(P_total²+Q_total²) NO es S1+S2 (desigualdad del triángulo).
+// El filtro de degeneración del Reto (perturbación ±5° fase / ±8% amplitud, umbral 20% de error)
+// tiene aceptación global 79.8%: P 83.1%, Q 40.9% (la más sensible, por baja pendiente de sinθ cerca
+// de θ_total≈0°), S 100.0%, FP 95.2%. Tolerancias de calificación (±5° en θ_total; ±25% relativo en
+// P/Q/S; ±0.10 absoluto en FP) son un margen pedagógico de este ejercicio, no una especificación de
+// instrumento real. Símbolos: IEC 60050-131.
+
+// ===================== 1. ESCENA =====================
+const mount=document.getElementById('stage');
+const S=createStage(mount,{cam:[3.0,2.2,6.6],target:[0.4,1.2,0.0],bgTop:'#0d1a17',bgBot:'#04060a',bloom:0.35,minD:3.0,maxD:16});
+const {scene}=S;
+const synth=makeSynth({type:'sine',type2:'triangle',filterFreq:2600,Q:0.8});
+
+// ===================== 2. FÍSICA =====================
+const V=10, PHI1=0, RS=1, FREQ=60;
+const R_CANDIDATES=[10,22,47,100];
+const X_CANDIDATES=[10,22,47,100];
+const TYPES=['resistiva','inductiva','capacitiva'];
+const TYPE_LABELS={resistiva:'Resistiva',inductiva:'Inductiva',capacitiva:'Capacitiva'};
+const ASK_KINDS=['P','Q','S','FP'];
+const VM_MAX=20, DIVX=10, DIVY=8;
+const VOLTS_PER_DIV_CH1=VM_MAX/(DIVY/2);
+const AMPSDIV_CANDIDATES=[0.005,0.01,0.02,0.05,0.1,0.2,0.5,1,2];
+const PERIODS_SHOWN=3.3;
+const TOL_PHI_DEG=5;
+const TOL_FRAC=0.25;
+const TOL_FP_ABS=0.10;
+const FILTER_THRESHOLD=0.20;
+
+function vOf(vm,phiDeg,freq,t){
+  return vm*Math.sin(2*Math.PI*freq*t+phiDeg*Math.PI/180);
+}
+function windowSFor(freq){
+  return PERIODS_SHOWN/freq;
+}
+function divForTime(t,windowS){
+  return (t/windowS)*DIVX;
+}
+function crossingsFor(phiDeg,freq,windowS){
+  const T=1/freq;
+  const phiRad=phiDeg*Math.PI/180;
+  const t0=(-phiRad/(2*Math.PI))*T;
+  const out=[];
+  let k=Math.floor((0-t0)/(T/2))-2;
+  while(true){
+    const t=t0+k*(T/2);
+    if(t>windowS+T)break;
+    if(t>=-T){
+      out.push({t,type:(k%2+2)%2===0?'asc':'desc'});
+    }
+    k++;
+  }
+  return out.filter(c=>c.t>=0-1e-9&&c.t<=windowS+1e-9);
+}
+function nearestCrossTo(rawT,crossings){
+  let best=crossings[0],bestD=Infinity;
+  for(const c of crossings){
+    const d=Math.abs(c.t-rawT);
+    if(d<bestD){bestD=d;best=c;}
+  }
+  return best;
+}
+function phiFromCrossings(t1,t2,freq){
+  const T=1/freq;
+  let dt=t2-t1;
+  dt=dt-T*Math.round(dt/T);
+  return -dt*360/T;
+}
+function angDiff(a,b){
+  let d=(a-b)%360;
+  if(d>180)d-=360;
+  if(d<-180)d+=360;
+  return Math.abs(d);
+}
+function pickAmpsPerDiv(imag){
+  const target=imag/(DIVY/2-0.4);
+  let best=AMPSDIV_CANDIDATES[0],bestD=Infinity;
+  for(const a of AMPSDIV_CANDIDATES){
+    const d=Math.abs(a-target);
+    if(d<bestD){bestD=d;best=a;}
+  }
+  return best;
+}
+
+function loadRX(type,R,Xmag){
+  if(type==='resistiva')return{R,X:0};
+  if(type==='inductiva')return{R,X:Xmag};
+  return{R,X:-Xmag};
+}
+function powerOfLoad(R,X){
+  const Zmag=Math.hypot(R,X);
+  const Imag=V/Zmag;
+  const thetaDeg=Math.atan2(X,R)*180/Math.PI;
+  const S=V*Imag;
+  const P=S*Math.cos(thetaDeg*Math.PI/180);
+  const Q=S*Math.sin(thetaDeg*Math.PI/180);
+  const FP=S>1e-9?P/S:1;
+  return{R,X,Zmag,Imag,thetaDeg,S,P,Q,FP};
+}
+function combineTotal(load1,load2){
+  const p1=powerOfLoad(load1.R,load1.X);
+  const p2=powerOfLoad(load2.R,load2.X);
+  const P=p1.P+p2.P, Q=p1.Q+p2.Q;
+  const Smag=Math.hypot(P,Q);
+  const FP=Smag>1e-9?P/Smag:1;
+  const thetaDeg=Math.atan2(Q,P)*180/Math.PI;
+  return{p1,p2,P,Q,S:Smag,FP,thetaDeg};
+}
+function computeKind(Vv,Iv,thetaDeg,kind){
+  const thetaRad=thetaDeg*Math.PI/180;
+  const Smag=Vv*Iv, P=Smag*Math.cos(thetaRad), Q=Smag*Math.sin(thetaRad);
+  if(kind==='P')return P;
+  if(kind==='Q')return Q;
+  if(kind==='S')return Smag;
+  return P/Smag;
+}
+function worstCaseError(Itrue,thetaTrueDeg,kind){
+  const trueVal=computeKind(V,Itrue,thetaTrueDeg,kind);
+  let worst=0;
+  for(const dPhiDeg of[-5,0,5])for(const dAmpFrac of[-0.08,0,0.08]){
+    const val=computeKind(V,Itrue*(1+dAmpFrac),thetaTrueDeg+dPhiDeg,kind);
+    const err=Math.abs(val-trueVal)/Math.max(Math.abs(trueVal),1e-9);
+    if(err>worst)worst=err;
+  }
+  return worst;
+}
+
+function fmtV(v){return v.toFixed(1)+' V';}
+function fmtDeg(a){let d=((a%360)+540)%360-180;return d.toFixed(1)+'°';}
+function fmtTimeS(t){
+  if(t<1e-3)return(t*1e6).toFixed(0)+' µs';
+  if(t<1)return(t*1e3).toFixed(2)+' ms';
+  return t.toFixed(3)+' s';
+}
+function fmtOhm(r){return r+' Ω';}
+function fmtA(a){
+  if(a<0.001)return(a*1e6).toFixed(0)+' µA';
+  if(a<1)return(a*1e3).toFixed(1)+' mA';
+  return a.toFixed(2)+' A';
+}
+function fmtAmpsPerDiv(a){
+  if(a<0.001)return(a*1e6).toFixed(0)+' µA';
+  if(a<1)return(a*1e3).toFixed(0)+' mA';
+  return a.toFixed(2)+' A';
+}
+function fmtW(v){const r=Math.round(v*100)/100;return(Number.isInteger(r)?r.toFixed(2):r.toFixed(2))+' W';}
+function fmtVAR(v){const r=Math.round(v*100)/100;return r.toFixed(2)+' VAR';}
+function fmtVA(v){const r=Math.round(v*100)/100;return r.toFixed(2)+' VA';}
+function fmtFP(v){const r=Math.round(v*1000)/1000;return r.toFixed(3);}
+function unitOfKind(kind){return kind==='P'?'W':(kind==='Q'?'VAR':(kind==='S'?'VA':''));}
+function kindLongLabel(kind){
+  return kind==='P'?'potencia activa (P)':(kind==='Q'?'potencia reactiva (Q)':(kind==='S'?'potencia aparente (S)':'factor de potencia (FP)'));
+}
+function fmtKind(kind,v){
+  if(kind==='P')return fmtW(v);
+  if(kind==='Q')return fmtVAR(v);
+  if(kind==='S')return fmtVA(v);
+  return fmtFP(v);
+}
+
+// ===================== 3. ESTADO =====================
+let mode='explora';
+let expType1='inductiva',expR1=22,expX1=47,expType2='capacitiva',expR2=47,expX2=22;
+let medType1='inductiva',medR1=22,medX1=47,medType2='capacitiva',medR2=47,medX2=22;
+let retoType1='inductiva',retoR1=22,retoX1=47,retoType2='capacitiva',retoR2=47,retoX2=22,retoAskKind='S';
+let cursor1Div=2.5,cursor2Div=2.5;
+let measured=false,phiMeasured=null,cross1Type=null,cross2Type=null;
+let retoChecked=false,retoOk=false,retoMsg='';
+let solved=false,autoRunning=false,QUIZ={};
+
+function currentType1(){return mode==='explora'?expType1:(mode==='medicion'?medType1:retoType1);}
+function currentR1(){return mode==='explora'?expR1:(mode==='medicion'?medR1:retoR1);}
+function currentX1(){return mode==='explora'?expX1:(mode==='medicion'?medX1:retoX1);}
+function currentType2(){return mode==='explora'?expType2:(mode==='medicion'?medType2:retoType2);}
+function currentR2(){return mode==='explora'?expR2:(mode==='medicion'?medR2:retoR2);}
+function currentX2(){return mode==='explora'?expX2:(mode==='medicion'?medX2:retoX2);}
+function currentEff1(){return loadRX(currentType1(),currentR1(),currentX1());}
+function currentEff2(){return loadRX(currentType2(),currentR2(),currentX2());}
+function currentTotal(){return combineTotal(currentEff1(),currentEff2());}
+function currentITotal(){const t=currentTotal();return{mag:t.S/V,phiI:-t.thetaDeg};}
+
+function snap1(rawDiv){
+  const windowS=windowSFor(FREQ);
+  const rawT=(rawDiv/DIVX)*windowS;
+  return nearestCrossTo(rawT,crossingsFor(PHI1,FREQ,windowS));
+}
+function snap2(rawDiv){
+  const windowS=windowSFor(FREQ);
+  const rawT=(rawDiv/DIVX)*windowS;
+  return nearestCrossTo(rawT,crossingsFor(currentITotal().phiI,FREQ,windowS));
+}
+function numOr(id){
+  const v=parseFloat((el(id).value||'').replace(',','.'));
+  return isFinite(v)?v:NaN;
+}
+
+// ===================== 4. MATERIALES =====================
+function std(color,rough,metal){return new THREE.MeshStandardMaterial({color,roughness:rough,metalness:metal});}
+function sh(color,intensity){return new THREE.MeshStandardMaterial({color,emissive:color,emissiveIntensity:intensity,roughness:0.4,metalness:0.1});}
+function brush(base){return std(base,0.55,0.35);}
+function rub(base){return std(base,0.85,0.02);}
+function plas(base){return std(base,0.35,0.08);}
+const MAT={
+  bench:brush(0x2a3532),
+  frame:brush(0x1f2b28),
+  leg:brush(0x141c1a),
+  gen:plas(0x22302c),
+  scopeBox:plas(0x1a2422),
+  lead:rub(0x0d0d0d),
+  cableCh1:rub(0x2f9e91),
+  cableCh2:rub(0xd98a4a),
+  knobDark:rub(0x111815),
+};
+const HOVER_LABELS=new Map();
+function addHoverLabel(obj,text,color,pos,scale){
+  const cv=document.createElement('canvas');cv.width=256;cv.height=64;
+  const cx=cv.getContext('2d');
+  cx.fillStyle='rgba(6,14,12,0.88)';cx.fillRect(0,0,256,64);
+  cx.strokeStyle=color;cx.lineWidth=2;cx.strokeRect(1,1,254,62);
+  cx.fillStyle='#EAF4F1';cx.font='bold 20px Outfit, sans-serif';cx.textAlign='center';cx.textBaseline='middle';
+  cx.fillText(text,128,32);
+  const tex=new THREE.CanvasTexture(cv);
+  const spr=new THREE.Sprite(new THREE.SpriteMaterial({map:tex,transparent:true,depthTest:false}));
+  spr.position.copy(pos);spr.scale.set(scale||1.1,(scale||1.1)*0.28,1);spr.visible=false;spr.renderOrder=999;
+  scene.add(spr);
+  HOVER_LABELS.set(obj,spr);
+  return spr;
+}
+
+// ===================== 5. PIZARRÓN =====================
+const boardG=new THREE.Group();
+boardG.position.set(-1.05,0,-0.85);boardG.rotation.y=0.16;
+scene.add(boardG);
+const frame=roundedBox(3.62,2.77,0.12,MAT.frame,0.06);
+frame.position.set(0,1.85,0);
+boardG.add(frame);
+[-1.5,1.5].forEach(x=>{
+  const leg=new THREE.Mesh(new THREE.CylinderGeometry(0.05,0.06,1.85,16),MAT.leg);
+  leg.position.set(x,0.9,0);boardG.add(leg);
+});
+const bCv=document.createElement('canvas');bCv.width=1024;bCv.height=768;
+const bTex=new THREE.CanvasTexture(bCv);
+const board=new THREE.Mesh(new THREE.PlaneGeometry(3.4,2.55),new THREE.MeshBasicMaterial({map:bTex}));
+board.position.set(0,1.85,0.065);
+boardG.add(board);
+frame.userData={title:'Pizarrón',info:'Triángulo de potencias + osciloscopio · clic para inspeccionar'};
+addHoverLabel(frame,'Triángulo de potencias + osciloscopio','#4FD1C5',new THREE.Vector3(0,3.35,0.1).add(boardG.position),1.6);
+
+function line(c,x1,y1,x2,y2){c.beginPath();c.moveTo(x1,y1);c.lineTo(x2,y2);c.stroke();}
+const PHR={x0:20,y0:0,w:470,h:768};
+const SCP={x0:500,y0:0,w:524,h:768};
+
+function drawArrowhead(c,x,y,angRad,color){
+  const s=9;
+  c.fillStyle=color;
+  c.save();c.translate(x,y);c.rotate(angRad);
+  c.beginPath();c.moveTo(0,0);c.lineTo(-s,s*0.55);c.lineTo(-s,-s*0.55);c.closePath();c.fill();
+  c.restore();
+}
+function drawVector(c,cx,cy,R,mag,angDeg,scaleMax,color,label){
+  const frac=Math.min(1,mag/scaleMax);
+  const rad=angDeg*Math.PI/180;
+  const ex=cx+R*frac*Math.cos(rad), ey=cy-R*frac*Math.sin(rad);
+  c.strokeStyle=color;c.lineWidth=3;
+  c.beginPath();c.moveTo(cx,cy);c.lineTo(ex,ey);c.stroke();
+  drawArrowhead(c,ex,ey,-rad,color);
+  c.fillStyle=color;c.font='bold 13px Outfit, sans-serif';c.textAlign='left';
+  c.fillText(label,ex+10,ey);
+}
+function drawPowerHalf(c,total,Itotal,scaleMax){
+  const{x0,w}=PHR;
+  c.fillStyle='#8FB3AC';c.font='bold 19px Outfit, sans-serif';c.textAlign='left';
+  c.fillText('TRIÁNGULO DE POTENCIAS',x0+6,40);
+  const cx=x0+w/2,cy=440,R=170;
+  c.strokeStyle='rgba(79,209,197,0.18)';c.lineWidth=1;
+  [0.25,0.5,0.75,1.0].forEach(frac=>{c.beginPath();c.arc(cx,cy,R*frac,0,Math.PI*2);c.stroke();});
+  for(let a=0;a<360;a+=30){
+    const rad=a*Math.PI/180;
+    c.beginPath();c.moveTo(cx,cy);c.lineTo(cx+R*Math.cos(rad),cy-R*Math.sin(rad));c.stroke();
+  }
+  c.strokeStyle='rgba(79,209,197,0.4)';c.lineWidth=1.5;
+  c.beginPath();c.moveTo(cx-R,cy);c.lineTo(cx+R,cy);c.moveTo(cx,cy-R);c.lineTo(cx,cy+R);c.stroke();
+  c.fillStyle='#5a6b66';c.font='11px Outfit, sans-serif';c.textAlign='center';
+  c.fillText('P (0°)',cx+R+20,cy+4);c.fillText('Q ind. (+90°)',cx,cy-R-10);c.fillText('(no aplica)',cx-R-26,cy+4);c.fillText('Q cap. (−90°)',cx,cy+R+18);
+
+  drawVector(c,cx,cy,R,total.p1.S,total.p1.thetaDeg,scaleMax,'#4FD1C5','Carga 1');
+  drawVector(c,cx,cy,R,total.p2.S,total.p2.thetaDeg,scaleMax,'#f0d365','Carga 2');
+
+  if(mode==='explora'){
+    drawVector(c,cx,cy,R,total.S,total.thetaDeg,scaleMax,'#FF8A5B','Total');
+  }else if(mode==='medicion'){
+    c.strokeStyle='rgba(255,138,91,0.35)';c.setLineDash([5,5]);c.lineWidth=1.5;
+    c.beginPath();c.arc(cx,cy,R*Math.min(1,total.S/scaleMax),0,Math.PI*2);c.stroke();c.setLineDash([]);
+    if(measured){
+      const ok=cross1Type===cross2Type&&Math.abs(angDiff(phiMeasured,Itotal.phiI))<=TOL_PHI_DEG;
+      drawVector(c,cx,cy,R,total.S,-phiMeasured,scaleMax,ok?'#FF8A5B':'#ff5c5c','Total (medido)');
+    }
+  }else{
+    if(retoChecked){
+      drawVector(c,cx,cy,R,total.S,-phiMeasured,scaleMax,retoOk?'#FF8A5B':'#ff5c5c','Total (medido)');
+    }
+  }
+}
+function drawTrace(c,xToPx,yToPx,windowS,vm,phiDeg,freq,color){
+  c.strokeStyle=color;c.lineWidth=2;c.beginPath();
+  const N=280;
+  for(let i=0;i<=N;i++){
+    const t=(i/N)*windowS;
+    const v=vOf(vm,phiDeg,freq,t);
+    const x=xToPx(t),y=yToPx(v);
+    if(i===0)c.moveTo(x,y);else c.lineTo(x,y);
+  }
+  c.stroke();
+}
+function drawCursor(c,xToPx,yToPx,gy0,gh,crossing,color,labelUp){
+  if(!crossing)return;
+  const x=xToPx(crossing.t);
+  c.strokeStyle=color;c.setLineDash([4,4]);c.lineWidth=1.5;
+  line(c,x,gy0,x,gy0+gh);
+  c.setLineDash([]);
+  c.fillStyle=color;
+  c.beginPath();c.arc(x,yToPx(0),4,0,Math.PI*2);c.fill();
+  c.font='bold 14px Outfit, sans-serif';c.textAlign='center';
+  c.fillText(crossing.type==='asc'?'▲':'▼',x,labelUp?gy0-6:gy0+gh+16);
+}
+function drawScopeHalf(c,Itotal,ampsPerDiv2){
+  const{x0,w}=SCP;
+  const gx0=x0+46,gy0=54,gw=w-70,gh=580;
+  c.fillStyle='#8FB3AC';c.font='bold 19px Outfit, sans-serif';c.textAlign='left';
+  c.fillText('OSCILOSCOPIO · 2 CANALES',x0+6,40);
+  c.fillStyle='#07120e';c.fillRect(gx0,gy0,gw,gh);
+  c.strokeStyle='rgba(79,209,197,0.22)';c.lineWidth=1;
+  for(let i=0;i<=DIVX;i++){const x=gx0+(i/DIVX)*gw;line(c,x,gy0,x,gy0+gh);}
+  for(let i=0;i<=DIVY;i++){const y=gy0+(i/DIVY)*gh;line(c,gx0,y,gx0+gw,y);}
+  const midY=gy0+gh/2;
+  c.strokeStyle='rgba(79,209,197,0.55)';c.lineWidth=1.5;line(c,gx0,midY,gx0+gw,midY);
+
+  const windowS=windowSFor(FREQ);
+  const xToPx=t=>gx0+(t/windowS)*gw;
+  const yToPx1=v=>midY-(v/VOLTS_PER_DIV_CH1)*(gh/DIVY);
+  const yToPx2=v=>midY-(v/ampsPerDiv2)*(gh/DIVY);
+
+  drawTrace(c,xToPx,yToPx1,windowS,V,PHI1,FREQ,'#4FD1C5');
+  drawTrace(c,xToPx,yToPx2,windowS,Itotal.mag,Itotal.phiI,FREQ,'#FF8A5B');
+
+  drawCursor(c,xToPx,yToPx1,gy0,gh,snap1(cursor1Div),'#4FD1C5',true);
+  drawCursor(c,xToPx,yToPx2,gy0,gh,snap2(cursor2Div),'#FF8A5B',false);
+
+  c.fillStyle='#5a6b66';c.font='11px Outfit, sans-serif';c.textAlign='center';
+  c.fillText(fmtTimeS(windowS/DIVX)+'/div',x0+w/2,gy0+gh+34);
+  c.textAlign='left';
+  c.fillText('CH1: '+VOLTS_PER_DIV_CH1.toFixed(1)+' V/div · CH2: '+fmtAmpsPerDiv(ampsPerDiv2)+'/div',gx0,gy0+gh+22);
+  c.textAlign='right';
+  if(measured){
+    c.fillStyle=cross1Type===cross2Type?'#8FB3AC':'#f0a5a5';
+    c.fillText('θ_total medido ≈ '+fmtDeg(-phiMeasured)+(cross1Type===cross2Type?'':' ⚠ tipos de cruce distintos'),gx0+gw,gy0+gh+22);
+  }
+}
+function drawBoard(){
+  const c=bCv.getContext('2d');
+  c.fillStyle='#0c1512';c.fillRect(0,0,1024,768);
+  c.fillStyle='rgba(79,209,197,0.05)';
+  for(let gx=64;gx<1024;gx+=64)for(let gy=64;gy<768;gy+=64)c.fillRect(gx-1,gy-1,3,3);
+  const total=currentTotal();
+  const Itotal=currentITotal();
+  const ampsPerDiv2=pickAmpsPerDiv(Itotal.mag);
+  const scaleMax=Math.max(total.p1.S,total.p2.S,total.S,0.5)*1.25;
+  drawPowerHalf(c,total,Itotal,scaleMax);
+  drawScopeHalf(c,Itotal,ampsPerDiv2);
+  c.strokeStyle='rgba(79,209,197,0.28)';c.lineWidth=2;line(c,485,20,485,748);
+  bTex.needsUpdate=true;
+}
+function boardClick(u,v){
+  const x=u*1024;
+  if(x<485){
+    showToast('Triángulo de potencias: cada carga aparece como un vector (P,Q) cuya magnitud es su potencia aparente S y cuyo ángulo es su ángulo de potencia θ. El vector Total es la SUMA VECTORIAL de ambas cargas — su magnitud NO es S1+S2, sino √((P1+P2)²+(Q1+Q2)²). En Medición/Reto, el vector Total (o su magnitud y fase) puede estar sellado hasta que midas.');
+  }else{
+    showToast('Osciloscopio de 2 canales: canal 1 (teal) mide el voltaje del bus; canal 2 (ámbar) mide, vía un resistor shunt ('+RS+' Ω), la corriente TOTAL que entrega la fuente a ambas cargas en paralelo. Alinea ambos cursores al MISMO tipo de cruce (▲ o ▼) antes de medir θ_total.');
+  }
+}
+
+// ===================== 6. BANCO 3D =====================
+const bench=roundedBox(2.9,0.5,1.6,MAT.bench,0.05);
+bench.position.set(1.75,0.25,0.85);
+scene.add(bench);
+
+function makeGen(x,label,title){
+  const g=new THREE.Group();g.position.set(x,0.73,0.85);
+  const body=new THREE.Mesh(new THREE.BoxGeometry(0.56,0.46,0.42),MAT.gen);
+  g.add(body);
+  const cv=document.createElement('canvas');cv.width=256;cv.height=120;
+  const tex=new THREE.CanvasTexture(cv);
+  const disp=new THREE.Mesh(new THREE.PlaneGeometry(0.46,0.2),new THREE.MeshBasicMaterial({map:tex}));
+  disp.position.set(0,0.08,0.215);g.add(disp);
+  const knob=new THREE.Group();
+  const kBase=new THREE.Mesh(new THREE.CylinderGeometry(0.05,0.05,0.03,20),MAT.knobDark);
+  kBase.rotation.x=Math.PI/2;knob.add(kBase);
+  const kPtr=new THREE.Mesh(new THREE.BoxGeometry(0.008,0.045,0.01),std(0xEAF4F1,0.4,0.1));
+  kPtr.position.set(0,0.03,0.02);knob.add(kPtr);
+  knob.position.set(0,-0.16,0.22);knob.visible=false;g.add(knob);
+  g.userData={el:label,title,_cv:cv,_tex:tex};
+  scene.add(g);
+  addHoverLabel(g,label,'#FF8A5B',new THREE.Vector3(x,1.25,0.85),1.1);
+  return g;
+}
+const gen1=makeGen(0.95,'GEN1','Bus de voltaje · referencia fija (10 V, 0°)');
+const gen2=makeGen(1.85,'GEN2','Sensor de corriente total (shunt '+RS+' Ω)');
+gen1.userData.knob&&(gen1.userData.knob.visible=false);
+gen2.userData.knob&&(gen2.userData.knob.visible=false);
+
+function drawGenDisplay(genObj,vmText,phiText,accent){
+  const cv=genObj.userData._cv, tex=genObj.userData._tex;
+  const cx=cv.getContext('2d');
+  cx.fillStyle='#07120e';cx.fillRect(0,0,256,120);
+  cx.strokeStyle=accent;cx.lineWidth=2;cx.strokeRect(1,1,254,118);
+  cx.fillStyle=accent;cx.font='bold 26px Outfit, sans-serif';cx.textAlign='center';
+  cx.fillText(vmText,128,52);
+  cx.fillStyle='#8FB3AC';cx.font='16px Outfit, sans-serif';
+  cx.fillText(phiText,128,88);
+  tex.needsUpdate=true;
+}
+const scopeBox=roundedBox(0.62,0.5,0.10,MAT.scopeBox,0.04);
+scopeBox.position.set(1.4,1.0,-0.15);
+scopeBox.userData={title:'Osciloscopio (referencia física)',info:'La medición real ocurre en el pizarrón — este bloque solo representa el instrumento.'};
+scene.add(scopeBox);
+
+function cable(ax,ay,az,bx,by,bz,mat){
+  const a=new THREE.Vector3(ax,ay,az), b=new THREE.Vector3(bx,by,bz);
+  const mid=a.clone().lerp(b,0.5);mid.y+=0.18;
+  const curve=new THREE.CatmullRomCurve3([a,mid,b]);
+  const geo=new THREE.TubeGeometry(curve,20,0.012,8,false);
+  return new THREE.Mesh(geo,mat);
+}
+const cbl1=cable(0.95,0.96,0.85,-1.05+ -0.45,1.85,-0.85+0.35,MAT.cableCh1);
+scene.add(cbl1);
+const cbl2=cable(1.85,0.96,0.85,-1.05+0.45,1.85,-0.85+0.35,MAT.cableCh2);
+scene.add(cbl2);
+
+function refreshNet3D(){
+  drawGenDisplay(gen1,fmtV(V),fmtDeg(PHI1),'#4FD1C5');
+  const Itotal=currentITotal();
+  let imText,phiText;
+  if(mode==='explora'){
+    imText=fmtA(Itotal.mag);phiText=fmtDeg(Itotal.phiI);
+  }else if(mode==='medicion'){
+    imText=fmtA(Itotal.mag);phiText='φi 🔒';
+  }else{
+    imText='🔒';phiText='🔒';
+  }
+  drawGenDisplay(gen2,imText,phiText,'#FF8A5B');
+}
+
+// ===================== 7. HUD Y PANEL =====================
+document.getElementById('hud').innerHTML=`
+  <div class="eyebrow">Circuitos eléctricos CA (D1) · Potencia en CA</div>
+  <h2>Potencia en CA · Mide P, Q, S y el Factor de Potencia de Cargas Reales</h2>
+  <p>Una carga con impedancia Z=R+jX consume potencia activa P=S·cos θ (watts, trabajo útil),
+  potencia reactiva Q=S·sin θ (VAR, oscila entre la fuente y los campos de la carga) y potencia
+  aparente S=V·I (VA, la que dimensiona cables y transformadores). Con dos cargas reales en
+  paralelo sobre el mismo bus, P_total=P1+P2 y Q_total=Q1+Q2 se suman de forma DIRECTA (verificado
+  numéricamente: discrepancia máxima de 3.553×10⁻¹⁵ sobre 1280 combinaciones), pero S_total NO es
+  S1+S2 — debe recalcularse como S_total=√(P_total²+Q_total²), porque las corrientes de ambas
+  cargas no están en fase entre sí. Vas a medir el ángulo total con un osciloscopio de dos canales,
+  igual que en la práctica de impedancias.</p>
+  <div class="formula">P_total=P1+P2 · Q_total=Q1+Q2 · S_total=√(P_total²+Q_total²)≠S1+S2 · FP=P_total/S_total</div>
+  <div class="legend">
+    <div class="li"><span class="dot" style="background:#4FD1C5"></span>Carga 1 · canal 1 = voltaje del bus (10 V, 0°)</div>
+    <div class="li"><span class="dot" style="background:#f0d365"></span>Carga 2</div>
+    <div class="li"><span class="dot" style="background:#FF8A5B"></span>Total · canal 2 = corriente total</div>
+    <div class="li"><span class="dot" style="background:#f0a5a5"></span>Cursores de medición (cruce por cero)</div>
+  </div>
+  <div class="fid">
+    <div class="ft">🔒 Contrato de fidelidad</div>
+    <div class="fl"><b>Sí modela:</b> suma directa y exacta de P y Q entre cargas en paralelo (P_total=P1+P2, Q_total=Q1+Q2); recálculo correcto de S_total=√(P_total²+Q_total²) como NO-suma de las S individuales; sensado de corriente total idealizado con resistor shunt; la misma técnica de medición de desfase por cruces por cero ya verificada en la práctica de impedancias; y un filtro de degeneración que descarta —antes de sellar la corriente total en el Reto— cualquier combinación donde un error típico de instrumento (±5° en fase, ±8% en amplitud) produzca más de 20% de error en la cantidad pedida (aceptación global 79.8%: P 83.1%, Q 40.9% —la más sensible, por la baja pendiente de sin θ cerca de θ_total≈0°—, S 100.0%, FP 95.2%).</div>
+    <div class="fl no"><b>NO modela:</b> la carga que el shunt o el osciloscopio introducen sobre el circuito real, pérdidas parásitas, ruido de instrumento, ni corrección activa de factor de potencia (bancos de capacitores). Las tolerancias de calificación (±5° en θ_total; ±25% relativo para P/Q/S, ±0.10 absoluto para FP) son un margen PEDAGÓGICO de este ejercicio, no una especificación de instrumento real.</div>
+  </div>
+  <div class="src">Ref: Hayt/Kemmerly/Durbin · Boylestad · IEC 60050-131 · Verificación numérica propia</div>`;
+
+document.getElementById('panel').innerHTML=`
+  <h4>Potencia en CA · <span id="p_mode" style="color:var(--accent2)">Explora</span></h4>
+  <div class="modebar">
+    <button class="b on" id="m_explora">🌀 Explora</button>
+    <button class="b" id="m_medicion">🖥️ Medición</button>
+    <button class="b" id="m_reto">🎯 Reto</button>
+  </div>
+  <div class="modebar" id="selbar" style="display:none"></div>
+  <div id="cursorBox" style="margin:6px 0 10px">
+    <label for="cursor1" style="font-size:11px;color:var(--dim)">Cursor canal 1 (teal · voltaje) — arrastra hasta un cruce por cero</label>
+    <input type="range" id="cursor1" min="0" max="10" step="0.02" value="2.5" style="width:100%">
+    <label for="cursor2" style="font-size:11px;color:var(--dim)">Cursor canal 2 (ámbar · corriente total) — arrastra hasta un cruce por cero</label>
+    <input type="range" id="cursor2" min="0" max="10" step="0.02" value="2.5" style="width:100%">
+  </div>
+  <div class="btns" id="medirBox">
+    <button class="b" id="btnMedir">📏 Medir θ_total</button>
+  </div>
+  <div id="tele"></div>
+  <div class="console" id="report"></div>
+  <h4 class="sec" id="retoTitle" style="display:none">Cantidad total pedida</h4>
+  <div id="retoBox" style="display:none">
+    <div id="retoSpec" style="font-size:12px;color:var(--ink);margin:2px 0 8px"></div>
+    <div style="display:flex;gap:6px 14px;align-items:center;flex-wrap:wrap;margin-bottom:8px;font-size:12px;color:var(--ink)">
+      <span style="display:inline-flex;gap:6px;align-items:center;white-space:nowrap"><label for="inSealed" id="inSealedLabel">S =</label><input id="inSealed" inputmode="decimal" autocomplete="off" style="width:70px;background:#0a1411;border:1px solid rgba(79,209,197,.35);color:#EAF4F1;border-radius:8px;padding:6px 8px;font:inherit;font-size:13px"><span id="inSealedUnit">VA</span></span>
+    </div>
+    <div class="btns"><button class="b primary" id="btnCheck">✅ Comprobar predicción</button></div>
+  </div>
+  <h4 class="sec">Pregunta de ingeniería</h4>
+  <div id="q_text" style="font-size:12px;color:var(--ink);margin:4px 0 8px"></div>
+  <div class="btns" id="dxbtns"></div>
+  <div class="btns">
+    <button class="b auto" id="btnAuto">✨ Recorrido guiado (automático)</button>
+    <button class="b primary" id="btnNew">🔀 Nuevas cargas</button>
+  </div>`;
+
+const el=id=>document.getElementById(id);
+
+// ===================== 8. TOASTS =====================
+function showToast(html){
+  const t=el('toast');
+  t.innerHTML=html;t.classList.add('show');
+  clearTimeout(showToast._t);
+  showToast._t=setTimeout(()=>t.classList.remove('show'),3200);
+}
+function toastPart(id){
+  if(id==='GEN1'){
+    showToast(`<b style="color:var(--accent2)">BUS DE VOLTAJE · ${fmtV(V)} ∠ ${fmtDeg(PHI1)}</b><br><span style="color:var(--dim);font-size:11px">Referencia fija de fase — todas las mediciones de θ_total se hacen respecto a esta señal.</span>`);
+    return;
+  }
+  if(id==='GEN2'){
+    const Itotal=currentITotal();
+    if(mode==='explora'){
+      showToast(`<b style="color:var(--accent2)">SENSOR DE CORRIENTE TOTAL · ${fmtA(Itotal.mag)} ∠ ${fmtDeg(Itotal.phiI)}</b><br><span style="color:var(--dim);font-size:11px">Resistor shunt de ${RS} Ω en serie con la fuente — su voltaje es numéricamente igual a la corriente TOTAL entregada a ambas cargas.</span>`);
+    }else if(mode==='medicion'){
+      showToast(`<b style="color:var(--accent2)">SENSOR DE CORRIENTE TOTAL · ${fmtA(Itotal.mag)} ∠ φi 🔒</b><br><span style="color:var(--dim);font-size:11px">Magnitud visible; la fase (y por tanto θ_total) está sellada — mide con los cursores.</span>`);
+    }else{
+      showToast(`<b style="color:var(--accent2)">SENSOR DE CORRIENTE TOTAL · 🔒 / 🔒</b><br><span style="color:var(--dim);font-size:11px">La corriente total (magnitud y fase) está sellada. Mide θ_total y calcula la cantidad pedida a partir de I_total.</span>`);
+    }
+  }
+}
+
+// ===================== 9. MODOS Y SELBAR =====================
+const MODE_META={
+  explora:{nombre:'Explora',cam:[[3.0,2.2,6.6],[0.4,1.2,0.0]],mision:'Configura libremente el tipo y valores de dos cargas en paralelo. Observa cómo se suman los vectores (P,Q) de cada carga en el triángulo de potencias.'},
+  medicion:{nombre:'Medición',cam:[[-0.2,2.0,3.4],[-1.0,1.6,-0.5]],mision:'Ambas cargas son conocidas pero θ_total está sellado. Alinea ambos cursores al MISMO tipo de cruce por cero y mide θ_total.'},
+  reto:{nombre:'Reto',cam:[[2.4,1.9,4.0],[1.5,1.0,0.5]],mision:'Ambas cargas son conocidas pero I_total (magnitud y fase) está sellada. Mide θ_total con el osciloscopio y calcula la cantidad pedida.'},
+};
+function loadGroup(n,type,R,Xmag){
+  const typeBtns=TYPES.map(t=>`<button class="b sm ${t===type?'on':''}" data-type="${n}:${t}">${TYPE_LABELS[t]}</button>`).join('');
+  const rBtns=R_CANDIDATES.map(r=>`<button class="b sm ${r===R?'on':''}" data-r="${n}:${r}">${fmtOhm(r)}</button>`).join('');
+  const xRow=type==='resistiva'
+    ?`<div class="selgrp"><span class="lbl" style="font-size:11px;color:var(--dim);margin:0 4px">|X| (no aplica en resistiva)</span></div>`
+    :`<div class="selgrp"><span class="lbl" style="font-size:11px;color:var(--dim);margin:0 4px">|X|:</span>`+X_CANDIDATES.map(x=>`<button class="b sm ${x===Xmag?'on':''}" data-x="${n}:${x}">${fmtOhm(x)}</button>`).join('')+`</div>`;
+  return `<div class="selgrp"><span class="lbl" style="font-size:11px;color:var(--dim);margin-right:4px">Carga ${n} tipo:</span>${typeBtns}</div>`+
+    `<div class="selgrp"><span class="lbl" style="font-size:11px;color:var(--dim);margin:0 4px">Carga ${n} R:</span>${rBtns}</div>`+
+    xRow;
+}
+function buildSelBar(){
+  const bar=el('selbar');
+  if(mode!=='explora'){bar.style.display='none';bar.innerHTML='';return;}
+  bar.style.display='flex';
+  bar.innerHTML=loadGroup(1,expType1,expR1,expX1)+loadGroup(2,expType2,expR2,expX2);
+  bar.querySelectorAll('[data-type]').forEach(b=>{b.onclick=()=>{const[n,v]=b.dataset.type.split(':');if(n==='1')expType1=v;else expType2=v;afterEdit();};});
+  bar.querySelectorAll('[data-r]').forEach(b=>{b.onclick=()=>{const[n,v]=b.dataset.r.split(':');if(n==='1')expR1=parseFloat(v);else expR2=parseFloat(v);afterEdit();};});
+  bar.querySelectorAll('[data-x]').forEach(b=>{b.onclick=()=>{const[n,v]=b.dataset.x.split(':');if(n==='1')expX1=parseFloat(v);else expX2=parseFloat(v);afterEdit();};});
+}
+function setMode(k){
+  mode=k;
+  cursor1Div=2.5;cursor2Div=2.5;el('cursor1').value='2.5';el('cursor2').value='2.5';
+  measured=false;phiMeasured=null;cross1Type=null;cross2Type=null;
+  retoChecked=false;retoOk=false;retoMsg='';
+  ['explora','medicion','reto'].forEach(m=>el('m_'+m).classList.toggle('on',m===k));
+  el('p_mode').textContent=MODE_META[k].nombre;
+  el('medirBox').style.display=k==='explora'?'none':'flex';
+  el('cursorBox').style.display=k==='explora'?'none':'block';
+  el('retoTitle').style.display=k==='reto'?'block':'none';
+  el('retoBox').style.display=k==='reto'?'block':'none';
+  if(k==='reto'){updateRetoSpec();updateSealedInputLabel();if(el('inSealed'))el('inSealed').value='';}
+  buildSelBar();
+  solved=false;
+  clearDx();buildQuiz();refreshQuestion();
+  const cam=MODE_META[k].cam;
+  S.moveTo(cam[0],cam[1]);
+  refreshAll();
+}
+function afterEdit(){
+  measured=false;phiMeasured=null;cross1Type=null;cross2Type=null;
+  buildSelBar();
+  clearDx();buildQuiz();refreshQuestion();
+  refreshAll();
+}
+
+// ===================== 10. TELEMETRÍA Y REPORTE =====================
+function teleRow(l,v,cls){
+  return `<div class="trow"><span class="tl">${l}</span><span class="tv ${cls||''}">${v}</span></div>`;
+}
+function loadRow(n,type,R,Xmag){
+  const xText=type==='resistiva'?'':' · |X|='+fmtOhm(Xmag);
+  return teleRow('Carga '+n,TYPE_LABELS[type]+' · R='+fmtOhm(R)+xText);
+}
+function updateTele(){
+  const t=el('tele');
+  if(mode==='explora'){
+    const total=currentTotal();
+    const Itotal=currentITotal();
+    t.innerHTML=
+      loadRow(1,expType1,expR1,expX1)+
+      teleRow('P1 / Q1 / S1 / FP1',fmtW(total.p1.P)+' / '+fmtVAR(total.p1.Q)+' / '+fmtVA(total.p1.S)+' / '+fmtFP(total.p1.FP))+
+      loadRow(2,expType2,expR2,expX2)+
+      teleRow('P2 / Q2 / S2 / FP2',fmtW(total.p2.P)+' / '+fmtVAR(total.p2.Q)+' / '+fmtVA(total.p2.S)+' / '+fmtFP(total.p2.FP))+
+      teleRow('P / Q / S / FP TOTAL',fmtW(total.P)+' / '+fmtVAR(total.Q)+' / '+fmtVA(total.S)+' / '+fmtFP(total.FP))+
+      teleRow('I_total / φi',fmtA(Itotal.mag)+' / '+fmtDeg(Itotal.phiI))+
+      teleRow('θ_total medido',measured?fmtDeg(-phiMeasured)+(cross1Type===cross2Type?'':' ⚠ tipos distintos'):'—',measured?(cross1Type===cross2Type?'good':'warn'):'');
+  }else if(mode==='medicion'){
+    const total=currentTotal();
+    const Itotal=currentITotal();
+    const matched=measured&&cross1Type===cross2Type;
+    const withinTol=measured&&Math.abs(angDiff(phiMeasured,Itotal.phiI))<=TOL_PHI_DEG;
+    const revealPhi=matched&&withinTol;
+    const tolCls=measured?(matched&&withinTol?'good':'warn'):'';
+    t.innerHTML=
+      loadRow(1,medType1,medR1,medX1)+
+      loadRow(2,medType2,medR2,medX2)+
+      teleRow('P / Q / S / FP TOTAL',fmtW(total.P)+' / '+fmtVAR(total.Q)+' / '+fmtVA(total.S)+' / '+fmtFP(total.FP))+
+      teleRow('θ_total',revealPhi?fmtDeg(total.thetaDeg)+' ✔':'🔒 sellado')+
+      teleRow('θ_total medido (cursores)',measured?fmtDeg(-phiMeasured):'sin medir',measured?tolCls:'warn')+
+      teleRow('Tipo de cruce',measured?((cross1Type==='asc'?'▲':'▼')+' canal 1 vs '+(cross2Type==='asc'?'▲':'▼')+' canal 2'):'—',measured?(matched?'good':'warn'):'');
+  }else{
+    const total=currentTotal();
+    const Itotal=currentITotal();
+    t.innerHTML=
+      loadRow(1,retoType1,retoR1,retoX1)+
+      teleRow('P1 / Q1 / S1',fmtW(total.p1.P)+' / '+fmtVAR(total.p1.Q)+' / '+fmtVA(total.p1.S))+
+      loadRow(2,retoType2,retoR2,retoX2)+
+      teleRow('P2 / Q2 / S2',fmtW(total.p2.P)+' / '+fmtVAR(total.p2.Q)+' / '+fmtVA(total.p2.S))+
+      teleRow('Pedido',(retoChecked&&retoOk)?kindLongLabel(retoAskKind)+' ✔':'🔒 '+kindLongLabel(retoAskKind))+
+      teleRow('I_total (magnitud y fase)',(retoChecked&&retoOk)?fmtA(Itotal.mag)+' ∠ '+fmtDeg(Itotal.phiI):'🔒 / 🔒')+
+      teleRow('θ_total medido (cursores)',measured?fmtDeg(-phiMeasured):'sin medir',measured?'good':'warn')+
+      teleRow('Estado',retoChecked?(retoOk?'✔ CORRECTO':'revisa tu cálculo'):'Mide θ_total y calcula la cantidad pedida, luego comprueba',(retoChecked&&retoOk)?'good':'warn');
+  }
+}
+function updateReport(){
+  let html=`<b>${MODE_META[mode].mision}</b><br>`;
+  if(mode==='explora'){
+    const total=currentTotal();
+    html+=`<span class="mono">Carga 1: ${TYPE_LABELS[expType1]} R=${fmtOhm(expR1)}${expType1==='resistiva'?'':' |X|='+fmtOhm(expX1)}. Carga 2: ${TYPE_LABELS[expType2]} R=${fmtOhm(expR2)}${expType2==='resistiva'?'':' |X|='+fmtOhm(expX2)}. TOTAL: P=${fmtW(total.P)}, Q=${fmtVAR(total.Q)}, S=${fmtVA(total.S)}, FP=${fmtFP(total.FP)}.</span>`;
+  }else if(mode==='medicion'){
+    html+=measured
+      ?(cross1Type===cross2Type
+        ?`<span class="mono">Cursores alineados al mismo tipo de cruce (${cross1Type==='asc'?'ascendente':'descendente'}) — la medición es confiable.</span>`
+        :`<span class="mono">⚠ Cursores en tipos de cruce DISTINTOS (canal 1: ${cross1Type==='asc'?'ascendente':'descendente'}, canal 2: ${cross2Type==='asc'?'ascendente':'descendente'}) — el resultado está desplazado ~180° del real. Alinea ambos cursores al mismo tipo.</span>`)
+      :`<span class="mono">Arrastra ambos cursores hasta un cruce por cero (▲ o ▼) del MISMO tipo en los dos canales, luego presiona "Medir θ_total".</span>`;
+  }else{
+    html+=retoMsg||`<span class="mono">Dos cargas conocidas en paralelo. Mide θ_total con los cursores y calcula ${kindLongLabel(retoAskKind)} a partir de I_total y θ_total.</span>`;
+  }
+  el('report').innerHTML=html;
+}
+function refreshAll(){drawBoard();updateTele();updateReport();refreshNet3D();}
+
+// ===================== 11. MEDICIÓN Y RETO =====================
+function medirPhi(){
+  const Itotal=currentITotal();
+  const c1=snap1(cursor1Div),c2=snap2(cursor2Div);
+  const phi=phiFromCrossings(c1.t,c2.t,FREQ);
+  measured=true;phiMeasured=phi;cross1Type=c1.type;cross2Type=c2.type;
+  const matched=c1.type===c2.type;
+  synth.beep(matched?1046:660,matched?0.12:0.15,0.06);
+  if(mode==='explora'){
+    showToast(matched
+      ?`Medición: θ_total ≈ ${fmtDeg(-phi)}. Coincide con el θ_total real (${fmtDeg(-Itotal.phiI)}) porque ambos cursores usan el MISMO tipo de cruce (${cross1Type==='asc'?'ascendente':'descendente'}).`
+      :`⚠️ Medición: θ_total ≈ ${fmtDeg(-phi)} — pero el θ_total real es ${fmtDeg(-Itotal.phiI)}. Mezclaste un cruce ${cross1Type==='asc'?'ascendente':'descendente'} (canal 1) con uno ${cross2Type==='asc'?'ascendente':'descendente'} (canal 2): error clásico de 180°.`);
+  }else if(mode==='medicion'){
+    const ok=Math.abs(angDiff(phi,Itotal.phiI))<=TOL_PHI_DEG;
+    showToast(matched
+      ?(ok?`<span style="color:var(--good)">✔ θ_total medido ≈ ${fmtDeg(-phi)}, dentro de ±${TOL_PHI_DEG}° del valor real.</span>`
+           :`θ_total medido ≈ ${fmtDeg(-phi)} — fuera de tolerancia, ajusta el cursor justo sobre el cruce.`)
+      :`⚠️ θ_total medido ≈ ${fmtDeg(-phi)} — mezclaste tipos de cruce distintos (canal 1: ${cross1Type==='asc'?'ascendente':'descendente'}, canal 2: ${cross2Type==='asc'?'ascendente':'descendente'}). Error clásico de 180°: alinea ambos cursores al MISMO tipo de cruce.`);
+  }else{
+    showToast(matched
+      ?`Medición registrada: θ_total ≈ ${fmtDeg(-phi)} (cruces del mismo tipo). Ahora calcula ${kindLongLabel(retoAskKind)} a partir de I_total y θ_total, y comprueba.`
+      :`⚠️ Medición registrada: θ_total ≈ ${fmtDeg(-phi)} — cuidado, mezclaste tipos de cruce distintos. Puede estar desfasada 180° de la real.`);
+  }
+  refreshAll();
+}
+function checkReto(){
+  if(!measured){showToast('⚠️ Primero mide θ_total con los cursores ("Medir θ_total").');return;}
+  const guess=numOr('inSealed');
+  if(!isFinite(guess)){showToast('⚠️ Ingresa tu valor calculado para la cantidad pedida.');return;}
+  const total=currentTotal();
+  const trueVal=({P:total.P,Q:total.Q,S:total.S,FP:total.FP})[retoAskKind];
+  retoOk=retoAskKind==='FP'
+    ?(Math.abs(guess-trueVal)<=TOL_FP_ABS)
+    :(Math.abs(guess-trueVal)<=Math.abs(trueVal)*TOL_FRAC);
+  retoChecked=true; solved=retoOk;
+  synth.beep(retoOk?1046:220,retoOk?0.14:0.15,0.06);
+  const guessFmt=fmtKind(retoAskKind,guess);
+  retoMsg=retoOk
+    ?`<span class="mono"><span class="ok">✔ ${retoAskKind} correcto</span> (tu respuesta ${guessFmt}, dentro de tolerancia del valor real)</span>`
+    :`<span class="mono"><span class="dtc">✗ ${retoAskKind} fuera de tolerancia</span> (tu respuesta ${guessFmt}). Revisa tu lectura de la traza/cursores y el cálculo de ${kindLongLabel(retoAskKind)} a partir de I_total y θ_total.</span>`;
+  refreshAll();
+}
+function updateSealedInputLabel(){
+  el('inSealedLabel').textContent=retoAskKind+' =';
+  el('inSealedUnit').textContent=unitOfKind(retoAskKind);
+}
+function updateRetoSpec(){
+  el('retoSpec').innerHTML=`Carga 1: ${TYPE_LABELS[retoType1]} R=${fmtOhm(retoR1)}${retoType1==='resistiva'?'':' |X|='+fmtOhm(retoX1)}. Carga 2: ${TYPE_LABELS[retoType2]} R=${fmtOhm(retoR2)}${retoType2==='resistiva'?'':' |X|='+fmtOhm(retoX2)}. La corriente total I_total (magnitud y fase) está sellada. Mide θ_total con los cursores ("Medir θ_total") y lee/calcula I_total desde la traza y el osciloscopio para obtener <b>${kindLongLabel(retoAskKind)}</b>.<br><span style="color:var(--dim)">Tolerancias (±${TOL_PHI_DEG}° en θ_total; ±${Math.round(TOL_FRAC*100)}% relativo para P/Q/S, ±${TOL_FP_ABS} absoluto para FP) son un margen pedagógico de este ejercicio.</span>`;
+}
+function pickFrom(arr,exclude){
+  if(arr.length<=1)return arr[0];
+  let v=arr[Math.floor(Math.random()*arr.length)];
+  while(v===exclude)v=arr[Math.floor(Math.random()*arr.length)];
+  return v;
+}
+function randLoad(prevType,prevR,prevX){
+  const type=pickFrom(TYPES,prevType);
+  const R=pickFrom(R_CANDIDATES,prevR);
+  const Xmag=pickFrom(X_CANDIDATES,prevX);
+  return{type,R,Xmag};
+}
+function pickMedicionRound(pt1,pr1,px1,pt2,pr2,px2){
+  for(let tries=0;tries<500;tries++){
+    const l1=randLoad(pt1,pr1,px1);
+    const l2=randLoad(pt2,pr2,px2);
+    if(l1.type==='resistiva'&&l2.type==='resistiva')continue;
+    return{type1:l1.type,R1:l1.R,X1:l1.Xmag,type2:l2.type,R2:l2.R,X2:l2.Xmag};
+  }
+  return{type1:'inductiva',R1:22,X1:47,type2:'capacitiva',R2:47,X2:22};
+}
+function pickRetoRound(pt1,pr1,px1,pt2,pr2,px2,prevKind){
+  for(let tries=0;tries<500;tries++){
+    const l1=randLoad(pt1,pr1,px1);
+    const l2=randLoad(pt2,pr2,px2);
+    if(l1.type==='resistiva'&&l2.type==='resistiva')continue;
+    const kind=pickFrom(ASK_KINDS,prevKind);
+    const eff1=loadRX(l1.type,l1.R,l1.Xmag),eff2=loadRX(l2.type,l2.R,l2.Xmag);
+    const total=combineTotal(eff1,eff2);
+    const Itot=total.S/V;
+    if(worstCaseError(Itot,total.thetaDeg,kind)<=FILTER_THRESHOLD){
+      return{type1:l1.type,R1:l1.R,X1:l1.Xmag,type2:l2.type,R2:l2.R,X2:l2.Xmag,kind};
+    }
+  }
+  return{type1:'inductiva',R1:22,X1:47,type2:'capacitiva',R2:47,X2:22,kind:'S'};
+}
+function newMedicionRound(){
+  const r=pickMedicionRound(medType1,medR1,medX1,medType2,medR2,medX2);
+  medType1=r.type1;medR1=r.R1;medX1=r.X1;medType2=r.type2;medR2=r.R2;medX2=r.X2;
+}
+function newRetoRound(){
+  const r=pickRetoRound(retoType1,retoR1,retoX1,retoType2,retoR2,retoX2,retoAskKind);
+  retoType1=r.type1;retoR1=r.R1;retoX1=r.X1;retoType2=r.type2;retoR2=r.R2;retoX2=r.X2;retoAskKind=r.kind;
+}
+function newSignal(){
+  if(mode==='medicion'){
+    newMedicionRound();
+    measured=false;phiMeasured=null;cross1Type=null;cross2Type=null;
+    cursor1Div=2.5;cursor2Div=2.5;el('cursor1').value='2.5';el('cursor2').value='2.5';
+    solved=false;clearDx();buildQuiz();refreshQuestion();buildSelBar();refreshAll();
+    showToast('🔀 Nuevas cargas selladas. Vuelve a medir θ_total.');synth.beep(520,0.08,0.05);
+  }else if(mode==='reto'){
+    newRetoRound();
+    measured=false;phiMeasured=null;cross1Type=null;cross2Type=null;
+    retoChecked=false;retoOk=false;retoMsg='';
+    if(el('inSealed'))el('inSealed').value='';
+    cursor1Div=2.5;cursor2Div=2.5;el('cursor1').value='2.5';el('cursor2').value='2.5';
+    updateRetoSpec();updateSealedInputLabel();solved=false;clearDx();buildQuiz();refreshQuestion();refreshAll();
+    showToast('🔀 Nuevas cargas selladas. La cantidad pedida puede haber cambiado.');synth.beep(520,0.08,0.05);
+  }else{
+    expType1=pickFrom(TYPES,expType1);expR1=pickFrom(R_CANDIDATES,expR1);expX1=pickFrom(X_CANDIDATES,expX1);
+    expType2=pickFrom(TYPES,expType2);expR2=pickFrom(R_CANDIDATES,expR2);expX2=pickFrom(X_CANDIDATES,expX2);
+    afterEdit();
+    showToast('🔀 Nueva combinación aleatoria en Explora.');
+  }
+}
+function onRetoInput(){
+  if(mode!=='reto')return;
+  retoChecked=false;retoOk=false;retoMsg='';
+  refreshAll();
+}
+
+// ===================== 12. QUIZ =====================
+function buildQuiz(){
+  QUIZ={
+    explora:{
+      pregunta:'Con dos cargas en paralelo sobre el mismo bus, P_total=P1+P2 y Q_total=Q1+Q2 se suman de forma directa. ¿Por qué S_total NO es simplemente S1+S2?',
+      opciones:[
+        {t:'Porque S1 y S2 son las hipotenusas de dos triángulos rectángulos distintos (cada uno con su propio ángulo θ); sumar hipotenusas de triángulos con ángulos distintos no da la hipotenusa del triángulo suma — hay que sumar primero los catetos (P1+P2 y Q1+Q2) y recién entonces recalcular la hipotenusa con S_total=√(P_total²+Q_total²)',ok:true,why:'Correcto: P y Q son los catetos (componentes en fase y en cuadratura) y SÍ se suman directamente entre cargas, porque son proyecciones sobre los mismos dos ejes. S es la magnitud (hipotenusa) de cada vector individual — sumar magnitudes de vectores con direcciones distintas sobredimensiona el resultado, por la desigualdad del triángulo: S1+S2≥S_total, con igualdad solo si ambos vectores tienen el mismo ángulo θ.'},
+        {t:'Porque el simulador redondea los valores de S1 y S2 antes de sumarlos, introduciendo un pequeño error de redondeo',ok:false,why:'No es un error de redondeo: la diferencia entre S1+S2 y S_total puede ser de varios VA y es una consecuencia EXACTA de la aritmética vectorial, no de precisión numérica.'},
+        {t:'Porque la potencia aparente de dos cargas en paralelo siempre es menor que la de cada carga individual',ok:false,why:'Falso en general: S_total puede ser mayor, menor o igual que cada S individual por separado, dependiendo de los ángulos — lo único garantizado es S_total≤S1+S2 (desigualdad del triángulo).'},
+        {t:'Porque P y Q no se pueden sumar directamente entre cargas; solo S se puede sumar directamente',ok:false,why:'Es exactamente al revés: P_total=P1+P2 y Q_total=Q1+Q2 SÍ son sumas directas (verificado numéricamente con discrepancia máxima de 3.553×10⁻¹⁵ sobre 1280 combinaciones); es S la que NO se suma directamente.'},
+      ],
+    },
+    medicion:{
+      pregunta:'Alineas el cursor del canal 1 (voltaje) en un cruce ascendente (▲) y el del canal 2 (corriente total) en un cruce descendente (▼). ¿Qué error introduce esto en tu medición de θ_total?',
+      opciones:[
+        {t:'Un error sistemático de exactamente 180° (mod 360°) respecto al θ_total real — el resultado es matemáticamente consistente pero no representa el desfase físico real entre el voltaje del bus y la corriente total',ok:true,why:'Correcto: mezclar tipos de cruce equivale a medir la diferencia de tiempo hasta un punto de la corriente total desplazado media vuelta (T/2) del que corresponde — eso se traduce en exactamente 180° de error, siempre, sin importar el θ_total real.'},
+        {t:'Ningún error, porque un cruce por cero es un cruce por cero sin importar el sentido',ok:false,why:'El sentido del cruce SÍ importa: un cruce ascendente y uno descendente de la misma señal están separados por medio periodo (T/2) en el tiempo — mezclarlos introduce ese medio periodo como error.'},
+        {t:'Un error aleatorio impredecible, distinto cada vez que se repite la medición',ok:false,why:'El error no es aleatorio: es sistemático y exacto (siempre ±180°, mod 360°) porque proviene de una relación geométrica fija entre cruces ascendentes y descendentes.'},
+        {t:'Un error del 50% en la magnitud de I_total medida',ok:false,why:'Mezclar tipos de cruce afecta la medición de FASE (θ_total), no la de magnitud — la magnitud de I_total no se ve alterada por este error.'},
+      ],
+    },
+    reto:{
+      pregunta:'El simulador descarta automáticamente ciertas combinaciones de cargas antes de sellar I_total en el modo Reto — y entre las 4 cantidades posibles (P, Q, S, FP), Q es la que tiene la tasa de aceptación MÁS BAJA (≈40.9%). ¿Por qué Q es la más restrictiva?',
+      opciones:[
+        {t:'Porque Q=S·sin θ, y cerca de θ_total≈0° (cargas casi puramente resistivas en conjunto) la función seno cambia muy poco por unidad de ángulo, así que un pequeño error de medición en θ_total (±5°) se traduce en un error GRANDE, proporcionalmente, sobre el valor de Q recuperado — mientras que P=S·cos θ es mucho menos sensible cerca de θ_total≈0°',ok:true,why:'Correcto: verificado numéricamente — la derivada de sin θ es cos θ, que vale 1 cerca de θ=0°, pero el valor absoluto de Q=S·sin θ es pequeño ahí, así que el error RELATIVO se dispara. cos θ, en cambio, cambia poco cerca de θ=0° y P es grande ahí, así que P es mucho más estable (83.1% de aceptación vs 40.9% de Q).'},
+        {t:'Porque el simulador no puede calcular Q para todas las combinaciones de cargas',ok:false,why:'Falso: combineTotal() calcula Q_total=Q1+Q2 exactamente para cualquier combinación de cargas — el filtro no es una limitación de cálculo, es una garantía de que el problema sea resoluble dentro de tolerancia.'},
+        {t:'Porque Q solo existe en cargas inductivas, nunca en capacitivas',ok:false,why:'Falso: Q existe (con signo opuesto) tanto en cargas inductivas (Q>0) como capacitivas (Q<0) — ambas contribuyen a la potencia reactiva total, solo que con signos distintos.'},
+        {t:'Porque S es más difícil de medir que Q con un osciloscopio',ok:false,why:'Es al revés: S tiene la tasa de aceptación MÁS ALTA (100.0%) de las cuatro cantidades — es la menos sensible al error de instrumento, precisamente porque S=√(P²+Q²) combina ambas componentes y no depende de un solo ángulo cerca de un punto sensible.'},
+      ],
+    },
+  };
+}
+function clearDx(){
+  const box=el('dxbtns');
+  if(box)box.innerHTML='';
+}
+function refreshQuestion(){
+  const q=QUIZ[mode];
+  if(!q)return;
+  el('q_text').textContent=q.pregunta;
+  const box=el('dxbtns');
+  box.innerHTML=q.opciones.map((o,i)=>`<button class="b dx" data-i="${i}">${String.fromCharCode(65+i)}) ${o.t}</button>`).join('');
+  box.querySelectorAll('button').forEach(btn=>{
+    btn.onclick=()=>answer(parseInt(btn.dataset.i,10));
+  });
+}
+function answer(i){
+  const q=QUIZ[mode];
+  if(!q)return;
+  const box=el('dxbtns');
+  const btn=box.children[i];
+  if(!btn)return;
+  const o=q.opciones[i];
+  btn.classList.add(o.ok?'right':'wrong');
+  if(o.ok){solved=true;synth.beep(1046,0.12,0.06);}else{synth.beep(220,0.12,0.06);}
+  showToast(`<span style="color:${o.ok?'var(--good)':'var(--bad)'}">${o.ok?'✔':'✗'} ${o.t}</span><br><span style="color:var(--dim);font-size:11px">${o.why}</span>`);
+}
+
+// ===================== 13. PICKING Y HOVER =====================
+pickerFor(scene,S.camera,S.renderer.domElement,hit=>{
+  if(hit.object===board){boardClick(hit.uv.x,hit.uv.y);return;}
+  let o=hit.object;
+  while(o){
+    if(o.userData&&o.userData.el){toastPart(o.userData.el);return;}
+    if(o.userData&&o.userData.title){showToast(`<b style="color:var(--accent2)">${o.userData.title}</b>${o.userData.info?'<br><span style="color:var(--dim);font-size:11px">'+o.userData.info+'</span>':''}`);return;}
+    o=o.parent;
+  }
+});
+(function(){
+  const ray=new THREE.Raycaster();
+  const mouse=new THREE.Vector2();
+  const dom=S.renderer.domElement;
+  dom.addEventListener('pointermove',e=>{
+    const rect=dom.getBoundingClientRect();
+    mouse.x=((e.clientX-rect.left)/rect.width)*2-1;
+    mouse.y=-((e.clientY-rect.top)/rect.height)*2+1;
+    ray.setFromCamera(mouse,S.camera);
+    let hovered=null;
+    for(const[obj,spr]of HOVER_LABELS){
+      const hits=ray.intersectObject(obj,true);
+      if(hits.length>0){hovered=obj;break;}
+    }
+    for(const[obj,spr]of HOVER_LABELS){spr.visible=(obj===hovered);}
+    dom.style.cursor=hovered?'pointer':'default';
+  });
+})();
+
+// ===================== 14. RECORRIDO AUTOMÁTICO =====================
+function sleep(ms){return new Promise(r=>setTimeout(r,ms));}
+async function runAuto(){
+  if(autoRunning)return;
+  autoRunning=true;
+  const btn=el('btnAuto'),label=btn.textContent;
+  btn.disabled=true;btn.classList.add('on');btn.textContent='⏳ Recorrido guiado en curso…';
+  try{
+    synth.init();synth.resume();
+    clearDx();
+    setMode('explora');
+    expType1='inductiva';expR1=22;expX1=47;expType2='capacitiva';expR2=47;expX2=22;afterEdit();
+    {
+      const total=currentTotal();
+      const sumS=total.p1.S+total.p2.S;
+      showToast(`Paso 1 · Carga 1 inductiva (R=22Ω,|X|=47Ω) + Carga 2 capacitiva (R=47Ω,|X|=22Ω). S1+S2=${fmtVA(sumS)}, pero S_total real=${fmtVA(total.S)} — NO son iguales.`);
+    }
+    await sleep(2800);
+    expType1='resistiva';expType2='resistiva';afterEdit();
+    showToast('Ahora ambas cargas son resistivas: aquí sí P_total, Q_total(=0) y S_total coinciden con la suma simple, porque ambos vectores están en el mismo ángulo (0°).');
+    await sleep(2600);
+
+    setMode('medicion');
+    showToast('Paso 2 · θ_total está sellado. Primero, un error clásico: mezclar tipos de cruce distintos.');
+    await sleep(2000);
+    {
+      const windowS=windowSFor(FREQ);
+      const Itotal=currentITotal();
+      const cr1=crossingsFor(PHI1,FREQ,windowS).find(c=>c.type==='asc');
+      const cr2=crossingsFor(Itotal.phiI,FREQ,windowS).find(c=>c.type==='desc');
+      if(cr1){cursor1Div=divForTime(cr1.t,windowS);el('cursor1').value=String(cursor1Div);}
+      if(cr2){cursor2Div=divForTime(cr2.t,windowS);el('cursor2').value=String(cursor2Div);}
+    }
+    refreshAll();
+    medirPhi();await sleep(2800);
+    showToast('Corrigiendo: alineamos el cursor del canal 2 a un cruce ASCENDENTE, igual que el canal 1.');
+    await sleep(2000);
+    {
+      const windowS=windowSFor(FREQ);
+      const Itotal=currentITotal();
+      const cr2=crossingsFor(Itotal.phiI,FREQ,windowS).find(c=>c.type==='asc');
+      if(cr2){cursor2Div=divForTime(cr2.t,windowS);el('cursor2').value=String(cursor2Div);}
+    }
+    refreshAll();
+    medirPhi();await sleep(2600);
+    answer(QUIZ.medicion.opciones.findIndex(o=>o.ok));await sleep(1800);
+
+    setMode('reto');
+    showToast('Paso 3 · I_total (magnitud y fase) está sellada. Mide θ_total y calcula la cantidad pedida.');
+    await sleep(2200);
+    {
+      const windowS=windowSFor(FREQ);
+      const Itotal=currentITotal();
+      const cr1=crossingsFor(PHI1,FREQ,windowS).find(c=>c.type==='asc');
+      const cr2=crossingsFor(Itotal.phiI,FREQ,windowS).find(c=>c.type==='asc');
+      if(cr1){cursor1Div=divForTime(cr1.t,windowS);el('cursor1').value=String(cursor1Div);}
+      if(cr2){cursor2Div=divForTime(cr2.t,windowS);el('cursor2').value=String(cursor2Div);}
+    }
+    refreshAll();
+    medirPhi();await sleep(1800);
+    {
+      const total=currentTotal();
+      const trueVal=({P:total.P,Q:total.Q,S:total.S,FP:total.FP})[retoAskKind];
+      el('inSealed').value=String(trueVal);
+    }
+    checkReto();await sleep(2600);
+    const q=QUIZ.reto,i=q.opciones.findIndex(o=>o.ok);
+    clearDx();
+    refreshQuestion();
+    const dxBtn=el('dxbtns').children[i];
+    if(dxBtn){dxBtn.classList.add('right');solved=true;synth.beep(1046,0.12,0.06);}
+    showToast(`<span style="color:var(--good)">✔ ${q.opciones[i].t}</span><br><span style="color:var(--dim);font-size:11px">${q.opciones[i].why}</span>`);
+  }finally{
+    btn.disabled=false;btn.classList.remove('on');btn.textContent=label;autoRunning=false;
+  }
+}
+
+// ===================== 15. ANIMACIÓN, EVENTOS E INICIO =====================
+S.setAnimate((dt,time)=>{});
+
+['explora','medicion','reto'].forEach(m=>{el('m_'+m).onclick=()=>{if(!autoRunning)setMode(m);};});
+el('btnAuto').onclick=()=>{if(!autoRunning)runAuto();};
+el('btnNew').onclick=()=>{if(!autoRunning)newSignal();};
+el('btnCheck').onclick=()=>{if(!autoRunning)checkReto();};
+el('btnMedir').onclick=()=>{if(!autoRunning)medirPhi();};
+el('cursor1').oninput=()=>{cursor1Div=parseFloat(el('cursor1').value);refreshAll();};
+el('cursor2').oninput=()=>{cursor2Div=parseFloat(el('cursor2').value);refreshAll();};
+el('inSealed').addEventListener('input',onRetoInput);
+el('inSealed').addEventListener('keydown',e=>{if(e.key==='Enter')checkReto();});
+const soundBtn=el('soundBtn');
+if(soundBtn){
+  soundBtn.onclick=()=>{const on=synth.toggle();soundBtn.textContent=on?'🔊 Sonido':'🔇 Sonido';};
+}
+document.addEventListener('pointerdown',()=>{synth.init();synth.resume();},{once:true});
+
+newRetoRound();
+buildQuiz();
+refreshNet3D();
+S.start();
+setMode('explora');
+
+window.__labDebug={
+  mode:()=>mode,
+  load1:()=>({type:currentType1(),R:currentR1(),X:currentEff1().X}),
+  load2:()=>({type:currentType2(),R:currentR2(),X:currentEff2().X}),
+  total:()=>currentTotal(),
+  Itotal:()=>currentITotal(),
+  V:()=>V,
+  freq:()=>FREQ,
+  windowS:()=>windowSFor(FREQ),
+  ampsPerDiv2:()=>pickAmpsPerDiv(currentITotal().mag),
+  cursor1Div:()=>cursor1Div,
+  cursor2Div:()=>cursor2Div,
+  setCursor1Div:d=>{cursor1Div=Math.max(0,Math.min(10,d));el('cursor1').value=String(cursor1Div);refreshAll();},
+  setCursor2Div:d=>{cursor2Div=Math.max(0,Math.min(10,d));el('cursor2').value=String(cursor2Div);refreshAll();},
+  snap1:()=>snap1(cursor1Div),
+  snap2:()=>snap2(cursor2Div),
+  measured:()=>measured,
+  phiMeasured:()=>phiMeasured,
+  thetaTotalMeasured:()=>phiMeasured===null?null:-phiMeasured,
+  cross1Type:()=>cross1Type,
+  cross2Type:()=>cross2Type,
+  medirPhi:()=>medirPhi(),
+  checkReto:()=>checkReto(),
+  setInSealed:v=>{el('inSealed').value=String(v);},
+  retoChecked:()=>retoChecked,
+  retoOk:()=>retoOk,
+  retoMsg:()=>retoMsg,
+  retoAskKind:()=>retoAskKind,
+  retoLoad1:()=>({type:retoType1,R:retoR1,X:loadRX(retoType1,retoR1,retoX1).X}),
+  retoLoad2:()=>({type:retoType2,R:retoR2,X:loadRX(retoType2,retoR2,retoX2).X}),
+  retoTotalTrue:()=>currentTotal(),
+  medLoad1:()=>({type:medType1,R:medR1,X:loadRX(medType1,medR1,medX1).X}),
+  medLoad2:()=>({type:medType2,R:medR2,X:loadRX(medType2,medR2,medX2).X}),
+  setExpType1:t=>{expType1=t;afterEdit();},
+  setExpR1:v=>{expR1=v;afterEdit();},
+  setExpXmag1:v=>{expX1=v;afterEdit();},
+  setExpType2:t=>{expType2=t;afterEdit();},
+  setExpR2:v=>{expR2=v;afterEdit();},
+  setExpXmag2:v=>{expX2=v;afterEdit();},
+  computeKind:(Vv,Iv,thetaDeg,kind)=>computeKind(Vv,Iv,thetaDeg,kind),
+  worstCaseError:(Itrue,thetaTrueDeg,kind)=>worstCaseError(Itrue,thetaTrueDeg,kind),
+  newSignal:()=>newSignal(),
+  setMode:k=>setMode(k),
+  reportText:()=>el('report').innerText,
+  quizAnswer:i=>answer(i),
+  quizCorrectIndex:()=>QUIZ[mode].opciones.findIndex(o=>o.ok),
+  solved:()=>solved,
+};
+</script>
+  <!-- Ficha técnica · Capa B del molde de lab 3D (componente compartido + contenido del lab) -->
+  <script src="_ficha-tecnica.js"></script>
+  <script src="_ficha-potencia-ac.js"></script>
+</body>
+</html>
