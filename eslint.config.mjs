@@ -10,7 +10,7 @@ const compat = new FlatCompat({ baseDirectory: __dirname });
 const eslintConfig = [
   ...compat.extends("next/core-web-vitals", "next/typescript"),
   {
-    ignores: [".next/**", "out/**", "build/**", "next-env.d.ts"],
+    ignores: [".next/**", ".open-next/**", "out/**", "build/**", "next-env.d.ts"],
   },
   {
     rules: {
@@ -66,6 +66,12 @@ const eslintConfig = [
     rules: {
       "no-console": "off",
       "@typescript-eslint/no-require-imports": "off",
+      // Los cuerpos de lab (scripts/lab-src/*.body.js) son fragmentos de template
+      // compactos que se ensamblan en el HTML generado, no parte del bundle de la
+      // app. Usan idiomas de efecto-lateral guardado (`cond && (obj.x=v)`) y
+      // ternarios-como-sentencia (`cond ? a=x : b=y`) intencionalmente; están
+      // verificados en runtime con Playwright. `no-unused-expressions` es ruido aquí.
+      "@typescript-eslint/no-unused-expressions": "off",
     },
   },
 ];
