@@ -1,0 +1,9 @@
+{
+  "donor": "escaner-obd.html",
+  "out": "sistemas-trifasicos.html",
+  "title": "CEN Labs · Sistemas Trifásicos Y/Δ Balanceados y Secuencia de Fases — Laboratorio 3D",
+  "lt": "Sistemas Trifásicos · Circuitos Eléctricos",
+  "inspectHint": "👆 Toca el pizarrón (fasores) o los módulos de impedancia y el motor",
+  "body": "sistemas-trifasicos.body.js",
+  "fichas": ["_ficha-tecnica.js", "_ficha-sistemas-trifasicos.js"]
+}
