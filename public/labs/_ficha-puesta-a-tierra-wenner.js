@@ -1,0 +1,65 @@
+fichaTecnica({
+  title: 'Puesta a Tierra y Resistencia de Tierra — Método de Wenner y Diseño del Electrodo',
+  intro: 'Todo sistema eléctrico necesita una puesta a tierra de baja resistencia para desviar corrientes de falla y descargas, proteger a las personas y hacer operar las protecciones. Diseñarla exige dos pasos: primero MEDIR la resistividad del terreno (ρ, en Ω·m), que es la propiedad del suelo que determina lo bueno o malo que es como conductor; y luego DIMENSIONAR el electrodo (longitud y número de varillas) para que su resistencia a tierra baje del objetivo normativo. La resistividad se mide con el método de Wenner de cuatro electrodos equidistantes: se inyecta corriente por el par exterior, se mide la tensión en el par interior y el telurómetro obtiene R=ρ/(2πa); de ahí se despeja ρ=2π·a·R. La resistencia de una varilla vertical se calcula con la fórmula de Dwight R₁=ρ/(2πL)·[ln(8L/d)−1], y varias varillas alejadas en paralelo dan R_N≈R₁/N. La lección central es honesta: en suelos muy resistivos, ni ocho varillas de seis metros bajan de 25 Ω, y hay que recurrir a mallas, anillos o tratamiento del terreno (bentonita/GEM). Todo verificado con node -e antes de construir el laboratorio.',
+  s1: {
+    presentes: [
+      'Método de Wenner de 4 electrodos equidistantes (separación a): el telurómetro mide R=ρ/(2πa) y de ahí se despeja la resistividad aparente ρ=2π·a·R (verificado node -e)',
+      'La resistividad ρ es una propiedad del suelo: en terreno homogéneo el ρ despejado es constante al variar la separación a (aunque la lectura R sí cambia) — se muestra en una mini-tabla de a vs ρ',
+      'Resistencia de una varilla vertical por la fórmula de Dwight R₁=ρ/(2πL)·[ln(8L/d)−1], con d=0.0159 m (copperweld 5/8"), verificada numéricamente para todo el catálogo de suelos y longitudes',
+      'Reducción por N varillas en paralelo alejadas ≥2·L: R_N≈R₁/N (simplificación de acople mutuo despreciable, DECLARADA como cota optimista)',
+      'Objetivos normativos de resistencia a tierra: 25 Ω (general), 10 Ω (deseable), 5 Ω (subestaciones/pararrayos), con veredicto de cumplimiento por cada objetivo',
+      'Lección de honestidad física: suelos muy resistivos (arena seca, roca) donde NI el máximo del catálogo (8 varillas × 6 m) alcanza 10 o 5 Ω → se explicita la necesidad de malla/anillo/tratamiento del suelo',
+      'Reto verificado: 11 pares (suelo, objetivo) con solución en catálogo, cada uno con configuración MÍNIMA (menos varillas y, para ese número, la más corta) única y confirmada por node -e',
+    ],
+    omitidos: [
+      'Suelos estratificados (multicapa): en la realidad ρ aparente varía con la separación a (curva de resistividad); aquí se modela suelo homogéneo',
+      'Acople mutuo (resistencia de proximidad) entre varillas cercanas: se supone separación ≥2·L, por lo que R_N=R₁/N es una cota optimista; a separaciones menores la mejora real es menor',
+      'Estacionalidad de la resistividad: variación de ρ con la humedad y la temperatura del terreno a lo largo del año',
+      'Detalle del instrumento: impedancia de los electrodos auxiliares, corrientes parásitas, y el método de caída de potencial al 62 % (se nombra el telurómetro, pero no se modela su electrónica)',
+      'Electrodos no verticales (contrapesos horizontales, placas), mallas de tierra completas y anillos perimetrales (se mencionan como solución, no se calculan)',
+      'Elevación de potencial de tierra (GPR), tensiones de paso y de contacto durante la falla (objeto de la práctica de coordinación y seguridad)',
+    ],
+  },
+  s2: {
+    title: 'Elementos del sistema de puesta a tierra y de la medición',
+    warn: 'En el modo Suelo (Wenner) se ajustan el tipo de suelo y la separación a; en el modo Electrodo se ajustan suelo, longitud L y número de varillas N. En el Reto vienen dados el suelo (con su ρ medido) y el objetivo, y el desafío es ELEGIR el electrodo mínimo que cumple. No hay valor sellado que recuperar: el reto es de criterio de diseño, calificado por selección exacta de la configuración mínima.',
+    rows: [
+      ['Varilla de tierra (electrodo)', 'Copperweld 5/8" clavada vertical; su resistencia baja con la longitud', 'L∈{1.5…6.0} m, d=0.0159 m', 'R₁=ρ/(2πL)·[ln(8L/d)−1] (Dwight)'],
+      ['Conector / abrazadera', 'Une eléctrica y mecánicamente el conductor a la varilla', 'bronce / cobre', 'Material adecuado para evitar corrosión galvánica'],
+      ['Conductor de puesta a tierra', 'Lleva la tierra del electrodo a la barra del tablero', 'calibre por NOM', 'Su sección la fija la Tabla 250 según la protección'],
+      ['Barra de tierra (tablero)', 'Punto común de todas las tierras de la instalación', '—', 'De aquí parte el conductor al electrodo'],
+      ['Telurómetro (4 terminales)', 'Inyecta corriente y mide tensión para obtener R', 'lectura R en Ω', 'R=ρ/(2πa) en el arreglo de Wenner'],
+      ['Electrodos auxiliares (P·C)', 'Picas de potencial y de corriente del método de 4 puntos', 'equidistantes, separación a', 'Van en línea con el electrodo bajo prueba'],
+    ],
+  },
+  s3: [
+    'Selector de tipo de suelo (pantano, arcilla, arena húmeda, arena seca, roca) que fija la resistividad ρ',
+    'Selector de separación a de los electrodos de Wenner (1 a 16 m) para medir la resistividad',
+    'Selectores de longitud de varilla L (1.5 a 6 m) y de número de varillas N en paralelo (1 a 8) en el modo Electrodo',
+    'Selector de modo: Ensamble (instalación 3D), Suelo (Wenner), Electrodo (diseño) y Reto (electrodo mínimo)',
+    'Pizarrón con el diagrama de 4 electrodos y la lectura R/ρ, la barra de resistencia frente a los objetivos 25/10/5 Ω y el escenario del reto',
+    'Telemetría en vivo: suelo, separación a, R del telurómetro, ρ despejado, R₁ de una varilla, R de N varillas y veredicto de cumplimiento',
+    'Botones de instalación automática guiada y de barrido de la separación a; botones de selección y comprobación en el Reto',
+  ],
+  s4: {
+    intro: 'Procedimiento para medir la resistividad, diseñar el electrodo y resolver el reto:',
+    items: [
+      'En Ensamble, toca cada pieza del banco y luego su hueco luminoso para instalar el sistema de tierra completo (varilla, abrazadera, conductor, barra, telurómetro y electrodos auxiliares). Al terminar se desbloquean los modos de medición y diseño.',
+      'En Suelo (Wenner), elige un tipo de terreno y varía la separación a. Observa que la lectura R del telurómetro cambia con a, pero el ρ despejado (ρ=2π·a·R) se mantiene: la resistividad es una propiedad del suelo, no del arreglo de medición. Usa el barrido automático de a para verlo de un vistazo.',
+      'En Electrodo, fija el suelo y prueba longitudes de varilla y números de varillas en paralelo. La barra muestra la resistencia obtenida frente a los objetivos 25/10/5 Ω. Prueba un suelo muy resistivo (arena seca, roca) y comprueba que ni el máximo del catálogo baja de 25 Ω: ahí hacen falta mallas, anillos o tratamiento del suelo.',
+      'En Reto, se sortea un terreno (con su ρ medido) y un objetivo de resistencia. Elige el número de varillas y la longitud del electrodo MÍNIMO que cumpla (menos varillas y, para ese número, la más corta) y pulsa Comprobar. El sistema califica correcto solo con la configuración mínima exacta: si te quedas corto no cumples, y si te pasas gastas material de más.',
+    ],
+  },
+  s5: {
+    modela: 'Medición de la resistividad de un suelo homogéneo por el método de Wenner de 4 electrodos (R=ρ/(2πa), ρ=2π·a·R) y su independencia de la separación a; resistencia a tierra de una varilla vertical por la fórmula de Dwight R₁=ρ/(2πL)·[ln(8L/d)−1] (d=0.0159 m, copperweld 5/8"); reducción por N varillas en paralelo alejadas (R_N=R₁/N); y el diseño para cumplir objetivos de 25/10/5 Ω, incluyendo suelos donde solo con varillas no se alcanza el objetivo (necesidad de malla/anillo/tratamiento). Catálogo de resistividades de suelo típicas (30 a 1000 Ω·m). Todo verificado con node -e.',
+    noModela: 'Suelos estratificados multicapa (ρ aparente variable con a); acople mutuo entre varillas cercanas (R_N=R₁/N es cota optimista para separación ≥2·L); estacionalidad de ρ con humedad/temperatura; electrónica del telurómetro y método de caída de potencial al 62 %; electrodos horizontales, placas y mallas completas (se mencionan, no se calculan); elevación de potencial de tierra (GPR) y tensiones de paso/contacto.',
+  },
+  s6: [
+    'NOM-001-SEDE-2022 (Instalaciones eléctricas — utilización): Artículo 250 (puesta a tierra y unión), electrodos de puesta a tierra, resistencia del electrodo y objetivos de resistencia a tierra.',
+    'IEEE Std 81 — Guide for Measuring Earth Resistivity, Ground Impedance, and Earth Surface Potentials of a Grounding System: método de Wenner de 4 electrodos y medición de resistencia de tierra.',
+    'IEEE Std 142 (Green Book) — Grounding of Industrial and Commercial Power Systems: fórmula de Dwight para la resistencia de una varilla vertical y varillas en paralelo.',
+    'NOM-022-STPS-2015 — Electricidad estática en los centros de trabajo: requisitos de sistemas de puesta a tierra y valores máximos de resistencia.',
+    'Valores de resistividad de suelo (30 a 1000 Ω·m) tomados de rangos típicos de literatura de referencia (IEEE 142 / Enríquez Harper).',
+    'Verificación numérica propia (sesión de construcción, node -e): convergencia Wenner simplificado↔completo, grid de resistencia de Dwight por suelo y longitud, y los 11 pares (suelo, objetivo) del Reto con configuración mínima (min N, luego min L) única y confirmada.',
+  ],
+});

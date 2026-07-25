@@ -1,0 +1,9 @@
+{
+  "donor": "escaner-obd.html",
+  "out": "puesta-a-tierra-wenner.html",
+  "title": "Puesta a Tierra y Resistencia de Tierra — Método de Wenner",
+  "lt": "Circuitos Eléctricos · Instalaciones eléctricas",
+  "inspectHint": "Toca una pieza del banco y luego su hueco luminoso para instalar el sistema de tierra; después mide el suelo (Wenner), diseña el electrodo y resuelve el reto.",
+  "body": "puesta-a-tierra-wenner.body.js",
+  "fichas": ["_ficha-tecnica.js", "_ficha-puesta-a-tierra-wenner.js"]
+}
