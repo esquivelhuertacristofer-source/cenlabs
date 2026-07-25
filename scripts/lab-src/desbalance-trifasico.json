@@ -1,0 +1,9 @@
+{
+  "donor": "escaner-obd.html",
+  "out": "desbalance-trifasico.html",
+  "title": "CEN Labs · Desbalance Trifásico y Corriente por el Neutro — Laboratorio 3D",
+  "lt": "Desbalance trifásico · Circuitos Eléctricos",
+  "inspectHint": "👆 Toca el pizarrón (fasores) o los módulos de carga y la pinza del neutro",
+  "body": "desbalance-trifasico.body.js",
+  "fichas": ["_ficha-tecnica.js", "_ficha-desbalance-trifasico.js"]
+}
