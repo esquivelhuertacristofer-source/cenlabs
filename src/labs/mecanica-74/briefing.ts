@@ -1,0 +1,33 @@
+import type { BriefingConfig } from '@/components/MissionBriefing';
+
+const briefing: BriefingConfig = {
+  codigo: 'MEC-74',
+  titulo: 'Dimensionamiento de Conductores y Protecciones',
+  subtitulo: 'Circuitos Eléctricos · Instalaciones eléctricas',
+  acento: '#4FB0AE',
+  duracion: 30,
+  videoUrl: '',
+  bienvenida: `Imagina que tienes que llevar energía desde el tablero eléctrico hasta un motor que está a 70 metros de distancia. Vas a la ferretería, ves que el motor consume 16 amperes, y eliges un cable cuya etiqueta dice "hasta 20 A". Aguanta la corriente con margen, ¿verdad? Instalas todo, enciendes el motor… y trabaja mal, se calienta, le cuesta arrancar. ¿Qué pasó? El cable "aguantaba la corriente", pero a lo largo de esos 70 metros la tensión se fue cayendo, y al motor le llegaron muchos menos de los 127 V que necesita. Elegir un conductor no es solo cuestión de amperes: es cuestión de dos criterios que hay que cumplir al mismo tiempo.
+
+El primer criterio es la ampacidad: la corriente máxima que un conductor puede llevar de forma continua sin sobrecalentarse y dañar su aislamiento. Es lo primero que todos revisan, y es necesario —pero no suficiente—. El segundo criterio, el que suele olvidarse, es la caída de tensión. Todo conductor tiene resistencia, y al circular corriente por él se "gasta" algo de tensión en el camino, tanto de ida como de regreso. Esa caída se calcula con e=2·ρ·L·I/S: fíjate en el factor 2, que está ahí porque la corriente recorre dos conductores (va por la fase y vuelve por el neutro). La norma pide que en un circuito derivado esa caída no supere el 3 %, para que a la carga le llegue tensión suficiente para trabajar bien. El calibre correcto es el más delgado que cumple AMBOS criterios: si eliges uno más chico fallas por caída o por sobrecalentamiento; si eliges uno mucho más grueso, funciona pero tiras dinero en cobre.
+
+Y aquí está la lección que este laboratorio quiere grabarte: en corridas largas, quien manda no es la ampacidad, sino la caída de tensión. Un cable que sobra para la corriente puede ser totalmente insuficiente si la distancia es grande. En este simulador vas a fijar la corriente y la longitud, probar distintos calibres y ver las dos barras de criterio en tiempo real; verás una tabla que compara todos los calibres a la vez; y en el reto tendrás que elegir el conductor mínimo correcto para un circuito sorteado, esquivando la trampa de mirar solo los amperes. Cerrarás con la regla de protección: el breaker debe proteger al conductor, y por eso los calibres pequeños tienen topes fijos de 15, 20 y 30 A.`,
+  conceptos: [
+    { icono: '🔥', nombre: 'Criterio 1: Ampacidad', descripcion: 'El conductor debe cumplir ampacidad ≥ corriente de la carga, para no sobrecalentarse. La ampacidad se lee de la tabla del cobre THW a 75 °C (Tabla 310-15(b)(16) de la NOM). Es necesario, pero no basta por sí solo.' },
+    { icono: '📉', nombre: 'Criterio 2: Caída ≤ 3%', descripcion: 'La caída de tensión de un circuito derivado no debe superar el 3%: e=2·ρ·L·I/S y %e=e/V·100. El factor 2 es por los dos conductores (ida y vuelta). En corridas largas, este criterio es el que decide el calibre.' },
+    { icono: '🎯', nombre: 'El calibre mínimo que cumple ambos', descripcion: 'No el que solo aguanta la corriente ni uno enorme por si acaso: el calibre correcto es el más delgado del catálogo que satisface ampacidad Y caída al mismo tiempo. Ni se sobrecalienta, ni deja a la carga a baja tensión, ni desperdicia cobre.' },
+    { icono: '🛡️', nombre: 'La protección protege al cable', descripcion: 'El interruptor termomagnético debe ser ≥ la carga y ≤ el límite del conductor (Art. 240.4). Los calibres 14/12/10 AWG tienen topes fijos de 15/20/30 A: por eso un circuito de 20 A exige calibre 12, no 14.' },
+  ],
+  mision: [
+    'EXPLORA · Fija la corriente y la longitud, cambia el calibre y observa las DOS barras de criterio: ampacidad (I vs capacidad del cable) y caída (%e vs 3%). Busca el calibre más delgado con ambas en verde. Alarga la corrida y verás cómo la caída dispara y obliga a subir de calibre.',
+    'SELECCIÓN · Una tabla evalúa todos los calibres a la vez para la misma corriente y longitud, con una columna por criterio. Compara qué pediría la ampacidad sola y qué exige la caída: en corridas largas la diferencia es de varios calibres.',
+    'RETO · Circuito sorteado con corriente y longitud fijas. Elige el conductor MÍNIMO que cumpla ampacidad Y caída ≤3% y comprueba tu selección. Esquiva la trampa de mirar solo los amperes.',
+  ],
+  aplicaciones: [
+    { area: 'Instalaciones residenciales e industriales', ejemplo: 'Todo circuito derivado —desde un contacto hasta la alimentación de una máquina— se dimensiona por estos dos criterios. Subestimar la caída en corridas largas (bombas de agua lejanas, naves industriales, iluminación de estacionamientos) es una causa frecuente de equipos que trabajan mal y se dañan.' },
+    { area: 'Alimentación de motores', ejemplo: 'Un motor con baja tensión en sus terminales toma más corriente, se calienta y pierde par de arranque. Dimensionar el conductor para mantener la caída bajo el 3% (a veces 2% en el alimentador) es esencial para la vida del motor, sobre todo cuando está lejos del centro de carga.' },
+    { area: 'Coordinación conductor-protección', ejemplo: 'La NOM exige que la protección nunca supere la capacidad del conductor que protege. Los topes de 15/20/30 A para 14/12/10 AWG (Art. 240.4(D)) evitan que un breaker demasiado grande permita que un cable pequeño se caliente sin disparar: es la base de la seguridad contra incendios eléctricos.' },
+  ],
+};
+
+export default briefing;

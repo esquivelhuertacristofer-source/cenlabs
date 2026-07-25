@@ -1,0 +1,9 @@
+{
+  "donor": "escaner-obd.html",
+  "out": "dimensionamiento-conductor.html",
+  "title": "CEN Labs · Dimensionamiento de Conductores y Protecciones — Laboratorio 3D",
+  "lt": "Dimensionamiento de conductores · Circuitos Eléctricos",
+  "inspectHint": "👆 Toca el pizarrón (criterios), el tablero, el conductor o el voltímetro de la carga",
+  "body": "dimensionamiento-conductor.body.js",
+  "fichas": ["_ficha-tecnica.js", "_ficha-dimensionamiento-conductor.js"]
+}
