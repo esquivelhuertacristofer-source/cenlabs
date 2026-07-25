@@ -1,0 +1,9 @@
+{
+  "donor": "escaner-obd.html",
+  "out": "coordinacion-protecciones.html",
+  "title": "CEN Labs · Coordinación de Protecciones y Curvas Tiempo-Corriente — Laboratorio 3D",
+  "lt": "Coordinación de protecciones · Circuitos Eléctricos",
+  "inspectHint": "👆 Toca el pizarrón (curvas), el tablero, los interruptores o la carga",
+  "body": "coordinacion-protecciones.body.js",
+  "fichas": ["_ficha-tecnica.js", "_ficha-coordinacion-protecciones.js"]
+}

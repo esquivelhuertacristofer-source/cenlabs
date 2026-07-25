@@ -1,0 +1,796 @@
+// Coordinación de protecciones con curvas tiempo-corriente (interruptores termomagnéticos, IEC 60898).
+// Física (verificada node -e):
+//   Un interruptor termomagnético (MCB) tiene DOS mecanismos de disparo:
+//     · TÉRMICO (bimetálico) — protege contra SOBRECARGAS. Es inverso: a más corriente, dispara más rápido.
+//       Modelo didáctico anclado a las compuertas de prueba de IEC 60898 (x = I/In):
+//         t(x) = kT / (x² − xp²),  con xp = 1.13 (corriente convencional de NO disparo) y kT = 110.
+//       Compuertas verificadas: 1.13× → ∞ (no dispara); 1.45× → 133 s (<1 h, dispara); 2.55× → 21 s (en [1,60] s). ✔
+//     · MAGNÉTICO (electroimán) — protege contra CORTOCIRCUITOS. Es instantáneo (~10 ms) al superar un umbral
+//       que depende del TIPO DE CURVA (banda garantizada de disparo instantáneo, múltiplos de In):
+//         Curva B → 3–5× In   (usa 5× como umbral garantizado) — cargas resistivas, líneas largas, residencial.
+//         Curva C → 5–10× In  (10×) — cargas mixtas, pequeños motores, inductivas (uso general).
+//         Curva D → 10–20× In (20×) — alto pico de arranque: transformadores, motores DOL.
+//   ENERGÍA PASANTE (let-through):  I²t = I²·t_disparo  [A²s] — mide el estrés térmico que el cable sufre
+//     antes de que la protección abra. Menor I²t = mejor protección del conductor.
+//   SELECCIÓN de In (protege cable y lleva la carga):  Ib ≤ In ≤ Iz  (Ib=corriente de carga, Iz=ampacidad del cable).
+//     In correcto = el menor calibre normalizado que cumple ambos.
+//   SELECCIÓN de curva por pico de arranque m=Iarranque/In:  la curva más sensible cuyo umbral BAJO de banda
+//     supere m (no dispara al arrancar) → m<3:B, 3≤m<5:C, 5≤m<10:D, m≥10: ninguna estándar (usar In mayor / prot. de motor).
+//     Elegir la MÁS sensible que sobreviva al arranque minimiza la I²t en cortocircuito (protege mejor el cable).
+//   COORDINACIÓN / SELECTIVIDAD (dos MCB en serie: derivada aguas abajo + general aguas arriba):
+//     para todo cortocircuito, la derivada debe disparar ANTES que la general → así una falla aísla solo su ramal.
+//     Verificado: derivada 16A-C con general 40A-D = selectivo en todo el rango; con general 25A-C solapan en
+//     cortocircuito (ambos van a 10 ms y disparan juntos) → NO selectivo. Lección honesta: la selectividad
+//     MCB-MCB en cortocircuito exige que la general tenga umbral magnético bastante mayor (más In y/o curva más alta).
+//   Ref: IEC 60898-1 (MCB, curvas B/C/D) · NOM-001-SEDE-2022 Art. 240 (protección contra sobrecorriente) ·
+//        IEC 60947-2 (interruptores industriales) · verificación numérica propia.
+
+// ===================== 1. ESCENA =====================
+const mount=document.getElementById('stage');
+const S=createStage(mount,{cam:[4.4,2.7,6.8],target:[0.2,1.15,0.2],bgTop:'#0e1214',bgBot:'#05060a',bloom:0.44,minD:3.2,maxD:16});
+const {scene}=S;
+const synth=makeSynth({type:'sine',type2:'triangle',filterFreq:2200,Q:0.8});
+const el=id=>document.getElementById(id);
+
+// ===================== 2. FÍSICA =====================
+const XP=1.13;            // múltiplo de NO disparo térmico (corriente convencional)
+const KT=110;            // constante térmica ajustada a las compuertas IEC 60898
+const CURVES={
+  B:{lo:3, hi:5,  Im:5,  col:'#7CD992', uso:'resistivas · líneas largas · residencial'},
+  C:{lo:5, hi:10, Im:10, col:'#5BC0DE', uso:'cargas mixtas · pequeños motores (uso general)'},
+  D:{lo:10,hi:20, Im:20, col:'#E9C46A', uso:'transformadores · motores DOL (alto arranque)'},
+};
+const CURVE_ORDER=['B','C','D'];
+const IN_STEPS=[6,10,16,20,25,32,40];          // corrientes nominales normalizadas (A)
+function tTrip(I,In,curve){                     // tiempo de disparo (s), ∞ = no dispara
+  const x=I/In, c=CURVES[curve];
+  if(x>=c.Im) return 0.01;                       // magnético instantáneo (~10 ms)
+  if(x>XP)    return KT/(x*x-XP*XP);             // térmico inverso
+  return Infinity;                               // por debajo de la corriente convencional: no dispara
+}
+function mechAt(I,In,curve){
+  const x=I/In, c=CURVES[curve];
+  if(x>=c.Im) return 'mag';
+  if(x>XP)    return 'ter';
+  return 'no';
+}
+function i2t(I,In,curve){const t=tTrip(I,In,curve);return isFinite(t)?I*I*t:Infinity;}
+
+// --- oráculos del Reto (verificados) ---
+function bestIn(Ib,Iz){for(const In of IN_STEPS){if(In>=Ib && In<=Iz) return In;}return null;}
+function bestCurve(m){for(const k of CURVE_ORDER){if(m<CURVES[k].lo) return k;}return null;}
+
+// --- coordinación / selectividad entre dos MCB en serie ---
+// Modelo honesto: la selectividad es TOTAL hasta Is = corriente de disparo instantáneo de la general
+// (In_general · Im_general). Por debajo de Is la general sigue en su zona térmica (lenta) mientras la
+// derivada ya disparó (más rápida). Por encima de Is ambas van a ~10 ms → las curvas ya no garantizan
+// la discriminación: hace falta tabla de discriminación del fabricante o limitación de corriente.
+function selectiveNow(br,mn,If){
+  const tb=tTrip(If,br.In,br.curve), tm=tTrip(If,mn.In,mn.curve);
+  const Is=mn.In*CURVES[mn.curve].Im;
+  return {tb,tm, sel: isFinite(tb)&&(!isFinite(tm)||tb<tm), aboveIs: If>=Is};
+}
+function selInfo(br,mn){
+  const Is=mn.In*CURVES[mn.curve].Im;            // corriente donde la general pasa a instantánea
+  let total=(mn.In>br.In);                        // la general debe tener MÁS In que la derivada
+  if(total){
+    for(let I=br.In*XP*1.05; I<Is; I*=1.08){
+      const tb=tTrip(I,br.In,br.curve), tm=tTrip(I,mn.In,mn.curve);
+      if(!isFinite(tb)) continue;                 // la derivada aún no dispara (sobrecarga leve): ok
+      if(isFinite(tm) && tb>=tm){ total=false; break; } // las curvas se cruzan por debajo de Is
+    }
+  }
+  return {Is, total};
+}
+
+// --- escenarios de carga del Reto (todos solubles: m<10) ---
+const LOADS=[
+  {n:'Calefactor / resistencia', Ib:14, Iz:20, m:1.5, tip:'Carga resistiva: sin pico de arranque apreciable.'},
+  {n:'Iluminación LED (drivers)',Ib:8,  Iz:16, m:2.5, tip:'Los drivers dan un pico breve al energizar (~2–3× In).'},
+  {n:'Tablero mixto (tomas+luz)',Ib:18, Iz:25, m:4.0, tip:'Mezcla de cargas; picos moderados de conexión.'},
+  {n:'Bomba (arranque medio)',   Ib:24, Iz:32, m:6.0, tip:'Motor con arranque medio (~6× In).'},
+  {n:'Motor pequeño (DOL)',      Ib:22, Iz:32, m:7.0, tip:'Arranque directo: pico ~6–8× In durante 1–3 s.'},
+  {n:'Transformador',            Ib:9,  Iz:16, m:8.0, tip:'Corriente de energización (inrush) alta y muy breve (~8× In).'},
+];
+// escenario de honestidad SOLO para Explora (no soluble con curva estándar): m≥10
+const HARD_LOAD={n:'Motor grande DOL', Ib:30, Iz:40, m:12.0, tip:'Arranque muy severo (>10×): ninguna curva estándar (ni D) lo tolera sin disparar → hace falta In mayor o protección de motor dedicada.'};
+
+function fmtT(t){if(!isFinite(t))return 'no dispara';if(t<0.1)return (t*1000).toFixed(0)+' ms';if(t<60)return t.toFixed(t<1?2:1)+' s';if(t<3600)return (t/60).toFixed(1)+' min';return (t/3600).toFixed(2)+' h';}
+function fmtI2t(v){if(!isFinite(v))return '∞';if(v>=1e6)return (v/1e6).toFixed(2)+'·10⁶';if(v>=1e3)return (v/1e3).toFixed(1)+'·10³';return Math.round(v).toString();}
+function fmtA(v){return (Math.round(v*10)/10).toFixed(v<10?1:0)+' A';}
+function pickIdx(n,ex){let v=Math.floor(Math.random()*n);if(n>1)while(v===ex)v=Math.floor(Math.random()*n);return v;}
+function hexA(hex,a){const n=parseInt(hex.slice(1),16);return `rgba(${(n>>16)&255},${(n>>8)&255},${n&255},${a})`;}
+
+// ===================== 3. ESTADO =====================
+let mode='explora';                 // explora | coord | reto
+// Explora: un interruptor + corriente de prueba (como múltiplo x de In)
+let expIn=16, expCurve='C', expX=6, expHard=false;
+const X_STEPS=[1.2,1.45,2.55,4,6,8,12,18];
+// Coordinación: derivada (aguas abajo) + general (aguas arriba) + corriente de falla
+let br={In:16,curve:'C'}, mn={In:40,curve:'D'}, faultI=400;
+const FAULT_STEPS=[50,100,200,400,800,1500];
+// Reto: carga sorteada; se califican DOS objetivos (In y curva) por separado
+let retoLoadIdx=0, retoIn=16, retoCurve='C', retoChecked=false, retoOkIn=false, retoOkCurve=false, retoSolved=false, retoMsg='';
+let solved=false, autoRunning=false, QUIZ={};
+
+function seedReto(idx){
+  retoLoadIdx=(idx==null)?pickIdx(LOADS.length,retoLoadIdx):idx;
+  const L=LOADS[retoLoadIdx];
+  retoIn=bestIn(L.Ib,L.Iz);          // arranca ya en un In válido para no confundir el objetivo de curva
+  retoCurve='C';
+  retoChecked=false;retoOkIn=false;retoOkCurve=false;retoSolved=false;retoMsg='';
+}
+seedReto(0);
+
+// ===================== 4. MATERIALES =====================
+function std(color,rough,metal){return new THREE.MeshStandardMaterial({color,roughness:rough,metalness:metal});}
+function brush(base){return std(base,0.55,0.35);}
+const MAT={bench:brush(0x2c302e),frame:brush(0x22262a),leg:brush(0x141613),panel:brush(0x30363b),rail:brush(0x8a9298),load:brush(0x2b2622)};
+const ACC='#4FB0AE', OK_HEX='#7CD992', BAD_HEX='#ff6b6b', WARN_HEX='#E9C46A';
+
+const HOVER_LABELS=new Map();
+function addHoverLabel(obj,text,color,pos,scale){
+  const cv=document.createElement('canvas');cv.width=256;cv.height=64;const cx=cv.getContext('2d');
+  cx.fillStyle='rgba(10,14,13,0.88)';cx.fillRect(0,0,256,64);
+  cx.strokeStyle=color;cx.lineWidth=2;cx.strokeRect(1,1,254,62);
+  cx.fillStyle='#F4EFEA';cx.font='bold 20px Outfit, sans-serif';cx.textAlign='center';cx.textBaseline='middle';cx.fillText(text,128,32);
+  const tex=new THREE.CanvasTexture(cv);
+  const spr=new THREE.Sprite(new THREE.SpriteMaterial({map:tex,transparent:true,depthTest:false}));
+  spr.position.copy(pos);spr.scale.set(scale||1.1,(scale||1.1)*0.28,1);spr.visible=false;spr.renderOrder=999;
+  scene.add(spr);HOVER_LABELS.set(obj,spr);return spr;
+}
+
+// ===================== 5. PIZARRÓN (CURVAS TIEMPO-CORRIENTE) =====================
+const boardG=new THREE.Group();
+boardG.position.set(-1.25,0,-0.95);boardG.rotation.y=0.2;scene.add(boardG);
+const frame=roundedBox(3.72,2.80,0.12,MAT.frame,0.06);frame.position.set(0,1.85,0);boardG.add(frame);
+[-1.55,1.55].forEach(x=>{const leg=new THREE.Mesh(new THREE.CylinderGeometry(0.05,0.06,1.85,16),MAT.leg);leg.position.set(x,0.9,0);boardG.add(leg);});
+const bCv=document.createElement('canvas');bCv.width=1024;bCv.height=768;
+const bTex=new THREE.CanvasTexture(bCv);
+const board=new THREE.Mesh(new THREE.PlaneGeometry(3.5,2.58),new THREE.MeshBasicMaterial({map:bTex}));
+board.position.set(0,1.85,0.065);boardG.add(board);
+frame.userData={title:'Curva tiempo-corriente',info:'La característica de disparo del interruptor: tiempo vs corriente en escala log-log · toca para inspeccionar'};
+addHoverLabel(frame,'Curvas tiempo-corriente',ACC,new THREE.Vector3(0,3.38,0.1).add(boardG.position),1.9);
+
+const PLOT={x:96,y:96,w:592,h:556};
+const IL=[1,2000], TL=[0.01,7200];
+const lg=Math.log10;
+function sx(I){return PLOT.x+(lg(I)-lg(IL[0]))/(lg(IL[1])-lg(IL[0]))*PLOT.w;}
+function sy(t){return PLOT.y+(lg(TL[1])-lg(Math.max(TL[0],Math.min(TL[1],t))))/(lg(TL[1])-lg(TL[0]))*PLOT.h;}
+
+function bg(c){c.fillStyle='#0c100f';c.fillRect(0,0,1024,768);}
+function drawAxes(c){
+  c.fillStyle='rgba(255,255,255,0.02)';c.fillRect(PLOT.x,PLOT.y,PLOT.w,PLOT.h);
+  c.strokeStyle='rgba(255,255,255,0.18)';c.lineWidth=1;c.strokeRect(PLOT.x,PLOT.y,PLOT.w,PLOT.h);
+  c.font='11px Outfit, sans-serif';c.textAlign='center';
+  [1,2,5,10,20,50,100,200,500,1000,2000].forEach(v=>{
+    const X=sx(v), major=[1,10,100,1000].includes(v);
+    c.strokeStyle=major?'rgba(79,176,174,0.20)':'rgba(255,255,255,0.055)';
+    c.beginPath();c.moveTo(X,PLOT.y);c.lineTo(X,PLOT.y+PLOT.h);c.stroke();
+    if(major){c.fillStyle='#8f9793';c.fillText(v>=1000?(v/1000)+'k A':v+' A',X,PLOT.y+PLOT.h+16);}});
+  const ylab={0.01:'10 ms',0.1:'0.1 s',1:'1 s',10:'10 s',60:'1 min',100:'100 s',1000:'1000 s',3600:'1 h'};
+  c.textAlign='right';
+  [0.01,0.1,1,10,60,100,1000,3600].forEach(v=>{
+    const Y=sy(v), major=[0.01,0.1,1,10,100,1000].includes(v), special=(v===60||v===3600);
+    c.strokeStyle=special?'rgba(233,196,74,0.22)':(major?'rgba(79,176,174,0.15)':'rgba(255,255,255,0.05)');
+    c.setLineDash(special?[4,4]:[]);c.beginPath();c.moveTo(PLOT.x,Y);c.lineTo(PLOT.x+PLOT.w,Y);c.stroke();c.setLineDash([]);
+    c.fillStyle=special?'#E9C46A':'#8f9793';c.fillText(ylab[v],PLOT.x-6,Y+4);});
+  c.fillStyle='#B9D9D7';c.font='bold 12px Outfit, sans-serif';c.textAlign='center';
+  c.fillText('Corriente (A) · escala log',PLOT.x+PLOT.w/2,PLOT.y+PLOT.h+36);
+  c.save();c.translate(PLOT.x-56,PLOT.y+PLOT.h/2);c.rotate(-Math.PI/2);c.fillText('Tiempo de disparo (s) · escala log',0,0);c.restore();
+}
+// dibuja la curva de un interruptor: térmica inversa + banda magnética + caída vertical instantánea
+function plotBreaker(c,In,curve,color,dashed,label){
+  const cc=CURVES[curve];
+  // banda magnética (zona de incertidumbre lo..hi)
+  c.fillStyle=hexA(color,0.08);
+  c.fillRect(sx(In*cc.lo),PLOT.y,sx(In*cc.hi)-sx(In*cc.lo),PLOT.h);
+  // curva
+  c.strokeStyle=color;c.lineWidth=dashed?2.2:2.8;c.setLineDash(dashed?[8,5]:[]);c.beginPath();
+  const Istart=In*XP*1.004, Iend=In*cc.Im, N=90;let started=false;
+  for(let i=0;i<=N;i++){
+    const I=Istart*Math.pow(Iend/Istart,i/N), t=tTrip(I,In,curve);
+    if(!isFinite(t))continue;
+    const X=sx(I),Y=sy(t);
+    if(!started){c.moveTo(X,Y);started=true;}else c.lineTo(X,Y);
+  }
+  c.lineTo(sx(Iend),sy(0.01));                 // caída magnética instantánea
+  c.stroke();c.setLineDash([]);
+  // asíntota vertical de no-disparo (1.13×In)
+  c.strokeStyle=hexA(color,0.35);c.lineWidth=1;c.setLineDash([3,4]);
+  c.beginPath();c.moveTo(sx(In*XP),sy(TL[1]));c.lineTo(sx(In*XP),PLOT.y+PLOT.h*0.15);c.stroke();c.setLineDash([]);
+  // etiqueta al inicio de la curva
+  if(label){c.fillStyle=color;c.font='bold 12px Outfit, sans-serif';c.textAlign='left';
+    c.fillText(label,sx(In*XP)+4,sy(TL[1])+16);}
+}
+function plotPoint(c,I,t,color,txt){
+  const X=sx(I);
+  // línea vertical de la corriente
+  c.strokeStyle=hexA(color,0.5);c.lineWidth=1.4;c.setLineDash([5,4]);
+  c.beginPath();c.moveTo(X,PLOT.y);c.lineTo(X,PLOT.y+PLOT.h);c.stroke();c.setLineDash([]);
+  if(isFinite(t)){
+    const Y=sy(t);
+    c.fillStyle=color;c.beginPath();c.arc(X,Y,7,0,7);c.fill();
+    c.strokeStyle='#0c100f';c.lineWidth=2;c.beginPath();c.arc(X,Y,7,0,7);c.stroke();
+    if(txt){c.fillStyle=color;c.font='bold 13px Outfit, sans-serif';c.textAlign=X>PLOT.x+PLOT.w*0.7?'right':'left';
+      c.fillText(txt,X+(X>PLOT.x+PLOT.w*0.7?-12:12),Y-10);}
+  }
+}
+function rpanel(c,x,y,w,h,title){
+  c.fillStyle='rgba(79,176,174,0.06)';c.fillRect(x,y,w,h);
+  c.strokeStyle='rgba(79,176,174,0.22)';c.lineWidth=1;c.strokeRect(x,y,w,h);
+  c.fillStyle='#B9D9D7';c.font='bold 15px Outfit, sans-serif';c.textAlign='left';c.fillText(title,x+16,y+26);
+}
+function prow(c,x,y,w,l,v,col){
+  c.fillStyle='#8f9793';c.font='13px Outfit, sans-serif';c.textAlign='left';c.fillText(l,x+16,y);
+  c.fillStyle=col||'#F4EFEA';c.font='bold 16px Outfit, sans-serif';c.textAlign='right';c.fillText(v,x+w-14,y);
+}
+function wrapText(c,text,x,y,maxW,lh){
+  const words=text.split(' ');let line='',yy=y;
+  for(const w of words){const test=line+w+' ';
+    if(c.measureText(test).width>maxW && line){c.fillText(line,x,yy);line=w+' ';yy+=lh;}else line=test;}
+  c.fillText(line,x,yy);
+}
+
+const PX2={x:712,y:96,w:296};
+function drawExplora(c){
+  const In=expIn, cv=expCurve, cc=CURVES[cv];
+  const I=expX*In, t=tTrip(I,In,cv), mech=mechAt(I,In,cv), e=i2t(I,In,cv);
+  c.fillStyle='#B9D9D7';c.font='bold 21px Outfit, sans-serif';c.textAlign='left';
+  c.fillText('CURVA DE UN INTERRUPTOR · In='+In+' A · curva '+cv,30,44);
+  c.fillStyle='#7a8380';c.font='13px Outfit, sans-serif';
+  c.fillText('Térmica (sobrecarga, inversa) + magnética (cortocircuito, instantánea a '+cc.lo+'–'+cc.hi+'× In). Corriente de prueba = '+expX+'× In.',30,68);
+  drawAxes(c);
+  plotBreaker(c,In,cv,cc.col,false,'curva '+cv);
+  plotPoint(c,I,t,'#F4EFEA',fmtT(t));
+  // panel derecho
+  rpanel(c,PX2.x,PX2.y,PX2.w,300,'CORRIENTE DE PRUEBA');
+  prow(c,PX2.x,PX2.y+60,PX2.w,'Múltiplo x = I/In',expX+'×');
+  prow(c,PX2.x,PX2.y+96,PX2.w,'Corriente I',fmtA(I));
+  prow(c,PX2.x,PX2.y+132,PX2.w,'Tiempo de disparo',fmtT(t), t<0.05?'#5BC0DE':(isFinite(t)?WARN_HEX:BAD_HEX));
+  prow(c,PX2.x,PX2.y+168,PX2.w,'Mecanismo',mech==='mag'?'MAGNÉTICO':(mech==='ter'?'térmico':'no dispara'),
+       mech==='mag'?'#5BC0DE':(mech==='ter'?WARN_HEX:BAD_HEX));
+  prow(c,PX2.x,PX2.y+204,PX2.w,'Energía I²t',fmtI2t(e)+' A²s',e<2000?OK_HEX:(isFinite(e)?WARN_HEX:BAD_HEX));
+  prow(c,PX2.x,PX2.y+240,PX2.w,'Umbral magnético',cc.Im+'× ('+(cc.Im*In)+' A)','#C9C4BB');
+  // veredicto
+  const by=PX2.y+320;
+  c.fillStyle='rgba(0,0,0,0.25)';c.fillRect(PX2.x,by,PX2.w,232);
+  c.strokeStyle=cc.col;c.lineWidth=2;c.strokeRect(PX2.x,by,PX2.w,232);
+  c.fillStyle=cc.col;c.font='bold 14px Outfit, sans-serif';c.textAlign='left';c.fillText('CURVA '+cv+' — '+cc.lo+'–'+cc.hi+'× In',PX2.x+14,by+26);
+  c.fillStyle='#C9C4BB';c.font='12px Outfit, sans-serif';
+  wrapText(c,'Uso típico: '+cc.uso+'.',PX2.x+14,by+52,PX2.w-28,18);
+  let msg;
+  if(mech==='no')msg='A '+expX+'× la corriente está por debajo del umbral térmico (1.13×): el interruptor NO dispara. Es corriente de operación normal.';
+  else if(mech==='ter')msg='A '+expX+'× dispara por vía TÉRMICA en '+fmtT(t)+': es una sobrecarga, se despeja con retardo inverso.';
+  else msg='A '+expX+'× (≥'+cc.Im+'×) dispara por vía MAGNÉTICA en ~10 ms: es un cortocircuito, se corta casi al instante y la I²t es mínima.';
+  c.fillStyle='#C9C4BB';c.font='13px Outfit, sans-serif';wrapText(c,msg,PX2.x+14,by+96,PX2.w-28,19);
+}
+
+function drawCoord(c){
+  const si=selInfo(br,mn), now=selectiveNow(br,mn,faultI);
+  const tb=now.tb, tm=now.tm;
+  const okNow = now.aboveIs ? false : now.sel;   // por encima de Is no hay garantía por curvas
+  c.fillStyle='#B9D9D7';c.font='bold 21px Outfit, sans-serif';c.textAlign='left';
+  c.fillText('COORDINACIÓN · derivada '+br.In+'A-'+br.curve+'  vs  general '+mn.In+'A-'+mn.curve,30,44);
+  c.fillStyle='#7a8380';c.font='13px Outfit, sans-serif';
+  c.fillText('Selectivo mientras la curva de la derivada (azul) quede por debajo de la general (ámbar). La zona sombreada tras Is es la instantánea común.',30,68);
+  drawAxes(c);
+  // zona no garantizada (I ≥ Is): sombreado
+  if(si.Is<IL[1]){c.fillStyle='rgba(255,107,107,0.07)';c.fillRect(sx(si.Is),PLOT.y,PLOT.x+PLOT.w-sx(si.Is),PLOT.h);
+    c.strokeStyle='rgba(255,107,107,0.4)';c.lineWidth=1.5;c.setLineDash([6,4]);c.beginPath();c.moveTo(sx(si.Is),PLOT.y);c.lineTo(sx(si.Is),PLOT.y+PLOT.h);c.stroke();c.setLineDash([]);
+    c.fillStyle='#ff9f68';c.font='bold 11px Outfit, sans-serif';c.textAlign='left';c.fillText('Is='+Math.round(si.Is)+' A',sx(si.Is)+5,PLOT.y+14);}
+  plotBreaker(c,mn.In,mn.curve,'#E9C46A',true,'GENERAL '+mn.In+'A-'+mn.curve);
+  plotBreaker(c,br.In,br.curve,'#5BC0DE',false,'DERIVADA '+br.In+'A-'+br.curve);
+  plotPoint(c,faultI,tb,'#7CD992',null);
+  plotPoint(c,faultI,tm,'#E9C46A',null);
+  c.fillStyle='#8f9793';c.font='11px Outfit, sans-serif';c.textAlign='center';c.fillText('falla '+faultI+' A',sx(faultI),PLOT.y-6);
+  // panel derecho
+  rpanel(c,PX2.x,PX2.y,PX2.w,230,'ANTE LA FALLA DE '+faultI+' A');
+  prow(c,PX2.x,PX2.y+60,PX2.w,'Derivada ('+br.In+'A-'+br.curve+')',fmtT(tb),'#5BC0DE');
+  prow(c,PX2.x,PX2.y+96,PX2.w,'General ('+mn.In+'A-'+mn.curve+')',fmtT(tm),'#E9C46A');
+  prow(c,PX2.x,PX2.y+132,PX2.w,'¿Dispara antes la derivada?',now.aboveIs?'zona instantánea':(okNow?'✔ SÍ':'✗ NO'),now.aboveIs?WARN_HEX:(okNow?OK_HEX:BAD_HEX));
+  prow(c,PX2.x,PX2.y+168,PX2.w,'Límite selectivo Is',Math.round(si.Is)+' A', faultI<si.Is?OK_HEX:WARN_HEX);
+  // veredicto global
+  const by=PX2.y+254;
+  c.fillStyle='rgba(0,0,0,0.25)';c.fillRect(PX2.x,by,PX2.w,298);
+  c.strokeStyle=si.total?OK_HEX:BAD_HEX;c.lineWidth=2;c.strokeRect(PX2.x,by,PX2.w,298);
+  c.fillStyle=si.total?OK_HEX:BAD_HEX;c.font='bold 16px Outfit, sans-serif';c.textAlign='left';
+  c.fillText(si.total?('✔ SELECTIVO hasta '+Math.round(si.Is)+' A'):'✗ NO COORDINA',PX2.x+14,by+28);
+  c.fillStyle='#C9C4BB';c.font='13px Outfit, sans-serif';
+  const msg=si.total
+    ? 'Por debajo de Is='+Math.round(si.Is)+' A la general sigue en su zona térmica (lenta) y la derivada dispara antes: una falla del ramal abre solo su interruptor. Por encima de Is ambas van a ~10 ms → la discriminación ya no la garantizan las curvas (hace falta tabla del fabricante o limitación de corriente).'
+    : (mn.In<=br.In
+        ? 'La general ('+mn.In+' A) no supera a la derivada ('+br.In+' A): imposible coordinar. La general debe tener bastante más corriente nominal.'
+        : 'Las curvas se cruzan por debajo de Is: en parte del rango la general dispararía primero o a la vez. Sube el In o la curva de la general para separarlas.');
+  wrapText(c,msg,PX2.x+14,by+56,PX2.w-28,19);
+  c.fillStyle='#8f9793';c.font='12px Outfit, sans-serif';
+  wrapText(c,'Para ampliar el rango selectivo, sube Is de la general (más In y/o curva más alta): así su disparo instantáneo empieza más tarde y la derivada dispara sola en un rango mayor.',PX2.x+14,by+196,PX2.w-28,18);
+}
+
+function drawReto(c){
+  const L=LOADS[retoLoadIdx];
+  const goodIn=bestIn(L.Ib,L.Iz), goodCv=bestCurve(L.m);
+  const cc=CURVES[retoCurve];
+  const Iarr=L.m*retoIn;                                   // pico de arranque referido a In
+  c.fillStyle='#B9D9D7';c.font='bold 21px Outfit, sans-serif';c.textAlign='left';
+  c.fillText('RETO — PROTEGE ESTA CARGA',30,44);
+  c.fillStyle='#7a8380';c.font='13px Outfit, sans-serif';
+  c.fillText('Elige la corriente nominal In (Ib≤In≤Iz) Y la curva (por el pico de arranque). Dos objetivos, ambos deben cumplirse.',30,68);
+  drawAxes(c);
+  plotBreaker(c,retoIn,retoCurve,cc.col,false,'tu selección '+retoIn+'A-'+retoCurve);
+  // marcas de carga: Ib (nominal), Iarr (arranque), Iz (ampacidad del cable)
+  [['Ib '+L.Ib+'A',L.Ib,'#7CD992'],['arranque '+Math.round(Iarr)+'A',Iarr,'#E9C46A'],['Iz '+L.Iz+'A',L.Iz,'#ff9f68']].forEach(m=>{
+    const X=sx(m[1]);c.strokeStyle=hexA(m[2].replace('#',''),0);c.strokeStyle=m[2];c.globalAlpha=0.6;c.lineWidth=1.4;c.setLineDash([4,4]);
+    c.beginPath();c.moveTo(X,PLOT.y);c.lineTo(X,PLOT.y+PLOT.h);c.stroke();c.setLineDash([]);c.globalAlpha=1;
+    c.fillStyle=m[2];c.font='10px Outfit, sans-serif';c.textAlign='center';c.save();c.translate(X,PLOT.y+PLOT.h-8);c.rotate(-Math.PI/2);c.fillText(m[0],0,-3);c.restore();});
+  // panel derecho: la carga
+  rpanel(c,PX2.x,PX2.y,PX2.w,214,'CARGA A PROTEGER');
+  c.fillStyle='#F4EFEA';c.font='bold 15px Outfit, sans-serif';c.textAlign='left';c.fillText(L.n,PX2.x+16,PX2.y+52);
+  prow(c,PX2.x,PX2.y+86,PX2.w,'Corriente de carga Ib',L.Ib+' A');
+  prow(c,PX2.x,PX2.y+118,PX2.w,'Ampacidad del cable Iz',L.Iz+' A');
+  prow(c,PX2.x,PX2.y+150,PX2.w,'Pico de arranque',L.m+'× In');
+  c.fillStyle='#8f9793';c.font='11px Outfit, sans-serif';wrapText(c,L.tip,PX2.x+16,PX2.y+182,PX2.w-32,15);
+  // veredicto
+  const by=PX2.y+238;
+  if(retoChecked){
+    c.fillStyle='rgba(0,0,0,0.25)';c.fillRect(PX2.x,by,PX2.w,314);
+    c.strokeStyle=retoSolved?OK_HEX:BAD_HEX;c.lineWidth=2;c.strokeRect(PX2.x,by,PX2.w,314);
+    c.fillStyle=retoSolved?OK_HEX:BAD_HEX;c.font='bold 16px Outfit, sans-serif';c.textAlign='left';
+    c.fillText(retoSolved?'✔ CORRECTO':'✗ REVISA',PX2.x+14,by+26);
+    c.font='bold 13px Outfit, sans-serif';
+    c.fillStyle=retoOkIn?OK_HEX:BAD_HEX;c.fillText((retoOkIn?'✔':'✗')+' In = '+retoIn+' A  (correcto: '+goodIn+' A)',PX2.x+14,by+54);
+    c.fillStyle=retoOkCurve?OK_HEX:BAD_HEX;c.fillText((retoOkCurve?'✔':'✗')+' Curva '+retoCurve+'  (correcta: '+goodCv+')',PX2.x+14,by+78);
+    c.fillStyle='#C9C4BB';c.font='12px Outfit, sans-serif';wrapText(c,retoExplain(),PX2.x+14,by+108,PX2.w-28,17);
+  }else{
+    c.fillStyle='rgba(0,0,0,0.20)';c.fillRect(PX2.x,by,PX2.w,314);
+    c.strokeStyle='rgba(79,176,174,0.3)';c.lineWidth=1;c.strokeRect(PX2.x,by,PX2.w,314);
+    c.fillStyle=WARN_HEX;c.font='13px Outfit, sans-serif';c.textAlign='left';
+    wrapText(c,'① In: el menor calibre normalizado con Ib ≤ In ≤ Iz (lleva la carga sin rebasar el cable).',PX2.x+14,by+28,PX2.w-28,18);
+    wrapText(c,'② Curva: la más sensible cuyo umbral bajo supere el pico de arranque (no dispara al arrancar, pero da la protección más rápida).',PX2.x+14,by+96,PX2.w-28,18);
+    c.fillStyle='#7a8380';c.font='12px Outfit, sans-serif';
+    wrapText(c,'Ajusta In y curva y pulsa "Comprobar".',PX2.x+14,by+186,PX2.w-28,18);
+  }
+}
+function retoExplain(){
+  const L=LOADS[retoLoadIdx], goodIn=bestIn(L.Ib,L.Iz), goodCv=bestCurve(L.m), cg=CURVES[goodCv];
+  if(retoSolved) return 'In='+goodIn+' A es el menor que cumple '+L.Ib+'≤In≤'+L.Iz+'; la curva '+goodCv+' (umbral '+cg.lo+'–'+cg.hi+'×) no dispara con el arranque de '+L.m+'× y es la más sensible que lo logra, así minimiza la I²t en cortocircuito.';
+  let s='';
+  if(!retoOkIn){
+    if(retoIn<L.Ib) s+='In='+retoIn+' A < Ib='+L.Ib+' A: dispararía en servicio normal. ';
+    else if(retoIn>L.Iz) s+='In='+retoIn+' A > Iz='+L.Iz+' A: el cable se sobrecargaría sin que el interruptor proteja. ';
+    else s+='In='+retoIn+' A cumple, pero no es el mínimo: '+goodIn+' A basta. ';
+  }
+  if(!retoOkCurve){
+    const cr=CURVES[retoCurve];
+    if(cr.lo<=L.m) s+='La curva '+retoCurve+' (umbral desde '+cr.lo+'×) dispararía con el arranque de '+L.m+'×: falsa alarma. ';
+    else s+='La curva '+retoCurve+' sobra: la '+goodCv+' ya tolera el arranque y protege más rápido (menor I²t). ';
+  }
+  return s||'Revisa los dos objetivos.';
+}
+
+function drawBoard(){
+  const c=bCv.getContext('2d');bg(c);
+  if(mode==='coord')drawCoord(c);else if(mode==='reto')drawReto(c);else drawExplora(c);
+  bTex.needsUpdate=true;
+}
+function boardClick(){
+  if(mode==='coord')showToast('🔗 Dos curvas: la general (aguas arriba, punteada ámbar) y la derivada (aguas abajo, azul). Para que sea selectivo, la azul debe quedar SIEMPRE por debajo de la ámbar. La línea vertical es la corriente de falla.');
+  else if(mode==='reto')showToast('🎯 La curva es tu interruptor. Las tres líneas verticales son Ib (carga), el pico de arranque y Iz (cable). Ajusta In y curva para que no dispare al arrancar pero proteja el cable.');
+  else showToast('📈 Curva log-log: a la izquierda la región térmica (sobrecarga, con retardo); el escalón vertical es la región magnética (cortocircuito, ~10 ms). El punto es tu corriente de prueba.');
+}
+
+// ===================== 6. ESCENA 3D: TABLERO CON DOS INTERRUPTORES → CARGA =====================
+const bench=roundedBox(3.4,0.5,1.7,MAT.bench,0.05);bench.position.set(1.6,0.25,0.6);scene.add(bench);
+bench.userData={title:'Tablero de distribución',info:'Interruptor general → interruptor derivado → carga'};
+// panel montado
+const panel=roundedBox(1.0,1.25,0.16,MAT.panel,0.04);panel.position.set(0.7,1.15,0.55);scene.add(panel);
+panel.userData={title:'Tablero de distribución',info:'Aloja los interruptores termomagnéticos sobre riel DIN.'};
+addHoverLabel(panel,'Tablero',ACC,new THREE.Vector3(0.7,1.92,0.55),1.0);
+// riel DIN
+const rail=roundedBox(0.8,0.06,0.05,MAT.rail,0.01);rail.position.set(0.7,1.45,0.64);scene.add(rail);
+const rail2=roundedBox(0.8,0.06,0.05,MAT.rail,0.01);rail2.position.set(0.7,1.02,0.64);scene.add(rail2);
+
+// módulo interruptor: caja + palanca + carátula
+function breakerModule(x,y,tag){
+  const g=new THREE.Group();g.position.set(x,y,0.66);scene.add(g);
+  const body=roundedBox(0.22,0.34,0.13,brush(0x1b1e1d),0.02);g.add(body);
+  const lever=roundedBox(0.06,0.10,0.05,brush(0x2b2e2d),0.015);lever.position.set(0,0.05,0.08);g.add(lever);
+  const cv=document.createElement('canvas');cv.width=160;cv.height=200;const tex=new THREE.CanvasTexture(cv);
+  const face=new THREE.Mesh(new THREE.PlaneGeometry(0.20,0.25),new THREE.MeshBasicMaterial({map:tex,transparent:true}));
+  face.position.set(0,-0.02,0.068);g.add(face);
+  body.userData={title:tag,info:'Interruptor termomagnético (MCB) sobre riel DIN.'};
+  return {g,lever,cv,tex,face};
+}
+const bkMain=breakerModule(0.48,1.45,'Interruptor general (aguas arriba)');
+const bkBranch=breakerModule(0.92,1.02,'Interruptor derivado (aguas abajo)');
+function drawFace(bk,In,curve,tripped,active){
+  const c=bk.cv.getContext('2d');const cc=CURVES[curve];
+  c.fillStyle=tripped?'#3a0f0f':'#0c1211';c.fillRect(0,0,160,200);
+  c.strokeStyle=active?ACC:(tripped?BAD_HEX:'rgba(255,255,255,0.15)');c.lineWidth=4;c.strokeRect(3,3,154,194);
+  c.fillStyle=cc.col;c.font='bold 62px Outfit, sans-serif';c.textAlign='center';c.fillText(curve+In,80,88);
+  c.fillStyle='#8f9793';c.font='16px Outfit, sans-serif';c.fillText('curva '+curve,80,120);
+  c.fillStyle=tripped?BAD_HEX:OK_HEX;c.font='bold 20px Outfit, sans-serif';c.fillText(tripped?'DISPARADO':'ON',80,168);
+  bk.tex.needsUpdate=true;
+  bk.lever.position.y=tripped?-0.02:0.05;                 // palanca abajo = disparado
+}
+// carga
+const load=roundedBox(0.55,0.7,0.6,MAT.load,0.05);load.position.set(3.0,0.9,0.6);scene.add(load);
+load.userData={title:'Carga (utilización)',info:'Motor, tablero de utilización o carga final protegida por el interruptor derivado.'};
+addHoverLabel(load,'Carga',WARN_HEX,new THREE.Vector3(3.0,1.42,0.6),0.9);
+// conductor tablero→carga (grosor ∝ In del derivado)
+const copMat=new THREE.MeshStandardMaterial({color:0xC97C46,roughness:0.42,metalness:0.55,emissive:0x000000,emissiveIntensity:0});
+function tubeBetween(a,b,radius,mat){
+  const dir=new THREE.Vector3().subVectors(b,a),len=dir.length();
+  const m=new THREE.Mesh(new THREE.CylinderGeometry(radius,radius,len,12),mat);
+  m.position.copy(a).add(b).multiplyScalar(0.5);
+  m.quaternion.setFromUnitVectors(new THREE.Vector3(0,1,0),dir.clone().normalize());return m;
+}
+const wA=new THREE.Vector3(1.1,1.0,0.66), wB=new THREE.Vector3(2.72,1.0,0.5);
+let wire=tubeBetween(wA,wB,0.03,copMat);scene.add(wire);
+wire.userData={title:'Conductor del ramal',info:'Protegido por el interruptor derivado. Su grosor crece con la corriente nominal.'};
+function rebuildWire(){
+  const In=(mode==='reto')?retoIn:(mode==='coord')?br.In:expIn;
+  const r=0.016+0.05*(IN_STEPS.indexOf(In)/(IN_STEPS.length-1));
+  scene.remove(wire);wire=tubeBetween(wA,wB,r,copMat);
+  wire.userData={title:'Conductor del ramal',info:'Protegido por el interruptor derivado. Su grosor crece con la corriente nominal.'};
+  scene.add(wire);
+}
+
+// ===================== 7. HUD Y PANEL =====================
+document.getElementById('hud').innerHTML=`
+  <div class="eyebrow">Circuitos eléctricos (D1) · Instalaciones · Protecciones</div>
+  <h2>Coordinación de Protecciones · Curvas Tiempo-Corriente</h2>
+  <p>Un interruptor termomagnético no dispara siempre en el mismo tiempo: su <b>curva tiempo-corriente</b>
+  dice cuánto tarda en abrir según la corriente que lo atraviesa. Tiene <b>dos mecanismos</b>: el
+  <b>térmico</b> (bimetálico) protege contra <b>sobrecargas</b> con un retardo inverso —a más corriente,
+  dispara más rápido—; y el <b>magnético</b> (electroimán) protege contra <b>cortocircuitos</b> disparando
+  casi al instante (~10 ms) al superar un umbral que define el <b>tipo de curva</b>: <b>B</b> (3–5× In),
+  <b>C</b> (5–10× In) y <b>D</b> (10–20× In). Elegir bien la curva evita <i>disparos molestos</i> en cargas
+  con alto pico de arranque (motores, transformadores) sin sacrificar protección. Y cuando hay dos
+  interruptores en serie —uno general y uno derivado— hay que <b>coordinarlos</b>: ante una falla, el
+  derivado debe abrir <b>antes</b> que el general para que solo se quede sin servicio el ramal afectado.</p>
+  <div class="formula">t_térmico = kT/((I/In)² − 1.13²) · magnético: instantáneo si I ≥ Im·In (Im = 5 / 10 / 20 para B/C/D) · I²t = I²·t · selectividad: t_derivada &lt; t_general</div>
+  <div class="legend">
+    <div class="li"><span class="dot" style="background:#7CD992"></span>Curva B (3–5×)</div>
+    <div class="li"><span class="dot" style="background:#5BC0DE"></span>Curva C (5–10×)</div>
+    <div class="li"><span class="dot" style="background:#E9C46A"></span>Curva D (10–20×)</div>
+    <div class="li"><span class="dot" style="background:#ff6b6b"></span>Disparo / no coordina</div>
+  </div>
+  <div class="fid">
+    <div class="ft">🔒 Contrato de fidelidad</div>
+    <div class="fl"><b>Sí modela:</b> la característica tiempo-corriente de un interruptor termomagnético miniatura (MCB) según IEC 60898: región térmica inversa anclada a las compuertas de prueba de la norma (1.13× no dispara; 1.45× dispara en &lt;1 h; 2.55× entre 1 y 60 s — verificado numéricamente) y región magnética instantánea con los umbrales garantizados de las curvas B (5×), C (10×) y D (20×). Calcula la energía pasante I²t, la selección de In por el criterio Ib≤In≤Iz, la selección de curva por el pico de arranque y la coordinación/selectividad entre dos MCB en serie.</div>
+    <div class="fl no"><b>NO modela:</b> la curva exacta de un fabricante específico (se usa un ajuste didáctico anclado a las compuertas de la norma, no la banda min/max real); la tolerancia/dispersión de la banda magnética (se usa el umbral garantizado 5/10/20×); la dependencia de la temperatura ambiente y de la precarga del bimetal; el poder de corte (Icu/Ics) y la limitación de corriente real del dispositivo; la selectividad energética con fusibles o con relés electrónicos ajustables; el cálculo de la corriente de cortocircuito de la red (se inyecta como dato); ni efectos de corriente directa.</div>
+  </div>
+  <div class="src">Ref: IEC 60898-1 (MCB, curvas B/C/D) · NOM-001-SEDE-2022 Art. 240 (protección contra sobrecorriente) · IEC 60947-2 · Verificación numérica propia</div>`;
+
+document.getElementById('panel').innerHTML=`
+  <h4>Protecciones · <span id="p_mode" style="color:var(--accent2)">Explora</span></h4>
+  <div class="modebar">
+    <button class="b on" id="m_explora">🧭 Explora</button>
+    <button class="b" id="m_coord">🔗 Coordinación</button>
+    <button class="b" id="m_reto">🎯 Reto</button>
+  </div>
+  <div id="scenarioInfo" style="font-size:12px;color:var(--ink);margin:2px 0 8px;display:none"></div>
+  <div class="modebar" id="selbar" style="display:none;flex-wrap:wrap"></div>
+  <div id="tele"></div>
+  <div class="console" id="report"></div>
+  <h4 class="sec" id="retoTitle" style="display:none">Reto de selección</h4>
+  <div id="retoBox" style="display:none">
+    <div id="retoSpec" style="font-size:12px;color:var(--ink);margin:2px 0 8px"></div>
+    <div class="btns"><button class="b primary" id="btnCheck">✅ Comprobar</button></div>
+  </div>
+  <h4 class="sec">Pregunta de ingeniería</h4>
+  <div id="q_text" style="font-size:12px;color:var(--ink);margin:4px 0 8px"></div>
+  <div class="btns" id="dxbtns"></div>
+  <div class="btns">
+    <button class="b auto" id="btnAuto">✨ Recorrido guiado (automático)</button>
+    <button class="b primary" id="btnNew">🔀 Nuevo escenario</button>
+  </div>`;
+
+// ===================== 8. TOASTS =====================
+function showToast(html){const t=el('toast');t.innerHTML=html;t.classList.add('show');clearTimeout(showToast._t);showToast._t=setTimeout(()=>t.classList.remove('show'),4200);}
+
+// ===================== 9. MODOS Y CONTROLES =====================
+const MODE_META={
+  explora:{nombre:'Explora',cam:[[4.4,2.7,6.8],[0.2,1.15,0.2]],mision:'Elige In y la curva (B/C/D), inyecta una corriente de prueba y observa dónde cae en la curva: sobrecarga (térmico, lento) o cortocircuito (magnético, ~10 ms).'},
+  coord:{nombre:'Coordinación',cam:[[4.2,2.6,6.6],[0.4,1.1,0.3]],mision:'Ajusta la general y la derivada e inyecta una falla. La derivada debe disparar antes que la general en TODO el rango para ser selectivo.'},
+  reto:{nombre:'Reto',cam:[[3.6,2.3,5.6],[1.4,1.05,0.5]],mision:'Carga sorteada: elige la corriente nominal In (Ib≤In≤Iz) y la curva por el pico de arranque. Los dos objetivos deben cumplirse.'},
+};
+function lbl(t){return `<span class="lbl">${t}</span>`;}
+function curveBtns(sel,attr){return CURVE_ORDER.map(k=>`<button class="b sm ${k===sel?'on':''}" data-${attr}="${k}">${k}</button>`).join('');}
+function inBtns(sel,attr){return IN_STEPS.map(v=>`<button class="b sm ${v===sel?'on':''}" data-${attr}="${v}">${v}A</button>`).join('');}
+function buildControls(){
+  const bar=el('selbar');bar.style.display='flex';bar.style.flexWrap='wrap';let html='';
+  if(mode==='explora'){
+    html+=lbl('In (A):')+inBtns(expIn,'ein');
+    html+=lbl('Curva:')+curveBtns(expCurve,'ecv');
+    html+=lbl('Corriente de prueba (× In):')+X_STEPS.map(v=>`<button class="b sm ${v===expX?'on':''}" data-ex="${v}">${v}×</button>`).join('');
+    bar.innerHTML=html;
+    bar.querySelectorAll('[data-ein]').forEach(b=>b.onclick=()=>{if(autoRunning)return;expIn=parseFloat(b.dataset.ein);synth.beep(640,0.05,0.04);afterEdit();});
+    bar.querySelectorAll('[data-ecv]').forEach(b=>b.onclick=()=>{if(autoRunning)return;expCurve=b.dataset.ecv;synth.beep(700,0.05,0.04);afterEdit();});
+    bar.querySelectorAll('[data-ex]').forEach(b=>b.onclick=()=>{if(autoRunning)return;expX=parseFloat(b.dataset.ex);synth.beep(600,0.05,0.04);afterEdit();});
+  }else if(mode==='coord'){
+    html+=lbl('Derivada — In:')+IN_STEPS.map(v=>`<button class="b sm ${v===br.In?'on':''}" data-brin="${v}">${v}A</button>`).join('');
+    html+=lbl('Derivada — curva:')+CURVE_ORDER.map(k=>`<button class="b sm ${k===br.curve?'on':''}" data-brcv="${k}">${k}</button>`).join('');
+    html+=lbl('General — In:')+IN_STEPS.map(v=>`<button class="b sm ${v===mn.In?'on':''}" data-mnin="${v}">${v}A</button>`).join('');
+    html+=lbl('General — curva:')+CURVE_ORDER.map(k=>`<button class="b sm ${k===mn.curve?'on':''}" data-mncv="${k}">${k}</button>`).join('');
+    html+=lbl('Corriente de falla (A):')+FAULT_STEPS.map(v=>`<button class="b sm ${v===faultI?'on':''}" data-fa="${v}">${v}</button>`).join('');
+    bar.innerHTML=html;
+    bar.querySelectorAll('[data-brin]').forEach(b=>b.onclick=()=>{if(autoRunning)return;br.In=parseFloat(b.dataset.brin);synth.beep(620,0.05,0.04);afterEdit();});
+    bar.querySelectorAll('[data-brcv]').forEach(b=>b.onclick=()=>{if(autoRunning)return;br.curve=b.dataset.brcv;synth.beep(680,0.05,0.04);afterEdit();});
+    bar.querySelectorAll('[data-mnin]').forEach(b=>b.onclick=()=>{if(autoRunning)return;mn.In=parseFloat(b.dataset.mnin);synth.beep(560,0.05,0.04);afterEdit();});
+    bar.querySelectorAll('[data-mncv]').forEach(b=>b.onclick=()=>{if(autoRunning)return;mn.curve=b.dataset.mncv;synth.beep(600,0.05,0.04);afterEdit();});
+    bar.querySelectorAll('[data-fa]').forEach(b=>b.onclick=()=>{if(autoRunning)return;faultI=parseFloat(b.dataset.fa);synth.beep(520,0.05,0.04);afterEdit();});
+  }else{ // reto
+    const L=LOADS[retoLoadIdx];
+    html+=lbl('Datos de la carga:')+
+      `<button class="b sm" data-lock="1" style="cursor:default">Ib=${L.Ib}A</button>`+
+      `<button class="b sm" data-lock="1" style="cursor:default">Iz=${L.Iz}A</button>`+
+      `<button class="b sm" data-lock="1" style="cursor:default">arranque ${L.m}×</button>`;
+    html+=lbl('① Elige In (A):')+IN_STEPS.map(v=>`<button class="b sm ${v===retoIn?'on':''}" data-rin="${v}">${v}A</button>`).join('');
+    html+=lbl('② Elige curva:')+CURVE_ORDER.map(k=>`<button class="b sm ${k===retoCurve?'on':''}" data-rcv="${k}">${k}</button>`).join('');
+    bar.innerHTML=html;
+    bar.querySelectorAll('[data-rin]').forEach(b=>b.onclick=()=>{if(autoRunning)return;retoIn=parseFloat(b.dataset.rin);retoChecked=false;retoSolved=false;synth.beep(640,0.05,0.04);afterEdit();});
+    bar.querySelectorAll('[data-rcv]').forEach(b=>b.onclick=()=>{if(autoRunning)return;retoCurve=b.dataset.rcv;retoChecked=false;retoSolved=false;synth.beep(700,0.05,0.04);afterEdit();});
+  }
+}
+function updateScenarioInfo(){
+  const box=el('scenarioInfo');
+  if(mode!=='reto'){box.style.display='none';return;}
+  const L=LOADS[retoLoadIdx];box.style.display='block';
+  box.innerHTML=`Carga: <b>${L.n}</b> — Ib=${L.Ib} A, Iz=${L.Iz} A, arranque ${L.m}× In. Elige In (Ib≤In≤Iz) <b>y</b> la curva que tolere el arranque.`;
+}
+function setMode(k){
+  mode=k;
+  ['explora','coord','reto'].forEach(m=>el('m_'+m).classList.toggle('on',m===k));
+  el('p_mode').textContent=MODE_META[k].nombre;
+  el('retoTitle').style.display=k==='reto'?'block':'none';
+  el('retoBox').style.display=k==='reto'?'block':'none';
+  if(k==='reto')updateRetoSpec();
+  buildControls();updateScenarioInfo();
+  solved=(k==='reto')?retoSolved:false;
+  clearDx();buildQuiz();refreshQuestion();
+  const cam=MODE_META[k].cam;S.moveTo(cam[0],cam[1]);refreshAll();
+}
+function afterEdit(){buildControls();updateScenarioInfo();refreshAll();}
+function newSignal(){
+  if(mode==='reto'){seedReto();updateRetoSpec();afterEdit();solved=false;showToast('🔀 Nueva carga: '+LOADS[retoLoadIdx].n+'. Elige In y curva.');}
+  else if(mode==='coord'){br.In=IN_STEPS[pickIdx(IN_STEPS.length)];br.curve=CURVE_ORDER[pickIdx(3)];mn.In=IN_STEPS[pickIdx(IN_STEPS.length)];mn.curve=CURVE_ORDER[pickIdx(3)];faultI=FAULT_STEPS[pickIdx(FAULT_STEPS.length)];afterEdit();showToast('🔀 Nuevo par: derivada '+br.In+'A-'+br.curve+' / general '+mn.In+'A-'+mn.curve+'. ¿Coordina?');}
+  else{expIn=IN_STEPS[pickIdx(IN_STEPS.length)];expCurve=CURVE_ORDER[pickIdx(3)];expX=X_STEPS[pickIdx(X_STEPS.length)];afterEdit();showToast('🔀 Nuevo caso: In='+expIn+' A, curva '+expCurve+', prueba '+expX+'×.');}
+  synth.beep(520,0.08,0.05);
+}
+
+// ===================== 10. TELEMETRÍA Y REPORTE =====================
+function teleRow(l,v,cls){return `<div class="trow"><span class="tl">${l}</span><span class="tv ${cls||''}">${v}</span></div>`;}
+function updateTele(){
+  const t=el('tele');let html='';
+  if(mode==='explora'){
+    const I=expX*expIn,tt=tTrip(I,expIn,expCurve),m=mechAt(I,expIn,expCurve);
+    html=teleRow('Interruptor',expIn+' A · curva '+expCurve)+
+      teleRow('Corriente',expX+'× = '+fmtA(I))+
+      teleRow('Disparo',fmtT(tt),m==='no'?'warn':'good')+
+      teleRow('Mecanismo',m==='mag'?'magnético (cortocircuito)':(m==='ter'?'térmico (sobrecarga)':'no dispara'),m==='mag'?'good':'warn')+
+      teleRow('Energía I²t',fmtI2t(i2t(I,expIn,expCurve))+' A²s');
+  }else if(mode==='coord'){
+    const si=selInfo(br,mn),now=selectiveNow(br,mn,faultI);
+    const okNow=now.aboveIs?false:now.sel;
+    html=teleRow('Derivada',br.In+'A · '+br.curve+' → '+fmtT(now.tb))+
+      teleRow('General',mn.In+'A · '+mn.curve+' → '+fmtT(now.tm))+
+      teleRow('En la falla ('+faultI+' A)',now.aboveIs?'zona instantánea (~10 ms)':(okNow?'✔ derivada primero':'✗ no'),now.aboveIs?'warn':(okNow?'good':'warn'))+
+      teleRow('Límite selectivo Is',Math.round(si.Is)+' A',si.total?'good':'warn')+
+      teleRow('Selectivo',si.total?('✔ hasta '+Math.round(si.Is)+' A'):'✗ no coordina',si.total?'good':'warn');
+  }else{
+    const L=LOADS[retoLoadIdx];
+    html=teleRow('Carga',L.n)+
+      teleRow('Tu In',retoIn+' A',(retoChecked?(retoOkIn?'good':'warn'):''))+
+      teleRow('Tu curva',retoCurve,(retoChecked?(retoOkCurve?'good':'warn'):''))+
+      teleRow('Estado',retoChecked?(retoSolved?'✔ CORRECTO':'✗ revisa'):'Elige y comprueba',(retoChecked&&retoSolved)?'good':'warn');
+  }
+  t.innerHTML=html;
+}
+function updateReport(){
+  let html=`<b>${MODE_META[mode].mision}</b><br>`;
+  if(mode==='explora'){
+    const I=expX*expIn,tt=tTrip(I,expIn,expCurve),m=mechAt(I,expIn,expCurve);
+    html+=`<span class="mono">In=${expIn} A, curva ${expCurve}: a ${expX}× (${fmtA(I)}) ${m==='no'?'NO dispara (corriente normal)':(m==='ter'?'dispara TÉRMICO en '+fmtT(tt)+' (sobrecarga)':'dispara MAGNÉTICO en ~10 ms (cortocircuito)')}. I²t=${fmtI2t(i2t(I,expIn,expCurve))} A²s.</span>`;
+  }else if(mode==='coord'){
+    const si=selInfo(br,mn);
+    html+=`<span class="mono">Derivada ${br.In}A-${br.curve} / General ${mn.In}A-${mn.curve}: ${si.total?('SELECTIVO hasta Is='+Math.round(si.Is)+' A — por debajo de esa falla el derivado abre solo; por encima ambos van a ~10 ms y hace falta tabla de discriminación del fabricante.'):(mn.In<=br.In?'NO coordina — la general no supera a la derivada.':'NO coordina — las curvas se cruzan por debajo de Is; sube el In o la curva de la general.')}</span>`;
+  }else{
+    html+=retoMsg||`<span class="mono">Carga ${LOADS[retoLoadIdx].n}. ① In con Ib≤In≤Iz. ② curva que tolere el arranque de ${LOADS[retoLoadIdx].m}×. Ajusta y comprueba.</span>`;
+  }
+  el('report').innerHTML=html;
+}
+function updateFaces(){
+  // Explora: general apagado, derivado refleja el disparo con la corriente de prueba
+  if(mode==='explora'){
+    const I=expX*expIn,tr=isFinite(tTrip(I,expIn,expCurve));
+    drawFace(bkMain,mn.In,mn.curve,false,false);
+    drawFace(bkBranch,expIn,expCurve,tr,true);
+    load.material.emissive.setHex(tr?0x000000:0xE9C46A);load.material.emissiveIntensity=tr?0:0.4;
+  }else if(mode==='coord'){
+    const now=selectiveNow(br,mn,faultI);
+    const brTrip=isFinite(now.tb), mnTrip=isFinite(now.tm)&&(!brTrip||now.tm<=now.tb);
+    drawFace(bkMain,mn.In,mn.curve,mnTrip,true);
+    drawFace(bkBranch,br.In,br.curve,brTrip,true);
+    load.material.emissive.setHex(0x000000);load.material.emissiveIntensity=(brTrip||mnTrip)?0:0.4;
+  }else{
+    const L=LOADS[retoLoadIdx];
+    drawFace(bkMain,mn.In,mn.curve,false,false);
+    drawFace(bkBranch,retoIn,retoCurve,false,true);
+    load.material.emissive.setHex(0xE9C46A);load.material.emissiveIntensity=0.4;
+  }
+}
+function refreshAll(){drawBoard();updateTele();updateReport();rebuildWire();updateFaces();}
+
+// ===================== 11. RETO =====================
+function updateRetoSpec(){
+  const L=LOADS[retoLoadIdx];
+  el('retoSpec').innerHTML=`Carga <b>${L.n}</b>: Ib=${L.Ib} A, Iz=${L.Iz} A, pico de arranque ${L.m}× In. Elige la In mínima con Ib≤In≤Iz <b>y</b> la curva más sensible que no dispare al arrancar. Pulsa "Comprobar".`;
+}
+function checkReto(){
+  const L=LOADS[retoLoadIdx];
+  retoOkIn=(retoIn===bestIn(L.Ib,L.Iz));
+  retoOkCurve=(retoCurve===bestCurve(L.m));
+  retoSolved=retoOkIn&&retoOkCurve;retoChecked=true;solved=retoSolved;
+  synth.beep(retoSolved?1046:220,retoSolved?0.14:0.15,0.06);
+  retoMsg=`<span class="mono"><span class="${retoSolved?'ok':'dtc'}">${retoSolved?'✔ Correcto':'✗ Revisa'}</span> — ${retoExplain()}</span>`;
+  refreshAll();
+}
+
+// ===================== 12. QUIZ =====================
+function buildQuiz(){
+  QUIZ={
+    explora:{
+      pregunta:'Un motor con arranque de 8× In se protege con un interruptor curva B (umbral magnético 3–5× In). ¿Qué ocurrirá al arrancar el motor?',
+      opciones:[
+        {t:'El interruptor disparará por la vía magnética en cada arranque (disparo molesto), porque 8× supera su umbral de 3–5×. Hay que usar una curva D (10–20×), que sí tolera el pico.',ok:true,why:'Correcto: la curva B trata el pico de arranque de 8× como un cortocircuito y abre. Para picos altos se usa curva D, cuyo umbral magnético (10–20×) queda por encima del arranque.'},
+        {t:'No pasará nada: el arranque es tan breve que ninguna curva lo detecta.',ok:false,why:'El disparo magnético es prácticamente instantáneo (~10 ms): un pico de 8× que supera el umbral de la curva B dispara aunque dure poco.'},
+        {t:'Disparará por la vía térmica tras varios minutos.',ok:false,why:'8× está muy por encima del umbral magnético de la B (3–5×): dispara por vía magnética en ~10 ms, no por la térmica.'},
+        {t:'El motor se dañará porque el interruptor no lo protege.',ok:false,why:'Al contrario: dispara de más (falsa alarma). El problema es que no deja arrancar el motor, no que falle en protegerlo.'},
+      ],
+    },
+    coord:{
+      pregunta:'Dos interruptores en serie tienen el mismo In y la misma curva. Ante un cortocircuito grande, ¿por qué se pierde la selectividad?',
+      opciones:[
+        {t:'Porque ambos superan su umbral magnético con esa corriente y disparan casi al mismo tiempo (~10 ms): no hay diferencia de tiempo, así que puede abrir el general y dejar sin servicio todo el tablero.',ok:true,why:'Correcto: en la zona magnética ambas curvas se juntan en ~10 ms. Para coordinar en cortocircuito la general necesita un umbral magnético bastante mayor (más In y/o curva más alta).'},
+        {t:'Porque el interruptor general es más lento por estar aguas arriba.',ok:false,why:'La posición no cambia la curva: si son iguales, disparan igual de rápido. El problema es el solapamiento de las curvas magnéticas.'},
+        {t:'Porque la corriente de falla se reparte entre los dos interruptores.',ok:false,why:'En serie la misma corriente pasa por ambos; no se reparte. Se pierde la selectividad porque las curvas coinciden en la zona instantánea.'},
+        {t:'No se pierde: al ser iguales, siempre coordinan perfectamente.',ok:false,why:'Es lo contrario: curvas iguales en la zona magnética disparan a la vez y NO coordinan. Coordinar exige separar sus umbrales.'},
+      ],
+    },
+    reto:{
+      pregunta:'Para un cable de ampacidad Iz que alimenta una carga Ib, ¿por qué el interruptor debe cumplir Ib ≤ In ≤ Iz?',
+      opciones:[
+        {t:'Ib ≤ In para que no dispare llevando la carga normal; In ≤ Iz para que el interruptor abra antes de que el cable se sobrecaliente por encima de su ampacidad. Así protege al conductor.',ok:true,why:'Correcto: la In debe estar entre la corriente de la carga y la ampacidad del cable. Por debajo de Ib habría disparos molestos; por encima de Iz el cable se dañaría sin que el interruptor lo proteja.'},
+        {t:'Solo importa que In ≥ Ib; el límite superior Iz es opcional.',ok:false,why:'Si In > Iz, el cable puede sobrecargarse hasta fundirse sin que el interruptor dispare: el conductor queda desprotegido. El límite superior es esencial.'},
+        {t:'Solo importa que In ≤ Iz; el límite inferior Ib es opcional.',ok:false,why:'Si In < Ib, el interruptor dispararía con la carga normal (disparos molestos). El límite inferior también es necesario.'},
+        {t:'In debe ser exactamente igual a Iz para aprovechar el cable.',ok:false,why:'No: In se elige entre Ib e Iz, normalmente el valor normalizado apenas por encima de Ib. Igualar In a Iz suele dejar el cable sin margen.'},
+      ],
+    },
+  };
+  Object.values(QUIZ).forEach(q=>{for(let i=q.opciones.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));const tmp=q.opciones[i];q.opciones[i]=q.opciones[j];q.opciones[j]=tmp;}});
+}
+function clearDx(){const box=el('dxbtns');if(box)box.innerHTML='';}
+function refreshQuestion(){
+  const q=QUIZ[mode];if(!q)return;
+  el('q_text').textContent=q.pregunta;
+  const box=el('dxbtns');
+  box.innerHTML=q.opciones.map((o,i)=>`<button class="b sm" data-i="${i}">${String.fromCharCode(65+i)}) ${o.t}</button>`).join('');
+  box.querySelectorAll('[data-i]').forEach(b=>b.onclick=()=>answer(parseInt(b.dataset.i,10)));
+}
+function answer(i){
+  const q=QUIZ[mode];if(!q)return;
+  const box=el('dxbtns'),btns=box.querySelectorAll('[data-i]');
+  if(!btns.length||btns[0].disabled)return;
+  const o=q.opciones[i];btns.forEach(b=>b.disabled=true);btns[i].classList.add(o.ok?'right':'wrong');
+  if(o.ok){synth.beep(1046,0.12,0.06);}else{synth.beep(220,0.15,0.06);}
+  showToast((o.ok?'✔ ':'✗ ')+o.why);
+}
+
+// ===================== 13. PICKING Y HOVER =====================
+pickerFor(scene,S.camera,S.renderer.domElement,hit=>{
+  if(!hit)return;
+  if(hit.object===board){boardClick();return;}
+  let o=hit.object;while(o){if(o.userData&&o.userData.title){showToast('<b>'+o.userData.title+'</b><br>'+(o.userData.info||''));return;}o=o.parent;}
+});
+(function hoverLoop(){
+  const ray=new THREE.Raycaster(),dom=S.renderer.domElement;let mx=0,my=0;
+  dom.addEventListener('pointermove',e=>{const r=dom.getBoundingClientRect();mx=((e.clientX-r.left)/r.width)*2-1;my=-((e.clientY-r.top)/r.height)*2+1;});
+  function tick(){
+    ray.setFromCamera({x:mx,y:my},S.camera);let hovered=false;
+    for(const [obj,spr] of HOVER_LABELS){if(!obj.visible){spr.visible=false;continue;}const on=ray.intersectObject(obj,true).length>0;spr.visible=on;if(on)hovered=true;}
+    dom.style.cursor=hovered?'pointer':'default';requestAnimationFrame(tick);
+  }
+  tick();
+})();
+
+// ===================== 14. RECORRIDO AUTOMÁTICO =====================
+function sleep(ms){return new Promise(r=>setTimeout(r,ms));}
+async function runAuto(){
+  if(autoRunning)return;autoRunning=true;
+  const btn=el('btnAuto'),label=btn.textContent;btn.disabled=true;btn.classList.add('on');btn.textContent='⏳ Recorriendo…';
+  try{
+    synth.init();synth.resume();clearDx();
+    setMode('explora');
+    expIn=16;expCurve='C';expX=2.55;afterEdit();
+    showToast('🧭 In=16 A, curva C. A 2.55× dispara TÉRMICO en '+fmtT(tTrip(2.55*16,16,'C'))+': es una sobrecarga, con retardo inverso.');
+    await sleep(4000);
+    expX=12;afterEdit();
+    showToast('⚡ A 12× (≥10× de la curva C) dispara MAGNÉTICO en ~10 ms: cortocircuito. La I²t es mínima porque abre casi al instante.');
+    await sleep(4200);
+    expCurve='B';expX=8;afterEdit();
+    showToast('🔧 Curva B a 8×: como su umbral es 3–5×, dispararía al arrancar un motor (disparo molesto). Por eso los motores usan curva D.');
+    await sleep(4200);
+    answer(QUIZ[mode].opciones.findIndex(o=>o.ok));await sleep(2800);
+
+    setMode('coord');
+    br={In:16,curve:'C'};mn={In:25,curve:'C'};faultI=400;afterEdit();
+    showToast('🔗 Derivada 16A-C, general 25A-C: selectivo solo hasta Is='+Math.round(selInfo(br,mn).Is)+' A. La falla de 400 A supera Is → ambas van a ~10 ms y disparan juntas.');
+    await sleep(4200);
+    mn={In:40,curve:'D'};afterEdit();
+    showToast('✔ Subimos la general a 40A-D: su Is sube a '+Math.round(selInfo(br,mn).Is)+' A. Ahora 400 A cae por debajo de Is y la derivada dispara sola → SELECTIVO en ese rango.');
+    await sleep(4200);
+    answer(QUIZ[mode].opciones.findIndex(o=>o.ok));await sleep(2800);
+
+    setMode('reto');
+    seedReto(LOADS.findIndex(l=>l.n.indexOf('Motor pequeño')>=0));updateRetoSpec();
+    retoIn=bestIn(LOADS[retoLoadIdx].Ib,LOADS[retoLoadIdx].Iz);retoCurve='B';afterEdit();
+    showToast('🎯 Motor con arranque 7×: con curva B dispararía al arrancar…');
+    await sleep(3600);
+    retoCurve=bestCurve(LOADS[retoLoadIdx].m);afterEdit();
+    showToast('✔ …corregimos a curva '+retoCurve+' (tolera 7× y protege lo más rápido posible) con la In mínima válida. Comprobamos.');
+    await sleep(2800);
+    checkReto();await sleep(2600);
+    answer(QUIZ[mode].opciones.findIndex(o=>o.ok));
+  }finally{
+    btn.disabled=false;btn.classList.remove('on');btn.textContent=label;autoRunning=false;
+  }
+}
+
+// ===================== 15. ANIMACIÓN, EVENTOS E INICIO =====================
+S.setAnimate((dt,time)=>{
+  const pulse=0.5+0.5*Math.sin(time*3.0);
+  // brillo del cable ∝ cercanía a disparo en el modo activo (sutil)
+  copMat.emissiveIntensity=0.04+0.06*pulse;copMat.emissive.setHex(0xC97C46);
+});
+['explora','coord','reto'].forEach(m=>{el('m_'+m).onclick=()=>{if(!autoRunning)setMode(m);};});
+el('btnAuto').onclick=()=>{if(!autoRunning)runAuto();};
+el('btnNew').onclick=()=>{if(autoRunning)return;newSignal();};
+el('btnCheck').onclick=()=>{if(autoRunning)return;checkReto();};
+const soundBtn=el('soundBtn');if(soundBtn){soundBtn.onclick=()=>{synth.toggle();soundBtn.textContent=synth.isOn()?'🔊':'🔇';};}
+document.addEventListener('pointerdown',()=>{synth.init();synth.resume();},{once:true});
+
+buildQuiz();
+S.start();
+setMode('explora');
+
+// ===================== DEBUG HOOK =====================
+window.__labDebug={
+  mode:()=>mode, setMode:k=>setMode(k),
+  // física pura (para verificación numérica)
+  tTrip:(I,In,cv)=>tTrip(I,In,cv), mechAt:(I,In,cv)=>mechAt(I,In,cv), i2t:(I,In,cv)=>i2t(I,In,cv),
+  bestIn:(a,b)=>bestIn(a,b), bestCurve:m=>bestCurve(m),
+  selInfo:(a,b)=>selInfo(a,b),
+  // explora
+  expIn:()=>expIn, expCurve:()=>expCurve, expX:()=>expX,
+  expTrip:()=>tTrip(expX*expIn,expIn,expCurve), expMech:()=>mechAt(expX*expIn,expIn,expCurve), expI2t:()=>i2t(expX*expIn,expIn,expCurve),
+  setExp:(In,cv,x)=>{if(mode==='explora'){if(In!=null)expIn=In;if(cv!=null)expCurve=cv;if(x!=null)expX=x;afterEdit();}},
+  // coord
+  br:()=>({...br}), mn:()=>({...mn}), faultI:()=>faultI,
+  setCoord:(bIn,bCv,mIn,mCv,f)=>{if(mode==='coord'){br={In:bIn,curve:bCv};mn={In:mIn,curve:mCv};faultI=f;afterEdit();}},
+  selNow:()=>selectiveNow(br,mn,faultI).sel, selAboveIs:()=>selectiveNow(br,mn,faultI).aboveIs,
+  selTotal:()=>selInfo(br,mn).total, selIs:()=>selInfo(br,mn).Is,
+  // reto
+  loads:()=>LOADS.map(l=>l.n), retoLoad:()=>({...LOADS[retoLoadIdx]}), retoLoadIdx:()=>retoLoadIdx,
+  retoIn:()=>retoIn, retoCurve:()=>retoCurve,
+  retoBestIn:()=>bestIn(LOADS[retoLoadIdx].Ib,LOADS[retoLoadIdx].Iz), retoBestCurve:()=>bestCurve(LOADS[retoLoadIdx].m),
+  retoChecked:()=>retoChecked, retoOkIn:()=>retoOkIn, retoOkCurve:()=>retoOkCurve, retoSolved:()=>retoSolved,
+  seedReto:idx=>{seedReto(idx);updateRetoSpec();afterEdit();},
+  setReto:(In,cv)=>{if(mode==='reto'){if(In!=null)retoIn=In;if(cv!=null)retoCurve=cv;retoChecked=false;retoSolved=false;afterEdit();}},
+  checkReto:()=>checkReto(),
+  newSignal:()=>newSignal(),
+  reportText:()=>el('report').innerText,
+  quizAnswer:i=>answer(i), quizCorrectIndex:()=>QUIZ[mode].opciones.findIndex(o=>o.ok),
+  solved:()=>solved,
+};
