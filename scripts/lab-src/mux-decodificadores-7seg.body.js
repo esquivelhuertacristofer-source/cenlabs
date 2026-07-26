@@ -1,0 +1,933 @@
+// Implementación de multiplexores, decodificadores y display de 7 segmentos (D3 · digital).
+// Física (verificada node -e, 14/14 y contra Mano):
+//   MULTIPLEXOR (MUX 2^n:1): Y = D[sel] cuando EN=1; Y=0 si EN=0. sel de n bits selecciona 1 de 2^n datos.
+//     · LÓGICA UNIVERSAL: un MUX 2^n:1 con las n variables en la selección realiza CUALQUIER función de n
+//       variables sin más lógica: basta cablear D_i = f(i). (verificado con 400 funciones aleatorias)
+//   DECODIFICADOR (n→2^n): salida one-hot, out[k]=1 sólo si (entrada==k y EN=1); una y sólo una activa.
+//     · decodificador + OR de las salidas de los mintérminos = realización SOP de cualquier función.
+//   DISPLAY 7 SEGMENTOS (decodificador BCD→7seg): cada dígito 0-9 enciende un patrón fijo de los segmentos
+//     a-g. La lógica de cada segmento es una función booleana de 4 bits (A=MSB..D) con don't-cares 10-15;
+//     su SOP mínimo se obtiene con Quine-McCluskey (mismo motor que Karnaugh). Coincide con Mano & Ciletti.
+//   Ref: IEEE Std 91-1984 (símbolos lógicos) · Mano & Ciletti, "Diseño Digital" · Wakerly, "Digital Design"
+//        · Texas Instruments 74x151 (MUX), 74x138 (decodificador), 7447 (BCD→7seg) · verificación numérica propia.
+
+// ===================== 1. ESCENA =====================
+const mount=document.getElementById('stage');
+const S=createStage(mount,{cam:[4.8,2.9,7.0],target:[0.4,1.05,0.3],bgTop:'#0d1017',bgBot:'#05060a',bloom:0.44,minD:3.2,maxD:16});
+const {scene}=S;
+const synth=makeSynth({type:'square',type2:'sine',filterFreq:2400,Q:0.7});
+const el=id=>document.getElementById(id);
+
+// ===================== 2. FÍSICA (VERIFICADA) =====================
+const VN=['A','B','C','D'];
+function popcount(x){let c=0;while(x){c+=x&1;x>>=1;}return c;}
+function combine(a,b){if(a.mask!==b.mask)return null;const d=a.bits^b.bits;if(d&&(d&(d-1))===0)return{bits:a.bits&~d,mask:a.mask|d};return null;}
+function covers(imp,m){return (m&~imp.mask)===imp.bits;}
+function primeImplicants(minterms,dc){
+  const all=[...new Set([...minterms,...(dc||[])])];
+  let groups=all.map(m=>({bits:m,mask:0}));
+  const primes=[],seen=new Set();const key=i=>i.bits+'/'+i.mask;
+  while(groups.length){
+    const used=new Array(groups.length).fill(false);const next=[],nseen=new Set();
+    for(let i=0;i<groups.length;i++)for(let j=i+1;j<groups.length;j++){
+      const c=combine(groups[i],groups[j]);
+      if(c){used[i]=used[j]=true;const k=key(c);if(!nseen.has(k)){nseen.add(k);next.push(c);}}}
+    for(let i=0;i<groups.length;i++)if(!used[i]){const k=key(groups[i]);if(!seen.has(k)){seen.add(k);primes.push(groups[i]);}}
+    groups=next;
+  }
+  return primes;
+}
+function litCost(imp,n){return n-popcount(imp.mask);}
+function minimize(minterms,n,dc){
+  const MT=[...new Set(minterms)].sort((a,b)=>a-b);
+  if(MT.length===0)return{terms:[],cost:0,nterms:0,special:'0'};
+  const full=1<<n;
+  if(MT.length===full)return{terms:[{bits:0,mask:full-1}],cost:0,nterms:1,special:'1'};
+  const primes=primeImplicants(MT,dc);
+  const P=primes.length, need=(1<<MT.length)-1;
+  const pcov=primes.map(pi=>{let cm=0;MT.forEach((m,i)=>{if(covers(pi,m))cm|=1<<i;});return cm;});
+  let best=null;
+  for(let sub=0;sub<(1<<P);sub++){
+    let cov=0,cost=0,cnt=0;
+    for(let k=0;k<P;k++)if(sub&(1<<k)){cov|=pcov[k];cost+=litCost(primes[k],n);cnt++;}
+    if(cov===need){if(!best||cost<best.cost||(cost===best.cost&&cnt<best.nterms))best={sub,cost,nterms:cnt};}
+  }
+  const chosen=[];for(let k=0;k<P;k++)if(best.sub&(1<<k))chosen.push(primes[k]);
+  return{terms:chosen,cost:best.cost,nterms:chosen.length};
+}
+function termStr(imp,n){let s='';for(let v=0;v<n;v++){const p=1<<(n-1-v);if(imp.mask&p)continue;s+=VN[v]+((imp.bits&p)?'':'′');}return s||'1';}
+function sopStr(terms,n){if(!terms.length)return '0';return terms.map(t=>termStr(t,n)).join(' + ');}
+
+// --- dispositivos ---
+function mux(data,sel,en){return en?(data[sel]?1:0):0;}
+function decoder(inp,n,en){const o=new Array(1<<n).fill(0);if(en&&inp<(1<<n))o[inp]=1;return o;}
+function muxRealize(mts,n){return Array.from({length:1<<n},(_,i)=>mts.includes(i)?1:0);}   // D_i = f(i)
+
+// --- display 7 segmentos (patrones canónicos, bits [a,b,c,d,e,f,g]) ---
+const SEG_NAMES=['a','b','c','d','e','f','g'];
+const SEG_PAT={0:'1111110',1:'0110000',2:'1101101',3:'1111001',4:'0110011',5:'1011011',6:'1011111',7:'1110000',8:'1111111',9:'1111011'};
+function segOf(dig){const p=SEG_PAT[dig];return p?p.split('').map(x=>x==='1'?1:0):[0,0,0,0,0,0,0];}
+const SEG_DC=[10,11,12,13,14,15];
+const SEG_SOP=SEG_NAMES.map((nm,si)=>{
+  const mts=[];for(let d=0;d<=9;d++)if(SEG_PAT[d][si]==='1')mts.push(d);
+  const r=minimize(mts,4,SEG_DC);
+  return{name:nm,mts,expr:(r.special||sopStr(r.terms,4)),cost:r.cost,terms:r.terms,special:r.special};
+});
+
+// ===================== 3. ESTADO =====================
+let mode='explora';
+// explora — conduces cada familia en vivo
+let expKind='mux';                                  // 'mux' | 'dec' | 'seg'
+let muxN=2;                                          // bits de selección: 1,2,3 → 2:1,4:1,8:1
+let muxData=[0,1,1,0];                               // A⊕B como arranque
+let muxSel=0, muxEn=1;
+let decN=2, decIn=0, decEn=1;
+let segDigit=3;
+// aplica — mux/decodificador como lógica universal + SOP del display
+const APLICA_POOL=[
+  {n:2, mts:[1,2],    nm:'XOR (A⊕B)'},
+  {n:2, mts:[1,2,3],  nm:'OR (A+B)'},
+  {n:3, mts:[3,5,6,7],nm:'Mayoría 2-de-3'},
+  {n:3, mts:[1,2,4,7],nm:'Paridad impar (A⊕B⊕C)'},
+];
+let apTopic='mux';                                  // 'mux' | 'dec' | 'seg'
+let apFnIdx=0, apProbe=0, apSeg=0;
+// reto — configura los datos de un MUX para realizar la función dada
+const RETO_POOL=[
+  {n:2, mts:[1,2],    ctx:'Detector de desigualdad (A≠B) con un MUX 4:1'},
+  {n:2, mts:[1,2,3],  ctx:'Compuerta OR (A+B) con un MUX 4:1'},
+  {n:2, mts:[1,3],    ctx:'Seguidor de B (Y=B) con un MUX 4:1'},
+  {n:3, mts:[3,5,6,7],ctx:'Votación por mayoría (2 de 3) con un MUX 8:1'},
+  {n:3, mts:[1,2,4,7],ctx:'Paridad impar (A⊕B⊕C) con un MUX 8:1'},
+  {n:3, mts:[0,1,2,3],ctx:'Salida = A′ (alta si A=0) con un MUX 8:1'},
+];
+let retoIdx=0, retoData=[], retoEn=1, retoChecked=false, retoOkData=false, retoOkEnable=false, retoSolved=false, retoMsg='';
+let solved=false, autoRunning=false, QUIZ={};
+// entrenador 3D
+let hwStep=0, hwT=0;
+
+function pickIdx(n,ex){let v=Math.floor(Math.random()*n);if(n>1)while(v===ex)v=Math.floor(Math.random()*n);return v;}
+function hexA(hex,a){const n=parseInt(hex.slice(1),16);return `rgba(${(n>>16)&255},${(n>>8)&255},${n&255},${a})`;}
+function resizeMuxData(){const N=1<<muxN;const nd=new Array(N).fill(0);for(let i=0;i<N;i++)nd[i]=muxData[i]?1:0;muxData=nd;if(muxSel>=N)muxSel=0;}
+function seedReto(idx){
+  retoIdx=(idx==null)?pickIdx(RETO_POOL.length,retoIdx):idx;
+  const f=RETO_POOL[retoIdx];const N=1<<f.n;
+  retoData=new Array(N).fill(0); retoEn=1;
+  retoChecked=false; retoOkData=false; retoOkEnable=false; retoSolved=false; retoMsg='';
+}
+seedReto(0);
+
+// dispositivo activo (según el modo) que refleja el entrenador 3D
+function curDevice(){
+  if(mode==='reto'){const f=RETO_POOL[retoIdx];return{kind:'mux',n:f.n,data:retoData,en:retoEn};}
+  if(mode==='aplica'){const f=APLICA_POOL[apFnIdx];
+    if(apTopic==='dec')return{kind:'dec',n:f.n,en:1};
+    if(apTopic==='seg')return{kind:'seg'};
+    return{kind:'mux',n:f.n,data:muxRealize(f.mts,f.n),en:1};}
+  if(expKind==='mux')return{kind:'mux',n:muxN,data:muxData,en:muxEn};
+  if(expKind==='dec')return{kind:'dec',n:decN,en:decEn};
+  return{kind:'seg'};
+}
+
+// ===================== 4. MATERIALES =====================
+function std(color,rough,metal){return new THREE.MeshStandardMaterial({color,roughness:rough,metalness:metal});}
+function brush(base){return std(base,0.55,0.35);}
+const MAT={bench:brush(0x2b2f34),frame:brush(0x22262c),leg:brush(0x14161b),pcb:std(0x123322,0.7,0.15),chip:std(0x14171b,0.5,0.3)};
+const ACC='#8AB4F8', OK_HEX='#7CD992', BAD_HEX='#ff6b6b', WARN_HEX='#E9C46A', DEC_HEX='#E9C46A';
+
+const HOVER_LABELS=new Map();
+function addHoverLabel(obj,text,color,pos,scale){
+  const cv=document.createElement('canvas');cv.width=256;cv.height=64;const cx=cv.getContext('2d');
+  cx.fillStyle='rgba(10,14,17,0.88)';cx.fillRect(0,0,256,64);
+  cx.strokeStyle=color;cx.lineWidth=2;cx.strokeRect(1,1,254,62);
+  cx.fillStyle='#F4EFEA';cx.font='bold 20px Outfit, sans-serif';cx.textAlign='center';cx.textBaseline='middle';cx.fillText(text,128,32);
+  const tex=new THREE.CanvasTexture(cv);
+  const spr=new THREE.Sprite(new THREE.SpriteMaterial({map:tex,transparent:true,depthTest:false}));
+  spr.position.copy(pos);spr.scale.set(scale||1.1,(scale||1.1)*0.28,1);spr.visible=false;spr.renderOrder=999;
+  scene.add(spr);HOVER_LABELS.set(obj,spr);return spr;
+}
+
+// ===================== 5. PIZARRÓN =====================
+const boardG=new THREE.Group();
+boardG.position.set(-1.15,0,-0.95);boardG.rotation.y=0.2;scene.add(boardG);
+const frame=roundedBox(3.9,2.9,0.12,MAT.frame,0.06);frame.position.set(0,1.9,0);boardG.add(frame);
+[-1.65,1.65].forEach(x=>{const leg=new THREE.Mesh(new THREE.CylinderGeometry(0.05,0.06,1.9,16),MAT.leg);leg.position.set(x,0.92,0);boardG.add(leg);});
+const bCv=document.createElement('canvas');bCv.width=1024;bCv.height=768;
+const bTex=new THREE.CanvasTexture(bCv);
+const board=new THREE.Mesh(new THREE.PlaneGeometry(3.68,2.72),new THREE.MeshBasicMaterial({map:bTex}));
+board.position.set(0,1.9,0.065);boardG.add(board);
+frame.userData={title:'Multiplexor · Decodificador · Display 7 segmentos',info:'La tabla de verdad y el diagrama del dispositivo · toca para inspeccionar'};
+addHoverLabel(frame,'Bloques combinacionales',ACC,new THREE.Vector3(0,3.5,0.1).add(boardG.position),2.2);
+
+function bg(c){c.fillStyle='#0c1016';c.fillRect(0,0,1024,768);}
+function rr(c,x,y,w,h,r){r=Math.min(r,w/2,h/2);c.beginPath();c.moveTo(x+r,y);c.arcTo(x+w,y,x+w,y+h,r);c.arcTo(x+w,y+h,x,y+h,r);c.arcTo(x,y+h,x,y,r);c.arcTo(x,y,x+w,y,r);c.closePath();}
+function rpanel(c,x,y,w,h,title){
+  c.fillStyle=hexA(ACC,0.06);c.fillRect(x,y,w,h);
+  c.strokeStyle=hexA(ACC,0.22);c.lineWidth=1;c.strokeRect(x,y,w,h);
+  c.fillStyle='#C7D6F5';c.font='bold 15px Outfit, sans-serif';c.textAlign='left';c.fillText(title,x+16,y+26);
+}
+function prow(c,x,y,w,l,v,col){
+  c.fillStyle='#8f97a5';c.font='13px Outfit, sans-serif';c.textAlign='left';c.fillText(l,x+16,y);
+  c.fillStyle=col||'#F4EFEA';c.font='bold 16px Outfit, sans-serif';c.textAlign='right';c.fillText(v,x+w-14,y);
+}
+function wrapText(c,text,x,y,maxW,lh){
+  const words=text.split(' ');let line='',yy=y;
+  for(const w of words){const test=line+w+' ';
+    if(c.measureText(test).width>maxW && line){c.fillText(line,x,yy);line=w+' ';yy+=lh;}else line=test;}
+  c.fillText(line,x,yy);return yy;
+}
+const PX={x:706,y:70,w:300};
+
+// ---- tabla de verdad genérica ----
+function drawTruth(c,n,mts,x0,y0,probe,title){
+  const N=1<<n, set=new Set(mts);
+  const cols=1+n+1, cw=[34, ...Array(n).fill(24), 32];
+  const W=cw.reduce((a,b)=>a+b,0), rh=Math.min(28,(540/(N+1)));
+  c.fillStyle='#C7D6F5';c.font='bold 13px Outfit, sans-serif';c.textAlign='center';
+  c.fillText(title||'TABLA DE VERDAD',x0+W/2,y0-10);
+  let cx=x0;const hdr=['#',...VN.slice(0,n),'F'];
+  c.font='bold 12px Outfit, sans-serif';
+  for(let i=0;i<cols;i++){c.fillStyle=i===cols-1?ACC:'#9fb0cf';c.fillText(hdr[i],cx+cw[i]/2,y0+rh*0.7);cx+=cw[i];}
+  c.strokeStyle=hexA(ACC,0.3);c.lineWidth=1;c.beginPath();c.moveTo(x0,y0+rh*0.95);c.lineTo(x0+W,y0+rh*0.95);c.stroke();
+  for(let m=0;m<N;m++){
+    const yy=y0+rh*(m+1), F=set.has(m)?1:0, hot=(m===probe);
+    if(hot){c.fillStyle=hexA(ACC,0.16);c.fillRect(x0,yy+rh*0.12,W,rh);}
+    cx=x0;c.font='12px Outfit, sans-serif';c.textAlign='center';
+    c.fillStyle='#6f7887';c.fillText(m,cx+cw[0]/2,yy+rh*0.75);cx+=cw[0];
+    for(let v=0;v<n;v++){const b=(m>>(n-1-v))&1;c.fillStyle=b?'#C9D3E2':'#5a6472';c.fillText(b,cx+cw[v+1]/2,yy+rh*0.75);cx+=cw[v+1];}
+    c.fillStyle=F?OK_HEX:'#4a525e';c.font='bold 13px Outfit, sans-serif';c.fillText(F,cx+cw[cols-1]/2,yy+rh*0.75);
+  }
+  return {W,H:rh*(N+1)};
+}
+
+// ---- símbolo del MUX ----
+function drawMuxSym(c,x,y,w,h,n,data,sel,en,selLabels){
+  const N=1<<n;
+  c.strokeStyle=hexA(ACC,0.9);c.fillStyle=hexA(ACC,0.07);c.lineWidth=2.4;
+  const notch=h*0.16;
+  c.beginPath();c.moveTo(x,y);c.lineTo(x,y+h);c.lineTo(x+w,y+h-notch);c.lineTo(x+w,y+notch);c.closePath();c.fill();c.stroke();
+  const Y=mux(data,sel,en);
+  // entradas de datos
+  for(let i=0;i<N;i++){
+    const yy=y+h*(i+0.5)/N, on=data[i]?1:0, selHere=(i===sel);
+    c.strokeStyle=selHere?(on?OK_HEX:BAD_HEX):hexA('#9fb0cf',0.5);c.lineWidth=selHere?3:1.4;
+    c.beginPath();c.moveTo(x-58,yy);c.lineTo(x,yy);c.stroke();
+    c.fillStyle=on?OK_HEX:'#4a525e';c.beginPath();c.arc(x-68,yy,6,0,7);c.fill();
+    c.fillStyle=selHere?'#F4EFEA':'#9fb0cf';c.font=(selHere?'bold ':'')+'13px Outfit, sans-serif';c.textAlign='right';
+    c.fillText('D'+i+'='+on,x-80,yy+4);
+    if(selHere){c.strokeStyle=OK_HEX;c.lineWidth=2;c.beginPath();c.moveTo(x+2,yy);c.lineTo(x+w*0.62,y+h/2);c.stroke();}
+  }
+  // cuerpo
+  c.fillStyle=ACC;c.font='bold 19px Outfit, sans-serif';c.textAlign='center';c.fillText('MUX '+N+':1',x+w/2,y+h/2-4);
+  c.font='11px Outfit, sans-serif';c.fillStyle=en?OK_HEX:BAD_HEX;c.fillText(en?'EN = 1':'EN = 0 (Y=0)',x+w/2,y+h/2+16);
+  // selección (abajo)
+  const selBin=sel.toString(2).padStart(n,'0');
+  for(let j=0;j<n;j++){const sx=x+w*0.3+j*22;c.strokeStyle=hexA(WARN_HEX,0.9);c.lineWidth=1.6;c.beginPath();c.moveTo(sx,y+h);c.lineTo(sx,y+h+26);c.stroke();}
+  c.fillStyle=WARN_HEX;c.font='bold 13px Outfit, sans-serif';c.textAlign='center';
+  const slbl=(selLabels&&selLabels.length===n)?selLabels.join(''):'S';
+  c.fillText('sel('+slbl+') = '+selBin+' ('+sel+')',x+w*0.4,y+h+44);
+  // salida
+  const yout=y+h/2;
+  c.strokeStyle=Y?OK_HEX:'#4a525e';c.lineWidth=3;c.beginPath();c.moveTo(x+w,yout);c.lineTo(x+w+58,yout);c.stroke();
+  c.fillStyle=Y?OK_HEX:'#4a525e';c.font='bold 20px Outfit, sans-serif';c.textAlign='left';c.fillText('Y = '+Y,x+w+66,yout+7);
+  return Y;
+}
+
+// ---- símbolo del decodificador ----
+function drawDecSym(c,x,y,w,h,n,inp,en,hiSet){
+  const N=1<<n, o=decoder(inp,n,en);
+  c.strokeStyle=hexA(DEC_HEX,0.9);c.fillStyle=hexA(DEC_HEX,0.07);c.lineWidth=2.4;
+  rr(c,x,y,w,h,10);c.fill();c.stroke();
+  c.fillStyle=DEC_HEX;c.font='bold 18px Outfit, sans-serif';c.textAlign='center';c.fillText('DEC '+n+':'+N,x+w/2,y+22);
+  c.font='11px Outfit, sans-serif';c.fillStyle=en?OK_HEX:BAD_HEX;c.fillText(en?'EN = 1':'EN = 0',x+w/2,y+40);
+  // entrada
+  const inBin=inp.toString(2).padStart(n,'0');
+  for(let j=0;j<n;j++){const yy=y+h*0.35+j*20;c.strokeStyle=hexA('#9fb0cf',0.6);c.lineWidth=1.6;c.beginPath();c.moveTo(x-46,yy);c.lineTo(x,yy);c.stroke();
+    const b=(inp>>(n-1-j))&1;c.fillStyle=b?ACC:'#4a525e';c.beginPath();c.arc(x-56,yy,5,0,7);c.fill();
+    c.fillStyle='#9fb0cf';c.font='12px Outfit, sans-serif';c.textAlign='right';c.fillText(VN[j]+'='+b,x-66,yy+4);}
+  c.fillStyle=ACC;c.font='12px Outfit, sans-serif';c.textAlign='center';c.fillText('entrada = '+inBin+' ('+inp+')',x+w/2,y+h-10);
+  // salidas
+  for(let k=0;k<N;k++){
+    const yy=y+h*(k+0.5)/N, hot=o[k], inSet=hiSet&&hiSet.has(k);
+    c.strokeStyle=hot?OK_HEX:(inSet?hexA(OK_HEX,0.5):hexA('#9fb0cf',0.4));c.lineWidth=hot?3:1.4;
+    c.beginPath();c.moveTo(x+w,yy);c.lineTo(x+w+40,yy);c.stroke();
+    c.fillStyle=hot?OK_HEX:(inSet?hexA(OK_HEX,0.5):'#4a525e');c.beginPath();c.arc(x+w+50,yy,5,0,7);c.fill();
+    c.fillStyle=hot?'#F4EFEA':(inSet?'#C9D3E2':'#8f97a5');c.font=(hot?'bold ':'')+'12px Outfit, sans-serif';c.textAlign='left';
+    c.fillText('Y'+k+'='+o[k]+(inSet?'  (m'+k+')':''),x+w+58,yy+4);
+  }
+  return o;
+}
+
+// ---- display de 7 segmentos ----
+function drawSeg7(c,x,y,L,T,on,color){
+  const onC=color||OK_HEX, offC='#242a31';
+  const seg=(sx,sy,ww,hh,active)=>{c.fillStyle=active?onC:offC;if(active){c.shadowColor=onC;c.shadowBlur=16;}rr(c,sx,sy,ww,hh,T/2);c.fill();c.shadowBlur=0;};
+  seg(x+T, y, L, T, on[0]);              // a
+  seg(x+T+L, y+T, T, L, on[1]);          // b
+  seg(x+T+L, y+2*T+L, T, L, on[2]);      // c
+  seg(x+T, y+2*T+2*L, L, T, on[3]);      // d
+  seg(x, y+2*T+L, T, L, on[4]);          // e
+  seg(x, y+T, T, L, on[5]);              // f
+  seg(x+T, y+T+L, L, T, on[6]);          // g
+}
+
+// ===================== 6. VISTAS POR MODO =====================
+function drawExplora(c){
+  if(expKind==='mux'){
+    const N=1<<muxN;
+    c.fillStyle='#C7D6F5';c.font='bold 21px Outfit, sans-serif';c.textAlign='left';
+    c.fillText('EXPLORA · Multiplexor '+N+':1',30,42);
+    c.fillStyle='#7a8494';c.font='13px Outfit, sans-serif';
+    c.fillText('El MUX conecta a la salida Y la entrada de datos que indica la selección: Y = D[sel] (si EN=1).',30,64);
+    drawMuxSym(c,220,150,180,320,muxN,muxData,muxSel,muxEn);
+    // panel derecho: comportamiento
+    rpanel(c,PX.x,PX.y,PX.w,168,'COMPORTAMIENTO');
+    prow(c,PX.x,PX.y+56,PX.w,'Selección (sel)',muxSel.toString(2).padStart(muxN,'0')+' = '+muxSel);
+    prow(c,PX.x,PX.y+86,PX.w,'Entrada elegida','D'+muxSel+' = '+(muxData[muxSel]?1:0),muxData[muxSel]?OK_HEX:'#C9D3E2');
+    prow(c,PX.x,PX.y+116,PX.w,'Habilitación (EN)',muxEn?'1':'0',muxEn?OK_HEX:BAD_HEX);
+    prow(c,PX.x,PX.y+146,PX.w,'Salida Y',String(mux(muxData,muxSel,muxEn)),mux(muxData,muxSel,muxEn)?OK_HEX:'#C9D3E2');
+    // función que realiza el patrón de datos actual
+    const mts=[];muxData.forEach((d,i)=>{if(d)mts.push(i);});
+    const r=minimize(mts,muxN,[]);
+    const by=PX.y+188;
+    c.fillStyle='rgba(0,0,0,0.22)';c.fillRect(PX.x,by,PX.w,300);c.strokeStyle=hexA(ACC,0.3);c.lineWidth=1;c.strokeRect(PX.x,by,PX.w,300);
+    c.fillStyle='#C7D6F5';c.font='bold 14px Outfit, sans-serif';c.textAlign='left';c.fillText('FUNCIÓN QUE REALIZA',PX.x+14,by+24);
+    c.fillStyle='#8f97a5';c.font='12px Outfit, sans-serif';c.fillText('Con las variables en la selección, este patrón',PX.x+14,by+48);
+    c.fillText('de datos (D_i = f(i)) equivale a:',PX.x+14,by+66);
+    c.fillStyle=ACC;c.font='bold 17px Outfit, sans-serif';wrapText(c,'F = '+(r.special||sopStr(r.terms,muxN)),PX.x+14,by+94,PX.w-28,20);
+    c.fillStyle='#9fb0cf';c.font='12px Outfit, sans-serif';
+    wrapText(c,'Cambia cada dato y observa: un MUX 2^n:1 puede realizar CUALQUIER función de n variables sólo cableando los datos. Es un generador de funciones universal.',PX.x+14,by+130,PX.w-28,17);
+    drawTruth(c,muxN,mts,560,150,-1,'D_i (datos)');
+  }else if(expKind==='dec'){
+    const N=1<<decN;
+    c.fillStyle='#C7D6F5';c.font='bold 21px Outfit, sans-serif';c.textAlign='left';
+    c.fillText('EXPLORA · Decodificador '+decN+':'+N,30,42);
+    c.fillStyle='#7a8494';c.font='13px Outfit, sans-serif';
+    c.fillText('El decodificador activa UNA y sólo una salida (one-hot): la que corresponde al número de entrada. out[k]=1 sólo si entrada=k.',30,64);
+    drawDecSym(c,300,150,170,300,decN,decIn,decEn,null);
+    rpanel(c,PX.x,PX.y,PX.w,150,'SALIDA ONE-HOT');
+    prow(c,PX.x,PX.y+56,PX.w,'Entrada',decIn.toString(2).padStart(decN,'0')+' = '+decIn);
+    prow(c,PX.x,PX.y+86,PX.w,'Habilitación (EN)',decEn?'1':'0',decEn?OK_HEX:BAD_HEX);
+    prow(c,PX.x,PX.y+116,PX.w,'Salida activa',decEn?('Y'+decIn):'ninguna',decEn?OK_HEX:BAD_HEX);
+    const by=PX.y+170;
+    c.fillStyle='rgba(0,0,0,0.22)';c.fillRect(PX.x,by,PX.w,320);c.strokeStyle=hexA(ACC,0.3);c.lineWidth=1;c.strokeRect(PX.x,by,PX.w,320);
+    c.fillStyle='#C7D6F5';c.font='bold 14px Outfit, sans-serif';c.textAlign='left';c.fillText('POR QUÉ ES ÚTIL',PX.x+14,by+24);
+    c.fillStyle='#9fb0cf';c.font='12px Outfit, sans-serif';
+    wrapText(c,'Cada salida Yk es exactamente el mintérmino mk. Por eso, si conectas una compuerta OR a las salidas de los mintérminos de una función, obtienes su forma SOP directamente: decodificador + OR = cualquier función. También se usan para seleccionar chips por dirección (chip-select), encender un display, o rutear una señal.',PX.x+14,by+48,PX.w-28,18);
+  }else{
+    const on=segOf(segDigit), valid=(segDigit<=9);
+    c.fillStyle='#C7D6F5';c.font='bold 21px Outfit, sans-serif';c.textAlign='left';
+    c.fillText('EXPLORA · Display de 7 segmentos (BCD)',30,42);
+    c.fillStyle='#7a8494';c.font='13px Outfit, sans-serif';
+    c.fillText('Un decodificador BCD→7seg enciende el patrón de segmentos a-g que dibuja cada dígito 0-9.',30,64);
+    drawSeg7(c,180,140,110,26,on,OK_HEX);
+    c.fillStyle='#C7D6F5';c.font='bold 60px Outfit, sans-serif';c.textAlign='center';c.fillText(valid?segDigit:'–',420,300);
+    c.fillStyle='#7a8494';c.font='13px Outfit, sans-serif';c.fillText('dígito BCD',420,330);
+    // qué segmentos encienden
+    rpanel(c,PX.x,PX.y,PX.w,220,'SEGMENTOS DEL DÍGITO '+(valid?segDigit:'?'));
+    for(let i=0;i<7;i++){
+      const yy=PX.y+52+i*22;
+      c.fillStyle=on[i]?OK_HEX:'#4a525e';c.beginPath();c.arc(PX.x+24,yy-5,6,0,7);c.fill();
+      c.fillStyle='#C9D3E2';c.font='13px Outfit, sans-serif';c.textAlign='left';
+      c.fillText('segmento '+SEG_NAMES[i]+' : '+(on[i]?'ENCENDIDO':'apagado'),PX.x+40,yy);
+    }
+    c.fillStyle='#9fb0cf';c.font='13px Outfit, sans-serif';c.textAlign='left';
+    c.fillText('Total encendidos: '+on.reduce((a,b)=>a+b,0)+' / 7',PX.x+16,PX.y+52+7*22+6);
+    const by=PX.y+236;
+    c.fillStyle='rgba(0,0,0,0.22)';c.fillRect(PX.x,by,PX.w,254);c.strokeStyle=hexA(ACC,0.3);c.lineWidth=1;c.strokeRect(PX.x,by,PX.w,254);
+    c.fillStyle='#C7D6F5';c.font='bold 14px Outfit, sans-serif';c.textAlign='left';c.fillText('CADA SEGMENTO ES UNA FUNCIÓN',PX.x+14,by+24);
+    c.fillStyle='#9fb0cf';c.font='12px Outfit, sans-serif';
+    wrapText(c,'La lógica que enciende un segmento es una función booleana de los 4 bits BCD (A=MSB..D). Los dígitos 10-15 no son BCD válidos: se tratan como "don\'t care", lo que permite simplificar más. En el modo Aplica verás el SOP mínimo de cada segmento (Karnaugh sobre la tabla del display).',PX.x+14,by+48,PX.w-28,17);
+  }
+}
+
+function drawAplica(c){
+  const f=APLICA_POOL[apFnIdx];
+  if(apTopic==='mux'){
+    const data=muxRealize(f.mts,f.n), N=1<<f.n;
+    c.fillStyle='#C7D6F5';c.font='bold 21px Outfit, sans-serif';c.textAlign='left';
+    c.fillText('APLICA · MUX como lógica universal',30,42);
+    c.fillStyle='#7a8494';c.font='13px Outfit, sans-serif';
+    c.fillText('Objetivo: '+f.nm+'.  Un MUX '+N+':1 la realiza cableando D_i = f(i), con las variables en la selección.',30,64);
+    drawTruth(c,f.n,f.mts,40,150,apProbe,'FUNCIÓN OBJETIVO');
+    drawMuxSym(c,320,150,180,300,f.n,data,apProbe,1,VN.slice(0,f.n));
+    rpanel(c,PX.x,PX.y,PX.w,150,'EQUIVALENCIA');
+    prow(c,PX.x,PX.y+56,PX.w,'Entrada (A..'+VN[f.n-1]+')',apProbe.toString(2).padStart(f.n,'0')+' = '+apProbe);
+    prow(c,PX.x,PX.y+86,PX.w,'f('+apProbe+') objetivo',String(f.mts.includes(apProbe)?1:0));
+    prow(c,PX.x,PX.y+116,PX.w,'Y del MUX',String(mux(data,apProbe,1)),mux(data,apProbe,1)===(f.mts.includes(apProbe)?1:0)?OK_HEX:BAD_HEX);
+    const by=PX.y+170;
+    c.fillStyle='rgba(0,0,0,0.22)';c.fillRect(PX.x,by,PX.w,320);c.strokeStyle=hexA(ACC,0.3);c.lineWidth=1;c.strokeRect(PX.x,by,PX.w,320);
+    c.fillStyle=OK_HEX;c.font='bold 15px Outfit, sans-serif';c.textAlign='left';c.fillText('Y = f para toda entrada ✔',PX.x+14,by+26);
+    c.fillStyle='#9fb0cf';c.font='12px Outfit, sans-serif';
+    wrapText(c,'Sin ninguna compuerta extra: la "tabla de verdad" de la función se cablea como los datos del MUX. La selección recorre todas las filas; en cada una la salida es justo el dato que pusiste = f(fila). Así, un MUX de n selecciones realiza cualquiera de las 2^(2^n) funciones de n variables. Recorre la entrada y compáralo con la columna F.',PX.x+14,by+50,PX.w-28,17);
+  }else if(apTopic==='dec'){
+    const N=1<<f.n, hi=new Set(f.mts);
+    c.fillStyle='#C7D6F5';c.font='bold 21px Outfit, sans-serif';c.textAlign='left';
+    c.fillText('APLICA · Decodificador + OR = SOP',30,42);
+    c.fillStyle='#7a8494';c.font='13px Outfit, sans-serif';
+    c.fillText('Objetivo: '+f.nm+'.  Cada salida Yk = mintérmino mk; una OR de los mintérminos de f la reconstruye.',30,64);
+    drawTruth(c,f.n,f.mts,40,150,apProbe,'FUNCIÓN OBJETIVO');
+    drawDecSym(c,300,150,160,300,f.n,apProbe,1,hi);
+    // OR
+    const orx=690, ory=250;
+    c.strokeStyle=OK_HEX;c.fillStyle=hexA(OK_HEX,0.08);c.lineWidth=2;rr(c,orx,ory,54,80,10);c.fill();c.stroke();
+    c.fillStyle=OK_HEX;c.font='bold 15px Outfit, sans-serif';c.textAlign='center';c.fillText('≥1',orx+27,ory+38);c.font='11px Outfit, sans-serif';c.fillText('OR',orx+27,ory+56);
+    const Y=f.mts.includes(apProbe)?1:0;
+    c.strokeStyle=Y?OK_HEX:'#4a525e';c.lineWidth=3;c.beginPath();c.moveTo(orx+54,ory+40);c.lineTo(orx+94,ory+40);c.stroke();
+    c.fillStyle=Y?OK_HEX:'#4a525e';c.font='bold 18px Outfit, sans-serif';c.textAlign='left';c.fillText('F = '+Y,orx+100,ory+46);
+    rpanel(c,PX.x,PX.y,PX.w,140,'RECONSTRUCCIÓN SOP');
+    c.fillStyle='#9fb0cf';c.font='12px Outfit, sans-serif';c.textAlign='left';c.fillText('F = OR de las salidas de mintérminos:',PX.x+14,PX.y+52);
+    c.fillStyle=ACC;c.font='bold 14px Outfit, sans-serif';wrapText(c,'F = Σm('+f.mts.join(',')+')',PX.x+14,PX.y+74,PX.w-28,18);
+    const r=minimize(f.mts,f.n,[]);
+    c.fillStyle='#8f97a5';c.font='12px Outfit, sans-serif';c.fillText('(minimizada: F = '+(r.special||sopStr(r.terms,f.n))+')',PX.x+14,PX.y+104);
+    const by=PX.y+160;
+    c.fillStyle='rgba(0,0,0,0.22)';c.fillRect(PX.x,by,PX.w,330);c.strokeStyle=hexA(ACC,0.3);c.lineWidth=1;c.strokeRect(PX.x,by,PX.w,330);
+    c.fillStyle='#C7D6F5';c.font='bold 14px Outfit, sans-serif';c.textAlign='left';c.fillText('CÓMO FUNCIONA',PX.x+14,by+24);
+    c.fillStyle='#9fb0cf';c.font='12px Outfit, sans-serif';
+    wrapText(c,'El decodificador genera TODOS los mintérminos como salidas one-hot. Basta llevar a una OR las salidas de las filas donde f=1 (resaltadas). El resultado es la forma canónica SOP, exacta. Es la realización directa "de tabla de verdad a circuito". Recorre la entrada: sólo se activa un mintérmino a la vez, y la OR vale 1 justo en las filas objetivo.',PX.x+14,by+48,PX.w-28,17);
+  }else{
+    const s=SEG_SOP[apSeg], on=[0,0,0,0,0,0,0];on[apSeg]=1;
+    c.fillStyle='#C7D6F5';c.font='bold 21px Outfit, sans-serif';c.textAlign='left';
+    c.fillText('APLICA · Display 7 seg: SOP por segmento',30,42);
+    c.fillStyle='#7a8494';c.font='13px Outfit, sans-serif';
+    c.fillText('La lógica de cada segmento es una función BCD (A..D) minimizada por Karnaugh, con don\'t-cares 10-15.',30,64);
+    drawSeg7(c,60,150,72,18,on,ACC);
+    c.fillStyle=ACC;c.font='bold 15px Outfit, sans-serif';c.textAlign='center';c.fillText('segmento '+s.name,138,340);
+    // lista de segmentos
+    c.fillStyle='#C7D6F5';c.font='bold 13px Outfit, sans-serif';c.textAlign='left';c.fillText('SOP MÍNIMO DE CADA SEGMENTO',300,150);
+    SEG_SOP.forEach((sg,i)=>{
+      const yy=178+i*30, foc=(i===apSeg);
+      if(foc){c.fillStyle=hexA(ACC,0.14);c.fillRect(300,yy-18,392,26);}
+      c.fillStyle=foc?ACC:'#8f97a5';c.font='bold 14px Outfit, sans-serif';c.fillText(sg.name+' =',312,yy);
+      c.fillStyle=foc?'#F4EFEA':'#C9D3E2';c.font=(foc?'bold ':'')+'14px Outfit, sans-serif';c.fillText(sg.expr,352,yy);
+      c.fillStyle='#6f7887';c.font='11px Outfit, sans-serif';c.textAlign='right';c.fillText(sg.cost+' lit.',690,yy);c.textAlign='left';
+    });
+    rpanel(c,PX.x,PX.y,PX.w,160,'SEGMENTO '+s.name);
+    c.fillStyle='#8f97a5';c.font='12px Outfit, sans-serif';c.textAlign='left';c.fillText('Enciende en los dígitos:',PX.x+14,PX.y+52);
+    c.fillStyle=OK_HEX;c.font='bold 15px Outfit, sans-serif';c.fillText(s.mts.join(', '),PX.x+14,PX.y+76);
+    c.fillStyle='#8f97a5';c.font='12px Outfit, sans-serif';c.fillText('SOP mínimo:',PX.x+14,PX.y+104);
+    c.fillStyle=ACC;c.font='bold 15px Outfit, sans-serif';wrapText(c,s.name+' = '+s.expr,PX.x+14,PX.y+126,PX.w-28,18);
+    const by=PX.y+180;
+    c.fillStyle='rgba(0,0,0,0.22)';c.fillRect(PX.x,by,PX.w,310);c.strokeStyle=hexA(ACC,0.3);c.lineWidth=1;c.strokeRect(PX.x,by,PX.w,310);
+    c.fillStyle='#C7D6F5';c.font='bold 14px Outfit, sans-serif';c.textAlign='left';c.fillText('POR QUÉ HAY DON\'T CARE',PX.x+14,by+24);
+    c.fillStyle='#9fb0cf';c.font='12px Outfit, sans-serif';
+    wrapText(c,'Un dígito BCD sólo llega hasta 9 (1001). Las entradas 10-15 nunca ocurren, así que su salida es indiferente: el minimizador puede tomarlas como 0 o 1 según convenga para hacer grupos más grandes y baratos. Este es el mismo motor Quine-McCluskey del laboratorio de Karnaugh; los resultados coinciden con Mano & Ciletti.',PX.x+14,by+48,PX.w-28,17);
+  }
+}
+
+function drawReto(c){
+  const f=RETO_POOL[retoIdx], N=1<<f.n;
+  const target=Array.from({length:N},(_,i)=>f.mts.includes(i)?1:0);
+  c.fillStyle='#C7D6F5';c.font='bold 21px Outfit, sans-serif';c.textAlign='left';
+  c.fillText('RETO · Configura el MUX '+N+':1',30,42);
+  c.fillStyle='#7a8494';c.font='13px Outfit, sans-serif';
+  wrapText(c,'Ajusta los datos D0..D'+(N-1)+' (y la habilitación) para que el MUX realice la función. '+f.ctx+'.',30,64,660,18);
+  drawTruth(c,f.n,f.mts,40,150,-1,'FUNCIÓN OBJETIVO');
+  drawMuxSym(c,320,150,180,300,f.n,retoData,-1,retoEn,VN.slice(0,f.n));
+  // lo que tu MUX realiza
+  const userMts=[];retoData.forEach((d,i)=>{if(d)userMts.push(i);});
+  const rU=minimize(userMts,f.n,[]), rT=minimize(f.mts,f.n,[]);
+  rpanel(c,PX.x,PX.y,PX.w,150,'TU CONFIGURACIÓN');
+  const correct=retoData.reduce((a,d,i)=>a+((d?1:0)===target[i]?1:0),0);
+  prow(c,PX.x,PX.y+56,PX.w,'Datos correctos',correct+' / '+N,correct===N?OK_HEX:WARN_HEX);
+  prow(c,PX.x,PX.y+86,PX.w,'Habilitación (EN)',retoEn?'1':'0',retoEn?OK_HEX:BAD_HEX);
+  prow(c,PX.x,PX.y+116,PX.w,'Tu MUX realiza',(rU.special||sopStr(rU.terms,f.n)),correct===N?OK_HEX:'#C9D3E2');
+  const by=PX.y+170;
+  if(retoChecked){
+    c.fillStyle='rgba(0,0,0,0.24)';c.fillRect(PX.x,by,PX.w,320);
+    c.strokeStyle=retoSolved?OK_HEX:BAD_HEX;c.lineWidth=2;c.strokeRect(PX.x,by,PX.w,320);
+    c.fillStyle=retoSolved?OK_HEX:BAD_HEX;c.font='bold 16px Outfit, sans-serif';c.textAlign='left';
+    c.fillText(retoSolved?'✔ CORRECTO':'✗ REVISA',PX.x+14,by+26);
+    c.font='bold 13px Outfit, sans-serif';
+    c.fillStyle=retoOkData?OK_HEX:BAD_HEX;c.fillText((retoOkData?'✔':'✗')+' Todos los datos = f(i)',PX.x+14,by+54);
+    c.fillStyle=retoOkEnable?OK_HEX:BAD_HEX;c.fillText((retoOkEnable?'✔':'✗')+' Habilitación activa (EN=1)',PX.x+14,by+78);
+    c.fillStyle='#C9D3E2';c.font='12px Outfit, sans-serif';wrapText(c,retoExplain(f,target,correct),PX.x+14,by+106,PX.w-28,17);
+  }else{
+    c.fillStyle='rgba(0,0,0,0.20)';c.fillRect(PX.x,by,PX.w,320);
+    c.strokeStyle=hexA(ACC,0.3);c.lineWidth=1;c.strokeRect(PX.x,by,PX.w,320);
+    c.fillStyle=WARN_HEX;c.font='13px Outfit, sans-serif';c.textAlign='left';
+    wrapText(c,'Regla de oro: con las variables A..'+VN[f.n-1]+' en la selección, el dato D_i debe valer lo que la función vale en la fila i (D_i = f(i)). Copia la columna F de la tabla en los datos del MUX. Y no olvides EN=1, o la salida será siempre 0.',PX.x+14,by+26,PX.w-28,18);
+    c.fillStyle='#7a8494';c.font='12px Outfit, sans-serif';
+    wrapText(c,'Ajusta los datos abajo y pulsa "Comprobar".',PX.x+14,by+140,PX.w-28,18);
+  }
+}
+function retoExplain(f,target,correct){
+  const N=1<<f.n;
+  if(retoSolved)return 'D_i = f(i) para las '+N+' filas y EN=1: el MUX reproduce exactamente la función objetivo. Un MUX 2^n:1 realiza cualquier función de n variables.';
+  let s='';
+  if(!retoOkEnable)s+='La habilitación está en 0: la salida es 0 pase lo que pase. Pon EN=1. ';
+  if(!retoOkData)s+='Hay '+(N-correct)+' dato(s) que no coinciden con f(i). Compáralos con la columna F de la tabla objetivo. ';
+  return s||'Revisa datos y habilitación.';
+}
+
+function drawBoard(){
+  const c=bCv.getContext('2d');bg(c);
+  if(mode==='aplica')drawAplica(c);else if(mode==='reto')drawReto(c);else drawExplora(c);
+  bTex.needsUpdate=true;
+}
+function boardClick(){
+  if(mode==='aplica')showToast('🧩 Un MUX 2^n:1 (datos = f(i)) o un decodificador+OR realizan cualquier función combinacional. El display 7seg descompone cada segmento en su propia función booleana.');
+  else if(mode==='reto')showToast('🎯 Copia la columna F de la tabla objetivo en los datos D_i del MUX. Con las variables en la selección, D_i = f(i) reproduce la función. EN debe estar en 1.');
+  else showToast('📟 Conduce el dispositivo: cambia selección/datos, entrada o dígito y observa cómo responde la salida.');
+}
+
+// ===================== 7. ESCENA 3D: ENTRENADOR =====================
+const bench=roundedBox(3.7,0.5,1.8,MAT.bench,0.05);bench.position.set(1.9,0.25,0.55);scene.add(bench);
+bench.userData={title:'Banco de bloques combinacionales',info:'Conduce el dispositivo activo: entradas → circuito → salida.'};
+const pcb=roundedBox(2.4,0.08,1.2,MAT.pcb,0.03);pcb.position.set(1.95,0.54,0.5);scene.add(pcb);
+pcb.userData={title:'Tarjeta del dispositivo',info:'Recorre las entradas y enciende salidas/segmentos según el bloque activo.'};
+addHoverLabel(pcb,'Entrenador digital',ACC,new THREE.Vector3(1.95,1.35,0.5),1.4);
+// chip / carátula
+const chip=roundedBox(0.56,0.14,0.5,MAT.chip,0.02);chip.position.set(1.35,0.63,0.55);scene.add(chip);
+const chCv=document.createElement('canvas');chCv.width=180;chCv.height=180;const chTex=new THREE.CanvasTexture(chCv);
+const chFace=new THREE.Mesh(new THREE.PlaneGeometry(0.5,0.5),new THREE.MeshBasicMaterial({map:chTex,transparent:true}));
+chFace.rotation.x=-Math.PI/2;chFace.position.set(1.35,0.705,0.55);scene.add(chFace);
+chip.userData={title:'Bloque combinacional',info:'MUX, decodificador o decodificador BCD→7 segmentos.'};
+// display 7 segmentos en 3D
+const segGroup=new THREE.Group();segGroup.position.set(2.75,1.02,0.5);scene.add(segGroup);
+const segMeshes=[];
+const L=0.24,T=0.05,Dz=0.04, yTop=L/2+T/2, xR=L/2+T/2, xL=-(L/2+T/2);
+function addSeg(w,h,x,y,col){const m=new THREE.Mesh(new THREE.BoxGeometry(w,h,Dz),std(0x242a31,0.5,0.1));m.position.set(x,y,0);m.material.emissive=new THREE.Color(col);m.material.emissiveIntensity=0;segGroup.add(m);segMeshes.push(m);return m;}
+addSeg(L,T,0,yTop,0x7CD992);          // a
+addSeg(T,L,xR,yTop/2,0x7CD992);       // b
+addSeg(T,L,xR,-yTop/2,0x7CD992);      // c
+addSeg(L,T,0,-yTop,0x7CD992);         // d
+addSeg(T,L,xL,-yTop/2,0x7CD992);      // e
+addSeg(T,L,xL,yTop/2,0x7CD992);       // f
+addSeg(L,T,0,0,0x7CD992);             // g
+segGroup.userData={title:'Display de 7 segmentos',info:'Enciende el patrón a-g del valor mostrado.'};
+addHoverLabel(segGroup.children[0],'7 segmentos',OK_HEX,new THREE.Vector3(2.75,1.5,0.5),1.0);
+// LEDs de salida (one-hot / datos) + LED Y del MUX
+function makeLED(x,z,color){const m=new THREE.Mesh(new THREE.SphereGeometry(0.045,16,16),std(color,0.4,0.1));m.position.set(x,0.62,z);m.material.emissive=new THREE.Color(color);m.material.emissiveIntensity=0.15;scene.add(m);return m;}
+const outLEDs=[];for(let i=0;i<8;i++)outLEDs.push(makeLED(1.85+i*0.15,0.86,0x8AB4F8));
+const yLED=makeLED(3.15,0.2,0x7CD992);yLED.scale.set(1.35,1.35,1.35);yLED.position.z=0.5;
+yLED.userData={title:'Salida Y (MUX)',info:'Refleja Y = D[sel] cuando EN=1.'};
+addHoverLabel(yLED,'Y',OK_HEX,new THREE.Vector3(3.15,0.45,0.5),0.5);
+
+function drawChip3D(dev,step,digit){
+  const c=chCv.getContext('2d');c.clearRect(0,0,180,180);
+  const acc=dev.kind==='dec'?DEC_HEX:(dev.kind==='seg'?OK_HEX:ACC);
+  c.fillStyle='rgba(20,23,27,0.92)';c.fillRect(0,0,180,180);
+  c.strokeStyle=acc;c.lineWidth=4;c.strokeRect(4,4,172,172);
+  c.fillStyle='#C7D6F5';c.font='bold 15px Outfit, sans-serif';c.textAlign='center';
+  if(dev.kind==='mux'){const N=1<<dev.n,y=mux(dev.data,step,dev.en);
+    c.fillText('MUX '+N+':1',90,32);
+    c.font='14px Outfit, sans-serif';c.fillStyle='#9fb0cf';c.fillText('sel='+step.toString(2).padStart(dev.n,'0'),90,64);
+    c.font='bold 40px Outfit, sans-serif';c.fillStyle=y?OK_HEX:'#5a6472';c.fillText('Y='+y,90,120);
+    c.font='13px Outfit, sans-serif';c.fillStyle=dev.en?OK_HEX:BAD_HEX;c.fillText(dev.en?'EN=1':'EN=0',90,152);
+  }else if(dev.kind==='dec'){const N=1<<dev.n;
+    c.fillText('DEC '+dev.n+':'+N,90,32);
+    c.font='14px Outfit, sans-serif';c.fillStyle='#9fb0cf';c.fillText('in='+step.toString(2).padStart(dev.n,'0'),90,64);
+    c.font='bold 34px Outfit, sans-serif';c.fillStyle=DEC_HEX;c.fillText('Y'+step,90,116);
+    c.font='13px Outfit, sans-serif';c.fillStyle='#9fb0cf';c.fillText('one-hot',90,150);
+  }else{
+    c.fillText('BCD→7seg',90,32);
+    c.font='bold 60px Outfit, sans-serif';c.fillStyle=OK_HEX;c.fillText(String(digit),90,120);
+    c.font='13px Outfit, sans-serif';c.fillStyle='#9fb0cf';c.fillText('dígito',90,152);
+  }
+  chTex.needsUpdate=true;
+}
+function hwCount(){const dev=curDevice();return dev.kind==='seg'?10:(1<<dev.n);}
+function updateHW(){
+  const dev=curDevice();const cnt=hwCount();const step=hwStep%cnt;
+  segMeshes.forEach(m=>{m.material.emissiveIntensity=0.03;m.material.color.setHex(0x242a31);});
+  outLEDs.forEach(l=>{l.visible=false;});yLED.visible=false;
+  let digit=0;
+  if(dev.kind==='seg'){digit=step;const on=segOf(digit);segMeshes.forEach((m,i)=>{const s=on[i];m.material.emissiveIntensity=s?1.3:0.03;m.material.color.setHex(s?0x7CD992:0x242a31);});}
+  else if(dev.kind==='mux'){const N=1<<dev.n,y=mux(dev.data,step,dev.en);digit=step;const on=segOf(digit);
+    segMeshes.forEach((m,i)=>{const s=on[i];m.material.emissiveIntensity=s?0.85:0.03;m.material.color.setHex(s?0x8AB4F8:0x242a31);});
+    for(let i=0;i<N;i++){const l=outLEDs[i];l.visible=true;const d=dev.data[i]?1:0,selHere=(i===step);
+      l.material.emissiveIntensity=selHere?1.4:(d?0.55:0.12);l.material.color.setHex(selHere?(d?0x7CD992:0xff6b6b):(d?0x3a5a44:0x2a3550));}
+    yLED.visible=true;yLED.material.emissiveIntensity=y?1.5:0.12;yLED.material.color.setHex(y?0x7CD992:0x243026);
+  }else{const N=1<<dev.n,o=decoder(step,dev.n,dev.en);digit=step;const on=segOf(digit);
+    segMeshes.forEach((m,i)=>{const s=on[i];m.material.emissiveIntensity=s?0.85:0.03;m.material.color.setHex(s?0xE9C46A:0x242a31);});
+    for(let i=0;i<N;i++){const l=outLEDs[i];l.visible=true;const hot=o[i];l.material.emissiveIntensity=hot?1.5:0.12;l.material.color.setHex(hot?0x7CD992:0x2a3550);}
+  }
+  drawChip3D(dev,step,digit);
+}
+
+// ===================== 8. HUD Y PANEL =====================
+document.getElementById('hud').innerHTML=`
+  <div class="eyebrow">Sistemas digitales (D3) · Bloques combinacionales · Habilitación</div>
+  <h2>Multiplexores, Decodificadores y Display de 7 Segmentos</h2>
+  <p>Tres bloques combinacionales de uso constante. El <b>multiplexor</b> (MUX 2ⁿ:1) es un conmutador
+  controlado: lleva a la salida <b>Y = D[sel]</b> la entrada de datos que indica la selección, y sólo si la
+  <b>habilitación</b> EN está activa. El <b>decodificador</b> (n→2ⁿ) hace lo contrario: activa <b>una y sólo
+  una</b> salida (one-hot), la que corresponde al número de entrada. El <b>display de 7 segmentos</b> es un
+  decodificador especial que traduce un dígito BCD (0-9) al patrón de segmentos a-g que lo dibuja. Lo potente:
+  un MUX 2ⁿ:1 con las variables en la selección realiza <b>cualquier</b> función de n variables sólo cableando
+  <b>D_i = f(i)</b>; y un decodificador con una OR reconstruye cualquier función como suma de mintérminos. La
+  lógica de cada segmento del display es, a su vez, una función booleana minimizable con Karnaugh (con
+  don't-care en 10-15).</p>
+  <div class="formula">MUX: Y = D[sel]·EN · DEC: Yk = mk (one-hot) · MUX universal: D_i = f(i) · DEC+OR = Σm(...) · 7seg: SOP por segmento</div>
+  <div class="legend">
+    <div class="li"><span class="dot" style="background:#7CD992"></span>Salida / segmento activo</div>
+    <div class="li"><span class="dot" style="background:#8AB4F8"></span>MUX / selección</div>
+    <div class="li"><span class="dot" style="background:#E9C46A"></span>Decodificador</div>
+    <div class="li"><span class="dot" style="background:#ff6b6b"></span>Dato erróneo / EN=0</div>
+  </div>
+  <div class="fid">
+    <div class="ft">🔒 Contrato de fidelidad</div>
+    <div class="fl"><b>Sí modela:</b> el comportamiento lógico exacto del multiplexor 2:1/4:1/8:1 (Y=D[sel] con habilitación), del decodificador 2:4/3:8 (one-hot con habilitación) y del decodificador BCD→7 segmentos (patrones canónicos de los dígitos 0-9); el MUX como lógica universal (D_i=f(i)) y el decodificador+OR como realización SOP, verificados numéricamente (400 funciones aleatorias, one-hot exhaustivo); y el SOP mínimo de cada segmento por Quine-McCluskey con don't-cares 10-15 (coincide con Mano & Ciletti).</div>
+    <div class="fl no"><b>NO modela:</b> los tiempos de propagación, glitches por transiciones de selección/entrada, ni el comportamiento dinámico; las salidas active-low reales de circuitos como el 74138/7447 (aquí se usa active-high por claridad); los dígitos 10-15 del display (se tratan como don't-care, no se define su patrón); el ánodo/cátodo común, las resistencias limitadoras y la corriente de los LED; el enable en cascada (E1·E2·E3) y la expansión de MUX/decodificadores; ni la implementación física (familias TTL/CMOS, encapsulado, fan-out).</div>
+  </div>
+  <div class="src">Ref: IEEE Std 91-1984 · Mano & Ciletti, Diseño Digital · Wakerly, Digital Design · TI 74x151/74x138/7447 · Verificación numérica propia</div>`;
+
+document.getElementById('panel').innerHTML=`
+  <h4>Bloques · <span id="p_mode" style="color:var(--accent2)">Explora</span></h4>
+  <div class="modebar">
+    <button class="b on" id="m_explora">🧭 Explora</button>
+    <button class="b" id="m_aplica">🧩 Aplica</button>
+    <button class="b" id="m_reto">🎯 Reto</button>
+  </div>
+  <div id="scenarioInfo" style="font-size:12px;color:var(--ink);margin:2px 0 8px;display:none"></div>
+  <div class="modebar" id="selbar" style="display:none;flex-wrap:wrap"></div>
+  <div id="tele"></div>
+  <div class="console" id="report"></div>
+  <h4 class="sec" id="retoTitle" style="display:none">Reto de configuración</h4>
+  <div id="retoBox" style="display:none">
+    <div id="retoSpec" style="font-size:12px;color:var(--ink);margin:2px 0 8px"></div>
+    <div class="btns"><button class="b primary" id="btnCheck">✅ Comprobar</button></div>
+  </div>
+  <h4 class="sec">Pregunta de ingeniería</h4>
+  <div id="q_text" style="font-size:12px;color:var(--ink);margin:4px 0 8px"></div>
+  <div class="btns" id="dxbtns"></div>
+  <div class="btns">
+    <button class="b auto" id="btnAuto">✨ Recorrido guiado (automático)</button>
+    <button class="b primary" id="btnNew">🔀 Nuevo escenario</button>
+  </div>`;
+
+// ===================== 9. TOASTS =====================
+function showToast(html){const t=el('toast');t.innerHTML=html;t.classList.add('show');clearTimeout(showToast._t);showToast._t=setTimeout(()=>t.classList.remove('show'),4200);}
+
+// ===================== 10. MODOS Y CONTROLES =====================
+const MODE_META={
+  explora:{nombre:'Explora',cam:[[4.8,2.9,7.0],[0.4,1.05,0.3]],mision:'Elige un bloque (MUX, decodificador o display 7seg) y condúcelo: cambia selección/datos, entrada o dígito y observa la salida.'},
+  aplica:{nombre:'Aplica',cam:[[4.6,2.8,6.8],[0.4,1.05,0.3]],mision:'Comprueba que un MUX (D_i=f(i)) o un decodificador+OR realizan cualquier función, y cómo cada segmento del display es una función booleana.'},
+  reto:{nombre:'Reto',cam:[[4.7,2.7,6.9],[0.5,1.0,0.4]],mision:'Configura los datos del MUX (y la habilitación) para que realice la función objetivo. D_i = f(i).'},
+};
+function lbl(t){return `<span class="lbl">${t}</span>`;}
+function buildControls(){
+  const bar=el('selbar');bar.style.display='flex';bar.style.flexWrap='wrap';let html='';
+  if(mode==='explora'){
+    html+=lbl('Bloque:')+`<button class="b sm ${expKind==='mux'?'on':''}" data-k="mux">MUX</button><button class="b sm ${expKind==='dec'?'on':''}" data-k="dec">Decodificador</button><button class="b sm ${expKind==='seg'?'on':''}" data-k="seg">7 segmentos</button>`;
+    if(expKind==='mux'){
+      const N=1<<muxN;
+      html+=lbl('Tamaño:')+[1,2,3].map(b=>`<button class="b sm ${b===muxN?'on':''}" data-mn="${b}">${1<<b}:1</button>`).join('');
+      html+=lbl('EN:')+`<button class="b sm ${muxEn?'on':''}" data-men="t">${muxEn?'1':'0'}</button>`;
+      html+=lbl('Selección:')+Array.from({length:N},(_,i)=>`<button class="b sm ${i===muxSel?'on':''}" data-ms="${i}">${i}</button>`).join('');
+      html+=lbl('Datos (clic=0/1):')+Array.from({length:N},(_,i)=>`<button class="b sm ${muxData[i]?'on':''}" data-md="${i}" style="min-width:40px">D${i}:${muxData[i]?1:0}</button>`).join('');
+    }else if(expKind==='dec'){
+      const N=1<<decN;
+      html+=lbl('Tamaño:')+[2,3].map(b=>`<button class="b sm ${b===decN?'on':''}" data-dn="${b}">${b}:${1<<b}</button>`).join('');
+      html+=lbl('EN:')+`<button class="b sm ${decEn?'on':''}" data-den="t">${decEn?'1':'0'}</button>`;
+      html+=lbl('Entrada:')+Array.from({length:N},(_,i)=>`<button class="b sm ${i===decIn?'on':''}" data-di="${i}">${i}</button>`).join('');
+    }else{
+      html+=lbl('Dígito BCD:')+Array.from({length:10},(_,i)=>`<button class="b sm ${i===segDigit?'on':''}" data-sd="${i}">${i}</button>`).join('');
+    }
+    bar.innerHTML=html;
+    bar.querySelectorAll('[data-k]').forEach(b=>b.onclick=()=>{if(autoRunning)return;expKind=b.dataset.k;hwStep=0;synth.beep(680,0.05,0.04);afterEdit();});
+    bar.querySelectorAll('[data-mn]').forEach(b=>b.onclick=()=>{if(autoRunning)return;muxN=parseInt(b.dataset.mn,10);resizeMuxData();hwStep=0;synth.beep(700,0.05,0.04);afterEdit();});
+    bar.querySelectorAll('[data-men]').forEach(b=>b.onclick=()=>{if(autoRunning)return;muxEn=muxEn?0:1;synth.beep(muxEn?820:360,0.05,0.04);afterEdit();});
+    bar.querySelectorAll('[data-ms]').forEach(b=>b.onclick=()=>{if(autoRunning)return;muxSel=parseInt(b.dataset.ms,10);synth.beep(760,0.05,0.04);afterEdit();});
+    bar.querySelectorAll('[data-md]').forEach(b=>b.onclick=()=>{if(autoRunning)return;const i=parseInt(b.dataset.md,10);muxData[i]=muxData[i]?0:1;synth.beep(muxData[i]?900:420,0.04,0.035);afterEdit();});
+    bar.querySelectorAll('[data-dn]').forEach(b=>b.onclick=()=>{if(autoRunning)return;decN=parseInt(b.dataset.dn,10);if(decIn>=(1<<decN))decIn=0;hwStep=0;synth.beep(700,0.05,0.04);afterEdit();});
+    bar.querySelectorAll('[data-den]').forEach(b=>b.onclick=()=>{if(autoRunning)return;decEn=decEn?0:1;synth.beep(decEn?820:360,0.05,0.04);afterEdit();});
+    bar.querySelectorAll('[data-di]').forEach(b=>b.onclick=()=>{if(autoRunning)return;decIn=parseInt(b.dataset.di,10);synth.beep(760,0.05,0.04);afterEdit();});
+    bar.querySelectorAll('[data-sd]').forEach(b=>b.onclick=()=>{if(autoRunning)return;segDigit=parseInt(b.dataset.sd,10);synth.beep(600+segDigit*30,0.05,0.04);afterEdit();});
+  }else if(mode==='aplica'){
+    html+=lbl('Tema:')+`<button class="b sm ${apTopic==='mux'?'on':''}" data-at="mux">MUX universal</button><button class="b sm ${apTopic==='dec'?'on':''}" data-at="dec">Decod.+OR</button><button class="b sm ${apTopic==='seg'?'on':''}" data-at="seg">7seg SOP</button>`;
+    if(apTopic==='seg'){
+      html+=lbl('Segmento:')+SEG_NAMES.map((nm,i)=>`<button class="b sm ${i===apSeg?'on':''}" data-as="${i}">${nm}</button>`).join('');
+    }else{
+      const f=APLICA_POOL[apFnIdx],N=1<<f.n;
+      html+=lbl('Función:')+APLICA_POOL.map((ff,i)=>`<button class="b sm ${i===apFnIdx?'on':''}" data-af="${i}">${ff.nm}</button>`).join('');
+      html+=lbl('Entrada:')+Array.from({length:N},(_,i)=>`<button class="b sm ${i===apProbe?'on':''}" data-ap="${i}">${i}</button>`).join('');
+    }
+    bar.innerHTML=html;
+    bar.querySelectorAll('[data-at]').forEach(b=>b.onclick=()=>{if(autoRunning)return;apTopic=b.dataset.at;apProbe=0;hwStep=0;synth.beep(680,0.05,0.04);afterEdit();});
+    bar.querySelectorAll('[data-af]').forEach(b=>b.onclick=()=>{if(autoRunning)return;apFnIdx=parseInt(b.dataset.af,10);apProbe=0;hwStep=0;synth.beep(700,0.05,0.04);afterEdit();});
+    bar.querySelectorAll('[data-ap]').forEach(b=>b.onclick=()=>{if(autoRunning)return;apProbe=parseInt(b.dataset.ap,10);synth.beep(760,0.05,0.04);afterEdit();});
+    bar.querySelectorAll('[data-as]').forEach(b=>b.onclick=()=>{if(autoRunning)return;apSeg=parseInt(b.dataset.as,10);synth.beep(600+apSeg*40,0.05,0.04);afterEdit();});
+  }else{
+    const f=RETO_POOL[retoIdx],N=1<<f.n;
+    html+=lbl('EN:')+`<button class="b sm ${retoEn?'on':''}" data-ren="t">${retoEn?'1':'0'}</button>`;
+    html+=lbl('Datos del MUX (clic=0/1):')+Array.from({length:N},(_,i)=>`<button class="b sm ${retoData[i]?'on':''}" data-rd="${i}" style="min-width:40px">D${i}:${retoData[i]?1:0}</button>`).join('');
+    bar.innerHTML=html;
+    bar.querySelectorAll('[data-ren]').forEach(b=>b.onclick=()=>{if(autoRunning)return;retoEn=retoEn?0:1;retoChecked=false;retoSolved=false;synth.beep(retoEn?820:360,0.05,0.04);afterEdit();});
+    bar.querySelectorAll('[data-rd]').forEach(b=>b.onclick=()=>{if(autoRunning)return;const i=parseInt(b.dataset.rd,10);retoData[i]=retoData[i]?0:1;retoChecked=false;retoSolved=false;synth.beep(retoData[i]?900:420,0.04,0.035);afterEdit();});
+  }
+}
+function updateScenarioInfo(){
+  const box=el('scenarioInfo');
+  if(mode!=='reto'){box.style.display='none';return;}
+  const f=RETO_POOL[retoIdx];box.style.display='block';
+  box.innerHTML=`Objetivo <b>F(${VN.slice(0,f.n).join(',')})</b> = Σm(${f.mts.join(',')}) — ${f.ctx}. Copia la columna F en los datos del MUX (D_i = f(i)) y activa EN.`;
+}
+function setMode(k){
+  mode=k;hwStep=0;
+  ['explora','aplica','reto'].forEach(m=>el('m_'+m).classList.toggle('on',m===k));
+  el('p_mode').textContent=MODE_META[k].nombre;
+  el('retoTitle').style.display=k==='reto'?'block':'none';
+  el('retoBox').style.display=k==='reto'?'block':'none';
+  if(k==='reto')updateRetoSpec();
+  buildControls();updateScenarioInfo();
+  solved=(k==='reto')?retoSolved:false;
+  clearDx();buildQuiz();refreshQuestion();
+  const cam=MODE_META[k].cam;S.moveTo(cam[0],cam[1]);refreshAll();
+}
+function afterEdit(){buildControls();updateScenarioInfo();refreshAll();}
+function newSignal(){
+  if(mode==='reto'){seedReto();updateRetoSpec();afterEdit();solved=false;showToast('🔀 Nuevo objetivo: '+RETO_POOL[retoIdx].ctx+'.');}
+  else if(mode==='aplica'){if(apTopic==='seg'){apSeg=pickIdx(7,apSeg);}else{apFnIdx=pickIdx(APLICA_POOL.length,apFnIdx);apProbe=0;}afterEdit();showToast('🔀 '+(apTopic==='seg'?('Segmento '+SEG_NAMES[apSeg]):APLICA_POOL[apFnIdx].nm)+'.');}
+  else{const ks=['mux','dec','seg'];expKind=ks[pickIdx(3,ks.indexOf(expKind))];
+    if(expKind==='mux'){muxN=[1,2,3][pickIdx(3)];resizeMuxData();for(let i=0;i<muxData.length;i++)muxData[i]=Math.random()<0.5?1:0;muxSel=0;muxEn=1;}
+    else if(expKind==='dec'){decN=[2,3][pickIdx(2)];decIn=0;decEn=1;}
+    else{segDigit=pickIdx(10);}
+    afterEdit();showToast('🔀 Bloque: '+(expKind==='mux'?'multiplexor':expKind==='dec'?'decodificador':'display 7 segmentos')+'. Condúcelo.');}
+  synth.beep(520,0.08,0.05);hwStep=0;
+}
+
+// ===================== 11. TELEMETRÍA Y REPORTE =====================
+function teleRow(l,v,cls){return `<div class="trow"><span class="tl">${l}</span><span class="tv ${cls||''}">${v}</span></div>`;}
+function updateTele(){
+  const t=el('tele');
+  if(mode==='reto'){
+    const f=RETO_POOL[retoIdx],N=1<<f.n;
+    const target=Array.from({length:N},(_,i)=>f.mts.includes(i)?1:0);
+    const correct=retoData.reduce((a,d,i)=>a+((d?1:0)===target[i]?1:0),0);
+    t.innerHTML=teleRow('Objetivo','Σm('+f.mts.join(',')+')')+
+      teleRow('MUX',N+':1')+
+      teleRow('Datos correctos',correct+'/'+N,correct===N?'good':'warn')+
+      teleRow('Habilitación',retoEn?'1':'0',retoEn?'good':'warn')+
+      teleRow('Estado',retoChecked?(retoSolved?'✔ correcto':'✗ revisa'):'configura y comprueba',(retoChecked&&retoSolved)?'good':'warn');
+    return;
+  }
+  if(mode==='aplica'){
+    const f=APLICA_POOL[apFnIdx];
+    if(apTopic==='seg'){const s=SEG_SOP[apSeg];
+      t.innerHTML=teleRow('Tema','Display 7seg · SOP')+teleRow('Segmento',s.name)+teleRow('Enciende en','{'+s.mts.join(',')+'}')+teleRow('SOP mínimo',s.name+' = '+s.expr,'good')+teleRow('Literales',String(s.cost));
+    }else{
+      const data=muxRealize(f.mts,f.n),y=(apTopic==='mux')?mux(data,apProbe,1):(f.mts.includes(apProbe)?1:0);
+      t.innerHTML=teleRow('Tema',apTopic==='mux'?'MUX universal':'Decod.+OR')+teleRow('Función',f.nm)+teleRow('Entrada',apProbe.toString(2).padStart(f.n,'0'))+teleRow('f objetivo',String(f.mts.includes(apProbe)?1:0))+teleRow('Salida realizada',String(y),y===(f.mts.includes(apProbe)?1:0)?'good':'warn');
+    }
+    return;
+  }
+  if(expKind==='mux'){const y=mux(muxData,muxSel,muxEn);
+    t.innerHTML=teleRow('Bloque','MUX '+(1<<muxN)+':1')+teleRow('Selección',muxSel.toString(2).padStart(muxN,'0')+' ('+muxSel+')')+teleRow('Dato elegido','D'+muxSel+'='+(muxData[muxSel]?1:0))+teleRow('Habilitación',muxEn?'1':'0',muxEn?'good':'warn')+teleRow('Salida Y',String(y),y?'good':'');
+  }else if(expKind==='dec'){
+    t.innerHTML=teleRow('Bloque','DEC '+decN+':'+(1<<decN))+teleRow('Entrada',decIn.toString(2).padStart(decN,'0')+' ('+decIn+')')+teleRow('Habilitación',decEn?'1':'0',decEn?'good':'warn')+teleRow('Salida activa',decEn?('Y'+decIn):'ninguna',decEn?'good':'warn')+teleRow('Tipo','one-hot');
+  }else{const on=segOf(segDigit);
+    t.innerHTML=teleRow('Bloque','BCD→7seg')+teleRow('Dígito',String(segDigit))+teleRow('Segmentos ON',on.reduce((a,b)=>a+b,0)+'/7')+teleRow('Patrón',SEG_NAMES.filter((_,i)=>on[i]).join('')||'—','good');
+  }
+}
+function updateReport(){
+  let html=`<b>${MODE_META[mode].mision}</b><br>`;
+  if(mode==='reto'){
+    const f=RETO_POOL[retoIdx];
+    html+=retoMsg||`<span class="mono">F = Σm(${f.mts.join(',')}). Pon D_i = f(i) en el MUX ${1<<f.n}:1 y EN=1. Comprueba.</span>`;
+  }else if(mode==='aplica'){
+    const f=APLICA_POOL[apFnIdx];
+    if(apTopic==='seg'){const s=SEG_SOP[apSeg];html+=`<span class="mono">Segmento ${s.name} enciende en {${s.mts.join(',')}} → SOP mínimo ${s.name} = ${s.expr} (${s.cost} literales, don't-care 10-15).</span>`;}
+    else html+=`<span class="mono">${f.nm}: ${apTopic==='mux'?'un MUX '+(1<<f.n)+':1 con D_i=f(i)':'decodificador '+f.n+':'+(1<<f.n)+' + OR de Σm('+f.mts.join(',')+')'} la realiza sin lógica extra.</span>`;
+  }else{
+    if(expKind==='mux')html+=`<span class="mono">MUX ${1<<muxN}:1 — Y = D[sel] = ${mux(muxData,muxSel,muxEn)} (sel=${muxSel}, EN=${muxEn}).</span>`;
+    else if(expKind==='dec')html+=`<span class="mono">DEC ${decN}:${1<<decN} — ${decEn?('se activa Y'+decIn+' (one-hot)'):'EN=0: ninguna salida activa'}.</span>`;
+    else html+=`<span class="mono">Dígito ${segDigit} → segmentos ${segOf(segDigit).map((s,i)=>s?SEG_NAMES[i]:'').filter(Boolean).join('')}.</span>`;
+  }
+  el('report').innerHTML=html;
+}
+function refreshAll(){drawBoard();updateTele();updateReport();updateHW();}
+
+// ===================== 12. RETO =====================
+function updateRetoSpec(){
+  const f=RETO_POOL[retoIdx],N=1<<f.n;
+  el('retoSpec').innerHTML=`F(${VN.slice(0,f.n).join(',')}) = Σm(${f.mts.join(',')}) en un MUX <b>${N}:1</b>. Pon cada dato D_i = f(i) (copia la columna F) y activa <b>EN</b>. Pulsa "Comprobar".`;
+}
+function checkReto(){
+  const f=RETO_POOL[retoIdx],N=1<<f.n;
+  const target=Array.from({length:N},(_,i)=>f.mts.includes(i)?1:0);
+  const correct=retoData.reduce((a,d,i)=>a+((d?1:0)===target[i]?1:0),0);
+  retoOkData=(correct===N);
+  retoOkEnable=(retoEn===1);
+  retoSolved=retoOkData&&retoOkEnable;retoChecked=true;solved=retoSolved;
+  synth.beep(retoSolved?1046:220,retoSolved?0.14:0.15,0.06);
+  retoMsg=`<span class="mono"><span class="${retoSolved?'ok':'dtc'}">${retoSolved?'✔ Correcto':'✗ Revisa'}</span> — ${retoExplain(f,target,correct)}</span>`;
+  refreshAll();
+}
+
+// ===================== 13. QUIZ =====================
+function buildQuiz(){
+  QUIZ={
+    explora:{
+      pregunta:'¿Qué distingue a un multiplexor de un decodificador?',
+      opciones:[
+        {t:'El MUX SELECCIONA una de varias entradas de datos y la lleva a una única salida (Y=D[sel]); el decodificador ACTIVA una de varias salidas (one-hot) según el número de entrada. Son operaciones inversas.',ok:true,why:'Correcto: el MUX es "muchas entradas → una salida" guiado por la selección; el decodificador es "una entrada → una de muchas salidas". Uno enruta datos, el otro identifica un valor.'},
+        {t:'Son lo mismo con distinto nombre; ambos suman sus entradas.',ok:false,why:'No suman nada y no son lo mismo. El MUX enruta la entrada elegida a la salida; el decodificador enciende la salida correspondiente al número de entrada.'},
+        {t:'El decodificador tiene una sola salida y el MUX muchas.',ok:false,why:'Al revés: el MUX tiene UNA salida (Y) y varias entradas de datos; el decodificador tiene una entrada (de n bits) y 2ⁿ salidas.'},
+        {t:'El MUX sólo funciona con señales analógicas.',ok:false,why:'Aquí se trata el MUX digital (selecciona bits). Existen MUX analógicos, pero la lógica de selección Y=D[sel] es la misma idea.'},
+      ],
+    },
+    aplica:{
+      pregunta:'¿Por qué un MUX 2ⁿ:1 puede realizar cualquier función de n variables sin compuertas adicionales?',
+      opciones:[
+        {t:'Porque al poner las n variables en la selección, la salida en cada combinación es justo el dato cableado en esa posición: basta fijar D_i = f(i) y el MUX reproduce la tabla de verdad completa.',ok:true,why:'Correcto: la selección recorre las 2ⁿ filas de la tabla; si cada dato D_i vale f(i), la salida coincide con la función en todas las filas. El MUX "es" la tabla de verdad cableada.'},
+        {t:'Porque el MUX simplifica automáticamente la función a su forma mínima.',ok:false,why:'El MUX no simplifica: reproduce la tabla tal cual. La minimización (Karnaugh/Q-M) es otro proceso; el MUX no la necesita para realizar la función.'},
+        {t:'Porque cualquier función tiene a lo sumo 2 mintérminos.',ok:false,why:'Falso: una función de n variables puede tener hasta 2ⁿ mintérminos. El MUX los cubre todos porque tiene 2ⁿ entradas de datos, una por fila.'},
+        {t:'Sólo puede realizar funciones AND y OR, no otras.',ok:false,why:'Puede realizar CUALQUIER función booleana de n variables (las 2^(2ⁿ) posibles), incluidas XOR, mayoría, etc., sólo cambiando los datos.'},
+      ],
+    },
+    reto:{
+      pregunta:'Configuraste bien los datos pero la salida es siempre 0. ¿Qué revisas primero?',
+      opciones:[
+        {t:'La señal de habilitación (EN): si EN=0, el MUX fuerza Y=0 sin importar la selección ni los datos. Debe estar en 1 para que Y=D[sel].',ok:true,why:'Correcto: la habilitación es una compuerta maestra. Con EN=0 la salida queda inhibida (0 o alta impedancia). Es el error clásico "todo bien pero no sale nada".'},
+        {t:'Cambio todos los datos a 1 para forzar salida.',ok:false,why:'Eso altera la función y no arregla la causa: si EN=0, la salida sigue en 0. Primero habilita el dispositivo (EN=1).'},
+        {t:'Aumento el tamaño del MUX a 8:1.',ok:false,why:'El tamaño no tiene que ver con que la salida esté inhibida. El síntoma "siempre 0 con datos correctos" apunta a la habilitación.'},
+        {t:'Es imposible; si los datos están bien, la salida no puede ser 0.',ok:false,why:'Sí puede: la habilitación manda sobre la salida. Con EN=0, ni los datos correctos ni la selección producen salida.'},
+      ],
+    },
+  };
+  Object.values(QUIZ).forEach(q=>{for(let i=q.opciones.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));const tmp=q.opciones[i];q.opciones[i]=q.opciones[j];q.opciones[j]=tmp;}});
+}
+function clearDx(){const box=el('dxbtns');if(box)box.innerHTML='';}
+function refreshQuestion(){
+  const q=QUIZ[mode];if(!q)return;
+  el('q_text').textContent=q.pregunta;
+  const box=el('dxbtns');
+  box.innerHTML=q.opciones.map((o,i)=>`<button class="b sm" data-i="${i}">${String.fromCharCode(65+i)}) ${o.t}</button>`).join('');
+  box.querySelectorAll('[data-i]').forEach(b=>b.onclick=()=>answer(parseInt(b.dataset.i,10)));
+}
+function answer(i){
+  const q=QUIZ[mode];if(!q)return;
+  const box=el('dxbtns'),btns=box.querySelectorAll('[data-i]');
+  if(!btns.length||btns[0].disabled)return;
+  const o=q.opciones[i];btns.forEach(b=>b.disabled=true);btns[i].classList.add(o.ok?'right':'wrong');
+  if(o.ok){synth.beep(1046,0.12,0.06);}else{synth.beep(220,0.15,0.06);}
+  showToast((o.ok?'✔ ':'✗ ')+o.why);
+}
+
+// ===================== 14. PICKING Y HOVER =====================
+pickerFor(scene,S.camera,S.renderer.domElement,hit=>{
+  if(!hit)return;
+  if(hit.object===board){boardClick();return;}
+  let o=hit.object;while(o){if(o.userData&&o.userData.title){showToast('<b>'+o.userData.title+'</b><br>'+(o.userData.info||''));return;}o=o.parent;}
+});
+(function hoverLoop(){
+  const ray=new THREE.Raycaster(),dom=S.renderer.domElement;let mx=0,my=0;
+  dom.addEventListener('pointermove',e=>{const r=dom.getBoundingClientRect();mx=((e.clientX-r.left)/r.width)*2-1;my=-((e.clientY-r.top)/r.height)*2+1;});
+  function tick(){
+    ray.setFromCamera({x:mx,y:my},S.camera);let hovered=false;
+    for(const [obj,spr] of HOVER_LABELS){if(!obj.visible){spr.visible=false;continue;}const on=ray.intersectObject(obj,true).length>0;spr.visible=on;if(on)hovered=true;}
+    dom.style.cursor=hovered?'pointer':'default';requestAnimationFrame(tick);
+  }
+  tick();
+})();
+
+// ===================== 15. RECORRIDO AUTOMÁTICO =====================
+function sleep(ms){return new Promise(r=>setTimeout(r,ms));}
+async function runAuto(){
+  if(autoRunning)return;autoRunning=true;
+  const btn=el('btnAuto'),label=btn.textContent;btn.disabled=true;btn.classList.add('on');btn.textContent='⏳ Recorriendo…';
+  try{
+    synth.init();synth.resume();clearDx();
+    setMode('explora');
+    expKind='mux';muxN=2;muxData=[0,1,1,0];muxSel=0;muxEn=1;afterEdit();
+    showToast('🧭 MUX 4:1 con datos [0,1,1,0]: Y = D[sel]. Ese patrón realiza A⊕B (XOR).');
+    await sleep(4200);
+    expKind='dec';decN=3;decIn=5;decEn=1;afterEdit();
+    showToast('🔀 Decodificador 3:8: la entrada 5 activa SÓLO la salida Y5 (one-hot).');
+    await sleep(4000);
+    expKind='seg';segDigit=8;afterEdit();
+    showToast('📟 Display BCD→7seg: el dígito 8 enciende los 7 segmentos (a-g).');
+    await sleep(3800);
+    answer(QUIZ[mode].opciones.findIndex(o=>o.ok));await sleep(2600);
+
+    setMode('aplica');
+    apTopic='mux';apFnIdx=2;apProbe=0;afterEdit();
+    showToast('🧩 Mayoría 2-de-3 en un MUX 8:1: cableamos D_i = f(i) y la selección recorre la tabla.');
+    await sleep(4200);
+    apProbe=7;afterEdit();
+    showToast('✔ Entrada 111: f=1 y el MUX entrega Y=1. Coincide en todas las filas: sin compuertas extra.');
+    await sleep(4000);
+    apTopic='seg';apSeg=0;afterEdit();
+    showToast('🔦 Cada segmento del display es su propia función BCD; el segmento a = '+SEG_SOP[0].expr+' (Karnaugh con don\'t-care 10-15).');
+    await sleep(4400);
+    answer(QUIZ[mode].opciones.findIndex(o=>o.ok));await sleep(2600);
+
+    setMode('reto');
+    seedReto(0);updateRetoSpec();afterEdit();
+    showToast('🎯 Reto: '+RETO_POOL[retoIdx].ctx+'. Primero dejamos EN=0 a propósito…');
+    retoEn=0;afterEdit();await sleep(3400);
+    // configura los datos correctos
+    (function solveReto(){const f=RETO_POOL[retoIdx],N=1<<f.n;retoData=Array.from({length:N},(_,i)=>f.mts.includes(i)?1:0);})();
+    afterEdit();
+    showToast('…datos = f(i) puestos, pero con EN=0 la salida sigue en 0. Activamos EN.');
+    await sleep(3400);
+    retoEn=1;afterEdit();
+    showToast('✔ EN=1 y D_i = f(i): el MUX realiza la función. Comprobamos.');
+    await sleep(2600);
+    checkReto();await sleep(2400);
+    answer(QUIZ[mode].opciones.findIndex(o=>o.ok));
+  }finally{
+    btn.disabled=false;btn.classList.remove('on');btn.textContent=label;autoRunning=false;
+  }
+}
+
+// ===================== 16. ANIMACIÓN, EVENTOS E INICIO =====================
+S.setAnimate((dt,time)=>{
+  hwT+=dt;
+  if(hwT>0.8){hwT=0;hwStep=(hwStep+1)%hwCount();updateHW();}
+});
+['explora','aplica','reto'].forEach(m=>{el('m_'+m).onclick=()=>{if(!autoRunning)setMode(m);};});
+el('btnAuto').onclick=()=>{if(!autoRunning)runAuto();};
+el('btnNew').onclick=()=>{if(autoRunning)return;newSignal();};
+el('btnCheck').onclick=()=>{if(autoRunning)return;checkReto();};
+const soundBtn=el('soundBtn');if(soundBtn){soundBtn.onclick=()=>{synth.toggle();soundBtn.textContent=synth.isOn()?'🔊':'🔇';};}
+document.addEventListener('pointerdown',()=>{synth.init();synth.resume();},{once:true});
+
+buildQuiz();
+S.start();
+setMode('explora');
+
+// ===================== DEBUG HOOK =====================
+window.__labDebug={
+  mode:()=>mode, setMode:k=>setMode(k),
+  // física pura
+  mux:(data,sel,en)=>mux(data,sel,en),
+  decoder:(inp,n,en)=>decoder(inp,n,en),
+  segOf:d=>segOf(d),
+  segSOP:()=>SEG_SOP.map(s=>({name:s.name,mts:s.mts,expr:s.expr,cost:s.cost})),
+  muxRealize:(mts,n)=>muxRealize(mts,n),
+  minimize:(mts,n)=>{const r=minimize(mts,n,SEG_DC.filter(d=>d<(1<<n)));return{sop:r.special||sopStr(r.terms,n),cost:r.cost};},
+  // explora
+  expKind:()=>expKind, setExpKind:k=>{if(mode==='explora'){expKind=k;afterEdit();}},
+  muxState:()=>({n:muxN,data:[...muxData],sel:muxSel,en:muxEn,Y:mux(muxData,muxSel,muxEn)}),
+  setMux:(n,data,sel,en)=>{if(mode==='explora'){if(n!=null){muxN=n;resizeMuxData();}if(data)muxData=data.slice(0,1<<muxN);if(sel!=null)muxSel=sel;if(en!=null)muxEn=en;afterEdit();}},
+  decState:()=>({n:decN,in:decIn,en:decEn,out:decoder(decIn,decN,decEn)}),
+  setDec:(n,inp,en)=>{if(mode==='explora'){if(n!=null)decN=n;if(inp!=null)decIn=inp;if(en!=null)decEn=en;afterEdit();}},
+  segState:()=>({digit:segDigit,on:segOf(segDigit)}),
+  setSeg:d=>{if(mode==='explora'){segDigit=d;afterEdit();}},
+  // aplica
+  apTopic:()=>apTopic, setApTopic:t=>{if(mode==='aplica'){apTopic=t;afterEdit();}},
+  apFn:()=>({...APLICA_POOL[apFnIdx]}), setApFn:i=>{if(mode==='aplica'){apFnIdx=i;afterEdit();}},
+  apProbe:()=>apProbe, setApProbe:i=>{if(mode==='aplica'){apProbe=i;afterEdit();}},
+  apSeg:()=>apSeg, setApSeg:i=>{if(mode==='aplica'){apSeg=i;afterEdit();}},
+  apMuxOut:()=>{const f=APLICA_POOL[apFnIdx];return mux(muxRealize(f.mts,f.n),apProbe,1);},
+  apDecOrOut:()=>{const f=APLICA_POOL[apFnIdx];return f.mts.includes(apProbe)?1:0;},
+  // reto
+  retoIdx:()=>retoIdx, retoFn:()=>({...RETO_POOL[retoIdx]}),
+  retoData:()=>[...retoData], retoEn:()=>retoEn,
+  retoTarget:()=>{const f=RETO_POOL[retoIdx],N=1<<f.n;return Array.from({length:N},(_,i)=>f.mts.includes(i)?1:0);},
+  retoSetData:arr=>{if(mode==='reto'){retoData=arr.slice();retoChecked=false;afterEdit();}},
+  retoSetEn:e=>{if(mode==='reto'){retoEn=e?1:0;retoChecked=false;afterEdit();}},
+  retoToggle:i=>{if(mode==='reto'){retoData[i]=retoData[i]?0:1;retoChecked=false;afterEdit();}},
+  retoSolveMux:()=>{if(mode==='reto'){const f=RETO_POOL[retoIdx],N=1<<f.n;retoData=Array.from({length:N},(_,i)=>f.mts.includes(i)?1:0);retoEn=1;afterEdit();}},
+  checkReto:()=>checkReto(),
+  retoChecked:()=>retoChecked, retoOkData:()=>retoOkData, retoOkEnable:()=>retoOkEnable, retoSolved:()=>retoSolved,
+  seedReto:idx=>{seedReto(idx);updateRetoSpec();afterEdit();},
+  newSignal:()=>newSignal(),
+  hwStep:()=>hwStep,
+  reportText:()=>el('report').innerText,
+  quizAnswer:i=>answer(i), quizCorrectIndex:()=>QUIZ[mode].opciones.findIndex(o=>o.ok),
+  solved:()=>solved,
+};

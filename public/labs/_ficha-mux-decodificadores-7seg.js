@@ -1,0 +1,65 @@
+fichaTecnica({
+  title: 'Multiplexores, Decodificadores y Display de 7 Segmentos',
+  intro: 'Tres bloques combinacionales de uso constante en electrónica digital. El MULTIPLEXOR (MUX 2ⁿ:1) es un conmutador controlado: lleva a su única salida Y la entrada de datos que indica la palabra de SELECCIÓN, y solo si la señal de HABILITACIÓN (EN) está activa —Y = D[sel]·EN—. El DECODIFICADOR (n→2ⁿ) hace la operación complementaria: activa UNA y solo una de sus 2ⁿ salidas (patrón "one-hot"), la que corresponde al número presente en la entrada. El DISPLAY DE 7 SEGMENTOS se maneja con un decodificador especial BCD→7seg que traduce un dígito 0-9 al patrón de segmentos a-g que lo dibuja. La idea profunda que unifica todo: un MUX 2ⁿ:1 con las n variables en la selección realiza CUALQUIER función booleana de n variables sin lógica adicional, sin más que cablear D_i = f(i) (es un generador de funciones universal); un decodificador seguido de una compuerta OR reconstruye cualquier función como suma de mintérminos; y la lógica de cada segmento del display es, a su vez, una función booleana de 4 bits minimizable con Karnaugh (aprovechando que los códigos 10-15 no son BCD válidos y actúan como "don\'t care"). Todo el comportamiento se verificó numéricamente (MUX y decodificador exhaustivos, 400 funciones aleatorias reproducidas por el MUX universal, y el SOP mínimo de los 7 segmentos por Quine-McCluskey, coincidente con Mano & Ciletti).',
+  s1: {
+    presentes: [
+      'El multiplexor 2:1, 4:1 y 8:1 con su comportamiento lógico exacto: Y = D[sel] cuando EN=1, y Y=0 cuando EN=0',
+      'El decodificador 2:4 y 3:8 con salida one-hot (una y solo una activa) y su habilitación (EN=0 → todas las salidas en 0)',
+      'El decodificador BCD→7 segmentos con los patrones canónicos de los dígitos 0-9 sobre los segmentos a-g',
+      'El MUX como lógica universal: un MUX 2ⁿ:1 con las variables en la selección realiza cualquier función de n variables cableando D_i = f(i) — verificado con 400 funciones aleatorias',
+      'El decodificador + OR como realización SOP: cada salida Yk es el mintérmino mk; la OR de los mintérminos de una función la reconstruye',
+      'El SOP mínimo de cada segmento del display, obtenido por Quine-McCluskey con los códigos 10-15 como "don\'t care" (coincide con Mano & Ciletti)',
+      'La función que realiza un patrón de datos arbitrario del MUX, calculada y minimizada en vivo',
+      'Un entrenador 3D con display de 7 segmentos físico y LEDs de salida que recorre las entradas y muestra el bloque activo respondiendo combinación a combinación',
+      'Reto de configuración: fijar los datos del MUX (y la habilitación) para realizar una función objetivo dada, con calificación separada de datos correctos y de habilitación',
+    ],
+    omitidos: [
+      'Los tiempos de propagación, los glitches por transiciones de la selección o la entrada, y todo el comportamiento dinámico (aquí el modelo es puramente lógico/estacionario)',
+      'Las salidas active-low reales de circuitos comerciales como el 74138 (decodificador) o el 7447 (BCD→7seg): aquí se usa lógica active-high por claridad',
+      'Los dígitos 10-15 del display: se tratan como "don\'t care" y no se define un patrón visual para ellos (el 7447 real muestra símbolos parciales)',
+      'El detalle físico del display: ánodo/cátodo común, las resistencias limitadoras de corriente, el brillo y la corriente de cada LED',
+      'La habilitación en cascada (E1·E2·E3 del 74138) y la expansión de MUX/decodificadores para más bits mediante árboles',
+      'La implementación física: familias lógicas (TTL/CMOS), niveles de tensión, fan-out, encapsulado y consumo',
+    ],
+  },
+  s2: {
+    title: 'Elementos del laboratorio',
+    warn: 'En Explora conduces cada bloque en vivo: eliges MUX (2:1/4:1/8:1), decodificador (2:4/3:8) o display de 7 segmentos, y cambias su selección, datos, habilitación, entrada o dígito para ver la respuesta al instante. En Aplica compruebas las ideas potentes: que un MUX con D_i=f(i) o un decodificador+OR realizan cualquier función, y que cada segmento del display es una función booleana con su SOP mínimo (Karnaugh con don\'t-care). En el Reto configuras los datos de un MUX para que realice una función dada. No hay valor oculto que adivinar: el reto es de diseño, y tanto los datos como la habilitación se verifican con el modelo lógico.',
+    rows: [
+      ['Multiplexor (MUX)', 'Selecciona 1 de 2ⁿ entradas de datos y la lleva a la salida', 'Y = D[sel]·EN', 'La selección de n bits elige el dato; EN=0 fuerza Y=0'],
+      ['Decodificador', 'Activa una y solo una salida según el número de entrada', 'Yk = mk (one-hot)', 'Cada salida es un mintérmino; útil para chip-select y SOP'],
+      ['Display 7 segmentos', 'Traduce un dígito BCD 0-9 al patrón de segmentos a-g', 'BCD → {a..g}', 'Cada segmento es una función booleana de 4 bits'],
+      ['MUX universal', 'Realiza cualquier función de n variables con D_i = f(i)', 'D_i = f(i)', 'La selección recorre la tabla; sin compuertas extra'],
+      ['Entrenador 3D', 'Recorre las entradas y muestra el bloque respondiendo', 'display + LEDs', 'Enciende segmentos/salidas combinación a combinación'],
+    ],
+  },
+  s3: [
+    'Selector de bloque en Explora (MUX / decodificador / display 7 segmentos) y de su tamaño',
+    'Edición en vivo de datos, selección, entrada, dígito y habilitación con un clic',
+    'Diagrama del bloque sobre el pizarrón (trapecio del MUX, caja del decodificador, display de segmentos) con la señal activa resaltada',
+    'Modo Aplica con tres temas: MUX universal, decodificador+OR y SOP por segmento del display',
+    'Galería de funciones objetivo (XOR, OR, mayoría 2-de-3, paridad impar) para comprobar la realización',
+    'Lista de los SOP mínimos de los 7 segmentos con su número de literales, resaltando el segmento enfocado',
+    'Entrenador 3D con display de 7 segmentos físico, LEDs de salida y carátula del bloque activo',
+    'Reto de configuración del MUX con calificación separada (datos correctos y habilitación), recorrido guiado y pregunta de ingeniería por modo',
+  ],
+  s4: {
+    intro: 'Procedimiento para entender, aplicar y configurar los tres bloques combinacionales:',
+    items: [
+      'En Explora, elige un bloque. Con el MUX, cambia la selección y observa que la salida sigue al dato elegido (Y=D[sel]); apaga EN y comprueba que la salida cae a 0 pase lo que pase. Con el decodificador, mueve la entrada y ve cómo salta la única salida activa (one-hot). Con el display, recorre los dígitos 0-9 y observa qué segmentos encienden.',
+      'En Aplica, en el tema "MUX universal" elige una función y comprueba, entrada por entrada, que un MUX con D_i=f(i) reproduce su tabla de verdad completa sin compuertas extra. En "Decod.+OR" ve cómo la OR de las salidas de los mintérminos reconstruye la función. En "7seg SOP" enfoca cada segmento y estudia su SOP mínimo: los códigos 10-15 son don\'t-care y permiten simplificar más.',
+      'En el Reto, lee la función objetivo F = Σm(...) y su tabla. Copia la columna F en los datos del MUX (regla de oro: D_i = f(i)) y no olvides activar EN. Pulsa "Comprobar": el sistema califica por separado si todos los datos coinciden con f(i) y si la habilitación está activa. El error clásico —datos correctos pero EN=0— deja la salida siempre en 0.',
+    ],
+  },
+  s5: {
+    modela: 'El comportamiento lógico exacto del multiplexor 2:1/4:1/8:1 (Y=D[sel] con habilitación), del decodificador 2:4/3:8 (one-hot con habilitación) y del decodificador BCD→7 segmentos (patrones canónicos de los dígitos 0-9); el MUX como lógica universal (D_i=f(i), verificado con 400 funciones aleatorias), el decodificador+OR como realización SOP, y el SOP mínimo de cada segmento por Quine-McCluskey con don\'t-cares 10-15 (coincidente con Mano & Ciletti). El modelo es puramente lógico y verificado numéricamente.',
+    noModela: 'Los tiempos de propagación, los glitches y el comportamiento dinámico; las salidas active-low reales del 74138/7447 (aquí active-high por claridad); los dígitos 10-15 del display (don\'t-care, sin patrón definido); el ánodo/cátodo común, las resistencias limitadoras y la corriente de los LED; la habilitación en cascada y la expansión de MUX/decodificadores; ni la implementación física (familias TTL/CMOS, niveles de tensión, fan-out, encapsulado, consumo).',
+  },
+  s6: [
+    'IEEE Std 91-1984 (reafirmado) — Graphic Symbols for Logic Functions: símbolos normalizados de multiplexores, decodificadores y funciones lógicas.',
+    'Mano, M. M. & Ciletti, M. D. — Diseño Digital (Pearson): multiplexores como lógica universal, decodificadores, realización SOP y decodificador BCD a 7 segmentos.',
+    'Wakerly, J. F. — Digital Design: Principles and Practices (Pearson): bloques combinacionales MSI, habilitación y expansión.',
+    'Texas Instruments — hojas de datos 74x151 (multiplexor 8:1), 74x138 (decodificador 3:8) y 7447 (decodificador BCD→7 segmentos).',
+    'Verificación numérica propia (sesión de construcción, node -e): MUX y decodificador exhaustivos, 400 funciones aleatorias reproducidas por el MUX universal, decodificador+OR = SOP (200 casos) y el SOP mínimo de los 7 segmentos por Quine-McCluskey — 14/14 comprobaciones correctas, coincidentes con Mano & Ciletti.',
+  ],
+});

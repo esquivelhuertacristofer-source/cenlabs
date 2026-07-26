@@ -1,0 +1,9 @@
+{
+  "donor": "escaner-obd.html",
+  "out": "mux-decodificadores-7seg.html",
+  "title": "CEN Labs · Multiplexores, Decodificadores y Display de 7 Segmentos — Laboratorio 3D",
+  "lt": "Bloques combinacionales · Sistemas Digitales",
+  "inspectHint": "👆 Toca el pizarrón (tabla y diagrama del bloque) o el entrenador con display de 7 segmentos",
+  "body": "mux-decodificadores-7seg.body.js",
+  "fichas": ["_ficha-tecnica.js", "_ficha-mux-decodificadores-7seg.js"]
+}
