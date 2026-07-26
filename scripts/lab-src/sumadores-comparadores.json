@@ -1,0 +1,9 @@
+{
+  "donor": "escaner-obd.html",
+  "out": "sumadores-comparadores.html",
+  "title": "CEN Labs · Sumadores y Comparadores Binarios — Laboratorio 3D",
+  "lt": "Aritmética binaria · Sistemas Digitales",
+  "inspectHint": "👆 Toca el pizarrón (tabla de verdad, cadena de acarreo y comparación) o el entrenador con LEDs de suma, acarreo y comparación",
+  "body": "sumadores-comparadores.body.js",
+  "fichas": ["_ficha-tecnica.js", "_ficha-sumadores-comparadores.js"]
+}

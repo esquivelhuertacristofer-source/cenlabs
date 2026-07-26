@@ -1,0 +1,65 @@
+fichaTecnica({
+  title: 'Sumadores y Comparadores Binarios',
+  intro: 'La aritmética de toda computadora nace de un solo bloque diminuto: el SUMADOR COMPLETO (full adder), que suma tres bits —dos operandos y un acarreo de entrada— y produce una suma y un acarreo de salida (S = A⊕B⊕Cin; Cout = mayoría de A,B,Cin). Encadenando n de ellos, el acarreo de cada etapa alimenta a la siguiente, se obtiene el SUMADOR DE ACARREO PROPAGADO (ripple-carry) de n bits. La resta no necesita un circuito nuevo: en COMPLEMENTO A 2, −B = ¬B + 1, de modo que A − B = A + ¬B + 1; basta invertir B y forzar Cin=1 para convertir el mismo sumador en restador. Con operandos con signo aparece el DESBORDAMIENTO (overflow), que se detecta de dos maneras equivalentes: cuando los dos operandos tienen el mismo signo y el resultado cambia de signo, o cuando el acarreo que entra al bit más significativo difiere del que sale (Cin_MSB ⊕ Cout_MSB). El COMPARADOR DE MAGNITUD decide A>B, A=B o A<B recorriendo los bits desde el más significativo: el primer bit en que difieren decide el resultado, y la igualdad es el AND de las comparaciones bit a bit (XNOR). Todo el comportamiento se verificó numéricamente de forma exhaustiva (full adder 8/8, ripple-carry 4 bits 2048 casos, resta y overflow por los dos métodos 256 casos cada uno, comparador 256 casos con exactamente una salida activa).',
+  s1: {
+    presentes: [
+      'El sumador completo (full adder) con su tabla de verdad exacta: S = A⊕B⊕Cin y Cout = (A·B)+(Cin·(A⊕B)), es decir la mayoría de las tres entradas',
+      'El sumador de acarreo propagado (ripple-carry) de n bits: la cadena de acarreos que enlaza etapa con etapa, con suma sin signo y el acarreo final Cout',
+      'La interpretación con signo del resultado en complemento a 2 (toSigned) y el complemento a 2 de un número (−B = ¬B + 1)',
+      'La resta como suma: A − B = A + ¬B + 1 (invertir B y forzar Cin=1 convierte el sumador en restador), verificada bit a bit',
+      'El desbordamiento con signo detectado por los dos métodos equivalentes: signos iguales de los operandos y distinto del resultado, y acarreo Cin_MSB ⊕ Cout_MSB del bit más significativo',
+      'El comparador de magnitud A>B / A=B / A<B por cascada desde el MSB: el primer bit que difiere decide, con exactamente una salida activa',
+      'La igualdad como AND de los XNOR bit a bit, y la relación de mutua exclusión gt+eq+lt = 1',
+      'Un entrenador 3D con LEDs de suma, de la cadena de acarreo y de comparación (gt/eq/lt) que recorre las combinaciones y muestra el bloque activo respondiendo',
+      'Reto de diseño de un restador: configurar la operación sobre B (¬B) y el acarreo inicial (Cin=1), con calificación separada de los datos y de la habilitación del acarreo',
+    ],
+    omitidos: [
+      'Los tiempos de propagación del acarreo, el camino crítico y el retardo real de la cadena ripple-carry (aquí el modelo es puramente lógico/estacionario)',
+      'Los sumadores rápidos: acarreo anticipado (carry-lookahead), carry-select y carry-save, que reducen el retardo pero no cambian el resultado lógico',
+      'La aritmética de coma flotante (IEEE 754), la multiplicación y la división',
+      'Las banderas de estado completas de una ALU real (cero, negativo, acarreo, medio-acarreo) más allá del acarreo y el desbordamiento tratados aquí',
+      'La implementación física: familias lógicas (TTL/CMOS), niveles de tensión, fan-out, encapsulado y consumo del 7483/74283',
+      'La representación de números con signo distinta del complemento a 2 (signo-magnitud, complemento a 1, exceso), mencionada solo como contraste',
+    ],
+  },
+  s2: {
+    title: 'Elementos del laboratorio',
+    warn: 'En Explora conduces cada bloque en vivo: el sumador completo (las 8 filas de su tabla), el sumador de n bits (cambias A, B y Cin y ves la cadena de acarreo y el resultado sin signo y con signo) o el comparador (cambias A y B y ves cuál de gt/eq/lt se enciende). En Aplica compruebas las ideas potentes: que la resta A−B = A+¬B+1, que el desbordamiento con signo lo detectan por igual el método de signos y el del acarreo, y que la igualdad es el AND de los XNOR. En el Reto conviertes el sumador en restador configurando ¬B y Cin=1. No hay valor oculto que adivinar: el reto es de diseño, y tanto la operación sobre B como el acarreo inicial se verifican con el modelo lógico.',
+    rows: [
+      ['Sumador completo', 'Suma dos bits y un acarreo de entrada', 'S=A⊕B⊕Cin; Cout=may(A,B,Cin)', 'Cout es 1 cuando al menos dos entradas son 1 (mayoría)'],
+      ['Sumador n bits (ripple)', 'Encadena n sumadores completos; el acarreo propaga', 'Cadena Cin→Cout', 'La suma sin signo puede dar acarreo final; con signo, desbordamiento'],
+      ['Resta por complemento a 2', 'Convierte el sumador en restador', 'A−B = A+¬B+1', 'Invertir B y forzar Cin=1; no hace falta un circuito nuevo'],
+      ['Detección de overflow', 'Avisa cuando el resultado con signo no cabe', 'Cin_MSB ⊕ Cout_MSB', 'Equivale a: signos iguales de A,B y distinto del resultado'],
+      ['Comparador de magnitud', 'Decide A>B, A=B o A<B', 'Cascada desde el MSB', 'El primer bit que difiere decide; eq = AND de XNOR'],
+    ],
+  },
+  s3: [
+    'Selector de bloque en Explora (sumador completo / sumador de n bits / comparador) y del ancho de palabra',
+    'Edición en vivo de A, B, el acarreo de entrada y el dígito con un clic',
+    'Tabla de verdad del sumador completo y cadena de acarreo del sumador de n bits sobre el pizarrón, con la etapa activa resaltada',
+    'Lectura simultánea del resultado sin signo y con signo (complemento a 2) y del acarreo/desbordamiento',
+    'Modo Aplica con tres temas: la resta como A+¬B+1, el desbordamiento por los dos métodos y la igualdad como AND de XNOR',
+    'Comparación de magnitud bit a bit con la salida gt/eq/lt resaltada y la verificación de mutua exclusión',
+    'Entrenador 3D con LEDs de suma, cadena de acarreo y comparación y carátula del bloque activo',
+    'Reto de diseño del restador con calificación separada (operación ¬B correcta y acarreo inicial Cin=1), recorrido guiado y pregunta de ingeniería por modo',
+  ],
+  s4: {
+    intro: 'Procedimiento para entender, aplicar y diseñar la aritmética binaria:',
+    items: [
+      'En Explora, empieza por el sumador completo y recorre sus 8 filas: observa que la suma es la paridad (XOR) de las tres entradas y que el acarreo aparece cuando al menos dos entradas son 1 (mayoría). Pasa al sumador de n bits y cambia A, B y Cin: sigue la cadena de acarreo etapa por etapa y compara el resultado sin signo con el resultado con signo (complemento a 2). Con el comparador, cambia A y B y observa cómo el primer bit que difiere desde el MSB decide gt/eq/lt.',
+      'En Aplica, en el tema "Resta" comprueba, ejemplo a ejemplo, que A−B = A+¬B+1 da el mismo resultado que restar directamente. En "Overflow" verifica que los dos métodos —signos de los operandos y acarreo Cin_MSB⊕Cout_MSB— coinciden siempre, y observa qué combinaciones desbordan. En "Igualdad" ve cómo el AND de los XNOR bit a bit vale 1 solo cuando A y B son idénticos.',
+      'En el Reto, lee la resta objetivo A − B. Convierte el sumador en restador: configura la operación sobre B para que sea ¬B (invierte cada bit de B) y activa el acarreo inicial Cin=1 (la regla de oro del complemento a 2). Pulsa "Comprobar": el sistema califica por separado si la operación sobre B es correcta y si el acarreo inicial está activo. El error clásico —invertir B pero olvidar Cin=1— produce un resultado con un error de una unidad.',
+    ],
+  },
+  s5: {
+    modela: 'El comportamiento lógico exacto del sumador completo (S=A⊕B⊕Cin, Cout=mayoría), del sumador de acarreo propagado de n bits (cadena de acarreos, resultado sin signo y con signo en complemento a 2), de la resta por complemento a 2 (A−B=A+¬B+1), de la detección de desbordamiento con signo por los dos métodos equivalentes (signos y acarreo Cin_MSB⊕Cout_MSB) y del comparador de magnitud (cascada desde el MSB, igualdad como AND de XNOR). El modelo es puramente lógico y verificado numéricamente de forma exhaustiva.',
+    noModela: 'Los tiempos de propagación del acarreo, el camino crítico y el retardo de la cadena ripple; los sumadores rápidos (carry-lookahead, carry-select, carry-save); la coma flotante (IEEE 754), la multiplicación y la división; las banderas de una ALU real más allá de acarreo y desbordamiento; la implementación física (familias TTL/CMOS, niveles de tensión, fan-out, encapsulado, consumo del 7483/74283); ni las representaciones con signo distintas del complemento a 2.',
+  },
+  s6: [
+    'IEEE Std 91-1984 (reafirmado) — Graphic Symbols for Logic Functions: símbolos normalizados de sumadores y funciones aritméticas.',
+    'Mano, M. M. & Ciletti, M. D. — Diseño Digital (Pearson): sumador completo, sumador de acarreo propagado, resta por complemento a 2, desbordamiento y comparadores de magnitud.',
+    'Wakerly, J. F. — Digital Design: Principles and Practices (Pearson): aritmética binaria, sumadores rápidos y comparadores.',
+    'Texas Instruments — hojas de datos 7483/74283 (sumador de 4 bits con acarreo propagado) y 7485 (comparador de magnitud de 4 bits).',
+    'Verificación numérica propia (sesión de construcción, node -e): full adder exhaustivo (8/8), ripple-carry de 4 bits (2048 casos), resta A−B=A+¬B+1 y desbordamiento por los dos métodos (256 casos cada uno) y comparador de magnitud (256 casos con una y solo una salida activa) — 20/20 comprobaciones correctas.',
+  ],
+});
