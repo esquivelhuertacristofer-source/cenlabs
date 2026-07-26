@@ -1,0 +1,66 @@
+fichaTecnica({
+  title: 'Contadores Síncronos Módulo N',
+  intro: 'Un FLIP-FLOP es la celda de memoria de un bit, y su ECUACIÓN CARACTERÍSTICA dice cómo cambia en cada flanco de reloj: el D copia su entrada (Qn = D), el T conmuta o retiene (Qn = Q ⊕ T) y el JK hace las cuatro operaciones —retener, poner a 0, poner a 1 y conmutar— según Qn = J·Q\' + K\'·Q. Para DISEÑAR con ellos se usa la TABLA DE EXCITACIÓN, que invierte la pregunta: dada la transición deseada Q→Qn, ¿qué hay que poner en las entradas? En el flip-flop JK la mitad de esas celdas son "don\'t care" (x), y esa libertad es la que produce circuitos con menos compuertas. Un CONTADOR SÍNCRONO encadena varios flip-flops gobernados por un RELOJ COMÚN —así ningún flip-flop hereda el retardo del anterior, a diferencia del contador asíncrono/ripple— y hace avanzar el estado en cada flanco. Con n flip-flops el conteo natural es en MÓDULO 2ⁿ; con flip-flops T (o JK con J=K), el bit i conmuta sólo cuando todos los de menor peso valen 1 (T_i = Q0·Q1···Q(i-1)). Para un MÓDULO N arbitrario se detecta el estado terminal DET = N−1 y, en el siguiente flanco, un BORRADO SÍNCRONO devuelve el contador a 0, produciendo el ciclo 0,1,…,N−1 de periodo N con n = ⌈log₂ N⌉ flip-flops. El error clásico es detectar N en vez de N−1: se cuenta un estado de más y queda un módulo N+1. Un buen diseño además es AUTOCORRECTIVO: desde cualquier estado no usado regresa al ciclo válido. Todo el comportamiento se verificó numéricamente de forma exhaustiva (flip-flops JK 8/8, tablas de excitación con todas las resoluciones de don\'t-care, contador binario n=1..4 y módulo N para N=2..16).',
+  s1: {
+    presentes: [
+      'La ecuación característica exacta de los tres flip-flops: D (Qn = D), T (Qn = Q ⊕ T) y JK (Qn = J·Q\' + K\'·Q), con sus tablas de verdad completas',
+      'Las tablas de excitación de los tres tipos —qué entrada logra cada transición Q→Qn—, incluidos los "don\'t care" (x) del flip-flop JK',
+      'El contador binario síncrono de n bits: todos los flip-flops cambian con el mismo reloj y el estado avanza state → (state+1) mód 2ⁿ',
+      'La condición de conmutación por bit con flip-flops T: T_i = Q0·Q1···Q(i-1) (el bit i conmuta cuando todos los de menor peso valen 1)',
+      'El contador módulo N por detección del terminal DET = N−1 y borrado síncrono, con la secuencia 0..N−1 de periodo N y n = ⌈log₂ N⌉ flip-flops',
+      'El error clásico off-by-one: detectar DET = N en lugar de N−1 produce un contador módulo N+1 (un estado de más)',
+      'La autocorrección: desde un estado no usado (por ruido al encender) el borrado síncrono devuelve el contador al ciclo válido 0..N−1',
+      'Un entrenador 3D con LEDs de estado (binario), reloj y borrado que recorre la secuencia de conteo del bloque activo',
+      'Reto de diseño de un contador módulo N con calificación separada de la detección del terminal (DET = N−1) y de la activación del borrado síncrono',
+    ],
+    omitidos: [
+      'Los tiempos reales: setup/hold, retardo reloj-a-Q, sesgo de reloj (clock skew) y el camino crítico que limita la frecuencia máxima',
+      'Los glitches, las condiciones de carrera y los estados metaestables',
+      'El borrado (clear) ASÍNCRONO y sus estados espurios transitorios; aquí sólo se modela el borrado síncrono',
+      'Los contadores descendentes, ascendentes/descendentes (up/down), de anillo, Johnson o con carga paralela',
+      'El diseño físico con mapas de Karnaugh y compuertas concretas para las ecuaciones de excitación',
+      'La implementación real: familias lógicas (TTL/CMOS), circuitos comerciales (74x161/163/190/191), consumo y fan-out',
+    ],
+  },
+  s2: {
+    title: 'Elementos del laboratorio',
+    warn: 'En Explora conduces cada bloque en vivo: un flip-flop suelto (D/JK/T, con su tabla característica y su ecuación), un contador binario de n bits (ves las entradas de cada flip-flop para avanzar) o un contador módulo N (ves el anillo de estados y la detección del terminal). En Aplica compruebas las ideas de diseño: las tablas de excitación y sus "don\'t care", el diseño paso a paso de un módulo N (n = ⌈log₂ N⌉, DET = N−1, secuencia) con el error off-by-one al lado, y la autocorrección desde estados no usados. En el Reto construyes un contador módulo N: no hay valor oculto que adivinar, es un reto de DISEÑO en el que fijas la detección del terminal (DET = N−1) y activas el borrado síncrono, verificados con el modelo lógico.',
+    rows: [
+      ['Flip-flop D', 'Copia la entrada en el flanco', 'Qn = D', 'El más simple; para contar necesita lógica externa'],
+      ['Flip-flop T', 'Conmuta (T=1) o retiene (T=0)', 'Qn = Q ⊕ T', 'Ideal para contadores: T_i = producto de los bits de menor peso'],
+      ['Flip-flop JK', 'Retiene / pone 0 / pone 1 / conmuta', 'Qn = J·Q\' + K\'·Q', 'Con J=K equivale a un T; su tabla de excitación tiene "don\'t care"'],
+      ['Contador binario síncrono', 'Avanza el estado con reloj común', 'state → (state+1) mód 2ⁿ', 'Síncrono = sin acumular retardos entre flip-flops'],
+      ['Contador módulo N', 'Cuenta 0..N−1 y vuelve a 0', 'DET = N−1 + borrado síncrono', 'n = ⌈log₂ N⌉; detectar N (no N−1) da módulo N+1'],
+    ],
+  },
+  s3: [
+    'Selector de bloque en Explora (flip-flop suelto / contador binario / contador módulo N) y del tipo de flip-flop',
+    'Edición en vivo del estado Q y de las entradas (D, T, J, K) con un clic, con lectura del próximo estado Qn',
+    'Tabla característica y tabla de excitación de cada flip-flop sobre el pizarrón, con los "don\'t care" del JK resaltados',
+    'Contador binario de n bits con la tabla de entradas de excitación por bit según el tipo de flip-flop elegido',
+    'Anillo de estados 0..2ⁿ−1 con el ciclo módulo N, el estado terminal DET y la flecha de borrado resaltados',
+    'Modo Aplica con tres temas: tablas de excitación, diseño de un módulo N paso a paso y autocorrección desde estados no usados',
+    'Entrenador 3D con LEDs de estado (binario), de reloj y de borrado que recorre la secuencia de conteo',
+    'Reto de diseño de un contador módulo N con calificación separada (DET = N−1 y borrado síncrono activo), recorrido guiado y pregunta de ingeniería por modo',
+  ],
+  s4: {
+    intro: 'Procedimiento para entender, aplicar y diseñar contadores síncronos:',
+    items: [
+      'En Explora, empieza por un flip-flop suelto: cambia el tipo (D/JK/T) y sus entradas y observa la ecuación característica y el próximo estado Qn en la tabla. Pasa al contador binario y cambia el tipo de flip-flop y el número de bits: mira la tabla de entradas de cada flip-flop para avanzar (con T, el bit i conmuta cuando todos los de menor peso valen 1). Termina con el contador módulo N y observa en el anillo de estados cómo se detecta el terminal N−1 y el borrado devuelve a 0.',
+      'En Aplica, en "Excitación" compara las tablas de los tres flip-flops y localiza los "don\'t care" del JK. En "Diseño módulo N" recorre los tres pasos —n = ⌈log₂ N⌉ flip-flops, DET = N−1 y la secuencia resultante— y comprueba, al lado, que detectar N en vez de N−1 daría un módulo N+1. En "Autocorrección" ve cómo un contador que arranca en un estado no usado regresa al ciclo válido en unos pocos flancos.',
+      'En el Reto, lee el objetivo (un módulo N concreto, p. ej. una década 0..9 o los segundos 0..5). Fija la detección del terminal en DET = N−1 (el último estado válido) y activa el borrado síncrono. Pulsa "Comprobar": el sistema califica por separado si el terminal es correcto y si el borrado está activo. Cuidado con los dos errores: DET = N cuenta un estado de más (módulo N+1) y, sin borrado, el contador corre libre hasta 2ⁿ−1.',
+    ],
+  },
+  s5: {
+    modela: 'El comportamiento lógico exacto de los flip-flops D (Qn=D), T (Qn=Q⊕T) y JK (Qn=J·Q\'+K\'·Q); sus tablas de excitación con los "don\'t care" del JK; el contador binario síncrono de n bits (avance state→(state+1) mód 2ⁿ y la condición T_i = producto de los bits de menor peso); el contador módulo N por detección del terminal DET=N−1 y borrado síncrono (secuencia 0..N−1, periodo N, n=⌈log₂N⌉); el error off-by-one (DET=N ⇒ módulo N+1) y la autocorrección desde estados no usados. El modelo es puramente lógico y verificado numéricamente de forma exhaustiva.',
+    noModela: 'Los tiempos reales (setup/hold, retardo reloj-a-Q, sesgo de reloj, frecuencia máxima); los glitches, las carreras y la metaestabilidad; el borrado asíncrono y sus estados espurios; los contadores descendentes, up/down, de anillo/Johnson o con carga paralela; el diseño físico con mapas de Karnaugh y compuertas concretas; ni la implementación real (familias TTL/CMOS, 74x161/163/190/191, consumo, fan-out).',
+  },
+  s6: [
+    'IEEE Std 91-1984 (reafirmado) — Graphic Symbols for Logic Functions: símbolos normalizados de flip-flops y contadores.',
+    'Mano, M. M. & Ciletti, M. D. — Diseño Digital (Pearson): flip-flops, ecuaciones características y de excitación, diseño de contadores síncronos y módulo N.',
+    'Wakerly, J. F. — Digital Design: Principles and Practices (Pearson): lógica secuencial, contadores síncronos y estados no usados.',
+    'Roth, C. H. — Fundamentals of Logic Design (Cengage): flip-flops, tablas de excitación y diseño secuencial.',
+    'Texas Instruments — hojas de datos 74x161/74x163 (contador binario síncrono de 4 bits) y 74x190/191 (contador década/binario up/down).',
+    'Verificación numérica propia (sesión de construcción, node -e): ecuación característica JK exhaustiva (8/8), tablas de excitación D/T/JK reproduciendo Qn con todas las resoluciones de don\'t-care, contador binario síncrono n=1..4 (D y T) y contador módulo N para N=2..16 (secuencia, periodo, error off-by-one y autocorrección) — 14/14 comprobaciones correctas.',
+  ],
+});

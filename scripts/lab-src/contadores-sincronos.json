@@ -1,0 +1,9 @@
+{
+  "donor": "escaner-obd.html",
+  "out": "contadores-sincronos.html",
+  "title": "CEN Labs · Contadores Síncronos Módulo N — Laboratorio 3D",
+  "lt": "Lógica secuencial · Sistemas Digitales",
+  "inspectHint": "👆 Toca el pizarrón para ver flip-flops, tablas de excitación y el ciclo de conteo",
+  "body": "contadores-sincronos.body.js",
+  "fichas": ["_ficha-tecnica.js", "_ficha-contadores-sincronos.js"]
+}
