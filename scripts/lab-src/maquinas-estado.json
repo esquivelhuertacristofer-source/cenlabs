@@ -1,0 +1,9 @@
+{
+  "donor": "escaner-obd.html",
+  "out": "maquinas-estado.html",
+  "title": "CEN Labs · Máquinas de Estados Finitos (Moore / Mealy) — Laboratorio 3D",
+  "lt": "Lógica secuencial · Sistemas Digitales",
+  "inspectHint": "👆 Toca el pizarrón o el entrenador para inspeccionar la máquina de estados",
+  "body": "maquinas-estado.body.js",
+  "fichas": ["_ficha-tecnica.js", "_ficha-maquinas-estado.js"]
+}
