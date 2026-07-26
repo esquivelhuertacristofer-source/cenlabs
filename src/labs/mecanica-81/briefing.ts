@@ -1,0 +1,33 @@
+import type { BriefingConfig } from '@/components/MissionBriefing';
+
+const briefing: BriefingConfig = {
+  codigo: 'MEC-81',
+  titulo: 'Registros de Desplazamiento · SIPO / PISO',
+  subtitulo: 'Sistemas Digitales · Lógica secuencial · Conversión serie/paralelo y contadores de anillo/Johnson',
+  acento: '#8AB4F8',
+  duracion: 30,
+  videoUrl: '',
+  bienvenida: `Cada vez que un teclado, un ratón o un sensor mandan datos por un solo cable, y cada vez que un microcontrolador enciende decenas de LEDs con apenas tres pines, hay un REGISTRO DE DESPLAZAMIENTO trabajando en silencio. Este laboratorio te lleva desde esa idea —mover los bits una posición en cada flanco de reloj— hasta las dos conversiones que hacen posible casi toda la comunicación digital: de serie a paralelo y de paralelo a serie.
+
+Un registro de desplazamiento es una fila de flip-flops encadenados que comparten un RELOJ COMÚN. En cada flanco, la salida de cada celda pasa a la siguiente, así que todos los bits AVANZAN una posición a la vez. Por un extremo entra un bit nuevo (la entrada serie, SIN) y por el otro sale el que ya no cabe (la salida serie, SOUT). Desplazar a la DERECHA (el bit entra por el más significativo y sale por el menos significativo) equivale, si entra un 0, a DIVIDIR el número entre 2; desplazar a la IZQUIERDA equivale a MULTIPLICAR por 2 (módulo 2ⁿ: el bit que se sale se pierde). Con esa mecánica tan simple se construyen dos conversores fundamentales.
+
+El SIPO (serie a paralelo) recibe una palabra bit a bit por un solo cable —enviando el bit más significativo primero— y, tras n flancos, la presenta completa en paralelo: es el corazón de la recepción serie (la idea detrás de UART y SPI) y la forma de expandir las entradas de un microcontrolador. El PISO (paralelo a serie) hace lo contrario: carga una palabra en paralelo y n flancos la transmiten por un solo cable. Un PISO emisor y un SIPO receptor forman un ENLACE SERIE completo; pero sólo funciona si ambos desplazan en la MISMA dirección (o los bits llegan invertidos) y si se dan EXACTAMENTE n flancos (o la palabra queda truncada). Por último, si un registro REALIMENTA su salida serie a su entrada se convierte en un contador: el de ANILLO (un solo 1 que circula, one-hot) tiene periodo n, y el de JOHNSON (realimenta la salida NEGADA) tiene periodo 2n con el mismo hardware. Verifiqué cada pieza numéricamente y de forma exhaustiva: el ÷2/×2 (n=2..8), la reconstrucción SIPO y la salida PISO con su round-trip (n=2..8), el anillo one-hot de periodo n (n=2..10), el Johnson de periodo 2n (n=2..8) y el enlace serie con su inversión y truncamiento.`,
+  conceptos: [
+    { icono: '➡️', nombre: 'Desplazamiento: ÷2 y ×2', descripcion: 'Una fila de flip-flops con reloj común: en cada flanco los bits avanzan una posición. A la derecha Q_i←Q_{i+1} (entra por el MSB, sale por el LSB) y con serial-in=0 equivale a dividir entre 2; a la izquierda Q_i←Q_{i-1} (entra por el LSB, sale por el MSB) y equivale a multiplicar por 2 (mód 2ⁿ, el bit que se sale se pierde).' },
+    { icono: '🧩', nombre: 'SIPO: serie → paralelo', descripcion: 'Recibe una palabra bit a bit por un solo cable, enviando el MSB primero; tras n flancos la presenta completa en paralelo. Es la recepción serie (UART/SPI) y la manera de expandir entradas de un microcontrolador. Circuito típico: 74x164.' },
+    { icono: '📤', nombre: 'PISO: paralelo → serie', descripcion: 'El inverso del SIPO: carga una palabra en paralelo y n flancos la transmiten por un solo cable (MSB primero). Es la transmisión serie y la lectura de muchas entradas con pocos pines. Circuito típico: 74x165. PISO + SIPO = enlace serie completo.' },
+    { icono: '🔄', nombre: 'Contadores de anillo y Johnson', descripcion: 'Si el registro realimenta su salida serie a su entrada, se vuelve contador: el de anillo (one-hot, un solo 1 circulando) tiene periodo n; el Johnson realimenta la salida NEGADA y tiene periodo 2n con el mismo hardware, cambiando un bit por flanco (menos glitches).' },
+  ],
+  mision: [
+    'EXPLORA · Elige un bloque y condúcelo en vivo. En el registro de desplazamiento, cambia la dirección y la entrada serie (SIN) y pulsa el flanco de reloj: verás avanzar los bits, entrar uno nuevo y salir otro por el serial-out (a la derecha con SIN=0 el valor se divide entre 2; a la izquierda se multiplica por 2). Pasa al contador de anillo (un 1 que circula) y al Johnson (la realimentación negada duplica el conteo).',
+    'APLICA · Recorre las conversiones con sus diagramas de tiempos. En SIPO, los bits entran en serie (MSB primero) y tras n flancos la palabra queda completa en paralelo. En PISO, se carga la palabra y n flancos la sacan por un cable (el round-trip PISO→SIPO la recupera intacta). Compara el anillo (periodo n) y el Johnson (periodo 2n) con el mismo número de flip-flops.',
+    'RETO · Recupera una palabra por un enlace serie. El emisor la manda por un cable, MSB primero; configura el receptor SIPO eligiendo la DIRECCIÓN de desplazamiento (izquierda, para conservar el orden) y el NÚMERO DE FLANCOS (igual a n). El sistema califica por separado ambas decisiones; cuidado con los dos errores: a la derecha se invierten los bits y con menos de n flancos la palabra queda truncada.',
+  ],
+  aplicaciones: [
+    { area: 'Comunicación serie: UART, SPI, I²S', ejemplo: 'Todo enlace serie es un PISO emisor y un SIPO receptor. En SPI, un registro de desplazamiento del maestro saca los bits por MOSI mientras otro del esclavo los recibe, sincronizados por el reloj SCLK; en la UART, el registro convierte cada byte a un flujo de bits y viceversa. Enviar MSB o LSB primero es justo elegir la dirección de desplazamiento.' },
+    { area: 'Expansión de entradas y salidas (E/S) con pocos pines', ejemplo: 'Un microcontrolador enciende decenas de LEDs o lee muchos botones con apenas dos o tres pines usando registros de desplazamiento: un SIPO (74HC595) expande salidas —tiras de LED direccionables, displays de 7 segmentos multiplexados— y un PISO (74HC165) lee bancos de interruptores o teclados matriciales. Se ahorran conductores y pines a cambio de unos pocos flancos de reloj.' },
+    { area: 'Generación de fases, secuenciadores y patrones', ejemplo: 'Los contadores de anillo y Johnson generan relojes multifase y secuencias sin necesidad de decodificar: un anillo controla directamente las bobinas de un motor paso a paso o las fases de un semáforo, y un Johnson produce ondas cuasi-senoidales por escalones o relojes con solape del 50%. Sus variantes con realimentación lineal (LFSR) generan secuencias pseudoaleatorias y códigos CRC.' },
+  ],
+};
+
+export default briefing;

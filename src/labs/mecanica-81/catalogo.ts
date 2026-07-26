@@ -1,0 +1,12 @@
+import type { CatalogoEntry } from '../_types';
+
+const catalogo: CatalogoEntry = {
+  modulo: "Sistemas Digitales",
+  titulo: "Registros de Desplazamiento · SIPO / PISO",
+  duracion: "30 min",
+  teoria: "Un REGISTRO DE DESPLAZAMIENTO es una fila de flip-flops encadenados que comparten un RELOJ COMÚN: en cada flanco, la salida de cada celda pasa a la siguiente, de modo que todos los bits AVANZAN una posición a la vez. Por un extremo entra un bit nuevo (SERIAL-IN, SIN) y por el otro sale el que ya no cabe (SERIAL-OUT, SOUT). Desplazar a la DERECHA mueve Q_i←Q_{i+1}: el bit entra por el más significativo (MSB, Q_{n-1}) y sale por el menos significativo (LSB, Q_0); con serial-in=0 esto equivale a DIVIDIR el número entre 2. Desplazar a la IZQUIERDA mueve Q_i←Q_{i-1}: entra por el LSB y sale por el MSB, y con serial-in=0 equivale a MULTIPLICAR por 2 (módulo 2ⁿ: el bit que se sale se pierde). De esa mecánica salen dos conversiones clave. El SIPO (serie a paralelo, como el 74x164) recibe una palabra bit a bit por un solo cable —MSB primero— y, tras n flancos, la presenta completa en paralelo: es la recepción serie (la idea detrás de UART y SPI) y la forma de expandir salidas de un microcontrolador. El PISO (paralelo a serie, como el 74x165) hace lo inverso: carga una palabra en paralelo y n flancos la transmiten por un solo cable, MSB primero. Un PISO emisor y un SIPO receptor forman un ENLACE SERIE completo; para que la palabra llegue intacta, ambos deben desplazar en la MISMA dirección (o los bits salen invertidos) y hacen falta EXACTAMENTE n flancos (o la palabra queda truncada). Si un registro REALIMENTA su salida serie a su entrada se vuelve contador: el de ANILLO (one-hot, un solo 1 que circula) tiene periodo n, y el de JOHNSON o anillo torcido (realimenta la salida NEGADA) tiene periodo 2n con el mismo hardware y cambia un bit por flanco. Todo el comportamiento se verificó numéricamente de forma exhaustiva (÷2/×2 n=2..8, SIPO/PISO y round-trip n=2..8, anillo one-hot periodo n n=2..10, Johnson periodo 2n n=2..8, enlace serie con inversión y truncamiento — 21/21). Referencias: IEEE Std 91-1984, Mano & Ciletti (Diseño Digital), Wakerly (Digital Design), Floyd (Digital Fundamentals), hojas de datos 74x164 (SIPO 8 bits), 74x165 (PISO 8 bits) y 74x194 (registro universal 4 bits).",
+  estado: "activo",
+  simuladorHtml: "/labs/registros-desplazamiento.html",
+};
+
+export default catalogo;

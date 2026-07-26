@@ -1,0 +1,9 @@
+{
+  "donor": "escaner-obd.html",
+  "out": "registros-desplazamiento.html",
+  "title": "CEN Labs · Registros de Desplazamiento (SIPO/PISO) — Laboratorio 3D",
+  "lt": "Lógica secuencial · Sistemas Digitales",
+  "inspectHint": "👆 Toca el pizarrón o el entrenador para inspeccionar el registro",
+  "body": "registros-desplazamiento.body.js",
+  "fichas": ["_ficha-tecnica.js", "_ficha-registros-desplazamiento.js"]
+}

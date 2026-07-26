@@ -5657,6 +5657,439 @@ La cantidad de potencia reactiva que debe aportar el banco se calcula con Qc=P·
     "titulo": "Corrección de Factor de Potencia: Diseña el Banco de Capacitores",
     "videoUrl": "",
   },
+  "mecanica-72": {
+    "acento": "#2A9D8F",
+    "aplicaciones": [
+      {
+        "area": "Inversión de giro de motores",
+        "ejemplo": "Para invertir el sentido de giro de un motor de inducción trifásico —una banda transportadora, una bomba, un elevador— el electricista simplemente intercambia dos de las tres fases en el arrancador: invierte la secuencia y con ella el giro, sin cambiar el motor ni la carga.",
+      },
+      {
+        "area": "Arranque estrella-delta",
+        "ejemplo": "Muchos motores industriales arrancan en estrella (menor tensión por bobina, menor corriente de arranque) y conmutan a delta en marcha (plena tensión, plena potencia) — el factor 3 entre Y y Δ es justamente lo que hace útil esta técnica de arranque suave.",
+      },
+      {
+        "area": "Distribución de baja tensión",
+        "ejemplo": "En México la red de baja tensión entrega 220 V entre líneas y 127 V de fase a neutro (VL=√3·VF): los tomacorrientes domésticos usan la tensión de fase (127 V) y las cargas trifásicas industriales usan la de línea (220 V o 440 V), todas del mismo sistema.",
+      },
+    ],
+    "bienvenida": "Casi toda la energía eléctrica del mundo se genera, transmite y distribuye en tres fases, no en una. Un sistema trifásico son tres tensiones senoidales de la misma magnitud, desfasadas 120° entre sí. Esa disposición permite transmitir más potencia con menos cobre, produce un campo magnético rotatorio que arranca motores sin ayuda, y —cuando la carga está balanceada— entrega una potencia instantánea constante, sin las vibraciones de un motor monofásico. Entender cómo se conecta y cómo se comporta un sistema trifásico balanceado es la base de toda la ingeniería de potencia y de las instalaciones industriales.
+
+Hay dos formas de conectar tanto la fuente como la carga: en estrella (Y), donde un extremo de las tres impedancias se une en un punto común llamado neutro, y en delta (Δ), donde las tres impedancias forman un lazo cerrado. La diferencia es crucial y suele confundir: en estrella, cada impedancia queda sometida a la tensión de FASE, que es la de línea dividida entre √3 (VF=VL/√3); en delta, cada impedancia recibe la tensión de LÍNEA completa (VF=VL). Como la potencia que disipa cada rama va con el cuadrado de su tensión, esto tiene una consecuencia contundente: con la misma impedancia y la misma tensión de línea, una carga conectada en delta consume exactamente el TRIPLE de potencia que en estrella. Ese factor 3 —ni 2, ni √3, sino 3 exacto— es una de las relaciones más útiles y más a menudo mal recordadas de la ingeniería eléctrica.
+
+Y hay un segundo protagonista: la secuencia de fases. Las tres tensiones pueden sucederse en el orden A→B→C (secuencia positiva, ABC) o A→C→B (secuencia negativa, ACB). En una carga balanceada, la secuencia NO cambia ninguna magnitud —la misma potencia, las mismas corrientes— pero sí determina en qué sentido gira el campo magnético rotatorio, y por tanto en qué sentido gira un motor de inducción trifásico. La consecuencia práctica es célebre por su sencillez: si un motor gira al revés de lo que necesitas, basta con intercambiar dos de sus tres cables de alimentación; eso invierte la secuencia y con ella el giro, sin tocar nada más. En este laboratorio vas a manipular las dos conexiones, las dos secuencias, y a comprobar en el pizarrón fasorial de dónde salen exactamente el √3 y el factor 3.",
+    "codigo": "MEC-72",
+    "conceptos": [
+      {
+        "descripcion": "Las tres impedancias comparten un extremo común (el neutro N). Cada impedancia ve la tensión de fase VF=VL/√3, y la corriente de línea es igual a la de fase (IL=IF). En balanceado, el neutro no lleva corriente.",
+        "icono": "⭐",
+        "nombre": "Conexión estrella (Y)",
+      },
+      {
+        "descripcion": "Las tres impedancias forman un lazo cerrado sin neutro. Cada impedancia ve la tensión de línea completa (VF=VL) y la corriente de línea es √3 veces la de fase (IL=√3·IF). A igual Z y VL, Δ entrega 3× la potencia de Y.",
+        "icono": "🔺",
+        "nombre": "Conexión delta (Δ)",
+      },
+      {
+        "descripcion": "La tensión de línea es √3 veces la de fase: sale de la resta fasorial de dos tensiones de fase a 120°. La potencia trifásica total es P=√3·VL·IL·cosφ, con Q=√3·VL·IL·senφ, S=√3·VL·IL y FP=cosφ.",
+        "icono": "📐",
+        "nombre": "VL=√3·VF y P=√3·VL·IL·cosφ",
+      },
+      {
+        "descripcion": "El orden en que se suceden las tres tensiones (ABC positiva o ACB negativa) fija el sentido del campo rotatorio y del motor. En balanceado no altera magnitudes; permutar dos líneas invierte la secuencia y el giro.",
+        "icono": "🔄",
+        "nombre": "Secuencia de fases ABC/ACB",
+      },
+    ],
+    "duracion": 30,
+    "mision": [
+      "EXPLORA · Ajusta VL, |Z|, φ, la conexión (Y/Δ) y la secuencia. Observa en el pizarrón cómo el triángulo de tensiones de línea nace de la estrella de tensiones de fase (VL=√3·VF) y cómo Δ triplica la potencia de Y con la misma impedancia.",
+      "DISEÑA · Con VL y φ dados, alcanza una potencia de línea objetivo eligiendo conexión y |Z|, y ajusta la secuencia al sentido de giro pedido. Retroalimentación en vivo, sin calificar.",
+      "RETO · Nuevo escenario sorteado. Elige la conexión y la |Z| que dan la potencia objetivo (±8%) y la secuencia que produce el giro requerido; solo es correcto si ambos objetivos se cumplen.",
+    ],
+    "subtitulo": "Circuitos Eléctricos · Corriente alterna (CA)",
+    "titulo": "Sistemas Trifásicos Y/Δ Balanceados y Secuencia de Fases",
+    "videoUrl": "",
+  },
+  "mecanica-73": {
+    "acento": "#E9C46A",
+    "aplicaciones": [
+      {
+        "area": "Dimensionamiento del neutro",
+        "ejemplo": "La NOM-001-SEDE exige calcular la corriente de neutro por desbalance para elegir su calibre. En circuitos con cargas monofásicas repartidas entre fases, el neutro puede llevar corriente aunque nunca supere a las fases —salvo con armónicos, donde puede llevar más.",
+      },
+      {
+        "area": "Protección de motores",
+        "ejemplo": "La componente de secuencia negativa (I2) produce un campo que gira al revés dentro del motor, generando calentamiento y pérdidas extra. Los relevadores de protección miden el desbalance |I2|/|I1| y disparan el motor si supera un umbral, evitando que se queme.",
+      },
+      {
+        "area": "Sobrecarga del neutro por armónicos",
+        "ejemplo": "En edificios con muchas fuentes conmutadas (computadoras, LED, variadores), los armónicos de orden triple (3ª, 9ª…) son de secuencia cero y se SUMAN en el neutro en lugar de cancelarse: el neutro puede sobrecalentarse aun con las fases balanceadas, por lo que a veces se instala doble neutro.",
+      },
+    ],
+    "bienvenida": "En el laboratorio anterior estudiaste el sistema trifásico ideal: tres cargas idénticas, perfectamente balanceadas, donde la corriente de neutro es cero y todo es simetría. Pero el mundo real casi nunca es así. Una instalación conecta a cada fase cargas distintas —unos tomacorrientes por aquí, unas lámparas por allá, un motor monofásico en otra fase— y esas cargas rara vez consumen la misma corriente. Cuando el sistema se desbalancea, aparece un cuarto conductor con un papel protagónico: el neutro, que recoge la corriente de retorno que las tres fases ya no logran cancelar entre sí.
+
+La pregunta central de esta práctica es engañosamente simple: si la fase A lleva 30 A, la B lleva 15 A y la C lleva 10 A, ¿cuánta corriente lleva el neutro? La tentación es sumarlas: 55 A. Y es incorrecto. Las tres corrientes no van en la misma dirección: son fasores separados 120° entre sí, así que se suman VECTORIALMENTE (fasorialmente), no aritméticamente. Al ponerlos punta con punta en el diagrama fasorial, verás que se cancelan en buena parte y que el neutro real lleva alrededor de 18 A, muy por debajo de esos 55 A imaginarios. Igualar las tres corrientes hace que la suma fasorial se cierre sobre sí misma y el neutro caiga a cero: ese es el caso balanceado. Cualquier desbalance lo despierta.
+
+Para analizar el desbalance de forma sistemática, la ingeniería usa una herramienta elegante inventada por Charles Fortescue en 1918: las componentes simétricas. Toda terna de corrientes desbalanceadas, por caótica que parezca, puede descomponerse en la suma de tres ternas perfectamente balanceadas: una de secuencia positiva (I1, que gira en el sentido normal y representa la parte útil), una de secuencia negativa (I2, que gira al revés y es la que mide y provoca los problemas —calienta motores, produce vibraciones—) y una de secuencia cero (I0, tres corrientes idénticas y en fase). Y aquí está la joya: la corriente de neutro es exactamente tres veces la componente de secuencia cero, IN=3·I0. En este laboratorio vas a manipular las tres corrientes de fase, verás nacer el neutro en el diagrama fasorial, descompondrás el desbalance en sus componentes simétricas, y aprenderás a predecir cuánto conduce el neutro sin caer en la trampa de la suma aritmética.",
+    "codigo": "MEC-73",
+    "conceptos": [
+      {
+        "descripcion": "La corriente de neutro es IN=IA+IB+IC como fasores (IA=Ia∠0°, IB=Ib∠−120°, IC=Ic∠+120°). Como están a 120°, se cancelan en parte: el neutro real es mucho menor que la suma de magnitudes Ia+Ib+Ic.",
+        "icono": "➕",
+        "nombre": "Suma fasorial, no aritmética",
+      },
+      {
+        "descripcion": "Solo cuando las tres corrientes son iguales (Ia=Ib=Ic) los fasores se cancelan exactamente y el neutro no conduce. Cualquier desbalance hace que el neutro transporte la corriente de retorno.",
+        "icono": "⚖️",
+        "nombre": "Balanceado ⇒ IN=0",
+      },
+      {
+        "descripcion": "Toda terna desbalanceada = secuencia positiva (I1, útil) + negativa (I2, mide el desbalance y calienta motores) + cero (I0). Reconstrucción exacta: IA=I0+I1+I2. Factor de desbalance = |I2|/|I1|.",
+        "icono": "🔬",
+        "nombre": "Componentes simétricas",
+      },
+      {
+        "descripcion": "La corriente de neutro es exactamente tres veces la componente de secuencia cero. Sin secuencia cero no hay corriente de neutro; por eso la secuencia positiva y la negativa —que suman cero en las tres fases— no aparecen en el neutro.",
+        "icono": "🎯",
+        "nombre": "IN = 3·I0",
+      },
+    ],
+    "duracion": 30,
+    "mision": [
+      "EXPLORA · Ajusta las tres corrientes de fase (Ia, Ib, Ic) y observa cómo el neutro conduce su suma FASORIAL. Igualalas para ver IN→0; desbalancéalas para verlo crecer. Compara siempre con la trampa de la suma aritmética.",
+      "COMPONENTES · La misma carga descompuesta en componentes simétricas: secuencia positiva (I1), negativa (I2) y cero (I0). Comprueba la relación IN=3·I0 y que balancear la carga anula I2 e I0.",
+      "RETO · Carga desbalanceada sorteada con las corrientes fijas. Suma los fasores punta-cola, predice la magnitud de la corriente de neutro |IN| y comprueba tu estimación dentro de la tolerancia.",
+    ],
+    "subtitulo": "Circuitos Eléctricos · Corriente alterna (CA)",
+    "titulo": "Desbalance Trifásico y Corriente por el Neutro",
+    "videoUrl": "",
+  },
+  "mecanica-74": {
+    "acento": "#4FB0AE",
+    "aplicaciones": [
+      {
+        "area": "Instalaciones residenciales e industriales",
+        "ejemplo": "Todo circuito derivado —desde un contacto hasta la alimentación de una máquina— se dimensiona por estos dos criterios. Subestimar la caída en corridas largas (bombas de agua lejanas, naves industriales, iluminación de estacionamientos) es una causa frecuente de equipos que trabajan mal y se dañan.",
+      },
+      {
+        "area": "Alimentación de motores",
+        "ejemplo": "Un motor con baja tensión en sus terminales toma más corriente, se calienta y pierde par de arranque. Dimensionar el conductor para mantener la caída bajo el 3% (a veces 2% en el alimentador) es esencial para la vida del motor, sobre todo cuando está lejos del centro de carga.",
+      },
+      {
+        "area": "Coordinación conductor-protección",
+        "ejemplo": "La NOM exige que la protección nunca supere la capacidad del conductor que protege. Los topes de 15/20/30 A para 14/12/10 AWG (Art. 240.4(D)) evitan que un breaker demasiado grande permita que un cable pequeño se caliente sin disparar: es la base de la seguridad contra incendios eléctricos.",
+      },
+    ],
+    "bienvenida": "Imagina que tienes que llevar energía desde el tablero eléctrico hasta un motor que está a 70 metros de distancia. Vas a la ferretería, ves que el motor consume 16 amperes, y eliges un cable cuya etiqueta dice "hasta 20 A". Aguanta la corriente con margen, ¿verdad? Instalas todo, enciendes el motor… y trabaja mal, se calienta, le cuesta arrancar. ¿Qué pasó? El cable "aguantaba la corriente", pero a lo largo de esos 70 metros la tensión se fue cayendo, y al motor le llegaron muchos menos de los 127 V que necesita. Elegir un conductor no es solo cuestión de amperes: es cuestión de dos criterios que hay que cumplir al mismo tiempo.
+
+El primer criterio es la ampacidad: la corriente máxima que un conductor puede llevar de forma continua sin sobrecalentarse y dañar su aislamiento. Es lo primero que todos revisan, y es necesario —pero no suficiente—. El segundo criterio, el que suele olvidarse, es la caída de tensión. Todo conductor tiene resistencia, y al circular corriente por él se "gasta" algo de tensión en el camino, tanto de ida como de regreso. Esa caída se calcula con e=2·ρ·L·I/S: fíjate en el factor 2, que está ahí porque la corriente recorre dos conductores (va por la fase y vuelve por el neutro). La norma pide que en un circuito derivado esa caída no supere el 3 %, para que a la carga le llegue tensión suficiente para trabajar bien. El calibre correcto es el más delgado que cumple AMBOS criterios: si eliges uno más chico fallas por caída o por sobrecalentamiento; si eliges uno mucho más grueso, funciona pero tiras dinero en cobre.
+
+Y aquí está la lección que este laboratorio quiere grabarte: en corridas largas, quien manda no es la ampacidad, sino la caída de tensión. Un cable que sobra para la corriente puede ser totalmente insuficiente si la distancia es grande. En este simulador vas a fijar la corriente y la longitud, probar distintos calibres y ver las dos barras de criterio en tiempo real; verás una tabla que compara todos los calibres a la vez; y en el reto tendrás que elegir el conductor mínimo correcto para un circuito sorteado, esquivando la trampa de mirar solo los amperes. Cerrarás con la regla de protección: el breaker debe proteger al conductor, y por eso los calibres pequeños tienen topes fijos de 15, 20 y 30 A.",
+    "codigo": "MEC-74",
+    "conceptos": [
+      {
+        "descripcion": "El conductor debe cumplir ampacidad ≥ corriente de la carga, para no sobrecalentarse. La ampacidad se lee de la tabla del cobre THW a 75 °C (Tabla 310-15(b)(16) de la NOM). Es necesario, pero no basta por sí solo.",
+        "icono": "🔥",
+        "nombre": "Criterio 1: Ampacidad",
+      },
+      {
+        "descripcion": "La caída de tensión de un circuito derivado no debe superar el 3%: e=2·ρ·L·I/S y %e=e/V·100. El factor 2 es por los dos conductores (ida y vuelta). En corridas largas, este criterio es el que decide el calibre.",
+        "icono": "📉",
+        "nombre": "Criterio 2: Caída ≤ 3%",
+      },
+      {
+        "descripcion": "No el que solo aguanta la corriente ni uno enorme por si acaso: el calibre correcto es el más delgado del catálogo que satisface ampacidad Y caída al mismo tiempo. Ni se sobrecalienta, ni deja a la carga a baja tensión, ni desperdicia cobre.",
+        "icono": "🎯",
+        "nombre": "El calibre mínimo que cumple ambos",
+      },
+      {
+        "descripcion": "El interruptor termomagnético debe ser ≥ la carga y ≤ el límite del conductor (Art. 240.4). Los calibres 14/12/10 AWG tienen topes fijos de 15/20/30 A: por eso un circuito de 20 A exige calibre 12, no 14.",
+        "icono": "🛡️",
+        "nombre": "La protección protege al cable",
+      },
+    ],
+    "duracion": 30,
+    "mision": [
+      "EXPLORA · Fija la corriente y la longitud, cambia el calibre y observa las DOS barras de criterio: ampacidad (I vs capacidad del cable) y caída (%e vs 3%). Busca el calibre más delgado con ambas en verde. Alarga la corrida y verás cómo la caída dispara y obliga a subir de calibre.",
+      "SELECCIÓN · Una tabla evalúa todos los calibres a la vez para la misma corriente y longitud, con una columna por criterio. Compara qué pediría la ampacidad sola y qué exige la caída: en corridas largas la diferencia es de varios calibres.",
+      "RETO · Circuito sorteado con corriente y longitud fijas. Elige el conductor MÍNIMO que cumpla ampacidad Y caída ≤3% y comprueba tu selección. Esquiva la trampa de mirar solo los amperes.",
+    ],
+    "subtitulo": "Circuitos Eléctricos · Instalaciones eléctricas",
+    "titulo": "Dimensionamiento de Conductores y Protecciones",
+    "videoUrl": "",
+  },
+  "mecanica-75": {
+    "acento": "#4FB0AE",
+    "aplicaciones": [
+      {
+        "area": "Protección de personas y equipos",
+        "ejemplo": "Una buena puesta a tierra mantiene las carcasas metálicas al potencial de tierra: si un cable de fase toca el gabinete de un tablero o de una máquina, la corriente de falla se drena y la protección dispara, en lugar de dejar la estructura energizada esperando a que alguien la toque. Es la base de la seguridad eléctrica en cualquier instalación.",
+      },
+      {
+        "area": "Subestaciones y sistemas de pararrayos",
+        "ejemplo": "En subestaciones y en la bajada de un pararrayos se exigen resistencias muy bajas (≤5 Ω) para disipar rápidamente corrientes de falla y descargas atmosféricas sin elevar peligrosamente el potencial del terreno. Ahí es común combinar mallas de tierra, múltiples varillas y tratamiento del suelo, precisamente porque una varilla sola no alcanza.",
+      },
+      {
+        "area": "Telecomunicaciones y electrónica sensible",
+        "ejemplo": "Torres de telecomunicaciones, centros de datos y equipos electrónicos sensibles requieren tierras de baja impedancia y estables para referencia de señal y para descargas. Medir la resistividad del terreno con el método de Wenner antes de instalar permite decidir cuántas varillas, de qué longitud, o si conviene un anillo o una malla desde el diseño.",
+      },
+    ],
+    "bienvenida": "Cuando ocurre una falla —un cable de fase que toca la carcasa metálica de un motor, o un rayo que cae cerca— alguien tiene que ofrecerle a esa corriente peligrosa un camino seguro hacia la tierra, lejos de las personas. Ese camino es el sistema de puesta a tierra, y su calidad se mide con un número: la resistencia a tierra, en ohms. Cuanto más baja, mejor: la corriente de falla se drena rápido, las protecciones disparan y el potencial peligroso no se queda "flotando" en las estructuras metálicas. Pero esa resistencia no depende solo de la varilla que clavas: depende, sobre todo, del terreno donde la clavas. Un mismo electrodo puede dar 8 Ω en un suelo húmedo y arcilloso, y más de 80 Ω en arena seca. Por eso, diseñar una buena tierra empieza por conocer el suelo.
+
+El primer paso es MEDIR la resistividad del terreno, esa propiedad —en ohm·metro— que dice qué tan buen conductor es el suelo. La herramienta clásica es el método de Wenner: cuatro electrodos clavados en línea, igualmente separados una distancia a. Se inyecta corriente por los dos externos y se mide la tensión entre los dos internos; el telurómetro calcula R=ρ/(2πa), y de ahí despejas la resistividad ρ=2π·a·R. Algo importante que verás en el simulador: si cambias la separación a, la lectura R cambia, pero el ρ que despejas se mantiene, porque la resistividad es una propiedad del suelo, no del arreglo de medición (esto vale para un suelo homogéneo; los suelos reales por capas son más complejos).
+
+Con ρ ya conocido viene el segundo paso: DIMENSIONAR el electrodo. La resistencia de una varilla vertical se calcula con la fórmula de Dwight, R₁=ρ/(2πL)·[ln(8L/d)−1]: baja si la varilla es más larga (L) y depende de su diámetro (d). ¿No basta con una varilla? Pones varias en paralelo, bien separadas, y la resistencia baja aproximadamente a R₁/N. Tu meta es cumplir el objetivo normativo: 25 Ω como valor general, 10 Ω deseable, 5 Ω en subestaciones y sistemas de pararrayos. Y aquí está la lección honesta de este laboratorio: en suelos muy resistivos vas a descubrir que ni ocho varillas de seis metros bajan de 25 Ω. Cuando el terreno no ayuda, ninguna cantidad de varillas resuelve el problema: hay que cambiar de estrategia —mallas de tierra, anillos perimetrales o tratamiento químico del suelo con bentonita o compuestos mejoradores—. En el reto tendrás que diseñar el electrodo MÍNIMO que cumple: ni de menos (no cumples), ni de más (desperdicias cobre).",
+    "codigo": "MEC-75",
+    "conceptos": [
+      {
+        "descripcion": "Es la propiedad del terreno, en Ω·m, que determina qué tan buena tierra se puede lograr. Va desde ~30 Ω·m en suelos pantanosos hasta ~1000 Ω·m o más en roca y arena seca. Es lo primero que hay que medir: sin conocer ρ no se puede diseñar la tierra.",
+        "icono": "🌍",
+        "nombre": "Resistividad del suelo (ρ)",
+      },
+      {
+        "descripcion": "Cuatro electrodos equidistantes (separación a): se inyecta corriente por los externos y se mide tensión en los internos. El telurómetro da R=ρ/(2πa) y se despeja ρ=2π·a·R. En suelo homogéneo, ρ es constante aunque cambie a: es propiedad del suelo, no de la medición.",
+        "icono": "📐",
+        "nombre": "Método de Wenner (4 electrodos)",
+      },
+      {
+        "descripcion": "La resistencia de una varilla vertical es R₁=ρ/(2πL)·[ln(8L/d)−1]: baja al aumentar la longitud L y depende del diámetro d. Varias varillas alejadas en paralelo dan R_N≈R₁/N (válido si están separadas ≥2·L, para que el acople mutuo sea despreciable).",
+        "icono": "📏",
+        "nombre": "Fórmula de Dwight (varilla vertical)",
+      },
+      {
+        "descripcion": "Se busca R ≤ 25 Ω (general), ≤ 10 Ω (deseable) o ≤ 5 Ω (subestaciones/pararrayos). Pero en suelos muy resistivos ni el máximo de varillas alcanza el objetivo: entonces hay que usar malla de tierra, anillo perimetral o tratamiento del suelo (bentonita/GEM). Reconocer ese límite es parte del diseño.",
+        "icono": "🎯",
+        "nombre": "Objetivos y sus límites",
+      },
+    ],
+    "duracion": 30,
+    "mision": [
+      "ENSAMBLE · Instala el sistema de puesta a tierra pieza por pieza: toca cada componente del banco (varilla, abrazadera, conductor, barra de tierra, telurómetro y electrodos auxiliares) y luego su hueco luminoso. Al terminar se desbloquean los modos de medición y diseño.",
+      "SUELO (WENNER) · Elige un tipo de terreno y varía la separación a de los electrodos. Observa que la lectura R del telurómetro cambia con a, pero el ρ que despejas (ρ=2π·a·R) se mantiene: la resistividad es propiedad del suelo. Usa el barrido automático para verlo de un vistazo.",
+      "ELECTRODO · Con el suelo elegido, prueba longitudes de varilla y número de varillas en paralelo. La barra compara la resistencia obtenida con los objetivos 25/10/5 Ω. Prueba un suelo muy resistivo y comprueba que ni el máximo del catálogo baja de 25 Ω: ahí hacen falta mallas o tratamiento del terreno.",
+      "RETO · Se sortea un terreno (con su ρ medido) y un objetivo de resistencia. Diseña el electrodo MÍNIMO que cumple —menos varillas y, para ese número, la más corta— y comprueba. Si te quedas corto no cumples; si te pasas, desperdicias cobre.",
+    ],
+    "subtitulo": "Circuitos Eléctricos · Instalaciones eléctricas",
+    "titulo": "Puesta a Tierra y Resistencia de Tierra",
+    "videoUrl": "",
+  },
+  "mecanica-76": {
+    "acento": "#4FB0AE",
+    "aplicaciones": [
+      {
+        "area": "Instalaciones residenciales y comerciales",
+        "ejemplo": "El tablero de un hogar o un local usa interruptores curva C para uso general y curva B en circuitos de iluminación y contactos con líneas largas. Elegir bien la curva evita que salte el interruptor cada vez que arranca el aire acondicionado o el motor de una puerta, sin dejar de proteger el cable ante un cortocircuito real.",
+      },
+      {
+        "area": "Protección de motores y transformadores",
+        "ejemplo": "Un motor con arranque directo (DOL) pide 6–8 veces su corriente nominal durante el arranque, y un transformador tiene un pico de energización aún mayor. Se protegen con curva D (10–20× In), que tolera ese pico transitorio; usar curva B o C provocaría disparos en cada arranque. Cargas más severas requieren protección de motor dedicada.",
+      },
+      {
+        "area": "Selectividad en tableros de distribución",
+        "ejemplo": "En un edificio o una industria, una falla en un ramal no debe dejar sin servicio a todo el tablero. Coordinar las curvas —el interruptor derivado disparando antes que el general— logra que solo se aísle el circuito afectado. En cortocircuito, esto obliga a dimensionar la general con un umbral magnético suficientemente por encima del de los derivados.",
+      },
+    ],
+    "bienvenida": "Un interruptor termomagnético —el que salta en el tablero de tu casa— parece un simple "todo o nada", pero por dentro toma una decisión mucho más fina: no solo decide SI corta, sino CUÁNTO tarda en cortar según qué tan grande sea la corriente. Esa relación se llama curva tiempo-corriente, y es el corazón de este laboratorio. La razón es que no todas las sobrecorrientes son iguales. Una plancha y un microondas encendidos a la vez pueden pedir un poco más de la cuenta durante minutos: es una sobrecarga, y conviene darle un margen antes de cortar. En cambio, un cable de fase que toca al neutro es un cortocircuito: cientos de amperes en un instante, y ahí hay que abrir en milisegundos, sin pensarlo. Un buen interruptor distingue ambos casos con dos mecanismos distintos que trabajan en el mismo aparato.
+
+El primero es el mecanismo TÉRMICO: una lámina bimetálica que se calienta con la corriente y se dobla hasta accionar el disparo. Cuanto mayor es la corriente, más rápido se calienta y antes dispara: es una curva inversa, ideal para sobrecargas. El segundo es el mecanismo MAGNÉTICO: un electroimán que, al superar cierto umbral de corriente, tira del mecanismo casi al instante (unos 10 ms). Ese umbral define el "tipo de curva": B dispara entre 3 y 5 veces la corriente nominal, C entre 5 y 10, y D entre 10 y 20. ¿Por qué importa? Porque un motor al arrancar pide de golpe 6 u 8 veces su corriente normal durante uno o dos segundos. Si lo proteges con una curva B, el interruptor creerá que es un cortocircuito y saltará en cada arranque —un "disparo molesto"—; por eso los motores usan curva D. Elegir la curva es equilibrar dos cosas: aguantar el arranque legítimo, pero cortar rápido una falla real. Y hay un precio: cuanto más tarda en cortar, más energía deja pasar al cable, medida como I²t.
+
+Cuando en una instalación hay varios interruptores en serie —uno general y varios derivados— aparece un último reto: la COORDINACIÓN. Si falla un ramal, quieres que salte solo el interruptor de ese ramal y que el resto de la casa siga con luz. Para lograrlo, el derivado debe disparar SIEMPRE antes que el general, en todo el rango de corrientes de falla. Y aquí está la lección honesta de este laboratorio: coordinar en cortocircuito no es automático. Si el general y el derivado alcanzan su umbral magnético con la misma corriente de falla, los dos disparan a la vez en ~10 ms y se pierde la selectividad: salta el general y se apaga todo. Para evitarlo, la general necesita un umbral bastante más alto —más corriente nominal y/o una curva mayor—. En los tres modos del simulador leerás curvas reales de disparo, coordinarás dos interruptores y diseñarás la protección mínima correcta para una carga.",
+    "codigo": "MEC-76",
+    "conceptos": [
+      {
+        "descripcion": "Un gráfico log-log que dice cuánto tarda el interruptor en disparar según la corriente. Tiene una región térmica inversa (sobrecarga: a más corriente, menos tiempo) y un escalón magnético vertical (cortocircuito: disparo instantáneo, ~10 ms). Está anclada a las compuertas de prueba de la norma IEC 60898.",
+        "icono": "📈",
+        "nombre": "Curva tiempo-corriente",
+      },
+      {
+        "descripcion": "Dos mecanismos en un mismo aparato: el térmico (bimetálico) protege contra sobrecargas con retardo inverso; el magnético (electroimán) protege contra cortocircuitos disparando casi al instante al superar su umbral. Distinguir ambos es lo que hace segura y a la vez usable una instalación.",
+        "icono": "🔥",
+        "nombre": "Térmico vs magnético",
+      },
+      {
+        "descripcion": "El tipo de curva es el umbral del disparo magnético en múltiplos de In: B = 3–5× (resistivas, líneas largas, residencial), C = 5–10× (cargas mixtas, uso general), D = 10–20× (transformadores y motores DOL, con alto pico de arranque). La curva se elige para no disparar al arrancar pero cortar rápido una falla real.",
+        "icono": "🅱️",
+        "nombre": "Curvas B, C y D",
+      },
+      {
+        "descripcion": "Dos interruptores en serie (general + derivado) están coordinados si, ante cualquier falla, el derivado dispara antes que el general: así una falla aísla solo su ramal. En cortocircuito la selectividad exige que la general tenga un umbral magnético claramente mayor (más In y/o curva más alta); si no, ambos disparan juntos.",
+        "icono": "🔗",
+        "nombre": "Coordinación y selectividad",
+      },
+    ],
+    "duracion": 30,
+    "mision": [
+      "EXPLORA · Ajusta la corriente nominal In y el tipo de curva de un interruptor e inyecta corrientes de prueba crecientes. Observa dónde cae cada una en la curva: sobrecarga (disparo térmico, con retardo) o cortocircuito (disparo magnético, ~10 ms). Compara la energía pasante I²t entre las curvas B, C y D.",
+      "COORDINACIÓN · Coloca un interruptor derivado y uno general en serie e inyecta una corriente de falla. Comprueba cuándo la derivada dispara antes que la general (selectivo) y cuándo ambas se solapan en cortocircuito (no selectivo). Descubre qué hace falta en la general para recuperar la coordinación.",
+      "RETO · Se sortea una carga con su corriente Ib, la ampacidad del cable Iz y su pico de arranque. Elige la corriente nominal In mínima que cumpla Ib≤In≤Iz Y la curva más sensible que no dispare al arrancar. Ambos objetivos deben cumplirse: ni de menos, ni de más.",
+    ],
+    "subtitulo": "Circuitos Eléctricos · Instalaciones eléctricas",
+    "titulo": "Coordinación de Protecciones y Curvas Tiempo-Corriente",
+    "videoUrl": "",
+  },
+  "mecanica-77": {
+    "acento": "#8AB4F8",
+    "aplicaciones": [
+      {
+        "area": "Diseño de lógica combinacional",
+        "ejemplo": "Decodificadores (BCD a 7 segmentos), multiplexores, comparadores y generadores de código se especifican con una tabla de verdad y se implementan con el mínimo de compuertas. Simplificar con Karnaugh reduce el número y tamaño de las compuertas: menos circuito, menor coste, menor consumo y menor retardo de propagación.",
+      },
+      {
+        "area": "Lógica de control y automatización",
+        "ejemplo": "La lógica de enclavamientos, permisivos y alarmas de una máquina o un proceso (varios sensores → una decisión) es una función booleana. Minimizarla no solo abarata la implementación en compuertas o en un PLC, sino que hace la lógica más legible y fácil de verificar frente a la enorme forma canónica.",
+      },
+      {
+        "area": "Síntesis en FPGA y ASIC",
+        "ejemplo": "Las herramientas de síntesis lógica automatizan a gran escala lo que aquí se hace a mano: minimizan funciones booleanas antes de mapearlas a compuertas o a las LUTs de una FPGA. Entender los implicantes primos y por qué unas funciones (como XOR) no se reducen ayuda a interpretar los reportes de área y retardo de esas herramientas.",
+      },
+    ],
+    "bienvenida": "Todo circuito digital combinacional —el que decide si un motor arranca, si una alarma suena, qué dígito muestra un display— nace de la misma pregunta: para cada combinación posible de sus entradas, ¿la salida debe valer 0 o 1? Esa respuesta, escrita fila por fila, es la TABLA DE VERDAD, y define la función por completo. El problema no es escribirla, sino construir el circuito más barato que la cumpla. Si tomas la tabla literalmente y pones un producto lógico por cada 1 (la llamada forma canónica o suma de mintérminos), obtienes un circuito que funciona pero que gasta muchísimas compuertas: cada término usa TODAS las variables. Ahí es donde entra este laboratorio.
+
+El MAPA DE KARNAUGH es un truco visual genial. Toma la tabla y la reacomoda en una rejilla, pero no en orden binario normal: usa CÓDIGO GRAY, de modo que dos casillas vecinas se diferencian en un solo bit. ¿Por qué importa tanto? Porque el álgebra de Boole dice que XY + XY′ = X: si una salida vale 1 tanto cuando una variable es 0 como cuando es 1 (y lo demás igual), esa variable simplemente no importa y desaparece. En el mapa, eso se ve como dos unos pegados que puedes "rodear" con un lazo, y el lazo elimina la variable que cambia dentro de él. Un lazo de 2 casillas elimina 1 variable; uno de 4, elimina 2; uno de 8, elimina 3. Cuanto más grande el grupo, más simple el término. La estrategia mínima es cubrir todos los unos con los lazos más grandes posibles —los implicantes primos— usando la combinación de menor coste. El simulador lo calcula con el algoritmo clásico de Quine-McCluskey, que verifiqué numéricamente contra fuerza bruta en 1200 casos: la forma mínima que ves es demostrablemente óptima.
+
+Y hay una lección honesta que casi nunca se cuenta: no toda función simplifica. La función de PARIDAD (un XOR de varias variables) tiene sus unos dispuestos en tablero de ajedrez —ningún par es adyacente en el mapa— así que no hay nada que agrupar: su forma mínima es idéntica a la canónica. Un buen ingeniero sabe reconocer cuándo el mapa NO le va a ayudar. En los tres modos construirás funciones y verás cómo cambia la forma mínima, estudiarás cómo cada lazo elimina variables, y en el reto elegirás tú mismo los implicantes que cubran una función al mínimo coste.",
+    "codigo": "MEC-77",
+    "conceptos": [
+      {
+        "descripcion": "La tabla lista la salida F para cada una de las 2ⁿ combinaciones de entrada. Cada 1 es un mintérmino: un producto que vale 1 solo para esa combinación. Escribir la función como suma de todos sus mintérminos (forma canónica SOP) es correcto, pero usa el máximo de literales y compuertas. Es el punto de partida a mejorar.",
+        "icono": "📊",
+        "nombre": "Tabla de verdad y mintérminos",
+      },
+      {
+        "descripcion": "Reordena la tabla en una rejilla donde celdas vecinas difieren en un solo bit (código Gray). Esa adyacencia hace visibles las simplificaciones: agrupar 2^k unos adyacentes elimina las k variables que cambian dentro del grupo, por el álgebra de Boole XY+XY′=X. Cuanto mayor el grupo, menos variables sobreviven.",
+        "icono": "🗺️",
+        "nombre": "Mapa de Karnaugh y código Gray",
+      },
+      {
+        "descripcion": "Un implicante primo es el mayor grupo válido de unos adyacentes (no se puede ampliar). La forma mínima SOP cubre todos los unos con implicantes primos al menor coste en literales. El simulador la calcula con Quine-McCluskey (implicantes primos + cobertura exacta), verificado 1200/1200 contra fuerza bruta.",
+        "icono": "🔗",
+        "nombre": "Implicantes primos y forma mínima",
+      },
+      {
+        "descripcion": "La paridad (XOR de varias variables) coloca sus unos en tablero de ajedrez: ningún par es adyacente, no hay grupos que formar, y su forma mínima coincide con la canónica. Reconocer cuándo el mapa no ayuda es parte del criterio de diseño. El coste se mide en literales, términos y compuertas AND-OR de dos niveles.",
+        "icono": "⚠️",
+        "nombre": "No todo simplifica (honestidad)",
+      },
+    ],
+    "duracion": 30,
+    "mision": [
+      "EXPLORA · Elige 2, 3 o 4 variables y enciende salidas en la tabla de verdad (o usa un preset). Observa cómo el mapa se llena y cómo la expresión mínima cambia al instante. Compara el coste de la forma canónica con el de la mínima y cuánto ahorras. Prueba el preset "Paridad" para ver una función que no simplifica.",
+      "AGRUPA · Estudia funciones preparadas con sus lazos dibujados sobre el mapa. Enfoca cada grupo para ver qué variables permanecen constantes dentro del lazo (las que sobreviven en el término) y cuántas se eliminan. Comprueba la regla: 2 celdas eliminan 1 variable, 4 celdas eliminan 2, y así.",
+      "RETO · Se te da una función F = Σm(...) con su mapa. Marca los implicantes primos que la cubran usando el mínimo de literales. El sistema califica por separado si tu cobertura es completa y si alcanza el coste mínimo: ni dejar unos sin cubrir, ni incluir grupos redundantes o pequeños que encarecen el circuito.",
+    ],
+    "subtitulo": "Sistemas Digitales · Álgebra de Boole · Diseño combinacional",
+    "titulo": "Síntesis Lógica y Simplificación con Mapas de Karnaugh",
+    "videoUrl": "",
+  },
+  "mecanica-78": {
+    "acento": "#8AB4F8",
+    "aplicaciones": [
+      {
+        "area": "Enrutamiento y selección de datos",
+        "ejemplo": "Un multiplexor elige qué sensor, qué canal o qué registro se lee en un instante (buses de datos, entradas de un ADC, teclados matriciales). Su inverso, el demultiplexor/decodificador, dirige una señal o selecciona qué chip de memoria responde según la dirección (chip-select). La habilitación permite compartir un bus entre varios dispositivos sin conflicto.",
+      },
+      {
+        "area": "Realización de lógica combinacional",
+        "ejemplo": "Antes de las FPGA, realizar una función con un solo MUX (D_i=f(i)) o un decodificador+OR ahorraba chips y simplificaba el diseño. La idea sigue viva: las LUTs (Look-Up Tables) de una FPGA son, en esencia, pequeños multiplexores que almacenan la tabla de verdad de la función que implementan.",
+      },
+      {
+        "area": "Interfaces de visualización",
+        "ejemplo": "Los displays de 7 segmentos muestran cifras en relojes, medidores, tableros de instrumentos y electrodomésticos. El decodificador BCD→7seg (como el 7447) convierte el número interno en el patrón de segmentos; entender su lógica por segmento y el multiplexado de varios dígitos es la base del diseño de tableros numéricos.",
+      },
+    ],
+    "bienvenida": "Con las compuertas básicas puedes construir cualquier circuito, pero nadie diseña un sistema real conectando compuertas una por una: se usan BLOQUES prefabricados de mediana escala que resuelven tareas comunes. Este laboratorio te presenta los tres más usados, y una idea que los conecta y que sorprende a casi todo el que la ve por primera vez.
+
+El primero es el MULTIPLEXOR (MUX). Imagínalo como un selector giratorio electrónico: tiene varias entradas de datos y una sola salida, y una palabra de SELECCIÓN decide cuál de las entradas se "conecta" a la salida. Con n bits de selección elige entre 2ⁿ datos: Y = D[sel]. Además tiene una señal de HABILITACIÓN (enable): si está apagada, la salida es 0 sin importar nada más —es el interruptor maestro, y la causa número uno de "está todo bien pero no sale nada"—. El segundo bloque es el DECODIFICADOR, que hace justo lo contrario: recibe un número de n bits y enciende UNA y solo una de sus 2ⁿ salidas, la que corresponde a ese número (patrón "one-hot"). Se usa para seleccionar un chip por su dirección, encender una línea, o —como verás— reconstruir cualquier función lógica. El tercero es el DISPLAY DE 7 SEGMENTOS: ese numerito rojo de los relojes y microondas. Un decodificador BCD→7seg traduce un dígito 0-9 al patrón de segmentos a-g que lo dibuja.
+
+Ahora la idea sorprendente: un MUX 2ⁿ:1, poniendo las variables en la selección, puede realizar CUALQUIER función booleana de n variables sin una sola compuerta extra. ¿Cómo? Cableas en cada entrada de datos el valor que la función debe tener en esa fila: D_i = f(i). La selección recorre las filas de la tabla de verdad y la salida es, en cada una, justo el dato que pusiste. El MUX "es" la tabla de verdad hecha hardware. Lo mismo con el decodificador: como cada salida es un mintérmino, una OR de las salidas correctas reconstruye la función. Y el display cierra el círculo con el laboratorio de Karnaugh: la lógica de cada segmento es una función booleana de 4 bits que se minimiza con don't-care en los códigos 10-15. Verifiqué todo numéricamente —MUX y decodificador exhaustivos, 400 funciones aleatorias, y el SOP de los 7 segmentos— y coincide con Mano & Ciletti.",
+    "codigo": "MEC-78",
+    "conceptos": [
+      {
+        "descripcion": "Un conmutador controlado: la palabra de selección de n bits elige cuál de las 2ⁿ entradas de datos llega a la única salida. La habilitación (EN) es el interruptor maestro: con EN=0 la salida es 0 pase lo que pase. Es el bloque de enrutamiento de datos por excelencia.",
+        "icono": "🔀",
+        "nombre": "Multiplexor (Y = D[sel]·EN)",
+      },
+      {
+        "descripcion": "Operación inversa al MUX: recibe un número de n bits y activa UNA y solo una de sus 2ⁿ salidas, la que corresponde a ese número. Cada salida es exactamente un mintérmino. Se usa para chip-select por dirección, encender líneas y, con una OR, realizar funciones SOP.",
+        "icono": "📤",
+        "nombre": "Decodificador (one-hot)",
+      },
+      {
+        "descripcion": "Un decodificador BCD→7seg traduce cada dígito 0-9 al patrón de segmentos a-g que lo dibuja. La lógica de cada segmento es una función booleana de los 4 bits BCD; como los códigos 10-15 nunca ocurren, se tratan como don't-care y permiten simplificar más (mismo motor Quine-McCluskey del laboratorio de Karnaugh).",
+        "icono": "🔢",
+        "nombre": "Display de 7 segmentos (BCD)",
+      },
+      {
+        "descripcion": "Un MUX 2ⁿ:1 con las variables en la selección realiza cualquier función de n variables cableando D_i = f(i): reproduce la tabla de verdad completa sin compuertas extra. Un decodificador + una OR de los mintérminos hace lo mismo por la vía SOP. Ambos verificados numéricamente (400 funciones aleatorias, one-hot exhaustivo).",
+        "icono": "🌐",
+        "nombre": "MUX y decodificador como lógica universal",
+      },
+    ],
+    "duracion": 30,
+    "mision": [
+      "EXPLORA · Elige un bloque y condúcelo en vivo. Con el MUX cambia la selección y ve que la salida sigue al dato elegido; apaga EN y comprueba que la salida cae a 0. Con el decodificador mueve la entrada y observa la única salida activa (one-hot). Con el display, recorre los dígitos 0-9 y mira qué segmentos encienden.",
+      "APLICA · Comprueba las ideas potentes: que un MUX con D_i=f(i) reproduce la tabla de verdad completa de una función (XOR, mayoría, paridad) sin compuertas extra; que un decodificador+OR la reconstruye como suma de mintérminos; y que cada segmento del display tiene su SOP mínimo (Karnaugh con don't-care 10-15).",
+      "RETO · Se te da una función objetivo F = Σm(...). Configura los datos del MUX (regla de oro: D_i = f(i), copia la columna F de la tabla) y activa la habilitación. El sistema califica por separado los datos correctos y la habilitación: el error clásico es dejar datos correctos pero EN=0 y no obtener salida.",
+    ],
+    "subtitulo": "Sistemas Digitales · Bloques combinacionales · Habilitación",
+    "titulo": "Multiplexores, Decodificadores y Display de 7 Segmentos",
+    "videoUrl": "",
+  },
+  "mecanica-79": {
+    "acento": "#8AB4F8",
+    "aplicaciones": [
+      {
+        "area": "Unidad aritmético-lógica (ALU)",
+        "ejemplo": "El corazón de todo procesador es una ALU construida alrededor de un sumador. Un solo bloque suma y —invirtiendo un operando y forzando el acarreo inicial— resta; las banderas de acarreo y desbordamiento que genera gobiernan los saltos condicionales de los programas. Entender el full adder y el complemento a 2 es entender cómo cuenta una computadora.",
+      },
+      {
+        "area": "Comparación y toma de decisiones",
+        "ejemplo": "Cada vez que un programa evalúa a > b, a == b o a < b, un comparador de magnitud (o la resta y sus banderas) produce el resultado que decide el flujo. Los comparadores están en ordenadores de datos, controladores de límites, termostatos digitales y en la lógica de prioridad de árbitros de bus.",
+      },
+      {
+        "area": "Aritmética de señales y control",
+        "ejemplo": "Los filtros digitales, los acumuladores de un DSP, los contadores con offset y los lazos de control por microcontrolador suman y restan constantemente en complemento a 2. La detección de desbordamiento evita que un acumulador "dé la vuelta" y produzca un valor absurdo —un error real y peligroso en control y en finanzas.",
+      },
+    ],
+    "bienvenida": "Toda la aritmética que hace una computadora —sumar, restar, comparar, y en el fondo también multiplicar y dividir— se construye a partir de un bloque asombrosamente pequeño. Este laboratorio te lleva desde ese bloque diminuto hasta un restador completo, y en el camino descubrirás por qué las computadoras casi nunca tienen un circuito de resta.
+
+El bloque de partida es el SUMADOR COMPLETO (full adder): suma tres bits —dos que quieres sumar y un ACARREO que viene de la etapa anterior— y produce dos salidas: la SUMA y el ACARREO que pasa a la siguiente etapa. Su lógica es limpia y vale la pena memorizarla: la suma es la paridad de las tres entradas (S = A⊕B⊕Cin) y el acarreo aparece cuando al menos dos de las tres entradas son 1 (es la MAYORÍA de A, B y Cin). Si pones n de estos en fila y conectas el acarreo de cada uno con el siguiente, tienes un SUMADOR DE ACARREO PROPAGADO (ripple-carry): así se suma cualquier número de bits.
+
+Ahora la idea que sorprende: no hace falta un circuito de resta. Con la representación en COMPLEMENTO A 2, el negativo de un número se obtiene invirtiendo todos sus bits y sumando 1: −B = ¬B + 1. Por lo tanto A − B = A + ¬B + 1. ¿Qué significa eso en hardware? Que el mismo sumador se convierte en restador con solo invertir B y forzar el acarreo inicial Cin=1. Un bit de control elige si el circuito suma o resta. Al trabajar con números con signo aparece el DESBORDAMIENTO (overflow): cuando el resultado no cabe en los bits disponibles. Se detecta de dos formas que resultan ser la misma: cuando los dos operandos tienen igual signo pero el resultado sale con signo contrario, o —de forma más elegante en hardware— cuando el acarreo que entra al bit más significativo es distinto del que sale (Cin_MSB ⊕ Cout_MSB). Por último, el COMPARADOR de magnitud decide si A>B, A=B o A<B mirando los bits desde el más significativo: el primer bit en que difieren decide todo. Verifiqué cada pieza numéricamente y de forma exhaustiva: el full adder (8/8), el sumador de 4 bits (2048 casos), la resta y el overflow por los dos métodos (256 casos cada uno) y el comparador (256 casos con una y solo una salida activa).",
+    "codigo": "MEC-79",
+    "conceptos": [
+      {
+        "descripcion": "Suma tres bits: dos operandos y un acarreo de entrada. La suma es la paridad de los tres (XOR) y el acarreo de salida es la MAYORÍA: aparece cuando al menos dos entradas son 1 —Cout=(A·B)+(Cin·(A⊕B))—. Es el ladrillo con el que se construye toda la aritmética.",
+        "icono": "➕",
+        "nombre": "Sumador completo (S=A⊕B⊕Cin)",
+      },
+      {
+        "descripcion": "n sumadores completos en cadena: el acarreo de cada etapa alimenta a la siguiente. Suma palabras de n bits y produce un acarreo final. Sencillo y regular; su único costo es que el acarreo debe "propagarse" bit a bit (de ahí los sumadores rápidos, que aquí no cambian el resultado lógico).",
+        "icono": "🔗",
+        "nombre": "Sumador de acarreo propagado (ripple)",
+      },
+      {
+        "descripcion": "No hace falta un circuito de resta: como −B = ¬B + 1, restar es sumar el complemento. Se invierte B y se fuerza el acarreo inicial Cin=1, y el mismo sumador resta. Un bit de control elige sumar o restar. El error clásico: invertir B pero olvidar el +1 (Cin=1), que deja el resultado corrido en una unidad.",
+        "icono": "🔄",
+        "nombre": "Resta por complemento a 2 (A−B=A+¬B+1)",
+      },
+      {
+        "descripcion": "El overflow con signo se detecta por dos vías equivalentes: signos iguales de los operandos y distinto del resultado, o acarreo Cin_MSB⊕Cout_MSB del bit más significativo. El comparador de magnitud decide A>B/A=B/A<B recorriendo desde el MSB —el primer bit distinto decide— y la igualdad es el AND de los XNOR bit a bit.",
+        "icono": "⚠️",
+        "nombre": "Desbordamiento y comparación",
+      },
+    ],
+    "duracion": 30,
+    "mision": [
+      "EXPLORA · Elige un bloque y condúcelo en vivo. Recorre las 8 filas del sumador completo (suma = paridad, acarreo = mayoría). Cambia A, B y Cin en el sumador de n bits y sigue la cadena de acarreo, leyendo el resultado sin signo y con signo. Con el comparador, cambia A y B y observa cómo el primer bit distinto desde el MSB decide gt/eq/lt.",
+      "APLICA · Comprueba las ideas potentes: que A−B = A+¬B+1 da el mismo resultado que restar directamente; que el desbordamiento con signo lo detectan por igual el método de signos y el del acarreo (Cin_MSB⊕Cout_MSB); y que la igualdad entre A y B es el AND de los XNOR bit a bit.",
+      "RETO · Se te da una resta objetivo A − B. Convierte el sumador en restador: configura la operación sobre B como ¬B (invierte cada bit) y activa el acarreo inicial Cin=1. El sistema califica por separado la operación sobre B y el acarreo: el error clásico es invertir B pero olvidar Cin=1, que produce un resultado con error de una unidad.",
+    ],
+    "subtitulo": "Sistemas Digitales · Aritmética binaria · Acarreo y complemento a 2",
+    "titulo": "Sumadores y Comparadores Binarios",
+    "videoUrl": "",
+  },
   "mecanica-8": {
     "acento": "#2A9D8F",
     "aplicaciones": [
@@ -5714,6 +6147,114 @@ Cada decisión tiene consecuencia física. ¡A energizar con seguridad!",
     ],
     "subtitulo": "Autotrónica · Armado, fundamento y diagnóstico",
     "titulo": "Batería de Alto Voltaje y BMS",
+  },
+  "mecanica-80": {
+    "acento": "#8AB4F8",
+    "aplicaciones": [
+      {
+        "area": "Relojes, temporizadores y divisores de frecuencia",
+        "ejemplo": "Un reloj digital es una cadena de contadores módulo N: módulo 10 y módulo 6 para los segundos y minutos (0..59), módulo 24 o 12 para las horas. Los divisores de frecuencia de un microcontrolador o de un sintetizador PLL son contadores que producen un flanco de salida cada N flancos de entrada; el módulo elegido fija la frecuencia.",
+      },
+      {
+        "area": "Direccionamiento y secuenciadores",
+        "ejemplo": "El contador de programa (PC) de un procesador y los generadores de dirección que barren una memoria o un framebuffer son contadores síncronos. Los secuenciadores de estados de una máquina de control (semáforos, lavadoras, control de motores paso a paso) recorren un número fijo de pasos: exactamente un contador módulo N con su detección de terminal.",
+      },
+      {
+        "area": "Instrumentación y adquisición de datos",
+        "ejemplo": "Los frecuencímetros y los conversores analógico-digitales de aproximaciones/rampa cuentan pulsos durante una ventana de tiempo; el contador síncrono garantiza que todos los bits se lean sin los glitches de un contador ripple. La detección de estados no usados (autocorrección) evita que un pico de ruido deje el instrumento contando fuera de rango.",
+      },
+    ],
+    "bienvenida": "Un reloj digital que cuenta segundos de 0 a 59, un divisor de frecuencia, la dirección que recorre una memoria: detrás de todos ellos hay un CONTADOR, y detrás de cada contador hay unas pocas celdas de memoria de un bit sincronizadas por un reloj común. Este laboratorio te lleva desde esa celda —el flip-flop— hasta diseñar un contador que cuente exactamente hasta donde tú quieras.
+
+El punto de partida es el FLIP-FLOP, la memoria de un bit. Lo que lo define es su ECUACIÓN CARACTERÍSTICA: cómo cambia su salida Q en cada flanco de reloj. El flip-flop D simplemente copia su entrada (Qn = D); el flip-flop T conmuta cuando T=1 y retiene cuando T=0 (Qn = Q ⊕ T); y el flip-flop JK, el más versátil, hace las cuatro cosas posibles —retener, poner a 0, poner a 1 y conmutar— según Qn = J·Q' + K'·Q. Cuando quieres DISEÑAR en lugar de analizar, le das la vuelta a la pregunta con la TABLA DE EXCITACIÓN: dada la transición que necesitas (Q→Qn), ¿qué debes poner en las entradas? En el JK la mitad de esas respuestas son "no importa" (don't care), y esa libertad es justo lo que permite construir circuitos con menos compuertas.
+
+Con esas celdas se arma un CONTADOR SÍNCRONO: varios flip-flops que comparten el mismo reloj, de modo que todos cambian a la vez y ninguno hereda el retardo del anterior (esa es la diferencia clave con el contador asíncrono o "ripple"). Con n flip-flops el conteo natural llega hasta 2ⁿ−1 (módulo 2ⁿ). Pero casi siempre queremos un MÓDULO N distinto: contar 0..9 (una década), 0..5 (los segundos de un reloj), 0..11 (las horas). El truco es detectar el estado terminal DET = N−1 y, en el siguiente flanco, borrar de forma síncrona a 0. Así el ciclo es 0,1,…,N−1 con periodo N y n = ⌈log₂ N⌉ flip-flops. Aquí acecha el error más común de todos: detectar N en vez de N−1. Contar 0..N son N+1 estados, así que te queda un contador módulo N+1, uno de más. Un buen diseño, además, es AUTOCORRECTIVO: si un glitch lo deja en un estado no usado, en unos flancos regresa solo al ciclo válido. Verifiqué cada pieza numéricamente y de forma exhaustiva: la ecuación del JK (8/8), las tablas de excitación con todos sus don't-care, el contador binario de 1 a 4 bits y el contador módulo N para N de 2 a 16 (secuencia, periodo, error off-by-one y autocorrección).",
+    "codigo": "MEC-80",
+    "conceptos": [
+      {
+        "descripcion": "La celda de memoria de un bit. Su ecuación característica dice cómo cambia Q en cada flanco: D copia (Qn=D), T conmuta o retiene (Qn=Q⊕T) y JK hace las cuatro operaciones (Qn=J·Q'+K'·Q). Con J=K el JK se comporta como un T. Es el ladrillo de toda la lógica secuencial.",
+        "icono": "🔲",
+        "nombre": "Flip-flop y ecuación característica",
+      },
+      {
+        "descripcion": "El reverso de la ecuación característica: dada la transición deseada Q→Qn, ¿qué entrada la produce? En el flip-flop JK la mitad de las celdas son "don't care" (x) —por ejemplo, para ir de 0 a 0 basta J=0 y K da igual—. Esos x se aprovechan al simplificar y dan circuitos con menos compuertas.",
+        "icono": "🧩",
+        "nombre": "Tabla de excitación (con don't care)",
+      },
+      {
+        "descripcion": "Varios flip-flops con un RELOJ COMÚN: todos cambian a la vez, sin acumular retardos (a diferencia del contador asíncrono/ripple). El estado avanza state→(state+1) mód 2ⁿ. Con flip-flops T, el bit i conmuta sólo cuando todos los de menor peso valen 1: T_i = Q0·Q1···Q(i-1).",
+        "icono": "🔗",
+        "nombre": "Contador síncrono módulo 2ⁿ",
+      },
+      {
+        "descripcion": "Para contar 0..N−1 se detecta el estado terminal DET=N−1 y un borrado síncrono vuelve a 0 (n=⌈log₂N⌉ flip-flops). El error clásico: detectar N en vez de N−1 cuenta un estado de más → módulo N+1. Un buen diseño es autocorrectivo: desde estados no usados regresa al ciclo.",
+        "icono": "🔟",
+        "nombre": "Módulo N, borrado síncrono y error off-by-one",
+      },
+    ],
+    "duracion": 30,
+    "mision": [
+      "EXPLORA · Elige un bloque y condúcelo en vivo. Cambia el tipo de flip-flop (D/JK/T) y sus entradas y lee la ecuación característica y el próximo estado. Cambia el número de bits del contador binario y observa las entradas de cada flip-flop para avanzar (con T, el bit i conmuta cuando todos los de abajo valen 1). Recorre el anillo de estados de un contador módulo N y localiza el terminal y el borrado.",
+      "APLICA · Compara las tablas de excitación de los tres flip-flops y sus "don't care". Diseña un contador módulo N paso a paso (n=⌈log₂N⌉, DET=N−1, secuencia) y comprueba, al lado, cómo detectar N en vez de N−1 produce un módulo N+1. Verifica que el diseño es autocorrectivo: desde un estado no usado regresa al ciclo válido.",
+      "RETO · Se te da un objetivo (un módulo N concreto, como una década 0..9 o los segundos 0..5). Construye el contador: fija la detección del terminal en DET=N−1 y activa el borrado síncrono. El sistema califica por separado el terminal y el borrado; cuidado con los dos errores: DET=N cuenta uno de más (módulo N+1) y sin borrado el contador corre libre hasta 2ⁿ−1.",
+    ],
+    "subtitulo": "Sistemas Digitales · Lógica secuencial · Flip-flops y tablas de excitación",
+    "titulo": "Contadores Síncronos Módulo N",
+    "videoUrl": "",
+  },
+  "mecanica-81": {
+    "acento": "#8AB4F8",
+    "aplicaciones": [
+      {
+        "area": "Comunicación serie: UART, SPI, I²S",
+        "ejemplo": "Todo enlace serie es un PISO emisor y un SIPO receptor. En SPI, un registro de desplazamiento del maestro saca los bits por MOSI mientras otro del esclavo los recibe, sincronizados por el reloj SCLK; en la UART, el registro convierte cada byte a un flujo de bits y viceversa. Enviar MSB o LSB primero es justo elegir la dirección de desplazamiento.",
+      },
+      {
+        "area": "Expansión de entradas y salidas (E/S) con pocos pines",
+        "ejemplo": "Un microcontrolador enciende decenas de LEDs o lee muchos botones con apenas dos o tres pines usando registros de desplazamiento: un SIPO (74HC595) expande salidas —tiras de LED direccionables, displays de 7 segmentos multiplexados— y un PISO (74HC165) lee bancos de interruptores o teclados matriciales. Se ahorran conductores y pines a cambio de unos pocos flancos de reloj.",
+      },
+      {
+        "area": "Generación de fases, secuenciadores y patrones",
+        "ejemplo": "Los contadores de anillo y Johnson generan relojes multifase y secuencias sin necesidad de decodificar: un anillo controla directamente las bobinas de un motor paso a paso o las fases de un semáforo, y un Johnson produce ondas cuasi-senoidales por escalones o relojes con solape del 50%. Sus variantes con realimentación lineal (LFSR) generan secuencias pseudoaleatorias y códigos CRC.",
+      },
+    ],
+    "bienvenida": "Cada vez que un teclado, un ratón o un sensor mandan datos por un solo cable, y cada vez que un microcontrolador enciende decenas de LEDs con apenas tres pines, hay un REGISTRO DE DESPLAZAMIENTO trabajando en silencio. Este laboratorio te lleva desde esa idea —mover los bits una posición en cada flanco de reloj— hasta las dos conversiones que hacen posible casi toda la comunicación digital: de serie a paralelo y de paralelo a serie.
+
+Un registro de desplazamiento es una fila de flip-flops encadenados que comparten un RELOJ COMÚN. En cada flanco, la salida de cada celda pasa a la siguiente, así que todos los bits AVANZAN una posición a la vez. Por un extremo entra un bit nuevo (la entrada serie, SIN) y por el otro sale el que ya no cabe (la salida serie, SOUT). Desplazar a la DERECHA (el bit entra por el más significativo y sale por el menos significativo) equivale, si entra un 0, a DIVIDIR el número entre 2; desplazar a la IZQUIERDA equivale a MULTIPLICAR por 2 (módulo 2ⁿ: el bit que se sale se pierde). Con esa mecánica tan simple se construyen dos conversores fundamentales.
+
+El SIPO (serie a paralelo) recibe una palabra bit a bit por un solo cable —enviando el bit más significativo primero— y, tras n flancos, la presenta completa en paralelo: es el corazón de la recepción serie (la idea detrás de UART y SPI) y la forma de expandir las entradas de un microcontrolador. El PISO (paralelo a serie) hace lo contrario: carga una palabra en paralelo y n flancos la transmiten por un solo cable. Un PISO emisor y un SIPO receptor forman un ENLACE SERIE completo; pero sólo funciona si ambos desplazan en la MISMA dirección (o los bits llegan invertidos) y si se dan EXACTAMENTE n flancos (o la palabra queda truncada). Por último, si un registro REALIMENTA su salida serie a su entrada se convierte en un contador: el de ANILLO (un solo 1 que circula, one-hot) tiene periodo n, y el de JOHNSON (realimenta la salida NEGADA) tiene periodo 2n con el mismo hardware. Verifiqué cada pieza numéricamente y de forma exhaustiva: el ÷2/×2 (n=2..8), la reconstrucción SIPO y la salida PISO con su round-trip (n=2..8), el anillo one-hot de periodo n (n=2..10), el Johnson de periodo 2n (n=2..8) y el enlace serie con su inversión y truncamiento.",
+    "codigo": "MEC-81",
+    "conceptos": [
+      {
+        "descripcion": "Una fila de flip-flops con reloj común: en cada flanco los bits avanzan una posición. A la derecha Q_i←Q_{i+1} (entra por el MSB, sale por el LSB) y con serial-in=0 equivale a dividir entre 2; a la izquierda Q_i←Q_{i-1} (entra por el LSB, sale por el MSB) y equivale a multiplicar por 2 (mód 2ⁿ, el bit que se sale se pierde).",
+        "icono": "➡️",
+        "nombre": "Desplazamiento: ÷2 y ×2",
+      },
+      {
+        "descripcion": "Recibe una palabra bit a bit por un solo cable, enviando el MSB primero; tras n flancos la presenta completa en paralelo. Es la recepción serie (UART/SPI) y la manera de expandir entradas de un microcontrolador. Circuito típico: 74x164.",
+        "icono": "🧩",
+        "nombre": "SIPO: serie → paralelo",
+      },
+      {
+        "descripcion": "El inverso del SIPO: carga una palabra en paralelo y n flancos la transmiten por un solo cable (MSB primero). Es la transmisión serie y la lectura de muchas entradas con pocos pines. Circuito típico: 74x165. PISO + SIPO = enlace serie completo.",
+        "icono": "📤",
+        "nombre": "PISO: paralelo → serie",
+      },
+      {
+        "descripcion": "Si el registro realimenta su salida serie a su entrada, se vuelve contador: el de anillo (one-hot, un solo 1 circulando) tiene periodo n; el Johnson realimenta la salida NEGADA y tiene periodo 2n con el mismo hardware, cambiando un bit por flanco (menos glitches).",
+        "icono": "🔄",
+        "nombre": "Contadores de anillo y Johnson",
+      },
+    ],
+    "duracion": 30,
+    "mision": [
+      "EXPLORA · Elige un bloque y condúcelo en vivo. En el registro de desplazamiento, cambia la dirección y la entrada serie (SIN) y pulsa el flanco de reloj: verás avanzar los bits, entrar uno nuevo y salir otro por el serial-out (a la derecha con SIN=0 el valor se divide entre 2; a la izquierda se multiplica por 2). Pasa al contador de anillo (un 1 que circula) y al Johnson (la realimentación negada duplica el conteo).",
+      "APLICA · Recorre las conversiones con sus diagramas de tiempos. En SIPO, los bits entran en serie (MSB primero) y tras n flancos la palabra queda completa en paralelo. En PISO, se carga la palabra y n flancos la sacan por un cable (el round-trip PISO→SIPO la recupera intacta). Compara el anillo (periodo n) y el Johnson (periodo 2n) con el mismo número de flip-flops.",
+      "RETO · Recupera una palabra por un enlace serie. El emisor la manda por un cable, MSB primero; configura el receptor SIPO eligiendo la DIRECCIÓN de desplazamiento (izquierda, para conservar el orden) y el NÚMERO DE FLANCOS (igual a n). El sistema califica por separado ambas decisiones; cuidado con los dos errores: a la derecha se invierten los bits y con menos de n flancos la palabra queda truncada.",
+    ],
+    "subtitulo": "Sistemas Digitales · Lógica secuencial · Conversión serie/paralelo y contadores de anillo/Johnson",
+    "titulo": "Registros de Desplazamiento · SIPO / PISO",
+    "videoUrl": "",
   },
   "mecanica-9": {
     "acento": "#2A9D8F",
@@ -16100,7 +16641,17 @@ exports[`golden master — stores de datos (invariante ante la migración a src/
   "mecanica-7": [],
   "mecanica-70": [],
   "mecanica-71": [],
+  "mecanica-72": [],
+  "mecanica-73": [],
+  "mecanica-74": [],
+  "mecanica-75": [],
+  "mecanica-76": [],
+  "mecanica-77": [],
+  "mecanica-78": [],
+  "mecanica-79": [],
   "mecanica-8": [],
+  "mecanica-80": [],
+  "mecanica-81": [],
   "mecanica-9": [],
   "quimica-1": [
     {
@@ -16406,7 +16957,17 @@ exports[`golden master — stores de datos (invariante ante la migración a src/
   "mecanica-7",
   "mecanica-70",
   "mecanica-71",
+  "mecanica-72",
+  "mecanica-73",
+  "mecanica-74",
+  "mecanica-75",
+  "mecanica-76",
+  "mecanica-77",
+  "mecanica-78",
+  "mecanica-79",
   "mecanica-8",
+  "mecanica-80",
+  "mecanica-81",
   "mecanica-9",
   "quimica-1",
   "quimica-10",

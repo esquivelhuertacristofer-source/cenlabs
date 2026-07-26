@@ -76,6 +76,6 @@ describe('golden master — catálogo por categoría (invariante ante extracció
       'Genética y Evolución',
       'Anatomía y Ecología',
     ]);
-    expect(modulosDe('mecanica')).toEqual(['Autotrónica', 'Mecatrónica', 'Instrumentación', 'Circuitos Eléctricos', 'Electrónica']);
+    expect(modulosDe('mecanica')).toEqual(['Autotrónica', 'Mecatrónica', 'Instrumentación', 'Circuitos Eléctricos', 'Electrónica', 'Sistemas Digitales']);
   });
 });
