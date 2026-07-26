@@ -1,0 +1,9 @@
+{
+  "donor": "escaner-obd.html",
+  "out": "ladder-arranque-paro.html",
+  "title": "CEN Labs · Arranque-Paro con Sello y Enclavamientos en Ladder — Laboratorio 3D",
+  "lt": "Lógica de contactos · Sistemas Digitales",
+  "inspectHint": "👆 Toca el pizarrón o el tablero para inspeccionar el programa ladder",
+  "body": "ladder-arranque-paro.body.js",
+  "fichas": ["_ficha-tecnica.js", "_ficha-ladder-arranque-paro.js"]
+}
