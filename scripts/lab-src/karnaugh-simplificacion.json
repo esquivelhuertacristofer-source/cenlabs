@@ -1,0 +1,9 @@
+{
+  "donor": "escaner-obd.html",
+  "out": "karnaugh-simplificacion.html",
+  "title": "CEN Labs · Síntesis Lógica y Simplificación con Mapas de Karnaugh — Laboratorio 3D",
+  "lt": "Mapas de Karnaugh · Sistemas Digitales",
+  "inspectHint": "👆 Toca el pizarrón (tabla, mapa y expresión) o el entrenador lógico",
+  "body": "karnaugh-simplificacion.body.js",
+  "fichas": ["_ficha-tecnica.js", "_ficha-karnaugh-simplificacion.js"]
+}

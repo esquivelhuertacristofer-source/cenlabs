@@ -1,0 +1,1220 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>CEN Labs · Síntesis Lógica y Simplificación con Mapas de Karnaugh — Laboratorio 3D</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#08201C;--panel:rgba(9,26,23,.86);--line:#1E3A34;--ink:#EAF4F1;
+    --dim:#8FB3AC;--accent:#2A9D8F;--accent2:#4FD1C5;--hv:#FFB703;--good:#34d399;--bad:#f4475e;
+    --mono:'Outfit',system-ui,'Segoe UI',Roboto,sans-serif;--disp:'Outfit','Arial Black',Impact,sans-serif;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  html,body{height:100%;background:var(--bg);color:var(--ink);font-family:'Outfit',system-ui,Segoe UI,Roboto,sans-serif}
+  body{overflow:hidden}
+  #stage{position:fixed;inset:0}
+  canvas{display:block;touch-action:none}
+
+  .topbar{position:fixed;top:0;left:0;right:0;height:56px;display:flex;align-items:center;gap:14px;padding:0 20px;z-index:20;background:linear-gradient(180deg,rgba(10,13,18,.92),transparent);pointer-events:none}
+  .brand{font-family:var(--disp);font-weight:bold;font-size:16px;text-transform:uppercase}
+  .brand span{color:var(--accent)}
+  .lt{font-family:var(--mono);font-size:11px;letter-spacing:.1em;text-transform:uppercase;color:var(--dim)}
+
+  .badge{position:fixed;top:16px;right:20px;z-index:20;font-family:var(--mono);font-size:9px;letter-spacing:.12em;text-transform:uppercase;background:rgba(255,209,102,.12);color:var(--hv);border:1px solid rgba(255,209,102,.35);padding:6px 12px;border-radius:20px}
+
+  .hud{position:fixed;top:70px;left:18px;z-index:15;max-width:330px;background:var(--panel);backdrop-filter:blur(14px);border:1px solid var(--line);border-radius:16px;padding:18px 20px;max-height:calc(100vh - 150px);overflow-y:auto}
+  .hud .eyebrow{font-family:var(--mono);font-size:10px;letter-spacing:.18em;text-transform:uppercase;color:var(--accent);margin-bottom:8px}
+  .hud h2{font-size:19px;line-height:1.15;margin-bottom:9px}
+  .hud p{font-size:13px;line-height:1.55;color:var(--dim);margin-bottom:10px}
+  .hud .formula{font-family:var(--mono);color:var(--accent2);text-align:center;font-size:12.5px;margin:8px 0;padding:8px;background:rgba(0,0,0,.25);border-radius:8px;line-height:1.5}
+  .hud .src{font-size:10.5px;color:#7a8894;font-style:italic;margin-top:4px;line-height:1.5}
+  .legend{display:flex;flex-direction:column;gap:6px;margin:12px 0;padding:10px 12px;background:rgba(0,0,0,.22);border-radius:10px}
+  .legend .li{display:flex;align-items:center;gap:8px;font-size:11px;color:#c4d0da}
+  .legend .dot{width:10px;height:10px;border-radius:50%;flex:0 0 auto}
+  .fid{margin:10px 0 2px;padding:10px 12px;background:rgba(0,0,0,.22);border-radius:10px;border:1px solid rgba(79,209,197,.18)}
+  .fid .ft{font-family:var(--mono);font-size:9.5px;letter-spacing:.14em;text-transform:uppercase;color:var(--accent2);margin-bottom:6px}
+  .fid .fl{font-size:11px;color:#c4d0da;line-height:1.5;margin-bottom:5px}
+  .fid .fl b{color:var(--ink)}
+  .fid .fl.no b{color:var(--hv)}
+
+  .panel{position:fixed;top:70px;right:18px;z-index:15;width:262px;background:var(--panel);backdrop-filter:blur(14px);border:1px solid var(--line);border-radius:16px;padding:16px;max-height:calc(100vh - 150px);overflow-y:auto}
+  .panel h4{font-family:var(--mono);font-size:10px;letter-spacing:.14em;text-transform:uppercase;color:var(--dim);margin:2px 0 10px}
+  .panel h4.sec{margin-top:16px;border-top:1px solid var(--line);padding-top:14px}
+  .g{margin-bottom:6px}
+  .gl{display:flex;justify-content:space-between;font-family:var(--mono);font-size:11px;color:var(--dim)}
+  .gl b{color:var(--accent2)}
+  .gl b.good{color:var(--good)}.gl b.warn{color:var(--hv)}.gl b.bad{color:var(--bad)}
+  .modebar{display:flex;gap:5px;margin-bottom:8px}
+  .modebar .b{flex:1;padding:8px 4px;font-size:11px}
+  .btns{display:flex;flex-direction:column;gap:7px;margin-top:6px}
+  .b{font-family:system-ui;font-size:12.5px;padding:10px;border-radius:9px;cursor:pointer;border:1px solid var(--line);background:#1b242f;color:var(--ink);transition:.15s;text-align:center}
+  .b:hover{border-color:var(--accent);background:#202c38}
+  .b.on{background:var(--accent);color:#06120f;border-color:var(--accent);font-weight:bold}
+  .b.primary{background:var(--accent);color:#06120f;border-color:var(--accent);font-weight:bold}
+  .b.auto{border-color:var(--hv);color:var(--hv);background:rgba(255,183,3,.10);font-weight:bold}
+  .b.auto:hover{background:rgba(255,183,3,.18);border-color:var(--hv)}
+  .b.auto:disabled{opacity:.6;cursor:default}
+  .b.dx{text-align:left;font-size:12px}
+  .b.dx.right{background:rgba(52,211,153,.18);border-color:var(--good);color:var(--good);font-weight:bold}
+  .b.dx.wrong{background:rgba(244,71,94,.15);border-color:var(--bad);color:var(--bad)}
+  .console{font-family:var(--mono);font-size:11px;line-height:1.55;color:#c4d0da;background:rgba(0,0,0,.28);border-radius:9px;padding:10px 12px;margin-bottom:8px;min-height:56px}
+  .console .dtc{color:var(--bad);font-weight:bold}
+  .console .ok{color:var(--good)}
+  .console .mono{color:var(--dim)}
+
+  .hint{position:fixed;bottom:18px;left:18px;z-index:14;font-family:var(--mono);font-size:10px;color:var(--dim);background:var(--panel);padding:7px 12px;border-radius:9px;border:1px solid var(--line)}
+  .toast{position:fixed;top:80px;left:50%;transform:translateX(-50%);z-index:30;background:rgba(18,24,32,.95);border:1px solid var(--accent);padding:10px 20px;border-radius:40px;font-family:var(--mono);font-size:12px;opacity:0;transition:.3s;pointer-events:none;max-width:80vw;text-align:center}
+  .toast.show{opacity:1}
+  .soundBtn{position:fixed;top:14px;right:18px;z-index:21;font-size:16px;background:var(--panel);backdrop-filter:blur(12px);border:1px solid var(--line);border-radius:50%;width:36px;height:36px;cursor:pointer;color:var(--dim);transition:.15s}
+  .soundBtn.on{color:var(--accent);border-color:var(--accent)}
+  .soundBtn:hover{transform:scale(1.08)}
+  .inspectHint{position:fixed;bottom:18px;right:18px;z-index:14;font-family:var(--mono);font-size:10px;color:var(--accent2);background:var(--panel);padding:7px 12px;border-radius:9px;border:1px solid var(--line)}
+
+  @media(max-width:820px){
+    .hud,.panel{position:fixed;left:8px;right:8px;top:auto;bottom:8px;max-width:none;width:auto;max-height:42vh;overflow-y:auto}
+    .hud{bottom:calc(8px + 42vh + 8px)}
+    .hint,.inspectHint{display:none}
+  }
+</style>
+</head>
+<body>
+<div id="stage"></div>
+<button class="soundBtn on" id="soundBtn">🔊</button>
+<div class="topbar">
+  <div class="brand">CEN<span> Labs</span></div>
+  <div class="lt">Mapas de Karnaugh · Sistemas Digitales</div>
+</div>
+<div class="hud" id="hud"></div>
+<div class="panel" id="panel"></div>
+<div class="hint">Arrastra para orbitar · rueda para zoom</div>
+<div class="inspectHint">👆 Toca el pizarrón (tabla, mapa y expresión) o el entrenador lógico</div>
+<div class="toast" id="toast"></div>
+
+<script type="importmap">
+{ "imports": {
+  "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.min.js",
+  "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/"
+}}
+</script>
+<script type="module">
+import * as THREE from 'three';
+import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
+import { RoundedBoxGeometry } from 'three/addons/geometries/RoundedBoxGeometry.js';
+import { EffectComposer } from 'three/addons/postprocessing/EffectComposer.js';
+import { RenderPass } from 'three/addons/postprocessing/RenderPass.js';
+import { GTAOPass } from 'three/addons/postprocessing/GTAOPass.js';
+import { UnrealBloomPass } from 'three/addons/postprocessing/UnrealBloomPass.js';
+import { SMAAPass } from 'three/addons/postprocessing/SMAAPass.js';
+import { OutputPass } from 'three/addons/postprocessing/OutputPass.js';
+import { BokehPass } from 'three/addons/postprocessing/BokehPass.js';
+
+/* ============================================================
+   Texturas PBR procedurales (sin archivos externos) — compartidas
+   ============================================================ */
+function cv(s=512){const c=document.createElement('canvas');c.width=c.height=s;return c;}
+function tex(canvas,repeat=1,srgb=false){
+  const t=new THREE.CanvasTexture(canvas);
+  t.wrapS=t.wrapT=THREE.RepeatWrapping;t.repeat.set(repeat,repeat);
+  t.colorSpace = srgb?THREE.SRGBColorSpace:THREE.NoColorSpace;
+  t.generateMipmaps=false; t.minFilter=THREE.LinearFilter; t.anisotropy=1; return t;
+}
+function normalFromHeight(size, hfn, strength=2.0){
+  const c=cv(size),ctx=c.getContext('2d'),img=ctx.createImageData(size,size);
+  const H=(x,y)=>hfn((x+size)%size,(y+size)%size);
+  for(let y=0;y<size;y++)for(let x=0;x<size;x++){
+    const dx=(H(x+1,y)-H(x-1,y))*strength;
+    const dy=(H(x,y+1)-H(x,y-1))*strength;
+    const nz=1.0; const len=Math.hypot(dx,dy,nz);
+    const i=(y*size+x)*4;
+    img.data[i]  =((-dx/len)*0.5+0.5)*255;
+    img.data[i+1]=((-dy/len)*0.5+0.5)*255;
+    img.data[i+2]=((nz/len)*0.5+0.5)*255;
+    img.data[i+3]=255;
+  }
+  ctx.putImageData(img,0,0);return c;
+}
+function valueNoise(seed=1){
+  const g=(x,y)=>{const s=Math.sin((x*127.1+y*311.7)+seed*13.13)*43758.5453;return s-Math.floor(s);};
+  return (x,y)=>{
+    const xi=Math.floor(x),yi=Math.floor(y),xf=x-xi,yf=y-yi;
+    const u=xf*xf*(3-2*xf),v=yf*yf*(3-2*yf);
+    const a=g(xi,yi),b=g(xi+1,yi),c=g(xi,yi+1),d=g(xi+1,yi+1);
+    return a*(1-u)*(1-v)+b*u*(1-v)+c*(1-u)*v+d*u*v;
+  };
+}
+function fbm(noise,x,y,oct=4){let v=0,a=0.5,f=1;for(let i=0;i<oct;i++){v+=noise(x*f,y*f)*a;f*=2;a*=0.5;}return v;}
+
+function castAluminum(){
+  const S=512, n=valueNoise(7);
+  const c=cv(S),ctx=c.getContext('2d'),img=ctx.createImageData(S,S);
+  for(let y=0;y<S;y++)for(let x=0;x<S;x++){
+    const v=fbm(n,x/22,y/22,5);
+    const por=Math.pow(n(x/3.1,y/3.1),8);
+    const base=150+v*38-por*70;
+    const i=(y*S+x)*4; img.data[i]=base; img.data[i+1]=base+4; img.data[i+2]=base+10; img.data[i+3]=255;
+  }
+  ctx.putImageData(img,0,0);
+  const r=cv(S),rx=r.getContext('2d'),rimg=rx.createImageData(S,S);
+  for(let y=0;y<S;y++)for(let x=0;x<S;x++){
+    const v=fbm(n,x/18,y/18,4); const por=Math.pow(n(x/3.1,y/3.1),8);
+    const rough=120+v*40+por*90; const i=(y*S+x)*4;
+    rimg.data[i]=rimg.data[i+1]=rimg.data[i+2]=Math.min(255,rough); rimg.data[i+3]=255;
+  }
+  rx.putImageData(rimg,0,0);
+  const nrm=normalFromHeight(S,(x,y)=>fbm(n,x/16,y/16,5)+Math.pow(n(x/3.1,y/3.1),8)*0.6,3.0);
+  return {map:tex(c,1,true),roughnessMap:tex(r),normalMap:tex(nrm)};
+}
+function brushedMetal(){
+  const S=512, n=valueNoise(3);
+  const c=cv(S),ctx=c.getContext('2d'),img=ctx.createImageData(S,S);
+  for(let y=0;y<S;y++)for(let x=0;x<S;x++){
+    const streak=Math.sin(y*0.9)*2 + (n(x/120,y*0.5)-0.5)*40;
+    const base=185+streak; const i=(y*S+x)*4;
+    img.data[i]=base; img.data[i+1]=base+2; img.data[i+2]=base+6; img.data[i+3]=255;
+  }
+  ctx.putImageData(img,0,0);
+  const r=cv(S),rx=r.getContext('2d'),rimg=rx.createImageData(S,S);
+  for(let y=0;y<S;y++)for(let x=0;x<S;x++){
+    const streak=(n(x/120,y*0.5)-0.5)*60; const rough=40+Math.abs(streak); const i=(y*S+x)*4;
+    rimg.data[i]=rimg.data[i+1]=rimg.data[i+2]=Math.min(160,rough); rimg.data[i+3]=255;
+  }
+  rx.putImageData(rimg,0,0);
+  const nrm=normalFromHeight(S,(x,y)=>(n(x/120,y*0.5))*0.3+Math.sin(y*0.9)*0.02,1.2);
+  return {map:tex(c,1,true),roughnessMap:tex(r),normalMap:tex(nrm)};
+}
+function rubber(){
+  const S=256,n=valueNoise(5);
+  const nrm=normalFromHeight(S,(x,y)=>fbm(n,x/8,y/8,4),1.4);
+  const rough=cv(64),rc=rough.getContext('2d');rc.fillStyle='#e0e0e0';rc.fillRect(0,0,64,64);
+  return {roughnessMap:tex(rough),normalMap:tex(nrm,2)};
+}
+function gradientBG(top='#11161d',bottom='#05070a'){
+  const c=cv(512),ctx=c.getContext('2d');
+  const grd=ctx.createLinearGradient(0,0,0,512);
+  grd.addColorStop(0,top);grd.addColorStop(1,bottom);
+  ctx.fillStyle=grd;ctx.fillRect(0,0,512,512);
+  const rg=ctx.createRadialGradient(256,200,30,256,256,360);
+  rg.addColorStop(0,'rgba(42,157,143,0.10)');rg.addColorStop(1,'rgba(0,0,0,0)');
+  ctx.fillStyle=rg;ctx.fillRect(0,0,512,512);
+  return tex(c,1,true);
+}
+function techPlastic(r=0.10,g=0.11,b=0.13){
+  const S=256,n=valueNoise(31);
+  const c=cv(S),ctx=c.getContext('2d'),img=ctx.createImageData(S,S);
+  for(let y=0;y<S;y++)for(let x=0;x<S;x++){
+    const v=fbm(n,x/30,y/30,3)*0.1+0.92; const i=(y*S+x)*4;
+    img.data[i]=r*255*v;img.data[i+1]=g*255*v;img.data[i+2]=b*255*v;img.data[i+3]=255;
+  }
+  ctx.putImageData(img,0,0);
+  const nrm=normalFromHeight(S,(x,y)=>fbm(n,x/10,y/10,3),0.8);
+  const rough=cv(64),rc=rough.getContext('2d');rc.fillStyle='#9a9a9a';rc.fillRect(0,0,64,64);
+  return {map:tex(c,1,true),roughnessMap:tex(rough),normalMap:tex(nrm)};
+}
+
+/* ============================================================
+   ENGINE — render premium compartido por todos los laboratorios
+   ============================================================ */
+function createStage(mount, opts={}){
+  const bgTop = opts.bgTop||'#141b24', bgBot = opts.bgBot||'#05070a';
+  const renderer = new THREE.WebGLRenderer({ antialias:true, powerPreference:'high-performance' });
+  renderer.setPixelRatio(Math.min(devicePixelRatio,2));
+  renderer.setSize(mount.clientWidth, mount.clientHeight);
+  renderer.shadowMap.enabled = true;
+  renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+  renderer.toneMapping = THREE.ACESFilmicToneMapping;
+  renderer.toneMappingExposure = opts.exposure ?? 1.18;
+  renderer.outputColorSpace = THREE.SRGBColorSpace;
+  mount.appendChild(renderer.domElement);
+  renderer.domElement.style.touchAction='none';
+
+  const scene = new THREE.Scene();
+  scene.background = gradientBG(bgTop,bgBot);
+  const pmrem = new THREE.PMREMGenerator(renderer);
+  scene.environment = pmrem.fromScene(new RoomEnvironment(renderer), 0.04).texture;
+  scene.environmentIntensity = opts.envInt ?? 1.15;
+
+  const camera = new THREE.PerspectiveCamera(45, mount.clientWidth/mount.clientHeight, 0.1, 200);
+  const cam = opts.cam || [5.5,3.4,6.2];
+  camera.position.set(...cam);
+
+  const controls = new OrbitControls(camera, renderer.domElement);
+  controls.enableDamping = true; controls.dampingFactor = 0.07;
+  controls.minDistance = opts.minD ?? 3; controls.maxDistance = opts.maxD ?? 18;
+  controls.maxPolarAngle = Math.PI*0.52;
+  controls.target.set(...(opts.target||[0,1.4,0]));
+  controls.autoRotate = opts.autoRotate ?? false;
+  controls.autoRotateSpeed = opts.autoRotateSpeed ?? 0.6;
+
+  const key = new THREE.DirectionalLight(0xffffff, 2.7);
+  key.position.set(5,9,6); key.castShadow=true;
+  key.shadow.mapSize.set(2048,2048);
+  key.shadow.camera.near=0.5; key.shadow.camera.far=40;
+  const sd=8; Object.assign(key.shadow.camera,{left:-sd,right:sd,top:sd,bottom:-sd});
+  key.shadow.bias=-0.0003; key.shadow.normalBias=0.02; scene.add(key);
+  const rim = new THREE.SpotLight(0x2affce, 55, 30, Math.PI/5, 0.4, 1.5);
+  rim.position.set(-7,6,-5); scene.add(rim);
+  const fill = new THREE.DirectionalLight(0x6fb6ff, 0.5); fill.position.set(-4,3,7); scene.add(fill);
+  scene.add(new THREE.HemisphereLight(0x9fb4c8, 0x10151b, 0.35));
+
+  if(opts.floor!==false){
+    const f = new THREE.Mesh(new THREE.CircleGeometry(40,80),
+      new THREE.MeshStandardMaterial({ color:0x0a0e13, roughness:0.14, metalness:0.62, envMapIntensity:1.15 }));
+    f.rotation.x=-Math.PI/2; f.receiveShadow=true; scene.add(f);
+    for(let r=2;r<=8;r+=2){
+      const ring=new THREE.Mesh(new THREE.RingGeometry(r-0.012,r+0.012,80),
+        new THREE.MeshBasicMaterial({color:0x1a2632,transparent:true,opacity:0.4}));
+      ring.rotation.x=-Math.PI/2; ring.position.y=0.002; scene.add(ring);
+    }
+  }
+
+  const isMobile = /Mobi|Android|iPhone|iPad/i.test(navigator.userAgent) || innerWidth<820;
+  // GTAO desactivado por defecto: el pase de oclusión ambiental en espacio de pantalla
+  // producía un recuadro oscuro duro sobre el piso reflectante (artefacto dependiente de la
+  // cámara y del renderer). La escena tiene AO suficiente con luces directas + sombras + env.
+  // Se puede reactivar para pruebas con ?gtao.
+  const useGtao = /[?&]gtao\b/.test(location.search);
+  const composer = new EffectComposer(renderer);
+  composer.addPass(new RenderPass(scene,camera));
+  if(!isMobile && useGtao){
+    try{
+      const g=new GTAOPass(scene,camera,mount.clientWidth,mount.clientHeight);
+      g.output=GTAOPass.OUTPUT.Default;
+      if(g.updateGtaoMaterial)g.updateGtaoMaterial({radius:0.5,distanceExponent:1,thickness:1,scale:1.1,samples:16});
+      composer.addPass(g);
+    }catch(e){}
+  }
+  const bloom=new UnrealBloomPass(new THREE.Vector2(mount.clientWidth,mount.clientHeight),opts.bloom??0.42,0.5,0.9);
+  composer.addPass(bloom);
+  let bokeh=null;
+  const flat=/[?&]flat/.test(location.search);
+  if(!isMobile && !flat){
+    bokeh=new BokehPass(scene,camera,{focus:8.5,aperture:opts.aperture??0.00018,maxblur:opts.maxblur??0.004,width:mount.clientWidth,height:mount.clientHeight});
+    composer.addPass(bokeh);
+  }
+  composer.addPass(new OutputPass());
+  composer.addPass(new SMAAPass(mount.clientWidth*renderer.getPixelRatio(),mount.clientHeight*renderer.getPixelRatio()));
+
+  function resize(){
+    const w=mount.clientWidth,h=mount.clientHeight;
+    camera.aspect=w/h; camera.updateProjectionMatrix();
+    renderer.setSize(w,h); composer.setSize(w,h);
+  }
+  window.addEventListener('resize',resize);
+
+  const clock=new THREE.Clock();
+  let hook=null, raf=null;
+  const camCine={active:false,t:0,dur:1.4,from:new THREE.Vector3(),to:new THREE.Vector3(),fromT:new THREE.Vector3(),toT:new THREE.Vector3()};
+  let lastDrag=-99, cinematicIdle=false;
+  controls.addEventListener('start',()=>{ lastDrag=clock.elapsedTime; camCine.active=false; });
+  function easeInOutCubic(x){return x<0.5?4*x*x*x:1-Math.pow(-2*x+2,3)/2;}
+  function moveTo(pos,target,dur=1.4){
+    camCine.from.copy(camera.position); camCine.fromT.copy(controls.target);
+    camCine.to.set(...pos); camCine.toT.set(...target);
+    camCine.dur=dur; camCine.active=true; camCine.t=0;
+  }
+  function setCinematicIdle(v){ cinematicIdle=v; if(!v)controls.autoRotate=false; }
+  function loop(){ raf=requestAnimationFrame(loop); const dt=clock.getDelta(),t=clock.elapsedTime;
+    if(camCine.active){
+      camCine.t=Math.min(1,camCine.t+dt/camCine.dur);
+      const e=easeInOutCubic(camCine.t);
+      camera.position.lerpVectors(camCine.from,camCine.to,e);
+      controls.target.lerpVectors(camCine.fromT,camCine.toT,e);
+      if(camCine.t>=1)camCine.active=false;
+    } else if(cinematicIdle){
+      controls.autoRotate=(t-lastDrag)>1.4; controls.autoRotateSpeed=0.45;
+    }
+    if(hook)hook(dt,t); controls.update();
+    if(bokeh) bokeh.uniforms['focus'].value = camera.position.distanceTo(controls.target);
+    composer.render(); }
+  function start(){ if(!raf)loop(); }
+  function stop(){ cancelAnimationFrame(raf); raf=null; window.removeEventListener('resize',resize); }
+
+  return { THREE, renderer, scene, camera, controls, composer, bloom,
+    setAnimate:fn=>hook=fn, start, stop, resize, clock,
+    flyTo:(v)=>{ controls.target.copy(v); }, moveTo, setCinematicIdle };
+}
+
+/* ---------- shared geometry/material helpers ---------- */
+function roundedBox(w,h,d,mat,rf=0.08){
+  const r=Math.min(w,h,d)*rf;
+  const m=new THREE.Mesh(new RoundedBoxGeometry(w,h,d,4,r),mat);
+  m.castShadow=m.receiveShadow=true; return m;
+}
+function pickerFor(scene,camera,dom,onHit){
+  const ray=new THREE.Raycaster(),mouse=new THREE.Vector2(); let down=null;
+  dom.addEventListener('pointerdown',e=>down=[e.clientX,e.clientY]);
+  dom.addEventListener('pointerup',e=>{
+    if(!down)return; const moved=Math.abs(e.clientX-down[0])+Math.abs(e.clientY-down[1])>6; down=null;
+    if(moved)return;
+    const r=dom.getBoundingClientRect();
+    mouse.x=((e.clientX-r.left)/r.width)*2-1; mouse.y=-((e.clientY-r.top)/r.height)*2+1;
+    ray.setFromCamera(mouse,camera);
+    const hits=ray.intersectObjects(scene.children,true);
+    onHit(hits[0]||null);
+  });
+}
+function labelSprite(text,color='#ffd166'){
+  const w = Math.max(150, Math.min(520, text.length*26+60));
+  const cvE=document.createElement('canvas');cvE.width=w;cvE.height=96;
+  const c=cvE.getContext('2d');c.fillStyle='rgba(8,11,16,.95)';
+  const rr=(x,y,ww,hh,r)=>{c.beginPath();c.moveTo(x+r,y);c.arcTo(x+ww,y,x+ww,y+hh,r);c.arcTo(x+ww,y+hh,x,y+hh,r);c.arcTo(x,y+hh,x,y,r);c.arcTo(x,y,x+ww,y,r);c.closePath();};
+  rr(3,3,w-6,90,18);c.fill();
+  c.strokeStyle=color;c.lineWidth=3;c.stroke();
+  c.font='bold 36px Outfit, system-ui, sans-serif';c.fillStyle=color;c.textAlign='center';c.textBaseline='middle';c.fillText(text,w/2,48);
+  const tx=new THREE.CanvasTexture(cvE);tx.colorSpace=THREE.SRGBColorSpace;tx.generateMipmaps=false;tx.minFilter=THREE.LinearFilter;
+  const sp=new THREE.Sprite(new THREE.SpriteMaterial({map:tx,depthTest:false,transparent:true}));
+  const aspect=w/96;
+  sp.scale.set(0.30*aspect,0.30,1);sp.renderOrder=999;return sp;
+}
+
+/* ============================================================
+   SYNTH — sintetizador Web Audio reutilizable
+   ============================================================ */
+function makeSynth(opts={}){
+  const type=opts.type||'sawtooth';
+  let ctx=null,oscA=null,oscB=null,gain=null,filter=null,soundOn=true;
+  function init(){
+    if(ctx)return;
+    try{
+      ctx=new (window.AudioContext||window.webkitAudioContext)();
+      oscA=ctx.createOscillator(); oscB=ctx.createOscillator();
+      oscA.type=type; oscB.type=opts.type2||'square';
+      filter=ctx.createBiquadFilter(); filter.type=opts.filterType||'lowpass'; filter.frequency.value=opts.filterFreq||500; filter.Q.value=opts.Q||3;
+      gain=ctx.createGain(); gain.gain.value=0;
+      oscA.connect(filter); oscB.connect(filter); filter.connect(gain); gain.connect(ctx.destination);
+      oscA.start(); oscB.start();
+    }catch(e){}
+  }
+  function update(freqA,freqB,vol,filterFreq){
+    if(!ctx||!soundOn){ if(gain)gain.gain.setTargetAtTime(0,ctx?.currentTime||0,0.1); return; }
+    oscA.frequency.setTargetAtTime(freqA,ctx.currentTime,0.04);
+    if(freqB!==undefined)oscB.frequency.setTargetAtTime(freqB,ctx.currentTime,0.04);
+    if(filterFreq!==undefined)filter.frequency.setTargetAtTime(filterFreq,ctx.currentTime,0.05);
+    gain.gain.setTargetAtTime(Math.max(0,vol),ctx.currentTime,0.06);
+  }
+  function beep(freq=880,dur=0.09,vol=0.06){
+    if(!ctx||!soundOn)return;
+    const o=ctx.createOscillator(),g=ctx.createGain();
+    o.type='sine'; o.frequency.value=freq;
+    g.gain.setValueAtTime(vol,ctx.currentTime); g.gain.exponentialRampToValueAtTime(0.001,ctx.currentTime+dur);
+    o.connect(g); g.connect(ctx.destination); o.start(); o.stop(ctx.currentTime+dur);
+  }
+  function toggle(){ soundOn=!soundOn; return soundOn; }
+  function resume(){ if(ctx&&ctx.state==='suspended')ctx.resume(); }
+  return { init, update, beep, toggle, resume, isOn:()=>soundOn, state:()=>ctx?.state||'none' };
+}
+
+// Síntesis de funciones lógicas y simplificación con mapas de Karnaugh (D3 · digital).
+// Física (verificada node -e, 1200/1200 vs fuerza bruta):
+//   Una función lógica de n variables queda definida por su TABLA DE VERDAD (para cada una de las 2^n
+//   combinaciones de entrada, la salida F vale 0 o 1). Los "1" de la tabla son los MINTÉRMINOS.
+//   · FORMA CANÓNICA (suma de mintérminos, SOP): un producto por cada 1, con las n variables → mucha lógica.
+//   · MAPA DE KARNAOUGH: reacomoda la tabla en una rejilla con código Gray (celdas vecinas difieren en UN
+//     solo bit). Agrupar 2^k unos adyacentes elimina k variables (las que cambian dentro del grupo).
+//   · SIMPLIFICACIÓN MÍNIMA: el mínimo coste (literales) se obtiene con implicantes primos (Quine-McCluskey)
+//     y una cobertura exacta de coste mínimo. Coste de un término = n − (variables eliminadas).
+//   COSTE en compuertas (realización AND-OR de 2 niveles): un AND por cada producto de ≥2 literales,
+//     un OR si hay ≥2 términos; los inversores cuentan por variable complementada distinta.
+//   HONESTIDAD: no toda función simplifica. La paridad impar (XOR de 3+ variables) no tiene celdas
+//     adyacentes agrupables → su forma mínima es la canónica (ningún ahorro). El simulador lo muestra.
+//   Ref: IEEE Std 91-1984 (símbolos lógicos) · Mano & Ciletti, "Diseño Digital" · Wakerly, "Digital Design"
+//        · Quine (1952) / McCluskey (1956), minimización de funciones booleanas · verificación numérica propia.
+
+// ===================== 1. ESCENA =====================
+const mount=document.getElementById('stage');
+const S=createStage(mount,{cam:[4.6,2.8,6.9],target:[0.2,1.15,0.3],bgTop:'#0d1017',bgBot:'#05060a',bloom:0.42,minD:3.2,maxD:16});
+const {scene}=S;
+const synth=makeSynth({type:'square',type2:'sine',filterFreq:2400,Q:0.7});
+const el=id=>document.getElementById(id);
+
+// ===================== 2. FÍSICA (motor de minimización — VERIFICADO) =====================
+const VN=['A','B','C','D'];
+function popcount(x){let c=0;while(x){c+=x&1;x>>=1;}return c;}
+function combine(a,b){if(a.mask!==b.mask)return null;const d=a.bits^b.bits;if(d&&(d&(d-1))===0)return{bits:a.bits&~d,mask:a.mask|d};return null;}
+function covers(imp,m){return (m&~imp.mask)===imp.bits;}
+function primeImplicants(minterms,dc){
+  const all=[...new Set([...minterms,...(dc||[])])];
+  let groups=all.map(m=>({bits:m,mask:0}));
+  const primes=[],seen=new Set();const key=i=>i.bits+'/'+i.mask;
+  while(groups.length){
+    const used=new Array(groups.length).fill(false);const next=[],nseen=new Set();
+    for(let i=0;i<groups.length;i++)for(let j=i+1;j<groups.length;j++){
+      const c=combine(groups[i],groups[j]);
+      if(c){used[i]=used[j]=true;const k=key(c);if(!nseen.has(k)){nseen.add(k);next.push(c);}}}
+    for(let i=0;i<groups.length;i++)if(!used[i]){const k=key(groups[i]);if(!seen.has(k)){seen.add(k);primes.push(groups[i]);}}
+    groups=next;
+  }
+  return primes;
+}
+function litCost(imp,n){return n-popcount(imp.mask);}
+function minimize(minterms,n,dc){
+  const MT=[...new Set(minterms)].sort((a,b)=>a-b);
+  if(MT.length===0)return{terms:[],cost:0,nterms:0,special:'0'};
+  const full=1<<n;
+  if(MT.length===full)return{terms:[{bits:0,mask:full-1}],cost:0,nterms:1,special:'1'};
+  const primes=primeImplicants(MT,dc);
+  const P=primes.length, need=(1<<MT.length)-1;
+  const pcov=primes.map(pi=>{let cm=0;MT.forEach((m,i)=>{if(covers(pi,m))cm|=1<<i;});return cm;});
+  let best=null;
+  for(let sub=0;sub<(1<<P);sub++){
+    let cov=0,cost=0,cnt=0;
+    for(let k=0;k<P;k++)if(sub&(1<<k)){cov|=pcov[k];cost+=litCost(primes[k],n);cnt++;}
+    if(cov===need){if(!best||cost<best.cost||(cost===best.cost&&cnt<best.nterms))best={sub,cost,nterms:cnt};}
+  }
+  const chosen=[];for(let k=0;k<P;k++)if(best.sub&(1<<k))chosen.push(primes[k]);
+  return{terms:chosen,cost:best.cost,nterms:chosen.length};
+}
+function termStr(imp,n){let s='';for(let v=0;v<n;v++){const p=1<<(n-1-v);if(imp.mask&p)continue;s+=VN[v]+((imp.bits&p)?'':'′');}return s||'1';}
+function sopStr(terms,n){if(!terms.length)return '0';return terms.map(t=>termStr(t,n)).join(' + ');}
+function evalTerms(terms,m){for(const t of terms)if(covers(t,m))return 1;return 0;}
+function canonList(mts){return mts.map(m=>({bits:m,mask:0}));}
+function gateCost(terms,n){
+  if(terms.length===1&&terms[0].mask===(1<<n)-1)return{and:0,or:0,inv:0,tot:0};   // constante 1
+  if(terms.length===0)return{and:0,or:0,inv:0,tot:0};                              // constante 0
+  let and=0;const invSet=new Set();
+  for(const t of terms){const l=litCost(t,n);if(l>=2)and++;
+    for(let v=0;v<n;v++){const p=1<<(n-1-v);if(t.mask&p)continue;if(!(t.bits&p))invSet.add(v);}}
+  const or=terms.length>=2?1:0;
+  return{and,or,inv:invSet.size,tot:and+or};
+}
+
+// ===================== 3. GEOMETRÍA DEL MAPA (código Gray) =====================
+function grayList(bits){return bits===1?[0,1]:[0,1,3,2];}          // 1 o 2 bits
+function kmapDims(n){return n===2?{rb:1,cb:1}:(n===3?{rb:1,cb:2}:{rb:2,cb:2});}
+function mtOf(n,r,c){const d=kmapDims(n);const rg=grayList(d.rb),cg=grayList(d.cb);return rg[r]*(1<<d.cb)+cg[c];}
+function nRows(n){return 1<<kmapDims(n).rb;}
+function nCols(n){return 1<<kmapDims(n).cb;}
+function grayBits(v,bits){return bits===1?String(v):(v.toString(2).padStart(2,'0'));}
+
+// ===================== 4. ESTADO =====================
+let mode='explora';
+// Explora — construyes la función
+let expN=3, expSet=new Set([3,5,6,7]);       // mayoría 2-de-3 como arranque
+// Agrupa — presets con agrupaciones bonitas
+const AGRUPA_POOL=[
+  {n:3, mts:[3,5,6,7],                       nm:'Mayoría (votación 2 de 3)'},
+  {n:4, mts:[0,2,5,7,8,10,13,15],            nm:'Coincidencia de dos bits (XNOR B,D)'},
+  {n:4, mts:[0,4,5,7,8,12,13,15],            nm:'Habilitación con dos condiciones'},
+  {n:4, mts:[0,1,2,3,5,7,8,10,14,15],        nm:'Función combinada (grupos de distinto tamaño)'},
+  {n:3, mts:[1,2,4,7],                        nm:'Paridad impar (XOR) — no simplifica'},
+];
+let agIdx=0, agSpot=-1;                        // agSpot=-1: todos los grupos; ≥0: enfoca uno
+// Reto — elige los implicantes primos que cubren la función al mínimo coste
+const RETO_POOL=[
+  {n:3, mts:[0,1,2,5],                        ctx:'Lógica de un semáforo de prioridad'},
+  {n:3, mts:[1,2,3,4,5],                      ctx:'Control de acceso de 3 sensores'},
+  {n:3, mts:[2,3,4,5,7],                      ctx:'Selector de modo de operación'},
+  {n:4, mts:[0,4,5,7,8,12,13,15],            ctx:'Enclavamiento de seguridad (4 señales)'},
+  {n:4, mts:[0,1,2,5,8,9,10],                ctx:'Decodificador parcial de dirección'},
+  {n:4, mts:[0,1,2,3,5,7,8,10,14,15],        ctx:'Lógica de habilitación de 4 entradas'},
+];
+let retoIdx=0, retoPIs=[], retoSel=new Set(), retoChecked=false, retoOkCover=false, retoOkMin=false, retoSolved=false, retoMsg='';
+let solved=false, autoRunning=false, QUIZ={};
+// entrenador 3D — cicla las entradas y enciende el LED de salida
+let hwInput=0, hwT=0;
+
+function curFn(){                              // función activa según el modo
+  if(mode==='agrupa'){const f=AGRUPA_POOL[agIdx];return{n:f.n,mts:[...f.mts]};}
+  if(mode==='reto'){const f=RETO_POOL[retoIdx];return{n:f.n,mts:[...f.mts]};}
+  return{n:expN,mts:[...expSet].sort((a,b)=>a-b)};
+}
+function seedReto(idx){
+  retoIdx=(idx==null)?pickIdx(RETO_POOL.length,retoIdx):idx;
+  const f=RETO_POOL[retoIdx];
+  retoPIs=primeImplicants(f.mts,[]);
+  retoSel=new Set(); retoChecked=false; retoOkCover=false; retoOkMin=false; retoSolved=false; retoMsg='';
+}
+function pickIdx(n,ex){let v=Math.floor(Math.random()*n);if(n>1)while(v===ex)v=Math.floor(Math.random()*n);return v;}
+function hexA(hex,a){const n=parseInt(hex.slice(1),16);return `rgba(${(n>>16)&255},${(n>>8)&255},${n&255},${a})`;}
+seedReto(0);
+
+// ===================== 5. MATERIALES =====================
+function std(color,rough,metal){return new THREE.MeshStandardMaterial({color,roughness:rough,metalness:metal});}
+function brush(base){return std(base,0.55,0.35);}
+const MAT={bench:brush(0x2b2f34),frame:brush(0x22262c),leg:brush(0x14161b),pcb:std(0x123322,0.7,0.15),chip:std(0x14171b,0.5,0.3)};
+const ACC='#8AB4F8', OK_HEX='#7CD992', BAD_HEX='#ff6b6b', WARN_HEX='#E9C46A';
+const GRP=['#8AB4F8','#7CD992','#E9C46A','#F28B82','#C58AF9','#6DD3C4','#F5A97F','#B0C4B1'];
+
+const HOVER_LABELS=new Map();
+function addHoverLabel(obj,text,color,pos,scale){
+  const cv=document.createElement('canvas');cv.width=256;cv.height=64;const cx=cv.getContext('2d');
+  cx.fillStyle='rgba(10,14,17,0.88)';cx.fillRect(0,0,256,64);
+  cx.strokeStyle=color;cx.lineWidth=2;cx.strokeRect(1,1,254,62);
+  cx.fillStyle='#F4EFEA';cx.font='bold 20px Outfit, sans-serif';cx.textAlign='center';cx.textBaseline='middle';cx.fillText(text,128,32);
+  const tex=new THREE.CanvasTexture(cv);
+  const spr=new THREE.Sprite(new THREE.SpriteMaterial({map:tex,transparent:true,depthTest:false}));
+  spr.position.copy(pos);spr.scale.set(scale||1.1,(scale||1.1)*0.28,1);spr.visible=false;spr.renderOrder=999;
+  scene.add(spr);HOVER_LABELS.set(obj,spr);return spr;
+}
+
+// ===================== 6. PIZARRÓN (TABLA · MAPA · EXPRESIÓN) =====================
+const boardG=new THREE.Group();
+boardG.position.set(-1.15,0,-0.95);boardG.rotation.y=0.2;scene.add(boardG);
+const frame=roundedBox(3.9,2.9,0.12,MAT.frame,0.06);frame.position.set(0,1.9,0);boardG.add(frame);
+[-1.65,1.65].forEach(x=>{const leg=new THREE.Mesh(new THREE.CylinderGeometry(0.05,0.06,1.9,16),MAT.leg);leg.position.set(x,0.92,0);boardG.add(leg);});
+const bCv=document.createElement('canvas');bCv.width=1024;bCv.height=768;
+const bTex=new THREE.CanvasTexture(bCv);
+const board=new THREE.Mesh(new THREE.PlaneGeometry(3.68,2.72),new THREE.MeshBasicMaterial({map:bTex}));
+board.position.set(0,1.9,0.065);boardG.add(board);
+frame.userData={title:'Tabla · Mapa de Karnaugh · Expresión',info:'La misma función vista de tres formas · toca para inspeccionar'};
+addHoverLabel(frame,'Mapa de Karnaugh',ACC,new THREE.Vector3(0,3.5,0.1).add(boardG.position),1.9);
+
+function bg(c){c.fillStyle='#0c1016';c.fillRect(0,0,1024,768);}
+function rpanel(c,x,y,w,h,title){
+  c.fillStyle=hexA(ACC,0.06);c.fillRect(x,y,w,h);
+  c.strokeStyle=hexA(ACC,0.22);c.lineWidth=1;c.strokeRect(x,y,w,h);
+  c.fillStyle='#C7D6F5';c.font='bold 15px Outfit, sans-serif';c.textAlign='left';c.fillText(title,x+16,y+26);
+}
+function prow(c,x,y,w,l,v,col){
+  c.fillStyle='#8f97a5';c.font='13px Outfit, sans-serif';c.textAlign='left';c.fillText(l,x+16,y);
+  c.fillStyle=col||'#F4EFEA';c.font='bold 16px Outfit, sans-serif';c.textAlign='right';c.fillText(v,x+w-14,y);
+}
+function wrapText(c,text,x,y,maxW,lh){
+  const words=text.split(' ');let line='',yy=y;
+  for(const w of words){const test=line+w+' ';
+    if(c.measureText(test).width>maxW && line){c.fillText(line,x,yy);line=w+' ';yy+=lh;}else line=test;}
+  c.fillText(line,x,yy);return yy;
+}
+
+// ---- tabla de verdad ----
+function drawTruth(c,fn,x0,y0,probe){
+  const {n,mts}=fn, N=1<<n, set=new Set(mts);
+  const cols=1+n+1;                              // idx + vars + F
+  const cw=[34, ...Array(n).fill(22), 30];
+  const W=cw.reduce((a,b)=>a+b,0), rh=Math.min(30,(560/(N+1)));
+  c.fillStyle='#C7D6F5';c.font='bold 13px Outfit, sans-serif';c.textAlign='center';
+  c.fillText('TABLA DE VERDAD',x0+W/2,y0-10);
+  // encabezado
+  let cx=x0;const hdr=['#',...VN.slice(0,n),'F'];
+  c.font='bold 12px Outfit, sans-serif';
+  for(let i=0;i<cols;i++){c.fillStyle=i===cols-1?ACC:'#9fb0cf';c.fillText(hdr[i],cx+cw[i]/2,y0+rh*0.7);cx+=cw[i];}
+  c.strokeStyle=hexA(ACC,0.3);c.lineWidth=1;c.beginPath();c.moveTo(x0,y0+rh*0.95);c.lineTo(x0+W,y0+rh*0.95);c.stroke();
+  for(let m=0;m<N;m++){
+    const yy=y0+rh*(m+1), F=set.has(m)?1:0, hot=(m===probe);
+    if(hot){c.fillStyle=hexA(ACC,0.16);c.fillRect(x0,yy+rh*0.12,W,rh);}
+    cx=x0;
+    c.font='12px Outfit, sans-serif';c.textAlign='center';
+    c.fillStyle='#6f7887';c.fillText(m,cx+cw[0]/2,yy+rh*0.75);cx+=cw[0];
+    for(let v=0;v<n;v++){const b=(m>>(n-1-v))&1;c.fillStyle=b?'#C9D3E2':'#5a6472';c.fillText(b,cx+cw[v+1]/2,yy+rh*0.75);cx+=cw[v+1];}
+    c.fillStyle=F?OK_HEX:'#4a525e';c.font='bold 13px Outfit, sans-serif';c.fillText(F,cx+cw[cols-1]/2,yy+rh*0.75);
+  }
+  return {W,H:rh*(N+1)};
+}
+
+// ---- mapa de Karnaugh ----
+function kmGeom(fn,x0,y0,cell){
+  const R=nRows(fn.n), C=nCols(fn.n);
+  return {R,C,x0,y0,cell, cellXY:(r,c)=>[x0+c*cell,y0+r*cell]};
+}
+function drawKmap(c,fn,G,groups,spot){
+  const {n,mts}=fn, set=new Set(mts), d=kmapDims(n);
+  c.fillStyle='#C7D6F5';c.font='bold 13px Outfit, sans-serif';c.textAlign='center';
+  c.fillText('MAPA DE KARNAUGH',G.x0+G.C*G.cell/2,G.y0-34);
+  // etiquetas de columnas (variables bajas)
+  const colVars=VN.slice(n-d.cb,n).join(''), rowVars=VN.slice(0, d.rb).join('');
+  c.fillStyle=ACC;c.font='bold 13px Outfit, sans-serif';
+  c.fillText(colVars,G.x0+G.C*G.cell/2,G.y0-12);
+  c.save();c.translate(G.x0-42,G.y0+G.R*G.cell/2);c.rotate(-Math.PI/2);c.fillText(rowVars,0,0);c.restore();
+  const cg=grayList(d.cb), rg=grayList(d.rb);
+  // etiquetas gray de columnas (encima de cada columna)
+  c.font='12px Outfit, sans-serif';c.fillStyle='#9fb0cf';c.textAlign='center';
+  for(let cc=0;cc<G.C;cc++)c.fillText(grayBits(cg[cc],d.cb),G.x0+cc*G.cell+G.cell/2,G.y0-6);
+  // celdas
+  for(let r=0;r<G.R;r++)for(let cc=0;cc<G.C;cc++){
+    const [x,y]=G.cellXY(r,cc), m=mtOf(n,r,cc), F=set.has(m);
+    c.fillStyle=F?'rgba(124,217,146,0.10)':'rgba(255,255,255,0.02)';
+    c.fillRect(x,y,G.cell,G.cell);
+    c.strokeStyle='rgba(255,255,255,0.14)';c.lineWidth=1;c.strokeRect(x,y,G.cell,G.cell);
+    c.fillStyle=F?OK_HEX:'#4a525e';c.font='bold 22px Outfit, sans-serif';c.textAlign='center';c.textBaseline='middle';
+    c.fillText(F?'1':'0',x+G.cell/2,y+G.cell*0.42);
+    c.fillStyle='#5a6472';c.font='10px Outfit, sans-serif';c.textBaseline='alphabetic';
+    c.fillText('m'+m,x+G.cell/2,y+G.cell-8);
+  }
+  // etiquetas gray de filas (izquierda)
+  c.textAlign='right';c.font='12px Outfit, sans-serif';c.fillStyle='#9fb0cf';
+  for(let r=0;r<G.R;r++)c.fillText(grayBits(rg[r],d.rb),G.x0-8,G.y0+r*G.cell+G.cell/2+4);
+  // grupos
+  if(groups&&groups.length)drawGroups(c,fn,G,groups,spot);
+}
+// dibuja cada implicante como uno o más rectángulos redondeados (componentes planos = tramos sin wrap)
+function drawGroups(c,fn,G,groups,spot){
+  groups.forEach((imp,gi)=>{
+    if(spot!=null && spot>=0 && spot!==gi) return;
+    const col=GRP[gi%GRP.length];
+    const cells=[];
+    for(let r=0;r<G.R;r++)for(let cc=0;cc<G.C;cc++)if(covers(imp,mtOf(fn.n,r,cc)))cells.push([r,cc]);
+    const seen=new Set(),key=(r,cc)=>r+'_'+cc;
+    for(const [r0,c0] of cells){
+      if(seen.has(key(r0,c0)))continue;
+      // flood-fill planar (4-vecinos, sin wrap)
+      const stack=[[r0,c0]],comp=[];seen.add(key(r0,c0));
+      while(stack.length){const [r,cc]=stack.pop();comp.push([r,cc]);
+        [[r-1,cc],[r+1,cc],[r,cc-1],[r,cc+1]].forEach(([nr,nc])=>{
+          if(nr<0||nc<0||nr>=G.R||nc>=G.C)return;
+          if(seen.has(key(nr,nc)))return;
+          if(cells.some(e=>e[0]===nr&&e[1]===nc)){seen.add(key(nr,nc));stack.push([nr,nc]);}});}
+      let rmin=99,rmax=-1,cmin=99,cmax=-1;
+      comp.forEach(([r,cc])=>{rmin=Math.min(rmin,r);rmax=Math.max(rmax,r);cmin=Math.min(cmin,cc);cmax=Math.max(cmax,cc);});
+      const pad=6+gi*4;
+      const x=G.x0+cmin*G.cell+pad, y=G.y0+rmin*G.cell+pad;
+      const w=(cmax-cmin+1)*G.cell-2*pad, h=(rmax-rmin+1)*G.cell-2*pad, rad=14;
+      c.strokeStyle=col;c.lineWidth=(spot===gi)?4:2.6;c.globalAlpha=(spot!=null&&spot>=0&&spot!==gi)?0.25:1;
+      c.beginPath();
+      c.moveTo(x+rad,y);c.arcTo(x+w,y,x+w,y+h,rad);c.arcTo(x+w,y+h,x,y+h,rad);
+      c.arcTo(x,y+h,x,y,rad);c.arcTo(x,y,x+w,y,rad);c.closePath();c.stroke();
+      c.globalAlpha=1;
+    }
+  });
+}
+
+// ---- expresión + coste (panel derecho) ----
+const PX={x:706,y:70,w:300};
+function exprPanel(c,fn){
+  const {n,mts}=fn, res=minimize(mts,n,[]), gm=gateCost(res.terms,n);
+  const canon=canonList(mts), gc=gateCost(canon,n), cLit=mts.length*n;
+  const minSop=res.special||sopStr(res.terms,n);
+  const isConst=(res.special==='0'||res.special==='1');
+  rpanel(c,PX.x,PX.y,PX.w,150,'EXPRESIÓN');
+  c.fillStyle='#8f97a5';c.font='12px Outfit, sans-serif';c.textAlign='left';
+  c.fillText('Canónica (suma de mintérminos):',PX.x+14,PX.y+52);
+  c.fillStyle='#C9D3E2';c.font='13px Outfit, sans-serif';
+  const sm = mts.length? ('Σm('+mts.join(',')+')') : 'F = 0';
+  wrapText(c,sm,PX.x+14,PX.y+72,PX.w-28,16);
+  c.fillStyle='#8f97a5';c.font='12px Outfit, sans-serif';
+  c.fillText('Mínima (Karnaugh / Q-M):',PX.x+14,PX.y+108);
+  c.fillStyle=ACC;c.font='bold 16px Outfit, sans-serif';
+  wrapText(c,'F = '+minSop,PX.x+14,PX.y+130,PX.w-28,20);
+  // tabla de coste
+  const ty=PX.y+168;
+  rpanel(c,PX.x,ty,PX.w,150,'COSTE  (canónica → mínima)');
+  const rowY=ty+58;
+  const rowsC=[
+    ['Literales', cLit, res.cost],
+    ['Términos', mts.length, res.nterms],
+    ['Compuertas AND-OR', gc.tot, gm.tot],
+    ['Inversores', gc.inv, gm.inv],
+  ];
+  c.font='13px Outfit, sans-serif';
+  c.fillStyle='#8f97a5';c.textAlign='right';c.fillText('canónica',PX.x+PX.w-96,rowY-24);
+  c.fillStyle=OK_HEX;c.textAlign='right';c.fillText('mínima',PX.x+PX.w-16,rowY-24);
+  rowsC.forEach((rw,i)=>{
+    const yy=rowY+i*22;
+    c.fillStyle='#8f97a5';c.font='13px Outfit, sans-serif';c.textAlign='left';c.fillText(rw[0],PX.x+14,yy);
+    c.fillStyle='#8f97a5';c.textAlign='right';c.fillText(rw[1],PX.x+PX.w-96,yy);
+    const better=rw[2]<rw[1];
+    c.fillStyle=better?OK_HEX:(rw[2]===rw[1]?'#C9D3E2':WARN_HEX);c.font='bold 14px Outfit, sans-serif';
+    c.fillText(rw[2],PX.x+PX.w-16,yy);
+  });
+  const saved=cLit-res.cost, pct=cLit? Math.round(100*saved/cLit):0;
+  return {res,gm,gc,cLit,saved,pct,isConst,minSop};
+}
+
+// ---- vista por modo ----
+function drawExplora(c){
+  const fn=curFn();
+  c.fillStyle='#C7D6F5';c.font='bold 21px Outfit, sans-serif';c.textAlign='left';
+  c.fillText('EXPLORA · construye la función  ('+fn.n+' variables)',30,42);
+  c.fillStyle='#7a8494';c.font='13px Outfit, sans-serif';
+  c.fillText('Enciende salidas en la tabla y mira cómo se llena el mapa y cómo cambia la forma mínima. La celda resaltada es la que prueba el entrenador 3D.',30,64);
+  drawTruth(c,fn,30,110,hwInput);
+  const cell=fn.n===4?86:104, kx=fn.n===4?300:320, ky=fn.n===4?170:210;
+  const G=kmGeom(fn,kx,ky,cell);
+  drawKmap(c,fn,G,null,null);
+  const info=exprPanel(c,fn);
+  const by=PX.y+330;
+  c.fillStyle='rgba(0,0,0,0.22)';c.fillRect(PX.x,by,PX.w,200);
+  c.strokeStyle=hexA(ACC,0.3);c.lineWidth=1;c.strokeRect(PX.x,by,PX.w,200);
+  c.fillStyle=info.saved>0?OK_HEX:WARN_HEX;c.font='bold 15px Outfit, sans-serif';c.textAlign='left';
+  c.fillText(info.saved>0?('Ahorro: '+info.saved+' literales ('+info.pct+'%)'):'Sin ahorro posible',PX.x+14,by+26);
+  c.fillStyle='#C9D3E2';c.font='12px Outfit, sans-serif';
+  let msg;
+  if(info.res.special==='0')msg='La función es constante 0: nunca vale 1. No requiere lógica.';
+  else if(info.res.special==='1')msg='La función es constante 1: siempre vale 1. No requiere lógica.';
+  else if(info.saved>0)msg='Agrupar unos adyacentes elimina variables: la forma mínima usa '+info.res.cost+' literales frente a '+info.cLit+' de la canónica. Menos literales = menos y más pequeñas compuertas.';
+  else msg='Esta función no simplifica: sus unos no son adyacentes en el mapa (p. ej. una paridad/XOR). La forma mínima coincide con la canónica — la honestidad del método: no todo se reduce.';
+  wrapText(c,msg,PX.x+14,by+50,PX.w-28,17);
+}
+function drawAgrupa(c){
+  const fn=curFn(), res=minimize(fn.mts,fn.n,[]);
+  c.fillStyle='#C7D6F5';c.font='bold 21px Outfit, sans-serif';c.textAlign='left';
+  c.fillText('AGRUPA · '+AGRUPA_POOL[agIdx].nm,30,42);
+  c.fillStyle='#7a8494';c.font='13px Outfit, sans-serif';
+  c.fillText('Cada lazo agrupa 2^k unos adyacentes y elimina las k variables que cambian dentro del lazo. Enfoca un grupo para ver qué variables sobreviven.',30,64);
+  drawTruth(c,fn,30,110,-1);
+  const cell=fn.n===4?86:104, kx=fn.n===4?300:320, ky=fn.n===4?170:210;
+  const G=kmGeom(fn,kx,ky,cell);
+  drawKmap(c,fn,G,res.terms,agSpot);
+  exprPanel(c,fn);
+  // leyenda de grupos + explicación
+  const by=PX.y+330;
+  c.fillStyle='rgba(0,0,0,0.22)';c.fillRect(PX.x,by,PX.w,200);
+  c.strokeStyle=hexA(ACC,0.3);c.lineWidth=1;c.strokeRect(PX.x,by,PX.w,200);
+  c.fillStyle='#C7D6F5';c.font='bold 14px Outfit, sans-serif';c.textAlign='left';c.fillText('GRUPOS (implicantes primos)',PX.x+14,by+24);
+  if(res.special){c.fillStyle='#C9D3E2';c.font='12px Outfit, sans-serif';wrapText(c,'Función constante '+res.special+': sin grupos.',PX.x+14,by+48,PX.w-28,16);return;}
+  res.terms.forEach((t,i)=>{
+    const yy=by+48+i*22, foc=(agSpot===i);
+    c.fillStyle=GRP[i%GRP.length];c.globalAlpha=(agSpot>=0&&!foc)?0.4:1;
+    c.fillRect(PX.x+14,yy-10,14,14);c.globalAlpha=1;
+    const size=1<<popcount(t.mask), drop=popcount(t.mask);
+    c.fillStyle=foc?'#F4EFEA':'#C9D3E2';c.font=(foc?'bold ':'')+'13px Outfit, sans-serif';c.textAlign='left';
+    c.fillText(termStr(t,fn.n)+'  ('+size+' celdas, '+drop+' var. eliminada'+(drop===1?'':'s')+')',PX.x+34,yy+2);
+  });
+  if(agSpot>=0&&res.terms[agSpot]){
+    const t=res.terms[agSpot], kept=[];for(let v=0;v<fn.n;v++){const p=1<<(fn.n-1-v);if(!(t.mask&p))kept.push(VN[v]+((t.bits&p)?'=1':'=0'));}
+    c.fillStyle='#8f97a5';c.font='12px Outfit, sans-serif';
+    wrapText(c,'En este lazo se mantienen constantes '+kept.join(', ')+' → término '+termStr(t,fn.n)+'.',PX.x+14,by+48+res.terms.length*22+12,PX.w-28,16);
+  }
+}
+function drawReto(c){
+  const f=RETO_POOL[retoIdx], fn={n:f.n,mts:[...f.mts]};
+  const res=minimize(fn.mts,fn.n,[]);
+  const selTerms=[...retoSel].map(i=>retoPIs[i]);
+  c.fillStyle='#C7D6F5';c.font='bold 21px Outfit, sans-serif';c.textAlign='left';
+  c.fillText('RETO · cubre la función al MÍNIMO coste',30,42);
+  c.fillStyle='#7a8494';c.font='13px Outfit, sans-serif';
+  c.fillText('Selecciona los implicantes primos (abajo) que cubran TODOS los unos usando el mínimo de literales. '+f.ctx+'.',30,64);
+  drawTruth(c,fn,30,110,-1);
+  const cell=fn.n===4?86:104, kx=fn.n===4?300:320, ky=fn.n===4?170:210;
+  const G=kmGeom(fn,kx,ky,cell);
+  drawKmap(c,fn,G,selTerms,null);
+  // panel: tu cobertura vs mínimo
+  const selCost=selTerms.reduce((a,t)=>a+litCost(t,fn.n),0);
+  const covered=new Set();selTerms.forEach(t=>fn.mts.forEach(m=>{if(covers(t,m))covered.add(m);}));
+  const allCov=fn.mts.every(m=>covered.has(m));
+  rpanel(c,PX.x,PX.y,PX.w,150,'TU COBERTURA');
+  prow(c,PX.x,PX.y+58,PX.w,'Implicantes elegidos',String(retoSel.size));
+  prow(c,PX.x,PX.y+90,PX.w,'Unos cubiertos',covered.size+' / '+fn.mts.length, allCov?OK_HEX:WARN_HEX);
+  prow(c,PX.x,PX.y+122,PX.w,'Literales (tú → mín.)',selCost+' → '+res.cost, (allCov&&selCost===res.cost)?OK_HEX:WARN_HEX);
+  // veredicto
+  const by=PX.y+168;
+  if(retoChecked){
+    c.fillStyle='rgba(0,0,0,0.24)';c.fillRect(PX.x,by,PX.w,360);
+    c.strokeStyle=retoSolved?OK_HEX:BAD_HEX;c.lineWidth=2;c.strokeRect(PX.x,by,PX.w,360);
+    c.fillStyle=retoSolved?OK_HEX:BAD_HEX;c.font='bold 16px Outfit, sans-serif';c.textAlign='left';
+    c.fillText(retoSolved?'✔ CORRECTO':'✗ REVISA',PX.x+14,by+26);
+    c.font='bold 13px Outfit, sans-serif';
+    c.fillStyle=retoOkCover?OK_HEX:BAD_HEX;c.fillText((retoOkCover?'✔':'✗')+' Cubre todos los unos',PX.x+14,by+54);
+    c.fillStyle=retoOkMin?OK_HEX:BAD_HEX;c.fillText((retoOkMin?'✔':'✗')+' Coste mínimo ('+res.cost+' literales)',PX.x+14,by+78);
+    c.fillStyle='#C9D3E2';c.font='12px Outfit, sans-serif';wrapText(c,retoExplain(fn,res,selTerms,allCov,selCost),PX.x+14,by+106,PX.w-28,17);
+  }else{
+    c.fillStyle='rgba(0,0,0,0.20)';c.fillRect(PX.x,by,PX.w,360);
+    c.strokeStyle=hexA(ACC,0.3);c.lineWidth=1;c.strokeRect(PX.x,by,PX.w,360);
+    c.fillStyle=WARN_HEX;c.font='13px Outfit, sans-serif';c.textAlign='left';
+    wrapText(c,'Un implicante primo es el mayor grupo posible de unos adyacentes. Elige los que, juntos, tapan todos los 1 con el menor coste. Elegir de más (redundante) o grupos pequeños sube el coste.',PX.x+14,by+26,PX.w-28,18);
+    c.fillStyle='#7a8494';c.font='12px Outfit, sans-serif';
+    wrapText(c,'Marca implicantes abajo y pulsa "Comprobar".',PX.x+14,by+120,PX.w-28,18);
+  }
+}
+function retoExplain(fn,res,selTerms,allCov,selCost){
+  if(retoSolved) return 'Cobertura mínima: '+sopStr(selTerms,fn.n)+' cubre los '+fn.mts.length+' unos con '+res.cost+' literales, el mínimo posible.';
+  let s='';
+  if(!allCov)s+='Faltan unos por cubrir: añade el implicante que tape los mintérminos sueltos. ';
+  else if(selCost>res.cost)s+='Cubres todo, pero con '+selCost+' literales; hay una cobertura de solo '+res.cost+' ('+sopStr(res.terms,fn.n)+'). Quita implicantes redundantes o usa grupos más grandes. ';
+  return s||'Revisa la cobertura y el coste.';
+}
+
+function drawBoard(){
+  const c=bCv.getContext('2d');bg(c);
+  if(mode==='agrupa')drawAgrupa(c);else if(mode==='reto')drawReto(c);else drawExplora(c);
+  bTex.needsUpdate=true;
+}
+function boardClick(){
+  if(mode==='agrupa')showToast('🔷 Cada lazo de color agrupa 2^k unos vecinos y elimina k variables. Usa "Enfocar grupo" para ver qué variables sobreviven en cada término.');
+  else if(mode==='reto')showToast('🎯 Los rectángulos son los implicantes que marcaste. Deben tapar TODOS los unos con el menor número de literales posible.');
+  else showToast('📊 La tabla, el mapa y la expresión son la MISMA función. Enciende salidas y observa cómo el mapa y la forma mínima cambian al instante.');
+}
+
+// ===================== 7. ESCENA 3D: ENTRENADOR LÓGICO =====================
+const bench=roundedBox(3.4,0.5,1.7,MAT.bench,0.05);bench.position.set(1.7,0.25,0.6);scene.add(bench);
+bench.userData={title:'Banco del entrenador lógico',info:'Aplica la función: entradas → circuito → salida.'};
+const pcb=roundedBox(1.7,0.08,1.0,MAT.pcb,0.03);pcb.position.set(1.9,0.54,0.55);scene.add(pcb);
+pcb.userData={title:'Tarjeta lógica',info:'Cicla las combinaciones de entrada y enciende la salida F cuando vale 1.'};
+addHoverLabel(pcb,'Entrenador lógico',ACC,new THREE.Vector3(1.9,1.25,0.55),1.2);
+// chip central con carátula
+const chip=roundedBox(0.5,0.14,0.5,MAT.chip,0.02);chip.position.set(1.9,0.63,0.55);scene.add(chip);
+const chCv=document.createElement('canvas');chCv.width=160;chCv.height=160;const chTex=new THREE.CanvasTexture(chCv);
+const chFace=new THREE.Mesh(new THREE.PlaneGeometry(0.44,0.44),new THREE.MeshBasicMaterial({map:chTex,transparent:true}));
+chFace.rotation.x=-Math.PI/2;chFace.position.set(1.9,0.705,0.55);scene.add(chFace);
+chip.userData={title:'Circuito lógico',info:'Realiza la función mínima F(A,B,C,D).'};
+// LEDs de entrada + salida
+function makeLED(x,z,color){
+  const m=new THREE.Mesh(new THREE.SphereGeometry(0.05,18,18),std(color,0.4,0.1));
+  m.position.set(x,0.62,z);m.material.emissive=new THREE.Color(color);m.material.emissiveIntensity=0.15;scene.add(m);return m;
+}
+const inLEDs=[makeLED(1.32,0.30,0x8AB4F8),makeLED(1.32,0.45,0x8AB4F8),makeLED(1.32,0.60,0x8AB4F8),makeLED(1.32,0.75,0x8AB4F8)];
+const inLabels=inLEDs.map((l,i)=>addHoverLabel(l,VN[i],ACC,new THREE.Vector3(1.32,0.78,0.30+0.15*i),0.5));
+const outLED=makeLED(2.5,0.55,0x7CD992);outLED.scale.set(1.25,1.25,1.25);
+outLED.userData={title:'Salida F',info:'Se enciende cuando la función vale 1 para la combinación de entrada actual.'};
+addHoverLabel(outLED,'F',OK_HEX,new THREE.Vector3(2.5,0.8,0.55),0.5);
+function drawChip(fn,input,F){
+  const c=chCv.getContext('2d');c.clearRect(0,0,160,160);
+  c.fillStyle=F?'rgba(124,217,146,0.18)':'rgba(20,23,27,0.9)';c.fillRect(0,0,160,160);
+  c.strokeStyle=F?OK_HEX:hexA(ACC,0.5);c.lineWidth=4;c.strokeRect(4,4,152,152);
+  c.fillStyle='#C7D6F5';c.font='bold 15px Outfit, sans-serif';c.textAlign='center';c.fillText('F(A..'+VN[fn.n-1]+')',80,30);
+  c.font='bold 34px Outfit, sans-serif';c.fillStyle=F?OK_HEX:'#5a6472';c.fillText('F='+F,80,86);
+  let bits='';for(let v=0;v<fn.n;v++)bits+=((input>>(fn.n-1-v))&1);
+  c.font='16px Outfit, sans-serif';c.fillStyle='#9fb0cf';c.fillText('m'+input+' = '+bits,80,124);
+  chTex.needsUpdate=true;
+}
+function updateHW(){
+  const fn=curFn();const N=1<<fn.n;hwInput=hwInput%N;
+  const set=new Set(fn.mts), F=set.has(hwInput)?1:0;
+  inLEDs.forEach((l,i)=>{const on=(i<fn.n)&&(((hwInput>>(fn.n-1-i))&1)===1);
+    l.visible=(i<fn.n);l.material.emissiveIntensity=on?1.1:0.12;l.material.color.setHex(on?0xBFD4FF:0x2a3550);
+    if(inLabels[i])inLabels[i].visible=false;});
+  outLED.material.emissiveIntensity=F?1.4:0.12;outLED.material.color.setHex(F?0x7CD992:0x243026);
+  drawChip(fn,hwInput,F);
+}
+
+// ===================== 8. HUD Y PANEL =====================
+document.getElementById('hud').innerHTML=`
+  <div class="eyebrow">Sistemas digitales (D3) · Álgebra de Boole · Diseño combinacional</div>
+  <h2>Síntesis Lógica y Simplificación con Mapas de Karnaugh</h2>
+  <p>Una función lógica queda totalmente definida por su <b>tabla de verdad</b>. Escribirla directamente como
+  <b>suma de mintérminos</b> (un producto por cada 1) funciona, pero gasta muchísima lógica. El <b>mapa de
+  Karnaugh</b> reordena la tabla en una rejilla con <b>código Gray</b> —celdas vecinas difieren en un solo
+  bit— de modo que <b>agrupar</b> unos adyacentes hace desaparecer las variables que cambian dentro del grupo.
+  Cuanto más grande el grupo (2, 4, 8… celdas), más variables se eliminan. La forma <b>mínima</b> se obtiene
+  cubriendo todos los unos con los mayores grupos posibles (implicantes primos) al menor coste en literales.
+  Menos literales significa menos compuertas y más pequeñas: circuito más barato, más rápido y con menos
+  consumo. Y hay una lección honesta: <b>no toda función se simplifica</b> —una paridad (XOR) no tiene celdas
+  agrupables y su forma mínima es la canónica.</p>
+  <div class="formula">F = Σm(mintérminos) · agrupar 2^k celdas ⇒ −k variables · coste = Σ literales · realización AND-OR de 2 niveles</div>
+  <div class="legend">
+    <div class="li"><span class="dot" style="background:#7CD992"></span>Salida = 1 (mintérmino)</div>
+    <div class="li"><span class="dot" style="background:#8AB4F8"></span>Grupo / implicante</div>
+    <div class="li"><span class="dot" style="background:#E9C46A"></span>Coste no mínimo</div>
+    <div class="li"><span class="dot" style="background:#ff6b6b"></span>Cobertura incompleta</div>
+  </div>
+  <div class="fid">
+    <div class="ft">🔒 Contrato de fidelidad</div>
+    <div class="fl"><b>Sí modela:</b> la síntesis de funciones lógicas combinacionales de 2 a 4 variables a partir de su tabla de verdad; el mapa de Karnaugh con código Gray; la obtención de la forma mínima SOP mediante implicantes primos y cobertura exacta de coste mínimo (algoritmo Quine-McCluskey verificado numéricamente contra fuerza bruta, 1200/1200); el conteo de literales, términos y compuertas AND-OR de dos niveles; y la comparación canónica vs. mínima.</div>
+    <div class="fl no"><b>NO modela:</b> funciones de más de 4 variables (donde el K-map deja de ser práctico y se usan métodos tabulares/software); productos de sumas (POS) y formas mixtas; condiciones "don't care" en el reto (el motor las soporta pero el reto no las usa); realizaciones multinivel o con NAND/NOR y su factorización; retardos de propagación, hazards/glitches y consumo real; ni la implementación física (compuertas TTL/CMOS específicas, tecnología del circuito).</div>
+  </div>
+  <div class="src">Ref: IEEE Std 91-1984 (símbolos lógicos) · Mano & Ciletti, Diseño Digital · Wakerly, Digital Design · Quine (1952)/McCluskey (1956) · Verificación numérica propia</div>`;
+
+document.getElementById('panel').innerHTML=`
+  <h4>Karnaugh · <span id="p_mode" style="color:var(--accent2)">Explora</span></h4>
+  <div class="modebar">
+    <button class="b on" id="m_explora">🧭 Explora</button>
+    <button class="b" id="m_agrupa">🔗 Agrupa</button>
+    <button class="b" id="m_reto">🎯 Reto</button>
+  </div>
+  <div id="scenarioInfo" style="font-size:12px;color:var(--ink);margin:2px 0 8px;display:none"></div>
+  <div class="modebar" id="selbar" style="display:none;flex-wrap:wrap"></div>
+  <div id="tele"></div>
+  <div class="console" id="report"></div>
+  <h4 class="sec" id="retoTitle" style="display:none">Reto de cobertura</h4>
+  <div id="retoBox" style="display:none">
+    <div id="retoSpec" style="font-size:12px;color:var(--ink);margin:2px 0 8px"></div>
+    <div class="btns"><button class="b primary" id="btnCheck">✅ Comprobar</button></div>
+  </div>
+  <h4 class="sec">Pregunta de ingeniería</h4>
+  <div id="q_text" style="font-size:12px;color:var(--ink);margin:4px 0 8px"></div>
+  <div class="btns" id="dxbtns"></div>
+  <div class="btns">
+    <button class="b auto" id="btnAuto">✨ Recorrido guiado (automático)</button>
+    <button class="b primary" id="btnNew">🔀 Nuevo escenario</button>
+  </div>`;
+
+// ===================== 9. TOASTS =====================
+function showToast(html){const t=el('toast');t.innerHTML=html;t.classList.add('show');clearTimeout(showToast._t);showToast._t=setTimeout(()=>t.classList.remove('show'),4200);}
+
+// ===================== 10. MODOS Y CONTROLES =====================
+const MODE_META={
+  explora:{nombre:'Explora',cam:[[4.6,2.8,6.9],[0.2,1.15,0.3]],mision:'Elige el número de variables y enciende salidas en la tabla. Observa el mapa, la forma canónica y la mínima, y cuánto se ahorra.'},
+  agrupa:{nombre:'Agrupa',cam:[[4.3,2.7,6.6],[0.2,1.15,0.3]],mision:'Estudia cómo los lazos del mapa eliminan variables. Enfoca cada grupo para ver qué variables sobreviven en su término.'},
+  reto:{nombre:'Reto',cam:[[4.4,2.6,6.7],[0.4,1.1,0.4]],mision:'Cubre todos los unos de la función usando implicantes primos con el mínimo coste en literales.'},
+};
+function lbl(t){return `<span class="lbl">${t}</span>`;}
+function buildControls(){
+  const bar=el('selbar');bar.style.display='flex';bar.style.flexWrap='wrap';let html='';
+  if(mode==='explora'){
+    html+=lbl('Variables:')+[2,3,4].map(v=>`<button class="b sm ${v===expN?'on':''}" data-vn="${v}">${v}</button>`).join('');
+    html+=lbl('Presets:')+`<button class="b sm" data-pre="clear">Limpiar</button><button class="b sm" data-pre="full">Llenar</button><button class="b sm" data-pre="xor">Paridad</button><button class="b sm" data-pre="maj">Mayoría</button>`;
+    html+=lbl('Salidas (clic = 0/1):');
+    const N=1<<expN;let cells='';
+    for(let m=0;m<N;m++){const on=expSet.has(m);cells+=`<button class="b sm ${on?'on':''}" data-mt="${m}" style="min-width:34px">${m}:${on?1:0}</button>`;}
+    html+=cells;
+    bar.innerHTML=html;
+    bar.querySelectorAll('[data-vn]').forEach(b=>b.onclick=()=>{if(autoRunning)return;expN=parseInt(b.dataset.vn,10);expSet=new Set([...expSet].filter(m=>m<(1<<expN)));synth.beep(680,0.05,0.04);hwInput=0;afterEdit();});
+    bar.querySelectorAll('[data-pre]').forEach(b=>b.onclick=()=>{if(autoRunning)return;applyPreset(b.dataset.pre);synth.beep(720,0.05,0.04);afterEdit();});
+    bar.querySelectorAll('[data-mt]').forEach(b=>b.onclick=()=>{if(autoRunning)return;const m=parseInt(b.dataset.mt,10);if(expSet.has(m))expSet.delete(m);else expSet.add(m);synth.beep(expSet.has(m)?900:420,0.04,0.035);afterEdit();});
+  }else if(mode==='agrupa'){
+    html+=lbl('Función:')+AGRUPA_POOL.map((f,i)=>`<button class="b sm ${i===agIdx?'on':''}" data-ag="${i}">${i+1}</button>`).join('');
+    const res=minimize(AGRUPA_POOL[agIdx].mts,AGRUPA_POOL[agIdx].n,[]);
+    html+=lbl('Enfocar grupo:')+`<button class="b sm ${agSpot===-1?'on':''}" data-spot="-1">Todos</button>`+
+      res.terms.map((t,i)=>`<button class="b sm ${agSpot===i?'on':''}" data-spot="${i}">${termStr(t,AGRUPA_POOL[agIdx].n)}</button>`).join('');
+    bar.innerHTML=html;
+    bar.querySelectorAll('[data-ag]').forEach(b=>b.onclick=()=>{if(autoRunning)return;agIdx=parseInt(b.dataset.ag,10);agSpot=-1;synth.beep(640,0.05,0.04);hwInput=0;afterEdit();});
+    bar.querySelectorAll('[data-spot]').forEach(b=>b.onclick=()=>{if(autoRunning)return;agSpot=parseInt(b.dataset.spot,10);synth.beep(760,0.05,0.04);afterEdit();});
+  }else{
+    const f=RETO_POOL[retoIdx];
+    html+=lbl('Implicantes primos (clic = incluir):');
+    html+=retoPIs.map((t,i)=>`<button class="b sm ${retoSel.has(i)?'on':''}" data-pi="${i}">${termStr(t,f.n)}</button>`).join('');
+    bar.innerHTML=html;
+    bar.querySelectorAll('[data-pi]').forEach(b=>b.onclick=()=>{if(autoRunning)return;const i=parseInt(b.dataset.pi,10);if(retoSel.has(i))retoSel.delete(i);else retoSel.add(i);retoChecked=false;retoSolved=false;synth.beep(retoSel.has(i)?900:420,0.04,0.035);afterEdit();});
+  }
+}
+function applyPreset(p){
+  const N=1<<expN;
+  if(p==='clear')expSet=new Set();
+  else if(p==='full')expSet=new Set(Array.from({length:N},(_,i)=>i));
+  else if(p==='xor'){expSet=new Set();for(let m=0;m<N;m++)if(popcount(m)&1)expSet.add(m);}   // paridad impar
+  else if(p==='maj'){expSet=new Set();const half=expN/2;for(let m=0;m<N;m++)if(popcount(m)>expN/2)expSet.add(m);}
+  hwInput=0;
+}
+function updateScenarioInfo(){
+  const box=el('scenarioInfo');
+  if(mode!=='reto'){box.style.display='none';return;}
+  const f=RETO_POOL[retoIdx];box.style.display='block';
+  box.innerHTML=`Función <b>F(${VN.slice(0,f.n).join(',')})</b> = Σm(${f.mts.join(',')}) — ${f.ctx}. Marca los implicantes primos que la cubran con el mínimo de literales.`;
+}
+function setMode(k){
+  mode=k;hwInput=0;
+  ['explora','agrupa','reto'].forEach(m=>el('m_'+m).classList.toggle('on',m===k));
+  el('p_mode').textContent=MODE_META[k].nombre;
+  el('retoTitle').style.display=k==='reto'?'block':'none';
+  el('retoBox').style.display=k==='reto'?'block':'none';
+  if(k==='reto')updateRetoSpec();
+  buildControls();updateScenarioInfo();
+  solved=(k==='reto')?retoSolved:false;
+  clearDx();buildQuiz();refreshQuestion();
+  const cam=MODE_META[k].cam;S.moveTo(cam[0],cam[1]);refreshAll();
+}
+function afterEdit(){buildControls();updateScenarioInfo();refreshAll();}
+function newSignal(){
+  if(mode==='reto'){seedReto();updateRetoSpec();afterEdit();solved=false;showToast('🔀 Nueva función: '+RETO_POOL[retoIdx].ctx+'. Cúbrela al mínimo coste.');}
+  else if(mode==='agrupa'){agIdx=pickIdx(AGRUPA_POOL.length,agIdx);agSpot=-1;afterEdit();showToast('🔀 '+AGRUPA_POOL[agIdx].nm+'.');}
+  else{expN=[2,3,4][pickIdx(3)];const N=1<<expN;expSet=new Set();for(let m=0;m<N;m++)if(Math.random()<0.5)expSet.add(m);afterEdit();showToast('🔀 Función aleatoria de '+expN+' variables. Observa su forma mínima.');}
+  synth.beep(520,0.08,0.05);hwInput=0;
+}
+
+// ===================== 11. TELEMETRÍA Y REPORTE =====================
+function teleRow(l,v,cls){return `<div class="trow"><span class="tl">${l}</span><span class="tv ${cls||''}">${v}</span></div>`;}
+function updateTele(){
+  const t=el('tele'),fn=curFn(),res=minimize(fn.mts,fn.n,[]),cLit=fn.mts.length*fn.n;
+  if(mode==='reto'){
+    const selTerms=[...retoSel].map(i=>retoPIs[i]);
+    const covered=new Set();selTerms.forEach(x=>fn.mts.forEach(m=>{if(covers(x,m))covered.add(m);}));
+    const selCost=selTerms.reduce((a,x)=>a+litCost(x,fn.n),0);
+    t.innerHTML=teleRow('Función','Σm('+fn.mts.join(',')+')')+
+      teleRow('Implicantes elegidos',String(retoSel.size))+
+      teleRow('Unos cubiertos',covered.size+'/'+fn.mts.length,covered.size===fn.mts.length?'good':'warn')+
+      teleRow('Coste (tú→mín)',selCost+' → '+res.cost,(covered.size===fn.mts.length&&selCost===res.cost)?'good':'warn')+
+      teleRow('Estado',retoChecked?(retoSolved?'✔ correcto':'✗ revisa'):'elige y comprueba',(retoChecked&&retoSolved)?'good':'warn');
+    return;
+  }
+  const gm=gateCost(res.terms,fn.n),gc=gateCost(canonList(fn.mts),fn.n);
+  t.innerHTML=teleRow('Variables',String(fn.n))+
+    teleRow('Mintérminos (unos)',String(fn.mts.length))+
+    teleRow('Forma mínima',res.special||sopStr(res.terms,fn.n),'good')+
+    teleRow('Literales (canón→mín)',cLit+' → '+res.cost,res.cost<cLit?'good':'warn')+
+    teleRow('Compuertas (canón→mín)',gc.tot+' → '+gm.tot,gm.tot<gc.tot?'good':'warn');
+}
+function updateReport(){
+  let html=`<b>${MODE_META[mode].mision}</b><br>`;
+  const fn=curFn(),res=minimize(fn.mts,fn.n,[]),cLit=fn.mts.length*fn.n;
+  if(mode==='reto'){
+    html+=retoMsg||`<span class="mono">F = Σm(${fn.mts.join(',')}). Elige implicantes primos que cubran los ${fn.mts.length} unos con el mínimo (${res.cost} literales). Ajusta y comprueba.</span>`;
+  }else if(mode==='agrupa'){
+    html+=`<span class="mono">${AGRUPA_POOL[agIdx].nm}: F = ${res.special||sopStr(res.terms,fn.n)}. ${res.special?'Función constante.':(res.nterms+' grupo(s), '+res.cost+' literales frente a '+cLit+' de la canónica.')}</span>`;
+  }else{
+    html+=`<span class="mono">${fn.n} variables, ${fn.mts.length} unos. Mínima: F = ${res.special||sopStr(res.terms,fn.n)} (${res.cost} literales; canónica ${cLit}).</span>`;
+  }
+  el('report').innerHTML=html;
+}
+function refreshAll(){drawBoard();updateTele();updateReport();updateHW();}
+
+// ===================== 12. RETO =====================
+function updateRetoSpec(){
+  const f=RETO_POOL[retoIdx],res=minimize(f.mts,f.n,[]);
+  el('retoSpec').innerHTML=`F(${VN.slice(0,f.n).join(',')}) = Σm(${f.mts.join(',')}). Hay <b>${retoPIs.length}</b> implicantes primos; la solución mínima usa <b>${res.cost}</b> literales en <b>${res.nterms}</b> término(s). Elige los que cubran todo al mínimo. Pulsa "Comprobar".`;
+}
+function checkReto(){
+  const f=RETO_POOL[retoIdx],res=minimize(f.mts,f.n,[]);
+  const selTerms=[...retoSel].map(i=>retoPIs[i]);
+  const covered=new Set();selTerms.forEach(t=>f.mts.forEach(m=>{if(covers(t,m))covered.add(m);}));
+  retoOkCover=f.mts.every(m=>covered.has(m)) && retoSel.size>0;
+  const selCost=selTerms.reduce((a,t)=>a+litCost(t,f.n),0);
+  retoOkMin=retoOkCover && (selCost===res.cost);
+  retoSolved=retoOkCover&&retoOkMin;retoChecked=true;solved=retoSolved;
+  synth.beep(retoSolved?1046:220,retoSolved?0.14:0.15,0.06);
+  retoMsg=`<span class="mono"><span class="${retoSolved?'ok':'dtc'}">${retoSolved?'✔ Correcto':'✗ Revisa'}</span> — ${retoExplain(f,res,selTerms,retoOkCover,selCost)}</span>`;
+  refreshAll();
+}
+
+// ===================== 13. QUIZ =====================
+function buildQuiz(){
+  QUIZ={
+    explora:{
+      pregunta:'En un mapa de Karnaugh, ¿por qué agrupar 2 celdas adyacentes (que difieren en un solo bit) elimina una variable del término?',
+      opciones:[
+        {t:'Porque en esas dos celdas la salida es 1 tanto si esa variable vale 0 como si vale 1: la salida no depende de ella, así que la variable desaparece del producto.',ok:true,why:'Correcto: si F=1 con la variable en 0 y también en 1 (y el resto igual), esa variable es irrelevante en ese grupo y se elimina. Por eso el código Gray coloca vecinos que difieren en un solo bit.'},
+        {t:'Porque el mapa siempre tiene una variable de más que se descarta por convención.',ok:false,why:'No hay variables "de más": todas importan. Lo que ocurre es que dentro del grupo una variable toma ambos valores sin cambiar la salida, y solo por eso se elimina.'},
+        {t:'Porque al agrupar se suman las dos celdas y la suma anula una variable.',ok:false,why:'No se "suman" celdas. La eliminación viene del álgebra de Boole: XY + XY′ = X, es decir, la variable que cambia (Y) se cancela.'},
+        {t:'Porque las celdas adyacentes representan la misma combinación de entrada.',ok:false,why:'Son combinaciones DISTINTAS (difieren en un bit). Precisamente por diferir en una sola variable, esa variable puede eliminarse al agruparlas.'},
+      ],
+    },
+    agrupa:{
+      pregunta:'Para minimizar coste, ¿conviene usar los grupos más grandes posibles al cubrir los unos?',
+      opciones:[
+        {t:'Sí: un grupo de 2^k celdas elimina k variables, así que a mayor grupo, menos literales por término. Se buscan los implicantes primos (grupos máximos) y se cubren todos los unos con los menos posibles.',ok:true,why:'Correcto: doblar el tamaño del grupo elimina una variable más. Por eso se maximizan los grupos (implicantes primos) y se elige una cobertura mínima.'},
+        {t:'No: conviene usar muchos grupos pequeños para mayor precisión.',ok:false,why:'Al revés: los grupos pequeños dejan más literales por término y encarecen el circuito. Se buscan los grupos más grandes que sean válidos.'},
+        {t:'Da igual el tamaño; solo importa que cada uno quede cubierto una vez.',ok:false,why:'El tamaño es clave: define cuántas variables se eliminan. Cubrir con grupos grandes reduce el coste; con grupos pequeños lo aumenta.'},
+        {t:'Conviene que los grupos no se solapen nunca.',ok:false,why:'El solape está permitido y a menudo ayuda: una celda puede pertenecer a varios grupos si eso hace grupos mayores. Lo que se minimiza es el coste total, no el solape.'},
+      ],
+    },
+    reto:{
+      pregunta:'¿Qué es un "implicante primo esencial" y por qué siempre debe estar en la solución?',
+      opciones:[
+        {t:'Es un implicante primo que es el ÚNICO que cubre a cierto mintérmino: como ningún otro grupo tapa ese 1, la solución mínima obligatoriamente lo incluye.',ok:true,why:'Correcto: si un 1 solo puede cubrirse con un implicante primo, ese implicante es esencial y no puede faltar. Los esenciales se eligen primero; el resto se completa al mínimo coste.'},
+        {t:'Es el implicante más grande del mapa, que por ser el mayor siempre se usa.',ok:false,why:'Ser el mayor no lo hace esencial: puede que sus unos estén cubiertos por otros. Esencial = único que cubre a algún mintérmino.'},
+        {t:'Es cualquier grupo de 4 o más celdas.',ok:false,why:'El tamaño no define lo esencial. Un grupo grande puede ser prescindible si sus unos se cubren de otro modo; uno pequeño puede ser esencial.'},
+        {t:'Es el primer implicante que se encuentra al leer el mapa de izquierda a derecha.',ok:false,why:'El orden de lectura es irrelevante. Lo esencial se define por la cobertura: un mintérmino que solo un implicante puede tapar.'},
+      ],
+    },
+  };
+  Object.values(QUIZ).forEach(q=>{for(let i=q.opciones.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));const tmp=q.opciones[i];q.opciones[i]=q.opciones[j];q.opciones[j]=tmp;}});
+}
+function clearDx(){const box=el('dxbtns');if(box)box.innerHTML='';}
+function refreshQuestion(){
+  const q=QUIZ[mode];if(!q)return;
+  el('q_text').textContent=q.pregunta;
+  const box=el('dxbtns');
+  box.innerHTML=q.opciones.map((o,i)=>`<button class="b sm" data-i="${i}">${String.fromCharCode(65+i)}) ${o.t}</button>`).join('');
+  box.querySelectorAll('[data-i]').forEach(b=>b.onclick=()=>answer(parseInt(b.dataset.i,10)));
+}
+function answer(i){
+  const q=QUIZ[mode];if(!q)return;
+  const box=el('dxbtns'),btns=box.querySelectorAll('[data-i]');
+  if(!btns.length||btns[0].disabled)return;
+  const o=q.opciones[i];btns.forEach(b=>b.disabled=true);btns[i].classList.add(o.ok?'right':'wrong');
+  if(o.ok){synth.beep(1046,0.12,0.06);}else{synth.beep(220,0.15,0.06);}
+  showToast((o.ok?'✔ ':'✗ ')+o.why);
+}
+
+// ===================== 14. PICKING Y HOVER =====================
+pickerFor(scene,S.camera,S.renderer.domElement,hit=>{
+  if(!hit)return;
+  if(hit.object===board){boardClick();return;}
+  let o=hit.object;while(o){if(o.userData&&o.userData.title){showToast('<b>'+o.userData.title+'</b><br>'+(o.userData.info||''));return;}o=o.parent;}
+});
+(function hoverLoop(){
+  const ray=new THREE.Raycaster(),dom=S.renderer.domElement;let mx=0,my=0;
+  dom.addEventListener('pointermove',e=>{const r=dom.getBoundingClientRect();mx=((e.clientX-r.left)/r.width)*2-1;my=-((e.clientY-r.top)/r.height)*2+1;});
+  function tick(){
+    ray.setFromCamera({x:mx,y:my},S.camera);let hovered=false;
+    for(const [obj,spr] of HOVER_LABELS){if(!obj.visible){spr.visible=false;continue;}const on=ray.intersectObject(obj,true).length>0;spr.visible=on;if(on)hovered=true;}
+    dom.style.cursor=hovered?'pointer':'default';requestAnimationFrame(tick);
+  }
+  tick();
+})();
+
+// ===================== 15. RECORRIDO AUTOMÁTICO =====================
+function sleep(ms){return new Promise(r=>setTimeout(r,ms));}
+async function runAuto(){
+  if(autoRunning)return;autoRunning=true;
+  const btn=el('btnAuto'),label=btn.textContent;btn.disabled=true;btn.classList.add('on');btn.textContent='⏳ Recorriendo…';
+  try{
+    synth.init();synth.resume();clearDx();
+    setMode('explora');
+    expN=4;expSet=new Set([0,2,5,7,8,10,13,15]);afterEdit();
+    showToast('🧭 Función de 4 variables con 8 unos: la canónica gastaría 32 literales y 9 compuertas.');
+    await sleep(4200);
+    showToast('✨ Pero su forma mínima es F = B′D′ + BD: solo 4 literales y 3 compuertas. Dos grupos de 4 celdas eliminan 2 variables cada uno.');
+    await sleep(4400);
+    answer(QUIZ[mode].opciones.findIndex(o=>o.ok));await sleep(2800);
+
+    setMode('agrupa');
+    agIdx=AGRUPA_POOL.findIndex(f=>f.nm.indexOf('Mayoría')>=0);agSpot=-1;afterEdit();
+    showToast('🔗 Mayoría 2-de-3: F = BC + AC + AB. Tres lazos de 2 celdas; cada uno elimina una variable.');
+    await sleep(4200);
+    agSpot=0;afterEdit();
+    showToast('🔍 Enfocamos el primer grupo: dentro de él dos variables se mantienen constantes y son las que quedan en el término.');
+    await sleep(4000);
+    agSpot=-1;
+    agIdx=AGRUPA_POOL.findIndex(f=>f.nm.indexOf('Paridad')>=0);afterEdit();
+    showToast('⚠️ Honestidad: la paridad impar (XOR) no tiene celdas adyacentes agrupables → su mínima es la canónica. No todo simplifica.');
+    await sleep(4400);
+    answer(QUIZ[mode].opciones.findIndex(o=>o.ok));await sleep(2800);
+
+    setMode('reto');
+    seedReto(0);updateRetoSpec();afterEdit();
+    showToast('🎯 Reto: '+RETO_POOL[retoIdx].ctx+'. Elegimos primero implicantes redundantes…');
+    await sleep(3600);
+    // solución mínima: marca los implicantes primos que forman una cobertura mínima
+    (function solveReto(){
+      const f=RETO_POOL[retoIdx],res=minimize(f.mts,f.n,[]);
+      retoSel=new Set();
+      res.terms.forEach(t=>{const idx=retoPIs.findIndex(p=>p.bits===t.bits&&p.mask===t.mask);if(idx>=0)retoSel.add(idx);});
+    })();
+    afterEdit();
+    showToast('✔ …y nos quedamos con la cobertura mínima: '+sopStr(minimize(RETO_POOL[retoIdx].mts,RETO_POOL[retoIdx].n,[]).terms,RETO_POOL[retoIdx].n)+'. Comprobamos.');
+    await sleep(3000);
+    checkReto();await sleep(2600);
+    answer(QUIZ[mode].opciones.findIndex(o=>o.ok));
+  }finally{
+    btn.disabled=false;btn.classList.remove('on');btn.textContent=label;autoRunning=false;
+  }
+}
+
+// ===================== 16. ANIMACIÓN, EVENTOS E INICIO =====================
+S.setAnimate((dt,time)=>{
+  hwT+=dt;
+  if(hwT>0.7){hwT=0;const N=1<<curFn().n;hwInput=(hwInput+1)%N;updateHW();if(mode!=='reto')drawBoard();}
+});
+['explora','agrupa','reto'].forEach(m=>{el('m_'+m).onclick=()=>{if(!autoRunning)setMode(m);};});
+el('btnAuto').onclick=()=>{if(!autoRunning)runAuto();};
+el('btnNew').onclick=()=>{if(autoRunning)return;newSignal();};
+el('btnCheck').onclick=()=>{if(autoRunning)return;checkReto();};
+const soundBtn=el('soundBtn');if(soundBtn){soundBtn.onclick=()=>{synth.toggle();soundBtn.textContent=synth.isOn()?'🔊':'🔇';};}
+document.addEventListener('pointerdown',()=>{synth.init();synth.resume();},{once:true});
+
+buildQuiz();
+S.start();
+setMode('explora');
+
+// ===================== DEBUG HOOK =====================
+window.__labDebug={
+  mode:()=>mode, setMode:k=>setMode(k),
+  // física pura
+  minimize:(mts,n)=>{const r=minimize(mts,n,[]);return{sop:r.special||sopStr(r.terms,n),cost:r.cost,nterms:r.nterms};},
+  primeImplicants:(mts,n)=>primeImplicants(mts,[]).map(p=>termStr(p,n)),
+  gateCost:(mts,n)=>{const r=minimize(mts,n,[]);return gateCost(r.terms,n);},
+  canonCost:(mts,n)=>mts.length*n,
+  // explora
+  expN:()=>expN, expSet:()=>[...expSet].sort((a,b)=>a-b),
+  expMin:()=>{const r=minimize([...expSet],expN,[]);return r.special||sopStr(r.terms,expN);},
+  setExp:(n,mts)=>{if(mode==='explora'){if(n!=null)expN=n;if(mts)expSet=new Set(mts);afterEdit();}},
+  toggleMt:m=>{if(mode==='explora'){if(expSet.has(m))expSet.delete(m);else expSet.add(m);afterEdit();}},
+  // agrupa
+  agIdx:()=>agIdx, agSpot:()=>agSpot, agName:()=>AGRUPA_POOL[agIdx].nm,
+  setAg:(i,spot)=>{if(mode==='agrupa'){if(i!=null)agIdx=i;if(spot!=null)agSpot=spot;afterEdit();}},
+  // reto
+  retoIdx:()=>retoIdx, retoFn:()=>({...RETO_POOL[retoIdx]}),
+  retoPIs:()=>retoPIs.map(p=>termStr(p,RETO_POOL[retoIdx].n)),
+  retoMinCost:()=>minimize(RETO_POOL[retoIdx].mts,RETO_POOL[retoIdx].n,[]).cost,
+  retoSel:()=>[...retoSel], retoSetSel:arr=>{if(mode==='reto'){retoSel=new Set(arr);retoChecked=false;afterEdit();}},
+  retoToggle:i=>{if(mode==='reto'){if(retoSel.has(i))retoSel.delete(i);else retoSel.add(i);retoChecked=false;afterEdit();}},
+  retoSolveMin:()=>{if(mode==='reto'){const r=minimize(RETO_POOL[retoIdx].mts,RETO_POOL[retoIdx].n,[]);retoSel=new Set();r.terms.forEach(t=>{const i=retoPIs.findIndex(p=>p.bits===t.bits&&p.mask===t.mask);if(i>=0)retoSel.add(i);});afterEdit();}},
+  checkReto:()=>checkReto(),
+  retoChecked:()=>retoChecked, retoOkCover:()=>retoOkCover, retoOkMin:()=>retoOkMin, retoSolved:()=>retoSolved,
+  seedReto:idx=>{seedReto(idx);updateRetoSpec();afterEdit();},
+  newSignal:()=>newSignal(),
+  hwInput:()=>hwInput, hwF:()=>{const fn=curFn();return new Set(fn.mts).has(hwInput)?1:0;},
+  reportText:()=>el('report').innerText,
+  quizAnswer:i=>answer(i), quizCorrectIndex:()=>QUIZ[mode].opciones.findIndex(o=>o.ok),
+  solved:()=>solved,
+};
+</script>
+  <!-- Ficha técnica · Capa B del molde de lab 3D (componente compartido + contenido del lab) -->
+  <script src="_ficha-tecnica.js"></script>
+  <script src="_ficha-karnaugh-simplificacion.js"></script>
+</body>
+</html>

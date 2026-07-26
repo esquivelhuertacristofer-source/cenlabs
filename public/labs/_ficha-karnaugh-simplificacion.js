@@ -1,0 +1,65 @@
+fichaTecnica({
+  title: 'Síntesis de Funciones Lógicas y Simplificación con Mapas de Karnaugh',
+  intro: 'Una función lógica combinacional queda completamente definida por su TABLA DE VERDAD: para cada una de las 2ⁿ combinaciones de las n variables de entrada, la salida F vale 0 o 1. Escribirla directamente como SUMA DE MINTÉRMINOS (forma canónica SOP: un producto de las n variables por cada 1 de la tabla) es correcto pero derrochador —usa el máximo de literales y de compuertas—. El MAPA DE KARNAUGH reorganiza la tabla en una rejilla ordenada con CÓDIGO GRAY, de modo que dos celdas vecinas difieren en un solo bit; así, AGRUPAR 2^k unos adyacentes elimina las k variables que cambian dentro del grupo (álgebra de Boole: XY+XY′=X). La forma MÍNIMA se obtiene cubriendo todos los unos con los mayores grupos válidos —los IMPLICANTES PRIMOS— usando la cobertura de menor coste en literales. Este laboratorio calcula la forma mínima con el algoritmo de Quine-McCluskey (generación de implicantes primos por combinación iterativa + cobertura exacta de coste mínimo), VERIFICADO numéricamente contra fuerza bruta (1200/1200 casos de 2 a 4 variables). La lección honesta: no toda función simplifica —una paridad (XOR de varias variables) no tiene celdas adyacentes agrupables y su forma mínima coincide con la canónica—.',
+  s1: {
+    presentes: [
+      'La tabla de verdad completa de funciones combinacionales de 2, 3 y 4 variables (A=MSB), con sus 2ⁿ mintérminos',
+      'El mapa de Karnaugh con etiquetas en código Gray (celdas vecinas difieren en un bit); disposición 2×2 (2 var), 2×4 (3 var) y 4×4 (4 var)',
+      'La forma canónica como suma de mintérminos Σm(...) y su coste (literales = nº de unos × n, términos, compuertas)',
+      'La forma mínima SOP obtenida por Quine-McCluskey: implicantes primos + cobertura exacta de coste mínimo (literales), con desempate por menor nº de términos — verificada 1200/1200 contra fuerza bruta',
+      'El dibujo de cada implicante como uno o más lazos sobre el mapa (agrupaciones de 1, 2, 4, 8… celdas), separando los tramos que envolverían el borde en componentes planos',
+      'El conteo de coste en una realización AND-OR de dos niveles: un AND por producto de ≥2 literales, un OR si hay ≥2 términos, e inversores por variable complementada distinta',
+      'La comparación cuantitativa canónica → mínima (literales, términos, compuertas, inversores) y el ahorro porcentual',
+      'El caso honesto sin ahorro: paridad/XOR, cuyos unos no son adyacentes y cuya forma mínima es la canónica; y las funciones constantes 0 y 1',
+      'Reto de cobertura: el estudiante elige el subconjunto de implicantes primos que cubre todos los unos al mínimo coste; se califican cobertura y minimalidad por separado',
+    ],
+    omitidos: [
+      'Funciones de más de 4 variables: el mapa de Karnaugh deja de ser práctico (5-6 var requieren mapas apilados; más, métodos tabulares o software de síntesis)',
+      'La forma de producto de sumas (POS) a partir de los ceros (mintérminos maxterms) y las formas mixtas o factorizadas multinivel',
+      'Las condiciones "don\'t care" (X) en el Reto: el motor de minimización las soporta internamente, pero las funciones del laboratorio están totalmente especificadas',
+      'Realizaciones con compuertas NAND/NOR únicamente, y la factorización multinivel para reducir fan-in o número de compuertas',
+      'Los retardos de propagación, los hazards estáticos/dinámicos (glitches) y su eliminación con implicantes redundantes',
+      'El consumo, el fan-out, los niveles lógicos y la tecnología física real (familias TTL/CMOS, LUTs de FPGA); el coste es un conteo idealizado de compuertas de 2 niveles',
+    ],
+  },
+  s2: {
+    title: 'Elementos del laboratorio',
+    warn: 'En Explora tú construyes la función encendiendo salidas en la tabla (2 a 4 variables) y ves cómo cambian el mapa y la forma mínima al instante. En Agrupa se muestran funciones preparadas con sus lazos dibujados sobre el mapa, y puedes enfocar cada grupo para ver qué variables sobreviven. En el Reto la función viene dada por Σm(...) y el desafío es ELEGIR los implicantes primos que la cubran al mínimo coste. No hay valor numérico oculto que adivinar: el reto es de criterio de diseño, y tanto la cobertura como el coste mínimo se verifican con el motor Quine-McCluskey.',
+    rows: [
+      ['Tabla de verdad', 'Define la función: salida F por cada combinación de entrada', 'F(A..): 0/1', 'Los unos son los mintérminos; en Explora se editan con un clic'],
+      ['Mapa de Karnaugh', 'Reordena la tabla en rejilla Gray para revelar adyacencias', 'celdas 2ⁿ', 'Vecinos difieren en un bit; agrupar 2^k celdas elimina k variables'],
+      ['Implicante primo', 'El mayor grupo válido de unos adyacentes (no ampliable)', 'lazo de 2^k celdas', 'La forma mínima se compone SOLO de implicantes primos'],
+      ['Expresión mínima', 'Suma de productos de menor coste en literales', 'F = Σ productos', 'Comparada contra la canónica: literales, términos y compuertas'],
+      ['Entrenador lógico 3D', 'Realiza la función: cicla las entradas y enciende la salida F', 'LEDs A..D → F', 'Muestra la función "en hardware", combinación por combinación'],
+    ],
+  },
+  s3: [
+    'Selector de número de variables (2, 3, 4) y edición de la salida por mintérmino (clic = 0/1) en Explora',
+    'Presets rápidos en Explora: limpiar, llenar, paridad (XOR, no simplifica) y mayoría',
+    'Galería de funciones con agrupaciones didácticas en Agrupa, con enfoque de grupo individual',
+    'Paleta de implicantes primos seleccionables en el Reto, con comprobación de cobertura y coste mínimo',
+    'Pizarrón con tres vistas sincronizadas: tabla de verdad, mapa de Karnaugh y expresión (canónica y mínima)',
+    'Panel de coste: literales, términos, compuertas AND-OR e inversores, con comparación canónica → mínima y ahorro',
+    'Entrenador lógico 3D que recorre las combinaciones de entrada y enciende la salida cuando F=1',
+    'Recorrido guiado automático y pregunta de ingeniería por modo',
+  ],
+  s4: {
+    intro: 'Procedimiento para sintetizar, simplificar y verificar una función lógica:',
+    items: [
+      'En Explora, elige el número de variables y enciende salidas en la tabla (o usa un preset). Observa cómo el mapa se llena y cómo la expresión mínima cambia al instante. Compara el coste canónico con el mínimo: verás cuántos literales y compuertas ahorras. Prueba el preset "Paridad" para comprobar la lección honesta: hay funciones que NO simplifican.',
+      'En Agrupa, elige una función preparada y estudia sus lazos sobre el mapa. Enfoca cada grupo: el panel te dice qué variables permanecen constantes dentro del lazo (y por tanto sobreviven en el término) y cuántas se eliminan. Comprueba que un grupo de 2 celdas elimina 1 variable, uno de 4 elimina 2, y así sucesivamente.',
+      'En el Reto, lee la función F = Σm(...) y su mapa. Marca en la paleta los implicantes primos que, juntos, cubran TODOS los unos usando el mínimo de literales. Pulsa "Comprobar": el sistema califica por separado si tu cobertura es completa y si alcanza el coste mínimo. Cuidado con dejar unos sin cubrir o con incluir implicantes redundantes o grupos pequeños que suben el coste.',
+    ],
+  },
+  s5: {
+    modela: 'La síntesis de funciones lógicas combinacionales de 2 a 4 variables a partir de su tabla de verdad; el mapa de Karnaugh con código Gray; la obtención de la forma mínima en suma de productos mediante implicantes primos y cobertura exacta de coste mínimo (algoritmo de Quine-McCluskey verificado numéricamente contra fuerza bruta, 1200/1200); el conteo de literales, términos y compuertas AND-OR de dos niveles con inversores; y la comparación cuantitativa canónica vs. mínima con su ahorro. Incluye el caso honesto sin simplificación (paridad/XOR) y las funciones constantes.',
+    noModela: 'Funciones de más de 4 variables (donde el K-map deja de ser práctico); la forma producto de sumas (POS) y las formas mixtas o factorizadas multinivel; las condiciones "don\'t care" en el reto; realizaciones NAND/NOR y factorización multinivel; los retardos de propagación, hazards/glitches y su corrección; ni el consumo, fan-out, niveles lógicos y la tecnología física real (TTL/CMOS, LUTs de FPGA). El coste es un conteo idealizado de compuertas de dos niveles, no un modelo eléctrico.',
+  },
+  s6: [
+    'IEEE Std 91-1984 (reafirmado) — Graphic Symbols for Logic Functions: símbolos normalizados de compuertas y funciones lógicas.',
+    'Mano, M. M. & Ciletti, M. D. — Diseño Digital (Pearson): tablas de verdad, mapas de Karnaugh, implicantes primos y minimización de funciones booleanas.',
+    'Wakerly, J. F. — Digital Design: Principles and Practices (Pearson): síntesis combinacional, formas SOP/POS y coste en compuertas.',
+    'Quine, W. V. (1952) "The Problem of Simplifying Truth Functions" y McCluskey, E. J. (1956) "Minimization of Boolean Functions": el algoritmo tabular de minimización exacta implementado en el simulador.',
+    'Verificación numérica propia (sesión de construcción, node -e): el minimizador Quine-McCluskey comparado contra un oráculo de fuerza bruta sobre todos los implicantes, equivalencia funcional y coste mínimo — 1200/1200 casos correctos (2 a 4 variables), con verificación del modelo de coste en compuertas.',
+  ],
+});
