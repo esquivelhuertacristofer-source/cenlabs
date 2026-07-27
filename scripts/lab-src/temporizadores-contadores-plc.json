@@ -1,0 +1,9 @@
+{
+  "donor": "escaner-obd.html",
+  "out": "temporizadores-contadores-plc.html",
+  "title": "CEN Labs · Temporizadores y Contadores en Secuencias (TON, TOF, TP, CTU, CTD) — Laboratorio 3D",
+  "lt": "Bloques funcionales de PLC · Sistemas Digitales",
+  "inspectHint": "👆 Toca el pizarrón o el banco del PLC para inspeccionar los bloques funcionales",
+  "body": "temporizadores-contadores-plc.body.js",
+  "fichas": ["_ficha-tecnica.js", "_ficha-temporizadores-contadores-plc.js"]
+}
