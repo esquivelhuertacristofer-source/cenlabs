@@ -1,0 +1,1555 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>CEN Labs · Arranque Estrella-Delta Temporizado (tiempo muerto, enclavamiento y contactos espejo) — Laboratorio 3D</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#08201C;--panel:rgba(9,26,23,.86);--line:#1E3A34;--ink:#EAF4F1;
+    --dim:#8FB3AC;--accent:#2A9D8F;--accent2:#4FD1C5;--hv:#FFB703;--good:#34d399;--bad:#f4475e;
+    --mono:'Outfit',system-ui,'Segoe UI',Roboto,sans-serif;--disp:'Outfit','Arial Black',Impact,sans-serif;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  html,body{height:100%;background:var(--bg);color:var(--ink);font-family:'Outfit',system-ui,Segoe UI,Roboto,sans-serif}
+  body{overflow:hidden}
+  #stage{position:fixed;inset:0}
+  canvas{display:block;touch-action:none}
+
+  .topbar{position:fixed;top:0;left:0;right:0;height:56px;display:flex;align-items:center;gap:14px;padding:0 20px;z-index:20;background:linear-gradient(180deg,rgba(10,13,18,.92),transparent);pointer-events:none}
+  .brand{font-family:var(--disp);font-weight:bold;font-size:16px;text-transform:uppercase}
+  .brand span{color:var(--accent)}
+  .lt{font-family:var(--mono);font-size:11px;letter-spacing:.1em;text-transform:uppercase;color:var(--dim)}
+
+  .badge{position:fixed;top:16px;right:20px;z-index:20;font-family:var(--mono);font-size:9px;letter-spacing:.12em;text-transform:uppercase;background:rgba(255,209,102,.12);color:var(--hv);border:1px solid rgba(255,209,102,.35);padding:6px 12px;border-radius:20px}
+
+  .hud{position:fixed;top:70px;left:18px;z-index:15;max-width:330px;background:var(--panel);backdrop-filter:blur(14px);border:1px solid var(--line);border-radius:16px;padding:18px 20px;max-height:calc(100vh - 150px);overflow-y:auto}
+  .hud .eyebrow{font-family:var(--mono);font-size:10px;letter-spacing:.18em;text-transform:uppercase;color:var(--accent);margin-bottom:8px}
+  .hud h2{font-size:19px;line-height:1.15;margin-bottom:9px}
+  .hud p{font-size:13px;line-height:1.55;color:var(--dim);margin-bottom:10px}
+  .hud .formula{font-family:var(--mono);color:var(--accent2);text-align:center;font-size:12.5px;margin:8px 0;padding:8px;background:rgba(0,0,0,.25);border-radius:8px;line-height:1.5}
+  .hud .src{font-size:10.5px;color:#7a8894;font-style:italic;margin-top:4px;line-height:1.5}
+  .legend{display:flex;flex-direction:column;gap:6px;margin:12px 0;padding:10px 12px;background:rgba(0,0,0,.22);border-radius:10px}
+  .legend .li{display:flex;align-items:center;gap:8px;font-size:11px;color:#c4d0da}
+  .legend .dot{width:10px;height:10px;border-radius:50%;flex:0 0 auto}
+  .fid{margin:10px 0 2px;padding:10px 12px;background:rgba(0,0,0,.22);border-radius:10px;border:1px solid rgba(79,209,197,.18)}
+  .fid .ft{font-family:var(--mono);font-size:9.5px;letter-spacing:.14em;text-transform:uppercase;color:var(--accent2);margin-bottom:6px}
+  .fid .fl{font-size:11px;color:#c4d0da;line-height:1.5;margin-bottom:5px}
+  .fid .fl b{color:var(--ink)}
+  .fid .fl.no b{color:var(--hv)}
+
+  .panel{position:fixed;top:70px;right:18px;z-index:15;width:262px;background:var(--panel);backdrop-filter:blur(14px);border:1px solid var(--line);border-radius:16px;padding:16px;max-height:calc(100vh - 150px);overflow-y:auto}
+  .panel h4{font-family:var(--mono);font-size:10px;letter-spacing:.14em;text-transform:uppercase;color:var(--dim);margin:2px 0 10px}
+  .panel h4.sec{margin-top:16px;border-top:1px solid var(--line);padding-top:14px}
+  .g{margin-bottom:6px}
+  .gl{display:flex;justify-content:space-between;font-family:var(--mono);font-size:11px;color:var(--dim)}
+  .gl b{color:var(--accent2)}
+  .gl b.good{color:var(--good)}.gl b.warn{color:var(--hv)}.gl b.bad{color:var(--bad)}
+  .modebar{display:flex;gap:5px;margin-bottom:8px}
+  .modebar .b{flex:1;padding:8px 4px;font-size:11px}
+  .btns{display:flex;flex-direction:column;gap:7px;margin-top:6px}
+  .b{font-family:system-ui;font-size:12.5px;padding:10px;border-radius:9px;cursor:pointer;border:1px solid var(--line);background:#1b242f;color:var(--ink);transition:.15s;text-align:center}
+  .b:hover{border-color:var(--accent);background:#202c38}
+  .b.on{background:var(--accent);color:#06120f;border-color:var(--accent);font-weight:bold}
+  .b.primary{background:var(--accent);color:#06120f;border-color:var(--accent);font-weight:bold}
+  .b.auto{border-color:var(--hv);color:var(--hv);background:rgba(255,183,3,.10);font-weight:bold}
+  .b.auto:hover{background:rgba(255,183,3,.18);border-color:var(--hv)}
+  .b.auto:disabled{opacity:.6;cursor:default}
+  .b.dx{text-align:left;font-size:12px}
+  .b.dx.right{background:rgba(52,211,153,.18);border-color:var(--good);color:var(--good);font-weight:bold}
+  .b.dx.wrong{background:rgba(244,71,94,.15);border-color:var(--bad);color:var(--bad)}
+  .console{font-family:var(--mono);font-size:11px;line-height:1.55;color:#c4d0da;background:rgba(0,0,0,.28);border-radius:9px;padding:10px 12px;margin-bottom:8px;min-height:56px}
+  .console .dtc{color:var(--bad);font-weight:bold}
+  .console .ok{color:var(--good)}
+  .console .mono{color:var(--dim)}
+
+  .hint{position:fixed;bottom:18px;left:18px;z-index:14;font-family:var(--mono);font-size:10px;color:var(--dim);background:var(--panel);padding:7px 12px;border-radius:9px;border:1px solid var(--line)}
+  .toast{position:fixed;top:80px;left:50%;transform:translateX(-50%);z-index:30;background:rgba(18,24,32,.95);border:1px solid var(--accent);padding:10px 20px;border-radius:40px;font-family:var(--mono);font-size:12px;opacity:0;transition:.3s;pointer-events:none;max-width:80vw;text-align:center}
+  .toast.show{opacity:1}
+  .soundBtn{position:fixed;top:14px;right:18px;z-index:21;font-size:16px;background:var(--panel);backdrop-filter:blur(12px);border:1px solid var(--line);border-radius:50%;width:36px;height:36px;cursor:pointer;color:var(--dim);transition:.15s}
+  .soundBtn.on{color:var(--accent);border-color:var(--accent)}
+  .soundBtn:hover{transform:scale(1.08)}
+  .inspectHint{position:fixed;bottom:18px;right:18px;z-index:14;font-family:var(--mono);font-size:10px;color:var(--accent2);background:var(--panel);padding:7px 12px;border-radius:9px;border:1px solid var(--line)}
+
+  @media(max-width:820px){
+    .hud,.panel{position:fixed;left:8px;right:8px;top:auto;bottom:8px;max-width:none;width:auto;max-height:42vh;overflow-y:auto}
+    .hud{bottom:calc(8px + 42vh + 8px)}
+    .hint,.inspectHint{display:none}
+  }
+</style>
+</head>
+<body>
+<div id="stage"></div>
+<button class="soundBtn on" id="soundBtn">🔊</button>
+<div class="topbar">
+  <div class="brand">CEN<span> Labs</span></div>
+  <div class="lt">Automatización de maniobra · Sistemas Digitales</div>
+</div>
+<div class="hud" id="hud"></div>
+<div class="panel" id="panel"></div>
+<div class="hint">Arrastra para orbitar · rueda para zoom</div>
+<div class="inspectHint">👆 Toca el pizarrón o los contactores KM1 / KMY / KMΔ para inspeccionar la maniobra</div>
+<div class="toast" id="toast"></div>
+
+<script type="importmap">
+{ "imports": {
+  "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.min.js",
+  "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/"
+}}
+</script>
+<script type="module">
+import * as THREE from 'three';
+import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
+import { RoundedBoxGeometry } from 'three/addons/geometries/RoundedBoxGeometry.js';
+import { EffectComposer } from 'three/addons/postprocessing/EffectComposer.js';
+import { RenderPass } from 'three/addons/postprocessing/RenderPass.js';
+import { GTAOPass } from 'three/addons/postprocessing/GTAOPass.js';
+import { UnrealBloomPass } from 'three/addons/postprocessing/UnrealBloomPass.js';
+import { SMAAPass } from 'three/addons/postprocessing/SMAAPass.js';
+import { OutputPass } from 'three/addons/postprocessing/OutputPass.js';
+import { BokehPass } from 'three/addons/postprocessing/BokehPass.js';
+
+/* ============================================================
+   Texturas PBR procedurales (sin archivos externos) — compartidas
+   ============================================================ */
+function cv(s=512){const c=document.createElement('canvas');c.width=c.height=s;return c;}
+function tex(canvas,repeat=1,srgb=false){
+  const t=new THREE.CanvasTexture(canvas);
+  t.wrapS=t.wrapT=THREE.RepeatWrapping;t.repeat.set(repeat,repeat);
+  t.colorSpace = srgb?THREE.SRGBColorSpace:THREE.NoColorSpace;
+  t.generateMipmaps=false; t.minFilter=THREE.LinearFilter; t.anisotropy=1; return t;
+}
+function normalFromHeight(size, hfn, strength=2.0){
+  const c=cv(size),ctx=c.getContext('2d'),img=ctx.createImageData(size,size);
+  const H=(x,y)=>hfn((x+size)%size,(y+size)%size);
+  for(let y=0;y<size;y++)for(let x=0;x<size;x++){
+    const dx=(H(x+1,y)-H(x-1,y))*strength;
+    const dy=(H(x,y+1)-H(x,y-1))*strength;
+    const nz=1.0; const len=Math.hypot(dx,dy,nz);
+    const i=(y*size+x)*4;
+    img.data[i]  =((-dx/len)*0.5+0.5)*255;
+    img.data[i+1]=((-dy/len)*0.5+0.5)*255;
+    img.data[i+2]=((nz/len)*0.5+0.5)*255;
+    img.data[i+3]=255;
+  }
+  ctx.putImageData(img,0,0);return c;
+}
+function valueNoise(seed=1){
+  const g=(x,y)=>{const s=Math.sin((x*127.1+y*311.7)+seed*13.13)*43758.5453;return s-Math.floor(s);};
+  return (x,y)=>{
+    const xi=Math.floor(x),yi=Math.floor(y),xf=x-xi,yf=y-yi;
+    const u=xf*xf*(3-2*xf),v=yf*yf*(3-2*yf);
+    const a=g(xi,yi),b=g(xi+1,yi),c=g(xi,yi+1),d=g(xi+1,yi+1);
+    return a*(1-u)*(1-v)+b*u*(1-v)+c*(1-u)*v+d*u*v;
+  };
+}
+function fbm(noise,x,y,oct=4){let v=0,a=0.5,f=1;for(let i=0;i<oct;i++){v+=noise(x*f,y*f)*a;f*=2;a*=0.5;}return v;}
+
+function castAluminum(){
+  const S=512, n=valueNoise(7);
+  const c=cv(S),ctx=c.getContext('2d'),img=ctx.createImageData(S,S);
+  for(let y=0;y<S;y++)for(let x=0;x<S;x++){
+    const v=fbm(n,x/22,y/22,5);
+    const por=Math.pow(n(x/3.1,y/3.1),8);
+    const base=150+v*38-por*70;
+    const i=(y*S+x)*4; img.data[i]=base; img.data[i+1]=base+4; img.data[i+2]=base+10; img.data[i+3]=255;
+  }
+  ctx.putImageData(img,0,0);
+  const r=cv(S),rx=r.getContext('2d'),rimg=rx.createImageData(S,S);
+  for(let y=0;y<S;y++)for(let x=0;x<S;x++){
+    const v=fbm(n,x/18,y/18,4); const por=Math.pow(n(x/3.1,y/3.1),8);
+    const rough=120+v*40+por*90; const i=(y*S+x)*4;
+    rimg.data[i]=rimg.data[i+1]=rimg.data[i+2]=Math.min(255,rough); rimg.data[i+3]=255;
+  }
+  rx.putImageData(rimg,0,0);
+  const nrm=normalFromHeight(S,(x,y)=>fbm(n,x/16,y/16,5)+Math.pow(n(x/3.1,y/3.1),8)*0.6,3.0);
+  return {map:tex(c,1,true),roughnessMap:tex(r),normalMap:tex(nrm)};
+}
+function brushedMetal(){
+  const S=512, n=valueNoise(3);
+  const c=cv(S),ctx=c.getContext('2d'),img=ctx.createImageData(S,S);
+  for(let y=0;y<S;y++)for(let x=0;x<S;x++){
+    const streak=Math.sin(y*0.9)*2 + (n(x/120,y*0.5)-0.5)*40;
+    const base=185+streak; const i=(y*S+x)*4;
+    img.data[i]=base; img.data[i+1]=base+2; img.data[i+2]=base+6; img.data[i+3]=255;
+  }
+  ctx.putImageData(img,0,0);
+  const r=cv(S),rx=r.getContext('2d'),rimg=rx.createImageData(S,S);
+  for(let y=0;y<S;y++)for(let x=0;x<S;x++){
+    const streak=(n(x/120,y*0.5)-0.5)*60; const rough=40+Math.abs(streak); const i=(y*S+x)*4;
+    rimg.data[i]=rimg.data[i+1]=rimg.data[i+2]=Math.min(160,rough); rimg.data[i+3]=255;
+  }
+  rx.putImageData(rimg,0,0);
+  const nrm=normalFromHeight(S,(x,y)=>(n(x/120,y*0.5))*0.3+Math.sin(y*0.9)*0.02,1.2);
+  return {map:tex(c,1,true),roughnessMap:tex(r),normalMap:tex(nrm)};
+}
+function rubber(){
+  const S=256,n=valueNoise(5);
+  const nrm=normalFromHeight(S,(x,y)=>fbm(n,x/8,y/8,4),1.4);
+  const rough=cv(64),rc=rough.getContext('2d');rc.fillStyle='#e0e0e0';rc.fillRect(0,0,64,64);
+  return {roughnessMap:tex(rough),normalMap:tex(nrm,2)};
+}
+function gradientBG(top='#11161d',bottom='#05070a'){
+  const c=cv(512),ctx=c.getContext('2d');
+  const grd=ctx.createLinearGradient(0,0,0,512);
+  grd.addColorStop(0,top);grd.addColorStop(1,bottom);
+  ctx.fillStyle=grd;ctx.fillRect(0,0,512,512);
+  const rg=ctx.createRadialGradient(256,200,30,256,256,360);
+  rg.addColorStop(0,'rgba(42,157,143,0.10)');rg.addColorStop(1,'rgba(0,0,0,0)');
+  ctx.fillStyle=rg;ctx.fillRect(0,0,512,512);
+  return tex(c,1,true);
+}
+function techPlastic(r=0.10,g=0.11,b=0.13){
+  const S=256,n=valueNoise(31);
+  const c=cv(S),ctx=c.getContext('2d'),img=ctx.createImageData(S,S);
+  for(let y=0;y<S;y++)for(let x=0;x<S;x++){
+    const v=fbm(n,x/30,y/30,3)*0.1+0.92; const i=(y*S+x)*4;
+    img.data[i]=r*255*v;img.data[i+1]=g*255*v;img.data[i+2]=b*255*v;img.data[i+3]=255;
+  }
+  ctx.putImageData(img,0,0);
+  const nrm=normalFromHeight(S,(x,y)=>fbm(n,x/10,y/10,3),0.8);
+  const rough=cv(64),rc=rough.getContext('2d');rc.fillStyle='#9a9a9a';rc.fillRect(0,0,64,64);
+  return {map:tex(c,1,true),roughnessMap:tex(rough),normalMap:tex(nrm)};
+}
+
+/* ============================================================
+   ENGINE — render premium compartido por todos los laboratorios
+   ============================================================ */
+function createStage(mount, opts={}){
+  const bgTop = opts.bgTop||'#141b24', bgBot = opts.bgBot||'#05070a';
+  const renderer = new THREE.WebGLRenderer({ antialias:true, powerPreference:'high-performance' });
+  renderer.setPixelRatio(Math.min(devicePixelRatio,2));
+  renderer.setSize(mount.clientWidth, mount.clientHeight);
+  renderer.shadowMap.enabled = true;
+  renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+  renderer.toneMapping = THREE.ACESFilmicToneMapping;
+  renderer.toneMappingExposure = opts.exposure ?? 1.18;
+  renderer.outputColorSpace = THREE.SRGBColorSpace;
+  mount.appendChild(renderer.domElement);
+  renderer.domElement.style.touchAction='none';
+
+  const scene = new THREE.Scene();
+  scene.background = gradientBG(bgTop,bgBot);
+  const pmrem = new THREE.PMREMGenerator(renderer);
+  scene.environment = pmrem.fromScene(new RoomEnvironment(renderer), 0.04).texture;
+  scene.environmentIntensity = opts.envInt ?? 1.15;
+
+  const camera = new THREE.PerspectiveCamera(45, mount.clientWidth/mount.clientHeight, 0.1, 200);
+  const cam = opts.cam || [5.5,3.4,6.2];
+  camera.position.set(...cam);
+
+  const controls = new OrbitControls(camera, renderer.domElement);
+  controls.enableDamping = true; controls.dampingFactor = 0.07;
+  controls.minDistance = opts.minD ?? 3; controls.maxDistance = opts.maxD ?? 18;
+  controls.maxPolarAngle = Math.PI*0.52;
+  controls.target.set(...(opts.target||[0,1.4,0]));
+  controls.autoRotate = opts.autoRotate ?? false;
+  controls.autoRotateSpeed = opts.autoRotateSpeed ?? 0.6;
+
+  const key = new THREE.DirectionalLight(0xffffff, 2.7);
+  key.position.set(5,9,6); key.castShadow=true;
+  key.shadow.mapSize.set(2048,2048);
+  key.shadow.camera.near=0.5; key.shadow.camera.far=40;
+  const sd=8; Object.assign(key.shadow.camera,{left:-sd,right:sd,top:sd,bottom:-sd});
+  key.shadow.bias=-0.0003; key.shadow.normalBias=0.02; scene.add(key);
+  const rim = new THREE.SpotLight(0x2affce, 55, 30, Math.PI/5, 0.4, 1.5);
+  rim.position.set(-7,6,-5); scene.add(rim);
+  const fill = new THREE.DirectionalLight(0x6fb6ff, 0.5); fill.position.set(-4,3,7); scene.add(fill);
+  scene.add(new THREE.HemisphereLight(0x9fb4c8, 0x10151b, 0.35));
+
+  if(opts.floor!==false){
+    const f = new THREE.Mesh(new THREE.CircleGeometry(40,80),
+      new THREE.MeshStandardMaterial({ color:0x0a0e13, roughness:0.14, metalness:0.62, envMapIntensity:1.15 }));
+    f.rotation.x=-Math.PI/2; f.receiveShadow=true; scene.add(f);
+    for(let r=2;r<=8;r+=2){
+      const ring=new THREE.Mesh(new THREE.RingGeometry(r-0.012,r+0.012,80),
+        new THREE.MeshBasicMaterial({color:0x1a2632,transparent:true,opacity:0.4}));
+      ring.rotation.x=-Math.PI/2; ring.position.y=0.002; scene.add(ring);
+    }
+  }
+
+  const isMobile = /Mobi|Android|iPhone|iPad/i.test(navigator.userAgent) || innerWidth<820;
+  // GTAO desactivado por defecto: el pase de oclusión ambiental en espacio de pantalla
+  // producía un recuadro oscuro duro sobre el piso reflectante (artefacto dependiente de la
+  // cámara y del renderer). La escena tiene AO suficiente con luces directas + sombras + env.
+  // Se puede reactivar para pruebas con ?gtao.
+  const useGtao = /[?&]gtao\b/.test(location.search);
+  const composer = new EffectComposer(renderer);
+  composer.addPass(new RenderPass(scene,camera));
+  if(!isMobile && useGtao){
+    try{
+      const g=new GTAOPass(scene,camera,mount.clientWidth,mount.clientHeight);
+      g.output=GTAOPass.OUTPUT.Default;
+      if(g.updateGtaoMaterial)g.updateGtaoMaterial({radius:0.5,distanceExponent:1,thickness:1,scale:1.1,samples:16});
+      composer.addPass(g);
+    }catch(e){}
+  }
+  const bloom=new UnrealBloomPass(new THREE.Vector2(mount.clientWidth,mount.clientHeight),opts.bloom??0.42,0.5,0.9);
+  composer.addPass(bloom);
+  let bokeh=null;
+  const flat=/[?&]flat/.test(location.search);
+  if(!isMobile && !flat){
+    bokeh=new BokehPass(scene,camera,{focus:8.5,aperture:opts.aperture??0.00018,maxblur:opts.maxblur??0.004,width:mount.clientWidth,height:mount.clientHeight});
+    composer.addPass(bokeh);
+  }
+  composer.addPass(new OutputPass());
+  composer.addPass(new SMAAPass(mount.clientWidth*renderer.getPixelRatio(),mount.clientHeight*renderer.getPixelRatio()));
+
+  function resize(){
+    const w=mount.clientWidth,h=mount.clientHeight;
+    camera.aspect=w/h; camera.updateProjectionMatrix();
+    renderer.setSize(w,h); composer.setSize(w,h);
+  }
+  window.addEventListener('resize',resize);
+
+  const clock=new THREE.Clock();
+  let hook=null, raf=null;
+  const camCine={active:false,t:0,dur:1.4,from:new THREE.Vector3(),to:new THREE.Vector3(),fromT:new THREE.Vector3(),toT:new THREE.Vector3()};
+  let lastDrag=-99, cinematicIdle=false;
+  controls.addEventListener('start',()=>{ lastDrag=clock.elapsedTime; camCine.active=false; });
+  function easeInOutCubic(x){return x<0.5?4*x*x*x:1-Math.pow(-2*x+2,3)/2;}
+  function moveTo(pos,target,dur=1.4){
+    camCine.from.copy(camera.position); camCine.fromT.copy(controls.target);
+    camCine.to.set(...pos); camCine.toT.set(...target);
+    camCine.dur=dur; camCine.active=true; camCine.t=0;
+  }
+  function setCinematicIdle(v){ cinematicIdle=v; if(!v)controls.autoRotate=false; }
+  function loop(){ raf=requestAnimationFrame(loop); const dt=clock.getDelta(),t=clock.elapsedTime;
+    if(camCine.active){
+      camCine.t=Math.min(1,camCine.t+dt/camCine.dur);
+      const e=easeInOutCubic(camCine.t);
+      camera.position.lerpVectors(camCine.from,camCine.to,e);
+      controls.target.lerpVectors(camCine.fromT,camCine.toT,e);
+      if(camCine.t>=1)camCine.active=false;
+    } else if(cinematicIdle){
+      controls.autoRotate=(t-lastDrag)>1.4; controls.autoRotateSpeed=0.45;
+    }
+    if(hook)hook(dt,t); controls.update();
+    if(bokeh) bokeh.uniforms['focus'].value = camera.position.distanceTo(controls.target);
+    composer.render(); }
+  function start(){ if(!raf)loop(); }
+  function stop(){ cancelAnimationFrame(raf); raf=null; window.removeEventListener('resize',resize); }
+
+  return { THREE, renderer, scene, camera, controls, composer, bloom,
+    setAnimate:fn=>hook=fn, start, stop, resize, clock,
+    flyTo:(v)=>{ controls.target.copy(v); }, moveTo, setCinematicIdle };
+}
+
+/* ---------- shared geometry/material helpers ---------- */
+function roundedBox(w,h,d,mat,rf=0.08){
+  const r=Math.min(w,h,d)*rf;
+  const m=new THREE.Mesh(new RoundedBoxGeometry(w,h,d,4,r),mat);
+  m.castShadow=m.receiveShadow=true; return m;
+}
+function pickerFor(scene,camera,dom,onHit){
+  const ray=new THREE.Raycaster(),mouse=new THREE.Vector2(); let down=null;
+  dom.addEventListener('pointerdown',e=>down=[e.clientX,e.clientY]);
+  dom.addEventListener('pointerup',e=>{
+    if(!down)return; const moved=Math.abs(e.clientX-down[0])+Math.abs(e.clientY-down[1])>6; down=null;
+    if(moved)return;
+    const r=dom.getBoundingClientRect();
+    mouse.x=((e.clientX-r.left)/r.width)*2-1; mouse.y=-((e.clientY-r.top)/r.height)*2+1;
+    ray.setFromCamera(mouse,camera);
+    const hits=ray.intersectObjects(scene.children,true);
+    onHit(hits[0]||null);
+  });
+}
+function labelSprite(text,color='#ffd166'){
+  const w = Math.max(150, Math.min(520, text.length*26+60));
+  const cvE=document.createElement('canvas');cvE.width=w;cvE.height=96;
+  const c=cvE.getContext('2d');c.fillStyle='rgba(8,11,16,.95)';
+  const rr=(x,y,ww,hh,r)=>{c.beginPath();c.moveTo(x+r,y);c.arcTo(x+ww,y,x+ww,y+hh,r);c.arcTo(x+ww,y+hh,x,y+hh,r);c.arcTo(x,y+hh,x,y,r);c.arcTo(x,y,x+ww,y,r);c.closePath();};
+  rr(3,3,w-6,90,18);c.fill();
+  c.strokeStyle=color;c.lineWidth=3;c.stroke();
+  c.font='bold 36px Outfit, system-ui, sans-serif';c.fillStyle=color;c.textAlign='center';c.textBaseline='middle';c.fillText(text,w/2,48);
+  const tx=new THREE.CanvasTexture(cvE);tx.colorSpace=THREE.SRGBColorSpace;tx.generateMipmaps=false;tx.minFilter=THREE.LinearFilter;
+  const sp=new THREE.Sprite(new THREE.SpriteMaterial({map:tx,depthTest:false,transparent:true}));
+  const aspect=w/96;
+  sp.scale.set(0.30*aspect,0.30,1);sp.renderOrder=999;return sp;
+}
+
+/* ============================================================
+   SYNTH — sintetizador Web Audio reutilizable
+   ============================================================ */
+function makeSynth(opts={}){
+  const type=opts.type||'sawtooth';
+  let ctx=null,oscA=null,oscB=null,gain=null,filter=null,soundOn=true;
+  function init(){
+    if(ctx)return;
+    try{
+      ctx=new (window.AudioContext||window.webkitAudioContext)();
+      oscA=ctx.createOscillator(); oscB=ctx.createOscillator();
+      oscA.type=type; oscB.type=opts.type2||'square';
+      filter=ctx.createBiquadFilter(); filter.type=opts.filterType||'lowpass'; filter.frequency.value=opts.filterFreq||500; filter.Q.value=opts.Q||3;
+      gain=ctx.createGain(); gain.gain.value=0;
+      oscA.connect(filter); oscB.connect(filter); filter.connect(gain); gain.connect(ctx.destination);
+      oscA.start(); oscB.start();
+    }catch(e){}
+  }
+  function update(freqA,freqB,vol,filterFreq){
+    if(!ctx||!soundOn){ if(gain)gain.gain.setTargetAtTime(0,ctx?.currentTime||0,0.1); return; }
+    oscA.frequency.setTargetAtTime(freqA,ctx.currentTime,0.04);
+    if(freqB!==undefined)oscB.frequency.setTargetAtTime(freqB,ctx.currentTime,0.04);
+    if(filterFreq!==undefined)filter.frequency.setTargetAtTime(filterFreq,ctx.currentTime,0.05);
+    gain.gain.setTargetAtTime(Math.max(0,vol),ctx.currentTime,0.06);
+  }
+  function beep(freq=880,dur=0.09,vol=0.06){
+    if(!ctx||!soundOn)return;
+    const o=ctx.createOscillator(),g=ctx.createGain();
+    o.type='sine'; o.frequency.value=freq;
+    g.gain.setValueAtTime(vol,ctx.currentTime); g.gain.exponentialRampToValueAtTime(0.001,ctx.currentTime+dur);
+    o.connect(g); g.connect(ctx.destination); o.start(); o.stop(ctx.currentTime+dur);
+  }
+  function toggle(){ soundOn=!soundOn; return soundOn; }
+  function resume(){ if(ctx&&ctx.state==='suspended')ctx.resume(); }
+  return { init, update, beep, toggle, resume, isOn:()=>soundOn, state:()=>ctx?.state||'none' };
+}
+
+// Arranque estrella-delta TEMPORIZADO visto desde el LADO DE CONTROL (D3 · digital). Motor verificado
+// numéricamente (verify_stardelta.mjs, 38/38) y pegado aquí VERBATIM: simulación y verificación
+// comparten implementación.
+//   BASE DE TIEMPO: DT = 5 ms por ciclo de scan (idealizado, sin jitter).
+//   CONTACTOR REAL: la BOBINA recibe la orden pero los CONTACTOS tardan t_cierre en cerrar y
+//     t_apertura en abrir (incluye la extinción del arco). Esa diferencia es la que crea el SOLAPE.
+//   SECUENCIA: KM1 = (Marcha ∨ KM1) ∧ /Paro (sello, MEC-83) · TON_Y(IN=KM1,PT=tY) → Qy ·
+//     KMY = KM1 ∧ /Qy ∧ enclavamiento(KMΔ) · TON_W(IN=Qy,PT=tW) → Qw · KMΔ = KM1 ∧ Qw ∧ enclav.(KMY)
+//   SOLAPE FÍSICO = max(0, t_apertura − t_cierre − tiempo muerto): si KMY sigue cerrado cuando KMΔ
+//     cierra, se cortocircuitan dos fases. El enclavamiento por SOFTWARE no lo evita (sólo impide el
+//     error de PROGRAMACIÓN); lo evita el tiempo muerto, y ante un contactor SOLDADO sólo lo evitan
+//     los CONTACTOS ESPEJO (IEC 60947-4-1 Anexo F), que abren obligatoriamente si el principal no abre.
+//   PICO DE RECONEXIÓN (transición abierta): durante el tiempo muerto el motor queda desenergizado; su
+//     fem residual decae con T0 mientras su fase se desliza ⇒ el pico CRECE con el tiempo muerto. Por eso
+//     el tiempo muerto óptimo es el MÁS CORTO que evita el solape, no "cuanto más, mejor".
+//   Ref: IEC 61131-3 (temporizadores TON) · IEC 60947-4-1 (contactores; Anexo F, contactos espejo) ·
+//        NMX-J-515-ANCE · Petruzella · Chapman, "Máquinas eléctricas" · verificación numérica propia.
+
+// ===================== 1. ESCENA =====================
+const mount=document.getElementById('stage');
+const S=createStage(mount,{cam:[4.8,2.9,7.0],target:[0.4,1.05,0.3],bgTop:'#0d1017',bgBot:'#05060a',bloom:0.44,minD:3.2,maxD:16});
+const {scene}=S;
+const synth=makeSynth({type:'square',type2:'sine',filterFreq:2400,Q:0.7});
+const el=id=>document.getElementById(id);
+
+// ===================== 2. MOTOR (VERIFICADO 38/38 — VERBATIM) =====================
+const DT=5; // ms por ciclo de scan
+function newT(){return {et:0,q:false,prev:false};}
+function stepTON(s,IN,pt,dt){
+  if(!IN)s.et=0;
+  else if(!s.prev)s.et=0;
+  else if(s.et<pt)s.et=Math.min(pt,s.et+dt);
+  s.q=IN&&s.et>=pt;
+  s.prev=IN;return s.q;
+}
+// Contactor real: la BOBINA recibe la orden, los CONTACTOS tardan tOn en cerrar y tOff en abrir
+// (tOff incluye la extinción del arco). 'stuck' = contacto principal soldado: cierra y ya no abre.
+function newCtor(tOn,tOff){return {tOn,tOff,cmd:false,prev:false,closed:false,t:0,stuck:false};}
+function stepCtor(c,cmd,dt){
+  cmd=!!cmd;
+  if(c.stuck&&c.closed){c.cmd=cmd;c.prev=cmd;c.t=0;return true;}
+  if(cmd!==c.prev)c.t=0;                       // flanco: la cuenta arranca en 0
+  else if(cmd&&!c.closed){c.t=Math.min(c.tOn,c.t+dt);if(c.t>=c.tOn)c.closed=true;}
+  else if(!cmd&&c.closed){c.t=Math.min(c.tOff,c.t+dt);if(c.t>=c.tOff)c.closed=false;}
+  else c.t=0;
+  c.cmd=cmd;c.prev=cmd;return c.closed;
+}
+//  R1: KM1 = (Marcha v KM1) ^ /Paro                (sello, MEC-83)
+//  R2: TON_Y (IN=KM1, PT=tY)  -> Qy
+//  R3: KMY = KM1 ^ /Qy ^ enclavamiento(KMD)
+//  R4: TON_W (IN=Qy, PT=tW)   -> Qw                (tiempo muerto de transición)
+//  R5: KMD = KM1 ^ Qw ^ enclavamiento(KMY)
+// enclavamiento: 'none' | 'soft' (lee la ORDEN de bobina) | 'aux' (lee el CONTACTO ESPEJO real)
+function newStar(sc,fault){
+  const s={M:false,ty:newT(),tw:newT(),
+    km1:newCtor(sc.tOn,sc.tOff),kmy:newCtor(sc.tOn,sc.tOff),kmd:newCtor(sc.tOn,sc.tOff)};
+  if(fault==='kmy')s.kmy.stuck=true;
+  return s;
+}
+function starScan(s,Start,Stop,tY,tW,lock,dt){
+  s.M=(!!Start||s.M)&&!Stop;
+  const qy=stepTON(s.ty,s.M,tY,dt);
+  const qw=stepTON(s.tw,qy,tW,dt);
+  const lockY=lock==='aux'?!s.kmd.closed:lock==='soft'?!s.kmd.cmd:true;
+  const lockD=lock==='aux'?!s.kmy.closed:lock==='soft'?!s.kmy.cmd:true;
+  const cy=s.M&&!qy&&lockY;
+  const cd=s.M&&qw&&lockD;
+  stepCtor(s.km1,s.M,dt);stepCtor(s.kmy,cy,dt);stepCtor(s.kmd,cd,dt);
+  return {M:s.M,qy,qw,cy,cd,k1:s.km1.closed,ky:s.kmy.closed,kd:s.kmd.closed};
+}
+// corre el arranque completo y MIDE los instantes (no los supone)
+function runStar(sc,tY,tW,lock,fault,extraMs){
+  const s=newStar(sc,fault);
+  const total=tY+tW+(extraMs==null?600:extraMs);
+  const n=Math.round(total/DT);
+  const r={tCmdY0:-1,tOpenY:-1,tCmdD1:-1,tCloseD:-1,tCloseY:-1,overlapMs:0,tDelta:-1,stages:{}};
+  let prev=null;
+  for(let k=0;k<=n;k++){
+    const v=starScan(s,k===0,false,tY,tW,lock,DT);
+    const t=k*DT;
+    if(prev){
+      if(prev.cy&&!v.cy&&r.tCmdY0<0)r.tCmdY0=t;
+      if(prev.ky&&!v.ky&&r.tOpenY<0)r.tOpenY=t;
+      if(!prev.ky&&v.ky&&r.tCloseY<0)r.tCloseY=t;
+      if(!prev.cd&&v.cd&&r.tCmdD1<0)r.tCmdD1=t;
+      if(!prev.kd&&v.kd&&r.tCloseD<0)r.tCloseD=t;
+    }
+    if(v.ky&&v.kd)r.overlapMs+=DT;
+    const st=!v.k1?'PARO':(v.ky&&v.kd)?'SOLAPE':v.ky?'ESTRELLA':v.kd?'DELTA':'TRANSICION';
+    r.stages[st]=(r.stages[st]||0)+DT;
+    if(st==='DELTA'&&r.tDelta<0)r.tDelta=t;
+    prev=v;
+  }
+  return r;
+}
+// traza para la VISTA: la misma máquina de scan, devolviendo las muestras de la ventana [t0,t1]
+function zoomStar(sc,tY,tW,lock,fault,t0,t1){
+  const s=newStar(sc,fault);const out=[];const n=Math.round(t1/DT);
+  for(let k=0;k<=n;k++){
+    const v=starScan(s,k===0,false,tY,tW,lock,DT);const t=k*DT;
+    if(t>=t0)out.push({t,M:v.M,cy:v.cy,cd:v.cd,k1:v.k1,ky:v.ky,kd:v.kd});
+  }
+  return out;
+}
+// deslizamiento durante el arranque en estrella (datos medidos del escenario: tau, sInf)
+function slipAt(tYms,sc){return sc.sInf+(1-sc.sInf)*Math.exp(-(tYms/1000)/sc.tau);}
+// pico de corriente al reconectar en delta tras una transición ABIERTA de tW ms
+function peakIdx(tWms,sY,sc){
+  const e=(1-sY)*Math.exp(-(tWms/1000)/sc.T0);
+  const d=sY*2*Math.PI*sc.f*(tWms/1000);
+  return sc.ILR*Math.sqrt(1+e*e-2*e*Math.cos(d));
+}
+
+// ===================== ESCENARIOS =====================
+const OPT_TY=[3000,5000,8000,12000];      // ms en estrella
+const OPT_TW=[0,20,40,60];                // ms de tiempo muerto
+const OPT_LOCK=['none','soft','aux'];
+const POOL=[
+  {name:'Bomba centrífuga 15 kW',     tOn:25,tOff:40, tau:0.9, sInf:0.050, sMax:0.10, T0:0.12, ILR:6.5, f:60},
+  {name:'Compresor de tornillo 30 kW',tOn:20,tOff:55, tau:1.6, sInf:0.040, sMax:0.07, T0:0.18, ILR:7.0, f:60},
+  {name:'Ventilador centrífugo 55 kW',tOn:15,tOff:70, tau:3.2, sInf:0.060, sMax:0.09, T0:0.30, ILR:6.0, f:60},
+  {name:'Banda transportadora 22 kW', tOn:20,tOff:45, tau:1.5, sInf:0.045, sMax:0.09, T0:0.15, ILR:7.5, f:60},
+];
+// criterios del Reto (ortogonales)
+const okY=(tY,sc)=>slipAt(tY,sc)<=sc.sMax && !OPT_TY.some(v=>v<tY&&slipAt(v,sc)<=sc.sMax);
+// el tiempo muerto debe bastar POR SÍ SOLO: se evalúa SIN enclavamiento (sin ayuda del hardware)
+const okW=(tW,sc)=>runStar(sc,3000,tW,'none',null).overlapMs===0 && !OPT_TW.some(v=>v<tW&&runStar(sc,3000,v,'none',null).overlapMs===0);
+// el enclavamiento debe seguir protegiendo con un KMY SOLDADO
+const okLock=(lock,tW,sc)=>runStar(sc,3000,tW,lock,'kmy').overlapMs===0;
+// deslizamiento con el que REALMENTE se conmuta esta máquina: el del tiempo de estrella correcto
+const tYref=sc=>OPT_TY.filter(v=>okY(v,sc))[0];
+const sYref=sc=>slipAt(tYref(sc),sc);
+// instante en que la fem residual queda en OPOSICIÓN DE FASE con la red (delta = 180°)
+const tOpos=(sY,sc)=>500/(sY*sc.f);
+// el MÁXIMO real del pico cae un poco ANTES de la oposición de fase, porque la fem residual sigue
+// decayendo mientras gira: se busca por barrido, no se postula
+function tPeakMax(sY,sc){let bt=0,bp=-1;for(let w=0;w<=400;w+=0.5){const p=peakIdx(w,sY,sc);if(p>bp){bp=p;bt=w;}}return {t:bt,p:bp};}
+
+// ===================== 3. ESTADO =====================
+let mode='explora';
+const LOCK_NAME={none:'Sin enclavamiento',soft:'Por software',aux:'Contactos espejo'};
+const LOCK_SHORT={none:'Sin enclav.',soft:'Software',aux:'Espejo'};
+// explora — el contactor conducido scan a scan
+let expIdx=0,expCmd=false,expC=null,expHist=[],expT=0;
+// aplica
+let apTopic='transicion';                 // 'transicion' | 'solape' | 'falla'
+let apIdx=0,apTY=3000,apTW=0,apLock='none';
+// reto
+let retoIdx=0;
+let retoCh={ty:OPT_TY[0],tw:0,lock:'none'};
+let retoChecked=false,retoOkY=false,retoOkW=false,retoOkL=false,retoSolved=false,retoMsg='';
+let solved=false,autoRunning=false,QUIZ={};
+let hwStep=0,hwT=0,motorSpin=0,rotAng=0;
+
+function pickIdx(n,ex){let v=Math.floor(Math.random()*n);if(n>1)while(v===ex)v=Math.floor(Math.random()*n);return v;}
+function hexA(hex,a){const n=parseInt(hex.slice(1),16);return `rgba(${(n>>16)&255},${(n>>8)&255},${n&255},${a})`;}
+function fmtS(ms){return (ms/1000).toFixed(1)+' s';}
+function fmtMs(ms){return ms+' ms';}
+function pct(x){return (x*100).toFixed(1)+' %';}
+function seedReto(idx){
+  retoIdx=(idx==null)?pickIdx(POOL.length,retoIdx):idx;
+  const sc=POOL[retoIdx];
+  // programa de partida deliberadamente MAL: el primer tY que NO cumple, sin tiempo muerto y sin enclavamiento
+  const badY=OPT_TY.find(v=>!okY(v,sc));
+  retoCh={ty:badY==null?OPT_TY[0]:badY,tw:0,lock:'none'};
+  retoChecked=false;retoOkY=false;retoOkW=false;retoOkL=false;retoSolved=false;retoMsg='';
+}
+seedReto(0);
+// el primer registro es el REPOSO (orden 0, contacto abierto): sin él, el flanco de la primera
+// pulsación no queda en la traza y el retardo de cierre no se puede medir
+function expReset(){const sc=POOL[expIdx];expC=newCtor(sc.tOn,sc.tOff);expCmd=false;expHist=[{t:0,cmd:false,closed:false,c:0}];expT=DT;}
+function expScan(cmd){
+  expCmd=!!cmd;
+  const closed=stepCtor(expC,expCmd,DT);
+  expHist.push({t:expT,cmd:expCmd,closed,c:expC.t});
+  if(expHist.length>60)expHist.shift();
+  expT+=DT;hwStep=0;
+}
+expReset();
+// retardo MEDIDO entre el último flanco de la orden y el cambio del contacto que le corresponde
+function expLag(){
+  for(let i=expHist.length-1;i>0;i--){
+    if(expHist[i].closed!==expHist[i-1].closed){
+      const dir=expHist[i].closed;
+      for(let j=i;j>0;j--)if(expHist[j].cmd!==expHist[j-1].cmd&&expHist[j].cmd===dir)
+        return {ms:expHist[i].t-expHist[j].t,dir};
+      return null;
+    }
+  }
+  return null;
+}
+
+// ===================== 4. MATERIALES =====================
+function std(color,rough,metal){return new THREE.MeshStandardMaterial({color,roughness:rough,metalness:metal});}
+function brush(base){return std(base,0.55,0.35);}
+const MAT={bench:brush(0x2b2f34),frame:brush(0x22262c),leg:brush(0x14161b),cab:std(0x1b2028,0.6,0.25),ctor:std(0x14171b,0.5,0.3),motor:brush(0x3a4048),shaft:std(0x9aa4b2,0.35,0.8)};
+const ACC='#8AB4F8', OK_HEX='#7CD992', BAD_HEX='#ff6b6b', WARN_HEX='#E9C46A', VIO='#C08CF8';
+
+const HOVER_LABELS=new Map();
+function addHoverLabel(obj,text,color,pos,scale){
+  const cv=document.createElement('canvas');cv.width=256;cv.height=64;const cx=cv.getContext('2d');
+  cx.fillStyle='rgba(10,14,17,0.88)';cx.fillRect(0,0,256,64);
+  cx.strokeStyle=color;cx.lineWidth=2;cx.strokeRect(1,1,254,62);
+  cx.fillStyle='#F4EFEA';cx.font='bold 20px Outfit, sans-serif';cx.textAlign='center';cx.textBaseline='middle';cx.fillText(text,128,32);
+  const tex=new THREE.CanvasTexture(cv);
+  const spr=new THREE.Sprite(new THREE.SpriteMaterial({map:tex,transparent:true,depthTest:false}));
+  spr.position.copy(pos);spr.scale.set(scale||1.1,(scale||1.1)*0.28,1);spr.visible=false;spr.renderOrder=999;
+  scene.add(spr);HOVER_LABELS.set(obj,spr);return spr;
+}
+
+// ===================== 5. PIZARRÓN =====================
+const boardG=new THREE.Group();
+boardG.position.set(-1.15,0,-0.95);boardG.rotation.y=0.2;scene.add(boardG);
+const frame=roundedBox(3.9,2.9,0.12,MAT.frame,0.06);frame.position.set(0,1.9,0);boardG.add(frame);
+[-1.65,1.65].forEach(x=>{const leg=new THREE.Mesh(new THREE.CylinderGeometry(0.05,0.06,1.9,16),MAT.leg);leg.position.set(x,0.92,0);boardG.add(leg);});
+const bCv=document.createElement('canvas');bCv.width=1024;bCv.height=768;
+const bTex=new THREE.CanvasTexture(bCv);
+const board=new THREE.Mesh(new THREE.PlaneGeometry(3.68,2.72),new THREE.MeshBasicMaterial({map:bTex}));
+board.position.set(0,1.9,0.065);boardG.add(board);
+frame.userData={title:'Arranque estrella-delta temporizado',info:'Secuencia KM1 → KMY → KMΔ con temporizadores, tiempo muerto y enclavamiento · toca para inspeccionar'};
+addHoverLabel(frame,'Arranque Y-Δ · IEC 61131-3 / 60947-4-1',ACC,new THREE.Vector3(0,3.5,0.1).add(boardG.position),3.2);
+
+function bg(c){c.fillStyle='#0c1016';c.fillRect(0,0,1024,768);}
+function rpanel(c,x,y,w,h,title){
+  c.fillStyle=hexA(ACC,0.06);c.fillRect(x,y,w,h);
+  c.strokeStyle=hexA(ACC,0.22);c.lineWidth=1;c.strokeRect(x,y,w,h);
+  c.fillStyle='#C7D6F5';c.font='bold 15px Outfit, sans-serif';c.textAlign='left';c.fillText(title,x+16,y+26);
+}
+function prow(c,x,y,w,l,v,col){
+  c.fillStyle='#8f97a5';c.font='13px Outfit, sans-serif';c.textAlign='left';c.fillText(l,x+16,y);
+  c.fillStyle=col||'#F4EFEA';c.font='bold 16px Outfit, sans-serif';c.textAlign='right';c.fillText(v,x+w-14,y);
+}
+function wrapText(c,text,x,y,maxW,lh){
+  const words=text.split(' ');let line='',yy=y;
+  for(const w of words){const test=line+w+' ';
+    if(c.measureText(test).width>maxW && line){c.fillText(line,x,yy);line=w+' ';yy+=lh;}else line=test;}
+  c.fillText(line,x,yy);return yy;
+}
+const PX={x:706,y:70,w:300};
+
+// ---- traza digital sobre una ventana de tiempo ----
+function drawTrace(c,x,y,w,h,z,key,label,col,t0,t1,dash){
+  c.fillStyle=col;c.font='bold 12px Outfit, sans-serif';c.textAlign='left';c.fillText(label,x,y-h-6);
+  c.strokeStyle='rgba(255,255,255,0.10)';c.lineWidth=1;
+  c.beginPath();c.moveTo(x,y);c.lineTo(x+w,y);c.stroke();
+  if(!z.length)return;
+  const sx=t=>x+((t-t0)/(t1-t0))*w;
+  if(dash)c.setLineDash([5,4]);
+  c.strokeStyle=col;c.lineWidth=2;c.beginPath();
+  let py=z[0][key]?y-h:y;c.moveTo(sx(z[0].t),py);
+  for(let i=1;i<z.length;i++){
+    const yy=z[i][key]?y-h:y,xx=sx(z[i].t);
+    if(yy!==py){c.lineTo(xx,py);c.lineTo(xx,yy);py=yy;}
+  }
+  c.lineTo(x+w,py);c.stroke();c.setLineDash([]);
+}
+// ---- eje de tiempo relativo (en ms) ----
+function drawMsAxis(c,x,y,w,t0,t1,ref,step){
+  c.strokeStyle='rgba(255,255,255,0.10)';c.lineWidth=1;
+  c.fillStyle='#6b7280';c.font='10px Outfit, sans-serif';c.textAlign='center';
+  for(let t=Math.ceil(t0/step)*step;t<=t1;t+=step){
+    const xx=x+((t-t0)/(t1-t0))*w;
+    c.beginPath();c.moveTo(xx,y);c.lineTo(xx,y+6);c.stroke();
+    const d=t-ref;c.fillText((d>0?'+':'')+d,xx,y+18);
+  }
+}
+// ---- barra horizontal ----
+function drawBar(c,x,y,w,h,frac,label,col,right){
+  c.fillStyle='#9fb0cf';c.font='12px Outfit, sans-serif';c.textAlign='left';c.fillText(label,x,y-8);
+  c.fillStyle='rgba(255,255,255,0.06)';c.fillRect(x,y,w,h);
+  c.fillStyle=hexA(col,0.75);c.fillRect(x,y,Math.max(0,Math.min(1,frac))*w,h);
+  c.strokeStyle=hexA(ACC,0.3);c.lineWidth=1;c.strokeRect(x,y,w,h);
+  c.fillStyle=col;c.font='bold 13px Outfit, sans-serif';c.textAlign='right';c.fillText(right,x+w,y-8);
+}
+// ---- curva XY genérica ----
+function drawXY(c,x,y,w,h,pts,xMax,yMax,col,fill){
+  c.strokeStyle=col;c.lineWidth=2;c.beginPath();
+  pts.forEach((p,i)=>{const xx=x+(p[0]/xMax)*w,yy=y+h-(Math.min(p[1],yMax)/yMax)*h;if(i)c.lineTo(xx,yy);else c.moveTo(xx,yy);});
+  c.stroke();
+  if(fill){
+    c.lineTo(x+w,y+h);c.lineTo(x,y+h);c.closePath();c.fillStyle=hexA(col,0.14);c.fill();
+  }
+}
+function axes(c,x,y,w,h,xl,yl){
+  c.strokeStyle='rgba(255,255,255,0.16)';c.lineWidth=1;
+  c.beginPath();c.moveTo(x,y);c.lineTo(x,y+h);c.lineTo(x+w,y+h);c.stroke();
+  c.fillStyle='#7a8494';c.font='11px Outfit, sans-serif';
+  c.textAlign='right';c.fillText(xl,x+w,y+h+18);
+  c.textAlign='left';c.fillText(yl,x,y-8);
+}
+
+// ===================== 6. VISTAS POR MODO =====================
+function drawExplora(c){
+  const sc=POOL[expIdx];
+  c.fillStyle='#F4EFEA';c.font='bold 26px Outfit, sans-serif';c.textAlign='left';
+  c.fillText('El contactor NO es un interruptor ideal',30,54);
+  c.fillStyle='#8f97a5';c.font='14px Outfit, sans-serif';
+  wrapText(c,'La bobina recibe la orden en un ciclo de scan, pero la armadura tiene masa: los contactos principales tardan t_cierre en cerrar y t_apertura en abrir (este último incluye la extinción del arco). Esa diferencia es la que hace posible el cortocircuito en la conmutación Y→Δ.',30,80,640,20);
+
+  // --- diagrama del contactor ---
+  const bx=30,by=160,bw=300,bh=190;
+  c.fillStyle=hexA(expCmd?OK_HEX:ACC,0.06);c.fillRect(bx,by,bw,bh);
+  c.strokeStyle=expCmd?OK_HEX:hexA(ACC,0.45);c.lineWidth=2;c.strokeRect(bx,by,bw,bh);
+  c.fillStyle='#C7D6F5';c.font='bold 18px Outfit, sans-serif';c.textAlign='center';
+  c.fillText('CONTACTOR',bx+bw/2,by+28);
+  // bobina A1/A2
+  c.strokeStyle=expCmd?OK_HEX:'#4a525e';c.lineWidth=3;
+  c.beginPath();for(let i=0;i<4;i++)c.arc(bx+70+i*22,by+80,11,Math.PI,0,false);c.stroke();
+  c.fillStyle=expCmd?OK_HEX:'#9fb0cf';c.font='bold 13px Outfit, sans-serif';c.textAlign='left';
+  c.fillText('A1 / A2  bobina',bx+20,by+112);
+  c.textAlign='right';c.fillText(expCmd?'ORDEN = 1':'ORDEN = 0',bx+bw-20,by+112);
+  // contactos principales
+  const cl=expC.closed;
+  c.strokeStyle=cl?OK_HEX:'#4a525e';c.lineWidth=3;
+  for(let i=0;i<3;i++){
+    const px=bx+70+i*55;
+    c.beginPath();c.moveTo(px,by+130);c.lineTo(px,by+146);c.stroke();
+    c.beginPath();c.moveTo(px,by+170);c.lineTo(px,by+186);c.stroke();
+    c.beginPath();c.moveTo(px,by+146);
+    if(cl)c.lineTo(px,by+170);else c.lineTo(px+16,by+168);
+    c.stroke();
+  }
+  c.fillStyle=cl?OK_HEX:'#9fb0cf';c.font='bold 13px Outfit, sans-serif';c.textAlign='left';
+  c.fillText(cl?'contactos CERRADOS':'contactos ABIERTOS',bx+20,by+bh-8);
+
+  // --- cuenta interna ---
+  const moving=expCmd!==cl;
+  const lim=expCmd?sc.tOn:sc.tOff;
+  drawBar(c,bx+330,by+40,300,18,moving?expC.t/lim:(cl?1:0),moving?(expCmd?'cerrando (t_cierre)':'abriendo (t_apertura)'):'contactos en reposo',
+    moving?WARN_HEX:(cl?OK_HEX:'#6b7280'),moving?(expC.t+' / '+lim+' ms'):'—');
+  c.fillStyle='#8f97a5';c.font='12px Outfit, sans-serif';c.textAlign='left';
+  wrapText(c,'Cada pulsación de la botonera es un ciclo de scan de '+DT+' ms. Mantén la orden en 1 y cuenta: el contacto cierra en la pulsación número '+(sc.tOn/DT+1)+'. La del flanco no cuenta —en ella la cuenta arranca en cero—, así que son t_cierre / '+DT+' = '+(sc.tOn/DT)+' scans de movimiento.',bx+330,by+90,300,17);
+  const lag=expLag();
+  if(lag){
+    c.fillStyle=OK_HEX;c.font='bold 14px Outfit, sans-serif';
+    c.fillText('Último retardo MEDIDO: '+fmtMs(lag.ms)+' al '+(lag.dir?'cerrar':'abrir'),bx+330,by+165);
+  }
+
+  // --- cronograma ---
+  const t0=expHist.length?expHist[0].t:0, t1=Math.max(t0+DT*20,expT);
+  const wx=30,ww=640;
+  drawTrace(c,wx,430,ww,22,expHist,'cmd','ORDEN de bobina (lo que escribe el PLC)',ACC,t0,t1,true);
+  drawTrace(c,wx,500,ww,22,expHist,'closed','CONTACTO principal (lo que hace el metal)',OK_HEX,t0,t1,false);
+  drawMsAxis(c,wx,510,ww,t0,t1,0,Math.max(DT*5,Math.round((t1-t0)/8/25)*25||25));
+  c.fillStyle='#6b7280';c.font='11px Outfit, sans-serif';c.textAlign='left';
+  c.fillText('tiempo (ms desde el inicio)',wx,545);
+  if(expHist.length<=1){c.fillStyle='#6b7280';c.font='13px Outfit, sans-serif';c.fillText('(sin scans aún — pulsa la botonera)',wx+6,470);}
+
+  // --- panel derecho ---
+  rpanel(c,PX.x,PX.y,PX.w,220,'CONTACTOR DEL EQUIPO');
+  prow(c,PX.x,PX.y+56,PX.w,'Equipo',sc.name.split(' ').slice(0,2).join(' '));
+  prow(c,PX.x,PX.y+90,PX.w,'t_cierre',fmtMs(sc.tOn),ACC);
+  prow(c,PX.x,PX.y+124,PX.w,'t_apertura',fmtMs(sc.tOff),VIO);
+  prow(c,PX.x,PX.y+158,PX.w,'t_apert. − t_cierre',fmtMs(sc.tOff-sc.tOn),WARN_HEX);
+  prow(c,PX.x,PX.y+192,PX.w,'Scans dados',String(expHist.length));
+  c.fillStyle='rgba(0,0,0,0.20)';c.fillRect(PX.x,PX.y+240,PX.w,300);
+  c.strokeStyle=hexA(WARN_HEX,0.4);c.lineWidth=1;c.strokeRect(PX.x,PX.y+240,PX.w,300);
+  c.fillStyle=WARN_HEX;c.font='bold 14px Outfit, sans-serif';c.textAlign='left';
+  c.fillText('¿Por qué importa la diferencia?',PX.x+14,PX.y+266);
+  c.fillStyle='#C9D3E2';c.font='12px Outfit, sans-serif';
+  wrapText(c,'En el arranque Y-Δ, el PLC quita la orden a KMY y se la da a KMΔ. Si KMΔ cierra ('+fmtMs(sc.tOn)+') antes de que KMY termine de abrir ('+fmtMs(sc.tOff)+'), los dos están cerrados a la vez: eso es un cortocircuito entre fases a través del bobinado.',PX.x+14,PX.y+292,PX.w-28,18);
+  c.fillStyle='#7a8494';
+  wrapText(c,'La ventana de peligro dura exactamente t_apertura − t_cierre = '+fmtMs(sc.tOff-sc.tOn)+' si las dos órdenes se dan en el mismo scan. El programa tiene que abrir un TIEMPO MUERTO al menos así de largo.',PX.x+14,PX.y+410,PX.w-28,18);
+  c.fillStyle='#6b7280';c.font='11px Outfit, sans-serif';
+  wrapText(c,'Datos de catálogo típicos de contactores de mando por bobina de CA (IEC 60947-4-1).',PX.x+14,PX.y+500,PX.w-28,16);
+}
+
+function drawAplica(c){
+  const sc=POOL[apIdx];
+  if(apTopic==='transicion')return drawTransicion(c,sc);
+  if(apTopic==='solape')return drawSolape(c,sc);
+  return drawFalla(c,sc);
+}
+
+function drawTransicion(c,sc){
+  const r=runStar(sc,apTY,apTW,apLock,null);
+  const t0=apTY-100,t1=apTY+300;
+  const z=zoomStar(sc,apTY,apTW,apLock,null,t0,t1);
+  c.fillStyle='#F4EFEA';c.font='bold 26px Outfit, sans-serif';c.textAlign='left';
+  c.fillText('La conmutación Y → Δ, scan a scan',30,54);
+  c.fillStyle='#8f97a5';c.font='14px Outfit, sans-serif';
+  wrapText(c,'Ventana de '+fmtMs(t1-t0)+' alrededor del instante en que el temporizador de estrella cumple su preselección. Línea PUNTEADA = orden que escribe el PLC; línea CONTINUA = estado real del contacto.',30,80,640,20);
+
+  const wx=30,ww=640;
+  // banda de solape medida sobre la traza
+  const sxx=t=>wx+((t-t0)/(t1-t0))*ww;
+  let ov0=-1,ov1=-1;
+  z.forEach(v=>{if(v.ky&&v.kd){if(ov0<0)ov0=v.t;ov1=v.t;}});
+  if(ov0>=0){
+    c.fillStyle=hexA(BAD_HEX,0.20);c.fillRect(sxx(ov0),150,Math.max(3,sxx(ov1)-sxx(ov0)),330);
+    c.strokeStyle=BAD_HEX;c.lineWidth=1;c.strokeRect(sxx(ov0),150,Math.max(3,sxx(ov1)-sxx(ov0)),330);
+    c.fillStyle=BAD_HEX;c.font='bold 13px Outfit, sans-serif';c.textAlign='center';
+    c.fillText('SOLAPE '+fmtMs(r.overlapMs),sxx((ov0+ov1)/2),142);
+  }else{
+    c.fillStyle=OK_HEX;c.font='bold 13px Outfit, sans-serif';c.textAlign='center';
+    c.fillText('sin solape',sxx(apTY+apTW/2),142);
+  }
+  drawTrace(c,wx,200,ww,20,z,'cy','orden KMY (bobina)',ACC,t0,t1,true);
+  drawTrace(c,wx,260,ww,20,z,'ky','contacto KMY (estrella)',OK_HEX,t0,t1,false);
+  drawTrace(c,wx,340,ww,20,z,'cd','orden KMΔ (bobina)',ACC,t0,t1,true);
+  drawTrace(c,wx,400,ww,20,z,'kd','contacto KMΔ (delta)',VIO,t0,t1,false);
+  drawTrace(c,wx,470,ww,16,z,'k1','contacto KM1 (línea)',WARN_HEX,t0,t1,false);
+  drawMsAxis(c,wx,480,ww,t0,t1,apTY,50);
+  c.fillStyle='#6b7280';c.font='11px Outfit, sans-serif';c.textAlign='left';
+  c.fillText('ms respecto al fin del tiempo de estrella (t_Y = '+fmtS(apTY)+')',wx,516);
+  c.fillStyle='#8f97a5';c.font='12px Outfit, sans-serif';
+  wrapText(c,'El PLC quita la orden a KMY en el mismo scan en que el TON de estrella cumple. El contacto, en cambio, sigue cerrado t_apertura = '+fmtMs(sc.tOff)+' más. Si la orden de KMΔ sale antes de que eso ocurra, los dos contactores se solapan.',wx,548,640,18);
+
+  rpanel(c,PX.x,PX.y,PX.w,290,'INSTANTES MEDIDOS');
+  const rel=v=>v<0?'—':((v-apTY)>=0?'+':'')+(v-apTY)+' ms';
+  prow(c,PX.x,PX.y+52,PX.w,'Orden KMY = 0',rel(r.tCmdY0),ACC);
+  prow(c,PX.x,PX.y+82,PX.w,'KMY abre',rel(r.tOpenY),OK_HEX);
+  prow(c,PX.x,PX.y+112,PX.w,'Orden KMΔ = 1',rel(r.tCmdD1),ACC);
+  prow(c,PX.x,PX.y+142,PX.w,'KMΔ cierra',rel(r.tCloseD),VIO);
+  prow(c,PX.x,PX.y+172,PX.w,'Solape',fmtMs(r.overlapMs),r.overlapMs?BAD_HEX:OK_HEX);
+  prow(c,PX.x,PX.y+202,PX.w,'Umbral (t_ap−t_ci)',fmtMs(sc.tOff-sc.tOn),WARN_HEX);
+  prow(c,PX.x,PX.y+232,PX.w,'Etapa ESTRELLA',fmtMs(r.stages.ESTRELLA||0));
+  prow(c,PX.x,PX.y+262,PX.w,'Enclavamiento',LOCK_SHORT[apLock]);
+  const by=PX.y+310;
+  c.fillStyle='rgba(0,0,0,0.22)';c.fillRect(PX.x,by,PX.w,240);
+  c.strokeStyle=r.overlapMs?BAD_HEX:hexA(OK_HEX,0.5);c.lineWidth=2;c.strokeRect(PX.x,by,PX.w,240);
+  c.fillStyle=r.overlapMs?BAD_HEX:OK_HEX;c.font='bold 15px Outfit, sans-serif';c.textAlign='left';
+  c.fillText(r.overlapMs?'✗ CORTOCIRCUITO ENTRE FASES':'✔ TRANSICIÓN LIMPIA',PX.x+14,by+26);
+  c.fillStyle='#C9D3E2';c.font='12px Outfit, sans-serif';
+  wrapText(c,r.overlapMs
+    ? 'Durante '+fmtMs(r.overlapMs)+' KMY y KMΔ están cerrados a la vez. El bobinado queda cortocircuitado entre fases: en la práctica, contactores soldados y fusibles fundidos. Aumenta el tiempo muerto hasta pasar de '+fmtMs(sc.tOff-sc.tOn)+'.'
+    : 'KMΔ cierra en '+rel(r.tCloseD)+', después de que KMY abrió en '+rel(r.tOpenY)+'. El tiempo muerto de '+fmtMs(apTW)+' cubre la ventana de '+fmtMs(sc.tOff-sc.tOn)+'.',
+    PX.x+14,by+52,PX.w-28,18);
+  c.fillStyle='#7a8494';
+  wrapText(c,'Ojo: el enclavamiento por software sólo desplaza la orden un ciclo de scan ('+fmtMs(DT)+'). No es una protección contra el solape físico: mira el tema "Falla".',PX.x+14,by+160,PX.w-28,17);
+}
+
+function drawSolape(c,sc){
+  const sY=sYref(sc);
+  c.fillStyle='#F4EFEA';c.font='bold 26px Outfit, sans-serif';c.textAlign='left';
+  c.fillText('Tiempo muerto: dos males opuestos',30,54);
+  c.fillStyle='#8f97a5';c.font='14px Outfit, sans-serif';
+  wrapText(c,'Si el tiempo muerto es corto, los contactores se solapan y cortocircuitan dos fases. Si es largo, el motor se queda desenergizado, su fem residual se desfasa y al reconectar aparece un pico de corriente MAYOR. No hay un "cuanto más, mejor".',30,80,640,20);
+
+  const gx=70,gy=180,gw=560,gh=150;
+  const umbral=sc.tOff-sc.tOn;
+  // solape vs tiempo muerto
+  const ptsO=[];for(let w=0;w<=100;w+=5)ptsO.push([w,runStar(sc,3000,w,'none',null).overlapMs]);
+  const yMaxO=Math.max(20,umbral+10);
+  axes(c,gx,gy,gw,gh,'tiempo muerto (ms)','solape (ms)');
+  drawXY(c,gx,gy,gw,gh,ptsO,100,yMaxO,BAD_HEX,true);
+  // marca del umbral
+  const ux=gx+(umbral/100)*gw;
+  c.strokeStyle=hexA(WARN_HEX,0.8);c.lineWidth=1;c.setLineDash([4,4]);
+  c.beginPath();c.moveTo(ux,gy);c.lineTo(ux,gy+gh);c.stroke();c.setLineDash([]);
+  c.fillStyle=WARN_HEX;c.font='bold 12px Outfit, sans-serif';c.textAlign='left';
+  c.fillText('umbral = t_ap − t_ci = '+fmtMs(umbral),ux+6,gy+16);
+  c.fillStyle='#6b7280';c.font='10px Outfit, sans-serif';c.textAlign='center';
+  for(let w=0;w<=100;w+=20)c.fillText(String(w),gx+(w/100)*gw,gy+gh+16);
+
+  // pico vs tiempo muerto
+  const gy2=420;
+  const ptsP=[];for(let w=0;w<=100;w+=5)ptsP.push([w,peakIdx(w,sY,sc)]);
+  const tPi=tOpos(sY,sc), pMax=tPeakMax(sY,sc);
+  const yMaxP=Math.max(Math.ceil(sc.ILR),Math.ceil(Math.max.apply(null,ptsP.map(p=>p[1]))+0.5));
+  axes(c,gx,gy2,gw,gh,'tiempo muerto (ms)','pico de reconexión (× I nominal)');
+  drawXY(c,gx,gy2,gw,gh,ptsP,100,yMaxP,VIO,true);
+  // referencia: corriente de arranque en estrella = ILR/3
+  const yr=gy2+gh-((sc.ILR/3)/yMaxP)*gh;
+  c.strokeStyle=hexA(OK_HEX,0.7);c.lineWidth=1;c.setLineDash([4,4]);
+  c.beginPath();c.moveTo(gx,yr);c.lineTo(gx+gw,yr);c.stroke();c.setLineDash([]);
+  c.fillStyle=OK_HEX;c.font='bold 12px Outfit, sans-serif';c.textAlign='left';
+  c.fillText('corriente de arranque en estrella ≈ I_rb/3 = '+(sc.ILR/3).toFixed(1)+'×',gx+8,yr-6);
+  c.fillStyle='#6b7280';c.font='10px Outfit, sans-serif';c.textAlign='center';
+  for(let w=0;w<=100;w+=20)c.fillText(String(w),gx+(w/100)*gw,gy2+gh+16);
+  c.beginPath();c.moveTo(ux,gy2);c.lineTo(ux,gy2+gh);c.strokeStyle=hexA(WARN_HEX,0.5);c.setLineDash([4,4]);c.stroke();c.setLineDash([]);
+  if(pMax.t<=100){
+    const px2=gx+(pMax.t/100)*gw;
+    c.strokeStyle=hexA(VIO,0.8);c.lineWidth=1;c.setLineDash([3,3]);
+    c.beginPath();c.moveTo(px2,gy2);c.lineTo(px2,gy2+gh);c.stroke();c.setLineDash([]);
+    c.fillStyle=VIO;c.font='bold 11px Outfit, sans-serif';c.textAlign='right';
+    c.fillText('máximo ('+pMax.p.toFixed(1)+'×)',px2-6,gy2+16);
+  }
+  // zona de ajuste real del arrancador (0-60 ms): ahi la curva sube siempre
+  c.fillStyle=hexA(VIO,0.07);c.fillRect(gx,gy2,(60/100)*gw,gh);
+  c.fillStyle='#7a8494';c.font='10px Outfit, sans-serif';c.textAlign='left';
+  c.fillText('rango de ajuste (0–60 ms)',gx+6,gy2+gh-6);
+
+  const minW=OPT_TW.filter(w=>runStar(sc,3000,w,'none',null).overlapMs===0);
+  const best=minW.length?Math.min.apply(null,minW):null;
+  rpanel(c,PX.x,PX.y,PX.w,210,'COMPROMISO');
+  prow(c,PX.x,PX.y+52,PX.w,'t_cierre',fmtMs(sc.tOn),ACC);
+  prow(c,PX.x,PX.y+84,PX.w,'t_apertura',fmtMs(sc.tOff),VIO);
+  prow(c,PX.x,PX.y+116,PX.w,'Umbral de solape',fmtMs(umbral),WARN_HEX);
+  prow(c,PX.x,PX.y+148,PX.w,'Mínimo válido',best==null?'—':fmtMs(best),OK_HEX);
+  prow(c,PX.x,PX.y+180,PX.w,'Pico a ese t. muerto',best==null?'—':peakIdx(best,sY,sc).toFixed(2)+'×',VIO);
+  const by=PX.y+230;
+  c.fillStyle='rgba(0,0,0,0.22)';c.fillRect(PX.x,by,PX.w,320);
+  c.strokeStyle=hexA(ACC,0.35);c.lineWidth=1;c.strokeRect(PX.x,by,PX.w,320);
+  c.fillStyle=ACC;c.font='bold 15px Outfit, sans-serif';c.textAlign='left';
+  c.fillText('Regla de diseño',PX.x+14,by+26);
+  c.fillStyle='#C9D3E2';c.font='12px Outfit, sans-serif';
+  wrapText(c,'El tiempo muerto correcto es el MÁS CORTO que anula el solape. El de arriba baja hasta cero en '+fmtMs(umbral)+'; el de abajo no deja de crecer en todo el rango de ajuste (0–60 ms). Cualquier milisegundo de más sólo empeora el pico.',PX.x+14,by+52,PX.w-28,18);
+  c.fillStyle='#C9D3E2';
+  wrapText(c,'El pico llega a su MÁXIMO a los '+fmtMs(Math.round(pMax.t))+' —justo antes de la oposición de fase, δ = 180° a los '+fmtMs(Math.round(tPi))+', porque la fem residual sigue decayendo mientras gira—: ahí vale '+pMax.p.toFixed(2)+'×, más que un arranque directo. Pasado ese punto baja, pero ningún arrancador trabaja tan lejos.',PX.x+14,by+106,PX.w-28,17);
+  c.fillStyle='#7a8494';
+  wrapText(c,'Esto es propio de la transición ABIERTA (la clásica de tres contactores). La transición CERRADA, con resistencias de transición y un cuarto contactor, evita desenergizar el motor —y este pico— a cambio de más equipo.',PX.x+14,by+160,PX.w-28,17);
+  c.fillStyle='#6b7280';c.font='11px Outfit, sans-serif';
+  wrapText(c,'Pico calculado con la fem residual decayendo con T0 = '+sc.T0.toFixed(2)+' s y desfase a s·2πf con s = '+pct(sY)+'.',PX.x+14,by+270,PX.w-28,16);
+}
+
+function drawFalla(c,sc){
+  c.fillStyle='#F4EFEA';c.font='bold 26px Outfit, sans-serif';c.textAlign='left';
+  c.fillText('Falla: el contactor de estrella se suelda',30,54);
+  c.fillStyle='#8f97a5';c.font='14px Outfit, sans-serif';
+  wrapText(c,'KMY ha soldado sus contactos principales: la bobina se desenergiza pero el metal no abre. El PLC no se entera. ¿Cuál de los tres enclavamientos sigue protegiendo la instalación?',30,80,640,20);
+
+  const cw=200,cx0=30,cy=150,ch=270;
+  OPT_LOCK.forEach((lk,i)=>{
+    const x=cx0+i*(cw+10);
+    const r=runStar(sc,3000,apTW,lk,'kmy');
+    const good=r.overlapMs===0;
+    c.fillStyle=hexA(good?OK_HEX:BAD_HEX,0.08);c.fillRect(x,cy,cw,ch);
+    c.strokeStyle=good?OK_HEX:BAD_HEX;c.lineWidth=2;c.strokeRect(x,cy,cw,ch);
+    c.fillStyle='#C7D6F5';c.font='bold 16px Outfit, sans-serif';c.textAlign='center';
+    c.fillText(LOCK_SHORT[lk],x+cw/2,cy+28);
+    c.fillStyle='#7a8494';c.font='11px Outfit, sans-serif';
+    wrapText(c,lk==='none'?'KMΔ sólo mira su temporizador':lk==='soft'?'KMΔ mira la ORDEN de bobina de KMY':'KMΔ mira un contacto NC ligado al principal de KMY',x+10,cy+50,cw-20,15);
+    c.fillStyle=good?OK_HEX:BAD_HEX;c.font='bold 34px Outfit, sans-serif';
+    c.fillText(good?'✔':'✗',x+cw/2,cy+130);
+    c.fillStyle='#C9D3E2';c.font='13px Outfit, sans-serif';
+    c.fillText('Solape: '+fmtMs(r.overlapMs),x+cw/2,cy+165);
+    c.fillText('KMΔ cierra: '+(r.tCloseD<0?'NUNCA':'sí'),x+cw/2,cy+188);
+    c.fillStyle=good?OK_HEX:BAD_HEX;c.font='bold 12px Outfit, sans-serif';
+    wrapText(c,good?'Falla SEGURA: el motor se queda en estrella y no arranca del todo, pero no hay cortocircuito.':'Cortocircuito entre fases: la orden sale igual porque nadie mira el contacto real.',x+10,cy+215,cw-20,16);
+  });
+
+  c.fillStyle='#8f97a5';c.font='13px Outfit, sans-serif';c.textAlign='left';
+  wrapText(c,'El enclavamiento por SOFTWARE no es inútil: impide el error de PROGRAMACIÓN (que el programa mande las dos bobinas a la vez). Lo que no puede hacer es enterarse de lo que ocurre en el metal, porque sólo lee variables internas del PLC.',30,460,640,19);
+  c.fillStyle='#C9D3E2';
+  wrapText(c,'Los CONTACTOS ESPEJO (IEC 60947-4-1, Anexo F) son contactos auxiliares NC con una garantía constructiva: no pueden estar cerrados al mismo tiempo que ningún contacto principal NA. Si el principal se suelda, el espejo se queda abierto y la bobina de KMΔ nunca se energiza.',30,540,640,19);
+  c.fillStyle='#7a8494';c.font='12px Outfit, sans-serif';
+  wrapText(c,'En una instalación real se cablean además los contactos auxiliares directamente en serie con las bobinas, fuera del PLC: el enclavamiento no debe depender del programa.',30,640,640,17);
+
+  rpanel(c,PX.x,PX.y,PX.w,190,'CONDICIONES DEL ENSAYO');
+  prow(c,PX.x,PX.y+52,PX.w,'Equipo',sc.name.split(' ').slice(0,2).join(' '));
+  prow(c,PX.x,PX.y+84,PX.w,'Falla','KMY soldado',BAD_HEX);
+  prow(c,PX.x,PX.y+116,PX.w,'Tiempo muerto',fmtMs(apTW));
+  prow(c,PX.x,PX.y+148,PX.w,'Umbral de solape',fmtMs(sc.tOff-sc.tOn),WARN_HEX);
+  const by=PX.y+210;
+  c.fillStyle='rgba(0,0,0,0.22)';c.fillRect(PX.x,by,PX.w,340);
+  c.strokeStyle=hexA(WARN_HEX,0.45);c.lineWidth=1;c.strokeRect(PX.x,by,PX.w,340);
+  c.fillStyle=WARN_HEX;c.font='bold 15px Outfit, sans-serif';c.textAlign='left';
+  c.fillText('Tres protecciones distintas',PX.x+14,by+26);
+  c.fillStyle='#C9D3E2';c.font='12px Outfit, sans-serif';
+  wrapText(c,'1 · Enclavamiento por software: evita el error de programación. No ve el hardware.',PX.x+14,by+54,PX.w-28,17);
+  wrapText(c,'2 · Tiempo muerto: evita el solape MECÁNICO en la conmutación normal. No sirve si un contacto se queda pegado.',PX.x+14,by+110,PX.w-28,17);
+  wrapText(c,'3 · Contactos espejo: es la única que sobrevive a un contactor soldado, porque la garantía está en la construcción del aparato, no en el programa.',PX.x+14,by+190,PX.w-28,17);
+  c.fillStyle='#7a8494';c.font='11px Outfit, sans-serif';
+  wrapText(c,'Aumenta el tiempo muerto en la botonera y comprueba que no cambia nada de esta pantalla: contra una soldadura, el tiempo no protege.',PX.x+14,by+290,PX.w-28,16);
+}
+
+function drawRetoRow(c,x,y,w,h,n,title,body,value,ok,checked){
+  c.fillStyle=checked?hexA(ok?OK_HEX:BAD_HEX,0.07):hexA(ACC,0.05);c.fillRect(x,y,w,h);
+  c.strokeStyle=checked?(ok?OK_HEX:BAD_HEX):hexA(ACC,0.28);c.lineWidth=checked?2:1;c.strokeRect(x,y,w,h);
+  c.fillStyle=ACC;c.font='bold 15px Outfit, sans-serif';c.textAlign='left';c.fillText(n+' · '+title,x+14,y+24);
+  c.fillStyle='#8f97a5';c.font='12px Outfit, sans-serif';
+  wrapText(c,body,x+14,y+48,w-190,17);
+  c.fillStyle='#7a8494';c.font='12px Outfit, sans-serif';c.textAlign='right';c.fillText('elegido',x+w-16,y+24);
+  c.fillStyle=checked?(ok?OK_HEX:BAD_HEX):'#F4EFEA';c.font='bold 20px Outfit, sans-serif';
+  c.fillText(value,x+w-16,y+50);
+  if(checked){c.font='bold 22px Outfit, sans-serif';c.fillText(ok?'✔':'✗',x+w-16,y+80);}
+}
+
+function drawReto(c){
+  const sc=POOL[retoIdx];
+  c.fillStyle='#F4EFEA';c.font='bold 24px Outfit, sans-serif';c.textAlign='left';
+  c.fillText('Ajusta el arranque de: '+sc.name,30,48);
+  c.fillStyle='#8f97a5';c.font='13px Outfit, sans-serif';
+  wrapText(c,'Tres decisiones independientes. Cada una se simula sobre el motor verificado y se califica por separado: acertar dos y fallar una sigue siendo un arranque mal ajustado.',30,72,640,18);
+
+  const rw=640,rh=110;
+  drawRetoRow(c,30,110,rw,rh,'1','Tiempo en estrella',
+    'El motor puede pasar a delta cuando su deslizamiento haya bajado a '+pct(sc.sMax)+' o menos. Lee la curva de abajo. Más tiempo del necesario no aporta par y calienta el bobinado.',
+    fmtS(retoCh.ty),retoOkY,retoChecked);
+  drawRetoRow(c,30,232,rw,rh,'2','Tiempo muerto de transición',
+    'Contactores: t_cierre = '+fmtMs(sc.tOn)+', t_apertura = '+fmtMs(sc.tOff)+'. Debe bastar POR SÍ SOLO, sin ayuda del enclavamiento, y ser el más corto que lo consiga.',
+    fmtMs(retoCh.tw),retoOkW,retoChecked);
+  drawRetoRow(c,30,354,rw,rh,'3','Enclavamiento',
+    'Ensayo de aceptación: con el contactor KMY SOLDADO, el arranque no debe provocar cortocircuito entre fases.',
+    LOCK_SHORT[retoCh.lock],retoOkL,retoChecked);
+
+  // curva de deslizamiento (evidencia para la fila 1)
+  const gx=90,gy=500,gw=520,gh=120;
+  axes(c,gx,gy,gw,gh,'tiempo en estrella (s)','deslizamiento s');
+  const pts=[];for(let t=0;t<=14000;t+=100)pts.push([t/1000,slipAt(t,sc)]);
+  drawXY(c,gx,gy,gw,gh,pts,14,1,ACC,false);
+  const yl=gy+gh-(sc.sMax/1)*gh;
+  c.strokeStyle=hexA(WARN_HEX,0.85);c.lineWidth=1;c.setLineDash([5,4]);
+  c.beginPath();c.moveTo(gx,yl);c.lineTo(gx+gw,yl);c.stroke();c.setLineDash([]);
+  c.fillStyle=WARN_HEX;c.font='bold 12px Outfit, sans-serif';c.textAlign='left';
+  c.fillText('s máximo para conmutar = '+pct(sc.sMax),gx+8,yl-6);
+  c.fillStyle='#6b7280';c.font='10px Outfit, sans-serif';c.textAlign='center';
+  for(let t=0;t<=14;t+=2)c.fillText(String(t),gx+(t/14)*gw,gy+gh+16);
+  // marca de la elección actual
+  const mx=gx+(retoCh.ty/1000/14)*gw,my=gy+gh-slipAt(retoCh.ty,sc)*gh;
+  c.fillStyle=retoChecked?(retoOkY?OK_HEX:BAD_HEX):VIO;
+  c.beginPath();c.arc(mx,my,5,0,Math.PI*2);c.fill();
+  c.font='bold 11px Outfit, sans-serif';c.textAlign='center';
+  c.fillText('tu elección: s = '+pct(slipAt(retoCh.ty,sc)),mx,my-12);
+
+  rpanel(c,PX.x,PX.y,PX.w,160,'CALIFICACIÓN');
+  prow(c,PX.x,PX.y+52,PX.w,'Tiempo en estrella',retoChecked?(retoOkY?'✓':'✗'):'—',retoChecked?(retoOkY?OK_HEX:BAD_HEX):'#6b7280');
+  prow(c,PX.x,PX.y+86,PX.w,'Tiempo muerto',retoChecked?(retoOkW?'✓':'✗'):'—',retoChecked?(retoOkW?OK_HEX:BAD_HEX):'#6b7280');
+  prow(c,PX.x,PX.y+120,PX.w,'Enclavamiento',retoChecked?(retoOkL?'✓':'✗'):'—',retoChecked?(retoOkL?OK_HEX:BAD_HEX):'#6b7280');
+  const by=PX.y+180;
+  if(retoChecked){
+    c.fillStyle='rgba(0,0,0,0.24)';c.fillRect(PX.x,by,PX.w,370);
+    c.strokeStyle=retoSolved?OK_HEX:BAD_HEX;c.lineWidth=2;c.strokeRect(PX.x,by,PX.w,370);
+    c.fillStyle=retoSolved?OK_HEX:BAD_HEX;c.font='bold 16px Outfit, sans-serif';c.textAlign='left';
+    c.fillText(retoSolved?'✔ CORRECTO':'✗ REVISA',PX.x+14,by+26);
+    c.fillStyle='#C9D3E2';c.font='12px Outfit, sans-serif';wrapText(c,retoExplain(),PX.x+14,by+52,PX.w-28,17);
+  }else{
+    c.fillStyle='rgba(0,0,0,0.20)';c.fillRect(PX.x,by,PX.w,370);c.strokeStyle=hexA(ACC,0.3);c.lineWidth=1;c.strokeRect(PX.x,by,PX.w,370);
+    c.fillStyle=WARN_HEX;c.font='13px Outfit, sans-serif';c.textAlign='left';
+    wrapText(c,'Para el tiempo en estrella, lee en la curva cuándo el deslizamiento cruza el máximo admisible y quédate con la opción más corta que ya esté por debajo.',PX.x+14,by+26,PX.w-28,18);
+    c.fillStyle='#C9D3E2';
+    wrapText(c,'Para el tiempo muerto, calcula la ventana de peligro: t_apertura − t_cierre = '+fmtMs(sc.tOff-sc.tOn)+'. Y elige el mínimo que la cubra, porque el pico de reconexión crece con el tiempo muerto en todo el rango ajustable.',PX.x+14,by+140,PX.w-28,18);
+    c.fillStyle='#7a8494';
+    wrapText(c,'Para el enclavamiento, pregúntate cuál de los tres se entera de que un contacto principal NO abrió.',PX.x+14,by+270,PX.w-28,18);
+  }
+}
+
+function retoExplain(){
+  const sc=POOL[retoIdx];
+  if(retoSolved){
+    const best=OPT_TW.filter(w=>okW(w,sc))[0];
+    return 'Ajuste correcto: '+fmtS(retoCh.ty)+' en estrella dejan el deslizamiento en '+pct(slipAt(retoCh.ty,sc))+' (≤ '+pct(sc.sMax)+') sin alargar de más; '+fmtMs(best)+' de tiempo muerto cubren la ventana de '+fmtMs(sc.tOff-sc.tOn)+' con el menor pico de reconexión; y los contactos espejo son el único enclavamiento que sigue impidiendo el cortocircuito cuando KMY se suelda (IEC 60947-4-1, Anexo F).';
+  }
+  let s='';
+  if(!retoOkY){
+    const s1=slipAt(retoCh.ty,sc);
+    if(s1>sc.sMax)s+='Tiempo en estrella: a los '+fmtS(retoCh.ty)+' el deslizamiento aún es '+pct(s1)+', por encima del máximo de '+pct(sc.sMax)+'; el motor no ha acelerado lo suficiente y conmutar ahí da un tirón de corriente. ';
+    else{const mn=OPT_TY.filter(v=>okY(v,sc))[0];s+='Tiempo en estrella: a los '+fmtS(retoCh.ty)+' el deslizamiento ya es '+pct(s1)+', pero con '+fmtS(mn)+' ya estaba por debajo de '+pct(sc.sMax)+'; alargar la estrella no da más par y sí calienta el bobinado. ';}
+  }
+  if(!retoOkW){
+    const ov=runStar(sc,3000,retoCh.tw,'none',null).overlapMs;
+    if(ov>0)s+='Tiempo muerto: con '+fmtMs(retoCh.tw)+' quedan '+fmtMs(ov)+' en los que KMY y KMΔ están cerrados a la vez (cortocircuito entre fases); hace falta cubrir '+fmtMs(sc.tOff-sc.tOn)+'. ';
+    else{const mn=OPT_TW.filter(w=>okW(w,sc))[0];s+='Tiempo muerto: '+fmtMs(retoCh.tw)+' evita el solape, pero '+fmtMs(mn)+' ya bastaba; cada milisegundo de más aumenta el pico de reconexión (el pico pasa de '+peakIdx(mn,sYref(sc),sc).toFixed(2)+'× a '+peakIdx(retoCh.tw,sYref(sc),sc).toFixed(2)+'×). ';}
+  }
+  if(!retoOkL){
+    const r=runStar(sc,3000,retoCh.tw,retoCh.lock,'kmy');
+    s+='Enclavamiento: en el ensayo con KMY soldado, "'+LOCK_NAME[retoCh.lock]+'" deja '+fmtMs(r.overlapMs)+' de solape, porque '+(retoCh.lock==='soft'?'sólo lee una variable interna del PLC, no el contacto real':'nada impide que la orden de KMΔ salga')+'. ';
+  }
+  return s||'Revisa el ajuste.';
+}
+
+function drawBoard(){
+  const c=bCv.getContext('2d');bg(c);
+  if(mode==='aplica')drawAplica(c);else if(mode==='reto')drawReto(c);else drawExplora(c);
+  bTex.needsUpdate=true;
+}
+function boardClick(){
+  if(mode==='aplica')showToast('🧩 La orden del PLC y el estado del contacto son cosas distintas. El tiempo muerto es lo que separa una de otra; los contactos espejo son lo que las vuelve a atar.');
+  else if(mode==='reto')showToast('🎯 Tres decisiones independientes: tiempo en estrella (deslizamiento), tiempo muerto (mecánica del contactor) y enclavamiento (falla del hardware).');
+  else showToast('🔧 Cada pulsación de la botonera es un ciclo de scan de '+DT+' ms. Cuenta los scans entre la orden y el movimiento del contacto.');
+}
+
+// ===================== 7. ESCENA 3D: GABINETE DE CONTROL =====================
+const bench=roundedBox(3.7,0.5,1.8,MAT.bench,0.05);bench.position.set(1.9,0.25,0.55);scene.add(bench);
+bench.userData={title:'Banco de control',info:'Gabinete con los tres contactores del arranque estrella-delta y el motor de ensayo.'};
+const cab=roundedBox(1.9,0.12,1.0,MAT.cab,0.03);cab.position.set(2.2,0.55,0.45);scene.add(cab);
+cab.userData={title:'Riel de contactores',info:'KM1 (línea), KMY (estrella) y KMΔ (delta). El PLC sólo manda las bobinas: los contactos van a su ritmo.'};
+addHoverLabel(cab,'KM1 · KMY · KMΔ',ACC,new THREE.Vector3(2.2,1.35,0.45),1.7);
+const CTOR_POS=[[2.85,0.35],[2.25,0.35],[1.65,0.35]];
+const CTOR_NAME=['KM1 · línea','KMY · estrella','KMΔ · delta'];
+const ctors=CTOR_POS.map((p,i)=>{
+  const m=roundedBox(0.42,0.34,0.34,MAT.ctor,0.03);m.position.set(p[0],0.78,p[1]);scene.add(m);
+  m.userData={title:CTOR_NAME[i],info:i===0?'Contactor de línea, retenido por el sello del programa.':i===1?'Cortocircuita los tres finales del bobinado: el motor queda en estrella (tensión de fase = U/√3).':'Cierra el triángulo: el motor pasa a tensión plena de línea.'};
+  return m;
+});
+addHoverLabel(ctors[1],'KMY · estrella',OK_HEX,new THREE.Vector3(2.25,1.15,0.35),1.3);
+// motor de ensayo
+const motor=new THREE.Mesh(new THREE.CylinderGeometry(0.24,0.24,0.62,24),MAT.motor);
+motor.rotation.z=Math.PI/2;motor.position.set(0.85,0.74,0.9);scene.add(motor);
+motor.userData={title:'Motor de inducción de jaula',info:'Con seis terminales accesibles: es la condición para poder arrancarlo en estrella-delta.'};
+const shaft=new THREE.Mesh(new THREE.CylinderGeometry(0.05,0.05,0.9,16),MAT.shaft);
+shaft.rotation.z=Math.PI/2;shaft.position.set(0.85,0.74,0.9);scene.add(shaft);
+const fan=new THREE.Group();fan.position.set(0.48,0.74,0.9);scene.add(fan);
+for(let i=0;i<4;i++){
+  const bl=roundedBox(0.02,0.20,0.06,MAT.shaft,0.01);bl.position.set(0,0.10,0);
+  const g=new THREE.Group();g.add(bl);g.rotation.x=i*Math.PI/2;fan.add(g);
+}
+fan.rotation.z=Math.PI/2;
+const chCv=document.createElement('canvas');chCv.width=180;chCv.height=180;const chTex=new THREE.CanvasTexture(chCv);
+const chFace=new THREE.Mesh(new THREE.PlaneGeometry(0.5,0.5),new THREE.MeshBasicMaterial({map:chTex,transparent:true}));
+chFace.rotation.x=-Math.PI/2;chFace.position.set(1.05,0.615,0.45);scene.add(chFace);
+function makeLED(x,z,color){const m=new THREE.Mesh(new THREE.SphereGeometry(0.045,16,16),std(color,0.4,0.1));m.position.set(x,0.62,z);m.material.emissive=new THREE.Color(color);m.material.emissiveIntensity=0.15;scene.add(m);return m;}
+// pilotos: KM1, KMY, KMD, ALARMA de solape
+const actLEDs=[makeLED(2.85,0.95,0x8AB4F8),makeLED(2.45,0.95,0x7CD992),makeLED(2.05,0.95,0xC08CF8),makeLED(1.65,0.95,0xff6b6b)];
+const clkLED=makeLED(1.25,0.95,0xE9C46A);
+addHoverLabel(actLEDs[0],'KM1 · KMY · KMΔ · SOLAPE',ACC,new THREE.Vector3(2.25,1.05,0.95),1.9);
+actLEDs[3].userData={title:'Piloto de solape',info:'Se enciende si KMY y KMΔ están cerrados a la vez: eso es un cortocircuito entre fases.'};
+clkLED.userData={title:'Reloj de scan',info:'Un flanco por ciclo de scan del PLC ('+DT+' ms en este modelo).'};
+
+function drawChip3D(label,accept,bad){
+  const c=chCv.getContext('2d');c.clearRect(0,0,180,180);
+  c.fillStyle='rgba(20,23,27,0.92)';c.fillRect(0,0,180,180);
+  c.strokeStyle=bad?BAD_HEX:accept?OK_HEX:ACC;c.lineWidth=4;c.strokeRect(4,4,172,172);
+  c.fillStyle='#C7D6F5';c.font='bold 13px Outfit, sans-serif';c.textAlign='center';c.fillText('PLC · ESTADO',90,30);
+  c.font='bold 19px Outfit, sans-serif';c.fillStyle=bad?BAD_HEX:accept?OK_HEX:'#F4EFEA';
+  c.fillText(label.length>11?label.slice(0,10)+'…':label,90,100);
+  if(bad){c.font='bold 14px Outfit, sans-serif';c.fillStyle=BAD_HEX;c.fillText('⚠ CORTO',90,140);}
+  chTex.needsUpdate=true;
+}
+// fotogramas derivados de la corrida MEDIDA (no escritos a mano)
+function seqFrames(sc,tY,tW,lock,fault){
+  const r=runStar(sc,tY,tW,lock,fault);
+  const fr=[{label:'PARO',acts:[0,0,0,0],accept:false,spin:0},
+            {label:'ARRANQUE',acts:[1,0,0,0],accept:false,spin:0}];
+  fr.push({label:'ESTRELLA',acts:[1,1,0,0],accept:true,spin:1.4});
+  fr.push({label:'ESTRELLA',acts:[1,1,0,0],accept:true,spin:2.2});
+  if(r.overlapMs>0)fr.push({label:'SOLAPE',acts:[1,1,1,1],accept:false,bad:true,spin:0.6});
+  else fr.push({label:'TRANSICION',acts:[1,0,0,0],accept:false,spin:2.4});
+  if(r.tCloseD>=0)fr.push({label:'DELTA',acts:[1,0,1,0],accept:true,spin:4.2});
+  else fr.push({label:'BLOQUEADO',acts:[1,1,0,1],accept:false,bad:true,spin:1.0});
+  return fr;
+}
+function hwFrames(){
+  if(mode==='reto')return seqFrames(POOL[retoIdx],retoCh.ty,retoCh.tw,retoCh.lock,null);
+  if(mode==='aplica')return seqFrames(POOL[apIdx],apTopic==='transicion'?apTY:3000,apTW,apLock,apTopic==='falla'?'kmy':null);
+  if(!expHist.length)return [{label:'EN REPOSO',acts:[0,0,0,0],accept:false,spin:0}];
+  return expHist.map(h=>({label:h.closed?'CERRADO':(h.cmd?'CERRANDO':'ABIERTO'),acts:[h.cmd?1:0,h.closed?1:0,0,(h.cmd!==h.closed)?1:0],accept:h.closed,spin:0}));
+}
+function hwCount(){return Math.max(1,hwFrames().length);}
+function updateHW(){
+  const frames=hwFrames(),step=hwStep%Math.max(1,frames.length),fr=frames[step]||{label:'—',acts:[0,0,0,0]};
+  actLEDs.forEach((l,i)=>{const on=fr.acts&&fr.acts[i];l.material.emissiveIntensity=on?1.4:0.12;});
+  clkLED.material.emissiveIntensity=(step%2)?1.3:0.2;
+  motorSpin=fr.spin||0;
+  drawChip3D(fr.label,!!fr.accept,!!fr.bad);
+}
+
+// ===================== 8. HUD Y PANEL =====================
+document.getElementById('hud').innerHTML=`
+  <div class="eyebrow">Sistemas digitales (D3) · Automatización de maniobra · IEC 61131-3 · IEC 60947-4-1</div>
+  <h2>Arranque Estrella-Delta Temporizado</h2>
+  <p>Un motor de jaula con los <b>seis terminales</b> accesibles puede arrancarse conectando primero su
+  bobinado en <b>estrella</b> —cada fase recibe U/√3, así que la corriente y el par caen a un tercio— y
+  pasarlo a <b>delta</b> cuando ya ha acelerado. Esta práctica no mira las corrientes (eso es MEC-50): mira
+  el <b>programa de maniobra</b>. Son tres contactores —<b>KM1</b> de línea, <b>KMY</b> de estrella y
+  <b>KMΔ</b> de delta— gobernados por dos temporizadores <b>TON</b>: el primero decide cuánto dura la
+  estrella y el segundo abre el <b>tiempo muerto</b> de la transición. La clave está en que la <b>orden</b>
+  que escribe el PLC y el <b>estado real del contacto</b> no son lo mismo: la bobina obedece en un scan pero
+  el metal tarda <b>t_cierre</b> en cerrar y <b>t_apertura</b> en abrir. Si KMΔ cierra antes de que KMY
+  termine de abrir, dos fases quedan cortocircuitadas. Verás por qué el enclavamiento por software
+  <b>no</b> evita eso, por qué el tiempo muerto correcto es el <b>más corto</b> que lo evita, y por qué sólo
+  los <b>contactos espejo</b> siguen protegiendo cuando un contactor se suelda.</p>
+  <div class="formula">solape = máx(0, t_apertura − t_cierre − t_muerto) · KMY = KM1 ∧ /Q_Y ∧ /KMΔ · KMΔ = KM1 ∧ Q_W ∧ /KMY · scan = ${DT} ms</div>
+  <div class="legend">
+    <div class="li"><span class="dot" style="background:#8AB4F8"></span>Orden de bobina (PLC)</div>
+    <div class="li"><span class="dot" style="background:#7CD992"></span>Contacto KMY cerrado</div>
+    <div class="li"><span class="dot" style="background:#C08CF8"></span>Contacto KMΔ cerrado</div>
+    <div class="li"><span class="dot" style="background:#ff6b6b"></span>Solape = cortocircuito</div>
+  </div>
+  <div class="fid">
+    <div class="ft">🔒 Contrato de fidelidad</div>
+    <div class="fl"><b>Sí modela:</b> la lógica de maniobra completa sobre una base de scan idealizada de ${DT} ms — sello de marcha/paro de KM1, TON de tiempo de estrella, TON de tiempo muerto, enclavamiento en sus tres variantes (ninguno, por software leyendo la orden de bobina, y por contactos espejo leyendo el contacto real) — y un modelo de contactor con <b>tiempos de operación</b> de catálogo: la orden cambia en un scan pero los contactos cierran en t_cierre y abren en t_apertura, con la posibilidad de <b>soldadura</b> del contacto principal. De ahí se MIDE (no se supone) el instante de cada maniobra y el solape físico, que resulta ser máx(0, t_apertura − t_cierre − t_muerto). Además, la evolución del deslizamiento durante la estrella con constante de tiempo mecánica, y el pico de reconexión de una transición ABIERTA como fasor entre la red y la fem residual que decae con T0 mientras se desfasa a s·2πf. Verificado numéricamente (38/38), incluida la unicidad de la solución del Reto en sus cuatro escenarios.</div>
+    <div class="fl no"><b>NO modela:</b> las corrientes y pares reales del motor en estrella y en delta ni sus curvas par-velocidad (eso es MEC-50); el transitorio electromagnético del bobinado ni la saturación; el arco eléctrico, su energía ni el desgaste de los contactos; el rebote de los contactos al cerrar; la dispersión real de los tiempos de operación con la tensión de bobina y la temperatura; la transición CERRADA con resistencias ni el arrancador de tres bobinas con transición Wauchope; el relé térmico, su curva y su ubicación en el circuito; la caída de tensión de la red durante el arranque; el jitter del ciclo de scan; y el cableado real de potencia con sus secciones y protecciones (eso es MEC-74).</div>
+  </div>
+  <div class="src">Ref: IEC 61131-3 (temporizadores TON) · IEC 60947-4-1 y su Anexo F (contactores; contactos espejo) · NMX-J-515-ANCE · Chapman, Máquinas eléctricas · Petruzella, Programmable Logic Controllers · Verificación numérica propia (38/38)</div>`;
+
+document.getElementById('panel').innerHTML=`
+  <h4>Estrella-delta · <span id="p_mode" style="color:var(--accent2)">Explora</span></h4>
+  <div class="modebar">
+    <button class="b on" id="m_explora">🧭 Explora</button>
+    <button class="b" id="m_aplica">🧩 Aplica</button>
+    <button class="b" id="m_reto">🎯 Reto</button>
+  </div>
+  <div id="scenarioInfo" style="font-size:12px;color:var(--ink);margin:2px 0 8px;display:none"></div>
+  <div class="modebar" id="selbar" style="display:none;flex-wrap:wrap"></div>
+  <div id="tele"></div>
+  <div class="console" id="report"></div>
+  <h4 class="sec" id="retoTitle" style="display:none">Ajuste del arrancador</h4>
+  <div id="retoBox" style="display:none">
+    <div id="retoSpec" style="font-size:12px;color:var(--ink);margin:2px 0 8px"></div>
+    <div class="btns"><button class="b primary" id="btnCheck">✅ Comprobar</button></div>
+  </div>
+  <h4 class="sec">Pregunta de ingeniería</h4>
+  <div id="q_text" style="font-size:12px;color:var(--ink);margin:4px 0 8px"></div>
+  <div class="btns" id="dxbtns"></div>
+  <div class="btns">
+    <button class="b auto" id="btnAuto">✨ Recorrido guiado (automático)</button>
+    <button class="b primary" id="btnNew">🔀 Nuevo escenario</button>
+  </div>`;
+
+// ===================== 9. TOASTS =====================
+function showToast(html){const t=el('toast');t.innerHTML=html;t.classList.add('show');clearTimeout(showToast._t);showToast._t=setTimeout(()=>t.classList.remove('show'),4200);}
+
+// ===================== 10. MODOS Y CONTROLES =====================
+const MODE_META={
+  explora:{nombre:'Explora',cam:[[4.8,2.9,7.0],[0.4,1.05,0.3]],mision:'Conduce un contactor scan a scan: da y quita la orden de bobina y cuenta cuántos scans tardan los contactos en moverse. Ésa es la diferencia que hace peligrosa la conmutación.'},
+  aplica:{nombre:'Aplica',cam:[[4.6,2.8,6.8],[0.4,1.05,0.3]],mision:'Mira la conmutación Y→Δ scan a scan, estudia el compromiso del tiempo muerto y ensaya la falla del contactor soldado contra los tres enclavamientos.'},
+  reto:{nombre:'Reto',cam:[[4.7,2.7,6.9],[0.5,1.0,0.4]],mision:'Ajusta el arrancador de una máquina real: tiempo en estrella, tiempo muerto y enclavamiento. Cada decisión se califica por separado.'},
+};
+function lbl(t){return `<span class="lbl">${t}</span>`;}
+function optBtns(key,opts,cur){return opts.map(([v,t])=>`<button class="b sm ${String(cur)===String(v)?'on':''}" data-${key}="${v}">${t}</button>`).join('');}
+const MACHINE_OPTS=()=>POOL.map((p,i)=>[i,p.name.split(' ')[0]]);
+const TY_OPTS=OPT_TY.map(v=>[v,fmtS(v)]);
+const TW_OPTS=OPT_TW.map(v=>[v,fmtMs(v)]);
+const LOCK_OPTS=OPT_LOCK.map(l=>[l,LOCK_SHORT[l]]);
+function buildControls(){
+  const bar=el('selbar');bar.style.display='flex';bar.style.flexWrap='wrap';let html='';
+  if(mode==='explora'){
+    html+=lbl('Contactor:')+optBtns('xi',MACHINE_OPTS(),expIdx);
+    html+=lbl('Scan:')+`<button class="b sm" data-xs="1">Orden = 1 ▸</button><button class="b sm" data-xs="0">Orden = 0 ▸</button>`+
+      `<button class="b sm" data-x5="1">×5 con orden = 1</button><button class="b sm" data-x5="0">×5 con orden = 0</button><button class="b sm" data-xr="t">Reiniciar</button>`;
+    bar.innerHTML=html;
+    bar.querySelectorAll('[data-xi]').forEach(b=>b.onclick=()=>{if(autoRunning)return;expIdx=parseInt(b.dataset.xi,10);expReset();synth.beep(680,0.05,0.04);afterEdit();});
+    bar.querySelectorAll('[data-xs]').forEach(b=>b.onclick=()=>{if(autoRunning)return;expScan(b.dataset.xs==='1');synth.beep(b.dataset.xs==='1'?820:420,0.05,0.04);afterEdit();});
+    bar.querySelectorAll('[data-x5]').forEach(b=>b.onclick=()=>{if(autoRunning)return;const v=b.dataset.x5==='1';for(let k=0;k<5;k++)expScan(v);synth.beep(880,0.06,0.05);afterEdit();});
+    bar.querySelectorAll('[data-xr]').forEach(b=>b.onclick=()=>{if(autoRunning)return;expReset();synth.beep(440,0.05,0.04);afterEdit();});
+  }else if(mode==='aplica'){
+    html+=lbl('Tema:')+`<button class="b sm ${apTopic==='transicion'?'on':''}" data-at="transicion">Conmutación Y→Δ</button>`+
+      `<button class="b sm ${apTopic==='solape'?'on':''}" data-at="solape">Solape vs pico</button>`+
+      `<button class="b sm ${apTopic==='falla'?'on':''}" data-at="falla">Falla: KMY soldado</button>`;
+    html+=lbl('Equipo:')+optBtns('ai',MACHINE_OPTS(),apIdx);
+    if(apTopic==='transicion'){
+      html+=lbl('t estrella:')+optBtns('ay',TY_OPTS,apTY);
+      html+=lbl('Enclavam.:')+optBtns('al',LOCK_OPTS,apLock);
+    }
+    if(apTopic!=='solape')html+=lbl('t muerto:')+optBtns('aw',TW_OPTS,apTW);
+    bar.innerHTML=html;
+    bar.querySelectorAll('[data-at]').forEach(b=>b.onclick=()=>{if(autoRunning)return;apTopic=b.dataset.at;hwStep=0;synth.beep(680,0.05,0.04);afterEdit();});
+    bar.querySelectorAll('[data-ai]').forEach(b=>b.onclick=()=>{if(autoRunning)return;apIdx=parseInt(b.dataset.ai,10);hwStep=0;synth.beep(700,0.05,0.04);afterEdit();});
+    bar.querySelectorAll('[data-ay]').forEach(b=>b.onclick=()=>{if(autoRunning)return;apTY=parseInt(b.dataset.ay,10);synth.beep(720,0.05,0.04);afterEdit();});
+    bar.querySelectorAll('[data-aw]').forEach(b=>b.onclick=()=>{if(autoRunning)return;apTW=parseInt(b.dataset.aw,10);synth.beep(740,0.05,0.04);afterEdit();});
+    bar.querySelectorAll('[data-al]').forEach(b=>b.onclick=()=>{if(autoRunning)return;apLock=b.dataset.al;synth.beep(760,0.05,0.04);afterEdit();});
+  }else{
+    html+=lbl('1 · t estrella:')+optBtns('ry',TY_OPTS,retoCh.ty);
+    html+=lbl('2 · t muerto:')+optBtns('rw',TW_OPTS,retoCh.tw);
+    html+=lbl('3 · Enclavam.:')+optBtns('rl',LOCK_OPTS,retoCh.lock);
+    bar.innerHTML=html;
+    bar.querySelectorAll('[data-ry]').forEach(b=>b.onclick=()=>{if(autoRunning)return;retoSet('ty',parseInt(b.dataset.ry,10));synth.beep(720,0.05,0.04);afterEdit();});
+    bar.querySelectorAll('[data-rw]').forEach(b=>b.onclick=()=>{if(autoRunning)return;retoSet('tw',parseInt(b.dataset.rw,10));synth.beep(740,0.05,0.04);afterEdit();});
+    bar.querySelectorAll('[data-rl]').forEach(b=>b.onclick=()=>{if(autoRunning)return;retoSet('lock',b.dataset.rl);synth.beep(760,0.05,0.04);afterEdit();});
+  }
+}
+function retoSet(field,v){retoCh[field]=v;retoChecked=false;retoSolved=false;}
+function updateScenarioInfo(){
+  const box=el('scenarioInfo');
+  if(mode==='reto'){
+    const p=POOL[retoIdx];box.style.display='block';
+    box.innerHTML=`Máquina: <b>${p.name}</b> — deslizamiento máximo para conmutar <b>${pct(p.sMax)}</b>; contactores <b>${fmtMs(p.tOn)}</b> / <b>${fmtMs(p.tOff)}</b>.`;
+    return;
+  }
+  if(mode==='aplica'){
+    const p=POOL[apIdx];box.style.display='block';
+    box.innerHTML=`Equipo: <b>${p.name}</b> — t_cierre <b>${fmtMs(p.tOn)}</b>, t_apertura <b>${fmtMs(p.tOff)}</b>, ventana de peligro <b>${fmtMs(p.tOff-p.tOn)}</b>.`;
+    return;
+  }
+  const p=POOL[expIdx];box.style.display='block';
+  box.innerHTML=`Contactor de: <b>${p.name}</b> — t_cierre <b>${fmtMs(p.tOn)}</b> (${p.tOn/DT} scans), t_apertura <b>${fmtMs(p.tOff)}</b> (${p.tOff/DT} scans).`;
+}
+function setMode(k){
+  mode=k;hwStep=0;
+  ['explora','aplica','reto'].forEach(m=>el('m_'+m).classList.toggle('on',m===k));
+  el('p_mode').textContent=MODE_META[k].nombre;
+  el('retoTitle').style.display=k==='reto'?'block':'none';
+  el('retoBox').style.display=k==='reto'?'block':'none';
+  if(k==='reto')updateRetoSpec();
+  if(k==='explora')expReset();
+  buildControls();updateScenarioInfo();
+  solved=(k==='reto')?retoSolved:false;
+  clearDx();buildQuiz();refreshQuestion();
+  const cam=MODE_META[k].cam;S.moveTo(cam[0],cam[1]);refreshAll();
+}
+function afterEdit(){buildControls();updateScenarioInfo();refreshAll();}
+function newSignal(){
+  if(mode==='reto'){seedReto();updateRetoSpec();afterEdit();solved=false;showToast('🔀 Nueva máquina: '+POOL[retoIdx].name+'.');}
+  else if(mode==='aplica'){
+    apIdx=(apIdx+1)%POOL.length;
+    if(apIdx===0)apTopic=apTopic==='transicion'?'solape':apTopic==='solape'?'falla':'transicion';
+    afterEdit();showToast('🔀 '+POOL[apIdx].name+'. Ventana de peligro: '+fmtMs(POOL[apIdx].tOff-POOL[apIdx].tOn)+'.');
+  }else{
+    expIdx=(expIdx+1)%POOL.length;expReset();afterEdit();
+    showToast('🔀 Contactor de '+POOL[expIdx].name+'. Condúcelo con la botonera.');
+  }
+  synth.beep(520,0.08,0.05);hwStep=0;
+}
+
+// ===================== 11. TELEMETRÍA Y REPORTE =====================
+function teleRow(l,v,cls){return `<div class="trow"><span class="tl">${l}</span><span class="tv ${cls||''}">${v}</span></div>`;}
+function updateTele(){
+  const t=el('tele');
+  if(mode==='reto'){
+    t.innerHTML=teleRow('Máquina',POOL[retoIdx].name.split(' ').slice(0,2).join(' '))+
+      teleRow('t estrella',fmtS(retoCh.ty))+
+      teleRow('t muerto',fmtMs(retoCh.tw))+
+      teleRow('Enclavamiento',LOCK_SHORT[retoCh.lock])+
+      teleRow('Resultado',retoChecked?(retoSolved?'✓ correcto':'✗ revisa'):'—',retoChecked&&retoSolved?'good':'warn');
+    return;
+  }
+  if(mode==='aplica'){
+    const sc=POOL[apIdx];
+    if(apTopic==='transicion'){
+      const r=runStar(sc,apTY,apTW,apLock,null);
+      t.innerHTML=teleRow('Equipo',sc.name.split(' ')[0])+teleRow('t muerto',fmtMs(apTW))+
+        teleRow('Umbral',fmtMs(sc.tOff-sc.tOn),'warn')+
+        teleRow('Solape',fmtMs(r.overlapMs),r.overlapMs?'bad':'good')+
+        teleRow('KMΔ cierra',r.tCloseD<0?'nunca':'+'+(r.tCloseD-apTY)+' ms');
+    }else if(apTopic==='solape'){
+      const sY=sYref(sc),v=OPT_TW.filter(w=>runStar(sc,3000,w,'none',null).overlapMs===0);
+      const best=v.length?Math.min.apply(null,v):null;
+      t.innerHTML=teleRow('Equipo',sc.name.split(' ')[0])+teleRow('Umbral',fmtMs(sc.tOff-sc.tOn),'warn')+
+        teleRow('t muerto mínimo',best==null?'—':fmtMs(best),'good')+
+        teleRow('Pico a 0 ms',peakIdx(0,sY,sc).toFixed(2)+'×')+
+        teleRow('Pico a 100 ms',peakIdx(100,sY,sc).toFixed(2)+'×','bad');
+    }else{
+      const a=runStar(sc,3000,apTW,'aux','kmy'),s2=runStar(sc,3000,apTW,'soft','kmy');
+      t.innerHTML=teleRow('Equipo',sc.name.split(' ')[0])+teleRow('Falla','KMY soldado','bad')+
+        teleRow('t muerto',fmtMs(apTW))+
+        teleRow('Software',fmtMs(s2.overlapMs)+' solape','bad')+
+        teleRow('Espejo',fmtMs(a.overlapMs)+' solape','good');
+    }
+    return;
+  }
+  const sc=POOL[expIdx],lag=expLag();
+  t.innerHTML=teleRow('Contactor',sc.name.split(' ')[0])+
+    teleRow('Orden',expCmd?'1':'0',expCmd?'good':'')+
+    teleRow('Contacto',expC.closed?'CERRADO':'ABIERTO',expC.closed?'good':'')+
+    teleRow('Cuenta interna',fmtMs(expC.t),'warn')+
+    teleRow('Retardo medido',lag?fmtMs(lag.ms):'—',lag?'good':'');
+}
+function updateReport(){
+  let html=`<b>${MODE_META[mode].mision}</b><br>`;
+  if(mode==='reto'){
+    html+=retoMsg||`<span class="mono">${POOL[retoIdx].name}: elige las tres cosas y pulsa "Comprobar". Pista: el tiempo en estrella se lee en la curva de deslizamiento; el tiempo muerto sale de la resta t_apertura − t_cierre; y el enclavamiento se decide pensando en qué pasa si un contacto se suelda.</span>`;
+  }else if(mode==='aplica'){
+    const sc=POOL[apIdx];
+    if(apTopic==='transicion')html+=`<span class="mono">Prueba con t muerto = 0: la orden de KMΔ sale mientras KMY todavía está cerrado. La ventana de peligro de este equipo dura ${fmtMs(sc.tOff-sc.tOn)}. Cambia también el enclavamiento y comprueba que apenas mueve nada.</span>`;
+    else if(apTopic==='solape')html+=`<span class="mono">Las dos curvas van en sentidos opuestos. La de arriba llega a cero en ${fmtMs(sc.tOff-sc.tOn)}; la de abajo no deja de crecer en todo el rango ajustable (0–60 ms) y alcanza su máximo cuando la fem residual queda en oposición de fase con la red. El punto de diseño es el primer tiempo muerto que anula el solape.</span>`;
+    else html+=`<span class="mono">Con KMY soldado, el tiempo muerto ya no sirve de nada: sube y baja "t muerto" y observa que las tres columnas no cambian. Sólo el contacto espejo impide que la bobina de KMΔ llegue a energizarse.</span>`;
+  }else{
+    const sc=POOL[expIdx];
+    html+=`<span class="mono">Cada pulsación es un ciclo de scan de ${DT} ms. Con "Orden = 1 ▸" repetido, los contactos cierran en la pulsación ${sc.tOn/DT+1} —la del flanco arranca la cuenta en cero, así que el movimiento dura ${sc.tOn/DT} scans = ${fmtMs(sc.tOn)}—; al quitar la orden abren en la pulsación ${sc.tOff/DT+1} (${sc.tOff/DT} scans = ${fmtMs(sc.tOff)}). La diferencia, ${fmtMs(sc.tOff-sc.tOn)}, es la ventana de cortocircuito del arranque Y-Δ.</span>`;
+  }
+  el('report').innerHTML=html;
+}
+function refreshAll(){drawBoard();updateTele();updateReport();updateHW();}
+
+// ===================== 12. RETO =====================
+function updateRetoSpec(){
+  const p=POOL[retoIdx];
+  el('retoSpec').innerHTML=`Ajusta el arrancador de <b>${p.name}</b>: (1) el tiempo en estrella para conmutar con deslizamiento ≤ <b>${pct(p.sMax)}</b> sin alargar de más; (2) el tiempo muerto más corto que evite el solape por sí solo; y (3) el enclavamiento que siga protegiendo con un contactor soldado.`;
+}
+function checkReto(){
+  const sc=POOL[retoIdx];
+  retoOkY=okY(retoCh.ty,sc);
+  retoOkW=okW(retoCh.tw,sc);
+  retoOkL=okLock(retoCh.lock,retoCh.tw,sc);
+  retoSolved=retoOkY&&retoOkW&&retoOkL;retoChecked=true;solved=retoSolved;
+  synth.beep(retoSolved?1046:220,retoSolved?0.14:0.15,0.06);
+  retoMsg=`<span class="mono"><span class="${retoSolved?'ok':'dtc'}">${retoSolved?'✔ Correcto':'✗ Revisa'}</span> — ${retoExplain()}</span>`;
+  refreshAll();
+}
+
+// ===================== 13. QUIZ =====================
+function buildQuiz(){
+  QUIZ={
+    explora:{
+      pregunta:'¿Por qué hay que programar un tiempo muerto entre quitar la orden a KMY y darle la orden a KMΔ?',
+      opciones:[
+        {t:'Porque el contacto de KMY sigue cerrado t_apertura después de que la bobina se desenergiza, y si KMΔ cierra antes (en t_cierre) los dos coinciden y cortocircuitan dos fases.',ok:true,why:'Correcto. La ventana de peligro dura exactamente t_apertura − t_cierre, y el tiempo muerto es lo que la cubre.'},
+        {t:'Para que el motor tenga tiempo de acelerar antes de pasar a delta.',ok:false,why:'De eso se encarga el TIEMPO EN ESTRELLA, que dura segundos. El tiempo muerto son decenas de milisegundos: en ese lapso el motor apenas cambia de velocidad, sólo se desenergiza.'},
+        {t:'Porque el PLC necesita varios ciclos de scan para escribir dos salidas distintas.',ok:false,why:'No: el PLC escribe todas las salidas en el mismo scan sin problema. El retraso no está en el programa, está en la mecánica del contactor.'},
+        {t:'Para que el relé térmico tenga tiempo de reponerse entre las dos conexiones.',ok:false,why:'El relé térmico no interviene en la conmutación; su constante de tiempo es de segundos o minutos y vigila la sobrecarga sostenida, no la maniobra.'},
+      ],
+    },
+    aplica:{
+      pregunta:'Si el tiempo muerto evita el solape, ¿por qué no se pone directamente muy largo (por ejemplo 200 ms) y así se está sobrado?',
+      opciones:[
+        {t:'Porque durante el tiempo muerto el motor queda desenergizado: su fem residual decae y se desfasa respecto de la red, de modo que el pico de corriente al reconectar en delta CRECE con el tiempo muerto.',ok:true,why:'Correcto. Es el defecto de la transición abierta. Por eso el tiempo muerto de diseño es el más corto que ya evita el solape.'},
+        {t:'Porque los temporizadores TON de un PLC no admiten preselecciones tan pequeñas como 200 ms.',ok:false,why:'Sí las admiten: la resolución práctica es el tiempo de scan, de unos pocos milisegundos. La limitación no es el temporizador.'},
+        {t:'Porque un tiempo muerto largo dispara el enclavamiento por software.',ok:false,why:'El enclavamiento no es un temporizador ni "se dispara" por el tiempo: sólo condiciona una bobina al estado de la otra.'},
+        {t:'Porque el motor se pararía por completo en esos 200 ms.',ok:false,why:'No se para: la inercia es mucho mayor que eso. Lo que sí ocurre es que su fem residual se desfasa de la red, y ése es el problema real.'},
+      ],
+    },
+    reto:{
+      pregunta:'Ensayo de aceptación: se suelda el contacto principal de KMY. ¿Qué protección impide el cortocircuito entre fases?',
+      opciones:[
+        {t:'Los contactos espejo (IEC 60947-4-1, Anexo F): un auxiliar NC que por construcción no puede estar cerrado a la vez que el principal NA, así que la bobina de KMΔ nunca se energiza.',ok:true,why:'Correcto. Es la única de las tres que se entera de lo que hace el metal, porque la garantía está en el aparato y no en el programa.'},
+        {t:'El enclavamiento por software, que impide que el programa mande las dos bobinas a la vez.',ok:false,why:'Ese enclavamiento sólo lee variables internas del PLC. Con KMY soldado, la orden de KMY ya está en 0 y el software da permiso a KMΔ… mientras el contacto sigue cerrado.'},
+        {t:'Un tiempo muerto suficientemente largo.',ok:false,why:'El tiempo muerto cubre el tiempo de apertura NORMAL. Un contacto soldado no abre nunca, así que ningún tiempo lo arregla.'},
+        {t:'El relé térmico, que detecta la sobrecorriente del cortocircuito y desconecta.',ok:false,why:'El térmico actúa DESPUÉS y con retardo; no impide el cortocircuito, y para un corto franco la protección adecuada es el fusible o el magnético. Aquí buscamos evitar que ocurra, no despejarlo.'},
+      ],
+    },
+  };
+  Object.values(QUIZ).forEach(q=>{for(let i=q.opciones.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));const tmp=q.opciones[i];q.opciones[i]=q.opciones[j];q.opciones[j]=tmp;}});
+}
+function clearDx(){const box=el('dxbtns');if(box)box.innerHTML='';}
+function refreshQuestion(){
+  const q=QUIZ[mode];if(!q)return;
+  el('q_text').textContent=q.pregunta;
+  const box=el('dxbtns');
+  box.innerHTML=q.opciones.map((o,i)=>`<button class="b sm" data-i="${i}">${String.fromCharCode(65+i)}) ${o.t}</button>`).join('');
+  box.querySelectorAll('[data-i]').forEach(b=>b.onclick=()=>answer(parseInt(b.dataset.i,10)));
+}
+function answer(i){
+  const q=QUIZ[mode];if(!q)return;
+  const box=el('dxbtns'),btns=box.querySelectorAll('[data-i]');
+  if(!btns.length||btns[0].disabled)return;
+  const o=q.opciones[i];btns.forEach(b=>b.disabled=true);btns[i].classList.add(o.ok?'right':'wrong');
+  if(o.ok){synth.beep(1046,0.12,0.06);}else{synth.beep(220,0.15,0.06);}
+  showToast((o.ok?'✔ ':'✗ ')+o.why);
+}
+
+// ===================== 14. PICKING Y HOVER =====================
+pickerFor(scene,S.camera,S.renderer.domElement,hit=>{
+  if(!hit)return;
+  if(hit.object===board){boardClick();return;}
+  let o=hit.object;while(o){if(o.userData&&o.userData.title){showToast('<b>'+o.userData.title+'</b><br>'+(o.userData.info||''));return;}o=o.parent;}
+});
+(function hoverLoop(){
+  const ray=new THREE.Raycaster(),dom=S.renderer.domElement;let mx=0,my=0;
+  dom.addEventListener('pointermove',e=>{const r=dom.getBoundingClientRect();mx=((e.clientX-r.left)/r.width)*2-1;my=-((e.clientY-r.top)/r.height)*2+1;});
+  function tick(){
+    ray.setFromCamera({x:mx,y:my},S.camera);let hovered=false;
+    for(const [obj,spr] of HOVER_LABELS){if(!obj.visible){spr.visible=false;continue;}const on=ray.intersectObject(obj,true).length>0;spr.visible=on;if(on)hovered=true;}
+    dom.style.cursor=hovered?'pointer':'default';requestAnimationFrame(tick);
+  }
+  tick();
+})();
+
+// ===================== 15. RECORRIDO AUTOMÁTICO =====================
+function sleep(ms){return new Promise(r=>setTimeout(r,ms));}
+async function runAuto(){
+  if(autoRunning)return;autoRunning=true;
+  const btn=el('btnAuto'),label=btn.textContent;btn.disabled=true;btn.classList.add('on');btn.textContent='⏳ Recorriendo…';
+  try{
+    synth.init();synth.resume();clearDx();
+    setMode('explora');
+    expIdx=1;expReset();afterEdit();
+    showToast('🔧 Contactor del compresor: t_cierre = 20 ms (4 scans de movimiento), t_apertura = 55 ms (11 scans).');
+    await sleep(3400);
+    for(let k=0;k<5;k++){expScan(true);afterEdit();await sleep(320);}
+    showToast('▶ Los contactos cerraron en la quinta pulsación, no en la primera: la bobina obedece antes que el metal.');
+    await sleep(3400);
+    for(let k=0;k<12;k++){expScan(false);afterEdit();await sleep(260);}
+    showToast('⏹ Al quitar la orden tardaron 11 scans (55 ms) en abrir. La diferencia —35 ms— es la ventana de cortocircuito.');
+    await sleep(3600);
+    answer(QUIZ[mode].opciones.findIndex(o=>o.ok));await sleep(2600);
+
+    setMode('aplica');
+    apIdx=1;apTopic='transicion';apTY=3000;apTW=0;apLock='none';afterEdit();
+    showToast('🧩 Conmutación sin tiempo muerto: KMΔ cierra mientras KMY sigue cerrado. Solape = cortocircuito.');
+    await sleep(4600);
+    apLock='soft';afterEdit();
+    showToast('🔁 Con enclavamiento por software el solape casi no baja: el PLC sólo lee sus propias variables.');
+    await sleep(4400);
+    apTW=40;apLock='none';afterEdit();
+    showToast('✔ Con 40 ms de tiempo muerto la transición queda limpia, sin ayuda de ningún enclavamiento.');
+    await sleep(4200);
+    apTopic='solape';afterEdit();
+    showToast('⚖ Pero el pico de reconexión crece con el tiempo muerto: el óptimo es el MÁS CORTO que evita el solape.');
+    await sleep(4800);
+    apTopic='falla';apTW=60;afterEdit();
+    showToast('⚠ Ahora KMY soldado. Ni el tiempo muerto ni el software salvan la instalación: sólo el contacto espejo.');
+    await sleep(4800);
+    answer(QUIZ[mode].opciones.findIndex(o=>o.ok));await sleep(2600);
+
+    setMode('reto');
+    seedReto(0);updateRetoSpec();afterEdit();
+    showToast('🎯 Reto: la bomba centrífuga. Comprobamos primero el ajuste de partida, que está mal a propósito…');
+    await sleep(3400);
+    checkReto();
+    showToast('…estrella demasiado larga, sin tiempo muerto y sin enclavamiento. Lo corregimos.');
+    await sleep(4000);
+    const sc=POOL[retoIdx];
+    retoCh={ty:OPT_TY.filter(v=>okY(v,sc))[0],tw:OPT_TW.filter(w=>okW(w,sc))[0],lock:'aux'};
+    retoChecked=false;retoSolved=false;afterEdit();
+    showToast('✔ El tiempo de estrella más corto que ya cumple el deslizamiento, el tiempo muerto mínimo y contactos espejo.');
+    await sleep(3000);
+    checkReto();await sleep(2400);
+    answer(QUIZ[mode].opciones.findIndex(o=>o.ok));
+  }finally{
+    btn.disabled=false;btn.classList.remove('on');btn.textContent=label;autoRunning=false;
+  }
+}
+
+// ===================== 16. ANIMACIÓN, EVENTOS E INICIO =====================
+S.setAnimate((dt,time)=>{
+  hwT+=dt;
+  if(hwT>0.7){hwT=0;hwStep=(hwStep+1)%hwCount();updateHW();}
+  rotAng+=dt*motorSpin;
+  shaft.rotation.x=rotAng;fan.rotation.x=rotAng;
+});
+['explora','aplica','reto'].forEach(m=>{el('m_'+m).onclick=()=>{if(!autoRunning)setMode(m);};});
+el('btnAuto').onclick=()=>{if(!autoRunning)runAuto();};
+el('btnNew').onclick=()=>{if(autoRunning)return;newSignal();};
+el('btnCheck').onclick=()=>{if(autoRunning)return;checkReto();};
+const soundBtn=el('soundBtn');if(soundBtn){soundBtn.onclick=()=>{synth.toggle();soundBtn.textContent=synth.isOn()?'🔊':'🔇';};}
+document.addEventListener('pointerdown',()=>{synth.init();synth.resume();},{once:true});
+
+buildQuiz();
+S.start();
+setMode('explora');
+
+// ===================== DEBUG HOOK =====================
+window.__labDebug={
+  mode:()=>mode, setMode:k=>setMode(k),
+  DT, OPT_TY, OPT_TW, OPT_LOCK, POOL,
+  // motor
+  newT,stepTON,newCtor,stepCtor,newStar,starScan,runStar,zoomStar,slipAt,peakIdx,okY,okW,okLock,tYref,sYref,tOpos,tPeakMax,
+  // explora
+  expIdx:()=>expIdx, setExpIdx:i=>{expIdx=i;expReset();afterEdit();},
+  expScan:v=>{expScan(!!v);afterEdit();},
+  expReset:()=>{expReset();afterEdit();},
+  expInfo:()=>({idx:expIdx,cmd:expCmd,closed:expC.closed,t:expC.t,scans:expHist.length,lag:expLag()}),
+  expTrace:()=>expHist.map(h=>({t:h.t,cmd:h.cmd,closed:h.closed})),
+  // aplica
+  apTopic:()=>apTopic, setApTopic:k=>{apTopic=k;afterEdit();},
+  apIdx:()=>apIdx, setApIdx:i=>{apIdx=i;afterEdit();},
+  apTY:()=>apTY, setApTY:v=>{apTY=v;afterEdit();},
+  apTW:()=>apTW, setApTW:v=>{apTW=v;afterEdit();},
+  apLock:()=>apLock, setApLock:v=>{apLock=v;afterEdit();},
+  apRun:()=>runStar(POOL[apIdx],apTY,apTW,apLock,null),
+  apFault:lock=>runStar(POOL[apIdx],3000,apTW,lock,'kmy'),
+  // reto
+  retoIdx:()=>retoIdx, seedReto:i=>{seedReto(i);updateRetoSpec();afterEdit();},
+  retoName:()=>POOL[retoIdx].name,
+  retoSpec:()=>{const p=POOL[retoIdx];return {name:p.name,tOn:p.tOn,tOff:p.tOff,sMax:p.sMax,umbral:p.tOff-p.tOn};},
+  retoGet:()=>({...retoCh}),
+  retoSet:(f,v)=>{retoSet(f,v);afterEdit();},
+  retoSolveBuild:()=>{const sc=POOL[retoIdx];retoCh={ty:OPT_TY.filter(v=>okY(v,sc))[0],tw:OPT_TW.filter(w=>okW(w,sc))[0],lock:'aux'};retoChecked=false;retoSolved=false;afterEdit();},
+  checkReto:()=>checkReto(),
+  retoChecked:()=>retoChecked, retoOkY:()=>retoOkY, retoOkW:()=>retoOkW, retoOkL:()=>retoOkL, retoSolved:()=>retoSolved,
+  // quiz / general
+  quizCorrectIndex:()=>{const q=QUIZ[mode];return q?q.opciones.findIndex(o=>o.ok):-1;},
+  quizAnswer:i=>answer(i),
+  newSignal:()=>newSignal(),
+  solved:()=>solved,
+};
+</script>
+  <!-- Ficha técnica · Capa B del molde de lab 3D (componente compartido + contenido del lab) -->
+  <script src="_ficha-tecnica.js"></script>
+  <script src="_ficha-arranque-estrella-delta.js"></script>
+</body>
+</html>

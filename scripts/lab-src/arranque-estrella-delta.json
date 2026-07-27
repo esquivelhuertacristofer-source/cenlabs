@@ -1,0 +1,9 @@
+{
+  "donor": "escaner-obd.html",
+  "out": "arranque-estrella-delta.html",
+  "title": "CEN Labs · Arranque Estrella-Delta Temporizado (tiempo muerto, enclavamiento y contactos espejo) — Laboratorio 3D",
+  "lt": "Automatización de maniobra · Sistemas Digitales",
+  "inspectHint": "👆 Toca el pizarrón o los contactores KM1 / KMY / KMΔ para inspeccionar la maniobra",
+  "body": "arranque-estrella-delta.body.js",
+  "fichas": ["_ficha-tecnica.js", "_ficha-arranque-estrella-delta.js"]
+}
