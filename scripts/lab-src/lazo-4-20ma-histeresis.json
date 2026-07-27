@@ -1,0 +1,9 @@
+{
+  "donor": "escaner-obd.html",
+  "out": "lazo-4-20ma-histeresis.html",
+  "title": "CEN Labs · Lazo 4–20 mA: escalado y control on/off — Laboratorio 3D",
+  "lt": "Instrumentación y señales analógicas · Sistemas Digitales",
+  "inspectHint": "👆 Toca el tanque, el transmisor, el cable, el panel de instrumentos o la bomba para inspeccionarlos",
+  "body": "lazo-4-20ma-histeresis.body.js",
+  "fichas": ["_ficha-tecnica.js", "_ficha-lazo-4-20ma-histeresis.js"]
+}
