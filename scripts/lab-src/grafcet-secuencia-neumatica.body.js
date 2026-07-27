@@ -1,0 +1,1403 @@
+// GRAFCET (IEC 60848) aplicado a una célula neumática de dos cilindros. Motor verificado numéricamente
+// (verify_grafcet.mjs, 111/111) y pegado aquí VERBATIM: simulación y verificación comparten implementación.
+//   BASE DE TIEMPO: DT = 10 ms por ciclo de scan (idealizado, sin jitter).
+//   ELECTROVÁLVULA 5/2 BIESTABLE: la posición del carrete ES la memoria. Con los dos solenoides
+//     energizados el fabricante no garantiza posición: el carrete se queda donde estaba. Ese "quedarse"
+//     es exactamente el bloqueo que aparece cuando dos órdenes opuestas coinciden.
+//   SENSOR REED: se activa dentro de una banda magnética de `band` mm sobre un vástago de `stroke` mm,
+//     así que confirma el fin de carrera ANTES del tope mecánico: eps = band/stroke.
+//   GRAFCET: X0 (etapa inicial, espera) + una etapa por movimiento. Receptividad correcta de un
+//     movimiento = el sensor que confirma que TERMINÓ. Regla 4 de IEC 60848: las transiciones
+//     franqueables se franquean SIMULTÁNEAMENTE, sobre una imagen congelada de la situación, y una etapa
+//     que deba desactivarse y activarse a la vez PERMANECE ACTIVA.
+//   MÉTODO COMBINACIONAL (sin memoria): disparar cada movimiento con el sensor que confirma el anterior.
+//     Falla en cuanto una misma señal es a la vez condición de un movimiento y de su contrario: aparecen
+//     las SEÑALES OPUESTAS y el carrete se bloquea. No falla en todas las secuencias — la célula
+//     A+ B+ A− B− sí funciona así, y se conserva como contraejemplo honesto.
+//   Ref: IEC 60848 (GRAFCET) · IEC 61131-3 (SFC) · ISO 5599-1 y ISO 15552 (electroválvulas y cilindros) ·
+//        Guía de neumática de Festo Didactic · verificación numérica propia.
+
+// ===================== 1. ESCENA =====================
+const mount=document.getElementById('stage');
+const S=createStage(mount,{cam:[5.0,3.0,7.2],target:[0.5,1.05,0.4],bgTop:'#0d1017',bgBot:'#05060a',bloom:0.44,minD:3.2,maxD:16});
+const {scene}=S;
+const synth=makeSynth({type:'square',type2:'sine',filterFreq:2400,Q:0.7});
+const el=id=>document.getElementById(id);
+
+// ===================== 2. MOTOR (VERIFICADO 111/111 — VERBATIM) =====================
+const DT=10; // ms por ciclo de scan del PLC
+
+// --- Electrovalvula 5/2 de doble solenoide (BIESTABLE): la posicion es la memoria.
+//     Con los dos solenoides energizados el fabricante NO garantiza posicion: el
+//     carrete se queda donde estaba. Ese "quedarse" es justo el bloqueo que se estudia.
+function newValve(){return {ext:false,both:false};}
+function stepValve(v,cExt,cRet){
+  v.both = cExt && cRet;
+  if(cExt && !cRet) v.ext=true;
+  else if(cRet && !cExt) v.ext=false;
+  // ambos o ninguno -> conserva la posicion (memoria del carrete)
+  return v;
+}
+
+// --- Cilindro: posicion normalizada 0..1. Los tiempos de carrera los fija el
+//     regulador de caudal unidireccional; son dato de banco, no se deducen.
+function newCyl(cy){return {p:0,cy};}
+function stepCyl(c,extend,dt,slow){
+  const t = extend ? c.cy.tExt : c.cy.tRet;
+  const k = dt/(t*(slow||1));
+  c.p = extend ? Math.min(1,c.p+k) : Math.max(0,c.p-k);
+  return c;
+}
+// Sensor reed: se activa dentro de una banda magnetica de `band` mm sobre un
+// vastago de `stroke` mm -> dispara ANTES del final mecanico de la carrera.
+const epsOf=cy=>cy.band/cy.stroke;
+const sens0=c=>c.p<=epsOf(c.cy);
+const sens1=c=>c.p>=1-epsOf(c.cy);
+
+// --- Estructura de la secuencia: lista de 4 movimientos, p.ej. ['A+','B+','B-','A-']
+const cylOf=mv=>mv[0];                 // 'A' | 'B'
+const dirOf=mv=>mv[1]==='+';           // true = salida
+
+// --- GRAFCET: X0 (etapa inicial, espera) + una etapa por movimiento.
+//     rec = receptividades de las transiciones t1..t4 (t0 es fija: Start . reposo).
+const SENSORS=['a0','a1','b0','b1'];
+function readSens(A,B){return {a0:sens0(A),a1:sens1(A),b0:sens0(B),b1:sens1(B)};}
+// receptividad "correcta" de un movimiento = el sensor que confirma que TERMINO
+const recOf=mv=>(cylOf(mv)==='A'?'a':'b')+(dirOf(mv)?'1':'0');
+
+function newCell(sc,cfg){
+  const A=newCyl(sc.A), B=newCyl(sc.B);
+  // la celula arranca en reposo: los dos vastagos dentro
+  const vA=newValve(), vB=newValve();
+  return {sc,cfg,A,B,vA,vB,X:[true,false,false,false,false],t:0,tmr:0,
+          log:[],prevDone:{},blocked:false};
+}
+
+// Resuelve el GRAFCET sobre una IMAGEN CONGELADA de la situacion (regla 4 de
+// IEC 60848: las transiciones franqueables se franquean SIMULTANEAMENTE).
+function grafcetStep(s,Start,sn,dt){
+  const {cfg}=s, n=s.sc.seq.length;      // n=4 movimientos -> etapas X0..X4
+  const X=s.X.slice();                   // IMAGEN CONGELADA de la situacion
+  const dstOf=i=>(i===n)?0:i+1;
+  if(cfg.des==='tiempo'){
+    // avance por temporizador fijo: NO lee los sensores de fin de carrera
+    if(X[0]){ if(Start&&sn.a0&&sn.b0){s.X[0]=false;s.X[1]=true;s.tmr=0;} }
+    else{
+      s.tmr+=dt;
+      if(s.tmr>=cfg.pt){
+        s.tmr=0;
+        for(let i=1;i<=n;i++) if(X[i]){s.X[i]=false;s.X[dstOf(i)]=true;break;}
+      }
+    }
+    return;
+  }
+  // transiciones franqueables sobre la imagen congelada
+  const fire=[];
+  if(X[0] && Start && sn.a0 && sn.b0) fire.push(0);
+  for(let i=1;i<=n;i++) if(X[i] && !!sn[cfg.rec[i-1]]) fire.push(i);
+  if(!fire.length) return;
+  // regla 4 (IEC 60848): se franquean SIMULTANEAMENTE y, si una etapa debe
+  // desactivarse y activarse a la vez, PERMANECE ACTIVA -> las bajas primero,
+  // las altas despues.
+  const dn=new Set(), up=new Set();
+  for(const i of fire){ up.add(dstOf(i)); if(cfg.des==='siguiente') dn.add(i); }
+  for(const i of dn) s.X[i]=false;
+  for(const i of up) s.X[i]=true;
+}
+
+// Asignacion de salidas -> ordenes de bobina de cada electrovalvula
+function coilsOf(s,sn,Start){
+  const {cfg,sc}=s, n=sc.seq.length;
+  const c={Aext:false,Aret:false,Bext:false,Bret:false};
+  const put=(mv,on)=>{if(!on)return;const k=cylOf(mv)+(dirOf(mv)?'ext':'ret');c[k]=true;};
+  if(cfg.sal==='sensor'){
+    // metodo COMBINACIONAL (sin memoria): cada movimiento lo dispara el sensor
+    // que confirma el movimiento ANTERIOR. Aqui aparecen las senales opuestas.
+    for(let i=0;i<n;i++){
+      const cond = (i===0) ? (Start&&sn.a0&&sn.b0) : !!sn[recOf(sc.seq[i-1])];
+      put(sc.seq[i],cond);
+    }
+    return c;
+  }
+  for(let i=1;i<=n;i++){
+    if(!s.X[i]) continue;
+    const mv=sc.seq[i-1];
+    if(cfg.sal==='etapa') put(mv,true);
+    else if(cfg.sal==='destino') put(mv,!!sn[recOf(mv)]); // etapa Y sensor de DESTINO
+  }
+  return c;
+}
+
+// Un ciclo de scan completo: leer entradas -> ejecutar -> escribir salidas -> fisica
+function cellScan(s,Start,dt,slow){
+  const sn=readSens(s.A,s.B);
+  grafcetStep(s,Start,sn,dt);
+  const co=coilsOf(s,sn,Start);
+  stepValve(s.vA,co.Aext,co.Aret);
+  stepValve(s.vB,co.Bext,co.Bret);
+  const before={a0:sn.a0,a1:sn.a1,b0:sn.b0,b1:sn.b1};
+  stepCyl(s.A,s.vA.ext,dt,slow&&slow.A);
+  stepCyl(s.B,s.vB.ext,dt,slow&&slow.B);
+  const after=readSens(s.A,s.B);
+  // registra el instante en que cada movimiento QUEDA CONFIRMADO por su sensor
+  for(const k of SENSORS) if(!before[k] && after[k]){
+    const mv=(k[0]==='a'?'A':'B')+(k[1]==='1'?'+':'-');
+    s.log.push({mv,t:s.t+dt});
+  }
+  s.t+=dt;
+  return {sn:after,co,X:s.X.slice(),pA:s.A.p,pB:s.B.p,vA:s.vA.ext,vB:s.vB.ext,
+          bothA:s.vA.both,bothB:s.vB.both,t:s.t};
+}
+
+// Ejecuta la celula: pulsa Start en `startMs` durante `pulse` y corre hasta `maxMs`.
+// Para cada movimiento de la secuencia registra cuando EMPIEZA de verdad (tMove: el
+// vastago se mueve en el sentido pedido) y cuando queda CONFIRMADO por su sensor
+// (tConf). Se mide el movimiento, no la orden de bobina: en el metodo combinacional
+// hay bobinas energizadas en reposo que no mueven nada.
+function runCell(sc,cfg,opt){
+  const o=opt||{};
+  const s=newCell(sc,cfg);
+  const n=sc.seq.length;
+  const maxMs=o.maxMs||20000, startMs=o.startMs===undefined?200:o.startMs, pulse=o.pulse||300;
+  const trace=[];
+  const tMove=new Array(n).fill(null), tConf=new Array(n).fill(null);
+  let everBothA=false, everBothB=false, left=false, tX0=null;
+  let pA=s.A.p, pB=s.B.p;
+  while(s.t<maxMs){
+    const Start = s.t>=startMs && s.t<startMs+pulse;
+    const before=s.log.length;
+    const r=cellScan(s,Start,DT,o.slow);
+    if(o.trace) trace.push(r);
+    everBothA=everBothA||r.bothA; everBothB=everBothB||r.bothB;
+    const dA=r.pA-pA, dB=r.pB-pB; pA=r.pA; pB=r.pB;
+    for(let k=0;k<n;k++) if(tMove[k]===null){
+      const d = cylOf(sc.seq[k])==='A' ? dA : dB;
+      if(dirOf(sc.seq[k]) ? d>1e-12 : d<-1e-12) tMove[k]=s.t;
+    }
+    for(let j=before;j<s.log.length;j++){
+      const k=sc.seq.indexOf(s.log[j].mv);
+      if(k>=0 && tConf[k]===null && (k===0||tConf[k-1]!==null)) tConf[k]=s.log[j].t;
+    }
+    if(!s.X[0]) left=true;
+    else if(left && tX0===null) tX0=s.t;
+    if(s.X[0] && left && r.sn.a0 && r.sn.b0 && tConf[n-1]!==null) break;
+  }
+  const seq=s.log.map(l=>l.mv);
+  const orden = seq.slice(0,n).join(' ')===sc.seq.join(' ');
+  const cerrado = s.X[0] && sens0(s.A) && sens0(s.B);
+  // SECUENCIAL: ningun movimiento empieza antes de que el anterior este confirmado,
+  // y el GRAFCET no vuelve a la etapa inicial hasta confirmar el ultimo.
+  let serial = tMove.every(v=>v!==null) && tConf.every(v=>v!==null);
+  if(serial) for(let k=1;k<n;k++) if(tMove[k]<tConf[k-1]) serial=false;
+  if(serial && (tX0===null || tX0<tConf[n-1])) serial=false;
+  const done = orden && cerrado && serial;
+  return {s,trace,seq,log:s.log,tMove,tConf,tX0,orden,cerrado,serial,done,
+          everBothA,everBothB,
+          cycleMs:tConf[n-1]!==null?tConf[n-1]-startMs:null,
+          t:s.t,pA:s.A.p,pB:s.B.p,X:s.X.slice()};
+}
+
+// Movimiento espontaneo: ¿se mueve algo ANTES de pulsar Start?
+function spontaneous(sc,cfg){
+  const s=newCell(sc,cfg);
+  for(let i=0;i<60;i++){const r=cellScan(s,false,DT);if(r.pA>1e-9||r.pB>1e-9) return true;}
+  return false;
+}
+
+// ===================== ESCENARIOS =====================
+// Tiempos de carrera: ajuste de los reguladores de caudal medido en banco.
+// band = ancho de la banda magnetica del sensor reed sobre el vastago.
+const POOL=[
+  {name:'Estación de marcado', seq:['A+','B+','B-','A-'],
+   A:{stroke:200,tExt:600,tRet:500,band:5,bore:32}, B:{stroke:100,tExt:400,tRet:350,band:4,bore:25}},
+  {name:'Alimentador de piezas', seq:['A+','B+','A-','B-'],
+   A:{stroke:250,tExt:700,tRet:600,band:6,bore:32}, B:{stroke:160,tExt:500,tRet:450,band:5,bore:25}},
+  {name:'Prensa de inserción', seq:['B+','A+','A-','B-'],
+   A:{stroke:120,tExt:450,tRet:400,band:4,bore:40}, B:{stroke:200,tExt:650,tRet:550,band:5,bore:32}},
+  {name:'Clasificador de dos vías', seq:['A+','A-','B+','B-'],
+   A:{stroke:150,tExt:500,tRet:420,band:4,bore:25}, B:{stroke:150,tExt:520,tRet:440,band:4,bore:25}},
+];
+// El Reto solo usa las celulas cuya secuencia SI entra en conflicto con el metodo
+// combinacional. La celula 2 se queda como contraejemplo honesto en Aplica.
+const RETO_POOL=[0,2,3];
+const OPT_DES=['siguiente','ninguna','tiempo'];
+const OPT_SAL=['etapa','sensor','destino'];
+const PT_FIJO=1500;                       // ms del temporizador de la opcion 'tiempo'
+const GOOD=sc=>({rec:sc.seq.map(recOf),des:'siguiente',sal:'etapa',pt:PT_FIJO});
+const SLOW={A:4,B:1};                     // regulador de A casi cerrado / pieza dura
+
+// diagnostico del metodo combinacional para una secuencia
+function diagDirect(sc){
+  const cfg={rec:sc.seq.map(recOf),des:'siguiente',sal:'sensor',pt:PT_FIJO};
+  const esp=spontaneous(sc,cfg);
+  const r=runCell(sc,cfg,{maxMs:12000});
+  return {esp,done:r.done,seq:r.seq,bothA:r.everBothA,bothB:r.everBothB};
+}
+
+// --- semilla del Reto: receptividad sembrada = el sensor de PARTIDA del movimiento (error clásico)
+const badRec=mv=>(cylOf(mv)==='A'?'a':'b')+(dirOf(mv)?'0':'1');
+// --- calificación del Reto: cada criterio se evalúa con los otros dos CORRECTOS
+const cfgWith=(sc,o)=>({...GOOD(sc),...o});
+const okRec=(sc,rec)=>runC(sc,cfgWith(sc,{rec}),{maxMs:20000}).done;
+const okDes=(sc,des)=>runC(sc,cfgWith(sc,{des}),{maxMs:20000}).done &&
+                      runC(sc,cfgWith(sc,{des}),{maxMs:40000,slow:SLOW}).done;
+const okSal=(sc,sal)=>runC(sc,cfgWith(sc,{sal}),{maxMs:20000}).done &&
+                      !spontaneous(sc,cfgWith(sc,{sal}));
+
+// memo de corridas: el motor es determinista, así que la misma configuración da el mismo resultado
+const RUN_CACHE=new Map();
+function runC(sc,cfg,opt){
+  const key=sc.name+'|'+JSON.stringify(cfg)+'|'+JSON.stringify(opt||{});
+  if(RUN_CACHE.has(key))return RUN_CACHE.get(key);
+  const r=runCell(sc,cfg,opt);
+  if(RUN_CACHE.size>160)RUN_CACHE.clear();
+  RUN_CACHE.set(key,r);return r;
+}
+// suma NOMINAL de los cuatro tiempos de carrera de catálogo
+const nomMs=sc=>sc.seq.reduce((a,mv)=>a+(cylOf(mv)==='A'
+  ?(dirOf(mv)?sc.A.tExt:sc.A.tRet):(dirOf(mv)?sc.B.tExt:sc.B.tRet)),0);
+// instante en que el reed de salida confirma la carrera de un cilindro (medido, no supuesto)
+function tripExt(cy){const c=newCyl(cy);let t=0;while(!sens1(c)&&t<20000){stepCyl(c,true,DT);t+=DT;}return t;}
+// condición que dispara el movimiento i en el método combinacional
+const condOf=(sc,i)=>i===0?'Marcha·a0·b0':recOf(sc.seq[i-1]);
+// primer conflicto de señales opuestas del método combinacional
+function directConflict(sc){
+  const cfg={rec:sc.seq.map(recOf),des:'siguiente',sal:'sensor',pt:PT_FIJO};
+  const r=runC(sc,cfg,{maxMs:12000,trace:true});
+  let cyl=null,tt=null;
+  for(const v of r.trace){if(v.bothA){cyl='A';tt=v.t;break;}if(v.bothB){cyl='B';tt=v.t;break;}}
+  if(!cyl)return null;
+  const movs=[];sc.seq.forEach((mv,i)=>{if(cylOf(mv)===cyl)movs.push({mv,sig:condOf(sc,i)});});
+  return {cyl,t:tt,movs};
+}
+
+// ===================== 3. ESTADO =====================
+let mode='explora';
+const DES_NAME={siguiente:'Desactiva la etapa anterior (SET + RESET)',ninguna:'Sólo activa la siguiente (sólo SET)',tiempo:'Avanza por temporizador fijo de 1,5 s'};
+const DES_SHORT={siguiente:'Etapa siguiente',ninguna:'Sólo SET',tiempo:'Temporizador'};
+const SAL_NAME={etapa:'La etapa activa manda la bobina',sensor:'El sensor del movimiento anterior manda la bobina',destino:'La etapa activa Y el sensor de destino mandan la bobina'};
+const SAL_SHORT={etapa:'Por etapa',sensor:'Por sensor',destino:'Etapa+destino'};
+const STCOL=['#6b7280','#8AB4F8','#7CD992','#C08CF8','#E9C46A'];
+// explora — una electroválvula y su cilindro, conducidos scan a scan
+let expIdx=0,expOrd='none',expV=null,expC=null,expHist=[],expT=0;
+// aplica
+let apTopic='directo';                    // 'directo' | 'grafcet' | 'reglas'
+let apIdx=0,apBank='nom',apRule='siguiente';
+// reto
+let retoK=0;
+let retoCh={rec:['a0','a0','a0','a0'],des:'ninguna',sal:'sensor'};
+let retoChecked=false,retoOkRec=false,retoOkDes=false,retoOkSal=false,retoSolved=false,retoMsg='';
+let solved=false,autoRunning=false,QUIZ={};
+let hwStep=0,hwT=0,framesCache=null;
+
+function pickIdx(n,ex){let v=Math.floor(Math.random()*n);if(n>1)while(v===ex)v=Math.floor(Math.random()*n);return v;}
+function hexA(hex,a){const n=parseInt(hex.slice(1),16);return `rgba(${(n>>16)&255},${(n>>8)&255},${n&255},${a})`;}
+function fmtMs(ms){return ms+' ms';}
+function fmtS(ms){return (ms/1000).toFixed(1).replace('.',',')+' s';}
+function pct(x){return (x*100).toFixed(1).replace('.',',')+' %';}
+function retoSc(){return POOL[RETO_POOL[retoK]];}
+function retoCfg(){return {rec:retoCh.rec.slice(),des:retoCh.des,sal:retoCh.sal,pt:PT_FIJO};}
+
+function seedReto(k){
+  retoK=(k==null)?pickIdx(RETO_POOL.length,retoK):k;
+  const sc=retoSc();
+  // programa de partida deliberadamente MAL en las TRES decisiones
+  retoCh={rec:sc.seq.map(badRec),des:'ninguna',sal:'sensor'};
+  retoChecked=false;retoOkRec=false;retoOkDes=false;retoOkSal=false;retoSolved=false;retoMsg='';
+}
+seedReto(0);
+
+// el primer registro es el REPOSO (sin órdenes, vástago dentro): sin él, el flanco de la primera
+// pulsación no queda en la traza y el retardo hasta el sensor no se puede medir
+function expReset(){
+  const cy=POOL[expIdx].A;
+  expV=newValve();expC=newCyl(cy);expOrd='none';
+  expHist=[{t:0,cExt:false,cRet:false,ext:false,p:0,s0:true,s1:false,both:false}];
+  expT=DT;hwStep=0;
+}
+function expScan(ord){
+  expOrd=ord;
+  const cExt=(ord==='ext'||ord==='both'), cRet=(ord==='ret'||ord==='both');
+  stepValve(expV,cExt,cRet);
+  stepCyl(expC,expV.ext,DT);
+  expHist.push({t:expT,cExt,cRet,ext:expV.ext,p:expC.p,s0:sens0(expC),s1:sens1(expC),both:expV.both});
+  if(expHist.length>240)expHist.shift();
+  expT+=DT;hwStep=0;
+}
+expReset();
+const expEverBoth=()=>expHist.some(h=>h.both);
+// retardo MEDIDO entre la orden de salida y la confirmación del reed de fin de carrera
+function expTrip(){
+  for(let i=1;i<expHist.length;i++) if(expHist[i].s1&&!expHist[i-1].s1) return expHist[i].t;
+  return null;
+}
+
+// ===================== 4. MATERIALES =====================
+function std(color,rough,metal){return new THREE.MeshStandardMaterial({color,roughness:rough,metalness:metal});}
+function brush(base){return std(base,0.55,0.35);}
+const MAT={bench:brush(0x2b2f34),frame:brush(0x22262c),leg:brush(0x14161b),body:std(0x1b2028,0.6,0.25),
+  barrel:std(0x9aa4b2,0.35,0.75),rod:std(0xd6dde8,0.22,0.9),valve:std(0x14171b,0.5,0.3),plate:brush(0x3a4048)};
+const ACC='#8AB4F8', OK_HEX='#7CD992', BAD_HEX='#ff6b6b', WARN_HEX='#E9C46A', VIO='#C08CF8';
+
+const HOVER_LABELS=new Map();
+function addHoverLabel(obj,text,color,pos,scale){
+  const cv=document.createElement('canvas');cv.width=256;cv.height=64;const cx=cv.getContext('2d');
+  cx.fillStyle='rgba(10,14,17,0.88)';cx.fillRect(0,0,256,64);
+  cx.strokeStyle=color;cx.lineWidth=2;cx.strokeRect(1,1,254,62);
+  cx.fillStyle='#F4EFEA';cx.font='bold 20px Outfit, sans-serif';cx.textAlign='center';cx.textBaseline='middle';cx.fillText(text,128,32);
+  const tex=new THREE.CanvasTexture(cv);
+  const spr=new THREE.Sprite(new THREE.SpriteMaterial({map:tex,transparent:true,depthTest:false}));
+  spr.position.copy(pos);spr.scale.set(scale||1.1,(scale||1.1)*0.28,1);spr.visible=false;spr.renderOrder=999;
+  scene.add(spr);HOVER_LABELS.set(obj,spr);return spr;
+}
+
+// ===================== 5. PIZARRÓN =====================
+const boardG=new THREE.Group();
+boardG.position.set(-1.15,0,-0.95);boardG.rotation.y=0.2;scene.add(boardG);
+const frame=roundedBox(3.9,2.9,0.12,MAT.frame,0.06);frame.position.set(0,1.9,0);boardG.add(frame);
+[-1.65,1.65].forEach(x=>{const leg=new THREE.Mesh(new THREE.CylinderGeometry(0.05,0.06,1.9,16),MAT.leg);leg.position.set(x,0.92,0);boardG.add(leg);});
+const bCv=document.createElement('canvas');bCv.width=1024;bCv.height=768;
+const bTex=new THREE.CanvasTexture(bCv);
+const board=new THREE.Mesh(new THREE.PlaneGeometry(3.68,2.72),new THREE.MeshBasicMaterial({map:bTex}));
+board.position.set(0,1.9,0.065);boardG.add(board);
+frame.userData={title:'GRAFCET de una célula neumática',info:'Etapas, transiciones y receptividades de una secuencia de dos cilindros · toca para inspeccionar'};
+addHoverLabel(frame,'GRAFCET · IEC 60848',ACC,new THREE.Vector3(0,3.5,0.1).add(boardG.position),2.6);
+
+function bg(c){c.fillStyle='#0c1016';c.fillRect(0,0,1024,768);}
+function rpanel(c,x,y,w,h,title){
+  c.fillStyle=hexA(ACC,0.06);c.fillRect(x,y,w,h);
+  c.strokeStyle=hexA(ACC,0.22);c.lineWidth=1;c.strokeRect(x,y,w,h);
+  c.fillStyle='#C7D6F5';c.font='bold 15px Outfit, sans-serif';c.textAlign='left';c.fillText(title,x+16,y+26);
+}
+function prow(c,x,y,w,l,v,col){
+  c.fillStyle='#8f97a5';c.font='13px Outfit, sans-serif';c.textAlign='left';c.fillText(l,x+16,y);
+  c.fillStyle=col||'#F4EFEA';c.font='bold 16px Outfit, sans-serif';c.textAlign='right';c.fillText(v,x+w-14,y);
+}
+function wrapText(c,text,x,y,maxW,lh){
+  const words=text.split(' ');let line='',yy=y;
+  for(const w of words){const test=line+w+' ';
+    if(c.measureText(test).width>maxW && line){c.fillText(line,x,yy);line=w+' ';yy+=lh;}else line=test;}
+  c.fillText(line,x,yy);return yy;
+}
+const PX={x:706,y:70,w:300};
+
+// ---- traza digital sobre una ventana de tiempo ----
+function drawTrace(c,x,y,w,h,z,key,label,col,t0,t1,dash){
+  c.fillStyle=col;c.font='bold 12px Outfit, sans-serif';c.textAlign='left';c.fillText(label,x,y-h-6);
+  c.strokeStyle='rgba(255,255,255,0.10)';c.lineWidth=1;
+  c.beginPath();c.moveTo(x,y);c.lineTo(x+w,y);c.stroke();
+  if(!z.length)return;
+  const sx=t=>x+((t-t0)/(t1-t0))*w;
+  if(dash)c.setLineDash([5,4]);
+  c.strokeStyle=col;c.lineWidth=2;c.beginPath();
+  let py=z[0][key]?y-h:y;c.moveTo(sx(z[0].t),py);
+  for(let i=1;i<z.length;i++){
+    const yy=z[i][key]?y-h:y,xx=sx(z[i].t);
+    if(yy!==py){c.lineTo(xx,py);c.lineTo(xx,yy);py=yy;}
+  }
+  c.lineTo(x+w,py);c.stroke();c.setLineDash([]);
+}
+// ---- eje de tiempo relativo (en ms) ----
+function drawMsAxis(c,x,y,w,t0,t1,ref,step){
+  c.strokeStyle='rgba(255,255,255,0.10)';c.lineWidth=1;
+  c.fillStyle='#6b7280';c.font='10px Outfit, sans-serif';c.textAlign='center';
+  for(let t=Math.ceil(t0/step)*step;t<=t1;t+=step){
+    const xx=x+((t-t0)/(t1-t0))*w;
+    c.beginPath();c.moveTo(xx,y);c.lineTo(xx,y+6);c.stroke();
+    const d=t-ref;c.fillText((d>0?'+':'')+d,xx,y+18);
+  }
+}
+// ---- barra horizontal ----
+function drawBar(c,x,y,w,h,frac,label,col,right){
+  c.fillStyle='#9fb0cf';c.font='12px Outfit, sans-serif';c.textAlign='left';c.fillText(label,x,y-8);
+  c.fillStyle='rgba(255,255,255,0.06)';c.fillRect(x,y,w,h);
+  c.fillStyle=hexA(col,0.75);c.fillRect(x,y,Math.max(0,Math.min(1,frac))*w,h);
+  c.strokeStyle=hexA(ACC,0.3);c.lineWidth=1;c.strokeRect(x,y,w,h);
+  c.fillStyle=col;c.font='bold 13px Outfit, sans-serif';c.textAlign='right';c.fillText(right,x+w,y-8);
+}
+// ---- curva XY genérica ----
+function drawXY(c,x,y,w,h,pts,xMax,yMax,col,fill){
+  c.strokeStyle=col;c.lineWidth=2;c.beginPath();
+  pts.forEach((p,i)=>{const xx=x+(p[0]/xMax)*w,yy=y+h-(Math.min(p[1],yMax)/yMax)*h;if(i)c.lineTo(xx,yy);else c.moveTo(xx,yy);});
+  c.stroke();
+  if(fill){
+    c.lineTo(x+w,y+h);c.lineTo(x,y+h);c.closePath();c.fillStyle=hexA(col,0.14);c.fill();
+  }
+}
+function axes(c,x,y,w,h,xl,yl){
+  c.strokeStyle='rgba(255,255,255,0.16)';c.lineWidth=1;
+  c.beginPath();c.moveTo(x,y);c.lineTo(x,y+h);c.lineTo(x+w,y+h);c.stroke();
+  c.fillStyle='#7a8494';c.font='11px Outfit, sans-serif';
+  c.textAlign='right';c.fillText(xl,x+w,y+h+18);
+  c.textAlign='left';c.fillText(yl,x,y-8);
+}
+// ---- fila de tabla ----
+function trow(c,x,y,w,h,cols,widths,cols_col,head){
+  c.fillStyle=head?hexA(ACC,0.10):'rgba(255,255,255,0.03)';c.fillRect(x,y,w,h);
+  c.strokeStyle=hexA(ACC,0.16);c.lineWidth=1;c.strokeRect(x,y,w,h);
+  let cx=x;
+  cols.forEach((t,i)=>{
+    c.fillStyle=head?'#C7D6F5':(cols_col&&cols_col[i]?cols_col[i]:'#F4EFEA');
+    c.font=(head?'bold 12px':'13px')+' Outfit, sans-serif';c.textAlign='left';
+    c.fillText(t,cx+10,y+h/2+5);
+    cx+=widths[i];
+  });
+}
+// ---- cadena GRAFCET horizontal ----
+function actStage(X){for(let i=X.length-1;i>=0;i--)if(X[i])return i;return 0;}
+function stageLabel(X){const a=[];X.forEach((v,i)=>{if(v)a.push('X'+i);});return a.length?a.join('+'):'—';}
+function drawGrafcet(c,x,y,w,sc,cfg,X){
+  const n=sc.seq.length,N=n+1,bw=86,bh=46,gap=(w-N*bw)/(N-1);
+  const bx=i=>x+i*(bw+gap);
+  const ry=y+bh+50;
+  c.strokeStyle=hexA(ACC,0.35);c.lineWidth=1.5;
+  c.beginPath();c.moveTo(bx(n)+bw/2,y+bh);c.lineTo(bx(n)+bw/2,ry);c.lineTo(bx(0)+bw/2,ry);c.lineTo(bx(0)+bw/2,y+bh);c.stroke();
+  c.fillStyle='#6b7280';c.font='10px Outfit, sans-serif';c.textAlign='center';
+  c.fillText('el ciclo se cierra en la etapa inicial',x+w/2,ry+14);
+  for(let i=0;i<N;i++){
+    const act=!!(X&&X[i]);
+    c.fillStyle=act?hexA(STCOL[i],0.30):'rgba(255,255,255,0.04)';c.fillRect(bx(i),y,bw,bh);
+    c.strokeStyle=act?STCOL[i]:'rgba(255,255,255,0.18)';c.lineWidth=act?2:1;c.strokeRect(bx(i),y,bw,bh);
+    if(i===0)c.strokeRect(bx(i)+4,y+4,bw-8,bh-8);   // etapa inicial: doble marco (IEC 60848)
+    c.fillStyle=act?'#F4EFEA':'#8f97a5';c.font='bold 16px Outfit, sans-serif';c.textAlign='center';
+    c.fillText('X'+i,bx(i)+bw/2,y+21);
+    c.fillStyle=act?STCOL[i]:'#6b7280';c.font='bold 13px Outfit, sans-serif';
+    c.fillText(i===0?'espera':sc.seq[i-1],bx(i)+bw/2,y+39);
+    if(i<N-1){
+      const tx=bx(i)+bw+gap/2,ty=y+bh/2;
+      c.strokeStyle='rgba(255,255,255,0.30)';c.lineWidth=1.5;
+      c.beginPath();c.moveTo(bx(i)+bw,ty);c.lineTo(bx(i+1),ty);c.stroke();
+      const good=(i===0)||(cfg.des==='tiempo')||(cfg.rec[i-1]===recOf(sc.seq[i-1]));
+      c.strokeStyle=good?ACC:BAD_HEX;c.lineWidth=3;
+      c.beginPath();c.moveTo(tx,ty-11);c.lineTo(tx,ty+11);c.stroke();
+      const lab=cfg.des==='tiempo'?('t ≥ '+fmtS(cfg.pt)):(i===0?'Marcha·a0·b0':cfg.rec[i-1]);
+      c.fillStyle=good?'#C7D6F5':BAD_HEX;c.font='bold 11px Outfit, sans-serif';c.textAlign='center';
+      c.fillText(lab,tx,ty-18);
+    }
+  }
+}
+// ---- banda de etapa activa a lo largo del tiempo ----
+function stageRuns(tr){
+  const out=[];let cur=null;
+  for(const v of tr){const st=actStage(v.X);
+    if(!cur||cur.st!==st){cur={st,t0:v.t,t1:v.t,multi:stageLabel(v.X)};out.push(cur);}else cur.t1=v.t;}
+  return out;
+}
+function drawStageBand(c,x,y,w,h,tr,t0,t1){
+  c.fillStyle='rgba(255,255,255,0.05)';c.fillRect(x,y,w,h);
+  const sx=t=>x+((t-t0)/(t1-t0))*w;
+  for(const r of stageRuns(tr)){
+    const x0=sx(r.t0),x1=sx(r.t1);
+    c.fillStyle=hexA(STCOL[r.st],r.st===0?0.22:0.65);c.fillRect(x0,y,Math.max(1,x1-x0),h);
+    if(x1-x0>34){c.fillStyle='#0c1016';c.font='bold 12px Outfit, sans-serif';c.textAlign='center';
+      c.fillText(r.multi,(x0+x1)/2,y+h/2+4);}
+  }
+  c.strokeStyle=hexA(ACC,0.3);c.lineWidth=1;c.strokeRect(x,y,w,h);
+}
+
+// ===================== 6. VISTAS POR MODO =====================
+function drawExplora(c){
+  const sc=POOL[expIdx],cy=sc.A,eps=epsOf(cy);
+  c.fillStyle='#F4EFEA';c.font='bold 26px Outfit, sans-serif';c.textAlign='left';
+  c.fillText('La electroválvula biestable es una MEMORIA',30,54);
+  c.fillStyle='#8f97a5';c.font='14px Outfit, sans-serif';
+  wrapText(c,'Una 5/2 de doble solenoide no tiene muelle de retorno: el carrete se queda donde lo dejó el último impulso. Da una orden, quítala y observa que el vástago sigue su camino. Después energiza las DOS bobinas a la vez y comprueba lo que pasa.',30,80,640,20);
+
+  // --- diagrama de la válvula ---
+  const vx=30,vy=152,vw=300,vh=168;
+  c.fillStyle=hexA(expV.both?BAD_HEX:ACC,0.06);c.fillRect(vx,vy,vw,vh);
+  c.strokeStyle=expV.both?BAD_HEX:hexA(ACC,0.45);c.lineWidth=2;c.strokeRect(vx,vy,vw,vh);
+  c.fillStyle='#C7D6F5';c.font='bold 17px Outfit, sans-serif';c.textAlign='center';
+  c.fillText('ELECTROVÁLVULA 5/2 BIESTABLE',vx+vw/2,vy+26);
+  // dos cuadros de posición del carrete
+  const cw=96,ch=58,cy0=vy+50;
+  [0,1].forEach(k=>{
+    const cx0=vx+34+k*(cw+40),on=(k===1)===expV.ext;
+    c.fillStyle=on?hexA(OK_HEX,0.22):'rgba(255,255,255,0.04)';c.fillRect(cx0,cy0,cw,ch);
+    c.strokeStyle=on?OK_HEX:'rgba(255,255,255,0.20)';c.lineWidth=on?2:1;c.strokeRect(cx0,cy0,cw,ch);
+    c.strokeStyle=on?OK_HEX:'#6b7280';c.lineWidth=2;
+    c.beginPath();
+    if(k===0){c.moveTo(cx0+18,cy0+ch-12);c.lineTo(cx0+cw-18,cy0+12);}
+    else{c.moveTo(cx0+18,cy0+12);c.lineTo(cx0+cw-18,cy0+ch-12);}
+    c.stroke();
+    c.fillStyle=on?OK_HEX:'#6b7280';c.font='bold 12px Outfit, sans-serif';c.textAlign='center';
+    c.fillText(k===0?'retorno':'salida',cx0+cw/2,cy0+ch+16);
+  });
+  // solenoides
+  const solOn=[(expOrd==='ret'||expOrd==='both'),(expOrd==='ext'||expOrd==='both')];
+  [0,1].forEach(k=>{
+    const sx0=vx+10+k*(vw-40),on=solOn[k];
+    c.fillStyle=on?hexA(WARN_HEX,0.35):'rgba(255,255,255,0.05)';c.fillRect(sx0,cy0+6,26,46);
+    c.strokeStyle=on?WARN_HEX:'rgba(255,255,255,0.20)';c.lineWidth=on?2:1;c.strokeRect(sx0,cy0+6,26,46);
+    c.fillStyle=on?WARN_HEX:'#6b7280';c.font='bold 11px Outfit, sans-serif';c.textAlign='center';
+    c.fillText(k===0?'Y2':'Y1',sx0+13,cy0+62+14);
+  });
+  c.fillStyle=expV.both?BAD_HEX:'#8f97a5';c.font='bold 13px Outfit, sans-serif';c.textAlign='center';
+  c.fillText(expV.both?'⚠ LAS DOS BOBINAS: el carrete NO conmuta':'carrete en «'+(expV.ext?'salida':'retorno')+'»',vx+vw/2,vy+vh-10);
+
+  // --- diagrama del cilindro ---
+  const dx=352,dy=152,dw=318,dh=168;
+  c.fillStyle=hexA(ACC,0.06);c.fillRect(dx,dy,dw,dh);
+  c.strokeStyle=hexA(ACC,0.45);c.lineWidth=1;c.strokeRect(dx,dy,dw,dh);
+  c.fillStyle='#C7D6F5';c.font='bold 17px Outfit, sans-serif';c.textAlign='center';
+  c.fillText('CILINDRO DE DOBLE EFECTO',dx+dw/2,dy+26);
+  const bx0=dx+24,by0=dy+56,bw0=200,bh0=44;
+  c.fillStyle='rgba(255,255,255,0.06)';c.fillRect(bx0,by0,bw0,bh0);
+  c.strokeStyle='#9aa4b2';c.lineWidth=2;c.strokeRect(bx0,by0,bw0,bh0);
+  // émbolo
+  const px0=bx0+8+(bw0-24)*expC.p;
+  c.fillStyle=ACC;c.fillRect(px0,by0+4,14,bh0-8);
+  // vástago
+  c.strokeStyle='#d6dde8';c.lineWidth=6;
+  c.beginPath();c.moveTo(px0+14,by0+bh0/2);c.lineTo(bx0+bw0+52*expC.p+6,by0+bh0/2);c.stroke();
+  // sensores reed
+  [[bx0+8+(bw0-24)*eps,'a0',expHist[expHist.length-1].s0],
+   [bx0+8+(bw0-24)*(1-eps),'a1',expHist[expHist.length-1].s1]].forEach(([sx0,nm,on])=>{
+    c.fillStyle=on?OK_HEX:'#4a525e';c.fillRect(sx0-3,by0-14,6,12);
+    c.fillStyle=on?OK_HEX:'#6b7280';c.font='bold 12px Outfit, sans-serif';c.textAlign='center';
+    c.fillText(nm,sx0,by0-20);
+  });
+  drawBar(c,dx+24,dy+128,270,16,expC.p,'posición del vástago',expC.p>0.5?OK_HEX:ACC,pct(expC.p));
+  c.fillStyle='#8f97a5';c.font='11px Outfit, sans-serif';c.textAlign='left';
+  c.fillText('banda del reed = '+cy.band+' mm sobre '+cy.stroke+' mm ⇒ eps = '+pct(eps),dx+24,dy+dh-8);
+
+  // --- cronograma ---
+  const t0=expHist[0].t,t1=Math.max(t0+DT*30,expT);
+  const wx=30,ww=640;
+  drawTrace(c,wx,398,ww,18,expHist,'cExt','Y1 · orden de SALIDA',WARN_HEX,t0,t1,true);
+  drawTrace(c,wx,440,ww,18,expHist,'cRet','Y2 · orden de RETORNO',VIO,t0,t1,true);
+  drawTrace(c,wx,482,ww,18,expHist,'ext','CARRETE (posición memorizada)',ACC,t0,t1,false);
+  drawTrace(c,wx,524,ww,18,expHist,'s0','a0 · reed de vástago dentro','#9aa4b2',t0,t1,false);
+  drawTrace(c,wx,566,ww,18,expHist,'s1','a1 · reed de vástago fuera',OK_HEX,t0,t1,false);
+  // curva de posición
+  axes(c,wx,596,ww,88,'tiempo (ms)','p');
+  const pts=expHist.map(h=>[h.t-t0,h.p]);
+  drawXY(c,wx,596,ww,88,pts,Math.max(1,t1-t0),1,ACC,true);
+  [[eps,'a0'],[1-eps,'a1']].forEach(([v,nm])=>{
+    const yy=596+88-v*88;
+    c.strokeStyle=hexA(OK_HEX,0.6);c.lineWidth=1;c.setLineDash([4,4]);
+    c.beginPath();c.moveTo(wx,yy);c.lineTo(wx+ww,yy);c.stroke();c.setLineDash([]);
+    c.fillStyle=OK_HEX;c.font='10px Outfit, sans-serif';c.textAlign='left';c.fillText(nm,wx+4,yy-3);
+  });
+  drawMsAxis(c,wx,684,ww,t0,t1,0,Math.max(DT*10,Math.round((t1-t0)/8/50)*50||50));
+  if(expHist.length<=1){c.fillStyle='#6b7280';c.font='13px Outfit, sans-serif';c.textAlign='left';
+    c.fillText('(sin scans aún — usa la botonera)',wx+6,470);}
+
+  // --- panel derecho ---
+  rpanel(c,PX.x,PX.y,PX.w,220,'CILINDRO A · DATOS DE BANCO');
+  prow(c,PX.x,PX.y+56,PX.w,'Carrera',cy.stroke+' mm');
+  prow(c,PX.x,PX.y+90,PX.w,'Ø émbolo',cy.bore+' mm');
+  prow(c,PX.x,PX.y+124,PX.w,'t salida / retorno',cy.tExt+' / '+cy.tRet+' ms',ACC);
+  prow(c,PX.x,PX.y+158,PX.w,'Banda del reed',cy.band+' mm ('+pct(eps)+')',WARN_HEX);
+  prow(c,PX.x,PX.y+192,PX.w,'Scans dados',String(expHist.length-1));
+  const iy=PX.y+240;
+  c.fillStyle='rgba(0,0,0,0.20)';c.fillRect(PX.x,iy,PX.w,300);
+  c.strokeStyle=hexA(expEverBoth()?BAD_HEX:WARN_HEX,0.45);c.lineWidth=1;c.strokeRect(PX.x,iy,PX.w,300);
+  if(expEverBoth()){
+    c.fillStyle=BAD_HEX;c.font='bold 14px Outfit, sans-serif';c.textAlign='left';
+    c.fillText('⚠ Señales opuestas',PX.x+14,iy+26);
+    c.fillStyle='#C9D3E2';c.font='12px Outfit, sans-serif';
+    wrapText(c,'Con Y1 e Y2 energizados a la vez el fabricante no garantiza la posición del carrete. En este modelo se queda donde estaba, que es el comportamiento habitual: la válvula deja de obedecer. Un programa que produzca esa situación no está «mandando dos cosas», está BLOQUEANDO el actuador.',PX.x+14,iy+52,PX.w-28,17);
+  }else{
+    c.fillStyle=WARN_HEX;c.font='bold 14px Outfit, sans-serif';c.textAlign='left';
+    c.fillText('¿Por qué es una memoria?',PX.x+14,iy+26);
+    c.fillStyle='#C9D3E2';c.font='12px Outfit, sans-serif';
+    wrapText(c,'Un impulso en Y1 bastó para conmutar el carrete: puedes quitar la orden y el cilindro sigue saliendo. Eso es memoria física, y es la razón de que en neumática baste con ACTIVAR una bobina por etapa en vez de mantenerla.',PX.x+14,iy+52,PX.w-28,17);
+  }
+  const tr=expTrip(),nom=tripExt(cy);
+  c.fillStyle='#7a8494';c.font='12px Outfit, sans-serif';
+  wrapText(c,'El reed a1 no espera al tope mecánico: se activa cuando el imán entra en su banda, es decir en p ≥ '+ (1-eps).toFixed(3).replace('.',',') +'. En este cilindro eso ocurre a los '+fmtMs(nom)+' de los '+fmtMs(cy.tExt)+' nominales de carrera.',PX.x+14,iy+190,PX.w-28,17);
+  if(tr!=null){
+    c.fillStyle=OK_HEX;c.font='bold 13px Outfit, sans-serif';
+    c.fillText('a1 MEDIDO en esta corrida: '+fmtMs(tr),PX.x+14,iy+282);
+  }
+}
+
+function drawAplica(c){
+  const sc=POOL[apIdx];
+  if(apTopic==='grafcet')return drawGrafcetView(c,sc);
+  if(apTopic==='reglas')return drawReglas(c,sc);
+  return drawDirecto(c,sc);
+}
+
+function drawDirecto(c,sc){
+  c.fillStyle='#F4EFEA';c.font='bold 26px Outfit, sans-serif';c.textAlign='left';
+  c.fillText('El método combinacional y las señales opuestas',30,54);
+  c.fillStyle='#8f97a5';c.font='14px Outfit, sans-serif';
+  wrapText(c,'La tentación es obvia: disparar cada movimiento con el sensor que confirma el anterior, sin etapas ni memoria de programa. Se prueba sobre las cuatro células y se mide qué pasa. No falla siempre —y eso también hay que decirlo.',30,80,640,20);
+
+  const tx=30,tw=640,ws=[210,120,120,190];
+  trow(c,tx,140,tw,30,['Célula y secuencia','¿Se mueve solo?','¿Dos bobinas?','¿Completa el ciclo?'],ws,null,true);
+  POOL.forEach((p,i)=>{
+    const d=diagDirect(p),y=170+i*34;
+    const cols=[p.seq.join(' '),d.esp?'SÍ':'no',(d.bothA||d.bothB)?('SÍ · '+(d.bothA?'válvula A':'válvula B')):'no',d.done?'SÍ · funciona':'NO'];
+    const cl=[i===apIdx?ACC:'#F4EFEA',d.esp?BAD_HEX:OK_HEX,(d.bothA||d.bothB)?BAD_HEX:OK_HEX,d.done?OK_HEX:BAD_HEX];
+    trow(c,tx,y,tw,32,cols,ws,cl,false);
+    c.fillStyle='#7a8494';c.font='11px Outfit, sans-serif';c.textAlign='left';
+    c.fillText(p.name.split(' ')[0],tx+150,y+21);
+  });
+
+  // detalle de la célula seleccionada: qué condición dispara cada movimiento y cuál vale 1 en reposo
+  const dy=320;
+  c.fillStyle='#C7D6F5';c.font='bold 16px Outfit, sans-serif';c.textAlign='left';
+  c.fillText('Órdenes del método combinacional en «'+sc.name+'»',tx,dy);
+  const ws2=[130,190,150,170];
+  trow(c,tx,dy+14,tw,28,['Movimiento','Lo dispara','En reposo vale','Consecuencia'],ws2,null,true);
+  const rest={a0:true,a1:false,b0:true,b1:false};
+  sc.seq.forEach((mv,i)=>{
+    const sig=condOf(sc,i),v=i===0?false:!!rest[sig];
+    const y=dy+42+i*30;
+    trow(c,tx,y,tw,30,[mv,sig,i===0?'requiere Marcha':(v?'1':'0'),
+      i===0?'arranca el ciclo':(v?'bobina energizada en reposo':'espera')],
+      ws2,[ACC,'#F4EFEA',v?WARN_HEX:'#8f97a5',v?WARN_HEX:'#8f97a5'],false);
+  });
+
+  const cf=directConflict(sc),d=diagDirect(sc);
+  const by=dy+180;
+  c.fillStyle='rgba(0,0,0,0.22)';c.fillRect(tx,by,tw,150);
+  c.strokeStyle=(cf||d.esp)?BAD_HEX:OK_HEX;c.lineWidth=2;c.strokeRect(tx,by,tw,150);
+  c.fillStyle=(cf||d.esp)?BAD_HEX:OK_HEX;c.font='bold 15px Outfit, sans-serif';c.textAlign='left';
+  c.fillText(cf?'Conflicto en la válvula '+cf.cyl:(d.esp?'Arranque espontáneo':'Esta secuencia SÍ funciona sin etapas'),tx+14,by+26);
+  c.fillStyle='#C9D3E2';c.font='13px Outfit, sans-serif';
+  let txt;
+  if(cf){
+    txt='Los dos movimientos del cilindro '+cf.cyl+' —'+cf.movs.map(m=>m.mv+' (lo dispara '+m.sig+')').join(' y ')+
+        '— tienen sus condiciones ciertas a la vez a los '+fmtMs(cf.t)+' de simulación. Las dos bobinas de la misma válvula quedan energizadas y el carrete se queda donde está: el ciclo se detiene. Ésta es la señal opuesta que obliga a introducir MEMORIA, y la memoria es la etapa del GRAFCET.';
+  }else if(d.esp){
+    txt='Sin pulsar Marcha ya hay una bobina energizada, porque la condición de un movimiento posterior ('+
+        sc.seq.map((mv,i)=>({mv,sig:condOf(sc,i)})).filter((o,i)=>i>0&&(o.sig==='a0'||o.sig==='b0')).map(o=>o.mv+' con '+o.sig).join(', ')+
+        ') se cumple en el estado de reposo. La célula se mueve sola al dar presión: es un fallo de seguridad, no sólo de secuencia.';
+  }else{
+    txt='En esta secuencia ninguna señal es a la vez condición de un movimiento y de su contrario, así que el método combinacional la resuelve. Conviene decirlo: el método no es «malo», es FRÁGIL —depende de la secuencia concreta— y por eso no sirve como método general. El GRAFCET funciona en las cuatro.';
+  }
+  wrapText(c,txt,tx+14,by+52,tw-28,18);
+
+  rpanel(c,PX.x,PX.y,PX.w,200,'DIAGNÓSTICO');
+  prow(c,PX.x,PX.y+52,PX.w,'Célula',sc.name.split(' ')[0]);
+  prow(c,PX.x,PX.y+86,PX.w,'Secuencia',sc.seq.join(' '),ACC);
+  prow(c,PX.x,PX.y+120,PX.w,'Movimiento espontáneo',d.esp?'SÍ':'no',d.esp?BAD_HEX:OK_HEX);
+  prow(c,PX.x,PX.y+154,PX.w,'Señales opuestas',(d.bothA||d.bothB)?'SÍ':'no',(d.bothA||d.bothB)?BAD_HEX:OK_HEX);
+  prow(c,PX.x,PX.y+188,PX.w,'Ciclo completo',d.done?'SÍ':'NO',d.done?OK_HEX:BAD_HEX);
+  const ky=PX.y+220;
+  c.fillStyle='rgba(0,0,0,0.20)';c.fillRect(PX.x,ky,PX.w,320);
+  c.strokeStyle=hexA(ACC,0.3);c.lineWidth=1;c.strokeRect(PX.x,ky,PX.w,320);
+  c.fillStyle=WARN_HEX;c.font='bold 14px Outfit, sans-serif';c.textAlign='left';
+  c.fillText('Lo que se aprende aquí',PX.x+14,ky+26);
+  c.fillStyle='#C9D3E2';c.font='12px Outfit, sans-serif';
+  wrapText(c,'La secuencia MEDIDA de las cuatro células es '+diagDirect(sc).seq.slice(0,6).join(' ')+(diagDirect(sc).seq.length>6?' …':'')+'. Compárala con la pedida: '+sc.seq.join(' ')+'.',PX.x+14,ky+52,PX.w-28,17);
+  c.fillStyle='#7a8494';
+  wrapText(c,'El método combinacional no distingue «estoy en el paso 1» de «estoy en el paso 4»: sólo ve sensores. Cuando dos pasos distintos ven el mismo estado de sensores, el programa no puede decidir. La etapa del GRAFCET es justamente el bit que recuerda en qué paso va.',PX.x+14,ky+130,PX.w-28,17);
+  c.fillStyle='#6b7280';c.font='11px Outfit, sans-serif';
+  wrapText(c,'Diagnóstico calculado en vivo con el motor verificado; no hay tablas escritas a mano.',PX.x+14,ky+280,PX.w-28,15);
+}
+
+function drawGrafcetView(c,sc){
+  const slow=apBank==='lento'?SLOW:null;
+  const r=runC(sc,GOOD(sc),{maxMs:slow?40000:20000,trace:true,slow:slow||undefined});
+  c.fillStyle='#F4EFEA';c.font='bold 26px Outfit, sans-serif';c.textAlign='left';
+  c.fillText('El GRAFCET de la célula, etapa a etapa',30,54);
+  c.fillStyle='#8f97a5';c.font='14px Outfit, sans-serif';
+  wrapText(c,'Una etapa por movimiento. La receptividad de cada transición es el sensor que CONFIRMA que el movimiento terminó, y la acción asociada a la etapa es el impulso a la bobina correspondiente. Cambia el banco a «regulador de A casi cerrado» y comprueba que la secuencia no se descoloca: sólo tarda más.',30,80,640,20);
+
+  drawGrafcet(c,30,150,640,sc,GOOD(sc),r.X);
+
+  const tr=r.trace,t0=0,t1=tr.length?tr[tr.length-1].t:1000;
+  c.fillStyle='#C7D6F5';c.font='bold 13px Outfit, sans-serif';c.textAlign='left';
+  c.fillText('Etapa activa a lo largo del ciclo',30,296);
+  drawStageBand(c,30,304,640,26,tr,t0,t1);
+  drawMsAxis(c,30,330,640,t0,t1,0,Math.max(200,Math.round(t1/8/100)*100));
+
+  axes(c,30,380,640,110,'tiempo (ms)','posición');
+  drawXY(c,30,380,640,110,tr.map(v=>[v.t,v.pA]),Math.max(1,t1),1,ACC,false);
+  drawXY(c,30,380,640,110,tr.map(v=>[v.t,v.pB]),Math.max(1,t1),1,VIO,false);
+  c.fillStyle=ACC;c.font='bold 12px Outfit, sans-serif';c.textAlign='left';c.fillText('cilindro A',560,394);
+  c.fillStyle=VIO;c.fillText('cilindro B',560,410);
+
+  const ws=[110,150,180,200];
+  trow(c,30,520,640,28,['Movimiento','Confirmado por','Instante medido','Duración medida'],ws,null,true);
+  sc.seq.forEach((mv,i)=>{
+    const tc=r.tConf[i],tp=i===0?r.tMove[0]:r.tConf[i-1];
+    trow(c,30,548+i*30,640,30,[mv,recOf(mv),tc==null?'—':fmtMs(tc),
+      (tc==null||tp==null)?'—':fmtMs(tc-tp)],ws,[STCOL[i+1],'#9fb0cf','#F4EFEA',OK_HEX],false);
+  });
+
+  rpanel(c,PX.x,PX.y,PX.w,220,'CICLO MEDIDO');
+  prow(c,PX.x,PX.y+56,PX.w,'Célula',sc.name.split(' ')[0]);
+  prow(c,PX.x,PX.y+90,PX.w,'Banco',apBank==='lento'?'A al 25 %':'nominal',apBank==='lento'?WARN_HEX:OK_HEX);
+  prow(c,PX.x,PX.y+124,PX.w,'Ciclo medido',r.cycleMs==null?'—':fmtMs(r.cycleMs),ACC);
+  prow(c,PX.x,PX.y+158,PX.w,'Suma nominal',fmtMs(nomMs(sc)),'#9fb0cf');
+  prow(c,PX.x,PX.y+192,PX.w,'Secuencia correcta',r.done?'SÍ':'NO',r.done?OK_HEX:BAD_HEX);
+  const ky=PX.y+240;
+  c.fillStyle='rgba(0,0,0,0.20)';c.fillRect(PX.x,ky,PX.w,300);
+  c.strokeStyle=hexA(ACC,0.3);c.lineWidth=1;c.strokeRect(PX.x,ky,PX.w,300);
+  c.fillStyle=WARN_HEX;c.font='bold 14px Outfit, sans-serif';c.textAlign='left';
+  c.fillText('El ciclo medido es MENOR que la suma',PX.x+14,ky+26);
+  c.fillStyle='#C9D3E2';c.font='12px Outfit, sans-serif';
+  const dif=r.cycleMs==null?0:nomMs(sc)-r.cycleMs;
+  wrapText(c,'La suma de los cuatro tiempos de catálogo da '+fmtMs(nomMs(sc))+', pero el ciclo medido es '+(r.cycleMs==null?'—':fmtMs(r.cycleMs))+': '+fmtMs(dif)+' menos. No es un error del modelo: cada reed confirma el fin de carrera cuando el imán entra en su banda, un poco ANTES del tope mecánico, y la etapa siguiente arranca ahí.',PX.x+14,ky+52,PX.w-28,17);
+  c.fillStyle='#7a8494';
+  wrapText(c,'Por eso los tiempos de un ciclo real nunca se calculan sumando catálogos: se miden. Y por eso el GRAFCET avanza con el SENSOR y no con un cronómetro.',PX.x+14,ky+180,PX.w-28,17);
+  c.fillStyle='#6b7280';c.font='11px Outfit, sans-serif';
+  wrapText(c,'Banda de los reed: A '+POOL[apIdx].A.band+' mm / '+POOL[apIdx].A.stroke+' mm · B '+POOL[apIdx].B.band+' mm / '+POOL[apIdx].B.stroke+' mm.',PX.x+14,ky+266,PX.w-28,15);
+}
+
+function drawReglas(c,sc){
+  c.fillStyle='#F4EFEA';c.font='bold 26px Outfit, sans-serif';c.textAlign='left';
+  c.fillText('Reglas de avance y asignación de salidas',30,54);
+  c.fillStyle='#8f97a5';c.font='14px Outfit, sans-serif';
+  wrapText(c,'Dos decisiones que parecen de estilo y no lo son. Cada combinación se simula en dos bancos: el nominal y uno degradado con el regulador del cilindro A casi cerrado (carrera cuatro veces más lenta). Un programa correcto tiene que sobrevivir a los dos.',30,80,640,20);
+
+  drawGrafcet(c,30,140,640,sc,{...GOOD(sc),des:apRule},null);
+
+  const ws=[220,140,140,140];
+  c.fillStyle='#C7D6F5';c.font='bold 15px Outfit, sans-serif';c.textAlign='left';
+  c.fillText('1 · ¿Qué pasa con la etapa que acaba de ceder el paso?',30,300);
+  trow(c,30,312,640,28,['Regla de desactivación','Banco nominal','Banco degradado','Veredicto'],ws,null,true);
+  OPT_DES.forEach((d,i)=>{
+    const rn=runC(sc,cfgWith(sc,{des:d}),{maxMs:20000});
+    const rl=runC(sc,cfgWith(sc,{des:d}),{maxMs:40000,slow:SLOW});
+    const good=rn.done&&rl.done;
+    trow(c,30,340+i*32,640,32,[DES_SHORT[d],rn.done?'ciclo correcto':'falla',rl.done?'ciclo correcto':'falla',good?'✔ válida':'✗ no vale'],
+      ws,[d===apRule?ACC:'#F4EFEA',rn.done?OK_HEX:BAD_HEX,rl.done?OK_HEX:BAD_HEX,good?OK_HEX:BAD_HEX],false);
+  });
+
+  c.fillStyle='#C7D6F5';c.font='bold 15px Outfit, sans-serif';c.textAlign='left';
+  c.fillText('2 · ¿Quién manda la bobina de la electroválvula?',30,470);
+  const ws2=[220,150,150,120];
+  trow(c,30,482,640,28,['Asignación de salidas','¿Se mueve solo?','¿Ciclo correcto?','Veredicto'],ws2,null,true);
+  OPT_SAL.forEach((s,i)=>{
+    const r=runC(sc,cfgWith(sc,{sal:s}),{maxMs:20000});
+    const esp=spontaneous(sc,cfgWith(sc,{sal:s}));
+    const good=r.done&&!esp;
+    trow(c,30,510+i*32,640,32,[SAL_SHORT[s],esp?'SÍ':'no',r.done?'SÍ':'NO',good?'✔ válida':'✗ no vale'],
+      ws2,['#F4EFEA',esp?BAD_HEX:OK_HEX,r.done?OK_HEX:BAD_HEX,good?OK_HEX:BAD_HEX],false);
+  });
+
+  c.fillStyle='#7a8494';c.font='12px Outfit, sans-serif';c.textAlign='left';
+  wrapText(c,'«Etapa + destino» condiciona la bobina al sensor que confirma el DESTINO del movimiento: como ese sensor sólo se activa al final, la bobina nunca llega a energizarse y el cilindro no arranca. Es el bloqueo clásico de confundir la condición de AVANCE con la de ACCIÓN.',30,624,640,17);
+
+  rpanel(c,PX.x,PX.y,PX.w,180,'REGLA 4 · IEC 60848');
+  c.fillStyle='#C9D3E2';c.font='12px Outfit, sans-serif';c.textAlign='left';
+  wrapText(c,'Todas las transiciones franqueables se franquean SIMULTÁNEAMENTE, resolviendo sobre una imagen congelada de la situación anterior. Y si una etapa debe desactivarse y activarse en el mismo instante, PERMANECE ACTIVA.',PX.x+14,PX.y+50,PX.w-28,17);
+  c.fillStyle='#7a8494';
+  wrapText(c,'Por eso el motor calcula primero qué transiciones son franqueables y sólo después toca las etapas.',PX.x+14,PX.y+140,PX.w-28,16);
+  const ky=PX.y+200;
+  c.fillStyle='rgba(0,0,0,0.20)';c.fillRect(PX.x,ky,PX.w,340);
+  c.strokeStyle=hexA(WARN_HEX,0.4);c.lineWidth=1;c.strokeRect(PX.x,ky,PX.w,340);
+  c.fillStyle=WARN_HEX;c.font='bold 14px Outfit, sans-serif';c.textAlign='left';
+  c.fillText('Por qué el temporizador engaña',PX.x+14,ky+26);
+  c.fillStyle='#C9D3E2';c.font='12px Outfit, sans-serif';
+  const rt=runC(sc,cfgWith(sc,{des:'tiempo'}),{maxMs:20000});
+  const rtl=runC(sc,cfgWith(sc,{des:'tiempo'}),{maxMs:40000,slow:SLOW});
+  wrapText(c,'Con 1,5 s por etapa el ciclo sale bien en el banco nominal ('+(rt.done?'sí sale':'no sale')+'), porque 1,5 s son de sobra para carreras de medio segundo. En el banco degradado '+(rtl.done?'también':'ya NO')+': la etapa avanza con el vástago a medio camino y la secuencia se descoloca. Un programa que sólo se prueba en condiciones nominales no está probado.',PX.x+14,ky+52,PX.w-28,17);
+  c.fillStyle='#7a8494';
+  wrapText(c,'«Sólo SET» falla incluso en nominal: las etapas se van acumulando activas y varias bobinas mandan a la vez. La etapa anterior tiene que apagarse.',PX.x+14,ky+210,PX.w-28,17);
+  c.fillStyle='#6b7280';c.font='11px Outfit, sans-serif';
+  wrapText(c,'El GRAFCET admite receptividades con tiempo; lo que no admite es sustituir la CONFIRMACIÓN por un reloj.',PX.x+14,ky+300,PX.w-28,15);
+}
+
+function drawRetoRow(c,x,y,w,h,n,title,body,value,ok,checked){
+  c.fillStyle=checked?(ok?hexA(OK_HEX,0.08):hexA(BAD_HEX,0.08)):'rgba(255,255,255,0.03)';c.fillRect(x,y,w,h);
+  c.strokeStyle=checked?(ok?OK_HEX:BAD_HEX):hexA(ACC,0.28);c.lineWidth=checked?2:1;c.strokeRect(x,y,w,h);
+  c.fillStyle=ACC;c.font='bold 15px Outfit, sans-serif';c.textAlign='left';c.fillText(n+' · '+title,x+14,y+24);
+  c.fillStyle='#8f97a5';c.font='12px Outfit, sans-serif';
+  wrapText(c,body,x+14,y+48,w-200,17);
+  c.fillStyle='#7a8494';c.font='12px Outfit, sans-serif';c.textAlign='right';c.fillText('elegido',x+w-16,y+24);
+  c.fillStyle=checked?(ok?OK_HEX:BAD_HEX):'#F4EFEA';c.font='bold 19px Outfit, sans-serif';
+  c.fillText(value,x+w-16,y+50);
+  if(checked){c.font='bold 22px Outfit, sans-serif';c.fillText(ok?'✔':'✗',x+w-16,y+80);}
+}
+
+function drawReto(c){
+  const sc=retoSc();
+  c.fillStyle='#F4EFEA';c.font='bold 24px Outfit, sans-serif';c.textAlign='left';
+  c.fillText('Programa el GRAFCET de: '+sc.name,30,46);
+  c.fillStyle='#8f97a5';c.font='13px Outfit, sans-serif';
+  wrapText(c,'Secuencia pedida: '+sc.seq.join(' ')+'. Tres decisiones independientes; cada una se simula sobre el motor verificado con las otras dos correctas, así que acertar dos y fallar una sigue siendo un programa que no funciona.',30,70,640,18);
+
+  const rw=640,rh=104;
+  drawRetoRow(c,30,104,rw,rh,'1','Receptividades t1…t4',
+    'Qué sensor franquea cada transición. Recuerda que la receptividad debe CONFIRMAR que el movimiento de la etapa terminó, no que va a empezar.',
+    retoCh.rec.join('·'),retoOkRec,retoChecked);
+  drawRetoRow(c,30,220,rw,rh,'2','Regla de desactivación',
+    'Qué se hace con la etapa que acaba de ceder el paso. Se prueba en banco nominal y con el regulador de A casi cerrado.',
+    DES_SHORT[retoCh.des],retoOkDes,retoChecked);
+  drawRetoRow(c,30,336,rw,rh,'3','Asignación de salidas',
+    'Quién manda la bobina de cada electroválvula. Se comprueba además que la célula no se mueva sola antes de pulsar Marcha.',
+    SAL_SHORT[retoCh.sal],retoOkSal,retoChecked);
+
+  c.fillStyle='#C7D6F5';c.font='bold 14px Outfit, sans-serif';c.textAlign='left';
+  c.fillText('Tu GRAFCET (en rojo, las receptividades que no confirman el movimiento de su etapa)',30,470);
+  drawGrafcet(c,30,486,640,sc,retoCfg(),null);
+
+  rpanel(c,PX.x,PX.y,PX.w,160,'CALIFICACIÓN');
+  prow(c,PX.x,PX.y+52,PX.w,'Receptividades',retoChecked?(retoOkRec?'✓':'✗'):'—',retoChecked?(retoOkRec?OK_HEX:BAD_HEX):'#6b7280');
+  prow(c,PX.x,PX.y+86,PX.w,'Desactivación',retoChecked?(retoOkDes?'✓':'✗'):'—',retoChecked?(retoOkDes?OK_HEX:BAD_HEX):'#6b7280');
+  prow(c,PX.x,PX.y+120,PX.w,'Salidas',retoChecked?(retoOkSal?'✓':'✗'):'—',retoChecked?(retoOkSal?OK_HEX:BAD_HEX):'#6b7280');
+  const by=PX.y+180;
+  if(retoChecked){
+    c.fillStyle='rgba(0,0,0,0.24)';c.fillRect(PX.x,by,PX.w,370);
+    c.strokeStyle=retoSolved?OK_HEX:BAD_HEX;c.lineWidth=2;c.strokeRect(PX.x,by,PX.w,370);
+    c.fillStyle=retoSolved?OK_HEX:BAD_HEX;c.font='bold 16px Outfit, sans-serif';c.textAlign='left';
+    c.fillText(retoSolved?'✔ CORRECTO':'✗ REVISA',PX.x+14,by+26);
+    c.fillStyle='#C9D3E2';c.font='12px Outfit, sans-serif';wrapText(c,retoExplain(),PX.x+14,by+52,PX.w-28,17);
+  }else{
+    c.fillStyle='rgba(0,0,0,0.20)';c.fillRect(PX.x,by,PX.w,370);c.strokeStyle=hexA(ACC,0.3);c.lineWidth=1;c.strokeRect(PX.x,by,PX.w,370);
+    c.fillStyle=WARN_HEX;c.font='13px Outfit, sans-serif';c.textAlign='left';
+    wrapText(c,'Para las receptividades: si la etapa X2 manda '+sc.seq[1]+', ¿qué sensor te dice que ese movimiento YA terminó? Ése es el que franquea t2.',PX.x+14,by+26,PX.w-28,18);
+    c.fillStyle='#C9D3E2';
+    wrapText(c,'Para la desactivación: piensa qué ocurre si X1 se queda activa cuando X2 ya lo está — las dos etapas mandan bobinas a la vez.',PX.x+14,by+140,PX.w-28,18);
+    c.fillStyle='#7a8494';
+    wrapText(c,'Para las salidas: la acción de una etapa es incondicional mientras la etapa está activa. Condicionarla al sensor de destino la deja sin arrancar nunca.',PX.x+14,by+250,PX.w-28,18);
+  }
+}
+
+function retoExplain(){
+  const sc=retoSc();
+  if(retoSolved){
+    const r=runC(sc,GOOD(sc),{maxMs:20000});
+    return 'Programa correcto: cada transición se franquea con el sensor que confirma el movimiento de su etapa ('+sc.seq.map(recOf).join('·')+'), la etapa que cede el paso se desactiva en el mismo franqueo (SET de la siguiente + RESET de la anterior) y la acción cuelga de la etapa activa. El ciclo se cierra en '+fmtMs(r.cycleMs)+' y sigue cerrándose con el regulador de A casi cerrado, porque el avance lo decide el sensor y no un reloj.';
+  }
+  let s='';
+  if(!retoOkRec){
+    const bad=[];
+    sc.seq.forEach((mv,i)=>{if(retoCh.rec[i]!==recOf(mv))bad.push('t'+(i+1)+' (etapa '+mv+') debería esperar '+recOf(mv)+', no '+retoCh.rec[i]);});
+    const r=runC(sc,cfgWith(sc,{rec:retoCh.rec.slice()}),{maxMs:20000});
+    s+='Receptividades: '+(bad.length?bad.join('; ')+'. ':'')+'Con las tuyas la secuencia medida es «'+(r.seq.slice(0,4).join(' ')||'no se mueve nada')+'» en vez de «'+sc.seq.join(' ')+'». Una receptividad que ya vale 1 al ENTRAR en la etapa la franquea en el mismo scan: la etapa no llega a producir su movimiento. ';
+  }
+  if(!retoOkDes){
+    if(retoCh.des==='ninguna')s+='Desactivación: si sólo activas la etapa siguiente, la anterior sigue activa y sus dos acciones conviven; en cuanto las dos etapas de un mismo cilindro coinciden, las dos bobinas quedan energizadas y el carrete se bloquea. ';
+    else if(retoCh.des==='tiempo'){
+      const rl=runC(sc,cfgWith(sc,{des:'tiempo'}),{maxMs:40000,slow:SLOW});
+      s+='Desactivación: el temporizador de 1,5 s aguanta en el banco nominal, pero con el regulador de A casi cerrado la etapa avanza con el vástago a medio camino y el ciclo '+(rl.done?'apenas se sostiene':'ya no se completa')+'. El GRAFCET tiene que avanzar con la CONFIRMACIÓN del sensor. ';
+    }
+  }
+  if(!retoOkSal){
+    if(retoCh.sal==='sensor')s+='Salidas: mandar la bobina con el sensor del movimiento anterior es el método combinacional; en esta célula produce señales opuestas (o arranque espontáneo) y por eso se estudió en Aplica. ';
+    else if(retoCh.sal==='destino')s+='Salidas: condicionar la bobina al sensor de DESTINO deja el cilindro sin arrancar, porque ese sensor sólo se activa cuando el movimiento ya terminó. La acción de una etapa es incondicional mientras la etapa está activa. ';
+  }
+  return s||'Revisa el programa.';
+}
+
+function drawBoard(){
+  const c=bCv.getContext('2d');bg(c);
+  if(mode==='aplica')drawAplica(c);else if(mode==='reto')drawReto(c);else drawExplora(c);
+  bTex.needsUpdate=true;
+}
+function boardClick(){
+  if(mode==='aplica')showToast('🧩 La etapa del GRAFCET es el bit que recuerda en qué paso va la secuencia. Sin ella, dos pasos distintos que ven los mismos sensores son indistinguibles.');
+  else if(mode==='reto')showToast('🎯 Tres decisiones: qué sensor franquea cada transición, qué pasa con la etapa que cede el paso y quién manda la bobina.');
+  else showToast('🔧 Cada pulsación es un ciclo de scan de '+DT+' ms. La válvula biestable recuerda: un impulso basta.');
+}
+
+// ===================== 7. ESCENA 3D: CÉLULA NEUMÁTICA =====================
+const bench=roundedBox(3.9,0.5,1.9,MAT.bench,0.05);bench.position.set(1.95,0.25,0.55);scene.add(bench);
+bench.userData={title:'Célula neumática de dos cilindros',info:'Dos cilindros de doble efecto con sus electroválvulas 5/2 biestables y cuatro sensores reed.'};
+// cilindro A — horizontal
+const cylA=new THREE.Mesh(new THREE.CylinderGeometry(0.13,0.13,0.90,24),MAT.barrel);
+cylA.rotation.z=Math.PI/2;cylA.position.set(2.55,0.78,0.95);scene.add(cylA);
+cylA.userData={title:'Cilindro A',info:'Doble efecto. Su carrera y sus tiempos los fija el regulador de caudal unidireccional; los reed a0 y a1 confirman los fines de carrera.'};
+addHoverLabel(cylA,'Cilindro A',ACC,new THREE.Vector3(2.55,1.25,0.95),1.3);
+const rodA=new THREE.Mesh(new THREE.CylinderGeometry(0.045,0.045,0.52,16),MAT.rod);
+rodA.rotation.z=Math.PI/2;rodA.position.set(3.02,0.78,0.95);scene.add(rodA);
+const tipA=roundedBox(0.06,0.16,0.16,MAT.plate,0.02);tipA.position.set(3.30,0.78,0.95);scene.add(tipA);
+// cilindro B — vertical
+const cylB=new THREE.Mesh(new THREE.CylinderGeometry(0.11,0.11,0.66,24),MAT.barrel);
+cylB.position.set(1.05,0.90,0.95);scene.add(cylB);
+cylB.userData={title:'Cilindro B',info:'Doble efecto, montado en vertical. Los reed b0 y b1 confirman sus fines de carrera dentro de una banda magnética.'};
+addHoverLabel(cylB,'Cilindro B',VIO,new THREE.Vector3(1.05,1.60,0.95),1.3);
+const rodB=new THREE.Mesh(new THREE.CylinderGeometry(0.04,0.04,0.42,16),MAT.rod);
+rodB.position.set(1.05,1.36,0.95);scene.add(rodB);
+const tipB=roundedBox(0.16,0.06,0.16,MAT.plate,0.02);tipB.position.set(1.05,1.60,0.95);scene.add(tipB);
+// electroválvulas
+const valA=roundedBox(0.46,0.20,0.26,MAT.valve,0.03);valA.position.set(2.55,0.62,0.20);scene.add(valA);
+valA.userData={title:'Electroválvula 5/2 biestable · cilindro A',info:'Dos solenoides, sin muelle de retorno: la posición del carrete es la memoria. Con las dos bobinas energizadas no conmuta.'};
+const valB=roundedBox(0.46,0.20,0.26,MAT.valve,0.03);valB.position.set(1.05,0.62,0.20);scene.add(valB);
+valB.userData={title:'Electroválvula 5/2 biestable · cilindro B',info:'Igual que la de A: un impulso basta para conmutar, y el carrete conserva la posición al quitar la orden.'};
+addHoverLabel(valA,'5/2 biestable',WARN_HEX,new THREE.Vector3(1.80,0.95,0.20),1.7);
+// chip de estado
+const chCv=document.createElement('canvas');chCv.width=180;chCv.height=180;const chTex=new THREE.CanvasTexture(chCv);
+const chFace=new THREE.Mesh(new THREE.PlaneGeometry(0.5,0.5),new THREE.MeshBasicMaterial({map:chTex,transparent:true}));
+chFace.rotation.x=-Math.PI/2;chFace.position.set(1.85,0.515,0.95);scene.add(chFace);
+function makeLED(x,z,color){const m=new THREE.Mesh(new THREE.SphereGeometry(0.042,16,16),std(color,0.4,0.1));m.position.set(x,0.53,z);m.material.emissive=new THREE.Color(color);m.material.emissiveIntensity=0.15;scene.add(m);return m;}
+// pilotos: A+, A−, B+, B−
+const actLEDs=[makeLED(3.05,-0.15,0x8AB4F8),makeLED(2.75,-0.15,0x8AB4F8),makeLED(2.45,-0.15,0xC08CF8),makeLED(2.15,-0.15,0xC08CF8)];
+const almLED=makeLED(1.75,-0.15,0xff6b6b);
+const clkLED=makeLED(1.45,-0.15,0xE9C46A);
+addHoverLabel(actLEDs[0],'A+ · A− · B+ · B−',ACC,new THREE.Vector3(2.60,0.95,-0.15),1.8);
+almLED.userData={title:'Piloto de señales opuestas',info:'Se enciende si las dos bobinas de una misma válvula están energizadas a la vez: el carrete deja de obedecer.'};
+clkLED.userData={title:'Reloj de scan',info:'Un flanco por ciclo de scan del PLC ('+DT+' ms en este modelo).'};
+
+function drawChip3D(label,accept,bad){
+  const c=chCv.getContext('2d');c.clearRect(0,0,180,180);
+  c.fillStyle='rgba(20,23,27,0.92)';c.fillRect(0,0,180,180);
+  c.strokeStyle=bad?BAD_HEX:accept?OK_HEX:ACC;c.lineWidth=4;c.strokeRect(4,4,172,172);
+  c.fillStyle='#C7D6F5';c.font='bold 13px Outfit, sans-serif';c.textAlign='center';c.fillText('GRAFCET · ETAPA',90,30);
+  c.font='bold 19px Outfit, sans-serif';c.fillStyle=bad?BAD_HEX:accept?OK_HEX:'#F4EFEA';
+  c.fillText(label.length>12?label.slice(0,11)+'…':label,90,100);
+  if(bad){c.font='bold 14px Outfit, sans-serif';c.fillStyle=BAD_HEX;c.fillText('⚠ BLOQUEO',90,140);}
+  chTex.needsUpdate=true;
+}
+// fotogramas DERIVADOS de la corrida medida (no escritos a mano)
+function framesFromRun(sc,cfg,slow){
+  const r=runC(sc,cfg,{maxMs:slow?40000:20000,trace:true,slow:slow||undefined});
+  const tr=r.trace;
+  if(!tr.length)return [{label:'—',acts:[0,0,0,0],pA:0,pB:0}];
+  const N=Math.min(48,tr.length),out=[];
+  for(let k=0;k<N;k++){
+    const v=tr[N===1?0:Math.floor(k*(tr.length-1)/(N-1))];
+    const bad=v.bothA||v.bothB;
+    out.push({label:stageLabel(v.X),acts:[v.co.Aext?1:0,v.co.Aret?1:0,v.co.Bext?1:0,v.co.Bret?1:0],
+      alarm:bad,bad,accept:r.done&&!bad,pA:v.pA,pB:v.pB});
+  }
+  return out;
+}
+function aplicaCfg(){
+  if(apTopic==='reglas')return cfgWith(POOL[apIdx],{des:apRule});
+  if(apTopic==='directo')return cfgWith(POOL[apIdx],{sal:'sensor'});
+  return GOOD(POOL[apIdx]);
+}
+function hwFrames(){
+  if(mode==='explora'){
+    if(expHist.length<=1)return [{label:'REPOSO',acts:[0,0,0,0],pA:0,pB:0}];
+    return expHist.map(h=>({label:h.both?'AMBAS':(h.cExt?'Y1 salida':(h.cRet?'Y2 retorno':(h.ext?'carrete fuera':'carrete dentro'))),
+      acts:[h.cExt?1:0,h.cRet?1:0,0,0],alarm:h.both,bad:h.both,accept:h.s1,pA:h.p,pB:0}));
+  }
+  if(mode==='reto')return framesFromRun(retoSc(),retoCfg(),null);
+  return framesFromRun(POOL[apIdx],aplicaCfg(),apTopic!=='directo'&&apBank==='lento'?SLOW:null);
+}
+function frames(){if(!framesCache)framesCache=hwFrames();return framesCache;}
+function hwCount(){return Math.max(1,frames().length);}
+function updateHW(){
+  const fs=frames(),step=hwStep%Math.max(1,fs.length),fr=fs[step]||{label:'—',acts:[0,0,0,0],pA:0,pB:0};
+  actLEDs.forEach((l,i)=>{l.material.emissiveIntensity=(fr.acts&&fr.acts[i])?1.4:0.12;});
+  almLED.material.emissiveIntensity=fr.alarm?1.6:0.10;
+  clkLED.material.emissiveIntensity=(step%2)?1.3:0.2;
+  const pA=fr.pA||0,pB=fr.pB||0;
+  rodA.position.x=3.02+0.42*pA;tipA.position.x=3.30+0.42*pA;
+  rodB.position.y=1.36+0.34*pB;tipB.position.y=1.60+0.34*pB;
+  drawChip3D(fr.label,!!fr.accept,!!fr.bad);
+}
+
+// ===================== 8. HUD Y PANEL =====================
+document.getElementById('hud').innerHTML=`
+  <div class="eyebrow">Sistemas digitales (D3) · Automatización de secuencias · IEC 60848 · IEC 61131-3</div>
+  <h2>GRAFCET: Secuencia de Cilindros Neumáticos</h2>
+  <p>Una célula con dos cilindros de doble efecto tiene que ejecutar una secuencia como
+  <b>A+ B+ B− A−</b>. La tentación es resolverla sin etapas: que cada movimiento lo dispare el sensor que
+  confirma el anterior. Funciona… en algunas secuencias. En cuanto una misma señal es a la vez condición
+  de un movimiento y de su contrario aparecen las <b>señales opuestas</b>: las dos bobinas de una
+  electroválvula <b>5/2 biestable</b> quedan energizadas, el carrete se queda donde está y la célula se
+  detiene. El <b>GRAFCET</b> (IEC 60848) resuelve el problema añadiendo lo único que faltaba: <b>memoria de
+  programa</b>. Una <b>etapa</b> por movimiento, una <b>transición</b> con su <b>receptividad</b> entre
+  cada dos, y una regla de avance clara. Aquí construirás ese GRAFCET, medirás el ciclo real —que es más
+  corto que la suma de los tiempos de catálogo, porque los reed confirman antes del tope mecánico— y
+  comprobarás por qué la etapa se desactiva al ceder el paso y por qué un temporizador fijo no puede
+  sustituir a un sensor.</p>
+  <div class="formula">X0 espera · t0 = Marcha·a0·b0 · Xi ⟶ acción del movimiento i · t_i = sensor que CONFIRMA el movimiento i · scan = ${DT} ms · eps = banda/carrera</div>
+  <div class="legend">
+    <div class="li"><span class="dot" style="background:#8AB4F8"></span>Bobinas del cilindro A</div>
+    <div class="li"><span class="dot" style="background:#C08CF8"></span>Bobinas del cilindro B</div>
+    <div class="li"><span class="dot" style="background:#7CD992"></span>Sensor reed activo</div>
+    <div class="li"><span class="dot" style="background:#ff6b6b"></span>Señales opuestas · bloqueo</div>
+  </div>
+  <div class="fid">
+    <div class="ft">🔒 Contrato de fidelidad</div>
+    <div class="fl"><b>Sí modela:</b> el ciclo de scan del PLC (${DT} ms idealizados) resolviendo un GRAFCET de cinco etapas según IEC 60848 —imagen congelada de la situación, franqueo simultáneo de todas las transiciones franqueables y permanencia de la etapa que se desactiva y activa a la vez—; la electroválvula 5/2 de doble solenoide como <b>biestable</b>, donde la posición del carrete es la memoria y dos órdenes simultáneas lo dejan donde estaba; el cilindro de doble efecto como avance lineal a velocidad constante fijada por el regulador de caudal, con tiempos de salida y retorno independientes; y el sensor reed con su <b>banda magnética</b>, que confirma el fin de carrera antes del tope mecánico (eps = banda/carrera). Sobre esa base se MIDEN —no se suponen— la secuencia real de movimientos, el instante de confirmación de cada uno, el tiempo de ciclo, el arranque espontáneo y la aparición de señales opuestas. Verificado numéricamente (111/111), incluida la unicidad de las receptividades correctas entre las 256 combinaciones posibles.</div>
+    <div class="fl no"><b>NO modela:</b> la neumática propiamente dicha — caudal, presión, pérdida de carga, dimensionado de tubería o de la válvula (Kv), fuerza del cilindro en función del diámetro y la presión, consumo de aire, ni el tratamiento del aire (filtro, regulador, lubricador); la dinámica real del cilindro (aceleración, amortiguación de final de carrera, adherencia y stick-slip, carga variable); el tiempo de conmutación del carrete ni el rebote del reed; las estructuras avanzadas de GRAFCET (divergencias y convergencias en O y en Y, macroetapas, acciones memorizadas y temporizadas, GRAFCET de seguridad y de modos de marcha GEMMA); el paro de emergencia, el rearme y la puesta en energía; ni la traducción a un lenguaje concreto de PLC — el ladder de maniobra es de <b>MEC-83</b> y los temporizadores y contadores IEC de <b>MEC-84</b>.</div>
+  </div>
+  <div class="src">Ref: IEC 60848 (GRAFCET, lenguaje de especificación) · IEC 61131-3 (SFC) · ISO 5599-1 (electroválvulas neumáticas) · ISO 15552 (cilindros) · Festo Didactic, Fundamentos de la técnica de mando neumático · Verificación numérica propia (111/111)</div>`;
+
+document.getElementById('panel').innerHTML=`
+  <h4>GRAFCET neumático · <span id="p_mode" style="color:var(--accent2)">Explora</span></h4>
+  <div class="modebar">
+    <button class="b on" id="m_explora">🧭 Explora</button>
+    <button class="b" id="m_aplica">🧩 Aplica</button>
+    <button class="b" id="m_reto">🎯 Reto</button>
+  </div>
+  <div id="scenarioInfo" style="font-size:12px;color:var(--ink);margin:2px 0 8px;display:none"></div>
+  <div class="modebar" id="selbar" style="display:none;flex-wrap:wrap"></div>
+  <div id="tele"></div>
+  <div class="console" id="report"></div>
+  <h4 class="sec" id="retoTitle" style="display:none">Programa del GRAFCET</h4>
+  <div id="retoBox" style="display:none">
+    <div id="retoSpec" style="font-size:12px;color:var(--ink);margin:2px 0 8px"></div>
+    <div class="btns"><button class="b primary" id="btnCheck">✅ Comprobar</button></div>
+  </div>
+  <h4 class="sec">Pregunta de ingeniería</h4>
+  <div id="q_text" style="font-size:12px;color:var(--ink);margin:4px 0 8px"></div>
+  <div class="btns" id="dxbtns"></div>
+  <div class="btns">
+    <button class="b auto" id="btnAuto">✨ Recorrido guiado (automático)</button>
+    <button class="b primary" id="btnNew">🔀 Nuevo escenario</button>
+  </div>`;
+
+// ===================== 9. TOASTS =====================
+function showToast(html){const t=el('toast');t.innerHTML=html;t.classList.add('show');clearTimeout(showToast._t);showToast._t=setTimeout(()=>t.classList.remove('show'),4200);}
+
+// ===================== 10. MODOS Y CONTROLES =====================
+const MODE_META={
+  explora:{nombre:'Explora',cam:[[5.0,3.0,7.2],[0.5,1.05,0.4]],mision:'Conduce una electroválvula 5/2 biestable scan a scan: comprueba que un impulso basta, que al quitar la orden el carrete recuerda, y qué ocurre cuando energizas las dos bobinas a la vez.'},
+  aplica:{nombre:'Aplica',cam:[[4.8,2.9,7.0],[0.6,1.00,0.5]],mision:'Diagnostica el método combinacional en las cuatro células, sigue el GRAFCET etapa a etapa y compara las reglas de avance y de asignación de salidas en banco nominal y degradado.'},
+  reto:{nombre:'Reto',cam:[[4.9,2.8,7.1],[0.6,1.00,0.5]],mision:'Programa el GRAFCET de una célula: receptividades, regla de desactivación y asignación de salidas. Cada decisión se califica por separado.'},
+};
+function lbl(t){return `<span class="lbl">${t}</span>`;}
+function optBtns(key,opts,cur){return opts.map(([v,t])=>`<button class="b sm ${String(cur)===String(v)?'on':''}" data-${key}="${v}">${t}</button>`).join('');}
+const CELL_OPTS=()=>POOL.map((p,i)=>[i,p.seq.join('')]);
+const DES_OPTS=OPT_DES.map(d=>[d,DES_SHORT[d]]);
+const SAL_OPTS=OPT_SAL.map(s=>[s,SAL_SHORT[s]]);
+function buildControls(){
+  const bar=el('selbar');bar.style.display='flex';bar.style.flexWrap='wrap';let html='';
+  if(mode==='explora'){
+    html+=lbl('Cilindro A de:')+optBtns('xi',CELL_OPTS(),expIdx);
+    html+=lbl('Un scan con:')+`<button class="b sm ${expOrd==='ext'?'on':''}" data-xs="ext">Y1 salida ▸</button>`+
+      `<button class="b sm ${expOrd==='ret'?'on':''}" data-xs="ret">Y2 retorno ▸</button>`+
+      `<button class="b sm ${expOrd==='both'?'on':''}" data-xs="both">Y1+Y2 ▸</button>`+
+      `<button class="b sm ${expOrd==='none'?'on':''}" data-xs="none">sin órdenes ▸</button>`;
+    html+=lbl('Repetir:')+`<button class="b sm" data-x10="1">×10 con la orden actual</button><button class="b sm" data-xr="t">Reiniciar</button>`;
+    bar.innerHTML=html;
+    bar.querySelectorAll('[data-xi]').forEach(b=>b.onclick=()=>{if(autoRunning)return;expIdx=parseInt(b.dataset.xi,10);expReset();synth.beep(680,0.05,0.04);afterEdit();});
+    bar.querySelectorAll('[data-xs]').forEach(b=>b.onclick=()=>{if(autoRunning)return;expScan(b.dataset.xs);synth.beep(b.dataset.xs==='both'?260:820,0.05,0.04);afterEdit();});
+    bar.querySelectorAll('[data-x10]').forEach(b=>b.onclick=()=>{if(autoRunning)return;for(let k=0;k<10;k++)expScan(expOrd);synth.beep(880,0.06,0.05);afterEdit();});
+    bar.querySelectorAll('[data-xr]').forEach(b=>b.onclick=()=>{if(autoRunning)return;expReset();synth.beep(440,0.05,0.04);afterEdit();});
+  }else if(mode==='aplica'){
+    html+=lbl('Tema:')+`<button class="b sm ${apTopic==='directo'?'on':''}" data-at="directo">Método combinacional</button>`+
+      `<button class="b sm ${apTopic==='grafcet'?'on':''}" data-at="grafcet">GRAFCET etapa a etapa</button>`+
+      `<button class="b sm ${apTopic==='reglas'?'on':''}" data-at="reglas">Reglas y salidas</button>`;
+    html+=lbl('Célula:')+optBtns('ai',CELL_OPTS(),apIdx);
+    if(apTopic==='grafcet')html+=lbl('Banco:')+`<button class="b sm ${apBank==='nom'?'on':''}" data-ab="nom">nominal</button><button class="b sm ${apBank==='lento'?'on':''}" data-ab="lento">regulador de A casi cerrado</button>`;
+    if(apTopic==='reglas')html+=lbl('Regla dibujada:')+optBtns('ar',DES_OPTS,apRule);
+    bar.innerHTML=html;
+    bar.querySelectorAll('[data-at]').forEach(b=>b.onclick=()=>{if(autoRunning)return;apTopic=b.dataset.at;hwStep=0;synth.beep(680,0.05,0.04);afterEdit();});
+    bar.querySelectorAll('[data-ai]').forEach(b=>b.onclick=()=>{if(autoRunning)return;apIdx=parseInt(b.dataset.ai,10);hwStep=0;synth.beep(700,0.05,0.04);afterEdit();});
+    bar.querySelectorAll('[data-ab]').forEach(b=>b.onclick=()=>{if(autoRunning)return;apBank=b.dataset.ab;hwStep=0;synth.beep(720,0.05,0.04);afterEdit();});
+    bar.querySelectorAll('[data-ar]').forEach(b=>b.onclick=()=>{if(autoRunning)return;apRule=b.dataset.ar;hwStep=0;synth.beep(740,0.05,0.04);afterEdit();});
+  }else{
+    const sc=retoSc();
+    sc.seq.forEach((mv,i)=>{
+      html+=lbl('t'+(i+1)+' · sale de X'+(i+1)+' ('+mv+'):');
+      html+=SENSORS.map(s=>`<button class="b sm ${retoCh.rec[i]===s?'on':''}" data-rr="${i}:${s}">${s}</button>`).join('');
+    });
+    html+=lbl('Desactivación:')+optBtns('rd',DES_OPTS,retoCh.des);
+    html+=lbl('Salidas:')+optBtns('rs',SAL_OPTS,retoCh.sal);
+    bar.innerHTML=html;
+    bar.querySelectorAll('[data-rr]').forEach(b=>b.onclick=()=>{if(autoRunning)return;const [i,s]=b.dataset.rr.split(':');retoSetRec(parseInt(i,10),s);synth.beep(720,0.05,0.04);afterEdit();});
+    bar.querySelectorAll('[data-rd]').forEach(b=>b.onclick=()=>{if(autoRunning)return;retoSet('des',b.dataset.rd);synth.beep(740,0.05,0.04);afterEdit();});
+    bar.querySelectorAll('[data-rs]').forEach(b=>b.onclick=()=>{if(autoRunning)return;retoSet('sal',b.dataset.rs);synth.beep(760,0.05,0.04);afterEdit();});
+  }
+}
+function retoSet(field,v){retoCh[field]=v;retoChecked=false;retoSolved=false;}
+function retoSetRec(i,v){retoCh.rec=retoCh.rec.slice();retoCh.rec[i]=v;retoChecked=false;retoSolved=false;}
+function updateScenarioInfo(){
+  const box=el('scenarioInfo');box.style.display='block';
+  if(mode==='reto'){
+    const p=retoSc();
+    box.innerHTML=`Célula: <b>${p.name}</b> — secuencia pedida <b>${p.seq.join(' ')}</b>; sensores disponibles <b>a0 a1 b0 b1</b>.`;
+    return;
+  }
+  if(mode==='aplica'){
+    const p=POOL[apIdx];
+    box.innerHTML=`Célula: <b>${p.name}</b> — <b>${p.seq.join(' ')}</b>; A ${p.A.stroke} mm (${p.A.tExt}/${p.A.tRet} ms), B ${p.B.stroke} mm (${p.B.tExt}/${p.B.tRet} ms).`;
+    return;
+  }
+  const p=POOL[expIdx];
+  box.innerHTML=`Cilindro A de <b>${p.name}</b> — carrera <b>${p.A.stroke} mm</b>, salida <b>${p.A.tExt} ms</b> (${p.A.tExt/DT} scans), banda del reed <b>${p.A.band} mm</b>.`;
+}
+function setMode(k){
+  mode=k;hwStep=0;
+  ['explora','aplica','reto'].forEach(m=>el('m_'+m).classList.toggle('on',m===k));
+  el('p_mode').textContent=MODE_META[k].nombre;
+  el('retoTitle').style.display=k==='reto'?'block':'none';
+  el('retoBox').style.display=k==='reto'?'block':'none';
+  if(k==='reto')updateRetoSpec();
+  if(k==='explora')expReset();
+  buildControls();updateScenarioInfo();
+  solved=(k==='reto')?retoSolved:false;
+  clearDx();buildQuiz();refreshQuestion();
+  const cam=MODE_META[k].cam;S.moveTo(cam[0],cam[1]);refreshAll();
+}
+function afterEdit(){buildControls();updateScenarioInfo();refreshAll();}
+function newSignal(){
+  if(mode==='reto'){seedReto();updateRetoSpec();afterEdit();solved=false;showToast('🔀 Nueva célula: '+retoSc().name+' — secuencia '+retoSc().seq.join(' ')+'.');}
+  else if(mode==='aplica'){
+    apIdx=(apIdx+1)%POOL.length;
+    if(apIdx===0)apTopic=apTopic==='directo'?'grafcet':apTopic==='grafcet'?'reglas':'directo';
+    afterEdit();showToast('🔀 '+POOL[apIdx].name+' — '+POOL[apIdx].seq.join(' ')+'.');
+  }else{
+    expIdx=(expIdx+1)%POOL.length;expReset();afterEdit();
+    showToast('🔀 Cilindro A de '+POOL[expIdx].name+'. Condúcelo con la botonera.');
+  }
+  synth.beep(520,0.08,0.05);hwStep=0;
+}
+
+// ===================== 11. TELEMETRÍA Y REPORTE =====================
+function teleRow(l,v,cls){return `<div class="trow"><span class="tl">${l}</span><span class="tv ${cls||''}">${v}</span></div>`;}
+function updateTele(){
+  const t=el('tele');
+  if(mode==='reto'){
+    const sc=retoSc();
+    t.innerHTML=teleRow('Célula',sc.seq.join(' '))+
+      teleRow('Receptividades',retoCh.rec.join(' '))+
+      teleRow('Desactivación',DES_SHORT[retoCh.des])+
+      teleRow('Salidas',SAL_SHORT[retoCh.sal])+
+      teleRow('Resultado',retoChecked?(retoSolved?'✓ correcto':'✗ revisa'):'—',retoChecked&&retoSolved?'good':'warn');
+    return;
+  }
+  if(mode==='aplica'){
+    const sc=POOL[apIdx];
+    if(apTopic==='directo'){
+      const d=diagDirect(sc);
+      t.innerHTML=teleRow('Célula',sc.seq.join(' '))+
+        teleRow('Método','combinacional','warn')+
+        teleRow('Se mueve solo',d.esp?'SÍ':'no',d.esp?'bad':'good')+
+        teleRow('Señales opuestas',(d.bothA||d.bothB)?'SÍ':'no',(d.bothA||d.bothB)?'bad':'good')+
+        teleRow('Ciclo completo',d.done?'SÍ':'NO',d.done?'good':'bad');
+    }else if(apTopic==='grafcet'){
+      const slow=apBank==='lento'?SLOW:null;
+      const r=runC(sc,GOOD(sc),{maxMs:slow?40000:20000,slow:slow||undefined});
+      t.innerHTML=teleRow('Célula',sc.seq.join(' '))+
+        teleRow('Banco',apBank==='lento'?'A al 25 %':'nominal',apBank==='lento'?'warn':'good')+
+        teleRow('Ciclo medido',r.cycleMs==null?'—':fmtMs(r.cycleMs))+
+        teleRow('Suma nominal',fmtMs(nomMs(sc)),'warn')+
+        teleRow('Secuencia',r.done?'✓ correcta':'✗ falla',r.done?'good':'bad');
+    }else{
+      const rn=runC(sc,cfgWith(sc,{des:apRule}),{maxMs:20000});
+      const rl=runC(sc,cfgWith(sc,{des:apRule}),{maxMs:40000,slow:SLOW});
+      t.innerHTML=teleRow('Célula',sc.seq.join(' '))+
+        teleRow('Regla',DES_SHORT[apRule])+
+        teleRow('Nominal',rn.done?'✓':'✗',rn.done?'good':'bad')+
+        teleRow('Degradado',rl.done?'✓':'✗',rl.done?'good':'bad')+
+        teleRow('Reglas válidas',String(OPT_DES.filter(d=>okDes(sc,d)).length)+' de 3','warn');
+    }
+    return;
+  }
+  const sc=POOL[expIdx],last=expHist[expHist.length-1];
+  t.innerHTML=teleRow('Cilindro',sc.name.split(' ')[0]+' · A')+
+    teleRow('Orden',expOrd==='both'?'Y1+Y2':expOrd==='ext'?'Y1':expOrd==='ret'?'Y2':'—',expOrd==='both'?'bad':'')+
+    teleRow('Carrete',expV.ext?'salida':'retorno',expV.ext?'good':'')+
+    teleRow('Posición',pct(last.p))+
+    teleRow('Reed',last.s1?'a1 = 1':(last.s0?'a0 = 1':'ninguno'),last.s1||last.s0?'good':'warn');
+}
+function updateReport(){
+  let html=`<b>${MODE_META[mode].mision}</b><br>`;
+  if(mode==='reto'){
+    const sc=retoSc();
+    html+=retoMsg||`<span class="mono">${sc.name}: la secuencia pedida es ${sc.seq.join(' ')}. Empieza por las receptividades —cada transición espera al sensor que confirma el movimiento de SU etapa—, luego decide qué hacer con la etapa que cede el paso y por último de quién cuelga la bobina. Pulsa "Comprobar".</span>`;
+  }else if(mode==='aplica'){
+    const sc=POOL[apIdx];
+    if(apTopic==='directo'){
+      const d=diagDirect(sc);
+      html+=`<span class="mono">${d.done?'Esta secuencia SÍ se resuelve sin etapas: ninguna señal es a la vez condición de un movimiento y de su contrario. Cámbiala y verás que las otras tres no.':'Compara la secuencia pedida ('+sc.seq.join(' ')+') con la medida ('+(d.seq.slice(0,4).join(' ')||'no se completa ningún movimiento')+'). Recorre las cuatro células: sólo una funciona con este método.'}</span>`;
+    }else if(apTopic==='grafcet'){
+      const slow=apBank==='lento'?SLOW:null;
+      const r=runC(sc,GOOD(sc),{maxMs:slow?40000:20000,slow:slow||undefined});
+      html+=`<span class="mono">Cinco etapas, cuatro transiciones. El ciclo medido es ${r.cycleMs==null?'—':fmtMs(r.cycleMs)} frente a los ${fmtMs(nomMs(sc))} que suman los tiempos de catálogo: los reed confirman dentro de su banda magnética, un poco antes del tope. Cambia el banco y verás que el ciclo se alarga pero la secuencia no se descoloca.</span>`;
+    }else{
+      html+=`<span class="mono">Prueba las tres reglas de avance en los dos bancos. Sólo una sobrevive a los dos. Y en la segunda tabla, fíjate en que "etapa + destino" no es una versión "más segura" de la asignación por etapa: es un bloqueo, porque el sensor de destino sólo se activa cuando el movimiento ya terminó.</span>`;
+    }
+  }else{
+    const sc=POOL[expIdx],cy=sc.A;
+    html+=`<span class="mono">Cada pulsación es un ciclo de scan de ${DT} ms. Da UN scan con Y1 y luego quita la orden: el vástago sigue saliendo, porque el carrete de una 5/2 biestable recuerda su posición. La carrera completa tarda ${fmtMs(cy.tExt)} = ${cy.tExt/DT} scans, pero el reed a1 confirma a los ${fmtMs(tripExt(cy))}, dentro de su banda de ${cy.band} mm. Después energiza Y1+Y2 a la vez y comprueba que el carrete deja de obedecer.</span>`;
+  }
+  el('report').innerHTML=html;
+}
+function refreshAll(){framesCache=null;drawBoard();updateTele();updateReport();updateHW();}
+
+// ===================== 12. RETO =====================
+function updateRetoSpec(){
+  const sc=retoSc();
+  el('retoSpec').innerHTML=`Programa el GRAFCET de <b>${sc.name}</b> para la secuencia <b>${sc.seq.join(' ')}</b>: (1) la receptividad de cada una de las cuatro transiciones; (2) qué se hace con la etapa que acaba de ceder el paso; y (3) de quién cuelga la bobina de cada electroválvula.`;
+}
+function checkReto(){
+  const sc=retoSc();
+  retoOkRec=okRec(sc,retoCh.rec.slice());
+  retoOkDes=okDes(sc,retoCh.des);
+  retoOkSal=okSal(sc,retoCh.sal);
+  retoSolved=retoOkRec&&retoOkDes&&retoOkSal;retoChecked=true;solved=retoSolved;
+  synth.beep(retoSolved?1046:220,retoSolved?0.14:0.15,0.06);
+  retoMsg=`<span class="mono"><span class="${retoSolved?'ok':'dtc'}">${retoSolved?'✔ Correcto':'✗ Revisa'}</span> — ${retoExplain()}</span>`;
+  refreshAll();
+}
+
+// ===================== 13. QUIZ =====================
+function buildQuiz(){
+  QUIZ={
+    explora:{
+      pregunta:'Con los dos solenoides de una electroválvula 5/2 biestable energizados a la vez, ¿qué hace el carrete?',
+      opciones:[
+        {t:'Se queda donde estaba: el fabricante no garantiza posición con las dos bobinas activas. Por eso dos órdenes opuestas no producen un movimiento nuevo, sino un BLOQUEO del actuador.',ok:true,why:'Correcto. La posición del carrete es la memoria de la válvula, y con las dos bobinas energizadas deja de obedecer. Ése es el fallo que hace inviable el método combinacional en muchas secuencias.'},
+        {t:'Se centra y cierra todas las vías, dejando el cilindro bloqueado hidráulicamente.',ok:false,why:'Eso describe una válvula de tres posiciones con centro cerrado (5/3), que sí tiene muelles de centrado. Una 5/2 biestable sólo tiene dos posiciones: no hay centro al que ir.'},
+        {t:'Conmuta a la posición de salida, porque el solenoide Y1 tiene prioridad por diseño.',ok:false,why:'No hay prioridad entre solenoides en una 5/2 biestable estándar. Si la hubiera, el fabricante la declararía; lo que se declara es justamente que no se garantiza la posición.'},
+        {t:'Vibra conmutando a la frecuencia del ciclo de scan del PLC.',ok:false,why:'El carrete no oscila: las dos fuerzas magnéticas actúan a la vez y se equilibran. Lo que ocurre es que deja de responder, no que responda muy deprisa.'},
+      ],
+    },
+    aplica:{
+      pregunta:'¿Por qué la secuencia A+ B+ B− A− no se puede resolver disparando cada movimiento con el sensor que confirma el anterior?',
+      opciones:[
+        {t:'Porque b0 —que confirma B−— también vale 1 en reposo, justo cuando se ordena A+: las bobinas A+ y A− quedan energizadas a la vez y el carrete de la válvula de A se bloquea.',ok:true,why:'Correcto. Ésa es la señal opuesta: una misma entrada es condición de un movimiento y de su contrario. Se resuelve con memoria de programa, es decir, con etapas.'},
+        {t:'Porque los cilindros son de doble efecto y necesitan dos bobinas por válvula.',ok:false,why:'Tener dos bobinas no es el problema: el problema es energizarlas a la vez. La misma célula funciona perfectamente con GRAFCET usando exactamente las mismas válvulas.'},
+        {t:'Porque el sensor a1 se activa antes del final mecánico de la carrera.',ok:false,why:'Eso es cierto —la banda magnética adelanta la confirmación— y explica que el ciclo medido sea algo más corto que la suma de catálogos, pero no provoca ningún conflicto de señales.'},
+        {t:'Porque un PLC no puede leer las cuatro entradas de los reed en un solo ciclo de scan.',ok:false,why:'Sí puede: la imagen de entradas se lee entera al principio del scan. El conflicto no es de lectura, es lógico.'},
+      ],
+    },
+    reto:{
+      pregunta:'¿Por qué avanzar de etapa con un temporizador fijo es un mal criterio, aunque el ciclo salga bien en el banco?',
+      opciones:[
+        {t:'Porque el tiempo de carrera lo fijan el regulador de caudal y la carga: si el vástago tarda más de lo previsto, la etapa avanza con el movimiento a medias y la secuencia se descoloca. El GRAFCET debe avanzar con el sensor que CONFIRMA el fin de carrera.',ok:true,why:'Correcto. Por eso la práctica prueba cada regla en dos bancos: el nominal y uno con el regulador de A casi cerrado. Un programa que sólo se prueba en condiciones nominales no está probado.'},
+        {t:'Porque IEC 60848 prohíbe que las receptividades contengan condiciones de tiempo.',ok:false,why:'No lo prohíbe: las receptividades temporizadas son parte del lenguaje y se usan mucho (por ejemplo para una espera de proceso). Lo que no vale es sustituir la CONFIRMACIÓN de un movimiento por un reloj.'},
+        {t:'Porque los temporizadores TON de un PLC no tienen resolución suficiente para carreras de medio segundo.',ok:false,why:'La resolución práctica es el tiempo de scan, de pocos milisegundos: de sobra. La limitación no es del temporizador, es del criterio.'},
+        {t:'Porque cada temporizador consume una salida física del PLC.',ok:false,why:'Un temporizador es un bloque de programa, no ocupa salidas. El coste de la opción no es de hardware, es de fiabilidad.'},
+      ],
+    },
+  };
+  Object.values(QUIZ).forEach(q=>{for(let i=q.opciones.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));const tmp=q.opciones[i];q.opciones[i]=q.opciones[j];q.opciones[j]=tmp;}});
+}
+function clearDx(){const box=el('dxbtns');if(box)box.innerHTML='';}
+function refreshQuestion(){
+  const q=QUIZ[mode];if(!q)return;
+  el('q_text').textContent=q.pregunta;
+  const box=el('dxbtns');
+  box.innerHTML=q.opciones.map((o,i)=>`<button class="b sm" data-i="${i}">${String.fromCharCode(65+i)}) ${o.t}</button>`).join('');
+  box.querySelectorAll('[data-i]').forEach(b=>b.onclick=()=>answer(parseInt(b.dataset.i,10)));
+}
+function answer(i){
+  const q=QUIZ[mode];if(!q)return;
+  const box=el('dxbtns'),btns=box.querySelectorAll('[data-i]');
+  if(!btns.length||btns[0].disabled)return;
+  const o=q.opciones[i];btns.forEach(b=>b.disabled=true);btns[i].classList.add(o.ok?'right':'wrong');
+  if(o.ok){synth.beep(1046,0.12,0.06);}else{synth.beep(220,0.15,0.06);}
+  showToast((o.ok?'✔ ':'✗ ')+o.why);
+}
+
+// ===================== 14. PICKING Y HOVER =====================
+pickerFor(scene,S.camera,S.renderer.domElement,hit=>{
+  if(!hit)return;
+  if(hit.object===board){boardClick();return;}
+  let o=hit.object;while(o){if(o.userData&&o.userData.title){showToast('<b>'+o.userData.title+'</b><br>'+(o.userData.info||''));return;}o=o.parent;}
+});
+(function hoverLoop(){
+  const ray=new THREE.Raycaster(),dom=S.renderer.domElement;let mx=0,my=0;
+  dom.addEventListener('pointermove',e=>{const r=dom.getBoundingClientRect();mx=((e.clientX-r.left)/r.width)*2-1;my=-((e.clientY-r.top)/r.height)*2+1;});
+  function tick(){
+    ray.setFromCamera({x:mx,y:my},S.camera);let hovered=false;
+    for(const [obj,spr] of HOVER_LABELS){if(!obj.visible){spr.visible=false;continue;}const on=ray.intersectObject(obj,true).length>0;spr.visible=on;if(on)hovered=true;}
+    dom.style.cursor=hovered?'pointer':'default';requestAnimationFrame(tick);
+  }
+  tick();
+})();
+
+// ===================== 15. RECORRIDO AUTOMÁTICO =====================
+function sleep(ms){return new Promise(r=>setTimeout(r,ms));}
+async function runAuto(){
+  if(autoRunning)return;autoRunning=true;
+  const btn=el('btnAuto'),label=btn.textContent;btn.disabled=true;btn.classList.add('on');btn.textContent='⏳ Recorriendo…';
+  try{
+    synth.init();synth.resume();clearDx();
+    setMode('explora');
+    expIdx=0;expReset();afterEdit();
+    showToast('🔧 Cilindro A de la estación de marcado: 200 mm de carrera, 600 ms de salida, banda del reed 5 mm.');
+    await sleep(3400);
+    expScan('ext');afterEdit();
+    showToast('▶ UN solo scan con Y1. Ahora quitamos la orden y observamos qué hace el vástago.');
+    await sleep(3200);
+    for(let k=0;k<30;k++){expScan('none');afterEdit();await sleep(60);}
+    showToast('🧠 Sigue saliendo sin ninguna orden: el carrete de la 5/2 biestable RECUERDA su posición. Eso es memoria física.');
+    await sleep(4200);
+    for(let k=0;k<32;k++){expScan('none');afterEdit();await sleep(50);}
+    showToast('✔ El reed a1 confirmó el fin de carrera dentro de su banda magnética, antes del tope mecánico.');
+    await sleep(3600);
+    expScan('ret');afterEdit();await sleep(600);
+    for(let k=0;k<6;k++){expScan('both');afterEdit();await sleep(160);}
+    showToast('⚠ Con Y1 e Y2 energizados a la vez el carrete deja de obedecer: no es "dos órdenes", es un BLOQUEO.');
+    await sleep(4400);
+    answer(QUIZ[mode].opciones.findIndex(o=>o.ok));await sleep(2600);
+
+    setMode('aplica');
+    apTopic='directo';apIdx=0;afterEdit();
+    showToast('🧩 Método combinacional: cada movimiento lo dispara el sensor que confirma el anterior. Se prueba en las cuatro células.');
+    await sleep(4800);
+    apIdx=1;afterEdit();
+    showToast('⚖ Honestidad: A+ B+ A− B− SÍ funciona así. El método no es "malo", es frágil: depende de la secuencia.');
+    await sleep(4600);
+    apIdx=0;apTopic='grafcet';apBank='nom';afterEdit();
+    showToast('▶ Ahora con GRAFCET: una etapa por movimiento y la receptividad = el sensor que confirma el fin de carrera.');
+    await sleep(4600);
+    apBank='lento';afterEdit();
+    showToast('🐢 Con el regulador de A casi cerrado el ciclo se alarga, pero la secuencia NO se descoloca: avanza con el sensor.');
+    await sleep(4600);
+    apTopic='reglas';apBank='nom';apRule='tiempo';afterEdit();
+    showToast('⏱ Con temporizador fijo el ciclo sale bien en nominal y falla en degradado. Sólo una regla sobrevive a los dos bancos.');
+    await sleep(5000);
+    answer(QUIZ[mode].opciones.findIndex(o=>o.ok));await sleep(2600);
+
+    setMode('reto');
+    seedReto(0);updateRetoSpec();afterEdit();
+    showToast('🎯 Reto: el programa de partida está mal en las tres decisiones. Lo comprobamos primero tal cual…');
+    await sleep(3600);
+    checkReto();
+    await sleep(4200);
+    const sc=retoSc();
+    retoCh={rec:sc.seq.map(recOf),des:'siguiente',sal:'etapa'};
+    retoChecked=false;retoSolved=false;afterEdit();
+    showToast('✔ Receptividades = el sensor que CONFIRMA cada movimiento, SET+RESET al franquear, y la acción colgada de la etapa.');
+    await sleep(3400);
+    checkReto();await sleep(2600);
+    answer(QUIZ[mode].opciones.findIndex(o=>o.ok));
+  }finally{
+    btn.disabled=false;btn.classList.remove('on');btn.textContent=label;autoRunning=false;
+  }
+}
+
+// ===================== 16. ANIMACIÓN, EVENTOS E INICIO =====================
+S.setAnimate((dt,time)=>{
+  hwT+=dt;
+  if(hwT>0.12){hwT=0;hwStep=(hwStep+1)%hwCount();updateHW();}
+});
+['explora','aplica','reto'].forEach(m=>{el('m_'+m).onclick=()=>{if(!autoRunning)setMode(m);};});
+el('btnAuto').onclick=()=>{if(!autoRunning)runAuto();};
+el('btnNew').onclick=()=>{if(autoRunning)return;newSignal();};
+el('btnCheck').onclick=()=>{if(autoRunning)return;checkReto();};
+const soundBtn=el('soundBtn');if(soundBtn){soundBtn.onclick=()=>{synth.toggle();soundBtn.textContent=synth.isOn()?'🔊':'🔇';};}
+document.addEventListener('pointerdown',()=>{synth.init();synth.resume();},{once:true});
+
+buildQuiz();
+S.start();
+setMode('explora');
+
+// ===================== DEBUG HOOK =====================
+window.__labDebug={
+  mode:()=>mode, setMode:k=>setMode(k),
+  DT, POOL, RETO_POOL, OPT_DES, OPT_SAL, PT_FIJO, SLOW, SENSORS,
+  // motor
+  newValve,stepValve,newCyl,stepCyl,epsOf,sens0,sens1,cylOf,dirOf,recOf,badRec,readSens,
+  newCell,grafcetStep,coilsOf,cellScan,runCell,spontaneous,diagDirect,GOOD,cfgWith,
+  okRec,okDes,okSal,nomMs,tripExt,condOf,directConflict,actStage,stageLabel,
+  // explora
+  expIdx:()=>expIdx, setExpIdx:i=>{expIdx=i;expReset();afterEdit();},
+  expScan:o=>{expScan(o);afterEdit();},
+  expReset:()=>{expReset();afterEdit();},
+  expInfo:()=>({idx:expIdx,ord:expOrd,ext:expV.ext,both:expV.both,p:expC.p,
+    s0:sens0(expC),s1:sens1(expC),scans:expHist.length-1,everBoth:expEverBoth(),trip:expTrip()}),
+  expTrace:()=>expHist.map(h=>({t:h.t,cExt:h.cExt,cRet:h.cRet,ext:h.ext,p:h.p,s0:h.s0,s1:h.s1,both:h.both})),
+  // aplica
+  apTopic:()=>apTopic, setApTopic:k=>{apTopic=k;afterEdit();},
+  apIdx:()=>apIdx, setApIdx:i=>{apIdx=i;afterEdit();},
+  apBank:()=>apBank, setApBank:v=>{apBank=v;afterEdit();},
+  apRule:()=>apRule, setApRule:v=>{apRule=v;afterEdit();},
+  apRun:()=>{const slow=apBank==='lento'?SLOW:null;return runC(POOL[apIdx],GOOD(POOL[apIdx]),{maxMs:slow?40000:20000,slow:slow||undefined});},
+  // reto
+  retoK:()=>retoK, seedReto:k=>{seedReto(k);updateRetoSpec();afterEdit();},
+  retoName:()=>retoSc().name, retoSeq:()=>retoSc().seq.slice(),
+  retoGet:()=>({rec:retoCh.rec.slice(),des:retoCh.des,sal:retoCh.sal}),
+  retoSet:(f,v)=>{retoSet(f,v);afterEdit();},
+  retoSetRec:(i,v)=>{retoSetRec(i,v);afterEdit();},
+  retoSolveBuild:()=>{const sc=retoSc();retoCh={rec:sc.seq.map(recOf),des:'siguiente',sal:'etapa'};retoChecked=false;retoSolved=false;afterEdit();},
+  checkReto:()=>checkReto(),
+  retoChecked:()=>retoChecked, retoOkRec:()=>retoOkRec, retoOkDes:()=>retoOkDes, retoOkSal:()=>retoOkSal, retoSolved:()=>retoSolved,
+  // quiz / general
+  quizCorrectIndex:()=>{const q=QUIZ[mode];return q?q.opciones.findIndex(o=>o.ok):-1;},
+  quizAnswer:i=>answer(i),
+  frames:()=>frames(),
+  newSignal:()=>newSignal(),
+  solved:()=>solved,
+};

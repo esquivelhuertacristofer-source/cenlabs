@@ -1,0 +1,9 @@
+{
+  "donor": "escaner-obd.html",
+  "out": "grafcet-secuencia-neumatica.html",
+  "title": "CEN Labs · GRAFCET: Secuencia de Cilindros Neumáticos — Laboratorio 3D",
+  "lt": "Automatización de secuencias · Sistemas Digitales",
+  "inspectHint": "👆 Toca el pizarrón, los cilindros o las electroválvulas para inspeccionar la célula",
+  "body": "grafcet-secuencia-neumatica.body.js",
+  "fichas": ["_ficha-tecnica.js", "_ficha-grafcet-secuencia-neumatica.js"]
+}
