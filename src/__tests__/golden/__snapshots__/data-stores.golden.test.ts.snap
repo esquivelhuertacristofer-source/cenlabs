@@ -6814,6 +6814,64 @@ Al otro lado está el tiempo. Nyquist pide aquí f_s ≥ 5·f_banda, y el filtro
     "titulo": "Adquisición de Sensores: el Convertidor A/D y la Cuantización",
     "videoUrl": "",
   },
+  "mecanica-91": {
+    "acento": "#8AB4F8",
+    "aplicaciones": [
+      {
+        "area": "Puesta en marcha de tarjetas y sensores",
+        "ejemplo": "La primera vez que un sensor I²C no responde, la pregunta no es del programa sino del bus: si las resistencias de polarización están puestas, si el tiempo de subida cabe en la norma y si el esclavo puede hundir la corriente que esa resistencia le exige. Un bus con 470 Ω sube estupendamente y pide 6,17 mA al esclavo; uno con 10 kΩ es amable con el esclavo y a 400 kHz llega tarde. El analizador enseña cuál de las dos cosas está pasando en menos de un minuto.",
+      },
+      {
+        "area": "Diagnóstico de enlaces de campo",
+        "ejemplo": "Un enlace serie que «funciona a ratos» suele ser un problema de tolerancia de reloj —el margen es 0,5/(n_bits − 0,5), un 5,26 % con 8N1— o de configuración de paridad, que devuelve los mismos valores con banderas rotas. Y un enlace que devuelve valores raros pero estables suele ser un modo SPI cambiado: el mismo byte leído en el flanco equivocado da otro byte, sin ningún síntoma que parezca un fallo.",
+      },
+      {
+        "area": "Elección y uso del instrumento",
+        "ejemplo": "Comprar el analizador más rápido no resuelve el problema: con memoria fija, subir la frecuencia de muestreo acorta la ventana en la misma proporción, y hay capturas —un volcado de 400 muestras de una FIFO, tres pesadas separadas 200 ms— que sencillamente no caben a 200 MS/s. La decisión correcta sale de tres cuentas hechas antes de conectar: muestras por bit, paso temporal frente al detalle a medir y ventana frente a la duración de la señal.",
+      },
+    ],
+    "bienvenida": "Un analizador lógico no lee bytes: lee tensiones en instantes. Todo lo que aparece en la pantalla —el nombre del protocolo, la dirección del esclavo, el ACK, el texto de la báscula— es una interpretación que alguien configuró. Por eso hay tres decisiones antes del primer byte, y ninguna de las tres avisa de las otras dos.
+
+La PUNTA decide si lo que hay en la línea llega a la entrada como lógica válida, y tiene tres maneras de fallar. Un bus de colector abierto sin resistencias de polarización nunca sube: la línea se queda pegada a cero y no hay señal que leer. Un divisor 1:3 sobre un bus de 3,3 V deja el nivel alto en 1,10 V frente a un umbral de 1,40 V —el mismo divisor que sobre 5 V da 1,67 V y sirve—. Y los ±9 V de una línea EIA/TIA-232 sobre una entrada de 3,6 V no dan una medida mala: queman la punta. Hay una cuarta, la peor: la punta que invierte entrega bytes limpios y equivocados, el complemento exacto, sin una sola bandera de error.
+
+Cuando el bus es abierto, la resistencia de polarización se resuelve por los dos extremos a la vez. Por arriba manda el tiempo de subida, t_r = ln(7/3)·R·C_b entre el 30 % y el 70 % de V_DD como define la UM10204, acotado en 300 ns a 400 kHz; por abajo manda la corriente que el esclavo tiene que hundir para bajar la línea, (V_DD − V_OL)/R, acotada en 3 mA. Con 470 Ω el bus sube en 60 ns —una maravilla— y obliga al esclavo a tragar 6,17 mA: más del doble de lo permitido. De los dos criterios sale una ventana estrecha, 967 Ω … 2,4 kΩ con 400 kHz y 150 pF, que con 400 pF se queda VACÍA (967 Ω … 885 Ω): ahí no hay resistencia que elegir.
+
+El ANALIZADOR se elige con tres cuentas que no se implican entre sí: muestras por bit f_s/f_bit ≥ 4, paso Δt = 1/f_s menor que la cuarta parte del detalle a medir, y ventana profundidad/f_s mayor que la señal entera. La tercera es la que sorprende: subir la velocidad mejora la resolución y ACORTA la ventana en la misma proporción —1 M de muestras son 1,000 s a 1 MS/s y 5,00 ms a 200 MS/s—, y por eso los 200 MS/s son la única opción válida en el SPI de 8 MHz y son inválidos en los otros tres bancos. Capturar de menos tampoco se parece a un error: con la báscula y 100 ms de ventana salen 11 bytes impecables y faltan 22, y nada en la pantalla lo dice.
+
+Y el DECODIFICADOR decide qué significan los flancos. En SPI, CPOL y CPHA no son dos preferencias sino una sola pregunta —en qué flanco se muestrea—: los modos 0 y 3 muestrean en subida, el 1 y el 2 en bajada, y con el modo equivocado el 8A del convertidor se lee como 45, sin huecos y con la misma tipografía que el valor correcto. En I²C, la trama CORRECTA es la que tiene un error: el maestro cierra la lectura con un NACK deliberado, y exigir «todos los bytes con ACK» declararía mala la única trama bien formada. Tres decisiones, 120 combinaciones por instalación, barridas una a una: exactamente una válida en cada banco. Verificado 152/152.",
+    "codigo": "MEC-91",
+    "conceptos": [
+      {
+        "descripcion": "Máximo absoluto de 3,6 V (criterio de daño, no de calidad), umbral de 1,40 V, e inversión como XOR entre punta y línea. Un bus de colector abierto sin polarización nunca sube; un divisor 1:3 deja 1,10 V sobre un bus de 3,3 V y 1,67 V sobre uno de 5 V; y la punta que invierte entrega el complemento de cada byte sin una sola bandera de error.",
+        "icono": "🔌",
+        "nombre": "La punta decide si hay señal",
+      },
+      {
+        "descripcion": "t_r = ln(7/3)·R·C_b ≤ 300 ns en modo rápido acota por arriba; I_OL = (V_DD − V_OL)/R ≤ 3 mA acota por abajo. 470 Ω suben en 60 ns y piden 6,17 mA; 10 kΩ hunden 290 µA y tardan 1,27 µs. La ventana resultante —967 Ω … 2,4 kΩ con 400 kHz y 150 pF— puede quedarse VACÍA con 400 pF.",
+        "icono": "⚖️",
+        "nombre": "La polarización se resuelve por los dos lados",
+      },
+      {
+        "descripcion": "f_s/f_bit ≥ 4 muestras por bit, Δt = 1/f_s ≤ detalle/4, y ventana = profundidad/f_s ≥ duración de la señal. Con memoria fija, resolución y ventana tiran en sentidos opuestos: 200 MS/s son la única opción válida en el SPI de 8 MHz y son inválidos en los otros tres bancos, donde la señal no cabe en 5,00 ms.",
+        "icono": "📐",
+        "nombre": "Tres cuentas y un compromiso",
+      },
+      {
+        "descripcion": "Modos SPI 0 y 3 muestrean en subida, 1 y 2 en bajada: con el equivocado, 8A se lee como 45. Una lectura I²C bien formada termina en NACK deliberado. Y leer 8N1 como 8E1 devuelve los MISMOS 33 valores con 6 banderas de paridad rotas: no da error, da mentiras. La tolerancia de baudios es 0,5/(n_bits − 0,5): 5,26 % y 4,76 %.",
+        "icono": "🧩",
+        "nombre": "El decodificador no adivina: interpreta",
+      },
+    ],
+    "duracion": 30,
+    "mision": [
+      "EXPLORA · Elige una de las cuatro instalaciones —báscula de camiones por EIA/TIA-232, EEPROM de recetas en I²C a 400 kHz, convertidor A/D leído por SPI a 8 MHz o sensor de vibración a pila en I²C a 100 kHz— y una plataforma de análisis, y observa a la vez la señal real, la señal tal como quedó tras la rejilla del analizador, los cuatro equipos con sus tres cuentas y los bytes decodificados contrastados contra lo esperado. El zoom recorre desde las 96 hasta las 6 primeras posiciones de bit, que es donde se ven las marcas de muestreo cayendo dentro o fuera del bit.",
+      "APLICA · Tres estudios. "Punta" enfrenta las cinco puntas con el nivel alto que cada una entrega frente al umbral, marca las que superan el máximo absoluto y, en los buses abiertos, dibuja el tiempo de subida y la corriente de sumidero contra sus dos límites —y la ventana de polarización que dejan, incluso cuando se queda vacía—. "Analizador" pone los cuatro equipos con sus tres criterios en columnas separadas y deja a la vista que la fila que gana en resolución pierde en ventana. "Decodificador" pasa los seis decodificadores sobre la misma captura con el volcado hexadecimal contrastado byte a byte.",
+      "RETO · Deja el análisis en pie con tres decisiones independientes sobre la instalación asignada: punta, analizador y decodificador. Cada criterio se califica con los otros dos ya correctos, así que acertar dos de tres sigue siendo una captura que no vale. Las 120 combinaciones (5 puntas × 4 analizadores × 6 decodificadores) se barrieron una a una en cada instalación: hay exactamente una válida y las cuatro tienen soluciones distintas. La configuración de partida está deliberadamente mal en las tres.",
+    ],
+    "subtitulo": "Sistemas Digitales · Comunicaciones industriales · NXP UM10204 + TIA/EIA-232-F + SPI Block Guide: punta, captura y decodificador",
+    "titulo": "Análisis de Tramas: UART, I²C y SPI en el Analizador Lógico",
+    "videoUrl": "",
+  },
   "quimica-1": {
     "acento": "#06B6D4",
     "aplicaciones": [
@@ -17162,6 +17220,7 @@ exports[`golden master — stores de datos (invariante ante la migración a src/
   "mecanica-89": [],
   "mecanica-9": [],
   "mecanica-90": [],
+  "mecanica-91": [],
   "quimica-1": [
     {
       "completed": true,
@@ -17487,6 +17546,7 @@ exports[`golden master — stores de datos (invariante ante la migración a src/
   "mecanica-89",
   "mecanica-9",
   "mecanica-90",
+  "mecanica-91",
   "quimica-1",
   "quimica-10",
   "quimica-2",

@@ -1,0 +1,9 @@
+{
+  "donor": "escaner-obd.html",
+  "out": "analizador-buses.html",
+  "title": "CEN Labs · Análisis de tramas: UART, I²C y SPI en el analizador lógico — Laboratorio 3D",
+  "lt": "Sistemas Digitales y Automatización · Comunicaciones industriales",
+  "inspectHint": "👆 Toca el equipo bajo prueba, la punta de prueba, el analizador lógico o el panel de instrumentos para inspeccionarlos",
+  "body": "analizador-buses.body.js",
+  "fichas": ["_ficha-tecnica.js", "_ficha-analizador-buses.js"]
+}

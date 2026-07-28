@@ -1,0 +1,1592 @@
+// ===================== 1. ESCENA =====================
+const mount=document.getElementById('stage');
+const S=createStage(mount,{cam:[5.8,3.4,7.9],target:[0.8,1.05,0.3],bgTop:'#0d1017',bgBot:'#05060a',bloom:0.46,minD:3.2,maxD:16});
+const {scene}=S;
+const synth=makeSynth({type:'square',type2:'sine',filterFreq:2400,Q:0.8});
+const el=id=>document.getElementById(id);
+
+// ===================== 2. MOTOR (VERIFICADO 152/152 — VERBATIM) =====================
+const V_MAX=3.6;            // maximo absoluto de entrada del analizador (V)
+const V_TH=1.4;             // umbral logico del analizador (V)
+const C_IN=10e-12;          // capacidad de entrada del analizador (F)
+const V_OL=0.4;             // nivel bajo garantizado de un driver de colector abierto (V)
+const I_OL_MAX=3e-3;        // corriente de sumidero maxima (A) — I2C UM10204
+const K_TR=0.8473;          // t_r(0,3·VDD..0,7·VDD) = ln(7/3)·R·C — niveles de la UM10204
+const OS_MIN=4;             // sobremuestreo minimo para decodificar
+const N_DET=4;              // muestras minimas sobre el detalle temporal a medir
+const T_SK=5e-9;            // retardo del dato respecto al flanco que lo lanza (s)
+const TR_MAX={100000:1000e-9,400000:300e-9};  // t_r maximo por modo I2C
+
+const SONDAS={
+  div5 :{name:'Divisor 1:3 (2,0 kΩ + 1,0 kΩ)',att:1/3,pu:0,inv:false,rth:666.7,vin:V_MAX*3},
+  pu470:{name:'Pull-ups de 470 Ω a 3,3 V',att:1,pu:470,inv:false,rth:0,vin:V_MAX},
+  pu2k2:{name:'Pull-ups de 2,2 kΩ a 3,3 V',att:1,pu:2200,inv:false,rth:0,vin:V_MAX},
+  pu10k:{name:'Pull-ups de 10 kΩ a 3,3 V',att:1,pu:10000,inv:false,rth:0,vin:V_MAX},
+  rs232:{name:'Adaptador EIA/TIA-232',att:null,pu:0,inv:true,rth:0,vin:15}
+};
+const SONDAK=['div5','pu470','pu2k2','pu10k','rs232'];
+
+const ANAS={
+  a1M  :{name:'1 MS/s · 1 M muestras',fs:1e6,depth:1e6},
+  a10M :{name:'10 MS/s · 1 M muestras',fs:10e6,depth:1e6},
+  a50M :{name:'50 MS/s · 1 M muestras',fs:50e6,depth:1e6},
+  a200M:{name:'200 MS/s · 1 M muestras',fs:200e6,depth:1e6}
+};
+const ANAK=['a1M','a10M','a50M','a200M'];
+
+const DECS={
+  u96n :{name:'UART 9600 8N1',proto:'uart',baud:9600,bits:8,par:'n',stop:1},
+  u96e :{name:'UART 9600 8E1',proto:'uart',baud:9600,bits:8,par:'e',stop:1},
+  u115e:{name:'UART 115200 8E1',proto:'uart',baud:115200,bits:8,par:'e',stop:1},
+  i2c7 :{name:'I²C, direccion de 7 bits',proto:'i2c'},
+  spi0 :{name:'SPI modo 0 (CPOL 0, CPHA 0)',proto:'spi',cpol:0,cpha:0},
+  spi1 :{name:'SPI modo 1 (CPOL 0, CPHA 1)',proto:'spi',cpol:0,cpha:1}
+};
+const DECK=['u96n','u96e','u115e','i2c7','spi0','spi1'];
+
+// ---------- lineas: {ini, ed:[{t,v}]} con v = nivel DESPUES de t ----------
+const mkL=ini=>({ini,ed:[]});
+const push=(L,t,v)=>{const last=L.ed.length?L.ed[L.ed.length-1].v:L.ini;if(v!==last)L.ed.push({t,v});};
+function mkSampler(L){let i=0,v=L.ini,tp=-1;return t=>{
+  if(t<tp){i=0;v=L.ini;}                       // reinicio defensivo
+  while(i<L.ed.length&&L.ed[i].t<=t){v=L.ed[i].v;i++;}
+  tp=t;return v;};}
+function lvlAt(L,t){let v=L.ini;for(let i=0;i<L.ed.length;i++){if(L.ed[i].t<=t)v=L.ed[i].v;else break;}return v;}
+
+// ---------- generadores de trafico ----------
+function waveUart(tx,baud,cfg,gapBits,nRep,tRep){
+  const Tb=1/baud,nb=1+cfg.bits+(cfg.par==='n'?0:1)+cfg.stop,L=mkL(1);
+  let t=0.002;
+  for(let r=0;r<nRep;r++){
+    t=0.002+r*tRep;
+    for(const b of tx){
+      const bits=[0];
+      for(let i=0;i<cfg.bits;i++)bits.push((b>>i)&1);      // LSB primero
+      if(cfg.par!=='n'){const x=parity(b,cfg.bits);bits.push(cfg.par==='e'?x:(x^1));}
+      for(let k=0;k<cfg.stop;k++)bits.push(1);
+      for(let k=0;k<nb;k++)push(L,t+k*Tb,bits[k]);
+      t+=nb*Tb+gapBits*Tb;
+    }
+  }
+  return {D0:L,D1:mkL(1),D2:mkL(1),D3:mkL(1),tSig:t};
+}
+function parity(b,n){let x=0;for(let i=0;i<n;i++)x^=(b>>i)&1;return x;}
+
+// I2C: seq = lista de {s:'S'|'Sr'|'P'} | {b:byte, ack:0|1}
+function waveI2c(seq,fscl){
+  const T=1/fscl,SCL=mkL(1),SDA=mkL(1);let t=0.00002;
+  const bitClk=(v)=>{                                   // un bit: dato, subida, bajada
+    push(SDA,t,v);push(SCL,t+T*0.25,1);push(SCL,t+T*0.75,0);t+=T;
+  };
+  for(const it of seq){
+    if(it.s==='S'||it.s==='Sr'){
+      if(it.s==='Sr'){push(SDA,t,1);push(SCL,t+T*0.25,1);t+=T*0.5;}
+      push(SDA,t,0);t+=T*0.25;push(SCL,t,0);t+=T*0.25;   // START: SDA cae con SCL alto
+    } else if(it.s==='P'){
+      push(SDA,t,0);t+=T*0.25;push(SCL,t,1);t+=T*0.25;push(SDA,t,1);t+=T*0.5;
+    } else {
+      for(let i=7;i>=0;i--)bitClk((it.b>>i)&1);
+      bitClk(it.ack);
+    }
+  }
+  return {D0:SCL,D1:SDA,D2:mkL(1),D3:mkL(1),tSig:t+T};
+}
+
+// SPI: mosi/miso = arrays de bytes
+function waveSpi(mosi,miso,fsck,cpol,cpha){
+  const T=1/fsck,SCK=mkL(cpol),MOSI=mkL(0),CS=mkL(1),MISO=mkL(0);
+  let t=0.0000005;
+  push(CS,t,0);t+=100e-9;                                // t_CSS
+  for(let n=0;n<mosi.length;n++){
+    for(let i=7;i>=0;i--){
+      const b0=(mosi[n]>>i)&1,b1=(miso[n]>>i)&1;
+      const tLead=t,tTrail=t+T/2;
+      if(cpha===0){                                      // dato valido ANTES del flanco de guia
+        push(MOSI,tLead-T*0.4,b0);push(MISO,tLead-T*0.4,b1);
+      } else {                                           // dato lanzado por el flanco de guia
+        push(MOSI,tLead+T_SK,b0);push(MISO,tLead+T_SK,b1);
+      }
+      push(SCK,tLead,cpol?0:1);push(SCK,tTrail,cpol?1:0);
+      t+=T;
+    }
+  }
+  push(CS,t+100e-9,1);
+  return {D0:SCK,D1:MOSI,D2:CS,D3:MISO,tSig:t+300e-9};
+}
+
+// ---------- sonda: que ve el analizador ----------
+function sondaEval(sc,k){
+  const p=SONDAS[k],r={};
+  const vPk=sc.rs232?sc.vSwing:sc.vBus;
+  r.dano=false;r.vOk=true;r.hiOk=true;r.invOk=true;r.puOk=true;
+  if(k==='rs232'){
+    r.vOk=true;
+    r.invOk=sc.rs232;                                    // el adaptador reinvierte: solo sirve en EIA/TIA-232
+    r.hiOk=sc.rs232;                                     // 0 V cae en la banda indefinida de ±3 V
+  } else {
+    if(sc.rs232){                                        // linea bipolar en una entrada unipolar
+      r.vOk=false;r.dano=true;r.invOk=false;
+    } else {
+      const vHi=vPk*p.att;
+      r.vOk=vPk*p.att<=V_MAX&&vPk<=p.vin;
+      if(vPk>p.vin){r.dano=true;}
+      r.hiOk=vHi>=V_TH;
+      if(sc.open&&p.pu===0){r.hiOk=false;r.puOk=false;}
+    }
+  }
+  if(sc.open&&p.pu>0){
+    r.tr=K_TR*p.pu*sc.cb;
+    r.iol=(sc.vBus-V_OL)/p.pu;
+    r.trOk=r.tr<=TR_MAX[sc.fBit];
+    r.iolOk=r.iol<=I_OL_MAX;
+    r.budOk=sc.iBud?(r.iol<=sc.iBud):true;
+    r.puOk=r.trOk&&r.iolOk&&r.budOk;
+  }
+  // el corte del divisor es un DATO de la sonda, no un criterio: en este banco nunca limita
+  if(p.rth>0)r.f3=1/(2*Math.PI*p.rth*C_IN);
+  r.ok=r.vOk&&r.hiOk&&r.invOk&&r.puOk&&!r.dano;
+  r.inv=(!!p.inv)!==(!!sc.rs232);                        // XOR: el analizador ve la logica invertida
+  return r;
+}
+
+// ---------- analizador ----------
+function anaEval(sc,k){
+  const a=ANAS[k],r={};
+  r.os=a.fs/sc.fBit;r.osOk=r.os>=OS_MIN;
+  r.dt=1/a.fs;r.resOk=r.dt<=sc.reqDt/N_DET;
+  r.win=a.depth/a.fs;r.memOk=r.win>=sc.tSig;
+  r.ok=r.osOk&&r.resOk&&r.memOk;
+  return r;
+}
+
+// ---------- captura: cuantizar en la rejilla y truncar ----------
+function qLine(L,fs,tWin,inv){
+  const out={ini:inv?(L.ini^1):L.ini,ed:[]};
+  let last=out.ini;
+  for(const e of L.ed){
+    if(e.t>tWin)break;
+    const tq=Math.ceil(e.t*fs-1e-9)/fs,v=inv?(e.v^1):e.v;
+    if(out.ed.length&&Math.abs(out.ed[out.ed.length-1].t-tq)<1e-15){out.ed[out.ed.length-1].v=v;}
+    else out.ed.push({t:tq,v});
+  }
+  const cl=[];for(const e of out.ed){if(!cl.length){if(e.v!==out.ini)cl.push(e);}else if(e.v!==cl[cl.length-1].v)cl.push(e);}
+  out.ed=cl;return out;
+}
+function capture(sc,cfg){
+  const so=sondaEval(sc,cfg.sonda),an=anaEval(sc,cfg.ana),a=ANAS[cfg.ana];
+  const tWin=Math.min(a.depth/a.fs,sc.w.tSig);
+  const dead=so.dano||!so.vOk||!so.hiOk;                  // la sonda no entrega logica valida
+  const q={};
+  for(const ch of ['D0','D1','D2','D3']){
+    q[ch]=dead?{ini:0,ed:[]}:qLine(sc.w[ch],a.fs,tWin,so.inv);
+  }
+  return {q,tWin,so,an,dead};
+}
+
+// ---------- decodificadores ----------
+function nextEdge(L,t,v){for(let i=0;i<L.ed.length;i++){if(L.ed[i].t>t&&L.ed[i].v===v)return L.ed[i].t;}return null;}
+function decUart(L,d,tWin){
+  const nb=1+d.bits+(d.par==='n'?0:1)+d.stop,Tb=1/d.baud,S=mkSampler(L),out=[];
+  let t=0,guard=0;
+  while(t<tWin&&guard++<20000){
+    const t0=nextEdge(L,t,0);
+    if(t0===null||t0+nb*Tb>tWin)break;
+    const s=[];for(let k=0;k<nb;k++)s.push(lvlAt(L,t0+(k+0.5)*Tb));
+    let byte=0;for(let i=0;i<d.bits;i++)if(s[1+i])byte|=(1<<i);
+    let idx=1+d.bits,ok=true,why='';
+    if(d.par!=='n'){const p=s[idx++],x=parity(byte,d.bits),exp=d.par==='e'?x:(x^1);if(p!==exp){ok=false;why='paridad';}}
+    for(let k=0;k<d.stop;k++)if(s[idx+k]!==1){ok=false;why=why||'trama';}
+    out.push({b:byte,ok,why});
+    t=t0+nb*Tb;
+  }
+  void S;return out;
+}
+function decI2c(SCL,SDA,tWin){
+  const ev=[];
+  for(const e of SCL.ed)if(e.t<=tWin)ev.push({t:e.t,l:'C',v:e.v});
+  for(const e of SDA.ed)if(e.t<=tWin)ev.push({t:e.t,l:'D',v:e.v});
+  ev.sort((a,b)=>a.t-b.t||(a.l==='D'?-1:1));
+  let scl=SCL.ini,sda=SDA.ini,run=false,bits=[],out=[];
+  for(const e of ev){
+    if(e.l==='D'){
+      if(scl===1){
+        if(sda===1&&e.v===0){run=true;bits=[];out.push({s:out.length?'Sr':'S'});}
+        else if(sda===0&&e.v===1&&run){run=false;out.push({s:'P'});}
+      }
+      sda=e.v;
+    } else {
+      if(scl===0&&e.v===1&&run){
+        bits.push(sda);
+        if(bits.length===9){
+          let b=0;for(let i=0;i<8;i++)b=(b<<1)|bits[i];
+          out.push({b,ack:bits[8]===0});bits=[];
+        }
+      }
+      scl=e.v;
+    }
+  }
+  return out;
+}
+function decSpi(SCK,MOSI,CS,d,tWin){
+  const rise=(d.cpol===0)===(d.cpha===0);                // flanco de muestreo
+  const out=[];let bits=[],csL=CS.ini;
+  const ev=[];
+  for(const e of CS.ed)if(e.t<=tWin)ev.push({t:e.t,l:'S',v:e.v});
+  for(const e of SCK.ed)if(e.t<=tWin)ev.push({t:e.t,l:'K',v:e.v});
+  ev.sort((a,b)=>a.t-b.t||(a.l==='S'?-1:1));
+  for(const e of ev){
+    if(e.l==='S'){if(e.v===1)bits=[];csL=e.v;continue;}
+    if(csL!==0)continue;
+    if((rise&&e.v===1)||(!rise&&e.v===0)){
+      bits.push(lvlAt(MOSI,e.t));
+      if(bits.length===8){let b=0;for(let i=0;i<8;i++)b=(b<<1)|bits[i];out.push({b});bits=[];}
+    }
+  }
+  return out;
+}
+function decode(sc,cfg){
+  const c=capture(sc,cfg),d=DECS[cfg.dec];
+  if(c.dead)return {c,bytes:[],ok:false,why:'la sonda no entrega niveles logicos validos'};
+  let bytes=[];
+  if(d.proto==='uart')bytes=decUart(c.q.D0,d,c.tWin).map(x=>({b:x.b,ok:x.ok,why:x.why}));
+  else if(d.proto==='i2c')bytes=decI2c(c.q.D0,c.q.D1,c.tWin).filter(x=>x.b!==undefined).map(x=>({b:x.b,ok:x.ack,why:x.ack?'':'NACK'}));
+  else bytes=decSpi(c.q.D0,c.q.D1,c.q.D2,d,c.tWin).map(x=>({b:x.b,ok:true,why:''}));
+  const esp=sc.esperado;
+  const valOk=bytes.length===esp.length&&bytes.every((x,i)=>x.b===esp[i]);
+  // en I2C el maestro cierra la lectura con NACK: es la firma de una trama BIEN formada
+  const flagOk=d.proto==='i2c'
+    ?(bytes.length>1&&bytes.slice(0,-1).every(x=>x.ok)&&!bytes[bytes.length-1].ok)
+    :bytes.every(x=>x.ok);
+  const ok=valOk&&flagOk;
+  return {c,bytes,ok,why:ok?'':(bytes.length!==esp.length
+    ?('salen '+bytes.length+' bytes y se esperan '+esp.length)
+    :(valOk?'las banderas de la trama no cuadran':'los bytes no coinciden'))};
+}
+
+// ---------- ventana de pull-ups y tolerancia de baudios (docencia) ----------
+function puWin(vdd,cb,fscl){
+  const rMin=(vdd-V_OL)/I_OL_MAX, rMax=TR_MAX[fscl]/(K_TR*cb);
+  return {rMin,rMax,vacia:rMax<rMin};
+}
+const tolBaud=(bits,par,stop)=>0.5/((1+bits+(par==='n'?0:1)+stop)-0.5);
+const dir8=(a7,rw)=>((a7<<1)|(rw?1:0))&0xFF;
+
+// ---------- el explicador ----------
+function whyCfg(sc,cfg){
+  const so=sondaEval(sc,cfg.sonda),an=anaEval(sc,cfg.ana),de=decode(sc,cfg),f=[];
+  if(so.dano)f.push('la sonda «'+SONDAS[cfg.sonda].name+'» pone en la entrada más de los '+
+    fv(V_MAX)+' V que aguanta: esa punta se quema antes de medir nada');
+  else if(!so.invOk)f.push('esa sonda entrega la lógica invertida: el analizador leería el complemento de cada byte');
+  else if(!so.hiOk)f.push('esa sonda deja el nivel alto en '+fv(sc.vBus*SONDAS[cfg.sonda].att)+
+    ' V y el umbral del analizador está en '+fv(V_TH)+' V'+
+    (sc.open&&SONDAS[cfg.sonda].pu===0
+      ?'; y ni siquiera llega ahí, porque un bus de colector abierto sin resistencias de polarización nunca sube: la línea se queda pegada a cero'
+      :''));
+  else if(so.trOk===false)f.push('con '+fr(SONDAS[cfg.sonda].pu)+' el bus tarda '+fns(so.tr)+
+    ' en subir y la norma da como máximo '+fns(TR_MAX[sc.fBit]));
+  else if(so.iolOk===false)f.push('esa polarización obliga al esclavo a tragar '+fma(so.iol)+
+    ' y la norma limita el sumidero a '+fma(I_OL_MAX));
+  else if(so.budOk===false)f.push('esa polarización consume '+fma(so.iol)+' de forma permanente y el nodo sólo tiene '+
+    fma(sc.iBud)+' de presupuesto');
+  if(!an.osOk)f.push('a '+fmz(ANAS[cfg.ana].fs)+' sólo caen '+an.os.toFixed(2)+
+    ' muestras por bit y hacen falta '+OS_MIN);
+  else if(!an.resOk)f.push('cada muestra dista '+fns(an.dt)+' y hay que medir '+sc.reqTxt+
+    ': con cuatro muestras encima eso pide como mucho '+fns(sc.reqDt/N_DET));
+  else if(!an.memOk)f.push('la ventana es de '+fms(an.win)+' y hay que capturar '+sc.capTxt+', que dura '+fms(sc.tSig));
+  if(so.ok&&an.ok&&!de.ok)f.push('el decodificador «'+DECS[cfg.dec].name+'» no reconstruye la trama: '+de.why);
+  if(!f.length)return '';
+  return f.join('; ')+'.';
+}
+const fv=x=>x.toFixed(2).replace('.',',');
+const fr=r=>r>=1000?(r/1000).toFixed(1).replace('.',',')+' kΩ':r.toFixed(0)+' Ω';
+const fns=t=>t<1e-6?(t*1e9).toFixed(0)+' ns':(t<1e-3?(t*1e6).toFixed(2).replace('.',',')+' µs':(t*1e3).toFixed(2).replace('.',',')+' ms');
+const fms=t=>t>=1?t.toFixed(3).replace('.',',')+' s':(t*1e3).toFixed(2).replace('.',',')+' ms';
+const fma=i=>i>=1e-3?(i*1e3).toFixed(2).replace('.',',')+' mA':(i*1e6).toFixed(0)+' µA';
+const fmz=f=>f>=1e6?(f/1e6).toFixed(2).replace('.',',')+' MHz':(f/1e3).toFixed(0)+' kHz';
+
+// ---------- criterios ----------
+function runC(sc,cfg){
+  const so=sondaEval(sc,cfg.sonda),an=anaEval(sc,cfg.ana),de=decode(sc,cfg);
+  return {so,an,de,sondaOk:so.ok,anaOk:an.ok,decOk:de.ok&&so.ok&&an.ok,ok:so.ok&&an.ok&&de.ok};
+}
+const okSonda=(sc,k)=>sondaEval(sc,k).ok;
+const okAna=(sc,k)=>anaEval(sc,k).ok;
+function okDec(sc,k){return decode(sc,{sonda:sc.good.sonda,ana:sc.good.ana,dec:k}).ok;}
+const GOOD=sc=>({...sc.good});
+const cfgWith=(sc,o)=>({...GOOD(sc),...o});
+// ===================== FIN MOTOR =====================
+
+// ---------- escenarios ----------
+function bytesOf(s){return Array.from(s).map(c=>c.charCodeAt(0));}
+function mkPool(){
+  const P=[];
+
+  // A. Bascula de camiones — UART 9600 8N1 sobre EIA/TIA-232
+  {
+    const tx=bytesOf('P 12480 kg\r'),cfg={baud:9600,bits:8,par:'n',stop:1};
+    const w=waveUart(tx,9600,cfg,3,3,0.200);
+    P.push({key:'bascula',name:'Báscula de camiones',
+      sub:'Terminal de pesaje que envía cada pesada por un puerto EIA/TIA-232',
+      proto:'uart',rs232:true,vSwing:9,vBus:null,open:false,cb:0,iBud:0,
+      fBit:9600,uart:cfg,tx,w,tSig:w.tSig,
+      reqDt:2/9600,reqTxt:'el hueco entre tramas, que el terminal declara ≥ 2 bits (208 µs)',
+      capTxt:'tres pesadas seguidas, separadas 200 ms',
+      esperado:tx.concat(tx,tx),
+      good:{sonda:'rs232',ana:'a1M',dec:'u96n'}});
+  }
+
+  // B. EEPROM de recetas — I2C 400 kHz, 3,3 V, 150 pF, volcado de 300 bytes
+  {
+    const N=300,seq=[{s:'S'},{b:0xA0,ack:0},{b:0x01,ack:0},{b:0x00,ack:0},{s:'Sr'},{b:0xA1,ack:0}];
+    const dat=[];for(let i=0;i<N;i++)dat.push((0x40+i*7)&0xFF);
+    dat.forEach((b,i)=>seq.push({b,ack:i===N-1?1:0}));
+    seq.push({s:'P'});
+    const w=waveI2c(seq,400000);
+    P.push({key:'eeprom',name:'EEPROM de recetas',
+      sub:'Memoria I²C del que guarda los perfiles de temple de un horno',
+      proto:'i2c',rs232:false,vSwing:0,vBus:3.3,open:true,cb:150e-12,iBud:0,
+      fBit:400000,w,tSig:w.tSig,
+      reqDt:K_TR*2200*150e-12,reqTxt:'el tiempo de subida del bus, que en modo rápido no puede pasar de 300 ns',
+      capTxt:'el volcado completo de 300 bytes',
+      esperado:[0xA0,0x01,0x00,0xA1].concat(dat),
+      good:{sonda:'pu2k2',ana:'a50M',dec:'i2c7'}});
+  }
+
+  // C. Convertidor A/D externo — SPI 8 MHz modo 1, push-pull 5 V
+  {
+    const mosi=[0x8A,0x00,0x00],miso=[0x00,0x0D,0x4C];
+    const w=waveSpi(mosi,miso,8e6,0,1);
+    P.push({key:'adc',name:'Convertidor A/D externo',
+      sub:'Convertidor de 16 bits que un PLC lee por SPI a 8 MHz',
+      proto:'spi',rs232:false,vSwing:0,vBus:5,open:false,cb:0,iBud:0,
+      fBit:8e6,w,tSig:w.tSig,
+      reqDt:50e-9,reqTxt:'el retardo de CS a primer flanco de SCK, que el esclavo exige ≥ 50 ns',
+      capTxt:'una conversión completa (3 bytes)',
+      esperado:mosi.slice(),
+      good:{sonda:'div5',ana:'a200M',dec:'spi1'}});
+  }
+
+  // D. Sensor de vibracion a pila — I2C 100 kHz, 3,3 V, 80 pF, 500 uA de presupuesto
+  {
+    const N=400,seq=[{s:'S'},{b:0x30,ack:0},{b:0x28,ack:0},{s:'Sr'},{b:0x31,ack:0}];
+    const dat=[];for(let i=0;i<N;i++)dat.push((0x80+i*3)&0xFF);
+    dat.forEach((b,i)=>seq.push({b,ack:i===N-1?1:0}));
+    seq.push({s:'P'});
+    const w=waveI2c(seq,100000);
+    P.push({key:'vibra',name:'Sensor de vibración a pila',
+      sub:'Acelerómetro I²C alimentado por pila con 500 µA de presupuesto en el bus',
+      proto:'i2c',rs232:false,vSwing:0,vBus:3.3,open:true,cb:80e-12,iBud:500e-6,
+      fBit:100000,w,tSig:w.tSig,
+      reqDt:K_TR*10000*80e-12,reqTxt:'el tiempo de subida del bus, que en modo estándar no puede pasar de 1 µs',
+      capTxt:'la ráfaga completa de 400 muestras de la FIFO',
+      esperado:[0x30,0x28,0x31].concat(dat),
+      good:{sonda:'pu10k',ana:'a10M',dec:'i2c7'}});
+  }
+  return P;
+}
+const POOL=mkPool();
+
+// ===================== 2b. DERIVADOS DE PRESENTACIÓN =====================
+// Nada de lo que sigue entra en la calificación: son etiquetas y curvas para dibujar.
+const NOM=POOL.map(s=>s.name);
+const NOM_S=['Báscula','EEPROM','A/D SPI','Vibración'];
+const SUB=POOL.map(s=>s.sub);
+const MAQ=[
+  'Un terminal de pesaje envía cada pesada por un puerto EIA/TIA-232 a 9600 baudios, sin paridad, un bit de parada. La línea es bipolar: descansa en −9 V y marca los ceros en +9 V. Hay que capturar tres pesadas seguidas, separadas 200 ms, y comprobar el hueco entre tramas que el terminal declara de al menos dos bits.',
+  'Una EEPROM I²C guarda los perfiles de temple de un horno. El bus va a 400 kHz sobre 3,3 V y el cable de la placa suma 150 pF. Hay que capturar el volcado completo de 300 bytes, desde la escritura de la dirección de memoria hasta el reinicio de arranque y la lectura, y medir el tiempo de subida del bus.',
+  'Un PLC lee un convertidor A/D de 16 bits por SPI a 8 MHz sobre 5 V en modo empuja-tira. Hay que capturar una conversión completa de tres bytes y medir el retardo entre la bajada de CS y el primer flanco de SCK, que el esclavo exige de al menos 50 ns.',
+  'Un acelerómetro I²C alimentado por pila vuelca su memoria de 400 muestras a 100 kHz sobre 3,3 V; el cable del sensor suma 80 pF. El nodo entero dispone de 500 µA de presupuesto permanente en el bus, así que la polarización del bus se paga de la pila.'];
+const SCCOL=['#8AB4F8','#7CD992','#C08CF8','#E9C46A'];
+const PROTO_LBL={uart:'UART',i2c:'I²C',spi:'SPI'};
+const CHN={uart:['TX','','',''],i2c:['SCL','SDA','',''],spi:['SCK','MOSI','CS','MISO']};
+const CHC=['#8AB4F8','#7CD992','#E9C46A','#C08CF8'];
+const SONDA_SH={div5:'1:3',pu470:'470 Ω',pu2k2:'2,2 kΩ',pu10k:'10 kΩ',rs232:'EIA-232'};
+const ANA_SH={a1M:'1 MS/s',a10M:'10 MS/s',a50M:'50 MS/s',a200M:'200 MS/s'};
+const DEC_SH={u96n:'9600 8N1',u96e:'9600 8E1',u115e:'115k 8E1',i2c7:'I²C 7 b',spi0:'SPI m0',spi1:'SPI m1'};
+const TOPICS=[['sonda','🔌 Sonda'],['ana','⏱️ Analizador'],['dec','🔤 Decodificador']];
+const ZOOMS=[[96,'🔍 96 bits'],[24,'🔍 24 bits'],[6,'🔍 6 bits']];
+
+// ===================== 3. ESTADO =====================
+let mode='explora';
+let solved=false,autoRunning=false,QUIZ={};
+let hwStep=0,hwT=0,framesCache=null;
+let scIdx=0;                                   // máquina de Explora y Aplica
+let expAna=POOL[0].good.ana, expZoom=1;        // analizador y ampliación en Explora
+let apTopic='sonda', apSonda=POOL[0].good.sonda, apAna=POOL[0].good.ana, apDec=POOL[0].good.dec;
+let retoK=0, retoCh={sonda:'div5',ana:'a1M',dec:'u96n'};
+let retoChecked=false,retoSolved=false,retoMsg='';
+let retoOkSonda=false,retoOkAna=false,retoOkDec=false;
+
+function pickIdx(n,ex){if(n<=1)return 0;let i=ex;while(i===ex)i=Math.floor(Math.random()*n);return i;}
+function hexA(hex,a){const h=hex.replace('#','');
+  const r=parseInt(h.substring(0,2),16),g=parseInt(h.substring(2,4),16),b=parseInt(h.substring(4,6),16);
+  return 'rgba('+r+','+g+','+b+','+a+')';}
+const n0=x=>Math.round(x).toLocaleString('es-MX');
+const n1=x=>x.toFixed(1).replace('.',',');
+const n2=x=>x.toFixed(2).replace('.',',');
+const pctS=x=>n2(x*100)+' %';
+const hx=b=>b.toString(16).toUpperCase().padStart(2,'0');
+const asc=b=>(b>=32&&b<127)?String.fromCharCode(b):'·';
+// fms imprime «0,00 ms» por debajo de 10 µs: para durar hace falta bajar a nanosegundos
+const fdur=t=>t<1e-3?fns(t):fms(t);
+const fbits=n=>n>=1000?n1(n/1000)+' kbit/s':n0(n)+' bit/s';
+
+function curSc(){return mode==='reto'?POOL[retoK]:POOL[scIdx];}
+function retoSc(){return POOL[retoK];}
+function curCfg(){
+  const sc=curSc();
+  if(mode==='reto')return {...retoCh};
+  if(mode==='aplica')return {sonda:apSonda,ana:apAna,dec:apDec};
+  return {sonda:sc.good.sonda,ana:expAna,dec:sc.good.dec};   // Explora: sólo cambia el analizador
+}
+function syncSel(){const sc=POOL[scIdx];expAna=sc.good.ana;apSonda=sc.good.sonda;apAna=sc.good.ana;apDec=sc.good.dec;}
+function chList(sc){const n=CHN[sc.proto],out=[];
+  for(let i=0;i<4;i++)if(n[i])out.push({ch:'D'+i,lab:n[i],col:CHC[i]});
+  return out;}
+function tFirst(sc){let t=Infinity;
+  ['D0','D1','D2','D3'].forEach(ch=>{const L=sc.w[ch];if(L.ed.length)t=Math.min(t,L.ed[0].t);});
+  return isFinite(t)?t:0;}
+function viewWin(sc,nb){const Tb=1/sc.fBit,t0=Math.max(0,tFirst(sc)-1.5*Tb);
+  return [t0,Math.min(t0+nb*Tb,sc.tSig)];}
+function vHiOf(sc,k){
+  if(k==='rs232')return sc.rs232?sc.vSwing:0;
+  const vPk=sc.rs232?sc.vSwing:sc.vBus;
+  return vPk*SONDAS[k].att;
+}
+
+// ===================== 4. MATERIALES =====================
+function std(color,rough,metal){return new THREE.MeshStandardMaterial({color,roughness:rough,metalness:metal});}
+function brush(base){return std(base,0.55,0.35);}
+const MAT={bench:brush(0x2b2f34),frame:brush(0x22262c),leg:brush(0x14161b),body:std(0x1b2028,0.6,0.25),
+  steel:std(0x9aa4b2,0.35,0.75),shiny:std(0xd6dde8,0.22,0.9),dark:std(0x14171b,0.5,0.3),plate:brush(0x3a4048),
+  copper:std(0xb87333,0.4,0.8),pcb:std(0x14352a,0.7,0.15),glass:std(0x2a3340,0.25,0.5)};
+const ACC='#8AB4F8', OK_HEX='#7CD992', BAD_HEX='#ff6b6b', WARN_HEX='#E9C46A', VIO='#C08CF8';
+const HOVER_LABELS=new Map();
+function addHoverLabel(obj,text,color,pos,scale){
+  const cv=document.createElement('canvas');cv.width=256;cv.height=64;const cx=cv.getContext('2d');
+  cx.fillStyle='rgba(10,14,17,0.88)';cx.fillRect(0,0,256,64);
+  cx.strokeStyle=color;cx.lineWidth=2;cx.strokeRect(1,1,254,62);
+  cx.fillStyle='#F4EFEA';cx.font='bold 20px Outfit, sans-serif';cx.textAlign='center';cx.textBaseline='middle';cx.fillText(text,128,32);
+  const tex=new THREE.CanvasTexture(cv);
+  const spr=new THREE.Sprite(new THREE.SpriteMaterial({map:tex,transparent:true,depthTest:false}));
+  spr.position.copy(pos);spr.scale.set(scale||1.1,(scale||1.1)*0.28,1);spr.visible=false;spr.renderOrder=999;
+  scene.add(spr);HOVER_LABELS.set(obj,spr);return spr;
+}
+function emis(colHex){
+  return new THREE.MeshStandardMaterial({color:0x2b3038,roughness:0.4,metalness:0.4,
+    emissive:new THREE.Color(colHex),emissiveIntensity:0.06});
+}
+
+// ===================== 5. PIZARRÓN =====================
+const boardG=new THREE.Group();
+boardG.position.set(-1.15,0,-0.95);boardG.rotation.y=0.2;scene.add(boardG);
+const frame=roundedBox(3.9,2.9,0.12,MAT.frame,0.06);frame.position.set(0,1.9,0);boardG.add(frame);
+[-1.65,1.65].forEach(x=>{const leg=new THREE.Mesh(new THREE.CylinderGeometry(0.05,0.06,1.9,16),MAT.leg);leg.position.set(x,0.92,0);boardG.add(leg);});
+const bCv=document.createElement('canvas');bCv.width=1024;bCv.height=768;
+const bTex=new THREE.CanvasTexture(bCv);
+const board=new THREE.Mesh(new THREE.PlaneGeometry(3.68,2.72),new THREE.MeshBasicMaterial({map:bTex}));
+board.position.set(0,1.9,0.065);boardG.add(board);
+frame.userData={title:'Pizarrón del analizador lógico',info:'Trazas, captura y decodificación · toca para cambiar de vista'};
+addHoverLabel(frame,'Buses · UART/I²C/SPI',ACC,new THREE.Vector3(0,3.5,0.1).add(boardG.position),2.9);
+
+function bg(c){c.fillStyle='#0c1016';c.fillRect(0,0,1024,768);}
+function rpanel(c,x,y,w,h,title){
+  c.fillStyle=hexA(ACC,0.06);c.fillRect(x,y,w,h);
+  c.strokeStyle=hexA(ACC,0.22);c.lineWidth=1;c.strokeRect(x,y,w,h);
+  c.fillStyle='#C7D6F5';c.font='bold 15px Outfit, sans-serif';c.textAlign='left';c.fillText(title,x+16,y+26);
+}
+function prow(c,x,y,w,l,v,col){
+  c.fillStyle='#8f97a5';c.font='13px Outfit, sans-serif';c.textAlign='left';c.fillText(l,x+16,y);
+  c.fillStyle=col||'#F4EFEA';c.font='bold 16px Outfit, sans-serif';c.textAlign='right';c.fillText(v,x+w-14,y);
+}
+function wrapText(c,text,x,y,maxW,lh){
+  const words=text.split(' ');let line='',yy=y;
+  for(const w of words){const test=line+w+' ';
+    if(c.measureText(test).width>maxW && line){c.fillText(line,x,yy);line=w+' ';yy+=lh;}else line=test;}
+  c.fillText(line,x,yy);return yy;
+}
+const PX={x:706,y:70,w:300};
+function trow(c,x,y,w,h,cols,widths,cols_col,head){
+  c.fillStyle=head?hexA(ACC,0.10):'rgba(255,255,255,0.03)';c.fillRect(x,y,w,h);
+  c.strokeStyle=hexA(ACC,0.16);c.lineWidth=1;c.strokeRect(x,y,w,h);
+  let cx=x;
+  cols.forEach((t,i)=>{
+    c.fillStyle=head?'#C7D6F5':(cols_col&&cols_col[i]?cols_col[i]:'#F4EFEA');
+    c.font=(head?'bold 12px':'13px')+' Outfit, sans-serif';c.textAlign='left';
+    c.fillText(t,cx+10,y+h/2+5);
+    cx+=widths[i];
+  });
+}
+function drawBar(c,x,y,w,h,frac,label,col,right){
+  c.fillStyle='#9fb0cf';c.font='12px Outfit, sans-serif';c.textAlign='left';c.fillText(label,x,y-8);
+  c.fillStyle='rgba(255,255,255,0.06)';c.fillRect(x,y,w,h);
+  c.fillStyle=hexA(col,0.75);c.fillRect(x,y,Math.max(0,Math.min(1,frac))*w,h);
+  c.strokeStyle=hexA(ACC,0.3);c.lineWidth=1;c.strokeRect(x,y,w,h);
+  c.fillStyle=col;c.font='bold 13px Outfit, sans-serif';c.textAlign='right';c.fillText(right,x+w,y-8);
+}
+const kc=(ok,ch)=>ch?(ok?OK_HEX:BAD_HEX):'#F4EFEA';
+
+// -------- trazador genérico ------------------------------------------------
+// opts: {x0,x1,y0,y1,xl,yl,series:[{pts,col,dash,w}],hband:[y0,y1,col],
+//        vbands:[[x0,x1,col]],hlines:[[y,col,txt]],marks:[[x,y,col]],xt:fn,yt:fn}
+function plot(c,X,Y,W,H,o){
+  const x0=o.x0,x1=o.x1,y0=o.y0,y1=o.y1;
+  const mx=v=>X+(v-x0)/(x1-x0||1)*W, my=v=>Y+H-(v-y0)/(y1-y0||1)*H;
+  c.save();
+  c.fillStyle='rgba(255,255,255,0.02)';c.fillRect(X,Y,W,H);
+  if(o.hband){c.fillStyle=hexA(o.hband[2],0.12);
+    const a=my(Math.max(y0,Math.min(y1,o.hband[1]))),b=my(Math.max(y0,Math.min(y1,o.hband[0])));
+    c.fillRect(X,a,W,b-a);}
+  (o.vbands||[]).forEach(v=>{c.fillStyle=hexA(v[2],0.14);c.fillRect(mx(v[0]),Y,Math.max(1,mx(v[1])-mx(v[0])),H);});
+  c.strokeStyle='rgba(255,255,255,0.08)';c.lineWidth=1;
+  for(let i=1;i<4;i++){const yy=Y+H*i/4;c.beginPath();c.moveTo(X,yy);c.lineTo(X+W,yy);c.stroke();}
+  if(y0<0&&y1>0){c.strokeStyle='rgba(255,255,255,0.28)';c.beginPath();c.moveTo(X,my(0));c.lineTo(X+W,my(0));c.stroke();}
+  (o.hlines||[]).forEach(h=>{
+    if(h[0]<y0||h[0]>y1)return;
+    c.strokeStyle=hexA(h[1],0.8);c.lineWidth=1.5;c.setLineDash([6,4]);
+    c.beginPath();c.moveTo(X,my(h[0]));c.lineTo(X+W,my(h[0]));c.stroke();c.setLineDash([]);
+    if(h[2]){c.fillStyle=h[1];c.font='11px Outfit, sans-serif';c.textAlign='right';c.fillText(h[2],X+W-4,my(h[0])-4);}
+  });
+  (o.series||[]).forEach(s=>{
+    if(!s.pts.length)return;
+    c.strokeStyle=s.col;c.lineWidth=s.w||2;c.setLineDash(s.dash||[]);
+    c.beginPath();
+    s.pts.forEach((p,i)=>{const px=mx(p[0]),py=my(Math.max(y0,Math.min(y1,p[1])));if(i)c.lineTo(px,py);else c.moveTo(px,py);});
+    c.stroke();c.setLineDash([]);
+  });
+  (o.marks||[]).forEach(m=>{
+    c.fillStyle=m[2];c.beginPath();c.arc(mx(m[0]),my(Math.max(y0,Math.min(y1,m[1]))),4.5,0,Math.PI*2);c.fill();
+  });
+  c.strokeStyle='rgba(255,255,255,0.20)';c.lineWidth=1;c.strokeRect(X,Y,W,H);
+  c.fillStyle='#7a8494';c.font='11px Outfit, sans-serif';
+  c.textAlign='right';c.fillText(o.xl||'',X+W,Y+H+16);
+  c.textAlign='left';c.fillText(o.yl||'',X,Y-6);
+  c.fillStyle='#6b7280';c.font='10px Outfit, sans-serif';
+  c.textAlign='left';c.fillText(o.xt?o.xt(x0):'',X,Y+H+16);
+  c.textAlign='right';c.fillText(o.yt?o.yt(y1):'',X-4,Y+8);
+  c.textAlign='right';c.fillText(o.yt?o.yt(y0):'',X-4,Y+H);
+  c.restore();
+}
+function legend(c,x,y,items){
+  let cx=x;
+  items.forEach(it=>{
+    c.fillStyle=it[1];c.fillRect(cx,y-8,14,3);
+    c.fillStyle='#9fb0cf';c.font='11px Outfit, sans-serif';c.textAlign='left';c.fillText(it[0],cx+19,y-3);
+    cx+=19+c.measureText(it[0]).width+16;
+  });
+}
+
+// -------- trazas lógicas ---------------------------------------------------
+// Dibuja los canales activos de una máquina. L = mapa {D0..D3} de líneas
+// ({ini,ed}); sirve tanto para el bus real (sc.w) como para lo que guardó el
+// analizador (capture().q). opts: {fs, cursor, title}
+function drawWave(c,X,Y,W,H,sc,L,t0,t1,o){
+  o=o||{};
+  const chs=chList(sc),n=chs.length,lane=H/n;
+  const mx=t=>X+(t-t0)/(t1-t0||1)*W;
+  c.save();
+  c.fillStyle='rgba(255,255,255,0.02)';c.fillRect(X,Y,W,H);
+  const Tb=1/sc.fBit;
+  const nGrid=(t1-t0)/Tb;
+  if(nGrid<=200){
+    c.strokeStyle='rgba(255,255,255,0.07)';c.lineWidth=1;
+    for(let k=Math.ceil(t0/Tb);k*Tb<=t1;k++){const xx=mx(k*Tb);c.beginPath();c.moveTo(xx,Y);c.lineTo(xx,Y+H);c.stroke();}
+  }
+  let ticks=0;
+  if(o.fs){
+    const nT=(t1-t0)*o.fs;
+    if(nT<=260){
+      ticks=Math.round(nT);
+      c.strokeStyle=hexA(VIO,0.55);c.lineWidth=1;
+      for(let k=Math.ceil(t0*o.fs);k/o.fs<=t1;k++){const xx=mx(k/o.fs);
+        c.beginPath();c.moveTo(xx,Y+H-7);c.lineTo(xx,Y+H);c.stroke();}
+    }
+  }
+  chs.forEach((cc,i)=>{
+    const yTop=Y+i*lane+16,yBot=Y+(i+1)*lane-8,line=L[cc.ch];
+    c.strokeStyle=cc.col;c.lineWidth=2;c.beginPath();
+    const NP=560;let prev=null;
+    for(let k=0;k<=NP;k++){
+      const t=t0+(t1-t0)*k/NP,v=lvlAt(line,t),xx=mx(t),yy=v?yTop:yBot;
+      if(k===0){c.moveTo(xx,yy);}
+      else{if(prev!==v){c.lineTo(xx,prev?yTop:yBot);}c.lineTo(xx,yy);}
+      prev=v;
+    }
+    c.stroke();
+    c.fillStyle=cc.col;c.font='bold 12px Outfit, sans-serif';c.textAlign='left';c.fillText(cc.lab,X+7,yTop-3);
+  });
+  if(o.cursor!==undefined&&o.cursor>=t0&&o.cursor<=t1){
+    c.strokeStyle=hexA('#F4EFEA',0.7);c.lineWidth=1.5;c.setLineDash([4,4]);
+    c.beginPath();c.moveTo(mx(o.cursor),Y);c.lineTo(mx(o.cursor),Y+H);c.stroke();c.setLineDash([]);
+  }
+  c.strokeStyle='rgba(255,255,255,0.20)';c.lineWidth=1;c.strokeRect(X,Y,W,H);
+  if(o.title){c.fillStyle='#7a8494';c.font='11px Outfit, sans-serif';c.textAlign='left';c.fillText(o.title,X,Y-6);}
+  c.fillStyle='#6b7280';c.font='10px Outfit, sans-serif';
+  c.textAlign='left';c.fillText('t = '+fdur(t0),X,Y+H+15);
+  c.textAlign='right';c.fillText('ventana de '+fdur(t1-t0)+(nGrid<=200?'  ·  '+Math.round(nGrid)+' bits':''),X+W,Y+H+15);
+  c.restore();
+  return ticks;
+}
+// niveles que cada sonda pone en la entrada del analizador
+function drawLevels(c,X,Y,W,H,sc){
+  const VMX=sc.rs232?12:V_MAX*1.6, bh=16, gap=(H-5*bh)/5;
+  SONDAK.forEach((k,i)=>{
+    const so=sondaEval(sc,k),v=vHiOf(sc,k),yy=Y+18+i*(bh+gap);
+    drawBar(c,X,yy,W,bh,v/VMX,SONDAS[k].name,so.ok?OK_HEX:(so.dano?BAD_HEX:WARN_HEX),
+      k==='rs232'&&!sc.rs232?'no aplica':fv(v)+' V');
+  });
+  [[V_TH,VIO,'umbral '+fv(V_TH)+' V'],[V_MAX,BAD_HEX,'máximo '+fv(V_MAX)+' V']].forEach(m=>{
+    const xx=X+m[0]/VMX*W;
+    c.strokeStyle=hexA(m[1],0.85);c.lineWidth=1.5;c.setLineDash([5,4]);
+    c.beginPath();c.moveTo(xx,Y+8);c.lineTo(xx,Y+H);c.stroke();c.setLineDash([]);
+    c.fillStyle=m[1];c.font='11px Outfit, sans-serif';c.textAlign='left';c.fillText(m[2],xx+4,Y+6);
+  });
+}
+// volcado hexadecimal
+function hexDump(c,x,y,w,bytes,perRow,rows,step,esp){
+  const cw=Math.floor(w/perRow);
+  for(let r=0;r<rows;r++){
+    for(let i=0;i<perRow;i++){
+      const k=r*perRow+i;if(k>=bytes.length)return;
+      const b=bytes[k];
+      const mal=esp&&esp[k]!==undefined&&esp[k]!==b.b;
+      c.fillStyle=mal?BAD_HEX:(b.ok?'#F4EFEA':WARN_HEX);
+      c.font='14px monospace';c.textAlign='left';
+      c.fillText(hx(b.b),x+i*cw,y+r*step);
+    }
+  }
+}
+
+// ===================== 6. VISTAS POR MODO =====================
+function header(c,tit,sub,col){
+  c.fillStyle=col||ACC;c.font='bold 22px Outfit, sans-serif';c.textAlign='left';c.fillText(tit,60,44);
+  c.fillStyle='#8f97a5';c.font='13px Outfit, sans-serif';c.fillText(sub,60,64);
+}
+
+// -------------------------------------------------------------- EXPLORA ----
+function drawExplora(c){
+  const sc=POOL[scIdx],cfg=curCfg(),an=anaEval(sc,cfg.ana),cp=capture(sc,cfg),de=decode(sc,cfg);
+  const nb=ZOOMS[expZoom][0],vw=viewWin(sc,nb);
+  header(c,'CAPTURA · '+NOM[scIdx],
+    'La sonda y el decodificador quedan fijos en los de la máquina ('+SONDA_SH[cfg.sonda]+' · '+DEC_SH[cfg.dec]+'): aquí sólo cambia el analizador.',SCCOL[scIdx]);
+
+  drawWave(c,70,112,560,168,sc,sc.w,vw[0],vw[1],{title:'lo que hay en el bus (referencia ideal)'});
+  const tk=drawWave(c,70,330,560,168,sc,cp.q,vw[0],vw[1],
+    {fs:ANAS[cfg.ana].fs,title:'lo que guardó el analizador a '+ANA_SH[cfg.ana]});
+  const li=chList(sc).map(x=>[x.lab,x.col]);
+  if(tk)li.push(['instantes de muestreo ('+tk+' en esta ventana)',VIO]);
+  legend(c,70,522,li);
+
+  c.fillStyle='#9fb0cf';c.font='13px Outfit, sans-serif';c.textAlign='left';
+  let yy=wrapText(c,'El analizador no ve tensiones: ve unos y ceros, y sólo en los instantes en que muestrea. '+
+    'Cada flanco del bus se corre hasta la siguiente muestra, así que el ancho de un bit medido nunca es exacto: '+
+    'se conoce con la precisión de un paso de muestreo. Por eso la regla de campo pide al menos '+OS_MIN+
+    ' muestras por bit para decodificar, y cuatro muestras encima del detalle temporal más corto que haya que medir.',70,556,560,20);
+  const mal=whyCfg(sc,cfg);
+  c.fillStyle=mal?BAD_HEX:OK_HEX;
+  wrapText(c,mal?('Con este analizador la captura no sirve: '+mal)
+    :('Con este analizador la trama se reconstruye entera: '+de.bytes.length+' bytes, los mismos que se esperaban.'),70,yy+30,560,20);
+
+  // -------- columna derecha
+  rpanel(c,PX.x,PX.y,PX.w,244,'La captura');
+  const rows=[
+    ['Protocolo',PROTO_LBL[sc.proto]+' · '+fbits(sc.fBit)],
+    ['Duración de la señal',fdur(sc.tSig)],
+    ['Sonda',SONDA_SH[cfg.sonda]],
+    ['Analizador',ANA_SH[cfg.ana]],
+    ['Muestras por bit',n2(an.os),an.osOk?OK_HEX:BAD_HEX],
+    ['Paso entre muestras',fns(an.dt),an.resOk?OK_HEX:BAD_HEX],
+    ['Ventana de memoria',fms(an.win),an.memOk?OK_HEX:BAD_HEX]];
+  rows.forEach((r,i)=>prow(c,PX.x,PX.y+56+i*26,PX.w,r[0],r[1],r[2]));
+
+  rpanel(c,PX.x,PX.y+262,PX.w,190,'Los cuatro analizadores');
+  const W1=[84,52,66,78];
+  trow(c,PX.x+10,PX.y+292,280,26,['analizador','m/bit','paso','ventana'],W1,null,true);
+  ANAK.forEach((k,i)=>{
+    const a=anaEval(sc,k),col=a.ok?OK_HEX:BAD_HEX;
+    trow(c,PX.x+10,PX.y+318+i*26,280,26,
+      [ANA_SH[k],n1(a.os),fns(a.dt),fms(a.win)],W1,
+      [col,a.osOk?'#F4EFEA':BAD_HEX,a.resOk?'#F4EFEA':BAD_HEX,a.memOk?'#F4EFEA':BAD_HEX]);
+  });
+
+  rpanel(c,PX.x,PX.y+470,PX.w,224,'Bytes decodificados ('+de.bytes.length+')');
+  hexDump(c,PX.x+16,PX.y+500,PX.w-32,de.bytes,6,6,24,sc.esperado);
+  c.fillStyle='#8f97a5';c.font='12px Outfit, sans-serif';c.textAlign='left';
+  const txt=sc.proto==='uart'
+    ?'texto: «'+de.bytes.slice(0,11).map(b=>asc(b.b)).join('')+'»'
+    :(sc.proto==='i2c'?'dirección de 7 bits: 0x'+hx(sc.esperado[0]>>1)
+      :'palabra de mando: 0x'+hx(sc.esperado[0]));
+  wrapText(c,de.bytes.length?txt:'la sonda no entrega niveles lógicos válidos',PX.x+16,PX.y+660,PX.w-32,18);
+}
+
+// --------------------------------------------------------------- APLICA ----
+function drawAplica(c){
+  if(apTopic==='ana')return drawApAna(c);
+  if(apTopic==='dec')return drawApDec(c);
+  return drawApSonda(c);
+}
+
+function drawApSonda(c){
+  const sc=POOL[scIdx],cfg=curCfg(),so=sondaEval(sc,cfg.sonda);
+  header(c,'APLICA · LA SONDA — '+NOM[scIdx],
+    'Primero hay que poder mirar: la punta decide qué tensión llega a la entrada, con qué polaridad y a costa de qué corriente.',SCCOL[scIdx]);
+
+  const W1=[168,112,190,100],hh=28;
+  trow(c,60,100,570,hh,['sonda','llega a la entrada','lo que pasa','veredicto'],W1,null,true);
+  SONDAK.forEach((k,i)=>{
+    const s=sondaEval(sc,k);
+    let nota;
+    if(s.dano)nota='sobrepasa el máximo de entrada';
+    else if(!s.invOk)nota='entrega la lógica invertida';
+    else if(!s.hiOk)nota=sc.open&&SONDAS[k].pu===0?'colector abierto sin polarización':'el alto no llega al umbral';
+    else if(s.trOk===false)nota='sube en '+fns(s.tr)+', tarde';
+    else if(s.iolOk===false)nota='pide '+fma(s.iol)+' al esclavo';
+    else if(s.budOk===false)nota='consume '+fma(s.iol)+' de la pila';
+    else nota=sc.open?'sube en '+fns(s.tr)+' con '+fma(s.iol):'nivel y polaridad correctos';
+    trow(c,60,128+i*hh,570,hh,
+      [SONDAS[k].name,k==='rs232'&&!sc.rs232?'—':fv(vHiOf(sc,k))+' V',nota,s.ok?'✔ sirve':'✗ no sirve'],
+      W1,[null,null,null,s.ok?OK_HEX:BAD_HEX]);
+  });
+
+  if(sc.open){
+    const w=puWin(sc.vBus,sc.cb,sc.fBit),lg=x=>Math.log10(x);
+    const pts=[];
+    for(let k=0;k<=180;k++){const g=lg(300)+(lg(20000)-lg(300))*k/180,R=Math.pow(10,g);
+      pts.push([g,K_TR*R*sc.cb*1e9]);}
+    plot(c,80,300,550,200,{
+      x0:lg(300),x1:lg(20000),y0:0,y1:TR_MAX[sc.fBit]*1e9*3,
+      xl:'resistencia de polarización (escala logarítmica)',yl:'tiempo de subida del bus t_r = ln(7/3)·R·C_b (ns)',
+      xt:t=>fr(Math.pow(10,t)),yt:t=>n0(t)+' ns',
+      vbands:[[lg(w.rMin),lg(w.rMax),OK_HEX]],
+      hlines:[[TR_MAX[sc.fBit]*1e9,WARN_HEX,'máximo de la norma: '+fns(TR_MAX[sc.fBit])]],
+      series:[{pts,col:ACC,w:2.5}],
+      marks:[470,2200,10000].map(R=>[lg(R),K_TR*R*sc.cb*1e9,
+        (R>=w.rMin&&R<=w.rMax&&(!sc.iBud||(sc.vBus-V_OL)/R<=sc.iBud))?OK_HEX:BAD_HEX])});
+    legend(c,80,528,[['t_r con C_b = '+n0(sc.cb*1e12)+' pF',ACC],
+      ['ventana útil: '+fr(w.rMin)+' … '+fr(w.rMax),OK_HEX],['las tres del catálogo','#F4EFEA']]);
+    c.fillStyle='#9fb0cf';c.font='13px Outfit, sans-serif';c.textAlign='left';
+    wrapText(c,'En un bus de colector abierto nadie empuja hacia arriba: la línea sube sola a través de la resistencia de '+
+      'polarización, y ese tiempo crece con la resistencia y con la capacidad del cable. Bajar la resistencia acelera la '+
+      'subida, pero obliga al esclavo a tragar más corriente cuando pone el cero: I_OL = (V_DD − '+fv(V_OL)+' V)/R, y la '+
+      'UM10204 lo limita a '+fma(I_OL_MAX)+'. La ventana útil aquí es '+fr(w.rMin)+' … '+fr(w.rMax)+
+      (sc.iBud?', y encima el presupuesto de '+fma(sc.iBud)+' de la pila recorta el extremo bajo.':'.'),80,562,550,20);
+  }else{
+    drawLevels(c,80,300,550,200,sc);
+    c.fillStyle='#9fb0cf';c.font='13px Outfit, sans-serif';c.textAlign='left';
+    wrapText(c,sc.rs232
+      ?('Esta línea no es lógica: descansa en −'+fv(sc.vSwing)+' V y marca los ceros en +'+fv(sc.vSwing)+' V. '+
+        'Cualquier punta que la lleve directa a la entrada del analizador la destruye, y el divisor tampoco salva la '+
+        'excursión negativa. Sólo el adaptador EIA/TIA-232 sirve, y además reinvierte: sin él el analizador leería el '+
+        'complemento de cada byte.')
+      :('El bus es de empuje-tirón a '+fv(sc.vBus)+' V, así que no hace falta polarización: lo que decide es el nivel. '+
+        'Las puntas de ganancia unidad ponen los '+fv(sc.vBus)+' V enteros en una entrada que aguanta '+fv(V_MAX)+
+        ' V. El divisor 1:3 los baja a '+fv(sc.vBus/3)+' V, por encima del umbral de '+fv(V_TH)+
+        ' V. Ese mismo divisor sobre un bus de 3,3 V daría '+fv(3.3/3)+' V y ya no cruzaría el umbral: '+
+        'atenuar de más también rompe la medida.'),80,562,550,20);
+  }
+  apRight(c,sc,cfg,'sonda');
+}
+
+function drawApAna(c){
+  const sc=POOL[scIdx],cfg=curCfg(),an=anaEval(sc,cfg.ana),cp=capture(sc,cfg),de=decode(sc,cfg);
+  header(c,'APLICA · EL ANALIZADOR — '+NOM[scIdx],
+    'Tres límites distintos: cuántas muestras caen sobre un bit, cuánto vale un paso de muestreo y cuánto tiempo cabe en la memoria.',SCCOL[scIdx]);
+
+  const W1=[130,96,104,104,136],hh=28;
+  trow(c,60,100,570,hh,['analizador','muestras/bit','paso','ventana','veredicto'],W1,null,true);
+  ANAK.forEach((k,i)=>{
+    const a=anaEval(sc,k);
+    let v;
+    if(!a.osOk)v='pocas muestras por bit';
+    else if(!a.resOk)v='no mide el detalle';
+    else if(!a.memOk)v='no cabe la captura';
+    else v='✔ sirve';
+    trow(c,60,128+i*hh,570,hh,[ANA_SH[k],n2(a.os),fns(a.dt),fms(a.win),v],W1,
+      [a.ok?OK_HEX:'#F4EFEA',a.osOk?'#F4EFEA':BAD_HEX,a.resOk?'#F4EFEA':BAD_HEX,a.memOk?'#F4EFEA':BAD_HEX,a.ok?OK_HEX:BAD_HEX]);
+  });
+
+  const nb=24,vw=viewWin(sc,nb);
+  const tk=drawWave(c,80,290,550,190,sc,cp.q,vw[0],vw[1],
+    {fs:ANAS[cfg.ana].fs,title:'lo que guarda '+ANA_SH[cfg.ana]+' en esta ventana de '+nb+' bits'});
+  const li=chList(sc).map(x=>[x.lab,x.col]);
+  if(tk)li.push(['instantes de muestreo ('+tk+')',VIO]);
+  legend(c,80,508,li);
+
+  c.fillStyle='#9fb0cf';c.font='13px Outfit, sans-serif';c.textAlign='left';
+  wrapText(c,'El detalle que hay que medir en esta máquina es '+sc.reqTxt+'. Para que una medida de tiempo signifique algo '+
+    'hacen falta al menos '+N_DET+' muestras encima, o sea un paso de '+fns(sc.reqDt/N_DET)+' como mucho. '+
+    'Y la memoria no es infinita: '+n0(1e6)+' muestras a '+ANA_SH[cfg.ana]+' son '+fms(an.win)+' de ventana, frente a '+
+    fdur(sc.tSig)+' que dura '+sc.capTxt+'. Con esta configuración salen '+de.bytes.length+' bytes de los '+
+    sc.esperado.length+' esperados.',80,542,550,20);
+  apRight(c,sc,cfg,'ana');
+}
+
+function drawApDec(c){
+  const sc=POOL[scIdx],cfg=curCfg(),de=decode(sc,cfg);
+  header(c,'APLICA · EL DECODIFICADOR — '+NOM[scIdx],
+    'La captura ya es correcta: lo que se elige aquí es la regla con la que se leen los mismos flancos.',SCCOL[scIdx]);
+
+  const W1=[150,80,110,230],hh=26;
+  trow(c,60,100,570,hh,['decodificador','bytes','coincide','qué sale'],W1,null,true);
+  DECK.forEach((k,i)=>{
+    const r=decode(sc,cfgWith(sc,{dec:k}));
+    const muestra=r.bytes.slice(0,3).map(b=>hx(b.b)).join(' ')||'—';
+    trow(c,60,126+i*hh,570,hh,
+      [DECS[k].name,String(r.bytes.length),r.ok?'✔ sí':'✗ no',muestra+(r.bytes.length>3?' …':'')],W1,
+      [r.ok?OK_HEX:'#F4EFEA',null,r.ok?OK_HEX:BAD_HEX,null]);
+  });
+
+  rpanel(c,60,278,570,150,'Volcado con «'+DECS[cfg.dec].name+'»  ('+de.bytes.length+' bytes)');
+  hexDump(c,76,312,538,de.bytes,16,3,26,sc.esperado);
+  c.fillStyle='#8f97a5';c.font='12px Outfit, sans-serif';c.textAlign='left';
+  c.fillText('blanco: coincide con lo esperado  ·  ámbar: bandera de trama mala  ·  rojo: valor distinto',76,412);
+
+  c.fillStyle='#9fb0cf';c.font='13px Outfit, sans-serif';c.textAlign='left';
+  let yy=wrapText(c,sc.proto==='uart'
+    ?('Leer 8N1 como 8E1 no da un error limpio: los bytes salen con el MISMO valor porque el decodificador toma el bit de '+
+      'parada como si fuera la paridad. Sólo cae la bandera, y sólo en los bytes cuya paridad no cuadra por casualidad. '+
+      'Un decodificador mal configurado no avisa: miente. La tolerancia de baudios de una trama 8N1 es de '+
+      n2(tolBaud(8,'n',1)*100)+' % y la de 8E1 baja a '+n2(tolBaud(8,'e',1)*100)+' %, porque hay un bit más que acumular.')
+    :(sc.proto==='spi'
+      ?('Los cuatro modos de SPI se distinguen por dos bits: en qué nivel descansa el reloj (CPOL) y si el dato se muestrea '+
+        'en el primer flanco o en el segundo (CPHA). Los modos 0 y 3 muestrean en el flanco de subida; los modos 1 y 2, en '+
+        'el de bajada. Equivocarse de modo desplaza la lectura medio periodo y saca bytes distintos sobre los mismos flancos.')
+      :('En I²C el maestro cierra una lectura con un NACK deliberado antes del STOP: es la señal de «ya no quiero más». '+
+        'Por eso el último byte del volcado aparece sin reconocimiento y aun así la trama está bien formada. Una trama sin '+
+        'ese NACK final es la sospechosa, no al revés.')),60,458,570,20);
+  const mal=whyCfg(sc,cfg);
+  c.fillStyle=mal?BAD_HEX:OK_HEX;
+  wrapText(c,mal?mal:'Esta terna reconstruye la trama completa.',60,yy+30,570,20);
+  apRight(c,sc,cfg,'dec');
+}
+
+function apRight(c,sc,cfg,tema){
+  const r=runC(sc,cfg);
+  rpanel(c,PX.x,PX.y,PX.w,214,'Terna actual');
+  prow(c,PX.x,PX.y+58,PX.w,'Sonda',SONDA_SH[cfg.sonda],r.sondaOk?OK_HEX:BAD_HEX);
+  prow(c,PX.x,PX.y+90,PX.w,'Analizador',ANA_SH[cfg.ana],r.anaOk?OK_HEX:BAD_HEX);
+  prow(c,PX.x,PX.y+122,PX.w,'Decodificador',DEC_SH[cfg.dec],r.decOk?OK_HEX:BAD_HEX);
+  prow(c,PX.x,PX.y+156,PX.w,'Bytes',r.de.bytes.length+' de '+sc.esperado.length,r.de.ok?OK_HEX:BAD_HEX);
+  prow(c,PX.x,PX.y+188,PX.w,'Captura',r.ok?'válida':'no sirve',r.ok?OK_HEX:BAD_HEX);
+
+  rpanel(c,PX.x,PX.y+232,PX.w,200,'La máquina');
+  c.fillStyle='#9fb0cf';c.font='12px Outfit, sans-serif';c.textAlign='left';
+  let ty=PX.y+262;
+  [SUB[POOL.indexOf(sc)],
+   'Detalle a medir: '+sc.reqTxt+'.',
+   'Hay que capturar '+sc.capTxt+' — '+fdur(sc.tSig)+'.'].forEach(t=>{
+    ty=wrapText(c,t,PX.x+16,ty,PX.w-32,18)+22;});
+
+  rpanel(c,PX.x,PX.y+450,PX.w,244,'Diagnóstico');
+  const mal=whyCfg(sc,cfg);
+  c.fillStyle=mal?'#f3b5b5':'#b9e7c6';c.font='13px Outfit, sans-serif';c.textAlign='left';
+  wrapText(c,mal||('Nada que objetar: la terna «'+SONDA_SH[cfg.sonda]+' · '+ANA_SH[cfg.ana]+' · '+DEC_SH[cfg.dec]+
+    '» captura y reconstruye la trama entera.'),PX.x+16,PX.y+482,PX.w-32,19);
+  c.fillStyle='#8f97a5';c.font='11px Outfit, sans-serif';
+  c.fillText('tema: '+({sonda:'sonda',ana:'analizador',dec:'decodificador'}[tema]),PX.x+16,PX.y+676);
+}
+
+// ----------------------------------------------------------------- RETO ----
+function retoRows(){
+  const sc=retoSc(),cfg={...retoCh};
+  const so=sondaEval(sc,cfg.sonda),an=anaEval(sc,cfg.ana),de=decode(sc,cfg);
+  const R=[];
+  if(sc.open){
+    R.push(['subida del bus t_r',so.tr!==undefined?fns(so.tr):'sin polarización','≤ '+fns(TR_MAX[sc.fBit]),so.trOk===true]);
+    R.push(['sumidero del esclavo I_OL',so.iol!==undefined?fma(so.iol):'—','≤ '+fma(I_OL_MAX),so.iolOk===true]);
+    if(sc.iBud)R.push(['consumo permanente',so.iol!==undefined?fma(so.iol):'—','≤ '+fma(sc.iBud),so.budOk===true]);
+    else R.push(['nivel alto en la entrada',fv(vHiOf(sc,cfg.sonda))+' V','≥ '+fv(V_TH)+' V',so.hiOk===true]);
+  }else{
+    R.push(['entrada dentro del máximo',so.dano?'no':'sí','≤ '+fv(V_MAX)+' V',!so.dano]);
+    R.push(['polaridad de la lógica',so.inv?'invertida':'directa','directa',!so.inv]);
+    R.push(['nivel alto en la entrada',fv(vHiOf(sc,cfg.sonda))+' V','≥ '+fv(V_TH)+' V',so.hiOk===true]);
+  }
+  R.push(['muestras por bit',n2(an.os),'≥ '+OS_MIN,an.osOk]);
+  R.push(['paso entre muestras',fns(an.dt),'≤ '+fns(sc.reqDt/N_DET),an.resOk]);
+  R.push(['ventana de memoria',fms(an.win),'≥ '+fms(sc.tSig),an.memOk]);
+  R.push(['trama reconstruida',de.bytes.length+' bytes',sc.esperado.length+' bytes',de.ok]);
+  return R;
+}
+function retoBars(){
+  const sc=retoSc(),cfg={...retoCh};
+  const so=sondaEval(sc,cfg.sonda),an=anaEval(sc,cfg.ana);
+  const b=[];
+  if(sc.open){
+    if(so.tr!==undefined)b.push(['subida del bus frente al máximo de la norma',so.tr/TR_MAX[sc.fBit],
+      fns(so.tr)+' / '+fns(TR_MAX[sc.fBit]),so.trOk===true]);
+    else b.push(['subida del bus frente al máximo de la norma',1,'sin polarización',false]);
+  }else{
+    b.push(['nivel alto frente al máximo de la entrada',vHiOf(sc,cfg.sonda)/V_MAX,
+      fv(vHiOf(sc,cfg.sonda))+' V / '+fv(V_MAX)+' V',so.hiOk===true&&!so.dano]);
+  }
+  b.push(['paso de muestreo frente al que exige el detalle',an.dt/(sc.reqDt/N_DET),
+    fns(an.dt)+' / '+fns(sc.reqDt/N_DET),an.resOk]);
+  b.push(['lo que dura la captura frente a la ventana de memoria',sc.tSig/an.win,
+    fms(sc.tSig)+' / '+fms(an.win),an.memOk]);
+  return b;
+}
+function drawReto(c){
+  const sc=retoSc(),cfg={...retoCh};
+  header(c,'RETO · '+NOM[retoK],
+    'Elige sonda, analizador y decodificador. Las tres decisiones se califican por separado.',SCCOL[retoK]);
+
+  rpanel(c,60,86,570,146,'Lo que exige la instalación');
+  c.fillStyle='#c9d4e6';c.font='13px Outfit, sans-serif';c.textAlign='left';
+  wrapText(c,MAQ[retoK],76,140,538,19);
+
+  const W1=[212,140,118,100],hh=26;
+  trow(c,60,248,570,hh,['criterio','se obtiene','se exige','veredicto'],W1,null,true);
+  retoRows().forEach((rw,i)=>{
+    trow(c,60,274+i*hh,570,hh,
+      [rw[0],rw[1],rw[2],retoChecked?(rw[3]?'✔ cumple':'✗ falla'):'—'],W1,
+      [null,null,null,kc(rw[3],retoChecked)]);
+  });
+
+  retoBars().forEach((b,i)=>{
+    drawBar(c,60,500+i*50,570,20,b[1],b[0],retoChecked?(b[3]?OK_HEX:BAD_HEX):ACC,b[2]);
+  });
+
+  c.fillStyle='#9fb0cf';c.font='13px Outfit, sans-serif';c.textAlign='left';
+  wrapText(c,retoChecked
+    ?(retoSolved?'Las tres decisiones son correctas: la captura entra en la memoria, tiene resolución para medir lo que hay que medir y la trama sale entera.'
+      :'Cada eje se juzga con los otros dos puestos en su valor correcto: si un eje falla, es por él mismo y no por arrastre.')
+    :'Cada eje se juzga con los otros dos puestos en su valor correcto. Pulsa «Comprobar» cuando tengas las tres.',60,690,570,20);
+
+  // -------- columna derecha
+  rpanel(c,PX.x,PX.y,PX.w,190,'Tus tres decisiones');
+  prow(c,PX.x,PX.y+58,PX.w,'Sonda',SONDA_SH[cfg.sonda],kc(retoOkSonda,retoChecked));
+  prow(c,PX.x,PX.y+100,PX.w,'Analizador',ANA_SH[cfg.ana],kc(retoOkAna,retoChecked));
+  prow(c,PX.x,PX.y+142,PX.w,'Decodificador',DEC_SH[cfg.dec],kc(retoOkDec,retoChecked));
+
+  rpanel(c,PX.x,PX.y+208,PX.w,244,'Catálogo disponible');
+  c.fillStyle='#9fb0cf';c.font='12px Outfit, sans-serif';c.textAlign='left';
+  let ty=PX.y+240;
+  [['Sondas',SONDAK.map(k=>SONDA_SH[k]).join(' · ')],
+   ['Analizadores',ANAK.map(k=>ANA_SH[k]).join(' · ')],
+   ['Decodificadores',DECK.map(k=>DEC_SH[k]).join(' · ')],
+   ['Todos con 1 M de muestras de memoria; el umbral de entrada está en '+fv(V_TH)+' V y el máximo en '+fv(V_MAX)+' V.','']]
+   .forEach(p=>{
+    c.fillStyle='#C7D6F5';c.font='bold 12px Outfit, sans-serif';
+    if(p[1]){c.fillText(p[0],PX.x+16,ty);ty+=17;c.fillStyle='#9fb0cf';c.font='12px Outfit, sans-serif';
+      ty=wrapText(c,p[1],PX.x+16,ty,PX.w-32,17)+24;}
+    else{c.fillStyle='#8f97a5';c.font='11px Outfit, sans-serif';ty=wrapText(c,p[0],PX.x+16,ty,PX.w-32,16)+20;}
+  });
+
+  rpanel(c,PX.x,PX.y+470,PX.w,224,'Diagnóstico');
+  const mal=whyCfg(sc,cfg);
+  c.fillStyle=mal?'#f3b5b5':'#b9e7c6';c.font='13px Outfit, sans-serif';c.textAlign='left';
+  wrapText(c,mal||('La terna «'+SONDA_SH[cfg.sonda]+' · '+ANA_SH[cfg.ana]+' · '+DEC_SH[cfg.dec]+
+    '» captura y reconstruye la trama entera.'),PX.x+16,PX.y+502,PX.w-32,19);
+}
+
+function drawBoard(){
+  const c=bCv.getContext('2d');bg(c);
+  if(mode==='aplica')drawAplica(c);else if(mode==='reto')drawReto(c);else drawExplora(c);
+  bTex.needsUpdate=true;
+}
+function boardClick(){
+  const next={explora:'aplica',aplica:'reto',reto:'explora'};
+  if(!autoRunning)setMode(next[mode]);
+}
+
+// ===================== 7. ESCENA 3D =====================
+const benchG=new THREE.Group();benchG.position.set(1.15,0,0.35);scene.add(benchG);
+const top=roundedBox(3.3,0.12,1.6,MAT.bench,0.03);top.position.set(0,0.72,0);benchG.add(top);
+[[-1.5,-0.65],[1.5,-0.65],[-1.5,0.65],[1.5,0.65]].forEach(p=>{
+  const lg=new THREE.Mesh(new THREE.CylinderGeometry(0.05,0.05,0.66,12),MAT.leg);
+  lg.position.set(p[0],0.39,p[1]);benchG.add(lg);});
+
+// -- equipo bajo prueba
+const dutG=new THREE.Group();dutG.position.set(-1.05,0.78,0.18);benchG.add(dutG);
+const dutPcb=roundedBox(0.9,0.03,0.66,MAT.pcb,0.02);dutPcb.position.set(0,0.02,0);dutG.add(dutPcb);
+const dutChip=roundedBox(0.26,0.06,0.26,MAT.dark,0.01);dutChip.position.set(-0.12,0.065,0.02);dutG.add(dutChip);
+const dutMem=roundedBox(0.16,0.05,0.12,MAT.dark,0.01);dutMem.position.set(0.18,0.06,-0.14);dutG.add(dutMem);
+const dutHdr=roundedBox(0.08,0.06,0.42,MAT.plate,0.01);dutHdr.position.set(0.38,0.065,0.06);dutG.add(dutHdr);
+const dutPins=[];
+for(let i=0;i<4;i++){
+  const p=new THREE.Mesh(new THREE.CylinderGeometry(0.012,0.012,0.09,8),MAT.copper);
+  p.position.set(0.38,0.115,0.21-i*0.10);dutG.add(p);dutPins.push(p);
+}
+dutG.userData={title:'Equipo bajo prueba',info:'La placa que habla: aquí nacen los flancos que hay que capturar'};
+addHoverLabel(dutG,'Equipo bajo prueba',SCCOL[0],new THREE.Vector3(-1.05,1.30,0.18).add(benchG.position),1.9);
+
+// -- módulo de sonda
+const probeG=new THREE.Group();probeG.position.set(-0.10,0.78,0.10);benchG.add(probeG);
+const probeMat=std(0x2b3038,0.5,0.32);
+const probeBody=roundedBox(0.52,0.20,0.40,probeMat,0.04);probeBody.position.set(0,0.13,0);probeG.add(probeBody);
+const probeTag=roundedBox(0.30,0.012,0.12,MAT.plate,0.01);probeTag.position.set(0,0.235,0.02);probeG.add(probeTag);
+const probeLed={mesh:null,mat:emis(OK_HEX)};
+probeLed.mesh=new THREE.Mesh(new THREE.CylinderGeometry(0.026,0.026,0.02,14),probeLed.mat);
+probeLed.mesh.rotation.x=Math.PI/2;probeLed.mesh.position.set(0.19,0.15,0.202);probeG.add(probeLed.mesh);
+probeG.userData={title:'Módulo de sonda',info:'Atenuación, polarización o adaptador: decide qué llega a la entrada del analizador'};
+addHoverLabel(probeG,'Sonda',WARN_HEX,new THREE.Vector3(-0.10,1.20,0.10).add(benchG.position),1.4);
+
+// -- analizador lógico
+const anaG=new THREE.Group();anaG.position.set(0.98,0.78,-0.02);benchG.add(anaG);
+const anaBody=roundedBox(0.92,0.34,0.62,MAT.body,0.05);anaBody.position.set(0,0.19,0);anaG.add(anaBody);
+const anaFace=roundedBox(0.80,0.22,0.012,MAT.dark,0.02);anaFace.position.set(0,0.20,0.312);anaG.add(anaFace);
+const chLed=[];
+for(let i=0;i<4;i++){
+  const m=emis(CHC[i]);
+  const led=new THREE.Mesh(new THREE.CylinderGeometry(0.022,0.022,0.018,14),m);
+  led.rotation.x=Math.PI/2;led.position.set(-0.27+i*0.18,0.26,0.322);anaG.add(led);
+  chLed.push({mesh:led,mat:m});
+}
+const memMat=emis(ACC);
+const memBar=new THREE.Mesh(new THREE.BoxGeometry(0.62,0.035,0.014),memMat);
+memBar.position.set(0,0.145,0.322);anaG.add(memBar);
+const capMat=emis(OK_HEX);
+const capLed=new THREE.Mesh(new THREE.SphereGeometry(0.035,16,12),capMat);
+capLed.position.set(0.36,0.40,0.10);anaG.add(capLed);
+anaG.userData={title:'Analizador lógico',info:'Cuatro canales, 1 M de muestras: la frecuencia de muestreo fija el paso y la ventana'};
+addHoverLabel(anaG,'Analizador lógico',ACC,new THREE.Vector3(0.98,1.42,-0.02).add(benchG.position),2.2);
+
+// -- latiguillos del equipo a la sonda
+function lead(p0,p1,colHex,r){
+  const d=new THREE.Vector3().subVectors(p1,p0),len=d.length();
+  const m=new THREE.Mesh(new THREE.CylinderGeometry(r||0.011,r||0.011,len,10),
+    new THREE.MeshStandardMaterial({color:new THREE.Color(colHex),roughness:0.5,metalness:0.2}));
+  m.position.copy(p0).addScaledVector(d,0.5);
+  m.quaternion.setFromUnitVectors(new THREE.Vector3(0,1,0),d.clone().normalize());
+  return m;
+}
+const leads=[];
+for(let i=0;i<4;i++){
+  const a=new THREE.Vector3(-0.67,0.94,0.39-i*0.10);
+  const b=new THREE.Vector3(-0.36,0.90,0.16-i*0.05);
+  const m=lead(a,b,CHC[i]);benchG.add(m);leads.push(m);
+}
+for(let i=0;i<4;i++){
+  const a=new THREE.Vector3(0.16,0.90,0.16-i*0.05);
+  const b=new THREE.Vector3(0.52,0.92,0.06-i*0.05);
+  const m=lead(a,b,CHC[i]);benchG.add(m);leads.push(m);
+}
+
+// -- panel de instrumentos (molde S+P)
+const panelG=new THREE.Group();panelG.position.set(3.05,0.5,0.05);panelG.rotation.y=-0.24;scene.add(panelG);
+const pBody=roundedBox(1.50,1.00,0.14,MAT.body,0.04);pBody.position.set(0,0.62,0);panelG.add(pBody);
+const pCv=document.createElement('canvas');pCv.width=600;pCv.height=400;
+const pTex=new THREE.CanvasTexture(pCv);
+const pScreen=new THREE.Mesh(new THREE.PlaneGeometry(1.40,0.92),new THREE.MeshBasicMaterial({map:pTex}));
+pScreen.position.set(0,0.62,0.075);panelG.add(pScreen);
+[-0.62,0.62].forEach(x=>{const s=new THREE.Mesh(new THREE.CylinderGeometry(0.02,0.02,0.03,10),MAT.steel);
+  s.rotation.x=Math.PI/2;s.position.set(x,0.62,0.075);panelG.add(s);});
+[-0.30,0.30].forEach(x=>{const l=new THREE.Mesh(new THREE.CylinderGeometry(0.04,0.04,0.30,12),MAT.leg);
+  l.position.set(x,-0.03,0);panelG.add(l);});
+pBody.userData={title:'Panel del analizador',info:'Estado instantáneo de los cuatro canales y resultado de la decodificación'};
+addHoverLabel(pBody,'Panel',VIO,new THREE.Vector3(0,1.35,0.1).add(panelG.position),1.4);
+
+// ===================== 8. FOTOGRAMAS, PANEL 3D Y HUD =====================
+let framesMeta=null;
+function hwFrames(){
+  const sc=curSc(),cfg=curCfg(),cp=capture(sc,cfg),de=decode(sc,cfg);
+  const nb=(mode==='explora')?ZOOMS[expZoom][0]:24;
+  const vw=viewWin(sc,nb),NF=64,out=[];
+  for(let k=0;k<NF;k++){
+    const t=vw[0]+(vw[1]-vw[0])*(k+0.5)/NF;
+    out.push({t,lv:['D0','D1','D2','D3'].map(ch=>lvlAt(cp.q[ch],t))});
+  }
+  framesMeta={sc,cfg,cp,de,t0:vw[0],t1:vw[1],nb};
+  return out;
+}
+function frames(){if(!framesCache)framesCache=hwFrames();return framesCache;}
+function hwCount(){return frames().length;}
+
+function drawPanel3D(fr,step){
+  const c=pCv.getContext('2d'),M=framesMeta;
+  c.fillStyle='#0e1218';c.fillRect(0,0,600,400);
+  c.strokeStyle=hexA(ACC,0.28);c.lineWidth=2;c.strokeRect(6,6,588,388);
+  c.fillStyle='#C7D6F5';c.font='bold 20px Outfit, sans-serif';c.textAlign='left';
+  c.fillText('ANALIZADOR LÓGICO',24,40);
+  c.fillStyle=SCCOL[mode==='reto'?retoK:scIdx];c.font='bold 16px Outfit, sans-serif';c.textAlign='right';
+  c.fillText(NOM_S[POOL.indexOf(M.sc)]+' · '+PROTO_LBL[M.sc.proto],576,40);
+
+  // barra de recorrido de la ventana
+  const X=24,Y=58,W=552,H=26;
+  c.fillStyle='rgba(255,255,255,0.06)';c.fillRect(X,Y,W,H);
+  c.fillStyle=hexA(ACC,0.5);c.fillRect(X,Y,W*(step+1)/Math.max(1,hwCount()),H);
+  c.strokeStyle=hexA(ACC,0.3);c.lineWidth=1;c.strokeRect(X,Y,W,H);
+  c.fillStyle='#9fb0cf';c.font='12px Outfit, sans-serif';c.textAlign='left';
+  c.fillText('ventana de '+fdur(M.t1-M.t0)+'  ·  t = '+fdur(fr.t),X+8,Y+18);
+
+  // estado instantáneo de los canales
+  const chs=chList(M.sc);
+  chs.forEach((cc,i)=>{
+    const bx=24+i*140,by=104,bw=126,bh=64,v=fr.lv[parseInt(cc.ch.substring(1),10)];
+    c.fillStyle=hexA(cc.col,v?0.30:0.08);c.fillRect(bx,by,bw,bh);
+    c.strokeStyle=hexA(cc.col,0.7);c.lineWidth=1.5;c.strokeRect(bx,by,bw,bh);
+    c.fillStyle=cc.col;c.font='bold 13px Outfit, sans-serif';c.textAlign='left';c.fillText(cc.lab,bx+10,by+20);
+    c.fillStyle='#F4EFEA';c.font='bold 30px Outfit, sans-serif';c.textAlign='right';
+    c.fillText(M.cp.dead?'—':String(v),bx+bw-12,by+52);
+  });
+
+  c.fillStyle=M.de.ok?OK_HEX:BAD_HEX;c.font='bold 48px Outfit, sans-serif';c.textAlign='left';
+  c.fillText(M.de.bytes.length+' bytes',24,232);
+  c.fillStyle='#8f97a5';c.font='13px Outfit, sans-serif';c.textAlign='right';
+  c.fillText('se esperan '+M.sc.esperado.length,576,232);
+
+  const row=(y,l,v,cc)=>{
+    c.fillStyle='#8f97a5';c.font='13px Outfit, sans-serif';c.textAlign='left';c.fillText(l,24,y);
+    c.fillStyle=cc||'#F4EFEA';c.font='bold 15px Outfit, sans-serif';c.textAlign='right';c.fillText(v,576,y);
+  };
+  const an=anaEval(M.sc,M.cfg.ana),so=sondaEval(M.sc,M.cfg.sonda);
+  row(266,'Sonda',SONDAS[M.cfg.sonda].name,so.ok?OK_HEX:BAD_HEX);
+  row(294,'Analizador',ANAS[M.cfg.ana].name,an.ok?OK_HEX:BAD_HEX);
+  row(322,'Decodificador',DECS[M.cfg.dec].name,M.de.ok?OK_HEX:BAD_HEX);
+  row(350,'Muestras por bit · paso',n2(an.os)+' · '+fns(an.dt),an.osOk&&an.resOk?OK_HEX:BAD_HEX);
+  row(378,'Ventana · captura',fms(an.win)+' / '+fms(M.sc.tSig),an.memOk?OK_HEX:BAD_HEX);
+  pTex.needsUpdate=true;
+}
+
+function updateHW(){
+  const fs=frames(),step=hwStep%fs.length,fr=fs[step],M=framesMeta;
+  const so=sondaEval(M.sc,M.cfg.sonda),an=anaEval(M.sc,M.cfg.ana),de=M.de;
+  const act=chList(M.sc).map(x=>parseInt(x.ch.substring(1),10));
+  chLed.forEach((L,i)=>{
+    const on=act.indexOf(i)>=0;
+    L.mesh.visible=on;
+    L.mat.emissiveIntensity=on?(M.cp.dead?0.05:(fr.lv[i]?1.5:0.10)):0;
+  });
+  probeMat.color.set(so.dano?BAD_HEX:(so.ok?OK_HEX:WARN_HEX));
+  probeLed.mat.emissive.set(so.ok?OK_HEX:BAD_HEX);
+  probeLed.mat.emissiveIntensity=so.ok?1.2:0.9;
+  const use=Math.max(0.05,Math.min(1,M.sc.tSig/an.win));
+  memBar.scale.x=use;memBar.position.x=-0.31+0.31*use;
+  memMat.emissive.set(an.memOk?ACC:BAD_HEX);
+  memMat.emissiveIntensity=an.memOk?0.9:1.4;
+  capMat.emissive.set(de.ok?OK_HEX:BAD_HEX);
+  capMat.emissiveIntensity=de.ok?1.4:0.7;
+  leads.forEach((m,i)=>{m.visible=act.indexOf(i%4)>=0;});
+  dutPins.forEach((p,i)=>{p.visible=act.indexOf(i)>=0;});
+  drawPanel3D(fr,step);
+}
+
+// ===================== 9. HUD Y PANEL =====================
+el('hud').innerHTML=`
+  <div class="eyebrow">Sistemas Digitales y Automatización · NXP UM10204 (I²C-bus) · TIA/EIA-232-F · Motorola SPI</div>
+  <h2>Análisis de tramas: UART, I²C y SPI en el analizador lógico</h2>
+  <p>Un analizador lógico no mide tensiones: <b>decide unos y ceros</b> y sólo en los instantes en que muestrea. Antes de leer un byte hay que resolver tres cosas distintas y ninguna se deduce de las otras: con qué <b>sonda</b> se toca el bus (nivel, polaridad y, en colector abierto, la polarización que se paga en corriente), con qué <b>analizador</b> se digitaliza (muestras por bit, paso de muestreo y ventana de memoria) y con qué <b>decodificador</b> se interpreta lo capturado. Equivocarse en la tercera es lo más peligroso: no da un error, da bytes que parecen buenos.</p>
+  <div class="formula">t_r = ln(7/3)·R·C_b &nbsp;·&nbsp; I_OL = (V_DD − V_OL)/R ≤ 3 mA &nbsp;·&nbsp; muestras/bit = f_s/f_bit ≥ 4 &nbsp;·&nbsp; Δt = 1/f_s ≤ detalle/4 &nbsp;·&nbsp; ventana = profundidad/f_s &nbsp;·&nbsp; tolerancia = 0,5/(n_bits − 0,5)</div>
+  <div class="legend">
+    <div class="li"><span class="dot" style="background:#8AB4F8"></span>Sonda: nivel, polaridad y daño en la entrada</div>
+    <div class="li"><span class="dot" style="background:#7CD992"></span>Colector abierto: subida contra corriente de sumidero</div>
+    <div class="li"><span class="dot" style="background:#C08CF8"></span>Analizador: muestras por bit, paso y memoria</div>
+    <div class="li"><span class="dot" style="background:#E9C46A"></span>Decodificador: la regla con la que se leen los flancos</div>
+  </div>
+  <div class="fid">
+    <div class="ft">🔒 Contrato de fidelidad</div>
+    <div class="fl">Sí modela: umbral y máximo de entrada del analizador, atenuación y polaridad de la sonda, daño por exceder el máximo, tiempo de subida de un bus de colector abierto con su capacidad de línea, corriente de sumidero del esclavo y presupuesto permanente del nodo, cuantización temporal de la captura en la rejilla de muestreo, límite de la memoria y truncado de la ventana, y decodificación real de UART (bit de arranque, orden LSB primero, paridad y parada), I²C (arranque, arranque repetido, parada, noveno bit de reconocimiento) y SPI (los cuatro modos por CPOL y CPHA).</div>
+    <div class="fl no">NO modela: la diafonía entre canales de la sonda, las reflexiones y la longitud del cable, el jitter del reloj del analizador, la deriva del oscilador del emisor, el arbitraje multimaestro y el estiramiento de reloj de I²C, los disparos por patrón y la compresión de la captura, ni el consumo dinámico del bus.</div>
+  </div>
+  <div class="src">Ref: NXP UM10204 «I²C-bus specification and user manual» rev. 7 · TIA/EIA-232-F · Motorola/Freescale SPI Block Guide · verificación numérica propia (152/152)</div>`;
+el('panel').innerHTML=`
+  <h4>Banco de análisis de buses <span id="p_mode" class="tag">Explora</span></h4>
+  <div class="modebar">
+    <button class="b" id="m_explora">🔧 Explora</button>
+    <button class="b" id="m_aplica">🧩 Aplica</button>
+    <button class="b" id="m_reto">🎯 Reto</button>
+  </div>
+  <div id="scenarioInfo" class="console" style="display:none"></div>
+  <div class="modebar" id="selbar"></div>
+  <div id="tele"></div>
+  <div class="console" id="report"></div>
+  <h4 class="sec" id="retoTitle" style="display:none">Reto</h4>
+  <div id="retoBox" style="display:none">
+    <div id="retoSpec" class="console"></div>
+    <div class="btns"><button class="b" id="btnCheck">✅ Comprobar</button></div>
+  </div>
+  <h4 class="sec">Pregunta de ingeniería</h4>
+  <div id="q_text"></div>
+  <div class="btns" id="dxbtns"></div>
+  <div class="btns">
+    <button class="b" id="btnAuto">✨ Recorrido guiado (automático)</button>
+    <button class="b" id="btnNew">🔀 Nueva máquina</button>
+  </div>`;
+
+// ===================== 10. TOASTS =====================
+function showToast(html){const t=el('toast');t.innerHTML=html;t.classList.add('show');clearTimeout(showToast._t);showToast._t=setTimeout(()=>t.classList.remove('show'),4200);}
+
+// ===================== 11. MODOS Y CONTROLES =====================
+const MODE_META={
+  explora:{nombre:'Explora',cam:[[5.8,3.4,7.9],[0.8,1.05,0.3]],
+    mision:'Cambia de analizador y de ampliación: mira cómo la misma señal se convierte en una escalera de muestras.'},
+  aplica:{nombre:'Aplica',cam:[[4.8,3.2,6.9],[0.9,1.10,0.2]],
+    mision:'Tres decisiones sobre la misma captura: sonda, analizador y decodificador. Ninguna se deduce de las otras.'},
+  reto:{nombre:'Reto',cam:[[4.3,3.0,6.3],[0.7,1.10,0.1]],
+    mision:'Elige sonda, analizador y decodificador para la instalación que se te describe.'}};
+
+function lbl(t){return `<span class="lbl">${t}</span>`;}
+function optBtns(key,opts,cur){
+  return opts.map(([v,t])=>`<button class="b sm ${String(cur)===String(v)?'on':''}" data-${key}="${v}">${t}</button>`).join('');
+}
+function buildControls(){
+  const bar=el('selbar');bar.style.display='flex';bar.style.flexWrap='wrap';
+  let html='';
+  if(mode==='explora'){
+    html+=lbl('Máquina')+optBtns('sc',NOM_S.map((t,i)=>[i,t]),scIdx);
+    html+=lbl('Analizador')+optBtns('ana',ANAK.map(k=>[k,ANA_SH[k]]),expAna);
+    html+=lbl('Ampliación')+optBtns('zm',ZOOMS.map((z,i)=>[i,z[1]]),expZoom);
+  }else if(mode==='aplica'){
+    html+=lbl('Tema')+optBtns('tp',TOPICS,apTopic);
+    html+=lbl('Máquina')+optBtns('sc',NOM_S.map((t,i)=>[i,t]),scIdx);
+    html+=lbl('Sonda')+optBtns('sd',SONDAK.map(k=>[k,SONDA_SH[k]]),apSonda);
+    html+=lbl('Analizador')+optBtns('ana',ANAK.map(k=>[k,ANA_SH[k]]),apAna);
+    html+=lbl('Decodificador')+optBtns('dc',DECK.map(k=>[k,DEC_SH[k]]),apDec);
+  }else{
+    html+=lbl('Sonda')+optBtns('rsd',SONDAK.map(k=>[k,SONDA_SH[k]]),retoCh.sonda);
+    html+=lbl('Analizador')+optBtns('rana',ANAK.map(k=>[k,ANA_SH[k]]),retoCh.ana);
+    html+=lbl('Decodificador')+optBtns('rdc',DECK.map(k=>[k,DEC_SH[k]]),retoCh.dec);
+  }
+  bar.innerHTML=html;
+  const bind=(attr,fn)=>bar.querySelectorAll('['+attr+']').forEach(b=>b.onclick=()=>{
+    if(autoRunning)return;fn(b.getAttribute(attr));synth.beep(720,0.05,0.04);afterEdit();});
+  bind('data-sc',v=>{scIdx=parseInt(v,10);syncSel();});
+  bind('data-ana',v=>{if(mode==='aplica')apAna=v;else expAna=v;});
+  bind('data-zm',v=>{expZoom=parseInt(v,10);});
+  bind('data-tp',v=>{apTopic=v;});
+  bind('data-sd',v=>{apSonda=v;});
+  bind('data-dc',v=>{apDec=v;});
+  bind('data-rsd',v=>{retoSet('sonda',v);});
+  bind('data-rana',v=>{retoSet('ana',v);});
+  bind('data-rdc',v=>{retoSet('dec',v);});
+}
+function updateScenarioInfo(){
+  const box=el('scenarioInfo');box.style.display='block';
+  const i=mode==='reto'?retoK:scIdx,sc=curSc();
+  box.innerHTML=`<b style="color:${SCCOL[i]}">${NOM[i]}</b><br>`+
+    `<span class="mono">${PROTO_LBL[sc.proto]} · ${fbits(sc.fBit)} · ${sc.open?'colector abierto '+fv(sc.vBus)+' V con '+n0(sc.cb*1e12)+' pF':(sc.rs232?'bipolar ±'+fv(sc.vSwing)+' V':'empuje-tirón '+fv(sc.vBus)+' V')}</span><br>`+
+    `${SUB[i]}<br><span class="mono">Detalle a medir: ${fns(sc.reqDt)} · captura ${fdur(sc.tSig)}${sc.iBud?' · presupuesto '+fma(sc.iBud):''}</span>`;
+}
+function setMode(k){
+  mode=k;hwStep=0;
+  ['explora','aplica','reto'].forEach(m=>el('m_'+m).classList.toggle('on',m===k));
+  el('p_mode').textContent=MODE_META[k].nombre;
+  el('retoTitle').style.display=k==='reto'?'block':'none';
+  el('retoBox').style.display=k==='reto'?'block':'none';
+  if(k==='reto')updateRetoSpec();
+  buildControls();updateScenarioInfo();
+  solved=(k==='reto')?retoSolved:false;
+  clearDx();buildQuiz();refreshQuestion();
+  const cam=MODE_META[k].cam;S.moveTo(cam[0],cam[1]);
+  refreshAll();
+}
+function afterEdit(){buildControls();updateScenarioInfo();if(mode==='reto')updateRetoSpec();refreshAll();}
+function newSignal(){
+  scIdx=pickIdx(POOL.length,scIdx);syncSel();
+  retoK=pickIdx(POOL.length,retoK);seedReto(retoK);
+  synth.beep(520,0.08,0.05);hwStep=0;afterEdit();
+}
+
+// ===================== 12. TELEMETRÍA Y REPORTE =====================
+function teleRow(l,v,cls){return `<div class="trow"><span class="tl">${l}</span><span class="tv ${cls||''}">${v}</span></div>`;}
+function updateTele(){
+  const sc=curSc(),cfg=curCfg(),r=runC(sc,cfg),so=r.so,an=r.an,de=r.de;
+  let h='';
+  h+=teleRow('Protocolo',PROTO_LBL[sc.proto]+' · '+fbits(sc.fBit));
+  h+=teleRow('Sonda',SONDA_SH[cfg.sonda],so.ok?'ok':'dtc');
+  if(sc.open){
+    h+=teleRow('Subida t_r',so.tr!==undefined?fns(so.tr):'sin polarización',so.trOk===true?'ok':'dtc');
+    h+=teleRow('Sumidero I_OL',so.iol!==undefined?fma(so.iol):'—',so.iolOk===true?'ok':'dtc');
+  }else{
+    h+=teleRow('Nivel a la entrada',cfg.sonda==='rs232'&&!sc.rs232?'—':fv(vHiOf(sc,cfg.sonda))+' V',so.hiOk&&!so.dano?'ok':'dtc');
+  }
+  h+=teleRow('Analizador',ANA_SH[cfg.ana],an.ok?'ok':'dtc');
+  h+=teleRow('Muestras por bit',n2(an.os),an.osOk?'ok':'dtc');
+  h+=teleRow('Paso de muestreo',fns(an.dt),an.resOk?'ok':'dtc');
+  h+=teleRow('Ventana de memoria',fms(an.win),an.memOk?'ok':'dtc');
+  h+=teleRow('Duración de la captura',fdur(sc.tSig));
+  h+=teleRow('Decodificador',DEC_SH[cfg.dec],de.ok?'ok':'dtc');
+  h+=teleRow('Bytes',de.bytes.length+' de '+sc.esperado.length,de.ok?'ok':'dtc');
+  el('tele').innerHTML=h;
+}
+function updateReport(){
+  const sc=curSc(),cfg=curCfg(),r=runC(sc,cfg);
+  let html=`<b>${MODE_META[mode].mision}</b><br>`;
+  if(mode==='explora'){
+    html+=`<span class="mono">${ANA_SH[cfg.ana]} · ${n2(r.an.os)} muestras/bit · paso ${fns(r.an.dt)} · ventana ${fms(r.an.win)}</span><br>`;
+    html+=r.ok?`La trama se reconstruye entera: ${r.de.bytes.length} bytes.`
+              :`No sirve: ${whyCfg(sc,cfg)}`;
+  }else if(mode==='aplica'){
+    if(apTopic==='sonda'){
+      html+=`<span class="mono">${SONDAS[cfg.sonda].name}</span><br>`;
+      html+=sc.open
+        ?`En colector abierto la resistencia de polarización se paga dos veces: en tiempo de subida y en corriente de sumidero.`
+        :`Aquí no hay polarización que elegir: lo que decide es el nivel que llega a la entrada y su polaridad.`;
+    }else if(apTopic==='ana'){
+      html+=`<span class="mono">${ANA_SH[cfg.ana]} · ${n2(r.an.os)} m/bit · ${fns(r.an.dt)} · ${fms(r.an.win)}</span><br>`;
+      html+=`Muestras por bit, paso de muestreo y memoria son tres límites distintos: cumplir uno no salva de los otros.`;
+    }else{
+      html+=`<span class="mono">${DECS[cfg.dec].name} → ${r.de.bytes.length} bytes</span><br>`;
+      html+=r.de.ok?`Los bytes coinciden con lo esperado y las banderas de la trama cuadran.`
+                   :`No cuadra: ${r.de.why}.`;
+    }
+  }else{
+    html+=retoChecked?retoMsg:`Terna actual: ${SONDA_SH[cfg.sonda]} · ${ANA_SH[cfg.ana]} · ${DEC_SH[cfg.dec]}.`;
+  }
+  el('report').innerHTML=html;
+}
+function refreshAll(){framesCache=null;drawBoard();updateTele();updateReport();updateHW();}
+
+// ===================== 13. RETO =====================
+function firstWrong(list,okFn){for(const k of list){if(!okFn(k))return k;}return list[0];}
+function seedReto(k){
+  retoK=(k===undefined||k===null)?pickIdx(POOL.length,retoK):k;
+  const sc=POOL[retoK];
+  retoCh={sonda:firstWrong(SONDAK,q=>okSonda(sc,q)),
+          ana:firstWrong(ANAK,q=>okAna(sc,q)),
+          dec:firstWrong(DECK,q=>okDec(sc,q))};
+  retoChecked=false;retoSolved=false;retoMsg='';solved=false;
+  retoOkSonda=false;retoOkAna=false;retoOkDec=false;
+}
+function retoSet(field,v){retoCh[field]=v;retoChecked=false;retoSolved=false;solved=false;}
+function updateRetoSpec(){
+  const sc=retoSc();
+  el('retoSpec').innerHTML=
+    `<b style="color:${SCCOL[retoK]}">${NOM[retoK]}</b><br>`+
+    `${MAQ[retoK]}<br>`+
+    `<span class="mono">${PROTO_LBL[sc.proto]} · ${fbits(sc.fBit)} · detalle a medir ${fns(sc.reqDt)} · captura ${fdur(sc.tSig)}`+
+    `${sc.open?' · '+n0(sc.cb*1e12)+' pF de línea':''}${sc.iBud?' · presupuesto '+fma(sc.iBud):''}</span><br>`+
+    `Elige las tres: sonda, analizador y decodificador.`+
+    (retoChecked?`<br>${retoMsg}`:'');
+}
+function retoExplain(){
+  const sc=retoSc(),p=[];
+  if(!retoOkSonda)p.push('Sonda: '+whyCfg(sc,cfgWith(sc,{sonda:retoCh.sonda})));
+  if(!retoOkAna)p.push('Analizador: '+whyCfg(sc,cfgWith(sc,{ana:retoCh.ana})));
+  if(!retoOkDec)p.push('Decodificador: '+whyCfg(sc,cfgWith(sc,{dec:retoCh.dec})));
+  return p.join('<br>');
+}
+function checkReto(){
+  const sc=retoSc();
+  retoOkSonda=okSonda(sc,retoCh.sonda);
+  retoOkAna=okAna(sc,retoCh.ana);
+  retoOkDec=okDec(sc,retoCh.dec);
+  retoChecked=true;
+  retoSolved=retoOkSonda&&retoOkAna&&retoOkDec;
+  solved=retoSolved;
+  synth.beep(retoSolved?1046:220,0.12,0.06);
+  const n=(retoOkSonda?1:0)+(retoOkAna?1:0)+(retoOkDec?1:0);
+  retoMsg=retoSolved
+    ?`<b style="color:${OK_HEX}">Las tres decisiones son correctas.</b> Con «${SONDAS[retoCh.sonda].name}», «${ANAS[retoCh.ana].name}» y «${DECS[retoCh.dec].name}» la captura entra en memoria, tiene resolución para medir el detalle y la trama sale entera.`
+    :`<b style="color:${BAD_HEX}">${n} de 3 decisiones correctas.</b><br>${retoExplain()}`;
+  updateRetoSpec();refreshAll();
+}
+function retoSolveBuild(){const sc=retoSc();retoCh={...GOOD(sc)};retoChecked=false;retoSolved=false;solved=false;}
+
+// ===================== 14. QUIZ =====================
+// Los enunciados citan cifras SELLADAS del volcado numerico: no dependen del estado.
+function buildQuiz(){
+  QUIZ={
+    explora:{p:'En el volcado de la EEPROM salen 304 bytes y el último aparece sin reconocimiento. ¿Qué significa?',
+      opciones:[
+        {t:'Que el maestro cierra la lectura con un NACK deliberado',ok:true,
+          why:'Correcto: en I²C el maestro avisa de que ya no quiere más datos no reconociendo el último byte. Es la firma de una trama BIEN formada; la sospechosa es la que no lo tiene.'},
+        {t:'Que la memoria se quedó sin datos y dejó de responder',ok:false,
+          why:'No: la memoria respondió los 300 bytes pedidos. El NACK lo pone el maestro, no el esclavo.'},
+        {t:'Que la sonda perdió el último flanco de reloj',ok:false,
+          why:'No: si se perdiera un flanco el byte saldría incompleto o con otro valor, no con la bandera de reconocimiento invertida.'},
+        {t:'Que el analizador se quedó sin memoria en ese byte',ok:false,
+          why:'No: a 50 MS/s la ventana es de 20,00 ms y el volcado dura 6,87 ms; cabe entero con holgura.'}]},
+    aplica:{p:'El analizador de 200 MS/s es el más rápido del banco y aun así falla en la EEPROM. ¿Por qué?',
+      opciones:[
+        {t:'Porque su millón de muestras a 200 MS/s sólo cubre 5,00 ms y el volcado dura 6,87 ms',ok:true,
+          why:'Correcto: la ventana es profundidad/f_s. Muestrear más rápido acorta el tiempo que cabe en la memoria; velocidad y ventana tiran en sentidos opuestos.'},
+        {t:'Porque a esa velocidad no caben suficientes muestras por bit',ok:false,
+          why:'Al revés: a 200 MS/s caen 500 muestras por bit de los 400 kHz. Sobran.'},
+        {t:'Porque el paso de 5 ns no alcanza para medir el tiempo de subida',ok:false,
+          why:'No: el tiempo de subida exigido es de 280 ns y con cuatro muestras encima pide 70 ns como mucho. 5 ns sobra.'},
+        {t:'Porque el decodificador de I²C no funciona a esa frecuencia de muestreo',ok:false,
+          why:'No: el decodificador no depende de la frecuencia de muestreo, sólo de los flancos que le lleguen.'}]},
+    reto:{p:'En el sensor a pila descartas los 2,2 kΩ que sí valían en la EEPROM. ¿Qué cambió?',
+      opciones:[
+        {t:'El presupuesto: 2,2 kΩ consumen 1,32 mA permanentes y el nodo sólo tiene 500 µA',ok:true,
+          why:'Correcto: la polarización se paga siempre que la línea esté en cero. La norma admite hasta 3,00 mA, pero la pila del nodo no.'},
+        {t:'La norma: en modo estándar el sumidero máximo baja de 3 mA',ok:false,
+          why:'No: el límite de la UM10204 es el mismo. Lo que aprieta aquí es el presupuesto del nodo, no la norma.'},
+        {t:'La capacidad: con 80 pF los 2,2 kΩ suben demasiado despacio',ok:false,
+          why:'Al revés: con 80 pF los 2,2 kΩ suben en 149 ns y el modo estándar admite hasta 1 µs. Por tiempo iban sobrados.'},
+        {t:'La tensión: el bus del sensor no llega al umbral del analizador',ok:false,
+          why:'No: el bus es de 3,3 V y el umbral está en 1,40 V. El nivel no es el problema.'}]}};
+  const arr=Object.values(QUIZ);
+  arr.forEach(q=>{for(let i=q.opciones.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));
+    const t=q.opciones[i];q.opciones[i]=q.opciones[j];q.opciones[j]=t;}});
+}
+function clearDx(){el('dxbtns').innerHTML='';}
+function refreshQuestion(){
+  const q=QUIZ[mode];if(!q)return;
+  el('q_text').innerHTML=`<div class="qq">${q.p}</div>`;
+  el('dxbtns').innerHTML=q.opciones.map((o,i)=>`<button class="b sm" data-i="${i}">${o.t}</button>`).join('');
+  el('dxbtns').querySelectorAll('[data-i]').forEach(b=>{b.onclick=()=>answer(parseInt(b.dataset.i,10));});
+}
+function answer(i){
+  const q=QUIZ[mode];if(!q)return;
+  const o=q.opciones[i];
+  synth.beep(o.ok?880:200,0.1,0.05);
+  showToast((o.ok?'✔ ':'✗ ')+o.why);
+}
+
+// ===================== 15. PICKING Y HOVER =====================
+pickerFor(scene,S.camera,S.renderer.domElement,hit=>{
+  if(hit.object===board||hit.object===frame){boardClick();return;}
+  let o=hit.object;
+  while(o&&!(o.userData&&o.userData.title))o=o.parent;
+  if(o&&o.userData&&o.userData.title){
+    showToast(`<b>${o.userData.title}</b><br>${o.userData.info}`);
+    synth.beep(660,0.06,0.04);
+  }
+});
+(function hoverLoop(){
+  const ray=new THREE.Raycaster(),m=new THREE.Vector2();
+  const dom=S.renderer.domElement;
+  dom.addEventListener('pointermove',ev=>{
+    const r=dom.getBoundingClientRect();
+    m.x=((ev.clientX-r.left)/r.width)*2-1;m.y=-((ev.clientY-r.top)/r.height)*2+1;
+    ray.setFromCamera(m,S.camera);
+    const hits=ray.intersectObjects(scene.children,true);
+    let found=null;
+    if(hits.length){let o=hits[0].object;
+      while(o&&!HOVER_LABELS.has(o))o=o.parent;
+      found=o||null;}
+    HOVER_LABELS.forEach((spr,obj)=>{spr.visible=(obj===found);});
+    dom.style.cursor=found?'pointer':'default';
+  });
+})();
+
+// ===================== 16. RECORRIDO AUTOMÁTICO =====================
+const sleep=ms=>new Promise(r=>setTimeout(r,ms));
+async function runAuto(){
+  if(autoRunning)return;
+  autoRunning=true;
+  const btn=el('btnAuto'),label=btn.textContent;
+  btn.disabled=true;btn.classList.add('on');btn.textContent='⏳ Recorriendo…';
+  try{
+    // ---------------- EXPLORA
+    setMode('explora');scIdx=0;syncSel();expZoom=1;expAna='a1M';afterEdit();
+    showToast('<b>Báscula de camiones.</b> Un terminal de pesaje escupe «P 12480 kg» por un puerto EIA/TIA-232 a 9600 baudios: 33 bytes en tres pesadas separadas 200 ms, 416,90 ms de señal en total.');
+    await sleep(5200);
+    showToast('Cada bit dura <b>104,17 µs</b>. El analizador de 1 MS/s pone 104,17 muestras encima de cada bit: de sobra para decidir el nivel y de sobra para medir el hueco entre tramas.');
+    await sleep(5000);
+    expZoom=2;afterEdit();
+    showToast('Al ampliar a seis bits se ve lo que hace realmente el analizador: <b>no dibuja la señal, la muestrea</b>. Cada flanco se corre hasta la siguiente muestra, así que el ancho medido de un bit nunca es exacto.');
+    await sleep(5200);
+    expAna='a10M';expZoom=1;afterEdit();
+    showToast('Sube a 10 MS/s y la captura EMPEORA: el millón de muestras cubre <b>100,00 ms</b> y la señal dura 416,90 ms. Salen <b>11 bytes</b> de 33: la memoria corta la captura por la mitad de la primera pesada.');
+    await sleep(5400);
+    expAna='a1M';afterEdit();
+    showToast('Vuelta a 1 MS/s: la ventana es de <b>1,000 s</b> y caben las tres pesadas enteras. Más velocidad no es mejor analizador; es menos tiempo capturado.');
+    await sleep(4800);
+    answer(QUIZ[mode].opciones.findIndex(o=>o.ok));
+    await sleep(2600);
+    scIdx=1;syncSel();expAna='a50M';afterEdit();
+    showToast('<b>EEPROM de recetas.</b> I²C a 400 kHz sobre 3,3 V. El volcado completo son 300 bytes de datos más la dirección y el reinicio de arranque: <b>6,87 ms</b> de bus.');
+    await sleep(5000);
+    showToast('A 50 MS/s el paso vale <b>20 ns</b> y la ventana <b>20,00 ms</b>. Con eso se reconstruyen los <b>304 bytes</b> y se puede medir el tiempo de subida del bus, que es lo que exige esta máquina.');
+    await sleep(5200);
+
+    // ---------------- APLICA
+    setMode('aplica');apTopic='sonda';scIdx=1;syncSel();afterEdit();
+    showToast('<b>Primera decisión: la sonda.</b> El bus es de colector abierto: nadie empuja hacia arriba. La línea sube sola por la resistencia de polarización, y ese tiempo crece con los 150 pF del cable.');
+    await sleep(5200);
+    apSonda='pu470';afterEdit();
+    showToast('Con 470 Ω el bus sube en <b>60 ns</b>, holgadísimo frente a los 300 ns del modo rápido. Pero obliga al esclavo a tragar <b>6,17 mA</b> cuando pone el cero, y la UM10204 lo limita a <b>3,00 mA</b>.');
+    await sleep(5400);
+    apSonda='pu10k';afterEdit();
+    showToast('Con 10 kΩ la corriente baja a 290 µA, pero el bus tarda <b>1,27 µs</b> en subir: cuatro veces el máximo de la norma. Los dos extremos fallan por motivos opuestos.');
+    await sleep(5200);
+    apSonda='pu2k2';afterEdit();
+    showToast('La ventana útil aquí va de <b>967 Ω a 2,4 kΩ</b>: el extremo bajo lo fija la corriente y el alto el tiempo de subida. Los 2,2 kΩ dan <b>280 ns</b> y <b>1,32 mA</b>: dentro de los dos.');
+    await sleep(5400);
+    apTopic='ana';apAna='a1M';afterEdit();
+    showToast('<b>Segunda decisión: el analizador.</b> A 1 MS/s sólo caen <b>2,50 muestras por bit</b> de los 400 kHz y hacen falta cuatro. Con menos no se decide dónde está el flanco.');
+    await sleep(5200);
+    apAna='a10M';afterEdit();
+    showToast('A 10 MS/s ya sobran muestras por bit, pero el paso es de <b>100 ns</b> y hay que medir una subida de 280 ns: con cuatro muestras encima eso pide <b>70 ns</b> como mucho.');
+    await sleep(5200);
+    apAna='a200M';afterEdit();
+    showToast('A 200 MS/s el paso sobra, pero el millón de muestras sólo cubre <b>5,00 ms</b> y el volcado dura <b>6,87 ms</b>. Velocidad y ventana tiran en sentidos opuestos.');
+    await sleep(5200);
+    apAna='a50M';afterEdit();
+    showToast('Sólo 50 MS/s cumple los tres: 125 muestras por bit, paso de 20 ns y ventana de 20,00 ms. Muestras por bit, resolución y memoria son <b>tres límites distintos</b>.');
+    await sleep(5200);
+    answer(QUIZ[mode].opciones.findIndex(o=>o.ok));
+    await sleep(2600);
+    apTopic='dec';scIdx=2;syncSel();afterEdit();
+    showToast('<b>Tercera decisión: el decodificador.</b> Convertidor A/D por SPI a 8 MHz: cada bit dura <b>125 ns</b> y el semiperiodo del reloj, <b>63 ns</b>. La palabra de mando es 0x8A.');
+    await sleep(5200);
+    apDec='spi0';afterEdit();
+    showToast('Leído en modo 0 salen <b>45 00 00</b>. Leído en modo 1, <b>8A 00 00</b>. Los mismos flancos, dos bytes distintos: los modos 0 y 3 muestrean en la subida, el 1 y el 2 en la bajada.');
+    await sleep(5600);
+    apDec='spi1';afterEdit();
+    showToast('Y la sonda de este banco también decide: el divisor 1:3 baja los 5 V a <b>1,67 V</b>, por encima del umbral de 1,40 V. Ese mismo divisor sobre un bus de 3,3 V daría <b>1,10 V</b> y ya no cruzaría.');
+    await sleep(5600);
+    scIdx=0;syncSel();apDec='u96e';afterEdit();
+    showToast('El caso más traicionero: leer la báscula 8N1 como <b>8E1</b>. Salen los 33 bytes con el MISMO valor, porque el decodificador toma el bit de parada como paridad. Sólo caen 6 banderas. <b>No da error: da mentiras.</b>');
+    await sleep(5800);
+
+    // ---------------- RETO
+    setMode('reto');seedReto(3);afterEdit();
+    showToast('<b>Reto: el sensor de vibración a pila.</b> I²C a 100 kHz, 80 pF de línea, 400 muestras de ráfaga (<b>36,33 ms</b>) y un presupuesto de <b>500 µA</b> permanentes en el bus.');
+    await sleep(5400);
+    checkReto();
+    await sleep(1400);
+    showToast('Sembrado mal en las tres decisiones: divisor 1:3 sobre un bus de colector abierto (que sin polarización nunca sube), 1 MS/s y el decodificador de UART. El marcador lo dice eje por eje.');
+    await sleep(5400);
+    retoSet('sonda','pu2k2');afterEdit();
+    showToast('Por tiempo de subida la ventana aquí es amplia: <b>967 Ω … 14,8 kΩ</b>, porque el modo estándar admite hasta 1 µs. Los 2,2 kΩ suben en 149 ns… pero consumen <b>1,32 mA</b>.');
+    await sleep(5400);
+    retoSet('sonda','pu10k');afterEdit();
+    showToast('Con 10 kΩ el consumo baja a <b>290 µA</b>, dentro de los 500 µA de la pila, y el bus sube en <b>678 ns</b>, por debajo del microsegundo. Es el único punto que satisface norma y presupuesto a la vez.');
+    await sleep(5600);
+    retoSet('ana','a10M');afterEdit();
+    showToast('El detalle a medir es esa subida de 678 ns: con cuatro muestras encima el paso no puede pasar de <b>169 ns</b>. A 10 MS/s el paso es de 100 ns y la ventana de 100,00 ms cubre los 36,33 ms.');
+    await sleep(5400);
+    retoSet('dec','i2c7');afterEdit();
+    showToast('Y el decodificador de I²C de 7 bits reconstruye los <b>403 bytes</b>: la dirección 0x30 desplazada da el dispositivo <b>0x18</b>, el registro, el arranque repetido y las 400 muestras.');
+    await sleep(5400);
+    checkReto();
+    await sleep(1600);
+    showToast(retoSolved?'✔ Las tres decisiones en verde. Mirar un bus es tomar tres decisiones independientes; fallar una basta para no ver nada, o peor, para ver algo falso.'
+      :'El marcador queda a la vista, eje por eje.');
+    await sleep(4200);
+    answer(QUIZ[mode].opciones.findIndex(o=>o.ok));
+    await sleep(2400);
+  }finally{
+    btn.disabled=false;btn.classList.remove('on');btn.textContent=label;autoRunning=false;
+  }
+}
+
+// ===================== 17. ANIMACIÓN, EVENTOS E INICIO =====================
+S.setAnimate((dt)=>{hwT+=dt;if(hwT>0.12){hwT=0;hwStep=(hwStep+1)%hwCount();updateHW();}});
+['explora','aplica','reto'].forEach(m=>{el('m_'+m).onclick=()=>{if(!autoRunning)setMode(m);};});
+el('btnAuto').onclick=()=>runAuto();
+el('btnNew').onclick=()=>{if(!autoRunning)newSignal();};
+el('btnCheck').onclick=()=>{if(!autoRunning)checkReto();};
+{const sb=el('soundBtn');if(sb)sb.onclick=()=>{const on=synth.toggle();sb.textContent=on?'🔊':'🔇';};}
+window.addEventListener('pointerdown',()=>{synth.init();},{once:true});
+seedReto(0);buildQuiz();S.start();setMode('explora');
+
+// ===================== DEBUG HOOK =====================
+window.__labDebug={
+  mode:()=>mode,setMode:k=>setMode(k),
+  POOL,SONDAS,SONDAK,ANAS,ANAK,DECS,DECK,
+  V_MAX,V_TH,C_IN,V_OL,I_OL_MAX,K_TR,OS_MIN,N_DET,T_SK,TR_MAX,
+  lvlAt,sondaEval,anaEval,capture,decode,puWin,tolBaud,dir8,whyCfg,runC,
+  okSonda,okAna,okDec,GOOD,cfgWith,
+  fv,fr,fns,fms,fma,fmz,fdur,
+  scIdx:()=>scIdx,setSc:i=>{scIdx=i;syncSel();afterEdit();},
+  expAna:()=>expAna,setExpAna:k=>{expAna=k;afterEdit();},
+  expZoom:()=>expZoom,setExpZoom:i=>{expZoom=i;afterEdit();},
+  apTopic:()=>apTopic,setApTopic:t=>{apTopic=t;afterEdit();},
+  apSonda:()=>apSonda,setApSonda:k=>{apSonda=k;afterEdit();},
+  apAna:()=>apAna,setApAna:k=>{apAna=k;afterEdit();},
+  apDec:()=>apDec,setApDec:k=>{apDec=k;afterEdit();},
+  curCfg,curScName:()=>NOM[mode==='reto'?retoK:scIdx],
+  curRun:()=>runC(curSc(),curCfg()),
+  viewWin,tFirst,vHiOf,chList,retoRows,retoBars,
+  retoK:()=>retoK,seedReto,retoName:()=>NOM[retoK],
+  retoGet:()=>({...retoCh}),retoSet,retoSolveBuild,checkReto,
+  retoChecked:()=>retoChecked,retoOkSonda:()=>retoOkSonda,retoOkAna:()=>retoOkAna,
+  retoOkDec:()=>retoOkDec,retoSolved:()=>retoSolved,
+  quizCorrectIndex:()=>QUIZ[mode].opciones.findIndex(o=>o.ok),
+  quizAnswer:i=>answer(i),
+  frames,newSignal,solved:()=>solved};
