@@ -1,0 +1,9 @@
+{
+  "donor": "escaner-obd.html",
+  "out": "gpio-antirrebote-interrupciones.html",
+  "title": "CEN Labs · GPIO: antirrebote e interrupciones en un microcontrolador — Laboratorio 3D",
+  "lt": "Entradas digitales y microcontroladores · Sistemas Digitales",
+  "inspectHint": "👆 Toca el pizarrón, el actuador, el cable o la tarjeta del microcontrolador para inspeccionar el nodo",
+  "body": "gpio-antirrebote-interrupciones.body.js",
+  "fichas": ["_ficha-tecnica.js", "_ficha-gpio-antirrebote-interrupciones.js"]
+}

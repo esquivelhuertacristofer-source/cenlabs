@@ -1,0 +1,1894 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>CEN Labs · GPIO: antirrebote e interrupciones en un microcontrolador — Laboratorio 3D</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#08201C;--panel:rgba(9,26,23,.86);--line:#1E3A34;--ink:#EAF4F1;
+    --dim:#8FB3AC;--accent:#2A9D8F;--accent2:#4FD1C5;--hv:#FFB703;--good:#34d399;--bad:#f4475e;
+    --mono:'Outfit',system-ui,'Segoe UI',Roboto,sans-serif;--disp:'Outfit','Arial Black',Impact,sans-serif;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  html,body{height:100%;background:var(--bg);color:var(--ink);font-family:'Outfit',system-ui,Segoe UI,Roboto,sans-serif}
+  body{overflow:hidden}
+  #stage{position:fixed;inset:0}
+  canvas{display:block;touch-action:none}
+
+  .topbar{position:fixed;top:0;left:0;right:0;height:56px;display:flex;align-items:center;gap:14px;padding:0 20px;z-index:20;background:linear-gradient(180deg,rgba(10,13,18,.92),transparent);pointer-events:none}
+  .brand{font-family:var(--disp);font-weight:bold;font-size:16px;text-transform:uppercase}
+  .brand span{color:var(--accent)}
+  .lt{font-family:var(--mono);font-size:11px;letter-spacing:.1em;text-transform:uppercase;color:var(--dim)}
+
+  .badge{position:fixed;top:16px;right:20px;z-index:20;font-family:var(--mono);font-size:9px;letter-spacing:.12em;text-transform:uppercase;background:rgba(255,209,102,.12);color:var(--hv);border:1px solid rgba(255,209,102,.35);padding:6px 12px;border-radius:20px}
+
+  .hud{position:fixed;top:70px;left:18px;z-index:15;max-width:330px;background:var(--panel);backdrop-filter:blur(14px);border:1px solid var(--line);border-radius:16px;padding:18px 20px;max-height:calc(100vh - 150px);overflow-y:auto}
+  .hud .eyebrow{font-family:var(--mono);font-size:10px;letter-spacing:.18em;text-transform:uppercase;color:var(--accent);margin-bottom:8px}
+  .hud h2{font-size:19px;line-height:1.15;margin-bottom:9px}
+  .hud p{font-size:13px;line-height:1.55;color:var(--dim);margin-bottom:10px}
+  .hud .formula{font-family:var(--mono);color:var(--accent2);text-align:center;font-size:12.5px;margin:8px 0;padding:8px;background:rgba(0,0,0,.25);border-radius:8px;line-height:1.5}
+  .hud .src{font-size:10.5px;color:#7a8894;font-style:italic;margin-top:4px;line-height:1.5}
+  .legend{display:flex;flex-direction:column;gap:6px;margin:12px 0;padding:10px 12px;background:rgba(0,0,0,.22);border-radius:10px}
+  .legend .li{display:flex;align-items:center;gap:8px;font-size:11px;color:#c4d0da}
+  .legend .dot{width:10px;height:10px;border-radius:50%;flex:0 0 auto}
+  .fid{margin:10px 0 2px;padding:10px 12px;background:rgba(0,0,0,.22);border-radius:10px;border:1px solid rgba(79,209,197,.18)}
+  .fid .ft{font-family:var(--mono);font-size:9.5px;letter-spacing:.14em;text-transform:uppercase;color:var(--accent2);margin-bottom:6px}
+  .fid .fl{font-size:11px;color:#c4d0da;line-height:1.5;margin-bottom:5px}
+  .fid .fl b{color:var(--ink)}
+  .fid .fl.no b{color:var(--hv)}
+
+  .panel{position:fixed;top:70px;right:18px;z-index:15;width:262px;background:var(--panel);backdrop-filter:blur(14px);border:1px solid var(--line);border-radius:16px;padding:16px;max-height:calc(100vh - 150px);overflow-y:auto}
+  .panel h4{font-family:var(--mono);font-size:10px;letter-spacing:.14em;text-transform:uppercase;color:var(--dim);margin:2px 0 10px}
+  .panel h4.sec{margin-top:16px;border-top:1px solid var(--line);padding-top:14px}
+  .g{margin-bottom:6px}
+  .gl{display:flex;justify-content:space-between;font-family:var(--mono);font-size:11px;color:var(--dim)}
+  .gl b{color:var(--accent2)}
+  .gl b.good{color:var(--good)}.gl b.warn{color:var(--hv)}.gl b.bad{color:var(--bad)}
+  .modebar{display:flex;gap:5px;margin-bottom:8px}
+  .modebar .b{flex:1;padding:8px 4px;font-size:11px}
+  .btns{display:flex;flex-direction:column;gap:7px;margin-top:6px}
+  .b{font-family:system-ui;font-size:12.5px;padding:10px;border-radius:9px;cursor:pointer;border:1px solid var(--line);background:#1b242f;color:var(--ink);transition:.15s;text-align:center}
+  .b:hover{border-color:var(--accent);background:#202c38}
+  .b.on{background:var(--accent);color:#06120f;border-color:var(--accent);font-weight:bold}
+  .b.primary{background:var(--accent);color:#06120f;border-color:var(--accent);font-weight:bold}
+  .b.auto{border-color:var(--hv);color:var(--hv);background:rgba(255,183,3,.10);font-weight:bold}
+  .b.auto:hover{background:rgba(255,183,3,.18);border-color:var(--hv)}
+  .b.auto:disabled{opacity:.6;cursor:default}
+  .b.dx{text-align:left;font-size:12px}
+  .b.dx.right{background:rgba(52,211,153,.18);border-color:var(--good);color:var(--good);font-weight:bold}
+  .b.dx.wrong{background:rgba(244,71,94,.15);border-color:var(--bad);color:var(--bad)}
+  .console{font-family:var(--mono);font-size:11px;line-height:1.55;color:#c4d0da;background:rgba(0,0,0,.28);border-radius:9px;padding:10px 12px;margin-bottom:8px;min-height:56px}
+  .console .dtc{color:var(--bad);font-weight:bold}
+  .console .ok{color:var(--good)}
+  .console .mono{color:var(--dim)}
+
+  .hint{position:fixed;bottom:18px;left:18px;z-index:14;font-family:var(--mono);font-size:10px;color:var(--dim);background:var(--panel);padding:7px 12px;border-radius:9px;border:1px solid var(--line)}
+  .toast{position:fixed;top:80px;left:50%;transform:translateX(-50%);z-index:30;background:rgba(18,24,32,.95);border:1px solid var(--accent);padding:10px 20px;border-radius:40px;font-family:var(--mono);font-size:12px;opacity:0;transition:.3s;pointer-events:none;max-width:80vw;text-align:center}
+  .toast.show{opacity:1}
+  .soundBtn{position:fixed;top:14px;right:18px;z-index:21;font-size:16px;background:var(--panel);backdrop-filter:blur(12px);border:1px solid var(--line);border-radius:50%;width:36px;height:36px;cursor:pointer;color:var(--dim);transition:.15s}
+  .soundBtn.on{color:var(--accent);border-color:var(--accent)}
+  .soundBtn:hover{transform:scale(1.08)}
+  .inspectHint{position:fixed;bottom:18px;right:18px;z-index:14;font-family:var(--mono);font-size:10px;color:var(--accent2);background:var(--panel);padding:7px 12px;border-radius:9px;border:1px solid var(--line)}
+
+  @media(max-width:820px){
+    .hud,.panel{position:fixed;left:8px;right:8px;top:auto;bottom:8px;max-width:none;width:auto;max-height:42vh;overflow-y:auto}
+    .hud{bottom:calc(8px + 42vh + 8px)}
+    .hint,.inspectHint{display:none}
+  }
+</style>
+</head>
+<body>
+<div id="stage"></div>
+<button class="soundBtn on" id="soundBtn">🔊</button>
+<div class="topbar">
+  <div class="brand">CEN<span> Labs</span></div>
+  <div class="lt">Entradas digitales y microcontroladores · Sistemas Digitales</div>
+</div>
+<div class="hud" id="hud"></div>
+<div class="panel" id="panel"></div>
+<div class="hint">Arrastra para orbitar · rueda para zoom</div>
+<div class="inspectHint">👆 Toca el pizarrón, el actuador, el cable o la tarjeta del microcontrolador para inspeccionar el nodo</div>
+<div class="toast" id="toast"></div>
+
+<script type="importmap">
+{ "imports": {
+  "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.min.js",
+  "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/"
+}}
+</script>
+<script type="module">
+import * as THREE from 'three';
+import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
+import { RoundedBoxGeometry } from 'three/addons/geometries/RoundedBoxGeometry.js';
+import { EffectComposer } from 'three/addons/postprocessing/EffectComposer.js';
+import { RenderPass } from 'three/addons/postprocessing/RenderPass.js';
+import { GTAOPass } from 'three/addons/postprocessing/GTAOPass.js';
+import { UnrealBloomPass } from 'three/addons/postprocessing/UnrealBloomPass.js';
+import { SMAAPass } from 'three/addons/postprocessing/SMAAPass.js';
+import { OutputPass } from 'three/addons/postprocessing/OutputPass.js';
+import { BokehPass } from 'three/addons/postprocessing/BokehPass.js';
+
+/* ============================================================
+   Texturas PBR procedurales (sin archivos externos) — compartidas
+   ============================================================ */
+function cv(s=512){const c=document.createElement('canvas');c.width=c.height=s;return c;}
+function tex(canvas,repeat=1,srgb=false){
+  const t=new THREE.CanvasTexture(canvas);
+  t.wrapS=t.wrapT=THREE.RepeatWrapping;t.repeat.set(repeat,repeat);
+  t.colorSpace = srgb?THREE.SRGBColorSpace:THREE.NoColorSpace;
+  t.generateMipmaps=false; t.minFilter=THREE.LinearFilter; t.anisotropy=1; return t;
+}
+function normalFromHeight(size, hfn, strength=2.0){
+  const c=cv(size),ctx=c.getContext('2d'),img=ctx.createImageData(size,size);
+  const H=(x,y)=>hfn((x+size)%size,(y+size)%size);
+  for(let y=0;y<size;y++)for(let x=0;x<size;x++){
+    const dx=(H(x+1,y)-H(x-1,y))*strength;
+    const dy=(H(x,y+1)-H(x,y-1))*strength;
+    const nz=1.0; const len=Math.hypot(dx,dy,nz);
+    const i=(y*size+x)*4;
+    img.data[i]  =((-dx/len)*0.5+0.5)*255;
+    img.data[i+1]=((-dy/len)*0.5+0.5)*255;
+    img.data[i+2]=((nz/len)*0.5+0.5)*255;
+    img.data[i+3]=255;
+  }
+  ctx.putImageData(img,0,0);return c;
+}
+function valueNoise(seed=1){
+  const g=(x,y)=>{const s=Math.sin((x*127.1+y*311.7)+seed*13.13)*43758.5453;return s-Math.floor(s);};
+  return (x,y)=>{
+    const xi=Math.floor(x),yi=Math.floor(y),xf=x-xi,yf=y-yi;
+    const u=xf*xf*(3-2*xf),v=yf*yf*(3-2*yf);
+    const a=g(xi,yi),b=g(xi+1,yi),c=g(xi,yi+1),d=g(xi+1,yi+1);
+    return a*(1-u)*(1-v)+b*u*(1-v)+c*(1-u)*v+d*u*v;
+  };
+}
+function fbm(noise,x,y,oct=4){let v=0,a=0.5,f=1;for(let i=0;i<oct;i++){v+=noise(x*f,y*f)*a;f*=2;a*=0.5;}return v;}
+
+function castAluminum(){
+  const S=512, n=valueNoise(7);
+  const c=cv(S),ctx=c.getContext('2d'),img=ctx.createImageData(S,S);
+  for(let y=0;y<S;y++)for(let x=0;x<S;x++){
+    const v=fbm(n,x/22,y/22,5);
+    const por=Math.pow(n(x/3.1,y/3.1),8);
+    const base=150+v*38-por*70;
+    const i=(y*S+x)*4; img.data[i]=base; img.data[i+1]=base+4; img.data[i+2]=base+10; img.data[i+3]=255;
+  }
+  ctx.putImageData(img,0,0);
+  const r=cv(S),rx=r.getContext('2d'),rimg=rx.createImageData(S,S);
+  for(let y=0;y<S;y++)for(let x=0;x<S;x++){
+    const v=fbm(n,x/18,y/18,4); const por=Math.pow(n(x/3.1,y/3.1),8);
+    const rough=120+v*40+por*90; const i=(y*S+x)*4;
+    rimg.data[i]=rimg.data[i+1]=rimg.data[i+2]=Math.min(255,rough); rimg.data[i+3]=255;
+  }
+  rx.putImageData(rimg,0,0);
+  const nrm=normalFromHeight(S,(x,y)=>fbm(n,x/16,y/16,5)+Math.pow(n(x/3.1,y/3.1),8)*0.6,3.0);
+  return {map:tex(c,1,true),roughnessMap:tex(r),normalMap:tex(nrm)};
+}
+function brushedMetal(){
+  const S=512, n=valueNoise(3);
+  const c=cv(S),ctx=c.getContext('2d'),img=ctx.createImageData(S,S);
+  for(let y=0;y<S;y++)for(let x=0;x<S;x++){
+    const streak=Math.sin(y*0.9)*2 + (n(x/120,y*0.5)-0.5)*40;
+    const base=185+streak; const i=(y*S+x)*4;
+    img.data[i]=base; img.data[i+1]=base+2; img.data[i+2]=base+6; img.data[i+3]=255;
+  }
+  ctx.putImageData(img,0,0);
+  const r=cv(S),rx=r.getContext('2d'),rimg=rx.createImageData(S,S);
+  for(let y=0;y<S;y++)for(let x=0;x<S;x++){
+    const streak=(n(x/120,y*0.5)-0.5)*60; const rough=40+Math.abs(streak); const i=(y*S+x)*4;
+    rimg.data[i]=rimg.data[i+1]=rimg.data[i+2]=Math.min(160,rough); rimg.data[i+3]=255;
+  }
+  rx.putImageData(rimg,0,0);
+  const nrm=normalFromHeight(S,(x,y)=>(n(x/120,y*0.5))*0.3+Math.sin(y*0.9)*0.02,1.2);
+  return {map:tex(c,1,true),roughnessMap:tex(r),normalMap:tex(nrm)};
+}
+function rubber(){
+  const S=256,n=valueNoise(5);
+  const nrm=normalFromHeight(S,(x,y)=>fbm(n,x/8,y/8,4),1.4);
+  const rough=cv(64),rc=rough.getContext('2d');rc.fillStyle='#e0e0e0';rc.fillRect(0,0,64,64);
+  return {roughnessMap:tex(rough),normalMap:tex(nrm,2)};
+}
+function gradientBG(top='#11161d',bottom='#05070a'){
+  const c=cv(512),ctx=c.getContext('2d');
+  const grd=ctx.createLinearGradient(0,0,0,512);
+  grd.addColorStop(0,top);grd.addColorStop(1,bottom);
+  ctx.fillStyle=grd;ctx.fillRect(0,0,512,512);
+  const rg=ctx.createRadialGradient(256,200,30,256,256,360);
+  rg.addColorStop(0,'rgba(42,157,143,0.10)');rg.addColorStop(1,'rgba(0,0,0,0)');
+  ctx.fillStyle=rg;ctx.fillRect(0,0,512,512);
+  return tex(c,1,true);
+}
+function techPlastic(r=0.10,g=0.11,b=0.13){
+  const S=256,n=valueNoise(31);
+  const c=cv(S),ctx=c.getContext('2d'),img=ctx.createImageData(S,S);
+  for(let y=0;y<S;y++)for(let x=0;x<S;x++){
+    const v=fbm(n,x/30,y/30,3)*0.1+0.92; const i=(y*S+x)*4;
+    img.data[i]=r*255*v;img.data[i+1]=g*255*v;img.data[i+2]=b*255*v;img.data[i+3]=255;
+  }
+  ctx.putImageData(img,0,0);
+  const nrm=normalFromHeight(S,(x,y)=>fbm(n,x/10,y/10,3),0.8);
+  const rough=cv(64),rc=rough.getContext('2d');rc.fillStyle='#9a9a9a';rc.fillRect(0,0,64,64);
+  return {map:tex(c,1,true),roughnessMap:tex(rough),normalMap:tex(nrm)};
+}
+
+/* ============================================================
+   ENGINE — render premium compartido por todos los laboratorios
+   ============================================================ */
+function createStage(mount, opts={}){
+  const bgTop = opts.bgTop||'#141b24', bgBot = opts.bgBot||'#05070a';
+  const renderer = new THREE.WebGLRenderer({ antialias:true, powerPreference:'high-performance' });
+  renderer.setPixelRatio(Math.min(devicePixelRatio,2));
+  renderer.setSize(mount.clientWidth, mount.clientHeight);
+  renderer.shadowMap.enabled = true;
+  renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+  renderer.toneMapping = THREE.ACESFilmicToneMapping;
+  renderer.toneMappingExposure = opts.exposure ?? 1.18;
+  renderer.outputColorSpace = THREE.SRGBColorSpace;
+  mount.appendChild(renderer.domElement);
+  renderer.domElement.style.touchAction='none';
+
+  const scene = new THREE.Scene();
+  scene.background = gradientBG(bgTop,bgBot);
+  const pmrem = new THREE.PMREMGenerator(renderer);
+  scene.environment = pmrem.fromScene(new RoomEnvironment(renderer), 0.04).texture;
+  scene.environmentIntensity = opts.envInt ?? 1.15;
+
+  const camera = new THREE.PerspectiveCamera(45, mount.clientWidth/mount.clientHeight, 0.1, 200);
+  const cam = opts.cam || [5.5,3.4,6.2];
+  camera.position.set(...cam);
+
+  const controls = new OrbitControls(camera, renderer.domElement);
+  controls.enableDamping = true; controls.dampingFactor = 0.07;
+  controls.minDistance = opts.minD ?? 3; controls.maxDistance = opts.maxD ?? 18;
+  controls.maxPolarAngle = Math.PI*0.52;
+  controls.target.set(...(opts.target||[0,1.4,0]));
+  controls.autoRotate = opts.autoRotate ?? false;
+  controls.autoRotateSpeed = opts.autoRotateSpeed ?? 0.6;
+
+  const key = new THREE.DirectionalLight(0xffffff, 2.7);
+  key.position.set(5,9,6); key.castShadow=true;
+  key.shadow.mapSize.set(2048,2048);
+  key.shadow.camera.near=0.5; key.shadow.camera.far=40;
+  const sd=8; Object.assign(key.shadow.camera,{left:-sd,right:sd,top:sd,bottom:-sd});
+  key.shadow.bias=-0.0003; key.shadow.normalBias=0.02; scene.add(key);
+  const rim = new THREE.SpotLight(0x2affce, 55, 30, Math.PI/5, 0.4, 1.5);
+  rim.position.set(-7,6,-5); scene.add(rim);
+  const fill = new THREE.DirectionalLight(0x6fb6ff, 0.5); fill.position.set(-4,3,7); scene.add(fill);
+  scene.add(new THREE.HemisphereLight(0x9fb4c8, 0x10151b, 0.35));
+
+  if(opts.floor!==false){
+    const f = new THREE.Mesh(new THREE.CircleGeometry(40,80),
+      new THREE.MeshStandardMaterial({ color:0x0a0e13, roughness:0.14, metalness:0.62, envMapIntensity:1.15 }));
+    f.rotation.x=-Math.PI/2; f.receiveShadow=true; scene.add(f);
+    for(let r=2;r<=8;r+=2){
+      const ring=new THREE.Mesh(new THREE.RingGeometry(r-0.012,r+0.012,80),
+        new THREE.MeshBasicMaterial({color:0x1a2632,transparent:true,opacity:0.4}));
+      ring.rotation.x=-Math.PI/2; ring.position.y=0.002; scene.add(ring);
+    }
+  }
+
+  const isMobile = /Mobi|Android|iPhone|iPad/i.test(navigator.userAgent) || innerWidth<820;
+  // GTAO desactivado por defecto: el pase de oclusión ambiental en espacio de pantalla
+  // producía un recuadro oscuro duro sobre el piso reflectante (artefacto dependiente de la
+  // cámara y del renderer). La escena tiene AO suficiente con luces directas + sombras + env.
+  // Se puede reactivar para pruebas con ?gtao.
+  const useGtao = /[?&]gtao\b/.test(location.search);
+  const composer = new EffectComposer(renderer);
+  composer.addPass(new RenderPass(scene,camera));
+  if(!isMobile && useGtao){
+    try{
+      const g=new GTAOPass(scene,camera,mount.clientWidth,mount.clientHeight);
+      g.output=GTAOPass.OUTPUT.Default;
+      if(g.updateGtaoMaterial)g.updateGtaoMaterial({radius:0.5,distanceExponent:1,thickness:1,scale:1.1,samples:16});
+      composer.addPass(g);
+    }catch(e){}
+  }
+  const bloom=new UnrealBloomPass(new THREE.Vector2(mount.clientWidth,mount.clientHeight),opts.bloom??0.42,0.5,0.9);
+  composer.addPass(bloom);
+  let bokeh=null;
+  const flat=/[?&]flat/.test(location.search);
+  if(!isMobile && !flat){
+    bokeh=new BokehPass(scene,camera,{focus:8.5,aperture:opts.aperture??0.00018,maxblur:opts.maxblur??0.004,width:mount.clientWidth,height:mount.clientHeight});
+    composer.addPass(bokeh);
+  }
+  composer.addPass(new OutputPass());
+  composer.addPass(new SMAAPass(mount.clientWidth*renderer.getPixelRatio(),mount.clientHeight*renderer.getPixelRatio()));
+
+  function resize(){
+    const w=mount.clientWidth,h=mount.clientHeight;
+    camera.aspect=w/h; camera.updateProjectionMatrix();
+    renderer.setSize(w,h); composer.setSize(w,h);
+  }
+  window.addEventListener('resize',resize);
+
+  const clock=new THREE.Clock();
+  let hook=null, raf=null;
+  const camCine={active:false,t:0,dur:1.4,from:new THREE.Vector3(),to:new THREE.Vector3(),fromT:new THREE.Vector3(),toT:new THREE.Vector3()};
+  let lastDrag=-99, cinematicIdle=false;
+  controls.addEventListener('start',()=>{ lastDrag=clock.elapsedTime; camCine.active=false; });
+  function easeInOutCubic(x){return x<0.5?4*x*x*x:1-Math.pow(-2*x+2,3)/2;}
+  function moveTo(pos,target,dur=1.4){
+    camCine.from.copy(camera.position); camCine.fromT.copy(controls.target);
+    camCine.to.set(...pos); camCine.toT.set(...target);
+    camCine.dur=dur; camCine.active=true; camCine.t=0;
+  }
+  function setCinematicIdle(v){ cinematicIdle=v; if(!v)controls.autoRotate=false; }
+  function loop(){ raf=requestAnimationFrame(loop); const dt=clock.getDelta(),t=clock.elapsedTime;
+    if(camCine.active){
+      camCine.t=Math.min(1,camCine.t+dt/camCine.dur);
+      const e=easeInOutCubic(camCine.t);
+      camera.position.lerpVectors(camCine.from,camCine.to,e);
+      controls.target.lerpVectors(camCine.fromT,camCine.toT,e);
+      if(camCine.t>=1)camCine.active=false;
+    } else if(cinematicIdle){
+      controls.autoRotate=(t-lastDrag)>1.4; controls.autoRotateSpeed=0.45;
+    }
+    if(hook)hook(dt,t); controls.update();
+    if(bokeh) bokeh.uniforms['focus'].value = camera.position.distanceTo(controls.target);
+    composer.render(); }
+  function start(){ if(!raf)loop(); }
+  function stop(){ cancelAnimationFrame(raf); raf=null; window.removeEventListener('resize',resize); }
+
+  return { THREE, renderer, scene, camera, controls, composer, bloom,
+    setAnimate:fn=>hook=fn, start, stop, resize, clock,
+    flyTo:(v)=>{ controls.target.copy(v); }, moveTo, setCinematicIdle };
+}
+
+/* ---------- shared geometry/material helpers ---------- */
+function roundedBox(w,h,d,mat,rf=0.08){
+  const r=Math.min(w,h,d)*rf;
+  const m=new THREE.Mesh(new RoundedBoxGeometry(w,h,d,4,r),mat);
+  m.castShadow=m.receiveShadow=true; return m;
+}
+function pickerFor(scene,camera,dom,onHit){
+  const ray=new THREE.Raycaster(),mouse=new THREE.Vector2(); let down=null;
+  dom.addEventListener('pointerdown',e=>down=[e.clientX,e.clientY]);
+  dom.addEventListener('pointerup',e=>{
+    if(!down)return; const moved=Math.abs(e.clientX-down[0])+Math.abs(e.clientY-down[1])>6; down=null;
+    if(moved)return;
+    const r=dom.getBoundingClientRect();
+    mouse.x=((e.clientX-r.left)/r.width)*2-1; mouse.y=-((e.clientY-r.top)/r.height)*2+1;
+    ray.setFromCamera(mouse,camera);
+    const hits=ray.intersectObjects(scene.children,true);
+    onHit(hits[0]||null);
+  });
+}
+function labelSprite(text,color='#ffd166'){
+  const w = Math.max(150, Math.min(520, text.length*26+60));
+  const cvE=document.createElement('canvas');cvE.width=w;cvE.height=96;
+  const c=cvE.getContext('2d');c.fillStyle='rgba(8,11,16,.95)';
+  const rr=(x,y,ww,hh,r)=>{c.beginPath();c.moveTo(x+r,y);c.arcTo(x+ww,y,x+ww,y+hh,r);c.arcTo(x+ww,y+hh,x,y+hh,r);c.arcTo(x,y+hh,x,y,r);c.arcTo(x,y,x+ww,y,r);c.closePath();};
+  rr(3,3,w-6,90,18);c.fill();
+  c.strokeStyle=color;c.lineWidth=3;c.stroke();
+  c.font='bold 36px Outfit, system-ui, sans-serif';c.fillStyle=color;c.textAlign='center';c.textBaseline='middle';c.fillText(text,w/2,48);
+  const tx=new THREE.CanvasTexture(cvE);tx.colorSpace=THREE.SRGBColorSpace;tx.generateMipmaps=false;tx.minFilter=THREE.LinearFilter;
+  const sp=new THREE.Sprite(new THREE.SpriteMaterial({map:tx,depthTest:false,transparent:true}));
+  const aspect=w/96;
+  sp.scale.set(0.30*aspect,0.30,1);sp.renderOrder=999;return sp;
+}
+
+/* ============================================================
+   SYNTH — sintetizador Web Audio reutilizable
+   ============================================================ */
+function makeSynth(opts={}){
+  const type=opts.type||'sawtooth';
+  let ctx=null,oscA=null,oscB=null,gain=null,filter=null,soundOn=true;
+  function init(){
+    if(ctx)return;
+    try{
+      ctx=new (window.AudioContext||window.webkitAudioContext)();
+      oscA=ctx.createOscillator(); oscB=ctx.createOscillator();
+      oscA.type=type; oscB.type=opts.type2||'square';
+      filter=ctx.createBiquadFilter(); filter.type=opts.filterType||'lowpass'; filter.frequency.value=opts.filterFreq||500; filter.Q.value=opts.Q||3;
+      gain=ctx.createGain(); gain.gain.value=0;
+      oscA.connect(filter); oscB.connect(filter); filter.connect(gain); gain.connect(ctx.destination);
+      oscA.start(); oscB.start();
+    }catch(e){}
+  }
+  function update(freqA,freqB,vol,filterFreq){
+    if(!ctx||!soundOn){ if(gain)gain.gain.setTargetAtTime(0,ctx?.currentTime||0,0.1); return; }
+    oscA.frequency.setTargetAtTime(freqA,ctx.currentTime,0.04);
+    if(freqB!==undefined)oscB.frequency.setTargetAtTime(freqB,ctx.currentTime,0.04);
+    if(filterFreq!==undefined)filter.frequency.setTargetAtTime(filterFreq,ctx.currentTime,0.05);
+    gain.gain.setTargetAtTime(Math.max(0,vol),ctx.currentTime,0.06);
+  }
+  function beep(freq=880,dur=0.09,vol=0.06){
+    if(!ctx||!soundOn)return;
+    const o=ctx.createOscillator(),g=ctx.createGain();
+    o.type='sine'; o.frequency.value=freq;
+    g.gain.setValueAtTime(vol,ctx.currentTime); g.gain.exponentialRampToValueAtTime(0.001,ctx.currentTime+dur);
+    o.connect(g); g.connect(ctx.destination); o.start(); o.stop(ctx.currentTime+dur);
+  }
+  function toggle(){ soundOn=!soundOn; return soundOn; }
+  function resume(){ if(ctx&&ctx.state==='suspended')ctx.resume(); }
+  return { init, update, beep, toggle, resume, isOn:()=>soundOn, state:()=>ctx?.state||'none' };
+}
+
+// GPIO, antirrebote e interrupciones en un MCU. Motor verificado numéricamente
+// (verify_gpio.mjs, 291/291) y pegado aquí VERBATIM: simulación y verificación comparten
+// implementación. Todo el tiempo está en MICROSEGUNDOS ENTEROS.
+//   ACONDICIONAMIENTO: una entrada digital sin resistencia de polarización no tiene nivel
+//     definido en reposo; el nodo lo fija la fuga de la bornera y lo que se le acople. El
+//     pull-up decide TRES cosas a la vez: el nivel en reposo, la corriente que consume el
+//     nodo y la impedancia que ve el ruido — Z = R/√(1+(ωRC)²).
+//   HUMECTACIÓN: un contacto de plata necesita algún miliamperio para romper la película de
+//     óxido y sulfuro. Es un PISO de corriente, no sólo un techo. Los contactos chapados en
+//     oro (circuito seco) no lo necesitan.
+//   ANTIRREBOTE: un duplicado exige DOS tramos contiguos del tren de rebotes —falso reposo y
+//     re-cierre— confirmados por separado. Como los dos suman como mucho la ventana de rebote,
+//     el mejor reparto para el rebote es la mitad y la mitad: la regla es t_est > t_reb/2.
+//     El techo lo pone el suceso más corto (la pulsación si se sondea, el hueco si se rearma).
+//   ESTRATEGIA: sondear en el lazo, sondear por temporizador o entrar por interrupción no son
+//     equivalentes. Los pines de interrupción externa son un recurso escaso, el temporizador
+//     puede estar ocupado y un nodo que duerme sólo despierta por interrupción.
+//   Ref: ATmega328P (V_IH = 0,6·Vcc, V_IL = 0,3·Vcc, pull-up interno 20–50 kΩ) · 74HC14
+//        (umbrales típicos a 5 V: 2,9 V de subida y 2,0 V de bajada) · IEC 60947-5-1 (los
+//        fabricantes declaran una carga mínima de contacto) · verificación propia (291/291).
+
+// ===================== 1. ESCENA =====================
+const mount=document.getElementById('stage');
+const S=createStage(mount,{cam:[5.0,3.0,7.2],target:[0.7,1.05,0.4],bgTop:'#0d1017',bgBot:'#05060a',bloom:0.44,minD:3.2,maxD:16});
+const {scene}=S;
+const synth=makeSynth({type:'square',type2:'sine',filterFreq:2400,Q:0.7});
+const el=id=>document.getElementById(id);
+
+// ===================== 2. MOTOR (VERIFICADO 291/291 — VERBATIM) =====================
+// ---------------------------------------------------------------- constantes
+const VCC = 5.0;            // V — riel del nodo
+const VIH = 3.0;            // V — 0,6·Vcc (ATmega328P con Vcc > 2,4 V)
+const VIL = 1.5;            // V — 0,3·Vcc
+const VTP = 2.9;            // V — 74HC14, umbral de subida típico a 5 V
+const VTM = 2.0;            // V — 74HC14, umbral de bajada típico a 5 V
+const VN_MAX = 0.5;         // V — regla de diseño: el reposo no puede bajar de
+                            //     4,5 V (1,5 V de margen sobre V_IH = 3,0 V)
+const R_INT_V = 50000;      // Ω — pull-up interno, peor caso PARA EL NIVEL
+const R_INT_I = 20000;      // Ω — pull-up interno, peor caso PARA EL CONSUMO
+const R_EXT = 4700;         // Ω — pull-up externo
+const RC_R1 = 10000;        // Ω — filtro: resistencia desde Vcc
+const RC_R2 = 1000;         // Ω — filtro: resistencia en serie con el contacto
+const RC_C = 100e-9;        // F  — condensador del filtro
+const C_STRAY = 15e-12;     // F  — capacidad parásita del pin + cableado
+const T_ISR = 10;           // µs — latencia de entrada a la ISR
+const N_INT = 2;            // pines de interrupción externa del MCU objetivo
+const T_TIMER = 1000;       // µs — periodo del sondeo por temporizador
+const HUM_HALF = 8333;      // µs — semiperiodo de 60 Hz (entrada flotante)
+const F_NOISE = 4000;       // Hz — portadora típica de un variador
+
+const TAU_O = RC_R1 * RC_C * 1e6;                              // µs — carga
+const TAU_C = (RC_R1 * RC_R2 / (RC_R1 + RC_R2)) * RC_C * 1e6;  // µs — descarga
+const V_CLOSED = VCC * RC_R2 / (RC_R1 + RC_R2);                // V — nodo con contacto cerrado
+const TD_PRESS = TAU_C * Math.log((VCC - V_CLOSED) / (VTM - V_CLOSED));  // µs
+const TD_REL = TAU_O * Math.log((VCC - V_CLOSED) / (VCC - VTP));         // µs
+const TD_RC = Math.max(TD_PRESS, TD_REL);   // µs — el peor de los dos retardos
+const DT_GAP = TD_REL - TD_PRESS;           // µs — lo que el filtro le roba al hueco
+
+// ------------------------------------------------------------------ opciones
+const ENTRADAS = [
+  { k: 'flotante', n: 'Entrada flotante (sin resistencia)', rV: null, rI: null, c: C_STRAY, rc: false },
+  { k: 'interno', n: 'Pull-up interno del MCU (20–50 kΩ)', rV: R_INT_V, rI: R_INT_I, c: C_STRAY, rc: false },
+  { k: 'externo', n: 'Pull-up externo de 4,7 kΩ', rV: R_EXT, rI: R_EXT, c: C_STRAY, rc: false },
+  { k: 'rc', n: 'Filtro 10 kΩ + 1 kΩ + 100 nF con Schmitt 74HC14', rV: RC_R1, rI: RC_R1 + RC_R2, c: RC_C, rc: true },
+];
+const ENT = Object.fromEntries(ENTRADAS.map(e => [e.k, e]));
+
+const iQuiesc = e => e.rI === null ? 0 : VCC / e.rI * 1000;          // mA en reposo
+const zNoise = e => e.rV === null ? 1e9                              // Ω a F_NOISE
+  : e.rV / Math.sqrt(1 + (2 * Math.PI * F_NOISE * e.rV * e.c) ** 2);
+const iAcOf = sc => 2 * Math.PI * F_NOISE * (sc.cCoup || 0) * (sc.vDrive || 0);  // A
+const vLeak = (sc, e) => e.rV === null ? VCC : VCC * e.rV / (e.rV + (sc.rLeak ?? Infinity));
+const vAc = (sc, e) => iAcOf(sc) * zNoise(e);
+const vDrop = (sc, e) => vLeak(sc, e) + vAc(sc, e);      // V que pierde el reposo
+const vRest = (sc, e) => VCC - vDrop(sc, e);             // V del nodo sin pulsar
+const tDelayEnt = e => e.rc ? TD_RC : 0;                 // µs
+const diasPila = (mAh, mA) => mAh / mA / 24;
+
+const TESTS = [1000, 5000, 20000, 50000];   // µs — tiempo estable del antirrebote
+
+const ADQS = [
+  { k: 'lazo', n: 'Sondeo en el lazo principal', int: false, timer: false, sleep: false },
+  { k: 'timer', n: 'Sondeo en interrupción de temporizador (1 ms)', int: false, timer: true, sleep: false },
+  { k: 'intRaw', n: 'Interrupción externa sin antirrebote', int: true, timer: false, sleep: true },
+  { k: 'intDeb', n: 'Interrupción externa con antirrebote', int: true, timer: false, sleep: true },
+];
+const ADQ = Object.fromEntries(ADQS.map(a => [a.k, a]));
+
+// --------------------------------------------------------------- escenarios
+// tb, pulseMin, gapMin, tLoop, tLatMax en µs · rLeak en Ω · cCoup en F
+// iMaxIn (techo de consumo) e iMinIn (piso de humectación del contacto) en mA
+const POOL = [
+  {
+    id: 0, name: 'Contador de piezas en una cinta',
+    sw: 'Contacto reed de plata accionado por un imán en el eje',
+    tb: 400, pulseMin: 1600, gapMin: 1200, nIn: 1, sleep: false, timerLibre: true,
+    tLoop: 25000, tLatMax: 20000, rLeak: 330000, cCoup: 0, vDrive: 0,
+    iMaxIn: 10, iMinIn: 1.0,
+    seed: 20260727, ent: 'externo', tEst: 1000, adq: 'intDeb',
+    nota: 'El imán pasa en 1,6 ms y vuelve 1,2 ms después: el suceso es más corto que cualquier lazo.',
+  },
+  {
+    id: 1, name: 'Final de carrera de una mesa de posicionamiento',
+    sw: 'Microswitch de palanca con rodillo, contactos chapados en oro',
+    tb: 14000, pulseMin: 45000, gapMin: 90000, nIn: 4, sleep: false, timerLibre: true,
+    tLoop: 30000, tLatMax: 40000, rLeak: 62000, cCoup: 0, vDrive: 0,
+    iMaxIn: 10, iMinIn: 0,
+    seed: 20260728, ent: 'externo', tEst: 20000, adq: 'timer',
+    nota: 'Cuatro finales de carrera, dos pines de interrupción y una bornera húmeda de 62 kΩ.',
+  },
+  {
+    id: 2, name: 'Botón de llamada inalámbrico a pilas',
+    sw: 'Pulsador táctil de membrana, con doble pulsación rápida',
+    tb: 3000, pulseMin: 30000, gapMin: 12000, nIn: 1, sleep: true, timerLibre: true,
+    tLoop: 40000, tLatMax: 50000, rLeak: Infinity, cCoup: 0, vDrive: 0,
+    iMaxIn: 0.30, iMinIn: 0,
+    seed: 20260729, ent: 'interno', tEst: 5000, adq: 'intDeb',
+    nota: 'Dos pilas AA para un año: 2700 mAh / 8760 h = 0,308 mA de presupuesto.',
+  },
+  {
+    id: 3, name: 'Selector de modo en un tablero con variador',
+    sw: 'Selector rotativo de mantenimiento, contacto de gran recorrido y frotamiento',
+    tb: 60000, pulseMin: 500000, gapMin: 400000, nIn: 6, sleep: false, timerLibre: false,
+    tLoop: 5000, tLatMax: 150000, rLeak: Infinity, cCoup: 80e-12, vDrive: 400,
+    iMaxIn: 10, iMinIn: 0,
+    seed: 20260730, ent: 'rc', tEst: 50000, adq: 'lazo',
+    nota: '40 m de cable en la misma canaleta que el motor: 80 pF acoplan la portadora de 4 kHz.',
+  },
+];
+const goodEnt = sc => sc.ent;
+const goodTest = sc => sc.tEst;
+const goodAdq = sc => sc.adq;
+const GOOD = sc => ({ ent: goodEnt(sc), tEst: goodTest(sc), adq: goodAdq(sc) });
+const RETO_POOL = [0, 1, 2, 3];
+const NP = 24;      // pulsaciones por corrida
+const I_MIN = 3;    // pulsación forzada al ancho mínimo
+const I_GAP = 7;    // hueco forzado al mínimo
+const I_BAD = 11;   // pulsación con el peor tren de rebotes
+
+// ------------------------------------------------------------------- útiles
+function lcg(s) { let x = s >>> 0; return () => { x = (Math.imul(x, 1664525) + 1013904223) >>> 0; return x / 4294967296; }; }
+
+// Tren de rebotes: nº IMPAR de transiciones repartidas de forma irregular
+// dentro de la ventana tb. La primera cae en t0 y la última en t0+tb.
+function bounceEdges(t0, tb, rnd) {
+  const nb = [3, 5, 7][Math.floor(rnd() * 3)];
+  const k = nb - 1;
+  const u = []; let s = 0;
+  for (let i = 0; i < k; i++) { const v = 0.10 + 0.90 * rnd(); u.push(v); s += v; }
+  const out = [t0]; let acc = 0;
+  for (let i = 0; i < k; i++) { acc += u[i] / s; out.push(t0 + Math.round(acc * tb)); }
+  for (let i = 1; i < out.length; i++) if (out[i] <= out[i - 1]) out[i] = out[i - 1] + 1;
+  return out;
+}
+// Peor tren posible PARA UN ANTIRREBOTE: parte la ventana en dos mitades.
+// Un duplicado exige DOS tramos contiguos (cierre y falso reposo) que el
+// antirrebote confirme por separado; como los dos suman tb, el mejor reparto
+// para el atacante es tb/2 + tb/2. Ningún otro tren llega más lejos.
+function worstBounce(t0, tb) { return [t0, t0 + Math.round(tb / 2), t0 + tb]; }
+const maxGapOf = tr => { let m = 0; for (let i = 1; i < tr.length; i++) m = Math.max(m, tr[i] - tr[i - 1]); return m; };
+// Mayor valor de min(tramo_i, tramo_i+1): la cota real que debe superar el tEst.
+const worstPairOf = tr => {
+  let m = 0;
+  for (let i = 2; i < tr.length; i++) m = Math.max(m, Math.min(tr[i - 1] - tr[i - 2], tr[i] - tr[i - 1]));
+  return m;
+};
+
+function mergeEdges(...lists) {
+  const all = [].concat(...lists).sort((a, b) => a - b);
+  for (let i = 1; i < all.length; i++) if (all[i] <= all[i - 1]) all[i] = all[i - 1] + 1;
+  return all;
+}
+
+function lvlAt(E, t) {
+  let lo = 0, hi = E.length;
+  while (lo < hi) { const m = (lo + hi) >> 1; if (E[m] <= t) lo = m + 1; else hi = m; }
+  return lo & 1;
+}
+
+// ------------------------------------------------------- señal de la estación
+const SIG_CACHE = new Map();
+function baseSignal(sc) {
+  if (SIG_CACHE.has(sc.id)) return SIG_CACHE.get(sc.id);
+  const rnd = lcg(sc.seed);
+  const presses = []; const trains = [];
+  let t = 2 * sc.gapMin;
+  for (let i = 0; i < NP; i++) {
+    const dur = (i === I_MIN) ? sc.pulseMin : Math.round(sc.pulseMin * (1 + 0.6 * rnd()));
+    const gap = (i === I_GAP) ? sc.gapMin : Math.round(sc.gapMin * (1 + 0.8 * rnd()));
+    const mk = (i === I_BAD) ? worstBounce(t, sc.tb) : bounceEdges(t, sc.tb, rnd);
+    const br = bounceEdges(t + dur, sc.tb, rnd);
+    trains.push(mk, br);
+    presses.push({ t, dur, gap, mk, br, end: t + dur + sc.tb });
+    t = t + dur + sc.tb + gap;
+  }
+  const tEnd = t + 2 * sc.gapMin;
+  const out = { E: mergeEdges(...trains), presses, tEnd, trains };
+  SIG_CACHE.set(sc.id, out);
+  return out;
+}
+function humEdges(tEnd) { const h = []; for (let t = 1234; t < tEnd; t += HUM_HALF) h.push(t); return h; }
+
+// -------------------------------------------------- filtro RC + Schmitt exacto
+// Integración analítica segmento a segmento: sin error de paso.
+function rcFilter(E, tEnd) {
+  const out = []; let v = VCC, outLvl = 0, lvl = 0, t = 0, li = 0;
+  const segEnd = i => (i < E.length ? E[i] : tEnd);
+  let guard = 0;
+  while (t < tEnd && guard++ < 4e6) {
+    const te = segEnd(li);
+    const vinf = lvl ? V_CLOSED : VCC;
+    const tau = lvl ? TAU_C : TAU_O;
+    let tc = Infinity, nxt = outLvl;
+    if (outLvl === 0) { if (vinf < VTM && v > VTM) { tc = t + tau * Math.log((v - vinf) / (VTM - vinf)); nxt = 1; } }
+    else { if (vinf > VTP && v < VTP) { tc = t + tau * Math.log((vinf - v) / (vinf - VTP)); nxt = 0; } }
+    if (tc < te) { out.push(Math.round(tc)); outLvl = nxt; v = (outLvl === 1 ? VTM : VTP); t = tc; }
+    else {
+      if (te > t) v = vinf + (v - vinf) * Math.exp(-(te - t) / tau);
+      t = te; if (li < E.length) { lvl ^= 1; li++; } else break;
+    }
+  }
+  for (let i = 1; i < out.length; i++) if (out[i] <= out[i - 1]) out[i] = out[i - 1] + 1;
+  return out;
+}
+// Tensión del nodo instante a instante (para la vista de Aplica).
+function rcTrace(E, t0, t1, n) {
+  const pts = []; let v = VCC, lvl = 0, t = 0, li = 0;
+  const step = (t1 - t0) / n;
+  const advance = (to) => {
+    while (li < E.length && E[li] <= to) {
+      const te = E[li];
+      const vinf = lvl ? V_CLOSED : VCC, tau = lvl ? TAU_C : TAU_O;
+      v = vinf + (v - vinf) * Math.exp(-(te - t) / tau); t = te; lvl ^= 1; li++;
+    }
+    const vinf = lvl ? V_CLOSED : VCC, tau = lvl ? TAU_C : TAU_O;
+    v = vinf + (v - vinf) * Math.exp(-(to - t) / tau); t = to;
+  };
+  advance(t0);
+  for (let i = 0; i <= n; i++) { advance(t0 + i * step); pts.push({ t: t0 + i * step, v }); }
+  return pts;
+}
+
+// ------------------------------------------------------------- antirrebotes
+// Integrador: exige tEst de estabilidad medidos sobre muestras periódicas.
+function integrador(E, tEnd, T, tEst, off) {
+  const ev = []; let stable = 0, cand = 0, since = off;
+  for (let ts = off; ts <= tEnd; ts += T) {
+    const v = lvlAt(E, ts);
+    if (v !== cand) { cand = v; since = ts; }
+    else if (cand !== stable && ts - since >= tEst) { stable = cand; if (stable === 1) ev.push(ts); }
+  }
+  return ev;
+}
+// Lockout: acepta el flanco al vuelo y se re-arma tras tEst de reposo estable.
+function lockout(E, tEnd, tEst, tIsr) {
+  const ev = []; let armed = true, lvl = 0, lowSince = 0;
+  for (let k = 0; k < E.length; k++) {
+    const te = E[k], nl = lvl ^ 1;
+    if (!armed && lvl === 0 && te - lowSince >= tEst) armed = true;
+    if (nl === 1) { if (armed) { ev.push(te + tIsr); armed = false; } }
+    else lowSince = te;
+    lvl = nl;
+  }
+  return ev;
+}
+
+// --------------------------------------------------------- corrida y métricas
+function attribute(ev, presses) {
+  const n = presses.length, cnt = new Array(n).fill(0), lat = new Array(n).fill(null);
+  let spurious = 0;
+  for (const e of ev) {
+    let lo = 0, hi = n;
+    while (lo < hi) { const m = (lo + hi) >> 1; if (presses[m].t <= e) lo = m + 1; else hi = m; }
+    const i = lo - 1;
+    if (i < 0) { spurious++; continue; }
+    cnt[i]++; if (lat[i] === null) lat[i] = e - presses[i].t;
+  }
+  const missed = cnt.filter(c => c === 0).length;
+  const dupes = cnt.reduce((a, c) => a + Math.max(0, c - 1), 0);
+  const lats = lat.filter(x => x !== null);
+  return { events: ev.length, n, missed, dupes, spurious, maxLat: lats.length ? Math.max(...lats) : 0, cnt, lat };
+}
+
+function signalFor(sc, entK) {
+  const b = baseSignal(sc), e = ENT[entK];
+  if (entK === 'flotante') return { ...b, E: mergeEdges(b.E, humEdges(b.tEnd)) };
+  if (e.rc) return { ...b, E: rcFilter(b.E, b.tEnd) };
+  return b;
+}
+
+function runSim(sc, cfg, off) {
+  const s = signalFor(sc, cfg.ent), a = ADQ[cfg.adq];
+  const ev = a.int
+    ? lockout(s.E, s.tEnd, a.k === 'intRaw' ? 0 : cfg.tEst, T_ISR)
+    : integrador(s.E, s.tEnd, a.k === 'timer' ? T_TIMER : sc.tLoop, cfg.tEst, off);
+  const r = attribute(ev, s.presses);
+  r.isr = a.int ? ev.length : 0;
+  return r;
+}
+const score = r => r.missed * 1e9 + r.dupes * 1e6 + r.spurious * 1e3 + r.maxLat / 1e6;
+
+const RUN_CACHE = new Map();
+function runC(sc, cfg) {
+  const key = `${sc.id}|${cfg.ent}|${cfg.tEst}|${cfg.adq}`;
+  if (RUN_CACHE.has(key)) return RUN_CACHE.get(key);
+  const a = ADQ[cfg.adq];
+  const T = a.int ? 0 : (a.k === 'timer' ? T_TIMER : sc.tLoop);
+  const offs = a.int ? [0] : [0, Math.round(T / 4), Math.round(T / 2), Math.round(3 * T / 4)];
+  let worst = null;
+  for (const o of offs) { const r = runSim(sc, cfg, o); if (!worst || score(r) > score(worst)) worst = r; }
+  worst.ok = worst.missed === 0 && worst.dupes === 0 && worst.spurious === 0 && worst.maxLat <= sc.tLatMax;
+  RUN_CACHE.set(key, worst);
+  return worst;
+}
+
+// --------------------------------------------------- calificación del Reto
+function guardEnt(sc, entK) {
+  const e = ENT[entK];
+  if (e.rV === null) return false;                 // sin nivel definido en reposo
+  if (iQuiesc(e) > sc.iMaxIn) return false;        // techo: presupuesto de consumo
+  if (iQuiesc(e) < (sc.iMinIn || 0)) return false; // piso: humectación del contacto
+  if (vDrop(sc, e) > VN_MAX) return false;         // margen de ruido en reposo
+  return true;
+}
+function guardAdq(sc, adqK) {
+  const a = ADQ[adqK];
+  if (a.int && sc.nIn > N_INT) return false;       // pines de interrupción externa
+  if (a.timer && !sc.timerLibre) return false;     // temporizador ocupado por el PWM
+  if (sc.sleep && !a.sleep) return false;          // el nodo tiene que dormir
+  return true;
+}
+function cfgOk(sc, cfg) {
+  if (!guardEnt(sc, cfg.ent)) return false;
+  if (!guardAdq(sc, cfg.adq)) return false;
+  return runC(sc, cfg).ok;
+}
+const cfgWith = (sc, o) => ({ ...GOOD(sc), ...o });
+const okEnt = (sc, k) => cfgOk(sc, cfgWith(sc, { ent: k }));
+const okTest = (sc, t) => cfgOk(sc, cfgWith(sc, { tEst: t }));
+const okAdq = (sc, k) => cfgOk(sc, cfgWith(sc, { adq: k }));
+
+// ===================== 2b. ADAPTADORES DE PRESENTACIÓN =====================
+// Nada de esto cambia el motor: sólo lo consulta para dibujar.
+const EV_CACHE=new Map();
+function evRun(sc,cfg){
+  const key=`${sc.id}|${cfg.ent}|${cfg.tEst}|${cfg.adq}`;
+  if(EV_CACHE.has(key))return EV_CACHE.get(key);
+  const s=signalFor(sc,cfg.ent),a=ADQ[cfg.adq];
+  const T=a.int?0:(a.k==='timer'?T_TIMER:sc.tLoop);
+  const offs=a.int?[0]:[0,Math.round(T/4),Math.round(T/2),Math.round(3*T/4)];
+  let worst=null,off=0;
+  for(const o of offs){const r=runSim(sc,cfg,o);if(!worst||score(r)>score(worst)){worst=r;off=o;}}
+  const ev=a.int?lockout(s.E,s.tEnd,a.k==='intRaw'?0:cfg.tEst,T_ISR)
+                :integrador(s.E,s.tEnd,T,cfg.tEst,off);
+  const out={s,ev,off,T,r:runC(sc,cfg)};
+  EV_CACHE.set(key,out);return out;
+}
+// Ventana de observación centrada en una pulsación concreta de la corrida medida.
+function winFor(sc,pi){
+  const b=baseSignal(sc),p=b.presses[pi];
+  const pre=Math.round(0.40*sc.tb)+Math.round(0.10*p.dur);
+  const post=Math.round(0.55*p.gap);
+  return {t0:p.t-pre,t1:p.t+p.dur+sc.tb+post,p,b};
+}
+// Ventana VÁLIDA de t_est MEDIDA por barrido (no una fórmula): 48 puntos log-espaciados.
+const WIN_CACHE=new Map();
+function winOf(sc){
+  if(WIN_CACHE.has(sc.id))return WIN_CACHE.get(sc.id);
+  const pts=[];
+  for(let i=0;i<48;i++){
+    const t=Math.round(100*Math.pow(2000,i/47));
+    const r=runC(sc,cfgWith(sc,{tEst:t}));
+    pts.push({t,ok:r.ok,missed:r.missed,dupes:r.dupes});
+  }
+  const g=goodTest(sc);
+  let lo=100,hi=200000;
+  for(const p of pts){if(p.t<g&&!p.ok)lo=Math.max(lo,p.t);if(p.t>g&&!p.ok)hi=Math.min(hi,p.t);}
+  const out={pts,lo,hi};WIN_CACHE.set(sc.id,out);return out;
+}
+// Por qué se descarta cada opción: la razón la da el motor, no una tabla escrita a mano.
+function whyRun(sc,cfg){
+  const r=runC(sc,cfg);
+  if(r.missed)return {ok:false,txt:'pierde '+r.missed+' de '+NP+' pulsaciones'};
+  if(r.dupes)return {ok:false,txt:'cuenta '+r.dupes+' pulsaciones de más'};
+  if(r.spurious)return {ok:false,txt:'inventa '+r.spurious+' eventos que nadie provocó'};
+  if(r.maxLat>sc.tLatMax)return {ok:false,txt:'latencia '+fmtT(r.maxLat)+' sobre un máximo de '+fmtT(sc.tLatMax)};
+  return {ok:true,txt:'cumple: 24 de 24, sin dobles y con '+fmtT(r.maxLat)+' de latencia'};
+}
+function whyEnt(sc,k){
+  const e=ENT[k];
+  if(e.rV===null)return {ok:false,txt:'entrada flotante: en reposo el nivel no está definido'};
+  if(iQuiesc(e)>sc.iMaxIn)return {ok:false,txt:'consume '+n3(iQuiesc(e))+' mA y el presupuesto es '+n2(sc.iMaxIn)+' mA'};
+  if(iQuiesc(e)<(sc.iMinIn||0))return {ok:false,txt:'sólo da '+n3(iQuiesc(e))+' mA y el contacto pide '+n1(sc.iMinIn)+' mA de humectación'};
+  if(vDrop(sc,e)>VN_MAX)return {ok:false,txt:'el reposo cae a '+n2(vRest(sc,e))+' V (mínimo admitido '+n1(VCC-VN_MAX)+' V)'};
+  return whyRun(sc,cfgWith(sc,{ent:k}));
+}
+function whyTest(sc,t){
+  const r=runC(sc,cfgWith(sc,{tEst:t})),a=ADQ[goodAdq(sc)];
+  if(r.dupes)return {ok:false,txt:'cuenta '+r.dupes+' de más: '+fmtT(t)+' no cubre la mitad de la ventana de rebote ('+fmtT(sc.tb/2)+')'};
+  if(r.missed)return {ok:false,txt:a.int?('pierde '+r.missed+': exige '+fmtT(t)+' de reposo estable y el hueco más corto es '+fmtT(sc.gapMin))
+                                        :('pierde '+r.missed+': exige '+fmtT(t)+' de nivel estable y la pulsación más corta es '+fmtT(sc.pulseMin))};
+  return whyRun(sc,cfgWith(sc,{tEst:t}));
+}
+function whyAdq(sc,k){
+  const a=ADQ[k];
+  if(a.int&&sc.nIn>N_INT)return {ok:false,txt:'hacen falta '+sc.nIn+' entradas y el MCU sólo tiene '+N_INT+' pines de interrupción externa'};
+  if(a.timer&&!sc.timerLibre)return {ok:false,txt:'el temporizador ya está ocupado generando el PWM'};
+  if(sc.sleep&&!a.sleep)return {ok:false,txt:'el nodo tiene que dormir y el sondeo no despierta al MCU'};
+  return whyRun(sc,cfgWith(sc,{adq:k}));
+}
+
+// ===================== 3. ESTADO =====================
+let mode='explora';
+const EVENTOS=[[I_MIN,'pulsación más corta'],[I_GAP,'hueco más corto'],[I_BAD,'peor tren de rebotes']];
+let expIdx=0,expEnt='externo',expEv=2;
+let apTopic='acond',apIdx=0,apEnt='interno',apT=1,apA=0;
+let retoK=0;
+let retoCh={ent:'flotante',tEst:1000,adq:'lazo'};
+let retoChecked=false,retoOkEnt=false,retoOkTest=false,retoOkAdq=false,retoSolved=false,retoMsg='';
+let solved=false,autoRunning=false,QUIZ={};
+let hwStep=0,hwT=0,framesCache=null;
+
+function pickIdx(n,ex){let v=Math.floor(Math.random()*n);if(n>1)while(v===ex)v=Math.floor(Math.random()*n);return v;}
+function hexA(hex,a){const n=parseInt(hex.slice(1),16);return `rgba(${(n>>16)&255},${(n>>8)&255},${n&255},${a})`;}
+const n0=x=>Math.round(x).toString();
+const n1=x=>x.toFixed(1).replace('.',',');
+const n2=x=>x.toFixed(2).replace('.',',');
+const n3=x=>x.toFixed(3).replace('.',',');
+const fmtT=u=>Math.abs(u)>=1000?n1(u/1000)+' ms':n0(u)+' µs';
+const fmtTest=t=>n0(t/1000)+' ms';
+const fmtZ=z=>z>=1e6?'≈ ∞':(z>=1000?n1(z/1000)+' kΩ':n0(z)+' Ω');
+
+const expSc=()=>POOL[expIdx];
+const expPress=()=>EVENTOS[expEv][0];
+const expCfg=()=>cfgWith(expSc(),{ent:expEnt});
+const retoSc=()=>POOL[RETO_POOL[retoK]];
+const retoCfg=()=>({ent:retoCh.ent,tEst:retoCh.tEst,adq:retoCh.adq});
+function apCfg(){
+  const sc=POOL[apIdx];
+  if(apTopic==='acond')return cfgWith(sc,{ent:apEnt});
+  if(apTopic==='filtro')return cfgWith(sc,{ent:'rc'});
+  if(apTopic==='tiempo')return cfgWith(sc,{tEst:TESTS[apT]});
+  return cfgWith(sc,{adq:ADQS[apA].k});
+}
+const curSc=()=>mode==='reto'?retoSc():(mode==='aplica'?POOL[apIdx]:expSc());
+const curCfg=()=>mode==='reto'?retoCfg():(mode==='aplica'?apCfg():expCfg());
+const curPress=()=>mode==='explora'?expPress():I_BAD;
+
+function seedReto(k){
+  retoK=(k==null)?pickIdx(RETO_POOL.length,retoK):k;
+  const sc=retoSc();
+  // configuración de partida deliberadamente MAL en las TRES decisiones
+  const badE=ENTRADAS.find(e=>!okEnt(sc,e.k));
+  const badT=TESTS.find(t=>!okTest(sc,t));
+  const badA=ADQS.find(a=>!okAdq(sc,a.k));
+  retoCh={ent:badE?badE.k:'flotante',tEst:badT!=null?badT:TESTS[0],adq:badA?badA.k:'lazo'};
+  retoChecked=false;retoOkEnt=false;retoOkTest=false;retoOkAdq=false;retoSolved=false;retoMsg='';
+}
+seedReto(0);
+
+// ===================== 4. MATERIALES =====================
+function std(color,rough,metal){return new THREE.MeshStandardMaterial({color,roughness:rough,metalness:metal});}
+function brush(base){return std(base,0.55,0.35);}
+const MAT={bench:brush(0x2b2f34),frame:brush(0x22262c),leg:brush(0x14161b),body:std(0x1b2028,0.6,0.25),
+  steel:std(0x9aa4b2,0.35,0.75),shiny:std(0xd6dde8,0.22,0.9),dark:std(0x14171b,0.5,0.3),plate:brush(0x3a4048),
+  pcb:std(0x1b4d2e,0.7,0.1),copper:std(0xb87333,0.4,0.8),red:std(0xd2453f,0.5,0.2)};
+const ACC='#8AB4F8', OK_HEX='#7CD992', BAD_HEX='#ff6b6b', WARN_HEX='#E9C46A', VIO='#C08CF8';
+
+const HOVER_LABELS=new Map();
+function addHoverLabel(obj,text,color,pos,scale){
+  const cv=document.createElement('canvas');cv.width=256;cv.height=64;const cx=cv.getContext('2d');
+  cx.fillStyle='rgba(10,14,17,0.88)';cx.fillRect(0,0,256,64);
+  cx.strokeStyle=color;cx.lineWidth=2;cx.strokeRect(1,1,254,62);
+  cx.fillStyle='#F4EFEA';cx.font='bold 20px Outfit, sans-serif';cx.textAlign='center';cx.textBaseline='middle';cx.fillText(text,128,32);
+  const tex=new THREE.CanvasTexture(cv);
+  const spr=new THREE.Sprite(new THREE.SpriteMaterial({map:tex,transparent:true,depthTest:false}));
+  spr.position.copy(pos);spr.scale.set(scale||1.1,(scale||1.1)*0.28,1);spr.visible=false;spr.renderOrder=999;
+  scene.add(spr);HOVER_LABELS.set(obj,spr);return spr;
+}
+
+// ===================== 5. PIZARRÓN =====================
+const boardG=new THREE.Group();
+boardG.position.set(-1.15,0,-0.95);boardG.rotation.y=0.2;scene.add(boardG);
+const frame=roundedBox(3.9,2.9,0.12,MAT.frame,0.06);frame.position.set(0,1.9,0);boardG.add(frame);
+[-1.65,1.65].forEach(x=>{const leg=new THREE.Mesh(new THREE.CylinderGeometry(0.05,0.06,1.9,16),MAT.leg);leg.position.set(x,0.92,0);boardG.add(leg);});
+const bCv=document.createElement('canvas');bCv.width=1024;bCv.height=768;
+const bTex=new THREE.CanvasTexture(bCv);
+const board=new THREE.Mesh(new THREE.PlaneGeometry(3.68,2.72),new THREE.MeshBasicMaterial({map:bTex}));
+board.position.set(0,1.9,0.065);boardG.add(board);
+frame.userData={title:'Pizarrón de entradas digitales',info:'Rebotes, acondicionamiento, antirrebote y estrategia de lectura · toca para inspeccionar'};
+addHoverLabel(frame,'GPIO · antirrebote',ACC,new THREE.Vector3(0,3.5,0.1).add(boardG.position),2.6);
+
+function bg(c){c.fillStyle='#0c1016';c.fillRect(0,0,1024,768);}
+function rpanel(c,x,y,w,h,title){
+  c.fillStyle=hexA(ACC,0.06);c.fillRect(x,y,w,h);
+  c.strokeStyle=hexA(ACC,0.22);c.lineWidth=1;c.strokeRect(x,y,w,h);
+  c.fillStyle='#C7D6F5';c.font='bold 15px Outfit, sans-serif';c.textAlign='left';c.fillText(title,x+16,y+26);
+}
+function prow(c,x,y,w,l,v,col){
+  c.fillStyle='#8f97a5';c.font='13px Outfit, sans-serif';c.textAlign='left';c.fillText(l,x+16,y);
+  c.fillStyle=col||'#F4EFEA';c.font='bold 15px Outfit, sans-serif';c.textAlign='right';c.fillText(v,x+w-14,y);
+}
+function wrapText(c,text,x,y,maxW,lh){
+  const words=text.split(' ');let line='',yy=y;
+  for(const w of words){const test=line+w+' ';
+    if(c.measureText(test).width>maxW && line){c.fillText(line,x,yy);line=w+' ';yy+=lh;}else line=test;}
+  c.fillText(line,x,yy);return yy;
+}
+const PX={x:706,y:70,w:300};
+function trow(c,x,y,w,h,cols,widths,cols_col,head){
+  c.fillStyle=head?hexA(ACC,0.10):'rgba(255,255,255,0.03)';c.fillRect(x,y,w,h);
+  c.strokeStyle=hexA(ACC,0.16);c.lineWidth=1;c.strokeRect(x,y,w,h);
+  let cx=x;
+  cols.forEach((t,i)=>{
+    c.fillStyle=head?'#C7D6F5':(cols_col&&cols_col[i]?cols_col[i]:'#F4EFEA');
+    c.font=(head?'bold 12px':'12px')+' Outfit, sans-serif';c.textAlign='left';
+    c.fillText(t,cx+8,y+h/2+4);
+    cx+=widths[i];
+  });
+}
+function drawBar(c,x,y,w,h,frac,label,col,right){
+  c.fillStyle='#9fb0cf';c.font='12px Outfit, sans-serif';c.textAlign='left';c.fillText(label,x,y-8);
+  c.fillStyle='rgba(255,255,255,0.06)';c.fillRect(x,y,w,h);
+  c.fillStyle=hexA(col,0.75);c.fillRect(x,y,Math.max(0,Math.min(1,frac))*w,h);
+  c.strokeStyle=hexA(ACC,0.3);c.lineWidth=1;c.strokeRect(x,y,w,h);
+  c.fillStyle=col;c.font='bold 13px Outfit, sans-serif';c.textAlign='right';c.fillText(right,x+w,y-8);
+}
+// --- carril de señal digital reconstruido desde la lista de aristas ---
+function lane(c,x,y,w,h,label,sub){
+  c.fillStyle='rgba(255,255,255,0.03)';c.fillRect(x,y,w,h);
+  c.strokeStyle=hexA(ACC,0.16);c.lineWidth=1;c.strokeRect(x,y,w,h);
+  c.fillStyle='#9fb0cf';c.font='12px Outfit, sans-serif';c.textAlign='left';c.fillText(label,x+2,y-6);
+  if(sub){c.fillStyle='#6b7280';c.font='11px Outfit, sans-serif';c.textAlign='right';c.fillText(sub,x+w,y-6);}
+}
+function wave(c,x,y,w,h,E,t0,t1,col){
+  const sx=t=>x+((t-t0)/(t1-t0))*w;
+  const yHi=y+9,yLo=y+h-9;
+  let lvl=lvlAt(E,t0),py=lvl?yHi:yLo;
+  c.strokeStyle=col;c.lineWidth=2;c.beginPath();c.moveTo(x,py);
+  for(const e of E){
+    if(e<=t0)continue;
+    if(e>t1)break;
+    const ex=sx(e);c.lineTo(ex,py);lvl^=1;py=lvl?yHi:yLo;c.lineTo(ex,py);
+  }
+  c.lineTo(x+w,py);c.stroke();
+  c.fillStyle='#6b7280';c.font='10px Outfit, sans-serif';c.textAlign='left';
+  c.fillText('1',x+4,yHi+4);c.fillText('0',x+4,yLo+4);
+}
+function evLane(c,x,y,w,h,ev,t0,t1,col){
+  let n=0;
+  ev.forEach(e=>{
+    if(e<t0||e>t1)return;
+    n++;const px=x+((e-t0)/(t1-t0))*w;
+    c.strokeStyle=col;c.lineWidth=2;c.beginPath();c.moveTo(px,y+h-8);c.lineTo(px,y+10);c.stroke();
+    c.fillStyle=col;c.beginPath();c.arc(px,y+10,3.5,0,Math.PI*2);c.fill();
+  });
+  return n;
+}
+function sampleTicks(c,x,y,w,h,T,off,t0,t1){
+  if(!T)return;
+  const n=Math.floor((t1-t0)/T);
+  if(n>220)return;
+  let ts=Math.ceil((t0-off)/T)*T+off;
+  c.fillStyle='rgba(255,255,255,0.28)';
+  for(;ts<=t1;ts+=T){const px=x+((ts-t0)/(t1-t0))*w;c.fillRect(px-0.5,y+h-5,1,4);}
+}
+function timeAxis(c,x,y,w,t0,t1){
+  c.strokeStyle='rgba(255,255,255,0.16)';c.lineWidth=1;
+  c.beginPath();c.moveTo(x,y);c.lineTo(x+w,y);c.stroke();
+  c.fillStyle='#7a8494';c.font='11px Outfit, sans-serif';c.textAlign='center';
+  for(let i=0;i<=5;i++){const t=t0+(t1-t0)*i/5,px=x+w*i/5;
+    c.beginPath();c.moveTo(px,y);c.lineTo(px,y+5);c.stroke();
+    c.fillText(n2((t-t0)/1000),px,y+18);}
+  c.textAlign='right';c.fillText('ms desde el inicio de la ventana',x+w,y+34);
+}
+
+// ===================== 6. VISTAS POR MODO =====================
+function drawExplora(c){
+  const sc=expSc(),cfg=expCfg(),e=ENT[expEnt];
+  const {t0,t1,p,b}=winFor(sc,expPress());
+  const R=evRun(sc,cfg);
+  c.fillStyle='#F4EFEA';c.font='bold 25px Outfit, sans-serif';c.textAlign='left';
+  c.fillText('Del contacto mecánico al bit: rebotes y acondicionamiento',30,54);
+  c.fillStyle='#9fb0cf';c.font='14px Outfit, sans-serif';
+  wrapText(c,sc.sw+'. Cada maniobra genera un tren de rebotes de hasta '+fmtT(sc.tb)+': el contacto abre y cierra varias veces antes de asentarse, y lo hace tanto al cerrar como al abrir. La resistencia de polarización no es un adorno: fija el nivel en reposo, decide la corriente que consume el nodo y fija la impedancia que ve el ruido.',30,80,640,20);
+
+  const gx=30,gw=640,lh=52;
+  lane(c,gx,178,gw,lh,'1 · Contacto mecánico (lo que hace el metal)',fmtT(t1-t0)+' de ventana');
+  wave(c,gx,178,gw,lh,b.E,t0,t1,WARN_HEX);
+  lane(c,gx,250,gw,lh,'2 · Nodo en el pin tras el acondicionamiento',e.n);
+  if(e.rc){
+    const pts=rcTrace(b.E,t0,t1,300),sx=t=>gx+((t-t0)/(t1-t0))*gw,sv=v=>250+lh-6-(Math.max(0,Math.min(VCC,v))/VCC)*(lh-12);
+    [[VTP,'V T+'],[VTM,'V T−']].forEach(u=>{
+      c.strokeStyle=hexA(VIO,0.45);c.lineWidth=1;c.setLineDash([4,4]);
+      c.beginPath();c.moveTo(gx,sv(u[0]));c.lineTo(gx+gw,sv(u[0]));c.stroke();c.setLineDash([]);
+      c.fillStyle=VIO;c.font='10px Outfit, sans-serif';c.textAlign='right';c.fillText(u[1],gx+gw-4,sv(u[0])-3);});
+    c.strokeStyle=hexA(ACC,0.85);c.lineWidth=1.5;c.beginPath();
+    pts.forEach((q,k)=>{const xx=sx(q.t),yy=sv(q.v);if(k)c.lineTo(xx,yy);else c.moveTo(xx,yy);});c.stroke();
+  }
+  wave(c,gx,250,gw,lh,R.s.E,t0,t1,expEnt==='flotante'?BAD_HEX:ACC);
+  const nev=(()=>{
+    lane(c,gx,322,gw,lh,'3 · Eventos que acepta el programa',ADQ[cfg.adq].n+' · t_est '+fmtTest(cfg.tEst));
+    sampleTicks(c,gx,322,gw,lh,R.T,R.off,t0,t1);
+    return evLane(c,gx,322,gw,lh,R.ev,t0,t1,OK_HEX);
+  })();
+  timeAxis(c,gx,322+lh+8,gw,t0,t1);
+
+  c.fillStyle=nev===1?OK_HEX:BAD_HEX;c.font='bold 13px Outfit, sans-serif';c.textAlign='left';
+  c.fillText(nev===1?'✔ 1 evento para 1 maniobra en esta ventana'
+    :(nev===0?'✗ 0 eventos: esta maniobra se ha perdido entera':'✗ '+nev+' eventos para UNA sola maniobra'),gx,426);
+
+  const wds=[196,86,84,92,182];
+  trow(c,gx,446,gw,28,['Acondicionamiento','i reposo','Z a 4 kHz','V reposo','veredicto'],wds,null,true);
+  ENTRADAS.forEach((op,i)=>{
+    const w=whyEnt(sc,op.k),col=w.ok?OK_HEX:BAD_HEX;
+    const vr=vRest(sc,op),vs=op.rV===null?'sin definir':(vr<0?'< 0 V':n2(vr)+' V');
+    trow(c,gx,474+i*28,gw,28,[(op.k===expEnt?'▸ ':'   ')+op.n,n3(iQuiesc(op))+' mA',fmtZ(zNoise(op)),vs,(w.ok?'✔ ':'✗ ')+w.txt],
+      wds,[op.k===expEnt?'#F4EFEA':'#9fb0cf','#9fb0cf','#9fb0cf',op.rV===null||vr<VCC-VN_MAX?BAD_HEX:OK_HEX,col]);
+  });
+  c.fillStyle='#8f97a5';c.font='12px Outfit, sans-serif';c.textAlign='left';
+  wrapText(c,'La columna del veredicto la calcula el motor con las otras dos decisiones correctas: si una opción falla es por su propio motivo, no por arrastrar un error ajeno.',gx,608,gw,17);
+
+  rpanel(c,PX.x,PX.y,PX.w,430,'Estación · '+sc.name);
+  let py=PX.y+56;
+  prow(c,PX.x,py,PX.w,'Ventana de rebote',fmtT(sc.tb));py+=25;
+  prow(c,PX.x,py,PX.w,'Pulsación más corta',fmtT(sc.pulseMin));py+=25;
+  prow(c,PX.x,py,PX.w,'Hueco más corto',fmtT(sc.gapMin));py+=25;
+  prow(c,PX.x,py,PX.w,'Entradas del nodo',n0(sc.nIn));py+=25;
+  prow(c,PX.x,py,PX.w,'Fuga de la bornera',sc.rLeak===Infinity?'—':fmtZ(sc.rLeak));py+=25;
+  prow(c,PX.x,py,PX.w,'Ruido acoplado',sc.cCoup?n0(sc.cCoup*1e12)+' pF · '+n0(sc.vDrive)+' V':'—');py+=25;
+  prow(c,PX.x,py,PX.w,'Corriente inducida',sc.cCoup?n3(iAcOf(sc)*1000)+' mA':'0 mA');py+=29;
+  c.strokeStyle=hexA(ACC,0.18);c.beginPath();c.moveTo(PX.x+16,py-14);c.lineTo(PX.x+PX.w-16,py-14);c.stroke();
+  prow(c,PX.x,py,PX.w,'Caída por fuga',n3(vLeak(sc,e))+' V',vLeak(sc,e)>VN_MAX?BAD_HEX:'');py+=25;
+  prow(c,PX.x,py,PX.w,'Caída por ruido',vAc(sc,e)>99?'> 99 V':n3(vAc(sc,e))+' V',vAc(sc,e)>VN_MAX?BAD_HEX:'');py+=25;
+  prow(c,PX.x,py,PX.w,'V en reposo',e.rV===null?'indefinido':(vRest(sc,e)<0?'< 0 V':n3(vRest(sc,e))+' V'),
+    e.rV!==null&&vDrop(sc,e)<=VN_MAX?OK_HEX:BAD_HEX);py+=25;
+  prow(c,PX.x,py,PX.w,'Umbrales del MCU','V_IL '+n1(VIL)+' V · V_IH '+n1(VIH)+' V');py+=25;
+  prow(c,PX.x,py,PX.w,'Retardo del filtro',fmtT(tDelayEnt(e)));py+=29;
+  c.fillStyle='#8f97a5';c.font='12px Outfit, sans-serif';c.textAlign='left';
+  wrapText(c,'Un nodo por debajo de '+n1(VCC-VN_MAX)+' V ya no tiene 1,5 V de margen sobre V_IH: sigue leyendo bien en la mesa y falla en la máquina.',PX.x+16,py,PX.w-32,17);
+  c.fillStyle='#6b7280';c.font='11px Outfit, sans-serif';c.textAlign='left';
+  c.fillText('Los rebotes son un tren impar de transiciones repartido de forma irregular dentro de la ventana',30,752);
+}
+
+function drawAplicaAcond(c){
+  const sc=POOL[apIdx],e=ENT[apEnt];
+  c.fillStyle='#F4EFEA';c.font='bold 25px Outfit, sans-serif';c.textAlign='left';
+  c.fillText('La resistencia de polarización decide tres cosas a la vez',30,54);
+  c.fillStyle='#9fb0cf';c.font='14px Outfit, sans-serif';
+  wrapText(c,'Elegir el pull-up no es «poner una resistencia»: fija el NIVEL en reposo frente a la fuga de la bornera, fija la CORRIENTE que consume el nodo —hacia arriba por el presupuesto de pila y hacia abajo por la humectación del contacto— y fija la IMPEDANCIA que ve el ruido, Z = R/√(1+(ωRC)²). Las tres tiran en direcciones distintas: no existe un valor bueno para todo.',30,80,640,20);
+
+  const gx=30,gw=640,wds=[184,80,88,96,192];
+  trow(c,gx,186,gw,28,['Opción','i reposo','Z a 4 kHz','V reposo','veredicto en esta estación'],wds,null,true);
+  ENTRADAS.forEach((op,i)=>{
+    const w=whyEnt(sc,op.k),col=w.ok?OK_HEX:BAD_HEX,vr=vRest(sc,op);
+    trow(c,gx,214+i*30,gw,30,[(op.k===apEnt?'▸ ':'   ')+op.n,n3(iQuiesc(op))+' mA',fmtZ(zNoise(op)),
+      op.rV===null?'sin definir':(vr<0?'< 0 V':n2(vr)+' V'),(w.ok?'✔ ':'✗ ')+w.txt],
+      wds,[op.k===apEnt?'#F4EFEA':'#9fb0cf','#9fb0cf','#9fb0cf',op.rV!==null&&vDrop(sc,op)<=VN_MAX?OK_HEX:BAD_HEX,col]);
+  });
+
+  c.fillStyle='#C7D6F5';c.font='bold 14px Outfit, sans-serif';c.textAlign='left';
+  c.fillText('Autonomía con 2 pilas AA (2700 mAh) sólo por el pull-up',gx,376);
+  ENTRADAS.forEach((op,i)=>{
+    const mA=iQuiesc(op);
+    const dias=mA>0?diasPila(2700,mA):Infinity;
+    const txt=mA>0?n0(dias)+' días':'sin consumo';
+    drawBar(c,gx,406+i*40,gw,18,mA>0?Math.min(1,dias/730):1,op.n,mA>0?(dias>=365?OK_HEX:WARN_HEX):'#6b7280',txt);
+  });
+  c.fillStyle='#8f97a5';c.font='12px Outfit, sans-serif';c.textAlign='left';
+  wrapText(c,'La barra llena son dos años. La entrada flotante «no consume» por el pull-up y aun así es la peor opción de las cuatro: sin nivel definido el pin lee lo que le acerquen, y en CMOS un nodo parado a media escala hace conducir a la vez los dos transistores de entrada.',gx,584,gw,18);
+
+  rpanel(c,PX.x,PX.y,PX.w,430,'Estación · '+sc.name);
+  let py=PX.y+56;
+  prow(c,PX.x,py,PX.w,'Contacto',sc.sw.split(',')[0]);py+=25;
+  prow(c,PX.x,py,PX.w,'Techo de consumo',sc.iMaxIn>=10?'sin límite práctico':n2(sc.iMaxIn)+' mA');py+=25;
+  prow(c,PX.x,py,PX.w,'Piso de humectación',sc.iMinIn?n1(sc.iMinIn)+' mA':'no aplica (oro)');py+=25;
+  prow(c,PX.x,py,PX.w,'Fuga de la bornera',sc.rLeak===Infinity?'—':fmtZ(sc.rLeak));py+=25;
+  prow(c,PX.x,py,PX.w,'Acoplo capacitivo',sc.cCoup?n0(sc.cCoup*1e12)+' pF':'—');py+=25;
+  prow(c,PX.x,py,PX.w,'Portadora del variador',sc.cCoup?n0(F_NOISE/1000)+' kHz · '+n0(sc.vDrive)+' V':'—');py+=29;
+  c.strokeStyle=hexA(ACC,0.18);c.beginPath();c.moveTo(PX.x+16,py-14);c.lineTo(PX.x+PX.w-16,py-14);c.stroke();
+  prow(c,PX.x,py,PX.w,'Opción marcada',e.n.split(' ')[0]);py+=25;
+  prow(c,PX.x,py,PX.w,'i reposo',n3(iQuiesc(e))+' mA');py+=25;
+  prow(c,PX.x,py,PX.w,'Caída por fuga',n3(vLeak(sc,e))+' V');py+=25;
+  prow(c,PX.x,py,PX.w,'Caída por ruido',vAc(sc,e)>99?'> 99 V':n3(vAc(sc,e))+' V');py+=25;
+  prow(c,PX.x,py,PX.w,'Margen sobre V_IH',e.rV===null?'—':n2(vRest(sc,e)-VIH)+' V',
+    e.rV!==null&&vRest(sc,e)-VIH>=1.5?OK_HEX:BAD_HEX);py+=29;
+  c.fillStyle='#8f97a5';c.font='12px Outfit, sans-serif';c.textAlign='left';
+  wrapText(c,'La regla de diseño de esta práctica: el reposo no puede bajar de '+n1(VCC-VN_MAX)+' V, es decir 1,5 V por encima de V_IH.',PX.x+16,py,PX.w-32,17);
+  c.fillStyle='#6b7280';c.font='11px Outfit, sans-serif';c.textAlign='left';
+  c.fillText('Peor caso separado: 20 kΩ para el consumo y 50 kΩ para el nivel — el pull-up interno se especifica como banda',30,752);
+}
+
+function drawAplicaFiltro(c){
+  const sc=POOL[apIdx];
+  const {t0,t1,b}=winFor(sc,I_BAD);
+  const cfg=cfgWith(sc,{ent:'rc'});
+  const R=evRun(sc,cfg);
+  c.fillStyle='#F4EFEA';c.font='bold 25px Outfit, sans-serif';c.textAlign='left';
+  c.fillText('Filtro RC con disparador Schmitt: lo que sí hace y lo que no',30,54);
+  c.fillStyle='#9fb0cf';c.font='14px Outfit, sans-serif';
+  wrapText(c,'El filtro carga por 10 kΩ y descarga por 10 kΩ ‖ 1 kΩ: las dos constantes de tiempo NO son iguales, así que el retardo al pulsar y el retardo al soltar tampoco lo son. El Schmitt convierte una rampa lenta en un flanco limpio, pero un flanco tardío sigue siendo tardío.',30,80,640,20);
+
+  const gx=30,gw=640,gy=178,gh=190;
+  c.fillStyle='rgba(255,255,255,0.03)';c.fillRect(gx,gy,gw,gh);
+  c.strokeStyle=hexA(ACC,0.16);c.lineWidth=1;c.strokeRect(gx,gy,gw,gh);
+  const sx=t=>gx+((t-t0)/(t1-t0))*gw,sv=v=>gy+gh-8-(Math.max(0,Math.min(VCC,v))/VCC)*(gh-16);
+  [[VCC,'Vcc'],[VTP,'V T+ = '+n1(VTP)+' V'],[VTM,'V T− = '+n1(VTM)+' V'],[V_CLOSED,'V cerrado = '+n3(V_CLOSED)+' V']].forEach((u,i)=>{
+    c.strokeStyle=hexA(i===0?'#6b7280':(i===3?WARN_HEX:VIO),0.5);c.lineWidth=1;c.setLineDash([4,4]);
+    c.beginPath();c.moveTo(gx,sv(u[0]));c.lineTo(gx+gw,sv(u[0]));c.stroke();c.setLineDash([]);
+    c.fillStyle=i===0?'#6b7280':(i===3?WARN_HEX:VIO);c.font='11px Outfit, sans-serif';c.textAlign='right';
+    c.fillText(u[1],gx+gw-4,sv(u[0])-4);});
+  const pts=rcTrace(b.E,t0,t1,400);
+  c.strokeStyle=ACC;c.lineWidth=2;c.beginPath();
+  pts.forEach((q,k)=>{const xx=sx(q.t),yy=sv(q.v);if(k)c.lineTo(xx,yy);else c.moveTo(xx,yy);});c.stroke();
+  c.fillStyle='#7a8494';c.font='11px Outfit, sans-serif';c.textAlign='left';
+  c.fillText('tensión del nodo (V)',gx+6,gy+16);
+
+  lane(c,gx,394,gw,44,'Contacto mecánico','entrada del filtro');
+  wave(c,gx,394,gw,44,b.E,t0,t1,WARN_HEX);
+  lane(c,gx,458,gw,44,'Salida del Schmitt','retardada '+fmtT(TD_PRESS)+' al pulsar y '+fmtT(TD_REL)+' al soltar');
+  wave(c,gx,458,gw,44,R.s.E,t0,t1,OK_HEX);
+  timeAxis(c,gx,510,gw,t0,t1);
+
+  const filtra=sc.tb<=2*TAU_O;
+  c.fillStyle=filtra?OK_HEX:WARN_HEX;c.font='bold 13px Outfit, sans-serif';c.textAlign='left';
+  wrapText(c,filtra
+    ?('Con una ventana de rebote de '+fmtT(sc.tb)+' el filtro sí recorta parte del tren: τ de carga = '+fmtT(TAU_O)+'.')
+    :('Con una ventana de rebote de '+fmtT(sc.tb)+' el filtro NO borra los rebotes: τ de carga es sólo '+fmtT(TAU_O)+'. El filtro está aquí por el ruido y por el nivel, no para hacer de antirrebote — eso sigue siendo trabajo del programa.'),gx,580,gw,18);
+
+  rpanel(c,PX.x,PX.y,PX.w,430,'Filtro 10 kΩ + 1 kΩ + 100 nF');
+  let py=PX.y+56;
+  prow(c,PX.x,py,PX.w,'τ de carga (abierto)',fmtT(TAU_O));py+=25;
+  prow(c,PX.x,py,PX.w,'τ de descarga (cerrado)',fmtT(TAU_C));py+=25;
+  prow(c,PX.x,py,PX.w,'V del nodo cerrado',n3(V_CLOSED)+' V');py+=25;
+  prow(c,PX.x,py,PX.w,'Retardo al pulsar',fmtT(TD_PRESS),OK_HEX);py+=25;
+  prow(c,PX.x,py,PX.w,'Retardo al soltar',fmtT(TD_REL),WARN_HEX);py+=25;
+  prow(c,PX.x,py,PX.w,'Asimetría',fmtT(DT_GAP),WARN_HEX);py+=29;
+  c.strokeStyle=hexA(ACC,0.18);c.beginPath();c.moveTo(PX.x+16,py-14);c.lineTo(PX.x+PX.w-16,py-14);c.stroke();
+  prow(c,PX.x,py,PX.w,'i reposo',n3(iQuiesc(ENT.rc))+' mA');py+=25;
+  prow(c,PX.x,py,PX.w,'Z a 4 kHz',fmtZ(zNoise(ENT.rc)),OK_HEX);py+=25;
+  prow(c,PX.x,py,PX.w,'Histéresis del 74HC14',n1(VTP-VTM)+' V');py+=25;
+  prow(c,PX.x,py,PX.w,'Hueco de esta estación',fmtT(sc.gapMin));py+=25;
+  prow(c,PX.x,py,PX.w,'Hueco tras el filtro',fmtT(sc.gapMin-DT_GAP),sc.gapMin-DT_GAP>0?'':BAD_HEX);py+=29;
+  c.fillStyle='#8f97a5';c.font='12px Outfit, sans-serif';c.textAlign='left';
+  wrapText(c,'El filtro se traga '+fmtT(DT_GAP)+' de cada hueco: alarga el pulso y acorta el reposo. En una estación de huecos cortos eso se paga.',PX.x+16,py,PX.w-32,17);
+  c.fillStyle='#6b7280';c.font='11px Outfit, sans-serif';c.textAlign='left';
+  c.fillText('Integración analítica tramo a tramo: la curva no tiene error de paso, es la solución exacta de la RC',30,752);
+}
+
+function drawAplicaTiempo(c){
+  const sc=POOL[apIdx],W=winOf(sc),t=TESTS[apT];
+  c.fillStyle='#F4EFEA';c.font='bold 25px Outfit, sans-serif';c.textAlign='left';
+  c.fillText('El tiempo estable tiene un suelo y un techo, y son distintos',30,54);
+  c.fillStyle='#9fb0cf';c.font='14px Outfit, sans-serif';
+  wrapText(c,'El SUELO lo pone el rebote: para colar un duplicado hacen falta dos tramos contiguos —un falso reposo y un re-cierre— que el antirrebote confirme por separado, y los dos juntos no pueden pasar de la ventana de rebote. El mejor reparto para el rebote es la mitad y la mitad, así que basta con t_est > t_reb/2. El TECHO lo pone el suceso más corto que hay que ver. Entre los dos queda la ventana.',30,80,640,20);
+
+  const gx=30,gw=640,wds=[92,110,110,124,204];
+  trow(c,gx,196,gw,28,['t estable','pulsaciones','dobles','latencia máx','veredicto'],wds,null,true);
+  TESTS.forEach((tt,i)=>{
+    const r=runC(sc,cfgWith(sc,{tEst:tt})),w=whyTest(sc,tt),col=w.ok?OK_HEX:BAD_HEX;
+    trow(c,gx,224+i*30,gw,30,[(tt===t?'▸ ':'   ')+fmtTest(tt),(NP-r.missed)+' / '+NP,n0(r.dupes),fmtT(r.maxLat),(w.ok?'✔ ':'✗ ')+w.txt],
+      wds,[tt===t?'#F4EFEA':'#9fb0cf',r.missed?BAD_HEX:OK_HEX,r.dupes?BAD_HEX:OK_HEX,r.maxLat>sc.tLatMax?BAD_HEX:'#9fb0cf',col]);
+  });
+
+  // ventana medida por barrido, en escala logarítmica
+  const bx=30,bw=640,by=396,bh=44;
+  const L0=Math.log(100),L1=Math.log(200000),lx=v=>bx+((Math.log(v)-L0)/(L1-L0))*bw;
+  c.fillStyle='rgba(255,255,255,0.04)';c.fillRect(bx,by,bw,bh);
+  W.pts.forEach((p,i)=>{
+    const x0=lx(p.t),x1=i+1<W.pts.length?lx(W.pts[i+1].t):bx+bw;
+    c.fillStyle=hexA(p.ok?OK_HEX:BAD_HEX,0.30);c.fillRect(x0,by,Math.max(1,x1-x0),bh);
+  });
+  c.strokeStyle=hexA(ACC,0.3);c.lineWidth=1;c.strokeRect(bx,by,bw,bh);
+  const half=sc.tb/2;
+  c.strokeStyle=WARN_HEX;c.lineWidth=2;c.beginPath();c.moveTo(lx(half),by-6);c.lineTo(lx(half),by+bh+6);c.stroke();
+  c.fillStyle=WARN_HEX;c.font='bold 11px Outfit, sans-serif';c.textAlign='center';c.fillText('t_reb/2 = '+fmtT(half),lx(half),by-11);
+  TESTS.forEach(tt=>{
+    const px=lx(tt);
+    c.strokeStyle=tt===t?'#F4EFEA':'rgba(255,255,255,0.45)';c.lineWidth=tt===t?2.5:1;
+    c.beginPath();c.moveTo(px,by);c.lineTo(px,by+bh);c.stroke();
+    c.fillStyle=tt===t?'#F4EFEA':'#8f97a5';c.font=(tt===t?'bold ':'')+'11px Outfit, sans-serif';c.textAlign='center';
+    c.fillText(fmtTest(tt),px,by+bh+16);
+  });
+  [100,1000,10000,100000].forEach(v=>{c.fillStyle='#6b7280';c.font='10px Outfit, sans-serif';c.textAlign='center';
+    c.fillText(fmtT(v),lx(v),by+bh+32);});
+  c.fillStyle='#9fb0cf';c.font='12px Outfit, sans-serif';c.textAlign='left';
+  wrapText(c,'Barrido MEDIDO de 48 puntos entre 100 µs y 200 ms con el acondicionamiento y la estrategia correctos: verde donde la corrida sale perfecta, rojo donde no. La ventana útil de esta estación va de '+fmtT(W.lo)+' a '+fmtT(W.hi)+' según el propio barrido, y el suelo teórico t_reb/2 cae justo en el borde izquierdo.',bx,506,bw,18);
+
+  const r=runC(sc,cfgWith(sc,{tEst:t}));
+  drawBar(c,gx,586,gw,18,r.missed/NP,'pulsaciones perdidas con '+fmtTest(t),r.missed?BAD_HEX:OK_HEX,n0(r.missed)+' / '+NP);
+  drawBar(c,gx,632,gw,18,Math.min(1,r.dupes/NP),'conteos de más con '+fmtTest(t),r.dupes?BAD_HEX:OK_HEX,n0(r.dupes));
+  drawBar(c,gx,678,gw,18,r.maxLat/sc.tLatMax,'latencia máxima frente al máximo admitido',r.maxLat>sc.tLatMax?BAD_HEX:OK_HEX,fmtT(r.maxLat)+' / '+fmtT(sc.tLatMax));
+
+  rpanel(c,PX.x,PX.y,PX.w,430,'Estación · '+sc.name);
+  let py=PX.y+56;
+  prow(c,PX.x,py,PX.w,'Ventana de rebote',fmtT(sc.tb));py+=25;
+  prow(c,PX.x,py,PX.w,'Suelo teórico',fmtT(sc.tb/2),WARN_HEX);py+=25;
+  prow(c,PX.x,py,PX.w,'Pulsación más corta',fmtT(sc.pulseMin));py+=25;
+  prow(c,PX.x,py,PX.w,'Hueco más corto',fmtT(sc.gapMin));py+=25;
+  prow(c,PX.x,py,PX.w,'Estrategia usada',ADQ[goodAdq(sc)].n.split(' ')[0]+' '+(ADQ[goodAdq(sc)].int?'(interrupción)':'(sondeo)'));py+=25;
+  prow(c,PX.x,py,PX.w,'Techo que manda',ADQ[goodAdq(sc)].int?'el hueco (rearme)':'la pulsación');py+=29;
+  c.strokeStyle=hexA(ACC,0.18);c.beginPath();c.moveTo(PX.x+16,py-14);c.lineTo(PX.x+PX.w-16,py-14);c.stroke();
+  prow(c,PX.x,py,PX.w,'Ventana medida',fmtT(W.lo)+' – '+fmtT(W.hi),OK_HEX);py+=25;
+  prow(c,PX.x,py,PX.w,'Del catálogo',fmtTest(goodTest(sc)),OK_HEX);py+=25;
+  prow(c,PX.x,py,PX.w,'Elegido ahora',fmtTest(t),okTest(sc,t)?OK_HEX:BAD_HEX);py+=29;
+  c.fillStyle='#8f97a5';c.font='12px Outfit, sans-serif';c.textAlign='left';
+  wrapText(c,'Un antirrebote más largo NO es más seguro: pasado el techo empieza a tragarse pulsaciones enteras, y eso no se ve en la mesa con el dedo.',PX.x+16,py,PX.w-32,17);
+  c.fillStyle='#6b7280';c.font='11px Outfit, sans-serif';c.textAlign='left';
+  c.fillText('La pulsación 11 de cada corrida lleva a propósito el peor tren posible: mitad y mitad de la ventana',30,752);
+}
+
+function drawAplicaEstrategia(c){
+  const sc=POOL[apIdx],a=ADQS[apA];
+  const cfg=cfgWith(sc,{adq:a.k});
+  const {t0,t1,b}=winFor(sc,I_BAD);
+  const R=evRun(sc,cfg);
+  c.fillStyle='#F4EFEA';c.font='bold 25px Outfit, sans-serif';c.textAlign='left';
+  c.fillText('Sondear o interrumpir: no son la misma máquina',30,54);
+  c.fillStyle='#9fb0cf';c.font='14px Outfit, sans-serif';
+  wrapText(c,'El sondeo mira la entrada cada tanto: no ve nada más corto que su propio periodo, pero por eso mismo se traga las espigas. La interrupción atiende el flanco al vuelo: no pierde nada y por eso mismo cuenta TODOS los rebotes si no se la protege. Además hay recursos: pines de interrupción externa, el temporizador y el consumo del nodo dormido.',30,80,640,20);
+
+  const gx=30,gw=640,wds=[190,86,74,74,216];
+  trow(c,gx,186,gw,28,['Estrategia','pulsaciones','dobles','ISR','veredicto'],wds,null,true);
+  ADQS.forEach((op,i)=>{
+    const r=runC(sc,cfgWith(sc,{adq:op.k})),w=whyAdq(sc,op.k),col=w.ok?OK_HEX:BAD_HEX;
+    trow(c,gx,214+i*30,gw,30,[(op.k===a.k?'▸ ':'   ')+op.n,(NP-r.missed)+' / '+NP,n0(r.dupes),op.int?n0(r.isr):'—',(w.ok?'✔ ':'✗ ')+w.txt],
+      wds,[op.k===a.k?'#F4EFEA':'#9fb0cf',r.missed?BAD_HEX:OK_HEX,r.dupes?BAD_HEX:OK_HEX,'#9fb0cf',col]);
+  });
+
+  lane(c,gx,384,gw,46,'Contacto mecánico',fmtT(t1-t0)+' de ventana');
+  wave(c,gx,384,gw,46,b.E,t0,t1,WARN_HEX);
+  lane(c,gx,450,gw,46,'Eventos con '+a.n,R.T?('muestrea cada '+fmtT(R.T)):'atiende el flanco');
+  sampleTicks(c,gx,450,gw,46,R.T,R.off,t0,t1);
+  const nev=evLane(c,gx,450,gw,46,R.ev,t0,t1,a.k==='intRaw'?BAD_HEX:OK_HEX);
+  timeAxis(c,gx,498,gw,t0,t1);
+  c.fillStyle=nev===1?OK_HEX:BAD_HEX;c.font='bold 13px Outfit, sans-serif';c.textAlign='left';
+  c.fillText(nev===1?'✔ 1 evento para 1 maniobra':(nev===0?'✗ 0 eventos: maniobra perdida':'✗ '+nev+' eventos para UNA maniobra'),gx,570);
+  c.fillStyle='#9fb0cf';c.font='12px Outfit, sans-serif';
+  wrapText(c,'Los puntitos de la base marcan los instantes de muestreo. La interrupción no tiene puntitos: no muestrea, la despierta el flanco. Por eso la interrupción sin antirrebote no pierde nada y a la vez es la peor de las cuatro.',gx,594,gw,18);
+
+  rpanel(c,PX.x,PX.y,PX.w,430,'Recursos del nodo');
+  let py=PX.y+56;
+  prow(c,PX.x,py,PX.w,'Entradas que atender',n0(sc.nIn),sc.nIn>N_INT?WARN_HEX:'');py+=25;
+  prow(c,PX.x,py,PX.w,'Pines de interrupción',n0(N_INT));py+=25;
+  prow(c,PX.x,py,PX.w,'Temporizador',sc.timerLibre?'libre':'ocupado por el PWM',sc.timerLibre?OK_HEX:WARN_HEX);py+=25;
+  prow(c,PX.x,py,PX.w,'¿El nodo duerme?',sc.sleep?'sí, va a pilas':'no, está alimentado',sc.sleep?WARN_HEX:'');py+=25;
+  prow(c,PX.x,py,PX.w,'Periodo del lazo',fmtT(sc.tLoop));py+=25;
+  prow(c,PX.x,py,PX.w,'Periodo del temporizador',fmtT(T_TIMER));py+=25;
+  prow(c,PX.x,py,PX.w,'Latencia máxima',fmtT(sc.tLatMax));py+=29;
+  c.strokeStyle=hexA(ACC,0.18);c.beginPath();c.moveTo(PX.x+16,py-14);c.lineTo(PX.x+PX.w-16,py-14);c.stroke();
+  const r=runC(sc,cfg);
+  prow(c,PX.x,py,PX.w,'Perdidas',n0(r.missed),r.missed?BAD_HEX:OK_HEX);py+=25;
+  prow(c,PX.x,py,PX.w,'De más',n0(r.dupes),r.dupes?BAD_HEX:OK_HEX);py+=25;
+  prow(c,PX.x,py,PX.w,'Latencia medida',fmtT(r.maxLat),r.maxLat>sc.tLatMax?BAD_HEX:OK_HEX);py+=25;
+  prow(c,PX.x,py,PX.w,'Entradas a la ISR',a.int?n0(r.isr)+' para '+NP+' maniobras':'ninguna');py+=29;
+  c.fillStyle='#8f97a5';c.font='12px Outfit, sans-serif';c.textAlign='left';
+  wrapText(c,'Cada entrada a la ISR cuesta '+fmtT(T_ISR)+' de contexto. Multiplicarlas por cinco no sólo cuenta mal: también carga el procesador.',PX.x+16,py,PX.w-32,17);
+  c.fillStyle='#6b7280';c.font='11px Outfit, sans-serif';c.textAlign='left';
+  c.fillText('Cada sondeo se simula con cuatro desfases y se conserva el PEOR: la fase de arranque no se elige, toca',30,752);
+}
+
+function drawAplica(c){
+  if(apTopic==='filtro')drawAplicaFiltro(c);
+  else if(apTopic==='tiempo')drawAplicaTiempo(c);
+  else if(apTopic==='estrategia')drawAplicaEstrategia(c);
+  else drawAplicaAcond(c);
+}
+
+function drawReto(c){
+  const sc=retoSc(),cfg=retoCfg();
+  const {t0,t1,b}=winFor(sc,I_BAD);
+  const R=evRun(sc,cfg);
+  c.fillStyle='#F4EFEA';c.font='bold 25px Outfit, sans-serif';c.textAlign='left';
+  c.fillText('Reto · Pon en marcha la entrada de '+sc.name,30,54);
+  c.fillStyle='#9fb0cf';c.font='14px Outfit, sans-serif';
+  wrapText(c,sc.sw+'. '+sc.nota+' Hay que atender '+sc.nIn+' entrada(s) con '+N_INT+' pines de interrupción externa, el temporizador está '+(sc.timerLibre?'libre':'ocupado por el PWM')+', el nodo '+(sc.sleep?'tiene que dormir entre maniobras':'está alimentado de red')+' y la latencia no puede pasar de '+fmtT(sc.tLatMax)+'. Tres decisiones independientes: cada una se califica con las otras dos correctas.',30,80,640,20);
+
+  const mk=(ok)=>retoChecked?(ok?'✔':'✗'):'·';
+  const kc=(ok)=>retoChecked?(ok?OK_HEX:BAD_HEX):'#8f97a5';
+  const e=ENT[cfg.ent];
+  let y=192;
+  c.fillStyle=kc(retoOkEnt);c.font='bold 16px Outfit, sans-serif';c.textAlign='left';
+  c.fillText(mk(retoOkEnt)+'  1 · Acondicionamiento: '+e.n,30,y);
+  c.fillStyle='#9fb0cf';c.font='12px Outfit, sans-serif';
+  c.fillText('i reposo '+n3(iQuiesc(e))+' mA   ·   Z a 4 kHz '+fmtZ(zNoise(e))+'   ·   V reposo '+(e.rV===null?'sin definir':(vRest(sc,e)<0?'< 0 V':n2(vRest(sc,e))+' V')),30,y+20);
+  const we=whyEnt(sc,cfg.ent);
+  c.fillStyle=we.ok?OK_HEX:WARN_HEX;c.font='12px Outfit, sans-serif';
+  wrapText(c,we.txt,30,y+38,640,16);
+
+  y=278;
+  c.fillStyle=kc(retoOkTest);c.font='bold 16px Outfit, sans-serif';
+  c.fillText(mk(retoOkTest)+'  2 · Tiempo estable del antirrebote: '+fmtTest(cfg.tEst),30,y);
+  c.fillStyle='#9fb0cf';c.font='12px Outfit, sans-serif';
+  c.fillText('ventana de rebote '+fmtT(sc.tb)+' (suelo '+fmtT(sc.tb/2)+')   ·   pulsación más corta '+fmtT(sc.pulseMin)+'   ·   hueco más corto '+fmtT(sc.gapMin),30,y+20);
+  const wt=whyTest(sc,cfg.tEst);
+  c.fillStyle=wt.ok?OK_HEX:WARN_HEX;c.font='12px Outfit, sans-serif';
+  wrapText(c,wt.txt,30,y+38,640,16);
+
+  y=364;
+  c.fillStyle=kc(retoOkAdq);c.font='bold 16px Outfit, sans-serif';
+  c.fillText(mk(retoOkAdq)+'  3 · Estrategia de lectura: '+ADQ[cfg.adq].n,30,y);
+  c.fillStyle='#9fb0cf';c.font='12px Outfit, sans-serif';
+  c.fillText(sc.nIn+' entrada(s) · '+N_INT+' pines de interrupción · temporizador '+(sc.timerLibre?'libre':'ocupado')+' · '+(sc.sleep?'el nodo duerme':'nodo alimentado'),30,y+20);
+  const wa=whyAdq(sc,cfg.adq);
+  c.fillStyle=wa.ok?OK_HEX:WARN_HEX;c.font='12px Outfit, sans-serif';
+  wrapText(c,wa.txt,30,y+38,640,16);
+
+  const gx=30,gw=640;
+  lane(c,gx,450,gw,44,'Contacto mecánico',fmtT(t1-t0)+' de ventana · peor tren de rebotes');
+  wave(c,gx,450,gw,44,b.E,t0,t1,WARN_HEX);
+  lane(c,gx,514,gw,44,'Eventos con tu configuración',ADQ[cfg.adq].n);
+  sampleTicks(c,gx,514,gw,44,R.T,R.off,t0,t1);
+  const nev=evLane(c,gx,514,gw,44,R.ev,t0,t1,OK_HEX);
+  timeAxis(c,gx,560,gw,t0,t1);
+  c.fillStyle=nev===1?OK_HEX:BAD_HEX;c.font='bold 13px Outfit, sans-serif';c.textAlign='left';
+  c.fillText(nev===1?'✔ 1 evento para 1 maniobra en esta ventana':(nev===0?'✗ 0 eventos en esta ventana':'✗ '+nev+' eventos para UNA maniobra'),gx,630);
+
+  rpanel(c,PX.x,PX.y,PX.w,430,'Reto · '+sc.name);
+  let py=PX.y+56;
+  prow(c,PX.x,py,PX.w,'Ventana de rebote',fmtT(sc.tb));py+=25;
+  prow(c,PX.x,py,PX.w,'Pulsación / hueco',fmtT(sc.pulseMin)+' / '+fmtT(sc.gapMin));py+=25;
+  prow(c,PX.x,py,PX.w,'Entradas del nodo',n0(sc.nIn));py+=25;
+  prow(c,PX.x,py,PX.w,'Temporizador',sc.timerLibre?'libre':'ocupado');py+=25;
+  prow(c,PX.x,py,PX.w,'Consumo admitido',sc.iMaxIn>=10?'sin límite práctico':n2(sc.iMaxIn)+' mA');py+=25;
+  prow(c,PX.x,py,PX.w,'Humectación mínima',sc.iMinIn?n1(sc.iMinIn)+' mA':'no aplica');py+=25;
+  prow(c,PX.x,py,PX.w,'Fuga / acoplo',(sc.rLeak===Infinity?'—':fmtZ(sc.rLeak))+' / '+(sc.cCoup?n0(sc.cCoup*1e12)+' pF':'—'));py+=25;
+  prow(c,PX.x,py,PX.w,'Latencia máxima',fmtT(sc.tLatMax));py+=29;
+  c.strokeStyle=hexA(ACC,0.18);c.beginPath();c.moveTo(PX.x+16,py-14);c.lineTo(PX.x+PX.w-16,py-14);c.stroke();
+  prow(c,PX.x,py,PX.w,'Acondicionamiento',e.n.split(' ')[0],kc(retoOkEnt));py+=25;
+  prow(c,PX.x,py,PX.w,'Tiempo estable',fmtTest(cfg.tEst),kc(retoOkTest));py+=25;
+  prow(c,PX.x,py,PX.w,'Estrategia',ADQ[cfg.adq].n.split(' ')[0],kc(retoOkAdq));py+=29;
+  c.fillStyle='#8f97a5';c.font='12px Outfit, sans-serif';c.textAlign='left';
+  wrapText(c,'4 acondicionamientos × 4 tiempos × 4 estrategias = 64 combinaciones y sólo UNA es válida. Acertar dos de tres deja la entrada inservible: la mejor estrategia sobre un nodo mal polarizado cuenta ruido, y el mejor pull-up con un antirrebote corto cuenta rebotes.',PX.x+16,py,PX.w-32,17);
+  if(retoChecked){
+    c.fillStyle=retoSolved?OK_HEX:BAD_HEX;c.font='bold 15px Outfit, sans-serif';c.textAlign='left';
+    c.fillText(retoSolved?'✔ Entrada correcta: los tres criterios se cumplen':'✗ Todavía no: revisa los criterios marcados',30,700);
+  }
+  c.fillStyle='#6b7280';c.font='11px Outfit, sans-serif';c.textAlign='left';
+  c.fillText('Cada decisión se simula con las otras dos correctas, para que un acierto no tape un error',30,752);
+}
+
+function drawBoard(){
+  const c=bCv.getContext('2d');bg(c);
+  if(mode==='aplica')drawAplica(c);else if(mode==='reto')drawReto(c);else drawExplora(c);
+  bTex.needsUpdate=true;
+}
+function boardClick(){
+  if(mode==='aplica')showToast('🧩 Cuatro estudios: el pull-up y sus tres efectos, el filtro RC con Schmitt, la ventana de t_est y las cuatro estrategias de lectura.');
+  else if(mode==='reto')showToast('🎯 Tres decisiones ortogonales: acondicionamiento, tiempo estable y estrategia. 64 combinaciones, una sola válida.');
+  else showToast('🔧 Un contacto no cambia de estado: rebota. Lo que llega al pin depende del metal, de la resistencia de polarización y de lo que se acople al cable.');
+}
+
+// ===================== 7. ESCENA 3D: NODO DE ENTRADA =====================
+const bench=roundedBox(3.9,0.5,1.9,MAT.bench,0.05);bench.position.set(1.95,0.25,0.55);scene.add(bench);
+bench.userData={title:'Banco del nodo de entrada',info:'Actuador mecánico, cable hasta la bornera, tarjeta con el microcontrolador y testigos de estado.'};
+
+// --- actuador mecánico ---
+const swG=new THREE.Group();swG.position.set(0.80,0.5,0.95);scene.add(swG);
+const swBase=roundedBox(0.52,0.14,0.42,MAT.plate,0.03);swBase.position.set(0,0.07,0);swG.add(swBase);
+const swBody=roundedBox(0.34,0.30,0.28,MAT.body,0.04);swBody.position.set(0,0.29,0);swG.add(swBody);
+const plunger=new THREE.Mesh(new THREE.CylinderGeometry(0.06,0.06,0.20,18),MAT.steel);plunger.position.set(0,0.52,0);swG.add(plunger);
+const cap=new THREE.Mesh(new THREE.CylinderGeometry(0.105,0.105,0.06,20),MAT.red);cap.position.set(0,0.63,0);swG.add(cap);
+swBody.userData={title:'Contacto mecánico',info:'Al cerrar y al abrir, las láminas rebotan: el circuito se abre y se cierra varias veces en unos milisegundos antes de asentarse. No es un defecto del componente, es cómo funciona el metal.'};
+addHoverLabel(swBody,'Contacto',WARN_HEX,new THREE.Vector3(0.80,1.28,0.95),1.7);
+
+// --- cable hasta la bornera ---
+const cableMat=new THREE.MeshStandardMaterial({color:0x3a6ea5,roughness:0.5,metalness:0.2});
+const cablePts=[new THREE.Vector3(0.80,0.60,0.80),new THREE.Vector3(1.25,0.78,0.62),new THREE.Vector3(1.85,0.72,0.55),new THREE.Vector3(2.10,0.60,0.55)];
+const cable=new THREE.Mesh(new THREE.TubeGeometry(new THREE.CatmullRomCurve3(cablePts),40,0.020,10,false),cableMat);scene.add(cable);
+cable.userData={title:'Cable hasta la bornera',info:'Es la antena del nodo: cuanto más largo y más cerca del cable del motor, más carga acopla. Y la humedad de la bornera pone una fuga en paralelo con el pull-up.'};
+addHoverLabel(cable,'Cable de campo',ACC,new THREE.Vector3(1.55,1.05,0.55),2.0);
+
+// --- tarjeta del microcontrolador ---
+const pcbG=new THREE.Group();pcbG.position.set(2.75,0.5,0.55);scene.add(pcbG);
+const pcb=roundedBox(1.50,0.05,1.00,MAT.pcb,0.02);pcb.position.set(0,0.03,0);pcbG.add(pcb);
+const term=roundedBox(0.18,0.14,0.44,std(0x2f3a48,0.6,0.2),0.02);term.position.set(-0.65,0.12,0);pcbG.add(term);
+const mcu=roundedBox(0.40,0.09,0.40,MAT.dark,0.02);mcu.position.set(0.16,0.10,-0.05);pcbG.add(mcu);
+const mcuRing=new THREE.Mesh(new THREE.TorusGeometry(0.26,0.014,10,32),std(0x2a63b8,0.4,0.5));
+mcuRing.rotation.x=Math.PI/2;mcuRing.position.set(0.16,0.07,-0.05);pcbG.add(mcuRing);
+mcuRing.material.emissive=new THREE.Color(0x2a63b8);mcuRing.material.emissiveIntensity=0.1;
+mcu.userData={title:'Microcontrolador',info:'Lee el pin como 0 o 1 comparando con V_IL = 1,5 V y V_IH = 3,0 V. Entre esos dos valores no hay respuesta garantizada: es tierra de nadie.'};
+addHoverLabel(mcu,'MCU · V_IH 3,0 V',VIO,new THREE.Vector3(2.91,1.20,0.50),2.2);
+
+function resistor(x,z,col){
+  const g=new THREE.Group();g.position.set(x,0.10,z);
+  const bodyR=new THREE.Mesh(new THREE.CylinderGeometry(0.035,0.035,0.20,14),std(0xd9cfa8,0.6,0.1));
+  bodyR.rotation.z=Math.PI/2;g.add(bodyR);
+  const band=new THREE.Mesh(new THREE.CylinderGeometry(0.037,0.037,0.03,14),std(col,0.4,0.6));
+  band.rotation.z=Math.PI/2;g.add(band);
+  pcbG.add(g);return g;
+}
+const rPull=resistor(-0.30,-0.28,0xb87333);
+rPull.userData={title:'Resistencia de polarización',info:'Fija el nivel en reposo, la corriente que consume el nodo y la impedancia que ve el ruido. Las tres cosas a la vez y en direcciones distintas.'};
+addHoverLabel(rPull,'Pull-up',OK_HEX,new THREE.Vector3(2.45,1.05,0.27),1.6);
+const rSer=resistor(-0.30,0.10,0x4a90d9);
+rSer.userData={title:'Resistencia en serie',info:'Junto con el condensador forma el filtro. Al cerrar el contacto la descarga se hace por 10 kΩ ‖ 1 kΩ, por eso el retardo al pulsar es mucho menor que al soltar.'};
+const capF=new THREE.Mesh(new THREE.CylinderGeometry(0.075,0.075,0.16,18),std(0x2b3d5c,0.5,0.3));
+capF.position.set(-0.30,0.13,0.36);pcbG.add(capF);
+capF.userData={title:'Condensador del filtro',info:'100 nF. Baja la impedancia del nodo a unos 400 Ω a 4 kHz: el ruido que se acopla al cable deja de mover la tensión del pin.'};
+addHoverLabel(capF,'Filtro RC',ACC,new THREE.Vector3(2.45,1.00,0.91),1.6);
+const schmitt=roundedBox(0.26,0.07,0.16,MAT.dark,0.02);schmitt.position.set(-0.05,0.09,0.36);pcbG.add(schmitt);
+schmitt.userData={title:'Disparador Schmitt 74HC14',info:'Dos umbrales distintos: sube a 2,9 V y baja a 2,0 V. Una rampa lenta entra y sale un flanco limpio, pero el flanco sale tarde.'};
+
+// --- testigos ---
+function makeLED(x,z,color){
+  const m=new THREE.Mesh(new THREE.SphereGeometry(0.042,16,16),std(color,0.4,0.1));
+  m.position.set(x,0.56,z);m.material.emissive=new THREE.Color(color);m.material.emissiveIntensity=0.12;scene.add(m);return m;}
+const ledRaw=makeLED(3.62,0.92,0xE9C46A);
+const ledNode=makeLED(3.62,0.62,0x8AB4F8);
+const ledEvt=makeLED(3.62,0.32,0x7CD992);
+ledRaw.userData={title:'Testigo del contacto',info:'Lo que hace el metal, rebotes incluidos.'};
+ledNode.userData={title:'Testigo del pin',info:'Lo que lee el microcontrolador después del acondicionamiento.'};
+ledEvt.userData={title:'Testigo de evento aceptado',info:'Cada destello es una pulsación que el programa ha dado por buena.'};
+addHoverLabel(ledEvt,'Eventos aceptados',OK_HEX,new THREE.Vector3(3.62,1.05,0.32),2.1);
+
+// --- fotogramas DERIVADOS de una corrida medida (nunca escritos a mano) ---
+function hwFrames(){
+  const sc=curSc(),cfg=curCfg(),pi=curPress();
+  const {t0,t1,b}=winFor(sc,pi);
+  const R=evRun(sc,cfg);
+  const N=48,out=[];
+  for(let k=0;k<N;k++){
+    const t=Math.round(t0+(t1-t0)*k/(N-1));
+    const tp=k?Math.round(t0+(t1-t0)*(k-1)/(N-1)):t0-1;
+    const evt=R.ev.some(e=>e>tp&&e<=t);
+    out.push({raw:lvlAt(b.E,t),nod:lvlAt(R.s.E,t),evt,lab:n2((t-t0)/1000)+' ms'});
+  }
+  return out;
+}
+function frames(){if(!framesCache)framesCache=hwFrames();return framesCache;}
+function hwCount(){return Math.max(1,frames().length);}
+
+function updateHW(){
+  const fs=frames(),fr=fs[hwStep%fs.length]||{raw:0,nod:0,evt:false};
+  const ent=curCfg().ent;
+  rPull.visible=(ent==='externo'||ent==='rc');
+  rSer.visible=(ent==='rc');capF.visible=(ent==='rc');schmitt.visible=(ent==='rc');
+  mcuRing.material.emissiveIntensity=(ent==='interno')?1.2:0.10;
+  plunger.position.y=fr.raw?0.47:0.52;cap.position.y=fr.raw?0.58:0.63;
+  ledRaw.material.emissiveIntensity=fr.raw?1.5:0.10;
+  ledNode.material.emissiveIntensity=fr.nod?1.5:0.10;
+  ledEvt.material.emissiveIntensity=fr.evt?1.8:0.10;
+}
+
+// ===================== 8. HUD Y PANEL =====================
+el('hud').innerHTML=`
+  <div class="eyebrow">D3 · Sistemas digitales y automatización — CMOS V_IH/V_IL · 74HC14 · IEC 60947-5-1</div>
+  <h2>Entradas digitales: rebotes, acondicionamiento y antirrebote en el MCU</h2>
+  <p>Un contacto mecánico no cambia de estado: <b>rebota</b>. Durante unos milisegundos abre y cierra varias veces, y un microcontrolador que mira el pin cada microsegundo cuenta todas esas veces. La solución no es una sola: hay que elegir la <b>resistencia de polarización</b> —que fija a la vez el nivel en reposo, la corriente del nodo y la impedancia frente al ruido—, el <b>tiempo estable</b> del antirrebote —con un suelo que pone el rebote y un techo que pone el suceso más corto— y la <b>estrategia de lectura</b> —sondeo o interrupción—, que depende de recursos que no siempre están libres.</p>
+  <div class="formula">t<sub>est</sub> &gt; t<sub>reb</sub>/2 · Z<sub>nodo</sub> = R/√(1+(ωRC)²) · i<sub>reposo</sub> = V<sub>cc</sub>/R<sub>pu</sub> · V<sub>reposo</sub> = V<sub>cc</sub>·R<sub>fuga</sub>/(R<sub>pu</sub>+R<sub>fuga</sub>) − i<sub>ac</sub>·Z · τ<sub>carga</sub> = R₁C · τ<sub>descarga</sub> = (R₁‖R₂)C</div>
+  <div class="legend">
+    <div class="li"><span class="dot" style="background:#E9C46A"></span>contacto mecánico y su tren de rebotes</div>
+    <div class="li"><span class="dot" style="background:#8AB4F8"></span>nodo en el pin tras el acondicionamiento</div>
+    <div class="li"><span class="dot" style="background:#7CD992"></span>eventos que el programa da por buenos</div>
+    <div class="li"><span class="dot" style="background:#C08CF8"></span>umbrales del MCU y del disparador Schmitt</div>
+  </div>
+  <div class="fid">
+    <div class="ft">🔒 Contrato de fidelidad</div>
+    <div class="fl"><b>Sí modela:</b> trenes de rebote deterministas con número impar de transiciones al cerrar y al abrir, el reparto resistivo de la fuga de bornera, el ruido acoplado como corriente contra la impedancia del nodo, el filtro RC con disparador Schmitt integrado de forma exacta tramo a tramo, dos antirrebotes distintos (integrador por muestreo y bloqueo por flanco), y cuatro estrategias de adquisición barridas en cuatro fases de muestreo de las que se conserva la PEOR.</div>
+    <div class="fl no"><b>NO modela:</b> el arco eléctrico del contacto ni su desgaste, la descarga electrostática, la diafonía entre canales, el rebote mecánico del actuador (sólo el eléctrico), el consumo del propio MCU ni sus modos de bajo consumo, el compilador ni el reparto real de ciclos, y cualquier antirrebote hardware con monoestable —que es otra práctica—.</div>
+  </div>
+  <div class="src">Ref: ATmega328P (V_IH = 0,6·Vcc, V_IL = 0,3·Vcc, pull-up 20–50 kΩ) · 74HC14 · IEC 60947-5-1 · verificación numérica propia (291/291)</div>`;
+
+el('panel').innerHTML=`
+  <h4>Entradas digitales · <span id="p_mode" style="color:var(--accent2)">Explora</span></h4>
+  <div class="modebar">
+    <button class="b on" id="m_explora">🧭 Explora</button>
+    <button class="b" id="m_aplica">🧩 Aplica</button>
+    <button class="b" id="m_reto">🎯 Reto</button>
+  </div>
+  <div id="scenarioInfo" style="font-size:12px;color:var(--ink);margin:2px 0 8px;display:none"></div>
+  <div class="modebar" id="selbar" style="display:none;flex-wrap:wrap"></div>
+  <div id="tele"></div>
+  <div class="console" id="report"></div>
+  <h4 class="sec" id="retoTitle" style="display:none">Puesta en marcha de la entrada</h4>
+  <div id="retoBox" style="display:none">
+    <div id="retoSpec" style="font-size:12px;color:var(--ink);margin:2px 0 8px"></div>
+    <div class="btns"><button class="b primary" id="btnCheck">✅ Comprobar</button></div>
+  </div>
+  <h4 class="sec">Pregunta de ingeniería</h4>
+  <div id="q_text" style="font-size:12px;color:var(--ink);margin:4px 0 8px"></div>
+  <div class="btns" id="dxbtns"></div>
+  <div class="btns">
+    <button class="b auto" id="btnAuto">✨ Recorrido guiado (automático)</button>
+    <button class="b primary" id="btnNew">🔀 Nuevo escenario</button>
+  </div>`;
+
+// ===================== 9. TOASTS =====================
+function showToast(html){const t=el('toast');t.innerHTML=html;t.classList.add('show');clearTimeout(showToast._t);showToast._t=setTimeout(()=>t.classList.remove('show'),4200);}
+
+// ===================== 10. MODOS Y CONTROLES =====================
+const MODE_META={
+  explora:{nombre:'Explora',cam:[[5.0,3.0,7.2],[0.7,1.05,0.4]],mision:'Mira el tren de rebotes de cada estación y qué le hace al pin cada acondicionamiento.'},
+  aplica:{nombre:'Aplica',cam:[[4.8,2.9,7.0],[0.8,1.00,0.5]],mision:'Cuatro estudios: el pull-up y sus tres efectos, el filtro RC con Schmitt, la ventana de t_est y las estrategias de lectura.'},
+  reto:{nombre:'Reto',cam:[[4.9,2.9,7.1],[0.8,1.00,0.5]],mision:'Elige acondicionamiento, tiempo estable y estrategia. Los tres se califican por separado sobre el motor verificado.'},
+};
+function lbl(t){return `<span class="lbl">${t}</span>`;}
+function optBtns(key,opts,cur){return opts.map(([v,t])=>`<button class="b sm ${String(cur)===String(v)?'on':''}" data-${key}="${v}">${t}</button>`).join('');}
+
+function buildControls(){
+  const bar=el('selbar');bar.style.display='flex';bar.style.flexWrap='wrap';let html='';
+  if(mode==='explora'){
+    html+=lbl('Estación')+optBtns('sc',POOL.map((s,i)=>[i,s.name]),expIdx);
+    html+=lbl('Acondicionamiento')+optBtns('ent',ENTRADAS.map(e=>[e.k,e.n]),expEnt);
+    html+=lbl('Maniobra que se observa')+optBtns('ev',EVENTOS.map((e,i)=>[i,e[1]]),expEv);
+  }else if(mode==='aplica'){
+    html+=lbl('Estudio')+optBtns('tp',[['acond','🔌 Polarización'],['filtro','〰 Filtro RC + Schmitt'],['tiempo','⏱ Tiempo estable'],['estrategia','🎛 Estrategia de lectura']],apTopic);
+    html+=lbl('Estación')+optBtns('sc',POOL.map((s,i)=>[i,s.name]),apIdx);
+    if(apTopic==='acond')html+=lbl('Opción')+optBtns('aent',ENTRADAS.map(e=>[e.k,e.n]),apEnt);
+    else if(apTopic==='tiempo')html+=lbl('Tiempo estable')+optBtns('at',TESTS.map((t,i)=>[i,fmtTest(t)]),apT);
+    else if(apTopic==='estrategia')html+=lbl('Estrategia')+optBtns('aa',ADQS.map((a,i)=>[i,a.n]),apA);
+  }else{
+    html+=lbl('1 · Acondicionamiento')+optBtns('rent',ENTRADAS.map(e=>[e.k,e.n]),retoCh.ent);
+    html+=lbl('2 · Tiempo estable')+optBtns('rt',TESTS.map(t=>[t,fmtTest(t)]),retoCh.tEst);
+    html+=lbl('3 · Estrategia')+optBtns('ra',ADQS.map(a=>[a.k,a.n]),retoCh.adq);
+  }
+  bar.innerHTML=html;
+  const wire=(attr,fn)=>bar.querySelectorAll('['+attr+']').forEach(b=>b.onclick=()=>{
+    if(autoRunning)return;fn(b.getAttribute(attr));synth.beep(720,0.05,0.04);afterEdit();});
+  wire('data-sc',v=>{const i=parseInt(v,10);if(mode==='explora'){expIdx=i;expEnt=goodEnt(POOL[i]);expEv=2;}else{apIdx=i;apEnt=goodEnt(POOL[i]);apT=TESTS.indexOf(goodTest(POOL[i]));apA=ADQS.findIndex(a=>a.k===goodAdq(POOL[i]));}});
+  wire('data-ent',v=>{expEnt=v;});
+  wire('data-ev',v=>{expEv=parseInt(v,10);});
+  wire('data-tp',v=>{apTopic=v;});
+  wire('data-aent',v=>{apEnt=v;});
+  wire('data-at',v=>{apT=parseInt(v,10);});
+  wire('data-aa',v=>{apA=parseInt(v,10);});
+  wire('data-rent',v=>{retoSet('ent',v);});
+  wire('data-rt',v=>{retoSet('tEst',parseInt(v,10));});
+  wire('data-ra',v=>{retoSet('adq',v);});
+}
+function retoSet(field,v){retoCh[field]=v;retoChecked=false;retoSolved=false;solved=false;}
+
+function updateScenarioInfo(){
+  const box=el('scenarioInfo');box.style.display='block';
+  if(mode==='explora'){
+    const sc=expSc();
+    box.innerHTML=`<b>${sc.name}</b> — ${sc.sw}. Rebote ${fmtT(sc.tb)} · pulsación mínima ${fmtT(sc.pulseMin)} · hueco mínimo ${fmtT(sc.gapMin)}.`;
+  }else if(mode==='aplica'){
+    const t=apTopic==='acond'?'El pull-up fija el nivel, la corriente y la impedancia del nodo: las tres a la vez y en direcciones distintas.'
+      :apTopic==='filtro'?'El filtro RC con Schmitt limpia el nivel y baja la impedancia, pero retrasa —y no de forma simétrica—.'
+      :apTopic==='tiempo'?'El tiempo estable tiene un suelo (la mitad de la ventana de rebote) y un techo (el suceso más corto).'
+      :'Sondeo o interrupción no son intercambiables: dependen de pines, del temporizador y de si el nodo duerme.';
+    box.innerHTML=`<b>${POOL[apIdx].name}</b> — ${t}`;
+  }else{
+    const sc=retoSc();
+    box.innerHTML=`<b>${sc.name}</b> — ${sc.sw}. Tres decisiones, 64 combinaciones posibles, una sola válida.`;
+  }
+}
+
+function setMode(k){
+  mode=k;hwStep=0;
+  ['explora','aplica','reto'].forEach(m=>el('m_'+m).classList.toggle('on',m===k));
+  el('p_mode').textContent=MODE_META[k].nombre;
+  el('retoTitle').style.display=k==='reto'?'block':'none';
+  el('retoBox').style.display=k==='reto'?'block':'none';
+  if(k==='reto')updateRetoSpec();
+  buildControls();updateScenarioInfo();
+  solved=(k==='reto')?retoSolved:false;
+  clearDx();buildQuiz();refreshQuestion();
+  const cam=MODE_META[k].cam;S.moveTo(cam[0],cam[1]);refreshAll();
+}
+function afterEdit(){buildControls();updateScenarioInfo();refreshAll();}
+function newSignal(){
+  if(mode==='explora'){expIdx=pickIdx(POOL.length,expIdx);expEnt=goodEnt(expSc());expEv=2;
+    showToast('🔧 '+expSc().name+' — '+expSc().sw+'.');}
+  else if(mode==='aplica'){apIdx=pickIdx(POOL.length,apIdx);apEnt=goodEnt(POOL[apIdx]);
+    apT=TESTS.indexOf(goodTest(POOL[apIdx]));apA=ADQS.findIndex(a=>a.k===goodAdq(POOL[apIdx]));
+    showToast('🧩 '+POOL[apIdx].name+' — '+POOL[apIdx].nota);}
+  else{seedReto();updateRetoSpec();
+    showToast('🎯 Nueva estación: '+retoSc().name+'. La configuración de partida vuelve a estar mal en las tres decisiones.');}
+  synth.beep(520,0.08,0.05);hwStep=0;afterEdit();
+}
+
+// ===================== 11. TELEMETRÍA Y REPORTE =====================
+function teleRow(l,v,cls){return `<div class="trow"><span class="tl">${l}</span><span class="tv ${cls||''}">${v}</span></div>`;}
+function updateTele(){
+  const sc=curSc(),cfg=curCfg(),r=runC(sc,cfg),e=ENT[cfg.ent];
+  let h='';
+  if(mode==='explora'){
+    h+=teleRow('Ventana de rebote',fmtT(sc.tb));
+    h+=teleRow('i en reposo',n3(iQuiesc(e))+' mA');
+    h+=teleRow('Z a 4 kHz',fmtZ(zNoise(e)));
+    h+=teleRow('V en reposo',e.rV===null?'sin definir':(vRest(sc,e)<0?'< 0 V':n2(vRest(sc,e))+' V'),
+      e.rV!==null&&vDrop(sc,e)<=VN_MAX?'good':'bad');
+    h+=teleRow('Pulsaciones contadas',(NP-r.missed+r.dupes+r.spurious)+' / '+NP,r.ok?'good':'bad');
+  }else if(mode==='aplica'){
+    if(apTopic==='acond'){
+      h+=teleRow('Opción',e.n.split(' ')[0]);
+      h+=teleRow('i en reposo',n3(iQuiesc(e))+' mA',iQuiesc(e)<=sc.iMaxIn&&iQuiesc(e)>=(sc.iMinIn||0)?'good':'bad');
+      h+=teleRow('Caída por fuga',n3(vLeak(sc,e))+' V');
+      h+=teleRow('Caída por ruido',vAc(sc,e)>99?'> 99 V':n3(vAc(sc,e))+' V');
+      h+=teleRow('Autonomía 2700 mAh',iQuiesc(e)>0?n0(diasPila(2700,iQuiesc(e)))+' días':'—');
+    }else if(apTopic==='filtro'){
+      h+=teleRow('τ de carga',fmtT(TAU_O));
+      h+=teleRow('τ de descarga',fmtT(TAU_C));
+      h+=teleRow('Retardo al pulsar',fmtT(TD_PRESS),'good');
+      h+=teleRow('Retardo al soltar',fmtT(TD_REL),'warn');
+      h+=teleRow('Z a 4 kHz',fmtZ(zNoise(ENT.rc)),'good');
+    }else if(apTopic==='tiempo'){
+      const W=winOf(sc);
+      h+=teleRow('Suelo teórico',fmtT(sc.tb/2));
+      h+=teleRow('Ventana medida',fmtT(W.lo)+' – '+fmtT(W.hi));
+      h+=teleRow('Elegido',fmtTest(TESTS[apT]),okTest(sc,TESTS[apT])?'good':'bad');
+      h+=teleRow('Perdidas',n0(r.missed),r.missed?'bad':'good');
+      h+=teleRow('De más',n0(r.dupes),r.dupes?'bad':'good');
+    }else{
+      h+=teleRow('Estrategia',ADQS[apA].n.split(' ')[0]);
+      h+=teleRow('Perdidas',n0(r.missed),r.missed?'bad':'good');
+      h+=teleRow('De más',n0(r.dupes),r.dupes?'bad':'good');
+      h+=teleRow('Entradas a la ISR',ADQS[apA].int?n0(r.isr):'—');
+      h+=teleRow('Latencia máxima',fmtT(r.maxLat),r.maxLat>sc.tLatMax?'bad':'good');
+    }
+  }else{
+    h+=teleRow('Acondicionamiento',e.n.split(' ')[0],retoChecked?(retoOkEnt?'good':'bad'):'');
+    h+=teleRow('Tiempo estable',fmtTest(cfg.tEst),retoChecked?(retoOkTest?'good':'bad'):'');
+    h+=teleRow('Estrategia',ADQ[cfg.adq].n.split(' ')[0],retoChecked?(retoOkAdq?'good':'bad'):'');
+    h+=teleRow('Pulsaciones',(NP-r.missed)+' / '+NP,r.missed?'bad':'good');
+    h+=teleRow('Conteos de más',n0(r.dupes+r.spurious),(r.dupes+r.spurious)?'bad':'good');
+  }
+  el('tele').innerHTML=h;
+}
+function updateReport(){
+  const sc=curSc(),cfg=curCfg(),r=runC(sc,cfg),e=ENT[cfg.ent];
+  let html=`<b>${MODE_META[mode].mision}</b><br>`;
+  if(mode==='explora'){
+    html+=`${sc.name} · rebote <span class="mono">${fmtT(sc.tb)}</span> · suelo del antirrebote <span class="mono">${fmtT(sc.tb/2)}</span><br>`;
+    const w=whyEnt(sc,expEnt);
+    html+=`${e.n}: <span class="${w.ok?'ok':'dtc'}">${w.txt}</span><br>`;
+    html+=`Con <span class="mono">${ADQ[cfg.adq].n.toLowerCase()}</span> y <span class="mono">${fmtTest(cfg.tEst)}</span>: ${NP-r.missed}/${NP} pulsaciones, ${r.dupes} de más, ${r.spurious} inventadas.`;
+  }else if(mode==='aplica'){
+    if(apTopic==='acond'){
+      const w=whyEnt(sc,apEnt);
+      html+=`${e.n}<br>i reposo <span class="mono">${n3(iQuiesc(e))} mA</span> · Z a 4 kHz <span class="mono">${fmtZ(zNoise(e))}</span><br>`;
+      html+=`<span class="${w.ok?'ok':'dtc'}">${w.txt}</span>`;
+    }else if(apTopic==='filtro'){
+      html+=`τ de carga <span class="mono">${fmtT(TAU_O)}</span> y τ de descarga <span class="mono">${fmtT(TAU_C)}</span>: no son iguales.<br>`;
+      html+=`Retardo al pulsar <span class="mono">${fmtT(TD_PRESS)}</span> y al soltar <span class="mono">${fmtT(TD_REL)}</span>: el filtro se traga <span class="mono">${fmtT(DT_GAP)}</span> de cada hueco.<br>`;
+      html+=sc.tb<=2*TAU_O?`<span class="ok">Aquí el filtro sí recorta parte del tren de rebotes.</span>`
+        :`<span class="dtc">Aquí NO hace de antirrebote: la ventana de rebote es ${fmtT(sc.tb)} y τ es ${fmtT(TAU_O)}.</span>`;
+    }else if(apTopic==='tiempo'){
+      const W=winOf(sc),w=whyTest(sc,TESTS[apT]);
+      html+=`Ventana medida por barrido: <span class="mono">${fmtT(W.lo)} – ${fmtT(W.hi)}</span> · suelo teórico <span class="mono">${fmtT(sc.tb/2)}</span><br>`;
+      html+=`Con <span class="mono">${fmtTest(TESTS[apT])}</span>: <span class="${w.ok?'ok':'dtc'}">${w.txt}</span>`;
+    }else{
+      const w=whyAdq(sc,ADQS[apA].k);
+      html+=`${ADQS[apA].n}<br>`;
+      html+=`<span class="${w.ok?'ok':'dtc'}">${w.txt}</span><br>`;
+      html+=`Entradas a la ISR: <span class="mono">${ADQS[apA].int?r.isr:'—'}</span> para ${NP} maniobras.`;
+    }
+  }else{
+    html+=`Estación: <b>${sc.name}</b> · ${sc.nIn} entrada(s) · latencia máxima ${fmtT(sc.tLatMax)}.<br>`;
+    if(retoChecked)html+=retoMsg;
+    else html+=`<span class="mono">Elige acondicionamiento, tiempo estable y estrategia, y pulsa Comprobar.</span>`;
+  }
+  el('report').innerHTML=html;
+}
+function refreshAll(){framesCache=null;drawBoard();updateTele();updateReport();updateHW();}
+
+// ===================== 12. RETO =====================
+function updateRetoSpec(){
+  const sc=retoSc();
+  el('retoSpec').innerHTML=`Pon en marcha la entrada de <b>${sc.name}</b> (${sc.sw}): (1) el <b>acondicionamiento</b>, que debe dar nivel en reposo por encima de ${n1(VCC-VN_MAX)} V, respetar ${sc.iMaxIn>=10?'el consumo del nodo':'un presupuesto de '+n2(sc.iMaxIn)+' mA'}${sc.iMinIn?' y entregar al menos '+n1(sc.iMinIn)+' mA de humectación al contacto':''}; (2) el <b>tiempo estable</b> del antirrebote, por encima de la mitad de la ventana de rebote (${fmtT(sc.tb)}) y por debajo del suceso más corto; y (3) la <b>estrategia de lectura</b>, con ${sc.nIn} entrada(s), ${N_INT} pines de interrupción externa, el temporizador ${sc.timerLibre?'libre':'ocupado por el PWM'}, ${sc.sleep?'el nodo durmiendo entre maniobras':'el nodo alimentado'} y una latencia máxima de ${fmtT(sc.tLatMax)}.`;
+}
+function retoExplain(){
+  const sc=retoSc(),cfg=retoCfg();
+  return [whyEnt(sc,cfg.ent).txt,whyTest(sc,cfg.tEst).txt,whyAdq(sc,cfg.adq).txt].join(' · ');
+}
+function checkReto(){
+  const sc=retoSc();
+  retoOkEnt=okEnt(sc,retoCh.ent);
+  retoOkTest=okTest(sc,retoCh.tEst);
+  retoOkAdq=okAdq(sc,retoCh.adq);
+  retoSolved=retoOkEnt&&retoOkTest&&retoOkAdq;retoChecked=true;solved=retoSolved;
+  synth.beep(retoSolved?1046:220,retoSolved?0.14:0.15,0.06);
+  retoMsg=`<span class="mono"><span class="${retoSolved?'ok':'dtc'}">${retoSolved?'✔ Correcto':'✗ Revisa'}</span> — ${retoExplain()}</span>`;
+  refreshAll();
+}
+
+// ===================== 13. QUIZ =====================
+function buildQuiz(){
+  QUIZ={
+    explora:{
+      pregunta:'¿Por qué una entrada digital sin resistencia de polarización no vale, aunque en la mesa del taller «parezca que funciona»?',
+      opciones:[
+        {t:'Porque con el contacto abierto nadie fija la tensión del pin: la deciden la fuga de la bornera y lo que se acople al cable. Que funcione en la mesa sólo dice que allí no había ni humedad ni un variador cerca.',ok:true,why:'Correcto. Un nodo flotante no tiene nivel: tiene la tensión que le dejen. Y en CMOS, además, un pin parado a media escala hace conducir a la vez los dos transistores de entrada.'},
+        {t:'Porque sin resistencia la corriente por el contacto es infinita y acaba soldando las láminas.',ok:false,why:'Con el contacto abierto no circula corriente, y con el contacto cerrado quien limita la corriente es precisamente el pull-up. Sin pull-up el problema es el contrario: no circula nada y el nodo queda al aire.'},
+        {t:'Porque el microcontrolador no puede leer un 0 lógico si no hay una resistencia hacia Vcc.',ok:false,why:'El 0 lo da el contacto cerrado llevando el pin a masa, y eso funciona con o sin pull-up. Lo que falta sin pull-up es el 1: el estado de reposo.'},
+        {t:'Porque la resistencia de polarización es la que produce el antirrebote y sin ella el contacto rebota más.',ok:false,why:'El pull-up no quita ni un rebote: los rebotes son mecánicos y ocurren igual. El antirrebote es del programa o de un filtro, no de la polarización.'},
+      ],
+    },
+    aplica:{
+      pregunta:'La regla de dimensionado del antirrebote es t_est &gt; t_reb/2. ¿Por qué la MITAD de la ventana de rebote y no la ventana entera?',
+      opciones:[
+        {t:'Porque para colar un conteo de más hacen falta DOS tramos contiguos —un falso reposo y un re-cierre— confirmados por separado, y los dos juntos no pueden pasar de la ventana. El mejor reparto para el rebote es mitad y mitad.',ok:true,why:'Correcto. Si un tramo mide más de la mitad, el contiguo mide menos, y el antirrebote sólo necesita ganar UNO de los dos. Por eso la cota es t_reb/2 y no t_reb.'},
+        {t:'Porque el fabricante del pulsador especifica el rebote como el doble del valor real, por seguridad.',ok:false,why:'Los fabricantes declaran el rebote máximo, no el doble de nada. La mitad sale de la geometría del problema, no de una convención de catálogo.'},
+        {t:'Porque el filtro RC ya se encarga de la primera mitad del tren de rebotes y el programa sólo tiene que cubrir la segunda.',ok:false,why:'La regla vale exista o no filtro. Y un filtro con τ de 1 ms no borra un tren de 60 ms: baja la impedancia y da histéresis, pero el antirrebote sigue siendo del programa.'},
+        {t:'Porque poner t_est igual a la ventana entera haría perder pulsaciones.',ok:false,why:'Eso es cierto pero es el TECHO, y lo pone el suceso más corto —la pulsación o el hueco—, no la ventana de rebote. Son dos límites distintos y por motivos distintos.'},
+      ],
+    },
+    reto:{
+      pregunta:'¿Por qué un contacto de plata puede exigir una corriente MÍNIMA por la entrada, y uno chapado en oro no?',
+      opciones:[
+        {t:'Porque sobre la plata se forma una película de óxido y sulfuro que aísla: hace falta algo de corriente —del orden del miliamperio— para romperla. El oro no se sulfura, así que admite circuito seco.',ok:true,why:'Correcto: es la corriente de humectación. Un pull-up de 50 kΩ da 0,1 mA y deja el contacto sin limpiar: el conteo empieza a fallar meses después de la puesta en marcha.'},
+        {t:'Porque la plata tiene más resistencia de contacto y hace falta más corriente para que la caída sea medible por el MCU.',ok:false,why:'La plata es de los mejores conductores que hay y su resistencia de contacto limpio es de miliohmios. El problema no es el metal: es la película que se forma encima.'},
+        {t:'Porque el pull-up interno del microcontrolador no puede entregar más de 0,25 mA y por eso hay que poner uno externo siempre.',ok:false,why:'El pull-up interno sí entrega esa corriente, y en muchas estaciones basta con ella. La corriente mínima la pide el CONTACTO, no el microcontrolador.'},
+        {t:'Porque una corriente mínima por el contacto reduce el tiempo de rebote de las láminas.',ok:false,why:'El rebote es mecánico: depende de la masa, del muelle y del recorrido. La corriente no lo cambia. Lo que la corriente hace es atravesar la película que se forma sobre el metal.'},
+      ],
+    },
+  };
+  Object.values(QUIZ).forEach(q=>{for(let i=q.opciones.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));const tmp=q.opciones[i];q.opciones[i]=q.opciones[j];q.opciones[j]=tmp;}});
+}
+function clearDx(){const box=el('dxbtns');if(box)box.innerHTML='';}
+function refreshQuestion(){
+  const q=QUIZ[mode];if(!q)return;
+  el('q_text').innerHTML=q.pregunta;
+  const box=el('dxbtns');
+  box.innerHTML=q.opciones.map((o,i)=>`<button class="b sm" data-i="${i}">${String.fromCharCode(65+i)}) ${o.t}</button>`).join('');
+  box.querySelectorAll('[data-i]').forEach(b=>b.onclick=()=>answer(parseInt(b.dataset.i,10)));
+}
+function answer(i){
+  const q=QUIZ[mode];if(!q)return;
+  const box=el('dxbtns'),btns=box.querySelectorAll('[data-i]');
+  if(!btns.length||btns[0].disabled)return;
+  const o=q.opciones[i];btns.forEach(b=>b.disabled=true);btns[i].classList.add(o.ok?'right':'wrong');
+  if(o.ok){synth.beep(1046,0.12,0.06);}else{synth.beep(220,0.15,0.06);}
+  showToast((o.ok?'✔ ':'✗ ')+o.why);
+}
+
+// ===================== 14. PICKING Y HOVER =====================
+pickerFor(scene,S.camera,S.renderer.domElement,hit=>{
+  if(!hit)return;
+  if(hit.object===board){boardClick();return;}
+  let o=hit.object;while(o){if(o.userData&&o.userData.title){showToast('<b>'+o.userData.title+'</b><br>'+(o.userData.info||''));return;}o=o.parent;}
+});
+(function hoverLoop(){
+  const ray=new THREE.Raycaster(),dom=S.renderer.domElement;let mx=0,my=0;
+  dom.addEventListener('pointermove',e=>{const r=dom.getBoundingClientRect();mx=((e.clientX-r.left)/r.width)*2-1;my=-((e.clientY-r.top)/r.height)*2+1;});
+  function tick(){
+    ray.setFromCamera({x:mx,y:my},S.camera);let hovered=false;
+    for(const [obj,spr] of HOVER_LABELS){if(!obj.visible){spr.visible=false;continue;}const on=ray.intersectObject(obj,true).length>0;spr.visible=on;if(on)hovered=true;}
+    dom.style.cursor=hovered?'pointer':'default';requestAnimationFrame(tick);
+  }
+  tick();
+})();
+
+// ===================== 15. RECORRIDO AUTOMÁTICO =====================
+function sleep(ms){return new Promise(r=>setTimeout(r,ms));}
+async function runAuto(){
+  if(autoRunning)return;autoRunning=true;
+  const btn=el('btnAuto'),label=btn.textContent;btn.disabled=true;btn.classList.add('on');btn.textContent='⏳ Recorriendo…';
+  try{
+    synth.init();synth.resume();clearDx();
+    setMode('explora');
+    expIdx=0;expEnt='externo';expEv=2;afterEdit();
+    showToast('🔧 Contador de piezas. La pulsación 11 lleva el peor tren posible: la ventana de rebote partida en dos mitades iguales.');
+    await sleep(4200);
+    expEnt='flotante';afterEdit();
+    showToast('⚠ Sin resistencia de polarización el nodo no tiene nivel: aparecen transiciones que no ha hecho nadie y el programa cuenta eventos inventados.');
+    await sleep(4600);
+    expEnt='interno';afterEdit();
+    showToast('🔌 El pull-up interno da nivel, pero con la bornera húmeda de 330 kΩ el reposo se queda en 4,34 V: por debajo del mínimo de diseño.');
+    await sleep(4600);
+    expEnt='externo';afterEdit();
+    showToast('✔ Con 4,7 kΩ el reposo sube a 4,93 V y además el contacto de plata recibe 1,06 mA: la corriente que le hace falta para romper el óxido.');
+    await sleep(4600);
+    expEv=0;afterEdit();
+    showToast('⏱ Esta es la maniobra más corta de la corrida: 1,6 ms de pulso. Ningún sondeo de 25 ms la va a ver.');
+    await sleep(4400);
+    expEv=2;afterEdit();
+    answer(QUIZ[mode].opciones.findIndex(o=>o.ok));await sleep(2600);
+
+    setMode('aplica');
+    apTopic='acond';apIdx=2;apEnt='externo';afterEdit();
+    showToast('🔋 Botón a pilas: 2700 mAh para un año son 0,308 mA. El pull-up externo de 4,7 kΩ se come 1,06 mA él solo.');
+    await sleep(4600);
+    apEnt='interno';afterEdit();
+    showToast('✔ El pull-up interno consume 0,25 mA y cabe en el presupuesto. Aquí la resistencia grande gana, y en el contador de piezas perdía.');
+    await sleep(4600);
+    apTopic='filtro';apIdx=3;afterEdit();
+    showToast('〰 Filtro RC con Schmitt: carga por 10 kΩ y descarga por 10 kΩ ‖ 1 kΩ. Por eso tarda 98 µs en bajar y 772 µs en subir.');
+    await sleep(4800);
+    showToast('🔎 Con 60 ms de rebote el filtro NO hace de antirrebote: τ es 1 ms. Está ahí por el ruido del variador y por el nivel, no por los rebotes.');
+    await sleep(4800);
+    apTopic='tiempo';apIdx=1;apT=1;afterEdit();
+    showToast('⏱ Final de carrera: 14 ms de rebote. Con 5 ms el antirrebote confirma el falso reposo y cuenta de más.');
+    await sleep(4600);
+    apT=2;afterEdit();
+    showToast('✔ Con 20 ms se supera el suelo de 7 ms y todavía se queda por debajo de los 45 ms del pulso más corto. Esa es la ventana.');
+    await sleep(4600);
+    apT=3;afterEdit();
+    showToast('✗ Con 50 ms el antirrebote es más largo que la propia pulsación: ahora se traga las maniobras enteras. Más largo no es más seguro.');
+    await sleep(4800);
+    apTopic='estrategia';apIdx=0;apA=2;afterEdit();
+    showToast('🎛 Interrupción sin antirrebote: no pierde nada y por eso mismo entra a la ISR 128 veces para 24 maniobras.');
+    await sleep(4800);
+    apA=3;afterEdit();
+    showToast('✔ La misma interrupción con bloqueo de rearme: 24 entradas para 24 maniobras y 10 µs de latencia.');
+    await sleep(4400);
+    apT=TESTS.indexOf(goodTest(POOL[apIdx]));afterEdit();
+    answer(QUIZ[mode].opciones.findIndex(o=>o.ok));await sleep(2600);
+
+    setMode('reto');
+    seedReto(0);updateRetoSpec();afterEdit();
+    showToast('🎯 Reto: la configuración de partida está mal en las tres decisiones. Lo comprobamos tal cual…');
+    await sleep(3800);
+    checkReto();
+    await sleep(4400);
+    const sc=retoSc();
+    retoCh={ent:goodEnt(sc),tEst:goodTest(sc),adq:goodAdq(sc)};
+    retoChecked=false;retoSolved=false;solved=false;afterEdit();
+    showToast('✔ Pull-up que da nivel y humectación, antirrebote por encima de la mitad del rebote y por debajo del hueco, y la estrategia que cabe en los recursos del nodo.');
+    await sleep(4000);
+    checkReto();await sleep(2600);
+    answer(QUIZ[mode].opciones.findIndex(o=>o.ok));
+  }finally{
+    btn.disabled=false;btn.classList.remove('on');btn.textContent=label;autoRunning=false;
+  }
+}
+
+// ===================== 16. ANIMACIÓN, EVENTOS E INICIO =====================
+S.setAnimate((dt,time)=>{
+  hwT+=dt;
+  if(hwT>0.10){hwT=0;hwStep=(hwStep+1)%hwCount();updateHW();}
+});
+['explora','aplica','reto'].forEach(m=>{el('m_'+m).onclick=()=>{if(!autoRunning)setMode(m);};});
+el('btnAuto').onclick=()=>{if(!autoRunning)runAuto();};
+el('btnNew').onclick=()=>{if(autoRunning)return;newSignal();};
+el('btnCheck').onclick=()=>{if(autoRunning)return;checkReto();};
+const soundBtn=el('soundBtn');if(soundBtn){soundBtn.onclick=()=>{synth.toggle();soundBtn.textContent=synth.isOn()?'🔊':'🔇';};}
+document.addEventListener('pointerdown',()=>{synth.init();synth.resume();},{once:true});
+
+buildQuiz();
+S.start();
+setMode('explora');
+
+// ===================== DEBUG HOOK =====================
+window.__labDebug={
+  mode:()=>mode, setMode:k=>setMode(k),
+  POOL, RETO_POOL, ENTRADAS, ENT, TESTS, ADQS, ADQ, NP, I_MIN, I_GAP, I_BAD,
+  VCC, VIH, VIL, VTP, VTM, VN_MAX, R_INT_V, R_INT_I, R_EXT, RC_R1, RC_R2, RC_C, C_STRAY,
+  T_ISR, N_INT, T_TIMER, HUM_HALF, F_NOISE, TAU_O, TAU_C, V_CLOSED, TD_PRESS, TD_REL, TD_RC, DT_GAP,
+  // motor
+  iQuiesc,zNoise,iAcOf,vLeak,vAc,vDrop,vRest,tDelayEnt,diasPila,
+  bounceEdges,worstBounce,maxGapOf,worstPairOf,mergeEdges,lvlAt,baseSignal,humEdges,
+  rcFilter,rcTrace,integrador,lockout,attribute,signalFor,runSim,runC,score,
+  guardEnt,guardAdq,cfgOk,cfgWith,okEnt,okTest,okAdq,goodEnt,goodTest,goodAdq,GOOD,
+  // adaptadores
+  evRun,winFor,winOf,whyEnt,whyTest,whyAdq,
+  // explora
+  expIdx:()=>expIdx, setExpIdx:i=>{expIdx=i;expEnt=goodEnt(POOL[i]);expEv=2;afterEdit();},
+  expEnt:()=>expEnt, setExpEnt:k=>{expEnt=k;afterEdit();},
+  expEv:()=>expEv, setExpEv:i=>{expEv=i;afterEdit();},
+  expInfo:()=>{const sc=expSc(),e=ENT[expEnt];return {idx:expIdx,ent:expEnt,ev:expEv,
+    iQ:iQuiesc(e),z:zNoise(e),vRest:vRest(sc,e),ok:okEnt(sc,expEnt)};},
+  // aplica
+  apTopic:()=>apTopic, setApTopic:k=>{apTopic=k;afterEdit();},
+  apIdx:()=>apIdx, setApIdx:i=>{apIdx=i;apEnt=goodEnt(POOL[i]);apT=TESTS.indexOf(goodTest(POOL[i]));apA=ADQS.findIndex(a=>a.k===goodAdq(POOL[i]));afterEdit();},
+  apEnt:()=>apEnt, setApEnt:k=>{apEnt=k;afterEdit();},
+  apT:()=>apT, setApT:i=>{apT=i;afterEdit();},
+  apA:()=>apA, setApA:i=>{apA=i;afterEdit();},
+  apRun:()=>runC(POOL[apIdx],apCfg()),
+  // reto
+  retoK:()=>retoK, seedReto:k=>{seedReto(k);updateRetoSpec();afterEdit();},
+  retoName:()=>retoSc().name, retoCfg:()=>retoCfg(),
+  retoGet:()=>({ent:retoCh.ent,tEst:retoCh.tEst,adq:retoCh.adq}),
+  retoSet:(f,v)=>{retoSet(f,v);afterEdit();},
+  retoSolveBuild:()=>{const sc=retoSc();retoCh={ent:goodEnt(sc),tEst:goodTest(sc),adq:goodAdq(sc)};
+    retoChecked=false;retoSolved=false;solved=false;afterEdit();},
+  checkReto:()=>checkReto(),
+  retoChecked:()=>retoChecked, retoOkEnt:()=>retoOkEnt, retoOkTest:()=>retoOkTest, retoOkAdq:()=>retoOkAdq, retoSolved:()=>retoSolved,
+  // quiz / general
+  quizCorrectIndex:()=>{const q=QUIZ[mode];return q?q.opciones.findIndex(o=>o.ok):-1;},
+  quizAnswer:i=>answer(i),
+  frames:()=>frames(),
+  newSignal:()=>newSignal(),
+  solved:()=>solved,
+};
+</script>
+  <!-- Ficha técnica · Capa B del molde de lab 3D (componente compartido + contenido del lab) -->
+  <script src="_ficha-tecnica.js"></script>
+  <script src="_ficha-gpio-antirrebote-interrupciones.js"></script>
+</body>
+</html>
