@@ -6758,6 +6758,62 @@ Cada decisión tiene consecuencia física. ¡A automatizar!",
     "subtitulo": "Mecatrónica · Armado, fundamento y diagnóstico",
     "titulo": "PLC y Automatización Neumática",
   },
+  "mecanica-90": {
+    "acento": "#7CD992",
+    "aplicaciones": [
+      {
+        "area": "Instrumentación de proceso",
+        "ejemplo": "Un termopar de 41 µV/°C y un transmisor de 4-20 mA sobre 220 Ω piden cadenas opuestas: el primero necesita ×100 para ocupar el rango, el segundo ya entrega de 0,88 a 4,40 V y amplificarlo lo saca del convertidor. La pregunta nunca es «cuántos bits tiene el convertidor» sino «cuánto de su rango ocupa mi señal», y de ahí sale el 72 % de aprovechamiento que hace útiles los 12 bits.",
+      },
+      {
+        "area": "Medida junto a electrónica de potencia",
+        "ejemplo": "La portadora de un variador de 4 kHz o de un convertidor de 16 kHz se cuela por el cable de medida y el muestreo la pliega a la banda base. Cuando el pliegue cae en 0 Hz aparece como un desplazamiento de cero que se persigue durante días en la calibración; cuando cae dentro de la banda, como una oscilación que no está en el proceso. La defensa es analógica —el filtro antialias— porque después del convertidor ya es tarde.",
+      },
+      {
+        "area": "Diagnóstico de canales de adquisición",
+        "ejemplo": "Un canal que da lecturas con escalones gruesos suele tener un problema de aprovechamiento, no de convertidor; uno que da el último dígito bailando tiene el LSB por debajo del ruido; y uno que devuelve el valor de la muestra anterior tiene la impedancia de fuente demasiado alta para la ventana de adquisición —100 kΩ piden 10,78 µs y a 50 kS/s sólo hay 5—. El seguidor de tensión resuelve el tercero aunque su ganancia sea 1: amplificar y bajar la impedancia son dos servicios distintos.",
+      },
+    ],
+    "bienvenida": "Un convertidor analógico-digital no mide: compara. Parte su rango en 2ⁿ escalones de LSB = VREF/2ⁿ y devuelve el número del escalón donde cayó la entrada —4,882813 mV con 10 bits sobre 5 V, 0,625000 mV con 12 bits sobre 2,56 V—. Todo lo que importa de una medida industrial es lo que ocurre alrededor de esa comparación.
+
+Y lo primero que ocurre es que los bits de la hoja de datos NO son los bits que se cobran. Si la señal acondicionada sólo ocupa una fracción del rango del convertidor, los bits que quedan valen n + log₂(uso), y esa resta es exacta: ocupar la mitad del rango cuesta exactamente un bit. Un termopar tipo K entrega 41 microvoltios por grado; conectado directo a un convertidor de 12 bits con referencia de 2,56 V, los 450 °C del horno ocupan el 0,72 % de la escala y quedan 4,9 bits útiles —peor que un convertidor de 8 bits bien acondicionado—. El amplificador de ×100 no mejora el convertidor: mejora la pregunta que se le hace. Resolución y aprovechamiento del rango no son dos requisitos, son la misma desigualdad escrita dos veces.
+
+Debajo hay un suelo que no se negocia. Si el LSB pesa menos que 2σ del ruido de la cadena —sensor, amplificador y convertidor sumados en cuadratura—, los códigos de abajo ya no describen la señal: describen el ruido. En el molino, pasar de 10 a 12 bits mejora la resolución de 0,244 A a 0,061 A y aun así INVALIDA la medida, porque el LSB de 1,22 mV cae por debajo de los 1,70 mV de 2σ. Es el único criterio de todo el laboratorio donde poner más bits es peor.
+
+Al otro lado está el tiempo. Nyquist pide aquí f_s ≥ 5·f_banda, y el filtro antialias —dos polos reales, att(f) = 1/(1+(f/f_c)²)— tiene que dejar pasar la banda útil por encima de −3 dB: un filtro demasiado cerrado no protege, borra, y a 10 muestras por segundo el filtro de 4 Hz deja de la banda de 30 Hz de la línea hidráulica apenas el 1,75 %. Lo que el filtro no atenúa no desaparece: se pliega según |f − round(f/f_s)·f_s|, y la portadora de 4 kHz del variador muestreada a 200 S/s cae en 0 Hz EXACTOS, donde ya no parece ruido sino un error de calibración que ningún filtro digital posterior puede quitar. Cierra la cadena el muestreo y retención: el condensador necesita (n+1)·ln2·(R_out+R_MUX)·C_SH para asentarse y sólo dispone de 0,25/f_s; el acelerómetro conectado directo, con 100 kΩ de fuente, pide 10,78 µs y la ventana ofrece 5. Seis criterios, tres decisiones y una sola combinación válida por máquina, verificada 108/108 y con las 64 combinaciones barridas una a una.",
+    "codigo": "MEC-90",
+    "conceptos": [
+      {
+        "descripcion": "LSB = VREF/2ⁿ, código = floor(V/LSB) y reconstrucción centrada V̂ = (código+½)·LSB —el medio LSB no es adorno: sin él toda la escala arrastra un sesgo de −LSB/2—. Los bits útiles son n + log₂(uso): el termopar directo ocupa el 0,72 % del rango y tira 7,1 de sus 12 bits; con ×100 sube al 72,07 % y da 0,152 °C por código.",
+        "icono": "📏",
+        "nombre": "El escalón y los bits que se cobran",
+      },
+      {
+        "descripcion": "El ruido de la cadena se suma en cuadratura y el amplificador lo multiplica igual que la señal. Si LSB < 2σ, los bits de abajo son ruido cuantizado: en el molino, 12 bits dan un LSB de 1,22 mV frente a 2σ = 1,70 mV y la medida se estropea al mejorarla. Único criterio del laboratorio que castiga tener más bits.",
+        "icono": "📶",
+        "nombre": "El suelo de ruido",
+      },
+      {
+        "descripcion": "f_s ≥ 5·f_banda dice cuántas muestras hacen falta; att(f) = 1/(1+(f/f_c)²) dice qué hacer con lo que está fuera de la banda. Cumplir uno y saltarse el otro deja una medida que parece correcta. Un filtro demasiado cerrado borra: a 10 S/s sólo pasa el 1,75 % de una banda de 30 Hz.",
+        "icono": "⏱️",
+        "nombre": "Nyquist y el filtro son dos criterios",
+      },
+      {
+        "descripcion": "Lo que el filtro no atenúa se pliega a |f − round(f/f_s)·f_s|. La portadora de 4 kHz muestreada a 200 S/s cae en 0 Hz exactos; a 5 kS/s se pliega a 1 kHz con 5,0 mV de residuo frente a un ½ LSB de 0,61 mV. Y el condensador del S&H necesita (n+1)·ln2·(R_out+R_MUX)·C_SH mientras la ventana sólo da 0,25/f_s.",
+        "icono": "🔄",
+        "nombre": "El alias que se disfraza de cero",
+      },
+    ],
+    "duracion": 30,
+    "mision": [
+      "EXPLORA · Elige una de las cuatro estaciones —horno de tratamiento térmico, línea hidráulica con variador, accionamiento de un molino o vigilancia de un rodamiento—, un convertidor y un punto de la escala física, y observa a la vez la escalera de cuantización con la entrada y su código, el error de cuantización a lo largo del rango con su banda de ±LSB/2, y la tarjeta con el LSB, la resolución física, el aprovechamiento del rango y los bits útiles. Cambiar de convertidor cambia el LSB, y con él la resolución y el aprovechamiento a la vez: es la lección de la práctica y aquí se ve en un gesto.",
+      "APLICA · Tres estudios. "Resolución" enfrenta los cuatro convertidores y los cuatro acondicionamientos contra el requisito de la máquina y deja a la vista que resolución y aprovechamiento suben y bajan juntos. "Ruido" pone el LSB de cada convertidor frente al piso de 2σ y descubre el criterio que va al revés que todos los demás. "Muestreo" dibuja la respuesta del filtro antialias con la banda útil y la interferencia marcadas, el plegado de esa interferencia a la banda base y la ventana de adquisición frente al tiempo de asentamiento del muestreo y retención.",
+      "RETO · Proyecta el canal entero de una máquina asignada en tres decisiones independientes: convertidor, acondicionamiento y muestreo. Cada criterio se califica con los otros dos ya correctos, así que acertar dos de tres sigue siendo un canal que no mide. Las 64 combinaciones (4 convertidores × 4 acondicionamientos × 4 velocidades) se barrieron una a una en cada máquina: hay exactamente una válida y las cuatro máquinas tienen soluciones distintas. La configuración de partida está deliberadamente mal en las tres.",
+    ],
+    "subtitulo": "Sistemas Digitales · Instrumentación electrónica · Kester cap. 2 + IEEE 1241 + ATmega328P §24 + Oppenheim cap. 4: convertidor, acondicionamiento y muestreo",
+    "titulo": "Adquisición de Sensores: el Convertidor A/D y la Cuantización",
+    "videoUrl": "",
+  },
   "quimica-1": {
     "acento": "#06B6D4",
     "aplicaciones": [
@@ -17105,6 +17161,7 @@ exports[`golden master — stores de datos (invariante ante la migración a src/
   "mecanica-88": [],
   "mecanica-89": [],
   "mecanica-9": [],
+  "mecanica-90": [],
   "quimica-1": [
     {
       "completed": true,
@@ -17429,6 +17486,7 @@ exports[`golden master — stores de datos (invariante ante la migración a src/
   "mecanica-88",
   "mecanica-89",
   "mecanica-9",
+  "mecanica-90",
   "quimica-1",
   "quimica-10",
   "quimica-2",

@@ -1,0 +1,1799 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>CEN Labs · Adquisición de sensores: el convertidor A/D y la cuantización — Laboratorio 3D</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#08201C;--panel:rgba(9,26,23,.86);--line:#1E3A34;--ink:#EAF4F1;
+    --dim:#8FB3AC;--accent:#2A9D8F;--accent2:#4FD1C5;--hv:#FFB703;--good:#34d399;--bad:#f4475e;
+    --mono:'Outfit',system-ui,'Segoe UI',Roboto,sans-serif;--disp:'Outfit','Arial Black',Impact,sans-serif;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  html,body{height:100%;background:var(--bg);color:var(--ink);font-family:'Outfit',system-ui,Segoe UI,Roboto,sans-serif}
+  body{overflow:hidden}
+  #stage{position:fixed;inset:0}
+  canvas{display:block;touch-action:none}
+
+  .topbar{position:fixed;top:0;left:0;right:0;height:56px;display:flex;align-items:center;gap:14px;padding:0 20px;z-index:20;background:linear-gradient(180deg,rgba(10,13,18,.92),transparent);pointer-events:none}
+  .brand{font-family:var(--disp);font-weight:bold;font-size:16px;text-transform:uppercase}
+  .brand span{color:var(--accent)}
+  .lt{font-family:var(--mono);font-size:11px;letter-spacing:.1em;text-transform:uppercase;color:var(--dim)}
+
+  .badge{position:fixed;top:16px;right:20px;z-index:20;font-family:var(--mono);font-size:9px;letter-spacing:.12em;text-transform:uppercase;background:rgba(255,209,102,.12);color:var(--hv);border:1px solid rgba(255,209,102,.35);padding:6px 12px;border-radius:20px}
+
+  .hud{position:fixed;top:70px;left:18px;z-index:15;max-width:330px;background:var(--panel);backdrop-filter:blur(14px);border:1px solid var(--line);border-radius:16px;padding:18px 20px;max-height:calc(100vh - 150px);overflow-y:auto}
+  .hud .eyebrow{font-family:var(--mono);font-size:10px;letter-spacing:.18em;text-transform:uppercase;color:var(--accent);margin-bottom:8px}
+  .hud h2{font-size:19px;line-height:1.15;margin-bottom:9px}
+  .hud p{font-size:13px;line-height:1.55;color:var(--dim);margin-bottom:10px}
+  .hud .formula{font-family:var(--mono);color:var(--accent2);text-align:center;font-size:12.5px;margin:8px 0;padding:8px;background:rgba(0,0,0,.25);border-radius:8px;line-height:1.5}
+  .hud .src{font-size:10.5px;color:#7a8894;font-style:italic;margin-top:4px;line-height:1.5}
+  .legend{display:flex;flex-direction:column;gap:6px;margin:12px 0;padding:10px 12px;background:rgba(0,0,0,.22);border-radius:10px}
+  .legend .li{display:flex;align-items:center;gap:8px;font-size:11px;color:#c4d0da}
+  .legend .dot{width:10px;height:10px;border-radius:50%;flex:0 0 auto}
+  .fid{margin:10px 0 2px;padding:10px 12px;background:rgba(0,0,0,.22);border-radius:10px;border:1px solid rgba(79,209,197,.18)}
+  .fid .ft{font-family:var(--mono);font-size:9.5px;letter-spacing:.14em;text-transform:uppercase;color:var(--accent2);margin-bottom:6px}
+  .fid .fl{font-size:11px;color:#c4d0da;line-height:1.5;margin-bottom:5px}
+  .fid .fl b{color:var(--ink)}
+  .fid .fl.no b{color:var(--hv)}
+
+  .panel{position:fixed;top:70px;right:18px;z-index:15;width:262px;background:var(--panel);backdrop-filter:blur(14px);border:1px solid var(--line);border-radius:16px;padding:16px;max-height:calc(100vh - 150px);overflow-y:auto}
+  .panel h4{font-family:var(--mono);font-size:10px;letter-spacing:.14em;text-transform:uppercase;color:var(--dim);margin:2px 0 10px}
+  .panel h4.sec{margin-top:16px;border-top:1px solid var(--line);padding-top:14px}
+  .g{margin-bottom:6px}
+  .gl{display:flex;justify-content:space-between;font-family:var(--mono);font-size:11px;color:var(--dim)}
+  .gl b{color:var(--accent2)}
+  .gl b.good{color:var(--good)}.gl b.warn{color:var(--hv)}.gl b.bad{color:var(--bad)}
+  .modebar{display:flex;gap:5px;margin-bottom:8px}
+  .modebar .b{flex:1;padding:8px 4px;font-size:11px}
+  .btns{display:flex;flex-direction:column;gap:7px;margin-top:6px}
+  .b{font-family:system-ui;font-size:12.5px;padding:10px;border-radius:9px;cursor:pointer;border:1px solid var(--line);background:#1b242f;color:var(--ink);transition:.15s;text-align:center}
+  .b:hover{border-color:var(--accent);background:#202c38}
+  .b.on{background:var(--accent);color:#06120f;border-color:var(--accent);font-weight:bold}
+  .b.primary{background:var(--accent);color:#06120f;border-color:var(--accent);font-weight:bold}
+  .b.auto{border-color:var(--hv);color:var(--hv);background:rgba(255,183,3,.10);font-weight:bold}
+  .b.auto:hover{background:rgba(255,183,3,.18);border-color:var(--hv)}
+  .b.auto:disabled{opacity:.6;cursor:default}
+  .b.dx{text-align:left;font-size:12px}
+  .b.dx.right{background:rgba(52,211,153,.18);border-color:var(--good);color:var(--good);font-weight:bold}
+  .b.dx.wrong{background:rgba(244,71,94,.15);border-color:var(--bad);color:var(--bad)}
+  .console{font-family:var(--mono);font-size:11px;line-height:1.55;color:#c4d0da;background:rgba(0,0,0,.28);border-radius:9px;padding:10px 12px;margin-bottom:8px;min-height:56px}
+  .console .dtc{color:var(--bad);font-weight:bold}
+  .console .ok{color:var(--good)}
+  .console .mono{color:var(--dim)}
+
+  .hint{position:fixed;bottom:18px;left:18px;z-index:14;font-family:var(--mono);font-size:10px;color:var(--dim);background:var(--panel);padding:7px 12px;border-radius:9px;border:1px solid var(--line)}
+  .toast{position:fixed;top:80px;left:50%;transform:translateX(-50%);z-index:30;background:rgba(18,24,32,.95);border:1px solid var(--accent);padding:10px 20px;border-radius:40px;font-family:var(--mono);font-size:12px;opacity:0;transition:.3s;pointer-events:none;max-width:80vw;text-align:center}
+  .toast.show{opacity:1}
+  .soundBtn{position:fixed;top:14px;right:18px;z-index:21;font-size:16px;background:var(--panel);backdrop-filter:blur(12px);border:1px solid var(--line);border-radius:50%;width:36px;height:36px;cursor:pointer;color:var(--dim);transition:.15s}
+  .soundBtn.on{color:var(--accent);border-color:var(--accent)}
+  .soundBtn:hover{transform:scale(1.08)}
+  .inspectHint{position:fixed;bottom:18px;right:18px;z-index:14;font-family:var(--mono);font-size:10px;color:var(--accent2);background:var(--panel);padding:7px 12px;border-radius:9px;border:1px solid var(--line)}
+
+  @media(max-width:820px){
+    .hud,.panel{position:fixed;left:8px;right:8px;top:auto;bottom:8px;max-width:none;width:auto;max-height:42vh;overflow-y:auto}
+    .hud{bottom:calc(8px + 42vh + 8px)}
+    .hint,.inspectHint{display:none}
+  }
+</style>
+</head>
+<body>
+<div id="stage"></div>
+<button class="soundBtn on" id="soundBtn">🔊</button>
+<div class="topbar">
+  <div class="brand">CEN<span> Labs</span></div>
+  <div class="lt">Sistemas Digitales y Automatización · Instrumentación electrónica</div>
+</div>
+<div class="hud" id="hud"></div>
+<div class="panel" id="panel"></div>
+<div class="hint">Arrastra para orbitar · rueda para zoom</div>
+<div class="inspectHint">👆 Toca el sensor, el amplificador, el muestreo y retención, el convertidor o el panel de instrumentos para inspeccionarlos</div>
+<div class="toast" id="toast"></div>
+
+<script type="importmap">
+{ "imports": {
+  "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.min.js",
+  "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/"
+}}
+</script>
+<script type="module">
+import * as THREE from 'three';
+import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
+import { RoundedBoxGeometry } from 'three/addons/geometries/RoundedBoxGeometry.js';
+import { EffectComposer } from 'three/addons/postprocessing/EffectComposer.js';
+import { RenderPass } from 'three/addons/postprocessing/RenderPass.js';
+import { GTAOPass } from 'three/addons/postprocessing/GTAOPass.js';
+import { UnrealBloomPass } from 'three/addons/postprocessing/UnrealBloomPass.js';
+import { SMAAPass } from 'three/addons/postprocessing/SMAAPass.js';
+import { OutputPass } from 'three/addons/postprocessing/OutputPass.js';
+import { BokehPass } from 'three/addons/postprocessing/BokehPass.js';
+
+/* ============================================================
+   Texturas PBR procedurales (sin archivos externos) — compartidas
+   ============================================================ */
+function cv(s=512){const c=document.createElement('canvas');c.width=c.height=s;return c;}
+function tex(canvas,repeat=1,srgb=false){
+  const t=new THREE.CanvasTexture(canvas);
+  t.wrapS=t.wrapT=THREE.RepeatWrapping;t.repeat.set(repeat,repeat);
+  t.colorSpace = srgb?THREE.SRGBColorSpace:THREE.NoColorSpace;
+  t.generateMipmaps=false; t.minFilter=THREE.LinearFilter; t.anisotropy=1; return t;
+}
+function normalFromHeight(size, hfn, strength=2.0){
+  const c=cv(size),ctx=c.getContext('2d'),img=ctx.createImageData(size,size);
+  const H=(x,y)=>hfn((x+size)%size,(y+size)%size);
+  for(let y=0;y<size;y++)for(let x=0;x<size;x++){
+    const dx=(H(x+1,y)-H(x-1,y))*strength;
+    const dy=(H(x,y+1)-H(x,y-1))*strength;
+    const nz=1.0; const len=Math.hypot(dx,dy,nz);
+    const i=(y*size+x)*4;
+    img.data[i]  =((-dx/len)*0.5+0.5)*255;
+    img.data[i+1]=((-dy/len)*0.5+0.5)*255;
+    img.data[i+2]=((nz/len)*0.5+0.5)*255;
+    img.data[i+3]=255;
+  }
+  ctx.putImageData(img,0,0);return c;
+}
+function valueNoise(seed=1){
+  const g=(x,y)=>{const s=Math.sin((x*127.1+y*311.7)+seed*13.13)*43758.5453;return s-Math.floor(s);};
+  return (x,y)=>{
+    const xi=Math.floor(x),yi=Math.floor(y),xf=x-xi,yf=y-yi;
+    const u=xf*xf*(3-2*xf),v=yf*yf*(3-2*yf);
+    const a=g(xi,yi),b=g(xi+1,yi),c=g(xi,yi+1),d=g(xi+1,yi+1);
+    return a*(1-u)*(1-v)+b*u*(1-v)+c*(1-u)*v+d*u*v;
+  };
+}
+function fbm(noise,x,y,oct=4){let v=0,a=0.5,f=1;for(let i=0;i<oct;i++){v+=noise(x*f,y*f)*a;f*=2;a*=0.5;}return v;}
+
+function castAluminum(){
+  const S=512, n=valueNoise(7);
+  const c=cv(S),ctx=c.getContext('2d'),img=ctx.createImageData(S,S);
+  for(let y=0;y<S;y++)for(let x=0;x<S;x++){
+    const v=fbm(n,x/22,y/22,5);
+    const por=Math.pow(n(x/3.1,y/3.1),8);
+    const base=150+v*38-por*70;
+    const i=(y*S+x)*4; img.data[i]=base; img.data[i+1]=base+4; img.data[i+2]=base+10; img.data[i+3]=255;
+  }
+  ctx.putImageData(img,0,0);
+  const r=cv(S),rx=r.getContext('2d'),rimg=rx.createImageData(S,S);
+  for(let y=0;y<S;y++)for(let x=0;x<S;x++){
+    const v=fbm(n,x/18,y/18,4); const por=Math.pow(n(x/3.1,y/3.1),8);
+    const rough=120+v*40+por*90; const i=(y*S+x)*4;
+    rimg.data[i]=rimg.data[i+1]=rimg.data[i+2]=Math.min(255,rough); rimg.data[i+3]=255;
+  }
+  rx.putImageData(rimg,0,0);
+  const nrm=normalFromHeight(S,(x,y)=>fbm(n,x/16,y/16,5)+Math.pow(n(x/3.1,y/3.1),8)*0.6,3.0);
+  return {map:tex(c,1,true),roughnessMap:tex(r),normalMap:tex(nrm)};
+}
+function brushedMetal(){
+  const S=512, n=valueNoise(3);
+  const c=cv(S),ctx=c.getContext('2d'),img=ctx.createImageData(S,S);
+  for(let y=0;y<S;y++)for(let x=0;x<S;x++){
+    const streak=Math.sin(y*0.9)*2 + (n(x/120,y*0.5)-0.5)*40;
+    const base=185+streak; const i=(y*S+x)*4;
+    img.data[i]=base; img.data[i+1]=base+2; img.data[i+2]=base+6; img.data[i+3]=255;
+  }
+  ctx.putImageData(img,0,0);
+  const r=cv(S),rx=r.getContext('2d'),rimg=rx.createImageData(S,S);
+  for(let y=0;y<S;y++)for(let x=0;x<S;x++){
+    const streak=(n(x/120,y*0.5)-0.5)*60; const rough=40+Math.abs(streak); const i=(y*S+x)*4;
+    rimg.data[i]=rimg.data[i+1]=rimg.data[i+2]=Math.min(160,rough); rimg.data[i+3]=255;
+  }
+  rx.putImageData(rimg,0,0);
+  const nrm=normalFromHeight(S,(x,y)=>(n(x/120,y*0.5))*0.3+Math.sin(y*0.9)*0.02,1.2);
+  return {map:tex(c,1,true),roughnessMap:tex(r),normalMap:tex(nrm)};
+}
+function rubber(){
+  const S=256,n=valueNoise(5);
+  const nrm=normalFromHeight(S,(x,y)=>fbm(n,x/8,y/8,4),1.4);
+  const rough=cv(64),rc=rough.getContext('2d');rc.fillStyle='#e0e0e0';rc.fillRect(0,0,64,64);
+  return {roughnessMap:tex(rough),normalMap:tex(nrm,2)};
+}
+function gradientBG(top='#11161d',bottom='#05070a'){
+  const c=cv(512),ctx=c.getContext('2d');
+  const grd=ctx.createLinearGradient(0,0,0,512);
+  grd.addColorStop(0,top);grd.addColorStop(1,bottom);
+  ctx.fillStyle=grd;ctx.fillRect(0,0,512,512);
+  const rg=ctx.createRadialGradient(256,200,30,256,256,360);
+  rg.addColorStop(0,'rgba(42,157,143,0.10)');rg.addColorStop(1,'rgba(0,0,0,0)');
+  ctx.fillStyle=rg;ctx.fillRect(0,0,512,512);
+  return tex(c,1,true);
+}
+function techPlastic(r=0.10,g=0.11,b=0.13){
+  const S=256,n=valueNoise(31);
+  const c=cv(S),ctx=c.getContext('2d'),img=ctx.createImageData(S,S);
+  for(let y=0;y<S;y++)for(let x=0;x<S;x++){
+    const v=fbm(n,x/30,y/30,3)*0.1+0.92; const i=(y*S+x)*4;
+    img.data[i]=r*255*v;img.data[i+1]=g*255*v;img.data[i+2]=b*255*v;img.data[i+3]=255;
+  }
+  ctx.putImageData(img,0,0);
+  const nrm=normalFromHeight(S,(x,y)=>fbm(n,x/10,y/10,3),0.8);
+  const rough=cv(64),rc=rough.getContext('2d');rc.fillStyle='#9a9a9a';rc.fillRect(0,0,64,64);
+  return {map:tex(c,1,true),roughnessMap:tex(rough),normalMap:tex(nrm)};
+}
+
+/* ============================================================
+   ENGINE — render premium compartido por todos los laboratorios
+   ============================================================ */
+function createStage(mount, opts={}){
+  const bgTop = opts.bgTop||'#141b24', bgBot = opts.bgBot||'#05070a';
+  const renderer = new THREE.WebGLRenderer({ antialias:true, powerPreference:'high-performance' });
+  renderer.setPixelRatio(Math.min(devicePixelRatio,2));
+  renderer.setSize(mount.clientWidth, mount.clientHeight);
+  renderer.shadowMap.enabled = true;
+  renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+  renderer.toneMapping = THREE.ACESFilmicToneMapping;
+  renderer.toneMappingExposure = opts.exposure ?? 1.18;
+  renderer.outputColorSpace = THREE.SRGBColorSpace;
+  mount.appendChild(renderer.domElement);
+  renderer.domElement.style.touchAction='none';
+
+  const scene = new THREE.Scene();
+  scene.background = gradientBG(bgTop,bgBot);
+  const pmrem = new THREE.PMREMGenerator(renderer);
+  scene.environment = pmrem.fromScene(new RoomEnvironment(renderer), 0.04).texture;
+  scene.environmentIntensity = opts.envInt ?? 1.15;
+
+  const camera = new THREE.PerspectiveCamera(45, mount.clientWidth/mount.clientHeight, 0.1, 200);
+  const cam = opts.cam || [5.5,3.4,6.2];
+  camera.position.set(...cam);
+
+  const controls = new OrbitControls(camera, renderer.domElement);
+  controls.enableDamping = true; controls.dampingFactor = 0.07;
+  controls.minDistance = opts.minD ?? 3; controls.maxDistance = opts.maxD ?? 18;
+  controls.maxPolarAngle = Math.PI*0.52;
+  controls.target.set(...(opts.target||[0,1.4,0]));
+  controls.autoRotate = opts.autoRotate ?? false;
+  controls.autoRotateSpeed = opts.autoRotateSpeed ?? 0.6;
+
+  const key = new THREE.DirectionalLight(0xffffff, 2.7);
+  key.position.set(5,9,6); key.castShadow=true;
+  key.shadow.mapSize.set(2048,2048);
+  key.shadow.camera.near=0.5; key.shadow.camera.far=40;
+  const sd=8; Object.assign(key.shadow.camera,{left:-sd,right:sd,top:sd,bottom:-sd});
+  key.shadow.bias=-0.0003; key.shadow.normalBias=0.02; scene.add(key);
+  const rim = new THREE.SpotLight(0x2affce, 55, 30, Math.PI/5, 0.4, 1.5);
+  rim.position.set(-7,6,-5); scene.add(rim);
+  const fill = new THREE.DirectionalLight(0x6fb6ff, 0.5); fill.position.set(-4,3,7); scene.add(fill);
+  scene.add(new THREE.HemisphereLight(0x9fb4c8, 0x10151b, 0.35));
+
+  if(opts.floor!==false){
+    const f = new THREE.Mesh(new THREE.CircleGeometry(40,80),
+      new THREE.MeshStandardMaterial({ color:0x0a0e13, roughness:0.14, metalness:0.62, envMapIntensity:1.15 }));
+    f.rotation.x=-Math.PI/2; f.receiveShadow=true; scene.add(f);
+    for(let r=2;r<=8;r+=2){
+      const ring=new THREE.Mesh(new THREE.RingGeometry(r-0.012,r+0.012,80),
+        new THREE.MeshBasicMaterial({color:0x1a2632,transparent:true,opacity:0.4}));
+      ring.rotation.x=-Math.PI/2; ring.position.y=0.002; scene.add(ring);
+    }
+  }
+
+  const isMobile = /Mobi|Android|iPhone|iPad/i.test(navigator.userAgent) || innerWidth<820;
+  // GTAO desactivado por defecto: el pase de oclusión ambiental en espacio de pantalla
+  // producía un recuadro oscuro duro sobre el piso reflectante (artefacto dependiente de la
+  // cámara y del renderer). La escena tiene AO suficiente con luces directas + sombras + env.
+  // Se puede reactivar para pruebas con ?gtao.
+  const useGtao = /[?&]gtao\b/.test(location.search);
+  const composer = new EffectComposer(renderer);
+  composer.addPass(new RenderPass(scene,camera));
+  if(!isMobile && useGtao){
+    try{
+      const g=new GTAOPass(scene,camera,mount.clientWidth,mount.clientHeight);
+      g.output=GTAOPass.OUTPUT.Default;
+      if(g.updateGtaoMaterial)g.updateGtaoMaterial({radius:0.5,distanceExponent:1,thickness:1,scale:1.1,samples:16});
+      composer.addPass(g);
+    }catch(e){}
+  }
+  const bloom=new UnrealBloomPass(new THREE.Vector2(mount.clientWidth,mount.clientHeight),opts.bloom??0.42,0.5,0.9);
+  composer.addPass(bloom);
+  let bokeh=null;
+  const flat=/[?&]flat/.test(location.search);
+  if(!isMobile && !flat){
+    bokeh=new BokehPass(scene,camera,{focus:8.5,aperture:opts.aperture??0.00018,maxblur:opts.maxblur??0.004,width:mount.clientWidth,height:mount.clientHeight});
+    composer.addPass(bokeh);
+  }
+  composer.addPass(new OutputPass());
+  composer.addPass(new SMAAPass(mount.clientWidth*renderer.getPixelRatio(),mount.clientHeight*renderer.getPixelRatio()));
+
+  function resize(){
+    const w=mount.clientWidth,h=mount.clientHeight;
+    camera.aspect=w/h; camera.updateProjectionMatrix();
+    renderer.setSize(w,h); composer.setSize(w,h);
+  }
+  window.addEventListener('resize',resize);
+
+  const clock=new THREE.Clock();
+  let hook=null, raf=null;
+  const camCine={active:false,t:0,dur:1.4,from:new THREE.Vector3(),to:new THREE.Vector3(),fromT:new THREE.Vector3(),toT:new THREE.Vector3()};
+  let lastDrag=-99, cinematicIdle=false;
+  controls.addEventListener('start',()=>{ lastDrag=clock.elapsedTime; camCine.active=false; });
+  function easeInOutCubic(x){return x<0.5?4*x*x*x:1-Math.pow(-2*x+2,3)/2;}
+  function moveTo(pos,target,dur=1.4){
+    camCine.from.copy(camera.position); camCine.fromT.copy(controls.target);
+    camCine.to.set(...pos); camCine.toT.set(...target);
+    camCine.dur=dur; camCine.active=true; camCine.t=0;
+  }
+  function setCinematicIdle(v){ cinematicIdle=v; if(!v)controls.autoRotate=false; }
+  function loop(){ raf=requestAnimationFrame(loop); const dt=clock.getDelta(),t=clock.elapsedTime;
+    if(camCine.active){
+      camCine.t=Math.min(1,camCine.t+dt/camCine.dur);
+      const e=easeInOutCubic(camCine.t);
+      camera.position.lerpVectors(camCine.from,camCine.to,e);
+      controls.target.lerpVectors(camCine.fromT,camCine.toT,e);
+      if(camCine.t>=1)camCine.active=false;
+    } else if(cinematicIdle){
+      controls.autoRotate=(t-lastDrag)>1.4; controls.autoRotateSpeed=0.45;
+    }
+    if(hook)hook(dt,t); controls.update();
+    if(bokeh) bokeh.uniforms['focus'].value = camera.position.distanceTo(controls.target);
+    composer.render(); }
+  function start(){ if(!raf)loop(); }
+  function stop(){ cancelAnimationFrame(raf); raf=null; window.removeEventListener('resize',resize); }
+
+  return { THREE, renderer, scene, camera, controls, composer, bloom,
+    setAnimate:fn=>hook=fn, start, stop, resize, clock,
+    flyTo:(v)=>{ controls.target.copy(v); }, moveTo, setCinematicIdle };
+}
+
+/* ---------- shared geometry/material helpers ---------- */
+function roundedBox(w,h,d,mat,rf=0.08){
+  const r=Math.min(w,h,d)*rf;
+  const m=new THREE.Mesh(new RoundedBoxGeometry(w,h,d,4,r),mat);
+  m.castShadow=m.receiveShadow=true; return m;
+}
+function pickerFor(scene,camera,dom,onHit){
+  const ray=new THREE.Raycaster(),mouse=new THREE.Vector2(); let down=null;
+  dom.addEventListener('pointerdown',e=>down=[e.clientX,e.clientY]);
+  dom.addEventListener('pointerup',e=>{
+    if(!down)return; const moved=Math.abs(e.clientX-down[0])+Math.abs(e.clientY-down[1])>6; down=null;
+    if(moved)return;
+    const r=dom.getBoundingClientRect();
+    mouse.x=((e.clientX-r.left)/r.width)*2-1; mouse.y=-((e.clientY-r.top)/r.height)*2+1;
+    ray.setFromCamera(mouse,camera);
+    const hits=ray.intersectObjects(scene.children,true);
+    onHit(hits[0]||null);
+  });
+}
+function labelSprite(text,color='#ffd166'){
+  const w = Math.max(150, Math.min(520, text.length*26+60));
+  const cvE=document.createElement('canvas');cvE.width=w;cvE.height=96;
+  const c=cvE.getContext('2d');c.fillStyle='rgba(8,11,16,.95)';
+  const rr=(x,y,ww,hh,r)=>{c.beginPath();c.moveTo(x+r,y);c.arcTo(x+ww,y,x+ww,y+hh,r);c.arcTo(x+ww,y+hh,x,y+hh,r);c.arcTo(x,y+hh,x,y,r);c.arcTo(x,y,x+ww,y,r);c.closePath();};
+  rr(3,3,w-6,90,18);c.fill();
+  c.strokeStyle=color;c.lineWidth=3;c.stroke();
+  c.font='bold 36px Outfit, system-ui, sans-serif';c.fillStyle=color;c.textAlign='center';c.textBaseline='middle';c.fillText(text,w/2,48);
+  const tx=new THREE.CanvasTexture(cvE);tx.colorSpace=THREE.SRGBColorSpace;tx.generateMipmaps=false;tx.minFilter=THREE.LinearFilter;
+  const sp=new THREE.Sprite(new THREE.SpriteMaterial({map:tx,depthTest:false,transparent:true}));
+  const aspect=w/96;
+  sp.scale.set(0.30*aspect,0.30,1);sp.renderOrder=999;return sp;
+}
+
+/* ============================================================
+   SYNTH — sintetizador Web Audio reutilizable
+   ============================================================ */
+function makeSynth(opts={}){
+  const type=opts.type||'sawtooth';
+  let ctx=null,oscA=null,oscB=null,gain=null,filter=null,soundOn=true;
+  function init(){
+    if(ctx)return;
+    try{
+      ctx=new (window.AudioContext||window.webkitAudioContext)();
+      oscA=ctx.createOscillator(); oscB=ctx.createOscillator();
+      oscA.type=type; oscB.type=opts.type2||'square';
+      filter=ctx.createBiquadFilter(); filter.type=opts.filterType||'lowpass'; filter.frequency.value=opts.filterFreq||500; filter.Q.value=opts.Q||3;
+      gain=ctx.createGain(); gain.gain.value=0;
+      oscA.connect(filter); oscB.connect(filter); filter.connect(gain); gain.connect(ctx.destination);
+      oscA.start(); oscB.start();
+    }catch(e){}
+  }
+  function update(freqA,freqB,vol,filterFreq){
+    if(!ctx||!soundOn){ if(gain)gain.gain.setTargetAtTime(0,ctx?.currentTime||0,0.1); return; }
+    oscA.frequency.setTargetAtTime(freqA,ctx.currentTime,0.04);
+    if(freqB!==undefined)oscB.frequency.setTargetAtTime(freqB,ctx.currentTime,0.04);
+    if(filterFreq!==undefined)filter.frequency.setTargetAtTime(filterFreq,ctx.currentTime,0.05);
+    gain.gain.setTargetAtTime(Math.max(0,vol),ctx.currentTime,0.06);
+  }
+  function beep(freq=880,dur=0.09,vol=0.06){
+    if(!ctx||!soundOn)return;
+    const o=ctx.createOscillator(),g=ctx.createGain();
+    o.type='sine'; o.frequency.value=freq;
+    g.gain.setValueAtTime(vol,ctx.currentTime); g.gain.exponentialRampToValueAtTime(0.001,ctx.currentTime+dur);
+    o.connect(g); g.connect(ctx.destination); o.start(); o.stop(ctx.currentTime+dur);
+  }
+  function toggle(){ soundOn=!soundOn; return soundOn; }
+  function resume(){ if(ctx&&ctx.state==='suspended')ctx.resume(); }
+  return { init, update, beep, toggle, resume, isOn:()=>soundOn, state:()=>ctx?.state||'none' };
+}
+
+// ===================== 1. ESCENA =====================
+const mount=document.getElementById('stage');
+const S=createStage(mount,{cam:[5.6,3.3,7.8],target:[0.7,1.05,0.3],bgTop:'#0d1017',bgBot:'#05060a',bloom:0.46,minD:3.2,maxD:16});
+const {scene}=S;
+const synth=makeSynth({type:'square',type2:'sine',filterFreq:2200,Q:0.8});
+const el=id=>document.getElementById(id);
+
+// ===================== 2. MOTOR (VERIFICADO 108/108 — VERBATIM) =====================
+const VCC = 5.000;                 // V, alimentacion del sistema
+const VN_ADC = 0.200e-3;           // V rms, ruido del convertidor y de la placa
+const C_SH = 14e-12;               // F, condensador de muestreo y retencion
+const R_MUX = 1000;                // ohm, resistencia del multiplexor de entrada
+const V_SWING_LO = 0.050;          // V, lo mas bajo que puede sacar el amplificador
+const V_SWING_HI = 4.800;          // V, lo mas alto que puede sacar el amplificador
+const USE_MIN = 0.40;              // fraccion minima del rango del convertidor
+const OS_MIN = 5;                  // sobremuestreo minimo sobre el ancho de banda util
+const ATT_BW = Math.SQRT1_2;       // -3 dB: atenuacion maxima admisible dentro de la banda
+const K_RUIDO = 2;                 // el LSB no puede pesar menos que 2 sigma de ruido
+const K_ACQ = 0.25;                // la ventana de adquisicion es 1/4 del periodo de muestreo
+
+const ADCS = {
+  b10v5:   { n: 10, vref: 5.000, ref: 'Vcc' },
+  b10v256: { n: 10, vref: 2.560, ref: 'interna' },
+  b12v5:   { n: 12, vref: 5.000, ref: 'Vcc' },
+  b12v256: { n: 12, vref: 2.560, ref: 'interna' },
+};
+const ADCK = Object.keys(ADCS);
+
+const CONDS = {
+  directo: { g: 1,   buf: false, vnAmp: 0 },
+  amp5:    { g: 5,   buf: true,  vnAmp: 10e-6 },
+  amp20:   { g: 20,  buf: true,  vnAmp: 10e-6 },
+  amp100:  { g: 100, buf: true,  vnAmp: 1e-6 },
+};
+const CONDK = Object.keys(CONDS);
+
+const MUES = {
+  m10:  { fs: 10,    fc: 4 },
+  m200: { fs: 200,   fc: 80 },
+  m5k:  { fs: 5000,  fc: 2000 },
+  m50k: { fs: 50000, fc: 20000 },
+};
+const MUESK = Object.keys(MUES);
+
+const lsbOf = a => a.vref / Math.pow(2, a.n);
+const nCodes = a => Math.pow(2, a.n);
+const vSens = (sc, x) => sc.v0 + sc.s * x;
+const vCond = (sc, c, x) => c.g * vSens(sc, x);
+const spanLo = (sc, c) => vCond(sc, c, sc.xMin);
+const spanHi = (sc, c) => vCond(sc, c, sc.xMax);
+const rOut = (sc, c) => (c.buf ? 100 : sc.rs);
+
+function codeOf(v, a) {
+  const k = Math.floor(v / lsbOf(a));
+  return Math.max(0, Math.min(nCodes(a) - 1, k));
+}
+const vHat = (code, a) => (code + 0.5) * lsbOf(a);              // reconstruccion centrada
+const xHat = (code, a, sc, c) => (vHat(code, a) / c.g - sc.v0) / sc.s;
+const qErr = (v, a) => vHat(codeOf(v, a), a) - v;               // error de cuantizacion
+
+const resFis = (sc, c, a) => lsbOf(a) / (c.g * sc.s);           // unidades fisicas por codigo
+const usoOf = (sc, c, a) => (spanHi(sc, c) - spanLo(sc, c)) / a.vref;
+const enobUso = (a, uso) => a.n + Math.log2(uso);
+const vRuido = (sc, c) => Math.hypot(c.g * sc.vnSens, c.g * c.vnAmp, VN_ADC);
+
+const att = (f, fc) => 1 / (1 + Math.pow(f / fc, 2));           // dos polos reales identicos
+const fold = (f, fs) => Math.abs(f - Math.round(f / fs) * fs);  // frecuencia plegada
+const vAlias = (sc, c, m) => c.g * sc.vInt * att(sc.fInt, m.fc);
+
+const tAcq = m => K_ACQ / m.fs;
+const tauSH = (sc, c) => (rOut(sc, c) + R_MUX) * C_SH;
+const tSet = (sc, c, a) => (a.n + 1) * Math.LN2 * tauSH(sc, c);
+
+function guardAdc(sc, aK) {
+  const a = ADCS[aK];
+  if (sc.ratio && a.ref !== 'Vcc') return false;        // medida ratiometrica: la referencia es la propia alimentacion
+  if (sc.ruidoAlim && a.ref === 'Vcc') return false;    // alimentacion sucia: no sirve como referencia
+  return true;
+}
+function guardCond(sc, cK, aK) {
+  const c = CONDS[cK], a = ADCS[aK];
+  const lo = spanLo(sc, c), hi = spanHi(sc, c);
+  if (lo < 0 || hi > a.vref) return false;             // fuera del rango del convertidor
+  if (c.buf && (lo < V_SWING_LO || hi > V_SWING_HI)) return false;  // fuera de la excursion del amplificador
+  return true;
+}
+function guardMues(sc, mK) {
+  const m = MUES[mK];
+  if (m.fs > sc.fsMax) return false;                   // la plataforma no da para tanto
+  if (att(sc.fBw, m.fc) < ATT_BW) return false;        // el filtro se come la banda util
+  return true;
+}
+
+function runC(sc, cfg) {
+  const a = ADCS[cfg.adc], c = CONDS[cfg.cond], m = MUES[cfg.mues];
+  const lsb = lsbOf(a);
+  const res = resFis(sc, c, a);
+  const uso = usoOf(sc, c, a);
+  const vn = vRuido(sc, c);
+  const va = vAlias(sc, c, m);
+  const ts = tSet(sc, c, a);
+  const ta = tAcq(m);
+  const resOk = res <= sc.reqRes;
+  const usoOk = uso >= USE_MIN;
+  const ruidoOk = lsb >= K_RUIDO * vn;
+  const nyqOk = m.fs >= OS_MIN * sc.fBw;
+  const aliasOk = va < lsb / 2;
+  const setOk = ta >= ts;
+  return {
+    lsb, res, uso, vn, va, ts, ta, enob: enobUso(a, uso),
+    fAlias: fold(sc.fInt, m.fs), lo: spanLo(sc, c), hi: spanHi(sc, c),
+    resOk, usoOk, ruidoOk, nyqOk, aliasOk, setOk,
+    ok: resOk && usoOk && ruidoOk && nyqOk && aliasOk && setOk,
+  };
+}
+function cfgOk(sc, cfg) {
+  if (!guardAdc(sc, cfg.adc)) return false;
+  if (!guardCond(sc, cfg.cond, cfg.adc)) return false;
+  if (!guardMues(sc, cfg.mues)) return false;
+  return runC(sc, cfg).ok;
+}
+
+const POOL = [
+  {
+    name: 'Horno de tratamiento termico',
+    maq: 'Termopar tipo K en un horno de revenido; los contactores ensucian el 5 V del tablero',
+    sensor: 'Termopar tipo K, 41,0 uV/C, 15 ohm de resistencia de lazo',
+    mag: 'Temperatura', uni: 'C', xMin: 50, xMax: 500,
+    v0: 0, s: 41.0e-6, rs: 200,
+    reqRes: 0.25, vnSens: 1.0e-6,
+    fBw: 1.5, fInt: 60, vInt: 60e-6,
+    ratio: false, ruidoAlim: true, fsMax: 100000,
+    adc: 'b12v256', cond: 'amp100', mues: 'm10',
+  },
+  {
+    name: 'Linea hidraulica con variador',
+    maq: 'Transmisor de presion de 4-20 mA leido sobre una resistencia de 220 ohm; un variador conmuta a 4 kHz al lado',
+    sensor: 'Transmisor 4-20 mA, 0-10 bar, sobre 220 ohm de precision',
+    mag: 'Presion', uni: 'bar', xMin: 0, xMax: 10,
+    v0: 0.880, s: 0.352, rs: 220,
+    reqRes: 0.01, vnSens: 0.15e-3,
+    fBw: 30, fInt: 4000, vInt: 25e-3,
+    ratio: false, ruidoAlim: false, fsMax: 100000,
+    adc: 'b12v5', cond: 'directo', mues: 'm200',
+  },
+  {
+    name: 'Accionamiento de un molino',
+    maq: 'Corriente del bus medida sobre un shunt de 1 mohm; la portadora del convertidor conmuta a 16 kHz',
+    sensor: 'Shunt de 1 mohm, 10-150 A',
+    mag: 'Corriente', uni: 'A', xMin: 10, xMax: 150,
+    v0: 0, s: 1.0e-3, rs: 500,
+    reqRes: 0.5, vnSens: 40e-6,
+    fBw: 800, fInt: 16000, vInt: 3.0e-3,
+    ratio: false, ruidoAlim: false, fsMax: 20000,
+    adc: 'b10v5', cond: 'amp20', mues: 'm5k',
+  },
+  {
+    name: 'Vigilancia de un rodamiento',
+    maq: 'Acelerometro piezoelectrico de carga a traves de una red de polarizacion de 100 kohm; una fuente conmutada de 150 kHz se cuela por el cable',
+    sensor: 'Acelerometro piezoelectrico, 0,2-2,0 g eficaces, banda de 10 Hz a 1,2 kHz',
+    mag: 'Aceleracion', uni: 'g', xMin: 0.2, xMax: 2.0,
+    v0: 0.133333333333333, s: 0.133333333333333, rs: 100000,
+    reqRes: 0.005, vnSens: 0.12e-3,
+    fBw: 1200, fInt: 150000, vInt: 4.0e-3,
+    ratio: false, ruidoAlim: false, fsMax: 100000,
+    adc: 'b10v256', cond: 'amp5', mues: 'm50k',
+  },
+];
+
+const GOOD = sc => ({ adc: sc.adc, cond: sc.cond, mues: sc.mues });
+const cfgWith = (sc, o) => ({ ...GOOD(sc), ...o });
+const okAdc = (sc, k) => cfgOk(sc, cfgWith(sc, { adc: k }));
+const okCond = (sc, k) => cfgOk(sc, cfgWith(sc, { cond: k }));
+const okMues = (sc, k) => cfgOk(sc, cfgWith(sc, { mues: k }));
+// ===================== FIN MOTOR =====================
+
+// ===================== 2b. DERIVADOS DE PRESENTACIÓN =====================
+// Nada de lo que sigue entra en la calificación: son etiquetas y curvas para dibujar.
+const NOM=['Horno de tratamiento térmico','Línea hidráulica con variador','Accionamiento de un molino','Vigilancia de un rodamiento'];
+const NOM_S=['Horno','Hidráulica','Molino','Rodamiento'];
+const MAQ=[
+  'Termopar tipo K en un horno de revenido; los contactores ensucian el 5 V del tablero.',
+  'Transmisor de presión de 4-20 mA leído sobre una resistencia de 220 Ω; un variador conmuta a 4 kHz al lado.',
+  'Corriente del bus medida sobre un shunt de 1 mΩ; la portadora del convertidor conmuta a 16 kHz.',
+  'Acelerómetro piezoeléctrico de carga a través de una red de polarización de 100 kΩ; una fuente conmutada de 150 kHz se cuela por el cable.'];
+const SENS=[
+  'Termopar tipo K · 41,0 µV/°C · 15 Ω de lazo',
+  'Transmisor 4-20 mA · 0-10 bar · sobre 220 Ω de precisión',
+  'Shunt de 1 mΩ · 10-150 A',
+  'Acelerómetro piezoeléctrico · 0,2-2,0 g · banda de 10 Hz a 1,2 kHz'];
+const MAGN=['Temperatura','Presión','Corriente','Aceleración'];
+const UNI=['°C','bar','A','g'];
+const SCCOL=['#8AB4F8','#7CD992','#E9C46A','#C08CF8'];
+
+const ADC_LBL={b10v5:'10 bits · V_REF 5,00 V (Vcc)',b10v256:'10 bits · V_REF 2,560 V (interna)',
+  b12v5:'12 bits · V_REF 5,00 V (Vcc)',b12v256:'12 bits · V_REF 2,560 V (interna)'};
+const ADC_SH={b10v5:'10 b · 5 V',b10v256:'10 b · 2,56 V',b12v5:'12 b · 5 V',b12v256:'12 b · 2,56 V'};
+const COND_LBL={directo:'Directo (×1, sin seguidor)',amp5:'Amplificador ×5 (con seguidor)',
+  amp20:'Amplificador ×20 (con seguidor)',amp100:'Amplificador ×100 (con seguidor)'};
+const COND_SH={directo:'×1',amp5:'×5',amp20:'×20',amp100:'×100'};
+const MUES_LBL={m10:'10 S/s · antialias 4 Hz',m200:'200 S/s · antialias 80 Hz',
+  m5k:'5 kS/s · antialias 2 kHz',m50k:'50 kS/s · antialias 20 kHz'};
+const MUES_SH={m10:'10 S/s',m200:'200 S/s',m5k:'5 kS/s',m50k:'50 kS/s'};
+
+// bits que el suelo de ruido deja aprovechar con esta referencia: V_REF/(2σ) = 2^n
+const nUtilRuido=(a,vn)=>Math.log2(a.vref/(K_RUIDO*vn));
+// error eficaz de cuantización de un cuantificador uniforme
+const qRms=a=>lsbOf(a)/Math.sqrt(12);
+// frecuencia a la que el filtro deja de cumplir el −3 dB dentro de la banda
+const fcMin=fBw=>fBw/Math.sqrt(1/ATT_BW-1);
+
+// ===================== 3. ESTADO =====================
+let mode='explora';
+let solved=false,autoRunning=false,QUIZ={};
+let hwStep=0,hwT=0,framesCache=null;
+let scIdx=0;                          // máquina de Explora y Aplica
+let expAdc=POOL[0].adc, expXi=3;      // convertidor y punto de la escala en Explora
+let apTopic='resolucion', apAdc=POOL[0].adc, apCond=POOL[0].cond, apMues=POOL[0].mues;
+let retoK=0, retoCh={adc:'b10v5',cond:'directo',mues:'m200'};
+let retoChecked=false,retoSolved=false,retoMsg='';
+let retoOkAdc=false,retoOkCond=false,retoOkMues=false;
+
+const XFR=[0,0.19,0.37,0.53,0.78,1.0];   // puntos de la escala que ofrece Explora
+const TOPICS=[['resolucion','📏 Resolución'],['ruido','📶 Ruido'],['muestreo','⏱️ Muestreo']];
+
+function pickIdx(n,ex){if(n<=1)return 0;let i=ex;while(i===ex)i=Math.floor(Math.random()*n);return i;}
+function hexA(hex,a){const h=hex.replace('#','');
+  const r=parseInt(h.substring(0,2),16),g=parseInt(h.substring(2,4),16),b=parseInt(h.substring(4,6),16);
+  return 'rgba('+r+','+g+','+b+','+a+')';}
+const n0=x=>Math.round(x).toLocaleString('es-MX');
+const n1=x=>x.toFixed(1).replace('.',',');
+const n2=x=>x.toFixed(2).replace('.',',');
+const n3=x=>x.toFixed(3).replace('.',',');
+const n4=x=>x.toFixed(4).replace('.',',');
+const n5=x=>x.toFixed(5).replace('.',',');
+const pctS=x=>n2(x*100)+' %';
+const fmV=v=>n3(v*1000);                       // volt -> mV con tres decimales
+const fus=t=>t>=1000e-6?n0(t*1e6):n3(t*1e6);   // segundos -> µs
+const fHz=f=>f>=1000?n1(f/1000)+' kHz':n0(f)+' Hz';
+const fSs=fs=>fs>=1000?n0(fs/1000)+' kS/s':n0(fs)+' S/s';
+const uniOf=sc=>UNI[Math.max(0,POOL.indexOf(sc))];
+const decX=sc=>sc.reqRes>=0.1?2:(sc.reqRes>=0.01?3:4);
+const fX=(sc,v)=>v.toFixed(decX(sc)).replace('.',',');
+const fR=(sc,v)=>v.toFixed(decX(sc)+1).replace('.',',');
+const bin=(code,a)=>code.toString(2).padStart(a.n,'0');
+
+function curSc(){return mode==='reto'?POOL[retoK]:POOL[scIdx];}
+function retoSc(){return POOL[retoK];}
+function curCfg(){
+  const sc=curSc();
+  if(mode==='reto')return {...retoCh};
+  if(mode==='aplica')return {adc:apAdc,cond:apCond,mues:apMues};
+  return {adc:expAdc,cond:sc.cond,mues:sc.mues};   // Explora: sólo cambia el convertidor
+}
+function expX(){const sc=POOL[scIdx];return sc.xMin+XFR[expXi]*(sc.xMax-sc.xMin);}
+function syncSel(){const sc=POOL[scIdx];expAdc=sc.adc;apAdc=sc.adc;apCond=sc.cond;apMues=sc.mues;}
+
+// ===================== 4. MATERIALES =====================
+function std(color,rough,metal){return new THREE.MeshStandardMaterial({color,roughness:rough,metalness:metal});}
+function brush(base){return std(base,0.55,0.35);}
+const MAT={bench:brush(0x2b2f34),frame:brush(0x22262c),leg:brush(0x14161b),body:std(0x1b2028,0.6,0.25),
+  steel:std(0x9aa4b2,0.35,0.75),shiny:std(0xd6dde8,0.22,0.9),dark:std(0x14171b,0.5,0.3),plate:brush(0x3a4048),
+  copper:std(0xb87333,0.4,0.8),pcb:std(0x14352a,0.7,0.15),glass:std(0x2a3340,0.25,0.5)};
+const ACC='#8AB4F8', OK_HEX='#7CD992', BAD_HEX='#ff6b6b', WARN_HEX='#E9C46A', VIO='#C08CF8';
+const HOVER_LABELS=new Map();
+function addHoverLabel(obj,text,color,pos,scale){
+  const cv=document.createElement('canvas');cv.width=256;cv.height=64;const cx=cv.getContext('2d');
+  cx.fillStyle='rgba(10,14,17,0.88)';cx.fillRect(0,0,256,64);
+  cx.strokeStyle=color;cx.lineWidth=2;cx.strokeRect(1,1,254,62);
+  cx.fillStyle='#F4EFEA';cx.font='bold 20px Outfit, sans-serif';cx.textAlign='center';cx.textBaseline='middle';cx.fillText(text,128,32);
+  const tex=new THREE.CanvasTexture(cv);
+  const spr=new THREE.Sprite(new THREE.SpriteMaterial({map:tex,transparent:true,depthTest:false}));
+  spr.position.copy(pos);spr.scale.set(scale||1.1,(scale||1.1)*0.28,1);spr.visible=false;spr.renderOrder=999;
+  scene.add(spr);HOVER_LABELS.set(obj,spr);return spr;
+}
+function emis(colHex){
+  return new THREE.MeshStandardMaterial({color:0x2b3038,roughness:0.4,metalness:0.4,
+    emissive:new THREE.Color(colHex),emissiveIntensity:0.06});
+}
+
+// ===================== 5. PIZARRÓN =====================
+const boardG=new THREE.Group();
+boardG.position.set(-1.15,0,-0.95);boardG.rotation.y=0.2;scene.add(boardG);
+const frame=roundedBox(3.9,2.9,0.12,MAT.frame,0.06);frame.position.set(0,1.9,0);boardG.add(frame);
+[-1.65,1.65].forEach(x=>{const leg=new THREE.Mesh(new THREE.CylinderGeometry(0.05,0.06,1.9,16),MAT.leg);leg.position.set(x,0.92,0);boardG.add(leg);});
+const bCv=document.createElement('canvas');bCv.width=1024;bCv.height=768;
+const bTex=new THREE.CanvasTexture(bCv);
+const board=new THREE.Mesh(new THREE.PlaneGeometry(3.68,2.72),new THREE.MeshBasicMaterial({map:bTex}));
+board.position.set(0,1.9,0.065);boardG.add(board);
+frame.userData={title:'Pizarrón de la cadena de medida',info:'Escalera de cuantización, error, ruido y muestreo · toca para cambiar de vista'};
+addHoverLabel(frame,'ADC · cuantización',ACC,new THREE.Vector3(0,3.5,0.1).add(boardG.position),2.6);
+
+function bg(c){c.fillStyle='#0c1016';c.fillRect(0,0,1024,768);}
+function rpanel(c,x,y,w,h,title){
+  c.fillStyle=hexA(ACC,0.06);c.fillRect(x,y,w,h);
+  c.strokeStyle=hexA(ACC,0.22);c.lineWidth=1;c.strokeRect(x,y,w,h);
+  c.fillStyle='#C7D6F5';c.font='bold 15px Outfit, sans-serif';c.textAlign='left';c.fillText(title,x+16,y+26);
+}
+function prow(c,x,y,w,l,v,col){
+  c.fillStyle='#8f97a5';c.font='13px Outfit, sans-serif';c.textAlign='left';c.fillText(l,x+16,y);
+  c.fillStyle=col||'#F4EFEA';c.font='bold 16px Outfit, sans-serif';c.textAlign='right';c.fillText(v,x+w-14,y);
+}
+function wrapText(c,text,x,y,maxW,lh){
+  const words=text.split(' ');let line='',yy=y;
+  for(const w of words){const test=line+w+' ';
+    if(c.measureText(test).width>maxW && line){c.fillText(line,x,yy);line=w+' ';yy+=lh;}else line=test;}
+  c.fillText(line,x,yy);return yy;
+}
+const PX={x:706,y:70,w:300};
+function trow(c,x,y,w,h,cols,widths,cols_col,head){
+  c.fillStyle=head?hexA(ACC,0.10):'rgba(255,255,255,0.03)';c.fillRect(x,y,w,h);
+  c.strokeStyle=hexA(ACC,0.16);c.lineWidth=1;c.strokeRect(x,y,w,h);
+  let cx=x;
+  cols.forEach((t,i)=>{
+    c.fillStyle=head?'#C7D6F5':(cols_col&&cols_col[i]?cols_col[i]:'#F4EFEA');
+    c.font=(head?'bold 12px':'13px')+' Outfit, sans-serif';c.textAlign='left';
+    c.fillText(t,cx+10,y+h/2+5);
+    cx+=widths[i];
+  });
+}
+function drawBar(c,x,y,w,h,frac,label,col,right){
+  c.fillStyle='#9fb0cf';c.font='12px Outfit, sans-serif';c.textAlign='left';c.fillText(label,x,y-8);
+  c.fillStyle='rgba(255,255,255,0.06)';c.fillRect(x,y,w,h);
+  c.fillStyle=hexA(col,0.75);c.fillRect(x,y,Math.max(0,Math.min(1,frac))*w,h);
+  c.strokeStyle=hexA(ACC,0.3);c.lineWidth=1;c.strokeRect(x,y,w,h);
+  c.fillStyle=col;c.font='bold 13px Outfit, sans-serif';c.textAlign='right';c.fillText(right,x+w,y-8);
+}
+const kc=(ok,ch)=>ch?(ok?OK_HEX:BAD_HEX):'#F4EFEA';
+
+// -------- trazador genérico ------------------------------------------------
+// opts: {x0,x1,y0,y1,xl,yl,series:[{pts,col,dash,w}],hband:[y0,y1,col],
+//        vbands:[[x0,x1,col]],hlines:[[y,col,txt]],marks:[[x,y,col]],xt:fn,yt:fn}
+function plot(c,X,Y,W,H,o){
+  const x0=o.x0,x1=o.x1,y0=o.y0,y1=o.y1;
+  const mx=v=>X+(v-x0)/(x1-x0||1)*W, my=v=>Y+H-(v-y0)/(y1-y0||1)*H;
+  c.save();
+  c.fillStyle='rgba(255,255,255,0.02)';c.fillRect(X,Y,W,H);
+  if(o.hband){c.fillStyle=hexA(o.hband[2],0.12);
+    const a=my(Math.max(y0,Math.min(y1,o.hband[1]))),b=my(Math.max(y0,Math.min(y1,o.hband[0])));
+    c.fillRect(X,a,W,b-a);}
+  (o.vbands||[]).forEach(v=>{c.fillStyle=hexA(v[2],0.14);c.fillRect(mx(v[0]),Y,Math.max(1,mx(v[1])-mx(v[0])),H);});
+  c.strokeStyle='rgba(255,255,255,0.08)';c.lineWidth=1;
+  for(let i=1;i<4;i++){const yy=Y+H*i/4;c.beginPath();c.moveTo(X,yy);c.lineTo(X+W,yy);c.stroke();}
+  if(y0<0&&y1>0){c.strokeStyle='rgba(255,255,255,0.28)';c.beginPath();c.moveTo(X,my(0));c.lineTo(X+W,my(0));c.stroke();}
+  (o.hlines||[]).forEach(h=>{
+    if(h[0]<y0||h[0]>y1)return;
+    c.strokeStyle=hexA(h[1],0.8);c.lineWidth=1.5;c.setLineDash([6,4]);
+    c.beginPath();c.moveTo(X,my(h[0]));c.lineTo(X+W,my(h[0]));c.stroke();c.setLineDash([]);
+    if(h[2]){c.fillStyle=h[1];c.font='11px Outfit, sans-serif';c.textAlign='right';c.fillText(h[2],X+W-4,my(h[0])-4);}
+  });
+  (o.series||[]).forEach(s=>{
+    if(!s.pts.length)return;
+    c.strokeStyle=s.col;c.lineWidth=s.w||2;c.setLineDash(s.dash||[]);
+    c.beginPath();
+    s.pts.forEach((p,i)=>{const px=mx(p[0]),py=my(Math.max(y0,Math.min(y1,p[1])));if(i)c.lineTo(px,py);else c.moveTo(px,py);});
+    c.stroke();c.setLineDash([]);
+  });
+  (o.marks||[]).forEach(m=>{
+    c.fillStyle=m[2];c.beginPath();c.arc(mx(m[0]),my(Math.max(y0,Math.min(y1,m[1]))),4.5,0,Math.PI*2);c.fill();
+  });
+  c.strokeStyle='rgba(255,255,255,0.20)';c.lineWidth=1;c.strokeRect(X,Y,W,H);
+  c.fillStyle='#7a8494';c.font='11px Outfit, sans-serif';
+  c.textAlign='right';c.fillText(o.xl||'',X+W,Y+H+16);
+  c.textAlign='left';c.fillText(o.yl||'',X,Y-6);
+  c.fillStyle='#6b7280';c.font='10px Outfit, sans-serif';
+  c.textAlign='left';c.fillText(o.xt?o.xt(x0):'',X,Y+H+16);
+  c.textAlign='right';c.fillText(o.yt?o.yt(y1):'',X-4,Y+8);
+  c.textAlign='right';c.fillText(o.yt?o.yt(y0):'',X-4,Y+H);
+  c.restore();
+}
+function legend(c,x,y,items){
+  let cx=x;
+  items.forEach(it=>{
+    c.fillStyle=it[1];c.fillRect(cx,y-8,14,3);
+    c.fillStyle='#9fb0cf';c.font='11px Outfit, sans-serif';c.textAlign='left';c.fillText(it[0],cx+19,y-3);
+    cx+=19+c.measureText(it[0]).width+16;
+  });
+}
+
+// curvas de apoyo -----------------------------------------------------------
+function stairPts(a,v0,v1,np){
+  const pts=[],N=np||480;
+  for(let k=0;k<=N;k++){const v=v0+(v1-v0)*k/N;pts.push([v*1000,codeOf(v,a)]);}
+  return pts;
+}
+function errPts(a,v0,v1,off,np){
+  const pts=[],N=np||480;
+  for(let k=0;k<=N;k++){const v=v0+(v1-v0)*k/N;pts.push([v*1000,(qErr(v,a)+off)*1000]);}
+  return pts;
+}
+function attPts(fc,f0,f1,np){
+  const pts=[],N=np||160;
+  for(let k=0;k<=N;k++){const lg=Math.log10(f0)+(Math.log10(f1)-Math.log10(f0))*k/N;
+    pts.push([lg,att(Math.pow(10,lg),fc)]);}
+  return pts;
+}
+function foldPts(fs,f0,f1,np){
+  const pts=[],N=np||400;
+  for(let k=0;k<=N;k++){const f=f0+(f1-f0)*k/N;pts.push([f/fs,fold(f,fs)/fs]);}
+  return pts;
+}
+
+// ===================== 6. VISTAS POR MODO =====================
+function header(c,tit,sub,col){
+  c.fillStyle=col||ACC;c.font='bold 22px Outfit, sans-serif';c.textAlign='left';c.fillText(tit,60,44);
+  c.fillStyle='#8f97a5';c.font='13px Outfit, sans-serif';c.fillText(sub,60,64);
+}
+
+// -------------------------------------------------------------- EXPLORA ----
+function drawExplora(c){
+  const sc=POOL[scIdx],cfg=curCfg(),a=ADCS[cfg.adc],cd=CONDS[cfg.cond];
+  const lsb=lsbOf(a),x=expX(),v=vCond(sc,cd,x),code=codeOf(v,a),xh=xHat(code,a,sc,cd);
+  const r=runC(sc,cfg);
+  header(c,'CADENA DE MEDIDA · '+NOM[scIdx],
+    'El acondicionamiento y el muestreo quedan fijos en los de la máquina ('+COND_SH[cfg.cond]+' · '+MUES_SH[cfg.mues]+'): aquí sólo cambia el convertidor.',SCCOL[scIdx]);
+
+  // --- escalera de cuantización (zoom de ocho pasos alrededor del punto)
+  const vlo=Math.max(0,(code-3.5)*lsb), vhi=Math.min(a.vref,(code+4.5)*lsb);
+  plot(c,70,112,560,244,{
+    x0:vlo*1000,x1:vhi*1000,y0:code-4,y1:code+5,
+    xl:'tensión a la entrada del convertidor (mV)',yl:'código de salida (zoom de ocho pasos)',
+    xt:t=>n3(t)+' mV',yt:t=>n0(t),
+    vbands:[[code*lsb*1000,(code+1)*lsb*1000,WARN_HEX]],
+    series:[{pts:stairPts(a,vlo,vhi),col:ACC,w:2.5}],
+    marks:[[v*1000,code,'#F4EFEA']]});
+  legend(c,70,384,[['escalera del convertidor',ACC],['banda muerta del código '+code,WARN_HEX],['tensión medida','#F4EFEA']]);
+
+  // --- error de cuantización
+  plot(c,70,424,560,166,{
+    x0:vlo*1000,x1:vhi*1000,y0:-lsb*1000*1.15,y1:lsb*1000*0.75,
+    xl:'tensión a la entrada del convertidor (mV)',yl:'error de reconstrucción (mV)',
+    xt:t=>n3(t)+' mV',yt:t=>n3(t),
+    hband:[-lsb*500,lsb*500,OK_HEX],
+    hlines:[[qRms(a)*1000,VIO,'valor eficaz LSB/√12 = '+n4(qRms(a)*1000)+' mV']],
+    series:[{pts:errPts(a,vlo,vhi,0),col:OK_HEX,w:2.5},
+            {pts:errPts(a,vlo,vhi,-lsb/2),col:BAD_HEX,w:2,dash:[6,4]}]});
+  legend(c,70,618,[['con la corrección de ½ LSB: ±'+fmV(lsb/2)+' mV',OK_HEX],['sin corregir: de −'+fmV(lsb)+' a 0 mV',BAD_HEX]]);
+
+  c.fillStyle='#9fb0cf';c.font='13px Outfit, sans-serif';c.textAlign='left';
+  wrapText(c,'El convertidor trunca: todo lo que cae dentro de un escalón sale con el mismo código. Reconstruir en el CENTRO del escalón, v̂ = (código + ½)·LSB, no mejora la resolución, pero quita un sesgo sistemático de medio LSB que si no se arrastra a todas las medidas.',70,652,560,20);
+
+  // --- panel derecho
+  rpanel(c,PX.x,PX.y,PX.w,236,'Punto de trabajo');
+  prow(c,PX.x,PX.y+56,PX.w,MAGN[scIdx]+' medida',fX(sc,x)+' '+UNI[scIdx],SCCOL[scIdx]);
+  prow(c,PX.x,PX.y+82,PX.w,'Tensión del sensor',fmV(vSens(sc,x))+' mV');
+  prow(c,PX.x,PX.y+108,PX.w,'Ganancia · tensión al ADC','×'+n0(cd.g)+' · '+fmV(v)+' mV');
+  prow(c,PX.x,PX.y+134,PX.w,'Código de salida',n0(code)+' de '+n0(nCodes(a)-1),ACC);
+  prow(c,PX.x,PX.y+160,PX.w,'En binario',bin(code,a),VIO);
+  prow(c,PX.x,PX.y+186,PX.w,'Valor reconstruido',fR(sc,xh)+' '+UNI[scIdx],OK_HEX);
+  prow(c,PX.x,PX.y+212,PX.w,'Error de reconstrucción',(xh>=x?'+':'−')+fR(sc,Math.abs(xh-x))+' '+UNI[scIdx],
+    Math.abs(xh-x)<=r.res/2+1e-12?OK_HEX:BAD_HEX);
+
+  rpanel(c,PX.x,PX.y+254,PX.w,180,'Los cuatro convertidores');
+  const W1=[92,74,68],hh=26;let yy=PX.y+284;
+  trow(c,PX.x+8,yy,PX.w-16,hh,['convertidor','LSB (mV)','paso'],W1,null,true);
+  ADCK.forEach(k=>{
+    yy+=hh;const aa=ADCS[k],rr=resFis(sc,cd,aa),good=rr<=sc.reqRes;
+    trow(c,PX.x+8,yy,PX.w-16,hh,[ADC_SH[k],n3(lsbOf(aa)*1000),fR(sc,rr)],W1,
+      [k===cfg.adc?ACC:'#F4EFEA',null,good?OK_HEX:BAD_HEX]);
+  });
+
+  rpanel(c,PX.x,PX.y+452,PX.w,246,'Lo que decide si alcanza');
+  drawBar(c,PX.x+16,PX.y+512,PX.w-32,16,r.res/sc.reqRes,'paso físico / requisito',
+    r.resOk?OK_HEX:BAD_HEX,fR(sc,r.res)+' de '+fR(sc,sc.reqRes)+' '+UNI[scIdx]);
+  drawBar(c,PX.x+16,PX.y+562,PX.w-32,16,r.uso,'uso del rango del convertidor',
+    r.usoOk?OK_HEX:BAD_HEX,pctS(r.uso));
+  drawBar(c,PX.x+16,PX.y+612,PX.w-32,16,r.enob/a.n,'bits útiles de los '+a.n+' del convertidor',
+    ACC,n2(r.enob)+' bits');
+  c.fillStyle='#8f97a5';c.font='12px Outfit, sans-serif';c.textAlign='left';
+  wrapText(c,'Bits útiles = n + log₂(uso). Dejar la mitad del rango sin usar cuesta exactamente un bit; el 40 % mínimo de este banco cuesta 1,32.',PX.x+16,PX.y+652,PX.w-32,17);
+}
+
+// --------------------------------------------------------------- APLICA ----
+function drawAplica(c){
+  if(apTopic==='ruido')return drawApRuido(c);
+  if(apTopic==='muestreo')return drawApMuestreo(c);
+  return drawApResolucion(c);
+}
+
+function drawApResolucion(c){
+  const sc=POOL[scIdx],cfg=curCfg(),cd=CONDS[cfg.cond],r=runC(sc,cfg);
+  header(c,'RESOLUCIÓN: BITS, RANGO Y BITS ÚTILES','Paso físico = LSB/(G·s) · uso = (V_alta − V_baja)/V_REF · bits útiles = n + log₂(uso)',ACC);
+
+  // tabla: los cuatro convertidores con el acondicionamiento elegido
+  const W1=[128,96,104,92,80];let yy=104,hh=30;
+  trow(c,60,yy,570,hh,['convertidor','LSB (mV)','paso ('+UNI[scIdx]+')','uso','bits útiles'],W1,null,true);
+  ADCK.forEach(k=>{
+    yy+=hh;const aa=ADCS[k],rr=resFis(sc,cd,aa),uu=usoOf(sc,cd,aa),ee=enobUso(aa,uu);
+    const gOk=guardAdc(sc,k)&&guardCond(sc,cfg.cond,k);
+    trow(c,60,yy,570,hh,[ADC_SH[k],n3(lsbOf(aa)*1000),fR(sc,rr),pctS(uu),n2(ee)],W1,
+      [k===cfg.adc?ACC:'#F4EFEA',null,rr<=sc.reqRes?OK_HEX:BAD_HEX,
+       uu>=USE_MIN&&gOk?OK_HEX:BAD_HEX,null]);
+  });
+
+  // tabla: los cuatro acondicionamientos con el convertidor elegido
+  const a=ADCS[cfg.adc];
+  yy=268;
+  trow(c,60,yy,570,hh,['acondicionamiento','V_baja (V)','V_alta (V)','uso','¿cabe?'],W1,null,true);
+  CONDK.forEach(k=>{
+    yy+=hh;const cc=CONDS[k],lo=spanLo(sc,cc),hi=spanHi(sc,cc),uu=usoOf(sc,cc,a);
+    const gOk=guardCond(sc,k,cfg.adc);
+    trow(c,60,yy,570,hh,[COND_LBL[k],n3(lo),n3(hi),pctS(uu),gOk?'sí':'no'],W1,
+      [k===cfg.cond?ACC:'#F4EFEA',lo<0?BAD_HEX:null,hi>a.vref?BAD_HEX:null,
+       uu>=USE_MIN?OK_HEX:BAD_HEX,gOk?OK_HEX:BAD_HEX]);
+  });
+
+  // curva de bits útiles frente al uso
+  const pts=[];for(let k=1;k<=100;k++){const u=k/100;pts.push([u,enobUso(a,u)]);}
+  plot(c,70,430,560,190,{
+    x0:0,x1:1,y0:a.n-4,y1:a.n+0.4,
+    xl:'fracción del rango del convertidor que se usa',yl:'bits útiles = n + log₂(uso)',
+    xt:t=>'0 %',yt:t=>n1(t)+' b',
+    vbands:[[0,USE_MIN,BAD_HEX]],
+    hlines:[[a.n-1,WARN_HEX,'un bit perdido (uso del 50 %)']],
+    series:[{pts,col:ACC,w:2.5}],
+    marks:[[r.uso,r.enob,'#F4EFEA']]});
+  legend(c,70,648,[['bits útiles del convertidor de '+a.n+' bits',ACC],['por debajo del 40 % este banco lo rechaza',BAD_HEX]]);
+
+  c.fillStyle='#9fb0cf';c.font='13px Outfit, sans-serif';c.textAlign='left';
+  wrapText(c,'Resolución y uso son la MISMA desigualdad vista dos veces: si el paso físico cumple, es porque el LSB es pequeño frente al recorrido de la señal, y eso sólo ocurre si la señal ocupa buena parte del rango. Subir la ganancia arregla las dos a la vez… hasta que la señal se sale por arriba.',70,682,560,20);
+
+  // panel derecho
+  rpanel(c,PX.x,PX.y,PX.w,214,'Configuración en pantalla');
+  prow(c,PX.x,PX.y+56,PX.w,'Convertidor',ADC_SH[cfg.adc],ACC);
+  prow(c,PX.x,PX.y+82,PX.w,'Acondicionamiento',COND_LBL[cfg.cond]);
+  prow(c,PX.x,PX.y+108,PX.w,'Excursión al ADC',n3(r.lo)+' … '+n3(r.hi)+' V',
+    guardCond(sc,cfg.cond,cfg.adc)?OK_HEX:BAD_HEX);
+  prow(c,PX.x,PX.y+134,PX.w,'Uso del rango',pctS(r.uso),r.usoOk?OK_HEX:BAD_HEX);
+  prow(c,PX.x,PX.y+160,PX.w,'Bits útiles',n3(r.enob)+' de '+a.n,ACC);
+  prow(c,PX.x,PX.y+186,PX.w,'Paso físico',fR(sc,r.res)+' '+UNI[scIdx],r.resOk?OK_HEX:BAD_HEX);
+
+  rpanel(c,PX.x,PX.y+232,PX.w,180,'Lo que pide la máquina');
+  prow(c,PX.x,PX.y+288,PX.w,'Magnitud y rango',fX(sc,sc.xMin)+' … '+fX(sc,sc.xMax)+' '+UNI[scIdx]);
+  prow(c,PX.x,PX.y+314,PX.w,'Sensibilidad',fmV(sc.s)+' mV por '+UNI[scIdx]);
+  prow(c,PX.x,PX.y+340,PX.w,'Paso exigido','≤ '+fR(sc,sc.reqRes)+' '+UNI[scIdx],WARN_HEX);
+  prow(c,PX.x,PX.y+366,PX.w,'Referencia admisible',sc.ruidoAlim?'sólo interna':(sc.ratio?'sólo Vcc':'cualquiera'),
+    guardAdc(sc,cfg.adc)?OK_HEX:BAD_HEX);
+  prow(c,PX.x,PX.y+392,PX.w,'Excursión del amplificador',n3(V_SWING_LO)+' … '+n3(V_SWING_HI)+' V');
+
+  rpanel(c,PX.x,PX.y+430,PX.w,268,'La cuenta, paso a paso');
+  c.fillStyle='#9fb0cf';c.font='13px Outfit, sans-serif';c.textAlign='left';
+  let ty=PX.y+486;
+  const lines=[
+    'LSB = V_REF/2ⁿ = '+n3(ADCS[cfg.adc].vref)+' V / '+n0(nCodes(a))+' = '+fmV(r.lsb)+' mV.',
+    'Paso físico = LSB/(G·s) = '+fmV(r.lsb)+' mV / (×'+n0(cd.g)+' · '+fmV(sc.s)+' mV) = '+fR(sc,r.res)+' '+UNI[scIdx]+'.',
+    'Uso = ('+n3(r.hi)+' − '+n3(r.lo)+') / '+n3(ADCS[cfg.adc].vref)+' = '+pctS(r.uso)+'.',
+    'Bits útiles = '+a.n+' + log₂('+n3(r.uso)+') = '+n3(r.enob)+'.'];
+  lines.forEach(t=>{ty=wrapText(c,t,PX.x+16,ty,PX.w-32,19)+26;});
+}
+
+function drawApRuido(c){
+  const sc=POOL[scIdx],cfg=curCfg(),a=ADCS[cfg.adc],cd=CONDS[cfg.cond],r=runC(sc,cfg);
+  header(c,'EL SUELO DE RUIDO: DÓNDE DEJAN DE SERVIR LOS BITS',
+    'σ = √((G·σ_sensor)² + (G·σ_amp)² + σ_ADC²) · el LSB no puede pesar menos que 2σ',VIO);
+
+  const W1=[128,96,104,92,80];let yy=104,hh=30;
+  trow(c,60,yy,570,hh,['convertidor','LSB (mV)','2σ (mV)','paso ('+UNI[scIdx]+')','¿sirve?'],W1,null,true);
+  ADCK.forEach(k=>{
+    yy+=hh;const aa=ADCS[k],ll=lsbOf(aa),rr=resFis(sc,cd,aa),rn=ll>=K_RUIDO*r.vn;
+    trow(c,60,yy,570,hh,[ADC_SH[k],n3(ll*1000),n3(2*r.vn*1000),fR(sc,rr),rn?'sí':'no'],W1,
+      [k===cfg.adc?ACC:'#F4EFEA',rn?OK_HEX:BAD_HEX,null,null,rn?OK_HEX:BAD_HEX]);
+  });
+
+  yy=268;
+  trow(c,60,yy,570,hh,['acondicionamiento','G·σ_sensor','G·σ_amp','σ total','LSB/2σ'],W1,null,true);
+  CONDK.forEach(k=>{
+    yy+=hh;const cc=CONDS[k],vv=vRuido(sc,cc),rel=lsbOf(a)/(K_RUIDO*vv);
+    trow(c,60,yy,570,hh,[COND_LBL[k],n3(cc.g*sc.vnSens*1000),n3(cc.g*cc.vnAmp*1000),n3(vv*1000),n2(rel)],W1,
+      [k===cfg.cond?ACC:'#F4EFEA',null,null,null,rel>=1?OK_HEX:BAD_HEX]);
+  });
+
+  // LSB frente al número de bits, para las dos referencias
+  const pA=[],pB=[];
+  for(let n=8;n<=16;n++){pA.push([n,5.000/Math.pow(2,n)*1000]);pB.push([n,2.560/Math.pow(2,n)*1000]);}
+  const nMax=nUtilRuido(a,r.vn);
+  plot(c,70,430,560,190,{
+    x0:8,x1:16,y0:0,y1:5000/256,
+    xl:'número de bits del convertidor',yl:'LSB (mV) frente al suelo de ruido',
+    xt:t=>'8 bits',yt:t=>n2(t)+' mV',
+    hband:[0,2*r.vn*1000,BAD_HEX],
+    hlines:[[2*r.vn*1000,BAD_HEX,'2σ = '+n3(2*r.vn*1000)+' mV']],
+    series:[{pts:pA,col:ACC,w:2.5},{pts:pB,col:OK_HEX,w:2.5,dash:[6,4]}],
+    marks:[[a.n,lsbOf(a)*1000,'#F4EFEA']]});
+  legend(c,70,648,[['V_REF = 5,00 V',ACC],['V_REF = 2,560 V',OK_HEX],['por debajo de 2σ el bit sólo cuenta ruido',BAD_HEX]]);
+
+  c.fillStyle='#9fb0cf';c.font='13px Outfit, sans-serif';c.textAlign='left';
+  wrapText(c,'Éste es el único criterio de todo el banco que castiga tener MÁS bits. Con esta cadena, la referencia de '+n3(a.vref)+' V deja de dar bits nuevos a partir de '+n2(nMax)+' bits: de ahí para arriba el convertidor sólo digitaliza su propio ruido, y la única forma honesta de bajar el escalón es bajar σ (promediar, filtrar, apantallar), no subir n.',70,682,560,20);
+
+  rpanel(c,PX.x,PX.y,PX.w,214,'Presupuesto de ruido');
+  prow(c,PX.x,PX.y+56,PX.w,'σ del sensor (a la entrada)',fmV(sc.vnSens)+' mV');
+  prow(c,PX.x,PX.y+82,PX.w,'σ del sensor (amplificada)',fmV(cd.g*sc.vnSens)+' mV');
+  prow(c,PX.x,PX.y+108,PX.w,'σ del amplificador (salida)',fmV(cd.g*cd.vnAmp)+' mV');
+  prow(c,PX.x,PX.y+134,PX.w,'σ del convertidor',fmV(VN_ADC)+' mV');
+  prow(c,PX.x,PX.y+160,PX.w,'σ total (suma cuadrática)',fmV(r.vn)+' mV',VIO);
+  prow(c,PX.x,PX.y+186,PX.w,'LSB · 2σ',fmV(r.lsb)+' · '+fmV(2*r.vn)+' mV',r.ruidoOk?OK_HEX:BAD_HEX);
+
+  rpanel(c,PX.x,PX.y+232,PX.w,186,'Cuánto vale el escalón');
+  drawBar(c,PX.x+16,PX.y+292,PX.w-32,16,Math.min(1,K_RUIDO*r.vn/r.lsb),'2σ frente al LSB',
+    r.ruidoOk?OK_HEX:BAD_HEX,n2(K_RUIDO*r.vn/r.lsb)+' × LSB');
+  drawBar(c,PX.x+16,PX.y+342,PX.w-32,16,Math.min(1,a.n/16),'bits del convertidor',ACC,a.n+' bits');
+  drawBar(c,PX.x+16,PX.y+392,PX.w-32,16,Math.min(1,nMax/16),'bits que el ruido permite',
+    a.n<=nMax?OK_HEX:BAD_HEX,n2(nMax)+' bits');
+
+  rpanel(c,PX.x,PX.y+436,PX.w,262,'Lo que no arregla subir n');
+  c.fillStyle='#9fb0cf';c.font='13px Outfit, sans-serif';c.textAlign='left';
+  let ty=PX.y+492;
+  ['El error de cuantización tiene valor eficaz LSB/√12 = '+n4(qRms(a)*1000)+' mV; el ruido de la cadena vale '+fmV(r.vn)+' mV.',
+   'Cuando el ruido supera al escalón, la lectura ya baila entre códigos: se ganan cifras, no exactitud.',
+   'Promediar N muestras divide σ entre √N, y ése sí es el camino para aprovechar más bits.'
+  ].forEach(t=>{ty=wrapText(c,t,PX.x+16,ty,PX.w-32,19)+24;});
+}
+
+function drawApMuestreo(c){
+  const sc=POOL[scIdx],cfg=curCfg(),a=ADCS[cfg.adc],cd=CONDS[cfg.cond],r=runC(sc,cfg),m=MUES[cfg.mues];
+  header(c,'MUESTREO: NYQUIST, FILTRO Y VENTANA',
+    'f_s ≥ 5·B · atenuación de dos polos 1/(1+(f/f_c)²) · f_plegada = |f − round(f/f_s)·f_s| · t_adq = 0,25/f_s',WARN_HEX);
+
+  const W1=[104,84,92,104,96,90];let yy=104,hh=30;
+  trow(c,60,yy,570,hh,['muestreo','f_s/B','banda útil','residuo (mV)','se pliega a','¿sirve?'],W1,null,true);
+  MUESK.forEach(k=>{
+    yy+=hh;const mm=MUES[k],aB=att(sc.fBw,mm.fc),va=vAlias(sc,cd,mm),fa=fold(sc.fInt,mm.fs);
+    const good=okMues(sc,k);
+    trow(c,60,yy,570,hh,[MUES_SH[k],n1(mm.fs/sc.fBw),n3(aB),n4(va*1000),fHz(fa),good?'sí':'no'],W1,
+      [k===cfg.mues?ACC:'#F4EFEA',mm.fs>=OS_MIN*sc.fBw?OK_HEX:BAD_HEX,
+       aB>=ATT_BW?OK_HEX:BAD_HEX,va<lsbOf(a)/2?OK_HEX:BAD_HEX,
+       fa<=sc.fBw?BAD_HEX:WARN_HEX,good?OK_HEX:BAD_HEX]);
+  });
+
+  // respuesta del filtro (eje logarítmico)
+  const f0=1,f1=300000;
+  plot(c,70,268,270,180,{
+    x0:Math.log10(f0),x1:Math.log10(f1),y0:0,y1:1.05,
+    xl:'frecuencia (escala logarítmica, 1 Hz → 300 kHz)',yl:'atenuación del filtro antialias',
+    xt:t=>'1 Hz',yt:t=>n2(t),
+    vbands:[[Math.log10(f0),Math.log10(sc.fBw),ACC]],
+    hlines:[[ATT_BW,OK_HEX,'−3 dB']],
+    series:[{pts:attPts(m.fc,f0,f1),col:WARN_HEX,w:2.5}],
+    marks:[[Math.log10(sc.fBw),att(sc.fBw,m.fc),ACC],[Math.log10(sc.fInt),att(sc.fInt,m.fc),BAD_HEX]]});
+
+  // plegado de frecuencias
+  plot(c,360,268,270,180,{
+    x0:0,x1:3,y0:0,y1:0.55,
+    xl:'frecuencia de entrada en múltiplos de f_s',yl:'frecuencia que aparece tras muestrear (× f_s)',
+    xt:t=>'0',yt:t=>n2(t),
+    series:[{pts:foldPts(m.fs,0,3*m.fs),col:VIO,w:2.5}],
+    marks:[[Math.min(3,sc.fInt/m.fs),fold(sc.fInt,m.fs)/m.fs,BAD_HEX]]});
+  legend(c,70,476,[['respuesta del filtro',WARN_HEX],['banda útil de la señal',ACC],['la interferencia',BAD_HEX],['ley de plegado',VIO]]);
+
+  c.fillStyle='#9fb0cf';c.font='13px Outfit, sans-serif';c.textAlign='left';
+  let ty=wrapText(c,'Nyquist y el filtro son criterios DISTINTOS: la frecuencia de muestreo se fija frente a la banda ÚTIL, y el filtro decide cuánto queda de lo que está FUERA de ella. Ninguno sustituye al otro.',70,506,560,20);
+  ty=wrapText(c,'Aquí la interferencia de '+fHz(sc.fInt)+' se pliega a '+fHz(fold(sc.fInt,m.fs))+
+    (fold(sc.fInt,m.fs)<1e-9?': cae en continua y se disfraza de error de calibración, la avería más difícil de ver.'
+      :', dentro o cerca de la banda útil, y ya no hay filtro digital que la separe.'),70,ty+28,560,20);
+  wrapText(c,'La ventana de adquisición es lo último que se comprueba y lo primero que falla con sensores de alta impedancia: el condensador de muestreo tiene que cargarse a mejor de ½ LSB en 0,25/f_s.',70,ty+56,560,20);
+
+  rpanel(c,PX.x,PX.y,PX.w,214,'Muestreo en pantalla');
+  prow(c,PX.x,PX.y+56,PX.w,'Frecuencia de muestreo',fSs(m.fs)+' de '+fSs(sc.fsMax)+' máx.',
+    m.fs<=sc.fsMax?OK_HEX:BAD_HEX);
+  prow(c,PX.x,PX.y+82,PX.w,'Banda útil de la señal',fHz(sc.fBw));
+  prow(c,PX.x,PX.y+108,PX.w,'Sobremuestreo f_s/B',n1(m.fs/sc.fBw)+' (mín. '+OS_MIN+')',r.nyqOk?OK_HEX:BAD_HEX);
+  prow(c,PX.x,PX.y+134,PX.w,'Corte del filtro',fHz(m.fc)+' · '+n3(att(sc.fBw,m.fc)),
+    att(sc.fBw,m.fc)>=ATT_BW?OK_HEX:BAD_HEX);
+  prow(c,PX.x,PX.y+160,PX.w,'Interferencia',fHz(sc.fInt)+' · '+fmV(cd.g*sc.vInt)+' mV',WARN_HEX);
+  prow(c,PX.x,PX.y+186,PX.w,'Residuo · ½ LSB',n4(r.va*1000)+' · '+n4(r.lsb*500)+' mV',r.aliasOk?OK_HEX:BAD_HEX);
+
+  rpanel(c,PX.x,PX.y+232,PX.w,190,'Muestreo y retención');
+  prow(c,PX.x,PX.y+288,PX.w,'Impedancia de fuente',n0(rOut(sc,cd))+' Ω'+(cd.buf?' (con seguidor)':' (del sensor)'));
+  prow(c,PX.x,PX.y+314,PX.w,'Constante τ = (R+R_mux)·C',fus(tauSH(sc,cd))+' µs');
+  prow(c,PX.x,PX.y+340,PX.w,'Establecimiento (n+1)·ln2·τ',fus(r.ts)+' µs');
+  prow(c,PX.x,PX.y+366,PX.w,'Ventana 0,25/f_s',fus(r.ta)+' µs',r.setOk?OK_HEX:BAD_HEX);
+  prow(c,PX.x,PX.y+392,PX.w,'Margen',r.setOk?n1(r.ta/r.ts)+' ×':'insuficiente',r.setOk?OK_HEX:BAD_HEX);
+
+  rpanel(c,PX.x,PX.y+440,PX.w,258,'Filtro mínimo admisible');
+  c.fillStyle='#9fb0cf';c.font='13px Outfit, sans-serif';c.textAlign='left';
+  let ty2=PX.y+496;
+  ['Para no perder más de 3 dB en la banda útil de '+fHz(sc.fBw)+', el corte no puede bajar de '+fHz(fcMin(sc.fBw))+'.',
+   'Un filtro más cerrado no protege mejor: borra la señal que se quería medir.',
+   'Y por eso el corte y la frecuencia de muestreo van juntos en el catálogo: cada filtro trae la f_s con la que tiene sentido.'
+  ].forEach(t=>{ty2=wrapText(c,t,PX.x+16,ty2,PX.w-32,19)+24;});
+}
+
+// ------------------------------------------------------------------ RETO ----
+function drawReto(c){
+  const sc=retoSc(),cfg={...retoCh},a=ADCS[cfg.adc],cd=CONDS[cfg.cond],m=MUES[cfg.mues];
+  const r=runC(sc,cfg);
+  const gA=guardAdc(sc,cfg.adc),gC=guardCond(sc,cfg.cond,cfg.adc),gM=guardMues(sc,cfg.mues);
+  header(c,'RETO · '+NOM[retoK],'Elige convertidor, acondicionamiento y muestreo. Las tres decisiones se califican por separado.',SCCOL[retoK]);
+
+  rpanel(c,60,86,570,150,'Lo que exige la instalación');
+  c.fillStyle='#9fb0cf';c.font='13px Outfit, sans-serif';c.textAlign='left';
+  let ty=wrapText(c,MAQ[retoK],76,140,538,19);
+  c.fillStyle='#C7D6F5';
+  wrapText(c,'Sensor: '+SENS[retoK]+' · rango '+fX(sc,sc.xMin)+' a '+fX(sc,sc.xMax)+' '+UNI[retoK]+
+    ' · paso ≤ '+fR(sc,sc.reqRes)+' '+UNI[retoK]+' · banda útil '+fHz(sc.fBw)+
+    ' · interferencia '+fHz(sc.fInt)+' de '+fmV(sc.vInt)+' mV · plataforma hasta '+fSs(sc.fsMax)+
+    (sc.ruidoAlim?' · la alimentación está sucia':(sc.ratio?' · la medida es ratiométrica':'')),76,ty+26,538,19);
+
+  const W1=[210,140,120,100];let yy=256,hh=30;
+  trow(c,60,yy,570,hh,['criterio','se obtiene','se exige','veredicto'],W1,null,true);
+  const rows=[
+    ['Paso físico  LSB/(G·s)',fR(sc,r.res)+' '+UNI[retoK],'≤ '+fR(sc,sc.reqRes),r.resOk],
+    ['Uso del rango',pctS(r.uso),'≥ '+pctS(USE_MIN),r.usoOk],
+    ['LSB frente al ruido',n2(r.lsb/r.vn)+' σ','≥ '+K_RUIDO+' σ',r.ruidoOk],
+    ['Sobremuestreo  f_s/B',n1(m.fs/sc.fBw),'≥ '+OS_MIN,r.nyqOk],
+    ['Residuo de la interferencia',n4(r.va*1000)+' mV','< '+n4(r.lsb*500)+' mV',r.aliasOk],
+    ['Ventana de adquisición',fus(r.ta)+' µs','≥ '+fus(r.ts)+' µs',r.setOk]];
+  rows.forEach(rw=>{
+    yy+=hh;
+    trow(c,60,yy,570,hh,[rw[0],rw[1],rw[2],retoChecked?(rw[3]?'✔ cumple':'✗ falla'):'—'],W1,
+      [null,kc(rw[3],retoChecked),null,kc(rw[3],retoChecked)]);
+  });
+
+  yy+=hh+14;
+  trow(c,60,yy,570,hh,['guardas previas','referencia','excursión','banda/plataforma'],[210,140,120,100],null,true);
+  yy+=hh;
+  trow(c,60,yy,570,hh,['¿la elección es admisible?',gA?'admisible':'no',gC?'cabe':'se sale',gM?'correcta':'no'],
+    [210,140,120,100],[null,kc(gA,retoChecked),kc(gC,retoChecked),kc(gM,retoChecked)]);
+
+  drawBar(c,70,604,560,16,Math.min(1,r.res/sc.reqRes),'paso físico frente al exigido',
+    kc(r.resOk,retoChecked),fR(sc,r.res)+' / '+fR(sc,sc.reqRes)+' '+UNI[retoK]);
+  drawBar(c,70,654,560,16,Math.min(1,r.uso),'uso del rango',kc(r.usoOk,retoChecked),pctS(r.uso));
+  drawBar(c,70,704,560,16,Math.min(1,r.va/(r.lsb/2)),'residuo de la interferencia frente a ½ LSB',
+    kc(r.aliasOk,retoChecked),n4(r.va*1000)+' / '+n4(r.lsb*500)+' mV');
+
+  rpanel(c,PX.x,PX.y,PX.w,214,'Tus tres decisiones');
+  prow(c,PX.x,PX.y+56,PX.w,'Convertidor',ADC_SH[cfg.adc],kc(retoOkAdc,retoChecked));
+  prow(c,PX.x,PX.y+82,PX.w,'Acondicionamiento',COND_SH[cfg.cond],kc(retoOkCond,retoChecked));
+  prow(c,PX.x,PX.y+108,PX.w,'Muestreo',MUES_SH[cfg.mues],kc(retoOkMues,retoChecked));
+  prow(c,PX.x,PX.y+134,PX.w,'LSB',fmV(r.lsb)+' mV',ACC);
+  prow(c,PX.x,PX.y+160,PX.w,'Excursión al ADC',n3(r.lo)+' … '+n3(r.hi)+' V',kc(gC,retoChecked));
+  prow(c,PX.x,PX.y+186,PX.w,'Bits útiles',n2(r.enob),ACC);
+
+  rpanel(c,PX.x,PX.y+232,PX.w,206,'Catálogo disponible');
+  c.fillStyle='#9fb0cf';c.font='12px Outfit, sans-serif';c.textAlign='left';
+  let cy=PX.y+284;
+  ADCK.forEach(k=>{c.fillStyle=k===cfg.adc?ACC:'#8f97a5';c.fillText('· '+ADC_LBL[k],PX.x+16,cy);cy+=18;});
+  cy+=6;
+  CONDK.forEach(k=>{c.fillStyle=k===cfg.cond?ACC:'#8f97a5';c.fillText('· '+COND_LBL[k],PX.x+16,cy);cy+=18;});
+
+  rpanel(c,PX.x,PX.y+456,PX.w,242,'Diagnóstico');
+  c.fillStyle=retoChecked?(retoSolved?OK_HEX:BAD_HEX):'#8f97a5';c.font='bold 15px Outfit, sans-serif';
+  c.fillText(retoChecked?(retoSolved?'✔ Configuración válida':'✗ Todavía no'):'Pulsa «Comprobar»',PX.x+16,PX.y+512);
+  c.fillStyle='#9fb0cf';c.font='13px Outfit, sans-serif';
+  wrapText(c,retoChecked?whyCfg(sc,cfg):'Cada decisión se juzga con las otras dos puestas en su valor correcto, así que ninguna arrastra a las demás.',
+    PX.x+16,PX.y+542,PX.w-32,19);
+}
+
+function drawBoard(){
+  const c=bCv.getContext('2d');bg(c);
+  if(mode==='aplica')drawAplica(c);else if(mode==='reto')drawReto(c);else drawExplora(c);
+  bTex.needsUpdate=true;
+}
+function boardClick(){
+  if(mode==='explora')showToast('<b>Escalera de cuantización</b><br>El convertidor trunca: todo lo que cae dentro de un escalón sale con el mismo código. Reconstruir en el centro del escalón quita el sesgo de medio LSB.');
+  else if(mode==='aplica')showToast('<b>'+(apTopic==='resolucion'?'Resolución':apTopic==='ruido'?'Ruido':'Muestreo')+'</b><br>Cambia el tema con los botones del panel para ver el mismo punto de trabajo desde otro criterio.');
+  else showToast('<b>Reto</b><br>Tres decisiones, seis criterios. Sólo una terna del catálogo los cumple todos.');
+}
+
+// ===================== 7. ESCENA 3D =====================
+const benchG=new THREE.Group();benchG.position.set(1.15,0,0.35);scene.add(benchG);
+const bench=roundedBox(3.3,0.12,1.6,MAT.bench,0.03);bench.position.set(0,0.72,0);benchG.add(bench);
+[[-1.5,-0.65],[1.5,-0.65],[-1.5,0.65],[1.5,0.65]].forEach(p=>{
+  const lg=new THREE.Mesh(new THREE.CylinderGeometry(0.05,0.05,0.66,12),MAT.leg);
+  lg.position.set(p[0],0.33,p[1]);benchG.add(lg);
+});
+
+// --- cabeza del sensor
+const senG=new THREE.Group();senG.position.set(-1.32,0.78,0.10);benchG.add(senG);
+const senBase=roundedBox(0.34,0.20,0.30,MAT.body,0.02);senBase.position.set(0,0.10,0);senG.add(senBase);
+const senProbe=new THREE.Mesh(new THREE.CylinderGeometry(0.028,0.028,0.46,14),MAT.steel);
+senProbe.rotation.z=Math.PI/2.4;senProbe.position.set(-0.24,0.24,0);senG.add(senProbe);
+const senMat=emis(SCCOL[0]);
+const senLed=new THREE.Mesh(new THREE.CylinderGeometry(0.03,0.03,0.02,14),senMat);
+senLed.rotation.x=Math.PI/2;senLed.position.set(0,0.14,0.16);senG.add(senLed);
+senBase.userData={title:'Cabeza del sensor',info:'Entrega una tensión proporcional a la magnitud física, con su propia impedancia de fuente y su propio ruido. Nada de lo que venga después puede arreglar lo que aquí se pierda.'};
+addHoverLabel(senBase,'Sensor',SCCOL[0],new THREE.Vector3(-1.32,1.30,0.10).add(benchG.position),1.3);
+
+// --- acondicionamiento
+const ampG=new THREE.Group();ampG.position.set(-0.62,0.78,0.06);benchG.add(ampG);
+const ampPcb=roundedBox(0.66,0.035,0.48,MAT.pcb,0.02);ampG.add(ampPcb);
+const ampChip=roundedBox(0.20,0.05,0.18,MAT.dark,0.01);ampChip.position.set(-0.10,0.04,0.04);ampG.add(ampChip);
+const ampMat=emis(OK_HEX);
+const ampLed=new THREE.Mesh(new THREE.CylinderGeometry(0.03,0.03,0.03,14),ampMat);
+ampLed.position.set(0.18,0.04,0.14);ampG.add(ampLed);
+const filtCap=new THREE.Mesh(new THREE.CylinderGeometry(0.05,0.05,0.13,16),MAT.glass);
+filtCap.position.set(0.16,0.09,-0.12);ampG.add(filtCap);
+ampPcb.userData={title:'Acondicionamiento y filtro antialias',info:'Amplifica hasta llenar el rango del convertidor sin salirse, aísla la impedancia del sensor con un seguidor y corta por arriba lo que no pertenece a la banda útil.'};
+addHoverLabel(ampPcb,'Amplificador · filtro',OK_HEX,new THREE.Vector3(-0.62,1.28,0.06).add(benchG.position),1.9);
+filtCap.userData={title:'Filtro antialias',info:'Dos polos reales iguales: 1/(1+(f/f_c)²). En f_c la señal ya perdió 6 dB, no 3. Lo que este filtro deje pasar por encima de f_s/2 volverá plegado y nada podrá separarlo después.'};
+
+// --- multiplexor y muestreo/retención
+const shG=new THREE.Group();shG.position.set(0.16,0.78,0.02);benchG.add(shG);
+const shPcb=roundedBox(0.58,0.035,0.46,MAT.pcb,0.02);shG.add(shPcb);
+const muxChip=roundedBox(0.18,0.05,0.16,MAT.dark,0.01);muxChip.position.set(-0.14,0.04,0.02);shG.add(muxChip);
+const shCapMat=emis(WARN_HEX);
+const shCap=new THREE.Mesh(new THREE.CylinderGeometry(0.055,0.055,0.14,18),shCapMat);
+shCap.position.set(0.14,0.10,0.02);shG.add(shCap);
+shPcb.userData={title:'Multiplexor y muestreo/retención',info:'El condensador de retención tiene que cargarse a través de la impedancia de la fuente y del multiplexor. Si no llega a mejor de medio LSB dentro de la ventana, la muestra sale mal aunque el resto de la cadena sea perfecta.'};
+addHoverLabel(shPcb,'MUX · S&H',WARN_HEX,new THREE.Vector3(0.16,1.26,0.02).add(benchG.position),1.4);
+shCap.userData={title:'Condensador de retención',info:'C_SH = 14 pF. τ = (R_fuente + 1 kΩ)·C_SH y el establecimiento a medio LSB cuesta (n+1)·ln2·τ: cuantos más bits, más tiempo hay que esperar.'};
+
+// --- convertidor
+const adcG=new THREE.Group();adcG.position.set(0.98,0.78,0.02);benchG.add(adcG);
+const adcPcb=roundedBox(0.70,0.035,0.50,MAT.pcb,0.02);adcG.add(adcPcb);
+const adcChip=roundedBox(0.30,0.06,0.26,MAT.dark,0.01);adcChip.position.set(-0.04,0.045,0.02);adcG.add(adcChip);
+const sarMat=emis(VIO);
+const sarLed=new THREE.Mesh(new THREE.CylinderGeometry(0.03,0.03,0.03,14),sarMat);
+sarLed.position.set(0.24,0.04,0.16);adcG.add(sarLed);
+const refMat=emis(ACC);
+const refLed=new THREE.Mesh(new THREE.CylinderGeometry(0.026,0.026,0.03,14),refMat);
+refLed.position.set(0.24,0.04,-0.14);adcG.add(refLed);
+adcChip.userData={title:'Convertidor analógico-digital',info:'Compara la muestra retenida contra la referencia y entrega un número entero. Todo el juego está en el tamaño del escalón: LSB = V_REF/2ⁿ.'};
+addHoverLabel(adcChip,'ADC',VIO,new THREE.Vector3(0.98,1.28,0.02).add(benchG.position),1.1);
+refLed.userData={title:'Referencia de tensión',info:'Fija el fondo de escala. Si la referencia es la propia alimentación, todo lo que la ensucie se cuela en la medida; si la medida es ratiométrica, en cambio, ser la alimentación es justo lo que hace falta.'};
+
+// --- registro de salida: doce diodos de bit
+const bitG=new THREE.Group();bitG.position.set(0.70,0.78,0.56);benchG.add(bitG);
+const bitPcb=roundedBox(1.10,0.03,0.20,MAT.pcb,0.015);bitG.add(bitPcb);
+const bitLeds=[];
+for(let i=0;i<12;i++){
+  const mm=emis(OK_HEX);
+  const led=new THREE.Mesh(new THREE.CylinderGeometry(0.024,0.024,0.03,12),mm);
+  led.position.set(-0.47+i*0.086,0.03,0);bitG.add(led);
+  bitLeds.push({mesh:led,mat:mm});
+}
+bitPcb.userData={title:'Registro de salida',info:'Los bits del código, del más significativo a la izquierda al menos significativo a la derecha. Con diez bits, los dos de la izquierda simplemente no existen.'};
+addHoverLabel(bitPcb,'Código de salida',OK_HEX,new THREE.Vector3(0.70,1.15,0.56).add(benchG.position),1.7);
+
+// --- panel de instrumentos (molde S+P)
+const panelG=new THREE.Group();panelG.position.set(3.05,0.5,0.05);panelG.rotation.y=-0.24;scene.add(panelG);
+const panelBox=roundedBox(1.50,1.00,0.14,MAT.body,0.04);panelBox.position.set(0,0.62,0);panelG.add(panelBox);
+const pCv=document.createElement('canvas');pCv.width=600;pCv.height=400;
+const pTex=new THREE.CanvasTexture(pCv);
+const panelFace=new THREE.Mesh(new THREE.PlaneGeometry(1.40,0.92),new THREE.MeshBasicMaterial({map:pTex}));
+panelFace.position.set(0,0.62,0.075);panelG.add(panelFace);
+[-0.62,0.62].forEach(x=>{const scr=new THREE.Mesh(new THREE.CylinderGeometry(0.02,0.02,0.03,10),MAT.shiny);
+  scr.rotation.x=Math.PI/2;scr.position.set(x,0.62,0.075);panelG.add(scr);});
+[-0.30,0.30].forEach(x=>{const lg=new THREE.Mesh(new THREE.CylinderGeometry(0.035,0.04,0.62,12),MAT.leg);
+  lg.position.set(x,-0.19,0);panelG.add(lg);});
+panelBox.userData={title:'Adquisidor',info:'Muestra la tensión que llega al convertidor dentro de su rango, el código que sale y el valor físico reconstruido con la corrección de medio LSB.'};
+addHoverLabel(panelBox,'Adquisidor',ACC,new THREE.Vector3(0,1.5,0.1).add(panelG.position),1.5);
+
+// ===================== 8. FOTOGRAMAS, PANEL 3D Y HUD =====================
+function hwFrames(){
+  const sc=curSc(),cfg=curCfg(),a=ADCS[cfg.adc],cd=CONDS[cfg.cond];
+  const out=[],NF=48,res=resFis(sc,cd,a);
+  const mk=(x,lab)=>{
+    const xc=Math.max(sc.xMin,Math.min(sc.xMax,x));
+    const v=vCond(sc,cd,xc),code=codeOf(v,a);
+    return {x:xc,v,code,xh:xHat(code,a,sc,cd),lab};
+  };
+  if(mode==='explora'){
+    const x0=expX();
+    for(let k=0;k<NF;k++){
+      const x=x0+((k+0.5)/NF-0.5)*8*res;
+      out.push(mk(x,'zoom de ±4 pasos alrededor de '+fX(sc,x0)+' '+UNI[scIdx]));
+    }
+  }else{
+    for(let k=0;k<NF;k++){
+      const x=sc.xMin+(sc.xMax-sc.xMin)*k/(NF-1);
+      out.push(mk(x,'barrido de la escala completa'));
+    }
+  }
+  return out;
+}
+function frames(){if(!framesCache)framesCache=hwFrames();return framesCache;}
+function hwCount(){return Math.max(1,frames().length);}
+
+function drawPanel3D(fr,step){
+  const sc=curSc(),cfg=curCfg(),a=ADCS[cfg.adc],cd=CONDS[cfg.cond],r=runC(sc,cfg);
+  const uni=mode==='reto'?UNI[retoK]:UNI[scIdx];
+  const c=pCv.getContext('2d');
+  c.fillStyle='#0e1218';c.fillRect(0,0,600,400);
+  c.strokeStyle=hexA(ACC,0.35);c.lineWidth=3;c.strokeRect(6,6,588,388);
+  c.fillStyle='#C7D6F5';c.font='bold 17px Outfit, sans-serif';c.textAlign='left';
+  c.fillText('ADQUISIDOR · CANAL 0',24,40);
+  c.fillStyle='#6b7280';c.font='12px Outfit, sans-serif';c.textAlign='right';c.fillText(fr.lab,576,40);
+
+  // barra del rango del convertidor con la excursión de la señal
+  const X=24,Y=58,W=552,H=44;
+  c.fillStyle='rgba(255,255,255,0.03)';c.fillRect(X,Y,W,H);
+  const mx=v=>X+Math.max(0,Math.min(1,v/a.vref))*W;
+  c.fillStyle=hexA(ACC,0.18);c.fillRect(mx(r.lo),Y,Math.max(2,mx(r.hi)-mx(r.lo)),H);
+  c.strokeStyle=hexA(WARN_HEX,0.9);c.lineWidth=2.5;
+  c.beginPath();c.moveTo(mx(fr.v),Y);c.lineTo(mx(fr.v),Y+H);c.stroke();
+  c.strokeStyle='rgba(255,255,255,0.18)';c.lineWidth=1;c.strokeRect(X,Y,W,H);
+  c.fillStyle='#6b7280';c.font='11px Outfit, sans-serif';c.textAlign='left';c.fillText('0 V',X+4,Y+H-6);
+  c.textAlign='right';c.fillText('V_REF = '+n3(a.vref)+' V',X+W-4,Y+H-6);
+  c.fillStyle=WARN_HEX;c.textAlign='center';c.fillText(fmV(fr.v)+' mV',Math.max(X+40,Math.min(X+W-40,mx(fr.v))),Y-6);
+
+  // lectura grande: el código
+  c.fillStyle=VIO;c.font='bold 54px Outfit, sans-serif';c.textAlign='left';
+  c.fillText(n0(fr.code),24,176);
+  const wC=c.measureText(n0(fr.code)).width;
+  c.fillStyle='#8f97a5';c.font='bold 18px Outfit, sans-serif';
+  c.fillText('/ '+n0(nCodes(a)-1),24+wC+12,176);
+  c.fillStyle='#F4EFEA';c.font='bold 26px Outfit, sans-serif';c.textAlign='right';
+  c.fillText(fR(sc,fr.xh)+' '+uni,576,176);
+
+  // los bits
+  const bits=bin(fr.code,a),bw=Math.min(30,(552-8*(a.n-1))/a.n);
+  let bx=24;
+  for(let i=0;i<a.n;i++){
+    const on=bits[i]==='1';
+    c.fillStyle=on?hexA(OK_HEX,0.85):'rgba(255,255,255,0.06)';
+    c.fillRect(bx,196,bw,26);
+    c.strokeStyle=hexA(ACC,0.25);c.lineWidth=1;c.strokeRect(bx,196,bw,26);
+    c.fillStyle=on?'#0e1218':'#6b7280';c.font='bold 13px Outfit, sans-serif';c.textAlign='center';
+    c.fillText(bits[i],bx+bw/2,214);
+    bx+=bw+8;
+  }
+
+  const row=(y,l,v,cc)=>{c.fillStyle='#8f97a5';c.font='14px Outfit, sans-serif';c.textAlign='left';c.fillText(l,24,y);
+    c.fillStyle=cc||'#F4EFEA';c.font='bold 17px Outfit, sans-serif';c.textAlign='right';c.fillText(v,576,y);};
+  row(256,'LSB · paso físico',fmV(r.lsb)+' mV · '+fR(sc,r.res)+' '+uni,r.resOk?OK_HEX:BAD_HEX);
+  row(284,'Uso del rango · bits útiles',pctS(r.uso)+' · '+n2(r.enob),r.usoOk?OK_HEX:BAD_HEX);
+  row(312,'Ruido σ · LSB/σ',fmV(r.vn)+' mV · '+n2(r.lsb/r.vn),r.ruidoOk?OK_HEX:BAD_HEX);
+  row(340,'Muestreo · establecimiento',fSs(MUES[cfg.mues].fs)+' · '+fus(r.ts)+' µs',r.setOk?OK_HEX:BAD_HEX);
+  row(368,'Fase',(step%8)<3?'muestreo (S&H cargando)':'conversión',(step%8)<3?WARN_HEX:VIO);
+  pTex.needsUpdate=true;
+}
+
+function updateHW(){
+  const fs=frames(),step=hwStep%Math.max(1,fs.length);
+  const fr=fs[step]||{x:0,v:0,code:0,xh:0,lab:''};
+  const cfg=curCfg(),a=ADCS[cfg.adc],cd=CONDS[cfg.cond],sc=curSc();
+  const idx=mode==='reto'?retoK:scIdx;
+  const sampling=(step%8)<3;
+  senMat.color.set(SCCOL[idx]);senMat.emissive.set(SCCOL[idx]);
+  senMat.emissiveIntensity=0.35+0.9*(fr.v/Math.max(1e-9,a.vref));
+  ampMat.emissiveIntensity=cd.buf?1.3:0.12;
+  shCapMat.emissiveIntensity=sampling?1.5:0.15;
+  sarMat.emissiveIntensity=sampling?0.10:1.4;
+  refMat.emissiveIntensity=ADCS[cfg.adc].ref==='Vcc'?0.5:1.2;
+  const bits=bin(fr.code,a),off=12-a.n;
+  bitLeds.forEach((b,i)=>{
+    const j=i-off;
+    if(j<0){b.mesh.visible=false;return;}
+    b.mesh.visible=true;
+    b.mat.emissiveIntensity=bits[j]==='1'?1.5:0.05;
+  });
+  filtCap.material=guardMues(sc,cfg.mues)?MAT.glass:MAT.copper;
+  drawPanel3D(fr,step);
+}
+
+// ===================== 9. HUD Y PANEL =====================
+el('hud').innerHTML=`
+  <div class="eyebrow">Sistemas Digitales y Automatización · IEEE Std 1241-2010 · Atmel AVR ATmega328P §24 · Kester, «Data Conversion Handbook»</div>
+  <h2>Adquisición de sensores: el convertidor A/D y la cuantización</h2>
+  <p>Un convertidor no mide: <b>cuenta escalones</b>. El escalón vale LSB = V_REF/2ⁿ y todo lo demás sale de ahí: cuánto resuelve la medida, cuánto rango se desaprovecha, a partir de qué bit sólo se digitaliza ruido y qué pasa con lo que llega por encima de la mitad de la frecuencia de muestreo. Aquí se toman <b>tres decisiones encadenadas</b> —convertidor, acondicionamiento y muestreo— y ninguna se sostiene sin las otras dos.</p>
+  <div class="formula">LSB = V_REF/2ⁿ &nbsp;·&nbsp; código = ⌊v/LSB⌋ &nbsp;·&nbsp; v̂ = (código+½)·LSB &nbsp;·&nbsp; paso = LSB/(G·s) &nbsp;·&nbsp; bits útiles = n + log₂(uso) &nbsp;·&nbsp; f_plegada = |f − round(f/f_s)·f_s|</div>
+  <div class="legend">
+    <div class="li"><span class="dot" style="background:#8AB4F8"></span>Cuantización: el escalón y el error de ±½ LSB</div>
+    <div class="li"><span class="dot" style="background:#7CD992"></span>Rango: los bits que se pierden por no llenarlo</div>
+    <div class="li"><span class="dot" style="background:#C08CF8"></span>Ruido: el único criterio que castiga tener más bits</div>
+    <div class="li"><span class="dot" style="background:#E9C46A"></span>Muestreo: Nyquist, filtro antialias y ventana de adquisición</div>
+  </div>
+  <div class="fid">
+    <div class="ft">🔒 Contrato de fidelidad</div>
+    <div class="fl">Sí modela: cuantización uniforme por truncamiento y reconstrucción centrada de medio LSB, error de cuantización y su valor eficaz LSB/√12, pérdida de bits por rango desaprovechado, suma cuadrática del ruido de sensor, amplificador y convertidor, filtro antialias de dos polos reales iguales, plegado de frecuencias y establecimiento del muestreo y retención frente a la ventana de adquisición.</div>
+    <div class="fl no">NO modela: la no linealidad diferencial e integral del convertidor, los errores de cero y de ganancia, la deriva térmica de la referencia, el ruido de fase del reloj de muestreo, la diafonía entre canales del multiplexor, el sobremuestreo con conformado de ruido de un sigma-delta, ni el promediado digital posterior.</div>
+  </div>
+  <div class="src">Ref: Kester (Analog Devices), «Data Conversion Handbook» cap. 2 · IEEE Std 1241-2010 · Atmel ATmega328P datasheet §24 · Oppenheim y Schafer, «Discrete-Time Signal Processing» cap. 4 · verificación numérica propia (108/108)</div>`;
+el('panel').innerHTML=`
+  <h4>Banco de adquisición <span id="p_mode" class="tag">Explora</span></h4>
+  <div class="modebar">
+    <button class="b" id="m_explora">🔧 Explora</button>
+    <button class="b" id="m_aplica">🧩 Aplica</button>
+    <button class="b" id="m_reto">🎯 Reto</button>
+  </div>
+  <div id="scenarioInfo" class="console" style="display:none"></div>
+  <div class="modebar" id="selbar"></div>
+  <div id="tele"></div>
+  <div class="console" id="report"></div>
+  <h4 class="sec" id="retoTitle" style="display:none">Reto</h4>
+  <div id="retoBox" style="display:none">
+    <div id="retoSpec" class="console"></div>
+    <div class="btns"><button class="b" id="btnCheck">✅ Comprobar</button></div>
+  </div>
+  <h4 class="sec">Pregunta de ingeniería</h4>
+  <div id="q_text"></div>
+  <div class="btns" id="dxbtns"></div>
+  <div class="btns">
+    <button class="b" id="btnAuto">✨ Recorrido guiado (automático)</button>
+    <button class="b" id="btnNew">🔀 Nueva máquina</button>
+  </div>`;
+
+// ===================== 10. TOASTS =====================
+function showToast(html){const t=el('toast');t.innerHTML=html;t.classList.add('show');clearTimeout(showToast._t);showToast._t=setTimeout(()=>t.classList.remove('show'),4200);}
+
+// ===================== 11. MODOS Y CONTROLES =====================
+const MODE_META={
+  explora:{nombre:'Explora',cam:[[5.6,3.3,7.8],[0.7,1.05,0.3]],
+    mision:'Mueve el punto de la escala y cambia de convertidor: mira cómo el mismo valor físico cae en un escalón u otro.'},
+  aplica:{nombre:'Aplica',cam:[[4.6,3.1,6.8],[0.9,1.10,0.2]],
+    mision:'Tres criterios sobre el mismo punto de trabajo: resolución, ruido y muestreo. Ninguno se deduce de los otros.'},
+  reto:{nombre:'Reto',cam:[[4.2,2.9,6.2],[0.6,1.10,0.1]],
+    mision:'Elige convertidor, acondicionamiento y muestreo para la instalación que se te describe.'}};
+
+function lbl(t){return `<span class="lbl">${t}</span>`;}
+function optBtns(key,opts,cur){
+  return opts.map(([v,t])=>`<button class="b sm ${String(cur)===String(v)?'on':''}" data-${key}="${v}">${t}</button>`).join('');
+}
+function buildControls(){
+  const bar=el('selbar');bar.style.display='flex';bar.style.flexWrap='wrap';
+  const sc=curSc();let html='';
+  if(mode==='explora'){
+    html+=lbl('Máquina')+optBtns('sc',NOM_S.map((t,i)=>[i,t]),scIdx);
+    html+=lbl('Convertidor')+optBtns('adc',ADCK.map(k=>[k,ADC_SH[k]]),expAdc);
+    html+=lbl(MAGN[scIdx])+optBtns('xi',XFR.map((f,i)=>[i,fX(sc,sc.xMin+f*(sc.xMax-sc.xMin))]),expXi);
+  }else if(mode==='aplica'){
+    html+=lbl('Tema')+optBtns('tp',TOPICS,apTopic);
+    html+=lbl('Máquina')+optBtns('sc',NOM_S.map((t,i)=>[i,t]),scIdx);
+    html+=lbl('Convertidor')+optBtns('adc',ADCK.map(k=>[k,ADC_SH[k]]),apAdc);
+    html+=lbl('Acondicionamiento')+optBtns('cond',CONDK.map(k=>[k,COND_SH[k]]),apCond);
+    html+=lbl('Muestreo')+optBtns('mues',MUESK.map(k=>[k,MUES_SH[k]]),apMues);
+  }else{
+    html+=lbl('Convertidor')+optBtns('radc',ADCK.map(k=>[k,ADC_SH[k]]),retoCh.adc);
+    html+=lbl('Acondicionamiento')+optBtns('rcond',CONDK.map(k=>[k,COND_SH[k]]),retoCh.cond);
+    html+=lbl('Muestreo')+optBtns('rmues',MUESK.map(k=>[k,MUES_SH[k]]),retoCh.mues);
+  }
+  bar.innerHTML=html;
+  const wire=(attr,fn)=>bar.querySelectorAll('['+attr+']').forEach(b=>b.onclick=()=>{
+    if(autoRunning)return;fn(b.getAttribute(attr));synth.beep(720,0.05,0.04);afterEdit();});
+  wire('data-sc',v=>{scIdx=parseInt(v,10);expXi=3;syncSel();});
+  wire('data-adc',v=>{if(mode==='aplica')apAdc=v;else expAdc=v;});
+  wire('data-xi',v=>{expXi=parseInt(v,10);});
+  wire('data-tp',v=>{apTopic=v;});
+  wire('data-cond',v=>{apCond=v;});
+  wire('data-mues',v=>{apMues=v;});
+  wire('data-radc',v=>{retoSet('adc',v);});
+  wire('data-rcond',v=>{retoSet('cond',v);});
+  wire('data-rmues',v=>{retoSet('mues',v);});
+}
+function updateScenarioInfo(){
+  const box=el('scenarioInfo');box.style.display='block';
+  const i=mode==='reto'?retoK:scIdx,sc=curSc();
+  box.innerHTML=`<b style="color:${SCCOL[i]}">${NOM[i]}</b><br>`+
+    `<span class="mono">${MAGN[i]} · ${fX(sc,sc.xMin)} a ${fX(sc,sc.xMax)} ${UNI[i]} · paso ≤ ${fR(sc,sc.reqRes)} ${UNI[i]}</span><br>`+
+    `${SENS[i]}<br><span class="mono">Banda útil ${fHz(sc.fBw)} · interferencia ${fHz(sc.fInt)} de ${fmV(sc.vInt)} mV · plataforma hasta ${fSs(sc.fsMax)}</span>`;
+}
+function setMode(k){
+  mode=k;hwStep=0;
+  ['explora','aplica','reto'].forEach(m=>el('m_'+m).classList.toggle('on',m===k));
+  el('p_mode').textContent=MODE_META[k].nombre;
+  el('retoTitle').style.display=k==='reto'?'block':'none';
+  el('retoBox').style.display=k==='reto'?'block':'none';
+  if(k==='reto')updateRetoSpec();
+  buildControls();updateScenarioInfo();
+  solved=(k==='reto')?retoSolved:false;
+  clearDx();buildQuiz();refreshQuestion();
+  const cam=MODE_META[k].cam;S.moveTo(cam[0],cam[1]);
+  refreshAll();
+}
+function afterEdit(){buildControls();updateScenarioInfo();if(mode==='reto')updateRetoSpec();refreshAll();}
+function newSignal(){
+  scIdx=pickIdx(POOL.length,scIdx);expXi=3;syncSel();
+  retoK=pickIdx(POOL.length,retoK);seedReto(retoK);
+  synth.beep(520,0.08,0.05);hwStep=0;afterEdit();
+}
+
+// ===================== 12. TELEMETRÍA Y REPORTE =====================
+function teleRow(l,v,cls){return `<div class="trow"><span class="tl">${l}</span><span class="tv ${cls||''}">${v}</span></div>`;}
+function updateTele(){
+  const sc=curSc(),cfg=curCfg(),a=ADCS[cfg.adc],cd=CONDS[cfg.cond],m=MUES[cfg.mues],r=runC(sc,cfg);
+  const uni=mode==='reto'?UNI[retoK]:UNI[scIdx];
+  let h='';
+  h+=teleRow('Convertidor',ADC_SH[cfg.adc]);
+  h+=teleRow('LSB = V_REF/2ⁿ',fmV(r.lsb)+' mV');
+  h+=teleRow('Paso físico',fR(sc,r.res)+' '+uni,r.resOk?'ok':'dtc');
+  h+=teleRow('Uso del rango',pctS(r.uso),r.usoOk?'ok':'dtc');
+  h+=teleRow('Bits útiles',n2(r.enob)+' de '+a.n);
+  h+=teleRow('Ruido σ',fmV(r.vn)+' mV',r.ruidoOk?'ok':'dtc');
+  h+=teleRow('Sobremuestreo f_s/B',n1(m.fs/sc.fBw),r.nyqOk?'ok':'dtc');
+  h+=teleRow('Residuo de alias',n4(r.va*1000)+' mV',r.aliasOk?'ok':'dtc');
+  h+=teleRow('Ventana · establecimiento',fus(r.ta)+' / '+fus(r.ts)+' µs',r.setOk?'ok':'dtc');
+  if(mode==='explora'){
+    const x=expX(),v=vCond(sc,cd,x),code=codeOf(v,a);
+    h+=teleRow(MAGN[scIdx],fX(sc,x)+' '+uni);
+    h+=teleRow('Tensión al ADC',fmV(v)+' mV');
+    h+=teleRow('Código',n0(code)+'  ('+bin(code,a)+')');
+    h+=teleRow('Reconstruido',fR(sc,xHat(code,a,sc,cd))+' '+uni);
+  }
+  el('tele').innerHTML=h;
+}
+function updateReport(){
+  const sc=curSc(),cfg=curCfg(),a=ADCS[cfg.adc],cd=CONDS[cfg.cond],r=runC(sc,cfg);
+  const uni=mode==='reto'?UNI[retoK]:UNI[scIdx];
+  let html=`<b>${MODE_META[mode].mision}</b><br>`;
+  if(mode==='explora'){
+    const x=expX(),v=vCond(sc,cd,x),code=codeOf(v,a),xh=xHat(code,a,sc,cd);
+    html+=`<span class="mono">${fX(sc,x)} ${uni} → ${fmV(v)} mV → código ${n0(code)} → ${fR(sc,xh)} ${uni}</span><br>`;
+    html+=`El escalón vale ${fmV(r.lsb)} mV, es decir ${fR(sc,r.res)} ${uni}. `;
+    html+=r.resOk?`Con eso se cumple el paso exigido de ${fR(sc,sc.reqRes)} ${uni}.`
+                 :`No alcanza: se exigen ${fR(sc,sc.reqRes)} ${uni}.`;
+    html+=`<br>El acondicionamiento (${COND_SH[cfg.cond]}) y el muestreo (${MUES_SH[cfg.mues]}) son los de la máquina y no cambian en este modo.`;
+  }else if(mode==='aplica'){
+    if(apTopic==='resolucion'){
+      html+=`<span class="mono">LSB ${fmV(r.lsb)} mV · paso ${fR(sc,r.res)} ${uni} · uso ${pctS(r.uso)} · ${n2(r.enob)} bits útiles</span><br>`;
+      html+=`Dejar rango sin usar cuesta bits: de los ${a.n} del convertidor quedan ${n2(r.enob)}.`;
+    }else if(apTopic==='ruido'){
+      html+=`<span class="mono">σ ${fmV(r.vn)} mV · 2σ ${fmV(2*r.vn)} mV · LSB ${fmV(r.lsb)} mV</span><br>`;
+      html+=r.ruidoOk?`El escalón todavía pesa más que el ruido: los códigos significan algo.`
+                     :`El escalón ya pesa menos que dos sigmas: los últimos bits sólo cuentan ruido.`;
+      html+=` Con esta cadena la referencia deja de dar bits nuevos a partir de ${n2(nUtilRuido(a,r.vn))}.`;
+    }else{
+      html+=`<span class="mono">f_s ${fSs(MUES[cfg.mues].fs)} · f_c ${fHz(MUES[cfg.mues].fc)} · residuo ${n4(r.va*1000)} mV · se pliega a ${fHz(r.fAlias)}</span><br>`;
+      html+=`La interferencia de ${fHz(sc.fInt)} llega al convertidor `;
+      html+=r.aliasOk?`atenuada por debajo de medio LSB.`:`por encima de medio LSB: entra en la medida.`;
+    }
+  }else{
+    html+=retoChecked?retoMsg:`Configuración actual: ${ADC_SH[cfg.adc]} · ${COND_SH[cfg.cond]} · ${MUES_SH[cfg.mues]}.`;
+  }
+  el('report').innerHTML=html;
+}
+function refreshAll(){framesCache=null;drawBoard();updateTele();updateReport();updateHW();}
+
+// ===================== 13. RETO =====================
+function firstWrong(list,okFn){for(const k of list){if(!okFn(k))return k;}return list[0];}
+function seedReto(k){
+  retoK=(k===undefined||k===null)?pickIdx(POOL.length,retoK):k;
+  const sc=POOL[retoK];
+  retoCh={adc:firstWrong(ADCK,q=>okAdc(sc,q)),
+          cond:firstWrong(CONDK,q=>okCond(sc,q)),
+          mues:firstWrong(MUESK,q=>okMues(sc,q))};
+  retoChecked=false;retoSolved=false;retoMsg='';solved=false;
+  retoOkAdc=false;retoOkCond=false;retoOkMues=false;
+}
+function retoSet(field,v){retoCh[field]=v;retoChecked=false;retoSolved=false;solved=false;}
+function updateRetoSpec(){
+  const sc=retoSc();
+  el('retoSpec').innerHTML=
+    `<b style="color:${SCCOL[retoK]}">${NOM[retoK]}</b><br>`+
+    `${MAQ[retoK]}<br>`+
+    `<span class="mono">Paso ≤ ${fR(sc,sc.reqRes)} ${UNI[retoK]} · banda útil ${fHz(sc.fBw)} · interferencia ${fHz(sc.fInt)} de ${fmV(sc.vInt)} mV · plataforma hasta ${fSs(sc.fsMax)}`+
+    `${sc.ruidoAlim?' · alimentación sucia':''}${sc.ratio?' · medida ratiométrica':''}</span><br>`+
+    `Elige las tres: convertidor, acondicionamiento y muestreo.`+
+    (retoChecked?`<br>${retoMsg}`:'');
+}
+function whyCfg(sc,cfg){
+  const a=ADCS[cfg.adc],c=CONDS[cfg.cond],m=MUES[cfg.mues];
+  if(!guardAdc(sc,cfg.adc))
+    return a.ref==='Vcc'?'la referencia sería la propia alimentación, y en esta máquina está sucia: todo lo que la mueva se cuela en la medida'
+                        :'la medida es ratiométrica y sólo tiene sentido si la referencia es la misma alimentación que excita al sensor';
+  if(!guardCond(sc,cfg.cond,cfg.adc)){
+    const lo=spanLo(sc,c),hi=spanHi(sc,c);
+    if(hi>a.vref)return 'la señal amplificada llega a '+n3(hi)+' V y el convertidor sólo admite hasta '+n3(a.vref)+' V';
+    if(lo<0)return 'la señal amplificada baja de 0 V y este convertidor es unipolar';
+    return 'el amplificador no puede sacar '+n3(lo)+' … '+n3(hi)+' V con una sola alimentación: su excursión va de '+n3(V_SWING_LO)+' a '+n3(V_SWING_HI)+' V';
+  }
+  if(!guardMues(sc,cfg.mues)){
+    if(m.fs>sc.fsMax)return 'la plataforma no pasa de '+fSs(sc.fsMax)+' y se piden '+fSs(m.fs);
+    return 'con el corte en '+fHz(m.fc)+' el filtro se come la banda útil: en '+fHz(sc.fBw)+' ya sólo queda '+n3(att(sc.fBw,m.fc))+' de la señal';
+  }
+  const r=runC(sc,cfg),fal=[];
+  if(!r.resOk)fal.push('el escalón vale '+fR(sc,r.res)+' '+uniOf(sc)+' y se exigen '+fR(sc,sc.reqRes));
+  if(!r.usoOk)fal.push('la señal sólo ocupa el '+pctS(r.uso)+' del rango: se tiran '+n2(-Math.log2(r.uso))+' bits');
+  if(!r.ruidoOk)fal.push('el escalón de '+fmV(r.lsb)+' mV pesa menos que dos sigmas de ruido ('+fmV(2*r.vn)+' mV): los últimos bits sólo cuentan ruido');
+  if(!r.nyqOk)fal.push('con '+fSs(m.fs)+' sobre una banda de '+fHz(sc.fBw)+' el sobremuestreo es '+n1(m.fs/sc.fBw)+' y hacen falta '+OS_MIN);
+  if(!r.aliasOk)fal.push('la interferencia de '+fHz(sc.fInt)+' llega con '+n4(r.va*1000)+' mV, por encima del medio LSB de '+n4(r.lsb*500)+' mV, y se pliega a '+fHz(r.fAlias));
+  const out=fal.slice(0,1);
+  // el asentamiento del S&H no es un defecto de calidad numérica sino de captura: si falla se dice SIEMPRE
+  if(!r.setOk)out.push('el condensador de retención necesita '+fus(r.ts)+' µs y la ventana sólo dura '+fus(r.ta)+' µs');
+  if(out.length)return out.join('; y además, ');
+  return 'cumple los seis criterios con la referencia, la excursión y la banda en regla';
+}
+function retoExplain(){
+  const sc=retoSc(),parts=[];
+  parts.push(retoOkAdc?'Convertidor correcto.':'Convertidor: '+whyCfg(sc,cfgWith(sc,{adc:retoCh.adc}))+'.');
+  parts.push(retoOkCond?'Acondicionamiento correcto.':'Acondicionamiento: '+whyCfg(sc,cfgWith(sc,{cond:retoCh.cond}))+'.');
+  parts.push(retoOkMues?'Muestreo correcto.':'Muestreo: '+whyCfg(sc,cfgWith(sc,{mues:retoCh.mues}))+'.');
+  return parts.join(' ');
+}
+function checkReto(){
+  const sc=retoSc();
+  retoOkAdc=okAdc(sc,retoCh.adc);
+  retoOkCond=okCond(sc,retoCh.cond);
+  retoOkMues=okMues(sc,retoCh.mues);
+  retoSolved=retoOkAdc&&retoOkCond&&retoOkMues;
+  retoChecked=true;solved=retoSolved;
+  synth.beep(retoSolved?1046:220,retoSolved?0.14:0.15,0.06);
+  retoMsg=`<span class="mono"><span class="${retoSolved?'ok':'dtc'}">${retoSolved?'✔ Correcto':'✗ Revisa'}</span> — ${retoExplain()}</span>`;
+  updateRetoSpec();refreshAll();
+}
+
+// ===================== 14. QUIZ =====================
+function buildQuiz(){
+  // Los enunciados citan cifras SELLADAS del volcado numerico: no dependen del estado.
+  QUIZ={
+    explora:{p:'El horno pide un paso de 0,25 °C con el amplificador ×100. Con 12 bits y V_REF = 5 V el paso sale 0,298 °C; con 12 bits y V_REF = 2,560 V sale 0,152 °C. ¿Qué explica la diferencia?',
+      opciones:[
+        {t:'El escalón vale V_REF/2ⁿ: con la misma cantidad de bits, bajar la referencia lo achica, y el paso físico es ese escalón dividido entre la ganancia por la sensibilidad.',ok:true,
+         why:'Exacto: 1,221 mV / (100 · 41 µV/°C) = 0,298 °C frente a 0,625 mV / 4,1 mV/°C = 0,152 °C. Lo que resuelve no es el número de bits, es el tamaño del escalón frente a la sensibilidad.'},
+        {t:'Una referencia interna siempre es más exacta que la alimentación, y por eso el paso mejora.',ok:false,
+         why:'La exactitud de la referencia es otro problema (afecta al error de ganancia). Aquí lo que cambia es el TAMAÑO del escalón, no su exactitud.'},
+        {t:'Con V_REF = 5 V la señal satura el convertidor y se pierden códigos.',ok:false,
+         why:'No satura: el termopar amplificado llega a 2,050 V, muy por debajo de 5 V. Lo que ocurre es que sólo se usa el 36,9 % del rango.'},
+        {t:'A 12 bits el ruido ya domina y por eso el paso empeora.',ok:false,
+         why:'Con esta cadena 2σ vale 0,490 mV, por debajo del LSB de 1,221 mV. El ruido todavía no manda; el problema es el tamaño del escalón.'}]},
+    aplica:{p:'En el molino, pasar de 10 a 12 bits con V_REF = 5 V afina el paso de 0,244 A a 0,061 A. Aun así, el banco rechaza los 12 bits. ¿Por qué?',
+      opciones:[
+        {t:'Porque el LSB baja a 1,221 mV y el ruido de la cadena vale 2σ = 1,697 mV: los dos últimos bits ya sólo digitalizan ruido.',ok:true,
+         why:'Correcto, y es el único criterio de todo el banco que castiga tener MÁS bits. Bajar σ (promediar, filtrar, apantallar) sí da bits; subir n, no.'},
+        {t:'Porque con 12 bits la señal deja de caber en el rango del convertidor.',ok:false,
+         why:'El rango no depende de n: la señal sigue ocupando el 56 % con 5 V de referencia. Lo que cambia es el tamaño del escalón.'},
+        {t:'Porque a 12 bits el establecimiento del muestreo y retención ya no cabe en la ventana.',ok:false,
+         why:'Con seguidor, el establecimiento pasa de 0,109 a 0,117 µs frente a una ventana de 50 µs: sobra margen. No es ése el criterio que falla.'},
+        {t:'Porque con más bits la interferencia de 16 kHz se pliega a una frecuencia distinta.',ok:false,
+         why:'El plegado depende sólo de f_s: 16 kHz con 5 kS/s cae en 1 kHz sin importar cuántos bits tenga el convertidor.'}]},
+    reto:{p:'¿Por qué el criterio de Nyquist y el filtro antialias no son la misma condición?',
+      opciones:[
+        {t:'Porque f_s se fija frente a la banda ÚTIL y el filtro decide cuánto queda de lo que está FUERA de ella; cumplir uno no dice nada del otro.',ok:true,
+         why:'Así es. En la línea hidráulica, 200 S/s sobre 30 Hz cumple Nyquist de sobra, y aun así los 4 kHz del variador se pliegan a 0 Hz exactos: sólo el filtro de 80 Hz impide que aparezcan como un error de calibración.'},
+        {t:'Son la misma condición escrita de dos maneras: si f_s ≥ 2B, el filtro sobra.',ok:false,
+         why:'Nyquist habla de la señal que se quiere medir; el alias lo produce lo que NO se quiere medir. Sin filtro, cualquier interferencia por encima de f_s/2 vuelve plegada y ya no se puede separar.'},
+        {t:'El filtro sólo sirve para bajar el ruido; el alias se corrige después por software.',ok:false,
+         why:'Una vez plegada, la interferencia ocupa exactamente las mismas frecuencias que la señal. Ningún filtro digital posterior puede distinguirlas.'},
+        {t:'Basta con muestrear mucho más rápido: con f_s alta el alias desaparece.',ok:false,
+         why:'Muestrear más rápido aleja el plegado, pero la interferencia sigue entrando. En el rodamiento, los 150 kHz de la fuente conmutada se pliegan a 0 Hz incluso con 50 kS/s.'}]}};
+  Object.values(QUIZ).forEach(q=>{
+    for(let i=q.opciones.length-1;i>0;i--){
+      const j=Math.floor(Math.random()*(i+1));
+      const tmp=q.opciones[i];q.opciones[i]=q.opciones[j];q.opciones[j]=tmp;
+    }
+  });
+}
+function clearDx(){const box=el('dxbtns');if(box)box.innerHTML='';}
+function refreshQuestion(){
+  const q=QUIZ[mode];if(!q)return;
+  el('q_text').innerHTML=`<div class="qz">${q.p}</div>`;
+  const box=el('dxbtns');
+  box.innerHTML=q.opciones.map((o,i)=>`<button class="b sm" data-i="${i}">${o.t}</button>`).join('');
+  box.querySelectorAll('[data-i]').forEach(b=>b.onclick=()=>answer(parseInt(b.dataset.i,10)));
+}
+function answer(i){
+  const q=QUIZ[mode];if(!q)return;
+  const o=q.opciones[i];if(!o)return;
+  synth.beep(o.ok?880:200,0.1,0.05);
+  showToast((o.ok?'✔ ':'✗ ')+o.why);
+}
+
+// ===================== 15. PICKING Y HOVER =====================
+pickerFor(scene,S.camera,S.renderer.domElement,hit=>{
+  if(!hit)return;
+  if(hit.object===board){boardClick();return;}
+  let o=hit.object;
+  while(o){if(o.userData&&o.userData.title){showToast('<b>'+o.userData.title+'</b><br>'+(o.userData.info||''));return;}o=o.parent;}
+});
+(function hoverLoop(){
+  const ray=new THREE.Raycaster();const ptr=new THREE.Vector2();let has=false;
+  S.renderer.domElement.addEventListener('pointermove',e=>{
+    const r=S.renderer.domElement.getBoundingClientRect();
+    ptr.x=((e.clientX-r.left)/r.width)*2-1;ptr.y=-((e.clientY-r.top)/r.height)*2+1;has=true;
+  });
+  function tick(){
+    requestAnimationFrame(tick);
+    if(!has)return;
+    ray.setFromCamera(ptr,S.camera);
+    const hits=ray.intersectObjects(scene.children,true);
+    let found=null;
+    if(hits.length){let o=hits[0].object;while(o){if(HOVER_LABELS.has(o)){found=o;break;}o=o.parent;}}
+    HOVER_LABELS.forEach((spr,obj)=>{spr.visible=(obj===found);});
+    S.renderer.domElement.style.cursor=found?'pointer':'default';
+  }
+  tick();
+})();
+
+// ===================== 16. RECORRIDO AUTOMÁTICO =====================
+function sleep(ms){return new Promise(r=>setTimeout(r,ms));}
+async function runAuto(){
+  if(autoRunning)return;autoRunning=true;
+  const btn=el('btnAuto'),label=btn.textContent;
+  btn.disabled=true;btn.classList.add('on');btn.textContent='⏳ Recorriendo…';
+  try{
+    synth.init();synth.resume();clearDx();
+
+    // ---------- EXPLORA
+    setMode('explora');
+    scIdx=0;syncSel();expXi=3;afterEdit();
+    showToast('🔧 Horno de revenido. El termopar da 41,0 µV por grado; amplificado ×100, la escala de 50 a 500 °C ocupa de 0,205 a 2,050 V.');
+    await sleep(4600);
+    showToast('El convertidor de 12 bits con referencia interna de 2,560 V parte ese rango en 4 096 escalones: LSB = 2,560 V / 4 096 = <b>0,625 mV</b>.');
+    await sleep(4800);
+    showToast('A 288,50 °C la entrada vale 1 182,850 mV y el código sale <b>1 892</b>. Reconstruido en el centro del escalón: 288,491 °C, nueve milésimas de error.');
+    await sleep(5200);
+    showToast('El escalón de 0,625 mV son <b>0,152 °C</b> de paso físico, y la máquina exige 0,25 °C. Alcanza con margen.');
+    await sleep(4600);
+    expAdc='b10v256';afterEdit();
+    showToast('Bajemos a 10 bits con la misma referencia: el escalón se cuadruplica a 2,500 mV y el paso sube a <b>0,610 °C</b>. Ya no cumple.');
+    await sleep(5200);
+    expAdc='b12v5';afterEdit();
+    showToast('Volvamos a 12 bits, pero con V_REF = 5 V: los MISMOS bits dan 1,221 mV y <b>0,298 °C</b>, que tampoco cumple los 0,25. Lo que resuelve no es n, es el escalón frente a la sensibilidad.');
+    await sleep(5400);
+    expAdc='b12v256';afterEdit();
+    answer(QUIZ[mode].opciones.findIndex(o=>o.ok));
+    await sleep(2600);
+
+    // ---------- APLICA
+    setMode('aplica');
+    scIdx=0;syncSel();apTopic='resolucion';afterEdit();
+    showToast('🧩 Primer criterio: el rango. Con ×100 la señal ocupa el <b>72,07 %</b> de los 2,560 V, y de los 12 bits quedan 11,53 útiles.');
+    await sleep(4800);
+    apCond='amp20';afterEdit();
+    showToast('Con ×20 la señal sólo llega a 0,410 V: el <b>14,41 %</b> del rango. Se tiran 2,79 bits y el paso se va a 0,762 °C. Rango y resolución son la misma desigualdad.');
+    await sleep(5400);
+    scIdx=2;syncSel();apTopic='ruido';afterEdit();
+    showToast('📶 Segundo criterio: el ruido. En el molino, el shunt amplificado ×20 deja σ = <b>0,849 mV</b>; el LSB de 10 bits vale 4,883 mV y aguanta.');
+    await sleep(5000);
+    apAdc='b12v5';afterEdit();
+    showToast('Subamos a 12 bits: el escalón cae a 1,221 mV, por debajo de los <b>1,697 mV</b> de dos sigmas. Es el único criterio del banco que castiga tener MÁS bits.');
+    await sleep(5400);
+    apAdc='b10v5';scIdx=1;syncSel();apTopic='muestreo';afterEdit();
+    showToast('⏱️ Tercer criterio: el muestreo. En la hidráulica el variador mete 25 mV a 4 kHz, muy por encima de la banda útil de 30 Hz.');
+    await sleep(4800);
+    apMues='m5k';afterEdit();
+    showToast('Con 5 kS/s el filtro de 2 kHz deja pasar el 20 %: <b>5,000 mV</b>, ocho veces el medio LSB. Y se pliega a 1 kHz, dentro de lo que se quiere medir.');
+    await sleep(5400);
+    apMues='m200';afterEdit();
+    showToast('Con 200 S/s el filtro de 80 Hz lo deja en <b>0,010 mV</b>. Ojo: se pliega a <b>0 Hz exactos</b>. Sin ese filtro sería un error de calibración que nadie sospecharía.');
+    await sleep(5600);
+    answer(QUIZ[mode].opciones.findIndex(o=>o.ok));
+    await sleep(2600);
+
+    // ---------- RETO
+    setMode('reto');
+    seedReto(0);updateRetoSpec();afterEdit();
+    showToast('🎯 Reto: el horno, con la alimentación sucia por los contactores. La configuración de partida está mal en las tres decisiones.');
+    await sleep(4200);
+    checkReto();
+    await sleep(5000);
+    retoCh={...GOOD(retoSc())};retoChecked=false;retoSolved=false;solved=false;afterEdit();
+    showToast('✔ 12 bits con referencia interna (la alimentación no sirve de referencia), ×100 para llenar el rango y 10 S/s con filtro de 4 Hz para una banda de 1,5 Hz.');
+    await sleep(5200);
+    checkReto();
+    await sleep(2600);
+    answer(QUIZ[mode].opciones.findIndex(o=>o.ok));
+  }finally{
+    btn.disabled=false;btn.classList.remove('on');btn.textContent=label;autoRunning=false;
+  }
+}
+
+// ===================== 17. ANIMACIÓN, EVENTOS E INICIO =====================
+S.setAnimate((dt)=>{hwT+=dt;if(hwT>0.12){hwT=0;hwStep=(hwStep+1)%hwCount();updateHW();}});
+['explora','aplica','reto'].forEach(m=>{el('m_'+m).onclick=()=>{if(!autoRunning)setMode(m);};});
+el('btnAuto').onclick=()=>{if(!autoRunning)runAuto();};
+el('btnNew').onclick=()=>{if(autoRunning)return;newSignal();};
+el('btnCheck').onclick=()=>{if(autoRunning)return;checkReto();};
+const soundBtn=el('soundBtn');
+if(soundBtn){soundBtn.onclick=()=>{synth.toggle();soundBtn.textContent=synth.isOn()?'🔊':'🔇';};}
+document.addEventListener('pointerdown',()=>{synth.init();synth.resume();},{once:true});
+
+seedReto(0);buildQuiz();S.start();setMode('explora');
+
+// ===================== DEBUG HOOK =====================
+window.__labDebug={
+  mode:()=>mode,setMode:k=>setMode(k),
+  POOL,ADCS,ADCK,CONDS,CONDK,MUES,MUESK,
+  USE_MIN,OS_MIN,K_RUIDO,K_ACQ,ATT_BW,VN_ADC,C_SH,R_MUX,V_SWING_LO,V_SWING_HI,
+  lsbOf,nCodes,vSens,vCond,spanLo,spanHi,rOut,codeOf,vHat,xHat,qErr,
+  resFis,usoOf,enobUso,vRuido,att,fold,vAlias,tAcq,tauSH,tSet,
+  guardAdc,guardCond,guardMues,runC,cfgOk,GOOD,cfgWith,okAdc,okCond,okMues,
+  nUtilRuido,qRms,fcMin,
+  scIdx:()=>scIdx,setSc:i=>{scIdx=i;expXi=3;syncSel();afterEdit();},
+  expAdc:()=>expAdc,setExpAdc:k=>{expAdc=k;afterEdit();},
+  expXi:()=>expXi,setExpXi:i=>{expXi=i;afterEdit();},
+  expX:()=>expX(),
+  apTopic:()=>apTopic,setApTopic:t=>{apTopic=t;afterEdit();},
+  apAdc:()=>apAdc,setApAdc:k=>{apAdc=k;afterEdit();},
+  apCond:()=>apCond,setApCond:k=>{apCond=k;afterEdit();},
+  apMues:()=>apMues,setApMues:k=>{apMues=k;afterEdit();},
+  curCfg:()=>curCfg(),curScName:()=>curSc().name,curRun:()=>runC(curSc(),curCfg()),
+  retoK:()=>retoK,seedReto:k=>{seedReto(k);updateRetoSpec();afterEdit();},
+  retoName:()=>retoSc().name,retoGet:()=>({...retoCh}),
+  retoSet:(f,v)=>{retoSet(f,v);afterEdit();},
+  retoSolveBuild:()=>{retoCh={...GOOD(retoSc())};retoChecked=false;retoSolved=false;solved=false;afterEdit();},
+  checkReto:()=>checkReto(),
+  retoChecked:()=>retoChecked,retoOkAdc:()=>retoOkAdc,retoOkCond:()=>retoOkCond,
+  retoOkMues:()=>retoOkMues,retoSolved:()=>retoSolved,
+  whyCfg:(sc,cfg)=>whyCfg(sc,cfg),
+  quizCorrectIndex:()=>{const q=QUIZ[mode];return q?q.opciones.findIndex(o=>o.ok):-1;},
+  quizAnswer:i=>answer(i),
+  frames:()=>frames(),newSignal:()=>newSignal(),solved:()=>solved};
+</script>
+  <!-- Ficha técnica · Capa B del molde de lab 3D (componente compartido + contenido del lab) -->
+  <script src="_ficha-tecnica.js"></script>
+  <script src="_ficha-adc-cuantizacion.js"></script>
+</body>
+</html>

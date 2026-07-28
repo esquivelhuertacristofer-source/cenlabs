@@ -1,0 +1,9 @@
+{
+  "donor": "escaner-obd.html",
+  "out": "adc-cuantizacion.html",
+  "title": "CEN Labs · Adquisición de sensores: el convertidor A/D y la cuantización — Laboratorio 3D",
+  "lt": "Sistemas Digitales y Automatización · Instrumentación electrónica",
+  "inspectHint": "👆 Toca el sensor, el amplificador, el muestreo y retención, el convertidor o el panel de instrumentos para inspeccionarlos",
+  "body": "adc-cuantizacion.body.js",
+  "fichas": ["_ficha-tecnica.js", "_ficha-adc-cuantizacion.js"]
+}
