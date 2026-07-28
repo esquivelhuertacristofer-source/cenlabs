@@ -1,0 +1,1845 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>CEN Labs · PWM desde el microcontrolador: velocidad de un motor de CD — Laboratorio 3D</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#08201C;--panel:rgba(9,26,23,.86);--line:#1E3A34;--ink:#EAF4F1;
+    --dim:#8FB3AC;--accent:#2A9D8F;--accent2:#4FD1C5;--hv:#FFB703;--good:#34d399;--bad:#f4475e;
+    --mono:'Outfit',system-ui,'Segoe UI',Roboto,sans-serif;--disp:'Outfit','Arial Black',Impact,sans-serif;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  html,body{height:100%;background:var(--bg);color:var(--ink);font-family:'Outfit',system-ui,Segoe UI,Roboto,sans-serif}
+  body{overflow:hidden}
+  #stage{position:fixed;inset:0}
+  canvas{display:block;touch-action:none}
+
+  .topbar{position:fixed;top:0;left:0;right:0;height:56px;display:flex;align-items:center;gap:14px;padding:0 20px;z-index:20;background:linear-gradient(180deg,rgba(10,13,18,.92),transparent);pointer-events:none}
+  .brand{font-family:var(--disp);font-weight:bold;font-size:16px;text-transform:uppercase}
+  .brand span{color:var(--accent)}
+  .lt{font-family:var(--mono);font-size:11px;letter-spacing:.1em;text-transform:uppercase;color:var(--dim)}
+
+  .badge{position:fixed;top:16px;right:20px;z-index:20;font-family:var(--mono);font-size:9px;letter-spacing:.12em;text-transform:uppercase;background:rgba(255,209,102,.12);color:var(--hv);border:1px solid rgba(255,209,102,.35);padding:6px 12px;border-radius:20px}
+
+  .hud{position:fixed;top:70px;left:18px;z-index:15;max-width:330px;background:var(--panel);backdrop-filter:blur(14px);border:1px solid var(--line);border-radius:16px;padding:18px 20px;max-height:calc(100vh - 150px);overflow-y:auto}
+  .hud .eyebrow{font-family:var(--mono);font-size:10px;letter-spacing:.18em;text-transform:uppercase;color:var(--accent);margin-bottom:8px}
+  .hud h2{font-size:19px;line-height:1.15;margin-bottom:9px}
+  .hud p{font-size:13px;line-height:1.55;color:var(--dim);margin-bottom:10px}
+  .hud .formula{font-family:var(--mono);color:var(--accent2);text-align:center;font-size:12.5px;margin:8px 0;padding:8px;background:rgba(0,0,0,.25);border-radius:8px;line-height:1.5}
+  .hud .src{font-size:10.5px;color:#7a8894;font-style:italic;margin-top:4px;line-height:1.5}
+  .legend{display:flex;flex-direction:column;gap:6px;margin:12px 0;padding:10px 12px;background:rgba(0,0,0,.22);border-radius:10px}
+  .legend .li{display:flex;align-items:center;gap:8px;font-size:11px;color:#c4d0da}
+  .legend .dot{width:10px;height:10px;border-radius:50%;flex:0 0 auto}
+  .fid{margin:10px 0 2px;padding:10px 12px;background:rgba(0,0,0,.22);border-radius:10px;border:1px solid rgba(79,209,197,.18)}
+  .fid .ft{font-family:var(--mono);font-size:9.5px;letter-spacing:.14em;text-transform:uppercase;color:var(--accent2);margin-bottom:6px}
+  .fid .fl{font-size:11px;color:#c4d0da;line-height:1.5;margin-bottom:5px}
+  .fid .fl b{color:var(--ink)}
+  .fid .fl.no b{color:var(--hv)}
+
+  .panel{position:fixed;top:70px;right:18px;z-index:15;width:262px;background:var(--panel);backdrop-filter:blur(14px);border:1px solid var(--line);border-radius:16px;padding:16px;max-height:calc(100vh - 150px);overflow-y:auto}
+  .panel h4{font-family:var(--mono);font-size:10px;letter-spacing:.14em;text-transform:uppercase;color:var(--dim);margin:2px 0 10px}
+  .panel h4.sec{margin-top:16px;border-top:1px solid var(--line);padding-top:14px}
+  .g{margin-bottom:6px}
+  .gl{display:flex;justify-content:space-between;font-family:var(--mono);font-size:11px;color:var(--dim)}
+  .gl b{color:var(--accent2)}
+  .gl b.good{color:var(--good)}.gl b.warn{color:var(--hv)}.gl b.bad{color:var(--bad)}
+  .modebar{display:flex;gap:5px;margin-bottom:8px}
+  .modebar .b{flex:1;padding:8px 4px;font-size:11px}
+  .btns{display:flex;flex-direction:column;gap:7px;margin-top:6px}
+  .b{font-family:system-ui;font-size:12.5px;padding:10px;border-radius:9px;cursor:pointer;border:1px solid var(--line);background:#1b242f;color:var(--ink);transition:.15s;text-align:center}
+  .b:hover{border-color:var(--accent);background:#202c38}
+  .b.on{background:var(--accent);color:#06120f;border-color:var(--accent);font-weight:bold}
+  .b.primary{background:var(--accent);color:#06120f;border-color:var(--accent);font-weight:bold}
+  .b.auto{border-color:var(--hv);color:var(--hv);background:rgba(255,183,3,.10);font-weight:bold}
+  .b.auto:hover{background:rgba(255,183,3,.18);border-color:var(--hv)}
+  .b.auto:disabled{opacity:.6;cursor:default}
+  .b.dx{text-align:left;font-size:12px}
+  .b.dx.right{background:rgba(52,211,153,.18);border-color:var(--good);color:var(--good);font-weight:bold}
+  .b.dx.wrong{background:rgba(244,71,94,.15);border-color:var(--bad);color:var(--bad)}
+  .console{font-family:var(--mono);font-size:11px;line-height:1.55;color:#c4d0da;background:rgba(0,0,0,.28);border-radius:9px;padding:10px 12px;margin-bottom:8px;min-height:56px}
+  .console .dtc{color:var(--bad);font-weight:bold}
+  .console .ok{color:var(--good)}
+  .console .mono{color:var(--dim)}
+
+  .hint{position:fixed;bottom:18px;left:18px;z-index:14;font-family:var(--mono);font-size:10px;color:var(--dim);background:var(--panel);padding:7px 12px;border-radius:9px;border:1px solid var(--line)}
+  .toast{position:fixed;top:80px;left:50%;transform:translateX(-50%);z-index:30;background:rgba(18,24,32,.95);border:1px solid var(--accent);padding:10px 20px;border-radius:40px;font-family:var(--mono);font-size:12px;opacity:0;transition:.3s;pointer-events:none;max-width:80vw;text-align:center}
+  .toast.show{opacity:1}
+  .soundBtn{position:fixed;top:14px;right:18px;z-index:21;font-size:16px;background:var(--panel);backdrop-filter:blur(12px);border:1px solid var(--line);border-radius:50%;width:36px;height:36px;cursor:pointer;color:var(--dim);transition:.15s}
+  .soundBtn.on{color:var(--accent);border-color:var(--accent)}
+  .soundBtn:hover{transform:scale(1.08)}
+  .inspectHint{position:fixed;bottom:18px;right:18px;z-index:14;font-family:var(--mono);font-size:10px;color:var(--accent2);background:var(--panel);padding:7px 12px;border-radius:9px;border:1px solid var(--line)}
+
+  @media(max-width:820px){
+    .hud,.panel{position:fixed;left:8px;right:8px;top:auto;bottom:8px;max-width:none;width:auto;max-height:42vh;overflow-y:auto}
+    .hud{bottom:calc(8px + 42vh + 8px)}
+    .hint,.inspectHint{display:none}
+  }
+</style>
+</head>
+<body>
+<div id="stage"></div>
+<button class="soundBtn on" id="soundBtn">🔊</button>
+<div class="topbar">
+  <div class="brand">CEN<span> Labs</span></div>
+  <div class="lt">Sistemas Digitales y Automatización · Electrónica de potencia</div>
+</div>
+<div class="hud" id="hud"></div>
+<div class="panel" id="panel"></div>
+<div class="hint">Arrastra para orbitar · rueda para zoom</div>
+<div class="inspectHint">👆 Toca la tarjeta del MCU, el driver, el puente en H, el motor o el panel de instrumentos para inspeccionarlos</div>
+<div class="toast" id="toast"></div>
+
+<script type="importmap">
+{ "imports": {
+  "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.min.js",
+  "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/"
+}}
+</script>
+<script type="module">
+import * as THREE from 'three';
+import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
+import { RoundedBoxGeometry } from 'three/addons/geometries/RoundedBoxGeometry.js';
+import { EffectComposer } from 'three/addons/postprocessing/EffectComposer.js';
+import { RenderPass } from 'three/addons/postprocessing/RenderPass.js';
+import { GTAOPass } from 'three/addons/postprocessing/GTAOPass.js';
+import { UnrealBloomPass } from 'three/addons/postprocessing/UnrealBloomPass.js';
+import { SMAAPass } from 'three/addons/postprocessing/SMAAPass.js';
+import { OutputPass } from 'three/addons/postprocessing/OutputPass.js';
+import { BokehPass } from 'three/addons/postprocessing/BokehPass.js';
+
+/* ============================================================
+   Texturas PBR procedurales (sin archivos externos) — compartidas
+   ============================================================ */
+function cv(s=512){const c=document.createElement('canvas');c.width=c.height=s;return c;}
+function tex(canvas,repeat=1,srgb=false){
+  const t=new THREE.CanvasTexture(canvas);
+  t.wrapS=t.wrapT=THREE.RepeatWrapping;t.repeat.set(repeat,repeat);
+  t.colorSpace = srgb?THREE.SRGBColorSpace:THREE.NoColorSpace;
+  t.generateMipmaps=false; t.minFilter=THREE.LinearFilter; t.anisotropy=1; return t;
+}
+function normalFromHeight(size, hfn, strength=2.0){
+  const c=cv(size),ctx=c.getContext('2d'),img=ctx.createImageData(size,size);
+  const H=(x,y)=>hfn((x+size)%size,(y+size)%size);
+  for(let y=0;y<size;y++)for(let x=0;x<size;x++){
+    const dx=(H(x+1,y)-H(x-1,y))*strength;
+    const dy=(H(x,y+1)-H(x,y-1))*strength;
+    const nz=1.0; const len=Math.hypot(dx,dy,nz);
+    const i=(y*size+x)*4;
+    img.data[i]  =((-dx/len)*0.5+0.5)*255;
+    img.data[i+1]=((-dy/len)*0.5+0.5)*255;
+    img.data[i+2]=((nz/len)*0.5+0.5)*255;
+    img.data[i+3]=255;
+  }
+  ctx.putImageData(img,0,0);return c;
+}
+function valueNoise(seed=1){
+  const g=(x,y)=>{const s=Math.sin((x*127.1+y*311.7)+seed*13.13)*43758.5453;return s-Math.floor(s);};
+  return (x,y)=>{
+    const xi=Math.floor(x),yi=Math.floor(y),xf=x-xi,yf=y-yi;
+    const u=xf*xf*(3-2*xf),v=yf*yf*(3-2*yf);
+    const a=g(xi,yi),b=g(xi+1,yi),c=g(xi,yi+1),d=g(xi+1,yi+1);
+    return a*(1-u)*(1-v)+b*u*(1-v)+c*(1-u)*v+d*u*v;
+  };
+}
+function fbm(noise,x,y,oct=4){let v=0,a=0.5,f=1;for(let i=0;i<oct;i++){v+=noise(x*f,y*f)*a;f*=2;a*=0.5;}return v;}
+
+function castAluminum(){
+  const S=512, n=valueNoise(7);
+  const c=cv(S),ctx=c.getContext('2d'),img=ctx.createImageData(S,S);
+  for(let y=0;y<S;y++)for(let x=0;x<S;x++){
+    const v=fbm(n,x/22,y/22,5);
+    const por=Math.pow(n(x/3.1,y/3.1),8);
+    const base=150+v*38-por*70;
+    const i=(y*S+x)*4; img.data[i]=base; img.data[i+1]=base+4; img.data[i+2]=base+10; img.data[i+3]=255;
+  }
+  ctx.putImageData(img,0,0);
+  const r=cv(S),rx=r.getContext('2d'),rimg=rx.createImageData(S,S);
+  for(let y=0;y<S;y++)for(let x=0;x<S;x++){
+    const v=fbm(n,x/18,y/18,4); const por=Math.pow(n(x/3.1,y/3.1),8);
+    const rough=120+v*40+por*90; const i=(y*S+x)*4;
+    rimg.data[i]=rimg.data[i+1]=rimg.data[i+2]=Math.min(255,rough); rimg.data[i+3]=255;
+  }
+  rx.putImageData(rimg,0,0);
+  const nrm=normalFromHeight(S,(x,y)=>fbm(n,x/16,y/16,5)+Math.pow(n(x/3.1,y/3.1),8)*0.6,3.0);
+  return {map:tex(c,1,true),roughnessMap:tex(r),normalMap:tex(nrm)};
+}
+function brushedMetal(){
+  const S=512, n=valueNoise(3);
+  const c=cv(S),ctx=c.getContext('2d'),img=ctx.createImageData(S,S);
+  for(let y=0;y<S;y++)for(let x=0;x<S;x++){
+    const streak=Math.sin(y*0.9)*2 + (n(x/120,y*0.5)-0.5)*40;
+    const base=185+streak; const i=(y*S+x)*4;
+    img.data[i]=base; img.data[i+1]=base+2; img.data[i+2]=base+6; img.data[i+3]=255;
+  }
+  ctx.putImageData(img,0,0);
+  const r=cv(S),rx=r.getContext('2d'),rimg=rx.createImageData(S,S);
+  for(let y=0;y<S;y++)for(let x=0;x<S;x++){
+    const streak=(n(x/120,y*0.5)-0.5)*60; const rough=40+Math.abs(streak); const i=(y*S+x)*4;
+    rimg.data[i]=rimg.data[i+1]=rimg.data[i+2]=Math.min(160,rough); rimg.data[i+3]=255;
+  }
+  rx.putImageData(rimg,0,0);
+  const nrm=normalFromHeight(S,(x,y)=>(n(x/120,y*0.5))*0.3+Math.sin(y*0.9)*0.02,1.2);
+  return {map:tex(c,1,true),roughnessMap:tex(r),normalMap:tex(nrm)};
+}
+function rubber(){
+  const S=256,n=valueNoise(5);
+  const nrm=normalFromHeight(S,(x,y)=>fbm(n,x/8,y/8,4),1.4);
+  const rough=cv(64),rc=rough.getContext('2d');rc.fillStyle='#e0e0e0';rc.fillRect(0,0,64,64);
+  return {roughnessMap:tex(rough),normalMap:tex(nrm,2)};
+}
+function gradientBG(top='#11161d',bottom='#05070a'){
+  const c=cv(512),ctx=c.getContext('2d');
+  const grd=ctx.createLinearGradient(0,0,0,512);
+  grd.addColorStop(0,top);grd.addColorStop(1,bottom);
+  ctx.fillStyle=grd;ctx.fillRect(0,0,512,512);
+  const rg=ctx.createRadialGradient(256,200,30,256,256,360);
+  rg.addColorStop(0,'rgba(42,157,143,0.10)');rg.addColorStop(1,'rgba(0,0,0,0)');
+  ctx.fillStyle=rg;ctx.fillRect(0,0,512,512);
+  return tex(c,1,true);
+}
+function techPlastic(r=0.10,g=0.11,b=0.13){
+  const S=256,n=valueNoise(31);
+  const c=cv(S),ctx=c.getContext('2d'),img=ctx.createImageData(S,S);
+  for(let y=0;y<S;y++)for(let x=0;x<S;x++){
+    const v=fbm(n,x/30,y/30,3)*0.1+0.92; const i=(y*S+x)*4;
+    img.data[i]=r*255*v;img.data[i+1]=g*255*v;img.data[i+2]=b*255*v;img.data[i+3]=255;
+  }
+  ctx.putImageData(img,0,0);
+  const nrm=normalFromHeight(S,(x,y)=>fbm(n,x/10,y/10,3),0.8);
+  const rough=cv(64),rc=rough.getContext('2d');rc.fillStyle='#9a9a9a';rc.fillRect(0,0,64,64);
+  return {map:tex(c,1,true),roughnessMap:tex(rough),normalMap:tex(nrm)};
+}
+
+/* ============================================================
+   ENGINE — render premium compartido por todos los laboratorios
+   ============================================================ */
+function createStage(mount, opts={}){
+  const bgTop = opts.bgTop||'#141b24', bgBot = opts.bgBot||'#05070a';
+  const renderer = new THREE.WebGLRenderer({ antialias:true, powerPreference:'high-performance' });
+  renderer.setPixelRatio(Math.min(devicePixelRatio,2));
+  renderer.setSize(mount.clientWidth, mount.clientHeight);
+  renderer.shadowMap.enabled = true;
+  renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+  renderer.toneMapping = THREE.ACESFilmicToneMapping;
+  renderer.toneMappingExposure = opts.exposure ?? 1.18;
+  renderer.outputColorSpace = THREE.SRGBColorSpace;
+  mount.appendChild(renderer.domElement);
+  renderer.domElement.style.touchAction='none';
+
+  const scene = new THREE.Scene();
+  scene.background = gradientBG(bgTop,bgBot);
+  const pmrem = new THREE.PMREMGenerator(renderer);
+  scene.environment = pmrem.fromScene(new RoomEnvironment(renderer), 0.04).texture;
+  scene.environmentIntensity = opts.envInt ?? 1.15;
+
+  const camera = new THREE.PerspectiveCamera(45, mount.clientWidth/mount.clientHeight, 0.1, 200);
+  const cam = opts.cam || [5.5,3.4,6.2];
+  camera.position.set(...cam);
+
+  const controls = new OrbitControls(camera, renderer.domElement);
+  controls.enableDamping = true; controls.dampingFactor = 0.07;
+  controls.minDistance = opts.minD ?? 3; controls.maxDistance = opts.maxD ?? 18;
+  controls.maxPolarAngle = Math.PI*0.52;
+  controls.target.set(...(opts.target||[0,1.4,0]));
+  controls.autoRotate = opts.autoRotate ?? false;
+  controls.autoRotateSpeed = opts.autoRotateSpeed ?? 0.6;
+
+  const key = new THREE.DirectionalLight(0xffffff, 2.7);
+  key.position.set(5,9,6); key.castShadow=true;
+  key.shadow.mapSize.set(2048,2048);
+  key.shadow.camera.near=0.5; key.shadow.camera.far=40;
+  const sd=8; Object.assign(key.shadow.camera,{left:-sd,right:sd,top:sd,bottom:-sd});
+  key.shadow.bias=-0.0003; key.shadow.normalBias=0.02; scene.add(key);
+  const rim = new THREE.SpotLight(0x2affce, 55, 30, Math.PI/5, 0.4, 1.5);
+  rim.position.set(-7,6,-5); scene.add(rim);
+  const fill = new THREE.DirectionalLight(0x6fb6ff, 0.5); fill.position.set(-4,3,7); scene.add(fill);
+  scene.add(new THREE.HemisphereLight(0x9fb4c8, 0x10151b, 0.35));
+
+  if(opts.floor!==false){
+    const f = new THREE.Mesh(new THREE.CircleGeometry(40,80),
+      new THREE.MeshStandardMaterial({ color:0x0a0e13, roughness:0.14, metalness:0.62, envMapIntensity:1.15 }));
+    f.rotation.x=-Math.PI/2; f.receiveShadow=true; scene.add(f);
+    for(let r=2;r<=8;r+=2){
+      const ring=new THREE.Mesh(new THREE.RingGeometry(r-0.012,r+0.012,80),
+        new THREE.MeshBasicMaterial({color:0x1a2632,transparent:true,opacity:0.4}));
+      ring.rotation.x=-Math.PI/2; ring.position.y=0.002; scene.add(ring);
+    }
+  }
+
+  const isMobile = /Mobi|Android|iPhone|iPad/i.test(navigator.userAgent) || innerWidth<820;
+  // GTAO desactivado por defecto: el pase de oclusión ambiental en espacio de pantalla
+  // producía un recuadro oscuro duro sobre el piso reflectante (artefacto dependiente de la
+  // cámara y del renderer). La escena tiene AO suficiente con luces directas + sombras + env.
+  // Se puede reactivar para pruebas con ?gtao.
+  const useGtao = /[?&]gtao\b/.test(location.search);
+  const composer = new EffectComposer(renderer);
+  composer.addPass(new RenderPass(scene,camera));
+  if(!isMobile && useGtao){
+    try{
+      const g=new GTAOPass(scene,camera,mount.clientWidth,mount.clientHeight);
+      g.output=GTAOPass.OUTPUT.Default;
+      if(g.updateGtaoMaterial)g.updateGtaoMaterial({radius:0.5,distanceExponent:1,thickness:1,scale:1.1,samples:16});
+      composer.addPass(g);
+    }catch(e){}
+  }
+  const bloom=new UnrealBloomPass(new THREE.Vector2(mount.clientWidth,mount.clientHeight),opts.bloom??0.42,0.5,0.9);
+  composer.addPass(bloom);
+  let bokeh=null;
+  const flat=/[?&]flat/.test(location.search);
+  if(!isMobile && !flat){
+    bokeh=new BokehPass(scene,camera,{focus:8.5,aperture:opts.aperture??0.00018,maxblur:opts.maxblur??0.004,width:mount.clientWidth,height:mount.clientHeight});
+    composer.addPass(bokeh);
+  }
+  composer.addPass(new OutputPass());
+  composer.addPass(new SMAAPass(mount.clientWidth*renderer.getPixelRatio(),mount.clientHeight*renderer.getPixelRatio()));
+
+  function resize(){
+    const w=mount.clientWidth,h=mount.clientHeight;
+    camera.aspect=w/h; camera.updateProjectionMatrix();
+    renderer.setSize(w,h); composer.setSize(w,h);
+  }
+  window.addEventListener('resize',resize);
+
+  const clock=new THREE.Clock();
+  let hook=null, raf=null;
+  const camCine={active:false,t:0,dur:1.4,from:new THREE.Vector3(),to:new THREE.Vector3(),fromT:new THREE.Vector3(),toT:new THREE.Vector3()};
+  let lastDrag=-99, cinematicIdle=false;
+  controls.addEventListener('start',()=>{ lastDrag=clock.elapsedTime; camCine.active=false; });
+  function easeInOutCubic(x){return x<0.5?4*x*x*x:1-Math.pow(-2*x+2,3)/2;}
+  function moveTo(pos,target,dur=1.4){
+    camCine.from.copy(camera.position); camCine.fromT.copy(controls.target);
+    camCine.to.set(...pos); camCine.toT.set(...target);
+    camCine.dur=dur; camCine.active=true; camCine.t=0;
+  }
+  function setCinematicIdle(v){ cinematicIdle=v; if(!v)controls.autoRotate=false; }
+  function loop(){ raf=requestAnimationFrame(loop); const dt=clock.getDelta(),t=clock.elapsedTime;
+    if(camCine.active){
+      camCine.t=Math.min(1,camCine.t+dt/camCine.dur);
+      const e=easeInOutCubic(camCine.t);
+      camera.position.lerpVectors(camCine.from,camCine.to,e);
+      controls.target.lerpVectors(camCine.fromT,camCine.toT,e);
+      if(camCine.t>=1)camCine.active=false;
+    } else if(cinematicIdle){
+      controls.autoRotate=(t-lastDrag)>1.4; controls.autoRotateSpeed=0.45;
+    }
+    if(hook)hook(dt,t); controls.update();
+    if(bokeh) bokeh.uniforms['focus'].value = camera.position.distanceTo(controls.target);
+    composer.render(); }
+  function start(){ if(!raf)loop(); }
+  function stop(){ cancelAnimationFrame(raf); raf=null; window.removeEventListener('resize',resize); }
+
+  return { THREE, renderer, scene, camera, controls, composer, bloom,
+    setAnimate:fn=>hook=fn, start, stop, resize, clock,
+    flyTo:(v)=>{ controls.target.copy(v); }, moveTo, setCinematicIdle };
+}
+
+/* ---------- shared geometry/material helpers ---------- */
+function roundedBox(w,h,d,mat,rf=0.08){
+  const r=Math.min(w,h,d)*rf;
+  const m=new THREE.Mesh(new RoundedBoxGeometry(w,h,d,4,r),mat);
+  m.castShadow=m.receiveShadow=true; return m;
+}
+function pickerFor(scene,camera,dom,onHit){
+  const ray=new THREE.Raycaster(),mouse=new THREE.Vector2(); let down=null;
+  dom.addEventListener('pointerdown',e=>down=[e.clientX,e.clientY]);
+  dom.addEventListener('pointerup',e=>{
+    if(!down)return; const moved=Math.abs(e.clientX-down[0])+Math.abs(e.clientY-down[1])>6; down=null;
+    if(moved)return;
+    const r=dom.getBoundingClientRect();
+    mouse.x=((e.clientX-r.left)/r.width)*2-1; mouse.y=-((e.clientY-r.top)/r.height)*2+1;
+    ray.setFromCamera(mouse,camera);
+    const hits=ray.intersectObjects(scene.children,true);
+    onHit(hits[0]||null);
+  });
+}
+function labelSprite(text,color='#ffd166'){
+  const w = Math.max(150, Math.min(520, text.length*26+60));
+  const cvE=document.createElement('canvas');cvE.width=w;cvE.height=96;
+  const c=cvE.getContext('2d');c.fillStyle='rgba(8,11,16,.95)';
+  const rr=(x,y,ww,hh,r)=>{c.beginPath();c.moveTo(x+r,y);c.arcTo(x+ww,y,x+ww,y+hh,r);c.arcTo(x+ww,y+hh,x,y+hh,r);c.arcTo(x,y+hh,x,y,r);c.arcTo(x,y,x+ww,y,r);c.closePath();};
+  rr(3,3,w-6,90,18);c.fill();
+  c.strokeStyle=color;c.lineWidth=3;c.stroke();
+  c.font='bold 36px Outfit, system-ui, sans-serif';c.fillStyle=color;c.textAlign='center';c.textBaseline='middle';c.fillText(text,w/2,48);
+  const tx=new THREE.CanvasTexture(cvE);tx.colorSpace=THREE.SRGBColorSpace;tx.generateMipmaps=false;tx.minFilter=THREE.LinearFilter;
+  const sp=new THREE.Sprite(new THREE.SpriteMaterial({map:tx,depthTest:false,transparent:true}));
+  const aspect=w/96;
+  sp.scale.set(0.30*aspect,0.30,1);sp.renderOrder=999;return sp;
+}
+
+/* ============================================================
+   SYNTH — sintetizador Web Audio reutilizable
+   ============================================================ */
+function makeSynth(opts={}){
+  const type=opts.type||'sawtooth';
+  let ctx=null,oscA=null,oscB=null,gain=null,filter=null,soundOn=true;
+  function init(){
+    if(ctx)return;
+    try{
+      ctx=new (window.AudioContext||window.webkitAudioContext)();
+      oscA=ctx.createOscillator(); oscB=ctx.createOscillator();
+      oscA.type=type; oscB.type=opts.type2||'square';
+      filter=ctx.createBiquadFilter(); filter.type=opts.filterType||'lowpass'; filter.frequency.value=opts.filterFreq||500; filter.Q.value=opts.Q||3;
+      gain=ctx.createGain(); gain.gain.value=0;
+      oscA.connect(filter); oscB.connect(filter); filter.connect(gain); gain.connect(ctx.destination);
+      oscA.start(); oscB.start();
+    }catch(e){}
+  }
+  function update(freqA,freqB,vol,filterFreq){
+    if(!ctx||!soundOn){ if(gain)gain.gain.setTargetAtTime(0,ctx?.currentTime||0,0.1); return; }
+    oscA.frequency.setTargetAtTime(freqA,ctx.currentTime,0.04);
+    if(freqB!==undefined)oscB.frequency.setTargetAtTime(freqB,ctx.currentTime,0.04);
+    if(filterFreq!==undefined)filter.frequency.setTargetAtTime(filterFreq,ctx.currentTime,0.05);
+    gain.gain.setTargetAtTime(Math.max(0,vol),ctx.currentTime,0.06);
+  }
+  function beep(freq=880,dur=0.09,vol=0.06){
+    if(!ctx||!soundOn)return;
+    const o=ctx.createOscillator(),g=ctx.createGain();
+    o.type='sine'; o.frequency.value=freq;
+    g.gain.setValueAtTime(vol,ctx.currentTime); g.gain.exponentialRampToValueAtTime(0.001,ctx.currentTime+dur);
+    o.connect(g); g.connect(ctx.destination); o.start(); o.stop(ctx.currentTime+dur);
+  }
+  function toggle(){ soundOn=!soundOn; return soundOn; }
+  function resume(){ if(ctx&&ctx.state==='suspended')ctx.resume(); }
+  return { init, update, beep, toggle, resume, isOn:()=>soundOn, state:()=>ctx?.state||'none' };
+}
+
+// PWM desde el microcontrolador para controlar la velocidad de un motor de CD.
+//
+// Tres decisiones encadenadas que en el papel parecen independientes y en el
+// hierro no lo son:
+//   1) El TEMPORIZADOR. f = f_clk / (prescaler · (TOP+1)) y N = TOP+1 códigos de
+//      duty. La frecuencia y la resolución NO son dos decisiones: son la misma.
+//      Subirla saca el silbido del hierro fuera de lo audible y baja el rizado,
+//      pero el driver de puerta pone un techo que el temporizador no conoce.
+//   2) El TIEMPO MUERTO. Por debajo de lo que pide el driver hay conducción
+//      cruzada; por encima se come una fracción t_d/T del duty, y en un puente
+//      bipolar cuesta el DOBLE porque conmutan las dos ramas. De ahí sale un
+//      techo de frecuencia derivado: f ≤ ddMax/(bip·t_d).
+//   3) El MODO DE RECIRCULACIÓN. Decaimiento lento por diodo (−V_f en el tramo
+//      apagado), decaimiento lento con rectificación síncrona (≈0 V), signo-
+//      magnitud y antifase enclavada (−Vcc, valor medio (2D−1)·Vcc y rizado
+//      exactamente doble). Eléctricamente idénticos en régimen los dos últimos;
+//      distintos como INTERFAZ: antifase sostiene el eje rígido al 50 % con una
+//      sola señal, pero perder la señal es marcha atrás a fondo.
+// La fricción seca de Coulomb crea una ZONA MUERTA: n(D) es afín, no
+// proporcional, y hay un tramo de duty en el que el eje sencillamente no gira.
+//
+// Ref: R. Krishnan, «Electric Motor Drives» cap. 3–4 · N. Mohan, «Power
+// Electronics» cap. 7 · Atmel AVR ATmega328P datasheet §15 (Timer/Counter1,
+// Fast PWM y Phase-Correct PWM) · verificación numérica propia (207/207).
+
+// ===================== 1. ESCENA =====================
+const mount=document.getElementById('stage');
+const S=createStage(mount,{cam:[5.4,3.2,7.6],target:[0.7,1.05,0.3],bgTop:'#0d1017',bgBot:'#05060a',bloom:0.46,minD:3.2,maxD:16});
+const {scene}=S;
+const synth=makeSynth({type:'square',type2:'sine',filterFreq:2400,Q:0.7});
+const el=id=>document.getElementById(id);
+
+// ===================== 2. MOTOR (VERIFICADO 207/207 — VERBATIM) =====================
+// ---------------------------------------------------------------- constantes
+const FCLK = 16e6;        // Hz — reloj del temporizador del MCU
+const F_AUD = 20000;      // Hz — borde convencional de lo audible
+const VF = 0.70;          // V  — caída directa del diodo de cuerpo / rueda libre
+
+// Configuraciones del temporizador: prescaler + TOP.
+// La frecuencia y la resolución NO son dos decisiones: son la MISMA.
+const TIMS = [
+  { k: 'p1t255', n: 'Prescaler 1 · TOP 255', presc: 1, top: 255 },
+  { k: 'p1t1023', n: 'Prescaler 1 · TOP 1023', presc: 1, top: 1023 },
+  { k: 'p8t255', n: 'Prescaler 8 · TOP 255', presc: 8, top: 255 },
+  { k: 'p8t1023', n: 'Prescaler 8 · TOP 1023', presc: 8, top: 1023 },
+];
+const TIM = Object.fromEntries(TIMS.map(t => [t.k, t]));
+const fPwm = t => FCLK / (t.presc * (t.top + 1));   // Hz
+const nCod = t => t.top + 1;                        // códigos de duty
+const bitsOf = t => Math.log2(t.top + 1);
+const perNs = t => 1e9 / fPwm(t);                   // ns — periodo del PWM
+
+// Modos de recirculación de la corriente durante el tramo apagado.
+const MODOS = [
+  { k: 'diodo', n: 'Decaimiento lento por diodo de rueda libre', bip: false, hb: false },
+  { k: 'sincrono', n: 'Decaimiento lento con rectificación síncrona', bip: false, hb: true },
+  { k: 'rapido', n: 'Decaimiento rápido (signo-magnitud)', bip: true, hb: true },
+  { k: 'antifase', n: 'Antifase enclavada', bip: true, hb: true },
+];
+const MOD = Object.fromEntries(MODOS.map(m => [m.k, m]));
+
+const TDS = [0, 200, 1000, 5000];   // ns — tiempo muerto
+
+// Fracción de duty que se lleva el tiempo muerto. En un puente bipolar cuesta
+// el DOBLE porque las dos ramas conmutan en cada periodo.
+const ddLoss = (m, td, T) => (m.bip ? 2 : 1) * (td / T);
+
+// --------------------------------------------------------------- escenarios
+// ke y kt en SI (V·s/rad = N·m/A) · bv en N·m·s/rad · tf y tl en N·m
+// cargaDir=false → la carga es DISIPATIVA: se opone al giro sea cual sea el
+//   sentido, igual que la fricción seca (cinta, ventilador, husillo).
+// cargaDir=true  → la carga es DIRECCIONAL: la gravedad tira siempre hacia el
+//   mismo lado. Con tl < 0 la carga ARRASTRA el eje.
+const POOL = [
+  {
+    id: 0, name: 'Cinta de una envasadora',
+    maq: 'Motor de imán permanente de 12 V con reductor, junto al puesto de dos operarios',
+    vcc: 12, ra: 1.2, la: 900e-6, ke: 0.045, kt: 0.045, bv: 2e-5, tf: 0.010, tl: 0.055,
+    cargaDir: false, rds: 0.030, tsw: 100, jm: 3e-5,
+    nMin: 300, nMax: 2000, silencio: true, fMax: 100000,
+    puente: 'h', holdCero: false, paroSeguro: false,
+    dIMax: 0.80, pasosMin: 120, pMax: 0.45, tdMin: 150, ddMax: 0.03,
+    nota: 'El motor está a un metro de la cara del operario: cualquier frecuencia audible se oye ocho horas al día.',
+  },
+  {
+    id: 1, name: 'Ventilador de refrigeración de un tablero',
+    maq: 'Ventilador de 24 V sobre un chopper de un cuadrante: un MOSFET al lado bajo y un diodo de rueda libre',
+    vcc: 24, ra: 8.0, la: 4e-3, ke: 0.055, kt: 0.055, bv: 4e-5, tf: 0.004, tl: 0.002,
+    cargaDir: false, rds: 0.050, tsw: 500, jm: 8e-6,
+    nMin: 800, nMax: 3400, silencio: false, fMax: 10000,
+    puente: 'chopper', holdCero: false, paroSeguro: false,
+    dIMax: 0.25, pasosMin: 40, pMax: 0.60, tdMin: 0, ddMax: 0.03,
+    nota: 'La puerta del MOSFET cuelga de un pin del MCU con 220 Ω: los flancos duran ~1 µs y ponen el techo de frecuencia.',
+  },
+  {
+    id: 2, name: 'Mesa de posicionamiento de una máquina de banco',
+    maq: 'Motor de 24 V acoplado a husillo, con lazo de posición que debe sostener el eje parado',
+    vcc: 24, ra: 3.5, la: 5e-3, ke: 0.110, kt: 0.110, bv: 3e-5, tf: 0.030, tl: 0.020,
+    cargaDir: false, rds: 0.030, tsw: 150, jm: 6e-5,
+    nMin: 100, nMax: 600, silencio: false, fMax: 100000,
+    puente: 'h', holdCero: true, paroSeguro: false,
+    dIMax: 0.35, pasosMin: 60, pMax: 3.0, tdMin: 700, ddMax: 0.04,
+    nota: 'El taller ya es ruidoso: aquí se compra resolución y se paga con silbido, justo al revés que en la cinta.',
+  },
+  {
+    id: 3, name: 'Descenso de carga de un polipasto de banco',
+    maq: 'Motor de 24 V con tambor; al bajar, la carga arrastra el eje y el accionamiento tiene que frenarla',
+    vcc: 24, ra: 2.0, la: 12e-3, ke: 0.140, kt: 0.140, bv: 5e-5, tf: 0.050, tl: -0.550,
+    cargaDir: true, rds: 0.030, tsw: 2000, jm: 4e-4,
+    nMin: 100, nMax: 400, silencio: false, fMax: 10000,
+    puente: 'h', holdCero: false, paroSeguro: true,
+    dIMax: 0.90, pasosMin: 50, pMax: 6.0, tdMin: 3000, ddMax: 0.03,
+    nota: 'La orden de par tiene que poder irse a cero al soltar el habilitador: la maniobra de seguridad manda sobre la elegancia.',
+  },
+];
+const RETO_POOL = [0, 1, 2, 3];
+
+// Las soluciones se fijan aquí y el barrido las confirma (207/207).
+POOL[0].tim = 'p1t255'; POOL[0].td = 200; POOL[0].mod = 'sincrono';
+POOL[1].tim = 'p8t255'; POOL[1].td = 0; POOL[1].mod = 'diodo';
+POOL[2].tim = 'p1t1023'; POOL[2].td = 1000; POOL[2].mod = 'antifase';
+POOL[3].tim = 'p8t1023'; POOL[3].td = 5000; POOL[3].mod = 'rapido';
+
+const goodTim = sc => sc.tim, goodTd = sc => sc.td, goodMod = sc => sc.mod;
+
+// ----------------------------------------------------- tensión media del nodo
+// Devuelve la recta V_avg(I) = vt − req·I para el modo pedido.
+// El tiempo muerto se le RESTA al tramo activo: no es una corrección estética.
+const nSwOf = sc => sc.puente === 'chopper' ? 1 : 2;   // transistores en serie con el motor
+function vTerms(sc, m, D, td, T) {
+  const f = td / T;                       // fracción del periodo por tiempo muerto
+  const de = Math.max(0, D - f);
+  const ns = nSwOf(sc);
+  if (!m.bip) {
+    // Decaimiento lento. Con diodo el tramo apagado vale −Vf; con rectificación
+    // síncrona vale −I·Rds salvo los dos tramos de tiempo muerto, en los que
+    // conduce el diodo de cuerpo.
+    if (m.k === 'diodo') return { vt: de * sc.vcc - (1 - de) * VF, req: de * ns * sc.rds, de };
+    return { vt: de * sc.vcc - 2 * f * VF, req: ns * sc.rds * (1 - 2 * f), de };
+  }
+  // Bipolar: el tramo apagado vale −Vcc, y el tiempo muerto lo alarga.
+  return { vt: (2 * D - 1 - 2 * f) * sc.vcc - 4 * f * VF, req: ns * sc.rds * (1 - 2 * f), de };
+}
+
+// ------------------------------------------------------- punto de equilibrio
+// kt·I = tl + bv·ω + tf·signo(ω)   con   I = (vt − ke·ω)/(ra + req)
+// La fricción seca de Coulomb crea una ZONA MUERTA: hay un intervalo de vt en
+// el que el eje sencillamente no se mueve.
+function solve(sc, m, D, td, T) {
+  const { vt, req, de } = vTerms(sc, m, D, td, T);
+  const R = sc.ra + req;
+  const ns = nSwOf(sc);
+  const den = sc.kt * sc.ke / R + sc.bv;
+  // Par que se OPONE al giro en cualquier sentido (fricción seca + carga
+  // disipativa) frente a par DIRECCIONAL (la gravedad del polipasto).
+  const tc = sc.tf + (sc.cargaDir ? 0 : Math.abs(sc.tl));
+  const tdir = sc.cargaDir ? sc.tl : 0;
+  const drive = sc.kt * vt / R - tdir;
+  let w;
+  if (drive > tc) w = (drive - tc) / den;
+  else if (drive < -tc) w = (drive + tc) / den;
+  else w = 0;
+  const i = (vt - sc.ke * w) / R;
+  const vavg = vt - req * i;
+  // Rizado: pendiente del tramo activo por su duración.
+  const vOn = sc.vcc - ns * Math.abs(i) * sc.rds;
+  const tOn = de * T * 1e-9;                 // s
+  const dI = Math.max(0, (vOn - vavg) * tOn / sc.la);
+  // Pérdidas del puente en el punto de trabajo.
+  const f = td / T, ai = Math.abs(i);
+  let pCond;
+  if (m.k === 'diodo') pCond = i * i * ns * sc.rds * de + VF * ai * (1 - de);
+  else if (!m.bip) pCond = i * i * ns * sc.rds * (1 - 2 * f) + VF * ai * 2 * f;
+  else pCond = i * i * ns * sc.rds * (1 - 2 * f) + 2 * VF * ai * 2 * f;
+  const pSw = 0.5 * sc.vcc * ai * (sc.tsw * 1e-9) * (1e9 / T) * (m.bip ? 2 : 1);
+  const iRms2 = i * i + dI * dI / 12;
+  const pCu = iRms2 * sc.ra;
+  return { w, rpm: w * 60 / (2 * Math.PI), i, vavg, vt, dI, pCond, pSw, pBr: pCond + pSw, pCu, de };
+}
+
+// ------------------------------------------------- barrido sobre los códigos
+const RUN_CACHE = new Map();
+function runC(sc, cfg) {
+  const key = `${sc.id}|${cfg.tim}|${cfg.td}|${cfg.mod}`;
+  if (RUN_CACHE.has(key)) return RUN_CACHE.get(key);
+  const t = TIM[cfg.tim], m = MOD[cfg.mod], T = perNs(t), N = nCod(t);
+  const wMin = sc.nMin * 2 * Math.PI / 60, wMax = sc.nMax * 2 * Math.PI / 60;
+  let pasos = 0, dIMax = 0, pBrMax = 0, wLo = Infinity, wHi = -Infinity, codLo = -1, codHi = -1;
+  for (let k = 0; k <= N; k++) {
+    const r = solve(sc, m, k / N, cfg.td, T);
+    if (r.w < wLo) { wLo = r.w; codLo = k; }
+    if (r.w > wHi) { wHi = r.w; codHi = k; }
+    if (r.w >= wMin && r.w <= wMax) {
+      pasos++;
+      if (r.dI > dIMax) dIMax = r.dI;
+      if (r.pBr > pBrMax) pBrMax = r.pBr;
+    }
+  }
+  const cubre = wLo <= wMin && wHi >= wMax;
+  const out = {
+    pasos, dIMax, pBrMax, cubre, wLo, wHi, codLo, codHi,
+    rpmLo: wLo * 60 / (2 * Math.PI), rpmHi: wHi * 60 / (2 * Math.PI),
+    f: fPwm(t), N, bits: bitsOf(t), dd: ddLoss(m, cfg.td, T),
+  };
+  out.okRizado = dIMax <= sc.dIMax;
+  out.okPasos = pasos >= sc.pasosMin;
+  out.okPerdida = pBrMax <= sc.pMax;
+  out.ok = cubre && out.okRizado && out.okPasos && out.okPerdida;
+  RUN_CACHE.set(key, out);
+  return out;
+}
+
+// -------------------------------------------------------- guardas de diseño
+function guardTim(sc, timK) {
+  const t = TIM[timK], f = fPwm(t);
+  if (f > sc.fMax) return false;                 // el driver de puerta, no el temporizador
+  if (sc.silencio && f < F_AUD) return false;    // el hierro canta a la frecuencia del PWM
+  return true;
+}
+function guardMod(sc, modK) {
+  const m = MOD[modK];
+  if (sc.puente === 'chopper' && m.hb) return false;   // no hay puente que conmutar
+  if (sc.holdCero && modK !== 'antifase') return false; // sostener el eje parado
+  if (sc.paroSeguro && modK === 'antifase') return false; // la señal ES la orden de par
+  return true;
+}
+function guardTd(sc, td, timK, modK) {
+  const T = perNs(TIM[timK]);
+  if (sc.puente === 'chopper') return td === 0;  // no hay rama complementaria que proteger
+  if (td < sc.tdMin) return false;               // conducción cruzada
+  const m = MOD[modK || goodMod(sc)];
+  if (ddLoss(m, td, T) > sc.ddMax) return false; // distorsión del duty
+  return true;
+}
+function cfgOk(sc, cfg) {
+  if (!guardTim(sc, cfg.tim)) return false;
+  if (!guardMod(sc, cfg.mod)) return false;
+  if (!guardTd(sc, cfg.td, cfg.tim, cfg.mod)) return false;
+  return runC(sc, cfg).ok;
+}
+const GOOD = sc => ({ tim: goodTim(sc), td: goodTd(sc), mod: goodMod(sc) });
+const cfgWith = (sc, o) => ({ ...GOOD(sc), ...o });
+const okTim = (sc, k) => cfgOk(sc, cfgWith(sc, { tim: k }));
+const okTd = (sc, v) => cfgOk(sc, cfgWith(sc, { td: v }));
+const okMod = (sc, k) => cfgOk(sc, cfgWith(sc, { mod: k }));
+
+// ===================== 3. ESTADO =====================
+let mode='explora';
+let solved=false,autoRunning=false,QUIZ={};
+let hwStep=0,hwT=0,framesCache=null,shaftAng=0;
+
+const DUTIES=[0,0.10,0.25,0.50,0.75,1.00];
+let expIdx=0,expTim='p1t255',expDuty=3;
+let apIdx=0,apTopic='recta',apTim='p1t255',apTd=0,apMod='diodo';
+let retoK=0,retoCh={tim:'p1t255',td:0,mod:'diodo'};
+let retoChecked=false,retoSolved=false,retoMsg='';
+let retoOkTim=false,retoOkTd=false,retoOkMod=false;
+
+const expSc=()=>POOL[expIdx];
+const apSc=()=>POOL[apIdx];
+const retoSc=()=>POOL[RETO_POOL[retoK]];
+function curSc(){return mode==='reto'?retoSc():(mode==='aplica'?apSc():expSc());}
+function curCfg(){
+  if(mode==='reto')return {tim:retoCh.tim,td:retoCh.td,mod:retoCh.mod};
+  if(mode==='aplica')return {tim:apTim,td:TDS[apTd],mod:apMod};
+  return {tim:expTim,td:0,mod:'diodo'};
+}
+function curD(){
+  if(mode==='explora')return DUTIES[expDuty];
+  const fs=framesCache;const st=fs?hwStep%Math.max(1,fs.length):0;
+  return fs&&fs[st]?fs[st].D:0.5;
+}
+
+function pickIdx(n,ex){if(n<=1)return 0;let i=ex;while(i===ex)i=Math.floor(Math.random()*n);return i;}
+function hexA(hex,a){const h=hex.replace('#','');const r=parseInt(h.slice(0,2),16),g=parseInt(h.slice(2,4),16),b=parseInt(h.slice(4,6),16);return `rgba(${r},${g},${b},${a})`;}
+const n0=x=>Math.round(x).toLocaleString('es-MX');
+const n1=x=>x.toFixed(1).replace('.',',');
+const n2=x=>x.toFixed(2).replace('.',',');
+const n3=x=>x.toFixed(3).replace('.',',');
+const fmtF=f=>f>=1000?n2(f/1000)+' kHz':n0(f)+' Hz';
+const fmtT=T=>n2(T/1000)+' µs';
+const fmtTd=v=>v===0?'0 ns':(v>=1000?n1(v/1000)+' µs':n0(v)+' ns');
+const pctS=x=>n2(x*100)+' %';
+
+// ===================== 4. MATERIALES =====================
+function std(color,rough,metal){return new THREE.MeshStandardMaterial({color,roughness:rough,metalness:metal});}
+function brush(base){return std(base,0.55,0.35);}
+const MAT={bench:brush(0x2b2f34),frame:brush(0x22262c),leg:brush(0x14161b),body:std(0x1b2028,0.6,0.25),
+  steel:std(0x9aa4b2,0.35,0.75),shiny:std(0xd6dde8,0.22,0.9),dark:std(0x14171b,0.5,0.3),plate:brush(0x3a4048),
+  copper:std(0xb87333,0.4,0.8),pcb:std(0x14352a,0.7,0.15),red:std(0x8c2f2f,0.5,0.3)};
+const ACC='#8AB4F8', OK_HEX='#7CD992', BAD_HEX='#ff6b6b', WARN_HEX='#E9C46A', VIO='#C08CF8';
+const HOVER_LABELS=new Map();
+function addHoverLabel(obj,text,color,pos,scale){
+  const cv=document.createElement('canvas');cv.width=256;cv.height=64;const cx=cv.getContext('2d');
+  cx.fillStyle='rgba(10,14,17,0.88)';cx.fillRect(0,0,256,64);
+  cx.strokeStyle=color;cx.lineWidth=2;cx.strokeRect(1,1,254,62);
+  cx.fillStyle='#F4EFEA';cx.font='bold 20px Outfit, sans-serif';cx.textAlign='center';cx.textBaseline='middle';cx.fillText(text,128,32);
+  const tex=new THREE.CanvasTexture(cv);
+  const spr=new THREE.Sprite(new THREE.SpriteMaterial({map:tex,transparent:true,depthTest:false}));
+  spr.position.copy(pos);spr.scale.set(scale||1.1,(scale||1.1)*0.28,1);spr.visible=false;spr.renderOrder=999;
+  scene.add(spr);HOVER_LABELS.set(obj,spr);return spr;
+}
+function emis(colHex){
+  return new THREE.MeshStandardMaterial({color:0x2b3038,roughness:0.4,metalness:0.4,
+    emissive:new THREE.Color(colHex),emissiveIntensity:0.06});
+}
+
+// ===================== 5. PIZARRÓN =====================
+const boardG=new THREE.Group();
+boardG.position.set(-1.15,0,-0.95);boardG.rotation.y=0.2;scene.add(boardG);
+const frame=roundedBox(3.9,2.9,0.12,MAT.frame,0.06);frame.position.set(0,1.9,0);boardG.add(frame);
+[-1.65,1.65].forEach(x=>{const leg=new THREE.Mesh(new THREE.CylinderGeometry(0.05,0.06,1.9,16),MAT.leg);leg.position.set(x,0.92,0);boardG.add(leg);});
+const bCv=document.createElement('canvas');bCv.width=1024;bCv.height=768;
+const bTex=new THREE.CanvasTexture(bCv);
+const board=new THREE.Mesh(new THREE.PlaneGeometry(3.68,2.72),new THREE.MeshBasicMaterial({map:bTex}));
+board.position.set(0,1.9,0.065);boardG.add(board);
+frame.userData={title:'Pizarrón del accionamiento',info:'Temporizador, tiempo muerto y modo de recirculación · toca para inspeccionar'};
+addHoverLabel(frame,'PWM · motor de CD',ACC,new THREE.Vector3(0,3.5,0.1).add(boardG.position),2.6);
+
+function bg(c){c.fillStyle='#0c1016';c.fillRect(0,0,1024,768);}
+function rpanel(c,x,y,w,h,title){
+  c.fillStyle=hexA(ACC,0.06);c.fillRect(x,y,w,h);
+  c.strokeStyle=hexA(ACC,0.22);c.lineWidth=1;c.strokeRect(x,y,w,h);
+  c.fillStyle='#C7D6F5';c.font='bold 15px Outfit, sans-serif';c.textAlign='left';c.fillText(title,x+16,y+26);
+}
+function prow(c,x,y,w,l,v,col){
+  c.fillStyle='#8f97a5';c.font='13px Outfit, sans-serif';c.textAlign='left';c.fillText(l,x+16,y);
+  c.fillStyle=col||'#F4EFEA';c.font='bold 16px Outfit, sans-serif';c.textAlign='right';c.fillText(v,x+w-14,y);
+}
+function wrapText(c,text,x,y,maxW,lh){
+  const words=text.split(' ');let line='',yy=y;
+  for(const w of words){const test=line+w+' ';
+    if(c.measureText(test).width>maxW && line){c.fillText(line,x,yy);line=w+' ';yy+=lh;}else line=test;}
+  c.fillText(line,x,yy);return yy;
+}
+const PX={x:706,y:70,w:300};
+function trow(c,x,y,w,h,cols,widths,cols_col,head){
+  c.fillStyle=head?hexA(ACC,0.10):'rgba(255,255,255,0.03)';c.fillRect(x,y,w,h);
+  c.strokeStyle=hexA(ACC,0.16);c.lineWidth=1;c.strokeRect(x,y,w,h);
+  let cx=x;
+  cols.forEach((t,i)=>{
+    c.fillStyle=head?'#C7D6F5':(cols_col&&cols_col[i]?cols_col[i]:'#F4EFEA');
+    c.font=(head?'bold 12px':'13px')+' Outfit, sans-serif';c.textAlign='left';
+    c.fillText(t,cx+10,y+h/2+5);
+    cx+=widths[i];
+  });
+}
+function drawBar(c,x,y,w,h,frac,label,col,right){
+  c.fillStyle='#9fb0cf';c.font='12px Outfit, sans-serif';c.textAlign='left';c.fillText(label,x,y-8);
+  c.fillStyle='rgba(255,255,255,0.06)';c.fillRect(x,y,w,h);
+  c.fillStyle=hexA(col,0.75);c.fillRect(x,y,Math.max(0,Math.min(1,frac))*w,h);
+  c.strokeStyle=hexA(ACC,0.3);c.lineWidth=1;c.strokeRect(x,y,w,h);
+  c.fillStyle=col;c.font='bold 13px Outfit, sans-serif';c.textAlign='right';c.fillText(right,x+w,y-8);
+}
+const kc=(ok,ch)=>ch?(ok?OK_HEX:BAD_HEX):'#F4EFEA';
+
+// -------- trazador genérico ------------------------------------------------
+// opts: {x0,x1,y0,y1,xl,yl,series:[{pts,col,dash,w}],hband:[y0,y1,col],
+//        vbands:[[x0,x1,col]],hlines:[[y,col,txt]],marks:[[x,y,col]],xt:fn,yt:fn}
+function plot(c,X,Y,W,H,o){
+  const x0=o.x0,x1=o.x1,y0=o.y0,y1=o.y1;
+  const mx=v=>X+(v-x0)/(x1-x0||1)*W, my=v=>Y+H-(v-y0)/(y1-y0||1)*H;
+  c.save();
+  c.fillStyle='rgba(255,255,255,0.02)';c.fillRect(X,Y,W,H);
+  if(o.hband){c.fillStyle=hexA(o.hband[2],0.12);
+    const a=my(Math.max(y0,Math.min(y1,o.hband[1]))),b=my(Math.max(y0,Math.min(y1,o.hband[0])));
+    c.fillRect(X,a,W,b-a);}
+  (o.vbands||[]).forEach(v=>{c.fillStyle=hexA(v[2],0.14);c.fillRect(mx(v[0]),Y,Math.max(1,mx(v[1])-mx(v[0])),H);});
+  c.strokeStyle='rgba(255,255,255,0.08)';c.lineWidth=1;
+  for(let i=1;i<4;i++){const yy=Y+H*i/4;c.beginPath();c.moveTo(X,yy);c.lineTo(X+W,yy);c.stroke();}
+  if(y0<0&&y1>0){c.strokeStyle='rgba(255,255,255,0.28)';c.beginPath();c.moveTo(X,my(0));c.lineTo(X+W,my(0));c.stroke();}
+  (o.hlines||[]).forEach(h=>{
+    if(h[0]<y0||h[0]>y1)return;
+    c.strokeStyle=hexA(h[1],0.8);c.lineWidth=1.5;c.setLineDash([6,4]);
+    c.beginPath();c.moveTo(X,my(h[0]));c.lineTo(X+W,my(h[0]));c.stroke();c.setLineDash([]);
+    if(h[2]){c.fillStyle=h[1];c.font='11px Outfit, sans-serif';c.textAlign='right';c.fillText(h[2],X+W-4,my(h[0])-4);}
+  });
+  (o.series||[]).forEach(s=>{
+    if(!s.pts.length)return;
+    c.strokeStyle=s.col;c.lineWidth=s.w||2;c.setLineDash(s.dash||[]);
+    c.beginPath();
+    s.pts.forEach((p,i)=>{const px=mx(p[0]),py=my(Math.max(y0,Math.min(y1,p[1])));if(i)c.lineTo(px,py);else c.moveTo(px,py);});
+    c.stroke();c.setLineDash([]);
+  });
+  (o.marks||[]).forEach(m=>{
+    c.fillStyle=m[2];c.beginPath();c.arc(mx(m[0]),my(Math.max(y0,Math.min(y1,m[1]))),4.5,0,Math.PI*2);c.fill();
+  });
+  c.strokeStyle='rgba(255,255,255,0.20)';c.lineWidth=1;c.strokeRect(X,Y,W,H);
+  c.fillStyle='#7a8494';c.font='11px Outfit, sans-serif';
+  c.textAlign='right';c.fillText(o.xl||'',X+W,Y+H+16);
+  c.textAlign='left';c.fillText(o.yl||'',X,Y-6);
+  c.fillStyle='#6b7280';c.font='10px Outfit, sans-serif';
+  c.textAlign='left';c.fillText(o.xt?o.xt(x0):'',X,Y+H+16);
+  c.textAlign='right';c.fillText(o.yt?o.yt(y1):'',X-4,Y+8);
+  c.textAlign='right';c.fillText(o.yt?o.yt(y0):'',X-4,Y+H);
+  c.restore();
+}
+function legend(c,x,y,items){
+  let cx=x;
+  items.forEach(it=>{
+    c.fillStyle=it[1];c.fillRect(cx,y-8,14,3);
+    c.fillStyle='#9fb0cf';c.font='11px Outfit, sans-serif';c.textAlign='left';c.fillText(it[0],cx+19,y-3);
+    cx+=19+c.measureText(it[0]).width+16;
+  });
+}
+
+// curva n(D) y sus segmentos de zona muerta
+function curveND(sc,cfg,np){
+  const t=TIM[cfg.tim],m=MOD[cfg.mod],T=perNs(t),N=np||120,pts=[];
+  for(let k=0;k<=N;k++){const D=k/N;pts.push([D,solve(sc,m,D,cfg.td,T).rpm]);}
+  return pts;
+}
+function deadSegs(pts){
+  const segs=[];let a=null;
+  pts.forEach((p,i)=>{
+    const z=Math.abs(p[1])<0.5;
+    if(z&&a===null)a=p[0];
+    if(!z&&a!==null){segs.push([a,pts[i-1][0]]);a=null;}
+  });
+  if(a!==null)segs.push([a,pts[pts.length-1][0]]);
+  return segs.filter(s=>s[1]>s[0]);
+}
+
+// ===================== 6. VISTAS POR MODO =====================
+const MODCOL={diodo:'#8AB4F8',sincrono:'#7CD992',rapido:'#E9C46A',antifase:'#C08CF8'};
+const TIMCOL={p1t255:'#8AB4F8',p1t1023:'#7CD992',p8t255:'#E9C46A',p8t1023:'#C08CF8'};
+
+// -------------------------------------------------------------- EXPLORA ----
+function drawExplora(c){
+  const sc=expSc(),cfg=curCfg(),t=TIM[cfg.tim],m=MOD[cfg.mod],T=perNs(t),D=DUTIES[expDuty];
+  const r=solve(sc,m,D,0,T),run=runC(sc,cfg);
+  c.fillStyle='#F4EFEA';c.font='bold 26px Outfit, sans-serif';c.textAlign='left';
+  c.fillText('PWM desde el microcontrolador — banco de pruebas',30,44);
+  c.fillStyle='#8f97a5';c.font='14px Outfit, sans-serif';
+  c.fillText(sc.name+' · '+sc.maq,30,68);
+
+  // --- tabla del temporizador
+  const TW=[190,110,110,90,90,60],TX=30,TY=88;
+  trow(c,TX,TY,650,28,['Configuración del temporizador','f del PWM','Códigos N','Periodo T','Paso de duty','Silba'],TW,null,true);
+  TIMS.forEach((tt,i)=>{
+    const sel=tt.k===cfg.tim,f=fPwm(tt),aud=f<F_AUD;
+    const cols=[tt.n,fmtF(f),nCod(tt)+' ('+bitsOf(tt)+' bits)',fmtT(perNs(tt)),n2(100/nCod(tt))+' %',aud?'sí':'no'];
+    const cc=[sel?ACC:'#F4EFEA','#F4EFEA','#F4EFEA','#F4EFEA','#F4EFEA',aud?WARN_HEX:OK_HEX];
+    trow(c,TX,TY+28+i*28,650,28,cols,TW,cc);
+    if(sel){c.strokeStyle=ACC;c.lineWidth=2;c.strokeRect(TX,TY+28+i*28,650,28);}
+  });
+  c.fillStyle='#6b7280';c.font='11px Outfit, sans-serif';c.textAlign='left';
+  c.fillText('f = f_clk / (prescaler · (TOP+1))   ·   N = TOP+1   ·   con f_clk = 16 MHz fijo, subir f es bajar N',TX,TY+152);
+
+  // --- onda de un periodo
+  const f=0,de=D;
+  const segs=[[0,de,sc.vcc],[de,1,m.k==='diodo'?-VF:0]];
+  const wp=[];
+  segs.forEach(s=>{wp.push([s[0],s[2]]);wp.push([s[1],s[2]]);});
+  plot(c,60,278,290,160,{x0:0,x1:1,y0:-sc.vcc*0.25,y1:sc.vcc*1.08,xl:'t / T',yl:'v del motor (V)',
+    series:[{pts:wp,col:ACC,w:2.5}],
+    hlines:[[r.vt,OK_HEX,'V media = '+n2(r.vt)+' V']],
+    vbands:[[0,de,'#7CD992']],yt:v=>n0(v)+' V'});
+  c.fillStyle='#9fb0cf';c.font='12px Outfit, sans-serif';c.textAlign='left';
+  c.fillText('t_on = '+fmtT(D*T)+' de un periodo de '+fmtT(T),60,458);
+  c.fillStyle='#C7D6F5';c.font='bold 13px Outfit, sans-serif';
+  c.fillText('D = t_on / T = '+n0(D*100)+' %',60,268);
+
+  // --- curva n(D)
+  const pts=curveND(sc,cfg,120),ds=deadSegs(pts);
+  let lo=Math.min(0,sc.nMin),hi=Math.max(sc.nMax,...pts.map(p=>p[1]));
+  hi=hi*1.06;lo=Math.min(lo,...pts.map(p=>p[1]))*1.06;
+  plot(c,400,278,280,160,{x0:0,x1:1,y0:lo,y1:hi,xl:'D',yl:'velocidad (rpm)',
+    series:[{pts,col:VIO,w:2.5}],
+    hband:[sc.nMin,sc.nMax,'#7CD992'],
+    vbands:ds.map(s=>[s[0],s[1],'#ff6b6b']),
+    marks:[[D,r.rpm,'#F4EFEA']],yt:v=>n0(v)});
+  legend(c,400,458,[['banda de trabajo',OK_HEX],['zona muerta',BAD_HEX]]);
+
+  // --- rizado
+  const rp=[];for(let k=0;k<=120;k++){const x=k/120;rp.push([x,solve(sc,m,x,0,T).dI]);}
+  const rmax=Math.max(sc.dIMax*1.15,...rp.map(p=>p[1]))*1.05;
+  plot(c,60,510,290,150,{x0:0,x1:1,y0:0,y1:rmax,xl:'D',yl:'rizado ΔI (A)',
+    series:[{pts:rp,col:WARN_HEX,w:2.5}],
+    hlines:[[sc.dIMax,BAD_HEX,'límite '+n2(sc.dIMax)+' A']],
+    marks:[[D,r.dI,'#F4EFEA']],yt:v=>n2(v)+' A'});
+
+  c.fillStyle='#8f97a5';c.font='12px Outfit, sans-serif';c.textAlign='left';
+  wrapText(c,'El eje no arranca en cuanto el duty deja de ser cero: la fricción seca tiene que romperse primero. Por eso n(D) es una recta DESPLAZADA, no una proporción, y los primeros códigos del temporizador no sirven para nada.',400,530,280,17);
+  c.fillStyle='#6b7280';c.font='11px Outfit, sans-serif';
+  wrapText(c,'En este modo se fija tiempo muerto 0 y diodo de rueda libre: es el caso más simple, no necesariamente el válido para esta máquina.',400,626,280,15);
+
+  // --- panel derecho
+  rpanel(c,PX.x,PX.y,PX.w,206,'Punto de trabajo');
+  let py=PX.y+56;
+  prow(c,PX.x,py,PX.w,'Duty D',n0(D*100)+' %');py+=26;
+  prow(c,PX.x,py,PX.w,'t_on',fmtT(D*T));py+=26;
+  prow(c,PX.x,py,PX.w,'Tensión media',n2(r.vt)+' V',ACC);py+=26;
+  prow(c,PX.x,py,PX.w,'Velocidad',n0(r.rpm)+' rpm',VIO);py+=26;
+  prow(c,PX.x,py,PX.w,'Corriente media',n3(r.i)+' A');py+=26;
+  prow(c,PX.x,py,PX.w,'Rizado ΔI',n3(r.dI)+' A',r.dI<=sc.dIMax?OK_HEX:BAD_HEX);py+=26;
+
+  rpanel(c,PX.x,PX.y+222,PX.w,150,'Resolución de este temporizador');
+  py=PX.y+278;
+  prow(c,PX.x,py,PX.w,'Códigos de duty',String(run.N)+' ('+run.bits+' bits)');py+=26;
+  prow(c,PX.x,py,PX.w,'Paso de duty',n2(100/run.N)+' %');py+=26;
+  prow(c,PX.x,py,PX.w,'Recorrido del motor',n0(run.rpmLo)+' a '+n0(run.rpmHi)+' rpm');py+=26;
+  prow(c,PX.x,py,PX.w,'Escalones en la banda',String(run.pasos)+' de '+run.N,run.pasos>=sc.pasosMin?OK_HEX:WARN_HEX);
+
+  c.fillStyle='#8f97a5';c.font='12px Outfit, sans-serif';c.textAlign='left';
+  wrapText(c,'Los escalones útiles no son los N del registro: los que caen por debajo de la zona muerta o por encima de la banda de trabajo no se pueden usar.',PX.x+4,PX.y+400,PX.w-8,17);
+  c.fillStyle='#6b7280';c.font='11px Outfit, sans-serif';
+  wrapText(c,sc.nota,PX.x+4,PX.y+480,PX.w-8,15);
+}
+
+// --------------------------------------------------------------- APLICA ----
+const AP_TOPICS={recta:'La recta V(D) y los cuatro modos',rizado:'El rizado de corriente',muerto:'El tiempo muerto'};
+function drawAplica(c){
+  const sc=apSc(),cfg=curCfg(),t=TIM[cfg.tim],T=perNs(t),m=MOD[cfg.mod];
+  c.fillStyle='#F4EFEA';c.font='bold 26px Outfit, sans-serif';c.textAlign='left';
+  c.fillText('Aplica — '+AP_TOPICS[apTopic],30,44);
+  c.fillStyle='#8f97a5';c.font='14px Outfit, sans-serif';
+  c.fillText(sc.name+' · Vcc '+n0(sc.vcc)+' V · L '+n2(sc.la*1000)+' mH · R '+n1(sc.ra)+' Ω',30,68);
+
+  if(apTopic==='recta')drawApRecta(c,sc,cfg,t,T);
+  else if(apTopic==='rizado')drawApRizado(c,sc,cfg,t,T,m);
+  else drawApMuerto(c,sc,cfg,t,T,m);
+}
+function drawApRecta(c,sc,cfg,t,T){
+  // curvas V(D) de los cuatro modos
+  const ser=MODOS.map(mm=>{
+    const pts=[];for(let k=0;k<=120;k++){const D=k/120;pts.push([D,solve(sc,mm,D,cfg.td,T).vt]);}
+    return {pts,col:MODCOL[mm.k],w:mm.k===cfg.mod?3:1.6,dash:mm.bip?[]:[]};
+  });
+  plot(c,60,110,300,190,{x0:0,x1:1,y0:-sc.vcc*1.1,y1:sc.vcc*1.1,xl:'D',yl:'tensión media aplicada (V)',
+    series:ser,yt:v=>n0(v)+' V'});
+  legend(c,60,322,MODOS.map(mm=>[mm.k,MODCOL[mm.k]]));
+
+  // curvas n(D) de los cuatro modos
+  const serN=MODOS.map(mm=>{
+    const pts=curveND(sc,{tim:cfg.tim,td:cfg.td,mod:mm.k},120);
+    return {pts,col:MODCOL[mm.k],w:mm.k===cfg.mod?3:1.6};
+  });
+  const all=serN.flatMap(s=>s.pts.map(p=>p[1]));
+  const hi=Math.max(sc.nMax,...all)*1.06,lo=Math.min(0,...all)*1.06;
+  plot(c,410,110,270,190,{x0:0,x1:1,y0:lo,y1:hi,xl:'D',yl:'velocidad (rpm)',
+    series:serN,hband:[sc.nMin,sc.nMax,'#7CD992'],yt:v=>n0(v)});
+  c.fillStyle='#6b7280';c.font='11px Outfit, sans-serif';c.textAlign='left';
+  c.fillText('franja verde: banda de trabajo exigida ('+n0(sc.nMin)+' a '+n0(sc.nMax)+' rpm)',410,322);
+
+  // tabla por modo
+  const W=[210,90,90,90,90,80],TX=30,TY=350;
+  trow(c,TX,TY,650,28,['Modo de recirculación','V a D=0','V a D=1','Escalones','ΔI máx','¿Cubre?'],W,null,true);
+  MODOS.forEach((mm,i)=>{
+    const a=solve(sc,mm,0,cfg.td,T),b=solve(sc,mm,1,cfg.td,T);
+    const rr=runC(sc,{tim:cfg.tim,td:cfg.td,mod:mm.k});
+    const sel=mm.k===cfg.mod;
+    trow(c,TX,TY+28+i*28,650,28,
+      [mm.n,n2(a.vt)+' V',n2(b.vt)+' V',String(rr.pasos),n3(rr.dIMax)+' A',rr.cubre?'sí':'no'],W,
+      [sel?MODCOL[mm.k]:'#F4EFEA','#F4EFEA','#F4EFEA',rr.pasos>=sc.pasosMin?OK_HEX:WARN_HEX,
+       rr.dIMax<=sc.dIMax?OK_HEX:BAD_HEX,rr.cubre?OK_HEX:BAD_HEX]);
+    if(sel){c.strokeStyle=MODCOL[mm.k];c.lineWidth=2;c.strokeRect(TX,TY+28+i*28,650,28);}
+  });
+
+  c.fillStyle='#8f97a5';c.font='12px Outfit, sans-serif';c.textAlign='left';
+  wrapText(c,'En decaimiento lento la tensión media es D·Vcc y el duty 0 deja el eje parado. En bipolar es (2D−1)·Vcc: el duty 50 % es el reposo, el 0 % es marcha atrás a fondo y sólo se aprovecha la mitad de los códigos para cada sentido.',30,510,650,18);
+  wrapText(c,'Signo-magnitud y antifase dan la MISMA recta y el MISMO rizado. La diferencia no es eléctrica sino de interfaz: antifase sostiene el eje rígido al 50 % con una sola señal, pero si esa señal se pierde el motor sale a fondo hacia atrás.',30,580,650,18);
+  c.fillStyle='#6b7280';c.font='11px Outfit, sans-serif';
+  wrapText(c,'La rectificación síncrona sube un poco la recta frente al diodo porque quita la caída V_f = 0,70 V del tramo apagado; a cambio necesita puente completo y tiempo muerto.',30,650,650,16);
+
+  rpanel(c,PX.x,PX.y,PX.w,180,'Modo seleccionado');
+  const mm=MOD[cfg.mod];let py=PX.y+56;
+  prow(c,PX.x,py,PX.w,'Bipolar',mm.bip?'sí':'no',mm.bip?VIO:'#F4EFEA');py+=26;
+  prow(c,PX.x,py,PX.w,'Necesita puente completo',mm.hb?'sí':'no');py+=26;
+  const rsel=runC(sc,cfg);
+  prow(c,PX.x,py,PX.w,'Escalones en la banda',String(rsel.pasos)+' / '+String(sc.pasosMin));py+=26;
+  prow(c,PX.x,py,PX.w,'Recorrido',n0(rsel.rpmLo)+' a '+n0(rsel.rpmHi)+' rpm');py+=26;
+  prow(c,PX.x,py,PX.w,'Pérdidas del puente',n3(rsel.pBrMax)+' W');
+  c.fillStyle='#8f97a5';c.font='12px Outfit, sans-serif';c.textAlign='left';
+  wrapText(c,'Cambia el modo y mira la columna «V a D=0»: es la firma que separa un accionamiento de un cuadrante de uno de cuatro.',PX.x+4,PX.y+215,PX.w-8,17);
+}
+function drawApRizado(c,sc,cfg,t,T,m){
+  // ΔI(D) para los cuatro temporizadores
+  const ser=TIMS.map(tt=>{
+    const TT=perNs(tt),pts=[];
+    for(let k=0;k<=120;k++){const D=k/120;pts.push([D,solve(sc,m,D,cfg.td,TT).dI]);}
+    return {pts,col:TIMCOL[tt.k],w:tt.k===cfg.tim?3:1.6};
+  });
+  const top=Math.max(sc.dIMax*1.2,...ser.flatMap(s=>s.pts.map(p=>p[1])))*1.05;
+  plot(c,60,110,300,200,{x0:0,x1:1,y0:0,y1:top,xl:'D',yl:'rizado ΔI (A)',
+    series:ser,hlines:[[sc.dIMax,BAD_HEX,'límite '+n2(sc.dIMax)+' A']],yt:v=>n2(v)+' A'});
+  legend(c,60,332,TIMS.map(tt=>[fmtF(fPwm(tt)),TIMCOL[tt.k]]));
+
+  // ΔI a D=0,5 frente a la frecuencia
+  const pf=TIMS.slice().sort((a,b)=>fPwm(a)-fPwm(b)).map(tt=>[fPwm(tt)/1000,solve(sc,m,0.5,cfg.td,perNs(tt)).dI]);
+  plot(c,410,110,270,200,{x0:0,x1:70,y0:0,y1:top,xl:'f (kHz)',yl:'ΔI a D = 0,5 (A)',
+    series:[{pts:pf,col:WARN_HEX,w:2.5}],hlines:[[sc.dIMax,BAD_HEX,'límite']],
+    marks:pf.map(p=>[p[0],p[1],'#F4EFEA']),yt:v=>n2(v)});
+  c.fillStyle='#6b7280';c.font='11px Outfit, sans-serif';c.textAlign='left';
+  c.fillText('ΔI ∝ 1/f : doblar la frecuencia parte el rizado por la mitad',410,332);
+
+  const W=[190,110,120,120,110],TX=30,TY=360;
+  trow(c,TX,TY,650,28,['Temporizador','f del PWM','ΔI a D = 0,5','ΔI máx en banda','¿Cumple?'],W,null,true);
+  TIMS.forEach((tt,i)=>{
+    const rr=runC(sc,{tim:tt.k,td:cfg.td,mod:cfg.mod}),sel=tt.k===cfg.tim;
+    const d5=solve(sc,m,0.5,cfg.td,perNs(tt)).dI;
+    trow(c,TX,TY+28+i*28,650,28,[tt.n,fmtF(fPwm(tt)),n3(d5)+' A',n3(rr.dIMax)+' A',rr.okRizado?'sí':'no'],W,
+      [sel?TIMCOL[tt.k]:'#F4EFEA','#F4EFEA','#F4EFEA','#F4EFEA',rr.okRizado?OK_HEX:BAD_HEX]);
+    if(sel){c.strokeStyle=TIMCOL[tt.k];c.lineWidth=2;c.strokeRect(TX,TY+28+i*28,650,28);}
+  });
+
+  c.fillStyle='#8f97a5';c.font='12px Outfit, sans-serif';c.textAlign='left';
+  wrapText(c,'ΔI ≈ Vcc·D·(1−D)/(L·f) tiene su máximo exactamente en D = 0,5, no en el duty máximo: el rizado no es corriente, es la EXCURSIÓN de la corriente dentro de un periodo.',30,520,650,18);
+  wrapText(c,'En modo bipolar el escalón de tensión no es Vcc sino 2·Vcc, así que el rizado se DUPLICA con la misma frecuencia, la misma inductancia y el mismo duty. Es el precio del cuarto cuadrante.',30,580,650,18);
+  c.fillStyle='#6b7280';c.font='11px Outfit, sans-serif';
+  wrapText(c,'El rizado calienta el cobre por su valor eficaz: I_rms² = I² + ΔI²/12. Un rizado grande no mueve el eje pero sí calienta el inducido.',30,640,650,16);
+
+  rpanel(c,PX.x,PX.y,PX.w,180,'Rizado con lo elegido');
+  let py=PX.y+56;
+  const rr=runC(sc,cfg),d5=solve(sc,m,0.5,cfg.td,T).dI;
+  prow(c,PX.x,py,PX.w,'Frecuencia',fmtF(fPwm(t)));py+=26;
+  prow(c,PX.x,py,PX.w,'Modo',m.bip?'bipolar (2·Vcc)':'unipolar (Vcc)',m.bip?VIO:'#F4EFEA');py+=26;
+  prow(c,PX.x,py,PX.w,'ΔI a D = 0,5',n3(d5)+' A');py+=26;
+  prow(c,PX.x,py,PX.w,'ΔI máx en la banda',n3(rr.dIMax)+' A',rr.okRizado?OK_HEX:BAD_HEX);py+=26;
+  prow(c,PX.x,py,PX.w,'Límite de la máquina',n2(sc.dIMax)+' A');
+  c.fillStyle='#8f97a5';c.font='12px Outfit, sans-serif';c.textAlign='left';
+  wrapText(c,'Pasa de unipolar a bipolar sin tocar nada más: el número de la fila «ΔI a D = 0,5» se multiplica por dos, exactamente.',PX.x+4,PX.y+215,PX.w-8,17);
+}
+function drawApMuerto(c,sc,cfg,t,T,m){
+  // dd% frente a td, una curva por temporizador
+  const ser=TIMS.map(tt=>{
+    const TT=perNs(tt);
+    return {pts:TDS.map(v=>[v,ddLoss(m,v,TT)*100]),col:TIMCOL[tt.k],w:tt.k===cfg.tim?3:1.6};
+  });
+  const top=Math.max(sc.ddMax*100*1.6,...ser.flatMap(s=>s.pts.map(p=>p[1])))*1.05;
+  plot(c,60,110,300,200,{x0:0,x1:5000,y0:0,y1:top,xl:'t muerto (ns)',yl:'duty que se pierde (%)',
+    series:ser,hlines:[[sc.ddMax*100,BAD_HEX,'tope '+n0(sc.ddMax*100)+' %']],
+    vbands:sc.tdMin>0?[[0,sc.tdMin,'#ff6b6b']]:[],
+    marks:[[TDS[apTd],ddLoss(m,TDS[apTd],T)*100,'#F4EFEA']],yt:v=>n1(v)+' %'});
+  legend(c,60,332,TIMS.map(tt=>[fmtF(fPwm(tt)),TIMCOL[tt.k]]));
+  c.fillStyle=BAD_HEX;c.font='11px Outfit, sans-serif';c.textAlign='left';
+  c.fillText(sc.puente==='chopper'?'sin rama complementaria: aquí el tiempo muerto no existe'
+    :'franja roja: por debajo de '+fmtTd(sc.tdMin)+' hay conducción cruzada',60,352);
+
+  // techo de frecuencia derivado
+  const bip=m.bip?2:1;
+  const fc=[];for(let k=0;k<=120;k++){const td=100+k*(5000-100)/120;fc.push([td,sc.ddMax/(bip*td*1e-9)/1000]);}
+  plot(c,410,110,270,200,{x0:100,x1:5000,y0:0,y1:120,xl:'t muerto (ns)',yl:'techo de f (kHz)',
+    series:[{pts:fc,col:VIO,w:2.5}],
+    hlines:[[fPwm(t)/1000,ACC,'f elegida '+fmtF(fPwm(t))]],
+    marks:[[Math.max(100,TDS[apTd]||100),sc.ddMax/(bip*Math.max(100,TDS[apTd]||100)*1e-9)/1000,'#F4EFEA']],
+    yt:v=>n0(v)+'k'});
+  c.fillStyle='#6b7280';c.font='11px Outfit, sans-serif';c.textAlign='left';
+  c.fillText('f ≤ ddMax / (bip · t_muerto) — el driver limita la frecuencia',410,332);
+
+  const W=[150,110,130,130,130],TX=30,TY=372;
+  trow(c,TX,TY,650,28,['t muerto','Fracción de T','Duty perdido','V media a D=0,5','¿Bajo el tope?'],W,null,true);
+  TDS.forEach((v,i)=>{
+    const dd=ddLoss(m,v,T)*100,sel=v===TDS[apTd];
+    const vv=solve(sc,m,0.5,v,T).vt;
+    const bajo=sc.puente==='chopper'?(v===0):(v>=sc.tdMin&&dd<=sc.ddMax*100);
+    trow(c,TX,TY+28+i*28,650,28,[fmtTd(v),n2(v/T*100)+' %',n2(dd)+' %',n2(vv)+' V',bajo?'sí':'no'],W,
+      [sel?ACC:'#F4EFEA','#F4EFEA',dd<=sc.ddMax*100?OK_HEX:BAD_HEX,'#F4EFEA',bajo?OK_HEX:BAD_HEX]);
+    if(sel){c.strokeStyle=ACC;c.lineWidth=2;c.strokeRect(TX,TY+28+i*28,650,28);}
+  });
+
+  c.fillStyle='#8f97a5';c.font='12px Outfit, sans-serif';c.textAlign='left';
+  wrapText(c,'El tiempo muerto no es un adorno del esquema: se le RESTA al tramo activo, así que recorta el valor medio y con él la velocidad máxima. En bipolar cuesta el doble porque conmutan las dos ramas del puente.',30,530,650,18);
+  wrapText(c,'De ahí sale un techo que no está en la hoja de datos del temporizador: si el driver necesita t_d y la distorsión admisible es ddMax, entonces f ≤ ddMax/(bip·t_d). Un driver lento limita la frecuencia aunque el MCU pueda ir más rápido.',30,596,650,18);
+
+  rpanel(c,PX.x,PX.y,PX.w,206,'Tiempo muerto elegido');
+  let py=PX.y+56;
+  prow(c,PX.x,py,PX.w,'t muerto',fmtTd(TDS[apTd]));py+=26;
+  prow(c,PX.x,py,PX.w,'Periodo T',fmtT(T));py+=26;
+  prow(c,PX.x,py,PX.w,'Fracción de T',n2(TDS[apTd]/T*100)+' %');py+=26;
+  prow(c,PX.x,py,PX.w,'Duty perdido',n2(ddLoss(m,TDS[apTd],T)*100)+' %',
+    ddLoss(m,TDS[apTd],T)<=sc.ddMax?OK_HEX:BAD_HEX);py+=26;
+  prow(c,PX.x,py,PX.w,'Mínimo del driver',fmtTd(sc.tdMin));py+=26;
+  prow(c,PX.x,py,PX.w,'Techo derivado de f',
+    TDS[apTd]>0?fmtF(sc.ddMax/(bip*TDS[apTd]*1e-9)):'sin límite',VIO);
+  c.fillStyle='#8f97a5';c.font='12px Outfit, sans-serif';c.textAlign='left';
+  wrapText(c,'Prueba 5 µs con el temporizador más rápido: el periodo entero son 16 µs y el tiempo muerto se lleva casi un tercio del duty.',PX.x+4,PX.y+240,PX.w-8,17);
+}
+
+// ----------------------------------------------------------------- RETO ----
+function drawReto(c){
+  const sc=retoSc(),cfg=curCfg(),t=TIM[cfg.tim],m=MOD[cfg.mod],T=perNs(t),run=runC(sc,cfg);
+  c.fillStyle='#F4EFEA';c.font='bold 26px Outfit, sans-serif';c.textAlign='left';
+  c.fillText('Reto — configura el accionamiento',30,44);
+  c.fillStyle=WARN_HEX;c.font='bold 15px Outfit, sans-serif';
+  c.fillText(sc.name,30,70);
+  c.fillStyle='#8f97a5';c.font='13px Outfit, sans-serif';
+  c.fillText(sc.maq,30,90);
+
+  // requisitos
+  const W=[300,180,170],TX=30,TY=106;
+  const reqs=[
+    ['Banda de velocidad',n0(sc.nMin)+' a '+n0(sc.nMax)+' rpm',run.cubre?'se alcanza':'no se alcanza',run.cubre],
+    ['Escalones útiles mínimos',String(sc.pasosMin),String(run.pasos)+' disponibles',run.okPasos],
+    ['Rizado máximo',n2(sc.dIMax)+' A',n3(run.dIMax)+' A',run.okRizado],
+    ['Pérdidas máximas del puente',n2(sc.pMax)+' W',n3(run.pBrMax)+' W',run.okPerdida],
+    ['Techo del driver de puerta',fmtF(sc.fMax),fmtF(fPwm(t)),fPwm(t)<=sc.fMax],
+    ['Ruido audible',sc.silencio?'prohibido (f ≥ 20 kHz)':'admitido',fPwm(t)<F_AUD?'silba':'no silba',!(sc.silencio&&fPwm(t)<F_AUD)],
+    ['Tiempo muerto mínimo',sc.puente==='chopper'?'no aplica (chopper)':fmtTd(sc.tdMin),fmtTd(cfg.td),
+      sc.puente==='chopper'?cfg.td===0:cfg.td>=sc.tdMin],
+    ['Distorsión de duty admisible',n0(sc.ddMax*100)+' %',n2(ddLoss(m,cfg.td,T)*100)+' %',ddLoss(m,cfg.td,T)<=sc.ddMax],
+    ['Topología y función',
+      sc.puente==='chopper'?'chopper de un cuadrante':(sc.holdCero?'debe sostener el eje parado':(sc.paroSeguro?'par cero al soltar el habilitador':'puente completo')),
+      MOD[cfg.mod].n.split(' ')[0]+(m.bip?' · bipolar':' · unipolar'),guardMod(sc,cfg.mod)],
+  ];
+  trow(c,TX,TY,650,26,['Requisito de la máquina','Exigido','Con lo elegido'],W,null,true);
+  reqs.forEach((rq,i)=>{
+    trow(c,TX,TY+26+i*26,650,26,[rq[0],rq[1],rq[2]],W,
+      ['#F4EFEA','#9fb0cf',retoChecked?(rq[3]?OK_HEX:BAD_HEX):'#F4EFEA']);
+  });
+
+  // curva n(D) con lo elegido
+  const pts=curveND(sc,cfg,120);
+  const hi=Math.max(sc.nMax,...pts.map(p=>p[1]))*1.06,lo=Math.min(0,...pts.map(p=>p[1]))*1.06;
+  plot(c,70,390,280,180,{x0:0,x1:1,y0:lo,y1:hi,xl:'D',yl:'velocidad (rpm)',
+    series:[{pts,col:VIO,w:2.5}],hband:[sc.nMin,sc.nMax,'#7CD992'],
+    vbands:deadSegs(pts).map(s=>[s[0],s[1],'#ff6b6b']),yt:v=>n0(v)});
+
+  // barras de los cuatro criterios numéricos
+  const bx=400,bw=280;
+  drawBar(c,bx,404,bw,16,run.pasos/Math.max(1,sc.pasosMin*1.5),'escalones útiles',
+    run.okPasos?OK_HEX:BAD_HEX,String(run.pasos)+' / '+String(sc.pasosMin));
+  drawBar(c,bx,452,bw,16,run.dIMax/(sc.dIMax*1.5),'rizado ΔI',
+    run.okRizado?OK_HEX:BAD_HEX,n3(run.dIMax)+' / '+n2(sc.dIMax)+' A');
+  drawBar(c,bx,500,bw,16,run.pBrMax/(sc.pMax*1.5),'pérdidas del puente',
+    run.okPerdida?OK_HEX:BAD_HEX,n3(run.pBrMax)+' / '+n2(sc.pMax)+' W');
+  drawBar(c,bx,548,bw,16,ddLoss(m,cfg.td,T)/(sc.ddMax*1.5),'duty perdido',
+    ddLoss(m,cfg.td,T)<=sc.ddMax?OK_HEX:BAD_HEX,n2(ddLoss(m,cfg.td,T)*100)+' / '+n0(sc.ddMax*100)+' %');
+
+  c.fillStyle='#8f97a5';c.font='12px Outfit, sans-serif';c.textAlign='left';
+  wrapText(c,sc.nota,30,600,650,17);
+
+  // panel derecho: las tres decisiones
+  rpanel(c,PX.x,PX.y,PX.w,150,'Tus tres decisiones');
+  let py=PX.y+56;
+  prow(c,PX.x,py,PX.w,'Temporizador',fmtF(fPwm(t))+' · '+run.N,kc(retoOkTim,retoChecked));py+=30;
+  prow(c,PX.x,py,PX.w,'Tiempo muerto',fmtTd(cfg.td),kc(retoOkTd,retoChecked));py+=30;
+  prow(c,PX.x,py,PX.w,'Recirculación',cfg.mod,kc(retoOkMod,retoChecked));
+
+  rpanel(c,PX.x,PX.y+166,PX.w,140,'Lo que sale del motor');
+  py=PX.y+222;
+  prow(c,PX.x,py,PX.w,'Recorrido',n0(run.rpmLo)+' a '+n0(run.rpmHi)+' rpm');py+=26;
+  prow(c,PX.x,py,PX.w,'Códigos del registro',String(run.N)+' ('+run.bits+' bits)');py+=26;
+  prow(c,PX.x,py,PX.w,'Paso de duty',n2(100/run.N)+' %');py+=26;
+  prow(c,PX.x,py,PX.w,'Periodo T',fmtT(T));
+
+  c.fillStyle='#8f97a5';c.font='12px Outfit, sans-serif';c.textAlign='left';
+  wrapText(c,'Hay 4 temporizadores × 4 tiempos muertos × 4 modos = 64 combinaciones y sólo UNA cumple todo a la vez en esta máquina.',PX.x+4,PX.y+330,PX.w-8,17);
+  if(retoChecked){
+    c.fillStyle=retoSolved?OK_HEX:BAD_HEX;c.font='bold 15px Outfit, sans-serif';c.textAlign='left';
+    c.fillText(retoSolved?'✔ Accionamiento correcto: los tres criterios se cumplen':'✗ Todavía no: revisa los criterios marcados',30,700);
+  }
+  c.fillStyle='#6b7280';c.font='11px Outfit, sans-serif';c.textAlign='left';
+  c.fillText('Cada decisión se califica con las otras dos correctas, para que un acierto no tape un error',30,752);
+}
+
+function drawBoard(){
+  const c=bCv.getContext('2d');bg(c);
+  if(mode==='aplica')drawAplica(c);else if(mode==='reto')drawReto(c);else drawExplora(c);
+  bTex.needsUpdate=true;
+}
+function boardClick(){
+  if(mode==='aplica')showToast('🧩 <b>Aplica</b> — tres estudios sobre la misma máquina: la recta V(D) de los cuatro modos, el rizado frente a la frecuencia y lo que se lleva el tiempo muerto.');
+  else if(mode==='reto')showToast('🎯 <b>Reto</b> — elige temporizador, tiempo muerto y modo de recirculación. Cada decisión se califica por separado.');
+  else showToast('🔧 <b>Explora</b> — mueve el duty y el temporizador y mira a la vez la onda, la velocidad y el rizado.');
+}
+
+// ===================== 7. ESCENA 3D =====================
+const benchG=new THREE.Group();benchG.position.set(1.15,0,0.35);scene.add(benchG);
+const bench=roundedBox(3.3,0.12,1.6,MAT.bench,0.03);bench.position.set(0,0.72,0);benchG.add(bench);
+[[-1.5,-0.65],[1.5,-0.65],[-1.5,0.65],[1.5,0.65]].forEach(p=>{
+  const lg=new THREE.Mesh(new THREE.CylinderGeometry(0.05,0.05,0.66,12),MAT.leg);
+  lg.position.set(p[0],0.33,p[1]);benchG.add(lg);
+});
+
+// --- placa del microcontrolador
+const mcuG=new THREE.Group();mcuG.position.set(-1.15,0.78,0.16);benchG.add(mcuG);
+const mcuPcb=roundedBox(0.72,0.035,0.5,MAT.pcb,0.02);mcuG.add(mcuPcb);
+const mcuChip=roundedBox(0.22,0.05,0.22,MAT.dark,0.01);mcuChip.position.set(-0.08,0.04,0);mcuG.add(mcuChip);
+const gateMat=emis(ACC);
+const gateLed=new THREE.Mesh(new THREE.CylinderGeometry(0.035,0.035,0.03,14),gateMat);
+gateLed.position.set(0.22,0.04,0.14);mcuG.add(gateLed);
+const timLed=new THREE.Mesh(new THREE.CylinderGeometry(0.028,0.028,0.03,14),emis(VIO));
+timLed.position.set(0.22,0.04,-0.10);mcuG.add(timLed);
+mcuPcb.userData={title:'Microcontrolador',info:'El temporizador cuenta a 16 MHz. Prescaler y TOP fijan a la vez la frecuencia del PWM y el número de códigos de duty.'};
+addHoverLabel(mcuPcb,'MCU · temporizador',ACC,new THREE.Vector3(-1.15,1.35,0.16).add(benchG.position),1.5);
+
+// --- driver de puerta
+const drvG=new THREE.Group();drvG.position.set(-0.42,0.78,0.12);benchG.add(drvG);
+const drvBox=roundedBox(0.34,0.24,0.34,MAT.body,0.02);drvBox.position.set(0,0.12,0);drvG.add(drvBox);
+const drvLed=new THREE.Mesh(new THREE.CylinderGeometry(0.03,0.03,0.02,14),emis(WARN_HEX));
+drvLed.rotation.x=Math.PI/2;drvLed.position.set(0,0.18,0.18);drvG.add(drvLed);
+drvBox.userData={title:'Driver de puerta',info:'Traduce la señal lógica a la puerta de los MOSFET e inserta el tiempo muerto. Su velocidad de conmutación pone un techo de frecuencia que el temporizador no conoce.'};
+addHoverLabel(drvBox,'Driver · tiempo muerto',WARN_HEX,new THREE.Vector3(-0.42,1.25,0.12).add(benchG.position),1.8);
+
+// --- puente en H
+const brG=new THREE.Group();brG.position.set(0.28,0.78,0.05);benchG.add(brG);
+const brPcb=roundedBox(0.86,0.035,0.62,MAT.pcb,0.02);brG.add(brPcb);
+const qMats=[emis(OK_HEX),emis(OK_HEX),emis(OK_HEX),emis(OK_HEX)];
+const Q_POS=[[-0.26,0.18],[-0.26,-0.18],[0.26,0.18],[0.26,-0.18]];  // HA, LA, HB, LB
+const qMesh=Q_POS.map((p,i)=>{
+  const g=new THREE.Group();g.position.set(p[0],0.02,p[1]);brG.add(g);
+  const body=roundedBox(0.16,0.13,0.09,MAT.dark,0.01);body.position.set(0,0.07,0);g.add(body);
+  const tab=new THREE.Mesh(new THREE.BoxGeometry(0.14,0.10,0.012),qMats[i]);
+  tab.position.set(0,0.08,0.05);g.add(tab);
+  return {g,tab};
+});
+const diodeMat=emis(BAD_HEX);
+const diode=new THREE.Mesh(new THREE.CylinderGeometry(0.035,0.035,0.16,14),diodeMat);
+diode.rotation.z=Math.PI/2;diode.position.set(0,0.09,0);brG.add(diode);
+const shunt=roundedBox(0.16,0.05,0.07,MAT.copper,0.01);shunt.position.set(0,0.05,-0.26);brG.add(shunt);
+brPcb.userData={title:'Puente de potencia',info:'Cuatro MOSFET en dos ramas. Se encienden en diagonal para dar tensión al motor y, en el tramo apagado, la corriente recircula por el diodo o por el transistor de abajo.'};
+addHoverLabel(brPcb,'Puente en H',OK_HEX,new THREE.Vector3(0.28,1.30,0.05).add(benchG.position),1.4);
+diode.userData={title:'Diodo de rueda libre',info:'Cierra el camino de la corriente cuando el transistor se apaga. Cuesta V_f = 0,70 V: por eso la rectificación síncrona sube un poco la recta.'};
+
+// --- motor y carga
+const mtG=new THREE.Group();mtG.position.set(1.30,0.78,0.0);benchG.add(mtG);
+const mtBody=new THREE.Mesh(new THREE.CylinderGeometry(0.26,0.26,0.62,28),MAT.steel);
+mtBody.rotation.z=Math.PI/2;mtBody.position.set(0,0.34,0);mtG.add(mtBody);
+const mtCap=new THREE.Mesh(new THREE.CylinderGeometry(0.27,0.27,0.05,28),MAT.plate);
+mtCap.rotation.z=Math.PI/2;mtCap.position.set(-0.33,0.34,0);mtG.add(mtCap);
+const shaftG=new THREE.Group();shaftG.position.set(0.31,0.34,0);mtG.add(shaftG);
+const shaft=new THREE.Mesh(new THREE.CylinderGeometry(0.035,0.035,0.36,14),MAT.shiny);
+shaft.rotation.z=Math.PI/2;shaft.position.set(0.18,0,0);shaftG.add(shaft);
+const disc=new THREE.Mesh(new THREE.CylinderGeometry(0.20,0.20,0.045,28),MAT.plate);
+disc.rotation.z=Math.PI/2;disc.position.set(0.36,0,0);shaftG.add(disc);
+const markMat=emis(WARN_HEX);markMat.emissiveIntensity=0.9;
+const mark=new THREE.Mesh(new THREE.BoxGeometry(0.03,0.15,0.05),markMat);
+mark.position.set(0.385,0.10,0);shaftG.add(mark);
+mtBody.userData={title:'Motor de imán permanente',info:'La velocidad sigue a la tensión MEDIA, no al valor instantáneo: la inductancia del inducido alisa la corriente entre pulso y pulso.'};
+addHoverLabel(mtBody,'Motor de CD',VIO,new THREE.Vector3(1.30,1.35,0).add(benchG.position),1.4);
+mark.userData={title:'Marca del eje',info:'Gira a la velocidad que da el punto de trabajo. En la zona muerta se queda quieta aunque el duty ya no sea cero.'};
+
+// --- carga
+const loadG=new THREE.Group();loadG.position.set(1.30,0.78,-0.52);benchG.add(loadG);
+const loadBase=roundedBox(0.5,0.08,0.34,MAT.frame,0.02);loadBase.position.set(0,0.04,0);loadG.add(loadBase);
+const drum=new THREE.Mesh(new THREE.CylinderGeometry(0.15,0.15,0.30,24),MAT.body);
+drum.rotation.z=Math.PI/2;drum.position.set(0,0.26,0);loadG.add(drum);
+loadBase.userData={title:'Carga mecánica',info:'Fricción seca, fricción viscosa y par de carga. La fricción seca es la que crea la zona muerta del duty.'};
+
+// --- panel de instrumentos (molde S+P)
+const panelG=new THREE.Group();panelG.position.set(3.05,0.5,0.05);panelG.rotation.y=-0.24;scene.add(panelG);
+const panelBox=roundedBox(1.50,1.00,0.14,MAT.body,0.04);panelBox.position.set(0,0.62,0);panelG.add(panelBox);
+const pCv=document.createElement('canvas');pCv.width=600;pCv.height=400;
+const pTex=new THREE.CanvasTexture(pCv);
+const panelFace=new THREE.Mesh(new THREE.PlaneGeometry(1.40,0.92),new THREE.MeshBasicMaterial({map:pTex}));
+panelFace.position.set(0,0.62,0.075);panelG.add(panelFace);
+[-0.62,0.62].forEach(x=>{const scr=new THREE.Mesh(new THREE.CylinderGeometry(0.02,0.02,0.03,10),MAT.shiny);
+  scr.rotation.x=Math.PI/2;scr.position.set(x,0.62,0.075);panelG.add(scr);});
+[-0.30,0.30].forEach(x=>{const lg=new THREE.Mesh(new THREE.CylinderGeometry(0.035,0.04,0.62,12),MAT.leg);
+  lg.position.set(x,-0.19,0);panelG.add(lg);});
+panelBox.userData={title:'Osciloscopio y tacómetro',info:'Muestra la onda del nodo del motor en un periodo y el punto de trabajo que sale de ella: tensión media, corriente, rizado y velocidad.'};
+addHoverLabel(panelBox,'Instrumentos',ACC,new THREE.Vector3(0,1.5,0.1).add(panelG.position),1.6);
+
+// ===================== 8. FOTOGRAMAS, PANEL 3D Y HUD =====================
+function conduct(sc,m,ph){
+  if(sc.puente==='chopper'){
+    if(ph==='on')return {q:[false,false,false,true],d:false};
+    return {q:[false,false,false,false],d:true};
+  }
+  if(ph==='on')return {q:[true,false,false,true],d:false};
+  if(ph==='dead')return {q:[false,false,false,false],d:true};
+  if(m.bip)return {q:[false,true,true,false],d:false};
+  if(m.k==='sincrono')return {q:[false,true,false,true],d:false};
+  return {q:[false,false,false,true],d:true};
+}
+function vInst(sc,m,ph){
+  if(ph==='on')return sc.vcc;
+  if(ph==='dead')return -VF;
+  return m.bip?-sc.vcc:(m.k==='diodo'?-VF:0);
+}
+function hwFrames(){
+  const sc=curSc(),cfg=curCfg(),t=TIM[cfg.tim],m=MOD[cfg.mod],T=perNs(t);
+  const out=[],NF=48;
+  if(mode==='explora'){
+    const D=DUTIES[expDuty],r=solve(sc,m,D,cfg.td,T),fr=cfg.td/T,de=Math.max(0,D-fr);
+    for(let k=0;k<NF;k++){
+      const x=(k+0.5)/NF;
+      const ph=x<de?'on':(x<de+fr?'dead':'off');
+      const cd=conduct(sc,m,ph);
+      out.push({ph,x,D,rpm:r.rpm,i:r.i,vt:r.vt,dI:r.dI,pBr:r.pBr,gate:ph==='on',
+        q:cd.q,diode:cd.d,vinst:vInst(sc,m,ph),
+        lab:'un periodo · D = '+n0(D*100)+' %'});
+    }
+  }else{
+    for(let k=0;k<NF;k++){
+      const D=k/(NF-1),r=solve(sc,m,D,cfg.td,T),fr=cfg.td/T,de=Math.max(0,D-fr);
+      const ph=de>0.5?'on':'off',cd=conduct(sc,m,ph);
+      out.push({ph,x:D,D,rpm:r.rpm,i:r.i,vt:r.vt,dI:r.dI,pBr:r.pBr,gate:de>0.5,
+        q:cd.q,diode:cd.d,vinst:vInst(sc,m,ph),
+        lab:'barrido de duty · D = '+n0(D*100)+' %'});
+    }
+  }
+  return out;
+}
+function frames(){if(!framesCache)framesCache=hwFrames();return framesCache;}
+function hwCount(){return Math.max(1,frames().length);}
+
+function drawPanel3D(fr){
+  const sc=curSc(),cfg=curCfg(),t=TIM[cfg.tim],m=MOD[cfg.mod],T=perNs(t);
+  const c=pCv.getContext('2d');
+  c.fillStyle='#0e1218';c.fillRect(0,0,600,400);
+  c.strokeStyle=hexA(ACC,0.35);c.lineWidth=3;c.strokeRect(6,6,588,388);
+  c.fillStyle='#C7D6F5';c.font='bold 17px Outfit, sans-serif';c.textAlign='left';
+  c.fillText('OSCILOSCOPIO · NODO DEL MOTOR',24,40);
+  c.fillStyle='#6b7280';c.font='12px Outfit, sans-serif';c.textAlign='right';c.fillText(fr.lab,576,40);
+
+  // onda de un periodo con el cursor
+  const de=Math.max(0,fr.D-cfg.td/T),frac=cfg.td/T;
+  const segs=[[0,de,sc.vcc],[de,Math.min(1,de+frac),-VF],[Math.min(1,de+frac),1,vInst(sc,m,'off')]];
+  const wp=[];segs.forEach(s=>{if(s[1]<=s[0])return;wp.push([s[0],s[2]]);wp.push([s[1],s[2]]);});
+  const X=24,Y=58,W=552,H=120;
+  const mx=v=>X+v*W,my=v=>Y+H/2-(v/sc.vcc)*(H/2-6);
+  c.fillStyle='rgba(255,255,255,0.03)';c.fillRect(X,Y,W,H);
+  c.strokeStyle='rgba(255,255,255,0.25)';c.lineWidth=1;
+  c.beginPath();c.moveTo(X,my(0));c.lineTo(X+W,my(0));c.stroke();
+  c.strokeStyle=ACC;c.lineWidth=2.5;c.beginPath();
+  wp.forEach((p,i)=>{const px=mx(p[0]),py=my(p[1]);if(i)c.lineTo(px,py);else c.moveTo(px,py);});
+  c.stroke();
+  c.strokeStyle=hexA(OK_HEX,0.9);c.lineWidth=1.5;c.setLineDash([6,4]);
+  c.beginPath();c.moveTo(X,my(fr.vt));c.lineTo(X+W,my(fr.vt));c.stroke();c.setLineDash([]);
+  if(mode==='explora'){
+    c.strokeStyle=hexA(WARN_HEX,0.9);c.lineWidth=2;
+    c.beginPath();c.moveTo(mx(fr.x),Y);c.lineTo(mx(fr.x),Y+H);c.stroke();
+  }
+  c.strokeStyle='rgba(255,255,255,0.18)';c.lineWidth=1;c.strokeRect(X,Y,W,H);
+  c.fillStyle='#6b7280';c.font='11px Outfit, sans-serif';c.textAlign='left';
+  c.fillText('+'+n0(sc.vcc)+' V',X+4,Y+14);
+  c.textAlign='left';c.fillText('−'+n0(sc.vcc)+' V',X+4,Y+H-4);
+  c.fillStyle=OK_HEX;c.textAlign='right';c.fillText('media '+n2(fr.vt)+' V',X+W-6,my(fr.vt)-5);
+
+  // lectura grande
+  c.fillStyle=VIO;c.font='bold 54px Outfit, sans-serif';c.textAlign='left';
+  c.fillText(n0(fr.rpm),24,240);
+  const wRpm=c.measureText(n0(fr.rpm)).width;
+  c.fillStyle='#8f97a5';c.font='bold 20px Outfit, sans-serif';
+  c.fillText('rpm',24+wRpm+10,240);
+  c.fillStyle='#F4EFEA';c.font='bold 26px Outfit, sans-serif';c.textAlign='right';
+  c.fillText(n0(fr.D*100)+' % duty',576,240);
+
+  const row=(y,l,v,cc)=>{c.fillStyle='#8f97a5';c.font='14px Outfit, sans-serif';c.textAlign='left';c.fillText(l,24,y);
+    c.fillStyle=cc||'#F4EFEA';c.font='bold 17px Outfit, sans-serif';c.textAlign='right';c.fillText(v,576,y);};
+  row(276,'Frecuencia del PWM · periodo',fmtF(fPwm(t))+' · '+fmtT(T),ACC);
+  row(304,'Corriente media · rizado',n3(fr.i)+' A · '+n3(fr.dI)+' A',fr.dI<=sc.dIMax?OK_HEX:BAD_HEX);
+  row(332,'Modo · tiempo muerto',cfg.mod+' · '+fmtTd(cfg.td));
+  row(360,'Pérdidas del puente',n3(fr.pBr)+' W',fr.pBr<=sc.pMax?OK_HEX:WARN_HEX);
+  pTex.needsUpdate=true;
+}
+
+function updateHW(){
+  const fs=frames(),step=hwStep%Math.max(1,fs.length);
+  const fr=fs[step]||{ph:'off',x:0,D:0,rpm:0,i:0,vt:0,dI:0,pBr:0,gate:false,q:[false,false,false,false],diode:false,vinst:0,lab:''};
+  const sc=curSc();
+  gateMat.emissiveIntensity=fr.gate?1.6:0.06;
+  timLed.material.emissiveIntensity=0.25+0.55*(step%2);
+  drvLed.material.emissiveIntensity=fr.ph==='dead'?1.5:0.12;
+  qMesh.forEach((q,i)=>{
+    const on=fr.q[i];
+    q.tab.material.emissiveIntensity=on?1.5:0.06;
+    q.g.visible=!(sc.puente==='chopper'&&i!==3);
+  });
+  diode.visible=true;
+  diodeMat.emissiveIntensity=fr.diode?1.4:0.06;
+  shaftAng+=fr.rpm*0.00035;
+  shaftG.rotation.x=shaftAng;
+  drum.rotation.x=shaftAng*0.4;
+  markMat.emissiveIntensity=Math.abs(fr.rpm)<0.5?0.15:0.9;
+  drawPanel3D(fr);
+}
+
+// ===================== 9. HUD Y PANEL =====================
+el('hud').innerHTML=`
+  <div class="eyebrow">Sistemas Digitales y Automatización · Atmel AVR ATmega328P §15 · Krishnan, Electric Motor Drives</div>
+  <h2>PWM desde el microcontrolador: velocidad de un motor de CD</h2>
+  <p>La velocidad sigue a la tensión <b>media</b>, y la tensión media la fija el <b>duty</b> D = t_on/T. Pero el temporizador que genera ese duty no tiene un mando de frecuencia y otro de resolución: tiene <b>uno solo</b>. Y entre la señal lógica y el motor hay un puente que necesita <b>tiempo muerto</b> y un <b>camino de retorno</b> para la corriente.</p>
+  <div class="formula">f = f_clk / (prescaler · (TOP+1)) &nbsp;·&nbsp; N = TOP+1 &nbsp;·&nbsp; V_media = D·Vcc (unipolar) = (2D−1)·Vcc (bipolar) &nbsp;·&nbsp; ΔI ≈ Vcc·D(1−D)/(L·f)</div>
+  <div class="legend">
+    <div class="li"><span class="dot" style="background:#8AB4F8"></span>Temporizador: frecuencia y resolución son la misma decisión</div>
+    <div class="li"><span class="dot" style="background:#E9C46A"></span>Tiempo muerto: protege el puente y se come duty</div>
+    <div class="li"><span class="dot" style="background:#7CD992"></span>Recirculación: por dónde vuelve la corriente al apagar</div>
+    <div class="li"><span class="dot" style="background:#C08CF8"></span>Zona muerta: la fricción seca hay que romperla antes de girar</div>
+  </div>
+  <div class="fid">
+    <div class="ft">🔒 Contrato de fidelidad</div>
+    <div class="fl">Sí modela: régimen permanente del motor de CD con fricción seca y viscosa, tensión media con caídas de conducción y del diodo, rizado de corriente por la pendiente del tramo activo, pérdidas de conducción y de conmutación del puente, y el efecto del tiempo muerto sobre el duty.</div>
+    <div class="fl no">NO modela: el transitorio de arranque, la conmutación real del MOSFET (dv/dt, recuperación inversa), la saturación magnética, el calentamiento del cobre con la temperatura, la EMI radiada ni el rizado del bus de continua.</div>
+  </div>
+  <div class="src">Ref: Krishnan, «Electric Motor Drives» cap. 3–4 · Mohan, «Power Electronics» cap. 7 · Atmel ATmega328P datasheet §15 · verificación numérica propia (207/207)</div>`;
+el('panel').innerHTML=`
+  <h4>Banco de PWM <span id="p_mode" class="tag">Explora</span></h4>
+  <div class="modebar">
+    <button class="b" id="m_explora">🔧 Explora</button>
+    <button class="b" id="m_aplica">🧩 Aplica</button>
+    <button class="b" id="m_reto">🎯 Reto</button>
+  </div>
+  <div id="scenarioInfo" class="console" style="display:none"></div>
+  <div class="modebar" id="selbar"></div>
+  <div id="tele"></div>
+  <div class="console" id="report"></div>
+  <h4 class="sec" id="retoTitle" style="display:none">Reto</h4>
+  <div id="retoBox" style="display:none">
+    <div id="retoSpec" class="console"></div>
+    <div class="btns"><button class="b" id="btnCheck">✅ Comprobar</button></div>
+  </div>
+  <h4 class="sec">Pregunta de ingeniería</h4>
+  <div id="q_text"></div>
+  <div class="btns" id="dxbtns"></div>
+  <div class="btns">
+    <button class="b" id="btnAuto">✨ Recorrido guiado (automático)</button>
+    <button class="b" id="btnNew">🔀 Nuevo escenario</button>
+  </div>`;
+
+// ===================== 10. TOASTS =====================
+function showToast(html){const t=el('toast');t.innerHTML=html;t.classList.add('show');clearTimeout(showToast._t);showToast._t=setTimeout(()=>t.classList.remove('show'),4200);}
+
+// ===================== 11. MODOS Y CONTROLES =====================
+const MODE_META={
+  explora:{nombre:'Explora',cam:[[5.4,3.2,7.6],[0.7,1.05,0.3]],
+    mision:'Mueve el duty y el temporizador y mira qué pasa a la vez con la onda, la velocidad y el rizado.'},
+  aplica:{nombre:'Aplica',cam:[[4.4,3.0,6.6],[0.9,1.10,0.2]],
+    mision:'Tres estudios: la recta V(D) de los cuatro modos, el rizado frente a la frecuencia y lo que se lleva el tiempo muerto.'},
+  reto:{nombre:'Reto',cam:[[5.0,3.0,7.2],[0.6,1.05,0.3]],
+    mision:'Elige temporizador, tiempo muerto y modo de recirculación para esta máquina. Las tres decisiones se califican por separado.'},
+};
+function lbl(t){return `<span class="lbl">${t}</span>`;}
+function optBtns(key,opts,cur){return opts.map(([v,t])=>`<button class="b sm ${String(cur)===String(v)?'on':''}" data-${key}="${v}">${t}</button>`).join('');}
+function buildControls(){
+  const bar=el('selbar');bar.style.display='flex';bar.style.flexWrap='wrap';let html='';
+  if(mode==='explora'){
+    html+=lbl('Máquina')+optBtns('sc',POOL.map(s=>[s.id,s.name.split(' ')[0]+' '+s.name.split(' ')[1]]),expIdx);
+    html+=lbl('Temporizador')+optBtns('tim',TIMS.map(t=>[t.k,fmtF(fPwm(t))+' · '+nCod(t)]),expTim);
+    html+=lbl('Duty')+optBtns('duty',DUTIES.map((d,i)=>[i,n0(d*100)+' %']),expDuty);
+  }else if(mode==='aplica'){
+    html+=lbl('Máquina')+optBtns('sc',POOL.map(s=>[s.id,s.name.split(' ')[0]+' '+s.name.split(' ')[1]]),apIdx);
+    html+=lbl('Estudio')+optBtns('topic',[['recta','Recta V(D)'],['rizado','Rizado'],['muerto','Tiempo muerto']],apTopic);
+    html+=lbl('Temporizador')+optBtns('tim',TIMS.map(t=>[t.k,fmtF(fPwm(t))]),apTim);
+    html+=lbl('t muerto')+optBtns('td',TDS.map((v,i)=>[i,fmtTd(v)]),apTd);
+    html+=lbl('Modo')+optBtns('mod',MODOS.map(m=>[m.k,m.k]),apMod);
+  }else{
+    html+=lbl('Temporizador')+optBtns('rtim',TIMS.map(t=>[t.k,fmtF(fPwm(t))+' · '+nCod(t)]),retoCh.tim);
+    html+=lbl('t muerto')+optBtns('rtd',TDS.map(v=>[v,fmtTd(v)]),retoCh.td);
+    html+=lbl('Modo')+optBtns('rmod',MODOS.map(m=>[m.k,m.k]),retoCh.mod);
+  }
+  bar.innerHTML=html;
+  const wire=(attr,fn)=>bar.querySelectorAll('['+attr+']').forEach(b=>b.onclick=()=>{
+    if(autoRunning)return;fn(b.getAttribute(attr));synth.beep(720,0.05,0.04);afterEdit();});
+  wire('data-sc',v=>{const i=parseInt(v,10);if(mode==='explora')expIdx=i;else apIdx=i;});
+  wire('data-tim',v=>{if(mode==='explora')expTim=v;else apTim=v;});
+  wire('data-duty',v=>{expDuty=parseInt(v,10);});
+  wire('data-topic',v=>{apTopic=v;});
+  wire('data-td',v=>{apTd=parseInt(v,10);});
+  wire('data-mod',v=>{apMod=v;});
+  wire('data-rtim',v=>{retoSet('tim',v);});
+  wire('data-rtd',v=>{retoSet('td',parseInt(v,10));});
+  wire('data-rmod',v=>{retoSet('mod',v);});
+}
+function retoSet(field,v){retoCh[field]=v;retoChecked=false;retoSolved=false;solved=false;}
+function updateScenarioInfo(){
+  const box=el('scenarioInfo');box.style.display='block';
+  const sc=curSc();
+  if(mode==='explora'){
+    box.innerHTML=`<b>${sc.name}</b> · Vcc ${n0(sc.vcc)} V · L ${n2(sc.la*1000)} mH · R ${n1(sc.ra)} Ω · banda ${n0(sc.nMin)}–${n0(sc.nMax)} rpm.<br><span class="mono">Aquí el tiempo muerto es 0 y la recirculación va por el diodo: el caso más simple.</span>`;
+  }else if(mode==='aplica'){
+    box.innerHTML=`<b>${sc.name}</b> · ${AP_TOPICS[apTopic]}.<br><span class="mono">Los tres selectores son libres: aquí se estudia, no se califica.</span>`;
+  }else{
+    box.innerHTML=`<b>${sc.name}</b><br><span class="mono">${sc.maq}</span>`;
+  }
+}
+function setMode(k){
+  mode=k;hwStep=0;
+  ['explora','aplica','reto'].forEach(m=>el('m_'+m).classList.toggle('on',m===k));
+  el('p_mode').textContent=MODE_META[k].nombre;
+  el('retoTitle').style.display=k==='reto'?'block':'none';
+  el('retoBox').style.display=k==='reto'?'block':'none';
+  if(k==='reto')updateRetoSpec();
+  buildControls();updateScenarioInfo();
+  solved=(k==='reto')?retoSolved:false;
+  clearDx();buildQuiz();refreshQuestion();
+  const cam=MODE_META[k].cam;S.moveTo(cam[0],cam[1]);refreshAll();
+}
+function afterEdit(){buildControls();updateScenarioInfo();refreshAll();}
+function seedReto(k){
+  retoK=(k===undefined||k===null)?pickIdx(RETO_POOL.length,retoK):k;
+  const sc=retoSc();
+  retoCh={tim:TIMS.find(t=>t.k!==sc.tim).k,td:TDS.find(v=>v!==sc.td),mod:MODOS.find(m=>m.k!==sc.mod).k};
+  retoChecked=false;retoSolved=false;solved=false;retoMsg='';
+  retoOkTim=false;retoOkTd=false;retoOkMod=false;
+}
+function newSignal(){
+  if(mode==='reto'){seedReto();updateRetoSpec();}
+  else if(mode==='aplica'){apIdx=pickIdx(POOL.length,apIdx);}
+  else{expIdx=pickIdx(POOL.length,expIdx);}
+  buildQuiz();refreshQuestion();clearDx();
+  synth.beep(520,0.08,0.05);hwStep=0;afterEdit();
+}
+
+// ===================== 12. TELEMETRÍA Y REPORTE =====================
+function teleRow(l,v,cls){return `<div class="trow"><span class="tl">${l}</span><span class="tv ${cls||''}">${v}</span></div>`;}
+function updateTele(){
+  const sc=curSc(),cfg=curCfg(),t=TIM[cfg.tim],m=MOD[cfg.mod],T=perNs(t),run=runC(sc,cfg);
+  let h='';
+  if(mode==='explora'){
+    const D=DUTIES[expDuty],r=solve(sc,m,D,0,T);
+    h+=teleRow('Duty D',n0(D*100)+' % · t_on '+fmtT(D*T));
+    h+=teleRow('Tensión media',n2(r.vt)+' V','good');
+    h+=teleRow('Velocidad',n0(r.rpm)+' rpm',Math.abs(r.rpm)<0.5?'warn':'good');
+    h+=teleRow('Corriente media',n3(r.i)+' A');
+    h+=teleRow('Rizado ΔI',n3(r.dI)+' A',r.dI<=sc.dIMax?'good':'bad');
+  }else if(mode==='aplica'){
+    if(apTopic==='recta'){
+      const a=solve(sc,m,0,cfg.td,T),b=solve(sc,m,0.5,cfg.td,T),c2=solve(sc,m,1,cfg.td,T);
+      h+=teleRow('V a D = 0',n2(a.vt)+' V',m.bip?'warn':'good');
+      h+=teleRow('V a D = 0,5',n2(b.vt)+' V');
+      h+=teleRow('V a D = 1',n2(c2.vt)+' V');
+      h+=teleRow('Velocidad a D = 0,5',n0(b.rpm)+' rpm');
+      h+=teleRow('Escalones en la banda',String(run.pasos)+' / '+String(sc.pasosMin),run.okPasos?'good':'warn');
+    }else if(apTopic==='rizado'){
+      const d5=solve(sc,m,0.5,cfg.td,T).dI;
+      h+=teleRow('Frecuencia',fmtF(fPwm(t)));
+      h+=teleRow('Escalón de tensión',m.bip?'2·Vcc = '+n0(2*sc.vcc)+' V':'Vcc = '+n0(sc.vcc)+' V',m.bip?'warn':'good');
+      h+=teleRow('ΔI a D = 0,5',n3(d5)+' A');
+      h+=teleRow('ΔI máx en la banda',n3(run.dIMax)+' A',run.okRizado?'good':'bad');
+      h+=teleRow('Límite de la máquina',n2(sc.dIMax)+' A');
+    }else{
+      const dd=ddLoss(m,TDS[apTd],T);
+      h+=teleRow('t muerto',fmtTd(TDS[apTd]));
+      h+=teleRow('Fracción del periodo',n2(TDS[apTd]/T*100)+' %');
+      h+=teleRow('Duty perdido',n2(dd*100)+' %',dd<=sc.ddMax?'good':'bad');
+      h+=teleRow('Mínimo del driver',fmtTd(sc.tdMin),TDS[apTd]>=sc.tdMin?'good':'bad');
+      h+=teleRow('Techo derivado de f',TDS[apTd]>0?fmtF(sc.ddMax/((m.bip?2:1)*TDS[apTd]*1e-9)):'sin límite');
+    }
+  }else{
+    h+=teleRow('Temporizador',fmtF(fPwm(t))+' · '+run.N,retoChecked?(retoOkTim?'good':'bad'):'');
+    h+=teleRow('t muerto',fmtTd(cfg.td),retoChecked?(retoOkTd?'good':'bad'):'');
+    h+=teleRow('Recirculación',cfg.mod,retoChecked?(retoOkMod?'good':'bad'):'');
+    h+=teleRow('Escalones útiles',String(run.pasos)+' / '+String(sc.pasosMin),run.okPasos?'good':'bad');
+    h+=teleRow('Rizado máx',n3(run.dIMax)+' A',run.okRizado?'good':'bad');
+  }
+  el('tele').innerHTML=h;
+}
+function updateReport(){
+  const sc=curSc(),cfg=curCfg(),t=TIM[cfg.tim],m=MOD[cfg.mod],T=perNs(t),run=runC(sc,cfg);
+  let html=`<b>${MODE_META[mode].mision}</b><br>`;
+  if(mode==='explora'){
+    const D=DUTIES[expDuty],r=solve(sc,m,D,0,T);
+    html+=`f = 16 MHz / (${TIM[cfg.tim].presc} · ${TIM[cfg.tim].top+1}) = <span class="mono">${fmtF(fPwm(t))}</span> · N = <span class="mono">${run.N}</span> códigos (${run.bits} bits)<br>`;
+    html+=`D = <span class="mono">${n0(D*100)} %</span> → V media <span class="mono">${n2(r.vt)} V</span> → <span class="mono">${n0(r.rpm)} rpm</span><br>`;
+    html+=Math.abs(r.rpm)<0.5
+      ? `<span class="dtc">Duty distinto de cero y el eje quieto: la fricción seca todavía no se ha roto.</span>`
+      : `<span class="ok">Escalones útiles dentro de la banda: ${run.pasos} de ${run.N}.</span>`;
+  }else if(mode==='aplica'){
+    if(apTopic==='recta'){
+      const a=solve(sc,m,0,cfg.td,T);
+      html+=`Modo <span class="mono">${cfg.mod}</span> · V a D=0 <span class="mono">${n2(a.vt)} V</span> · recorrido <span class="mono">${n0(run.rpmLo)} a ${n0(run.rpmHi)} rpm</span><br>`;
+      html+=m.bip?`<span class="dtc">Bipolar: el reposo está en el 50 % del duty y la mitad de los códigos van al otro sentido.</span>`
+                 :`<span class="ok">Unipolar: el duty 0 deja el eje parado y todos los códigos empujan hacia el mismo lado.</span>`;
+    }else if(apTopic==='rizado'){
+      const d5=solve(sc,m,0.5,cfg.td,T).dI;
+      html+=`ΔI a D=0,5 <span class="mono">${n3(d5)} A</span> con <span class="mono">${fmtF(fPwm(t))}</span> y L = <span class="mono">${n2(sc.la*1000)} mH</span><br>`;
+      html+=run.okRizado?`<span class="ok">Dentro del límite de ${n2(sc.dIMax)} A.</span>`
+                        :`<span class="dtc">Fuera de límite: ${n3(run.dIMax)} A frente a ${n2(sc.dIMax)} A admitidos.</span>`;
+    }else{
+      const dd=ddLoss(m,TDS[apTd],T);
+      html+=`t muerto <span class="mono">${fmtTd(TDS[apTd])}</span> sobre un periodo de <span class="mono">${fmtT(T)}</span> → duty perdido <span class="mono">${n2(dd*100)} %</span><br>`;
+      html+=sc.puente==='chopper'
+        ? `<span class="mono">Chopper de un cuadrante: una sola rama, no hay conducción cruzada que evitar.</span>`
+        : (TDS[apTd]<sc.tdMin?`<span class="dtc">Por debajo de los ${fmtTd(sc.tdMin)} del driver: las dos ramas llegan a conducir a la vez.</span>`
+          :(dd<=sc.ddMax?`<span class="ok">Protege el puente y la distorsión queda bajo el ${n0(sc.ddMax*100)} %.</span>`
+            :`<span class="dtc">Protege el puente pero se lleva ${n2(dd*100)} % del duty.</span>`));
+    }
+  }else{
+    html+=`Máquina: <b>${sc.name}</b> · banda ${n0(sc.nMin)}–${n0(sc.nMax)} rpm · Vcc ${n0(sc.vcc)} V.<br>`;
+    if(retoChecked)html+=retoMsg;
+    else html+=`<span class="mono">Elige temporizador, tiempo muerto y modo, y pulsa Comprobar.</span>`;
+  }
+  el('report').innerHTML=html;
+}
+function refreshAll(){framesCache=null;drawBoard();updateTele();updateReport();updateHW();}
+
+// ===================== 13. RETO =====================
+function updateRetoSpec(){
+  const sc=retoSc();
+  const topo=sc.puente==='chopper'
+    ? 'el puente es un <b>chopper de un cuadrante</b>: un solo MOSFET y un diodo, sin rama complementaria'
+    : (sc.holdCero?'el lazo de posición debe <b>sostener el eje parado</b> con par a los dos lados'
+      :(sc.paroSeguro?'al soltar el habilitador la orden de par debe poder <b>irse a cero</b>'
+        :'hay puente completo disponible'));
+  el('retoSpec').innerHTML=`Pon en marcha el accionamiento de <b>${sc.name}</b>: (1) el <b>temporizador</b>, que fija a la vez la frecuencia y los códigos de duty; (2) el <b>tiempo muerto</b> del driver; y (3) el <b>modo de recirculación</b>. Debe cubrir de ${n0(sc.nMin)} a ${n0(sc.nMax)} rpm con al menos <b>${sc.pasosMin} escalones útiles</b>, rizado ≤ <b>${n2(sc.dIMax)} A</b>, pérdidas del puente ≤ <b>${n2(sc.pMax)} W</b>, frecuencia ≤ <b>${fmtF(sc.fMax)}</b> por el driver${sc.silencio?' y <b>≥ 20 kHz</b> por el ruido':''}, tiempo muerto ≥ <b>${fmtTd(sc.tdMin)}</b> y distorsión de duty ≤ <b>${n0(sc.ddMax*100)} %</b>. Además, ${topo}.`;
+}
+function whyRun(sc,cfg){
+  const r=runC(sc,cfg);
+  if(!r.cubre)return 'la banda de velocidad no se alcanza ('+n0(r.rpmLo)+' a '+n0(r.rpmHi)+' rpm)';
+  if(!r.okPasos)return 'sólo quedan '+r.pasos+' escalones útiles de los '+sc.pasosMin+' pedidos';
+  if(!r.okRizado)return 'el rizado llega a '+n3(r.dIMax)+' A frente a '+n2(sc.dIMax)+' A';
+  if(!r.okPerdida)return 'el puente disipa '+n3(r.pBrMax)+' W frente a '+n2(sc.pMax)+' W';
+  return 'no cumple';
+}
+function retoExplain(){
+  const sc=retoSc(),parts=[];
+  if(retoOkTim)parts.push('temporizador correcto');
+  else{
+    const t=TIM[retoCh.tim],f=fPwm(t);
+    if(f>sc.fMax)parts.push('temporizador: '+fmtF(f)+' supera el techo del driver ('+fmtF(sc.fMax)+')');
+    else if(sc.silencio&&f<F_AUD)parts.push('temporizador: '+fmtF(f)+' cae en la banda audible');
+    else parts.push('temporizador: '+whyRun(sc,cfgWith(sc,{tim:retoCh.tim})));
+  }
+  if(retoOkTd)parts.push('tiempo muerto correcto');
+  else{
+    const T=perNs(TIM[retoCh.tim]),m=MOD[goodMod(sc)];
+    if(sc.puente==='chopper'&&retoCh.td!==0)parts.push('tiempo muerto: en un chopper de una rama no hay conducción cruzada que evitar');
+    else if(retoCh.td<sc.tdMin)parts.push('tiempo muerto: '+fmtTd(retoCh.td)+' por debajo de los '+fmtTd(sc.tdMin)+' del driver');
+    else if(ddLoss(m,retoCh.td,perNs(TIM[goodTim(sc)]))>sc.ddMax)parts.push('tiempo muerto: se lleva '+n2(ddLoss(m,retoCh.td,perNs(TIM[goodTim(sc)]))*100)+' % del duty');
+    else parts.push('tiempo muerto: '+whyRun(sc,cfgWith(sc,{td:retoCh.td})));
+  }
+  if(retoOkMod)parts.push('modo correcto');
+  else{
+    const m=MOD[retoCh.mod];
+    if(sc.puente==='chopper'&&m.hb)parts.push('modo: no hay puente completo que conmutar');
+    else if(sc.holdCero&&retoCh.mod!=='antifase')parts.push('modo: no sostiene el eje parado con par a los dos lados');
+    else if(sc.paroSeguro&&retoCh.mod==='antifase')parts.push('modo: al soltar el habilitador la señal se pierde y el puente daría marcha atrás');
+    else parts.push('modo: '+whyRun(sc,cfgWith(sc,{mod:retoCh.mod})));
+  }
+  return parts.join(' · ');
+}
+function checkReto(){
+  const sc=retoSc();
+  retoOkTim=okTim(sc,retoCh.tim);
+  retoOkTd=okTd(sc,retoCh.td);
+  retoOkMod=okMod(sc,retoCh.mod);
+  retoSolved=retoOkTim&&retoOkTd&&retoOkMod;retoChecked=true;solved=retoSolved;
+  synth.beep(retoSolved?1046:220,retoSolved?0.14:0.15,0.06);
+  retoMsg=`<span class="mono"><span class="${retoSolved?'ok':'dtc'}">${retoSolved?'✔ Correcto':'✗ Revisa'}</span> — ${retoExplain()}</span>`;
+  refreshAll();
+}
+
+// ===================== 14. QUIZ =====================
+function buildQuiz(){
+  QUIZ={
+    explora:{
+      pregunta:'Con el reloj del microcontrolador fijo, ¿qué relación hay entre la frecuencia del PWM y el número de escalones de duty disponibles?',
+      opciones:[
+        {t:'Son la MISMA decisión: f = f_clk/(prescaler·(TOP+1)) y N = TOP+1, así que subir la frecuencia bajando TOP cuesta códigos de duty, y ganarlos subiendo TOP baja la frecuencia.',ok:true,why:'Correcto. TOP aparece en las dos fórmulas: no hay un mando de frecuencia y otro de resolución, hay uno solo. El prescaler mueve las dos a la vez sin cambiar la relación entre ellas.'},
+        {t:'Son independientes: la frecuencia la fija el prescaler y la resolución la fija el TOP.',ok:false,why:'El prescaler sí toca sólo la frecuencia, pero el TOP toca las dos: aparece en f = f_clk/(prescaler·(TOP+1)) y en N = TOP+1. Por eso no se pueden elegir por separado.'},
+        {t:'La resolución sólo depende del ancho del registro de comparación (8 o 16 bits) y no de la frecuencia elegida.',ok:false,why:'El ancho del registro pone el máximo, no el valor real. Un temporizador de 16 bits configurado con TOP = 255 da 256 códigos, exactamente los mismos que uno de 8 bits.'},
+        {t:'Subir la frecuencia mejora la resolución porque hay más periodos por segundo y por tanto más valores medios distintos.',ok:false,why:'Más periodos por segundo no son más niveles: la resolución es cuántos valores distintos de t_on caben en UN periodo, y ese número baja cuando el periodo se acorta con el mismo reloj.'},
+      ],
+    },
+    aplica:{
+      pregunta:'El rizado de corriente de un PWM sobre un motor, ¿dónde es máximo y por qué en antifase resulta el doble?',
+      opciones:[
+        {t:'Es máximo en D = 0,5 porque ΔI ≈ Vcc·D(1−D)/(L·f), y en antifase el escalón de tensión no es Vcc sino 2·Vcc, así que el rizado se duplica con la misma L, la misma f y el mismo duty.',ok:true,why:'Correcto. El rizado es la EXCURSIÓN de la corriente dentro del periodo: producto de la pendiente por la duración del tramo, máximo justo en el medio. En antifase el motor ve +Vcc y −Vcc, y ese salto doble dobla la pendiente.'},
+        {t:'Es máximo con duty 100 % porque es cuando circula más corriente por el inducido.',ok:false,why:'Se confunde la corriente con su rizado. Con duty 100 % el transistor no conmuta: la tensión es continua y el rizado es exactamente cero, aunque la corriente media sea la mayor de todas.'},
+        {t:'Depende de la resistencia del inducido: cuanto menor sea R, mayor será el rizado.',ok:false,why:'La R fija la corriente MEDIA, no su excursión dentro del periodo. Quien se opone al cambio de corriente durante unos microsegundos es la inductancia, y por eso L aparece en el denominador y R no.'},
+        {t:'En antifase es el doble porque conmutan dos transistores en vez de uno.',ok:false,why:'Que conmuten dos ramas duplica las PÉRDIDAS de conmutación, que es otra cuenta. El rizado se duplica por la amplitud del escalón de tensión —2·Vcc en vez de Vcc—, no por cuántos transistores conmutan.'},
+      ],
+    },
+    reto:{
+      pregunta:'Un driver de puerta lento exige un tiempo muerto grande. ¿Eso limita también la frecuencia del PWM?',
+      opciones:[
+        {t:'Sí: la fracción de periodo que se come el tiempo muerto es t_d/T = t_d·f, así que exigir una distorsión máxima ddMax equivale a exigir f ≤ ddMax/(bip·t_d). El driver pone un techo de frecuencia que el temporizador no conoce.',ok:true,why:'Correcto, y es el techo que más se olvida. Con 5 µs de tiempo muerto y un periodo de 16 µs se pierde casi un tercio del duty; el mismo tiempo muerto sobre un periodo de 512 µs apenas se nota.'},
+        {t:'No: el tiempo muerto sólo desplaza el valor medio y se compensa con un ajuste del duty, sin afectar a la frecuencia.',ok:false,why:'Se puede compensar el valor medio, pero no el duty que ya no existe: por encima de cierta frecuencia el tiempo muerto se come el tramo activo entero y hay códigos que no se pueden alcanzar de ninguna manera.'},
+        {t:'No: el techo de frecuencia lo pone únicamente la inductancia del motor, porque es la que fija el rizado.',ok:false,why:'La inductancia pone el SUELO de frecuencia —por debajo de cierta f el rizado se dispara—, no el techo. El techo lo ponen el driver y las pérdidas de conmutación.'},
+        {t:'Sí, pero sólo en modo unipolar; en bipolar el tiempo muerto de las dos ramas se cancela.',ok:false,why:'Al revés: en bipolar conmutan las dos ramas en cada periodo, así que el tiempo muerto se paga DOS veces y la distorsión del duty es el doble para el mismo t_d.'},
+      ],
+    },
+  };
+  Object.values(QUIZ).forEach(q=>{for(let i=q.opciones.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));const tmp=q.opciones[i];q.opciones[i]=q.opciones[j];q.opciones[j]=tmp;}});
+}
+function clearDx(){const box=el('dxbtns');if(box)box.innerHTML='';}
+function refreshQuestion(){
+  const q=QUIZ[mode];if(!q)return;
+  el('q_text').textContent=q.pregunta;
+  const box=el('dxbtns');
+  box.innerHTML=q.opciones.map((o,i)=>`<button class="b sm" data-i="${i}">${String.fromCharCode(65+i)}) ${o.t}</button>`).join('');
+  box.querySelectorAll('[data-i]').forEach(b=>b.onclick=()=>answer(parseInt(b.dataset.i,10)));
+}
+function answer(i){
+  const q=QUIZ[mode];if(!q)return;
+  const box=el('dxbtns'),btns=box.querySelectorAll('[data-i]');
+  if(!btns.length||btns[0].disabled)return;
+  const o=q.opciones[i];btns.forEach(b=>b.disabled=true);btns[i].classList.add(o.ok?'right':'wrong');
+  if(o.ok){synth.beep(1046,0.12,0.06);}else{synth.beep(220,0.15,0.06);}
+  showToast((o.ok?'✔ ':'✗ ')+o.why);
+}
+
+// ===================== 15. PICKING Y HOVER =====================
+pickerFor(scene,S.camera,S.renderer.domElement,hit=>{
+  if(!hit)return;
+  if(hit.object===board){boardClick();return;}
+  let o=hit.object;while(o){if(o.userData&&o.userData.title){showToast('<b>'+o.userData.title+'</b><br>'+(o.userData.info||''));return;}o=o.parent;}
+});
+(function hoverLoop(){
+  const ray=new THREE.Raycaster(),dom=S.renderer.domElement;let mx=0,my=0;
+  dom.addEventListener('pointermove',e=>{const r=dom.getBoundingClientRect();mx=((e.clientX-r.left)/r.width)*2-1;my=-((e.clientY-r.top)/r.height)*2+1;});
+  function tick(){
+    ray.setFromCamera({x:mx,y:my},S.camera);let hovered=false;
+    for(const [obj,spr] of HOVER_LABELS){if(!obj.visible){spr.visible=false;continue;}const on=ray.intersectObject(obj,true).length>0;spr.visible=on;if(on)hovered=true;}
+    dom.style.cursor=hovered?'pointer':'default';requestAnimationFrame(tick);
+  }
+  tick();
+})();
+
+// ===================== 16. RECORRIDO AUTOMÁTICO =====================
+function sleep(ms){return new Promise(r=>setTimeout(r,ms));}
+async function runAuto(){
+  if(autoRunning)return;autoRunning=true;
+  const btn=el('btnAuto'),label=btn.textContent;btn.disabled=true;btn.classList.add('on');btn.textContent='⏳ Recorriendo…';
+  try{
+    synth.init();synth.resume();clearDx();
+    setMode('explora');
+    expIdx=0;expTim='p1t255';expDuty=0;afterEdit();
+    showToast('🔧 Cinta de una envasadora, 12 V. Con duty 0 el motor está parado: el temporizador cuenta pero el tramo activo no existe.');
+    await sleep(4000);
+    expDuty=1;afterEdit();
+    showToast('🧱 Duty 10 % y el eje SIGUE parado: hasta que la tensión media no rompe la fricción seca no hay giro. Ésa es la zona muerta.');
+    await sleep(4400);
+    expDuty=2;afterEdit();
+    showToast('▶ Duty 25 % → 151 rpm. A partir de aquí la velocidad sube casi recta, pero es una recta DESPLAZADA, no una proporción.');
+    await sleep(4400);
+    expDuty=3;afterEdit();
+    showToast('📐 Duty 50 % → 812 rpm con 5,65 V de media. La mitad del duty no da la mitad de la velocidad máxima, precisamente por la zona muerta.');
+    await sleep(4600);
+    expDuty=5;afterEdit();
+    showToast('🔺 Duty 100 % → 2 134 rpm y rizado CERO: el transistor ya no conmuta, la tensión es continua y no hay nada que rizar.');
+    await sleep(4600);
+    expDuty=3;expTim='p8t1023';afterEdit();
+    showToast('🐌 Mismo duty con prescaler 8 y TOP 1023: 1,95 kHz. Se ganan 1 024 códigos, pero el rizado salta a 1,79 A frente a los 0,80 A admitidos… y silba.');
+    await sleep(5200);
+    expTim='p1t255';afterEdit();
+    answer(QUIZ[mode].opciones.findIndex(o=>o.ok));await sleep(2600);
+
+    setMode('aplica');
+    apIdx=0;apTopic='recta';apTim='p1t255';apTd=0;apMod='diodo';afterEdit();
+    showToast('🧩 Decaimiento lento por diodo: a duty 0 la tensión media es −0,70 V, la caída del propio diodo. El eje está parado.');
+    await sleep(4400);
+    apMod='rapido';afterEdit();
+    showToast('↔ Signo-magnitud: la recta es (2D−1)·Vcc. A duty 0 son −12 V y el motor gira a 2 134 rpm HACIA ATRÁS; el reposo se ha mudado al 50 %.');
+    await sleep(5000);
+    apMod='antifase';afterEdit();
+    showToast('🪞 Antifase da exactamente la misma recta y el mismo rizado que signo-magnitud. La diferencia no es eléctrica: es qué pasa si se pierde la señal.');
+    await sleep(4800);
+    apTopic='rizado';apMod='diodo';apTim='p1t255';afterEdit();
+    showToast('〰 Rizado: 0,056 A a 62,5 kHz. El máximo cae en D = 0,5, no en el duty máximo: es la excursión de la corriente, no su valor.');
+    await sleep(4800);
+    apTim='p8t1023';afterEdit();
+    showToast('📉 A 1,95 kHz el mismo motor riza 1,79 A: treinta y dos veces más porque ΔI va con 1/f. Bajar la frecuencia sale caro en cobre caliente.');
+    await sleep(4800);
+    apTim='p1t255';apMod='rapido';afterEdit();
+    showToast('✖2 De vuelta a 62,5 kHz pero en bipolar: 0,107 A, el DOBLE exacto de los 0,056 A de antes. El escalón ya no es Vcc sino 2·Vcc.');
+    await sleep(4800);
+    apTopic='muerto';apMod='diodo';apTd=3;afterEdit();
+    showToast('⏱ Tiempo muerto de 5 µs sobre un periodo de 16 µs: se lleva el 31,25 % del duty. En bipolar serían 62,5 %, porque conmutan las dos ramas.');
+    await sleep(5000);
+    apTd=1;afterEdit();
+    showToast('✔ Con 200 ns la distorsión baja al 1,25 % y sigue protegiendo el puente. De ahí sale el techo f ≤ ddMax/(bip·t_muerto).');
+    await sleep(4600);
+    answer(QUIZ[mode].opciones.findIndex(o=>o.ok));await sleep(2600);
+
+    setMode('reto');
+    seedReto(0);updateRetoSpec();afterEdit();
+    showToast('🎯 Reto: la configuración de partida está mal en las tres decisiones. La comprobamos tal cual…');
+    await sleep(3800);
+    checkReto();
+    await sleep(4600);
+    retoCh={...GOOD(retoSc())};
+    retoChecked=false;retoSolved=false;solved=false;afterEdit();
+    showToast('✔ Frecuencia fuera de lo audible y bajo el techo del driver, tiempo muerto que protege el puente sin comerse el duty, y el modo que la máquina admite.');
+    await sleep(4200);
+    checkReto();await sleep(2600);
+    answer(QUIZ[mode].opciones.findIndex(o=>o.ok));
+  }finally{
+    btn.disabled=false;btn.classList.remove('on');btn.textContent=label;autoRunning=false;
+  }
+}
+
+// ===================== 17. ANIMACIÓN, EVENTOS E INICIO =====================
+S.setAnimate((dt,time)=>{
+  hwT+=dt;
+  if(hwT>0.12){hwT=0;hwStep=(hwStep+1)%hwCount();updateHW();}
+});
+['explora','aplica','reto'].forEach(m=>{el('m_'+m).onclick=()=>{if(!autoRunning)setMode(m);};});
+el('btnAuto').onclick=()=>{if(!autoRunning)runAuto();};
+el('btnNew').onclick=()=>{if(autoRunning)return;newSignal();};
+el('btnCheck').onclick=()=>{if(autoRunning)return;checkReto();};
+const soundBtn=el('soundBtn');if(soundBtn){soundBtn.onclick=()=>{synth.toggle();soundBtn.textContent=synth.isOn()?'🔊':'🔇';};}
+document.addEventListener('pointerdown',()=>{synth.init();synth.resume();},{once:true});
+
+seedReto(0);
+buildQuiz();
+S.start();
+setMode('explora');
+
+// ===================== DEBUG HOOK =====================
+window.__labDebug={
+  mode:()=>mode, setMode:k=>setMode(k),
+  POOL, RETO_POOL, TIMS, TIM, MODOS, MOD, TDS, DUTIES, FCLK, F_AUD, VF,
+  // motor
+  fPwm,nCod,bitsOf,perNs,ddLoss,nSwOf,vTerms,solve,runC,
+  guardTim,guardMod,guardTd,cfgOk,GOOD,cfgWith,okTim,okTd,okMod,
+  goodTim,goodTd,goodMod,
+  // explora
+  expIdx:()=>expIdx, setExpIdx:i=>{expIdx=i;afterEdit();},
+  expTim:()=>expTim, setExpTim:k=>{expTim=k;afterEdit();},
+  expDuty:()=>expDuty, setExpDuty:i=>{expDuty=i;afterEdit();},
+  expInfo:()=>{const sc=expSc(),T=perNs(TIM[expTim]),r=solve(sc,MOD.diodo,DUTIES[expDuty],0,T);
+    return {idx:expIdx,tim:expTim,D:DUTIES[expDuty],rpm:r.rpm,vt:r.vt,i:r.i,dI:r.dI,f:fPwm(TIM[expTim]),N:nCod(TIM[expTim])};},
+  // aplica
+  apIdx:()=>apIdx, setApIdx:i=>{apIdx=i;afterEdit();},
+  apTopic:()=>apTopic, setApTopic:k=>{apTopic=k;afterEdit();},
+  apTim:()=>apTim, setApTim:k=>{apTim=k;afterEdit();},
+  apTd:()=>apTd, setApTd:i=>{apTd=i;afterEdit();},
+  apMod:()=>apMod, setApMod:k=>{apMod=k;afterEdit();},
+  apRun:()=>runC(apSc(),{tim:apTim,td:TDS[apTd],mod:apMod}),
+  // reto
+  retoK:()=>retoK, seedReto:k=>{seedReto(k);updateRetoSpec();afterEdit();},
+  retoName:()=>retoSc().name, retoCfg:()=>curCfg(),
+  retoGet:()=>({tim:retoCh.tim,td:retoCh.td,mod:retoCh.mod}),
+  retoSet:(f,v)=>{retoSet(f,v);afterEdit();},
+  retoSolveBuild:()=>{retoCh={...GOOD(retoSc())};retoChecked=false;retoSolved=false;solved=false;afterEdit();},
+  checkReto:()=>checkReto(),
+  retoChecked:()=>retoChecked, retoOkTim:()=>retoOkTim, retoOkTd:()=>retoOkTd, retoOkMod:()=>retoOkMod, retoSolved:()=>retoSolved,
+  // quiz / general
+  quizCorrectIndex:()=>{const q=QUIZ[mode];return q?q.opciones.findIndex(o=>o.ok):-1;},
+  quizAnswer:i=>answer(i),
+  frames:()=>frames(),
+  newSignal:()=>newSignal(),
+  solved:()=>solved,
+};
+</script>
+  <!-- Ficha técnica · Capa B del molde de lab 3D (componente compartido + contenido del lab) -->
+  <script src="_ficha-tecnica.js"></script>
+  <script src="_ficha-pwm-motor-cd.js"></script>
+</body>
+</html>

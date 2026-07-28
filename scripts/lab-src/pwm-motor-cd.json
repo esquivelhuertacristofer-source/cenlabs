@@ -1,0 +1,9 @@
+{
+  "donor": "escaner-obd.html",
+  "out": "pwm-motor-cd.html",
+  "title": "CEN Labs · PWM desde el microcontrolador: velocidad de un motor de CD — Laboratorio 3D",
+  "lt": "Sistemas Digitales y Automatización · Electrónica de potencia",
+  "inspectHint": "👆 Toca la tarjeta del MCU, el driver, el puente en H, el motor o el panel de instrumentos para inspeccionarlos",
+  "body": "pwm-motor-cd.body.js",
+  "fichas": ["_ficha-tecnica.js", "_ficha-pwm-motor-cd.js"]
+}
