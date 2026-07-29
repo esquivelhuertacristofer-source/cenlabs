@@ -1,0 +1,9 @@
+{
+  "donor": "escaner-obd.html",
+  "out": "domotica-escenas.html",
+  "title": "CEN Labs · Domótica: bus, escenas y canal del actuador — Laboratorio 3D",
+  "lt": "Instalaciones domóticas · Sistemas Digitales",
+  "inspectHint": "👆 Toca el pizarrón, el riel DIN, la fuente, el bus o los dispositivos para inspeccionar el nodo",
+  "body": "domotica-escenas.body.js",
+  "fichas": ["_ficha-tecnica.js", "_ficha-domotica-escenas.js"]
+}

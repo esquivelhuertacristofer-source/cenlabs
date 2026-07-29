@@ -6872,6 +6872,62 @@ Y el DECODIFICADOR decide qué significan los flancos. En SPI, CPOL y CPHA no so
     "titulo": "Análisis de Tramas: UART, I²C y SPI en el Analizador Lógico",
     "videoUrl": "",
   },
+  "mecanica-92": {
+    "acento": "#8AB4F8",
+    "aplicaciones": [
+      {
+        "area": "Proyecto de instalación domótica",
+        "ejemplo": "Antes de escribir una línea de programa hay que saber cuántos dispositivos cuelgan de cada segmento, cuánta corriente suman y a qué distancia está el más lejano de su fuente. Un bus que se queda en 19,89 V no da un error: da dispositivos que responden a veces, según quién más esté hablando en ese instante. Y la solución no siempre es una fuente mayor: en el anexo remoto, mover la fuente al centro del grupo arregla la tensión y no arregla la corriente, y hay que ver los dos números por separado para saber qué se está comprando.",
+      },
+      {
+        "area": "Puesta en marcha y quejas del usuario",
+        "ejemplo": "La mayoría de las quejas de una casa domótica no son averías: son escenas que reparten mal la autoridad. «Se apaga cuando entro» es un detector que sigue habilitado; «no puedo encender» es un canal bloqueado que nadie liberó; «vuelve al estado de antes» es una posición forzada haciendo exactamente lo que se le pidió. Distinguir escritura directa, inhibición, bloqueo, forzado y temporizador antes de programar evita el 80 % de las visitas de garantía.",
+      },
+      {
+        "area": "Selección de actuadores y balance del proyecto",
+        "ejemplo": "Un relé se elige por la capacidad de cierre de su contacto, no por la potencia de la carga: 24 pantallas LED de 960 W consumen 4,17 A y arrancan con 480 A, y el contacto que sobra en régimen permanente se pega en el arranque número mil. Y al final está la pregunta que nadie hace: un bus consume las 8 760 horas del año, encendido o apagado. En un edificio de aulas el balance sale +586,9 kWh/año; en un anexo de bombeo con 44 dispositivos sale −122,4, y la instalación se justifica por control y seguridad, no por ahorro.",
+      },
+    ],
+    "bienvenida": "Una instalación domótica no se «programa»: se dimensiona, se escribe y se conecta, y las tres cosas fallan por su cuenta. Cuando una casa domótica va mal, casi nunca es porque el programa esté mal escrito. Es porque el bus no llega, porque la escena le quitó el mando al usuario, o porque el relé cierra sobre un pico que no aguanta.
+
+El BUS lleva datos y alimentación por el mismo par, así que hay cinco criterios que se cumplen a la vez o no vale: dispositivos por segmento (≤ 64), corriente de la fuente frente a las unidades de carga (10 mA por dispositivo), tensión del más lejano (≥ 21,0 V partiendo de 30,0 V), distancia fuente→dispositivo (≤ 350 m) y distancia entre dispositivos (≤ 700 m). El par de 0,8 mm tiene 0,503 mm² de sección y presenta 68,60 Ω/km de bucle: ése es el número que convierte metros en voltios. Cada tramo transporta la corriente de todo lo que queda más allá, de modo que 44 dispositivos concentrados al final de una tirada muerta de 320 m se quedan en 19,89 V. Y ahí aparece la decisión más barata de la práctica: mover la fuente al centro del grupo sube ese mismo dispositivo a 29,88 V sin cambiar un metro de cable. Lo que la posición NO arregla es la corriente: ese anexo sigue pidiendo 440 mA a una fuente de 320 mA, esté donde esté. Los cinco criterios son independientes de verdad.
+
+La ESCENA no es una lista de órdenes: es una forma de repartir la autoridad sobre un canal. Escribir el valor directamente lo deja todo como estaba —el pulsador manda, el detector manda—. Bloquear el canal se lo quita a todos. Forzar una posición se lo quita a todos y luego devuelve lo que había ANTES, que no es lo mismo que devolver lo que puso la escena. Cuál de las seis es la correcta lo decide el guion, no el gusto: en la vivienda la escena «cine» debe apagar sin que el detector reencienda Y dejar que el usuario recupere el mando con el pulsador —bloquear cumple lo primero y suspende lo segundo—; en el aula, exactamente al revés, el examen exige que el pulsador NO mande. Lo que allí era un error, aquí es la respuesta.
+
+El CANAL del actuador no lo decide la potencia. Lo deciden cuatro comprobaciones: tipo de carga, corriente nominal, pico de conexión y potencia del regulador. La bomba del anexo consume 10,1 A y el relé de 10 A da 10,0: falla por una décima, y no hay margen que negociar. Pero el criterio que de verdad manda es el pico: 24 pantallas LED de 40 W consumen 4,17 A y arrancan con 480 A —ciento quince veces más—, así que dos relés de 16 A que sobran por goleada quedan descartados. Tres decisiones, 180 combinaciones por instalación, barridas una a una: exactamente una válida en cada una. Verificado 170/170.",
+    "codigo": "MEC-92",
+    "conceptos": [
+      {
+        "descripcion": "n ≤ 64 dispositivos, I_bus ≤ I_max de la fuente, U_mín ≥ 21,0 V desde 30,0 V, fuente→dispositivo ≤ 350 m y dispositivo→dispositivo ≤ 700 m. Con 68,60 Ω/km de bucle y 10 mA por unidad de carga, cada tramo lleva la corriente de todo lo que queda más allá. Aprobar cuatro de cinco no es aprobar: es una instalación que se entrega y falla en obra.",
+        "icono": "⚡",
+        "nombre": "Cinco criterios que se cumplen a la vez",
+      },
+      {
+        "descripcion": "Llevar la fuente del cuadro general al centro del grupo sube el peor dispositivo del anexo de 19,89 V a 29,88 V sin tocar un metro de cable, porque la corriente ya no recorre 350 m antes de repartirse sino 15. Pero la corriente total del segmento no cambia: 440 mA siguen sin caber en una fuente de 320 mA. La misma instalación aprueba en tensión y suspende en corriente.",
+        "icono": "📍",
+        "nombre": "Mover la fuente es gratis; la corriente no se mueve",
+      },
+      {
+        "descripcion": "Escribir el valor deja al pulsador y al detector mandando; inhibir el detector calla sólo a uno; bloquear el canal se lo quita a todos; forzar y liberar devuelve el estado PREVIO, no el de la escena. El mismo programa aprueba en un edificio y suspende en el de al lado: en la vivienda el usuario debe recuperar el mando, en el examen el pulsador no debe mandar.",
+        "icono": "🎬",
+        "nombre": "La escena reparte autoridad, no órdenes",
+      },
+      {
+        "descripcion": "Tipo de carga, corriente nominal, pico de conexión y potencia del regulador, en ese orden y por separado. La bomba de 10,1 A falla en un relé de 10,0 A por una décima. Y 24 pantallas LED de 4,17 A arrancan con 480 A: dos relés de 16 A sobradísimos en permanente quedan fuera, porque el criterio es la capacidad de cierre del contacto.",
+        "icono": "🔌",
+        "nombre": "El pico manda, no la potencia",
+      },
+    ],
+    "duracion": 30,
+    "mision": [
+      "EXPLORA · Elige una de las cuatro instalaciones —vivienda de dos plantas, anexo remoto de bombeo, edificio de aulas o residencia de estudiantes— y una de las seis soluciones de bus, y observa a la vez la tabla con los cinco criterios de cada solución, el perfil de tensión a lo largo del bus con la línea de los 21,0 V y el triángulo que marca dónde está la fuente, y la instalación en 3D con cada dispositivo en verde o en rojo según llegue o no a su mínimo. Es donde se ve que centrar la fuente parte el perfil en dos y baja la caída a la cuarta parte.",
+      "APLICA · Cuatro estudios. "Caída y posición" pone la fuente en el cuadro y en el centro una al lado de la otra y separa lo que la posición mejora de lo que no toca. "Lógica de escena" pasa los seis programas por el mismo guion con la traza paso a paso y los requisitos en verde o rojo debajo. "Canal del actuador" enfrenta los cinco canales a la carga real con las cuatro comprobaciones en columnas separadas. Y "Consumo y balance" lleva el consumo permanente del bus a kWh al año y lo enfrenta al ahorro de iluminación prometido: en el anexo el balance sale NEGATIVO, −122,4 kWh/año, y el laboratorio lo dice con la cifra delante.",
+      "RETO · Deja el proyecto en pie con tres decisiones independientes sobre la instalación asignada: solución de bus, programa de escena y canal del actuador. Cada criterio se califica con los otros dos ya correctos, así que acertar dos de tres sigue siendo una instalación que no vale. Las 180 combinaciones (6 buses × 6 programas × 5 canales) se barrieron una a una en cada instalación: hay exactamente una válida y las cuatro tienen soluciones distintas. La configuración de partida está deliberadamente mal en las tres.",
+    ],
+    "subtitulo": "Sistemas Digitales · Instalaciones domóticas · ISO/IEC 14543-3 (KNX) + EN 50090 + IEC 60669-2-1: dimensionado del bus, lógica de escena y elección del canal",
+    "titulo": "Sistema Domótico: Bus, Escenas y Canal del Actuador",
+    "videoUrl": "",
+  },
   "quimica-1": {
     "acento": "#06B6D4",
     "aplicaciones": [
@@ -17221,6 +17277,7 @@ exports[`golden master — stores de datos (invariante ante la migración a src/
   "mecanica-9": [],
   "mecanica-90": [],
   "mecanica-91": [],
+  "mecanica-92": [],
   "quimica-1": [
     {
       "completed": true,
@@ -17547,6 +17604,7 @@ exports[`golden master — stores de datos (invariante ante la migración a src/
   "mecanica-9",
   "mecanica-90",
   "mecanica-91",
+  "mecanica-92",
   "quimica-1",
   "quimica-10",
   "quimica-2",

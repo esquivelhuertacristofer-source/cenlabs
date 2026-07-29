@@ -1,0 +1,1496 @@
+// Sistema domótico de bus: dimensionado del bus, lógica de escenas y elección del canal.
+// Motor verificado numéricamente (verif_domotica.mjs, 170/170) y pegado aquí VERBATIM:
+// simulación y verificación comparten implementación.
+//   BUS: el par lleva datos Y alimentación por los mismos dos hilos. Un segmento TP1 se
+//     dimensiona por CINCO criterios simultáneos: número de dispositivos, corriente de la
+//     fuente, tensión del dispositivo más lejano, distancia fuente→dispositivo y distancia
+//     dispositivo→dispositivo. Ninguno se deduce de otro.
+//   POSICIÓN: mover la fuente al centro del grupo parte la tirada en dos y la caída baja
+//     mucho más que a la mitad — pero no cambia ni la corriente ni el número de dispositivos.
+//   ESCENAS: escribir un valor no es lo mismo que quitar la autoridad. Una escritura directa
+//     deja el canal libre: el primer pulsador la deshace. El bloqueo, la posición forzada y
+//     la inhibición del detector son mecanismos DISTINTOS con consecuencias distintas.
+//   CANAL: el pico de conexión, no la corriente nominal, es lo que suelda los contactos.
+//     Dieciocho drivers de LED de 12 W piden 0,94 A y arrancan con 216 A.
+//   CONSUMO: cada dispositivo consume su unidad de carga las 8760 horas del año. Si la
+//     instalación gobierna poca luz, el balance sale NEGATIVO y hay que decirlo.
+//   Ref: ISO/IEC 14543-3 (KNX) y EN 50090 · guía de instalación KNX TP1 (64 dispositivos por
+//        segmento, 350 m fuente→dispositivo, 700 m entre dispositivos, 1000 m por segmento) ·
+//        IEC 60669-2-1 (aparatos de mando electrónicos) · verificación propia (170/170).
+
+// ===================== 1. ESCENA =====================
+const mount=document.getElementById('stage');
+const S=createStage(mount,{cam:[5.4,3.2,7.6],target:[1.0,1.05,0.35],bgTop:'#0d1017',bgBot:'#05060a',bloom:0.46,minD:3.4,maxD:17});
+const {scene}=S;
+const synth=makeSynth({type:'square',type2:'sine',filterFreq:2200,Q:0.7});
+const el=id=>document.getElementById(id);
+
+// ===================== 2. MOTOR (VERIFICADO 170/170 — VERBATIM) =====================
+const U_PS = 30.0;          // V — tensión de salida de la fuente de bus en vacío
+const U_MIN = 21.0;         // V — tensión mínima de funcionamiento de un dispositivo
+const RHO_CU = 0.01724;     // Ω·mm²/m — resistividad del cobre a 20 °C
+const D_PAR = 0.8;          // mm — diámetro del conductor del par de bus
+const I_UL = 0.010;         // A — unidad de carga: consumo de bus de un dispositivo
+const N_MAX = 64;           // dispositivos por segmento
+const L_PS_MAX = 350;       // m — fuente → dispositivo
+const L_DD_MAX = 700;       // m — dispositivo → dispositivo
+const L_SEG_MAX = 1000;     // m — longitud del segmento (dato, no criterio)
+const V_BUS = 9600;         // bit/s — velocidad del bus
+const R_M = 2 * RHO_CU / (Math.PI * Math.pow(D_PAR / 2, 2)); // Ω/m de bucle
+
+// ---- Catálogo de fuentes de bus
+const FUENTES = {
+  f160: { n: '160 mA', imax: 0.160, pq: 0.8, eta: 0.72 },
+  f320: { n: '320 mA', imax: 0.320, pq: 1.4, eta: 0.80 },
+  f640: { n: '640 mA', imax: 0.640, pq: 2.6, eta: 0.84 },
+};
+
+// ---- Catálogo de soluciones de bus (fuente + posición + segmentación)
+const BUSES = {
+  b1: { n: '160 mA en el cuadro general',   f: 'f160', pos: 'cab', seg: 1, c: 6 },
+  b2: { n: '320 mA en el cuadro general',   f: 'f320', pos: 'cab', seg: 1, c: 9 },
+  b3: { n: '320 mA en el centro del grupo', f: 'f320', pos: 'cen', seg: 1, c: 10 },
+  b4: { n: '640 mA en el cuadro general',   f: 'f640', pos: 'cab', seg: 1, c: 14 },
+  b5: { n: '640 mA en el centro del grupo', f: 'f640', pos: 'cen', seg: 1, c: 15 },
+  b6: { n: 'Dos segmentos con repetidor, 640 mA en el centro de cada grupo', f: 'f640', pos: 'cen', seg: 2, c: 33 },
+};
+const BUSK = ['b1', 'b2', 'b3', 'b4', 'b5', 'b6'];
+
+// ---- Catálogo de canales de actuador
+const CANALES = {
+  c10:  { n: 'Relé 10 A AC1',            tipo: 'conm', inom: 10.0, ipico: 80,  c: 4 },
+  c16:  { n: 'Relé 16 A AC1',            tipo: 'conm', inom: 16.0, ipico: 200, c: 6 },
+  cper: { n: 'Actuador de persiana 6 A', tipo: 'pers', inom: 6.0,  ipico: 60,  c: 7 },
+  c16c: { n: 'Relé 16 A C-load',         tipo: 'conm', inom: 16.0, ipico: 800, c: 9 },
+  cdim: { n: 'Regulador universal 250 W', tipo: 'reg', inom: 1.1,  ipico: null, c: 12 },
+};
+const CANK = ['c10', 'c16', 'cper', 'c16c', 'cdim'];
+
+// ---- Catálogo de programas de escena
+const PROGS = {
+  l_dir: { n: 'Escritura directa',                 esc: 'dir',  detOff: false, blq: false, tmp: false },
+  l_det: { n: 'Directa + inhibición del detector', esc: 'dir',  detOff: true,  blq: false, tmp: false },
+  l_blq: { n: 'Bloqueo del canal',                 esc: 'dir',  detOff: false, blq: true,  tmp: false },
+  l_pri: { n: 'Posición forzada y liberación',     esc: 'forz', detOff: false, blq: false, tmp: false },
+  l_tmp: { n: 'Temporizador de escalera',          esc: 'dir',  detOff: false, blq: false, tmp: true },
+  l_cen: { n: 'Objeto central de apagado',         esc: 'cen',  detOff: false, blq: false, tmp: false },
+};
+const PROGK = ['l_dir', 'l_det', 'l_blq', 'l_pri', 'l_tmp', 'l_cen'];
+
+// ---- Geometría de dispositivos
+function mkDevs(n, x0, x1, dobles) {
+  const out = [];
+  for (let i = 0; i < n; i++) {
+    const x = n === 1 ? x0 : x0 + (x1 - x0) * i / (n - 1);
+    out.push({ x: Math.round(x * 10) / 10, ul: (dobles && dobles.indexOf(i) >= 0) ? 2 : 1 });
+  }
+  return out;
+}
+
+// ---- Caída de tensión en un tramo lineal con la fuente en xps
+function tensiones(devs, xps) {
+  const out = new Map();
+  const lados = [
+    devs.filter(d => d.x > xps).sort((a, b) => a.x - b.x),
+    devs.filter(d => d.x <= xps).sort((a, b) => b.x - a.x),
+  ];
+  for (const lado of lados) {
+    let drop = 0, prev = xps;
+    for (let k = 0; k < lado.length; k++) {
+      let rest = 0;
+      for (let m = k; m < lado.length; m++) rest += lado[m].ul * I_UL;
+      drop += rest * R_M * Math.abs(lado[k].x - prev);
+      prev = lado[k].x;
+      out.set(lado[k], U_PS - drop);
+    }
+  }
+  return out;
+}
+
+// ---- Evaluación de un segmento
+function segEval(devs, imax, pos) {
+  const xs = devs.map(d => d.x);
+  const xa = Math.min(...xs), xb = Math.max(...xs);
+  const xps = pos === 'cab' ? 0 : (xa + xb) / 2;
+  const n = devs.length;
+  const ul = devs.reduce((s, d) => s + d.ul, 0);
+  const iBus = ul * I_UL;
+  const V = tensiones(devs, xps);
+  let uMin = U_PS;
+  for (const d of devs) uMin = Math.min(uMin, V.get(d));
+  const dPs = Math.max(...devs.map(d => Math.abs(d.x - xps)));
+  const dDd = xb - xa;
+  return { n, ul, iBus, imax, uMin, dPs, dDd, lSeg: xb - xa, xps };
+}
+
+// ---- Evaluación completa de una solución de bus sobre una instalación
+function busEval(sc, bid) {
+  const B = BUSES[bid], F = FUENTES[B.f];
+  let partes;
+  if (B.seg === 1) {
+    partes = [segEval(sc.devs, F.imax, B.pos)];
+  } else {
+    const orden = sc.devs.slice().sort((a, b) => a.x - b.x);
+    const mitad = Math.ceil(orden.length / 2);
+    const rep = { x: orden[mitad - 1].x, ul: 1, rep: true };
+    partes = [
+      segEval(orden.slice(0, mitad).concat([rep]), F.imax, B.pos),
+      segEval([rep].concat(orden.slice(mitad)), F.imax, B.pos),
+    ];
+  }
+  const peor = (f) => partes.reduce((a, p) => Math.max(a, f(p)), -Infinity);
+  const nMax = peor(p => p.n), ulMax = peor(p => p.ul);
+  const iMax = peor(p => p.iBus);
+  const uMin = partes.reduce((a, p) => Math.min(a, p.uMin), U_PS);
+  const dPs = peor(p => p.dPs), dDd = peor(p => p.dDd), lSeg = peor(p => p.lSeg);
+  const nOk = nMax <= N_MAX;
+  const iOk = iMax <= F.imax + 1e-12;
+  const uOk = uMin >= U_MIN - 1e-9;
+  const psOk = dPs <= L_PS_MAX + 1e-9;
+  const ddOk = dDd <= L_DD_MAX + 1e-9;
+  const ok = nOk && iOk && uOk && psOk && ddOk;
+  return { partes, n: nMax, ul: ulMax, iBus: iMax, imax: F.imax, uso: iMax / F.imax, uMin, dPs, dDd, lSeg, nOk, iOk, uOk, psOk, ddOk, ok, coste: B.c };
+}
+
+function busCosteMin(sc) {
+  let m = Infinity;
+  for (const k of BUSK) { const e = busEval(sc, k); if (e.ok) m = Math.min(m, e.coste); }
+  return m;
+}
+function okBus(sc, bid) {
+  const e = busEval(sc, bid);
+  return e.ok && e.coste === busCosteMin(sc);
+}
+
+// ---- Consumo permanente y balance anual
+function consumo(sc, bid) {
+  const B = BUSES[bid], F = FUENTES[B.f];
+  const e = busEval(sc, bid);
+  const iTot = e.partes.reduce((s, p) => s + p.iBus, 0);
+  const pBus = U_PS * iTot;
+  const pRed = (pBus + F.pq * B.seg) / F.eta;
+  const kwhSis = pRed * 8760 / 1000;
+  const kwhAhorro = sc.pLum * sc.hAhorro * 365 / 1000;
+  return { iTot, pBus, pq: F.pq * B.seg, eta: F.eta, pRed, kwhSis, kwhAhorro, balance: kwhAhorro - kwhSis };
+}
+
+// ---- Evaluación del canal de actuador
+function canEval(sc, cid) {
+  const C = CANALES[cid];
+  const tipoOk = C.tipo === sc.carga.tipo;
+  const iOk = sc.carga.i <= C.inom + 1e-9;
+  const picoOk = C.ipico === null ? true : sc.carga.ipico <= C.ipico + 1e-9;
+  const pOk = cid === 'cdim' ? sc.carga.p <= 250 + 1e-9 : true;
+  const ok = tipoOk && iOk && picoOk && pOk;
+  return { tipoOk, iOk, picoOk, pOk, ok, coste: C.c, inom: C.inom, ipico: C.ipico, tipo: C.tipo };
+}
+function canCosteMin(sc) {
+  let m = Infinity;
+  for (const k of CANK) { const e = canEval(sc, k); if (e.ok) m = Math.min(m, e.coste); }
+  return m;
+}
+function okCan(sc, cid) {
+  const e = canEval(sc, cid);
+  return e.ok && e.coste === canCosteMin(sc);
+}
+
+// ---- Motor de escenas
+function runEsc(sc, lid) {
+  const P = PROGS[lid];
+  const st = { on: sc.on0, blq: false, det: true, pres: false, lux: sc.lux0, tOff: null, tLib: null, prev: sc.on0 };
+  const tr = [];
+  for (let t = 0; t <= sc.tFin; t++) {
+    for (const e of sc.ev) {
+      if (e.t !== t) continue;
+      if (e.k === 'esc') {
+        st.prev = st.on;
+        if (P.blq) { st.blq = true; st.on = sc.escOn; }
+        else if (P.esc === 'forz') { st.blq = true; st.on = sc.escOn; st.tLib = t + sc.tForz; }
+        else if (P.esc === 'cen') { if (sc.escOn === false) st.on = false; }
+        else st.on = sc.escOn;
+        if (P.detOff) st.det = false;
+        st.tOff = P.tmp ? t + sc.tEsc : null;
+      } else if (e.k === 'puls') {
+        if (!st.blq) { st.on = !st.on; st.tOff = null; }
+      } else if (e.k === 'pres') st.pres = true;
+      else if (e.k === 'fin') st.pres = false;
+      else if (e.k === 'lux') st.lux = e.v;
+    }
+    if (st.tLib !== null && t >= st.tLib) { st.blq = false; st.on = st.prev; st.tLib = null; }
+    if (st.tOff !== null && t >= st.tOff && !st.blq) { st.on = false; st.tOff = null; }
+    if (sc.hayDet && st.det && st.pres && st.lux < sc.luxTh && !st.blq) st.on = true;
+    tr.push({ t, on: st.on, blq: st.blq, det: st.det, pres: st.pres, lux: st.lux });
+  }
+  return tr;
+}
+function logEval(sc, lid) {
+  const tr = runEsc(sc, lid);
+  const req = sc.reqs.map(r => ({ n: r.n, ok: r.f(tr) }));
+  return { tr, req, ok: req.every(r => r.ok) };
+}
+function okLog(sc, lid) { return logEval(sc, lid).ok; }
+
+// ---- Instalaciones
+const POOL = [
+  {
+    id: 'viv', nom: 'Vivienda unifamiliar de dos plantas',
+    desc: 'Catorce dispositivos KNX repartidos en 85 m de bus. Escena «cine» en el salón, con detector de presencia y regulación de los focos.',
+    devs: mkDevs(14, 5, 85, []),
+    carga: { n: '18 focos LED de 12 W regulables', tipo: 'reg', i: 0.94, p: 216, ipico: 216 },
+    pLum: 216, hAhorro: 1.5,
+    on0: false, lux0: 800, luxTh: 100, hayDet: true, escOn: false, tEsc: 3, tForz: 3, tFin: 16,
+    ev: [{ t: 2, k: 'pres' }, { t: 3, k: 'lux', v: 30 }, { t: 5, k: 'esc' }, { t: 9, k: 'puls' }, { t: 11, k: 'puls' }],
+    reqs: [
+      { n: 'La escena «cine» apaga y NADIE la deshace', f: tr => tr[7].on === false },
+      { n: 'El usuario recupera el mando con el pulsador', f: tr => tr[10].on === true },
+      { n: 'Al apagar de nuevo sigue apagada pese a la presencia', f: tr => tr[13].on === false },
+    ],
+  },
+  {
+    id: 'anx', nom: 'Anexo remoto de bombeo e invernadero',
+    desc: 'Cuarenta y cuatro dispositivos concentrados al final de una tirada muerta de 320 m desde el cuadro general. Escena «riego nocturno» y alumbrado de seguridad por detector.',
+    devs: mkDevs(44, 320, 350, []),
+    carga: { n: 'Bomba de 2,2 kW con arrancador suave + 2 luminarias estancas', tipo: 'conm', i: 10.1, p: 2320, ipico: 54 },
+    pLum: 116, hAhorro: 1.0,
+    on0: false, lux0: 800, luxTh: 100, hayDet: true, escOn: true, tEsc: 3, tForz: 3, tFin: 16,
+    ev: [{ t: 2, k: 'esc' }, { t: 6, k: 'puls' }, { t: 8, k: 'lux', v: 20 }, { t: 10, k: 'pres' }],
+    reqs: [
+      { n: 'La escena «riego» enciende y se mantiene', f: tr => tr[5].on === true },
+      { n: 'El pulsador de mantenimiento puede apagar', f: tr => tr[7].on === false },
+      { n: 'El detector enciende si alguien entra a oscuras', f: tr => tr[11].on === true },
+    ],
+  },
+  {
+    id: 'aul', nom: 'Edificio de aulas de tres plantas',
+    desc: 'Treinta dispositivos a lo largo de 620 m de bus vertical y horizontal. Escena «examen»: iluminación fija que ni el pulsador ni el detector pueden alterar.',
+    devs: mkDevs(30, 20, 620, []),
+    carga: { n: '24 pantallas LED de 40 W', tipo: 'conm', i: 4.17, p: 960, ipico: 480 },
+    pLum: 960, hAhorro: 2.0,
+    on0: false, lux0: 600, luxTh: 100, hayDet: true, escOn: true, tEsc: 3, tForz: 3, tFin: 16,
+    ev: [{ t: 2, k: 'esc' }, { t: 6, k: 'puls' }, { t: 9, k: 'fin' }],
+    reqs: [
+      { n: 'La escena «examen» enciende', f: tr => tr[4].on === true },
+      { n: 'El pulsador NO manda mientras dura el examen', f: tr => tr[8].on === true },
+      { n: 'Permanece encendida todo el examen, sin cortes', f: tr => tr.slice(3, 15).every(r => r.on === true) },
+    ],
+  },
+  {
+    id: 'res', nom: 'Residencia de estudiantes',
+    desc: 'Sesenta y seis dispositivos en 760 m, doce de ellos de dos unidades de carga. Escena «salida general» del pasillo con apagado temporizado.',
+    devs: mkDevs(66, 10, 760, [2, 7, 12, 17, 22, 27, 32, 37, 42, 47, 52, 57]),
+    carga: { n: 'Persiana motorizada del pasillo, 200 W', tipo: 'pers', i: 0.9, p: 200, ipico: 12 },
+    pLum: 540, hAhorro: 2.5,
+    on0: false, lux0: 500, luxTh: 100, hayDet: true, escOn: true, tEsc: 6, tForz: 3, tFin: 16,
+    ev: [{ t: 2, k: 'esc' }, { t: 10, k: 'puls' }],
+    reqs: [
+      { n: 'La escena «salida» enciende el pasillo', f: tr => tr[3].on === true },
+      { n: 'Se apaga sola al cabo del tiempo, ni antes ni nunca', f: tr => tr[6].on === true && tr[9].on === false },
+      { n: 'El pulsador vuelve a encender después', f: tr => tr[11].on === true },
+    ],
+  },
+];
+
+// ---- Solución y ortogonalidad
+function GOOD(sc) {
+  const bus = BUSK.find(k => okBus(sc, k));
+  const log = PROGK.find(k => okLog(sc, k));
+  const can = CANK.find(k => okCan(sc, k));
+  return { bus, log, can };
+}
+const cfgWith = (sc, o) => Object.assign({}, GOOD(sc), o);
+function whyCfg(sc, cfg) {
+  const m = [];
+  if (!okBus(sc, cfg.bus)) {
+    const e = busEval(sc, cfg.bus);
+    if (!e.nOk) m.push('más de ' + N_MAX + ' dispositivos en un segmento');
+    if (!e.iOk) m.push('la fuente no da la corriente de bus');
+    if (!e.uOk) m.push('el dispositivo más lejano se queda por debajo de ' + U_MIN.toFixed(1) + ' V');
+    if (!e.psOk) m.push('más de ' + L_PS_MAX + ' m entre la fuente y un dispositivo');
+    if (!e.ddOk) m.push('más de ' + L_DD_MAX + ' m entre dos dispositivos');
+    if (e.ok) m.push('cumple, pero hay una solución de bus más barata');
+  }
+  if (!okLog(sc, cfg.log)) {
+    const e = logEval(sc, cfg.log);
+    e.req.forEach(r => { if (!r.ok) m.push('la escena incumple: ' + r.n.toLowerCase()); });
+  }
+  if (!okCan(sc, cfg.can)) {
+    const e = canEval(sc, cfg.can);
+    if (!e.tipoOk) m.push('el canal no es del tipo que pide la carga');
+    if (!e.iOk) m.push('la corriente de la carga supera la nominal del canal');
+    if (!e.picoOk) m.push('el pico de conexión supera el que admite el contacto');
+    if (!e.pOk) m.push('la potencia supera la del regulador');
+    if (e.ok) m.push('cumple, pero hay un canal más barato');
+  }
+  return m.join(' · ');
+}
+// ===================== FIN MOTOR =====================
+
+// ===================== 2b. ADAPTADORES DE PRESENTACIÓN =====================
+const n0=x=>Math.round(x).toString();
+const n1=x=>x.toFixed(1).replace('.',',');
+const n2=x=>x.toFixed(2).replace('.',',');
+const n3=x=>x.toFixed(3).replace('.',',');
+const fmtIb=a=>n0(a*1000)+' mA';                       // corriente de bus (siempre mA)
+const fmtIc=a=>(a>=10?n1(a):n2(a))+' A';               // corriente de carga
+const fmtIp=a=>n0(a)+' A';                             // pico de conexión
+const fmtU=u=>n2(u)+' V';
+const fmtL=m=>n1(m)+' m';
+const fmtW=w=>n2(w)+' W';
+const fmtE=k=>n1(k)+' kWh/año';
+const fmtC=c=>n0(c)+' u.c.';
+const SEC_PAR=Math.PI*Math.pow(D_PAR/2,2);             // mm² de cada conductor del par
+
+const BSHORT={b1:'160 mA · cuadro',b2:'320 mA · cuadro',b3:'320 mA · centro',b4:'640 mA · cuadro',b5:'640 mA · centro',b6:'2 segmentos · repetidor'};
+const LSHORT={l_dir:'Directa',l_det:'Directa + inhibir detector',l_blq:'Bloqueo',l_pri:'Forzada',l_tmp:'Temporizador',l_cen:'Central de apagado'};
+const CSHORT={c10:'Relé 10 A',c16:'Relé 16 A',cper:'Persiana 6 A',c16c:'Relé 16 A C-load',cdim:'Regulador 250 W'};
+const TIPON={conm:'conmutación',pers:'persiana',reg:'regulación'};
+
+const ULtot=sc=>sc.devs.reduce((s,d)=>s+d.ul,0);
+const Lmax=sc=>Math.max(...sc.devs.map(d=>d.x));
+function repX(sc){const o=sc.devs.slice().sort((a,b)=>a.x-b.x);return o[Math.ceil(o.length/2)-1].x;}
+
+// Reparto en partes IDÉNTICO al de busEval — sólo para dibujar el perfil de tensión.
+function partesDevs(sc,bid){
+  const B=BUSES[bid];
+  if(B.seg===1)return [sc.devs.slice()];
+  const orden=sc.devs.slice().sort((a,b)=>a.x-b.x);
+  const mitad=Math.ceil(orden.length/2);
+  const rep={x:orden[mitad-1].x,ul:1,rep:true};
+  return [orden.slice(0,mitad).concat([rep]),[rep].concat(orden.slice(mitad))];
+}
+function perfil(sc,bid){
+  const B=BUSES[bid];
+  return partesDevs(sc,bid).map(devs=>{
+    const xs=devs.map(d=>d.x),xa=Math.min(...xs),xb=Math.max(...xs);
+    const xps=B.pos==='cab'?0:(xa+xb)/2;
+    const V=tensiones(devs,xps);
+    const pts=devs.map(d=>({x:d.x,u:V.get(d),ul:d.ul,rep:!!d.rep})).sort((a,b)=>a.x-b.x);
+    return {xps,pts};
+  });
+}
+function uMinPerfil(sc,bid){
+  let u=U_PS;perfil(sc,bid).forEach(p=>p.pts.forEach(q=>{u=Math.min(u,q.u);}));return u;
+}
+
+function whyBus(sc,bid){
+  const e=busEval(sc,bid);
+  if(okBus(sc,bid))return{ok:true,txt:'el bus cumple los cinco criterios y es la solución más barata que lo hace ('+fmtC(e.coste)+')'};
+  const m=[];
+  if(!e.nOk)m.push(n0(e.n)+' dispositivos en un segmento, por encima de '+N_MAX);
+  if(!e.iOk)m.push('la fuente no da la corriente de bus ('+fmtIb(e.iBus)+' frente a '+fmtIb(e.imax)+')');
+  if(!e.uOk)m.push('el dispositivo más lejano se queda en '+fmtU(e.uMin)+', por debajo de '+fmtU(U_MIN));
+  if(!e.psOk)m.push(fmtL(e.dPs)+' entre la fuente y un dispositivo, por encima de '+L_PS_MAX+' m');
+  if(!e.ddOk)m.push(fmtL(e.dDd)+' entre dos dispositivos, por encima de '+L_DD_MAX+' m');
+  if(e.ok)m.push('cumple, pero hay una solución de bus más barata ('+fmtC(busCosteMin(sc))+' frente a '+fmtC(e.coste)+')');
+  return{ok:false,txt:m.join('; ')};
+}
+function whyLog(sc,lid){
+  const e=logEval(sc,lid);
+  if(e.ok)return{ok:true,txt:'la lógica de escena cumple los tres requisitos de la instalación'};
+  return{ok:false,txt:e.req.filter(r=>!r.ok).map(r=>'incumple «'+r.n.toLowerCase()+'»').join('; ')};
+}
+function whyCan(sc,cid){
+  const e=canEval(sc,cid),C=CANALES[cid];
+  if(okCan(sc,cid))return{ok:true,txt:'el canal es del tipo correcto, aguanta corriente y pico, y es el más barato que lo hace ('+fmtC(e.coste)+')'};
+  const m=[];
+  if(!e.tipoOk)m.push('la carga pide un canal de '+TIPON[sc.carga.tipo]+' y éste es de '+TIPON[C.tipo]);
+  if(!e.iOk)m.push(fmtIc(sc.carga.i)+' de carga sobre '+fmtIc(C.inom)+' nominales');
+  if(!e.picoOk)m.push(fmtIp(sc.carga.ipico)+' de pico sobre '+fmtIp(C.ipico)+' admisibles');
+  if(!e.pOk)m.push(n0(sc.carga.p)+' W sobre los 250 W del regulador');
+  if(e.ok)m.push('cumple, pero hay un canal más barato ('+fmtC(canCosteMin(sc))+' frente a '+fmtC(e.coste)+')');
+  return{ok:false,txt:m.join('; ')};
+}
+
+// ===================== 3. ESTADO =====================
+let mode='explora';
+let expIdx=0,expBus='b1';
+let apTopic='caida',apIdx=0,apF='f320',apLog='l_dir',apBus='b1';
+let retoK=0;
+let retoCh={bus:'b1',log:'l_dir',can:'c10'};
+let retoChecked=false,retoOkBus=false,retoOkLog=false,retoOkCan=false,retoSolved=false,retoMsg='';
+let solved=false,autoRunning=false,QUIZ={};
+let hwStep=0,hwT=0,busStep=0,busT=0;
+
+function pickIdx(n,ex){let v=Math.floor(Math.random()*n);if(n>1)while(v===ex)v=Math.floor(Math.random()*n);return v;}
+function hexA(hex,a){const n=parseInt(hex.slice(1),16);return `rgba(${(n>>16)&255},${(n>>8)&255},${n&255},${a})`;}
+
+const expSc=()=>POOL[expIdx];
+const expCfg=()=>cfgWith(expSc(),{bus:expBus});
+const apSc=()=>POOL[apIdx];
+function apCfg(){
+  const sc=apSc();
+  if(apTopic==='escena')return cfgWith(sc,{log:apLog});
+  if(apTopic==='consumo')return cfgWith(sc,{bus:apBus});
+  if(apTopic==='caida')return cfgWith(sc,{bus:apF==='f320'?'b3':'b5'});
+  return cfgWith(sc,{});
+}
+const retoSc=()=>POOL[retoK];
+const retoCfg=()=>({bus:retoCh.bus,log:retoCh.log,can:retoCh.can});
+const curSc=()=>mode==='reto'?retoSc():(mode==='aplica'?apSc():expSc());
+const curCfg=()=>mode==='reto'?retoCfg():(mode==='aplica'?apCfg():expCfg());
+
+function seedReto(k){
+  retoK=(k==null)?pickIdx(POOL.length,retoK):k;
+  const sc=retoSc();
+  // configuración de partida deliberadamente MAL en las TRES decisiones
+  const mal=(arr,f,off)=>{const b=arr.filter(x=>!f(x));return b.length?b[(retoK+off)%b.length]:arr[0];};
+  retoCh={
+    bus:mal(BUSK,k2=>okBus(sc,k2),0),
+    log:mal(PROGK,k2=>okLog(sc,k2),1),
+    can:mal(CANK,k2=>okCan(sc,k2),2),
+  };
+  retoChecked=false;retoOkBus=false;retoOkLog=false;retoOkCan=false;retoSolved=false;retoMsg='';
+}
+seedReto(0);
+
+// ===================== 4. MATERIALES =====================
+function std(color,rough,metal){return new THREE.MeshStandardMaterial({color,roughness:rough,metalness:metal});}
+function brush(base){return std(base,0.55,0.35);}
+const MAT={bench:brush(0x2b2f34),frame:brush(0x22262c),leg:brush(0x14161b),body:std(0x1b2028,0.6,0.25),
+  steel:std(0x9aa4b2,0.35,0.75),shiny:std(0xd6dde8,0.22,0.9),dark:std(0x14171b,0.5,0.3),plate:brush(0x3a4048),
+  din:std(0x8d97a4,0.4,0.8),mod:std(0xe6e2d8,0.65,0.05),modk:std(0x1e2530,0.55,0.2),
+  knx:std(0x1f7a45,0.55,0.15),wall:std(0x232a33,0.85,0.05),red:std(0xd2453f,0.5,0.2)};
+const ACC='#8AB4F8', OK_HEX='#7CD992', BAD_HEX='#ff6b6b', WARN_HEX='#E9C46A', VIO='#C08CF8';
+
+const HOVER_LABELS=new Map();
+function addHoverLabel(obj,text,color,pos,scale){
+  const cv=document.createElement('canvas');cv.width=256;cv.height=64;const cx=cv.getContext('2d');
+  cx.fillStyle='rgba(10,14,17,0.88)';cx.fillRect(0,0,256,64);
+  cx.strokeStyle=color;cx.lineWidth=2;cx.strokeRect(1,1,254,62);
+  cx.fillStyle='#F4EFEA';cx.font='bold 20px Outfit, sans-serif';cx.textAlign='center';cx.textBaseline='middle';cx.fillText(text,128,32);
+  const tex=new THREE.CanvasTexture(cv);
+  const spr=new THREE.Sprite(new THREE.SpriteMaterial({map:tex,transparent:true,depthTest:false}));
+  spr.position.copy(pos);spr.scale.set(scale||1.1,(scale||1.1)*0.28,1);spr.visible=false;spr.renderOrder=999;
+  scene.add(spr);HOVER_LABELS.set(obj,spr);return spr;
+}
+
+// ===================== 5. PIZARRÓN =====================
+const boardG=new THREE.Group();
+boardG.position.set(-1.15,0,-0.95);boardG.rotation.y=0.2;scene.add(boardG);
+const frame=roundedBox(3.9,2.9,0.12,MAT.frame,0.06);frame.position.set(0,1.9,0);boardG.add(frame);
+[-1.65,1.65].forEach(x=>{const leg=new THREE.Mesh(new THREE.CylinderGeometry(0.05,0.06,1.9,16),MAT.leg);leg.position.set(x,0.92,0);boardG.add(leg);});
+const bCv=document.createElement('canvas');bCv.width=1024;bCv.height=768;
+const bTex=new THREE.CanvasTexture(bCv);
+const board=new THREE.Mesh(new THREE.PlaneGeometry(3.68,2.72),new THREE.MeshBasicMaterial({map:bTex}));
+board.position.set(0,1.9,0.065);boardG.add(board);
+frame.userData={title:'Pizarrón de la instalación domótica',info:'Dimensionado del bus, lógica de escenas, elección del canal y balance de consumo · toca para inspeccionar'};
+addHoverLabel(frame,'Bus · escenas · cargas',ACC,new THREE.Vector3(0,3.5,0.1).add(boardG.position),2.8);
+
+function bg(c){c.fillStyle='#0c1016';c.fillRect(0,0,1024,768);}
+function rpanel(c,x,y,w,h,title){
+  c.fillStyle=hexA(ACC,0.06);c.fillRect(x,y,w,h);
+  c.strokeStyle=hexA(ACC,0.22);c.lineWidth=1;c.strokeRect(x,y,w,h);
+  c.fillStyle='#C7D6F5';c.font='bold 15px Outfit, sans-serif';c.textAlign='left';c.fillText(title,x+16,y+26);
+}
+function prow(c,x,y,w,l,v,col){
+  c.fillStyle='#8f97a5';c.font='13px Outfit, sans-serif';c.textAlign='left';c.fillText(l,x+16,y);
+  c.fillStyle=col||'#F4EFEA';c.font='bold 15px Outfit, sans-serif';c.textAlign='right';c.fillText(v,x+w-14,y);
+}
+function wrapText(c,text,x,y,maxW,lh){
+  const words=text.split(' ');let line='',yy=y;
+  for(const w of words){const test=line+w+' ';
+    if(c.measureText(test).width>maxW && line){c.fillText(line,x,yy);line=w+' ';yy+=lh;}else line=test;}
+  c.fillText(line,x,yy);return yy;
+}
+const PX={x:706,y:70,w:300};
+function trow(c,x,y,w,h,cols,widths,cols_col,head){
+  c.fillStyle=head?hexA(ACC,0.10):'rgba(255,255,255,0.03)';c.fillRect(x,y,w,h);
+  c.strokeStyle=hexA(ACC,0.16);c.lineWidth=1;c.strokeRect(x,y,w,h);
+  let cx=x;
+  cols.forEach((t,i)=>{
+    c.fillStyle=head?'#C7D6F5':(cols_col&&cols_col[i]?cols_col[i]:'#F4EFEA');
+    c.font=(head?'bold 12px':'12px')+' Outfit, sans-serif';c.textAlign='left';
+    c.fillText(t,cx+8,y+h/2+4);
+    cx+=widths[i];
+  });
+}
+function drawBar(c,x,y,w,h,frac,label,col,right){
+  c.fillStyle='#9fb0cf';c.font='12px Outfit, sans-serif';c.textAlign='left';c.fillText(label,x,y-8);
+  c.fillStyle='rgba(255,255,255,0.06)';c.fillRect(x,y,w,h);
+  c.fillStyle=hexA(col,0.75);c.fillRect(x,y,Math.max(0,Math.min(1,frac))*w,h);
+  c.strokeStyle=hexA(ACC,0.3);c.lineWidth=1;c.strokeRect(x,y,w,h);
+  c.fillStyle=col;c.font='bold 13px Outfit, sans-serif';c.textAlign='right';c.fillText(right,x+w,y-8);
+}
+function lane(c,x,y,w,h,label,sub){
+  c.fillStyle='rgba(255,255,255,0.03)';c.fillRect(x,y,w,h);
+  c.strokeStyle=hexA(ACC,0.16);c.lineWidth=1;c.strokeRect(x,y,w,h);
+  c.fillStyle='#9fb0cf';c.font='12px Outfit, sans-serif';c.textAlign='left';c.fillText(label,x+2,y-6);
+  if(sub){c.fillStyle='#6b7280';c.font='11px Outfit, sans-serif';c.textAlign='right';c.fillText(sub,x+w,y-6);}
+}
+// --- onda de pasos discretos reconstruida desde la traza del motor de escenas ---
+function stepWave(c,x,y,w,h,arr,col){
+  const n=arr.length,sx=i=>x+w*i/(n-1);
+  const yHi=y+9,yLo=y+h-9;
+  c.strokeStyle=col;c.lineWidth=2;c.beginPath();
+  let py=arr[0]?yHi:yLo;c.moveTo(x,py);
+  for(let i=1;i<n;i++){const px=sx(i),ny=arr[i]?yHi:yLo;c.lineTo(px,py);if(ny!==py){c.lineTo(px,ny);py=ny;}}
+  c.lineTo(x+w,py);c.stroke();
+  c.fillStyle='#6b7280';c.font='10px Outfit, sans-serif';c.textAlign='left';
+  c.fillText('1',x+4,yHi+4);c.fillText('0',x+4,yLo+4);
+}
+function numWave(c,x,y,w,h,arr,vmax,col){
+  const n=arr.length,sx=i=>x+w*i/(n-1),sy=v=>y+h-6-(h-14)*Math.max(0,Math.min(1,v/vmax));
+  c.strokeStyle=col;c.lineWidth=2;c.beginPath();
+  let py=sy(arr[0]);c.moveTo(x,py);
+  for(let i=1;i<n;i++){const px=sx(i),ny=sy(arr[i]);c.lineTo(px,py);if(Math.abs(ny-py)>0.5){c.lineTo(px,ny);py=ny;}}
+  c.lineTo(x+w,py);c.stroke();
+}
+const EVN={esc:'⚡ escena',puls:'👆 pulsador',pres:'presencia ▲',fin:'presencia ▼',lux:'lux'};
+function evMarks(c,x,y,w,h,ev,n){
+  const sx=t=>x+w*t/(n-1);
+  ev.forEach(e=>{
+    const px=sx(e.t);
+    const col=e.k==='esc'?VIO:(e.k==='puls'?WARN_HEX:(e.k==='lux'?'#5ec8d8':OK_HEX));
+    c.strokeStyle=col;c.lineWidth=2;c.beginPath();c.moveTo(px,y+h-6);c.lineTo(px,y+16);c.stroke();
+    c.fillStyle=col;c.beginPath();c.arc(px,y+14,3.5,0,Math.PI*2);c.fill();
+    c.fillStyle=col;c.font='10px Outfit, sans-serif';c.textAlign='center';
+    c.fillText(e.k==='lux'?('lux '+n0(e.v)):EVN[e.k],px,y+h-9);
+  });
+}
+function stepAxis(c,x,y,w,n){
+  c.strokeStyle='rgba(255,255,255,0.16)';c.lineWidth=1;
+  c.beginPath();c.moveTo(x,y);c.lineTo(x+w,y);c.stroke();
+  c.fillStyle='#7a8494';c.font='11px Outfit, sans-serif';c.textAlign='center';
+  for(let i=0;i<n;i+=2){const px=x+w*i/(n-1);
+    c.beginPath();c.moveTo(px,y);c.lineTo(px,y+5);c.stroke();
+    c.fillText(n0(i),px,y+18);}
+  c.textAlign='right';c.fillText('pasos del guion (el motor avanza por pasos, no por segundos)',x+w,y+34);
+}
+// --- perfil de tensión a lo largo del bus, dibujado desde tensiones() ---
+function perfilChart(c,x,y,w,h,sc,bid,titulo){
+  const P=perfil(sc,bid),L=Lmax(sc)||1;
+  let lo=U_PS;P.forEach(p=>p.pts.forEach(q=>{lo=Math.min(lo,q.u);}));
+  const uLo=Math.min(U_MIN-2,Math.floor(lo-1)),uHi=U_PS+0.6;
+  const px=m=>x+w*(m/L),py=u=>y+h-h*(u-uLo)/(uHi-uLo);
+  c.fillStyle='rgba(255,255,255,0.03)';c.fillRect(x,y,w,h);
+  c.strokeStyle=hexA(ACC,0.16);c.lineWidth=1;c.strokeRect(x,y,w,h);
+  if(titulo){c.fillStyle='#9fb0cf';c.font='12px Outfit, sans-serif';c.textAlign='left';c.fillText(titulo,x,y-7);}
+  // umbral de 21 V
+  const yU=py(U_MIN);
+  c.strokeStyle=hexA(BAD_HEX,0.55);c.lineWidth=1;c.setLineDash([6,5]);
+  c.beginPath();c.moveTo(x,yU);c.lineTo(x+w,yU);c.stroke();c.setLineDash([]);
+  c.fillStyle=BAD_HEX;c.font='11px Outfit, sans-serif';c.textAlign='left';c.fillText(fmtU(U_MIN)+' — mínimo',x+6,yU-5);
+  // escala vertical
+  c.fillStyle='#7a8494';c.font='11px Outfit, sans-serif';c.textAlign='right';
+  c.fillText(n0(U_PS)+' V',x-6,py(U_PS)+4);c.fillText(n0(uLo)+' V',x-6,y+h);
+  // curvas por segmento
+  P.forEach((p,pi)=>{
+    const col=pi===0?ACC:VIO;
+    c.strokeStyle=col;c.lineWidth=2;c.beginPath();
+    c.moveTo(px(p.xps),py(U_PS));
+    p.pts.forEach(q=>c.lineTo(px(q.x),py(q.u)));
+    c.stroke();
+    p.pts.forEach(q=>{c.fillStyle=q.rep?WARN_HEX:(q.u>=U_MIN-1e-9?OK_HEX:BAD_HEX);
+      c.beginPath();c.arc(px(q.x),py(q.u),q.rep?4:2.6,0,Math.PI*2);c.fill();});
+    // marca de la fuente
+    const fx=px(p.xps);
+    c.fillStyle=WARN_HEX;c.beginPath();c.moveTo(fx,py(U_PS)-11);c.lineTo(fx-6,py(U_PS)-1);c.lineTo(fx+6,py(U_PS)-1);c.closePath();c.fill();
+  });
+  // escala horizontal
+  c.fillStyle='#7a8494';c.font='11px Outfit, sans-serif';c.textAlign='center';
+  for(let i=0;i<=4;i++){const m=L*i/4;c.fillText(n0(m),px(m),y+h+16);}
+  c.textAlign='right';c.fillText('metros de bus desde el cuadro general',x+w,y+h+32);
+}
+
+// ===================== 6. VISTAS POR MODO =====================
+function kc(ok){return ok?OK_HEX:BAD_HEX;}
+function tick(ok){return ok?'✔':'✗';}
+
+function drawExplora(c){
+  const sc=expSc(),e=busEval(sc,expBus);
+  c.fillStyle='#F4EFEA';c.font='bold 25px Outfit, sans-serif';c.textAlign='left';
+  c.fillText('El bus: 64 dispositivos, 21 voltios y 350 metros',30,54);
+  c.fillStyle='#9fb0cf';c.font='14px Outfit, sans-serif';
+  wrapText(c,sc.desc+' El par de bus lleva datos y alimentación por los mismos dos hilos: cada dispositivo toma '+n0(I_UL*1000)+' mA de forma permanente y el cobre del par tiene '+n1(R_M*1000)+' Ω por kilómetro de bucle ('+n3(SEC_PAR)+' mm² por conductor).',30,80,640,20);
+
+  const gx=30,gw=640,W=[228,38,94,78,84,44,74],RH=25;
+  trow(c,gx,160,gw,RH,['Solución de bus','N','Corriente','U mín','d fuente','u.c.',''],W,null,true);
+  BUSK.forEach((k,i)=>{
+    const ev=busEval(sc,k),win=okBus(sc,k);
+    const cols=[BSHORT[k],n0(ev.n),fmtIb(ev.iBus)+' / '+fmtIb(ev.imax),fmtU(ev.uMin),fmtL(ev.dPs),n0(ev.coste),
+      win?'✔ elegida':(ev.ok?'cumple':'✗ no cumple')];
+    const colc=[k===expBus?'#F4EFEA':'#c9d3e6',null,ev.iOk?null:BAD_HEX,ev.uOk?null:BAD_HEX,ev.psOk?null:BAD_HEX,null,
+      win?OK_HEX:(ev.ok?WARN_HEX:BAD_HEX)];
+    trow(c,gx,186+i*RH,gw,RH,cols,W,colc,false);
+    if(k===expBus){c.strokeStyle=hexA(ACC,0.85);c.lineWidth=2;c.strokeRect(gx,186+i*RH,gw,RH);}
+  });
+
+  perfilChart(c,gx+42,392,gw-42,150,sc,expBus,'Tensión en cada dispositivo con la solución '+BSHORT[expBus]);
+
+  const w=whyBus(sc,expBus);
+  c.fillStyle=w.ok?OK_HEX:BAD_HEX;c.font='bold 14px Outfit, sans-serif';c.textAlign='left';
+  c.fillText((w.ok?'✔ ':'✗ ')+BUSES[expBus].n,gx,606);
+  c.fillStyle=w.ok?OK_HEX:WARN_HEX;c.font='13px Outfit, sans-serif';
+  wrapText(c,w.txt,gx,628,640,18);
+  c.fillStyle='#6b7280';c.font='11px Outfit, sans-serif';
+  wrapText(c,'La longitud del segmento se muestra como DATO ('+fmtL(e.lSeg)+' frente al tope de '+L_SEG_MAX+' m): en este banco nunca es el criterio que decide. Velocidad del bus: '+n0(V_BUS)+' bit/s.',gx,706,640,16);
+
+  rpanel(c,PX.x,PX.y,PX.w,392,'Instalación · '+sc.nom);
+  let py=PX.y+58;
+  prow(c,PX.x,py,PX.w,'Dispositivos',n0(sc.devs.length));py+=25;
+  prow(c,PX.x,py,PX.w,'Unidades de carga',n0(ULtot(sc)));py+=25;
+  prow(c,PX.x,py,PX.w,'Longitud del bus',fmtL(Lmax(sc)));py+=25;
+  prow(c,PX.x,py,PX.w,'Fuente elegida',FUENTES[BUSES[expBus].f].n+(BUSES[expBus].seg>1?' ×2':''));py+=25;
+  prow(c,PX.x,py,PX.w,'Corriente de bus',fmtIb(e.iBus)+' / '+fmtIb(e.imax),kc(e.iOk));py+=25;
+  prow(c,PX.x,py,PX.w,'Uso de la fuente',n0(e.uso*100)+' %',e.uso<=1?OK_HEX:BAD_HEX);py+=25;
+  prow(c,PX.x,py,PX.w,'Dispositivo más lejano',fmtU(e.uMin),kc(e.uOk));py+=25;
+  prow(c,PX.x,py,PX.w,'Fuente → dispositivo',fmtL(e.dPs)+' / '+L_PS_MAX+' m',kc(e.psOk));py+=25;
+  prow(c,PX.x,py,PX.w,'Entre dispositivos',fmtL(e.dDd)+' / '+L_DD_MAX+' m',kc(e.ddOk));py+=25;
+  prow(c,PX.x,py,PX.w,'Segmentos',n0(BUSES[expBus].seg));py+=25;
+  prow(c,PX.x,py,PX.w,'Coste relativo',fmtC(e.coste));py+=25;
+  prow(c,PX.x,py,PX.w,'Solución más barata',fmtC(busCosteMin(sc)),OK_HEX);
+
+  rpanel(c,PX.x,486,PX.w,236,'Los cinco criterios, uno a uno');
+  let qy=486+58;
+  const crit=[['≤ '+N_MAX+' dispositivos',e.nOk,n0(e.n)],
+    ['Corriente de la fuente',e.iOk,fmtIb(e.iBus)],
+    ['≥ '+fmtU(U_MIN)+' en el más lejano',e.uOk,fmtU(e.uMin)],
+    ['≤ '+L_PS_MAX+' m fuente→disp.',e.psOk,fmtL(e.dPs)],
+    ['≤ '+L_DD_MAX+' m disp.→disp.',e.ddOk,fmtL(e.dDd)]];
+  crit.forEach(([l,ok,v])=>{prow(c,PX.x,qy,PX.w,tick(ok)+' '+l,v,kc(ok));qy+=25;});
+  c.fillStyle='#8f97a5';c.font='11px Outfit, sans-serif';c.textAlign='left';
+  wrapText(c,'Los cinco se comprueban a la vez y ninguno se deduce de otro: una fuente puede sobrar de corriente y quedarse corta de tensión.',PX.x+16,qy+14,PX.w-32,15);
+}
+
+function drawAplicaCaida(c){
+  const sc=apSc(),bcab=apF==='f320'?'b2':'b4',bcen=apF==='f320'?'b3':'b5';
+  const ea=busEval(sc,bcab),eb=busEval(sc,bcen);
+  c.fillStyle='#F4EFEA';c.font='bold 24px Outfit, sans-serif';c.textAlign='left';
+  c.fillText('La misma fuente, cambiada de sitio',30,52);
+  c.fillStyle='#9fb0cf';c.font='13px Outfit, sans-serif';
+  wrapText(c,'La corriente de bus no depende de dónde esté la fuente: '+fmtIb(ea.iBus)+' en los dos casos. Lo que cambia es el CAMINO que esa corriente recorre por el cobre. Con la fuente en el cuadro general toda la corriente atraviesa toda la tirada; con la fuente en el centro del grupo, cada mitad lleva la mitad de la corriente durante la mitad del recorrido.',30,78,640,18);
+
+  perfilChart(c,72,190,598,140,sc,bcab,'Fuente de '+FUENTES[BUSES[bcab].f].n+' en el cuadro general');
+  perfilChart(c,72,410,598,140,sc,bcen,'La misma fuente en el centro del grupo');
+
+  const filas=[['Corriente de bus',fmtIb(ea.iBus),fmtIb(eb.iBus)],
+    ['Tensión del más lejano',fmtU(ea.uMin),fmtU(eb.uMin)],
+    ['Fuente → dispositivo',fmtL(ea.dPs),fmtL(eb.dPs)],
+    ['Veredicto',ea.ok?'cumple':'no cumple',eb.ok?'cumple':'no cumple']];
+  const W=[176,62,62],gx=30;
+  trow(c,gx,596,300,24,['Magnitud','Cuadro','Centro'],W,null,true);
+  filas.forEach((f,i)=>trow(c,gx,620+i*24,300,24,f,W,[null,i===3?kc(ea.ok):null,i===3?kc(eb.ok):null],false));
+  c.fillStyle='#8f97a5';c.font='12px Outfit, sans-serif';c.textAlign='left';
+  wrapText(c,'Mover la fuente no compra corriente ni dispositivos: sólo compra tensión y distancia. Si el que sobra es el número de unidades de carga, cambiar la fuente de sitio no arregla nada.',350,614,320,17);
+
+  rpanel(c,PX.x,PX.y,PX.w,340,'Caída en el par de bus');
+  let py=PX.y+58;
+  prow(c,PX.x,py,PX.w,'Sección por conductor',n3(SEC_PAR)+' mm²');py+=25;
+  prow(c,PX.x,py,PX.w,'Resistencia de bucle',n1(R_M*1000)+' Ω/km');py+=25;
+  prow(c,PX.x,py,PX.w,'Unidad de carga',n0(I_UL*1000)+' mA');py+=25;
+  prow(c,PX.x,py,PX.w,'Tensión en vacío',fmtU(U_PS));py+=25;
+  prow(c,PX.x,py,PX.w,'Mínimo del dispositivo',fmtU(U_MIN));py+=25;
+  prow(c,PX.x,py,PX.w,'Margen disponible',fmtU(U_PS-U_MIN),WARN_HEX);py+=25;
+  prow(c,PX.x,py,PX.w,'Dispositivos',n0(sc.devs.length));py+=25;
+  prow(c,PX.x,py,PX.w,'Longitud del bus',fmtL(Lmax(sc)));py+=29;
+  c.fillStyle='#8f97a5';c.font='12px Outfit, sans-serif';c.textAlign='left';
+  wrapText(c,'La caída no es lineal con la distancia: cada tramo de cobre lleva la corriente de TODOS los dispositivos que quedan más allá. Por eso el primer tramo pesa mucho más que el último.',PX.x+16,py,PX.w-32,17);
+
+  rpanel(c,PX.x,432,PX.w,290,'Lo que sí depende de la posición');
+  let ry=432+58;
+  prow(c,PX.x,ry,PX.w,'Número de dispositivos','no cambia','#8f97a5');ry+=25;
+  prow(c,PX.x,ry,PX.w,'Corriente de la fuente','no cambia','#8f97a5');ry+=25;
+  prow(c,PX.x,ry,PX.w,'Tensión del más lejano','sí cambia',OK_HEX);ry+=25;
+  prow(c,PX.x,ry,PX.w,'Distancia fuente→disp.','sí cambia',OK_HEX);ry+=25;
+  prow(c,PX.x,ry,PX.w,'Distancia entre disp.','no cambia','#8f97a5');ry+=29;
+  c.fillStyle='#8f97a5';c.font='12px Outfit, sans-serif';c.textAlign='left';
+  wrapText(c,'Dos de los cinco criterios responden a la posición de la fuente. Los otros tres piden otra cosa: una fuente mayor, un repetidor o partir la instalación.',PX.x+16,ry,PX.w-32,17);
+}
+
+function drawAplicaEscena(c){
+  const sc=apSc(),e=logEval(sc,apLog),tr=e.tr,n=tr.length;
+  c.fillStyle='#F4EFEA';c.font='bold 24px Outfit, sans-serif';c.textAlign='left';
+  c.fillText('Escribir un valor no es quitar la autoridad',30,52);
+  c.fillStyle='#9fb0cf';c.font='13px Outfit, sans-serif';
+  wrapText(c,'«'+PROGS[apLog].n+'» sobre '+sc.nom.toLowerCase()+'. El guion de la instalación es siempre el mismo; lo único que cambia es CÓMO la escena escribe sobre el canal. El detector, el pulsador y la escena compiten por el mismo objeto de grupo, y el que gana lo decide el programa, no el orden de llegada.',30,78,640,18);
+
+  const gx=30,gw=640;
+  lane(c,gx,168,gw,42,'Guion de la instalación (siempre el mismo)',n0(sc.ev.length)+' sucesos');
+  evMarks(c,gx,168,gw,42,sc.ev,n);
+  lane(c,gx,238,gw,46,'Salida del canal (lo que hace la luz)',PROGS[apLog].n);
+  stepWave(c,gx,238,gw,46,tr.map(r=>r.on),tr.some(r=>r.on)?OK_HEX:BAD_HEX);
+  lane(c,gx,314,gw,34,'Bloqueo del canal',PROGS[apLog].blq?'permanente':(PROGS[apLog].esc==='forz'?'temporal ('+sc.tForz+' pasos)':'no se usa'));
+  stepWave(c,gx,314,gw,34,tr.map(r=>r.blq),VIO);
+  lane(c,gx,380,gw,34,'Detector habilitado',PROGS[apLog].detOff?'la escena lo inhibe':'sigue activo');
+  stepWave(c,gx,380,gw,34,tr.map(r=>r.det),'#5ec8d8');
+  lane(c,gx,446,gw,34,'Presencia detectada','umbral '+n0(sc.luxTh)+' lux');
+  stepWave(c,gx,446,gw,34,tr.map(r=>r.pres),WARN_HEX);
+  lane(c,gx,512,gw,38,'Luz ambiente (lux)','0 … 1000 lux');
+  numWave(c,gx,512,gw,38,tr.map(r=>r.lux),1000,'#c5b6ff');
+  stepAxis(c,gx,562,gw,n);
+
+  c.fillStyle='#C7D6F5';c.font='bold 14px Outfit, sans-serif';c.textAlign='left';
+  c.fillText('Requisitos de la instalación',gx,630);
+  e.req.forEach((r,i)=>{
+    c.fillStyle=kc(r.ok);c.font='13px Outfit, sans-serif';
+    c.fillText(tick(r.ok)+' '+r.n,gx,654+i*22);
+  });
+  c.fillStyle=e.ok?OK_HEX:BAD_HEX;c.font='bold 14px Outfit, sans-serif';
+  c.fillText(e.ok?'✔ Esta lógica sirve para esta instalación':'✗ Esta lógica no sirve aquí',gx,730);
+
+  rpanel(c,PX.x,PX.y,PX.w,300,'Qué hace cada programa');
+  let py=PX.y+56;
+  PROGK.forEach(k=>{
+    const on=k===apLog,ok=okLog(sc,k);
+    prow(c,PX.x,py,PX.w,(on?'▶ ':'   ')+LSHORT[k],ok?'sirve':'no sirve',ok?OK_HEX:'#8f97a5');py+=25;
+  });
+  py+=6;
+  c.fillStyle='#8f97a5';c.font='12px Outfit, sans-serif';c.textAlign='left';
+  const DESC={
+    l_dir:'Escribe el valor en el canal y se retira. El canal queda libre: el primer pulsador o el detector la deshacen.',
+    l_det:'Escribe el valor y además inhibe el detector. El pulsador sigue mandando: es un mando compartido con el usuario.',
+    l_blq:'Bloquea el canal: mientras dure, ni el pulsador ni el detector pueden cambiarlo. Nadie recupera el mando.',
+    l_pri:'Posición forzada con liberación al cabo de '+sc.tForz+' pasos. Al liberar, el canal VUELVE al valor anterior a la escena.',
+    l_tmp:'Escribe el valor y arma un temporizador de escalera: se apaga sola a los '+sc.tEsc+' pasos. Un pulsador anula el temporizador.',
+    l_cen:'Objeto central de apagado: sólo actúa si la escena apaga. Si la escena enciende, no hace nada.',
+  };
+  wrapText(c,DESC[apLog],PX.x+16,py+14,PX.w-32,17);
+
+  rpanel(c,PX.x,398,PX.w,324,'Instalación · '+sc.nom);
+  let ry=398+58;
+  prow(c,PX.x,ry,PX.w,'Estado inicial',sc.on0?'encendido':'apagado');ry+=25;
+  prow(c,PX.x,ry,PX.w,'La escena escribe',sc.escOn?'ENCENDIDO':'APAGADO',sc.escOn?WARN_HEX:'#c9d3e6');ry+=25;
+  prow(c,PX.x,ry,PX.w,'Detector de presencia',sc.hayDet?'sí':'no');ry+=25;
+  prow(c,PX.x,ry,PX.w,'Umbral de luz',n0(sc.luxTh)+' lux');ry+=25;
+  prow(c,PX.x,ry,PX.w,'Temporizador de escalera',n0(sc.tEsc)+' pasos');ry+=25;
+  prow(c,PX.x,ry,PX.w,'Liberación de la forzada',n0(sc.tForz)+' pasos');ry+=29;
+  c.fillStyle='#8f97a5';c.font='12px Outfit, sans-serif';c.textAlign='left';
+  wrapText(c,sc.desc,PX.x+16,ry,PX.w-32,17);
+}
+
+function drawAplicaCanal(c){
+  const sc=apSc(),g=GOOD(sc).can;
+  c.fillStyle='#F4EFEA';c.font='bold 24px Outfit, sans-serif';c.textAlign='left';
+  c.fillText('El pico de conexión, no la corriente nominal',30,52);
+  c.fillStyle='#9fb0cf';c.font='13px Outfit, sans-serif';
+  wrapText(c,'Carga: '+sc.carga.n+'. Pide un canal de '+TIPON[sc.carga.tipo]+', consume '+fmtIc(sc.carga.i)+' en régimen y arranca con '+fmtIp(sc.carga.ipico)+'. Un contacto no se suelda por la corriente que lleva durante horas: se suelda en los milisegundos del cierre.',30,78,640,18);
+
+  const gx=30,gw=640,W=[186,96,86,96,84,92],RH=26;
+  trow(c,gx,166,gw,RH,['Canal','Tipo','I nominal','Pico admisible','u.c.','Veredicto'],W,null,true);
+  CANK.forEach((k,i)=>{
+    const C=CANALES[k],ev=canEval(sc,k),win=okCan(sc,k);
+    const cols=[CSHORT[k],TIPON[C.tipo],fmtIc(C.inom),C.ipico===null?'no aplica':fmtIp(C.ipico),n0(C.c),
+      win?'✔ elegido':(ev.ok?'cumple':'✗ no cumple')];
+    const colc=[null,ev.tipoOk?null:BAD_HEX,ev.iOk?null:BAD_HEX,ev.picoOk?null:BAD_HEX,null,
+      win?OK_HEX:(ev.ok?WARN_HEX:BAD_HEX)];
+    trow(c,gx,192+i*RH,gw,RH,cols,W,colc,false);
+  });
+
+  const picMax=Math.max(sc.carga.ipico,800);
+  drawBar(c,gx,368,gw,26,sc.carga.ipico/picMax,'Pico de conexión de la carga',WARN_HEX,fmtIp(sc.carga.ipico));
+  CANK.filter(k=>CANALES[k].ipico!==null).forEach((k,i)=>{
+    drawBar(c,gx,428+i*54,gw,22,CANALES[k].ipico/picMax,CSHORT[k]+' — admite',
+      CANALES[k].ipico>=sc.carga.ipico?OK_HEX:BAD_HEX,fmtIp(CANALES[k].ipico));
+  });
+
+  const w=whyCan(sc,GOOD(sc).can);
+  c.fillStyle=OK_HEX;c.font='bold 14px Outfit, sans-serif';c.textAlign='left';
+  c.fillText('✔ '+CANALES[g].n,gx,672);
+  c.fillStyle='#8f97a5';c.font='12px Outfit, sans-serif';
+  wrapText(c,w.txt,gx,694,640,17);
+
+  rpanel(c,PX.x,PX.y,PX.w,300,'La carga');
+  let py=PX.y+58;
+  prow(c,PX.x,py,PX.w,'Tipo de mando',TIPON[sc.carga.tipo],WARN_HEX);py+=25;
+  prow(c,PX.x,py,PX.w,'Corriente nominal',fmtIc(sc.carga.i));py+=25;
+  prow(c,PX.x,py,PX.w,'Potencia',n0(sc.carga.p)+' W');py+=25;
+  prow(c,PX.x,py,PX.w,'Pico de conexión',fmtIp(sc.carga.ipico),BAD_HEX);py+=25;
+  prow(c,PX.x,py,PX.w,'Pico / nominal','×'+n0(sc.carga.ipico/sc.carga.i),BAD_HEX);py+=25;
+  prow(c,PX.x,py,PX.w,'Canal más barato válido',CSHORT[g],OK_HEX);py+=25;
+  prow(c,PX.x,py,PX.w,'Coste',fmtC(canCosteMin(sc)));py+=29;
+  c.fillStyle='#8f97a5';c.font='12px Outfit, sans-serif';c.textAlign='left';
+  wrapText(c,'El tipo de mando no se negocia: un relé no regula y un regulador no mueve una persiana. Ese criterio se comprueba antes que ningún número.',PX.x+16,py,PX.w-32,17);
+
+  rpanel(c,PX.x,398,PX.w,324,'Los cuatro criterios del canal');
+  let ry=398+58;
+  const ev=canEval(sc,g);
+  prow(c,PX.x,ry,PX.w,tick(ev.tipoOk)+' Tipo de mando',TIPON[CANALES[g].tipo],kc(ev.tipoOk));ry+=25;
+  prow(c,PX.x,ry,PX.w,tick(ev.iOk)+' Corriente nominal',fmtIc(CANALES[g].inom),kc(ev.iOk));ry+=25;
+  prow(c,PX.x,ry,PX.w,tick(ev.picoOk)+' Pico de conexión',CANALES[g].ipico===null?'no aplica':fmtIp(CANALES[g].ipico),kc(ev.picoOk));ry+=25;
+  prow(c,PX.x,ry,PX.w,tick(ev.pOk)+' Potencia del regulador',g==='cdim'?'250 W':'no aplica',kc(ev.pOk));ry+=29;
+  c.fillStyle='#8f97a5';c.font='12px Outfit, sans-serif';c.textAlign='left';
+  wrapText(c,'El pico se comprueba contra el contacto, no contra el fusible: un relé AC1 de 16 A que admite 200 A de pico se pega con una batería de drivers de LED que arranca con 480 A, y lo hace la primera vez que alguien enciende.',PX.x+16,ry,PX.w-32,17);
+}
+
+function drawAplicaConsumo(c){
+  const sc=apSc(),cn=consumo(sc,apBus),e=busEval(sc,apBus);
+  c.fillStyle='#F4EFEA';c.font='bold 24px Outfit, sans-serif';c.textAlign='left';
+  c.fillText('Ocho mil setecientas sesenta horas al año',30,52);
+  c.fillStyle='#9fb0cf';c.font='13px Outfit, sans-serif';
+  wrapText(c,'Una instalación de bus no se apaga nunca: cada dispositivo consume su unidad de carga las 8760 horas del año, y la fuente añade su consumo en vacío y su rendimiento. Frente a eso está lo que la automatización ahorra en la carga que gobierna. Las dos cifras se comparan en kWh al año, no en opiniones.',30,78,640,18);
+
+  const gx=30,gw=640,W=[300,170,170],RH=26;
+  trow(c,gx,168,gw,RH,['Concepto','Cuenta','Valor'],W,null,true);
+  const filas=[
+    ['Corriente total del bus',n0(e.partes.reduce((s,p)=>s+p.n,0))+' nodos × '+n0(I_UL*1000)+' mA',fmtIb(cn.iTot)],
+    ['Potencia entregada al bus',fmtU(U_PS)+' × '+fmtIb(cn.iTot),fmtW(cn.pBus)],
+    ['Consumo en vacío de la fuente',BUSES[apBus].seg+' fuente(s)',fmtW(cn.pq)],
+    ['Rendimiento de la fuente','—',n0(cn.eta*100)+' %'],
+    ['Potencia tomada de la red','('+fmtW(cn.pBus)+' + '+fmtW(cn.pq)+') / '+n2(cn.eta),fmtW(cn.pRed)],
+    ['Energía del sistema al año',fmtW(cn.pRed)+' × 8760 h',fmtE(cn.kwhSis)],
+    ['Energía ahorrada al año',n0(sc.pLum)+' W × '+n1(sc.hAhorro)+' h × 365 d',fmtE(cn.kwhAhorro)],
+  ];
+  filas.forEach((f,i)=>trow(c,gx,194+i*RH,gw,RH,f,W,null,false));
+  const bal=cn.balance;
+  trow(c,gx,194+7*RH,gw,RH+4,['BALANCE ANUAL','ahorro − consumo',(bal>=0?'+':'−')+fmtE(Math.abs(bal))],W,
+    [bal>=0?OK_HEX:BAD_HEX,bal>=0?OK_HEX:BAD_HEX,bal>=0?OK_HEX:BAD_HEX],false);
+
+  c.fillStyle='#C7D6F5';c.font='bold 14px Outfit, sans-serif';c.textAlign='left';
+  c.fillText('Balance anual de las cuatro instalaciones (cada una con su bus válido más barato)',gx,432);
+  const maxAbs=Math.max(...POOL.map(s=>Math.abs(consumo(s,GOOD(s).bus).balance)));
+  POOL.forEach((s,i)=>{
+    const b=consumo(s,GOOD(s).bus).balance;
+    drawBar(c,gx,470+i*56,gw,24,Math.abs(b)/maxAbs,s.nom,b>=0?OK_HEX:BAD_HEX,(b>=0?'+':'−')+fmtE(Math.abs(b)));
+  });
+  c.fillStyle=cn.balance>=0?OK_HEX:BAD_HEX;c.font='bold 14px Outfit, sans-serif';c.textAlign='left';
+  c.fillText(cn.balance>=0?'✔ Aquí el sistema se paga en energía':'✗ Aquí el sistema NO se paga en energía',gx,706);
+  c.fillStyle='#8f97a5';c.font='12px Outfit, sans-serif';
+  wrapText(c,cn.balance>=0?'':'Cuarenta y cuatro dispositivos permanentemente alimentados no se pagan con dos luminarias estancas. El anexo se automatiza por control y seguridad, no por ahorro: decirlo es parte del proyecto.',gx,728,640,16);
+
+  rpanel(c,PX.x,PX.y,PX.w,300,'Consumo permanente');
+  let py=PX.y+58;
+  prow(c,PX.x,py,PX.w,'Solución de bus',BSHORT[apBus],e.ok?'#F4EFEA':BAD_HEX);py+=25;
+  prow(c,PX.x,py,PX.w,'Nodos alimentados',n0(e.partes.reduce((s,p)=>s+p.n,0)));py+=25;
+  prow(c,PX.x,py,PX.w,'Corriente total',fmtIb(cn.iTot));py+=25;
+  prow(c,PX.x,py,PX.w,'Potencia de red',fmtW(cn.pRed));py+=25;
+  prow(c,PX.x,py,PX.w,'Consumo anual',fmtE(cn.kwhSis),WARN_HEX);py+=25;
+  prow(c,PX.x,py,PX.w,'Ahorro anual',fmtE(cn.kwhAhorro),OK_HEX);py+=25;
+  prow(c,PX.x,py,PX.w,'Balance',(bal>=0?'+':'−')+fmtE(Math.abs(bal)),kc(bal>=0));py+=29;
+  c.fillStyle='#8f97a5';c.font='12px Outfit, sans-serif';c.textAlign='left';
+  wrapText(c,'El repetidor no es gratis: duplica el consumo en vacío porque cada segmento lleva su propia fuente.',PX.x+16,py,PX.w-32,17);
+
+  rpanel(c,PX.x,398,PX.w,300,'Carga gobernada');
+  let ry=398+58;
+  prow(c,PX.x,ry,PX.w,'Potencia de alumbrado',n0(sc.pLum)+' W');ry+=25;
+  prow(c,PX.x,ry,PX.w,'Horas ahorradas al día',n1(sc.hAhorro)+' h');ry+=25;
+  prow(c,PX.x,ry,PX.w,'Días al año','365');ry+=29;
+  c.fillStyle='#8f97a5';c.font='12px Outfit, sans-serif';c.textAlign='left';
+  wrapText(c,'El ahorro se estima como la luz que la automatización deja de encender. No incluye confort, seguridad ni mantenimiento: son beneficios reales que este balance NO mide.',PX.x+16,ry,PX.w-32,17);
+}
+
+function drawAplica(c){
+  if(apTopic==='escena')return drawAplicaEscena(c);
+  if(apTopic==='canal')return drawAplicaCanal(c);
+  if(apTopic==='consumo')return drawAplicaConsumo(c);
+  return drawAplicaCaida(c);
+}
+
+function drawReto(c){
+  const sc=retoSc(),cfg=retoCfg();
+  const eb=busEval(sc,cfg.bus),ec=canEval(sc,cfg.can),elg=logEval(sc,cfg.log);
+  c.fillStyle='#F4EFEA';c.font='bold 24px Outfit, sans-serif';c.textAlign='left';
+  c.fillText('Puesta en marcha · '+sc.nom,30,52);
+  c.fillStyle='#9fb0cf';c.font='13px Outfit, sans-serif';
+  wrapText(c,sc.desc,30,78,640,18);
+
+  const gx=30,gw=640;
+  const ejes=[
+    ['1 · Solución de bus',BUSES[cfg.bus].n,retoOkBus,whyBus(sc,cfg.bus).txt],
+    ['2 · Lógica de la escena',PROGS[cfg.log].n,retoOkLog,whyLog(sc,cfg.log).txt],
+    ['3 · Canal del actuador',CANALES[cfg.can].n,retoOkCan,whyCan(sc,cfg.can).txt],
+  ];
+  ejes.forEach((e2,i)=>{
+    const y=150+i*128;
+    c.fillStyle=retoChecked?hexA(e2[2]?OK_HEX:BAD_HEX,0.07):'rgba(255,255,255,0.03)';c.fillRect(gx,y,gw,112);
+    c.strokeStyle=retoChecked?hexA(e2[2]?OK_HEX:BAD_HEX,0.4):hexA(ACC,0.16);c.lineWidth=1;c.strokeRect(gx,y,gw,112);
+    c.fillStyle='#9fb0cf';c.font='12px Outfit, sans-serif';c.textAlign='left';c.fillText(e2[0],gx+14,y+22);
+    c.fillStyle='#F4EFEA';c.font='bold 16px Outfit, sans-serif';c.fillText(e2[1],gx+14,y+46);
+    if(retoChecked){
+      c.fillStyle=kc(e2[2]);c.font='bold 14px Outfit, sans-serif';c.textAlign='right';
+      c.fillText(e2[2]?'✔ correcto':'✗ revisa',gx+gw-14,y+22);
+      c.fillStyle=e2[2]?OK_HEX:WARN_HEX;c.font='12px Outfit, sans-serif';c.textAlign='left';
+      wrapText(c,e2[3],gx+14,y+70,gw-28,16);
+    }else{
+      c.fillStyle='#6b7280';c.font='12px Outfit, sans-serif';c.textAlign='left';
+      c.fillText('Elige en el panel y pulsa Comprobar para ver el veredicto de este eje.',gx+14,y+70);
+    }
+  });
+
+  c.fillStyle='#8f97a5';c.font='12px Outfit, sans-serif';c.textAlign='left';
+  wrapText(c,'Cada eje se califica con los otros dos YA correctos: acertar dos de tres deja una instalación que no funciona. '+BUSK.length+' soluciones de bus × '+PROGK.length+' lógicas × '+CANK.length+' canales = '+(BUSK.length*PROGK.length*CANK.length)+' combinaciones por instalación, y sólo UNA es válida.',gx,556,640,17);
+
+  if(retoChecked){
+    c.fillStyle=retoSolved?OK_HEX:BAD_HEX;c.font='bold 16px Outfit, sans-serif';c.textAlign='left';
+    c.fillText(retoSolved?'✔ Instalación correcta: bus, escena y canal':'✗ Todavía no: revisa los ejes marcados',gx,620);
+  }
+  c.fillStyle='#6b7280';c.font='11px Outfit, sans-serif';c.textAlign='left';
+  c.fillText('La configuración de partida está mal en los tres ejes a propósito',gx,752);
+
+  rpanel(c,PX.x,PX.y,PX.w,362,'Datos de la instalación');
+  let py=PX.y+58;
+  prow(c,PX.x,py,PX.w,'Dispositivos',n0(sc.devs.length));py+=25;
+  prow(c,PX.x,py,PX.w,'Unidades de carga',n0(ULtot(sc)));py+=25;
+  prow(c,PX.x,py,PX.w,'Longitud del bus',fmtL(Lmax(sc)));py+=25;
+  prow(c,PX.x,py,PX.w,'Carga',TIPON[sc.carga.tipo]);py+=25;
+  prow(c,PX.x,py,PX.w,'Corriente / pico',fmtIc(sc.carga.i)+' / '+fmtIp(sc.carga.ipico));py+=25;
+  prow(c,PX.x,py,PX.w,'Potencia',n0(sc.carga.p)+' W');py+=25;
+  prow(c,PX.x,py,PX.w,'La escena escribe',sc.escOn?'ENCENDIDO':'APAGADO');py+=25;
+  prow(c,PX.x,py,PX.w,'Detector',sc.hayDet?'sí, umbral '+n0(sc.luxTh)+' lux':'no');py+=25;
+  prow(c,PX.x,py,PX.w,'Temporizador',n0(sc.tEsc)+' pasos');py+=29;
+  c.strokeStyle=hexA(ACC,0.18);c.beginPath();c.moveTo(PX.x+16,py-14);c.lineTo(PX.x+PX.w-16,py-14);c.stroke();
+  prow(c,PX.x,py,PX.w,'Bus',BSHORT[cfg.bus],retoChecked?kc(retoOkBus):'#F4EFEA');py+=25;
+  prow(c,PX.x,py,PX.w,'Escena',LSHORT[cfg.log],retoChecked?kc(retoOkLog):'#F4EFEA');py+=25;
+  prow(c,PX.x,py,PX.w,'Canal',CSHORT[cfg.can],retoChecked?kc(retoOkCan):'#F4EFEA');
+
+  rpanel(c,PX.x,456,PX.w,266,'Requisitos que hay que cumplir');
+  let ry=456+56;
+  c.fillStyle='#8f97a5';c.font='12px Outfit, sans-serif';c.textAlign='left';
+  sc.reqs.forEach((r,i)=>{
+    c.fillStyle=retoChecked?kc(elg.req[i].ok):'#8f97a5';c.font='12px Outfit, sans-serif';
+    ry=wrapText(c,(retoChecked?tick(elg.req[i].ok)+' ':'· ')+r.n,PX.x+16,ry,PX.w-32,16)+22;
+  });
+  c.fillStyle='#6b7280';c.font='11px Outfit, sans-serif';
+  wrapText(c,'Y además: el bus debe cumplir los cinco criterios al menor coste, y el canal debe ser del tipo correcto y aguantar el pico.',PX.x+16,ry,PX.w-32,15);
+}
+
+function drawBoard(){
+  const c=bCv.getContext('2d');bg(c);
+  if(mode==='aplica')drawAplica(c);else if(mode==='reto')drawReto(c);else drawExplora(c);
+  bTex.needsUpdate=true;
+}
+function boardClick(){
+  if(mode==='aplica')showToast('🧩 Cuatro estudios: la posición de la fuente frente a la caída, la lógica de escena paso a paso, el canal frente al pico de conexión y el balance anual de energía.');
+  else if(mode==='reto')showToast('🎯 Tres decisiones ortogonales: bus, escena y canal. 180 combinaciones por instalación y sólo una válida.');
+  else showToast('🔧 El par de bus lleva datos y alimentación. Cinco criterios deciden si un segmento es viable, y ninguno se deduce de los otros cuatro.');
+}
+
+// ===================== 7. ESCENA 3D: CUADRO, BUS Y SALA =====================
+const bench=roundedBox(4.4,0.5,2.0,MAT.bench,0.05);bench.position.set(2.0,0.25,0.45);scene.add(bench);
+bench.userData={title:'Maqueta de la instalación',info:'Carril DIN con la fuente de bus y el actuador, línea de bus con los dispositivos y la sala gobernada.'};
+
+// --- carril DIN y módulos ---
+const BX0=0.35,BX1=3.35,RAIL_Z=-0.22;
+const rail=new THREE.Mesh(new THREE.BoxGeometry(3.5,0.05,0.12),MAT.din);rail.position.set(1.85,0.56,RAIL_Z);scene.add(rail);
+rail.userData={title:'Carril DIN del cuadro',info:'La fuente de bus, el repetidor y el actuador son módulos de carril. La fuente lleva la bobina de desacoplo que separa la alimentación de los telegramas.'};
+
+function modulo(w,col,label){
+  const g=new THREE.Group();
+  const b=roundedBox(w,0.44,0.28,std(col,0.6,0.1),0.02);b.position.set(0,0.24,0);g.add(b);
+  const cara=roundedBox(w-0.06,0.10,0.02,MAT.modk,0.01);cara.position.set(0,0.36,0.15);g.add(cara);
+  const led=new THREE.Mesh(new THREE.SphereGeometry(0.028,12,12),std(0x2f8f4f,0.4,0.1));
+  led.position.set(0,0.14,0.15);led.material.emissive=new THREE.Color(0x2f8f4f);led.material.emissiveIntensity=0.5;g.add(led);
+  g.position.set(1.0,0.585,RAIL_Z);scene.add(g);
+  g.userData={title:label};
+  return {g,led};
+}
+const psuA=modulo(0.46,0xe6e2d8,'Fuente de bus');
+psuA.g.userData.info='Entrega '+fmtU(U_PS)+' en vacío. Su corriente máxima limita cuántas unidades de carga admite el segmento, y su posición decide la caída de tensión.';
+addHoverLabel(psuA.g,'Fuente de bus',WARN_HEX,new THREE.Vector3(1.0,1.45,RAIL_Z),1.9);
+const psuB=modulo(0.46,0xe6e2d8,'Segunda fuente de bus');
+psuB.g.userData.info='Con un repetidor cada segmento necesita su propia fuente: por eso el consumo en vacío se duplica.';
+const repM=modulo(0.32,0xd8dce6,'Repetidor de línea');
+repM.g.userData.info='Parte el bus en dos segmentos eléctricamente independientes y repite los telegramas. Cada segmento vuelve a contar desde cero sus 64 dispositivos y su corriente.';
+addHoverLabel(repM.g,'Repetidor',VIO,new THREE.Vector3(1.9,1.45,RAIL_Z),1.7);
+const actM=modulo(0.40,0xe0e6ee,'Actuador');
+actM.g.position.set(3.62,0.585,RAIL_Z);
+actM.g.userData.info='El canal de salida es lo que realmente maniobra la carga: relé de conmutación, actuador de persiana o regulador. Ni el bus ni la escena lo suplen.';
+addHoverLabel(actM.g,'Canal del actuador',ACC,new THREE.Vector3(3.62,1.45,RAIL_Z),2.1);
+
+// --- línea de bus con dispositivos ---
+const busPts=[new THREE.Vector3(BX0,0.60,RAIL_Z+0.20),new THREE.Vector3(1.2,0.62,0.34),new THREE.Vector3(2.4,0.62,0.34),new THREE.Vector3(BX1+0.2,0.60,0.30)];
+const busLine=new THREE.Mesh(new THREE.TubeGeometry(new THREE.CatmullRomCurve3(busPts),64,0.026,10,false),MAT.knx);scene.add(busLine);
+busLine.userData={title:'Par de bus',info:'Dos hilos de '+n3(SEC_PAR)+' mm² que llevan a la vez los telegramas a '+n0(V_BUS)+' bit/s y la alimentación de todos los dispositivos. Su resistencia de bucle es de '+n1(R_M*1000)+' Ω/km.'};
+addHoverLabel(busLine,'Par de bus · '+n1(R_M*1000)+' Ω/km',OK_HEX,new THREE.Vector3(1.8,1.05,0.34),2.6);
+
+const DEVN=12;
+const devM=[];
+for(let i=0;i<DEVN;i++){
+  const m=roundedBox(0.15,0.17,0.13,std(0x243040,0.55,0.2),0.02);
+  m.position.set(BX0+(BX1-BX0)*i/(DEVN-1),0.68,0.34);
+  m.material.emissive=new THREE.Color(0x2f8f4f);m.material.emissiveIntensity=0.2;
+  scene.add(m);devM.push(m);
+}
+devM[0].userData={title:'Dispositivo de bus',info:'Cada dispositivo toma '+n0(I_UL*1000)+' mA de forma permanente y necesita al menos '+fmtU(U_MIN)+' para funcionar. Verde: llega tensión suficiente. Rojo: se queda por debajo del mínimo.'};
+
+// --- sala gobernada ---
+const wall=new THREE.Mesh(new THREE.BoxGeometry(2.0,1.5,0.08),MAT.wall);wall.position.set(3.3,1.35,-0.75);scene.add(wall);
+const lampRod=new THREE.Mesh(new THREE.CylinderGeometry(0.012,0.012,0.42,10),MAT.steel);lampRod.position.set(3.30,2.05,0.20);scene.add(lampRod);
+const lampShade=new THREE.Mesh(new THREE.ConeGeometry(0.26,0.24,22,1,true),MAT.plate);lampShade.position.set(3.30,1.78,0.20);scene.add(lampShade);
+const lamp=new THREE.Mesh(new THREE.SphereGeometry(0.15,20,20),std(0xffe6b0,0.35,0.05));
+lamp.position.set(3.30,1.66,0.20);lamp.material.emissive=new THREE.Color(0xffcf7a);lamp.material.emissiveIntensity=0.05;scene.add(lamp);
+lamp.userData={title:'Carga gobernada',info:'Lo que el canal maniobra. El brillo sigue la salida del canal paso a paso, según la lógica de escena elegida.'};
+addHoverLabel(lamp,'Carga',WARN_HEX,new THREE.Vector3(3.30,2.35,0.20),1.5);
+
+const persG=new THREE.Group();persG.position.set(2.55,1.90,-0.68);scene.add(persG);
+const persCaja=roundedBox(0.72,0.10,0.14,MAT.plate,0.02);persG.add(persCaja);
+const pers=roundedBox(0.66,0.62,0.05,std(0x6d7684,0.7,0.1),0.01);pers.position.set(0,-0.36,0.02);persG.add(pers);
+persG.userData={title:'Persiana motorizada',info:'Un canal de persiana no es un relé: tiene dos salidas enclavadas entre sí, tiempo de recorrido y paro. Un relé de conmutación no puede sustituirlo.'};
+
+const detG=new THREE.Group();detG.position.set(1.55,1.62,-0.70);scene.add(detG);
+const detBase=new THREE.Mesh(new THREE.CylinderGeometry(0.13,0.13,0.05,20),MAT.mod);detG.add(detBase);
+const det=new THREE.Mesh(new THREE.SphereGeometry(0.09,18,18),std(0xdfe6ef,0.4,0.1));
+det.position.set(0,-0.05,0);det.material.emissive=new THREE.Color(0x5ec8d8);det.material.emissiveIntensity=0.1;detG.add(det);
+detG.userData={title:'Detector de presencia',info:'Escribe en el mismo objeto de grupo que la escena y que el pulsador. Sólo actúa si hay presencia Y la luz ambiente está por debajo del umbral.'};
+addHoverLabel(detG,'Detector de presencia',OK_HEX,new THREE.Vector3(1.55,2.05,-0.70),2.3);
+
+const pulG=new THREE.Group();pulG.position.set(0.75,0.52,1.05);scene.add(pulG);
+const pulBase=roundedBox(0.32,0.10,0.32,MAT.mod,0.02);pulG.add(pulBase);
+const pulBtn=new THREE.Mesh(new THREE.CylinderGeometry(0.09,0.09,0.05,20),MAT.red);pulBtn.position.set(0,0.07,0);pulG.add(pulBtn);
+pulG.userData={title:'Pulsador de pared',info:'Un pulsador KNX no corta la carga: manda un telegrama. Si el canal no está bloqueado, ese telegrama deshace la escena.'};
+addHoverLabel(pulG,'Pulsador',WARN_HEX,new THREE.Vector3(0.75,1.02,1.05),1.6);
+
+const blqRing=new THREE.Mesh(new THREE.TorusGeometry(0.30,0.018,10,36),std(0xC08CF8,0.35,0.5));
+blqRing.rotation.x=Math.PI/2;blqRing.position.set(3.62,0.55,RAIL_Z);
+blqRing.material.emissive=new THREE.Color(0xC08CF8);blqRing.material.emissiveIntensity=1.2;blqRing.visible=false;scene.add(blqRing);
+
+const mapX=(sc,m)=>{const L=Lmax(sc)||1;return BX0+(BX1-BX0)*Math.max(0,Math.min(1,m/L));};
+function devInfo(sc,bid){
+  const all=[];
+  perfil(sc,bid).forEach((p,pi)=>p.pts.forEach(q=>{if(!q.rep)all.push({m:q.x,u:q.u,seg:pi});}));
+  all.sort((a,b)=>a.m-b.m);
+  const n=all.length,out=[];
+  for(let i=0;i<DEVN;i++){
+    const k=n===1?0:Math.round(i*(n-1)/(DEVN-1)),d=all[k];
+    out.push({x:mapX(sc,d.m),m:d.m,u:d.u,ok:d.u>=U_MIN-1e-9,seg:d.seg});
+  }
+  return out;
+}
+function hwCount(){return curSc().tFin+1;}
+function updateHW(){
+  const sc=curSc(),cfg=curCfg(),B=BUSES[cfg.bus],P=perfil(sc,cfg.bus);
+  psuA.g.position.x=mapX(sc,P[0].xps);
+  psuB.g.visible=B.seg===2;
+  repM.g.visible=B.seg===2;
+  if(B.seg===2){psuB.g.position.x=mapX(sc,P[1].xps);repM.g.position.x=mapX(sc,repX(sc));}
+  const di=devInfo(sc,cfg.bus);
+  devM.forEach((m,i)=>{
+    const d=di[i];m.position.x=d.x;
+    m.material.emissive.set(d.ok?0x2f8f4f:0xd2453f);
+    m.material.emissiveIntensity=(busStep===i)?1.6:(d.ok?0.22:0.65);
+  });
+  const tr=runEsc(sc,cfg.log),fr=tr[hwStep%tr.length];
+  const esReg=CANALES[cfg.can].tipo==='reg';
+  lamp.material.emissiveIntensity=fr.on?(esReg?0.85:1.7):0.05;
+  det.material.emissiveIntensity=fr.pres?1.4:0.10;
+  blqRing.visible=fr.blq;
+  actM.led.material.emissiveIntensity=fr.on?1.5:0.35;
+  psuA.led.material.emissiveIntensity=busEval(sc,cfg.bus).iOk?0.9:0.15;
+  const esPers=CANALES[cfg.can].tipo==='pers';
+  persG.visible=esPers;
+  pers.scale.y=fr.on?1.0:0.18;
+  pers.position.y=-0.36*pers.scale.y;
+}
+
+// ===================== 8. HUD Y PANEL =====================
+el('hud').innerHTML=`
+  <div class="eyebrow">D3 · Sistemas digitales y automatización — ISO/IEC 14543-3 (KNX) · EN 50090 · IEC 60669-2-1</div>
+  <h2>Sistema domótico: bus, escenas y cargas</h2>
+  <p>El par de bus lleva <b>datos y alimentación</b> por los mismos dos hilos. Dimensionarlo son cinco criterios simultáneos; programar una escena es decidir <b>quién manda</b> sobre el canal; y elegir el actuador es mirar el <b>pico de conexión</b>, no la corriente nominal. Las tres decisiones son independientes y ninguna avisa cuando otra está mal.</p>
+  <div class="formula">U(x) = U_PS − Σ (I<sub>tramo</sub> · R' · Δx) &nbsp;·&nbsp; R' = 2ρ/A = ${n1(R_M*1000)} Ω/km &nbsp;·&nbsp; I<sub>bus</sub> = n<sub>UL</sub> · ${n0(I_UL*1000)} mA</div>
+  <div class="legend">
+    <div class="li"><span class="dot" style="background:#8AB4F8"></span>Segmento 1 · fuente en la marca amarilla</div>
+    <div class="li"><span class="dot" style="background:#C08CF8"></span>Segmento 2 tras el repetidor · bloqueo del canal</div>
+    <div class="li"><span class="dot" style="background:#7CD992"></span>Criterio cumplido · dispositivo por encima de ${fmtU(U_MIN)}</div>
+    <div class="li"><span class="dot" style="background:#ff6b6b"></span>Criterio incumplido · dispositivo por debajo del mínimo</div>
+  </div>
+  <div class="fid">
+    <div class="ft">🔒 Contrato de fidelidad</div>
+    <div class="fl"><b>Sí modela:</b> caída de tensión en el par con la corriente acumulada tramo a tramo; los cinco criterios de un segmento TP1 (${N_MAX} dispositivos, corriente de fuente, ${fmtU(U_MIN)} en el más lejano, ${L_PS_MAX} m fuente→dispositivo, ${L_DD_MAX} m entre dispositivos); segmentación con repetidor y su segunda fuente; seis lógicas de escena con detector, pulsador, bloqueo, forzada y temporizador; cuatro criterios de canal (tipo, corriente, pico, potencia); consumo permanente y balance anual.</div>
+    <div class="fl no"><b>NO modela:</b> telegramas, direcciones de grupo, colisiones ni tiempos reales del bus; el guion avanza por <b>pasos discretos</b>, no por segundos. Tampoco modela curvas de regulación, factor de potencia, temperatura ni derating de los actuadores, y toma la unidad de carga como constante e igual para todos los dispositivos.</div>
+  </div>
+  <div class="src">Ref: ISO/IEC 14543-3 · EN 50090 · guía de instalación KNX TP1 · IEC 60669-2-1 · verificación numérica propia (170/170)</div>`;
+
+el('panel').innerHTML=`
+  <h4>Instalación domótica · <span id="p_mode" style="color:var(--accent2)">Explora</span></h4>
+  <div class="modebar">
+    <button class="b on" id="m_explora">🧭 Explora</button>
+    <button class="b" id="m_aplica">🧩 Aplica</button>
+    <button class="b" id="m_reto">🎯 Reto</button>
+  </div>
+  <div id="scenarioInfo" style="font-size:12px;color:var(--ink);margin:2px 0 8px;display:none"></div>
+  <div class="modebar" id="selbar" style="display:none;flex-wrap:wrap"></div>
+  <div id="tele"></div>
+  <div class="console" id="report"></div>
+  <h4 class="sec" id="retoTitle" style="display:none">Puesta en marcha de la instalación</h4>
+  <div id="retoBox" style="display:none">
+    <div id="retoSpec" style="font-size:12px;color:var(--ink);margin:2px 0 8px"></div>
+    <div class="btns"><button class="b primary" id="btnCheck">✅ Comprobar</button></div>
+  </div>
+  <h4 class="sec">Pregunta de ingeniería</h4>
+  <div id="q_text" style="font-size:12px;color:var(--ink);margin:4px 0 8px"></div>
+  <div class="btns" id="dxbtns"></div>
+  <div class="btns">
+    <button class="b auto" id="btnAuto">✨ Recorrido guiado (automático)</button>
+    <button class="b primary" id="btnNew">🔀 Nueva instalación</button>
+  </div>`;
+
+// ===================== 9. TOASTS =====================
+function showToast(html){const t=el('toast');t.innerHTML=html;t.classList.add('show');clearTimeout(showToast._t);showToast._t=setTimeout(()=>t.classList.remove('show'),4200);}
+
+// ===================== 10. MODOS Y CONTROLES =====================
+const MODE_META={
+  explora:{nombre:'Explora',cam:[[5.4,3.2,7.6],[1.0,1.05,0.35]],mision:'Misión: encontrar la solución de bus más barata que cumple los cinco criterios en cada instalación.'},
+  aplica:{nombre:'Aplica',cam:[[5.0,3.0,7.2],[1.2,1.05,0.30]],mision:'Misión: separar los cuatro efectos — caída, escena, canal y consumo — y ver que ninguno arregla el problema de otro.'},
+  reto:{nombre:'Reto',cam:[[5.2,3.1,7.4],[1.1,1.05,0.30]],mision:'Misión: poner en marcha la instalación acertando el bus, la lógica de escena y el canal.'},
+};
+function lbl(t){return `<span class="lbl">${t}</span>`;}
+function optBtns(key,opts,cur){return opts.map(([v,t])=>`<button class="b sm ${String(cur)===String(v)?'on':''}" data-${key}="${v}">${t}</button>`).join('');}
+const TOPICS=[['caida','⚡ Caída y posición'],['escena','🎬 Lógica de escena'],['canal','🔌 Canal del actuador'],['consumo','🔋 Consumo y balance']];
+
+function buildControls(){
+  const bar=el('selbar');bar.style.display='flex';bar.style.flexWrap='wrap';let html='';
+  if(mode==='explora'){
+    html+=lbl('Instalación')+optBtns('sc',POOL.map((s,i)=>[i,s.nom.split(' ')[0]+' '+(s.id==='viv'?'unifamiliar':(s.id==='anx'?'remoto':(s.id==='aul'?'de aulas':'de estudiantes')))]),expIdx);
+    html+=lbl('Solución de bus')+optBtns('bus',BUSK.map(k=>[k,BSHORT[k]]),expBus);
+  }else if(mode==='aplica'){
+    html+=lbl('Estudio')+optBtns('tp',TOPICS,apTopic);
+    html+=lbl('Instalación')+optBtns('ap',POOL.map((s,i)=>[i,s.nom.split(' ')[0]]),apIdx);
+    if(apTopic==='caida')html+=lbl('Fuente')+optBtns('f',[['f320','320 mA'],['f640','640 mA']],apF);
+    if(apTopic==='escena')html+=lbl('Lógica')+optBtns('lg',PROGK.map(k=>[k,LSHORT[k]]),apLog);
+    if(apTopic==='consumo')html+=lbl('Solución de bus')+optBtns('cb',BUSK.map(k=>[k,BSHORT[k]]),apBus);
+  }else{
+    html+=lbl('1 · Solución de bus')+optBtns('rb',BUSK.map(k=>[k,BSHORT[k]]),retoCh.bus);
+    html+=lbl('2 · Lógica de la escena')+optBtns('rl',PROGK.map(k=>[k,LSHORT[k]]),retoCh.log);
+    html+=lbl('3 · Canal del actuador')+optBtns('rc',CANK.map(k=>[k,CSHORT[k]]),retoCh.can);
+  }
+  bar.innerHTML=html;
+  const wire=(attr,fn)=>bar.querySelectorAll('['+attr+']').forEach(b=>b.onclick=()=>{
+    if(autoRunning)return;fn(b.getAttribute(attr));synth.beep(720,0.05,0.04);afterEdit();});
+  wire('data-sc',v=>{expIdx=parseInt(v,10);expBus='b1';hwStep=0;});
+  wire('data-bus',v=>{expBus=v;});
+  wire('data-tp',v=>{apTopic=v;setApDefaults();});
+  wire('data-ap',v=>{apIdx=parseInt(v,10);setApDefaults();hwStep=0;});
+  wire('data-f',v=>{apF=v;});
+  wire('data-lg',v=>{apLog=v;hwStep=0;});
+  wire('data-cb',v=>{apBus=v;});
+  wire('data-rb',v=>{retoSet('bus',v);});
+  wire('data-rl',v=>{retoSet('log',v);hwStep=0;});
+  wire('data-rc',v=>{retoSet('can',v);});
+}
+function setApDefaults(){
+  const sc=apSc(),g=GOOD(sc);
+  if(apTopic==='escena')apLog='l_dir';
+  if(apTopic==='consumo')apBus=g.bus;
+}
+function retoSet(field,v){retoCh[field]=v;retoChecked=false;retoSolved=false;solved=false;}
+
+function updateScenarioInfo(){
+  const box=el('scenarioInfo');box.style.display='block';
+  if(mode==='explora'){
+    const sc=expSc(),e=busEval(sc,expBus);
+    box.innerHTML=`<b>${sc.nom}</b> — ${sc.devs.length} dispositivos · ${ULtot(sc)} unidades de carga · ${fmtL(Lmax(sc))} de bus. Solución probada: <b>${BSHORT[expBus]}</b> (${e.ok?'cumple':'no cumple'}).`;
+  }else if(mode==='aplica'){
+    const sc=apSc();
+    const t=TOPICS.find(x=>x[0]===apTopic);
+    box.innerHTML=`<b>${t?t[1]:''}</b> — ${sc.nom}. ${apTopic==='escena'?('Lógica: <b>'+LSHORT[apLog]+'</b>.'):(apTopic==='consumo'?('Bus: <b>'+BSHORT[apBus]+'</b>.'):(apTopic==='caida'?('Fuente de <b>'+FUENTES[apF].n+'</b>, en el cuadro frente al centro.'):('Carga: <b>'+sc.carga.n+'</b>.')))}`;
+  }else{
+    const sc=retoSc();
+    box.innerHTML=`<b>${sc.nom}</b> — elige bus, lógica de escena y canal. ${BUSK.length}×${PROGK.length}×${CANK.length} = ${BUSK.length*PROGK.length*CANK.length} combinaciones, una sola válida.`;
+  }
+}
+
+function setMode(k){
+  mode=k;hwStep=0;
+  ['explora','aplica','reto'].forEach(m=>el('m_'+m).classList.toggle('on',m===k));
+  el('p_mode').textContent=MODE_META[k].nombre;
+  el('retoTitle').style.display=k==='reto'?'block':'none';
+  el('retoBox').style.display=k==='reto'?'block':'none';
+  if(k==='reto')updateRetoSpec();
+  buildControls();updateScenarioInfo();
+  solved=(k==='reto')?retoSolved:false;
+  clearDx();buildQuiz();refreshQuestion();
+  const cam=MODE_META[k].cam;S.moveTo(cam[0],cam[1]);refreshAll();
+}
+function afterEdit(){buildControls();updateScenarioInfo();refreshAll();}
+function newSignal(){
+  if(mode==='explora'){expIdx=pickIdx(POOL.length,expIdx);expBus='b1';
+    showToast('🏠 '+expSc().nom+' — '+expSc().devs.length+' dispositivos en '+fmtL(Lmax(expSc()))+' de bus. Empieza por la fuente más barata y sube sólo lo necesario.');}
+  else if(mode==='aplica'){apIdx=pickIdx(POOL.length,apIdx);setApDefaults();
+    showToast('🧩 '+apSc().nom+' — el mismo estudio sobre otra instalación.');}
+  else{seedReto(null);updateRetoSpec();
+    showToast('🎯 Nueva puesta en marcha: '+retoSc().nom+'. Las tres decisiones de partida están mal.');}
+  synth.beep(520,0.08,0.05);hwStep=0;afterEdit();
+}
+
+// ===================== 11. TELEMETRÍA Y REPORTE =====================
+function teleRow(l,v,cls){return `<div class="trow"><span class="tl">${l}</span><span class="tv ${cls||''}">${v}</span></div>`;}
+function updateTele(){
+  const sc=curSc(),cfg=curCfg();
+  const e=busEval(sc,cfg.bus),cn=consumo(sc,cfg.bus),ec=canEval(sc,cfg.can),elg=logEval(sc,cfg.log);
+  let h='';
+  h+=teleRow('Dispositivos / UL',sc.devs.length+' / '+ULtot(sc),e.nOk?'good':'bad');
+  h+=teleRow('Corriente de bus',fmtIb(e.iBus)+' de '+fmtIb(e.imax),e.iOk?'good':'bad');
+  h+=teleRow('Uso de la fuente',n0(e.uso*100)+' %',e.uso<=1?'good':'bad');
+  h+=teleRow('Tensión más baja',fmtU(e.uMin),e.uOk?'good':'bad');
+  h+=teleRow('Fuente → dispositivo',fmtL(e.dPs),e.psOk?'good':'bad');
+  h+=teleRow('Entre dispositivos',fmtL(e.dDd),e.ddOk?'good':'bad');
+  h+=teleRow('Segmentos / coste',BUSES[cfg.bus].seg+' / '+fmtC(e.coste),okBus(sc,cfg.bus)?'good':'warn');
+  if(mode==='aplica'&&apTopic==='consumo'){
+    h+=teleRow('Potencia de red',fmtW(cn.pRed),'warn');
+    h+=teleRow('Consumo anual',fmtE(cn.kwhSis),'warn');
+    h+=teleRow('Balance anual',(cn.balance>=0?'+':'−')+fmtE(Math.abs(cn.balance)),cn.balance>=0?'good':'bad');
+  }else{
+    h+=teleRow('Escena',LSHORT[cfg.log],elg.ok?'good':'bad');
+    h+=teleRow('Requisitos cumplidos',elg.req.filter(r=>r.ok).length+' de '+elg.req.length,elg.ok?'good':'bad');
+    h+=teleRow('Canal',CSHORT[cfg.can],ec.ok?'good':'bad');
+    h+=teleRow('Pico de la carga',fmtIp(sc.carga.ipico)+(ec.ipico===null?'':' de '+fmtIp(ec.ipico)),ec.picoOk?'good':'bad');
+  }
+  el('tele').innerHTML=h;
+}
+function updateReport(){
+  const sc=curSc(),cfg=curCfg();
+  let html=`<b>${MODE_META[mode].mision}</b><br>`;
+  if(mode==='explora'){
+    const w=whyBus(sc,expBus),e=busEval(sc,expBus);
+    html+=`<span class="mono">${sc.devs.length} dispositivos · ${ULtot(sc)} UL · ${fmtIb(e.iBus)} · ${fmtL(Lmax(sc))}</span><br>`;
+    html+=`<span class="${w.ok?'ok':'dtc'}">${w.ok?'✔':'✗'} ${BUSES[expBus].n}</span> — ${w.txt}.<br>`;
+    html+=`Solución más barata que cumple: <span class="mono">${BSHORT[GOOD(sc).bus]}</span> (${fmtC(busCosteMin(sc))}).`;
+  }else if(mode==='aplica'){
+    if(apTopic==='caida'){
+      const a=busEval(sc,apF==='f320'?'b2':'b4'),b=busEval(sc,apF==='f320'?'b3':'b5');
+      html+=`Con la fuente en el cuadro general el más lejano recibe <span class="mono">${fmtU(a.uMin)}</span> a <span class="mono">${fmtL(a.dPs)}</span>; en el centro del grupo, <span class="mono">${fmtU(b.uMin)}</span> a <span class="mono">${fmtL(b.dPs)}</span>.<br>`;
+      html+=`La corriente de bus es la misma en los dos casos: <span class="mono">${fmtIb(a.iBus)}</span>. <span class="dtc">Mover la fuente no compra corriente.</span>`;
+    }else if(apTopic==='escena'){
+      const w=whyLog(sc,apLog),elg=logEval(sc,apLog);
+      html+=`<span class="mono">${PROGS[apLog].n}</span> — ${elg.req.filter(r=>r.ok).length} de ${elg.req.length} requisitos.<br>`;
+      html+=`<span class="${w.ok?'ok':'dtc'}">${w.ok?'✔':'✗'}</span> ${w.txt}.`;
+    }else if(apTopic==='canal'){
+      const g=GOOD(sc).can;
+      html+=`Carga de <span class="mono">${TIPON[sc.carga.tipo]}</span>: ${fmtIc(sc.carga.i)} nominales y <span class="mono">${fmtIp(sc.carga.ipico)}</span> de pico (×${n0(sc.carga.ipico/sc.carga.i)}).<br>`;
+      html+=`<span class="ok">✔ ${CANALES[g].n}</span> — ${whyCan(sc,g).txt}.`;
+    }else{
+      const cn=consumo(sc,apBus);
+      html+=`<span class="mono">${fmtW(cn.pRed)}</span> de la red las 8760 h → <span class="mono">${fmtE(cn.kwhSis)}</span>; ahorro estimado <span class="mono">${fmtE(cn.kwhAhorro)}</span>.<br>`;
+      html+=`<span class="${cn.balance>=0?'ok':'dtc'}">Balance ${cn.balance>=0?'+':'−'}${fmtE(Math.abs(cn.balance))}</span> — ${cn.balance>=0?'el sistema se paga en energía':'el sistema NO se paga en energía, y hay que decirlo'}.`;
+    }
+  }else{
+    if(retoChecked)html+=retoMsg;
+    else html+=`<span class="mono">Elige la solución de bus, la lógica de escena y el canal, y pulsa Comprobar.</span>`;
+  }
+  el('report').innerHTML=html;
+}
+function refreshAll(){drawBoard();updateTele();updateReport();updateHW();}
+
+// ===================== 12. RETO =====================
+function updateRetoSpec(){
+  const sc=retoSc();
+  el('retoSpec').innerHTML=`Pon en marcha <b>${sc.nom.toLowerCase()}</b>: (1) la <b>solución de bus</b> más barata que cumple los cinco criterios con ${sc.devs.length} dispositivos en ${fmtL(Lmax(sc))}; (2) la <b>lógica de escena</b> que cumple los tres requisitos de la instalación; y (3) el <b>canal</b> más barato que aguanta ${fmtIc(sc.carga.i)} de ${TIPON[sc.carga.tipo]} con ${fmtIp(sc.carga.ipico)} de pico.`;
+}
+function retoExplain(){
+  const sc=retoSc(),cfg=retoCfg();
+  return [whyBus(sc,cfg.bus).txt,whyLog(sc,cfg.log).txt,whyCan(sc,cfg.can).txt].join(' · ');
+}
+function checkReto(){
+  const sc=retoSc();
+  retoOkBus=okBus(sc,retoCh.bus);
+  retoOkLog=okLog(sc,retoCh.log);
+  retoOkCan=okCan(sc,retoCh.can);
+  retoSolved=retoOkBus&&retoOkLog&&retoOkCan;retoChecked=true;solved=retoSolved;
+  synth.beep(retoSolved?1046:220,retoSolved?0.14:0.15,0.06);
+  retoMsg=`<span class="mono"><span class="${retoSolved?'ok':'dtc'}">${retoSolved?'✔ Correcto':'✗ Revisa'}</span> — ${retoExplain()}</span>`;
+  refreshAll();
+}
+
+// ===================== 13. QUIZ =====================
+function buildQuiz(){
+  QUIZ={
+    explora:{
+      pregunta:'Mover la fuente de bus del cuadro general al centro del grupo arregla la tensión del dispositivo más lejano. ¿Por qué no arregla nada más?',
+      opciones:[
+        {t:'Porque cambiar la fuente de sitio sólo cambia el CAMINO que recorre la corriente por el cobre: la distancia al más lejano se parte por dos y la caída baja mucho más que a la mitad. Pero ni el número de dispositivos ni la corriente que piden cambian un miliamperio.',ok:true,why:'Correcto. La posición actúa sobre dos de los cinco criterios —tensión y distancia fuente→dispositivo— y sobre ningún otro. Si lo que sobra son unidades de carga, hay que cambiar de fuente o partir el bus.'},
+        {t:'Porque al centrar la fuente el bus queda dividido en dos segmentos independientes y cada uno admite 64 dispositivos.',ok:false,why:'Eso lo hace un REPETIDOR, no la posición. Una fuente en el centro alimenta un único segmento eléctrico: los 64 dispositivos se siguen contando de una sola vez.'},
+        {t:'Porque la fuente en el centro entrega el doble de corriente al repartirla en dos direcciones.',ok:false,why:'La corriente máxima la fija el modelo de la fuente, no dónde se atornilla. Una fuente de 320 mA da 320 mA esté donde esté.'},
+        {t:'Porque el consumo de cada dispositivo depende de lo lejos que esté de la fuente.',ok:false,why:'La unidad de carga es constante: 10 mA por dispositivo, esté a 5 o a 600 metros. Lo que depende de la distancia es la caída de tensión, no el consumo.'},
+      ],
+    },
+    aplica:{
+      pregunta:'En la escena «examen» el pulsador de la pared no debe poder apagar la luz. ¿Por qué no basta con que la escena escriba «encendido» en el canal?',
+      opciones:[
+        {t:'Porque una escritura directa deja el canal libre: en cuanto llega otro telegrama —del pulsador o del detector— el canal obedece al último que habló. Para que el pulsador no mande hay que quitarle la autoridad al canal, bloqueándolo, no repetirle el valor.',ok:true,why:'Correcto. Escribir un valor y retener el mando son mecanismos distintos. El bloqueo, la posición forzada y la inhibición del detector se eligen por lo que deben impedir, no por lo que deben escribir.'},
+        {t:'Porque el telegrama de la escena tarda en propagarse por el bus y el del pulsador llega antes.',ok:false,why:'A 9600 bit/s un telegrama tarda milisegundos y el orden lo fija quién pulsa, no la velocidad. El problema no es de tiempos: es de autoridad sobre el canal.'},
+        {t:'Porque el pulsador y la escena usan direcciones de grupo distintas y hay que unificarlas.',ok:false,why:'Justamente escriben en el MISMO objeto de grupo: por eso compiten. Si usaran direcciones distintas el pulsador no afectaría al canal en absoluto.'},
+        {t:'Porque quien deshace la escena es el detector de presencia, y basta con inhibirlo.',ok:false,why:'Inhibir el detector resuelve el caso de la vivienda, donde el que estropea la escena es el detector. En el aula el que manda de más es el PULSADOR, y para ése la inhibición del detector no sirve de nada.'},
+      ],
+    },
+    reto:{
+      pregunta:'El anexo remoto consume 164,8 kWh al año en el sistema de bus y ahorra 42,3 kWh de alumbrado. ¿Qué se hace con ese resultado?',
+      opciones:[
+        {t:'Escribirlo en la memoria del proyecto tal cual. Cuarenta y cuatro dispositivos permanentemente alimentados no se pagan con dos luminarias estancas: el anexo se automatiza por control y seguridad, y esa es la justificación honesta.',ok:true,why:'Correcto. El balance depende de cuánta carga gobierna la instalación. En el edificio de aulas sale +586,9 kWh al año y en el anexo sale −122,4: la misma tecnología, dos conclusiones opuestas.'},
+        {t:'Se rehace la cuenta con la fuente de 160 mA, que consume mucho menos en vacío.',ok:false,why:'La de 160 mA no vale ahí: 44 dispositivos piden 440 mA. Elegir una fuente que no cumple para mejorar un balance no mejora nada, sólo deja el bus sin alimentar.'},
+        {t:'Se reparte el consumo del sistema entre los quince años de vida útil del equipo.',ok:false,why:'El consumo es de 164,8 kWh CADA año, no una vez. Repartirlo entre quince años sería contarlo quince veces menos de lo que ocurre.'},
+        {t:'Se ignora: el consumo del bus es despreciable frente al de la carga que gobierna.',ok:false,why:'165 kWh al año no son despreciables frente a un alumbrado de 116 W. Que en otras instalaciones sí lo sean es exactamente lo que hace obligatorio calcularlo caso por caso.'},
+      ],
+    },
+  };
+  Object.values(QUIZ).forEach(q=>{for(let i=q.opciones.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));const tmp=q.opciones[i];q.opciones[i]=q.opciones[j];q.opciones[j]=tmp;}});
+}
+function clearDx(){const box=el('dxbtns');if(box)box.innerHTML='';}
+function refreshQuestion(){
+  const q=QUIZ[mode];if(!q)return;
+  el('q_text').innerHTML=q.pregunta;
+  const box=el('dxbtns');
+  box.innerHTML=q.opciones.map((o,i)=>`<button class="b sm" data-i="${i}">${String.fromCharCode(65+i)}) ${o.t}</button>`).join('');
+  box.querySelectorAll('[data-i]').forEach(b=>b.onclick=()=>answer(parseInt(b.dataset.i,10)));
+}
+function answer(i){
+  const q=QUIZ[mode];if(!q)return;
+  const box=el('dxbtns'),btns=box.querySelectorAll('[data-i]');
+  if(!btns.length||btns[0].disabled)return;
+  const o=q.opciones[i];btns.forEach(b=>b.disabled=true);btns[i].classList.add(o.ok?'right':'wrong');
+  if(o.ok){synth.beep(1046,0.12,0.06);}else{synth.beep(220,0.15,0.06);}
+  showToast((o.ok?'✔ ':'✗ ')+o.why);
+}
+
+// ===================== 14. PICKING Y HOVER =====================
+pickerFor(scene,S.camera,S.renderer.domElement,hit=>{
+  if(!hit)return;
+  if(hit.object===board){boardClick();return;}
+  let o=hit.object;while(o){if(o.userData&&o.userData.title){showToast('<b>'+o.userData.title+'</b><br>'+(o.userData.info||''));return;}o=o.parent;}
+});
+(function hoverLoop(){
+  const ray=new THREE.Raycaster(),dom=S.renderer.domElement;let mx=0,my=0;
+  dom.addEventListener('pointermove',e=>{const r=dom.getBoundingClientRect();mx=((e.clientX-r.left)/r.width)*2-1;my=-((e.clientY-r.top)/r.height)*2+1;});
+  function tickH(){
+    ray.setFromCamera({x:mx,y:my},S.camera);let hovered=false;
+    for(const [obj,spr] of HOVER_LABELS){if(!obj.visible){spr.visible=false;continue;}const on=ray.intersectObject(obj,true).length>0;spr.visible=on;if(on)hovered=true;}
+    dom.style.cursor=hovered?'pointer':'default';requestAnimationFrame(tickH);
+  }
+  tickH();
+})();
+
+// ===================== 15. RECORRIDO AUTOMÁTICO =====================
+function sleep(ms){return new Promise(r=>setTimeout(r,ms));}
+async function runAuto(){
+  if(autoRunning)return;autoRunning=true;
+  const btn=el('btnAuto'),label=btn.textContent;btn.disabled=true;btn.classList.add('on');btn.textContent='⏳ Recorriendo…';
+  try{
+    synth.init();synth.resume();clearDx();
+    setMode('explora');
+    expIdx=0;expBus='b1';afterEdit();
+    showToast('🏠 Vivienda de 14 dispositivos en 85 m. La fuente más barata basta: 140 mA de 160, el 88 % de la fuente, y el más lejano recibe 29,57 V.');
+    await sleep(4600);
+    expIdx=1;expBus='b1';afterEdit();
+    showToast('⚠ Anexo remoto: 44 dispositivos al final de una tirada muerta de 320 m. La misma fuente falla por DOS motivos a la vez: pide 440 mA de 160 y el más lejano se queda en 19,89 V.');
+    await sleep(5200);
+    expBus='b3';afterEdit();
+    showToast('🔎 Fuente de 320 mA en el centro del grupo: la tensión sube a 29,88 V y la distancia baja a 15,0 m. Perfecto… salvo que la corriente sigue siendo 440 mA. Sigue sin cumplir.');
+    await sleep(5200);
+    expBus='b5';afterEdit();
+    showToast('✔ Sólo la fuente de 640 mA en el centro del grupo cumple los cinco: 69 % de uso y 29,88 V. Cuesta 15 u.c. y no hay nada más barato que valga.');
+    await sleep(4800);
+    expIdx=2;expBus='b2';afterEdit();
+    showToast('🏫 Edificio de aulas: 30 dispositivos en 620 m. La fuente de 320 mA sobra de corriente (94 %) y falla por distancia: 620,0 m entre la fuente y el último dispositivo, con el tope en 350 m.');
+    await sleep(5200);
+    expBus='b3';afterEdit();
+    showToast('✔ La MISMA fuente, cambiada de sitio: 300,0 m y 28,40 V. Diez unidades de coste frente a las quince de la fuente grande. Aquí el problema era geometría, no corriente.');
+    await sleep(5000);
+    expIdx=3;expBus='b5';afterEdit();
+    showToast('🏢 Residencia: 66 dispositivos, 78 unidades de carga y 760 m. Aquí no hay fuente que valga — falla el número, la corriente y las dos distancias a la vez.');
+    await sleep(5200);
+    expBus='b6';afterEdit();
+    showToast('✔ Repetidor: dos segmentos de 34 nodos, 410 mA cada uno y 28,53 V en el peor. Partir el bus es lo único que baja el número de dispositivos por segmento.');
+    await sleep(5000);
+    answer(QUIZ[mode].opciones.findIndex(o=>o.ok));await sleep(2800);
+
+    setMode('aplica');
+    apTopic='caida';apIdx=2;apF='f320';afterEdit();
+    showToast('⚡ El par de bus tiene 68,60 Ω/km de bucle y 0,503 mm² por conductor. Cada tramo de cobre lleva la corriente de TODOS los dispositivos que quedan más allá.');
+    await sleep(5000);
+    apF='f640';afterEdit();
+    showToast('🔎 La fuente de 640 mA da los mismos 28,40 V en el centro y los mismos 23,41 V en el cuadro: la caída no depende del tamaño de la fuente, sino de dónde está.');
+    await sleep(5000);
+    apTopic='escena';apIdx=0;apLog='l_dir';afterEdit();
+    showToast('🎬 Vivienda, escena «cine»: la escritura directa apaga… y el detector la vuelve a encender en el paso siguiente. La escena no falla: es que nadie le quitó el mando al detector.');
+    await sleep(5200);
+    apLog='l_det';afterEdit();
+    showToast('✔ Directa + inhibición del detector: apaga, el detector calla y el usuario recupera el mando con el pulsador. Tres requisitos de tres.');
+    await sleep(4800);
+    apIdx=2;apLog='l_det';afterEdit();
+    showToast('🏫 La misma lógica en el aula NO sirve: aquí quien manda de más es el pulsador, no el detector. Inhibir al detector no impide que alguien apague el examen.');
+    await sleep(5200);
+    apLog='l_blq';afterEdit();
+    showToast('✔ Bloqueo del canal: mientras dura el examen, ni el pulsador ni el detector escriben. Nadie recupera el mando, y eso es exactamente lo que se pedía.');
+    await sleep(4800);
+    apIdx=3;apLog='l_tmp';afterEdit();
+    showToast('⏱ Residencia: temporizador de escalera de 6 pasos. Enciende en el paso 3, sigue encendida en el 6 y se apaga sola en el 9. Y el pulsador vuelve a encender después.');
+    await sleep(5200);
+    apTopic='canal';apIdx=0;afterEdit();
+    showToast('🔌 Vivienda: 18 drivers de LED piden 0,94 A… y arrancan con 216 A. El relé de 10 A admite 80 y el de 16 A admite 200: los dos se pegan. Y ninguno regula.');
+    await sleep(5400);
+    apIdx=1;afterEdit();
+    showToast('📏 Anexo: la bomba consume 10,1 A. El relé de 10 A se queda corto por 0,1 A — y por 0,1 A no se elige. El de 16 A cuesta 2 u.c. más y es el correcto.');
+    await sleep(5000);
+    apIdx=2;afterEdit();
+    showToast('⚡ Aulas: 24 pantallas LED, 4,17 A nominales y 480 A de pico. Ciento quince veces la corriente de régimen. Sólo el relé C-load de 800 A de pico lo aguanta.');
+    await sleep(5200);
+    apTopic='consumo';apIdx=2;apBus='b3';afterEdit();
+    showToast('🔋 Aulas: 13,00 W de la red las 8760 horas son 113,9 kWh al año, frente a 700,8 kWh de alumbrado ahorrado. Balance +586,9 kWh: aquí el sistema se paga solo.');
+    await sleep(5400);
+    apIdx=1;apBus='b5';afterEdit();
+    showToast('✗ Anexo: 18,81 W permanentes son 164,8 kWh al año, y el ahorro estimado es de 42,3. Balance −122,4 kWh. Este sistema NO se paga en energía, y hay que decirlo.');
+    await sleep(5600);
+    answer(QUIZ[mode].opciones.findIndex(o=>o.ok));await sleep(2800);
+
+    setMode('reto');
+    seedReto(3);updateRetoSpec();afterEdit();
+    showToast('🎯 Reto sobre la residencia: la configuración de partida está mal en las tres decisiones. La comprobamos tal cual…');
+    await sleep(4000);
+    checkReto();
+    await sleep(4800);
+    const sc=retoSc(),g=GOOD(sc);
+    retoCh={bus:g.bus,log:g.log,can:g.can};
+    retoChecked=false;retoSolved=false;solved=false;afterEdit();
+    showToast('✔ Dos segmentos con repetidor, temporizador de escalera y actuador de persiana. Las tres decisiones en verde: bus que alimenta, escena que hace lo que se pidió y canal del tipo correcto.');
+    await sleep(4400);
+    checkReto();await sleep(2800);
+    answer(QUIZ[mode].opciones.findIndex(o=>o.ok));
+  }finally{
+    btn.disabled=false;btn.classList.remove('on');btn.textContent=label;autoRunning=false;
+  }
+}
+
+// ===================== 16. ANIMACIÓN, EVENTOS E INICIO =====================
+S.setAnimate((dt,time)=>{
+  hwT+=dt;busT+=dt;let dirty=false;
+  if(hwT>0.42){hwT=0;hwStep=(hwStep+1)%hwCount();dirty=true;}
+  if(busT>0.09){busT=0;busStep=(busStep+1)%DEVN;dirty=true;}
+  if(dirty)updateHW();
+});
+['explora','aplica','reto'].forEach(m=>{el('m_'+m).onclick=()=>{if(!autoRunning)setMode(m);};});
+el('btnAuto').onclick=()=>{if(!autoRunning)runAuto();};
+el('btnNew').onclick=()=>{if(autoRunning)return;newSignal();};
+el('btnCheck').onclick=()=>{if(autoRunning)return;checkReto();};
+const soundBtn=el('soundBtn');if(soundBtn){soundBtn.onclick=()=>{synth.toggle();soundBtn.textContent=synth.isOn()?'🔊':'🔇';};}
+document.addEventListener('pointerdown',()=>{synth.init();synth.resume();},{once:true});
+
+buildQuiz();
+S.start();
+setMode('explora');
+
+// ===================== DEBUG HOOK =====================
+window.__labDebug={
+  mode:()=>mode, setMode:k=>setMode(k),
+  POOL, BUSES, BUSK, CANALES, CANK, PROGS, PROGK, FUENTES,
+  U_PS, U_MIN, RHO_CU, D_PAR, I_UL, N_MAX, L_PS_MAX, L_DD_MAX, L_SEG_MAX, V_BUS, R_M, SEC_PAR,
+  // motor
+  mkDevs, tensiones, segEval, busEval, busCosteMin, okBus, consumo,
+  canEval, canCosteMin, okCan, runEsc, logEval, okLog, GOOD, cfgWith, whyCfg,
+  // adaptadores
+  perfil, partesDevs, uMinPerfil, whyBus, whyLog, whyCan, ULtot, Lmax, repX, devInfo,
+  // explora
+  expIdx:()=>expIdx, setExpIdx:i=>{expIdx=i;expBus='b1';afterEdit();},
+  expBus:()=>expBus, setExpBus:k=>{expBus=k;afterEdit();},
+  expInfo:()=>{const sc=expSc();return {idx:expIdx,bus:expBus,ok:okBus(sc,expBus),e:busEval(sc,expBus)};},
+  // aplica
+  apTopic:()=>apTopic, setApTopic:k=>{apTopic=k;setApDefaults();afterEdit();},
+  apIdx:()=>apIdx, setApIdx:i=>{apIdx=i;setApDefaults();afterEdit();},
+  apF:()=>apF, setApF:k=>{apF=k;afterEdit();},
+  apLog:()=>apLog, setApLog:k=>{apLog=k;afterEdit();},
+  apBus:()=>apBus, setApBus:k=>{apBus=k;afterEdit();},
+  apCfg:()=>apCfg(),
+  // reto
+  retoK:()=>retoK, seedReto:k=>{seedReto(k);updateRetoSpec();afterEdit();},
+  retoName:()=>retoSc().nom, retoCfg:()=>retoCfg(),
+  retoGet:()=>({bus:retoCh.bus,log:retoCh.log,can:retoCh.can}),
+  retoSet:(f,v)=>{retoSet(f,v);afterEdit();},
+  retoSolveBuild:()=>{const sc=retoSc(),g=GOOD(sc);retoCh={bus:g.bus,log:g.log,can:g.can};
+    retoChecked=false;retoSolved=false;solved=false;afterEdit();},
+  checkReto:()=>checkReto(),
+  retoChecked:()=>retoChecked, retoOkBus:()=>retoOkBus, retoOkLog:()=>retoOkLog, retoOkCan:()=>retoOkCan, retoSolved:()=>retoSolved,
+  // quiz / general
+  quizCorrectIndex:()=>{const q=QUIZ[mode];return q?q.opciones.findIndex(o=>o.ok):-1;},
+  quizAnswer:i=>answer(i),
+  hwStep:()=>hwStep, hwCount:()=>hwCount(),
+  newSignal:()=>newSignal(),
+  solved:()=>solved,
+};
