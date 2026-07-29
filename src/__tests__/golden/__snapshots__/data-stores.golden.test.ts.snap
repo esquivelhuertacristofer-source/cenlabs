@@ -6928,6 +6928,63 @@ El CANAL del actuador no lo decide la potencia. Lo deciden cuatro comprobaciones
     "titulo": "Sistema Domótico: Bus, Escenas y Canal del Actuador",
     "videoUrl": "",
   },
+  "mecanica-93": {
+    "acento": "#F2A65A",
+    "aplicaciones": [
+      {
+        "area": "Taller mecánico y mantenimiento industrial",
+        "ejemplo": "Enderezar ejes, extraer rodamientos, introducir casquillos y prensar bujes son cuatro trabajos con la misma máquina y cuatro respuestas distintas. El casquillo largo lo demuestra: la bomba correcta es la más barata y la más floja del catálogo, porque lo que manda no es la presión sino la cilindrada — hay que meter 130 mm de carrera en 120 bombeos, y las bombas de alta presión son las de cilindrada mínima. Elegir por la etiqueta de «más potente» es elegir mal.",
+      },
+      {
+        "area": "Proyecto y compra de equipo hidráulico",
+        "ejemplo": "El coste del sistema no es la suma de los costes de las piezas vistas por separado. Para prensar el buje de un camión, el cilindro de Ø100 cumple cinco de los seis criterios y falla solo en uno: pediría 49,51 MPa y el latiguillo de clase 350 bar trabaja a 35. Subir al Ø125 —el más caro del catálogo— baja la presión a 31,69 MPa y abarata todo lo demás. Cambiar el cilindro cambia el latiguillo, y en la factura eso se nota más que los 3 u.c. de diferencia entre émbolos.",
+      },
+      {
+        "area": "Diagnóstico y seguridad en el uso de prensas",
+        "ejemplo": "Una prensa que «no sube» rara vez está rota. O el operario ha llegado al tope de su propia mano (400 N sobre una b1 son 8,42 MPa y no hay más), o está abriendo la limitadora sin darse cuenta (la b3 daría 31,83 MPa y la válvula corta en 25), o el circuito tiene aire y los diez primeros bombeos solo lo comprimen. Y el margen importa: el extractor portátil de rodamientos trabaja con un techo de 123,7 kN para una carga de 120 — 3,7 kN de holgura sobre una máquina que empuja doce toneladas.",
+      },
+    ],
+    "bienvenida": "Una prensa hidráulica es la ley de Pascal hecha máquina, y también el mejor sitio para ver que la física no regala nada. La presión que generas en el pistón pequeño llega íntegra al grande, y como la fuerza es presión por área, un émbolo mayor devuelve más fuerza: con el Ø125 y la bomba b5, ×1953. Lo que no se multiplica es el trabajo. El aceite que sale de la bomba es el mismo que entra en el cilindro, así que esa pareja avanza 0,4147 mm por bombeo: para mover el vástago 30 mm hay que dar 73 bombeos y recorrer 65,7 metros de palanca. Y de todo ese trabajo sale el 90 %; el otro 10 % se queda en calor.
+
+La primera confusión que hay que deshacer es quién impone la presión. No la bomba: la CARGA. Prensar 60 kN con un cilindro de Ø80 exige 13,26 MPa y en eso no hay nada que elegir. Lo único que decide la bomba es si esa presión se alcanza, y ahí hay dos topes distintos que rara vez coinciden. El de la MANO: a 400 N sobre la palanca, la b1 da 8,42 MPa y la b2 llega a 19,89. El de la LIMITADORA: la b3 daría 31,83 MPa a mano, pero su válvula abre en 25. Con b1 y b2 se agota antes la mano y la limitadora ni se entera; con b3, b4 y b5 corta la válvula. Saber cuál de los dos actúa primero es la diferencia entre diagnosticar una prensa y golpearla.
+
+La segunda es el aire. Un latiguillo DN10 de dos metros contiene 157,08 cm³, y si un 30 % es aire —47,12 cm³—, comprimirlo hasta la presión de trabajo se come los diez primeros bombeos de la b5: no mueven la carga ni un micrómetro. El operario que no purgó cree que la prensa está rota. En cambio la columna de aceite, que tanto sale en los esquemas, aporta 0,0088 MPa por metro: frente a los 31,69 MPa del buje es el 0,028 %. Aquí se calcula precisamente para poder despreciarla con conocimiento y no por costumbre.
+
+Con eso montado, el problema real del taller es de proyecto: elegir cilindro, bomba y latiguillo. Seis criterios a la vez —que quepa, que la carrera alcance, que la presión no pase del tarado, que la mano no pase de 400 N, que los bombeos sean razonables y que el latiguillo aguante— y además al mínimo coste, porque sobredimensionar también es equivocarse. Cuatro trabajos, 100 combinaciones cada uno, barridas una a una: exactamente una terna correcta en cada uno. Motor verificado 204/204.",
+    "codigo": "MEC-93",
+    "conceptos": [
+      {
+        "descripcion": "p = F₂/(η·A₂) con η = 0,90: 60 kN sobre un Ø80 son 13,26 MPa y no hay nada que negociar. La bomba solo decide si esa presión se alcanza, y tiene dos topes que rara vez coinciden: la mano (8,42 MPa con b1 a 400 N; 19,89 con b2) y la limitadora (16 · 25 · 25 · 70 · 70 MPa). Con b1 y b2 se agota la mano; con b3, b4 y b5 corta la válvula.",
+        "icono": "⚖️",
+        "nombre": "La presión la impone la carga, no la bomba",
+      },
+      {
+        "descripcion": "V = A₁·s₁ = A₂·s₂. El Ø125 con la b5 multiplica la fuerza ×1953 y avanza 0,4147 mm por bombeo: 73 bombeos y 65,7 m de palanca para 30 mm de vástago. El balance de trabajo cierra en el 90 % exacto: W_out/W_in = η, y el 10 % que falta se disipa en calor en el aceite y las juntas. La multiplicación de fuerza no es magia, es contabilidad.",
+        "icono": "🔁",
+        "nombre": "Lo que ganas en fuerza lo pagas en recorrido",
+      },
+      {
+        "descripcion": "Un latiguillo DN10 × 2 m contiene 157,08 cm³. Con un 30 % de aire (47,12 cm³), la ley de Boyle lo comprime casi por completo antes de que la carga se mueva: 5 bombeos perdidos con la b1, 10 con la b5, 19 con la b4. Mientras tanto, la columna de aceite aporta 0,0088 MPa por metro — el 0,028 % de los 31,69 MPa del buje. Se calcula para despreciarla con conocimiento.",
+        "icono": "💨",
+        "nombre": "El aire atrapado se come los primeros bombeos",
+      },
+      {
+        "descripcion": "Diámetro que quepa, carrera suficiente, presión bajo el tarado, mano ≤ 400 N, bombeos admisibles y latiguillo con presión de trabajo suficiente. Cumplir no basta: en el eje, el Ø80 (24 u.c.) y el Ø100 (29 u.c.) cumplen los seis, y solo uno es la respuesta. Y el coste del sistema no es la suma de intuiciones: en el buje, el cilindro MÁS CARO abarata el conjunto porque baja la presión de 49,51 a 31,69 MPa.",
+        "icono": "📐",
+        "nombre": "Seis criterios a la vez y el más barato",
+      },
+    ],
+    "duracion": 35,
+    "mision": [
+      "ENSAMBLE · Monta la prensa pieza a pieza: cilindro, depósito, bomba de mano, limitadora, manómetro, latiguillo y la pieza de trabajo. Cada hueco solo acepta su pieza, y hasta que la última encaja los modos de estudio están bloqueados. No es decoración: el circuito solo tiene sentido cuando se ve por dónde entra el aceite, dónde está el tope de presión y qué mide realmente el manómetro.",
+      "EXPLORA · En Pascal, un tubo en U con los dos émbolos dibujados a escala real: sube la fuerza de mano de 100 a 400 N y comprueba que la presión que ALCANZA la mano cambia mientras la que PIDE la carga no se mueve. En Volumen, bombea de 1 en 1 o de 10 en 10 y mira el avance por bombeo, los bombeos totales, los metros de palanca y el reparto entre trabajo útil y calor; añade después aire atrapado y cuenta los bombeos que se pierden antes de que la carga se entere.",
+      "APLICA · La curva de decisión enfrenta los cinco cilindros para una bomba dada, con las líneas límite de la limitadora y del número máximo de bombeos. En el eje con la b2 se ve entero el dilema: el Ø50 pide 33,95 MPa (imposible), el Ø125 pide solo 5,43 pero exige 77 bombeos frente a los 60 admitidos, y en medio quedan dos cilindros válidos con 5 u.c. de diferencia. Cada cilindro trae el criterio exacto que incumple, no un simple «no vale».",
+      "RETO · Tres decisiones independientes sobre el trabajo asignado: cilindro, bomba y latiguillo. Cada eje se califica con los otros dos ya correctos, así que acertar dos de tres sigue siendo una prensa que no sirve. Las 100 combinaciones (5 × 5 × 4) se barrieron una a una en los cuatro trabajos: hay exactamente una terna válida en cada uno y las cuatro son distintas. La configuración de partida está deliberadamente mal en los tres ejes.",
+    ],
+    "subtitulo": "Hidráulica y Neumática · Ley de Pascal + ISO 6020-2/6022 + ISO 1436/SAE J517 + ISO 4413: presión que impone la carga, conservación del volumen y selección de cilindro, bomba y latiguillo",
+    "titulo": "Prensa Hidráulica: Ley de Pascal, Volumen y Proyecto del Circuito",
+    "videoUrl": "",
+  },
   "quimica-1": {
     "acento": "#06B6D4",
     "aplicaciones": [
@@ -17278,6 +17335,7 @@ exports[`golden master — stores de datos (invariante ante la migración a src/
   "mecanica-90": [],
   "mecanica-91": [],
   "mecanica-92": [],
+  "mecanica-93": [],
   "quimica-1": [
     {
       "completed": true,
@@ -17605,6 +17663,7 @@ exports[`golden master — stores de datos (invariante ante la migración a src/
   "mecanica-90",
   "mecanica-91",
   "mecanica-92",
+  "mecanica-93",
   "quimica-1",
   "quimica-10",
   "quimica-2",

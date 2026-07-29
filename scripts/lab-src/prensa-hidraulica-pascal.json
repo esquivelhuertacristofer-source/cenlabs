@@ -1,0 +1,9 @@
+{
+  "donor": "escaner-obd.html",
+  "out": "prensa-hidraulica-pascal.html",
+  "title": "CEN Labs · Prensa hidráulica: ley de Pascal, volumen y proyecto — Laboratorio 3D",
+  "lt": "Hidráulica y Neumática · Mecánica",
+  "inspectHint": "👆 Toca una pieza del banco y luego su hueco luminoso para montar la prensa; después estudia la presión, el volumen y el proyecto",
+  "body": "prensa-hidraulica-pascal.body.js",
+  "fichas": ["_ficha-tecnica.js", "_ficha-prensa-hidraulica-pascal.js"]
+}

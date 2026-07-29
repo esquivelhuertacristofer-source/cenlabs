@@ -1,0 +1,1224 @@
+/* ============================================================
+   LAB — PRENSA HIDRÁULICA DE TALLER · LEY DE PASCAL
+   (Dominio D4 · Hidráulica y Neumática — fila d4-01 de la lista
+   maestra). MOLDE E+S: ensamble 3D pieza por pieza del circuito
+   hidráulico (molde E) + pizarrón esquemático con modos de
+   exploración sobre canvas (molde S), mismo patrón que los labs
+   de máquinas eléctricas de D5 (ver patron_molde_e_s_hibrido).
+
+   Norma ancla / referencias: ley de Pascal · ISO 6020-2 y ISO 6022
+   (cilindros hidráulicos, series de diámetros) · ISO 1436 y
+   SAE J517 100R (mangueras: presión de trabajo y factor 4:1 de
+   rotura) · ISO 4413 (seguridad de sistemas hidráulicos) ·
+   ISO 1219-1 (simbología). El límite de 400 N en el extremo de la
+   palanca es un CRITERIO DE PROYECTO DEL TALLER inspirado en
+   ISO 11228-2 / EN 1005-3, no una cifra de norma.
+
+   MOTOR: copiado VERBATIM del verificador numérico sellado
+   scratchpad/verif_prensa.mjs (204 aserciones, 0 fallos) entre las
+   marcas MOTOR / FIN MOTOR. Ni una fórmula reescrita a mano.
+
+   CERO Math.random() salvo en newReto() (qué trabajo se sortea) y
+   en el barajado Fisher-Yates de las opciones del quiz.
+   ============================================================ */
+
+/* ============================ MOTOR ============================ */
+/* Unidades: longitud mm · area mm2 · presion MPa (=N/mm2) · fuerza N ·
+   volumen mm3 · trabajo J. Con este juego no hay una sola conversion:
+   F[N] = p[MPa] * A[mm2] es exacto.                                   */
+const ETA_CIL = 0.90;       // rendimiento del cilindro (sellos + rozamiento)
+const F_MANO_MAX = 400;     // N — limite ergonomico de proyecto en el extremo de la palanca
+const SF_MAN = 4;           // factor rotura/trabajo de las mangueras (ISO 1436 / SAE J517)
+const P_ATM = 0.101325;     // MPa
+const RHO_ACEITE = 900;     // kg/m3 — solo para la nota de la columna de aceite
+const G_GRAV = 9.80665;     // m/s2
+
+const AREA = d => Math.PI * d * d / 4;
+
+/* --- catalogo de cilindros de trabajo (diametros de la serie ISO 6020) --- */
+const CILINDROS = {
+  c50: { nom: 'Ø50 · carrera 50 mm', d: 50, smax: 50, coste: 5 },
+  c63: { nom: 'Ø63 · carrera 80 mm', d: 63, smax: 80, coste: 7 },
+  c80: { nom: 'Ø80 · carrera 125 mm', d: 80, smax: 125, coste: 10 },
+  c100: { nom: 'Ø100 · carrera 200 mm', d: 100, smax: 200, coste: 15 },
+  c125: { nom: 'Ø125 · carrera 200 mm', d: 125, smax: 200, coste: 18 },
+};
+const CILK = ['c50', 'c63', 'c80', 'c100', 'c125'];
+
+/* --- catalogo de bombas de palanca (embolo, carrera, relacion, limitadora) --- */
+const BOMBAS = {
+  b1: { nom: 'Ø22 · 25 mm · 8:1 · 16 MPa', d: 22, s1: 25, R: 8, pmax: 16, coste: 5 },
+  b2: { nom: 'Ø16 · 32 mm · 10:1 · 25 MPa', d: 16, s1: 32, R: 10, pmax: 25, coste: 10 },
+  b3: { nom: 'Ø16 · 45 mm · 16:1 · 25 MPa', d: 16, s1: 45, R: 16, pmax: 25, coste: 11 },
+  b4: { nom: 'Ø10 · 32 mm · 14:1 · 70 MPa', d: 10, s1: 32, R: 14, pmax: 70, coste: 14 },
+  b5: { nom: 'Ø12 · 45 mm · 20:1 · 70 MPa', d: 12, s1: 45, R: 20, pmax: 70, coste: 20 },
+};
+const BOMK = ['b1', 'b2', 'b3', 'b4', 'b5'];
+
+/* --- catalogo de latiguillos (clase = presion de trabajo en bar) --- */
+const MANGUERAS = {
+  h100: { nom: '100 bar (1SN)', pTrab: 10, coste: 2 },
+  h200: { nom: '200 bar (2SN)', pTrab: 20, coste: 4 },
+  h350: { nom: '350 bar (4SP)', pTrab: 35, coste: 7 },
+  h700: { nom: '700 bar (R13)', pTrab: 70, coste: 12 },
+};
+const MANK = ['h100', 'h200', 'h350', 'h700'];
+const pRotura = km => MANGUERAS[km].pTrab * SF_MAN;
+
+/* --- los cuatro trabajos --- */
+const POOL = [
+  { id: 'eje', nom: 'Enderezar un eje flector', sitio: 'Banco del taller de mantenimiento', F: 60000, s: 40, Nmax: 60, dmax: 125 },
+  { id: 'roda', nom: 'Extraer un rodamiento con extractor portatil', sitio: 'Trabajo a pie de maquina', F: 120000, s: 25, Nmax: 35, dmax: 63 },
+  { id: 'casq', nom: 'Introducir un casquillo de bronce largo', sitio: 'Prensa de columna del taller', F: 45000, s: 130, Nmax: 120, dmax: 125 },
+  { id: 'bus', nom: 'Prensar el buje de la mangueta de un camion', sitio: 'Taller pesado', F: 350000, s: 30, Nmax: 80, dmax: 125 },
+];
+
+/* --- ley de Pascal y conservacion de volumen --- */
+const presionReq = (F, kc) => F / (ETA_CIL * AREA(CILINDROS[kc].d));
+const fuerzaMano = (p, kb) => p * AREA(BOMBAS[kb].d) / BOMBAS[kb].R;
+const volBombeo = kb => AREA(BOMBAS[kb].d) * BOMBAS[kb].s1;                 // mm3
+const avanceBombeo = (kc, kb) => volBombeo(kb) / AREA(CILINDROS[kc].d);      // mm
+const bombeos = (s, kc, kb) => Math.ceil(s / avanceBombeo(kc, kb));
+const multiplicacion = (kc, kb) => ETA_CIL * BOMBAS[kb].R * AREA(CILINDROS[kc].d) / AREA(BOMBAS[kb].d);
+const reduccion = (kc, kb) => BOMBAS[kb].R * AREA(CILINDROS[kc].d) / AREA(BOMBAS[kb].d);
+const fuerzaTecho = (kc, kb) => ETA_CIL * BOMBAS[kb].pmax * AREA(CILINDROS[kc].d);
+const presionColumna = h => RHO_ACEITE * G_GRAV * h / 1e6;                   // h en m -> MPa
+
+/* --- banco de Pascal: la carga impone la presion mientras la mano pueda darla --- */
+function banco(kc, kb, fMano, Fcarga) {
+  const B = BOMBAS[kb], A1 = AREA(B.d), A2 = AREA(CILINDROS[kc].d);
+  const pMano = fMano * B.R / A1;              // lo que la mano puede ofrecer
+  const pTope = B.pmax;                        // lo que la limitadora deja pasar
+  const pDisp = Math.min(pMano, pTope);        // presion disponible
+  const pNec = Fcarga / (ETA_CIL * A2);        // lo que la carga exige
+  const corta = pMano > pTope;                 // la limitadora esta abriendo
+  const avanza = pDisp >= pNec;
+  const p = avanza ? pNec : pDisp;             // <- la carga manda
+  const fReal = avanza ? pNec * A1 / B.R : fMano;
+  const F2 = ETA_CIL * p * A2;
+  const s2 = avanza ? A1 * B.s1 / A2 : 0;
+  const sPal = B.R * B.s1;
+  const Win = fReal * sPal / 1000;             // N·mm -> J
+  const Wout = F2 * s2 / 1000;
+  return {
+    A1, A2, pMano, pTope, pDisp, pNec, corta, avanza, p, fReal, F2, s2, sPal, Win, Wout,
+    calor: Win - Wout, mult: fReal > 0 ? F2 / fReal : 0, techo: ETA_CIL * pTope * A2,
+  };
+}
+
+/* --- aire atrapado: se comprime isotermicamente antes de que nada se mueva --- */
+function aire(vAire, p, kb) {
+  const vFin = vAire * P_ATM / (p + P_ATM);
+  const vPerd = vAire - vFin;
+  return { vFin, vPerd, bombeos: Math.ceil(vPerd / volBombeo(kb)) };
+}
+
+/* --- evaluacion de una terna completa contra un trabajo --- */
+function evalua(sc, cfg) {
+  const C = CILINDROS[cfg.cil], B = BOMBAS[cfg.bom], M = MANGUERAS[cfg.man];
+  const A2 = AREA(C.d), A1 = AREA(B.d);
+  const p = presionReq(sc.F, cfg.cil);
+  const fMano = fuerzaMano(p, cfg.bom);
+  const s2 = avanceBombeo(cfg.cil, cfg.bom);
+  const N = bombeos(sc.s, cfg.cil, cfg.bom);
+  const okD = C.d <= sc.dmax;             // cabe en el hueco disponible
+  const okS = sc.s <= C.smax;             // la carrera alcanza
+  const okP = p <= B.pmax;                // la limitadora no corta antes
+  const okF = fMano <= F_MANO_MAX;        // se puede accionar a mano
+  const okN = N <= sc.Nmax;               // cadencia admisible
+  const okM = p <= M.pTrab;               // manguera por presion de TRABAJO (rotura/4)
+  return {
+    A1, A2, p, fMano, s2, N, okD, okS, okP, okF, okN, okM,
+    ok: okD && okS && okP && okF && okN && okM,
+    coste: C.coste + B.coste + M.coste,
+    mult: multiplicacion(cfg.cil, cfg.bom), sPalTot: N * B.R * B.s1 / 1000,
+  };
+}
+
+/* --- terna correcta: valida Y de coste minimo (los costes no empatan dentro de un catalogo) --- */
+function GOOD(sc) {
+  let mej = null;
+  for (const cil of CILK) for (const bom of BOMK) for (const man of MANK) {
+    const cfg = { cil, bom, man }, e = evalua(sc, cfg);
+    if (e.ok && (!mej || e.coste < mej.coste)) mej = { cil, bom, man, coste: e.coste };
+  }
+  return mej ? { cil: mej.cil, bom: mej.bom, man: mej.man } : null;
+}
+const cfgWith = (sc, o) => Object.assign({}, GOOD(sc), o);
+
+/* --- calificacion por ejes: cada eje se juzga con los otros dos ya correctos --- */
+function costeMinEje(sc, eje, lista) {
+  let m = Infinity;
+  for (const k of lista) {
+    const cfg = cfgWith(sc, { [eje]: k }), e = evalua(sc, cfg);
+    if (e.ok) m = Math.min(m, e.coste);
+  }
+  return m;
+}
+const okCil = (sc, k) => { const e = evalua(sc, cfgWith(sc, { cil: k })); return e.ok && e.coste === costeMinEje(sc, 'cil', CILK); };
+const okBom = (sc, k) => { const e = evalua(sc, cfgWith(sc, { bom: k })); return e.ok && e.coste === costeMinEje(sc, 'bom', BOMK); };
+const okMan = (sc, k) => { const e = evalua(sc, cfgWith(sc, { man: k })); return e.ok && e.coste === costeMinEje(sc, 'man', MANK); };
+
+/* --- diagnostico: por que no vale esta terna --- */
+const f1 = (x, n) => x.toFixed(n === undefined ? 1 : n).replace('.', ',');
+function whyCfg(sc, cfg) {
+  const C = CILINDROS[cfg.cil], B = BOMBAS[cfg.bom], M = MANGUERAS[cfg.man], e = evalua(sc, cfg);
+  if (!e.okD) return 'El cilindro de Ø' + C.d + ' mm no cabe: el hueco admite Ø' + sc.dmax + ' mm como maximo.';
+  if (!e.okS) return 'La carrera del cilindro (' + C.smax + ' mm) se queda corta: el trabajo pide ' + sc.s + ' mm.';
+  if (!e.okP) return 'El circuito necesita ' + f1(e.p, 2) + ' MPa y la limitadora de esa bomba corta en ' + B.pmax + ' MPa.';
+  if (!e.okF) return 'Pedirias ' + f1(e.fMano, 0) + ' N en la palanca; el limite de proyecto son ' + F_MANO_MAX + ' N.';
+  if (!e.okN) return 'Saldrian ' + e.N + ' bombeos y este trabajo admite ' + sc.Nmax + '.';
+  if (!e.okM) return 'El latiguillo de ' + M.nom + ' trabaja a ' + M.pTrab + ' MPa y el circuito pide ' + f1(e.p, 2) + ' MPa.';
+  const g = GOOD(sc), cg = evalua(sc, g);
+  if (e.coste > cg.coste) return 'Funciona, pero hay una combinacion que tambien cumple y cuesta ' + cg.coste + ' u.c. en vez de ' + e.coste + '.';
+  return '';
+}
+function whyEje(sc, eje, k) {
+  const cfg = cfgWith(sc, { [eje]: k }), e = evalua(sc, cfg);
+  if (!e.ok) return whyCfg(sc, cfg);
+  const min = costeMinEje(sc, eje, eje === 'cil' ? CILK : eje === 'bom' ? BOMK : MANK);
+  if (e.coste > min) return 'Cumple, pero sobra: hay una opcion valida ' + (e.coste - min) + ' u.c. mas barata.';
+  return '';
+}
+
+/* --- curva de decision: presion y bombeos frente al diametro del cilindro --- */
+const curvaCil = (sc, kb) => CILK.map(k => {
+  const e = evalua(sc, { cil: k, bom: kb, man: 'h700' });
+  return { cil: k, d: CILINDROS[k].d, p: e.p, N: e.N, fMano: e.fMano, ok: e.ok };
+});
+/* ========================== FIN MOTOR ========================== */
+
+/* ---------- escena ---------- */
+const mount=document.getElementById('stage');
+const S=createStage(mount,{cam:[4.3,3.0,5.5],target:[0.6,1.25,0.1],bgTop:'#101a22',bgBot:'#05070a',bloom:0.42,minD:2.8,maxD:20});
+const {scene}=S;
+const synth=makeSynth({type:'sine',type2:'triangle',filterFreq:2200,Q:0.9});
+const std=o=>new THREE.MeshStandardMaterial(o);
+const el=id=>document.getElementById(id);
+function ease(x){return x<0.5?4*x*x*x:1-Math.pow(-2*x+2,3)/2;}
+const clamp=(x,a,b)=>Math.max(a,Math.min(b,x));
+
+/* ---------- toast ---------- */
+let toastT=null;
+function showToast(html,ms=3300){ const t=el('toast'); t.innerHTML=html; t.classList.add('show'); clearTimeout(toastT); toastT=setTimeout(()=>t.classList.remove('show'),ms); }
+
+/* ---------- materiales PBR (biblioteca compartida) ---------- */
+const alu=castAluminum(), brush=brushedMetal();
+const MAT={
+  frame:   std({...brush, color:0x3a4a57, metalness:0.6, roughness:0.5,  envMapIntensity:0.9}),  // bastidor pintado
+  table:   std({...brush, color:0x2c3941, metalness:0.65,roughness:0.45, envMapIntensity:0.9}),  // mesa / soporte
+  steel:   std({...alu,   color:0x9aa4ac, metalness:0.9, roughness:0.34, envMapIntensity:1.15}), // acero mecanizado
+  steelDk: std({color:0x39424a, metalness:0.8, roughness:0.42}),
+  chrome:  std({...brush, color:0xd4dbe1, metalness:0.98,roughness:0.12, envMapIntensity:1.4}),  // vástago cromado
+  brass:   std({color:0xb98b3c, metalness:0.9, roughness:0.32, envMapIntensity:1.2}),            // racores / latón
+  tank:    std({color:0x2b6f8a, metalness:0.5, roughness:0.45, envMapIntensity:0.9}),            // depósito
+  hose:    std({color:0x1b1e22, metalness:0.2, roughness:0.75}),                                 // latiguillo
+  rubber:  std({color:0x14171a, metalness:0.15,roughness:0.85}),
+  red:     std({color:0xc0392b, metalness:0.35,roughness:0.45}),
+  bronze:  std({color:0xa07a3c, metalness:0.85,roughness:0.4, envMapIntensity:1.1}),
+  dark:    std({color:0x05070a, roughness:0.8, metalness:0.2}),
+  bench:   std({...brush, color:0x2b3138, metalness:0.55, roughness:0.5, envMapIntensity:0.7}),
+  benchLeg:std({color:0x171b20, metalness:0.7, roughness:0.4}),
+  ped:     std({...brush, color:0x3a4149, metalness:0.85, roughness:0.42, envMapIntensity:0.85}),
+  pedTop:  std({...brush, color:0x828a93, metalness:0.95, roughness:0.28, envMapIntensity:1.15}),
+  pedRing: std({color:0x2A9D8F, metalness:0.3, roughness:0.5, emissive:0x1e6f63, emissiveIntensity:0.5}),
+  panel:   std({...brush, color:0x2f4f66, metalness:0.5, roughness:0.55, envMapIntensity:0.9}),
+};
+
+/* ---------- constructores de piezas ---------- */
+function buildCilindro(){
+  const g=new THREE.Group();
+  const body=new THREE.Mesh(new THREE.CylinderGeometry(0.17,0.17,0.46,32),MAT.steel); body.castShadow=true; g.add(body);
+  [0.25,-0.25].forEach(y=>{ const cap=new THREE.Mesh(new THREE.CylinderGeometry(0.195,0.195,0.06,32),MAT.steelDk); cap.position.y=y; cap.castShadow=true; g.add(cap); });
+  for(let i=0;i<4;i++){ const t=new THREE.Mesh(new THREE.CylinderGeometry(0.012,0.012,0.58,8),MAT.steelDk);
+    t.position.set(Math.cos(i*Math.PI/2)*0.165,0,Math.sin(i*Math.PI/2)*0.165); g.add(t); }
+  // vástago + zapata, agrupados para poder animar el avance
+  const ram=new THREE.Group(); ram.name='ram';
+  const rod=new THREE.Mesh(new THREE.CylinderGeometry(0.075,0.075,0.32,24),MAT.chrome); rod.position.y=-0.42; rod.castShadow=true; ram.add(rod);
+  const foot=new THREE.Mesh(new THREE.CylinderGeometry(0.115,0.115,0.055,24),MAT.steelDk); foot.position.y=-0.60; foot.castShadow=true; ram.add(foot);
+  g.add(ram);
+  const port=new THREE.Mesh(new THREE.CylinderGeometry(0.028,0.028,0.16,12),MAT.brass); port.rotation.z=Math.PI/2; port.position.set(0.24,0.16,0); g.add(port);
+  const lb=labelSprite('Cilindro de trabajo','#8A94A0'); lb.position.set(0,0.52,0); lb.scale.multiplyScalar(0.56); g.add(lb);
+  return g;
+}
+function buildBomba(){
+  const g=new THREE.Group();
+  const body=roundedBox(0.34,0.16,0.22,MAT.steel,0.03); body.castShadow=true; g.add(body);
+  const bore=new THREE.Mesh(new THREE.CylinderGeometry(0.052,0.052,0.16,20),MAT.steelDk); bore.position.set(-0.09,0.14,0); g.add(bore);
+  const piv=new THREE.Group(); piv.name='lever'; piv.position.set(-0.09,0.24,0);
+  const lever=new THREE.Mesh(new THREE.BoxGeometry(0.66,0.035,0.05),MAT.steelDk); lever.position.set(0.30,0.03,0); lever.castShadow=true; piv.add(lever);
+  const grip=new THREE.Mesh(new THREE.CylinderGeometry(0.028,0.028,0.15,12),MAT.rubber); grip.rotation.z=Math.PI/2; grip.position.set(0.56,0.03,0); piv.add(grip);
+  piv.rotation.z=-0.20; g.add(piv);
+  const pin=new THREE.Mesh(new THREE.CylinderGeometry(0.022,0.022,0.11,12),MAT.brass); pin.rotation.x=Math.PI/2; pin.position.set(-0.09,0.24,0); g.add(pin);
+  const out=new THREE.Mesh(new THREE.CylinderGeometry(0.026,0.026,0.13,12),MAT.brass); out.rotation.z=Math.PI/2; out.position.set(-0.22,0,0); g.add(out);
+  const lb=labelSprite('Bomba de palanca','#8A94A0'); lb.position.set(0,0.46,0); lb.scale.multiplyScalar(0.56); g.add(lb);
+  return g;
+}
+function buildDeposito(){
+  const g=new THREE.Group();
+  const tank=roundedBox(0.46,0.26,0.30,MAT.tank,0.04); tank.castShadow=true; g.add(tank);
+  const win=new THREE.Mesh(new THREE.PlaneGeometry(0.05,0.17),new THREE.MeshBasicMaterial({color:0xd9a521}));
+  win.position.set(0.232,0,0.0); win.rotation.y=Math.PI/2; g.add(win);
+  const cap=new THREE.Mesh(new THREE.CylinderGeometry(0.05,0.05,0.045,16),MAT.brass); cap.position.set(-0.12,0.15,0); g.add(cap);
+  const lb=labelSprite('Depósito de aceite','#8A94A0'); lb.position.set(0,0.34,0); lb.scale.multiplyScalar(0.54); g.add(lb);
+  return g;
+}
+function buildLimitadora(){
+  const g=new THREE.Group();
+  const blk=roundedBox(0.17,0.17,0.15,MAT.brass,0.02); blk.castShadow=true; g.add(blk);
+  const knob=new THREE.Mesh(new THREE.CylinderGeometry(0.042,0.055,0.10,18),MAT.red); knob.position.y=0.13; knob.castShadow=true; g.add(knob);
+  const lock=new THREE.Mesh(new THREE.CylinderGeometry(0.06,0.06,0.02,18),MAT.steelDk); lock.position.y=0.08; g.add(lock);
+  [-1,1].forEach(s=>{ const pt=new THREE.Mesh(new THREE.CylinderGeometry(0.024,0.024,0.10,12),MAT.brass); pt.rotation.z=Math.PI/2; pt.position.set(s*0.12,-0.02,0); g.add(pt); });
+  const lb=labelSprite('Válvula limitadora','#8A94A0'); lb.position.set(0,0.34,0); lb.scale.multiplyScalar(0.54); g.add(lb);
+  return g;
+}
+function buildManguera(){
+  const g=new THREE.Group();
+  const pts=[new THREE.Vector3(0,0,0),new THREE.Vector3(-0.10,0.42,0.03),new THREE.Vector3(-0.44,0.80,0.02),new THREE.Vector3(-0.78,0.89,-0.05)];
+  const curve=new THREE.CatmullRomCurve3(pts);
+  const tube=new THREE.Mesh(new THREE.TubeGeometry(curve,50,0.030,12,false),MAT.hose); tube.castShadow=true; g.add(tube);
+  [pts[0],pts[3]].forEach(p=>{ const r=new THREE.Mesh(new THREE.CylinderGeometry(0.042,0.042,0.09,14),MAT.brass); r.position.copy(p); g.add(r); });
+  const lb=labelSprite('Latiguillo de alta presión','#8A94A0'); lb.position.set(-0.40,1.05,0); lb.scale.multiplyScalar(0.56); g.add(lb);
+  return g;
+}
+function buildManometro(){
+  const g=new THREE.Group();
+  const can=new THREE.Mesh(new THREE.CylinderGeometry(0.125,0.125,0.055,32),MAT.steelDk); can.rotation.x=Math.PI/2; can.castShadow=true; g.add(can);
+  const face=new THREE.Mesh(new THREE.CircleGeometry(0.108,32),new THREE.MeshBasicMaterial({color:0xeef2f5})); face.position.z=0.029; g.add(face);
+  for(let i=0;i<=10;i++){ const a=-2.2+i*0.44; const tk=new THREE.Mesh(new THREE.BoxGeometry(0.006,0.018,0.004),new THREE.MeshBasicMaterial({color:0x2b3138}));
+    tk.position.set(Math.sin(a)*0.088,Math.cos(a)*0.088,0.031); tk.rotation.z=-a; g.add(tk); }
+  const nPiv=new THREE.Group(); nPiv.name='needle'; nPiv.position.z=0.032;
+  const nd=new THREE.Mesh(new THREE.BoxGeometry(0.008,0.088,0.005),new THREE.MeshBasicMaterial({color:0xd64545})); nd.position.y=0.044; nPiv.add(nd);
+  g.add(nPiv);
+  const hub=new THREE.Mesh(new THREE.CylinderGeometry(0.014,0.014,0.01,12),MAT.steelDk); hub.rotation.x=Math.PI/2; hub.position.z=0.034; g.add(hub);
+  const stem=new THREE.Mesh(new THREE.CylinderGeometry(0.022,0.022,0.11,12),MAT.brass); stem.position.y=-0.15; g.add(stem);
+  const lb=labelSprite('Manómetro','#8A94A0'); lb.position.set(0,0.30,0); lb.scale.multiplyScalar(0.54); g.add(lb);
+  return g;
+}
+function buildPieza(){
+  const g=new THREE.Group();
+  [-0.27,0.27].forEach(x=>{ const b=roundedBox(0.13,0.10,0.32,MAT.steelDk,0.02); b.position.set(x,-0.05,0); b.castShadow=true; g.add(b); });
+  const shaft=new THREE.Mesh(new THREE.CylinderGeometry(0.072,0.072,0.50,24),MAT.steel); shaft.rotation.z=Math.PI/2; shaft.position.y=0.05; shaft.castShadow=true; g.add(shaft);
+  const bush=new THREE.Mesh(new THREE.CylinderGeometry(0.102,0.102,0.12,24),MAT.bronze); bush.rotation.z=Math.PI/2; bush.position.y=0.05; bush.castShadow=true; g.add(bush);
+  const lb=labelSprite('Pieza de trabajo (buje)','#8A94A0'); lb.position.set(0,0.32,0); lb.scale.multiplyScalar(0.54); g.add(lb);
+  return g;
+}
+
+/* pieza fija de referencia: bastidor de la prensa + piso + soporte del grupo */
+function buildPrensa(){
+  const g=new THREE.Group();
+  const floor=new THREE.Mesh(new THREE.BoxGeometry(16,0.12,11),std({color:0x22272c,roughness:0.95,metalness:0.06}));
+  floor.position.y=-0.06; floor.receiveShadow=true; g.add(floor);
+  const base=roundedBox(1.95,0.18,1.25,MAT.frame,0.04); base.position.y=0.09; base.receiveShadow=true; base.castShadow=true; g.add(base);
+  [-0.66,0.66].forEach(x=>{ const c=roundedBox(0.20,2.10,0.34,MAT.frame,0.03); c.position.set(x,1.21,0); c.castShadow=true; g.add(c); });
+  const top=roundedBox(1.70,0.30,0.40,MAT.frame,0.04); top.position.set(0,2.40,0); top.castShadow=true; g.add(top);
+  const mesa=roundedBox(1.52,0.14,0.92,MAT.table,0.03); mesa.position.set(0,0.80,0); mesa.castShadow=true; mesa.receiveShadow=true; g.add(mesa);
+  const stand=roundedBox(0.66,0.90,0.56,MAT.table,0.03); stand.position.set(1.46,0.45,0.05); stand.castShadow=true; stand.receiveShadow=true; g.add(stand);
+  return g;
+}
+
+/* ---------- registro de piezas (posición HOGAR en mundo) ---------- */
+const HUB=[0,0,0];
+const V3=(x,y,z)=>new THREE.Vector3(x,y,z);
+const H=(dx,dy,dz)=>V3(HUB[0]+dx,HUB[1]+dy,HUB[2]+dz);
+const PARTS=[
+  {id:'cilindro',   name:'Cilindro de trabajo',    build:()=>buildCilindro(),   home:H(0,1.97,0),      note:'Es el que da la fuerza. Su área A₂ = πd²/4 convierte la presión del aceite en fuerza: F₂ = η·p·A₂. Cuanto mayor el diámetro, menos presión hace falta… y más aceite hay que meter.'},
+  {id:'deposito',   name:'Depósito de aceite',     build:()=>buildDeposito(),   home:H(1.46,1.03,0.05),note:'Guarda el aceite y deja que decante el aire y se enfríe. El nivel importa: si la bomba aspira aire, el circuito se vuelve esponjoso y hay que purgar.'},
+  {id:'bomba',      name:'Bomba de palanca',       build:()=>buildBomba(),      home:H(1.46,1.24,0.05),note:'Un émbolo pequeño movido por una palanca. La palanca multiplica la mano (relación R:1) y el émbolo pequeño convierte esa fuerza en presión: p = F_mano·R/A₁.'},
+  {id:'limitadora', name:'Válvula limitadora',     build:()=>buildLimitadora(), home:H(1.10,1.24,0.05),note:'Pone el techo de presión del circuito. Cuando se alcanza, abre y devuelve el aceite al depósito: por más que empujes, la presión no sube. Es el elemento de seguridad (ISO 4413).'},
+  {id:'manometro',  name:'Manómetro',              build:()=>buildManometro(),  home:H(0.46,2.30,0.02),note:'Mide la presión del circuito, que es la MISMA en todo el fluido en reposo (ley de Pascal). Leerlo es la única forma de saber si la carga ya está exigiendo el máximo.'},
+  {id:'manguera',   name:'Latiguillo de alta presión',build:()=>buildManguera(),home:H(1.02,1.24,0.05),note:'Une bomba y cilindro. Se elige por su presión de TRABAJO, no por la de rotura: la rotura es 4 veces la de trabajo (ISO 1436 / SAE J517).'},
+  {id:'pieza',      name:'Pieza de trabajo (buje)',build:()=>buildPieza(),      home:H(0,0.97,0),      note:'La carga. Es la pieza la que decide qué presión aparece en el circuito: la prensa sube justo hasta la presión que la pieza exige, ni un pascal más.'},
+];
+const ORDER=PARTS.map(p=>p.id);
+const PART=Object.fromEntries(PARTS.map(p=>[p.id,p]));
+
+/* ---------- estado ---------- */
+const STAGE_S=0.5;
+const groups={}, ghosts={};
+let placed={}, selectedId=null, progress=0, simUnlocked=false;
+const tweens=[];
+const trayObjs=[], ghostObjs=[], scratch=[];
+const prensa=buildPrensa(); scene.add(prensa);
+
+/* ---------- banco de trabajo + pedestales ---------- */
+const BENCH={cx:3.9, cz:0.9, top:1.0, cols:3, dx:1.0, dz:1.15, pedH:0.30};
+const N_ROWS=Math.ceil(PARTS.length/BENCH.cols);
+const PED_TOP_Y=BENCH.top+BENCH.pedH;
+function pedBaseXZ(i){ const c=i%BENCH.cols, r=(i/BENCH.cols)|0;
+  return { x:BENCH.cx+(c-(BENCH.cols-1)/2)*BENCH.dx, z:BENCH.cz+(r-(N_ROWS-1)/2)*BENCH.dz }; }
+const pedestals=[];
+(function buildStaging(){
+  const staging=new THREE.Group(); scene.add(staging);
+  const spanX=(BENCH.cols-1)*BENCH.dx+1.20, spanZ=(N_ROWS-1)*BENCH.dz+1.20;
+  const topSlab=roundedBox(spanX,0.16,spanZ,MAT.bench,0.05); topSlab.position.set(BENCH.cx,BENCH.top-0.08,BENCH.cz); topSlab.receiveShadow=true; staging.add(topSlab);
+  const legH=BENCH.top-0.08;
+  for(const sx of [-1,1]) for(const sz of [-1,1]){
+    const leg=new THREE.Mesh(new THREE.BoxGeometry(0.13,legH,0.13),MAT.benchLeg);
+    leg.position.set(BENCH.cx+sx*(spanX/2-0.18),legH/2,BENCH.cz+sz*(spanZ/2-0.18)); leg.castShadow=true; staging.add(leg);
+  }
+  const rail=roundedBox(spanX-0.1,0.05,spanZ-0.1,MAT.benchLeg,0.03); rail.position.set(BENCH.cx,0.18,BENCH.cz); staging.add(rail);
+  PARTS.forEach((p,i)=>{
+    const {x,z}=pedBaseXZ(i);
+    const pg=new THREE.Group(); pg.position.set(x,0,z);
+    const post=new THREE.Mesh(new THREE.CylinderGeometry(0.24,0.30,BENCH.pedH,28),MAT.ped); post.position.y=BENCH.top+BENCH.pedH/2; post.castShadow=true; pg.add(post);
+    const plate=new THREE.Mesh(new THREE.CylinderGeometry(0.34,0.34,0.05,40),MAT.pedTop); plate.position.y=PED_TOP_Y; plate.receiveShadow=true; pg.add(plate);
+    const ring=new THREE.Mesh(new THREE.TorusGeometry(0.345,0.02,12,44),MAT.pedRing.clone()); ring.rotation.x=Math.PI/2; ring.position.y=PED_TOP_Y+0.035; pg.add(ring);
+    const lb=labelSprite(p.name.split('(')[0].trim(),'#9fb2c0'); lb.position.set(0,BENCH.top+0.14,0.4); lb.scale.multiplyScalar(0.7); pg.add(lb);
+    const ck=labelSprite('✓ colocada','#43D9AD'); ck.position.set(0,PED_TOP_Y+0.42,0); ck.scale.multiplyScalar(0.66); ck.visible=false; pg.add(ck);
+    staging.add(pg);
+    pedestals[i]={g:pg, ring, plate, label:lb, check:ck};
+  });
+})();
+function resetPedestals(){ pedestals.forEach(pd=>{ pd.check.visible=false; if(pd.label)pd.label.visible=true;
+  pd.ring.material.color.set(0x2A9D8F); pd.ring.material.emissive.set(0x1e6f63); pd.ring.material.emissiveIntensity=0.5; }); }
+function markPedestalDone(i){ const pd=pedestals[i]; if(!pd)return; pd.check.visible=true; if(pd.label)pd.label.visible=false;
+  pd.ring.material.color.set(0x43D9AD); pd.ring.material.emissive.set(0x2f9e86); pd.ring.material.emissiveIntensity=0.9; }
+
+function ghostMat(){ return new THREE.MeshStandardMaterial({color:0x4FD1C5, transparent:true, opacity:0.3, metalness:0.0, roughness:0.6, emissive:0x2A9D8F, emissiveIntensity:0.6, depthWrite:false}); }
+function makeGhost(part){
+  const gh=part.build(); const gm=ghostMat();
+  gh.traverse(o=>{ if(o.isMesh){ o.material=gm; o.castShadow=false; o.receiveShadow=false; } });
+  gh.position.copy(part.home); gh.userData={kind:'slot',id:part.id,gm,homeX:part.home.x,shake:0,fading:false}; return gh;
+}
+function showGhostFor(id){
+  ghostObjs.forEach(gh=>{ if(gh.parent) scene.remove(gh); });
+  if(id && !placed[id] && ghosts[id]){ const gh=ghosts[id]; gh.userData.fading=false; gh.userData.gm.opacity=0.3; gh.visible=true; scene.add(gh); }
+}
+function updateLabels(){ pedestals.forEach((pd,i)=>{ if(pd&&pd.label) pd.label.visible=!placed[PARTS[i].id]; }); }
+function makePart(part,i){
+  const g=part.build(); g.scale.setScalar(STAGE_S);
+  const {x,z}=pedBaseXZ(i);
+  const box=new THREE.Box3().setFromObject(g);
+  const baseY=PED_TOP_Y+0.03-box.min.y;
+  g.position.set(x,baseY,z);
+  Object.assign(g.userData,{kind:'part',id:part.id,baseY,phase:i*1.7,lift:0});
+  return g;
+}
+function initAssembly(){
+  [...trayObjs,...ghostObjs,...scratch].forEach(o=>scene.remove(o));
+  trayObjs.length=ghostObjs.length=scratch.length=tweens.length=0;
+  placed={}; selectedId=null; progress=0; simUnlocked=false;
+  resetPedestals();
+  PARTS.forEach((p,i)=>{
+    const g=makePart(p,i); groups[p.id]=g; scene.add(g); trayObjs.push(g);
+    const gh=makeGhost(p); ghosts[p.id]=gh; ghostObjs.push(gh);
+  });
+  showGhostFor(null);
+  updateLabels(); renderChecklist(); renderProg();
+  syncCtrlbar();
+  if(mode!=='ensamble') setMode('ensamble');
+  S.moveTo([4.3,3.0,5.5],[0.6,1.25,0.1],1.2);
+  el('asmStatus').innerHTML='Toca una <b>pieza</b> del banco (derecha) y luego su <b>hueco luminoso</b>.';
+}
+
+/* ---------- selección / colocación ---------- */
+function selectPart(id){
+  if(placed[id]) return;
+  selectedId=id;
+  updateLabels(); showGhostFor(id);
+  el('asmStatus').innerHTML=`▶ <b style="color:var(--accent2)">${PART[id].name}</b> seleccionada — ahora toca su <b>hueco luminoso</b>.`;
+  synth.beep(660,0.06,0.05);
+  renderChecklist();
+}
+function deselect(){ selectedId=null; updateLabels(); showGhostFor(null); renderChecklist(); }
+function placePart(id){
+  const p=PART[id], g=groups[id], gh=ghosts[id];
+  tweens.push({obj:g, fromP:g.position.clone(), toP:p.home.clone(), fromS:g.scale.x, toS:1, t:0, dur:0.9, roty0:g.rotation.y, onDone:()=>{ g.rotation.set(0,0,0); }});
+  if(gh){ gh.userData.fading=true; }
+  g.userData.kind='placed';
+  placed[id]=true; selectedId=null; progress++;
+  markPedestalDone(ORDER.indexOf(id));
+  updateLabels();
+  synth.beep(880,0.08,0.05); setTimeout(()=>synth.beep(1174,0.1,0.05),110);
+  showToast(`<span style="color:var(--good)">✔ ${p.name} colocada.</span><br><span style="color:var(--dim);font-size:11px">${p.note}</span>`);
+  renderChecklist(); renderProg();
+  if(progress>=PARTS.length) finishAssembly();
+  else el('asmStatus').innerHTML=`Bien. Faltan <b>${PARTS.length-progress}</b>. Toca otra pieza y luego su hueco.`;
+}
+function wrongSlot(slotId){
+  synth.beep(180,0.16,0.06);
+  const g=ghosts[slotId]; if(g) g.userData.shake=0.5;
+  showToast(`<span style="color:var(--bad)">✗ Ahí no va esa pieza.</span><br><span style="color:var(--dim);font-size:11px">Ese hueco es para: ${PART[slotId].name}.</span>`);
+}
+function finishAssembly(){
+  simUnlocked=true;
+  syncCtrlbar();
+  el('asmStatus').innerHTML='<span style="color:var(--good)">✅ Circuito hidráulico montado.</span> Ahora estudia la ley de Pascal y dimensiona la prensa (arriba).';
+  showToast('<span style="color:var(--good)">✅ Circuito montado.</span><br><span style="color:var(--dim);font-size:11px">Cambia de modo arriba: ley de Pascal, conservación del volumen, curva de decisión y reto de dimensionado.</span>',4200);
+  synth.beep(1046,0.14,0.06); setTimeout(()=>synth.beep(1568,0.16,0.06),150);
+  S.moveTo([4.3,3.0,5.5],[0.6,1.25,0.1],1.4); S.setCinematicIdle(true);
+}
+
+/* ---------- picker ---------- */
+function tagged(obj){ let o=obj; while(o){ if(o.userData && o.userData.kind) return o; o=o.parent; } return null; }
+pickerFor(scene,S.camera,mount,(hit)=>{
+  const t=hit?tagged(hit.object):null;
+  if(!t){ if(selectedId) deselect(); return; }
+  if(t.userData.kind==='part'){ selectPart(t.userData.id); }
+  else if(t.userData.kind==='slot'){
+    if(!selectedId){ el('asmStatus').innerHTML='Primero toca una <b>pieza</b> del banco (derecha) →'; synth.beep(300,0.08,0.05); }
+    else if(selectedId===t.userData.id){ placePart(selectedId); }
+    else { wrongSlot(t.userData.id); }
+  }
+  else if(t.userData.kind==='placed'){ const p=PART[t.userData.id]; if(p) showToast(`<b>${p.name}</b><br><span style="color:var(--dim);font-size:11px">${p.note}</span>`); }
+});
+
+/* ---------- checklist / progreso ---------- */
+function renderChecklist(){
+  el('checklist').innerHTML=PARTS.map(p=>{
+    const done=placed[p.id], sel=selectedId===p.id;
+    const mk=done?'<span style="color:var(--good)">●</span>':sel?'<span style="color:var(--accent2)">◉</span>':'<span style="color:#48555f">○</span>';
+    const c=done?'color:var(--good)':sel?'color:var(--accent2)':'color:var(--dim)';
+    return `<div style="${c}">${mk} ${p.name}</div>`;
+  }).join('');
+}
+function renderProg(){ el('p_prog').textContent=`${progress} / ${PARTS.length}`; el('p_prog').className=progress>=PARTS.length?'good':''; }
+
+/* ---------- pizarrón (canvas 1024×768) ---------- */
+const boardG=new THREE.Group();
+const bFrame=roundedBox(1.66,1.26,0.06,MAT.panel,0.04); bFrame.position.set(0,0,-0.02); bFrame.castShadow=true; boardG.add(bFrame);
+const bLeg=new THREE.Mesh(new THREE.CylinderGeometry(0.05,0.05,1.7,16),MAT.panel); bLeg.position.set(0,-1.42,0); bLeg.castShadow=true; boardG.add(bLeg);
+const bCv=document.createElement('canvas'); bCv.width=1024; bCv.height=768;
+const bCx=bCv.getContext('2d');
+const bTex=new THREE.CanvasTexture(bCv); bTex.colorSpace=THREE.SRGBColorSpace; bTex.minFilter=THREE.LinearFilter; bTex.generateMipmaps=false;
+const board=new THREE.Mesh(new THREE.PlaneGeometry(1.56,1.16),new THREE.MeshBasicMaterial({map:bTex,toneMapped:false}));
+board.position.set(0,0,0.015); boardG.add(board);
+boardG.position.set(-3.1,2.15,-0.2); boardG.rotation.y=0.32;
+scene.add(boardG);
+
+function bg(){ bCx.clearRect(0,0,1024,768); bCx.fillStyle='#0b1116'; bCx.fillRect(0,0,1024,768); }
+function line(x1,y1,x2,y2,color,w=3){ bCx.strokeStyle=color; bCx.lineWidth=w; bCx.beginPath(); bCx.moveTo(x1,y1); bCx.lineTo(x2,y2); bCx.stroke(); }
+function labelAt(x,y,text,color='#dfe7ee',size=20,align='left'){ bCx.fillStyle=color; bCx.font=`${size}px 'Segoe UI',sans-serif`; bCx.textAlign=align; bCx.fillText(text,x,y); }
+function wrapText(x,y,text,color,size,maxW,lh){
+  lh=lh||size*1.35;
+  bCx.fillStyle=color; bCx.font=`${size}px 'Segoe UI',sans-serif`; bCx.textAlign='left';
+  const words=text.split(' '); let cur='', yy=y;
+  for(const w of words){
+    const test=cur?cur+' '+w:w;
+    if(bCx.measureText(test).width>maxW && cur){ bCx.fillText(cur,x,yy); cur=w; yy+=lh; }
+    else cur=test;
+  }
+  if(cur) bCx.fillText(cur,x,yy);
+  return yy;
+}
+function arrow(x,y0,y1,color,w=5){
+  line(x,y0,x,y1,color,w);
+  const d=Math.sign(y1-y0);
+  bCx.fillStyle=color; bCx.beginPath(); bCx.moveTo(x,y1); bCx.lineTo(x-10,y1-d*20); bCx.lineTo(x+10,y1-d*20); bCx.closePath(); bCx.fill();
+}
+const MPA=' MPa';
+
+/* ---------- estado de los modos ---------- */
+const PAS={cil:'c80', bom:'b2', f:300, F:60000};
+const VOL={cil:'c80', bom:'b2', k:0, aire:0, golpes:0};
+const PRO={k:0, bom:'b2'};
+const CARGAS=[45000,60000,120000,350000];
+const MANOS=[100,200,300,400];
+const AIRES=[0,10000,25000,47120];
+
+/* =================== ② LEY DE PASCAL =================== */
+function drawPascal(){
+  const C=CILINDROS[PAS.cil], B=BOMBAS[PAS.bom];
+  const b=banco(PAS.cil,PAS.bom,PAS.f,PAS.F);
+  bg();
+  labelAt(40,46,'Ley de Pascal — la presión es la misma en todo el fluido','#8fd1ff',26);
+  labelAt(40,76,'La carga manda: el circuito sube justo hasta la presión que la pieza exige, si la mano y la limitadora la pueden dar.','#8A94A0',16);
+
+  const yBase=418, K=1.75, x1=215, x2=690;
+  const w1=B.d*K, w2=C.d*K;
+  // aceite
+  bCx.fillStyle='#1d4b63';
+  bCx.fillRect(x1-w1/2,240,w1,yBase-240);
+  bCx.fillRect(x2-w2/2,210,w2,yBase-210);
+  bCx.fillRect(x1-w1/2,yBase,(x2-x1)+w2/2+w1/2,44);
+  // paredes
+  bCx.strokeStyle='#5b6672'; bCx.lineWidth=4;
+  bCx.strokeRect(x1-w1/2,228,w1,yBase-228+44);
+  bCx.strokeRect(x2-w2/2,198,w2,yBase-198+44);
+  // émbolos
+  bCx.fillStyle='#93a0aa'; bCx.fillRect(x1-w1/2,240,w1,24);
+  bCx.fillStyle='#b7c1c9'; bCx.fillRect(x2-w2/2,210,w2,30);
+  // vástagos
+  bCx.fillStyle='#cdd6dd'; bCx.fillRect(x1-7,175,14,68); bCx.fillRect(x2-11,150,22,62);
+  // fuerzas
+  arrow(x1,120,172,'#f4c95d',6);
+  arrow(x2,120,148,'#43D9AD',6);
+  labelAt(x1,108,`F₁ = ${f1(b.fReal*B.R,0)} N`,'#f4c95d',20,'center');
+  labelAt(x1,86,`(mano ${f1(b.fReal,0)} N × palanca ${B.R}:1)`,'#8A94A0',15,'center');
+  labelAt(x2,108,`F₂ = ${f1(b.F2/1000,1)} kN`,'#43D9AD',22,'center');
+  // cotas
+  labelAt(x1,yBase+90,`Ø${B.d} mm · A₁ = ${f1(b.A1,2)} mm²`,'#dfe7ee',18,'center');
+  labelAt(x2,yBase+90,`Ø${C.d} mm · A₂ = ${f1(b.A2,1)} mm²`,'#dfe7ee',18,'center');
+  labelAt(x1,yBase+114,'émbolo de la bomba','#7a8a96',15,'center');
+  labelAt(x2,yBase+114,'cilindro de trabajo','#7a8a96',15,'center');
+  labelAt((x1+x2)/2,yBase+32,`misma presión en todo el aceite:  p = ${f1(b.p,2)}${MPA}`,'#8fd1ff',19,'center');
+
+  // barra de presiones
+  const ox=60, oy=560, w=690, h=30;
+  const pMax=Math.max(b.pTope,b.pNec)*1.12;
+  bCx.fillStyle='#20262c'; bCx.fillRect(ox,oy,w,h);
+  bCx.fillStyle=b.avanza?'#43D9AD':'#d64545'; bCx.fillRect(ox,oy,w*clamp(b.p/pMax,0,1),h);
+  const mk=(v,c,t,dy)=>{ const x=ox+w*clamp(v/pMax,0,1); line(x,oy-8,x,oy+h+8,c,2); labelAt(x,oy+h+22+dy,t,c,14,'center'); };
+  mk(b.pNec,'#8fd1ff',`carga ${f1(b.pNec,2)}`,0);
+  mk(b.pMano,'#f4c95d',`mano ${f1(b.pMano,2)}`,20);
+  mk(b.pTope,'#d64545',`limitadora ${B.pmax}`,40);
+  labelAt(ox,oy-18,`Presión en el circuito: ${f1(b.p,2)}${MPA}`,'#dfe7ee',19);
+
+  // lectura de la derecha
+  labelAt(790,250,'Cuentas','#8fd1ff',20);
+  labelAt(790,284,`p exigida por la carga`,'#7a8a96',15);
+  labelAt(790,306,`F/(η·A₂) = ${f1(b.pNec,2)}${MPA}`,'#dfe7ee',17);
+  labelAt(790,338,`p que puede dar la mano`,'#7a8a96',15);
+  labelAt(790,360,`F·R/A₁ = ${f1(b.pMano,2)}${MPA}`,'#dfe7ee',17);
+  labelAt(790,392,`techo de la limitadora`,'#7a8a96',15);
+  labelAt(790,414,`${B.pmax}${MPA}`,'#dfe7ee',17);
+  labelAt(790,452,`multiplicación F₂/F_mano`,'#7a8a96',15);
+  labelAt(790,474,`× ${f1(multiplicacion(PAS.cil,PAS.bom),0)}`,'#43D9AD',22);
+  labelAt(790,506,`fuerza techo de la pareja`,'#7a8a96',15);
+  labelAt(790,528,`${f1(fuerzaTecho(PAS.cil,PAS.bom)/1000,1)} kN`,'#f4c95d',18);
+
+  // veredicto
+  let vy=676;
+  if(!b.avanza && b.corta) labelAt(40,vy,`✗ La limitadora abre a ${B.pmax}${MPA} y la carga exige ${f1(b.pNec,2)}: el vástago no se mueve.`,'#d64545',19);
+  else if(!b.avanza)       labelAt(40,vy,`✗ Con ${f1(PAS.f,0)} N en la palanca sólo llegas a ${f1(b.pMano,2)}${MPA} y la carga exige ${f1(b.pNec,2)}: no avanza.`,'#d64545',19);
+  else                     labelAt(40,vy,`✔ Avanza. Y fíjate: la mano sólo necesita dar ${f1(b.fReal,0)} N de los ${f1(PAS.f,0)} N que puedes.`,'#43D9AD',19);
+  wrapText(40,706,'La multiplicación ×'+f1(multiplicacion(PAS.cil,PAS.bom),0)+' la fija el banco (palanca y áreas), NO la fuerza con la que aprietas. Apretar más sólo sirve para llegar a más presión, hasta el techo de la limitadora.','#8A94A0',15,940);
+  labelAt(40,754,'⚠ η = 0,90 (sellos y rozamiento) · aceite incompresible · sin pérdidas de carga en el latiguillo.','#f4c95d',14);
+  bTex.needsUpdate=true;
+}
+
+/* =================== ③ CONSERVACIÓN DEL VOLUMEN =================== */
+function drawVolumen(){
+  const sc=POOL[VOL.k], C=CILINDROS[VOL.cil], B=BOMBAS[VOL.bom];
+  const Vb=volBombeo(VOL.bom), s2=avanceBombeo(VOL.cil,VOL.bom), N=bombeos(sc.s,VOL.cil,VOL.bom);
+  const p=presionReq(sc.F,VOL.cil);
+  const Wp=p*Vb/1000, Ws=ETA_CIL*p*Vb/1000;
+  const air=aire(VOL.aire,p,VOL.bom);
+  bg();
+  labelAt(40,46,'Conservación del volumen — lo que baja aquí, sube allá','#8fd1ff',26);
+  labelAt(40,76,'El aceite no se comprime: el volumen que empuja el émbolo pequeño es el mismo que entra en el cilindro grande.','#8A94A0',16);
+
+  // dos émbolos con el mismo volumen resaltado
+  const K=1.75, x1=210, x2=640, yB=330;
+  const w1=B.d*K, w2=C.d*K;
+  const hs1=110;                                  // altura de dibujo de la carrera del émbolo
+  const hs2=Math.max(6,hs1*(s2/B.s1));            // misma escala vertical mm→px
+  bCx.strokeStyle='#5b6672'; bCx.lineWidth=4;
+  bCx.strokeRect(x1-w1/2,yB-hs1-40,w1,hs1+70); bCx.strokeRect(x2-w2/2,yB-hs1-40,w2,hs1+70);
+  bCx.fillStyle='#1d4b63'; bCx.fillRect(x1-w1/2,yB-hs1,w1,hs1+30); bCx.fillRect(x2-w2/2,yB-hs2,w2,hs2+30);
+  bCx.fillStyle='rgba(244,201,93,0.55)'; bCx.fillRect(x1-w1/2,yB-hs1,w1,hs1);
+  bCx.fillStyle='rgba(67,217,173,0.55)'; bCx.fillRect(x2-w2/2,yB-hs2,w2,hs2);
+  bCx.fillStyle='#93a0aa'; bCx.fillRect(x1-w1/2,yB-hs1-22,w1,22); bCx.fillRect(x2-w2/2,yB-hs2-24,w2,24);
+  labelAt(x1,yB-hs1-38,`s₁ = ${B.s1} mm`,'#f4c95d',18,'center');
+  labelAt(x2,yB-hs2-38,`s₂ = ${f1(s2,3)} mm`,'#43D9AD',18,'center');
+  labelAt(x1,yB+62,`A₁ = ${f1(AREA(B.d),2)} mm²`,'#dfe7ee',17,'center');
+  labelAt(x2,yB+62,`A₂ = ${f1(AREA(C.d),1)} mm²`,'#dfe7ee',17,'center');
+  labelAt(x1,yB+86,`Ø${B.d} · bomba`,'#7a8a96',15,'center');
+  labelAt(x2,yB+86,`Ø${C.d} · cilindro`,'#7a8a96',15,'center');
+  labelAt((x1+x2)/2,yB+124,`mismo volumen por golpe:  V = A₁·s₁ = A₂·s₂ = ${f1(Vb/1000,2)} cm³`,'#8fd1ff',19,'center');
+  labelAt((x1+x2)/2,yB+152,`reducción de recorrido: R·A₂/A₁ = ${f1(reduccion(VOL.cil,VOL.bom),0)} a 1`,'#8A94A0',17,'center');
+
+  // panel derecho: el trabajo
+  labelAt(800,120,'El trabajo no se regala','#8fd1ff',19);
+  labelAt(800,152,`recorrido de palanca/golpe`,'#7a8a96',14);
+  labelAt(800,172,`R·s₁ = ${f1(B.R*B.s1/1000,2)} m`,'#dfe7ee',17);
+  labelAt(800,202,`trabajo que metes/golpe`,'#7a8a96',14);
+  labelAt(800,222,`p·V = ${f1(Wp,1)} J`,'#f4c95d',17);
+  labelAt(800,252,`trabajo útil/golpe`,'#7a8a96',14);
+  labelAt(800,272,`η·p·V = ${f1(Ws,1)} J`,'#43D9AD',17);
+  labelAt(800,302,`se va en calor`,'#7a8a96',14);
+  labelAt(800,322,`${f1(Wp-Ws,1)} J  (${f1((1-ETA_CIL)*100,0)} %)`,'#d64545',17);
+
+  // trabajo completo
+  const y0=530;
+  labelAt(40,y0,`Trabajo: ${sc.nom}`,'#dfe7ee',20);
+  labelAt(40,y0+30,`Carrera pedida ${sc.s} mm  ·  avance por golpe ${f1(s2,3)} mm  →  ${N} bombeos (máximo admitido ${sc.Nmax})`,N<=sc.Nmax?'#43D9AD':'#d64545',18);
+  labelAt(40,y0+58,`Recorrido total de la palanca: ${f1(N*B.R*B.s1/1000,1)} m para mover ${sc.s} mm el vástago.`,'#f4c95d',18);
+  labelAt(40,y0+86,`Trabajo total que mete la mano: ${f1(N*Wp/1000,2)} kJ  ·  útil ${f1(N*Ws/1000,2)} kJ  ·  calor ${f1(N*(Wp-Ws)/1000,2)} kJ`,'#8A94A0',17);
+  // aire atrapado
+  labelAt(40,y0+126,'Aire atrapado en el latiguillo (antes de que nada se mueva)','#8fd1ff',18);
+  if(VOL.aire<=0) labelAt(40,y0+154,'Circuito purgado: 0 cm³ de aire. Los bombeos de arriba son los que se sienten.','#43D9AD',17);
+  else labelAt(40,y0+154,`${f1(VOL.aire/1000,2)} cm³ a 1 atm se quedan en ${f1(air.vFin/1000,3)} cm³ a ${f1(p,2)}${MPA}: ${air.bombeos} bombeos «en vacío» antes de empujar.`,'#f4c95d',17);
+  labelAt(40,754,'⚠ Aceite incompresible; aire comprimido isotérmicamente (Boyle). El avance del vástago en 3D está a escala del recorrido total, no 1:1 en mm.','#f4c95d',14);
+  bTex.needsUpdate=true;
+}
+
+/* =================== ④ CURVA DE DECISIÓN =================== */
+function drawProyecto(){
+  const sc=POOL[PRO.k], B=BOMBAS[PRO.bom];
+  const cur=curvaCil(sc,PRO.bom);
+  bg();
+  labelAt(40,46,'Curva de decisión — ¿qué pasa al subir el diámetro?','#8fd1ff',26);
+  labelAt(40,76,`${sc.nom} · F = ${sc.F/1000} kN · carrera ${sc.s} mm · máx. ${sc.Nmax} bombeos · hueco Ø${sc.dmax} mm · bomba ${B.nom}`,'#8A94A0',16);
+
+  const ox=90, oy=140, w=780, h=310;
+  const pMax=Math.max(...cur.map(r=>r.p),B.pmax)*1.1;
+  const nMax=Math.max(...cur.map(r=>r.N),sc.Nmax)*1.1;
+  bCx.strokeStyle='#2a333c'; bCx.lineWidth=2;
+  for(let i=0;i<=4;i++){ const y=oy+h*i/4; line(ox,y,ox+w,y,'#20272e',2); }
+  line(ox,oy+h,ox+w,oy+h,'#5b6672',3);
+  labelAt(ox-10,oy-14,'presión (MPa)','#f4c95d',16,'right');
+  labelAt(ox+w+10,oy-14,'bombeos','#8fd1ff',16,'left');
+  // barras de presión
+  const bw=68;
+  cur.forEach((r,i)=>{
+    const cx=ox+w*(i+0.5)/cur.length;
+    const hp=h*clamp(r.p/pMax,0,1);
+    bCx.fillStyle=r.ok?'rgba(244,201,93,0.85)':'rgba(120,130,140,0.5)';
+    bCx.fillRect(cx-bw/2,oy+h-hp,bw,hp);
+    labelAt(cx,oy+h-hp-8,f1(r.p,2),'#f4c95d',15,'center');
+  });
+  // línea de bombeos
+  bCx.strokeStyle='#8fd1ff'; bCx.lineWidth=3; bCx.beginPath();
+  cur.forEach((r,i)=>{ const cx=ox+w*(i+0.5)/cur.length, y=oy+h-h*clamp(r.N/nMax,0,1); if(i)bCx.lineTo(cx,y); else bCx.moveTo(cx,y); });
+  bCx.stroke();
+  cur.forEach((r,i)=>{ const cx=ox+w*(i+0.5)/cur.length, y=oy+h-h*clamp(r.N/nMax,0,1);
+    bCx.fillStyle='#8fd1ff'; bCx.beginPath(); bCx.arc(cx,y,6,0,Math.PI*2); bCx.fill();
+    labelAt(cx+14,y-8,String(r.N),'#8fd1ff',15); });
+  // límites
+  const yP=oy+h-h*clamp(B.pmax/pMax,0,1);
+  line(ox,yP,ox+w,yP,'#d64545',2); labelAt(ox+4,yP-8,`limitadora ${B.pmax} MPa`,'#d64545',14);
+  const yN=oy+h-h*clamp(sc.Nmax/nMax,0,1);
+  line(ox,yN,ox+w,yN,'#43D9AD',2); labelAt(ox+w-4,yN-8,`máx. ${sc.Nmax} bombeos`,'#43D9AD',14,'right');
+  // etiquetas de eje
+  cur.forEach((r,i)=>{ const cx=ox+w*(i+0.5)/cur.length;
+    labelAt(cx,oy+h+26,`Ø${r.d}`,r.d<=sc.dmax?'#dfe7ee':'#6b7681',18,'center'); });
+
+  // veredictos
+  let vy=oy+h+70;
+  labelAt(40,vy,'Con esta bomba, cilindro a cilindro:','#8fd1ff',19); vy+=30;
+  cur.forEach(r=>{
+    const e=evalua(sc,{cil:r.cil,bom:PRO.bom,man:'h700'});
+    const fal=[]; if(!e.okD)fal.push('no cabe'); if(!e.okS)fal.push('carrera corta'); if(!e.okP)fal.push('limitadora'); if(!e.okF)fal.push(`mano ${f1(e.fMano,0)} N`); if(!e.okN)fal.push(`${e.N} bombeos`);
+    labelAt(40,vy,`Ø${String(r.d).padEnd(4)}`,'#dfe7ee',17);
+    labelAt(120,vy,`p=${f1(r.p,2)} MPa · mano ${f1(r.fMano,0)} N · ${r.N} bombeos`,'#8A94A0',16);
+    labelAt(560,vy,fal.length?'✗ '+fal.join(' · '):'✔ cabe en la ventana',fal.length?'#d64545':'#43D9AD',16);
+    vy+=27;
+  });
+  wrapText(40,vy+16,'Doblar el diámetro divide la presión entre cuatro… y multiplica los bombeos por cuatro. El acierto está en la ventana donde caben las dos cosas: presión que la bomba y el latiguillo aguanten, y cadencia que el operario tolere.','#8A94A0',15,940);
+  labelAt(40,754,'⚠ Latiguillo de 700 bar en esta comparación para que la manguera no enmascare el efecto del diámetro.','#f4c95d',14);
+  bTex.needsUpdate=true;
+}
+
+/* =================== ⑤ RETO =================== */
+function startCfg(sc){
+  return { cil: CILK.find(k=>!okCil(sc,k))||CILK[0],
+           bom: BOMK.find(k=>!okBom(sc,k))||BOMK[0],
+           man: MANK.find(k=>!okMan(sc,k))||MANK[0] };
+}
+const QUIZ={
+  eje:{q:'El cilindro Ø100 también cumple los seis criterios en este trabajo. ¿Por qué la solución correcta es el Ø80?',
+    o:[{t:'Porque cumplir no basta: el Ø100 sale a 29 u.c. y el Ø80 hace el mismo trabajo por 24 u.c.',ok:true},
+       {t:'Porque el Ø100 exige más presión en el circuito que el Ø80.'},
+       {t:'Porque el Ø100 no cabe: el hueco de este trabajo admite Ø125 mm.'},
+       {t:'Porque con el Ø100 la mano tendría que dar más de 400 N en la palanca.'}]},
+  roda:{q:'Con el Ø80 la mano baja a 149 N y la presión a 26,53 MPa. ¿Por qué queda descartado en este trabajo?',
+    o:[{t:'Porque no cabe (el extractor deja Ø63 mm) y además saldrían 50 bombeos frente a los 35 admitidos.',ok:true},
+       {t:'Porque 26,53 MPa dispara la limitadora de la bomba, que corta en 70 MPa.'},
+       {t:'Porque su carrera máxima de 125 mm no llega a los 25 mm del trabajo.'},
+       {t:'Porque el latiguillo de 700 bar no aguanta 26,53 MPa de trabajo.'}]},
+  casq:{q:'¿Por qué queda descartado el cilindro Ø80, si cuesta menos que el Ø100?',
+    o:[{t:'Porque su carrera se queda en 125 mm de los 130 que hay que recorrer, y encima pediría 473 N en la palanca.',ok:true},
+       {t:'Porque los 9,95 MPa que pide disparan la limitadora de 16 MPa de la bomba.'},
+       {t:'Porque saldrían 169 bombeos y el trabajo sólo admite 120.'},
+       {t:'Porque el Ø80 no cabe en el hueco de Ø125 mm de la prensa de columna.'}]},
+  bus:{q:'Con el Ø100 la mano se queda en 280 N, la limitadora no corta y salen 47 bombeos de los 80 admitidos. ¿Qué falla entonces?',
+    o:[{t:'El latiguillo: el circuito pediría 49,51 MPa y la clase de 350 bar trabaja a 35 MPa.',ok:true},
+       {t:'La limitadora de la bomba, que corta en 70 MPa.'},
+       {t:'La cadencia: 47 bombeos superan los 80 admitidos.'},
+       {t:'El hueco: el Ø100 no cabe en los Ø125 mm disponibles.'}]},
+};
+let retoK=0;
+let RET={cil:'c50',bom:'b1',man:'h100'};
+let retoChecked=false, retoSolved=false;
+let retoOk={cil:false,bom:false,man:false};
+let quizOrder=[0,1,2,3], quizPick=-1, quizOkFlag=false;
+
+function shuffleQuiz(){
+  quizOrder=[0,1,2,3];
+  for(let i=quizOrder.length-1;i>0;i--){ const j=Math.floor(Math.random()*(i+1)); const t=quizOrder[i]; quizOrder[i]=quizOrder[j]; quizOrder[j]=t; }
+  quizPick=-1; quizOkFlag=false;
+}
+function quizDef(){ return QUIZ[POOL[retoK].id]; }
+function quizOpts(){ const d=quizDef(); return quizOrder.map(i=>d.o[i]); }
+
+function drawReto(){
+  const sc=POOL[retoK];
+  const e=evalua(sc,RET), g=GOOD(sc), eg=evalua(sc,g);
+  bg();
+  labelAt(40,46,'Reto — dimensiona la prensa para el trabajo','#8fd1ff',26);
+  labelAt(40,84,sc.nom,'#dfe7ee',23);
+  labelAt(40,114,sc.sitio,'#7a8a96',16);
+  labelAt(40,158,`Fuerza necesaria: ${sc.F/1000} kN`,'#f4c95d',20);
+  labelAt(400,158,`Carrera: ${sc.s} mm`,'#f4c95d',20);
+  labelAt(660,158,`Máx. ${sc.Nmax} bombeos`,'#f4c95d',20);
+  labelAt(40,188,`Hueco disponible: Ø${sc.dmax} mm como máximo`,'#f4c95d',20);
+  labelAt(40,236,'Tu selección','#8fd1ff',20);
+  const rows=[
+    ['Cilindro',CILINDROS[RET.cil].nom,CILINDROS[RET.cil].coste,retoOk.cil,'cil',RET.cil],
+    ['Bomba',BOMBAS[RET.bom].nom,BOMBAS[RET.bom].coste,retoOk.bom,'bom',RET.bom],
+    ['Latiguillo',MANGUERAS[RET.man].nom,MANGUERAS[RET.man].coste,retoOk.man,'man',RET.man],
+  ];
+  let y=274;
+  rows.forEach(r=>{
+    labelAt(40,y,r[0],'#7a8a96',17);
+    labelAt(180,y,r[1],'#dfe7ee',18);
+    labelAt(600,y,`${r[2]} u.c.`,'#8A94A0',16);
+    if(retoChecked){ labelAt(690,y,r[3]?'✔':'✗',r[3]?'#43D9AD':'#d64545',22);
+      if(!r[3]) wrapText(720,y-4,whyEje(sc,r[4],r[5]),'#f4c95d',14,280,17); }
+    y+=r[3]||!retoChecked?42:Math.max(42,20+17*2);
+  });
+  y+=6;
+  labelAt(40,y,`Coste del sistema: ${e.coste} u.c.`,'#dfe7ee',19);
+  labelAt(320,y,`p = ${f1(e.p,2)}${MPA}`,'#8A94A0',18);
+  labelAt(500,y,`mano ${f1(e.fMano,0)} N`,'#8A94A0',18);
+  labelAt(690,y,`${e.N} bombeos`,'#8A94A0',18);
+  y+=44;
+  if(retoChecked){
+    labelAt(40,y,retoSolved?'✔ Prensa correctamente dimensionada':'✗ Todavía no',retoSolved?'#43D9AD':'#d64545',25);
+    y+=36;
+    if(retoSolved) wrapText(40,y,`Terna válida y de coste mínimo: ${CILINDROS[g.cil].nom} + ${BOMBAS[g.bom].nom} + ${MANGUERAS[g.man].nom} = ${eg.coste} u.c. Multiplicación de fuerza ×${f1(multiplicacion(g.cil,g.bom),0)} y ${f1(evalua(sc,g).sPalTot,1)} m de recorrido de palanca.`,'#43D9AD',17,940);
+    else wrapText(40,y,'Cada elemento se juzga suponiendo los otros dos correctos: acertar dos de tres sigue siendo una prensa que no vale.','#8A94A0',16,940);
+  } else {
+    wrapText(40,y,'Elige cilindro, bomba y latiguillo. Los tres se califican por separado, y cada uno tiene que ser válido Y el más barato que cumple: sobredimensionar también es un error de proyecto.','#8A94A0',17,940);
+  }
+  labelAt(40,754,'⚠ Latiguillo por presión de TRABAJO (rotura = 4× trabajo, ISO 1436). El límite de 400 N en la palanca es criterio de proyecto del taller.','#f4c95d',14);
+  bTex.needsUpdate=true;
+
+  const rt=el('retoText');
+  if(rt) rt.textContent=`${sc.nom} — ${sc.F/1000} kN, carrera ${sc.s} mm, máx ${sc.Nmax} bombeos, hueco Ø${sc.dmax} mm. Selección: ${CILINDROS[RET.cil].nom} + ${BOMBAS[RET.bom].nom} + ${MANGUERAS[RET.man].nom} = ${e.coste} u.c., p=${f1(e.p,2)} MPa, mano ${f1(e.fMano,0)} N, ${e.N} bombeos.`
+    +(retoChecked?` ${retoSolved?'✔ Correcto.':'✗ Cilindro '+(retoOk.cil?'✔':'✗')+' · Bomba '+(retoOk.bom?'✔':'✗')+' · Latiguillo '+(retoOk.man?'✔':'✗')+'.'}`:'');
+  renderQuiz();
+}
+function renderQuiz(){
+  const d=quizDef(), opts=quizOpts();
+  el('quizQ').textContent=d.q;
+  el('dxbtns').innerHTML=opts.map((o,i)=>{
+    const cls=quizPick<0?'b':(i===quizPick?(o.ok?'b ok':'b bad'):(o.ok&&quizPick>=0?'b ok':'b'));
+    return `<button class="${cls}" data-i="${i}" style="text-align:left;white-space:normal;line-height:1.35">${o.t}</button>`;
+  }).join('');
+  document.querySelectorAll('#dxbtns [data-i]').forEach(b=>{ b.onclick=()=>answerQuiz(+b.dataset.i); });
+  el('quizVerd').textContent = quizPick<0?'Sin responder' : (quizOkFlag?'✔ Correcta':'✗ Incorrecta');
+  el('quizVerd').className = quizPick<0?'' : (quizOkFlag?'good':'bad');
+}
+function answerQuiz(i){
+  if(quizPick>=0) return;
+  quizPick=i; quizOkFlag=!!quizOpts()[i].ok;
+  synth.beep(quizOkFlag?1046:200,0.12,0.06);
+  showToast(quizOkFlag?'<span style="color:var(--good)">✔ Correcta.</span>':'<span style="color:var(--bad)">✗ Incorrecta.</span> La respuesta buena queda marcada en verde.');
+  renderQuiz();
+}
+function newReto(){
+  retoK=Math.floor(Math.random()*POOL.length);
+  RET=startCfg(POOL[retoK]);
+  retoChecked=false; retoSolved=false; retoOk={cil:false,bom:false,man:false};
+  shuffleQuiz();
+  syncRetoBtns(); drawReto();
+  showToast('🎲 Nuevo trabajo asignado.');
+  synth.beep(520,0.08,0.05);
+}
+function checkReto(){
+  const sc=POOL[retoK];
+  retoChecked=true;
+  retoOk={cil:okCil(sc,RET.cil), bom:okBom(sc,RET.bom), man:okMan(sc,RET.man)};
+  retoSolved=retoOk.cil&&retoOk.bom&&retoOk.man;
+  if(retoSolved){ showToast('<span style="color:var(--good)">✔ Correcto: válida y de coste mínimo en los tres elementos.</span>'); synth.beep(1046,0.12,0.06); }
+  else { showToast('<span style="color:var(--bad)">✗ Revisa el elemento marcado en el pizarrón.</span>'); synth.beep(180,0.14,0.06); }
+  drawReto(); updateTele();
+}
+
+/* ---------- pizarrón + telemetría ---------- */
+function drawBoard(){ if(mode==='pascal') drawPascal(); else if(mode==='volumen') drawVolumen(); else if(mode==='proyecto') drawProyecto(); else if(mode==='reto') drawReto(); }
+
+function currentP(){
+  if(mode==='pascal') return banco(PAS.cil,PAS.bom,PAS.f,PAS.F).p;
+  if(mode==='volumen'){ const sc=POOL[VOL.k]; const N=bombeos(sc.s,VOL.cil,VOL.bom);
+    return presionReq(sc.F,VOL.cil)*clamp(VOL.golpes/Math.max(1,N),0,1); }
+  if(mode==='proyecto') return curvaCil(POOL[PRO.k],PRO.bom).reduce((a,r)=>a+r.p,0)/CILK.length;
+  if(mode==='reto') return evalua(POOL[retoK],RET).p;
+  return 0;
+}
+function updateTele(){
+  if(mode==='pascal'){
+    const b=banco(PAS.cil,PAS.bom,PAS.f,PAS.F);
+    el('pa_p').textContent=`${f1(b.p,2)} MPa`;
+    el('pa_pnec').textContent=`${f1(b.pNec,2)} MPa`;
+    el('pa_pmano').textContent=`${f1(b.pMano,2)} MPa`;
+    el('pa_F2').textContent=`${f1(b.F2/1000,1)} kN`;
+    el('pa_mult').textContent=`× ${f1(multiplicacion(PAS.cil,PAS.bom),0)}`;
+    el('pa_techo').textContent=`${f1(fuerzaTecho(PAS.cil,PAS.bom)/1000,1)} kN`;
+    el('pa_verd').textContent=b.avanza?'✔ el vástago avanza':(b.corta?'✗ corta la limitadora':'✗ falta fuerza en la mano');
+    el('pa_verd').className=b.avanza?'good':'bad';
+  } else if(mode==='volumen'){
+    const sc=POOL[VOL.k], B=BOMBAS[VOL.bom];
+    const Vb=volBombeo(VOL.bom), s2=avanceBombeo(VOL.cil,VOL.bom), N=bombeos(sc.s,VOL.cil,VOL.bom);
+    const p=presionReq(sc.F,VOL.cil);
+    el('vo_V').textContent=`${f1(Vb/1000,2)} cm³`;
+    el('vo_s2').textContent=`${f1(s2,3)} mm`;
+    el('vo_N').textContent=`${N} (máx ${sc.Nmax})`;
+    el('vo_N').className=N<=sc.Nmax?'good':'bad';
+    el('vo_pal').textContent=`${f1(N*B.R*B.s1/1000,1)} m`;
+    el('vo_W').textContent=`${f1(N*p*Vb/1000/1000,2)} kJ`;
+    el('vo_cal').textContent=`${f1(N*(1-ETA_CIL)*p*Vb/1000/1000,2)} kJ`;
+    el('vo_gol').textContent=`${VOL.golpes} / ${N}`;
+    el('vo_av').textContent=`${f1(Math.min(VOL.golpes*s2,sc.s),1)} de ${sc.s} mm`;
+    const air=aire(VOL.aire,p,VOL.bom);
+    el('vo_air').textContent=VOL.aire<=0?'circuito purgado':`${air.bombeos} bombeos perdidos`;
+    el('vo_air').className=VOL.aire<=0?'good':'bad';
+  } else if(mode==='proyecto'){
+    const sc=POOL[PRO.k];
+    const cur=curvaCil(sc,PRO.bom), okk=cur.filter(r=>r.ok);
+    el('pr_trab').textContent=sc.nom;
+    el('pr_F').textContent=`${sc.F/1000} kN`;
+    el('pr_ok').textContent=okk.length?okk.map(r=>'Ø'+r.d).join(' · '):'ninguno con esta bomba';
+    el('pr_ok').className=okk.length?'good':'bad';
+    el('pr_rango').textContent=`${f1(Math.min(...cur.map(r=>r.p)),2)} – ${f1(Math.max(...cur.map(r=>r.p)),2)} MPa`;
+  } else if(mode==='reto'){
+    const sc=POOL[retoK], e=evalua(sc,RET);
+    el('re_coste').textContent=`${e.coste} u.c.`;
+    el('re_p').textContent=`${f1(e.p,2)} MPa`;
+    el('re_mano').textContent=`${f1(e.fMano,0)} N`;
+    el('re_N').textContent=`${e.N} (máx ${sc.Nmax})`;
+    el('re_verd').textContent=retoChecked?(retoSolved?'✔ correcta':`✗ ${[retoOk.cil?'':'cilindro',retoOk.bom?'':'bomba',retoOk.man?'':'latiguillo'].filter(Boolean).join(', ')}`):'sin comprobar';
+    el('re_verd').className=retoChecked?(retoSolved?'good':'bad'):'';
+  }
+}
+function refreshAll(){ updateTele(); if(mode!=='ensamble') drawBoard(); syncPasBtns(); syncVolBtns(); syncProBtns(); syncRetoBtns(); }
+
+/* ---------- máquina de modos ---------- */
+const BOARD_CAM=[[-1.3,2.6,2.8],[-3.1,2.1,-0.2]];
+const MODE_META={
+  ensamble:{nombre:'Ensamble', cam:[[4.3,3.0,5.5],[0.6,1.25,0.1]]},
+  pascal:{nombre:'Ley de Pascal', cam:BOARD_CAM},
+  volumen:{nombre:'Volumen y trabajo', cam:BOARD_CAM},
+  proyecto:{nombre:'Curva de decisión', cam:BOARD_CAM},
+  reto:{nombre:'Reto', cam:BOARD_CAM},
+};
+const modes=['ensamble','pascal','volumen','proyecto','reto'];
+let mode='ensamble';
+function setMode(k){
+  if(k!=='ensamble' && !simUnlocked){ showToast('<span style="color:var(--bad)">🔒 Termina el ensamble primero.</span>'); synth.beep(220,0.08,0.05); return; }
+  mode=k;
+  modes.forEach(m=>{ const b=el('m_'+m); if(b) b.classList.toggle('on',m===k); });
+  el('p_mode').textContent=MODE_META[k].nombre;
+  el('secEnsamble').style.display=k==='ensamble'?'':'none';
+  el('secPascal').style.display=k==='pascal'?'':'none';
+  el('secVolumen').style.display=k==='volumen'?'':'none';
+  el('secProyecto').style.display=k==='proyecto'?'':'none';
+  el('secReto').style.display=k==='reto'?'':'none';
+  S.moveTo(MODE_META[k].cam[0],MODE_META[k].cam[1],1.3);
+  refreshAll();
+}
+function syncCtrlbar(){ modes.forEach(m=>{ const b=el('m_'+m); if(b && m!=='ensamble') b.disabled=!simUnlocked; }); }
+
+/* ---------- sincronización de botones ---------- */
+const onOff=(sel,attr,val)=>document.querySelectorAll(sel).forEach(b=>b.classList.toggle('on',b.dataset[attr]===String(val)));
+function syncPasBtns(){ onOff('#paCil [data-k]','k',PAS.cil); onOff('#paBom [data-k]','k',PAS.bom); onOff('#paF [data-k]','k',PAS.F); onOff('#paMano [data-k]','k',PAS.f); }
+function syncVolBtns(){ onOff('#voTrab [data-k]','k',VOL.k); onOff('#voCil [data-k]','k',VOL.cil); onOff('#voBom [data-k]','k',VOL.bom); onOff('#voAire [data-k]','k',VOL.aire); }
+function syncProBtns(){ onOff('#prTrab [data-k]','k',PRO.k); onOff('#prBom [data-k]','k',PRO.bom); }
+function syncRetoBtns(){ onOff('#reCil [data-k]','k',RET.cil); onOff('#reBom [data-k]','k',RET.bom); onOff('#reMan [data-k]','k',RET.man); }
+
+/* ---------- animación del vástago ---------- */
+let ramTarget=0, ramNow=0, leverT=0, pumping=0;
+function syncRam(){
+  const sc=POOL[VOL.k], N=bombeos(sc.s,VOL.cil,VOL.bom);
+  ramTarget=clamp(VOL.golpes/Math.max(1,N),0,1);
+}
+function bombear(n){
+  const sc=POOL[VOL.k], N=bombeos(sc.s,VOL.cil,VOL.bom);
+  VOL.golpes=clamp(VOL.golpes+n,0,N);
+  pumping=Math.min(2.2,pumping+0.35*Math.min(n,6));
+  syncRam(); synth.beep(420,0.05,0.04); refreshAll();
+}
+function retraer(){ VOL.golpes=0; syncRam(); synth.beep(300,0.08,0.05); refreshAll(); }
+
+/* ---------- recorrido guiado ---------- */
+const sleep=ms=>new Promise(res=>setTimeout(res,ms));
+let autoRunning=false;
+async function autoAssemble(){
+  if(autoRunning) return; autoRunning=true; const btn=el('btnAuto'); if(btn) btn.disabled=true;
+  for(const id of ORDER){ if(placed[id]) continue; selectPart(id); await sleep(550); placePart(id); await sleep(950); }
+  if(btn) btn.disabled=false; autoRunning=false;
+}
+async function runAuto(){
+  if(autoRunning) return; autoRunning=true;
+  const btn=el('btnTour'); if(btn) btn.disabled=true;
+  const bA=el('btnAuto'); if(bA) bA.disabled=true;
+  try{
+    if(!simUnlocked){
+      showToast('🎬 Recorrido guiado: primero montamos el circuito.');
+      for(const id of ORDER){ if(placed[id]) continue; selectPart(id); await sleep(360); placePart(id); await sleep(620); }
+      await sleep(900);
+    }
+    /* --- ley de Pascal --- */
+    setMode('pascal'); await sleep(900);
+    PAS.cil='c80'; PAS.bom='b2'; PAS.F=60000; PAS.f=300; refreshAll();
+    showToast('② Ley de Pascal. Ø80 y bomba 10:1. El eje flector pide 60 kN: el circuito sube a 13,26 MPa, ni un pascal más.',4200); await sleep(4300);
+    PAS.f=100; refreshAll();
+    showToast('Con sólo 100 N en la palanca la mano llega a 4,97 MPa y la carga exige 13,26: el vástago no se mueve.',4200); await sleep(4300);
+    PAS.f=400; refreshAll();
+    showToast('A 400 N la mano podría dar 19,89 MPa, pero la presión se queda en 13,26: la carga manda, no la mano.',4400); await sleep(4500);
+    PAS.bom='b1'; refreshAll();
+    showToast('Ojo con el catálogo: esta bomba dice 16 MPa, pero con 400 N y émbolo Ø22 la mano sólo llega a 8,42 MPa. La limitadora nunca abre.',4600); await sleep(4700);
+    PAS.bom='b4'; refreshAll();
+    showToast('Con la Ø10 a 14:1 pasa lo contrario: la mano daría 71,30 MPa y la limitadora corta antes, en 70 MPa.',4400); await sleep(4500);
+    PAS.bom='b2'; PAS.F=350000; PAS.cil='c125'; refreshAll();
+    showToast('Multiplicación ×549 con el Ø125: la fuerza sale del banco (palanca × áreas), no de cuánto aprietes.',4200); await sleep(4300);
+    /* --- volumen --- */
+    setMode('volumen'); await sleep(900);
+    VOL.k=3; VOL.cil='c125'; VOL.bom='b5'; VOL.aire=0; VOL.golpes=0; syncRam(); refreshAll();
+    showToast('③ El precio del volumen. Buje de camión, Ø125 con bomba Ø12: cada golpe mete 5,09 cm³ y el vástago avanza 0,415 mm.',4600); await sleep(4700);
+    for(let i=0;i<6;i++){ bombear(12); await sleep(320); }
+    showToast('73 bombeos para 30 mm, con 65,7 m de recorrido de palanca. El trabajo no se regala: se cambia recorrido por fuerza.',4600); await sleep(4700);
+    showToast('Y encima se pierde el 10 %: de cada 161,3 J que mete la mano por golpe, 16,1 J se van en calor de sellos y rozamiento.',4600); await sleep(4700);
+    VOL.aire=47120; refreshAll();
+    showToast('Aire atrapado: 47,12 cm³ a 1 atm se quedan en 0,150 cm³ a 31,69 MPa. Son 10 bombeos que no mueven nada. Por eso se purga.',4800); await sleep(4900);
+    VOL.aire=0; VOL.golpes=0; syncRam(); refreshAll(); await sleep(600);
+    /* --- curva de decisión --- */
+    setMode('proyecto'); await sleep(900);
+    PRO.k=0; PRO.bom='b2'; refreshAll();
+    showToast('④ Curva de decisión. Al subir el diámetro la presión cae con el cuadrado… y los bombeos suben con el cuadrado.',4400); await sleep(4500);
+    showToast('Para el eje flector con la bomba 10:1, sólo el Ø80 y el Ø100 caen dentro de la ventana. El Ø125 se va a 77 bombeos.',4600); await sleep(4700);
+    PRO.k=3; PRO.bom='b5'; refreshAll();
+    showToast('En el buje de camión la ventana se estrecha: el Ø50 pediría 198,06 MPa y 1120 N en la palanca. Ni de lejos.',4600); await sleep(4700);
+    PRO.k=1; PRO.bom='b4'; refreshAll();
+    showToast('En el extractor portátil manda el espacio: pasado el Ø63 no hay dónde meter el cilindro, por buenos que sean los números.',4600); await sleep(4700);
+    /* --- reto --- */
+    setMode('reto'); await sleep(900);
+    retoK=3; RET=startCfg(POOL[3]); retoChecked=false; retoSolved=false; retoOk={cil:false,bom:false,man:false}; shuffleQuiz(); refreshAll();
+    showToast('⑤ Reto: el buje de camión, 350 kN. La configuración de partida está mal en los tres elementos, a propósito.',4400); await sleep(4500);
+    const g=GOOD(POOL[3]);
+    RET={cil:g.cil,bom:RET.bom,man:RET.man}; retoChecked=false; refreshAll(); await sleep(700);
+    checkReto(); await sleep(1600);
+    showToast('Sólo el cilindro correcto no basta: la calificación es por elementos, y cada uno se juzga con los otros dos ya bien.',4400); await sleep(4500);
+    RET={cil:g.cil,bom:g.bom,man:g.man}; retoChecked=false; refreshAll(); await sleep(700);
+    checkReto(); await sleep(1700);
+    showToast('Ø125 + bomba 20:1 + latiguillo de 350 bar: 45 u.c. De las 100 combinaciones posibles, sólo 3 son válidas.',4600); await sleep(4700);
+    showToast('Y el cilindro más caro abarata el sistema: con el Ø100 haría falta latiguillo de 700 bar y saldría más caro.',4600); await sleep(4700);
+    const qi=quizOpts().findIndex(o=>o.ok);
+    answerQuiz(qi); await sleep(2200);
+    showToast('Fin del recorrido. Prueba tú: cambia el trabajo con 🎲 y dimensiona la prensa desde cero.',4200); await sleep(3000);
+  } finally {
+    if(btn) btn.disabled=false;
+    if(bA) bA.disabled=false;
+    autoRunning=false;
+  }
+}
+
+/* ---------- lazo de animación ---------- */
+S.setAnimate((dt,t)=>{
+  for(let i=tweens.length-1;i>=0;i--){ const w=tweens[i]; w.t=Math.min(1,w.t+dt/w.dur); const e=ease(w.t);
+    w.obj.position.lerpVectors(w.fromP,w.toP,e); const s=w.fromS+(w.toS-w.fromS)*e; w.obj.scale.setScalar(s);
+    if('roty0' in w) w.obj.rotation.y=w.roty0*(1-e);
+    if(w.t>=1){ if(w.onDone)w.onDone(); tweens.splice(i,1); } }
+  trayObjs.forEach(g=>{ if(g.userData.kind!=='part')return; const id=g.userData.id; if(placed[id])return;
+    const sel=selectedId===id;
+    g.userData.lift=Math.max(0,Math.min(1,(g.userData.lift||0)+(sel?1:-1)*dt*3.2));
+    const L=ease(g.userData.lift);
+    g.position.y=g.userData.baseY + L*0.5 + (1-L)*0.02*Math.sin(t*1.8+g.userData.phase);
+    if(sel) g.rotation.y+=dt*1.25; else g.rotation.y*=(1-Math.min(1,dt*5));
+    g.scale.setScalar(STAGE_S*(1+L*0.06)); });
+  ghostObjs.forEach(gh=>{ if(!gh.parent) return; const gm=gh.userData.gm;
+    if(gh.userData.fading){ gm.opacity=Math.max(0,gm.opacity-dt*1.4); if(gm.opacity<=0){ gh.visible=false; scene.remove(gh); } return; }
+    gm.opacity=0.24+0.14*Math.sin(t*3.2);
+    if(gh.userData.shake>0){ gh.userData.shake=Math.max(0,gh.userData.shake-dt*2.2); gh.position.x=gh.userData.homeX+Math.sin(t*45)*0.05*gh.userData.shake; }
+    else if(gh.position.x!==gh.userData.homeX){ gh.position.x=gh.userData.homeX; } });
+  // vástago
+  ramNow+=(ramTarget-ramNow)*Math.min(1,dt*3.4);
+  const cg=groups.cilindro; if(cg&&placed.cilindro){ const ram=cg.getObjectByName('ram'); if(ram) ram.position.y=-ramNow*0.30; }
+  // palanca de la bomba
+  if(pumping>0){ pumping=Math.max(0,pumping-dt); leverT+=dt*7; }
+  const bg2=groups.bomba; if(bg2&&placed.bomba){ const lv=bg2.getObjectByName('lever'); if(lv) lv.rotation.z=-0.20+(pumping>0?0.30*Math.sin(leverT):0); }
+  // aguja del manómetro
+  const mg=groups.manometro; if(mg&&placed.manometro){ const nd=mg.getObjectByName('needle');
+    if(nd){ const a=-2.2+4.4*clamp(currentP()/70,0,1); nd.rotation.z=-a; } }
+});
+S.start();
+
+/* ---------- HUD ---------- */
+el('hud').innerHTML=`
+  <div class="eyebrow">Hidráulica y Neumática · Prensa de taller</div>
+  <h2>Ley de Pascal: monta la prensa y dimensiónala para el trabajo</h2>
+  <p>Monta el circuito hidráulico pieza por pieza (<b>toca la pieza, luego su hueco</b>). Luego comprueba que la <b>carga impone la presión</b>, paga el precio del volumen (<b>bombeos y recorrido de palanca</b>), estudia qué pasa al cambiar de diámetro y resuelve el reto: elegir <b>cilindro, bomba y latiguillo</b> válidos y de coste mínimo para cuatro trabajos reales de taller.</p>
+  <div class="formula">p = F₁/A₁ = F₂/(η·A₂) · V = A₁·s₁ = A₂·s₂ · F₂/F_mano = η·R·A₂/A₁</div>
+  <div class="legend">
+    <div class="li"><span class="dot" style="background:#9aa4ac"></span>Cilindro de trabajo</div>
+    <div class="li"><span class="dot" style="background:#b98b3c"></span>Bomba · racores · limitadora</div>
+    <div class="li"><span class="dot" style="background:#2b6f8a"></span>Depósito de aceite</div>
+    <div class="li"><span class="dot" style="background:#1b1e22"></span>Latiguillo de alta presión</div>
+    <div class="li"><span class="dot" style="background:#a07a3c"></span>Pieza de trabajo</div>
+  </div>
+  <div class="fid">
+    <div class="ft">Contrato de fidelidad</div>
+    <div class="fl">SÍ modela: <b>la ley de Pascal con áreas reales (F = p·A, p en MPa = N/mm²); que la CARGA impone la presión del circuito mientras la mano y la limitadora puedan darla; el rendimiento del cilindro η = 0,90; la conservación del volumen (V = A₁·s₁ = A₂·s₂) y el número real de bombeos; el balance de trabajo entrada/salida y el calor; la compresión isotérmica del aire atrapado; y el dimensionado por SEIS criterios simultáneos: cabe en el hueco, la carrera alcanza, la limitadora no corta, la palanca ≤ 400 N, la cadencia de bombeos y la presión de trabajo del latiguillo.</b></div>
+    <div class="fl no">NO modela: <b>pérdidas de carga en tuberías y racores (Darcy–Weisbach, va en otra práctica); compresibilidad real del aceite (≈0,7 % por cada 10 MPa); dilatación del bastidor bajo carga; viscosidad, temperatura ni envejecimiento del fluido; la válvula antirretorno y la fase de retorno del vástago; el pandeo del vástago; ni el tiempo real de un ciclo de bombeo.</b></div>
+    <div class="fl">Norma ancla: <b>ISO 6020-2 / ISO 6022 (cilindros), ISO 1436 y SAE J517 100R (mangueras, rotura = 4× presión de trabajo), ISO 4413 (seguridad), ISO 1219-1 (símbolos).</b> El tope de 400 N en el extremo de la palanca es un criterio de proyecto del taller inspirado en ISO 11228-2 / EN 1005-3, no una cifra de norma.</div>
+  </div>
+  <div class="src">Catálogos didácticos: 5 cilindros (Ø50…Ø125), 5 bombas de palanca (Ø10…Ø22, 8:1…20:1) y 4 clases de latiguillo (100…700 bar). Los costes están en unidades comparables (u.c.), no en pesos. El avance del vástago en 3D está a escala del recorrido total del trabajo: los bombeos que se cuentan sí son los reales.</div>
+  <div class="modebar">
+    <button class="b on" id="m_ensamble">① Ensamble</button>
+    <button class="b" id="m_pascal" disabled>② Ley de Pascal</button>
+    <button class="b" id="m_volumen" disabled>③ Volumen y trabajo</button>
+    <button class="b" id="m_proyecto" disabled>④ Curva de decisión</button>
+    <button class="b" id="m_reto" disabled>⑤ Reto</button>
+  </div>`;
+
+/* ---------- PANEL ---------- */
+const btnsK=(id,items)=>`<div class="btns" id="${id}">${items.map(o=>`<button class="b" data-k="${o.k}">${o.t}</button>`).join('')}</div>`;
+const cilBtns=id=>btnsK(id,CILK.map(k=>({k,t:'Ø'+CILINDROS[k].d})));
+const bomBtns=id=>btnsK(id,BOMK.map(k=>({k,t:'Ø'+BOMBAS[k].d+'·'+BOMBAS[k].R+':1'})));
+const trabBtns=id=>btnsK(id,POOL.map((s,i)=>({k:i,t:s.F/1000+' kN'})));
+
+el('panel').innerHTML=`
+  <div class="g"><div class="gl"><span>Modo actual</span><b id="p_mode">Ensamble</b></div></div>
+
+  <div id="secEnsamble">
+    <h4>① Ensamble — toca pieza, toca hueco</h4>
+    <div class="console" id="asmStatus">Toca una <b>pieza</b> del banco (derecha) y luego su <b>hueco luminoso</b>.</div>
+    <div class="g"><div class="gl"><span>Piezas colocadas</span><b id="p_prog">0 / 7</b></div></div>
+    <div id="checklist" style="font-family:var(--mono);font-size:11px;line-height:1.85;margin:6px 0"></div>
+    <div class="btns">
+      <button class="b auto" id="btnAuto">✨ Montaje automático</button>
+      <button class="b" id="btnReset">↺ Reiniciar ensamble</button>
+    </div>
+    <div class="btns"><button class="b auto" id="btnTour">🎬 Recorrido guiado completo</button></div>
+  </div>
+
+  <div id="secPascal" style="display:none">
+    <h4 class="sec">② Ley de Pascal</h4>
+    <div class="lbl">Cilindro de trabajo</div>${cilBtns('paCil')}
+    <div class="lbl">Bomba de palanca</div>${bomBtns('paBom')}
+    <div class="lbl">Carga sobre el vástago</div>${btnsK('paF',CARGAS.map(v=>({k:v,t:v/1000+' kN'})))}
+    <div class="lbl">Fuerza en la palanca</div>${btnsK('paMano',MANOS.map(v=>({k:v,t:v+' N'})))}
+    <h4 class="sec">Telemetría</h4>
+    <div class="g"><div class="gl"><span>Presión del circuito</span><b id="pa_p">—</b></div></div>
+    <div class="g"><div class="gl"><span>p que exige la carga</span><b id="pa_pnec">—</b></div></div>
+    <div class="g"><div class="gl"><span>p que puede dar la mano</span><b id="pa_pmano">—</b></div></div>
+    <div class="g"><div class="gl"><span>Fuerza en el vástago</span><b id="pa_F2">—</b></div></div>
+    <div class="g"><div class="gl"><span>Multiplicación</span><b id="pa_mult">—</b></div></div>
+    <div class="g"><div class="gl"><span>Fuerza techo (limitadora)</span><b id="pa_techo">—</b></div></div>
+    <div class="g"><div class="gl"><span>Veredicto</span><b id="pa_verd">—</b></div></div>
+  </div>
+
+  <div id="secVolumen" style="display:none">
+    <h4 class="sec">③ Volumen y trabajo</h4>
+    <div class="lbl">Trabajo</div>${trabBtns('voTrab')}
+    <div class="lbl">Cilindro</div>${cilBtns('voCil')}
+    <div class="lbl">Bomba</div>${bomBtns('voBom')}
+    <div class="lbl">Aire atrapado en el latiguillo</div>${btnsK('voAire',AIRES.map(v=>({k:v,t:v===0?'purgado':f1(v/1000,0)+' cm³'})))}
+    <div class="btns">
+      <button class="b" id="btnPump1">▶ 1 bombeo</button>
+      <button class="b" id="btnPump10">▶▶ 10 bombeos</button>
+      <button class="b" id="btnRetraer">↺ Retraer</button>
+    </div>
+    <h4 class="sec">Telemetría</h4>
+    <div class="g"><div class="gl"><span>Volumen por golpe</span><b id="vo_V">—</b></div></div>
+    <div class="g"><div class="gl"><span>Avance por golpe</span><b id="vo_s2">—</b></div></div>
+    <div class="g"><div class="gl"><span>Bombeos necesarios</span><b id="vo_N">—</b></div></div>
+    <div class="g"><div class="gl"><span>Recorrido de palanca</span><b id="vo_pal">—</b></div></div>
+    <div class="g"><div class="gl"><span>Trabajo de la mano</span><b id="vo_W">—</b></div></div>
+    <div class="g"><div class="gl"><span>Se va en calor</span><b id="vo_cal">—</b></div></div>
+    <div class="g"><div class="gl"><span>Golpes dados</span><b id="vo_gol">—</b></div></div>
+    <div class="g"><div class="gl"><span>Avance acumulado</span><b id="vo_av">—</b></div></div>
+    <div class="g"><div class="gl"><span>Aire atrapado</span><b id="vo_air">—</b></div></div>
+  </div>
+
+  <div id="secProyecto" style="display:none">
+    <h4 class="sec">④ Curva de decisión</h4>
+    <div class="lbl">Trabajo</div>${trabBtns('prTrab')}
+    <div class="lbl">Bomba</div>${bomBtns('prBom')}
+    <h4 class="sec">Telemetría</h4>
+    <div class="g"><div class="gl"><span>Trabajo</span><b id="pr_trab">—</b></div></div>
+    <div class="g"><div class="gl"><span>Fuerza pedida</span><b id="pr_F">—</b></div></div>
+    <div class="g"><div class="gl"><span>Cilindros que caben</span><b id="pr_ok">—</b></div></div>
+    <div class="g"><div class="gl"><span>Rango de presión</span><b id="pr_rango">—</b></div></div>
+  </div>
+
+  <div id="secReto" style="display:none">
+    <h4 class="sec">⑤ Reto — dimensiona la prensa</h4>
+    <div class="console" id="retoText">Lee el pizarrón (izquierda) para ver el trabajo asignado.</div>
+    <div class="lbl">Cilindro de trabajo</div>${cilBtns('reCil')}
+    <div class="lbl">Bomba de palanca</div>${bomBtns('reBom')}
+    <div class="lbl">Latiguillo</div>${btnsK('reMan',MANK.map(k=>({k,t:MANGUERAS[k].nom.split(' ')[0]+' bar'})))}
+    <div class="btns">
+      <button class="b" id="btnCheck">✓ Comprobar</button>
+      <button class="b" id="btnNew">🎲 Otro trabajo</button>
+    </div>
+    <h4 class="sec">Telemetría</h4>
+    <div class="g"><div class="gl"><span>Coste del sistema</span><b id="re_coste">—</b></div></div>
+    <div class="g"><div class="gl"><span>Presión del circuito</span><b id="re_p">—</b></div></div>
+    <div class="g"><div class="gl"><span>Fuerza en la palanca</span><b id="re_mano">—</b></div></div>
+    <div class="g"><div class="gl"><span>Bombeos</span><b id="re_N">—</b></div></div>
+    <div class="g"><div class="gl"><span>Veredicto</span><b id="re_verd">—</b></div></div>
+    <h4 class="sec">Diagnóstico</h4>
+    <div class="console" id="quizQ">—</div>
+    <div class="btns" id="dxbtns"></div>
+    <div class="g"><div class="gl"><span>Respuesta</span><b id="quizVerd">Sin responder</b></div></div>
+  </div>`;
+
+/* ---------- wiring ---------- */
+modes.forEach(m=>{ const b=el('m_'+m); if(b) b.onclick=()=>{
+  if(mode==='reto'&&!retoSolved&&m!=='reto'){
+    showToast('<span style="color:var(--bad)">🔒 Resuelve el reto (cilindro, bomba y latiguillo correctos) antes de salir a otro modo.</span>');
+    synth.beep(220,0.1,0.05);
+    return;
+  }
+  setMode(m);
+}; });
+el('btnReset').onclick=()=>initAssembly();
+el('btnAuto').onclick=()=>autoAssemble();
+el('btnTour').onclick=()=>runAuto();
+el('btnCheck').onclick=()=>checkReto();
+el('btnNew').onclick=()=>newReto();
+el('btnPump1').onclick=()=>bombear(1);
+el('btnPump10').onclick=()=>bombear(10);
+el('btnRetraer').onclick=()=>retraer();
+document.querySelectorAll('#paCil [data-k]').forEach(b=>{ b.onclick=()=>{ PAS.cil=b.dataset.k; refreshAll(); }; });
+document.querySelectorAll('#paBom [data-k]').forEach(b=>{ b.onclick=()=>{ PAS.bom=b.dataset.k; refreshAll(); }; });
+document.querySelectorAll('#paF [data-k]').forEach(b=>{ b.onclick=()=>{ PAS.F=+b.dataset.k; refreshAll(); }; });
+document.querySelectorAll('#paMano [data-k]').forEach(b=>{ b.onclick=()=>{ PAS.f=+b.dataset.k; refreshAll(); }; });
+document.querySelectorAll('#voTrab [data-k]').forEach(b=>{ b.onclick=()=>{ VOL.k=+b.dataset.k; VOL.golpes=0; syncRam(); refreshAll(); }; });
+document.querySelectorAll('#voCil [data-k]').forEach(b=>{ b.onclick=()=>{ VOL.cil=b.dataset.k; VOL.golpes=0; syncRam(); refreshAll(); }; });
+document.querySelectorAll('#voBom [data-k]').forEach(b=>{ b.onclick=()=>{ VOL.bom=b.dataset.k; VOL.golpes=0; syncRam(); refreshAll(); }; });
+document.querySelectorAll('#voAire [data-k]').forEach(b=>{ b.onclick=()=>{ VOL.aire=+b.dataset.k; refreshAll(); }; });
+document.querySelectorAll('#prTrab [data-k]').forEach(b=>{ b.onclick=()=>{ PRO.k=+b.dataset.k; refreshAll(); }; });
+document.querySelectorAll('#prBom [data-k]').forEach(b=>{ b.onclick=()=>{ PRO.bom=b.dataset.k; refreshAll(); }; });
+document.querySelectorAll('#reCil [data-k]').forEach(b=>{ b.onclick=()=>{ RET.cil=b.dataset.k; retoChecked=false; refreshAll(); }; });
+document.querySelectorAll('#reBom [data-k]').forEach(b=>{ b.onclick=()=>{ RET.bom=b.dataset.k; retoChecked=false; refreshAll(); }; });
+document.querySelectorAll('#reMan [data-k]').forEach(b=>{ b.onclick=()=>{ RET.man=b.dataset.k; retoChecked=false; refreshAll(); }; });
+const soundBtn=document.getElementById('soundBtn');
+soundBtn.onclick=()=>{const on=synth.toggle();soundBtn.textContent=on?'🔊':'🔇';soundBtn.classList.toggle('on',on);};
+
+RET=startCfg(POOL[retoK]);
+shuffleQuiz();
+initAssembly();
+syncCtrlbar();
+setMode('ensamble');
+
+window.__labDebug={
+  mode:()=>mode,
+  progress:()=>({placed:{...placed},progress,simUnlocked}),
+  ETA_CIL, F_MANO_MAX, SF_MAN, P_ATM,
+  CILINDROS, CILK, BOMBAS, BOMK, MANGUERAS, MANK, POOL,
+  AREA, presionReq, fuerzaMano, volBombeo, avanceBombeo, bombeos,
+  multiplicacion, reduccion, fuerzaTecho, presionColumna, pRotura,
+  banco, aire, evalua, GOOD, cfgWith, costeMinEje, okCil, okBom, okMan,
+  whyCfg, whyEje, curvaCil, startCfg,
+  pascal:()=>({...PAS, ...banco(PAS.cil,PAS.bom,PAS.f,PAS.F)}),
+  volumen:()=>{ const sc=POOL[VOL.k]; return {...VOL, sc:sc.id, V:volBombeo(VOL.bom), s2:avanceBombeo(VOL.cil,VOL.bom),
+    N:bombeos(sc.s,VOL.cil,VOL.bom), p:presionReq(sc.F,VOL.cil), air:aire(VOL.aire,presionReq(sc.F,VOL.cil),VOL.bom)}; },
+  proyecto:()=>({...PRO, curva:curvaCil(POOL[PRO.k],PRO.bom)}),
+  retoK:()=>retoK,
+  retoCfg:()=>({...RET}),
+  reto:()=>({k:retoK, sc:POOL[retoK].id, cfg:{...RET}, eval:evalua(POOL[retoK],RET), good:GOOD(POOL[retoK]),
+    checked:retoChecked, solved:retoSolved, ok:{...retoOk}}),
+  quiz:()=>({q:quizDef().q, opts:quizOpts().map(o=>({t:o.t,ok:!!o.ok})), pick:quizPick, ok:quizOkFlag}),
+  quizAnswer:(i)=>answerQuiz(i),
+  setPascal:(o)=>{ Object.assign(PAS,o); refreshAll(); },
+  setVolumen:(o)=>{ Object.assign(VOL,o); syncRam(); refreshAll(); },
+  setProyecto:(o)=>{ Object.assign(PRO,o); refreshAll(); },
+  setReto:(k)=>{ retoK=k; RET=startCfg(POOL[k]); retoChecked=false; retoSolved=false; retoOk={cil:false,bom:false,man:false}; shuffleQuiz(); refreshAll(); },
+  setRetoCfg:(o)=>{ Object.assign(RET,o); retoChecked=false; refreshAll(); },
+  bombear, retraer, setMode, checkReto, newReto, runAuto,
+};
