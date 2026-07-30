@@ -1,0 +1,9 @@
+{
+  "donor": "escaner-obd.html",
+  "out": "logica-neumatica-temporizacion.html",
+  "title": "CEN Labs · Lógica neumática Y/O y temporización — Laboratorio 3D",
+  "lt": "Hidráulica y Neumática · Mecánica",
+  "inspectHint": "👆 Toca las dos entradas, el elemento lógico, el estrangulador, el depósito, la válvula de potencia o los LEDs del banco para ver qué decide cada pieza",
+  "body": "logica-neumatica-temporizacion.body.js",
+  "fichas": ["_ficha-tecnica.js", "_ficha-logica-neumatica-temporizacion.js"]
+}
