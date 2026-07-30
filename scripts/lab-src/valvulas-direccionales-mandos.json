@@ -1,0 +1,9 @@
+{
+  "donor": "escaner-obd.html",
+  "out": "valvulas-direccionales-mandos.html",
+  "title": "CEN Labs · Válvulas direccionales: vías, posiciones y mandos — Laboratorio 3D",
+  "lt": "Hidráulica y Neumática · Mecánica",
+  "inspectHint": "👆 Toca la válvula, el carrete, el accionamiento, los tubos o el cilindro del banco para inspeccionar el mando",
+  "body": "valvulas-direccionales-mandos.body.js",
+  "fichas": ["_ficha-tecnica.js", "_ficha-valvulas-direccionales-mandos.js"]
+}

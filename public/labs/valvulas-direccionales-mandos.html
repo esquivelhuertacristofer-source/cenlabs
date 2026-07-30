@@ -1,0 +1,1891 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>CEN Labs · Válvulas direccionales: vías, posiciones y mandos — Laboratorio 3D</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#08201C;--panel:rgba(9,26,23,.86);--line:#1E3A34;--ink:#EAF4F1;
+    --dim:#8FB3AC;--accent:#2A9D8F;--accent2:#4FD1C5;--hv:#FFB703;--good:#34d399;--bad:#f4475e;
+    --mono:'Outfit',system-ui,'Segoe UI',Roboto,sans-serif;--disp:'Outfit','Arial Black',Impact,sans-serif;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  html,body{height:100%;background:var(--bg);color:var(--ink);font-family:'Outfit',system-ui,Segoe UI,Roboto,sans-serif}
+  body{overflow:hidden}
+  #stage{position:fixed;inset:0}
+  canvas{display:block;touch-action:none}
+
+  .topbar{position:fixed;top:0;left:0;right:0;height:56px;display:flex;align-items:center;gap:14px;padding:0 20px;z-index:20;background:linear-gradient(180deg,rgba(10,13,18,.92),transparent);pointer-events:none}
+  .brand{font-family:var(--disp);font-weight:bold;font-size:16px;text-transform:uppercase}
+  .brand span{color:var(--accent)}
+  .lt{font-family:var(--mono);font-size:11px;letter-spacing:.1em;text-transform:uppercase;color:var(--dim)}
+
+  .badge{position:fixed;top:16px;right:20px;z-index:20;font-family:var(--mono);font-size:9px;letter-spacing:.12em;text-transform:uppercase;background:rgba(255,209,102,.12);color:var(--hv);border:1px solid rgba(255,209,102,.35);padding:6px 12px;border-radius:20px}
+
+  .hud{position:fixed;top:70px;left:18px;z-index:15;max-width:330px;background:var(--panel);backdrop-filter:blur(14px);border:1px solid var(--line);border-radius:16px;padding:18px 20px;max-height:calc(100vh - 150px);overflow-y:auto}
+  .hud .eyebrow{font-family:var(--mono);font-size:10px;letter-spacing:.18em;text-transform:uppercase;color:var(--accent);margin-bottom:8px}
+  .hud h2{font-size:19px;line-height:1.15;margin-bottom:9px}
+  .hud p{font-size:13px;line-height:1.55;color:var(--dim);margin-bottom:10px}
+  .hud .formula{font-family:var(--mono);color:var(--accent2);text-align:center;font-size:12.5px;margin:8px 0;padding:8px;background:rgba(0,0,0,.25);border-radius:8px;line-height:1.5}
+  .hud .src{font-size:10.5px;color:#7a8894;font-style:italic;margin-top:4px;line-height:1.5}
+  .legend{display:flex;flex-direction:column;gap:6px;margin:12px 0;padding:10px 12px;background:rgba(0,0,0,.22);border-radius:10px}
+  .legend .li{display:flex;align-items:center;gap:8px;font-size:11px;color:#c4d0da}
+  .legend .dot{width:10px;height:10px;border-radius:50%;flex:0 0 auto}
+  .fid{margin:10px 0 2px;padding:10px 12px;background:rgba(0,0,0,.22);border-radius:10px;border:1px solid rgba(79,209,197,.18)}
+  .fid .ft{font-family:var(--mono);font-size:9.5px;letter-spacing:.14em;text-transform:uppercase;color:var(--accent2);margin-bottom:6px}
+  .fid .fl{font-size:11px;color:#c4d0da;line-height:1.5;margin-bottom:5px}
+  .fid .fl b{color:var(--ink)}
+  .fid .fl.no b{color:var(--hv)}
+
+  .panel{position:fixed;top:70px;right:18px;z-index:15;width:262px;background:var(--panel);backdrop-filter:blur(14px);border:1px solid var(--line);border-radius:16px;padding:16px;max-height:calc(100vh - 150px);overflow-y:auto}
+  .panel h4{font-family:var(--mono);font-size:10px;letter-spacing:.14em;text-transform:uppercase;color:var(--dim);margin:2px 0 10px}
+  .panel h4.sec{margin-top:16px;border-top:1px solid var(--line);padding-top:14px}
+  .g{margin-bottom:6px}
+  .gl{display:flex;justify-content:space-between;font-family:var(--mono);font-size:11px;color:var(--dim)}
+  .gl b{color:var(--accent2)}
+  .gl b.good{color:var(--good)}.gl b.warn{color:var(--hv)}.gl b.bad{color:var(--bad)}
+  .modebar{display:flex;gap:5px;margin-bottom:8px}
+  .modebar .b{flex:1;padding:8px 4px;font-size:11px}
+  .btns{display:flex;flex-direction:column;gap:7px;margin-top:6px}
+  .b{font-family:system-ui;font-size:12.5px;padding:10px;border-radius:9px;cursor:pointer;border:1px solid var(--line);background:#1b242f;color:var(--ink);transition:.15s;text-align:center}
+  .b:hover{border-color:var(--accent);background:#202c38}
+  .b.on{background:var(--accent);color:#06120f;border-color:var(--accent);font-weight:bold}
+  .b.primary{background:var(--accent);color:#06120f;border-color:var(--accent);font-weight:bold}
+  .b.auto{border-color:var(--hv);color:var(--hv);background:rgba(255,183,3,.10);font-weight:bold}
+  .b.auto:hover{background:rgba(255,183,3,.18);border-color:var(--hv)}
+  .b.auto:disabled{opacity:.6;cursor:default}
+  .b.dx{text-align:left;font-size:12px}
+  .b.dx.right{background:rgba(52,211,153,.18);border-color:var(--good);color:var(--good);font-weight:bold}
+  .b.dx.wrong{background:rgba(244,71,94,.15);border-color:var(--bad);color:var(--bad)}
+  .console{font-family:var(--mono);font-size:11px;line-height:1.55;color:#c4d0da;background:rgba(0,0,0,.28);border-radius:9px;padding:10px 12px;margin-bottom:8px;min-height:56px}
+  .console .dtc{color:var(--bad);font-weight:bold}
+  .console .ok{color:var(--good)}
+  .console .mono{color:var(--dim)}
+
+  .hint{position:fixed;bottom:18px;left:18px;z-index:14;font-family:var(--mono);font-size:10px;color:var(--dim);background:var(--panel);padding:7px 12px;border-radius:9px;border:1px solid var(--line)}
+  .toast{position:fixed;top:80px;left:50%;transform:translateX(-50%);z-index:30;background:rgba(18,24,32,.95);border:1px solid var(--accent);padding:10px 20px;border-radius:40px;font-family:var(--mono);font-size:12px;opacity:0;transition:.3s;pointer-events:none;max-width:80vw;text-align:center}
+  .toast.show{opacity:1}
+  .soundBtn{position:fixed;top:14px;right:18px;z-index:21;font-size:16px;background:var(--panel);backdrop-filter:blur(12px);border:1px solid var(--line);border-radius:50%;width:36px;height:36px;cursor:pointer;color:var(--dim);transition:.15s}
+  .soundBtn.on{color:var(--accent);border-color:var(--accent)}
+  .soundBtn:hover{transform:scale(1.08)}
+  .inspectHint{position:fixed;bottom:18px;right:18px;z-index:14;font-family:var(--mono);font-size:10px;color:var(--accent2);background:var(--panel);padding:7px 12px;border-radius:9px;border:1px solid var(--line)}
+
+  @media(max-width:820px){
+    .hud,.panel{position:fixed;left:8px;right:8px;top:auto;bottom:8px;max-width:none;width:auto;max-height:42vh;overflow-y:auto}
+    .hud{bottom:calc(8px + 42vh + 8px)}
+    .hint,.inspectHint{display:none}
+  }
+</style>
+</head>
+<body>
+<div id="stage"></div>
+<button class="soundBtn on" id="soundBtn">🔊</button>
+<div class="topbar">
+  <div class="brand">CEN<span> Labs</span></div>
+  <div class="lt">Hidráulica y Neumática · Mecánica</div>
+</div>
+<div class="hud" id="hud"></div>
+<div class="panel" id="panel"></div>
+<div class="hint">Arrastra para orbitar · rueda para zoom</div>
+<div class="inspectHint">👆 Toca la válvula, el carrete, el accionamiento, los tubos o el cilindro del banco para inspeccionar el mando</div>
+<div class="toast" id="toast"></div>
+
+<script type="importmap">
+{ "imports": {
+  "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.min.js",
+  "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/"
+}}
+</script>
+<script type="module">
+import * as THREE from 'three';
+import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
+import { RoundedBoxGeometry } from 'three/addons/geometries/RoundedBoxGeometry.js';
+import { EffectComposer } from 'three/addons/postprocessing/EffectComposer.js';
+import { RenderPass } from 'three/addons/postprocessing/RenderPass.js';
+import { GTAOPass } from 'three/addons/postprocessing/GTAOPass.js';
+import { UnrealBloomPass } from 'three/addons/postprocessing/UnrealBloomPass.js';
+import { SMAAPass } from 'three/addons/postprocessing/SMAAPass.js';
+import { OutputPass } from 'three/addons/postprocessing/OutputPass.js';
+import { BokehPass } from 'three/addons/postprocessing/BokehPass.js';
+
+/* ============================================================
+   Texturas PBR procedurales (sin archivos externos) — compartidas
+   ============================================================ */
+function cv(s=512){const c=document.createElement('canvas');c.width=c.height=s;return c;}
+function tex(canvas,repeat=1,srgb=false){
+  const t=new THREE.CanvasTexture(canvas);
+  t.wrapS=t.wrapT=THREE.RepeatWrapping;t.repeat.set(repeat,repeat);
+  t.colorSpace = srgb?THREE.SRGBColorSpace:THREE.NoColorSpace;
+  t.generateMipmaps=false; t.minFilter=THREE.LinearFilter; t.anisotropy=1; return t;
+}
+function normalFromHeight(size, hfn, strength=2.0){
+  const c=cv(size),ctx=c.getContext('2d'),img=ctx.createImageData(size,size);
+  const H=(x,y)=>hfn((x+size)%size,(y+size)%size);
+  for(let y=0;y<size;y++)for(let x=0;x<size;x++){
+    const dx=(H(x+1,y)-H(x-1,y))*strength;
+    const dy=(H(x,y+1)-H(x,y-1))*strength;
+    const nz=1.0; const len=Math.hypot(dx,dy,nz);
+    const i=(y*size+x)*4;
+    img.data[i]  =((-dx/len)*0.5+0.5)*255;
+    img.data[i+1]=((-dy/len)*0.5+0.5)*255;
+    img.data[i+2]=((nz/len)*0.5+0.5)*255;
+    img.data[i+3]=255;
+  }
+  ctx.putImageData(img,0,0);return c;
+}
+function valueNoise(seed=1){
+  const g=(x,y)=>{const s=Math.sin((x*127.1+y*311.7)+seed*13.13)*43758.5453;return s-Math.floor(s);};
+  return (x,y)=>{
+    const xi=Math.floor(x),yi=Math.floor(y),xf=x-xi,yf=y-yi;
+    const u=xf*xf*(3-2*xf),v=yf*yf*(3-2*yf);
+    const a=g(xi,yi),b=g(xi+1,yi),c=g(xi,yi+1),d=g(xi+1,yi+1);
+    return a*(1-u)*(1-v)+b*u*(1-v)+c*(1-u)*v+d*u*v;
+  };
+}
+function fbm(noise,x,y,oct=4){let v=0,a=0.5,f=1;for(let i=0;i<oct;i++){v+=noise(x*f,y*f)*a;f*=2;a*=0.5;}return v;}
+
+function castAluminum(){
+  const S=512, n=valueNoise(7);
+  const c=cv(S),ctx=c.getContext('2d'),img=ctx.createImageData(S,S);
+  for(let y=0;y<S;y++)for(let x=0;x<S;x++){
+    const v=fbm(n,x/22,y/22,5);
+    const por=Math.pow(n(x/3.1,y/3.1),8);
+    const base=150+v*38-por*70;
+    const i=(y*S+x)*4; img.data[i]=base; img.data[i+1]=base+4; img.data[i+2]=base+10; img.data[i+3]=255;
+  }
+  ctx.putImageData(img,0,0);
+  const r=cv(S),rx=r.getContext('2d'),rimg=rx.createImageData(S,S);
+  for(let y=0;y<S;y++)for(let x=0;x<S;x++){
+    const v=fbm(n,x/18,y/18,4); const por=Math.pow(n(x/3.1,y/3.1),8);
+    const rough=120+v*40+por*90; const i=(y*S+x)*4;
+    rimg.data[i]=rimg.data[i+1]=rimg.data[i+2]=Math.min(255,rough); rimg.data[i+3]=255;
+  }
+  rx.putImageData(rimg,0,0);
+  const nrm=normalFromHeight(S,(x,y)=>fbm(n,x/16,y/16,5)+Math.pow(n(x/3.1,y/3.1),8)*0.6,3.0);
+  return {map:tex(c,1,true),roughnessMap:tex(r),normalMap:tex(nrm)};
+}
+function brushedMetal(){
+  const S=512, n=valueNoise(3);
+  const c=cv(S),ctx=c.getContext('2d'),img=ctx.createImageData(S,S);
+  for(let y=0;y<S;y++)for(let x=0;x<S;x++){
+    const streak=Math.sin(y*0.9)*2 + (n(x/120,y*0.5)-0.5)*40;
+    const base=185+streak; const i=(y*S+x)*4;
+    img.data[i]=base; img.data[i+1]=base+2; img.data[i+2]=base+6; img.data[i+3]=255;
+  }
+  ctx.putImageData(img,0,0);
+  const r=cv(S),rx=r.getContext('2d'),rimg=rx.createImageData(S,S);
+  for(let y=0;y<S;y++)for(let x=0;x<S;x++){
+    const streak=(n(x/120,y*0.5)-0.5)*60; const rough=40+Math.abs(streak); const i=(y*S+x)*4;
+    rimg.data[i]=rimg.data[i+1]=rimg.data[i+2]=Math.min(160,rough); rimg.data[i+3]=255;
+  }
+  rx.putImageData(rimg,0,0);
+  const nrm=normalFromHeight(S,(x,y)=>(n(x/120,y*0.5))*0.3+Math.sin(y*0.9)*0.02,1.2);
+  return {map:tex(c,1,true),roughnessMap:tex(r),normalMap:tex(nrm)};
+}
+function rubber(){
+  const S=256,n=valueNoise(5);
+  const nrm=normalFromHeight(S,(x,y)=>fbm(n,x/8,y/8,4),1.4);
+  const rough=cv(64),rc=rough.getContext('2d');rc.fillStyle='#e0e0e0';rc.fillRect(0,0,64,64);
+  return {roughnessMap:tex(rough),normalMap:tex(nrm,2)};
+}
+function gradientBG(top='#11161d',bottom='#05070a'){
+  const c=cv(512),ctx=c.getContext('2d');
+  const grd=ctx.createLinearGradient(0,0,0,512);
+  grd.addColorStop(0,top);grd.addColorStop(1,bottom);
+  ctx.fillStyle=grd;ctx.fillRect(0,0,512,512);
+  const rg=ctx.createRadialGradient(256,200,30,256,256,360);
+  rg.addColorStop(0,'rgba(42,157,143,0.10)');rg.addColorStop(1,'rgba(0,0,0,0)');
+  ctx.fillStyle=rg;ctx.fillRect(0,0,512,512);
+  return tex(c,1,true);
+}
+function techPlastic(r=0.10,g=0.11,b=0.13){
+  const S=256,n=valueNoise(31);
+  const c=cv(S),ctx=c.getContext('2d'),img=ctx.createImageData(S,S);
+  for(let y=0;y<S;y++)for(let x=0;x<S;x++){
+    const v=fbm(n,x/30,y/30,3)*0.1+0.92; const i=(y*S+x)*4;
+    img.data[i]=r*255*v;img.data[i+1]=g*255*v;img.data[i+2]=b*255*v;img.data[i+3]=255;
+  }
+  ctx.putImageData(img,0,0);
+  const nrm=normalFromHeight(S,(x,y)=>fbm(n,x/10,y/10,3),0.8);
+  const rough=cv(64),rc=rough.getContext('2d');rc.fillStyle='#9a9a9a';rc.fillRect(0,0,64,64);
+  return {map:tex(c,1,true),roughnessMap:tex(rough),normalMap:tex(nrm)};
+}
+
+/* ============================================================
+   ENGINE — render premium compartido por todos los laboratorios
+   ============================================================ */
+function createStage(mount, opts={}){
+  const bgTop = opts.bgTop||'#141b24', bgBot = opts.bgBot||'#05070a';
+  const renderer = new THREE.WebGLRenderer({ antialias:true, powerPreference:'high-performance' });
+  renderer.setPixelRatio(Math.min(devicePixelRatio,2));
+  renderer.setSize(mount.clientWidth, mount.clientHeight);
+  renderer.shadowMap.enabled = true;
+  renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+  renderer.toneMapping = THREE.ACESFilmicToneMapping;
+  renderer.toneMappingExposure = opts.exposure ?? 1.18;
+  renderer.outputColorSpace = THREE.SRGBColorSpace;
+  mount.appendChild(renderer.domElement);
+  renderer.domElement.style.touchAction='none';
+
+  const scene = new THREE.Scene();
+  scene.background = gradientBG(bgTop,bgBot);
+  const pmrem = new THREE.PMREMGenerator(renderer);
+  scene.environment = pmrem.fromScene(new RoomEnvironment(renderer), 0.04).texture;
+  scene.environmentIntensity = opts.envInt ?? 1.15;
+
+  const camera = new THREE.PerspectiveCamera(45, mount.clientWidth/mount.clientHeight, 0.1, 200);
+  const cam = opts.cam || [5.5,3.4,6.2];
+  camera.position.set(...cam);
+
+  const controls = new OrbitControls(camera, renderer.domElement);
+  controls.enableDamping = true; controls.dampingFactor = 0.07;
+  controls.minDistance = opts.minD ?? 3; controls.maxDistance = opts.maxD ?? 18;
+  controls.maxPolarAngle = Math.PI*0.52;
+  controls.target.set(...(opts.target||[0,1.4,0]));
+  controls.autoRotate = opts.autoRotate ?? false;
+  controls.autoRotateSpeed = opts.autoRotateSpeed ?? 0.6;
+
+  const key = new THREE.DirectionalLight(0xffffff, 2.7);
+  key.position.set(5,9,6); key.castShadow=true;
+  key.shadow.mapSize.set(2048,2048);
+  key.shadow.camera.near=0.5; key.shadow.camera.far=40;
+  const sd=8; Object.assign(key.shadow.camera,{left:-sd,right:sd,top:sd,bottom:-sd});
+  key.shadow.bias=-0.0003; key.shadow.normalBias=0.02; scene.add(key);
+  const rim = new THREE.SpotLight(0x2affce, 55, 30, Math.PI/5, 0.4, 1.5);
+  rim.position.set(-7,6,-5); scene.add(rim);
+  const fill = new THREE.DirectionalLight(0x6fb6ff, 0.5); fill.position.set(-4,3,7); scene.add(fill);
+  scene.add(new THREE.HemisphereLight(0x9fb4c8, 0x10151b, 0.35));
+
+  if(opts.floor!==false){
+    const f = new THREE.Mesh(new THREE.CircleGeometry(40,80),
+      new THREE.MeshStandardMaterial({ color:0x0a0e13, roughness:0.14, metalness:0.62, envMapIntensity:1.15 }));
+    f.rotation.x=-Math.PI/2; f.receiveShadow=true; scene.add(f);
+    for(let r=2;r<=8;r+=2){
+      const ring=new THREE.Mesh(new THREE.RingGeometry(r-0.012,r+0.012,80),
+        new THREE.MeshBasicMaterial({color:0x1a2632,transparent:true,opacity:0.4}));
+      ring.rotation.x=-Math.PI/2; ring.position.y=0.002; scene.add(ring);
+    }
+  }
+
+  const isMobile = /Mobi|Android|iPhone|iPad/i.test(navigator.userAgent) || innerWidth<820;
+  // GTAO desactivado por defecto: el pase de oclusión ambiental en espacio de pantalla
+  // producía un recuadro oscuro duro sobre el piso reflectante (artefacto dependiente de la
+  // cámara y del renderer). La escena tiene AO suficiente con luces directas + sombras + env.
+  // Se puede reactivar para pruebas con ?gtao.
+  const useGtao = /[?&]gtao\b/.test(location.search);
+  const composer = new EffectComposer(renderer);
+  composer.addPass(new RenderPass(scene,camera));
+  if(!isMobile && useGtao){
+    try{
+      const g=new GTAOPass(scene,camera,mount.clientWidth,mount.clientHeight);
+      g.output=GTAOPass.OUTPUT.Default;
+      if(g.updateGtaoMaterial)g.updateGtaoMaterial({radius:0.5,distanceExponent:1,thickness:1,scale:1.1,samples:16});
+      composer.addPass(g);
+    }catch(e){}
+  }
+  const bloom=new UnrealBloomPass(new THREE.Vector2(mount.clientWidth,mount.clientHeight),opts.bloom??0.42,0.5,0.9);
+  composer.addPass(bloom);
+  let bokeh=null;
+  const flat=/[?&]flat/.test(location.search);
+  if(!isMobile && !flat){
+    bokeh=new BokehPass(scene,camera,{focus:8.5,aperture:opts.aperture??0.00018,maxblur:opts.maxblur??0.004,width:mount.clientWidth,height:mount.clientHeight});
+    composer.addPass(bokeh);
+  }
+  composer.addPass(new OutputPass());
+  composer.addPass(new SMAAPass(mount.clientWidth*renderer.getPixelRatio(),mount.clientHeight*renderer.getPixelRatio()));
+
+  function resize(){
+    const w=mount.clientWidth,h=mount.clientHeight;
+    camera.aspect=w/h; camera.updateProjectionMatrix();
+    renderer.setSize(w,h); composer.setSize(w,h);
+  }
+  window.addEventListener('resize',resize);
+
+  const clock=new THREE.Clock();
+  let hook=null, raf=null;
+  const camCine={active:false,t:0,dur:1.4,from:new THREE.Vector3(),to:new THREE.Vector3(),fromT:new THREE.Vector3(),toT:new THREE.Vector3()};
+  let lastDrag=-99, cinematicIdle=false;
+  controls.addEventListener('start',()=>{ lastDrag=clock.elapsedTime; camCine.active=false; });
+  function easeInOutCubic(x){return x<0.5?4*x*x*x:1-Math.pow(-2*x+2,3)/2;}
+  function moveTo(pos,target,dur=1.4){
+    camCine.from.copy(camera.position); camCine.fromT.copy(controls.target);
+    camCine.to.set(...pos); camCine.toT.set(...target);
+    camCine.dur=dur; camCine.active=true; camCine.t=0;
+  }
+  function setCinematicIdle(v){ cinematicIdle=v; if(!v)controls.autoRotate=false; }
+  function loop(){ raf=requestAnimationFrame(loop); const dt=clock.getDelta(),t=clock.elapsedTime;
+    if(camCine.active){
+      camCine.t=Math.min(1,camCine.t+dt/camCine.dur);
+      const e=easeInOutCubic(camCine.t);
+      camera.position.lerpVectors(camCine.from,camCine.to,e);
+      controls.target.lerpVectors(camCine.fromT,camCine.toT,e);
+      if(camCine.t>=1)camCine.active=false;
+    } else if(cinematicIdle){
+      controls.autoRotate=(t-lastDrag)>1.4; controls.autoRotateSpeed=0.45;
+    }
+    if(hook)hook(dt,t); controls.update();
+    if(bokeh) bokeh.uniforms['focus'].value = camera.position.distanceTo(controls.target);
+    composer.render(); }
+  function start(){ if(!raf)loop(); }
+  function stop(){ cancelAnimationFrame(raf); raf=null; window.removeEventListener('resize',resize); }
+
+  return { THREE, renderer, scene, camera, controls, composer, bloom,
+    setAnimate:fn=>hook=fn, start, stop, resize, clock,
+    flyTo:(v)=>{ controls.target.copy(v); }, moveTo, setCinematicIdle };
+}
+
+/* ---------- shared geometry/material helpers ---------- */
+function roundedBox(w,h,d,mat,rf=0.08){
+  const r=Math.min(w,h,d)*rf;
+  const m=new THREE.Mesh(new RoundedBoxGeometry(w,h,d,4,r),mat);
+  m.castShadow=m.receiveShadow=true; return m;
+}
+function pickerFor(scene,camera,dom,onHit){
+  const ray=new THREE.Raycaster(),mouse=new THREE.Vector2(); let down=null;
+  dom.addEventListener('pointerdown',e=>down=[e.clientX,e.clientY]);
+  dom.addEventListener('pointerup',e=>{
+    if(!down)return; const moved=Math.abs(e.clientX-down[0])+Math.abs(e.clientY-down[1])>6; down=null;
+    if(moved)return;
+    const r=dom.getBoundingClientRect();
+    mouse.x=((e.clientX-r.left)/r.width)*2-1; mouse.y=-((e.clientY-r.top)/r.height)*2+1;
+    ray.setFromCamera(mouse,camera);
+    const hits=ray.intersectObjects(scene.children,true);
+    onHit(hits[0]||null);
+  });
+}
+function labelSprite(text,color='#ffd166'){
+  const w = Math.max(150, Math.min(520, text.length*26+60));
+  const cvE=document.createElement('canvas');cvE.width=w;cvE.height=96;
+  const c=cvE.getContext('2d');c.fillStyle='rgba(8,11,16,.95)';
+  const rr=(x,y,ww,hh,r)=>{c.beginPath();c.moveTo(x+r,y);c.arcTo(x+ww,y,x+ww,y+hh,r);c.arcTo(x+ww,y+hh,x,y+hh,r);c.arcTo(x,y+hh,x,y,r);c.arcTo(x,y,x+ww,y,r);c.closePath();};
+  rr(3,3,w-6,90,18);c.fill();
+  c.strokeStyle=color;c.lineWidth=3;c.stroke();
+  c.font='bold 36px Outfit, system-ui, sans-serif';c.fillStyle=color;c.textAlign='center';c.textBaseline='middle';c.fillText(text,w/2,48);
+  const tx=new THREE.CanvasTexture(cvE);tx.colorSpace=THREE.SRGBColorSpace;tx.generateMipmaps=false;tx.minFilter=THREE.LinearFilter;
+  const sp=new THREE.Sprite(new THREE.SpriteMaterial({map:tx,depthTest:false,transparent:true}));
+  const aspect=w/96;
+  sp.scale.set(0.30*aspect,0.30,1);sp.renderOrder=999;return sp;
+}
+
+/* ============================================================
+   SYNTH — sintetizador Web Audio reutilizable
+   ============================================================ */
+function makeSynth(opts={}){
+  const type=opts.type||'sawtooth';
+  let ctx=null,oscA=null,oscB=null,gain=null,filter=null,soundOn=true;
+  function init(){
+    if(ctx)return;
+    try{
+      ctx=new (window.AudioContext||window.webkitAudioContext)();
+      oscA=ctx.createOscillator(); oscB=ctx.createOscillator();
+      oscA.type=type; oscB.type=opts.type2||'square';
+      filter=ctx.createBiquadFilter(); filter.type=opts.filterType||'lowpass'; filter.frequency.value=opts.filterFreq||500; filter.Q.value=opts.Q||3;
+      gain=ctx.createGain(); gain.gain.value=0;
+      oscA.connect(filter); oscB.connect(filter); filter.connect(gain); gain.connect(ctx.destination);
+      oscA.start(); oscB.start();
+    }catch(e){}
+  }
+  function update(freqA,freqB,vol,filterFreq){
+    if(!ctx||!soundOn){ if(gain)gain.gain.setTargetAtTime(0,ctx?.currentTime||0,0.1); return; }
+    oscA.frequency.setTargetAtTime(freqA,ctx.currentTime,0.04);
+    if(freqB!==undefined)oscB.frequency.setTargetAtTime(freqB,ctx.currentTime,0.04);
+    if(filterFreq!==undefined)filter.frequency.setTargetAtTime(filterFreq,ctx.currentTime,0.05);
+    gain.gain.setTargetAtTime(Math.max(0,vol),ctx.currentTime,0.06);
+  }
+  function beep(freq=880,dur=0.09,vol=0.06){
+    if(!ctx||!soundOn)return;
+    const o=ctx.createOscillator(),g=ctx.createGain();
+    o.type='sine'; o.frequency.value=freq;
+    g.gain.setValueAtTime(vol,ctx.currentTime); g.gain.exponentialRampToValueAtTime(0.001,ctx.currentTime+dur);
+    o.connect(g); g.connect(ctx.destination); o.start(); o.stop(ctx.currentTime+dur);
+  }
+  function toggle(){ soundOn=!soundOn; return soundOn; }
+  function resume(){ if(ctx&&ctx.state==='suspended')ctx.resume(); }
+  return { init, update, beep, toggle, resume, isOn:()=>soundOn, state:()=>ctx?.state||'none' };
+}
+
+/* =============================================================================
+   MEC-95 · d4-03 — Válvulas direccionales: vías, posiciones y mandos básicos
+   -----------------------------------------------------------------------------
+   MOTOR SELLADO: el bloque entre "===== MOTOR =====" y "===== FIN MOTOR ====="
+   está pegado VERBATIM desde el verificador numérico (verif_valvulas.mjs,
+   132/132). Ninguna cifra ni ningún veredicto del pizarrón, del panel, de la
+   ficha ni del briefing está escrito a mano: todos salen de estas funciones.
+
+   Modelo:
+   · Vías y posiciones — una válvula se nombra por el número de orificios de
+     trabajo (vías) y por el número de estados del carrete (posiciones). Cada
+     posición es una LISTA de pares de puertos comunicados; lo que no aparece
+     en la lista queda bloqueado. De ahí sale todo el resto del simulador.
+   · Puertos (ISO 11727) — 1 alimentación, 2 y 4 salidas de trabajo, 3 y 5
+     escapes, 12 y 14 pilotajes. El pilotaje 12 conecta 1 con 2 y el 14
+     conecta 1 con 4: el número del pilotaje dice a qué salida da paso.
+   · Mandos — el accionamiento no cambia lo que la válvula hace, cambia CUÁNTAS
+     órdenes independientes entrega y si la orden se sostiene. Una monoestable
+     necesita una orden y un muelle; una biestable y una de tres posiciones
+     necesitan dos.
+   · Cámaras y vástago — el estado de cada cámara del cilindro (presión,
+     escape, bloqueada o atmósfera) se deduce de la posición del carrete y del
+     conexionado, y de las dos cámaras sale el veredicto del vástago.
+   · Fuerzas — F_teo = p · A (1 bar sobre 1 cm² = 10 N) y F_útil = η · p · A con
+     η = 0,85. El muelle de un simple efecto se declara como RANGO de catálogo
+     (10 %–20 % de la teórica a 6 bar), no como una cifra inventada. Con las dos
+     cámaras a presión queda la fuerza diferencial, que es exactamente la del
+     área del vástago.
+
+   Ref: ISO 1219-1 (símbolos de los mandos y de las válvulas) ·
+        ISO 11727 (identificación de los puertos) ·
+        ISO 15552 (cilindros normalizados, parejas émbolo-vástago) ·
+        ISO 4414 (seguridad: el aire atrapado no es un medio de retención).
+   ============================================================================= */
+
+// ===================== 1. ESCENA =====================
+const mount=document.getElementById('stage');
+const S=createStage(mount,{cam:[5.4,3.0,7.6],target:[0.6,1.05,0.4],bgTop:'#0d1017',bgBot:'#05060a',bloom:0.42,minD:3.2,maxD:16});
+const {scene}=S;
+const synth=makeSynth({type:'square',type2:'sine',filterFreq:2400,Q:0.7});
+const el=id=>document.getElementById(id);
+const f1=(x,d)=>x.toFixed(d===undefined?1:d).replace('.',',');
+
+/* ===== MOTOR ===== */
+const ETA = 0.85;              // rendimiento mecanico del cilindro (criterio de fabricante)
+const MUELLE_MIN = 0.10;       // fuerza del muelle de un simple efecto: 10 %..20 % de la teorica a 6 bar
+const MUELLE_MAX = 0.20;       // (rango de catalogo; no se inventa un valor unico)
+const P_REF_MUELLE = 6;        // bar a los que el catalogo refiere la fuerza del muelle
+
+// Parejas embolo-vastago (ISO 15552)
+const CIL_ISO = { 32: 12, 40: 16, 50: 20, 63: 20, 80: 25, 100: 25 };
+const areaEmb = (D) => Math.PI * D * D / 4 / 100;                                       // cm2
+const areaAnu = (D) => (Math.PI * D * D / 4 - Math.PI * CIL_ISO[D] * CIL_ISO[D] / 4) / 100; // cm2
+const fTeorica = (A, p) => p * A * 10;                                                  // N (p en bar, A en cm2)
+const fUtil = (A, p) => ETA * p * A * 10;                                               // N
+const fMuelle = (D, f) => f * fTeorica(areaEmb(D), P_REF_MUELLE);                        // N (f = fraccion del rango)
+const fDifer = (D, p) => ETA * p * (areaEmb(D) - areaAnu(D)) * 10;                      // N, ambas camaras a presion
+
+// ISO 11727: identificacion de puertos (numerica) y convencion antigua por letras
+const PUERTOS = {
+  '1': { n: 'Alimentación', l3: 'P', l5: 'P', fn: 'Aire de red' },
+  '2': { n: 'Salida de trabajo', l3: 'A', l5: 'B', fn: 'La que alimenta el pilotaje 12' },
+  '3': { n: 'Escape', l3: 'R', l5: 'S', fn: 'Escape de la salida 2' },
+  '4': { n: 'Salida de trabajo', l3: '—', l5: 'A', fn: 'La que alimenta el pilotaje 14' },
+  '5': { n: 'Escape', l3: '—', l5: 'R', fn: 'Escape de la salida 4' },
+  '12': { n: 'Pilotaje', l3: '—', l5: '—', fn: 'Conecta 1 con 2' },
+  '14': { n: 'Pilotaje', l3: '—', l5: '—', fn: 'Conecta 1 con 4' },
+};
+
+// Catalogo de valvulas. conex[i] = pares de puertos comunicados en la posicion i.
+// costo = orden de complejidad creciente (vias, posiciones y pilotajes), no un precio.
+const VALVULAS = {
+  v32nc: {
+    nom: '3/2 NC monoestable', sig: '3/2 NC', vias: 3, np: 2, est: 'mono', rep: 0, costo: 1, centro: null,
+    conex: [[['2', '3']], [['1', '2']]],
+    para: 'Cilindros de simple efecto y pilotajes: da o quita presión a una sola línea. En reposo la línea está a escape.',
+  },
+  v32na: {
+    nom: '3/2 NA monoestable', sig: '3/2 NA', vias: 3, np: 2, est: 'mono', rep: 0, costo: 1, centro: null,
+    conex: [[['1', '2']], [['2', '3']]],
+    para: 'La minoría del catálogo: se usa cuando el estado SIN señal debe estar presurizado.',
+  },
+  v52m: {
+    nom: '5/2 monoestable (retorno por muelle)', sig: '5/2 mono', vias: 5, np: 2, est: 'mono', rep: 0, costo: 2, centro: null,
+    conex: [[['1', '2'], ['4', '5']], [['1', '4'], ['2', '3']]],
+    para: 'La válvula corriente del doble efecto: manda los dos movimientos y vuelve sola al desaparecer la señal.',
+  },
+  v52b: {
+    nom: '5/2 biestable (doble pilotaje, memoria)', sig: '5/2 bi', vias: 5, np: 2, est: 'bi', rep: null, costo: 3, centro: null,
+    conex: [[['1', '2'], ['4', '5']], [['1', '4'], ['2', '3']]],
+    para: 'Recuerda la última orden y mantiene la cámara conectada a la red: sujeciones que deben seguir apretando tras el pulso.',
+  },
+  v53c: {
+    nom: '5/3 centro cerrado', sig: '5/3 CC', vias: 5, np: 3, est: 'centro', rep: 1, costo: 4, centro: 'cerrado',
+    conex: [[['1', '2'], ['4', '5']], [], [['1', '4'], ['2', '3']]],
+    para: 'Parada a media carrera: al soltar los dos pilotajes cierra las dos cámaras y el vástago se queda donde esté.',
+  },
+  v53e: {
+    nom: '5/3 centros a escape', sig: '5/3 CA', vias: 5, np: 3, est: 'centro', rep: 1, costo: 4, centro: 'escape',
+    conex: [[['1', '2'], ['4', '5']], [['2', '3'], ['4', '5']], [['1', '4'], ['2', '3']]],
+    para: 'Vástago libre: al soltar los pilotajes vacía las dos cámaras y el vástago se mueve a mano.',
+  },
+};
+
+// Accionamientos (ISO 1219-1). mandos = numero de ordenes independientes que entrega.
+const ACC = {
+  pulsMuelle: { nom: 'Pulsador con retorno por muelle', origen: 'manual', mandos: 1, sostiene: false, simb: 'pulsador + muelle' },
+  palanca: { nom: 'Palanca enclavada', origen: 'manual', mandos: 1, sostiene: true, simb: 'palanca con retención' },
+  rodillo: { nom: 'Rodillo de fin de carrera', origen: 'mecanico', mandos: 1, sostiene: false, simb: 'rodillo + muelle' },
+  solenoideMuelle: { nom: 'Solenoide con retorno por muelle', origen: 'electrico', mandos: 1, sostiene: true, simb: 'solenoide + muelle' },
+  pilotoDoble: { nom: 'Doble pilotaje neumático', origen: 'neumatico', mandos: 2, sostiene: false, simb: 'dos pilotajes 12 y 14' },
+  solenoideDoble: { nom: 'Dos solenoides', origen: 'electrico', mandos: 2, sostiene: false, simb: 'dos solenoides' },
+};
+
+// Etiquetas de presentacion. Las claves internas se comparan con === y quedan en
+// ASCII; lo que lee el alumno sale de estos dos mapas.
+const ORIGEN_TXT = { manual: 'manual', mecanico: 'mecánico', neumatico: 'neumático', electrico: 'eléctrico' };
+const CLASE_TXT = { momentanea: 'momentánea', mantenida: 'mantenida', memoria: 'memoria', centro: 'centro' };
+
+// Cilindros: que extremo lleva el puerto de aire y que hace el muelle.
+const CILS = {
+  seRet: { nom: 'Simple efecto, retorno por muelle', puertos: ['tras'], muelle: 'retrae' },
+  seAva: { nom: 'Simple efecto, avance por muelle', puertos: ['anu'], muelle: 'avanza' },
+  de: { nom: 'Doble efecto', puertos: ['tras', 'anu'], muelle: null },
+};
+
+const CONEXIONES = {
+  ok: { nom: 'Según la convención', det: 'Red al 1, salida 4 a la cámara de avance, salida 2 a la de retroceso, escapes 3 y 5 libres.' },
+  cruzado: { nom: 'Salidas de trabajo cruzadas', det: 'La salida 2 a la cámara de avance y la 4 a la de retroceso: se invierte la posición de reposo del vástago.' },
+  tapado: { nom: 'Escapes obturados', det: 'Conexionado correcto pero con tapones en los escapes 3 y 5: el aire de la cámara opuesta no puede salir.' },
+};
+
+// Estaciones. movOrden = movimiento que debe producir la orden; trasSoltar = donde debe quedar
+// el vastago al retirarla; alFaltarAire = exigencia al despresurizar la red (null = se declara libre).
+const POOL = [
+  {
+    id: 'expulsor', nom: 'Expulsor de recortes de una guillotina', cil: 'seRet', D: 32, p: 6,
+    origen: 'manual', clase: 'momentanea', movOrden: 'avanza', trasSoltar: 'dentro', alFaltarAire: 'dentro',
+    paradaInt: false, libreMan: false, camMotriz: 'tras',
+    txt: 'El operario pulsa y el vástago expulsa el recorte; al soltar debe volver solo. Cilindro de simple efecto con retorno por muelle. Si falta el aire, el expulsor debe quedar DENTRO.',
+  },
+  {
+    id: 'tope', nom: 'Tope retráctil de una línea de palets', cil: 'seAva', D: 32, p: 6,
+    origen: 'mecanico', clase: 'momentanea', movOrden: 'retrocede', trasSoltar: 'fuera', alFaltarAire: 'fuera',
+    paradaInt: false, libreMan: false, camMotriz: 'anu',
+    txt: 'El tope está FUERA y bloquea la línea; una leva pisa un rodillo y el tope se retira para dejar pasar un palet. Cilindro de simple efecto con muelle de AVANCE. Si falta el aire, el tope debe salir y bloquear la línea.',
+  },
+  {
+    id: 'barrera', nom: 'Barrera de acceso de doble efecto', cil: 'de', D: 40, p: 6,
+    origen: 'electrico', clase: 'mantenida', movOrden: 'retrocede', trasSoltar: 'fuera', alFaltarAire: null,
+    paradaInt: false, libreMan: false, camMotriz: 'tras',
+    txt: 'La barrera debe estar BAJADA (vástago fuera) mientras el autómata no ordene nada, y se levanta metiendo el vástago mientras la salida del autómata esté activa. Cilindro de doble efecto.',
+  },
+  {
+    id: 'mordaza', nom: 'Mordaza de sujeción de una fresadora', cil: 'de', D: 50, p: 5,
+    origen: 'neumatico', clase: 'memoria', movOrden: 'avanza', trasSoltar: 'apretando', alFaltarAire: null,
+    paradaInt: false, libreMan: false, camMotriz: 'tras',
+    txt: 'Un pulso desde dos pulsadores neumáticos del pupitre cierra la mordaza, y la mordaza debe SEGUIR APRETANDO con la presión de la red después del pulso. Cilindro de doble efecto.',
+  },
+  {
+    id: 'elevador', nom: 'Plataforma elevadora de carga', cil: 'de', D: 63, p: 6,
+    origen: 'electrico', clase: 'centro', movOrden: 'avanza', trasSoltar: 'bloqueado', alFaltarAire: null,
+    paradaInt: true, libreMan: false, camMotriz: 'tras',
+    txt: 'La plataforma debe poder DETENERSE A MEDIA CARRERA para cargar a distintas alturas: al soltar las dos órdenes del autómata el vástago se queda donde esté. Cilindro de doble efecto.',
+  },
+];
+
+// --- estado de las salidas de trabajo en una posicion dada
+function salidas(vk, pos, conexK) {
+  const V = VALVULAS[vk], cn = V.conex[pos] || [];
+  const st = {};
+  (V.vias === 3 ? ['2'] : ['2', '4']).forEach(s => st[s] = 'bloqueada');
+  for (const par of cn) {
+    for (const s of Object.keys(st)) {
+      if (par[0] === s || par[1] === s) {
+        const otro = par[0] === s ? par[1] : par[0];
+        if (otro === '1') st[s] = 'presion';
+        else if (otro === '3' || otro === '5') st[s] = (conexK === 'tapado') ? 'bloqueada' : 'escape';
+      }
+    }
+  }
+  return st;
+}
+
+// --- que camara alimenta cada salida
+function tubos(sc, vk, conexK) {
+  const V = VALVULAS[vk], C = CILS[sc.cil];
+  if (V.vias === 3) {
+    const puerto = C.puertos[0];
+    const otro = puerto === 'tras' ? 'anu' : 'tras';
+    return conexK === 'cruzado' ? { '2': otro } : { '2': puerto };
+  }
+  return conexK === 'cruzado' ? { '2': 'tras', '4': 'anu' } : { '2': 'anu', '4': 'tras' };
+}
+
+// --- estado de las dos camaras. Un extremo sin tubo queda a la atmosfera (respiradero o boca libre).
+function camaras(sc, cfg, pos, sinAire) {
+  const st = salidas(cfg.valv, pos, cfg.conex);
+  const tb = tubos(sc, cfg.valv, cfg.conex);
+  const out = { tras: 'atmosfera', anu: 'atmosfera' };
+  for (const s of Object.keys(tb)) {
+    let e = st[s];
+    if (sinAire && e === 'presion') e = 'atmosfera';   // la red despresurizada no empuja
+    out[tb[s]] = e;
+  }
+  return out;
+}
+
+function veredicto(sc, cams) {
+  const C = CILS[sc.cil];
+  const pres = k => cams[k] === 'presion';
+  const libre = k => cams[k] === 'escape' || cams[k] === 'atmosfera';
+  const blo = k => cams[k] === 'bloqueada';
+  if (pres('tras') && pres('anu')) return 'diferencial';
+  if (blo('tras') || blo('anu')) return 'bloqueado';
+  if (pres('tras') && libre('anu')) return 'avanza';
+  if (pres('anu') && libre('tras')) return 'retrocede';
+  if (C.muelle === 'retrae') return 'dentro-muelle';
+  if (C.muelle === 'avanza') return 'fuera-muelle';
+  return 'libre';
+}
+
+const VER_TXT = {
+  avanza: 'el vástago SALE', retrocede: 'el vástago ENTRA', bloqueado: 'no se mueve (aire atrapado)',
+  diferencial: 'sale con la fuerza diferencial (las dos cámaras a presión)',
+  'dentro-muelle': 'el muelle lo mete', 'fuera-muelle': 'el muelle lo saca', libre: 'queda libre (sin fuerza)',
+};
+
+// --- posicion de la valvula en cada fase de la orden
+function posicion(vk, ak, fase) {
+  const V = VALVULAS[vk], A = ACC[ak];
+  const iOrden = V.np === 3 ? 2 : 1;
+  if (V.est === 'mono') return fase === 'orden' ? iOrden : V.rep;
+  if (V.est === 'bi') {
+    if (fase === 'reposo') return 0;
+    return iOrden;                       // memoria: se queda donde la dejo el pulso
+  }
+  return fase === 'orden' ? iOrden : V.rep;   // 3 posiciones: al soltar vuelve al centro
+}
+
+function claseEfectiva(vk, ak) {
+  const V = VALVULAS[vk], A = ACC[ak];
+  if (V.est === 'bi') return 'memoria';
+  if (V.est === 'centro') return 'centro';
+  return A.sostiene ? 'mantenida' : 'momentanea';
+}
+
+// --- los cuatro criterios
+function okFunc(sc, vk) {
+  const V = VALVULAS[vk];
+  if (sc.paradaInt && !(V.np === 3 && V.centro === 'cerrado')) return false;
+  if (sc.libreMan && !(V.np === 3 && V.centro === 'escape')) return false;
+  if (CILS[sc.cil].puertos.length === 2 && V.vias < 5) return false;
+  return true;
+}
+function okMando(sc, vk, ak) {
+  const V = VALVULAS[vk], A = ACC[ak];
+  if (A.origen !== sc.origen) return false;
+  if (V.est === 'mono' && A.mandos !== 1) return false;
+  if (V.est !== 'mono' && A.mandos !== 2) return false;
+  if (claseEfectiva(vk, ak) !== sc.clase) return false;
+  return true;
+}
+function okTubos(sc, cfg) {
+  const cams = camaras(sc, cfg, posicion(cfg.valv, cfg.acc, 'orden'), false);
+  return veredicto(sc, cams) === sc.movOrden;
+}
+function okReposo(sc, cfg) {
+  const camsS = camaras(sc, cfg, posicion(cfg.valv, cfg.acc, 'soltada'), false);
+  const vS = veredicto(sc, camsS);
+  if (sc.trasSoltar === 'dentro' && !(vS === 'retrocede' || vS === 'dentro-muelle')) return false;
+  if (sc.trasSoltar === 'fuera' && !(vS === 'avanza' || vS === 'fuera-muelle' || vS === 'diferencial')) return false;
+  if (sc.trasSoltar === 'bloqueado' && vS !== 'bloqueado') return false;
+  if (sc.trasSoltar === 'apretando' && camsS[sc.camMotriz] !== 'presion') return false;
+  if (sc.alFaltarAire) {
+    const camsA = camaras(sc, cfg, posicion(cfg.valv, cfg.acc, 'soltada'), true);
+    const vA = veredicto(sc, camsA);
+    if (sc.alFaltarAire === 'dentro' && !(vA === 'retrocede' || vA === 'dentro-muelle')) return false;
+    if (sc.alFaltarAire === 'fuera' && !(vA === 'avanza' || vA === 'fuera-muelle')) return false;
+  }
+  return true;
+}
+
+const VALK = Object.keys(VALVULAS), ACCK = Object.keys(ACC), CONK = Object.keys(CONEXIONES);
+
+function evalua(sc, cfg) {
+  const oF = okFunc(sc, cfg.valv), oM = okMando(sc, cfg.valv, cfg.acc);
+  const oT = okTubos(sc, cfg), oR = okReposo(sc, cfg);
+  return { oF, oM, oT, oR, ok: oF && oM && oT && oR, costo: VALVULAS[cfg.valv].costo };
+}
+
+// terna ganadora: valida Y con la valvula mas simple de las validas
+function GOOD(sc) {
+  let best = null;
+  for (const v of VALK) for (const a of ACCK) for (const c of CONK) {
+    const cfg = { valv: v, acc: a, conex: c };
+    if (!evalua(sc, cfg).ok) continue;
+    if (!best || VALVULAS[v].costo < VALVULAS[best.valv].costo) best = cfg;
+  }
+  return best;
+}
+const cfgWith = (sc, o) => Object.assign({}, GOOD(sc), o);
+function costoMin(sc) {
+  let m = Infinity;
+  for (const v of VALK) {
+    const cfg = cfgWith(sc, { valv: v });
+    if (evalua(sc, cfg).ok) m = Math.min(m, VALVULAS[v].costo);
+  }
+  return m;
+}
+const okValvEje = (sc, v) => { const cfg = cfgWith(sc, { valv: v }); return evalua(sc, cfg).ok && VALVULAS[v].costo === costoMin(sc); };
+const okAccEje = (sc, a) => evalua(sc, cfgWith(sc, { acc: a })).ok;
+const okConEje = (sc, c) => evalua(sc, cfgWith(sc, { conex: c })).ok;
+const validaTerna = (sc, cfg) => evalua(sc, cfg).ok && VALVULAS[cfg.valv].costo === costoMin(sc);
+
+// --- diagnosticos
+function whyValv(sc, v) {
+  const V = VALVULAS[v], cfg = cfgWith(sc, { valv: v }), e = evalua(sc, cfg);
+  if (e.ok && V.costo === costoMin(sc)) return '';
+  if (sc.paradaInt && !(V.np === 3 && V.centro === 'cerrado')) return 'Sin centro cerrado no hay parada a media carrera: al soltar la orden el vástago sigue o se queda sin fuerza.';
+  if (sc.libreMan && !(V.np === 3 && V.centro === 'escape')) return 'Para dejar el vástago libre hay que vaciar las dos cámaras: eso solo lo hace un centro a escape.';
+  if (CILS[sc.cil].puertos.length === 2 && V.vias < 5) return 'Una válvula de 3 vías solo manda una cámara: el doble efecto sale y se queda fuera porque no hay quien lo devuelva.';
+  if (!e.oM) return 'La estabilidad de esta válvula no encaja con el mando que pide la estación: ' + (V.est === 'bi' ? 'una biestable exige dos órdenes y recuerda la última.' : V.est === 'centro' ? 'una válvula de tres posiciones exige dos órdenes.' : 'una monoestable vuelve por muelle en cuanto la orden desaparece.');
+  if (!e.oT) return 'Con esta válvula la orden no produce el movimiento que la estación pide.';
+  if (!e.oR) return 'Al retirar la orden el vástago no queda donde la estación exige.';
+  return 'Cumple, pero hay una válvula más simple que hace el mismo trabajo: no se compra una ' + V.sig + ' cuando basta menos.';
+}
+function whyAcc(sc, a) {
+  const A = ACC[a], cfg = cfgWith(sc, { acc: a }), V = VALVULAS[cfg.valv];
+  if (evalua(sc, cfg).ok) return '';
+  if (A.origen !== sc.origen) return 'La orden de esta estación no llega por ese camino: hace falta un mando ' + ORIGEN_TXT[sc.origen] + ', no ' + ORIGEN_TXT[A.origen] + '.';
+  if (V.est === 'mono' && A.mandos !== 1) return 'La válvula tiene un solo pilotaje y un muelle: el segundo mando no va a ninguna parte.';
+  if (V.est !== 'mono' && A.mandos !== 2) return 'Esta válvula pide DOS órdenes independientes y este mando solo entrega una: la otra posición de trabajo no se puede ordenar nunca.';
+  const ce = claseEfectiva(cfg.valv, a);
+  return 'La clase de orden no es la que pide la estación: este mando da una orden ' + CLASE_TXT[ce] + ' y hace falta ' + CLASE_TXT[sc.clase] + '.';
+}
+function whyCon(sc, c) {
+  const cfg = cfgWith(sc, { conex: c });
+  const e = evalua(sc, cfg);
+  if (e.ok) return '';
+  if (c === 'tapado') return CILS[sc.cil].puertos.length === 2
+    ? 'Con los escapes obturados la cámara opuesta no puede vaciarse: el vástago no se mueve aunque la válvula conmute.'
+    : 'Con los escapes obturados el aire entra igual y la orden se cumple, pero el muelle no puede expulsar el aire: el vástago se queda sin volver.';
+  if (!e.oT) return 'Con este conexionado la orden mueve el vástago al contrario de lo que la estación pide.';
+  return 'Con este conexionado la posición de reposo del vástago queda invertida.';
+}
+
+// arranque deliberadamente equivocado en los tres ejes
+function startCfg(sc) {
+  const v = VALK.find(k => !okValvEje(sc, k)) || VALK[0];
+  const a = ACCK.find(k => !okAccEje(sc, k)) || ACCK[0];
+  const c = CONK.find(k => !okConEje(sc, k)) || CONK[0];
+  return { valv: v, acc: a, conex: c };
+}
+/* ===== FIN MOTOR ===== */
+
+// ===================== 3. ESTADO =====================
+let mode='vias';
+let viIdx=0, viVal='v32nc', viPos=0;                        // modo VÍAS
+let mdIdx=0, mdVal='v32nc', mdAcc='pulsMuelle', mdFase='reposo';   // modo MANDO
+let arIdx=2, arCon='ok', arSin=false;                       // modo AIRE
+let retoK=0, retoCh=null;                                   // modo RETO
+let retoChecked=false, retoOkVal=false, retoOkAcc=false, retoOkCon=false, retoSolved=false, retoMsg='';
+let solved=false, autoRunning=false, QUIZ={};
+let animT=0, animP=0;
+
+function pickIdx(n,ex){if(n<=1)return 0;let i=ex;while(i===ex)i=Math.floor(Math.random()*n);return i;}
+function hexA(hex,a){const n=parseInt(hex.slice(1),16);return `rgba(${(n>>16)&255},${(n>>8)&255},${n&255},${a})`;}
+const retoSc=()=>POOL[retoK];
+const retoCfg=()=>({valv:retoCh.valv,acc:retoCh.acc,conex:retoCh.conex});
+function seedReto(k){
+  retoK=(k==null)?pickIdx(POOL.length,retoK):k;
+  retoCh=startCfg(retoSc());      // arranca deliberadamente MAL en los tres ejes
+  retoChecked=false;retoOkVal=false;retoOkAcc=false;retoOkCon=false;retoSolved=false;retoMsg='';
+}
+seedReto(0);
+
+// un accionamiento coherente con la estabilidad de la válvula, para el modo VÍAS
+function accPara(vk){
+  const V=VALVULAS[vk];
+  return ACCK.find(a=>V.est==='mono'?ACC[a].mandos===1:ACC[a].mandos===2)||ACCK[0];
+}
+
+// escenario, configuración, posición y presión de red vigentes en cada modo
+function curSc(){return mode==='vias'?POOL[viIdx]:mode==='mando'?POOL[mdIdx]:mode==='aire'?POOL[arIdx]:retoSc();}
+function curCfg(){
+  const sc=curSc();
+  if(mode==='vias')return {valv:viVal,acc:accPara(viVal),conex:'ok'};
+  if(mode==='mando')return {valv:mdVal,acc:mdAcc,conex:'ok'};
+  if(mode==='aire'){const g=GOOD(sc);return {valv:g.valv,acc:g.acc,conex:arCon};}
+  return retoCfg();
+}
+function curPos(){
+  const cfg=curCfg();
+  if(mode==='vias')return Math.min(viPos,VALVULAS[viVal].np-1);
+  if(mode==='mando')return posicion(cfg.valv,cfg.acc,mdFase);
+  if(mode==='aire')return posicion(cfg.valv,cfg.acc,'soltada');
+  return posicion(cfg.valv,cfg.acc,'orden');
+}
+const curSin=()=>mode==='aire'?arSin:false;
+const curCams=()=>camaras(curSc(),curCfg(),curPos(),curSin());
+const curVer=()=>veredicto(curSc(),curCams());
+
+// ===================== 4. MATERIALES =====================
+function std(color,rough,metal){return new THREE.MeshStandardMaterial({color,roughness:rough,metalness:metal});}
+function brush(base){return std(base,0.55,0.35);}
+const MAT={bench:brush(0x2b2f34),frame:brush(0x22262c),leg:brush(0x14161b),body:std(0x1b2028,0.6,0.25),
+  barrel:std(0x9aa4b2,0.35,0.75),rod:std(0xd6dde8,0.22,0.9),valve:std(0x14171b,0.5,0.3),plate:brush(0x3a4048),
+  spool:std(0xb9c3d1,0.3,0.85),carga:std(0x3a2f24,0.7,0.15)};
+const AZUL='#8AB4F8', OK_HEX='#7CD992', BAD_HEX='#ff6b6b', WARN_HEX='#E9C46A', VIO='#C08CF8', GRIS='#8f97a5';
+
+// color y brillo de cada estado de cámara / tubo
+const EST_COL={presion:0x8AB4F8,escape:0x5b6675,bloqueada:0xff6b6b,atmosfera:0x2c333d};
+const EST_HEX={presion:AZUL,escape:GRIS,bloqueada:BAD_HEX,atmosfera:'#5b6675'};
+const EST_TXT={presion:'a presión de red',escape:'a escape',bloqueada:'bloqueada (aire atrapado)',atmosfera:'a la atmósfera'};
+// etiqueta corta para tablas, telemetría y avisos: misma longitud que la clave interna, con ortografía
+const EST_ABR={presion:'presión',escape:'escape',bloqueada:'bloqueada',atmosfera:'atmósfera'};
+const EST_EMI={presion:1.1,escape:0.22,bloqueada:0.85,atmosfera:0.06};
+
+const HOVER_LABELS=new Map();
+function addHoverLabel(obj,text,color,pos,scale){
+  const cv=document.createElement('canvas');cv.width=256;cv.height=64;const cx=cv.getContext('2d');
+  cx.fillStyle='rgba(10,14,17,0.88)';cx.fillRect(0,0,256,64);
+  cx.strokeStyle=color;cx.lineWidth=2;cx.strokeRect(1,1,254,62);
+  cx.fillStyle='#F4EFEA';cx.font='bold 20px Outfit, sans-serif';cx.textAlign='center';cx.textBaseline='middle';cx.fillText(text,128,32);
+  const tex=new THREE.CanvasTexture(cv);
+  const spr=new THREE.Sprite(new THREE.SpriteMaterial({map:tex,transparent:true,depthTest:false}));
+  spr.position.copy(pos);spr.scale.set(scale||1.1,(scale||1.1)*0.28,1);spr.visible=false;spr.renderOrder=999;
+  scene.add(spr);HOVER_LABELS.set(obj,spr);return spr;
+}
+
+// ===================== 5. PIZARRÓN =====================
+const boardG=new THREE.Group();
+boardG.position.set(-1.15,0,-0.95);boardG.rotation.y=0.2;scene.add(boardG);
+const frame=roundedBox(3.9,2.9,0.12,MAT.frame,0.06);frame.position.set(0,1.9,0);boardG.add(frame);
+[-1.65,1.65].forEach(x=>{const leg=new THREE.Mesh(new THREE.CylinderGeometry(0.05,0.06,1.9,16),MAT.leg);leg.position.set(x,0.92,0);boardG.add(leg);});
+const bCv=document.createElement('canvas');bCv.width=1024;bCv.height=768;
+const bTex=new THREE.CanvasTexture(bCv);
+const board=new THREE.Mesh(new THREE.PlaneGeometry(3.68,2.72),new THREE.MeshBasicMaterial({map:bTex}));
+board.position.set(0,1.9,0.065);boardG.add(board);
+frame.userData={title:'Válvulas direccionales: vías, posiciones y mandos',info:'El símbolo normalizado, los puertos, el accionamiento y lo que de todo eso resulta en el vástago · toca para inspeccionar'};
+addHoverLabel(frame,'ISO 1219-1 · ISO 11727',AZUL,new THREE.Vector3(0,3.5,0.1).add(boardG.position),2.9);
+
+function bg(c){c.fillStyle='#0c1016';c.fillRect(0,0,1024,768);}
+function rpanel(c,x,y,w,h,title){
+  c.fillStyle=hexA(AZUL,0.06);c.fillRect(x,y,w,h);
+  c.strokeStyle=hexA(AZUL,0.22);c.lineWidth=1;c.strokeRect(x,y,w,h);
+  c.fillStyle='#C7D6F5';c.font='bold 15px Outfit, sans-serif';c.textAlign='left';c.fillText(title,x+16,y+26);
+}
+function prow(c,x,y,w,l,v,col){
+  c.fillStyle=GRIS;c.font='13px Outfit, sans-serif';c.textAlign='left';c.fillText(l,x+16,y);
+  c.fillStyle=col||'#F4EFEA';c.font='bold 15px Outfit, sans-serif';c.textAlign='right';c.fillText(v,x+w-14,y);
+}
+function wrapText(c,text,x,y,maxW,lh){
+  const words=text.split(' ');let line='',yy=y;
+  for(const w of words){const test=line+w+' ';
+    if(c.measureText(test).width>maxW && line){c.fillText(line,x,yy);line=w+' ';yy+=lh;}else line=test;}
+  c.fillText(line,x,yy);return yy;
+}
+const PX={x:706,y:70,w:300};
+function drawBar(c,x,y,w,h,frac,label,col,right){
+  c.fillStyle='#9fb0cf';c.font='12px Outfit, sans-serif';c.textAlign='left';c.fillText(label,x,y-8);
+  c.fillStyle='rgba(255,255,255,0.06)';c.fillRect(x,y,w,h);
+  c.fillStyle=hexA(col,0.75);c.fillRect(x,y,Math.max(0,Math.min(1,frac))*w,h);
+  c.strokeStyle=hexA(AZUL,0.3);c.lineWidth=1;c.strokeRect(x,y,w,h);
+  c.fillStyle=col;c.font='bold 13px Outfit, sans-serif';c.textAlign='right';c.fillText(right,x+w,y-8);
+}
+function trowC(c,x,y,w,h,cols,widths,cols_col,head){
+  c.fillStyle=head?hexA(AZUL,0.10):'rgba(255,255,255,0.03)';c.fillRect(x,y,w,h);
+  c.strokeStyle=hexA(AZUL,0.16);c.lineWidth=1;c.strokeRect(x,y,w,h);
+  let cx=x;
+  cols.forEach((t,i)=>{
+    c.fillStyle=head?'#C7D6F5':(cols_col&&cols_col[i]?cols_col[i]:'#F4EFEA');
+    c.font=(head?'bold 12px':'13px')+' Outfit, sans-serif';c.textAlign='left';
+    c.fillText(t,cx+10,y+h/2+5);
+    cx+=widths[i];
+  });
+}
+function title2(c,t,sub){
+  c.fillStyle='#F4EFEA';c.font='bold 26px Outfit, sans-serif';c.textAlign='left';c.fillText(t,30,54);
+  c.fillStyle=GRIS;c.font='14px Outfit, sans-serif';wrapText(c,sub,30,80,640,20);
+}
+function nota(c,y,txt,col){
+  c.fillStyle=hexA(col||WARN_HEX,0.08);c.fillRect(30,y,650,78);
+  c.strokeStyle=hexA(col||WARN_HEX,0.30);c.lineWidth=1;c.strokeRect(30,y,650,78);
+  c.fillStyle=col||WARN_HEX;c.font='13px Outfit, sans-serif';c.textAlign='left';
+  wrapText(c,txt,46,y+24,618,19);
+}
+
+// ---- símbolo normalizado de la válvula (ISO 1219-1) ----
+// posición de cada puerto dentro de una casilla, en fracción de ancho
+const PORT_POS={
+  5:{top:{'4':0.30,'2':0.70},bot:{'5':0.16,'1':0.50,'3':0.84}},
+  3:{top:{'2':0.50},bot:{'1':0.32,'3':0.72}},
+};
+function puntoP(cx,cw,y,h,PP,p){
+  if(PP.top[p]!==undefined)return {x:cx+cw*PP.top[p],y:y,arriba:true};
+  return {x:cx+cw*PP.bot[p],y:y+h,arriba:false};
+}
+// sentido del aire dentro de la casilla: de la alimentación a la salida, o de la salida al escape
+function dirPar(par){
+  const [a,b]=par;
+  if(a==='1')return [a,b];
+  if(b==='1')return [b,a];
+  if(a==='3'||a==='5')return [b,a];
+  return [a,b];
+}
+function flecha(c,px,py,qx,qy,col){
+  const ang=Math.atan2(qy-py,qx-px),mx=px+(qx-px)*0.62,my=py+(qy-py)*0.62,L=9;
+  c.fillStyle=col;c.beginPath();
+  c.moveTo(mx,my);
+  c.lineTo(mx-L*Math.cos(ang-0.5),my-L*Math.sin(ang-0.5));
+  c.lineTo(mx-L*Math.cos(ang+0.5),my-L*Math.sin(ang+0.5));
+  c.closePath();c.fill();
+}
+function simbAcc(c,x,y,w,h,tipo,col){
+  c.strokeStyle=col;c.lineWidth=2;c.fillStyle=hexA(col,0.10);
+  if(tipo==='nada'){
+    c.setLineDash([4,4]);c.strokeStyle=BAD_HEX;c.strokeRect(x,y,w,h);c.setLineDash([]);
+    c.fillStyle=BAD_HEX;c.font='bold 22px Outfit, sans-serif';c.textAlign='center';c.fillText('?',x+w/2,y+h/2+8);
+    return;
+  }
+  if(tipo==='muelle'){
+    c.beginPath();c.moveTo(x,y+h/2);
+    for(let i=0;i<6;i++){const xx=x+w*(i+0.5)/6;c.lineTo(xx,y+h/2+(i%2?h*0.30:-h*0.30));}
+    c.lineTo(x+w,y+h/2);c.stroke();return;
+  }
+  c.fillRect(x,y,w,h);c.strokeRect(x,y,w,h);
+  if(tipo==='puls'){c.beginPath();c.moveTo(x+w/2,y);c.lineTo(x+w/2,y-10);c.moveTo(x+w/2-9,y-10);c.lineTo(x+w/2+9,y-10);c.stroke();}
+  else if(tipo==='palanca'){c.beginPath();c.moveTo(x+w*0.25,y+h);c.lineTo(x+w*0.75,y-8);c.stroke();
+    c.fillStyle=col;c.beginPath();c.arc(x+w*0.25,y+h,3.5,0,7);c.fill();}
+  else if(tipo==='rodillo'){c.beginPath();c.moveTo(x+w/2,y);c.lineTo(x+w/2,y-8);c.stroke();
+    c.fillStyle=col;c.beginPath();c.arc(x+w/2,y-13,5,0,7);c.fill();}
+  else if(tipo==='solen'){c.beginPath();c.moveTo(x+3,y+h-3);c.lineTo(x+w-3,y+3);c.stroke();}
+  else if(tipo==='piloto'){c.fillStyle=col;c.beginPath();c.moveTo(x+w*0.25,y+h*0.25);c.lineTo(x+w*0.25,y+h*0.75);c.lineTo(x+w*0.75,y+h/2);c.closePath();c.fill();}
+}
+const ACC_SIMB={pulsMuelle:'puls',palanca:'palanca',rodillo:'rodillo',solenoideMuelle:'solen',pilotoDoble:'piloto',solenoideDoble:'solen'};
+function ladoDer(vk,ak){
+  const V=VALVULAS[vk],A=ACC[ak];
+  if(V.est==='mono')return 'muelle';
+  return A.mandos===2?ACC_SIMB[ak]:'nada';
+}
+// dibuja el símbolo completo: casillas, conexiones internas, tuberías y numeración sobre la casilla activa
+function drawSimbolo(c,x,y,w,h,vk,ak,posAct,cams,conexK){
+  const V=VALVULAS[vk],np=V.np,PP=PORT_POS[V.vias];
+  const aw=52, gap=14, bw=w-2*(aw+gap), cw=bw/np, bx=x+aw+gap;
+  // accionamientos
+  simbAcc(c,x,y+h*0.18,aw,h*0.64,ACC_SIMB[ak]||'puls',posAct===(V.np===3?2:1)?OK_HEX:AZUL);
+  simbAcc(c,x+aw+gap+bw+gap,y+h*0.18,aw,h*0.64,ladoDer(vk,ak),posAct===(V.rep||0)?OK_HEX:AZUL);
+  for(let i=0;i<np;i++){
+    const cx=bx+i*cw, act=(i===posAct);
+    c.fillStyle=act?hexA(AZUL,0.16):'rgba(255,255,255,0.03)';c.fillRect(cx,y,cw,h);
+    c.strokeStyle=act?hexA(AZUL,0.8):'rgba(255,255,255,0.20)';c.lineWidth=act?2.5:1.2;c.strokeRect(cx,y,cw,h);
+    const pares=V.conex[i]||[], usados=new Set();
+    pares.forEach(par=>{
+      par.forEach(p=>usados.add(p));
+      const [s,d]=dirPar(par);
+      const ps=puntoP(cx,cw,y,h,PP,s),pd=puntoP(cx,cw,y,h,PP,d);
+      const col=act?'#F4EFEA':'rgba(255,255,255,0.30)';
+      c.strokeStyle=col;c.lineWidth=act?2.6:1.4;
+      c.beginPath();c.moveTo(ps.x,ps.y);c.lineTo(pd.x,pd.y);c.stroke();
+      flecha(c,ps.x,ps.y,pd.x,pd.y,col);
+    });
+    // vías bloqueadas en esta posición: muñón en T
+    Object.keys(PP.top).concat(Object.keys(PP.bot)).forEach(p=>{
+      if(usados.has(p))return;
+      const pt=puntoP(cx,cw,y,h,PP,p),dy=pt.arriba?22:-22;
+      c.strokeStyle=act?BAD_HEX:'rgba(255,255,255,0.22)';c.lineWidth=act?2.4:1.2;
+      c.beginPath();c.moveTo(pt.x,pt.y);c.lineTo(pt.x,pt.y+dy);c.stroke();
+      c.beginPath();c.moveTo(pt.x-8,pt.y+dy);c.lineTo(pt.x+8,pt.y+dy);c.stroke();
+    });
+    // etiqueta de la posición
+    const et=np===3?['a','0','b'][i]:['a','b'][i];
+    c.fillStyle=act?AZUL:'#6b7280';c.font='bold 12px Outfit, sans-serif';c.textAlign='center';
+    c.fillText(et,cx+cw/2,y+h+42);
+  }
+  // tuberías y numeración: se dibujan sobre la casilla ACTIVA para que el camino del aire se lea
+  const cxA=bx+posAct*cw;
+  Object.keys(PP.top).forEach(p=>{
+    const pt=puntoP(cxA,cw,y,h,PP,p);
+    c.strokeStyle=hexA(AZUL,0.5);c.lineWidth=2;c.beginPath();c.moveTo(pt.x,pt.y);c.lineTo(pt.x,y-26);c.stroke();
+    c.fillStyle='#C7D6F5';c.font='bold 13px Outfit, sans-serif';c.textAlign='center';c.fillText(p,pt.x,y-32);
+  });
+  Object.keys(PP.bot).forEach(p=>{
+    const pt=puntoP(cxA,cw,y,h,PP,p);
+    const tapado=(conexK==='tapado'&&(p==='3'||p==='5'));
+    c.strokeStyle=tapado?hexA(BAD_HEX,0.7):hexA(AZUL,0.5);c.lineWidth=2;
+    c.beginPath();c.moveTo(pt.x,pt.y);c.lineTo(pt.x,y+h+22);c.stroke();
+    if(p==='1'){ // triángulo de alimentación
+      c.fillStyle=AZUL;c.beginPath();c.moveTo(pt.x-6,y+h+22);c.lineTo(pt.x+6,y+h+22);c.lineTo(pt.x,y+h+32);c.closePath();c.fill();
+    }else if(tapado){
+      c.fillStyle=BAD_HEX;c.beginPath();c.arc(pt.x,y+h+26,5,0,7);c.fill();
+    }else{ // escape libre: triángulo abierto
+      c.strokeStyle=hexA(GRIS,0.9);c.beginPath();c.moveTo(pt.x-6,y+h+32);c.lineTo(pt.x+6,y+h+32);c.lineTo(pt.x,y+h+22);c.closePath();c.stroke();
+    }
+    c.fillStyle=tapado?BAD_HEX:'#C7D6F5';c.font='bold 13px Outfit, sans-serif';c.textAlign='center';c.fillText(p,pt.x+14,y+h+30);
+  });
+}
+
+// ===================== 6. VISTAS POR MODO =====================
+function estadoTubos(sc,cfg,pos,sin){
+  const cams=camaras(sc,cfg,pos,sin);
+  return {cams,ver:veredicto(sc,cams)};
+}
+
+function drawVias(c){
+  const V=VALVULAS[viVal],sc=POOL[viIdx],cfg=curCfg(),pos=Math.min(viPos,V.np-1);
+  const {cams,ver}=estadoTubos(sc,cfg,pos,false);
+  title2(c,'Vías y posiciones: '+V.nom,
+    'Las VÍAS son los orificios de trabajo y las POSICIONES los estados del carrete. Cada posición es una lista de pares de puertos comunicados; lo que no está en la lista queda bloqueado, y eso se dibuja con un muñón en T.');
+  drawSimbolo(c,30,150,650,120,viVal,cfg.acc,pos,cams,'ok');
+
+  c.fillStyle=GRIS;c.font='12px Outfit, sans-serif';c.textAlign='left';
+  wrapText(c,'En el símbolo normalizado las tuberías se dibujan sobre una sola casilla y el cuadro «desliza»; aquí se dibujan sobre la casilla ACTIVA para que se vea el camino real del aire.',30,336,650,17);
+
+  // conexiones por posición
+  const W=[150,320,180];
+  trowC(c,30,378,650,26,['Posición','Comunica','Salidas'],W,null,true);
+  for(let i=0;i<V.np;i++){
+    const pares=(V.conex[i]||[]).map(p=>p[0]+'–'+p[1]).join('  ·  ')||'ninguno (todo bloqueado)';
+    const st=salidas(viVal,i,'ok');
+    const txt=Object.keys(st).map(s=>s+': '+st[s]).join(', ');
+    const et=V.np===3?['a (orden 14)','0 (centro)','b (orden 12)'][i]:['a (reposo)','b (orden)'][i];
+    trowC(c,30,404+i*26,650,26,[et,pares,txt],W,[i===pos?AZUL:'#F4EFEA',null,null],false);
+  }
+
+  // tabla ISO 11727 — altura fija: la tabla de posiciones crece hasta y=482 con 3 posiciones
+  const y0=490, W2=[70,150,90,90,250];
+  trowC(c,30,y0,650,24,['Puerto','Función','3/2 (letras)','5/2 (letras)','Qué hace'],W2,null,true);
+  Object.keys(PUERTOS).forEach((p,i)=>{
+    const P=PUERTOS[p],usa=(V.vias===5)||['1','2','3','12'].includes(p);
+    trowC(c,30,y0+24+i*22,650,22,[p,P.n,P.l3,P.l5,P.fn],W2,
+      [usa?'#F4EFEA':'#5b6675',usa?'#F4EFEA':'#5b6675',usa?'#C7D6F5':'#5b6675',usa?'#C7D6F5':'#5b6675',usa?GRIS:'#4a5260'],false);
+  });
+
+  nota(c,y0+24+7*22+16,'Honestidad: el número del pilotaje no es decorativo. El 12 conecta 1 con 2 y el 14 conecta 1 con 4, así que el pilotaje dice a qué salida da paso. En una '+V.sig+' hay '+V.vias+' vías y '+V.np+' posiciones, y '+(V.vias===3?'los puertos 4 y 5 NO existen: por eso no puede mandar un doble efecto.':'las dos salidas tienen escape propio: el 3 vacía la 2 y el 5 vacía la 4.'),VIO);
+
+  // panel derecho
+  rpanel(c,PX.x,PX.y,PX.w,236,'Identificación');
+  let y=PX.y+58;
+  prow(c,PX.x,y,PX.w,'Designación',V.sig);y+=30;
+  prow(c,PX.x,y,PX.w,'Vías / posiciones',V.vias+' / '+V.np);y+=30;
+  prow(c,PX.x,y,PX.w,'Estabilidad',V.est==='mono'?'monoestable':V.est==='bi'?'biestable':'3 posiciones');y+=30;
+  prow(c,PX.x,y,PX.w,'Órdenes que exige',V.est==='mono'?'1 + muelle':'2');y+=30;
+  prow(c,PX.x,y,PX.w,'Reposo',V.est==='bi'?'la última orden':'posición '+((V.rep||0)===0?'a':'0 (centro)'),V.est==='bi'?WARN_HEX:'#F4EFEA');y+=30;
+  prow(c,PX.x,y,PX.w,'Centro',V.centro?V.centro:'—',V.centro?VIO:'#8f97a5');
+
+  rpanel(c,PX.x,326,PX.w,180,'Para qué se usa');
+  c.fillStyle='#C7D6F5';c.font='13px Outfit, sans-serif';c.textAlign='left';
+  wrapText(c,V.para,PX.x+16,362,PX.w-32,18);
+
+  rpanel(c,PX.x,526,PX.w,214,'Sobre este cilindro');
+  let yy=562;
+  prow(c,PX.x,yy,PX.w,'Cilindro',CILS[sc.cil].nom.split(',')[0]);yy+=28;
+  prow(c,PX.x,yy,PX.w,'Puertos de aire',CILS[sc.cil].puertos.length+' (Ø'+sc.D+')');yy+=28;
+  prow(c,PX.x,yy,PX.w,'Cámara trasera',EST_TXT[cams.tras],EST_HEX[cams.tras]);yy+=28;
+  prow(c,PX.x,yy,PX.w,'Cámara anular',EST_TXT[cams.anu],EST_HEX[cams.anu]);yy+=28;
+  c.fillStyle=OK_HEX;c.font='bold 14px Outfit, sans-serif';c.textAlign='left';
+  wrapText(c,'▸ '+VER_TXT[ver],PX.x+16,yy+8,PX.w-32,18);
+}
+
+function drawMando(c){
+  const sc=POOL[mdIdx],cfg=curCfg(),V=VALVULAS[mdVal],A=ACC[mdAcc];
+  const pos=posicion(mdVal,mdAcc,mdFase);
+  const {cams,ver}=estadoTubos(sc,cfg,pos,false);
+  title2(c,'Mando: quién da la orden y cuántas hacen falta',
+    'El accionamiento no cambia lo que la válvula comunica: cambia cuántas órdenes independientes entrega y si la orden se sostiene. Una monoestable pide una orden y un muelle; una biestable o una de tres posiciones piden dos.');
+  drawSimbolo(c,30,140,650,110,mdVal,mdAcc,pos,cams,'ok');
+
+  // traza de las tres fases
+  const W=[130,110,150,150,110];
+  trowC(c,30,326,650,26,['Fase','Posición','Cámara trasera','Cámara anular','Vástago'],W,null,true);
+  ['reposo','orden','soltada'].forEach((fa,i)=>{
+    const pp=posicion(mdVal,mdAcc,fa),r=estadoTubos(sc,cfg,pp,false);
+    const et=V.np===3?['a','0','b'][pp]:['a','b'][pp];
+    trowC(c,30,352+i*26,650,26,['','','','',''],W,null,false);
+    // se rellena aparte para poder colorear cada estado
+    c.fillStyle=EST_HEX[r.cams.tras];c.font='13px Outfit, sans-serif';c.textAlign='left';
+    c.fillText(EST_ABR[r.cams.tras],30+W[0]+W[1]+10,352+i*26+18);
+    c.fillStyle=EST_HEX[r.cams.anu];c.fillText(EST_ABR[r.cams.anu],30+W[0]+W[1]+W[2]+10,352+i*26+18);
+    c.fillStyle=fa===mdFase?OK_HEX:'#C7D6F5';c.font=(fa===mdFase?'bold ':'')+'13px Outfit, sans-serif';
+    c.fillText(VER_TXT[r.ver].replace('el vástago ','').replace('el vástago ',''),30+W[0]+W[1]+W[2]+W[3]+10,352+i*26+18);
+    c.fillStyle=fa===mdFase?OK_HEX:'#F4EFEA';c.font=(fa===mdFase?'bold ':'')+'13px Outfit, sans-serif';
+    c.fillText((fa==='soltada'?'al soltar':fa)+(fa===mdFase?' ◂':''),40,352+i*26+18);
+    c.fillStyle=fa===mdFase?AZUL:'#8f97a5';c.fillText(et,30+W[0]+10,352+i*26+18);
+  });
+
+  // fuerzas
+  const Ae=areaEmb(sc.D),Aa=areaAnu(sc.D);
+  const Fteo=fTeorica(Ae,sc.p),Fav=fUtil(Ae,sc.p),Fret=fUtil(Aa,sc.p);
+  const Fm1=fMuelle(sc.D,MUELLE_MIN),Fm2=fMuelle(sc.D,MUELLE_MAX);
+  drawBar(c,30,470,650,20,1,'F teórica del émbolo = p · A ('+sc.p+' bar sobre '+f1(Ae,2)+' cm²)','#C7D6F5',f1(Fteo,1)+' N');
+  drawBar(c,30,522,650,20,Fav/Fteo,'F útil empujando = η · p · A_émbolo (η = '+f1(ETA,2)+')',OK_HEX,f1(Fav,1)+' N');
+  drawBar(c,30,574,650,20,Fret/Fteo,'F útil tirando = η · p · A_anular ('+f1(Aa,2)+' cm²)',VIO,f1(Fret,1)+' N');
+  if(CILS[sc.cil].muelle){
+    drawBar(c,30,626,650,20,Fm2/Fteo,'muelle del simple efecto ('+f1(MUELLE_MIN*100,0)+' %–'+f1(MUELLE_MAX*100,0)+' % de la teórica a '+P_REF_MUELLE+' bar)',WARN_HEX,f1(Fm1,1)+'–'+f1(Fm2,1)+' N');
+    nota(c,668,'El catálogo da la fuerza del muelle como RANGO, no como una cifra: por eso la fuerza neta de este Ø'+sc.D+' queda entre '+f1(Fav-Fm2,1)+' y '+f1(Fav-Fm1,1)+' N, y el proyecto se hace con el peor caso. Un simple efecto paga el muelle en todo el recorrido útil.',WARN_HEX);
+  }else{
+    drawBar(c,30,626,650,20,fDifer(sc.D,sc.p)/Fteo,'F diferencial (las dos cámaras a presión) = η · p · A_vástago',BAD_HEX,f1(fDifer(sc.D,sc.p),1)+' N');
+    nota(c,668,'Con las dos cámaras a presión el cilindro no se bloquea: sale con la fuerza del ÁREA DEL VÁSTAGO, '+f1(fDifer(sc.D,sc.p),1)+' N frente a '+f1(Fav,1)+' N normales ('+f1(Fav/fDifer(sc.D,sc.p),2)+' veces menos). Empujar y tirar tampoco son iguales: el anular es el '+f1(Aa/Ae*100,1)+' % del émbolo.',BAD_HEX);
+  }
+
+  // panel derecho
+  const eM=okMando(sc,mdVal,mdAcc);
+  rpanel(c,PX.x,PX.y,PX.w,268,'El mando elegido');
+  let y=PX.y+58;
+  prow(c,PX.x,y,PX.w,'Accionamiento',A.simb);y+=30;
+  prow(c,PX.x,y,PX.w,'Origen de la orden',ORIGEN_TXT[A.origen],A.origen===sc.origen?OK_HEX:BAD_HEX);y+=30;
+  prow(c,PX.x,y,PX.w,'Órdenes que entrega',A.mandos+'');y+=30;
+  prow(c,PX.x,y,PX.w,'Órdenes que pide la válvula',V.est==='mono'?'1':'2',(V.est==='mono')===(A.mandos===1)?OK_HEX:BAD_HEX);y+=30;
+  prow(c,PX.x,y,PX.w,'Clase que resulta',CLASE_TXT[claseEfectiva(mdVal,mdAcc)],claseEfectiva(mdVal,mdAcc)===sc.clase?OK_HEX:BAD_HEX);y+=30;
+  prow(c,PX.x,y,PX.w,'Clase que pide la estación',CLASE_TXT[sc.clase],AZUL);y+=30;
+  prow(c,PX.x,y,PX.w,'Veredicto del mando',eM?'coherente':'incoherente',eM?OK_HEX:BAD_HEX);
+
+  rpanel(c,PX.x,358,PX.w,382,'Por qué no otro mando');
+  let yy=394;
+  ACCK.forEach(k=>{
+    const oo=okMando(sc,mdVal,k);
+    prow(c,PX.x,yy,PX.w,ACC[k].nom.split(' ')[0]+' ('+ACC[k].origen.slice(0,4)+', '+ACC[k].mandos+')',oo?'sirve':'no',oo?OK_HEX:BAD_HEX);
+    yy+=28;
+  });
+  c.fillStyle=GRIS;c.font='11px Outfit, sans-serif';c.textAlign='left';
+  wrapText(c,'Cada fila se evalúa con la válvula que hay ahora puesta: cambiar de válvula cambia qué mandos sirven. Entre paréntesis, el origen de la orden y cuántas entrega.',PX.x+16,yy+14,PX.w-32,16);
+  yy+=52;
+  const wM=whyAcc(sc,mdAcc);
+  c.fillStyle=wM?WARN_HEX:OK_HEX;c.font='12px Outfit, sans-serif';
+  wrapText(c,wM||'Este mando encaja con la válvula y con la estación.',PX.x+16,yy,PX.w-32,16);
+}
+
+function drawAire(c){
+  const sc=POOL[arIdx],cfg=curCfg(),V=VALVULAS[cfg.valv];
+  const pos=posicion(cfg.valv,cfg.acc,'soltada');
+  const {cams,ver}=estadoTubos(sc,cfg,pos,arSin);
+  title2(c,'Qué pasa al soltar la orden y al perder el aire',
+    'La posición de reposo la decide la válvula, pero al despresurizar la RED ninguna válvula empuja: sólo un muelle sostiene una posición. Un doble efecto se queda sin posición definida y la carga decide.');
+  drawSimbolo(c,30,140,650,110,cfg.valv,cfg.acc,pos,cams,arCon);
+
+  // tabla de escenarios
+  const W=[210,140,140,160];
+  trowC(c,30,326,650,26,['Escenario','Cámara trasera','Cámara anular','Vástago'],W,null,true);
+  const ESC=[
+    ['con la orden puesta',posicion(cfg.valv,cfg.acc,'orden'),false],
+    ['al soltar la orden',pos,false],
+    ['red despresurizada',pos,true],
+  ];
+  ESC.forEach(([nom,pp,sin],i)=>{
+    const r=estadoTubos(sc,cfg,pp,sin);
+    const act=(i===2)===arSin&&(i!==0);
+    trowC(c,30,352+i*26,650,26,['','','',''],W,null,false);
+    c.fillStyle=act?OK_HEX:'#F4EFEA';c.font=(act?'bold ':'')+'13px Outfit, sans-serif';c.textAlign='left';
+    c.fillText(nom+(act?' ◂':''),40,352+i*26+18);
+    c.fillStyle=EST_HEX[r.cams.tras];c.font='13px Outfit, sans-serif';
+    c.fillText(EST_ABR[r.cams.tras],30+W[0]+10,352+i*26+18);
+    c.fillStyle=EST_HEX[r.cams.anu];
+    c.fillText(EST_ABR[r.cams.anu],30+W[0]+W[1]+10,352+i*26+18);
+    c.fillStyle=act?OK_HEX:'#C7D6F5';c.font=(act?'bold ':'')+'13px Outfit, sans-serif';
+    c.fillText(VER_TXT[r.ver].replace('el vástago ',''),30+W[0]+W[1]+W[2]+10,352+i*26+18);
+  });
+
+  // fuerzas de retención
+  const Ae=areaEmb(sc.D),Aa=areaAnu(sc.D),Fteo=fTeorica(Ae,sc.p);
+  const Fm1=fMuelle(sc.D,MUELLE_MIN),Fm2=fMuelle(sc.D,MUELLE_MAX);
+  c.fillStyle='#9fb0cf';c.font='12px Outfit, sans-serif';c.textAlign='left';
+  c.fillText('Lo único que sostiene una posición sin aire de red:',30,452);
+  drawBar(c,30,478,650,20,CILS[sc.cil].muelle?Fm2/Fteo:0,'muelle del cilindro'+(CILS[sc.cil].muelle?' ('+CILS[sc.cil].muelle+')':' — este cilindro NO lleva'),CILS[sc.cil].muelle?OK_HEX:BAD_HEX,CILS[sc.cil].muelle?f1(Fm1,1)+'–'+f1(Fm2,1)+' N':'0 N');
+  drawBar(c,30,530,650,20,arSin?0:fUtil(Ae,sc.p)/Fteo,'presión de red sobre el émbolo'+(arSin?' — red despresurizada':''),arSin?BAD_HEX:AZUL,arSin?'0 N':f1(fUtil(Ae,sc.p),1)+' N');
+  drawBar(c,30,582,650,20,cams.tras==='bloqueada'||cams.anu==='bloqueada'?0.5:0,'aire atrapado en una cámara cerrada',WARN_HEX,cams.tras==='bloqueada'||cams.anu==='bloqueada'?'sí, pero no es retención':'no');
+
+  const w=whyCon(sc,arCon);
+  c.fillStyle=hexA(w?WARN_HEX:OK_HEX,0.08);c.fillRect(30,616,650,58);
+  c.strokeStyle=hexA(w?WARN_HEX:OK_HEX,0.30);c.lineWidth=1;c.strokeRect(30,616,650,58);
+  c.fillStyle=w?WARN_HEX:OK_HEX;c.font='13px Outfit, sans-serif';c.textAlign='left';
+  wrapText(c,w||('Conexionado '+CONEXIONES[arCon].nom.toLowerCase()+': '+CONEXIONES[arCon].det),46,638,618,18);
+
+  nota(c,690,'ISO 4414: el aire atrapado NO es un medio de retención. Un centro cerrado guarda la POSICIÓN mientras las juntas aguanten, no la presión de la red; para sostener una carga suspendida hace falta un medio mecánico. Un doble efecto sin aire no tiene posición: la decide la carga.',BAD_HEX);
+
+  // panel derecho
+  rpanel(c,PX.x,PX.y,PX.w,266,'Estación y montaje');
+  let y=PX.y+58;
+  prow(c,PX.x,y,PX.w,'Cilindro',CILS[sc.cil].nom.split(',')[0]+' Ø'+sc.D);y+=30;
+  prow(c,PX.x,y,PX.w,'Válvula correcta',V.sig,AZUL);y+=30;
+  prow(c,PX.x,y,PX.w,'Conexionado',CONEXIONES[arCon].nom.split(' ')[0]+(arCon==='ok'?'':' ⚠'),arCon==='ok'?OK_HEX:WARN_HEX);y+=30;
+  prow(c,PX.x,y,PX.w,'Red',arSin?'despresurizada':sc.p+' bar',arSin?BAD_HEX:AZUL);y+=30;
+  prow(c,PX.x,y,PX.w,'Exige al soltar',sc.trasSoltar);y+=30;
+  prow(c,PX.x,y,PX.w,'Exige sin aire',sc.alFaltarAire||'no se declara',sc.alFaltarAire?WARN_HEX:GRIS);y+=30;
+  prow(c,PX.x,y,PX.w,'Resultado',VER_TXT[ver].replace('el vástago ',''),okReposo(sc,cfg)?OK_HEX:BAD_HEX);
+
+  rpanel(c,PX.x,356,PX.w,180,'Los tres conexionados');
+  let yy=392;
+  CONK.forEach(k=>{
+    const oo=okConEje(sc,k);
+    prow(c,PX.x,yy,PX.w,CONEXIONES[k].nom.split(' ').slice(0,3).join(' '),oo?'sirve':'no',oo?OK_HEX:BAD_HEX);
+    yy+=28;
+  });
+  c.fillStyle=GRIS;c.font='11px Outfit, sans-serif';c.textAlign='left';
+  wrapText(c,'Con la válvula y el mando ya correctos, para que el conexionado se juzgue solo.',PX.x+16,yy+12,PX.w-32,16);
+
+  rpanel(c,PX.x,556,PX.w,184,'Lo que pide la estación');
+  c.fillStyle='#C7D6F5';c.font='12px Outfit, sans-serif';c.textAlign='left';
+  wrapText(c,sc.txt,PX.x+16,592,PX.w-32,17);
+}
+
+function drawReto(c){
+  const sc=retoSc(),cfg=retoCfg(),g=GOOD(sc),e=evalua(sc,cfg);
+  title2(c,'Reto: arma el mando de '+sc.nom.toLowerCase(),
+    'Tres decisiones independientes: la VÁLVULA, el ACCIONAMIENTO y el CONEXIONADO. Cada una se califica por separado, con las otras dos ya correctas. Y no basta que funcione: tiene que ser la válvula más simple que funcione.');
+
+  c.fillStyle=hexA(AZUL,0.07);c.fillRect(30,100,650,86);
+  c.strokeStyle=hexA(AZUL,0.28);c.lineWidth=1;c.strokeRect(30,100,650,86);
+  c.fillStyle='#C7D6F5';c.font='13px Outfit, sans-serif';c.textAlign='left';
+  wrapText(c,sc.txt,46,124,618,18);
+
+  // los tres ejes
+  const EJES=[
+    ['Válvula',VALVULAS[cfg.valv].nom,retoChecked?okValvEje(sc,cfg.valv):null,whyValv(sc,cfg.valv)],
+    ['Accionamiento',ACC[cfg.acc].nom,retoChecked?okAccEje(sc,cfg.acc):null,whyAcc(sc,cfg.acc)],
+    ['Conexionado',CONEXIONES[cfg.conex].nom,retoChecked?okConEje(sc,cfg.conex):null,whyCon(sc,cfg.conex)],
+  ];
+  let y=214;
+  EJES.forEach(([nom,val,ok,why])=>{
+    const col=ok===null?'#C7D6F5':ok?OK_HEX:BAD_HEX;
+    c.fillStyle=hexA(col,0.07);c.fillRect(30,y,650,58);
+    c.strokeStyle=hexA(col,0.28);c.lineWidth=1;c.strokeRect(30,y,650,58);
+    c.fillStyle=GRIS;c.font='12px Outfit, sans-serif';c.textAlign='left';c.fillText(nom,46,y+20);
+    c.fillStyle=col;c.font='bold 14px Outfit, sans-serif';c.fillText(val+(ok===null?'':ok?'  ✓':'  ✗'),46,y+40);
+    if(retoChecked&&!ok){c.fillStyle=WARN_HEX;c.font='11px Outfit, sans-serif';wrapText(c,why,320,y+22,352,14);}
+    y+=66;
+  });
+
+  // traza de la terna propuesta
+  const W=[150,110,140,140,110];
+  trowC(c,30,y+6,650,26,['Fase','Posición','Cám. trasera','Cám. anular','Vástago'],W,null,true);
+  ['reposo','orden','soltada'].forEach((fa,i)=>{
+    const pp=posicion(cfg.valv,cfg.acc,fa),r=estadoTubos(sc,cfg,pp,false);
+    const et=VALVULAS[cfg.valv].np===3?['a','0','b'][pp]:['a','b'][pp];
+    trowC(c,30,y+32+i*26,650,26,['','','',''],W,null,false);
+    c.fillStyle='#F4EFEA';c.font='13px Outfit, sans-serif';c.textAlign='left';
+    c.fillText(fa==='soltada'?'al soltar la orden':fa,40,y+32+i*26+18);
+    c.fillStyle='#8f97a5';c.fillText(et,30+W[0]+10,y+32+i*26+18);
+    c.fillStyle=EST_HEX[r.cams.tras];c.fillText(EST_ABR[r.cams.tras],30+W[0]+W[1]+10,y+32+i*26+18);
+    c.fillStyle=EST_HEX[r.cams.anu];c.fillText(EST_ABR[r.cams.anu],30+W[0]+W[1]+W[2]+10,y+32+i*26+18);
+    const bien=(fa==='orden')?r.ver===sc.movOrden:true;
+    c.fillStyle=bien?'#C7D6F5':WARN_HEX;
+    c.fillText(VER_TXT[r.ver].replace('el vástago ',''),30+W[0]+W[1]+W[2]+W[3]+10,y+32+i*26+18);
+  });
+  // fila extra: sin aire
+  const rA=estadoTubos(sc,cfg,posicion(cfg.valv,cfg.acc,'soltada'),true);
+  trowC(c,30,y+32+3*26,650,26,['','','',''],W,null,false);
+  c.fillStyle=WARN_HEX;c.font='13px Outfit, sans-serif';c.textAlign='left';
+  c.fillText('red despresurizada',40,y+32+3*26+18);
+  c.fillStyle=EST_HEX[rA.cams.tras];c.fillText(EST_ABR[rA.cams.tras],30+W[0]+W[1]+10,y+32+3*26+18);
+  c.fillStyle=EST_HEX[rA.cams.anu];c.fillText(EST_ABR[rA.cams.anu],30+W[0]+W[1]+W[2]+10,y+32+3*26+18);
+  c.fillStyle=WARN_HEX;c.fillText(VER_TXT[rA.ver].replace('el vástago ',''),30+W[0]+W[1]+W[2]+W[3]+10,y+32+3*26+18);
+
+  // diagnóstico
+  const dy=y+32+4*26+14;
+  const bienTodo=validaTerna(sc,cfg);
+  c.fillStyle=hexA(bienTodo?OK_HEX:WARN_HEX,0.08);c.fillRect(30,dy,650,64);
+  c.strokeStyle=hexA(bienTodo?OK_HEX:WARN_HEX,0.30);c.lineWidth=1;c.strokeRect(30,dy,650,64);
+  c.fillStyle=bienTodo?OK_HEX:WARN_HEX;c.font='13px Outfit, sans-serif';c.textAlign='left';
+  wrapText(c,bienTodo?'Terna válida y mínima: '+VALVULAS[cfg.valv].sig+' con '+ACC[cfg.acc].simb+' y conexionado '+CONEXIONES[cfg.conex].nom.toLowerCase()+'.'
+    :'De las '+(VALK.length*ACCK.length*CONK.length)+' ternas del catálogo sólo una es válida y mínima en esta estación. Corrige los ejes marcados.',46,dy+24,618,18);
+
+  // panel derecho
+  rpanel(c,PX.x,PX.y,PX.w,206,'Calificación por ejes');
+  let yr=PX.y+58;
+  prow(c,PX.x,yr,PX.w,'Válvula',retoChecked?(okValvEje(sc,cfg.valv)?'✓':'✗'):'—',retoChecked?(okValvEje(sc,cfg.valv)?OK_HEX:BAD_HEX):GRIS);yr+=30;
+  prow(c,PX.x,yr,PX.w,'Accionamiento',retoChecked?(okAccEje(sc,cfg.acc)?'✓':'✗'):'—',retoChecked?(okAccEje(sc,cfg.acc)?OK_HEX:BAD_HEX):GRIS);yr+=30;
+  prow(c,PX.x,yr,PX.w,'Conexionado',retoChecked?(okConEje(sc,cfg.conex)?'✓':'✗'):'—',retoChecked?(okConEje(sc,cfg.conex)?OK_HEX:BAD_HEX):GRIS);yr+=30;
+  prow(c,PX.x,yr,PX.w,'Criterios internos',(e.oF?'F':'·')+(e.oM?'M':'·')+(e.oT?'T':'·')+(e.oR?'R':'·'),e.ok?OK_HEX:WARN_HEX);yr+=30;
+  prow(c,PX.x,yr,PX.w,'Coste mínimo',costoMin(sc)+' / el tuyo '+VALVULAS[cfg.valv].costo,VALVULAS[cfg.valv].costo===costoMin(sc)?OK_HEX:WARN_HEX);
+
+  rpanel(c,PX.x,296,PX.w,262,'Por qué no otra válvula');
+  let yv=332;
+  VALK.forEach(k=>{
+    const oo=okValvEje(sc,k),on=k===cfg.valv;
+    prow(c,PX.x,yv,PX.w,VALVULAS[k].sig+(on?' ◂':''),oo?'válida y mínima':(evalua(sc,cfgWith(sc,{valv:k})).ok?'válida pero de más':'no sirve'),oo?OK_HEX:(evalua(sc,cfgWith(sc,{valv:k})).ok?WARN_HEX:BAD_HEX));
+    yv+=28;
+  });
+  c.fillStyle=GRIS;c.font='11px Outfit, sans-serif';c.textAlign='left';
+  wrapText(c,'Cada fila se evalúa con el mando y el conexionado ya correctos, para que la válvula se juzgue sola.',PX.x+16,yv+12,PX.w-32,16);
+
+  rpanel(c,PX.x,578,PX.w,162,'Lo que exige la estación');
+  let ye=614;
+  prow(c,PX.x,ye,PX.w,'Con la orden',sc.movOrden);ye+=28;
+  prow(c,PX.x,ye,PX.w,'Al soltar',sc.trasSoltar);ye+=28;
+  prow(c,PX.x,ye,PX.w,'Sin aire',sc.alFaltarAire||'libre');ye+=28;
+  prow(c,PX.x,ye,PX.w,'Orden',ORIGEN_TXT[sc.origen]+' · '+CLASE_TXT[sc.clase]);
+}
+
+function drawBoard(){
+  const c=bCv.getContext('2d');bg(c);
+  if(mode==='mando')drawMando(c);else if(mode==='aire')drawAire(c);else if(mode==='reto')drawReto(c);else drawVias(c);
+  bTex.needsUpdate=true;
+}
+function boardClick(){
+  if(mode==='mando')showToast('🎛️ El accionamiento no cambia lo que la válvula comunica: cambia cuántas órdenes hacen falta y si se sostienen. Una válvula de dos pilotajes con un solo mando deja su otra posición de trabajo sin forma de ordenarse.');
+  else if(mode==='aire')showToast('💨 Sin aire de red ninguna válvula empuja. Sólo un muelle sostiene una posición: un doble efecto se queda a merced de la carga.');
+  else if(mode==='reto')showToast('🎯 Tres decisiones ortogonales: válvula, accionamiento y conexionado. Válida no basta: tiene que ser la más simple que funcione.');
+  else showToast('🔧 Cada posición es una lista de pares de puertos comunicados. Lo que no aparece en la lista está bloqueado, y así se dibuja: con un muñón en T.');
+}
+
+// ===================== 7. ESCENA 3D: BANCO DE MANDO =====================
+const bench=roundedBox(4.2,0.5,1.9,MAT.bench,0.05);bench.position.set(2.05,0.25,0.55);scene.add(bench);
+bench.userData={title:'Banco de mando neumático',info:'Una válvula direccional con su accionamiento, sus tubos y el cilindro al que manda. El carrete se mueve con la posición y los tubos se colorean con el estado de cada cámara.'};
+
+const GEO_CIL=new THREE.CylinderGeometry(1,1,1,28);
+const barrel=new THREE.Mesh(GEO_CIL,MAT.barrel);
+barrel.rotation.z=Math.PI/2;barrel.position.set(2.30,1.02,0.98);scene.add(barrel);
+barrel.userData={title:'Cilindro de la estación',info:'El diámetro dibujado sigue el de la estación. Un simple efecto sólo tiene UN puerto de aire: el otro extremo respira a la atmósfera.'};
+addHoverLabel(barrel,'cilindro ISO 15552',AZUL,new THREE.Vector3(2.30,1.58,0.98),2.1);
+
+const rod=new THREE.Mesh(GEO_CIL,MAT.rod);
+rod.rotation.z=Math.PI/2;rod.position.set(2.95,1.02,0.98);scene.add(rod);
+const tip=roundedBox(0.07,0.20,0.20,MAT.plate,0.02);tip.position.set(3.28,1.02,0.98);scene.add(tip);
+const carga=roundedBox(0.32,0.32,0.32,MAT.carga,0.03);carga.position.set(3.52,1.02,0.98);scene.add(carga);
+carga.userData={title:'Lo que mueve el vástago',info:'La carga de la estación. Sin aire de red y sin muelle, es ella la que decide dónde queda el vástago.'};
+addHoverLabel(carga,'carga',WARN_HEX,new THREE.Vector3(3.52,1.44,0.98),1.1);
+
+// cuerpo de la válvula con carrete visible
+const vBody=roundedBox(0.78,0.24,0.30,MAT.valve,0.03);vBody.position.set(2.30,0.66,0.16);scene.add(vBody);
+vBody.userData={title:'Válvula direccional',info:'Las vías son los orificios de trabajo y las posiciones los estados del carrete. Aquí el carrete se desliza a la posición que la orden impone.'};
+addHoverLabel(vBody,'válvula direccional',VIO,new THREE.Vector3(2.30,1.02,0.16),2.1);
+const spool=new THREE.Mesh(new THREE.CylinderGeometry(0.055,0.055,0.62,16),MAT.spool);
+spool.rotation.z=Math.PI/2;spool.position.set(2.30,0.66,0.32);scene.add(spool);
+spool.userData={title:'Carrete',info:'El carrete es el que comunica los puertos. Su recorrido tiene tantos topes como posiciones tenga la válvula.'};
+
+// accionamiento (izquierda) y retorno (derecha)
+const accBox=roundedBox(0.16,0.20,0.22,MAT.body,0.02);accBox.position.set(1.82,0.66,0.16);scene.add(accBox);
+accBox.userData={title:'Accionamiento',info:'Quien da la orden: pulsador, palanca, rodillo, solenoide o pilotaje neumático. Se enciende mientras la orden está puesta.'};
+const retBox=roundedBox(0.16,0.20,0.22,MAT.body,0.02);retBox.position.set(2.78,0.66,0.16);scene.add(retBox);
+retBox.userData={title:'Retorno de la válvula',info:'En una monoestable es un muelle; en una biestable o en una de tres posiciones es la segunda orden. Si falta, la biestable se queda pegada y la 5/3 vuelve al centro: en los dos casos la otra posición de trabajo queda inalcanzable.'};
+
+// tubos de trabajo (uno por cámara), con material propio cada uno
+const MAT_TUBO={tras:std(0x2c333d,0.4,0.4),anu:std(0x2c333d,0.4,0.4)};
+MAT_TUBO.tras.emissive=new THREE.Color(0x8AB4F8);MAT_TUBO.tras.emissiveIntensity=0.05;
+MAT_TUBO.anu.emissive=new THREE.Color(0x8AB4F8);MAT_TUBO.anu.emissiveIntensity=0.05;
+function tubo(a,b,r,mat){
+  const dir=new THREE.Vector3().subVectors(b,a),len=dir.length();
+  const m=new THREE.Mesh(new THREE.CylinderGeometry(r,r,len,12),mat);
+  m.position.copy(a).add(b).multiplyScalar(0.5);
+  m.quaternion.setFromUnitVectors(new THREE.Vector3(0,1,0),dir.clone().normalize());
+  return m;
+}
+const tuboTras=tubo(new THREE.Vector3(2.06,0.66,0.16),new THREE.Vector3(1.98,1.02,0.98),0.032,MAT_TUBO.tras);scene.add(tuboTras);
+const tuboAnu=tubo(new THREE.Vector3(2.54,0.66,0.16),new THREE.Vector3(2.62,1.02,0.98),0.032,MAT_TUBO.anu);scene.add(tuboAnu);
+tuboTras.userData={title:'Tubo de la cámara trasera',info:'La cámara del lado del émbolo: la que hace SALIR el vástago. Se colorea con su estado: presión, escape, bloqueada o atmósfera.'};
+tuboAnu.userData={title:'Tubo de la cámara anular',info:'La cámara del lado del vástago: la que hace ENTRAR el vástago. Su área es menor porque el vástago resta.'};
+addHoverLabel(tuboTras,'cámara trasera',AZUL,new THREE.Vector3(1.94,1.30,0.60),2.0);
+addHoverLabel(tuboAnu,'cámara anular',VIO,new THREE.Vector3(2.72,1.30,0.60),2.0);
+
+// alimentación
+const linea1=tubo(new THREE.Vector3(2.30,0.54,0.16),new THREE.Vector3(2.30,0.30,-0.35),0.030,std(0x8AB4F8,0.4,0.5));scene.add(linea1);
+linea1.userData={title:'Puerto 1: alimentación',info:'El aire de red entra siempre por el 1. Al despresurizar la red, ninguna válvula puede empujar nada.'};
+
+// pilotos de los cuatro criterios
+function makeLED(x,z,color){const m=new THREE.Mesh(new THREE.SphereGeometry(0.042,16,16),std(color,0.4,0.1));m.position.set(x,0.53,z);m.material.emissive=new THREE.Color(color);m.material.emissiveIntensity=0.15;scene.add(m);return m;}
+const ledF=makeLED(3.30,-0.15,0x8AB4F8);
+const ledM=makeLED(3.00,-0.15,0xC08CF8);
+const ledT=makeLED(2.70,-0.15,0x7CD992);
+const ledR=makeLED(2.40,-0.15,0xE9C46A);
+ledF.userData={title:'Piloto "función"',info:'La válvula tiene las vías y las posiciones que la estación necesita: 5 vías para un doble efecto, centro cerrado para parar a media carrera.'};
+ledM.userData={title:'Piloto "mando"',info:'El accionamiento entrega tantas órdenes como la válvula pide, viene del origen correcto y da la clase de orden que la estación necesita.'};
+ledT.userData={title:'Piloto "movimiento"',info:'Con la orden puesta, el vástago hace lo que la estación pide.'};
+ledR.userData={title:'Piloto "reposo"',info:'Al retirar la orden —y al perder el aire, cuando la estación lo exige— el vástago queda donde debe.'};
+addHoverLabel(ledF,'función · mando · movimiento · reposo',AZUL,new THREE.Vector3(2.85,0.95,-0.15),3.2);
+
+// placa de identificación (canvas en 3D)
+const pCv=document.createElement('canvas');pCv.width=256;pCv.height=160;const pTex=new THREE.CanvasTexture(pCv);
+const placa=new THREE.Mesh(new THREE.PlaneGeometry(0.62,0.39),new THREE.MeshBasicMaterial({map:pTex,transparent:true}));
+placa.position.set(1.42,0.95,0.42);scene.add(placa);
+placa.lookAt(new THREE.Vector3(5.0,2.4,5.6));
+placa.userData={title:'Placa de la válvula',info:'La designación, la posición en la que está el carrete y el estado de las dos cámaras.'};
+
+function drawPlaca(vk,pos,cams){
+  const V=VALVULAS[vk],c=pCv.getContext('2d');c.clearRect(0,0,256,160);
+  c.fillStyle='rgba(16,20,26,0.94)';c.fillRect(0,0,256,160);
+  c.strokeStyle=hexA(AZUL,0.6);c.lineWidth=3;c.strokeRect(2,2,252,156);
+  c.fillStyle='#F4EFEA';c.font='bold 30px Outfit, sans-serif';c.textAlign='center';c.fillText(V.sig,128,44);
+  c.fillStyle=GRIS;c.font='13px Outfit, sans-serif';
+  c.fillText(V.vias+' vías · '+V.np+' posiciones',128,66);
+  c.fillStyle=AZUL;c.font='bold 15px Outfit, sans-serif';
+  c.fillText('posición '+(V.np===3?['a','0','b'][pos]:['a','b'][pos]),128,92);
+  c.textAlign='left';c.font='12px Outfit, sans-serif';
+  c.fillStyle=EST_HEX[cams.tras];c.fillText('trasera: '+EST_ABR[cams.tras],16,120);
+  c.fillStyle=EST_HEX[cams.anu];c.fillText('anular: '+EST_ABR[cams.anu],16,142);
+  pTex.needsUpdate=true;
+}
+
+function updateHW(){
+  const sc=curSc(),cfg=curCfg(),V=VALVULAS[cfg.valv],e=evalua(sc,cfg);
+  const pos=curPos(),cams=curCams();
+  const r=0.055+sc.D/100*0.115;
+  barrel.scale.set(r,0.86,r);
+  const rr=0.018+CIL_ISO[sc.D]/100*0.060;
+  rod.scale.set(rr,0.62,rr);
+  const p=animP;
+  rod.position.x=2.92+0.30*p;
+  tip.position.x=3.22+0.30*p;
+  carga.position.x=3.48+0.30*p;
+  // carrete: tantos topes como posiciones
+  const off=V.np===3?(pos-1)*0.11:(pos-0.5)*0.16;
+  spool.position.x=2.30+off;
+  // tubos
+  MAT_TUBO.tras.color.setHex(EST_COL[cams.tras]);MAT_TUBO.tras.emissive.setHex(EST_COL[cams.tras]);MAT_TUBO.tras.emissiveIntensity=EST_EMI[cams.tras];
+  MAT_TUBO.anu.color.setHex(EST_COL[cams.anu]);MAT_TUBO.anu.emissive.setHex(EST_COL[cams.anu]);MAT_TUBO.anu.emissiveIntensity=EST_EMI[cams.anu];
+  // el tubo de una cámara sin conducto (simple efecto) se oculta
+  const tb=tubos(sc,cfg.valv,cfg.conex),conectadas=Object.keys(tb).map(k=>tb[k]);
+  tuboTras.visible=conectadas.includes('tras');
+  tuboAnu.visible=conectadas.includes('anu');
+  // alimentación
+  linea1.material.emissive=new THREE.Color(curSin()?0x2c333d:0x8AB4F8);
+  linea1.material.emissiveIntensity=curSin()?0.05:0.9;
+  // accionamiento y retorno
+  const iOrden=V.np===3?2:1;
+  accBox.material.emissive=new THREE.Color(pos===iOrden?0x7CD992:0x1b2028);
+  accBox.material.emissiveIntensity=pos===iOrden?0.9:0.05;
+  const der=ladoDer(cfg.valv,cfg.acc);
+  retBox.material.emissive=new THREE.Color(der==='nada'?0xff6b6b:pos===(V.rep||0)?0x7CD992:0x1b2028);
+  retBox.material.emissiveIntensity=der==='nada'?0.8:(pos===(V.rep||0)?0.9:0.05);
+  // carga proporcional al diámetro
+  const cs=0.20+sc.D/100*0.22;
+  carga.scale.set(cs/0.32,cs/0.32,cs/0.32);
+  ledF.material.emissiveIntensity=e.oF?1.4:0.10;
+  ledM.material.emissiveIntensity=e.oM?1.4:0.10;
+  ledT.material.emissiveIntensity=e.oT?1.4:0.10;
+  ledR.material.emissiveIntensity=e.oR?1.4:0.10;
+  drawPlaca(cfg.valv,pos,cams);
+}
+
+// ===================== 8. HUD Y PANEL =====================
+document.getElementById('hud').innerHTML=`
+  <div class="eyebrow">Hidráulica y neumática (D4) · Válvulas direccionales · ISO 1219-1 · ISO 11727 · ISO 15552 · ISO 4414</div>
+  <h2>Válvulas direccionales: vías, posiciones y mandos básicos</h2>
+  <p>Una válvula direccional se nombra con dos números: las <b>vías</b>, que son los orificios de trabajo, y las
+  <b>posiciones</b>, que son los estados del carrete. Una 3/2 tiene tres orificios y dos estados; una 5/2, cinco y dos.
+  Y cada posición no es un dibujo: es una <b>lista de pares de puertos comunicados</b>, y lo que no aparece en la lista
+  queda bloqueado. De esa lista sale todo lo demás — qué cámara del cilindro está a presión, cuál está a escape y, por
+  tanto, qué hace el vástago. Encima va el <b>accionamiento</b>, que no cambia lo que la válvula comunica: cambia cuántas
+  órdenes independientes hacen falta y si la orden se sostiene. Aquí desmontas los símbolos de la ISO 1219-1, numeras los
+  puertos según la ISO 11727 y compruebas —midiendo, no suponiendo— cuál de las
+  ${VALK.length*ACCK.length*CONK.length} ternas del catálogo es la única válida y mínima en cada una de las ${POOL.length} estaciones.</p>
+  <div class="formula">3/2 NC: reposo 2–3 · orden 1–2 · 5/2: reposo 1–2 y 4–5 · orden 1–4 y 2–3 · F = η · p · A · F_dif = η · p · A_vástago · muelle = ${f1(MUELLE_MIN*100,0)} %–${f1(MUELLE_MAX*100,0)} % de p_ref · A_émbolo</div>
+  <div class="legend">
+    <div class="li"><span class="dot" style="background:#8AB4F8"></span>Cámara a presión de red</div>
+    <div class="li"><span class="dot" style="background:#8f97a5"></span>Cámara a escape o atmósfera</div>
+    <div class="li"><span class="dot" style="background:#ff6b6b"></span>Cámara bloqueada (aire atrapado)</div>
+    <div class="li"><span class="dot" style="background:#7CD992"></span>Criterio que cumple</div>
+  </div>
+  <div class="fid">
+    <div class="ft">🔒 Contrato de fidelidad</div>
+    <div class="fl"><b>Sí modela:</b> la <b>topología</b> de ${VALK.length} válvulas del catálogo (3/2 NC, 3/2 NA, 5/2 monoestable, 5/2 biestable, 5/3 de centro cerrado y 5/3 de centros a escape) declarada como listas de pares de puertos comunicados por posición, de donde salen por deducción el estado de cada salida de trabajo, el de cada cámara del cilindro y el veredicto del vástago; la <b>numeración de puertos de la ISO 11727</b> con su equivalencia a la convención antigua por letras, incluido que el pilotaje 12 conecta 1 con 2 y el 14 conecta 1 con 4; ${ACCK.length} <b>accionamientos</b> caracterizados por el origen de la orden, el número de órdenes independientes que entregan y si la orden se sostiene; los tres <b>conexionados</b> (correcto, salidas cruzadas y escapes obturados); y las <b>fuerzas estáticas</b> del cilindro con η = ${f1(ETA,2)}, con el muelle del simple efecto declarado como rango de catálogo del ${f1(MUELLE_MIN*100,0)} % al ${f1(MUELLE_MAX*100,0)} % de la teórica a ${P_REF_MUELLE} bar. Verificado numéricamente (132/132), incluida la unicidad de la terna correcta entre las ${VALK.length*ACCK.length*CONK.length} de cada estación.</div>
+    <div class="fl no"><b>NO modela:</b> la dinámica de la conmutación — tiempo de respuesta del carrete, solape o interrupción durante el paso de una posición a otra, golpe de ariete neumático —; el caudal nominal ni la caída de presión de la válvula (eso es de <b>MEC-94</b>) ni la regulación de velocidad meter-in/meter-out; los circuitos de mando con lógica, temporización o secuenciado (<b>MEC-86</b> y siguientes); la energía eléctrica del solenoide, su consumo ni su protección; el desgaste de juntas, las fugas internas y el aire de pilotaje consumido; ni las servoválvulas y válvulas proporcionales, en las que el carrete admite posiciones intermedias.</div>
+  </div>
+  <div class="src">Ref: ISO 1219-1 (símbolos gráficos de mandos y válvulas) · ISO 11727 (identificación de los puertos) · ISO 15552 (cilindros normalizados, parejas émbolo-vástago) · ISO 4414 (seguridad de los sistemas neumáticos) · Verificación numérica propia (132/132)</div>`;
+
+document.getElementById('panel').innerHTML=`
+  <h4>Válvulas direccionales · <span id="p_mode" style="color:var(--accent2)">Vías</span></h4>
+  <div class="modebar">
+    <button class="b on" id="m_vias">🔢 Vías</button>
+    <button class="b" id="m_mando">🎛️ Mando</button>
+    <button class="b" id="m_aire">💨 Sin aire</button>
+    <button class="b" id="m_reto">🎯 Reto</button>
+  </div>
+  <div id="scenarioInfo" style="font-size:12px;color:var(--ink);margin:2px 0 8px;display:none"></div>
+  <div class="modebar" id="selbar" style="display:none;flex-wrap:wrap"></div>
+  <div id="tele"></div>
+  <div class="console" id="report"></div>
+  <h4 class="sec" id="retoTitle" style="display:none">Mando propuesto</h4>
+  <div id="retoBox" style="display:none">
+    <div id="retoSpec" style="font-size:12px;color:var(--ink);margin:2px 0 8px"></div>
+    <div class="btns"><button class="b primary" id="btnCheck">✅ Comprobar</button></div>
+  </div>
+  <h4 class="sec">Pregunta de ingeniería</h4>
+  <div id="q_text" style="font-size:12px;color:var(--ink);margin:4px 0 8px"></div>
+  <div class="btns" id="dxbtns"></div>
+  <div class="btns">
+    <button class="b auto" id="btnAuto">✨ Recorrido guiado (automático)</button>
+    <button class="b primary" id="btnNew">🔀 Nuevo escenario</button>
+  </div>`;
+
+// ===================== 9. TOASTS =====================
+function showToast(html){const t=el('toast');t.innerHTML=html;t.classList.add('show');clearTimeout(showToast._t);showToast._t=setTimeout(()=>t.classList.remove('show'),4200);}
+
+// ===================== 10. MODOS Y CONTROLES =====================
+const MODE_META={
+  vias:{nombre:'Vías',cam:[[5.4,3.0,7.6],[0.6,1.05,0.4]],mision:'Desmonta el símbolo: cuenta las vías y las posiciones, lee qué puertos comunica cada posición y numera los orificios según la ISO 11727.'},
+  mando:{nombre:'Mando',cam:[[5.2,2.9,7.4],[0.7,1.00,0.5]],mision:'Cambia el accionamiento y sigue la traza reposo → orden → soltada. Comprueba cuántas órdenes pide cada válvula y qué fuerza queda tras el muelle.'},
+  aire:{nombre:'Sin aire',cam:[[5.2,3.1,7.2],[0.6,1.05,0.4]],mision:'Quita la orden y luego el aire de la red. Averigua qué sostiene realmente la posición del vástago y qué hacen un conexionado cruzado y unos escapes tapados.'},
+  reto:{nombre:'Reto',cam:[[5.3,2.9,7.5],[0.6,1.00,0.5]],mision:'Elige válvula, accionamiento y conexionado para la estación propuesta. Cada decisión se califica por separado y comprar de más cuenta como error.'},
+};
+function lbl(t){return `<span class="lbl">${t}</span>`;}
+function optBtns(key,opts,cur){return opts.map(([v,t])=>`<button class="b sm ${String(cur)===String(v)?'on':''}" data-${key}="${v}">${t}</button>`).join('');}
+const EST_OPTS=()=>POOL.map((p,i)=>[i,p.id]);
+const VAL_OPTS=VALK.map(k=>[k,VALVULAS[k].sig]);
+const ACC_OPTS=ACCK.map(k=>[k,ACC[k].nom.split(' ')[0]+(ACC[k].mandos===2?' ×2':'')]);
+const CON_OPTS=CONK.map(k=>[k,k==='ok'?'convención':k==='cruzado'?'cruzado':'escapes tapados']);
+const POS_OPTS=vk=>Array.from({length:VALVULAS[vk].np},(_,i)=>[i,VALVULAS[vk].np===3?['a','centro','b'][i]:['a (reposo)','b (orden)'][i]]);
+const FASE_OPTS=[['reposo','reposo'],['orden','con la orden'],['soltada','al soltar']];
+const beep=()=>synth.beep(680,0.05,0.04);
+
+function buildControls(){
+  const bar=el('selbar');bar.style.display='flex';bar.style.flexWrap='wrap';let html='';
+  if(mode==='vias'){
+    html+=lbl('Válvula:')+optBtns('vv',VAL_OPTS,viVal);
+    html+=lbl('Posición:')+optBtns('vp',POS_OPTS(viVal),Math.min(viPos,VALVULAS[viVal].np-1));
+    html+=lbl('Cilindro:')+optBtns('vi',EST_OPTS(),viIdx);
+  }else if(mode==='mando'){
+    html+=lbl('Estación:')+optBtns('mi',EST_OPTS(),mdIdx);
+    html+=lbl('Válvula:')+optBtns('mv',VAL_OPTS,mdVal);
+    html+=lbl('Accionamiento:')+optBtns('ma',ACC_OPTS,mdAcc);
+    html+=lbl('Fase:')+optBtns('mf',FASE_OPTS,mdFase);
+  }else if(mode==='aire'){
+    html+=lbl('Estación:')+optBtns('ai',EST_OPTS(),arIdx);
+    html+=lbl('Conexionado:')+optBtns('ac',CON_OPTS,arCon);
+    html+=lbl('Red:')+optBtns('as',[[0,'con presión'],[1,'despresurizada']],arSin?1:0);
+  }else{
+    html+=lbl('Válvula:')+optBtns('rv',VAL_OPTS,retoCh.valv);
+    html+=lbl('Accionamiento:')+optBtns('ra',ACC_OPTS,retoCh.acc);
+    html+=lbl('Conexionado:')+optBtns('rc',CON_OPTS,retoCh.conex);
+  }
+  bar.innerHTML=html;
+  bar.querySelectorAll('[data-vv]').forEach(b=>b.onclick=()=>{if(autoRunning)return;viVal=b.dataset.vv;viPos=Math.min(viPos,VALVULAS[viVal].np-1);beep();afterEdit();});
+  bar.querySelectorAll('[data-vp]').forEach(b=>b.onclick=()=>{if(autoRunning)return;viPos=+b.dataset.vp;beep();afterEdit();});
+  bar.querySelectorAll('[data-vi]').forEach(b=>b.onclick=()=>{if(autoRunning)return;viIdx=+b.dataset.vi;beep();afterEdit();});
+  bar.querySelectorAll('[data-mi]').forEach(b=>b.onclick=()=>{if(autoRunning)return;mdIdx=+b.dataset.mi;beep();afterEdit();});
+  bar.querySelectorAll('[data-mv]').forEach(b=>b.onclick=()=>{if(autoRunning)return;mdVal=b.dataset.mv;beep();afterEdit();});
+  bar.querySelectorAll('[data-ma]').forEach(b=>b.onclick=()=>{if(autoRunning)return;mdAcc=b.dataset.ma;beep();afterEdit();});
+  bar.querySelectorAll('[data-mf]').forEach(b=>b.onclick=()=>{if(autoRunning)return;mdFase=b.dataset.mf;beep();afterEdit();});
+  bar.querySelectorAll('[data-ai]').forEach(b=>b.onclick=()=>{if(autoRunning)return;arIdx=+b.dataset.ai;beep();afterEdit();});
+  bar.querySelectorAll('[data-ac]').forEach(b=>b.onclick=()=>{if(autoRunning)return;arCon=b.dataset.ac;beep();afterEdit();});
+  bar.querySelectorAll('[data-as]').forEach(b=>b.onclick=()=>{if(autoRunning)return;arSin=b.dataset.as==='1';beep();afterEdit();});
+  bar.querySelectorAll('[data-rv]').forEach(b=>b.onclick=()=>{if(autoRunning)return;retoSet('valv',b.dataset.rv);});
+  bar.querySelectorAll('[data-ra]').forEach(b=>b.onclick=()=>{if(autoRunning)return;retoSet('acc',b.dataset.ra);});
+  bar.querySelectorAll('[data-rc]').forEach(b=>b.onclick=()=>{if(autoRunning)return;retoSet('conex',b.dataset.rc);});
+}
+function retoSet(field,v){
+  retoCh[field]=v;
+  retoChecked=false;retoOkVal=false;retoOkAcc=false;retoOkCon=false;retoSolved=false;retoMsg='';solved=false;
+  beep();afterEdit();
+}
+function updateScenarioInfo(){
+  const box=el('scenarioInfo'),sc=curSc();
+  if(mode==='reto'){box.style.display='none';return;}
+  box.style.display='block';
+  box.innerHTML=`<b>${sc.nom}</b> · ${CILS[sc.cil].nom} Ø${sc.D} a ${sc.p} bar · orden ${ORIGEN_TXT[sc.origen]} ${CLASE_TXT[sc.clase]}`;
+}
+function afterEdit(){buildControls();updateScenarioInfo();if(mode==='reto')updateRetoSpec();refreshAll();}
+
+function setMode(k){
+  mode=k;
+  ['vias','mando','aire','reto'].forEach(m=>el('m_'+m).classList.toggle('on',m===k));
+  el('p_mode').textContent=MODE_META[k].nombre;
+  el('retoTitle').style.display=k==='reto'?'block':'none';
+  el('retoBox').style.display=k==='reto'?'block':'none';
+  if(k==='reto')updateRetoSpec();
+  buildControls();updateScenarioInfo();
+  solved=k==='reto'?retoSolved:false;
+  clearDx();buildQuiz();refreshQuestion();
+  const cam=MODE_META[k].cam;S.moveTo(cam[0],cam[1]);
+  refreshAll();
+}
+function newSignal(){
+  if(mode==='vias'){
+    viVal=VALK[pickIdx(VALK.length,VALK.indexOf(viVal))];viPos=0;
+    showToast('🔢 Válvula nueva: '+VALVULAS[viVal].nom+' — '+VALVULAS[viVal].vias+' vías y '+VALVULAS[viVal].np+' posiciones.');
+  }else if(mode==='mando'){
+    mdIdx=pickIdx(POOL.length,mdIdx);mdVal=GOOD(POOL[mdIdx]).valv;mdAcc=GOOD(POOL[mdIdx]).acc;mdFase='orden';
+    showToast('🎛️ Estación nueva: '+POOL[mdIdx].nom+'. Se ha puesto el mando correcto; prueba a estropearlo.');
+  }else if(mode==='aire'){
+    arIdx=pickIdx(POOL.length,arIdx);arCon='ok';arSin=false;
+    showToast('💨 Estación nueva: '+POOL[arIdx].nom+'. Quita el aire y mira qué queda sosteniendo el vástago.');
+  }else{
+    seedReto(null);
+    showToast('🎯 Estación nueva: '+retoSc().nom+'. Los tres ejes arrancan mal a propósito.');
+  }
+  solved=mode==='reto'?retoSolved:false;
+  afterEdit();
+}
+
+// ===================== 11. TELEMETRÍA Y REPORTE =====================
+function teleRow(l,v,cls){return `<div class="trow"><span class="tl">${l}</span><span class="tv ${cls||''}">${v}</span></div>`;}
+function updateTele(){
+  const sc=curSc(),cfg=curCfg(),V=VALVULAS[cfg.valv],e=evalua(sc,cfg);
+  const pos=curPos(),cams=curCams(),ver=curVer();
+  let h='';
+  if(mode==='vias'){
+    h+=teleRow('Designación',V.sig);
+    h+=teleRow('Vías / posiciones',V.vias+' / '+V.np);
+    h+=teleRow('Posición activa',V.np===3?['a','0 (centro)','b'][pos]:['a','b'][pos],'ok');
+    h+=teleRow('Comunica',(V.conex[pos]||[]).map(p=>p[0]+'–'+p[1]).join(' · ')||'nada');
+    h+=teleRow('Vástago',VER_TXT[ver].replace('el vástago ',''),e.oT?'ok':'');
+  }else if(mode==='mando'){
+    h+=teleRow('Válvula',V.sig);
+    h+=teleRow('Accionamiento',ACC[cfg.acc].simb);
+    h+=teleRow('Órdenes: da / pide',ACC[cfg.acc].mandos+' / '+(V.est==='mono'?1:2),e.oM?'ok':'bad');
+    h+=teleRow('Clase de orden',CLASE_TXT[claseEfectiva(cfg.valv,cfg.acc)],claseEfectiva(cfg.valv,cfg.acc)===sc.clase?'ok':'bad');
+    h+=teleRow('F útil empujando',f1(fUtil(areaEmb(sc.D),sc.p),1)+' N');
+  }else if(mode==='aire'){
+    h+=teleRow('Red',arSin?'despresurizada':sc.p+' bar',arSin?'bad':'ok');
+    h+=teleRow('Cámara trasera',EST_ABR[cams.tras],cams.tras==='presion'?'ok':cams.tras==='bloqueada'?'bad':'');
+    h+=teleRow('Cámara anular',EST_ABR[cams.anu],cams.anu==='presion'?'ok':cams.anu==='bloqueada'?'bad':'');
+    h+=teleRow('Vástago',VER_TXT[ver].replace('el vástago ',''));
+    h+=teleRow('Cumple el reposo',okReposo(sc,cfg)?'sí':'no',okReposo(sc,cfg)?'ok':'bad');
+  }else{
+    h+=teleRow('Estación',sc.id);
+    h+=teleRow('Válvula',V.sig,retoChecked?(okValvEje(sc,cfg.valv)?'ok':'bad'):'');
+    h+=teleRow('Accionamiento',ACC[cfg.acc].nom.split(' ')[0],retoChecked?(okAccEje(sc,cfg.acc)?'ok':'bad'):'');
+    h+=teleRow('Conexionado',CONEXIONES[cfg.conex].nom.split(' ')[0],retoChecked?(okConEje(sc,cfg.conex)?'ok':'bad'):'');
+    h+=teleRow('Criterios F·M·T·R',(e.oF?'F':'·')+(e.oM?'M':'·')+(e.oT?'T':'·')+(e.oR?'R':'·'),e.ok?'ok':'');
+  }
+  el('tele').innerHTML=h;
+}
+function updateReport(){
+  const sc=curSc(),cfg=curCfg(),V=VALVULAS[cfg.valv];
+  const pos=curPos(),cams=curCams(),ver=curVer();
+  let h=`<b>${MODE_META[mode].mision}</b><br>`;
+  if(mode==='vias'){
+    h+=`<span class="mono">${V.sig} · posición ${V.np===3?['a','0','b'][pos]:['a','b'][pos]} · comunica ${(V.conex[pos]||[]).map(p=>p[0]+'–'+p[1]).join(' y ')||'nada'}</span><br>`;
+    h+=`Puertos que existen: ${V.vias===3?'1, 2 y 3':'1, 2, 3, 4 y 5'}. ${V.para}`;
+  }else if(mode==='mando'){
+    h+=`<span class="mono">${V.sig} + ${ACC[cfg.acc].simb} → orden ${CLASE_TXT[claseEfectiva(cfg.valv,cfg.acc)]}</span><br>`;
+    const w=whyAcc(sc,cfg.acc);
+    h+=w||`El mando encaja: la estación pide una orden ${ORIGEN_TXT[sc.origen]} ${CLASE_TXT[sc.clase]} y este accionamiento la da.`;
+  }else if(mode==='aire'){
+    h+=`<span class="mono">al soltar: trasera ${EST_ABR[cams.tras]} · anular ${EST_ABR[cams.anu]} → ${VER_TXT[ver]}</span><br>`;
+    h+=okReposo(sc,cfg)?`El vástago queda donde la estación exige (${sc.trasSoltar}${sc.alFaltarAire?', y '+sc.alFaltarAire+' sin aire':''}).`
+      :`No cumple el reposo: la estación exige ${sc.trasSoltar}${sc.alFaltarAire?' y '+sc.alFaltarAire+' sin aire':''}.`;
+  }else{
+    if(!retoChecked)h+=`Elige válvula, accionamiento y conexionado y pulsa «Comprobar». <span class="mono">${VALK.length*ACCK.length*CONK.length} ternas · 1 válida y mínima</span>`;
+    else h+=(retoSolved?'<b style="color:#7CD992">Correcto:</b> ':'<b style="color:#ff6b6b">Revisa:</b> ')+retoMsg;
+  }
+  el('report').innerHTML=h;
+}
+function refreshAll(){drawBoard();updateTele();updateReport();updateHW();}
+
+// ===================== 12. RETO =====================
+function updateRetoSpec(){
+  const sc=retoSc(),cfg=retoCfg();
+  el('retoSpec').innerHTML=`<b>${sc.nom}</b> · ${CILS[sc.cil].nom} Ø${sc.D} a ${sc.p} bar.<br>`+
+    `Con la orden: <b>${sc.movOrden}</b> · al soltar: <b>${sc.trasSoltar}</b>`+
+    (sc.alFaltarAire?` · sin aire: <b>${sc.alFaltarAire}</b>`:' · sin aire: no se declara')+`.<br>`+
+    `Propuesta: ${VALVULAS[cfg.valv].sig} + ${ACC[cfg.acc].nom.split(' ')[0]} + ${CONEXIONES[cfg.conex].nom.split(' ')[0]}.`;
+}
+function retoExplain(){
+  const sc=retoSc(),cfg=retoCfg();
+  const ws=[whyValv(sc,cfg.valv),whyAcc(sc,cfg.acc),whyCon(sc,cfg.conex)].filter(Boolean);
+  return ws.join(' · ');
+}
+function checkReto(){
+  const sc=retoSc(),cfg=retoCfg();
+  retoOkVal=okValvEje(sc,cfg.valv);
+  retoOkAcc=okAccEje(sc,cfg.acc);
+  retoOkCon=okConEje(sc,cfg.conex);
+  retoSolved=retoOkVal&&retoOkAcc&&retoOkCon&&validaTerna(sc,cfg);
+  retoChecked=true;solved=retoSolved;
+  synth.beep(retoSolved?1046:220,0.10,0.05);
+  retoMsg=retoSolved
+    ?`${VALVULAS[cfg.valv].sig} con ${ACC[cfg.acc].simb} y conexionado ${CONEXIONES[cfg.conex].nom.toLowerCase()}: la orden ${sc.movOrden}, al soltar queda ${sc.trasSoltar} y es la válvula más simple que lo consigue.`
+    :retoExplain();
+  refreshAll();
+}
+function retoSolveBuild(){const g=GOOD(retoSc());retoCh={valv:g.valv,acc:g.acc,conex:g.conex};}
+
+// ===================== 13. QUIZ =====================
+function buildQuiz(){
+  QUIZ={
+    vias:{pregunta:'En una 5/2, ¿qué puerto es el escape de la salida de trabajo 4?',opciones:[
+      {t:'El 5',ok:true,why:'Correcto: cada salida tiene su escape propio. El 3 vacía la 2 y el 5 vacía la 4.'},
+      {t:'El 3',ok:false,why:'El 3 es el escape de la salida 2, no de la 4.'},
+      {t:'El 1',ok:false,why:'El 1 es la alimentación: por ahí entra el aire de red, no sale.'},
+      {t:'No tiene: las dos salidas comparten escape',ok:false,why:'Eso sería una 4/2. Precisamente la quinta vía es el segundo escape.'},
+    ]},
+    mando:{pregunta:'Montas una 5/2 biestable con UN solo solenoide y retiras la señal. ¿Qué ocurre?',opciones:[
+      {t:'Se queda en la posición en la que estaba y nadie puede devolverla',ok:true,why:'Correcto: una biestable no tiene muelle. Con un solo mando la válvula queda pegada; por eso exige dos órdenes.'},
+      {t:'Vuelve sola a la posición de reposo',ok:false,why:'Eso lo hace una monoestable, que sí lleva muelle de retorno.'},
+      {t:'Se pone en el centro y bloquea las dos cámaras',ok:false,why:'No hay centro: una 5/2 tiene dos posiciones. El centro es cosa de las 5/3.'},
+      {t:'Vibra entre las dos posiciones',ok:false,why:'No hay nada que la empuje: el carrete se queda quieto donde estaba.'},
+    ]},
+    aire:{pregunta:'Un cilindro de doble efecto con 5/2 monoestable, sin muelle de cilindro. Se despresuriza la red. ¿Dónde queda el vástago?',opciones:[
+      {t:'Sin fuerza en las dos cámaras: lo decide la carga',ok:true,why:'Correcto: la válvula ya no puede empujar nada. Un doble efecto no tiene posición definida sin aire; la única cosa que sostiene una posición es un muelle.'},
+      {t:'Vuelve a la posición de reposo de la válvula',ok:false,why:'La válvula conmuta, pero sin presión de red ninguna posición mueve nada.'},
+      {t:'Se bloquea donde esté, porque el aire queda atrapado',ok:false,why:'Con escapes libres el aire se va. Y aunque quedara atrapado, la ISO 4414 no lo admite como medio de retención.'},
+      {t:'Sale del todo por la fuerza diferencial',ok:false,why:'La fuerza diferencial existe con las DOS cámaras a presión, no con la red vacía.'},
+    ]},
+    reto:{pregunta:'¿Por qué el catálogo industrial está dominado por las 3/2 normalmente cerradas y no por las normalmente abiertas?',opciones:[
+      {t:'Porque el estado sin señal debe ser el seguro, y en la mayoría de máquinas el estado seguro es sin presión',ok:true,why:'Correcto: es una decisión de seguridad, no de precio. La NA se reserva a los casos en que el estado seguro sí está presurizado, como un tope que debe bloquear una línea.'},
+      {t:'Porque una NA consume más aire',ok:false,why:'El consumo depende del cilindro y del ciclo, no de si la válvula es NC o NA.'},
+      {t:'Porque una NA no puede mandar un cilindro de simple efecto',ok:false,why:'Sí puede: cambia la posición de reposo, no la capacidad de mandar.'},
+      {t:'Porque la ISO 1219-1 sólo normaliza la NC',ok:false,why:'La norma da símbolos para las dos: no prescribe cuál usar.'},
+    ]},
+  };
+  Object.keys(QUIZ).forEach(k=>{
+    const o=QUIZ[k].opciones;
+    for(let i=o.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[o[i],o[j]]=[o[j],o[i]];}
+  });
+}
+function clearDx(){el('dxbtns').innerHTML='';}
+function refreshQuestion(){
+  const q=QUIZ[mode];el('q_text').textContent=q.pregunta;
+  el('dxbtns').innerHTML=q.opciones.map((o,i)=>`<button class="b sm" data-i="${i}">${String.fromCharCode(65+i)}) ${o.t}</button>`).join('');
+  el('dxbtns').querySelectorAll('[data-i]').forEach(b=>b.onclick=()=>answer(+b.dataset.i));
+}
+function answer(i){
+  const q=QUIZ[mode],o=q.opciones[i];
+  el('dxbtns').querySelectorAll('[data-i]').forEach(b=>{
+    b.disabled=true;
+    const oo=q.opciones[+b.dataset.i];
+    const cls=oo.ok?'right':(+b.dataset.i===i?'wrong':'');
+    if(cls)b.classList.add(cls);
+  });
+  synth.beep(o.ok?880:200,0.09,0.05);
+  showToast((o.ok?'✅ ':'❌ ')+o.why);
+}
+
+// ===================== 14. PICKING Y HOVER =====================
+pickerFor(scene,S.camera,S.renderer.domElement,hit=>{
+  if(!hit){return;}
+  let o=hit.object;
+  if(o===board||o===frame){boardClick();return;}
+  while(o){
+    if(o.userData&&o.userData.title){showToast('<b>'+o.userData.title+'</b><br>'+(o.userData.info||''));return;}
+    o=o.parent;
+  }
+});
+(function hoverLoop(){
+  const ray=new THREE.Raycaster();const m=new THREE.Vector2(-2,-2);
+  S.renderer.domElement.addEventListener('pointermove',ev=>{
+    const r=S.renderer.domElement.getBoundingClientRect();
+    m.x=((ev.clientX-r.left)/r.width)*2-1;m.y=-((ev.clientY-r.top)/r.height)*2+1;
+  });
+  function tick(){
+    ray.setFromCamera(m,S.camera);
+    const objs=[...HOVER_LABELS.keys()];
+    const hits=ray.intersectObjects(objs,true);
+    const hitSet=new Set();
+    hits.forEach(h=>{let o=h.object;while(o){if(HOVER_LABELS.has(o)){hitSet.add(o);break;}o=o.parent;}});
+    HOVER_LABELS.forEach((spr,obj)=>{spr.visible=hitSet.has(obj);});
+    requestAnimationFrame(tick);
+  }
+  tick();
+})();
+
+// ===================== 15. RECORRIDO AUTOMÁTICO =====================
+const sleep=ms=>new Promise(r=>setTimeout(r,ms));
+async function runAuto(){
+  if(autoRunning)return;
+  autoRunning=true;
+  const btn=el('btnAuto'),label=btn.textContent;
+  btn.disabled=true;btn.classList.add('on');btn.textContent='⏳ Recorriendo…';
+  synth.init();synth.resume();clearDx();
+  try{
+    // ---------- VÍAS ----------
+    setMode('vias');
+    viVal='v32nc';viPos=0;viIdx=0;afterEdit();
+    showToast('🔢 Una 3/2 NC en reposo comunica 2 con 3: la línea de trabajo está a ESCAPE, no bloqueada. Por eso el muelle del cilindro puede expulsar su aire.');
+    await sleep(4600);
+    viPos=1;afterEdit();
+    showToast('🔢 Con la señal comunica 1 con 2 y el escape 3 queda bloqueado: la cámara se llena a '+POOL[0].p+' bar y el vástago sale con '+f1(fUtil(areaEmb(POOL[0].D),POOL[0].p),1)+' N útiles de los '+f1(fTeorica(areaEmb(POOL[0].D),POOL[0].p),1)+' N teóricos.');
+    await sleep(4600);
+    viVal='v52m';viPos=0;afterEdit();
+    showToast('🔢 La 5/2 no añade una vía: añade DOS salidas con escape propio. El 3 vacía la 2 y el 5 vacía la 4. El pilotaje 14 conecta 1 con 4; el 12, 1 con 2.');
+    await sleep(4800);
+    viVal='v53c';viPos=1;viIdx=4;afterEdit();
+    const camsC=camaras(POOL[4],{valv:'v53c',acc:'solenoideDoble',conex:'ok'},1,false);
+    showToast('🔢 El centro cerrado no comunica NADA: sus dos salidas quedan '+EST_ABR[camsC.tras]+' y '+EST_ABR[camsC.anu]+'. Eso es lo que permite parar a media carrera… y es también aire atrapado.');
+    await sleep(4800);
+
+    // ---------- MANDO ----------
+    setMode('mando');
+    mdIdx=0;mdVal='v32nc';mdAcc='pulsMuelle';mdFase='orden';afterEdit();
+    const Fav0=fUtil(areaEmb(POOL[0].D),POOL[0].p),Fm0a=fMuelle(POOL[0].D,MUELLE_MIN),Fm0b=fMuelle(POOL[0].D,MUELLE_MAX);
+    showToast('🎛️ Expulsor: pulsador con retorno por muelle, orden momentánea. El Ø'+POOL[0].D+' da '+f1(Fav0,1)+' N útiles, pero el muelle se lleva entre '+f1(Fm0a,1)+' y '+f1(Fm0b,1)+' N: queda de '+f1(Fav0-Fm0b,1)+' a '+f1(Fav0-Fm0a,1)+' N. El catálogo da un RANGO, no una cifra.');
+    await sleep(5200);
+    mdIdx=1;mdVal='v32nc';mdAcc='rodillo';mdFase='soltada';afterEdit();
+    showToast('🎛️ La MISMA 3/2 NC, y el tope queda FUERA al soltar en vez de dentro: lo que cambió es el muelle del cilindro, que aquí avanza. La válvula no decide la posición de reposo por sí sola.');
+    await sleep(5000);
+    mdIdx=3;mdVal='v52b';mdAcc='pilotoDoble';mdFase='soltada';afterEdit();
+    const camsM=camaras(POOL[3],{valv:'v52b',acc:'pilotoDoble',conex:'ok'},1,false);
+    showToast('🎛️ Mordaza: la 5/2 biestable recuerda el pulso y deja la cámara motriz '+EST_ABR[camsM.tras]+'. Sigue apretando con '+f1(fUtil(areaEmb(POOL[3].D),POOL[3].p),1)+' N. Memoria, no fuerza extra.');
+    await sleep(5000);
+    mdIdx=4;mdVal='v53c';mdAcc='solenoideMuelle';mdFase='soltada';afterEdit();
+    showToast('🎛️ Elevador con un solo solenoide sobre la 5/3: '+whyAcc(POOL[4],'solenoideMuelle')+' Contar órdenes es parte de elegir la válvula.');
+    await sleep(4800);
+
+    // ---------- SIN AIRE ----------
+    setMode('aire');
+    arIdx=2;arCon='ok';arSin=true;afterEdit();
+    const cams2=camaras(POOL[2],GOOD(POOL[2]),posicion(GOOD(POOL[2]).valv,GOOD(POOL[2]).acc,'soltada'),true);
+    showToast('💨 Barrera de doble efecto y red despresurizada: las dos cámaras quedan '+EST_ABR[cams2.tras]+' y '+EST_ABR[cams2.anu]+'. '+VER_TXT[veredicto(POOL[2],cams2)]+': la barrera cae por su propio peso. Sólo un muelle sostiene una posición.');
+    await sleep(5200);
+    arIdx=4;arSin=true;afterEdit();
+    const cams4=camaras(POOL[4],GOOD(POOL[4]),posicion(GOOD(POOL[4]).valv,GOOD(POOL[4]).acc,'soltada'),true);
+    showToast('💨 El elevador con centro cerrado guarda la POSICIÓN, no la presión: sus cámaras quedan '+EST_ABR[cams4.tras]+' y '+EST_ABR[cams4.anu]+'. ISO 4414: el aire atrapado no es un medio de retención para una carga suspendida.');
+    await sleep(5200);
+    arIdx=2;arSin=false;arCon='cruzado';afterEdit();
+    const conOk2=CONK.filter(k=>okConEje(POOL[2],k));
+    showToast('💨 Y aquí cruzar las salidas NO es una avería: de los '+CONK.length+' conexionados del banco la barrera sólo funciona con '+conOk2.length+', el cruzado. Es la única forma de que una 5/2 monoestable deje el vástago '+POOL[2].trasSoltar+' —la barrera BAJADA— al retirar la orden.');
+    await sleep(4600);
+    arIdx=0;arCon='tapado';afterEdit();
+    showToast('💨 '+whyCon(POOL[0],'tapado')+' En un doble efecto, en cambio, no se movería ni al dar la orden: son dos averías distintas.');
+    await sleep(5000);
+    arIdx=4;arCon='ok';arSin=false;afterEdit();
+    const sc4=POOL[4],Fd=fDifer(sc4.D,sc4.p),Fa=fUtil(areaEmb(sc4.D),sc4.p);
+    showToast('💨 Y si las dos cámaras se presurizan a la vez, el cilindro no se bloquea: sale con la fuerza del ÁREA DEL VÁSTAGO, '+f1(Fd,1)+' N frente a '+f1(Fa,1)+' N, '+f1(Fa/Fd,2)+' veces menos.');
+    await sleep(5000);
+
+    // ---------- RETO ----------
+    setMode('reto');
+    seedReto(0);afterEdit();
+    showToast('🎯 Reto: '+retoSc().nom+'. Los tres ejes arrancan mal a propósito: '+VALVULAS[retoCh.valv].sig+', '+ACC[retoCh.acc].nom.split(' ')[0]+', '+CONEXIONES[retoCh.conex].nom.toLowerCase()+'.');
+    await sleep(4600);
+    checkReto();
+    showToast('🎯 Comprobado en rojo: '+retoExplain());
+    await sleep(5000);
+    retoSolveBuild();afterEdit();
+    const g=GOOD(retoSc());
+    showToast('🎯 Terna válida y mínima: '+VALVULAS[g.valv].sig+' con '+ACC[g.acc].simb+' y conexionado '+CONEXIONES[g.conex].nom.toLowerCase()+'. De las '+(VALK.length*ACCK.length*CONK.length)+' ternas del catálogo, sólo una lo consigue en esta estación.');
+    await sleep(4800);
+    checkReto();
+    await sleep(600);
+    answer(QUIZ[mode].opciones.findIndex(o=>o.ok));
+  }finally{
+    btn.disabled=false;btn.classList.remove('on');btn.textContent=label;autoRunning=false;
+  }
+}
+
+// ===================== 16. ANIMACIÓN, EVENTOS E INICIO =====================
+S.setAnimate((dt)=>{
+  animT+=dt;
+  const ver=curVer();
+  let tgt=animP;
+  if(ver==='avanza'||ver==='fuera-muelle'||ver==='diferencial')tgt=1;
+  else if(ver==='retrocede'||ver==='dentro-muelle')tgt=0;
+  else if(ver==='libre')tgt=Math.min(1,Math.max(0,animP+0.02*Math.sin(animT*1.6)));
+  const k=Math.min(1,dt*(ver==='diferencial'?1.0:2.4));
+  animP+=(tgt-animP)*k;
+  updateHW();
+});
+['vias','mando','aire','reto'].forEach(m=>{el('m_'+m).onclick=()=>{if(!autoRunning)setMode(m);};});
+el('btnAuto').onclick=()=>{if(!autoRunning)runAuto();};
+el('btnNew').onclick=()=>{if(autoRunning)return;newSignal();};
+el('btnCheck').onclick=()=>{if(autoRunning)return;checkReto();};
+const soundBtn=el('soundBtn');if(soundBtn){soundBtn.onclick=()=>{synth.toggle();soundBtn.textContent=synth.isOn()?'🔊':'🔇';};}
+document.addEventListener('pointerdown',()=>{synth.init();synth.resume();},{once:true});
+buildQuiz();
+S.start();
+setMode('vias');
+
+// ===================== DEBUG HOOK =====================
+window.__labDebug={
+  mode:()=>mode,setMode,
+  ETA:()=>ETA,MUELLE_MIN:()=>MUELLE_MIN,MUELLE_MAX:()=>MUELLE_MAX,P_REF_MUELLE:()=>P_REF_MUELLE,CIL_ISO:()=>CIL_ISO,
+  PUERTOS:()=>PUERTOS,VALVULAS:()=>VALVULAS,ACC:()=>ACC,CILS:()=>CILS,CONEXIONES:()=>CONEXIONES,POOL:()=>POOL,
+  VALK:()=>VALK,ACCK:()=>ACCK,CONK:()=>CONK,
+  areaEmb,areaAnu,fTeorica,fUtil,fMuelle,fDifer,
+  salidas,tubos,camaras,veredicto,posicion,claseEfectiva,
+  okFunc,okMando,okTubos,okReposo,evalua,GOOD,cfgWith,costoMin,
+  okValvEje,okAccEje,okConEje,validaTerna,whyValv,whyAcc,whyCon,startCfg,accPara,
+  curSc,curCfg,curPos,curSin,curCams,curVer,
+  viGet:()=>({valv:viVal,pos:viPos,idx:viIdx}),
+  viSet:(v,p,i)=>{if(v)viVal=v;if(p!=null)viPos=p;if(i!=null)viIdx=i;afterEdit();},
+  mdGet:()=>({idx:mdIdx,valv:mdVal,acc:mdAcc,fase:mdFase}),
+  mdSet:(o)=>{if(o.idx!=null)mdIdx=o.idx;if(o.valv)mdVal=o.valv;if(o.acc)mdAcc=o.acc;if(o.fase)mdFase=o.fase;afterEdit();},
+  arGet:()=>({idx:arIdx,conex:arCon,sin:arSin}),
+  arSet:(o)=>{if(o.idx!=null)arIdx=o.idx;if(o.conex)arCon=o.conex;if(o.sin!=null)arSin=!!o.sin;afterEdit();},
+  retoK:()=>retoK,seedReto,retoName:()=>retoSc().nom,
+  retoGet:()=>retoCfg(),retoSet,retoSolveBuild,checkReto,
+  retoChecked:()=>retoChecked,retoOkVal:()=>retoOkVal,retoOkAcc:()=>retoOkAcc,retoOkCon:()=>retoOkCon,
+  retoSolved:()=>retoSolved,retoGood:()=>GOOD(retoSc()),retoExplain,
+  quizCorrectIndex:()=>QUIZ[mode].opciones.findIndex(o=>o.ok),
+  quizAnswer:answer,newSignal,
+  solved:()=>solved,
+};
+</script>
+  <!-- Ficha técnica · Capa B del molde de lab 3D (componente compartido + contenido del lab) -->
+  <script src="_ficha-tecnica.js"></script>
+  <script src="_ficha-valvulas-direccionales-mandos.js"></script>
+</body>
+</html>

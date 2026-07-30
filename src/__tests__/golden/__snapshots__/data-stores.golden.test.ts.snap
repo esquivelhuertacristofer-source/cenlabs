@@ -7042,6 +7042,63 @@ La tercera es el CONSUMO, la que cuesta dinero todos los días. Y trae la lecci�
     "titulo": "Cilindro Neumático: Fuerza, Velocidad y Consumo de Aire",
     "videoUrl": "",
   },
+  "mecanica-95": {
+    "acento": "#4FC3B0",
+    "aplicaciones": [
+      {
+        "area": "Montaje y puesta en marcha de mandos neumáticos",
+        "ejemplo": "El plano de una máquina se lee por los números de los orificios, no por la posición de los tubos. Saber que el pilotaje 12 conecta el 1 con el 2 permite cablear una válvula sin manual, y saber que una monoestable se repone con su muelle mientras una biestable necesita dos señales evita el error más común de la puesta en marcha: un solo mando sobre una válvula que pide dos, que deja la mitad del movimiento sin forma de ordenarse. En este laboratorio ese error se ve en el elevador, donde un solenoide único sobre la 5/3 sólo alcanza una de sus dos posiciones de trabajo, y en el diagnóstico del banco lo dice con nombre propio.",
+      },
+      {
+        "area": "Seguridad de máquinas y análisis de fallo de red",
+        "ejemplo": "La pregunta de seguridad no es qué hace la máquina funcionando, sino dónde queda cada actuador cuando se corta el aire o la señal. Un doble efecto no tiene posición definida y la barrera de acceso cae por su propio peso; el centro cerrado de una 5/3 guarda la posición pero no la presión, y la ISO 4414 no acepta el aire atrapado como medio de retención de una carga suspendida. Elegir entre 3/2 NC, 3/2 NA, 5/2 monoestable, 5/2 biestable y 5/3 es, sobre todo, elegir el estado de fallo.",
+      },
+      {
+        "area": "Diagnóstico de estaciones que «funcionan al revés»",
+        "ejemplo": "Cuando un vástago arranca en la posición contraria a la esperada, la reacción típica es cambiar la válvula. Muchas veces la respuesta está en los tubos o en el cilindro: la misma 3/2 NC deja un cilindro dentro y otro fuera según hacia dónde empuje su muelle, y cruzar las salidas de trabajo puede ser exactamente lo que hace falta para que una 5/2 monoestable dé el reposo correcto —así se resuelve la barrera de este banco—. Y unos escapes obturados no producen un síntoma único: en un doble efecto bloquean el movimiento ordenado, en un simple efecto sólo bloquean el retorno.",
+      },
+    ],
+    "bienvenida": "«3/2» y «5/2» son los nombres más repetidos de la neumática y los que menos se entienden. El primer número cuenta los ORIFICIOS de trabajo —las vías— y el segundo las POSICIONES estables del carrete. Y la diferencia entre una 3/2 y una 5/2 no es «una vía más»: son DOS salidas de trabajo con escape propio en lugar de una, y de ahí sale la regla práctica de que la 3/2 mueve un simple efecto y la 5/2 un doble efecto. Los números de los orificios tampoco son decorativos: la ISO 11727 pone el 1 en la alimentación, el 2 y el 4 en las salidas, el 3 y el 5 en los escapes, y numera los pilotajes 12 y 14 con una regla que se lee sola — el pilotaje 12 conecta el 1 con el 2 y el 14 conecta el 1 con el 4.
+
+Al desmontar el símbolo aparece la primera sorpresa: en reposo, una 3/2 normalmente cerrada NO deja la línea de trabajo bloqueada, la pone a ESCAPE conectando el 2 con el 3. Justo por eso el muelle del cilindro puede expulsar su aire y volver; si la vía quedara cerrada, el vástago se clavaría con el aire atrapado dentro. La segunda sorpresa es que la válvula no decide sola la posición de reposo: la MISMA 3/2 NC deja el expulsor de la guillotina dentro y el tope de la línea de palets fuera, porque lo que cambia es el muelle del cilindro — uno retrae y el otro avanza. Y la tercera es la cuenta de órdenes: una monoestable pide UNA señal y se repone con su muelle, una biestable pide DOS y no tiene reposo, así que un solenoide único sobre una biestable lleva el carrete a un lado y no lo trae nunca de vuelta.
+
+Con las fuerzas hay que ser honesto en dos frentes. El muelle de reposición se paga: el Ø32 a 6 bar da 482,5 N teóricos y 410,2 N útiles, pero el muelle se lleva entre 48,3 y 96,5 N, así que la fuerza neta es un RANGO de 313,7 a 361,9 N — un rango, no una cifra, porque el 10 %–20 % es criterio de catálogo de fabricante y no un valor normalizado. Y presurizar las dos cámaras a la vez no bloquea nada: el cilindro sale con la fuerza del ÁREA DEL VÁSTAGO, que en el Ø63 a 6 bar son 160,2 N contra los 1589,8 N del avance normal, 9,92 veces menos.
+
+Lo más incómodo llega al quitar el aire. Un cilindro de doble efecto no tiene posición definida con la red despresurizada: la barrera de acceso cae por su propio peso. El centro cerrado de una 5/3 guarda la POSICIÓN, no la presión, y la ISO 4414 no acepta el aire atrapado como medio de retención de una carga suspendida. Y cruzar las salidas de trabajo no es siempre un error de montaje: la barrera de este laboratorio sólo funciona CRUZADA, porque es la única forma de conseguir con una 5/2 monoestable la posición de reposo que hace falta. Motor verificado 132/132.",
+    "codigo": "MEC-95",
+    "conceptos": [
+      {
+        "descripcion": "El primero cuenta los orificios de trabajo, el segundo las posiciones estables del carrete. La 5/2 no añade una vía a la 3/2: añade una segunda salida de trabajo con su propio escape, y por eso mueve un doble efecto. La ISO 11727 numera 1 alimentación, 2 y 4 salidas, 3 y 5 escapes, 12 y 14 pilotajes — y el número del pilotaje dice literalmente qué conecta. En reposo, una 3/2 NC pone la salida a ESCAPE (2 con 3), no la bloquea: si la bloqueara, el muelle del cilindro no podría vaciar la cámara.",
+        "icono": "🔢",
+        "nombre": "Los dos números: vías y posiciones",
+      },
+      {
+        "descripcion": "Una monoestable pide una señal y se repone con su muelle; una biestable pide dos y recuerda el pulso sin consumir señal. Un solenoide único sobre una biestable la lleva a un lado y no la trae de vuelta. Y el muelle de reposición del cilindro se cobra su parte: en el Ø32 a 6 bar quedan de 313,7 a 361,9 N netos de los 410,2 N útiles, un rango de catálogo (10 %–20 % de la fuerza teórica), no una cifra exacta.",
+        "icono": "🎛️",
+        "nombre": "Cuántas órdenes pide la válvula y qué queda tras el muelle",
+      },
+      {
+        "descripcion": "Sólo un muelle sostiene una posición. Un doble efecto con la red despresurizada no tiene posición definida y la barrera cae por su peso. El centro cerrado guarda la POSICIÓN pero no la presión de alimentación, y la ISO 4414 no admite el aire atrapado como retención de una carga suspendida. Si las dos cámaras se presurizan a la vez el cilindro no se bloquea: sale con la fuerza del área del vástago, 160,2 N frente a 1589,8 N en el Ø63 a 6 bar — 9,92 veces menos.",
+        "icono": "💨",
+        "nombre": "Sin aire y sin orden: qué sostiene de verdad el vástago",
+      },
+      {
+        "descripcion": "La barrera de acceso sólo funciona con las salidas de trabajo CRUZADAS: es la única manera de obtener con una 5/2 monoestable la posición de reposo que se necesita. Y tapar los escapes se manifiesta distinto según el cilindro: en un doble efecto impide el movimiento ordenado, en un simple efecto impide sólo el RETORNO. Son dos averías diferentes con el mismo montaje aparente.",
+        "icono": "🔀",
+        "nombre": "Cruzar las salidas no siempre es un error",
+      },
+    ],
+    "duracion": 35,
+    "mision": [
+      "VÍAS · Desmonta el símbolo. Pon la 3/2 NC en reposo y comprueba que comunica 2 con 3, es decir, que la línea de trabajo está a ESCAPE y no bloqueada. Pasa a la posición de la orden: ahora comunica 1 con 2, el escape 3 queda cerrado y el Ø32 sale con 410,2 N útiles de los 482,5 N teóricos. Cambia a la 5/2 y cuenta lo que realmente añade: dos salidas con escape propio. Termina en la 5/3 de centro cerrado y mira cómo quedan sus dos salidas — eso es lo que permite parar a media carrera y es, al mismo tiempo, aire atrapado.",
+      "MANDO · Sigue la traza reposo → orden → soltada en las cinco estaciones. Con la misma 3/2 NC, el expulsor queda DENTRO al soltar y el tope queda FUERA: lo único que cambió es el muelle del cilindro. Pon en el elevador un solenoide único sobre su 5/3 y lee el diagnóstico: esa válvula pide DOS órdenes independientes y con una sola su otra posición de trabajo no se puede ordenar nunca —la 5/3 sí vuelve al centro por sus muelles, así que el fallo no es que se quede pegada, es que le falta la mitad del mando. Y contrasta la fuerza útil con la neta tras el muelle en el Ø32 — 410,2 N contra el rango 313,7–361,9 N.",
+      "SIN AIRE · Quita la orden y luego el aire de la red. La barrera de doble efecto se queda sin posición definida y cae por su peso; el elevador con centro cerrado conserva la posición pero no la presión. Prueba después el conexionado cruzado en la barrera y verás que ahí no es una avería sino la solución. Tapa los escapes del expulsor y comprueba que sigue avanzando pero ya no vuelve. Cierra presurizando las dos cámaras a la vez: el vástago sale con 160,2 N en lugar de 1589,8 N, 9,92 veces menos, porque el área que trabaja es la del vástago.",
+      "RETO · Tres decisiones independientes sobre la estación asignada: válvula, accionamiento y conexionado. Cada eje se califica con los otros dos ya correctos, así que acertar dos de tres sigue siendo un mando que no sirve. Las 540 combinaciones (5 estaciones × 6 × 6 × 3) se barrieron una a una: hay exactamente una terna válida Y de coste mínimo en cada estación — expulsor 3/2 NC con pulsador, tope 3/2 NC con rodillo, barrera 5/2 monoestable con solenoide y salidas CRUZADAS, mordaza 5/2 biestable con doble pilotaje y elevador 5/3 de centro cerrado con dos solenoides. La 3/2 NA, la 5/3 de centros a escape y la palanca enclavada no ganan en ninguna. Los tres ejes arrancan mal a propósito.",
+    ],
+    "subtitulo": "Hidráulica y Neumática · ISO 1219-1 + ISO 11727 + ISO 5599-1 + ISO 4414: qué cuentan los dos números, qué sostiene el vástago y cómo se arma el mando de una estación",
+    "titulo": "Válvulas Direccionales: Vías, Posiciones y Mandos Básicos",
+    "videoUrl": "",
+  },
   "quimica-1": {
     "acento": "#06B6D4",
     "aplicaciones": [
@@ -17394,6 +17451,7 @@ exports[`golden master — stores de datos (invariante ante la migración a src/
   "mecanica-92": [],
   "mecanica-93": [],
   "mecanica-94": [],
+  "mecanica-95": [],
   "quimica-1": [
     {
       "completed": true,
@@ -17723,6 +17781,7 @@ exports[`golden master — stores de datos (invariante ante la migración a src/
   "mecanica-92",
   "mecanica-93",
   "mecanica-94",
+  "mecanica-95",
   "quimica-1",
   "quimica-10",
   "quimica-2",
