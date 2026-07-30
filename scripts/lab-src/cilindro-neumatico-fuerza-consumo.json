@@ -1,0 +1,9 @@
+{
+  "donor": "escaner-obd.html",
+  "out": "cilindro-neumatico-fuerza-consumo.html",
+  "title": "CEN Labs · Cilindro neumático: fuerza, velocidad y consumo — Laboratorio 3D",
+  "lt": "Hidráulica y Neumática · Mecánica",
+  "inspectHint": "👆 Toca el cilindro, la válvula, el regulador o los pilotos del banco para inspeccionar el montaje",
+  "body": "cilindro-neumatico-fuerza-consumo.body.js",
+  "fichas": ["_ficha-tecnica.js", "_ficha-cilindro-neumatico-fuerza-consumo.js"]
+}

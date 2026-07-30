@@ -1,0 +1,1123 @@
+/* =============================================================================
+   MEC-94 · d4-02 — Cilindro neumático de doble efecto: fuerza, velocidad y consumo
+   -----------------------------------------------------------------------------
+   MOTOR SELLADO: el bloque entre "===== MOTOR =====" y "===== FIN MOTOR ====="
+   está pegado VERBATIM desde el verificador numérico (verif_neumatica.mjs,
+   114/114). Ninguna cifra del pizarrón, del panel, de la ficha ni del briefing
+   está escrita a mano: todas salen de estas funciones.
+
+   Modelo:
+   · Fuerza — F_teo = p · A (1 bar sobre 1 cm² = 10 N). El vástago RESTA área en
+     el retroceso, así que el mismo cilindro empuja más de lo que tira. El
+     rendimiento por fricción de las juntas es η = 0,85 (catálogos: 0,80–0,90).
+   · Relación de carga — un cilindro neumático no se dimensiona a fuerza justa:
+     β = F_carga / F_útil debe quedar por debajo de 0,7 · 0,5 · 0,3 según el
+     régimen de velocidad (lento / normal / rápido). Es criterio de proyecto de
+     los manuales de neumática, no una cifra normativa.
+   · Caudal — el caudal que hay que mover lo manda SIEMPRE el lado del émbolo,
+     porque es el mayor de los dos, sea admisión o escape. La válvula se elige
+     con un factor K = 1,5 sobre ese caudal.
+   · Consumo — el aire se paga en volumen a presión atmosférica: el volumen
+     barrido de los dos lados multiplicado por la relación de compresión
+     (p_rel + 1,013)/1,000. Referencia ANR (ISO 8778) y litro normal (DIN 1343).
+
+   Ref: ISO 15552 (cilindros normalizados) · ISO 1219-1 (símbolos) ·
+        ISO 8778 (referencia ANR: 1000 hPa, 20 °C, 65 % HR) ·
+        DIN 1343 (litro normal: 1013,25 hPa, 0 °C) ·
+        Festo/SMC, criterios de relación de carga y dimensionado de válvulas.
+   ============================================================================= */
+
+// ===================== 1. ESCENA =====================
+const mount=document.getElementById('stage');
+const S=createStage(mount,{cam:[5.2,3.0,7.4],target:[0.6,1.05,0.4],bgTop:'#0d1017',bgBot:'#05060a',bloom:0.42,minD:3.2,maxD:16});
+const {scene}=S;
+const synth=makeSynth({type:'square',type2:'sine',filterFreq:2400,Q:0.7});
+const el=id=>document.getElementById(id);
+
+/* ===== MOTOR ===== */
+const P_ATM = 1.013;          // bar, presion atmosferica del taller (sellada)
+const ETA = 0.85;             // rendimiento por friccion de juntas (catalogos: 0,80-0,90)
+const K_VAL = 1.5;            // factor de seguridad de caudal al elegir valvula (criterio de proyecto)
+const P_NORM = 1013.25, T_NORM = 273.15;   // litro normal DIN 1343
+const P_ANR = 1000, T_ANR = 293.15;        // referencia ANR ISO 8778
+const P_ANR_BAR = 1.000;
+const F_NL_ANR = (P_NORM / P_ANR) * (T_ANR / T_NORM);   // 1 Nl = F_NL_ANR litros ANR
+
+const CILINDROS = {
+  c32:  { D: 32,  d: 12, nom: 'Ø32' },
+  c40:  { D: 40,  d: 16, nom: 'Ø40' },
+  c50:  { D: 50,  d: 20, nom: 'Ø50' },
+  c63:  { D: 63,  d: 20, nom: 'Ø63' },
+  c80:  { D: 80,  d: 25, nom: 'Ø80' },
+  c100: { D: 100, d: 25, nom: 'Ø100' },
+};
+const CILK = ['c32', 'c40', 'c50', 'c63', 'c80', 'c100'];
+
+const PRESIONES = { p3: { p: 3 }, p4: { p: 4 }, p5: { p: 5 }, p6: { p: 6 } };
+const PREK = ['p3', 'p4', 'p5', 'p6'];
+
+const VALVULAS = {
+  v50:   { Qn: 50,   nom: 'M5' },
+  v100:  { Qn: 100,  nom: 'G1/8 mini' },
+  v300:  { Qn: 300,  nom: 'G1/8' },
+  v700:  { Qn: 700,  nom: 'G1/4' },
+  v1500: { Qn: 1500, nom: 'G3/8' },
+};
+const VALK = ['v50', 'v100', 'v300', 'v700', 'v1500'];
+
+const POOL = [
+  { id: 'tope',     nom: 'Tope retráctil de posicionamiento',   F: 250,  dir: 'avance',    s: 80,  v: 200, Dmax: 100, pRed: 6, cpm: 25 },
+  { id: 'puerta',   nom: 'Compuerta de descarga de una tolva',  F: 460,  dir: 'retroceso', s: 250, v: 60,  Dmax: 100, pRed: 5, cpm: 6 },
+  { id: 'marcado',  nom: 'Prensa de marcado de piezas',         F: 1400, dir: 'avance',    s: 40,  v: 180, Dmax: 100, pRed: 6, cpm: 30 },
+  { id: 'transfer', nom: 'Transfer rápido de piezas ligeras',   F: 120,  dir: 'avance',    s: 400, v: 800, Dmax: 63,  pRed: 6, cpm: 40 },
+];
+
+const areaEmb = k => Math.PI * CILINDROS[k].D * CILINDROS[k].D / 4 / 100;                        // cm2
+const areaAnu = k => Math.PI * (CILINDROS[k].D * CILINDROS[k].D - CILINDROS[k].d * CILINDROS[k].d) / 4 / 100;
+const areaDir = (k, dir) => dir === 'retroceso' ? areaAnu(k) : areaEmb(k);
+const betaMax = v => v <= 100 ? 0.7 : (v <= 500 ? 0.5 : 0.3);
+const regimen = v => v <= 100 ? 'lento' : (v <= 500 ? 'normal' : 'rápido');
+const fTeorica = (k, dir, p) => p * areaDir(k, dir) * 10;                                        // N
+const fUtil = (k, dir, p) => ETA * fTeorica(k, dir, p);                                          // N
+const relCarga = (F, k, dir, p) => F / fUtil(k, dir, p);
+// caudal que hay que meter para mover el embolo a v (mm/s): manda SIEMPRE el lado del embolo
+const caudalNec = (k, p, v) => areaEmb(k) * (v / 10) * 0.06 * (p + P_ATM) / P_ANR_BAR;           // l/min ANR
+const vMaxValv = (k, p, Qn) => Qn / (K_VAL * areaEmb(k) * 0.06 * (p + P_ATM) / P_ANR_BAR) * 10;  // mm/s
+const consumoCiclo = (k, s, p) => (areaEmb(k) + areaAnu(k)) * (s / 10) * (p + P_ATM) / P_ANR_BAR / 1000;  // l ANR/ciclo
+const aANR = nl => nl * F_NL_ANR;
+const aNl = anr => anr / F_NL_ANR;
+
+function evalua(sc, cfg) {
+  const p = PRESIONES[cfg.pre].p, Qn = VALVULAS[cfg.val].Qn;
+  const Ae = areaEmb(cfg.cil), Aa = areaAnu(cfg.cil), Ac = areaDir(cfg.cil, sc.dir);
+  const fu = fUtil(cfg.cil, sc.dir, p);
+  const beta = relCarga(sc.F, cfg.cil, sc.dir, p);
+  const bmax = betaMax(sc.v);
+  const qnec = caudalNec(cfg.cil, p, sc.v);
+  const cons = consumoCiclo(cfg.cil, sc.s, p);
+  const okB = beta <= bmax + 1e-12;
+  const okD = CILINDROS[cfg.cil].D <= sc.Dmax;
+  const okP = p <= sc.pRed;
+  const okQ = Qn >= K_VAL * qnec - 1e-12;
+  return { p, Qn, Ae, Aa, Ac, fu, beta, bmax, qnec, cons, consMin: cons * sc.cpm,
+    okB, okD, okP, okQ, ok: okB && okD && okP && okQ,
+    vMax: vMaxValv(cfg.cil, p, Qn) };
+}
+
+function GOOD(sc) {
+  let mej = null;
+  for (const cil of CILK) for (const pre of PREK) for (const val of VALK) {
+    const e = evalua(sc, { cil, pre, val });
+    if (!e.ok) continue;
+    if (!mej || e.cons < mej.cons - 1e-12 || (Math.abs(e.cons - mej.cons) < 1e-12 && VALVULAS[val].Qn < VALVULAS[mej.val].Qn)) {
+      mej = { cil, pre, val, cons: e.cons };
+    }
+  }
+  return mej ? { cil: mej.cil, pre: mej.pre, val: mej.val } : null;
+}
+const cfgWith = (sc, o) => Object.assign({}, GOOD(sc), o);
+function minEje(sc, eje, lista, campo) {
+  let m = Infinity;
+  for (const k of lista) {
+    const e = evalua(sc, cfgWith(sc, { [eje]: k }));
+    if (e.ok) m = Math.min(m, campo === 'Qn' ? VALVULAS[k].Qn : e.cons);
+  }
+  return m;
+}
+const okCil = (sc, k) => { const e = evalua(sc, cfgWith(sc, { cil: k })); return e.ok && Math.abs(e.cons - minEje(sc, 'cil', CILK, 'cons')) < 1e-12; };
+const okPre = (sc, k) => { const e = evalua(sc, cfgWith(sc, { pre: k })); return e.ok && Math.abs(e.cons - minEje(sc, 'pre', PREK, 'cons')) < 1e-12; };
+const okVal = (sc, k) => { const e = evalua(sc, cfgWith(sc, { val: k })); return e.ok && VALVULAS[k].Qn === minEje(sc, 'val', VALK, 'Qn'); };
+
+const f1 = (x, n) => x.toFixed(n === undefined ? 1 : n).replace('.', ',');
+
+function whyCfg(sc, cfg) {
+  const e = evalua(sc, cfg);
+  if (!e.okD) return 'El ' + CILINDROS[cfg.cil].nom + ' no cabe: el hueco admite hasta Ø' + sc.Dmax + '.';
+  if (!e.okP) return 'La red de esta máquina está regulada a ' + sc.pRed + ' bar: no hay ' + e.p + ' bar disponibles.';
+  if (!e.okB) return 'Relación de carga ' + f1(e.beta, 2) + ' frente al ' + f1(e.bmax, 2) + ' admisible a ' + sc.v + ' mm/s: el ' + CILINDROS[cfg.cil].nom + ' a ' + e.p + ' bar sólo da ' + f1(e.fu, 0) + ' N útiles para una carga de ' + sc.F + ' N.';
+  if (!e.okQ) return 'La válvula de ' + e.Qn + ' l/min no alcanza: hacen falta ' + f1(e.qnec, 0) + ' × ' + f1(K_VAL, 1) + ' = ' + f1(K_VAL * e.qnec, 0) + ' l/min ANR para ir a ' + sc.v + ' mm/s.';
+  const g = GOOD(sc), eg = evalua(sc, g);
+  if (e.cons > eg.cons + 1e-12) return 'Funciona, pero gasta ' + f1(e.cons, 2) + ' l ANR por ciclo cuando hay una combinación válida que gasta ' + f1(eg.cons, 2) + '.';
+  if (e.Qn > VALVULAS[g.val].Qn) return 'Funciona, pero la válvula sobra: con ' + VALVULAS[g.val].Qn + ' l/min ya se llega a los ' + sc.v + ' mm/s.';
+  return '';
+}
+function whyEje(sc, eje, k) {
+  const cfg = cfgWith(sc, { [eje]: k }), e = evalua(sc, cfg);
+  if (!e.ok) return whyCfg(sc, cfg);
+  if (eje === 'val') { const m = minEje(sc, 'val', VALK, 'Qn'); if (VALVULAS[k].Qn > m) return 'Cumple, pero sobra: con ' + m + ' l/min ya se llega a los ' + sc.v + ' mm/s y el consumo no baja por poner más válvula.'; return ''; }
+  const m = minEje(sc, eje, eje === 'cil' ? CILK : PREK, 'cons');
+  if (e.cons > m + 1e-12) return 'Cumple, pero gasta ' + f1(e.cons, 2) + ' l ANR por ciclo y hay una opción válida de ' + f1(m, 2) + '.';
+  return '';
+}
+function curvaVal(sc, cil, pre) {
+  const p = PRESIONES[pre].p;
+  return VALK.map(k => ({ val: k, Qn: VALVULAS[k].Qn, vMax: vMaxValv(cil, p, VALVULAS[k].Qn), ok: VALVULAS[k].Qn >= K_VAL * caudalNec(cil, p, sc.v) - 1e-12 }));
+}
+function curvaPre(sc) {
+  // para cada presion: el cilindro mas pequeno que cumple fuerza y hueco, y su consumo
+  return PREK.map(pk => {
+    const p = PRESIONES[pk].p;
+    let mej = null;
+    for (const c of CILK) {
+      if (CILINDROS[c].D > sc.Dmax) continue;
+      if (relCarga(sc.F, c, sc.dir, p) > betaMax(sc.v) + 1e-12) continue;
+      const cons = consumoCiclo(c, sc.s, p);
+      if (!mej || cons < mej.cons) mej = { cil: c, cons };
+    }
+    return { pre: pk, p, cil: mej ? mej.cil : null, cons: mej ? mej.cons : null, ok: p <= sc.pRed && !!mej };
+  });
+}
+// mejor pareja (cilindro, presion) si la red se limitara a pCap bar
+function mejorHasta(sc, pCap) {
+  let mej = null;
+  for (const c of CILK) for (const pk of PREK) {
+    const p = PRESIONES[pk].p;
+    if (p > pCap) continue;
+    if (CILINDROS[c].D > sc.Dmax) continue;
+    if (relCarga(sc.F, c, sc.dir, p) > betaMax(sc.v) + 1e-12) continue;
+    const cons = consumoCiclo(c, sc.s, p);
+    if (!mej || cons < mej.cons - 1e-12) mej = { cil: c, pre: pk, p, cons };
+  }
+  return mej;
+}
+function startCfg(sc) {
+  return { cil: CILK.find(k => !okCil(sc, k)) || CILK[0],
+           pre: PREK.find(k => !okPre(sc, k)) || PREK[0],
+           val: VALK.find(k => !okVal(sc, k)) || VALK[0] };
+}
+/* ===== FIN MOTOR ===== */
+
+// ===================== 3. ESTADO =====================
+let mode='fuerza';
+// modo fuerza
+let fxIdx=0, fxCil='c32', fxPre='p6';
+// modo caudal
+let cdIdx=2, cdCil='c100', cdPre='p5', cdVal='v300';
+// modo consumo
+let cnIdx=3, cnUnit='anr';
+// reto
+let retoK=0, retoCh={cil:'c32',pre:'p3',val:'v50'};
+let retoChecked=false, retoOkCil=false, retoOkPre=false, retoOkVal=false, retoSolved=false, retoMsg='';
+let solved=false, autoRunning=false, QUIZ={};
+let animT=0, animP=0;
+
+function pickIdx(n,ex){if(n<=1)return 0;let i=ex;while(i===ex)i=Math.floor(Math.random()*n);return i;}
+function hexA(hex,a){const n=parseInt(hex.slice(1),16);return `rgba(${(n>>16)&255},${(n>>8)&255},${n&255},${a})`;}
+const retoSc=()=>POOL[retoK];
+const retoCfg=()=>({cil:retoCh.cil,pre:retoCh.pre,val:retoCh.val});
+function seedReto(k){
+  retoK=(k==null)?pickIdx(POOL.length,retoK):k;
+  retoCh=startCfg(retoSc());      // arranca deliberadamente MAL en los tres ejes
+  retoChecked=false;retoOkCil=false;retoOkPre=false;retoOkVal=false;retoSolved=false;retoMsg='';
+}
+seedReto(0);
+
+// escenario y configuración vigentes en cada modo
+function curSc(){return mode==='fuerza'?POOL[fxIdx]:mode==='caudal'?POOL[cdIdx]:mode==='consumo'?POOL[cnIdx]:retoSc();}
+function curCfg(){
+  const sc=curSc();
+  if(mode==='fuerza')return {cil:fxCil,pre:fxPre,val:GOOD(sc).val};
+  if(mode==='caudal')return {cil:cdCil,pre:cdPre,val:cdVal};
+  if(mode==='consumo')return GOOD(sc);
+  return retoCfg();
+}
+
+// ===================== 4. MATERIALES =====================
+function std(color,rough,metal){return new THREE.MeshStandardMaterial({color,roughness:rough,metalness:metal});}
+function brush(base){return std(base,0.55,0.35);}
+const MAT={bench:brush(0x2b2f34),frame:brush(0x22262c),leg:brush(0x14161b),body:std(0x1b2028,0.6,0.25),
+  barrel:std(0x9aa4b2,0.35,0.75),rod:std(0xd6dde8,0.22,0.9),valve:std(0x14171b,0.5,0.3),plate:brush(0x3a4048),
+  carga:std(0x3a2f24,0.7,0.15)};
+const ACC='#8AB4F8', OK_HEX='#7CD992', BAD_HEX='#ff6b6b', WARN_HEX='#E9C46A', VIO='#C08CF8';
+
+const HOVER_LABELS=new Map();
+function addHoverLabel(obj,text,color,pos,scale){
+  const cv=document.createElement('canvas');cv.width=256;cv.height=64;const cx=cv.getContext('2d');
+  cx.fillStyle='rgba(10,14,17,0.88)';cx.fillRect(0,0,256,64);
+  cx.strokeStyle=color;cx.lineWidth=2;cx.strokeRect(1,1,254,62);
+  cx.fillStyle='#F4EFEA';cx.font='bold 20px Outfit, sans-serif';cx.textAlign='center';cx.textBaseline='middle';cx.fillText(text,128,32);
+  const tex=new THREE.CanvasTexture(cv);
+  const spr=new THREE.Sprite(new THREE.SpriteMaterial({map:tex,transparent:true,depthTest:false}));
+  spr.position.copy(pos);spr.scale.set(scale||1.1,(scale||1.1)*0.28,1);spr.visible=false;spr.renderOrder=999;
+  scene.add(spr);HOVER_LABELS.set(obj,spr);return spr;
+}
+
+// ===================== 5. PIZARRÓN =====================
+const boardG=new THREE.Group();
+boardG.position.set(-1.15,0,-0.95);boardG.rotation.y=0.2;scene.add(boardG);
+const frame=roundedBox(3.9,2.9,0.12,MAT.frame,0.06);frame.position.set(0,1.9,0);boardG.add(frame);
+[-1.65,1.65].forEach(x=>{const leg=new THREE.Mesh(new THREE.CylinderGeometry(0.05,0.06,1.9,16),MAT.leg);leg.position.set(x,0.92,0);boardG.add(leg);});
+const bCv=document.createElement('canvas');bCv.width=1024;bCv.height=768;
+const bTex=new THREE.CanvasTexture(bCv);
+const board=new THREE.Mesh(new THREE.PlaneGeometry(3.68,2.72),new THREE.MeshBasicMaterial({map:bTex}));
+board.position.set(0,1.9,0.065);boardG.add(board);
+frame.userData={title:'Dimensionado de un cilindro neumático',info:'Fuerza, velocidad y consumo de aire de un cilindro de doble efecto · toca para inspeccionar'};
+addHoverLabel(frame,'ISO 15552 · ISO 8778',ACC,new THREE.Vector3(0,3.5,0.1).add(boardG.position),2.9);
+
+function bg(c){c.fillStyle='#0c1016';c.fillRect(0,0,1024,768);}
+function rpanel(c,x,y,w,h,title){
+  c.fillStyle=hexA(ACC,0.06);c.fillRect(x,y,w,h);
+  c.strokeStyle=hexA(ACC,0.22);c.lineWidth=1;c.strokeRect(x,y,w,h);
+  c.fillStyle='#C7D6F5';c.font='bold 15px Outfit, sans-serif';c.textAlign='left';c.fillText(title,x+16,y+26);
+}
+function prow(c,x,y,w,l,v,col){
+  c.fillStyle='#8f97a5';c.font='13px Outfit, sans-serif';c.textAlign='left';c.fillText(l,x+16,y);
+  c.fillStyle=col||'#F4EFEA';c.font='bold 16px Outfit, sans-serif';c.textAlign='right';c.fillText(v,x+w-14,y);
+}
+function wrapText(c,text,x,y,maxW,lh){
+  const words=text.split(' ');let line='',yy=y;
+  for(const w of words){const test=line+w+' ';
+    if(c.measureText(test).width>maxW && line){c.fillText(line,x,yy);line=w+' ';yy+=lh;}else line=test;}
+  c.fillText(line,x,yy);return yy;
+}
+const PX={x:706,y:70,w:300};
+function drawBar(c,x,y,w,h,frac,label,col,right){
+  c.fillStyle='#9fb0cf';c.font='12px Outfit, sans-serif';c.textAlign='left';c.fillText(label,x,y-8);
+  c.fillStyle='rgba(255,255,255,0.06)';c.fillRect(x,y,w,h);
+  c.fillStyle=hexA(col,0.75);c.fillRect(x,y,Math.max(0,Math.min(1,frac))*w,h);
+  c.strokeStyle=hexA(ACC,0.3);c.lineWidth=1;c.strokeRect(x,y,w,h);
+  c.fillStyle=col;c.font='bold 13px Outfit, sans-serif';c.textAlign='right';c.fillText(right,x+w,y-8);
+}
+function axes(c,x,y,w,h,xl,yl){
+  c.strokeStyle='rgba(255,255,255,0.16)';c.lineWidth=1;
+  c.beginPath();c.moveTo(x,y);c.lineTo(x,y+h);c.lineTo(x+w,y+h);c.stroke();
+  c.fillStyle='#7a8494';c.font='11px Outfit, sans-serif';
+  c.textAlign='right';c.fillText(xl,x+w,y+h+18);
+  c.textAlign='left';c.fillText(yl,x,y-8);
+}
+function trowC(c,x,y,w,h,cols,widths,cols_col,head){
+  c.fillStyle=head?hexA(ACC,0.10):'rgba(255,255,255,0.03)';c.fillRect(x,y,w,h);
+  c.strokeStyle=hexA(ACC,0.16);c.lineWidth=1;c.strokeRect(x,y,w,h);
+  let cx=x;
+  cols.forEach((t,i)=>{
+    c.fillStyle=head?'#C7D6F5':(cols_col&&cols_col[i]?cols_col[i]:'#F4EFEA');
+    c.font=(head?'bold 12px':'13px')+' Outfit, sans-serif';c.textAlign='left';
+    c.fillText(t,cx+10,y+h/2+5);
+    cx+=widths[i];
+  });
+}
+function title2(c,t,sub){
+  c.fillStyle='#F4EFEA';c.font='bold 26px Outfit, sans-serif';c.textAlign='left';c.fillText(t,30,54);
+  c.fillStyle='#8f97a5';c.font='14px Outfit, sans-serif';wrapText(c,sub,30,80,640,20);
+}
+function nota(c,y,txt,col){
+  c.fillStyle=hexA(col||WARN_HEX,0.08);c.fillRect(30,y,650,78);
+  c.strokeStyle=hexA(col||WARN_HEX,0.30);c.lineWidth=1;c.strokeRect(30,y,650,78);
+  c.fillStyle=col||WARN_HEX;c.font='13px Outfit, sans-serif';c.textAlign='left';
+  wrapText(c,txt,46,y+24,618,19);
+}
+
+// ---- corte del cilindro a escala ----
+function drawCorte(c,x,y,w,cil,dir,pos){
+  const D=CILINDROS[cil].D,d=CILINDROS[cil].d;
+  const esc=150/100;                       // px por mm de diámetro (Ø100 = 150 px)
+  const H=D*esc, hr=d*esc, cy=y+95;
+  const bx=x+30,bw=w-150;
+  // camisa
+  c.fillStyle='rgba(255,255,255,0.05)';c.fillRect(bx,cy-H/2,bw,H);
+  // cámaras
+  const px=bx+18+(bw-70)*pos;              // cara del émbolo
+  c.fillStyle=hexA(dir==='avance'?ACC:'#5b6675',dir==='avance'?0.30:0.13);
+  c.fillRect(bx,cy-H/2,px-bx,H);
+  c.fillStyle=hexA(dir==='retroceso'?VIO:'#5b6675',dir==='retroceso'?0.30:0.13);
+  c.fillRect(px+16,cy-H/2,bx+bw-(px+16),H);
+  // émbolo y vástago
+  c.fillStyle='#9aa4b2';c.fillRect(px,cy-H/2,16,H);
+  c.fillStyle='#d6dde8';c.fillRect(px+16,cy-hr/2,bx+bw+70-(px+16),hr);
+  c.strokeStyle=hexA(ACC,0.45);c.lineWidth=2;c.strokeRect(bx,cy-H/2,bw,H);
+  // cotas
+  c.strokeStyle=hexA(ACC,0.5);c.lineWidth=1;
+  c.beginPath();c.moveTo(bx-14,cy-H/2);c.lineTo(bx-14,cy+H/2);c.stroke();
+  c.fillStyle='#C7D6F5';c.font='bold 13px Outfit, sans-serif';c.textAlign='right';
+  c.fillText('Ø'+D,bx-20,cy+5);
+  c.fillStyle='#d6dde8';c.font='12px Outfit, sans-serif';c.textAlign='left';
+  c.fillText('vástago Ø'+d,bx+bw+16,cy+hr/2+22);
+  // leyenda de lados
+  c.font='bold 12px Outfit, sans-serif';c.textAlign='center';
+  c.fillStyle=dir==='avance'?ACC:'#6b7280';c.fillText('lado émbolo',bx+70,cy-H/2-14);
+  c.fillStyle=dir==='retroceso'?VIO:'#6b7280';c.fillText('lado anular',bx+bw-70,cy-H/2-14);
+  c.fillStyle=dir==='avance'?ACC:VIO;c.font='bold 14px Outfit, sans-serif';
+  c.fillText(dir==='avance'?'la carga se vence EMPUJANDO ▶':'◀ la carga se vence TIRANDO',x+w/2,cy+H/2+34);
+}
+
+// ===================== 6. VISTAS POR MODO =====================
+function drawFuerza(c){
+  const sc=POOL[fxIdx],cfg=curCfg(),e=evalua(sc,cfg);
+  title2(c,'Fuerza: la presión sobre el área que trabaja',
+    'F = p · A, con 1 bar sobre 1 cm² = 10 N. El vástago RESTA área al retroceder, así que el mismo cilindro empuja más de lo que tira. Las juntas se quedan con el '+f1((1-ETA)*100,0)+' % (η = '+f1(ETA,2)+').');
+  drawCorte(c,30,105,650,cfg.cil,sc.dir,0.45);
+
+  // áreas
+  const Amax=areaEmb('c100');
+  drawBar(c,30,330,650,20,e.Ae/Amax,'A del lado émbolo = π·D²/4',ACC,f1(e.Ae,2)+' cm²');
+  drawBar(c,30,382,650,20,e.Aa/Amax,'A del lado anular = π·(D²−d²)/4',VIO,f1(e.Aa,2)+' cm²');
+  c.fillStyle='#8f97a5';c.font='12px Outfit, sans-serif';c.textAlign='left';
+  c.fillText('el anular es el '+f1(e.Aa/e.Ae*100,1)+' % del émbolo en este '+CILINDROS[cfg.cil].nom,30,424);
+
+  // fuerzas
+  const Fteo=fTeorica(cfg.cil,sc.dir,e.p),Fmax=fTeorica('c100','avance',6);
+  drawBar(c,30,455,650,22,Fteo/Fmax,'F teórica = p · A ('+e.p+' bar)','#C7D6F5',f1(Fteo,0)+' N');
+  drawBar(c,30,510,650,22,e.fu/Fmax,'F útil = η · p · A',OK_HEX,f1(e.fu,0)+' N');
+  drawBar(c,30,565,650,22,sc.F/Fmax,'carga que hay que vencer',WARN_HEX,sc.F+' N');
+
+  // relación de carga
+  const gy=630;
+  c.fillStyle='#9fb0cf';c.font='12px Outfit, sans-serif';c.textAlign='left';
+  c.fillText('relación de carga β = F_carga / F_útil — admisible '+f1(e.bmax,2)+' en régimen '+regimen(sc.v)+' ('+sc.v+' mm/s)',30,gy-8);
+  c.fillStyle='rgba(255,255,255,0.06)';c.fillRect(30,gy,650,24);
+  [[0,0.3,OK_HEX],[0.3,0.5,'#9ACD9A'],[0.5,0.7,WARN_HEX],[0.7,1,BAD_HEX]].forEach(([a,b,col])=>{
+    c.fillStyle=hexA(col,0.20);c.fillRect(30+a*650,gy,(b-a)*650,24);
+  });
+  c.strokeStyle=hexA(ACC,0.3);c.lineWidth=1;c.strokeRect(30,gy,650,24);
+  [0.3,0.5,0.7].forEach(t=>{c.strokeStyle='rgba(255,255,255,0.35)';c.beginPath();c.moveTo(30+t*650,gy);c.lineTo(30+t*650,gy+24);c.stroke();
+    c.fillStyle='#7a8494';c.font='10px Outfit, sans-serif';c.textAlign='center';c.fillText(f1(t,1),30+t*650,gy+38);});
+  const bx=30+Math.min(1.02,e.beta)*650;
+  c.strokeStyle=e.okB?OK_HEX:BAD_HEX;c.lineWidth=3;c.beginPath();c.moveTo(bx,gy-6);c.lineTo(bx,gy+30);c.stroke();
+  c.fillStyle=e.okB?OK_HEX:BAD_HEX;c.font='bold 13px Outfit, sans-serif';c.textAlign=e.beta>0.75?'right':'left';
+  c.fillText('β = '+f1(e.beta,3)+(e.okB?'  ✓':'  ✗ no arranca con garantía'),e.beta>0.75?bx-8:bx+8,gy-12);
+
+  nota(c,690,'Honestidad: el escalón de presión lo decide el lado que trabaja. En la compuerta de la tolva el Ø50 necesitaría '+
+    f1(sc.F/(betaMax(60)*ETA)/10/areaEmb('c50'),3)+' bar si empujara y '+
+    f1(POOL[1].F/(betaMax(POOL[1].v)*ETA)/10/areaAnu('c50'),3)+' bar porque tira: 4 bar frente a 5 bar. Un escalón entero de red por un vástago de 20 mm.',VIO);
+
+  // panel derecho
+  rpanel(c,PX.x,PX.y,PX.w,300,'Lectura del cilindro');
+  let y=PX.y+58;
+  prow(c,PX.x,y,PX.w,'Cilindro',CILINDROS[cfg.cil].nom+' / vástago Ø'+CILINDROS[cfg.cil].d);y+=30;
+  prow(c,PX.x,y,PX.w,'Presión de trabajo',e.p+' bar');y+=30;
+  prow(c,PX.x,y,PX.w,'Área que trabaja',f1(e.Ac,2)+' cm²',sc.dir==='avance'?ACC:VIO);y+=30;
+  prow(c,PX.x,y,PX.w,'F teórica',f1(Fteo,0)+' N');y+=30;
+  prow(c,PX.x,y,PX.w,'F útil (η = '+f1(ETA,2)+')',f1(e.fu,0)+' N',OK_HEX);y+=30;
+  prow(c,PX.x,y,PX.w,'Se pierde en juntas',f1(Fteo-e.fu,0)+' N',WARN_HEX);y+=30;
+  prow(c,PX.x,y,PX.w,'Carga',sc.F+' N ('+sc.dir+')');y+=30;
+  prow(c,PX.x,y,PX.w,'β / β admisible',f1(e.beta,3)+' / '+f1(e.bmax,2),e.okB?OK_HEX:BAD_HEX);
+
+  rpanel(c,PX.x,400,PX.w,180,'Fuerza a 6 bar del catálogo');
+  let yy=436;
+  CILK.forEach(k=>{
+    const on=k===cfg.cil;
+    prow(c,PX.x,yy,PX.w,CILINDROS[k].nom+(on?' ◂':''),f1(fUtil(k,sc.dir,6),0)+' N útiles',on?ACC:'#F4EFEA');yy+=24;
+  });
+
+  rpanel(c,PX.x,600,PX.w,140,'Fricción');
+  c.fillStyle='#9fb0cf';c.font='12px Outfit, sans-serif';c.textAlign='left';
+  wrapText(c,'El Ø100 a 6 bar da '+f1(fTeorica('c100','avance',6),0)+' N teóricos y '+f1(fUtil('c100','avance',6),0)+
+    ' N útiles: '+f1(fTeorica('c100','avance',6)-fUtil('c100','avance',6),0)+' N se quedan en las juntas. Decir F = p·A − F_roz es lo mismo que decir F = η·p·A.',PX.x+16,636,PX.w-32,18);
+}
+
+function drawCaudal(c){
+  const sc=POOL[cdIdx],cfg=curCfg(),e=evalua(sc,cfg);
+  title2(c,'Velocidad: la válvula no da fuerza, da caudal',
+    'Para mover el émbolo a v hay que meter Q = A_émbolo · v, medido en aire ANR. La válvula se elige con un factor K = '+f1(K_VAL,1)+' sobre ese caudal. El caudal lo manda SIEMPRE el lado del émbolo, sea admisión o escape.');
+
+  const cv=curvaVal(sc,cfg.cil,cfg.pre);
+  const vmax=Math.max(...cv.map(r=>r.vMax),sc.v)*1.08;
+  c.fillStyle='#9fb0cf';c.font='12px Outfit, sans-serif';c.textAlign='left';
+  c.fillText('velocidad alcanzable con cada válvula — '+CILINDROS[cfg.cil].nom+' a '+e.p+' bar',30,128);
+  let by=150;
+  cv.forEach(r=>{
+    drawBar(c,30,by,650,22,r.vMax/vmax,VALVULAS[r.val].nom+' · '+r.Qn+' l/min',r.ok?OK_HEX:BAD_HEX,f1(r.vMax,0)+' mm/s'+(r.ok?'  ✓':'  ✗'));
+    by+=52;
+  });
+  const lx=30+(sc.v/vmax)*650;
+  c.strokeStyle=WARN_HEX;c.lineWidth=2;c.setLineDash([6,4]);
+  c.beginPath();c.moveTo(lx,142);c.lineTo(lx,by-24);c.stroke();c.setLineDash([]);
+  c.fillStyle=WARN_HEX;c.font='bold 12px Outfit, sans-serif';c.textAlign=sc.v/vmax>0.7?'right':'left';
+  c.fillText('v pedida '+sc.v+' mm/s',sc.v/vmax>0.7?lx-6:lx+6,138);
+
+  // tabla
+  const W=[150,120,130,250];
+  trowC(c,30,430,650,28,['Válvula','Q nominal','v máxima','Veredicto'],W,null,true);
+  cv.forEach((r,i)=>{
+    trowC(c,30,458+i*28,650,28,
+      [VALVULAS[r.val].nom,r.Qn+' l/min',f1(r.vMax,0)+' mm/s',r.ok?'llega a los '+sc.v+' mm/s':'se queda corta'],
+      W,[null,null,null,r.ok?OK_HEX:BAD_HEX]);
+  });
+
+  nota(c,616,'Honestidad: cambiar de válvula NO cambia el consumo por ciclo. El aire que se paga es el volumen barrido; la válvula sólo decide en cuánto tiempo entra. Con este mismo montaje, las '+VALK.length+
+    ' válvulas del catálogo dan de '+f1(cv[0].vMax,0)+' a '+f1(cv[cv.length-1].vMax,0)+' mm/s y todas gastan '+f1(e.cons,2)+' l ANR por ciclo.',ACC);
+  nota(c,700,'El caudal se calcula con el lado del émbolo aunque la carga se venza tirando: en la compuerta, a '+POOL[1].v+' mm/s, el lado émbolo mueve '+
+    f1(caudalNec(GOOD(POOL[1]).cil,PRESIONES[GOOD(POOL[1]).pre].p,POOL[1].v),1)+' l/min y el anular sólo '+
+    f1(areaAnu(GOOD(POOL[1]).cil)*(POOL[1].v/10)*0.06*(PRESIONES[GOOD(POOL[1]).pre].p+P_ATM),1)+' l/min. La válvula tiene que pasar el mayor de los dos.',VIO);
+
+  rpanel(c,PX.x,PX.y,PX.w,270,'Dimensionado de la válvula');
+  let y=PX.y+58;
+  prow(c,PX.x,y,PX.w,'Estación',sc.nom.split(' ')[0]);y+=30;
+  prow(c,PX.x,y,PX.w,'Velocidad pedida',sc.v+' mm/s ('+regimen(sc.v)+')');y+=30;
+  prow(c,PX.x,y,PX.w,'A émbolo',f1(e.Ae,2)+' cm²',ACC);y+=30;
+  prow(c,PX.x,y,PX.w,'Q necesario',f1(e.qnec,1)+' l/min ANR');y+=30;
+  prow(c,PX.x,y,PX.w,'× K = '+f1(K_VAL,1),f1(K_VAL*e.qnec,1)+' l/min');y+=30;
+  prow(c,PX.x,y,PX.w,'Válvula elegida',VALVULAS[cfg.val].nom+' · '+e.Qn+' l/min',e.okQ?OK_HEX:BAD_HEX);y+=30;
+  prow(c,PX.x,y,PX.w,'v máxima con ella',f1(e.vMax,0)+' mm/s',e.okQ?OK_HEX:BAD_HEX);
+
+  rpanel(c,PX.x,360,PX.w,150,'Tiempos de carrera');
+  let y2=396;
+  prow(c,PX.x,y2,PX.w,'Carrera',sc.s+' mm');y2+=28;
+  prow(c,PX.x,y2,PX.w,'t de una carrera',f1(sc.s/sc.v,2)+' s');y2+=28;
+  prow(c,PX.x,y2,PX.w,'Ciclos por minuto',sc.cpm);y2+=28;
+  prow(c,PX.x,y2,PX.w,'Tiempo de ciclo',f1(60/sc.cpm,2)+' s');
+
+  rpanel(c,PX.x,530,PX.w,210,'Diagnóstico');
+  c.fillStyle=e.ok?OK_HEX:WARN_HEX;c.font='12px Outfit, sans-serif';c.textAlign='left';
+  wrapText(c,whyCfg(sc,cfg)||'La combinación cumple los cuatro criterios y es la de menor consumo del catálogo.',PX.x+16,566,PX.w-32,18);
+}
+
+function drawConsumo(c){
+  const sc=POOL[cnIdx],g=GOOD(sc),e=evalua(sc,g);
+  const unidad=cnUnit==='anr'?'l ANR':'Nl';
+  const conv=x=>cnUnit==='anr'?x:aNl(x);
+  title2(c,'Consumo: el aire se paga en volumen a presión atmosférica',
+    'Por ciclo entran y salen (A_émbolo + A_anular) · carrera, expandidos por la relación de compresión (p + '+f1(P_ATM,3)+') / '+f1(P_ANR_BAR,3)+'. Ese volumen es lo que hay que comprimir y lo que aparece en la factura.');
+
+  // curva consumo–presión (diente de sierra)
+  const cur=curvaPre(sc);
+  const cons=cur.filter(r=>r.cons!=null).map(r=>r.cons);
+  const yMax=(cons.length?Math.max(...cons):1)*1.20;
+  const gx=60,gy=140,gw=430,gh=250;
+  axes(c,gx,gy,gw,gh,'presión de red (bar)',unidad+' por ciclo');
+  // rejilla
+  c.strokeStyle='rgba(255,255,255,0.06)';c.lineWidth=1;
+  for(let i=1;i<=4;i++){const yy=gy+gh-(i/4)*gh;c.beginPath();c.moveTo(gx,yy);c.lineTo(gx+gw,yy);c.stroke();
+    c.fillStyle='#6b7280';c.font='10px Outfit, sans-serif';c.textAlign='right';c.fillText(f1(conv(yMax*i/4),1),gx-6,yy+4);}
+  const px=i=>gx+((i+0.5)/PREK.length)*gw;
+  const py=v=>gy+gh-(v/yMax)*gh;
+  c.strokeStyle=ACC;c.lineWidth=2;c.beginPath();
+  cur.forEach((r,i)=>{if(r.cons==null)return;const xx=px(i),yy=py(r.cons);if(i&&cur[i-1].cons!=null)c.lineTo(xx,yy);else c.moveTo(xx,yy);});
+  c.stroke();
+  cur.forEach((r,i)=>{
+    const xx=px(i);
+    c.fillStyle='#6b7280';c.font='11px Outfit, sans-serif';c.textAlign='center';c.fillText(r.p+'',xx,gy+gh+16);
+    if(r.cons==null){c.fillStyle=BAD_HEX;c.font='11px Outfit, sans-serif';c.fillText('sin solución',xx,gy+gh-14);return;}
+    const yy=py(r.cons),on=r.p<=sc.pRed;
+    c.fillStyle=on?(r.p===e.p?OK_HEX:ACC):'#6b7280';
+    c.beginPath();c.arc(xx,yy,r.p===e.p?7:5,0,7);c.fill();
+    c.fillStyle=on?'#C7D6F5':'#6b7280';c.font='bold 11px Outfit, sans-serif';c.textAlign='center';
+    c.fillText(CILINDROS[r.cil].nom,xx,yy-14);
+    c.fillStyle='#8f97a5';c.font='10px Outfit, sans-serif';c.fillText(f1(conv(r.cons),2),xx,yy+22);
+    if(!on){c.fillStyle=hexA(BAD_HEX,0.5);c.font='10px Outfit, sans-serif';c.fillText('fuera de red',xx,gy+14);}
+  });
+
+  // tabla de estaciones
+  const W=[150,110,110,120,160];
+  trowC(c,30,420,650,28,['Estación','l ANR/ciclo','Nl/ciclo','l/min ANR','m³ ANR/h'],W,null,true);
+  POOL.forEach((s,i)=>{
+    const gg=GOOD(s),ee=evalua(s,gg);
+    trowC(c,30,448+i*28,650,28,
+      [s.nom.split(' ')[0]+' ('+CILINDROS[gg.cil].nom+', '+ee.p+' bar)',f1(ee.cons,3),f1(aNl(ee.cons),3),f1(ee.consMin,1),f1(ee.consMin*60/1000,2)],
+      W,[s.id===sc.id?ACC:null]);
+  });
+
+  nota(c,580,'Honestidad: bajar el regulador NO siempre ahorra. En el transfer, pasar de 6 a 5 bar obliga a subir del '+
+    CILINDROS[cur[3].cil].nom+' al '+CILINDROS[cur[2].cil].nom+' y el consumo SUBE un '+f1((cur[2].cons/cur[3].cons-1)*100,1)+
+    ' %. La curva ni siquiera es monótona: a 4 bar ('+f1(cur[1].cons,3)+') se gasta menos que a 5 bar ('+f1(cur[2].cons,3)+
+    '), porque el mismo '+CILINDROS[cur[1].cil].nom+' aguanta y se expande menos aire.',WARN_HEX);
+  nota(c,664,'Dos unidades que no son la misma: el litro normal (DIN 1343: '+f1(P_NORM,2)+' hPa y 0 °C) y el litro ANR (ISO 8778: '+
+    P_ANR+' hPa y 20 °C) se llevan un '+f1((F_NL_ANR-1)*100,2)+' %. 1 Nl = '+f1(F_NL_ANR,4)+' l ANR. Comparar un compresor en Nl/min con un consumo en l/min ANR sin convertir es equivocarse esa cifra.',ACC);
+
+  rpanel(c,PX.x,PX.y,PX.w,300,'Balance de la estación');
+  let y=PX.y+58;
+  prow(c,PX.x,y,PX.w,'Estación',sc.nom.split(' ')[0]);y+=30;
+  prow(c,PX.x,y,PX.w,'Montaje óptimo',CILINDROS[g.cil].nom+' · '+e.p+' bar',OK_HEX);y+=30;
+  prow(c,PX.x,y,PX.w,'Volumen barrido',f1((e.Ae+e.Aa)*(sc.s/10)/1000,3)+' l geom.');y+=30;
+  prow(c,PX.x,y,PX.w,'Relación de compresión,'+'',f1((e.p+P_ATM)/P_ANR_BAR,3)+' ×');y+=30;
+  prow(c,PX.x,y,PX.w,'Consumo por ciclo',f1(e.cons,3)+' l ANR',ACC);y+=30;
+  prow(c,PX.x,y,PX.w,'Equivalente normal',f1(aNl(e.cons),3)+' Nl',VIO);y+=30;
+  prow(c,PX.x,y,PX.w,'Cadencia',sc.cpm+' ciclos/min');y+=30;
+  prow(c,PX.x,y,PX.w,'Caudal medio',f1(e.consMin,1)+' l/min ANR',WARN_HEX);
+
+  rpanel(c,PX.x,400,PX.w,150,'Si la red se topara a 5 bar');
+  const cap5=mejorHasta(sc,5),cap6=mejorHasta(sc,6);
+  let y3=436;
+  prow(c,PX.x,y3,PX.w,'Óptimo hasta 6 bar',CILINDROS[cap6.cil].nom+' a '+cap6.p+' bar');y3+=28;
+  prow(c,PX.x,y3,PX.w,'Óptimo hasta 5 bar',CILINDROS[cap5.cil].nom+' a '+cap5.p+' bar');y3+=28;
+  prow(c,PX.x,y3,PX.w,'Sobrecoste de aire',f1((cap5.cons/cap6.cons-1)*100,1)+' %',cap5.cons>cap6.cons+1e-12?WARN_HEX:OK_HEX);y3+=28;
+  c.fillStyle='#8f97a5';c.font='11px Outfit, sans-serif';c.textAlign='left';
+  c.fillText('topar la red y regular la máquina no son lo mismo',PX.x+16,y3+8);
+
+  rpanel(c,PX.x,570,PX.w,170,'Conversión de unidades');
+  let y4=606;
+  prow(c,PX.x,y4,PX.w,'1 Nl',f1(F_NL_ANR,4)+' l ANR');y4+=28;
+  prow(c,PX.x,y4,PX.w,'1 l ANR',f1(1/F_NL_ANR,4)+' Nl');y4+=28;
+  prow(c,PX.x,y4,PX.w,'Diferencia',f1((F_NL_ANR-1)*100,2)+' %',WARN_HEX);y4+=28;
+  prow(c,PX.x,y4,PX.w,'Unidad en pantalla',cnUnit==='anr'?'l ANR (ISO 8778)':'Nl (DIN 1343)',ACC);
+}
+
+function drawReto(c){
+  const sc=retoSc(),cfg=retoCfg(),e=evalua(sc,cfg),g=GOOD(sc);
+  title2(c,'Reto: elige el montaje de '+sc.nom,
+    'Tres decisiones independientes: el diámetro del cilindro, la presión de regulación y la válvula. Cada una se califica por separado, con las otras dos ya correctas. Válida no basta: entre las que cumplen, gana la que menos aire gasta.');
+
+  // pliego de condiciones
+  const W=[210,220,220];
+  trowC(c,30,110,650,28,['Requisito','Valor','Consecuencia'],W,null,true);
+  const reqs=[
+    ['Carga a vencer',sc.F+' N '+(sc.dir==='avance'?'empujando':'tirando'),sc.dir==='retroceso'?'trabaja el área anular':'trabaja el área del émbolo'],
+    ['Velocidad',sc.v+' mm/s ('+regimen(sc.v)+')','β admisible '+f1(betaMax(sc.v),2)],
+    ['Carrera',sc.s+' mm','fija el volumen barrido'],
+    ['Hueco disponible','Ø'+sc.Dmax+' máx.','descarta cilindros mayores'],
+    ['Red de la máquina',sc.pRed+' bar','no hay más presión disponible'],
+    ['Cadencia',sc.cpm+' ciclos/min','multiplica el consumo'],
+  ];
+  reqs.forEach((r,i)=>trowC(c,30,138+i*28,650,28,r,W));
+
+  // tres ejes
+  const ejes=[
+    {k:'cil',lbl:'Cilindro',val:CILINDROS[cfg.cil].nom,ok:retoOkCil,good:CILINDROS[g.cil].nom},
+    {k:'pre',lbl:'Presión',val:PRESIONES[cfg.pre].p+' bar',ok:retoOkPre,good:PRESIONES[g.pre].p+' bar'},
+    {k:'val',lbl:'Válvula',val:VALVULAS[cfg.val].nom+' ('+VALVULAS[cfg.val].Qn+' l/min)',ok:retoOkVal,good:VALVULAS[g.val].nom},
+  ];
+  ejes.forEach((ej,i)=>{
+    const x=30+i*220,w=210,y=330;
+    const col=!retoChecked?ACC:(ej.ok?OK_HEX:BAD_HEX);
+    c.fillStyle=hexA(col,0.08);c.fillRect(x,y,w,96);
+    c.strokeStyle=hexA(col,0.40);c.lineWidth=retoChecked?2:1;c.strokeRect(x,y,w,96);
+    c.fillStyle='#8f97a5';c.font='12px Outfit, sans-serif';c.textAlign='left';c.fillText(ej.lbl,x+14,y+24);
+    c.fillStyle='#F4EFEA';c.font='bold 17px Outfit, sans-serif';c.fillText(ej.val,x+14,y+52);
+    c.fillStyle=col;c.font='bold 13px Outfit, sans-serif';
+    c.fillText(retoChecked?(ej.ok?'✓ correcto':'✗ revisa'):'sin comprobar',x+14,y+78);
+  });
+
+  // los cuatro criterios
+  const CW=[210,220,220];
+  trowC(c,30,450,650,28,['Criterio','Medida','Estado'],CW,null,true);
+  const crit=[
+    ['Cabe en el hueco','Ø'+CILINDROS[cfg.cil].D+' contra Ø'+sc.Dmax,e.okD],
+    ['Presión disponible',e.p+' bar contra '+sc.pRed+' bar de red',e.okP],
+    ['Relación de carga','β = '+f1(e.beta,3)+' contra '+f1(e.bmax,2),e.okB],
+    ['Caudal de la válvula',e.Qn+' contra '+f1(K_VAL*e.qnec,0)+' l/min',e.okQ],
+  ];
+  crit.forEach((r,i)=>trowC(c,30,478+i*28,650,28,[r[0],r[1],r[2]?'cumple':'no cumple'],CW,[null,null,r[2]?OK_HEX:BAD_HEX]));
+
+  // diagnóstico
+  const w=whyCfg(sc,cfg);
+  c.fillStyle=hexA(w?WARN_HEX:OK_HEX,0.08);c.fillRect(30,606,650,80);
+  c.strokeStyle=hexA(w?WARN_HEX:OK_HEX,0.30);c.lineWidth=1;c.strokeRect(30,606,650,80);
+  c.fillStyle=w?WARN_HEX:OK_HEX;c.font='13px Outfit, sans-serif';c.textAlign='left';
+  wrapText(c,w||'Montaje válido y de consumo mínimo: '+f1(e.cons,3)+' l ANR por ciclo, '+f1(e.consMin,1)+' l/min con la cadencia pedida.',46,630,618,19);
+
+  nota(c,700,'Sobredimensionar también es un error: un cilindro de más gasta más aire cada ciclo, y una válvula de más no acelera nada porque la velocidad ya la limita la carrera. De las '+
+    (CILK.length*PREK.length*VALK.length)+' combinaciones del catálogo, sólo una es válida y mínima a la vez.',VIO);
+
+  rpanel(c,PX.x,PX.y,PX.w,260,'Tu montaje');
+  let y=PX.y+58;
+  prow(c,PX.x,y,PX.w,'Área que trabaja',f1(e.Ac,2)+' cm²');y+=30;
+  prow(c,PX.x,y,PX.w,'F útil',f1(e.fu,0)+' N contra '+sc.F+' N',e.okB?OK_HEX:BAD_HEX);y+=30;
+  prow(c,PX.x,y,PX.w,'β',f1(e.beta,3)+' / '+f1(e.bmax,2),e.okB?OK_HEX:BAD_HEX);y+=30;
+  prow(c,PX.x,y,PX.w,'Q necesario × '+f1(K_VAL,1),f1(K_VAL*e.qnec,0)+' l/min');y+=30;
+  prow(c,PX.x,y,PX.w,'v máx. de la válvula',f1(e.vMax,0)+' mm/s',e.okQ?OK_HEX:BAD_HEX);y+=30;
+  prow(c,PX.x,y,PX.w,'Consumo',f1(e.cons,3)+' l ANR/ciclo');y+=30;
+  prow(c,PX.x,y,PX.w,'Consumo mínimo posible',f1(evalua(sc,g).cons,3)+' l ANR/ciclo',OK_HEX);
+
+  rpanel(c,PX.x,350,PX.w,390,'Por qué no otro cilindro');
+  let yy=386;
+  CILK.forEach(k=>{
+    const ee=evalua(sc,cfgWith(sc,{cil:k}));
+    const f=[['okD','hueco'],['okP','red'],['okB','carga'],['okQ','caudal']].filter(([kk])=>!ee[kk]).map(([,n])=>n);
+    const on=k===cfg.cil;
+    prow(c,PX.x,yy,PX.w,CILINDROS[k].nom+(on?' ◂':''),ee.ok?f1(ee.cons,3)+' l/ciclo':'falla '+f.join('+'),ee.ok?(Math.abs(ee.cons-evalua(sc,g).cons)<1e-12?OK_HEX:'#C7D6F5'):BAD_HEX);
+    yy+=28;
+  });
+  c.fillStyle='#8f97a5';c.font='11px Outfit, sans-serif';c.textAlign='left';
+  wrapText(c,'Cada fila se evalúa con la presión y la válvula ya correctas, para que el cilindro se juzgue solo.',PX.x+16,yy+14,PX.w-32,16);
+}
+
+function drawBoard(){
+  const c=bCv.getContext('2d');bg(c);
+  if(mode==='caudal')drawCaudal(c);else if(mode==='consumo')drawConsumo(c);else if(mode==='reto')drawReto(c);else drawFuerza(c);
+  bTex.needsUpdate=true;
+}
+function boardClick(){
+  if(mode==='caudal')showToast('💨 La válvula no da fuerza: da caudal. Cambiarla mueve la velocidad alcanzable, no el consumo por ciclo.');
+  else if(mode==='consumo')showToast('🧾 El consumo es volumen barrido × relación de compresión. Por eso subir la presión encarece cada ciclo… salvo que permita bajar de diámetro.');
+  else if(mode==='reto')showToast('🎯 Tres decisiones ortogonales: diámetro, presión y válvula. Válida no basta: tiene que ser la de menor consumo.');
+  else showToast('🔧 1 bar sobre 1 cm² son 10 N. El vástago resta área: el mismo cilindro empuja más de lo que tira.');
+}
+
+// ===================== 7. ESCENA 3D: BANCO DE ENSAYO =====================
+const bench=roundedBox(4.1,0.5,1.9,MAT.bench,0.05);bench.position.set(2.05,0.25,0.55);scene.add(bench);
+bench.userData={title:'Banco de ensayo de un cilindro',info:'Un cilindro de doble efecto ISO 15552 con su electroválvula, su regulador y la carga que tiene que vencer.'};
+
+const GEO_CIL=new THREE.CylinderGeometry(1,1,1,28);
+const barrel=new THREE.Mesh(GEO_CIL,MAT.barrel);
+barrel.rotation.z=Math.PI/2;barrel.position.set(2.30,0.86,0.95);scene.add(barrel);
+barrel.userData={title:'Cilindro de doble efecto',info:'El diámetro dibujado sigue el del catálogo seleccionado: la camisa crece con el Ø y con ella el área y la fuerza.'};
+addHoverLabel(barrel,'cilindro ISO 15552',ACC,new THREE.Vector3(2.30,1.45,0.95),1.9);
+
+const rod=new THREE.Mesh(GEO_CIL,MAT.rod);
+rod.rotation.z=Math.PI/2;rod.position.set(2.95,0.86,0.95);scene.add(rod);
+const tip=roundedBox(0.07,0.20,0.20,MAT.plate,0.02);tip.position.set(3.28,0.86,0.95);scene.add(tip);
+const carga=roundedBox(0.34,0.34,0.34,MAT.carga,0.03);carga.position.set(3.52,0.86,0.95);scene.add(carga);
+carga.userData={title:'Carga',info:'La fuerza que el cilindro tiene que vencer. La relación de carga β compara esa fuerza con la útil del cilindro.'};
+addHoverLabel(carga,'carga',WARN_HEX,new THREE.Vector3(3.52,1.30,0.95),1.1);
+
+const valv=roundedBox(0.52,0.22,0.28,MAT.valve,0.03);valv.position.set(2.30,0.62,0.20);scene.add(valv);
+valv.userData={title:'Electroválvula 5/2',info:'Su caudal nominal Qn (l/min ANR con 6 bar y 1 bar de caída) es el que limita la velocidad alcanzable.'};
+addHoverLabel(valv,'válvula 5/2',VIO,new THREE.Vector3(2.30,1.00,0.20),1.5);
+
+const reg=new THREE.Mesh(new THREE.CylinderGeometry(0.11,0.13,0.30,20),MAT.body);
+reg.position.set(1.35,0.65,0.30);scene.add(reg);
+reg.userData={title:'Regulador de presión',info:'Fija la presión de trabajo de la máquina, siempre por debajo de la de red. Bajarla ahorra aire… salvo que obligue a subir de diámetro.'};
+
+// manómetro
+const mCv=document.createElement('canvas');mCv.width=200;mCv.height=200;const mTex=new THREE.CanvasTexture(mCv);
+const mFace=new THREE.Mesh(new THREE.PlaneGeometry(0.44,0.44),new THREE.MeshBasicMaterial({map:mTex,transparent:true}));
+mFace.position.set(1.35,0.95,0.30);scene.add(mFace);
+mFace.lookAt(new THREE.Vector3(4.5,2.4,5.5));
+
+function makeLED(x,z,color){const m=new THREE.Mesh(new THREE.SphereGeometry(0.042,16,16),std(color,0.4,0.1));m.position.set(x,0.53,z);m.material.emissive=new THREE.Color(color);m.material.emissiveIntensity=0.15;scene.add(m);return m;}
+const ledD=makeLED(3.30,-0.15,0x8AB4F8);
+const ledP=makeLED(3.00,-0.15,0xC08CF8);
+const ledB=makeLED(2.70,-0.15,0x7CD992);
+const ledQ=makeLED(2.40,-0.15,0xE9C46A);
+ledD.userData={title:'Piloto "cabe"',info:'Verifica que el diámetro elegido entra en el hueco disponible de la máquina.'};
+ledP.userData={title:'Piloto "red"',info:'Verifica que la presión pedida no supera la de la red de esa máquina.'};
+ledB.userData={title:'Piloto "carga"',info:'Verifica la relación de carga: β = F_carga / F_útil por debajo del límite del régimen de velocidad.'};
+ledQ.userData={title:'Piloto "caudal"',info:'Verifica que la válvula pasa K = '+f1(K_VAL,1)+' veces el caudal necesario.'};
+addHoverLabel(ledD,'cabe · red · carga · caudal',ACC,new THREE.Vector3(2.85,0.95,-0.15),2.4);
+
+function drawMano(p,pRed){
+  const c=mCv.getContext('2d');c.clearRect(0,0,200,200);
+  c.fillStyle='rgba(20,23,27,0.94)';c.beginPath();c.arc(100,100,92,0,7);c.fill();
+  c.strokeStyle=hexA(ACC,0.6);c.lineWidth=4;c.beginPath();c.arc(100,100,92,0,7);c.stroke();
+  const a0=Math.PI*0.75,a1=Math.PI*2.25,PMAX=10;
+  c.strokeStyle='rgba(255,255,255,0.18)';c.lineWidth=2;
+  for(let i=0;i<=PMAX;i++){const a=a0+(i/PMAX)*(a1-a0);
+    c.beginPath();c.moveTo(100+Math.cos(a)*76,100+Math.sin(a)*76);c.lineTo(100+Math.cos(a)*86,100+Math.sin(a)*86);c.stroke();}
+  // zona por encima de la red
+  c.strokeStyle=hexA(BAD_HEX,0.45);c.lineWidth=8;
+  c.beginPath();c.arc(100,100,70,a0+(pRed/PMAX)*(a1-a0),a1);c.stroke();
+  const a=a0+(Math.min(p,PMAX)/PMAX)*(a1-a0);
+  c.strokeStyle=p<=pRed?OK_HEX:BAD_HEX;c.lineWidth=4;
+  c.beginPath();c.moveTo(100,100);c.lineTo(100+Math.cos(a)*66,100+Math.sin(a)*66);c.stroke();
+  c.fillStyle='#F4EFEA';c.font='bold 22px Outfit, sans-serif';c.textAlign='center';c.fillText(p+' bar',100,150);
+  c.fillStyle='#8f97a5';c.font='11px Outfit, sans-serif';c.fillText('red '+pRed+' bar',100,168);
+  mTex.needsUpdate=true;
+}
+
+function updateHW(){
+  const sc=curSc(),cfg=curCfg(),e=evalua(sc,cfg);
+  const r=0.055+CILINDROS[cfg.cil].D/100*0.105;
+  barrel.scale.set(r,0.92,r);
+  const rr=0.018+CILINDROS[cfg.cil].d/100*0.055;
+  rod.scale.set(rr,0.60,rr);
+  const p=animP;
+  rod.position.x=2.92+0.30*p;
+  tip.position.x=3.22+0.30*p;
+  carga.position.x=3.48+0.30*p;
+  const cs=0.22+Math.cbrt(sc.F/1400)*0.26;
+  carga.scale.set(cs/0.34,cs/0.34,cs/0.34);
+  ledD.material.emissiveIntensity=e.okD?1.4:0.10;
+  ledP.material.emissiveIntensity=e.okP?1.4:0.10;
+  ledB.material.emissiveIntensity=e.okB?1.4:0.10;
+  ledQ.material.emissiveIntensity=e.okQ?1.4:0.10;
+  drawMano(e.p,sc.pRed);
+}
+
+// ===================== 8. HUD Y PANEL =====================
+document.getElementById('hud').innerHTML=`
+  <div class="eyebrow">Hidráulica y neumática (D4) · Actuadores neumáticos · ISO 15552 · ISO 8778 · DIN 1343</div>
+  <h2>Cilindro neumático: fuerza, velocidad y consumo</h2>
+  <p>Un cilindro neumático se dimensiona tres veces. Primero por <b>fuerza</b>: la presión actúa sobre un área,
+  y esa área <b>no es la misma en los dos sentidos</b> porque el vástago resta. Segundo por <b>velocidad</b>: la
+  válvula no aporta fuerza, aporta <b>caudal</b>, y el caudal que hay que mover lo manda siempre el lado del
+  émbolo. Y tercero por <b>consumo</b>: el aire se paga en volumen a presión atmosférica, así que cada ciclo
+  cuesta el volumen barrido multiplicado por la relación de compresión. Las tres decisiones se pelean entre sí:
+  subir la presión encarece cada ciclo pero permite bajar de diámetro, y bajar de diámetro abarata cada ciclo
+  pero recorta la fuerza. Aquí eliges el montaje de cuatro estaciones reales y compruebas —midiendo, no
+  suponiendo— cuál de las ${CILK.length*PREK.length*VALK.length} combinaciones del catálogo es la única válida y mínima.</p>
+  <div class="formula">F = η · p · A · β = F_carga / F_útil ≤ ${f1(betaMax(50),1)} / ${f1(betaMax(200),1)} / ${f1(betaMax(800),1)} · Q = A_émbolo · v · (p + ${f1(P_ATM,3)}) · V_ciclo = (A_émb + A_anu) · s · (p + ${f1(P_ATM,3)})</div>
+  <div class="legend">
+    <div class="li"><span class="dot" style="background:#8AB4F8"></span>Lado del émbolo (avance)</div>
+    <div class="li"><span class="dot" style="background:#C08CF8"></span>Lado anular (retroceso)</div>
+    <div class="li"><span class="dot" style="background:#7CD992"></span>Criterio que cumple</div>
+    <div class="li"><span class="dot" style="background:#ff6b6b"></span>Criterio que falla</div>
+  </div>
+  <div class="fid">
+    <div class="ft">🔒 Contrato de fidelidad</div>
+    <div class="fl"><b>Sí modela:</b> la fuerza estática de un cilindro de doble efecto ISO 15552 con <b>áreas distintas</b> en avance y retroceso y un rendimiento por fricción de juntas η = ${f1(ETA,2)} (los catálogos declaran 0,80–0,90); la <b>relación de carga</b> como criterio de proyecto, con los tres escalones ${f1(betaMax(50),1)} / ${f1(betaMax(200),1)} / ${f1(betaMax(800),1)} según el régimen de velocidad; el caudal necesario para una velocidad dada, tomado <b>siempre del lado del émbolo</b> por ser el mayor de los dos, y la elección de válvula con un factor K = ${f1(K_VAL,1)}; y el consumo por ciclo como volumen barrido de los dos lados expandido por la relación de compresión (p + ${f1(P_ATM,3)})/${f1(P_ANR_BAR,3)}, expresado tanto en <b>litros ANR</b> (ISO 8778) como en <b>litros normales</b> (DIN 1343), que se llevan un ${f1((F_NL_ANR-1)*100,2)} %. Verificado numéricamente (114/114), incluida la unicidad de la terna correcta entre las ${CILK.length*PREK.length*VALK.length} combinaciones de las cuatro estaciones.</div>
+    <div class="fl no"><b>NO modela:</b> la dinámica del movimiento — aceleración, amortiguación de final de carrera, adherencia y stick-slip, rebote y carga variable —; el pandeo del vástago ni el cálculo de fijaciones; la caída de presión en tubos y racores (la elección de válvula se hace por caudal nominal, no por Kv de la línea completa); el tratamiento del aire, la lubricación y la calidad ISO 8573-1; el rendimiento del compresor, la ley de la termodinámica de la compresión ni el coste económico del aire; la temperatura del aire durante la expansión (todo el consumo se toma isotermo a la referencia); ni el circuito de mando — la regulación de caudal meter-in/meter-out es de <b>MEC-95</b> y el secuenciado con GRAFCET, de <b>MEC-86</b>.</div>
+  </div>
+  <div class="src">Ref: ISO 15552 (cilindros normalizados, parejas Ø/vástago) · ISO 1219-1 (símbolos) · ISO 8778 (referencia ANR: 1000 hPa, 20 °C) · DIN 1343 (litro normal: 1013,25 hPa, 0 °C) · criterios de relación de carga y factor de caudal de los manuales de Festo y SMC · Verificación numérica propia (114/114)</div>`;
+
+document.getElementById('panel').innerHTML=`
+  <h4>Cilindro neumático · <span id="p_mode" style="color:var(--accent2)">Fuerza</span></h4>
+  <div class="modebar">
+    <button class="b on" id="m_fuerza">💪 Fuerza</button>
+    <button class="b" id="m_caudal">💨 Velocidad</button>
+    <button class="b" id="m_consumo">🧾 Consumo</button>
+    <button class="b" id="m_reto">🎯 Reto</button>
+  </div>
+  <div id="scenarioInfo" style="font-size:12px;color:var(--ink);margin:2px 0 8px;display:none"></div>
+  <div class="modebar" id="selbar" style="display:none;flex-wrap:wrap"></div>
+  <div id="tele"></div>
+  <div class="console" id="report"></div>
+  <h4 class="sec" id="retoTitle" style="display:none">Montaje propuesto</h4>
+  <div id="retoBox" style="display:none">
+    <div id="retoSpec" style="font-size:12px;color:var(--ink);margin:2px 0 8px"></div>
+    <div class="btns"><button class="b primary" id="btnCheck">✅ Comprobar</button></div>
+  </div>
+  <h4 class="sec">Pregunta de ingeniería</h4>
+  <div id="q_text" style="font-size:12px;color:var(--ink);margin:4px 0 8px"></div>
+  <div class="btns" id="dxbtns"></div>
+  <div class="btns">
+    <button class="b auto" id="btnAuto">✨ Recorrido guiado (automático)</button>
+    <button class="b primary" id="btnNew">🔀 Nuevo escenario</button>
+  </div>`;
+
+// ===================== 9. TOASTS =====================
+function showToast(html){const t=el('toast');t.innerHTML=html;t.classList.add('show');clearTimeout(showToast._t);showToast._t=setTimeout(()=>t.classList.remove('show'),4200);}
+
+// ===================== 10. MODOS Y CONTROLES =====================
+const MODE_META={
+  fuerza:{nombre:'Fuerza',cam:[[5.2,3.0,7.4],[0.6,1.05,0.4]],mision:'Compara el área del émbolo con la anular, mira cuánta fuerza se queda en las juntas y comprueba dónde cae la relación de carga en cada sentido.'},
+  caudal:{nombre:'Velocidad',cam:[[5.0,2.9,7.2],[0.7,1.00,0.5]],mision:'Calcula el caudal que exige la velocidad pedida y busca la válvula más pequeña que llega. Comprueba que ninguna de ellas cambia el consumo por ciclo.'},
+  consumo:{nombre:'Consumo',cam:[[5.0,3.1,7.0],[0.6,1.05,0.4]],mision:'Recorre la curva de consumo contra presión y descubre dónde bajar el regulador ahorra aire y dónde lo encarece. Convierte entre litros ANR y litros normales.'},
+  reto:{nombre:'Reto',cam:[[5.1,2.9,7.3],[0.6,1.00,0.5]],mision:'Elige cilindro, presión y válvula para la estación propuesta. Cada decisión se califica por separado y sobredimensionar cuenta como error.'},
+};
+function lbl(t){return `<span class="lbl">${t}</span>`;}
+function optBtns(key,opts,cur){return opts.map(([v,t])=>`<button class="b sm ${String(cur)===String(v)?'on':''}" data-${key}="${v}">${t}</button>`).join('');}
+const EST_OPTS=()=>POOL.map((p,i)=>[i,p.nom.split(' ')[0]]);
+const CIL_OPTS=CILK.map(k=>[k,CILINDROS[k].nom]);
+const PRE_OPTS=PREK.map(k=>[k,PRESIONES[k].p+' bar']);
+const VAL_OPTS=VALK.map(k=>[k,VALVULAS[k].Qn+'']);
+
+function buildControls(){
+  const bar=el('selbar');bar.style.display='flex';bar.style.flexWrap='wrap';let html='';
+  if(mode==='fuerza'){
+    html+=lbl('Estación:')+optBtns('fi',EST_OPTS(),fxIdx);
+    html+=lbl('Cilindro:')+optBtns('fc',CIL_OPTS,fxCil);
+    html+=lbl('Presión:')+optBtns('fp',PRE_OPTS,fxPre);
+    bar.innerHTML=html;
+    bar.querySelectorAll('[data-fi]').forEach(b=>b.onclick=()=>{if(autoRunning)return;fxIdx=parseInt(b.dataset.fi,10);synth.beep(680,0.05,0.04);afterEdit();});
+    bar.querySelectorAll('[data-fc]').forEach(b=>b.onclick=()=>{if(autoRunning)return;fxCil=b.dataset.fc;synth.beep(720,0.05,0.04);afterEdit();});
+    bar.querySelectorAll('[data-fp]').forEach(b=>b.onclick=()=>{if(autoRunning)return;fxPre=b.dataset.fp;synth.beep(760,0.05,0.04);afterEdit();});
+  }else if(mode==='caudal'){
+    html+=lbl('Estación:')+optBtns('ci',EST_OPTS(),cdIdx);
+    html+=lbl('Cilindro:')+optBtns('cc',CIL_OPTS,cdCil);
+    html+=lbl('Presión:')+optBtns('cp',PRE_OPTS,cdPre);
+    html+=lbl('Válvula (l/min):')+optBtns('cv',VAL_OPTS,cdVal);
+    bar.innerHTML=html;
+    bar.querySelectorAll('[data-ci]').forEach(b=>b.onclick=()=>{if(autoRunning)return;cdIdx=parseInt(b.dataset.ci,10);synth.beep(680,0.05,0.04);afterEdit();});
+    bar.querySelectorAll('[data-cc]').forEach(b=>b.onclick=()=>{if(autoRunning)return;cdCil=b.dataset.cc;synth.beep(720,0.05,0.04);afterEdit();});
+    bar.querySelectorAll('[data-cp]').forEach(b=>b.onclick=()=>{if(autoRunning)return;cdPre=b.dataset.cp;synth.beep(760,0.05,0.04);afterEdit();});
+    bar.querySelectorAll('[data-cv]').forEach(b=>b.onclick=()=>{if(autoRunning)return;cdVal=b.dataset.cv;synth.beep(800,0.05,0.04);afterEdit();});
+  }else if(mode==='consumo'){
+    html+=lbl('Estación:')+optBtns('ni',EST_OPTS(),cnIdx);
+    html+=lbl('Unidad:')+optBtns('nu',[['anr','litro ANR'],['nl','litro normal']],cnUnit);
+    bar.innerHTML=html;
+    bar.querySelectorAll('[data-ni]').forEach(b=>b.onclick=()=>{if(autoRunning)return;cnIdx=parseInt(b.dataset.ni,10);synth.beep(680,0.05,0.04);afterEdit();});
+    bar.querySelectorAll('[data-nu]').forEach(b=>b.onclick=()=>{if(autoRunning)return;cnUnit=b.dataset.nu;synth.beep(740,0.05,0.04);afterEdit();});
+  }else{
+    html+=lbl('Cilindro:')+optBtns('rc',CIL_OPTS,retoCh.cil);
+    html+=lbl('Presión de regulación:')+optBtns('rp',PRE_OPTS,retoCh.pre);
+    html+=lbl('Válvula (l/min):')+optBtns('rv',VAL_OPTS,retoCh.val);
+    bar.innerHTML=html;
+    bar.querySelectorAll('[data-rc]').forEach(b=>b.onclick=()=>{if(autoRunning)return;retoSet('cil',b.dataset.rc);synth.beep(720,0.05,0.04);afterEdit();});
+    bar.querySelectorAll('[data-rp]').forEach(b=>b.onclick=()=>{if(autoRunning)return;retoSet('pre',b.dataset.rp);synth.beep(760,0.05,0.04);afterEdit();});
+    bar.querySelectorAll('[data-rv]').forEach(b=>b.onclick=()=>{if(autoRunning)return;retoSet('val',b.dataset.rv);synth.beep(800,0.05,0.04);afterEdit();});
+  }
+}
+function retoSet(field,v){retoCh=Object.assign({},retoCh,{[field]:v});retoChecked=false;retoSolved=false;solved=false;}
+
+function updateScenarioInfo(){
+  const box=el('scenarioInfo');box.style.display='block';
+  const sc=curSc();
+  box.innerHTML=`Estación: <b>${sc.nom}</b> — ${sc.F} N ${sc.dir==='avance'?'empujando':'tirando'}, carrera <b>${sc.s} mm</b> a <b>${sc.v} mm/s</b> (${regimen(sc.v)}), hueco Ø${sc.Dmax}, red <b>${sc.pRed} bar</b>, ${sc.cpm} ciclos/min.`;
+}
+function setMode(k){
+  mode=k;
+  ['fuerza','caudal','consumo','reto'].forEach(m=>el('m_'+m).classList.toggle('on',m===k));
+  el('p_mode').textContent=MODE_META[k].nombre;
+  el('retoTitle').style.display=k==='reto'?'block':'none';
+  el('retoBox').style.display=k==='reto'?'block':'none';
+  if(k==='reto')updateRetoSpec();
+  buildControls();updateScenarioInfo();
+  solved=(k==='reto')?retoSolved:false;
+  clearDx();buildQuiz();refreshQuestion();
+  const cam=MODE_META[k].cam;S.moveTo(cam[0],cam[1]);refreshAll();
+}
+function afterEdit(){buildControls();updateScenarioInfo();refreshAll();}
+function newSignal(){
+  if(mode==='reto'){seedReto();updateRetoSpec();afterEdit();solved=false;showToast('🔀 Nueva estación: '+retoSc().nom+' — '+retoSc().F+' N '+(retoSc().dir==='avance'?'empujando':'tirando')+' a '+retoSc().v+' mm/s.');}
+  else if(mode==='fuerza'){fxIdx=(fxIdx+1)%POOL.length;afterEdit();showToast('🔀 '+POOL[fxIdx].nom+' — la carga se vence '+(POOL[fxIdx].dir==='avance'?'empujando':'tirando')+'.');}
+  else if(mode==='caudal'){cdIdx=(cdIdx+1)%POOL.length;afterEdit();showToast('🔀 '+POOL[cdIdx].nom+' — '+POOL[cdIdx].v+' mm/s.');}
+  else{cnIdx=(cnIdx+1)%POOL.length;afterEdit();showToast('🔀 '+POOL[cnIdx].nom+' — '+POOL[cnIdx].cpm+' ciclos/min.');}
+  synth.beep(520,0.08,0.05);
+}
+
+// ===================== 11. TELEMETRÍA Y REPORTE =====================
+function teleRow(l,v,cls){return `<div class="trow"><span class="tl">${l}</span><span class="tv ${cls||''}">${v}</span></div>`;}
+function updateTele(){
+  const t=el('tele'),sc=curSc(),cfg=curCfg(),e=evalua(sc,cfg);
+  if(mode==='fuerza'){
+    t.innerHTML=teleRow('Área que trabaja',f1(e.Ac,2)+' cm²')+
+      teleRow('F teórica',f1(fTeorica(cfg.cil,sc.dir,e.p),0)+' N')+
+      teleRow('F útil',f1(e.fu,0)+' N','good')+
+      teleRow('Carga',sc.F+' N','warn')+
+      teleRow('β / β máx',f1(e.beta,3)+' / '+f1(e.bmax,2),e.okB?'good':'bad');
+    return;
+  }
+  if(mode==='caudal'){
+    t.innerHTML=teleRow('Velocidad pedida',sc.v+' mm/s')+
+      teleRow('Q necesario',f1(e.qnec,1)+' l/min ANR')+
+      teleRow('× K = '+f1(K_VAL,1),f1(K_VAL*e.qnec,1)+' l/min','warn')+
+      teleRow('Válvula',VALVULAS[cfg.val].nom+' · '+e.Qn,e.okQ?'good':'bad')+
+      teleRow('v máx alcanzable',f1(e.vMax,0)+' mm/s',e.okQ?'good':'bad');
+    return;
+  }
+  if(mode==='consumo'){
+    const cur=curvaPre(sc),c6=cur[cur.length-1];
+    t.innerHTML=teleRow('Montaje óptimo',CILINDROS[cfg.cil].nom+' · '+e.p+' bar','good')+
+      teleRow('Consumo por ciclo',f1(e.cons,3)+' l ANR')+
+      teleRow('Equivalente',f1(aNl(e.cons),3)+' Nl')+
+      teleRow('Caudal medio',f1(e.consMin,1)+' l/min','warn')+
+      teleRow('Mínimo de la curva',c6.cons==null?'—':f1(c6.cons,3)+' l a '+c6.p+' bar');
+    return;
+  }
+  t.innerHTML=teleRow('Cilindro',CILINDROS[cfg.cil].nom,retoChecked?(retoOkCil?'good':'bad'):'')+
+    teleRow('Presión',e.p+' bar',retoChecked?(retoOkPre?'good':'bad'):'')+
+    teleRow('Válvula',VALVULAS[cfg.val].nom+' · '+e.Qn,retoChecked?(retoOkVal?'good':'bad'):'')+
+    teleRow('Consumo',f1(e.cons,3)+' l ANR/ciclo')+
+    teleRow('Resultado',retoChecked?(retoSolved?'✓ correcto':'✗ revisa'):'—',retoChecked&&retoSolved?'good':'warn');
+}
+function updateReport(){
+  const sc=curSc(),cfg=curCfg(),e=evalua(sc,cfg);
+  let html=`<b>${MODE_META[mode].mision}</b><br>`;
+  if(mode==='fuerza'){
+    const av=fUtil(cfg.cil,'avance',e.p),re=fUtil(cfg.cil,'retroceso',e.p);
+    html+=`<span class="mono">El ${CILINDROS[cfg.cil].nom} a ${e.p} bar da ${f1(av,0)} N útiles empujando y ${f1(re,0)} N tirando: ${f1((1-re/av)*100,1)} % menos, porque el vástago de Ø${CILINDROS[cfg.cil].d} resta ${f1(e.Ae-e.Aa,2)} cm². Esta estación vence ${sc.F} N ${sc.dir==='avance'?'empujando':'tirando'}, así que la que cuenta es ${f1(e.Ac,2)} cm². Cambia de cilindro y de presión hasta que β baje de ${f1(e.bmax,2)}.</span>`;
+  }else if(mode==='caudal'){
+    const cv=curvaVal(sc,cfg.cil,cfg.pre),men=cv.find(r=>r.ok);
+    html+=`<span class="mono">Para mover el ${CILINDROS[cfg.cil].nom} a ${sc.v} mm/s hacen falta ${f1(e.qnec,1)} l/min ANR; con el factor K = ${f1(K_VAL,1)} la válvula tiene que dar ${f1(K_VAL*e.qnec,0)}. ${men?'La más pequeña que llega es la de '+men.Qn+' l/min ('+f1(men.vMax,0)+' mm/s).':'Ninguna válvula del catálogo llega con este diámetro y esta presión: hay que bajar de Ø.'} Prueba las cinco: cambia la velocidad, no el consumo.</span>`;
+  }else if(mode==='consumo'){
+    const cur=curvaPre(sc);
+    const val=cur.filter(r=>r.cons!=null);
+    const mn=val.reduce((a,b)=>b.cons<a.cons?b:a,val[0]);
+    html+=`<span class="mono">Con ${sc.cpm} ciclos por minuto, esta estación consume ${f1(e.consMin,1)} l/min ANR = ${f1(e.consMin*60/1000,2)} m³/h. El mínimo de la curva está a ${mn.p} bar con el ${CILINDROS[mn.cil].nom} (${f1(mn.cons,3)} l ANR/ciclo). Recorre las cuatro presiones y fíjate en dónde la curva sube al bajar la presión: ahí, ahorrar presión cuesta aire.</span>`;
+  }else{
+    html+=retoMsg||`<span class="mono">${sc.nom}: ${sc.F} N ${sc.dir==='avance'?'empujando':'tirando'}, ${sc.s} mm a ${sc.v} mm/s, hueco Ø${sc.Dmax} y red de ${sc.pRed} bar. Empieza por la fuerza (β ≤ ${f1(betaMax(sc.v),2)}), sigue por la presión que menos aire gaste y termina por la válvula más pequeña que llegue. Pulsa "Comprobar".</span>`;
+  }
+  el('report').innerHTML=html;
+}
+function refreshAll(){drawBoard();updateTele();updateReport();updateHW();}
+
+// ===================== 12. RETO =====================
+function updateRetoSpec(){
+  const sc=retoSc();
+  el('retoSpec').innerHTML=`Monta <b>${sc.nom}</b>: (1) el diámetro del cilindro, (2) la presión de regulación y (3) la válvula. Debe vencer <b>${sc.F} N</b> ${sc.dir==='avance'?'empujando':'tirando'} a <b>${sc.v} mm/s</b>, caber en un hueco de Ø${sc.Dmax} y trabajar con una red de ${sc.pRed} bar. Entre las combinaciones válidas gana la de <b>menor consumo</b>.`;
+}
+function retoExplain(){
+  const sc=retoSc();
+  if(retoSolved)return 'el montaje es válido en los cuatro criterios y es el de menor consumo del catálogo: '+f1(evalua(sc,retoCfg()).cons,3)+' l ANR por ciclo ('+f1(evalua(sc,retoCfg()).consMin,1)+' l/min con '+sc.cpm+' ciclos/min).';
+  const partes=[];
+  if(!retoOkCil)partes.push('<b>cilindro</b>: '+whyEje(sc,'cil',retoCh.cil));
+  if(!retoOkPre)partes.push('<b>presión</b>: '+whyEje(sc,'pre',retoCh.pre));
+  if(!retoOkVal)partes.push('<b>válvula</b>: '+whyEje(sc,'val',retoCh.val));
+  return partes.join(' · ');
+}
+function checkReto(){
+  const sc=retoSc();
+  retoOkCil=okCil(sc,retoCh.cil);
+  retoOkPre=okPre(sc,retoCh.pre);
+  retoOkVal=okVal(sc,retoCh.val);
+  retoSolved=retoOkCil&&retoOkPre&&retoOkVal;retoChecked=true;solved=retoSolved;
+  synth.beep(retoSolved?1046:220,retoSolved?0.14:0.15,0.06);
+  retoMsg=`<span class="mono"><span class="${retoSolved?'ok':'dtc'}">${retoSolved?'✔ Correcto':'✗ Revisa'}</span> — ${retoExplain()}</span>`;
+  refreshAll();
+}
+
+// ===================== 13. QUIZ =====================
+function buildQuiz(){
+  QUIZ={
+    fuerza:{
+      pregunta:'¿Por qué el mismo cilindro da menos fuerza al retroceder que al avanzar?',
+      opciones:[
+        {t:'Porque el vástago ocupa parte de la cara del émbolo por ese lado: la presión es la misma, pero el área sobre la que actúa es menor (A_anular = π(D²−d²)/4).',ok:true,why:'Correcto. Es puramente geométrico. Por eso una carga que se vence tirando puede obligar a un escalón más de presión —o a un diámetro más— que la misma carga empujando.'},
+        {t:'Porque al retroceder el aire tiene que vencer además el peso del vástago.',ok:false,why:'El peso del vástago es despreciable frente a las fuerzas en juego y además no depende del sentido en un montaje horizontal. La diferencia es de área, no de peso.'},
+        {t:'Porque la presión de red cae al invertir la válvula.',ok:false,why:'La presión de regulación es la misma en los dos sentidos: la fija el regulador, no la válvula direccional. Lo que cambia es el área.'},
+        {t:'Porque el rendimiento de las juntas es peor en el retroceso.',ok:false,why:'En este modelo η = 0,85 es el mismo en los dos sentidos, y los catálogos tampoco declaran rendimientos distintos por sentido. La asimetría es geométrica.'},
+      ],
+    },
+    caudal:{
+      pregunta:'Al elegir la válvula de un cilindro de doble efecto, ¿con qué caudal hay que dimensionarla?',
+      opciones:[
+        {t:'Con el del lado del émbolo, que es siempre el mayor de los dos, aunque el movimiento útil sea el retroceso: ese aire tiene que pasar por la válvula como admisión o como escape.',ok:true,why:'Correcto. En la compuerta de la tolva la fuerza la da el lado anular, pero el caudal que atraviesa la válvula lo manda el del émbolo. Dimensionar con el anular deja la válvula corta.'},
+        {t:'Con el del lado que empuja la carga, porque es el que hace el trabajo.',ok:false,why:'El trabajo lo hace un lado, pero la válvula tiene que pasar el aire de los dos: el que entra y el que sale. El que manda es el mayor, que es siempre el del émbolo.'},
+        {t:'Con la media aritmética de los dos lados.',ok:false,why:'La válvula no promedia nada: en cada instante tiene que pasar el caudal real de cada vía. Dimensionar con la media deja la vía del émbolo por debajo.'},
+        {t:'Con el caudal nominal del compresor dividido entre el número de cilindros.',ok:false,why:'Eso sirve para dimensionar el compresor y el depósito, no la válvula. La válvula se elige por la velocidad que se le pide a ESE cilindro.'},
+      ],
+    },
+    consumo:{
+      pregunta:'Bajar el regulador de 6 a 5 bar, ¿siempre ahorra aire?',
+      opciones:[
+        {t:'No: si a 5 bar el cilindro pequeño ya no da la fuerza, hay que subir de diámetro y el consumo por ciclo puede acabar SUBIENDO, porque el volumen barrido crece más de lo que baja la compresión.',ok:true,why:'Correcto. En el transfer, pasar de 6 a 5 bar obliga a saltar del Ø32 al Ø40 y el consumo sube un 32,6 %. La curva consumo-presión ni siquiera es monótona.'},
+        {t:'Sí: el consumo es proporcional a la presión absoluta, así que menos presión es siempre menos aire.',ok:false,why:'Sería cierto con el diámetro congelado. Pero el diámetro no es libre: lo fija la fuerza, y la fuerza depende de la presión. Al bajar la presión, a veces hay que subir de área.'},
+        {t:'Sí, y además la máquina va más rápido porque hay menos contrapresión.',ok:false,why:'Al revés: menos presión es menos caudal másico y menos velocidad alcanzable con la misma válvula. Y el consumo puede subir igualmente.'},
+        {t:'Da igual: el consumo sólo depende de la carrera y de la cadencia.',ok:false,why:'La carrera y la cadencia fijan el volumen geométrico y la frecuencia, pero el aire se paga expandido: el factor (p + 1,013)/1,000 está en todas las cuentas.'},
+      ],
+    },
+    reto:{
+      pregunta:'¿Poner una válvula mayor de la necesaria reduce el consumo de aire por ciclo?',
+      opciones:[
+        {t:'No: el consumo por ciclo depende sólo del volumen barrido y de la presión. La válvula decide en cuánto tiempo entra ese aire, es decir, la velocidad alcanzable, no cuánto aire se gasta.',ok:true,why:'Correcto. Con el mismo montaje, las cinco válvulas del catálogo dan velocidades muy distintas y exactamente el mismo consumo por ciclo. Sobredimensionarla sólo cuesta dinero.'},
+        {t:'Sí: al ofrecer menos resistencia, la válvula grande deja pasar menos aire para el mismo movimiento.',ok:false,why:'Menos resistencia significa que el mismo aire pasa más deprisa, no que haga falta menos aire. El volumen que hay que llenar es el de las cámaras, y no cambia.'},
+        {t:'Sí, porque una válvula mayor permite bajar la presión de trabajo.',ok:false,why:'La presión la fija la fuerza que hay que vencer, no la válvula. Una válvula mayor no aporta ni un newton.'},
+        {t:'Depende: sólo la reduce si el cilindro es de simple efecto.',ok:false,why:'Tampoco: en simple efecto el retorno lo hace un muelle y se consume menos aire, pero eso es cosa del cilindro, no del tamaño de la válvula.'},
+      ],
+    },
+  };
+  Object.values(QUIZ).forEach(q=>{for(let i=q.opciones.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));const tmp=q.opciones[i];q.opciones[i]=q.opciones[j];q.opciones[j]=tmp;}});
+}
+function clearDx(){const box=el('dxbtns');if(box)box.innerHTML='';}
+function refreshQuestion(){
+  const q=QUIZ[mode];if(!q)return;
+  el('q_text').textContent=q.pregunta;
+  const box=el('dxbtns');
+  box.innerHTML=q.opciones.map((o,i)=>`<button class="b sm" data-i="${i}">${String.fromCharCode(65+i)}) ${o.t}</button>`).join('');
+  box.querySelectorAll('[data-i]').forEach(b=>b.onclick=()=>answer(parseInt(b.dataset.i,10)));
+}
+function answer(i){
+  const q=QUIZ[mode];if(!q)return;
+  const box=el('dxbtns'),btns=box.querySelectorAll('[data-i]');
+  if(!btns.length||btns[0].disabled)return;
+  const o=q.opciones[i];btns.forEach(b=>b.disabled=true);btns[i].classList.add(o.ok?'right':'wrong');
+  if(o.ok){synth.beep(1046,0.12,0.06);}else{synth.beep(220,0.15,0.06);}
+  showToast((o.ok?'✔ ':'✗ ')+o.why);
+}
+
+// ===================== 14. PICKING Y HOVER =====================
+pickerFor(scene,S.camera,S.renderer.domElement,hit=>{
+  if(!hit)return;
+  if(hit.object===board){boardClick();return;}
+  let o=hit.object;while(o){if(o.userData&&o.userData.title){showToast('<b>'+o.userData.title+'</b><br>'+(o.userData.info||''));return;}o=o.parent;}
+});
+(function hoverLoop(){
+  const ray=new THREE.Raycaster(),dom=S.renderer.domElement;let mx=0,my=0;
+  dom.addEventListener('pointermove',e=>{const r=dom.getBoundingClientRect();mx=((e.clientX-r.left)/r.width)*2-1;my=-((e.clientY-r.top)/r.height)*2+1;});
+  function tick(){
+    ray.setFromCamera({x:mx,y:my},S.camera);let hovered=false;
+    for(const [obj,spr] of HOVER_LABELS){if(!obj.visible){spr.visible=false;continue;}const on=ray.intersectObject(obj,true).length>0;spr.visible=on;if(on)hovered=true;}
+    dom.style.cursor=hovered?'pointer':'default';requestAnimationFrame(tick);
+  }
+  tick();
+})();
+
+// ===================== 15. RECORRIDO AUTOMÁTICO =====================
+function sleep(ms){return new Promise(r=>setTimeout(r,ms));}
+async function runAuto(){
+  if(autoRunning)return;autoRunning=true;
+  const btn=el('btnAuto'),label=btn.textContent;btn.disabled=true;btn.classList.add('on');btn.textContent='⏳ Recorriendo…';
+  try{
+    synth.init();synth.resume();clearDx();
+    setMode('fuerza');
+    fxIdx=1;fxCil='c50';fxPre='p4';afterEdit();
+    showToast('💪 Compuerta de tolva: 460 N que se vencen TIRANDO. El Ø50 a 4 bar parece de sobra… si empujara.');
+    await sleep(4200);
+    showToast('⚠ Tirando, el área es la anular: β = '+f1(evalua(POOL[1],{cil:'c50',pre:'p4',val:'v100'}).beta,3)+' contra '+f1(betaMax(POOL[1].v),2)+' admisible. No arranca con garantía.');
+    await sleep(4600);
+    fxPre='p5';afterEdit();
+    showToast('✔ Con 5 bar el mismo Ø50 sí llega: β = '+f1(evalua(POOL[1],{cil:'c50',pre:'p5',val:'v100'}).beta,3)+'. Un escalón entero de red por un vástago de 20 mm.');
+    await sleep(4600);
+    fxIdx=2;fxCil='c100';fxPre='p5';afterEdit();
+    showToast('🔎 La prensa de marcado necesita el Ø100: a 5 bar da '+f1(fUtil('c100','avance',5),0)+' N útiles de los '+f1(fTeorica('c100','avance',5),0)+' N teóricos. Las juntas se quedan con el 15 %.');
+    await sleep(4600);
+    answer(QUIZ[mode].opciones.findIndex(o=>o.ok));await sleep(2800);
+
+    setMode('caudal');
+    cdIdx=2;cdCil='c100';cdPre='p5';cdVal='v300';afterEdit();
+    showToast('💨 Misma prensa: 180 mm/s con el Ø100 exigen '+f1(evalua(POOL[2],{cil:'c100',pre:'p5',val:'v300'}).qnec,0)+' l/min ANR, y con K = 1,5 hay que dar '+f1(K_VAL*evalua(POOL[2],{cil:'c100',pre:'p5',val:'v300'}).qnec,0)+'.');
+    await sleep(4600);
+    cdVal='v700';afterEdit();
+    showToast('✗ Ni siquiera la G1/4 de 700 l/min llega: se queda en '+f1(vMaxValv('c100',5,700),0)+' mm/s.');
+    await sleep(4200);
+    cdVal='v1500';afterEdit();
+    showToast('✔ Sólo la G3/8 de 1500 l/min alcanza los 180 mm/s ('+f1(vMaxValv('c100',5,1500),0)+' mm/s de techo). Y ninguna de las cinco cambia el consumo por ciclo.');
+    await sleep(4800);
+    answer(QUIZ[mode].opciones.findIndex(o=>o.ok));await sleep(2800);
+
+    setMode('consumo');
+    cnIdx=3;cnUnit='anr';afterEdit();
+    showToast('🧾 Transfer rápido: a 6 bar basta el Ø32 y cuesta '+f1(curvaPre(POOL[3])[3].cons,3)+' l ANR por ciclo.');
+    await sleep(4400);
+    showToast('⚖ Honestidad: a 5 bar el Ø32 ya no da fuerza y hay que subir al Ø40 — el consumo SUBE un '+f1((curvaPre(POOL[3])[2].cons/curvaPre(POOL[3])[3].cons-1)*100,1)+' %. Bajar el regulador no siempre ahorra.');
+    await sleep(5200);
+    cnUnit='nl';afterEdit();
+    showToast('📏 Y ojo con las unidades: 1 Nl = '+f1(F_NL_ANR,4)+' l ANR. Comparar un compresor en Nl con un consumo en ANR se equivoca un '+f1((F_NL_ANR-1)*100,2)+' %.');
+    await sleep(4800);
+    cnUnit='anr';afterEdit();
+    answer(QUIZ[mode].opciones.findIndex(o=>o.ok));await sleep(2800);
+
+    setMode('reto');
+    seedReto(0);updateRetoSpec();afterEdit();
+    showToast('🎯 Reto: el montaje de partida está mal en las tres decisiones. Lo comprobamos primero tal cual…');
+    await sleep(3800);
+    checkReto();
+    await sleep(4400);
+    const g=GOOD(retoSc());
+    retoCh={cil:g.cil,pre:g.pre,val:g.val};retoChecked=false;retoSolved=false;afterEdit();
+    showToast('✔ Diámetro por la fuerza, presión por el consumo y la válvula más pequeña que llegue: '+CILINDROS[g.cil].nom+' a '+PRESIONES[g.pre].p+' bar con la de '+VALVULAS[g.val].Qn+' l/min.');
+    await sleep(3800);
+    checkReto();await sleep(2800);
+    answer(QUIZ[mode].opciones.findIndex(o=>o.ok));
+  }finally{
+    btn.disabled=false;btn.classList.remove('on');btn.textContent=label;autoRunning=false;
+  }
+}
+
+// ===================== 16. ANIMACIÓN, EVENTOS E INICIO =====================
+S.setAnimate((dt)=>{
+  const sc=curSc();
+  const dur=Math.max(0.30,Math.min(4.0,sc.s/sc.v));   // s por carrera, acotado para que se vea
+  animT+=dt;
+  const ph=(animT%(2*dur))/dur;
+  animP=ph<1?ph:2-ph;
+  const p=animP;
+  rod.position.x=2.92+0.30*p;tip.position.x=3.22+0.30*p;carga.position.x=3.48+0.30*p;
+});
+['fuerza','caudal','consumo','reto'].forEach(m=>{el('m_'+m).onclick=()=>{if(!autoRunning)setMode(m);};});
+el('btnAuto').onclick=()=>{if(!autoRunning)runAuto();};
+el('btnNew').onclick=()=>{if(autoRunning)return;newSignal();};
+el('btnCheck').onclick=()=>{if(autoRunning)return;checkReto();};
+const soundBtn=el('soundBtn');if(soundBtn){soundBtn.onclick=()=>{synth.toggle();soundBtn.textContent=synth.isOn()?'🔊':'🔇';};}
+document.addEventListener('pointerdown',()=>{synth.init();synth.resume();},{once:true});
+
+buildQuiz();
+S.start();
+setMode('fuerza');
+
+// ===================== DEBUG HOOK =====================
+window.__labDebug={
+  mode:()=>mode, setMode:k=>setMode(k),
+  // constantes selladas
+  P_ATM, ETA, K_VAL, P_NORM, T_NORM, P_ANR, T_ANR, P_ANR_BAR, F_NL_ANR,
+  CILINDROS, CILK, PRESIONES, PREK, VALVULAS, VALK, POOL,
+  // motor
+  areaEmb, areaAnu, areaDir, betaMax, regimen, fTeorica, fUtil, relCarga,
+  caudalNec, vMaxValv, consumoCiclo, aANR, aNl,
+  evalua, GOOD, cfgWith, minEje, okCil, okPre, okVal,
+  whyCfg, whyEje, curvaVal, curvaPre, mejorHasta, startCfg,
+  // estado por modo
+  curSc:()=>curSc(), curCfg:()=>curCfg(),
+  fxIdx:()=>fxIdx, setFxIdx:i=>{fxIdx=i;afterEdit();},
+  fxCil:()=>fxCil, setFxCil:k=>{fxCil=k;afterEdit();},
+  fxPre:()=>fxPre, setFxPre:k=>{fxPre=k;afterEdit();},
+  cdIdx:()=>cdIdx, setCdIdx:i=>{cdIdx=i;afterEdit();},
+  cdCil:()=>cdCil, setCdCil:k=>{cdCil=k;afterEdit();},
+  cdPre:()=>cdPre, setCdPre:k=>{cdPre=k;afterEdit();},
+  cdVal:()=>cdVal, setCdVal:k=>{cdVal=k;afterEdit();},
+  cnIdx:()=>cnIdx, setCnIdx:i=>{cnIdx=i;afterEdit();},
+  cnUnit:()=>cnUnit, setCnUnit:u=>{cnUnit=u;afterEdit();},
+  // reto
+  retoK:()=>retoK, seedReto:k=>{seedReto(k);updateRetoSpec();afterEdit();},
+  retoName:()=>retoSc().nom, retoGet:()=>retoCfg(),
+  retoSet:(f,v)=>{retoSet(f,v);afterEdit();},
+  retoSolveBuild:()=>{const g=GOOD(retoSc());retoCh={cil:g.cil,pre:g.pre,val:g.val};retoChecked=false;retoSolved=false;afterEdit();},
+  checkReto:()=>checkReto(),
+  retoChecked:()=>retoChecked, retoOkCil:()=>retoOkCil, retoOkPre:()=>retoOkPre, retoOkVal:()=>retoOkVal, retoSolved:()=>retoSolved,
+  retoGood:()=>GOOD(retoSc()),
+  // quiz / general
+  quizCorrectIndex:()=>{const q=QUIZ[mode];return q?q.opciones.findIndex(o=>o.ok):-1;},
+  quizAnswer:i=>answer(i),
+  newSignal:()=>newSignal(),
+  solved:()=>solved,
+};
