@@ -1,0 +1,1517 @@
+/* =============================================================================
+   MEC-96 · d4-04 — Mando directo e indirecto: diagrama espacio-fase
+   -----------------------------------------------------------------------------
+   MOTOR SELLADO: el bloque entre "===== MOTOR =====" y "===== FIN MOTOR ====="
+   está pegado VERBATIM desde el verificador numérico (verif_mando.mjs, 498/498).
+   Ninguna cifra ni ningún veredicto del pizarrón, del panel, de la ficha ni del
+   briefing está escrito a mano: todos salen de estas funciones.
+
+   Modelo:
+   · Mando DIRECTO — el órgano de mando (pulsador, palanca, rodillo) mueve el
+     carrete de la válvula que alimenta al cilindro. Hay tantas válvulas como
+     señales, y esas válvulas están sobre la línea de POTENCIA: componerlas en
+     serie cuesta caudal (1/Qn_eq² = Σ 1/Qn_i²) y el tubo largo transporta todo
+     el aire del cilindro.
+   · Mando INDIRECTO — el órgano de mando abre una válvula de SEÑAL pequeña que
+     pilota a distancia la válvula de potencia, montada junto al cilindro. Se
+     paga una válvula más; a cambio la línea larga sólo lleva aire de pilotaje.
+   · Consumo (ISO 8778) — q = A · v · (p + p_atm)/p_ANR referido al litro normal,
+     y la válvula se elige con un factor K = 1,5 de criterio de fabricante.
+   · Tres criterios de línea — caudal de la válvula, velocidad del aire en el
+     tubo (≤ 20 m/s, regla de dedo de catálogo) y tiempo de primer llenado. En
+     mando indirecto el tubo largo hay que hacerlo FINO, no gordo: cada mm² de
+     más es volumen muerto que retrasa la orden.
+   · Diagrama ESPACIO-FASE — método directo o intuitivo: cada movimiento lo
+     ordena el final de carrera que alcanzó el movimiento anterior. Cuando una
+     señal sigue presente mientras se pide el movimiento contrario aparece un
+     CONFLICTO de señales, y el método directo ya no sirve.
+   · Diagrama ESPACIO-TIEMPO — la fase NO es tiempo: cada tramo dura lo que le
+     dan el área, la carrera y el caudal de la válvula.
+
+   Ref: ISO 1219-1 (símbolos) · ISO 15552 (parejas émbolo-vástago) ·
+        ISO 8778 (aire de referencia, litro ANR) ·
+        ISO 6358 (conductancia sónica: modelo más fino que NO se simula) ·
+        ISO 13851 / EN 574 (mando a dos manos: citada, no simulada).
+   ============================================================================= */
+
+// ===================== 1. ESCENA =====================
+const mount=document.getElementById('stage');
+const S=createStage(mount,{cam:[5.6,3.1,7.8],target:[0.7,1.05,0.4],bgTop:'#0d1017',bgBot:'#05060a',bloom:0.42,minD:3.2,maxD:18});
+const {scene}=S;
+const synth=makeSynth({type:'square',type2:'sine',filterFreq:2400,Q:0.7});
+const el=id=>document.getElementById(id);
+const f1=(x,d)=>x.toFixed(d===undefined?1:d).replace('.',',');
+
+/* ===== MOTOR ===== */
+// --- Constantes selladas (cada una con su origen declarado) ---
+const P_ANR = 1.000;      // bar abs. Aire de referencia ISO 8778 (1000 hPa, 20 C, 65 % HR)
+const P_ATM = 1.013;      // bar. Atmosfera normal, para pasar de presion relativa a absoluta
+const K_VALV = 1.5;       // factor de seleccion de valvula. Criterio de fabricante (rango 1,3-1,6)
+const V_AIRE_MAX = 20;    // m/s en la tuberia. Regla de dedo de fabricante (rango 15-20)
+const P_PILOT = 2.5;      // bar de pilotaje. Rango de catalogo 1,5-3,0
+const V_CIL_MAX = 1500;   // mm/s. Techo del cilindro por su amortiguacion (rango 1000-1500)
+const QN_MANUAL = 350;    // l/min ANR. Por encima el catalogo ya no ofrece mando manual
+const QN_SENAL = 100;     // l/min ANR de la valvula de senal (la mas pequena del catalogo)
+const L_POT = 0.3;        // m de tubo de potencia en el mando indirecto (valvula junto al cilindro)
+const T_FC = 0.02;        // s de retardo de final de carrera + conmutacion (rango 0,010-0,030)
+
+// Parejas embolo-vastago (ISO 15552)
+const CIL_ISO = { 32: 12, 40: 16, 50: 20, 63: 20, 80: 25, 100: 25 };
+const areaEmb = (D) => Math.PI * D * D / 4 / 100;                                          // cm2
+const areaAnu = (D) => (Math.PI * D * D / 4 - Math.PI * CIL_ISO[D] * CIL_ISO[D] / 4) / 100; // cm2
+
+// --- Catalogo de valvulas por tamano de conexion ---
+// tubo = diametro interior del tubo que pide su rosca. En el mando indirecto la
+// valvula de potencia va junto al cilindro y su tubo corto es el de su rosca.
+const VALVS = [
+  { k: 'M5', qn: 100, c: 1, tubo: 4, rot: 'M5' },
+  { k: 'G18', qn: 350, c: 2, tubo: 6, rot: 'G 1/8' },
+  { k: 'G14', qn: 700, c: 3, tubo: 8, rot: 'G 1/4' },
+  { k: 'G38', qn: 1600, c: 4, tubo: 9, rot: 'G 3/8' },
+];
+const VALVK = VALVS.map(v => v.k);
+const VAL = (k) => VALVS.find(v => v.k === k);
+
+// --- Catalogo de tubo de poliuretano (parejas exterior/interior habituales de
+// catalogo, no normativas) ---
+const TUBOS = [
+  { k: 't4', ext: 4, int: 2.5, c: 1 },
+  { k: 't6', ext: 6, int: 4, c: 2 },
+  { k: 't8', ext: 8, int: 6, c: 3 },
+  { k: 't10', ext: 10, int: 8, c: 4 },
+  { k: 't12', ext: 12, int: 9, c: 5 },
+];
+const TUBK = TUBOS.map(t => t.k);
+const TUB = (k) => TUBOS.find(t => t.k === k);
+const TIPOK = ['directo', 'indirecto'];
+const TIPO_TXT = { directo: 'Mando directo', indirecto: 'Mando indirecto' };
+
+// --- Formulas ---
+// Consumo del cilindro referido a aire normal (l/min ANR)
+const qNec = (A, v, p) => A * (v / 10) * 0.06 * (p + P_ATM) / P_ANR;
+// Velocidad que permite una valvula de Qn dado, antes del techo del cilindro
+const vTeor = (qn, A, p) => qn / (A * 0.06 * (p + P_ATM) / P_ANR) * 10;      // mm/s
+const vReal = (qn, A, p) => Math.min(vTeor(qn, A, p), V_CIL_MAX);            // mm/s
+const areaTubo = (dInt) => Math.PI * dInt * dInt / 4 / 100;                  // cm2
+const volTubo = (dInt, L) => areaTubo(dInt) * L * 100;                       // cm3 (L en m)
+// Velocidad del aire en la linea que lleva el caudal del cilindro (m/s)
+const vAire = (A, v, dInt) => A * (v / 10) / areaTubo(dInt) / 100;
+// Tiempo de primer llenado de una linea (s). Estimacion de primer orden: reparte
+// el volumen ANR de la linea al caudal nominal de la valvula. El transitorio real
+// (ISO 6358) es mas lento al final; el sesgo actua igual en las dos arquitecturas.
+const tLlena = (dInt, L, p, qn) => (volTubo(dInt, L) / 1000 * (p + P_ATM) / P_ANR) / (qn / 60);
+// Composicion en serie de restricciones: 1/Qn_eq^2 = suma de 1/Qn_i^2
+const qnSerie = (qn, n) => qn / Math.sqrt(n);
+
+// --- Estaciones ---
+const POOL = [
+  {
+    id: 'expulsor', nom: 'Expulsor de recortes de una troqueladora',
+    D: 32, s: 100, v: 300, L: 1.5, sen: 1, p: 6, tMax: 0.15,
+    cilB: { nom: 'Pisador', D: 40, s: 60 }, sec: ['B+', 'A+', 'A-', 'B-'], marcha: 'momentanea',
+    forma: 'anidada',
+  },
+  {
+    id: 'puerta', nom: 'Puerta de una cabina de pintura',
+    D: 50, s: 400, v: 200, L: 15, sen: 1, p: 6, tMax: 0.30,
+    cilB: null, sec: ['A+', 'A-'], marcha: 'mantenida', forma: 'simple',
+    arreglo: { 'A+': 'm&a0' },
+  },
+  {
+    id: 'prensa', nom: 'Prensa de ensamble con mando a dos manos',
+    D: 63, s: 150, v: 140, L: 3, sen: 2, p: 6, tMax: 0.25,
+    cilB: { nom: 'Expulsor de pieza', D: 32, s: 80 }, sec: ['A+', 'A-', 'B+', 'B-'], marcha: 'momentanea',
+    forma: 'serie',
+  },
+  {
+    id: 'volteador', nom: 'Volteador de una linea de horno',
+    D: 80, s: 300, v: 250, L: 12, sen: 2, p: 6, tMax: 0.40,
+    cilB: { nom: 'Pinza', D: 32, s: 60 }, sec: ['B+', 'A+', 'B-', 'A-'], marcha: 'momentanea',
+    forma: 'cruzada',
+  },
+  {
+    id: 'grapadora', nom: 'Grapadora de cajas de carton',
+    D: 40, s: 80, v: 400, L: 0.8, sen: 1, p: 5, tMax: 0.12,
+    cilB: null, sec: ['A+', 'A-'], marcha: 'momentanea', forma: 'simple',
+  },
+];
+const EST_TXT = {
+  expulsor: 'Expulsor de recortes', puerta: 'Puerta de cabina', prensa: 'Prensa de ensamble',
+  volteador: 'Volteador de horno', grapadora: 'Grapadora de cajas',
+};
+
+// --- Evaluacion de una configuracion ---
+const cfgWith = (sc, o) => Object.assign({}, GOOD(sc), o);
+// Linea que lleva el caudal del cilindro
+const lineaPot = (sc, cfg) => cfg.tipo === 'directo'
+  ? { dInt: TUB(cfg.tubo).int, L: sc.L }
+  : { dInt: VAL(cfg.valv).tubo, L: L_POT };
+
+const evalCfg = (sc, cfg) => {
+  const vv = VAL(cfg.valv), tt = TUB(cfg.tubo);
+  const A = areaEmb(sc.D);
+  const req = qNec(A, sc.v, sc.p) * K_VALV;
+  // En mando directo las n valvulas de mando van en serie sobre la linea de
+  // potencia; en indirecto van en serie sobre la de pilotaje.
+  const qnEf = cfg.tipo === 'directo' ? qnSerie(vv.qn, sc.sen) : vv.qn;
+  const qnPil = qnSerie(QN_SENAL, sc.sen);
+  const lp = lineaPot(sc, cfg);
+  const va = vAire(A, sc.v, lp.dInt);
+  const tResp = cfg.tipo === 'directo'
+    ? tLlena(tt.int, sc.L, sc.p, qnEf)
+    : tLlena(tt.int, sc.L, P_PILOT, qnPil) + tLlena(vv.tubo, L_POT, sc.p, vv.qn);
+  const okDisp = cfg.tipo === 'indirecto' || vv.qn <= QN_MANUAL;
+  const okCaudal = qnEf >= req - 1e-9;
+  const okTubo = va <= V_AIRE_MAX + 1e-9;
+  const okTiempo = tResp <= sc.tMax + 1e-9;
+  return {
+    req, qnEf, qnPil, va, tResp, dPot: lp.dInt, lPot: lp.L,
+    okDisp, okCaudal, okTubo, okTiempo,
+    vale: okDisp && okCaudal && okTubo && okTiempo,
+    nValv: cfg.tipo === 'directo' ? sc.sen : sc.sen + 1,
+    coste: [cfg.tipo === 'directo' ? sc.sen : sc.sen + 1, vv.c, tt.c],
+  };
+};
+const cmpCoste = (a, b) => a[0] - b[0] || a[1] - b[1] || a[2] - b[2];
+const todasCfg = () => {
+  const r = [];
+  for (const ti of TIPOK) for (const vk of VALVK) for (const tk of TUBK) r.push({ tipo: ti, valv: vk, tubo: tk });
+  return r;
+};
+const _goodCache = {};
+function GOOD(sc) {
+  if (_goodCache[sc.id]) return _goodCache[sc.id];
+  const val = todasCfg().filter(c => evalCfg(sc, c).vale);
+  val.sort((a, b) => cmpCoste(evalCfg(sc, a).coste, evalCfg(sc, b).coste));
+  return (_goodCache[sc.id] = val[0]);
+}
+
+// --- Diagnosticos por eje ---
+const nf = (x, d) => x.toFixed(d).replace('.', ',');
+const EJES = ['tipo', 'valv', 'tubo'];
+const okEje = (sc, eje, val) => {
+  const c = cfgWith(sc, { [eje]: val });
+  if (!evalCfg(sc, c).vale) return false;
+  return val === GOOD(sc)[eje];
+};
+// Por que NO sirve una configuracion cualquiera (lo usan los modos de exploracion)
+function diagCfg(sc, c) {
+  const e = evalCfg(sc, c), vv = VAL(c.valv), tt = TUB(c.tubo);
+  if (!e.okDisp) return 'El catalogo no sirve esa valvula con mando manual: por encima de ' + QN_MANUAL +
+    ' l/min el carrete ya no se mueve a mano con comodidad y el fabricante solo la ofrece pilotada. ' +
+    'Un mando directo con la ' + vv.rot + ' no se puede comprar.';
+  if (!e.okCaudal) {
+    if (c.tipo === 'directo' && sc.sen > 1) return 'Con ' + sc.sen + ' senales en serie sobre la linea de potencia, ' +
+      'la ' + vv.rot + ' de ' + vv.qn + ' l/min queda en ' + nf(e.qnEf, 0) + ' efectivos y la estacion pide ' +
+      nf(e.req, 0) + '. Componer senales con las propias valvulas de potencia cuesta un 29 % de caudal.';
+    return 'La ' + vv.rot + ' da ' + vv.qn + ' l/min ANR y el cilindro de ' + sc.D + ' pide ' +
+      nf(qNec(areaEmb(sc.D), sc.v, sc.p), 0) + ' x ' + nf(K_VALV, 1) + ' = ' + nf(e.req, 0) +
+      ' para ir a ' + sc.v + ' mm/s.';
+  }
+  if (!e.okTubo) return 'El tubo de ' + nf(e.dPot, 1) + ' mm interior obliga al aire a ' + nf(e.va, 1) +
+    ' m/s y el criterio de fabricante es no pasar de ' + V_AIRE_MAX + ' m/s: por encima el ruido y la ' +
+    'perdida de carga se comen la presion en la propia manguera.';
+  if (!e.okTiempo) {
+    if (c.tipo === 'directo') return 'La linea larga de ' + nf(sc.L, 1) + ' m con tubo de ' + nf(tt.int, 1) +
+      ' mm guarda ' + nf(volTubo(tt.int, sc.L) / 1000 * (sc.p + P_ATM) / P_ANR, 2) + ' l ANR de aire de POTENCIA: ' +
+      'llenarla tarda ' + nf(e.tResp, 3) + ' s y la maquina admite ' + nf(sc.tMax, 2) + ' s.';
+    return 'La linea de pilotaje de ' + nf(sc.L, 1) + ' m con tubo de ' + nf(tt.int, 1) + ' mm tarda ' +
+      nf(e.tResp, 3) + ' s en llegar a la valvula de potencia y la maquina admite ' + nf(sc.tMax, 2) +
+      ' s: en indirecto el tubo largo hay que hacerlo FINO, no gordo.';
+  }
+  return '';
+}
+// Por que un TIPO de mando entero no sirve en la estacion
+function porQueTipo(sc, tipo) {
+  const disp = VALVK.filter(k => tipo === 'indirecto' || VAL(k).qn <= QN_MANUAL);
+  const mej = disp[disp.length - 1];
+  const cs = TUBK.map(tk => evalCfg(sc, { tipo, valv: mej, tubo: tk }));
+  const cab = 'El ' + TIPO_TXT[tipo].toLowerCase() + ' no sirve en esta estacion con NINGUNA de las ' +
+    (VALVK.length * TUBK.length) + ' combinaciones del catalogo. ';
+  if (cs.every(x => !x.okCaudal)) {
+    const grandes = VALVK.filter(k => VAL(k).qn > QN_MANUAL).length;
+    return cab + 'Ni con la ' + VAL(mej).rot + ', la mayor que el catalogo ofrece con mando manual: ' +
+      (sc.sen > 1 ? sc.sen + ' senales en serie la dejan en ' + nf(cs[0].qnEf, 0) : 'da ' + nf(cs[0].qnEf, 0)) +
+      ' l/min y la estacion pide ' + nf(cs[0].req, 0) + '. Las ' + grandes + ' valvulas mayores existen, ' +
+      'pero el fabricante solo las sirve pilotadas.';
+  }
+  const nA = cs.filter(x => !x.okTubo).length, nT = cs.filter(x => x.okTubo && !x.okTiempo).length;
+  return cab + 'Con la ' + VAL(mej).rot + ' el tubo queda atrapado entre dos criterios: los ' + nA +
+    ' mas finos hacen pasar el aire de ' + V_AIRE_MAX + ' m/s y los ' + nT + ' mas gordos tardan mas de ' +
+    nf(sc.tMax, 2) + ' s en llenarse. Engordar el tubo arregla un criterio y rompe el otro.';
+}
+function porQue(sc, eje, val) {
+  const c = cfgWith(sc, { [eje]: val });
+  const e = evalCfg(sc, c), vv = VAL(c.valv), tt = TUB(c.tubo);
+  if (eje === 'tipo' && !todasCfg().some(x => x.tipo === val && evalCfg(sc, x).vale)) return porQueTipo(sc, val);
+  const d = diagCfg(sc, c);
+  if (d !== '') return d;
+  if (val === GOOD(sc)[eje]) return '';
+  const g = evalCfg(sc, GOOD(sc));
+  if (e.coste[0] !== g.coste[0]) return 'Funciona, pero no es minimo: monta ' + e.nValv + ' valvulas donde bastan ' +
+    g.nValv + '. El mando indirecto se paga con una valvula mas y solo se compra cuando hace falta.';
+  if (e.coste[1] !== g.coste[1]) return 'Funciona, pero no es minimo: la ' + vv.rot + ' sobra frente a la ' +
+    VAL(GOOD(sc).valv).rot + ', que ya cubre los ' + nf(e.req, 0) + ' l/min con el factor ' + nf(K_VALV, 1) + '.';
+  return 'Funciona, pero no es minimo: el tubo de ' + nf(tt.int, 1) + ' mm sobra frente al de ' +
+    nf(TUB(GOOD(sc).tubo).int, 1) + ' mm' + (c.tipo === 'directo'
+      ? ', que ya mantiene el aire por debajo de ' + V_AIRE_MAX + ' m/s.'
+      : ', y en pilotaje cada mm de mas es volumen muerto que retrasa la orden.');
+}
+
+// --- Diagrama espacio-fase: metodo directo o intuitivo ---
+// Convencion: cada movimiento lo ordena el final de carrera que alcanzo el
+// movimiento anterior; el primero lo ordena la senal de marcha m.
+const disparo = (sec, i) => {
+  if (i === 0) return 'm';
+  const prev = sec[i - 1];
+  return prev[0].toLowerCase() + (prev[1] === '+' ? '1' : '0');
+};
+const senalTxt = (s) => s.split('&').join(' · ');
+// Arreglo generico del metodo directo: condicionar la primera orden a que el
+// cilindro este en su posicion de partida. Con marcha mantenida es lo que evita
+// que la senal de marcha siga ordenando el primer movimiento durante todo el ciclo.
+const arregloGen = (sc) => {
+  const mv = sc.sec[0], o = {};
+  o[mv] = 'm&' + mv[0].toLowerCase() + (mv[1] === '+' ? '0' : '1');
+  return o;
+};
+function analizaSec(sec, marcha, arreglo) {
+  const cils = Array.from(new Set(sec.map(m => m[0]))).sort();
+  const pos = {}; cils.forEach(c => pos[c] = 0);
+  const trig = {}; cils.forEach(c => trig[c] = {});
+  sec.forEach((mv, i) => { trig[mv[0]][mv[1]] = (arreglo && arreglo[mv]) || disparo(sec, i); });
+  const val1 = (sig, mOn) => {
+    if (sig === 'm') return mOn ? 1 : 0;
+    const c = sig[0].toUpperCase(), lv = sig[1];
+    return (lv === '1' ? pos[c] === 1 : pos[c] === 0) ? 1 : 0;
+  };
+  const val = (sig, mOn) => sig.split('&').every(s => val1(s, mOn) === 1) ? 1 : 0;
+  const fases = [];
+  for (let i = 0; i < sec.length; i++) {
+    const mv = sec[i], c = mv[0], dir = mv[1];
+    const mOn = (marcha === 'mantenida') ? true : (i === 0);
+    const opu = dir === '+' ? '-' : '+';
+    const sOrden = val(trig[c][dir], mOn);
+    const sOpu = trig[c][opu] ? val(trig[c][opu], mOn) : 0;
+    const antes = Object.assign({}, pos);
+    pos[c] = dir === '+' ? 1 : 0;
+    fases.push({
+      i: i + 1, mov: mv, cil: c, dir, orden: trig[c][dir], opuesta: trig[c][opu] || '--',
+      sOrden, sOpu, conflicto: sOrden === 1 && sOpu === 1,
+      antes, despues: Object.assign({}, pos),
+    });
+  }
+  const auto = [];
+  for (const c of cils) for (const d of ['+', '-']) {
+    const sig = trig[c][d]; if (!sig) continue;
+    if (val(sig, marcha === 'mantenida') === 1 && pos[c] !== (d === '+' ? 1 : 0)) auto.push({ cil: c, dir: d, sig });
+  }
+  return { cils, trig, fases, conflictos: fases.filter(f => f.conflicto), auto };
+}
+
+// --- Diagrama espacio-tiempo: la fase no es tiempo ---
+function tiempos(sc, cfg) {
+  const e = evalCfg(sc, cfg), vv = VAL(cfg.valv);
+  const velo = (D, dir) => {
+    const A = dir === '+' ? areaEmb(D) : areaAnu(D);
+    return { v: vReal(vv.qn, A, sc.p), tope: vTeor(vv.qn, A, sc.p) > V_CIL_MAX };
+  };
+  const cil = { A: { D: sc.D, s: sc.s }, B: sc.cilB ? { D: sc.cilB.D, s: sc.cilB.s } : null };
+  const filas = sc.sec.map((mv, i) => {
+    const c = cil[mv[0]]; const w = velo(c.D, mv[1]);
+    const tMov = c.s / w.v;
+    const tEsp = i === 0 ? e.tResp : T_FC;
+    return { mov: mv, D: c.D, s: c.s, v: w.v, tope: w.tope, tEsp, tMov, tTot: tEsp + tMov };
+  });
+  const total = filas.reduce((a, f) => a + f.tTot, 0);
+  return { filas, total };
+}
+/* ===== FIN MOTOR ===== */
+
+// ===================== 2. MAPAS DE PRESENTACIÓN =====================
+// Las claves internas se comparan con === y quedan en ASCII; todo lo que lee el
+// alumno sale de estos mapas (mismo patrón que EST_ABR en mecanica-95).
+const EST_BTN={expulsor:'Expulsor',puerta:'Puerta',prensa:'Prensa',volteador:'Volteador',grapadora:'Grapadora'};
+const MARCHA_TXT={momentanea:'momentánea',mantenida:'mantenida'};
+const FORMA_TXT={simple:'simple (un cilindro)',anidada:'anidada B+ A+ A− B−',serie:'en serie A+ A− B+ B−',cruzada:'cruzada B+ A+ B− A−'};
+const TUB_BTN=(k)=>'Ø'+TUB(k).ext+'/'+f1(TUB(k).int,1);
+const MOV_TXT=(m)=>m[0]+(m[1]==='+'?'+':'−');
+const SEC_TXT=(sec)=>sec.map(MOV_TXT).join(' ');
+const SIG_TXT=(s)=>senalTxt(s).split('m').join('m');   // la marcha se llama m en todas partes
+// Factor de cámara lenta del banco 3D: la animación conserva la RELACIÓN entre
+// la velocidad de salida y la de retorno, pero no es un cronómetro.
+const ANIM_SLOW=0.30;
+
+// ===================== 3. ESTADO =====================
+let mode='mando';
+let mnIdx=0, mnTipo='directo', mnValv='G18', mnTubo='t6';       // modo MANDO
+let lnIdx=1, lnTipo='indirecto', lnTubo='t4';                   // modo LÍNEA (válvula derivada)
+let fsIdx=0, fsMar='momentanea', fsArr=false;                   // modo FASE
+let retoK=0, retoCh=null;                                       // modo RETO
+let retoChecked=false, retoOkTipo=false, retoOkValv=false, retoOkTubo=false, retoSolved=false, retoMsg='';
+let solved=false, autoRunning=false, QUIZ={};
+let animT=0, animP=0, animDir=1;
+
+function pickIdx(n,ex){if(n<=1)return 0;let i=ex;while(i===ex)i=Math.floor(Math.random()*n);return i;}
+function hexA(hex,a){const n=parseInt(hex.slice(1),16);return `rgba(${(n>>16)&255},${(n>>8)&255},${n&255},${a})`;}
+
+// La válvula del modo LÍNEA no se elige: es la más pequeña que cubre el caudal,
+// para que el tubo se juzgue solo.
+function valvMin(sc,tipo){
+  const ks=VALVK.filter(k=>tipo==='indirecto'||VAL(k).qn<=QN_MANUAL);
+  const okk=ks.filter(k=>evalCfg(sc,{tipo,valv:k,tubo:TUBK[0]}).okCaudal);
+  return okk.length?okk[0]:ks[ks.length-1];
+}
+// Terna de arranque del reto: deliberadamente mal en los TRES ejes.
+function startCfg(sc){
+  const g=GOOD(sc);
+  return {
+    tipo:TIPOK.find(t=>t!==g.tipo),
+    valv:VALVK.find(k=>k!==g.valv),
+    tubo:TUBK.slice().reverse().find(k=>k!==g.tubo),
+  };
+}
+const retoSc=()=>POOL[retoK];
+const retoCfg=()=>({tipo:retoCh.tipo,valv:retoCh.valv,tubo:retoCh.tubo});
+function seedReto(k){
+  retoK=(k==null)?pickIdx(POOL.length,retoK):k;
+  retoCh=startCfg(retoSc());
+  retoChecked=false;retoOkTipo=false;retoOkValv=false;retoOkTubo=false;retoSolved=false;retoMsg='';
+}
+seedReto(0);
+
+function curSc(){return mode==='mando'?POOL[mnIdx]:mode==='linea'?POOL[lnIdx]:mode==='fase'?POOL[fsIdx]:retoSc();}
+function curCfg(){
+  if(mode==='mando')return {tipo:mnTipo,valv:mnValv,tubo:mnTubo};
+  if(mode==='linea')return {tipo:lnTipo,valv:valvMin(POOL[lnIdx],lnTipo),tubo:lnTubo};
+  if(mode==='fase')return GOOD(POOL[fsIdx]);
+  return retoCfg();
+}
+const curEval=()=>evalCfg(curSc(),curCfg());
+const curMar=()=>mode==='fase'?fsMar:curSc().marcha;
+const curArr=()=>mode==='fase'?(fsArr?arregloGen(POOL[fsIdx]):null):(curSc().arreglo||null);
+const curAn=()=>analizaSec(curSc().sec,curMar(),curArr());
+
+// ===================== 4. MATERIALES =====================
+function std(color,rough,metal){return new THREE.MeshStandardMaterial({color,roughness:rough,metalness:metal});}
+function brush(base){return std(base,0.55,0.35);}
+const MAT={
+  bench:brush(0x2b2f34),frame:brush(0x22262c),leg:brush(0x14161b),
+  body:std(0x1b2028,0.6,0.25),barrel:std(0x9aa4b2,0.35,0.75),rod:std(0xd6dde8,0.22,0.9),
+  valve:std(0x14171b,0.5,0.3),valve2:std(0x1a1f26,0.5,0.3),plate:brush(0x3a4048),
+  spool:std(0xb9c3d1,0.3,0.85),carga:std(0x3a2f24,0.7,0.15),post:brush(0x2a3038),
+};
+const AZUL='#8AB4F8', OK_HEX='#7CD992', BAD_HEX='#ff6b6b', WARN_HEX='#E9C46A', VIO='#C08CF8', GRIS='#8f97a5';
+
+const HOVER_LABELS=new Map();
+function addHoverLabel(obj,text,color,pos,scale){
+  const cv=document.createElement('canvas');cv.width=256;cv.height=64;
+  const cx=cv.getContext('2d');
+  cx.fillStyle='rgba(10,13,18,0.86)';cx.fillRect(0,0,256,64);
+  cx.strokeStyle=color;cx.lineWidth=2;cx.strokeRect(1,1,254,62);
+  cx.fillStyle=color;cx.font='bold 22px Outfit, sans-serif';cx.textAlign='center';
+  cx.fillText(text,128,40);
+  const tx=new THREE.CanvasTexture(cv);
+  const spr=new THREE.Sprite(new THREE.SpriteMaterial({map:tx,transparent:true,depthTest:false}));
+  spr.position.copy(pos);spr.scale.set(scale,scale*0.25,1);spr.renderOrder=999;spr.visible=false;
+  scene.add(spr);HOVER_LABELS.set(obj,spr);
+}
+
+// ===================== 5. PIZARRÓN =====================
+const boardG=new THREE.Group();
+boardG.position.set(-1.15,0,-0.95);boardG.rotation.y=0.2;scene.add(boardG);
+const frame=roundedBox(3.9,2.9,0.12,MAT.frame,0.06);frame.position.set(0,1.9,0);boardG.add(frame);
+[-1.65,1.65].forEach(x=>{const leg=new THREE.Mesh(new THREE.CylinderGeometry(0.05,0.06,1.9,16),MAT.leg);leg.position.set(x,0.92,0);boardG.add(leg);});
+const bCv=document.createElement('canvas');bCv.width=1024;bCv.height=768;
+const bTex=new THREE.CanvasTexture(bCv);
+const board=new THREE.Mesh(new THREE.PlaneGeometry(3.68,2.72),new THREE.MeshBasicMaterial({map:bTex}));
+board.position.set(0,1.9,0.065);boardG.add(board);
+frame.userData={title:'Mando directo e indirecto y diagrama espacio-fase',info:'Dónde va la válvula, qué lleva el tubo largo y en qué orden se dispara la secuencia · toca para inspeccionar'};
+addHoverLabel(frame,'ISO 1219-1 · ISO 8778',AZUL,new THREE.Vector3(0,3.5,0.1).add(boardG.position),2.9);
+
+function bg(c){c.fillStyle='#0c1016';c.fillRect(0,0,1024,768);}
+function rpanel(c,x,y,w,h,title){
+  c.fillStyle=hexA(AZUL,0.06);c.fillRect(x,y,w,h);
+  c.strokeStyle=hexA(AZUL,0.22);c.lineWidth=1;c.strokeRect(x,y,w,h);
+  c.fillStyle='#C7D6F5';c.font='bold 15px Outfit, sans-serif';c.textAlign='left';c.fillText(title,x+16,y+26);
+}
+function prow(c,x,y,w,l,v,col){
+  c.fillStyle=GRIS;c.font='13px Outfit, sans-serif';c.textAlign='left';c.fillText(l,x+16,y);
+  c.fillStyle=col||'#F4EFEA';c.font='bold 15px Outfit, sans-serif';c.textAlign='right';c.fillText(v,x+w-14,y);
+}
+function wrapText(c,text,x,y,maxW,lh){
+  const words=text.split(' ');let line='',yy=y;
+  for(const w of words){const test=line+w+' ';
+    if(c.measureText(test).width>maxW && line){c.fillText(line,x,yy);line=w+' ';yy+=lh;}else line=test;}
+  c.fillText(line,x,yy);return yy;
+}
+const PX={x:706,y:70,w:300};
+function drawBar(c,x,y,w,h,frac,label,col,right){
+  c.fillStyle='#9fb0cf';c.font='12px Outfit, sans-serif';c.textAlign='left';c.fillText(label,x,y-8);
+  c.fillStyle='rgba(255,255,255,0.06)';c.fillRect(x,y,w,h);
+  c.fillStyle=hexA(col,0.75);c.fillRect(x,y,Math.max(0,Math.min(1,frac))*w,h);
+  c.strokeStyle=hexA(AZUL,0.3);c.lineWidth=1;c.strokeRect(x,y,w,h);
+  c.fillStyle=col;c.font='bold 13px Outfit, sans-serif';c.textAlign='right';c.fillText(right,x+w,y-8);
+}
+function trowC(c,x,y,w,h,cols,widths,cols_col,head){
+  c.fillStyle=head?hexA(AZUL,0.10):'rgba(255,255,255,0.03)';c.fillRect(x,y,w,h);
+  c.strokeStyle=hexA(AZUL,0.16);c.lineWidth=1;c.strokeRect(x,y,w,h);
+  let cx=x;
+  cols.forEach((t,i)=>{
+    c.fillStyle=head?'#C7D6F5':(cols_col&&cols_col[i]?cols_col[i]:'#F4EFEA');
+    c.font=(head?'bold 12px':'13px')+' Outfit, sans-serif';c.textAlign='left';
+    c.fillText(t,cx+10,y+h/2+5);
+    cx+=widths[i];
+  });
+}
+function title2(c,t,sub){
+  c.fillStyle='#F4EFEA';c.font='bold 26px Outfit, sans-serif';c.textAlign='left';c.fillText(t,30,54);
+  c.fillStyle=GRIS;c.font='14px Outfit, sans-serif';wrapText(c,sub,30,80,640,20);
+}
+function nota(c,y,txt,col){
+  c.fillStyle=hexA(col||WARN_HEX,0.08);c.fillRect(30,y,650,78);
+  c.strokeStyle=hexA(col||WARN_HEX,0.30);c.lineWidth=1;c.strokeRect(30,y,650,78);
+  c.fillStyle=col||WARN_HEX;c.font='13px Outfit, sans-serif';c.textAlign='left';
+  wrapText(c,txt,46,y+24,618,19);
+}
+
+// ---- esquema de circuito (ISO 1219-1 simplificado) ----
+// Se dibujan las casillas de cada válvula, su accionamiento y las tuberías. Los
+// escapes y la numeración de puertos se omiten a propósito: aquí se lee la
+// ARQUITECTURA (dónde va la válvula y qué lleva cada tubo), no el detalle del
+// carrete — ese está en mecanica-95.
+function accSimb(c,x,y,w,h,tipo,col){
+  c.strokeStyle=col;c.lineWidth=1.8;c.fillStyle=hexA(col,0.10);
+  if(tipo==='muelle'){
+    c.beginPath();c.moveTo(x,y+h/2);
+    for(let i=0;i<5;i++){const xx=x+w*(i+0.5)/5;c.lineTo(xx,y+h/2+(i%2?h*0.32:-h*0.32));}
+    c.lineTo(x+w,y+h/2);c.stroke();return;
+  }
+  c.fillRect(x,y,w,h);c.strokeRect(x,y,w,h);
+  if(tipo==='manual'){
+    c.beginPath();c.moveTo(x+w*0.28,y+h);c.lineTo(x+w*0.76,y-7);c.stroke();
+    c.fillStyle=col;c.beginPath();c.arc(x+w*0.28,y+h,3,0,7);c.fill();
+  }else{ // pilotaje neumático: triángulo relleno
+    c.fillStyle=col;c.beginPath();
+    c.moveTo(x+w*0.28,y+h*0.24);c.lineTo(x+w*0.28,y+h*0.76);c.lineTo(x+w*0.76,y+h/2);c.closePath();c.fill();
+  }
+}
+function vbox(c,x,y,w,h,col,acc,rot){
+  const cw=w/2;
+  for(let i=0;i<2;i++){
+    c.fillStyle=i===0?hexA(col,0.16):'rgba(255,255,255,0.03)';c.fillRect(x+i*cw,y,cw,h);
+    c.strokeStyle=hexA(col,i===0?0.8:0.35);c.lineWidth=i===0?2:1.1;c.strokeRect(x+i*cw,y,cw,h);
+  }
+  accSimb(c,x-19,y+h*0.20,16,h*0.60,acc,col);
+  accSimb(c,x+w+3,y+h*0.20,16,h*0.60,'muelle',col);
+  if(rot){c.fillStyle=col;c.font='bold 11px Outfit, sans-serif';c.textAlign='center';c.fillText(rot,x+w/2,y+h+13);}
+}
+function tuboH(c,x1,x2,y,gr,col,dash){
+  c.strokeStyle=col;c.lineWidth=gr;if(dash)c.setLineDash([6,4]);
+  c.beginPath();c.moveTo(x1,y);c.lineTo(x2,y);c.stroke();c.setLineDash([]);
+}
+function simbCil(c,x,y,w,h,frac,col){
+  c.strokeStyle=col;c.lineWidth=2;c.fillStyle='rgba(255,255,255,0.03)';
+  c.fillRect(x,y,w,h);c.strokeRect(x,y,w,h);
+  const px=x+8+(w-22)*frac;
+  c.fillStyle=hexA(col,0.35);c.fillRect(px-5,y+2,10,h-4);
+  c.strokeStyle=col;c.beginPath();c.moveTo(px,y+h/2);c.lineTo(x+w+26,y+h/2);c.stroke();
+  c.beginPath();c.moveTo(x+w+26,y+h/2-9);c.lineTo(x+w+26,y+h/2+9);c.stroke();
+}
+// Esquema completo de una arquitectura dentro de un marco
+function drawCirc(c,x0,y0,W,H,sc,cfg,activo){
+  const e=evalCfg(sc,cfg),vv=VAL(cfg.valv),tt=TUB(cfg.tubo),dire=cfg.tipo==='directo';
+  const col=activo?AZUL:'#5a6473';
+  c.fillStyle=hexA(activo?AZUL:'#8f97a5',activo?0.05:0.02);c.fillRect(x0,y0,W,H);
+  c.strokeStyle=hexA(activo?AZUL:'#8f97a5',activo?0.36:0.16);c.lineWidth=1;c.strokeRect(x0,y0,W,H);
+  c.fillStyle=activo?'#F4EFEA':'#6b7280';c.font='bold 13px Outfit, sans-serif';c.textAlign='left';
+  c.fillText(TIPO_TXT[cfg.tipo].toUpperCase()+' · '+e.nValv+(e.nValv===1?' válvula':' válvulas'),x0+12,y0+19);
+  const vcol=e.vale?OK_HEX:BAD_HEX;
+  c.fillStyle=vcol;c.font='bold 12px Outfit, sans-serif';c.textAlign='right';
+  c.fillText(e.vale?'sirve':'no sirve',x0+W-12,y0+19);
+
+  const yP=y0+58, yS=y0+96;
+  const xRed=x0+18, xCil=x0+W-132;
+  // fuente de aire
+  c.fillStyle=col;c.beginPath();c.moveTo(xRed,yP-7);c.lineTo(xRed,yP+7);c.lineTo(xRed+12,yP);c.closePath();c.fill();
+  c.fillStyle=GRIS;c.font='10px Outfit, sans-serif';c.textAlign='left';c.fillText(sc.p+' bar',xRed-4,yP+22);
+  simbCil(c,xCil,yP-17,84,34,animP,activo?'#C7D6F5':'#5a6473');
+  c.fillStyle=activo?'#C7D6F5':'#5a6473';c.font='10px Outfit, sans-serif';c.textAlign='center';
+  c.fillText('Ø'+sc.D+' · '+sc.s+' mm',xCil+42,yP+34);
+
+  if(dire){
+    // n válvulas manuales en serie sobre la línea de POTENCIA
+    const bw=40,gap=26,paso=bw+gap+38;   // 19 px de accionamiento a cada lado de la casilla
+    let x=x0+62;
+    tuboH(c,xRed+12,x-20,yP,3,hexA(col,0.7));
+    for(let i=0;i<sc.sen;i++){
+      vbox(c,x,yP-15,bw,30,col,'manual',i===0?vv.rot:'');
+      if(i<sc.sen-1)tuboH(c,x+bw+19,x+bw+19+gap,yP,3,hexA(col,0.7));
+      x+=paso;
+    }
+    const xa=x-paso+bw+19;
+    tuboH(c,xa,xCil,yP,5,hexA(AZUL,activo?0.9:0.4));
+    c.fillStyle=activo?AZUL:'#5a6473';c.font='bold 11px Outfit, sans-serif';c.textAlign='center';
+    c.fillText('POTENCIA · L = '+f1(sc.L,1)+' m · Ø int '+f1(tt.int,1)+' mm',(xa+xCil)/2,yP-24);
+    c.fillStyle=e.okTubo?(activo?'#9fb0cf':'#5a6473'):BAD_HEX;c.font='10px Outfit, sans-serif';
+    c.fillText(f1(e.va,1)+' m/s en el tubo · '+f1(e.tResp,3)+' s en llenarse',(xa+xCil)/2,yP+24);
+  }else{
+    // válvula de potencia junto al cilindro, señales sobre la línea de pilotaje
+    const xVp=xCil-96;
+    tuboH(c,xRed+12,xVp-20,yP,4,hexA(col,0.7));
+    vbox(c,xVp,yP-15,44,30,col,'piloto',vv.rot);
+    tuboH(c,xVp+63,xCil,yP,5,hexA(AZUL,activo?0.9:0.4));
+    c.fillStyle=activo?AZUL:'#5a6473';c.font='bold 10px Outfit, sans-serif';c.textAlign='center';
+    c.fillText(f1(L_POT,1)+' m · Ø'+vv.tubo,(xVp+63+xCil)/2,yP-22);
+    // rama de señal
+    const bw=34,gap=22,paso=bw+gap+38;
+    let x=x0+62;
+    c.strokeStyle=hexA(col,0.5);c.lineWidth=2;
+    c.beginPath();c.moveTo(xRed+22,yP);c.lineTo(xRed+22,yS);c.lineTo(x-19,yS);c.stroke();
+    for(let i=0;i<sc.sen;i++){
+      vbox(c,x,yS-13,bw,26,VIO,'manual','');
+      if(i<sc.sen-1)tuboH(c,x+bw+19,x+bw+19+gap,yS,2,hexA(VIO,0.7));
+      x+=paso;
+    }
+    const xb=x-paso+bw+19;
+    tuboH(c,xb,xVp+22,yS,2,hexA(VIO,activo?0.9:0.4),true);
+    c.strokeStyle=hexA(VIO,activo?0.9:0.4);c.lineWidth=2;c.setLineDash([6,4]);
+    c.beginPath();c.moveTo(xVp+22,yS);c.lineTo(xVp+22,yP+16);c.stroke();c.setLineDash([]);
+    c.fillStyle=activo?VIO:'#5a6473';c.font='bold 11px Outfit, sans-serif';c.textAlign='center';
+    c.fillText('PILOTAJE · L = '+f1(sc.L,1)+' m · Ø int '+f1(tt.int,1)+' mm',(xb+xVp)/2,yS+26);
+    c.fillStyle=e.okTiempo?(activo?'#9fb0cf':'#5a6473'):BAD_HEX;c.font='10px Outfit, sans-serif';
+    c.fillText('la orden tarda '+f1(e.tResp,3)+' s en llegar',(xb+xVp)/2,yS+40);
+    c.fillStyle=e.okTubo?(activo?'#9fb0cf':'#5a6473'):BAD_HEX;c.font='10px Outfit, sans-serif';c.textAlign='center';
+    c.fillText(f1(e.va,1)+' m/s',(xVp+63+xCil)/2,yP+26);
+  }
+}
+
+// ---- diagrama espacio-fase ----
+function drawFaseGrid(c,x0,y0,W,H,an,sec,marcha){
+  const n=sec.length,cils=an.cils;
+  const lx=76,cw=(W-lx-14)/n;
+  const th=Math.min(52,(H-26)/cils.length);
+  c.fillStyle=GRIS;c.font='11px Outfit, sans-serif';c.textAlign='center';
+  for(let i=0;i<n;i++){
+    c.fillText(String(i+1),x0+lx+cw*(i+0.5),y0+12);
+    c.strokeStyle='rgba(255,255,255,0.08)';c.lineWidth=1;
+    c.beginPath();c.moveTo(x0+lx+cw*i,y0+18);c.lineTo(x0+lx+cw*i,y0+18+cils.length*th);c.stroke();
+  }
+  c.beginPath();c.moveTo(x0+lx+cw*n,y0+18);c.lineTo(x0+lx+cw*n,y0+18+cils.length*th);c.stroke();
+  cils.forEach((cil,k)=>{
+    const yb=y0+18+k*th+th-10, yt=y0+18+k*th+8;
+    const Y=(v)=>v?yt:yb;
+    c.fillStyle='#C7D6F5';c.font='bold 13px Outfit, sans-serif';c.textAlign='left';
+    c.fillText('Cilindro '+cil,x0,y0+18+k*th+th/2+4);
+    c.fillStyle=GRIS;c.font='10px Outfit, sans-serif';c.textAlign='right';
+    c.fillText('1',x0+lx-6,yt+4);c.fillText('0',x0+lx-6,yb+4);
+    c.strokeStyle='rgba(255,255,255,0.10)';c.lineWidth=1;
+    c.beginPath();c.moveTo(x0+lx,yb);c.lineTo(x0+lx+cw*n,yb);c.moveTo(x0+lx,yt);c.lineTo(x0+lx+cw*n,yt);c.stroke();
+    c.strokeStyle=AZUL;c.lineWidth=2.6;c.beginPath();
+    for(let i=0;i<n;i++){
+      const f=an.fases[i],x1=x0+lx+cw*i,x2=x1+cw;
+      const v1=f.antes[cil],v2=f.despues[cil];
+      if(i===0)c.moveTo(x1,Y(v1));
+      c.lineTo(x2,Y(v2));
+    }
+    c.stroke();
+  });
+  // etiquetas de movimiento y marcas de conflicto
+  an.fases.forEach((f,i)=>{
+    const xm=x0+lx+cw*(i+0.5);
+    c.fillStyle=f.conflicto?BAD_HEX:OK_HEX;c.font='bold 12px Outfit, sans-serif';c.textAlign='center';
+    c.fillText(MOV_TXT(f.mov),xm,y0+18+cils.length*th+16);
+    if(f.conflicto){
+      c.fillStyle=hexA(BAD_HEX,0.12);c.fillRect(x0+lx+cw*i,y0+18,cw,cils.length*th);
+      c.fillStyle=BAD_HEX;c.font='bold 11px Outfit, sans-serif';c.fillText('conflicto',xm,y0+18+cils.length*th+30);
+    }
+  });
+  c.fillStyle=GRIS;c.font='10px Outfit, sans-serif';c.textAlign='left';
+  c.fillText('marcha '+MARCHA_TXT[marcha],x0,y0+12);
+}
+
+// ===================== 6. VISTAS POR MODO =====================
+function drawMando(c){
+  const sc=POOL[mnIdx],cfg=curCfg();
+  const cD=Object.assign({},cfg,{tipo:'directo'}),cI=Object.assign({},cfg,{tipo:'indirecto'});
+  const eD=evalCfg(sc,cD),eI=evalCfg(sc,cI),e=evalCfg(sc,cfg);
+  title2(c,'¿Quién mueve el carrete? Mando directo e indirecto',
+    'En el mando DIRECTO el órgano de mando mueve el carrete de la válvula que alimenta al cilindro. En el INDIRECTO abre una válvula de señal pequeña que pilota a distancia a la válvula de potencia, montada junto al cilindro. Cambia dónde está la válvula, y con ella qué lleva el tubo largo.');
+  drawCirc(c,30,142,650,116,sc,cD,mnTipo==='directo');
+  drawCirc(c,30,268,650,140,sc,cI,mnTipo==='indirecto');
+
+  const W=[236,208,206];
+  trowC(c,30,424,650,26,['Lo que cambia','Mando directo','Mando indirecto'],W,null,true);
+  const filas=[
+    ['Válvulas que se montan',eD.nValv+'',eI.nValv+''],
+    ['Caudal efectivo de potencia',f1(eD.qnEf,0)+' l/min',f1(eI.qnEf,0)+' l/min'],
+    ['Lo que lleva el tubo largo','aire de POTENCIA','aire de PILOTAJE'],
+    ['Tiempo hasta el 1.er movimiento',f1(eD.tResp,3)+' s',f1(eI.tResp,3)+' s'],
+    ['Se compra con mando manual',eD.okDisp?'sí':'no, sólo pilotada',eI.okDisp?'sí':'no'],
+  ];
+  filas.forEach((fi,i)=>{
+    const cols=[fi[0],fi[1],fi[2]];
+    const cc=[null,mnTipo==='directo'?'#F4EFEA':'#8f97a5',mnTipo==='indirecto'?'#F4EFEA':'#8f97a5'];
+    if(i===4){cc[1]=eD.okDisp?OK_HEX:BAD_HEX;cc[2]=eI.okDisp?OK_HEX:BAD_HEX;}
+    if(i===3){cc[1]=eD.okTiempo?OK_HEX:BAD_HEX;cc[2]=eI.okTiempo?OK_HEX:BAD_HEX;}
+    if(i===1){cc[1]=eD.okCaudal?OK_HEX:BAD_HEX;cc[2]=eI.okCaudal?OK_HEX:BAD_HEX;}
+    trowC(c,30,450+i*26,650,26,cols,W,cc,false);
+  });
+
+  const pen=sc.sen>1?(1-1/Math.sqrt(sc.sen))*100:0;
+  nota(c,592,sc.sen>1
+    ? 'Peaje de caudal: en mando directo las '+sc.sen+' señales van EN SERIE sobre la línea de potencia, y restricciones en serie se componen como 1/Qn² = Σ 1/Qn_i². La '+VAL(cfg.valv).rot+' de '+VAL(cfg.valv).qn+' l/min queda en '+f1(eD.qnEf,0)+': se pierde un '+f1(pen,0)+' %. En indirecto las señales van sobre el PILOTAJE, que mueve un carrete, no un cilindro: la válvula de potencia entrega sus '+VAL(cfg.valv).qn+' l/min íntegros.'
+    : 'Esta estación tiene UNA sola señal, así que no hay peaje de caudal que pagar: en mando directo la '+VAL(cfg.valv).rot+' entrega sus '+f1(eD.qnEf,0)+' l/min completos. El peaje aparece cuando hay dos o más señales en serie — cámbiate a la prensa o al volteador para verlo.',
+    sc.sen>1?VIO:GRIS);
+
+  const d=diagCfg(sc,cfg);
+  c.fillStyle=hexA(e.vale?OK_HEX:WARN_HEX,0.08);c.fillRect(30,682,650,62);
+  c.strokeStyle=hexA(e.vale?OK_HEX:WARN_HEX,0.30);c.lineWidth=1;c.strokeRect(30,682,650,62);
+  c.fillStyle=e.vale?OK_HEX:WARN_HEX;c.font='13px Outfit, sans-serif';c.textAlign='left';
+  wrapText(c,d||('Esta arquitectura cumple los cuatro criterios en '+EST_TXT[sc.id].toLowerCase()+'.'),46,704,618,18);
+
+  // panel derecho
+  rpanel(c,PX.x,PX.y,PX.w,236,'La estación');
+  let y=PX.y+58;
+  prow(c,PX.x,y,PX.w,'Cilindro','Ø'+sc.D+' · '+sc.s+' mm');y+=30;
+  prow(c,PX.x,y,PX.w,'Velocidad pedida',sc.v+' mm/s');y+=30;
+  prow(c,PX.x,y,PX.w,'Presión de trabajo',sc.p+' bar');y+=30;
+  prow(c,PX.x,y,PX.w,'Distancia al puesto',f1(sc.L,1)+' m',sc.L>=10?WARN_HEX:'#F4EFEA');y+=30;
+  prow(c,PX.x,y,PX.w,'Señales de mando',sc.sen+'',sc.sen>1?VIO:'#F4EFEA');y+=30;
+  prow(c,PX.x,y,PX.w,'Tiempo máximo',f1(sc.tMax,2)+' s');
+
+  rpanel(c,PX.x,322,PX.w,214,'Caudal que hace falta');
+  let yy=358;
+  prow(c,PX.x,yy,PX.w,'Consumo del cilindro',f1(qNec(areaEmb(sc.D),sc.v,sc.p),0)+' l/min');yy+=28;
+  prow(c,PX.x,yy,PX.w,'Factor de selección','× '+f1(K_VALV,1));yy+=28;
+  prow(c,PX.x,yy,PX.w,'Válvula mínima',f1(e.req,0)+' l/min',AZUL);yy+=28;
+  prow(c,PX.x,yy,PX.w,'La que has puesto',VAL(cfg.valv).qn+' l/min');yy+=28;
+  prow(c,PX.x,yy,PX.w,'Efectivo en potencia',f1(e.qnEf,0)+' l/min',e.okCaudal?OK_HEX:BAD_HEX);yy+=32;
+  c.fillStyle=GRIS;c.font='11px Outfit, sans-serif';c.textAlign='left';
+  wrapText(c,'q = A · v · (p + 1,013) / 1,000 referido al litro normal ISO 8778.',PX.x+16,yy,PX.w-32,15);
+
+  rpanel(c,PX.x,552,PX.w,188,'Los cuatro criterios');
+  let yc=588;
+  [['Se puede comprar',e.okDisp],['Caudal suficiente',e.okCaudal],['Aire ≤ '+V_AIRE_MAX+' m/s',e.okTubo],['Responde a tiempo',e.okTiempo]].forEach(([n,o])=>{
+    prow(c,PX.x,yc,PX.w,n,o?'✓':'✗',o?OK_HEX:BAD_HEX);yc+=28;
+  });
+  c.fillStyle=GRIS;c.font='11px Outfit, sans-serif';c.textAlign='left';
+  wrapText(c,'Los cuatro se evalúan sobre la arquitectura seleccionada arriba.',PX.x+16,yc+10,PX.w-32,15);
+}
+
+function drawLinea(c){
+  const sc=POOL[lnIdx],cfg=curCfg(),e=evalCfg(sc,cfg),tt=TUB(cfg.tubo),vv=VAL(cfg.valv);
+  title2(c,'El tubo: entre la velocidad del aire y el tiempo de respuesta',
+    'El mismo tubo se juzga con dos criterios que tiran en sentidos opuestos. Finito: el aire va demasiado rápido y la pérdida de carga se come la presión. Gordo: guarda más aire y tarda más en llenarse. En mando indirecto el largo es de PILOTAJE, y ahí engordar sólo añade volumen muerto.');
+  drawCirc(c,30,142,650,cfg.tipo==='directo'?116:140,sc,cfg,true);
+
+  const y0=cfg.tipo==='directo'?278:302;
+  const W=[128,120,132,140,130];
+  trowC(c,30,y0,650,26,['Tubo ext/int','Aire en la línea','1.er llenado','Volumen ANR','Veredicto'],W,null,true);
+  TUBK.forEach((tk,i)=>{
+    const cc=Object.assign({},cfg,{tubo:tk}),ee=evalCfg(sc,cc),t2=TUB(tk);
+    const act=tk===cfg.tubo;
+    // volumen ANR del tubo LARGO: a presión de trabajo si es de potencia, a P_PILOT si es de pilotaje
+    const vol=volTubo(t2.int,sc.L)/1000*((cfg.tipo==='directo'?sc.p:P_PILOT)+P_ATM)/P_ANR;
+    const ver=ee.vale?'sirve':(!ee.okTubo?'aire > '+V_AIRE_MAX+' m/s':(!ee.okTiempo?'tarda de más':'caudal corto'));
+    trowC(c,30,y0+26+i*26,650,26,
+      ['Ø'+t2.ext+' / '+f1(t2.int,1)+(act?' ◂':''),f1(ee.va,1)+' m/s',f1(ee.tResp,3)+' s',f1(vol,3)+' l',ver],W,
+      [act?AZUL:'#F4EFEA',ee.okTubo?'#C7D6F5':BAD_HEX,ee.okTiempo?'#C7D6F5':BAD_HEX,GRIS,ee.vale?OK_HEX:BAD_HEX],false);
+  });
+
+  const yb=y0+26+5*26+30;
+  drawBar(c,30,yb,650,20,e.va/V_AIRE_MAX,'velocidad del aire en la línea que lleva el caudal (Ø int '+f1(e.dPot,1)+' mm, tope '+V_AIRE_MAX+' m/s)',e.okTubo?OK_HEX:BAD_HEX,f1(e.va,1)+' m/s');
+  drawBar(c,30,yb+52,650,20,e.tResp/sc.tMax,'tiempo hasta el primer movimiento (la máquina admite '+f1(sc.tMax,2)+' s)',e.okTiempo?OK_HEX:BAD_HEX,f1(e.tResp,3)+' s');
+
+  const d=diagCfg(sc,cfg);
+  nota(c,yb+96,cfg.tipo==='directo'
+    ? 'En mando directo el tubo largo lleva TODO el aire del cilindro: su diámetro decide la velocidad del aire y su volumen decide el retardo. Los dos criterios miran el mismo tubo, y por eso a veces no hay ninguno que valga: engordar arregla la velocidad y rompe el tiempo.'
+    : 'En mando indirecto el tubo largo sólo lleva aire de PILOTAJE a '+f1(P_PILOT,1)+' bar y con una válvula de señal de '+QN_SENAL+' l/min. La velocidad del aire de trabajo ya no depende de él, sino del tubo corto de '+f1(L_POT,1)+' m que pide la rosca '+vv.rot+' (Ø'+vv.tubo+'). Ahí el tubo largo se hace FINO: cada mm² de más es volumen muerto que retrasa la orden.',
+    cfg.tipo==='directo'?WARN_HEX:VIO);
+
+  c.fillStyle=hexA(e.vale?OK_HEX:BAD_HEX,0.08);c.fillRect(30,yb+182,650,58);
+  c.strokeStyle=hexA(e.vale?OK_HEX:BAD_HEX,0.30);c.lineWidth=1;c.strokeRect(30,yb+182,650,58);
+  c.fillStyle=e.vale?OK_HEX:BAD_HEX;c.font='13px Outfit, sans-serif';c.textAlign='left';
+  wrapText(c,d||('Con la '+vv.rot+' y el tubo Ø'+tt.ext+' esta línea cumple los cuatro criterios.'),46,yb+204,618,18);
+
+  // panel derecho
+  rpanel(c,PX.x,PX.y,PX.w,206,'La línea que lleva el caudal');
+  let y=PX.y+58;
+  prow(c,PX.x,y,PX.w,'Arquitectura',TIPO_TXT[cfg.tipo].split(' ')[1]);y+=30;
+  prow(c,PX.x,y,PX.w,'Longitud',f1(e.lPot,1)+' m');y+=30;
+  prow(c,PX.x,y,PX.w,'Ø interior',f1(e.dPot,1)+' mm');y+=30;
+  prow(c,PX.x,y,PX.w,'Sección',f1(areaTubo(e.dPot),3)+' cm²');y+=30;
+  prow(c,PX.x,y,PX.w,'Velocidad del aire',f1(e.va,1)+' m/s',e.okTubo?OK_HEX:BAD_HEX);
+
+  rpanel(c,PX.x,292,PX.w,206,'La válvula que impone el tamaño');
+  let yy=328;
+  prow(c,PX.x,yy,PX.w,'Rosca',vv.rot,AZUL);yy+=30;
+  prow(c,PX.x,yy,PX.w,'Caudal nominal',vv.qn+' l/min');yy+=30;
+  prow(c,PX.x,yy,PX.w,'Tubo que pide','Ø'+vv.tubo+' mm');yy+=30;
+  prow(c,PX.x,yy,PX.w,'Pilotaje',cfg.tipo==='indirecto'?f1(P_PILOT,1)+' bar':'—',cfg.tipo==='indirecto'?VIO:GRIS);yy+=30;
+  prow(c,PX.x,yy,PX.w,'Señal en serie',cfg.tipo==='indirecto'?f1(e.qnPil,0)+' l/min':'—',cfg.tipo==='indirecto'?VIO:GRIS);
+  c.fillStyle=GRIS;c.font='11px Outfit, sans-serif';c.textAlign='left';
+  wrapText(c,'La válvula no se elige aquí: es la menor del catálogo que cubre el caudal, para que el tubo se juzgue solo.',PX.x+16,yy+26,PX.w-32,15);
+
+  rpanel(c,PX.x,514,PX.w,226,'Cuántos tubos valen');
+  let yv=550;
+  const nOk=TUBK.filter(tk=>evalCfg(sc,Object.assign({},cfg,{tubo:tk})).vale).length;
+  const nAire=TUBK.filter(tk=>!evalCfg(sc,Object.assign({},cfg,{tubo:tk})).okTubo).length;
+  const nTime=TUBK.filter(tk=>{const x=evalCfg(sc,Object.assign({},cfg,{tubo:tk}));return x.okTubo&&!x.okTiempo;}).length;
+  prow(c,PX.x,yv,PX.w,'Del catálogo',TUBK.length+'');yv+=28;
+  prow(c,PX.x,yv,PX.w,'Demasiado finos',nAire+'',nAire?BAD_HEX:GRIS);yv+=28;
+  prow(c,PX.x,yv,PX.w,'Demasiado gordos',nTime+'',nTime?BAD_HEX:GRIS);yv+=28;
+  prow(c,PX.x,yv,PX.w,'Válidos',nOk+'',nOk?OK_HEX:BAD_HEX);yv+=28;
+  prow(c,PX.x,yv,PX.w,'El mínimo válido',nOk?'Ø'+TUB(TUBK.find(tk=>evalCfg(sc,Object.assign({},cfg,{tubo:tk})).vale)).ext:'ninguno',nOk?OK_HEX:BAD_HEX);yv+=30;
+  c.fillStyle=GRIS;c.font='11px Outfit, sans-serif';c.textAlign='left';
+  wrapText(c,'Cuando las dos cuentas se cruzan y no queda ninguno, el tubo no es el problema: lo es la arquitectura.',PX.x+16,yv,PX.w-32,15);
+}
+
+function drawFase(c){
+  const sc=POOL[fsIdx],an=curAn(),cfg=GOOD(sc),tm=tiempos(sc,cfg);
+  title2(c,'Diagrama espacio-fase: el orden no es el reloj',
+    'Método directo o intuitivo: cada movimiento lo ordena el final de carrera que alcanzó el movimiento anterior, y el primero lo ordena la señal de marcha m. Cuando la señal que pide un movimiento sigue presente mientras se pide el contrario, aparece un CONFLICTO y el método directo ya no basta.');
+  c.fillStyle='#C7D6F5';c.font='bold 15px Outfit, sans-serif';c.textAlign='left';
+  c.fillText('Secuencia: '+SEC_TXT(sc.sec)+'   ('+FORMA_TXT[sc.forma]+')',30,142);
+  drawFaseGrid(c,30,152,650,150,an,sc.sec,curMar());
+
+  const yT=340;
+  const W=[74,120,110,120,116,110];
+  trowC(c,30,yT,650,26,['Fase','Movimiento','La ordena','Señal opuesta','¿Las dos a 1?','Estado'],W,null,true);
+  an.fases.forEach((f,i)=>{
+    trowC(c,30,yT+26+i*26,650,26,
+      [String(f.i),MOV_TXT(f.mov)+' (Ø'+(f.cil==='A'?sc.D:(sc.cilB?sc.cilB.D:sc.D))+')',SIG_TXT(f.orden)+' = '+f.sOrden,
+       (f.opuesta==='--'?'—':SIG_TXT(f.opuesta)+' = '+f.sOpu),f.conflicto?'sí':'no',f.conflicto?'CONFLICTO':'limpio'],W,
+      [null,null,f.sOrden?OK_HEX:BAD_HEX,f.sOpu?BAD_HEX:GRIS,f.conflicto?BAD_HEX:GRIS,f.conflicto?BAD_HEX:OK_HEX],false);
+  });
+
+  const yE=yT+26+sc.sec.length*26+22;
+  const W2=[110,86,96,120,120,118];
+  trowC(c,30,yE,650,24,['Movimiento','Ø / carrera','v que permite','espera','recorrido','acumulado'],W2,null,true);
+  let acc=0;
+  tm.filas.forEach((f,i)=>{
+    acc+=f.tTot;
+    trowC(c,30,yE+24+i*24,650,24,
+      [MOV_TXT(f.mov),'Ø'+f.D+' · '+f.s,f1(f.v,0)+' mm/s'+(f.tope?' ⊤':''),f1(f.tEsp,3)+' s',f1(f.tMov,3)+' s',f1(acc,3)+' s'],W2,
+      [null,GRIS,f.tope?WARN_HEX:'#C7D6F5',i===0?VIO:GRIS,'#C7D6F5',AZUL],false);
+  });
+
+  const yN=yE+24+sc.sec.length*24+16;
+  nota(c,yN,'La fase NO es tiempo: las '+sc.sec.length+' fases de esta secuencia ocupan tramos de '+f1(Math.min.apply(null,tm.filas.map(f=>f.tTot)),3)+' s a '+f1(Math.max.apply(null,tm.filas.map(f=>f.tTot)),3)+' s y el ciclo entero dura '+f1(tm.total,3)+' s. El retorno es más rápido que la salida porque el área anular es menor y la misma válvula lo llena antes'+(tm.filas.some(f=>f.tope)?', salvo donde el cilindro topa con su límite de '+V_CIL_MAX+' mm/s (marcado ⊤)':'')+'. El primer tramo carga además el llenado de la línea.',AZUL);
+
+  // panel derecho
+  rpanel(c,PX.x,PX.y,PX.w,236,'La secuencia');
+  let y=PX.y+58;
+  prow(c,PX.x,y,PX.w,'Estación',EST_BTN[sc.id]);y+=30;
+  prow(c,PX.x,y,PX.w,'Cilindros',an.cils.join(' + '));y+=30;
+  prow(c,PX.x,y,PX.w,'Forma',sc.forma);y+=30;
+  prow(c,PX.x,y,PX.w,'Marcha',MARCHA_TXT[curMar()],curMar()==='mantenida'?WARN_HEX:'#F4EFEA');y+=30;
+  prow(c,PX.x,y,PX.w,'Arreglo de la marcha',fsArr?'sí':'no',fsArr?OK_HEX:GRIS);y+=30;
+  prow(c,PX.x,y,PX.w,'Declarada por la máquina',MARCHA_TXT[sc.marcha],GRIS);
+
+  rpanel(c,PX.x,322,PX.w,196,'Lo que sale del análisis');
+  let yy=358;
+  prow(c,PX.x,yy,PX.w,'Conflictos de señal',an.conflictos.length+'',an.conflictos.length?BAD_HEX:OK_HEX);yy+=30;
+  prow(c,PX.x,yy,PX.w,'Autoarranque',an.auto.length+'',an.auto.length?WARN_HEX:OK_HEX);yy+=30;
+  prow(c,PX.x,yy,PX.w,'¿Vale el método directo?',an.conflictos.length?'no':'sí',an.conflictos.length?BAD_HEX:OK_HEX);yy+=30;
+  prow(c,PX.x,yy,PX.w,'Ciclo completo',f1(tm.total,3)+' s',AZUL);yy+=34;
+  c.fillStyle=an.auto.length?WARN_HEX:GRIS;c.font='11px Outfit, sans-serif';c.textAlign='left';
+  wrapText(c,an.auto.length
+    ? 'Autoarranque: al terminar el ciclo la señal '+SIG_TXT(an.auto[0].sig)+' sigue pidiendo '+an.auto[0].cil+(an.auto[0].dir==='+'?'+':'−')+'. La máquina vuelve a arrancar sola.'
+    : 'Sin autoarranque: al terminar el ciclo ninguna señal sigue pidiendo un movimiento pendiente.',PX.x+16,yy,PX.w-32,15);
+
+  rpanel(c,PX.x,534,PX.w,206,'Tabla de disparos');
+  let yd=570;
+  an.cils.forEach(cil=>{
+    ['+','-'].forEach(d=>{
+      const s=an.trig[cil][d];if(!s)return;
+      prow(c,PX.x,yd,PX.w,cil+(d==='+'?'+':'−')+' lo ordena',SIG_TXT(s),s.indexOf('&')>=0?OK_HEX:'#F4EFEA');yd+=28;
+    });
+  });
+  c.fillStyle=GRIS;c.font='11px Outfit, sans-serif';c.textAlign='left';
+  wrapText(c,'m = señal de marcha; a1/a0 = finales de carrera del cilindro A (1 fuera, 0 dentro).',PX.x+16,yd+10,PX.w-32,15);
+}
+
+function drawReto(c){
+  const sc=retoSc(),cfg=retoCfg(),g=GOOD(sc),e=evalCfg(sc,cfg),eg=evalCfg(sc,g);
+  title2(c,'Reto: proyecta el mando de '+EST_TXT[sc.id].toLowerCase(),
+    'Tres decisiones independientes: la ARQUITECTURA (directo o indirecto), la VÁLVULA y el TUBO. Cada una se califica por separado, con las otras dos ya correctas. Y no basta que funcione: tiene que ser la solución más barata que funcione.');
+
+  c.fillStyle=hexA(AZUL,0.07);c.fillRect(30,104,650,82);
+  c.strokeStyle=hexA(AZUL,0.28);c.lineWidth=1;c.strokeRect(30,104,650,82);
+  c.fillStyle='#C7D6F5';c.font='13px Outfit, sans-serif';c.textAlign='left';
+  wrapText(c,sc.nom+': cilindro Ø'+sc.D+' de '+sc.s+' mm a '+sc.v+' mm/s con '+sc.p+' bar, '+sc.sen+
+    (sc.sen===1?' señal de mando':' señales de mando')+' a '+f1(sc.L,1)+' m del cilindro y '+f1(sc.tMax,2)+
+    ' s como máximo hasta el primer movimiento.',46,128,618,18);
+
+  const AXES=[
+    ['Arquitectura',TIPO_TXT[cfg.tipo],retoChecked?okEje(sc,'tipo',cfg.tipo):null,porQue(sc,'tipo',cfg.tipo)],
+    ['Válvula',VAL(cfg.valv).rot+' · '+VAL(cfg.valv).qn+' l/min',retoChecked?okEje(sc,'valv',cfg.valv):null,porQue(sc,'valv',cfg.valv)],
+    ['Tubo de la línea larga','Ø'+TUB(cfg.tubo).ext+' / '+f1(TUB(cfg.tubo).int,1)+' mm',retoChecked?okEje(sc,'tubo',cfg.tubo):null,porQue(sc,'tubo',cfg.tubo)],
+  ];
+  let y=200;
+  AXES.forEach(([nom,val,ok,why])=>{
+    const col=ok===null?'#C7D6F5':ok?OK_HEX:BAD_HEX;
+    c.fillStyle=hexA(col,0.07);c.fillRect(30,y,650,60);
+    c.strokeStyle=hexA(col,0.28);c.lineWidth=1;c.strokeRect(30,y,650,60);
+    c.fillStyle=GRIS;c.font='12px Outfit, sans-serif';c.textAlign='left';c.fillText(nom,46,y+20);
+    c.fillStyle=col;c.font='bold 14px Outfit, sans-serif';c.fillText(val+(ok===null?'':ok?'  ✓':'  ✗'),46,y+42);
+    if(retoChecked&&!ok){c.fillStyle=WARN_HEX;c.font='11px Outfit, sans-serif';wrapText(c,why,300,y+18,372,13);}
+    y+=68;
+  });
+
+  const yT=y+8;
+  const W=[196,150,150,154];
+  trowC(c,30,yT,650,26,['Criterio','Tu propuesta','Límite','¿Pasa?'],W,null,true);
+  const crits=[
+    ['Se compra con mando manual',cfg.tipo==='directo'?VAL(cfg.valv).qn+' l/min':'pilotada','≤ '+QN_MANUAL+' l/min',e.okDisp],
+    ['Caudal efectivo',f1(e.qnEf,0)+' l/min','≥ '+f1(e.req,0),e.okCaudal],
+    ['Velocidad del aire',f1(e.va,1)+' m/s','≤ '+V_AIRE_MAX+' m/s',e.okTubo],
+    ['Tiempo de respuesta',f1(e.tResp,3)+' s','≤ '+f1(sc.tMax,2)+' s',e.okTiempo],
+    ['Coste (válvulas, rosca, tubo)',e.coste.join(' · '),eg.coste.join(' · '),cmpCoste(e.coste,eg.coste)<=0],
+  ];
+  crits.forEach((cr,i)=>{
+    trowC(c,30,yT+26+i*26,650,26,[cr[0],cr[1],cr[2],cr[3]?'sí':'no'],W,
+      [null,cr[3]?'#F4EFEA':BAD_HEX,GRIS,cr[3]?OK_HEX:BAD_HEX],false);
+  });
+
+  const dy=yT+26+5*26+16;
+  c.fillStyle=hexA(retoSolved?OK_HEX:WARN_HEX,0.08);c.fillRect(30,dy,650,62);
+  c.strokeStyle=hexA(retoSolved?OK_HEX:WARN_HEX,0.30);c.lineWidth=1;c.strokeRect(30,dy,650,62);
+  c.fillStyle=retoSolved?OK_HEX:WARN_HEX;c.font='13px Outfit, sans-serif';c.textAlign='left';
+  wrapText(c,retoSolved
+    ? 'Proyecto válido y mínimo: '+TIPO_TXT[cfg.tipo].toLowerCase()+' con la '+VAL(cfg.valv).rot+' y tubo Ø'+TUB(cfg.tubo).ext+'.'
+    : 'De las '+(TIPOK.length*VALVK.length*TUBK.length)+' combinaciones del catálogo sólo una es válida Y mínima en esta estación. Corrige los ejes marcados.',46,dy+24,618,18);
+
+  // panel derecho
+  rpanel(c,PX.x,PX.y,PX.w,176,'Calificación por ejes');
+  let yr=PX.y+58;
+  prow(c,PX.x,yr,PX.w,'Arquitectura',retoChecked?(retoOkTipo?'✓':'✗'):'—',retoChecked?(retoOkTipo?OK_HEX:BAD_HEX):GRIS);yr+=30;
+  prow(c,PX.x,yr,PX.w,'Válvula',retoChecked?(retoOkValv?'✓':'✗'):'—',retoChecked?(retoOkValv?OK_HEX:BAD_HEX):GRIS);yr+=30;
+  prow(c,PX.x,yr,PX.w,'Tubo',retoChecked?(retoOkTubo?'✓':'✗'):'—',retoChecked?(retoOkTubo?OK_HEX:BAD_HEX):GRIS);yr+=30;
+  prow(c,PX.x,yr,PX.w,'Criterios internos',(e.okDisp?'D':'·')+(e.okCaudal?'Q':'·')+(e.okTubo?'V':'·')+(e.okTiempo?'T':'·'),e.vale?OK_HEX:WARN_HEX);
+
+  rpanel(c,PX.x,262,PX.w,164,'Por qué no la otra arquitectura');
+  let yv=298;
+  TIPOK.forEach(tk=>{
+    const oo=okEje(sc,'tipo',tk),vv2=todasCfg().some(x=>x.tipo===tk&&evalCfg(sc,x).vale);
+    prow(c,PX.x,yv,PX.w,TIPO_TXT[tk].split(' ')[1]+(tk===cfg.tipo?' ◂':''),oo?'válida y mínima':(vv2?'válida pero cara':'imposible'),oo?OK_HEX:(vv2?WARN_HEX:BAD_HEX));
+    yv+=28;
+  });
+  c.fillStyle=GRIS;c.font='11px Outfit, sans-serif';c.textAlign='left';
+  wrapText(c,'Cada fila se evalúa con la válvula y el tubo ya correctos, para que la arquitectura se juzgue sola.',PX.x+16,yv+14,PX.w-32,15);
+
+  rpanel(c,PX.x,442,PX.w,158,'Por qué no otra válvula');
+  let yw=478;
+  VALVK.forEach(k=>{
+    const oo=okEje(sc,'valv',k),ee=evalCfg(sc,cfgWith(sc,{valv:k}));
+    prow(c,PX.x,yw,PX.w,VAL(k).rot+' ('+VAL(k).qn+')'+(k===cfg.valv?' ◂':''),oo?'mínima':(ee.vale?'de más':'no sirve'),oo?OK_HEX:(ee.vale?WARN_HEX:BAD_HEX));
+    yw+=28;
+  });
+
+  rpanel(c,PX.x,616,PX.w,124,'Por qué no otro tubo');
+  let yz=652;
+  TUBK.forEach(k=>{
+    const oo=okEje(sc,'tubo',k),ee=evalCfg(sc,cfgWith(sc,{tubo:k}));
+    prow(c,PX.x,yz,PX.w,'Ø'+TUB(k).ext+(k===cfg.tubo?' ◂':''),oo?'mínimo':(ee.vale?'de más':'no'),oo?OK_HEX:(ee.vale?WARN_HEX:BAD_HEX));
+    yz+=18;
+  });
+}
+
+function drawBoard(){
+  const c=bCv.getContext('2d');bg(c);
+  if(mode==='linea')drawLinea(c);else if(mode==='fase')drawFase(c);else if(mode==='reto')drawReto(c);else drawMando(c);
+  bTex.needsUpdate=true;
+}
+function boardClick(){
+  if(mode==='linea')showToast('🧵 El mismo tubo se juzga con dos criterios opuestos: fino corre demasiado el aire, gordo tarda en llenarse. Cuando ninguno vale, el problema no es el tubo: es la arquitectura.');
+  else if(mode==='fase')showToast('📈 El diagrama espacio-fase ordena los movimientos, no los cronometra. La tabla de abajo pone los tiempos reales y casi nunca coinciden con los tramos iguales del diagrama.');
+  else if(mode==='reto')showToast('🎯 Tres decisiones ortogonales: arquitectura, válvula y tubo. Válida no basta: tiene que ser la más barata que funcione.');
+  else showToast('🎛️ La diferencia entre directo e indirecto no es el símbolo: es DÓNDE está la válvula de potencia y, por tanto, qué lleva el tubo largo.');
+}
+
+// ===================== 7. ESCENA 3D: BANCO DE MANDO =====================
+const bench=roundedBox(4.6,0.5,1.9,MAT.bench,0.05);bench.position.set(1.85,0.25,0.55);scene.add(bench);
+[[-0.20,0.10],[3.85,0.10],[-0.20,1.00],[3.85,1.00]].forEach(([x,z])=>{
+  const lg=new THREE.Mesh(new THREE.CylinderGeometry(0.05,0.06,0.5,12),MAT.leg);lg.position.set(x,0.25,z);scene.add(lg);
+});
+
+const GEO_CIL=new THREE.CylinderGeometry(1,1,1,28);
+const barrel=new THREE.Mesh(GEO_CIL,MAT.barrel);barrel.rotation.z=Math.PI/2;barrel.position.set(2.86,1.02,0.98);scene.add(barrel);
+const rod=new THREE.Mesh(GEO_CIL,MAT.rod);rod.rotation.z=Math.PI/2;rod.position.set(3.44,1.02,0.98);scene.add(rod);
+const tip=roundedBox(0.07,0.20,0.20,MAT.plate,0.02);tip.position.set(3.74,1.02,0.98);scene.add(tip);
+const carga=roundedBox(0.32,0.32,0.32,MAT.carga,0.03);carga.position.set(3.96,1.02,0.98);scene.add(carga);
+[2.58,3.14].forEach(x=>{const s=roundedBox(0.12,0.52,0.34,MAT.post,0.02);s.position.set(x,0.76,0.98);scene.add(s);});
+barrel.userData={title:'Cilindro de la estación',info:'Su diámetro y su carrera fijan el consumo; el área anular es menor que la del émbolo, y por eso el retorno es más rápido con la misma válvula'};
+addHoverLabel(barrel,'ISO 15552',AZUL,new THREE.Vector3(2.86,1.62,0.98),1.5);
+
+// puesto del operador (izquierda): válvulas de señal / de mando manual
+const post=roundedBox(0.46,0.62,0.42,MAT.post,0.04);post.position.set(0.42,0.81,0.30);scene.add(post);
+post.userData={title:'Puesto del operador',info:'Aquí está el órgano de mando. En mando directo aquí está también la válvula de potencia; en indirecto sólo la de señal'};
+addHoverLabel(post,'puesto de mando',VIO,new THREE.Vector3(0.42,1.42,0.30),1.7);
+const senBox=[];
+for(let i=0;i<2;i++){
+  const b=roundedBox(0.20,0.18,0.24,MAT.valve2,0.02);b.position.set(0.30+i*0.26,1.22,0.30);scene.add(b);
+  const kn=new THREE.Mesh(new THREE.CylinderGeometry(0.022,0.022,0.16,10),MAT.spool);kn.position.set(0.30+i*0.26,1.36,0.30);scene.add(kn);
+  b.userData={title:'Válvula de señal '+(i+1),info:'La abre el operador. En mando indirecto sólo maneja aire de pilotaje: '+QN_SENAL+' l/min bastan'};
+  senBox.push({b,kn});
+}
+
+// válvula de potencia: se muda de sitio según la arquitectura
+const vPot=roundedBox(0.70,0.24,0.30,MAT.valve,0.03);vPot.position.set(2.30,0.66,0.16);scene.add(vPot);
+const spool=new THREE.Mesh(new THREE.CylinderGeometry(0.055,0.055,0.56,16),MAT.spool);spool.rotation.z=Math.PI/2;spool.position.set(2.30,0.66,0.32);scene.add(spool);
+vPot.userData={title:'Válvula de potencia',info:'Es la que alimenta al cilindro. En mando directo la mueve la mano del operador; en indirecto la mueve el aire de pilotaje que llega por el tubo fino'};
+addHoverLabel(vPot,'válvula de potencia',AZUL,new THREE.Vector3(2.30,1.10,0.16),2.1);
+
+// tubos: un cilindro unidad tumbado sobre X, reescalado en cada refresco
+const MAT_TUBO={
+  pot:std(0x2c333d,0.4,0.4),pil:std(0x2c333d,0.4,0.4),corto:std(0x2c333d,0.4,0.4),
+};
+MAT_TUBO.pot.emissive=new THREE.Color(0x8AB4F8);MAT_TUBO.pot.emissiveIntensity=0.16;
+MAT_TUBO.pil.emissive=new THREE.Color(0xC08CF8);MAT_TUBO.pil.emissiveIntensity=0.16;
+MAT_TUBO.corto.emissive=new THREE.Color(0x8AB4F8);MAT_TUBO.corto.emissiveIntensity=0.16;
+function tuboX(mat){const m=new THREE.Mesh(new THREE.CylinderGeometry(1,1,1,16),mat);m.rotation.z=Math.PI/2;scene.add(m);return m;}
+function setTuboX(m,x1,x2,y,z,r){m.position.set((x1+x2)/2,y,z);m.scale.set(r,Math.max(0.02,Math.abs(x2-x1)),r);}
+const tLargo=tuboX(MAT_TUBO.pot);
+const tCorto=tuboX(MAT_TUBO.corto);
+tLargo.userData={title:'Línea larga',info:'En mando directo lleva todo el aire del cilindro; en indirecto sólo aire de pilotaje. El grosor del banco sigue al Ø interior elegido'};
+addHoverLabel(tLargo,'línea larga',VIO,new THREE.Vector3(1.6,1.05,0.16),1.7);
+
+// LEDs de los cuatro criterios
+function makeLED(x,z,color){
+  const m=new THREE.Mesh(new THREE.SphereGeometry(0.042,16,12),std(color,0.3,0.1));
+  m.material.emissive=new THREE.Color(color);m.material.emissiveIntensity=0.1;
+  m.position.set(x,0.53,z);scene.add(m);return m;
+}
+const LEDS=[makeLED(0.95,-0.15,0x7CD992),makeLED(1.25,-0.15,0x7CD992),makeLED(1.55,-0.15,0x7CD992),makeLED(1.85,-0.15,0x7CD992)];
+const LED_NOM=['Se puede comprar','Caudal suficiente','Aire ≤ '+V_AIRE_MAX+' m/s','Responde a tiempo'];
+LEDS.forEach((l,i)=>{l.userData={title:LED_NOM[i],info:'Criterio '+(i+1)+' de los cuatro que decide si la arquitectura sirve'};});
+
+// placa con la configuración
+const pCv=document.createElement('canvas');pCv.width=256;pCv.height=160;
+const pTex=new THREE.CanvasTexture(pCv);
+const placa=new THREE.Mesh(new THREE.PlaneGeometry(0.62,0.39),new THREE.MeshBasicMaterial({map:pTex,transparent:true}));
+placa.position.set(1.30,0.98,0.44);placa.lookAt(new THREE.Vector3(5.4,2.4,5.8));scene.add(placa);
+function drawPlaca(sc,cfg,e){
+  const c=pCv.getContext('2d');
+  c.clearRect(0,0,256,160);
+  c.fillStyle='rgba(10,13,18,0.88)';c.fillRect(0,0,256,160);
+  c.strokeStyle=e.vale?OK_HEX:BAD_HEX;c.lineWidth=3;c.strokeRect(2,2,252,156);
+  c.fillStyle=e.vale?OK_HEX:BAD_HEX;c.font='bold 20px Outfit, sans-serif';c.textAlign='center';
+  c.fillText(TIPO_TXT[cfg.tipo].toUpperCase(),128,30);
+  c.fillStyle='#C7D6F5';c.font='15px Outfit, sans-serif';
+  c.fillText(VAL(cfg.valv).rot+' · '+VAL(cfg.valv).qn+' l/min',128,58);
+  c.fillText('tubo Ø'+TUB(cfg.tubo).ext+' / '+f1(TUB(cfg.tubo).int,1),128,80);
+  c.fillStyle=GRIS;c.font='13px Outfit, sans-serif';
+  c.fillText(f1(e.va,1)+' m/s  ·  '+f1(e.tResp,3)+' s',128,104);
+  c.fillStyle=AZUL;c.font='bold 14px Outfit, sans-serif';
+  c.fillText(e.nValv+(e.nValv===1?' válvula':' válvulas')+' · '+EST_BTN[sc.id],128,130);
+  pTex.needsUpdate=true;
+}
+
+function updateHW(){
+  const sc=curSc(),cfg=curCfg(),e=curEval();
+  const dire=cfg.tipo==='directo';
+  // cilindro
+  const r=0.055+sc.D/100*0.115;barrel.scale.set(r,0.86,r);
+  const rr=0.018+CIL_ISO[sc.D]/100*0.060;rod.scale.set(rr,0.62,rr);
+  const p=animP;
+  rod.position.x=3.40+0.30*p;tip.position.x=3.70+0.30*p;carga.position.x=3.92+0.30*p;
+  const cs=0.20+sc.D/100*0.22;carga.scale.set(cs/0.32,cs/0.32,cs/0.32);
+  // válvulas de señal visibles según la estación
+  senBox.forEach((s,i)=>{const on=i<sc.sen;s.b.visible=on;s.kn.visible=on;});
+  // válvula de potencia: al puesto en directo, junto al cilindro en indirecto
+  const xv=dire?0.92:2.42;
+  vPot.position.x+=(xv-vPot.position.x)*0.14;
+  spool.position.x=vPot.position.x;
+  spool.position.z=0.32;
+  // tubos
+  const rTubo=(d)=>0.011+d/9*0.030;
+  if(dire){
+    setTuboX(tLargo,vPot.position.x+0.36,2.72,0.90,0.42,rTubo(TUB(cfg.tubo).int));
+    tLargo.material=MAT_TUBO.pot;
+    setTuboX(tCorto,0.60,vPot.position.x-0.36,0.72,0.30,rTubo(TUB(cfg.tubo).int)*0.8);
+    tCorto.material=MAT_TUBO.pot;
+  }else{
+    setTuboX(tLargo,0.60,vPot.position.x-0.36,0.90,0.30,rTubo(TUB(cfg.tubo).int));
+    tLargo.material=MAT_TUBO.pil;
+    setTuboX(tCorto,vPot.position.x+0.36,2.72,0.72,0.42,rTubo(VAL(cfg.valv).tubo));
+    tCorto.material=MAT_TUBO.corto;
+  }
+  // LEDs
+  const oks=[e.okDisp,e.okCaudal,e.okTubo,e.okTiempo];
+  LEDS.forEach((l,i)=>{
+    l.material.color.set(oks[i]?0x7CD992:0xff6b6b);
+    l.material.emissive.set(oks[i]?0x7CD992:0xff6b6b);
+    l.material.emissiveIntensity=oks[i]?1.3:0.55;
+  });
+  drawPlaca(sc,cfg,e);
+}
+
+// ===================== 8. HUD Y PANEL =====================
+document.getElementById('hud').innerHTML=`
+  <div class="eyebrow">Hidráulica y Neumática · Mecánica</div>
+  <h2>Mando directo e indirecto</h2>
+  <p>La misma orden se puede dar de dos maneras. En el mando <b>directo</b> la mano mueve el carrete de la válvula que alimenta al cilindro; en el <b>indirecto</b> abre una válvula de señal que <b>pilota a distancia</b> a la de potencia, montada junto al cilindro. Cambia dónde está la válvula y, con ella, qué transporta el tubo largo.</p>
+  <div class="formula">q = A · v · (p + 1,013) / 1,000 &nbsp;·&nbsp; Q<sub>válv</sub> ≥ 1,5 · q &nbsp;·&nbsp; 1/Q<sub>eq</sub>² = Σ 1/Q<sub>i</sub>²</div>
+  <div class="legend">
+    <div class="li"><span class="dot" style="background:#7CD992"></span>se puede comprar</div>
+    <div class="li"><span class="dot" style="background:#8AB4F8"></span>caudal suficiente</div>
+    <div class="li"><span class="dot" style="background:#E9C46A"></span>aire ≤ 20 m/s</div>
+    <div class="li"><span class="dot" style="background:#C08CF8"></span>responde a tiempo</div>
+  </div>
+  <div class="fid">
+    <div class="ft">🔒 Contrato de fidelidad</div>
+    <div class="fl"><b>Sí modela:</b> el consumo referido al litro normal ISO 8778, la composición en serie de restricciones, la velocidad del aire en el tubo, el volumen y el primer llenado de cada línea, las parejas émbolo-vástago ISO 15552 y el análisis de conflictos del método directo.</div>
+    <div class="fl no"><b>NO modela:</b> el transitorio real de llenado (ISO 6358, conductancia sónica C y relación de presiones b): el tiempo de respuesta es una estimación de primer orden que sesga igual a las dos arquitecturas. Tampoco modela pérdidas por accesorios, la unidad FRL, ni los requisitos de seguridad de un mando a dos manos (ISO 13851). El esquema del pizarrón dibuja las casillas y los accionamientos, pero omite escapes y numeración de puertos: eso está en el laboratorio de válvulas direccionales.</div>
+  </div>
+  <div class="src">Ref: ISO 1219-1 · ISO 8778 · ISO 15552 · ISO 6358 (citada) · ISO 13851 / EN 574 (citada). Los factores K = 1,5, el tope de 20 m/s y el límite de 350 l/min para mando manual son criterios de catálogo, no valores normativos.</div>
+`;
+document.getElementById('panel').innerHTML=`
+  <h4>Mando y secuencia · <span id="p_mode" style="color:var(--accent2)">Mando</span></h4>
+  <div class="modebar">
+    <button class="b on" id="m_mando">🎛️ Mando</button>
+    <button class="b" id="m_linea">🧵 Línea</button>
+    <button class="b" id="m_fase">📈 Fase</button>
+    <button class="b" id="m_reto">🎯 Reto</button>
+  </div>
+  <div id="scenarioInfo" style="font-size:12px;color:var(--ink);margin:2px 0 8px;display:none"></div>
+  <div class="modebar" id="selbar" style="display:none;flex-wrap:wrap"></div>
+  <div id="tele"></div>
+  <div class="console" id="report"></div>
+  <h4 class="sec" id="retoTitle" style="display:none">Proyecto propuesto</h4>
+  <div id="retoBox" style="display:none">
+    <div id="retoSpec" style="font-size:12px;color:var(--ink);margin:2px 0 8px"></div>
+    <div class="btns"><button class="b primary" id="btnCheck">✅ Comprobar</button></div>
+  </div>
+  <h4 class="sec">Pregunta de ingeniería</h4>
+  <div id="q_text" style="font-size:12px;color:var(--ink);margin:4px 0 8px"></div>
+  <div class="btns" id="dxbtns"></div>
+  <div class="btns">
+    <button class="b auto" id="btnAuto">✨ Recorrido guiado (automático)</button>
+    <button class="b primary" id="btnNew">🔀 Nuevo escenario</button>
+  </div>
+`;
+
+// ===================== 9. TOASTS =====================
+function showToast(html){const t=el('toast');t.innerHTML=html;t.classList.add('show');clearTimeout(showToast._t);showToast._t=setTimeout(()=>t.classList.remove('show'),4200);}
+
+// ===================== 10. MODOS Y CONTROLES =====================
+const MODE_META={
+  mando:{nombre:'Mando',cam:[[5.6,3.1,7.8],[0.7,1.05,0.4]],
+    mision:'Compara las dos arquitecturas sobre la misma estación: cuántas válvulas se montan, qué caudal llega y qué lleva el tubo largo.'},
+  linea:{nombre:'Línea',cam:[[3.4,2.3,6.6],[1.5,0.95,0.5]],
+    mision:'Elige el tubo. Los dos criterios tiran en sentidos opuestos: fino corre el aire, gordo tarda en llenarse.'},
+  fase:{nombre:'Fase',cam:[[0.6,2.9,6.6],[-0.6,1.5,0.0]],
+    mision:'Levanta el diagrama espacio-fase por el método directo y busca los conflictos de señal.'},
+  reto:{nombre:'Reto',cam:[[4.8,3.2,7.4],[1.0,1.15,0.4]],
+    mision:'Proyecta el mando completo: arquitectura, válvula y tubo. Válido no basta; tiene que ser el mínimo.'},
+};
+function lbl(t){return `<span class="lbl">${t}</span>`;}
+function optBtns(key,opts,cur){return opts.map(([v,t])=>`<button class="b sm ${String(cur)===String(v)?'on':''}" data-${key}="${v}">${t}</button>`).join('');}
+const EST_OPTS=()=>POOL.map((p,i)=>[i,EST_BTN[p.id]]);
+const TIPO_OPTS=()=>TIPOK.map(k=>[k,k==='directo'?'Directo':'Indirecto']);
+const VALV_OPTS=()=>VALVK.map(k=>[k,VAL(k).rot]);
+const TUBO_OPTS=()=>TUBK.map(k=>[k,TUB_BTN(k)]);
+const beep=()=>synth.beep(680,0.05,0.04);
+
+function buildControls(){
+  const bar=el('selbar');bar.style.display='flex';bar.style.flexWrap='wrap';
+  let html='';
+  if(mode==='mando'){
+    html=lbl('Estación')+optBtns('est',EST_OPTS(),mnIdx)+lbl('Arquitectura')+optBtns('tipo',TIPO_OPTS(),mnTipo)+
+         lbl('Válvula')+optBtns('valv',VALV_OPTS(),mnValv)+lbl('Tubo largo')+optBtns('tubo',TUBO_OPTS(),mnTubo);
+  }else if(mode==='linea'){
+    html=lbl('Estación')+optBtns('est',EST_OPTS(),lnIdx)+lbl('Arquitectura')+optBtns('tipo',TIPO_OPTS(),lnTipo)+
+         lbl('Tubo largo')+optBtns('tubo',TUBO_OPTS(),lnTubo);
+  }else if(mode==='fase'){
+    html=lbl('Estación')+optBtns('est',EST_OPTS(),fsIdx)+lbl('Señal de marcha')+
+         optBtns('mar',[['momentanea','Momentánea'],['mantenida','Mantenida']],fsMar)+
+         lbl('Arreglo de la marcha')+optBtns('arr',[['no','Sin arreglo'],['si','Con arreglo']],fsArr?'si':'no');
+  }else{
+    html=lbl('Arquitectura')+optBtns('rtipo',TIPO_OPTS(),retoCh.tipo)+lbl('Válvula')+optBtns('rvalv',VALV_OPTS(),retoCh.valv)+
+         lbl('Tubo largo')+optBtns('rtubo',TUBO_OPTS(),retoCh.tubo);
+  }
+  bar.innerHTML=html;
+  bar.querySelectorAll('[data-est]').forEach(b=>b.onclick=()=>{if(autoRunning)return;const v=+b.dataset.est;
+    if(mode==='mando')mnIdx=v;else if(mode==='linea')lnIdx=v;else fsIdx=v;beep();afterEdit();});
+  bar.querySelectorAll('[data-tipo]').forEach(b=>b.onclick=()=>{if(autoRunning)return;
+    if(mode==='mando')mnTipo=b.dataset.tipo;else lnTipo=b.dataset.tipo;beep();afterEdit();});
+  bar.querySelectorAll('[data-valv]').forEach(b=>b.onclick=()=>{if(autoRunning)return;mnValv=b.dataset.valv;beep();afterEdit();});
+  bar.querySelectorAll('[data-tubo]').forEach(b=>b.onclick=()=>{if(autoRunning)return;
+    if(mode==='mando')mnTubo=b.dataset.tubo;else lnTubo=b.dataset.tubo;beep();afterEdit();});
+  bar.querySelectorAll('[data-mar]').forEach(b=>b.onclick=()=>{if(autoRunning)return;fsMar=b.dataset.mar;beep();afterEdit();});
+  bar.querySelectorAll('[data-arr]').forEach(b=>b.onclick=()=>{if(autoRunning)return;fsArr=b.dataset.arr==='si';beep();afterEdit();});
+  bar.querySelectorAll('[data-rtipo]').forEach(b=>b.onclick=()=>retoSet('tipo',b.dataset.rtipo));
+  bar.querySelectorAll('[data-rvalv]').forEach(b=>b.onclick=()=>retoSet('valv',b.dataset.rvalv));
+  bar.querySelectorAll('[data-rtubo]').forEach(b=>b.onclick=()=>retoSet('tubo',b.dataset.rtubo));
+}
+function retoSet(field,v){
+  if(autoRunning)return;
+  retoCh[field]=v;
+  retoChecked=false;retoOkTipo=false;retoOkValv=false;retoOkTubo=false;retoSolved=false;retoMsg='';solved=false;
+  beep();afterEdit();
+}
+function updateScenarioInfo(){
+  const sc=curSc(),box=el('scenarioInfo');
+  box.style.display='block';
+  box.innerHTML=`<b>${sc.nom}</b> · Ø${sc.D} × ${sc.s} mm a ${sc.v} mm/s · ${sc.p} bar · ${f1(sc.L,1)} m hasta el puesto · ${sc.sen} ${sc.sen===1?'señal':'señales'} · t ≤ ${f1(sc.tMax,2)} s`;
+}
+function afterEdit(){buildControls();updateScenarioInfo();if(mode==='reto')updateRetoSpec();refreshAll();}
+function setMode(k){
+  mode=k;
+  ['mando','linea','fase','reto'].forEach(m=>el('m_'+m).classList.toggle('on',m===k));
+  el('p_mode').textContent=MODE_META[k].nombre;
+  el('retoTitle').style.display=k==='reto'?'block':'none';
+  el('retoBox').style.display=k==='reto'?'block':'none';
+  buildControls();updateScenarioInfo();
+  solved=k==='reto'?retoSolved:false;
+  clearDx();buildQuiz();refreshQuestion();
+  const cam=MODE_META[k].cam;S.moveTo(cam[0],cam[1]);
+  refreshAll();
+}
+function newSignal(){
+  if(mode==='mando'){
+    mnIdx=pickIdx(POOL.length,mnIdx);
+    mnTipo=TIPOK[Math.floor(Math.random()*TIPOK.length)];
+    mnValv=VALVK[Math.floor(Math.random()*VALVK.length)];
+    mnTubo=TUBK[Math.floor(Math.random()*TUBK.length)];
+  }else if(mode==='linea'){
+    lnIdx=pickIdx(POOL.length,lnIdx);
+    lnTipo=TIPOK[Math.floor(Math.random()*TIPOK.length)];
+    lnTubo=TUBK[Math.floor(Math.random()*TUBK.length)];
+  }else if(mode==='fase'){
+    fsIdx=pickIdx(POOL.length,fsIdx);
+    fsMar=POOL[fsIdx].marcha;
+    fsArr=false;
+  }else{
+    seedReto(null);
+  }
+  solved=mode==='reto'?retoSolved:false;
+  afterEdit();
+}
+
+// ===================== 11. TELEMETRÍA Y REPORTE =====================
+function teleRow(l,v,cls){return `<div class="trow"><span class="tl">${l}</span><span class="tv ${cls||''}">${v}</span></div>`;}
+function updateTele(){
+  const sc=curSc(),cfg=curCfg(),e=curEval();
+  let h='';
+  if(mode==='mando'){
+    const cD=Object.assign({},cfg,{tipo:'directo'}),cI=Object.assign({},cfg,{tipo:'indirecto'});
+    const eD=evalCfg(sc,cD),eI=evalCfg(sc,cI);
+    h+=teleRow('Arquitectura',TIPO_TXT[cfg.tipo]);
+    h+=teleRow('Válvulas montadas',e.nValv+'');
+    h+=teleRow('Caudal que pide',f1(e.req,0)+' l/min ANR');
+    h+=teleRow('Caudal efectivo',f1(e.qnEf,0)+' l/min',e.okCaudal?'ok':'bad');
+    h+=teleRow('Directo / indirecto',f1(eD.tResp,3)+' s / '+f1(eI.tResp,3)+' s');
+  }else if(mode==='linea'){
+    h+=teleRow('Línea que lleva el caudal',f1(e.lPot,1)+' m · Ø'+f1(e.dPot,1));
+    h+=teleRow('Velocidad del aire',f1(e.va,1)+' m/s',e.okTubo?'ok':'bad');
+    h+=teleRow('Volumen ANR de la línea',f1(volTubo(TUB(cfg.tubo).int,sc.L)/1000*((cfg.tipo==='directo'?sc.p:P_PILOT)+P_ATM)/P_ANR,3)+' l');
+    h+=teleRow('Primer llenado',f1(e.tResp,3)+' s',e.okTiempo?'ok':'bad');
+    h+=teleRow('Válvula derivada',VAL(cfg.valv).rot+' · '+VAL(cfg.valv).qn+' l/min');
+  }else if(mode==='fase'){
+    const an=curAn(),tm=tiempos(sc,cfg);
+    h+=teleRow('Secuencia',SEC_TXT(sc.sec));
+    h+=teleRow('Marcha',MARCHA_TXT[curMar()]+(fsArr?' + arreglo':''));
+    h+=teleRow('Conflictos de señal',an.conflictos.length+'',an.conflictos.length?'bad':'ok');
+    h+=teleRow('Autoarranque',an.auto.length+'',an.auto.length?'warn':'ok');
+    h+=teleRow('Ciclo completo',f1(tm.total,3)+' s');
+  }else{
+    h+=teleRow('Estación',EST_BTN[sc.id]);
+    h+=teleRow('Arquitectura',TIPO_TXT[cfg.tipo],retoChecked?(retoOkTipo?'ok':'bad'):'');
+    h+=teleRow('Válvula',VAL(cfg.valv).rot,retoChecked?(retoOkValv?'ok':'bad'):'');
+    h+=teleRow('Tubo','Ø'+TUB(cfg.tubo).ext+' / '+f1(TUB(cfg.tubo).int,1),retoChecked?(retoOkTubo?'ok':'bad'):'');
+    h+=teleRow('Criterios',(e.okDisp?'D':'·')+(e.okCaudal?'Q':'·')+(e.okTubo?'V':'·')+(e.okTiempo?'T':'·'),e.vale?'ok':'warn');
+  }
+  el('tele').innerHTML=h;
+}
+function updateReport(){
+  const sc=curSc(),cfg=curCfg(),e=curEval();
+  let h=`<b>${MODE_META[mode].mision}</b><br>`;
+  if(mode==='mando'){
+    const cD=Object.assign({},cfg,{tipo:'directo'}),cI=Object.assign({},cfg,{tipo:'indirecto'});
+    const eD=evalCfg(sc,cD),eI=evalCfg(sc,cI);
+    h+=`Directo: <span class="mono">${eD.nValv}</span> válvula(s), tubo largo de POTENCIA Ø${f1(TUB(cfg.tubo).int,1)} mm, <span class="mono">${f1(eD.va,1)}</span> m/s.<br>`;
+    h+=`Indirecto: <span class="mono">${eI.nValv}</span> válvulas, tubo largo de PILOTAJE, potencia por <span class="mono">Ø${VAL(cfg.valv).tubo}</span> mm en ${f1(L_POT,1)} m.<br>`;
+    const d=diagCfg(sc,cfg);
+    h+=d?`<span style="color:#E9C46A">${d}</span>`:`<span style="color:#7CD992">La arquitectura seleccionada cumple los cuatro criterios.</span>`;
+  }else if(mode==='linea'){
+    h+=`Tubo Ø${TUB(cfg.tubo).ext}/${f1(TUB(cfg.tubo).int,1)}: aire a <span class="mono">${f1(e.va,1)}</span> m/s y primer llenado en <span class="mono">${f1(e.tResp,3)}</span> s.<br>`;
+    const d=diagCfg(sc,cfg);
+    h+=d?`<span style="color:#E9C46A">${d}</span>`:`<span style="color:#7CD992">Este tubo cumple los cuatro criterios.</span>`;
+  }else if(mode==='fase'){
+    const an=curAn();
+    h+=`Disparos: `+an.cils.map(cl=>['+','-'].filter(d=>an.trig[cl][d]).map(d=>`${cl}${d==='+'?'+':'−'} ← <span class="mono">${SIG_TXT(an.trig[cl][d])}</span>`).join(', ')).join(', ')+`.<br>`;
+    if(an.conflictos.length){
+      const f=an.conflictos[0];
+      h+=`<span style="color:#ff6b6b">Conflicto en la fase ${f.i} (${MOV_TXT(f.mov)}): la señal ${SIG_TXT(f.opuesta)} sigue a 1 y pide el movimiento contrario. El método directo no basta: hace falta cascada o memorias.</span>`;
+    }else{
+      h+=`<span style="color:#7CD992">Sin conflictos: el método directo resuelve esta secuencia tal cual.</span>`;
+    }
+    if(an.auto.length)h+=`<br><span style="color:#E9C46A">Autoarranque: ${SIG_TXT(an.auto[0].sig)} sigue pidiendo ${an.auto[0].cil}${an.auto[0].dir==='+'?'+':'−'} al cerrar el ciclo.</span>`;
+  }else{
+    h+=retoChecked
+      ? (retoSolved?`<span style="color:#7CD992">✅ Proyecto válido y mínimo.</span>`:`<span style="color:#E9C46A">${retoMsg}</span>`)
+      : `Elige arquitectura, válvula y tubo y pulsa <b>Comprobar</b>.`;
+  }
+  el('report').innerHTML=h;
+}
+function refreshAll(){drawBoard();updateTele();updateReport();updateHW();}
+
+// ===================== 12. RETO =====================
+function updateRetoSpec(){
+  const sc=retoSc(),g=GOOD(sc);
+  el('retoSpec').innerHTML=`<b>${sc.nom}</b><br>Ø${sc.D} × ${sc.s} mm a ${sc.v} mm/s · ${sc.p} bar · ${sc.sen} ${sc.sen===1?'señal':'señales'} a ${f1(sc.L,1)} m · primer movimiento en ≤ ${f1(sc.tMax,2)} s.<br>De las ${TIPOK.length*VALVK.length*TUBK.length} combinaciones del catálogo, sólo una es válida <b>y</b> mínima.`;
+}
+function retoExplain(){
+  return EJES.map(ej=>porQue(retoSc(),ej,retoCfg()[ej])).filter(Boolean).join(' · ');
+}
+function checkReto(){
+  const sc=retoSc(),cfg=retoCfg();
+  retoOkTipo=okEje(sc,'tipo',cfg.tipo);
+  retoOkValv=okEje(sc,'valv',cfg.valv);
+  retoOkTubo=okEje(sc,'tubo',cfg.tubo);
+  retoSolved=retoOkTipo&&retoOkValv&&retoOkTubo&&evalCfg(sc,cfg).vale;
+  retoChecked=true;solved=retoSolved;
+  synth.beep(retoSolved?1046:220,0.10,0.05);
+  retoMsg=retoSolved
+    ?`Válido y mínimo: ${TIPO_TXT[cfg.tipo].toLowerCase()} con la ${VAL(cfg.valv).rot} y tubo Ø${TUB(cfg.tubo).ext}.`
+    :retoExplain();
+  refreshAll();
+}
+function retoSolveBuild(){const g=GOOD(retoSc());retoCh={tipo:g.tipo,valv:g.valv,tubo:g.tubo};}
+
+// ===================== 13. QUIZ =====================
+function buildQuiz(){
+  const sc=curSc();
+  QUIZ={
+    mando:{
+      pregunta:'Con dos señales de mando en serie, ¿por qué el mando indirecto no paga peaje de caudal y el directo sí?',
+      opciones:[
+        {t:'Porque en indirecto las señales están sobre el pilotaje, no sobre la potencia',ok:true,
+         why:'Exacto. Las restricciones en serie se componen igual en las dos, pero en indirecto lo que se compone es la línea de pilotaje: sólo tiene que mover un carrete. La válvula de potencia entrega su caudal nominal íntegro.'},
+        {t:'Porque las válvulas pilotadas tienen menos pérdida de carga que las manuales',ok:false,
+         why:'No. Una válvula pilotada del mismo tamaño de rosca tiene el mismo Qn. Lo que cambia es DÓNDE están las señales: en el pilotaje, no en la potencia.'},
+        {t:'Porque el aire de pilotaje va a 2,5 bar y eso compensa la pérdida',ok:false,
+         why:'No. La presión de pilotaje es menor, no mayor; lo que la salva es que sólo debe llenar el volumen del actuador del carrete, no alimentar al cilindro.'},
+        {t:'Porque en indirecto sólo hay una válvula de señal, nunca dos',ok:false,
+         why:'Falso: la prensa y el volteador tienen dos señales en las dos arquitecturas. La diferencia es sobre qué línea van montadas.'},
+      ],
+    },
+    linea:{
+      pregunta:'En mando indirecto, con el tubo largo llevando pilotaje, ¿qué consigues si lo engordas?',
+      opciones:[
+        {t:'Nada bueno: sólo añades volumen muerto y la orden tarda más en llegar',ok:true,
+         why:'Correcto. La velocidad del aire de trabajo la fija el tubo corto de la válvula de potencia, no el largo. Engordar el largo sólo aumenta el volumen que hay que llenar a 2,5 bar con una válvula de señal pequeña.'},
+        {t:'Bajas la velocidad del aire de trabajo por debajo de 20 m/s',ok:false,
+         why:'No. En indirecto el aire de trabajo ni siquiera pasa por el tubo largo: va del cilindro a la válvula de potencia por los '+f1(L_POT,1)+' m de la rosca.'},
+        {t:'Subes el caudal efectivo de la válvula de potencia',ok:false,
+         why:'No. El caudal de la válvula de potencia es el suyo de catálogo y no depende del tubo de pilotaje.'},
+        {t:'Reduces la pérdida de carga y por eso responde antes',ok:false,
+         why:'La pérdida de carga sí baja, pero el modelo que decide aquí es el volumen a llenar, y ese crece con el cuadrado del diámetro: el efecto neto es que TARDA más.'},
+      ],
+    },
+    fase:{
+      pregunta:'En el método directo, ¿qué es exactamente un conflicto de señales?',
+      opciones:[
+        {t:'Que la señal que ordena un movimiento y la que ordena el contrario están a 1 a la vez',ok:true,
+         why:'Eso es. El carrete recibe las dos órdenes y se queda donde está o hace lo que decida el pilotaje dominante: la secuencia se detiene. Es el síntoma de que el método directo ya no basta.'},
+        {t:'Que dos cilindros se mueven al mismo tiempo',ok:false,
+         why:'No. Que dos cilindros se muevan a la vez es un diseño legítimo; el conflicto es entre las dos señales de UNA misma válvula.'},
+        {t:'Que un final de carrera se avería y deja de dar señal',ok:false,
+         why:'Eso es una avería, no un conflicto. El conflicto aparece con todo funcionando: es un defecto del ESQUEMA, no del componente.'},
+        {t:'Que la secuencia tarda más de lo que admite la máquina',ok:false,
+         why:'Eso es un problema de tiempo, que se ve en el diagrama espacio-tiempo. El conflicto es lógico y se ve en el espacio-fase.'},
+      ],
+    },
+    reto:{
+      pregunta:'¿Cuándo se compra un mando indirecto, si cuesta una válvula más?',
+      opciones:[
+        {t:'Cuando el caudal, la distancia o el catálogo hacen imposible el directo',ok:true,
+         why:'Correcto. El indirecto se paga con una válvula más y sólo se compra cuando hace falta: caudal que ya no se sirve con mando manual, o una línea larga que en potencia tardaría demasiado en llenarse.'},
+        {t:'Siempre: es la arquitectura moderna y el directo está obsoleto',ok:false,
+         why:'No. La grapadora y el expulsor se resuelven con mando directo, y montar indirecto ahí es comprar una válvula que no hace falta.'},
+        {t:'Cuando el cilindro es de doble efecto',ok:false,
+         why:'El número de efectos no decide la arquitectura del mando: decide el número de vías de la válvula. Son dos cosas distintas.'},
+        {t:'Cuando hay que cumplir la ISO 13851 de mando a dos manos',ok:false,
+         why:'La ISO 13851 exige simultaneidad y comprobación de las dos señales, y eso se puede resolver en las dos arquitecturas. Este laboratorio la cita pero no la simula.'},
+      ],
+    },
+  };
+  Object.keys(QUIZ).forEach(k=>{
+    const o=QUIZ[k].opciones;
+    for(let i=o.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[o[i],o[j]]=[o[j],o[i]];}
+  });
+}
+function clearDx(){el('dxbtns').innerHTML='';}
+function refreshQuestion(){
+  const q=QUIZ[mode];el('q_text').textContent=q.pregunta;
+  el('dxbtns').innerHTML=q.opciones.map((o,i)=>`<button class="b sm" data-i="${i}">${String.fromCharCode(65+i)}) ${o.t}</button>`).join('');
+  el('dxbtns').querySelectorAll('[data-i]').forEach(b=>b.onclick=()=>answer(+b.dataset.i));
+}
+function answer(i){
+  const q=QUIZ[mode],o=q.opciones[i];
+  el('dxbtns').querySelectorAll('[data-i]').forEach(b=>{
+    b.disabled=true;
+    const oo=q.opciones[+b.dataset.i];
+    const cls=oo.ok?'right':(+b.dataset.i===i?'wrong':'');
+    if(cls)b.classList.add(cls);
+  });
+  synth.beep(o.ok?880:200,0.09,0.05);
+  showToast((o.ok?'✅ ':'❌ ')+o.why);
+}
+
+// ===================== 14. PICKING Y HOVER =====================
+pickerFor(scene,S.camera,S.renderer.domElement,hit=>{
+  if(!hit){return;}
+  let o=hit.object;
+  if(o===board||o===frame){boardClick();return;}
+  while(o){
+    if(o.userData&&o.userData.title){showToast('<b>'+o.userData.title+'</b><br>'+(o.userData.info||''));return;}
+    o=o.parent;
+  }
+});
+(function hoverLoop(){
+  const ray=new THREE.Raycaster();const m=new THREE.Vector2(-2,-2);
+  S.renderer.domElement.addEventListener('pointermove',ev=>{
+    const r=S.renderer.domElement.getBoundingClientRect();
+    m.x=((ev.clientX-r.left)/r.width)*2-1;m.y=-((ev.clientY-r.top)/r.height)*2+1;
+  });
+  function tick(){
+    ray.setFromCamera(m,S.camera);
+    const objs=[...HOVER_LABELS.keys()];
+    const hits=ray.intersectObjects(objs,true);
+    const hitSet=new Set();
+    hits.forEach(h=>{let o=h.object;while(o){if(HOVER_LABELS.has(o)){hitSet.add(o);break;}o=o.parent;}});
+    HOVER_LABELS.forEach((spr,obj)=>{spr.visible=hitSet.has(obj);});
+    requestAnimationFrame(tick);
+  }
+  tick();
+})();
+
+// ===================== 15. RECORRIDO AUTOMÁTICO =====================
+const sleep=ms=>new Promise(r=>setTimeout(r,ms));
+async function runAuto(){
+  if(autoRunning)return;
+  autoRunning=true;
+  const btn=el('btnAuto'),label=btn.textContent;
+  btn.disabled=true;btn.classList.add('on');btn.textContent='⏳ Recorriendo…';
+  synth.init();synth.resume();clearDx();
+  try{
+    // --- 1. MANDO: la misma estación con las dos arquitecturas ---
+    setMode('mando');
+    mnIdx=2;mnTipo='directo';mnValv='G18';mnTubo='t6';afterEdit();
+    showToast('🎛️ <b>Prensa de ensamble</b>: dos señales de mando (las dos manos) y un cilindro Ø63 a 140 mm/s. Empezamos con mando DIRECTO: las dos válvulas están sobre la línea de potencia.');
+    await sleep(5000);
+    const scP=POOL[2],eDir=evalCfg(scP,{tipo:'directo',valv:'G18',tubo:'t6'});
+    showToast('🔻 Peaje de caudal: la G 1/8 da 350 l/min, pero <b>dos en serie</b> se componen como 1/Qn² = Σ 1/Qn_i² y quedan en <b>'+f1(eDir.qnEf,0)+'</b>. La estación pide '+f1(eDir.req,0)+': con mando directo no llega.');
+    await sleep(5200);
+    mnTipo='indirecto';afterEdit();
+    const eInd=evalCfg(scP,{tipo:'indirecto',valv:'G18',tubo:'t6'});
+    showToast('🔀 Mando <b>INDIRECTO</b>: las dos señales pasan al pilotaje y la válvula de potencia entrega sus <b>'+f1(eInd.qnEf,0)+'</b> l/min íntegros. Se paga con una válvula más: '+eInd.nValv+' en vez de '+eDir.nValv+'.');
+    await sleep(5000);
+    mnIdx=1;mnTipo='directo';mnValv='G18';mnTubo='t8';afterEdit();
+    const scPu=POOL[1],eD2=evalCfg(scPu,{tipo:'directo',valv:'G18',tubo:'t8'});
+    showToast('🚪 <b>Puerta de cabina</b>, a '+f1(scPu.L,1)+' m del puesto. En directo el tubo largo lleva POTENCIA: guarda tanto aire que el primer movimiento tarda <b>'+f1(eD2.tResp,3)+' s</b> y la máquina admite '+f1(scPu.tMax,2)+'.');
+    await sleep(5200);
+
+    // --- 2. LÍNEA: los dos criterios del tubo ---
+    setMode('linea');
+    lnIdx=1;lnTipo='directo';lnTubo='t4';afterEdit();
+    showToast('🧵 Mismo caso en modo <b>Línea</b>. Con tubo fino el aire pasa de '+V_AIRE_MAX+' m/s; con tubo gordo tarda de más. Mira la columna de veredictos: en mando directo <b>ningún tubo</b> del catálogo salva a la puerta.');
+    await sleep(5400);
+    lnTipo='indirecto';lnTubo='t4';afterEdit();
+    const eL=evalCfg(POOL[1],{tipo:'indirecto',valv:valvMin(POOL[1],'indirecto'),tubo:'t4'});
+    showToast('💡 En <b>indirecto</b> el tubo largo sólo lleva pilotaje: el más FINO del catálogo es el que gana, con la orden llegando en <b>'+f1(eL.tResp,3)+' s</b>. Aquí engordar el tubo es exactamente lo contrario de lo que hay que hacer.');
+    await sleep(5200);
+
+    // --- 3. FASE: conflictos y el arreglo de la marcha ---
+    setMode('fase');
+    fsIdx=0;fsMar='momentanea';fsArr=false;afterEdit();
+    const anE=analizaSec(POOL[0].sec,'momentanea',null);
+    showToast('📈 <b>Expulsor</b>, secuencia anidada B+ A+ A− B−. Con marcha momentánea el método directo ya deja <b>'+anE.conflictos.length+' conflictos</b>: hay señales que siguen a 1 cuando se pide el movimiento contrario.');
+    await sleep(5200);
+    fsIdx=1;fsMar='mantenida';fsArr=false;afterEdit();
+    showToast('🔴 <b>Puerta</b> con marcha <b>mantenida</b> y sin arreglo: la señal m sigue ordenando A+ durante todo el ciclo, así que A− nunca puede ejecutarse limpio. El conflicto no está en los cilindros: está en la señal de marcha.');
+    await sleep(5200);
+    fsArr=true;afterEdit();
+    const anPc=analizaSec(POOL[1].sec,'mantenida',arregloGen(POOL[1]));
+    showToast('🟢 <b>Arreglo</b>: condicionar la primera orden a m · a0 (marcha <b>y</b> cilindro en su posición de partida) deja '+anPc.conflictos.length+' conflictos. Lo que el arreglo NO quita es el autoarranque: al cerrar el ciclo, a0 vuelve a estar a 1.');
+    await sleep(5400);
+    fsIdx=3;fsMar='momentanea';fsArr=false;afterEdit();
+    const tmV=tiempos(POOL[3],GOOD(POOL[3]));
+    showToast('⏱️ <b>Volteador</b>: cuatro fases iguales en el diagrama y tiempos de '+f1(Math.min.apply(null,tmV.filas.map(f=>f.tTot)),3)+' a '+f1(Math.max.apply(null,tmV.filas.map(f=>f.tTot)),3)+' s. La fase ordena; no cronometra.');
+    await sleep(5200);
+
+    // --- 4. RETO ---
+    setMode('reto');
+    seedReto(3);afterEdit();
+    showToast('🎯 <b>Reto</b>: proyecta el mando del volteador. Arranca mal en los tres ejes a propósito.');
+    await sleep(4200);
+    checkReto();
+    showToast('❌ Comprobado con la propuesta de arranque: '+retoMsg);
+    await sleep(5200);
+    retoSolveBuild();afterEdit();
+    const gV=GOOD(POOL[3]);
+    showToast('✅ La única terna válida <b>y</b> mínima: '+TIPO_TXT[gV.tipo].toLowerCase()+' con la '+VAL(gV.valv).rot+' y tubo Ø'+TUB(gV.tubo).ext+'. Comprobamos.');
+    await sleep(4200);
+    checkReto();
+    await sleep(600);
+    answer(QUIZ[mode].opciones.findIndex(o=>o.ok));
+  }finally{
+    btn.disabled=false;btn.classList.remove('on');btn.textContent=label;autoRunning=false;
+  }
+}
+
+// ===================== 16. ANIMACIÓN, EVENTOS E INICIO =====================
+S.setAnimate((dt)=>{
+  animT+=dt;
+  const sc=curSc(),cfg=curCfg(),vv=VAL(cfg.valv);
+  const vE=vReal(vv.qn,areaEmb(sc.D),sc.p), vR=vReal(vv.qn,areaAnu(sc.D),sc.p);
+  const rate=(animDir>0?vE:vR)/sc.s*ANIM_SLOW;
+  animP+=animDir*rate*dt;
+  if(animP>=1){animP=1;animDir=-1;}
+  if(animP<=0){animP=0;animDir=1;}
+  updateHW();
+});
+['mando','linea','fase','reto'].forEach(m=>{el('m_'+m).onclick=()=>{if(!autoRunning)setMode(m);};});
+el('btnAuto').onclick=()=>{if(!autoRunning)runAuto();};
+el('btnNew').onclick=()=>{if(autoRunning)return;newSignal();};
+el('btnCheck').onclick=()=>{if(autoRunning)return;checkReto();};
+const soundBtn=el('soundBtn');if(soundBtn){soundBtn.onclick=()=>{synth.toggle();soundBtn.textContent=synth.isOn()?'🔊':'🔇';};}
+document.addEventListener('pointerdown',()=>{synth.init();synth.resume();},{once:true});
+buildQuiz();
+S.start();
+setMode('mando');
+
+// ===================== DEBUG HOOK =====================
+window.__labDebug={
+  mode:()=>mode,setMode,
+  // constantes selladas
+  P_ANR:()=>P_ANR,P_ATM:()=>P_ATM,K_VALV:()=>K_VALV,V_AIRE_MAX:()=>V_AIRE_MAX,P_PILOT:()=>P_PILOT,
+  V_CIL_MAX:()=>V_CIL_MAX,QN_MANUAL:()=>QN_MANUAL,QN_SENAL:()=>QN_SENAL,L_POT:()=>L_POT,T_FC:()=>T_FC,
+  CIL_ISO:()=>CIL_ISO,VALVS:()=>VALVS,VALVK:()=>VALVK,TUBOS:()=>TUBOS,TUBK:()=>TUBK,TIPOK:()=>TIPOK,
+  POOL:()=>POOL,EST_TXT:()=>EST_TXT,TIPO_TXT:()=>TIPO_TXT,EJES:()=>EJES,
+  // motor
+  areaEmb,areaAnu,VAL,TUB,qNec,vTeor,vReal,areaTubo,volTubo,vAire,tLlena,qnSerie,
+  evalCfg,cmpCoste,todasCfg,GOOD,okEje,diagCfg,porQueTipo,porQue,cfgWith,lineaPot,
+  disparo,senalTxt,arregloGen,analizaSec,tiempos,valvMin,
+  // estado
+  curSc,curCfg,curEval,curAn,curMar,curArr,
+  mnGet:()=>({idx:mnIdx,tipo:mnTipo,valv:mnValv,tubo:mnTubo}),
+  mnSet:(o)=>{if(o.idx!==undefined)mnIdx=o.idx;if(o.tipo)mnTipo=o.tipo;if(o.valv)mnValv=o.valv;if(o.tubo)mnTubo=o.tubo;afterEdit();},
+  lnGet:()=>({idx:lnIdx,tipo:lnTipo,tubo:lnTubo,valv:valvMin(POOL[lnIdx],lnTipo)}),
+  lnSet:(o)=>{if(o.idx!==undefined)lnIdx=o.idx;if(o.tipo)lnTipo=o.tipo;if(o.tubo)lnTubo=o.tubo;afterEdit();},
+  fsGet:()=>({idx:fsIdx,marcha:fsMar,arreglo:fsArr}),
+  fsSet:(o)=>{if(o.idx!==undefined)fsIdx=o.idx;if(o.marcha)fsMar=o.marcha;if(o.arreglo!==undefined)fsArr=!!o.arreglo;afterEdit();},
+  // reto
+  retoK:()=>retoK,seedReto,retoName:()=>retoSc().nom,retoId:()=>retoSc().id,
+  retoGet:()=>retoCfg(),retoSet,retoSolveBuild,checkReto,retoExplain,
+  retoChecked:()=>retoChecked,retoOkTipo:()=>retoOkTipo,retoOkValv:()=>retoOkValv,retoOkTubo:()=>retoOkTubo,
+  retoSolved:()=>retoSolved,retoMsg:()=>retoMsg,retoGood:()=>GOOD(retoSc()),
+  // cuestionario
+  quizCorrectIndex:()=>QUIZ[mode].opciones.findIndex(o=>o.ok),
+  quizAnswer:answer,newSignal,
+  solved:()=>solved,autoRunning:()=>autoRunning,
+};

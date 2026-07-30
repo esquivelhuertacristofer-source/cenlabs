@@ -1,0 +1,9 @@
+{
+  "donor": "escaner-obd.html",
+  "out": "mando-directo-indirecto-espacio-fase.html",
+  "title": "CEN Labs · Mando directo e indirecto: diagrama espacio-fase — Laboratorio 3D",
+  "lt": "Hidráulica y Neumática · Mecánica",
+  "inspectHint": "👆 Toca la válvula de potencia, el puesto de mando, los tubos, los LEDs o el cilindro del banco para ver dónde vive cada arquitectura",
+  "body": "mando-directo-indirecto-espacio-fase.body.js",
+  "fichas": ["_ficha-tecnica.js", "_ficha-mando-directo-indirecto-espacio-fase.js"]
+}
