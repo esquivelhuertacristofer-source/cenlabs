@@ -643,9 +643,12 @@ function ciclo(sc,cfg){
   return {tIda,tT,tVue,total,ciclosH:3600/total,consCil,consDep,
           consTot:consCil+consDep, pctDep:100*consDep/(consCil+consDep)};
 }
+// Formato SI/ISO 80000 en español: coma decimal y espacio fino de millares
+// (el punto de millares sería ambiguo para un lector que usa punto decimal).
 const f1=(x,n)=>{
   if(!isFinite(x))return '∞';
-  return x.toLocaleString('es-ES',{minimumFractionDigits:n,maximumFractionDigits:n});
+  const s=Math.abs(x).toFixed(n), p=s.split('.');
+  return (x<0?'-':'')+p[0].replace(/\B(?=(\d{3})+(?!\d))/g,' ')+(p[1]?','+p[1]:'');
 };
 /* ===== FIN MOTOR ===== */
 
