@@ -7213,6 +7213,64 @@ El último criterio es el que menos se enseña y el que más se paga en planta: 
     "titulo": "Lógica Neumática Y/O y Temporización",
     "videoUrl": "",
   },
+  "mecanica-98": {
+    "acento": "#4FC3B0",
+    "aplicaciones": [
+      {
+        "area": "Puesta en marcha de máquinas de secuencia en planta",
+        "ejemplo": "La avería más común en una máquina neumática de varios actuadores no es una pieza rota: es una secuencia que se queda a medias. El técnico que sabe leer el reparto identifica en un minuto si la máquina se ha detenido porque dos señales se pelean sobre el mismo carrete —reparto mal hecho— o porque espera un final de carrera que ese grupo nunca va a pisar —señal de cambio mal cableada—, y esas dos averías se arreglan en sitios distintos del circuito. Pero el caso que más turnos cuesta es el tercero, el que no se detiene: la cascada da la vuelta, la máquina sigue ciclando a su ritmo de siempre y lo único que pasa es que faltan movimientos, así que nadie la mira porque «va bien». Sin ese marco, el diagnóstico se convierte en cambiar válvulas hasta que arranque, que es exactamente como se pierden turnos enteros.",
+      },
+      {
+        "area": "Revisión de proyectos heredados y mejora de cadencia",
+        "ejemplo": "Muchísimas máquinas en servicio llevan un grupo de más porque quien las proyectó repartió por el primer corte que funcionaba. La máquina va bien, nadie la toca y nadie sabe que está dejando entre cien y doscientos ciclos por hora sobre la mesa, además de un inversor y un tubo de mando que se pagaron y se mantienen. Saber que TODO reparto válido ejecuta —y por tanto que «funciona» no valida nada— convierte una revisión de circuito en una mejora medible de producción sin cambiar ni un cilindro.",
+      },
+      {
+        "area": "Selección de actuadores contra criterios que se contradicen",
+        "ejemplo": "La costumbre de elegir el cilindro «un poco más grande por si acaso» sale cara de dos maneras: consume más aire en cada ciclo y, sobre todo, puede hacer que la máquina no llegue al ritmo contratado porque hay más volumen que llenar a través del mismo tubo. Comprobar los tres criterios a la vez —fuerza con su relación de carga, velocidad admisible del vástago y cadencia real— y descubrir que el óptimo de producción está en un diámetro intermedio es lo que separa un dimensionado de proyecto de una elección de catálogo. Cuando la ventana se cierra del todo, como en el punzonado, la salida no es forzar el catálogo sino renegociar la presión de red, el tubo o el ritmo, y ésa es una conversación con el cliente.",
+      },
+    ],
+    "bienvenida": "Una secuencia como A+ B+ B− A− parece trivial hasta que se intenta montar. El final de carrera que ordena B− sigue pisado cuando toca ordenar A−, así que el carrete de la válvula de A recibe dos órdenes contrarias a la vez y la máquina se queda clavada. El método cascada resuelve eso sin electrónica: parte la secuencia en GRUPOS de modo que ningún cilindro se repita dentro de un grupo y alimenta un solo grupo a la vez, de manera que la señal conflictiva simplemente no tiene aire cuando estorba.
+
+Lo primero que este banco deja ver con números es que el número de grupos NO lo fija el número de cilindros. La prensa de punzonado tiene DOS cilindros y necesita TRES grupos (A+ | A− B+ | B−). La encajadora tiene TRES cilindros y también necesita tres. La envasadora, con los mismos tres cilindros, necesita CUATRO. Lo que manda es el entrelazado, y eso sólo se ve repartiendo. Y antes de nada: sin cascada, con un solo grupo, las cinco estaciones no ejecutan NI UN movimiento.
+
+Lo segundo es más incómodo. En cada estación hay varios repartos válidos —ocho en la encajadora— y TODOS ejecutan la secuencia correctamente. «Funciona en el banco» no demuestra que el reparto sea el bueno. Lo que separa al mínimo del resto es lo que cuesta el grupo de más: un inversor más de hardware, entre 0,16 y 0,40 s de ciclo y entre 0,26 y 0,47 l de aire de mando por ciclo, que en la encajadora son 159 piezas/hora que no se notan mirando la máquina.
+
+Lo tercero es el diámetro. Un cilindro no se elige «grande por si acaso»: hay que cumplir a la vez fuerza (relación de carga ≤ 0,70), velocidad (≤ 1,00 m/s) y ritmo de producción, y los tres criterios tiran en direcciones opuestas. En el transfer el Ø32 daría 1944 ciclos/h —de sobra para los 1400 pedidos— y hay que descartarlo porque el vástago iría a 1,300 m/s. En el punzonado el Ø100 tiene fuerza de sobra y NO llega al ritmo: 1979 frente a 2000/h. En cuatro de las cinco estaciones la curva de cadencia contra diámetro tiene un óptimo INTERIOR: el más grande no es el más rápido. Todos los tiempos salen de integrar el llenado de cámaras y de líneas de mando con la ISO 6358. Motor verificado 236/236.",
+    "codigo": "MEC-98",
+    "conceptos": [
+      {
+        "descripcion": "El reparto se hace poniendo fronteras hasta que ningún cilindro se repita dentro de un grupo. En el banco conviven 2 cilindros con 2 grupos (marcadora, transfer), 2 cilindros con 3 grupos (punzonado), 3 cilindros con 3 grupos (encajadora) y 3 cilindros con 4 grupos (envasadora). No hay regla que dependa del número de actuadores: hay que repartir. Y el hardware sale del reparto — inversores = grupos − 1, una 5/2 biestable por frontera.",
+        "icono": "🧩",
+        "nombre": "El entrelazado manda, no los cilindros",
+      },
+      {
+        "descripcion": "Hay 4 repartos válidos en la marcadora, 5 en el transfer, 2 en el punzonado, 8 en la encajadora y 4 en la envasadora, y TODOS ejecutan la secuencia completa. Si el criterio de aceptación es «se mueve», todos pasan. El grupo de más cuesta un inversor, entre +0,157 y +0,397 s de ciclo, entre +0,263 y +0,469 l de aire de mando y de 108 a 209 ciclos/h — con el mismo resultado en la pieza. La regla del mínimo es lo único que los distingue.",
+        "icono": "⚖️",
+        "nombre": "Todos funcionan; sólo uno es el bueno",
+      },
+      {
+        "descripcion": "Hay TRES desenlaces, no dos, y el más frecuente es el que menos se parece a una avería. (1) ÓRDENES OPUESTAS sobre un cilindro: la máquina se para en seco y el reparto está mal hecho. (2) ESPERA UNA SEÑAL que ya no se va a pisar: se para y el que está mal es el final de carrera de cambio de línea. (3) LA CASCADA DA LA VUELTA: nadie se para, las líneas conmutan una tras otra, el ciclo se cierra en tiempo normal y faltan movimientos — 343 de los 457 mandos rotos del banco acaban así. Por eso el criterio no es «¿se paró?» sino «¿ejecutó la secuencia entera?».",
+        "icono": "🔌",
+        "nombre": "Un mando roto no siempre se para",
+      },
+      {
+        "descripcion": "Fuerza, velocidad y ritmo tiran al revés. La cadencia de la encajadora recorriendo los seis diámetros es 1124, 1282, 1262, 1203, 1120, 1011 ciclos/h: sube y luego baja, con el máximo en el Ø40. En cuatro de las cinco estaciones el óptimo es interior, porque pasado cierto tamaño el volumen extra que hay que llenar por el mismo tubo cuesta más tiempo del que ahorra la fuerza. En el punzonado la ventana se cierra hasta dejar UN solo diámetro válido en todo el catálogo.",
+        "icono": "📉",
+        "nombre": "El grande no es el rápido",
+      },
+    ],
+    "duracion": 45,
+    "mision": [
+      "EL PROBLEMA · Modo Reparto, prensa de punzonado, y deja el reparto vacío: un solo grupo, sin cascada. La telemetría dice «ejecuta: no» y el orden ejecutado está vacío — la máquina no hace ni un movimiento. Repítelo en las otras cuatro: ninguna arranca. Ahora reparte. Con una sola frontera el cilindro A sigue repetido; hacen falta TRES grupos para una secuencia de DOS cilindros. Ve a la encajadora (3 cilindros, 3 grupos) y a la envasadora (3 cilindros, 4 grupos) y comprueba que el número de grupos no se deduce del de actuadores.",
+      "EL COSTE · En la encajadora hay OCHO repartos válidos y los ocho ejecutan la secuencia. Prueba varios y fíjate en lo que cambia mientras el resultado no cambia: con un grupo de más el ciclo sube de 2,809 a 3,205 s, el aire de mando de 1,744 a 2,213 l y la producción baja de 1282 a 1123 ciclos/h. Ciento cincuenta y nueve piezas por hora que en el banco no se ven. Repite la comparación en las otras cuatro estaciones y anota el precio del grupo sobrante.",
+      "EL DIAGNÓSTICO · Modo Mando, marcadora, con el reparto correcto (A+ B+ | B− A−) y la señal de cambio equivocada. Prueba las tres malas: con a1 ejecuta «A+ A−» y con a0 o b0 no ejecuta NADA — y en ninguna de las tres se para la máquina. La fila Bloqueo lo dice sin adornos: «ninguno: la cascada da la vuelta». Las líneas conmutan, el ciclo cierra y la secuencia sale incompleta. Ahora ve al punzonado y conmuta con b1: ahí sí ejecuta «A+» y se queda esperando b1, que ya no se va a pisar. Dos síntomas muy distintos de la MISMA avería. Y fíjate en lo que NO puedes provocar aquí: como el reparto de este modo siempre es válido, ningún cilindro se repite dentro de un grupo y las «órdenes opuestas» son imposibles por construcción — de las 24 combinaciones del modo, 5 ejecutan, 15 dan la vuelta, 4 esperan una señal y NINGUNA choca. Para ver el choque hay que romper el reparto Y la señal a la vez, y eso sólo se puede en el Reto: 30 de sus 480 mandos. Después mira las dos primeras filas: el grupo 1 y su último movimiento. Cambia el reparto y verás que la señal correcta cambia con él.",
+      "EL DIMENSIONADO · Modo Ritmo, transfer. En Ø32 el carro va a 1,300 m/s y el piloto de velocidad se pone rojo aunque la cadencia sea la mejor del banco; en Ø63 los tres pilotos se ponen verdes y has perdido 273 ciclos/h a cambio de un vástago que no se destroza. Luego recorre los seis diámetros de la encajadora y observa que la cadencia sube y baja, con el máximo en el Ø40. Termina en el punzonado, donde el Ø63 no tiene fuerza (0,951) y el Ø100 no llega al ritmo (1979 de 2000): un solo diámetro válido en toda la estación.",
+      "RETO · Se sortea una estación y proyectas el mando completo: reparto en grupos, señal de cambio y diámetro, tres decisiones independientes calificadas por separado con las otras dos ya correctas. Se barrieron las 2880 combinaciones del catálogo: sólo 10 son válidas en todo el banco y en cada estación hay UNA sola terna válida y mínima. Cada uno de los seis criterios puede fallar él solo —separación 144 veces, mínimo 108, señal 114, fuerza 2, velocidad 3 y ritmo 4—. Cumplir no basta: un grupo de sobra o un cilindro más grande del necesario también son un no.",
+    ],
+    "subtitulo": "Hidráulica y Neumática · ISO 1219-1 + ISO 6358 + ISO 15552 + ISO 8778 + ISO 4414: el número de grupos lo fija el entrelazado, no el número de cilindros",
+    "titulo": "Secuencias Multicilindro por Método Cascada",
+    "videoUrl": "",
+  },
   "quimica-1": {
     "acento": "#06B6D4",
     "aplicaciones": [
@@ -17568,6 +17626,7 @@ exports[`golden master — stores de datos (invariante ante la migración a src/
   "mecanica-95": [],
   "mecanica-96": [],
   "mecanica-97": [],
+  "mecanica-98": [],
   "quimica-1": [
     {
       "completed": true,
@@ -17900,6 +17959,7 @@ exports[`golden master — stores de datos (invariante ante la migración a src/
   "mecanica-95",
   "mecanica-96",
   "mecanica-97",
+  "mecanica-98",
   "quimica-1",
   "quimica-10",
   "quimica-2",

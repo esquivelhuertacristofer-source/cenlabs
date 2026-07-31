@@ -1,0 +1,9 @@
+{
+  "donor": "escaner-obd.html",
+  "out": "secuencias-cascada-multicilindro.html",
+  "title": "CEN Labs · Secuencias multicilindro por método cascada — Laboratorio 3D",
+  "lt": "Hidráulica y Neumática · Mecánica",
+  "inspectHint": "👆 Toca los cilindros, sus finales de carrera, las válvulas 5/2, las líneas de mando, los inversores o los LEDs de criterio para ver qué decide cada pieza",
+  "body": "secuencias-cascada-multicilindro.body.js",
+  "fichas": ["_ficha-tecnica.js", "_ficha-secuencias-cascada-multicilindro.js"]
+}
