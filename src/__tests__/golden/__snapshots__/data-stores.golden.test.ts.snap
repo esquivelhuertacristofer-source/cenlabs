@@ -7271,6 +7271,64 @@ Lo tercero es el diámetro. Un cilindro no se elige «grande por si acaso»: hay
     "titulo": "Secuencias Multicilindro por Método Cascada",
     "videoUrl": "",
   },
+  "mecanica-99": {
+    "acento": "#4FC3B0",
+    "aplicaciones": [
+      {
+        "area": "Análisis de seguridad de máquinas en planta",
+        "ejemplo": "La pregunta «¿qué hace esta máquina si se va la luz?» tiene respuesta de proyecto, no de opinión, y se lee en el símbolo de la válvula antes de abrir el armario eléctrico. Una pinza de sujeción con una 5/2 monoestable suelta la pieza con la herramienta dentro; una mesa elevadora cargada con una biestable termina de subir sola con la carga encima. El técnico que sabe que ese comportamiento lo fija la válvula y no el programa deja de buscar el fallo en el PLC y lo busca donde está. Y la otra mitad de la pregunta —qué pasa cuando la tensión VUELVE— es un requisito normativo explícito, el §7.5 de la IEC 60204-1: si el mando se sostiene con un selector o con cualquier cosa que sobreviva al corte, la máquina rearranca sola y eso es un accidente esperando fecha.",
+      },
+      {
+        "area": "Diagnóstico de ciclos que no cierran",
+        "ejemplo": "Una máquina que «no vuelve» casi nunca tiene un cilindro roto: tiene una orden de avance que no se apaga. El caso más difícil de ver es el selector mantenido con final de carrera, porque el síntoma no es una parada sino un vástago que vibra contra el tope: el reed lo ve, corta la orden, el vástago retrocede unos milímetros, sale de la ventana magnética y la orden revive. En el banco eso son 175 conmutaciones del carrete por ensayo y ningún ciclo, con el desgaste que eso supone para el carrete y las juntas. Reconocer el patrón —muchas conmutaciones, cero ciclos— ahorra el cambio de válvula que no arregla nada.",
+      },
+      {
+        "area": "Elección del sensor de fin de carrera y sus alternativas",
+        "ejemplo": "El reed magnético parece siempre la mejor opción hasta que se mira su ventana de 4 mm contra la carrera real: es el 1,0 % en una mesa de 400 mm y el 16,0 % en una pinza de 25 mm, y ese porcentaje es exactamente el margen que el circuito no puede distinguir. Peor todavía es el caso en que la posición final NO es repetible, como un empujador que se detiene contra una pila que baja según se vacía: ahí no hay sitio donde poner el sensor y hay que cerrar por tiempo, sabiendo que el temporizador se ajusta al peor caso y por tanto tira tiempo en todos los ciclos normales. Saber cuánto cuesta esa decisión en ciclos por hora —y comprobar si con ese coste todavía se cumple el ritmo contratado— es la diferencia entre elegir el cierre y aceptarlo.",
+      },
+    ],
+    "bienvenida": "En un circuito electroneumático hay dos mundos con reglas distintas: el de la potencia, donde el aire empuja el vástago, y el del mando, donde 24 V de corriente continua deciden qué bobina se excita. Casi todo el mundo aprende el segundo —el sello, la cadena, el temporizador— y da por hecho que el primero obedece. Este laboratorio parte de la pregunta que rompe esa idea: ¿qué hace la máquina cuando se corta la tensión a mitad de carrera?
+
+La respuesta no la da el programa: la da la VÁLVULA, y hay TRES respuestas distintas. Con la misma estación y el corte en el mismo instante —la mitad de la carrera— la monoestable devuelve el actuador al 0 %, la biestable lo lleva hasta el 100 % y la 5/3 de centros cerrados lo deja donde estaba. Los tres números salen del banco: 0 %, 100 % y 56 % en la pinza; 0 %, 100 % y 58 % en el expulsor; 0 %, 100 % y 53 % en la mesa. Y ninguna de las tres es «la buena»: la pinza tiene que sostener la pieza, el expulsor tiene que retirarse y la mesa cargada tiene que quedarse quieta. La biestable no congela el actuador — congela la ORDEN, que es otra cosa: por eso termina el movimiento y se queda fuera.
+
+El circuito de mando tampoco es una lista de recetas equivalentes. El relé con sello, K1 = (S1 + K1) · S̄2 · F̄IN, sostiene la orden cuando se suelta el pulsador pero MUERE con la tensión, y ese detalle —que suena a defecto— es justo lo que exige el apartado 7.5 de la IEC 60204-1: al volver la alimentación la máquina no debe arrancar sola. El selector mantenido, que parece el sello del pobre, es el que peor cierra: mientras el selector siga dado, la orden de avance revive en cuanto el vástago se separa del tope, así que el actuador no cicla — TIEMBLA. En el banco eso son de 160 a 185 conmutaciones del carrete y CERO ciclos completos.
+
+Y el último aprendizaje es que el sensor no siempre está disponible. El reed confirma con una ventana magnética de 4 mm, así que su peso relativo depende de la carrera: es el 1,0 % en la mesa de 400 mm y el 16,0 % en la pinza de 25 mm, donde el temblor ni siquiera deja completar la carrera (máximo 91 %, acaba en el 83 %). En el empujador del almacén la posición final se mueve con la pila y el reed no es alcanzable: por eso allí el cierre correcto es el temporizador, ajustado al peor caso más un 10 %, que da 983 ms de ciclo frente a los 704 ms de preajuste y aun así cumple los 860 ciclos/h pedidos. El temporizador SIEMPRE paga tiempo frente al final de carrera; se elige cuando el final de carrera no existe. Motor verificado 308/308.",
+    "codigo": "MEC-99",
+    "conceptos": [
+      {
+        "descripcion": "Con el corte en la mitad de la carrera hay tres desenlaces y los tres son correctos en alguna estación: la monoestable retrae hasta el 0 %, la biestable termina y se queda en el 100 %, la 5/3 de centros cerrados se para donde está (56 %, 58 %, 53 % según la estación). La biestable no congela el actuador sino la ORDEN. Y ni la 5/3 congela del todo: el aire es compresible y el carrete tiene fugas, así que se contabiliza una deriva de 0,005 de carrera por segundo y en la mesa vertical el actuador se mueve un 1,0 % en los 2 s de observación.",
+        "icono": "⚡",
+        "nombre": "Al faltar la tensión decide la válvula",
+      },
+      {
+        "descripcion": "K1 = (S1 + K1) · S̄2 · F̄IN sostiene la orden cuando se suelta el pulsador y se cae cuando se cae la alimentación, así que al volver la tensión no hay ninguna etapa activa y la máquina no rearranca sola: IEC 60204-1 §7.5. La cadena de dos relés hace lo mismo con dos etapas encadenadas, K1 manda el avance, K2 manda el retroceso y desactiva a K1, y el reed de reposo desactiva a K2 — es lo único que resuelve la mesa elevadora, y por eso su solución cuesta 6 aparatos frente a los 2 de la pinza.",
+        "icono": "🔗",
+        "nombre": "El sello muere con la tensión, y eso es una virtud",
+      },
+      {
+        "descripcion": "Sostiene la orden sin relevadores y es el más barato, pero mientras siga dado la orden de avance revive en cuanto el vástago se separa del tope. Resultado medido: 160 conmutaciones del carrete en la pinza, 185 en el expulsor, 177 en la mesa, 175 en la prensa — y CERO ciclos en las cinco estaciones. Donde la ventana del reed pesa mucho el temblor impide hasta completar la carrera: la pinza no pasa del 91 % y acaba en el 83 %. Y donde el reed no es alcanzable no hay ni temblor: en el almacén hay 1 sola conmutación y el vástago se queda clavado en el 82 %.",
+        "icono": "〰️",
+        "nombre": "El selector mantenido no cicla: tiembla",
+      },
+      {
+        "descripcion": "Se ajusta al peor caso más un 10 %, así que en el caso normal siempre sobra. Frente al final de carrera: el expulsor pasa de 640 a 753 ms de ciclo (2 338 → 2 178 ciclos/h, y pide 2 250: deja de cumplir), la mesa de 1 631 a 1 985 ms (274 → 267, y pide 270: deja de cumplir). No se elige por barato, se elige cuando el final de carrera no existe — como en el empujador del almacén, donde la posición final varía entre el 62 % y el 90 % de la carrera según cómo esté la pila.",
+        "icono": "⏱️",
+        "nombre": "El temporizador siempre paga tiempo",
+      },
+    ],
+    "duracion": 45,
+    "mision": [
+      "LA VÁLVULA · Modo Válvula, pinza de sujeción, y corta la tensión en plena carrera con las cuatro válvulas del catálogo. Con la 5/2 monoestable el vástago vuelve al 0 % y la pieza se suelta con la fresa dentro; con la 5/2 biestable termina el movimiento y se queda en el 100 %; con la 5/3 de centros cerrados se para en el 56 %. Repite el corte en el mismo instante en el expulsor (0 %, 100 %, 58 %) y en la mesa (0 %, 100 %, 53 %) y comprueba que la terna no cambia con la estación: la decide la válvula. Lo que cambia es cuál de las tres es la correcta — retirarse en el expulsor, sostener en la pinza, quedarse quieta en la mesa.",
+      "EL MANDO · Modo Mando y lee el esquema de escalera vivo. Con pulsadores momentáneos la orden dura lo que dura el dedo: en el expulsor el vástago se queda en el 81 % en cuanto sueltas. Pon el relé con sello y verás K1 = (S1 + K1) · S̄2 · F̄IN cerrando el ciclo en 640 ms. Ahora prueba el selector mantenido con final de carrera y mira la telemetría: 185 conmutaciones del carrete y 0 ciclos — el vástago tiembla contra el tope en vez de volver. Termina en la mesa elevadora, la única estación del banco donde un solo relé sellado no basta y hace falta la cadena de dos.",
+      "EL REARRANQUE · Vuelve al modo Válvula y fíjate en el criterio «Sin rearranque al volver la tensión». El ensayo mide el desplazamiento en los 2 s siguientes al restablecimiento SIN ninguna acción del operario, que es exactamente lo que exige el apartado 7.5 de la IEC 60204-1. Comprueba que el sello y la cadena lo cumplen porque mueren con la tensión, y que el selector mantenido lo incumple por construcción: el selector sigue dado y la orden vuelve sola. Ese criterio falla él solo 3 veces en el barrido — no es decorativo.",
+      "EL CIERRE · Modo Cierre. En el expulsor compara los tres: con el operario el vástago sale y se queda fuera esperando una mano que en un ciclo automático no va a llegar —el criterio que salta no es «no vuelve» sino «la estación pide ciclo automático»—; con final de carrera cierra en 640 ms y da 2 338 ciclos/h sobre los 2 250 pedidos; con temporizador el preajuste sube a 1,10 × 400 = 440 ms, el ciclo a 753 ms y la cadencia baja a 2 178 ciclos/h — se queda por debajo de lo pedido. Ahora ve al empujador del almacén e intenta poner el final de carrera: el reed no es alcanzable porque el vástago se detiene contra la pila, que baja según se vacía. Ahí el temporizador no es la opción cómoda: es la única.",
+      "RETO · Se sortea una estación y proyectas el mando completo con tres decisiones independientes —válvula, mando y cierre del ciclo— calificadas por separado con las otras dos ya correctas. Se barrieron las 240 propuestas del banco (5 estaciones × 48 combinaciones) y sólo 9 son válidas: la mesa elevadora tiene UNA sola. Cumplir los siete criterios no basta, hay que hacerlo con el mínimo de aparatos: 2 en la pinza y en la prensa, 3 en el expulsor y en el almacén, 6 en la mesa. Cada uno de los siete criterios puede fallar él solo salvo el de completar la carrera, que siempre viene acompañado.",
+    ],
+    "subtitulo": "Hidráulica y Neumática · ISO 1219-1 + IEC 60204-1 + IEC 61131-3: al faltar la tensión la válvula decide, no el circuito de mando",
+    "titulo": "Circuitos Electroneumáticos con Relevadores",
+    "videoUrl": "",
+  },
   "quimica-1": {
     "acento": "#06B6D4",
     "aplicaciones": [
@@ -17627,6 +17685,7 @@ exports[`golden master — stores de datos (invariante ante la migración a src/
   "mecanica-96": [],
   "mecanica-97": [],
   "mecanica-98": [],
+  "mecanica-99": [],
   "quimica-1": [
     {
       "completed": true,
@@ -17960,6 +18019,7 @@ exports[`golden master — stores de datos (invariante ante la migración a src/
   "mecanica-96",
   "mecanica-97",
   "mecanica-98",
+  "mecanica-99",
   "quimica-1",
   "quimica-10",
   "quimica-2",

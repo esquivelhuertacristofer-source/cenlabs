@@ -1,0 +1,9 @@
+{
+  "donor": "escaner-obd.html",
+  "out": "circuitos-electroneumaticos-relevadores.html",
+  "title": "CEN Labs · Circuitos electroneumáticos con relevadores — Laboratorio 3D",
+  "lt": "Hidráulica y Neumática · Mecánica",
+  "inspectHint": "👆 Toca el cilindro, sus detectores reed, la electroválvula y sus bobinas, los relevadores K1/K2/KT, los pulsadores del armario o los LEDs de criterio para ver qué decide cada pieza",
+  "body": "circuitos-electroneumaticos-relevadores.body.js",
+  "fichas": ["_ficha-tecnica.js", "_ficha-circuitos-electroneumaticos-relevadores.js"]
+}
