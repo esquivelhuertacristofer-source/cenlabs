@@ -1,0 +1,9 @@
+{
+  "donor": "escaner-obd.html",
+  "out": "unidad-frl-calidad-aire.html",
+  "title": "CEN Labs · Unidad FRL y calidad del aire ISO 8573-1 — Laboratorio 3D",
+  "lt": "Hidráulica y Neumática · Mecánica",
+  "inspectHint": "👆 Toca una pieza del banco y luego su hueco luminoso para montar el tren de tratamiento; después estudia aceite, agua, presión y proyecto",
+  "body": "unidad-frl-calidad-aire.body.js",
+  "fichas": ["_ficha-tecnica.js", "_ficha-unidad-frl-calidad-aire.js"]
+}
