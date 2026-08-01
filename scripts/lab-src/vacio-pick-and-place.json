@@ -1,0 +1,9 @@
+{
+  "donor": "escaner-obd.html",
+  "out": "vacio-pick-and-place.html",
+  "title": "CEN Labs · Vacío para pick&place: fuerza, tiempo y proyecto — Laboratorio 3D",
+  "lt": "Hidráulica y Neumática · Mecánica",
+  "inspectHint": "👆 Toca una pieza del banco y luego su hueco luminoso para montar el cabezal de vacío; después dimensiona la fuerza, el circuito y el proyecto",
+  "body": "vacio-pick-and-place.body.js",
+  "fichas": ["_ficha-tecnica.js", "_ficha-vacio-pick-and-place.js"]
+}

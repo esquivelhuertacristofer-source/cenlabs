@@ -1,0 +1,1948 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>CEN Labs · Vacío para pick&place: fuerza, tiempo y proyecto — Laboratorio 3D</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#08201C;--panel:rgba(9,26,23,.86);--line:#1E3A34;--ink:#EAF4F1;
+    --dim:#8FB3AC;--accent:#2A9D8F;--accent2:#4FD1C5;--hv:#FFB703;--good:#34d399;--bad:#f4475e;
+    --mono:'Outfit',system-ui,'Segoe UI',Roboto,sans-serif;--disp:'Outfit','Arial Black',Impact,sans-serif;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  html,body{height:100%;background:var(--bg);color:var(--ink);font-family:'Outfit',system-ui,Segoe UI,Roboto,sans-serif}
+  body{overflow:hidden}
+  #stage{position:fixed;inset:0}
+  canvas{display:block;touch-action:none}
+
+  .topbar{position:fixed;top:0;left:0;right:0;height:56px;display:flex;align-items:center;gap:14px;padding:0 20px;z-index:20;background:linear-gradient(180deg,rgba(10,13,18,.92),transparent);pointer-events:none}
+  .brand{font-family:var(--disp);font-weight:bold;font-size:16px;text-transform:uppercase}
+  .brand span{color:var(--accent)}
+  .lt{font-family:var(--mono);font-size:11px;letter-spacing:.1em;text-transform:uppercase;color:var(--dim)}
+
+  .badge{position:fixed;top:16px;right:20px;z-index:20;font-family:var(--mono);font-size:9px;letter-spacing:.12em;text-transform:uppercase;background:rgba(255,209,102,.12);color:var(--hv);border:1px solid rgba(255,209,102,.35);padding:6px 12px;border-radius:20px}
+
+  .hud{position:fixed;top:70px;left:18px;z-index:15;max-width:330px;background:var(--panel);backdrop-filter:blur(14px);border:1px solid var(--line);border-radius:16px;padding:18px 20px;max-height:calc(100vh - 150px);overflow-y:auto}
+  .hud .eyebrow{font-family:var(--mono);font-size:10px;letter-spacing:.18em;text-transform:uppercase;color:var(--accent);margin-bottom:8px}
+  .hud h2{font-size:19px;line-height:1.15;margin-bottom:9px}
+  .hud p{font-size:13px;line-height:1.55;color:var(--dim);margin-bottom:10px}
+  .hud .formula{font-family:var(--mono);color:var(--accent2);text-align:center;font-size:12.5px;margin:8px 0;padding:8px;background:rgba(0,0,0,.25);border-radius:8px;line-height:1.5}
+  .hud .src{font-size:10.5px;color:#7a8894;font-style:italic;margin-top:4px;line-height:1.5}
+  .legend{display:flex;flex-direction:column;gap:6px;margin:12px 0;padding:10px 12px;background:rgba(0,0,0,.22);border-radius:10px}
+  .legend .li{display:flex;align-items:center;gap:8px;font-size:11px;color:#c4d0da}
+  .legend .dot{width:10px;height:10px;border-radius:50%;flex:0 0 auto}
+  .fid{margin:10px 0 2px;padding:10px 12px;background:rgba(0,0,0,.22);border-radius:10px;border:1px solid rgba(79,209,197,.18)}
+  .fid .ft{font-family:var(--mono);font-size:9.5px;letter-spacing:.14em;text-transform:uppercase;color:var(--accent2);margin-bottom:6px}
+  .fid .fl{font-size:11px;color:#c4d0da;line-height:1.5;margin-bottom:5px}
+  .fid .fl b{color:var(--ink)}
+  .fid .fl.no b{color:var(--hv)}
+
+  .panel{position:fixed;top:70px;right:18px;z-index:15;width:262px;background:var(--panel);backdrop-filter:blur(14px);border:1px solid var(--line);border-radius:16px;padding:16px;max-height:calc(100vh - 150px);overflow-y:auto}
+  .panel h4{font-family:var(--mono);font-size:10px;letter-spacing:.14em;text-transform:uppercase;color:var(--dim);margin:2px 0 10px}
+  .panel h4.sec{margin-top:16px;border-top:1px solid var(--line);padding-top:14px}
+  .g{margin-bottom:6px}
+  .gl{display:flex;justify-content:space-between;font-family:var(--mono);font-size:11px;color:var(--dim)}
+  .gl b{color:var(--accent2)}
+  .gl b.good{color:var(--good)}.gl b.warn{color:var(--hv)}.gl b.bad{color:var(--bad)}
+  .modebar{display:flex;gap:5px;margin-bottom:8px}
+  .modebar .b{flex:1;padding:8px 4px;font-size:11px}
+  .btns{display:flex;flex-direction:column;gap:7px;margin-top:6px}
+  .b{font-family:system-ui;font-size:12.5px;padding:10px;border-radius:9px;cursor:pointer;border:1px solid var(--line);background:#1b242f;color:var(--ink);transition:.15s;text-align:center}
+  .b:hover{border-color:var(--accent);background:#202c38}
+  .b.on{background:var(--accent);color:#06120f;border-color:var(--accent);font-weight:bold}
+  .b.primary{background:var(--accent);color:#06120f;border-color:var(--accent);font-weight:bold}
+  .b.auto{border-color:var(--hv);color:var(--hv);background:rgba(255,183,3,.10);font-weight:bold}
+  .b.auto:hover{background:rgba(255,183,3,.18);border-color:var(--hv)}
+  .b.auto:disabled{opacity:.6;cursor:default}
+  .b.dx{text-align:left;font-size:12px}
+  .b.dx.right{background:rgba(52,211,153,.18);border-color:var(--good);color:var(--good);font-weight:bold}
+  .b.dx.wrong{background:rgba(244,71,94,.15);border-color:var(--bad);color:var(--bad)}
+  .console{font-family:var(--mono);font-size:11px;line-height:1.55;color:#c4d0da;background:rgba(0,0,0,.28);border-radius:9px;padding:10px 12px;margin-bottom:8px;min-height:56px}
+  .console .dtc{color:var(--bad);font-weight:bold}
+  .console .ok{color:var(--good)}
+  .console .mono{color:var(--dim)}
+
+  .hint{position:fixed;bottom:18px;left:18px;z-index:14;font-family:var(--mono);font-size:10px;color:var(--dim);background:var(--panel);padding:7px 12px;border-radius:9px;border:1px solid var(--line)}
+  .toast{position:fixed;top:80px;left:50%;transform:translateX(-50%);z-index:30;background:rgba(18,24,32,.95);border:1px solid var(--accent);padding:10px 20px;border-radius:40px;font-family:var(--mono);font-size:12px;opacity:0;transition:.3s;pointer-events:none;max-width:80vw;text-align:center}
+  .toast.show{opacity:1}
+  .soundBtn{position:fixed;top:14px;right:18px;z-index:21;font-size:16px;background:var(--panel);backdrop-filter:blur(12px);border:1px solid var(--line);border-radius:50%;width:36px;height:36px;cursor:pointer;color:var(--dim);transition:.15s}
+  .soundBtn.on{color:var(--accent);border-color:var(--accent)}
+  .soundBtn:hover{transform:scale(1.08)}
+  .inspectHint{position:fixed;bottom:18px;right:18px;z-index:14;font-family:var(--mono);font-size:10px;color:var(--accent2);background:var(--panel);padding:7px 12px;border-radius:9px;border:1px solid var(--line)}
+
+  @media(max-width:820px){
+    .hud,.panel{position:fixed;left:8px;right:8px;top:auto;bottom:8px;max-width:none;width:auto;max-height:42vh;overflow-y:auto}
+    .hud{bottom:calc(8px + 42vh + 8px)}
+    .hint,.inspectHint{display:none}
+  }
+</style>
+</head>
+<body>
+<div id="stage"></div>
+<button class="soundBtn on" id="soundBtn">🔊</button>
+<div class="topbar">
+  <div class="brand">CEN<span> Labs</span></div>
+  <div class="lt">Hidráulica y Neumática · Mecánica</div>
+</div>
+<div class="hud" id="hud"></div>
+<div class="panel" id="panel"></div>
+<div class="hint">Arrastra para orbitar · rueda para zoom</div>
+<div class="inspectHint">👆 Toca una pieza del banco y luego su hueco luminoso para montar el cabezal de vacío; después dimensiona la fuerza, el circuito y el proyecto</div>
+<div class="toast" id="toast"></div>
+
+<script type="importmap">
+{ "imports": {
+  "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.min.js",
+  "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/"
+}}
+</script>
+<script type="module">
+import * as THREE from 'three';
+import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
+import { RoundedBoxGeometry } from 'three/addons/geometries/RoundedBoxGeometry.js';
+import { EffectComposer } from 'three/addons/postprocessing/EffectComposer.js';
+import { RenderPass } from 'three/addons/postprocessing/RenderPass.js';
+import { GTAOPass } from 'three/addons/postprocessing/GTAOPass.js';
+import { UnrealBloomPass } from 'three/addons/postprocessing/UnrealBloomPass.js';
+import { SMAAPass } from 'three/addons/postprocessing/SMAAPass.js';
+import { OutputPass } from 'three/addons/postprocessing/OutputPass.js';
+import { BokehPass } from 'three/addons/postprocessing/BokehPass.js';
+
+/* ============================================================
+   Texturas PBR procedurales (sin archivos externos) — compartidas
+   ============================================================ */
+function cv(s=512){const c=document.createElement('canvas');c.width=c.height=s;return c;}
+function tex(canvas,repeat=1,srgb=false){
+  const t=new THREE.CanvasTexture(canvas);
+  t.wrapS=t.wrapT=THREE.RepeatWrapping;t.repeat.set(repeat,repeat);
+  t.colorSpace = srgb?THREE.SRGBColorSpace:THREE.NoColorSpace;
+  t.generateMipmaps=false; t.minFilter=THREE.LinearFilter; t.anisotropy=1; return t;
+}
+function normalFromHeight(size, hfn, strength=2.0){
+  const c=cv(size),ctx=c.getContext('2d'),img=ctx.createImageData(size,size);
+  const H=(x,y)=>hfn((x+size)%size,(y+size)%size);
+  for(let y=0;y<size;y++)for(let x=0;x<size;x++){
+    const dx=(H(x+1,y)-H(x-1,y))*strength;
+    const dy=(H(x,y+1)-H(x,y-1))*strength;
+    const nz=1.0; const len=Math.hypot(dx,dy,nz);
+    const i=(y*size+x)*4;
+    img.data[i]  =((-dx/len)*0.5+0.5)*255;
+    img.data[i+1]=((-dy/len)*0.5+0.5)*255;
+    img.data[i+2]=((nz/len)*0.5+0.5)*255;
+    img.data[i+3]=255;
+  }
+  ctx.putImageData(img,0,0);return c;
+}
+function valueNoise(seed=1){
+  const g=(x,y)=>{const s=Math.sin((x*127.1+y*311.7)+seed*13.13)*43758.5453;return s-Math.floor(s);};
+  return (x,y)=>{
+    const xi=Math.floor(x),yi=Math.floor(y),xf=x-xi,yf=y-yi;
+    const u=xf*xf*(3-2*xf),v=yf*yf*(3-2*yf);
+    const a=g(xi,yi),b=g(xi+1,yi),c=g(xi,yi+1),d=g(xi+1,yi+1);
+    return a*(1-u)*(1-v)+b*u*(1-v)+c*(1-u)*v+d*u*v;
+  };
+}
+function fbm(noise,x,y,oct=4){let v=0,a=0.5,f=1;for(let i=0;i<oct;i++){v+=noise(x*f,y*f)*a;f*=2;a*=0.5;}return v;}
+
+function castAluminum(){
+  const S=512, n=valueNoise(7);
+  const c=cv(S),ctx=c.getContext('2d'),img=ctx.createImageData(S,S);
+  for(let y=0;y<S;y++)for(let x=0;x<S;x++){
+    const v=fbm(n,x/22,y/22,5);
+    const por=Math.pow(n(x/3.1,y/3.1),8);
+    const base=150+v*38-por*70;
+    const i=(y*S+x)*4; img.data[i]=base; img.data[i+1]=base+4; img.data[i+2]=base+10; img.data[i+3]=255;
+  }
+  ctx.putImageData(img,0,0);
+  const r=cv(S),rx=r.getContext('2d'),rimg=rx.createImageData(S,S);
+  for(let y=0;y<S;y++)for(let x=0;x<S;x++){
+    const v=fbm(n,x/18,y/18,4); const por=Math.pow(n(x/3.1,y/3.1),8);
+    const rough=120+v*40+por*90; const i=(y*S+x)*4;
+    rimg.data[i]=rimg.data[i+1]=rimg.data[i+2]=Math.min(255,rough); rimg.data[i+3]=255;
+  }
+  rx.putImageData(rimg,0,0);
+  const nrm=normalFromHeight(S,(x,y)=>fbm(n,x/16,y/16,5)+Math.pow(n(x/3.1,y/3.1),8)*0.6,3.0);
+  return {map:tex(c,1,true),roughnessMap:tex(r),normalMap:tex(nrm)};
+}
+function brushedMetal(){
+  const S=512, n=valueNoise(3);
+  const c=cv(S),ctx=c.getContext('2d'),img=ctx.createImageData(S,S);
+  for(let y=0;y<S;y++)for(let x=0;x<S;x++){
+    const streak=Math.sin(y*0.9)*2 + (n(x/120,y*0.5)-0.5)*40;
+    const base=185+streak; const i=(y*S+x)*4;
+    img.data[i]=base; img.data[i+1]=base+2; img.data[i+2]=base+6; img.data[i+3]=255;
+  }
+  ctx.putImageData(img,0,0);
+  const r=cv(S),rx=r.getContext('2d'),rimg=rx.createImageData(S,S);
+  for(let y=0;y<S;y++)for(let x=0;x<S;x++){
+    const streak=(n(x/120,y*0.5)-0.5)*60; const rough=40+Math.abs(streak); const i=(y*S+x)*4;
+    rimg.data[i]=rimg.data[i+1]=rimg.data[i+2]=Math.min(160,rough); rimg.data[i+3]=255;
+  }
+  rx.putImageData(rimg,0,0);
+  const nrm=normalFromHeight(S,(x,y)=>(n(x/120,y*0.5))*0.3+Math.sin(y*0.9)*0.02,1.2);
+  return {map:tex(c,1,true),roughnessMap:tex(r),normalMap:tex(nrm)};
+}
+function rubber(){
+  const S=256,n=valueNoise(5);
+  const nrm=normalFromHeight(S,(x,y)=>fbm(n,x/8,y/8,4),1.4);
+  const rough=cv(64),rc=rough.getContext('2d');rc.fillStyle='#e0e0e0';rc.fillRect(0,0,64,64);
+  return {roughnessMap:tex(rough),normalMap:tex(nrm,2)};
+}
+function gradientBG(top='#11161d',bottom='#05070a'){
+  const c=cv(512),ctx=c.getContext('2d');
+  const grd=ctx.createLinearGradient(0,0,0,512);
+  grd.addColorStop(0,top);grd.addColorStop(1,bottom);
+  ctx.fillStyle=grd;ctx.fillRect(0,0,512,512);
+  const rg=ctx.createRadialGradient(256,200,30,256,256,360);
+  rg.addColorStop(0,'rgba(42,157,143,0.10)');rg.addColorStop(1,'rgba(0,0,0,0)');
+  ctx.fillStyle=rg;ctx.fillRect(0,0,512,512);
+  return tex(c,1,true);
+}
+function techPlastic(r=0.10,g=0.11,b=0.13){
+  const S=256,n=valueNoise(31);
+  const c=cv(S),ctx=c.getContext('2d'),img=ctx.createImageData(S,S);
+  for(let y=0;y<S;y++)for(let x=0;x<S;x++){
+    const v=fbm(n,x/30,y/30,3)*0.1+0.92; const i=(y*S+x)*4;
+    img.data[i]=r*255*v;img.data[i+1]=g*255*v;img.data[i+2]=b*255*v;img.data[i+3]=255;
+  }
+  ctx.putImageData(img,0,0);
+  const nrm=normalFromHeight(S,(x,y)=>fbm(n,x/10,y/10,3),0.8);
+  const rough=cv(64),rc=rough.getContext('2d');rc.fillStyle='#9a9a9a';rc.fillRect(0,0,64,64);
+  return {map:tex(c,1,true),roughnessMap:tex(rough),normalMap:tex(nrm)};
+}
+
+/* ============================================================
+   ENGINE — render premium compartido por todos los laboratorios
+   ============================================================ */
+function createStage(mount, opts={}){
+  const bgTop = opts.bgTop||'#141b24', bgBot = opts.bgBot||'#05070a';
+  const renderer = new THREE.WebGLRenderer({ antialias:true, powerPreference:'high-performance' });
+  renderer.setPixelRatio(Math.min(devicePixelRatio,2));
+  renderer.setSize(mount.clientWidth, mount.clientHeight);
+  renderer.shadowMap.enabled = true;
+  renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+  renderer.toneMapping = THREE.ACESFilmicToneMapping;
+  renderer.toneMappingExposure = opts.exposure ?? 1.18;
+  renderer.outputColorSpace = THREE.SRGBColorSpace;
+  mount.appendChild(renderer.domElement);
+  renderer.domElement.style.touchAction='none';
+
+  const scene = new THREE.Scene();
+  scene.background = gradientBG(bgTop,bgBot);
+  const pmrem = new THREE.PMREMGenerator(renderer);
+  scene.environment = pmrem.fromScene(new RoomEnvironment(renderer), 0.04).texture;
+  scene.environmentIntensity = opts.envInt ?? 1.15;
+
+  const camera = new THREE.PerspectiveCamera(45, mount.clientWidth/mount.clientHeight, 0.1, 200);
+  const cam = opts.cam || [5.5,3.4,6.2];
+  camera.position.set(...cam);
+
+  const controls = new OrbitControls(camera, renderer.domElement);
+  controls.enableDamping = true; controls.dampingFactor = 0.07;
+  controls.minDistance = opts.minD ?? 3; controls.maxDistance = opts.maxD ?? 18;
+  controls.maxPolarAngle = Math.PI*0.52;
+  controls.target.set(...(opts.target||[0,1.4,0]));
+  controls.autoRotate = opts.autoRotate ?? false;
+  controls.autoRotateSpeed = opts.autoRotateSpeed ?? 0.6;
+
+  const key = new THREE.DirectionalLight(0xffffff, 2.7);
+  key.position.set(5,9,6); key.castShadow=true;
+  key.shadow.mapSize.set(2048,2048);
+  key.shadow.camera.near=0.5; key.shadow.camera.far=40;
+  const sd=8; Object.assign(key.shadow.camera,{left:-sd,right:sd,top:sd,bottom:-sd});
+  key.shadow.bias=-0.0003; key.shadow.normalBias=0.02; scene.add(key);
+  const rim = new THREE.SpotLight(0x2affce, 55, 30, Math.PI/5, 0.4, 1.5);
+  rim.position.set(-7,6,-5); scene.add(rim);
+  const fill = new THREE.DirectionalLight(0x6fb6ff, 0.5); fill.position.set(-4,3,7); scene.add(fill);
+  scene.add(new THREE.HemisphereLight(0x9fb4c8, 0x10151b, 0.35));
+
+  if(opts.floor!==false){
+    const f = new THREE.Mesh(new THREE.CircleGeometry(40,80),
+      new THREE.MeshStandardMaterial({ color:0x0a0e13, roughness:0.14, metalness:0.62, envMapIntensity:1.15 }));
+    f.rotation.x=-Math.PI/2; f.receiveShadow=true; scene.add(f);
+    for(let r=2;r<=8;r+=2){
+      const ring=new THREE.Mesh(new THREE.RingGeometry(r-0.012,r+0.012,80),
+        new THREE.MeshBasicMaterial({color:0x1a2632,transparent:true,opacity:0.4}));
+      ring.rotation.x=-Math.PI/2; ring.position.y=0.002; scene.add(ring);
+    }
+  }
+
+  const isMobile = /Mobi|Android|iPhone|iPad/i.test(navigator.userAgent) || innerWidth<820;
+  // GTAO desactivado por defecto: el pase de oclusión ambiental en espacio de pantalla
+  // producía un recuadro oscuro duro sobre el piso reflectante (artefacto dependiente de la
+  // cámara y del renderer). La escena tiene AO suficiente con luces directas + sombras + env.
+  // Se puede reactivar para pruebas con ?gtao.
+  const useGtao = /[?&]gtao\b/.test(location.search);
+  const composer = new EffectComposer(renderer);
+  composer.addPass(new RenderPass(scene,camera));
+  if(!isMobile && useGtao){
+    try{
+      const g=new GTAOPass(scene,camera,mount.clientWidth,mount.clientHeight);
+      g.output=GTAOPass.OUTPUT.Default;
+      if(g.updateGtaoMaterial)g.updateGtaoMaterial({radius:0.5,distanceExponent:1,thickness:1,scale:1.1,samples:16});
+      composer.addPass(g);
+    }catch(e){}
+  }
+  const bloom=new UnrealBloomPass(new THREE.Vector2(mount.clientWidth,mount.clientHeight),opts.bloom??0.42,0.5,0.9);
+  composer.addPass(bloom);
+  let bokeh=null;
+  const flat=/[?&]flat/.test(location.search);
+  if(!isMobile && !flat){
+    bokeh=new BokehPass(scene,camera,{focus:8.5,aperture:opts.aperture??0.00018,maxblur:opts.maxblur??0.004,width:mount.clientWidth,height:mount.clientHeight});
+    composer.addPass(bokeh);
+  }
+  composer.addPass(new OutputPass());
+  composer.addPass(new SMAAPass(mount.clientWidth*renderer.getPixelRatio(),mount.clientHeight*renderer.getPixelRatio()));
+
+  function resize(){
+    const w=mount.clientWidth,h=mount.clientHeight;
+    camera.aspect=w/h; camera.updateProjectionMatrix();
+    renderer.setSize(w,h); composer.setSize(w,h);
+  }
+  window.addEventListener('resize',resize);
+
+  const clock=new THREE.Clock();
+  let hook=null, raf=null;
+  const camCine={active:false,t:0,dur:1.4,from:new THREE.Vector3(),to:new THREE.Vector3(),fromT:new THREE.Vector3(),toT:new THREE.Vector3()};
+  let lastDrag=-99, cinematicIdle=false;
+  controls.addEventListener('start',()=>{ lastDrag=clock.elapsedTime; camCine.active=false; });
+  function easeInOutCubic(x){return x<0.5?4*x*x*x:1-Math.pow(-2*x+2,3)/2;}
+  function moveTo(pos,target,dur=1.4){
+    camCine.from.copy(camera.position); camCine.fromT.copy(controls.target);
+    camCine.to.set(...pos); camCine.toT.set(...target);
+    camCine.dur=dur; camCine.active=true; camCine.t=0;
+  }
+  function setCinematicIdle(v){ cinematicIdle=v; if(!v)controls.autoRotate=false; }
+  function loop(){ raf=requestAnimationFrame(loop); const dt=clock.getDelta(),t=clock.elapsedTime;
+    if(camCine.active){
+      camCine.t=Math.min(1,camCine.t+dt/camCine.dur);
+      const e=easeInOutCubic(camCine.t);
+      camera.position.lerpVectors(camCine.from,camCine.to,e);
+      controls.target.lerpVectors(camCine.fromT,camCine.toT,e);
+      if(camCine.t>=1)camCine.active=false;
+    } else if(cinematicIdle){
+      controls.autoRotate=(t-lastDrag)>1.4; controls.autoRotateSpeed=0.45;
+    }
+    if(hook)hook(dt,t); controls.update();
+    if(bokeh) bokeh.uniforms['focus'].value = camera.position.distanceTo(controls.target);
+    composer.render(); }
+  function start(){ if(!raf)loop(); }
+  function stop(){ cancelAnimationFrame(raf); raf=null; window.removeEventListener('resize',resize); }
+
+  return { THREE, renderer, scene, camera, controls, composer, bloom,
+    setAnimate:fn=>hook=fn, start, stop, resize, clock,
+    flyTo:(v)=>{ controls.target.copy(v); }, moveTo, setCinematicIdle };
+}
+
+/* ---------- shared geometry/material helpers ---------- */
+function roundedBox(w,h,d,mat,rf=0.08){
+  const r=Math.min(w,h,d)*rf;
+  const m=new THREE.Mesh(new RoundedBoxGeometry(w,h,d,4,r),mat);
+  m.castShadow=m.receiveShadow=true; return m;
+}
+function pickerFor(scene,camera,dom,onHit){
+  const ray=new THREE.Raycaster(),mouse=new THREE.Vector2(); let down=null;
+  dom.addEventListener('pointerdown',e=>down=[e.clientX,e.clientY]);
+  dom.addEventListener('pointerup',e=>{
+    if(!down)return; const moved=Math.abs(e.clientX-down[0])+Math.abs(e.clientY-down[1])>6; down=null;
+    if(moved)return;
+    const r=dom.getBoundingClientRect();
+    mouse.x=((e.clientX-r.left)/r.width)*2-1; mouse.y=-((e.clientY-r.top)/r.height)*2+1;
+    ray.setFromCamera(mouse,camera);
+    const hits=ray.intersectObjects(scene.children,true);
+    onHit(hits[0]||null);
+  });
+}
+function labelSprite(text,color='#ffd166'){
+  const w = Math.max(150, Math.min(520, text.length*26+60));
+  const cvE=document.createElement('canvas');cvE.width=w;cvE.height=96;
+  const c=cvE.getContext('2d');c.fillStyle='rgba(8,11,16,.95)';
+  const rr=(x,y,ww,hh,r)=>{c.beginPath();c.moveTo(x+r,y);c.arcTo(x+ww,y,x+ww,y+hh,r);c.arcTo(x+ww,y+hh,x,y+hh,r);c.arcTo(x,y+hh,x,y,r);c.arcTo(x,y,x+ww,y,r);c.closePath();};
+  rr(3,3,w-6,90,18);c.fill();
+  c.strokeStyle=color;c.lineWidth=3;c.stroke();
+  c.font='bold 36px Outfit, system-ui, sans-serif';c.fillStyle=color;c.textAlign='center';c.textBaseline='middle';c.fillText(text,w/2,48);
+  const tx=new THREE.CanvasTexture(cvE);tx.colorSpace=THREE.SRGBColorSpace;tx.generateMipmaps=false;tx.minFilter=THREE.LinearFilter;
+  const sp=new THREE.Sprite(new THREE.SpriteMaterial({map:tx,depthTest:false,transparent:true}));
+  const aspect=w/96;
+  sp.scale.set(0.30*aspect,0.30,1);sp.renderOrder=999;return sp;
+}
+
+/* ============================================================
+   SYNTH — sintetizador Web Audio reutilizable
+   ============================================================ */
+function makeSynth(opts={}){
+  const type=opts.type||'sawtooth';
+  let ctx=null,oscA=null,oscB=null,gain=null,filter=null,soundOn=true;
+  function init(){
+    if(ctx)return;
+    try{
+      ctx=new (window.AudioContext||window.webkitAudioContext)();
+      oscA=ctx.createOscillator(); oscB=ctx.createOscillator();
+      oscA.type=type; oscB.type=opts.type2||'square';
+      filter=ctx.createBiquadFilter(); filter.type=opts.filterType||'lowpass'; filter.frequency.value=opts.filterFreq||500; filter.Q.value=opts.Q||3;
+      gain=ctx.createGain(); gain.gain.value=0;
+      oscA.connect(filter); oscB.connect(filter); filter.connect(gain); gain.connect(ctx.destination);
+      oscA.start(); oscB.start();
+    }catch(e){}
+  }
+  function update(freqA,freqB,vol,filterFreq){
+    if(!ctx||!soundOn){ if(gain)gain.gain.setTargetAtTime(0,ctx?.currentTime||0,0.1); return; }
+    oscA.frequency.setTargetAtTime(freqA,ctx.currentTime,0.04);
+    if(freqB!==undefined)oscB.frequency.setTargetAtTime(freqB,ctx.currentTime,0.04);
+    if(filterFreq!==undefined)filter.frequency.setTargetAtTime(filterFreq,ctx.currentTime,0.05);
+    gain.gain.setTargetAtTime(Math.max(0,vol),ctx.currentTime,0.06);
+  }
+  function beep(freq=880,dur=0.09,vol=0.06){
+    if(!ctx||!soundOn)return;
+    const o=ctx.createOscillator(),g=ctx.createGain();
+    o.type='sine'; o.frequency.value=freq;
+    g.gain.setValueAtTime(vol,ctx.currentTime); g.gain.exponentialRampToValueAtTime(0.001,ctx.currentTime+dur);
+    o.connect(g); g.connect(ctx.destination); o.start(); o.stop(ctx.currentTime+dur);
+  }
+  function toggle(){ soundOn=!soundOn; return soundOn; }
+  function resume(){ if(ctx&&ctx.state==='suspended')ctx.resume(); }
+  return { init, update, beep, toggle, resume, isOn:()=>soundOn, state:()=>ctx?.state||'none' };
+}
+
+/* ============================================================
+   LAB — VACÍO PARA PICK&PLACE · DIMENSIONADO DE VENTOSAS
+   (Dominio D4 · Hidráulica y Neumática — fila d4-08 de la lista
+   maestra). MOLDE E+S: ensamble 3D pieza por pieza del cabezal de
+   vacío sobre un pórtico cartesiano (molde E) + pizarrón
+   esquemático con modos de exploración sobre canvas (molde S),
+   mismo patrón que los labs de máquinas eléctricas de D5
+   (ver patron_molde_e_s_hibrido).
+
+   Norma ancla / referencias: ISO 2533 (atmósfera tipo: el vacío de
+   un eyector es un PORCENTAJE de la atmósfera LOCAL, y este banco
+   está a 2 660 m) · ISO 8573-1 (calidad del aire comprimido, para
+   la vida del eyector) · ISO 4414 (seguridad neumática: la pieza no
+   puede caer al faltar la energía) · ISO 1219-1 (simbología) ·
+   EN 13155 (equipos de elevación por vacío: factor de seguridad
+   mínimo 2 en horizontal). Los factores de seguridad por estación
+   son CRITERIOS DE PROYECTO declarados en el catálogo, no cifras
+   de norma; el consumo de 0,10 kWh por Nm³ a 7 bar es el valor
+   medio del rango industrial 0,09–0,12.
+
+   MOTOR: copiado VERBATIM del verificador numérico sellado
+   scratchpad/verif_vacio.mjs (912 aserciones, 0 fallos) entre las
+   marcas MOTOR / FIN MOTOR. Ni una fórmula reescrita a mano.
+
+   CERO Math.random() salvo en newReto() (qué estación se sortea) y
+   en el barajado Fisher-Yates de las opciones del quiz.
+   ============================================================ */
+
+/* ============================ MOTOR ============================ */
+/* Unidades: presion mbar (absoluta o de vacio, siempre dicho) ·
+   volumen l · caudal l/s o Nl/min · fuerza N · longitud mm salvo
+   la altitud, en m · energia Wh por ciclo. */
+
+// verif_vacio.mjs — d4-08 / mecanica-100
+// Dimensionado de un sistema de vacio para pick&place.
+// Motor numerico sellado + banco de comprobaciones.
+
+// ==================== MOTOR (pegar verbatim en el lab) ====================
+
+// --- Constantes selladas ---
+const P0_MAR    = 1013.25;  // mbar, atmosfera tipo ISO 2533 al nivel del mar
+const L_TROPO   = 0.0065;   // K/m, gradiente termico de la troposfera (ISO 2533)
+const T0_ISA    = 288.15;   // K, temperatura al nivel del mar (ISO 2533)
+const EXP_ISA   = 5.255;    // exponente barometrico g*M/(R*L)
+const H_BANCO   = 2660;     // m, altitud del banco (Toluca de Lerdo, UAEMEX)
+const G_GRAV    = 9.80665;  // m/s2, aceleracion normal de la gravedad
+const P_NORM    = 1013.25;  // mbar, presion de referencia del litro normal
+const P_FUGA_REF= 600;      // mbar de vacio a los que se mide la fuga de catalogo
+const T_VALV    = 0.010;    // s, conmutacion de la valvula de vacio
+const E_AIRE    = 0.10;     // kWh por Nm3 de aire comprimido a 7 bar (rango 0,09-0,12)
+const A_LAT_MAX = 2.0;      // m/s2, aceleracion lateral maxima admisible con fuelle
+const SEP_VENT  = 10;       // mm de separacion minima entre ventosas
+const HIST_ASC  = 30;       // mbar de histeresis del sensor de vacio (ahorro de aire)
+const DT_SIM    = 0.0005;   // s, paso de integracion
+const T_TOPE    = 6.0;      // s, tope de la integracion de agarre
+const T_TOPE_F  = 30.0;     // s, tope de la integracion de retencion tras el fallo
+const T_COLAPSO = 0.15;     // s que tarda en perderse el vacio sin antirretorno
+
+// --- Atmosfera tipo ISO 2533 ---
+// El vacio de un eyector es un PORCENTAJE de la atmosfera LOCAL: la altitud
+// del banco cambia la fuerza de sujecion sin tocar ni una pieza del catalogo.
+const pAtm = h => P0_MAR * Math.pow(1 - L_TROPO * h / T0_ISA, EXP_ISA);
+const ALTITUDES = [
+  {k:'mar',    nom:'Nivel del mar',       h:0},
+  {k:'denver', nom:'Denver',              h:1609},
+  {k:'puebla', nom:'Puebla',              h:2135},
+  {k:'cdmx',   nom:'Ciudad de México',    h:2240},
+  {k:'toluca', nom:'Toluca (este banco)', h:2660},
+];
+let H_SIM = H_BANCO;
+let P_ATM = pAtm(H_SIM);
+function setAltitud(h) { H_SIM = h; P_ATM = pAtm(h); }
+
+// --- Catalogo de ventosas ---
+// vol = volumen interior de la ventosa en cm3; dEf = diametro eficaz de catalogo
+const VENTOSAS = {
+  plana30:  {k:'plana30',  nom:'Plana Ø 30',              tipo:'plana',  dExt:30, dEf:28, vol:1.5,  coste:1},
+  plana50:  {k:'plana50',  nom:'Plana Ø 50',              tipo:'plana',  dExt:50, dEf:47, vol:4.0,  coste:2},
+  fuelle40: {k:'fuelle40', nom:'Fuelle 1,5 pliegues Ø 40', tipo:'fuelle', dExt:40, dEf:37, vol:12.0, coste:3},
+  fuelle30: {k:'fuelle30', nom:'Fuelle 3,5 pliegues Ø 30', tipo:'fuelle', dExt:30, dEf:27, vol:20.0, coste:4},
+};
+const VENTK = ['plana30','plana50','fuelle40','fuelle30'];
+
+// --- Catalogo de fuentes de vacio ---
+// vacPct = vacio maximo como fraccion de la ATMOSFERA LOCAL (no absoluto)
+// s0 = velocidad de aspiracion a la entrada en l/min; aire = consumo en Nl/min
+// vtubo = volumen de manguera por ventosa en cm3; ret = antirretorno
+const FUENTES = {
+  eyector: {k:'eyector', nom:'Eyector Venturi básico',
+            vacPct:0.85, s0:55,  aire:50,  ret:false, elec:0,    vtubo:12.6, asc:false, coste:3},
+  grande:  {k:'grande',  nom:'Eyector Venturi de alto caudal',
+            vacPct:0.85, s0:130, aire:120, ret:false, elec:0,    vtubo:12.6, asc:false, coste:5},
+  asc:     {k:'asc',     nom:'Eyector con antirretorno y sensor (ahorro de aire)',
+            vacPct:0.85, s0:55,  aire:50,  ret:true,  elec:0,    vtubo:12.6, asc:true,  coste:6},
+  bomba:   {k:'bomba',   nom:'Bomba de vacío de paletas',
+            vacPct:0.92, s0:100, aire:0,   ret:false, elec:0.25, vtubo:30.0, asc:false, coste:12},
+};
+const FUENTK = ['eyector','grande','asc','bomba'];
+
+const NUMS = [1,2,4,6];
+
+// --- Banco de estaciones ---
+// caso: 'vert'  ventosa horizontal, movimiento vertical      F = m*(g+a)*S
+//       'horiz' ventosa horizontal, movimiento horizontal    F = m*(g+a/mu)*S
+//       'lat'   ventosa vertical, la friccion carga el peso  F = (m/mu)*(g+a)*S
+// fuga: Nl/min por ventosa medidos a P_FUGA_REF mbar de vacio
+// dpMax: mbar de vacio que la pieza tolera sin marcarse ni deformarse
+const POOL = [
+  {k:'vidrio', nom:'Panel de vidrio para fachada', mat:'Vidrio recocido 1 000 x 800 x 6 mm',
+   m:12.0, mu:0.5, caso:'vert', a:1.0, sf:2.0, fuga:0, dpMax:900,
+   util:[1000,800], nMax:6, desnivel:false,
+   tMax:0.60, tSujeta:2.5, tCiclo:6.0, eMax:0.30, exigeFalla:true, tFalla:2.0,
+   por:'La ventosa toma el panel por la cara y lo sube a la línea de montaje; el vidrio viaja por encima del puesto de trabajo.'},
+
+  {k:'carton', nom:'Caja de cartón corrugado', mat:'Cartón corrugado de doble onda',
+   m:3.0, mu:0.5, caso:'vert', a:2.0, sf:2.0, fuga:6, dpMax:450,
+   util:[400,300], nMax:6, desnivel:true,
+   tMax:0.40, tSujeta:1.2, tCiclo:2.0, eMax:0.22, exigeFalla:false, tFalla:0,
+   por:'Las solapas dejan la cara superior desnivelada y el corrugado respira: la pieza tiene fuga y se marca con vacío alto.'},
+
+  {k:'chapa', nom:'Chapa de acero aceitada', mat:'Acero laminado en frío con capa de aceite',
+   m:8.0, mu:0.10, caso:'horiz', a:3.0, sf:1.5, fuga:0, dpMax:900,
+   util:[600,400], nMax:6, desnivel:false,
+   tMax:0.30, tSujeta:1.0, tCiclo:2.5, eMax:0.30, exigeFalla:true, tFalla:2.0,
+   por:'Transferencia horizontal rápida hacia la prensa: el aceite deja el coeficiente de rozamiento en 0,10 y la aceleración es lateral.'},
+
+  {k:'plastico', nom:'Pieza inyectada nervada', mat:'Polipropileno de pared delgada',
+   m:0.9, mu:0.3, caso:'vert', a:4.0, sf:2.0, fuga:0, dpMax:650,
+   util:[35,35], nMax:6, desnivel:true,
+   tMax:0.050, tSujeta:0.5, tCiclo:1.2, eMax:0.20, exigeFalla:false, tFalla:0,
+   por:'Entre los nervios sólo queda una isla plana de 35 x 35 mm con la línea de partición encima, y la pared es tan delgada que se hunde con vacío alto.'},
+
+  {k:'bidon', nom:'Bidón de polietileno lleno', mat:'Polietileno de alta densidad, pared curva Ø 300',
+   m:6.0, mu:0.3, caso:'lat', a:0.5, sf:2.0, fuga:0, dpMax:900,
+   util:[600,400], nMax:6, desnivel:true,
+   tMax:2.00, tSujeta:3.0, tCiclo:6.0, eMax:0.60, exigeFalla:false, tFalla:0,
+   por:'Se toma por la pared lateral: la ventosa queda vertical y es el rozamiento el que sostiene los 6 kg sobre una superficie curva.'},
+];
+const POOLK = POOL.map(s => s.k);
+
+// --- Geometria y fuerza ---
+const AREA = d => Math.PI * d * d / 4e6;   // mm -> m2
+
+function fuerzaReq(sc) {
+  if (sc.caso === 'vert')  return sc.m * (G_GRAV + sc.a) * sc.sf;
+  if (sc.caso === 'horiz') return sc.m * (G_GRAV + sc.a / sc.mu) * sc.sf;
+  return (sc.m / sc.mu) * (G_GRAV + sc.a) * sc.sf;   // 'lat'
+}
+const aLateral = sc => (sc.caso === 'vert' ? 0 : sc.a);
+
+// vacio requerido en mbar para sostener la pieza con n ventosas
+function vacioReq(sc, kv, n) {
+  const v = VENTOSAS[kv];
+  return fuerzaReq(sc) / (n * AREA(v.dEf)) / 100;   // Pa -> mbar
+}
+
+// Caben n ventosas de ese tipo en la zona util. El labio tiene que apoyar entero
+// sobre la pieza, asi que el centro de las ventosas de la orilla queda a dExt/2
+// del borde: el ancho aprovechable para repartir centros es (util - dExt).
+function cabenVentosas(sc, kv, n) {
+  const v = VENTOSAS[kv];
+  if (n > sc.nMax) return false;                                     // bocas del colector
+  if (v.dExt > Math.min(sc.util[0], sc.util[1])) return false;       // no apoya el labio
+  const paso = v.dExt + SEP_VENT;                                    // centro a centro
+  const cols = Math.floor((sc.util[0] - v.dExt) / paso) + 1;
+  const fils = Math.floor((sc.util[1] - v.dExt) / paso) + 1;
+  return cols * fils >= n;
+}
+
+// --- Simulacion del circuito de vacio ---
+// Estado: presion ABSOLUTA p [mbar] dentro de un volumen V [l].
+// Aspiracion: S(pv) = s0*(1 - pv/pvMax) en l/s a la entrada (curva lineal declarada).
+// Fuga:       Q(pv) = fuga*(pv/P_FUGA_REF) en Nl/s, laminar, proporcional al vacio.
+// Balance:    V*dp/dt = -p*S(pv) + P_NORM*Q(pv)
+function derivP(p, V, s0, pvMax, fugaNls, bombeando) {
+  const pv = P_ATM - p;
+  const S = bombeando ? s0 * Math.max(0, 1 - pv / pvMax) : 0;
+  const Q = fugaNls * (pv / P_FUGA_REF);
+  return (-p * S + P_NORM * Q) / V;
+}
+
+// vacio de equilibrio con la fuente bombeando sin parar
+function vacioEq(s0, pvMax, fugaNls) {
+  let lo = 0, hi = pvMax;
+  for (let i = 0; i < 200; i++) {
+    const mid = (lo + hi) / 2;
+    const d = derivP(P_ATM - mid, 1, s0, pvMax, fugaNls, true);
+    if (d < 0) lo = mid; else hi = mid;
+  }
+  return (lo + hi) / 2;
+}
+
+function circuito(sc, cfg) {
+  const v = VENTOSAS[cfg.ventosa], f = FUENTES[cfg.fuente], n = cfg.numero;
+  const V       = n * (v.vol + f.vtubo) / 1000;   // l
+  const s0      = f.s0 / 60;                      // l/s
+  const pvMax   = f.vacPct * P_ATM;               // mbar
+  const fugaNls = n * sc.fuga / 60;               // Nl/s
+  const pvReq   = vacioReq(sc, cfg.ventosa, n);   // mbar
+  const pvEq    = vacioEq(s0, pvMax, fugaNls);
+
+  // --- fase de agarre: la ventosa toca la pieza a presion atmosferica ---
+  let p = P_ATM, t = 0, tOn = 0;
+  let tAgarre = Infinity;
+  while (t < T_TOPE) {
+    if (P_ATM - p >= pvReq) { tAgarre = t + T_VALV; break; }
+    p += derivP(p, V, s0, pvMax, fugaNls, true) * DT_SIM;
+    t += DT_SIM; tOn += DT_SIM;
+  }
+  if (!isFinite(tAgarre)) return {V, pvMax, pvReq, pvEq, tAgarre:Infinity,
+    pvMin:pvEq, pvPico:pvEq, tOn:sc.tSujeta, duty:1, aire:0, energia:0, tRet:0, alcanza:false};
+
+  // --- fase de sujecion ---
+  let pvMin = P_ATM - p, pvPico = P_ATM - p, ts = 0, tOnS = 0, bomb = true;
+  while (ts < sc.tSujeta) {
+    const pv = P_ATM - p;
+    if (f.asc) {
+      if (bomb && pv >= pvReq + HIST_ASC) bomb = false;
+      else if (!bomb && pv <= pvReq) bomb = true;
+    }
+    p += derivP(p, V, s0, pvMax, fugaNls, bomb) * DT_SIM;
+    ts += DT_SIM; if (bomb) tOnS += DT_SIM;
+    const pv2 = P_ATM - p;
+    if (pv2 < pvMin) pvMin = pv2;
+    if (pv2 > pvPico) pvPico = pv2;
+  }
+  tOn += tOnS;
+  const duty = sc.tSujeta > 0 ? tOnS / sc.tSujeta : 1;
+
+  // --- retencion al faltar la energia, justo al acabar la sujecion ---
+  let tRet = 0;
+  if (!f.ret) tRet = T_COLAPSO;
+  else if (fugaNls <= 0) tRet = T_TOPE_F;
+  else {
+    let pf = p;
+    while (tRet < T_TOPE_F && P_ATM - pf >= pvReq) {
+      pf += derivP(pf, V, s0, pvMax, fugaNls, false) * DT_SIM;
+      tRet += DT_SIM;
+    }
+  }
+
+  // --- energia por ciclo ---
+  const aire = f.aire * tOn / 60;                       // Nl por ciclo
+  const energia = aire * E_AIRE + f.elec * 1000 * sc.tCiclo / 3600;   // Wh por ciclo
+  return {V, pvMax, pvReq, pvEq, tAgarre, pvMin, pvPico, tOn, duty, aire, energia, tRet, alcanza:true};
+}
+
+// --- Criterios de calificacion, en orden de aplicacion ---
+const CRIT = [
+  {k:'okSuperficie', nom:'La ventosa es compatible con la pieza'},
+  {k:'okFuerza',     nom:'Fuerza de sujeción con el factor de seguridad'},
+  {k:'okMarca',      nom:'La pieza no se marca ni se deforma'},
+  {k:'okTiempo',     nom:'Agarre dentro del tiempo disponible'},
+  {k:'okFalla',      nom:'La pieza no cae al faltar la energía'},
+  {k:'okConsumo',    nom:'Energía por ciclo dentro de lo contratado'},
+];
+
+const CFGS = [];
+for (const kv of VENTK) for (const n of NUMS) for (const kf of FUENTK)
+  CFGS.push({ventosa:kv, numero:n, fuente:kf});
+
+const costeCfg = cfg => cfg.numero * VENTOSAS[cfg.ventosa].coste + FUENTES[cfg.fuente].coste;
+
+function evalua(sc, cfg) {
+  const v = VENTOSAS[cfg.ventosa], n = cfg.numero;
+  const caben  = cabenVentosas(sc, cfg.ventosa, n);
+  const desOK  = !sc.desnivel || v.tipo === 'fuelle';
+  const latOK  = !(v.tipo === 'fuelle' && aLateral(sc) > A_LAT_MAX);
+  const c = circuito(sc, cfg);
+  const r = Object.assign({}, c, {
+    caben, desOK, latOK,
+    okSuperficie: caben && desOK && latOK,
+    okFuerza: c.pvEq >= c.pvReq,
+    okMarca:  c.pvPico <= sc.dpMax,
+    okTiempo: c.tAgarre <= sc.tMax,
+    okFalla:  !sc.exigeFalla || c.tRet >= sc.tFalla,
+    okConsumo: c.energia <= sc.eMax,
+    fReq: fuerzaReq(sc),
+    fSuj: n * c.pvMin * 100 * AREA(v.dEf),
+    coste: costeCfg(cfg),
+  });
+  r.valido = CRIT.every(x => r[x.k]);
+  const pf = CRIT.find(x => !r[x.k]);
+  r.primerFallo = pf ? pf.k : null;
+  return r;
+}
+
+function GOOD(sc)     { return CFGS.filter(c => evalua(sc, c).valido); }
+function costeMin(sc) { const g = GOOD(sc); return g.length ? Math.min.apply(null, g.map(costeCfg)) : Infinity; }
+function OPTS(sc)     { const cm = costeMin(sc); return GOOD(sc).filter(c => costeCfg(c) === cm); }
+function OPT(sc)      { const o = OPTS(sc); return o.length ? o[0] : null; }
+
+// El reto se califica por ejes: cada eje se juzga con los otros dos ya en su valor optimo,
+// y exige valido Y de coste minimo entre los validos de ese eje.
+const LISTA_EJE = eje => (eje === 'ventosa' ? VENTK : eje === 'fuente' ? FUENTK : NUMS);
+function ejeSol(sc, eje) {
+  const base = OPT(sc);
+  if (!base) return [];
+  const val = LISTA_EJE(eje).filter(x => evalua(sc, Object.assign({}, base, {[eje]:x})).valido);
+  if (!val.length) return [];
+  const cm = Math.min.apply(null, val.map(x => costeCfg(Object.assign({}, base, {[eje]:x}))));
+  return val.filter(x => costeCfg(Object.assign({}, base, {[eje]:x})) === cm);
+}
+const okEje = (sc, eje, valor) => ejeSol(sc, eje).indexOf(valor) >= 0;
+
+// --- Formato: coma decimal y espacio fino de millares, nunca toLocaleString ---
+function f1(x, d) {
+  if (!isFinite(x)) return '—';
+  const dd = (d === undefined) ? 1 : d;
+  const s = Math.abs(x).toFixed(dd);
+  let ent = s.split('.')[0], dec = s.split('.')[1] || '';
+  let out = '';
+  for (let i = 0; i < ent.length; i++) {
+    if (i > 0 && (ent.length - i) % 3 === 0) out += ' ';
+    out += ent[i];
+  }
+  return (x < 0 ? '-' : '') + out + (dd > 0 ? ',' + dec : '');
+}
+
+// --- Explicacion del primer criterio que falla ---
+function whyCfg(sc, cfg) {
+  const r = evalua(sc, cfg), v = VENTOSAS[cfg.ventosa], f = FUENTES[cfg.fuente];
+  if (!r.okSuperficie) {
+    if (!r.desOK) return 'La superficie está desnivelada o curva: una ventosa plana no sella, hace falta una de fuelle.';
+    if (!r.latOK)  return 'Con ' + f1(aLateral(sc),1) + ' m/s² de aceleración lateral el fuelle se dobla; por encima de ' + f1(A_LAT_MAX,1) + ' m/s² hay que usar ventosa plana.';
+    return 'No caben ' + cfg.numero + ' ventosas de Ø ' + v.dExt + ' mm en la zona útil de ' + sc.util[0] + ' × ' + sc.util[1] + ' mm.';
+  }
+  if (!r.okFuerza)  return 'Hacen falta ' + f1(r.pvReq,0) + ' mbar de vacío y el sistema sólo llega a ' + f1(r.pvEq,0) + ' mbar: faltan ' + f1(r.pvReq - r.pvEq,0) + ' mbar.';
+  if (!r.okMarca)   return 'El vacío llega a ' + f1(r.pvPico,0) + ' mbar y la pieza sólo tolera ' + f1(sc.dpMax,0) + ' mbar antes de marcarse.';
+  if (!r.okTiempo)  return 'El agarre tarda ' + f1(r.tAgarre*1000,0) + ' ms y el ciclo sólo deja ' + f1(sc.tMax*1000,0) + ' ms.';
+  if (!r.okFalla)   return 'Al faltar la energía la pieza aguanta ' + f1(r.tRet,2) + ' s y se piden ' + f1(sc.tFalla,2) + ' s: ' + (f.ret ? 'el antirretorno no basta con esta fuga.' : 'esta fuente no tiene antirretorno y el vacío se pierde.');
+  if (!r.okConsumo) return 'Gasta ' + f1(r.energia,3) + ' Wh por ciclo y el contrato son ' + f1(sc.eMax,3) + ' Wh.';
+  if (r.coste !== costeMin(sc)) return 'Cumple los seis criterios pero cuesta ' + r.coste + ' u.c. y hay una solución de ' + costeMin(sc) + ' u.c.';
+  return 'Cumple los seis criterios con el coste mínimo del banco.';
+}
+
+// ==================== FIN MOTOR ====================
+
+/* ---------- escena ---------- */
+const mount=document.getElementById('stage');
+const S=createStage(mount,{cam:[4.6,3.2,5.4],target:[0.4,1.45,0.5],bgTop:'#101a22',bgBot:'#05070a',bloom:0.42,minD:3.0,maxD:22});
+const {scene}=S;
+const synth=makeSynth({type:'sine',type2:'triangle',filterFreq:2200,Q:0.9});
+const std=o=>new THREE.MeshStandardMaterial(o);
+const el=id=>document.getElementById(id);
+function ease(x){return x<0.5?4*x*x*x:1-Math.pow(-2*x+2,3)/2;}
+const clamp=(x,a,b)=>Math.max(a,Math.min(b,x));
+
+/* ---------- toast ---------- */
+let toastT=null;
+function showToast(html,ms=3300){ const t=el('toast'); t.innerHTML=html; t.classList.add('show'); clearTimeout(toastT); toastT=setTimeout(()=>t.classList.remove('show'),ms); }
+
+/* ---------- materiales PBR (biblioteca compartida) ---------- */
+const alu=castAluminum(), brush=brushedMetal();
+const MAT={
+  frame:   std({...brush, color:0x3a4a57, metalness:0.6, roughness:0.5,  envMapIntensity:0.9}),  // pórtico pintado
+  table:   std({...brush, color:0x2c3941, metalness:0.65,roughness:0.45, envMapIntensity:0.9}),  // mesa de destino
+  steel:   std({...alu,   color:0x9aa4ac, metalness:0.9, roughness:0.34, envMapIntensity:1.15}),
+  steelDk: std({color:0x39424a, metalness:0.8, roughness:0.42}),
+  chrome:  std({...brush, color:0xd4dbe1, metalness:0.98,roughness:0.12, envMapIntensity:1.4}),   // guía del eje Z
+  brass:   std({color:0xb98b3c, metalness:0.9, roughness:0.32, envMapIntensity:1.2}),             // racores
+  blue:    std({color:0x2b6f8a, metalness:0.5, roughness:0.45, envMapIntensity:0.9}),             // cuerpo del eyector
+  hose:    std({color:0x1b1e22, metalness:0.2, roughness:0.75}),                                  // tubo de vacío
+  rubber:  std({color:0x14171a, metalness:0.15,roughness:0.85}),                                  // labio de la ventosa
+  red:     std({color:0xc0392b, metalness:0.35,roughness:0.45}),
+  glass:   std({color:0x7fd4e8, metalness:0.1, roughness:0.08, transparent:true, opacity:0.42, envMapIntensity:1.4}),
+  wood:    std({color:0x8a6a42, metalness:0.05,roughness:0.85}),
+  dark:    std({color:0x05070a, roughness:0.8, metalness:0.2}),
+  bench:   std({...brush, color:0x2b3138, metalness:0.55, roughness:0.5, envMapIntensity:0.7}),
+  benchLeg:std({color:0x171b20, metalness:0.7, roughness:0.4}),
+  ped:     std({...brush, color:0x3a4149, metalness:0.85, roughness:0.42, envMapIntensity:0.85}),
+  pedTop:  std({...brush, color:0x828a93, metalness:0.95, roughness:0.28, envMapIntensity:1.15}),
+  pedRing: std({color:0x2A9D8F, metalness:0.3, roughness:0.5, emissive:0x1e6f63, emissiveIntensity:0.5}),
+  panel:   std({...brush, color:0x2f4f66, metalness:0.5, roughness:0.55, envMapIntensity:0.9}),
+  led:     std({color:0x2A9D8F, metalness:0.2, roughness:0.4, emissive:0x2A9D8F, emissiveIntensity:1.2}),
+};
+
+/* ---------- geometría de la célula ---------- */
+const Z_PALE=0.0, Z_MESA=1.65, Y_VIGA=2.70, DROP=0.22;
+
+/* ---------- constructores de piezas ---------- */
+function buildBrazo(){
+  const g=new THREE.Group();
+  const carro=roundedBox(0.36,0.22,0.42,MAT.frame,0.04); carro.position.y=0.40; carro.castShadow=true; g.add(carro);
+  for(const sz of [-1,1]){ const rod=new THREE.Mesh(new THREE.CylinderGeometry(0.028,0.028,0.20,14),MAT.chrome);
+    rod.rotation.x=Math.PI/2; rod.position.set(0,0.46,sz*0.28); g.add(rod); }
+  const col=new THREE.Mesh(new THREE.BoxGeometry(0.13,0.72,0.13),MAT.steel); col.position.y=-0.02; col.castShadow=true; g.add(col);
+  const brida=roundedBox(0.30,0.05,0.30,MAT.steelDk,0.02); brida.position.y=-0.40; brida.castShadow=true; g.add(brida);
+  const lb=labelSprite('Brazo del pórtico','#8A94A0'); lb.position.set(0,0.72,0); lb.scale.multiplyScalar(0.55); g.add(lb);
+  return g;
+}
+function buildColector(){
+  const g=new THREE.Group();
+  const bar=roundedBox(0.62,0.10,0.30,MAT.steel,0.03); bar.castShadow=true; g.add(bar);
+  for(let i=0;i<6;i++){ const x=-0.25+i*0.10;
+    const b=new THREE.Mesh(new THREE.CylinderGeometry(0.016,0.016,0.10,12),MAT.brass); b.position.set(x,-0.08,0); g.add(b); }
+  const ent=new THREE.Mesh(new THREE.CylinderGeometry(0.024,0.024,0.14,14),MAT.brass); ent.rotation.z=Math.PI/2; ent.position.set(0.36,0.02,0); g.add(ent);
+  const tap=new THREE.Mesh(new THREE.BoxGeometry(0.10,0.06,0.06),MAT.red); tap.position.set(-0.36,0.02,0); g.add(tap);
+  const lb=labelSprite('Colector de 6 bocas','#8A94A0'); lb.position.set(0,0.24,0); lb.scale.multiplyScalar(0.55); g.add(lb);
+  return g;
+}
+function buildVentosa(){
+  const g=new THREE.Group();
+  const pl=roundedBox(0.50,0.05,0.24,MAT.steelDk,0.02); pl.castShadow=true; g.add(pl);
+  const cups=new THREE.Group(); cups.name='cups';
+  for(let i=0;i<4;i++){ const x=-0.165+i*0.11;
+    const vast=new THREE.Mesh(new THREE.CylinderGeometry(0.014,0.014,0.09,12),MAT.chrome); vast.position.set(x,-0.07,0); cups.add(vast);
+    const cop=new THREE.Mesh(new THREE.CylinderGeometry(0.052,0.030,0.055,20,1,true),MAT.rubber);
+    cop.position.set(x,-0.14,0); cop.castShadow=true; cups.add(cop);
+    const lab=new THREE.Mesh(new THREE.TorusGeometry(0.050,0.008,10,24),MAT.rubber);
+    lab.rotation.x=Math.PI/2; lab.position.set(x,-0.166,0); cups.add(lab);
+  }
+  g.add(cups);
+  const lb=labelSprite('Cabezal de ventosas','#8A94A0'); lb.position.set(0,0.20,0); lb.scale.multiplyScalar(0.55); g.add(lb);
+  return g;
+}
+function buildEyector(){
+  const g=new THREE.Group();
+  const body=roundedBox(0.30,0.16,0.16,MAT.blue,0.03); body.castShadow=true; g.add(body);
+  const noz=new THREE.Mesh(new THREE.CylinderGeometry(0.026,0.040,0.16,16),MAT.brass); noz.rotation.z=Math.PI/2; noz.position.set(-0.20,0,0); g.add(noz);
+  const dif=new THREE.Mesh(new THREE.CylinderGeometry(0.020,0.048,0.20,16),MAT.steel); dif.rotation.z=-Math.PI/2; dif.position.set(0.22,0,0); g.add(dif);
+  const sil=new THREE.Mesh(new THREE.CylinderGeometry(0.055,0.055,0.09,18),MAT.rubber); sil.rotation.z=Math.PI/2; sil.position.set(0.36,0,0); g.add(sil);
+  const asp=new THREE.Mesh(new THREE.CylinderGeometry(0.022,0.022,0.14,14),MAT.brass); asp.position.set(0,-0.13,0); g.add(asp);
+  const flujo=new THREE.Mesh(new THREE.SphereGeometry(0.028,14,12),MAT.led.clone()); flujo.name='flujo'; flujo.position.set(0.05,0,0.10); g.add(flujo);
+  const lb=labelSprite('Generador de vacío','#8A94A0'); lb.position.set(0,0.22,0); lb.scale.multiplyScalar(0.55); g.add(lb);
+  return g;
+}
+function buildValvula(){
+  const g=new THREE.Group();
+  const body=roundedBox(0.24,0.16,0.14,MAT.steelDk,0.02); body.castShadow=true; g.add(body);
+  const sol=new THREE.Mesh(new THREE.BoxGeometry(0.09,0.13,0.13),MAT.dark); sol.position.set(0.16,0,0); g.add(sol);
+  const bob=new THREE.Mesh(new THREE.CylinderGeometry(0.018,0.018,0.07,12),MAT.chrome); bob.rotation.z=Math.PI/2; bob.position.set(-0.15,0,0); g.add(bob);
+  for(const sx of [-0.07,0.07]){ const p=new THREE.Mesh(new THREE.CylinderGeometry(0.016,0.016,0.09,12),MAT.brass); p.position.set(sx,-0.11,0); g.add(p); }
+  const lb=labelSprite('Válvula 3/2 de vacío','#8A94A0'); lb.position.set(0,0.22,0); lb.scale.multiplyScalar(0.55); g.add(lb);
+  return g;
+}
+function buildVacuostato(){
+  const g=new THREE.Group();
+  const body=roundedBox(0.20,0.18,0.12,MAT.frame,0.02); body.castShadow=true; g.add(body);
+  const disp=new THREE.Mesh(new THREE.PlaneGeometry(0.13,0.07),new THREE.MeshBasicMaterial({color:0x0b1116,toneMapped:false}));
+  disp.position.set(0,0.03,0.062); g.add(disp);
+  const led=new THREE.Mesh(new THREE.SphereGeometry(0.020,14,12),MAT.led.clone()); led.name='led'; led.position.set(0,-0.05,0.062); g.add(led);
+  const con=new THREE.Mesh(new THREE.CylinderGeometry(0.014,0.014,0.10,12),MAT.brass); con.position.set(0,-0.13,0); g.add(con);
+  const lb=labelSprite('Vacuostato (sensor)','#8A94A0'); lb.position.set(0,0.24,0); lb.scale.multiplyScalar(0.55); g.add(lb);
+  return g;
+}
+function buildPieza(){
+  const g=new THREE.Group();
+  const pan=new THREE.Mesh(new THREE.BoxGeometry(0.80,0.045,0.62),MAT.glass); pan.castShadow=true; pan.receiveShadow=true; g.add(pan);
+  const bor=new THREE.Mesh(new THREE.TorusGeometry(0.01,0.01,6,4),MAT.glass); bor.visible=false; g.add(bor);
+  for(const sx of [-1,1]) for(const sz of [-1,1]){
+    const c=new THREE.Mesh(new THREE.BoxGeometry(0.06,0.05,0.06),MAT.glass);
+    c.position.set(sx*0.37,0,sz*0.28); g.add(c);
+  }
+  const lb=labelSprite('Panel de vidrio','#8A94A0'); lb.position.set(0,0.20,0); lb.scale.multiplyScalar(0.55); g.add(lb);
+  return g;
+}
+
+/* ---------- célula fija de referencia (no se ensambla) ---------- */
+function buildCelda(){
+  const g=new THREE.Group();
+  const suelo=new THREE.Mesh(new THREE.BoxGeometry(3.4,0.10,4.6),MAT.bench);
+  suelo.position.set(0,-0.05,0.8); suelo.receiveShadow=true; g.add(suelo);
+  // pórtico: dos columnas y una viga que corre en Z
+  for(const z of [Z_PALE-0.85,Z_MESA+0.80]){
+    const col=new THREE.Mesh(new THREE.BoxGeometry(0.20,Y_VIGA,0.20),MAT.frame);
+    col.position.set(0,Y_VIGA/2,z); col.castShadow=true; g.add(col);
+    const pie=roundedBox(0.46,0.07,0.46,MAT.steelDk,0.02); pie.position.set(0,0.035,z); g.add(pie);
+  }
+  const viga=roundedBox(0.24,0.18,(Z_MESA+0.80)-(Z_PALE-0.85)+0.24,MAT.frame,0.03);
+  viga.position.set(0,Y_VIGA,(Z_PALE-0.85+Z_MESA+0.80)/2); viga.castShadow=true; g.add(viga);
+  const guia=new THREE.Mesh(new THREE.CylinderGeometry(0.030,0.030,(Z_MESA+0.60)-(Z_PALE-0.60),20),MAT.chrome);
+  guia.rotation.x=Math.PI/2; guia.position.set(0,Y_VIGA-0.16,(Z_PALE-0.60+Z_MESA+0.60)/2); g.add(guia);
+  // palé de almacén
+  const pale=new THREE.Group(); pale.position.set(0,0,Z_PALE);
+  const tab=roundedBox(1.02,0.10,0.84,MAT.wood,0.02); tab.position.y=0.75; tab.receiveShadow=true; pale.add(tab);
+  for(const sx of [-1,0,1]){ const t=new THREE.Mesh(new THREE.BoxGeometry(0.14,0.70,0.80),MAT.wood);
+    t.position.set(sx*0.40,0.35,0); t.castShadow=true; pale.add(t); }
+  for(let i=0;i<3;i++){ const v=new THREE.Mesh(new THREE.BoxGeometry(0.80,0.04,0.62),MAT.glass);
+    v.position.set(0,0.83+i*0.045,0); v.castShadow=true; pale.add(v); }
+  const lp=labelSprite('Almacén (siguiente panel)','#6d7d89'); lp.position.set(0,1.20,0.55); lp.scale.multiplyScalar(0.6); pale.add(lp);
+  g.add(pale);
+  // mesa de destino
+  const mesa=new THREE.Group(); mesa.position.set(0,0,Z_MESA);
+  const top=roundedBox(1.10,0.08,0.92,MAT.table,0.03); top.position.y=0.86; top.receiveShadow=true; mesa.add(top);
+  for(const sx of [-1,1]) for(const sz of [-1,1]){ const p=new THREE.Mesh(new THREE.CylinderGeometry(0.05,0.05,0.82,14),MAT.benchLeg);
+    p.position.set(sx*0.44,0.41,sz*0.36); p.castShadow=true; mesa.add(p); }
+  for(let i=0;i<4;i++){ const r=new THREE.Mesh(new THREE.CylinderGeometry(0.035,0.035,1.00,16),MAT.steel);
+    r.rotation.z=Math.PI/2; r.position.set(0,0.94,-0.30+i*0.20); mesa.add(r); }
+  const lm=labelSprite('Mesa de la línea de montaje','#6d7d89'); lm.position.set(0,1.30,0.60); lm.scale.multiplyScalar(0.6); mesa.add(lm);
+  g.add(mesa);
+  return g;
+}
+
+/* ---------- registro de piezas ---------- */
+const HUB=[0,0,0];
+const V3=(x,y,z)=>new THREE.Vector3(x,y,z);
+const H=(dx,dy,dz)=>V3(HUB[0]+dx,HUB[1]+dy,HUB[2]+dz);
+const PARTS=[
+  {id:'brazo',      name:'Brazo del pórtico',   build:()=>buildBrazo(),      home:H(0,2.05,Z_PALE),
+   note:'El carro corre por la guía de la viga; el brazo baja al palé y sube con la pieza. Todo lo que cuelga de él es masa que hay que acelerar.'},
+  {id:'colector',   name:'Colector de 6 bocas', build:()=>buildColector(),   home:H(0,1.52,Z_PALE),
+   note:'Reparte el vacío entre las ventosas. Su volumen interno y el del tubo entran en el volumen a evacuar: cuanto más grande, más tarda el agarre.'},
+  {id:'ventosa',    name:'Cabezal de ventosas', build:()=>buildVentosa(),    home:H(0,1.36,Z_PALE),
+   note:'Aquí se elige el tipo (plana o de fuelle), el diámetro y cuántas. El diámetro EFECTIVO del labio es menor que el exterior: es el que da la fuerza.'},
+  {id:'eyector',    name:'Generador de vacío',  build:()=>buildEyector(),    home:H(0.42,Y_VIGA-0.10,Z_PALE+0.55),
+   note:'Eyector Venturi o bomba de paletas. Un eyector nunca pasa del 85 % de la atmósfera LOCAL, y en este banco la atmósfera son 732 mbar, no 1 013.'},
+  {id:'valvula',    name:'Válvula 3/2 de vacío',build:()=>buildValvula(),    home:H(0.42,Y_VIGA-0.10,Z_PALE),
+   note:'Conmuta el vacío en 10 ms; ese retardo se suma al tiempo de agarre. Con antirretorno, es también lo que aísla la ventosa si se corta la energía.'},
+  {id:'vacuostato', name:'Vacuostato (sensor)', build:()=>buildVacuostato(), home:H(0.42,Y_VIGA-0.10,Z_PALE-0.55),
+   note:'Da la señal de «pieza agarrada» y, en el generador de ahorro de aire, apaga el eyector al llegar al vacío de consigna y lo reenciende 30 mbar por debajo.'},
+  {id:'pieza',      name:'Panel de vidrio',     build:()=>buildPieza(),      home:H(0,1.02,Z_PALE),
+   note:'La pieza manda: su masa, su rozamiento, su porosidad y lo que aguanta sin marcarse deciden todo el dimensionado.'},
+];
+const ORDER=PARTS.map(p=>p.id);
+const PART=Object.fromEntries(PARTS.map(p=>[p.id,p]));
+
+/* ---------- estado ---------- */
+const STAGE_S=0.5;
+const groups={}, ghosts={};
+let placed={}, selectedId=null, progress=0, simUnlocked=false;
+const tweens=[];
+const trayObjs=[], ghostObjs=[], scratch=[];
+const celda=buildCelda(); scene.add(celda);
+
+/* ---------- banco de trabajo + pedestales ---------- */
+const BENCH={cx:3.9, cz:0.9, top:1.0, cols:3, dx:1.0, dz:1.15, pedH:0.30};
+const N_ROWS=Math.ceil(PARTS.length/BENCH.cols);
+const PED_TOP_Y=BENCH.top+BENCH.pedH;
+function pedBaseXZ(i){ const c=i%BENCH.cols, r=(i/BENCH.cols)|0;
+  return { x:BENCH.cx+(c-(BENCH.cols-1)/2)*BENCH.dx, z:BENCH.cz+(r-(N_ROWS-1)/2)*BENCH.dz }; }
+const pedestals=[];
+(function buildStaging(){
+  const staging=new THREE.Group(); scene.add(staging);
+  const spanX=(BENCH.cols-1)*BENCH.dx+1.20, spanZ=(N_ROWS-1)*BENCH.dz+1.20;
+  const topSlab=roundedBox(spanX,0.16,spanZ,MAT.bench,0.05); topSlab.position.set(BENCH.cx,BENCH.top-0.08,BENCH.cz); topSlab.receiveShadow=true; staging.add(topSlab);
+  const legH=BENCH.top-0.08;
+  for(const sx of [-1,1]) for(const sz of [-1,1]){
+    const leg=new THREE.Mesh(new THREE.BoxGeometry(0.13,legH,0.13),MAT.benchLeg);
+    leg.position.set(BENCH.cx+sx*(spanX/2-0.18),legH/2,BENCH.cz+sz*(spanZ/2-0.18)); leg.castShadow=true; staging.add(leg);
+  }
+  const rail=roundedBox(spanX-0.1,0.05,spanZ-0.1,MAT.benchLeg,0.03); rail.position.set(BENCH.cx,0.18,BENCH.cz); staging.add(rail);
+  PARTS.forEach((p,i)=>{
+    const {x,z}=pedBaseXZ(i);
+    const pg=new THREE.Group(); pg.position.set(x,0,z);
+    const post=new THREE.Mesh(new THREE.CylinderGeometry(0.24,0.30,BENCH.pedH,28),MAT.ped); post.position.y=BENCH.top+BENCH.pedH/2; post.castShadow=true; pg.add(post);
+    const plate=new THREE.Mesh(new THREE.CylinderGeometry(0.34,0.34,0.05,40),MAT.pedTop); plate.position.y=PED_TOP_Y; plate.receiveShadow=true; pg.add(plate);
+    const ring=new THREE.Mesh(new THREE.TorusGeometry(0.345,0.02,12,44),MAT.pedRing.clone()); ring.rotation.x=Math.PI/2; ring.position.y=PED_TOP_Y+0.035; pg.add(ring);
+    const lb=labelSprite(p.name.split('(')[0].trim(),'#9fb2c0'); lb.position.set(0,BENCH.top+0.14,0.4); lb.scale.multiplyScalar(0.7); pg.add(lb);
+    const ck=labelSprite('✓ colocada','#43D9AD'); ck.position.set(0,PED_TOP_Y+0.42,0); ck.scale.multiplyScalar(0.66); ck.visible=false; pg.add(ck);
+    staging.add(pg);
+    pedestals[i]={g:pg, ring, plate, label:lb, check:ck};
+  });
+})();
+function resetPedestals(){ pedestals.forEach(pd=>{ pd.check.visible=false; if(pd.label)pd.label.visible=true;
+  pd.ring.material.color.set(0x2A9D8F); pd.ring.material.emissive.set(0x1e6f63); pd.ring.material.emissiveIntensity=0.5; }); }
+function markPedestalDone(i){ const pd=pedestals[i]; if(!pd)return; pd.check.visible=true; if(pd.label)pd.label.visible=false;
+  pd.ring.material.color.set(0x43D9AD); pd.ring.material.emissive.set(0x2f9e86); pd.ring.material.emissiveIntensity=0.9; }
+
+function ghostMat(){ return new THREE.MeshStandardMaterial({color:0x4FD1C5, transparent:true, opacity:0.3, metalness:0.0, roughness:0.6, emissive:0x2A9D8F, emissiveIntensity:0.6, depthWrite:false}); }
+function makeGhost(part){
+  const gh=part.build(); const gm=ghostMat();
+  gh.traverse(o=>{ if(o.isMesh){ o.material=gm; o.castShadow=false; o.receiveShadow=false; } });
+  gh.position.copy(part.home); gh.userData={kind:'slot',id:part.id,gm,homeX:part.home.x,shake:0,fading:false}; return gh;
+}
+function showGhostFor(id){
+  ghostObjs.forEach(gh=>{ if(gh.parent) scene.remove(gh); });
+  if(id && !placed[id] && ghosts[id]){ const gh=ghosts[id]; gh.userData.fading=false; gh.userData.gm.opacity=0.3; gh.visible=true; scene.add(gh); }
+}
+function updateLabels(){ pedestals.forEach((pd,i)=>{ if(pd&&pd.label) pd.label.visible=!placed[PARTS[i].id]; }); }
+function makePart(part,i){
+  const g=part.build(); g.scale.setScalar(STAGE_S);
+  const {x,z}=pedBaseXZ(i);
+  const box=new THREE.Box3().setFromObject(g);
+  const baseY=PED_TOP_Y+0.03-box.min.y;
+  g.position.set(x,baseY,z);
+  Object.assign(g.userData,{kind:'part',id:part.id,baseY,phase:i*1.7,lift:0});
+  return g;
+}
+function initAssembly(){
+  [...trayObjs,...ghostObjs,...scratch].forEach(o=>scene.remove(o));
+  trayObjs.length=ghostObjs.length=scratch.length=tweens.length=0;
+  placed={}; selectedId=null; progress=0; simUnlocked=false;
+  cicloOn=false; cFase=0; cT=0; armDrop=0; headZ=0; pieceHeld=false; pvNow=0; ciclos=0;
+  pieceZ=PART.pieza.home.z; pieceY=PART.pieza.home.y;
+  resetPedestals();
+  PARTS.forEach((p,i)=>{
+    const g=makePart(p,i); groups[p.id]=g; scene.add(g); trayObjs.push(g);
+    const gh=makeGhost(p); ghosts[p.id]=gh; ghostObjs.push(gh);
+  });
+  showGhostFor(null);
+  updateLabels(); renderChecklist(); renderProg();
+  syncCtrlbar();
+  if(mode!=='ensamble') setMode('ensamble');
+  S.moveTo([4.6,3.2,5.4],[0.4,1.45,0.5],1.2);
+  el('asmStatus').innerHTML='Toca una <b>pieza</b> del banco (derecha) y luego su <b>hueco luminoso</b>.';
+}
+
+/* ---------- selección / colocación ---------- */
+function selectPart(id){
+  if(placed[id]) return;
+  selectedId=id;
+  updateLabels(); showGhostFor(id);
+  el('asmStatus').innerHTML=`▶ <b style="color:var(--accent2)">${PART[id].name}</b> seleccionada — ahora toca su <b>hueco luminoso</b>.`;
+  synth.beep(660,0.06,0.05);
+  renderChecklist();
+}
+function deselect(){ selectedId=null; updateLabels(); showGhostFor(null); renderChecklist(); }
+function placePart(id){
+  const p=PART[id], g=groups[id], gh=ghosts[id];
+  tweens.push({obj:g, fromP:g.position.clone(), toP:p.home.clone(), fromS:g.scale.x, toS:1, t:0, dur:0.9, roty0:g.rotation.y, onDone:()=>{ g.rotation.set(0,0,0); }});
+  if(gh){ gh.userData.fading=true; }
+  g.userData.kind='placed';
+  placed[id]=true; selectedId=null; progress++;
+  markPedestalDone(ORDER.indexOf(id));
+  updateLabels();
+  synth.beep(880,0.08,0.05); setTimeout(()=>synth.beep(1174,0.1,0.05),110);
+  showToast(`<span style="color:var(--good)">✔ ${p.name} colocada.</span><br><span style="color:var(--dim);font-size:11px">${p.note}</span>`);
+  renderChecklist(); renderProg();
+  if(progress>=PARTS.length) finishAssembly();
+  else el('asmStatus').innerHTML=`Bien. Faltan <b>${PARTS.length-progress}</b>. Toca otra pieza y luego su hueco.`;
+}
+function wrongSlot(slotId){
+  synth.beep(180,0.16,0.06);
+  const g=ghosts[slotId]; if(g) g.userData.shake=0.5;
+  showToast(`<span style="color:var(--bad)">✗ Ahí no va esa pieza.</span><br><span style="color:var(--dim);font-size:11px">Ese hueco es para: ${PART[slotId].name}.</span>`);
+}
+function finishAssembly(){
+  simUnlocked=true;
+  syncCtrlbar();
+  el('asmStatus').innerHTML='<span style="color:var(--good)">✅ Cabezal de vacío montado.</span> Ahora dimensiona el sistema (arriba).';
+  showToast('<span style="color:var(--good)">✅ Cabezal montado.</span><br><span style="color:var(--dim);font-size:11px">Cambia de modo arriba: fuerza y altitud, circuito de vacío, proyecto y reto de dimensionado.</span>',4200);
+  synth.beep(1046,0.14,0.06); setTimeout(()=>synth.beep(1568,0.16,0.06),150);
+  S.moveTo([4.6,3.2,5.4],[0.4,1.45,0.5],1.4); S.setCinematicIdle(true);
+}
+
+/* ---------- picker ---------- */
+function tagged(obj){ let o=obj; while(o){ if(o.userData && o.userData.kind) return o; o=o.parent; } return null; }
+pickerFor(scene,S.camera,mount,(hit)=>{
+  const t=hit?tagged(hit.object):null;
+  if(!t){ if(selectedId) deselect(); return; }
+  if(t.userData.kind==='part'){ selectPart(t.userData.id); }
+  else if(t.userData.kind==='slot'){
+    if(!selectedId){ el('asmStatus').innerHTML='Primero toca una <b>pieza</b> del banco (derecha) →'; synth.beep(300,0.08,0.05); }
+    else if(selectedId===t.userData.id){ placePart(selectedId); }
+    else { wrongSlot(t.userData.id); }
+  }
+  else if(t.userData.kind==='placed'){ const p=PART[t.userData.id]; if(p) showToast(`<b>${p.name}</b><br><span style="color:var(--dim);font-size:11px">${p.note}</span>`); }
+});
+
+/* ---------- checklist / progreso ---------- */
+function renderChecklist(){
+  el('checklist').innerHTML=PARTS.map(p=>{
+    const done=placed[p.id], sel=selectedId===p.id;
+    const mk=done?'<span style="color:var(--good)">●</span>':sel?'<span style="color:var(--accent2)">◉</span>':'<span style="color:#48555f">○</span>';
+    const c=done?'color:var(--good)':sel?'color:var(--accent2)':'color:var(--dim)';
+    return `<div style="${c}">${mk} ${p.name}</div>`;
+  }).join('');
+}
+function renderProg(){ el('p_prog').textContent=`${progress} / ${PARTS.length}`; el('p_prog').className=progress>=PARTS.length?'good':''; }
+
+/* ---------- pizarrón (canvas 1024×768) ---------- */
+const boardG=new THREE.Group();
+const bFrame=roundedBox(1.66,1.26,0.06,MAT.panel,0.04); bFrame.position.set(0,0,-0.02); bFrame.castShadow=true; boardG.add(bFrame);
+const bLeg=new THREE.Mesh(new THREE.CylinderGeometry(0.05,0.05,1.7,16),MAT.panel); bLeg.position.set(0,-1.42,0); bLeg.castShadow=true; boardG.add(bLeg);
+const bCv=document.createElement('canvas'); bCv.width=1024; bCv.height=768;
+const bCx=bCv.getContext('2d');
+const bTex=new THREE.CanvasTexture(bCv); bTex.colorSpace=THREE.SRGBColorSpace; bTex.minFilter=THREE.LinearFilter; bTex.generateMipmaps=false;
+const board=new THREE.Mesh(new THREE.PlaneGeometry(1.56,1.16),new THREE.MeshBasicMaterial({map:bTex,toneMapped:false}));
+board.position.set(0,0,0.015); boardG.add(board);
+boardG.position.set(-3.1,2.15,0.4); boardG.rotation.y=0.32;
+scene.add(boardG);
+
+function bg(){ bCx.clearRect(0,0,1024,768); bCx.fillStyle='#0b1116'; bCx.fillRect(0,0,1024,768); }
+function line(x1,y1,x2,y2,color,w=3){ bCx.strokeStyle=color; bCx.lineWidth=w; bCx.beginPath(); bCx.moveTo(x1,y1); bCx.lineTo(x2,y2); bCx.stroke(); }
+function labelAt(x,y,text,color='#dfe7ee',size=20,align='left'){ bCx.fillStyle=color; bCx.font=`${size}px 'Segoe UI',sans-serif`; bCx.textAlign=align; bCx.fillText(text,x,y); }
+function wrapText(x,y,text,color,size,maxW,lh){
+  lh=lh||size*1.35;
+  bCx.fillStyle=color; bCx.font=`${size}px 'Segoe UI',sans-serif`; bCx.textAlign='left';
+  const words=text.split(' '); let cur='', yy=y;
+  for(const w of words){
+    const test=cur?cur+' '+w:w;
+    if(bCx.measureText(test).width>maxW && cur){ bCx.fillText(cur,x,yy); cur=w; yy+=lh; }
+    else cur=test;
+  }
+  if(cur) bCx.fillText(cur,x,yy);
+  return yy;
+}
+function arrow2(x0,y0,x1,y1,color,w){
+  w=w||5; line(x0,y0,x1,y1,color,w);
+  const a=Math.atan2(y1-y0,x1-x0), L=18, s=8;
+  bCx.fillStyle=color; bCx.beginPath();
+  bCx.moveTo(x1,y1);
+  bCx.lineTo(x1-L*Math.cos(a)+s*Math.sin(a), y1-L*Math.sin(a)-s*Math.cos(a));
+  bCx.lineTo(x1-L*Math.cos(a)-s*Math.sin(a), y1-L*Math.sin(a)+s*Math.cos(a));
+  bCx.closePath(); bCx.fill();
+}
+function ejes(ox,oy,w,h,xmax,ymax,dx,tx,ty){
+  line(ox,oy,ox+w,oy,'#3a4650',2); line(ox,oy,ox,oy-h,'#3a4650',2);
+  for(let i=0;i<=4;i++){ const y=oy-h*i/4; if(i>0) line(ox,y,ox+w,y,'#1b242c',1);
+    labelAt(ox-8,y+5,f1(ymax*i/4,0),'#6d7d89',13,'right'); }
+  for(let i=0;i<=4;i++){ const x=ox+w*i/4; labelAt(x,oy+20,f1(xmax*i/4,dx),'#6d7d89',13,'center'); }
+  labelAt(ox+w/2,oy+42,tx,'#8A94A0',14,'center');
+  bCx.save(); bCx.translate(ox-58,oy-h/2); bCx.rotate(-Math.PI/2); labelAt(0,0,ty,'#8A94A0',14,'center'); bCx.restore();
+}
+function curva(ox,oy,w,h,pts,xmax,ymax,color,wd){
+  if(!pts.length) return;
+  bCx.strokeStyle=color; bCx.lineWidth=wd||3; bCx.beginPath();
+  pts.forEach((p,i)=>{ const x=ox+w*clamp(p.t/xmax,0,1), y=oy-h*clamp(p.pv/ymax,0,1);
+    if(i===0)bCx.moveTo(x,y); else bCx.lineTo(x,y); });
+  bCx.stroke();
+}
+const MB=' mbar';
+
+/* ---------- nombres cortos para la interfaz ---------- */
+const CORTO={vidrio:'Vidrio', carton:'Cartón', chapa:'Chapa', plastico:'Plástico', bidon:'Bidón'};
+const VCORTO={plana30:'Plana Ø30', plana50:'Plana Ø50', fuelle40:'Fuelle Ø40', fuelle30:'Fuelle Ø30'};
+const FCORTO={eyector:'Eyector', grande:'Alto caudal', asc:'Ahorro aire', bomba:'Bomba'};
+const CASO={vert:'Vertical (la ventosa tira hacia arriba)', horiz:'Horizontal (sujeta el rozamiento)', lat:'Lateral (ventosa vertical, cuelga del rozamiento)'};
+const LETRA={okSuperficie:'s', okFuerza:'f', okMarca:'m', okTiempo:'t', okFalla:'x', okConsumo:'e'};
+const LETNOM={s:'no cabe / no sella', f:'falta fuerza', m:'marca la pieza', t:'tarda de más', x:'cae al faltar la energía', e:'gasta de más'};
+
+/* ---------- helpers de cuerpo (fuera del MOTOR sellado) ---------- */
+// Fuerza que un eyector típico (85 % de la atmósfera local) puede dar con n ventosas.
+const PV_TIPICO=0.85;
+function fDisp(kv,n){ return n*(PV_TIPICO*P_ATM)*100*AREA(VENTOSAS[kv].dEf); }
+
+// Reintegra el circuito con el mismo derivP y el mismo paso del MOTOR para poder DIBUJAR p(t).
+// El harness comprueba que sus cifras coinciden con las de circuito().
+function traza(sc,cfg){
+  const c=circuito(sc,cfg);
+  const v=VENTOSAS[cfg.ventosa], f=FUENTES[cfg.fuente], n=cfg.numero;
+  const V=n*(v.vol+f.vtubo)/1000, s0=f.s0/60, pvMax=f.vacPct*P_ATM, fugaNls=n*sc.fuga/60;
+  const pvReq=vacioReq(sc,cfg.ventosa,n);
+  const dtAg=Math.max(DT_SIM,(isFinite(c.tAgarre)?c.tAgarre:T_TOPE)/180);
+  const dtSu=Math.max(DT_SIM,Math.max(sc.tSujeta,0.05)/180);
+  const dtRe=Math.max(DT_SIM,Math.max(c.tRet,0.05)/180);
+  const ag=[], su=[], re=[];
+  let p=P_ATM, t=0, tAg=Infinity, last=-1;
+  while(t<T_TOPE){
+    if(t-last>=dtAg){ ag.push({t,pv:P_ATM-p}); last=t; }
+    if(P_ATM-p>=pvReq){ tAg=t+T_VALV; break; }
+    p+=derivP(p,V,s0,pvMax,fugaNls,true)*DT_SIM; t+=DT_SIM;
+  }
+  ag.push({t,pv:P_ATM-p});
+  if(!isFinite(tAg)) return {alcanza:false,pvReq,pvMax,tAg:Infinity,ag,su,re,tSu:sc.tSujeta,tRe:0,pvMin:0,pvPico:0,duty:1,pvEq:c.pvEq};
+  let pvMin=P_ATM-p, pvPico=P_ATM-p, ts=0, tOnS=0, bomb=true; last=-1;
+  while(ts<sc.tSujeta){
+    const pv=P_ATM-p;
+    if(f.asc){ if(bomb&&pv>=pvReq+HIST_ASC) bomb=false; else if(!bomb&&pv<=pvReq) bomb=true; }
+    if(ts-last>=dtSu){ su.push({t:ts,pv}); last=ts; }
+    p+=derivP(p,V,s0,pvMax,fugaNls,bomb)*DT_SIM;
+    ts+=DT_SIM; if(bomb) tOnS+=DT_SIM;
+    const pv2=P_ATM-p; if(pv2<pvMin)pvMin=pv2; if(pv2>pvPico)pvPico=pv2;
+  }
+  su.push({t:ts,pv:P_ATM-p});
+  const duty=sc.tSujeta>0?tOnS/sc.tSujeta:1;
+  let tRet=0; const pv0=P_ATM-p;
+  if(!f.ret){ tRet=T_COLAPSO; for(let q=0;q<=16;q++) re.push({t:q/16*T_COLAPSO, pv:pv0*(1-q/16)}); }
+  else if(fugaNls<=0){ tRet=T_TOPE_F; for(let q=0;q<=16;q++) re.push({t:q/16*T_TOPE_F, pv:pv0}); }
+  else { let pf=p; last=-1;
+    while(tRet<T_TOPE_F && P_ATM-pf>=pvReq){ if(tRet-last>=dtRe){ re.push({t:tRet,pv:P_ATM-pf}); last=tRet; }
+      pf+=derivP(pf,V,s0,pvMax,fugaNls,false)*DT_SIM; tRet+=DT_SIM; }
+    re.push({t:tRet,pv:P_ATM-pf}); }
+  return {alcanza:true,pvReq,pvMax,tAg,ag,su,re,tSu:sc.tSujeta,tRe:tRet,pvMin,pvPico,duty,pvEq:c.pvEq};
+}
+
+// Por qué un valor de un eje no es la respuesta, con los otros dos ejes en su óptimo.
+function whyEje(sc,eje,valor){
+  const base=OPT(sc);
+  if(!base) return 'En este banco no hay ninguna combinación válida para esta estación.';
+  const cfg=Object.assign({},base,{[eje]:valor});
+  const r=evalua(sc,cfg);
+  if(!r.valido) return whyCfg(sc,cfg);
+  const val=ejeSol(sc,eje);
+  const cm=val.length?Math.min.apply(null,val.map(x=>costeCfg(Object.assign({},base,{[eje]:x})))):Infinity;
+  return 'Cumple los seis criterios, pero el sistema sale a '+costeCfg(cfg)+' u.c. y en este mismo eje hay una opción válida de '+cm+' u.c.: sobredimensionar también es un error de proyecto.';
+}
+
+/* ---------- altitud del banco (parámetro global) ---------- */
+let ALT='toluca';
+function altDef(){ return ALTITUDES[Math.max(0,ALTITUDES.map(a=>a.k).indexOf(ALT))]; }
+function aplicaAlt(){ setAltitud(altDef().h); }
+
+/* ---------- estado de los modos ---------- */
+const FZ={k:0, ventosa:'plana50', numero:2};
+const CI={k:0, ventosa:'plana50', numero:4, fuente:'eyector'};
+const PR={k:0, fuente:'eyector'};
+
+/* =================== ② FUERZA Y ALTITUD =================== */
+function drawFuerza(){
+  const sc=POOL[FZ.k], v=VENTOSAS[FZ.ventosa], n=FZ.numero;
+  const F=fuerzaReq(sc), pvReq=vacioReq(sc,FZ.ventosa,n), fD=fDisp(FZ.ventosa,n);
+  const caben=cabenVentosas(sc,FZ.ventosa,n);
+  bg();
+  labelAt(40,44,'Fuerza de sujeción: qué vacío hace falta y qué vacío hay','#8fd1ff',25);
+  labelAt(40,74,sc.nom+' — '+sc.mat,'#dfe7ee',19);
+
+  // --- diagrama de cuerpo libre ---
+  const cx=225, cy=250;
+  labelAt(40,116,CASO[sc.caso],'#f4c95d',17);
+  if(sc.caso==='lat'){
+    // ventosa vertical a la izquierda, pieza colgando por rozamiento
+    bCx.fillStyle='#243139'; bCx.fillRect(cx-120,cy-90,26,180);
+    bCx.fillStyle='#3d5563'; bCx.fillRect(cx-94,cy-55,34,110);
+    bCx.fillStyle='#4c6675'; bCx.fillRect(cx-60,cy-80,150,160);
+    arrow2(cx-70,cy,cx-135,cy,'#4FD1C5',6);  labelAt(cx-190,cy-8,'F = Δp·A·n','#4FD1C5',16);
+    arrow2(cx+15,cy+85,cx+15,cy+155,'#d64545',6); labelAt(cx+28,cy+130,'m·g','#d64545',16);
+    arrow2(cx-52,cy-85,cx-52,cy-150,'#43D9AD',6); labelAt(cx-46,cy-125,'μ·F','#43D9AD',16);
+  } else if(sc.caso==='horiz'){
+    bCx.fillStyle='#243139'; bCx.fillRect(cx-90,cy-110,180,24);
+    bCx.fillStyle='#3d5563'; bCx.fillRect(cx-40,cy-86,80,30);
+    bCx.fillStyle='#4c6675'; bCx.fillRect(cx-115,cy-56,230,52);
+    arrow2(cx,cy-58,cx,cy-125,'#4FD1C5',6); labelAt(cx+12,cy-100,'F = Δp·A·n','#4FD1C5',16);
+    arrow2(cx,cy+2,cx,cy+70,'#d64545',6); labelAt(cx+12,cy+50,'m·g','#d64545',16);
+    arrow2(cx-118,cy-30,cx-190,cy-30,'#f4c95d',6); labelAt(cx-195,cy-46,'m·a','#f4c95d',16);
+    arrow2(cx+40,cy-30,cx+112,cy-30,'#43D9AD',6); labelAt(cx+60,cy-46,'μ·F','#43D9AD',16);
+  } else {
+    bCx.fillStyle='#243139'; bCx.fillRect(cx-90,cy-130,180,24);
+    bCx.fillStyle='#3d5563'; bCx.fillRect(cx-40,cy-106,80,30);
+    bCx.fillStyle='#4c6675'; bCx.fillRect(cx-115,cy-76,230,52);
+    arrow2(cx,cy-78,cx,cy-145,'#4FD1C5',6); labelAt(cx+12,cy-120,'F = Δp·A·n','#4FD1C5',16);
+    arrow2(cx,cy-18,cx,cy+60,'#d64545',6); labelAt(cx+12,cy+40,'m·(g + a)','#d64545',16);
+  }
+  labelAt(40,cy+140,`m = ${f1(sc.m,1)} kg · μ = ${f1(sc.mu,2)} · a = ${f1(sc.a,1)} m/s² · S = ${f1(sc.sf,1)}`,'#8A94A0',16);
+  const formu = sc.caso==='vert' ? 'F = m·(g + a)·S'
+              : sc.caso==='horiz' ? 'F = m·(g + a/μ)·S'
+              : 'F = (m/μ)·(g + a)·S';
+  labelAt(40,cy+166,formu+' = '+f1(F,2)+' N','#f4c95d',18);
+
+  // --- columna derecha: reparto y vacío requerido ---
+  let y=126; const X=480;
+  labelAt(X,y,'Reparto entre ventosas','#8fd1ff',20); y+=32;
+  labelAt(X,y,`${VCORTO[FZ.ventosa]} × ${n} · Ø efectivo ${v.dEf} mm`,'#dfe7ee',18); y+=26;
+  labelAt(X,y,`A efectiva = π·d²/4 = ${f1(AREA(v.dEf)*1e4,2)} cm² por ventosa`,'#8A94A0',16); y+=26;
+  labelAt(X,y,`Δp requerido = F / (n·A) = ${f1(pvReq,0)}${MB}`,'#f4c95d',18); y+=34;
+  labelAt(X,y,'Vacío disponible en este banco','#8fd1ff',20); y+=30;
+  labelAt(X,y,`${altDef().nom} · ${f1(altDef().h,0)} m · atmósfera ${f1(P_ATM,1)}${MB}`,'#dfe7ee',17); y+=26;
+  labelAt(X,y,`Un eyector llega al 85 % de ESA atmósfera = ${f1(PV_TIPICO*P_ATM,0)}${MB}`,'#8A94A0',16); y+=26;
+  labelAt(X,y,`Fuerza que da: ${f1(fD,1)} N`,fD>=F?'#43D9AD':'#d64545',19); y+=30;
+  if(!caben){ y=wrapText(X,y,`✗ No caben ${n} ventosas de Ø ${v.dExt} mm en la zona útil de ${sc.util[0]} × ${sc.util[1]} mm (hacen falta ${SEP_VENT} mm de separación).`,'#d64545',16,500,21)+24; }
+  else if(fD>=F) y=wrapText(X,y,`✔ Sobra un ${f1(100*(fD/F-1),0)} % de fuerza sobre lo que exige el factor de seguridad.`,'#43D9AD',16,500,21)+24;
+  else y=wrapText(X,y,`✗ Faltan ${f1(F-fD,1)} N: hay que subir de diámetro, poner más ventosas o cambiar de generador.`,'#d64545',16,500,21)+24;
+
+  // --- barras: fuerza disponible por altitud ---
+  const ox=110, oy=700, w=860, h=170, hSim=H_SIM;
+  const fs=ALTITUDES.map(A=>{ setAltitud(A.h); return {nom:A.nom, h:A.h, f:fDisp(FZ.ventosa,n), p:P_ATM}; });
+  setAltitud(hSim);
+  const ymax=Math.max(F,Math.max.apply(null,fs.map(o=>o.f)))*1.18;
+  labelAt(40,514,'La misma ventosa da menos fuerza cuanto más alto está el taller','#8fd1ff',19);
+  ejes(ox,oy,w,h,4,ymax,0,'','N');
+  bCx.clearRect(ox-60,oy+4,w+80,26);
+  fs.forEach((o,i)=>{
+    const bw=w/fs.length*0.56, x=ox+w*(i+0.5)/fs.length-bw/2;
+    const bh=h*clamp(o.f/ymax,0,1);
+    bCx.fillStyle=o.f>=F?'#2A9D8F':'#8a3b3b'; bCx.fillRect(x,oy-bh,bw,bh);
+    labelAt(x+bw/2,oy+20,o.nom,'#8A94A0',13,'center');
+    labelAt(x+bw/2,oy+38,f1(o.p,0)+MB,'#5d6d79',12,'center');
+    labelAt(x+bw/2,oy-bh-9,f1(o.f,0)+' N',o.f>=F?'#43D9AD':'#d64545',14,'center');
+  });
+  const yF=oy-h*clamp(F/ymax,0,1);
+  line(ox,yF,ox+w,yF,'#d64545',2);
+  labelAt(ox+w-6,yF-8,`F necesaria = ${f1(F,1)} N`,'#d64545',15,'right');
+  labelAt(40,758,'⚠ El 85 % es el rendimiento típico de un eyector Venturi; la bomba de paletas de este catálogo llega al 92 %. La atmósfera se calcula con la fórmula barométrica de ISO 2533.','#f4c95d',13);
+  bTex.needsUpdate=true;
+}
+
+/* =================== ③ CIRCUITO DE VACÍO =================== */
+function cfgCI(){ return {ventosa:CI.ventosa, numero:CI.numero, fuente:CI.fuente}; }
+function drawCircuito(){
+  const sc=POOL[CI.k], f=FUENTES[CI.fuente];
+  const r=evalua(sc,cfgCI()), tz=traza(sc,cfgCI());
+  bg();
+  labelAt(40,42,'Circuito de vacío: cuánto tarda, cuánto gasta y qué pasa si falta la energía','#8fd1ff',23);
+  labelAt(40,72,`${sc.nom} · ${VCORTO[CI.ventosa]} × ${CI.numero} · ${FUENTES[CI.fuente].nom}`,'#dfe7ee',18);
+
+  const ymax=Math.max(r.pvReq,tz.pvPico,r.pvEq,100)*1.20;
+  // --- panel A: agarre ---
+  const AX=100, AY=390, AW=350, AH=210;
+  labelAt(AX,AY-AH-24,'Evacuación (agarre)','#8fd1ff',18);
+  const xmaxA=Math.max(0.010,(isFinite(tz.tAg)?tz.tAg:T_TOPE))*1000;
+  ejes(AX,AY,AW,AH,xmaxA,ymax,0,'ms','mbar de vacío');
+  const yReq=AY-AH*clamp(r.pvReq/ymax,0,1);
+  line(AX,yReq,AX+AW,yReq,'#f4c95d',2); labelAt(AX+AW-4,yReq-7,'Δp requerido '+f1(r.pvReq,0),'#f4c95d',13,'right');
+  const yEq=AY-AH*clamp(r.pvEq/ymax,0,1);
+  line(AX,yEq,AX+AW,yEq,'#4a5a66',2); labelAt(AX+4,yEq-7,'equilibrio '+f1(r.pvEq,0),'#7a8a96',13);
+  curva(AX,AY,AW,AH,tz.ag.map(p=>({t:p.t*1000,pv:p.pv})),xmaxA,ymax,'#4FD1C5',3);
+  if(isFinite(tz.tAg)) labelAt(AX+AW/2,AY-AH-2,`t agarre = ${f1(tz.tAg*1000,1)} ms (incluye ${f1(T_VALV*1000,0)} ms de válvula)`,'#43D9AD',14,'center');
+  else labelAt(AX+AW/2,AY-AH-2,'Nunca llega al vacío requerido','#d64545',15,'center');
+
+  // --- panel B: sujeción + corte de energía ---
+  const BX=610, BY=390, BW=350, BH=210;
+  labelAt(BX,BY-BH-24,'Sujeción y corte de energía','#8fd1ff',18);
+  const xmaxB=Math.max(0.2,sc.tSujeta+Math.min(tz.tRe,T_TOPE_F));
+  ejes(BX,BY,BW,BH,xmaxB,ymax,1,'s','mbar de vacío');
+  const yReqB=BY-BH*clamp(r.pvReq/ymax,0,1);
+  line(BX,yReqB,BX+BW,yReqB,'#f4c95d',2);
+  if(tz.alcanza){
+    curva(BX,BY,BW,BH,tz.su,xmaxB,ymax,'#4FD1C5',3);
+    curva(BX,BY,BW,BH,tz.re.map(p=>({t:p.t+sc.tSujeta,pv:p.pv})),xmaxB,ymax,f.ret?'#43D9AD':'#d64545',3);
+    const xc=BX+BW*clamp(sc.tSujeta/xmaxB,0,1);
+    line(xc,BY,xc,BY-BH,'#8a5a2b',2);
+    labelAt(xc+5,BY-BH+16,'⚡ corte','#f4c95d',13);
+    labelAt(BX+4,BY-BH-2,`retención ${f1(Math.min(tz.tRe,T_TOPE_F),2)} s`+(sc.exigeFalla?` / se piden ${f1(sc.tFalla,2)} s`:' (no se exige)'),f.ret?'#43D9AD':'#d64545',14);
+  } else labelAt(BX+BW/2,BY-BH/2,'Sin agarre no hay sujeción','#7a8a96',17,'center');
+
+  // --- lectura ---
+  let y=470;
+  labelAt(40,y,`Volumen a evacuar V = ${CI.numero} × (${f1(VENTOSAS[CI.ventosa].vol,1)} + ${f1(f.vtubo,1)}) cm³ = ${f1(r.V,3)} l`,'#dfe7ee',17); y+=27;
+  labelAt(40,y,`Fuga de la pieza = ${f1(CI.numero*sc.fuga,1)} Nl/min a ${f1(P_FUGA_REF,0)}${MB} · el equilibrio queda en ${f1(r.pvEq,0)}${MB}`,'#dfe7ee',17); y+=27;
+  labelAt(40,y,`Ciclo de trabajo del eyector: ${f1(r.duty*100,0)} % — aire ${f1(r.aire,2)} Nl · energía ${f1(r.energia,4)} Wh de ${f1(sc.eMax,2)} Wh`,'#dfe7ee',17); y+=34;
+  const crit=CRIT.map(c=>`${r[c.k]?'✔':'✗'} ${c.nom}`);
+  crit.forEach((t,i)=>{ const c=CRIT[i]; labelAt(40+(i%2)*500,y+((i/2)|0)*26,t,r[c.k]?'#43D9AD':'#d64545',16); });
+  y+=3*26+16;
+  if(r.valido) wrapText(40,y,`✔ Válida. Coste del sistema: ${r.coste} u.c.` ,'#43D9AD',17,940,22);
+  else wrapText(40,y,'✗ '+whyCfg(sc,cfgCI()),'#d64545',17,940,22);
+  labelAt(40,752,'⚠ El modelo integra V·dp/dt = −p·S(pv) + p₀·Q(pv) con paso de 0,5 ms: caudal de bombeo lineal decreciente y fuga laminar proporcional al vacío.','#f4c95d',13);
+  bTex.needsUpdate=true;
+}
+
+/* =================== ④ PROYECTO =================== */
+function drawProyecto(){
+  const sc=POOL[PR.k];
+  const g=GOOD(sc), cm=costeMin(sc), opt=OPT(sc);
+  bg();
+  labelAt(40,42,'Proyecto: la malla de decisión de esta estación','#8fd1ff',25);
+  labelAt(40,72,`${sc.nom} — generador: ${FUENTES[PR.fuente].nom}`,'#dfe7ee',18);
+  const GX=250, GY=150, CW=88, CH=52;
+  NUMS.forEach((n,j)=> labelAt(GX+CW*j+CW/2,GY-12,'× '+n,'#8A94A0',16,'center'));
+  VENTK.forEach((kv,i)=>{
+    labelAt(GX-14,GY+CH*i+CH/2+6,VCORTO[kv],'#8A94A0',15,'right');
+    NUMS.forEach((n,j)=>{
+      const r=evalua(sc,{ventosa:kv,numero:n,fuente:PR.fuente});
+      const x=GX+CW*j, y=GY+CH*i;
+      bCx.fillStyle=r.valido?'#1d5c52':'#2a2023'; bCx.fillRect(x+2,y+2,CW-4,CH-4);
+      bCx.strokeStyle='#0b1116'; bCx.lineWidth=2; bCx.strokeRect(x+2,y+2,CW-4,CH-4);
+      if(r.valido){ labelAt(x+CW/2,y+CH/2+2,'✔','#43D9AD',20,'center');
+        labelAt(x+CW/2,y+CH-8,costeCfg({ventosa:kv,numero:n,fuente:PR.fuente})+' u.c.','#8fd1ff',12,'center'); }
+      else labelAt(x+CW/2,y+CH/2+7,LETRA[r.primerFallo],'#c0392b',22,'center');
+    });
+  });
+  let y=GY+CH*4+40;
+  labelAt(40,y,'Primer criterio que falla:','#8A94A0',16);
+  Object.keys(LETNOM).forEach((L,i)=>{ labelAt(230+(i%3)*250,y+((i/3)|0)*24,`${L} = ${LETNOM[L]}`,'#7a8a96',15); });
+  y+=64;
+  labelAt(40,y,`Con este generador: ${VENTK.length*NUMS.length} combinaciones, ${VENTK.flatMap(kv=>NUMS.map(n=>evalua(sc,{ventosa:kv,numero:n,fuente:PR.fuente}))).filter(r=>r.valido).length} válidas.`,'#dfe7ee',18); y+=28;
+  labelAt(40,y,`En TODO el catálogo (${CFGS.length} combinaciones): ${g.length} válidas.`,'#dfe7ee',18); y+=28;
+  if(opt){
+    labelAt(40,y,`Solución de coste mínimo: ${VCORTO[opt.ventosa]} × ${opt.numero} + ${FUENTES[opt.fuente].nom} = ${cm} u.c.`,'#43D9AD',19); y+=30;
+    const ro=evalua(sc,opt);
+    labelAt(40,y,`Δp requerido ${f1(ro.pvReq,0)}${MB} · alcanzado ${f1(ro.pvEq,0)}${MB} · agarre ${f1(ro.tAgarre*1000,1)} ms · ${f1(ro.energia,4)} Wh/ciclo`,'#8A94A0',16); y+=32;
+  } else { labelAt(40,y,'Esta estación no tiene solución en este banco.','#d64545',19); y+=32; }
+  wrapText(40,y,sc.por,'#f4c95d',16,940,21);
+  labelAt(40,756,'⚠ Los seis criterios se aplican en orden; la letra dice cuál cae PRIMERO, no que sea el único que falla.','#f4c95d',13);
+  bTex.needsUpdate=true;
+}
+
+/* =================== ⑤ RETO =================== */
+function startCfg(sc){
+  const nn=NUMS.filter(x=>!okEje(sc,'numero',x));
+  return { ventosa: VENTK.find(k=>!okEje(sc,'ventosa',k))||VENTK[0],
+           numero:  nn.length?nn[0]:NUMS[0],
+           fuente:  FUENTK.find(k=>!okEje(sc,'fuente',k))||FUENTK[0] };
+}
+const QUIZ={
+  vidrio:{q:'El eyector básico y el de ahorro de aire dan exactamente el mismo vacío (622 mbar) y el mismo tiempo de agarre (93,5 ms). ¿Por qué sólo vale el de ahorro de aire?',
+    o:[{t:'Porque el panel viaja por encima del puesto de trabajo: sin antirretorno el vacío se pierde en 0,15 s al faltar la energía, y esta estación pide 2 s.',ok:true},
+       {t:'Porque el de ahorro de aire alcanza más vacío y por eso sujeta con más fuerza.'},
+       {t:'Porque el eyector básico no cabe en la viga del pórtico junto a la válvula.'},
+       {t:'Porque el vidrio es poroso y sólo el de ahorro de aire compensa la fuga.'}]},
+  carton:{q:'Con 6 ventosas en vez de 2 el vacío que se alcanza cae de 378 a 255 mbar. ¿Por qué la caja se sostiene igual?',
+    o:[{t:'Porque al repartir la carga entre más ventosas cada una necesita menos vacío, y la fuerza total apenas cambia: 70,8 N con 2 y 71,5 N con 6.',ok:true},
+       {t:'Porque con 6 ventosas el eyector bombea seis veces más caudal.'},
+       {t:'Porque el cartón deja de tener fuga en cuanto se reparte el peso.'},
+       {t:'Porque a menos vacío el labio de la ventosa se pega mejor al corrugado.'}]},
+  chapa:{q:'La chapa pesa 8 kg y el panel de vidrio 12 kg, pero la chapa exige 477,68 N y el vidrio sólo 259,36 N. ¿Por qué?',
+    o:[{t:'Porque la chapa se traslada en horizontal y la sujeta el rozamiento: con μ = 0,10 los 3 m/s² de aceleración se pagan multiplicados por 10.',ok:true},
+       {t:'Porque el acero es más denso que el vidrio y por eso pide más fuerza.'},
+       {t:'Porque el factor de seguridad de la chapa es mayor que el del vidrio.'},
+       {t:'Porque el aceite reduce el área efectiva de la ventosa a la décima parte.'}]},
+  plastico:{q:'Al nivel del mar esta pieza se resuelve con el eyector de ahorro de aire y en Toluca con el de alto caudal. ¿Por qué no vale ninguno de los dos en la Ciudad de México?',
+    o:[{t:'Porque a 2 240 m el pequeño ya tarda 62 ms y el ciclo sólo deja 50, y el grande todavía llega a 656 mbar, por encima de los 650 que aguanta la pared.',ok:true},
+       {t:'Porque a esa altitud dejan de caber las ventosas en la isla plana de 35 × 35 mm.'},
+       {t:'Porque a 2 240 m aumenta la fuerza que la pieza requiere.'},
+       {t:'Porque en la Ciudad de México la única fuente válida es la bomba de paletas.'}]},
+  bidon:{q:'El bidón pesa la mitad que el panel de vidrio y aun así es la única estación que necesita la bomba de paletas. ¿Por qué?',
+    o:[{t:'Porque se toma por la pared lateral: el peso lo aguanta el rozamiento, hacen falta 639 mbar y un eyector se queda en el 85 % de la atmósfera local, 622 mbar.',ok:true},
+       {t:'Porque el polietileno es poroso y sólo la bomba compensa la fuga.'},
+       {t:'Porque la bomba de paletas es la única fuente del catálogo con antirretorno.'},
+       {t:'Porque el polietileno se marca con vacío alto y la bomba da menos vacío.'}]},
+};
+let retoK=0;
+let RET={ventosa:'plana30',numero:1,fuente:'eyector'};
+let retoChecked=false, retoSolved=false;
+let retoOk={ventosa:false,numero:false,fuente:false};
+let quizOrder=[0,1,2,3], quizPick=-1, quizOkFlag=false;
+
+function shuffleQuiz(){
+  quizOrder=[0,1,2,3];
+  for(let i=quizOrder.length-1;i>0;i--){ const j=Math.floor(Math.random()*(i+1)); const t=quizOrder[i]; quizOrder[i]=quizOrder[j]; quizOrder[j]=t; }
+  quizPick=-1; quizOkFlag=false;
+}
+function quizDef(){ return QUIZ[POOL[retoK].k]; }
+function quizOpts(){ const d=quizDef(); return quizOrder.map(i=>d.o[i]); }
+
+function drawReto(){
+  const sc=POOL[retoK];
+  const e=evalua(sc,RET), opt=OPT(sc);
+  bg();
+  labelAt(40,44,'Reto — dimensiona el sistema de vacío','#8fd1ff',25);
+  labelAt(40,80,sc.nom,'#dfe7ee',22);
+  labelAt(40,110,sc.mat,'#7a8a96',16);
+  labelAt(40,146,`m = ${f1(sc.m,1)} kg · μ = ${f1(sc.mu,2)} · a = ${f1(sc.a,1)} m/s² · S = ${f1(sc.sf,1)} · ${CASO[sc.caso]}`,'#f4c95d',16);
+  labelAt(40,172,`Zona útil ${sc.util[0]} × ${sc.util[1]} mm · máx ${f1(sc.dpMax,0)}${MB} sin marcar · agarre ≤ ${f1(sc.tMax*1000,0)} ms · ≤ ${f1(sc.eMax,2)} Wh/ciclo`+(sc.exigeFalla?` · aguantar ${f1(sc.tFalla,1)} s sin energía`:''),'#f4c95d',15);
+  labelAt(40,204,`Banco a ${f1(H_BANCO,0)} m: atmósfera ${f1(P_ATM,1)}${MB}`,'#8A94A0',15);
+
+  labelAt(40,246,'Tu selección','#8fd1ff',20);
+  const rows=[
+    ['Ventosa', VCORTO[RET.ventosa]+' ('+VENTOSAS[RET.ventosa].nom+')', RET.numero*VENTOSAS[RET.ventosa].coste, retoOk.ventosa,'ventosa',RET.ventosa],
+    ['Número',  '× '+RET.numero,                                        0,                                       retoOk.numero, 'numero', RET.numero],
+    ['Generador',FUENTES[RET.fuente].nom,                               FUENTES[RET.fuente].coste,               retoOk.fuente, 'fuente', RET.fuente],
+  ];
+  let y=286;
+  rows.forEach(r=>{
+    labelAt(40,y,r[0],'#7a8a96',17);
+    labelAt(170,y,r[1],'#dfe7ee',17);
+    if(r[2]) labelAt(600,y,`${r[2]} u.c.`,'#8A94A0',15);
+    if(retoChecked){ labelAt(676,y,r[3]?'✔':'✗',r[3]?'#43D9AD':'#d64545',22);
+      if(!r[3]){ const yy=wrapText(706,y-4,whyEje(sc,r[4],r[5]),'#f4c95d',14,290,17); y=Math.max(y,yy-24); } }
+    y+=46;
+  });
+  y+=4;
+  labelAt(40,y,`Coste del sistema: ${e.coste} u.c.`,'#dfe7ee',19);
+  labelAt(320,y,`Δp req ${f1(e.pvReq,0)}${MB}`,'#8A94A0',17);
+  labelAt(540,y,`alcanza ${f1(e.pvEq,0)}${MB}`,'#8A94A0',17);
+  labelAt(790,y,`agarre ${isFinite(e.tAgarre)?f1(e.tAgarre*1000,0)+' ms':'—'}`,'#8A94A0',17);
+  y+=44;
+  if(retoChecked){
+    labelAt(40,y,retoSolved?'✔ Sistema de vacío correctamente dimensionado':'✗ Todavía no',retoSolved?'#43D9AD':'#d64545',24);
+    y+=34;
+    if(retoSolved && opt){ const ro=evalua(sc,opt);
+      wrapText(40,y,`Terna válida y de coste mínimo: ${VENTOSAS[opt.ventosa].nom} × ${opt.numero} + ${FUENTES[opt.fuente].nom} = ${ro.coste} u.c. Agarra en ${f1(ro.tAgarre*1000,1)} ms, gasta ${f1(ro.energia,4)} Wh por ciclo y aguanta ${f1(ro.tRet,2)} s sin energía.`,'#43D9AD',17,940,22); }
+    else wrapText(40,y,'Cada eje se juzga suponiendo los otros dos correctos: acertar dos de tres sigue siendo un cabezal que no vale.','#8A94A0',16,940,21);
+  } else {
+    wrapText(40,y,'Elige ventosa, número de ventosas y generador. Los tres se califican por separado, y cada uno tiene que ser válido Y el más barato que cumple: sobredimensionar también es un error de proyecto.','#8A94A0',17,940,22);
+  }
+  labelAt(40,754,'⚠ El reto se juega SIEMPRE a la altitud del banco (2 660 m): la solución cambia si cambia la atmósfera, y por eso el selector de altitud se bloquea aquí.','#f4c95d',13);
+  bTex.needsUpdate=true;
+
+  const rt=el('retoText');
+  if(rt) rt.textContent=`${sc.nom} — ${f1(sc.m,1)} kg, ${CASO[sc.caso].split(' ')[0].toLowerCase()}, a=${f1(sc.a,1)} m/s², S=${f1(sc.sf,1)}. Selección: ${VCORTO[RET.ventosa]} × ${RET.numero} + ${FUENTES[RET.fuente].nom} = ${e.coste} u.c., Δp req ${f1(e.pvReq,0)} mbar, alcanza ${f1(e.pvEq,0)} mbar.`
+    +(retoChecked?` ${retoSolved?'✔ Correcto.':'✗ Ventosa '+(retoOk.ventosa?'✔':'✗')+' · Número '+(retoOk.numero?'✔':'✗')+' · Generador '+(retoOk.fuente?'✔':'✗')+'.'}`:'');
+  renderQuiz();
+}
+function renderQuiz(){
+  const d=quizDef(), opts=quizOpts();
+  el('quizQ').textContent=d.q;
+  el('dxbtns').innerHTML=opts.map((o,i)=>{
+    const cls=quizPick<0?'b':(i===quizPick?(o.ok?'b ok':'b bad'):(o.ok&&quizPick>=0?'b ok':'b'));
+    return `<button class="${cls}" data-i="${i}" style="text-align:left;white-space:normal;line-height:1.35">${o.t}</button>`;
+  }).join('');
+  document.querySelectorAll('#dxbtns [data-i]').forEach(b=>{ b.onclick=()=>answerQuiz(+b.dataset.i); });
+  el('quizVerd').textContent = quizPick<0?'Sin responder' : (quizOkFlag?'✔ Correcta':'✗ Incorrecta');
+  el('quizVerd').className = quizPick<0?'' : (quizOkFlag?'good':'bad');
+}
+function answerQuiz(i){
+  if(quizPick>=0) return;
+  quizPick=i; quizOkFlag=!!quizOpts()[i].ok;
+  synth.beep(quizOkFlag?1046:200,0.12,0.06);
+  showToast(quizOkFlag?'<span style="color:var(--good)">✔ Correcta.</span>':'<span style="color:var(--bad)">✗ Incorrecta.</span> La respuesta buena queda marcada en verde.');
+  renderQuiz();
+}
+function newReto(){
+  ALT='toluca'; aplicaAlt();
+  retoK=Math.floor(Math.random()*POOL.length);
+  RET=startCfg(POOL[retoK]);
+  retoChecked=false; retoSolved=false; retoOk={ventosa:false,numero:false,fuente:false};
+  shuffleQuiz();
+  syncRetoBtns(); drawReto(); updateTele();
+  showToast('🎲 Nueva estación asignada.');
+  synth.beep(520,0.08,0.05);
+}
+function checkReto(){
+  ALT='toluca'; aplicaAlt();
+  const sc=POOL[retoK];
+  retoChecked=true;
+  retoOk={ventosa:okEje(sc,'ventosa',RET.ventosa), numero:okEje(sc,'numero',RET.numero), fuente:okEje(sc,'fuente',RET.fuente)};
+  retoSolved=retoOk.ventosa&&retoOk.numero&&retoOk.fuente;
+  if(retoSolved){ showToast('<span style="color:var(--good)">✔ Correcto: válido y de coste mínimo en los tres ejes.</span>'); synth.beep(1046,0.12,0.06); }
+  else { showToast('<span style="color:var(--bad)">✗ Revisa el eje marcado en el pizarrón.</span>'); synth.beep(180,0.14,0.06); }
+  drawReto(); updateTele();
+}
+
+/* ---------- pizarrón + telemetría ---------- */
+function drawBoard(){ if(mode==='fuerza') drawFuerza(); else if(mode==='circuito') drawCircuito(); else if(mode==='proyecto') drawProyecto(); else if(mode==='reto') drawReto(); }
+
+function updateTele(){
+  const set=(id,v,cls)=>{ const e=el(id); if(!e)return; e.textContent=v; e.className=cls||''; };
+  set('al_p',f1(P_ATM,1)+MB);
+  set('al_pv',f1(PV_TIPICO*P_ATM,0)+MB);
+  if(mode==='fuerza'){
+    const sc=POOL[FZ.k], F=fuerzaReq(sc), pv=vacioReq(sc,FZ.ventosa,FZ.numero), fD=fDisp(FZ.ventosa,FZ.numero);
+    const caben=cabenVentosas(sc,FZ.ventosa,FZ.numero);
+    set('fz_caso',CASO[sc.caso].split(' ')[0]);
+    set('fz_F',f1(F,2)+' N');
+    set('fz_area',f1(AREA(VENTOSAS[FZ.ventosa].dEf)*1e4,2)+' cm²');
+    set('fz_pvreq',f1(pv,0)+MB);
+    set('fz_pvmax',f1(PV_TIPICO*P_ATM,0)+MB);
+    set('fz_fmax',f1(fD,1)+' N',fD>=F?'good':'bad');
+    set('fz_verd',!caben?'✗ No caben':(fD>=F?'✔ Alcanza':'✗ Falta fuerza'),(caben&&fD>=F)?'good':'bad');
+  }
+  if(mode==='circuito'){
+    const sc=POOL[CI.k], r=evalua(sc,cfgCI());
+    set('ci_V',f1(r.V,3)+' l');
+    set('ci_pvreq',f1(r.pvReq,0)+MB);
+    set('ci_pveq',f1(r.pvEq,0)+MB,r.okFuerza?'good':'bad');
+    set('ci_tag',isFinite(r.tAgarre)?f1(r.tAgarre*1000,1)+' ms':'—',r.okTiempo?'good':'bad');
+    set('ci_pico',f1(r.pvPico,0)+MB,r.okMarca?'good':'bad');
+    set('ci_duty',f1(r.duty*100,0)+' %');
+    set('ci_aire',f1(r.aire,2)+' Nl');
+    set('ci_E',f1(r.energia,4)+' Wh',r.okConsumo?'good':'bad');
+    set('ci_tret',f1(r.tRet,2)+' s',r.okFalla?'good':'bad');
+    set('ci_verd',r.valido?'✔ Válida ('+r.coste+' u.c.)':'✗ '+CRIT.filter(c=>c.k===r.primerFallo).map(c=>c.nom)[0],r.valido?'good':'bad');
+  }
+  if(mode==='proyecto'){
+    const sc=POOL[PR.k], g=GOOD(sc), cm=costeMin(sc), opt=OPT(sc);
+    const conF=VENTK.flatMap(kv=>NUMS.map(n=>evalua(sc,{ventosa:kv,numero:n,fuente:PR.fuente}))).filter(r=>r.valido).length;
+    set('pr_est',sc.nom.split(' ').slice(0,3).join(' '));
+    set('pr_F',f1(fuerzaReq(sc),1)+' N');
+    set('pr_val',conF+' / '+(VENTK.length*NUMS.length));
+    set('pr_tot',g.length+' / '+CFGS.length);
+    set('pr_coste',isFinite(cm)?cm+' u.c.':'—');
+    set('pr_opt',opt?VCORTO[opt.ventosa]+' × '+opt.numero+' + '+FCORTO[opt.fuente]:'sin solución',opt?'good':'bad');
+  }
+  if(mode==='reto'){
+    const sc=POOL[retoK], e=evalua(sc,RET);
+    set('re_coste',e.coste+' u.c.');
+    set('re_pvreq',f1(e.pvReq,0)+MB);
+    set('re_pveq',f1(e.pvEq,0)+MB);
+    set('re_tag',isFinite(e.tAgarre)?f1(e.tAgarre*1000,0)+' ms':'—');
+    set('re_verd',retoChecked?(retoSolved?'✔ Correcto':'✗ Revisa'):'Sin comprobar',retoChecked?(retoSolved?'good':'bad'):'');
+  }
+}
+function syncRetoBtns(){
+  onOff('#reVen [data-k]','k',RET.ventosa);
+  onOff('#reNum [data-k]','k',RET.numero);
+  onOff('#reFue [data-k]','k',RET.fuente);
+}
+function syncBtns(){
+  onOff('#alBanco [data-k]','k',ALT);
+  onOff('#fzEst [data-k]','k',FZ.k); onOff('#fzVen [data-k]','k',FZ.ventosa); onOff('#fzNum [data-k]','k',FZ.numero);
+  onOff('#ciEst [data-k]','k',CI.k); onOff('#ciVen [data-k]','k',CI.ventosa); onOff('#ciNum [data-k]','k',CI.numero); onOff('#ciFue [data-k]','k',CI.fuente);
+  onOff('#prEst [data-k]','k',PR.k); onOff('#prFue [data-k]','k',PR.fuente);
+  syncRetoBtns();
+}
+function refreshAll(){ RCI=evalua(POOL[CI.k],cfgCI()); syncBtns(); drawBoard(); updateTele(); }
+
+/* ---------- modos ---------- */
+const BOARD_CAM=[[-1.2,2.7,3.2],[-3.1,2.1,0.4]];
+const MODE_META={
+  ensamble:{nombre:'Ensamble',        cam:[[4.6,3.2,5.4],[0.4,1.45,0.5]]},
+  fuerza:  {nombre:'Fuerza y altitud',cam:BOARD_CAM},
+  circuito:{nombre:'Circuito',        cam:BOARD_CAM},
+  proyecto:{nombre:'Proyecto',        cam:BOARD_CAM},
+  reto:    {nombre:'Reto',            cam:BOARD_CAM},
+};
+const modes=['ensamble','fuerza','circuito','proyecto','reto'];
+let mode='ensamble';
+function setMode(k){
+  if(k!=='ensamble' && !simUnlocked){ showToast('<span style="color:var(--bad)">🔒 Termina el ensamble primero.</span>'); synth.beep(220,0.08,0.05); return; }
+  if(k==='reto'){ ALT='toluca'; aplicaAlt(); }
+  mode=k;
+  modes.forEach(m=>{ const b=el('m_'+m); if(b) b.classList.toggle('on',m===k); });
+  el('p_mode').textContent=MODE_META[k].nombre;
+  el('secEnsamble').style.display=k==='ensamble'?'':'none';
+  el('secAlt').style.display=(k==='fuerza'||k==='circuito'||k==='proyecto')?'':'none';
+  el('secFuerza').style.display=k==='fuerza'?'':'none';
+  el('secCircuito').style.display=k==='circuito'?'':'none';
+  el('secProyecto').style.display=k==='proyecto'?'':'none';
+  el('secReto').style.display=k==='reto'?'':'none';
+  if(k!=='circuito') cicloOn=false;
+  S.moveTo(MODE_META[k].cam[0],MODE_META[k].cam[1],1.3);
+  refreshAll();
+}
+function syncCtrlbar(){ modes.forEach(m=>{ const b=el('m_'+m); if(b && m!=='ensamble') b.disabled=!simUnlocked; }); }
+const onOff=(sel,attr,val)=>document.querySelectorAll(sel).forEach(b=>b.classList.toggle('on',b.dataset[attr]===String(val)));
+
+/* ---------- ciclo animado del cabezal ---------- */
+const FASES=[
+  {k:'baja',   nom:'Bajada al palé'},
+  {k:'agarra', nom:'Evacuación'},
+  {k:'sube',   nom:'Elevación'},
+  {k:'lleva',  nom:'Traslado'},
+  {k:'posa',   nom:'Descenso a la mesa'},
+  {k:'suelta', nom:'Soplado y suelta'},
+  {k:'vuelve', nom:'Regreso'},
+];
+let cicloOn=false, cFase=0, cT=0, ciclos=0;
+let armDrop=0, headZ=0, pieceHeld=false, pieceZ=Z_PALE, pieceY=1.02, pvNow=0;
+let RCI=null;
+function durFase(i){
+  const r=RCI;
+  const tag=(r&&isFinite(r.tAgarre))?clamp(r.tAgarre*8,0.35,2.2):1.6;
+  return [0.9,tag,0.8,1.5,0.7,0.5,1.2][i];
+}
+function toggleCiclo(){
+  if(!simUnlocked) return;
+  cicloOn=!cicloOn;
+  if(!cicloOn){ cFase=0; cT=0; armDrop=0; headZ=0; pieceHeld=false; pvNow=0;
+    pieceZ=PART.pieza.home.z; pieceY=PART.pieza.home.y; }
+  const b=el('btnCiclo'); if(b){ b.textContent=cicloOn?'⏸ Parar el ciclo':'▶ Ciclo de pick&place'; b.classList.toggle('on',cicloOn); }
+  const f=el('ci_fase'); if(f&&!cicloOn) f.textContent='parado';
+}
+function stepCiclo(dt){
+  if(!cicloOn||!RCI) return;
+  cT+=dt;
+  const D=durFase(cFase), u=clamp(cT/D,0,1);
+  const pvT=RCI.alcanza?RCI.pvMin:RCI.pvEq;
+  switch(FASES[cFase].k){
+    case 'baja':   armDrop=DROP*ease(u); pieceHeld=false; break;
+    case 'agarra': armDrop=DROP; pvNow=pvT*u; pieceHeld=u>0.85; break;
+    case 'sube':   armDrop=DROP*(1-ease(u)); pieceHeld=true; break;
+    case 'lleva':  headZ=(Z_MESA-Z_PALE)*ease(u); pieceHeld=true; break;
+    case 'posa':   armDrop=DROP*ease(u); pieceHeld=true; break;
+    case 'suelta': pvNow=pvT*(1-u); pieceHeld=false; pieceZ=Z_MESA; pieceY=0.96; break;
+    case 'vuelve': armDrop=DROP*(1-ease(u)); headZ=(Z_MESA-Z_PALE)*(1-ease(u)); pieceHeld=false; break;
+  }
+  const f=el('ci_fase'); if(f) f.textContent=FASES[cFase].nom;
+  if(u>=1){
+    cT=0; cFase++;
+    if(cFase>=FASES.length){ cFase=0; ciclos++; pieceZ=PART.pieza.home.z; pieceY=PART.pieza.home.y;
+      const c=el('ci_ciclos'); if(c) c.textContent=String(ciclos); }
+  }
+}
+function applyRig(){
+  ['brazo','colector','ventosa'].forEach(id=>{
+    const g=groups[id]; if(!g||!placed[id]) return;
+    const h=PART[id].home; g.position.set(h.x,h.y-armDrop,h.z+headZ);
+  });
+  const gv=groups.ventosa;
+  if(gv&&placed.ventosa){ const cups=gv.getObjectByName('cups');
+    if(cups) cups.scale.y=1-0.28*clamp(pvNow/700,0,1); }
+  if(pieceHeld){ pieceZ=PART.pieza.home.z+headZ; pieceY=PART.pieza.home.y-armDrop; }
+  const gp=groups.pieza;
+  if(gp&&placed.pieza) gp.position.set(PART.pieza.home.x,pieceY,pieceZ);
+  const gs=groups.vacuostato;
+  if(gs&&placed.vacuostato){ const led=gs.getObjectByName('led');
+    if(led){ const on=RCI&&pvNow>=RCI.pvReq;
+      led.material.color.set(on?0x43D9AD:0xf4c95d);
+      led.material.emissive.set(on?0x2f9e86:0x8a6a1e);
+      led.material.emissiveIntensity=pvNow>1?1.3:0.15; } }
+  const ge=groups.eyector;
+  if(ge&&placed.eyector){ const fl=ge.getObjectByName('flujo');
+    if(fl) fl.material.emissiveIntensity=(cicloOn&&pvNow>1)?1.4:0.12; }
+}
+
+/* ---------- animación ---------- */
+S.setAnimate((dt,t)=>{
+  for(let i=tweens.length-1;i>=0;i--){
+    const tw=tweens[i]; tw.t+=dt;
+    const u=clamp(tw.t/tw.dur,0,1), e=ease(u);
+    tw.obj.position.lerpVectors(tw.fromP,tw.toP,e);
+    tw.obj.position.y+=Math.sin(u*Math.PI)*0.45;
+    const s=tw.fromS+(tw.toS-tw.fromS)*e; tw.obj.scale.setScalar(s);
+    tw.obj.rotation.y=tw.roty0*(1-e);
+    if(u>=1){ if(tw.onDone) tw.onDone(); tweens.splice(i,1); }
+  }
+  trayObjs.forEach(g=>{
+    const d=g.userData; if(!d||d.kind!=='part') return;
+    g.position.y=d.baseY+Math.sin(t*1.6+d.phase)*0.02;
+    g.rotation.y+=dt*0.35;
+    const want=(selectedId===d.id)?0.10:0;
+    d.lift+=(want-d.lift)*Math.min(1,dt*6);
+    g.position.y+=d.lift;
+  });
+  ghostObjs.forEach(gh=>{
+    const d=gh.userData;
+    if(d.fading){ d.gm.opacity=Math.max(0,d.gm.opacity-dt*1.4); if(d.gm.opacity<=0.01&&gh.parent) scene.remove(gh); }
+    else d.gm.opacity=0.24+0.14*Math.sin(t*3.2);
+    if(d.shake>0){ d.shake=Math.max(0,d.shake-dt*2.2); gh.position.x=d.homeX+Math.sin(t*40)*0.05*d.shake; }
+    else gh.position.x=d.homeX;
+  });
+  if(simUnlocked&&tweens.length===0){ stepCiclo(dt); applyRig(); }
+});
+S.start();
+
+/* ---------- montaje automático / recorrido guiado ---------- */
+const sleep=ms=>new Promise(res=>setTimeout(res,ms));
+let autoRunning=false;
+async function autoAssemble(){
+  if(autoRunning) return; autoRunning=true;
+  const btn=el('btnAuto'); if(btn) btn.disabled=true;
+  for(const id of ORDER){ if(placed[id]) continue; selectPart(id); await sleep(550); placePart(id); await sleep(950); }
+  if(btn) btn.disabled=false; autoRunning=false;
+}
+async function runAuto(){
+  if(autoRunning) return; autoRunning=true;
+  const bt=el('btnTour'), ba=el('btnAuto'); if(bt)bt.disabled=true; if(ba)ba.disabled=true;
+  try{
+    if(!simUnlocked){
+      showToast('🎬 Montamos el cabezal de vacío…',2600);
+      for(const id of ORDER){ if(placed[id]) continue; selectPart(id); await sleep(360); placePart(id); await sleep(620); }
+      await sleep(900);
+    }
+    ALT='toluca'; aplicaAlt();
+    setMode('fuerza'); FZ.k=0; FZ.ventosa='plana50'; FZ.numero=1; refreshAll();
+    showToast('② El panel de vidrio pesa 12 kg y sube acelerando: hacen falta 259,36 N con el factor de seguridad 2. Con UNA ventosa Ø 50 eso pide 1 495 mbar de vacío, y la atmósfera entera de este banco son 732.',5400); await sleep(5600);
+    FZ.numero=4; refreshAll();
+    showToast('Con 4 ventosas cada una necesita la cuarta parte: 374 mbar en vez de 1 495.',4200); await sleep(4400);
+    ALT='mar'; aplicaAlt(); refreshAll();
+    showToast('Al nivel del mar esas MISMAS 4 ventosas darían 597,7 N…',3600); await sleep(3800);
+    ALT='toluca'; aplicaAlt(); refreshAll();
+    showToast('…y en este banco, a 2 660 m, sólo 431,8 N. La altitud no es un detalle: se lleva el 28 % de la fuerza.',4600); await sleep(4800);
+    setMode('circuito'); CI.k=0; CI.ventosa='plana50'; CI.numero=4; CI.fuente='eyector'; refreshAll();
+    showToast('③ El eyector básico agarra en 93,5 ms y gasta 0,2153 Wh por ciclo…',4000); await sleep(4200);
+    CI.fuente='asc'; refreshAll();
+    showToast('El de ahorro de aire agarra igual, gasta 0,0083 Wh (96 % menos) y, sobre todo, aguanta 30 s sin energía en vez de 0,15 s.',5200); await sleep(5400);
+    CI.k=1; CI.ventosa='fuelle40'; CI.numero=2; CI.fuente='eyector'; refreshAll();
+    showToast('El cartón corrugado tiene fuga: el vacío se queda en 378 mbar de equilibrio, no llega nunca a los 622 de la pieza estanca.',5000); await sleep(5200);
+    setMode('proyecto'); PR.k=4; PR.fuente='eyector'; refreshAll();
+    showToast('④ El bidón se toma por la pared lateral: ningún eyector le vale, hace falta la bomba de paletas.',4600); await sleep(4800);
+    PR.fuente='bomba'; refreshAll();
+    showToast('Con la bomba aparece UNA sola combinación válida de las 64: fuelle Ø40 × 6, y sale a 30 u.c.',4600); await sleep(4800);
+    setMode('reto');
+    showToast('⑤ Ahora tú: ventosa, número y generador, válidos y de coste mínimo. Y luego el diagnóstico.',4600);
+  } finally {
+    if(bt)bt.disabled=false; if(ba)ba.disabled=false; autoRunning=false;
+  }
+}
+
+/* ---------- HUD ---------- */
+el('hud').innerHTML=`
+  <div class="eyebrow">Hidráulica y Neumática · Manipulación por vacío</div>
+  <h2>Dimensiona un sistema de vacío para pick&amp;place</h2>
+  <p>Monta el cabezal pieza por pieza (<b>toca la pieza, luego su hueco</b>). Después calcula la <b>fuerza de sujeción</b> (y comprueba que a 2 660 m la atmósfera te quita el 28 % de la fuerza), integra el <b>circuito de vacío</b> (tiempo de agarre, fuga, ahorro de aire y retención al faltar la energía), lee la <b>malla de proyecto</b> y resuelve el reto: elegir <b>ventosa, número y generador</b> válidos y de coste mínimo para cinco estaciones reales.</p>
+  <div class="formula">F = Δp·A·n · A = π·d²/4 · V·dp/dt = −p·S(p) + p₀·Q(p) · Δp_max = 0,85·p_atm(h)</div>
+  <div class="legend">
+    <div class="li"><span class="dot" style="background:#14171a"></span>Ventosa (labio de elastómero)</div>
+    <div class="li"><span class="dot" style="background:#9aa4ac"></span>Colector y brazo</div>
+    <div class="li"><span class="dot" style="background:#2b6f8a"></span>Generador de vacío</div>
+    <div class="li"><span class="dot" style="background:#b98b3c"></span>Racores y conexiones</div>
+    <div class="li"><span class="dot" style="background:#7fd4e8"></span>Pieza a manipular</div>
+  </div>
+  <div class="fid">
+    <div class="ft">Contrato de fidelidad</div>
+    <div class="fl">SÍ modela: <b>la fuerza de sujeción F = Δp·A·n con el diámetro EFECTIVO del labio y los tres casos de carga (vertical, horizontal con rozamiento y lateral colgando del rozamiento) con su factor de seguridad; la atmósfera local por la fórmula barométrica de ISO 2533 y que el vacío de un eyector es un PORCENTAJE de esa atmósfera; el reparto de ventosas en la zona útil con 10 mm de separación; la evacuación integrando V·dp/dt = −p·S(p) + p₀·Q(p) con curva de bombeo lineal decreciente y fuga laminar proporcional al vacío; los 10 ms de conmutación de la válvula; la histéresis de 30 mbar del ahorro de aire y su ciclo de trabajo; la retención al cortar la energía con y sin antirretorno; y el dimensionado por SEIS criterios simultáneos con coste mínimo.</b></div>
+    <div class="fl no">NO modela: <b>la deformación real del labio ni el volumen que «bombea» al comprimirse; el flujo turbulento por la boquilla del Venturi (ISO 6358 va en otra práctica); el arrastre aerodinámico de la pieza; la temperatura y la humedad del aire; el envejecimiento del elastómero; el rebote de la pieza al posarla; ni la dinámica del brazo (masas, momentos y pandeo).</b></div>
+    <div class="fl">Norma ancla: <b>ISO 2533 (atmósfera tipo), ISO 8573-1 (calidad del aire), ISO 4414 (seguridad neumática: la pieza no puede caer al faltar la energía), ISO 1219-1 (símbolos), EN 13155 (elevación por vacío).</b> Los factores de seguridad, los tiempos de ciclo y los contratos de energía por estación son criterios de proyecto declarados en el catálogo, no cifras de norma. El consumo de 0,10 kWh por Nm³ a 7 bar es el valor medio del rango industrial 0,09–0,12.</div>
+  </div>
+  <div class="src">Catálogo didáctico: 4 ventosas (planas Ø30/Ø50 y de fuelle Ø40/Ø30), 4 generadores (eyector básico, de alto caudal, con antirretorno y sensor, y bomba de paletas) y 1, 2, 4 o 6 ventosas por cabezal = 64 combinaciones por estación. Los costes están en unidades comparables (u.c.), no en pesos. El banco está a 2 660 m (Toluca de Lerdo): a esa altitud sólo 18 de las 320 combinaciones del catálogo son válidas.</div>
+  <div class="modebar">
+    <button class="b on" id="m_ensamble">① Ensamble</button>
+    <button class="b" id="m_fuerza" disabled>② Fuerza y altitud</button>
+    <button class="b" id="m_circuito" disabled>③ Circuito de vacío</button>
+    <button class="b" id="m_proyecto" disabled>④ Proyecto</button>
+    <button class="b" id="m_reto" disabled>⑤ Reto</button>
+  </div>`;
+
+/* ---------- PANEL ---------- */
+const btnsK=(id,items)=>`<div class="btns" id="${id}">${items.map(o=>`<button class="b" data-k="${o.k}">${o.t}</button>`).join('')}</div>`;
+const estBtns=id=>btnsK(id,POOL.map((s,i)=>({k:i,t:CORTO[s.k]})));
+const venBtns=id=>btnsK(id,VENTK.map(k=>({k,t:VCORTO[k]})));
+const numBtns=id=>btnsK(id,NUMS.map(n=>({k:n,t:'× '+n})));
+const fueBtns=id=>btnsK(id,FUENTK.map(k=>({k,t:FCORTO[k]})));
+
+el('panel').innerHTML=`
+  <div class="g"><div class="gl"><span>Modo actual</span><b id="p_mode">Ensamble</b></div></div>
+
+  <div id="secEnsamble">
+    <h4>① Ensamble — toca pieza, toca hueco</h4>
+    <div class="console" id="asmStatus">Toca una <b>pieza</b> del banco (derecha) y luego su <b>hueco luminoso</b>.</div>
+    <div class="g"><div class="gl"><span>Piezas colocadas</span><b id="p_prog">0 / 7</b></div></div>
+    <div id="checklist" style="font-family:var(--mono);font-size:11px;line-height:1.85;margin:6px 0"></div>
+    <div class="btns">
+      <button class="b auto" id="btnAuto">✨ Montaje automático</button>
+      <button class="b" id="btnReset">↺ Reiniciar ensamble</button>
+    </div>
+    <div class="btns"><button class="b auto" id="btnTour">🎬 Recorrido guiado completo</button></div>
+  </div>
+
+  <div id="secAlt" style="display:none">
+    <h4 class="sec">Banco — altitud del taller</h4>
+    <div class="lbl">Atmósfera local (ISO 2533)</div>${btnsK('alBanco',ALTITUDES.map(a=>({k:a.k,t:a.nom.split(' ')[0]})))}
+    <div class="g"><div class="gl"><span>Presión atmosférica</span><b id="al_p">—</b></div></div>
+    <div class="g"><div class="gl"><span>Vacío máx. de un eyector</span><b id="al_pv">—</b></div></div>
+  </div>
+
+  <div id="secFuerza" style="display:none">
+    <h4 class="sec">② Fuerza de sujeción</h4>
+    <div class="lbl">Estación</div>${estBtns('fzEst')}
+    <div class="lbl">Ventosa</div>${venBtns('fzVen')}
+    <div class="lbl">Número de ventosas</div>${numBtns('fzNum')}
+    <h4 class="sec">Telemetría</h4>
+    <div class="g"><div class="gl"><span>Caso de carga</span><b id="fz_caso">—</b></div></div>
+    <div class="g"><div class="gl"><span>Fuerza necesaria</span><b id="fz_F">—</b></div></div>
+    <div class="g"><div class="gl"><span>Área efectiva por ventosa</span><b id="fz_area">—</b></div></div>
+    <div class="g"><div class="gl"><span>Vacío requerido</span><b id="fz_pvreq">—</b></div></div>
+    <div class="g"><div class="gl"><span>Vacío disponible</span><b id="fz_pvmax">—</b></div></div>
+    <div class="g"><div class="gl"><span>Fuerza disponible</span><b id="fz_fmax">—</b></div></div>
+    <div class="g"><div class="gl"><span>Veredicto</span><b id="fz_verd">—</b></div></div>
+  </div>
+
+  <div id="secCircuito" style="display:none">
+    <h4 class="sec">③ Circuito de vacío</h4>
+    <div class="lbl">Estación</div>${estBtns('ciEst')}
+    <div class="lbl">Ventosa</div>${venBtns('ciVen')}
+    <div class="lbl">Número de ventosas</div>${numBtns('ciNum')}
+    <div class="lbl">Generador</div>${fueBtns('ciFue')}
+    <div class="btns"><button class="b" id="btnCiclo">▶ Ciclo de pick&amp;place</button></div>
+    <h4 class="sec">Telemetría</h4>
+    <div class="g"><div class="gl"><span>Volumen a evacuar</span><b id="ci_V">—</b></div></div>
+    <div class="g"><div class="gl"><span>Vacío requerido</span><b id="ci_pvreq">—</b></div></div>
+    <div class="g"><div class="gl"><span>Vacío de equilibrio</span><b id="ci_pveq">—</b></div></div>
+    <div class="g"><div class="gl"><span>Tiempo de agarre</span><b id="ci_tag">—</b></div></div>
+    <div class="g"><div class="gl"><span>Vacío pico (marca)</span><b id="ci_pico">—</b></div></div>
+    <div class="g"><div class="gl"><span>Ciclo de trabajo</span><b id="ci_duty">—</b></div></div>
+    <div class="g"><div class="gl"><span>Aire por ciclo</span><b id="ci_aire">—</b></div></div>
+    <div class="g"><div class="gl"><span>Energía por ciclo</span><b id="ci_E">—</b></div></div>
+    <div class="g"><div class="gl"><span>Retención sin energía</span><b id="ci_tret">—</b></div></div>
+    <div class="g"><div class="gl"><span>Fase del ciclo</span><b id="ci_fase">parado</b></div></div>
+    <div class="g"><div class="gl"><span>Ciclos completados</span><b id="ci_ciclos">0</b></div></div>
+    <div class="g"><div class="gl"><span>Veredicto</span><b id="ci_verd">—</b></div></div>
+  </div>
+
+  <div id="secProyecto" style="display:none">
+    <h4 class="sec">④ Proyecto</h4>
+    <div class="lbl">Estación</div>${estBtns('prEst')}
+    <div class="lbl">Generador</div>${fueBtns('prFue')}
+    <h4 class="sec">Telemetría</h4>
+    <div class="g"><div class="gl"><span>Estación</span><b id="pr_est">—</b></div></div>
+    <div class="g"><div class="gl"><span>Fuerza necesaria</span><b id="pr_F">—</b></div></div>
+    <div class="g"><div class="gl"><span>Válidas con este generador</span><b id="pr_val">—</b></div></div>
+    <div class="g"><div class="gl"><span>Válidas en todo el catálogo</span><b id="pr_tot">—</b></div></div>
+    <div class="g"><div class="gl"><span>Coste mínimo</span><b id="pr_coste">—</b></div></div>
+    <div class="g"><div class="gl"><span>Solución óptima</span><b id="pr_opt">—</b></div></div>
+  </div>
+
+  <div id="secReto" style="display:none">
+    <h4 class="sec">⑤ Reto — dimensiona el cabezal</h4>
+    <div class="console" id="retoText">Lee el pizarrón (izquierda) para ver la estación asignada.</div>
+    <div class="lbl">Ventosa</div>${venBtns('reVen')}
+    <div class="lbl">Número de ventosas</div>${numBtns('reNum')}
+    <div class="lbl">Generador</div>${fueBtns('reFue')}
+    <div class="btns">
+      <button class="b" id="btnCheck">✓ Comprobar</button>
+      <button class="b" id="btnNew">🎲 Otra estación</button>
+    </div>
+    <h4 class="sec">Telemetría</h4>
+    <div class="g"><div class="gl"><span>Coste del sistema</span><b id="re_coste">—</b></div></div>
+    <div class="g"><div class="gl"><span>Vacío requerido</span><b id="re_pvreq">—</b></div></div>
+    <div class="g"><div class="gl"><span>Vacío alcanzado</span><b id="re_pveq">—</b></div></div>
+    <div class="g"><div class="gl"><span>Tiempo de agarre</span><b id="re_tag">—</b></div></div>
+    <div class="g"><div class="gl"><span>Veredicto</span><b id="re_verd">—</b></div></div>
+    <h4 class="sec">Diagnóstico</h4>
+    <div class="console" id="quizQ">—</div>
+    <div class="btns" id="dxbtns"></div>
+    <div class="g"><div class="gl"><span>Respuesta</span><b id="quizVerd">Sin responder</b></div></div>
+  </div>`;
+
+/* ---------- wiring ---------- */
+modes.forEach(m=>{ const b=el('m_'+m); if(b) b.onclick=()=>{
+  if(mode==='reto'&&!retoSolved&&m!=='reto'){
+    showToast('<span style="color:var(--bad)">🔒 Resuelve el reto (ventosa, número y generador correctos) antes de salir a otro modo.</span>');
+    synth.beep(220,0.1,0.05);
+    return;
+  }
+  setMode(m);
+}; });
+el('btnReset').onclick=()=>initAssembly();
+el('btnAuto').onclick=()=>autoAssemble();
+el('btnTour').onclick=()=>runAuto();
+el('btnCheck').onclick=()=>checkReto();
+el('btnNew').onclick=()=>newReto();
+el('btnCiclo').onclick=()=>toggleCiclo();
+document.querySelectorAll('#alBanco [data-k]').forEach(b=>{ b.onclick=()=>{ ALT=b.dataset.k; aplicaAlt(); refreshAll(); }; });
+document.querySelectorAll('#fzEst [data-k]').forEach(b=>{ b.onclick=()=>{ FZ.k=+b.dataset.k; refreshAll(); }; });
+document.querySelectorAll('#fzVen [data-k]').forEach(b=>{ b.onclick=()=>{ FZ.ventosa=b.dataset.k; refreshAll(); }; });
+document.querySelectorAll('#fzNum [data-k]').forEach(b=>{ b.onclick=()=>{ FZ.numero=+b.dataset.k; refreshAll(); }; });
+document.querySelectorAll('#ciEst [data-k]').forEach(b=>{ b.onclick=()=>{ CI.k=+b.dataset.k; refreshAll(); }; });
+document.querySelectorAll('#ciVen [data-k]').forEach(b=>{ b.onclick=()=>{ CI.ventosa=b.dataset.k; refreshAll(); }; });
+document.querySelectorAll('#ciNum [data-k]').forEach(b=>{ b.onclick=()=>{ CI.numero=+b.dataset.k; refreshAll(); }; });
+document.querySelectorAll('#ciFue [data-k]').forEach(b=>{ b.onclick=()=>{ CI.fuente=b.dataset.k; refreshAll(); }; });
+document.querySelectorAll('#prEst [data-k]').forEach(b=>{ b.onclick=()=>{ PR.k=+b.dataset.k; refreshAll(); }; });
+document.querySelectorAll('#prFue [data-k]').forEach(b=>{ b.onclick=()=>{ PR.fuente=b.dataset.k; refreshAll(); }; });
+document.querySelectorAll('#reVen [data-k]').forEach(b=>{ b.onclick=()=>{ RET.ventosa=b.dataset.k; retoChecked=false; refreshAll(); }; });
+document.querySelectorAll('#reNum [data-k]').forEach(b=>{ b.onclick=()=>{ RET.numero=+b.dataset.k; retoChecked=false; refreshAll(); }; });
+document.querySelectorAll('#reFue [data-k]').forEach(b=>{ b.onclick=()=>{ RET.fuente=b.dataset.k; retoChecked=false; refreshAll(); }; });
+const soundBtn=document.getElementById('soundBtn');
+soundBtn.onclick=()=>{const on=synth.toggle();soundBtn.textContent=on?'🔊':'🔇';soundBtn.classList.toggle('on',on);};
+
+ALT='toluca'; aplicaAlt();
+RET=startCfg(POOL[retoK]);
+shuffleQuiz();
+initAssembly();
+syncCtrlbar();
+setMode('ensamble');
+
+window.__labDebug={
+  mode:()=>mode,
+  progress:()=>({placed:{...placed},progress,simUnlocked}),
+  P0_MAR, L_TROPO, T0_ISA, EXP_ISA, H_BANCO, G_GRAV, P_NORM, P_FUGA_REF, T_VALV, E_AIRE,
+  A_LAT_MAX, SEP_VENT, HIST_ASC, DT_SIM, T_TOPE, T_TOPE_F, T_COLAPSO, PV_TIPICO,
+  ALTITUDES, VENTOSAS, VENTK, FUENTES, FUENTK, NUMS, POOL, POOLK, CRIT, CFGS,
+  pAtm, setAltitud, AREA, fuerzaReq, aLateral, vacioReq, cabenVentosas, derivP, vacioEq,
+  circuito, costeCfg, evalua, GOOD, costeMin, OPTS, OPT, LISTA_EJE, ejeSol, okEje, f1, whyCfg,
+  traza, fDisp, whyEje, startCfg,
+  alt:()=>({k:ALT, h:H_SIM, pAtm:P_ATM, pvTipico:PV_TIPICO*P_ATM}),
+  setAlt:(k)=>{ ALT=k; aplicaAlt(); refreshAll(); },
+  fuerza:()=>({...FZ, F:fuerzaReq(POOL[FZ.k]), pvReq:vacioReq(POOL[FZ.k],FZ.ventosa,FZ.numero),
+    fDisp:fDisp(FZ.ventosa,FZ.numero), caben:cabenVentosas(POOL[FZ.k],FZ.ventosa,FZ.numero)}),
+  circuitoUI:()=>({...CI, ...evalua(POOL[CI.k],cfgCI())}),
+  trazaUI:()=>{ const z=traza(POOL[CI.k],cfgCI()); return {alcanza:z.alcanza, tAg:z.tAg, pvMin:z.pvMin,
+    pvPico:z.pvPico, duty:z.duty, tRe:z.tRe, nAg:z.ag.length, nSu:z.su.length, nRe:z.re.length}; },
+  proyecto:()=>({...PR, good:GOOD(POOL[PR.k]).length, costeMin:costeMin(POOL[PR.k]), opt:OPT(POOL[PR.k])}),
+  retoK:()=>retoK,
+  retoCfg:()=>({...RET}),
+  reto:()=>({k:retoK, est:POOL[retoK].k, cfg:{...RET}, eval:evalua(POOL[retoK],RET),
+    ejes:{ventosa:ejeSol(POOL[retoK],'ventosa'), numero:ejeSol(POOL[retoK],'numero'), fuente:ejeSol(POOL[retoK],'fuente')},
+    checked:retoChecked, solved:retoSolved, ok:{...retoOk}}),
+  quiz:()=>({q:quizDef().q, opts:quizOpts().map(o=>({t:o.t,ok:!!o.ok})), pick:quizPick, ok:quizOkFlag}),
+  quizAnswer:(i)=>answerQuiz(i),
+  ciclo:()=>({on:cicloOn, fase:FASES[cFase].k, ciclos, armDrop, headZ, pieceHeld, pvNow}),
+  toggleCiclo,
+  setFuerza:(o)=>{ Object.assign(FZ,o); refreshAll(); },
+  setCircuito:(o)=>{ Object.assign(CI,o); refreshAll(); },
+  setProyecto:(o)=>{ Object.assign(PR,o); refreshAll(); },
+  setReto:(k)=>{ ALT='toluca'; aplicaAlt(); retoK=k; RET=startCfg(POOL[k]); retoChecked=false; retoSolved=false;
+    retoOk={ventosa:false,numero:false,fuente:false}; shuffleQuiz(); refreshAll(); },
+  setRetoCfg:(o)=>{ Object.assign(RET,o); retoChecked=false; refreshAll(); },
+  setMode, checkReto, newReto, runAuto, autoAssemble,
+};
+</script>
+  <!-- Ficha técnica · Capa B del molde de lab 3D (componente compartido + contenido del lab) -->
+  <script src="_ficha-tecnica.js"></script>
+  <script src="_ficha-vacio-pick-and-place.js"></script>
+</body>
+</html>

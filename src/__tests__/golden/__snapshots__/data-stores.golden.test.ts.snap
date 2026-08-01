@@ -1840,6 +1840,69 @@ Cada decisión tiene consecuencia física. ¡A tomar el volante!",
     "subtitulo": "Autotrónica · Armado, fundamento y diagnóstico",
     "titulo": "Dirección Asistida Eléctrica (EPS)",
   },
+  "mecanica-100": {
+    "acento": "#6FB3D2",
+    "aplicaciones": [
+      {
+        "area": "Proyecto de manipuladores por vacío en planta",
+        "ejemplo": "La cuenta que se hace en la mayoría de los talleres —dividir el peso entre el área de la ventosa y comparar con «el vacío del eyector»— falla por tres sitios a la vez: el área efectiva es menor que la nominal porque el labio no chupa (Ø 47 útiles en una ventosa de Ø 50, y como el área va con el cuadrado ese 6 % de diámetro es un 12 % de fuerza), el vacío disponible es un porcentaje de la atmósfera LOCAL y no un dato del aparato (622 mbar a 2 660 m frente a 861 al nivel del mar), y la fuerza que hay que vencer no es el peso sino el caso de la maniobra (una chapa de 8 kg trasladada en horizontal con μ = 0,10 exige 477,68 N, casi el doble que un panel de vidrio de 12 kg). Un cabezal proyectado con la cuenta ingenua funciona en el banco de pruebas del proveedor y suelta la pieza en la planta del cliente.",
+      },
+      {
+        "area": "Auditoría energética de una línea de pick&place",
+        "ejemplo": "El vacío es de los consumos de aire comprimido peor vigilados de una fábrica, porque un eyector Venturi sopla mientras el actuador sujeta y nadie oye un eyector entre veinte. Este laboratorio pone la cifra: en el panel de vidrio, 2,15 Nl y 0,2153 Wh por ciclo con un eyector básico frente a 0,08 Nl y 0,0083 Wh con uno de antirretorno y sensor, un 96,1 % menos, con un ciclo de trabajo del 0,7 %. La lección que se lleva el técnico es que la diferencia no está en el Venturi sino en la información: uno sopla siempre porque no sabe cuándo parar. Y la letra pequeña también está: sobre pieza porosa ese mismo aparato sólo ahorra el 23,5 %, así que la mejora hay que justificarla pieza a pieza y no por catálogo.",
+      },
+      {
+        "area": "Seguridad de cargas suspendidas por vacío",
+        "ejemplo": "Un panel de vidrio de 12 kg que viaja por encima de un puesto de trabajo plantea una pregunta que la ISO 4414 obliga a responder por escrito: ¿cuánto tiempo sigue sujeto si se corta el aire? El laboratorio la responde integrando la pérdida de vacío con el generador parado y da tres respuestas distintas para el mismo cabezal: 0,15 s sin antirretorno, más de 30 s con antirretorno sobre pieza estanca y 0,01 s con antirretorno sobre pieza porosa. La conclusión práctica es que el antirretorno no es una casilla del catálogo sino una función que depende de la pieza, y que un manipulador certificado para vidrio no está certificado para cartón. La EN 13155 añade el otro extremo del mismo razonamiento: en sujeción horizontal el factor de seguridad mínimo es 2 sobre la fuerza teórica, y ese factor se aplica antes de elegir nada.",
+      },
+    ],
+    "bienvenida": "Dimensionar un sistema de vacío parece una sola fórmula —F = Δp · A · n— y en realidad son seis decisiones encadenadas que se estorban entre sí. La primera sorpresa es que el vacío no lo pone el generador: lo pone la ATMÓSFERA. Un eyector Venturi da el 85 % de la presión atmosférica LOCAL, así que este banco, a 2 660 m de altitud, no dispone de los 861 mbar de vacío del nivel del mar sino de 622. La altitud se lleva el 27,8 % de la fuerza antes de que nadie elija nada, y no hay generador en el catálogo que lo devuelva.
+
+La segunda es que repartir la carga entre más ventosas no sólo baja el vacío que hace falta —cuatro ventosas piden la cuarta parte que una— sino que además hace el agarre MÁS RÁPIDO, no más lento: el volumen a evacuar crece con n, pero el umbral que hay que alcanzar baja con n, y gana el umbral. En el panel de vidrio con ventosa plana Ø 50 el sistema ni siquiera agarra con 1 ni con 2 ventosas, agarra en 93,5 ms con 4 y en 69,0 ms con 6.
+
+La tercera es que la fuga manda sobre el catálogo. Una caja de cartón corrugado que pierde 6 Nl/min por ventosa deja el vacío clavado en un equilibrio de 378 mbar —la misma caja sin poros llegaría a 622— y ahí el antirretorno del eyector de ahorro de aire, que sobre una pieza estanca aguanta más de 30 s sin energía, aguanta 0,01 s. El aparato es el mismo; lo que cambia es la pieza.
+
+La cuarta es que la fuente casi nunca se decide por fuerza. En el panel de vidrio las cuatro fuentes agarran, dos de ellas en el mismo tiempo y con el mismo vacío final, y sólo una vale: el vidrio viaja por encima del puesto de trabajo, la ISO 4414 obliga a prever qué pasa al faltar la energía y un eyector sin antirretorno suelta el panel en 0,15 s. Y de paso, el que vale gasta 0,0083 Wh por ciclo frente a 0,2153: no por mejor Venturi, sino porque tiene un sensor que sabe cuándo dejar de soplar.
+
+La quinta es que el coste mínimo del proyecto NO es monótono con la altitud. Bajando del nivel del mar a 2 660 m el panel de vidrio sube de 10 a 14 unidades de coste, la caja de cartón BAJA de 12 a 9, la chapa sube de 14 a 18 y el bidón salta de 21 a 30. Y hay huecos: el envase de plástico se resuelve al nivel del mar y a 2 660 m, y NO tiene solución en Denver, Puebla ni Ciudad de México, porque dos criterios opuestos —el tiempo, que exige un generador rápido, y el marcado, que lo prohíbe— se cruzan justo en el medio.
+
+El banco tiene cinco estaciones industriales y 64 propuestas por estación (4 ventosas × 4 repartos × 4 generadores = 320 en total). Sólo 18 son válidas, y en cuatro de las cinco la solución de coste mínimo es única. Motor verificado con 912 comprobaciones numéricas, 0 fallos.",
+    "codigo": "MEC-100",
+    "conceptos": [
+      {
+        "descripcion": "Un eyector Venturi da el 85 % de la presión atmosférica LOCAL y una bomba de paletas el 92 %. Con la atmósfera tipo de la ISO 2533, a 2 660 m hay 732,0 mbar en vez de 1 013,25, así que el techo de vacío del banco es 622 mbar frente a los 861 del nivel del mar y la misma ventosa pierde el 27,8 % de su fuerza sólo por estar donde está. Un catálogo que promete la fuerza «a 1 bar» está dando la fuerza de otro sitio.",
+        "icono": "🏔️",
+        "nombre": "El techo del vacío lo pone la altitud",
+      },
+      {
+        "descripcion": "El panel de vidrio pide 259,36 N: con una ventosa plana Ø 50 harían falta 1 495 mbar —imposible en cualquier punto del planeta— y con cuatro, 374. Y contra la intuición del volumen, más ventosas agarran ANTES: 93,5 ms con 4 y 69,0 ms con 6, porque el volumen a evacuar crece con n pero el umbral baja con n y gana el umbral. Cuadruplicar las ventosas cuesta 8 unidades; ningún generador del banco compra esa mejora a ningún precio.",
+        "icono": "🔢",
+        "nombre": "Repartir baja el vacío requerido Y acelera el agarre",
+      },
+      {
+        "descripcion": "Una caja de cartón corrugado que pierde 6 Nl/min por ventosa no tarda más en llegar a 622 mbar: no llega nunca. El vacío se estabiliza en el equilibrio entre lo que el eyector saca y lo que los poros meten — 378 mbar con 2 ventosas y 255 con 6. Y sin embargo la fuerza SUBE de 70,8 a 71,5 N, porque el objetivo no es el vacío sino su producto por el área. Con fuga, además, el antirretorno deja de servir: la retención cae de más de 30 s a 0,01 s.",
+        "icono": "💨",
+        "nombre": "La fuga no retrasa: impide",
+      },
+      {
+        "descripcion": "En el panel de vidrio el eyector básico y el de ahorro de aire dan el mismo vacío final (622 mbar) y el mismo tiempo de agarre (93,5 ms): sus curvas se superponen. Pero al cortar el aire el básico suelta el panel en 0,15 s y el de ahorro lo sostiene más de 30 s, y la ISO 4414 obliga a prever ese fallo en una carga que viaja sobre el puesto de trabajo. El criterio de falta de energía elimina 13 propuestas del banco, 6 de ellas sin ningún otro defecto. El de fuerza, en cambio, aparece 121 veces y NUNCA falla él solo.",
+        "icono": "⚡",
+        "nombre": "La fuente se decide por lo que pasa al faltar la energía",
+      },
+    ],
+    "duracion": 45,
+    "mision": [
+      "LA ATMÓSFERA ES EL TECHO · Modo Fuerza, panel de vidrio, ventosa plana Ø 50 con UNA ventosa: hacen falta 1 495 mbar de vacío. No es que el eyector sea pequeño: es que la atmósfera entera de este banco son 732 mbar. Mira la barra de las cinco altitudes y comprueba que ni al nivel del mar existen 1 495 mbar en ninguna parte. Sube a 4 ventosas y el requisito cae a 374 —la cuarta parte— y la solución entra en el catálogo. Ahora cambia la altitud del banco al nivel del mar y vuelve: la fuerza disponible pasa de 431,8 a 597,7 N con el mismo cabezal y la misma pieza.",
+      "MÁS VENTOSAS AGARRAN ANTES · Modo Circuito, panel de vidrio con plana Ø 50 y eyector básico, y compara 4 con 6 ventosas mirando el tiempo de agarre: 93,5 ms con 4 y 69,0 ms con 6. El volumen a evacuar ha crecido un 50 % y aun así tarda menos; la razón está en las dos curvas del panel izquierdo, donde el umbral bajó más deprisa que lo que subió el volumen. Después cambia del eyector básico al de ahorro de aire: mismo vacío final y mismo tiempo —las curvas se superponen— y sin embargo uno suelta el panel en 0,15 s al cortar la energía y el otro lo aguanta más de 30 s, y además gasta 0,0083 Wh por ciclo frente a 0,2153.",
+      "LA FUGA MANDA · Cambia a la caja de cartón con fuelle Ø 40 × 2 y eyector básico. En el panel izquierdo la curva se aplana en 378 mbar y se queda ahí: es el equilibrio entre lo que el eyector saca y lo que los poros meten, y el catálogo prometía 622. Fíjate en que la línea del vacío requerido, 329 mbar, queda por debajo: la caja se sostiene igual. Sube a 6 ventosas y comprueba lo aparentemente imposible — el vacío CAE a 255 mbar y la fuerza SUBE a 71,5 N. Termina poniendo el eyector de ahorro de aire sobre esa misma caja y mide la retención: 0,01 s. Con poros, el antirretorno no tiene qué retener.",
+      "PESAR MENOS Y EXIGIR MÁS · Modo Fuerza, chapa aceitada: pesa 8 kg frente a los 12 del vidrio y exige 477,68 N frente a 259,36. Lee el diagrama de cuerpo libre — la chapa se traslada en horizontal y quien la sujeta es el rozamiento, así que la aceleración se divide por μ = 0,10 antes de multiplicar, y un décimo de coeficiente multiplica por diez la parte dinámica. Después ve al bidón tomado por la pared con μ = 0,30: allí es el PESO ENTERO el que se divide por μ, y 6 kg acaban pidiendo 412,27 N.",
+      "EL PROYECTO · Modo Proyecto. En el envase de plástico casi toda la malla está marcada con «s»: no caben las ventosas, porque su isla plana mide 35 × 35 mm y la pared es curva; de 64 propuestas sobrevive UNA y el proyecto no lo decidió la física del vacío sino el molde de la pieza. En el bidón, con los tres eyectores la malla entera está en rojo —necesita 639 mbar y un eyector se queda en 622— y sólo la bomba de paletas, con su 92 %, llega a 673: una casilla verde en 64 y la más cara del banco. Recorre después las cinco altitudes con el envase de plástico y comprueba que se resuelve en los extremos y NO en el medio.",
+      "RETO · Se sortea una estación y arrancas mal en los tres ejes. Elige ventosa, número y generador y pulsa Comprobar: cada eje se califica por separado con los otros dos ya en su óptimo, así que sabrás exactamente cuál has fallado. Cumplir los seis criterios no basta — la respuesta correcta es también la de menos unidades: 14 en el vidrio, 9 en el cartón, 18 en la chapa, 9 en el plástico y 30 en el bidón.",
+    ],
+    "subtitulo": "Hidráulica y Neumática · ISO 2533 + ISO 4414 + EN 13155: el vacío no lo pone el generador, lo pone la atmósfera",
+    "titulo": "Dimensiona un Sistema de Vacío para Pick&Place",
+    "videoUrl": "",
+  },
   "mecanica-11": {
     "acento": "#2A9D8F",
     "aplicaciones": [
@@ -17589,6 +17652,7 @@ exports[`golden master — stores de datos (invariante ante la migración a src/
   "matematicas-9": [],
   "mecanica-1": [],
   "mecanica-10": [],
+  "mecanica-100": [],
   "mecanica-11": [],
   "mecanica-12": [],
   "mecanica-13": [],
@@ -17923,6 +17987,7 @@ exports[`golden master — stores de datos (invariante ante la migración a src/
   "matematicas-9",
   "mecanica-1",
   "mecanica-10",
+  "mecanica-100",
   "mecanica-11",
   "mecanica-12",
   "mecanica-13",
