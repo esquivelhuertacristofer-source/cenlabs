@@ -1,0 +1,9 @@
+{
+  "donor": "escaner-obd.html",
+  "out": "valvulas-limitadora-reguladora-caudal.html",
+  "title": "CEN Labs · Válvulas limitadora y reguladora de caudal — Laboratorio 3D",
+  "lt": "Hidráulica y Neumática · Mecánica",
+  "inspectHint": "👆 Toca el banco de ensayo, la limitadora de presión, las tres reguladoras, el cilindro con su carga, el manómetro o el tablero para ver qué decide cada pieza",
+  "body": "valvulas-limitadora-reguladora-caudal.body.js",
+  "fichas": ["_ficha-tecnica.js", "_ficha-valvulas-limitadora-reguladora-caudal.js"]
+}
