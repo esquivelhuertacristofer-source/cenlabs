@@ -1,0 +1,9 @@
+{
+  "donor": "escaner-obd.html",
+  "out": "valvula-contrabalance-cargas-negativas.html",
+  "title": "CEN Labs · Válvula de contrabalance y cargas negativas — Laboratorio 3D",
+  "lt": "Hidráulica y Neumática · Mecánica",
+  "inspectHint": "👆 Toca el grupo de accionamiento, la válvula direccional, la contrabalance con su tornillo de tarado, el actuador, la carga o el tablero para ver qué decide cada pieza",
+  "body": "valvula-contrabalance-cargas-negativas.body.js",
+  "fichas": ["_ficha-tecnica.js", "_ficha-valvula-contrabalance-cargas-negativas.js"]
+}
