@@ -1,0 +1,2570 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>CEN Labs · Curva P–Q de una bomba hidráulica — Laboratorio 3D</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#08201C;--panel:rgba(9,26,23,.86);--line:#1E3A34;--ink:#EAF4F1;
+    --dim:#8FB3AC;--accent:#2A9D8F;--accent2:#4FD1C5;--hv:#FFB703;--good:#34d399;--bad:#f4475e;
+    --mono:'Outfit',system-ui,'Segoe UI',Roboto,sans-serif;--disp:'Outfit','Arial Black',Impact,sans-serif;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  html,body{height:100%;background:var(--bg);color:var(--ink);font-family:'Outfit',system-ui,Segoe UI,Roboto,sans-serif}
+  body{overflow:hidden}
+  #stage{position:fixed;inset:0}
+  canvas{display:block;touch-action:none}
+
+  .topbar{position:fixed;top:0;left:0;right:0;height:56px;display:flex;align-items:center;gap:14px;padding:0 20px;z-index:20;background:linear-gradient(180deg,rgba(10,13,18,.92),transparent);pointer-events:none}
+  .brand{font-family:var(--disp);font-weight:bold;font-size:16px;text-transform:uppercase}
+  .brand span{color:var(--accent)}
+  .lt{font-family:var(--mono);font-size:11px;letter-spacing:.1em;text-transform:uppercase;color:var(--dim)}
+
+  .badge{position:fixed;top:16px;right:20px;z-index:20;font-family:var(--mono);font-size:9px;letter-spacing:.12em;text-transform:uppercase;background:rgba(255,209,102,.12);color:var(--hv);border:1px solid rgba(255,209,102,.35);padding:6px 12px;border-radius:20px}
+
+  .hud{position:fixed;top:70px;left:18px;z-index:15;max-width:330px;background:var(--panel);backdrop-filter:blur(14px);border:1px solid var(--line);border-radius:16px;padding:18px 20px;max-height:calc(100vh - 150px);overflow-y:auto}
+  .hud .eyebrow{font-family:var(--mono);font-size:10px;letter-spacing:.18em;text-transform:uppercase;color:var(--accent);margin-bottom:8px}
+  .hud h2{font-size:19px;line-height:1.15;margin-bottom:9px}
+  .hud p{font-size:13px;line-height:1.55;color:var(--dim);margin-bottom:10px}
+  .hud .formula{font-family:var(--mono);color:var(--accent2);text-align:center;font-size:12.5px;margin:8px 0;padding:8px;background:rgba(0,0,0,.25);border-radius:8px;line-height:1.5}
+  .hud .src{font-size:10.5px;color:#7a8894;font-style:italic;margin-top:4px;line-height:1.5}
+  .legend{display:flex;flex-direction:column;gap:6px;margin:12px 0;padding:10px 12px;background:rgba(0,0,0,.22);border-radius:10px}
+  .legend .li{display:flex;align-items:center;gap:8px;font-size:11px;color:#c4d0da}
+  .legend .dot{width:10px;height:10px;border-radius:50%;flex:0 0 auto}
+  .fid{margin:10px 0 2px;padding:10px 12px;background:rgba(0,0,0,.22);border-radius:10px;border:1px solid rgba(79,209,197,.18)}
+  .fid .ft{font-family:var(--mono);font-size:9.5px;letter-spacing:.14em;text-transform:uppercase;color:var(--accent2);margin-bottom:6px}
+  .fid .fl{font-size:11px;color:#c4d0da;line-height:1.5;margin-bottom:5px}
+  .fid .fl b{color:var(--ink)}
+  .fid .fl.no b{color:var(--hv)}
+
+  .panel{position:fixed;top:70px;right:18px;z-index:15;width:262px;background:var(--panel);backdrop-filter:blur(14px);border:1px solid var(--line);border-radius:16px;padding:16px;max-height:calc(100vh - 150px);overflow-y:auto}
+  .panel h4{font-family:var(--mono);font-size:10px;letter-spacing:.14em;text-transform:uppercase;color:var(--dim);margin:2px 0 10px}
+  .panel h4.sec{margin-top:16px;border-top:1px solid var(--line);padding-top:14px}
+  .g{margin-bottom:6px}
+  .gl{display:flex;justify-content:space-between;font-family:var(--mono);font-size:11px;color:var(--dim)}
+  .gl b{color:var(--accent2)}
+  .gl b.good{color:var(--good)}.gl b.warn{color:var(--hv)}.gl b.bad{color:var(--bad)}
+  .modebar{display:flex;gap:5px;margin-bottom:8px}
+  .modebar .b{flex:1;padding:8px 4px;font-size:11px}
+  .btns{display:flex;flex-direction:column;gap:7px;margin-top:6px}
+  .b{font-family:system-ui;font-size:12.5px;padding:10px;border-radius:9px;cursor:pointer;border:1px solid var(--line);background:#1b242f;color:var(--ink);transition:.15s;text-align:center}
+  .b:hover{border-color:var(--accent);background:#202c38}
+  .b.on{background:var(--accent);color:#06120f;border-color:var(--accent);font-weight:bold}
+  .b.primary{background:var(--accent);color:#06120f;border-color:var(--accent);font-weight:bold}
+  .b.auto{border-color:var(--hv);color:var(--hv);background:rgba(255,183,3,.10);font-weight:bold}
+  .b.auto:hover{background:rgba(255,183,3,.18);border-color:var(--hv)}
+  .b.auto:disabled{opacity:.6;cursor:default}
+  .b.dx{text-align:left;font-size:12px}
+  .b.dx.right{background:rgba(52,211,153,.18);border-color:var(--good);color:var(--good);font-weight:bold}
+  .b.dx.wrong{background:rgba(244,71,94,.15);border-color:var(--bad);color:var(--bad)}
+  .console{font-family:var(--mono);font-size:11px;line-height:1.55;color:#c4d0da;background:rgba(0,0,0,.28);border-radius:9px;padding:10px 12px;margin-bottom:8px;min-height:56px}
+  .console .dtc{color:var(--bad);font-weight:bold}
+  .console .ok{color:var(--good)}
+  .console .mono{color:var(--dim)}
+
+  .hint{position:fixed;bottom:18px;left:18px;z-index:14;font-family:var(--mono);font-size:10px;color:var(--dim);background:var(--panel);padding:7px 12px;border-radius:9px;border:1px solid var(--line)}
+  .toast{position:fixed;top:80px;left:50%;transform:translateX(-50%);z-index:30;background:rgba(18,24,32,.95);border:1px solid var(--accent);padding:10px 20px;border-radius:40px;font-family:var(--mono);font-size:12px;opacity:0;transition:.3s;pointer-events:none;max-width:80vw;text-align:center}
+  .toast.show{opacity:1}
+  .soundBtn{position:fixed;top:14px;right:18px;z-index:21;font-size:16px;background:var(--panel);backdrop-filter:blur(12px);border:1px solid var(--line);border-radius:50%;width:36px;height:36px;cursor:pointer;color:var(--dim);transition:.15s}
+  .soundBtn.on{color:var(--accent);border-color:var(--accent)}
+  .soundBtn:hover{transform:scale(1.08)}
+  .inspectHint{position:fixed;bottom:18px;right:18px;z-index:14;font-family:var(--mono);font-size:10px;color:var(--accent2);background:var(--panel);padding:7px 12px;border-radius:9px;border:1px solid var(--line)}
+
+  @media(max-width:820px){
+    .hud,.panel{position:fixed;left:8px;right:8px;top:auto;bottom:8px;max-width:none;width:auto;max-height:42vh;overflow-y:auto}
+    .hud{bottom:calc(8px + 42vh + 8px)}
+    .hint,.inspectHint{display:none}
+  }
+</style>
+</head>
+<body>
+<div id="stage"></div>
+<button class="soundBtn on" id="soundBtn">🔊</button>
+<div class="topbar">
+  <div class="brand">CEN<span> Labs</span></div>
+  <div class="lt">Hidráulica y Neumática · Mecánica</div>
+</div>
+<div class="hud" id="hud"></div>
+<div class="panel" id="panel"></div>
+<div class="hint">Arrastra para orbitar · rueda para zoom</div>
+<div class="inspectHint">👆 Toca la bomba, el motor y su placa, el manómetro, la limitadora, el colador de aspiración, la mirilla de aceite o el tablero para ver qué decide cada pieza</div>
+<div class="toast" id="toast"></div>
+
+<script type="importmap">
+{ "imports": {
+  "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.min.js",
+  "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/"
+}}
+</script>
+<script type="module">
+import * as THREE from 'three';
+import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
+import { RoundedBoxGeometry } from 'three/addons/geometries/RoundedBoxGeometry.js';
+import { EffectComposer } from 'three/addons/postprocessing/EffectComposer.js';
+import { RenderPass } from 'three/addons/postprocessing/RenderPass.js';
+import { GTAOPass } from 'three/addons/postprocessing/GTAOPass.js';
+import { UnrealBloomPass } from 'three/addons/postprocessing/UnrealBloomPass.js';
+import { SMAAPass } from 'three/addons/postprocessing/SMAAPass.js';
+import { OutputPass } from 'three/addons/postprocessing/OutputPass.js';
+import { BokehPass } from 'three/addons/postprocessing/BokehPass.js';
+
+/* ============================================================
+   Texturas PBR procedurales (sin archivos externos) — compartidas
+   ============================================================ */
+function cv(s=512){const c=document.createElement('canvas');c.width=c.height=s;return c;}
+function tex(canvas,repeat=1,srgb=false){
+  const t=new THREE.CanvasTexture(canvas);
+  t.wrapS=t.wrapT=THREE.RepeatWrapping;t.repeat.set(repeat,repeat);
+  t.colorSpace = srgb?THREE.SRGBColorSpace:THREE.NoColorSpace;
+  t.generateMipmaps=false; t.minFilter=THREE.LinearFilter; t.anisotropy=1; return t;
+}
+function normalFromHeight(size, hfn, strength=2.0){
+  const c=cv(size),ctx=c.getContext('2d'),img=ctx.createImageData(size,size);
+  const H=(x,y)=>hfn((x+size)%size,(y+size)%size);
+  for(let y=0;y<size;y++)for(let x=0;x<size;x++){
+    const dx=(H(x+1,y)-H(x-1,y))*strength;
+    const dy=(H(x,y+1)-H(x,y-1))*strength;
+    const nz=1.0; const len=Math.hypot(dx,dy,nz);
+    const i=(y*size+x)*4;
+    img.data[i]  =((-dx/len)*0.5+0.5)*255;
+    img.data[i+1]=((-dy/len)*0.5+0.5)*255;
+    img.data[i+2]=((nz/len)*0.5+0.5)*255;
+    img.data[i+3]=255;
+  }
+  ctx.putImageData(img,0,0);return c;
+}
+function valueNoise(seed=1){
+  const g=(x,y)=>{const s=Math.sin((x*127.1+y*311.7)+seed*13.13)*43758.5453;return s-Math.floor(s);};
+  return (x,y)=>{
+    const xi=Math.floor(x),yi=Math.floor(y),xf=x-xi,yf=y-yi;
+    const u=xf*xf*(3-2*xf),v=yf*yf*(3-2*yf);
+    const a=g(xi,yi),b=g(xi+1,yi),c=g(xi,yi+1),d=g(xi+1,yi+1);
+    return a*(1-u)*(1-v)+b*u*(1-v)+c*(1-u)*v+d*u*v;
+  };
+}
+function fbm(noise,x,y,oct=4){let v=0,a=0.5,f=1;for(let i=0;i<oct;i++){v+=noise(x*f,y*f)*a;f*=2;a*=0.5;}return v;}
+
+function castAluminum(){
+  const S=512, n=valueNoise(7);
+  const c=cv(S),ctx=c.getContext('2d'),img=ctx.createImageData(S,S);
+  for(let y=0;y<S;y++)for(let x=0;x<S;x++){
+    const v=fbm(n,x/22,y/22,5);
+    const por=Math.pow(n(x/3.1,y/3.1),8);
+    const base=150+v*38-por*70;
+    const i=(y*S+x)*4; img.data[i]=base; img.data[i+1]=base+4; img.data[i+2]=base+10; img.data[i+3]=255;
+  }
+  ctx.putImageData(img,0,0);
+  const r=cv(S),rx=r.getContext('2d'),rimg=rx.createImageData(S,S);
+  for(let y=0;y<S;y++)for(let x=0;x<S;x++){
+    const v=fbm(n,x/18,y/18,4); const por=Math.pow(n(x/3.1,y/3.1),8);
+    const rough=120+v*40+por*90; const i=(y*S+x)*4;
+    rimg.data[i]=rimg.data[i+1]=rimg.data[i+2]=Math.min(255,rough); rimg.data[i+3]=255;
+  }
+  rx.putImageData(rimg,0,0);
+  const nrm=normalFromHeight(S,(x,y)=>fbm(n,x/16,y/16,5)+Math.pow(n(x/3.1,y/3.1),8)*0.6,3.0);
+  return {map:tex(c,1,true),roughnessMap:tex(r),normalMap:tex(nrm)};
+}
+function brushedMetal(){
+  const S=512, n=valueNoise(3);
+  const c=cv(S),ctx=c.getContext('2d'),img=ctx.createImageData(S,S);
+  for(let y=0;y<S;y++)for(let x=0;x<S;x++){
+    const streak=Math.sin(y*0.9)*2 + (n(x/120,y*0.5)-0.5)*40;
+    const base=185+streak; const i=(y*S+x)*4;
+    img.data[i]=base; img.data[i+1]=base+2; img.data[i+2]=base+6; img.data[i+3]=255;
+  }
+  ctx.putImageData(img,0,0);
+  const r=cv(S),rx=r.getContext('2d'),rimg=rx.createImageData(S,S);
+  for(let y=0;y<S;y++)for(let x=0;x<S;x++){
+    const streak=(n(x/120,y*0.5)-0.5)*60; const rough=40+Math.abs(streak); const i=(y*S+x)*4;
+    rimg.data[i]=rimg.data[i+1]=rimg.data[i+2]=Math.min(160,rough); rimg.data[i+3]=255;
+  }
+  rx.putImageData(rimg,0,0);
+  const nrm=normalFromHeight(S,(x,y)=>(n(x/120,y*0.5))*0.3+Math.sin(y*0.9)*0.02,1.2);
+  return {map:tex(c,1,true),roughnessMap:tex(r),normalMap:tex(nrm)};
+}
+function rubber(){
+  const S=256,n=valueNoise(5);
+  const nrm=normalFromHeight(S,(x,y)=>fbm(n,x/8,y/8,4),1.4);
+  const rough=cv(64),rc=rough.getContext('2d');rc.fillStyle='#e0e0e0';rc.fillRect(0,0,64,64);
+  return {roughnessMap:tex(rough),normalMap:tex(nrm,2)};
+}
+function gradientBG(top='#11161d',bottom='#05070a'){
+  const c=cv(512),ctx=c.getContext('2d');
+  const grd=ctx.createLinearGradient(0,0,0,512);
+  grd.addColorStop(0,top);grd.addColorStop(1,bottom);
+  ctx.fillStyle=grd;ctx.fillRect(0,0,512,512);
+  const rg=ctx.createRadialGradient(256,200,30,256,256,360);
+  rg.addColorStop(0,'rgba(42,157,143,0.10)');rg.addColorStop(1,'rgba(0,0,0,0)');
+  ctx.fillStyle=rg;ctx.fillRect(0,0,512,512);
+  return tex(c,1,true);
+}
+function techPlastic(r=0.10,g=0.11,b=0.13){
+  const S=256,n=valueNoise(31);
+  const c=cv(S),ctx=c.getContext('2d'),img=ctx.createImageData(S,S);
+  for(let y=0;y<S;y++)for(let x=0;x<S;x++){
+    const v=fbm(n,x/30,y/30,3)*0.1+0.92; const i=(y*S+x)*4;
+    img.data[i]=r*255*v;img.data[i+1]=g*255*v;img.data[i+2]=b*255*v;img.data[i+3]=255;
+  }
+  ctx.putImageData(img,0,0);
+  const nrm=normalFromHeight(S,(x,y)=>fbm(n,x/10,y/10,3),0.8);
+  const rough=cv(64),rc=rough.getContext('2d');rc.fillStyle='#9a9a9a';rc.fillRect(0,0,64,64);
+  return {map:tex(c,1,true),roughnessMap:tex(rough),normalMap:tex(nrm)};
+}
+
+/* ============================================================
+   ENGINE — render premium compartido por todos los laboratorios
+   ============================================================ */
+function createStage(mount, opts={}){
+  const bgTop = opts.bgTop||'#141b24', bgBot = opts.bgBot||'#05070a';
+  const renderer = new THREE.WebGLRenderer({ antialias:true, powerPreference:'high-performance' });
+  renderer.setPixelRatio(Math.min(devicePixelRatio,2));
+  renderer.setSize(mount.clientWidth, mount.clientHeight);
+  renderer.shadowMap.enabled = true;
+  renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+  renderer.toneMapping = THREE.ACESFilmicToneMapping;
+  renderer.toneMappingExposure = opts.exposure ?? 1.18;
+  renderer.outputColorSpace = THREE.SRGBColorSpace;
+  mount.appendChild(renderer.domElement);
+  renderer.domElement.style.touchAction='none';
+
+  const scene = new THREE.Scene();
+  scene.background = gradientBG(bgTop,bgBot);
+  const pmrem = new THREE.PMREMGenerator(renderer);
+  scene.environment = pmrem.fromScene(new RoomEnvironment(renderer), 0.04).texture;
+  scene.environmentIntensity = opts.envInt ?? 1.15;
+
+  const camera = new THREE.PerspectiveCamera(45, mount.clientWidth/mount.clientHeight, 0.1, 200);
+  const cam = opts.cam || [5.5,3.4,6.2];
+  camera.position.set(...cam);
+
+  const controls = new OrbitControls(camera, renderer.domElement);
+  controls.enableDamping = true; controls.dampingFactor = 0.07;
+  controls.minDistance = opts.minD ?? 3; controls.maxDistance = opts.maxD ?? 18;
+  controls.maxPolarAngle = Math.PI*0.52;
+  controls.target.set(...(opts.target||[0,1.4,0]));
+  controls.autoRotate = opts.autoRotate ?? false;
+  controls.autoRotateSpeed = opts.autoRotateSpeed ?? 0.6;
+
+  const key = new THREE.DirectionalLight(0xffffff, 2.7);
+  key.position.set(5,9,6); key.castShadow=true;
+  key.shadow.mapSize.set(2048,2048);
+  key.shadow.camera.near=0.5; key.shadow.camera.far=40;
+  const sd=8; Object.assign(key.shadow.camera,{left:-sd,right:sd,top:sd,bottom:-sd});
+  key.shadow.bias=-0.0003; key.shadow.normalBias=0.02; scene.add(key);
+  const rim = new THREE.SpotLight(0x2affce, 55, 30, Math.PI/5, 0.4, 1.5);
+  rim.position.set(-7,6,-5); scene.add(rim);
+  const fill = new THREE.DirectionalLight(0x6fb6ff, 0.5); fill.position.set(-4,3,7); scene.add(fill);
+  scene.add(new THREE.HemisphereLight(0x9fb4c8, 0x10151b, 0.35));
+
+  if(opts.floor!==false){
+    const f = new THREE.Mesh(new THREE.CircleGeometry(40,80),
+      new THREE.MeshStandardMaterial({ color:0x0a0e13, roughness:0.14, metalness:0.62, envMapIntensity:1.15 }));
+    f.rotation.x=-Math.PI/2; f.receiveShadow=true; scene.add(f);
+    for(let r=2;r<=8;r+=2){
+      const ring=new THREE.Mesh(new THREE.RingGeometry(r-0.012,r+0.012,80),
+        new THREE.MeshBasicMaterial({color:0x1a2632,transparent:true,opacity:0.4}));
+      ring.rotation.x=-Math.PI/2; ring.position.y=0.002; scene.add(ring);
+    }
+  }
+
+  const isMobile = /Mobi|Android|iPhone|iPad/i.test(navigator.userAgent) || innerWidth<820;
+  // GTAO desactivado por defecto: el pase de oclusión ambiental en espacio de pantalla
+  // producía un recuadro oscuro duro sobre el piso reflectante (artefacto dependiente de la
+  // cámara y del renderer). La escena tiene AO suficiente con luces directas + sombras + env.
+  // Se puede reactivar para pruebas con ?gtao.
+  const useGtao = /[?&]gtao\b/.test(location.search);
+  const composer = new EffectComposer(renderer);
+  composer.addPass(new RenderPass(scene,camera));
+  if(!isMobile && useGtao){
+    try{
+      const g=new GTAOPass(scene,camera,mount.clientWidth,mount.clientHeight);
+      g.output=GTAOPass.OUTPUT.Default;
+      if(g.updateGtaoMaterial)g.updateGtaoMaterial({radius:0.5,distanceExponent:1,thickness:1,scale:1.1,samples:16});
+      composer.addPass(g);
+    }catch(e){}
+  }
+  const bloom=new UnrealBloomPass(new THREE.Vector2(mount.clientWidth,mount.clientHeight),opts.bloom??0.42,0.5,0.9);
+  composer.addPass(bloom);
+  let bokeh=null;
+  const flat=/[?&]flat/.test(location.search);
+  if(!isMobile && !flat){
+    bokeh=new BokehPass(scene,camera,{focus:8.5,aperture:opts.aperture??0.00018,maxblur:opts.maxblur??0.004,width:mount.clientWidth,height:mount.clientHeight});
+    composer.addPass(bokeh);
+  }
+  composer.addPass(new OutputPass());
+  composer.addPass(new SMAAPass(mount.clientWidth*renderer.getPixelRatio(),mount.clientHeight*renderer.getPixelRatio()));
+
+  function resize(){
+    const w=mount.clientWidth,h=mount.clientHeight;
+    camera.aspect=w/h; camera.updateProjectionMatrix();
+    renderer.setSize(w,h); composer.setSize(w,h);
+  }
+  window.addEventListener('resize',resize);
+
+  const clock=new THREE.Clock();
+  let hook=null, raf=null;
+  const camCine={active:false,t:0,dur:1.4,from:new THREE.Vector3(),to:new THREE.Vector3(),fromT:new THREE.Vector3(),toT:new THREE.Vector3()};
+  let lastDrag=-99, cinematicIdle=false;
+  controls.addEventListener('start',()=>{ lastDrag=clock.elapsedTime; camCine.active=false; });
+  function easeInOutCubic(x){return x<0.5?4*x*x*x:1-Math.pow(-2*x+2,3)/2;}
+  function moveTo(pos,target,dur=1.4){
+    camCine.from.copy(camera.position); camCine.fromT.copy(controls.target);
+    camCine.to.set(...pos); camCine.toT.set(...target);
+    camCine.dur=dur; camCine.active=true; camCine.t=0;
+  }
+  function setCinematicIdle(v){ cinematicIdle=v; if(!v)controls.autoRotate=false; }
+  function loop(){ raf=requestAnimationFrame(loop); const dt=clock.getDelta(),t=clock.elapsedTime;
+    if(camCine.active){
+      camCine.t=Math.min(1,camCine.t+dt/camCine.dur);
+      const e=easeInOutCubic(camCine.t);
+      camera.position.lerpVectors(camCine.from,camCine.to,e);
+      controls.target.lerpVectors(camCine.fromT,camCine.toT,e);
+      if(camCine.t>=1)camCine.active=false;
+    } else if(cinematicIdle){
+      controls.autoRotate=(t-lastDrag)>1.4; controls.autoRotateSpeed=0.45;
+    }
+    if(hook)hook(dt,t); controls.update();
+    if(bokeh) bokeh.uniforms['focus'].value = camera.position.distanceTo(controls.target);
+    composer.render(); }
+  function start(){ if(!raf)loop(); }
+  function stop(){ cancelAnimationFrame(raf); raf=null; window.removeEventListener('resize',resize); }
+
+  return { THREE, renderer, scene, camera, controls, composer, bloom,
+    setAnimate:fn=>hook=fn, start, stop, resize, clock,
+    flyTo:(v)=>{ controls.target.copy(v); }, moveTo, setCinematicIdle };
+}
+
+/* ---------- shared geometry/material helpers ---------- */
+function roundedBox(w,h,d,mat,rf=0.08){
+  const r=Math.min(w,h,d)*rf;
+  const m=new THREE.Mesh(new RoundedBoxGeometry(w,h,d,4,r),mat);
+  m.castShadow=m.receiveShadow=true; return m;
+}
+function pickerFor(scene,camera,dom,onHit){
+  const ray=new THREE.Raycaster(),mouse=new THREE.Vector2(); let down=null;
+  dom.addEventListener('pointerdown',e=>down=[e.clientX,e.clientY]);
+  dom.addEventListener('pointerup',e=>{
+    if(!down)return; const moved=Math.abs(e.clientX-down[0])+Math.abs(e.clientY-down[1])>6; down=null;
+    if(moved)return;
+    const r=dom.getBoundingClientRect();
+    mouse.x=((e.clientX-r.left)/r.width)*2-1; mouse.y=-((e.clientY-r.top)/r.height)*2+1;
+    ray.setFromCamera(mouse,camera);
+    const hits=ray.intersectObjects(scene.children,true);
+    onHit(hits[0]||null);
+  });
+}
+function labelSprite(text,color='#ffd166'){
+  const w = Math.max(150, Math.min(520, text.length*26+60));
+  const cvE=document.createElement('canvas');cvE.width=w;cvE.height=96;
+  const c=cvE.getContext('2d');c.fillStyle='rgba(8,11,16,.95)';
+  const rr=(x,y,ww,hh,r)=>{c.beginPath();c.moveTo(x+r,y);c.arcTo(x+ww,y,x+ww,y+hh,r);c.arcTo(x+ww,y+hh,x,y+hh,r);c.arcTo(x,y+hh,x,y,r);c.arcTo(x,y,x+ww,y,r);c.closePath();};
+  rr(3,3,w-6,90,18);c.fill();
+  c.strokeStyle=color;c.lineWidth=3;c.stroke();
+  c.font='bold 36px Outfit, system-ui, sans-serif';c.fillStyle=color;c.textAlign='center';c.textBaseline='middle';c.fillText(text,w/2,48);
+  const tx=new THREE.CanvasTexture(cvE);tx.colorSpace=THREE.SRGBColorSpace;tx.generateMipmaps=false;tx.minFilter=THREE.LinearFilter;
+  const sp=new THREE.Sprite(new THREE.SpriteMaterial({map:tx,depthTest:false,transparent:true}));
+  const aspect=w/96;
+  sp.scale.set(0.30*aspect,0.30,1);sp.renderOrder=999;return sp;
+}
+
+/* ============================================================
+   SYNTH — sintetizador Web Audio reutilizable
+   ============================================================ */
+function makeSynth(opts={}){
+  const type=opts.type||'sawtooth';
+  let ctx=null,oscA=null,oscB=null,gain=null,filter=null,soundOn=true;
+  function init(){
+    if(ctx)return;
+    try{
+      ctx=new (window.AudioContext||window.webkitAudioContext)();
+      oscA=ctx.createOscillator(); oscB=ctx.createOscillator();
+      oscA.type=type; oscB.type=opts.type2||'square';
+      filter=ctx.createBiquadFilter(); filter.type=opts.filterType||'lowpass'; filter.frequency.value=opts.filterFreq||500; filter.Q.value=opts.Q||3;
+      gain=ctx.createGain(); gain.gain.value=0;
+      oscA.connect(filter); oscB.connect(filter); filter.connect(gain); gain.connect(ctx.destination);
+      oscA.start(); oscB.start();
+    }catch(e){}
+  }
+  function update(freqA,freqB,vol,filterFreq){
+    if(!ctx||!soundOn){ if(gain)gain.gain.setTargetAtTime(0,ctx?.currentTime||0,0.1); return; }
+    oscA.frequency.setTargetAtTime(freqA,ctx.currentTime,0.04);
+    if(freqB!==undefined)oscB.frequency.setTargetAtTime(freqB,ctx.currentTime,0.04);
+    if(filterFreq!==undefined)filter.frequency.setTargetAtTime(filterFreq,ctx.currentTime,0.05);
+    gain.gain.setTargetAtTime(Math.max(0,vol),ctx.currentTime,0.06);
+  }
+  function beep(freq=880,dur=0.09,vol=0.06){
+    if(!ctx||!soundOn)return;
+    const o=ctx.createOscillator(),g=ctx.createGain();
+    o.type='sine'; o.frequency.value=freq;
+    g.gain.setValueAtTime(vol,ctx.currentTime); g.gain.exponentialRampToValueAtTime(0.001,ctx.currentTime+dur);
+    o.connect(g); g.connect(ctx.destination); o.start(); o.stop(ctx.currentTime+dur);
+  }
+  function toggle(){ soundOn=!soundOn; return soundOn; }
+  function resume(){ if(ctx&&ctx.state==='suspended')ctx.resume(); }
+  return { init, update, beep, toggle, resume, isOn:()=>soundOn, state:()=>ctx?.state||'none' };
+}
+
+/* =====================================================================
+   MEC-102 · d4-10 — Caracteriza la curva P–Q de una bomba hidráulica
+   ---------------------------------------------------------------------
+   El bloque MOTOR está pegado VERBATIM desde el verificador numérico
+   scratchpad/motor_bomba.mjs (36 797 comprobaciones, 0 fallos), sin más
+   cambio que quitar la palabra «export». No se toca aquí: si hay que
+   cambiar física, se cambia en el verificador y se vuelve a pegar. Sus
+   comentarios van sin acentos porque el verificador es ASCII; los textos
+   que ve el alumno sí los llevan, porque llegan tal cual a la interfaz.
+
+   Qué decide el alumno, en cuatro ejes independientes:
+     · bomba  → engranajes, paletas, pistones fijos o pistones con
+       compensador de presión. Decide cuánto fuga, cuánto roza, hasta
+       qué presión llega y si puede dejar de bombear en la pausa.
+     · D      → 8, 16, 25 o 40 cm³/rev. Decide el caudal teórico y, con
+       él, el par y la potencia de eje.
+     · aceite → ISO VG 32, 46 o 68. Decide la viscosidad de trabajo (que
+       gobierna la fuga) y la de arranque en frío (que gobierna si la
+       bomba cavita).
+     · limitadora → directa, pilotada o pilotada con descarga. Decide la
+       sobrepresión a caudal completo y si el grupo puede descargarse.
+
+   Y siete criterios que hay que cumplir A LA VEZ: caudal, presión,
+   viscosidad, aspiración, térmico, motor y energía.
+
+   Ref: ISO 4413 (transmisiones hidráulicas: reglas para los sistemas) ·
+   ISO 3448 (grados de viscosidad ISO VG) · ASTM D341 (relación
+   viscosidad-temperatura, ecuación de Walther) · Wilson, W. E.,
+   «Positive-Displacement Pumps and Fluid Motors» (Pitman, 1950) para el
+   modelo de pérdidas · ISO 4409 (ensayo de rendimiento de bombas
+   volumétricas) · IEC 60034-30-1 (clases de rendimiento IE de motores).
+   ===================================================================== */
+
+// ===================== 1. ESCENA =====================
+const mount=document.getElementById('stage');
+const S=createStage(mount,{cam:[5.8,3.2,7.6],target:[1.30,1.00,0.30],bgTop:'#0d1017',bgBot:'#05060a',bloom:0.42,minD:3.0,maxD:20});
+const {scene}=S;
+const synth=makeSynth({type:'sawtooth',type2:'sine',filterFreq:1700,Q:0.8});
+const el=id=>document.getElementById(id);
+
+// ===================== 2. MOTOR =====================
+
+/* =====================================================================
+   MEC-102 · d4-10 — Curva P-Q de una bomba hidraulica
+   MOTOR SELLADO. Comentarios en ASCII. Los textos que ve el alumno si
+   llevan acentos, porque se pegan tal cual en la interfaz.
+
+   Unidades: D cm3/rev · n min-1 · Q L/min · p bar relativos ·
+             T N.m · P kW · nu mm2/s · mu Pa.s · rho kg/m3 · T grados C
+
+   Fisica de gobierno
+     · Caudal teorico            Qt = D.n/1000
+     · Modelo de Wilson (1946)   fuga  = Cs.Dp.dp/mu
+                                 T_vis = Cv.Dp.mu.w
+                                 T_fri = Cf.Dp.dp
+                                 T_id  = Dp.dp        Dp = D/(2.pi)
+     · Rendimientos              etaV = 1 - Cs.dp/(mu.w)
+                                 etaM = 1/(1 + Cf + Cv.mu.w/dp)
+                                 etaT = etaV.etaM = Phid/Peje
+     · Potencia hidraulica       Ph = p.Q/600  (bar, L/min -> kW)
+     · Viscosidad-temperatura    Walther / ASTM D341
+     · Aspiracion                Darcy-Weisbach + Poiseuille en el filtro
+     · Orificio de carga         Q = Cd.A.raiz(2.dp/rho)
+   ===================================================================== */
+
+const PI = Math.PI;
+
+// ---------- constantes selladas ----------
+const PATM_BAR = 1.01325;   // bar abs
+const G        = 9.81;      // m/s2
+const N_BOMBA  = 1750;      // min-1, motor asincrono 4 polos 60 Hz con deslizamiento
+const CD_ORIF  = 0.62;      // coeficiente de descarga de un orificio de canto vivo
+// El colador de aspiracion es DATO DE MAQUINA, no una eleccion: cada estacion
+// declara su kFil en 1/m2 y su caida vale dp = kFil.mu.Q (regimen laminar).
+// kFil = 2.48e8 son 0,05 bar con 46 mm2/s y 30 L/min.
+const RE_CRIT  = 2300;      // transicion laminar-turbulento
+const ALFA_RHO = 0.00065;   // 1/K, dilatacion del aceite mineral
+const T_REF_RHO= 15;        // grados C de la densidad de referencia
+const WAL_C    = 0.7;       // constante de Walther
+const T_WAL_MIN= -20;       // banda de validez declarada de Walther
+const T_WAL_MAX= 120;
+// La ventana de viscosidad NO es la misma para todas las bombas: la de
+// engranajes tolera aceite muy espeso y la de pistones no. Cada familia
+// declara su nuMax de trabajo y su nuArr de arranque; el minimo de 10 mm2/s
+// es comun porque por debajo se pierde la pelicula.
+const NU_MIN_TRAB = 10;     // mm2/s, minimo de trabajo admitido
+const NU_OPT_MIN  = 16;     // ventana optima recomendada (informativa)
+const NU_OPT_MAX  = 36;
+const T_MAX_ACEITE= 60;     // grados C, maximo de regimen para aceite mineral y juntas estandar
+const MARGEN_LIM  = 15;     // bar por encima de la carga maxima para tarar la limitadora
+const MARGEN_COMP = 10;     // bar por encima de la carga maxima para tarar el compensador
+const MARGEN_SEG  = 25;     // bar por encima del compensador para la valvula de seguridad
+const P_DESC      = 3;      // bar, presion del grupo descargado
+const P_BIS_MAX   = 800;    // bar, tope de la biseccion de presion
+const T_BIS_MAX   = 250;    // grados C, tope de la biseccion termica
+const HORAS_DEF   = 0;      // se toma de la estacion
+
+// motores normalizados y su rendimiento IE3 a plena carga
+const MOTORES = [
+  { kW: 3.7,  eta: 0.885, coste: 14 },
+  { kW: 5.5,  eta: 0.895, coste: 19 },
+  { kW: 7.5,  eta: 0.902, coste: 25 },
+  { kW: 11.0, eta: 0.913, coste: 34 },
+  { kW: 15.0, eta: 0.920, coste: 45 },
+  { kW: 18.5, eta: 0.925, coste: 56 },
+  { kW: 22.0, eta: 0.928, coste: 68 },
+];
+
+// ---------- aceites: ISO 3448 + Walther ----------
+const ACEITES = {
+  vg32: { id:'vg32', nom:'ISO VG 32', v40:32, v100:5.4, rho15:872, coste:5,
+    det:'El mas fluido de los tres. Arranca en frío sin ahogar la aspiración y es el único que sobrevive a una mañana de invierno; a cambio fuga más en caliente.' },
+  vg46: { id:'vg46', nom:'ISO VG 46', v40:46, v100:6.8, rho15:875, coste:5,
+    det:'El grado de uso general en hidráulica industrial. Cae dentro de la ventana óptima en la mayoría de las instalaciones bajo techo.' },
+  vg68: { id:'vg68', nom:'ISO VG 68', v40:68, v100:8.7, rho15:878, coste:5,
+    det:'El más espeso. Reduce la fuga y sostiene la película cuando la instalación trabaja caliente; en frío es el primero que cavita.' },
+};
+const ACEK = ['vg32','vg46','vg68'];
+
+// coeficientes de Walther, calculados una vez por grado
+const WALTHER = {};
+for(const k of ACEK){
+  const a = ACEITES[k];
+  const W = v => Math.log10(Math.log10(v + WAL_C));
+  const l1 = Math.log10(313.15), l2 = Math.log10(373.15);
+  const B = (W(a.v40) - W(a.v100)) / (l2 - l1);
+  const A = W(a.v40) + B * l1;
+  WALTHER[k] = { A, B };
+}
+function walther(aceK){ return WALTHER[aceK]; }
+
+function nuT(aceK, T){
+  const { A, B } = WALTHER[aceK];
+  return Math.pow(10, Math.pow(10, A - B * Math.log10(T + 273.15))) - WAL_C;
+}
+function rhoT(aceK, T){
+  return ACEITES[aceK].rho15 * (1 - ALFA_RHO * (T - T_REF_RHO));
+}
+function muT(aceK, T){
+  return nuT(aceK, T) * 1e-6 * rhoT(aceK, T);
+}
+function fueraBanda(T){ return T < T_WAL_MIN || T > T_WAL_MAX; }
+
+// ---------- bombas: modelo de Wilson ----------
+// Los coeficientes son nominales representativos de cada familia, con el
+// rango declarado en la ficha. No son de un fabricante concreto.
+const BOMBAS = {
+  eng: { id:'eng', nom:'Engranajes externos', abr:'Engranajes',
+    Cs:3.30e-8, Cv:6.0e4, Cf:0.050, pMax:210, pAspMin:0.75, nuMax:300, nuArr:2000, kCoste:1.00, variable:false,
+    det:'La más barata y la más tosca. Holguras grandes: fuga mucho y su rendimiento volumétrico cae deprisa con la presión. A cambio traga aceite espeso y aspiración pobre sin quejarse: por eso vive en la maquinaria móvil.' },
+  pal: { id:'pal', nom:'Paletas equilibradas', abr:'Paletas',
+    Cs:2.40e-8, Cv:8.5e4, Cf:0.045, pMax:175, pAspMin:0.80, nuMax:160, nuArr:1000, kCoste:1.45, variable:false,
+    det:'Silenciosa y de caudal regular. Fuga menos que la de engranajes pero roza más, y su presión máxima es la más baja del catálogo.' },
+  pis: { id:'pis', nom:'Pistones axiales de cilindrada fija', abr:'Pistones fija',
+    Cs:1.05e-8, Cv:4.5e4, Cf:0.030, pMax:350, pAspMin:0.85, nuMax:100, nuArr:800, kCoste:3.20, variable:false,
+    det:'Ajustes finísimos: casi no fuga y casi no roza. Es la única que llega a 350 bar. Cara, exigente con la aspiración y con la ventana de viscosidad más estrecha del catálogo.' },
+  var: { id:'var', nom:'Pistones axiales con compensador de presión', abr:'Cilindrada variable',
+    Cs:1.05e-8, Cv:4.5e4, Cf:0.030, pMax:350, pAspMin:0.85, nuMax:100, nuArr:800, kCoste:4.60, variable:true,
+    det:'La misma máquina, con un plato inclinable que reduce la cilindrada hasta que el caudal es el que el circuito pide. En la pausa no bombea: no hay caudal que tirar por la limitadora.' },
+};
+const BOMBK = ['eng','pal','pis','var'];
+
+const CILINDRADAS = [8, 16, 25, 40];   // cm3/rev
+
+// ---------- limitadoras y grupo de descarga ----------
+const LIMS = {
+  dir: { id:'dir', nom:'Limitadora de acción directa', abr:'Directa', ovr:0.25, Qnom:40, desc:false, coste:6,
+    det:'Un muelle contra el asiento. Barata y rápida, pero su sobrepresión es enorme: para dejar pasar todo el caudal necesita un 25 % más de presión que la de tarado.' },
+  pil: { id:'pil', nom:'Limitadora pilotada', abr:'Pilotada', ovr:0.06, Qnom:100, desc:false, coste:16,
+    det:'Una etapa piloto pequeña gobierna la principal. La curva es casi plana: un 6 % de sobrepresión a caudal completo.' },
+  pilDesc: { id:'pilDesc', nom:'Limitadora pilotada con descarga', abr:'Pilotada + descarga', ovr:0.06, Qnom:100, desc:true, coste:26,
+    det:'La misma pilotada, con un solenoide que abre la cámara del piloto. En la pausa el grupo descarga a 3 bar y deja de calentar el aceite. Es la respuesta barata a la bomba de cilindrada variable.' },
+};
+const LIMK = ['dir','pil','pilDesc'];
+
+// ---------- estaciones ----------
+// Los ciclos son DATO DE MAQUINA: caudal y presion de cada fase medidos en
+// la instalacion. Una fase "libre" no lleva regulador de caudal: el actuador
+// se traga todo lo que la bomba da y va mas rapido o mas lento segun eso.
+// Una fase "medida" lleva regulador compensado: pasa el caudal ajustado y lo
+// que sobra se va por la limitadora. "descargable" marca las fases en que el
+// grupo puede descargarse porque no hay que sostener ninguna carga.
+// hAsp es la altura de aspiracion: positiva si el deposito esta POR DEBAJO
+// del oido de la bomba (la bomba tiene que subir el aceite) y negativa si el
+// deposito esta por encima y le da carga.
+const ESTACIONES = {
+  prensa: { id:'prensa', nom:'Prensa de embutido de 60 t',
+    Tamb:25, Tfrio:12, kDis:260, kwMax:18.5, Lasp:1.2, dAsp:0.045, hAsp:0.25, kFil:6.0e7, horas:3000, Emax:12000,
+    fases:[
+      { id:'rapido',   nom:'Avance rápido',   Q:32, p:25,  t:2.0, libre:true,  descargable:false },
+      { id:'embuticion',nom:'Embutición',     Q:3,  p:180, t:4.0, libre:false, descargable:false },
+      { id:'retorno',  nom:'Retorno',         Q:26, p:45,  t:1.5, libre:true,  descargable:false },
+      { id:'pausa',    nom:'Pausa entre piezas', Q:0, p:0,  t:2.5, libre:false, descargable:true  },
+    ],
+    det:'La embutición pide poco caudal a mucha presión y hay que medirla: si el punzón baja deprisa, la chapa se rompe. Todo lo que la bomba dé de más se va por la limitadora a 195 bar.' },
+  elevador: { id:'elevador', nom:'Plataforma elevadora de taller',
+    Tamb:20, Tfrio:8, kDis:45, kwMax:7.5, Lasp:0.8, dAsp:0.032, hAsp:0.15, kFil:8.0e7, horas:1200, Emax:9000,
+    fases:[
+      { id:'subida',   nom:'Subida',          Q:18, p:130, t:6.0, libre:true,  descargable:false },
+      { id:'sostener', nom:'Sostener la carga',Q:0, p:130, t:3.0, libre:false, descargable:false },
+      { id:'bajada',   nom:'Bajada',          Q:18, p:15,  t:6.0, libre:true,  descargable:false },
+      { id:'pausa',    nom:'Cambio de coche',  Q:0,  p:0,   t:4.0, libre:false, descargable:true },
+    ],
+    det:'Sostener la carga NO es una pausa: la presión tiene que seguir ahí, así que el grupo no puede descargarse. La pausa larga sí, y en ella se juega la mitad de la factura.' },
+  inyectora: { id:'inyectora', nom:'Unidad de cierre de inyectora',
+    Tamb:30, Tfrio:22, kDis:700, kwMax:22, Lasp:1.6, dAsp:0.050, hAsp:0.30, kFil:4.0e7, horas:6000, Emax:30000,
+    fases:[
+      { id:'cierre',   nom:'Cierre rápido',   Q:45, p:30,  t:1.2, libre:true,  descargable:false },
+      { id:'aprox',    nom:'Aproximación lenta',Q:8, p:60, t:0.8, libre:false, descargable:false },
+      { id:'bloqueo',  nom:'Bloqueo del molde',Q:2, p:250, t:6.0, libre:false, descargable:false },
+      { id:'apertura', nom:'Apertura',        Q:40, p:40,  t:1.5, libre:true,  descargable:false },
+      { id:'pausa',    nom:'Expulsión y pausa',Q:0, p:0,   t:1.0, libre:false, descargable:true },
+    ],
+    det:'250 bar de bloqueo dejan fuera del catálogo a la de paletas y a la de engranajes. Y el bloqueo dura 6 s de cada 10,5: es la fase que decide el calor.' },
+  gruaFrio: { id:'gruaFrio', nom:'Grúa sobre camión, invierno',
+    Tamb:0, Tfrio:-5, kDis:120, kwMax:11, Lasp:1.4, dAsp:0.045, hAsp:-0.25, kFil:4.0e7, horas:600, Emax:3000,
+    fases:[
+      { id:'maniobra', nom:'Maniobra',        Q:22, p:160, t:8.0, libre:false, descargable:false },
+      { id:'espera',   nom:'Espera entre maniobras', Q:0, p:0, t:25.0, libre:false, descargable:true },
+    ],
+    det:'Depósito en alto para que le dé carga a la bomba, y aun así a −5 °C el aceite espeso no llega al oído. Aquí no manda el rendimiento: manda la cavitación.' },
+  banco: { id:'banco', nom:'Banco de ensayo de laboratorio',
+    Tamb:28, Tfrio:20, kDis:180, kwMax:5.5, Lasp:0.6, dAsp:0.025, hAsp:0.10, kFil:8.0e7, horas:7000, Emax:19000,
+    fases:[
+      { id:'ensayo',   nom:'Ensayo continuo',  Q:12, p:100, t:55.0, libre:true, descargable:false },
+      { id:'purga',    nom:'Purga',            Q:12, p:10,  t:5.0,  libre:true, descargable:false },
+    ],
+    det:'Trabaja 7 000 h al año contra un depósito pequeño y sin refrigerador. No hay pausas que descargar ni caudal que tirar: lo único que calienta es el rendimiento de la propia bomba.' },
+};
+const ESTK = ['prensa','elevador','inyectora','gruaFrio','banco'];
+
+// ---------- criterios ----------
+const CRIT = ['okCaudal','okPresion','okViscosidad','okAspiracion','okTermico','okMotor','okEnergia'];
+const CRIT_ROT = {
+  okCaudal:'Alcanza el caudal de todas las fases',
+  okPresion:'La limitadora cabe en la presión máxima de la bomba',
+  okViscosidad:'Viscosidad de trabajo y de arranque dentro de la ventana',
+  okAspiracion:'Sin cavitación en el arranque en frío',
+  okTermico:'Temperatura de régimen bajo el límite del aceite',
+  okMotor:'El motor cabe en la acometida eléctrica de la estación',
+  okEnergia:'Consumo anual dentro de lo contratado',
+};
+const CRIT_LET = { okCaudal:'Q', okPresion:'P', okViscosidad:'V', okAspiracion:'A', okTermico:'T', okMotor:'M', okEnergia:'E' };
+
+// ===================== 1. BOMBA =====================
+function caudalTeorico(D, n){ return D * n / 1000; }           // L/min
+function omega(n){ return 2 * PI * n / 60; }                    // rad/s
+function despRad(D){ return D * 1e-6 / (2 * PI); }              // m3/rad
+
+// fuga volumetrica de Wilson, L/min
+function fuga(bombK, D, pBar, mu, n){
+  const b = BOMBAS[bombK];
+  return b.Cs * despRad(D) * (pBar * 1e5) / mu * 60000;
+}
+// caudal entregado a esa presion, L/min
+function caudal(bombK, D, pBar, mu, n){
+  return caudalTeorico(D, n) - fuga(bombK, D, pBar, mu, n);
+}
+function etaVol(bombK, D, pBar, mu, n){
+  const Qt = caudalTeorico(D, n);
+  return Qt > 0 ? 1 - fuga(bombK, D, pBar, mu, n) / Qt : NaN;
+}
+// pares, N.m
+function pares(bombK, D, pBar, mu, n, Def){
+  const b = BOMBAS[bombK];
+  const Dp = despRad(Def === undefined ? D : Def);
+  const DpFull = despRad(D);
+  const w = omega(n);
+  const Tid  = Dp * (pBar * 1e5);
+  const Tfri = b.Cf * Dp * (pBar * 1e5);
+  const Tvis = b.Cv * DpFull * mu * w;
+  return { Tid, Tfri, Tvis, T: Tid + Tfri + Tvis };
+}
+function etaMec(bombK, D, pBar, mu, n){
+  const p = pares(bombK, D, pBar, mu, n);
+  return p.T > 0 ? p.Tid / p.T : NaN;
+}
+function etaTot(bombK, D, pBar, mu, n){
+  return etaVol(bombK, D, pBar, mu, n) * etaMec(bombK, D, pBar, mu, n);
+}
+// potencia de eje, kW
+function potEje(bombK, D, pBar, mu, n, Def){
+  return pares(bombK, D, pBar, mu, n, Def).T * omega(n) / 1000;
+}
+function potHid(pBar, QLmin){ return pBar * QLmin / 600; }
+
+// ===================== 2. LIMITADORA =====================
+function tarado(estK, bombK){
+  const est = ESTACIONES[estK];
+  const pCarga = Math.max(...est.fases.map(f => f.p));
+  if(BOMBAS[bombK].variable){
+    const pComp = pCarga + MARGEN_COMP;
+    return { pCarga, pComp, pc: pComp + MARGEN_SEG };
+  }
+  return { pCarga, pComp: null, pc: pCarga + MARGEN_LIM };
+}
+function pFull(pc, limK){ return pc * (1 + LIMS[limK].ovr); }
+// caudal que se traga la limitadora a esa presion, L/min
+function caudalLim(pBar, pc, limK){
+  const L = LIMS[limK];
+  if(pBar <= pc) return 0;
+  return L.Qnom * (pBar - pc) / (pc * L.ovr);
+}
+
+// ===================== 3. ORIFICIO DE CARGA (banco) =====================
+// area en mm2, caida en bar, caudal en L/min
+function caudalOrificio(areaMm2, dpBar, rho){
+  if(dpBar <= 0 || areaMm2 <= 0) return 0;
+  const A = areaMm2 * 1e-6;
+  return CD_ORIF * A * Math.sqrt(2 * dpBar * 1e5 / rho) * 60000;
+}
+// punto de trabajo del banco: bomba contra orificio y limitadora
+function puntoBanco(bombK, D, areaMm2, aceK, T, n, pc, limK){
+  const mu = muT(aceK, T), rho = rhoT(aceK, T);
+  const g = p => caudal(bombK, D, p, mu, n) - caudalOrificio(areaMm2, p, rho) - caudalLim(p, pc, limK);
+  let a = 0, b = P_BIS_MAX;
+  if(g(a) <= 0) return { p:0, Q:caudal(bombK,D,0,mu,n), Qor:0, Qlim:0, mu, rho };
+  for(let i = 0; i < 200; i++){
+    const m = (a + b) / 2;
+    if(g(m) > 0) a = m; else b = m;
+  }
+  const p = (a + b) / 2;
+  return { p, Q: caudal(bombK, D, p, mu, n), Qor: caudalOrificio(areaMm2, p, rho), Qlim: caudalLim(p, pc, limK), mu, rho };
+}
+
+// ===================== 4. ASPIRACION =====================
+function aspiracion(estK, bombK, D, aceK, T, n){
+  const est = ESTACIONES[estK];
+  const nu = nuT(aceK, T), rho = rhoT(aceK, T), mu = muT(aceK, T);
+  const Q = caudalTeorico(D, n) / 60000;                 // m3/s
+  const A = PI * est.dAsp * est.dAsp / 4;
+  const v = Q / A;
+  const Re = v * est.dAsp / (nu * 1e-6);
+  const lam = Re < RE_CRIT;
+  const f = lam ? 64 / Math.max(Re, 1e-9) : 0.3164 / Math.pow(Re, 0.25);
+  const dpTub = f * (est.Lasp / est.dAsp) * rho * v * v / 2;   // Pa
+  const dpFil = est.kFil * mu * Q;                             // Pa
+  const dpAlt = rho * G * est.hAsp;                            // Pa (negativo si el deposito da carga)
+  const pAsp = PATM_BAR - (dpTub + dpFil + dpAlt) / 1e5;       // bar abs
+  return { nu, rho, mu, v, Re, lam, f, dpTub:dpTub/1e5, dpFil:dpFil/1e5, dpAlt:dpAlt/1e5,
+           pAsp, pMin: BOMBAS[bombK].pAspMin, cavita: pAsp < BOMBAS[bombK].pAspMin };
+}
+
+// ===================== 5. CICLO =====================
+// Resuelve una fase. Devuelve presion de bomba, caudal al actuador, tiempo
+// real, potencia de eje y potencia util.
+function resuelveFase(fase, cfg, estK, T){
+  const b = BOMBAS[cfg.bomba];
+  const D = cfg.D, n = N_BOMBA;
+  const mu = muT(cfg.aceite, T);
+  const tar = tarado(estK, cfg.bomba);
+  const pc = tar.pc, lim = LIMS[cfg.lim];
+  const Qt = caudalTeorico(D, n);
+  let p, Qact, Def = D, lento = false, Qlim = 0, descargado = false;
+
+  if(fase.libre){
+    // el actuador se traga todo lo que la bomba da a la presion de la carga
+    p = fase.p;
+    Qact = caudal(cfg.bomba, D, p, mu, n);
+    if(Qact < fase.Q - 1e-9) lento = true;   // no alcanza la velocidad de la fase
+  } else if(fase.descargable && lim.desc && !b.variable){
+    // el grupo descarga: la bomba gira contra 3 bar
+    p = P_DESC; descargado = true;
+    Qact = fase.Q;
+    Qlim = caudal(cfg.bomba, D, p, mu, n) - Qact;
+  } else if(b.variable){
+    // compensador: si puede dar el caudal pedido a la presion de tarado, destroca
+    const pComp = tar.pComp;
+    if(caudal(cfg.bomba, D, pComp, mu, n) >= fase.Q){
+      p = pComp; Qact = fase.Q;
+      Def = Math.min(D, Math.max(0, (Qact + fuga(cfg.bomba, D, p, mu, n)) * 1000 / n));
+    } else {
+      p = fase.p; Qact = caudal(cfg.bomba, D, p, mu, n); lento = true;
+    }
+  } else {
+    // cilindrada fija con regulador de caudal: lo que sobra por la limitadora
+    if(caudal(cfg.bomba, D, fase.p, mu, n) <= fase.Q){
+      p = fase.p; Qact = caudal(cfg.bomba, D, p, mu, n); lento = true;
+    } else {
+      const g = q => caudal(cfg.bomba, D, q, mu, n) - fase.Q - caudalLim(q, pc, cfg.lim);
+      let a = fase.p, z = P_BIS_MAX;
+      for(let i = 0; i < 200; i++){ const m = (a + z) / 2; if(g(m) > 0) a = m; else z = m; }
+      p = (a + z) / 2; Qact = fase.Q; Qlim = caudal(cfg.bomba, D, p, mu, n) - Qact;
+    }
+  }
+  if(Qact < 0) Qact = 0;
+  const tReal = fase.libre
+    ? (Qact > 1e-9 ? fase.t * fase.Q / Qact : Infinity)
+    : (lento && fase.Q > 0 ? fase.t * fase.Q / Math.max(Qact, 1e-9) : fase.t);
+  const Peje = potEje(cfg.bomba, D, p, mu, n, Def);
+  const Putil = potHid(fase.p, Qact);
+  return { id:fase.id, p, Qact, Qlim, Def, lento, descargado, tReal,
+           Peje, Putil, Pcal: Peje - Putil, mu, Qt };
+}
+
+function ciclo(estK, cfg, T){
+  const est = ESTACIONES[estK];
+  const fs = est.fases.map(f => resuelveFase(f, cfg, estK, T));
+  let tCic = 0, Eeje = 0, Eutil = 0, Ecal = 0, Ppico = 0, lento = false;
+  for(const r of fs){
+    if(!isFinite(r.tReal)){ lento = true; continue; }
+    tCic += r.tReal; Eeje += r.Peje * r.tReal; Eutil += r.Putil * r.tReal; Ecal += r.Pcal * r.tReal;
+    if(r.Peje > Ppico) Ppico = r.Peje;
+    if(r.lento) lento = true;
+  }
+  const Pmed = tCic > 0 ? Eeje / tCic : Infinity;
+  const Pcal = tCic > 0 ? Ecal / tCic : Infinity;
+  return { fases:fs, tCic, Eeje, Eutil, Ecal, Pmed, Pcal, Ppico, lento,
+           etaCic: Eeje > 0 ? Eutil / Eeje : 0 };
+}
+
+// temperatura de regimen: punto fijo T = Tamb + Pcal/kDis
+function tRegimen(estK, cfg){
+  const est = ESTACIONES[estK];
+  const g = T => est.Tamb + ciclo(estK, cfg, T).Pcal * 1000 / est.kDis - T;
+  let a = est.Tamb, b = T_BIS_MAX;
+  if(!isFinite(g(a))) return { T: Infinity, conv:false };
+  if(g(b) > 0) return { T: Infinity, conv:false };
+  for(let i = 0; i < 160; i++){ const m = (a + b) / 2; if(g(m) > 0) a = m; else b = m; }
+  const T = (a + b) / 2;
+  // La biseccion encuentra un cambio de signo, y un cambio de signo no siempre
+  // es una raiz: cuando el ciclo cambia de forma (una fase deja de alcanzar su
+  // caudal y se alarga) la curva de calor da un escalon y el intervalo final se
+  // queda montado sobre el salto. Ahi no hay regimen que valga: el aceite se
+  // dispara. Se exige que el balance cierre de verdad antes de declarar
+  // convergencia.
+  if(Math.abs(g(T)) > 0.05) return { T: Infinity, conv:false };
+  return { T, conv:true };
+}
+
+function motorPara(kW){
+  for(const m of MOTORES) if(m.kW >= kW - 1e-9) return m;
+  return null;
+}
+
+function costeCfg(estK, cfg, mot){
+  const b = BOMBAS[cfg.bomba];
+  const cB = b.kCoste * (10 + 0.55 * cfg.D);
+  const cL = LIMS[cfg.lim].coste;
+  const cA = ACEITES[cfg.aceite].coste;
+  const cM = mot ? mot.coste : 0;
+  return Math.round(cB + cL + cA + cM);
+}
+
+// ===================== 6. EVALUACION =====================
+function evalua(estK, cfg){
+  const est = ESTACIONES[estK];
+  const tar = tarado(estK, cfg.bomba);
+  const pff = pFull(tar.pc, cfg.lim);
+  const reg = tRegimen(estK, cfg);
+  const Tt = reg.conv ? reg.T : T_BIS_MAX;
+  const cic = ciclo(estK, cfg, Tt);
+  const nuTrab = nuT(cfg.aceite, Tt);
+  const nuFrio = nuT(cfg.aceite, est.Tfrio);
+  const asp = aspiracion(estK, cfg.bomba, cfg.D, cfg.aceite, est.Tfrio, N_BOMBA);
+  const mot = motorPara(cic.Ppico);
+  // para la factura se usa el motor que haria falta; si el pico se sale del
+  // catalogo se usa el mayor, para que el criterio de energia no herede el
+  // fallo del criterio de motor
+  const motE = mot || MOTORES[MOTORES.length - 1];
+  const kWh = isFinite(cic.Pmed) ? cic.Pmed / motE.eta * est.horas : Infinity;
+  const coste = costeCfg(estK, cfg, motE);
+
+  const res = {
+    okCaudal:     !cic.lento,
+    okPresion:    pff <= BOMBAS[cfg.bomba].pMax + 1e-9,
+    okViscosidad: nuTrab >= NU_MIN_TRAB && nuTrab <= BOMBAS[cfg.bomba].nuMax && nuFrio <= BOMBAS[cfg.bomba].nuArr,
+    okAspiracion: !asp.cavita,
+    okTermico:    reg.conv && Tt <= T_MAX_ACEITE + 1e-9,
+    okMotor:      mot !== null && mot.kW <= est.kwMax + 1e-9,
+    okEnergia:    kWh <= est.Emax + 1e-9,
+  };
+  const fallos = CRIT.filter(k => !res[k]);
+  return { ...res, fallos, primero: fallos[0] || null, valido: fallos.length === 0,
+           tar, pff, reg, Treg:Tt, cic, nuTrab, nuFrio, asp, mot, motE, kWh, coste,
+           extrapola: fueraBanda(Tt) || fueraBanda(est.Tfrio) };
+}
+
+// ===================== 7. BARRIDO =====================
+const CFGS = [];
+for(const b of BOMBK) for(const D of CILINDRADAS) for(const a of ACEK) for(const l of LIMK)
+  CFGS.push({ bomba:b, D, aceite:a, lim:l });
+
+function validas(estK){
+  return CFGS.filter(c => evalua(estK, c).valido);
+}
+function costeMin(estK){
+  const v = validas(estK);
+  return v.length ? Math.min(...v.map(c => evalua(estK, c).coste)) : null;
+}
+// optimo: minimo coste; a igualdad de coste, menor consumo anual
+function optimas(estK){
+  const v = validas(estK);
+  if(!v.length) return [];
+  let mejor = null, lista = [];
+  for(const c of v){
+    const r = evalua(estK, c);
+    const clave = [r.coste, Math.round(r.kWh * 1000)];
+    if(!mejor || clave[0] < mejor[0] || (clave[0] === mejor[0] && clave[1] < mejor[1])){
+      mejor = clave; lista = [c];
+    } else if(clave[0] === mejor[0] && clave[1] === mejor[1]) lista.push(c);
+  }
+  return lista;
+}
+
+// ===================== 8. RETO: cuatro ejes =====================
+const EJES = ['bomba','D','aceite','lim'];
+const EJE_VAL = { bomba:BOMBK, D:CILINDRADAS, aceite:ACEK, lim:LIMK };
+const EJE_ROT = { bomba:'Familia de bomba', D:'Cilindrada', aceite:'Grado del aceite', lim:'Limitadora' };
+
+// Califica un eje con los otros tres ya en su optimo. El objetivo del reto es
+// "una propuesta que cumpla los siete criterios al minimo coste": dos valores
+// distintos de un eje que empaten en coste y ambos sean validos se dan los dos
+// por buenos. El desempate por factura anual solo elige el optimo que se
+// muestra, no lo que se califica.
+function okEje(estK, eje, val){
+  const o = optimas(estK);
+  if(!o.length) return false;
+  const cm = costeMin(estK);
+  const r = evalua(estK, { ...o[0], [eje]: val });
+  return r.valido && r.coste === cm;
+}
+function ejeSol(estK, eje){
+  return EJE_VAL[eje].filter(v => okEje(estK, eje, v));
+}
+function startCfg(estK){
+  const o = optimas(estK)[0];
+  for(const b of BOMBK) for(const D of CILINDRADAS) for(const a of ACEK) for(const l of LIMK){
+    const c = { bomba:b, D, aceite:a, lim:l };
+    if(c.bomba !== o.bomba && c.D !== o.D && c.aceite !== o.aceite && c.lim !== o.lim) return c;
+  }
+  return null;
+}
+
+function whyCfg(estK, cfg){
+  const r = evalua(estK, cfg);
+  if(r.valido) return null;
+  return { criterio: r.primero, texto: MOTIVO[r.primero], r };
+}
+const MOTIVO = {
+  okCaudal:'La bomba no alcanza el caudal que pide alguna fase: el ciclo se alarga.',
+  okPresion:'A caudal completo la limitadora se pasa de la presión máxima de la bomba.',
+  okViscosidad:'La viscosidad se sale de la ventana del fabricante, en trabajo o en el arranque en frío.',
+  okAspiracion:'La bomba cavita en el arranque en frío: la aspiración no le llega.',
+  okTermico:'El aceite se estabiliza por encima del límite: la instalación no disipa ese calor.',
+  okMotor:'El motor que exige el pico de potencia no cabe en la acometida eléctrica de la estación.',
+  okEnergia:'El consumo anual se pasa de lo contratado.',
+};
+
+// ---------- formato ----------
+function f1(x, d){
+  if(!isFinite(x)) return '—';
+  const dd = (d === undefined) ? 1 : d;
+  const s = Math.abs(x).toFixed(dd);
+  const ent = s.split('.')[0], dec = s.split('.')[1] || '';
+  let out = '';
+  for(let i = 0; i < ent.length; i++){
+    if(i > 0 && (ent.length - i) % 3 === 0) out += ' ';
+    out += ent[i];
+  }
+  return (x < 0 ? '-' : '') + out + (dd > 0 ? ',' + dec : '');
+}
+
+const ESCENAS = ESTK.map(k => ({ est:k }));
+
+// ===================== 3. ESTADO =====================
+// El barrido de 144 configuraciones por estacion se repite muchas veces (ejes
+// del reto, optimo, coste minimo). La fisica es determinista, asi que se
+// memoriza el resultado de evalua y de los barridos: no cambia ni un numero,
+// solo se deja de recalcular lo mismo en cada cuadro.
+const _mEval={}, _evaluaRaw=evalua;
+evalua=function(estK,cfg){
+  const k=estK+'|'+cfg.bomba+'|'+cfg.D+'|'+cfg.aceite+'|'+cfg.lim;
+  if(!(k in _mEval)) _mEval[k]=_evaluaRaw(estK,cfg);
+  return _mEval[k];
+};
+const _memo1=f=>{const m={};return k=>{if(!(k in m))m[k]=f(k);return m[k];};};
+const _validasRaw=validas, _costeMinRaw=costeMin, _optimasRaw=optimas;
+validas=_memo1(_validasRaw); costeMin=_memo1(_costeMinRaw); optimas=_memo1(_optimasRaw);
+const _mEje={};
+function ejeSolC(estK,eje){const k=estK+'|'+eje;if(!(k in _mEje))_mEje[k]=ejeSol(estK,eje);return _mEje[k];}
+
+let mode='banco';
+let animT=0, solved=false, retoSolved=false, autoRunning=false;
+
+// El banco de laboratorio caracteriza la BOMBA, no la instalacion: por eso
+// ensaya siempre con el mismo aceite y la misma temperatura declarados, y solo
+// con bombas de cilindrada FIJA (la de compensador no tiene UNA curva P-Q,
+// tiene una familia de curvas; su curva se dibuja como referencia).
+const T_BANCO=50, ACE_BANCO='vg46';
+const AREAS=[3,4,6,9,14,22,40];        // mm2, orificios calibrados del banco
+const BOMB_BANCO=['eng','pal','pis'];
+const LIM_BANCO=['dir','pil'];         // la pilotada con descarga da la misma curva que la pilotada
+let bcBomba='eng', bcD=25, bcArea=9, bcLim='pil';
+
+const TEMPS=[-10,0,10,20,30,40,50,60,70,80];
+let acEst='prensa', acBomba='eng', acD=25, acAce='vg46', acT=50;
+
+// Los modos "ciclo" y "proyecto" comparten configuracion: se arma en uno y se
+// juzga en el otro.
+let pjEst='prensa', pjBomba='eng', pjD=25, pjAce='vg46', pjLim='dir';
+
+let retoEst='prensa';
+let retoCfg={bomba:'eng',D:25,aceite:'vg46',lim:'dir'};
+let retoMsg='', retoGood=false;
+let retoAxes={bomba:false,D:false,aceite:false,lim:false};
+
+// Posicion del vastago al final de cada fase, en fraccion de carrera. Es dato
+// de PRESENTACION: sirve para que se vea por donde va el ciclo. La fisica no
+// lo usa para nada.
+const FASE_POS={
+  prensa:{rapido:{fin:0.55},embuticion:{fin:1.00},retorno:{fin:0.00},pausa:{fin:0.00}},
+  elevador:{subida:{fin:1.00},sostener:{fin:1.00},bajada:{fin:0.00},pausa:{fin:0.00}},
+  inyectora:{cierre:{fin:0.72},aprox:{fin:0.92},bloqueo:{fin:1.00},apertura:{fin:0.00},pausa:{fin:0.00}},
+  gruaFrio:{maniobra:{via:1.00,fin:0.00},espera:{fin:0.00}},
+  banco:{ensayo:{fin:1.00},purga:{fin:0.00}},
+};
+
+// resuelveFase() devuelve el id de la fase, no su nombre: el nombre bonito
+// vive en ESTACIONES[estK].fases. Y una fase libre cuyo caudal se anula tiene
+// tReal = Infinity (nunca termina); el motor la deja en la lista pero no la
+// suma. Las dos cosas se resuelven aqui, en la capa de dibujo.
+const NOMF={};
+ESTK.forEach(k=>{NOMF[k]={};ESTACIONES[k].fases.forEach(f=>{NOMF[k][f.id]=f.nom;});});
+const nomFase=(estK,id)=>(NOMF[estK]&&NOMF[estK][id])||id;
+const tFase=f=>isFinite(f.tReal)?f.tReal:0;
+
+let CUR={};
+function estActiva(){return mode==='aceite'?acEst:(mode==='banco'?'banco':(mode==='reto'?retoEst:pjEst));}
+function cfgActiva(){
+  if(mode==='reto') return {bomba:retoCfg.bomba,D:retoCfg.D,aceite:retoCfg.aceite,lim:retoCfg.lim};
+  if(mode==='banco') return {bomba:bcBomba,D:bcD,aceite:ACE_BANCO,lim:bcLim};
+  if(mode==='aceite') return {bomba:acBomba,D:acD,aceite:acAce,lim:'pil'};
+  return {bomba:pjBomba,D:pjD,aceite:pjAce,lim:pjLim};
+}
+function computa(){
+  if(mode==='banco'){
+    const pc=tarado('banco',bcBomba).pc;
+    const pt=puntoBanco(bcBomba,bcD,bcArea,ACE_BANCO,T_BANCO,N_BOMBA,pc,bcLim);
+    CUR={pc,pt,Qt:caudalTeorico(bcD,N_BOMBA),
+      etaV:etaVol(bcBomba,bcD,pt.p,pt.mu,N_BOMBA),
+      etaM:etaMec(bcBomba,bcD,pt.p,pt.mu,N_BOMBA),
+      etaT:etaTot(bcBomba,bcD,pt.p,pt.mu,N_BOMBA),
+      Pe:potEje(bcBomba,bcD,pt.p,pt.mu,N_BOMBA),
+      Ph:potHid(pt.p,pt.Q),
+      par:pares(bcBomba,bcD,pt.p,pt.mu,N_BOMBA),
+      pff:pFull(pc,bcLim)};
+  }else if(mode==='aceite'){
+    const est=ESTACIONES[acEst];
+    CUR={estK:acEst,est,b:BOMBAS[acBomba],
+      nu:nuT(acAce,acT), nuF:nuT(acAce,est.Tfrio),
+      rho:rhoT(acAce,acT), mu:muT(acAce,acT),
+      asp:aspiracion(acEst,acBomba,acD,acAce,acT,N_BOMBA),
+      aspF:aspiracion(acEst,acBomba,acD,acAce,est.Tfrio,N_BOMBA),
+      Qt:caudalTeorico(acD,N_BOMBA)};
+  }else{
+    const estK=(mode==='reto')?retoEst:pjEst;
+    const cfg=cfgActiva();
+    CUR={estK,cfg,est:ESTACIONES[estK],ev:evalua(estK,cfg),
+      cm:costeMin(estK),opt:optimas(estK)[0]||null};
+  }
+}
+
+// ===================== 4. MATERIALES =====================
+function std(color,rough,metal){return new THREE.MeshStandardMaterial({color,roughness:rough,metalness:metal});}
+function brush(base){return std(base,0.55,0.35);}
+const MAT={
+  frame:brush(0x22262c), leg:brush(0x14161b), tanque:brush(0x2f4a63), tapa:brush(0x27394b),
+  motor:brush(0x2b6f8f), aletas:brush(0x24596f), campana:brush(0x3a4049), bomba:brush(0x8a8f97),
+  eje:std(0xd0d6de,0.30,0.85), bloque:brush(0x6d7480), valv:brush(0x9aa2ad),
+  pomo:std(0xE9C46A,0.45,0.55), tubo:std(0x9099a6,0.42,0.70), tuboRet:std(0x6f7885,0.5,0.6),
+  colador:std(0xb9c2cf,0.35,0.60), mirilla:new THREE.MeshPhysicalMaterial({color:0x9fd4ff,transparent:true,opacity:0.20,roughness:0.10,metalness:0.0}),
+  aceite:std(0xd9a441,0.35,0.10), termo:std(0x1b2028,0.5,0.2), col:std(0xff6b6b,0.4,0.1),
+  cara:std(0xf2efe9,0.65,0.05), aguja:std(0xff5555,0.4,0.2), aro:std(0x1a1f27,0.6,0.3),
+  cil:brush(0x4a5563), vast:std(0xd7dde5,0.25,0.90), carga:brush(0x53433a),
+  panel:brush(0x191d24), led:std(0x2a3038,0.6,0.1),
+  flujoOk:new THREE.MeshBasicMaterial({color:0x8AB4F8}),
+  flujoCal:new THREE.MeshBasicMaterial({color:0xff6b6b}),
+  flujoAsp:new THREE.MeshBasicMaterial({color:0x7CD992}),
+};
+const AZUL='#8AB4F8', OK_HEX='#7CD992', BAD_HEX='#ff6b6b', WARN_HEX='#E9C46A', VIO='#C08CF8', GRIS='#8f97a5';
+const NARANJA='#F2A65A', VERDE='#7CD992';
+
+const HOVER_LABELS=new Map();
+function addHoverLabel(obj,text,color,pos,scale){
+  const cv=document.createElement('canvas');cv.width=256;cv.height=64;
+  const c=cv.getContext('2d');
+  c.fillStyle='rgba(8,10,14,0.86)';c.fillRect(0,0,256,64);
+  c.strokeStyle=color||AZUL;c.lineWidth=2;c.strokeRect(1,1,254,62);
+  c.fillStyle=color||'#F4EFEA';c.font='bold 22px Outfit, sans-serif';c.textAlign='center';c.textBaseline='middle';
+  c.fillText(text,128,32);
+  const tex=new THREE.CanvasTexture(cv);
+  const spr=new THREE.Sprite(new THREE.SpriteMaterial({map:tex,depthTest:false,transparent:true}));
+  spr.scale.set(scale||0.62,(scale||0.62)/4,1);
+  spr.position.set(pos[0],pos[1],pos[2]);
+  spr.renderOrder=999;spr.visible=false;
+  scene.add(spr);HOVER_LABELS.set(obj,spr);
+}
+
+// ===================== 5. PIZARRON =====================
+const board=new THREE.Group();board.position.set(-2.55,0,-0.45);board.rotation.y=0.40;scene.add(board);
+{
+  const fr=roundedBox(3.9,2.9,0.12,MAT.frame,0.06);fr.position.set(0,1.90,0);board.add(fr);
+  for(const dx of [-1.62,1.62]){
+    const lg=roundedBox(0.10,0.90,0.10,MAT.leg,0.03);lg.position.set(dx,0.45,0);board.add(lg);
+  }
+}
+const bCv=document.createElement('canvas');bCv.width=1024;bCv.height=768;
+const bCtx=bCv.getContext('2d');
+const bTex=new THREE.CanvasTexture(bCv);
+{
+  const pl=new THREE.Mesh(new THREE.PlaneGeometry(3.68,2.72),new THREE.MeshBasicMaterial({map:bTex}));
+  pl.position.set(0,1.90,0.065);board.add(pl);
+}
+
+// --- utileria de dibujo -----------------------------------------------------
+function bg(c){c.fillStyle='#0c1016';c.fillRect(0,0,1024,768);}
+function texto(c,t,x,y,col,font,align){
+  c.fillStyle=col||'#F4EFEA';c.font=font||'15px Outfit, sans-serif';
+  c.textAlign=align||'left';c.textBaseline='middle';c.fillText(t,x,y);
+}
+function linea(c,x1,y1,x2,y2,col,dash,lw){
+  c.strokeStyle=col||'#39404f';c.lineWidth=lw||1;c.setLineDash(dash||[]);
+  c.beginPath();c.moveTo(x1,y1);c.lineTo(x2,y2);c.stroke();c.setLineDash([]);
+}
+function curva(c,pts,col,lw,dash){
+  if(pts.length<2)return;
+  c.strokeStyle=col;c.lineWidth=lw||2;c.setLineDash(dash||[]);
+  c.beginPath();pts.forEach((p,i)=>i?c.lineTo(p[0],p[1]):c.moveTo(p[0],p[1]));c.stroke();c.setLineDash([]);
+}
+function wrapText(c,text,x,y,maxW,lh){
+  const words=String(text).split(' ');let ln='',yy=y;
+  for(const w of words){
+    const t=ln?ln+' '+w:w;
+    if(c.measureText(t).width>maxW&&ln){c.fillText(ln,x,yy);ln=w;yy+=lh;}else ln=t;
+  }
+  if(ln)c.fillText(ln,x,yy);
+  return yy;
+}
+function rpanel(c,x,y,w,h,title){
+  c.fillStyle='#11161e';c.fillRect(x,y,w,h);
+  c.strokeStyle='#2a3140';c.lineWidth=1;c.strokeRect(x+0.5,y+0.5,w-1,h-1);
+  if(title){
+    c.fillStyle='#1a212c';c.fillRect(x,y,w,30);
+    texto(c,title,x+12,y+15,'#cfd6e2','bold 15px Outfit, sans-serif');
+  }
+}
+function prow(c,x,y,w,l,v,col){
+  texto(c,l,x+12,y,'#8f97a5','14px Outfit, sans-serif');
+  texto(c,v,x+w-12,y,col||'#F4EFEA','bold 15px ui-monospace, monospace','right');
+}
+function title2(c,t,sub){
+  texto(c,t,30,38,'#F4EFEA','bold 27px Outfit, sans-serif');
+  if(sub)texto(c,sub,30,68,'#8f97a5','15px Outfit, sans-serif');
+}
+function nota(c,y,txt,col,h,x,w){
+  const xx=x===undefined?30:x, ww=w===undefined?650:w, hh=h===undefined?78:h;
+  c.fillStyle='#10151c';c.fillRect(xx,y,ww,hh);
+  c.fillStyle=col||AZUL;c.fillRect(xx,y,4,hh);
+  c.fillStyle='#c7cdd8';c.font='15px Outfit, sans-serif';c.textAlign='left';c.textBaseline='middle';
+  wrapText(c,txt,xx+16,y+22,ww-32,21);
+}
+const PX={x:706,y:70,w:300};
+function hbar(c,x,y,w,h,frac,col){
+  c.fillStyle='#1a212c';c.fillRect(x,y,w,h);
+  c.fillStyle=col||AZUL;c.fillRect(x,y,w*Math.max(0,Math.min(1,frac)),h);
+  c.strokeStyle='#2a3140';c.lineWidth=1;c.strokeRect(x+0.5,y+0.5,w-1,h-1);
+}
+function marca(c,x,y,w,h,frac,col,txt){
+  const mx=x+w*Math.max(0,Math.min(1,frac));
+  linea(c,mx,y-4,mx,y+h+4,col||'#F4EFEA',[4,3],2);
+  if(txt)texto(c,txt,Math.min(mx+6,x+w-4),y-12,col||'#F4EFEA','bold 13px Outfit, sans-serif',mx>x+w*0.78?'right':'left');
+}
+function colOk(b){return b?OK_HEX:BAD_HEX;}
+function tabla(c,x,y,w,widths,rows,heads){
+  const rh=28;let yy=y;
+  if(heads){
+    c.fillStyle='#1a212c';c.fillRect(x,yy,w,rh);
+    let cx=x;
+    heads.forEach((hd,i)=>{texto(c,hd,cx+10,yy+rh/2,'#cfd6e2','bold 14px Outfit, sans-serif');cx+=widths[i];});
+    yy+=rh;
+  }
+  rows.forEach((r,ri)=>{
+    c.fillStyle=r.hl?'#182231':(ri%2?'#0f141b':'#11161e');c.fillRect(x,yy,w,rh);
+    let cx=x;
+    r.c.forEach((cell,i)=>{
+      texto(c,cell,cx+10,yy+rh/2,(r.cols&&r.cols[i])||'#F4EFEA',
+        i===0?'14px Outfit, sans-serif':'14px ui-monospace, monospace');
+      cx+=widths[i];
+    });
+    yy+=rh;
+  });
+  c.strokeStyle='#2a3140';c.lineWidth=1;c.strokeRect(x+0.5,y+0.5,w-1,yy-y-1);
+  return yy;
+}
+function axn(v){return Math.abs(v)>=10?f1(v,0):f1(v,1);}
+function ejes(c,x,y,w,h,xmax,ymax,xlab,ylab,y2max,y2lab){
+  c.fillStyle='#0a0d13';c.fillRect(x,y,w,h);
+  c.font='13px ui-monospace, monospace';c.textBaseline='middle';
+  for(let i=0;i<=5;i++){
+    const gx=x+w*i/5, gy=y+h-h*i/5;
+    linea(c,gx,y,gx,y+h,'#1b2130',[],1);
+    linea(c,x,gy,x+w,gy,'#1b2130',[],1);
+    c.fillStyle='#6b7383';c.textAlign='center';c.fillText(axn(xmax*i/5),gx,y+h+15);
+    c.textAlign='right';c.fillText(axn(ymax*i/5),x-7,gy);
+    if(y2max){c.fillStyle='#a08a5e';c.textAlign='left';c.fillText(f1(y2max*i/5,2),x+w+7,gy);}
+  }
+  c.strokeStyle='#39404f';c.lineWidth=1;c.strokeRect(x+0.5,y+0.5,w-1,h-1);
+  texto(c,xlab,x+w/2,y+h+36,'#8f97a5','14px Outfit, sans-serif','center');
+  c.save();c.translate(x-46,y+h/2);c.rotate(-Math.PI/2);
+  texto(c,ylab,0,0,'#8f97a5','14px Outfit, sans-serif','center');c.restore();
+  if(y2lab){c.save();c.translate(x+w+50,y+h/2);c.rotate(-Math.PI/2);
+    texto(c,y2lab,0,0,'#a08a5e','14px Outfit, sans-serif','center');c.restore();}
+  return {X:v=>x+w*Math.max(0,Math.min(1,v/xmax)),
+          Y:v=>y+h-h*Math.max(0,Math.min(1,v/ymax)),
+          Y2:v=>y+h-h*Math.max(0,Math.min(1,v/(y2max||1))),
+          x,y,w,h,xmax,ymax};
+}
+function ejesLog(c,x,y,w,h,xmin,xmax,ymin,ymax,xlab,ylab){
+  c.fillStyle='#0a0d13';c.fillRect(x,y,w,h);
+  const l0=Math.log10(ymin), l1=Math.log10(ymax);
+  const X=v=>x+w*Math.max(0,Math.min(1,(v-xmin)/(xmax-xmin)));
+  const Y=v=>y+h-h*Math.max(0,Math.min(1,(Math.log10(Math.max(v,1e-6))-l0)/(l1-l0)));
+  c.font='13px ui-monospace, monospace';c.textBaseline='middle';
+  for(let t=xmin;t<=xmax;t+=(xmax-xmin)/7){
+    linea(c,X(t),y,X(t),y+h,'#1b2130',[],1);
+    c.fillStyle='#6b7383';c.textAlign='center';c.fillText(f1(t,0),X(t),y+h+15);
+  }
+  for(const v of [10,100,1000]){
+    for(let k=1;k<10;k++){const vv=v*k;if(vv<ymin||vv>ymax)continue;
+      linea(c,x,Y(vv),x+w,Y(vv),k===1?'#232b39':'#161c26',[],1);}
+    if(v>=ymin&&v<=ymax){c.fillStyle='#6b7383';c.textAlign='right';c.fillText(f1(v,0),x-7,Y(v));}
+  }
+  c.strokeStyle='#39404f';c.lineWidth=1;c.strokeRect(x+0.5,y+0.5,w-1,h-1);
+  texto(c,xlab,x+w/2,y+h+36,'#8f97a5','14px Outfit, sans-serif','center');
+  c.save();c.translate(x-48,y+h/2);c.rotate(-Math.PI/2);
+  texto(c,ylab,0,0,'#8f97a5','14px Outfit, sans-serif','center');c.restore();
+  return {X,Y,x,y,w,h};
+}
+function leyenda(c,x,y,items){
+  let cx=x;
+  for(const it of items){
+    c.fillStyle=it[1];c.fillRect(cx,y-5,22,4);
+    texto(c,it[0],cx+28,y,'#a8b0bd','13px Outfit, sans-serif');
+    cx+=34+c.measureText(it[0]).width;
+  }
+}
+
+// ===================== 6. VISTAS DEL PIZARRON =====================
+function drawBanco(c){
+  const B=BOMBAS[bcBomba], L=LIMS[bcLim];
+  title2(c,'Curva P–Q en el banco de ensayo',
+    B.nom+' · '+bcD+' cm³/rev · ISO VG 46 a 50 °C · '+f1(N_BOMBA,0)+' min⁻¹ · orificio de '+bcArea+' mm²');
+  const mu=muT(ACE_BANCO,T_BANCO), rho=rhoT(ACE_BANCO,T_BANCO);
+  const Qt=CUR.Qt, pt=CUR.pt;
+  const ymax=Math.max(10,Math.ceil(Qt/10)*10);
+  const A=ejes(c,72,106,566,326,350,ymax,'presión en la brida (bar)','caudal (L/min)',1,'rendimiento');
+  // curvas P-Q de las tres bombas de cilindrada fija
+  for(const b of BOMB_BANCO){
+    const pm=BOMBAS[b].pMax, pts=[];
+    for(let i=0;i<=60;i++){const p=pm*i/60;pts.push([A.X(p),A.Y(caudal(b,bcD,p,mu,N_BOMBA))]);}
+    curva(c,pts,b===bcBomba?AZUL:'#39404f',b===bcBomba?3:1.5);
+    linea(c,A.X(pm),A.Y(caudal(b,bcD,pm,mu,N_BOMBA)),A.X(pm),A.Y(0),b===bcBomba?'#4a5568':'#232b39',[3,3],1);
+    texto(c,BOMBAS[b].abr,A.X(pm)-4,A.Y(caudal(b,bcD,pm,mu,N_BOMBA))-12,
+      b===bcBomba?AZUL:'#59616f','12px Outfit, sans-serif','right');
+  }
+  // referencia: la de compensador no tiene UNA curva, se corta en su tarado
+  {
+    const pcomp=tarado('banco','var').pComp, pts=[];
+    for(let i=0;i<=40;i++){const p=pcomp*i/40;pts.push([A.X(p),A.Y(caudal('var',bcD,p,mu,N_BOMBA))]);}
+    pts.push([A.X(pcomp),A.Y(0)]);
+    curva(c,pts,VIO,1.6,[6,4]);
+    texto(c,'compensada',A.X(pcomp)+6,A.Y(0)-16,VIO,'12px Outfit, sans-serif');
+  }
+  // rendimientos de la bomba elegida (eje derecho)
+  {
+    const pv=[],ptt=[];
+    for(let i=1;i<=60;i++){const p=B.pMax*i/60;
+      pv.push([A.X(p),A.Y2(etaVol(bcBomba,bcD,p,mu,N_BOMBA))]);
+      ptt.push([A.X(p),A.Y2(etaTot(bcBomba,bcD,p,mu,N_BOMBA))]);}
+    curva(c,pv,VERDE,1.8,[5,3]);curva(c,ptt,NARANJA,2.2);
+  }
+  // caracteristica de la carga: orificio + limitadora
+  {
+    const pts=[],pl=[];
+    for(let i=0;i<=70;i++){const p=350*i/70;
+      pts.push([A.X(p),A.Y(caudalOrificio(bcArea,p,rho)+caudalLim(p,CUR.pc,bcLim))]);
+      pl.push([A.X(p),A.Y(caudalLim(p,CUR.pc,bcLim))]);}
+    curva(c,pts,'#F2A65A',2.2);curva(c,pl,BAD_HEX,1.6,[4,3]);
+    linea(c,A.X(CUR.pc),A.y,A.X(CUR.pc),A.y+A.h,BAD_HEX,[2,4],1);
+    texto(c,'tarado '+f1(CUR.pc,0)+' bar',A.X(CUR.pc)-5,A.y+14,BAD_HEX,'12px Outfit, sans-serif','right');
+  }
+  // punto de trabajo
+  {
+    const px=A.X(pt.p), py=A.Y(pt.Q);
+    linea(c,px,A.y+A.h,px,py,'#F4EFEA',[3,3],1);
+    linea(c,A.x,py,px,py,'#F4EFEA',[3,3],1);
+    c.fillStyle='#F4EFEA';c.beginPath();c.arc(px,py,6,0,7);c.fill();
+    texto(c,f1(pt.p,1)+' bar · '+f1(pt.Q,2)+' L/min',
+      Math.min(px+12,A.x+A.w-8),py-16,'#F4EFEA','bold 14px Outfit, sans-serif',px>A.x+A.w*0.7?'right':'left');
+  }
+  leyenda(c,72,470,[['caudal de la bomba',AZUL],['carga (orificio + limitadora)','#F2A65A'],
+    ['sólo limitadora',BAD_HEX],['ηV',VERDE],['ηT',NARANJA]]);
+
+  rpanel(c,PX.x,PX.y,PX.w,368,'Punto de trabajo medido');
+  let y=PX.y+52;const dy=27;
+  prow(c,PX.x,y,PX.w,'presión',f1(pt.p,1)+' bar');y+=dy;
+  prow(c,PX.x,y,PX.w,'caudal teórico Qt = D·n/1000',f1(Qt,2)+' L/min');y+=dy;
+  prow(c,PX.x,y,PX.w,'fuga',f1(fuga(bcBomba,bcD,pt.p,mu,N_BOMBA),2)+' L/min',WARN_HEX);y+=dy;
+  prow(c,PX.x,y,PX.w,'caudal entregado',f1(pt.Q,2)+' L/min',AZUL);y+=dy;
+  prow(c,PX.x,y,PX.w,'  · por el orificio',f1(pt.Qor,2)+' L/min');y+=dy;
+  prow(c,PX.x,y,PX.w,'  · por la limitadora',f1(pt.Qlim,2)+' L/min',pt.Qlim>0.01?BAD_HEX:GRIS);y+=dy+6;
+  prow(c,PX.x,y,PX.w,'ηV = Q/Qt',f1(100*CUR.etaV,1)+' %',VERDE);y+=dy;
+  prow(c,PX.x,y,PX.w,'ηM = Tid/T',f1(100*CUR.etaM,1)+' %');y+=dy;
+  prow(c,PX.x,y,PX.w,'ηT = ηV·ηM',f1(100*CUR.etaT,1)+' %',NARANJA);y+=dy+6;
+  prow(c,PX.x,y,PX.w,'par en el eje',f1(CUR.par.T,2)+' N·m');y+=dy;
+  prow(c,PX.x,y,PX.w,'potencia de eje',f1(CUR.Pe,3)+' kW');y+=dy;
+  prow(c,PX.x,y,PX.w,'potencia hidráulica p·Q/600',f1(CUR.Ph,3)+' kW');y+=dy;
+  prow(c,PX.x,y,PX.w,'pérdida (todo calor)',f1(CUR.Pe-CUR.Ph,3)+' kW',BAD_HEX);
+
+  rpanel(c,PX.x,458,PX.w,196,'Limitadora '+L.abr);
+  y=458+52;
+  prow(c,PX.x,y,PX.w,'tarado pc',f1(CUR.pc,0)+' bar');y+=dy;
+  prow(c,PX.x,y,PX.w,'sobrepresión declarada',f1(100*L.ovr,0)+' %');y+=dy;
+  prow(c,PX.x,y,PX.w,'presión a caudal completo',f1(CUR.pff,1)+' bar',colOk(CUR.pff<=B.pMax));y+=dy;
+  prow(c,PX.x,y,PX.w,'presión máxima de la bomba',f1(B.pMax,0)+' bar');y+=dy;
+  prow(c,PX.x,y,PX.w,'veredicto',CUR.pff<=B.pMax?'cabe':'NO cabe',colOk(CUR.pff<=B.pMax));
+
+  const etaMax=(()=>{let b=0,bp=0;for(let p=2;p<=B.pMax;p+=1){const e=etaTot(bcBomba,bcD,p,mu,N_BOMBA);if(e>b){b=e;bp=p;}}return{b,bp};})();
+  nota(c,494,'La curva P–Q no es plana: la fuga vale Cs·Dp·Δp/μ, o sea que crece con la presión, y el caudal baja en línea recta. De '+
+    f1(caudal(bcBomba,bcD,0,mu,N_BOMBA),2)+' L/min a presión nula pasa a '+f1(caudal(bcBomba,bcD,B.pMax,mu,N_BOMBA),2)+
+    ' L/min en su presión máxima: '+f1(100*(1-caudal(bcBomba,bcD,B.pMax,mu,N_BOMBA)/Qt),1)+' % menos.',AZUL,74);
+  nota(c,578,'El rendimiento total tampoco es monótono: a presión baja lo mata el par viscoso (que no depende de la presión) y a presión alta lo mata la fuga. Con esta bomba el máximo, '+
+    f1(100*etaMax.b,1)+' %, cae en '+f1(etaMax.bp,0)+' bar — ni en el mínimo ni en el máximo de la escala.',NARANJA,74);
+  nota(c,662,pt.Qlim>0.01
+    ? 'Con este orificio la bomba da más caudal del que el agujero se traga, así que la presión sube hasta el tarado y '+f1(pt.Qlim,2)+' L/min se van por la limitadora: esos '+f1(potHid(pt.p,pt.Qlim),2)+' kW son calor puro.'
+    : 'Con este orificio la limitadora no interviene: todo el caudal pasa por el agujero y la presión la fija la carga, no el tarado. Baja el área y verás cuándo empieza a soplar la limitadora.',
+    pt.Qlim>0.01?BAD_HEX:VERDE,74);
+}
+
+function drawAceite(c){
+  const B=CUR.b, est=CUR.est, asp=CUR.asp;
+  title2(c,'Aceite, viscosidad y aspiración',
+    ACEITES[acAce].nom+' · '+B.nom+' · '+acD+' cm³/rev · '+est.nom);
+  const L=ejesLog(c,72,106,566,286,-20,120,5,4000,'temperatura del aceite (°C)','ν (mm²/s)');
+  // ventana de trabajo de la familia elegida
+  c.fillStyle='rgba(124,217,146,0.08)';
+  c.fillRect(L.x,L.Y(B.nuMax),L.w,L.Y(NU_MIN_TRAB)-L.Y(B.nuMax));
+  linea(c,L.x,L.Y(B.nuMax),L.x+L.w,L.Y(B.nuMax),VERDE,[5,4],1.5);
+  linea(c,L.x,L.Y(NU_MIN_TRAB),L.x+L.w,L.Y(NU_MIN_TRAB),VERDE,[5,4],1.5);
+  linea(c,L.x,L.Y(B.nuArr),L.x+L.w,L.Y(B.nuArr),WARN_HEX,[2,4],1.5);
+  texto(c,'νmáx trabajo '+f1(B.nuMax,0),L.x+8,L.Y(B.nuMax)-11,VERDE,'12px Outfit, sans-serif');
+  texto(c,'νmín trabajo '+f1(NU_MIN_TRAB,0),L.x+8,L.Y(NU_MIN_TRAB)+11,VERDE,'12px Outfit, sans-serif');
+  texto(c,'νmáx arranque '+f1(B.nuArr,0),L.x+8,L.Y(B.nuArr)-11,WARN_HEX,'12px Outfit, sans-serif');
+  for(const k of ACEK){
+    const pts=[];
+    for(let T=-20;T<=120;T+=1)pts.push([L.X(T),L.Y(nuT(k,T))]);
+    curva(c,pts,k===acAce?AZUL:'#39404f',k===acAce?3:1.5);
+    texto(c,ACEITES[k].nom,L.X(-18),L.Y(nuT(k,-18))+(k===acAce?-10:10),
+      k===acAce?AZUL:'#59616f','12px Outfit, sans-serif');
+  }
+  for(const [T,col,lab] of [[acT,'#F4EFEA','T elegida'],[est.Tfrio,'#7FD4FF','arranque en frío']]){
+    linea(c,L.X(T),L.y,L.X(T),L.y+L.h,col,[3,3],1.5);
+    const nn=nuT(acAce,T);
+    c.fillStyle=col;c.beginPath();c.arc(L.X(T),L.Y(nn),5,0,7);c.fill();
+    texto(c,lab+' '+f1(T,0)+' °C → '+f1(nn,1),Math.min(L.X(T)+8,L.x+L.w-8),L.y+(T===acT?16:34),
+      col,'12px Outfit, sans-serif',L.X(T)>L.x+L.w*0.62?'right':'left');
+  }
+  linea(c,L.X(T_WAL_MIN),L.y,L.X(T_WAL_MIN),L.y+L.h,'#5a4a2a',[1,3],1);
+  linea(c,L.X(T_WAL_MAX),L.y,L.X(T_WAL_MAX),L.y+L.h,'#5a4a2a',[1,3],1);
+
+  // aspiracion: de donde sale y a donde llega la presion en el oido de la bomba
+  const scale=1.25;
+  texto(c,'Presión en el oído de la bomba a '+f1(acT,0)+' °C',72,462,'#cfd6e2','bold 16px Outfit, sans-serif');
+  hbar(c,72,478,566,30,asp.pAsp/scale,asp.cavita?BAD_HEX:VERDE);
+  marca(c,72,478,566,30,B.pAspMin/scale,WARN_HEX,'mínimo '+f1(B.pAspMin,2)+' bar');
+  marca(c,72,478,566,30,PATM_BAR/scale,'#7FD4FF','atmósfera');
+  texto(c,f1(asp.pAsp,4)+' bar abs',80,493,'#0c1016','bold 15px ui-monospace, monospace');
+  {
+    const filas=[
+      ['presión atmosférica','+ '+f1(PATM_BAR,4)+' bar','#7FD4FF'],
+      ['pérdida en la tubería ('+f1(est.Lasp,1)+' m, Ø '+f1(est.dAsp*1000,0)+' mm)','− '+f1(asp.dpTub,4)+' bar',WARN_HEX],
+      ['pérdida en el colador','− '+f1(asp.dpFil,4)+' bar',WARN_HEX],
+      [est.hAsp>=0?'altura de aspiración (+'+f1(est.hAsp,2)+' m)':'carga del depósito en alto ('+f1(est.hAsp,2)+' m)',
+        (asp.dpAlt>=0?'− ':'+ ')+f1(Math.abs(asp.dpAlt),4)+' bar',asp.dpAlt>=0?WARN_HEX:VERDE],
+    ];
+    let yy=530;
+    for(const f of filas){texto(c,f[0],72,yy,'#8f97a5','14px Outfit, sans-serif');
+      texto(c,f[1],638,yy,f[2],'bold 14px ui-monospace, monospace','right');yy+=24;}
+    linea(c,72,yy-11,638,yy-11,'#2a3140',[],1);
+    texto(c,'presión en el oído',72,yy+4,'#cfd6e2','bold 14px Outfit, sans-serif');
+    texto(c,'= '+f1(asp.pAsp,4)+' bar abs',638,yy+4,colOk(!asp.cavita),'bold 14px ui-monospace, monospace','right');
+  }
+
+  rpanel(c,PX.x,PX.y,PX.w,300,'Viscosidad');
+  let y=PX.y+52;const dy=27;
+  prow(c,PX.x,y,PX.w,'ν a '+f1(acT,0)+' °C',f1(CUR.nu,1)+' mm²/s',
+    (CUR.nu>=NU_MIN_TRAB&&CUR.nu<=B.nuMax)?VERDE:BAD_HEX);y+=dy;
+  prow(c,PX.x,y,PX.w,'ventana de trabajo',f1(NU_MIN_TRAB,0)+'–'+f1(B.nuMax,0)+' mm²/s');y+=dy;
+  prow(c,PX.x,y,PX.w,'ν a '+f1(est.Tfrio,0)+' °C (arranque)',f1(CUR.nuF,0)+' mm²/s',
+    CUR.nuF<=B.nuArr?VERDE:BAD_HEX);y+=dy;
+  prow(c,PX.x,y,PX.w,'límite de arranque',f1(B.nuArr,0)+' mm²/s');y+=dy;
+  prow(c,PX.x,y,PX.w,'ρ a '+f1(acT,0)+' °C',f1(CUR.rho,1)+' kg/m³');y+=dy;
+  prow(c,PX.x,y,PX.w,'μ = ν·ρ',f1(CUR.mu*1000,2)+' mPa·s');y+=dy;
+  prow(c,PX.x,y,PX.w,'ventana recomendada',f1(NU_OPT_MIN,0)+'–'+f1(NU_OPT_MAX,0)+' mm²/s');y+=dy;
+  prow(c,PX.x,y,PX.w,'Walther A / B',f1(walther(acAce).A,4)+' / '+f1(walther(acAce).B,4));y+=dy;
+  prow(c,PX.x,y,PX.w,'banda válida',f1(T_WAL_MIN,0)+' a '+f1(T_WAL_MAX,0)+' °C',
+    (fueraBanda(acT)||fueraBanda(est.Tfrio))?WARN_HEX:GRIS);
+
+  rpanel(c,PX.x,390,PX.w,264,'Aspiración a '+f1(acT,0)+' °C');
+  y=390+52;
+  prow(c,PX.x,y,PX.w,'caudal aspirado',f1(CUR.Qt,2)+' L/min');y+=dy;
+  prow(c,PX.x,y,PX.w,'velocidad en la tubería',f1(asp.v,2)+' m/s',asp.v<=1.5?VERDE:WARN_HEX);y+=dy;
+  prow(c,PX.x,y,PX.w,'Reynolds',f1(asp.Re,0));y+=dy;
+  prow(c,PX.x,y,PX.w,'régimen',asp.lam?'laminar':'turbulento');y+=dy;
+  prow(c,PX.x,y,PX.w,'factor de fricción f',f1(asp.f,4));y+=dy;
+  prow(c,PX.x,y,PX.w,'presión en el oído',f1(asp.pAsp,4)+' bar',colOk(!asp.cavita));y+=dy;
+  prow(c,PX.x,y,PX.w,'mínimo de la bomba',f1(B.pAspMin,2)+' bar');y+=dy;
+  prow(c,PX.x,y,PX.w,'veredicto',asp.cavita?'CAVITA':'aspira bien',colOk(!asp.cavita));
+
+  const cf=CUR.aspF;
+  nota(c,662,cf.cavita
+    ? 'En el arranque en frío de esta estación ('+f1(est.Tfrio,0)+' °C) el aceite tiene '+f1(CUR.nuF,0)+' mm²/s y la presión en el oído cae a '+f1(cf.pAsp,4)+' bar: por debajo de los '+f1(B.pAspMin,2)+' que pide la bomba. Cavita al arrancar, aunque en caliente vaya perfecta.'
+    : 'En el arranque en frío de esta estación ('+f1(est.Tfrio,0)+' °C) la presión en el oído es de '+f1(cf.pAsp,4)+' bar, por encima de los '+f1(B.pAspMin,2)+' que pide la bomba: arranca sin cavitar. El colador y la altura de aspiración son datos de la máquina, no una elección.',
+    cf.cavita?BAD_HEX:VERDE,74);
+}
+
+function faseEn(cic,t01){
+  const tot=cic.fases.reduce((a,f)=>a+tFase(f),0);
+  if(!(tot>0))return {i:0,u:0};
+  const t=t01*tot;let acc=0;
+  for(let i=0;i<cic.fases.length;i++){
+    const d=tFase(cic.fases[i]);
+    if(t<acc+d||i===cic.fases.length-1)return {i,u:d>0?Math.max(0,Math.min(1,(t-acc)/d)):0};
+    acc+=d;
+  }
+  return {i:0,u:0};
+}
+
+function drawCiclo(c){
+  const ev=CUR.ev, cic=ev.cic, est=CUR.est;
+  title2(c,'El ciclo de la máquina y a dónde va la energía',
+    est.nom+' · '+BOMBAS[CUR.cfg.bomba].nom+' · '+CUR.cfg.D+' cm³/rev · '+ACEITES[CUR.cfg.aceite].nom+' · '+LIMS[CUR.cfg.lim].abr);
+  const x0=72,w0=918;
+  // tira de fases
+  const cur=faseEn(cic,animT);
+  const tSum=cic.fases.reduce((a,f)=>a+tFase(f),0);
+  const nInf=cic.fases.filter(f=>!isFinite(f.tReal)).length;
+  const wInf=nInf?70:0, wRest=w0-wInf*nInf;
+  const wArr=cic.fases.map(f=>isFinite(f.tReal)
+    ? (tSum>0?wRest*f.tReal/tSum:wRest/cic.fases.length)
+    : wInf);
+  let cx=x0;
+  for(let i=0;i<cic.fases.length;i++){
+    const f=cic.fases[i], fw=wArr[i], inf=!isFinite(f.tReal);
+    const col=inf?'#5c2b2b':(f.descargado?'#3a4250':(f.lento?'#5c2b2b':(f.Qlim>0.05?'#4a3a24':'#243448')));
+    c.fillStyle=col;c.fillRect(cx,104,fw,62);
+    c.strokeStyle=i===cur.i?'#F4EFEA':'#2a3140';c.lineWidth=i===cur.i?2:1;c.strokeRect(cx+0.5,104.5,fw-1,61);
+    if(fw>62){
+      texto(c,nomFase(CUR.estK,f.id),cx+8,120,'#F4EFEA','bold 13px Outfit, sans-serif');
+      texto(c,inf?'no termina':f1(f.tReal,2)+' s',cx+8,138,inf?BAD_HEX:'#a8b0bd','12px ui-monospace, monospace');
+      texto(c,f1(f.p,0)+' bar · '+f1(f.Qact,1)+' L/min',cx+8,154,'#8f97a5','12px ui-monospace, monospace');
+    }else if(inf){
+      texto(c,'∞',cx+fw/2,134,BAD_HEX,'bold 20px Outfit, sans-serif','center');
+    }
+    cx+=fw;
+  }
+  const curX=x0+wArr.slice(0,cur.i).reduce((a,b)=>a+b,0)+(wArr[cur.i]||0)*cur.u;
+  linea(c,curX,98,curX,172,'#F4EFEA',[],2);
+  texto(c,'ciclo de '+f1(cic.tCic,2)+' s',x0+w0,90,'#8f97a5','13px Outfit, sans-serif','right');
+
+  // barras de potencia por fase
+  const bx=72,by=212,bw=566,bh=232;
+  c.fillStyle='#0a0d13';c.fillRect(bx,by,bw,bh);
+  c.strokeStyle='#39404f';c.strokeRect(bx+0.5,by+0.5,bw-1,bh-1);
+  const pk=Math.max(cic.Ppico,0.001);
+  const n=cic.fases.length, cw=bw/n;
+  for(let i=0;i<n;i++){
+    const f=cic.fases[i];
+    const hu=bh*Math.max(0,f.Putil)/pk, hc=bh*Math.max(0,f.Pcal)/pk;
+    c.fillStyle=VERDE;c.fillRect(bx+i*cw+cw*0.18,by+bh-hu,cw*0.64,hu);
+    c.fillStyle=BAD_HEX;c.fillRect(bx+i*cw+cw*0.18,by+bh-hu-hc,cw*0.64,hc);
+    if(i===cur.i){c.strokeStyle='#F4EFEA';c.lineWidth=2;c.strokeRect(bx+i*cw+cw*0.18,by+bh-hu-hc,cw*0.64,hu+hc);}
+    texto(c,f1(f.Peje,2),bx+i*cw+cw/2,by+bh-hu-hc-12,'#cfd6e2','bold 13px ui-monospace, monospace','center');
+    texto(c,f.id,bx+i*cw+cw/2,by+bh+16,'#8f97a5','12px Outfit, sans-serif','center');
+  }
+  texto(c,'potencia de eje por fase (kW), pico '+f1(cic.Ppico,2)+' kW',bx,by-12,'#cfd6e2','bold 15px Outfit, sans-serif');
+  leyenda(c,bx,by+bh+40,[['trabajo útil p·Q/600',VERDE],['calor',BAD_HEX]]);
+
+  rpanel(c,PX.x,212,PX.w,300,'Balance del ciclo');
+  let y=212+52;const dy=27;
+  prow(c,PX.x,y,PX.w,'duración del ciclo',f1(cic.tCic,2)+' s',cic.lento?BAD_HEX:'#F4EFEA');y+=dy;
+  prow(c,PX.x,y,PX.w,'energía útil',f1(cic.Eutil,1)+' kJ',VERDE);y+=dy;
+  prow(c,PX.x,y,PX.w,'energía en calor',f1(cic.Ecal,1)+' kJ',BAD_HEX);y+=dy;
+  prow(c,PX.x,y,PX.w,'rendimiento del ciclo',f1(100*cic.etaCic,1)+' %',NARANJA);y+=dy;
+  prow(c,PX.x,y,PX.w,'potencia media',f1(cic.Pmed,2)+' kW');y+=dy;
+  prow(c,PX.x,y,PX.w,'potencia de pico',f1(cic.Ppico,2)+' kW');y+=dy;
+  prow(c,PX.x,y,PX.w,'calor medio',f1(cic.Pcal,2)+' kW',BAD_HEX);y+=dy;
+  prow(c,PX.x,y,PX.w,'disipación del depósito',f1(est.kDis,0)+' W/K');y+=dy;
+  prow(c,PX.x,y,PX.w,'temperatura de régimen',ev.reg.conv?f1(ev.Treg,1)+' °C':'no converge',
+    ev.reg.conv?colOk(ev.Treg<=T_MAX_ACEITE):BAD_HEX);
+
+  const fr=cic.Eutil+cic.Ecal>0?cic.Eutil/(cic.Eutil+cic.Ecal):0;
+  texto(c,'Reparto de la energía del ciclo',72,494,'#cfd6e2','bold 15px Outfit, sans-serif');
+  c.fillStyle=BAD_HEX;c.fillRect(72,506,918,26);
+  c.fillStyle=VERDE;c.fillRect(72,506,918*fr,26);
+  c.strokeStyle='#2a3140';c.lineWidth=1;c.strokeRect(72.5,506.5,917,25);
+  texto(c,'útil '+f1(100*fr,1)+' %',80,519,'#0c1016','bold 14px Outfit, sans-serif');
+  texto(c,'calor '+f1(100*(1-fr),1)+' %',982,519,'#0c1016','bold 14px Outfit, sans-serif','right');
+
+  const cal=cic.fases.slice().sort((a,b)=>b.Pcal*tFase(b)-a.Pcal*tFase(a))[0];
+  nota(c,548,'La fase que más calienta es «'+nomFase(CUR.estK,cal.id)+'»: '+f1(cal.Pcal*tFase(cal),1)+' kJ de los '+f1(cic.Ecal,1)+
+    ' kJ del ciclo. '+(cal.Qlim>0.05
+      ? 'Ahí la bomba da '+f1(cal.Qact+cal.Qlim,1)+' L/min y el actuador sólo se traga '+f1(cal.Qact,1)+': los '+f1(cal.Qlim,1)+' L/min que sobran cruzan la limitadora a '+f1(cal.p,0)+' bar y salen en forma de calor.'
+      : 'Ahí no sobra caudal: lo que se pierde es el propio rendimiento de la bomba.'),BAD_HEX,74,72,566);
+  const desc=cic.fases.filter(f=>f.descargado);
+  nota(c,632,BOMBAS[CUR.cfg.bomba].variable
+    ? 'La bomba de cilindrada variable no tiene que tirar caudal: el compensador inclina el plato hasta que la cilindrada es la que el circuito pide. En la fase más apretada baja a '+f1(Math.min(...cic.fases.map(f=>f.Def)),2)+' cm³/rev de los '+CUR.cfg.D+' que puede dar.'
+    : (desc.length
+      ? 'La limitadora pilotada con descarga baja el grupo a '+f1(P_DESC,0)+' bar en '+(desc.length===1?'la fase «'+nomFase(CUR.estK,desc[0].id)+'»':'las fases descargables')+': ahí el motor pide sólo '+f1(desc[0].Peje,2)+' kW en vez de los '+f1(cic.Ppico,2)+' del pico.'
+      : 'Con cilindrada fija y sin descarga, todo el caudal que el actuador no se traga se va por la limitadora a la presión de tarado. Prueba la limitadora pilotada con descarga, o la bomba de cilindrada variable.'),
+    desc.length||BOMBAS[CUR.cfg.bomba].variable?VERDE:WARN_HEX,74,72,566);
+  nota(c,548,'Régimen térmico: el aceite sube hasta que el calor que produce el grupo iguala al que el depósito puede soltar. '+
+    (ev.reg.conv?'Aquí eso ocurre en '+f1(ev.Treg,1)+' °C con '+f1(est.Tamb,0)+' °C de ambiente.'
+               :'Aquí no ocurre nunca: el aceite se dispara.'),
+    ev.reg.conv?AZUL:BAD_HEX,158,PX.x,PX.w);
+}
+
+function drawProyecto(c){
+  const ev=CUR.ev, est=CUR.est, cfg=CUR.cfg;
+  title2(c,'Los siete criterios del proyecto',
+    est.nom+' · '+BOMBAS[cfg.bomba].nom+' · '+cfg.D+' cm³/rev · '+ACEITES[cfg.aceite].nom+' · '+LIMS[cfg.lim].abr);
+  const filas=[
+    ['Caudal de todas las fases',ev.cic.lento?'ciclo alargado a '+f1(ev.cic.tCic,2)+' s':'ciclo en '+f1(ev.cic.tCic,2)+' s',
+      f1(est.fases.reduce((a,f)=>Math.max(a,f.Q),0),0)+' L/min máx',ev.okCaudal],
+    ['Presión de la limitadora',f1(ev.pff,1)+' bar a caudal completo',f1(BOMBAS[cfg.bomba].pMax,0)+' bar',ev.okPresion],
+    ['Ventana de viscosidad',f1(ev.nuTrab,1)+' trab · '+f1(ev.nuFrio,0)+' arr',
+      f1(NU_MIN_TRAB,0)+'–'+f1(BOMBAS[cfg.bomba].nuMax,0)+' · ≤'+f1(BOMBAS[cfg.bomba].nuArr,0),ev.okViscosidad],
+    ['Aspiración en frío',f1(ev.asp.pAsp,3)+' bar abs',f1(BOMBAS[cfg.bomba].pAspMin,2)+' bar',ev.okAspiracion],
+    ['Térmico',ev.reg.conv?f1(ev.Treg,1)+' °C':'no converge',f1(T_MAX_ACEITE,0)+' °C',ev.okTermico],
+    ['Motor',(ev.mot?f1(ev.mot.kW,1)+' kW':'fuera de catálogo')+' (pico '+f1(ev.cic.Ppico,2)+')',
+      f1(est.kwMax,1)+' kW',ev.okMotor],
+    ['Energía anual',f1(ev.kWh,0)+' kWh',f1(est.Emax,0)+' kWh',ev.okEnergia],
+  ];
+  tabla(c,72,104,566,[228,180,110,48],
+    filas.map(f=>({c:[f[0],f[1],f[2],f[3]?'✔':'✘'],cols:['#F4EFEA',colOk(f[3]),'#8f97a5',colOk(f[3])],hl:!f[3]})),
+    ['criterio','medido','límite','']);
+
+  rpanel(c,PX.x,PX.y,PX.w,300,'Coste y factura');
+  let y=PX.y+52;const dy=27;
+  prow(c,PX.x,y,PX.w,'bomba '+BOMBAS[cfg.bomba].abr,f1(cfg.D*BOMBAS[cfg.bomba].kCoste,0)+' u');y+=dy;
+  prow(c,PX.x,y,PX.w,'limitadora '+LIMS[cfg.lim].abr,f1(LIMS[cfg.lim].coste,0)+' u');y+=dy;
+  prow(c,PX.x,y,PX.w,'aceite',f1(ACEITES[cfg.aceite].coste,0)+' u');y+=dy;
+  prow(c,PX.x,y,PX.w,'motor '+(ev.motE?f1(ev.motE.kW,1)+' kW':'—'),f1(ev.motE?ev.motE.coste:0,0)+' u');y+=dy;
+  prow(c,PX.x,y,PX.w,'COSTE TOTAL',f1(ev.coste,0)+' u',
+    CUR.cm!==null&&ev.coste===CUR.cm&&ev.valido?VERDE:'#F4EFEA');y+=dy;
+  prow(c,PX.x,y,PX.w,'coste mínimo posible',CUR.cm===null?'no hay solución':f1(CUR.cm,0)+' u',NARANJA);y+=dy+6;
+  prow(c,PX.x,y,PX.w,'rendimiento del motor',ev.motE?f1(100*ev.motE.eta,1)+' %':'—');y+=dy;
+  prow(c,PX.x,y,PX.w,'horas al año',f1(est.horas,0)+' h');y+=dy;
+  prow(c,PX.x,y,PX.w,'factura anual',f1(ev.kWh,0)+' kWh',colOk(ev.okEnergia));
+
+  texto(c,'Coste frente al mínimo posible',72,344,'#cfd6e2','bold 15px Outfit, sans-serif');
+  {
+    const esc=Math.max(ev.coste,CUR.cm||0,1)*1.15;
+    hbar(c,72,356,566,26,ev.coste/esc,ev.valido?(ev.coste===CUR.cm?VERDE:AZUL):BAD_HEX);
+    if(CUR.cm!==null)marca(c,72,356,566,26,CUR.cm/esc,NARANJA,'mínimo '+f1(CUR.cm,0)+' u');
+    texto(c,f1(ev.coste,0)+' u',80,369,'#0c1016','bold 14px Outfit, sans-serif');
+  }
+  const o=CUR.opt;
+  nota(c,400,ev.valido
+    ? 'Esta propuesta cumple los siete criterios. '+(ev.coste===CUR.cm
+        ? 'Y además al coste mínimo: no hay ninguna más barata que también cumpla.'
+        : 'Pero cuesta '+f1(ev.coste-CUR.cm,0)+' u más que la más barata que cumple ('+f1(CUR.cm,0)+' u).')
+    : 'Esta propuesta falla en '+ev.fallos.length+' criterio'+(ev.fallos.length>1?'s':'')+'. '+MOTIVO[ev.primero],
+    ev.valido?(ev.coste===CUR.cm?VERDE:WARN_HEX):BAD_HEX,74);
+  nota(c,484,o
+    ? 'De las '+CFGS.length+' combinaciones posibles, en esta estación cumplen '+validas(CUR.estK).length+
+      '. La más barata es '+BOMBAS[o.bomba].abr.toLowerCase()+' de '+o.D+' cm³/rev con '+ACEITES[o.aceite].nom+
+      ' y limitadora '+LIMS[o.lim].abr.toLowerCase()+', por '+f1(CUR.cm,0)+' u y '+f1(evalua(CUR.estK,o).kWh,0)+' kWh al año.'
+    : 'En esta estación no cumple ninguna de las '+CFGS.length+' combinaciones.',AZUL,74);
+  nota(c,568,'Ningún criterio sobra: los siete se caen solos en alguna combinación de este catálogo. Y ninguno se arregla mirando sólo la bomba: '+
+    'el térmico depende de la limitadora, la aspiración del aceite y la factura del ciclo entero.',NARANJA,74);
+  nota(c,652,'Las cifras de eficiencia del motor son las de la clase IE3 (IEC 60034-30-1) y los costes son unidades relativas de comparación, no precios de mercado.',GRIS,74);
+}
+
+function drawReto(c){
+  const ev=CUR.ev, est=CUR.est;
+  title2(c,'Reto · elige el grupo hidráulico',
+    est.nom+' — cumple los siete criterios al mínimo coste');
+  const w=228, xs=[72,306,540,774];
+  const EJ=[['bomba',BOMBAS[retoCfg.bomba].abr],['D',retoCfg.D+' cm³/rev'],
+            ['aceite',ACEITES[retoCfg.aceite].nom],['lim',LIMS[retoCfg.lim].abr]];
+  for(let i=0;i<4;i++){
+    const ok=retoAxes[EJ[i][0]], x=xs[i];
+    c.fillStyle=retoSolved||ok?'#152218':'#11161e';c.fillRect(x,104,w,86);
+    c.strokeStyle=retoSolved?OK_HEX:(ok?'#2e6b3f':'#2a3140');c.lineWidth=retoSolved?2:1;
+    c.strokeRect(x+0.5,104.5,w-1,85);
+    texto(c,EJE_ROT[EJ[i][0]],x+12,124,'#8f97a5','13px Outfit, sans-serif');
+    texto(c,EJ[i][1],x+12,150,'#F4EFEA','bold 17px Outfit, sans-serif');
+    texto(c,retoSolved?'✔ correcto':(ok?'✔':'·'),x+w-12,150,retoSolved||ok?OK_HEX:'#4a5262','bold 17px Outfit, sans-serif','right');
+    texto(c,EJE_VAL[EJ[i][0]].length+' opciones',x+12,172,'#59616f','12px Outfit, sans-serif');
+  }
+  // criterios
+  texto(c,'Los siete criterios con esta propuesta',72,220,'#cfd6e2','bold 16px Outfit, sans-serif');
+  let cx=72;
+  for(const k of CRIT){
+    const ok=ev[k];
+    c.fillStyle=ok?'#152218':'#241417';c.fillRect(cx,232,128,58);
+    c.strokeStyle=ok?'#2e6b3f':'#5c2b2b';c.lineWidth=1;c.strokeRect(cx+0.5,232.5,127,57);
+    texto(c,CRIT_LET[k],cx+12,254,colOk(ok),'bold 20px Outfit, sans-serif');
+    texto(c,ok?'✔':'✘',cx+116,254,colOk(ok),'bold 18px Outfit, sans-serif','right');
+    texto(c,CRIT_ROT[k].split(' ').slice(0,3).join(' '),cx+12,276,'#8f97a5','11px Outfit, sans-serif');
+    cx+=131;
+  }
+  // coste
+  texto(c,'Coste de la propuesta frente al mínimo',72,320,'#cfd6e2','bold 15px Outfit, sans-serif');
+  {
+    const esc=Math.max(ev.coste,CUR.cm||0,1)*1.15;
+    hbar(c,72,332,918,26,ev.coste/esc,retoSolved?VERDE:(ev.valido?AZUL:BAD_HEX));
+    if(CUR.cm!==null)marca(c,72,332,918,26,CUR.cm/esc,NARANJA,'mínimo '+f1(CUR.cm,0)+' u');
+    texto(c,f1(ev.coste,0)+' u',80,345,'#0c1016','bold 14px Outfit, sans-serif');
+  }
+  // telemetria resumida
+  rpanel(c,72,380,440,240,'Lo que mide el banco');
+  let y=432;const dy=27;
+  prow(c,72,y,440,'duración del ciclo',f1(ev.cic.tCic,2)+' s',colOk(ev.okCaudal));y+=dy;
+  prow(c,72,y,440,'presión a caudal completo',f1(ev.pff,1)+' bar',colOk(ev.okPresion));y+=dy;
+  prow(c,72,y,440,'viscosidad de trabajo / arranque',f1(ev.nuTrab,1)+' / '+f1(ev.nuFrio,0)+' mm²/s',colOk(ev.okViscosidad));y+=dy;
+  prow(c,72,y,440,'presión en el oído en frío',f1(ev.asp.pAsp,3)+' bar',colOk(ev.okAspiracion));y+=dy;
+  prow(c,72,y,440,'temperatura de régimen',ev.reg.conv?f1(ev.Treg,1)+' °C':'no converge',colOk(ev.okTermico));y+=dy;
+  prow(c,72,y,440,'motor necesario',ev.mot?f1(ev.mot.kW,1)+' kW':'fuera de catálogo',colOk(ev.okMotor));y+=dy;
+  prow(c,72,y,440,'factura anual',f1(ev.kWh,0)+' kWh',colOk(ev.okEnergia));
+
+  rpanel(c,550,380,440,240,'La estación');
+  y=432;
+  prow(c,550,y,440,'presión máxima del ciclo',f1(Math.max(...est.fases.map(f=>f.p)),0)+' bar');y+=dy;
+  prow(c,550,y,440,'caudal máximo del ciclo',f1(Math.max(...est.fases.map(f=>f.Q)),0)+' L/min');y+=dy;
+  prow(c,550,y,440,'ambiente / arranque',f1(est.Tamb,0)+' / '+f1(est.Tfrio,0)+' °C');y+=dy;
+  prow(c,550,y,440,'disipación del depósito',f1(est.kDis,0)+' W/K');y+=dy;
+  prow(c,550,y,440,'acometida eléctrica',f1(est.kwMax,1)+' kW');y+=dy;
+  prow(c,550,y,440,'energía contratada',f1(est.Emax,0)+' kWh/año');y+=dy;
+  prow(c,550,y,440,'horas al año',f1(est.horas,0)+' h');
+
+  nota(c,636,retoMsg||'Elige familia de bomba, cilindrada, aceite y limitadora, y pulsa «Comprobar». Los cuatro ejes se juzgan juntos: la propuesta tiene que cumplir los siete criterios Y costar lo mínimo posible.',
+    retoSolved?VERDE:(retoMsg?WARN_HEX:AZUL),96,72,918);
+}
+
+function drawBoard(){
+  const c=bCtx;bg(c);
+  if(mode==='banco')drawBanco(c);
+  else if(mode==='aceite')drawAceite(c);
+  else if(mode==='ciclo')drawCiclo(c);
+  else if(mode==='proyecto')drawProyecto(c);
+  else drawReto(c);
+  texto(c,'ISO 4413 · ISO 4409 · ISO 3448 · ASTM D341 · Wilson (1950) · IEC 60034-30-1',
+    994,752,'#4a5262','12px Outfit, sans-serif','right');
+  bTex.needsUpdate=true;
+}
+
+// ===================== 7. GRUPO HIDRAULICO 3D =====================
+// Un grupo de accionamiento real, en el orden en que se recorre el aceite:
+// deposito -> colador -> aspiracion -> bomba (arrastrada por el motor) ->
+// bloque con manometro y limitadora -> linea de trabajo -> orificio calibrado
+// (banco) o cilindro (instalacion) -> retorno al deposito.
+const GEO_CIL=new THREE.CylinderGeometry(1,1,1,28);
+const GEO_TUB=new THREE.CylinderGeometry(1,1,1,14);
+const _vA=new THREE.Vector3(),_vB=new THREE.Vector3(),_vD=new THREE.Vector3(),_up=new THREE.Vector3(0,1,0);
+function tuboAB(mat,padre){const m=new THREE.Mesh(GEO_TUB,mat);(padre||scene).add(m);return m;}
+function setTuboAB(m,a,b,r){
+  _vA.set(a[0],a[1],a[2]);_vB.set(b[0],b[1],b[2]);_vD.copy(_vB).sub(_vA);
+  const L=_vD.length();
+  m.position.copy(_vA).addScaledVector(_vD,0.5);
+  m.scale.set(r,Math.max(L,0.001),r);
+  m.quaternion.setFromUnitVectors(_up,_vD.normalize());
+}
+// tuberia poligonal: un tramo por segmento
+function polit(pts,r,mat){
+  const g=new THREE.Group();scene.add(g);
+  const segs=[];
+  for(let i=0;i<pts.length-1;i++){const m=new THREE.Mesh(GEO_TUB,mat);g.add(m);setTuboAB(m,pts[i],pts[i+1],r);segs.push(m);}
+  return {g,segs,pts};
+}
+// marcadores de flujo: esferitas que recorren la polilinea. La VELOCIDAD es
+// proporcional al caudal, asi que "se ve" cuando el caudal cae.
+function largoPoli(pts){
+  let L=0;for(let i=0;i<pts.length-1;i++){
+    L+=Math.hypot(pts[i+1][0]-pts[i][0],pts[i+1][1]-pts[i][1],pts[i+1][2]-pts[i][2]);}
+  return L;
+}
+function puntoPoli(pts,u){
+  const L=largoPoli(pts);if(L<=0)return pts[0];
+  let d=Math.max(0,Math.min(1,u))*L;
+  for(let i=0;i<pts.length-1;i++){
+    const s=Math.hypot(pts[i+1][0]-pts[i][0],pts[i+1][1]-pts[i][1],pts[i+1][2]-pts[i][2]);
+    if(d<=s||i===pts.length-2){const t=s>0?d/s:0;
+      return [pts[i][0]+(pts[i+1][0]-pts[i][0])*t,pts[i][1]+(pts[i+1][1]-pts[i][1])*t,pts[i][2]+(pts[i+1][2]-pts[i][2])*t];}
+    d-=s;
+  }
+  return pts[pts.length-1];
+}
+const GEO_GOTA=new THREE.SphereGeometry(0.030,10,8);
+function makeFlow(pts,n,mat){
+  const ms=[];for(let i=0;i<n;i++){const m=new THREE.Mesh(GEO_GOTA,mat);scene.add(m);ms.push(m);}
+  return {pts,ms,n};
+}
+function setFlow(fl,u0,visible,mat){
+  for(let i=0;i<fl.n;i++){
+    const m=fl.ms[i];m.visible=visible;
+    if(mat&&m.material!==mat)m.material=mat;
+    if(!visible)continue;
+    const u=((u0+i/fl.n)%1+1)%1;
+    const p=puntoPoli(fl.pts,u);m.position.set(p[0],p[1],p[2]);
+  }
+}
+
+// ---- deposito ----
+const tanque=roundedBox(2.20,0.80,0.95,MAT.tanque,0.05);tanque.position.set(0.25,0.55,0.30);scene.add(tanque);
+const tapaT=roundedBox(2.26,0.06,1.00,MAT.tapa,0.02);tapaT.position.set(0.25,0.975,0.30);scene.add(tapaT);
+[[-0.75,-0.10],[1.25,-0.10],[-0.75,0.70],[1.25,0.70]].forEach(p=>{
+  const l=roundedBox(0.10,0.15,0.10,MAT.leg,0.02);l.position.set(p[0],0.075,p[1]);scene.add(l);
+});
+tanque.userData={title:'Depósito',info:'Guarda el aceite, lo deja reposar para que suelte el aire y le sirve de radiador: el calor que no se aprovecha sale por aquí. Su capacidad de disipación es dato de la estación.'};
+addHoverLabel(tanque,'Depósito',AZUL,[0.25,1.18,0.30],1.0);
+
+// mirilla de nivel: el color del aceite dice el grado ISO VG
+const mirilla=roundedBox(0.11,0.36,0.03,MAT.mirilla,0.01);mirilla.position.set(1.28,0.62,0.785);scene.add(mirilla);
+const aceiteM=roundedBox(0.075,0.22,0.02,MAT.aceite.clone(),0.005);aceiteM.position.set(1.28,0.555,0.790);scene.add(aceiteM);
+mirilla.userData={title:'Mirilla de nivel',info:'Deja ver el aceite. En este laboratorio el color indica el grado ISO VG montado: cuanto más oscuro, más espeso.'};
+addHoverLabel(mirilla,'Nivel y grado',WARN_HEX,[1.28,0.98,0.79],0.8);
+
+// termometro de columna
+const termo=roundedBox(0.08,0.36,0.03,MAT.termo,0.01);termo.position.set(1.05,0.62,0.785);scene.add(termo);
+const colTermo=new THREE.Mesh(new THREE.BoxGeometry(0.030,1,0.020),MAT.col.clone());colTermo.position.set(1.05,0.48,0.792);scene.add(colTermo);
+termo.userData={title:'Termómetro del depósito',info:'Marca la temperatura de régimen: aquella a la que el calor generado iguala al que el depósito y las tuberías consiguen evacuar.'};
+addHoverLabel(termo,'Temperatura',NARANJA,[1.05,0.98,0.79],0.8);
+
+// ---- motor electrico ----
+const pedestal=roundedBox(0.86,0.34,0.40,MAT.leg,0.03);pedestal.position.set(-0.30,1.18,0.30);scene.add(pedestal);
+const motorC=new THREE.Mesh(GEO_CIL,MAT.motor);motorC.rotation.z=Math.PI/2;
+motorC.scale.set(0.20,0.66,0.20);motorC.position.set(-0.30,1.56,0.30);scene.add(motorC);
+for(let i=0;i<7;i++){
+  const al=new THREE.Mesh(GEO_CIL,MAT.aletas);al.rotation.z=Math.PI/2;
+  al.scale.set(0.225,0.022,0.225);al.position.set(-0.60+i*0.10,1.56,0.30);scene.add(al);
+}
+motorC.userData={title:'Motor eléctrico asíncrono',info:'Gira a 1750 min⁻¹ y arrastra la bomba. Se elige del catálogo normalizado el primero que aguante el PICO de potencia del ciclo, y su rendimiento IE decide cuánta electricidad se paga.'};
+addHoverLabel(motorC,'Motor eléctrico',AZUL,[-0.30,1.92,0.30],1.0);
+
+// placa de datos del motor
+const plCv=document.createElement('canvas');plCv.width=256;plCv.height=160;
+const plTex=new THREE.CanvasTexture(plCv);
+const placa=new THREE.Mesh(new THREE.PlaneGeometry(0.52,0.325),new THREE.MeshBasicMaterial({map:plTex}));
+placa.position.set(-0.30,1.56,0.516);scene.add(placa);
+
+// campana y eje
+const campana=new THREE.Mesh(GEO_CIL,MAT.campana);campana.rotation.z=Math.PI/2;
+campana.scale.set(0.22,0.22,0.22);campana.position.set(0.12,1.56,0.30);scene.add(campana);
+const ejeM=new THREE.Mesh(GEO_CIL,MAT.eje);ejeM.rotation.z=Math.PI/2;
+ejeM.scale.set(0.035,0.30,0.035);ejeM.position.set(0.12,1.56,0.30);scene.add(ejeM);
+const chaveta=roundedBox(0.16,0.018,0.030,MAT.eje,0.004);chaveta.position.set(0.12,1.596,0.30);scene.add(chaveta);
+ejeM.userData={title:'Eje de arrastre',info:'Transmite el par. El par que pide la bomba es Δp·D/2π más el rozamiento viscoso: crece con la presión y con lo espeso que esté el aceite.'};
+
+// ---- bomba ----
+const bombaM=roundedBox(0.32,0.32,0.32,MAT.bomba,0.03);bombaM.position.set(0.33,1.56,0.30);scene.add(bombaM);
+const bombaTapa=new THREE.Mesh(GEO_CIL,MAT.campana);bombaTapa.rotation.z=Math.PI/2;
+bombaTapa.scale.set(0.13,0.06,0.13);bombaTapa.position.set(0.50,1.56,0.30);scene.add(bombaTapa);
+addHoverLabel(bombaM,'Bomba volumétrica',VIO,[0.33,1.95,0.30],1.0);
+
+// ---- aspiracion: colador dentro del deposito y tubo hasta la bomba ----
+const PTS_ASP=[[0.33,0.52,0.30],[0.33,1.40,0.30]];
+const tuboAsp=polit(PTS_ASP,0.038,MAT.tubo);
+const colador=new THREE.Mesh(GEO_CIL,MAT.colador);colador.scale.set(0.09,0.20,0.09);
+colador.position.set(0.33,0.42,0.30);scene.add(colador);
+colador.userData={title:'Colador de aspiración',info:'Filtra el aceite antes de la bomba. Su pérdida de carga crece con la viscosidad: en frío es la causa principal de que la bomba cavite.'};
+addHoverLabel(colador,'Colador',VERDE,[0.33,0.20,0.30],0.8);
+const flAsp=makeFlow([[0.33,0.42,0.30],[0.33,1.40,0.30]],4,MAT.flujoAsp);
+
+// ---- linea de presion hasta el bloque ----
+const tuboPres=polit([[0.49,1.56,0.30],[0.95,1.56,0.30]],0.026,MAT.tubo);
+
+// ---- bloque de valvulas ----
+const bloque=roundedBox(0.34,0.52,0.34,MAT.bloque,0.03);bloque.position.set(1.10,1.56,0.30);scene.add(bloque);
+const bloquePed=roundedBox(0.26,0.30,0.26,MAT.leg,0.02);bloquePed.position.set(1.10,1.15,0.30);scene.add(bloquePed);
+bloque.userData={title:'Bloque de conexiones',info:'Reúne la salida de la bomba, el manómetro, la limitadora de presión y la línea de trabajo. Todo lo que la bomba impulsa sale por aquí o vuelve al depósito.'};
+
+// manometro
+const manoCv=document.createElement('canvas');manoCv.width=256;manoCv.height=256;
+const manoTex=new THREE.CanvasTexture(manoCv);
+const aroM=new THREE.Mesh(GEO_CIL,MAT.aro);aroM.rotation.x=Math.PI/2;
+aroM.scale.set(0.155,0.03,0.155);aroM.position.set(1.10,1.58,0.495);scene.add(aroM);
+const caraM=new THREE.Mesh(new THREE.PlaneGeometry(0.28,0.28),new THREE.MeshBasicMaterial({map:manoTex}));
+caraM.position.set(1.10,1.58,0.512);scene.add(caraM);
+const agujaG=new THREE.Group();agujaG.position.set(1.10,1.58,0.530);scene.add(agujaG);
+{
+  const ag=roundedBox(0.012,0.11,0.008,MAT.aguja,0.004);ag.position.set(0,0.055,0);agujaG.add(ag);
+  const eje=new THREE.Mesh(GEO_CIL,MAT.aro);eje.rotation.x=Math.PI/2;eje.scale.set(0.016,0.02,0.016);agujaG.add(eje);
+}
+aroM.userData={title:'Manómetro',info:'Mide la presión a la salida de la bomba. En una bomba volumétrica la presión no la fija la bomba: la fija la resistencia que encuentra el aceite.'};
+addHoverLabel(aroM,'Manómetro',WARN_HEX,[1.10,1.82,0.50],0.9);
+
+// limitadora de presion
+const limC=new THREE.Mesh(GEO_CIL,MAT.valv);limC.scale.set(0.085,0.38,0.085);limC.position.set(1.10,2.01,0.30);scene.add(limC);
+const limPomo=new THREE.Mesh(GEO_CIL,MAT.pomo);limPomo.scale.set(0.075,0.10,0.075);limPomo.position.set(1.10,2.26,0.30);scene.add(limPomo);
+const limAnillo=new THREE.Mesh(GEO_CIL,MAT.eje);limAnillo.scale.set(0.098,0.035,0.098);limAnillo.position.set(1.10,1.90,0.30);scene.add(limAnillo);
+limC.userData={title:'Limitadora de presión',info:'Es el techo del circuito. Todo el caudal que sobra se va por ella, y ese caudal se convierte íntegro en calor. Su sobrepresión —cuánto más que el tarado necesita para tragar todo el caudal— distingue a la directa de la pilotada.'};
+addHoverLabel(limC,'Limitadora',BAD_HEX,[1.10,2.44,0.30],1.0);
+
+// retorno de la limitadora y tronco de retorno al deposito
+const tuboLimRet=polit([[1.10,1.90,0.40],[1.10,1.90,0.66],[1.10,1.30,0.66]],0.024,MAT.tuboRet);
+const PTS_RET=[[2.78,1.30,0.30],[2.78,1.30,0.66],[1.10,1.30,0.66],[1.10,0.82,0.66]];
+const tuboRet=polit(PTS_RET,0.030,MAT.tuboRet);
+const flLim=makeFlow([[1.10,1.88,0.40],[1.10,1.88,0.66],[1.10,1.30,0.66],[1.10,0.86,0.66]],4,MAT.flujoCal);
+
+// ---- linea de trabajo ----
+const tuboTrab=polit([[1.25,1.62,0.30],[2.20,1.62,0.30]],0.026,MAT.tubo);
+const flTrab=makeFlow([[1.25,1.62,0.30],[2.20,1.62,0.30]],4,MAT.flujoOk);
+
+// ---- carga del banco: orificio calibrado ----
+const bancoG=new THREE.Group();scene.add(bancoG);
+{
+  const st=new THREE.Mesh(GEO_TUB,MAT.tubo);bancoG.add(st);setTuboAB(st,[2.20,1.62,0.30],[2.33,1.62,0.30],0.026);
+  const orif=roundedBox(0.24,0.24,0.24,MAT.valv,0.02);orif.position.set(2.45,1.62,0.30);bancoG.add(orif);
+  const sal=new THREE.Mesh(GEO_TUB,MAT.tuboRet);bancoG.add(sal);setTuboAB(sal,[2.57,1.62,0.30],[2.78,1.62,0.30],0.026);
+  const baj=new THREE.Mesh(GEO_TUB,MAT.tuboRet);bancoG.add(baj);setTuboAB(baj,[2.78,1.62,0.30],[2.78,1.30,0.30],0.026);
+  orif.userData={title:'Orificio calibrado',info:'La carga del banco. Un agujero de canto vivo de área conocida: cuanto más pequeño, más presión hace falta para que pase el mismo caudal. Q = Cd·A·√(2Δp/ρ) con Cd = 0,62.'};
+  addHoverLabel(orif,'Orificio calibrado',VIO,[2.45,1.92,0.30],0.9);
+}
+
+// ---- carga de la instalacion: cilindro ----
+const instG=new THREE.Group();scene.add(instG);
+let vastago=null,cargaB=null;
+{
+  const cil=new THREE.Mesh(GEO_CIL,MAT.cil);cil.rotation.z=Math.PI/2;
+  cil.scale.set(0.15,0.70,0.15);cil.position.set(2.55,1.62,0.30);instG.add(cil);
+  const tp1=new THREE.Mesh(GEO_CIL,MAT.campana);tp1.rotation.z=Math.PI/2;tp1.scale.set(0.165,0.05,0.165);tp1.position.set(2.22,1.62,0.30);instG.add(tp1);
+  const tp2=new THREE.Mesh(GEO_CIL,MAT.campana);tp2.rotation.z=Math.PI/2;tp2.scale.set(0.165,0.05,0.165);tp2.position.set(2.88,1.62,0.30);instG.add(tp2);
+  vastago=new THREE.Mesh(GEO_CIL,MAT.vast);vastago.rotation.z=Math.PI/2;vastago.scale.set(0.055,0.56,0.055);instG.add(vastago);
+  cargaB=roundedBox(0.22,0.30,0.30,MAT.carga,0.03);instG.add(cargaB);
+  const ret=new THREE.Mesh(GEO_TUB,MAT.tuboRet);instG.add(ret);setTuboAB(ret,[2.78,1.47,0.30],[2.78,1.30,0.30],0.026);
+  cil.userData={title:'Actuador de la estación',info:'Representa el trabajo útil de la máquina. Su movimiento sigue las fases del ciclo, pero la física del laboratorio se juega en la bomba: aquí sólo se ve el ritmo que resulta.'};
+  addHoverLabel(cil,'Actuador',AZUL,[2.55,1.98,0.30],1.0);
+}
+
+// ---- tablero de criterios ----
+const critCv=document.createElement('canvas');critCv.width=512;critCv.height=128;
+const critTex=new THREE.CanvasTexture(critCv);
+const critPl=new THREE.Mesh(new THREE.PlaneGeometry(1.20,0.30),new THREE.MeshBasicMaterial({map:critTex,transparent:true}));
+critPl.position.set(1.80,2.10,0.22);scene.add(critPl);
+const critMarco=roundedBox(1.26,0.36,0.04,MAT.panel,0.02);critMarco.position.set(1.80,2.10,0.19);scene.add(critMarco);
+critMarco.userData={title:'Tablero de criterios',info:'Los siete criterios que la instalación tiene que cumplir a la vez: caudal, presión, viscosidad, aspiración, térmico, motor y energía. Verde pasa, rojo no. En el banco no se encienden: el banco caracteriza la bomba, no juzga una instalación.'};
+
+// ===================== 8. ESTADO DE LA MAQUINA =====================
+// Una sola funcion decide que le pasa al hardware en cada modo. Asi el 3D no
+// tiene que saber nada de los modos: le llega un estado y lo dibuja.
+function rodPos(estK,cic,cur){
+  const tabla=FASE_POS[estK]||{};
+  const f=cic.fases[cur.i];if(!f)return 0;
+  const t=tabla[f.id]||{fin:0};
+  const prev=cur.i>0?cic.fases[cur.i-1]:cic.fases[cic.fases.length-1];
+  const p0=prev?((tabla[prev.id]||{fin:0}).fin):0;
+  if(t.via!==undefined){
+    return cur.u<0.5 ? p0+(t.via-p0)*(cur.u/0.5) : t.via+(t.fin-t.via)*((cur.u-0.5)/0.5);
+  }
+  return p0+(t.fin-p0)*cur.u;
+}
+function hwState(){
+  const st={p:0,Q:0,Qlim:0,Qcarga:0,T:T_BANCO,ace:ACE_BANCO,cav:false,desc:false,
+            rod:0,banco:false,crit:null,critOn:false,pc:0,pMax:350,rot:'',sub:''};
+  if(mode==='banco'){
+    const B=BOMBAS[bcBomba];
+    st.banco=true;st.p=CUR.pt.p;st.Q=CUR.pt.Q;st.Qlim=CUR.pt.Qlim;st.Qcarga=CUR.pt.Qor;
+    st.T=T_BANCO;st.ace=ACE_BANCO;st.pc=CUR.pc;st.pMax=B.pMax;
+    st.rot='Banco de ensayo';st.sub='Orificio de '+f1(bcArea,0)+' mm²';
+  }else if(mode==='aceite'){
+    const B=BOMBAS[acBomba];
+    st.T=acT;st.ace=acAce;st.cav=CUR.asp.cavita;st.Q=CUR.Qt;st.Qcarga=CUR.Qt;st.pMax=B.pMax;
+    st.rot=CUR.est.nom;st.sub='Aceite a '+f1(acT,0)+' °C';
+  }else{
+    const ev=CUR.ev,cic=ev.cic,cfg=CUR.cfg,B=BOMBAS[cfg.bomba];
+    const cur=faseEn(cic,animT);const f=cic.fases[cur.i];
+    st.crit=ev;st.critOn=true;st.T=ev.Treg;st.ace=cfg.aceite;st.pc=ev.tar.pc;st.pMax=B.pMax;
+    st.cav=ev.asp.cavita;
+    if(f){
+      st.p=f.p;st.Q=f.Qact+f.Qlim;st.Qlim=f.Qlim;st.Qcarga=f.Qact;st.desc=!!f.descargado;
+      st.rod=rodPos(CUR.estK,cic,cur);
+      st.rot=CUR.est.nom;st.sub=nomFase(CUR.estK,f.id)+(f.lento?' · no llega':'');
+    }
+  }
+  return st;
+}
+
+const COL_ACE={vg32:0xE8C46A,vg46:0xD9A441,vg68:0xB07C2A};
+let spin=0;
+// Los tres lienzos (manometro, placa y tablero) se redibujan solo cuando su
+// contenido cambia: la aguja gira cada cuadro, pero el DIBUJO de la esfera es
+// el mismo mientras no cambie la lectura redondeada.
+let _kMano='',_kPlaca='',_kCrit='';
+function drawMano(p,pc,pMax){
+  const k=f1(p,1)+'|'+pc+'|'+pMax;
+  if(k===_kMano)return;_kMano=k;
+  const c=manoCv.getContext('2d');
+  c.fillStyle='#f2efe9';c.beginPath();c.arc(128,128,124,0,Math.PI*2);c.fill();
+  c.strokeStyle='#1a1f27';c.lineWidth=6;c.beginPath();c.arc(128,128,120,0,Math.PI*2);c.stroke();
+  // escala 0..400 bar sobre 270 grados
+  for(let b=0;b<=400;b+=20){
+    const a=Math.PI*0.75+ (b/400)*Math.PI*1.5;
+    const r1=b%100===0?92:102, r2=112;
+    c.strokeStyle=b>pMax?'#c05050':'#1a1f27';c.lineWidth=b%100===0?4:2;
+    c.beginPath();c.moveTo(128+r1*Math.cos(a),128+r1*Math.sin(a));c.lineTo(128+r2*Math.cos(a),128+r2*Math.sin(a));c.stroke();
+    if(b%100===0){
+      c.fillStyle='#1a1f27';c.font='bold 20px Outfit, sans-serif';c.textAlign='center';c.textBaseline='middle';
+      c.fillText(String(b),128+74*Math.cos(a),128+74*Math.sin(a));
+    }
+  }
+  // arco rojo por encima de la presion maxima de la bomba
+  {
+    const a1=Math.PI*0.75+(Math.min(pMax,400)/400)*Math.PI*1.5, a2=Math.PI*0.75+Math.PI*1.5;
+    c.strokeStyle='#c05050';c.lineWidth=8;c.beginPath();c.arc(128,128,116,a1,a2);c.stroke();
+  }
+  // marca del tarado
+  if(pc>0){
+    const a=Math.PI*0.75+(Math.min(pc,400)/400)*Math.PI*1.5;
+    c.strokeStyle='#2a7f4f';c.lineWidth=6;
+    c.beginPath();c.moveTo(128+96*Math.cos(a),128+96*Math.sin(a));c.lineTo(128+118*Math.cos(a),128+118*Math.sin(a));c.stroke();
+  }
+  c.fillStyle='#5a6270';c.font='bold 17px Outfit, sans-serif';c.textAlign='center';c.textBaseline='middle';
+  c.fillText('bar',128,168);
+  c.fillStyle='#1a1f27';c.font='bold 24px ui-monospace, monospace';
+  c.fillText(f1(p,0),128,198);
+  manoTex.needsUpdate=true;
+}
+function drawPlaca(st){
+  const ev=st.crit;
+  const mot=ev?ev.motE:null;
+  const k=(ev?(ev.valido?1:0)+'|'+f1(ev.cic.Ppico,2):'-')+'#'+(mot?f1(mot.kW,1)+'|'+f1(mot.eta,4):'-');
+  if(k===_kPlaca)return;_kPlaca=k;
+  const c=plCv.getContext('2d');
+  c.fillStyle='#0c1016';c.fillRect(0,0,256,160);
+  c.strokeStyle=ev?(ev.valido?OK_HEX:BAD_HEX):'#3a4250';c.lineWidth=3;c.strokeRect(1.5,1.5,253,157);
+  c.fillStyle='#F4EFEA';c.font='bold 15px Outfit, sans-serif';c.textAlign='left';c.textBaseline='alphabetic';
+  c.fillText('MOTOR ASÍNCRONO',12,26);
+  c.font='11px Outfit, sans-serif';c.fillStyle=GRIS;
+  c.fillText('IEC 60034-30-1 · 4 polos · 60 Hz',12,44);
+  c.font='13px ui-monospace, monospace';
+  const filas=mot
+    ? [['Potencia',f1(mot.kW,1)+' kW'],['Rendimiento',f1(100*mot.eta,1)+' %'],['Velocidad',f1(N_BOMBA,0)+' min⁻¹'],['Pico del ciclo',f1(ev.cic.Ppico,2)+' kW']]
+    : [['Potencia','— kW'],['Rendimiento','— %'],['Velocidad',f1(N_BOMBA,0)+' min⁻¹'],['Pico del ciclo','—']];
+  filas.forEach((f,i)=>{
+    c.fillStyle=GRIS;c.fillText(f[0],12,72+i*20);
+    c.fillStyle='#F4EFEA';c.textAlign='right';c.fillText(f[1],244,72+i*20);c.textAlign='left';
+  });
+  plTex.needsUpdate=true;
+}
+function drawCrit(st){
+  const k=(st.critOn?1:0)+'|'+CRIT.map(q=>st.critOn&&st.crit?(st.crit[q]?1:0):'-').join('');
+  if(k===_kCrit)return;_kCrit=k;
+  const c=critCv.getContext('2d');
+  c.clearRect(0,0,512,128);
+  c.fillStyle='#0c1016';c.fillRect(0,0,512,128);
+  c.fillStyle=GRIS;c.font='bold 15px Outfit, sans-serif';c.textAlign='left';c.textBaseline='middle';
+  c.fillText(st.critOn?'CRITERIOS':'BANCO DE ENSAYO · sin criterios',14,22);
+  CRIT.forEach((k,i)=>{
+    const x=44+i*66, y=76;
+    const on=st.critOn&&st.crit?st.crit[k]:null;
+    c.fillStyle=on===null?'#2a3140':(on?'#1f4a33':'#4a2020');
+    c.beginPath();c.arc(x,y,24,0,Math.PI*2);c.fill();
+    c.strokeStyle=on===null?'#3a4250':(on?OK_HEX:BAD_HEX);c.lineWidth=3;c.stroke();
+    c.fillStyle=on===null?'#6a7280':(on?OK_HEX:BAD_HEX);
+    c.font='bold 24px Outfit, sans-serif';c.textAlign='center';
+    c.fillText(CRIT_LET[k],x,y+1);
+  });
+  critTex.needsUpdate=true;
+}
+
+function updateHW(){
+  const st=hwState();
+  // eje y bomba: giran siempre (el motor no para), pero el 3D no cronometra
+  ejeM.rotation.x=spin;chaveta.rotation.x=spin;
+  // aceite del deposito y de la mirilla
+  aceiteM.material.color.setHex(COL_ACE[st.ace]||0xD9A441);
+  // termometro: -20..100 grados sobre 0.28 de columna
+  {
+    const T=isFinite(st.T)?Math.max(-20,Math.min(100,st.T)):100;
+    const h=0.02+0.26*(T+20)/120;
+    colTermo.scale.y=h;colTermo.position.y=0.44+h/2;
+    const cal=T>T_MAX_ACEITE;
+    colTermo.material.color.setHex(cal?0xff6b6b:(T<5?0x8AB4F8:0xE9C46A));
+  }
+  // manometro
+  agujaG.rotation.z=2.356-4.712*Math.max(0,Math.min(1,st.p/400));
+  drawMano(st.p,st.pc,st.pMax);
+  // corredera de la limitadora: sube con el caudal que se le va por encima
+  limAnillo.position.y=1.90+0.12*Math.max(0,Math.min(1,st.Qlim/40));
+  // carga visible segun el modo
+  bancoG.visible=st.banco;
+  instG.visible=!st.banco;
+  if(!st.banco){
+    const x=2.90+0.50*st.rod;
+    vastago.scale.y=0.56+0.50*st.rod;
+    vastago.position.set(2.58+0.25*st.rod,1.62,0.30);
+    cargaB.position.set(x+0.11,1.62,0.30);
+  }
+  // marcadores de flujo
+  const uAsp=(spin*0.030)%1;
+  setFlow(flAsp,uAsp,st.Q>0.05,st.cav?MAT.flujoCal:MAT.flujoAsp);
+  setFlow(flTrab,uAsp*1.4%1,st.Qcarga>0.05,MAT.flujoOk);
+  setFlow(flLim,uAsp*1.1%1,st.Qlim>0.05,MAT.flujoCal);
+  // tableros
+  drawPlaca(st);
+  drawCrit(st);
+  el('hwrot').textContent=st.rot;
+  el('hwsub').textContent=st.sub+(st.desc?' · grupo descargado':'')+(st.cav?' · CAVITA':'');
+}
+
+// ===================== 9. HUD Y PANEL =====================
+el('hud').innerHTML=`
+  <div class="eyebrow">Hidráulica y Neumática · Mecánica</div>
+  <h2>Caracteriza la curva P–Q de una bomba hidráulica</h2>
+  <p>Una bomba volumétrica <b>no fabrica presión</b>: entrega caudal. La presión la pone la resistencia que encuentra el aceite. Lo que sí decide la bomba es <b>cuánto caudal pierde</b> cuando esa presión sube, y <b>cuánto par</b> pide para girar. Ensáyala en el banco, elige el aceite, mira el ciclo de una máquina real y monta el grupo más barato que cumpla los siete criterios.</p>
+  <div class="formula">Q = D·n·η<sub>V</sub> · P<sub>h</sub> = p·Q/600 · η<sub>T</sub> = P<sub>h</sub>/P<sub>eje</sub></div>
+  <div class="legend">
+    <div class="li"><span class="dot" style="background:#8AB4F8"></span>Caudal útil, el que llega a la carga</div>
+    <div class="li"><span class="dot" style="background:#ff6b6b"></span>Caudal por la limitadora, que se convierte en calor</div>
+    <div class="li"><span class="dot" style="background:#7CD992"></span>Aspiración: si le falta, la bomba cavita</div>
+    <div class="li"><span class="dot" style="background:#E9C46A"></span>Tarado de la limitadora y temperatura del aceite</div>
+  </div>
+  <div class="fid">
+    <div class="ft">🔒 Contrato de fidelidad</div>
+    <div class="fl"><b>Sí modela:</b> fuga laminar y rozamiento viscoso según el modelo de pérdidas de Wilson; viscosidad-temperatura por la ecuación de Walther (ASTM D341) con grados ISO 3448; caída en la aspiración por Darcy–Weisbach más el colador; sobrepresión de la limitadora a caudal completo; equilibrio térmico del depósito por iteración; motor normalizado IEC 60034-30-1 y factura anual.</div>
+    <div class="fl no"><b>NO modela:</b> transitorios, golpe de ariete, compresibilidad del aceite ni dinámica del compensador. El movimiento del vástago es ilustrativo: marca por dónde va el ciclo, no lo calcula. La curva de la bomba de cilindrada variable se dibuja a trazos como referencia —el banco sólo ensaya cilindradas fijas—. Los coeficientes de fuga y rozamiento son representativos de cada familia, no de un fabricante concreto.</div>
+  </div>
+  <div class="src">Ref: ISO 4413 · ISO 4409 · ISO 3448 · ASTM D341 · Wilson, «Positive-Displacement Pumps and Fluid Motors» (1950) · IEC 60034-30-1</div>`;
+
+el('panel').innerHTML=`
+  <h4>Grupo hidráulico · <span id="p_mode" style="color:var(--accent2)">Banco de ensayo</span></h4>
+  <div class="modebar">
+    <button class="b on" id="m_banco">1 · Banco</button>
+    <button class="b" id="m_aceite">2 · Aceite</button>
+    <button class="b" id="m_ciclo">3 · Ciclo</button>
+    <button class="b" id="m_proyecto">4 · Proyecto</button>
+    <button class="b" id="m_reto">5 · Reto</button>
+  </div>
+  <div id="scenarioInfo" style="display:none;margin:8px 0;padding:8px 10px;border:1px solid var(--line);border-radius:8px;font-size:12.5px;line-height:1.45"></div>
+  <div class="modebar" id="selbar" style="display:none;flex-wrap:wrap"></div>
+  <div style="margin:8px 0;padding:8px 10px;border:1px solid var(--line);border-radius:8px">
+    <div style="font-size:12px;color:var(--muted)" id="hwrot">Banco de ensayo</div>
+    <div style="font-size:13px;font-weight:600" id="hwsub">Orificio de 9 mm²</div>
+  </div>
+  <div id="tele"></div>
+  <div class="console" id="report"></div>
+  <h4 class="sec" id="retoTitle" style="display:none">Reto</h4>
+  <div id="retoBox" style="display:none">
+    <div id="retoSpec" style="font-size:12.5px;line-height:1.5;margin-bottom:8px"></div>
+    <button class="b primary" id="btnCheck">✅ Comprobar</button>
+  </div>
+  <h4 class="sec">Pregunta de ingeniería</h4>
+  <div id="q_text" style="font-size:13px;line-height:1.5;margin-bottom:8px"></div>
+  <div class="btns" id="dxbtns"></div>
+  <button class="b auto" id="btnAuto">✨ Recorrido guiado (automático)</button>
+  <button class="b primary" id="btnNew">🔀 Nuevo escenario</button>`;
+
+// ===================== 10. TOAST =====================
+function showToast(html){
+  const t=el('toast');t.innerHTML=html;t.classList.add('show');
+  clearTimeout(showToast._t);showToast._t=setTimeout(()=>t.classList.remove('show'),4600);
+}
+
+// ===================== 11. MODOS Y CONTROLES =====================
+const MODE_META={
+  banco:{nombre:'Banco de ensayo',cam:[[4.4,2.8,6.6],[1.10,1.55,0.20]],
+    mision:'Ensaya la bomba contra un orificio calibrado. Cambia el área y verás que la presión no la pone la bomba: la pone la carga. Sigue el caudal y los rendimientos a lo largo de la curva.'},
+  aceite:{nombre:'Aceite y aspiración',cam:[[3.4,2.6,6.2],[0.30,1.20,0.25]],
+    mision:'El aceite espeso fuga menos pero roza más, y en frío puede no llegar al oído de la bomba. Mira la curva viscosidad-temperatura y la cascada de la aspiración.'},
+  ciclo:{nombre:'Ciclo de la máquina',cam:[[5.4,3.2,7.6],[1.40,1.40,0.25]],
+    mision:'Una máquina real no trabaja en un punto: recorre fases. Mira a dónde va la energía en cada una y cuánta se queda en forma de calor.'},
+  proyecto:{nombre:'Proyecto del grupo',cam:[[5.0,3.4,8.0],[0.60,1.60,0.10]],
+    mision:'Los siete criterios se juzgan a la vez sobre la misma configuración del modo anterior. Busca la que los cumpla todos y cueste lo mínimo.'},
+  reto:{nombre:'Reto',cam:[[5.0,3.4,8.0],[0.60,1.60,0.10]],
+    mision:'Cuatro ejes, una estación y un presupuesto: monta el grupo válido más barato.'},
+};
+const lbl=t=>`<span style="align-self:center;color:var(--muted);font-size:12px;margin:0 4px 0 2px">${t}</span>`;
+function optBtns(key,opts,cur){
+  return opts.map(o=>{
+    const v=Array.isArray(o)?o[0]:o, t=Array.isArray(o)?o[1]:o;
+    return `<button class="b sm ${String(cur)===String(v)?'on':''}" data-${key}="${v}">${t}</button>`;
+  }).join('');
+}
+const beep=()=>synth.beep(680,0.05,0.04);
+
+function buildControls(){
+  const bar=el('selbar');let h='';
+  if(mode==='banco'){
+    h+=lbl('Bomba')+optBtns('bcb',BOMB_BANCO.map(k=>[k,BOMBAS[k].abr]),bcBomba);
+    h+=lbl('Cilindrada')+optBtns('bcd',CILINDRADAS.map(d=>[d,d+' cm³']),bcD);
+    h+=lbl('Orificio')+optBtns('bca',AREAS.map(a=>[a,a+' mm²']),bcArea);
+    h+=lbl('Limitadora')+optBtns('bcl',LIM_BANCO.map(k=>[k,LIMS[k].abr]),bcLim);
+  }else if(mode==='aceite'){
+    h+=lbl('Estación')+optBtns('ace',ESTK.map(k=>[k,ESTACIONES[k].nom.split(' ')[0]]),acEst);
+    h+=lbl('Bomba')+optBtns('acb',BOMBK.map(k=>[k,BOMBAS[k].abr]),acBomba);
+    h+=lbl('Cilindrada')+optBtns('acd',CILINDRADAS.map(d=>[d,d+' cm³']),acD);
+    h+=lbl('Aceite')+optBtns('aca',ACEK.map(k=>[k,ACEITES[k].nom.replace('ISO ','')]),acAce);
+    h+=lbl('Temperatura')+optBtns('act',TEMPS.map(t=>[t,t+'°']),acT);
+  }else if(mode==='ciclo'||mode==='proyecto'){
+    h+=lbl('Estación')+optBtns('pje',ESTK.map(k=>[k,ESTACIONES[k].nom.split(' ')[0]]),pjEst);
+    h+=lbl('Bomba')+optBtns('pjb',BOMBK.map(k=>[k,BOMBAS[k].abr]),pjBomba);
+    h+=lbl('Cilindrada')+optBtns('pjd',CILINDRADAS.map(d=>[d,d+' cm³']),pjD);
+    h+=lbl('Aceite')+optBtns('pja',ACEK.map(k=>[k,ACEITES[k].nom.replace('ISO ','')]),pjAce);
+    h+=lbl('Limitadora')+optBtns('pjl',LIMK.map(k=>[k,LIMS[k].abr]),pjLim);
+  }else{
+    h+=lbl('Bomba')+optBtns('rtb',BOMBK.map(k=>[k,BOMBAS[k].abr]),retoCfg.bomba);
+    h+=lbl('Cilindrada')+optBtns('rtd',CILINDRADAS.map(d=>[d,d+' cm³']),retoCfg.D);
+    h+=lbl('Aceite')+optBtns('rta',ACEK.map(k=>[k,ACEITES[k].nom.replace('ISO ','')]),retoCfg.aceite);
+    h+=lbl('Limitadora')+optBtns('rtl',LIMK.map(k=>[k,LIMS[k].abr]),retoCfg.lim);
+  }
+  bar.innerHTML=h;bar.style.display='flex';
+  const wire=(attr,fn)=>bar.querySelectorAll('['+attr+']').forEach(b=>{
+    b.onclick=()=>{if(autoRunning)return;fn(b.getAttribute(attr));beep();afterEdit();};
+  });
+  wire('data-bcb',v=>{bcBomba=v;});
+  wire('data-bcd',v=>{bcD=Number(v);});
+  wire('data-bca',v=>{bcArea=Number(v);});
+  wire('data-bcl',v=>{bcLim=v;});
+  wire('data-ace',v=>{acEst=v;});
+  wire('data-acb',v=>{acBomba=v;});
+  wire('data-acd',v=>{acD=Number(v);});
+  wire('data-aca',v=>{acAce=v;});
+  wire('data-act',v=>{acT=Number(v);});
+  wire('data-pje',v=>{pjEst=v;});
+  wire('data-pjb',v=>{pjBomba=v;});
+  wire('data-pjd',v=>{pjD=Number(v);});
+  wire('data-pja',v=>{pjAce=v;});
+  wire('data-pjl',v=>{pjLim=v;});
+  wire('data-rtb',v=>{retoCfg={...retoCfg,bomba:v};retoMsg='';});
+  wire('data-rtd',v=>{retoCfg={...retoCfg,D:Number(v)};retoMsg='';});
+  wire('data-rta',v=>{retoCfg={...retoCfg,aceite:v};retoMsg='';});
+  wire('data-rtl',v=>{retoCfg={...retoCfg,lim:v};retoMsg='';});
+}
+function updateScenarioInfo(){
+  const d=el('scenarioInfo');
+  d.style.display='block';
+  d.innerHTML='<b>'+MODE_META[mode].nombre+'.</b> '+MODE_META[mode].mision;
+}
+function afterEdit(){
+  computa();
+  buildControls();
+  updateScenarioInfo();
+  if(mode==='reto')updateRetoSpec();
+  refreshAll();
+}
+function setMode(k){
+  mode=k;animT=0;
+  ['banco','aceite','ciclo','proyecto','reto'].forEach(m=>el('m_'+m).classList.toggle('on',m===k));
+  el('p_mode').textContent=MODE_META[k].nombre;
+  el('retoTitle').style.display=k==='reto'?'':'none';
+  el('retoBox').style.display=k==='reto'?'':'none';
+  computa();
+  buildControls();updateScenarioInfo();
+  clearDx();buildQuiz();refreshQuestion();
+  if(k==='reto')updateRetoSpec();
+  const cam=MODE_META[k].cam;S.moveTo(cam[0],cam[1]);
+  refreshAll();
+}
+// "Nuevo escenario": cambia la estacion del reto y rearma la configuracion de
+// partida; en los demas modos mueve el punto de ensayo.
+function newSignal(){
+  if(mode==='banco'){
+    const i=AREAS.indexOf(bcArea);bcArea=AREAS[(i+1)%AREAS.length];
+    const j=BOMB_BANCO.indexOf(bcBomba);if(i+1>=AREAS.length)bcBomba=BOMB_BANCO[(j+1)%BOMB_BANCO.length];
+  }else if(mode==='aceite'){
+    const i=ESTK.indexOf(acEst);acEst=ESTK[(i+1)%ESTK.length];
+    acT=ESTACIONES[acEst].Tfrio<=8?10:50;
+  }else if(mode==='ciclo'||mode==='proyecto'){
+    const i=ESTK.indexOf(pjEst);pjEst=ESTK[(i+1)%ESTK.length];
+  }else{
+    const i=ESTK.indexOf(retoEst);retoEst=ESTK[(i+1)%ESTK.length];
+    retoSolveBuild(true);
+  }
+  retoSolved=false;solved=false;retoMsg='';
+  computa();buildControls();updateScenarioInfo();
+  clearDx();buildQuiz();refreshQuestion();
+  if(mode==='reto')updateRetoSpec();
+  refreshAll();
+  showToast('🔀 <b>Escenario nuevo.</b> '+MODE_META[mode].mision);
+}
+
+// ===================== 12. TELEMETRIA E INFORME =====================
+function teleRow(l,v,cls){
+  return `<div class="trow"><span class="tl">${l}</span><span class="tv ${cls||''}">${v}</span></div>`;
+}
+function updateTele(){
+  let h='';
+  if(mode==='banco'){
+    const B=BOMBAS[bcBomba];
+    h+=teleRow('Caudal teórico',f1(CUR.Qt,2)+' L/min');
+    h+=teleRow('Presión de trabajo',f1(CUR.pt.p,1)+' bar',CUR.pt.p>B.pMax?'bad':'');
+    h+=teleRow('Caudal a la carga',f1(CUR.pt.Qor,2)+' L/min','ok');
+    h+=teleRow('Caudal por la limitadora',f1(CUR.pt.Qlim,2)+' L/min',CUR.pt.Qlim>0.05?'bad':'');
+    h+=teleRow('η volumétrico',f1(100*CUR.etaV,2)+' %');
+    h+=teleRow('η mecánico',f1(100*CUR.etaM,2)+' %');
+    h+=teleRow('η total',f1(100*CUR.etaT,2)+' %',CUR.etaT>0.80?'ok':'');
+    h+=teleRow('Potencia hidráulica',f1(CUR.Ph,3)+' kW');
+    h+=teleRow('Potencia de eje',f1(CUR.Pe,3)+' kW');
+    h+=teleRow('Par en el eje',f1(CUR.par.T,2)+' N·m');
+    h+=teleRow('· par útil / rozam. / visc.',f1(CUR.par.Tid,2)+' / '+f1(CUR.par.Tfri,2)+' / '+f1(CUR.par.Tvis,2));
+  }else if(mode==='aceite'){
+    const a=CUR.asp,B=CUR.b,est=CUR.est;
+    h+=teleRow('Viscosidad a '+f1(acT,0)+' °C',f1(CUR.nu,1)+' mm²/s',(CUR.nu<NU_MIN_TRAB||CUR.nu>B.nuMax)?'bad':'ok');
+    h+=teleRow('Ventana de la bomba',f1(NU_MIN_TRAB,0)+'–'+f1(B.nuMax,0)+' mm²/s');
+    h+=teleRow('Viscosidad en frío ('+f1(est.Tfrio,0)+' °C)',f1(CUR.nuF,1)+' mm²/s',CUR.nuF>B.nuArr?'bad':'ok');
+    h+=teleRow('Máxima de arranque',f1(B.nuArr,0)+' mm²/s');
+    h+=teleRow('Velocidad en la aspiración',f1(a.v,2)+' m/s');
+    h+=teleRow('Reynolds',f1(a.Re,0)+(a.lam?' · laminar':' · turbulento'));
+    h+=teleRow('Pérdida en el tubo',f1(a.dpTub,4)+' bar');
+    h+=teleRow('Pérdida en el colador',f1(a.dpFil,4)+' bar');
+    h+=teleRow('Altura de aspiración',f1(a.dpAlt,4)+' bar');
+    h+=teleRow('Presión en el oído',f1(a.pAsp,4)+' bar',a.cavita?'bad':'ok');
+    h+=teleRow('Mínima de la bomba',f1(a.pMin,2)+' bar');
+  }else{
+    const ev=CUR.ev,cic=ev.cic,est=CUR.est;
+    h+=teleRow('Temperatura de régimen',ev.reg.conv?f1(ev.Treg,1)+' °C':'no converge',ev.okTermico?'ok':'bad');
+    h+=teleRow('Duración del ciclo',cic.lento?'no cierra':f1(cic.tCic,2)+' s',ev.okCaudal?'ok':'bad');
+    h+=teleRow('Tarado de la limitadora',f1(ev.tar.pc,1)+' bar');
+    h+=teleRow('Presión a caudal completo',f1(ev.pff,1)+' bar',ev.okPresion?'ok':'bad');
+    h+=teleRow('Máxima de la bomba',f1(BOMBAS[CUR.cfg.bomba].pMax,0)+' bar');
+    h+=teleRow('Viscosidad de trabajo',f1(ev.nuTrab,1)+' mm²/s',ev.okViscosidad?'ok':'bad');
+    h+=teleRow('Presión en el oído (frío)',f1(ev.asp.pAsp,4)+' bar',ev.okAspiracion?'ok':'bad');
+    h+=teleRow('Potencia media / pico',f1(cic.Pmed,2)+' / '+f1(cic.Ppico,2)+' kW');
+    h+=teleRow('Motor necesario',ev.mot?f1(ev.mot.kW,1)+' kW':'fuera de catálogo',ev.okMotor?'ok':'bad');
+    h+=teleRow('Acometida de la estación',f1(est.kwMax,1)+' kW');
+    h+=teleRow('Rendimiento del ciclo',f1(100*cic.etaCic,1)+' %');
+    h+=teleRow('Consumo anual',f1(ev.kWh,0)+' kWh',ev.okEnergia?'ok':'bad');
+    h+=teleRow('Contratado',f1(est.Emax,0)+' kWh');
+    h+=teleRow('Coste del grupo',f1(ev.coste,0)+' u.',(CUR.cm!==null&&ev.valido&&ev.coste===CUR.cm)?'ok':'');
+  }
+  el('tele').innerHTML=h;
+}
+function updateReport(){
+  const c=el('report');let h='';
+  if(mode==='banco'){
+    const B=BOMBAS[bcBomba];
+    h+='<b>'+B.nom+' · '+bcD+' cm³/rev</b><br>'+B.det+'<br><br>';
+    h+='Con un orificio de '+f1(bcArea,0)+' mm² el punto de trabajo se planta en <b>'+f1(CUR.pt.p,1)+' bar</b>. ';
+    h+=CUR.pt.Qlim>0.05
+      ? 'La carga ya no traga todo: <b>'+f1(CUR.pt.Qlim,2)+' L/min</b> se van por la limitadora y se convierten en calor.'
+      : 'La limitadora no interviene: todo el caudal pasa por el orificio.';
+    h+='<br><br>De los '+f1(CUR.Qt,2)+' L/min teóricos, la fuga se lleva '+f1(CUR.Qt-CUR.pt.Q,2)+' L/min. El eje pide '+f1(CUR.Pe,3)+' kW para entregar '+f1(CUR.Ph,3)+' kW hidráulicos.';
+  }else if(mode==='aceite'){
+    const B=CUR.b,est=CUR.est,a=CUR.asp,aF=CUR.aspF;
+    h+='<b>'+ACEITES[acAce].nom+'</b> · '+ACEITES[acAce].det+'<br><br>';
+    h+='A '+f1(acT,0)+' °C tiene '+f1(CUR.nu,1)+' mm²/s. ';
+    h+=CUR.nu<NU_MIN_TRAB?'Demasiado fluido: por debajo de '+f1(NU_MIN_TRAB,0)+' mm²/s la película se rompe y la fuga se dispara.'
+      :(CUR.nu>B.nuMax?'Demasiado espeso para esta bomba: su máximo de trabajo es '+f1(B.nuMax,0)+' mm²/s.'
+      :'Dentro de la ventana de trabajo de la bomba.');
+    h+='<br><br>En el arranque en frío de esta estación ('+f1(est.Tfrio,0)+' °C) sube a '+f1(CUR.nuF,1)+' mm²/s y la presión en el oído cae a '+f1(aF.pAsp,4)+' bar. ';
+    h+=aF.cavita?'<span style="color:'+BAD_HEX+'">Por debajo de los '+f1(aF.pMin,2)+' bar que pide la bomba: cavita.</span>':'Por encima de los '+f1(aF.pMin,2)+' bar que pide la bomba: arranca sin cavitar.';
+  }else{
+    const ev=CUR.ev,est=CUR.est;
+    h+='<b>'+est.nom+'</b><br>'+est.det+'<br><br>';
+    if(ev.valido){
+      h+='<span style="color:'+OK_HEX+'">Los siete criterios se cumplen.</span> El grupo cuesta '+f1(ev.coste,0)+' unidades';
+      h+=(CUR.cm!==null&&ev.coste===CUR.cm)?' y es <b>el más barato posible</b> para esta estación.':' — el más barato válido cuesta '+f1(CUR.cm,0)+'.';
+    }else{
+      h+='<span style="color:'+BAD_HEX+'">Falla '+ev.fallos.length+' de 7.</span> El primero que salta: <b>'+CRIT_ROT[ev.primero]+'</b>.<br>'+MOTIVO[ev.primero];
+    }
+    if(ev.extrapola)h+='<br><br><span style="color:'+WARN_HEX+'">Aviso: la temperatura se sale de la banda −20…120 °C en la que Walther está declarada. La viscosidad es una extrapolación.</span>';
+  }
+  c.innerHTML=h;
+}
+function refreshAll(){computa();drawBoard();updateTele();updateReport();updateHW();}
+
+// ===================== 13. RETO =====================
+function retoSolveBuild(silent){
+  const s=startCfg(retoEst);
+  retoCfg=s?{...s}:{bomba:'eng',D:25,aceite:'vg46',lim:'dir'};
+  retoSolved=false;retoMsg='';retoAxes={bomba:false,D:false,aceite:false,lim:false};
+  if(!silent){computa();buildControls();updateRetoSpec();refreshAll();}
+}
+function updateRetoSpec(){
+  const est=ESTACIONES[retoEst];
+  const v=validas(retoEst).length, cm=costeMin(retoEst);
+  el('retoSpec').innerHTML=
+    '<b>'+est.nom+'</b><br>'+
+    'Monta el grupo <b>válido más barato</b>: los siete criterios en verde y el coste mínimo. '+
+    'De las '+f1(CFGS.length,0)+' combinaciones posibles, <b>'+f1(v,0)+'</b> son válidas y la más barata cuesta <b>'+f1(cm,0)+'</b> unidades.<br>'+
+    '<span style="color:var(--muted)">Acometida '+f1(est.kwMax,1)+' kW · '+f1(est.horas,0)+' h/año · '+f1(est.Emax,0)+' kWh contratados · arranque a '+f1(est.Tfrio,0)+' °C.</span>';
+}
+function retoExplain(){
+  const ev=evalua(retoEst,retoCfg), cm=costeMin(retoEst);
+  if(!ev.valido)return 'Falla <b>'+CRIT_ROT[ev.primero]+'</b>. '+MOTIVO[ev.primero];
+  if(ev.coste!==cm)return 'Válido, pero caro: cuesta '+f1(ev.coste,0)+' y el mínimo es '+f1(cm,0)+'. Hay al menos una combinación válida más barata.';
+  return 'Los siete criterios en verde y al coste mínimo: '+f1(ev.coste,0)+' unidades.';
+}
+function checkReto(){
+  const ev=evalua(retoEst,retoCfg), cm=costeMin(retoEst);
+  EJES.forEach(e=>{retoAxes[e]=ejeSolC(retoEst,e).some(v=>String(v)===String(retoCfg[e]));});
+  retoSolved=ev.valido&&cm!==null&&ev.coste===cm;
+  retoGood=retoSolved;
+  retoMsg=retoExplain();
+  solved=retoSolved;
+  synth.beep(retoSolved?880:200,0.10,0.05);
+  refreshAll();
+  if(!autoRunning)showToast((retoSolved?'✅ ':'❌ ')+retoMsg);
+  return retoSolved;
+}
+
+// ===================== 14. CUESTIONARIO =====================
+let QUIZ={};
+function buildQuiz(){
+  QUIZ={
+    banco:{pregunta:'En el banco, con la bomba de engranajes de 25 cm³/rev y aceite ISO VG 46 a 50 °C, el rendimiento total vale 0,873 con el orificio de 9 mm² (59 bar) y sólo 0,802 a 210 bar. ¿Por qué el rendimiento no crece sin más al subir la presión?',
+      opciones:[
+        {t:'Porque a baja presión pesa el rozamiento viscoso y a alta presión pesa la fuga: el máximo queda en medio.',ok:true,
+         why:'Exacto. El par de rozamiento es casi constante, así que a poca presión se lleva una fracción enorme del par total; la fuga, en cambio, crece con Δp. Las dos pérdidas tiran en sentidos opuestos y el rendimiento total tiene un máximo intermedio.'},
+        {t:'Porque a 59 bar el rendimiento volumétrico vale 1 y no se pierde nada de caudal.',ok:false,
+         why:'No: a 59 bar el rendimiento volumétrico es 0,9586, no 1. La fuga existe desde el primer bar; lo que pasa es que todavía es pequeña comparada con el rozamiento.'},
+        {t:'Porque la limitadora empieza a abrirse y se lleva caudal.',ok:false,
+         why:'No: con el orificio de 9 mm² la presión se queda muy por debajo del tarado y la limitadora no interviene. Puedes comprobarlo en la telemetría: el caudal por la limitadora es cero.'},
+        {t:'Porque el aceite se calienta y pierde viscosidad al subir la presión.',ok:false,
+         why:'En el banco la temperatura está fijada en 50 °C: la viscosidad es la misma en los dos puntos. La diferencia es de reparto de pérdidas, no de temperatura.'},
+      ]},
+    aceite:{pregunta:'Si el aceite más espeso fuga menos y por tanto mejora el rendimiento volumétrico, ¿por qué no se monta siempre el ISO VG 68?',
+      opciones:[
+        {t:'Porque en frío no llega al oído de la bomba —cavita— y además el rozamiento viscoso sube.',ok:true,
+         why:'Las dos cosas a la vez. En frío la pérdida en el colador crece con la viscosidad y la presión de aspiración cae por debajo de lo que la bomba admite; y en caliente el par de rozamiento, que es proporcional a la viscosidad, se come el rendimiento mecánico.'},
+        {t:'Porque el ISO VG 68 es más caro que el ISO VG 32.',ok:false,
+         why:'Falso, y puedes comprobarlo aquí mismo: los tres grados cuestan lo mismo en este laboratorio (5 unidades). La elección es técnica, no económica.'},
+        {t:'Porque el ISO VG 68 no admite temperaturas superiores a 60 °C.',ok:false,
+         why:'El límite de 60 °C es del aceite mineral y de las juntas, y es el mismo para los tres grados. Lo que distingue al VG 68 es su viscosidad, no su resistencia térmica.'},
+        {t:'Porque las bombas de pistones no admiten aceite mineral.',ok:false,
+         why:'Sí lo admiten. Lo que tienen las de pistones es la ventana de viscosidad más estrecha del catálogo: hasta 100 mm²/s en trabajo y 800 en arranque.'},
+      ]},
+    ciclo:{pregunta:'En la plataforma elevadora con pistones de 16 cm³/rev, ISO VG 32 y limitadora pilotada con descarga, ¿qué fase del ciclo consume más potencia de eje?',
+      opciones:[
+        {t:'Sostener la carga: 7,13 kW, y absolutamente toda se convierte en calor.',ok:true,
+         why:'Sí, y es el resultado que más sorprende. Sostener no mueve nada, así que la potencia útil es cero; pero la bomba sigue impulsando 26,35 L/min contra la limitadora a 147,3 bar. Sostener cuesta MÁS que subir.'},
+        {t:'La subida: 6,30 kW, porque es cuando se vence el peso.',ok:false,
+         why:'La subida pide 6,30 kW, menos que sostener. Al subir, casi todo el caudal va al cilindro y hace trabajo útil; al sostener, todo el caudal se tira por la limitadora.'},
+        {t:'La bajada, porque la carga empuja y la bomba tiene que frenarla.',ok:false,
+         why:'En la bajada la presión es de sólo 15 bar: es la fase más barata del ciclo. Este laboratorio no modela cargas negativas —eso es la válvula de contrabalance, otra práctica—.'},
+        {t:'La pausa, porque la bomba sigue girando contra la limitadora tarada.',ok:false,
+         why:'Sería cierto con una limitadora sin descarga. Con la pilotada con descarga el grupo baja a 3 bar en la pausa: por eso está montada.'},
+      ]},
+    proyecto:{pregunta:'La prensa con bomba de engranajes de 25 cm³/rev y limitadora directa se estabiliza a 72,5 °C y falla presión, térmico y energía. Cambiando SÓLO la bomba a pistones con compensador de presión, ¿qué ocurre?',
+      opciones:[
+        {t:'Se estabiliza a 27,5 °C, no falla ningún criterio y el calor por ciclo cae de 110,9 a 5,9 kJ.',ok:true,
+         why:'Correcto: unas 19 veces menos calor. El compensador reduce la cilindrada hasta que la bomba entrega justo el caudal que el circuito pide, así que deja de haber caudal que tirar por la limitadora. El consumo anual baja de 43 386 a 5 684 kWh.'},
+        {t:'Baja la temperatura pero sigue fallando el criterio de energía.',ok:false,
+         why:'No: el consumo anual pasa a 5 684 kWh, muy por debajo de los 12 000 contratados. Al desaparecer el caudal en exceso desaparece casi toda la factura.'},
+        {t:'No cambia nada: la limitadora directa sigue siendo la que fija el calor.',ok:false,
+         why:'La limitadora fija a qué presión se tira el caudal sobrante, pero si no sobra caudal no hay nada que tirar. Con el compensador la limitadora se queda de válvula de seguridad y no pasa por ella prácticamente nada.'},
+        {t:'Mejora el calor pero el motor deja de caber en la acometida.',ok:false,
+         why:'Al revés: el pico de potencia baja, porque la bomba deja de impulsar caudal que no se usa. El motor necesario es más pequeño, no más grande.'},
+      ]},
+    reto:{pregunta:'En la prensa, la limitadora de acción directa deja fuera a la bomba de engranajes. ¿Por qué?',
+      opciones:[
+        {t:'Porque su sobrepresión del 25 % lleva los 195 bar de tarado a 243,75 a caudal completo, por encima de los 210 bar de la bomba.',ok:true,
+         why:'Exacto. La limitadora directa necesita un 25 % más de presión que su tarado para tragar todo el caudal, y 195 × 1,25 = 243,75 bar. Con la pilotada son 195 × 1,06 = 206,7 bar, que sí caben en los 210 de la bomba de engranajes.'},
+        {t:'Porque la limitadora directa no admite el caudal de una bomba de 25 cm³/rev.',ok:false,
+         why:'El caudal nominal no es el problema: la directa está declarada para 40 L/min y la bomba entrega unos 43. Lo que la descalifica es la sobrepresión, que es un 25 % frente al 6 % de la pilotada.'},
+        {t:'Porque la bomba de engranajes fuga demasiado y no alcanza el caudal de la fase rápida.',ok:false,
+         why:'La fuga afecta al criterio de caudal, no al de presión. Aquí el criterio que salta primero es el de presión, y salta por la limitadora, no por la bomba.'},
+        {t:'Porque la bomba de engranajes no admite el ISO VG 32 de la solución.',ok:false,
+         why:'Sí lo admite: su ventana llega hasta 300 mm²/s, la más ancha del catálogo. La de engranajes es precisamente la menos exigente con el aceite.'},
+      ]},
+  };
+  Object.keys(QUIZ).forEach(k=>{
+    const o=QUIZ[k].opciones;
+    for(let i=o.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));const t=o[i];o[i]=o[j];o[j]=t;}
+  });
+}
+function clearDx(){el('dxbtns').innerHTML='';}
+function refreshQuestion(){
+  const q=QUIZ[mode];if(!q)return;
+  el('q_text').innerHTML=q.pregunta;
+  el('dxbtns').innerHTML=q.opciones.map((o,i)=>`<button class="b" data-i="${i}">${o.t}</button>`).join('');
+  el('dxbtns').querySelectorAll('[data-i]').forEach(b=>{
+    b.onclick=()=>answer(Number(b.getAttribute('data-i')));
+  });
+}
+function answer(i){
+  const q=QUIZ[mode];if(!q)return;
+  const o=q.opciones[i];if(!o)return;
+  el('dxbtns').querySelectorAll('button').forEach((b,j)=>{
+    b.disabled=true;
+    if(j===i)b.classList.add(o.ok?'right':'wrong');
+    else if(q.opciones[j].ok)b.classList.add('right');
+  });
+  synth.beep(o.ok?880:200,0.09,0.05);
+  showToast((o.ok?'✅ ':'❌ ')+o.why);
+}
+
+// ===================== 15. SELECCION Y ETIQUETAS =====================
+pickerFor(scene,S.camera,S.renderer.domElement,hit=>{
+  if(!hit){return;}
+  let o=hit.object;
+  while(o){
+    if(o===board){boardClick();return;}
+    if(o.userData&&o.userData.title){showToast('<b>'+o.userData.title+'</b><br>'+(o.userData.info||''));return;}
+    o=o.parent;
+  }
+});
+function boardClick(){
+  if(mode==='banco')showToast('<b>Banco de ensayo</b><br>La curva P–Q no es una recta horizontal: la fuga crece con la presión y el caudal cae. La carga —el orificio— es la que decide en qué punto de esa curva trabaja la bomba.');
+  else if(mode==='aceite')showToast('<b>Aceite y aspiración</b><br>El grado ISO VG es un compromiso: espeso fuga menos pero roza más y en frío no llega. La ventana la marca el fabricante de la bomba, no el gusto del proyectista.');
+  else if(mode==='ciclo')showToast('<b>Ciclo de la máquina</b><br>Toda potencia de eje que no acaba en el actuador acaba en el aceite. Las fases en las que la bomba impulsa contra la limitadora son las que calientan la instalación.');
+  else if(mode==='proyecto')showToast('<b>Proyecto del grupo</b><br>Los siete criterios se cumplen a la vez o no se cumple ninguno: no hay nota parcial. Y entre las válidas manda el coste.');
+  else showToast('<b>Reto</b><br>Los cuatro ejes se califican juntos: no basta con acertar la bomba si el aceite deja fuera al conjunto.');
+}
+(function hoverLoop(){
+  const ray=new THREE.Raycaster();const m=new THREE.Vector2(-2,-2);
+  S.renderer.domElement.addEventListener('pointermove',ev=>{
+    const r=S.renderer.domElement.getBoundingClientRect();
+    m.x=((ev.clientX-r.left)/r.width)*2-1;m.y=-((ev.clientY-r.top)/r.height)*2+1;
+  });
+  function tick(){
+    ray.setFromCamera(m,S.camera);
+    const objs=[...HOVER_LABELS.keys()];
+    const hits=ray.intersectObjects(objs,true);
+    const hitSet=new Set();
+    hits.forEach(h=>{let o=h.object;while(o){if(HOVER_LABELS.has(o)){hitSet.add(o);break;}o=o.parent;}});
+    HOVER_LABELS.forEach((spr,obj)=>{spr.visible=hitSet.has(obj);});
+    requestAnimationFrame(tick);
+  }
+  tick();
+})();
+
+// ===================== 16. RECORRIDO AUTOMATICO =====================
+const sleep=ms=>new Promise(r=>setTimeout(r,ms));
+async function runAuto(){
+  if(autoRunning)return;
+  autoRunning=true;
+  const btn=el('btnAuto');const label=btn.textContent;
+  btn.disabled=true;btn.classList.add('on');btn.textContent='⏳ Recorriendo…';
+  synth.init();synth.resume();clearDx();
+  try{
+    setMode('banco');
+    bcBomba='eng';bcD=25;bcArea=40;bcLim='pil';afterEdit();
+    showToast('<b>1 · La carga manda.</b> Con el orificio grande de 40 mm² el aceite sale casi sin resistencia: el manómetro apenas marca 3,7 bar. La bomba entrega caudal, no presión.');
+    await sleep(5200);
+    bcArea=9;afterEdit();
+    showToast('<b>Estrecha el orificio a 9 mm²</b> y la misma bomba, girando igual, se planta en 66 bar. No ha cambiado la bomba: ha cambiado lo que le cuesta salir al aceite.');
+    await sleep(5400);
+    bcArea=3;afterEdit();
+    showToast('<b>Con 3 mm² la limitadora interviene:</b> '+f1(CUR.pt.Qlim,1)+' L/min se van por ella y se convierten en calor. El techo del circuito es la limitadora, no la bomba.');
+    await sleep(5400);
+    bcBomba='pis';bcArea=9;afterEdit();
+    showToast('<b>Cambia a pistones axiales:</b> los ajustes son más finos, fuga menos y el rendimiento total sube a '+f1(100*CUR.etaT,1)+' %. También cuesta tres veces más.');
+    await sleep(5400);
+
+    setMode('aceite');
+    acEst='gruaFrio';acBomba='pis';acD=16;acAce='vg68';acT=50;afterEdit();
+    showToast('<b>2 · El aceite.</b> Una grúa en invierno arranca a −5 °C. Con ISO VG 68 la viscosidad en frío se dispara a '+f1(CUR.nuF,0)+' mm²/s.');
+    await sleep(5400);
+    acAce='vg32';afterEdit();
+    showToast('<b>Con ISO VG 32</b> la viscosidad en frío baja a '+f1(CUR.nuF,0)+' mm²/s y la presión en el oído sube a '+f1(CUR.aspF.pAsp,3)+' bar. El aceite fino es el que arranca en frío.');
+    await sleep(5400);
+
+    setMode('ciclo');
+    pjEst='elevador';pjBomba='pis';pjD=16;pjAce='vg32';pjLim='pilDesc';afterEdit();
+    showToast('<b>3 · El ciclo.</b> Sube, sostiene, baja y espera. Mira la barra de potencia: la fase de sostener no mueve nada y sin embargo es la que más pide.');
+    await sleep(5800);
+
+    setMode('proyecto');
+    pjEst='prensa';pjBomba='eng';pjD=25;pjAce='vg46';pjLim='dir';afterEdit();
+    showToast('<b>4 · El proyecto.</b> La prensa con la bomba más barata: se estabiliza a '+f1(CUR.ev.Treg,1)+' °C y falla '+CUR.ev.fallos.length+' criterios de 7.');
+    await sleep(5600);
+    pjBomba='var';afterEdit();
+    showToast('<b>Sólo cambia la bomba</b> a cilindrada variable con compensador: '+f1(CUR.ev.Treg,1)+' °C y los siete criterios en verde. Lo que sobraba de caudal ya no se fabrica.');
+    await sleep(5600);
+
+    setMode('reto');
+    retoEst='prensa';retoSolveBuild(true);afterEdit();
+    showToast('<b>5 · El reto.</b> Cuatro ejes y un presupuesto: hay que montar el grupo válido más barato de la estación.');
+    await sleep(5000);
+    {
+      const o=optimas(retoEst)[0];
+      if(o){retoCfg={...o};afterEdit();}
+    }
+    checkReto();
+    showToast('<b>Solución:</b> '+retoMsg);
+    await sleep(5000);
+    answer(QUIZ[mode].opciones.findIndex(o=>o.ok));
+  }finally{
+    const b=el('btnAuto');
+    b.disabled=false;b.classList.remove('on');b.textContent=label;
+    autoRunning=false;
+  }
+}
+
+// ===================== 17. ANIMACION, EVENTOS, ARRANQUE =====================
+const ANIM_CICLO=9.0;   // segundos de reloj por vuelta completa al ciclo
+S.setAnimate((dt)=>{
+  spin+=dt*6.0;
+  if(mode==='ciclo'||mode==='proyecto'||mode==='reto'){
+    animT=(animT+dt/ANIM_CICLO)%1;
+  }
+  updateHW();
+});
+['banco','aceite','ciclo','proyecto','reto'].forEach(m=>{
+  el('m_'+m).onclick=()=>{if(!autoRunning)setMode(m);};
+});
+el('btnAuto').onclick=()=>{if(!autoRunning)runAuto();};
+el('btnNew').onclick=()=>{if(autoRunning)return;newSignal();};
+el('btnCheck').onclick=()=>{if(autoRunning)return;checkReto();};
+const soundBtn=el('soundBtn');
+if(soundBtn){soundBtn.onclick=()=>{synth.toggle();soundBtn.textContent=synth.isOn()?'🔊':'🔇';};}
+document.addEventListener('pointerdown',()=>{synth.init();synth.resume();},{once:true});
+retoSolveBuild(true);
+buildQuiz();
+computa();          // CUR poblado ANTES del primer cuadro: updateHW lo lee
+S.start();
+setMode('banco');
+
+// ===================== 18. GANCHO DE DEPURACION =====================
+window.__labDebug={
+  mode:()=>mode,setMode,
+  // constantes
+  T_BANCO:()=>T_BANCO,ACE_BANCO:()=>ACE_BANCO,AREAS:()=>AREAS,TEMPS:()=>TEMPS,
+  BOMB_BANCO:()=>BOMB_BANCO,LIM_BANCO:()=>LIM_BANCO,
+  BOMBAS:()=>BOMBAS,BOMBK:()=>BOMBK,LIMS:()=>LIMS,LIMK:()=>LIMK,ACEITES:()=>ACEITES,ACEK:()=>ACEK,
+  ESTACIONES:()=>ESTACIONES,ESTK:()=>ESTK,CILINDRADAS:()=>CILINDRADAS,MOTORES:()=>MOTORES,
+  CRIT:()=>CRIT,CRIT_ROT:()=>CRIT_ROT,CRIT_LET:()=>CRIT_LET,MOTIVO:()=>MOTIVO,
+  EJES:()=>EJES,EJE_VAL:()=>EJE_VAL,EJE_ROT:()=>EJE_ROT,CFGS:()=>CFGS,
+  N_BOMBA:()=>N_BOMBA,T_MAX_ACEITE:()=>T_MAX_ACEITE,NU_MIN_TRAB:()=>NU_MIN_TRAB,
+  // motor
+  nuT,rhoT,muT,fueraBanda,walther,caudalTeorico,caudal,fuga,etaVol,etaMec,etaTot,pares,potEje,potHid,
+  tarado,pFull,caudalLim,caudalOrificio,puntoBanco,aspiracion,
+  resuelveFase,ciclo,tRegimen,motorPara,costeCfg,evalua,validas,costeMin,optimas,
+  okEje,ejeSol,startCfg,whyCfg,f1,
+  // animacion
+  animT:()=>animT,setAnimT:(t)=>{animT=t;refreshAll();},
+  faseEn:()=>faseEn(CUR.ev?CUR.ev.cic:{fases:[]},animT),
+  hwState,rodPos,
+  // estado del banco
+  bcGet:()=>({bomba:bcBomba,D:bcD,area:bcArea,lim:bcLim}),
+  bcSet:(o)=>{if(o.bomba)bcBomba=o.bomba;if(o.D)bcD=o.D;if(o.area)bcArea=o.area;if(o.lim)bcLim=o.lim;afterEdit();},
+  // estado del aceite
+  acGet:()=>({est:acEst,bomba:acBomba,D:acD,aceite:acAce,T:acT}),
+  acSet:(o)=>{if(o.est)acEst=o.est;if(o.bomba)acBomba=o.bomba;if(o.D)acD=o.D;if(o.aceite)acAce=o.aceite;if(o.T!==undefined)acT=o.T;afterEdit();},
+  // estado del proyecto
+  pjGet:()=>({est:pjEst,bomba:pjBomba,D:pjD,aceite:pjAce,lim:pjLim}),
+  pjSet:(o)=>{if(o.est)pjEst=o.est;if(o.bomba)pjBomba=o.bomba;if(o.D)pjD=o.D;if(o.aceite)pjAce=o.aceite;if(o.lim)pjLim=o.lim;afterEdit();},
+  // reto
+  retoGet:()=>({est:retoEst,cfg:{...retoCfg}}),
+  retoSet:(est,cfg)=>{if(est)retoEst=est;if(cfg)retoCfg={...retoCfg,...cfg};retoMsg='';afterEdit();},
+  retoSolveBuild,checkReto,retoExplain,
+  retoSolved:()=>retoSolved,retoMsg:()=>retoMsg,retoAxes:()=>({...retoAxes}),
+  ejeSolC,
+  // cuestionario
+  quizCorrectIndex:()=>QUIZ[mode].opciones.findIndex(o=>o.ok),
+  quizAnswer:answer,quizText:()=>QUIZ[mode].pregunta,
+  newSignal,cur:()=>CUR,
+  solved:()=>solved,autoRunning:()=>autoRunning,
+};
+</script>
+  <!-- Ficha técnica · Capa B del molde de lab 3D (componente compartido + contenido del lab) -->
+  <script src="_ficha-tecnica.js"></script>
+  <script src="_ficha-curva-pq-bomba-hidraulica.js"></script>
+</body>
+</html>

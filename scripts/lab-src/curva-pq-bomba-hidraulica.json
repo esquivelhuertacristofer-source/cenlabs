@@ -1,0 +1,9 @@
+{
+  "donor": "escaner-obd.html",
+  "out": "curva-pq-bomba-hidraulica.html",
+  "title": "CEN Labs · Curva P–Q de una bomba hidráulica — Laboratorio 3D",
+  "lt": "Hidráulica y Neumática · Mecánica",
+  "inspectHint": "👆 Toca la bomba, el motor y su placa, el manómetro, la limitadora, el colador de aspiración, la mirilla de aceite o el tablero para ver qué decide cada pieza",
+  "body": "curva-pq-bomba-hidraulica.body.js",
+  "fichas": ["_ficha-tecnica.js", "_ficha-curva-pq-bomba-hidraulica.js"]
+}
