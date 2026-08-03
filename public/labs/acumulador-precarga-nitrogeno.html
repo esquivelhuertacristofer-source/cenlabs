@@ -1,0 +1,2790 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>CEN Labs · Acumulador hidroneumático: precarga de nitrógeno — Laboratorio 3D</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#08201C;--panel:rgba(9,26,23,.86);--line:#1E3A34;--ink:#EAF4F1;
+    --dim:#8FB3AC;--accent:#2A9D8F;--accent2:#4FD1C5;--hv:#FFB703;--good:#34d399;--bad:#f4475e;
+    --mono:'Outfit',system-ui,'Segoe UI',Roboto,sans-serif;--disp:'Outfit','Arial Black',Impact,sans-serif;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  html,body{height:100%;background:var(--bg);color:var(--ink);font-family:'Outfit',system-ui,Segoe UI,Roboto,sans-serif}
+  body{overflow:hidden}
+  #stage{position:fixed;inset:0}
+  canvas{display:block;touch-action:none}
+
+  .topbar{position:fixed;top:0;left:0;right:0;height:56px;display:flex;align-items:center;gap:14px;padding:0 20px;z-index:20;background:linear-gradient(180deg,rgba(10,13,18,.92),transparent);pointer-events:none}
+  .brand{font-family:var(--disp);font-weight:bold;font-size:16px;text-transform:uppercase}
+  .brand span{color:var(--accent)}
+  .lt{font-family:var(--mono);font-size:11px;letter-spacing:.1em;text-transform:uppercase;color:var(--dim)}
+
+  .badge{position:fixed;top:16px;right:20px;z-index:20;font-family:var(--mono);font-size:9px;letter-spacing:.12em;text-transform:uppercase;background:rgba(255,209,102,.12);color:var(--hv);border:1px solid rgba(255,209,102,.35);padding:6px 12px;border-radius:20px}
+
+  .hud{position:fixed;top:70px;left:18px;z-index:15;max-width:330px;background:var(--panel);backdrop-filter:blur(14px);border:1px solid var(--line);border-radius:16px;padding:18px 20px;max-height:calc(100vh - 150px);overflow-y:auto}
+  .hud .eyebrow{font-family:var(--mono);font-size:10px;letter-spacing:.18em;text-transform:uppercase;color:var(--accent);margin-bottom:8px}
+  .hud h2{font-size:19px;line-height:1.15;margin-bottom:9px}
+  .hud p{font-size:13px;line-height:1.55;color:var(--dim);margin-bottom:10px}
+  .hud .formula{font-family:var(--mono);color:var(--accent2);text-align:center;font-size:12.5px;margin:8px 0;padding:8px;background:rgba(0,0,0,.25);border-radius:8px;line-height:1.5}
+  .hud .src{font-size:10.5px;color:#7a8894;font-style:italic;margin-top:4px;line-height:1.5}
+  .legend{display:flex;flex-direction:column;gap:6px;margin:12px 0;padding:10px 12px;background:rgba(0,0,0,.22);border-radius:10px}
+  .legend .li{display:flex;align-items:center;gap:8px;font-size:11px;color:#c4d0da}
+  .legend .dot{width:10px;height:10px;border-radius:50%;flex:0 0 auto}
+  .fid{margin:10px 0 2px;padding:10px 12px;background:rgba(0,0,0,.22);border-radius:10px;border:1px solid rgba(79,209,197,.18)}
+  .fid .ft{font-family:var(--mono);font-size:9.5px;letter-spacing:.14em;text-transform:uppercase;color:var(--accent2);margin-bottom:6px}
+  .fid .fl{font-size:11px;color:#c4d0da;line-height:1.5;margin-bottom:5px}
+  .fid .fl b{color:var(--ink)}
+  .fid .fl.no b{color:var(--hv)}
+
+  .panel{position:fixed;top:70px;right:18px;z-index:15;width:262px;background:var(--panel);backdrop-filter:blur(14px);border:1px solid var(--line);border-radius:16px;padding:16px;max-height:calc(100vh - 150px);overflow-y:auto}
+  .panel h4{font-family:var(--mono);font-size:10px;letter-spacing:.14em;text-transform:uppercase;color:var(--dim);margin:2px 0 10px}
+  .panel h4.sec{margin-top:16px;border-top:1px solid var(--line);padding-top:14px}
+  .g{margin-bottom:6px}
+  .gl{display:flex;justify-content:space-between;font-family:var(--mono);font-size:11px;color:var(--dim)}
+  .gl b{color:var(--accent2)}
+  .gl b.good{color:var(--good)}.gl b.warn{color:var(--hv)}.gl b.bad{color:var(--bad)}
+  .modebar{display:flex;gap:5px;margin-bottom:8px}
+  .modebar .b{flex:1;padding:8px 4px;font-size:11px}
+  .btns{display:flex;flex-direction:column;gap:7px;margin-top:6px}
+  .b{font-family:system-ui;font-size:12.5px;padding:10px;border-radius:9px;cursor:pointer;border:1px solid var(--line);background:#1b242f;color:var(--ink);transition:.15s;text-align:center}
+  .b:hover{border-color:var(--accent);background:#202c38}
+  .b.on{background:var(--accent);color:#06120f;border-color:var(--accent);font-weight:bold}
+  .b.primary{background:var(--accent);color:#06120f;border-color:var(--accent);font-weight:bold}
+  .b.auto{border-color:var(--hv);color:var(--hv);background:rgba(255,183,3,.10);font-weight:bold}
+  .b.auto:hover{background:rgba(255,183,3,.18);border-color:var(--hv)}
+  .b.auto:disabled{opacity:.6;cursor:default}
+  .b.dx{text-align:left;font-size:12px}
+  .b.dx.right{background:rgba(52,211,153,.18);border-color:var(--good);color:var(--good);font-weight:bold}
+  .b.dx.wrong{background:rgba(244,71,94,.15);border-color:var(--bad);color:var(--bad)}
+  .console{font-family:var(--mono);font-size:11px;line-height:1.55;color:#c4d0da;background:rgba(0,0,0,.28);border-radius:9px;padding:10px 12px;margin-bottom:8px;min-height:56px}
+  .console .dtc{color:var(--bad);font-weight:bold}
+  .console .ok{color:var(--good)}
+  .console .mono{color:var(--dim)}
+
+  .hint{position:fixed;bottom:18px;left:18px;z-index:14;font-family:var(--mono);font-size:10px;color:var(--dim);background:var(--panel);padding:7px 12px;border-radius:9px;border:1px solid var(--line)}
+  .toast{position:fixed;top:80px;left:50%;transform:translateX(-50%);z-index:30;background:rgba(18,24,32,.95);border:1px solid var(--accent);padding:10px 20px;border-radius:40px;font-family:var(--mono);font-size:12px;opacity:0;transition:.3s;pointer-events:none;max-width:80vw;text-align:center}
+  .toast.show{opacity:1}
+  .soundBtn{position:fixed;top:14px;right:18px;z-index:21;font-size:16px;background:var(--panel);backdrop-filter:blur(12px);border:1px solid var(--line);border-radius:50%;width:36px;height:36px;cursor:pointer;color:var(--dim);transition:.15s}
+  .soundBtn.on{color:var(--accent);border-color:var(--accent)}
+  .soundBtn:hover{transform:scale(1.08)}
+  .inspectHint{position:fixed;bottom:18px;right:18px;z-index:14;font-family:var(--mono);font-size:10px;color:var(--accent2);background:var(--panel);padding:7px 12px;border-radius:9px;border:1px solid var(--line)}
+
+  @media(max-width:820px){
+    .hud,.panel{position:fixed;left:8px;right:8px;top:auto;bottom:8px;max-width:none;width:auto;max-height:42vh;overflow-y:auto}
+    .hud{bottom:calc(8px + 42vh + 8px)}
+    .hint,.inspectHint{display:none}
+  }
+</style>
+</head>
+<body>
+<div id="stage"></div>
+<button class="soundBtn on" id="soundBtn">🔊</button>
+<div class="topbar">
+  <div class="brand">CEN<span> Labs</span></div>
+  <div class="lt">Hidráulica y Neumática · Mecánica</div>
+</div>
+<div class="hud" id="hud"></div>
+<div class="panel" id="panel"></div>
+<div class="hint">Arrastra para orbitar · rueda para zoom</div>
+<div class="inspectHint">👆 Toca el cuerpo del acumulador, el separador, la válvula de plato, la conexión de gas, las botellas de transferencia, la línea de aceite, el manómetro o la faena para ver qué decide cada pieza</div>
+<div class="toast" id="toast"></div>
+
+<script type="importmap">
+{ "imports": {
+  "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.min.js",
+  "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/"
+}}
+</script>
+<script type="module">
+import * as THREE from 'three';
+import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
+import { RoundedBoxGeometry } from 'three/addons/geometries/RoundedBoxGeometry.js';
+import { EffectComposer } from 'three/addons/postprocessing/EffectComposer.js';
+import { RenderPass } from 'three/addons/postprocessing/RenderPass.js';
+import { GTAOPass } from 'three/addons/postprocessing/GTAOPass.js';
+import { UnrealBloomPass } from 'three/addons/postprocessing/UnrealBloomPass.js';
+import { SMAAPass } from 'three/addons/postprocessing/SMAAPass.js';
+import { OutputPass } from 'three/addons/postprocessing/OutputPass.js';
+import { BokehPass } from 'three/addons/postprocessing/BokehPass.js';
+
+/* ============================================================
+   Texturas PBR procedurales (sin archivos externos) — compartidas
+   ============================================================ */
+function cv(s=512){const c=document.createElement('canvas');c.width=c.height=s;return c;}
+function tex(canvas,repeat=1,srgb=false){
+  const t=new THREE.CanvasTexture(canvas);
+  t.wrapS=t.wrapT=THREE.RepeatWrapping;t.repeat.set(repeat,repeat);
+  t.colorSpace = srgb?THREE.SRGBColorSpace:THREE.NoColorSpace;
+  t.generateMipmaps=false; t.minFilter=THREE.LinearFilter; t.anisotropy=1; return t;
+}
+function normalFromHeight(size, hfn, strength=2.0){
+  const c=cv(size),ctx=c.getContext('2d'),img=ctx.createImageData(size,size);
+  const H=(x,y)=>hfn((x+size)%size,(y+size)%size);
+  for(let y=0;y<size;y++)for(let x=0;x<size;x++){
+    const dx=(H(x+1,y)-H(x-1,y))*strength;
+    const dy=(H(x,y+1)-H(x,y-1))*strength;
+    const nz=1.0; const len=Math.hypot(dx,dy,nz);
+    const i=(y*size+x)*4;
+    img.data[i]  =((-dx/len)*0.5+0.5)*255;
+    img.data[i+1]=((-dy/len)*0.5+0.5)*255;
+    img.data[i+2]=((nz/len)*0.5+0.5)*255;
+    img.data[i+3]=255;
+  }
+  ctx.putImageData(img,0,0);return c;
+}
+function valueNoise(seed=1){
+  const g=(x,y)=>{const s=Math.sin((x*127.1+y*311.7)+seed*13.13)*43758.5453;return s-Math.floor(s);};
+  return (x,y)=>{
+    const xi=Math.floor(x),yi=Math.floor(y),xf=x-xi,yf=y-yi;
+    const u=xf*xf*(3-2*xf),v=yf*yf*(3-2*yf);
+    const a=g(xi,yi),b=g(xi+1,yi),c=g(xi,yi+1),d=g(xi+1,yi+1);
+    return a*(1-u)*(1-v)+b*u*(1-v)+c*(1-u)*v+d*u*v;
+  };
+}
+function fbm(noise,x,y,oct=4){let v=0,a=0.5,f=1;for(let i=0;i<oct;i++){v+=noise(x*f,y*f)*a;f*=2;a*=0.5;}return v;}
+
+function castAluminum(){
+  const S=512, n=valueNoise(7);
+  const c=cv(S),ctx=c.getContext('2d'),img=ctx.createImageData(S,S);
+  for(let y=0;y<S;y++)for(let x=0;x<S;x++){
+    const v=fbm(n,x/22,y/22,5);
+    const por=Math.pow(n(x/3.1,y/3.1),8);
+    const base=150+v*38-por*70;
+    const i=(y*S+x)*4; img.data[i]=base; img.data[i+1]=base+4; img.data[i+2]=base+10; img.data[i+3]=255;
+  }
+  ctx.putImageData(img,0,0);
+  const r=cv(S),rx=r.getContext('2d'),rimg=rx.createImageData(S,S);
+  for(let y=0;y<S;y++)for(let x=0;x<S;x++){
+    const v=fbm(n,x/18,y/18,4); const por=Math.pow(n(x/3.1,y/3.1),8);
+    const rough=120+v*40+por*90; const i=(y*S+x)*4;
+    rimg.data[i]=rimg.data[i+1]=rimg.data[i+2]=Math.min(255,rough); rimg.data[i+3]=255;
+  }
+  rx.putImageData(rimg,0,0);
+  const nrm=normalFromHeight(S,(x,y)=>fbm(n,x/16,y/16,5)+Math.pow(n(x/3.1,y/3.1),8)*0.6,3.0);
+  return {map:tex(c,1,true),roughnessMap:tex(r),normalMap:tex(nrm)};
+}
+function brushedMetal(){
+  const S=512, n=valueNoise(3);
+  const c=cv(S),ctx=c.getContext('2d'),img=ctx.createImageData(S,S);
+  for(let y=0;y<S;y++)for(let x=0;x<S;x++){
+    const streak=Math.sin(y*0.9)*2 + (n(x/120,y*0.5)-0.5)*40;
+    const base=185+streak; const i=(y*S+x)*4;
+    img.data[i]=base; img.data[i+1]=base+2; img.data[i+2]=base+6; img.data[i+3]=255;
+  }
+  ctx.putImageData(img,0,0);
+  const r=cv(S),rx=r.getContext('2d'),rimg=rx.createImageData(S,S);
+  for(let y=0;y<S;y++)for(let x=0;x<S;x++){
+    const streak=(n(x/120,y*0.5)-0.5)*60; const rough=40+Math.abs(streak); const i=(y*S+x)*4;
+    rimg.data[i]=rimg.data[i+1]=rimg.data[i+2]=Math.min(160,rough); rimg.data[i+3]=255;
+  }
+  rx.putImageData(rimg,0,0);
+  const nrm=normalFromHeight(S,(x,y)=>(n(x/120,y*0.5))*0.3+Math.sin(y*0.9)*0.02,1.2);
+  return {map:tex(c,1,true),roughnessMap:tex(r),normalMap:tex(nrm)};
+}
+function rubber(){
+  const S=256,n=valueNoise(5);
+  const nrm=normalFromHeight(S,(x,y)=>fbm(n,x/8,y/8,4),1.4);
+  const rough=cv(64),rc=rough.getContext('2d');rc.fillStyle='#e0e0e0';rc.fillRect(0,0,64,64);
+  return {roughnessMap:tex(rough),normalMap:tex(nrm,2)};
+}
+function gradientBG(top='#11161d',bottom='#05070a'){
+  const c=cv(512),ctx=c.getContext('2d');
+  const grd=ctx.createLinearGradient(0,0,0,512);
+  grd.addColorStop(0,top);grd.addColorStop(1,bottom);
+  ctx.fillStyle=grd;ctx.fillRect(0,0,512,512);
+  const rg=ctx.createRadialGradient(256,200,30,256,256,360);
+  rg.addColorStop(0,'rgba(42,157,143,0.10)');rg.addColorStop(1,'rgba(0,0,0,0)');
+  ctx.fillStyle=rg;ctx.fillRect(0,0,512,512);
+  return tex(c,1,true);
+}
+function techPlastic(r=0.10,g=0.11,b=0.13){
+  const S=256,n=valueNoise(31);
+  const c=cv(S),ctx=c.getContext('2d'),img=ctx.createImageData(S,S);
+  for(let y=0;y<S;y++)for(let x=0;x<S;x++){
+    const v=fbm(n,x/30,y/30,3)*0.1+0.92; const i=(y*S+x)*4;
+    img.data[i]=r*255*v;img.data[i+1]=g*255*v;img.data[i+2]=b*255*v;img.data[i+3]=255;
+  }
+  ctx.putImageData(img,0,0);
+  const nrm=normalFromHeight(S,(x,y)=>fbm(n,x/10,y/10,3),0.8);
+  const rough=cv(64),rc=rough.getContext('2d');rc.fillStyle='#9a9a9a';rc.fillRect(0,0,64,64);
+  return {map:tex(c,1,true),roughnessMap:tex(rough),normalMap:tex(nrm)};
+}
+
+/* ============================================================
+   ENGINE — render premium compartido por todos los laboratorios
+   ============================================================ */
+function createStage(mount, opts={}){
+  const bgTop = opts.bgTop||'#141b24', bgBot = opts.bgBot||'#05070a';
+  const renderer = new THREE.WebGLRenderer({ antialias:true, powerPreference:'high-performance' });
+  renderer.setPixelRatio(Math.min(devicePixelRatio,2));
+  renderer.setSize(mount.clientWidth, mount.clientHeight);
+  renderer.shadowMap.enabled = true;
+  renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+  renderer.toneMapping = THREE.ACESFilmicToneMapping;
+  renderer.toneMappingExposure = opts.exposure ?? 1.18;
+  renderer.outputColorSpace = THREE.SRGBColorSpace;
+  mount.appendChild(renderer.domElement);
+  renderer.domElement.style.touchAction='none';
+
+  const scene = new THREE.Scene();
+  scene.background = gradientBG(bgTop,bgBot);
+  const pmrem = new THREE.PMREMGenerator(renderer);
+  scene.environment = pmrem.fromScene(new RoomEnvironment(renderer), 0.04).texture;
+  scene.environmentIntensity = opts.envInt ?? 1.15;
+
+  const camera = new THREE.PerspectiveCamera(45, mount.clientWidth/mount.clientHeight, 0.1, 200);
+  const cam = opts.cam || [5.5,3.4,6.2];
+  camera.position.set(...cam);
+
+  const controls = new OrbitControls(camera, renderer.domElement);
+  controls.enableDamping = true; controls.dampingFactor = 0.07;
+  controls.minDistance = opts.minD ?? 3; controls.maxDistance = opts.maxD ?? 18;
+  controls.maxPolarAngle = Math.PI*0.52;
+  controls.target.set(...(opts.target||[0,1.4,0]));
+  controls.autoRotate = opts.autoRotate ?? false;
+  controls.autoRotateSpeed = opts.autoRotateSpeed ?? 0.6;
+
+  const key = new THREE.DirectionalLight(0xffffff, 2.7);
+  key.position.set(5,9,6); key.castShadow=true;
+  key.shadow.mapSize.set(2048,2048);
+  key.shadow.camera.near=0.5; key.shadow.camera.far=40;
+  const sd=8; Object.assign(key.shadow.camera,{left:-sd,right:sd,top:sd,bottom:-sd});
+  key.shadow.bias=-0.0003; key.shadow.normalBias=0.02; scene.add(key);
+  const rim = new THREE.SpotLight(0x2affce, 55, 30, Math.PI/5, 0.4, 1.5);
+  rim.position.set(-7,6,-5); scene.add(rim);
+  const fill = new THREE.DirectionalLight(0x6fb6ff, 0.5); fill.position.set(-4,3,7); scene.add(fill);
+  scene.add(new THREE.HemisphereLight(0x9fb4c8, 0x10151b, 0.35));
+
+  if(opts.floor!==false){
+    const f = new THREE.Mesh(new THREE.CircleGeometry(40,80),
+      new THREE.MeshStandardMaterial({ color:0x0a0e13, roughness:0.14, metalness:0.62, envMapIntensity:1.15 }));
+    f.rotation.x=-Math.PI/2; f.receiveShadow=true; scene.add(f);
+    for(let r=2;r<=8;r+=2){
+      const ring=new THREE.Mesh(new THREE.RingGeometry(r-0.012,r+0.012,80),
+        new THREE.MeshBasicMaterial({color:0x1a2632,transparent:true,opacity:0.4}));
+      ring.rotation.x=-Math.PI/2; ring.position.y=0.002; scene.add(ring);
+    }
+  }
+
+  const isMobile = /Mobi|Android|iPhone|iPad/i.test(navigator.userAgent) || innerWidth<820;
+  // GTAO desactivado por defecto: el pase de oclusión ambiental en espacio de pantalla
+  // producía un recuadro oscuro duro sobre el piso reflectante (artefacto dependiente de la
+  // cámara y del renderer). La escena tiene AO suficiente con luces directas + sombras + env.
+  // Se puede reactivar para pruebas con ?gtao.
+  const useGtao = /[?&]gtao\b/.test(location.search);
+  const composer = new EffectComposer(renderer);
+  composer.addPass(new RenderPass(scene,camera));
+  if(!isMobile && useGtao){
+    try{
+      const g=new GTAOPass(scene,camera,mount.clientWidth,mount.clientHeight);
+      g.output=GTAOPass.OUTPUT.Default;
+      if(g.updateGtaoMaterial)g.updateGtaoMaterial({radius:0.5,distanceExponent:1,thickness:1,scale:1.1,samples:16});
+      composer.addPass(g);
+    }catch(e){}
+  }
+  const bloom=new UnrealBloomPass(new THREE.Vector2(mount.clientWidth,mount.clientHeight),opts.bloom??0.42,0.5,0.9);
+  composer.addPass(bloom);
+  let bokeh=null;
+  const flat=/[?&]flat/.test(location.search);
+  if(!isMobile && !flat){
+    bokeh=new BokehPass(scene,camera,{focus:8.5,aperture:opts.aperture??0.00018,maxblur:opts.maxblur??0.004,width:mount.clientWidth,height:mount.clientHeight});
+    composer.addPass(bokeh);
+  }
+  composer.addPass(new OutputPass());
+  composer.addPass(new SMAAPass(mount.clientWidth*renderer.getPixelRatio(),mount.clientHeight*renderer.getPixelRatio()));
+
+  function resize(){
+    const w=mount.clientWidth,h=mount.clientHeight;
+    camera.aspect=w/h; camera.updateProjectionMatrix();
+    renderer.setSize(w,h); composer.setSize(w,h);
+  }
+  window.addEventListener('resize',resize);
+
+  const clock=new THREE.Clock();
+  let hook=null, raf=null;
+  const camCine={active:false,t:0,dur:1.4,from:new THREE.Vector3(),to:new THREE.Vector3(),fromT:new THREE.Vector3(),toT:new THREE.Vector3()};
+  let lastDrag=-99, cinematicIdle=false;
+  controls.addEventListener('start',()=>{ lastDrag=clock.elapsedTime; camCine.active=false; });
+  function easeInOutCubic(x){return x<0.5?4*x*x*x:1-Math.pow(-2*x+2,3)/2;}
+  function moveTo(pos,target,dur=1.4){
+    camCine.from.copy(camera.position); camCine.fromT.copy(controls.target);
+    camCine.to.set(...pos); camCine.toT.set(...target);
+    camCine.dur=dur; camCine.active=true; camCine.t=0;
+  }
+  function setCinematicIdle(v){ cinematicIdle=v; if(!v)controls.autoRotate=false; }
+  function loop(){ raf=requestAnimationFrame(loop); const dt=clock.getDelta(),t=clock.elapsedTime;
+    if(camCine.active){
+      camCine.t=Math.min(1,camCine.t+dt/camCine.dur);
+      const e=easeInOutCubic(camCine.t);
+      camera.position.lerpVectors(camCine.from,camCine.to,e);
+      controls.target.lerpVectors(camCine.fromT,camCine.toT,e);
+      if(camCine.t>=1)camCine.active=false;
+    } else if(cinematicIdle){
+      controls.autoRotate=(t-lastDrag)>1.4; controls.autoRotateSpeed=0.45;
+    }
+    if(hook)hook(dt,t); controls.update();
+    if(bokeh) bokeh.uniforms['focus'].value = camera.position.distanceTo(controls.target);
+    composer.render(); }
+  function start(){ if(!raf)loop(); }
+  function stop(){ cancelAnimationFrame(raf); raf=null; window.removeEventListener('resize',resize); }
+
+  return { THREE, renderer, scene, camera, controls, composer, bloom,
+    setAnimate:fn=>hook=fn, start, stop, resize, clock,
+    flyTo:(v)=>{ controls.target.copy(v); }, moveTo, setCinematicIdle };
+}
+
+/* ---------- shared geometry/material helpers ---------- */
+function roundedBox(w,h,d,mat,rf=0.08){
+  const r=Math.min(w,h,d)*rf;
+  const m=new THREE.Mesh(new RoundedBoxGeometry(w,h,d,4,r),mat);
+  m.castShadow=m.receiveShadow=true; return m;
+}
+function pickerFor(scene,camera,dom,onHit){
+  const ray=new THREE.Raycaster(),mouse=new THREE.Vector2(); let down=null;
+  dom.addEventListener('pointerdown',e=>down=[e.clientX,e.clientY]);
+  dom.addEventListener('pointerup',e=>{
+    if(!down)return; const moved=Math.abs(e.clientX-down[0])+Math.abs(e.clientY-down[1])>6; down=null;
+    if(moved)return;
+    const r=dom.getBoundingClientRect();
+    mouse.x=((e.clientX-r.left)/r.width)*2-1; mouse.y=-((e.clientY-r.top)/r.height)*2+1;
+    ray.setFromCamera(mouse,camera);
+    const hits=ray.intersectObjects(scene.children,true);
+    onHit(hits[0]||null);
+  });
+}
+function labelSprite(text,color='#ffd166'){
+  const w = Math.max(150, Math.min(520, text.length*26+60));
+  const cvE=document.createElement('canvas');cvE.width=w;cvE.height=96;
+  const c=cvE.getContext('2d');c.fillStyle='rgba(8,11,16,.95)';
+  const rr=(x,y,ww,hh,r)=>{c.beginPath();c.moveTo(x+r,y);c.arcTo(x+ww,y,x+ww,y+hh,r);c.arcTo(x+ww,y+hh,x,y+hh,r);c.arcTo(x,y+hh,x,y,r);c.arcTo(x,y,x+ww,y,r);c.closePath();};
+  rr(3,3,w-6,90,18);c.fill();
+  c.strokeStyle=color;c.lineWidth=3;c.stroke();
+  c.font='bold 36px Outfit, system-ui, sans-serif';c.fillStyle=color;c.textAlign='center';c.textBaseline='middle';c.fillText(text,w/2,48);
+  const tx=new THREE.CanvasTexture(cvE);tx.colorSpace=THREE.SRGBColorSpace;tx.generateMipmaps=false;tx.minFilter=THREE.LinearFilter;
+  const sp=new THREE.Sprite(new THREE.SpriteMaterial({map:tx,depthTest:false,transparent:true}));
+  const aspect=w/96;
+  sp.scale.set(0.30*aspect,0.30,1);sp.renderOrder=999;return sp;
+}
+
+/* ============================================================
+   SYNTH — sintetizador Web Audio reutilizable
+   ============================================================ */
+function makeSynth(opts={}){
+  const type=opts.type||'sawtooth';
+  let ctx=null,oscA=null,oscB=null,gain=null,filter=null,soundOn=true;
+  function init(){
+    if(ctx)return;
+    try{
+      ctx=new (window.AudioContext||window.webkitAudioContext)();
+      oscA=ctx.createOscillator(); oscB=ctx.createOscillator();
+      oscA.type=type; oscB.type=opts.type2||'square';
+      filter=ctx.createBiquadFilter(); filter.type=opts.filterType||'lowpass'; filter.frequency.value=opts.filterFreq||500; filter.Q.value=opts.Q||3;
+      gain=ctx.createGain(); gain.gain.value=0;
+      oscA.connect(filter); oscB.connect(filter); filter.connect(gain); gain.connect(ctx.destination);
+      oscA.start(); oscB.start();
+    }catch(e){}
+  }
+  function update(freqA,freqB,vol,filterFreq){
+    if(!ctx||!soundOn){ if(gain)gain.gain.setTargetAtTime(0,ctx?.currentTime||0,0.1); return; }
+    oscA.frequency.setTargetAtTime(freqA,ctx.currentTime,0.04);
+    if(freqB!==undefined)oscB.frequency.setTargetAtTime(freqB,ctx.currentTime,0.04);
+    if(filterFreq!==undefined)filter.frequency.setTargetAtTime(filterFreq,ctx.currentTime,0.05);
+    gain.gain.setTargetAtTime(Math.max(0,vol),ctx.currentTime,0.06);
+  }
+  function beep(freq=880,dur=0.09,vol=0.06){
+    if(!ctx||!soundOn)return;
+    const o=ctx.createOscillator(),g=ctx.createGain();
+    o.type='sine'; o.frequency.value=freq;
+    g.gain.setValueAtTime(vol,ctx.currentTime); g.gain.exponentialRampToValueAtTime(0.001,ctx.currentTime+dur);
+    o.connect(g); g.connect(ctx.destination); o.start(); o.stop(ctx.currentTime+dur);
+  }
+  function toggle(){ soundOn=!soundOn; return soundOn; }
+  function resume(){ if(ctx&&ctx.state==='suspended')ctx.resume(); }
+  return { init, update, beep, toggle, resume, isOn:()=>soundOn, state:()=>ctx?.state||'none' };
+}
+
+// ===================== 1. ESCENA =====================
+const mount=document.getElementById('stage');
+const S=createStage(mount,{cam:[7.0,3.9,8.8],target:[1.95,1.15,0.00],bgTop:'#0d1017',bgBot:'#05060a',bloom:0.42,minD:3.2,maxD:24});
+const {scene}=S;
+const synth=makeSynth({type:'sine',type2:'triangle',filterFreq:900,Q:0.80});
+const el=id=>document.getElementById(id);
+
+// ===================== 2. MOTOR =====================
+// Fisica sellada del acumulador hidroneumatico. El gas es N2 IDEAL politropico.
+// Presiones ABSOLUTAS en bar y volumenes en litros; solo los balances de energia
+// (golpe de ariete) y de dilatacion (circuito sellado) bajan a SI.
+// Comentarios en ASCII.
+//
+// 1) Ley politropica del gas encerrado:  p * V^n = constante.
+//    n = 1,0 si al gas le da tiempo a cambiar calor con la pared (isotermo);
+//    n = 1,4 si el ciclo es tan rapido que no hay tiempo (adiabatico, gas
+//    diatomico); n = 1,2 es el caso intermedio de catalogo. n NO es una
+//    propiedad del acumulador: es una propiedad de la VELOCIDAD del ciclo.
+// 2) La precarga se ROTULA a 20 C y se corrige con Gay-Lussac a volumen
+//    constante:  p0(T) = p0_ref * T/293,15.  En caliente sube (y golpea el
+//    plato) y en frio baja (y se come el volumen util).
+// 3) Volumen de gas recortado por los dos topes fisicos: no puede pasar del
+//    volumen total del conjunto (acumulador vacio de aceite, con la vejiga
+//    expandida del todo y aplastada contra la valvula de plato) ni bajar del
+//    volumen de las botellas de transferencia (vejiga comprimida contra su
+//    tope, sin mas sitio donde encogerse). Entre ambos el acumulador respira.
+// 4) Celeridad de Korteweg en tubo elastico y sobrepresion de Joukowsky:
+//      c = sqrt((K/rho) / (1 + K*D/(E*e)))       dp = rho * c * v
+// 5) Absorcion politropica de la energia cinetica de la columna:
+//      V_f^(1-n) = V_g^(1-n) + Ek*(n-1) / (p * V_g^n)
+// 6) Circuito sellado que se calienta: la dilatacion del aceite se reparte
+//    entre su propia compresibilidad y lo que el gas deja comprimirse. Se
+//    resuelve por biseccion porque el gas tambien se calienta.
+
+const P_ATM = 1.013;      // bar
+const T0K = 273.15;
+const T_REF = 20;         // grados C: temperatura a la que se ROTULA la precarga
+const N_ISO = 1.0, N_POL = 1.2, N_ADI = 1.4;
+const K_PLATO = 0.90;     // p0_ef(Tmax) <= 0,90 * p1  (no golpear el plato)
+const PERM_ANUAL = 0.03;  // 3 % del N2 perdido en un anio
+const TOL_KIT = 2.0;      // bar de tolerancia del kit de carga
+const RHO_OIL = 870;      // kg/m3
+const K_OIL = 1.5e9;      // Pa, modulo de compresibilidad del aceite
+const BETA_OIL = 7e-4;    // 1/K, dilatacion cubica del aceite
+const E_ACERO = 2.1e11;   // Pa, modulo de Young del tubo
+const V_BOT = 10.0;       // litros por botella de transferencia
+const C_BOT = 6;          // coste de cada botella
+const C_BLOQ = 4;         // coste del bloque de conexion (una vez, si hay botellas)
+
+const TIPOS = {
+  vejiga:   { rot:'Vejiga',   rc:4,  tResp:0.005, dpFric:0.0, nota:'vejiga de NBR y válvula de plato' },
+  membrana: { rot:'Membrana', rc:8,  tResp:0.015, dpFric:0.0, nota:'membrana soldada, sin piezas móviles' },
+  piston:   { rot:'Pistón',   rc:10, tResp:0.100, dpFric:3.0, nota:'pistón con sellos deslizantes' },
+};
+const TIPO_KEYS = ['vejiga','membrana','piston'];
+
+// v0 en litros, ps = presion maxima admisible (bar), qmax = caudal de paso
+// admisible por el puerto (L/min), coste en unidades relativas de catalogo.
+const ACUM = {
+  v1:   { tipo:'vejiga',   v0:1.0,   ps:330, qmax:130, coste:12 },
+  v25:  { tipo:'vejiga',   v0:2.5,   ps:330, qmax:200, coste:16 },
+  v4:   { tipo:'vejiga',   v0:4.0,   ps:330, qmax:250, coste:19 },
+  v10:  { tipo:'vejiga',   v0:10.0,  ps:330, qmax:350, coste:27 },
+  v10b: { tipo:'vejiga',   v0:10.0,  ps:150, qmax:350, coste:22 },
+  v20:  { tipo:'vejiga',   v0:20.0,  ps:330, qmax:450, coste:38 },
+  v50:  { tipo:'vejiga',   v0:50.0,  ps:330, qmax:600, coste:62 },
+  m008: { tipo:'membrana', v0:0.075, ps:250, qmax:20,  coste:5 },
+  m016: { tipo:'membrana', v0:0.16,  ps:250, qmax:25,  coste:6 },
+  m035: { tipo:'membrana', v0:0.35,  ps:250, qmax:35,  coste:7 },
+  m06:  { tipo:'membrana', v0:0.6,   ps:250, qmax:45,  coste:9 },
+  m14:  { tipo:'membrana', v0:1.4,   ps:210, qmax:60,  coste:12 },
+  m28:  { tipo:'membrana', v0:2.8,   ps:210, qmax:75,  coste:15 },
+  p25:  { tipo:'piston',   v0:2.5,   ps:350, qmax:400, coste:26 },
+  p5:   { tipo:'piston',   v0:5.0,   ps:350, qmax:500, coste:33 },
+  p10:  { tipo:'piston',   v0:10.0,  ps:350, qmax:600, coste:42 },
+  p20:  { tipo:'piston',   v0:20.0,  ps:350, qmax:700, coste:58 },
+  p35:  { tipo:'piston',   v0:35.0,  ps:350, qmax:800, coste:76 },
+  p100: { tipo:'piston',   v0:100.0, ps:350, qmax:900, coste:128 },
+};
+const ACUM_KEYS = ['v1','v25','v4','v10','v10b','v20','v50','m008','m016','m035','m06','m14','m28','p25','p5','p10','p20','p35','p100'];
+const ACUM_ROT = {
+  v1:'Vejiga 1 L', v25:'Vejiga 2,5 L', v4:'Vejiga 4 L', v10:'Vejiga 10 L',
+  v10b:'Vejiga 10 L · 150 bar', v20:'Vejiga 20 L', v50:'Vejiga 50 L',
+  m008:'Membrana 0,075 L', m016:'Membrana 0,16 L', m035:'Membrana 0,35 L',
+  m06:'Membrana 0,6 L', m14:'Membrana 1,4 L', m28:'Membrana 2,8 L',
+  p25:'Pistón 2,5 L', p5:'Pistón 5 L', p10:'Pistón 10 L',
+  p20:'Pistón 20 L', p35:'Pistón 35 L', p100:'Pistón 100 L',
+};
+
+// Precarga rotulada a 20 C, como fraccion de p1 absoluta
+const PRECARGAS = [0.50, 0.60, 0.70, 0.75, 0.80, 0.90, 0.95];
+// Botellas de transferencia de 10 L acopladas al lado gas
+const NBOTS = [0, 1, 2];
+
+const EJES = ['acum','prec','nbot'];
+const CRIT = ['okFunc','okPlato','okRC','okPS','okQ','okResp','okDeriva'];
+const CRIT_ROT = {
+  okFunc:   'cumple la faena',
+  okPlato:  'no golpea el plato en caliente',
+  okRC:     'relación de compresión en frío',
+  okPS:     'presión máxima admisible',
+  okQ:      'caudal de paso del acumulador',
+  okResp:   'el tipo responde a tiempo',
+  okDeriva: 'sigue cumpliendo dentro de un año',
+};
+
+// p1 = presion de trabajo baja (bar man), p2 = alta. n = indice politropico del
+// ciclo. tMin/tMax = temperaturas extremas de servicio. tRespReq = tiempo de
+// respuesta que la faena exige al separador.
+const FAENAS = {
+  emerg: {
+    rot:'Apertura de emergencia de una prensa',
+    p1:70, p2:250, n:N_ADI, tMin:5, tMax:55,
+    dPis:125, dVas:70, carrera:250, tDesc:1.5, tRespReq:0.200,
+    obj:'volumen', unidad:'L', rotFun:'aceite entregado', sentido:'ge',
+  },
+  pulsa: {
+    rot:'Rizado de una bomba de tres pistones',
+    p1:175, p2:185, pW:180, n:N_ADI, tMin:15, tMax:60,
+    dV:3.0, fPul:72.5, rizMax:4.0, tRespReq:0.020,
+    obj:'rizado', unidad:'bar', rotFun:'rizado pico a pico', sentido:'le',
+  },
+  ariete: {
+    rot:'Golpe de ariete al cerrar una válvula',
+    p1:120, p2:140, n:N_ADI, tMin:-5, tMax:45,
+    dTubo:50, eTubo:4, lTubo:120, qLinea:300, tCierre:0.040,
+    pLim:140, tRespReq:0.015,
+    obj:'pico', unidad:'bar', rotFun:'pico de presión', sentido:'le',
+  },
+  termica: {
+    rot:'Circuito de amarre sellado que se calienta',
+    p1:100, p2:160, n:N_ISO, tMin:20, tMax:55,
+    vOil:8.0, pLim:160, tCalent:1800, tRespReq:60,
+    obj:'presion', unidad:'bar', rotFun:'presión final', sentido:'le',
+  },
+  fugas: {
+    rot:'Sostenimiento del amarre con la bomba parada',
+    p1:90, p2:140, n:N_ISO, tMin:5, tMax:45,
+    qFuga:12, tReq:5.0, tRespReq:60,
+    obj:'tiempo', unidad:'h', rotFun:'tiempo de sostenimiento', sentido:'ge',
+  },
+};
+const FAENA_KEYS = ['emerg','pulsa','ariete','termica','fugas'];
+const FAENA_ABR = { emerg:'Emergencia', pulsa:'Rizado', ariete:'Ariete', termica:'Térmica', fugas:'Fugas' };
+
+// ---------- utilidades ----------
+function kelvin(c){ return c + T0K; }
+function pabs(pm){ return pm + P_ATM; }
+function pman(pa){ return pa - P_ATM; }
+
+// Precarga rotulada a T_REF llevada a la temperatura tC (Gay-Lussac, volumen constante)
+// El parentesis NO es decorativo: (p0*K)/K no devuelve p0 bit a bit, p0*(K/K) si.
+function p0Efect(p0Ref, tC){ return p0Ref * (kelvin(tC) / kelvin(T_REF)); }
+
+// Volumen de gas LIBRE (sin topes) a la presion p
+function vGasLibre(vT, p0, p, n){ return vT * Math.pow(p0 / p, 1 / n); }
+// Volumen de gas REAL: no puede pasar de vT (acumulador vacio) ni bajar de vBot (acumulador lleno)
+function vGasReal(vT, vBot, p0, p, n){
+  return Math.min(vT, Math.max(vBot, vGasLibre(vT, p0, p, n)));
+}
+function estadoGas(vT, vBot, p0, p, n){
+  const v = vGasLibre(vT, p0, p, n);
+  if(v >= vT) return 'vac';
+  if(v <= vBot) return 'fondo';
+  return 'ok';
+}
+// Aceite entregado al bajar de pAlta a pBaja
+function deltaV(vT, vBot, p0, pBaja, pAlta, n){
+  return vGasReal(vT, vBot, p0, pBaja, n) - vGasReal(vT, vBot, p0, pAlta, n);
+}
+
+// Celeridad de Korteweg en tubo elastico
+function celeridad(dInt, esp){
+  return Math.sqrt((K_OIL / RHO_OIL) / (1 + (K_OIL * dInt) / (E_ACERO * esp)));
+}
+function joukowsky(c, v){ return RHO_OIL * c * v; } // Pa
+
+function conjunto(ak, nbot){
+  const A = ACUM[ak];
+  const vBot = nbot * V_BOT;
+  return {
+    v0:A.v0, vBot, vT:A.v0 + vBot,
+    coste: A.coste + nbot * C_BOT + (nbot > 0 ? C_BLOQ : 0),
+  };
+}
+
+// ---------- funcion de cada faena ----------
+// p0 llega YA efectiva (corregida a la temperatura que corresponda).
+function funcion(fk, ak, nbot, p0){
+  const F = FAENAS[fk], A = ACUM[ak], T = TIPOS[A.tipo], C = conjunto(ak, nbot);
+  const n = F.n;
+  const p1a = pabs(F.p1) + T.dpFric;   // el piston pierde los primeros bares por friccion
+  const p2a = pabs(F.p2) - T.dpFric;
+  const base = { req:0, val:0, ok:false, margen:-1, unidad:F.unidad, rot:F.rotFun };
+
+  if(fk === 'emerg'){
+    const area = Math.PI * (F.dPis * F.dPis - F.dVas * F.dVas) / 4e6;   // m2 (anular)
+    const req = area * (F.carrera / 1000) * 1000;                      // litros
+    const val = deltaV(C.vT, C.vBot, p0, p1a, p2a, n);
+    return { ...base, val, req, ok: val >= req, margen: val / req - 1, area,
+             est1: estadoGas(C.vT, C.vBot, p0, p1a, n), est2: estadoGas(C.vT, C.vBot, p0, p2a, n) };
+  }
+
+  if(fk === 'pulsa'){
+    const pW = pabs(F.pW), dv = F.dV / 1000;                           // cm3 -> L
+    const vg = vGasLibre(C.vT, p0, pW, n);
+    // Si el acumulador esta en un tope no puede absorber el pulso
+    if(vg - dv / 2 <= C.vBot || vg + dv / 2 >= C.vT)
+      return { ...base, val:Infinity, req:F.rizMax, vg, lin:Infinity, pMax:Infinity, pMin:0 };
+    const pMax = pW * Math.pow(vg / (vg - dv / 2), n);
+    const pMin = pW * Math.pow(vg / (vg + dv / 2), n);
+    const val = pMax - pMin;
+    const lin = n * dv * pW / vg;                                      // estimacion lineal de catalogo
+    return { ...base, val, req:F.rizMax, ok: val <= F.rizMax, margen: F.rizMax / val - 1,
+             vg, lin, pMax, pMin };
+  }
+
+  if(fk === 'ariete'){
+    const dI = F.dTubo / 1000, area = Math.PI * dI * dI / 4;
+    const vel = (F.qLinea / 60000) / area;
+    const cel = celeridad(dI, F.eTubo / 1000);
+    const dpJ = joukowsky(cel, vel) / 1e5;                             // bar
+    const vLin = area * F.lTubo;                                       // m3 de aceite en la linea
+    const Ek = 0.5 * RHO_OIL * vLin * vel * vel;                       // J
+    const dpEner = vel * Math.sqrt(RHO_OIL * K_OIL) / 1e5;             // bar, metodo energetico sin tubo elastico
+    const pLin = pabs(F.p1) * 1e5;                                     // Pa
+    const est = estadoGas(C.vT, C.vBot, p0, pabs(F.p1), n);
+    const vg = vGasReal(C.vT, C.vBot, p0, pabs(F.p1), n) / 1000;       // m3
+    const vBotM3 = C.vBot / 1000;
+    const com = { cel, vel, dpJ, Ek, vLin, dpEner, sinAcum: F.p1 + dpJ, tReflejo: 2 * F.lTubo / cel, est };
+    if(est !== 'ok') return { ...base, val:Infinity, req:F.pLim, qPico:0, lin:Infinity, ...com };
+    // Compresion politropica absorbiendo Ek: V^(1-n) = Vg^(1-n) + Ek(n-1)/(p*Vg^n)
+    const vf0 = Math.pow(Math.pow(vg, 1 - n) + Ek * (n - 1) / (pLin * Math.pow(vg, n)), 1 / (1 - n));
+    let vf, pPico;
+    if(vf0 >= vBotM3){
+      vf = vf0;
+      pPico = pLin * Math.pow(vg / vf, n);
+    } else {
+      // El acumulador toca fondo: la energia que sobra la absorbe el aceite de la linea
+      vf = vBotM3;
+      const pFondo = pLin * Math.pow(vg / vf, n);
+      const wAbs = (pLin * Math.pow(vg, n)) * (Math.pow(vf, 1 - n) - Math.pow(vg, 1 - n)) / (n - 1);
+      const eRem = Math.max(0, Ek - wAbs);
+      pPico = pFondo + Math.sqrt(2 * eRem * K_OIL / vLin);
+    }
+    const val = pPico / 1e5 - P_ATM;                                   // bar man
+    const dV = (vg - vf) * 1000;                                       // litros
+    const lin = F.p1 + n * dV * pabs(F.p1) / (vg * 1000);              // estimacion lineal, bar man
+    return { ...base, val, req:F.pLim, ok: val <= F.pLim, margen: F.pLim / val - 1,
+             qPico: dV / F.tCierre * 60, lin, dV, vg, vf, ...com };
+  }
+
+  if(fk === 'termica'){
+    const vOil = F.vOil / 1000, dT = F.tMax - F.tMin;
+    const pIni = pabs(F.p1) * 1e5, tIni = F.tMin, tFin = F.tMax;
+    const dil = BETA_OIL * vOil * dT;                                  // m3 que se dilata el aceite
+    const vT = C.vT / 1000, vBotM3 = C.vBot / 1000;
+    // Con n = 1 y equilibrio termico permanente el gas sigue pV = mRT:
+    // Vg(p,T) = vT * p0(tIni) * (T/TIni) / p, recortado entre vBot y vT.
+    const p0Fin = p0 * kelvin(tFin) / kelvin(tIni);                    // bar, p0 efectiva en caliente
+    const vgDe = (pPa, p0bar) => Math.min(vT, Math.max(vBotM3, vT * p0bar * 1e5 / pPa));
+    const vg0 = vgDe(pIni, p0);
+    // Balance de volumenes: lo que se dilata = lo que se comprime + lo que absorbe el acumulador
+    const balance = (pPa) => dil - vOil * (pPa - pIni) / K_OIL - (vg0 - vgDe(pPa, p0Fin));
+    let lo = pIni, hi = pIni + K_OIL * BETA_OIL * dT + 1e5;
+    for(let i = 0; i < 200; i++){
+      const mid = (lo + hi) / 2;
+      if(balance(mid) > 0) lo = mid; else hi = mid;
+    }
+    const pFin = (lo + hi) / 2;
+    const val = pFin / 1e5 - P_ATM;
+    const sinAcum = (pIni + K_OIL * BETA_OIL * dT) / 1e5 - P_ATM;
+    return { ...base, val, req:F.pLim, ok: val <= F.pLim, margen: F.pLim / val - 1,
+             vg0: vg0 * 1000, sinAcum, dvOil: dil * 1000,
+             est: estadoGas(C.vT, C.vBot, p0, pabs(F.p1), n) };
+  }
+
+  if(fk === 'fugas'){
+    const dv = deltaV(C.vT, C.vBot, p0, p1a, p2a, n);
+    const val = dv * 1000 / F.qFuga / 60;                              // horas
+    return { ...base, val, req:F.tReq, ok: val >= F.tReq, margen: val / F.tReq - 1, dv,
+             est1: estadoGas(C.vT, C.vBot, p0, p1a, n), est2: estadoGas(C.vT, C.vBot, p0, p2a, n) };
+  }
+  throw new Error('faena desconocida: ' + fk);
+}
+
+// ---------- lecturas continuas (para dibujar), derivadas de lo anterior ----------
+// Presion en el puerto cuando el acumulador ya ha entregado vEnt litros partiendo de pAlta.
+// Devuelve 0 cuando el gas ha llenado todo el cuerpo: ya no queda aceite que dar.
+function presionEntrega(vT, vBot, p0, pAlta, n, vEnt){
+  const vg2 = vGasReal(vT, vBot, p0, pAlta, n);
+  const vg = vg2 + vEnt;
+  if(vg >= vT) return 0;
+  return p0 * Math.pow(vT / vg, n);
+}
+// Presion instantanea del rizado: s = -1 en el pico, s = +1 en el valle.
+function presionRizado(vg, pW, n, dv, s){
+  return pW * Math.pow(vg / (vg + s * dv / 2), n);
+}
+// Balance termico generalizado a una temperatura intermedia tC.
+// En tC = tMax reproduce exactamente funcion('termica', ...).val
+function presionTermicaEn(ak, nbot, p0, tC){
+  const F = FAENAS.termica, C = conjunto(ak, nbot);
+  const vOil = F.vOil / 1000, dT = tC - F.tMin;
+  const pIni = pabs(F.p1) * 1e5, tIni = F.tMin;
+  const dil = BETA_OIL * vOil * dT;
+  const vT = C.vT / 1000, vBotM3 = C.vBot / 1000;
+  const p0Fin = p0 * kelvin(tC) / kelvin(tIni);
+  const vgDe = (pPa, p0bar) => Math.min(vT, Math.max(vBotM3, vT * p0bar * 1e5 / pPa));
+  const vg0 = vgDe(pIni, p0);
+  const balance = (pPa) => dil - vOil * (pPa - pIni) / K_OIL - (vg0 - vgDe(pPa, p0Fin));
+  let lo = pIni, hi = pIni + K_OIL * BETA_OIL * dT + 1e5;
+  for(let i = 0; i < 200; i++){
+    const mid = (lo + hi) / 2;
+    if(balance(mid) > 0) lo = mid; else hi = mid;
+  }
+  const pFin = (lo + hi) / 2;
+  return pFin / 1e5 - P_ATM;
+}
+
+// Caudal pico que la faena exige al PUERTO del acumulador (L/min)
+function caudalPico(fk, ak, nbot, p0){
+  const F = FAENAS[fk];
+  if(fk === 'emerg'){
+    const area = Math.PI * (F.dPis * F.dPis - F.dVas * F.dVas) / 4e6;
+    return area * (F.carrera / 1000) * 1000 / F.tDesc * 60;
+  }
+  if(fk === 'pulsa') return (F.dV / 1000) * F.fPul * 60;
+  if(fk === 'ariete') return funcion(fk, ak, nbot, p0).qPico || 0;
+  if(fk === 'termica') return funcion(fk, ak, nbot, p0).dvOil / F.tCalent * 60;
+  if(fk === 'fugas') return F.qFuga / 1000;
+  return 0;
+}
+
+// ---------- punto de trabajo completo ----------
+function punto(fk, ak, prec, nbot){
+  const F = FAENAS[fk], A = ACUM[ak], T = TIPOS[A.tipo], C = conjunto(ak, nbot);
+  const p1a = pabs(F.p1), p2a = pabs(F.p2);
+  const p0Ref = prec * p1a;                        // rotulo a 20 C
+  const p0Cal = p0Efect(p0Ref, F.tMax);            // caliente: manda el plato
+  const p0Fri = p0Efect(p0Ref, F.tMin);            // frio: mandan RC y la funcion
+  const p0Der = p0Fri * (1 - PERM_ANUAL) - TOL_KIT;
+
+  const fn = funcion(fk, ak, nbot, p0Fri);
+  const fd = funcion(fk, ak, nbot, Math.max(p0Der, 0.1));
+  const q = caudalPico(fk, ak, nbot, p0Fri);
+
+  const okFunc = fn.ok;
+  const okPlato = p0Cal <= K_PLATO * p1a + 1e-12;
+  const okRC = p2a / p0Fri <= T.rc + 1e-12;
+  const okPS = F.p2 <= A.ps + 1e-12;
+  const okQ = q <= A.qmax + 1e-12;
+  const okResp = T.tResp <= F.tRespReq + 1e-12;
+  const okDeriva = fd.ok;
+
+  const flags = { okFunc, okPlato, okRC, okPS, okQ, okResp, okDeriva };
+  const fallos = CRIT.filter(c => !flags[c]);
+  return {
+    fk, ak, prec, nbot, tipo:A.tipo, v0:A.v0, vBot:C.vBot, vT:C.vT,
+    coste:C.coste, ps:A.ps, qmax:A.qmax, rc:T.rc, tResp:T.tResp, dpFric:T.dpFric,
+    p1a, p2a, p0Ref, p0Cal, p0Fri, p0Der,
+    rcReal: p2a / p0Fri, platoLim: K_PLATO * p1a,
+    val:fn.val, req:fn.req, margen:fn.margen, unidad:fn.unidad, rotFun:fn.rot,
+    valDer:fd.val, q,
+    ...flags, fallos, valida: fallos.length === 0, det:fn,
+  };
+}
+
+function barrido(fk){
+  const out = [];
+  for(const ak of ACUM_KEYS) for(const prec of PRECARGAS) for(const nbot of NBOTS)
+    out.push(punto(fk, ak, prec, nbot));
+  return out;
+}
+function validas(fk){ return barrido(fk).filter(p => p.valida); }
+
+// Orden lexicografico DECLARADO ANTES DE BARRER:
+// 1) coste total  2) volumen de gas instalado (menor)  3) margen de la funcion (mayor)  4) precarga (menor)
+function mejor(a, b){
+  if(a.coste !== b.coste) return a.coste - b.coste;
+  if(a.vT !== b.vT) return a.vT - b.vT;
+  if(Math.abs(a.margen - b.margen) > 1e-12) return b.margen - a.margen;
+  return a.p0Ref - b.p0Ref;
+}
+function solucion(fk){
+  const v = validas(fk);
+  return v.length ? v.slice().sort(mejor)[0] : null;
+}
+function empates(fk){
+  const s = solucion(fk);
+  return s ? validas(fk).filter(p => mejor(p, s) === 0) : [];
+}
+
+// Bandas de presion maximas admisibles
+function bandaMax(tipoKey){ return K_PLATO * TIPOS[tipoKey].rc; }
+function bandaMaxT(tipoKey, tMinC, tMaxC){
+  return K_PLATO * TIPOS[tipoKey].rc * kelvin(tMinC) / kelvin(tMaxC);
+}
+// Tope de botella: hace falta (p0/p1)^(1/n) > vBot/vT  con p0 en su maximo
+function botellaMax(fk, tipoKey, v0){
+  const F = FAENAS[fk];
+  const r = Math.pow(K_PLATO * kelvin(F.tMin) / kelvin(F.tMax), 1 / F.n);
+  return v0 * r / (1 - r);   // litros de botella que aun dejan respirar al acumulador
+}
+
+// ===================== 3. ESTADO =====================
+const NBSP = ' ';   // espacio fino inseparable para los miles, nunca U+0020
+function f1(x, d){
+  if(!Number.isFinite(x)) return '—';
+  const n = (d===undefined?2:d);
+  const s = Math.abs(x).toFixed(n);
+  const par = s.split('.');
+  let ent = par[0], grp = '';
+  while(ent.length>3){ grp = NBSP + ent.slice(-3) + grp; ent = ent.slice(0,-3); }
+  ent = ent + grp;
+  return (x<0?'−':'') + ent + (par[1]?','+par[1]:'');
+}
+const pc1 = (x,d) => f1(100*x, d===undefined?1:d) + ' %';
+const clamp = (x,a,b) => x<a?a:(x>b?b:x);
+
+const MODES = ['gas','faena','precarga','catalogo','reto'];
+let mode = 'gas';
+
+const ST = {
+  fk:   'emerg',   // faena activa, compartida por los modos faena/precarga/catalogo
+  ak:   'v10',     // acumulador del catalogo
+  prec: 0.80,      // precarga rotulada a 20 C, fraccion de p1 absoluta
+  nbot: 0,         // botellas de transferencia acopladas
+  nGas: N_ADI,     // indice politropico que se estudia en el modo gas
+};
+// RETO.ejes guarda LO QUE EL ALUMNO HA MONTADO (no banderas): de ahi lee cfgDe.
+// RETO.pistas guarda que ejes ya se han destapado con el boton de pista.
+const RETO = { cfg:{ fk:'emerg' }, sol:null, ejes:{ acum:'m008', prec:0.50, nbot:0 },
+               pistas:{}, resuelto:false, msg:'', nval:0 };
+
+let CUR = null;          // punto de trabajo del modo activo
+let hw = {};             // lo que la maquina 3D tiene que representar
+let animT = 0;
+let autoRunning = false;
+let solved = false;
+
+function cfgDe(m){
+  if(m === 'reto') return { fk:RETO.cfg.fk, ak:RETO.ejes.acum, prec:RETO.ejes.prec, nbot:RETO.ejes.nbot };
+  return { fk:ST.fk, ak:ST.ak, prec:ST.prec, nbot:ST.nbot };
+}
+function computa(){
+  const c = cfgDe(mode);
+  CUR = punto(c.fk, c.ak, c.prec, c.nbot);
+  return CUR;
+}
+// Lectura del gas con el indice politropico que el alumno esta estudiando,
+// que en el modo gas puede NO ser el de la faena.
+function gasInfo(nUsar){
+  const c = cfgDe(mode), F = FAENAS[c.fk], C = conjunto(c.ak, c.nbot);
+  const n = (nUsar===undefined ? ST.nGas : nUsar);
+  const p0Ref = c.prec * pabs(F.p1);
+  const p0 = p0Efect(p0Ref, F.tMin);
+  const p1a = pabs(F.p1), p2a = pabs(F.p2);
+  return { n, C, F, p0, p0Ref, p1a, p2a,
+    vg1: vGasReal(C.vT, C.vBot, p0, p1a, n),
+    vg2: vGasReal(C.vT, C.vBot, p0, p2a, n),
+    dv:  deltaV(C.vT, C.vBot, p0, p1a, p2a, n),
+    est1: estadoGas(C.vT, C.vBot, p0, p1a, n),
+    est2: estadoGas(C.vT, C.vBot, p0, p2a, n) };
+}
+// 'vac' (v >= vT): el gas ocupa TODO el volumen, no queda aceite dentro y el separador
+//   se echa sobre la valvula de plato del puerto de aceite. Contra eso protege okPlato.
+// 'fondo' (v <= vBot): el gas esta comprimido al minimo, entero dentro de las botellas
+//   de transferencia, y el separador queda aplastado contra su tope del lado del gas.
+//   Sin botellas vBot = 0 y este estado no se puede alcanzar con presion finita.
+const EST_ROT = { ok:'respira', fondo:'comprimido contra su tope', vac:'aplastado contra el plato' };
+
+// ===================== 4. MATERIALES =====================
+const AZUL='#8AB4F8', OK_HEX='#7CD992', BAD_HEX='#ff6b6b', WARN_HEX='#E9C46A',
+      VIO='#C08CF8', GRIS='#8f97a5', NARANJA='#F2A65A', CIAN='#5BD4E5', TINTA='#dbe4f0',
+      AMBAR='#E0A33E';
+const std=(c,r,m)=>new THREE.MeshStandardMaterial({color:c,roughness:r,metalness:m});
+const emis=(hex,i)=>new THREE.MeshStandardMaterial({color:hex,roughness:0.35,metalness:0.10,emissive:hex,emissiveIntensity:i===undefined?0.9:i});
+const MAT={
+  acero:  std('#7e8798',0.42,0.72),
+  aceroC: std('#5a6270',0.50,0.65),
+  bancada:std('#2a3140',0.85,0.10),
+  cuerpo: new THREE.MeshStandardMaterial({color:'#9aa4b5',roughness:0.30,metalness:0.80,transparent:true,opacity:0.30}),
+  gas:    new THREE.MeshStandardMaterial({color:CIAN,roughness:0.20,metalness:0.05,emissive:CIAN,emissiveIntensity:0.55,transparent:true,opacity:0.55}),
+  aceite: new THREE.MeshStandardMaterial({color:AMBAR,roughness:0.25,metalness:0.10,emissive:AMBAR,emissiveIntensity:0.30,transparent:true,opacity:0.78}),
+  vejiga: new THREE.MeshStandardMaterial({color:'#3c4756',roughness:0.75,metalness:0.05,transparent:true,opacity:0.85}),
+  piston: std('#b9c2d0',0.30,0.85),
+  tubo:   std('#6d7686',0.38,0.75),
+  oro:    std('#c9a227',0.35,0.85),
+  rojo:   emis(BAD_HEX,0.85),
+  verde:  emis(OK_HEX,0.85),
+  ambar:  emis(WARN_HEX,0.85),
+  cian:   emis(CIAN,0.85),
+  azul:   emis(AZUL,0.80),
+  gota:   emis(AMBAR,1.10),
+  burb:   emis(CIAN,1.10),
+  negro:  std('#161b25',0.90,0.05),
+  cristal:new THREE.MeshStandardMaterial({color:'#dfe8f5',roughness:0.10,metalness:0.05,transparent:true,opacity:0.35}),
+};
+
+// ===================== 5. PIZARRÓN =====================
+const board=new THREE.Group();
+board.position.set(-3.10,0,-0.55); board.rotation.y=0.44; scene.add(board);
+(function(){
+  const marco=roundedBox(3.90,2.94,0.10,std('#0b0f16',0.90,0.10),0.05);
+  marco.position.set(0,1.86,0); board.add(marco);
+  const pata=x=>{ const p=new THREE.Mesh(new THREE.CylinderGeometry(0.05,0.06,0.42,14),MAT.acero);
+    p.position.set(x,0.21,0); board.add(p); };
+  pata(-1.55); pata(1.55);
+})();
+const BW=1024, BH=768;
+const bcv=document.createElement('canvas'); bcv.width=BW; bcv.height=BH;
+const bx=bcv.getContext('2d');
+const btex=new THREE.CanvasTexture(bcv);
+const bmesh=new THREE.Mesh(new THREE.PlaneGeometry(3.68,2.72),
+  new THREE.MeshBasicMaterial({map:btex,toneMapped:false}));
+bmesh.position.set(0,1.86,0.056); board.add(bmesh);
+function bg(){
+  bx.fillStyle='#080b11'; bx.fillRect(0,0,BW,BH);
+  bx.strokeStyle='rgba(138,180,248,0.06)'; bx.lineWidth=1;
+  for(let x=0;x<=BW;x+=64){ bx.beginPath(); bx.moveTo(x+0.5,0); bx.lineTo(x+0.5,BH); bx.stroke(); }
+  for(let y=0;y<=BH;y+=64){ bx.beginPath(); bx.moveTo(0,y+0.5); bx.lineTo(BW,y+0.5); bx.stroke(); }
+}
+
+// ---- primitivas de dibujo ----
+function texto(t,x,y,col,size,align,weight){
+  bx.fillStyle=col||'#dbe4f0';
+  bx.font=(weight||'600')+' '+(size||18)+'px ui-sans-serif,system-ui,Segoe UI,Roboto,sans-serif';
+  bx.textAlign=align||'left'; bx.textBaseline='alphabetic';
+  bx.fillText(t,x,y); bx.textAlign='left';
+}
+function linea(x1,y1,x2,y2,col,w,dash){
+  bx.strokeStyle=col||'#2b3446'; bx.lineWidth=w||1.5;
+  bx.setLineDash(dash||[]); bx.beginPath(); bx.moveTo(x1,y1); bx.lineTo(x2,y2); bx.stroke();
+  bx.setLineDash([]);
+}
+function curva(pts,col,w,dash){
+  if(!pts.length) return;
+  bx.strokeStyle=col||AZUL; bx.lineWidth=w||2; bx.setLineDash(dash||[]);
+  bx.beginPath(); bx.moveTo(pts[0][0],pts[0][1]);
+  for(let i=1;i<pts.length;i++) bx.lineTo(pts[i][0],pts[i][1]);
+  bx.stroke(); bx.setLineDash([]);
+}
+function wrapText(t,x,y,maxW,lh,col,size){
+  bx.fillStyle=col||'#8f9bb0';
+  bx.font='500 '+(size||14)+'px ui-sans-serif,system-ui,Segoe UI,Roboto,sans-serif';
+  const pal=String(t).split(' '); let ln='', yy=y;
+  for(const p of pal){
+    const pr=ln?ln+' '+p:p;
+    if(bx.measureText(pr).width>maxW && ln){ bx.fillText(ln,x,yy); ln=p; yy+=(lh||18); }
+    else ln=pr;
+  }
+  if(ln) bx.fillText(ln,x,yy);
+  return yy;
+}
+const PX={x:706,y:70,w:300};
+function rpanel(h){
+  bx.fillStyle='rgba(13,18,26,0.92)'; bx.strokeStyle='rgba(138,180,248,0.22)'; bx.lineWidth=1.5;
+  bx.beginPath(); bx.roundRect(PX.x,PX.y,PX.w,h,12); bx.fill(); bx.stroke();
+}
+function prow(y,k,v,col){
+  texto(k,PX.x+14,y,'#8f9bb0',14,'left','500');
+  texto(v,PX.x+PX.w-14,y,col||'#dbe4f0',15,'right','700');
+}
+function title2(t,sub){
+  texto(t,44,52,'#eaf1fb',26,'left','800');
+  if(sub) texto(sub,44,78,'#8f9bb0',15,'left','500');
+}
+function nota(t,y){ wrapText(t,44,y,620,19,'#8f9bb0',14); }
+function hbar(x,y,w,h,frac,col,bgc){
+  bx.fillStyle=bgc||'rgba(255,255,255,0.06)';
+  bx.beginPath(); bx.roundRect(x,y,w,h,h/2); bx.fill();
+  const f=Math.max(0,Math.min(1,frac));
+  if(f>0){ bx.fillStyle=col||AZUL; bx.beginPath(); bx.roundRect(x,y,Math.max(h,w*f),h,h/2); bx.fill(); }
+}
+function marca(x,y,ok){
+  bx.strokeStyle=ok?OK_HEX:BAD_HEX; bx.lineWidth=2.4; bx.beginPath();
+  if(ok){ bx.moveTo(x-6,y); bx.lineTo(x-2,y+5); bx.lineTo(x+7,y-6); }
+  else  { bx.moveTo(x-5,y-5); bx.lineTo(x+6,y+6); bx.moveTo(x+6,y-5); bx.lineTo(x-5,y+6); }
+  bx.stroke();
+}
+const colOk=b=>b?OK_HEX:BAD_HEX;
+function tabla(x,y,cols,rows,anchos,colFn){
+  let yy=y;
+  cols.forEach((c,i)=>texto(c,x+anchos.slice(0,i).reduce((a,b)=>a+b,0),yy,'#7f8b9c',13,'left','700'));
+  yy+=8; linea(x,yy,x+anchos.reduce((a,b)=>a+b,0)-10,yy,'#243043',1); yy+=18;
+  rows.forEach((r,ri)=>{
+    r.forEach((c,ci)=>texto(c,x+anchos.slice(0,ci).reduce((a,b)=>a+b,0),yy,
+      (colFn&&colFn(ri,ci))||'#c8d3e2',14,'left','600'));
+    yy+=22;
+  });
+  return yy;
+}
+
+// ===================== 6. VISTAS DEL PIZARRÓN =====================
+function ejes(P,xmin,xmax,ymin,ymax,rotX,rotY,fmtX,fmtY,nx,ny){
+  const NX=nx||6, NY=ny||5;
+  bx.fillStyle='rgba(10,14,20,0.72)';
+  bx.beginPath(); bx.roundRect(P.x-52,P.y-18,P.w+72,P.h+72,10); bx.fill();
+  bx.strokeStyle='rgba(138,180,248,0.10)'; bx.lineWidth=1;
+  for(let i=0;i<=NX;i++){ const x=P.x+P.w*i/NX; bx.beginPath(); bx.moveTo(x,P.y); bx.lineTo(x,P.y+P.h); bx.stroke(); }
+  for(let i=0;i<=NY;i++){ const y=P.y+P.h*i/NY; bx.beginPath(); bx.moveTo(P.x,y); bx.lineTo(P.x+P.w,y); bx.stroke(); }
+  linea(P.x,P.y+P.h,P.x+P.w,P.y+P.h,'#3a465c',1.5);
+  linea(P.x,P.y,P.x,P.y+P.h,'#3a465c',1.5);
+  for(let i=0;i<=NX;i++){ const v=xmin+(xmax-xmin)*i/NX;
+    texto(fmtX?fmtX(v):f1(v,1),P.x+P.w*i/NX,P.y+P.h+20,'#7f8b9c',12,'center','600'); }
+  for(let i=0;i<=NY;i++){ const v=ymin+(ymax-ymin)*(NY-i)/NY;
+    texto(fmtY?fmtY(v):f1(v,1),P.x-8,P.y+P.h*i/NY+4,'#7f8b9c',12,'right','600'); }
+  if(rotX) texto(rotX,P.x+P.w/2,P.y+P.h+44,'#8f9bb0',13,'center','700');
+  if(rotY){ bx.save(); bx.translate(P.x-42,P.y+P.h/2); bx.rotate(-Math.PI/2);
+    texto(rotY,0,0,'#8f9bb0',13,'center','700'); bx.restore(); }
+  return { X:v=>P.x+P.w*(v-xmin)/(xmax-xmin), Y:v=>P.y+P.h-P.h*(v-ymin)/(ymax-ymin) };
+}
+function punteo(x,y,col,r){
+  bx.fillStyle=col||AZUL; bx.beginPath(); bx.arc(x,y,r||5,0,Math.PI*2); bx.fill();
+  bx.strokeStyle='#080b11'; bx.lineWidth=1.5; bx.stroke();
+}
+function banda(A,x1,x2,y1,y2,col){
+  bx.fillStyle=col; bx.fillRect(A.X(x1),A.Y(y2),A.X(x2)-A.X(x1),A.Y(y1)-A.Y(y2));
+}
+function leyenda(x,y,items){
+  let xx=x;
+  items.forEach(it=>{
+    linea(xx,y-5,xx+22,y-5,it[1],3,it[2]||[]);
+    texto(it[0],xx+28,y,'#a9b6c8',13,'left','600');
+    xx += 28 + bx.measureText(it[0]).width + 22;
+  });
+}
+const pcm = x => Number.isFinite(x) ? ((x>=0?'+':'')+pc1(x)) : '—';
+
+// Panel derecho compartido: la configuración y su veredicto
+function panelPunto(p,alto){
+  rpanel(alto||430);
+  let y=PX.y+30;
+  texto('CONFIGURACIÓN',PX.x+14,y,'#8ab4f8',13,'left','800'); y+=26;
+  prow(y,'acumulador',ACUM_ROT[p.ak]); y+=23;
+  prow(y,'botellas de N₂',p.nbot?(p.nbot+' × '+f1(V_BOT,0)+' L'):'ninguna'); y+=23;
+  prow(y,'volumen total V_T',f1(p.vT,2)+' L'); y+=23;
+  prow(y,'precarga a 20 °C',f1(100*p.prec,0)+' % · '+f1(pman(p.p0Ref),2)+' bar'); y+=23;
+  prow(y,'p₀ en frío / caliente',f1(pman(p.p0Fri),1)+' / '+f1(pman(p.p0Cal),1)+' bar'); y+=23;
+  prow(y,'p₀ dentro de un año',f1(pman(p.p0Der),1)+' bar'); y+=30;
+  texto('VEREDICTO',PX.x+14,y,'#8ab4f8',13,'left','800'); y+=26;
+  prow(y,p.rotFun,f1(p.val,3)+' '+p.unidad,colOk(p.okFunc)); y+=23;
+  prow(y,'objetivo',(FAENAS[p.fk].sentido==='ge'?'≥ ':'≤ ')+f1(p.req,3)+' '+p.unidad); y+=23;
+  prow(y,'margen',pcm(p.margen),colOk(p.margen>=0)); y+=23;
+  prow(y,'coste del conjunto',p.coste+' u'); y+=30;
+  CRIT.forEach(c=>{
+    texto(CRIT_ROT[c],PX.x+34,y,p[c]?'#c8d3e2':BAD_HEX,13,'left','600');
+    marca(PX.x+20,y-5,p[c]); y+=21;
+  });
+  return y;
+}
+
+// ---- vista GAS: la ley politrópica ----
+function drawGas(){
+  const c=cfgDe(mode), G=gasInfo(), C=G.C, F=G.F;
+  title2('El nitrógeno es el resorte',ACUM_ROT[c.ak]+' · '+F.rot+' · p·Vⁿ = constante');
+  const P={x:118,y:118,w:520,h:330};
+  const ymax=pman(G.p2a)*1.25, xmax=C.vT*1.03;
+  const A=ejes(P,0,xmax,0,ymax,'volumen de gas (L)','presión (bar)',
+    v=>f1(v,1),v=>f1(v,0),6,5);
+  if(C.vBot>0) banda(A,0,C.vBot,0,ymax,'rgba(255,107,107,0.10)');
+  banda(A,G.vg2,G.vg1,pman(G.p1a),pman(G.p2a),'rgba(224,163,62,0.18)');
+  const COLN={ '1':CIAN, '1.2':VIO, '1.4':NARANJA };
+  [N_ISO,N_POL,N_ADI].forEach(n=>{
+    const col=COLN[String(n)], sel=Math.abs(n-G.n)<1e-9;
+    const vLow=Math.max(C.vBot,C.vT*Math.pow(G.p0/(ymax+P_ATM),1/n),xmax*0.012);
+    const pts=[];
+    for(let i=0;i<=180;i++){
+      const v=vLow+(C.vT-vLow)*i/180;
+      pts.push([A.X(v),A.Y(G.p0*Math.pow(C.vT/v,n)-P_ATM)]);
+    }
+    curva(pts,col,sel?3:1.6,sel?[]:[6,5]);
+  });
+  linea(A.X(0),A.Y(pman(G.p1a)),A.X(xmax),A.Y(pman(G.p1a)),'#5b6678',1,[5,5]);
+  linea(A.X(0),A.Y(pman(G.p2a)),A.X(xmax),A.Y(pman(G.p2a)),'#5b6678',1,[5,5]);
+  texto('p₁ = '+f1(F.p1,0)+' bar',A.X(xmax)-6,A.Y(pman(G.p1a))-8,'#8f9bb0',13,'right','700');
+  texto('p₂ = '+f1(F.p2,0)+' bar',A.X(xmax)-6,A.Y(pman(G.p2a))-8,'#8f9bb0',13,'right','700');
+  punteo(A.X(G.vg1),A.Y(pman(G.p1a)),AMBAR,6);
+  punteo(A.X(G.vg2),A.Y(pman(G.p2a)),AMBAR,6);
+  texto('ΔV = '+f1(G.dv,3)+' L',A.X((G.vg1+G.vg2)/2),A.Y(pman(G.p1a))+22,AMBAR,15,'center','800');
+  if(C.vBot>0) texto('gas atrapado en las botellas',A.X(C.vBot/2),P.y+P.h-10,'rgba(255,107,107,0.75)',12,'center','700');
+  leyenda(118,504,[['n = 1,0 isotermo',CIAN,[6,5]],['n = 1,2 politrópico',VIO,[6,5]],['n = 1,4 adiabático',NARANJA,[6,5]]]);
+  const filas=[N_ISO,N_POL,N_ADI].map(n=>{
+    const g=gasInfo(n);
+    return [f1(n,1),f1(g.vg2,3)+' L',f1(g.vg1,3)+' L',f1(g.dv,3)+' L',
+      (Math.abs(n-N_ISO)<1e-9?'—':pcm(g.dv/gasInfo(N_ISO).dv-1))];
+  });
+  tabla(118,556,['n','V gas a p₂','V gas a p₁','ΔV entregado','frente al isotermo'],
+    filas,[70,140,140,140,150],(ri,ci)=>Math.abs([N_ISO,N_POL,N_ADI][ri]-G.n)<1e-9?AZUL:null);
+  nota('El mismo acumulador entrega menos aceite cuanto más deprisa trabaja: el nitrógeno se calienta al '+
+       'comprimirse y se enfría al expandirse, y ese calor que no da tiempo a salir se paga en volumen. '+
+       'La banda ámbar es todo lo que este montaje puede dar entre p₁ y p₂.',676);
+  rpanel(300);
+  let y=PX.y+30;
+  texto('LECTURA DEL GAS',PX.x+14,y,'#8ab4f8',13,'left','800'); y+=26;
+  prow(y,'acumulador',ACUM_ROT[c.ak]); y+=23;
+  prow(y,'volumen total V_T',f1(C.vT,2)+' L'); y+=23;
+  prow(y,'volumen muerto V_bot',f1(C.vBot,2)+' L'); y+=23;
+  prow(y,'p₀ rotulada a 20 °C',f1(pman(G.p0Ref),2)+' bar'); y+=23;
+  prow(y,'p₀ efectiva a '+f1(F.tMin,0)+' °C',f1(pman(G.p0),2)+' bar'); y+=30;
+  prow(y,'índice n en estudio',f1(G.n,1),AZUL); y+=23;
+  prow(y,'V gas a p₂',f1(G.vg2,3)+' L'); y+=23;
+  prow(y,'V gas a p₁',f1(G.vg1,3)+' L'); y+=23;
+  prow(y,'ΔV entregado',f1(G.dv,3)+' L',AMBAR); y+=30;
+  prow(y,'a p₁ el gas',EST_ROT[G.est1],G.est1==='ok'?OK_HEX:BAD_HEX); y+=23;
+  prow(y,'a p₂ el gas',EST_ROT[G.est2],G.est2==='ok'?OK_HEX:BAD_HEX);
+}
+
+// ---- vista FAENA: qué le pide el circuito al acumulador ----
+function avisoTope(P,txt){
+  bx.fillStyle='rgba(255,107,107,0.10)'; bx.fillRect(P.x,P.y,P.w,P.h);
+  wrapText(txt,P.x+24,P.y+P.h/2-10,P.w-48,22,'#ff9d9d',16);
+}
+function drawFaena(){
+  const p=CUR, F=FAENAS[p.fk], d=p.det, n=F.n;
+  const C=conjunto(p.ak,p.nbot);
+  const pLo=p.p1a+p.dpFric, pHi=p.p2a-p.dpFric;
+  title2(F.rot,ACUM_ROT[p.ak]+' · precarga '+f1(100*p.prec,0)+' % · n = '+f1(n,1));
+
+  if(p.fk==='emerg'){
+    const P={x:118,y:118,w:520,h:330};
+    const xmax=Math.max(p.req,Number.isFinite(p.val)?p.val:0)*1.35;
+    const ymax=pman(pHi)*1.18;
+    const A=ejes(P,0,xmax,0,ymax,'aceite ya entregado (L)','presión del gas (bar)',
+      v=>f1(v,1),v=>f1(v,0),6,5);
+    banda(A,0,Math.min(p.req,xmax),0,ymax,'rgba(124,217,146,0.08)');
+    const pts=[];
+    for(let i=0;i<=200;i++){
+      const v=xmax*i/200, pa=presionEntrega(C.vT,C.vBot,p.p0Fri,pHi,n,v);
+      if(pa<=0) break;
+      pts.push([A.X(v),A.Y(pa-P_ATM)]);
+    }
+    curva(pts,AMBAR,3);
+    linea(A.X(0),A.Y(pman(pLo)),A.X(xmax),A.Y(pman(pLo)),BAD_HEX,1.6,[6,5]);
+    texto('presión mínima útil '+f1(pman(pLo),1)+' bar',A.X(xmax)-6,A.Y(pman(pLo))-8,'#ff9d9d',13,'right','700');
+    linea(A.X(p.req),A.Y(0),A.X(p.req),A.Y(ymax),VIO,1.8,[7,5]);
+    texto('lo que pide el cilindro',A.X(p.req)+8,P.y+22,VIO,13,'left','700');
+    if(Number.isFinite(p.val)&&p.val>0){
+      linea(A.X(p.val),A.Y(0),A.X(p.val),A.Y(pman(pLo)),colOk(p.okFunc),2,[]);
+      punteo(A.X(p.val),A.Y(pman(pLo)),colOk(p.okFunc),6);
+      texto(f1(p.val,3)+' L',A.X(p.val)+8,A.Y(pman(pLo))+22,colOk(p.okFunc),14,'left','800');
+    }
+    leyenda(118,504,[['presión que queda en el gas',AMBAR],['piso útil',BAD_HEX,[6,5]],['lo exigido',VIO,[7,5]]]);
+    nota('La corona del cilindro mide '+f1(d.area*1e4,2)+' cm² y ha de recorrer '+f1(F.carrera,0)+' mm: '+
+         f1(p.req,4)+' L de aceite en '+f1(F.tDesc,1)+' s. El acumulador sólo entrega mientras su presión '+
+         'siga por encima del piso útil; por debajo el aceite se queda dentro.',560);
+    nota('Caudal pico exigido al puerto: '+f1(p.q,1)+' L/min (el acumulador admite '+f1(p.qmax,0)+' L/min).',628);
+  }
+
+  if(p.fk==='pulsa'){
+    const P={x:118,y:118,w:520,h:330};
+    const per=1/F.fPul, xmax=2*per*1000;
+    if(!Number.isFinite(d.val)){
+      ejes(P,0,xmax,F.p1,F.p2,'tiempo (ms)','presión (bar)',v=>f1(v,1),v=>f1(v,0),6,5);
+      avisoTope(P,'Con esta precarga el gas está en un tope a '+f1(F.pW,0)+' bar: o aplastado contra el plato '+
+        'o llenando todo el cuerpo. Un acumulador en un tope no es un resorte, es un tapón: no absorbe nada del pulso.');
+    } else {
+      const cen=F.pW, semi=Math.max(d.val,F.rizMax)*0.85+0.4;
+      const ymin=cen-semi, ymax=cen+semi;
+      const A=ejes(P,0,xmax,ymin,ymax,'tiempo (ms)','presión en la línea (bar)',
+        v=>f1(v,1),v=>f1(v,2),6,6);
+      banda(A,0,xmax,cen-F.rizMax/2,cen+F.rizMax/2,'rgba(124,217,146,0.10)');
+      texto('banda tolerada '+f1(F.rizMax,1)+' bar pico a pico',A.X(xmax)-8,A.Y(cen+F.rizMax/2)-8,'rgba(124,217,146,0.85)',12,'right','700');
+      const pts=[];
+      for(let i=0;i<=300;i++){
+        const t=xmax*i/300, s=Math.sin(2*Math.PI*F.fPul*t/1000);
+        pts.push([A.X(t),A.Y(presionRizado(d.vg,pabs(F.pW),n,F.dV/1000,s)-P_ATM)]);
+      }
+      curva(pts,CIAN,3);
+      linea(A.X(0),A.Y(pman(d.pMax)),A.X(xmax),A.Y(pman(d.pMax)),colOk(p.okFunc),1.4,[5,5]);
+      linea(A.X(0),A.Y(pman(d.pMin)),A.X(xmax),A.Y(pman(d.pMin)),colOk(p.okFunc),1.4,[5,5]);
+      texto('rizado real '+f1(d.val,3)+' bar',A.X(xmax)-8,A.Y(pman(d.pMax))-8,colOk(p.okFunc),14,'right','800');
+      texto('estimación lineal de catálogo '+f1(d.lin,3)+' bar',A.X(0)+10,A.Y(ymin)-10,'#8f9bb0',12,'left','600');
+      leyenda(118,504,[['presión instantánea',CIAN],['pico y valle',colOk(p.okFunc),[5,5]]]);
+      nota('La bomba de tres pistones desplaza '+f1(F.dV,1)+' cm³ por pulso a '+f1(F.fPul,1)+' Hz. El acumulador '+
+           'los absorbe con el gas que tiene a '+f1(F.pW,0)+' bar: '+f1(d.vg,3)+' L. La curva pVⁿ no es simétrica: '+
+           'comprimir cuesta más que expandir, y el pico se sale un '+
+           f1(100*((pman(d.pMax)-F.pW)/(F.pW-pman(d.pMin))-1),2)+' % más que el valle. Por eso la fórmula lineal '+
+           'de catálogo ('+f1(d.lin,3)+' bar) se queda por debajo del rizado real ('+f1(d.val,3)+' bar).',560);
+      nota('Un pulso dura '+f1(1000*per,2)+' ms; el separador de este acumulador responde en '+
+           f1(1000*p.tResp,1)+' ms y la faena exige '+f1(1000*F.tRespReq,0)+' ms.',652);
+    }
+  }
+
+  if(p.fk==='ariete'){
+    const ymax=Math.max(d.sinAcum,F.pLim)*1.10;
+    const barras=[
+      ['presión de régimen',F.p1,GRIS],
+      ['pico CON acumulador',p.val,colOk(p.okFunc)],
+      ['pico SIN acumulador',d.sinAcum,BAD_HEX],
+      ['límite de la instalación',F.pLim,VIO],
+    ];
+    let yy=136;
+    barras.forEach(b=>{
+      const v=Number.isFinite(b[1])?b[1]:ymax;
+      texto(b[0],118,yy-6,'#a9b6c8',14,'left','700');
+      hbar(118,yy,520,20,v/ymax,b[2]);
+      texto(Number.isFinite(b[1])?f1(b[1],2)+' bar':'sin control',648,yy+16,b[2],15,'left','800');
+      yy+=58;
+    });
+    linea(118+520*F.pLim/ymax,120,118+520*F.pLim/ymax,yy-40,VIO,1.6,[6,5]);
+    const P={x:118,y:400,w:520,h:210};
+    if(Number.isFinite(p.val)&&d.vf){
+      const v1=d.vg*1000, v2=d.vf*1000;
+      const A=ejes(P,v2*0.96,v1*1.02,F.p1*0.98,ymax,'volumen de gas (L)','presión (bar)',
+        v=>f1(v,3),v=>f1(v,0),5,4);
+      const pts=[];
+      for(let i=0;i<=160;i++){
+        const v=v2+(v1-v2)*i/160;
+        pts.push([A.X(v),A.Y(pabs(F.p1)*Math.pow(v1/v,n)-P_ATM)]);
+      }
+      curva(pts,NARANJA,3);
+      const pFondo=pabs(F.p1)*Math.pow(v1/v2,n)-P_ATM;
+      if(Math.abs(pFondo-p.val)>1e-9){
+        linea(A.X(v2),A.Y(pFondo),A.X(v2),A.Y(p.val),BAD_HEX,3,[5,4]);
+        texto('el acumulador toca fondo: el resto lo absorbe el aceite',A.X(v2)+10,A.Y(p.val)-8,'#ff9d9d',12,'left','700');
+      }
+      punteo(A.X(v1),A.Y(F.p1),GRIS,6);
+      punteo(A.X(v2),A.Y(p.val),colOk(p.okFunc),6);
+      texto('el gas se comprime de '+f1(v1,3)+' a '+f1(v2,3)+' L',A.X(v1),A.Y(F.p1)-14,'#8f9bb0',13,'right','700');
+    } else {
+      ejes(P,0,1,0,1,'volumen de gas (L)','presión (bar)',v=>f1(v,2),v=>f1(v,0),5,4);
+      avisoTope(P,'Con esta precarga el gas no respira a '+f1(F.p1,0)+' bar, así que no hay nada que comprimir: '+
+        'el golpe llega entero a la instalación.');
+    }
+    nota('El aceite corre a '+f1(d.vel,3)+' m/s por un tubo de '+f1(F.dTubo,0)+'×'+f1(F.eTubo,0)+' mm. '+
+         'La onda viaja a '+f1(d.cel,0)+' m/s (Korteweg: el tubo elástico la frena frente a los '+
+         f1(Math.sqrt(K_OIL/RHO_OIL),0)+' m/s del aceite libre) y tarda '+f1(1000*d.tReflejo,1)+' ms en ir y volver, '+
+         'mientras la válvula cierra en '+f1(1000*F.tCierre,0)+' ms: por eso el golpe se desarrolla entero.',640);
+    nota('Joukowsky Δp = ρ·c·v = '+f1(d.dpJ,2)+' bar; la energía cinética atrapada en la línea es '+
+         f1(d.Ek,1)+' J y es lo que el gas tiene que tragar.',700);
+  }
+
+  if(p.fk==='termica'){
+    const P={x:118,y:118,w:520,h:330};
+    const ymax=Math.max(d.sinAcum,F.pLim)*1.06, ymin=F.p1*0.94;
+    const A=ejes(P,F.tMin,F.tMax,ymin,ymax,'temperatura del aceite (°C)','presión (bar)',
+      v=>f1(v,0),v=>f1(v,0),7,5);
+    banda(A,F.tMin,F.tMax,ymin,F.pLim,'rgba(124,217,146,0.07)');
+    const sin=[],con=[];
+    for(let i=0;i<=120;i++){
+      const t=F.tMin+(F.tMax-F.tMin)*i/120;
+      sin.push([A.X(t),A.Y(F.p1+(d.sinAcum-F.p1)*(t-F.tMin)/(F.tMax-F.tMin))]);
+      con.push([A.X(t),A.Y(presionTermicaEn(p.ak,p.nbot,p.p0Fri,t))]);
+    }
+    curva(sin,BAD_HEX,2.4,[7,5]);
+    curva(con,CIAN,3);
+    linea(A.X(F.tMin),A.Y(F.pLim),A.X(F.tMax),A.Y(F.pLim),VIO,1.8,[6,5]);
+    texto('límite de la instalación '+f1(F.pLim,0)+' bar',A.X(F.tMax)-6,A.Y(F.pLim)-8,VIO,13,'right','700');
+    punteo(A.X(F.tMax),A.Y(p.val),colOk(p.okFunc),6);
+    texto(f1(p.val,2)+' bar',A.X(F.tMax)-6,A.Y(p.val)+22,colOk(p.okFunc),15,'right','800');
+    texto(f1(d.sinAcum,0)+' bar',A.X(F.tMax)-6,A.Y(Math.min(d.sinAcum,ymax))+18,BAD_HEX,14,'right','800');
+    leyenda(118,504,[['circuito sellado sin acumulador',BAD_HEX,[7,5]],['con acumulador',CIAN]]);
+    nota('El aceite dilata β = '+f1(BETA_OIL*1e4,1)+'·10⁻⁴ K⁻¹ y comprime con K = '+f1(K_OIL/1e9,2)+' GPa. '+
+         'Los '+f1(F.vOil,1)+' L atrapados crecen '+f1(d.dvOil*1000,2)+' cm³ al subir '+f1(F.tMax-F.tMin,0)+' °C. '+
+         'Sin acumulador esos centímetros cúbicos sólo caben comprimiendo el propio aceite, y eso cuesta '+
+         f1(d.sinAcum-F.p1,0)+' bar. El acumulador ofrece '+f1(d.vg0,3)+' L de gas donde meterlos.',560);
+    nota('Aquí n = 1: el calentamiento dura '+f1(F.tCalent/60,0)+' min y el gas tiene tiempo de sobra para '+
+         'ceder su calor. La misma precarga sube también con la temperatura (Gay-Lussac) y ayuda menos de lo que parece.',652);
+  }
+
+  if(p.fk==='fugas'){
+    const P={x:118,y:118,w:520,h:330};
+    const xmax=Math.max(F.tReq,Number.isFinite(p.val)?p.val:0)*1.30;
+    const ymax=pman(pHi)*1.15;
+    const A=ejes(P,0,xmax,0,ymax,'tiempo con la bomba parada (h)','presión del amarre (bar)',
+      v=>f1(v,1),v=>f1(v,0),6,5);
+    banda(A,0,Math.min(F.tReq,xmax),0,ymax,'rgba(255,107,107,0.08)');
+    const pts=[];
+    for(let i=0;i<=220;i++){
+      const t=xmax*i/220, vEnt=F.qFuga*(t*60)/1000;
+      const pa=presionEntrega(C.vT,C.vBot,p.p0Fri,pHi,n,vEnt);
+      if(pa<=0) break;
+      pts.push([A.X(t),A.Y(pa-P_ATM)]);
+    }
+    curva(pts,AMBAR,3);
+    linea(A.X(0),A.Y(pman(pLo)),A.X(xmax),A.Y(pman(pLo)),BAD_HEX,1.6,[6,5]);
+    texto('el amarre se suelta por debajo de '+f1(pman(pLo),1)+' bar',A.X(xmax)-6,A.Y(pman(pLo))-8,'#ff9d9d',13,'right','700');
+    linea(A.X(F.tReq),A.Y(0),A.X(F.tReq),A.Y(ymax),VIO,1.8,[7,5]);
+    texto('turno exigido '+f1(F.tReq,0)+' h',A.X(F.tReq)+8,P.y+22,VIO,13,'left','700');
+    if(Number.isFinite(p.val)&&p.val>0){
+      punteo(A.X(Math.min(p.val,xmax)),A.Y(pman(pLo)),colOk(p.okFunc),6);
+      texto(f1(p.val,2)+' h',A.X(Math.min(p.val,xmax))+8,A.Y(pman(pLo))+22,colOk(p.okFunc),15,'left','800');
+    }
+    leyenda(118,504,[['presión del amarre',AMBAR],['piso útil',BAD_HEX,[6,5]],['turno exigido',VIO,[7,5]]]);
+    nota('La fuga interna del circuito es de '+f1(F.qFuga,0)+' cm³/min. El acumulador entrega '+f1(d.dv,3)+' L '+
+         'entre '+f1(F.p2,0)+' y '+f1(F.p1,0)+' bar, y eso es lo que dura el amarre. Aquí n = 1 porque la descarga '+
+         'tarda horas: el gas se mantiene a la temperatura del taller.',560);
+    nota('Añadir botellas de transferencia agranda el volumen de gas sin tocar el cuerpo del acumulador, '+
+         'pero el aceite sólo cabe en el cuerpo: pasada cierta cifra el gas ya no puede empujar más.',628);
+  }
+  panelPunto(p);
+}
+
+// ---- vista PRECARGA: la ventana tiene dos lados ----
+function drawPrecarga(){
+  const c=cfgDe(mode), F=FAENAS[c.fk], p=CUR;
+  title2('La ventana de precarga',ACUM_ROT[c.ak]+' · '+F.rot+' · barrido de p₀ a volumen y botellas fijos');
+  const P={x:118,y:118,w:520,h:330};
+  const NS=71, prMin=0.35, prMax=1.05, paso=(prMax-prMin)/(NS-1);
+  const muestra=[];
+  for(let i=0;i<NS;i++) muestra.push(punto(c.fk,c.ak,prMin+paso*i,c.nbot));
+  const fin=muestra.map(q=>q.val).filter(Number.isFinite);
+  const vMax=fin.length?Math.max.apply(null,fin):p.req;
+  const vMin=fin.length?Math.min.apply(null,fin):p.req;
+  const ymax=Math.min(Math.max(p.req*1.25,vMax),p.req*3);
+  const ymin=Math.max(0,Math.min(p.req,vMin)*0.80);
+  const A=ejes(P,prMin,prMax,ymin,ymax,'precarga rotulada a 20 °C (fracción de p₁)',
+    p.rotFun+' ('+p.unidad+')',v=>f1(100*v,0)+' %',v=>f1(v,2),7,5);
+  for(let i=0;i<NS-1;i++) if(muestra[i].valida&&muestra[i+1].valida)
+    banda(A,muestra[i].prec,muestra[i+1].prec,ymin,ymax,'rgba(124,217,146,0.10)');
+  const LANES=[['okPlato',BAD_HEX],['okRC',VIO],['okFunc',NARANJA],['okDeriva',WARN_HEX]];
+  LANES.forEach((L,li)=>{
+    const yy=P.y+8+li*17;
+    texto(CRIT_ROT[L[0]],P.x+P.w+8,yy+11,L[1],11,'left','700');
+    for(let i=0;i<NS-1;i++) if(!muestra[i][L[0]]){
+      bx.fillStyle=L[1]+'55';
+      bx.fillRect(A.X(muestra[i].prec),yy,A.X(muestra[i+1].prec)-A.X(muestra[i].prec)+1,12);
+    }
+  });
+  curva(muestra.map(q=>[A.X(q.prec),A.Y(clamp(Number.isFinite(q.val)?q.val:ymax*9,ymin,ymax))]),AZUL,3);
+  linea(A.X(prMin),A.Y(p.req),A.X(prMax),A.Y(p.req),VIO,1.8,[6,5]);
+  texto('objetivo '+(F.sentido==='ge'?'≥ ':'≤ ')+f1(p.req,3)+' '+p.unidad,
+    A.X(prMax)-6,A.Y(p.req)-8,VIO,13,'right','700');
+  PRECARGAS.forEach(pr=>{
+    const q=punto(c.fk,c.ak,pr,c.nbot);
+    punteo(A.X(pr),A.Y(clamp(Number.isFinite(q.val)?q.val:ymax*9,ymin,ymax)),q.valida?OK_HEX:'#6b7688',4);
+  });
+  linea(A.X(p.prec),A.Y(ymin),A.X(p.prec),A.Y(ymax),AMBAR,2,[]);
+  texto('aquí estás',A.X(p.prec)+8,A.Y(ymin)-10,AMBAR,13,'left','800');
+  leyenda(118,504,[['la faena frente a la precarga',AZUL],['objetivo',VIO,[6,5]]]);
+  const vent=muestra.filter(q=>q.valida);
+  nota(vent.length
+    ? ('Con este acumulador la ventana va del '+f1(100*vent[0].prec,1)+' % al '+
+       f1(100*vent[vent.length-1].prec,1)+' % de p₁. Por arriba manda el plato: la precarga sube con la '+
+       'temperatura y a '+f1(F.tMax,0)+' °C no puede empujar el separador contra el plato. Por abajo mandan la '+
+       'relación de compresión en frío y la fuga de un año, que se lleva el '+f1(100*PERM_ANUAL,0)+' % del gas '+
+       'más los '+f1(TOL_KIT,0)+' bar de tolerancia del kit de carga.')
+    : ('Con este acumulador no hay ninguna precarga válida: el problema no es el ajuste, es la elección del '+
+       'aparato. Cambia de modelo en el catálogo o añade volumen.'),556);
+  nota('El barrido recalcula la faena entera en cada punto; los círculos son las siete precargas que el kit '+
+       'de carga sabe ajustar de verdad.',648);
+  panelPunto(p);
+}
+
+// ---- vista CATÁLOGO: elegir aparato ----
+function drawCatalogo(){
+  const c=cfgDe(mode), F=FAENAS[c.fk], p=CUR;
+  title2('Catálogo de acumuladores',F.rot+' · precarga '+f1(100*c.prec,0)+' % · '+
+    (c.nbot?c.nbot+' botella'+(c.nbot>1?'s':''):'sin botellas'));
+  const filas=[], qs=[];
+  ACUM_KEYS.forEach(ak=>{
+    const q=punto(c.fk,ak,c.prec,c.nbot); qs.push(q);
+    filas.push([ACUM_ROT[ak],TIPOS[q.tipo].rot,f1(q.v0,2),f1(q.ps,0),f1(q.qmax,0),
+      String(q.coste),f1(q.val,3),q.valida?'✓':'✗']);
+  });
+  tabla(44,128,['modelo','separador','V₀ (L)','PS (bar)','Q (L/min)','coste',p.rotFun,''],
+    filas,[150,96,64,72,80,60,96,30],(ri,ci)=>{
+      if(ci===7) return colOk(qs[ri].valida);
+      if(ci===6) return colOk(qs[ri].okFunc);
+      if(ACUM_KEYS[ri]===c.ak) return AZUL;
+      return null;
+    });
+  nota('Sólo son válidos los modelos con ✓: cumplir la faena no basta, hay que sobrevivir al plato en caliente, '+
+       'a la relación de compresión en frío, a la presión máxima admisible, al caudal de paso, al tiempo de '+
+       'respuesta del separador y a la fuga de un año.',612);
+  const P={x:756,y:452,w:220,h:200};
+  const cs=qs.map(q=>q.coste), vs=qs.map(q=>q.val).filter(Number.isFinite);
+  const cmax=Math.max.apply(null,cs)*1.10;
+  const vtop=Math.min(Math.max.apply(null,vs.concat([p.req*1.2])),p.req*3);
+  const A=ejes(P,0,cmax,0,vtop,'coste (u)',p.unidad,v=>f1(v,0),v=>f1(v,1),4,4);
+  linea(A.X(0),A.Y(p.req),A.X(cmax),A.Y(p.req),VIO,1.4,[5,4]);
+  qs.forEach((q,i)=>{
+    const y=A.Y(clamp(Number.isFinite(q.val)?q.val:vtop*9,0,vtop));
+    punteo(A.X(q.coste),y,q.valida?OK_HEX:'#5d6675',ACUM_KEYS[i]===c.ak?7:4);
+  });
+  texto('coste frente a prestación',P.x,P.y-26,'#8f9bb0',13,'left','700');
+  rpanel(322);
+  let y=PX.y+30;
+  texto('MODELO SELECCIONADO',PX.x+14,y,'#8ab4f8',13,'left','800'); y+=26;
+  prow(y,'modelo',ACUM_ROT[c.ak],AZUL); y+=23;
+  prow(y,'separador',TIPOS[p.tipo].rot); y+=23;
+  prow(y,'volumen V₀',f1(p.v0,2)+' L'); y+=23;
+  prow(y,'relación de compresión',f1(p.rcReal,2)+' ≤ '+f1(p.rc,0),colOk(p.okRC)); y+=23;
+  prow(y,'presión admisible',f1(F.p2,0)+' ≤ '+f1(p.ps,0)+' bar',colOk(p.okPS)); y+=23;
+  prow(y,'caudal de paso',f1(p.q,1)+' ≤ '+f1(p.qmax,0)+' L/min',colOk(p.okQ)); y+=23;
+  prow(y,'respuesta del separador',f1(1000*p.tResp,0)+' ≤ '+f1(1000*F.tRespReq,0)+' ms',colOk(p.okResp)); y+=23;
+  prow(y,'fricción del separador',f1(p.dpFric,1)+' bar'); y+=30;
+  prow(y,p.rotFun,f1(p.val,3)+' '+p.unidad,colOk(p.okFunc)); y+=23;
+  prow(y,'coste del conjunto',p.coste+' u'); y+=23;
+  prow(y,'veredicto',p.valida?'válido':'no sirve',colOk(p.valida));
+  wrapText(TIPOS[p.tipo].nota,PX.x+14,y+34,PX.w-28,18,'#8f9bb0',13);
+}
+
+// ---- vista RETO ----
+function drawReto(){
+  const p=CUR, F=FAENAS[RETO.cfg.fk];
+  title2('Reto · '+F.rot,'elige el conjunto MÁS BARATO que cumpla los siete criterios');
+  bx.fillStyle='rgba(138,180,248,0.08)'; bx.strokeStyle='rgba(138,180,248,0.28)'; bx.lineWidth=1.5;
+  bx.beginPath(); bx.roundRect(44,110,620,116,12); bx.fill(); bx.stroke();
+  wrapText('El circuito trabaja entre '+f1(F.p1,0)+' y '+f1(F.p2,0)+' bar, entre '+f1(F.tMin,0)+' y '+
+    f1(F.tMax,0)+' °C, con n = '+f1(F.n,1)+'. Hace falta '+(F.sentido==='ge'?'al menos ':'como mucho ')+
+    f1(p.req,3)+' '+p.unidad+' de '+p.rotFun+'. Ajusta modelo, precarga y botellas.',
+    64,140,584,22,'#dbe4f0',15);
+  texto('configuraciones válidas que existen: '+RETO.nval,64,208,'#8f9bb0',13,'left','700');
+  let y=272;
+  texto('TU INTENTO',44,y,'#8ab4f8',14,'left','800'); y+=30;
+  const ejesRot=[['acumulador',ACUM_ROT[p.ak]],['precarga a 20 °C',f1(100*p.prec,0)+' % · '+f1(pman(p.p0Ref),2)+' bar'],
+    ['botellas de N₂',p.nbot?(p.nbot+' × '+f1(V_BOT,0)+' L'):'ninguna']];
+  ejesRot.forEach(r=>{ texto(r[0],64,y,'#8f9bb0',14,'left','600');
+    texto(r[1],380,y,'#dbe4f0',15,'left','700'); y+=28; });
+  y+=14;
+  texto(p.rotFun,64,y,'#8f9bb0',14,'left','600');
+  texto(f1(p.val,3)+' '+p.unidad+'   ('+(F.sentido==='ge'?'≥ ':'≤ ')+f1(p.req,3)+')',380,y,colOk(p.okFunc),15,'left','800');
+  y+=18; hbar(64,y,560,14,Number.isFinite(p.val)?(F.sentido==='ge'?p.val/p.req:p.req/Math.max(p.val,1e-9)):0,colOk(p.okFunc));
+  y+=44;
+  texto('CRITERIOS',44,y,'#8ab4f8',14,'left','800'); y+=28;
+  CRIT.forEach((c,i)=>{
+    const xx=44+(i%2)*310, yy=y+Math.floor(i/2)*26;
+    marca(xx+12,yy-5,p[c]);
+    texto(CRIT_ROT[c],xx+28,yy,p[c]?'#c8d3e2':'#ff9d9d',13,'left','600');
+  });
+  y+=Math.ceil(CRIT.length/2)*26+18;
+  texto('coste del conjunto: '+p.coste+' u',44,y,p.valida?OK_HEX:'#8f9bb0',16,'left','800');
+  if(RETO.msg) wrapText(RETO.msg,44,y+30,620,20,solved?OK_HEX:'#8f9bb0',14);
+  panelPunto(p);
+}
+
+function paint(){
+  bg();
+  if(mode==='gas') drawGas();
+  else if(mode==='faena') drawFaena();
+  else if(mode==='precarga') drawPrecarga();
+  else if(mode==='catalogo') drawCatalogo();
+  else drawReto();
+  btex.needsUpdate=true;
+}
+
+// ===================== 7. GRUPO 3D =====================
+const V3=(x,y,z)=>new THREE.Vector3(x,y,z);
+function tuboEntre(a,b,r,mat){
+  const dir=new THREE.Vector3().subVectors(b,a), len=dir.length();
+  const m=new THREE.Mesh(new THREE.CylinderGeometry(r,r,Math.max(len,1e-4),12),mat);
+  m.position.copy(a).addScaledVector(dir,0.5);
+  m.quaternion.setFromUnitVectors(V3(0,1,0),dir.clone().normalize());
+  return m;
+}
+function mkManometro(r,rotulo){
+  const g=new THREE.Group();
+  const caja=new THREE.Mesh(new THREE.CylinderGeometry(r,r,0.055,26),MAT.acero);
+  caja.rotation.x=Math.PI/2; g.add(caja);
+  const esf=new THREE.Mesh(new THREE.CircleGeometry(r*0.86,26),std('#101722',0.85,0.05));
+  esf.position.z=0.030; g.add(esf);
+  for(let i=0;i<=10;i++){
+    const a=Math.PI*1.25-Math.PI*1.5*i/10;
+    const t=new THREE.Mesh(new THREE.BoxGeometry(0.012,r*0.16,0.006),std('#9fb0c6',0.7,0.1));
+    t.position.set(Math.cos(a)*r*0.70,Math.sin(a)*r*0.70,0.033);
+    t.rotation.z=a-Math.PI/2; g.add(t);
+  }
+  const ag=new THREE.Mesh(new THREE.BoxGeometry(0.014,r*0.72,0.008),MAT.rojo);
+  ag.geometry.translate(0,r*0.36,0); ag.position.z=0.036; g.add(ag);
+  const cen=new THREE.Mesh(new THREE.CylinderGeometry(r*0.10,r*0.10,0.02,14),MAT.acero);
+  cen.rotation.x=Math.PI/2; cen.position.z=0.040; g.add(cen);
+  g.userData.aguja=ag; g.userData.rot=rotulo;
+  return g;
+}
+function setManometro(g,frac){
+  g.userData.aguja.rotation.z=Math.PI*0.75-Math.PI*1.5*clamp(frac,0,1);
+}
+
+const maq=new THREE.Group(); scene.add(maq);
+(function(){
+  const b=roundedBox(6.20,0.18,2.90,MAT.bancada,0.05);
+  b.position.set(2.00,0.09,0.00); maq.add(b);
+  const t=roundedBox(6.10,0.03,2.80,std('#39424f',0.75,0.20),0.02);
+  t.position.set(2.00,0.195,0.00); maq.add(t);
+})();
+
+const ACU_R=0.34, ACU_H=1.70, ACU_Y=0.22, ACU_X=0.90, ACU_Z=0.00;
+const gAcum=new THREE.Group(); gAcum.position.set(ACU_X,0,ACU_Z); maq.add(gAcum);
+const M3={};
+(function(){
+  const cu=new THREE.Mesh(new THREE.CylinderGeometry(ACU_R,ACU_R,ACU_H,30,1,true),MAT.cuerpo);
+  cu.position.y=ACU_Y+ACU_H/2; cu.userData.key='cuerpo'; gAcum.add(cu); M3.cuerpo=cu;
+  const tapa=(y,s)=>{ const t=new THREE.Mesh(new THREE.SphereGeometry(ACU_R,26,14,0,Math.PI*2,0,Math.PI/2),MAT.acero);
+    t.position.y=y; t.scale.y=s*0.55; t.userData.key='cuerpo'; gAcum.add(t); };
+  tapa(ACU_Y+ACU_H,1); tapa(ACU_Y,-1);
+  const gas=new THREE.Mesh(new THREE.CylinderGeometry(ACU_R*0.94,ACU_R*0.94,1,26),MAT.gas);
+  gas.userData.key='gas'; gAcum.add(gas); M3.gas=gas;
+  const ace=new THREE.Mesh(new THREE.CylinderGeometry(ACU_R*0.94,ACU_R*0.94,1,26),MAT.aceite);
+  ace.userData.key='aceite'; gAcum.add(ace); M3.aceite=ace;
+  const pis=roundedBox(ACU_R*1.80,0.09,ACU_R*1.80,MAT.piston,0.03);
+  pis.scale.x=1; pis.userData.key='separador'; gAcum.add(pis); M3.pis=pis;
+  const mem=new THREE.Mesh(new THREE.SphereGeometry(ACU_R*0.93,26,14),MAT.vejiga);
+  mem.scale.y=0.16; mem.userData.key='separador'; gAcum.add(mem); M3.mem=mem;
+  const vej=new THREE.Mesh(new THREE.SphereGeometry(1,26,18),MAT.vejiga);
+  vej.userData.key='separador'; gAcum.add(vej); M3.vej=vej;
+  const plato=new THREE.Mesh(new THREE.ConeGeometry(0.11,0.13,18),MAT.oro);
+  plato.position.y=ACU_Y+0.065; plato.userData.key='plato'; gAcum.add(plato); M3.plato=plato;
+  const puerto=new THREE.Mesh(new THREE.CylinderGeometry(0.075,0.075,0.24,16),MAT.tubo);
+  puerto.position.y=ACU_Y-0.12; puerto.userData.key='puerto'; gAcum.add(puerto);
+  const valv=new THREE.Mesh(new THREE.CylinderGeometry(0.055,0.055,0.16,14),MAT.oro);
+  valv.position.y=ACU_Y+ACU_H+0.20; valv.userData.key='valvulaGas'; gAcum.add(valv); M3.valvGas=valv;
+  const man=mkManometro(0.19,'manometro gas');
+  man.position.set(0.00,ACU_Y+ACU_H+0.46,ACU_R+0.02); gAcum.add(man); M3.manGas=man;
+  const sop=tuboEntre(V3(0,ACU_Y+ACU_H+0.28,0),V3(0,ACU_Y+ACU_H+0.46,ACU_R-0.06),0.028,MAT.tubo);
+  gAcum.add(sop);
+})();
+
+const BOT_R=0.185, BOT_H=1.00, BOT_Y=0.22, BOT_Z=-0.98;
+const gBot=[];
+[-0.55,0.55].forEach((dx,i)=>{
+  const g=new THREE.Group(); g.position.set(ACU_X+dx,0,BOT_Z); maq.add(g);
+  const c=new THREE.Mesh(new THREE.CylinderGeometry(BOT_R,BOT_R,BOT_H,22),MAT.acero);
+  c.position.y=BOT_Y+BOT_H/2; c.userData.key='botella'; g.add(c);
+  const cap=new THREE.Mesh(new THREE.SphereGeometry(BOT_R,20,12,0,Math.PI*2,0,Math.PI/2),MAT.acero);
+  cap.position.y=BOT_Y+BOT_H; cap.scale.y=0.6; cap.userData.key='botella'; g.add(cap);
+  const gz=new THREE.Mesh(new THREE.CylinderGeometry(BOT_R*0.88,BOT_R*0.88,BOT_H*0.90,20),MAT.gas);
+  gz.position.y=BOT_Y+BOT_H*0.47; gz.userData.key='botella'; g.add(gz);
+  const cue=new THREE.Mesh(new THREE.CylinderGeometry(0.05,0.05,0.16,12),MAT.oro);
+  cue.position.y=BOT_Y+BOT_H+0.16; g.add(cue);
+  g.add(tuboEntre(V3(0,BOT_Y+BOT_H+0.24,0),V3(-dx,ACU_Y+ACU_H+0.26,-BOT_Z),0.032,MAT.tubo));
+  gBot.push(g);
+});
+
+const gKit=new THREE.Group(); gKit.position.set(-0.20,0,0.95); maq.add(gKit);
+(function(){
+  const b=new THREE.Mesh(new THREE.CylinderGeometry(0.15,0.15,1.20,20),std('#2f6f4f',0.55,0.35));
+  b.position.y=0.82; b.userData.key='kit'; gKit.add(b);
+  const c=new THREE.Mesh(new THREE.SphereGeometry(0.15,18,12,0,Math.PI*2,0,Math.PI/2),std('#2f6f4f',0.55,0.35));
+  c.position.y=1.42; c.scale.y=0.7; c.userData.key='kit'; gKit.add(c);
+  const v=new THREE.Mesh(new THREE.CylinderGeometry(0.05,0.05,0.18,12),MAT.oro);
+  v.position.y=1.60; gKit.add(v);
+  const m=mkManometro(0.15,'manometro kit');
+  m.position.set(0.0,1.80,0.16); gKit.add(m); M3.manKit=m;
+  gKit.add(tuboEntre(V3(0,1.70,0),V3(ACU_X+0.20,ACU_Y+ACU_H+0.20,-0.95+0.00),0.024,MAT.negro));
+  const pie=new THREE.Mesh(new THREE.CylinderGeometry(0.22,0.24,0.14,18),MAT.aceroC);
+  pie.position.y=0.25; gKit.add(pie);
+})();
+
+const gLinea=new THREE.Group(); maq.add(gLinea);
+(function(){
+  const y=0.30;
+  gLinea.add(tuboEntre(V3(ACU_X,ACU_Y-0.22,0),V3(ACU_X,y,0),0.075,MAT.tubo));
+  gLinea.add(tuboEntre(V3(ACU_X,y,0),V3(3.30,y,0),0.075,MAT.tubo));
+  const bloq=roundedBox(0.52,0.44,0.52,MAT.aceroC,0.04);
+  bloq.position.set(2.30,y+0.10,0); bloq.userData.key='bloque'; gLinea.add(bloq);
+  const man=mkManometro(0.19,'manometro aceite');
+  man.position.set(2.30,y+0.52,0.10); gLinea.add(man); M3.manAce=man;
+  gLinea.add(tuboEntre(V3(2.30,y+0.30,0),V3(2.30,y+0.52,0.04),0.026,MAT.tubo));
+})();
+
+const gFaena={};
+FAENA_KEYS.forEach(k=>{ const g=new THREE.Group(); g.position.set(3.95,0,0); maq.add(g); gFaena[k]=g; });
+(function(){
+  // emergencia: prensa
+  const g=gFaena.emerg;
+  const col=(x)=>{ const c=new THREE.Mesh(new THREE.CylinderGeometry(0.07,0.07,1.90,14),MAT.acero);
+    c.position.set(x,1.15,0); g.add(c); };
+  col(-0.46); col(0.46);
+  const cab=roundedBox(1.20,0.20,0.70,MAT.aceroC,0.04); cab.position.set(0,2.12,0); g.add(cab);
+  const cil=new THREE.Mesh(new THREE.CylinderGeometry(0.26,0.26,0.72,22),MAT.cuerpo);
+  cil.position.set(0,1.66,0); cil.userData.key='prensa'; g.add(cil);
+  const cam=new THREE.Mesh(new THREE.CylinderGeometry(0.24,0.24,1,22),MAT.aceite);
+  cam.userData.key='prensa'; g.add(cam); M3.presCam=cam;
+  const pis=new THREE.Mesh(new THREE.CylinderGeometry(0.245,0.245,0.09,22),MAT.piston);
+  g.add(pis); M3.presPis=pis;
+  const vas=new THREE.Mesh(new THREE.CylinderGeometry(0.085,0.085,1.10,16),MAT.piston);
+  g.add(vas); M3.presVas=vas;
+  const plat=roundedBox(0.92,0.12,0.62,MAT.aceroC,0.03); g.add(plat); M3.presPlat=plat;
+  const mesa=roundedBox(1.10,0.16,0.76,MAT.aceroC,0.03); mesa.position.set(0,0.28,0); g.add(mesa);
+  g.add(tuboEntre(V3(-0.95,0.30,0),V3(0,1.90,0),0.055,MAT.tubo));
+})();
+(function(){
+  // rizado: bomba de tres pistones
+  const g=gFaena.pulsa;
+  const cuerpo=roundedBox(0.90,0.72,0.80,MAT.aceroC,0.05); cuerpo.position.set(0,0.68,0);
+  cuerpo.userData.key='bomba'; g.add(cuerpo);
+  const eje=new THREE.Mesh(new THREE.CylinderGeometry(0.07,0.07,0.60,14),MAT.acero);
+  eje.rotation.z=Math.PI/2; eje.position.set(0.68,0.68,0); g.add(eje);
+  const disco=new THREE.Mesh(new THREE.CylinderGeometry(0.30,0.30,0.10,22),MAT.oro);
+  disco.rotation.z=Math.PI/2; disco.position.set(0.96,0.68,0); g.add(disco); M3.pulsDisc=disco;
+  const marca3=new THREE.Mesh(new THREE.BoxGeometry(0.06,0.06,0.34),MAT.rojo);
+  marca3.position.set(0.14,0.16,0); disco.add(marca3);
+  M3.pulsPis=[];
+  [-0.28,0,0.28].forEach((dz,i)=>{
+    const c=new THREE.Mesh(new THREE.CylinderGeometry(0.09,0.09,0.42,14),MAT.cuerpo);
+    c.position.set(-0.30,1.18,dz); g.add(c);
+    const p=new THREE.Mesh(new THREE.CylinderGeometry(0.082,0.082,0.14,14),MAT.piston);
+    p.position.set(-0.30,1.18,dz); g.add(p); M3.pulsPis.push(p);
+  });
+  g.add(tuboEntre(V3(-0.95,0.30,0),V3(-0.30,0.60,0),0.055,MAT.tubo));
+  const base=roundedBox(1.30,0.20,1.00,MAT.aceroC,0.03); base.position.set(0,0.28,0); g.add(base);
+})();
+(function(){
+  // ariete: tubo largo y valvula de cierre
+  const g=gFaena.ariete;
+  const y=0.30;
+  g.add(tuboEntre(V3(-0.95,y,0),V3(-0.30,y,0),0.075,MAT.tubo));
+  const largo=tuboEntre(V3(-0.30,y,0),V3(-0.30,y,2.30),0.075,MAT.tubo);
+  largo.userData.key='tuboAriete'; g.add(largo);
+  const cuerpo=roundedBox(0.34,0.40,0.34,MAT.aceroC,0.04);
+  cuerpo.position.set(-0.30,y+0.02,2.42); cuerpo.userData.key='valvAriete'; g.add(cuerpo);
+  const disco=new THREE.Mesh(new THREE.CylinderGeometry(0.13,0.13,0.05,20),MAT.oro);
+  disco.rotation.x=Math.PI/2; disco.position.set(-0.30,y,2.42); g.add(disco); M3.arValv=disco;
+  const pal=new THREE.Mesh(new THREE.BoxGeometry(0.05,0.34,0.05),MAT.rojo);
+  pal.geometry.translate(0,0.17,0);   // el pivote de la palanca queda en su base
+  pal.position.set(-0.30,y+0.14,2.42); g.add(pal); M3.arPal=pal;
+  M3.arOnda=new THREE.Mesh(new THREE.SphereGeometry(0.11,16,12),MAT.rojo);
+  M3.arOnda.position.set(-0.30,y,2.20); g.add(M3.arOnda);
+  const dep=roundedBox(0.70,0.44,0.70,MAT.aceroC,0.04); dep.position.set(-0.30,y+0.34,2.90); g.add(dep);
+})();
+(function(){
+  // termica: bloque de amarre sellado
+  const g=gFaena.termica;
+  const base=roundedBox(1.20,0.20,1.00,MAT.aceroC,0.03); base.position.set(0,0.28,0); g.add(base);
+  const bloq=roundedBox(0.94,0.66,0.86,std('#5a6270',0.50,0.65),0.05);
+  bloq.position.set(0,0.72,0); bloq.userData.key='amarre'; g.add(bloq); M3.termBloq=bloq;
+  const pieza=roundedBox(0.62,0.16,0.62,MAT.oro,0.02); pieza.position.set(0,1.12,0); g.add(pieza);
+  const brida=(dz)=>{ const b=roundedBox(0.24,0.30,0.16,MAT.piston,0.02);
+    b.position.set(0,1.20,dz); g.add(b); return b; };
+  brida(-0.34); brida(0.34);
+  M3.termCal=new THREE.Mesh(new THREE.TorusGeometry(0.54,0.045,10,26),MAT.rojo);
+  M3.termCal.rotation.x=Math.PI/2; M3.termCal.position.set(0,0.52,0); g.add(M3.termCal);
+  g.add(tuboEntre(V3(-0.95,0.30,0),V3(-0.30,0.52,0),0.055,MAT.tubo));
+})();
+(function(){
+  // fugas: amarre que pierde aceite
+  const g=gFaena.fugas;
+  const base=roundedBox(1.20,0.20,1.00,MAT.aceroC,0.03); base.position.set(0,0.28,0); g.add(base);
+  const bloq=roundedBox(0.94,0.60,0.86,MAT.aceroC,0.05); bloq.position.set(0,0.68,0);
+  bloq.userData.key='amarre'; g.add(bloq);
+  const mord=(dz)=>{ const m=roundedBox(0.70,0.22,0.20,MAT.piston,0.02);
+    m.position.set(0,1.06,dz); g.add(m); return m; };
+  M3.fugMord=[mord(-0.26),mord(0.26)];
+  const pieza=roundedBox(0.50,0.28,0.34,MAT.oro,0.02); pieza.position.set(0,1.06,0); g.add(pieza);
+  M3.fugGota=new THREE.Mesh(new THREE.SphereGeometry(0.055,14,10),MAT.gota);
+  M3.fugGota.position.set(0.42,0.55,0.30); g.add(M3.fugGota);
+  const char=new THREE.Mesh(new THREE.CylinderGeometry(0.20,0.22,0.16,18),MAT.negro);
+  char.position.set(0.42,0.16,0.30); g.add(char);
+  g.add(tuboEntre(V3(-0.95,0.30,0),V3(-0.30,0.52,0),0.055,MAT.tubo));
+})();
+
+// ===================== 8. ACTUALIZACIÓN 3D =====================
+// Piezas que cambian de color: material PROPIO, nunca el compartido de MAT.
+M3.plato.material   = MAT.oro.clone();
+M3.pis.material     = MAT.piston.clone();
+M3.mem.material     = MAT.vejiga.clone();
+M3.vej.material     = MAT.vejiga.clone();
+M3.termCal.material = MAT.rojo.clone();
+M3.arOnda.material  = MAT.rojo.clone();
+M3.fugGota.material = MAT.gota.clone();
+
+const CICLO = 7.0;      // segundos que dura un ciclo completo de la maquina
+const VIS_FPUL = 1.6;   // Hz de PANTALLA para el rizado: a 72,5 Hz reales no se veria nada
+const T_CIERRE_VIS = 0.55;  // fraccion del ciclo en la que cierra la valvula del ariete
+
+let vgAnt = null;
+
+// Todo lo que la maquina 3D necesita saber del punto de trabajo actual.
+function refrescaHW(){
+  const p = CUR, F = FAENAS[p.fk];
+  hw = {
+    fk:p.fk, tipo:p.tipo, ak:p.ak, nbot:p.nbot,
+    v0:p.v0, vBot:p.vBot, vT:p.vT,
+    n: (mode === 'gas' ? ST.nGas : F.n),
+    p0:p.p0Fri, p0Ref:p.p0Ref, p1a:p.p1a, p2a:p.p2a,
+    dpFric:TIPOS[p.tipo].dpFric,
+    fs: Math.max(pman(p.p2a) * 1.25, 1),
+    valida:p.valida,
+    p:p.p1a, pAce:pman(p.p1a), vg:p.vT, est:'ok',
+    u:0, ex:0, temp:F.tMin, dir:0, cerrada:false, onda:-1,
+  };
+  vgAnt = null;
+  aplica3D();
+  animaFaena(0);
+}
+
+// Estado instantaneo del gas. Toda la fisica sale de las funciones SELLADAS del motor:
+// aqui solo se elige que instante del ciclo se esta mirando.
+function paso3D(t){
+  if(!CUR) return;
+  const F = FAENAS[hw.fk], d = CUR.det || {};
+  const u = (t / CICLO) % 1;
+  let s = 0.5 - 0.5 * Math.cos(2 * Math.PI * u);   // 0 = a p1 (poco aceite), 1 = a p2
+  let p = hw.p1a + (hw.p2a - hw.p1a) * s;
+  let vg = null, ex = s, temp = F.tMin, cerrada = false, onda = -1;
+
+  if(mode === 'faena'){
+    if(hw.fk === 'emerg'){
+      // descarga rapida en el primer cuarto del ciclo, recarga lenta en el resto
+      s = u < 0.25 ? 0.5 + 0.5 * Math.cos(Math.PI * u / 0.25)
+                   : 0.5 - 0.5 * Math.cos(Math.PI * (u - 0.25) / 0.75);
+      p = hw.p1a + (hw.p2a - hw.p1a) * s;
+      ex = 1 - s;
+    } else if(hw.fk === 'pulsa'){
+      const sr = Math.sin(2 * Math.PI * VIS_FPUL * t);
+      p = (Number.isFinite(d.vg) && d.vg > 0)
+        ? presionRizado(d.vg, pabs(F.pW), F.n, F.dV / 1000, sr)
+        : pabs(F.pW);
+      ex = 0.5 - 0.5 * sr;
+    } else if(hw.fk === 'ariete'){
+      const pico = Number.isFinite(CUR.val) ? CUR.val : F.p1;
+      if(u < T_CIERRE_VIS){ p = hw.p1a; ex = 0; }
+      else {
+        const w = (u - T_CIERRE_VIS) / (1 - T_CIERRE_VIS);
+        const env = Math.max(0, Math.exp(-3.2 * w) * Math.cos(2 * Math.PI * 2.2 * w));
+        p = pabs(F.p1 + (pico - F.p1) * env);
+        cerrada = true; ex = env; onda = w;
+      }
+    } else if(hw.fk === 'termica'){
+      temp = F.tMin + (F.tMax - F.tMin) * s;
+      p = pabs(presionTermicaEn(CUR.ak, CUR.nbot, CUR.p0Fri, temp));
+      vg = vGasReal(hw.vT, hw.vBot, p0Efect(CUR.p0Ref, temp), p, N_ISO);
+      ex = s;
+    } else if(hw.fk === 'fugas'){
+      s = 1 - u;                                   // la fuga vacia el acumulador sin pausa
+      p = hw.p1a + (hw.p2a - hw.p1a) * s;
+      ex = u;
+    }
+  }
+  if(vg === null) vg = vGasReal(hw.vT, hw.vBot, hw.p0, p, hw.n);
+
+  hw.dir = (vgAnt === null || Math.abs(vg - vgAnt) < 1e-12) ? 0 : (vg > vgAnt ? -1 : 1);
+  vgAnt = vg;
+  hw.u = u; hw.ex = ex; hw.temp = temp; hw.cerrada = cerrada; hw.onda = onda;
+  hw.p = p; hw.vg = vg;
+  // El manometro del aceite no marca lo mismo que el del gas: la friccion del piston
+  // se resta al descargar y se suma al cargar. En vejiga y membrana dpFric = 0.
+  hw.pAce = pman(p) + hw.dir * hw.dpFric;
+  hw.est = vg >= hw.vT - 1e-12 ? 'vac' : (vg <= hw.vBot + 1e-12 ? 'fondo' : 'ok');
+  aplica3D();
+  animaFaena(t);
+}
+
+function aplica3D(){
+  const vgCu = clamp(hw.vg - hw.vBot, 0, hw.v0);
+  const hOil = ACU_H * (hw.v0 - vgCu) / hw.v0;
+  const hGas = ACU_H - hOil, yI = ACU_Y + hOil;
+  M3.aceite.visible = hOil > 0.004;
+  M3.aceite.scale.y = Math.max(hOil, 1e-3);
+  M3.aceite.position.y = ACU_Y + hOil / 2;
+  M3.gas.visible = hGas > 0.004;
+  M3.gas.scale.y = Math.max(hGas, 1e-3);
+  M3.gas.position.y = ACU_Y + ACU_H - hGas / 2;
+
+  M3.pis.visible = hw.tipo === 'piston';  M3.pis.position.y = yI + 0.045;
+  M3.mem.visible = hw.tipo === 'membrana'; M3.mem.position.y = yI;
+  M3.vej.visible = hw.tipo === 'vejiga';
+  const rv = Math.max(hGas / 2, 0.012);
+  M3.vej.scale.set(ACU_R * 0.965, rv, ACU_R * 0.965);
+  M3.vej.position.y = ACU_Y + ACU_H - rv;
+
+  const cAl = hw.est === 'vac' ? BAD_HEX : (hw.est === 'fondo' ? WARN_HEX : null);
+  [M3.pis, M3.mem, M3.vej].forEach(m => {
+    m.material.emissive.set(cAl || '#000000');
+    m.material.emissiveIntensity = cAl ? 0.85 : 0.0;
+  });
+  M3.plato.material.emissive.set(hw.est === 'vac' ? BAD_HEX : '#000000');
+  M3.plato.material.emissiveIntensity = hw.est === 'vac' ? 0.95 : 0.0;
+
+  gBot.forEach((g, i) => { g.visible = i < hw.nbot; });
+  FAENA_KEYS.forEach(k => { gFaena[k].visible = (k === hw.fk); });
+
+  setManometro(M3.manGas, pman(hw.p) / hw.fs);
+  setManometro(M3.manAce, hw.pAce / hw.fs);
+  setManometro(M3.manKit, pman(hw.p0Ref) / hw.fs);
+}
+
+function animaFaena(t){
+  if(hw.fk === 'emerg'){
+    const yTop = 2.02, rec = 0.62;
+    const yPis = yTop - 0.05 - rec * hw.ex;
+    M3.presPis.position.set(0, yPis, 0);
+    const hAce = Math.max(yTop - (yPis + 0.045), 1e-3);
+    M3.presCam.scale.y = hAce;
+    M3.presCam.position.set(0, yTop - hAce / 2, 0);
+    M3.presVas.position.set(0, yPis - 0.60, 0);
+    M3.presPlat.position.set(0, yPis - 1.19, 0);
+  } else if(hw.fk === 'pulsa'){
+    const ang = 2 * Math.PI * VIS_FPUL * t;
+    M3.pulsDisc.rotation.y = ang;
+    M3.pulsPis.forEach((m, i) => {
+      m.position.x = -0.30 + 0.055 * Math.sin(ang + i * 2 * Math.PI / 3);
+    });
+  } else if(hw.fk === 'ariete'){
+    M3.arPal.rotation.z = hw.cerrada ? 0 : 1.25;
+    M3.arValv.scale.set(hw.cerrada ? 1 : 0.45, 1, hw.cerrada ? 1 : 0.45);
+    const viva = hw.cerrada && hw.onda >= 0 && hw.onda < 0.55;
+    M3.arOnda.visible = viva;
+    if(viva){
+      const w = (hw.onda / 0.55) * 2;                  // ida y vuelta por el tubo
+      const z = w < 1 ? 2.30 - 2.30 * w : 2.30 * (w - 1);   // el tubo corre en z
+      M3.arOnda.position.set(-0.30, 0.30, z);
+      const e = 1 - hw.onda / 0.55;
+      M3.arOnda.scale.setScalar(0.7 + 0.8 * e);
+      M3.arOnda.material.emissiveIntensity = 0.4 + 1.2 * e;
+    }
+  } else if(hw.fk === 'termica'){
+    const F = FAENAS.termica;
+    const f = clamp((hw.temp - F.tMin) / (F.tMax - F.tMin), 0, 1);
+    M3.termBloq.material.color.setRGB(0.35 + 0.55 * f, 0.38 - 0.14 * f, 0.44 - 0.24 * f);
+    M3.termCal.material.emissiveIntensity = 0.25 + 1.35 * f;
+    M3.termCal.scale.setScalar(1 + 0.03 * Math.sin(t * 3.1));
+  } else if(hw.fk === 'fugas'){
+    const g = (t * 1.2) % 1;
+    M3.fugGota.visible = true;
+    M3.fugGota.position.set(0.42, 1.00 - 0.72 * g * g, 0.30);
+    M3.fugGota.scale.setScalar(0.85 + 0.35 * g);
+    M3.fugMord.forEach((m, i) => { m.position.z = (i ? 0.26 : -0.26) + 0.004 * Math.sin(t * 2.2); });
+  }
+}
+
+// ===================== 9. HUD Y PANEL =====================
+el('hud').innerHTML=`
+  <div class="eyebrow">Hidráulica y Neumática · Mecánica</div>
+  <h2>Dimensiona un acumulador y su precarga de nitrógeno</h2>
+  <p>Un circuito hidráulico no tiene resortes: el aceite no se comprime. El único resorte que hay en la máquina es el <b>nitrógeno encerrado</b> dentro del acumulador, y su rigidez la fijas tú al cargarlo: la <b>precarga p₀</b>. Cárgalo poco y el aparato apenas guarda aceite; cárgalo mucho y en verano el gas se dilata, empuja al separador contra la válvula de plato y lo destroza. Aquí eliges modelo, precarga y botellas de transferencia para cinco faenas reales, y compruebas que el conjunto sigue valiendo dentro de un año.</p>
+  <div class="formula">p₁·V₁ⁿ = p₂·V₂ⁿ · p₀(T) = p₀(20 °C)·T/293,15 · p₀(T_máx) ≤ 0,90·p₁ · p₂/p₀ ≤ RC · Δp = ρ·c·Δv</div>
+  <div class="legend">
+    <div class="li"><span class="dot" style="background:#5BD4E5"></span>Cámara de N₂: el único resorte del circuito, y su rigidez la eliges cargándolo</div>
+    <div class="li"><span class="dot" style="background:#E0A33E"></span>Aceite: sólo entra si el gas le hace sitio comprimiéndose</div>
+    <div class="li"><span class="dot" style="background:#ff6b6b"></span>Válvula de plato: si el gas se expande del todo, el separador la golpea</div>
+    <div class="li"><span class="dot" style="background:#C08CF8"></span>Relación de compresión p₂/p₀: cada tipo de separador aguanta la suya</div>
+    <div class="li"><span class="dot" style="background:#7CD992"></span>Ventana de precarga: entre el plato en caliente y la fuga de un año</div>
+  </div>
+  <div class="fid">
+    <div class="ft">🔒 Contrato de fidelidad</div>
+    <div class="fl"><b>Sí modela:</b> la ley politrópica del N₂ (p·Vⁿ = const) con los tres índices que se usan en la práctica —n = 1,0 isotermo, n = 1,2 de catálogo y n = 1,4 adiabático— y la corrección de la precarga con la temperatura a volumen constante, p₀(T) = p₀(20 °C)·T/293,15; los <b>dos topes físicos</b> del volumen de gas, el cuerpo entero por arriba y las botellas de transferencia por abajo; el volumen útil ΔV entregado entre p₁ y p₂; el rizado pico a pico que deja una bomba de tres pistones al comprimir politrópicamente el gas; el golpe de ariete completo, con la celeridad de Korteweg (elasticidad del aceite <i>y</i> del tubo), la sobrepresión de Joukowsky de referencia y la absorción politrópica de la energía cinética de la columna, incluido el caso en que el acumulador toca fondo y el resto lo encaja el propio aceite; el circuito sellado que se calienta, resolviendo por bisección el balance entre la dilatación del aceite (β), su compresibilidad (K) y el volumen que el gas admite; el sostenimiento del amarre frente a un caudal de fuga; la deriva a un año por permeación del nitrógeno y la tolerancia del kit de carga; y los siete criterios de validez sobre el catálogo entero, 19 modelos × 7 precargas × 3 configuraciones de botella.</div>
+    <div class="fl no"><b>NO modela:</b> la dinámica del separador —la vejiga, la membrana y el pistón son fronteras sin masa: su tiempo de respuesta entra como dato de catálogo, no como ecuación de movimiento—. El nitrógeno se trata como gas ideal politrópico, sin factor de compresibilidad Z, que a 350 bar ya se aparta varios por ciento del ideal. El intercambio de calor entre el gas y la pared se resume en el índice n, constante durante todo el ciclo, en lugar de resolverse como transmisión de calor. El calentamiento del circuito sellado se calcula entre dos estados de equilibrio, no como una curva en el tiempo. No hay pérdidas de carga en las tuberías entre el acumulador y el punto de uso, ni cavitación, ni válvula de seguridad que abra. El catálogo es representativo del tipo constructivo, no de un fabricante concreto, y el coste es un orden relativo, no un precio.</div>
+  </div>
+  <div class="src">Ref: ISO 4413 · ISO 5596 · Directiva 2014/68/UE (PED) · Korteweg (1878) · Joukowsky (1898)</div>`;
+
+el('panel').innerHTML=`
+  <h4>Banco de acumuladores · <span id="p_mode" style="color:var(--accent2)">El gas</span></h4>
+  <div class="modebar">
+    <button class="b on" id="m_gas">1 · Gas</button>
+    <button class="b" id="m_faena">2 · Faena</button>
+    <button class="b" id="m_precarga">3 · Precarga</button>
+    <button class="b" id="m_catalogo">4 · Catálogo</button>
+    <button class="b" id="m_reto">5 · Reto</button>
+  </div>
+  <div id="scenarioInfo" style="display:none;margin:8px 0;padding:8px 10px;border:1px solid var(--line);border-radius:8px;font-size:12.5px;line-height:1.45"></div>
+  <div class="modebar" id="selbar" style="display:none;flex-wrap:wrap"></div>
+  <div style="margin:8px 0;padding:8px 10px;border:1px solid var(--line);border-radius:8px">
+    <div style="font-size:12px;color:var(--muted)" id="hwrot">Apertura de emergencia de una prensa</div>
+    <div style="font-size:13px;font-weight:600" id="hwsub">Vejiga 10 L · precarga 80 %</div>
+  </div>
+  <div id="tele"></div>
+  <div class="console" id="report"></div>
+  <h4 class="sec" id="retoTitle" style="display:none">Reto</h4>
+  <div id="retoBox" style="display:none">
+    <div id="retoSpec" style="font-size:12.5px;line-height:1.5;margin-bottom:8px"></div>
+    <button class="b primary" id="btnCheck">✅ Comprobar</button>
+  </div>
+  <h4 class="sec">Pregunta de ingeniería</h4>
+  <div id="q_text" style="font-size:13px;line-height:1.5;margin-bottom:8px"></div>
+  <div class="btns" id="dxbtns"></div>
+  <button class="b auto" id="btnAuto">✨ Recorrido guiado (automático)</button>
+  <button class="b primary" id="btnNew">🔀 Nuevo escenario</button>`;
+
+// ===================== 10. TOAST =====================
+function showToast(html){
+  const t=el('toast');t.innerHTML=html;t.classList.add('show');
+  clearTimeout(showToast._t);showToast._t=setTimeout(()=>t.classList.remove('show'),4600);
+}
+
+// ===================== 11. MODOS Y CONTROLES =====================
+const MODE_META={
+  gas:{nombre:'El gas',cam:[[3.8,2.8,5.8],[0.90,1.05,0.00]],
+    mision:'El acumulador no guarda aceite: guarda gas comprimido. Recorre la curva p·Vⁿ y localiza los dos topes —el cuerpo entero por arriba, las botellas por abajo—. Cambia el índice n sin tocar nada más: el mismo hierro entrega menos aceite cuanto más deprisa trabaja el ciclo, y esa pérdida no se recupera con precarga.'},
+  faena:{nombre:'La faena',cam:[[6.8,3.6,8.0],[2.60,1.10,0.00]],
+    mision:'Cada faena le pide al acumulador una cosa distinta: volumen, rizado, pico de presión, presión final o tiempo de sostenimiento. Es la misma ley del gas contestando a cinco preguntas. Vigila cuándo el gas toca uno de sus dos topes: ahí la respuesta deja de ser una curva suave y el aparato empieza a mentir.'},
+  precarga:{nombre:'La precarga',cam:[[2.9,3.0,5.4],[0.35,1.45,0.30]],
+    mision:'La precarga es el único ajuste que se hace con el aparato ya montado, y tiene ventana por los dos lados. Barre p₀ de punta a punta y mira dónde entra y dónde sale: por arriba manda el plato en caliente, por abajo mandan la relación de compresión en frío y la fuga de un año.'},
+  catalogo:{nombre:'El catálogo',cam:[[5.0,3.2,6.6],[0.85,1.00,-0.40]],
+    mision:'Diecinueve modelos con la misma faena delante. Cumplir la función no basta: hay que sobrevivir al plato, a la relación de compresión, a la presión admisible, al caudal de paso, al tiempo de respuesta del separador y a la permeación de un año. Fíjate en cuáles caen y por qué motivo caen.'},
+  reto:{nombre:'Reto',cam:[[7.6,4.2,9.4],[1.95,1.15,0.00]],
+    mision:'Tres ejes —modelo, precarga y botellas— y siete criterios que hay que cumplir a la vez. Monta el conjunto válido MÁS BARATO para la faena que te toca; a igualdad de coste gana el que menos gas instala, y después el de más margen.'},
+};
+const lbl=t=>`<span style="align-self:center;color:var(--muted);font-size:12px;margin:0 4px 0 2px">${t}</span>`;
+function optBtns(key,opts,cur){
+  return opts.map(o=>{
+    const v=Array.isArray(o)?o[0]:o, t=Array.isArray(o)?o[1]:o;
+    return `<button class="b sm ${String(cur)===String(v)?'on':''}" data-${key}="${v}">${t}</button>`;
+  }).join('');
+}
+const beep=()=>synth.beep(680,0.05,0.04);
+const ACUM_ABR={
+  v1:'V 1',v25:'V 2,5',v4:'V 4',v10:'V 10',v10b:'V 10·150',v20:'V 20',v50:'V 50',
+  m008:'M 0,075',m016:'M 0,16',m035:'M 0,35',m06:'M 0,6',m14:'M 1,4',m28:'M 2,8',
+  p25:'P 2,5',p5:'P 5',p10:'P 10',p20:'P 20',p35:'P 35',p100:'P 100',
+};
+const OPT_FAENA=FAENA_KEYS.map(k=>[k,FAENA_ABR[k]]);
+const OPT_ACUM =ACUM_KEYS.map(k=>[k,ACUM_ABR[k]]);
+const OPT_PREC =PRECARGAS.map(p=>[p,f1(100*p,0)+' %']);
+const OPT_NBOT =NBOTS.map(n=>[n,n?(n+' × '+f1(V_BOT,0)+' L'):'sin']);
+const OPT_N    =[[N_ISO,'1,0 isotermo'],[N_POL,'1,2'],[N_ADI,'1,4 adiabático']];
+const EJE_ROT={acum:'Acumulador',prec:'Precarga rotulada a 20 °C',nbot:'Botellas de nitrógeno'};
+const EJE_VAL_ROT={acum:v=>ACUM_ROT[v],prec:v=>f1(100*v,0)+' % de p₁',
+  nbot:v=>v?(v+' × '+f1(V_BOT,0)+' L'):'ninguna'};
+const EJE_CAMPO={acum:'ak',prec:'prec',nbot:'nbot'};
+
+function buildControls(){
+  const bar=el('selbar');let h='';
+  if(mode!=='reto'){
+    h+=lbl('Faena')+optBtns('fa',OPT_FAENA,ST.fk);
+    h+=lbl('Acumulador · V vejiga, M membrana, P pistón')+optBtns('ac',OPT_ACUM,ST.ak);
+    h+=lbl('Precarga')+optBtns('pr',OPT_PREC,ST.prec);
+    h+=lbl('Botellas')+optBtns('nb',OPT_NBOT,ST.nbot);
+    if(mode==='gas') h+=lbl('Índice politrópico n')+optBtns('gn',OPT_N,ST.nGas);
+  }else{
+    h+=lbl('Acumulador')+optBtns('xa',OPT_ACUM,RETO.ejes.acum);
+    h+=lbl('Precarga')+optBtns('xp',OPT_PREC,RETO.ejes.prec);
+    h+=lbl('Botellas')+optBtns('xn',OPT_NBOT,RETO.ejes.nbot);
+    h+='<button class="b sm" id="btnPista">💡 Pista</button>';
+  }
+  bar.innerHTML=h;bar.style.display='flex';
+  const wire=(attr,fn)=>bar.querySelectorAll('['+attr+']').forEach(b=>{
+    b.onclick=()=>{if(autoRunning)return;fn(b.getAttribute(attr));beep();afterEdit();};
+  });
+  wire('data-fa',v=>{ST.fk=v;});
+  wire('data-ac',v=>{ST.ak=v;});
+  wire('data-pr',v=>{ST.prec=Number(v);});
+  wire('data-nb',v=>{ST.nbot=Number(v);});
+  wire('data-gn',v=>{ST.nGas=Number(v);});
+  wire('data-xa',v=>{RETO.ejes.acum=v;RETO.msg='';RETO.resuelto=false;});
+  wire('data-xp',v=>{RETO.ejes.prec=Number(v);RETO.msg='';RETO.resuelto=false;});
+  wire('data-xn',v=>{RETO.ejes.nbot=Number(v);RETO.msg='';RETO.resuelto=false;});
+  const bp=el('btnPista');
+  if(bp) bp.onclick=()=>{if(autoRunning)return;pista();};
+}
+// Valores de un eje que aparecen en alguna configuracion optima (hay empates
+// cuando dos montajes distintos cuestan lo mismo y ademas empatan en volumen,
+// margen y precarga).
+function ejeSolC(fk,eje){
+  const campo=EJE_CAMPO[eje], out=[];
+  empates(fk).forEach(p=>{ if(out.indexOf(p[campo])<0) out.push(p[campo]); });
+  return out;
+}
+// Una pista destapa UN eje. No resuelve el reto: los tres ejes se juzgan juntos
+// y acertar uno no garantiza que la combinacion cumpla los siete criterios.
+function pista(){
+  const eje=EJES.find(e=>!RETO.pistas[e]);
+  if(!eje){showToast('💡 Ya has destapado los tres ejes. La combinación la tienes que cerrar tú.');return;}
+  RETO.pistas[eje]=true;beep();
+  const vals=ejeSolC(RETO.cfg.fk,eje).map(v=>EJE_VAL_ROT[eje](v)).join(' · ');
+  showToast('💡 <b>'+EJE_ROT[eje]+'.</b> En el conjunto más barato aparece: '+
+    (vals||'ningún valor: esta faena no tiene solución'));
+  afterEdit();
+}
+
+function updateScenarioInfo(){
+  const d=el('scenarioInfo');
+  d.style.display='block';
+  d.innerHTML='<b>'+MODE_META[mode].nombre+'.</b> '+MODE_META[mode].mision;
+}
+function updateHwRot(){
+  const c=cfgDe(mode), p=CUR;
+  el('hwrot').textContent=FAENAS[c.fk].rot;
+  el('hwsub').textContent=ACUM_ROT[c.ak]+' · precarga '+f1(100*c.prec,0)+' % ('+
+    f1(pman(p.p0Ref),1)+' bar) · '+(c.nbot?(c.nbot+' × '+f1(V_BOT,0)+' L de N₂'):'sin botellas');
+}
+function afterEdit(){
+  computa();
+  refrescaHW();
+  buildControls();
+  updateScenarioInfo();
+  if(mode==='reto')updateRetoSpec();
+  refreshAll();
+}
+function setMode(k){
+  mode=k;animT=0;
+  MODES.forEach(m=>el('m_'+m).classList.toggle('on',m===k));
+  el('p_mode').textContent=MODE_META[k].nombre;
+  el('retoTitle').style.display=k==='reto'?'':'none';
+  el('retoBox').style.display=k==='reto'?'':'none';
+  computa();refrescaHW();
+  buildControls();updateScenarioInfo();
+  clearDx();buildQuiz();refreshQuestion();
+  if(k==='reto')updateRetoSpec();
+  const cam=MODE_META[k].cam;S.moveTo(cam[0],cam[1]);
+  refreshAll();
+}
+// "Nuevo escenario": en el reto cambia de faena y rearma el montaje de partida;
+// en los modos de estudio mueve el ensayo al siguiente caso que ensena algo, en
+// vez de dejarlo donde estaba.
+function newSignal(){
+  if(mode==='gas'){
+    const NS=[N_ISO,N_POL,N_ADI], i=NS.findIndex(n=>Math.abs(n-ST.nGas)<1e-9);
+    ST.nGas=NS[(i+1)%NS.length];
+    if(i+1>=NS.length){const j=FAENA_KEYS.indexOf(ST.fk);ST.fk=FAENA_KEYS[(j+1)%FAENA_KEYS.length];}
+  }else if(mode==='faena'){
+    const i=FAENA_KEYS.indexOf(ST.fk);ST.fk=FAENA_KEYS[(i+1)%FAENA_KEYS.length];
+    const o=solucion(ST.fk);
+    if(o){ST.ak=o.ak;ST.prec=o.prec;ST.nbot=o.nbot;}
+  }else if(mode==='precarga'){
+    const i=ACUM_KEYS.indexOf(ST.ak);ST.ak=ACUM_KEYS[(i+1)%ACUM_KEYS.length];
+    if(i+1>=ACUM_KEYS.length){const j=FAENA_KEYS.indexOf(ST.fk);ST.fk=FAENA_KEYS[(j+1)%FAENA_KEYS.length];}
+  }else if(mode==='catalogo'){
+    const i=FAENA_KEYS.indexOf(ST.fk);ST.fk=FAENA_KEYS[(i+1)%FAENA_KEYS.length];
+    const o=solucion(ST.fk);
+    if(o){ST.prec=o.prec;ST.nbot=o.nbot;}
+  }else{
+    const i=FAENA_KEYS.indexOf(RETO.cfg.fk);RETO.cfg.fk=FAENA_KEYS[(i+1)%FAENA_KEYS.length];
+    retoSolveBuild(true);
+  }
+  RETO.resuelto=false;solved=false;RETO.msg='';
+  computa();refrescaHW();
+  buildControls();updateScenarioInfo();
+  clearDx();buildQuiz();refreshQuestion();
+  if(mode==='reto')updateRetoSpec();
+  refreshAll();
+  showToast('🔀 <b>Escenario nuevo.</b> '+MODE_META[mode].mision);
+}
+
+// ===================== 12. TELEMETRÍA E INFORME =====================
+function teleRow(l,v,cls){
+  return '<div class="trow"><span class="tl">'+l+'</span><span class="tv'+(cls?' '+cls:'')+'">'+v+'</span></div>';
+}
+const cls2=b=>b?'ok':'bad';
+const estRot=e=>EST_ROT[e];
+
+function updateTele(){
+  const c=cfgDe(mode), F=FAENAS[c.fk], r=CUR;
+  let h='';
+  if(mode==='gas'){
+    const g=gasInfo();
+    h+=teleRow('Volumen del cuerpo',f1(r.v0,3)+' L');
+    h+=teleRow('Botellas de transferencia',f1(r.vBot,1)+' L');
+    h+=teleRow('Volumen total de gas',f1(r.vT,3)+' L');
+    h+=teleRow('Precarga rotulada a 20 °C',f1(pman(r.p0Ref),2)+' bar');
+    h+=teleRow('Precarga efectiva a '+f1(F.tMin,0)+' °C',f1(pman(r.p0Fri),2)+' bar');
+    h+=teleRow('Índice politrópico en estudio',f1(g.n,1));
+    h+=teleRow('p₁ absoluta',f1(g.p1a,3)+' bar');
+    h+=teleRow('p₂ absoluta',f1(g.p2a,3)+' bar');
+    h+=teleRow('Gas a p₁',f1(g.vg1,4)+' L · '+estRot(g.est1));
+    h+=teleRow('Gas a p₂',f1(g.vg2,4)+' L · '+estRot(g.est2));
+    h+=teleRow('Aceite útil ΔV',f1(g.dv,4)+' L');
+    h+=teleRow('Mismo hierro con n = 1,0',f1(gasInfo(N_ISO).dv,4)+' L');
+  }else if(mode==='faena'){
+    h+=teleRow('Faena',F.rot);
+    h+=teleRow('Presiones de trabajo',f1(F.p1,0)+' → '+f1(F.p2,0)+' bar man');
+    h+=teleRow('Índice de la faena',f1(F.n,1));
+    h+=teleRow('Temperaturas de servicio',f1(F.tMin,0)+' … '+f1(F.tMax,0)+' °C');
+    h+=teleRow('Conjunto montado',ACUM_ROT[c.ak]+(c.nbot?' + '+c.nbot+' × '+f1(V_BOT,0)+' L':''));
+    h+=teleRow('Precarga en frío',f1(pman(r.p0Fri),2)+' bar');
+    h+=teleRow('Gas en el punto bajo',f1(vGasReal(r.vT,r.vBot,r.p0Fri,r.p1a,F.n),4)+' L');
+    h+=teleRow('Gas en el punto alto',f1(vGasReal(r.vT,r.vBot,r.p0Fri,r.p2a,F.n),4)+' L');
+    h+=teleRow(F.rotFun.charAt(0).toUpperCase()+F.rotFun.slice(1),
+      Number.isFinite(r.val)?f1(r.val,4)+' '+r.unidad:'no llega',cls2(r.okFunc));
+    h+=teleRow('Lo que pide la faena',(F.sentido==='ge'?'≥ ':'≤ ')+f1(r.req,4)+' '+r.unidad);
+    h+=teleRow('Margen',Number.isFinite(r.margen)?pc1(r.margen,1):'—',cls2(r.okFunc));
+    h+=teleRow('Caudal pico por el puerto',f1(r.q,1)+' ≤ '+f1(r.qmax,0)+' L/min',cls2(r.okQ));
+  }else if(mode==='precarga'){
+    h+=teleRow('Modelo en el banco',ACUM_ROT[c.ak]);
+    h+=teleRow('Separador',TIPOS[r.tipo].rot+' · RC ≤ '+f1(r.rc,0));
+    h+=teleRow('Precarga rotulada',f1(100*c.prec,0)+' % · '+f1(pman(r.p0Ref),2)+' bar');
+    h+=teleRow('En caliente ('+f1(F.tMax,0)+' °C)',f1(pman(r.p0Cal),2)+' bar',cls2(r.okPlato));
+    h+=teleRow('Tope del plato 0,90·p₁',f1(pman(r.platoLim),2)+' bar');
+    h+=teleRow('En frío ('+f1(F.tMin,0)+' °C)',f1(pman(r.p0Fri),2)+' bar');
+    h+=teleRow('Relación p₂/p₀ en frío',f1(r.rcReal,3),cls2(r.okRC));
+    h+=teleRow('Dentro de un año',f1(pman(r.p0Der),2)+' bar');
+    h+=teleRow('Deriva: 3 % de fuga + 2 bar de kit',f1(pman(r.p0Fri)-pman(r.p0Der),2)+' bar');
+    h+=teleRow('Función hoy',Number.isFinite(r.val)?f1(r.val,4)+' '+r.unidad:'no llega',cls2(r.okFunc));
+    h+=teleRow('Función a un año',Number.isFinite(r.valDer)?f1(r.valDer,4)+' '+r.unidad:'no llega',cls2(r.okDeriva));
+    h+=teleRow('Ventana útil de precarga',ventanaRot(c.fk,c.ak,c.nbot));
+  }else if(mode==='catalogo'){
+    const b=barrido(c.fk), v=b.filter(p=>p.valida);
+    const conEsta=b.filter(p=>p.prec===c.prec&&p.nbot===c.nbot);
+    h+=teleRow('Faena',F.rot);
+    h+=teleRow('Modelos en el catálogo',f1(ACUM_KEYS.length,0));
+    h+=teleRow('Configuraciones barridas',f1(b.length,0));
+    h+=teleRow('Configuraciones válidas',f1(v.length,0));
+    h+=teleRow('Válidas con esta precarga',f1(conEsta.filter(p=>p.valida).length,0)+' de '+f1(conEsta.length,0));
+    CRIT.forEach(k=>{ h+=teleRow('Suspenden por '+CRIT_ROT[k],f1(b.filter(p=>!p[k]).length,0)); });
+    h+=teleRow('Este montaje',r.valida?'cumple los siete':'falla '+f1(r.fallos.length,0),cls2(r.valida));
+  }else{
+    const s=RETO.sol;
+    h+=teleRow('Faena del reto',F.rot);
+    h+=teleRow('Montado',ACUM_ROT[c.ak]+' · '+f1(100*c.prec,0)+' % · '+
+      (c.nbot?c.nbot+' × '+f1(V_BOT,0)+' L':'sin botellas'));
+    h+=teleRow('Coste del conjunto',f1(r.coste,0)+' u');
+    h+=teleRow('Criterios cumplidos',f1(CRIT.length-r.fallos.length,0)+' / '+f1(CRIT.length,0),cls2(r.valida));
+    h+=teleRow(F.rotFun.charAt(0).toUpperCase()+F.rotFun.slice(1),
+      Number.isFinite(r.val)?f1(r.val,3)+' '+r.unidad:'no llega',cls2(r.okFunc));
+    h+=teleRow('Plato en caliente',f1(pman(r.p0Cal),2)+' ≤ '+f1(pman(r.platoLim),2)+' bar',cls2(r.okPlato));
+    h+=teleRow('Compresión p₂/p₀',f1(r.rcReal,2)+' ≤ '+f1(r.rc,0),cls2(r.okRC));
+    h+=teleRow('Presión admisible',f1(F.p2,0)+' ≤ '+f1(r.ps,0)+' bar',cls2(r.okPS));
+    h+=teleRow('Caudal de paso',f1(r.q,1)+' ≤ '+f1(r.qmax,0)+' L/min',cls2(r.okQ));
+    h+=teleRow('Respuesta del separador',f1(1000*r.tResp,0)+' ≤ '+f1(1000*F.tRespReq,0)+' ms',cls2(r.okResp));
+    h+=teleRow('A un año',Number.isFinite(r.valDer)?f1(r.valDer,3)+' '+r.unidad:'no llega',cls2(r.okDeriva));
+    h+=teleRow('Coste mínimo posible',s?f1(s.coste,0)+' u':'sin solución');
+  }
+  el('tele').innerHTML=h;
+}
+// Precargas del kit que dejan valido el conjunto. Se enumeran una a una en vez de
+// dar un intervalo: la ventana no tiene por que ser un tramo seguido.
+function ventanaRot(fk,ak,nbot){
+  const ok=PRECARGAS.filter(p=>punto(fk,ak,p,nbot).valida);
+  if(!ok.length) return 'ninguna precarga vale';
+  return ok.map(p=>f1(100*p,0)).join(' · ')+' % de p₁';
+}
+
+// El informe explica el POR QUE de lo que se ve, con las cifras del propio punto
+// de trabajo. Nunca repite un numero sin decir de donde sale.
+function updateReport(){
+  const c=cfgDe(mode), F=FAENAS[c.fk], r=CUR;
+  let t='';
+  if(mode==='gas'){
+    const g=gasInfo(), gi=gasInfo(N_ISO), ga=gasInfo(N_ADI);
+    t='> '+ACUM_ROT[c.ak]+(c.nbot?' con '+c.nbot+' × '+f1(V_BOT,0)+' L de botella':'')+
+      ': '+f1(r.vT,3)+' L de gas en total.\n';
+    t+='> Precarga '+f1(pman(r.p0Ref),2)+' bar a 20 °C; a '+f1(F.tMin,0)+' °C se queda en '+
+      f1(pman(r.p0Fri),2)+' bar (p₀·T/293,15).\n';
+    t+='> Con n = '+f1(g.n,1)+': el gas ocupa '+f1(g.vg1,4)+' L a '+f1(F.p1,0)+' bar y '+
+      f1(g.vg2,4)+' L a '+f1(F.p2,0)+'. La diferencia, '+f1(g.dv,4)+' L, es TODO el aceite que hay.\n';
+    t+=(g.est1!=='ok'||g.est2!=='ok')
+      ? '> Ojo: el gas está '+estRot(g.est1!=='ok'?g.est1:g.est2)+'. En un tope la curva deja de valer.\n'
+      : '> El gas respira entre sus dos topes: la curva p·Vⁿ vale en todo el recorrido.\n';
+    t+='> Mismo hierro, misma precarga: '+f1(gi.dv,4)+' L si el ciclo es lento (n = 1,0) y '+
+      f1(ga.dv,4)+' L si es rápido (n = 1,4), un '+pc1(1-ga.dv/gi.dv,2)+' menos.\n';
+    t+='> Esa pérdida no se compra con precarga: la impone la velocidad del ciclo.';
+  }else if(mode==='faena'){
+    t='> '+F.rot+': de '+f1(F.p1,0)+' a '+f1(F.p2,0)+' bar, n = '+f1(F.n,1)+', '+
+      f1(F.tMin,0)+'…'+f1(F.tMax,0)+' °C.\n';
+    t+='> '+ACUM_ROT[c.ak]+(c.nbot?' + '+c.nbot+' × '+f1(V_BOT,0)+' L':'')+' con precarga '+
+      f1(pman(r.p0Fri),2)+' bar en frío.\n';
+    t+='> '+F.rotFun.charAt(0).toUpperCase()+F.rotFun.slice(1)+' = '+
+      (Number.isFinite(r.val)?f1(r.val,4)+' '+r.unidad:'no llega')+', y hace falta '+
+      (F.sentido==='ge'?'≥ ':'≤ ')+f1(r.req,4)+' '+r.unidad+'.\n';
+    t+=r.okFunc?'> Cumple con '+pc1(r.margen,1)+' de margen.\n'
+               :'> NO cumple: se queda a '+pc1(-r.margen,1)+' de lo pedido.\n';
+    t+=explicaFaena(c,r);
+  }else if(mode==='precarga'){
+    t='> '+ACUM_ROT[c.ak]+' en '+F.rot+'. Precarga rotulada '+f1(pman(r.p0Ref),2)+' bar a 20 °C.\n';
+    t+='> Por arriba manda el calor: a '+f1(F.tMax,0)+' °C sube a '+f1(pman(r.p0Cal),2)+
+      ' bar y el tope del plato son '+f1(pman(r.platoLim),2)+' bar ('+pc1(K_PLATO,0)+' de p₁).\n';
+    t+='> Por abajo mandan dos cosas: p₂/p₀ = '+f1(r.rcReal,3)+' contra el límite '+f1(r.rc,0)+
+      ' del '+TIPOS[r.tipo].rot.toLowerCase()+', y el aceite que hay que entregar.\n';
+    t+='> Y el tiempo: un año de permeación ('+pc1(PERM_ANUAL,0)+') más la tolerancia del kit ('+
+      f1(TOL_KIT,0)+' bar) deja la precarga en '+f1(pman(r.p0Der),2)+' bar.\n';
+    t+='> Con eso la función pasa de '+(Number.isFinite(r.val)?f1(r.val,4):'—')+' a '+
+      (Number.isFinite(r.valDer)?f1(r.valDer,4):'—')+' '+r.unidad+
+      (r.okDeriva?': aguanta el año.\n':': ya no llega antes del año.\n');
+    t+='> Ventana útil de este montaje: '+ventanaRot(c.fk,c.ak,c.nbot)+'.';
+  }else if(mode==='catalogo'){
+    const b=barrido(c.fk), v=b.filter(p=>p.valida), s=solucion(c.fk);
+    const solit={}; CRIT.forEach(k=>solit[k]=0);
+    b.filter(p=>p.fallos.length===1).forEach(p=>solit[p.fallos[0]]++);
+    const peor=CRIT.slice().sort((a,x)=>b.filter(p=>!p[x]).length-b.filter(p=>!p[a]).length)[0];
+    t='> '+F.rot+': '+f1(b.length,0)+' configuraciones ('+f1(ACUM_KEYS.length,0)+' modelos × '+
+      f1(PRECARGAS.length,0)+' precargas × '+f1(NBOTS.length,0)+' montajes de botella).\n';
+    t+='> Sobreviven '+f1(v.length,0)+'. El que más tumba es «'+CRIT_ROT[peor]+'»: '+
+      f1(b.filter(p=>!p[peor]).length,0)+' bajas.\n';
+    t+='> Suspensos en solitario (el único fallo del montaje): '+
+      CRIT.filter(k=>solit[k]>0).map(k=>CRIT_ROT[k]+' '+f1(solit[k],0)).join(', ')+'.\n';
+    t+='> El montaje que miras: '+(r.valida?'cumple los siete criterios':'falla '+
+      r.fallos.map(k=>CRIT_ROT[k]).join(', '))+'.\n';
+    t+=s?'> El más barato que cumple es '+ACUM_ROT[s.ak]+' al '+f1(100*s.prec,0)+' %'+
+      (s.nbot?' con '+s.nbot+' × '+f1(V_BOT,0)+' L':' sin botellas')+': '+f1(s.coste,0)+' u.'
+       :'> Ningún montaje del catálogo cumple esta faena.';
+  }else{
+    const s=RETO.sol;
+    t='> '+F.rot+'. Monta el conjunto válido más barato.\n';
+    t+='> Puesto: '+ACUM_ROT[c.ak]+' · precarga '+f1(100*c.prec,0)+' % ('+f1(pman(r.p0Ref),2)+' bar) · '+
+      (c.nbot?c.nbot+' × '+f1(V_BOT,0)+' L de N₂':'sin botellas')+' → '+f1(r.coste,0)+' u.\n';
+    t+=r.valida?'> Cumple los siete criterios.\n'
+               :'> Falla: '+r.fallos.map(k=>CRIT_ROT[k]).join(', ')+'.\n';
+    t+=RETO.msg?'> '+RETO.msg+'\n':'';
+    t+='> De '+f1(RETO.nval,0)+' conjuntos válidos, el más barato cuesta '+
+      (s?f1(s.coste,0)+' u':'—')+'.';
+  }
+  el('report').textContent=t;
+}
+// Cada faena tiene su propia moraleja numerica, y sale del punto que hay montado.
+function explicaFaena(c,r){
+  const F=FAENAS[c.fk], d=r.det;
+  if(c.fk==='emerg')
+    return '> El cilindro anular de Ø'+f1(F.dPis,0)+'/Ø'+f1(F.dVas,0)+' con '+f1(F.carrera,0)+
+      ' mm de carrera pide '+f1(r.req,4)+' L, y hay que darlos entre '+f1(F.p2,0)+' y '+f1(F.p1,0)+
+      ' bar: el aceite que queda por debajo de '+f1(F.p1,0)+' bar no sirve, la prensa ya no se mueve.';
+  if(c.fk==='pulsa')
+    return '> El catálogo estima el rizado como n·ΔV·p_W/V_g = '+
+      (Number.isFinite(d.lin)?f1(d.lin,4):'—')+' bar y la ley politrópica completa da '+
+      (Number.isFinite(r.val)?f1(r.val,4):'—')+' bar: mientras los '+f1(F.dV,1)+
+      ' cm³ del pulso sean pequeños frente a los '+
+      (Number.isFinite(d.vg)?f1(1000*d.vg,1):'—')+' cm³ de gas, la curva pVⁿ es casi una recta y '+
+      'las dos cuentas coinciden. Quien decide el rizado es V_g, y V_g lo fija la precarga.';
+  if(c.fk==='ariete')
+    return '> La celeridad de Korteweg es '+f1(d.cel,1)+' m/s con '+f1(d.vel,3)+
+      ' m/s de aceite: Joukowsky pide '+f1(d.dpJ,2)+' bar de golpe, o sea '+f1(d.sinAcum,1)+
+      ' bar sin acumulador. El acumulador absorbe '+f1(d.Ek,1)+' J y lo deja en '+
+      (Number.isFinite(r.val)?f1(r.val,2):'—')+' bar.';
+  if(c.fk==='termica')
+    return '> El aceite se dilata '+f1(d.dvOil,4)+' L al subir de '+f1(F.tMin,0)+' a '+f1(F.tMax,0)+
+      ' °C. Sin sitio donde meterlos el circuito llegaría a '+f1(d.sinAcum,0)+
+      ' bar: la rigidez del aceite (K = 1,5 GPa) no perdona.';
+  return '> Con la bomba parada la fuga de '+f1(F.qFuga,0)+' cm³/min se come el ΔV: '+
+    f1(d.dv,4)+' L dan '+(Number.isFinite(r.val)?f1(r.val,3):'—')+' h de amarre, y hacen falta '+
+    f1(F.tReq,1)+' h.';
+}
+
+function refreshAll(){
+  aplica3D();
+  paint();
+  updateTele();
+  updateReport();
+  updateHwRot();
+}
+
+// ===================== 13. RETO =====================
+// El reto no compara contra una respuesta escrita a mano: barre las 399
+// configuraciones de la faena (19 modelos x 7 precargas x 3 montajes de botella),
+// se queda con las validas y ordena por el criterio lexicografico declarado en
+// el motor. La respuesta sale de ahi, no de una tabla.
+const CRIT_POR={
+  okFunc:   'el acumulador tiene que dar lo que la faena pide, hoy y con el aceite frío',
+  okPlato:  'al calentarse el gas se expande; si p₀ pasa de 0,90·p₁ el separador se echa sobre la válvula de plato y la golpea en cada ciclo',
+  okRC:     'cada separador aguanta una relación p₂/p₀ distinta: 4 la vejiga, 8 la membrana, 10 el pistón',
+  okPS:     'la presión de trabajo no puede pasar de la presión máxima admisible del cuerpo (Directiva 2014/68/UE)',
+  okQ:      'el puerto de aceite tiene un caudal de paso máximo; por encima el separador se estrangula',
+  okResp:   'la vejiga responde en 5 ms, la membrana en 15 y el pistón en 100: hay faenas que no esperan tanto',
+  okDeriva: 'el nitrógeno permea un 3 % al año y el kit de carga tiene ±2 bar: tiene que seguir cumpliendo dentro de un año',
+};
+// Montaje de partida: lo mas barato y pequeno del catalogo, sin botellas y con la
+// precarga mas baja. Es deliberadamente insuficiente, para que el alumno suba.
+function startCfg(){ return { acum:'m008', prec:PRECARGAS[0], nbot:0 }; }
+
+function retoSolveBuild(reset){
+  const fk=RETO.cfg.fk;
+  RETO.sol=solucion(fk);
+  RETO.nval=validas(fk).length;
+  if(reset){
+    RETO.ejes=startCfg();
+    RETO.pistas={};
+    RETO.resuelto=false;
+    RETO.msg='';
+  }
+}
+function updateRetoSpec(){
+  const fk=RETO.cfg.fk, F=FAENAS[fk];
+  let h='<b>'+F.rot+'.</b> Monta el conjunto <b>válido más barato</b>. ';
+  h+='Trabaja entre '+f1(F.p1,0)+' y '+f1(F.p2,0)+' bar, con n = '+f1(F.n,1)+' y de '+
+     f1(F.tMin,0)+' a '+f1(F.tMax,0)+' °C. Tiene que '+
+     (F.sentido==='ge'?'dar ':'quedarse por debajo de ')+'<b>'+
+     (F.sentido==='ge'?'≥ ':'≤ ')+f1(FUNC_REQ(fk),3)+' '+F.unidad+'</b> de '+F.rotFun+
+     ' y cumplir los siete criterios a la vez:';
+  h+='<ul style="margin:6px 0 0 16px;padding:0">';
+  CRIT.forEach(k=>{ h+='<li><b>'+CRIT_ROT[k]+'</b> — '+CRIT_POR[k]+'</li>'; });
+  h+='</ul>';
+  h+='<div style="margin-top:6px;color:var(--muted)">Empate de coste: gana el que menos gas instala; '+
+     'si también empatan, el de más margen, y por último el de menor precarga.</div>';
+  el('retoSpec').innerHTML=h;
+}
+// Lo que pide la faena no depende del acumulador salvo en el ariete y en el
+// rizado, donde el requisito es un limite fijo. Se lee del motor, nunca a mano.
+function FUNC_REQ(fk){ return punto(fk,ACUM_KEYS[0],PRECARGAS[0],0).req; }
+
+// Explica por que la configuracion puesta no vale, eje por eje y con sus cifras.
+function retoExplain(r,c){
+  if(r.valida) return '';
+  const F=FAENAS[c.fk];
+  let p='Falla '+r.fallos.map(k=>CRIT_ROT[k]).join(', ')+'. ';
+  if(!r.okPlato) p+='A '+f1(F.tMax,0)+' °C la precarga sube a '+f1(pman(r.p0Cal),2)+
+    ' bar y el plato aguanta hasta '+f1(pman(r.platoLim),2)+': baja la precarga. ';
+  else if(!r.okRC) p+='p₂/p₀ = '+f1(r.rcReal,2)+' y '+TIPOS[r.tipo].rot.toLowerCase()+
+    ' sólo admite '+f1(r.rc,0)+': sube la precarga o cambia de separador. ';
+  else if(!r.okPS) p+='La faena llega a '+f1(F.p2,0)+' bar y el cuerpo está timbrado a '+
+    f1(r.ps,0)+': ese modelo no se puede montar aquí. ';
+  else if(!r.okResp) p+='El '+TIPOS[r.tipo].rot.toLowerCase()+' tarda '+f1(1000*r.tResp,0)+
+    ' ms en moverse y la faena da '+f1(1000*F.tRespReq,0)+' ms: llega tarde. ';
+  else if(!r.okQ) p+='Por el puerto tienen que pasar '+f1(r.q,1)+' L/min y el modelo deja '+
+    f1(r.qmax,0)+': hace falta un cuerpo mayor. ';
+  else if(!r.okFunc) p+=(Number.isFinite(r.val)?'Da '+f1(r.val,3)+' '+r.unidad:'No llega')+
+    ' y hacen falta '+(F.sentido==='ge'?'≥ ':'≤ ')+f1(r.req,3)+' '+r.unidad+
+    ': más volumen de gas o mejor precarga. ';
+  else if(!r.okDeriva) p+='Hoy cumple, pero al perder el 3 % anual más los '+f1(TOL_KIT,0)+
+    ' bar del kit la precarga cae a '+f1(pman(r.p0Der),2)+' bar y ya no llega: te falta margen. ';
+  return p;
+}
+function checkReto(){
+  const c=cfgDe('reto'), s=RETO.sol;
+  const r=punto(c.fk,c.ak,c.prec,c.nbot);
+  if(!s){
+    RETO.msg='Esta faena no tiene ningún conjunto válido en el catálogo.';
+    RETO.resuelto=false;
+    synth.beep(240,0.12,0.05);
+    showToast('❌ <b>Sin solución.</b> '+RETO.msg);
+  }else if(r.valida && mejor(r,s)===0){
+    RETO.resuelto=true; solved=true;
+    RETO.msg='Correcto: '+f1(r.coste,0)+' u con '+f1(r.vT,3)+
+      ' L de gas instalado, el mínimo del catálogo.';
+    synth.beep(880,0.10,0.06);
+    showToast('✅ <b>Conjunto óptimo.</b> '+ACUM_ROT[c.ak]+' al '+f1(100*c.prec,0)+' % · '+
+      f1(r.coste,0)+' u · '+pc1(r.margen,1)+' de margen.');
+  }else if(r.valida){
+    RETO.resuelto=false;
+    RETO.msg=(r.coste!==s.coste)
+      ? 'Válido, pero no es el más barato: '+f1(r.coste,0)+' u frente a '+f1(s.coste,0)+' u.'
+      : (r.vT!==s.vT
+        ? 'Válido y al precio mínimo, pero instala '+f1(r.vT,3)+' L de gas y hay otro igual de barato con '+f1(s.vT,3)+'.'
+        : 'Válido y empatado en precio y volumen, pero con menos margen: '+pc1(r.margen,1)+
+          ' frente a '+pc1(s.margen,1)+'.');
+    synth.beep(520,0.09,0.05);
+    showToast('🟡 <b>Cumple, pero no es el óptimo.</b> '+RETO.msg);
+  }else{
+    RETO.resuelto=false;
+    RETO.msg=retoExplain(r,c);
+    synth.beep(240,0.12,0.05);
+    showToast('❌ <b>No cumple.</b> '+RETO.msg);
+  }
+  computa();
+  refreshAll();
+}
+
+// ===================== 14. CUESTIONARIO =====================
+// Los cinco enunciados citan cifras que salen del motor de este laboratorio; el
+// alumno puede reproducirlas montando el caso que se describe.
+const QUIZ={
+  gas:{pregunta:'Un acumulador de 10 L precargado al 90 % y trabajando entre 100 y 160 bar entrega 3,3538 L si el ciclo es lento (n = 1,0) y sólo 2,6271 L si es rápido (n = 1,4): un 21,67 % menos con el mismo hierro y la misma precarga. ¿Qué ha pasado?',
+    opciones:[
+      {t:'Que al comprimirse deprisa el nitrógeno se calienta y sube de presión antes de tiempo, así que la misma banda de 100 a 160 bar barre menos volumen de gas',ok:true,why:'La curva adiabática es más empinada que la isoterma: alcanza los 160 bar habiendo cedido menos volumen. La velocidad del ciclo no es un detalle de montaje, entra en la ecuación como el exponente n, y ningún ajuste de precarga la compensa: subir p₀ topa en la válvula de plato.'},
+      {t:'Que a más velocidad el separador no llega a seguir el ciclo y estrangula el paso de aceite',ok:false,why:'Ésa es otra limitación y se juzga aparte, con el tiempo de respuesta del separador. Las dos cifras de arriba están calculadas con el mismo acumulador y el mismo separador: lo único que cambia es n.'},
+      {t:'Que en los ciclos rápidos el nitrógeno se disuelve en el aceite y hay menos gas',ok:false,why:'El nitrógeno sí se escapa, pero por permeación y a razón de un 3 % al año, no en cada ciclo. En un ciclo de segundos la masa de gas es la misma; lo que cambia es su temperatura.'},
+      {t:'Que el aceite se comprime al pasar de 100 a 160 bar y esa parte no sale del acumulador',ok:false,why:'El aceite se comprime, pero poquísimo: con K = 1,5 GPa esos 60 bar dan un 0,4 % de volumen. No explica un 21,67 %, y además ese efecto no depende de la velocidad del ciclo.'}]},
+  faena:{pregunta:'En el golpe de ariete la válvula tarda 40 ms en cerrar, la celeridad de la onda es de 1 258,1 m/s y el tubo mide 120 m, de modo que la onda tarda 190,8 ms en ir hasta la bomba y volver. ¿Por qué se aplica el golpe de Joukowsky entero si 40 ms parece un cierre lento?',
+    opciones:[
+      {t:'Porque un cierre es rápido cuando dura menos que el tiempo de ida y vuelta 2L/c: la onda de alivio todavía no ha regresado cuando la válvula ya está cerrada, y nada frena el pico',ok:true,why:'Lento o rápido no se mide en milisegundos, se mide contra 2L/c. Los mismos 40 ms en un tubo corto —digamos 10 m, con 2L/c = 16 ms— serían un cierre lento y el pico bajaría mucho. La longitud de la tubería decide el veredicto.'},
+      {t:'Porque 40 ms es un tiempo muy corto en términos absolutos y toda maniobra tan breve provoca el golpe completo',ok:false,why:'No hay ningún tiempo absoluto que sirva de frontera. El criterio siempre es relativo al tubo: 2L/c.'},
+      {t:'Porque con una celeridad de 1 258,1 m/s cualquier cierre resulta rápido',ok:false,why:'La celeridad no dicta el veredicto, sólo entra en el cálculo de 2L/c. Cerrar esa misma válvula en 5 s sería un cierre lento en este mismo tubo y con esta misma celeridad.'},
+      {t:'Porque el acumulador de vejiga necesita 5 ms para responder y en 40 ms no le da tiempo',ok:false,why:'Sí le da: 5 ms de respuesta frente a los 15 ms que la faena exige, y por eso este montaje cumple el criterio de tiempo de respuesta. El golpe es entero por la geometría del tubo, no por el separador.'}]},
+  precarga:{pregunta:'La prensa de emergencia necesita 2,1058 L. Con el acumulador de pistón de 5 L y la precarga al 75 % el ensayo da 2,2021 L —un 4,6 % de margen— y aun así el conjunto se rechaza. ¿Por qué?',
+    opciones:[
+      {t:'Porque el nitrógeno permea un 3 % al año: dentro de doce meses el mismo acumulador entregará 2,0916 L y ya no llegará a los 2,1058 L que la prensa pide',ok:true,why:'Un acumulador se dimensiona para el final del intervalo de mantenimiento, no para el día del montaje. Al 80 % la cifra de dentro de un año es 2,1944 L y sigue cumpliendo: por eso ésa es la precarga que vale y no la de 75 %.'},
+      {t:'Porque con precarga al 75 % la relación de compresión llega a 4,967 y un separador de pistón no la aguanta',ok:false,why:'El pistón aguanta hasta 10, precisamente porque no tiene elastómero que plegar. Con 4,967 va sobrado; quien caería con esa relación sería una vejiga, que sólo admite 4.'},
+      {t:'Porque al calentarse el circuito el separador se echa sobre la válvula de plato y la golpea',ok:false,why:'A 75 % la presión en caliente es de 58,61 bar y el tope del plato está en 62,90: no lo toca. Quien golpea el plato en esta faena es la precarga del 90 %, que se va a 70,53 bar.'},
+      {t:'Porque un margen del 4,6 % es demasiado estrecho y hay que dejar siempre al menos un 10 %',ok:false,why:'No existe esa regla, y aquí no se aplica ninguna: los siete criterios están escritos y el margen no es uno de ellos. El margen sólo sirve para desempatar entre conjuntos que ya cumplen.'}]},
+  catalogo:{pregunta:'En la prensa de emergencia el criterio del año que viene tumba 239 de los 399 montajes, más que ningún otro; pero sólo en 3 casos es el único motivo del rechazo. ¿Qué te dice esa diferencia entre 239 y 3?',
+    opciones:[
+      {t:'Que casi siempre que la deriva tumba un montaje, ese montaje ya fallaba por otra cosa; los criterios no son independientes y contar bajas totales exagera el peso de los que van acompañados',ok:true,why:'Un montaje que hoy se queda corto también se quedará corto dentro de un año, así que Función y Deriva caen juntas 229 veces. Lo que mide la utilidad de un criterio es cuántas veces suspende él solo, y ahí mandan el plato (39) y la relación de compresión (40).'},
+      {t:'Que el criterio de la deriva sobra y se podría quitar del pliego sin cambiar nada',ok:false,why:'Justo al contrario: esos 3 casos son los peligrosos. Son montajes que cumplen el día de la puesta en marcha y dejan tirada la prensa antes de la siguiente revisión, y ningún otro criterio los detecta.'},
+      {t:'Que la mayoría de los montajes de esta faena caen por la presión máxima admisible del cuerpo',ok:false,why:'La presión admisible tumba 63 montajes y no suspende en solitario ni una sola vez: cuando cae por presión, ya caía por otra cosa. No es lo que decide esta faena.'},
+      {t:'Que el 3 % anual de permeación es un valor demasiado severo y por eso arrastra tantas bajas',ok:false,why:'Es el dato que dan los fabricantes de vejiga y membrana, y su severidad no se mide por el total de bajas sino por los suspensos en solitario: 3 de 399. Es un criterio exigente, no severo.'}]},
+  reto:{pregunta:'Amarre con la bomba parada, entre 90 y 140 bar, con la vejiga de 10 L precargada al 80 %. Sin botellas sostiene 3,738 h; con una botella de 10 L sube a 7,196 h y cumple; con dos botellas baja a 3,850 h y deja de cumplir. ¿Por qué empeora la segunda botella?',
+    opciones:[
+      {t:'Porque el aceite sólo cabe en el cuerpo del acumulador, 10 L: con 20 L de botella el conjunto se llena de aceite cuando la línea va por 102,6 bar y ahí se acaba la carga. El ciclo real pasa a ser 102,6 → 90 bar en vez de 140 → 90, y una banda estrecha entrega poco aceite',ok:true,why:'Las botellas de transferencia amplían el gas, no el sitio donde meter aceite. Cuando el nitrógeno de las botellas ya no puede comprimirse más porque el cuerpo está lleno, todo lo que sobra es peso muerto: se paga y encima estorba.'},
+      {t:'Porque al añadir la segunda botella baja la presión de precarga y habría que recargar el conjunto',ok:false,why:'La precarga es una presión, y no cambia por poner más botellas: se cargan todas al mismo p₀. Lo que cambia es el volumen de gas, y es ese volumen el que se come el recorrido del separador.'},
+      {t:'Porque con 30 L de gas la relación de compresión se dispara y el criterio de relación de compresión tumba el montaje',ok:false,why:'La relación de compresión es p₂/p₀ y no depende del volumen. De hecho el montaje de dos botellas suspende por función y por deriva, no por relación de compresión.'},
+      {t:'Porque más nitrógeno siempre entrega más aceite, pero el reto premia lo barato y las dos botellas cuestan de más',ok:false,why:'No entrega más: entrega 2,772 L frente a los 5,181 L de una sola botella. El precio aquí es lo de menos, el montaje ni siquiera cumple la faena.'}]},
+};
+let QORD=[], answered=false;
+function buildQuiz(){
+  const q=QUIZ[mode];
+  QORD=q.opciones.map((o,i)=>i);
+  for(let i=QORD.length-1;i>0;i--){ const j=Math.floor(Math.random()*(i+1)); const t=QORD[i];QORD[i]=QORD[j];QORD[j]=t; }
+  answered=false;
+}
+function clearDx(){ answered=false; }
+function refreshQuestion(){
+  const q=QUIZ[mode];
+  el('q_text').textContent=q.pregunta;
+  el('dxbtns').innerHTML=QORD.map((oi,i)=>'<button class="b" data-i="'+i+'">'+q.opciones[oi].t+'</button>').join('');
+  el('dxbtns').querySelectorAll('[data-i]').forEach(b=>{
+    b.onclick=()=>answer(Number(b.getAttribute('data-i')));
+  });
+}
+function answer(i){
+  if(answered) return;
+  answered=true;
+  const q=QUIZ[mode], btns=el('dxbtns').querySelectorAll('[data-i]');
+  btns.forEach((b,k)=>{
+    b.disabled=true;
+    const o=q.opciones[QORD[k]];
+    if(o.ok) b.classList.add('right');
+    else if(k===i) b.classList.add('wrong');
+  });
+  const o=q.opciones[QORD[i]];
+  synth.beep(o.ok?880:200,0.10,0.05);
+  showToast((o.ok?'✅ ':'❌ ')+o.why);
+}
+function quizCorrectIndex(){ return QORD.indexOf(QUIZ[mode].opciones.findIndex(o=>o.ok)); }
+
+// ===================== 15. SELECCIÓN Y ETIQUETAS =====================
+// Cada pieza de la máquina cuenta su propio número, y todos salen del punto de
+// trabajo vigente (CUR) o de las funciones del motor: aquí no hay ni una cifra
+// escrita a mano.
+function pickCtx(){
+  const p = CUR || computa();
+  const c = cfgDe(mode);
+  return { p, c, F:FAENAS[c.fk], T:TIPOS[p.tipo], A:ACUM[c.ak], d:p.det||{},
+           G:gasInfo(mode==='gas'?ST.nGas:FAENAS[c.fk].n) };
+}
+const NO_FIN = '—';
+const fin = (x,d) => Number.isFinite(x) ? f1(x,d) : NO_FIN;
+
+const PICK_INFO = {
+  cuerpo(){
+    const {p,c,A} = pickCtx();
+    return ['Cuerpo del acumulador · '+ACUM_ROT[c.ak],
+      'Botella de acero de '+f1(p.v0,3)+' L de volumen total, timbrada a '+f1(p.ps,0)+
+      ' bar y con un caudal de paso de hasta '+f1(p.qmax,0)+' L/min. Su coste relativo es '+
+      f1(A.coste,0)+' y el del conjunto montado '+f1(p.coste,0)+
+      '. El volumen que aquí ves NO es el aceite que entrega: es el sitio donde cabe el gas.'];
+  },
+  gas(){
+    const {p,G} = pickCtx();
+    return ['Nitrógeno',
+      'Precarga rotulada a '+f1(T_REF,0)+' °C: '+f1(pman(p.p0Ref),2)+' bar. Corregida a la temperatura '+
+      'de la faena da '+f1(pman(p.p0Fri),2)+' bar en frío y '+f1(pman(p.p0Cal),2)+' bar en caliente. '+
+      'Con n = '+f1(G.n,1)+' ocupa '+f1(G.vg1,3)+' L a '+f1(pman(G.p1a),0)+' bar y '+f1(G.vg2,3)+
+      ' L a '+f1(pman(G.p2a),0)+' bar: la diferencia, '+f1(G.dv,4)+' L, es todo lo que este aparato da.'];
+  },
+  aceite(){
+    const {p,G} = pickCtx();
+    return ['Aceite',
+      'El aceite no se guarda comprimido: entra y sale empujando al gas. Entre '+f1(pman(G.p1a),0)+
+      ' y '+f1(pman(G.p2a),0)+' bar caben '+f1(G.dv,4)+' L, y en el punto alto el gas '+
+      (G.est2==='ok'?'respira':'queda '+EST_ROT[G.est2])+'. Su propia compresibilidad (K = '+f1(K_OIL/1e9,1)+' GPa) sólo devolvería '+
+      f1(1000*(p.p2a-p.p1a)*1e5/K_OIL,2)+' cm³ por cada litro de aceite del circuito al bajar de '+
+      f1(pman(G.p2a),0)+' a '+f1(pman(G.p1a),0)+' bar: por eso hace falta el gas.'];
+  },
+  separador(){
+    const {p,T} = pickCtx();
+    return ['Separador de '+T.rot.toLowerCase(),
+      'Es la pieza que separa gas y aceite: '+T.nota+'. Aguanta una relación de compresión '+
+      'p₂/p₀ de hasta '+f1(T.rc,0)+' y aquí trabaja a '+f1(p.rcReal,3)+
+      ' ('+(p.okRC?'la aguanta':'NO la aguanta')+'). Responde en '+f1(1000*T.tResp,0)+
+      ' ms y la faena le exige '+f1(1000*FAENAS[p.fk].tRespReq,0)+' ms. '+
+      (T.dpFric>0 ? 'Sus sellos deslizantes cuestan '+f1(T.dpFric,1)+' bar de rozamiento.'
+                  : 'No tiene rozamiento: no hay sellos que arrastrar.')];
+  },
+  plato(){
+    const {p} = pickCtx();
+    return ['Válvula de plato',
+      'Cierra la salida cuando el separador llega abajo, para que no se extruya por el puerto. '+
+      'Que exista no significa que se pueda golpear: el criterio es p₀ efectiva en caliente ≤ '+
+      pc1(K_PLATO,0)+' de p₁, o sea '+f1(pman(p.platoLim),2)+' bar. Ahora mismo el gas caliente '+
+      'está a '+f1(pman(p.p0Cal),2)+' bar, así que '+(p.okPlato?'no lo toca':'lo golpea en cada ciclo')+'.'];
+  },
+  puerto(){
+    const {p} = pickCtx();
+    return ['Puerto de aceite',
+      'Por aquí entra y sale todo el aceite. La faena le pide un caudal pico de '+f1(p.q,1)+
+      ' L/min y el modelo admite '+f1(p.qmax,0)+' L/min: '+
+      (p.okQ?'va sobrado':'se estrangula, y el separador acaba pagándolo')+
+      '. El caudal no depende del tamaño del acumulador sino de lo deprisa que la faena pida aceite.'];
+  },
+  valvulaGas(){
+    const {p} = pickCtx();
+    return ['Válvula de carga de nitrógeno',
+      'Por aquí se precarga, y por aquí se pierde: el nitrógeno permea a razón de '+pc1(PERM_ANUAL,0)+
+      ' al año. Dentro de doce meses la precarga en frío habrá bajado de '+f1(pman(p.p0Fri),2)+
+      ' a '+f1(pman(p.p0Der),2)+' bar y el aparato dará '+fin(p.valDer,4)+' '+p.unidad+
+      ' en vez de '+fin(p.val,4)+' '+p.unidad+' ('+(p.okDeriva?'sigue cumpliendo':'ya no cumple')+').'];
+  },
+  botella(){
+    const {p,c} = pickCtx();
+    const bm = botellaMax(c.fk, p.tipo, p.v0);
+    return ['Botellas de transferencia',
+      'Montadas: '+(p.nbot?f1(p.nbot,0)+' × '+f1(V_BOT,0)+' L':'ninguna')+'. Amplían el GAS, no el sitio '+
+      'donde meter aceite: el volumen total pasa a '+f1(p.vT,1)+' L pero el separador sólo puede barrer '+
+      'los '+f1(p.v0,1)+' L del cuerpo. Con este modelo y esta faena el tope físico está en '+f1(bm,2)+
+      ' L de botella; más allá el gas ya no cabe sin aplastar el separador contra el plato.'];
+  },
+  kit(){
+    const {p} = pickCtx();
+    return ['Kit de carga',
+      'Botella de servicio, manómetro y latiguillo. Carga con una tolerancia de ±'+f1(TOL_KIT,0)+
+      ' bar, y esa tolerancia se descuenta al juzgar la deriva de un año. La precarga se rotula '+
+      'siempre a '+f1(T_REF,0)+' °C: aquí el kit dejaría '+f1(pman(p.p0Ref),2)+' bar en la etiqueta, '+
+      'que en la máquina fría son '+f1(pman(p.p0Fri),2)+' bar por pura ley de Gay-Lussac.'];
+  },
+  bloque(){
+    const {p} = pickCtx();
+    return ['Bloque de seguridad',
+      'Manómetro, válvula de descarga a tanque y llave de aislamiento: sin él no se puede desmontar un '+
+      'acumulador cargado, que es de las maniobras más peligrosas de una sala de bombas (ISO 4413). '+
+      'Cuesta '+f1(C_BLOQ,0)+' unidades y sólo aparece en la factura cuando hay botellas: '+
+      (p.nbot?'este conjunto lo lleva':'este conjunto todavía no lo lleva')+'.'];
+  },
+  prensa(){
+    const {p,c,F,d} = pickCtx();
+    if(c.fk!=='emerg') return null;
+    return ['Prensa de emergencia',
+      'Cilindro de '+f1(F.dPis,0)+' mm con vástago de '+f1(F.dVas,0)+' mm: el área anular es '+
+      f1(1e4*(d.area||0),2)+' cm², y subir la '+f1(F.carrera,0)+' mm de carrera con la bomba parada '+
+      'exige '+fin(p.req,4)+' L. El acumulador tiene ahora mismo '+fin(p.val,4)+' L: '+
+      (p.okFunc?'sube':'la prensa se queda a medio camino')+'.'];
+  },
+  bomba(){
+    const {p,c,F,d} = pickCtx();
+    if(c.fk!=='pulsa') return null;
+    return ['Bomba de tres pistones',
+      'Desplaza '+f1(F.dV,1)+' cm³ por pulso a '+f1(F.fPul,1)+' Hz. El acumulador se los traga con los '+
+      fin(d.vg,3)+' L de gas que tiene a '+f1(F.pW,0)+' bar y el rizado queda en '+fin(p.val,4)+
+      ' bar pico a pico, frente a los '+f1(F.rizMax,1)+' bar que admite la máquina: '+
+      (p.okFunc?'vale':'no vale')+'. La estimación lineal de catálogo daría '+fin(d.lin,4)+' bar.'];
+  },
+  tuboAriete(){
+    const {c,F,d} = pickCtx();
+    if(c.fk!=='ariete') return null;
+    return ['Tubería de impulsión',
+      'DN '+f1(F.dTubo,0)+' con '+f1(F.eTubo,0)+' mm de pared y '+f1(F.lTubo,0)+' m de largo. Por ella '+
+      'circulan '+f1(F.qLinea,0)+' L/min, o sea '+fin(d.vel,3)+' m/s. La onda de presión viaja a '+
+      fin(d.cel,1)+' m/s —menos que en el aceite libre, porque el tubo se dilata— y tarda '+
+      fin(1000*d.tReflejo,1)+' ms en ir hasta la bomba y volver.'];
+  },
+  valvAriete(){
+    const {p,c,F,d} = pickCtx();
+    if(c.fk!=='ariete') return null;
+    return ['Válvula de cierre rápido',
+      'Cierra en '+f1(1000*F.tCierre,0)+' ms, menos que los '+fin(1000*d.tReflejo,1)+
+      ' ms de ida y vuelta de la onda: para la tubería es un cierre instantáneo y se lleva el golpe de '+
+      'Joukowsky entero, '+fin(d.dpJ,2)+' bar, que sin acumulador llevarían la línea a '+fin(d.sinAcum,1)+
+      ' bar. Con el acumulador el pico se queda en '+fin(p.val,2)+' bar frente al límite de '+
+      f1(F.pLim,0)+' bar: '+(p.okFunc?'aguanta':'revienta el límite')+'.'];
+  },
+  amarre(){
+    const {p,c,F,d} = pickCtx();
+    if(c.fk==='termica')
+      return ['Bloque de amarre sellado',
+        'Sujeta la pieza con '+f1(F.vOil,1)+' L de aceite encerrados: ni entra ni sale nada. Al pasar de '+
+        f1(F.tMin,0)+' a '+f1(F.tMax,0)+' °C el aceite se dilata '+fin(d.dvOil,4)+' L, y en un circuito '+
+        'rígido eso son '+fin(d.sinAcum,0)+' bar. Con este acumulador la presión final se queda en '+
+        fin(p.val,2)+' bar frente al límite de '+f1(F.pLim,0)+' bar: '+
+        (p.okFunc?'el amarre sobrevive':'salta la válvula de seguridad o se rompe algo')+'.'];
+    if(c.fk==='fugas')
+      return ['Amarre con la bomba parada',
+        'Las mordazas pierden '+f1(F.qFuga,0)+' cm³/min por los sellos, y el amarre tiene que aguantar '+
+        f1(F.tReq,1)+' h sin que la línea baje de '+f1(F.p1,0)+' bar. Los '+fin(d.dv,4)+
+        ' L que el acumulador entrega entre '+f1(F.p2,0)+' y '+f1(F.p1,0)+' bar dan para '+
+        fin(p.val,3)+' h: '+(p.okFunc?'llega':'no llega')+'.'];
+    return null;
+  },
+};
+
+function boardClick(){
+  showToast('<b>'+MODE_META[mode].nombre+'.</b> '+MODE_META[mode].mision);
+}
+
+// pickerFor NO filtra por visibilidad: hay que comprobarla a mano o el alumno
+// acabaria pinchando la prensa mientras mira el golpe de ariete.
+function visibleEnEscena(o){
+  let n = o;
+  while(n){ if(n.visible === false) return false; n = n.parent; }
+  return true;
+}
+pickerFor(scene, S.camera, S.renderer.domElement, hit => {
+  const o = hit && hit.object;
+  if(!o) return;
+  if(o === bmesh){ boardClick(); return; }
+  if(!visibleEnEscena(o)) return;
+  let n = o, k = null;
+  while(n && !k){ k = n.userData && n.userData.key; n = n.parent; }
+  if(!k || !PICK_INFO[k]) return;
+  const inf = PICK_INFO[k]();
+  if(!inf) return;
+  synth.beep(760, 0.05, 0.05);
+  showToast('<b>'+inf[0]+'</b> · '+inf[1]);
+});
+
+// ===================== 16. RECORRIDO GUIADO =====================
+// Cinco bloques, uno por modo, con el mismo hilo: el gas manda. Ninguna cifra de
+// los avisos esta escrita a mano; todas se leen del motor en el instante en que
+// se lanza el aviso, asi que si cambia el catalogo cambia solo el guion.
+const sleep=ms=>new Promise(r=>setTimeout(r,ms));
+
+async function runAuto(){
+  if(autoRunning) return;
+  autoRunning=true;
+  const b=el('btnAuto'), rot=b.textContent;
+  b.textContent='⏳ Recorriendo…';
+  synth.init();synth.resume();clearDx();
+  try{
+    // --- 1. EL GAS: el mismo hierro entrega menos cuanto mas deprisa se trabaja
+    setMode('gas');
+    ST.fk='termica';ST.ak='v10';ST.prec=0.90;ST.nbot=0;ST.nGas=N_ISO;
+    afterEdit();
+    let G=gasInfo(ST.nGas);
+    const dvLento=G.dv;
+    showToast('Un acumulador no guarda aceite: guarda gas. Este cuerpo de '+f1(CUR.v0,0)+
+      ' L precargado al '+f1(100*ST.prec,0)+' % de p₁ entrega <b>'+f1(G.dv,4)+' L</b> de aceite entre '+
+      f1(FAENAS[ST.fk].p1,0)+' y '+f1(FAENAS[ST.fk].p2,0)+' bar… si el ciclo es lento (n = '+f1(N_ISO,1)+').');
+    await sleep(4400);
+    ST.nGas=N_ADI;afterEdit();G=gasInfo(ST.nGas);
+    showToast('Mismo hierro, misma precarga y ciclo rápido: con n = '+f1(N_ADI,1)+
+      ' el volumen útil cae a <b>'+f1(G.dv,4)+' L</b>, un '+pc1(1-G.dv/dvLento,2)+
+      ' menos. Al comprimirse deprisa el nitrógeno se calienta y llega a '+f1(FAENAS[ST.fk].p2,0)+
+      ' bar habiendo cedido menos volumen.');
+    await sleep(4600);
+    ST.nbot=NBOTS[NBOTS.length-1];afterEdit();G=gasInfo(ST.nGas);
+    showToast('Con '+f1(ST.nbot,0)+' botellas hay '+f1(G.C.vT,0)+' L de nitrógeno instalado y el ΔV sube a '+
+      f1(G.dv,4)+' L, pero en el punto alto el gas '+
+      (G.est2==='ok'?'todavía respira':'queda '+EST_ROT[G.est2])+': por debajo de los '+f1(G.C.vBot,0)+
+      ' L de las botellas ya no puede comprimirse más.');
+    await sleep(4600);
+
+    // --- 2. LA FAENA: la misma ley del gas contestando a cinco preguntas
+    setMode('faena');
+    const sE=solucion('emerg');
+    ST.fk='emerg';ST.ak=sE.ak;ST.prec=sE.prec;ST.nbot=sE.nbot;afterEdit();
+    showToast('<b>'+FAENAS.emerg.rot+'.</b> Aquí el criterio es volumen: el cilindro pide '+
+      f1(CUR.req,4)+' L para su carrera y este montaje entrega '+f1(CUR.val,4)+' L, un '+
+      pc1(CUR.margen,1)+' de margen.');
+    await sleep(4200);
+    const sA=solucion('ariete');
+    ST.fk='ariete';ST.ak=sA.ak;ST.prec=sA.prec;ST.nbot=sA.nbot;afterEdit();
+    showToast('<b>'+FAENAS.ariete.rot+'.</b> Al cerrar la válvula, Joukowsky pone '+f1(CUR.det.dpJ,2)+
+      ' bar sobre la línea: '+f1(CUR.det.sinAcum,1)+' bar sin acumulador, por encima del límite de '+
+      f1(CUR.req,0)+'. Con esta vejiga de '+f1(CUR.v0,0)+' L el pico se queda en '+f1(CUR.val,2)+' bar.');
+    await sleep(4600);
+    const sP=solucion('pulsa');
+    ST.fk='pulsa';ST.ak=sP.ak;ST.prec=sP.prec;ST.nbot=sP.nbot;afterEdit();
+    showToast('<b>'+FAENAS.pulsa.rot+'.</b> Tercera pregunta a la misma ley: la membrana de '+
+      f1(CUR.v0,3)+' L deja '+f1(CUR.val,3)+' bar pico a pico y la línea admite '+f1(CUR.req,1)+
+      '. Volumen, presión o tiempo: siempre es p·Vⁿ.');
+    await sleep(4400);
+
+    // --- 3. LA PRECARGA: ventana cerrada por arriba y por abajo
+    setMode('precarga');
+    ST.fk='emerg';ST.ak='p5';ST.nbot=0;ST.prec=PRECARGAS[0];afterEdit();
+    showToast('Mismo pistón de '+f1(CUR.v0,0)+' L y misma faena: ahora sólo se toca la precarga. Al '+
+      f1(100*ST.prec,0)+' % el gas apenas tiene recorrido y entrega '+f1(CUR.val,4)+
+      ' L cuando hacen falta '+f1(CUR.req,4)+'.');
+    await sleep(4200);
+    ST.prec=PRECARGAS[PRECARGAS.length-1];afterEdit();
+    showToast('Al '+f1(100*ST.prec,0)+' % entrega más aceite ('+f1(CUR.val,4)+' L) pero a '+
+      f1(FAENAS[ST.fk].tMax,0)+' °C la precarga se dilata hasta '+f1(pman(CUR.p0Cal),2)+
+      ' bar y la válvula de plato aguanta '+f1(pman(CUR.platoLim),2)+': el separador la golpea.');
+    await sleep(4600);
+    const vent=PRECARGAS.filter(pr=>punto(ST.fk,ST.ak,pr,ST.nbot).valida);
+    if(vent.length){
+      ST.prec=vent[0];afterEdit();
+      const jj=PRECARGAS.indexOf(vent[0])-1;
+      const qq=jj>=0?punto(ST.fk,ST.ak,PRECARGAS[jj],ST.nbot):null;
+      showToast('La ventana entera de este modelo es '+vent.map(v=>f1(100*v,0)+' %').join(' · ')+
+        '. Por arriba manda el plato en caliente; por abajo, la relación de compresión y la fuga de un año'+
+        (qq&&qq.okFunc&&!qq.okDeriva
+          ? ': al '+f1(100*PRECARGAS[jj],0)+' % hoy daría '+f1(qq.val,4)+' L, pero dentro de un año sólo '+
+            f1(qq.valDer,4)+' y ya no llega.'
+          : '.'));
+      await sleep(4800);
+    }
+
+    // --- 4. EL CATALOGO: cumplir la funcion no basta
+    setMode('catalogo');
+    ST.fk='emerg';ST.prec=0.80;ST.nbot=0;ST.ak='p5';afterEdit();
+    const cat=ACUM_KEYS.map(k=>punto(ST.fk,k,ST.prec,ST.nbot));
+    const conFunc=cat.filter(p=>p.okFunc), okC=cat.filter(p=>p.valida);
+    showToast('Diecinueve modelos, la misma faena y la misma precarga del '+f1(100*ST.prec,0)+' %: '+
+      f1(conFunc.length,0)+' dan el volumen que se pide, pero sólo <b>'+f1(okC.length,0)+
+      '</b> pasan los siete criterios a la vez.');
+    await sleep(4400);
+    const caido=conFunc.find(p=>!p.valida);
+    if(caido){
+      ST.ak=caido.ak;afterEdit();
+      showToast('<b>'+ACUM_ROT[caido.ak]+'</b> entrega '+f1(caido.val,3)+' L, más del doble de lo que se pide, '+
+        'y aun así cae. '+retoExplain(caido,{fk:ST.fk}));
+      await sleep(4800);
+    }
+    if(okC.length){
+      const barato=okC.reduce((a,p)=>p.coste<a.coste?p:a,okC[0]);
+      const tipos=[];okC.forEach(p=>{const t=TIPOS[p.tipo].rot.toLowerCase();if(tipos.indexOf(t)<0)tipos.push(t);});
+      ST.ak=barato.ak;afterEdit();
+      showToast('Los que aguantan los siete son de '+tipos.join(' y ')+
+        ', y el más barato es <b>'+ACUM_ROT[barato.ak]+'</b> con '+f1(barato.coste,0)+
+        ' u. El catálogo no se elige por volumen: se elige por el criterio que primero te tumba.');
+      await sleep(4600);
+    }
+
+    // --- 5. EL RETO: mas gas no es mas aceite
+    setMode('reto');
+    RETO.cfg.fk='fugas';retoSolveBuild(true);afterEdit();
+    const TOTAL=ACUM_KEYS.length*PRECARGAS.length*NBOTS.length;
+    showToast('<b>Reto · '+FAENAS.fugas.rot+'.</b> De las '+f1(TOTAL,0)+
+      ' combinaciones del banco, '+f1(RETO.nval,0)+' cumplen los siete criterios; sólo una es la más barata.');
+    await sleep(4400);
+    checkReto();
+    await sleep(4000);
+    const s=RETO.sol;
+    if(s){
+      RETO.ejes={acum:s.ak,prec:s.prec,nbot:NBOTS[NBOTS.length-1]};
+      afterEdit();checkReto();
+      await sleep(3600);
+      showToast('Con '+f1(CUR.nbot,0)+' botellas hay '+f1(CUR.vT,0)+' L de nitrógeno instalado y la reserva es de '+
+        f1(CUR.val,3)+' '+CUR.unidad+': el gas sólo puede bajar hasta los '+f1(CUR.vBot,0)+
+        ' L de las botellas, así que más gas no es más aceite.');
+      await sleep(4800);
+      RETO.ejes={acum:s.ak,prec:s.prec,nbot:s.nbot};
+      afterEdit();checkReto();
+      await sleep(1400);
+      showToast('Ahí está: '+ACUM_ROT[s.ak]+' al '+f1(100*s.prec,0)+' % con '+
+        (s.nbot?f1(s.nbot,0)+' botella'+(s.nbot>1?'s':''):'ninguna botella')+' da '+f1(s.val,3)+' '+
+        s.unidad+' frente a '+f1(s.req,1)+' que pide el turno, por '+f1(s.coste,0)+' u.');
+      await sleep(4600);
+    }
+    answer(quizCorrectIndex());
+  } finally {
+    autoRunning=false;
+    el('btnAuto').textContent=rot;
+  }
+}
+
+// ===================== 17. ANIMACIÓN, EVENTOS Y ARRANQUE =====================
+// El unico reloj del laboratorio. paso3D recalcula el estado instantaneo del gas
+// (no lo interpola: vuelve a resolver p·V^n en cada fotograma) y de ahi salen el
+// nivel de aceite, el separador, los manometros y la faena.
+S.setAnimate(dt=>{
+  animT+=dt;
+  paso3D(animT);
+});
+
+MODES.forEach(m=>{ el('m_'+m).onclick=()=>{ if(!autoRunning) setMode(m); }; });
+el('btnAuto').onclick=()=>{ if(!autoRunning) runAuto(); };
+el('btnNew').onclick=()=>{ if(autoRunning) return; newSignal(); };
+el('btnCheck').onclick=()=>{ if(autoRunning) return; checkReto(); };
+const soundBtn=el('soundBtn');
+if(soundBtn){ soundBtn.onclick=()=>{ synth.toggle(); soundBtn.textContent=synth.isOn()?'🔊':'🔇'; }; }
+document.addEventListener('pointerdown',()=>{ synth.init(); synth.resume(); },{once:true});
+
+retoSolveBuild(true);
+computa();
+refrescaHW();
+S.start();
+setMode('gas');
+
+// ===================== 18. PUENTE DE PRUEBAS =====================
+// Todo lo que necesita un navegador de pruebas para reproducir el laboratorio sin
+// tocar el DOM: el motor entero, el estado y los mismos setters que usan los
+// botones. Si una cifra del panel no sale de aqui, es que esta escrita a mano.
+window.__labDebug={
+  // --- modos
+  mode:()=>mode, setMode, modes:()=>MODES.slice(),
+  // --- constantes del dominio
+  P_ATM, T0K, T_REF, N_ISO, N_POL, N_ADI, K_PLATO, PERM_ANUAL, TOL_KIT,
+  RHO_OIL, K_OIL, BETA_OIL, E_ACERO, V_BOT, C_BOT, C_BLOQ,
+  // --- catalogo y faenas
+  TIPOS, TIPO_KEYS, ACUM, ACUM_KEYS, ACUM_ROT, PRECARGAS, NBOTS,
+  FAENAS, FAENA_KEYS, FAENA_ABR, CRIT, CRIT_ROT, CRIT_POR, EJES, EST_ROT,
+  // --- motor
+  kelvin, pabs, pman, p0Efect, vGasLibre, vGasReal, estadoGas, deltaV,
+  celeridad, joukowsky, conjunto, funcion, punto, barrido, validas, mejor,
+  solucion, empates, bandaMax, bandaMaxT, botellaMax,
+  presionEntrega, presionRizado, presionTermicaEn, caudalPico,
+  // --- estado vivo
+  st:()=>({...ST}), cur:()=>CUR, hw:()=>({...hw}),
+  gasInfo:n=>gasInfo(n), cfg:()=>cfgDe(mode), ventanaRot,
+  // --- setters equivalentes a los botones
+  setFaena:v=>{ST.fk=v;afterEdit();},
+  setAcum:v=>{ST.ak=v;afterEdit();},
+  setPrec:v=>{ST.prec=Number(v);afterEdit();},
+  setNbot:v=>{ST.nbot=Number(v);afterEdit();},
+  setN:v=>{ST.nGas=Number(v);afterEdit();},
+  newSignal,
+  // --- reto
+  reto:()=>({cfg:{...RETO.cfg},ejes:{...RETO.ejes},sol:RETO.sol,nval:RETO.nval,
+             resuelto:RETO.resuelto,msg:RETO.msg,pistas:{...RETO.pistas}}),
+  setRetoFaena:v=>{RETO.cfg.fk=v;retoSolveBuild(true);afterEdit();},
+  setRetoEje:(eje,v)=>{RETO.ejes[eje]=(eje==='acum'?v:Number(v));RETO.msg='';RETO.resuelto=false;afterEdit();},
+  check:()=>checkReto(), pista:()=>pista(), FUNC_REQ,
+  solved:()=>solved, retoSolveBuild,
+  // --- cuestionario
+  quizCorrectIndex, answer, quiz:()=>QUIZ[mode], qorden:()=>QORD.slice(),
+  // --- etiquetas de seleccion
+  pickKeys:()=>Object.keys(PICK_INFO), pick:k=>(PICK_INFO[k]?PICK_INFO[k]():null),
+  // --- formato y recorrido
+  f1, pc1, NBSP, toast:()=>el('toast').textContent,
+  runAuto, autoRunning:()=>autoRunning,
+};
+
+// __END__
+</script>
+  <!-- Ficha técnica · Capa B del molde de lab 3D (componente compartido + contenido del lab) -->
+  <script src="_ficha-tecnica.js"></script>
+  <script src="_ficha-acumulador-precarga-nitrogeno.js"></script>
+</body>
+</html>

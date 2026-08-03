@@ -1,0 +1,9 @@
+{
+  "donor": "escaner-obd.html",
+  "out": "acumulador-precarga-nitrogeno.html",
+  "title": "CEN Labs · Acumulador hidroneumático: precarga de nitrógeno — Laboratorio 3D",
+  "lt": "Hidráulica y Neumática · Mecánica",
+  "inspectHint": "👆 Toca el cuerpo del acumulador, el separador, la válvula de plato, la conexión de gas, las botellas de transferencia, la línea de aceite, el manómetro o la faena para ver qué decide cada pieza",
+  "body": "acumulador-precarga-nitrogeno.body.js",
+  "fichas": ["_ficha-tecnica.js", "_ficha-acumulador-precarga-nitrogeno.js"]
+}
