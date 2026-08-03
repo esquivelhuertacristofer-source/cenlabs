@@ -1,0 +1,9 @@
+{
+  "donor": "escaner-obd.html",
+  "out": "transmision-hidrostatica-bomba-motor.html",
+  "title": "CEN Labs · Transmisión hidrostática bomba-motor — Laboratorio 3D",
+  "lt": "Hidráulica y Neumática · Mecánica",
+  "inspectHint": "👆 Toca el diésel, la bomba de plato inclinado, el motor hidráulico, la carga, el depósito, la bomba de carga, el radiador, las mangueras o el tablero para ver qué decide cada pieza",
+  "body": "transmision-hidrostatica-bomba-motor.body.js",
+  "fichas": ["_ficha-tecnica.js", "_ficha-transmision-hidrostatica-bomba-motor.js"]
+}
