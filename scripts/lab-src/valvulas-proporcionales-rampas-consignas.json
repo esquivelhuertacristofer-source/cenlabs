@@ -1,0 +1,9 @@
+{
+  "donor": "escaner-obd.html",
+  "out": "valvulas-proporcionales-rampas-consignas.html",
+  "title": "CEN Labs · Válvulas proporcionales con rampas y consignas — Laboratorio 3D",
+  "lt": "Hidráulica y Neumática · Mecánica",
+  "inspectHint": "👆 Toca la central, la válvula proporcional, la tarjeta electrónica, el cilindro, la carga, los manómetros o la regla para ver qué decide cada pieza",
+  "body": "valvulas-proporcionales-rampas-consignas.body.js",
+  "fichas": ["_ficha-tecnica.js", "_ficha-valvulas-proporcionales-rampas-consignas.js"]
+}

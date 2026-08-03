@@ -2238,6 +2238,73 @@ El banco tiene cinco estaciones industriales y 1 500 configuraciones (5 bombas �
     "titulo": "Analiza una Transmisión Hidrostática Bomba-Motor",
     "videoUrl": "",
   },
+  "mecanica-106": {
+    "acento": "#EFB13A",
+    "aplicaciones": [
+      {
+        "area": "Selección de una válvula proporcional para un eje hidráulico",
+        "ejemplo": "La decisión que en el pliego se toma mirando el caudal nominal y aquí se demuestra que depende de otras cuatro cifras. El caudal se declara a una caída nominal POR CANTO (ISO 4411), así que la servoválvula de 40 L/min a 35 bar es más pequeña que la NG16 de 60 a 5: comparar sin normalizar es el error más frecuente al leer una hoja de datos. Y a más caudal, peor mando: la NG16 trae 24 % de banda muerta, 7 % de histéresis y sólo 9 Hz de ancho de banda, es decir 38,9 ms de tiempo propio. El banco pone las cinco magnitudes sobre la mesa a la vez —caudal, banda muerta, histéresis, ancho de banda y coste— y demuestra con 2 250 configuraciones que sólo 475 cumplen los siete criterios de proyecto, y que existe la válvula que lo resuelve todo (la servoválvula) pero cuesta siete veces la NG10.",
+      },
+      {
+        "area": "Puesta en marcha y parametrización de una tarjeta proporcional",
+        "ejemplo": "Rampa, dither y compensación de banda muerta son los tres mandos que se tocan en la puesta en marcha, y los tres se ajustan casi siempre a ojo. Aquí se ve lo que hace cada uno con cifras: la compensación elimina la zona sorda pero cambia la pendiente de la característica, y sobrecompensar mete un escalón de arranque que puede suspender el criterio de arranque limpio; el dither sólo cura la histéresis si su frecuencia está por debajo del ancho de banda de la válvula, y lo que cura lo paga en rizado del vástago; y la rampa tiene una ventana acotada por los dos lados —corta revienta el pico de frenado, larga estropea la parada— que hay que encontrar en vez de suponer. Es exactamente el procedimiento que se sigue delante de una máquina que «va bien pero no repite».",
+      },
+      {
+        "area": "Diagnóstico de un eje que no repite o que se pasa de la marca",
+        "ejemplo": "Los dos síntomas más comunes de un mando proporcional en lazo abierto, y los dos tienen aquí su mecanismo. «El operario sube la consigna y no pasa nada»: banda muerta, y el banco lo enseña en 3D con la corredera desplazándose y el vástago inmóvil. «Se pasa siempre un poco de la marca, y más cuanto más suave lo pongo»: t_hold, el tiempo que la corredera tarda en cruzar la histéresis después de la orden de parar, multiplicado por la velocidad de meseta. En el banco entero ese criterio suspende 1 098 veces, 391 de ellas él solo, y no se arregla comprando más válvula: se arregla con menos histéresis efectiva (dither o realimentación de corredera) o con la rampa correcta. El paso siguiente, cerrar el lazo con un transductor de posición y un regulador, es materia de la práctica d4-A4.",
+      },
+    ],
+    "bienvenida": "Una válvula proporcional no es un grifo lineal. Eso es todo lo que hay que desaprender, y cuesta un rato.
+
+Entre la señal que sale de la tarjeta y el aceite que entra en el cilindro hay tres cosas que el catálogo cuenta en letra pequeña. Una BANDA MUERTA de hasta el 24 % del recorrido del mando donde la corredera ya se ha movido y todavía no pasa una gota. Una HISTÉRESIS del 6 o el 7 % que hace que la misma consigna dé una apertura distinta según vengas subiendo o bajando. Y un TIEMPO PROPIO de la válvula que no se suma a tu rampa como tú crees: se suma en cuadratura, t_real = √(t_orden² + t_v²).
+
+Con esas tres montadas sobre un cilindro real llega la primera sorpresa: la válvula manda en la VELOCIDAD y no manda en la PRESIÓN. Mira las fórmulas del reparto de la caída, Δp_PA = ΔF·A_a²/Ω y Δp_BT = ΔF·A_b²/Ω, y busca dentro un parámetro de la válvula. No hay ninguno. En el carro de transferencia puedes pasar de una NG6 de 4 L/min a una NG16 de 60, multiplicar la velocidad de 92,6 a 320,8 mm/s, y los dos manómetros se quedan clavados en 38,73 y 48,93 bar. Ni una décima. Lo que sí mueve esas presiones es el vástago: φ = A_a/A_b = 1,485 se convierte en φ² = 2,205 entre las dos caídas, y por eso la cámara anular ve más presión que la de entrada. Eso es la intensificación, y es la que revienta sellos.
+
+Lo segundo es el DITHER, esa oscilación pequeña que la tarjeta le mete a la consigna para que la corredera no se agarrote. Sólo funciona si la corredera puede SEGUIRLO. Sobre una NG10 de 15 Hz de ancho de banda, un dither del 12 % a 40 Hz llega atenuado a 0,351 y baja la histéresis de 6,50 a 3,08 %; uno del 3 % a 180 Hz llega a 0,083 y la deja en 6,30, casi como si no lo hubieras puesto. Un dither que la válvula no puede seguir no es un dither: es ruido en el cable. Y el que sí funciona se paga en temblor del vástago, que aquí se calcula y se juzga.
+
+Lo tercero rompe un reflejo: alargar la rampa NO afina la parada. La empeora. Cuando das la orden de parar, la corredera tiene que recorrer la histéresis entera antes de empezar a cerrar, y durante ese tiempo el vástago sigue a toda velocidad. En el carro, con rampa de 0,1 s frenas 6 000 kg y el pico llega a 141,0 bar contra un límite de 120: suspende. Con 2,5 s el pico es cómodo y el vástago se pasa 29,8 mm de la marca contra una tolerancia de 6: suspende. La ventana está en medio, en 0,3 s, con 3,816 mm. Y hay que encontrarla.
+
+El banco tiene cinco estaciones y 2 250 configuraciones (6 válvulas × 5 presets de dither × 5 rampas × 3 compensaciones × 5 estaciones). Siete criterios que hay que cumplir a la vez, y sólo 475 lo consiguen; en la unidad de dosificación sobreviven 21 de 450. El criterio que más suspende es la precisión de parada: 1 098 veces, y 391 de ellas él solo, con todo lo demás en regla.
+
+Motor verificado con 133 270 comprobaciones numéricas, 0 fallos, y la simulación con 280 aserciones en navegador real.",
+    "codigo": "MEC-106",
+    "conceptos": [
+      {
+        "descripcion": "Δp_PA = ΔF·A_a²/Ω y Δp_BT = ΔF·A_b²/Ω con Ω = A_a³+A_b³: en el reparto de la caída no aparece ningún parámetro de la válvula. Las presiones de régimen las ponen la carga y la geometría del cilindro; la válvula sólo decide cuánto tardas. Demostrado sobre el catálogo entero: en el carro de transferencia, de la NG6 de 4 L/min a la NG16 de 60, la velocidad de tope salta de 92,6 a 320,8 mm/s y los manómetros marcan 38,73 y 48,93 bar en los cuatro casos, con Δp_PA = 101,27 y Δp_BT = 45,93. Lo que sí las mueve es el vástago: φ = 1,485 y φ² = 2,205, que es exactamente el cociente entre las dos caídas. La intensificación es geometría, no mando.",
+        "icono": "🎚️",
+        "nombre": "La válvula manda en la velocidad, no en la presión",
+      },
+      {
+        "descripcion": "La característica estática no es una recta que pasa por el origen: hay una zona sorda donde la corredera se mueve y no pasa caudal —20 % en la NG6, 22 en la NG10, 24 en la NG16, 4 en la realimentada y 0,5 en la servoválvula— y encima un operador de juego, subiendo u = g(c − H/2) y bajando u = g(c + H/2). Con una NG10 sin dither, una consigna del 60 % da 0,446 subiendo y 0,529 bajando: la misma señal, dos máquinas. Y esa histéresis no es un error de precisión, es el ORIGEN FÍSICO del retardo de parada, porque al invertir hay que recorrerla entera antes de que la corredera empiece a cerrar.",
+        "icono": "🕳️",
+        "nombre": "Banda muerta e histéresis: la señal correcta con la máquina parada",
+      },
+      {
+        "descripcion": "a_ef = a/√(1+(f/f_v)²) es la atenuación de un primer orden con el ancho de banda de la válvula, y la mejora de la histéresis es saturante y nunca completa: H = h₀·máx(0,15; 1 − a_ef/8). Sobre la NG10 de 15 Hz, el 12 % a 40 Hz llega con 0,351 y deja la histéresis en 3,08 % (de 6,50); el 3 % a 180 Hz llega con 0,083 y la deja en 6,30. Sobre la NG10 realimentada, de 40 Hz, los mismos presets dan 0,075 y 0,459 % sobre una histéresis de partida de 0,50. Y el dither se paga: r = v_libre·Δu/(2π·f) es el rizado que mete en el vástago, y la sierra de cinta tiene su óptimo SIN dither porque el temblor le estropea el corte.",
+        "icono": "〰️",
+        "nombre": "El dither sólo cura si la corredera puede seguirlo",
+      },
+      {
+        "descripcion": "Al dar la orden de parar, la corredera recorre la histéresis entera antes de cerrar, y durante ese t_hold el vástago sigue a velocidad de meseta. t_hold crece con la rampa y la meseta no cambia, así que más rampa es más distancia recorrida de más. En el carro: rampa de 0,1 s → pico de frenado de 141,0 bar contra un límite de 120, suspende; rampa de 2,5 s → t_hold de 98,6 ms y 29,8 mm de error contra una tolerancia de 6, suspende; rampa de 0,3 s → 48,9 bar y 3,816 mm, válida. La ventana está acotada por los dos lados y hay que encontrarla. Y los tiempos no se suman: t_real = √(t_orden² + t_v²), con t_v = 0,35/f_v —38,9 ms en la NG16, 4,4 en la servoválvula—.",
+        "icono": "📉",
+        "nombre": "La rampa larga no afina la parada: se pasa de largo",
+      },
+    ],
+    "duracion": 45,
+    "mision": [
+      "LA SEÑAL CORRECTA Y LA MÁQUINA PARADA · Modo Consigna, prensa de encolado con NG10, sin dither y sin compensar. Pon la consigna al 10 %: el piloto encendido, la corredera desplazada en el banco 3D… y el vástago quieto. La banda muerta de esta válvula es del 22 % y hasta que la señal no la cruce no sale una gota. Sube ahora al 60 % y lee las DOS aperturas de la telemetría: 0,446 si vienes subiendo y 0,529 si vienes bajando. Ésa es la histéresis dibujada como lo que es, un operador de juego, y ésa es la razón de que las tarjetas traigan compensación de banda muerta.",
+      "EL DITHER QUE SÍ Y EL DITHER QUE NO · Sigue en Consigna y recorre los cuatro presets sobre esta NG10, que tiene 15 Hz de ancho de banda. Con 12 % a 40 Hz la histéresis baja de 6,50 a 3,08 %; con 3 % a 180 Hz se queda en 6,30. La razón está en la telemetría: la atenuación 1/√(1+(f/f_v)²) vale 0,351 a 40 Hz y 0,083 a 180. Cambia después a la NG10 realimentada, de 40 Hz: los mismos presets dan 0,075 y 0,459 % sobre una histéresis de partida de 0,50. Y mira lo que cuesta esa realimentación —18 frente a 9— con el mismo caudal nominal.",
+      "LA VÁLVULA MANDA EN LA VELOCIDAD · Modo Carga, carro de transferencia. Monta la NG6 de 4 L/min y lee la velocidad de tope: 92,6 mm/s. Monta la NG16 de 60: 320,8 mm/s. Has multiplicado por 3,46 sin tocar ni el cilindro ni la carga. Hasta aquí, lo esperable. Fíjate también en que la NG16 ya no llega a su tope propio sino al de la central: v = mín(v_válvula·u, Q_bomba/A_a), y montar más válvula de la que la bomba puede alimentar no acelera nada.",
+      "Y NO MANDA EN LA PRESIÓN · Sin salir del modo Carga, repite ese mismo cambio de válvula mirando los dos manómetros: 38,73 y 48,93 bar con la NG6, y 38,73 y 48,93 con la NG16. Ni una décima. Busca ahora en el pizarrón por qué: Δp_PA = ΔF·A_a²/Ω no contiene ningún parámetro de la válvula. Toca después el cilindro (A_a = 3 117,2 mm², A_b = 2 099,4, φ = 1,485) y los dos manómetros (101,27 y 45,93 bar de caída): el cociente es 2,205, que es exactamente φ². La cámara anular es más pequeña y por eso ve más presión.",
+      "CUANDO LA CARGA EMPUJA · Sigue en Carga y pon la plataforma elevadora, que baja con F = −14 025 N: el peso tira del vástago en el sentido del movimiento. Las presiones se invierten —19,0 bar en la entrada y 64,2 en el retorno— porque la máquina ya no empuja, retiene. Y si la contrapresión de retorno no basta, la telemetría avisa de CAVITACIÓN en la cámara que se vacía en vez de dibujarte un número imposible. Ésa es la avería que en una máquina real evita una válvula de frenado, y aquí se ve por qué hace falta.",
+      "LA RAMPA CORTA REVIENTA Y LA LARGA SE PASA · Modo Rampa, carro con NG10, dither de 12 % a 40 Hz y compensación. Rampa de 0,1 s: el pico de frenado llega a 141,0 bar contra un límite de 120, porque seis mil kilos parados en una décima de segundo tienen que apoyarse en el aceite del retorno. Rampa de 2,5 s: el pico es cómodo y la parada se va a 29,8 mm con una tolerancia de 6. Mira el porqué en la telemetría: t_hold pasa de 3,9 a 98,6 ms mientras la velocidad de meseta es la misma. Prueba 0,3 s: 3,816 mm, válida. La ventana existe y está en medio.",
+      "EL CRITERIO QUE DECIDE EL BANCO · Modo Proyecto. De las 2 250 configuraciones del catálogo sólo 475 cumplen los siete criterios a la vez, y el que más suspende es la precisión de parada: 1 098 veces, y 391 de ellas ÉL SOLO, con todo lo demás correcto. Si únicamente se arreglara la parada, el catálogo pasaría de 475 a 866 montajes válidos. Recorre después las cinco estaciones y compara: 70 válidas en la prensa, 108 en el carro, 119 en la sierra —cuyo óptimo va SIN dither porque el rizado le estropea el corte—, 157 en la elevadora y sólo 21 en la dosificadora.",
+      "RETO · Se sortea una estación y arrancas con los CUATRO ejes mal a propósito: válvula, preset de dither, rampa y compensación. Cada eje se califica por separado con los otros tres ya en su óptimo, así que sabrás cuál fallaste sin que te den la respuesta, y el diagnóstico te dará la cifra y el límite —«se pasa 29,8 mm y la tolerancia es 6»— y nunca la solución. Cumplir los siete criterios no basta: hay que montar el válido más barato y, a igualdad de coste, el de menor tiempo de ciclo. En la prensa hay un montaje que cierra en 2,06 s y PIERDE contra uno de 2,10 porque cuesta 14 en vez de 9: el orden se declara antes de barrer, y elegirlo después de ver el resultado es hacer trampa.",
+    ],
+    "subtitulo": "Hidráulica y Neumática · Banda muerta, histéresis y dither: la válvula manda en la velocidad, no en la presión",
+    "titulo": "Opera Válvulas Proporcionales con Rampas y Consignas",
+    "videoUrl": "",
+  },
   "mecanica-11": {
     "acento": "#2A9D8F",
     "aplicaciones": [
@@ -17993,6 +18060,7 @@ exports[`golden master — stores de datos (invariante ante la migración a src/
   "mecanica-103": [],
   "mecanica-104": [],
   "mecanica-105": [],
+  "mecanica-106": [],
   "mecanica-11": [],
   "mecanica-12": [],
   "mecanica-13": [],
@@ -18333,6 +18401,7 @@ exports[`golden master — stores de datos (invariante ante la migración a src/
   "mecanica-103",
   "mecanica-104",
   "mecanica-105",
+  "mecanica-106",
   "mecanica-11",
   "mecanica-12",
   "mecanica-13",
