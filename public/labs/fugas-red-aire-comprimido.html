@@ -1,0 +1,2711 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>CEN Labs · Fugas y eficiencia de una red de aire comprimido — Laboratorio 3D</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#08201C;--panel:rgba(9,26,23,.86);--line:#1E3A34;--ink:#EAF4F1;
+    --dim:#8FB3AC;--accent:#2A9D8F;--accent2:#4FD1C5;--hv:#FFB703;--good:#34d399;--bad:#f4475e;
+    --mono:'Outfit',system-ui,'Segoe UI',Roboto,sans-serif;--disp:'Outfit','Arial Black',Impact,sans-serif;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  html,body{height:100%;background:var(--bg);color:var(--ink);font-family:'Outfit',system-ui,Segoe UI,Roboto,sans-serif}
+  body{overflow:hidden}
+  #stage{position:fixed;inset:0}
+  canvas{display:block;touch-action:none}
+
+  .topbar{position:fixed;top:0;left:0;right:0;height:56px;display:flex;align-items:center;gap:14px;padding:0 20px;z-index:20;background:linear-gradient(180deg,rgba(10,13,18,.92),transparent);pointer-events:none}
+  .brand{font-family:var(--disp);font-weight:bold;font-size:16px;text-transform:uppercase}
+  .brand span{color:var(--accent)}
+  .lt{font-family:var(--mono);font-size:11px;letter-spacing:.1em;text-transform:uppercase;color:var(--dim)}
+
+  .badge{position:fixed;top:16px;right:20px;z-index:20;font-family:var(--mono);font-size:9px;letter-spacing:.12em;text-transform:uppercase;background:rgba(255,209,102,.12);color:var(--hv);border:1px solid rgba(255,209,102,.35);padding:6px 12px;border-radius:20px}
+
+  .hud{position:fixed;top:70px;left:18px;z-index:15;max-width:330px;background:var(--panel);backdrop-filter:blur(14px);border:1px solid var(--line);border-radius:16px;padding:18px 20px;max-height:calc(100vh - 150px);overflow-y:auto}
+  .hud .eyebrow{font-family:var(--mono);font-size:10px;letter-spacing:.18em;text-transform:uppercase;color:var(--accent);margin-bottom:8px}
+  .hud h2{font-size:19px;line-height:1.15;margin-bottom:9px}
+  .hud p{font-size:13px;line-height:1.55;color:var(--dim);margin-bottom:10px}
+  .hud .formula{font-family:var(--mono);color:var(--accent2);text-align:center;font-size:12.5px;margin:8px 0;padding:8px;background:rgba(0,0,0,.25);border-radius:8px;line-height:1.5}
+  .hud .src{font-size:10.5px;color:#7a8894;font-style:italic;margin-top:4px;line-height:1.5}
+  .legend{display:flex;flex-direction:column;gap:6px;margin:12px 0;padding:10px 12px;background:rgba(0,0,0,.22);border-radius:10px}
+  .legend .li{display:flex;align-items:center;gap:8px;font-size:11px;color:#c4d0da}
+  .legend .dot{width:10px;height:10px;border-radius:50%;flex:0 0 auto}
+  .fid{margin:10px 0 2px;padding:10px 12px;background:rgba(0,0,0,.22);border-radius:10px;border:1px solid rgba(79,209,197,.18)}
+  .fid .ft{font-family:var(--mono);font-size:9.5px;letter-spacing:.14em;text-transform:uppercase;color:var(--accent2);margin-bottom:6px}
+  .fid .fl{font-size:11px;color:#c4d0da;line-height:1.5;margin-bottom:5px}
+  .fid .fl b{color:var(--ink)}
+  .fid .fl.no b{color:var(--hv)}
+
+  .panel{position:fixed;top:70px;right:18px;z-index:15;width:262px;background:var(--panel);backdrop-filter:blur(14px);border:1px solid var(--line);border-radius:16px;padding:16px;max-height:calc(100vh - 150px);overflow-y:auto}
+  .panel h4{font-family:var(--mono);font-size:10px;letter-spacing:.14em;text-transform:uppercase;color:var(--dim);margin:2px 0 10px}
+  .panel h4.sec{margin-top:16px;border-top:1px solid var(--line);padding-top:14px}
+  .g{margin-bottom:6px}
+  .gl{display:flex;justify-content:space-between;font-family:var(--mono);font-size:11px;color:var(--dim)}
+  .gl b{color:var(--accent2)}
+  .gl b.good{color:var(--good)}.gl b.warn{color:var(--hv)}.gl b.bad{color:var(--bad)}
+  .modebar{display:flex;gap:5px;margin-bottom:8px}
+  .modebar .b{flex:1;padding:8px 4px;font-size:11px}
+  .btns{display:flex;flex-direction:column;gap:7px;margin-top:6px}
+  .b{font-family:system-ui;font-size:12.5px;padding:10px;border-radius:9px;cursor:pointer;border:1px solid var(--line);background:#1b242f;color:var(--ink);transition:.15s;text-align:center}
+  .b:hover{border-color:var(--accent);background:#202c38}
+  .b.on{background:var(--accent);color:#06120f;border-color:var(--accent);font-weight:bold}
+  .b.primary{background:var(--accent);color:#06120f;border-color:var(--accent);font-weight:bold}
+  .b.auto{border-color:var(--hv);color:var(--hv);background:rgba(255,183,3,.10);font-weight:bold}
+  .b.auto:hover{background:rgba(255,183,3,.18);border-color:var(--hv)}
+  .b.auto:disabled{opacity:.6;cursor:default}
+  .b.dx{text-align:left;font-size:12px}
+  .b.dx.right{background:rgba(52,211,153,.18);border-color:var(--good);color:var(--good);font-weight:bold}
+  .b.dx.wrong{background:rgba(244,71,94,.15);border-color:var(--bad);color:var(--bad)}
+  .console{font-family:var(--mono);font-size:11px;line-height:1.55;color:#c4d0da;background:rgba(0,0,0,.28);border-radius:9px;padding:10px 12px;margin-bottom:8px;min-height:56px}
+  .console .dtc{color:var(--bad);font-weight:bold}
+  .console .ok{color:var(--good)}
+  .console .mono{color:var(--dim)}
+
+  .hint{position:fixed;bottom:18px;left:18px;z-index:14;font-family:var(--mono);font-size:10px;color:var(--dim);background:var(--panel);padding:7px 12px;border-radius:9px;border:1px solid var(--line)}
+  .toast{position:fixed;top:80px;left:50%;transform:translateX(-50%);z-index:30;background:rgba(18,24,32,.95);border:1px solid var(--accent);padding:10px 20px;border-radius:40px;font-family:var(--mono);font-size:12px;opacity:0;transition:.3s;pointer-events:none;max-width:80vw;text-align:center}
+  .toast.show{opacity:1}
+  .soundBtn{position:fixed;top:14px;right:18px;z-index:21;font-size:16px;background:var(--panel);backdrop-filter:blur(12px);border:1px solid var(--line);border-radius:50%;width:36px;height:36px;cursor:pointer;color:var(--dim);transition:.15s}
+  .soundBtn.on{color:var(--accent);border-color:var(--accent)}
+  .soundBtn:hover{transform:scale(1.08)}
+  .inspectHint{position:fixed;bottom:18px;right:18px;z-index:14;font-family:var(--mono);font-size:10px;color:var(--accent2);background:var(--panel);padding:7px 12px;border-radius:9px;border:1px solid var(--line)}
+
+  @media(max-width:820px){
+    .hud,.panel{position:fixed;left:8px;right:8px;top:auto;bottom:8px;max-width:none;width:auto;max-height:42vh;overflow-y:auto}
+    .hud{bottom:calc(8px + 42vh + 8px)}
+    .hint,.inspectHint{display:none}
+  }
+</style>
+</head>
+<body>
+<div id="stage"></div>
+<button class="soundBtn on" id="soundBtn">🔊</button>
+<div class="topbar">
+  <div class="brand">CEN<span> Labs</span></div>
+  <div class="lt">Hidráulica y Neumática · Mecánica</div>
+</div>
+<div class="hud" id="hud"></div>
+<div class="panel" id="panel"></div>
+<div class="hint">Arrastra para orbitar · rueda para zoom</div>
+<div class="inspectHint">👆 Toca el compresor, el depósito, el secador, el tronco, cualquier máquina, cualquier fuga, los dos manómetros o el tablero de criterios para ver qué decide cada pieza</div>
+<div class="toast" id="toast"></div>
+
+<script type="importmap">
+{ "imports": {
+  "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.min.js",
+  "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/"
+}}
+</script>
+<script type="module">
+import * as THREE from 'three';
+import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
+import { RoundedBoxGeometry } from 'three/addons/geometries/RoundedBoxGeometry.js';
+import { EffectComposer } from 'three/addons/postprocessing/EffectComposer.js';
+import { RenderPass } from 'three/addons/postprocessing/RenderPass.js';
+import { GTAOPass } from 'three/addons/postprocessing/GTAOPass.js';
+import { UnrealBloomPass } from 'three/addons/postprocessing/UnrealBloomPass.js';
+import { SMAAPass } from 'three/addons/postprocessing/SMAAPass.js';
+import { OutputPass } from 'three/addons/postprocessing/OutputPass.js';
+import { BokehPass } from 'three/addons/postprocessing/BokehPass.js';
+
+/* ============================================================
+   Texturas PBR procedurales (sin archivos externos) — compartidas
+   ============================================================ */
+function cv(s=512){const c=document.createElement('canvas');c.width=c.height=s;return c;}
+function tex(canvas,repeat=1,srgb=false){
+  const t=new THREE.CanvasTexture(canvas);
+  t.wrapS=t.wrapT=THREE.RepeatWrapping;t.repeat.set(repeat,repeat);
+  t.colorSpace = srgb?THREE.SRGBColorSpace:THREE.NoColorSpace;
+  t.generateMipmaps=false; t.minFilter=THREE.LinearFilter; t.anisotropy=1; return t;
+}
+function normalFromHeight(size, hfn, strength=2.0){
+  const c=cv(size),ctx=c.getContext('2d'),img=ctx.createImageData(size,size);
+  const H=(x,y)=>hfn((x+size)%size,(y+size)%size);
+  for(let y=0;y<size;y++)for(let x=0;x<size;x++){
+    const dx=(H(x+1,y)-H(x-1,y))*strength;
+    const dy=(H(x,y+1)-H(x,y-1))*strength;
+    const nz=1.0; const len=Math.hypot(dx,dy,nz);
+    const i=(y*size+x)*4;
+    img.data[i]  =((-dx/len)*0.5+0.5)*255;
+    img.data[i+1]=((-dy/len)*0.5+0.5)*255;
+    img.data[i+2]=((nz/len)*0.5+0.5)*255;
+    img.data[i+3]=255;
+  }
+  ctx.putImageData(img,0,0);return c;
+}
+function valueNoise(seed=1){
+  const g=(x,y)=>{const s=Math.sin((x*127.1+y*311.7)+seed*13.13)*43758.5453;return s-Math.floor(s);};
+  return (x,y)=>{
+    const xi=Math.floor(x),yi=Math.floor(y),xf=x-xi,yf=y-yi;
+    const u=xf*xf*(3-2*xf),v=yf*yf*(3-2*yf);
+    const a=g(xi,yi),b=g(xi+1,yi),c=g(xi,yi+1),d=g(xi+1,yi+1);
+    return a*(1-u)*(1-v)+b*u*(1-v)+c*(1-u)*v+d*u*v;
+  };
+}
+function fbm(noise,x,y,oct=4){let v=0,a=0.5,f=1;for(let i=0;i<oct;i++){v+=noise(x*f,y*f)*a;f*=2;a*=0.5;}return v;}
+
+function castAluminum(){
+  const S=512, n=valueNoise(7);
+  const c=cv(S),ctx=c.getContext('2d'),img=ctx.createImageData(S,S);
+  for(let y=0;y<S;y++)for(let x=0;x<S;x++){
+    const v=fbm(n,x/22,y/22,5);
+    const por=Math.pow(n(x/3.1,y/3.1),8);
+    const base=150+v*38-por*70;
+    const i=(y*S+x)*4; img.data[i]=base; img.data[i+1]=base+4; img.data[i+2]=base+10; img.data[i+3]=255;
+  }
+  ctx.putImageData(img,0,0);
+  const r=cv(S),rx=r.getContext('2d'),rimg=rx.createImageData(S,S);
+  for(let y=0;y<S;y++)for(let x=0;x<S;x++){
+    const v=fbm(n,x/18,y/18,4); const por=Math.pow(n(x/3.1,y/3.1),8);
+    const rough=120+v*40+por*90; const i=(y*S+x)*4;
+    rimg.data[i]=rimg.data[i+1]=rimg.data[i+2]=Math.min(255,rough); rimg.data[i+3]=255;
+  }
+  rx.putImageData(rimg,0,0);
+  const nrm=normalFromHeight(S,(x,y)=>fbm(n,x/16,y/16,5)+Math.pow(n(x/3.1,y/3.1),8)*0.6,3.0);
+  return {map:tex(c,1,true),roughnessMap:tex(r),normalMap:tex(nrm)};
+}
+function brushedMetal(){
+  const S=512, n=valueNoise(3);
+  const c=cv(S),ctx=c.getContext('2d'),img=ctx.createImageData(S,S);
+  for(let y=0;y<S;y++)for(let x=0;x<S;x++){
+    const streak=Math.sin(y*0.9)*2 + (n(x/120,y*0.5)-0.5)*40;
+    const base=185+streak; const i=(y*S+x)*4;
+    img.data[i]=base; img.data[i+1]=base+2; img.data[i+2]=base+6; img.data[i+3]=255;
+  }
+  ctx.putImageData(img,0,0);
+  const r=cv(S),rx=r.getContext('2d'),rimg=rx.createImageData(S,S);
+  for(let y=0;y<S;y++)for(let x=0;x<S;x++){
+    const streak=(n(x/120,y*0.5)-0.5)*60; const rough=40+Math.abs(streak); const i=(y*S+x)*4;
+    rimg.data[i]=rimg.data[i+1]=rimg.data[i+2]=Math.min(160,rough); rimg.data[i+3]=255;
+  }
+  rx.putImageData(rimg,0,0);
+  const nrm=normalFromHeight(S,(x,y)=>(n(x/120,y*0.5))*0.3+Math.sin(y*0.9)*0.02,1.2);
+  return {map:tex(c,1,true),roughnessMap:tex(r),normalMap:tex(nrm)};
+}
+function rubber(){
+  const S=256,n=valueNoise(5);
+  const nrm=normalFromHeight(S,(x,y)=>fbm(n,x/8,y/8,4),1.4);
+  const rough=cv(64),rc=rough.getContext('2d');rc.fillStyle='#e0e0e0';rc.fillRect(0,0,64,64);
+  return {roughnessMap:tex(rough),normalMap:tex(nrm,2)};
+}
+function gradientBG(top='#11161d',bottom='#05070a'){
+  const c=cv(512),ctx=c.getContext('2d');
+  const grd=ctx.createLinearGradient(0,0,0,512);
+  grd.addColorStop(0,top);grd.addColorStop(1,bottom);
+  ctx.fillStyle=grd;ctx.fillRect(0,0,512,512);
+  const rg=ctx.createRadialGradient(256,200,30,256,256,360);
+  rg.addColorStop(0,'rgba(42,157,143,0.10)');rg.addColorStop(1,'rgba(0,0,0,0)');
+  ctx.fillStyle=rg;ctx.fillRect(0,0,512,512);
+  return tex(c,1,true);
+}
+function techPlastic(r=0.10,g=0.11,b=0.13){
+  const S=256,n=valueNoise(31);
+  const c=cv(S),ctx=c.getContext('2d'),img=ctx.createImageData(S,S);
+  for(let y=0;y<S;y++)for(let x=0;x<S;x++){
+    const v=fbm(n,x/30,y/30,3)*0.1+0.92; const i=(y*S+x)*4;
+    img.data[i]=r*255*v;img.data[i+1]=g*255*v;img.data[i+2]=b*255*v;img.data[i+3]=255;
+  }
+  ctx.putImageData(img,0,0);
+  const nrm=normalFromHeight(S,(x,y)=>fbm(n,x/10,y/10,3),0.8);
+  const rough=cv(64),rc=rough.getContext('2d');rc.fillStyle='#9a9a9a';rc.fillRect(0,0,64,64);
+  return {map:tex(c,1,true),roughnessMap:tex(rough),normalMap:tex(nrm)};
+}
+
+/* ============================================================
+   ENGINE — render premium compartido por todos los laboratorios
+   ============================================================ */
+function createStage(mount, opts={}){
+  const bgTop = opts.bgTop||'#141b24', bgBot = opts.bgBot||'#05070a';
+  const renderer = new THREE.WebGLRenderer({ antialias:true, powerPreference:'high-performance' });
+  renderer.setPixelRatio(Math.min(devicePixelRatio,2));
+  renderer.setSize(mount.clientWidth, mount.clientHeight);
+  renderer.shadowMap.enabled = true;
+  renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+  renderer.toneMapping = THREE.ACESFilmicToneMapping;
+  renderer.toneMappingExposure = opts.exposure ?? 1.18;
+  renderer.outputColorSpace = THREE.SRGBColorSpace;
+  mount.appendChild(renderer.domElement);
+  renderer.domElement.style.touchAction='none';
+
+  const scene = new THREE.Scene();
+  scene.background = gradientBG(bgTop,bgBot);
+  const pmrem = new THREE.PMREMGenerator(renderer);
+  scene.environment = pmrem.fromScene(new RoomEnvironment(renderer), 0.04).texture;
+  scene.environmentIntensity = opts.envInt ?? 1.15;
+
+  const camera = new THREE.PerspectiveCamera(45, mount.clientWidth/mount.clientHeight, 0.1, 200);
+  const cam = opts.cam || [5.5,3.4,6.2];
+  camera.position.set(...cam);
+
+  const controls = new OrbitControls(camera, renderer.domElement);
+  controls.enableDamping = true; controls.dampingFactor = 0.07;
+  controls.minDistance = opts.minD ?? 3; controls.maxDistance = opts.maxD ?? 18;
+  controls.maxPolarAngle = Math.PI*0.52;
+  controls.target.set(...(opts.target||[0,1.4,0]));
+  controls.autoRotate = opts.autoRotate ?? false;
+  controls.autoRotateSpeed = opts.autoRotateSpeed ?? 0.6;
+
+  const key = new THREE.DirectionalLight(0xffffff, 2.7);
+  key.position.set(5,9,6); key.castShadow=true;
+  key.shadow.mapSize.set(2048,2048);
+  key.shadow.camera.near=0.5; key.shadow.camera.far=40;
+  const sd=8; Object.assign(key.shadow.camera,{left:-sd,right:sd,top:sd,bottom:-sd});
+  key.shadow.bias=-0.0003; key.shadow.normalBias=0.02; scene.add(key);
+  const rim = new THREE.SpotLight(0x2affce, 55, 30, Math.PI/5, 0.4, 1.5);
+  rim.position.set(-7,6,-5); scene.add(rim);
+  const fill = new THREE.DirectionalLight(0x6fb6ff, 0.5); fill.position.set(-4,3,7); scene.add(fill);
+  scene.add(new THREE.HemisphereLight(0x9fb4c8, 0x10151b, 0.35));
+
+  if(opts.floor!==false){
+    const f = new THREE.Mesh(new THREE.CircleGeometry(40,80),
+      new THREE.MeshStandardMaterial({ color:0x0a0e13, roughness:0.14, metalness:0.62, envMapIntensity:1.15 }));
+    f.rotation.x=-Math.PI/2; f.receiveShadow=true; scene.add(f);
+    for(let r=2;r<=8;r+=2){
+      const ring=new THREE.Mesh(new THREE.RingGeometry(r-0.012,r+0.012,80),
+        new THREE.MeshBasicMaterial({color:0x1a2632,transparent:true,opacity:0.4}));
+      ring.rotation.x=-Math.PI/2; ring.position.y=0.002; scene.add(ring);
+    }
+  }
+
+  const isMobile = /Mobi|Android|iPhone|iPad/i.test(navigator.userAgent) || innerWidth<820;
+  // GTAO desactivado por defecto: el pase de oclusión ambiental en espacio de pantalla
+  // producía un recuadro oscuro duro sobre el piso reflectante (artefacto dependiente de la
+  // cámara y del renderer). La escena tiene AO suficiente con luces directas + sombras + env.
+  // Se puede reactivar para pruebas con ?gtao.
+  const useGtao = /[?&]gtao\b/.test(location.search);
+  const composer = new EffectComposer(renderer);
+  composer.addPass(new RenderPass(scene,camera));
+  if(!isMobile && useGtao){
+    try{
+      const g=new GTAOPass(scene,camera,mount.clientWidth,mount.clientHeight);
+      g.output=GTAOPass.OUTPUT.Default;
+      if(g.updateGtaoMaterial)g.updateGtaoMaterial({radius:0.5,distanceExponent:1,thickness:1,scale:1.1,samples:16});
+      composer.addPass(g);
+    }catch(e){}
+  }
+  const bloom=new UnrealBloomPass(new THREE.Vector2(mount.clientWidth,mount.clientHeight),opts.bloom??0.42,0.5,0.9);
+  composer.addPass(bloom);
+  let bokeh=null;
+  const flat=/[?&]flat/.test(location.search);
+  if(!isMobile && !flat){
+    bokeh=new BokehPass(scene,camera,{focus:8.5,aperture:opts.aperture??0.00018,maxblur:opts.maxblur??0.004,width:mount.clientWidth,height:mount.clientHeight});
+    composer.addPass(bokeh);
+  }
+  composer.addPass(new OutputPass());
+  composer.addPass(new SMAAPass(mount.clientWidth*renderer.getPixelRatio(),mount.clientHeight*renderer.getPixelRatio()));
+
+  function resize(){
+    const w=mount.clientWidth,h=mount.clientHeight;
+    camera.aspect=w/h; camera.updateProjectionMatrix();
+    renderer.setSize(w,h); composer.setSize(w,h);
+  }
+  window.addEventListener('resize',resize);
+
+  const clock=new THREE.Clock();
+  let hook=null, raf=null;
+  const camCine={active:false,t:0,dur:1.4,from:new THREE.Vector3(),to:new THREE.Vector3(),fromT:new THREE.Vector3(),toT:new THREE.Vector3()};
+  let lastDrag=-99, cinematicIdle=false;
+  controls.addEventListener('start',()=>{ lastDrag=clock.elapsedTime; camCine.active=false; });
+  function easeInOutCubic(x){return x<0.5?4*x*x*x:1-Math.pow(-2*x+2,3)/2;}
+  function moveTo(pos,target,dur=1.4){
+    camCine.from.copy(camera.position); camCine.fromT.copy(controls.target);
+    camCine.to.set(...pos); camCine.toT.set(...target);
+    camCine.dur=dur; camCine.active=true; camCine.t=0;
+  }
+  function setCinematicIdle(v){ cinematicIdle=v; if(!v)controls.autoRotate=false; }
+  function loop(){ raf=requestAnimationFrame(loop); const dt=clock.getDelta(),t=clock.elapsedTime;
+    if(camCine.active){
+      camCine.t=Math.min(1,camCine.t+dt/camCine.dur);
+      const e=easeInOutCubic(camCine.t);
+      camera.position.lerpVectors(camCine.from,camCine.to,e);
+      controls.target.lerpVectors(camCine.fromT,camCine.toT,e);
+      if(camCine.t>=1)camCine.active=false;
+    } else if(cinematicIdle){
+      controls.autoRotate=(t-lastDrag)>1.4; controls.autoRotateSpeed=0.45;
+    }
+    if(hook)hook(dt,t); controls.update();
+    if(bokeh) bokeh.uniforms['focus'].value = camera.position.distanceTo(controls.target);
+    composer.render(); }
+  function start(){ if(!raf)loop(); }
+  function stop(){ cancelAnimationFrame(raf); raf=null; window.removeEventListener('resize',resize); }
+
+  return { THREE, renderer, scene, camera, controls, composer, bloom,
+    setAnimate:fn=>hook=fn, start, stop, resize, clock,
+    flyTo:(v)=>{ controls.target.copy(v); }, moveTo, setCinematicIdle };
+}
+
+/* ---------- shared geometry/material helpers ---------- */
+function roundedBox(w,h,d,mat,rf=0.08){
+  const r=Math.min(w,h,d)*rf;
+  const m=new THREE.Mesh(new RoundedBoxGeometry(w,h,d,4,r),mat);
+  m.castShadow=m.receiveShadow=true; return m;
+}
+function pickerFor(scene,camera,dom,onHit){
+  const ray=new THREE.Raycaster(),mouse=new THREE.Vector2(); let down=null;
+  dom.addEventListener('pointerdown',e=>down=[e.clientX,e.clientY]);
+  dom.addEventListener('pointerup',e=>{
+    if(!down)return; const moved=Math.abs(e.clientX-down[0])+Math.abs(e.clientY-down[1])>6; down=null;
+    if(moved)return;
+    const r=dom.getBoundingClientRect();
+    mouse.x=((e.clientX-r.left)/r.width)*2-1; mouse.y=-((e.clientY-r.top)/r.height)*2+1;
+    ray.setFromCamera(mouse,camera);
+    const hits=ray.intersectObjects(scene.children,true);
+    onHit(hits[0]||null);
+  });
+}
+function labelSprite(text,color='#ffd166'){
+  const w = Math.max(150, Math.min(520, text.length*26+60));
+  const cvE=document.createElement('canvas');cvE.width=w;cvE.height=96;
+  const c=cvE.getContext('2d');c.fillStyle='rgba(8,11,16,.95)';
+  const rr=(x,y,ww,hh,r)=>{c.beginPath();c.moveTo(x+r,y);c.arcTo(x+ww,y,x+ww,y+hh,r);c.arcTo(x+ww,y+hh,x,y+hh,r);c.arcTo(x,y+hh,x,y,r);c.arcTo(x,y,x+ww,y,r);c.closePath();};
+  rr(3,3,w-6,90,18);c.fill();
+  c.strokeStyle=color;c.lineWidth=3;c.stroke();
+  c.font='bold 36px Outfit, system-ui, sans-serif';c.fillStyle=color;c.textAlign='center';c.textBaseline='middle';c.fillText(text,w/2,48);
+  const tx=new THREE.CanvasTexture(cvE);tx.colorSpace=THREE.SRGBColorSpace;tx.generateMipmaps=false;tx.minFilter=THREE.LinearFilter;
+  const sp=new THREE.Sprite(new THREE.SpriteMaterial({map:tx,depthTest:false,transparent:true}));
+  const aspect=w/96;
+  sp.scale.set(0.30*aspect,0.30,1);sp.renderOrder=999;return sp;
+}
+
+/* ============================================================
+   SYNTH — sintetizador Web Audio reutilizable
+   ============================================================ */
+function makeSynth(opts={}){
+  const type=opts.type||'sawtooth';
+  let ctx=null,oscA=null,oscB=null,gain=null,filter=null,soundOn=true;
+  function init(){
+    if(ctx)return;
+    try{
+      ctx=new (window.AudioContext||window.webkitAudioContext)();
+      oscA=ctx.createOscillator(); oscB=ctx.createOscillator();
+      oscA.type=type; oscB.type=opts.type2||'square';
+      filter=ctx.createBiquadFilter(); filter.type=opts.filterType||'lowpass'; filter.frequency.value=opts.filterFreq||500; filter.Q.value=opts.Q||3;
+      gain=ctx.createGain(); gain.gain.value=0;
+      oscA.connect(filter); oscB.connect(filter); filter.connect(gain); gain.connect(ctx.destination);
+      oscA.start(); oscB.start();
+    }catch(e){}
+  }
+  function update(freqA,freqB,vol,filterFreq){
+    if(!ctx||!soundOn){ if(gain)gain.gain.setTargetAtTime(0,ctx?.currentTime||0,0.1); return; }
+    oscA.frequency.setTargetAtTime(freqA,ctx.currentTime,0.04);
+    if(freqB!==undefined)oscB.frequency.setTargetAtTime(freqB,ctx.currentTime,0.04);
+    if(filterFreq!==undefined)filter.frequency.setTargetAtTime(filterFreq,ctx.currentTime,0.05);
+    gain.gain.setTargetAtTime(Math.max(0,vol),ctx.currentTime,0.06);
+  }
+  function beep(freq=880,dur=0.09,vol=0.06){
+    if(!ctx||!soundOn)return;
+    const o=ctx.createOscillator(),g=ctx.createGain();
+    o.type='sine'; o.frequency.value=freq;
+    g.gain.setValueAtTime(vol,ctx.currentTime); g.gain.exponentialRampToValueAtTime(0.001,ctx.currentTime+dur);
+    o.connect(g); g.connect(ctx.destination); o.start(); o.stop(ctx.currentTime+dur);
+  }
+  function toggle(){ soundOn=!soundOn; return soundOn; }
+  function resume(){ if(ctx&&ctx.state==='suspended')ctx.resume(); }
+  return { init, update, beep, toggle, resume, isOn:()=>soundOn, state:()=>ctx?.state||'none' };
+}
+
+// ===================== 1. ESCENA =====================
+const mount=document.getElementById('stage');
+const S=createStage(mount,{cam:[8.2,4.6,10.4],target:[2.30,1.05,0.00],bgTop:'#0d1017',bgBot:'#05060a',bloom:0.40,minD:3.4,maxD:28});
+const {scene}=S;
+const synth=makeSynth({type:'sine',type2:'triangle',filterFreq:880,Q:0.82});
+const el=id=>document.getElementById(id);
+
+// ===================== 2. MOTOR =====================
+// Motor sellado de la auditoria de fugas. Toda cifra del laboratorio sale de
+// aqui: no hay ni una constante escrita a mano en la prosa, ni una tabla de
+// respuestas. Verificado aparte por 141 602 aserciones numericas.
+
+// ---------- constantes fisicas y economicas ----------
+const P_ATM=1.013;        // bar, atmosfera de referencia
+const R_AIRE=287;         // J/(kg K)
+const K_AIRE=1.4;         // cp/cv
+const T_K=293.15;         // K (20 C) en linea y en aspiracion
+const MU=1.82e-5;         // Pa s, viscosidad dinamica del aire a 20 C
+const RHO_N=P_ATM*1e5/(R_AIRE*T_K);   // kg/m3 en condiciones de referencia
+const CD=0.65;            // coeficiente de descarga de un orificio de borde vivo
+const EPS_TUBO=0.045;     // mm, rugosidad del acero estirado
+const ETA_COMP=0.55;      // rendimiento global: isotermico -> eje -> red electrica
+const EUR_KWH=0.18;       // EUR/kWh
+const EUR_HORA=42;        // EUR/h de mano de obra de mantenimiento
+const ANIOS=5;            // horizonte del coste de propiedad
+const DP_SEC_NOM=0.20;    // bar, perdida del secador a caudal nominal
+const P_SEC_REF=7.0;      // barg, presion a la que se declara el secador
+const CONSIGNAS=[6.0,6.5,7.0,7.5,8.0];   // barg
+const DB_REF=10;          // Nl/min, caudal de referencia del detector
+const DB_0=40;            // dB que marca el detector a DB_REF
+
+// relacion critica de presiones y coeficiente del flujo bloqueado
+const R_CRIT=Math.pow(2/(K_AIRE+1),K_AIRE/(K_AIRE-1));
+const COEF_SON=Math.sqrt(K_AIRE/(R_AIRE*T_K))*Math.pow(2/(K_AIRE+1),(K_AIRE+1)/(2*(K_AIRE-1)));
+const COEF_SUB=Math.sqrt(2*K_AIRE/((K_AIRE-1)*R_AIRE*T_K));
+
+// ---------- orificio compresible ----------
+// A en mm2, presiones en bar absolutos. Devuelve kg/s.
+function gastoOrificio(aMm2,pUp,pDown){
+  const A=aMm2*1e-6, p1=pUp*1e5;
+  if(A<=0||pUp<=0) return 0;
+  const r=pDown/pUp;
+  if(r<=R_CRIT) return CD*A*p1*COEF_SON;
+  if(r>=1) return 0;
+  const t=Math.pow(r,2/K_AIRE)-Math.pow(r,(K_AIRE+1)/K_AIRE);
+  return CD*A*p1*COEF_SUB*Math.sqrt(Math.max(0,t));
+}
+const bloqueado=(pUp,pDown)=>pDown/pUp<=R_CRIT;
+// kg/s -> Nl/min
+const aNlMin=mdot=>mdot/RHO_N*60000;
+const aKgS=nlmin=>nlmin*RHO_N/60000;
+
+// presion aguas abajo de un orificio que ha de pasar un gasto dado (biseccion)
+// devuelve null si el orificio no da para tanto (ni siquiera bloqueado)
+function pTrasOrificio(aMm2,pUp,mdot){
+  if(mdot<=0) return pUp;
+  if(mdot>gastoOrificio(aMm2,pUp,0)) return null;
+  let lo=R_CRIT*pUp, hi=pUp;                 // el gasto decrece con pDown
+  for(let i=0;i<60;i++){
+    const m=0.5*(lo+hi);
+    if(m===lo||m===hi) break;                // el intervalo ya no se puede partir
+    if(gastoOrificio(aMm2,pUp,m)>mdot) lo=m; else hi=m;
+  }
+  return 0.5*(lo+hi);
+}
+
+// nivel que marcaria el detector de ultrasonidos (curva declarada del aparato)
+const dB=qNlMin=>qNlMin<=0?0:DB_0+20*Math.log10(qNlMin/DB_REF);
+
+// ---------- friccion en la tuberia ----------
+function colebrook(re,epsD){
+  let f=0.02;
+  for(let i=0;i<120;i++){
+    const inv=-2*Math.log10(epsD/3.7+2.51/(re*Math.sqrt(f)));
+    const fn=1/(inv*inv);
+    if(fn===f) return f;                     // punto fijo exacto
+    f=fn;
+  }
+  return f;
+}
+// caida por Darcy en un tramo: qN en Nl/min, l y d en m, pAbs en bar
+function dpTramo(qN,lM,dM,pAbs){
+  if(qN<=0) return {dp:0,v:0,re:0,f:0,rho:pAbs*1e5/(R_AIRE*T_K)};
+  const rho=pAbs*1e5/(R_AIRE*T_K);
+  const mdot=aKgS(qN);
+  const A=Math.PI*dM*dM/4;
+  const v=mdot/(rho*A);
+  const re=rho*v*dM/MU;
+  const epsD=(EPS_TUBO/1000)/dM;
+  const f=re<2000?64/re:colebrook(re,epsD);
+  const dp=f*(lM/dM)*rho*v*v/2/1e5;
+  return {dp,v,re,f,rho};
+}
+
+// ---------- catalogo de tuberia (diametros interiores normalizados) ----------
+const DN={dn15:16.1,dn20:21.7,dn25:27.3,dn32:36.0,dn40:41.9,dn50:53.1};
+
+// ---------- las cinco plantas ----------
+const zona=(k,rot,q,pMin,l,d,at)=>({k,rot,q,pMin,l,d,at});
+const fuga=(k,rot,zk,tipo,d,duty,post,horas,pieza,paro,tronco)=>
+  ({k,rot,zk,tipo,d,duty,post,horas,pieza,paro,tronco});
+
+const PLANTAS={
+  taller:{
+    k:'taller', rot:'Taller mecánico', ico:'🔧',
+    qComp:2.35, hAnio:2000, pBase:8.0, lTronco:45, dTronco:DN.dn20, qSecNom:3.2,
+    ventana:5, ventanaParo:0, objAhorro:600, paybackMax:9, vDep:500,
+    zonas:[
+      zona('bancos','Bancos de montaje',400,5.0,18,DN.dn20,15.0),
+      zona('granalla','Cabina de granallado',700,5.5,25,DN.dn25,24.0),
+      zona('llaves','Llaves de impacto',250,6.2,12,DN.dn15,10.0),
+      zona('prensa','Prensa neumática',300,5.0,30,DN.dn20,11.0),
+      zona('soplado','Pistolas de soplado',200,4.0,8,DN.dn15,8.0),
+    ],
+    fugas:[
+      fuga('f1','Racor del colector','bancos','racor',1.0,1,0,0.5,4,false,true),
+      fuga('f2','Manguera fisurada','bancos','manguera',1.5,1,0,0.8,18,false,false),
+      fuga('f3','Enchufe rápido gastado','llaves','racor',1.0,1,0,0.5,9,false,false),
+      fuga('f4','Purga temporizada','granalla','purga',6.0,0.0278,0.05,1.5,180,false,true),
+      fuga('f5','Válvula de escape','prensa','valvula',2.0,1,0,1.5,65,false,false),
+      fuga('f6','Junta de cilindro','prensa','cilindro',1.0,1,0,3.0,95,true,false),
+      fuga('f7','Unión roscada del ramal','soplado','union',0.5,1,0,0.5,12,false,false),
+      fuga('f8','Silenciador roto','granalla','valvula',0.5,1,0,0.5,22,false,false),
+    ],
+  },
+  embalaje:{
+    k:'embalaje', rot:'Línea de embalaje', ico:'📦',
+    qComp:6.0, hAnio:6000, pBase:7.5, lTronco:130, dTronco:DN.dn32, qSecNom:6.0,
+    ventana:4, ventanaParo:4, objAhorro:3000, paybackMax:4, vDep:1000,
+    zonas:[
+      zona('ventosas','Manipulador de ventosas',900,5.5,55,DN.dn25,32.0),
+      zona('encajado','Encajadora',1200,6.0,40,DN.dn32,40.5),
+      zona('flejado','Flejadora',600,5.0,65,DN.dn20,23.0),
+      zona('etiqueta','Etiquetadora',350,5.5,70,DN.dn20,14.5),
+      zona('paletiza','Paletizador',800,5.0,30,DN.dn25,28.5),
+    ],
+    fugas:[
+      fuga('f1','Racor de la isla de válvulas','ventosas','racor',1.5,1,0,0.6,6,false,false),
+      fuga('f2','Manguera de ventosa','ventosas','manguera',1.0,1,0,0.4,14,false,false),
+      fuga('f3','Purga del filtro de línea','encajado','purga',5.0,0.0417,0.05,1.5,180,false,true),
+      fuga('f4','Cilindro de empuje','encajado','cilindro',2.0,1,0,3.5,140,true,false),
+      fuga('f5','Unión del ramal largo','etiqueta','union',1.0,1,0,2.5,12,true,false),
+      fuga('f6','Escape de la flejadora','flejado','valvula',2.5,1,0,1.2,65,false,false),
+      fuga('f7','Racor del colector general','paletiza','racor',2.0,1,0,0.8,8,false,true),
+      fuga('f8','Manguera del paletizador','paletiza','manguera',1.0,1,0,0.5,16,false,false),
+    ],
+  },
+  pintura:{
+    k:'pintura', rot:'Cabina de pintura', ico:'🎨',
+    qComp:4.5, hAnio:4000, pBase:8.0, lTronco:60, dTronco:DN.dn25, qSecNom:3.6,
+    ventana:4, ventanaParo:3, objAhorro:2200, paybackMax:6, vDep:750,
+    zonas:[
+      zona('aerografo','Aerógrafos de la cabina',800,6.6,45,DN.dn25,32.0),
+      zona('agitador','Agitadores de pintura',300,5.0,35,DN.dn20,11.0),
+      zona('secadoz','Sopladores de secado',900,5.5,25,DN.dn25,29.5),
+      zona('limpieza','Pistola de limpieza',250,5.0,50,DN.dn15,10.0),
+      zona('robot','Robot de aplicación',550,6.0,20,DN.dn20,20.5),
+    ],
+    fugas:[
+      fuga('f1','Racor del aerógrafo','aerografo','racor',1.0,1,0,0.4,7,false,false),
+      fuga('f2','Manguera del agitador','agitador','manguera',1.5,1,0,0.6,15,false,false),
+      fuga('f3','Purga del separador','secadoz','purga',6.0,0.0333,0.05,1.5,180,false,true),
+      fuga('f4','Escape del robot','robot','valvula',2.0,1,0,2.0,85,true,false),
+      fuga('f5','Unión del ramal de cabina','aerografo','union',1.5,1,0,1.0,12,false,true),
+      fuga('f6','Manguera de limpieza','limpieza','manguera',2.0,1,0,0.5,20,false,false),
+      fuga('f7','Racor del soplador','secadoz','racor',1.0,1,0,0.5,6,false,false),
+      fuga('f8','Junta del filtro','secadoz','racor',0.5,1,0,0.8,25,false,true),
+    ],
+  },
+  laboratorio:{
+    k:'laboratorio', rot:'Laboratorio de ensayos', ico:'🧪',
+    qComp:1.5, hAnio:3000, pBase:7.5, lTronco:30, dTronco:DN.dn15, qSecNom:1.15,
+    ventana:4, ventanaParo:4, objAhorro:450, paybackMax:10, vDep:300,
+    zonas:[
+      zona('bancoens','Banco de ensayo',300,6.2,15,DN.dn15,13.5),
+      zona('camara','Cámara climática',180,5.0,22,DN.dn15,7.5),
+      zona('utiles','Útiles de sujeción',150,5.5,10,DN.dn15,6.0),
+      zona('sopladol','Soplado de probetas',120,4.0,18,DN.dn15,4.5),
+      zona('calibra','Banco de calibración',90,6.0,12,DN.dn15,4.0),
+    ],
+    fugas:[
+      fuga('f1','Purga temporizada del depósito','bancoens','purga',8.0,0.05,0.05,1.5,180,false,true),
+      fuga('f2','Racor del banco','bancoens','racor',0.5,1,0,0.4,5,false,false),
+      fuga('f3','Manguera de la cámara','camara','manguera',1.0,1,0,0.5,12,false,false),
+      fuga('f4','Escape del útil','utiles','valvula',1.0,1,0,0.8,45,false,false),
+      fuga('f5','Unión del ramal','sopladol','union',0.5,1,0,1.0,10,false,false),
+      fuga('f6','Racor de calibración','calibra','racor',0.5,1,0,0.4,6,false,false),
+      fuga('f7','Junta del regulador','camara','racor',1.0,1,0,1.2,38,false,false),
+      fuga('f8','Cilindro del banco','bancoens','cilindro',1.5,1,0,2.5,90,true,false),
+    ],
+  },
+  exterior:{
+    k:'exterior', rot:'Nave exterior', ico:'🏗️',
+    qComp:3.60, hAnio:1800, pBase:8.0, lTronco:140, dTronco:DN.dn25, qSecNom:4.5,
+    ventana:5, ventanaParo:5, objAhorro:1100, paybackMax:8, vDep:900,
+    zonas:[
+      zona('grua','Frenos de la grúa',400,5.9,90,DN.dn20,16.0),
+      zona('taladros','Taladros neumáticos',850,5.5,60,DN.dn25,28.0),
+      zona('vibra','Vibradores de hormigón',700,5.0,110,DN.dn25,24.5),
+      zona('limpieza2','Sopladores de obra',500,4.5,45,DN.dn20,17.5),
+      zona('bomba','Bomba de membrana',350,5.5,130,DN.dn20,14.0),
+    ],
+    fugas:[
+      fuga('f1','Unión de cubierta','grua','union',2.5,1,0,4.0,12,true,false),
+      fuga('f2','Racor del taladro','taladros','racor',1.5,1,0,0.5,7,false,false),
+      fuga('f3','Manguera de obra','vibra','manguera',2.0,1,0,0.8,24,false,false),
+      fuga('f4','Purga del ramal exterior','vibra','purga',6.0,0.0417,0.05,2.0,180,false,false),
+      fuga('f5','Escape del vibrador','vibra','valvula',1.0,1,0,1.0,55,false,false),
+      fuga('f6','Racor del colector','limpieza2','racor',1.0,1,0,0.6,6,false,true),
+      fuga('f7','Junta de la bomba','bomba','cilindro',1.5,1,0,3.0,110,true,false),
+      fuga('f8','Manguera del soplador','limpieza2','manguera',1.0,1,0,0.5,15,false,false),
+    ],
+  },
+};
+const PLANTA_KEYS=Object.keys(PLANTAS);
+const CRITERIOS=['okPres','okCaudal','okSecado','okHoras','okParo','okAhorro','okPayback'];
+
+// ---------- resolucion de la red ----------
+// rep: array de 8 booleanos (que fugas se reparan). pCons: consigna en barg.
+function red(pk,rep,pCons){
+  const P=PLANTAS[pk];
+  const pDesc=pCons+P_ATM;                       // bar abs a la salida del compresor
+  const zk=P.zonas.map(z=>z.k);
+  const qFug=P.fugas.map(()=>0);
+  let pZona=P.zonas.map(()=>pDesc);
+  let qTot=0, pSec=pDesc, dpSec=0, dpTronco=0, pTronco=pDesc;
+  for(let it=0;it<40;it++){
+    for(let i=0;i<P.fugas.length;i++){
+      const F=P.fugas[i];
+      const j=zk.indexOf(F.zk);
+      const factor=rep[i]?F.post:1;
+      const area=Math.PI*F.d*F.d/4;
+      qFug[i]=factor*F.duty*aNlMin(gastoOrificio(area,pZona[j],P_ATM));
+    }
+    const qZona=P.zonas.map((z,j)=>z.q+qFug.reduce((a,q,i)=>a+(P.fugas[i].zk===z.k?q:0),0));
+    qTot=qZona.reduce((a,b)=>a+b,0);
+    // secador: perdida cuadratica con el caudal volumetrico
+    const qVolRel=(qTot/1000)/P.qSecNom*(P_SEC_REF+P_ATM)/pDesc;
+    dpSec=DP_SEC_NOM*qVolRel*qVolRel;
+    pSec=pDesc-dpSec;
+    // tronco: lo recorre el caudal total
+    dpTronco=dpTramo(qTot,P.lTronco,P.dTronco/1000,pSec).dp;
+    pTronco=pSec-dpTronco;
+    const pNueva=P.zonas.map((z,j)=>pTronco-dpTramo(qZona[j],z.l,z.d/1000,pTronco).dp);
+    const quieto=pNueva.every((p,j)=>p===pZona[j]);
+    pZona=pNueva;
+    if(quieto) break;                            // punto fijo exacto
+  }
+  // estado final por zona, ya con el terminal
+  const qZona=P.zonas.map(z=>z.q+qFug.reduce((a,q,i)=>a+(P.fugas[i].zk===z.k?q:0),0));
+  const zonas=P.zonas.map((z,j)=>{
+    const tr=dpTramo(qZona[j],z.l,z.d/1000,pTronco);
+    const pRamal=pTronco-tr.dp;
+    const pUtilAbs=pTrasOrificio(z.at,pRamal,aKgS(z.q));
+    return {
+      k:z.k, rot:z.rot, q:z.q, qFuga:qZona[j]-z.q, qTotal:qZona[j],
+      pMin:z.pMin, l:z.l, d:z.d, at:z.at,
+      v:tr.v, re:tr.re, f:tr.f, dpRamal:tr.dp, pRamal:pRamal-P_ATM,
+      dpTerm:pUtilAbs===null?Infinity:pRamal-pUtilAbs,
+      pUtil:pUtilAbs===null?-Infinity:pUtilAbs-P_ATM,
+      ok:pUtilAbs!==null&&pUtilAbs-P_ATM>=z.pMin-1e-9,
+    };
+  });
+  const qFugaTot=qFug.reduce((a,b)=>a+b,0);
+  const qConsumo=P.zonas.reduce((a,z)=>a+z.q,0);
+  // potencia: compresion isotermica desde la atmosfera hasta la consigna
+  const potW=(qTot/60000)*RHO_N*R_AIRE*T_K*Math.log(pDesc/P_ATM)/ETA_COMP;
+  const capSec=P.qSecNom*pDesc/(P_SEC_REF+P_ATM);   // Nm3/min que traga el secador
+  return {
+    pk, rep:rep.slice(), pCons, pDesc, qFug, qFugaTot, qConsumo, qTot,
+    dpSec, pSec:pSec-P_ATM, dpTronco, pTronco:pTronco-P_ATM, zonas,
+    potW, potKW:potW/1000, capSec, margenSec:capSec-qTot/1000,
+    frac:qFugaTot/qTot,
+  };
+}
+
+// ---------- punto de decision completo (red + dinero + criterios) ----------
+const memoBase={};
+function base(pk){
+  if(!memoBase[pk]) memoBase[pk]=red(pk,PLANTAS[pk].fugas.map(()=>false),PLANTAS[pk].pBase);
+  return memoBase[pk];
+}
+function punto(pk,rep,pCons){
+  const P=PLANTAS[pk], B=base(pk);
+  const r=red(pk,rep,pCons);
+  const horas=P.fugas.reduce((a,F,i)=>a+(rep[i]&&!F.paro?F.horas:0),0);
+  const horasParo=P.fugas.reduce((a,F,i)=>a+(rep[i]&&F.paro?F.horas:0),0);
+  const piezas=P.fugas.reduce((a,F,i)=>a+(rep[i]?F.pieza:0),0);
+  const inversion=piezas+(horas+horasParo)*EUR_HORA;
+  const eAnioBase=B.potKW*P.hAnio*EUR_KWH;
+  const eAnio=r.potKW*P.hAnio*EUR_KWH;
+  const ahorro=eAnioBase-eAnio;
+  const payback=ahorro>0?inversion/ahorro*12:Infinity;
+  const coste5=inversion+ANIOS*eAnio;
+  const c={
+    okPres:r.zonas.every(z=>z.ok),
+    okCaudal:r.qTot/1000<=P.qComp+1e-9,
+    okSecado:r.qTot/1000<=r.capSec+1e-9,
+    okHoras:horas<=P.ventana+1e-9,
+    okParo:horasParo<=P.ventanaParo+1e-9,
+    okAhorro:ahorro>=P.objAhorro-1e-9,
+    okPayback:payback<=P.paybackMax+1e-9,
+  };
+  const fallos=CRITERIOS.filter(k=>!c[k]);
+  return {
+    ...r, horas, horasParo, piezas, inversion, eAnioBase, eAnio, ahorro, payback,
+    coste5, coste5Base:ANIOS*eAnioBase, nRep:rep.filter(Boolean).length,
+    ...c, fallos, valida:fallos.length===0,
+  };
+}
+
+// ---------- barrido completo: 2^8 subconjuntos x 5 consignas ----------
+const memoBarr={};
+function barrido(pk){
+  if(memoBarr[pk]) return memoBarr[pk];
+  const n=PLANTAS[pk].fugas.length, out=[];
+  for(let m=0;m<(1<<n);m++){
+    const rep=[]; for(let i=0;i<n;i++) rep.push(!!(m&(1<<i)));
+    for(const pc of CONSIGNAS) out.push(punto(pk,rep,pc));
+  }
+  memoBarr[pk]=out;
+  return out;
+}
+const validas=pk=>barrido(pk).filter(p=>p.valida);
+const c2=x=>Math.round(x*100);
+function mejorQue(a,b){
+  if(c2(a.coste5)!==c2(b.coste5)) return a.coste5<b.coste5;
+  if(c2(a.inversion)!==c2(b.inversion)) return a.inversion<b.inversion;
+  if(a.horas+a.horasParo!==b.horas+b.horasParo) return a.horas+a.horasParo<b.horas+b.horasParo;
+  return a.nRep<b.nRep;
+}
+function solucion(pk){
+  const V=validas(pk);
+  if(!V.length) return null;
+  let best=V[0];
+  for(const p of V) if(mejorQue(p,best)) best=p;
+  const emp=V.filter(p=>c2(p.coste5)===c2(best.coste5)).length;
+  return {...best, empates:emp, nval:V.length};
+}
+// los puntos que empatan en coste con el optimo (misma regla que solucion)
+function empates(pk){
+  const V=validas(pk);
+  if(!V.length) return [];
+  let best=V[0];
+  for(const p of V) if(mejorQue(p,best)) best=p;
+  return V.filter(p=>c2(p.coste5)===c2(best.coste5));
+}
+function censo(pk){
+  const B=barrido(pk);
+  const tot={}, solo={};
+  for(const c of CRITERIOS){ tot[c]=0; solo[c]=0; }
+  for(const p of B){
+    for(const c of p.fallos) tot[c]++;
+    if(p.fallos.length===1) solo[p.fallos[0]]++;
+  }
+  return {n:B.length, val:B.filter(p=>p.valida).length, tot, solo};
+}
+
+// ---------- los tres ensayos ----------
+// A) descarga del deposito: solo ve las fugas aguas arriba de las llaves de zona
+function ensayoDeposito(pk,rep,pCons){
+  const P=PLANTAS[pk];
+  const p1=pCons+P_ATM, p2=p1-2.0;              // se deja caer 2 bar
+  // coeficiente alfa: caudal normal de las fugas de tronco por bar absoluto
+  let alfa=0;
+  P.fugas.forEach((F,i)=>{
+    if(!F.tronco) return;
+    const factor=rep[i]?F.post:1;
+    const area=Math.PI*F.d*F.d/4;
+    alfa+=factor*F.duty*aNlMin(gastoOrificio(area,1,0)); // lineal en pUp (bloqueado)
+  });
+  const tau=P.vDep/1000/(alfa/1000*P_ATM)*60;   // s   (V en m3, alfa en Nm3/min)
+  const t=alfa>0?tau*Math.log(p1/p2):Infinity;
+  const qLineal=alfa>0?P.vDep/1000*(p1-p2)/(t/60)/P_ATM*1000:0;   // Nl/min
+  const qReal1=alfa*p1, qRealMed=alfa*(p1+p2)/2;
+  return {p1:p1-P_ATM, p2:p2-P_ATM, alfa, t, qLineal, qReal1, qRealMed,
+    sesgo:qLineal/qRealMed-1, vista:P.fugas.filter(F=>F.tronco).length};
+}
+// B) ciclo carga/descarga: ve toda la red, pero mide a la presion media del ciclo
+function ensayoCiclo(pk,rep,pCons){
+  const P=PLANTAS[pk];
+  const pCarga=pCons+P_ATM, pDesc=pCarga-1.0;   // banda de 1 bar
+  const pMed=(pCarga-pDesc)/Math.log(pCarga/pDesc);   // media logaritmica
+  let alfa=0;
+  P.fugas.forEach((F,i)=>{
+    const factor=rep[i]?F.post:1;
+    const area=Math.PI*F.d*F.d/4;
+    alfa+=factor*F.duty*aNlMin(gastoOrificio(area,1,0));
+  });
+  const qMed=alfa*pMed;                         // Nl/min realmente fugados en el ensayo
+  const tCarga=60*(P.vDep/1000)*(pCarga-pDesc)/P_ATM/(P.qComp-qMed/1000);
+  const tDesc=60*(P.vDep/1000)*(pCarga-pDesc)/P_ATM/(qMed/1000);
+  const duty=tCarga/(tCarga+tDesc);
+  const qMedido=P.qComp*duty*1000;              // Nl/min que declara el ensayo
+  const qCons=alfa*(pCons+P_ATM);               // corregido a la consigna
+  return {pCarga:pCarga-P_ATM, pDesc:pDesc-P_ATM, pMed, alfa, qMed, tCarga, tDesc,
+    duty, qMedido, qCons, sesgo:qMedido/qCons-1, vista:P.fugas.length};
+}
+// C) censo por ultrasonidos: suma las fugas una a una a la presion de trabajo
+function censoUltra(pk,rep,pCons){
+  const r=red(pk,rep,pCons);
+  const P=PLANTAS[pk];
+  const det=P.fugas.map((F,i)=>({k:F.k, rot:F.rot, tipo:F.tipo, d:F.d,
+    q:r.qFug[i], db:dB(r.qFug[i])}));
+  return {det, q:r.qFugaTot};
+}
+
+// ---------- formato sellado (identico al del resto de la coleccion) ----------
+const NBSP=' ';   // espacio fino inseparable para los miles, nunca U+0020
+function f1(x,d){
+  const dd=d===undefined?2:d;
+  if(!Number.isFinite(x)) return '—';
+  const neg=x<0;
+  const s=Math.abs(x).toFixed(dd);
+  const [ent,dec]=s.split('.');
+  const e=ent.replace(/\B(?=(\d{3})+(?!\d))/g,NBSP);
+  return (neg?'−':'')+(dec?e+','+dec:e);
+}
+function pc1(x,d){ return f1(100*x,d===undefined?1:d)+' %'; }
+
+// ===================== 3. ESTADO =====================
+const clamp=(x,a,b)=>x<a?a:(x>b?b:x);
+const MODES=['fuga','red','ensayo','catalogo','reto'];
+let mode='fuga';
+
+const repCero=pk=>PLANTAS[pk].fugas.map(()=>false);
+// La partida es siempre la planta tal y como está: ni una fuga reparada y el
+// compresor a la consigna que tiene puesta. Deliberadamente mala.
+const ST={ pk:'taller', rep:repCero('taller'), pCons:PLANTAS.taller.pBase,
+           fk:'f5', ek:'deposito' };
+const RETO={ cfg:{pk:'taller'}, ejes:{rep:repCero('taller'), pCons:PLANTAS.taller.pBase},
+             sol:null, nval:0, pistas:{}, resuelto:false, msg:'' };
+let CUR=null; let hw={}; let animT=0; let autoRunning=false; let solved=false;
+
+function cfgDe(m){
+  return m==='reto'
+    ? {pk:RETO.cfg.pk, rep:RETO.ejes.rep, pCons:RETO.ejes.pCons}
+    : {pk:ST.pk, rep:ST.rep, pCons:ST.pCons};
+}
+function computa(){ const c=cfgDe(mode); CUR=punto(c.pk,c.rep,c.pCons); return CUR; }
+
+const CRIT=CRITERIOS;
+const CRIT_ROT={
+  okPres:'Presión en el punto de uso',
+  okCaudal:'Caudal del compresor',
+  okSecado:'Capacidad del secador',
+  okHoras:'Ventana de mantenimiento',
+  okParo:'Ventana de paro de máquina',
+  okAhorro:'Ahorro anual objetivo',
+  okPayback:'Plazo de retorno',
+};
+const CRIT_POR={
+  okPres:'cada zona recibe su presión mínima medida DESPUÉS del terminal, no en el ramal',
+  okCaudal:'el consumo total, fugas incluidas, no pasa de lo que da el compresor',
+  okSecado:'el secador traga ese caudal a la consigna puesta, con su capacidad derateada',
+  okHoras:'las reparaciones que se hacen con la planta en marcha caben en la ventana de mantenimiento',
+  okParo:'las que obligan a parar la máquina caben en la ventana de paro, que es otra y más corta',
+  okAhorro:'la intervención ahorra al menos el objetivo anual de la planta',
+  okPayback:'la inversión se recupera dentro del plazo que exige la dirección',
+};
+const EJES=['pCons','nrep','frec'];
+const EJE_ROT={ pCons:'Consigna del compresor', nrep:'Cuántas fugas se reparan',
+                frec:'La fuga que más se repara entre las válidas' };
+
+// Memorias: el barrido son 1 280 puntos y no se puede rehacer en cada repintado.
+const CENSO_CACHE={}, SOL_CACHE={}, EMP_CACHE={}, VAL_CACHE={};
+const barrM=pk=>barrido(pk);
+function valM(pk){ if(!VAL_CACHE[pk]) VAL_CACHE[pk]=validas(pk); return VAL_CACHE[pk]; }
+// Cuántos costes de propiedad DISTINTOS (al céntimo) hay entre las válidas. Si son
+// tantos como válidas, el mínimo es único y el desempate del motor no llega a usarse.
+function clasesCoste(pk){ return new Set(valM(pk).map(p=>c2(p.coste5))).size; }
+function censoM(pk){ if(!CENSO_CACHE[pk]) CENSO_CACHE[pk]=censo(pk); return CENSO_CACHE[pk]; }
+function solM(pk){ if(!(pk in SOL_CACHE)) SOL_CACHE[pk]=solucion(pk); return SOL_CACHE[pk]; }
+function empM(pk){ if(!EMP_CACHE[pk]) EMP_CACHE[pk]=empates(pk); return EMP_CACHE[pk]; }
+
+// Atajos de lectura del escenario montado
+const plantaAct=()=>PLANTAS[cfgDe(mode).pk];
+const fugaAct=()=>plantaAct().fugas.find(F=>F.k===ST.fk)||plantaAct().fugas[0];
+const iFuga=(pk,fk)=>PLANTAS[pk].fugas.findIndex(F=>F.k===fk);
+const zonaDe=(pk,zk)=>PLANTAS[pk].zonas.find(z=>z.k===zk);
+// firma corta de un reparto de reparaciones: '10110011'
+const bits=rep=>rep.map(b=>b?'1':'0').join('');
+const mismo=(a,b)=>bits(a.rep)===bits(b.rep)&&a.pCons===b.pCons;
+
+// ===================== 4. MATERIALES =====================
+const AZUL='#8AB4F8', OK_HEX='#7CD992', BAD_HEX='#ff6b6b', WARN_HEX='#E9C46A',
+      VIO='#C08CF8', GRIS='#8f97a5', NARANJA='#F2A65A', CIAN='#5BD4E5', TINTA='#dbe4f0',
+      AMBAR='#E0A33E';
+const COL_TIPO={ racor:NARANJA, manguera:VIO, purga:CIAN, valvula:BAD_HEX,
+                 cilindro:WARN_HEX, union:AMBAR };
+const ROT_TIPO={ racor:'racor', manguera:'manguera', purga:'purga',
+                 valvula:'escape de válvula', cilindro:'junta de cilindro', union:'unión roscada' };
+const std=(c,r,m)=>new THREE.MeshStandardMaterial({color:c,roughness:r,metalness:m});
+const emis=(hex,i)=>new THREE.MeshStandardMaterial({color:hex,roughness:0.35,metalness:0.10,emissive:hex,emissiveIntensity:i===undefined?0.9:i});
+const MAT={
+  acero:  std('#7e8798',0.42,0.72),
+  aceroC: std('#5a6270',0.50,0.65),
+  bancada:std('#2a3140',0.85,0.10),
+  tubo:   std('#8fa3c4',0.34,0.80),
+  ramal:  std('#6f7f9b',0.38,0.74),
+  mang:   std('#3a3f4a',0.72,0.12),
+  maquina:std('#39424f',0.66,0.22),
+  deposito:new THREE.MeshStandardMaterial({color:'#9aa4b5',roughness:0.30,metalness:0.80,transparent:true,opacity:0.34}),
+  secador:std('#4a5464',0.55,0.45),
+  motor:  std('#2f3947',0.60,0.40),
+  oro:    std('#c9a227',0.35,0.85),
+  rojo:   emis(BAD_HEX,0.85),
+  verde:  emis(OK_HEX,0.85),
+  ambar:  emis(WARN_HEX,0.85),
+  cian:   emis(CIAN,0.85),
+  azul:   emis(AZUL,0.80),
+  aire:   emis(CIAN,1.05),
+  negro:  std('#161b25',0.90,0.05),
+  cristal:new THREE.MeshStandardMaterial({color:'#dfe8f5',roughness:0.10,metalness:0.05,transparent:true,opacity:0.35}),
+};
+
+// ===================== 5. PIZARRÓN =====================
+const board=new THREE.Group();
+board.position.set(-3.10,0,-0.55); board.rotation.y=0.44; scene.add(board);
+(function(){
+  const marco=roundedBox(3.90,2.94,0.10,std('#0b0f16',0.90,0.10),0.05);
+  marco.position.set(0,1.86,0); board.add(marco);
+  const pata=x=>{ const p=new THREE.Mesh(new THREE.CylinderGeometry(0.05,0.06,0.42,14),MAT.acero);
+    p.position.set(x,0.21,0); board.add(p); };
+  pata(-1.55); pata(1.55);
+})();
+const BW=1024, BH=768;
+const bcv=document.createElement('canvas'); bcv.width=BW; bcv.height=BH;
+const bx=bcv.getContext('2d');
+const btex=new THREE.CanvasTexture(bcv);
+const bmesh=new THREE.Mesh(new THREE.PlaneGeometry(3.68,2.72),
+  new THREE.MeshBasicMaterial({map:btex,toneMapped:false}));
+bmesh.position.set(0,1.86,0.056); board.add(bmesh);
+function bg(){
+  bx.fillStyle='#080b11'; bx.fillRect(0,0,BW,BH);
+  bx.strokeStyle='rgba(138,180,248,0.06)'; bx.lineWidth=1;
+  for(let x=0;x<=BW;x+=64){ bx.beginPath(); bx.moveTo(x+0.5,0); bx.lineTo(x+0.5,BH); bx.stroke(); }
+  for(let y=0;y<=BH;y+=64){ bx.beginPath(); bx.moveTo(0,y+0.5); bx.lineTo(BW,y+0.5); bx.stroke(); }
+}
+
+// ---- primitivas de dibujo ----
+function texto(t,x,y,col,size,align,weight){
+  bx.fillStyle=col||'#dbe4f0';
+  bx.font=(weight||'600')+' '+(size||18)+'px ui-sans-serif,system-ui,Segoe UI,Roboto,sans-serif';
+  bx.textAlign=align||'left'; bx.textBaseline='alphabetic';
+  bx.fillText(t,x,y); bx.textAlign='left';
+}
+function linea(x1,y1,x2,y2,col,w,dash){
+  bx.strokeStyle=col||'#2b3446'; bx.lineWidth=w||1.5;
+  bx.setLineDash(dash||[]); bx.beginPath(); bx.moveTo(x1,y1); bx.lineTo(x2,y2); bx.stroke();
+  bx.setLineDash([]);
+}
+function curva(pts,col,w,dash){
+  if(!pts.length) return;
+  bx.strokeStyle=col||AZUL; bx.lineWidth=w||2; bx.setLineDash(dash||[]);
+  bx.beginPath(); bx.moveTo(pts[0][0],pts[0][1]);
+  for(let i=1;i<pts.length;i++) bx.lineTo(pts[i][0],pts[i][1]);
+  bx.stroke(); bx.setLineDash([]);
+}
+function wrapText(t,x,y,maxW,lh,col,size){
+  bx.fillStyle=col||'#8f9bb0';
+  bx.font='500 '+(size||14)+'px ui-sans-serif,system-ui,Segoe UI,Roboto,sans-serif';
+  const pal=String(t).split(' '); let ln='', yy=y;
+  for(const p of pal){
+    const pr=ln?ln+' '+p:p;
+    if(bx.measureText(pr).width>maxW && ln){ bx.fillText(ln,x,yy); ln=p; yy+=(lh||18); }
+    else ln=pr;
+  }
+  if(ln) bx.fillText(ln,x,yy);
+  return yy;
+}
+const PX={x:706,y:70,w:300};
+function rpanel(h){
+  bx.fillStyle='rgba(13,18,26,0.92)'; bx.strokeStyle='rgba(138,180,248,0.22)'; bx.lineWidth=1.5;
+  bx.beginPath(); bx.roundRect(PX.x,PX.y,PX.w,h,12); bx.fill(); bx.stroke();
+}
+function prow(y,k,v,col){
+  texto(k,PX.x+14,y,'#8f9bb0',14,'left','500');
+  texto(v,PX.x+PX.w-14,y,col||'#dbe4f0',15,'right','700');
+}
+function title2(t,sub){
+  texto(t,44,52,'#eaf1fb',26,'left','800');
+  if(sub) texto(sub,44,78,'#8f9bb0',15,'left','500');
+}
+function nota(t,y){ wrapText(t,44,y,620,19,'#8f9bb0',14); }
+function hbar(x,y,w,h,frac,col,bgc){
+  bx.fillStyle=bgc||'rgba(255,255,255,0.06)';
+  bx.beginPath(); bx.roundRect(x,y,w,h,h/2); bx.fill();
+  const f=Math.max(0,Math.min(1,frac));
+  if(f>0){ bx.fillStyle=col||AZUL; bx.beginPath(); bx.roundRect(x,y,Math.max(h,w*f),h,h/2); bx.fill(); }
+}
+function marca(x,y,ok){
+  bx.strokeStyle=ok?OK_HEX:BAD_HEX; bx.lineWidth=2.4; bx.beginPath();
+  if(ok){ bx.moveTo(x-6,y); bx.lineTo(x-2,y+5); bx.lineTo(x+7,y-6); }
+  else  { bx.moveTo(x-5,y-5); bx.lineTo(x+6,y+6); bx.moveTo(x+6,y-5); bx.lineTo(x-5,y+6); }
+  bx.stroke();
+}
+const colOk=b=>b?OK_HEX:BAD_HEX;
+function tabla(x,y,cols,rows,anchos,colFn){
+  let yy=y;
+  cols.forEach((c,i)=>texto(c,x+anchos.slice(0,i).reduce((a,b)=>a+b,0),yy,'#7f8b9c',13,'left','700'));
+  yy+=8; linea(x,yy,x+anchos.reduce((a,b)=>a+b,0)-10,yy,'#243043',1); yy+=18;
+  rows.forEach((r,ri)=>{
+    r.forEach((c,ci)=>texto(c,x+anchos.slice(0,ci).reduce((a,b)=>a+b,0),yy,
+      (colFn&&colFn(ri,ci))||'#c8d3e2',14,'left','600'));
+    yy+=22;
+  });
+  return yy;
+}
+
+// ===================== 6. VISTAS DEL PIZARRÓN =====================
+function ejes(P,xmin,xmax,ymin,ymax,rotX,rotY,fmtX,fmtY,nx,ny){
+  const NX=nx||6, NY=ny||5;
+  bx.fillStyle='rgba(10,14,20,0.72)';
+  bx.beginPath(); bx.roundRect(P.x-52,P.y-18,P.w+72,P.h+72,10); bx.fill();
+  bx.strokeStyle='rgba(138,180,248,0.10)'; bx.lineWidth=1;
+  for(let i=0;i<=NX;i++){ const x=P.x+P.w*i/NX; bx.beginPath(); bx.moveTo(x,P.y); bx.lineTo(x,P.y+P.h); bx.stroke(); }
+  for(let i=0;i<=NY;i++){ const y=P.y+P.h*i/NY; bx.beginPath(); bx.moveTo(P.x,y); bx.lineTo(P.x+P.w,y); bx.stroke(); }
+  linea(P.x,P.y+P.h,P.x+P.w,P.y+P.h,'#3a465c',1.5);
+  linea(P.x,P.y,P.x,P.y+P.h,'#3a465c',1.5);
+  for(let i=0;i<=NX;i++){ const v=xmin+(xmax-xmin)*i/NX;
+    texto(fmtX?fmtX(v):f1(v,1),P.x+P.w*i/NX,P.y+P.h+20,'#7f8b9c',12,'center','600'); }
+  for(let i=0;i<=NY;i++){ const v=ymin+(ymax-ymin)*(NY-i)/NY;
+    texto(fmtY?fmtY(v):f1(v,1),P.x-8,P.y+P.h*i/NY+4,'#7f8b9c',12,'right','600'); }
+  if(rotX) texto(rotX,P.x+P.w/2,P.y+P.h+44,'#8f9bb0',13,'center','700');
+  if(rotY){ bx.save(); bx.translate(P.x-42,P.y+P.h/2); bx.rotate(-Math.PI/2);
+    texto(rotY,0,0,'#8f9bb0',13,'center','700'); bx.restore(); }
+  return { X:v=>P.x+P.w*(v-xmin)/(xmax-xmin), Y:v=>P.y+P.h-P.h*(v-ymin)/(ymax-ymin) };
+}
+function punteo(x,y,col,r){
+  bx.fillStyle=col||AZUL; bx.beginPath(); bx.arc(x,y,r||5,0,Math.PI*2); bx.fill();
+  bx.strokeStyle='#080b11'; bx.lineWidth=1.5; bx.stroke();
+}
+function anillo(x,y,col,r){
+  bx.strokeStyle=col||'#eaf1fb'; bx.lineWidth=2.2;
+  bx.beginPath(); bx.arc(x,y,r||9,0,Math.PI*2); bx.stroke();
+}
+function banda(A,x1,x2,y1,y2,col){
+  bx.fillStyle=col; bx.fillRect(A.X(x1),A.Y(y2),A.X(x2)-A.X(x1),A.Y(y1)-A.Y(y2));
+}
+function leyenda(x,y,items){
+  let xx=x;
+  items.forEach(it=>{
+    linea(xx,y-5,xx+22,y-5,it[1],3,it[2]||[]);
+    texto(it[0],xx+28,y,'#a9b6c8',13,'left','600');
+    xx += 28 + bx.measureText(it[0]).width + 22;
+  });
+}
+const pcm = x => Number.isFinite(x) ? ((x>=0?'+':'')+pc1(x)) : '—';
+// presion de linea por debajo de la cual una fuga a la atmosfera deja de estar bloqueada
+const P_BLOQ=P_ATM/R_CRIT-P_ATM;
+
+// Panel derecho compartido: qué se ha tocado y qué dice el pliego.
+function panelPunto(p,alto){
+  rpanel(alto||505);
+  const P=PLANTAS[p.pk];
+  let y=PX.y+30;
+  texto('INTERVENCIÓN',PX.x+14,y,'#8ab4f8',13,'left','800'); y+=26;
+  prow(y,'planta',P.ico+' '+P.rot); y+=23;
+  prow(y,'consigna',f1(p.pCons,1)+' barg'); y+=23;
+  prow(y,'fugas reparadas',bits(p.rep)+' · '+f1(p.nRep,0)+'/'+f1(P.fugas.length,0)); y+=23;
+  prow(y,'horas · con paro',f1(p.horas,1)+' + '+f1(p.horasParo,1)+' h'); y+=23;
+  prow(y,'caudal total',f1(p.qTot/1000,3)+' Nm³/min',colOk(p.okCaudal)); y+=23;
+  prow(y,'fuga',f1(p.qFugaTot,1)+' Nl/min · '+pc1(p.frac,1)); y+=23;
+  prow(y,'potencia',f1(p.potKW,2)+' kW'); y+=30;
+  texto('VEREDICTO',PX.x+14,y,'#8ab4f8',13,'left','800'); y+=26;
+  prow(y,'inversión',f1(p.inversion,2)+' €'); y+=23;
+  prow(y,'ahorro anual',f1(p.ahorro,2)+' €',colOk(p.okAhorro)); y+=23;
+  prow(y,'retorno',Number.isFinite(p.payback)?f1(p.payback,2)+' meses':'nunca',colOk(p.okPayback)); y+=23;
+  prow(y,'coste a '+f1(ANIOS,0)+' años',f1(p.coste5,0)+' €'); y+=30;
+  CRIT.forEach(c=>{
+    texto(CRIT_ROT[c],PX.x+34,y,p[c]?'#c8d3e2':BAD_HEX,13,'left','600');
+    marca(PX.x+20,y-5,p[c]); y+=21;
+  });
+  return y;
+}
+
+// ---- vista 1: el orificio ----
+function vistaFuga(){
+  const p=CUR, P=PLANTAS[p.pk];
+  const F=fugaAct(), i=iFuga(p.pk,F.k);
+  const j=P.zonas.findIndex(z=>z.k===F.zk);
+  const Z=p.zonas[j];
+  const pUp=Z.pRamal+P_ATM;                 // bar abs delante del orificio
+  const area=Math.PI*F.d*F.d/4;
+  title2('Una fuga es un orificio, y casi siempre está bloqueado',
+    P.ico+' '+P.rot+' · '+F.rot+' · '+ROT_TIPO[F.tipo]+' de '+f1(F.d,1)+' mm en '+Z.rot);
+
+  const A={x:104,y:118,w:530,h:190};
+  const qMax=aNlMin(gastoOrificio(area,pUp,0));
+  const ax=ejes(A,0,1,0,qMax*1.14,'relación de presiones p₂/p₁','caudal (Nl/min)',
+    v=>f1(v,2),v=>f1(v,0),5,4);
+  banda(ax,0,R_CRIT,0,qMax*1.14,'rgba(255,107,107,0.10)');
+  const pts=[];
+  for(let k=0;k<=200;k++){ const r=k/200;
+    pts.push([ax.X(r),ax.Y(aNlMin(gastoOrificio(area,pUp,r*pUp)))]); }
+  curva(pts,CIAN,2.6);
+  linea(ax.X(R_CRIT),A.y,ax.X(R_CRIT),A.y+A.h,BAD_HEX,1.6,[5,4]);
+  texto('p₂/p₁ = '+f1(R_CRIT,4),ax.X(R_CRIT)+10,A.y+18,BAD_HEX,13,'left','700');
+  texto('bloqueado',ax.X(R_CRIT)-12,A.y+18,BAD_HEX,13,'right','700');
+  texto('el caudal ya no sabe qué hay fuera',ax.X(R_CRIT)-12,A.y+38,'#8f9bb0',12,'right','600');
+  const rOp=P_ATM/pUp;
+  punteo(ax.X(rOp),ax.Y(p.qFug[i]),WARN_HEX,6);
+  anillo(ax.X(rOp),ax.Y(p.qFug[i]),'#eaf1fb',11);
+  texto('a la atmósfera: p₂/p₁ = '+f1(rOp,3),ax.X(rOp)+18,ax.Y(p.qFug[i])-14,WARN_HEX,13,'left','700');
+  texto(f1(p.qFug[i],1)+' Nl/min · '+f1(dB(p.qFug[i]),1)+' dB',
+    ax.X(rOp)+18,ax.Y(p.qFug[i])+6,'#dbe4f0',13,'left','700');
+  leyenda(104,A.y+A.h+68,[['caudal del orificio',CIAN],['relación crítica',BAD_HEX,[5,4]]]);
+
+  const DIAM=[0.5,1.0,1.5,2.0,3.0,5.0].concat([F.d])
+    .filter((v,k,a)=>a.indexOf(v)===k).sort((a,b)=>a-b);
+  const qD=DIAM.map(d=>aNlMin(gastoOrificio(Math.PI*d*d/4,pUp,P_ATM)));
+  const qm=Math.max.apply(null,qD);
+  const B={x:104,y:452,w:530,h:150};
+  texto('El mismo agujero, distinto diámetro · línea a '+f1(Z.pRamal,3)+' barg',
+    44,428,'#eaf1fb',16,'left','800');
+  const paso=B.w/DIAM.length;
+  DIAM.forEach((d,k)=>{
+    const x=B.x+k*paso+10, w=paso-26, h=B.h*qD[k]/qm;
+    bx.fillStyle=(d===F.d)?WARN_HEX:'rgba(138,180,248,0.55)';
+    bx.beginPath(); bx.roundRect(x,B.y+B.h-h,w,h,6); bx.fill();
+    texto(f1(qD[k],1),x+w/2,B.y+B.h-h-8,(d===F.d)?WARN_HEX:'#dbe4f0',13,'center','700');
+    texto(f1(d,1)+' mm',x+w/2,B.y+B.h+20,'#a9b6c8',13,'center','700');
+    texto(f1(dB(qD[k]),1)+' dB',x+w/2,B.y+B.h+38,'#7f8b9c',12,'center','600');
+  });
+  linea(B.x,B.y+B.h,B.x+B.w,B.y+B.h,'#3a465c',1.5);
+  nota('Por encima de '+f1(P_BLOQ,3)+' barg de línea, una fuga a la atmósfera está bloqueada: '+
+    'el aire sale a la velocidad del sonido y el caudal sólo depende del área y de la presión de línea. '+
+    'Por eso el caudal va con el CUADRADO del diámetro —'+f1(DIAM[DIAM.length-1],1)+' mm fuga '+
+    f1(qD[qD.length-1]/qD[0],1)+' veces lo que '+f1(DIAM[0],1)+' mm— y el detector, que oye potencia acústica, '+
+    'sube '+f1(dB(4)-dB(1),1)+' dB cada vez que el caudal se cuadruplica.',652);
+  panelPunto(p);
+}
+
+// ---- vista 2: la cascada de presiones ----
+function vistaRed(){
+  const p=CUR, P=PLANTAS[p.pk];
+  title2('La red se come la presión antes de llegar a la máquina',
+    P.ico+' '+P.rot+' · '+f1(p.qTot,0)+' Nl/min, de los que '+f1(p.qFugaTot,0)+
+    ' se van por los agujeros ('+pc1(p.frac,1)+')');
+  const xmax=p.pCons*1.02, X0=60, XW=580;
+  const X=v=>X0+XW*clamp(v,0,xmax)/xmax;
+  for(let k=0;k<=6;k++){ const v=xmax*k/6;
+    linea(X(v),110,X(v),642,'rgba(138,180,248,0.08)',1);
+    texto(f1(v,1),X(v),662,'#7f8b9c',12,'center','600'); }
+  linea(X0,642,X0+XW,642,'#3a465c',1.5);
+  texto('presión (barg)',X0+XW/2,686,'#8f9bb0',13,'center','700');
+
+  // tronco comun: descarga -> secador -> tronco
+  texto('COMPRESOR → SECADOR → TRONCO',X0,128,'#8ab4f8',13,'left','800');
+  const yT=152;
+  linea(X(0),yT,X(p.pCons),yT,'rgba(138,180,248,0.35)',9);
+  linea(X(0),yT,X(p.pTronco),yT,AZUL,9);
+  [[p.pCons,'consigna'],[p.pSec,'tras secador'],[p.pTronco,'fin de tronco']].forEach((t,q)=>{
+    linea(X(t[0]),yT-13,X(t[0]),yT+13,'#eaf1fb',1.6);
+    texto(t[1],X(t[0]),yT-20+(q===1?-16:0),'#a9b6c8',12,'center','600');
+  });
+  texto('−'+f1(p.dpSec,4)+' bar en el secador   ·   −'+f1(p.dpTronco,4)+' bar en '+f1(P.lTronco,0)+
+    ' m de DN'+f1(P.dTronco,1),X(0)+8,yT+32,'#8f9bb0',13,'left','600');
+  texto(f1(p.pTronco,3)+' barg',X(p.pTronco)+12,yT+5,AZUL,14,'left','800');
+
+  const y0=214, dy=84;
+  p.zonas.forEach((z,k)=>{
+    const y=y0+k*dy;
+    texto(z.rot+' · '+f1(z.q,0)+' Nl/min de consumo + '+f1(z.qFuga,1)+' de fuga',
+      X0,y,'#dbe4f0',14,'left','700');
+    const yb=y+24;
+    linea(X(0),yb,X(p.pTronco),yb,'rgba(138,180,248,0.22)',8);
+    if(Number.isFinite(z.pUtil)&&z.pUtil>0){
+      linea(X(0),yb,X(z.pUtil),yb,colOk(z.ok),8);
+      punteo(X(z.pUtil),yb,colOk(z.ok),6);
+      texto(f1(z.pUtil,3)+' barg',X(z.pUtil)+12,yb+5,colOk(z.ok),14,'left','800');
+    }else{
+      marca(X(0)+16,yb,false);
+      texto('el terminal no deja pasar ese caudal',X(0)+34,yb+5,BAD_HEX,14,'left','800');
+    }
+    linea(X(z.pMin),yb-16,X(z.pMin),yb+16,WARN_HEX,2.2,[4,3]);
+    texto('mín '+f1(z.pMin,1),X(z.pMin),yb-22,WARN_HEX,12,'center','700');
+    texto('ramal '+f1(z.l,0)+' m DN'+f1(z.d,1)+' · v = '+f1(z.v,2)+' m/s · Re = '+f1(z.re,0)+
+      ' · f = '+f1(z.f,4)+' · −'+f1(z.dpRamal,4)+' bar   terminal Kv '+f1(z.at,1)+
+      ' mm² · −'+(Number.isFinite(z.dpTerm)?f1(z.dpTerm,4):'∞')+' bar',
+      X0,yb+30,'#7f8b9c',12,'left','600');
+  });
+  panelPunto(p);
+}
+
+// ---- vista 3: los tres ensayos ----
+function barrasQ(yTop,rot,items){
+  texto(rot,44,yTop,'#eaf1fb',16,'left','800');
+  const x0=250, w=380;
+  let vm=0; items.forEach(t=>{ if(Math.abs(t[1])>vm) vm=Math.abs(t[1]); });
+  if(!(vm>0)) vm=1;
+  items.forEach((t,k)=>{
+    const y=yTop+26+k*40;
+    texto(t[0],44,y+16,'#a9b6c8',13,'left','600');
+    const bw=Math.max(3,w*Math.abs(t[1])/vm);
+    bx.fillStyle=t[2];
+    bx.beginPath(); bx.roundRect(x0,y,bw,22,5); bx.fill();
+    const val=f1(t[1],1)+' Nl/min';
+    if(bw>190) texto(val,x0+bw-12,y+16,'#0b0f16',13,'right','800');
+    else texto(val,x0+bw+10,y+16,'#dbe4f0',13,'left','700');
+  });
+  return yTop+26+items.length*40;
+}
+function vistaEnsayo(){
+  const p=CUR, P=PLANTAS[p.pk];
+  const U=censoUltra(p.pk,p.rep,p.pCons);
+  if(ST.ek==='deposito'){
+    const A=ensayoDeposito(p.pk,p.rep,p.pCons);
+    title2('Ensayo A · caída del depósito',
+      P.ico+' '+P.rot+' · '+f1(P.vDep,0)+' litros, de '+f1(A.p1,1)+' a '+f1(A.p2,1)+
+      ' barg con las llaves de zona cerradas');
+    const G={x:104,y:130,w:530,h:210};
+    if(Number.isFinite(A.t)&&A.t>0){
+      const tau=A.t/Math.log((A.p1+P_ATM)/(A.p2+P_ATM));
+      const ax=ejes(G,0,A.t,A.p2,A.p1,'tiempo (s)','presión del depósito (barg)',
+        v=>f1(v,0),v=>f1(v,2),6,4);
+      const pts=[];
+      for(let k=0;k<=200;k++){ const t=A.t*k/200;
+        pts.push([ax.X(t),ax.Y((A.p1+P_ATM)*Math.exp(-t/tau)-P_ATM)]); }
+      curva(pts,CIAN,2.6);
+      linea(ax.X(0),ax.Y(A.p1),ax.X(A.t),ax.Y(A.p2),WARN_HEX,2,[6,4]);
+      punteo(ax.X(0),ax.Y(A.p1),CIAN,5); punteo(ax.X(A.t),ax.Y(A.p2),CIAN,5);
+      texto('τ = '+f1(tau,1)+' s',ax.X(A.t*0.62),ax.Y(A.p1)-6,CIAN,13,'left','700');
+      leyenda(104,G.y+G.h+68,[['caída real (exponencial)',CIAN],
+        ['lo que supone la cuenta lineal',WARN_HEX,[6,4]]]);
+    }else{
+      texto('Sin fugas en el tronco: el depósito no baja y el ensayo no termina nunca.',
+        104,240,BAD_HEX,17,'left','700');
+    }
+    barrasQ(420,'Lo que declara el ensayo frente a lo que hay',[
+      ['declara la cuenta lineal',A.qLineal,WARN_HEX],
+      ['fuga real al empezar',A.qReal1,'rgba(138,180,248,0.75)'],
+      ['fuga real media del ensayo',A.qRealMed,'rgba(138,180,248,0.45)'],
+      ['fuga real de TODA la red',U.q,BAD_HEX]]);
+    nota('El depósito sólo ve las '+f1(A.vista,0)+' de '+f1(P.fugas.length,0)+
+      ' fugas que están aguas arriba de las llaves de zona. Además la caída es exponencial, '+
+      'no una recta: la cuenta lineal V·Δp/Δt no devuelve la fuga inicial sino la MEDIA del tramo, '+
+      'y se queda un '+pc1(Math.abs(A.sesgo),2)+' por debajo. Los dos errores van en el mismo sentido, '+
+      'así que el ensayo declara '+f1(A.qLineal,1)+' Nl/min cuando la red pierde '+f1(U.q,1)+
+      ': un '+pc1(Math.abs(A.qLineal/U.q-1),1)+' menos de lo que hay.',630);
+  }else if(ST.ek==='ciclo'){
+    const C=ensayoCiclo(p.pk,p.rep,p.pCons);
+    title2('Ensayo B · ciclo de carga y descarga',
+      P.ico+' '+P.rot+' · banda de '+f1(C.pCarga-C.pDesc,1)+' bar entre '+f1(C.pDesc,1)+
+      ' y '+f1(C.pCarga,1)+' barg, sin consumo de producción');
+    const G={x:104,y:130,w:530,h:200};
+    const per=C.tCarga+C.tDesc;
+    const ax=ejes(G,0,2*per,C.pDesc-0.15,C.pCarga+0.15,'tiempo (s)','presión (barg)',
+      v=>f1(v,0),v=>f1(v,2),6,4);
+    const pts=[];
+    for(let c=0;c<2;c++){
+      pts.push([ax.X(c*per),ax.Y(C.pDesc)]);
+      pts.push([ax.X(c*per+C.tCarga),ax.Y(C.pCarga)]);
+      pts.push([ax.X(c*per+per),ax.Y(C.pDesc)]);
+    }
+    curva(pts,AZUL,2.6);
+    linea(ax.X(0),ax.Y(C.pMed-P_ATM),ax.X(2*per),ax.Y(C.pMed-P_ATM),VIO,2,[6,4]);
+    texto('media logarítmica: '+f1(C.pMed-P_ATM,3)+' barg',ax.X(2*per)-8,ax.Y(C.pMed-P_ATM)-8,
+      VIO,13,'right','700');
+    for(let c=0;c<2;c++){
+      bx.fillStyle='rgba(124,217,146,0.14)';
+      bx.fillRect(ax.X(c*per),G.y,ax.X(C.tCarga)-ax.X(0),G.h);
+    }
+    texto('carga '+f1(C.tCarga,1)+' s',ax.X(C.tCarga/2),G.y+18,OK_HEX,13,'center','700');
+    texto('descarga '+f1(C.tDesc,1)+' s',ax.X(C.tCarga+C.tDesc/2),G.y+18,'#8f9bb0',13,'center','700');
+    texto('marcha = '+pc1(C.duty,2)+' del tiempo',104,G.y+G.h+68,'#a9b6c8',14,'left','700');
+    barrasQ(412,'Lo que declara el ensayo frente a lo que hay',[
+      ['declara q = Q·marcha',C.qMedido,WARN_HEX],
+      ['fuga a la presión media del ciclo',C.qMed,'rgba(138,180,248,0.45)'],
+      ['fuga lineal a la consigna',C.qCons,'rgba(138,180,248,0.75)'],
+      ['fuga real de TODA la red',U.q,BAD_HEX]]);
+    nota('Este ensayo sí ve las '+f1(C.vista,0)+' fugas, pero las mide a la presión media del ciclo, '+
+      f1(C.pMed-P_ATM,3)+' barg, que no es la consigna: por eso se queda un '+pc1(Math.abs(C.sesgo),2)+
+      ' por debajo de la fuga lineal a '+f1(p.pCons,1)+' barg. Y como las fugas cuelgan de zonas que '+
+      'están por debajo de la descarga, ese error se compensa en parte solo: aquí el ensayo declara '+
+      f1(C.qMedido,1)+' contra los '+f1(U.q,1)+' reales, un '+pcm(C.qMedido/U.q-1)+
+      '. La compensación es un accidente de esta planta, no una ley.',622);
+  }else{
+    title2('Ensayo C · censo por ultrasonidos',
+      P.ico+' '+P.rot+' · las '+f1(P.fugas.length,0)+' fugas, una a una, a la presión de su zona');
+    const det=U.det.map((d,i)=>({...d,i,rep:p.rep[i]}));
+    const ord=det.slice().sort((a,b)=>b.q-a.q);
+    let qm=0; ord.forEach(d=>{ if(d.q>qm) qm=d.q; });
+    if(!(qm>0)) qm=1;
+    const x0=286, w=300;
+    let acum=0, n80=0;
+    ord.forEach((d,k)=>{
+      const y=128+k*46;
+      texto((d.rep?'✓ ':'')+d.rot,44,y+15,d.rep?'#6f7a8a':'#dbe4f0',13,'left','700');
+      texto(ROT_TIPO[d.tipo]+' · '+f1(d.d,1)+' mm',44,y+31,'#7f8b9c',12,'left','500');
+      const bw=Math.max(3,w*d.q/qm);
+      bx.fillStyle=d.rep?'rgba(111,122,138,0.55)':COL_TIPO[d.tipo];
+      bx.beginPath(); bx.roundRect(x0,y,bw,22,5); bx.fill();
+      texto(f1(d.q,1)+' Nl/min · '+f1(d.db,1)+' dB · '+pc1(U.q>0?d.q/U.q:0,1),
+        x0+bw+10,y+16,'#a9b6c8',12,'left','600');
+      acum+=d.q; if(acum<=0.8*U.q) n80=k+1;
+    });
+    texto('suma del censo: '+f1(U.q,1)+' Nl/min = '+pc1(p.frac,1)+' de todo lo que comprime la planta',
+      44,520,'#eaf1fb',15,'left','800');
+    hbar(44,536,590,14,p.frac,BAD_HEX);
+    nota('El censo es el único de los tres que acierta, porque no deduce la fuga de una presión: '+
+      'la mide agujero a agujero donde está. Las '+f1(n80+1,0)+' mayores ya suman el 80 % del caudal '+
+      'perdido; el detector oye potencia acústica, y como el caudal va con el cuadrado del diámetro, '+
+      'cada 6 dB de más es el doble de agujero y cuatro veces la fuga.',586);
+  }
+  panelPunto(p);
+}
+
+// ---- vista 4: el catálogo de montajes ----
+function vistaCatalogo(){
+  const p=CUR, P=PLANTAS[p.pk];
+  const B=barrM(p.pk), C=censoM(p.pk), s=solM(p.pk);
+  title2('Los '+f1(B.length,0)+' montajes posibles, y los '+f1(C.val,0)+' que cumplen',
+    P.ico+' '+P.rot+' · 2^'+f1(P.fugas.length,0)+' combinaciones de reparación × '+
+    f1(CONSIGNAS.length,0)+' consignas');
+  let xM=0, yl=Infinity, yh=0;
+  B.forEach(q=>{ if(q.inversion>xM) xM=q.inversion;
+    if(q.coste5<yl) yl=q.coste5; if(q.coste5>yh) yh=q.coste5; });
+  const G={x:118,y:118,w:516,h:266};
+  const ax=ejes(G,0,xM*1.04,yl*0.985,yh*1.01,'inversión de la intervención (€)',
+    'coste de poseer a '+f1(ANIOS,0)+' años (€)',v=>f1(v,0),v=>f1(v,0),6,4);
+  B.forEach(q=>{ if(!q.valida) punteo(ax.X(q.inversion),ax.Y(q.coste5),'rgba(143,151,165,0.30)',1.6); });
+  B.forEach(q=>{ if(q.valida) punteo(ax.X(q.inversion),ax.Y(q.coste5),'rgba(124,217,146,0.85)',2.6); });
+  if(s){ anillo(ax.X(s.inversion),ax.Y(s.coste5),'#eaf1fb',11);
+    texto('el más barato de poseer',ax.X(s.inversion)+16,ax.Y(s.coste5)+5,'#eaf1fb',13,'left','700'); }
+  punteo(ax.X(p.inversion),ax.Y(p.coste5),WARN_HEX,5);
+  anillo(ax.X(p.inversion),ax.Y(p.coste5),WARN_HEX,9);
+  leyenda(118,G.y+G.h+68,[['cumple el pliego',OK_HEX],['no cumple','rgba(143,151,165,0.55)'],
+    ['montaje puesto',WARN_HEX]]);
+  const filas=CRIT.map(c=>[CRIT_ROT[c],f1(C.tot[c],0),f1(C.solo[c],0)]);
+  texto('Qué criterio tumba cada montaje',44,486,'#eaf1fb',16,'left','800');
+  tabla(44,516,['criterio','tumba a','y él solo, a'],filas,[320,120,140],
+    (ri,ci)=>ci===2&&C.solo[CRIT[ri]]===0?'#6f7a8a':null);
+  panelPunto(p);
+}
+
+// ---- vista 5: el reto ----
+function vistaReto(){
+  const p=CUR, P=PLANTAS[p.pk];
+  title2('Reto · '+P.ico+' '+P.rot,
+    'Cierra la intervención más barata de POSEER a '+f1(ANIOS,0)+' años que cumpla las siete condiciones');
+  const peor=p.zonas.reduce((a,z)=>(z.pUtil-z.pMin)<(a.pUtil-a.pMin)?z:a,p.zonas[0]);
+  const filas=[
+    [CRIT_ROT.okPres,'peor zona: '+peor.rot+', '+(Number.isFinite(peor.pUtil)?f1(peor.pUtil,3):'—')+' barg',
+      '≥ '+f1(peor.pMin,1)+' barg'],
+    [CRIT_ROT.okCaudal,f1(p.qTot/1000,3)+' Nm³/min','≤ '+f1(P.qComp,2)+' Nm³/min'],
+    [CRIT_ROT.okSecado,f1(p.qTot/1000,3)+' Nm³/min','≤ '+f1(p.capSec,3)+' Nm³/min'],
+    [CRIT_ROT.okHoras,f1(p.horas,1)+' h en marcha','≤ '+f1(P.ventana,1)+' h'],
+    [CRIT_ROT.okParo,f1(p.horasParo,1)+' h con paro','≤ '+f1(P.ventanaParo,1)+' h'],
+    [CRIT_ROT.okAhorro,f1(p.ahorro,2)+' €/año','≥ '+f1(P.objAhorro,0)+' €/año'],
+    [CRIT_ROT.okPayback,(Number.isFinite(p.payback)?f1(p.payback,2)+' meses':'nunca'),
+      '≤ '+f1(P.paybackMax,1)+' meses'],
+  ];
+  const yF=tabla(44,132,['condición','lo que da el montaje','lo que exige el pliego'],
+    filas,[258,222,150],(ri,ci)=>ci===1?colOk(p[CRIT[ri]]):null);
+  CRIT.forEach((c,i)=>marca(668,153+i*22,p[c]));
+  texto('Coste de poseer a '+f1(ANIOS,0)+' años',44,yF+34,'#eaf1fb',16,'left','800');
+  const vm=Math.max(p.coste5,p.coste5Base);
+  [['sin tocar nada, a '+f1(P.pBase,1)+' barg',p.coste5Base,'rgba(255,107,107,0.55)'],
+   ['con este montaje',p.coste5,p.valida?OK_HEX:'rgba(143,151,165,0.55)']].forEach((t,k)=>{
+    const y=yF+52+k*40;
+    texto(t[0],44,y+16,'#a9b6c8',13,'left','600');
+    const bw=Math.max(3,300*t[1]/vm);
+    bx.fillStyle=t[2]; bx.beginPath(); bx.roundRect(320,y,bw,22,5); bx.fill();
+    texto(f1(t[1],0)+' €',320+bw+10,y+16,'#dbe4f0',13,'left','700');
+  });
+  const dif=p.coste5Base-p.coste5;
+  texto((dif>=0?'ahorra ':'cuesta ')+f1(Math.abs(dif),0)+' € en '+f1(ANIOS,0)+' años ('+
+    pcm(-dif/p.coste5Base)+')',44,yF+142,dif>=0?OK_HEX:BAD_HEX,15,'left','800');
+  if(RETO.resuelto){
+    texto('✅ SELLADO · mínimo único entre las '+f1(RETO.nval,0)+' válidas',
+      44,yF+176,OK_HEX,17,'left','800');
+  }else if(RETO.msg){
+    wrapText(RETO.msg,44,yF+176,620,19,WARN_HEX,14);
+  }else{
+    texto('De los '+f1(barrM(RETO.cfg.pk).length,0)+' montajes, '+f1(RETO.nval,0)+
+      ' cumplen el pliego. Sólo uno es el más barato de poseer.',44,yF+176,'#8f9bb0',15,'left','600');
+  }
+  panelPunto(p);
+}
+
+function paint(){
+  bg();
+  if(mode==='fuga') vistaFuga();
+  else if(mode==='red') vistaRed();
+  else if(mode==='ensayo') vistaEnsayo();
+  else if(mode==='catalogo') vistaCatalogo();
+  else vistaReto();
+  btex.needsUpdate=true;
+}
+
+// ===================== 7. GRUPO 3D =====================
+const V3=(x,y,z)=>new THREE.Vector3(x,y,z);
+function tuboEntre(a,b,r,mat){
+  const dir=new THREE.Vector3().subVectors(b,a), len=dir.length();
+  const m=new THREE.Mesh(new THREE.CylinderGeometry(r,r,Math.max(len,1e-4),12),mat);
+  m.position.copy(a).addScaledVector(dir,0.5);
+  m.quaternion.setFromUnitVectors(V3(0,1,0),dir.clone().normalize());
+  return m;
+}
+function mkManometro(r){
+  const g=new THREE.Group();
+  const caja=new THREE.Mesh(new THREE.CylinderGeometry(r,r,0.035,24),MAT.acero);
+  caja.rotation.x=Math.PI/2; g.add(caja);
+  const esf=new THREE.Mesh(new THREE.CircleGeometry(r*0.86,24),
+    new THREE.MeshBasicMaterial({color:'#e8eef7',toneMapped:false}));
+  esf.position.z=0.019; g.add(esf);
+  const ag=new THREE.Group();
+  const a=new THREE.Mesh(new THREE.BoxGeometry(r*0.72,0.008,0.005),
+    new THREE.MeshBasicMaterial({color:'#c0392b',toneMapped:false}));
+  a.position.x=r*0.30; ag.add(a); ag.position.z=0.022; g.add(ag);
+  const eje=new THREE.Mesh(new THREE.CylinderGeometry(0.010,0.010,0.012,10),MAT.negro);
+  eje.rotation.x=Math.PI/2; eje.position.z=0.024; g.add(eje);
+  g.userData.aguja=ag;
+  return g;
+}
+function setManometro(g,frac){ g.userData.aguja.rotation.z=Math.PI*0.75-Math.PI*1.5*clamp(frac,0,1); }
+
+const maq=new THREE.Group(); scene.add(maq);
+const M3={};
+const XZ=[2.40,3.40,4.40,5.40,6.30];      // donde baja cada ramal
+const Y_TRONCO=1.95, X_T0=1.95, X_T1=6.55;
+
+// ---- bancada ----
+(function(){
+  const b=roundedBox(7.90,0.18,3.20,MAT.bancada,0.05); b.position.set(2.70,0.09,0.00); maq.add(b);
+  const t=roundedBox(7.80,0.03,3.10,std('#39424f',0.75,0.20),0.02); t.position.set(2.70,0.195,0.00); maq.add(t);
+})();
+
+// ---- compresor, depósito y secador ----
+(function(){
+  const g=new THREE.Group(); g.userData.key='compresor'; maq.add(g); M3.gComp=g;
+  const bas=roundedBox(1.10,0.16,0.90,MAT.aceroC,0.03); bas.position.set(-0.30,0.28,0); g.add(bas);
+  const cue=new THREE.Mesh(new THREE.CylinderGeometry(0.30,0.30,0.86,26),MAT.motor);
+  cue.rotation.z=Math.PI/2; cue.position.set(-0.30,0.74,0); g.add(cue);
+  for(let i=0;i<16;i++){
+    const ang=i*Math.PI/8;
+    const al=new THREE.Mesh(new THREE.BoxGeometry(0.84,0.03,0.05),MAT.aceroC);
+    al.position.set(-0.30,0.74+0.305*Math.cos(ang),0.305*Math.sin(ang));
+    al.rotation.x=ang; g.add(al);
+  }
+  const cab=new THREE.Mesh(new THREE.CylinderGeometry(0.21,0.21,0.34,20),MAT.aceroC);
+  cab.rotation.z=Math.PI/2; cab.position.set(0.34,0.74,0); g.add(cab);
+  const vent=new THREE.Group(); vent.position.set(-0.80,0.74,0); g.add(vent);
+  for(let i=0;i<7;i++){
+    const p=new THREE.Mesh(new THREE.BoxGeometry(0.02,0.22,0.07),MAT.negro);
+    p.position.set(0,0.12*Math.cos(i*2*Math.PI/7),0.12*Math.sin(i*2*Math.PI/7));
+    p.rotation.x=i*2*Math.PI/7; vent.add(p);
+  }
+  M3.vent=vent;
+})();
+(function(){
+  const g=new THREE.Group(); g.userData.key='deposito'; maq.add(g); M3.gDep=g;
+  const cub=new THREE.Mesh(new THREE.CylinderGeometry(0.34,0.34,1.30,26),MAT.deposito);
+  cub.position.set(0.86,0.87,0); g.add(cub);
+  [0.24,1.50].forEach(y=>{
+    const t=new THREE.Mesh(new THREE.CylinderGeometry(0.36,0.36,0.07,26),MAT.acero);
+    t.position.set(0.86,y,0); g.add(t);
+  });
+  const pie=roundedBox(0.80,0.14,0.80,MAT.aceroC,0.03); pie.position.set(0.86,0.27,0); g.add(pie);
+  const purga=new THREE.Mesh(new THREE.CylinderGeometry(0.05,0.05,0.16,14),MAT.oro);
+  purga.position.set(0.86,0.14,0.30); g.add(purga);
+  M3.nivel=new THREE.Mesh(new THREE.CylinderGeometry(0.345,0.345,0.10,26),MAT.aire);
+  M3.nivel.position.set(0.86,0.40,0); g.add(M3.nivel);
+})();
+(function(){
+  const g=new THREE.Group(); g.userData.key='secador'; maq.add(g); M3.gSec=g;
+  const c=roundedBox(0.56,1.10,0.62,MAT.secador,0.04); c.position.set(1.62,0.80,0); g.add(c);
+  const t=roundedBox(0.60,0.10,0.66,MAT.aceroC,0.02); t.position.set(1.62,1.40,0); g.add(t);
+  [-0.14,0.14].forEach(z=>{
+    const a=new THREE.Mesh(new THREE.CylinderGeometry(0.09,0.09,0.30,16),MAT.acero);
+    a.position.set(1.62,1.58,z); g.add(a);
+  });
+  M3.frio=new THREE.Mesh(new THREE.BoxGeometry(0.50,0.10,0.56),MAT.cian);
+  M3.frio.position.set(1.62,1.32,0); g.add(M3.frio);
+})();
+
+// ---- tubería: descarga, tronco y ramales ----
+(function(){
+  const g=new THREE.Group(); g.userData.key='tronco'; maq.add(g);
+  g.add(tuboEntre(V3(0.55,0.74,0),V3(0.86,0.74,0),0.048,MAT.tubo));
+  g.add(tuboEntre(V3(0.86,1.54,0),V3(0.86,Y_TRONCO,0),0.048,MAT.tubo));
+  g.add(tuboEntre(V3(0.86,Y_TRONCO,0),V3(1.62,Y_TRONCO,0),0.048,MAT.tubo));
+  g.add(tuboEntre(V3(1.62,1.36,0),V3(1.62,Y_TRONCO,0),0.048,MAT.tubo));
+  g.add(tuboEntre(V3(X_T0,Y_TRONCO,0),V3(X_T1,Y_TRONCO,0),0.058,MAT.tubo));
+  for(let i=0;i<9;i++){
+    const s=roundedBox(0.10,0.10,0.24,MAT.aceroC,0.02);
+    s.position.set(X_T0+(X_T1-X_T0)*i/8,Y_TRONCO+0.10,0); g.add(s);
+  }
+  M3.gTronco=g;
+})();
+
+// ---- una zona por ramal: bajante, llave, máquina ----
+const gZona=[];
+XZ.forEach((x,j)=>{
+  const g=new THREE.Group(); g.userData.key='zona'; g.userData.j=j; maq.add(g); gZona.push(g);
+  g.add(tuboEntre(V3(x,Y_TRONCO,0),V3(x,1.02,0),0.040,MAT.ramal));
+  const ll=new THREE.Mesh(new THREE.CylinderGeometry(0.07,0.07,0.14,16),MAT.oro);
+  ll.position.set(x,1.60,0); g.add(ll);
+  const pal=roundedBox(0.05,0.05,0.26,MAT.rojo,0.02); pal.position.set(x,1.60,0.16); g.add(pal);
+  const cu=roundedBox(0.74,0.62,0.74,MAT.maquina,0.05); cu.position.set(x,0.53,0); g.add(cu);
+  const tp=roundedBox(0.60,0.06,0.60,MAT.aceroC,0.02); tp.position.set(x,0.87,0); g.add(tp);
+  const led=new THREE.Mesh(new THREE.SphereGeometry(0.055,16,12),MAT.verde.clone());
+  led.position.set(x,0.72,0.38); g.add(led);
+  g.userData.led=led;
+  const br=new THREE.Mesh(new THREE.BoxGeometry(0.50,0.05,0.05),MAT.aceroC);
+  br.position.set(x,0.99,0); g.add(br);
+});
+
+// ---- las ocho fugas ----
+const gFuga=[];
+for(let i=0;i<8;i++){
+  const g=new THREE.Group(); g.userData.key='fuga'; g.userData.i=i; maq.add(g); gFuga.push(g);
+  const nod=new THREE.Mesh(new THREE.SphereGeometry(0.07,16,12),MAT.ambar.clone());
+  g.add(nod); g.userData.nod=nod;
+  const jet=new THREE.Mesh(new THREE.ConeGeometry(0.10,0.34,12,1,true),MAT.aire.clone());
+  jet.material.transparent=true; jet.material.opacity=0.55;
+  jet.position.set(0,0.22,0); g.add(jet); g.userData.jet=jet;
+  const halo=new THREE.Mesh(new THREE.RingGeometry(0.11,0.15,20),
+    new THREE.MeshBasicMaterial({color:CIAN,transparent:true,opacity:0.5,side:THREE.DoubleSide,toneMapped:false}));
+  g.add(halo); g.userData.halo=halo;
+}
+
+// ---- semáforo de los siete criterios ----
+const gCrit=new THREE.Group(); gCrit.userData.key='criterios'; maq.add(gCrit);
+(function(){
+  const pl=roundedBox(2.20,0.10,0.30,MAT.aceroC,0.03); pl.position.set(1.10,0.30,1.42); gCrit.add(pl);
+  M3.leds=CRIT.map((c,i)=>{
+    const s=new THREE.Mesh(new THREE.SphereGeometry(0.058,16,12),MAT.verde.clone());
+    s.position.set(0.20+0.30*i,0.40,1.42); gCrit.add(s); return s;
+  });
+})();
+
+// ---- manómetros ----
+(function(){
+  M3.manoA=mkManometro(0.20); M3.manoA.position.set(0.86,1.72,0.36);
+  M3.manoA.userData.key='manoA'; maq.add(M3.manoA);
+  M3.manoB=mkManometro(0.20); M3.manoB.position.set(X_T1+0.10,Y_TRONCO,0.20);
+  M3.manoB.userData.key='manoB'; maq.add(M3.manoB);
+})();
+
+// ---- partículas: el aire que corre por el tronco ----
+const gPart=new THREE.Group(); maq.add(gPart);
+M3.part=[];
+for(let i=0;i<16;i++){
+  const p=new THREE.Mesh(new THREE.SphereGeometry(0.035,10,8),MAT.aire.clone());
+  p.material.transparent=true; p.material.opacity=0.75;
+  p.position.set(X_T0+(X_T1-X_T0)*i/16,Y_TRONCO,0);
+  gPart.add(p); M3.part.push(p);
+}
+
+// ===================== 8. ACTUALIZACIÓN 3D =====================
+// Todas las plantas tienen exactamente 5 zonas y 8 fugas, así que el equipo se
+// monta UNA vez y aquí sólo se recoloca, se recolorea y se reetiqueta.
+const OFF_F=[[0.36,0.42],[-0.36,-0.42],[0.36,-0.42],[-0.36,0.42]];
+function posFuga(pk,i){
+  const P=PLANTAS[pk], F=P.fugas[i];
+  const j=P.zonas.findIndex(z=>z.k===F.zk);
+  const idx=P.fugas.slice(0,i).filter(G=>G.zk===F.zk).length;   // cuántas van ya en esa zona
+  const o=OFF_F[idx%4];
+  const x=(j<0?XZ[0]:XZ[j])+o[0];
+  const y=(F.tronco?1.66:1.14)+0.20*Math.floor(idx/4);
+  return {p:V3(x,y,o[1]), s:o[0]>0?1:-1};
+}
+function tinta(mat,hex,ei){ mat.color.set(hex); if(mat.emissive) mat.emissive.set(hex);
+  if(ei!==undefined) mat.emissiveIntensity=ei; }
+
+function refrescaHW(){
+  const p=CUR, P=PLANTAS[p.pk], c=cfgDe(mode);
+  // --- zonas: el LED de cada máquina dice si le llega presión ---
+  gZona.forEach((g,j)=>{
+    const z=p.zonas[j];
+    g.position.y=0;
+    tinta(g.userData.led.material, z.ok?OK_HEX:BAD_HEX, z.ok?0.9:1.1);
+  });
+  // --- fugas: color por tipo, tamaño por caudal, chorro sólo si sigue abierta ---
+  gFuga.forEach((g,i)=>{
+    const F=P.fugas[i], q=p.qFug[i], rep=c.rep[i];
+    const L=posFuga(p.pk,i);
+    g.position.copy(L.p); g.rotation.z=-0.42*L.s;
+    const gr=q/Math.max(1,p.qFugaTot);
+    tinta(g.userData.nod.material, rep?'#3a4150':COL_TIPO[F.tipo], rep?0.05:0.95);
+    const e=clamp(0.55+q/260,0.55,2.30);
+    g.userData.nod.scale.setScalar(rep?0.75:e);
+    const j=g.userData.jet;
+    j.visible=!rep&&q>0.5;
+    j.scale.set(clamp(0.5+q/300,0.5,2.0),clamp(0.4+q/180,0.4,2.6),clamp(0.5+q/300,0.5,2.0));
+    j.material.opacity=0.22+0.55*clamp(gr*3,0,1);
+    const sel=(mode==='fuga'&&F.k===ST.fk)||(mode==='ensayo'&&ST.ek==='ultra');
+    g.userData.halo.visible=sel&&!rep;
+    g.userData.halo.scale.setScalar(mode==='fuga'&&F.k===ST.fk?1.6:1.1);
+  });
+  // --- semáforo de criterios ---
+  M3.leds.forEach((s,i)=>tinta(s.material, p[CRIT[i]]?OK_HEX:BAD_HEX, p[CRIT[i]]?0.9:1.15));
+  // --- manómetros: descarga del compresor y final del tronco, misma escala 0–10 barg ---
+  setManometro(M3.manoA,(p.pDesc-P_ATM)/10);
+  setManometro(M3.manoB,p.pTronco/10);
+  // --- depósito: la columna sube con la consigna ---
+  const fr=clamp((p.pCons-4)/6,0.05,1);
+  M3.nivel.scale.y=fr*11; M3.nivel.position.y=0.28+0.05*fr*11;
+  tinta(M3.nivel.material,CIAN,0.35+0.6*fr);
+  // --- secador: verde si traga el caudal, rojo si va corto ---
+  tinta(M3.frio.material, p.okSecado?OK_HEX:BAD_HEX, 0.85);
+  // --- partículas del tronco: tantas visibles como caudal circule ---
+  const nv=Math.round(clamp(p.qTot/420,2,16));
+  M3.part.forEach((m,i)=>{ m.visible=i<nv; });
+}
+
+// ===================== 9. HUD Y PANEL =====================
+const NCOMB=Math.pow(2,PLANTAS.taller.fugas.length)*CONSIGNAS.length;
+el('hud').innerHTML=`
+  <div class="eyebrow">Hidráulica y Neumática · Mecánica</div>
+  <h2>Audita las fugas y la eficiencia de una red de aire comprimido</h2>
+  <p>El aire comprimido es la energía más cara de una planta y la única que se tira al suelo sin que salte ninguna alarma: un agujero de <b>1 mm</b> a 7 barg deja escapar del orden de ${f1(aNlMin(gastoOrificio(Math.PI/4,7+P_ATM,P_ATM)),0)} Nl/min, todo el año, sin hacer más ruido que un siseo. Aquí no vas a "buscar fugas": vas a <b>medirlas</b> con tres ensayos que se contradicen entre sí, vas a ver qué le hace cada una a la presión que llega a la máquina del fondo, y vas a decidir <b>cuáles se reparan y a qué consigna se deja el compresor</b> con una ventana de mantenimiento, un objetivo de ahorro y un plazo de retorno encima de la mesa.</p>
+  <div class="formula">ṁ = C_d·A·p₁·√(k/RT)·[2/(k+1)]^((k+1)/2(k−1)) si p₂/p₁ ≤ ${f1(R_CRIT,4)} · Δp = f·(L/D)·ρv²/2 · P_iso = ṁ·R·T·ln(p₂/p₁)/η · retorno = inversión/(ahorro/12)</div>
+  <div class="legend">
+    <div class="li"><span class="dot" style="background:${NARANJA}"></span>Racores y enchufes rápidos: la fuga más repetida y la más barata de quitar</div>
+    <div class="li"><span class="dot" style="background:${VIO}"></span>Mangueras fisuradas: caudal grande, reparación media, sin parar máquina</div>
+    <div class="li"><span class="dot" style="background:${CIAN}"></span>Purgas y temporizadas: agujero enorme pero abierto poco tiempo — el <i>duty</i> manda</div>
+    <div class="li"><span class="dot" style="background:${BAD_HEX}"></span>Escapes de válvula y juntas de cilindro: obligan a <b>parar la máquina</b> para intervenir</div>
+    <div class="li"><span class="dot" style="background:${OK_HEX}"></span>Intervención válida: los siete criterios a la vez, no sólo el ahorro</div>
+  </div>
+  <div class="fid">
+    <div class="ft">🔒 Contrato de fidelidad</div>
+    <div class="fl"><b>Sí modela:</b> el gasto de cada fuga como <b>orificio compresible</b> con las dos ramas de la ecuación de Saint-Venant —bloqueada cuando p_atm/p_línea ≤ ${f1(R_CRIT,6)}, subsónica por debajo— con coeficiente de descarga ${f1(CD,2)}, de modo que la fuga crece con el <b>cuadrado del diámetro</b> y casi linealmente con la presión absoluta de línea; el nivel sonoro estimado de cada escape; la red entera resuelta por <b>punto fijo</b> —tronco y ramales por Darcy–Weisbach con el factor de fricción de <b>Colebrook–White</b> y la densidad del aire evaluada a la presión de cada tramo, más la caída del secador derateada por caudal volumétrico real— hasta que la presión de cada zona deja de moverse; la presión útil <b>después</b> del terminal de la máquina, que es la que exige el pliego; la potencia por <b>compresión isotérmica</b> con rendimiento de grupo ${f1(ETA_COMP,2)} y ${f1(EUR_KWH,2)} €/kWh; los tres ensayos de auditoría con su sesgo real —vaciado del depósito, análisis de ciclos carga/vacío y censo ultrasónico—; y el coste de propiedad a ${f1(ANIOS,0)} años del <b>catálogo entero</b>: ${f1(NCOMB,0)} intervenciones por planta (${f1(Math.pow(2,PLANTAS.taller.fugas.length),0)} repartos de reparación × ${f1(CONSIGNAS.length,0)} consignas), en las cinco plantas.</div>
+    <div class="fl no"><b>NO modela:</b> el transitorio del compresor. La red se resuelve en régimen estacionario: no hay arranque, ni oscilación de presión entre carga y vacío salvo en el ensayo B, que se calcula aparte con un modelo de depósito. Las fugas no crecen con el tiempo ni vuelven a aparecer, y una reparación es instantánea salvo por las horas que consume. El aire se toma a ${f1(T_K-273.15,0)} °C en toda la red —no hay calentamiento en la compresión ni enfriamiento en la expansión de la fuga— y seco: no hay condensado, ni arrastre de agua, ni punto de rocío. La demanda de cada zona es un dato declarado, constante y simultáneo: no hay factor de simultaneidad ni perfil de turno. El nivel sonoro es una estimación empírica para orientar el censo, no una medida acústica. El precio de la energía, la mano de obra y las piezas son datos declarados.</div>
+  </div>
+  <div class="src">Ref: ISO 8573-1 · ISO 1217 · UNE-EN ISO 11011 (auditorías energéticas de aire comprimido) · Darcy–Weisbach · Colebrook &amp; White (1939) · Saint-Venant &amp; Wantzel (1839)</div>`;
+
+el('panel').innerHTML=`
+  <h4>Auditoría de aire comprimido · <span id="p_mode" style="color:var(--accent2)">La fuga</span></h4>
+  <div class="modebar">
+    <button class="b on" id="m_fuga">1 · Fuga</button>
+    <button class="b" id="m_red">2 · Red</button>
+    <button class="b" id="m_ensayo">3 · Ensayos</button>
+    <button class="b" id="m_catalogo">4 · Catálogo</button>
+    <button class="b" id="m_reto">5 · Reto</button>
+  </div>
+  <div id="scenarioInfo" style="display:none;margin:8px 0;padding:8px 10px;border:1px solid var(--line);border-radius:8px;font-size:12.5px;line-height:1.45"></div>
+  <div class="modebar" id="selbar" style="display:none;flex-wrap:wrap"></div>
+  <div style="margin:8px 0;padding:8px 10px;border:1px solid var(--line);border-radius:8px">
+    <div style="font-size:12px;color:var(--muted)" id="hwrot">Taller mecánico</div>
+    <div style="font-size:13px;font-weight:600" id="hwsub">sin reparar · 8,0 barg</div>
+  </div>
+  <div id="tele"></div>
+  <div class="console" id="report"></div>
+  <h4 class="sec" id="retoTitle" style="display:none">Reto</h4>
+  <div id="retoBox" style="display:none">
+    <div id="retoSpec" style="font-size:12.5px;line-height:1.5;margin-bottom:8px"></div>
+    <button class="b primary" id="btnCheck">✅ Comprobar</button>
+  </div>
+  <h4 class="sec">Pregunta de ingeniería</h4>
+  <div id="q_text" style="font-size:13px;line-height:1.5;margin-bottom:8px"></div>
+  <div class="btns" id="dxbtns"></div>
+  <button class="b auto" id="btnAuto">✨ Recorrido guiado (automático)</button>
+  <button class="b primary" id="btnNew">🔀 Nuevo escenario</button>`;
+
+// ===================== 10. TOAST =====================
+function showToast(html){
+  const t=el('toast');t.innerHTML=html;t.classList.add('show');
+  clearTimeout(showToast._t);showToast._t=setTimeout(()=>t.classList.remove('show'),4600);
+}
+
+// ===================== 11. MODOS Y CONTROLES =====================
+const MODE_META={
+  fuga:{nombre:'La fuga',cam:[[3.4,2.6,5.6],[3.40,1.40,0.00]],
+    mision:'Una fuga es un orificio, y un orificio en aire comprimido está BLOQUEADO: por encima de una presión de línea ridícula el caudal ya no depende de lo que hay al otro lado, sólo de la presión de dentro y del área. Mira la curva, mira la ley del cuadrado del diámetro y mira lo poco que baja la fuga al bajar la consigna.'},
+  red:{nombre:'La red',cam:[[6.2,4.2,8.8],[3.20,1.60,0.00]],
+    mision:'La presión que pagas en el compresor no es la que llega a la máquina. Entre medias hay un secador, cuarenta metros de tronco, un ramal y un terminal, y cada fuga que abres se lleva caudal por ese mismo camino. Sigue la cascada barra a barra y localiza la zona que se queda sin margen.'},
+  ensayo:{nombre:'Los ensayos',cam:[[2.6,2.6,5.6],[0.80,1.10,0.00]],
+    mision:'Tres maneras de medir la misma fuga y tres resultados distintos. El vaciado del depósito sólo ve lo que queda conectado con la planta parada; el análisis de ciclos ve todo el consumo y no sabe separarlo; el censo ultrasónico ve fuga por fuga pero sólo si te acercas. Compara los tres con la verdad del motor.'},
+  catalogo:{nombre:'El catálogo',cam:[[3.2,3.8,8.4],[0.80,1.45,-0.10]],
+    mision:'Mil doscientas ochenta intervenciones por planta y siete criterios que hay que cumplir a la vez. Mira cuántas caen por cada motivo y, sobre todo, cuántas caen SÓLO por ese motivo: ahí se ve qué criterio manda de verdad y cuál no ha tumbado nunca a nadie por su cuenta.'},
+  reto:{nombre:'Reto',cam:[[7.2,4.8,10.4],[2.40,1.45,0.00]],
+    mision:'Elige qué fugas reparas y a qué consigna dejas el compresor. Gana la intervención válida más barata de POSEER a cinco años; a igualdad de coste, la de menos inversión, después la de menos horas y por último la que toca menos fugas.'},
+};
+const lbl=t=>`<span style="align-self:center;color:var(--muted);font-size:12px;margin:0 4px 0 2px">${t}</span>`;
+function optBtns(key,opts,cur){
+  return opts.map(o=>{
+    const v=Array.isArray(o)?o[0]:o, t=Array.isArray(o)?o[1]:o;
+    return `<button class="b sm ${String(cur)===String(v)?'on':''}" data-${key}="${v}">${t}</button>`;
+  }).join('');
+}
+const beep=()=>synth.beep(680,0.05,0.04);
+const OPT_PLANTA=PLANTA_KEYS.map(k=>[k,PLANTAS[k].ico+' '+PLANTAS[k].rot]);
+const OPT_CONS=CONSIGNAS.map(v=>[v,f1(v,1)]);
+const OPT_ENSAYO=[['deposito','A · vaciado del depósito'],['ciclo','B · ciclos del compresor'],
+                  ['ultra','C · censo ultrasónico']];
+const ENSAYO_ROT={deposito:'vaciado del depósito',ciclo:'ciclos de carga y vacío',ultra:'censo ultrasónico'};
+// Rótulo corto de cada fuga: clave, tipo y cota. Nada de tablas aparte.
+const fugaAbr=F=>F.k.toUpperCase()+' '+f1(F.d,1);
+// Botones de reparación: se marcan con ✔ y guardan el índice, no la clave.
+function repBtns(key,rep,P){
+  return P.fugas.map((F,i)=>
+    `<button class="b sm ${rep[i]?'on':''}" data-${key}="${i}" title="${F.rot}">${
+      (rep[i]?'✔ ':'')+fugaAbr(F)}</button>`).join('');
+}
+
+function buildControls(){
+  const bar=el('selbar'), c=cfgDe(mode), P=PLANTAS[c.pk]; let h='';
+  if(mode!=='reto'){
+    h+=lbl('Planta')+optBtns('pl',OPT_PLANTA,ST.pk);
+    h+=lbl('Consigna del compresor · barg')+optBtns('cs',OPT_CONS,ST.pCons);
+    if(mode==='fuga') h+=lbl('Fuga · clave y diámetro en mm')+optBtns('fg',PLANTAS[ST.pk].fugas.map(F=>[F.k,fugaAbr(F)]),ST.fk);
+    if(mode==='ensayo') h+=lbl('Ensayo de auditoría')+optBtns('en',OPT_ENSAYO,ST.ek);
+    h+=lbl('Fugas reparadas')+repBtns('rp',ST.rep,P);
+    h+='<button class="b sm" id="btnTodas">Todas</button><button class="b sm" id="btnNinguna">Ninguna</button>';
+  }else{
+    h+=lbl('Consigna del compresor · barg')+optBtns('xs',OPT_CONS,RETO.ejes.pCons);
+    h+=lbl('Fugas reparadas')+repBtns('xp',RETO.ejes.rep,P);
+    h+='<button class="b sm" id="btnPista">💡 Pista</button>';
+  }
+  bar.innerHTML=h;bar.style.display='flex';
+  const wire=(attr,fn)=>bar.querySelectorAll('['+attr+']').forEach(b=>{
+    b.onclick=()=>{if(autoRunning)return;fn(b.getAttribute(attr));beep();afterEdit();};
+  });
+  wire('data-pl',v=>{ST.pk=v;ST.rep=repCero(v);ST.pCons=PLANTAS[v].pBase;ST.fk=PLANTAS[v].fugas[0].k;});
+  wire('data-cs',v=>{ST.pCons=Number(v);});
+  wire('data-fg',v=>{ST.fk=v;});
+  wire('data-en',v=>{ST.ek=v;});
+  wire('data-rp',v=>{const i=Number(v);ST.rep=ST.rep.map((b,j)=>j===i?!b:b);});
+  wire('data-xs',v=>{RETO.ejes.pCons=Number(v);RETO.msg='';RETO.resuelto=false;});
+  wire('data-xp',v=>{const i=Number(v);RETO.ejes.rep=RETO.ejes.rep.map((b,j)=>j===i?!b:b);
+    RETO.msg='';RETO.resuelto=false;});
+  const bt=el('btnTodas'), bn=el('btnNinguna'), bp=el('btnPista');
+  if(bt) bt.onclick=()=>{if(autoRunning)return;ST.rep=ST.rep.map(()=>true);beep();afterEdit();};
+  if(bn) bn.onclick=()=>{if(autoRunning)return;ST.rep=repCero(ST.pk);beep();afterEdit();};
+  if(bp) bp.onclick=()=>{if(autoRunning)return;pista();};
+}
+// La fuga que aparece reparada en más intervenciones VÁLIDAS de la planta. No es
+// una garantía —hay válidas que no la tocan— sino la apuesta con más respaldo
+// estadístico del barrido. Se resuelve por máximo estricto: si dos empataran, se
+// quedaría la primera de la lista, y el rótulo dice la cuenta, no una promesa.
+function fugaFrec(pk){
+  const V=valM(pk), P=PLANTAS[pk];
+  if(!V.length) return null;
+  let mejor=null;
+  P.fugas.forEach((F,i)=>{
+    const con=V.filter(p=>p.rep[i]).length;
+    if(!mejor||con>mejor.con) mejor={i,k:F.k,rot:F.rot,con,tot:V.length};
+  });
+  return mejor;
+}
+// Valores de un eje que se destapan como pista. Los dos primeros salen de las
+// intervenciones que empatan en coste con la óptima; el barrido de este catálogo
+// no tiene ningún empate al céntimo, así que hoy devuelven un único valor, pero la
+// función está escrita para la lista completa porque el motor sí admite empates.
+function ejeSolC(pk,eje){
+  const E=empM(pk), out=[];
+  if(eje==='pCons') E.forEach(p=>{ if(out.indexOf(p.pCons)<0) out.push(p.pCons); });
+  else if(eje==='nrep') E.forEach(p=>{ if(out.indexOf(p.nRep)<0) out.push(p.nRep); });
+  else { const m=fugaFrec(pk); if(m) out.push(m.k); }
+  return out;
+}
+// Una pista destapa UN eje. Ninguna resuelve el reto: hay 256 repartos por consigna,
+// saber cuántas fugas se tocan no dice cuáles, y la fuga más frecuente entre las
+// válidas deja las otras siete sin decidir.
+function pista(){
+  const eje=EJES.find(e=>!RETO.pistas[e]);
+  if(!eje){showToast('💡 Ya has destapado los tres ejes. La combinación la tienes que cerrar tú.');return;}
+  RETO.pistas[eje]=true;beep();
+  const pk=RETO.cfg.pk, v=ejeSolC(pk,eje);
+  if(!v.length){showToast('💡 <b>'+EJE_ROT[eje]+'.</b> Esta planta no tiene ninguna intervención válida.');
+    afterEdit();return;}
+  const m=eje==='frec'?fugaFrec(pk):null;
+  const txt = eje==='pCons' ? v.map(x=>f1(x,1)+' barg').join(' · ')
+            : eje==='nrep'  ? v.map(x=>f1(x,0)+' fugas de '+f1(PLANTAS[pk].fugas.length,0)).join(' · ')
+            : m.k.toUpperCase()+' ('+m.rot+'), reparada en '+f1(m.con,0)+' de las '+
+              f1(m.tot,0)+' válidas. Las otras siete las decides tú.';
+  showToast('💡 <b>'+EJE_ROT[eje]+'.</b> '+txt);
+  afterEdit();
+}
+
+function updateScenarioInfo(){
+  const d=el('scenarioInfo');
+  d.style.display='block';
+  d.innerHTML='<b>'+MODE_META[mode].nombre+'.</b> '+MODE_META[mode].mision;
+}
+function updateHwRot(){
+  const c=cfgDe(mode), P=PLANTAS[c.pk], p=CUR;
+  el('hwrot').textContent=P.ico+' '+P.rot+' · '+f1(P.zonas.length,0)+' zonas · '+
+    f1(P.fugas.length,0)+' fugas · compresor '+f1(P.qComp,2)+' Nm³/min';
+  const nr=c.rep.filter(Boolean).length;
+  el('hwsub').textContent=(nr?bits(c.rep)+' · '+f1(nr,0)+' reparadas':'sin reparar')+
+    ' · '+f1(c.pCons,1)+' barg · fuga '+f1(p.qFugaTot,1)+' Nl/min ('+pc1(p.frac,1)+')';
+}
+function afterEdit(){
+  buildControls();
+  updateScenarioInfo();
+  if(mode==='reto')updateRetoSpec();
+  refreshAll();
+}
+function setMode(k){
+  mode=k;animT=0;
+  MODES.forEach(m=>el('m_'+m).classList.toggle('on',m===k));
+  el('p_mode').textContent=MODE_META[k].nombre;
+  el('retoTitle').style.display=k==='reto'?'':'none';
+  el('retoBox').style.display=k==='reto'?'':'none';
+  buildControls();updateScenarioInfo();
+  clearDx();buildQuiz();refreshQuestion();
+  if(k==='reto')updateRetoSpec();
+  const cam=MODE_META[k].cam;S.moveTo(cam[0],cam[1]);
+  refreshAll();
+}
+// "Nuevo escenario": en el reto cambia de planta y rearma la partida; en los modos
+// de estudio avanza al siguiente caso que enseña algo distinto.
+function newSignal(){
+  const sig=(arr,v)=>arr[(arr.indexOf(v)+1)%arr.length];
+  if(mode==='fuga'){
+    const ks=PLANTAS[ST.pk].fugas.map(F=>F.k);
+    ST.fk=sig(ks,ST.fk);
+    if(ks.indexOf(ST.fk)===0){ST.pk=sig(PLANTA_KEYS,ST.pk);ST.rep=repCero(ST.pk);
+      ST.pCons=PLANTAS[ST.pk].pBase;ST.fk=PLANTAS[ST.pk].fugas[0].k;}
+  }else if(mode==='red'){
+    ST.pCons=sig(CONSIGNAS,ST.pCons);
+    if(ST.pCons===CONSIGNAS[0]){ST.pk=sig(PLANTA_KEYS,ST.pk);ST.rep=repCero(ST.pk);
+      ST.fk=PLANTAS[ST.pk].fugas[0].k;}
+  }else if(mode==='ensayo'){
+    ST.ek=sig(['deposito','ciclo','ultra'],ST.ek);
+    if(ST.ek==='deposito'){ST.pk=sig(PLANTA_KEYS,ST.pk);ST.rep=repCero(ST.pk);
+      ST.pCons=PLANTAS[ST.pk].pBase;ST.fk=PLANTAS[ST.pk].fugas[0].k;}
+  }else if(mode==='catalogo'){
+    ST.pk=sig(PLANTA_KEYS,ST.pk);ST.fk=PLANTAS[ST.pk].fugas[0].k;
+    const o=solM(ST.pk);
+    if(o){ST.rep=o.rep.slice();ST.pCons=o.pCons;} else {ST.rep=repCero(ST.pk);ST.pCons=PLANTAS[ST.pk].pBase;}
+  }else{
+    RETO.cfg.pk=sig(PLANTA_KEYS,RETO.cfg.pk);
+    retoSolveBuild(true);
+  }
+  RETO.resuelto=false;solved=false;RETO.msg='';
+  buildControls();updateScenarioInfo();
+  clearDx();buildQuiz();refreshQuestion();
+  if(mode==='reto')updateRetoSpec();
+  refreshAll();
+  showToast('🔀 <b>Escenario nuevo.</b> '+MODE_META[mode].mision);
+}
+
+// ===================== 12. TELEMETRÍA E INFORME =====================
+function teleRow(l,v,cls){
+  return '<div class="trow"><span class="tl">'+l+'</span><span class="tv'+(cls?' '+cls:'')+'">'+v+'</span></div>';
+}
+const cls2=b=>b?'ok':'bad';
+// Cuando una zona se queda sin presion el motor devuelve -Infinity: eso no es un
+// numero, es un "no llega", y asi hay que escribirlo.
+const NO_FIN='—';
+const fin=(x,d)=>Number.isFinite(x)?f1(x,d):NO_FIN;
+// Lo que se ahorra al año tapando SOLO esta fuga, dejando el resto como está.
+function ahorroSolo(c,i){
+  const rep=c.rep.map((b,j)=>j===i?true:b);
+  if(c.rep[i]) return 0;
+  return CUR.eAnio-punto(c.pk,rep,c.pCons).eAnio;
+}
+
+function updateTele(){
+  const c=cfgDe(mode), P=PLANTAS[c.pk], p=CUR;
+  let h='';
+  if(mode==='fuga'){
+    const i=iFuga(c.pk,ST.fk), F=P.fugas[i], z=p.zonas.find(x=>x.k===F.zk)||p.zonas[0];
+    const pLin=z.pRamal+P_ATM, rel=P_ATM/pLin;
+    h+=teleRow('Fuga',F.rot);
+    h+=teleRow('Tipo · diámetro',ROT_TIPO[F.tipo]+' · '+f1(F.d,1)+' mm');
+    h+=teleRow('Área del orificio',f1(Math.PI*F.d*F.d/4,3)+' mm²');
+    h+=teleRow('Zona · presión de línea',z.rot+' · '+f1(z.pRamal,3)+' barg');
+    h+=teleRow('p_atm / p_línea',f1(rel,4)+(rel<=R_CRIT?' ≤ ':' > ')+f1(R_CRIT,4),cls2(rel<=R_CRIT));
+    h+=teleRow('Régimen del orificio',rel<=R_CRIT?'BLOQUEADO (sónico)':'subsónico');
+    h+=teleRow('Gasto con el agujero abierto',f1(aNlMin(gastoOrificio(Math.PI*F.d*F.d/4,pLin,P_ATM)),1)+' Nl/min');
+    h+=teleRow('Fracción de tiempo abierta',pc1(F.duty,2));
+    h+=teleRow('Caudal medio que se lleva',f1(p.qFug[i],1)+' Nl/min · '+pc1(p.qFug[i]/p.qFugaTot,1)+' de la fuga total');
+    h+=teleRow('Nivel sonoro estimado',f1(dB(p.qFug[i]),1)+' dB');
+    h+=teleRow('Al repararla queda',pc1(F.post,1)+' del caudal');
+    h+=teleRow('Reparación',f1(F.horas,1)+' h · '+f1(F.pieza,0)+' € en piezas'+(F.paro?' · EXIGE PARAR':''),
+      cls2(!F.paro));
+    h+=teleRow('Se ve desde el tronco',F.tronco?'sí, con la planta parada':'no: queda aislada',cls2(F.tronco));
+    h+=teleRow('Ahorro anual si la tapas sola',f1(ahorroSolo(c,i),2)+' €/año');
+  }else if(mode==='red'){
+    h+=teleRow('Planta',P.ico+' '+P.rot);
+    h+=teleRow('Consigna · descarga',f1(p.pCons,1)+' barg = '+f1(p.pDesc,3)+' bar abs');
+    h+=teleRow('Caída del secador',f1(p.dpSec,4)+' bar → '+f1(p.pSec,3)+' barg');
+    h+=teleRow('Tronco '+f1(P.lTronco,0)+' m DN'+f1(P.dTronco,1),f1(p.dpTronco,4)+' bar → '+f1(p.pTronco,3)+' barg');
+    h+=teleRow('Consumo declarado · fuga',f1(p.qConsumo,0)+' + '+f1(p.qFugaTot,1)+' = '+f1(p.qTot,1)+' Nl/min');
+    p.zonas.forEach(z=>{ h+=teleRow(z.rot,fin(z.pUtil,3)+' ≥ '+f1(z.pMin,1)+' barg',cls2(z.ok)); });
+    h+=teleRow('Capacidad del secador',f1(p.qTot/1000,3)+' ≤ '+f1(p.capSec,3)+' Nm³/min',cls2(p.okSecado));
+    h+=teleRow('Compresor',f1(p.qTot/1000,3)+' ≤ '+f1(P.qComp,2)+' Nm³/min',cls2(p.okCaudal));
+    h+=teleRow('Potencia · energía',f1(p.potKW,2)+' kW · '+f1(p.eAnio,2)+' €/año');
+  }else if(mode==='ensayo'){
+    const U=censoUltra(c.pk,c.rep,c.pCons);
+    h+=teleRow('Ensayo',ENSAYO_ROT[ST.ek]);
+    h+=teleRow('Verdad del motor',f1(U.q,1)+' Nl/min de fuga real');
+    if(ST.ek==='deposito'){
+      const A=ensayoDeposito(c.pk,c.rep,c.pCons);
+      h+=teleRow('Depósito',f1(P.vDep,0)+' l · α = V/(p₀·t) = '+f1(A.alfa,2));
+      h+=teleRow('Caída medida',f1(A.p1,1)+' → '+f1(A.p2,1)+' barg');
+      h+=teleRow('Tiempo de vaciado',f1(A.t,1)+' s');
+      h+=teleRow('Fugas conectadas',f1(A.vista,0)+' de '+f1(P.fugas.length,0)+': el resto queda aislado');
+      h+=teleRow('Estimación lineal',f1(A.qLineal,1)+' Nl/min');
+      h+=teleRow('Caudal real al empezar',f1(A.qReal1,1)+' Nl/min');
+      h+=teleRow('Media real del tramo',f1(A.qRealMed,1)+' Nl/min');
+      h+=teleRow('Sesgo del método lineal',pcm(A.sesgo),cls2(Math.abs(A.sesgo)<0.05));
+      h+=teleRow('Error contra la fuga TOTAL',pcm(A.qLineal/U.q-1),cls2(Math.abs(A.qLineal/U.q-1)<0.10));
+    }else if(ST.ek==='ciclo'){
+      const C=ensayoCiclo(c.pk,c.rep,c.pCons);
+      h+=teleRow('Banda de presostato',f1(C.pDesc,1)+' → '+f1(C.pCarga,1)+' barg');
+      h+=teleRow('Presión media logarítmica',f1(C.pMed-P_ATM,3)+' barg');
+      h+=teleRow('Tiempo de carga · de vacío',f1(C.tCarga,1)+' + '+f1(C.tDesc,1)+' s');
+      h+=teleRow('Factor de marcha',pc1(C.duty,2));
+      h+=teleRow('Consumo deducido',f1(C.qMedido,1)+' Nl/min');
+      h+=teleRow('Consumo real de la planta',f1(C.qCons,1)+' Nl/min');
+      h+=teleRow('Sesgo del método',pcm(C.sesgo),cls2(Math.abs(C.sesgo)<0.08));
+      h+=teleRow('Si se lo atribuyes a fuga',pcm(C.qMedido/U.q-1)+' de error',cls2(Math.abs(C.qMedido/U.q-1)<0.10));
+      h+=teleRow('Fugas vistas',f1(C.vista,0)+' de '+f1(P.fugas.length,0)+': todas, pero sin separar');
+    }else{
+      const ord=U.det.map((d,i)=>({...d,i})).sort((a,b)=>b.q-a.q);
+      h+=teleRow('Fugas censadas',f1(U.det.length,0)+' una por una');
+      ord.forEach(d=>{ h+=teleRow(d.k.toUpperCase()+' · '+ROT_TIPO[d.tipo],
+        f1(d.q,1)+' Nl/min · '+f1(d.db,1)+' dB',cls2(c.rep[d.i])); });
+      h+=teleRow('Suma del censo',f1(U.q,1)+' Nl/min');
+      h+=teleRow('Error del método','0,0 %: aquí no hay sesgo, hay que ir hasta la fuga');
+    }
+  }else if(mode==='catalogo'){
+    const B=barrM(c.pk), cn=censoM(c.pk), s=solM(c.pk);
+    h+=teleRow('Planta',P.ico+' '+P.rot);
+    h+=teleRow('Intervenciones barridas',f1(B.length,0)+' = 2^'+f1(P.fugas.length,0)+' × '+
+      f1(CONSIGNAS.length,0)+' consignas');
+    h+=teleRow('Intervenciones válidas',f1(cn.val,0),cls2(cn.val>0));
+    CRIT.forEach(k=>{ h+=teleRow('Tumbadas por '+CRIT_ROT[k].toLowerCase(),
+      f1(cn.tot[k],0)+' · sólo por eso '+f1(cn.solo[k],0)); });
+    h+=teleRow('Ésta que miras',p.valida?'cumple los siete':'falla '+f1(p.fallos.length,0),cls2(p.valida));
+    h+=teleRow('No hacer nada cuesta',f1(p.coste5Base,0)+' € en '+f1(ANIOS,0)+' años');
+    h+=teleRow('La mejor cuesta',s?f1(s.coste5,0)+' € · '+bits(s.rep)+' @'+f1(s.pCons,1)+' barg':'—');
+  }else{
+    const s=RETO.sol;
+    h+=teleRow('Planta del reto',P.ico+' '+P.rot);
+    h+=teleRow('Puesto',bits(c.rep)+' · '+f1(p.nRep,0)+' fugas @'+f1(c.pCons,1)+' barg');
+    h+=teleRow('Criterios cumplidos',f1(CRIT.length-p.fallos.length,0)+' / '+f1(CRIT.length,0),cls2(p.valida));
+    h+=teleRow('Presión en el punto de uso',fin(Math.min.apply(null,p.zonas.map(z=>z.pUtil-z.pMin)),3)+
+      ' bar de margen mínimo',cls2(p.okPres));
+    h+=teleRow('Horas · en marcha y con paro',f1(p.horas,1)+' ≤ '+f1(P.ventana,1)+' · '+
+      f1(p.horasParo,1)+' ≤ '+f1(P.ventanaParo,1)+' h',cls2(p.okHoras&&p.okParo));
+    h+=teleRow('Inversión',f1(p.piezas,0)+' € piezas + '+f1((p.horas+p.horasParo)*EUR_HORA,0)+
+      ' € mano = '+f1(p.inversion,2)+' €');
+    h+=teleRow('Ahorro anual',f1(p.ahorro,2)+' ≥ '+f1(P.objAhorro,0)+' €/año',cls2(p.okAhorro));
+    h+=teleRow('Retorno',(Number.isFinite(p.payback)?f1(p.payback,2):'∞')+' ≤ '+
+      f1(P.paybackMax,1)+' meses',cls2(p.okPayback));
+    h+=teleRow('Coste a '+f1(ANIOS,0)+' años',f1(p.coste5,0)+' € · sin tocar nada '+f1(p.coste5Base,0)+' €');
+    h+=teleRow('Coste mínimo posible',s?f1(s.coste5,0)+' €':'sin solución');
+  }
+  el('tele').innerHTML=h;
+}
+
+// El informe explica el POR QUÉ de lo que se ve, con las cifras del propio punto
+// de trabajo. Nunca repite un número sin decir de dónde sale.
+function updateReport(){
+  const c=cfgDe(mode), P=PLANTAS[c.pk], p=CUR;
+  let t='';
+  if(mode==='fuga'){
+    const i=iFuga(c.pk,ST.fk), F=P.fugas[i], z=p.zonas.find(x=>x.k===F.zk)||p.zonas[0];
+    const pLin=z.pRamal+P_ATM;
+    const qAb=aNlMin(gastoOrificio(Math.PI*F.d*F.d/4,pLin,P_ATM));
+    const qDob=aNlMin(gastoOrificio(Math.PI*(2*F.d)*(2*F.d)/4,pLin,P_ATM));
+    t='> '+F.rot+': '+ROT_TIPO[F.tipo]+' de '+f1(F.d,1)+' mm en '+z.rot+', con '+
+      f1(z.pRamal,3)+' barg de línea.\n';
+    t+='> La atmósfera está a '+f1(P_ATM/pLin,4)+' de la presión de dentro, por debajo de '+
+      f1(R_CRIT,4)+': el orificio va BLOQUEADO. Abrir más la puerta de salida no sirve de nada, '+
+      'el aire ya sale a la velocidad del sonido.\n';
+    t+='> Con el agujero abierto se van '+f1(qAb,1)+' Nl/min. Sólo está abierto el '+pc1(F.duty,2)+
+      ' del tiempo, así que de media se lleva '+f1(p.qFug[i],1)+' Nl/min ('+f1(dB(p.qFug[i]),1)+' dB).\n';
+    t+='> Si el agujero midiera el doble, '+f1(2*F.d,1)+' mm, no saldría el doble sino '+
+      f1(qDob/qAb,1)+' veces más: '+f1(qDob,1)+' Nl/min. El caudal va con el ÁREA.\n';
+    t+='> Taparla sola vale '+f1(F.pieza,0)+' € y '+f1(F.horas,1)+' h'+
+      (F.paro?' CON LA MÁQUINA PARADA':' sin parar nada')+', y ahorra '+f1(ahorroSolo(c,i),2)+' € al año.';
+  }else if(mode==='red'){
+    const peor=p.zonas.reduce((a,z)=>(z.pUtil-z.pMin)<(a.pUtil-a.pMin)?z:a,p.zonas[0]);
+    t='> Del compresor salen '+f1(p.pCons,1)+' barg. El secador se come '+f1(p.dpSec,4)+
+      ' bar y el tronco de '+f1(P.lTronco,0)+' m otros '+f1(p.dpTronco,4)+
+      ': al final del tronco quedan '+f1(p.pTronco,3)+' barg.\n';
+    t+='> Por ahí pasan '+f1(p.qConsumo,0)+' Nl/min de consumo declarado más '+f1(p.qFugaTot,1)+
+      ' de fuga ('+pc1(p.frac,1)+' del total). La fuga no sólo cuesta aire: engorda la caída de todos.\n';
+    t+='> La zona más justa es '+peor.rot+': llega a '+f1(peor.pRamal,3)+
+      ' barg al ramal, el terminal se traga '+fin(peor.dpTerm,3)+' bar más y quedan '+
+      fin(peor.pUtil,3)+' barg frente a '+f1(peor.pMin,1)+' exigidos ('+
+      (peor.ok?'margen de '+f1(peor.pUtil-peor.pMin,3)+' bar'
+             :Number.isFinite(peor.pUtil)?'FALTAN '+f1(peor.pMin-peor.pUtil,3)+' bar'
+             :'el terminal no puede pasar ese caudal a esta presión: no llega aire')+').\n';
+    t+='> Ojo al terminal: es el tramo más corto de toda la instalación y a menudo el que más '+
+      'presión se lleva, porque el enchufe rápido y la manguera de la máquina tienen mucho menos paso que el ramal.\n';
+    t+='> Comprimir eso cuesta '+f1(p.potKW,2)+' kW = '+f1(p.eAnio,2)+' €/año a '+
+      f1(P.hAnio,0)+' h y '+f1(EUR_KWH,2)+' €/kWh.';
+  }else if(mode==='ensayo'){
+    const U=censoUltra(c.pk,c.rep,c.pCons);
+    if(ST.ek==='deposito'){
+      const A=ensayoDeposito(c.pk,c.rep,c.pCons);
+      t='> Se para la planta, se cierran las llaves de zona y se cronometra cómo cae el depósito de '+
+        f1(P.vDep,0)+' l: de '+f1(A.p1,1)+' a '+f1(A.p2,1)+' barg en '+f1(A.t,1)+' s.\n';
+      t+='> La cuenta de manual da '+f1(A.qLineal,1)+' Nl/min. Pero la presión NO cae en línea recta: '+
+        'cae exponencialmente, porque cuanto menos queda menos sale. Al empezar salían '+f1(A.qReal1,1)+
+        ' y de media '+f1(A.qRealMed,1)+' Nl/min: la fórmula lineal se queda en '+pcm(A.sesgo)+'.\n';
+      t+='> Ese error es pequeño. El grande es otro: con las llaves cerradas sólo se ven '+
+        f1(A.vista,0)+' de las '+f1(P.fugas.length,0)+' fugas, así que el ensayo declara '+
+        f1(A.qLineal,1)+' Nl/min cuando la planta pierde '+f1(U.q,1)+' ('+pcm(A.qLineal/U.q-1)+').\n';
+      t+='> Un ensayo puede estar bien hecho y aun así medir otra cosa. Aquí no falla la fórmula: falla el alcance.';
+    }else if(ST.ek==='ciclo'){
+      const C=ensayoCiclo(c.pk,c.rep,c.pCons);
+      t='> Sin parar nada: se cuentan los ciclos del presostato entre '+f1(C.pDesc,1)+' y '+
+        f1(C.pCarga,1)+' barg. Carga '+f1(C.tCarga,1)+' s, descarga '+f1(C.tDesc,1)+
+        ' s, factor de marcha '+pc1(C.duty,2)+'.\n';
+      t+='> Multiplicando por el caudal del compresor sale un consumo de '+f1(C.qMedido,1)+
+        ' Nl/min frente a los '+f1(C.qCons,1)+' reales ('+pcm(C.sesgo)+'): la banda no se recorre '+
+        'a presión media aritmética sino a la media logarítmica, '+f1(C.pMed-P_ATM,3)+' barg.\n';
+      t+='> Y aquí está la trampa: este ensayo ve TODO el consumo, las '+f1(C.vista,0)+
+        ' fugas incluidas, pero no sabe separar la fuga del trabajo útil. Atribuírselo entero a fuga da '+
+        pcm(C.qMedido/U.q-1)+' de error contra los '+f1(U.q,1)+' Nl/min que se pierden de verdad.\n';
+      t+='> En esta planta los dos sesgos '+(Math.abs(C.qMedido/U.q-1)<0.02?'casi se cancelan':'no se cancelan')+
+        '. La compensación es un accidente de esta planta, no una ley.';
+    }else{
+      const ord=U.det.map((d,i)=>({...d,i})).sort((a,b)=>b.q-a.q);
+      let acc=0, n80=0;
+      ord.forEach(d=>{ if(acc<0.8*U.q){acc+=d.q;n80++;} });
+      t='> Con el detector ultrasónico se va fuga por fuga: '+f1(U.det.length,0)+
+        ' escapes censados que suman '+f1(U.q,1)+' Nl/min.\n';
+      t+='> La mayor es '+ord[0].k.toUpperCase()+' ('+ROT_TIPO[ord[0].tipo]+' de '+f1(ord[0].d,1)+
+        ' mm) con '+f1(ord[0].q,1)+' Nl/min, '+pc1(ord[0].q/U.q,1)+' del total y '+f1(ord[0].db,1)+' dB.\n';
+      t+='> '+f1(n80,0)+' fugas de '+f1(U.det.length,0)+' acumulan el 80 % de la pérdida. '+
+        'Reparar las pequeñas mueve poco la aguja y consume la misma ventana de mantenimiento.\n';
+      t+='> Este método no tiene sesgo de cálculo, tiene sesgo de acceso: sólo mide la fuga a la que puedes acercarte '+
+        'con el equipo, y el ultrasonido no atraviesa una carcasa ni llega a un falso techo.';
+    }
+  }else if(mode==='catalogo'){
+    const B=barrM(c.pk), cn=censoM(c.pk), s=solM(c.pk);
+    const peor=CRIT.slice().sort((a,x)=>cn.tot[x]-cn.tot[a])[0];
+    const solos=CRIT.filter(k=>cn.solo[k]>0);
+    const muertos=CRIT.filter(k=>cn.tot[k]===0);
+    t='> '+P.rot+': '+f1(B.length,0)+' intervenciones posibles ('+
+      f1(Math.pow(2,P.fugas.length),0)+' repartos de reparación × '+f1(CONSIGNAS.length,0)+' consignas).\n';
+    t+='> Sobreviven '+f1(cn.val,0)+'. El criterio que más tumba es «'+CRIT_ROT[peor]+'» con '+
+      f1(cn.tot[peor],0)+' bajas.\n';
+    t+='> En solitario sólo deciden: '+(solos.length?solos.map(k=>CRIT_ROT[k]+' '+f1(cn.solo[k],0)).join(', ')
+      :'ninguno')+'. Los demás siempre llegan acompañados'+
+      (muertos.length?', y '+muertos.map(k=>'«'+CRIT_ROT[k]+'»').join(' y ')+
+        (muertos.length>1?' no tumban':' no tumba')+' a nadie en esta planta.':'.')+'\n';
+    t+='> La que miras '+(p.valida?'cumple los siete criterios'
+      :'falla '+p.fallos.map(k=>CRIT_ROT[k]).join(', '))+'.\n';
+    t+=s?'> La mejor es '+bits(s.rep)+' a '+f1(s.pCons,1)+' barg: '+f1(s.inversion,2)+
+        ' € de inversión, '+f1(s.ahorro,2)+' €/año de ahorro, retorno en '+f1(s.payback,2)+
+        ' meses y '+f1(s.coste5,0)+' € en '+f1(ANIOS,0)+' años frente a los '+f1(s.coste5Base,0)+
+        ' € de no hacer nada ('+pcm(s.coste5/s.coste5Base-1)+').'
+       :'> Ninguna intervención del catálogo cumple los siete criterios en esta planta.';
+  }else{
+    const s=RETO.sol;
+    t='> '+P.rot+'. Decide qué fugas reparas y a qué consigna dejas el compresor.\n';
+    t+='> Puesto: '+bits(c.rep)+' a '+f1(c.pCons,1)+' barg → '+f1(p.inversion,2)+
+      ' € de inversión, '+f1(p.ahorro,2)+' €/año y '+f1(p.coste5,0)+' € en '+f1(ANIOS,0)+' años.\n';
+    t+=p.valida?'> Cumple los siete criterios.\n'
+               :'> Falla: '+p.fallos.map(k=>CRIT_ROT[k]).join(', ')+'.\n';
+    t+=RETO.msg?'> '+RETO.msg+'\n':'';
+    t+='> De '+f1(RETO.nval,0)+' intervenciones válidas, la más barata de poseer cuesta '+
+      (s?f1(s.coste5,0)+' €':'—')+'.';
+  }
+  el('report').textContent=t;
+}
+
+function refreshAll(){
+  computa();
+  refrescaHW();
+  paint();
+  updateTele();
+  updateReport();
+  updateHwRot();
+}
+
+// ===================== 13. RETO =====================
+// El reto no compara contra una respuesta escrita a mano: barre las 1 280
+// intervenciones posibles de la planta, se queda con las válidas y ordena por el
+// criterio lexicográfico declarado en el motor (coste de propiedad → inversión →
+// horas → número de reparaciones). Cualquier intervención que empate en coste con
+// la mejor se daría por buena, porque el motor no sabría distinguirlas; en las cinco
+// plantas de este catálogo no ocurre ninguna vez, así que la óptima es única.
+// Punto de partida: nada reparado y el compresor a la consigna heredada, que casi
+// siempre está más alta de lo necesario. Es el estado real de una planta sin auditar.
+function startCfg(pk){ return { rep:repCero(pk), pCons:PLANTAS[pk].pBase }; }
+
+function retoSolveBuild(reset){
+  const pk=RETO.cfg.pk;
+  RETO.sol=solM(pk);
+  RETO.nval=censoM(pk).val;
+  if(reset){
+    RETO.ejes=startCfg(pk);
+    RETO.pistas={};
+    RETO.resuelto=false;
+    RETO.msg='';
+  }
+}
+function updateRetoSpec(){
+  const pk=RETO.cfg.pk, P=PLANTAS[pk], B=punto(pk,repCero(pk),P.pBase);
+  let h='<b>'+P.ico+' '+P.rot+'.</b> Decide la intervención <b>más barata de poseer</b> en '+
+    f1(ANIOS,0)+' años. Sin tocar nada, la planta pierde '+f1(B.qFugaTot,1)+' Nl/min de fuga ('+
+    pc1(B.frac,1)+' de lo que comprime) y gasta '+f1(B.eAnio,2)+' €/año a '+f1(P.hAnio,0)+
+    ' h de servicio. Puedes reparar las fugas que quieras y mover la consigna del compresor entre '+
+    f1(CONSIGNAS[0],1)+' y '+f1(CONSIGNAS[CONSIGNAS.length-1],1)+' barg. Todo a la vez:';
+  h+='<ul style="margin:6px 0 0 16px;padding:0">';
+  CRIT.forEach(k=>{ h+='<li><b>'+CRIT_ROT[k]+'</b> — '+CRIT_POR[k]+'</li>'; });
+  h+='</ul>';
+  h+='<div style="margin-top:6px;color:var(--muted)">Ventana: '+f1(P.ventana,1)+
+    ' h en marcha y '+f1(P.ventanaParo,1)+' h con la máquina parada. Ahorro exigido '+
+    f1(P.objAhorro,0)+' €/año, retorno máximo '+f1(P.paybackMax,1)+' meses. '+
+    'Coste de propiedad = inversión (piezas + '+f1(EUR_HORA,0)+' €/h de mano de obra) + '+
+    f1(ANIOS,0)+' años de energía a '+f1(EUR_KWH,2)+
+    ' €/kWh. El motor guarda un desempate por si dos montajes costaran lo mismo al céntimo '+
+    '(gana el de menos inversión, luego el de menos horas, luego el de menos reparaciones), pero en '+
+    'esta planta el barrido da '+f1(clasesCoste(pk),0)+' costes distintos para '+f1(censoM(pk).val,0)+
+    ' intervenciones válidas: el mínimo es único y no hay que desempatar nada.</div>';
+  el('retoSpec').innerHTML=h;
+}
+// Explica por qué la intervención puesta no vale, criterio a criterio y con sus
+// cifras. Habla de TODOS los criterios caídos, no sólo del primero: el barrido
+// demuestra que okPayback nunca es el primero de la lista —siempre hay un ahorro
+// corto o una ventana rebasada por delante— y encadenar los avisos con else dejaba
+// esa explicación sin poder salir nunca en pantalla. Ningún punto falla más de tres.
+function retoExplain(r,c){
+  if(r.valida) return '';
+  const P=PLANTAS[c.pk];
+  let p='Falla '+r.fallos.map(k=>CRIT_ROT[k]).join(', ')+'. ';
+  if(!r.okPres){
+    const z=r.zonas.filter(x=>!x.ok).reduce((a,x)=>(x.pUtil-x.pMin)<(a.pUtil-a.pMin)?x:a,
+      r.zonas.filter(x=>!x.ok)[0]);
+    p+=z.rot+' necesita '+f1(z.pMin,1)+' barg en el punto de uso y '+
+      (Number.isFinite(z.pUtil)?'sólo le llegan '+f1(z.pUtil,3)
+        :'el terminal ni siquiera puede pasar ese caudal')+
+      ': o subes la consigna o quitas caudal de fuga, que también quita caída. ';
+  }
+  if(!r.okCaudal) p+='La planta pide '+f1(r.qTot/1000,3)+' Nm³/min y el compresor da '+
+    f1(P.qComp,2)+': no hay máquina que sostenga eso. ';
+  if(!r.okSecado) p+='El secador está declarado para '+f1(P.qSecNom,2)+' Nm³/min a '+
+    f1(P_SEC_REF,1)+' barg, y a '+f1(r.pCons,1)+' sólo traga '+f1(r.capSec,3)+
+    ' frente a los '+f1(r.qTot/1000,3)+' que pasan: al bajar la presión el aire se hincha y el secador se queda corto. ';
+  if(!r.okHoras) p+='Esas reparaciones piden '+f1(r.horas,1)+
+    ' h con la planta en marcha y la ventana es de '+f1(P.ventana,1)+' h. ';
+  if(!r.okParo) p+='Hay '+f1(r.horasParo,1)+' h de trabajo que exigen parar la máquina y sólo hay '+
+    f1(P.ventanaParo,1)+' h de paro autorizadas. ';
+  if(!r.okAhorro) p+='Ahorra '+f1(r.ahorro,2)+' €/año y la dirección pide '+
+    f1(P.objAhorro,0)+': '+(r.nRep===0?'sin tocar ninguna fuga no hay nada que ahorrar. '
+      :'con esas fugas no se llega. ');
+  if(!r.okPayback) p+='Cuesta '+f1(r.inversion,2)+' € y ahorra '+f1(r.ahorro,2)+
+    ' €/año: se devuelve en '+(Number.isFinite(r.payback)?f1(r.payback,2)+' meses'
+      :'nunca, porque no ahorra nada')+' y el plazo son '+f1(P.paybackMax,1)+'. ';
+  return p;
+}
+function checkReto(){
+  const c=cfgDe('reto'), s=RETO.sol;
+  const r=punto(c.pk,c.rep,c.pCons);
+  if(!s){
+    RETO.msg='Esta planta no tiene ninguna intervención que cumpla los siete criterios.';
+    RETO.resuelto=false;
+    synth.beep(240,0.12,0.05);
+    showToast('❌ <b>Sin solución.</b> '+RETO.msg);
+  }else if(r.valida&&empM(c.pk).some(q=>mismo(q,r))){
+    RETO.resuelto=true; solved=true;
+    RETO.msg='Correcto: '+f1(r.coste5,0)+' € de coste de propiedad, el mínimo de las '+
+      f1(RETO.nval,0)+' intervenciones válidas.';
+    synth.beep(880,0.10,0.06);
+    showToast('✅ <b>Intervención óptima.</b> '+f1(r.nRep,0)+' fugas reparadas a '+
+      f1(c.pCons,1)+' barg · '+f1(r.inversion,2)+' € de inversión · '+f1(r.ahorro,2)+
+      ' €/año · retorno en '+f1(r.payback,2)+' meses.');
+  }else if(r.valida){
+    // En este catálogo no hay dos intervenciones válidas que empaten al céntimo
+    // —el barrido da tantas clases de coste como válidas en las cinco plantas—, así
+    // que toda válida que no sea la óptima es estrictamente más cara y el mensaje
+    // puede decirlo sin condicionales que nunca se cumplirían.
+    RETO.resuelto=false;
+    RETO.msg='Válida, pero no es la más barata de poseer: '+f1(r.coste5,0)+' € frente a '+
+      f1(s.coste5,0)+' € (inversión '+f1(r.inversion,0)+' frente a '+f1(s.inversion,0)+
+      ', energía '+f1(ANIOS*r.eAnio,0)+' frente a '+f1(ANIOS*s.eAnio,0)+').';
+    synth.beep(520,0.09,0.05);
+    showToast('🟡 <b>Cumple, pero no es la óptima.</b> '+RETO.msg);
+  }else{
+    RETO.resuelto=false;
+    RETO.msg=retoExplain(r,c);
+    synth.beep(240,0.12,0.05);
+    showToast('❌ <b>No cumple.</b> '+RETO.msg);
+  }
+  refreshAll();
+}
+
+// ===================== 14. CUESTIONARIO =====================
+// Los cinco enunciados citan cifras que salen del motor de este laboratorio; el
+// alumno puede reproducirlas montando el caso que se describe.
+const QUIZ={
+  fuga:{pregunta:'Un agujero de 1,0 mm a 7,0 barg deja escapar 48,1 Nl/min y uno de 2,0 mm, 192,5: exactamente cuatro veces más. En cambio, subir la consigna de 6,0 a 8,0 barg sólo lleva el de 1,0 mm de 42,1 a 54,1 Nl/min, un factor 1,2852 y no el 1,3333 que dice la regla de tres con las presiones del manómetro. ¿Por qué el diámetro cuadra exacto y la presión no?',
+    opciones:[
+      {t:'Porque el orificio va bloqueado y entonces el gasto es proporcional al área —que va con d², de ahí el 4,0000 exacto— y a la presión ABSOLUTA aguas arriba: 9,013/7,013 = 1,2852, no 8/6',ok:true,why:'En régimen sónico ṁ = C_d·A·p₁·√(k/RT)·[2/(k+1)]^((k+1)/2(k−1)): el área y la presión absoluta entran las dos elevadas a uno. Doblar el diámetro cuadruplica el área y por eso el caudal se multiplica por cuatro sin redondeo. Y la fórmula no sabe nada de manómetros: el 1,2852 es el cociente de las absolutas, y por eso bajar un bar la consigna ahorra menos de lo que uno espera mirando la escala del manómetro.'},
+      {t:'Porque el caudal de fuga es proporcional al diámetro y a la presión, y el 1,2852 sale del rozamiento del aire dentro del agujero',ok:false,why:'Si fuera proporcional al diámetro, el de 2,0 mm daría el doble y no el cuádruple. Lo que manda es el área, d²·π/4: 0,7854 mm² contra 3,1416. Y el modelo del orificio no lleva rozamiento: lleva un coeficiente de descarga C_d = 0,65 que ya recoge la contracción de la vena.'},
+      {t:'Porque a 8,0 barg el orificio deja de estar bloqueado y el caudal crece más despacio',ok:false,why:'Al revés: cuanto más se sube la presión, más adentro del bloqueo se está. Se está bloqueado cuando p_atm/p₁ ≤ 0,5283, y a 6,0 barg ya vale 0,144. En todo el rango del laboratorio el chorro sale a la velocidad del sonido; lo único que cambia es la densidad del aire que atraviesa el agujero.'},
+      {t:'Porque al subir la presión el aire se calienta y pierde densidad, y eso se come parte del aumento',ok:false,why:'El laboratorio trabaja a temperatura constante, 20 °C en línea y en aspiración: la expansión en el agujero se toma como isentrópica pero la línea no se calienta. Si la temperatura entrase, lo haría como √T y afectaría también al caso del diámetro doble, que sin embargo cuadra exacto.'}]},
+  red:{pregunta:'En el taller, el ramal de los bancos de montaje son 18 m de tubo DN 21,7 y pierde 0,0107 bar. El último tramo —enchufe rápido, manguera y racor de la máquina— pierde 0,3508 bar, treinta y tres veces más, midiendo apenas un par de metros. En los sopladores la desproporción llega a noventa. ¿Qué está pasando?',
+    opciones:[
+      {t:'Que el terminal no se calcula como tubo sino como un orificio equivalente: 15,0 mm² de paso frente a los 369,8 mm² del ramal, casi veinticinco veces menos sección, y ahí es donde se estrangula el aire',ok:true,why:'La caída no la fija la longitud sino la sección por la que hay que meter el caudal. Un enchufe rápido de 15 mm² es un cuello de botella que ningún metro de tubo grueso compensa. De ahí la regla de taller: antes de subir la consigna del compresor por una máquina que "no tiene presión", mira el enchufe y la manguera, que suelen costar diez euros.'},
+      {t:'Que el aire, al ser compresible, pierde más presión cuanto más cerca está del final del recorrido',ok:false,why:'No hay ninguna ley que diga eso. La pérdida en cada tramo depende de su caudal, su longitud y su diámetro; el orden en que se recorren no entra. La prueba es que en los sopladores el ramal son 8 m y pierde tres veces menos que en la prensa, que son 30 m: manda el paso, no la posición.'},
+      {t:'Que el ramal es de acero y el terminal de goma, y la goma tiene mucha más rugosidad',ok:false,why:'La rugosidad afecta al factor de fricción, y entre acero estirado y goma la diferencia es de un 20 % largo, no de un factor treinta. Además el terminal ni siquiera se calcula por Darcy: se calcula como un estrechamiento, porque lo que domina es la sección de paso del enchufe.'},
+      {t:'Que por el terminal pasa el caudal de la zona más el de las fugas, y por el ramal sólo el de la zona',ok:false,why:'Es al revés: las fugas están repartidas por la zona, así que el ramal de los bancos lleva 566,0 Nl/min —los 400 declarados más 166,0 de fugas— y el terminal de máquina sólo los 400 declarados. Aun llevando menos caudal que el ramal, el terminal pierde 0,3508 bar frente a 0,0107: treinta y tres veces más.'}]},
+  ensayo:{pregunta:'En el taller sin reparar nada, el ensayo de descarga del depósito declara 95,8 Nl/min de fuga y el censo con ultrasonidos suma 548,9: se queda en el 17 % de la verdad. Y sin embargo el error de la fórmula lineal del ensayo es de sólo −0,52 %. ¿Cómo pueden convivir las dos cosas?',
+    opciones:[
+      {t:'Porque son dos errores distintos: la fórmula lineal apenas se equivoca (la presión cae exponencialmente y el −0,52 % es esa diferencia), pero al cerrar las llaves de zona el ensayo sólo ve 2 de las 8 fugas. No mide mal: mide otra cosa',ok:true,why:'Un ensayo bien hecho puede dar un número perfectamente calculado de una magnitud que no es la que interesa. El de depósito mide la fuga del tronco y del depósito, que es lo que queda conectado con la planta parada: ve 2 de las 8 y declara 95,8 Nl/min de los 548,9 que se pierden de verdad; las otras seis no aparecen. Por eso este ensayo se usa para vigilar la sala de compresores, no para valorar una planta.'},
+      {t:'Porque el ensayo se hace con la planta parada y las fugas sólo pierden cuando la planta está en marcha',ok:false,why:'Una fuga pierde siempre que haya presión detrás, esté la planta parada o no: de hecho las fugas se llevan la mayor parte de su aire por la noche y los fines de semana, cuando no producen nada. Lo que las quita del ensayo no es el paro, son las llaves de zona cerradas: por eso el depósito sólo ve 2 de las 8 y declara 95,8 Nl/min en vez de 548,9.'},
+      {t:'Porque el ultrasonido exagera: mide nivel sonoro y lo convierte a caudal con una curva aproximada, y ahí está el 83 % que falta',ok:false,why:'Las dos cifras salen del mismo modelo de orificio; el nivel en dB es una lectura derivada del caudal, no al revés. Si el censo estuviera inflado un 83 %, el compresor no tendría que mover los 2 398,9 Nl/min que mueve para 1 850 de consumo declarado.'},
+      {t:'Porque en 618 s la presión sólo baja 2 bar y ese salto es demasiado pequeño para medir nada',ok:false,why:'El salto de 2 bar es holgado y está bien elegido: si fuera mayor, el sesgo de la fórmula lineal crecería. La prueba de que el salto no es el problema es que la estimación lineal, 95,8 Nl/min, acierta la fuga que SÍ ve con un error del medio por ciento.'}]},
+  catalogo:{pregunta:'En el laboratorio, 286 de las 1 280 intervenciones fallan por capacidad del secador, y no se reparten al azar: 149 de ellas están a 6,0 barg y sólo 1 a 8,0. Bajar la consigna ahorra energía, pero tumba el secador. ¿Por qué?',
+    opciones:[
+      {t:'Porque la capacidad del secador se declara a 7,0 barg y se corrige con la presión absoluta de trabajo: a 6,0 barg sólo traga 1,0065 Nm³/min en vez de 1,15, mientras que el caudal que pasa baja mucho menos, porque el consumo de las máquinas está fijado en normales',ok:true,why:'El secador trabaja con aire real, no con normales: a menos presión el mismo caudal normal ocupa más volumen, va más deprisa por el intercambiador y le sobra menos tiempo para condensar. La capacidad cae proporcionalmente a la presión absoluta —de 1,2935 a 1,0065 Nm³/min entre 8,0 y 6,0 barg— y el caudal sólo baja lo que baja la fuga, de 1,3032 a 1,1866. Por eso "bajar un bar" no es gratis: hay que mirar el secador, los tratamientos y los actuadores antes de tocar el presostato.'},
+      {t:'Porque a menor presión el aire arrastra más agua y el secador tiene que quitar más humedad',ok:false,why:'La cantidad de agua que entra la fija la aspiración —temperatura y humedad ambiente—, no la presión de trabajo. Lo que cambia con la presión es la capacidad volumétrica del aparato, y es lo que el laboratorio corrige: 1,15 Nm³/min a 7,0 barg se quedan en 1,0065 a 6,0.'},
+      {t:'Porque al bajar la consigna aumentan las fugas y con ellas el caudal total',ok:false,why:'Las fugas hacen justo lo contrario: al bajar la consigna pierden menos, de 463,2 a 346,6 Nl/min entre 8,0 y 6,0 barg. El caudal total baja, de 1,3032 a 1,1866 Nm³/min; lo que pasa es que la capacidad del secador baja más deprisa, de 1,2935 a 1,0065.'},
+      {t:'Porque el laboratorio tiene el secador mal dimensionado y en el taller, con el mismo criterio, no falla nunca',ok:false,why:'Que en el taller no falle ninguna de las 1 280 no es cuestión de criterio: es que allí sobra capacidad, con 0,5378 Nm³/min de margen en el peor punto del barrido. En el laboratorio el secador va justo desde el primer momento, y por eso es la planta donde se ve el efecto. El criterio es el mismo en las cinco.'}]},
+  reto:{pregunta:'En el taller, la mejor intervención tapa el racor del colector, que pierde 51,1 Nl/min, y deja abierta la junta de cilindro de la prensa, que pierde 51,0. Pierden lo mismo y se paga el mismo aire por las dos. ¿Qué las separa?',
+    opciones:[
+      {t:'Que la junta sólo se cambia con la prensa parada y el taller no autoriza ni una hora de paro: las 640 intervenciones del catálogo que la tapan —la mitad exacta— son inválidas antes de mirar el dinero. El racor se cambia en 0,5 h en marcha y cuesta 4 €',ok:true,why:'La accesibilidad es una restricción tan dura como la presión mínima, y en este censo se ve al desnudo: los 640 puntos que fallan por ventana de paro son exactamente los 640 que reparan esa junta, ni uno más. Un plan de fugas que ordena por caudal y no por lo que cabe en la ventana no es un plan: es una lista de deseos.'},
+      {t:'Que la junta de cilindro es una fuga interna y el detector de ultrasonidos no la oye, así que no entra en el plan',ok:false,why:'Sí la oye: el censo la da a 54,2 dB, el mismo nivel que el racor, porque suenan igual los dos. Detectarla es lo fácil; el problema aparece después, cuando hay que parar la prensa para cambiarla.'},
+      {t:'Que reparar la junta subiría la caída de presión en la zona de la prensa y dejaría la máquina por debajo de su mínimo',ok:false,why:'Tapar una fuga siempre quita caudal del ramal y por tanto BAJA la caída: la presión en el punto de uso sólo puede mejorar. Tapar esa junta a 8,0 barg lleva el punto de uso de la prensa de 7,116 a 7,140 barg, y su caída de ramal de 0,0171 a 0,0143 bar. De hecho el criterio de presión es el que más se relaja a medida que se reparan fugas.'},
+      {t:'Que el racor está en el tronco y la junta en una zona, y el aire del tronco se paga más caro',ok:false,why:'El aire se paga por lo que cuesta comprimirlo, y eso no depende de por dónde se escape: reparar la junta sola ahorra 120,22 €/año y el racor solo, 120,42, prácticamente lo mismo. Lo que las separa son las 3,0 h con la máquina parada frente a 0,5 h en marcha.'}]},
+};
+let QORD=[], answered=false;
+function buildQuiz(){
+  const q=QUIZ[mode];
+  QORD=q.opciones.map((o,i)=>i);
+  for(let i=QORD.length-1;i>0;i--){ const j=Math.floor(Math.random()*(i+1)); const t=QORD[i];QORD[i]=QORD[j];QORD[j]=t; }
+  answered=false;
+}
+function clearDx(){ answered=false; }
+function refreshQuestion(){
+  const q=QUIZ[mode];
+  el('q_text').textContent=q.pregunta;
+  el('dxbtns').innerHTML=QORD.map((oi,i)=>'<button class="b" data-i="'+i+'">'+q.opciones[oi].t+'</button>').join('');
+  el('dxbtns').querySelectorAll('[data-i]').forEach(b=>{
+    b.onclick=()=>answer(Number(b.getAttribute('data-i')));
+  });
+}
+function answer(i){
+  if(answered) return;
+  answered=true;
+  const q=QUIZ[mode], btns=el('dxbtns').querySelectorAll('[data-i]');
+  btns.forEach((b,k)=>{
+    b.disabled=true;
+    const o=q.opciones[QORD[k]];
+    if(o.ok) b.classList.add('right');
+    else if(k===i) b.classList.add('wrong');
+  });
+  const o=q.opciones[QORD[i]];
+  synth.beep(o.ok?880:200,0.10,0.05);
+  showToast((o.ok?'✅ ':'❌ ')+o.why);
+}
+function quizCorrectIndex(){ return QORD.indexOf(QUIZ[mode].opciones.findIndex(o=>o.ok)); }
+
+// ===================== 15. SELECCIÓN Y ETIQUETAS =====================
+// Cada pieza de la planta se explica con las cifras del punto que esta calculado
+// ahora mismo. Ninguna etiqueta lleva un numero escrito a mano.
+function pickCtx(){
+  const c=cfgDe(mode);
+  return {c, p:CUR, P:PLANTAS[c.pk]};
+}
+const PICK_INFO={
+  compresor:()=>{
+    const {p,P}=pickCtx();
+    return ['Compresor y sala de máquinas',
+      'Da '+f1(P.qComp,2)+' Nm³/min y ahora mueve '+f1(p.qTot/1000,3)+' ('+pc1(p.qTot/1000/P.qComp,1)+
+      ' de su capacidad), de los cuales <b>'+f1(p.qFugaTot,1)+' Nl/min son fuga</b>, el '+pc1(p.frac,1)+
+      '. Comprimir eso a '+f1(p.pCons,1)+' barg cuesta '+f1(p.potKW,2)+' kW y '+f1(p.eAnio,0)+
+      ' € al año a '+f1(P.hAnio,0)+' h de servicio. La fuga sola son '+
+      f1(p.eAnio*p.frac,0)+' € tirados.'];
+  },
+  deposito:()=>{
+    const {p,P}=pickCtx();
+    return ['Depósito de '+f1(P.vDep,0)+' litros',
+      'Amortigua el ciclo de carga y vacío y es el aparato con el que se hace el ensayo A: se corta el compresor, se cierran las llaves de zona y se cronometra cuánto tarda en caer 2 bar. Cuanto más grande, más limpio sale el ensayo… y menos fugas ve, porque las de zona quedan aisladas: aquí sólo '+
+      f1(P.fugas.filter(F=>F.tronco).length,0)+' de '+f1(P.fugas.length,0)+'.'];
+  },
+  secador:()=>{
+    const {p,P}=pickCtx();
+    return ['Secador frigorífico',
+      'Declarado para '+f1(P.qSecNom,2)+' Nm³/min a '+f1(P_SEC_REF,1)+' barg. A '+f1(p.pCons,1)+
+      ' barg sólo traga <b>'+f1(p.capSec,3)+'</b>, porque el mismo caudal normal ocupa más volumen cuanto menor es la presión. Ahora pasan '+
+      f1(p.qTot/1000,3)+' Nm³/min: margen '+f1(p.margenSec,3)+' ('+(p.okSecado?'entra':'NO entra')+
+      '). De paso se come '+f1(p.dpSec,3)+' bar de presión.'];
+  },
+  tronco:()=>{
+    const {p,P}=pickCtx();
+    return ['Tronco de distribución',
+      f1(P.lTronco,0)+' m de tubo de '+f1(P.dTronco,1)+' mm por los que pasa TODO: '+
+      f1(p.qTot,0)+' Nl/min. Se deja '+f1(p.dpTronco,4)+' bar y entrega '+f1(p.pTronco,3)+
+      ' barg al arranque de los ramales, partiendo de '+f1(p.pDesc-P_ATM,2)+
+      ' barg de descarga. Es el único tramo que no se puede aliviar reparando fugas de zona.'];
+  },
+  zona:(ud)=>{
+    const {p,P}=pickCtx();
+    const j=ud&&ud.j!==undefined?ud.j:0, z=p.zonas[j];
+    if(!z) return null;
+    return [z.rot,
+      'Pide '+f1(z.q,0)+' Nl/min a '+f1(z.pMin,1)+' barg en el punto de uso y por su ramal circulan '+
+      f1(z.qTotal,1)+' ('+f1(z.qFuga,1)+' de fuga). '+f1(z.l,0)+' m de '+f1(z.d,1)+
+      ' mm a '+f1(z.v,2)+' m/s (Re '+f1(z.re,0)+', f '+f1(z.f,4)+') pierden '+f1(z.dpRamal,4)+
+      ' bar; el terminal, '+f1(z.at,1)+' mm² de paso, pierde '+fin(z.dpTerm,4)+
+      ' bar. Le llegan <b>'+fin(z.pUtil,3)+'</b> barg: '+(z.ok?'cumple':'NO cumple')+'.'];
+  },
+  fuga:(ud)=>{
+    const {c,p,P}=pickCtx();
+    const i=ud&&ud.i!==undefined?ud.i:Math.max(0,iFuga(c.pk,ST.fk));
+    const F=P.fugas[i]; if(!F) return null;
+    const q=p.qFug[i], rep=c.rep[i], z=zonaDe(c.pk,F.zk);
+    return [F.k.toUpperCase()+' · '+F.rot,
+      ROT_TIPO[F.tipo]+' de '+f1(F.d,1)+' mm en '+(z?z.rot.toLowerCase():'el tronco')+
+      (F.tronco?' (cuelga del tronco: se ve desde el pasillo)':'')+
+      (F.duty<1?', abierta el '+pc1(F.duty,2)+' del tiempo':'')+'. '+
+      (rep?('Reparada: quedan '+f1(q,1)+' Nl/min'+(F.post>0?' de fuga residual ('+pc1(F.post,0)+
+            ' del original), porque una junta nueva tampoco cierra del todo':'')+'.')
+          :('Pierde <b>'+f1(q,1)+' Nl/min</b> y suena a '+f1(dB(q),1)+
+            ' dB. Taparla cuesta '+f1(F.pieza,0)+' € de pieza y '+f1(F.horas,1)+' h'+
+            (F.paro?' <b>con la máquina parada</b>':' con la planta en marcha')+
+            ' — inversión '+f1(F.pieza+F.horas*EUR_HORA,2)+' €, ahorro '+f1(ahorroSolo(c,i),2)+' €/año.'))];
+  },
+  criterios:()=>{
+    const {p}=pickCtx();
+    const malos=p.fallos.map(k=>CRIT_ROT[k]);
+    return ['Los siete criterios',
+      (p.valida?'Los siete en verde: esta intervención se puede firmar.'
+              :'En rojo: '+malos.join(', ')+'.')+
+      ' Ahorrar no basta: una intervención se rechaza porque una máquina se queda sin presión, porque el secador no traga, porque no cabe en la ventana, porque exige un paro que nadie autoriza o porque tarda demasiado en devolver el dinero.'];
+  },
+  manoA:()=>{
+    const {p}=pickCtx();
+    return ['Manómetro de descarga',
+      'Lee '+f1(p.pDesc-P_ATM,2)+' barg, la consigna '+f1(p.pCons,1)+
+      ' más lo que hay que poner de sobra para vencer el secador. Es la presión que se paga: cada bar de más cuesta del orden del 7 % de la energía del compresor.'];
+  },
+  manoB:()=>{
+    const {p}=pickCtx();
+    const peor=p.zonas.reduce((a,z)=>((z.pUtil-z.pMin)<(a.pUtil-a.pMin)?z:a),p.zonas[0]);
+    return ['Manómetro del final del tronco',
+      'Lee '+f1(p.pTronco,3)+' barg. De aquí a la máquina más apurada, '+peor.rot.toLowerCase()+
+      ', todavía se pierden '+fin(peor.dpRamal+peor.dpTerm,4)+' bar entre ramal y terminal, y allí es donde se mide el pliego: <b>'+
+      fin(peor.pUtil,3)+'</b> contra '+f1(peor.pMin,1)+' barg exigidos.'];
+  },
+};
+
+function boardClick(){
+  const {c,p,P}=pickCtx();
+  if(mode==='fuga'){
+    const F=fugaAct(), i=iFuga(c.pk,F.k);
+    showToast('<b>Orificio compresible.</b> Con p_atm/p_línea = '+f1(P_ATM/(p.pCons+P_ATM),4)+
+      ' por debajo de '+f1(R_CRIT,4)+', esta fuga va <b>bloqueada</b>: el chorro sale a la velocidad del sonido y el caudal ya sólo depende del área y de la presión ABSOLUTA de dentro. Por eso la curva es una recta que no pasa por el origen del manómetro, y por eso bajar un bar la consigna quita mucha menos fuga de la que uno espera.');
+  }else if(mode==='red'){
+    showToast('<b>La cascada de presión.</b> Del compresor a la máquina se pierde en cuatro escalones: secador '+
+      f1(p.dpSec,3)+' bar, tronco '+f1(p.dpTronco,4)+', ramal y terminal. Los dos primeros los pagan TODAS las zonas por igual; los dos últimos, sólo la suya. Por eso una máquina que no tiene presión casi nunca se arregla en la sala de compresores.');
+  }else if(mode==='ensayo'){
+    const A=ensayoDeposito(c.pk,c.rep,c.pCons), B=ensayoCiclo(c.pk,c.rep,c.pCons);
+    showToast('<b>Tres ensayos, tres verdades.</b> El vaciado del depósito declara '+f1(A.qLineal,1)+
+      ' Nl/min pero sólo ve '+f1(A.vista,0)+' de '+f1(P.fugas.length,0)+
+      ' fugas; el análisis de ciclos declara '+f1(B.qMedido,1)+' con un duty del '+pc1(B.duty,2)+
+      ' y no sabe separar fuga de consumo; el censo ultrasónico suma '+f1(p.qFugaTot,1)+
+      ', que es la verdad del motor. Un ensayo puede calcular perfectamente una magnitud que no es la que buscas.');
+  }else if(mode==='catalogo'){
+    const cn=censoM(c.pk);
+    showToast('<b>El catálogo entero.</b> '+f1(Math.pow(2,P.fugas.length),0)+' repartos de reparación × '+
+      f1(CONSIGNAS.length,0)+' consignas = '+f1(cn.n,0)+' intervenciones. Cumplen los siete criterios <b>'+
+      f1(cn.val,0)+'</b>. La columna «sólo por eso» es la que importa: un criterio que nunca suspende en solitario está implicado por otro y no manda nada.');
+  }else{
+    showToast('<b>Coste de propiedad.</b> Cada barra son dos sumandos: lo que cuesta la intervención —piezas más '+
+      f1(EUR_HORA,0)+' €/h de mano de obra— y lo que costará la energía durante '+f1(ANIOS,0)+
+      ' años. El reto se gana con la suma, no con la inversión.');
+  }
+}
+function visibleEnEscena(o){
+  let n=o;
+  while(n){ if(n.visible===false) return false; n=n.parent; }
+  return true;
+}
+pickerFor(scene, S.camera, S.renderer.domElement, hit => {
+  const o = hit && hit.object;
+  if(!o) return;
+  if(o === bmesh){ boardClick(); return; }
+  if(!visibleEnEscena(o)) return;
+  let n = o, k = null, ud = null;
+  while(n && !k){
+    if(n.userData && n.userData.key){ k = n.userData.key; ud = n.userData; }
+    n = n.parent;
+  }
+  if(!k || !PICK_INFO[k]) return;
+  const inf = PICK_INFO[k](ud);
+  if(!inf) return;
+  synth.beep(760, 0.05, 0.05);
+  showToast('<b>'+inf[0]+'</b> · '+inf[1]);
+});
+
+// ===================== 16. RECORRIDO GUIADO =====================
+// Cinco bloques, uno por modo, con el mismo hilo: el aire comprimido se paga
+// entero, se escape o no. Ninguna cifra de los avisos esta escrita a mano: todas
+// se leen del motor en el instante en que se lanza el aviso.
+const sleep=ms=>new Promise(r=>setTimeout(r,ms));
+
+// Cuantas intervenciones del catalogo tocan la fuga que exige parar maquina, y
+// cuantas caen por la ventana de paro. Si los dos numeros coinciden, no es una
+// coincidencia: es que reparar esa fuga es incompatible con la planta en marcha.
+function censoParo(pk){
+  const P=PLANTAS[pk], i=P.fugas.findIndex(F=>F.paro), B=barrM(pk);
+  return { i, F:i>=0?P.fugas[i]:null,
+    con:i>=0?B.filter(p=>p.rep[i]).length:0,
+    malos:B.filter(p=>!p.okParo).length,
+    malosSin:i>=0?B.filter(p=>!p.okParo&&!p.rep[i]).length:B.filter(p=>!p.okParo).length,
+    validasCon:i>=0?B.filter(p=>p.valida&&p.rep[i]).length:0 };
+}
+// La fuga no reparada que mas se parece en caudal a otra que si se repara: el par
+// que hace ver que el plan no se ordena por caudal.
+function parEjemplar(pk,s){
+  const P=PLANTAS[pk], b=punto(pk,repCero(pk),s.pCons);   // caudales ANTES de reparar
+  let mejor=null;
+  P.fugas.forEach((F,i)=>{
+    if(!s.rep[i]) return;
+    P.fugas.forEach((G,j)=>{
+      if(s.rep[j]||i===j) return;
+      const d=Math.abs(b.qFug[i]-b.qFug[j]);
+      if(!mejor||d<mejor.d) mejor={d,i,j,qi:b.qFug[i],qj:b.qFug[j],Fi:F,Fj:G};
+    });
+  });
+  return mejor;
+}
+
+async function runAuto(){
+  if(autoRunning) return;
+  autoRunning=true;
+  const b=el('btnAuto'), rot=b.textContent;
+  b.textContent='⏳ Recorriendo…';
+  synth.init();synth.resume();clearDx();
+  try{
+    // --- 1. LA FUGA: el area manda, la presion absoluta acompana
+    setMode('fuga');
+    ST.pk='taller';ST.rep=repCero('taller');ST.pCons=8.0;ST.fk='f1';
+    afterEdit();
+    const P0=PLANTAS.taller;
+    const iF1=iFuga('taller','f1'), iF5=iFuga('taller','f5');
+    const p80=punto('taller',repCero('taller'),8.0);
+    const p60=punto('taller',repCero('taller'),6.0);
+    showToast('<b>'+P0.ico+' '+P0.rot+'.</b> '+P0.fugas[iF1].rot+', un agujero de '+
+      f1(P0.fugas[iF1].d,1)+' mm a '+f1(p80.pCons,1)+' barg. Pierde <b>'+f1(p80.qFug[iF1],1)+
+      ' Nl/min</b> y suena a '+f1(dB(p80.qFug[iF1]),1)+' dB. No hace más ruido que un siseo y se lleva '+
+      f1(p80.eAnio*p80.qFug[iF1]/p80.qTot,0)+' € al año.');
+    await sleep(4400);
+    ST.fk='f5';afterEdit();
+    showToast('El mismo tubo, el doble de agujero: '+f1(P0.fugas[iF5].d,1)+' mm pierden <b>'+
+      f1(p80.qFug[iF5],1)+' Nl/min</b>, exactamente <b>× '+f1(p80.qFug[iF5]/p80.qFug[iF1],4)+
+      '</b>. El gasto va con el ÁREA: '+f1(Math.PI*P0.fugas[iF1].d*P0.fugas[iF1].d/4,4)+' mm² frente a '+
+      f1(Math.PI*P0.fugas[iF5].d*P0.fugas[iF5].d/4,4)+'. Doblar el diámetro cuadruplica la factura.');
+    await sleep(4800);
+    ST.fk='f1';ST.pCons=6.0;afterEdit();
+    showToast('Y ahora al revés: bajar la consigna de '+f1(p80.pCons,1)+' a '+f1(p60.pCons,1)+
+      ' barg sólo baja esa fuga de '+f1(p80.qFug[iF1],1)+' a '+f1(p60.qFug[iF1],1)+
+      ' Nl/min, un factor '+f1(p60.qFug[iF1]/p80.qFug[iF1],4)+' = '+f1(6+P_ATM,3)+'/'+f1(8+P_ATM,3)+
+      '. El orificio va <b>bloqueado</b> y sólo sabe de presión ABSOLUTA: la regla de tres con el manómetro, '+
+      f1(6/8,4)+', se equivoca.');
+    await sleep(5000);
+
+    // --- 2. LA RED: la presion se pierde donde nadie mira
+    setMode('red');
+    ST.pCons=8.0;afterEdit();
+    const pr=CUR;
+    const zPeor=pr.zonas.reduce((a,z)=>((z.pUtil-z.pMin)<(a.pUtil-a.pMin)?z:a),pr.zonas[0]);
+    showToast('<b>La cascada.</b> El compresor descarga a '+f1(pr.pDesc-P_ATM,2)+
+      ' barg; el secador se queda '+f1(pr.dpSec,3)+' bar y los '+f1(P0.lTronco,0)+
+      ' m de tronco, '+f1(pr.dpTronco,4)+'. Al arranque de los ramales quedan '+f1(pr.pTronco,3)+
+      ' barg. Hasta aquí lo paga todo el mundo por igual.');
+    await sleep(4600);
+    const zRat=pr.zonas.reduce((a,z)=>(Number.isFinite(z.dpTerm)&&z.dpTerm/z.dpRamal>a.dpTerm/a.dpRamal?z:a),pr.zonas[0]);
+    showToast('Mira '+zRat.rot.toLowerCase()+': '+f1(zRat.l,0)+' m de ramal de '+f1(zRat.d,1)+
+      ' mm pierden '+f1(zRat.dpRamal,4)+' bar, y el terminal —enchufe y manguera, '+f1(zRat.at,1)+
+      ' mm² de paso frente a los '+f1(Math.PI*zRat.d*zRat.d/4,1)+' del tubo— se lleva '+
+      fin(zRat.dpTerm,4)+', <b>× '+fin(zRat.dpTerm/zRat.dpRamal,1)+
+      '</b>. La presión no se pierde en los metros: se pierde en los estrechamientos.');
+    await sleep(5200);
+    showToast('La más apurada es '+zPeor.rot.toLowerCase()+': pide '+f1(zPeor.pMin,1)+
+      ' barg en el punto de uso y le llegan '+fin(zPeor.pUtil,3)+'. '+
+      (zPeor.ok?'Aguanta, pero con '+fin(zPeor.pUtil-zPeor.pMin,3)+' bar de margen: cualquier fuga nueva se lo come.'
+              :'<b>No llega.</b> Y subir el compresor un bar cuesta el 7 % de la factura.'));
+    await sleep(4800);
+
+    // --- 3. LOS ENSAYOS: tres formas de medir, tres resultados
+    setMode('ensayo');
+    ST.ek='deposito';afterEdit();
+    const rep0=repCero('taller');
+    const A=ensayoDeposito('taller',rep0,8.0), B2=ensayoCiclo('taller',rep0,8.0),
+          U=censoUltra('taller',rep0,8.0);
+    showToast('<b>Ensayo A · vaciado del depósito.</b> Se para el compresor, se cierran las llaves de zona y los '+
+      f1(P0.vDep,0)+' L tardan '+f1(A.t,0)+' s en caer de '+f1(A.p1,1)+' a '+f1(A.p2,1)+
+      ' barg. Declara <b>'+f1(A.qLineal,1)+' Nl/min</b>… y la fuga real de la planta es '+
+      f1(U.q,1)+': se queda en el '+pc1(A.qLineal/U.q,0)+'.');
+    await sleep(5000);
+    showToast('Y no es que calcule mal: contra las '+f1(A.vista,0)+' fugas que SÍ ve —las del tronco— su error es de '+
+      pcm(A.sesgo)+', porque la presión cae exponencialmente y la fórmula lineal se queda en la media. El problema es el <b>alcance</b>: las llaves cerradas le esconden '+
+      f1(P0.fugas.length-A.vista,0)+' de '+f1(P0.fugas.length,0)+' fugas. Un ensayo puede medir muy bien algo que no es lo que buscas.');
+    await sleep(5400);
+    ST.ek='ciclo';afterEdit();
+    showToast('<b>Ensayo B · ciclos de carga y vacío.</b> Con la planta parada el compresor arranca el '+
+      pc1(B2.duty,2)+' del tiempo, así que declara '+f1(B2.qMedido,1)+
+      ' Nl/min. Éste sí ve la red entera, pero mide a la presión media del ciclo, '+
+      f1(B2.pMed-P_ATM,2)+' barg en vez de '+f1(B2.pCarga,1)+': contra la fuga a consigna se equivoca '+
+      pcm(B2.sesgo)+', y contra la real de la planta, '+pcm(B2.qMedido/U.q-1)+
+      '. Que aquí acierte es un accidente de dos errores que se cancelan.');
+    await sleep(5600);
+    ST.ek='ultra';afterEdit();
+    const det=U.det.map((d,i)=>({...d,i})).sort((a,x)=>x.q-a.q);
+    showToast('<b>Ensayo C · censo ultrasónico.</b> Fuga por fuga, a la presión de trabajo: '+
+      f1(U.q,1)+' Nl/min repartidos en '+f1(P0.fugas.length,0)+' puntos. El mayor es '+
+      det[0].k.toUpperCase()+' con '+f1(det[0].q,1)+' ('+f1(det[0].db,1)+' dB) y el menor, '+
+      det[det.length-1].k.toUpperCase()+' con '+f1(det[det.length-1].q,1)+
+      '. Es el único ensayo que dice DÓNDE, y por eso es el único con el que se puede planificar.');
+    await sleep(5200);
+
+    // --- 4. EL CATALOGO: bajar la consigna no es gratis
+    setMode('catalogo');
+    ST.pk='laboratorio';ST.rep=repCero('laboratorio');ST.pCons=8.0;
+    ST.fk=PLANTAS.laboratorio.fugas[0].k;afterEdit();
+    const PL=PLANTAS.laboratorio, cnL=censoM('laboratorio');
+    const l80=punto('laboratorio',repCero('laboratorio'),8.0);
+    const l60=punto('laboratorio',repCero('laboratorio'),6.0);
+    showToast('<b>'+PL.ico+' '+PL.rot+'.</b> '+f1(cnL.n,0)+' intervenciones ('+
+      f1(Math.pow(2,PL.fugas.length),0)+' repartos × '+f1(CONSIGNAS.length,0)+' consignas) y sólo '+
+      f1(cnL.val,0)+' cumplen los siete criterios. La capacidad del secador tumba '+
+      f1(cnL.tot.okSecado,0)+', y <b>'+f1(cnL.solo.okSecado,0)+
+      '</b> de ellas no fallan por nada más.');
+    await sleep(5000);
+    ST.pCons=6.0;afterEdit();
+    const malos60=barrM('laboratorio').filter(p=>!p.okSecado&&p.pCons===6.0).length;
+    const malos80=barrM('laboratorio').filter(p=>!p.okSecado&&p.pCons===8.0).length;
+    showToast('Y no se reparten al azar: a '+f1(6.0,1)+' barg fallan <b>'+f1(malos60,0)+
+      '</b> y a '+f1(8.0,1)+' barg, <b>'+f1(malos80,0)+'</b>. El secador está declarado para '+
+      f1(PL.qSecNom,2)+' Nm³/min a '+f1(P_SEC_REF,1)+' barg y su capacidad va con la presión ABSOLUTA: '+
+      f1(l60.capSec,3)+' a '+f1(6.0,1)+' frente a '+f1(l80.capSec,3)+' a '+f1(8.0,1)+
+      '. El caudal, en cambio, sólo baja de '+f1(l80.qTot/1000,3)+' a '+f1(l60.qTot/1000,3)+'.');
+    await sleep(5600);
+    showToast('Ahí está la trampa de «bajemos un bar para ahorrar»: la energía baja '+
+      pcm(l60.potKW/l80.potKW-1)+', sí, pero el aire se hincha, corre más deprisa por el secador y deja de secarse. '+
+      'En el taller, con margen de sobra, no falla ni una; aquí, el secador va justo desde el primer día.');
+    await sleep(5200);
+
+    // --- 5. EL RETO: lo que decide no es el caudal, es el acceso
+    setMode('reto');
+    RETO.cfg.pk='taller';retoSolveBuild(true);afterEdit();
+    const s=solM('taller'), cp=censoParo('taller');
+    showToast('<b>Reto · '+P0.rot+'.</b> De las '+f1(censoM('taller').n,0)+' intervenciones posibles, '+
+      f1(RETO.nval,0)+' cumplen los siete criterios. Sólo una es la más barata de <b>poseer</b> a '+
+      f1(ANIOS,0)+' años.');
+    await sleep(4400);
+    if(cp.F){
+      showToast('Primero, lo que nadie mira: '+cp.F.rot.toLowerCase()+' ('+cp.F.k.toUpperCase()+
+        ') sólo se cambia con la máquina parada, y esta planta autoriza '+f1(P0.ventanaParo,1)+
+        ' h de paro. Las <b>'+f1(cp.con,0)+'</b> intervenciones que la tapan son exactamente las <b>'+
+        f1(cp.malos,0)+'</b> que caen por ventana de paro'+
+        (cp.malosSin===0?' —ni una más—':'')+', y ninguna de ellas es válida ('+
+        f1(cp.validasCon,0)+'). La mitad del catálogo eliminada antes de mirar el dinero.');
+      await sleep(5600);
+    }
+    const par=parEjemplar('taller',s);
+    if(par){
+      showToast('Y por eso el plan no se ordena por caudal: '+par.Fi.k.toUpperCase()+' pierde '+
+        f1(par.qi,1)+' Nl/min y se repara; '+par.Fj.k.toUpperCase()+' pierde '+f1(par.qj,1)+
+        ' y se deja. Cuestan el mismo aire. Lo que las separa son '+f1(par.Fi.horas,1)+' h '+
+        (par.Fi.paro?'con la máquina parada':'en marcha')+' contra '+f1(par.Fj.horas,1)+' h '+
+        (par.Fj.paro?'<b>con la máquina parada</b>':'en marcha')+'.');
+      await sleep(5400);
+    }
+    RETO.ejes={rep:s.rep.slice(),pCons:s.pCons};afterEdit();checkReto();
+    await sleep(1800);
+    showToast('La óptima: <b>'+f1(s.nRep,0)+' fugas</b> ('+bits(s.rep)+') a '+f1(s.pCons,1)+
+      ' barg. Inversión '+f1(s.inversion,2)+' €, ahorro '+f1(s.ahorro,2)+' €/año, retorno en '+
+      f1(s.payback,2)+' meses y '+f1(s.coste5,0)+' € de coste de propiedad frente a '+
+      f1(s.coste5Base,0)+' sin tocar nada: '+pcm(s.coste5/s.coste5Base-1)+
+      '. Ocupa '+f1(s.horas,1)+' h de las '+f1(P0.ventana,1)+' de ventana; una fuga más y no cabe.');
+    await sleep(5600);
+    answer(quizCorrectIndex());
+  } finally {
+    autoRunning=false;
+    el('btnAuto').textContent=rot;
+  }
+}
+
+// ===================== 17. ANIMACIÓN, EVENTOS Y ARRANQUE =====================
+// El unico reloj del laboratorio. paso3D no decide nada: mueve el aire con la
+// velocidad que el motor acaba de calcular y pulsa lo que sigue perdiendo.
+function paso3D(t){
+  const p=CUR; if(!p) return;
+  const c=cfgDe(mode);
+  // ventilador del compresor: gira con la carga
+  if(M3.vent) M3.vent.rotation.x=t*(2.2+6.0*clamp(p.qTot/1000/PLANTAS[p.pk].qComp,0,1));
+  // particulas del tronco: velocidad proporcional al caudal que circula
+  const vel=0.28+1.35*clamp(p.qTot/2600,0,1.6), L=X_T1-X_T0;
+  M3.part.forEach((m,i)=>{
+    const u=((i/16)+t*vel/L)%1;
+    m.position.x=X_T0+L*u;
+    m.material.opacity=0.30+0.45*Math.sin(Math.PI*u);
+  });
+  // chorros de fuga: laten a un ritmo que crece con el caudal perdido
+  gFuga.forEach((g,i)=>{
+    const j=g.userData.jet;
+    if(!j.visible) return;
+    const q=p.qFug[i];
+    const w=1.0+0.30*Math.sin(t*(3.0+q/40)+i);
+    j.scale.y=clamp(0.4+q/180,0.4,2.6)*w;
+    j.position.y=0.22*w;
+  });
+  // purgas temporizadas: abren un instante cada ciclo, y ese instante es su duty
+  const PER=12;                                  // 12 s de reloj = un ciclo de purga
+  PLANTAS[p.pk].fugas.forEach((F,i)=>{
+    if(F.duty>=1) return;
+    if(c.rep[i]||!(p.qFug[i]>0)) return;
+    gFuga[i].userData.jet.visible=((t%PER)/PER)<Math.max(F.duty,0.03);
+  });
+  // halos del censo ultrasónico: parpadean por turnos, del mayor al menor
+  if(mode==='ensayo'&&ST.ek==='ultra'){
+    const orden=p.qFug.map((q,i)=>({q,i})).sort((a,b)=>b.q-a.q);
+    const k=Math.floor(t*1.4)%Math.max(1,orden.length);
+    gFuga.forEach((g,i)=>{
+      const pos=orden.findIndex(o=>o.i===i);
+      g.userData.halo.scale.setScalar(pos===k?1.9:1.0);
+      g.userData.halo.material.opacity=pos===k?0.85:0.25;
+    });
+  }
+  // semáforo: el criterio que falla parpadea, los verdes se quedan quietos
+  M3.leds.forEach((s,i)=>{
+    const ok=p[CRIT[i]];
+    s.material.emissiveIntensity=ok?0.9:(0.55+0.85*(0.5+0.5*Math.sin(t*5.0+i)));
+  });
+}
+S.setAnimate(dt=>{
+  animT+=dt;
+  paso3D(animT);
+});
+
+MODES.forEach(m=>{ el('m_'+m).onclick=()=>{ if(!autoRunning) setMode(m); }; });
+el('btnAuto').onclick=()=>{ if(!autoRunning) runAuto(); };
+el('btnNew').onclick=()=>{ if(autoRunning) return; newSignal(); };
+el('btnCheck').onclick=()=>{ if(autoRunning) return; checkReto(); };
+const soundBtn=el('soundBtn');
+if(soundBtn){ soundBtn.onclick=()=>{ synth.toggle(); soundBtn.textContent=synth.isOn()?'🔊':'🔇'; }; }
+document.addEventListener('pointerdown',()=>{ synth.init(); synth.resume(); },{once:true});
+
+retoSolveBuild(true);
+computa();
+refrescaHW();
+S.start();
+setMode('fuga');
+
+// ===================== 18. PUENTE DE PRUEBAS =====================
+// Todo lo que necesita un navegador de pruebas para reproducir el laboratorio sin
+// tocar el DOM: el motor entero, el estado y los mismos setters que usan los
+// botones. Si una cifra del panel no sale de aqui, es que esta escrita a mano.
+window.__labDebug={
+  // --- modos
+  mode:()=>mode, setMode, modes:()=>MODES.slice(),
+  // --- constantes del dominio
+  P_ATM, R_AIRE, K_AIRE, T_K, MU, RHO_N, CD, EPS_TUBO, ETA_COMP, EUR_KWH, EUR_HORA,
+  ANIOS, DP_SEC_NOM, P_SEC_REF, CONSIGNAS, DB_REF, DB_0, R_CRIT, COEF_SON, COEF_SUB, DN,
+  // --- catalogo
+  PLANTAS, PLANTA_KEYS, CRITERIOS, CRIT, CRIT_ROT, CRIT_POR, EJES, EJE_ROT, ROT_TIPO, NCOMB,
+  // --- motor
+  gastoOrificio, bloqueado, aNlMin, aKgS, pTrasOrificio, dB, colebrook, dpTramo,
+  red, base, punto, barrido, validas, mejorQue, mismo, solucion, empates, censo,
+  ensayoDeposito, ensayoCiclo, censoUltra, censoParo, parEjemplar,
+  // --- estado vivo
+  st:()=>({...ST, rep:ST.rep.slice()}), cur:()=>CUR, cfg:()=>cfgDe(mode),
+  reto:()=>({cfg:{...RETO.cfg}, ejes:{rep:RETO.ejes.rep.slice(), pCons:RETO.ejes.pCons},
+             sol:RETO.sol, nval:RETO.nval, resuelto:RETO.resuelto, msg:RETO.msg,
+             pistas:{...RETO.pistas}}),
+  plantaAct, fugaAct, iFuga, zonaDe, bits, ahorroSolo,
+  // --- setters equivalentes a los botones
+  setPlanta:v=>{ST.pk=v;ST.rep=repCero(v);ST.pCons=PLANTAS[v].pBase;ST.fk=PLANTAS[v].fugas[0].k;afterEdit();},
+  setCons:v=>{ST.pCons=Number(v);afterEdit();},
+  setFuga:v=>{ST.fk=v;afterEdit();},
+  setEnsayo:v=>{ST.ek=v;afterEdit();},
+  toggleRep:i=>{const j=Number(i);ST.rep=ST.rep.map((b,k)=>k===j?!b:b);afterEdit();},
+  setRep:arr=>{ST.rep=PLANTAS[ST.pk].fugas.map((F,i)=>!!arr[i]);afterEdit();},
+  newSignal,
+  // --- reto
+  setRetoPlanta:v=>{RETO.cfg.pk=v;retoSolveBuild(true);afterEdit();},
+  setRetoCons:v=>{RETO.ejes.pCons=Number(v);RETO.msg='';RETO.resuelto=false;afterEdit();},
+  toggleRetoRep:i=>{const j=Number(i);RETO.ejes.rep=RETO.ejes.rep.map((b,k)=>k===j?!b:b);
+    RETO.msg='';RETO.resuelto=false;afterEdit();},
+  setRetoRep:arr=>{RETO.ejes.rep=PLANTAS[RETO.cfg.pk].fugas.map((F,i)=>!!arr[i]);
+    RETO.msg='';RETO.resuelto=false;afterEdit();},
+  check:()=>checkReto(), pista:()=>pista(), ejeSolC, fugaFrec, valM, clasesCoste, retoExplain,
+  solved:()=>solved, retoSolveBuild, startCfg,
+  // --- cuestionario
+  quizCorrectIndex, answer, quiz:()=>QUIZ[mode], qorden:()=>QORD.slice(),
+  // --- etiquetas de seleccion
+  pickKeys:()=>Object.keys(PICK_INFO), pick:(k,ud)=>(PICK_INFO[k]?PICK_INFO[k](ud):null),
+  // --- formato y recorrido
+  f1, pc1, pcm, fin, NBSP, toast:()=>el('toast').textContent,
+  runAuto, autoRunning:()=>autoRunning,
+};
+
+// __END__
+</script>
+  <!-- Ficha técnica · Capa B del molde de lab 3D (componente compartido + contenido del lab) -->
+  <script src="_ficha-tecnica.js"></script>
+  <script src="_ficha-fugas-red-aire-comprimido.js"></script>
+</body>
+</html>

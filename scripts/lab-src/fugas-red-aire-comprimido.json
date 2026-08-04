@@ -1,0 +1,9 @@
+{
+  "donor": "escaner-obd.html",
+  "out": "fugas-red-aire-comprimido.html",
+  "title": "CEN Labs · Fugas y eficiencia de una red de aire comprimido — Laboratorio 3D",
+  "lt": "Hidráulica y Neumática · Mecánica",
+  "inspectHint": "👆 Toca el compresor, el depósito, el secador, el tronco, cualquier máquina, cualquier fuga, los dos manómetros o el tablero de criterios para ver qué decide cada pieza",
+  "body": "fugas-red-aire-comprimido.body.js",
+  "fichas": ["_ficha-tecnica.js", "_ficha-fugas-red-aire-comprimido.js"]
+}
