@@ -1,0 +1,9 @@
+{
+  "donor": "escaner-obd.html",
+  "out": "perdidas-carga-conducciones.html",
+  "title": "CEN Labs · Pérdidas de carga y selección de conducciones — Laboratorio 3D",
+  "lt": "Hidráulica y Neumática · Mecánica",
+  "inspectHint": "👆 Toca el depósito, la bomba, el destino de la faena, la conducción, los codos, la válvula, los dos manómetros o el tablero de criterios para ver qué decide cada pieza",
+  "body": "perdidas-carga-conducciones.body.js",
+  "fichas": ["_ficha-tecnica.js", "_ficha-perdidas-carga-conducciones.js"]
+}

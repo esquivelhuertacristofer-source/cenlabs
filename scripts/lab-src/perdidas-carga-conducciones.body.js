@@ -1,0 +1,1839 @@
+// ===================== 1. ESCENA =====================
+const mount=document.getElementById('stage');
+const S=createStage(mount,{cam:[7.4,4.1,9.2],target:[1.95,0.95,0.00],bgTop:'#0d1017',bgBot:'#05060a',bloom:0.42,minD:3.2,maxD:26});
+const {scene}=S;
+const synth=makeSynth({type:'sine',type2:'triangle',filterFreq:900,Q:0.80});
+const el=id=>document.getElementById(id);
+
+// ===================== 2. MOTOR =====================
+// Fisica sellada de la perdida de carga en conducciones oleohidraulicas.
+// Presiones en bar, longitudes en m salvo el catalogo (mm), caudales en L/min.
+// Nada de lo que se ve en pantalla esta escrito a mano: todo sale de aqui.
+const P_ATM=1.013;        // bar, presion atmosferica de referencia
+const RHO=870;            // kg/m3, aceite mineral ISO VG 46 a 15 C
+const K_OIL=1.5e9;        // Pa, modulo volumetrico del aceite
+const E_ACERO=210e9;      // Pa, modulo de Young del acero
+const G=9.81;             // m/s2
+const NU40=46;            // cSt a 40 C (definicion del grado ISO VG 46)
+const NU100=6.8;          // cSt a 100 C (indice de viscosidad ~100)
+const RE_LAM=2000;        // por debajo: laminar garantizado
+const RE_TURB=4000;       // por encima: turbulento garantizado
+const ETA_GRUPO=0.80;     // rendimiento del grupo bomba + motor electrico
+const EUR_KWH=0.18;       // EUR/kWh
+const ANIOS=5;            // horizonte del coste de propiedad
+const C_COLECTOR=18;      // EUR por cada linea adicional (dos tes y racores)
+const RM_ACERO=490e6;     // Pa, resistencia a la traccion del tubo E235
+const S_BARLOW=4;         // coeficiente de seguridad 4:1 (rotura / trabajo)
+const CEL_MANG=350;       // m/s, celeridad declarada de la manguera trenzada
+const CEL_ESP=240;        // m/s, celeridad declarada de la manguera de espiral
+// longitudes equivalentes Le/D de los accesorios
+const LE_CODO=30, LE_TE=20, LE_VAL=8, LE_ENT=20, LE_SAL=40;
+
+// ---- viscosidad: Walther / ASTM D341 ajustada a los dos puntos del grado ----
+const wal=n=>Math.log10(Math.log10(n+0.7));
+const WAL_B=(wal(NU40)-wal(NU100))/(Math.log10(373.15)-Math.log10(313.15));
+const WAL_A=wal(NU40)+WAL_B*Math.log10(313.15);
+function nu(tC){                                  // cSt = mm2/s
+  const y=WAL_A-WAL_B*Math.log10(273.15+tC);
+  return Math.pow(10,Math.pow(10,y))-0.7;
+}
+
+// ---- friccion ----
+function colebrook(re,epsD){                      // Colebrook-White por punto fijo
+  let f=0.02;
+  for(let i=0;i<120;i++){
+    const inv=-2*Math.log10(epsD/3.7+2.51/(re*Math.sqrt(f)));
+    f=1/(inv*inv);
+  }
+  return f;
+}
+function swameeJain(re,epsD){                     // explicita, solo para contrastar
+  const l=Math.log10(epsD/3.7+5.74/Math.pow(re,0.9));
+  return 0.25/(l*l);
+}
+function darcy(re,epsD){
+  return re<RE_LAM ? 64/re : colebrook(re,epsD);  // en la banda: el CONSERVADOR
+}
+function celeridadTubo(diM,eM){                   // Korteweg
+  return Math.sqrt((K_OIL/RHO)/(1+K_OIL*diM/(E_ACERO*eM)));
+}
+function barlow(dextMm,eMm){                      // bar admisibles con 4:1
+  return Math.round(2*eMm*RM_ACERO/(dextMm*S_BARLOW)/1e5);
+}
+
+// ---- catalogo de conducciones (19) ----
+// di, e, dext en mm; padm en bar; eps en mm; precio EUR/m; rmin en mm
+function tubo(k,rot,dext,e,precio){
+  const di=dext-2*e;
+  return { k,rot,tipo:'tubo',di,e,dext,eps:0.015,precio,
+           padm:barlow(dext,e), rmin:Math.round(2.5*dext), vacio:true,
+           cel:celeridadTubo(di/1000,e/1000) };
+}
+function manguera(k,rot,di,dext,padm,precio,rmin){
+  return { k,rot,tipo:'manguera',di,e:0,dext,eps:0.03,precio,padm,rmin,vacio:false,cel:CEL_MANG };
+}
+function espiral(k,rot,di,dext,precio,rmin){
+  return { k,rot,tipo:'espiral',di,e:0,dext,eps:0.06,precio,padm:10,rmin,vacio:true,cel:CEL_ESP };
+}
+const COND={
+  t08:  tubo('t08','Tubo de acero 8×1',      8, 1,   5),
+  t10:  tubo('t10','Tubo de acero 10×1,5',  10, 1.5, 7),
+  t12:  tubo('t12','Tubo de acero 12×1,5',  12, 1.5, 9),
+  t15:  tubo('t15','Tubo de acero 15×2',    15, 2,  12),
+  t18:  tubo('t18','Tubo de acero 18×2',    18, 2,  15),
+  t22:  tubo('t22','Tubo de acero 22×2',    22, 2,  19),
+  t28:  tubo('t28','Tubo de acero 28×2',    28, 2,  25),
+  t35:  tubo('t35','Tubo de acero 35×2,5',  35, 2.5,34),
+  t42:  tubo('t42','Tubo de acero 42×3',    42, 3,  46),
+  t28g: tubo('t28g','Tubo de acero 28×4',   28, 4,  38),
+  t35g: tubo('t35g','Tubo de acero 35×5',   35, 5,  52),
+  h06:  manguera('h06','Manguera 2 trenzas DN6',   6.4, 15,400,11,100),
+  h10:  manguera('h10','Manguera 2 trenzas DN10',  9.5, 19,330,14,130),
+  h12:  manguera('h12','Manguera 2 trenzas DN12', 12.7, 22,275,17,180),
+  h16:  manguera('h16','Manguera 2 trenzas DN16', 15.9, 25,250,22,200),
+  h20:  manguera('h20','Manguera 2 trenzas DN20', 19.0, 30,215,28,240),
+  h25:  manguera('h25','Manguera 2 trenzas DN25', 25.4, 37,165,37,300),
+  a38:  espiral('a38','Manguera de espiral DN38', 38.1, 48,25,190),
+  a51:  espiral('a51','Manguera de espiral DN51', 50.8, 62,33,250),
+};
+const COND_KEYS=Object.keys(COND);
+const TIPO_ROT={tubo:'Tubo rígido de acero',manguera:'Manguera de trenzas',espiral:'Manguera de espiral'};
+
+// ---- trazados (3) ----
+const RUTAS={
+  directa:    {k:'directa',   rot:'Directa',   fL:1.00, codos:2,  tes:0, val:1, rDisp:250, montaje:24},
+  perimetral: {k:'perimetral',rot:'Perimetral',fL:1.45, codos:6,  tes:1, val:1, rDisp:400, montaje:38},
+  compacta:   {k:'compacta',  rot:'Compacta',  fL:0.80, codos:10, tes:2, val:1, rDisp:90,  montaje:52},
+};
+const RUTA_KEYS=Object.keys(RUTAS);
+const LINEAS=[1,2,3];
+
+// ---- faenas (5) ----
+const FAENAS={
+  aspir:{
+    rot:'Aspiración de la bomba', abr:'Aspiración', q:60, l:1.8, tReg:50, tFrio:5,
+    pTrab:0, vacio:true, vMax:1.2, ent:1, sal:0, hAsp:0.45, hAnio:4000,
+    obj:'pabs', lim:0.80, limFrio:0.55, sentido:'ge', unidad:'bar abs',
+    rotFun:'presión absoluta en la boca de la bomba',
+  },
+  presion:{
+    rot:'Línea de presión bomba-válvula', abr:'Presión', q:60, l:4.2, tReg:50, tFrio:5,
+    pTrab:210, vacio:false, vMax:6.0, ent:0, sal:0, hAsp:0, hAnio:4000,
+    obj:'dp', lim:5.0, limFrio:15.0, sentido:'le', unidad:'bar',
+    rotFun:'pérdida de carga',
+  },
+  retorno:{
+    rot:'Retorno al depósito', abr:'Retorno', q:90, l:6.5, tReg:55, tFrio:5,
+    pTrab:8, vacio:false, vMax:3.0, ent:0, sal:1, hAsp:0, hAnio:3000,
+    obj:'dp', lim:3.5, limFrio:8.0, sentido:'le', unidad:'bar',
+    rotFun:'contrapresión',
+  },
+  drenaje:{
+    rot:'Drenaje de carcasa del motor', abr:'Drenaje', q:6, l:9.0, tReg:55, tFrio:5,
+    pTrab:2, vacio:false, vMax:3.0, ent:0, sal:1, hAsp:0, hAnio:4000,
+    obj:'dp', lim:1.5, limFrio:3.0, sentido:'le', unidad:'bar',
+    rotFun:'presión en la carcasa',
+  },
+  larga:{
+    rot:'Línea larga a un actuador remoto', abr:'Línea larga', q:45, l:26, tReg:50, tFrio:-5,
+    pTrab:180, vacio:false, vMax:6.0, ent:0, sal:0, hAsp:0, hAnio:600,
+    obj:'dp', lim:12.0, limFrio:30.0, sentido:'le', unidad:'bar',
+    rotFun:'pérdida de carga',
+  },
+};
+const FAENA_KEYS=Object.keys(FAENAS);
+const CRIT=['okFunc','okFrio','okVel','okReg','okComp','okGolpe','okRad'];
+
+// ---- estado del flujo a una temperatura ----
+function estado(ck,v,lEq,tC){
+  const C=COND[ck];
+  const di=C.di/1000;
+  const nuC=nu(tC)*1e-6;                          // m2/s
+  const re=v*di/nuC;
+  const epsD=C.eps/C.di;
+  const fLam=64/re;
+  const fTur=colebrook(re,epsD);
+  const banda=re>=RE_LAM&&re<=RE_TURB;
+  const f=re<RE_LAM?fLam:fTur;
+  const dp=f*(lEq/di)*RHO*v*v/2/1e5;              // bar
+  return { tC, nuC:nuC*1e6, re, epsD, fLam, fTur, f, banda, dp,
+           regimen: re<RE_LAM?'laminar':(re>RE_TURB?'turbulento':'transición') };
+}
+
+// ---- un punto del barrido ----
+function punto(fk,ck,rk,nlin){
+  const F=FAENAS[fk], C=COND[ck], R=RUTAS[rk];
+  const di=C.di/1000;
+  const area=Math.PI*di*di/4;
+  const qTot=F.q/60000;                           // m3/s
+  const qLin=qTot/nlin;
+  const v=qLin/area;
+  const lReal=F.l*R.fL;
+  const nLe=R.codos*LE_CODO+R.tes*LE_TE+R.val*LE_VAL+F.ent*LE_ENT+F.sal*LE_SAL;
+  const lAcc=nLe*di;
+  const lEq=lReal+lAcc;
+
+  const reg=estado(ck,v,lEq,F.tReg);
+  const fri=estado(ck,v,lEq,F.tFrio);
+  const hCol=RHO*G*F.hAsp/1e5;                    // bar de columna de aspiracion
+
+  const val=F.obj==='pabs' ? P_ATM-reg.dp-hCol : reg.dp;
+  const valFrio=F.obj==='pabs' ? P_ATM-fri.dp-hCol : fri.dp;
+  const ge=F.sentido==='ge';
+  const okFunc=ge? val>=F.lim : val<=F.lim;
+  const okFrio=ge? valFrio>=F.limFrio : valFrio<=F.limFrio;
+  const margen=ge? val/F.lim-1 : F.lim/val-1;
+
+  const okVel=v<=F.vMax+1e-12;
+  const okReg=!reg.banda&&!fri.banda;
+  const okComp=C.padm>=F.pTrab&&(!F.vacio||C.vacio);
+  const dpGolpe=RHO*C.cel*v/1e5;
+  const okGolpe=F.pTrab+dpGolpe<=C.padm;
+  const okRad=C.rmin<=R.rDisp;
+
+  const pot=reg.dp*1e5*qTot/ETA_GRUPO;            // W disipados en la linea
+  const eAnio=pot/1000*F.hAnio*EUR_KWH;           // EUR/anio
+  const compra=nlin*(lReal*C.precio+R.montaje)+(nlin-1)*C_COLECTOR;
+  const coste=compra+ANIOS*eAnio;
+
+  const crit={okFunc,okFrio,okVel,okReg,okComp,okGolpe,okRad};
+  const fallos=CRIT.filter(c=>!crit[c]);
+  return {
+    fk,ck,rk,nlin,tipo:C.tipo,di:C.di,padm:C.padm,cel:C.cel,rmin:C.rmin,precio:C.precio,
+    area,v,lReal,nLe,lAcc,lEq,reg,fri,hCol,
+    val,valFrio,req:F.lim,reqFrio:F.limFrio,margen,unidad:F.unidad,rotFun:F.rotFun,
+    dpGolpe,pot,eAnio,compra,coste,
+    ...crit, valida:fallos.length===0, fallos,
+  };
+}
+
+// ---- barridos ----
+function barrido(fk){
+  const out=[];
+  for(const ck of COND_KEYS) for(const rk of RUTA_KEYS) for(const n of LINEAS) out.push(punto(fk,ck,rk,n));
+  return out;
+}
+function validas(fk){ return barrido(fk).filter(p=>p.valida); }
+
+function mejorQue(a,b){                           // orden lexicografico declarado
+  if(a.coste!==b.coste) return a.coste<b.coste;
+  if(a.pot!==b.pot) return a.pot<b.pot;
+  return a.margen>b.margen;
+}
+function mismo(a,b){ return a.coste===b.coste&&a.pot===b.pot&&a.margen===b.margen; }
+function solucion(fk){
+  const V=validas(fk);
+  if(!V.length) return null;
+  let best=V[0];
+  for(const p of V) if(mejorQue(p,best)) best=p;
+  const emp=V.filter(p=>mismo(p,best)).length;
+  return {...best, empates:emp, nval:V.length};
+}
+function empates(fk){
+  const s=solucion(fk);
+  if(!s) return [];
+  return validas(fk).filter(p=>mismo(p,s));
+}
+function censo(fk){
+  const B=barrido(fk);
+  const tot={}, solo={};
+  for(const c of CRIT){ tot[c]=0; solo[c]=0; }
+  for(const p of B){
+    for(const c of p.fallos) tot[c]++;
+    if(p.fallos.length===1) solo[p.fallos[0]]++;
+  }
+  return { n:B.length, val:B.filter(p=>p.valida).length, tot, solo };
+}
+// El montaje mas barato de COMPRAR entre los validos, que no tiene por que ser el
+// mas barato de POSEER: la energia disipada durante cinco anos tambien se paga.
+function masBarataCompra(fk){
+  const V=validas(fk);
+  if(!V.length) return null;
+  let b=V[0];
+  for(const p of V) if(p.compra<b.compra||(p.compra===b.compra&&p.coste<b.coste)) b=p;
+  return b;
+}
+
+// ===================== 3. ESTADO =====================
+const NBSP=' ';   // espacio fino inseparable para los miles, nunca U+0020
+function f1(x,d){
+  const dd=d===undefined?2:d;
+  if(!Number.isFinite(x)) return '—';
+  const neg=x<0;
+  const s=Math.abs(x).toFixed(dd);
+  const par=s.split('.');
+  let ent=par[0], grp='';
+  while(ent.length>3){ grp=NBSP+ent.slice(-3)+grp; ent=ent.slice(0,-3); }
+  ent=ent+grp;
+  return (neg?'−':'')+(par[1]?ent+','+par[1]:ent);
+}
+const pc1=(x,d)=>f1(100*x,d===undefined?1:d)+' %';
+const clamp=(x,a,b)=>x<a?a:(x>b?b:x);
+
+const MODES=['fluido','perdida','golpe','catalogo','reto'];
+let mode='fluido';
+
+// Configuracion del banco en los cuatro modos de estudio.
+const ST={ fk:'presion', ck:'t18', rk:'directa', nlin:1, tk:'reg' };
+// Configuracion del reto: la faena la fija el guion y el alumno mueve los tres ejes.
+const RETO={ cfg:{fk:'presion'}, sol:null, ejes:{ck:'h06',rk:'compacta',nlin:1},
+             pistas:{}, resuelto:false, msg:'', nval:0 };
+
+let CUR=null;          // punto de trabajo vigente
+let hw={};             // lo que la maquina tiene montado ahora mismo
+let animT=0;
+let autoRunning=false;
+let solved=false;
+
+function cfgDe(m){
+  if(m==='reto') return { fk:RETO.cfg.fk, ck:RETO.ejes.ck, rk:RETO.ejes.rk, nlin:RETO.ejes.nlin };
+  return { fk:ST.fk, ck:ST.ck, rk:ST.rk, nlin:ST.nlin };
+}
+function computa(){
+  const c=cfgDe(mode);
+  CUR=punto(c.fk,c.ck,c.rk,c.nlin);
+  return CUR;
+}
+// La temperatura que se esta mirando: la de regimen o la del arranque en frio.
+function tempAct(){ const F=FAENAS[cfgDe(mode).fk]; return ST.tk==='frio'?F.tFrio:F.tReg; }
+function estAct(p){ return ST.tk==='frio'?p.fri:p.reg; }
+function valAct(p){ return ST.tk==='frio'?p.valFrio:p.val; }
+function limAct(p){ const F=FAENAS[p.fk]; return ST.tk==='frio'?F.limFrio:F.lim; }
+function okAct(p){ return ST.tk==='frio'?p.okFrio:p.okFunc; }
+
+const CRIT_ROT={
+  okFunc:'Función en régimen', okFrio:'Arranque en frío', okVel:'Velocidad máxima',
+  okReg:'Régimen definido', okComp:'Compatibilidad', okGolpe:'Golpe de ariete',
+  okRad:'Radio de curvatura',
+};
+const CRIT_POR={
+  okFunc:'a temperatura de trabajo la línea tiene que cumplir lo que pide la faena',
+  okFrio:'y en el arranque en frío, con el aceite espeso, tiene que seguir cumpliendo el límite relajado',
+  okVel:'cada tipo de línea tiene su velocidad recomendada; pasarse es ruido, erosión y calor',
+  okReg:'entre Re = 2 000 y 4 000 el régimen es indefinido y la pérdida no se puede predecir: hay que salir de la banda en caliente y en frío',
+  okComp:'la presión admisible de la conducción tiene que cubrir la de trabajo, y la aspiración además exige una línea que no colapse en vacío',
+  okGolpe:'el pico de Joukowsky se suma a la presión de trabajo y el conjunto tiene que seguir por debajo de la admisible',
+  okRad:'el radio mínimo de curvatura de la conducción tiene que caber en el que ofrece el trazado',
+};
+const EJES=['cond','ruta','nlin'];
+const EJE_ROT={cond:'Conducción',ruta:'Trazado',nlin:'Líneas en paralelo'};
+const EJE_CAMPO={cond:'ck',ruta:'rk',nlin:'nlin'};
+
+// Memorias del barrido: 171 puntos por faena, cada uno con dos Colebrook. Se
+// calculan una vez y se reutilizan; el motor es el mismo, solo se evita repetirlo.
+const BARR_CACHE={}, CENSO_CACHE={}, SOL_CACHE={};
+function barrM(fk){ if(!BARR_CACHE[fk]) BARR_CACHE[fk]=barrido(fk); return BARR_CACHE[fk]; }
+function censoM(fk){ if(!CENSO_CACHE[fk]) CENSO_CACHE[fk]=censo(fk); return CENSO_CACHE[fk]; }
+function solM(fk){ if(!(fk in SOL_CACHE)) SOL_CACHE[fk]=solucion(fk); return SOL_CACHE[fk]; }
+// La perdida que agota el objetivo, en las MISMAS unidades del grafico: en las
+// faenas de caida es el limite; en la aspiracion se despeja de p_abs = 1,013 − Δp − h.
+function dpLim(fk,frio){
+  const F=FAENAS[fk], lim=frio?F.limFrio:F.lim;
+  return F.obj==='pabs' ? P_ATM-RHO*G*F.hAsp/1e5-lim : lim;
+}
+// Perdida de la MISMA linea con otro caudal o a otra temperatura.
+function dpDe(p,q,tC){ const v=(q/60000/p.nlin)/p.area; return estado(p.ck,v,p.lEq,tC).dp; }
+// Caudal al que esa linea alcanza un Reynolds dado a la temperatura tC.
+function qDeRe(p,re,tC){ const v=re*nu(tC)*1e-6/(p.di/1000); return v*p.area*60000*p.nlin; }
+
+// ===================== 4. MATERIALES =====================
+const AZUL='#8AB4F8', OK_HEX='#7CD992', BAD_HEX='#ff6b6b', WARN_HEX='#E9C46A',
+      VIO='#C08CF8', GRIS='#8f97a5', NARANJA='#F2A65A', CIAN='#5BD4E5', TINTA='#dbe4f0',
+      AMBAR='#E0A33E';
+const COL_TIPO={tubo:AZUL,manguera:NARANJA,espiral:VIO};
+const std=(c,r,m)=>new THREE.MeshStandardMaterial({color:c,roughness:r,metalness:m});
+const emis=(hex,i)=>new THREE.MeshStandardMaterial({color:hex,roughness:0.35,metalness:0.10,emissive:hex,emissiveIntensity:i===undefined?0.9:i});
+const MAT={
+  acero:  std('#7e8798',0.42,0.72),
+  aceroC: std('#5a6270',0.50,0.65),
+  bancada:std('#2a3140',0.85,0.10),
+  tubo:   std('#8fa3c4',0.34,0.80),
+  mang:   std('#3a3f4a',0.72,0.12),
+  esp:    std('#4a3f58',0.66,0.16),
+  aceite: new THREE.MeshStandardMaterial({color:AMBAR,roughness:0.22,metalness:0.15,transparent:true,opacity:0.78}),
+  deposito:new THREE.MeshStandardMaterial({color:'#9aa4b5',roughness:0.30,metalness:0.80,transparent:true,opacity:0.28}),
+  piston: std('#b9c2d0',0.30,0.85),
+  oro:    std('#c9a227',0.35,0.85),
+  rojo:   emis(BAD_HEX,0.85),
+  verde:  emis(OK_HEX,0.85),
+  ambar:  emis(WARN_HEX,0.85),
+  cian:   emis(CIAN,0.85),
+  azul:   emis(AZUL,0.80),
+  gota:   emis(AMBAR,1.10),
+  negro:  std('#161b25',0.90,0.05),
+  cristal:new THREE.MeshStandardMaterial({color:'#dfe8f5',roughness:0.10,metalness:0.05,transparent:true,opacity:0.35}),
+};
+
+// ===================== 5. PIZARRÓN =====================
+const board=new THREE.Group();
+board.position.set(-3.10,0,-0.55); board.rotation.y=0.44; scene.add(board);
+(function(){
+  const marco=roundedBox(3.90,2.94,0.10,std('#0b0f16',0.90,0.10),0.05);
+  marco.position.set(0,1.86,0); board.add(marco);
+  const pata=x=>{ const p=new THREE.Mesh(new THREE.CylinderGeometry(0.05,0.06,0.42,14),MAT.acero);
+    p.position.set(x,0.21,0); board.add(p); };
+  pata(-1.55); pata(1.55);
+})();
+const BW=1024, BH=768;
+const bcv=document.createElement('canvas'); bcv.width=BW; bcv.height=BH;
+const bx=bcv.getContext('2d');
+const btex=new THREE.CanvasTexture(bcv);
+const bmesh=new THREE.Mesh(new THREE.PlaneGeometry(3.68,2.72),
+  new THREE.MeshBasicMaterial({map:btex,toneMapped:false}));
+bmesh.position.set(0,1.86,0.056); board.add(bmesh);
+function bg(){
+  bx.fillStyle='#080b11'; bx.fillRect(0,0,BW,BH);
+  bx.strokeStyle='rgba(138,180,248,0.06)'; bx.lineWidth=1;
+  for(let x=0;x<=BW;x+=64){ bx.beginPath(); bx.moveTo(x+0.5,0); bx.lineTo(x+0.5,BH); bx.stroke(); }
+  for(let y=0;y<=BH;y+=64){ bx.beginPath(); bx.moveTo(0,y+0.5); bx.lineTo(BW,y+0.5); bx.stroke(); }
+}
+
+// ---- primitivas de dibujo ----
+function texto(t,x,y,col,size,align,weight){
+  bx.fillStyle=col||'#dbe4f0';
+  bx.font=(weight||'600')+' '+(size||18)+'px ui-sans-serif,system-ui,Segoe UI,Roboto,sans-serif';
+  bx.textAlign=align||'left'; bx.textBaseline='alphabetic';
+  bx.fillText(t,x,y); bx.textAlign='left';
+}
+function linea(x1,y1,x2,y2,col,w,dash){
+  bx.strokeStyle=col||'#2b3446'; bx.lineWidth=w||1.5;
+  bx.setLineDash(dash||[]); bx.beginPath(); bx.moveTo(x1,y1); bx.lineTo(x2,y2); bx.stroke();
+  bx.setLineDash([]);
+}
+function curva(pts,col,w,dash){
+  if(!pts.length) return;
+  bx.strokeStyle=col||AZUL; bx.lineWidth=w||2; bx.setLineDash(dash||[]);
+  bx.beginPath(); bx.moveTo(pts[0][0],pts[0][1]);
+  for(let i=1;i<pts.length;i++) bx.lineTo(pts[i][0],pts[i][1]);
+  bx.stroke(); bx.setLineDash([]);
+}
+function wrapText(t,x,y,maxW,lh,col,size){
+  bx.fillStyle=col||'#8f9bb0';
+  bx.font='500 '+(size||14)+'px ui-sans-serif,system-ui,Segoe UI,Roboto,sans-serif';
+  const pal=String(t).split(' '); let ln='', yy=y;
+  for(const p of pal){
+    const pr=ln?ln+' '+p:p;
+    if(bx.measureText(pr).width>maxW && ln){ bx.fillText(ln,x,yy); ln=p; yy+=(lh||18); }
+    else ln=pr;
+  }
+  if(ln) bx.fillText(ln,x,yy);
+  return yy;
+}
+const PX={x:706,y:70,w:300};
+function rpanel(h){
+  bx.fillStyle='rgba(13,18,26,0.92)'; bx.strokeStyle='rgba(138,180,248,0.22)'; bx.lineWidth=1.5;
+  bx.beginPath(); bx.roundRect(PX.x,PX.y,PX.w,h,12); bx.fill(); bx.stroke();
+}
+function prow(y,k,v,col){
+  texto(k,PX.x+14,y,'#8f9bb0',14,'left','500');
+  texto(v,PX.x+PX.w-14,y,col||'#dbe4f0',15,'right','700');
+}
+function title2(t,sub){
+  texto(t,44,52,'#eaf1fb',26,'left','800');
+  if(sub) texto(sub,44,78,'#8f9bb0',15,'left','500');
+}
+function nota(t,y){ wrapText(t,44,y,620,19,'#8f9bb0',14); }
+function hbar(x,y,w,h,frac,col,bgc){
+  bx.fillStyle=bgc||'rgba(255,255,255,0.06)';
+  bx.beginPath(); bx.roundRect(x,y,w,h,h/2); bx.fill();
+  const f=Math.max(0,Math.min(1,frac));
+  if(f>0){ bx.fillStyle=col||AZUL; bx.beginPath(); bx.roundRect(x,y,Math.max(h,w*f),h,h/2); bx.fill(); }
+}
+function marca(x,y,ok){
+  bx.strokeStyle=ok?OK_HEX:BAD_HEX; bx.lineWidth=2.4; bx.beginPath();
+  if(ok){ bx.moveTo(x-6,y); bx.lineTo(x-2,y+5); bx.lineTo(x+7,y-6); }
+  else  { bx.moveTo(x-5,y-5); bx.lineTo(x+6,y+6); bx.moveTo(x+6,y-5); bx.lineTo(x-5,y+6); }
+  bx.stroke();
+}
+const colOk=b=>b?OK_HEX:BAD_HEX;
+function tabla(x,y,cols,rows,anchos,colFn){
+  let yy=y;
+  cols.forEach((c,i)=>texto(c,x+anchos.slice(0,i).reduce((a,b)=>a+b,0),yy,'#7f8b9c',13,'left','700'));
+  yy+=8; linea(x,yy,x+anchos.reduce((a,b)=>a+b,0)-10,yy,'#243043',1); yy+=18;
+  rows.forEach((r,ri)=>{
+    r.forEach((c,ci)=>texto(c,x+anchos.slice(0,ci).reduce((a,b)=>a+b,0),yy,
+      (colFn&&colFn(ri,ci))||'#c8d3e2',14,'left','600'));
+    yy+=22;
+  });
+  return yy;
+}
+
+// ===================== 6. VISTAS DEL PIZARRÓN =====================
+function ejes(P,xmin,xmax,ymin,ymax,rotX,rotY,fmtX,fmtY,nx,ny){
+  const NX=nx||6, NY=ny||5;
+  bx.fillStyle='rgba(10,14,20,0.72)';
+  bx.beginPath(); bx.roundRect(P.x-52,P.y-18,P.w+72,P.h+72,10); bx.fill();
+  bx.strokeStyle='rgba(138,180,248,0.10)'; bx.lineWidth=1;
+  for(let i=0;i<=NX;i++){ const x=P.x+P.w*i/NX; bx.beginPath(); bx.moveTo(x,P.y); bx.lineTo(x,P.y+P.h); bx.stroke(); }
+  for(let i=0;i<=NY;i++){ const y=P.y+P.h*i/NY; bx.beginPath(); bx.moveTo(P.x,y); bx.lineTo(P.x+P.w,y); bx.stroke(); }
+  linea(P.x,P.y+P.h,P.x+P.w,P.y+P.h,'#3a465c',1.5);
+  linea(P.x,P.y,P.x,P.y+P.h,'#3a465c',1.5);
+  for(let i=0;i<=NX;i++){ const v=xmin+(xmax-xmin)*i/NX;
+    texto(fmtX?fmtX(v):f1(v,1),P.x+P.w*i/NX,P.y+P.h+20,'#7f8b9c',12,'center','600'); }
+  for(let i=0;i<=NY;i++){ const v=ymin+(ymax-ymin)*(NY-i)/NY;
+    texto(fmtY?fmtY(v):f1(v,1),P.x-8,P.y+P.h*i/NY+4,'#7f8b9c',12,'right','600'); }
+  if(rotX) texto(rotX,P.x+P.w/2,P.y+P.h+44,'#8f9bb0',13,'center','700');
+  if(rotY){ bx.save(); bx.translate(P.x-42,P.y+P.h/2); bx.rotate(-Math.PI/2);
+    texto(rotY,0,0,'#8f9bb0',13,'center','700'); bx.restore(); }
+  return { X:v=>P.x+P.w*(v-xmin)/(xmax-xmin), Y:v=>P.y+P.h-P.h*(v-ymin)/(ymax-ymin) };
+}
+function punteo(x,y,col,r){
+  bx.fillStyle=col||AZUL; bx.beginPath(); bx.arc(x,y,r||5,0,Math.PI*2); bx.fill();
+  bx.strokeStyle='#080b11'; bx.lineWidth=1.5; bx.stroke();
+}
+function anillo(x,y,col,r){
+  bx.strokeStyle=col||'#eaf1fb'; bx.lineWidth=2.2;
+  bx.beginPath(); bx.arc(x,y,r||9,0,Math.PI*2); bx.stroke();
+}
+function banda(A,x1,x2,y1,y2,col){
+  bx.fillStyle=col; bx.fillRect(A.X(x1),A.Y(y2),A.X(x2)-A.X(x1),A.Y(y1)-A.Y(y2));
+}
+function leyenda(x,y,items){
+  let xx=x;
+  items.forEach(it=>{
+    linea(xx,y-5,xx+22,y-5,it[1],3,it[2]||[]);
+    texto(it[0],xx+28,y,'#a9b6c8',13,'left','600');
+    xx += 28 + bx.measureText(it[0]).width + 22;
+  });
+}
+const pcm = x => Number.isFinite(x) ? ((x>=0?'+':'')+pc1(x)) : '—';
+const lg = x => Math.log10(Math.max(x,1e-9));
+
+// Panel derecho compartido: qué hay montado y qué dice el pliego.
+function panelPunto(p,alto){
+  rpanel(alto||446);
+  const C=COND[p.ck], R=RUTAS[p.rk], F=FAENAS[p.fk];
+  let y=PX.y+30;
+  texto('MONTAJE',PX.x+14,y,'#8ab4f8',13,'left','800'); y+=26;
+  prow(y,'conducción',C.rot,COL_TIPO[C.tipo]); y+=23;
+  prow(y,'interior · pared',f1(C.di,1)+' · '+(C.e?f1(C.e,1):'—')+' mm'); y+=23;
+  prow(y,'trazado',R.rot+' · '+f1(R.codos,0)+' codos'); y+=23;
+  prow(y,'líneas en paralelo',f1(p.nlin,0)+' × '+f1(p.lReal,2)+' m'); y+=23;
+  prow(y,'longitud equivalente',f1(p.lReal,2)+' + '+f1(p.lAcc,2)+' = '+f1(p.lEq,2)+' m'); y+=23;
+  prow(y,'velocidad',f1(p.v,3)+' m/s',colOk(p.okVel)); y+=23;
+  prow(y,'Re · régimen ('+f1(estAct(p).tC,0)+' °C)',f1(estAct(p).re,0)+' · '+estAct(p).regimen,
+    colOk(!estAct(p).banda)); y+=30;
+  texto('VEREDICTO',PX.x+14,y,'#8ab4f8',13,'left','800'); y+=26;
+  prow(y,F.rotFun,f1(valAct(p),3)+' '+p.unidad,colOk(okAct(p))); y+=23;
+  prow(y,'objetivo',(F.sentido==='ge'?'≥ ':'≤ ')+f1(limAct(p),3)+' '+p.unidad); y+=23;
+  prow(y,'coste de propiedad',f1(p.coste,0)+' € en '+f1(ANIOS,0)+' años'); y+=30;
+  CRIT.forEach(c=>{
+    texto(CRIT_ROT[c],PX.x+34,y,p[c]?'#c8d3e2':BAD_HEX,13,'left','600');
+    marca(PX.x+20,y-5,p[c]); y+=21;
+  });
+  return y;
+}
+
+// ---- vista FLUIDO: la viscosidad manda sobre el régimen ----
+function drawFluido(){
+  const p=CUR, F=FAENAS[p.fk];
+  title2('El aceite no tiene una viscosidad: tiene una curva',
+    COND[p.ck].rot+' · '+F.rot+' · ISO VG 46 según Walther (ASTM D341)');
+  const P={x:118,y:118,w:520,h:286};
+  const A=ejes(P,-10,110,lg(4),lg(1200),'temperatura del aceite (°C)','viscosidad cinemática ν (cSt)',
+    v=>f1(v,0), v=>f1(Math.pow(10,v),0),6,5);
+  const pts=[];
+  for(let i=0;i<=240;i++){ const t=-10+120*i/240; pts.push([A.X(t),A.Y(lg(nu(t)))]); }
+  curva(pts,AMBAR,2.6);
+  // los dos puntos que DEFINEN el grado ISO VG 46
+  [[40,NU40],[100,NU100]].forEach(a=>{
+    punteo(A.X(a[0]),A.Y(lg(a[1])),TINTA,4.5);
+    texto(f1(a[1],1)+' cSt @ '+f1(a[0],0)+' °C',A.X(a[0])+8,A.Y(lg(a[1]))-8,'#a9b6c8',12,'left','600');
+  });
+  // las dos temperaturas de esta faena
+  const marcaT=(t,col,rot)=>{
+    const n=nu(t);
+    linea(A.X(t),P.y,A.X(t),P.y+P.h,col,1.6,[5,4]);
+    punteo(A.X(t),A.Y(lg(n)),col,6);
+    texto(rot,A.X(t),P.y-4,col,12,'center','700');
+  };
+  marcaT(F.tFrio,CIAN,'arranque '+f1(F.tFrio,0)+' °C');
+  marcaT(F.tReg,OK_HEX,'régimen '+f1(F.tReg,0)+' °C');
+  leyenda(118,442,[['ν(T) del ISO VG 46',AMBAR],['arranque en frío',CIAN,[5,4]],['régimen',OK_HEX,[5,4]]]);
+  const filas=[
+    ['régimen',f1(F.tReg,0)+' °C',f1(p.reg.nuC,2),f1(p.reg.re,0),p.reg.regimen,f1(p.reg.f,4),f1(p.reg.dp,3)],
+    ['arranque',f1(F.tFrio,0)+' °C',f1(p.fri.nuC,2),f1(p.fri.re,0),p.fri.regimen,f1(p.fri.f,4),f1(p.fri.dp,3)],
+  ];
+  const yy=tabla(118,486,['estado','T','ν (cSt)','Re','régimen','f','Δp (bar)'],filas,
+    [96,74,96,86,116,86,90],(ri,ci)=>{
+      if(ci===4) return (ri?p.fri:p.reg).banda?BAD_HEX:'#c8d3e2';
+      if(ci===6) return ri?colOk(p.okFrio):colOk(p.okFunc);
+      return null;
+    });
+  nota('Entre '+f1(F.tFrio,0)+' y '+f1(F.tReg,0)+' °C la viscosidad se multiplica por '+
+    f1(nu(F.tFrio)/nu(F.tReg),1)+', y con ella el Reynolds se divide por lo mismo. Por eso el arranque en frío '+
+    'no es un detalle: es otro laboratorio con la misma tubería. En régimen laminar la pérdida es proporcional a ν, '+
+    'así que un aceite '+f1(nu(F.tFrio)/nu(F.tReg),1)+' veces más espeso cuesta '+f1(nu(F.tFrio)/nu(F.tReg),1)+
+    ' veces más presión.',yy+18);
+  panelPunto(p);
+}
+
+// ---- vista PÉRDIDA: Darcy-Weisbach y el método de las longitudes equivalentes ----
+function drawPerdida(){
+  const p=CUR, F=FAENAS[p.fk], R=RUTAS[p.rk];
+  title2('Δp = f · (L_eq/D) · ρv²/2',
+    COND[p.ck].rot+' · '+R.rot+' · '+f1(p.nlin,0)+(p.nlin>1?' líneas':' línea')+' · '+F.rot);
+  const P={x:118,y:112,w:520,h:262};
+  const qmax=F.q*1.6;
+  const lim=dpLim(p.fk,false), limF=dpLim(p.fk,true);
+  let ymax=Math.max(lim,limF,dpDe(p,qmax,F.tFrio))*1.10;
+  const A=ejes(P,0,qmax,0,ymax,'caudal por el conjunto (L/min)','pérdida de carga Δp (bar)',
+    v=>f1(v,0),v=>f1(v,ymax<3?2:1),6,5);
+  // banda de transicion en caliente: donde el regimen no esta definido
+  const q1=qDeRe(p,RE_LAM,F.tReg), q2=qDeRe(p,RE_TURB,F.tReg);
+  if(q2>0&&q1<qmax) banda(A,Math.max(0,q1),Math.min(qmax,q2),0,ymax,'rgba(255,107,107,0.10)');
+  const cur=(tC,col,dash)=>{
+    const pts=[];
+    for(let i=1;i<=180;i++){ const q=qmax*i/180; pts.push([A.X(q),A.Y(Math.min(dpDe(p,q,tC),ymax))]); }
+    curva(pts,col,2.6,dash);
+  };
+  cur(F.tReg,AMBAR); cur(F.tFrio,CIAN,[6,4]);
+  linea(A.X(0),A.Y(lim),A.X(qmax),A.Y(lim),OK_HEX,1.6,[7,5]);
+  texto('límite en régimen',A.X(qmax)-6,A.Y(lim)-7,OK_HEX,12,'right','700');
+  if(limF<ymax){
+    linea(A.X(0),A.Y(limF),A.X(qmax),A.Y(limF),VIO,1.6,[7,5]);
+    texto('límite en frío',A.X(qmax)-6,A.Y(limF)-7,VIO,12,'right','700');
+  }
+  punteo(A.X(F.q),A.Y(Math.min(p.reg.dp,ymax)),colOk(p.okFunc),6.5);
+  punteo(A.X(F.q),A.Y(Math.min(p.fri.dp,ymax)),colOk(p.okFrio),6.5);
+  linea(A.X(F.q),P.y,A.X(F.q),P.y+P.h,'#5a6478',1.4,[4,4]);
+  leyenda(118,410,[['Δp a '+f1(F.tReg,0)+' °C',AMBAR],['Δp a '+f1(F.tFrio,0)+' °C',CIAN,[6,4]],
+                   ['banda de transición',BAD_HEX]]);
+  // reparto de la longitud equivalente
+  texto('LONGITUD EQUIVALENTE',118,446,'#8ab4f8',13,'left','800');
+  const fr=p.lReal/p.lEq;
+  hbar(118,458,520,16,1,GRIS,'rgba(255,255,255,0.06)');
+  hbar(118,458,520,16,fr,AZUL);
+  texto('tubo recto '+f1(p.lReal,2)+' m ('+pc1(fr,0)+')',122,486,AZUL,13,'left','700');
+  texto('accesorios '+f1(p.lAcc,2)+' m ('+pc1(1-fr,0)+')',638,486,GRIS,13,'right','700');
+  const acc=[];
+  if(R.codos) acc.push([f1(R.codos,0)+' codos 90°',f1(LE_CODO,0),f1(R.codos*LE_CODO*p.di/1000,3)]);
+  if(R.tes)   acc.push([f1(R.tes,0)+' tes en paso',f1(LE_TE,0),f1(R.tes*LE_TE*p.di/1000,3)]);
+  if(R.val)   acc.push([f1(R.val,0)+' válvula de bola',f1(LE_VAL,0),f1(R.val*LE_VAL*p.di/1000,3)]);
+  if(F.ent)   acc.push([f1(F.ent,0)+' entrada al depósito',f1(LE_ENT,0),f1(F.ent*LE_ENT*p.di/1000,3)]);
+  if(F.sal)   acc.push([f1(F.sal,0)+' salida al depósito',f1(LE_SAL,0),f1(F.sal*LE_SAL*p.di/1000,3)]);
+  const yy=tabla(118,528,['accesorio','Le/D','L equivalente (m)'],acc,[240,110,200]);
+  nota('El método de las longitudes equivalentes cambia cada accesorio por los metros de tubo recto que '+
+    'perderían lo mismo: un codo de 90° equivale a '+f1(LE_CODO,0)+' diámetros. Con D = '+f1(p.di,1)+
+    ' mm este trazado añade '+f1(p.nLe,0)+' diámetros, es decir '+f1(p.lAcc,2)+' m de tubo invisible, el '+
+    pc1(1-fr,0)+' de la pérdida.',yy+16);
+  panelPunto(p);
+}
+
+// ---- vista GOLPE: Korteweg, Joukowsky y Barlow ----
+function drawGolpe(){
+  const p=CUR, F=FAENAS[p.fk], C=COND[p.ck];
+  title2('El pico de cierre se suma a la presión de trabajo',
+    'Korteweg (1878) para la celeridad · Joukowsky (1898) para el pico · Barlow para el tubo');
+  const P={x:118,y:118,w:520,h:290};
+  const vmax=7, ymax=Math.max(RHO*C.cel*vmax/1e5,C.padm-F.pTrab)*1.06;
+  const A=ejes(P,0,vmax,0,ymax,'velocidad del aceite antes del cierre (m/s)','pico de Joukowsky Δp = ρ·c·v (bar)',
+    v=>f1(v,0),v=>f1(v,0),7,5);
+  const rectaC=(cel,col,dash)=>{
+    curva([[A.X(0),A.Y(0)],[A.X(vmax),A.Y(Math.min(RHO*cel*vmax/1e5,ymax))]],col,2.4,dash);
+  };
+  rectaC(COND.t22.cel,AZUL);
+  rectaC(CEL_MANG,NARANJA);
+  rectaC(CEL_ESP,VIO);
+  const disp=C.padm-F.pTrab;
+  linea(A.X(0),A.Y(disp),A.X(vmax),A.Y(disp),colOk(p.okGolpe),1.8,[7,5]);
+  texto('margen disponible: '+f1(C.padm,0)+' − '+f1(F.pTrab,0)+' = '+f1(disp,0)+' bar',
+    A.X(vmax)-6,A.Y(disp)-8,colOk(p.okGolpe),12,'right','700');
+  punteo(A.X(clamp(p.v,0,vmax)),A.Y(Math.min(p.dpGolpe,ymax)),colOk(p.okGolpe),6.5);
+  texto(f1(p.dpGolpe,1)+' bar a '+f1(p.v,2)+' m/s',A.X(clamp(p.v,0,vmax))+10,A.Y(Math.min(p.dpGolpe,ymax))-8,
+    colOk(p.okGolpe),13,'left','700');
+  leyenda(118,446,[['tubo de acero (c ≈ '+f1(COND.t22.cel,0)+' m/s)',AZUL],
+                   ['manguera de trenzas (c = '+f1(CEL_MANG,0)+')',NARANJA],
+                   ['espiral (c = '+f1(CEL_ESP,0)+')',VIO]]);
+  const fam=[['tubo de acero '+f1(COND.t22.dext,0)+'×'+f1(COND.t22.e,0),f1(COND.t22.cel,0),f1(RHO*COND.t22.cel*1/1e5,2)],
+             ['manguera de trenzas',f1(CEL_MANG,0),f1(RHO*CEL_MANG*1/1e5,2)],
+             ['manguera de espiral',f1(CEL_ESP,0),f1(RHO*CEL_ESP*1/1e5,2)]];
+  const yy=tabla(118,490,['conducción','celeridad c (m/s)','pico por cada 1 m/s (bar)'],fam,[250,180,220]);
+  nota('La celeridad no es la del aceite libre ('+f1(Math.sqrt(K_OIL/RHO),0)+' m/s): la pared elástica se hincha y '+
+    'frena la onda. En el acero apenas la baja, en una manguera la deja en '+f1(CEL_MANG,0)+
+    ' m/s, y por eso un tramo de manguera amortigua el golpe hasta '+
+    f1(COND.t22.cel/CEL_MANG,1)+' veces mejor que el tubo rígido a la misma velocidad. '+
+    'Este montaje trabaja a '+f1(F.pTrab,0)+' bar y el pico lo lleva a '+f1(F.pTrab+p.dpGolpe,0)+
+    ' bar, frente a los '+f1(C.padm,0)+' bar admisibles (Barlow con seguridad '+f1(S_BARLOW,0)+':1).',yy+16);
+  panelPunto(p);
+}
+
+// ---- vista CATÁLOGO: el barrido entero y el censo de criterios ----
+function drawCatalogo(){
+  const p=CUR, F=FAENAS[p.fk];
+  const B=barrM(p.fk), c=censoM(p.fk), s=solM(p.fk), bc=masBarataCompra(p.fk);
+  title2('Cumplir la función no basta',
+    F.rot+' · '+f1(B.length,0)+' montajes posibles · '+f1(c.val,0)+' pasan los siete criterios');
+  const P={x:118,y:118,w:520,h:270};
+  const costes=B.map(q=>q.coste);
+  const ymin=lg(Math.min.apply(null,costes)*0.85), ymax=lg(Math.max.apply(null,costes)*1.15);
+  const A=ejes(P,0,54,ymin,ymax,'diámetro interior de la conducción (mm)','coste de propiedad a '+f1(ANIOS,0)+' años (€)',
+    v=>f1(v,0),v=>f1(Math.pow(10,v),0),6,5);
+  B.forEach(q=>{
+    if(q.valida) return;
+    bx.fillStyle='rgba(143,151,165,0.30)';
+    bx.beginPath(); bx.arc(A.X(q.di),A.Y(lg(q.coste)),3.2,0,Math.PI*2); bx.fill();
+  });
+  B.forEach(q=>{ if(q.valida) punteo(A.X(q.di),A.Y(lg(q.coste)),OK_HEX,4.4); });
+  if(bc){ anillo(A.X(bc.di),A.Y(lg(bc.coste)),NARANJA,9);
+    texto('más barato de comprar',A.X(bc.di)+12,A.Y(lg(bc.coste))+4,NARANJA,12,'left','700'); }
+  if(s){ anillo(A.X(s.di),A.Y(lg(s.coste)),AMBAR,12);
+    texto('más barato de poseer',A.X(s.di)+14,A.Y(lg(s.coste))-10,AMBAR,12,'left','700'); }
+  anillo(A.X(p.di),A.Y(lg(p.coste)),'#eaf1fb',7);
+  leyenda(118,428,[['pasa los siete criterios',OK_HEX],['algún criterio lo tumba',GRIS],
+                   ['tu montaje','#eaf1fb']]);
+  const filas=CRIT.map(k=>[CRIT_ROT[k],f1(c.tot[k],0),f1(c.solo[k],0),
+    c.solo[k]===0?'nunca decide solo':'decide solo']);
+  const yy=tabla(118,470,['criterio','montajes que tumba','en solitario',''],filas,[190,150,110,170],
+    (ri,ci)=>ci===3?(c.solo[CRIT[ri]]===0?GRIS:WARN_HEX):null);
+  const solos=CRIT.filter(k=>c.solo[k]===0).map(k=>CRIT_ROT[k].toLowerCase());
+  nota('Contar bajas totales engaña: un montaje que falla lo hace casi siempre por varios motivos a la vez. '+
+    'Lo que mide si un criterio hace falta es cuántas veces suspende ÉL SOLO. En esta faena '+
+    (solos.length?solos.join(', ')+' no '+(solos.length>1?'tumban':'tumba')+' ningún montaje en solitario: '+
+      'cuando '+(solos.length>1?'caen':'cae')+', ya había caído por otra cosa.'
+     :'todos los criterios suspenden alguna vez en solitario.'),yy+16);
+  panelPunto(p);
+}
+
+// ---- vista RETO: comprar barato no es poseer barato ----
+function drawReto(){
+  const p=CUR, F=FAENAS[p.fk], s=RETO.sol;
+  title2('Comprar barato no es poseer barato',
+    F.rot+' · '+f1(RETO.nval,0)+' montajes válidos de '+f1(barrM(p.fk).length,0)+' · sólo uno es el más barato de poseer');
+  const P={x:118,y:118,w:520,h:250};
+  const cand=[p]; if(s) cand.push(s);
+  const bc=masBarataCompra(p.fk); if(bc) cand.push(bc);
+  const xmax=Math.max.apply(null,cand.map(q=>q.compra+ANIOS*q.eAnio))*1.15;
+  const A=ejes(P,0,xmax,0,3,'euros','',v=>f1(v,0),()=>'',6,3);
+  const barra=(fila,q,rot,col)=>{
+    const y=P.y+P.h-P.h*(fila+0.5)/3-16;
+    bx.fillStyle=col; bx.beginPath(); bx.roundRect(A.X(0),y,Math.max(2,A.X(q.compra)-A.X(0)),32,4); bx.fill();
+    bx.fillStyle='rgba(233,196,102,0.55)';
+    bx.beginPath(); bx.roundRect(A.X(q.compra),y,Math.max(2,A.X(ANIOS*q.eAnio)-A.X(0)),32,4); bx.fill();
+    texto(rot,A.X(0)+10,y-6,'#c8d3e2',13,'left','700');
+    texto(f1(q.compra,0)+' € + '+f1(ANIOS*q.eAnio,0)+' € = '+f1(q.coste,0)+' €',
+      A.X(0)+10,y+21,'#0b0f16',13,'left','800');
+  };
+  barra(2,p,'Tu montaje: '+COND[p.ck].rot+' · '+RUTAS[p.rk].rot+' · '+f1(p.nlin,0)+
+    (p.nlin>1?' líneas':' línea'),p.valida?'rgba(124,217,146,0.75)':'rgba(255,107,107,0.65)');
+  if(bc) barra(1,bc,'El más barato de comprar: '+COND[bc.ck].rot+' · '+RUTAS[bc.rk].rot+' · '+
+    f1(bc.nlin,0)+(bc.nlin>1?' líneas':' línea'),'rgba(242,166,90,0.72)');
+  if(s) barra(0,s,'El más barato de poseer: '+COND[s.ck].rot+' · '+RUTAS[s.rk].rot+' · '+
+    f1(s.nlin,0)+(s.nlin>1?' líneas':' línea'),'rgba(138,180,248,0.72)');
+  leyenda(118,406,[['compra y montaje',AZUL],['energía disipada en '+f1(ANIOS,0)+' años',WARN_HEX]]);
+  let y=452;
+  texto('LO QUE FALLA AHORA',118,y,'#8ab4f8',13,'left','800'); y+=24;
+  if(p.valida){
+    texto('Ningún criterio: este montaje es válido.',118,y,OK_HEX,14,'left','700'); y+=22;
+  }else{
+    p.fallos.forEach(k=>{ marca(126,y-5,false); texto(CRIT_ROT[k]+' — '+CRIT_POR[k],142,y,'#c8d3e2',13,'left','600'); y+=21; });
+  }
+  y+=8;
+  const pistas=EJES.filter(e=>RETO.pistas[e]);
+  texto('PISTAS PEDIDAS: '+(pistas.length?pistas.map(e=>EJE_ROT[e]).join(' · '):'ninguna'),118,y,'#8f9bb0',13,'left','700');
+  nota(bc&&s&&(bc.ck!==s.ck||bc.rk!==s.rk||bc.nlin!==s.nlin)
+    ? 'Aquí la trampa está servida: el montaje más barato de comprar cuesta '+f1(bc.compra,0)+
+      ' € y el más barato de poseer cuesta '+f1(s.compra,0)+' €, pero en cinco años el primero se deja '+
+      f1(ANIOS*bc.eAnio,0)+' € en calentar aceite y el segundo sólo '+f1(ANIOS*s.eAnio,0)+
+      ' €. La diferencia final es de '+f1(bc.coste-s.coste,0)+' € a favor del caro.'
+    : 'En esta faena el más barato de comprar es también el más barato de poseer: la pérdida es tan pequeña que '+
+      'la energía de cinco años ('+f1(s?ANIOS*s.eAnio:0,0)+' €) no cambia el orden. No siempre es así: pruébalo en la línea de presión.',
+    y+30);
+  panelPunto(p);
+}
+
+function paint(){
+  bg();
+  if(mode==='fluido') drawFluido();
+  else if(mode==='perdida') drawPerdida();
+  else if(mode==='golpe') drawGolpe();
+  else if(mode==='catalogo') drawCatalogo();
+  else drawReto();
+  btex.needsUpdate=true;
+}
+
+// ===================== 7. GRUPO 3D =====================
+const V3=(x,y,z)=>new THREE.Vector3(x,y,z);
+function tuboEntre(a,b,r,mat){
+  const dir=new THREE.Vector3().subVectors(b,a), len=dir.length();
+  const m=new THREE.Mesh(new THREE.CylinderGeometry(r,r,Math.max(len,1e-4),12),mat);
+  m.position.copy(a).addScaledVector(dir,0.5);
+  m.quaternion.setFromUnitVectors(V3(0,1,0),dir.clone().normalize());
+  return m;
+}
+function mkManometro(r,rotulo){
+  const g=new THREE.Group();
+  const caja=new THREE.Mesh(new THREE.CylinderGeometry(r,r,0.035,24),MAT.acero);
+  caja.rotation.x=Math.PI/2; g.add(caja);
+  const esf=new THREE.Mesh(new THREE.CircleGeometry(r*0.86,24),
+    new THREE.MeshBasicMaterial({color:'#e8eef7',toneMapped:false}));
+  esf.position.z=0.019; g.add(esf);
+  const ag=new THREE.Group();
+  const a=new THREE.Mesh(new THREE.BoxGeometry(r*0.72,0.008,0.005),
+    new THREE.MeshBasicMaterial({color:'#c0392b',toneMapped:false}));
+  a.position.x=r*0.30; ag.add(a); ag.position.z=0.022; g.add(ag);
+  const eje=new THREE.Mesh(new THREE.CylinderGeometry(0.010,0.010,0.012,10),MAT.negro);
+  eje.rotation.x=Math.PI/2; eje.position.z=0.024; g.add(eje);
+  g.userData.aguja=ag; g.userData.rot=rotulo;
+  return g;
+}
+function setManometro(g,frac){ g.userData.aguja.rotation.z=Math.PI*0.75-Math.PI*1.5*clamp(frac,0,1); }
+
+const maq=new THREE.Group(); scene.add(maq);
+const M3={};
+
+// ---- bancada ----
+(function(){
+  const b=roundedBox(6.20,0.18,3.00,MAT.bancada,0.05); b.position.set(2.00,0.09,0.00); maq.add(b);
+  const t=roundedBox(6.10,0.03,2.90,std('#39424f',0.75,0.20),0.02); t.position.set(2.00,0.195,0.00); maq.add(t);
+})();
+
+// ---- central hidráulica: depósito, motor y bomba ----
+const gPack=new THREE.Group(); maq.add(gPack);
+(function(){
+  const dep=new THREE.Group(); dep.position.set(0.62,0,0); dep.userData.key='deposito'; gPack.add(dep);
+  const cuba=roundedBox(1.34,0.62,1.14,MAT.deposito,0.04); cuba.position.set(0,0.52,0); dep.add(cuba);
+  const marco=roundedBox(1.38,0.05,1.18,MAT.acero,0.02); marco.position.set(0,0.84,0); dep.add(marco);
+  const oil=roundedBox(1.24,0.40,1.04,MAT.aceite,0.02); oil.position.set(0,0.43,0); dep.add(oil);
+  const mir=new THREE.Mesh(new THREE.CylinderGeometry(0.05,0.05,0.28,16),MAT.cristal);
+  mir.position.set(0.70,0.50,0.30); dep.add(mir);
+
+  const gm=new THREE.Group(); gm.position.set(1.42,0,0); gm.userData.key='bomba'; gPack.add(gm);
+  const bas=roundedBox(1.10,0.10,0.62,MAT.aceroC,0.02); bas.position.set(0,0.90,0); gm.add(bas);
+  const mot=new THREE.Mesh(new THREE.CylinderGeometry(0.25,0.25,0.62,26),MAT.acero);
+  mot.rotation.z=Math.PI/2; mot.position.set(-0.24,1.26,0); gm.add(mot);
+  for(let i=0;i<16;i++){
+    const ang=i*Math.PI/8;
+    const al=new THREE.Mesh(new THREE.BoxGeometry(0.60,0.03,0.05),MAT.aceroC);
+    al.position.set(-0.24,1.26+0.255*Math.cos(ang),0.255*Math.sin(ang));
+    al.rotation.x=ang; gm.add(al);
+  }
+  const cja=new THREE.Mesh(new THREE.BoxGeometry(0.16,0.30,0.20),MAT.negro);
+  cja.position.set(-0.24,1.60,0); gm.add(cja);
+  const bmb=new THREE.Mesh(new THREE.CylinderGeometry(0.17,0.17,0.30,20),MAT.aceroC);
+  bmb.rotation.z=Math.PI/2; bmb.position.set(0.26,1.26,0); gm.add(bmb);
+  const vent=new THREE.Group(); vent.position.set(-0.58,1.26,0); gm.add(vent);
+  for(let i=0;i<7;i++){
+    const p=new THREE.Mesh(new THREE.BoxGeometry(0.02,0.18,0.06),MAT.negro);
+    p.position.set(0,0.10*Math.cos(i*2*Math.PI/7),0.10*Math.sin(i*2*Math.PI/7));
+    p.rotation.x=i*2*Math.PI/7; vent.add(p);
+  }
+  M3.vent=vent;
+  const brida=new THREE.Mesh(new THREE.CylinderGeometry(0.09,0.09,0.10,16),MAT.oro);
+  brida.position.set(0.46,1.26,0); brida.rotation.z=Math.PI/2; gm.add(brida);
+})();
+
+// ---- destinos: una máquina por faena ----
+const gFaena={};
+FAENA_KEYS.forEach(k=>{ const g=new THREE.Group(); g.position.set(0,0,0); g.userData.key='destino'; maq.add(g); gFaena[k]=g; });
+(function(){
+  // aspiración: la bomba montada aparte, por encima del nivel del depósito
+  const g=gFaena.aspir;
+  const pie=roundedBox(0.70,0.72,0.62,MAT.aceroC,0.03); pie.position.set(3.98,0.56,0); g.add(pie);
+  const cue=new THREE.Mesh(new THREE.CylinderGeometry(0.19,0.19,0.44,22),MAT.acero);
+  cue.rotation.z=Math.PI/2; cue.position.set(3.98,1.10,0); g.add(cue);
+  const mo=new THREE.Mesh(new THREE.CylinderGeometry(0.23,0.23,0.50,24),MAT.aceroC);
+  mo.rotation.z=Math.PI/2; mo.position.set(4.46,1.10,0); g.add(mo);
+  const bo=new THREE.Mesh(new THREE.CylinderGeometry(0.085,0.085,0.14,16),MAT.oro);
+  bo.rotation.z=Math.PI/2; bo.position.set(3.72,1.10,0); g.add(bo);
+})();
+(function(){
+  // presión: el cilindro que hay que mover
+  const g=gFaena.presion;
+  const sop=roundedBox(0.34,0.86,0.34,MAT.aceroC,0.02); sop.position.set(3.86,0.63,0); g.add(sop);
+  const cam=new THREE.Mesh(new THREE.CylinderGeometry(0.16,0.16,1.05,22),MAT.acero);
+  cam.rotation.z=Math.PI/2; cam.position.set(4.42,1.16,0); g.add(cam);
+  const tap=new THREE.Mesh(new THREE.CylinderGeometry(0.18,0.18,0.09,22),MAT.aceroC);
+  tap.rotation.z=Math.PI/2; tap.position.set(3.92,1.16,0); g.add(tap);
+  const vas=new THREE.Mesh(new THREE.CylinderGeometry(0.055,0.055,0.70,16),MAT.piston);
+  vas.rotation.z=Math.PI/2; vas.position.set(5.28,1.16,0); g.add(vas);
+  const car=roundedBox(0.16,0.42,0.42,MAT.oro,0.02); car.position.set(5.66,1.16,0); g.add(car);
+  M3.vas=vas; M3.car=car;
+})();
+(function(){
+  // retorno: el bloque de válvulas que devuelve el aceite
+  const g=gFaena.retorno;
+  const blo=roundedBox(0.62,0.52,0.62,MAT.aceroC,0.03); blo.position.set(3.98,0.72,0); g.add(blo);
+  [-0.18,0.18].forEach(z=>{
+    const v=new THREE.Mesh(new THREE.CylinderGeometry(0.09,0.09,0.46,18),MAT.acero);
+    v.position.set(3.98,1.19,z); g.add(v);
+    const b=new THREE.Mesh(new THREE.CylinderGeometry(0.11,0.11,0.10,18),MAT.negro);
+    b.position.set(3.98,1.45,z); g.add(b);
+  });
+  const fil=new THREE.Mesh(new THREE.CylinderGeometry(0.14,0.14,0.52,20),MAT.oro);
+  fil.position.set(4.52,0.72,0); g.add(fil);
+})();
+(function(){
+  // drenaje: el motor hidráulico que devuelve la fuga interna por la carcasa
+  const g=gFaena.drenaje;
+  const sop=roundedBox(0.44,0.60,0.52,MAT.aceroC,0.02); sop.position.set(3.94,0.50,0); g.add(sop);
+  const car=new THREE.Mesh(new THREE.CylinderGeometry(0.26,0.26,0.42,26),MAT.acero);
+  car.rotation.z=Math.PI/2; car.position.set(3.98,1.02,0); g.add(car);
+  const eje=new THREE.Mesh(new THREE.CylinderGeometry(0.055,0.055,0.46,16),MAT.piston);
+  eje.rotation.z=Math.PI/2; eje.position.set(4.42,1.02,0); g.add(eje);
+  const pol=new THREE.Mesh(new THREE.CylinderGeometry(0.22,0.22,0.09,24),MAT.oro);
+  pol.rotation.z=Math.PI/2; pol.position.set(4.66,1.02,0); g.add(pol);
+  for(let i=0;i<6;i++){
+    const r=new THREE.Mesh(new THREE.BoxGeometry(0.05,0.32,0.03),MAT.aceroC);
+    r.position.set(4.66,1.02,0); r.rotation.x=i*Math.PI/6; pol.add(r);
+  }
+  M3.pol=pol;
+})();
+(function(){
+  // larga: la máquina del otro extremo de la nave
+  const g=gFaena.larga;
+  const bas=roundedBox(0.92,0.16,0.86,MAT.bancada,0.02); bas.position.set(4.34,0.28,0); g.add(bas);
+  const cue=roundedBox(0.78,1.02,0.72,MAT.aceroC,0.04); cue.position.set(4.34,0.87,0); g.add(cue);
+  const cil=new THREE.Mesh(new THREE.CylinderGeometry(0.11,0.11,0.62,20),MAT.acero);
+  cil.position.set(4.34,1.66,0); g.add(cil);
+  const vas=new THREE.Mesh(new THREE.CylinderGeometry(0.04,0.04,0.40,14),MAT.piston);
+  vas.position.set(4.34,2.10,0); g.add(vas);
+  M3.vasL=vas;
+  for(let i=0;i<9;i++){
+    const p=new THREE.Mesh(new THREE.CylinderGeometry(0.012,0.012,0.42,8),MAT.negro);
+    p.position.set(2.52+i*0.22,0.42,-1.16); g.add(p);
+  }
+})();
+
+// ---- manómetros de la línea ----
+const manoA=mkManometro(0.15,'salida de la bomba'); manoA.position.set(2.04,1.62,0.12);
+manoA.userData.key='manoA'; maq.add(manoA);
+const manoB=mkManometro(0.15,'entrada de la máquina'); manoB.position.set(3.58,1.62,0.12);
+manoB.userData.key='manoB'; maq.add(manoB);
+[manoA,manoB].forEach(m=>{
+  const t=new THREE.Mesh(new THREE.CylinderGeometry(0.022,0.022,0.34,10),MAT.acero);
+  t.position.set(m.position.x,m.position.y-0.26,m.position.z-0.10); maq.add(t);
+});
+
+// ---- semáforo de criterios ----
+const gLed=new THREE.Group(); gLed.position.set(1.30,0,1.34); gLed.userData.key='criterios'; maq.add(gLed);
+(function(){
+  const pl=roundedBox(1.70,0.24,0.10,MAT.negro,0.02); pl.position.set(0.72,0.34,0); gLed.add(pl);
+  const sop=new THREE.Mesh(new THREE.CylinderGeometry(0.02,0.02,0.24,10),MAT.acero);
+  sop.position.set(0.72,0.16,0); gLed.add(sop);
+  M3.leds={};
+  CRIT.forEach((k,i)=>{
+    const l=new THREE.Mesh(new THREE.SphereGeometry(0.045,16,12),MAT.verde.clone());
+    l.position.set(0.20+i*0.175,0.34,0.06); gLed.add(l); M3.leds[k]=l;
+  });
+})();
+
+// ---- la línea, que se rehace cada vez que cambia el montaje ----
+const gRuta=new THREE.Group(); gRuta.userData.key='linea'; maq.add(gRuta);
+const A_PACK=V3(2.04,1.26,0), B_MAQ=V3(3.62,1.26,0);
+function trazado(rk,i,n){
+  const dz=(i-(n-1)/2)*0.19;
+  const A=A_PACK.clone(), B=B_MAQ.clone();
+  if(rk==='directa')
+    return [A,V3(2.16,1.52,dz),V3(3.50,1.52,dz),B];
+  if(rk==='perimetral')
+    return [A,V3(2.16,1.52,dz),V3(2.16,1.52,1.06+dz*0.4),V3(2.86,1.36,1.06+dz*0.4),
+            V3(3.50,1.52,1.06+dz*0.4),V3(3.50,1.52,dz),B];
+  return [A,V3(2.16,1.42,dz),V3(2.16,2.00,dz),V3(2.52,2.00,dz),V3(2.52,1.40,dz),
+          V3(2.88,1.40,dz),V3(2.88,2.00,dz),V3(3.24,2.00,dz),V3(3.24,1.40,dz),
+          V3(3.50,1.44,dz),B];
+}
+let CURVAS=[], GOTAS=[], fase=0, lastT=0;
+function rehazRuta(){
+  while(gRuta.children.length){ const c=gRuta.children.pop(); if(c.geometry) c.geometry.dispose(); }
+  CURVAS=[]; GOTAS=[];
+  const p=CUR, C=COND[p.ck];
+  const rad=clamp(C.dext/2000*2.2,0.016,0.075);
+  const mat=std(COL_TIPO[C.tipo],C.tipo==='tubo'?0.34:0.72,C.tipo==='tubo'?0.80:0.10);
+  const matG=emis(C.tipo==='tubo'?CIAN:AMBAR,1.05);
+  for(let i=0;i<p.nlin;i++){
+    const cv=new THREE.CatmullRomCurve3(trazado(p.rk,i,p.nlin),false,'catmullrom',0.04);
+    CURVAS.push(cv);
+    const g=new THREE.Mesh(new THREE.TubeGeometry(cv,140,rad,14,false),mat);
+    g.userData.key='linea'; gRuta.add(g);
+    const R=RUTAS[p.rk];
+    // los accesorios que el trazado declara, puestos donde el tubo dobla
+    const pts=trazado(p.rk,i,p.nlin);
+    for(let j=1;j<pts.length-1;j++){
+      const co=new THREE.Mesh(new THREE.SphereGeometry(rad*1.35,14,10),MAT.aceroC);
+      co.position.copy(pts[j]); co.userData.key='accesorios'; gRuta.add(co);
+    }
+    const vlv=new THREE.Mesh(new THREE.BoxGeometry(rad*3.2,rad*3.2,rad*2.6),MAT.oro);
+    vlv.position.copy(cv.getPointAt(0.5)); vlv.userData.key='valvula'; gRuta.add(vlv);
+    for(let b=0;b<7;b++){
+      const s=new THREE.Mesh(new THREE.SphereGeometry(rad*0.52,10,8),matG);
+      gRuta.add(s); GOTAS.push({m:s,cv:cv,off:b/7});
+    }
+  }
+}
+
+// ===================== 8. ACTUALIZACIÓN 3D =====================
+// Las gotas van hacia la máquina o hacia el depósito según lo que haga la faena.
+const SENTIDO={aspir:1,presion:1,retorno:-1,drenaje:-1,larga:1};
+let firmaRuta='';
+function refrescaHW(){
+  const p=CUR, F=FAENAS[p.fk], C=COND[p.ck];
+  FAENA_KEYS.forEach(k=>{ gFaena[k].visible = (k===p.fk); });
+  const firma=p.ck+'|'+p.rk+'|'+p.nlin;
+  if(firma!==firmaRuta){ firmaRuta=firma; rehazRuta(); }
+  // En las faenas de caída el manómetro de la bomba lee la presión de trabajo más
+  // la que se va en el camino; en la aspiración lee presión ABSOLUTA, con la
+  // atmósfera como referencia y no como cero.
+  const abs=F.obj==='pabs';
+  const pA=abs?valAct(p):F.pTrab+valAct(p), pB=abs?P_ATM:F.pTrab;
+  const esc=abs?P_ATM*1.25:Math.max(C.padm,1);
+  setManometro(manoA,pA/esc); setManometro(manoB,pB/esc);
+  CRIT.forEach(k=>{ M3.leds[k].material.color.set(p[k]?OK_HEX:BAD_HEX);
+    M3.leds[k].material.emissive.set(p[k]?OK_HEX:BAD_HEX); });
+  hw={ v:p.v, dir:SENTIDO[p.fk], pA:pA, pB:pB, esc:esc, abs:abs };
+}
+function paso3D(t){
+  if(M3.vent) M3.vent.rotation.x=t*7.0;
+  if(M3.pol && gFaena.drenaje.visible) M3.pol.rotation.x=t*3.4;
+  if(gFaena.presion.visible){
+    const s=0.5+0.5*Math.sin(t*0.9);
+    M3.vas.position.x=5.10+0.34*s; M3.car.position.x=5.48+0.34*s;
+  }
+  if(gFaena.larga.visible){ M3.vasL.position.y=2.02+0.16*(0.5+0.5*Math.sin(t*0.7)); }
+  const v=(hw.v||0), dir=hw.dir||1;
+  const dt=clamp(t-lastT,0,0.1); lastT=t;
+  fase=(fase+dir*v*0.09*dt)%1;
+  GOTAS.forEach(g=>{
+    let u=(g.off+fase)%1; if(u<0) u+=1;
+    g.m.position.copy(g.cv.getPointAt(u));
+  });
+}
+
+// ===================== 9. HUD Y PANEL =====================
+el('hud').innerHTML=`
+  <div class="eyebrow">Hidráulica y Neumática · Mecánica</div>
+  <h2>Calcula pérdidas de carga y selecciona conducciones</h2>
+  <p>Entre la bomba y la máquina hay unos metros de tubo que nadie mira, y ahí se queda una parte de la potencia que has pagado. La pérdida de carga no es una constante del tubo: depende del caudal, del diámetro, de la rugosidad y —sobre todo en hidráulica— de lo <b>espeso que esté el aceite</b>, que a 5 °C no es el mismo fluido que a 50 °C. Aquí eliges conducción, trazado y número de líneas para cinco faenas reales, y compruebas que el montaje cumple <b>en régimen y en el arranque en frío</b>, que no revienta con el golpe de cierre y que no te arruina en cinco años de energía disipada.</p>
+  <div class="formula">Δp = f · (L_eq/D) · ρv²/2 · Re = v·D/ν · f = 64/Re (laminar) · 1/√f = −2·log₁₀(ε/3,7D + 2,51/Re√f) · c = √[(K/ρ)/(1 + K·D/(E·e))] · Δp_golpe = ρ·c·v</div>
+  <div class="legend">
+    <div class="li"><span class="dot" style="background:#8AB4F8"></span>Tubo de acero: rígido, barato por metro, y el que peor se lleva con el golpe de ariete</div>
+    <div class="li"><span class="dot" style="background:#F2A65A"></span>Manguera de trenzas: se dobla en poco radio y amortigua la onda, pero cuesta y es más rugosa</div>
+    <div class="li"><span class="dot" style="background:#C08CF8"></span>Manguera de espiral: mucho paso para aspiración y retorno, casi ninguna presión</div>
+    <div class="li"><span class="dot" style="background:#E0A33E"></span>Viscosidad del aceite: multiplica la pérdida en frío y decide el régimen</div>
+    <div class="li"><span class="dot" style="background:#7CD992"></span>Montaje válido: los siete criterios a la vez, no sólo la pérdida</div>
+  </div>
+  <div class="fid">
+    <div class="ft">🔒 Contrato de fidelidad</div>
+    <div class="fl"><b>Sí modela:</b> la ecuación de Darcy–Weisbach completa, con el factor de fricción resuelto por <b>Colebrook–White</b> (punto fijo, 120 iteraciones) en régimen turbulento y por 64/Re en laminar, y la banda de transición 2 000 &lt; Re &lt; 4 000 declarada como <i>régimen indefinido</i> y rechazada en vez de interpolada; la ley viscosidad–temperatura de <b>Walther (ASTM D341)</b> ajustada a los dos puntos que definen el grado ISO VG 46 (46 cSt a 40 °C y 6,8 cSt a 100 °C), evaluada en la temperatura de régimen y en la de arranque de cada faena; el <b>método de las longitudes equivalentes</b> para codos, tes, válvulas, entradas y salidas, con el factor de trazado que alarga o acorta el tubo recto; el reparto de caudal entre líneas en paralelo; la <b>celeridad de Korteweg</b>, que tiene en cuenta la elasticidad del aceite y la de la pared, y el pico de <b>Joukowsky</b> sumado a la presión de trabajo; la presión admisible por <b>Barlow</b> con coeficiente de seguridad 4:1; el radio mínimo de curvatura frente al que ofrece el trazado; y el coste de propiedad a ${f1(ANIOS,0)} años —compra, montaje y energía disipada a 0,18 €/kWh con rendimiento de grupo 0,80— sobre el catálogo entero: 19 conducciones × 3 trazados × 3 números de línea, en las cinco faenas.</div>
+    <div class="fl no"><b>NO modela:</b> el transitorio del golpe de ariete. Se calcula el pico de Joukowsky para cierre instantáneo, que es la cota superior, pero no hay reflexiones, ni amortiguamiento en el tiempo, ni cierre progresivo. Tampoco hay cavitación resuelta: la aspiración se juzga por presión absoluta mínima, no por un modelo de burbuja. La temperatura del aceite es un dato de la faena, no una incógnita: no se calcula cómo se calienta el circuito con lo que él mismo disipa. La densidad se toma constante, la rugosidad no envejece, la manguera no se alarga con la presión y el régimen se supone plenamente desarrollado en todo el trazado. El catálogo es representativo del tipo constructivo, no de un fabricante concreto, y el precio de la energía y las horas de servicio son datos declarados.</div>
+  </div>
+  <div class="src">Ref: Darcy–Weisbach · Colebrook &amp; White (1939) · ASTM D341 (Walther) · Korteweg (1878) · Joukowsky (1898) · ISO 3448 · ISO 4413</div>`;
+
+el('panel').innerHTML=`
+  <h4>Banco de conducciones · <span id="p_mode" style="color:var(--accent2)">El fluido</span></h4>
+  <div class="modebar">
+    <button class="b on" id="m_fluido">1 · Fluido</button>
+    <button class="b" id="m_perdida">2 · Pérdida</button>
+    <button class="b" id="m_golpe">3 · Golpe</button>
+    <button class="b" id="m_catalogo">4 · Catálogo</button>
+    <button class="b" id="m_reto">5 · Reto</button>
+  </div>
+  <div id="scenarioInfo" style="display:none;margin:8px 0;padding:8px 10px;border:1px solid var(--line);border-radius:8px;font-size:12.5px;line-height:1.45"></div>
+  <div class="modebar" id="selbar" style="display:none;flex-wrap:wrap"></div>
+  <div style="margin:8px 0;padding:8px 10px;border:1px solid var(--line);border-radius:8px">
+    <div style="font-size:12px;color:var(--muted)" id="hwrot">Línea de presión</div>
+    <div style="font-size:13px;font-weight:600" id="hwsub">Tubo de acero · directa · 1 línea</div>
+  </div>
+  <div id="tele"></div>
+  <div class="console" id="report"></div>
+  <h4 class="sec" id="retoTitle" style="display:none">Reto</h4>
+  <div id="retoBox" style="display:none">
+    <div id="retoSpec" style="font-size:12.5px;line-height:1.5;margin-bottom:8px"></div>
+    <button class="b primary" id="btnCheck">✅ Comprobar</button>
+  </div>
+  <h4 class="sec">Pregunta de ingeniería</h4>
+  <div id="q_text" style="font-size:13px;line-height:1.5;margin-bottom:8px"></div>
+  <div class="btns" id="dxbtns"></div>
+  <button class="b auto" id="btnAuto">✨ Recorrido guiado (automático)</button>
+  <button class="b primary" id="btnNew">🔀 Nuevo escenario</button>`;
+
+// ===================== 10. TOAST =====================
+function showToast(html){
+  const t=el('toast');t.innerHTML=html;t.classList.add('show');
+  clearTimeout(showToast._t);showToast._t=setTimeout(()=>t.classList.remove('show'),4600);
+}
+
+// ===================== 11. MODOS Y CONTROLES =====================
+const MODE_META={
+  fluido:{nombre:'El fluido',cam:[[3.6,2.8,6.0],[0.90,1.05,0.00]],
+    mision:'Antes de calcular una pérdida hay que saber con qué fluido se calcula. Recorre la curva viscosidad–temperatura del ISO VG 46 y mira qué le pasa al Reynolds entre el arranque y el régimen: la misma tubería cambia de régimen sin que nadie toque nada.'},
+  perdida:{nombre:'La pérdida',cam:[[6.8,3.8,8.4],[2.55,1.45,0.00]],
+    mision:'Δp = f·(L_eq/D)·ρv²/2. Cambia el diámetro y verás que la pérdida se desploma con la cuarta potencia; cambia el trazado y verás que los codos son metros de tubo invisible. Vigila la banda de transición: ahí el cálculo no vale y hay que salir de ella.'},
+  golpe:{nombre:'El golpe',cam:[[4.6,2.6,5.0],[3.20,1.35,0.20]],
+    mision:'Cerrar una válvula deprisa convierte la inercia de la columna de aceite en presión. El pico de Joukowsky se suma al trabajo y no perdona: mira cómo la misma velocidad da tres picos distintos según la conducción sea tubo rígido, manguera de trenzas o espiral.'},
+  catalogo:{nombre:'El catálogo',cam:[[5.2,3.6,7.2],[1.70,1.25,-0.30]],
+    mision:'Ciento setenta y un montajes con la misma faena delante. Cumplir la pérdida no basta: hay que sobrevivir al arranque en frío, a la velocidad recomendada, al régimen indefinido, a la presión admisible, al golpe y al radio de curvatura. Mira cuántos caen por cada motivo y, sobre todo, cuántos caen SÓLO por ese motivo.'},
+  reto:{nombre:'Reto',cam:[[7.8,4.4,9.6],[1.95,1.30,0.00]],
+    mision:'Tres ejes —conducción, trazado y número de líneas— y siete criterios que hay que cumplir a la vez. Monta la línea válida más barata de POSEER en cinco años; a igualdad de coste gana la que menos potencia disipa, y después la de más margen.'},
+};
+const lbl=t=>`<span style="align-self:center;color:var(--muted);font-size:12px;margin:0 4px 0 2px">${t}</span>`;
+function optBtns(key,opts,cur){
+  return opts.map(o=>{
+    const v=Array.isArray(o)?o[0]:o, t=Array.isArray(o)?o[1]:o;
+    return `<button class="b sm ${String(cur)===String(v)?'on':''}" data-${key}="${v}">${t}</button>`;
+  }).join('');
+}
+const beep=()=>synth.beep(680,0.05,0.04);
+// El rótulo corto sale de las cotas reales de la conducción, no de una tabla aparte.
+const condAbr=C=>C.tipo==='tubo' ? ('T '+f1(C.dext,0)+'×'+f1(C.e,1))
+                                 : ((C.tipo==='manguera'?'M ':'E ')+'DN'+f1(C.di,1));
+const OPT_FAENA=FAENA_KEYS.map(k=>[k,FAENAS[k].abr]);
+const OPT_COND =COND_KEYS.map(k=>[k,condAbr(COND[k])]);
+const OPT_RUTA =RUTA_KEYS.map(k=>[k,RUTAS[k].rot]);
+const OPT_NLIN =LINEAS.map(n=>[n,n+(n>1?' líneas':' línea')]);
+const OPT_TEMP =[['reg','en régimen'],['frio','arranque en frío']];
+const EJE_VAL_ROT={cond:v=>COND[v].rot, ruta:v=>RUTAS[v].rot,
+  nlin:v=>f1(v,0)+(v>1?' líneas en paralelo':' línea')};
+
+function buildControls(){
+  const bar=el('selbar');let h='';
+  if(mode!=='reto'){
+    h+=lbl('Faena')+optBtns('fa',OPT_FAENA,ST.fk);
+    h+=lbl('Conducción · T tubo, M manguera de trenzas, E espiral')+optBtns('cd',OPT_COND,ST.ck);
+    h+=lbl('Trazado')+optBtns('ru',OPT_RUTA,ST.rk);
+    h+=lbl('Líneas en paralelo')+optBtns('nl',OPT_NLIN,ST.nlin);
+    h+=lbl('Temperatura del aceite')+optBtns('tk',OPT_TEMP,ST.tk);
+  }else{
+    h+=lbl('Conducción')+optBtns('xc',OPT_COND,RETO.ejes.ck);
+    h+=lbl('Trazado')+optBtns('xr',OPT_RUTA,RETO.ejes.rk);
+    h+=lbl('Líneas en paralelo')+optBtns('xn',OPT_NLIN,RETO.ejes.nlin);
+    h+='<button class="b sm" id="btnPista">💡 Pista</button>';
+  }
+  bar.innerHTML=h;bar.style.display='flex';
+  const wire=(attr,fn)=>bar.querySelectorAll('['+attr+']').forEach(b=>{
+    b.onclick=()=>{if(autoRunning)return;fn(b.getAttribute(attr));beep();afterEdit();};
+  });
+  wire('data-fa',v=>{ST.fk=v;});
+  wire('data-cd',v=>{ST.ck=v;});
+  wire('data-ru',v=>{ST.rk=v;});
+  wire('data-nl',v=>{ST.nlin=Number(v);});
+  wire('data-tk',v=>{ST.tk=v;});
+  wire('data-xc',v=>{RETO.ejes.ck=v;RETO.msg='';RETO.resuelto=false;});
+  wire('data-xr',v=>{RETO.ejes.rk=v;RETO.msg='';RETO.resuelto=false;});
+  wire('data-xn',v=>{RETO.ejes.nlin=Number(v);RETO.msg='';RETO.resuelto=false;});
+  const bp=el('btnPista');
+  if(bp) bp.onclick=()=>{if(autoRunning)return;pista();};
+}
+// Valores de un eje que aparecen en algun montaje optimo. Hay empate cuando dos
+// montajes distintos coinciden en coste, en potencia disipada y en margen.
+function ejeSolC(fk,eje){
+  const campo=EJE_CAMPO[eje], out=[];
+  empates(fk).forEach(p=>{ if(out.indexOf(p[campo])<0) out.push(p[campo]); });
+  return out;
+}
+// Una pista destapa UN eje. No resuelve el reto: los tres se juzgan juntos y
+// acertar el diametro no garantiza que el trazado quepa ni que el golpe entre.
+function pista(){
+  const eje=EJES.find(e=>!RETO.pistas[e]);
+  if(!eje){showToast('💡 Ya has destapado los tres ejes. La combinación la tienes que cerrar tú.');return;}
+  RETO.pistas[eje]=true;beep();
+  const vals=ejeSolC(RETO.cfg.fk,eje).map(v=>EJE_VAL_ROT[eje](v)).join(' · ');
+  showToast('💡 <b>'+EJE_ROT[eje]+'.</b> En el montaje más barato de poseer aparece: '+
+    (vals||'ningún valor: esta faena no tiene solución'));
+  afterEdit();
+}
+
+function updateScenarioInfo(){
+  const d=el('scenarioInfo');
+  d.style.display='block';
+  d.innerHTML='<b>'+MODE_META[mode].nombre+'.</b> '+MODE_META[mode].mision;
+}
+function updateHwRot(){
+  const c=cfgDe(mode), p=CUR;
+  el('hwrot').textContent=FAENAS[c.fk].rot+' · '+f1(FAENAS[c.fk].q,0)+' L/min por '+f1(p.lReal,2)+' m';
+  el('hwsub').textContent=COND[c.ck].rot+' · '+RUTAS[c.rk].rot+' · '+f1(c.nlin,0)+
+    (c.nlin>1?' líneas':' línea')+' · '+f1(tempAct(),0)+' °C';
+}
+function afterEdit(){
+  buildControls();
+  updateScenarioInfo();
+  if(mode==='reto')updateRetoSpec();
+  refreshAll();
+}
+function setMode(k){
+  mode=k;animT=0;
+  MODES.forEach(m=>el('m_'+m).classList.toggle('on',m===k));
+  el('p_mode').textContent=MODE_META[k].nombre;
+  el('retoTitle').style.display=k==='reto'?'':'none';
+  el('retoBox').style.display=k==='reto'?'':'none';
+  buildControls();updateScenarioInfo();
+  clearDx();buildQuiz();refreshQuestion();
+  if(k==='reto')updateRetoSpec();
+  const cam=MODE_META[k].cam;S.moveTo(cam[0],cam[1]);
+  refreshAll();
+}
+// "Nuevo escenario": en el reto cambia de faena y rearma el montaje de partida;
+// en los modos de estudio mueve el ensayo al siguiente caso que ensena algo.
+function newSignal(){
+  if(mode==='fluido'){
+    ST.tk = ST.tk==='reg' ? 'frio' : 'reg';
+    if(ST.tk==='reg'){const j=FAENA_KEYS.indexOf(ST.fk);ST.fk=FAENA_KEYS[(j+1)%FAENA_KEYS.length];}
+  }else if(mode==='perdida'){
+    const i=FAENA_KEYS.indexOf(ST.fk);ST.fk=FAENA_KEYS[(i+1)%FAENA_KEYS.length];
+    const o=solM(ST.fk);
+    if(o){ST.ck=o.ck;ST.rk=o.rk;ST.nlin=o.nlin;}
+  }else if(mode==='golpe'){
+    const i=COND_KEYS.indexOf(ST.ck);ST.ck=COND_KEYS[(i+1)%COND_KEYS.length];
+    if(i+1>=COND_KEYS.length){const j=FAENA_KEYS.indexOf(ST.fk);ST.fk=FAENA_KEYS[(j+1)%FAENA_KEYS.length];}
+  }else if(mode==='catalogo'){
+    const i=FAENA_KEYS.indexOf(ST.fk);ST.fk=FAENA_KEYS[(i+1)%FAENA_KEYS.length];
+    const o=solM(ST.fk);
+    if(o){ST.ck=o.ck;ST.rk=o.rk;ST.nlin=o.nlin;}
+  }else{
+    const i=FAENA_KEYS.indexOf(RETO.cfg.fk);RETO.cfg.fk=FAENA_KEYS[(i+1)%FAENA_KEYS.length];
+    retoSolveBuild(true);
+  }
+  RETO.resuelto=false;solved=false;RETO.msg='';
+  buildControls();updateScenarioInfo();
+  clearDx();buildQuiz();refreshQuestion();
+  if(mode==='reto')updateRetoSpec();
+  refreshAll();
+  showToast('🔀 <b>Escenario nuevo.</b> '+MODE_META[mode].mision);
+}
+
+// ===================== 12. TELEMETRÍA E INFORME =====================
+function teleRow(l,v,cls){
+  return '<div class="trow"><span class="tl">'+l+'</span><span class="tv'+(cls?' '+cls:'')+'">'+v+'</span></div>';
+}
+const cls2=b=>b?'ok':'bad';
+
+function updateTele(){
+  const c=cfgDe(mode), F=FAENAS[c.fk], r=CUR, C=COND[c.ck], e=estAct(r);
+  let h='';
+  if(mode==='fluido'){
+    h+=teleRow('Aceite','ISO VG 46 · ρ = '+f1(RHO,0)+' kg/m³');
+    h+=teleRow('Puntos que definen el grado',f1(NU40,0)+' cSt a 40 °C · '+f1(NU100,1)+' cSt a 100 °C');
+    h+=teleRow('Temperatura de régimen',f1(F.tReg,0)+' °C · ν = '+f1(r.reg.nuC,2)+' cSt');
+    h+=teleRow('Temperatura de arranque',f1(F.tFrio,0)+' °C · ν = '+f1(r.fri.nuC,2)+' cSt');
+    h+=teleRow('Cuánto espesa al enfriarse','× '+f1(r.fri.nuC/r.reg.nuC,1));
+    h+=teleRow('Velocidad en la línea',f1(r.v,3)+' m/s',cls2(r.okVel));
+    h+=teleRow('Reynolds en régimen',f1(r.reg.re,0)+' · '+r.reg.regimen,cls2(!r.reg.banda));
+    h+=teleRow('Reynolds en arranque',f1(r.fri.re,0)+' · '+r.fri.regimen,cls2(!r.fri.banda));
+    h+=teleRow('Factor de fricción laminar 64/Re',f1(e.fLam,5));
+    h+=teleRow('Colebrook con ε/D = '+f1(1000*e.epsD,3)+'‰',f1(e.fTur,5));
+    h+=teleRow('Swamee–Jain (explícita)',f1(swameeJain(e.re,e.epsD),5));
+    h+=teleRow('El que manda aquí',f1(e.f,5)+' · '+e.regimen);
+  }else if(mode==='perdida'){
+    h+=teleRow('Faena',F.rot+' · '+f1(F.q,0)+' L/min');
+    h+=teleRow('Conducción',C.rot+' · D = '+f1(C.di,1)+' mm');
+    h+=teleRow('Caudal por línea',f1(F.q/r.nlin,1)+' L/min × '+f1(r.nlin,0));
+    h+=teleRow('Velocidad',f1(r.v,3)+' ≤ '+f1(F.vMax,1)+' m/s',cls2(r.okVel));
+    h+=teleRow('Tubo recto (trazado × '+f1(RUTAS[c.rk].fL,2)+')',f1(r.lReal,2)+' m');
+    h+=teleRow('Accesorios',f1(r.nLe,0)+' diámetros = '+f1(r.lAcc,2)+' m');
+    h+=teleRow('Longitud equivalente',f1(r.lEq,2)+' m');
+    h+=teleRow('Factor de fricción',f1(e.f,5)+' · '+e.regimen,cls2(!e.banda));
+    h+=teleRow('Pérdida a '+f1(tempAct(),0)+' °C',f1(e.dp,4)+' bar');
+    h+=teleRow(F.rotFun,f1(valAct(r),4)+' '+r.unidad,cls2(okAct(r)));
+    h+=teleRow('Lo que pide la faena',(F.sentido==='ge'?'≥ ':'≤ ')+f1(limAct(r),4)+' '+r.unidad);
+    h+=teleRow('Potencia disipada',f1(r.pot,1)+' W · '+f1(r.eAnio,2)+' €/año');
+  }else if(mode==='golpe'){
+    h+=teleRow('Conducción',C.rot);
+    h+=teleRow('Módulo del aceite K',f1(K_OIL/1e9,1)+' GPa');
+    h+=teleRow('Onda en aceite libre',f1(Math.sqrt(K_OIL/RHO),0)+' m/s');
+    h+=teleRow('Celeridad de Korteweg',f1(C.cel,0)+' m/s');
+    h+=teleRow('Velocidad antes del cierre',f1(r.v,3)+' m/s');
+    h+=teleRow('Pico de Joukowsky ρ·c·v',f1(r.dpGolpe,2)+' bar');
+    h+=teleRow('Presión de trabajo',f1(F.pTrab,0)+' bar');
+    h+=teleRow('Trabajo + pico',f1(F.pTrab+r.dpGolpe,1)+' bar',cls2(r.okGolpe));
+    h+=teleRow('Presión admisible',f1(C.padm,0)+' bar'+(C.tipo==='tubo'?' (Barlow 4:1)':' (catálogo)'),cls2(r.okComp));
+    h+=teleRow('Radio mínimo de curvatura',f1(C.rmin,0)+' ≤ '+f1(RUTAS[c.rk].rDisp,0)+' mm',cls2(r.okRad));
+    h+=teleRow('¿Aguanta el vacío?',C.vacio?'sí':'no',cls2(r.okComp));
+    h+=teleRow('Mismo v en manguera de trenzas',f1(RHO*CEL_MANG*r.v/1e5,2)+' bar');
+  }else if(mode==='catalogo'){
+    const B=barrM(c.fk), cn=censoM(c.fk), s=solM(c.fk), bc=masBarataCompra(c.fk);
+    h+=teleRow('Faena',F.rot);
+    h+=teleRow('Montajes barridos',f1(B.length,0)+' = '+f1(COND_KEYS.length,0)+' × '+
+      f1(RUTA_KEYS.length,0)+' × '+f1(LINEAS.length,0));
+    h+=teleRow('Montajes válidos',f1(cn.val,0));
+    CRIT.forEach(k=>{ h+=teleRow('Tumbados por '+CRIT_ROT[k].toLowerCase(),
+      f1(cn.tot[k],0)+' · sólo por eso '+f1(cn.solo[k],0)); });
+    h+=teleRow('Este montaje',r.valida?'cumple los siete':'falla '+f1(r.fallos.length,0),cls2(r.valida));
+    h+=teleRow('Más barato de comprar',bc?f1(bc.compra,0)+' € → '+f1(bc.coste,0)+' € en '+f1(ANIOS,0)+' años':'—');
+    h+=teleRow('Más barato de poseer',s?f1(s.compra,0)+' € → '+f1(s.coste,0)+' € en '+f1(ANIOS,0)+' años':'—');
+  }else{
+    const s=RETO.sol;
+    h+=teleRow('Faena del reto',F.rot);
+    h+=teleRow('Montado',C.rot+' · '+RUTAS[c.rk].rot+' · '+f1(c.nlin,0)+(c.nlin>1?' líneas':' línea'));
+    h+=teleRow('Criterios cumplidos',f1(CRIT.length-r.fallos.length,0)+' / '+f1(CRIT.length,0),cls2(r.valida));
+    h+=teleRow(F.rotFun,f1(r.val,4)+' '+r.unidad,cls2(r.okFunc));
+    h+=teleRow('En frío ('+f1(F.tFrio,0)+' °C)',f1(r.valFrio,4)+' '+r.unidad,cls2(r.okFrio));
+    h+=teleRow('Velocidad',f1(r.v,3)+' ≤ '+f1(F.vMax,1)+' m/s',cls2(r.okVel));
+    h+=teleRow('Régimen',r.reg.regimen+' / '+r.fri.regimen,cls2(r.okReg));
+    h+=teleRow('Golpe sobre trabajo',f1(F.pTrab+r.dpGolpe,1)+' ≤ '+f1(r.padm,0)+' bar',cls2(r.okGolpe));
+    h+=teleRow('Radio de curvatura',f1(COND[c.ck].rmin,0)+' ≤ '+f1(RUTAS[c.rk].rDisp,0)+' mm',cls2(r.okRad));
+    h+=teleRow('Compra + energía',f1(r.compra,0)+' + '+f1(ANIOS*r.eAnio,0)+' = '+f1(r.coste,0)+' €');
+    h+=teleRow('Coste mínimo posible',s?f1(s.coste,0)+' €':'sin solución');
+  }
+  el('tele').innerHTML=h;
+}
+
+// El informe explica el POR QUE de lo que se ve, con las cifras del propio punto
+// de trabajo. Nunca repite un numero sin decir de donde sale.
+function updateReport(){
+  const c=cfgDe(mode), F=FAENAS[c.fk], r=CUR, C=COND[c.ck];
+  let t='';
+  if(mode==='fluido'){
+    t='> '+F.rot+' con '+C.rot+': '+f1(r.v,3)+' m/s por un paso de '+f1(C.di,1)+' mm.\n';
+    t+='> A '+f1(F.tReg,0)+' °C el aceite tiene '+f1(r.reg.nuC,2)+' cSt y Re = '+f1(r.reg.re,0)+
+      ' ('+r.reg.regimen+'); a '+f1(F.tFrio,0)+' °C tiene '+f1(r.fri.nuC,2)+' cSt y Re = '+
+      f1(r.fri.re,0)+' ('+r.fri.regimen+').\n';
+    t+='> El mismo tubo, el mismo caudal y el mismo aceite: lo único que ha cambiado es la temperatura.\n';
+    t+=(r.reg.regimen!==r.fri.regimen)
+      ? '> Y con ella el régimen, así que ni siquiera se calcula con la misma fórmula: 64/Re en laminar, Colebrook en turbulento.\n'
+      : '> Aquí el régimen aguanta en '+r.reg.regimen+' en los dos casos, pero la pérdida pasa de '+
+        f1(r.reg.dp,4)+' a '+f1(r.fri.dp,4)+' bar.\n';
+    t+='> Entre 2 000 y 4 000 no hay fórmula que valga: es la banda de transición y un proyecto serio sale de ella, no la interpola.';
+  }else if(mode==='perdida'){
+    const e=estAct(r);
+    t='> '+f1(F.q,0)+' L/min por '+f1(r.nlin,0)+(r.nlin>1?' líneas':' línea')+' de '+C.rot+
+      ' = '+f1(r.v,3)+' m/s.\n';
+    t+='> Trazado '+RUTAS[c.rk].rot+': '+f1(F.l,1)+' m × '+f1(RUTAS[c.rk].fL,2)+' = '+f1(r.lReal,2)+
+      ' m de tubo, más '+f1(r.nLe,0)+' diámetros de accesorios = '+f1(r.lAcc,2)+' m. Total L_eq = '+
+      f1(r.lEq,2)+' m.\n';
+    t+='> A '+f1(tempAct(),0)+' °C: f = '+f1(e.f,5)+' ('+e.regimen+') y Δp = '+f1(e.dp,4)+' bar.\n';
+    t+=okAct(r)?'> Cumple: '+f1(valAct(r),4)+' '+r.unidad+' frente a '+
+        (F.sentido==='ge'?'≥ ':'≤ ')+f1(limAct(r),4)+'.\n'
+      :'> NO cumple: '+f1(valAct(r),4)+' '+r.unidad+' frente a '+
+        (F.sentido==='ge'?'≥ ':'≤ ')+f1(limAct(r),4)+'.\n';
+    t+='> Esa caída se paga: '+f1(r.pot,1)+' W disipados con rendimiento de grupo '+f1(ETA_GRUPO,2)+
+      ' son '+f1(r.eAnio,2)+' € al año a '+f1(EUR_KWH,2)+' €/kWh y '+f1(F.hAnio,0)+' h de servicio.';
+  }else if(mode==='golpe'){
+    t='> La onda en el aceite libre iría a '+f1(Math.sqrt(K_OIL/RHO),0)+
+      ' m/s, pero la pared se hincha y la frena: Korteweg da '+f1(C.cel,0)+' m/s en '+C.rot+'.\n';
+    t+='> Con '+f1(r.v,3)+' m/s antes del cierre, Joukowsky pide ρ·c·v = '+f1(r.dpGolpe,2)+' bar de pico.\n';
+    t+='> La línea trabaja a '+f1(F.pTrab,0)+' bar, así que el conjunto llega a '+
+      f1(F.pTrab+r.dpGolpe,1)+' bar frente a '+f1(C.padm,0)+' bar admisibles: '+
+      (r.okGolpe?'entra':'NO entra')+'.\n';
+    t+='> Con la misma velocidad, una manguera de trenzas (c = '+f1(CEL_MANG,0)+') se quedaría en '+
+      f1(RHO*CEL_MANG*r.v/1e5,2)+' bar y una espiral (c = '+f1(CEL_ESP,0)+') en '+
+      f1(RHO*CEL_ESP*r.v/1e5,2)+' bar.\n';
+    t+='> Amortiguar el golpe no es cuestión de espesor: es cuestión de que la pared ceda.';
+  }else if(mode==='catalogo'){
+    const B=barrM(c.fk), cn=censoM(c.fk), s=solM(c.fk), bc=masBarataCompra(c.fk);
+    const peor=CRIT.slice().sort((a,x)=>cn.tot[x]-cn.tot[a])[0];
+    const solos=CRIT.filter(k=>cn.solo[k]>0);
+    t='> '+F.rot+': '+f1(B.length,0)+' montajes ('+f1(COND_KEYS.length,0)+' conducciones × '+
+      f1(RUTA_KEYS.length,0)+' trazados × '+f1(LINEAS.length,0)+' números de línea).\n';
+    t+='> Sobreviven '+f1(cn.val,0)+'. El que más tumba es «'+CRIT_ROT[peor]+'» con '+
+      f1(cn.tot[peor],0)+' bajas.\n';
+    t+='> Pero en solitario sólo deciden: '+
+      (solos.length?solos.map(k=>CRIT_ROT[k]+' '+f1(cn.solo[k],0)).join(', ')
+                   :'ninguno')+'. Los demás siempre llegan acompañados.\n';
+    t+='> El montaje que miras: '+(r.valida?'cumple los siete criterios'
+      :'falla '+r.fallos.map(k=>CRIT_ROT[k]).join(', '))+'.\n';
+    t+=s?'> El más barato de POSEER es '+COND[s.ck].rot+' · '+RUTAS[s.rk].rot+' · '+f1(s.nlin,0)+
+        (s.nlin>1?' líneas':' línea')+': '+f1(s.compra,0)+' € de compra y '+f1(ANIOS*s.eAnio,0)+
+        ' € de energía = '+f1(s.coste,0)+' €'+
+        (bc&&!mismo(bc,s)?', mientras que el más barato de COMPRAR ('+f1(bc.compra,0)+' €) acaba costando '+
+          f1(bc.coste,0)+' €.':'; aquí es también el más barato de comprar.')
+       :'> Ningún montaje del catálogo cumple esta faena.';
+  }else{
+    const s=RETO.sol;
+    t='> '+F.rot+'. Monta la línea válida más barata de poseer en '+f1(ANIOS,0)+' años.\n';
+    t+='> Puesto: '+C.rot+' · '+RUTAS[c.rk].rot+' · '+f1(c.nlin,0)+(c.nlin>1?' líneas':' línea')+
+      ' → '+f1(r.compra,0)+' € + '+f1(ANIOS*r.eAnio,0)+' € = '+f1(r.coste,0)+' €.\n';
+    t+=r.valida?'> Cumple los siete criterios.\n'
+               :'> Falla: '+r.fallos.map(k=>CRIT_ROT[k]).join(', ')+'.\n';
+    t+=RETO.msg?'> '+RETO.msg+'\n':'';
+    t+='> De '+f1(RETO.nval,0)+' montajes válidos, el más barato cuesta '+
+      (s?f1(s.coste,0)+' €':'—')+'.';
+  }
+  el('report').textContent=t;
+}
+
+function refreshAll(){
+  computa();
+  refrescaHW();
+  paint();
+  updateTele();
+  updateReport();
+  updateHwRot();
+}
+
+// ===================== 13. RETO =====================
+// El reto no compara contra una respuesta escrita a mano: barre los 171 montajes
+// de la faena (19 conducciones x 3 trazados x 3 numeros de linea), se queda con
+// los validos y ordena por el criterio lexicografico declarado en el motor
+// (coste de propiedad, luego potencia disipada, luego margen). La respuesta sale
+// de ahi, no de una tabla.
+// Montaje de partida: la manguera mas estrecha por el trazado mas retorcido. Es
+// deliberadamente insuficiente en casi todas las faenas, para que el alumno mueva.
+function startCfg(){ return { ck:'h06', rk:'compacta', nlin:1 }; }
+
+function retoSolveBuild(reset){
+  const fk=RETO.cfg.fk;
+  RETO.sol=solM(fk);
+  RETO.nval=censoM(fk).val;
+  if(reset){
+    RETO.ejes=startCfg();
+    RETO.pistas={};
+    RETO.resuelto=false;
+    RETO.msg='';
+  }
+}
+function updateRetoSpec(){
+  const fk=RETO.cfg.fk, F=FAENAS[fk];
+  let h='<b>'+F.rot+'.</b> Monta la línea <b>válida más barata de poseer</b> en '+f1(ANIOS,0)+
+    ' años. Pasan '+f1(F.q,0)+' L/min por '+f1(F.l,1)+' m de recorrido, el aceite trabaja a '+
+    f1(F.tReg,0)+' °C y arranca a '+f1(F.tFrio,0)+' °C, la línea está a '+f1(F.pTrab,0)+
+    ' bar y da '+f1(F.hAnio,0)+' h de servicio al año. Tiene que dejar '+F.rotFun+' en <b>'+
+    (F.sentido==='ge'?'≥ ':'≤ ')+f1(F.lim,2)+' '+F.unidad+'</b> en régimen y <b>'+
+    (F.sentido==='ge'?'≥ ':'≤ ')+f1(F.limFrio,2)+' '+F.unidad+'</b> en el arranque, '+
+    'y cumplir los siete criterios a la vez:';
+  h+='<ul style="margin:6px 0 0 16px;padding:0">';
+  CRIT.forEach(k=>{ h+='<li><b>'+CRIT_ROT[k]+'</b> — '+CRIT_POR[k]+'</li>'; });
+  h+='</ul>';
+  h+='<div style="margin-top:6px;color:var(--muted)">Coste de propiedad = compra + montaje + '+
+    f1(ANIOS,0)+' años de energía disipada a '+f1(EUR_KWH,2)+' €/kWh con rendimiento de grupo '+
+    f1(ETA_GRUPO,2)+'. Empate de coste: gana el que menos potencia disipa; si también empatan, el de más margen.</div>';
+  el('retoSpec').innerHTML=h;
+}
+// Explica por que el montaje puesto no vale, criterio a criterio y con sus cifras.
+function retoExplain(r,c){
+  if(r.valida) return '';
+  const F=FAENAS[c.fk], C=COND[c.ck], R=RUTAS[c.rk];
+  let p='Falla '+r.fallos.map(k=>CRIT_ROT[k]).join(', ')+'. ';
+  if(!r.okRad) p+=C.rot+' no baja de '+f1(C.rmin,0)+' mm de radio y el trazado '+
+    R.rot.toLowerCase()+' sólo ofrece '+f1(R.rDisp,0)+' mm: ahí no se dobla. ';
+  else if(!r.okComp) p+=(F.vacio&&!C.vacio
+    ? 'En aspiración la línea trabaja por debajo de la atmósfera y esa manguera colapsa en vacío. '
+    : 'La línea trabaja a '+f1(F.pTrab,0)+' bar y esa conducción admite '+f1(C.padm,0)+': no se puede montar. ');
+  else if(!r.okVel) p+='El aceite va a '+f1(r.v,3)+' m/s y la faena recomienda no pasar de '+
+    f1(F.vMax,1)+': más paso o más líneas. ';
+  else if(!r.okReg) p+='Con Re = '+f1(r.reg.re,0)+' en régimen y '+f1(r.fri.re,0)+
+    ' en el arranque, alguno cae en la banda de transición (2 000–4 000), donde la pérdida no se puede predecir. ';
+  else if(!r.okGolpe) p+='Al cerrar, el pico de Joukowsky es de '+f1(r.dpGolpe,2)+
+    ' bar y sobre los '+f1(F.pTrab,0)+' bar de trabajo da '+f1(F.pTrab+r.dpGolpe,1)+
+    ' frente a '+f1(C.padm,0)+' admisibles. ';
+  else if(!r.okFunc) p+='Da '+f1(r.val,4)+' '+r.unidad+' de '+F.rotFun+' y hacen falta '+
+    (F.sentido==='ge'?'≥ ':'≤ ')+f1(F.lim,2)+': con ese paso no llega. ';
+  else if(!r.okFrio) p+='En régimen cumple, pero a '+f1(F.tFrio,0)+' °C el aceite tiene '+
+    f1(r.fri.nuC,1)+' cSt y la línea da '+f1(r.valFrio,4)+' '+r.unidad+' frente a '+
+    (F.sentido==='ge'?'≥ ':'≤ ')+f1(F.limFrio,2)+': el arranque es el que manda. ';
+  return p;
+}
+function checkReto(){
+  const c=cfgDe('reto'), s=RETO.sol;
+  const r=punto(c.fk,c.ck,c.rk,c.nlin);
+  if(!s){
+    RETO.msg='Esta faena no tiene ninguna línea válida en el catálogo.';
+    RETO.resuelto=false;
+    synth.beep(240,0.12,0.05);
+    showToast('❌ <b>Sin solución.</b> '+RETO.msg);
+  }else if(r.valida&&mismo(r,s)){
+    RETO.resuelto=true; solved=true;
+    RETO.msg='Correcto: '+f1(r.coste,0)+' € de coste de propiedad, el mínimo de los '+
+      f1(RETO.nval,0)+' montajes válidos.';
+    synth.beep(880,0.10,0.06);
+    showToast('✅ <b>Línea óptima.</b> '+COND[c.ck].rot+' · '+RUTAS[c.rk].rot+' · '+
+      f1(c.nlin,0)+(c.nlin>1?' líneas':' línea')+' · '+f1(r.coste,0)+' € · '+
+      f1(r.pot,1)+' W disipados.');
+  }else if(r.valida){
+    RETO.resuelto=false;
+    RETO.msg=(r.coste!==s.coste)
+      ? 'Válida, pero no es la más barata de poseer: '+f1(r.coste,0)+' € frente a '+f1(s.coste,0)+
+        ' € (compra '+f1(r.compra,0)+' frente a '+f1(s.compra,0)+', energía '+
+        f1(ANIOS*r.eAnio,0)+' frente a '+f1(ANIOS*s.eAnio,0)+').'
+      : (r.pot!==s.pot
+        ? 'Válida y al mismo coste, pero disipa '+f1(r.pot,1)+' W y hay otra igual de barata con '+f1(s.pot,1)+'.'
+        : 'Válida y empatada en coste y potencia, pero con menos margen: '+pc1(r.margen,1)+
+          ' frente a '+pc1(s.margen,1)+'.');
+    synth.beep(520,0.09,0.05);
+    showToast('🟡 <b>Cumple, pero no es la óptima.</b> '+RETO.msg);
+  }else{
+    RETO.resuelto=false;
+    RETO.msg=retoExplain(r,c);
+    synth.beep(240,0.12,0.05);
+    showToast('❌ <b>No cumple.</b> '+RETO.msg);
+  }
+  refreshAll();
+}
+
+// ===================== 14. CUESTIONARIO =====================
+// Los cinco enunciados citan cifras que salen del motor de este laboratorio; el
+// alumno puede reproducirlas montando el caso que se describe.
+const QUIZ={
+  fluido:{pregunta:'La línea larga con tubo de acero 35×5 por el trazado compacto pierde 0,6018 bar a 50 °C, donde el aceite tiene 29,97 cSt. En el arranque a −5 °C la viscosidad sube a 904,0 cSt —treinta veces más— y la pérdida sube a 18,1492 bar: exactamente treinta veces más también. ¿Por qué coinciden los dos factores hasta la segunda cifra?',
+    opciones:[
+      {t:'Porque el flujo es laminar a las dos temperaturas (Re = 1 274 y Re = 42), y en laminar f = 64/Re hace que la pérdida sea rigurosamente proporcional a la viscosidad',ok:true,why:'Al sustituir f = 64/Re en Darcy–Weisbach queda Δp = 32·ρ·ν·v·L/D², donde ν aparece elevada a uno. De ahí la proporcionalidad exacta. Si alguno de los dos estados fuera turbulento la coincidencia se rompería: allí f apenas depende de Re y multiplicar la viscosidad por treinta subiría la pérdida sólo un par de veces.'},
+      {t:'Porque la pérdida de carga siempre es proporcional a la viscosidad del fluido, en cualquier régimen',ok:false,why:'Sólo en laminar. En turbulento pleno con pared rugosa el factor de fricción tiende a un valor que no depende de Re en absoluto, y entonces la viscosidad casi no entra: la pérdida la fija la rugosidad relativa y el cuadrado de la velocidad.'},
+      {t:'Porque al enfriarse el aceite también se hace más denso y la densidad multiplica la pérdida en la misma proporción',ok:false,why:'La densidad se toma constante en este laboratorio, y en la realidad varía un 4 % entre −5 y 50 °C: no da para un factor treinta. Además Δp es proporcional a ρ elevado a uno, así que un 4 % de densidad da un 4 % de pérdida.'},
+      {t:'Porque la velocidad del aceite baja al enfriarse y compensa parte del aumento de viscosidad',ok:false,why:'La velocidad no cambia: son los mismos 45 L/min por la misma sección, y la bomba es volumétrica. Lo único que cambia entre los dos casos es la viscosidad, y por eso el efecto se ve limpio.'}]},
+  perdida:{pregunta:'La aspiración de la bomba mide 1,80 m de recorrido, pero el cálculo se hace con 5,15 m de longitud equivalente: los accesorios pesan el 65,1 % del total. ¿De dónde salen esos 3,35 m que no existen?',
+    opciones:[
+      {t:'De los accesorios expresados en diámetros: la entrada al tubo vale 20 D, cada codo 30 D y la válvula 8 D, o sea 88 diámetros, y con un paso de 38,1 mm eso son 3,35 m de tubo recto equivalente',ok:true,why:'El método de las longitudes equivalentes convierte cada estrechamiento y cada giro en los metros de tubo recto que perderían lo mismo. Y como Le se cuenta en diámetros, cuanto más gordo es el tubo más metros pesa cada codo: en una línea corta y ancha los accesorios mandan sobre el tubo.'},
+      {t:'De un coeficiente de seguridad que se aplica a la longitud para cubrir imprevistos de montaje',ok:false,why:'No hay ningún coeficiente de seguridad en el cálculo de la pérdida. Los 3,35 m son la suma de accesorios concretos y contados: una entrada, dos codos y una válvula.'},
+      {t:'Del trazado, que alarga el tubo recto un 45 % al bordear la máquina',ok:false,why:'Ése es otro efecto y aquí no se aplica: el trazado es directo, con factor 1,00, y por eso el tubo recto son los 1,80 m de la faena. Los 3,35 m son accesorios.'},
+      {t:'De la manguera de espiral, que al ser corrugada por dentro se calcula con el triple de longitud',ok:false,why:'La rugosidad de la espiral ya está en el cálculo, pero por la vía del factor de fricción (ε = 0,06 mm), no alargando el tubo. La longitud equivalente cuenta accesorios, no acabados superficiales.'}]},
+  golpe:{pregunta:'Con el aceite a 1 m/s, cerrar de golpe da 11,07 bar de pico en un tubo de acero 22×2, 3,04 bar en una manguera de trenzas y 2,09 bar en una de espiral. El tubo de acero es la conducción más resistente de las tres y es la que peor lo pasa. ¿Cómo se explica?',
+    opciones:[
+      {t:'Porque el pico vale ρ·c·v y la celeridad c depende de cuánto cede la pared: el acero no cede y devuelve toda la inercia en presión (1 273 m/s), mientras que la manguera se hincha y absorbe volumen (350 m/s)',ok:true,why:'Korteweg lo dice explícitamente: la elasticidad de la pared se suma en serie a la del fluido. Resistencia y celeridad son cosas distintas —el acero gana en la primera y pierde en la segunda— y por eso un tramo de manguera al final de una línea rígida es un amortiguador barato.'},
+      {t:'Porque el tubo de acero tiene mucho menos paso y el aceite circula más deprisa',ok:false,why:'Las tres cifras están calculadas a la misma velocidad, 1 m/s, precisamente para aislar el efecto de la pared. Si el diámetro fuera el que manda, el pico dependería del caudal, y no depende: depende de la velocidad y de la celeridad.'},
+      {t:'Porque el acero transmite el golpe por la propia pared metálica hasta la válvula',ok:false,why:'La onda que se calcula viaja por el aceite, no por el metal. Lo que hace el metal es no dejarle sitio: al no deformarse, no hay volumen extra donde meter el líquido que sigue llegando.'},
+      {t:'Porque las mangueras, al ser de goma, disipan el golpe por rozamiento interno antes de que llegue a la válvula',ok:false,why:'El amortiguamiento viscoelástico existe, pero este laboratorio no lo modela: las tres cifras salen de la misma fórmula de Joukowsky. La diferencia está entera en la celeridad, que es un dato de rigidez, no de disipación.'}]},
+  catalogo:{pregunta:'En la línea de presión, el criterio de Compatibilidad (que la presión admisible cubra los 210 bar de trabajo) tumba 54 montajes de los 171, y sin embargo no suspende él solo ni una sola vez. Lo mismo pasa en las cinco faenas. ¿Es casualidad del catálogo?',
+    opciones:[
+      {t:'No: es un teorema. El criterio del golpe exige p_trabajo + Δp_golpe ≤ p_admisible y Δp_golpe es siempre positivo, así que todo montaje que pasa el golpe pasa también la compatibilidad. La compatibilidad sólo puede caer cuando el golpe ya ha caído',ok:true,why:'Cuando un criterio implica lógicamente a otro, el implicado nunca suspende en solitario, por muchos montajes que tumbe. Por eso el censo se lee en dos columnas: el total mide cuánto se solapan los criterios y el «sólo por eso» mide cuáles son imprescindibles. Aquí los que deciden en solitario son el arranque en frío (14), el golpe (8), el régimen (4) y el radio (4).'},
+      {t:'Sí, es una casualidad de este catálogo: con otras conducciones habría montajes que sólo fallasen la compatibilidad',ok:false,why:'No puede haberlos, sea cual sea el catálogo. Mientras el aceite tenga velocidad, Δp_golpe > 0 y la desigualdad del golpe es más exigente que la de compatibilidad. Ningún fabricante puede romper una implicación lógica.'},
+      {t:'Es que la compatibilidad se comprueba después del golpe y por eso nunca aparece sola',ok:false,why:'El orden en que se comprueban no cambia nada: los siete criterios se evalúan todos y se cuentan todos los fallos de cada montaje. Lo que hace que nunca aparezca sola es la implicación entre las dos desigualdades, no el orden del código.'},
+      {t:'Porque en la línea de presión la velocidad recomendada de 6 m/s ya elimina antes a las conducciones débiles',ok:false,why:'La velocidad tumba 48 montajes por su cuenta y no coincide con los 54 de compatibilidad: hay mangueras anchas que van despacio y aun así no aguantan 210 bar. Quien las elimina siempre es el golpe.'}]},
+  reto:{pregunta:'En la línea de presión, la línea válida más barata de COMPRAR son dos tubos 18×2 en paralelo: 192 € de material y montaje frente a los 242 € del 35×5 de una sola línea. Aun así el 35×5 es el que gana el reto. ¿Por qué?',
+    opciones:[
+      {t:'Porque el 18×2 estrangula el paso, pierde mucha más carga y disipa 320 € de energía en cinco años frente a 72 €: 513 € de coste de propiedad contra 315 €',ok:true,why:'Una conducción se paga dos veces, y la segunda es en el recibo de la luz: 4 000 h al año durante cinco años convierten cada vatio disipado en dinero. Por eso el criterio del reto es el coste de propiedad y no el precio de compra, que es el que se ve en la oferta.'},
+      {t:'Porque montar dos líneas en paralelo está prohibido en la línea de presión',ok:false,why:'No lo está: el catálogo admite una, dos o tres líneas en cualquier faena, y el reparto de caudal está calculado. De hecho la solución de otras faenas podría llevar varias líneas; aquí simplemente sale más cara de poseer.'},
+      {t:'Porque dos tubos de 18×2 no aguantan los 210 bar de trabajo',ok:false,why:'El 18×2 da 272 bar admisibles por Barlow con 4:1, así que aguanta de sobra: si no aguantase, el montaje sería inválido y ni siquiera entraría en la comparación de precios. El problema no es que no valga, es que sale caro de tener.'},
+      {t:'Porque el 35×5 pierde menos carga y por eso se compra más barato por metro',ok:false,why:'Al revés: el 35×5 cuesta 52 €/m frente a los 15 €/m del 18×2, y por eso pierde la comparación de compra. Lo que le hace ganar es lo que ahorra después.'}]},
+};
+let QORD=[], answered=false;
+function buildQuiz(){
+  const q=QUIZ[mode];
+  QORD=q.opciones.map((o,i)=>i);
+  for(let i=QORD.length-1;i>0;i--){ const j=Math.floor(Math.random()*(i+1)); const t=QORD[i];QORD[i]=QORD[j];QORD[j]=t; }
+  answered=false;
+}
+function clearDx(){ answered=false; }
+function refreshQuestion(){
+  const q=QUIZ[mode];
+  el('q_text').textContent=q.pregunta;
+  el('dxbtns').innerHTML=QORD.map((oi,i)=>'<button class="b" data-i="'+i+'">'+q.opciones[oi].t+'</button>').join('');
+  el('dxbtns').querySelectorAll('[data-i]').forEach(b=>{
+    b.onclick=()=>answer(Number(b.getAttribute('data-i')));
+  });
+}
+function answer(i){
+  if(answered) return;
+  answered=true;
+  const q=QUIZ[mode], btns=el('dxbtns').querySelectorAll('[data-i]');
+  btns.forEach((b,k)=>{
+    b.disabled=true;
+    const o=q.opciones[QORD[k]];
+    if(o.ok) b.classList.add('right');
+    else if(k===i) b.classList.add('wrong');
+  });
+  const o=q.opciones[QORD[i]];
+  synth.beep(o.ok?880:200,0.10,0.05);
+  showToast((o.ok?'✅ ':'❌ ')+o.why);
+}
+function quizCorrectIndex(){ return QORD.indexOf(QUIZ[mode].opciones.findIndex(o=>o.ok)); }
+
+// ===================== 15. SELECCIÓN Y ETIQUETAS =====================
+// Cada pieza de la máquina cuenta su propio número, y todos salen del punto de
+// trabajo vigente (CUR) o de las funciones del motor: aquí no hay ni una cifra
+// escrita a mano.
+function pickCtx(){
+  const c=cfgDe(mode);
+  return { c, F:FAENAS[c.fk], C:COND[c.ck], R:RUTAS[c.rk], r:CUR, e:estAct(CUR) };
+}
+const NO_FIN='—';
+const fin=(x,d)=>Number.isFinite(x)?f1(x,d):NO_FIN;
+
+const PICK_INFO={
+  deposito:()=>{
+    const {F,r}=pickCtx();
+    return ['Depósito y aceite',
+      'ISO VG 46, ρ = '+f1(RHO,0)+' kg/m³. El grado se define por su viscosidad a 40 °C ('+
+      f1(NU40,0)+' cSt); a '+f1(F.tReg,0)+' °C tiene '+f1(r.reg.nuC,2)+' cSt y a '+f1(F.tFrio,0)+
+      ' °C, '+f1(r.fri.nuC,1)+'. Ese número es el que decide el régimen y, con él, la fórmula del rozamiento.'];
+  },
+  bomba:()=>{
+    const {F,r}=pickCtx();
+    return ['Grupo motor–bomba',
+      'Impulsa '+f1(F.q,0)+' L/min. Los '+f1(r.pot,1)+' W que se pierden en esta línea los pone el motor: con rendimiento de grupo '+
+      f1(ETA_GRUPO,2)+', '+f1(F.hAnio,0)+' h al año y '+f1(EUR_KWH,2)+' €/kWh son '+f1(r.eAnio,2)+
+      ' € al año, '+f1(ANIOS*r.eAnio,0)+' € en '+f1(ANIOS,0)+' años. La pérdida de carga no es un número de examen: es una factura.'];
+  },
+  destino:()=>{
+    const {F,r}=pickCtx();
+    return [F.rot,
+      f1(F.q,0)+' L/min por '+f1(F.l,1)+' m, a '+f1(F.pTrab,0)+' bar y '+f1(F.tReg,0)+
+      ' °C de régimen. Pide '+F.rotFun+' '+(F.sentido==='ge'?'≥ ':'≤ ')+f1(F.lim,2)+' '+F.unidad+
+      ' y ahora mismo da '+fin(r.val,4)+'. Velocidad recomendada: '+f1(F.vMax,1)+' m/s.'];
+  },
+  linea:()=>{
+    const {C,R,r,c}=pickCtx();
+    return [C.rot,
+      'Paso de '+f1(C.di,1)+' mm, rugosidad ε = '+f1(C.eps,3)+' mm (ε/D = '+f1(1000*C.eps/C.di,3)+
+      '‰), '+f1(C.precio,0)+' €/m. Trazado '+R.rot.toLowerCase()+' × '+f1(c.nlin,0)+
+      (c.nlin>1?' líneas':' línea')+': '+f1(r.lReal,2)+' m de tubo recto y '+f1(r.lAcc,2)+
+      ' m de accesorios, '+f1(r.lEq,2)+' m equivalentes. El aceite va a '+f1(r.v,3)+' m/s.'];
+  },
+  accesorios:()=>{
+    const {R,r,F}=pickCtx();
+    return ['Codos, tes y racores',
+      R.rot+': '+f1(R.codos,0)+' codos (30 D cada uno), '+f1(R.tes,0)+' tes (20 D), '+
+      f1(R.val,0)+' válvula (8 D)'+(F.ent?', entrada al tubo (20 D)':'')+(F.sal?', salida al depósito (40 D)':'')+
+      '. Total '+f1(r.nLe,0)+' diámetros = '+f1(r.lAcc,2)+' m, el '+pc1(r.lAcc/r.lEq,1)+
+      ' de la longitud equivalente. Cada giro es tubo que no se ve.'];
+  },
+  valvula:()=>{
+    const {C,F,r}=pickCtx();
+    return ['Válvula de cierre',
+      'Si se cierra de golpe, la columna de aceite a '+f1(r.v,3)+' m/s se frena contra ella y Joukowsky pide ρ·c·v = '+
+      f1(r.dpGolpe,2)+' bar de pico, con c = '+f1(C.cel,0)+' m/s. Sobre los '+f1(F.pTrab,0)+
+      ' bar de trabajo son '+f1(F.pTrab+r.dpGolpe,1)+' bar frente a '+f1(C.padm,0)+
+      ' admisibles: '+(r.okGolpe?'entra':'NO entra')+'.'];
+  },
+  manoA:()=>{
+    const {F,r}=pickCtx();
+    const abs=F.obj==='pabs';
+    return ['Manómetro de origen',
+      abs?('Lee presión ABSOLUTA, con el cero en el vacío perfecto: '+fin(r.val,4)+
+           ' bar abs frente a los '+f1(P_ATM,3)+' de la atmósfera. La bomba aspira, así que aquí siempre se lee menos que fuera; por debajo de '+
+           f1(F.lim,2)+' empieza la cavitación.')
+          :('Lee '+f1(F.pTrab+valAct(r),1)+' bar: los '+f1(F.pTrab,0)+
+            ' de trabajo más los '+fin(valAct(r),4)+' que se van a perder por el camino.')];
+  },
+  manoB:()=>{
+    const {F,r}=pickCtx();
+    const abs=F.obj==='pabs';
+    return ['Manómetro de destino',
+      abs?('A la entrada del tubo el aceite está a la presión atmosférica, '+f1(P_ATM,3)+
+           ' bar. Todo lo que baja entre aquí y la bomba son '+fin(r.reg.dp,4)+
+           ' bar de rozamiento más '+f1(r.hCol,4)+' bar de columna.')
+          :('Lee '+f1(F.pTrab,0)+' bar, los que la máquina necesita. La diferencia con el otro manómetro, '+
+            fin(valAct(r),4)+' bar, es exactamente lo que se ha quedado el tubo.')];
+  },
+  criterios:()=>{
+    const {r}=pickCtx();
+    const malos=r.fallos.map(k=>CRIT_ROT[k]);
+    return ['Los siete criterios',
+      (r.valida?'Los siete en verde: este montaje se puede firmar.'
+              :'En rojo: '+malos.join(', ')+'. ')+
+      ' Cumplir la pérdida no basta: una línea se rechaza por el arranque en frío, por la velocidad, por el régimen indefinido, por la presión, por el golpe o porque no se dobla.'];
+  },
+};
+
+function boardClick(){
+  const {F,C,r,e}=pickCtx();
+  if(mode==='fluido')
+    showToast('<b>Viscosidad–temperatura.</b> La curva es la ley de Walther (ASTM D341) ajustada a los dos puntos que definen el ISO VG 46: '+
+      f1(NU40,0)+' cSt a 40 °C y '+f1(NU100,1)+' a 100 °C. Entre '+f1(F.tFrio,0)+' y '+f1(F.tReg,0)+
+      ' °C la viscosidad se multiplica por '+f1(r.fri.nuC/r.reg.nuC,1)+'.');
+  else if(mode==='perdida')
+    showToast('<b>Δp frente a caudal.</b> En laminar la pérdida es proporcional al caudal; en turbulento va casi con el cuadrado. Entre medias está la banda sombreada, Re de '+
+      f1(RE_LAM,0)+' a '+f1(RE_TURB,0)+', donde ningún cálculo vale. Ahora estás en '+e.regimen+
+      ' con Re = '+f1(e.re,0)+'.');
+  else if(mode==='golpe')
+    showToast('<b>Joukowsky.</b> El pico crece linealmente con la velocidad y con la celeridad. '+
+      C.rot+' tiene c = '+f1(C.cel,0)+' m/s; la línea de trazos marca hasta dónde puede llegar el pico ('+
+      f1(Math.max(C.padm-F.pTrab,0),1)+' bar) antes de pasarse de la admisible.');
+  else if(mode==='catalogo')
+    showToast('<b>Catálogo.</b> Cada punto es un montaje: '+f1(COND_KEYS.length,0)+' conducciones × '+
+      f1(RUTA_KEYS.length,0)+' trazados × '+f1(LINEAS.length,0)+' números de línea. En verde los '+
+      f1(censoM(cfgDe(mode).fk).val,0)+' que cumplen los siete criterios; los anillos marcan el más barato de comprar y el más barato de poseer.');
+  else
+    showToast('<b>Coste de propiedad.</b> Cada barra son dos sumandos: lo que cuesta comprar y montar la línea, y lo que costará la energía que disipe en '+
+      f1(ANIOS,0)+' años. El reto se gana con la suma, no con el primero.');
+}
+function visibleEnEscena(o){
+  let n=o;
+  while(n){ if(n.visible===false) return false; n=n.parent; }
+  return true;
+}
+pickerFor(scene, S.camera, S.renderer.domElement, hit => {
+  const o = hit && hit.object;
+  if(!o) return;
+  if(o === bmesh){ boardClick(); return; }
+  if(!visibleEnEscena(o)) return;
+  let n = o, k = null;
+  while(n && !k){ k = n.userData && n.userData.key; n = n.parent; }
+  if(!k || !PICK_INFO[k]) return;
+  const inf = PICK_INFO[k]();
+  if(!inf) return;
+  synth.beep(760, 0.05, 0.05);
+  showToast('<b>'+inf[0]+'</b> · '+inf[1]);
+});
+
+// ===================== 16. RECORRIDO GUIADO =====================
+// Cinco bloques, uno por modo, con el mismo hilo: la linea que no se ve tambien
+// se paga. Ninguna cifra de los avisos esta escrita a mano; todas se leen del
+// motor en el instante en que se lanza el aviso, asi que si cambia el catalogo
+// cambia solo el guion.
+const sleep=ms=>new Promise(r=>setTimeout(r,ms));
+
+async function runAuto(){
+  if(autoRunning) return;
+  autoRunning=true;
+  const b=el('btnAuto'), rot=b.textContent;
+  b.textContent='⏳ Recorriendo…';
+  synth.init();synth.resume();clearDx();
+  try{
+    // --- 1. EL FLUIDO: la misma linea con dos aceites distintos dentro
+    setMode('fluido');
+    ST.fk='larga';ST.ck='t35g';ST.rk='compacta';ST.nlin=1;ST.tk='reg';
+    afterEdit();
+    const cal=CUR.reg;
+    showToast('<b>'+FAENAS.larga.rot+'</b> con '+COND.t35g.rot+' por el trazado '+
+      RUTAS.compacta.rot.toLowerCase()+'. A '+f1(FAENAS.larga.tReg,0)+
+      ' °C el ISO VG 46 tiene '+f1(cal.nuC,2)+' cSt, el Reynolds es '+f1(cal.re,0)+' ('+cal.regimen+
+      ') y la línea pierde <b>'+f1(cal.dp,4)+' bar</b>.');
+    await sleep(4400);
+    ST.tk='frio';afterEdit();
+    const fri=CUR.fri;
+    showToast('El mismo tubo, el mismo caudal y el mismo aceite a '+f1(FAENAS.larga.tFrio,0)+
+      ' °C: '+f1(fri.nuC,1)+' cSt, es decir <b>× '+f1(fri.nuC/cal.nuC,1)+'</b> de viscosidad… y '+
+      f1(fri.dp,4)+' bar, exactamente <b>× '+f1(fri.dp/cal.dp,1)+
+      '</b>. En laminar f = 64/Re hace la pérdida rigurosamente proporcional a ν.');
+    await sleep(4800);
+    ST.fk='presion';ST.ck='t22';ST.tk='reg';afterEdit();
+    showToast('Ahora la línea de presión con '+COND.t22.rot+': Re = '+f1(CUR.reg.re,0)+
+      '. Ni laminar ni turbulento, <b>'+CUR.reg.regimen+'</b>. Entre '+f1(RE_LAM,0)+' y '+
+      f1(RE_TURB,0)+' no hay fórmula que valga, y un proyecto serio sale de la banda en vez de interpolarla.');
+    await sleep(4800);
+
+    // --- 2. LA PERDIDA: los metros que no se ven
+    setMode('perdida');
+    const sA=solM('aspir');
+    ST.fk='aspir';ST.ck=sA.ck;ST.rk=sA.rk;ST.nlin=sA.nlin;ST.tk='reg';afterEdit();
+    showToast('<b>'+FAENAS.aspir.rot+'.</b> El recorrido son '+f1(FAENAS.aspir.l,1)+
+      ' m, pero el cálculo usa '+f1(CUR.lEq,2)+' m: la entrada, los codos y la válvula suman '+
+      f1(CUR.nLe,0)+' diámetros, o sea '+f1(CUR.lAcc,2)+' m, el <b>'+pc1(CUR.lAcc/CUR.lEq,1)+
+      '</b> del total. Cuanto más gordo es el tubo, más metros pesa cada codo.');
+    await sleep(4800);
+    ST.rk='compacta';afterEdit();
+    showToast('Con trazado compacto el tubo recto baja a '+f1(CUR.lReal,2)+' m, pero los accesorios suben a '+
+      f1(CUR.nLe,0)+' diámetros y la longitud equivalente sube a '+f1(CUR.lEq,2)+
+      ' m. Acortar el recorrido a base de codos no acorta nada'+
+      (CUR.okRad?'.':', y además esa conducción no se dobla en '+f1(RUTAS.compacta.rDisp,0)+' mm.'));
+    await sleep(4800);
+    const sP=solM('presion');
+    ST.fk='presion';ST.ck=sP.ck;ST.rk=sP.rk;ST.nlin=sP.nlin;afterEdit();
+    const dpAnt=CUR.reg.dp;
+    ST.ck='t18';ST.nlin=2;afterEdit();
+    showToast('Línea de presión: pasar de '+COND[sP.ck].rot+' a dos '+COND.t18.rot+' en paralelo sube la velocidad de '+
+      f1(sP.v,3)+' a '+f1(CUR.v,3)+' m/s y la pérdida de '+f1(dpAnt,4)+' a '+f1(CUR.reg.dp,4)+
+      ' bar. El diámetro entra a la cuarta potencia en laminar: es la variable más rentable del proyecto.');
+    await sleep(4800);
+
+    // --- 3. EL GOLPE: la pared decide, no la resistencia
+    setMode('golpe');
+    ST.fk='presion';ST.ck='t22';ST.rk='directa';ST.nlin=1;afterEdit();
+    showToast('<b>Golpe de ariete.</b> A '+f1(CUR.v,3)+' m/s, '+COND.t22.rot+' (c = '+
+      f1(COND.t22.cel,0)+' m/s) devuelve <b>'+f1(CUR.dpGolpe,2)+' bar</b> de pico. Con la misma velocidad, una manguera de trenzas daría '+
+      f1(RHO*CEL_MANG*CUR.v/1e5,2)+' bar y una espiral '+f1(RHO*CEL_ESP*CUR.v/1e5,2)+
+      ': el acero no cede, y lo que no cede lo paga en presión.');
+    await sleep(4800);
+    showToast('Y el pico no viene solo: sobre los '+f1(FAENAS.presion.pTrab,0)+' bar de trabajo el conjunto llega a '+
+      f1(FAENAS.presion.pTrab+CUR.dpGolpe,1)+' bar frente a '+f1(COND.t22.padm,0)+
+      ' admisibles por Barlow con '+f1(S_BARLOW,0)+':1. '+(CUR.okGolpe?'Entra por poco.':'<b>No entra.</b>')+
+      ' Aguantar la presión de trabajo no basta: hay que aguantar la maniobra.');
+    await sleep(4800);
+
+    // --- 4. EL CATALOGO: contar bajas totales enganna
+    setMode('catalogo');
+    ST.fk='presion';ST.ck=sP.ck;ST.rk=sP.rk;ST.nlin=sP.nlin;afterEdit();
+    const cn=censoM('presion');
+    showToast('<b>El catálogo entero.</b> '+f1(COND_KEYS.length,0)+' conducciones × '+
+      f1(RUTA_KEYS.length,0)+' trazados × '+f1(LINEAS.length,0)+' números de línea = '+
+      f1(COND_KEYS.length*RUTA_KEYS.length*LINEAS.length,0)+' montajes para la línea de presión. Cumplen los siete criterios <b>'+
+      f1(cn.val,0)+'</b>.');
+    await sleep(4400);
+    showToast('La compatibilidad tumba '+f1(cn.tot.okComp,0)+' montajes y <b>no suspende sola ni una vez</b> ('+
+      f1(cn.solo.okComp,0)+'). No es casualidad: el golpe exige p_trabajo + Δp_golpe ≤ p_admisible, así que quien pasa el golpe pasa la compatibilidad. Un criterio implicado por otro nunca decide en solitario.');
+    await sleep(5000);
+    const solos=CRIT.filter(k=>cn.solo[k]>0).sort((a,x)=>cn.solo[x]-cn.solo[a]);
+    showToast('Los que sí deciden solos aquí son '+solos.map(k=>'<b>'+CRIT_ROT[k]+'</b> ('+f1(cn.solo[k],0)+')').join(', ')+
+      '. El censo se lee en dos columnas: el total mide cuánto se solapan los criterios; el «sólo por eso» mide cuáles son imprescindibles.');
+    await sleep(5000);
+
+    // --- 5. EL RETO: comprar barato no es poseer barato
+    setMode('reto');
+    RETO.cfg.fk='presion';retoSolveBuild(true);afterEdit();
+    showToast('<b>Reto · '+FAENAS.presion.rot+'.</b> De los '+
+      f1(COND_KEYS.length*RUTA_KEYS.length*LINEAS.length,0)+' montajes del banco, '+
+      f1(RETO.nval,0)+' cumplen los siete criterios. Sólo uno es el más barato de <b>poseer</b>.');
+    await sleep(4400);
+    checkReto();
+    await sleep(4200);
+    const bc=masBarataCompra('presion'), s=RETO.sol;
+    if(bc){
+      RETO.ejes={ck:bc.ck,rk:bc.rk,nlin:bc.nlin};afterEdit();checkReto();
+      await sleep(4000);
+      showToast('Éste es el más barato de <b>comprar</b>: '+f1(bc.compra,0)+' € de material y montaje. Pero disipa '+
+        f1(bc.pot,1)+' W y en '+f1(ANIOS,0)+' años se bebe '+f1(ANIOS*bc.eAnio,0)+
+        ' € de electricidad: '+f1(bc.coste,0)+' € en total.');
+      await sleep(5000);
+    }
+    if(s){
+      RETO.ejes={ck:s.ck,rk:s.rk,nlin:s.nlin};afterEdit();checkReto();
+      await sleep(1600);
+      showToast('Y éste es el más barato de <b>poseer</b>: '+COND[s.ck].rot+' · '+RUTAS[s.rk].rot+
+        ' · '+f1(s.nlin,0)+(s.nlin>1?' líneas':' línea')+'. Cuesta '+f1(s.compra,0)+
+        ' € de compra, pero sólo pierde '+f1(s.reg.dp,4)+' bar y disipa '+f1(s.pot,1)+
+        ' W: '+f1(s.coste,0)+' € en '+f1(ANIOS,0)+' años'+
+        (bc&&!mismo(bc,s)?', un '+pc1(bc.coste/s.coste-1,0)+' menos que el barato de la oferta.':'.'));
+      await sleep(5200);
+    }
+    answer(quizCorrectIndex());
+  } finally {
+    autoRunning=false;
+    el('btnAuto').textContent=rot;
+  }
+}
+
+// ===================== 17. ANIMACIÓN, EVENTOS Y ARRANQUE =====================
+// El unico reloj del laboratorio. paso3D no interpola nada del estado: mueve las
+// gotas con la velocidad que el motor acaba de calcular y gira lo que gira.
+S.setAnimate(dt=>{
+  animT+=dt;
+  paso3D(animT);
+});
+
+MODES.forEach(m=>{ el('m_'+m).onclick=()=>{ if(!autoRunning) setMode(m); }; });
+el('btnAuto').onclick=()=>{ if(!autoRunning) runAuto(); };
+el('btnNew').onclick=()=>{ if(autoRunning) return; newSignal(); };
+el('btnCheck').onclick=()=>{ if(autoRunning) return; checkReto(); };
+const soundBtn=el('soundBtn');
+if(soundBtn){ soundBtn.onclick=()=>{ synth.toggle(); soundBtn.textContent=synth.isOn()?'🔊':'🔇'; }; }
+document.addEventListener('pointerdown',()=>{ synth.init(); synth.resume(); },{once:true});
+
+retoSolveBuild(true);
+computa();
+refrescaHW();
+S.start();
+setMode('fluido');
+
+// ===================== 18. PUENTE DE PRUEBAS =====================
+// Todo lo que necesita un navegador de pruebas para reproducir el laboratorio sin
+// tocar el DOM: el motor entero, el estado y los mismos setters que usan los
+// botones. Si una cifra del panel no sale de aqui, es que esta escrita a mano.
+window.__labDebug={
+  // --- modos
+  mode:()=>mode, setMode, modes:()=>MODES.slice(),
+  // --- constantes del dominio
+  P_ATM, RHO, K_OIL, E_ACERO, G, NU40, NU100, RE_LAM, RE_TURB,
+  ETA_GRUPO, EUR_KWH, ANIOS, C_COLECTOR, RM_ACERO, S_BARLOW,
+  CEL_MANG, CEL_ESP, LE_CODO, LE_TE, LE_VAL, LE_ENT, LE_SAL, WAL_A, WAL_B,
+  // --- catalogo y faenas
+  COND, COND_KEYS, TIPO_ROT, RUTAS, RUTA_KEYS, LINEAS,
+  FAENAS, FAENA_KEYS, CRIT, CRIT_ROT, CRIT_POR, EJES, EJE_ROT, EJE_CAMPO,
+  // --- motor
+  nu, colebrook, swameeJain, darcy, celeridadTubo, barlow, estado,
+  punto, barrido, validas, mejorQue, mismo, solucion, empates, censo, masBarataCompra,
+  // --- estado vivo
+  st:()=>({...ST}), cur:()=>CUR, hw:()=>({...hw}), cfg:()=>cfgDe(mode),
+  tempAct, estAct, valAct, limAct, okAct, dpLim, dpDe, qDeRe, condAbr,
+  // --- setters equivalentes a los botones
+  setFaena:v=>{ST.fk=v;afterEdit();},
+  setCond:v=>{ST.ck=v;afterEdit();},
+  setRuta:v=>{ST.rk=v;afterEdit();},
+  setNlin:v=>{ST.nlin=Number(v);afterEdit();},
+  setTemp:v=>{ST.tk=v;afterEdit();},
+  newSignal,
+  // --- reto
+  reto:()=>({cfg:{...RETO.cfg},ejes:{...RETO.ejes},sol:RETO.sol,nval:RETO.nval,
+             resuelto:RETO.resuelto,msg:RETO.msg,pistas:{...RETO.pistas}}),
+  setRetoFaena:v=>{RETO.cfg.fk=v;retoSolveBuild(true);afterEdit();},
+  setRetoEje:(eje,v)=>{RETO.ejes[eje]=(eje==='nlin'?Number(v):v);RETO.msg='';RETO.resuelto=false;afterEdit();},
+  check:()=>checkReto(), pista:()=>pista(), ejeSolC,
+  solved:()=>solved, retoSolveBuild, startCfg,
+  // --- cuestionario
+  quizCorrectIndex, answer, quiz:()=>QUIZ[mode], qorden:()=>QORD.slice(),
+  // --- etiquetas de seleccion
+  pickKeys:()=>Object.keys(PICK_INFO), pick:k=>(PICK_INFO[k]?PICK_INFO[k]():null),
+  // --- formato y recorrido
+  f1, pc1, NBSP, toast:()=>el('toast').textContent,
+  runAuto, autoRunning:()=>autoRunning,
+};
+
+// __END__
