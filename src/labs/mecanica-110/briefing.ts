@@ -1,0 +1,67 @@
+import type { BriefingConfig } from '@/components/MissionBriefing';
+
+const briefing: BriefingConfig = {
+  codigo: 'MEC-110',
+  titulo: 'Posiciona un Actuador Hidráulico en Lazo Cerrado',
+  subtitulo: 'Hidráulica y Neumática · válvula proporcional, regulador PI-D y pliego de recepción',
+  acento: '#EFB13A',
+  duracion: 45,
+  videoUrl: '',
+  bienvenida: `Delante tienes un banco de servohidráulica completo: grupo de presión, válvula proporcional 4/3 de centro cerrado con sus dos solenoides, cilindro de doble efecto con sus dos cámaras, regla de posición, carga que entra a mitad de maniobra y un regulador digital cuyas tres ganancias vas a teclear tú. Hay cinco máquinas —prensa de embutición, mesa de fresadora, banco de fatiga, compuerta de esclusa y manipulador de forja— y una sola pregunta: ¿qué kp, qué ki y qué kd firma el pliego, y cuánto cuesta esa firma en cinco años?
+
+Lo primero que hay que desmontar es la idea de que un lazo hidráulico se parece a uno eléctrico. La válvula no da fuerza: da CAUDAL, y encima por una raíz cuadrada, Q = K_V·u·√Δp, de modo que la ganancia del actuador cambia con la carga. Y entre las dos cámaras hay dos columnas de aceite que trabajan como un muelle, k = β·(A₁²/V₁ + A₂²/V₂): en la prensa valen 42,84 N/µm sobre 420 kg, lo que pone una frecuencia hidráulica de 50,8 Hz con un amortiguamiento de ζ = 0,021. Las cinco máquinas van de 22,8 a 50,8 Hz y de ζ = 0,021 a 0,063. NADA amortigua ese muelle salvo el rozamiento viscoso y la fuga interna, y por eso subir la ganancia no se paga con lentitud: se paga con temblor.
+
+Lo segundo es dónde se para de verdad un proporcional puro, que no es donde cuentan los libros. Sin integral el pistón no se detiene donde el error es cero: se detiene donde el proporcional entrega él solo el mando que hace falta para dejarlo quieto, y ese mando son DOS cosas sumadas —cruzar el solape del carrete y, encima, abrir lo justo para reponer la fuga interna que se cuela entre cámara y cámara—, u_reposo = 100·(db + u_e·(1−db)). De ahí sale que |e|·kp es prácticamente constante: en el banco de fatiga vale 0,662, 0,653, 0,653, 0,652, 0,648 y 0,645 % para kp 2, 4, 6, 9, 13 y 18. Y esa ley tiene dos regímenes en los que se cae, que el laboratorio dice en voz alta en lugar de esconderlos: si el lazo ha entrado en ciclo límite no hay pistón quieto que medir —la prensa a kp 18 oscila 4,6531 mm—, y si el mando de reposo cae DENTRO de la banda muerta no hay carrete abierto —la fresadora a kp 18 pide 1,461 % contra un solape del 2,0 % y el pistón se descuelga a 35,71 µm/s sostenido sólo por el rozamiento—.
+
+Lo tercero es que el anti-windup no se ve en el tiempo de establecimiento. Quítalo y el establecimiento MEJORA en las cinco máquinas mientras el sobrepaso se dispara: la prensa pasa de 0,40 a 14,58 % y la compuerta de 0,19 a 45,86 % contra un máximo de 0,60, con la punta en 375,03 mm sobre una consigna de 320 y SEIS de los siete criterios caídos. Llegar antes al sitio equivocado no es ir más rápido, y quien sintonice mirando un solo número lo firmará.
+
+Y lo cuarto es que el pliego son siete criterios a la vez y el dinero es el desempate. De las 480 sintonías del barrido —5 máquinas × 6 kp × 4 ki × 4 kd— sólo 66 pasan las siete, y NINGUNA lleva ki = 0. Al pasar el precio —energía a 0,18 €/kWh, desgaste del carrete y tiempo de máquina de 35 a 96 €/h—, las cinco ganadoras salen con kd = 0 y la partida que manda es el TIEMPO: en la prensa, 0,0184 € de los 0,0214 que cuesta cada ciclo.`,
+  conceptos: [
+    {
+      icono: '🎚️',
+      nombre: 'La válvula como orificio de raíz cuadrada',
+      descripcion: 'Q = K_V·u·√Δp con K_V = q_n/√Δp_N deducida de la caída nominal por vía de la ISO 10770-1: 6,76 · 3,04 · 2,03 · 10,65 · 8,45 L/(min·√bar). La ganancia del actuador cambia con la carga, así que la misma sintonía no se comporta igual antes y después de que la pieza toque.',
+    },
+    {
+      icono: '🌀',
+      nombre: 'El muelle hidráulico y su amortiguamiento ridículo',
+      descripcion: 'k = β·(A₁²/V₁ + A₂²/V₂) con volúmenes que cambian con la carrera. De 24,13 a 42,84 N/µm, de 22,8 a 50,8 Hz y ζ de 0,021 a 0,063: lo único que amortigua un cilindro es el rozamiento viscoso y la fuga interna.',
+    },
+    {
+      icono: '📐',
+      nombre: 'La ley del mando en reposo',
+      descripcion: 'Sin integral el pistón se para donde el proporcional da él solo el mando que lo deja quieto: solape del carrete MÁS reposición de la fuga interna. Acierta en 26 de las 30 combinaciones dentro del 5,51 %, y las cuatro excepciones son las dos hipótesis cayéndose, no un fallo del modelo.',
+    },
+    {
+      icono: '💶',
+      nombre: 'Siete criterios y coste de propiedad',
+      descripcion: 'Sobrepaso, establecimiento, error sin carga, error con carga, ciclo límite, presión con cavitación y topes, y desgaste del carrete, juzgados a la vez sobre 480 sintonías. Sólo 66 pasan los siete; el desempate lo hace el coste a cinco años.',
+    },
+  ],
+  mision: [
+    'RECONOCE el banco: grupo, válvula proporcional 4/3 de centro cerrado con sus dos solenoides, cilindro de doble efecto con sus dos cámaras, regla de posición, carga y cuadro de los siete pilotos del pliego — en cinco máquinas distintas.',
+    'MIDE el muelle hidráulico de cada máquina y su frecuencia: 42,84 N/µm y 50,8 Hz en la prensa, 24,13 y 25,4 en el manipulador de forja, 22,8 Hz en la compuerta con sus 1 800 kg. Y mira el amortiguamiento: entre 0,021 y 0,063.',
+    'COMPRUEBA la ley del mando en reposo con el proporcional puro: recorre los seis kp del banco de fatiga y verás |e|·kp = 0,662, 0,653, 0,653, 0,652, 0,648 y 0,645 %. Es casi la misma cifra seis veces, y el desglose te dice de dónde sale: 0,5 % de solape más 0,125 % de reposición de fuga.',
+    'ENCUENTRA los dos regímenes en los que esa ley se cae: la prensa a kp 18, con un ciclo límite de 4,6531 mm frente a 0,30 admisibles, y la fresadora a kp 9, 13 y 18, con el mando de reposo dentro de su banda muerta del 2,0 % y el pistón descolgándose a 35,71 µm/s.',
+    'DEMUESTRA que el integral no es un adorno: el mejor error del proporcional solo es 0,2358 mm contra 0,20 de tolerancia en la prensa, 0,0812 contra 0,05 en la fresadora, 0,0358 contra 0,02 en el banco, 0,5042 contra 0,20 en la compuerta y 0,2246 contra 0,12 en el manipulador. Ninguna de las cinco pasa.',
+    'APAGA la antisaturación y mira los dos números al revés: en la prensa el establecimiento baja de 0,344 a 0,292 s mientras el sobrepaso sube de 0,40 a 14,58 %; en la compuerta el sobrepaso llega al 45,86 % contra un máximo de 0,60 y caen seis criterios.',
+    'CENSA los siete criterios sobre las 480 sintonías separando bajas totales de suspensos en solitario: el sobrepaso tumba 163 y no decide NINGUNA, el ciclo límite tumba 141 y tampoco; el error con carga tumba 322 y decide 48 él solo.',
+    'RETO · Elige kp, ki y kd para pasar los siete criterios con el menor coste de propiedad a cinco años. La solución es única en las cinco máquinas, y en las cinco lleva kd = 0 aunque 43 de las 66 sintonías válidas lleven derivada.',
+  ],
+  aplicaciones: [
+    {
+      area: 'Puesta en marcha de accionamientos hidráulicos',
+      ejemplo: 'Sintonizar un eje hidráulico en planta consiste exactamente en esto: teclear tres ganancias en unidades industriales —% por mm, % por mm·s y %·s por mm— y decidir cuándo parar. Aquí se practica con el pliego entero delante y con el ciclo límite y el sobrepaso mirándose, que es lo que impide el error clásico de sintonizar mirando un único número.',
+    },
+    {
+      area: 'Recepción y verificación de máquina',
+      ejemplo: 'Un pliego de recepción no es un índice de calidad: son criterios declarados, con su ventana de medida y su límite. El laboratorio juzga siete a la vez sobre cada sintonía y enseña, con el censo de suspensos en solitario, que tres de ellos nunca deciden por su cuenta. Contar bajas totales exagera el peso de los criterios que caen acompañados.',
+    },
+    {
+      area: 'Mantenimiento y diagnóstico de servoactuadores',
+      ejemplo: 'Un cilindro que no llega a cota tiene un puñado de causas posibles, y aquí se separan con números: banda muerta del carrete, fuga interna entre cámaras, saturación del integrador o ciclo límite por exceso de ganancia. Reconocer cuál es cuál —y saber que el mando de reposo son dos sumandos, no uno— es lo que distingue un ajuste de un cambio de válvula innecesario.',
+    },
+  ],
+};
+
+export default briefing;

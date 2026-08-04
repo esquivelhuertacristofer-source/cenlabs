@@ -1,0 +1,2062 @@
+// ===================== 1. ESCENA =====================
+const mount=document.getElementById('stage');
+const S=createStage(mount,{cam:[6.8,4.4,10.2],target:[1.10,1.15,0.20],bgTop:'#0d1017',bgBot:'#05060a',bloom:0.42,minD:3.2,maxD:28});
+const {scene}=S;
+const synth=makeSynth({type:'sine',type2:'triangle',filterFreq:920,Q:0.80});
+const el=id=>document.getElementById(id);
+
+// ===================== 2. MOTOR =====================
+// Servoposicionador hidráulico en lazo cerrado. TODO lo que se ve en este
+// laboratorio —pizarrón, telemetría, informe, avisos y reto— sale de aquí.
+//
+// Modelo:
+//   · Válvula proporcional 4/3 de centro cerrado: Q = K_V·u·√Δp por vía, con
+//     K_V = q_n/√(35 bar) según se declara el caudal nominal en ISO 10770-1, y
+//     solape del carrete (banda muerta) renormalizado para que el mando pleno
+//     siga dando apertura plena.
+//   · Cilindro asimétrico con las DOS cámaras compresibles:
+//     dp/dt = (β/V)·(q ∓ A·v ∓ q_L), con q_L = c_ip·(p1−p2) de fuga interna.
+//   · Mecánica con rozamiento viscoso y de Coulomb regularizado con tanh.
+//   · Regulador digital PI-D (derivada sobre la MEDIDA, no sobre el error) a
+//     1 ms, en unidades industriales: kp en %/mm, ki en %/(mm·s), kd en %·s/mm.
+//   · Anti-windup por integración condicional.
+//
+// Numérico: las presiones se integran con paso semi-implícito (el
+// estrangulamiento es rígido y explícito reventaría) y la mecánica con Euler
+// simpléctico. Por debajo de DP_LAM el orificio se regulariza a laminar, que es
+// lo que de verdad pasa y además quita la pendiente infinita de la raíz.
+const P_ATM   = 1.013e5;   // Pa
+const RHO_OIL = 872;       // kg/m3  HLP 46 a 50 °C (dato declarado)
+const DP_N    = 35e5;      // Pa  caída por vía a la que se declara el caudal nominal
+const TS      = 1e-3;      // s   periodo del regulador digital
+const DT      = 2.5e-4;    // s   paso de integración
+const T_FIN   = 2.5;       // s   duración de la maniobra
+const T_CARGA = 1.2;       // s   instante del escalón de carga
+const TF_D    = 4e-3;      // s   filtro de primer orden del derivativo
+const V_STRIB = 2e-3;      // m/s regularización de la fricción de Coulomb
+const BANDA   = 1e-3;      // m   banda de establecimiento (±1 mm)
+const P_TANK  = 2.5e5;     // Pa  contrapresión del retorno (filtro + refrigerador)
+const P_CAV   = 0.2e5;     // Pa  presión absoluta por debajo de la cual se declara cavitación
+const DP_LAM  = 0.30e5;    // Pa  zona laminar del orificio
+const T_MANIP = 0.8;       // s   tiempo fijo de manipulación por ciclo
+const ETA_GRUPO = 0.78;    // rendimiento del grupo (bomba + motor eléctrico)
+const EUR_KWH = 0.18;      // €/kWh
+const EUR_CARRERA = 0.0009;// € por carrera completa equivalente del carrete
+const ANIOS   = 5;         // horizonte del coste de propiedad
+
+// Ventanas de medida (s)
+const W_SIN = [1.00, 1.20];  // régimen permanente ANTES del escalón de carga
+const W_CON = [2.30, 2.50];  // régimen permanente DESPUÉS del escalón de carga
+const W_CIC = [2.00, 2.50];  // ventana en la que se busca el ciclo límite
+
+// Rejilla de sintonía (unidades industriales)
+const KP_G = [2, 4, 6, 9, 13, 18];        // %/mm
+const KI_G = [0, 4, 10, 22];              // %/(mm·s)
+const KD_G = [0, 0.02, 0.05, 0.10];       // %·s/mm
+
+const clamp=(v,a,b)=>v<a?a:(v>b?b:v);
+function ssqrt(z){ const a=z<0?-z:z;
+  if(a>=DP_LAM) return z<0?-Math.sqrt(a):Math.sqrt(a);
+  return z/Math.sqrt(DP_LAM); }
+function dssqrt(z){ const a=z<0?-z:z;
+  return a>=DP_LAM ? 1/(2*Math.sqrt(a)) : 1/Math.sqrt(DP_LAM); }
+
+// ---- catálogo de máquinas ----
+// Cada una: grupo hidráulico, válvula, cilindro, carga, sensor y pliego de recepción.
+const MAQUINAS={
+  prensa:{
+    nom:'Prensa de embutición', icono:'🔩', rot:'prensa',
+    ps:210e5, qn:40/60000,               // 40 L/min a 35 bar/vía
+    db:0.03,                             // solape del carrete (3 % del recorrido)
+    D:0.080, d:0.045, L:0.400,           // m  camisa, vástago, carrera
+    V01:0.35e-3, V02:0.30e-3,            // m³ volúmenes muertos (tubería + tapas)
+    beta:1.4e9, cip:2.0e-13,             // Pa, m³/(s·Pa) fuga interna del cilindro
+    m:420, b:5200, fc:1800,              // kg, N·s/m, N
+    f0:4120, f1:26000,                   // N  carga antes y después del escalón
+    x0:0.120, xr:0.200,                  // m
+    maxSobre:6.0, maxTest:0.55, maxErrSin:0.35, maxErrCon:0.20,
+    maxCiclo:0.30, pMax:240e5, maxCarrera:14.0,
+    ciclos:120000, eurHora:58,
+    proc:'Embutir chapa: el punzón baja libre y al tocar la chapa aparecen 26 kN de golpe.'},
+  fresadora:{
+    nom:'Mesa de fresadora', icono:'⚙️', rot:'fresadora',
+    ps:160e5, qn:18/60000,
+    db:0.02,
+    D:0.063, d:0.036, L:0.500,
+    V01:0.22e-3, V02:0.20e-3,
+    beta:1.5e9, cip:1.2e-13,
+    m:260, b:9800, fc:3200,              // guías de deslizamiento: mucha fricción
+    f0:900, f1:7400,                     // fuerza de corte al entrar la herramienta
+    x0:0.150, xr:0.230,
+    maxSobre:3.0, maxTest:0.70, maxErrSin:0.20, maxErrCon:0.05,
+    maxCiclo:0.18, pMax:180e5, maxCarrera:12.0,
+    ciclos:240000, eurHora:74,
+    proc:'Posicionar la mesa y entrar en corte: la herramienta muerde y aparecen 7,4 kN.'},
+  fatiga:{
+    nom:'Banco de fatiga', icono:'🧪', rot:'banco',
+    ps:210e5, qn:12/60000,
+    db:0.005,                            // servoválvula de solape nulo
+    D:0.050, d:0.028, L:0.250,
+    V01:0.15e-3, V02:0.13e-3,
+    beta:1.6e9, cip:1.5e-13,
+    m:300, b:8000, fc:900,               // travesaño, mordazas y utillaje
+    f0:300, f1:9800,                     // la probeta empieza a responder
+    x0:0.070, xr:0.120,
+    maxSobre:2.0, maxTest:0.60, maxErrSin:0.09, maxErrCon:0.02,
+    maxCiclo:0.07, pMax:230e5, maxCarrera:6.0,
+    ciclos:900000, eurHora:96,
+    proc:'Llevar la probeta al alargamiento pedido: al tensarse devuelve 9,8 kN.'},
+  compuerta:{
+    nom:'Compuerta de esclusa', icono:'🌊', rot:'compuerta',
+    ps:175e5, qn:63/60000,
+    db:0.09,                             // carrete gastado: banda muerta grande
+    D:0.100, d:0.056, L:0.600,
+    V01:0.90e-3, V02:0.80e-3,            // 18 m de tubería hasta la sala de bombas
+    beta:1.2e9, cip:5.0e-13,             // aceite con aire ocluido y cilindro viejo
+    m:1800, b:14000, fc:5200,
+    f0:9200, f1:31000,                   // empuje del agua al abrir
+    x0:0.200, xr:0.320,
+    maxSobre:0.60, maxTest:0.62, maxErrSin:0.28, maxErrCon:0.20,
+    maxCiclo:0.20, pMax:130e5, maxCarrera:4.0,
+    ciclos:26000, eurHora:35,
+    proc:'Abrir la compuerta hasta la apertura de consigna: el agua empuja con 31 kN.'},
+  forja:{
+    nom:'Manipulador de forja', icono:'🔥', rot:'manipulador',
+    ps:230e5, qn:50/60000,
+    db:0.04,
+    D:0.090, d:0.063, L:0.500,           // vástago grueso: cilindro muy asimétrico
+    V01:0.55e-3, V02:0.40e-3,
+    beta:0.9e9, cip:3.2e-13,             // aceite caliente: módulo aparente bajo
+    m:950, b:8600, fc:4100,
+    f0:6300, f1:24000,
+    x0:0.180, xr:0.280,
+    maxSobre:0.60, maxTest:0.72, maxErrSin:0.28, maxErrCon:0.12,
+    maxCiclo:0.12, pMax:140e5, maxCarrera:4.5,
+    ciclos:65000, eurHora:88,
+    proc:'Presentar la pieza al martillo: al apoyarla, el brazo carga 24 kN.'},
+};
+const MAQ_KEYS=Object.keys(MAQUINAS);
+
+// ---- geometría e hidráulica derivadas ----
+function geom(M){ const A1=Math.PI*M.D*M.D/4; const A2=A1-Math.PI*M.d*M.d/4;
+  return {A1,A2,phi:A1/A2}; }
+// Frecuencia natural hidráulica y amortiguamiento (Merritt), con el carrete
+// cerrado y el pistón en la posición de consigna.
+function hidraulica(M){
+  const {A1,A2}=geom(M);
+  const V1=M.V01+A1*M.xr, V2=M.V02+A2*(M.L-M.xr);
+  const k=M.beta*(A1*A1/V1+A2*A2/V2);          // N/m  las dos columnas de aceite
+  const wh=Math.sqrt(k/M.m);                   // rad/s
+  const Aef=(A1+A2)/2;
+  const zeta=(M.cip/Aef)*Math.sqrt(M.beta*M.m*(1/V1+1/V2)) + M.b/(2*Math.sqrt(k*M.m));
+  return {V1,V2,k,wh,fh:wh/(2*Math.PI),zeta};
+}
+const KV=M=>M.qn/Math.sqrt(DP_N);
+function apertura(u,db){ if(u>db) return (u-db)/(1-db);
+  if(u<-db) return (u+db)/(1-db); return 0; }
+
+// ---- simulación de la maniobra ----
+function sim(mk,kp,ki,kd,opts){
+  const M=MAQUINAS[mk], G=geom(M), kv=KV(M);
+  const A1=G.A1, A2=G.A2;
+  const guardar=!!(opts&&opts.traza);
+  const paso=(opts&&opts.paso)||4;
+  const sinAW=!!(opts&&opts.sinAW);      // desactiva el anti-windup (para demostrarlo)
+
+  let x=M.x0, v=0;                       // equilibrio inicial con el carrete cerrado
+  let p2=P_TANK;
+  let p1=clamp((M.f0+p2*A2)/A1,P_TANK,M.ps);
+  let I=0, xPrev=M.x0*1000, dF=0, u=0, uPrev=0;
+
+  const n=Math.round(T_FIN/DT);
+  const kCtrl=Math.round(TS/DT);
+  const traza=guardar?{t:[],x:[],u:[],p1:[],p2:[],e:[]}:null;
+
+  let E=0, carrera=0, pPico=0, pMin=Infinity, cav=false, tope=false;
+  let xMax=-Infinity, satPasos=0;
+  let sumSin=0, nSin=0, sumCon=0, nCon=0;
+  let cicMin=Infinity, cicMax=-Infinity;
+  let tEst=Infinity, dentro=-1;
+
+  for(let i=0;i<=n;i++){
+    const t=i*DT;
+    const F=t>=T_CARGA?M.f1:M.f0;
+
+    // ── regulador digital (cada TS) ──
+    if(i%kCtrl===0){
+      const e=(M.xr-x)*1000;                   // mm
+      const xm=x*1000;
+      // Derivada SOBRE LA MEDIDA (forma PI-D): evita el golpe de derivada del
+      // escalón de consigna y actúa como realimentación de velocidad.
+      const d=-(xm-xPrev)/TS;
+      dF=dF+(TS/(TF_D+TS))*(d-dF);
+      const uSin=kp*e+ki*I+kd*dF;              // %
+      const uNue=clamp(uSin/100,-1,1);
+      // Integración condicional: no se integra si el mando está saturado y el
+      // error empuja hacia el mismo lado.
+      if(sinAW||!(Math.abs(uSin)>100&&Math.sign(e)===Math.sign(uSin))) I+=e*TS;
+      uPrev=u; u=uNue;
+      carrera+=Math.abs(u-uPrev);
+      xPrev=xm;
+      if(Math.abs(u)>=1) satPasos++;
+    }
+
+    // ── válvula ──
+    const ue=apertura(u,M.db);
+    const au=ue<0?-ue:ue;
+    let q1,q2,qs,j1,j2;                        // j = |dq/dp| de cada cámara
+    if(ue>0){
+      q1=kv*ue*ssqrt(M.ps-p1);   j1=kv*au*dssqrt(M.ps-p1);
+      q2=-kv*ue*ssqrt(p2-P_TANK); j2=kv*au*dssqrt(p2-P_TANK);
+      qs=Math.max(0,q1);
+    }else if(ue<0){
+      q1=-kv*au*ssqrt(p1-P_TANK); j1=kv*au*dssqrt(p1-P_TANK);
+      q2=kv*au*ssqrt(M.ps-p2);    j2=kv*au*dssqrt(M.ps-p2);
+      qs=Math.max(0,q2);
+    }else{ q1=0; q2=0; qs=0; j1=0; j2=0; }
+
+    const qL=M.cip*(p1-p2);
+    const V1=M.V01+A1*x, V2=M.V02+A2*(M.L-x);
+
+    // ── mecánica ──
+    const fFric=M.fc*Math.tanh(v/V_STRIB);
+    const a=(p1*A1-p2*A2-F-M.b*v-fFric)/M.m;
+
+    // ── integración ──
+    const g1=DT*M.beta/V1, g2=DT*M.beta/V2;
+    p1+=g1*(q1-A1*v-qL)/(1+g1*(j1+M.cip));
+    p2+=g2*(q2+A2*v+qL)/(1+g2*(j2+M.cip));
+    if(p1<P_CAV){ p1=P_CAV; cav=true; }
+    if(p2<P_CAV){ p2=P_CAV; cav=true; }
+    v+=DT*a;
+    x+=DT*v;
+    if(x<0){ x=0; if(v<0) v=0; tope=true; }
+    if(x>M.L){ x=M.L; if(v>0) v=0; tope=true; }
+
+    // ── medidas ──
+    E+=M.ps*qs*DT;
+    if(p1>pPico) pPico=p1;
+    if(p2>pPico) pPico=p2;
+    if(p1<pMin) pMin=p1;
+    if(p2<pMin) pMin=p2;
+    if(x>xMax) xMax=x;
+    const e=M.xr-x;
+    if(Math.abs(e)<=BANDA){ if(dentro<0) dentro=t; }
+    else dentro=-1;
+    if(dentro>=0&&t<T_CARGA) tEst=dentro;
+    if(t>=W_SIN[0]&&t<=W_SIN[1]){ sumSin+=e; nSin++; }
+    if(t>=W_CON[0]&&t<=W_CON[1]){ sumCon+=e; nCon++; }
+    if(t>=W_CIC[0]&&t<=W_CIC[1]){ if(x<cicMin) cicMin=x; if(x>cicMax) cicMax=x; }
+    if(guardar&&i%paso===0){
+      traza.t.push(t); traza.x.push(x); traza.u.push(u);
+      traza.p1.push(p1); traza.p2.push(p2); traza.e.push(e);
+    }
+  }
+
+  const salto=(M.xr-M.x0);
+  const sobre=salto>0?Math.max(0,(xMax-M.xr)/salto)*100:0;
+  const errSin=(sumSin/nSin)*1000;             // mm con signo
+  const errCon=(sumCon/nCon)*1000;
+  const ciclo=(cicMax-cicMin)*1000;            // mm pico a pico
+  const eKWh=(E/ETA_GRUPO)/3.6e6;
+  const tCiclo=(isFinite(tEst)?tEst:T_CARGA)+T_MANIP;
+  const cEner=eKWh*EUR_KWH;
+  const cDesg=carrera*EUR_CARRERA;
+  const cTiem=(tCiclo/3600)*M.eurHora;
+  const cUno=cEner+cDesg+cTiem;
+  const coste5=cUno*M.ciclos*ANIOS;
+
+  const okSobre=sobre<=M.maxSobre+1e-9;
+  const okEst=isFinite(tEst)&&tEst<=M.maxTest+1e-9;
+  const okErrSin=Math.abs(errSin)<=M.maxErrSin+1e-9;
+  const okErrCon=Math.abs(errCon)<=M.maxErrCon+1e-9;
+  const okCiclo=ciclo<=M.maxCiclo+1e-9;
+  const okPres=!cav&&!tope&&pPico<=M.pMax+1e-9;
+  const okCarrera=carrera<=M.maxCarrera+1e-9;
+  const valida=okSobre&&okEst&&okErrSin&&okErrCon&&okCiclo&&okPres&&okCarrera;
+
+  return { mk, kp, ki, kd, sinAW, sobre, tEst, errSin, errCon, ciclo, carrera, satPasos,
+    pPico, pMin, cav, tope, xMax, eKWh, tCiclo, cEner, cDesg, cTiem, cUno, coste5,
+    okSobre, okEst, okErrSin, okErrCon, okCiclo, okPres, okCarrera, valida, traza };
+}
+
+// ---- barrido y censo ----
+const _barr={};
+function barrido(mk){
+  if(_barr[mk]) return _barr[mk];
+  const out=[];
+  for(const kp of KP_G) for(const ki of KI_G) for(const kd of KD_G) out.push(sim(mk,kp,ki,kd));
+  return (_barr[mk]=out);
+}
+const CRIT=['okSobre','okEst','okErrSin','okErrCon','okCiclo','okPres','okCarrera'];
+const CRIT_ROT={ okSobre:'sobrepaso', okEst:'tiempo de establecimiento',
+  okErrSin:'error sin carga', okErrCon:'error con carga', okCiclo:'ciclo límite',
+  okPres:'presión y topes', okCarrera:'desgaste del carrete' };
+const CRIT_COR={ okSobre:'Sobrepaso', okEst:'t. establec.', okErrSin:'Error sin carga',
+  okErrCon:'Error con carga', okCiclo:'Ciclo límite', okPres:'Presión/topes',
+  okCarrera:'Desgaste' };
+function censo(mk){
+  const B=barrido(mk);
+  const tot={}, solo={};
+  for(const c of CRIT){ tot[c]=0; solo[c]=0; }
+  let validas=0;
+  for(const r of B){
+    if(r.valida){ validas++; continue; }
+    const fallan=CRIT.filter(c=>!r[c]);
+    for(const c of fallan) tot[c]++;
+    if(fallan.length===1) solo[fallan[0]]++;
+  }
+  return {n:B.length, validas, tot, solo};
+}
+function solucion(mk){
+  const B=barrido(mk).filter(r=>r.valida);
+  if(!B.length) return null;
+  let best=B[0];
+  for(const r of B) if(r.coste5<best.coste5) best=r;
+  return best;
+}
+function base(mk){ return sim(mk,KP_G[0],0,0); }   // la sintonía más floja de la rejilla
+function validas(mk){ return barrido(mk).filter(r=>r.valida); }
+function empates(mk){ const s=solucion(mk);
+  return s?validas(mk).filter(r=>r.coste5===s.coste5):[]; }
+const mismoTrio=(a,b)=>a.kp===b.kp&&a.ki===b.ki&&a.kd===b.kd;
+// Cada pista destapa UN eje del óptimo; ninguna da el trío.
+function pistas(mk){
+  const s=solucion(mk), B=validas(mk);
+  return [
+    {eje:'kp', v:s.kp, n:B.filter(r=>r.kp===s.kp).length},
+    {eje:'ki', v:s.ki, n:B.filter(r=>r.kp===s.kp&&r.ki===s.ki).length},
+    {eje:'kd', v:s.kd, n:B.filter(r=>r.kp===s.kp&&r.ki===s.ki&&r.kd===s.kd).length},
+  ];
+}
+// Cuántas de las válidas de esta máquina llevan cada valor de un eje.
+function frecEje(mk,eje){
+  const B=validas(mk), G=eje==='kp'?KP_G:(eje==='ki'?KI_G:KD_G);
+  return G.map(v=>({v, n:B.filter(r=>r[eje]===v).length}));
+}
+const fallosDe=r=>CRIT.filter(c=>!r[c]);
+
+// ---- formato ----
+// Separador de millares en espacio fino (U+202F) y coma decimal; el signo menos
+// es U+2212. Nunca toLocaleString: el locale del navegador no se controla.
+const NBSP=' ';
+const sepMil=s=>s.replace(/\B(?=(\d{3})+(?!\d))/g,NBSP);
+function fN(x,n){
+  if(!isFinite(x)) return '∞';
+  const neg=x<0||Object.is(x,-0);
+  const a=Math.abs(x).toFixed(n);
+  const [e,d]=a.split('.');
+  return (neg?'−':'')+sepMil(e)+(d?','+d:'');
+}
+const f0=x=>fN(x,0), f1=x=>fN(x,1), f2=x=>fN(x,2), f3=x=>fN(x,3), f4=x=>fN(x,4);
+const pc1=x=>fN(100*x,1)+NBSP+'%';
+const pcm=x=>Number.isFinite(x)?((x>=0?'+':'')+pc1(x)):'—';
+const fin=(x,n)=>Number.isFinite(x)?fN(x,n===undefined?1:n):'∞';
+const bar=p=>fN(p/1e5,1);            // Pa → bar
+const mm=x=>fN(x*1000,1);            // m  → mm
+const lmin=q=>fN(q*60000,2);         // m³/s → L/min
+
+// ===================== 3. ESTADO =====================
+const MODES=['lazo','banda','fuga','censo','reto'];
+let mode='lazo', animT=0, autoRunning=false, solved=false;
+// Se arranca en la sintonía más floja de la rejilla: un lazo que no llega.
+const ST={ mk:'prensa', kp:2, ki:0, kd:0, aw:true };
+const RETO={ cfg:{mk:'prensa'}, ejes:{kp:2,ki:0,kd:0}, sol:null, nval:0,
+             resuelto:false, msg:'', pistas:{kp:false,ki:false,kd:false} };
+let CUR=null;
+
+function cfgDe(m){
+  if(m==='reto') return {mk:RETO.cfg.mk, kp:RETO.ejes.kp, ki:RETO.ejes.ki, kd:RETO.ejes.kd, aw:true};
+  if(m==='banda') return {mk:ST.mk, kp:ST.kp, ki:0, kd:0, aw:true};
+  // El anti-windup sólo se puede apagar donde se ve lo que hace: en la respuesta.
+  if(m==='lazo') return {mk:ST.mk, kp:ST.kp, ki:ST.ki, kd:ST.kd, aw:ST.aw};
+  return {mk:ST.mk, kp:ST.kp, ki:ST.ki, kd:ST.kd, aw:true};
+}
+// La traza es cara de guardar, así que se memoriza por configuración.
+const _traz={};
+function simT(c){
+  const k=c.mk+'|'+c.kp+'|'+c.ki+'|'+c.kd+'|'+(c.aw?1:0);
+  if(_traz[k]) return _traz[k];
+  return (_traz[k]=sim(c.mk,c.kp,c.ki,c.kd,{traza:true,paso:8,sinAW:!c.aw}));
+}
+function computa(){ const c=cfgDe(mode); CUR=simT(c); return CUR; }
+
+// Cachés de los agregados: el barrido de una máquina son 96 maniobras.
+const CENSO_C={}, SOL_C={}, VAL_C={}, EMP_C={}, PIS_C={}, BAN_C={};
+// El barrido de proporcional puro (seis kp con traza) lo usan la vista y el informe.
+function bandaM(mk){ if(!BAN_C[mk]) BAN_C[mk]=KP_G.map(kp=>sim(mk,kp,0,0,{traza:true,paso:8})); return BAN_C[mk]; }
+function censoM(mk){ if(!CENSO_C[mk]) CENSO_C[mk]=censo(mk); return CENSO_C[mk]; }
+function solM(mk){ if(!(mk in SOL_C)) SOL_C[mk]=solucion(mk); return SOL_C[mk]; }
+function valM(mk){ if(!VAL_C[mk]) VAL_C[mk]=validas(mk); return VAL_C[mk]; }
+function empM(mk){ if(!EMP_C[mk]) EMP_C[mk]=empates(mk); return EMP_C[mk]; }
+function pisM(mk){ if(!PIS_C[mk]) PIS_C[mk]=pistas(mk); return PIS_C[mk]; }
+const maqAct=()=>MAQUINAS[cfgDe(mode).mk];
+
+// ===================== 4. MATERIALES =====================
+const AZUL='#8AB4F8', OK_HEX='#7CD992', BAD_HEX='#ff6b6b', WARN_HEX='#E9C46A',
+      VIO='#C08CF8', GRIS='#8f97a5', NARANJA='#F2A65A', CIAN='#5BD4E5', TINTA='#dbe4f0',
+      AMBAR='#E0A33E';
+const std=(c,r,m)=>new THREE.MeshStandardMaterial({color:c,roughness:r,metalness:m});
+const emis=(hex,i)=>new THREE.MeshStandardMaterial({color:hex,roughness:0.35,metalness:0.10,emissive:hex,emissiveIntensity:i===undefined?0.9:i});
+const MAT={
+  acero:  std('#7e8798',0.42,0.72),
+  aceroC: std('#5a6270',0.50,0.65),
+  bancada:std('#2a3140',0.85,0.10),
+  tubo:   std('#8fa3c4',0.34,0.80),
+  cuerpo: std('#39424f',0.66,0.22),
+  motor:  std('#2f3947',0.60,0.40),
+  tanque: new THREE.MeshStandardMaterial({color:'#9aa4b5',roughness:0.30,metalness:0.80,transparent:true,opacity:0.30}),
+  camisa: new THREE.MeshStandardMaterial({color:'#cfe0f5',roughness:0.12,metalness:0.05,transparent:true,opacity:0.22,side:THREE.DoubleSide}),
+  vastago:std('#c3ccd8',0.18,0.92),
+  oro:    std('#c9a227',0.35,0.85),
+  rojo:   emis(BAD_HEX,0.85),
+  verde:  emis(OK_HEX,0.85),
+  ambar:  emis(WARN_HEX,0.85),
+  cian:   emis(CIAN,0.85),
+  azul:   emis(AZUL,0.80),
+  violeta:emis(VIO,0.80),
+  negro:  std('#161b25',0.90,0.05),
+  cristal:new THREE.MeshStandardMaterial({color:'#dfe8f5',roughness:0.10,metalness:0.05,transparent:true,opacity:0.35}),
+};
+
+// ===================== 5. PIZARRÓN =====================
+const board=new THREE.Group();
+board.position.set(-4.05,0,-0.95); board.rotation.y=0.40; scene.add(board);
+(function(){
+  const marco=roundedBox(3.90,2.94,0.10,std('#0b0f16',0.90,0.10),0.05);
+  marco.position.set(0,1.86,0); board.add(marco);
+  const pata=x=>{ const p=new THREE.Mesh(new THREE.CylinderGeometry(0.05,0.06,0.42,14),MAT.acero);
+    p.position.set(x,0.21,0); board.add(p); };
+  pata(-1.55); pata(1.55);
+})();
+const BW=1024, BH=768;
+const bcv=document.createElement('canvas'); bcv.width=BW; bcv.height=BH;
+const bx=bcv.getContext('2d');
+const btex=new THREE.CanvasTexture(bcv);
+const bmesh=new THREE.Mesh(new THREE.PlaneGeometry(3.68,2.72),
+  new THREE.MeshBasicMaterial({map:btex,toneMapped:false}));
+bmesh.position.set(0,1.86,0.056); board.add(bmesh);
+
+function bg(){ bx.fillStyle='#080b11'; bx.fillRect(0,0,BW,BH);
+  bx.strokeStyle='rgba(138,180,248,0.06)'; bx.lineWidth=1;
+  for(let x=0;x<=BW;x+=64){ bx.beginPath(); bx.moveTo(x+0.5,0); bx.lineTo(x+0.5,BH); bx.stroke(); }
+  for(let y=0;y<=BH;y+=64){ bx.beginPath(); bx.moveTo(0,y+0.5); bx.lineTo(BW,y+0.5); bx.stroke(); } }
+function texto(t,x,y,col,size,align,weight){
+  bx.fillStyle=col||'#dbe4f0';
+  bx.font=(weight||'600')+' '+(size||18)+'px ui-sans-serif,system-ui,Segoe UI,Roboto,sans-serif';
+  bx.textAlign=align||'left'; bx.textBaseline='alphabetic';
+  bx.fillText(t,x,y); bx.textAlign='left'; }
+function linea(x1,y1,x2,y2,col,w,dash){
+  bx.strokeStyle=col||'#2b3446'; bx.lineWidth=w||1.5;
+  bx.setLineDash(dash||[]); bx.beginPath(); bx.moveTo(x1,y1); bx.lineTo(x2,y2); bx.stroke();
+  bx.setLineDash([]); }
+function curva(pts,col,w,dash){ if(!pts.length) return;
+  bx.strokeStyle=col||AZUL; bx.lineWidth=w||2; bx.setLineDash(dash||[]);
+  bx.beginPath(); bx.moveTo(pts[0][0],pts[0][1]);
+  for(let i=1;i<pts.length;i++) bx.lineTo(pts[i][0],pts[i][1]);
+  bx.stroke(); bx.setLineDash([]); }
+function wrapText(t,x,y,maxW,lh,col,size){
+  bx.fillStyle=col||'#8f9bb0';
+  bx.font='500 '+(size||14)+'px ui-sans-serif,system-ui,Segoe UI,Roboto,sans-serif';
+  const pal=String(t).split(' '); let ln='', yy=y;
+  for(const p of pal){ const pr=ln?ln+' '+p:p;
+    if(bx.measureText(pr).width>maxW && ln){ bx.fillText(ln,x,yy); ln=p; yy+=(lh||18); }
+    else ln=pr; }
+  if(ln) bx.fillText(ln,x,yy); return yy; }
+const PX={x:706,y:70,w:300};
+function rpanel(h){ bx.fillStyle='rgba(13,18,26,0.92)'; bx.strokeStyle='rgba(138,180,248,0.22)';
+  bx.lineWidth=1.5; bx.beginPath(); bx.roundRect(PX.x,PX.y,PX.w,h,12); bx.fill(); bx.stroke(); }
+function prow(y,k,v,col){ texto(k,PX.x+14,y,'#8f9bb0',14,'left','500');
+  texto(v,PX.x+PX.w-14,y,col||'#dbe4f0',15,'right','700'); }
+function title2(t,sub){ texto(t,44,52,'#eaf1fb',26,'left','800');
+  if(sub) texto(sub,44,78,'#8f9bb0',15,'left','500'); }
+function nota(t,y){ wrapText(t,44,y,620,19,'#8f9bb0',14); }
+function hbar(x,y,w,h,frac,col,bgc){ bx.fillStyle=bgc||'rgba(255,255,255,0.06)';
+  bx.beginPath(); bx.roundRect(x,y,w,h,h/2); bx.fill();
+  const f=Math.max(0,Math.min(1,frac));
+  if(f>0){ bx.fillStyle=col||AZUL; bx.beginPath(); bx.roundRect(x,y,Math.max(h,w*f),h,h/2); bx.fill(); } }
+function marca(x,y,ok){ bx.strokeStyle=ok?OK_HEX:BAD_HEX; bx.lineWidth=2.4; bx.beginPath();
+  if(ok){ bx.moveTo(x-6,y); bx.lineTo(x-2,y+5); bx.lineTo(x+7,y-6); }
+  else  { bx.moveTo(x-5,y-5); bx.lineTo(x+6,y+6); bx.moveTo(x+6,y-5); bx.lineTo(x-5,y+6); }
+  bx.stroke(); }
+const colOk=b=>b?OK_HEX:BAD_HEX;
+function tabla(x,y,cols,rows,anchos,colFn){ let yy=y;
+  cols.forEach((c,i)=>texto(c,x+anchos.slice(0,i).reduce((a,b)=>a+b,0),yy,'#7f8b9c',13,'left','700'));
+  yy+=8; linea(x,yy,x+anchos.reduce((a,b)=>a+b,0)-10,yy,'#243043',1); yy+=18;
+  rows.forEach((r,ri)=>{ r.forEach((c,ci)=>texto(c,x+anchos.slice(0,ci).reduce((a,b)=>a+b,0),yy,
+      (colFn&&colFn(ri,ci))||'#c8d3e2',14,'left','600')); yy+=22; });
+  return yy; }
+
+// ===================== 6. PRIMITIVAS DE GRÁFICA =====================
+function ejes(P,xmin,xmax,ymin,ymax,rotX,rotY,fmtX,fmtY,nx,ny){
+  const NX=nx||6, NY=ny||5;
+  bx.fillStyle='rgba(10,14,20,0.72)';
+  bx.beginPath(); bx.roundRect(P.x-52,P.y-18,P.w+72,P.h+72,10); bx.fill();
+  bx.strokeStyle='rgba(138,180,248,0.10)'; bx.lineWidth=1;
+  for(let i=0;i<=NX;i++){ const x=P.x+P.w*i/NX; bx.beginPath(); bx.moveTo(x,P.y); bx.lineTo(x,P.y+P.h); bx.stroke(); }
+  for(let i=0;i<=NY;i++){ const y=P.y+P.h*i/NY; bx.beginPath(); bx.moveTo(P.x,y); bx.lineTo(P.x+P.w,y); bx.stroke(); }
+  linea(P.x,P.y+P.h,P.x+P.w,P.y+P.h,'#3a465c',1.5);
+  linea(P.x,P.y,P.x,P.y+P.h,'#3a465c',1.5);
+  for(let i=0;i<=NX;i++){ const v=xmin+(xmax-xmin)*i/NX;
+    texto(fmtX?fmtX(v):fN(v,1),P.x+P.w*i/NX,P.y+P.h+20,'#7f8b9c',12,'center','600'); }
+  for(let i=0;i<=NY;i++){ const v=ymin+(ymax-ymin)*(NY-i)/NY;
+    texto(fmtY?fmtY(v):fN(v,1),P.x-8,P.y+P.h*i/NY+4,'#7f8b9c',12,'right','600'); }
+  if(rotX) texto(rotX,P.x+P.w/2,P.y+P.h+44,'#8f9bb0',13,'center','700');
+  if(rotY){ bx.save(); bx.translate(P.x-42,P.y+P.h/2); bx.rotate(-Math.PI/2);
+    texto(rotY,0,0,'#8f9bb0',13,'center','700'); bx.restore(); }
+  return { X:v=>P.x+P.w*(v-xmin)/(xmax-xmin), Y:v=>P.y+P.h-P.h*(v-ymin)/(ymax-ymin) }; }
+function punteo(x,y,col,r){ bx.fillStyle=col||AZUL; bx.beginPath(); bx.arc(x,y,r||5,0,Math.PI*2);
+  bx.fill(); bx.strokeStyle='#080b11'; bx.lineWidth=1.5; bx.stroke(); }
+function anillo(x,y,col,r){ bx.strokeStyle=col||'#eaf1fb'; bx.lineWidth=2.2;
+  bx.beginPath(); bx.arc(x,y,r||9,0,Math.PI*2); bx.stroke(); }
+function banda(A,x1,x2,y1,y2,col){ bx.fillStyle=col;
+  bx.fillRect(A.X(x1),A.Y(y2),A.X(x2)-A.X(x1),A.Y(y1)-A.Y(y2)); }
+function leyenda(x,y,items){ let xx=x;
+  items.forEach(it=>{ linea(xx,y-5,xx+22,y-5,it[1],3,it[2]||[]);
+    texto(it[0],xx+28,y,'#a9b6c8',13,'left','600');
+    xx += 28 + bx.measureText(it[0]).width + 22; }); }
+// Traza de la maniobra remuestreada a la ventana de la gráfica.
+function serie(A,tr,campo,esc){
+  const pts=[]; const k=esc===undefined?1:esc;
+  for(let i=0;i<tr.t.length;i++) pts.push([A.X(tr.t[i]),A.Y(tr[campo][i]*k)]);
+  return pts; }
+
+// ===================== 7. VISTAS DEL PIZARRÓN =====================
+// Media de una señal de la traza dentro de una ventana temporal.
+function mediaVent(tr,campo,w){
+  let s=0,n=0;
+  for(let i=0;i<tr.t.length;i++) if(tr.t[i]>=w[0]&&tr.t[i]<=w[1]){ s+=tr[campo][i]; n++; }
+  return n?s/n:NaN;
+}
+// Velocidad media del pistón dentro de una ventana, en µm/s: sirve para saber si
+// el pistón está de verdad parado o sólo se descuelga despacio.
+function derivaVent(tr,w){
+  let i0=-1,i1=-1;
+  for(let i=0;i<tr.t.length;i++) if(tr.t[i]>=w[0]&&tr.t[i]<=w[1]){ if(i0<0) i0=i; i1=i; }
+  if(i0<0||i1<=i0) return NaN;
+  return (tr.x[i1]-tr.x[i0])/(tr.t[i1]-tr.t[i0])*1e6;
+}
+// Mando que hace falta con el pistón parado: abrir el solape MÁS lo justo para
+// reponer la fuga interna, que con carga no es cero. Las presiones se leen de la
+// traza en la ventana con carga; nada de reglas de tres.
+function mandoReposo(M,tr){
+  const kv=KV(M);
+  const p1=mediaVent(tr,'p1',W_CON), p2=mediaVent(tr,'p2',W_CON);
+  const ue=M.cip*(p1-p2)/(kv*ssqrt(M.ps-p1));
+  return {p1,p2,ue,db:M.db*100,rep:100*ue*(1-M.db),u:100*(M.db+ue*(1-M.db))};
+}
+// Rango vertical de la posición para que quepan consigna, arranque y traza.
+function rangoX(M,R){
+  let lo=Math.min(M.x0,M.xr)*1000, hi=Math.max(M.xr,R.xMax)*1000;
+  for(const v of R.traza.x){ const q=v*1000; if(q<lo) lo=q; if(q>hi) hi=q; }
+  const m=Math.max(3,(hi-lo)*0.14);
+  return [lo-m,hi+m];
+}
+function pliegoFilas(M,R){
+  return [
+    ['sobrepaso',       f2(R.sobre)+' %',      '≤ '+f1(M.maxSobre)+' %',        R.okSobre],
+    ['t. establec.',    fin(R.tEst,3)+' s',    '≤ '+f2(M.maxTest)+' s',         R.okEst],
+    ['error sin carga', f3(R.errSin)+' mm',    '|e| ≤ '+f2(M.maxErrSin)+' mm',  R.okErrSin],
+    ['error con carga', f3(R.errCon)+' mm',    '|e| ≤ '+f2(M.maxErrCon)+' mm',  R.okErrCon],
+    ['ciclo límite',    f3(R.ciclo)+' mm',     '≤ '+f2(M.maxCiclo)+' mm',       R.okCiclo],
+    ['presión de pico', bar(R.pPico)+' bar',   '≤ '+f0(M.pMax/1e5)+' bar',      R.okPres],
+    ['carrera carrete', f2(R.carrera),         '≤ '+f1(M.maxCarrera),           R.okCarrera],
+  ];
+}
+function panelPliego(M,R,alto){
+  rpanel(alto||500);
+  let y=PX.y+30;
+  texto('PLIEGO DE RECEPCIÓN',PX.x+14,y,'#8ab4f8',13,'left','800'); y+=9;
+  linea(PX.x+14,y,PX.x+PX.w-14,y,'#243043',1); y+=25;
+  for(const [k,v,lim,ok] of pliegoFilas(M,R)){
+    marca(PX.x+24,y-5,ok);
+    texto(k,PX.x+40,y,'#8f9bb0',13,'left','600');
+    texto(v,PX.x+PX.w-14,y,colOk(ok),14,'right','700'); y+=17;
+    texto(lim,PX.x+PX.w-14,y,'#6b7788',11,'right','600'); y+=23;
+  }
+  linea(PX.x+14,y-12,PX.x+PX.w-14,y-12,'#243043',1);
+  prow(y+6,'coste a '+ANIOS+' años',f0(R.coste5)+' €',R.valida?TINTA:'#6b7788'); y+=30;
+  texto(R.valida?'SINTONÍA ACEPTADA':'RECHAZADA por '+fallosDe(R).length+' criterio'+(fallosDe(R).length===1?'':'s'),
+    PX.x+PX.w/2,y+2,colOk(R.valida),15,'center','800');
+  return y+2;
+}
+
+// ---------- vista LAZO: la maniobra completa ----------
+function vistaLazo(){
+  const c=cfgDe('lazo'), M=MAQUINAS[c.mk], R=CUR, tr=R.traza;
+  title2('Lazo cerrado de posición · '+M.nom,
+    'kp '+f0(c.kp)+' %/mm · ki '+f0(c.ki)+' %/(mm·s) · kd '+f2(c.kd)+' %·s/mm'
+    +(c.aw?'':'  ·  ANTI-WINDUP DESACTIVADO'));
+  const [lo,hi]=rangoX(M,R);
+  const P={x:112,y:106,w:536,h:232};
+  const A=ejes(P,0,T_FIN,lo,hi,null,'posición (mm)',v=>fN(v,1),v=>fN(v,0),5,5);
+  banda(A,0,T_FIN,(M.xr-BANDA)*1000,(M.xr+BANDA)*1000,'rgba(124,217,146,0.13)');
+  banda(A,W_SIN[0],W_SIN[1],lo,hi,'rgba(138,180,248,0.07)');
+  banda(A,W_CON[0],W_CON[1],lo,hi,'rgba(242,166,90,0.07)');
+  linea(A.X(0),A.Y(M.xr*1000),A.X(T_FIN),A.Y(M.xr*1000),OK_HEX,1.6,[7,5]);
+  linea(A.X(T_CARGA),P.y,A.X(T_CARGA),P.y+P.h,NARANJA,1.6,[4,4]);
+  texto('carga '+f1(M.f1/1000)+' kN',A.X(T_CARGA)+7,P.y+15,NARANJA,12,'left','700');
+  curva(serie(A,tr,'x',1000),AZUL,2.4);
+  if(isFinite(R.tEst)){
+    linea(A.X(R.tEst),P.y,A.X(R.tEst),P.y+P.h,VIO,1.4,[3,4]);
+    texto('t'+'ₑ'+'st '+f3(R.tEst)+' s',A.X(R.tEst)+6,P.y+P.h-10,VIO,12,'left','700');
+  }else texto('nunca entra en la banda de ±1 mm',A.X(0.06),P.y+P.h-10,BAD_HEX,13,'left','800');
+  punteo(A.X(0),A.Y(M.x0*1000),GRIS,4.5);
+  leyenda(112,84,[['posición',AZUL],['consigna '+f0(M.xr*1000)+' mm',OK_HEX,[7,5]],
+                  ['banda ±1 mm','rgba(124,217,146,0.6)']]);
+
+  const P2={x:112,y:452,w:536,h:148};
+  const B=ejes(P2,0,T_FIN,-105,105,'tiempo (s)','mando u (%)',v=>fN(v,1),v=>fN(v,0),5,4);
+  banda(B,0,T_FIN,-M.db*100,M.db*100,'rgba(143,151,165,0.20)');
+  texto('solape del carrete ±'+f1(M.db*100)+' %',B.X(0.06),B.Y(0)+5,GRIS,12,'left','700');
+  linea(B.X(0),B.Y(100),B.X(T_FIN),B.Y(100),BAD_HEX,1.2,[5,4]);
+  linea(B.X(0),B.Y(-100),B.X(T_FIN),B.Y(-100),BAD_HEX,1.2,[5,4]);
+  curva(serie(B,tr,'u',100),VIO,2.0);
+  texto('saturado '+f0(R.satPasos)+' de '+f0(Math.round(T_FIN/TS)+1)+' pasos del regulador',
+    P2.x+P2.w,P2.y-8,R.satPasos>0?WARN_HEX:'#7f8b9c',12,'right','700');
+
+  panelPliego(M,R,486);
+  if(!c.aw){
+    const conAW=simT({mk:c.mk,kp:c.kp,ki:c.ki,kd:c.kd,aw:true});
+    bx.fillStyle='rgba(255,107,107,0.10)'; bx.strokeStyle='rgba(255,107,107,0.45)';
+    bx.lineWidth=1.4; bx.beginPath(); bx.roundRect(PX.x,PX.y+498,PX.w,150,10); bx.fill(); bx.stroke();
+    let y=PX.y+526;
+    texto('SIN ANTI-WINDUP',PX.x+14,y,BAD_HEX,13,'left','800'); y+=24;
+    prow(y,'sobrepaso',f2(conAW.sobre)+' % → '+f2(R.sobre)+' %',BAD_HEX); y+=22;
+    prow(y,'punta',mm(conAW.xMax)+' → '+mm(R.xMax)+' mm',BAD_HEX); y+=22;
+    prow(y,'t. establec.',fin(conAW.tEst,3)+' → '+fin(R.tEst,3)+' s',WARN_HEX); y+=22;
+    prow(y,'pasos saturados',f0(conAW.satPasos)+' → '+f0(R.satPasos)); y+=24;
+    wrapText('La integral sigue acumulando mientras el carrete ya está del todo abierto: '
+      +'cuando el pistón llega, hay que descargar esa cuenta y se pasa de largo.',
+      PX.x+14,y,PX.w-28,16,'#c9a3a3',12);
+  }
+  nota('Ventana azul: régimen permanente sin carga (de '+f2(W_SIN[0])+' a '+f2(W_SIN[1])+' s). '
+    +'Ventana naranja: con carga (de '+f2(W_CON[0])+' a '+f2(W_CON[1])+' s). '
+    +M.proc, 636);
+}
+
+// ---------- vista BANDA: el proporcional puro no puede acertar ----------
+// La ley del proporcional puro NO es sólo el solape. Con el pistón parado el
+// carrete tiene que estar justo donde el caudal que deja pasar iguala a la fuga
+// interna, que no es cero: hay que abrir el solape MÁS un pelín. Por eso se
+// dibujan las dos referencias, y la predicha se calcula con las presiones
+// medidas en la ventana con carga, no con una regla de tres.
+function vistaBanda(){
+  const c=cfgDe('banda'), M=MAQUINAS[c.mk], dbp=M.db*100;
+  title2('Proporcional puro · '+M.nom,
+    'con ki = 0 y kd = 0 el error en régimen permanente es el precio del mando');
+  const R=bandaM(c.mk);
+  const prod=R.map(r=>Math.abs(r.errCon)*r.kp);
+  // Mando que hace falta en reposo: solape + apertura que repone la fuga.
+  const pred=R.map(r=>mandoReposo(M,r.traza).u);
+  const desv=prod.map((p,i)=>p/pred[i]-1);
+  const sigue=desv.filter(d=>Math.abs(d)<=0.10).length;
+  const ymax=Math.max(dbp*1.45,Math.max(...prod)*1.12);
+  const P={x:112,y:118,w:536,h:250};
+  const A=ejes(P,-0.45,KP_G.length-0.55,0,ymax,'kp (%/mm)','|e| · kp  (%)',
+    v=>{ const i=Math.round(v); return (Math.abs(v-i)<0.02&&i>=0&&i<KP_G.length)?f0(KP_G[i]):''; },
+    v=>fN(v,1),KP_G.length-1,5);
+  linea(A.X(-0.45),A.Y(dbp),A.X(KP_G.length-0.55),A.Y(dbp),GRIS,1.6,[7,5]);
+  texto('sólo el solape = '+f1(dbp)+' %',A.X(-0.35),A.Y(dbp)+16,GRIS,12,'left','700');
+  curva(pred.map((p,i)=>[A.X(i),A.Y(p)]),OK_HEX,2,[6,4]);
+  texto('solape + reposición de la fuga',A.X(KP_G.length-0.6),A.Y(pred[pred.length-1])-10,
+    OK_HEX,12,'right','800');
+  curva(prod.map((p,i)=>[A.X(i),A.Y(p)]),AZUL,2.2);
+  prod.forEach((p,i)=>{
+    const fuera=Math.abs(desv[i])>0.10;
+    punteo(A.X(i),A.Y(p),fuera?WARN_HEX:AZUL,5.5);
+    if(fuera) texto(f2(p),A.X(i),A.Y(p)-14,WARN_HEX,12,'center','800');
+  });
+  anillo(A.X(KP_G.indexOf(c.kp)),A.Y(prod[KP_G.indexOf(c.kp)]),'#eaf1fb',10);
+  leyenda(112,96,[['|e| · kp medido',AZUL],['mando en reposo predicho',OK_HEX,[6,4]]]);
+
+  rpanel(430);
+  let y=PX.y+30;
+  texto('LEY DEL PROPORCIONAL',PX.x+14,y,'#8ab4f8',13,'left','800'); y+=9;
+  linea(PX.x+14,y,PX.x+PX.w-14,y,'#243043',1); y+=26;
+  wrapText('Con el pistón parado, el carrete tiene que dejar pasar exactamente la fuga interna: '
+    +'ni una gota más. Ese mando lo tiene que dar el proporcional él solo, u = kp·e, así que '
+    +'e = mando en reposo / kp. Sólo sería cero con kp infinito.',PX.x+14,y,PX.w-28,17,'#8f9bb0',13);
+  y+=88;
+  const i0=KP_G.indexOf(c.kp), rr=R[i0];
+  prow(y,'solape del carrete',f1(dbp)+' %'); y+=23;
+  prow(y,'reposición de la fuga',f3(pred[i0]-dbp)+' %',AMBAR); y+=23;
+  prow(y,'mando en reposo predicho',f3(pred[i0])+' %',OK_HEX); y+=23;
+  prow(y,'|e|·kp medido',f3(prod[i0])+' %',AZUL); y+=23;
+  prow(y,'desviación de la ley',pcm(desv[i0]),Math.abs(desv[i0])<=0.10?OK_HEX:WARN_HEX); y+=23;
+  prow(y,'kp de la rejilla que la cumplen',f0(sigue)+' de '+f0(KP_G.length)); y+=28;
+  linea(PX.x+14,y-12,PX.x+PX.w-14,y-12,'#243043',1);
+  texto('CON kp = '+f0(c.kp),PX.x+14,y+6,'#8ab4f8',13,'left','800'); y+=30;
+  prow(y,'error con carga',f3(rr.errCon)+' mm',colOk(rr.okErrCon)); y+=23;
+  prow(y,'tolerancia',f2(M.maxErrCon)+' mm'); y+=23;
+  prow(y,'ciclo límite',f3(rr.ciclo)+' mm',colOk(rr.okCiclo)); y+=23;
+  prow(y,'veces la tolerancia',f2(Math.abs(rr.errCon)/M.maxErrCon)+'×',
+    Math.abs(rr.errCon)<=M.maxErrCon?OK_HEX:BAD_HEX);
+
+  const P2={x:112,y:470,w:250,h:150};
+  const B=ejes(P2,-100,100,-1.05,1.05,'mando u (%)','apertura relativa',v=>fN(v,0),v=>fN(v,1),4,4);
+  banda(B,-dbp,dbp,-1.05,1.05,'rgba(143,151,165,0.20)');
+  const cp=[];
+  for(let u=-100;u<=100;u+=2) cp.push([B.X(u),B.Y(apertura(u/100,M.db))]);
+  curva(cp,VIO,2.2);
+  texto('el carrete no deja pasar nada dentro del solape',P2.x,P2.y-10,GRIS,12,'left','700');
+  const arriba=desv.filter(d=>d>0.10).length, abajo=desv.filter(d=>d<-0.10).length;
+  let txt='Los seis puntos caen sobre el mando en reposo: la ley se cumple en toda la rejilla, '
+    +'y el hueco con la raya gris es lo que cuesta reponer la fuga.';
+  if(arriba||abajo){
+    txt='Los puntos naranjas se salen de la ley porque ahí el lazo ya no está quieto. ';
+    if(arriba) txt+='Por encima ('+f0(arriba)+') la columna de aceite entra en resonancia: el pistón '
+      +'oscila con un ciclo límite grande y el error medio se dispara. ';
+    if(abajo) txt+='Por debajo ('+f0(abajo)+') pasa lo contrario: un temblor pequeño hace de dither, '
+      +'linealiza el solape y el error medio baja por debajo de la ley.';
+  }
+  nota(txt,652);
+}
+
+// ---------- vista FUGA: por qué el error no cae del mismo lado ----------
+function vistaFuga(){
+  const c=cfgDe('fuga'), M=MAQUINAS[c.mk], R=CUR, tr=R.traza, G=geom(M);
+  title2('Fuga interna y signo del error · '+M.nom,
+    'la misma sintonía deja el vástago pasado sin carga y corto con carga');
+  const P={x:112,y:110,w:536,h:214};
+  let pl=Math.min(...tr.p1,...tr.p2)/1e5, ph=Math.max(...tr.p1,...tr.p2)/1e5;
+  const mg=Math.max(4,(ph-pl)*0.10); pl=Math.max(0,pl-mg); ph=ph+mg;
+  const A=ejes(P,0,T_FIN,pl,ph,null,'presión (bar)',v=>fN(v,1),v=>fN(v,0),5,5);
+  banda(A,W_SIN[0],W_SIN[1],pl,ph,'rgba(138,180,248,0.07)');
+  banda(A,W_CON[0],W_CON[1],pl,ph,'rgba(242,166,90,0.07)');
+  linea(A.X(T_CARGA),P.y,A.X(T_CARGA),P.y+P.h,NARANJA,1.5,[4,4]);
+  curva(serie(A,tr,'p1',1e-5),CIAN,2.2);
+  curva(serie(A,tr,'p2',1e-5),VIO,2.2);
+  linea(A.X(0),A.Y(M.ps/1e5),A.X(T_FIN),A.Y(M.ps/1e5),GRIS,1.2,[6,5]);
+  texto('presión de tarado '+f0(M.ps/1e5)+' bar',A.X(T_FIN),A.Y(M.ps/1e5)-8,GRIS,12,'right','700');
+  leyenda(112,88,[['p₁ fondo (Ø '+f0(M.D*1000)+' mm)',CIAN],['p₂ anular',VIO]]);
+
+  const dpS=mediaVent(tr,'p1',W_SIN)-mediaVent(tr,'p2',W_SIN);
+  const dpC=mediaVent(tr,'p1',W_CON)-mediaVent(tr,'p2',W_CON);
+  const P2={x:112,y:434,w:536,h:170};
+  const dp=tr.p1.map((v,i)=>(v-tr.p2[i])/1e5);
+  let dl=Math.min(...dp), dh=Math.max(...dp);
+  const dm=Math.max(3,(dh-dl)*0.12); dl-=dm; dh+=dm;
+  const B=ejes(P2,0,T_FIN,dl,dh,'tiempo (s)','p₁ − p₂ (bar)',v=>fN(v,1),v=>fN(v,0),5,4);
+  banda(B,W_SIN[0],W_SIN[1],dl,dh,'rgba(138,180,248,0.07)');
+  banda(B,W_CON[0],W_CON[1],dl,dh,'rgba(242,166,90,0.07)');
+  linea(B.X(0),B.Y(0),B.X(T_FIN),B.Y(0),'#6b7788',1.6);
+  curva(dp.map((v,i)=>[B.X(tr.t[i]),B.Y(v)]),AMBAR,2.2);
+  punteo(B.X((W_SIN[0]+W_SIN[1])/2),B.Y(dpS/1e5),AZUL,5.5);
+  punteo(B.X((W_CON[0]+W_CON[1])/2),B.Y(dpC/1e5),NARANJA,5.5);
+  texto((dpS<0?'la fuga ENTRA en el fondo':'la fuga SALE del fondo'),
+    B.X((W_SIN[0]+W_SIN[1])/2),B.Y(dpS/1e5)+(dpS<0?20:-14),AZUL,12,'center','800');
+
+  rpanel(534);
+  let y=PX.y+30;
+  texto('TEOREMA DE LA DERIVA',PX.x+14,y,'#8ab4f8',13,'left','800'); y+=9;
+  linea(PX.x+14,y,PX.x+PX.w-14,y,'#243043',1); y+=25;
+  prow(y,'área fondo A₁',f2(G.A1*1e4)+' cm²'); y+=22;
+  prow(y,'área anular A₂',f2(G.A2*1e4)+' cm²'); y+=22;
+  prow(y,'asimetría φ = A₁/A₂',f3(G.phi)); y+=22;
+  prow(y,'coef. de fuga interna',fN(M.cip*1e13,2)+'e−13 m³/(s·Pa)'); y+=28;
+  linea(PX.x+14,y-12,PX.x+PX.w-14,y-12,'#243043',1);
+  texto('SIN CARGA ('+f1(M.f0/1000)+' kN)',PX.x+14,y+6,AZUL,12,'left','800'); y+=28;
+  prow(y,'p₁ − p₂ medio',bar(dpS)+' bar',dpS<0?BAD_HEX:TINTA); y+=22;
+  prow(y,'fuga interna',fN(M.cip*dpS*6e7,2)+' cm³/min',dpS<0?BAD_HEX:TINTA); y+=22;
+  prow(y,'error medido',f4(R.errSin)+' mm',colOk(R.okErrSin)); y+=28;
+  texto('CON CARGA ('+f1(M.f1/1000)+' kN)',PX.x+14,y,NARANJA,12,'left','800'); y+=28;
+  prow(y,'p₁ − p₂ medio',bar(dpC)+' bar',dpC>0?OK_HEX:TINTA); y+=22;
+  prow(y,'fuga interna',fN(M.cip*dpC*6e7,2)+' cm³/min'); y+=22;
+  prow(y,'error medido',f4(R.errCon)+' mm',colOk(R.okErrCon)); y+=28;
+  linea(PX.x+14,y-12,PX.x+PX.w-14,y-12,'#243043',1);
+  prow(y+6,'|e sin| / |e con|',
+    (Math.abs(R.errCon)>1e-9?f0(Math.abs(R.errSin)/Math.abs(R.errCon))+'×':'—'),AMBAR);
+
+  nota('Sin carga el vástago aguanta con muy poca presión en el fondo, así que p₁ queda POR DEBAJO '
+    +'de p₂ y la fuga interna del pistón se cuela hacia el fondo: el vástago sale solo aunque el '
+    +'carrete esté cerrado. No existe ningún punto de reposo con error cero, y la integral tiene que '
+    +'quedarse abriendo un poco para compensar. Con carga el signo se invierte y el problema '
+    +'desaparece. Por eso el pliego aprieta más la tolerancia CON carga: es la de la pieza.',640);
+}
+
+// ---------- vista CENSO: qué criterio manda ----------
+function vistaCenso(){
+  const c=cfgDe('censo'), M=MAQUINAS[c.mk], C=censoM(c.mk), V=valM(c.mk), R=CUR;
+  title2('Censo de la rejilla · '+M.nom,
+    f0(C.n)+' sintonías probadas ('+f0(KP_G.length)+' kp × '+f0(KI_G.length)+' ki × '+f0(KD_G.length)+' kd) · '
+    +f0(C.validas)+' pasan el pliego entero');
+  const ord=CRIT.slice().sort((a,b)=>C.tot[b]-C.tot[a]);
+  const X0=250, WB=396;
+  let y=124;
+  texto('criterio',44,y-22,'#7f8b9c',13,'left','700');
+  texto('sintonías que lo incumplen (de '+f0(C.n)+')',X0,y-22,'#7f8b9c',13,'left','700');
+  for(const k of ord){
+    texto(CRIT_COR[k],44,y+5,'#c8d3e2',14,'left','600');
+    hbar(X0,y-8,WB,16,C.tot[k]/C.n,'rgba(138,180,248,0.55)');
+    if(C.solo[k]>0) hbar(X0,y-8,WB,16,C.solo[k]/C.n,BAD_HEX,'rgba(0,0,0,0)');
+    texto(f0(C.tot[k]),X0+WB+12,y+5,'#c8d3e2',14,'left','700');
+    if(C.solo[k]>0) texto('· '+f0(C.solo[k])+' en solitario',X0+WB+52,y+5,BAD_HEX,12,'left','700');
+    y+=34;
+  }
+  y+=6;
+  leyenda(44,y,[['lo incumplen (solas o acompañadas)','rgba(138,180,248,0.75)'],
+                ['único criterio que las tumba',BAD_HEX]]);
+  y+=34;
+  linea(44,y,650,y,'#243043',1); y+=30;
+  texto('DE LAS '+f0(C.validas)+' SINTONÍAS VÁLIDAS',44,y,'#8ab4f8',13,'left','800'); y+=26;
+  const fki=frecEje(c.mk,'ki'), fkd=frecEje(c.mk,'kd');
+  texto('llevan ki =',44,y+4,'#8f9bb0',13,'left','600');
+  fki.forEach((o,i)=>{ const x=150+i*128;
+    texto(f0(o.v),x,y+4,o.n?TINTA:'#5b6474',14,'left','700');
+    texto('→ '+f0(o.n),x+34,y+4,o.n?(o.v===0?BAD_HEX:OK_HEX):BAD_HEX,14,'left','700'); });
+  y+=28;
+  texto('llevan kd =',44,y+4,'#8f9bb0',13,'left','600');
+  fkd.forEach((o,i)=>{ const x=150+i*128;
+    texto(f2(o.v),x,y+4,o.n?TINTA:'#5b6474',14,'left','700');
+    texto('→ '+f0(o.n),x+46,y+4,o.n?OK_HEX:'#5b6474',14,'left','700'); });
+
+  rpanel(300);
+  let py=PX.y+30;
+  texto('TU SINTONÍA',PX.x+14,py,'#8ab4f8',13,'left','800'); py+=9;
+  linea(PX.x+14,py,PX.x+PX.w-14,py,'#243043',1); py+=26;
+  prow(py,'kp · ki · kd',f0(c.kp)+' · '+f0(c.ki)+' · '+f2(c.kd)); py+=24;
+  prow(py,'criterios que cumple',f0(7-fallosDe(R).length)+' de 7',colOk(R.valida)); py+=24;
+  if(!R.valida){
+    py+=2;
+    for(const k of fallosDe(R)){ marca(PX.x+24,py-5,false);
+      texto(CRIT_ROT[k],PX.x+40,py,BAD_HEX,13,'left','600'); py+=21; }
+  }else{ prow(py,'coste a '+ANIOS+' años',f0(R.coste5)+' €',OK_HEX); py+=24; }
+  py+=8; linea(PX.x+14,py-12,PX.x+PX.w-14,py-12,'#243043',1);
+  prow(py+4,'válidas de la rejilla',f0(C.validas)+' de '+f0(C.n)); py+=28;
+  prow(py+4,'la mejor cuesta',f0(solM(c.mk).coste5)+' €',AMBAR);
+
+  nota('El criterio de la barra más larga no es el que decide: mira las barras rojas. Un criterio '
+    +'que sólo aparece acompañado no está descartando nada por su cuenta; el que tumba sintonías '
+    +'él solo es el que de verdad manda en esta máquina.',660);
+}
+
+// ---------- vista RETO ----------
+function vistaReto(){
+  const c=cfgDe('reto'), M=MAQUINAS[c.mk], R=CUR, tr=R.traza, sol=RETO.sol;
+  title2('Recepción de la máquina · '+M.nom,
+    'busca la sintonía más barata que pase los siete criterios del pliego');
+  const [lo,hi]=rangoX(M,R);
+  const P={x:112,y:112,w:536,h:212};
+  const A=ejes(P,0,T_FIN,lo,hi,'tiempo (s)','posición (mm)',v=>fN(v,1),v=>fN(v,0),5,4);
+  banda(A,0,T_FIN,(M.xr-BANDA)*1000,(M.xr+BANDA)*1000,'rgba(124,217,146,0.13)');
+  linea(A.X(0),A.Y(M.xr*1000),A.X(T_FIN),A.Y(M.xr*1000),OK_HEX,1.5,[7,5]);
+  linea(A.X(T_CARGA),P.y,A.X(T_CARGA),P.y+P.h,NARANJA,1.5,[4,4]);
+  curva(serie(A,tr,'x',1000),RETO.resuelto?OK_HEX:AZUL,2.4);
+
+  let y=418;
+  texto('PLIEGO',44,y-24,'#7f8b9c',13,'left','700');
+  const fil=pliegoFilas(M,R);
+  fil.forEach((f,i)=>{
+    const cx=44+(i%4)*160, cy=y+Math.floor(i/4)*62;
+    bx.fillStyle=f[3]?'rgba(124,217,146,0.08)':'rgba(255,107,107,0.08)';
+    bx.strokeStyle=f[3]?'rgba(124,217,146,0.35)':'rgba(255,107,107,0.35)';
+    bx.lineWidth=1.2; bx.beginPath(); bx.roundRect(cx,cy,150,52,8); bx.fill(); bx.stroke();
+    marca(cx+16,cy+16,f[3]);
+    texto(f[0],cx+30,cy+20,'#c8d3e2',12,'left','700');
+    texto(f[1],cx+12,cy+40,colOk(f[3]),13,'left','700');
+    texto(f[2],cx+142,cy+40,'#6b7788',11,'right','600');
+  });
+
+  rpanel(RETO.resuelto?400:470);
+  let py=PX.y+30;
+  texto('EXPEDIENTE',PX.x+14,py,'#8ab4f8',13,'left','800'); py+=9;
+  linea(PX.x+14,py,PX.x+PX.w-14,py,'#243043',1); py+=26;
+  prow(py,'máquina',M.icono+' '+M.rot); py+=23;
+  prow(py,'consigna',f0(M.xr*1000)+' mm desde '+f0(M.x0*1000)); py+=23;
+  prow(py,'carga',f1(M.f0/1000)+' → '+f1(M.f1/1000)+' kN'); py+=23;
+  prow(py,'ciclos al año',f0(M.ciclos)); py+=28;
+  linea(PX.x+14,py-12,PX.x+PX.w-14,py-12,'#243043',1);
+  prow(py+4,'tu sintonía',f0(c.kp)+' · '+f0(c.ki)+' · '+f2(c.kd)); py+=27;
+  prow(py+4,'criterios',f0(7-fallosDe(R).length)+' de 7',colOk(R.valida)); py+=27;
+  prow(py+4,'coste a '+ANIOS+' años',R.valida?f0(R.coste5)+' €':'—',R.valida?TINTA:'#6b7788'); py+=27;
+  if(R.valida&&!RETO.resuelto){
+    prow(py+4,'te sobra',f0(R.coste5-sol.coste5)+' €',WARN_HEX); py+=27;
+  }
+  py+=8; linea(PX.x+14,py-12,PX.x+PX.w-14,py-12,'#243043',1); py+=14;
+  if(RETO.resuelto){
+    texto('RECEPCIÓN FIRMADA',PX.x+PX.w/2,py+6,OK_HEX,16,'center','800'); py+=26;
+    wrapText('Sintonía '+f0(sol.kp)+' · '+f0(sol.ki)+' · '+f2(sol.kd)+'. Es la más barata de las '
+      +f0(RETO.nval)+' que pasan el pliego: '+f0(sol.coste5)+' € a '+ANIOS+' años.',
+      PX.x+14,py+8,PX.w-28,17,'#a8c4b0',13);
+  }else{
+    texto('PISTAS',PX.x+14,py+4,'#8ab4f8',13,'left','800'); py+=24;
+    const ps=pisM(c.mk);
+    ['kp','ki','kd'].forEach((eje,i)=>{
+      const p=ps[i], ab=RETO.pistas[eje];
+      texto(eje,PX.x+18,py+6,ab?TINTA:'#5b6474',13,'left','700');
+      texto(ab?('= '+(eje==='kd'?f2(p.v):f0(p.v))):'oculta',PX.x+58,py+6,ab?AMBAR:'#5b6474',14,'left','700');
+      texto(ab?('quedan '+f0(p.n)):'',PX.x+PX.w-14,py+6,'#7f8b9c',12,'right','600');
+      py+=24;
+    });
+    py+=6;
+    wrapText('Cada pista deja fija una constante. Ninguna te da la terna: entre las que quedan hay '
+      +'que elegir por coste.',PX.x+14,py+4,PX.w-28,16,'#8f9bb0',12);
+  }
+  nota(RETO.msg||('De las '+f0(RETO.nval)+' sintonías que pasan el pliego, sólo una es la más '
+    +'barata. Energía, desgaste del carrete y tiempo de máquina no pesan lo mismo: comprueba cuál '
+    +'de los tres decide.'),660);
+}
+
+const VISTAS={lazo:vistaLazo, banda:vistaBanda, fuga:vistaFuga, censo:vistaCenso, reto:vistaReto};
+function pintaBoard(){
+  bg();
+  try{ VISTAS[mode](); }
+  catch(err){ texto('error de pintado',44,52,BAD_HEX,20,'left','800');
+    wrapText(String(err&&err.message||err),44,86,600,18,'#8f9bb0',13); }
+  btex.needsUpdate=true;
+}
+
+// ===================== 8. MÁQUINA EN 3D =====================
+const G3=new THREE.Group(); G3.position.set(0.55,0,0.75); scene.add(G3);
+const V3=(x,y,z)=>new THREE.Vector3(x,y,z);
+function tubo(a,b,r,mat){
+  const d=b.clone().sub(a), L=d.length();
+  const m=new THREE.Mesh(new THREE.CylinderGeometry(r,r,L,16),mat);
+  m.position.copy(a).add(b).multiplyScalar(0.5);
+  m.quaternion.setFromUnitVectors(V3(0,1,0),d.clone().normalize());
+  return m;
+}
+function cilUnit(mat){ const m=new THREE.Mesh(new THREE.CylinderGeometry(1,1,1,26),mat);
+  m.rotation.z=Math.PI/2; return m; }   // eje a lo largo de X tras la rotación
+function marcaKey(o,k){ o.traverse(n=>{ n.userData.key=k; }); o.userData.key=k; return o; }
+
+// --- bancada ---
+(function(){
+  const b=roundedBox(8.6,0.16,1.80,MAT.bancada,0.05); b.position.set(0.55,0.08,0); G3.add(b);
+  for(const x of [-3.2,-0.6,2.0,4.4]){
+    const p=new THREE.Mesh(new THREE.BoxGeometry(0.22,0.30,0.22),MAT.aceroC);
+    p.position.set(x,-0.15,0.60); G3.add(p);
+    const q=p.clone(); q.position.z=-0.60; G3.add(q);
+  }
+})();
+
+// --- grupo hidráulico: depósito, motor y bomba ---
+const GRUPO=new THREE.Group(); GRUPO.position.set(-3.10,0,0.30); G3.add(GRUPO);
+(function(){
+  const dep=new THREE.Mesh(new THREE.BoxGeometry(1.50,0.70,1.05),MAT.tanque);
+  dep.position.set(0,0.51,0); GRUPO.add(dep);
+  const ace=new THREE.Mesh(new THREE.BoxGeometry(1.42,0.42,0.98),
+    new THREE.MeshStandardMaterial({color:'#3a2f18',roughness:0.35,metalness:0.10,transparent:true,opacity:0.85}));
+  ace.position.set(0,0.40,0); GRUPO.add(ace);
+  const mot=cilUnit(MAT.motor.clone()); mot.scale.set(0.24,0.66,0.24);
+  mot.position.set(-0.28,1.10,0); GRUPO.add(mot);
+  const bom=cilUnit(MAT.acero.clone()); bom.scale.set(0.18,0.34,0.18);
+  bom.position.set(0.24,1.10,0); GRUPO.add(bom);
+  const bri=cilUnit(MAT.aceroC.clone()); bri.scale.set(0.26,0.06,0.26);
+  bri.position.set(0.06,1.10,0); GRUPO.add(bri);
+  const cap=roundedBox(0.36,0.26,0.36,MAT.negro,0.05); cap.position.set(-0.66,1.10,0); GRUPO.add(cap);
+  marcaKey(GRUPO,'grupo');
+})();
+
+// --- válvula proporcional 4/3 ---
+const VALV=new THREE.Group(); VALV.position.set(-1.55,1.20,0); G3.add(VALV);
+const spool=cilUnit(MAT.acero.clone());
+const solA=cilUnit(MAT.motor.clone()), solB=cilUnit(MAT.motor.clone());
+(function(){
+  const cue=roundedBox(1.12,0.52,0.64,MAT.cuerpo,0.06); VALV.add(cue);
+  const ven=new THREE.Mesh(new THREE.BoxGeometry(1.00,0.20,0.02),MAT.cristal);
+  ven.position.set(0,0,0.33); VALV.add(ven);
+  spool.scale.set(0.075,1.28,0.075); spool.position.set(0,0,0.22); VALV.add(spool);
+  for(const s of [-1,1]){
+    const anillo=cilUnit(MAT.oro.clone()); anillo.scale.set(0.105,0.09,0.105);
+    anillo.position.set(s*0.30,0,0.22); spool.userData['a'+s]=anillo; VALV.add(anillo);
+  }
+  solA.scale.set(0.13,0.30,0.13); solA.position.set(-0.71,0,0); VALV.add(solA);
+  solB.scale.set(0.13,0.30,0.13); solB.position.set( 0.71,0,0); VALV.add(solB);
+  for(const s of [-1,1]){
+    const t=roundedBox(0.10,0.22,0.22,MAT.negro,0.03); t.position.set(s*0.92,0,0); VALV.add(t);
+  }
+  const pl=roundedBox(1.20,0.10,0.70,MAT.aceroC,0.03); pl.position.set(0,-0.31,0); VALV.add(pl);
+  marcaKey(VALV,'valvula');
+})();
+
+// --- cilindro: camisa, pistón, cámaras y vástago ---
+const CIL=new THREE.Group(); CIL.position.set(0,0.98,0); G3.add(CIL);
+const camisa=cilUnit(MAT.camisa), pist=cilUnit(MAT.aceroC.clone()),
+      vast=cilUnit(MAT.vastago), tapaA=cilUnit(MAT.acero.clone()), tapaB=cilUnit(MAT.acero.clone());
+const cam1=cilUnit(new THREE.MeshStandardMaterial({color:CIAN,transparent:true,opacity:0.30,emissive:CIAN,emissiveIntensity:0.35,roughness:0.4}));
+const cam2=cilUnit(new THREE.MeshStandardMaterial({color:VIO,transparent:true,opacity:0.30,emissive:VIO,emissiveIntensity:0.35,roughness:0.4}));
+const CX0=-0.35, CX1=2.65;   // extremos interiores de la camisa (unidades de escena)
+(function(){
+  camisa.position.set((CX0+CX1)/2,0,0); CIL.add(camisa);
+  cam1.position.set(0,0,0); CIL.add(cam1);
+  cam2.position.set(0,0,0); CIL.add(cam2);
+  pist.position.set(0,0,0); CIL.add(pist);
+  vast.position.set(0,0,0); CIL.add(vast);
+  tapaA.position.set(CX0-0.06,0,0); CIL.add(tapaA);
+  tapaB.position.set(CX1+0.06,0,0); CIL.add(tapaB);
+  for(const s of [-1,1]){
+    const t=new THREE.Mesh(new THREE.BoxGeometry(0.12,0.16,0.16),MAT.aceroC);
+    t.position.set(s<0?CX0-0.16:CX1+0.16,0,0); CIL.add(t);
+  }
+  marcaKey(CIL,'cilindro');
+})();
+
+// --- carga en el extremo del vástago ---
+const CARGA=new THREE.Group(); CARGA.position.set(0,0.98,0); G3.add(CARGA);
+const bloque=roundedBox(0.62,1.10,1.10,MAT.cuerpo,0.06);
+const flecha=new THREE.Group();
+const fCuerpo=cilUnit(MAT.rojo.clone()), fPunta=new THREE.Mesh(new THREE.ConeGeometry(0.13,0.28,18),MAT.rojo.clone());
+(function(){
+  CARGA.add(bloque);
+  fCuerpo.scale.set(0.045,1,0.045); flecha.add(fCuerpo);
+  fPunta.rotation.z=Math.PI/2; flecha.add(fPunta);
+  flecha.position.set(0,0.62,0); CARGA.add(flecha);
+  marcaKey(CARGA,'carga');
+})();
+
+// --- regla de medida y consigna ---
+const SENS=new THREE.Group(); SENS.position.set(0,1.66,0); G3.add(SENS);
+const cursor=roundedBox(0.07,0.20,0.24,MAT.azul,0.02);
+const diana=roundedBox(0.04,0.26,0.30,MAT.verde,0.01);
+(function(){
+  const g=new THREE.Mesh(new THREE.BoxGeometry(CX1-CX0+0.30,0.06,0.14),MAT.aceroC);
+  g.position.set((CX0+CX1)/2,0,0); SENS.add(g);
+  for(let i=0;i<=10;i++){
+    const t=new THREE.Mesh(new THREE.BoxGeometry(0.02,0.10,0.02),MAT.acero);
+    t.position.set(CX0+(CX1-CX0)*i/10,0.07,0.06); SENS.add(t);
+  }
+  SENS.add(cursor); SENS.add(diana);
+  const cab=roundedBox(0.26,0.20,0.20,MAT.negro,0.03); cab.position.set(CX0-0.28,0,0); SENS.add(cab);
+  marcaKey(SENS,'sensor');
+})();
+
+// --- cuadro de recepción: siete pilotos, uno por criterio ---
+const CUADRO=new THREE.Group(); CUADRO.position.set(-2.60,1.08,-0.78); G3.add(CUADRO);
+const pilotos=[];
+(function(){
+  const p=roundedBox(0.74,1.58,0.16,std('#1b2230',0.72,0.18),0.04); CUADRO.add(p);
+  const t=roundedBox(0.66,0.12,0.02,MAT.negro,0.01); t.position.set(0,0.86,0.09); CUADRO.add(t);
+  CRIT.forEach((c,i)=>{
+    const led=new THREE.Mesh(new THREE.SphereGeometry(0.055,18,14),MAT.verde.clone());
+    led.position.set(-0.20,0.62-i*0.20,0.09); CUADRO.add(led);
+    const rr=new THREE.Mesh(new THREE.TorusGeometry(0.075,0.014,10,20),MAT.aceroC);
+    rr.position.copy(led.position); rr.position.z-=0.01; CUADRO.add(rr);
+    const b=new THREE.Mesh(new THREE.BoxGeometry(0.30,0.05,0.02),std('#39424f',0.8,0.1));
+    b.position.set(0.16,0.62-i*0.20,0.09); CUADRO.add(b);
+    pilotos.push(led);
+  });
+  const pa=new THREE.Mesh(new THREE.CylinderGeometry(0.05,0.06,0.30,12),MAT.acero);
+  pa.position.set(0,-0.94,0); CUADRO.add(pa);
+  marcaKey(CUADRO,'cuadro');
+})();
+
+// --- manómetros de las dos cámaras ---
+function manometro(x){
+  const g=new THREE.Group(); g.position.set(x,1.98,0.16); G3.add(g);
+  const caja=new THREE.Mesh(new THREE.CylinderGeometry(0.16,0.16,0.06,24),MAT.acero);
+  caja.rotation.x=Math.PI/2; g.add(caja);
+  const esf=new THREE.Mesh(new THREE.CircleGeometry(0.135,24),
+    new THREE.MeshBasicMaterial({color:'#0d1220'}));
+  esf.position.z=0.032; g.add(esf);
+  for(let i=0;i<=10;i++){
+    const a=-Math.PI*0.75+1.5*Math.PI*i/10;
+    const t=new THREE.Mesh(new THREE.BoxGeometry(0.018,0.03,0.005),
+      new THREE.MeshBasicMaterial({color:'#6b7788'}));
+    t.position.set(0.108*Math.sin(a),0.108*Math.cos(a),0.035); t.rotation.z=-a; g.add(t);
+  }
+  const ag=new THREE.Mesh(new THREE.BoxGeometry(0.014,0.115,0.006),
+    new THREE.MeshBasicMaterial({color:BAD_HEX}));
+  ag.position.set(0,0.0,0.038); g.add(ag);
+  const piv=new THREE.Group(); piv.position.set(0,0,0); g.add(piv);
+  ag.position.y=0.057; piv.add(ag);
+  const cen=new THREE.Mesh(new THREE.CircleGeometry(0.022,16),
+    new THREE.MeshBasicMaterial({color:'#c8d3e2'}));
+  cen.position.z=0.042; g.add(cen);
+  return {g,piv};
+}
+const MAN1=manometro(CX0-0.10), MAN2=manometro(CX1+0.10);
+
+// --- tuberías ---
+const TUB=new THREE.Group(); G3.add(TUB);
+function rehazTubos(rC){
+  while(TUB.children.length){ const c=TUB.children.pop(); c.geometry.dispose(); }
+  const yC=0.98;
+  const add=(a,b,r,m)=>{ const t=tubo(a,b,r||0.055,m||MAT.tubo); TUB.add(t); };
+  // presión: grupo → válvula
+  add(V3(-2.86,1.10,0.30),V3(-2.20,1.10,0.30),0.05);
+  add(V3(-2.20,1.10,0.30),V3(-2.20,1.52,0.30),0.05);
+  add(V3(-2.20,1.52,0.30),V3(-1.55,1.52,0.30),0.05);
+  add(V3(-1.55,1.52,0.30),V3(-1.55,1.46,0.00),0.05);
+  // retorno: válvula → depósito
+  add(V3(-1.55,0.86,0.00),V3(-1.90,0.72,0.20),0.05,MAT.aceroC);
+  add(V3(-1.90,0.72,0.20),V3(-3.10,0.72,0.30),0.05,MAT.aceroC);
+  // vía A → cámara del fondo
+  add(V3(-1.30,1.20,0.30),V3(-0.80,1.20,0.30),0.045,MAT.tubo);
+  add(V3(-0.80,1.20,0.30),V3(-0.80,yC,0.30),0.045,MAT.tubo);
+  add(V3(-0.80,yC,0.30),V3(CX0-0.10,yC,0.20),0.045,MAT.tubo);
+  add(V3(CX0-0.10,yC,0.20),V3(CX0-0.10,1.86,0.16),0.030,MAT.aceroC);
+  // vía B → cámara anular (por encima de la camisa)
+  add(V3(-1.30,1.20,-0.30),V3(-0.55,1.20,-0.30),0.045,MAT.tubo);
+  add(V3(-0.55,1.20,-0.30),V3(-0.55,2.28,-0.30),0.045,MAT.tubo);
+  add(V3(-0.55,2.28,-0.30),V3(CX1+0.10,2.28,-0.30),0.045,MAT.tubo);
+  add(V3(CX1+0.10,2.28,-0.30),V3(CX1+0.10,yC,0.00),0.045,MAT.tubo);
+  add(V3(CX1+0.10,yC,0.00),V3(CX1+0.10,1.86,0.16),0.030,MAT.aceroC);
+}
+
+// ===================== 9. LA MÁQUINA SIGUE A LA TRAZA =====================
+// Contrato de fidelidad: los diámetros se escalan entre máquinas (la relación
+// vástago/pistón sí es la real, porque es φ), pero la carrera dibujada es
+// siempre la misma longitud de escena. Lo que se lee en el pizarrón son
+// milímetros de verdad; lo que se ve en la escena es la fracción de carrera.
+const PX0=CX0+0.14, PX1=CX1-0.14, RODL=3.35;
+let GEO={rInt:0.28,rV:0.16};
+function aplicaMaquina(){
+  const M=maqAct(), G=geom(M);
+  const rInt=0.20+0.14*(M.D-0.050)/0.050, rCam=rInt+0.045, rV=rInt*(M.d/M.D);
+  GEO={rInt,rV};
+  camisa.scale.set(rCam,CX1-CX0,rCam);
+  tapaA.scale.set(rCam+0.03,0.12,rCam+0.03);
+  tapaB.scale.set(rCam+0.03,0.12,rCam+0.03);
+  pist.scale.set(rInt-0.012,0.20,rInt-0.012);
+  vast.scale.set(rV,RODL,rV);
+  cam1.scale.set(rInt-0.02,1,rInt-0.02);
+  cam2.scale.set(rInt-0.02,1,rInt-0.02);
+  bloque.scale.set(1,0.75+0.55*(M.m/1800),0.75+0.55*(M.m/1800));
+  const sr=clamp(M.xr/M.L,0,1);
+  diana.position.x=PX0+(PX1-PX0)*sr;
+  rehazTubos(rInt);
+  el('geoTxt').textContent='Ø'+f0(M.D*1000)+'/'+f0(M.d*1000)+' mm · carrera '+f0(M.L*1000)
+    +' mm · A₁ '+f2(G.A1*1e4)+' cm² · φ '+f3(G.phi);
+}
+
+const LERP=(a,b,t)=>a+(b-a)*clamp(t,0,1);
+function tinta(mat,p,pmax){
+  const q=clamp(p/pmax,0,1);
+  mat.color.setHSL(LERP(0.55,0.02,q),0.85,LERP(0.42,0.55,q));
+  mat.emissive.copy(mat.color); mat.emissiveIntensity=0.22+0.55*q;
+  mat.opacity=0.18+0.30*q;
+}
+let FR=0;   // índice del fotograma dibujado, para la telemetría
+function pinta3D(){
+  const R=CUR; if(!R||!R.traza) return;
+  const M=maqAct(), tr=R.traza, n=tr.t.length;
+  const per=T_FIN+0.8, tt=(animT*0.6)%per;
+  FR=clamp(Math.floor(tt/T_FIN*(n-1)),0,n-1);
+  const t=tr.t[FR], x=tr.x[FR], u=tr.u[FR], p1=tr.p1[FR], p2=tr.p2[FR];
+  const s=clamp(x/M.L,0,1), px=PX0+(PX1-PX0)*s;
+
+  pist.position.x=px;
+  vast.position.x=px+RODL/2;
+  const l1=Math.max(0.02,px-0.10-CX0), l2=Math.max(0.02,CX1-(px+0.10));
+  cam1.scale.y=l1; cam1.position.x=CX0+l1/2;
+  cam2.scale.y=l2; cam2.position.x=CX1-l2/2;
+  tinta(cam1.material,p1,M.ps); tinta(cam2.material,p2,M.ps);
+
+  const tip=px+RODL;
+  CARGA.position.x=tip+0.33;
+  const F=t<T_CARGA?M.f0:M.f1, Lf=0.30+1.05*(F/Math.max(M.f0,M.f1));
+  fCuerpo.scale.y=Lf; fCuerpo.position.x=-(0.34+Lf/2);
+  fPunta.position.x=-(0.34+Lf);
+  const cF=(t<T_CARGA)?AZUL:BAD_HEX;
+  fCuerpo.material.color.set(cF); fCuerpo.material.emissive.set(cF);
+  fPunta.material.color.set(cF); fPunta.material.emissive.set(cF);
+
+  const du=clamp(u,-1,1);          // la traza guarda el mando en fracción (±1 = ±100 %)
+  spool.position.x=du*0.17;
+  spool.userData['a-1'].position.x=-0.30+du*0.17;
+  spool.userData['a1'].position.x= 0.30+du*0.17;
+  solB.material.emissiveIntensity=0.10+1.30*Math.max(0,du);
+  solA.material.emissiveIntensity=0.10+1.30*Math.max(0,-du);
+
+  const ang=p=>-Math.PI*0.75+1.5*Math.PI*clamp(p/(M.ps*1.15),0,1);
+  MAN1.piv.rotation.z=-ang(p1); MAN2.piv.rotation.z=-ang(p2);
+
+  cursor.position.x=px;
+  const dentro=Math.abs(M.xr-x)<=BANDA;
+  cursor.material.color.set(dentro?OK_HEX:AZUL);
+  cursor.material.emissive.set(dentro?OK_HEX:AZUL);
+
+  pilotos.forEach((led,i)=>{
+    const ok=R[CRIT[i]];
+    led.material.color.set(ok?OK_HEX:BAD_HEX);
+    led.material.emissive.set(ok?OK_HEX:BAD_HEX);
+    led.material.emissiveIntensity=ok?0.85:(0.45+0.45*Math.sin(animT*5+i));
+  });
+}
+
+// ===================== 10. HUD Y PANEL =====================
+const NCOMB=MAQ_KEYS.length*KP_G.length*KI_G.length*KD_G.length;
+el('hud').innerHTML=`
+  <div class="eyebrow">Hidráulica y Neumática · Mecánica</div>
+  <h2>Sintoniza el lazo cerrado de posición de un actuador hidráulico</h2>
+  <p>Un cilindro hidráulico en lazo abierto no sabe dónde está: se le manda caudal y llega donde llega. En lazo cerrado hay una regla que mide la posición real, una válvula proporcional que dosifica el caudal y un regulador que decide cuánto abrir a partir del error. Aquí vas a mover las tres ganancias de ese regulador —<b>kp</b>, <b>ki</b> y <b>kd</b>— sobre cinco máquinas reales y vas a ver que el ajuste no se elige "a ojo": se elige contra un <b>pliego de siete criterios</b> que hay que cumplir a la vez, y entre los que lo cumplen gana el que sale más barato de poseer a ${f0(ANIOS)} años.</p>
+  <div class="formula">Q = K_V·u·√Δp · K_V = q_n/√${f0(DP_N/1e5)} bar · dp/dt = (β/V)·(q ∓ A·v ∓ q_L) · q_L = c_ip·(p₁−p₂) · u = kp·e + ki·∫e·dt − kd·dx/dt · ω_h = √(k/m) · k = β·(A₁²/V₁ + A₂²/V₂)</div>
+  <div class="legend">
+    <div class="li"><span class="dot" style="background:${AZUL}"></span>Posición medida por la regla: el cursor azul es lo que ve el regulador</div>
+    <div class="li"><span class="dot" style="background:${OK_HEX}"></span>Consigna y banda de ±${f0(BANDA*1000)} mm: dentro de ella se considera "en posición"</div>
+    <div class="li"><span class="dot" style="background:${CIAN}"></span>Cámara del fondo (p₁, área A₁) — empuja el vástago hacia fuera</div>
+    <div class="li"><span class="dot" style="background:${VIO}"></span>Cámara anular (p₂, área A₂) — más pequeña por el vástago, por eso φ &gt; 1</div>
+    <div class="li"><span class="dot" style="background:${BAD_HEX}"></span>Piloto rojo del cuadro: criterio del pliego incumplido · flecha roja: la carga ya está</div>
+  </div>
+  <div class="fid">
+    <div class="ft">🔒 Contrato de fidelidad</div>
+    <div class="fl"><b>Sí modela:</b> la válvula proporcional 4/3 de centro cerrado como <b>dos orificios en serie</b> con la raíz de la caída, <b>K_V = q_n/√${f0(DP_N/1e5)} bar</b> por vía según ISO 10770-1, con <b>banda muerta</b> del carrete renormalizada —por debajo de ella no pasa aceite, y esa banda es la que fija el error del proporcional puro—; las <b>dos cámaras comprimibles</b> con su módulo de compresibilidad β y su volumen muerto, resueltas con paso semiimplícito; la <b>fuga interna</b> pistón-camisa proporcional a p₁−p₂; la mecánica con masa, viscoso y <b>fricción de Coulomb regularizada</b> (tanh); el regulador digital <b>PI-D</b> real —derivada sobre la medida, no sobre el error— a ${f0(TS*1000)} ms de periodo, con antisaturación por integración condicional y filtro de ${f0(TF_D*1000)} ms en la derivada; el salto de consigna a t = 0 y la <b>entrada de carga</b> a t = ${f1(T_CARGA)} s; y el coste de propiedad a ${f0(ANIOS)} años (energía a ${f2(EUR_KWH)} €/kWh con rendimiento de grupo ${f2(ETA_GRUPO)}, desgaste del carrete y <b>tiempo de máquina</b>) de las ${f0(NCOMB)} sintonías del catálogo: ${f0(KP_G.length)} kp × ${f0(KI_G.length)} ki × ${f0(KD_G.length)} kd en las ${f0(MAQ_KEYS.length)} máquinas.</div>
+    <div class="fl no"><b>NO modela:</b> la dinámica del carrete. La válvula se supone infinitamente rápida: la corriente que pide el regulador es la apertura que se obtiene, sin retardo ni histéresis magnética, y sin más no linealidad que la banda muerta y la raíz. La presión de tarado es constante —hay bomba de sobra y el acumulador no se agota—, la temperatura del aceite no cambia (β y la viscosidad son constantes), y no hay aire disuelto: la única elasticidad es la del aceite. La regla es perfecta: no tiene ruido, ni cuantificación, ni retardo de medida, así que la derivada no amplifica ruido que no existe. La carga es una fuerza declarada, no un proceso: no hay choque, ni pieza que se rompa, ni realimentación de la máquina sobre el cilindro. <b>Y en la escena, el diámetro de cada cilindro se escala pero la carrera dibujada mide siempre lo mismo:</b> los milímetros de verdad son los del pizarrón, no los de la pantalla.</div>
+  </div>
+  <div class="src">Ref: ISO 10770-1 (válvulas proporcionales, caudal nominal a ${f0(DP_N/1e5)} bar por vía) · ISO 4413 · Merritt, <i>Hydraulic Control Systems</i> (1967) · Åström &amp; Hägglund, <i>PID Controllers</i> (1995) · UNE-EN ISO 4126</div>`;
+
+el('panel').innerHTML=`
+  <h4>Servoposicionamiento hidráulico · <span id="p_mode" style="color:var(--accent2)">El lazo</span></h4>
+  <div class="modebar">
+    <button class="b on" id="m_lazo">1 · Lazo</button>
+    <button class="b" id="m_banda">2 · Proporcional</button>
+    <button class="b" id="m_fuga">3 · Fuga</button>
+    <button class="b" id="m_censo">4 · Censo</button>
+    <button class="b" id="m_reto">5 · Reto</button>
+  </div>
+  <div id="scenarioInfo" style="display:none;margin:8px 0;padding:8px 10px;border:1px solid var(--line);border-radius:8px;font-size:12.5px;line-height:1.45"></div>
+  <div class="modebar" id="selbar" style="display:none;flex-wrap:wrap"></div>
+  <div style="margin:8px 0;padding:8px 10px;border:1px solid var(--line);border-radius:8px">
+    <div style="font-size:12px;color:var(--muted)" id="hwrot">Prensa de embutición</div>
+    <div style="font-size:13px;font-weight:600" id="hwsub">kp 2 · ki 0 · kd 0</div>
+    <div style="font-size:11.5px;color:var(--muted);margin-top:3px" id="geoTxt">—</div>
+  </div>
+  <div id="tele"></div>
+  <div class="console" id="report"></div>
+  <h4 class="sec" id="retoTitle" style="display:none">Reto</h4>
+  <div id="retoBox" style="display:none">
+    <div id="retoSpec" style="font-size:12.5px;line-height:1.5;margin-bottom:8px"></div>
+    <button class="b primary" id="btnCheck">✅ Comprobar</button>
+  </div>
+  <h4 class="sec">Pregunta de ingeniería</h4>
+  <div id="q_text" style="font-size:13px;line-height:1.5;margin-bottom:8px"></div>
+  <div class="btns" id="dxbtns"></div>
+  <button class="b auto" id="btnAuto">✨ Recorrido guiado (automático)</button>
+  <button class="b primary" id="btnNew">🔀 Nuevo escenario</button>`;
+
+// ===================== 11. TOAST =====================
+function showToast(html){
+  const t=el('toast');t.innerHTML=html;t.classList.add('show');
+  clearTimeout(showToast._t);showToast._t=setTimeout(()=>t.classList.remove('show'),4600);
+}
+
+// ===================== 12. MODOS Y CONTROLES =====================
+const MODE_META={
+  lazo:{nombre:'El lazo',cam:[[7.4,4.8,11.0],[1.20,1.20,0.10]],
+    mision:'Salto de consigna, y a los '+f1(T_CARGA)+' s entra la carga. Mira la posición contra la banda de ±'+f0(BANDA*1000)+' mm y, debajo, el mando de la válvula: cuando se pega al ±100 % la válvula ya no puede dar más, y ahí es donde el integrador se carga de error si nadie lo frena.'},
+  banda:{nombre:'El proporcional puro',cam:[[5.2,3.6,8.4],[-0.50,1.35,0.10]],
+    mision:'Sin integral, un lazo de posición hidráulico NO llega a la consigna: se para donde el proporcional da él solo el mando que hace falta para dejar el pistón quieto — cruzar el solape del carrete y, encima, reponer la fuga interna. Eso hace que el error por el kp sea casi constante, y las excepciones a esa ley se ven a simple vista.'},
+  fuga:{nombre:'La fuga interna',cam:[[4.8,2.8,7.8],[1.20,1.05,0.10]],
+    mision:'El pistón no cierra: por el juego pistón-camisa pasa un caudal proporcional a p₁−p₂. Compara el signo de esa diferencia sin carga y con carga, y entenderás por qué la tolerancia apretada del pliego es la de la pieza, no la del vacío.'},
+  censo:{nombre:'El censo del pliego',cam:[[2.4,3.0,7.6],[-1.50,1.20,0.05]],
+    mision:'Las '+f0(NCOMB/MAQ_KEYS.length)+' sintonías de esta máquina pasadas por los siete criterios. La barra larga dice qué criterio falla más; la roja, cuántas veces ese criterio es el ÚNICO que falla. Manda la roja: ahí está el cuello de botella real.'},
+  reto:{nombre:'Reto',cam:[[7.8,5.2,11.6],[1.20,1.30,0.00]],
+    mision:'Elige kp, ki y kd. Gana la sintonía válida —los siete criterios a la vez— más barata de POSEER a '+f0(ANIOS)+' años, contando energía, desgaste del carrete y tiempo de máquina.'},
+};
+const lbl=t=>`<span style="align-self:center;color:var(--muted);font-size:12px;margin:0 4px 0 2px">${t}</span>`;
+function optBtns(key,opts,cur){
+  return opts.map(o=>{
+    const v=Array.isArray(o)?o[0]:o, t=Array.isArray(o)?o[1]:o;
+    return `<button class="b sm ${String(cur)===String(v)?'on':''}" data-${key}="${v}">${t}</button>`;
+  }).join('');
+}
+const beep=()=>synth.beep(680,0.05,0.04);
+const OPT_MAQ=MAQ_KEYS.map(k=>[k,MAQUINAS[k].icono+' '+MAQUINAS[k].rot]);
+const OPT_KP=KP_G.map(v=>[v,f0(v)]);
+const OPT_KI=KI_G.map(v=>[v,f0(v)]);
+const OPT_KD=KD_G.map(v=>[v,f2(v)]);
+
+function buildControls(){
+  const bar=el('selbar'); let h='';
+  if(mode!=='reto'){
+    h+=lbl('Máquina')+optBtns('mq',OPT_MAQ,ST.mk);
+    h+=lbl('kp · % de mando por mm de error')+optBtns('kp',OPT_KP,ST.kp);
+    if(mode!=='banda'){
+      h+=lbl('ki · % por mm·s')+optBtns('ki',OPT_KI,ST.ki);
+      h+=lbl('kd · %·s por mm')+optBtns('kd',OPT_KD,ST.kd);
+    }
+    if(mode==='lazo'){
+      h+=lbl('Antisaturación del integrador')+
+        `<button class="b sm ${ST.aw?'on':''}" id="btnAW">${ST.aw?'✔ activa':'desactivada'}</button>`;
+    }
+  }else{
+    h+=lbl('kp')+optBtns('xp',OPT_KP,RETO.ejes.kp);
+    h+=lbl('ki')+optBtns('xi',OPT_KI,RETO.ejes.ki);
+    h+=lbl('kd')+optBtns('xd',OPT_KD,RETO.ejes.kd);
+    h+='<button class="b sm" id="btnPista">💡 Pista</button>';
+  }
+  bar.innerHTML=h;bar.style.display='flex';
+  const wire=(attr,fn)=>bar.querySelectorAll('['+attr+']').forEach(b=>{
+    b.onclick=()=>{if(autoRunning)return;fn(b.getAttribute(attr));beep();afterEdit();};
+  });
+  wire('data-mq',v=>{ST.mk=v;aplicaMaquina();});
+  wire('data-kp',v=>{ST.kp=Number(v);});
+  wire('data-ki',v=>{ST.ki=Number(v);});
+  wire('data-kd',v=>{ST.kd=Number(v);});
+  wire('data-xp',v=>{RETO.ejes.kp=Number(v);RETO.msg='';RETO.resuelto=false;});
+  wire('data-xi',v=>{RETO.ejes.ki=Number(v);RETO.msg='';RETO.resuelto=false;});
+  wire('data-xd',v=>{RETO.ejes.kd=Number(v);RETO.msg='';RETO.resuelto=false;});
+  const ba=el('btnAW'), bp=el('btnPista');
+  if(ba) ba.onclick=()=>{if(autoRunning)return;ST.aw=!ST.aw;beep();afterEdit();};
+  if(bp) bp.onclick=()=>{if(autoRunning)return;pista();};
+}
+// Una pista destapa UN eje del óptimo, en orden kp → ki → kd, y dice cuántas
+// sintonías válidas siguen compatibles con lo destapado. Ninguna cierra el trío:
+// el embudo termina en 1 sólo cuando ya has visto los tres.
+const EJE_ROT={kp:'ganancia proporcional kp',ki:'ganancia integral ki',kd:'ganancia derivativa kd'};
+function pista(){
+  const eje=['kp','ki','kd'].find(e=>!RETO.pistas[e]);
+  if(!eje){showToast('💡 Ya has destapado los tres ejes: la sintonía está sobre la mesa, sólo falta marcarla.');return;}
+  RETO.pistas[eje]=true;beep();
+  const P=pisM(RETO.cfg.mk).find(p=>p.eje===eje);
+  const val=eje==='kd'?f2(P.v):f0(P.v);
+  showToast('💡 <b>'+EJE_ROT[eje]+' = '+val+'.</b> Con eso quedan '+f0(P.n)+' de las '+
+    f0(RETO.nval)+' sintonías válidas de esta máquina.');
+  afterEdit();
+}
+function retoSolveBuild(){
+  const mk=RETO.cfg.mk;
+  RETO.sol=solM(mk); RETO.nval=valM(mk).length;
+  RETO.ejes={kp:KP_G[0],ki:0,kd:0};
+  RETO.pistas={kp:false,ki:false,kd:false};
+  RETO.resuelto=false; RETO.msg='';
+}
+function updateScenarioInfo(){
+  const d=el('scenarioInfo');
+  d.style.display='block';
+  d.innerHTML='<b>'+MODE_META[mode].nombre+'.</b> '+MODE_META[mode].mision;
+}
+function updateHwRot(){
+  const c=cfgDe(mode), M=MAQUINAS[c.mk], R=CUR;
+  el('hwrot').textContent=M.icono+' '+M.nom+' · de '+f0(M.x0*1000)+' a '+f0(M.xr*1000)+
+    ' mm · carga '+f1(M.f0/1000)+' → '+f1(M.f1/1000)+' kN · '+f0(M.ciclos)+' ciclos/año';
+  const fal=fallosDe(R).length;
+  el('hwsub').textContent='kp '+f0(c.kp)+' · ki '+f0(c.ki)+' · kd '+f2(c.kd)+
+    (c.aw?'':' · SIN antisaturación')+' → '+
+    (R.valida?'sintonía aceptada':'rechazada por '+f0(fal)+(fal===1?' criterio':' criterios'));
+}
+function afterEdit(){
+  buildControls();
+  updateScenarioInfo();
+  if(mode==='reto')updateRetoSpec();
+  refreshAll();
+}
+function setMode(k){
+  mode=k;animT=0;
+  // El reto barre las 96 sintonías de la máquina: se arma la primera vez que se
+  // entra, no al cargar la página, para que el arranque no cueste 96 maniobras.
+  if(k==='reto'&&!RETO.sol) retoSolveBuild();
+  MODES.forEach(m=>el('m_'+m).classList.toggle('on',m===k));
+  el('p_mode').textContent=MODE_META[k].nombre;
+  el('retoTitle').style.display=k==='reto'?'':'none';
+  el('retoBox').style.display=k==='reto'?'':'none';
+  buildControls();updateScenarioInfo();
+  clearDx();buildQuiz();refreshQuestion();
+  if(k==='reto')updateRetoSpec();
+  const cam=MODE_META[k].cam;S.moveTo(cam[0],cam[1]);
+  aplicaMaquina();
+  refreshAll();
+}
+// "Nuevo escenario": en el reto cambia de máquina y rearma la partida; en los
+// modos de estudio avanza al siguiente caso que enseña algo distinto.
+function newSignal(){
+  const sig=(arr,v)=>arr[(arr.indexOf(v)+1)%arr.length];
+  if(mode==='lazo'){
+    ST.aw=!ST.aw;
+    if(ST.aw){ ST.mk=sig(MAQ_KEYS,ST.mk); const o=solM(ST.mk);
+      if(o){ST.kp=o.kp;ST.ki=o.ki;ST.kd=o.kd;} }
+  }else if(mode==='banda'){
+    ST.kp=sig(KP_G,ST.kp);
+    if(ST.kp===KP_G[0]) ST.mk=sig(MAQ_KEYS,ST.mk);
+  }else if(mode==='fuga'){
+    ST.mk=sig(MAQ_KEYS,ST.mk);
+    const o=solM(ST.mk); if(o){ST.kp=o.kp;ST.ki=o.ki;ST.kd=o.kd;}
+  }else if(mode==='censo'){
+    ST.mk=sig(MAQ_KEYS,ST.mk);
+    const o=solM(ST.mk); if(o){ST.kp=o.kp;ST.ki=o.ki;ST.kd=o.kd;} else {ST.kp=KP_G[0];ST.ki=0;ST.kd=0;}
+  }else{
+    RETO.cfg.mk=sig(MAQ_KEYS,RETO.cfg.mk);
+    retoSolveBuild();
+  }
+  solved=false;
+  aplicaMaquina();
+  buildControls();updateScenarioInfo();
+  clearDx();buildQuiz();refreshQuestion();
+  if(mode==='reto')updateRetoSpec();
+  refreshAll();
+  showToast('🔀 <b>Escenario nuevo.</b> '+MODE_META[mode].mision);
+}
+
+// ===================== 13. TELEMETRÍA E INFORME =====================
+function teleRow(l,v,cls){
+  return '<div class="trow"><span class="tl">'+l+'</span><span class="tv'+(cls?' '+cls:'')+'">'+v+'</span></div>';
+}
+const cls2=b=>b?'ok':'bad';
+function filasPliego(M,R){
+  return pliegoFilas(M,R).map(f=>teleRow(f[0],f[1]+'  <span style="opacity:.55">/ '+f[2]+'</span>',cls2(f[3]))).join('');
+}
+function updateTele(){
+  const c=cfgDe(mode), M=MAQUINAS[c.mk], R=CUR, G=geom(M), H=hidraulica(M);
+  let h='';
+  h+=teleRow('máquina',M.icono+' '+M.nom);
+  h+=teleRow('sintonía','kp '+f0(c.kp)+' · ki '+f0(c.ki)+' · kd '+f2(c.kd));
+  if(mode==='lazo'||mode==='reto'){
+    h+=teleRow('posición','<span id="tvPos">—</span>');
+    h+=teleRow('mando de la válvula','<span id="tvU">—</span>');
+    h+=teleRow('p₁ · p₂','<span id="tvP">—</span>');
+    h+=filasPliego(M,R);
+    h+=teleRow('coste a '+f0(ANIOS)+' años',f0(R.coste5)+' €',cls2(R.valida));
+    if(mode==='lazo'&&!c.aw){
+      const A=sim(c.mk,c.kp,c.ki,c.kd);
+      h+=teleRow('sobrepaso con antisaturación',f2(A.sobre)+' %',cls2(A.okSobre));
+      h+=teleRow('pasos con la válvula al tope',f0(A.satPasos)+' → '+f0(R.satPasos),'bad');
+    }
+  }else if(mode==='banda'){
+    const prod=Math.abs(R.errCon)*c.kp, Q=mandoReposo(M,R.traza), dv=prod/Q.u-1;
+    h+=teleRow('banda muerta del carrete',pc1(M.db));
+    h+=teleRow('reposición de la fuga',f3(Q.rep)+' %');
+    h+=teleRow('mando en reposo predicho',f3(Q.u)+' %');
+    h+=teleRow('error con carga',f4(R.errCon)+' mm');
+    h+=teleRow('|e|·kp medido',f3(prod)+' %');
+    h+=teleRow('desviación de la ley',pcm(dv),cls2(Math.abs(dv)<=0.10));
+    h+=teleRow('ciclo límite',f3(R.ciclo)+' mm  <span style="opacity:.55">/ ≤ '+f2(M.maxCiclo)+'</span>',cls2(R.okCiclo));
+    h+=teleRow('tolerancia con carga','|e| ≤ '+f2(M.maxErrCon)+' mm',cls2(R.okErrCon));
+  }else if(mode==='fuga'){
+    const tr=R.traza;
+    const dpS=mediaVent(tr,'p1',W_SIN)-mediaVent(tr,'p2',W_SIN);
+    const dpC=mediaVent(tr,'p1',W_CON)-mediaVent(tr,'p2',W_CON);
+    h+=teleRow('A₁ · A₂',f2(G.A1*1e4)+' · '+f2(G.A2*1e4)+' cm²');
+    h+=teleRow('relación de áreas φ',f3(G.phi));
+    h+=teleRow('coeficiente de fuga c_ip',f2(M.cip*1e13)+'e−13 m³/(s·Pa)');
+    h+=teleRow('Δp = p₁−p₂ sin carga',f1(dpS/1e5)+' bar',dpS<0?'bad':'ok');
+    h+=teleRow('fuga sin carga',f2(Math.abs(M.cip*dpS)*6e7)+' cm³/min');
+    h+=teleRow('Δp = p₁−p₂ con carga',f1(dpC/1e5)+' bar',dpC<0?'bad':'ok');
+    h+=teleRow('fuga con carga',f2(Math.abs(M.cip*dpC)*6e7)+' cm³/min');
+    h+=teleRow('|e| sin carga',f4(Math.abs(R.errSin))+' mm',cls2(R.okErrSin));
+    h+=teleRow('|e| con carga',f4(Math.abs(R.errCon))+' mm',cls2(R.okErrCon));
+  }else{
+    const cn=censoM(c.mk), s=solM(c.mk);
+    const peor=CRIT.slice().sort((a,b)=>cn.tot[b]-cn.tot[a])[0];
+    const dec=CRIT.slice().sort((a,b)=>cn.solo[b]-cn.solo[a])[0];
+    h+=teleRow('sintonías del catálogo',f0(cn.n));
+    h+=teleRow('válidas',f0(cn.validas),cls2(cn.validas>0));
+    h+=teleRow('criterio con más bajas',CRIT_COR[peor]+' · '+f0(cn.tot[peor]));
+    h+=teleRow('criterio decisor (en solitario)',
+      cn.solo[dec]>0?CRIT_COR[dec]+' · '+f0(cn.solo[dec]):'ninguno');
+    h+=teleRow('tu sintonía',R.valida?'válida':'falla '+fallosDe(R).map(k=>CRIT_COR[k]).join(', '),cls2(R.valida));
+    h+=teleRow('coste a '+f0(ANIOS)+' años',f0(R.coste5)+' €');
+    h+=teleRow('la más barata válida',s?f0(s.coste5)+' €':'—');
+  }
+  if(mode!=='censo'&&mode!=='reto'){
+    h+=teleRow('frecuencia hidráulica f_h',f1(H.fh)+' Hz');
+    h+=teleRow('amortiguamiento ζ',f3(H.zeta));
+  }
+  el('tele').innerHTML=h;
+  updateLive();
+}
+// Las tres filas que cambian con el fotograma. El resto de la telemetría es
+// propiedad de la sintonía, no del instante.
+function updateLive(){
+  const R=CUR; if(!R||!R.traza) return;
+  const p=el('tvPos'); if(!p) return;
+  const tr=R.traza, i=clamp(FR,0,tr.t.length-1), M=maqAct();
+  p.textContent=f2(tr.x[i]*1000)+' mm  (t = '+f2(tr.t[i])+' s, e = '+f3(tr.e[i]*1000)+' mm)';
+  el('tvU').textContent=f1(tr.u[i]*100)+' %'+(Math.abs(tr.u[i])>=0.99999?'  · AL TOPE':'');
+  el('tvP').textContent=f1(tr.p1[i]/1e5)+' · '+f1(tr.p2[i]/1e5)+' bar';
+}
+
+function updateReport(){
+  const c=cfgDe(mode), M=MAQUINAS[c.mk], R=CUR, G=geom(M), H=hidraulica(M), tr=R.traza;
+  let t='';
+  if(mode==='lazo'){
+    t='> '+M.nom+'. '+M.proc+'\n';
+    t+='> El salto es de '+f0(M.x0*1000)+' a '+f0(M.xr*1000)+' mm ('+f0((M.xr-M.x0)*1000)+
+      ' mm) y a los '+f1(T_CARGA)+' s la carga pasa de '+f1(M.f0/1000)+' a '+f1(M.f1/1000)+' kN.\n';
+    t+='> Columna de aceite: k = '+f0(H.k/1000)+' N/mm sobre '+f0(M.m)+' kg → f_h = '+f1(H.fh)+
+      ' Hz con ζ = '+f3(H.zeta)+'. Por debajo de esa frecuencia el cilindro obedece; por encima, rebota.\n';
+    t+=isFinite(R.tEst)
+      ? '> Entra en la banda de ±'+f0(BANDA*1000)+' mm a los '+f3(R.tEst)+' s (límite '+f2(M.maxTest)+
+        ') con '+f2(R.sobre)+' % de sobrepaso.\n'
+      : '> NUNCA entra en la banda de ±'+f0(BANDA*1000)+' mm antes de que llegue la carga: se queda a '+
+        f3(Math.abs(R.errSin))+' mm de la consigna.\n';
+    t+='> En régimen deja '+f3(R.errSin)+' mm de error sin carga y '+f3(R.errCon)+
+      ' con ella; el pico de presión llega a '+bar(R.pPico)+' bar y el carrete recorre '+
+      f2(R.carrera)+' unidades de mando.\n';
+    if(!c.aw){
+      const A=sim(c.mk,c.kp,c.ki,c.kd);
+      t+='> SIN antisaturación: el integrador sigue sumando error mientras la válvula está al tope '+
+        '('+f0(R.satPasos)+' pasos frente a '+f0(A.satPasos)+'), y cuando el pistón llega a la consigna '+
+        'el mando tarda en volver. El sobrepaso pasa de '+f2(A.sobre)+' % a '+f2(R.sobre)+' % y la punta de '+
+        f2(A.xMax*1000)+' a '+f2(R.xMax*1000)+' mm.\n';
+      t+='> Y ojo: el tiempo de establecimiento BAJA ('+f3(A.tEst)+' → '+f3(R.tEst)+
+        ' s). El windup no es lento: es rápido y se pasa. Por eso hay que juzgarlo por el pliego entero.\n';
+    }
+    t+=R.valida?'> Los siete criterios se cumplen. Coste a '+f0(ANIOS)+' años: '+f0(R.coste5)+' €.'
+              :'> Rechazada: falla '+fallosDe(R).map(k=>CRIT_ROT[k]).join(', ')+'.';
+  }else if(mode==='banda'){
+    const prod=Math.abs(R.errCon)*c.kp, dbp=M.db*100, Q=mandoReposo(M,tr);
+    const B=bandaM(c.mk), malos=B.filter(r=>!r.okCiclo).length;
+    t='> Sin integral el pistón se para donde el mando del proporcional es justo el que hace falta '+
+      'para dejarlo quieto: cruzar el solape del carrete ('+f1(dbp)+' %) y, encima, abrir lo justo '+
+      'para reponer la fuga interna ('+f3(Q.rep)+' %). En total '+f3(Q.u)+' %.\n';
+    t+='> Ese mando lo tiene que dar u = kp·e él solo, así que e = '+f3(Q.u)+' % / kp; sólo sería '+
+      'cero con kp infinito. Con kp = '+f0(c.kp)+' el motor mide e = '+f4(R.errCon)+' mm y e·kp = '+
+      f3(prod)+' %, o sea '+pcm(prod/Q.u-1)+' de la ley.\n';
+    // La ley supone un pistón QUIETO y un carrete ABIERTO. Cuando alguna de las dos
+    // hipótesis se cae, la desviación que acabamos de imprimir deja de ser un residuo
+    // numérico y pasa a ser otro régimen: hay que decirlo.
+    const uMed=mediaVent(tr,'u',W_CON)*100, deriva=derivaVent(tr,W_CON);
+    if(!R.okCiclo){
+      t+='> Pero ojo con esa cifra: aquí el pistón NO se para. Hay un ciclo límite de '+f3(R.ciclo)+
+        ' mm (máximo '+f2(M.maxCiclo)+'), así que ese |e| es el promedio de algo que oscila y la ley '+
+        'no tiene a qué agarrarse. La hipótesis de la que sale —pistón quieto— se ha caído.\n';
+    }else if(Math.abs(uMed)<=dbp){
+      t+='> Y ojo: ese mando de reposo ('+f3(Q.u)+' %) cae DENTRO del solape ('+f1(dbp)+' %). El '+
+        'carrete no llega a abrir, no entra caudal que reponga la fuga y el pistón se descuelga '+
+        'despacio, a '+f1(deriva)+' µm/s, sostenido sólo por el rozamiento. Ahí no hay equilibrio '+
+        'que medir: por eso e·kp se queda '+pcm(prod/Q.u-1)+' de la ley en vez de cuadrar.\n';
+    }
+    const cPeor=B.reduce((a,r)=>r.ciclo>a.ciclo?r:a), eMin=Math.min(...B.map(r=>Math.abs(r.errCon)));
+    t+='> Subir kp reparte ese mando entre menos error, pero tiene precio: la columna de aceite ('+
+      f1(H.fh)+' Hz, ζ = '+f3(H.zeta)+') se excita y aparece un ciclo límite. El peor de la rejilla '+
+      'sale con kp = '+f0(cPeor.kp)+': '+f3(cPeor.ciclo)+' mm frente a un máximo de '+f2(M.maxCiclo)+
+      ' mm'+(malos?', y ahí ya se pasa':', todavía dentro')+'.\n';
+    const kpNec=Q.u/M.maxErrCon, kpMax=KP_G[KP_G.length-1];
+    t+='> La tolerancia con carga es '+f2(M.maxErrCon)+' mm, o sea que la ley pide kp ≈ '+f1(kpNec)+'. '+
+      (kpNec>kpMax
+        ? 'El mayor del catálogo es '+f0(kpMax)+': se queda corto de largo.'
+        : 'El catálogo llega hasta '+f0(kpMax)+', pero ahí el pistón ya tiembla y el error medio empeora '+
+          'en vez de bajar.')+' Ninguno de los '+f0(KP_G.length)+' baja de '+f4(eMin)+' mm.\n';
+    t+='> Por eso el integral no es un adorno: es la única forma de meter el error a cero sin pedirle al '+
+      'proporcional una ganancia que la máquina no aguanta.';
+  }else if(mode==='fuga'){
+    const dpS=mediaVent(tr,'p1',W_SIN)-mediaVent(tr,'p2',W_SIN);
+    const dpC=mediaVent(tr,'p1',W_CON)-mediaVent(tr,'p2',W_CON);
+    const qS=M.cip*dpS*6e7, qC=M.cip*dpC*6e7;
+    t='> El pistón tiene dos caras distintas: A₁ = '+f2(G.A1*1e4)+' cm² por el fondo y A₂ = '+
+      f2(G.A2*1e4)+' por el lado del vástago, φ = '+f3(G.phi)+'.\n';
+    t+='> En equilibrio SIN carga hace falta p₁·A₁ ≈ p₂·A₂, y como A₁ > A₂ la presión del fondo '+
+      'es la MENOR: Δp = '+f1(dpS/1e5)+' bar. La fuga interna ('+f2(Math.abs(qS))+' cm³/min) va del '+
+      'lado del vástago al fondo, o sea EMPUJA el vástago hacia fuera.\n';
+    t+='> Con la carga de '+f1(M.f1/1000)+' kN encima, el fondo tiene que empujar mucho más: '+
+      'Δp = '+f1(dpC/1e5)+' bar, la fuga cambia de sentido ('+f2(Math.abs(qC))+' cm³/min) y ahora tira '+
+      'del vástago hacia dentro.\n';
+    t+='> Resultado medido: |e| sin carga '+f4(Math.abs(R.errSin))+' mm, con carga '+
+      f4(Math.abs(R.errCon))+' mm. La razón es '+f0(Math.abs(R.errSin)/Math.max(1e-9,Math.abs(R.errCon)))+
+      '×, y el pliego lo sabe: la tolerancia apretada ('+f2(M.maxErrCon)+' mm) es la de CON carga, '+
+      'porque es la que sale en la pieza.\n';
+    t+='> La fuga interna no se ve en ningún manómetro de la línea: se ve aquí, en que el cilindro '+
+      'se mueve solo con la válvula cerrada. Un carrete de centro cerrado no es un tapón.';
+  }else if(mode==='censo'){
+    const cn=censoM(c.mk), s=solM(c.mk);
+    const peor=CRIT.slice().sort((a,b)=>cn.tot[b]-cn.tot[a])[0];
+    const solos=CRIT.filter(k=>cn.solo[k]>0);
+    const muertos=CRIT.filter(k=>cn.tot[k]===0);
+    t='> '+M.nom+': '+f0(cn.n)+' sintonías ('+f0(KP_G.length)+' kp × '+f0(KI_G.length)+' ki × '+
+      f0(KD_G.length)+' kd). Sobreviven '+f0(cn.validas)+'.\n';
+    t+='> El criterio que más tumba es «'+CRIT_ROT[peor]+'» con '+f0(cn.tot[peor])+' bajas.\n';
+    t+='> En solitario sólo deciden: '+(solos.length?solos.map(k=>CRIT_ROT[k]+' '+f0(cn.solo[k])).join(', ')
+      :'ninguno')+(muertos.length?'. Y «'+muertos.map(k=>CRIT_ROT[k]).join('» y «')+'» no '+
+      (muertos.length>1?'tumban':'tumba')+' a nadie aquí.':'.')+'\n';
+    const kiCero=valM(c.mk).filter(r=>r.ki===0).length;
+    t+='> De las '+f0(cn.validas)+' válidas, '+f0(kiCero)+' llevan ki = 0 y '+
+      f0(valM(c.mk).filter(r=>r.kd>0).length)+' llevan derivada. La integral no es opcional; la derivada sí.\n';
+    t+='> La que miras '+(R.valida?'cumple los siete criterios'
+      :'falla '+fallosDe(R).map(k=>CRIT_ROT[k]).join(', '))+'.\n';
+    t+=s?'> La más barata de poseer es kp '+f0(s.kp)+' · ki '+f0(s.ki)+' · kd '+f2(s.kd)+': '+
+        f0(s.coste5)+' € a '+f0(ANIOS)+' años, de los que '+pc1(s.cTiem/s.cUno)+
+        ' son tiempo de máquina, '+pc1(s.cDesg/s.cUno)+' desgaste y '+pc1(s.cEner/s.cUno)+' energía.'
+       :'> Ninguna sintonía del catálogo cumple los siete criterios en esta máquina.';
+  }else{
+    const s=RETO.sol;
+    t='> '+M.nom+'. '+M.proc+'\n';
+    t+='> Puesto: kp '+f0(c.kp)+' · ki '+f0(c.ki)+' · kd '+f2(c.kd)+' → '+f0(R.coste5)+
+      ' € a '+f0(ANIOS)+' años ('+f0(M.ciclos)+' ciclos/año a '+f4(R.cUno)+' €/ciclo).\n';
+    t+=R.valida?'> Cumple los siete criterios.\n'
+               :'> Falla: '+fallosDe(R).map(k=>CRIT_ROT[k]).join(', ')+'.\n';
+    t+=RETO.msg?'> '+RETO.msg+'\n':'';
+    t+='> De '+f0(RETO.nval)+' sintonías válidas, la más barata de poseer cuesta '+
+      (s?f0(s.coste5)+' €':'—')+'.';
+  }
+  el('report').textContent=t;
+}
+
+function refreshAll(){
+  computa();
+  pintaBoard();
+  updateTele();
+  updateReport();
+  updateHwRot();
+}
+
+// ===================== 14. RETO =====================
+// El reto no compara contra una respuesta escrita a mano: barre las 96 sintonías
+// de la máquina, se queda con las válidas y elige la de menor coste de propiedad.
+// Se acepta CUALQUIER sintonía válida que iguale ese coste, no un trío concreto.
+function updateRetoSpec(){
+  const M=MAQUINAS[RETO.cfg.mk], s=RETO.sol, R=CUR;
+  const emp=empM(RETO.cfg.mk).length;
+  let h='<b>'+M.icono+' '+M.nom+'.</b> '+M.proc+'<br>';
+  h+='Consigna '+f0(M.xr*1000)+' mm desde '+f0(M.x0*1000)+' mm · carga '+f1(M.f0/1000)+' → '+
+     f1(M.f1/1000)+' kN a los '+f1(T_CARGA)+' s · '+f0(M.ciclos)+' ciclos al año.<br>';
+  h+='<span style="color:var(--muted)">Pliego: sobrepaso ≤ '+f1(M.maxSobre)+' % · establecimiento ≤ '+
+     f2(M.maxTest)+' s · error sin carga ≤ '+f2(M.maxErrSin)+' mm · <b>con carga ≤ '+f2(M.maxErrCon)+
+     ' mm</b> · ciclo límite ≤ '+f2(M.maxCiclo)+' mm · presión ≤ '+f0(M.pMax/1e5)+' bar · carrera de carrete ≤ '+
+     f1(M.maxCarrera)+'.</span><br>';
+  h+='Objetivo: la sintonía <b>válida</b> más barata de poseer a '+f0(ANIOS)+' años. '+
+     'Hay '+f0(RETO.nval)+' válidas de '+f0(KP_G.length*KI_G.length*KD_G.length)+
+     (emp>1?' y '+f0(emp)+' empatan en el mínimo.':' y el mínimo es único.')+'<br>';
+  h+='Ahora mismo: <b>'+(R.valida?'válida':'no válida')+'</b>, '+f0(R.coste5)+' €'+
+     (s&&R.valida&&R.coste5>s.coste5?' ('+f0(R.coste5-s.coste5)+' € por encima de la mejor)':'')+'.';
+  if(RETO.msg) h+='<br><span style="color:'+(RETO.resuelto?OK_HEX:WARN_HEX)+'">'+RETO.msg+'</span>';
+  el('retoSpec').innerHTML=h;
+}
+function checkReto(){
+  const R=CUR, s=RETO.sol, M=MAQUINAS[RETO.cfg.mk];
+  if(!s){ RETO.msg='Esta máquina no tiene ninguna sintonía válida en el catálogo.'; }
+  else if(!R.valida){
+    const f=fallosDe(R);
+    RETO.msg='Todavía no: falla '+f.map(k=>CRIT_ROT[k]).join(', ')+
+      '. Una sintonía barata que no cumple el pliego no es barata, es chatarra.';
+  }else if(R.coste5>s.coste5+1e-9){
+    RETO.msg='Válida, pero cuesta '+f0(R.coste5-s.coste5)+' € más que la mejor a '+f0(ANIOS)+
+      ' años ('+pcm(R.coste5/s.coste5-1)+'). Casi todo ese dinero es tiempo de máquina: '+
+      'cada décima de segundo de más en establecer se paga '+f0(M.ciclos*ANIOS)+' veces.';
+    RETO.resuelto=false;
+  }else{
+    RETO.resuelto=true; solved=true;
+    RETO.msg='✅ Recepción firmada: kp '+f0(R.kp)+' · ki '+f0(R.ki)+' · kd '+f2(R.kd)+' → '+
+      f0(R.coste5)+' € a '+f0(ANIOS)+' años.';
+    [523,659,784].forEach((f,i)=>setTimeout(()=>synth.beep(f,0.16,0.05),i*90));
+  }
+  if(!RETO.resuelto) synth.beep(220,0.12,0.05);
+  afterEdit();
+  showToast((RETO.resuelto?'✅ ':'⚠️ ')+RETO.msg);
+}
+
+// ===================== 15. CUESTIONARIO =====================
+// Una pregunta por modo. Todas las cifras salen del motor sellado, no de la
+// intuición: están comprobadas contra la simulación de la máquina que se nombra.
+const QUIZ={
+  lazo:{pregunta:'En la prensa, con su sintonía más barata (kp 9 · ki 10 · kd 0), apagar la antisaturación hace que el tiempo de establecimiento BAJE de 0,344 a 0,292 s. ¿Qué se concluye de ahí?',
+    opciones:[
+      {t:'Que el windup no es lentitud: el integrador cargado empuja de más, llega antes y se pasa.',ok:true,
+       why:'Exacto. El sobrepaso salta de 0,40 a 14,58 % (máximo 6) y la punta llega a 211,67 mm sobre una consigna de 200. Llegar antes al sitio equivocado no es ir más rápido: por eso se juzga con el pliego entero, no con un número.'},
+      {t:'Que la antisaturación estorba y conviene quitarla siempre que se busque velocidad.',
+       why:'No. Sin ella esa misma sintonía falla cuatro criterios de golpe: sobrepaso, error sin carga, error con carga y ciclo límite. El tiempo mejora y la pieza sale mal.'},
+      {t:'Que el tiempo de establecimiento está mal medido, porque el windup siempre retrasa.',
+       why:'Se mide igual en los dos casos: la última entrada en la banda de ±1 mm antes de que llegue la carga. Lo que cambia no es la regla, es la trayectoria.'},
+      {t:'Que sin antisaturación la válvula pasa menos tiempo pegada al tope.',
+       why:'Al revés: los pasos con la válvula al ±100 % suben de 256 a 304. Justo por eso el integrador se carga de error que no puede corregir.'},
+    ]},
+  banda:{pregunta:'El banco de fatiga lleva una servoválvula de solape nulo: su banda muerta es del 0,5 % del mando. Pero con ki = 0 el producto |e|·kp ronda el 0,65 % en los seis kp del catálogo, un 30 % más. ¿De dónde sale ese exceso?',
+    opciones:[
+      {t:'De la fuga interna: con el pistón parado el carrete tiene que quedar abierto lo justo para reponerla.',ok:true,
+       why:'Eso es. Cruzar el solape sólo deja el carrete en el punto en que empieza a pasar aceite; para que el pistón no se mueva hay que dar además el caudal que se escapa entre pistón y camisa, y con carga esa fuga no es cero.'},
+      {t:'De la resonancia de la columna de aceite: el pistón oscila y el error medio se dispara.',
+       why:'En el banco de fatiga el ciclo límite no llega a 0,03 mm en ninguno de los seis kp del catálogo: ahí no hay temblor que valga. El exceso es la reposición de la fuga.'},
+      {t:'De que el motor mide el error con la carga puesta, y eso lo falsea.',
+       why:'Se mide en la ventana de 2,30 a 2,50 s, con todo ya en régimen. La cuenta cuadra en las cinco máquinas mientras el pistón está quieto: lo que falla es dar por buena la banda muerta a secas.'},
+      {t:'De que el 0,5 % es del recorrido del carrete, no del mando del regulador.',
+       why:'Es del mando: la apertura vale cero mientras |u| ≤ 0,5 %, y a partir de ahí se renormaliza. El resto del mando en reposo es la fuga.'},
+    ]},
+  fuga:{pregunta:'En la prensa, en régimen SIN carga, Δp = p₁ − p₂ vale −14,88 bar; con los 26 kN encima pasa a +34,81 bar. ¿Qué le hace ese cambio de signo a la fuga interna del cilindro?',
+    opciones:[
+      {t:'Le cambia el sentido: sin carga empuja el vástago hacia fuera, con carga tira de él hacia dentro.',ok:true,
+       why:'Sí. q_L = c_ip·(p₁−p₂), así que la fuga sigue el signo de Δp. Si el carrete cerrara del todo, el pistón derivaría a 0,0592 mm/s en un sentido y a 0,1385 mm/s en el otro. Un centro cerrado no es un tapón.'},
+      {t:'Nada: la fuga la fija el caudal de la bomba, no las presiones de las cámaras.',
+       why:'La bomba no entra en la cuenta. La fuga es interna, de cámara a cámara, y la manda la diferencia de presiones entre ellas.'},
+      {t:'La multiplica, pero siempre en el mismo sentido: del fondo hacia el lado del vástago.',
+       why:'Sólo con carga. Sin ella el fondo está a MENOS presión que el anillo, porque A₁ &gt; A₂ y el equilibrio pide p₁·A₁ = p₂·A₂ + fuerza.'},
+      {t:'La anula, porque el aceite se comprime y deja de circular.',
+       why:'La compresibilidad explica el arranque, no el régimen: cuando las presiones se estabilizan el aceite ya no se comprime más y lo único que sigue circulando por dentro es la fuga.'},
+    ]},
+  censo:{pregunta:'De las 480 sintonías del catálogo (96 por máquina en las cinco), sólo 66 cumplen los siete criterios — y ninguna de esas 66 lleva ki = 0. ¿Qué dice eso del integral y de la derivada?',
+    opciones:[
+      {t:'El integral es obligatorio; la derivada, opcional: 43 de las 66 la llevan, pero ninguna de las cinco óptimas.',ok:true,
+       why:'Correcto. Sin integral el error en régimen es el mando en reposo dividido por kp, y ninguna de las cinco máquinas tiene tolerancia para eso. La derivada ayuda a amortiguar, pero cuando se paga el coste de propiedad las cinco ganadoras salen con kd = 0.'},
+      {t:'Que hay que poner el ki más alto del catálogo siempre.',
+       why:'ki 22 no gana siempre: la prensa y la fresadora firman con ki 10. Un integral de más se carga durante la saturación y dispara el sobrepaso.'},
+      {t:'Que el catálogo de kp está mal elegido: debería haber válidas con ki = 0.',
+       why:'Es al revés. El catálogo llega hasta kp 18 justamente para que se vea que ni con el kp más alto llega el proporcional solo a la tolerancia con carga.'},
+      {t:'Que la derivada es la que decide, porque la llevan 43 de las 66.',
+       why:'Llevarla no es necesitarla. En las cinco máquinas la sintonía más barata de poseer tiene kd = 0: la derivada compra amortiguamiento que ahí no hace falta pagar.'},
+    ]},
+  reto:{pregunta:'El reto no pide la sintonía más rápida, sino la válida más barata de POSEER a 5 años: energía + desgaste del carrete + tiempo de máquina. ¿Cuál de las tres partidas manda?',
+    opciones:[
+      {t:'El tiempo de máquina, y por mucho: en la prensa son 0,0184 € de los 0,0214 que cuesta un ciclo.',ok:true,
+       why:'Sí. El desgaste pone 0,0024 y la energía 0,0006: el tiempo pesa más que las otras dos juntas. Por eso una décima de segundo de más en establecer se paga 600 000 veces en cinco años.'},
+      {t:'La energía, porque el grupo hidráulico está bombeando durante todo el ciclo.',
+       why:'La energía es la partida más pequeña de las tres en las cinco máquinas. En la prensa son 0,0006 € de 0,0214: menos de la treintava parte.'},
+      {t:'El desgaste del carrete, porque cada carrera del proporcional cuesta dinero.',
+       why:'Cuenta, pero está un orden por debajo del tiempo: 0,0024 frente a 0,0184 €/ciclo en la prensa.'},
+      {t:'Depende de la máquina: en las lentas y de pocos ciclos manda la energía.',
+       why:'Ni ahí. La compuerta es la más lenta y la de menos ciclos al año, y el tiempo sigue mandando: 0,0132 de los 0,0162 €/ciclo.'},
+    ]},
+};
+let QORD=[], answered=false;
+function buildQuiz(){
+  const q=QUIZ[mode];
+  QORD=q.opciones.map((o,i)=>i);
+  for(let i=QORD.length-1;i>0;i--){ const j=Math.floor(Math.random()*(i+1));
+    const t=QORD[i];QORD[i]=QORD[j];QORD[j]=t; }
+  answered=false;
+}
+function clearDx(){ answered=false; }
+function refreshQuestion(){
+  const q=QUIZ[mode];
+  el('q_text').textContent=q.pregunta;
+  el('dxbtns').innerHTML=QORD.map((oi,i)=>'<button class="b" data-i="'+i+'">'+q.opciones[oi].t+'</button>').join('');
+  el('dxbtns').querySelectorAll('[data-i]').forEach(b=>{
+    b.onclick=()=>answer(Number(b.getAttribute('data-i')));
+  });
+}
+function answer(i){
+  if(answered) return;
+  answered=true;
+  const q=QUIZ[mode], btns=el('dxbtns').querySelectorAll('[data-i]');
+  btns.forEach((b,k)=>{ b.disabled=true; const o=q.opciones[QORD[k]];
+    if(o.ok) b.classList.add('right'); else if(k===i) b.classList.add('wrong'); });
+  const o=q.opciones[QORD[i]];
+  synth.beep(o.ok?880:200,0.10,0.05);
+  showToast((o.ok?'✅ ':'❌ ')+o.why);
+}
+function quizCorrectIndex(){ return QORD.indexOf(QUIZ[mode].opciones.findIndex(o=>o.ok)); }
+
+// ===================== 16. SELECCIÓN Y ETIQUETAS =====================
+// Ninguna etiqueta lleva un número escrito a mano: todas leen la máquina activa,
+// la sintonía activa y el fotograma que se está viendo en ese momento.
+function pickCtx(){
+  const c=cfgDe(mode), M=MAQUINAS[c.mk], R=CUR, tr=R&&R.traza;
+  const i=tr?clamp(FR,0,tr.t.length-1):0;
+  return {c,M,R,tr,i,G:geom(M),H:hidraulica(M)};
+}
+const kvBar=M=>M.qn*60000/Math.sqrt(DP_N/1e5);   // L/min por raíz de bar
+const cipUso=M=>M.cip*6e12;                      // m³/(s·Pa) → cm³/(min·bar)
+
+const PICK_INFO={
+  grupo:()=>{
+    const {M,R}=pickCtx();
+    return ['Grupo hidráulico',
+      'Bomba y depósito a p<sub>s</sub> = '+f0(M.ps/1e5)+' bar. La válvula que alimenta da '+
+      f0(M.qn*60000)+' L/min medidos con '+f0(DP_N/1e5)+' bar de caída por escotadura (ISO 10770-1), '+
+      'o sea K<sub>V</sub> = '+f3(kvBar(M))+' L/min por raíz de bar. Ojo: el caudal no va con el mando a '+
+      'secas, va con u·√Δp, y por eso el lazo se vuelve más flojo justo cuando más presión hay en la cámara. '+
+      'Esta maniobra le pide '+f2(R.eKWh*1000)+' Wh al eje con η = '+f2(ETA_GRUPO)+', que a '+f2(EUR_KWH)+
+      ' €/kWh son '+f4(R.cEner)+' € de los '+f4(R.cUno)+' que cuesta el ciclo.'];
+  },
+  valvula:()=>{
+    const {M,tr,i}=pickCtx();
+    const u=tr?tr.u[i]:0, a=apertura(u,M.db), dbp=M.db*100;
+    return ['Válvula proporcional 4/3 de centro cerrado',
+      'El carrete tapa los orificios con un solape de ±'+f1(dbp)+' % del mando: mientras |u| no lo cruza '+
+      'no pasa aceite. Por encima, la apertura útil vale (|u| − '+f1(dbp)+' %) / (100 % − '+f1(dbp)+' %). '+
+      'En este instante el mando es '+f1(u*100)+' % y la apertura útil '+f1(a*100)+' %'+
+      (a===0?': el carrete está dentro del solape, así que ahora mismo no entra ni sale caudal por la válvula.':
+             '. La bobina encendida es la que empuja el carrete hacia ese lado.')];
+  },
+  cilindro:()=>{
+    const {M,G,H}=pickCtx();
+    return ['Cilindro diferencial Ø'+f0(M.D*1000)+'/'+f0(M.d*1000)+' mm',
+      'Áreas A₁ = '+f2(G.A1*1e4)+' cm² y A₂ = '+f2(G.A2*1e4)+' cm², φ = '+f3(G.phi)+': la misma presión '+
+      'empuja más al salir que al entrar, y el mismo caudal lo mueve más deprisa al volver. Con el pistón '+
+      'en la consigna quedan '+f0(H.V1*1e6)+' y '+f0(H.V2*1e6)+' cm³ de aceite encerrado; con β = '+
+      f1(M.beta/1e9)+' GPa eso equivale a un muelle de '+f0(H.k/1000)+' N/mm sobre '+f0(M.m)+' kg → '+
+      'f<sub>h</sub> = '+f1(H.fh)+' Hz con ζ = '+f3(H.zeta)+'. Ese es el techo del lazo: pedirle al '+
+      'regulador más rapidez que esa frecuencia sólo sirve para excitar la columna de aceite.'];
+  },
+  carga:()=>{
+    const {M,G}=pickCtx();
+    return ['Carga en el vástago',
+      M.proc+' La fuerza pasa de '+f1(M.f0/1000)+' a '+f1(M.f1/1000)+' kN a los '+f1(T_CARGA)+' s; sólo '+
+      'para sostener la carga grande hacen falta '+f1(M.f1/G.A1/1e5)+' bar referidos a A₁. Además el pistón '+
+      'tiene que vencer '+f2(M.fc/1000)+' kN de rozamiento seco —modelado como f<sub>c</sub>·tanh(v/'+
+      f0(V_STRIB*1000)+' mm/s) para que no dé saltos numéricos al cambiar de sentido— y '+f0(M.b)+
+      ' N·s/m de rozamiento viscoso, y acelerar y frenar '+f0(M.m)+' kg.'];
+  },
+  sensor:()=>{
+    const {M,tr,i}=pickCtx();
+    return ['Regla de posición y regulador',
+      'La regla mide x y el regulador la compara con la consigna de '+f0(M.xr*1000)+' mm; la marca verde es '+
+      'la banda de ±'+f0(BANDA*1000)+' mm en la que se da por establecido. Dentro va un PI-D discreto a '+
+      f0(TS*1000)+' ms: la derivada actúa sobre la MEDIDA y no sobre el error, para que el escalón de '+
+      'consigna no dé un latigazo, y se filtra con '+f0(TF_D*1000)+' ms. En este instante x = '+
+      f2(tr.x[i]*1000)+' mm y el error es '+f3(tr.e[i]*1000)+' mm.'];
+  },
+  cuadro:()=>{
+    const {M,R}=pickCtx();
+    const f=fallosDe(R);
+    const filas=pliegoFilas(M,R).map(x=>'<br>'+(x[3]?'✔':'✘')+' '+x[0]+': '+x[1]+' <span style="opacity:.6">('+x[2]+')</span>').join('');
+    return ['Cuadro de recepción',
+      'Siete pilotos, un criterio del pliego cada uno; la máquina se firma sólo con los siete en verde.'+filas+
+      '<br>'+(R.valida
+        ? 'Sintonía aceptada: '+f0(R.coste5)+' € de coste de propiedad a '+f0(ANIOS)+' años.'
+        : 'Rechazada por '+f0(f.length)+(f.length===1?' criterio: ':' criterios: ')+
+          f.map(k=>CRIT_ROT[k]).join(', ')+'.')];
+  },
+};
+
+// El pizarrón también se toca: cada modo suelta el dato que sostiene su vista.
+function boardClick(){
+  const {c,M,R}=pickCtx();
+  if(mode==='lazo'){
+    const otro=simT({mk:c.mk,kp:c.kp,ki:c.ki,kd:c.kd,aw:!c.aw});
+    const con=c.aw?R:otro, sin=c.aw?otro:R;
+    showToast('🧯 <b>Antisaturación del integrador.</b> Misma sintonía: con ella el sobrepaso es '+
+      f2(con.sobre)+' % y la punta llega a '+f2(con.xMax*1000)+' mm; sin ella, '+f2(sin.sobre)+' % y '+
+      f2(sin.xMax*1000)+' mm. Los pasos con el carrete al tope pasan de '+f0(con.satPasos)+' a '+
+      f0(sin.satPasos)+'. El integrador no va lento: es que sigue sumando error mientras la válvula ya no '+
+      'puede dar más, y luego hay que devolver esa cuenta pasándose de largo.');
+  }else if(mode==='banda'){
+    const Q=mandoReposo(M,R.traza), prod=Math.abs(R.errCon)*c.kp;
+    showToast('📏 <b>La ley del proporcional puro.</b> Con el pistón quieto el carrete tiene que quedar '+
+      'abierto '+f3(Q.u)+' %: '+f1(Q.db)+' % para cruzar el solape y '+f3(Q.rep)+' % más para reponer la '+
+      'fuga interna. Ese mando lo tiene que dar u = kp·e él solo, así que el error en régimen es ese mando '+
+      'entre kp. Medido: |e|·kp = '+f3(prod)+' %, '+pcm(prod/Q.u-1)+' de la ley.');
+  }else if(mode==='fuga'){
+    const tr=R.traza;
+    const dpS=mediaVent(tr,'p1',W_SIN)-mediaVent(tr,'p2',W_SIN);
+    const dpC=mediaVent(tr,'p1',W_CON)-mediaVent(tr,'p2',W_CON);
+    const A1=geom(M).A1;
+    showToast('💧 <b>La fuga interna.</b> Por el juego pistón-camisa pasa q<sub>L</sub> = c<sub>ip</sub>·(p₁−p₂), '+
+      'con c<sub>ip</sub> = '+f2(cipUso(M))+' cm³/(min·bar). Sin carga la diferencia de presiones vale '+
+      f2(dpS/1e5)+' bar → '+f4(M.cip*dpS/A1*1000)+' mm/s de deriva si el carrete cerrase del todo; con carga, '+
+      f2(dpC/1e5)+' bar → '+f4(M.cip*dpC/A1*1000)+' mm/s. Eso es lo que el carrete está reponiendo a todas horas.');
+  }else if(mode==='censo'){
+    const C=censoM(c.mk);
+    const top=CRIT.slice().sort((a,b)=>C.tot[b]-C.tot[a]).slice(0,3)
+      .map(k=>CRIT_ROT[k]+' '+f0(C.tot[k])+(C.solo[k]?' ('+f0(C.solo[k])+' en solitario)':'')).join(' · ');
+    showToast('📊 <b>El censo del pliego.</b> De las '+f0(C.n)+' sintonías de esta máquina sobreviven '+
+      f0(C.validas)+'. Los tres criterios que más tumban: '+top+'. La cuenta «en solitario» es la que manda: '+
+      'un criterio que sólo falla acompañado se arregla arreglando al otro.');
+  }else{
+    showToast('🎯 <b>Lo que cuesta poseerla.</b> Con esta sintonía el ciclo dura '+f2(R.tCiclo)+' s y cuesta '+
+      f4(R.cUno)+' €: '+f4(R.cEner)+' de energía, '+f4(R.cDesg)+' de desgaste del carrete y '+f4(R.cTiem)+
+      ' de tiempo de máquina a '+f0(M.eurHora)+' €/h. Por '+f0(M.ciclos*ANIOS)+' ciclos en '+f0(ANIOS)+
+      ' años salen '+f0(R.coste5)+' €.');
+  }
+}
+
+pickerFor(scene,S.camera,S.renderer.domElement,hit=>{
+  const o=hit&&hit.object;
+  if(!o) return;
+  if(o===bmesh){ boardClick(); synth.beep(620,0.05,0.05); return; }
+  let n=o, k=null;
+  while(n&&!k){ if(n.userData&&n.userData.key) k=n.userData.key; n=n.parent; }
+  if(!k||!PICK_INFO[k]) return;
+  const inf=PICK_INFO[k]();
+  if(!inf) return;
+  synth.beep(760,0.05,0.05);
+  showToast('<b>'+inf[0]+'</b> · '+inf[1]);
+});
+
+// ===================== 17. RECORRIDO GUIADO =====================
+// El recorrido cuenta una sola historia sobre una sola máquina: por qué el
+// proporcional solo no llega, qué le hace la fuga interna, qué pasa cuando el
+// integrador se satura y cuánto cuesta de verdad la sintonía que se firma.
+// Ninguna cifra de los avisos está escrita a mano: todas se leen del motor en
+// el instante en que se lanza el aviso.
+const sleep=ms=>new Promise(r=>setTimeout(r,ms));
+async function runAuto(){
+  if(autoRunning) return;
+  autoRunning=true;
+  const b=el('btnAuto'), rot=b.textContent;
+  b.textContent='⏳ Recorriendo…';
+  synth.init();synth.resume();clearDx();
+  try{
+    // --- 1. el lazo que no llega ---------------------------------------
+    ST.mk='prensa'; ST.kp=KP_G[0]; ST.ki=0; ST.kd=0; ST.aw=true;
+    setMode('lazo');
+    {
+      const M=maqAct(), R=CUR, f=fallosDe(R);
+      showToast('🔩 <b>Un lazo que no llega.</b> '+M.nom+' con la sintonía más floja de la rejilla '+
+        '(kp '+f0(ST.kp)+' %/mm, sin integral ni derivada). Se queda a '+f3(Math.abs(R.errSin))+
+        ' mm de la consigna sin carga y a '+f3(Math.abs(R.errCon))+' mm con los '+f1(M.f1/1000)+
+        ' kN encima, cuando el pliego pide '+f2(M.maxErrCon)+' mm. Rechazada por '+f0(f.length)+
+        ' criterios: '+f.map(k=>CRIT_ROT[k]).join(', ')+'.');
+    }
+    await sleep(5400);
+
+    // --- 2. la sintonía que sí firma -----------------------------------
+    {
+      const s=solM(ST.mk);
+      ST.kp=s.kp; ST.ki=s.ki; ST.kd=s.kd; afterEdit();
+      const M=maqAct(), R=CUR;
+      showToast('✅ <b>La que firma.</b> kp '+f0(R.kp)+' · ki '+f0(R.ki)+' · kd '+f2(R.kd)+
+        ': entra en la banda de ±'+f0(BANDA*1000)+' mm a los '+fin(R.tEst,3)+' s (límite '+
+        f2(M.maxTest)+') con '+f2(R.sobre)+' % de sobrepaso, deja '+f3(Math.abs(R.errCon))+
+        ' mm de error con carga y llega a '+bar(R.pPico)+' bar de pico. Los siete pilotos en verde '+
+        'y '+f0(R.coste5)+' € de coste de propiedad a '+f0(ANIOS)+' años.');
+    }
+    await sleep(5400);
+
+    // --- 3. el integrador saturado -------------------------------------
+    {
+      ST.aw=false; afterEdit();
+      const R=CUR, c=cfgDe(mode), A=sim(c.mk,c.kp,c.ki,c.kd), M=maqAct();
+      showToast('🧯 <b>Y ahora sin antisaturación.</b> Misma sintonía: el establecimiento BAJA de '+
+        fin(A.tEst,3)+' a '+fin(R.tEst,3)+' s, pero el sobrepaso sube de '+f2(A.sobre)+' a '+
+        f2(R.sobre)+' % (máximo '+f1(M.maxSobre)+') y la punta llega a '+f2(R.xMax*1000)+
+        ' mm sobre una consigna de '+f0(M.xr*1000)+'. Los pasos con la válvula al tope pasan de '+
+        f0(A.satPasos)+' a '+f0(R.satPasos)+': el integrador sigue sumando error mientras el carrete '+
+        'ya no puede dar más, y esa cuenta se devuelve pasándose de largo.');
+    }
+    await sleep(5600);
+
+    // --- 4. la ley del proporcional puro -------------------------------
+    {
+      ST.aw=true; setMode('banda');
+      const M=maqAct(), R=CUR, Q=mandoReposo(M,R.traza), prod=Math.abs(R.errCon)*R.kp;
+      showToast('📏 <b>Quita la integral y mira dónde se para.</b> Con el pistón quieto el carrete '+
+        'tiene que quedar abierto '+f3(Q.u)+' %: '+f1(Q.db)+' % para cruzar el solape y '+f3(Q.rep)+
+        ' % más para reponer la fuga interna. Ese mando lo da u = kp·e él solo, así que el error en '+
+        'régimen es ese mando entre kp. Medido con kp '+f0(R.kp)+': |e|·kp = '+f3(prod)+' %, '+
+        pcm(prod/Q.u-1)+' de la ley.');
+    }
+    await sleep(5600);
+
+    // --- 5. ni con el kp más alto del catálogo -------------------------
+    {
+      ST.kp=KP_G[KP_G.length-1]; afterEdit();
+      const M=maqAct(), R=CUR, Q=mandoReposo(M,R.traza);
+      const B=bandaM(ST.mk), mej=B.reduce((a,r)=>Math.abs(r.errCon)<Math.abs(a.errCon)?r:a);
+      showToast('📈 <b>¿Y subiendo kp?</b> Esa ley pide kp ≈ '+f1(Q.u/M.maxErrCon)+
+        ' para meter el error en los '+f2(M.maxErrCon)+' mm del pliego. Pero al llegar al '+f0(R.kp)+
+        ' del catálogo el lazo se pone a temblar: ciclo límite de '+f3(R.ciclo)+' mm frente a los '+
+        f2(M.maxCiclo)+' admisibles, y el error con carga EMPEORA hasta '+f3(Math.abs(R.errCon))+
+        ' mm en vez de mejorar. El mejor de los '+f0(KP_G.length)+' se queda en '+
+        f3(Math.abs(mej.errCon))+' mm (kp '+f0(mej.kp)+'). El proporcional no puede llegar sin '+
+        'desestabilizar: el integral no es un adorno.');
+    }
+    await sleep(5600);
+
+    // --- 6. la fuga interna --------------------------------------------
+    {
+      const s=solM(ST.mk); ST.kp=s.kp; ST.ki=s.ki; ST.kd=s.kd;
+      setMode('fuga');
+      const M=maqAct(), R=CUR, tr=R.traza, G=geom(M);
+      const dpS=mediaVent(tr,'p1',W_SIN)-mediaVent(tr,'p2',W_SIN);
+      const dpC=mediaVent(tr,'p1',W_CON)-mediaVent(tr,'p2',W_CON);
+      const eMin=Math.min(...bandaM(ST.mk).map(r=>Math.abs(r.errCon)));
+      showToast('💧 <b>El centro cerrado no es un tapón.</b> A₁ = '+f2(G.A1*1e4)+' cm² contra A₂ = '+
+        f2(G.A2*1e4)+' (φ = '+f3(G.phi)+'): sin carga el fondo está a MENOS presión que el anillo, '+
+        'Δp = '+f1(dpS/1e5)+' bar; con la carga encima se invierte y más que dobla, Δp = '+
+        f1(dpC/1e5)+' bar. La fuga q_L = c_ip·(p₁−p₂) sigue ese signo: '+
+        f2(Math.abs(M.cip*dpS)*6e7)+' y '+f2(Math.abs(M.cip*dpC)*6e7)+' cm³/min. Con integral el '+
+        'regulador la repone sola y el error con carga queda en '+f3(Math.abs(R.errCon))+
+        ' mm; sin ella, ese mismo caudal es justo lo que ataba el error a los '+f3(eMin)+
+        ' mm que acabas de ver.');
+    }
+    await sleep(5600);
+
+    // --- 7. el censo del pliego ----------------------------------------
+    {
+      setMode('censo');
+      const c=cfgDe(mode), C=censoM(c.mk);
+      const peor=CRIT.slice().sort((a,b)=>C.tot[b]-C.tot[a])[0];
+      const solos=CRIT.filter(k=>C.solo[k]>0).sort((a,b)=>C.solo[b]-C.solo[a]);
+      showToast('📊 <b>Las '+f0(C.n)+' sintonías por el pliego.</b> Sobreviven '+f0(C.validas)+
+        '. El criterio que más tumba es «'+CRIT_ROT[peor]+'» con '+f0(C.tot[peor])+' bajas, pero la '+
+        'columna que manda es la de fallar en solitario: '+(solos.length
+          ? solos.map(k=>CRIT_ROT[k]+' '+f0(C.solo[k])).join(', ')
+          : 'ninguno la tiene')+'. De las válidas, '+f0(valM(c.mk).filter(r=>r.ki===0).length)+
+        ' llevan ki = 0 y '+f0(valM(c.mk).filter(r=>r.kd>0).length)+' llevan derivada.');
+    }
+    await sleep(5600);
+
+    // --- 8. el reto: válida no basta -----------------------------------
+    {
+      RETO.cfg.mk=ST.mk; retoSolveBuild();
+      setMode('reto');
+      const M=MAQUINAS[RETO.cfg.mk], s=RETO.sol;
+      showToast('🎯 <b>El encargo.</b> De las '+f0(RETO.nval)+' sintonías válidas de la '+M.rot+
+        ', la más barata de POSEER a '+f0(ANIOS)+' años. Cada ciclo suyo cuesta '+f4(s.cUno)+' €: '+
+        f4(s.cEner)+' de energía a '+f2(EUR_KWH)+' €/kWh, '+f4(s.cDesg)+' de desgaste del carrete y '+
+        f4(s.cTiem)+' de tiempo de máquina a '+f0(M.eurHora)+' €/h. Por '+f0(M.ciclos*ANIOS)+
+        ' ciclos son '+f0(s.coste5)+' €.');
+    }
+    await sleep(5400);
+    {
+      const V=valM(RETO.cfg.mk).slice().sort((a,b)=>b.coste5-a.coste5)[0];
+      RETO.ejes={kp:V.kp,ki:V.ki,kd:V.kd}; RETO.msg=''; RETO.resuelto=false; afterEdit();
+      await sleep(1600);
+      checkReto();
+    }
+    await sleep(5600);
+    {
+      const s=RETO.sol;
+      RETO.ejes={kp:s.kp,ki:s.ki,kd:s.kd}; RETO.msg=''; RETO.resuelto=false; afterEdit();
+      await sleep(1600);
+      checkReto();
+    }
+    await sleep(5600);
+    answer(quizCorrectIndex());
+  } finally {
+    autoRunning=false;
+    el('btnAuto').textContent=rot;
+    buildControls();
+  }
+}
+
+// ===================== 18. ANIMACIÓN, EVENTOS Y ARRANQUE =====================
+// Un solo reloj. pinta3D no decide nada: reproduce la traza que el motor ya
+// calculó, y las tres filas vivas de la telemetría leen ese mismo fotograma.
+let liveT=0;
+S.setAnimate(dt=>{
+  animT+=dt;
+  pinta3D();
+  liveT+=dt;
+  if(liveT>=0.08){ liveT=0; updateLive(); }
+});
+
+MODES.forEach(m=>{ el('m_'+m).onclick=()=>{ if(!autoRunning) setMode(m); }; });
+el('btnAuto').onclick=()=>{ if(!autoRunning) runAuto(); };
+el('btnNew').onclick=()=>{ if(autoRunning) return; newSignal(); };
+el('btnCheck').onclick=()=>{ if(autoRunning) return; checkReto(); };
+const soundBtn=el('soundBtn');
+if(soundBtn){ soundBtn.onclick=()=>{ synth.toggle(); soundBtn.textContent=synth.isOn()?'🔊':'🔇'; }; }
+document.addEventListener('pointerdown',()=>{ synth.init(); synth.resume(); },{once:true});
+
+S.start();
+setMode('lazo');
+
+// ===================== 19. PUENTE DE PRUEBAS =====================
+// Todo lo que necesita un navegador de pruebas para reproducir el laboratorio
+// sin tocar el DOM: el motor entero, el estado y los mismos setters que usan los
+// botones. Si una cifra del panel no sale de aquí, es que está escrita a mano.
+window.__labDebug={
+  // --- modos
+  mode:()=>mode, setMode, modes:()=>MODES.slice(),
+  // --- constantes del dominio
+  P_ATM, RHO_OIL, DP_N, TS, DT, T_FIN, T_CARGA, TF_D, V_STRIB, BANDA, P_TANK, P_CAV,
+  DP_LAM, T_MANIP, ETA_GRUPO, EUR_KWH, EUR_CARRERA, ANIOS, W_SIN, W_CON, W_CIC,
+  KP_G, KI_G, KD_G, NCOMB,
+  // --- catálogo y pliego
+  MAQUINAS, MAQ_KEYS, CRIT, CRIT_ROT, CRIT_COR,
+  // --- motor
+  ssqrt, dssqrt, geom, hidraulica, KV, apertura, sim, barrido, censo, solucion,
+  base, validas, empates, pistas, frecEje, fallosDe, mediaVent, derivaVent, mandoReposo, pliegoFilas,
+  simT, bandaM, censoM, solM, valM, empM, pisM,
+  // --- estado vivo
+  st:()=>({...ST}), cur:()=>CUR, cfg:()=>cfgDe(mode), frame:()=>FR, maq:()=>maqAct(),
+  reto:()=>({cfg:{...RETO.cfg}, ejes:{...RETO.ejes}, sol:RETO.sol, nval:RETO.nval,
+             resuelto:RETO.resuelto, msg:RETO.msg, pistas:{...RETO.pistas}}),
+  // --- setters equivalentes a los botones
+  setMaquina:v=>{ST.mk=v;aplicaMaquina();afterEdit();},
+  setKp:v=>{ST.kp=Number(v);afterEdit();},
+  setKi:v=>{ST.ki=Number(v);afterEdit();},
+  setKd:v=>{ST.kd=Number(v);afterEdit();},
+  setAW:v=>{ST.aw=!!v;afterEdit();},
+  newSignal,
+  // --- reto
+  setRetoMaquina:v=>{RETO.cfg.mk=v;retoSolveBuild();afterEdit();},
+  setRetoKp:v=>{RETO.ejes.kp=Number(v);RETO.msg='';RETO.resuelto=false;afterEdit();},
+  setRetoKi:v=>{RETO.ejes.ki=Number(v);RETO.msg='';RETO.resuelto=false;afterEdit();},
+  setRetoKd:v=>{RETO.ejes.kd=Number(v);RETO.msg='';RETO.resuelto=false;afterEdit();},
+  setReto:(kp,ki,kd)=>{RETO.ejes={kp:Number(kp),ki:Number(ki),kd:Number(kd)};
+    RETO.msg='';RETO.resuelto=false;afterEdit();},
+  check:()=>checkReto(), pista:()=>pista(), retoSolveBuild,
+  solved:()=>solved,
+  // --- cuestionario
+  quizCorrectIndex, answer, quiz:()=>QUIZ[mode], qorden:()=>QORD.slice(),
+  // --- etiquetas de selección
+  pickKeys:()=>Object.keys(PICK_INFO), pick:k=>(PICK_INFO[k]?PICK_INFO[k]():null),
+  boardClick,
+  // --- formato y recorrido
+  fN, f0, f1, f2, f3, f4, pc1, pcm, fin, bar, mm, lmin,
+  runAuto, autoRunning:()=>autoRunning,
+};
+
+// __END__

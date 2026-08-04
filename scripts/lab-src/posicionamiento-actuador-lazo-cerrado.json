@@ -1,0 +1,9 @@
+{
+  "donor": "escaner-obd.html",
+  "out": "posicionamiento-actuador-lazo-cerrado.html",
+  "title": "CEN Labs · Posicionamiento de un actuador en lazo cerrado — Laboratorio 3D",
+  "lt": "Hidráulica y Neumática · Mecánica",
+  "inspectHint": "👆 Toca el grupo, la válvula proporcional, cualquiera de los dos solenoides, el cilindro, cada cámara, la regla de posición, la carga, los dos manómetros o el cuadro de pilotos para ver qué decide cada pieza",
+  "body": "posicionamiento-actuador-lazo-cerrado.body.js",
+  "fichas": ["_ficha-tecnica.js", "_ficha-posicionamiento-actuador-lazo-cerrado.js"]
+}
