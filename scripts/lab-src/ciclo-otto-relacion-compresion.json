@@ -1,0 +1,9 @@
+{
+  "donor": "escaner-obd.html",
+  "out": "ciclo-otto-relacion-compresion.html",
+  "title": "CEN Labs · Ciclo Otto y relación de compresión — Laboratorio 3D",
+  "lt": "Motor de combustión interna · Mecánica",
+  "inspectHint": "👆 Toca el bloque, la camisa, el pistón, la biela, el cigüeñal, la culata, la bujía, cualquiera de las dos válvulas, el frente de llama, el manómetro de cilindro, la brida de escape con su termopar, el sensor de detonación o el cuadro de pilotos del pliego para ver qué decide cada pieza",
+  "body": "ciclo-otto-relacion-compresion.body.js",
+  "fichas": ["_ficha-tecnica.js", "_ficha-ciclo-otto-relacion-compresion.js"]
+}

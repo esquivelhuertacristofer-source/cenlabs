@@ -1,0 +1,67 @@
+import type { BriefingConfig } from '@/components/MissionBriefing';
+
+const briefing: BriefingConfig = {
+  codigo: 'MEC-111',
+  titulo: 'Analiza el Ciclo Otto y su Eficiencia contra la Relación de Compresión',
+  subtitulo: 'Autotrónica · ciclo cerrado con Wiebe, Woschni y detonación de Livengood-Wu',
+  acento: '#EFB13A',
+  duracion: 45,
+  videoUrl: '',
+  bienvenida: `Delante tienes un motor de un cilindro abierto en canal —bloque, camisa, pistón, biela, cigüeñal, culata, bujía, las dos válvulas, el frente de llama, el manómetro de cilindro, la brida de escape con su termopar y el sensor de detonación— y tres mandos: relación de compresión, avance de encendido y dosado relativo λ. Hay cinco máquinas detrás —motocicleta de 149,0 cm³, sedán de 1 597,9 cm³, planta de gas LP de 2 020,1 cm³, turbo GDI de 1 394,9 cm³ y motor de competición de 999,7 cm³ con metanol— y una sola pregunta: ¿qué calibración firma el pliego y cuánto combustible cuesta esa firma en cinco años?
+
+Lo primero que hay que desmontar es la fórmula que todo el mundo se sabe. η = 1 − r^(1−γ) da 56,47 % a r = 8 y 62,99 % a r = 12; el mismo sedán, con avance de 16° y λ = 1,00, entrega 33,93 % y 37,98 % al freno. La distancia entre el techo y la realidad va de 23,61 a 25,92 puntos en las cinco máquinas, y ni siquiera el techo es el que dice el libro: como la admisión cierra a −140° del PMS, la compresión efectiva no es la geométrica, y esa diferencia sola se lleva entre 1,22 y 1,32 puntos. Lo que se pierde después tiene tres nombres con número: la llama tarda —el motor integra 540 pasos de medio grado con Runge-Kutta 4 entre el cierre de admisión y la apertura de escape—, Woschni se lleva por las paredes entre el 9,2 y el 14,8 % del calor liberado en las cinco calibraciones firmadas, y el bombeo y la fricción se restan en presión media, no en tanto por ciento.
+
+Lo segundo es que subir la compresión funciona hasta que deja de funcionar, y el muro no siempre es el mismo. En el sedán con gasolina magna la integral de autoencendido de Livengood-Wu, alimentada por el retardo de Douaud-Eyzat y cortada al 90 % de masa quemada, vale 0,469 a r = 8 y cruza el 1 entre r = 10 (0,826) y r = 11 (1,016), así que la última compresión que se puede firmar con ese avance es r = 10 aunque la eficiencia siga subiendo hasta r = 12 (1,262): a partir de ahí el gas sin quemar se enciende solo antes de que le llegue la llama. Pero al motor de competición con metanol —RON 109— la integral no le llega a 1 ni una sola vez en sus 210 configuraciones: a él lo para la presión de pico. De sus 30 calibraciones a r = 14, 21 caen por presión y 11 de ellas sin que ningún otro criterio las señale.
+
+Lo tercero es que empobrecer la mezcla mejora el rendimiento hasta que te quedas sin par. En la planta de gas a r = 12 y 10° de avance, pasar de λ = 1,00 a λ = 1,10 sube la eficiencia indicada de 41,43 a 41,49 % y aun así la eficiencia al freno BAJA de 37,71 a 37,61 %: la presión media indicada cae de 11,690 a 10,701 bar —un 8,46 %— mientras la fricción sólo baja de 0,982 a 0,931 —un 5,19 %—, así que la fricción se queda con una tajada mayor de un pastel más pequeño y la presión media al freno se hunde de 10,639 a 9,701 bar. Y hay un efecto que sólo se ve con el combustible delante: el enfriamiento por evaporación baja la mezcla 4,6 K en el sedán, 0,0 K en la planta —que entra en gas— y 54,8 K en el motor de metanol, que por eso admite compresiones que a la gasolina le están prohibidas.
+
+Y lo cuarto es que el pliego son siete criterios a la vez —detonación, presión máxima, temperatura en la brida de escape, par entregado, ventana de mezcla, estabilidad de la combustión y posición del pico de presión— y que el dinero es el desempate. De las 870 configuraciones mecánicamente posibles del banco sólo 51 pasan las siete. El censo separando bajas totales de suspensos en solitario enseña que el par tumba 452 y decide sólo 17, mientras que la temperatura de escape tumba 251 y decide 65. Y ninguna de las cinco soluciones firmadas es la de mayor eficiencia: renuncian a 0,15, 0,70, 1,25, 2,21 y 0,71 puntos porque la mejor de cada máquina incumple algo.`,
+  conceptos: [
+    {
+      icono: '📐',
+      nombre: 'El techo de aire frío y lo que queda de él',
+      descripcion: 'η = 1 − r^(1−γ) vale 56,47 · 60,19 · 62,99 · 65,20 % para r = 8, 10, 12 y 14. Entre ese techo y la eficiencia al freno hay de 23,61 a 25,92 puntos, y la compresión efectiva —la admisión cierra a −140° del PMS— se lleva otros 1,22 a 1,32 antes de que empiece la combustión.',
+    },
+    {
+      icono: '🔥',
+      nombre: 'La llama tarda y el calor se escapa',
+      descripcion: 'Liberación de Wiebe con a = 6,908 (99,9 % quemado al final) y exponente 3, con la duración escalada por la velocidad de llama laminar de Metghalchi-Keck, la dilución por residuales y una turbulencia u′ = 0,5·S_p. Woschni se lleva del 9,2 al 14,8 % del calor liberado en las cinco calibraciones firmadas.',
+    },
+    {
+      icono: '💥',
+      nombre: 'El muro no siempre es la detonación',
+      descripcion: 'Retardo de Douaud-Eyzat integrado con Livengood-Wu y cortado al 90 % de masa quemada: en el sedán la integral pasa de 0,469 a r = 8 a 1,262 a r = 12. En el motor de metanol no llega a 1 en ninguna de sus 210 configuraciones, y quien lo detiene es la presión de pico.',
+    },
+    {
+      icono: '💶',
+      nombre: 'Siete criterios y el combustible de cinco años',
+      descripcion: 'Detonación, presión, escape, par, mezcla, estabilidad y posición del pico, juzgados a la vez sobre 870 configuraciones: sólo 51 pasan las siete. El desempate lo hace el combustible que consume la carga anual de cada máquina a cinco años, a 1,52 · 1,68 · 0,88 · 0,62 €/L.',
+    },
+  ],
+  mision: [
+    'RECONOCE el motor pieza a pieza: bloque, camisa, pistón, biela, cigüeñal, culata, bujía, válvula de admisión, válvula de escape, frente de llama, manómetro de cilindro, brida de escape con termopar, sensor de detonación y cuadro de los siete pilotos del pliego — catorce piezas, cada una con lo que decide.',
+    'COMPARA el techo con la realidad en el sedán a 16° y λ = 1,00: el aire frío promete 56,47 % a r = 8 y 62,99 % a r = 12; el ciclo real entrega 39,06 y 43,86 % de eficiencia indicada, y el freno se queda en 33,93 y 37,98 %. Cada resta tiene su nombre en la telemetría.',
+    'BARRE la relación de compresión y mira la integral de detonación por debajo: 0,469 · 0,633 · 0,826 · 1,016 · 1,262 para r de 8 a 12 en el sedán. El muro no está donde la eficiencia deja de subir —no deja de subir nunca—, está donde la integral cruza el 1.',
+    'CAMBIA de máquina y comprueba que el muro cambia de nombre: en la planta de gas LP con RON 105 el límite a r = 14 es la detonación, en el motor de metanol es la presión de pico —21 de sus 30 calibraciones a r = 14 caen por presión, 11 sin ayuda de nadie— y en el turbo GDI son la detonación y la ventana del catalizador a la vez.',
+    'BARRE el dosado en la planta de gas a r = 12 y 10°: de λ = 1,00 a λ = 1,10 la eficiencia indicada SUBE de 41,43 a 41,49 % y la del freno BAJA de 37,71 a 37,61 %, porque la presión media indicada cae un 8,46 % —de 11,690 a 10,701 bar— y la fricción sólo un 5,19 % —de 0,982 a 0,931—, de modo que la presión media al freno queda en 9,701 bar frente a 10,639. Lo que se resta en bar pesa más que lo que se gana en porcentaje.',
+    'MIDE el enfriamiento por evaporación de cada combustible: 4,2 K en la moto, 4,6 en el sedán, 0,0 en la planta que entra en gas, 13,8 en el turbo de inyección directa y 54,8 K en el motor de metanol. Ese frío es parte de por qué el metanol aguanta lo que aguanta.',
+    'CENSA los siete criterios sobre las 870 configuraciones separando bajas totales de suspensos en solitario: el par tumba 452 y decide 17; la mezcla tumba 378 y decide 16; la estabilidad tumba 248 y decide 1. El escape tumba 251 y decide 65, más que ningún otro.',
+    'RETO · Elige relación de compresión, avance y dosado para pasar los siete criterios con el menor coste de combustible a cinco años. La solución es única en las cinco máquinas, y en ninguna de las cinco coincide con la de mayor eficiencia.',
+  ],
+  aplicaciones: [
+    {
+      area: 'Calibración de motores y control de detonación',
+      ejemplo: 'Un calibrador no sube la compresión ni adelanta el encendido hasta donde el rendimiento manda, sino hasta donde el autoencendido lo permite con el combustible que va a llegar al depósito. Aquí se practica con la integral de Livengood-Wu a la vista y con cuatro combustibles de RON 91 a 109, que es lo que separa un mapa que funciona en banco de uno que funciona en verano.',
+    },
+    {
+      area: 'Diagnóstico de motores en taller',
+      ejemplo: 'Cascabeleo, temperatura de escape alta, falta de par o consumo disparado son síntomas distintos de causas distintas, y aquí se separan con números: relación efectiva, retardo de autoencendido, duración de la combustión, posición del pico de presión y presión media de bombeo. Reconocer cuál manda —y que casi nunca manda una sola— es lo que distingue un ajuste de un desmontaje inútil.',
+    },
+    {
+      area: 'Selección de motor y coste de propiedad',
+      ejemplo: 'Elegir un motor para una planta de cogeneración o para una flota no es elegir el de más rendimiento: es cruzar el pliego entero con el precio del combustible y las horas de trabajo al año. El laboratorio enseña que la calibración más eficiente y la más barata no coinciden en ninguna de las cinco máquinas, y cuánto cuesta equivocarse: firmar la válida más cara en vez de la óptima son 20 042 € de combustible de más en la planta de gas a cinco años.',
+    },
+  ],
+};
+
+export default briefing;
