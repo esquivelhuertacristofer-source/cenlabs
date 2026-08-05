@@ -1,7 +1,7 @@
 import type { CatalogoEntry } from '../_types';
 
 const catalogo: CatalogoEntry = {
-  modulo: "Instrumentación",
+  modulo: "Máquinas Eléctricas",
   titulo: "Interpreta Placas de Datos y Selecciona Motores",
   duracion: "40 min",
   teoria:

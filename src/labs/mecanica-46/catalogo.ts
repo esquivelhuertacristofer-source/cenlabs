@@ -1,7 +1,7 @@
 import type { CatalogoEntry } from '../_types';
 
 const catalogo: CatalogoEntry = {
-  modulo: "Instrumentación",
+  modulo: "Máquinas Eléctricas",
   titulo: "Grupo Vectorial: Bancos Trifásicos y Desfase Angular",
   duracion: "45 min",
   teoria:

@@ -1,7 +1,7 @@
 import type { CatalogoEntry } from '../_types';
 
 const catalogo: CatalogoEntry = {
-  modulo: "Instrumentación",
+  modulo: "Máquinas Eléctricas",
   titulo: "Métodos de Arranque de Motores de Inducción: Corriente de Irrupción",
   duracion: "40 min",
   teoria:

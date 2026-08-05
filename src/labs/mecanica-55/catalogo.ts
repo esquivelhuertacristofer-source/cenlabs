@@ -1,7 +1,7 @@
 import type { CatalogoEntry } from '../_types';
 
 const catalogo: CatalogoEntry = {
-  modulo: "Instrumentación",
+  modulo: "Máquinas Eléctricas",
   titulo: "Curvas V del Motor Síncrono",
   duracion: "35 min",
   teoria:

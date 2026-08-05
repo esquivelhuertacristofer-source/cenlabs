@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect, useRef } from 'react';
 import Link from 'next/link';
-import { Cog, Play, ArrowLeft, Clock, Target, User, Lock, Sparkles } from 'lucide-react';
+import { Cog, Play, ArrowLeft, Clock, Target, User, Lock, Sparkles, Search } from 'lucide-react';
 import ThemeToggle from '@/components/ThemeToggle';
 import { catalogoDeCategoria, type CatalogoItem } from '@/labs/_catalogo';
 
@@ -15,6 +15,16 @@ import { catalogoDeCategoria, type CatalogoItem } from '@/labs/_catalogo';
 // carpeta; esta página NO se toca. Cada item ya trae `id` ('mecanica-N') y `orden`
 // (1..10) derivados del nombre de la carpeta, y viene ordenado por `orden`.
 const practicasMecanica: CatalogoItem[] = catalogoDeCategoria('mecanica');
+
+// Pestañas de módulo derivadas del catálogo, en su orden de aparición (== orden
+// por número de lab), igual que en las otras cuatro materias. Un lab nuevo en un
+// módulo existente NO requiere tocar esta página; uno que estrene un módulo
+// aparece como pestaña nueva automáticamente.
+const modulosMecanica = [...new Set(practicasMecanica.map((p) => p.modulo))];
+
+// Módulo al que pertenece cada lab, para poder abrir la pestaña correcta cuando
+// se llega con ?id=mecanica-N desde el simulador o desde el hub del alumno.
+const moduloDeId = new Map(practicasMecanica.map((p) => [p.id, p.modulo]));
 
 // ==========================================
 // Componentes Secundarios
@@ -140,6 +150,8 @@ const PropuestoCard = ({ practica }: { practica: CatalogoItem }) => {
 
 export default function MecanicaCatalogPage() {
   const [isMounted, setIsMounted] = useState(false);
+  const [activeTab, setActiveTab] = useState(modulosMecanica[0]);
+  const [searchQuery, setSearchQuery] = useState("");
 
   useEffect(() => {
     setIsMounted(true);
@@ -149,6 +161,11 @@ export default function MecanicaCatalogPage() {
       const searchParams = new URLSearchParams(window.location.search);
       const targetId = searchParams.get("id");
       if (targetId) {
+        // Con las prácticas repartidas en pestañas, el lab de destino casi nunca
+        // está en la que se abre por defecto. Se selecciona su módulo ANTES de
+        // buscar el nodo: si no, el scroll apuntaría a un elemento no montado.
+        const moduloDestino = moduloDeId.get(targetId);
+        if (moduloDestino) setActiveTab(moduloDestino);
         setTimeout(() => {
           const element = document.getElementById(targetId);
           if (element) {
@@ -167,6 +184,25 @@ export default function MecanicaCatalogPage() {
   const propuestas = practicasMecanica.filter(p => p.estado === 'propuesto');
   const destacada = activas.find(p => p.destacada) || activas[0];
   const progreso = Math.round((activas.length / practicasMecanica.length) * 100);
+
+  // Con 100+ prácticas repartidas en nueve módulos, una búsqueda encerrada en la
+  // pestaña activa esconde casi todo lo que el alumno escribe. Mientras hay texto
+  // se busca en TODO el catálogo y la pestaña deja de filtrar; al vaciar la caja
+  // se vuelve a la pestaña. Esa diferencia se anuncia en pantalla, no se adivina.
+  const buscando = searchQuery.trim().length > 0;
+  const q = searchQuery.trim().toLowerCase();
+  const coincide = (p: CatalogoItem) => {
+    if (!buscando) return p.modulo === activeTab;
+    return (
+      p.titulo.toLowerCase().includes(q) ||
+      p.teoria.toLowerCase().includes(q) ||
+      p.modulo.toLowerCase().includes(q) ||
+      p.id.toLowerCase().includes(q)
+    );
+  };
+
+  const activasFiltradas = activas.filter(coincide);
+  const propuestasFiltradas = propuestas.filter(coincide);
 
   // Design Tokens for Mecánica e Ingeniería
   const gradient = "bg-[#effaf7] dark:bg-[#08201C]";
@@ -258,20 +294,75 @@ export default function MecanicaCatalogPage() {
           </div>
         )}
 
-        {/* 3. LABS ACTIVOS */}
-        <div className="w-full flex justify-between items-end border-b border-gray-200 dark:border-gray-800 pb-4 mb-10">
-            <h2 className="text-2xl sm:text-4xl font-black text-[#023047] dark:text-white tracking-tight">Prácticas disponibles</h2>
-            <span className="text-sm font-black text-[#2A9D8F] dark:text-[#4FD1C5] uppercase tracking-widest">{activas.length} labs 3D</span>
+        {/* 3. PESTAÑAS DE MÓDULO + BÚSQUEDA */}
+        <div className="w-full flex flex-col lg:flex-row justify-between items-start lg:items-center gap-6 border-b border-gray-200 dark:border-gray-800 pb-4 mb-10">
+            <h2 className="text-2xl sm:text-4xl font-black text-[#023047] dark:text-white tracking-tight shrink-0">Prácticas</h2>
+
+            <div className="flex gap-4 overflow-x-auto pt-4 pb-4 w-full lg:w-auto snap-x no-scrollbar">
+                {modulosMecanica.map((tab) => {
+                    const count = practicasMecanica.filter(p => p.modulo === tab).length;
+                    const isActiveTab = !buscando && activeTab === tab;
+                    return (
+                        <button
+                            key={tab}
+                            onClick={() => { setSearchQuery(""); setActiveTab(tab); }}
+                            className={`snap-center shrink-0 px-4 sm:px-6 py-3.5 rounded-2xl text-sm sm:text-base font-black transition-all flex items-center gap-3 shadow-sm ${isActiveTab ? 'bg-[#2A9D8F] text-white border-2 border-[#2A9D8F] -translate-y-1 shadow-lg shadow-[#2A9D8F]/30' : 'bg-white dark:bg-[#0A1121] text-slate-400 dark:text-slate-400 border border-slate-200 dark:border-slate-800 hover:bg-slate-50 dark:hover:bg-slate-800 hover:-translate-y-0.5'}`}
+                        >
+                            {tab}
+                            <span className={`px-3 py-1 rounded-lg text-xs font-bold ${isActiveTab ? 'bg-white/20 text-white' : 'bg-slate-100 dark:bg-slate-800 text-slate-500'}`}>
+                                {count}
+                            </span>
+                        </button>
+                    )
+                })}
+            </div>
+
+            <div className="w-full lg:w-64 shrink-0 lg:ml-auto">
+                <div className="relative w-full">
+                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 w-4 h-4" />
+                    <input
+                       type="text"
+                       placeholder={`Buscar en las ${practicasMecanica.length} prácticas...`}
+                       value={searchQuery}
+                       onChange={(e) => setSearchQuery(e.target.value)}
+                       className="w-full pl-10 pr-4 py-3 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-[#0A1121] text-slate-700 dark:text-slate-200 text-sm font-semibold focus:outline-none focus:ring-2 focus:ring-[#2A9D8F] transition-all"
+                    />
+                </div>
+            </div>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 sm:gap-6 md:gap-8">
-           {activas.map((practica) => (
-              <SpotlightCard key={practica.id} practica={practica} />
-           ))}
+        {/* 4. LABS ACTIVOS DEL MÓDULO (o de toda la materia, si se está buscando) */}
+        <div className="w-full flex flex-wrap justify-between items-end gap-3 mb-8">
+            <h3 className="text-xl sm:text-2xl font-black text-[#023047] dark:text-white tracking-tight">
+              {buscando ? 'Resultados en toda la materia' : activeTab}
+            </h3>
+            <span className="text-sm font-black text-[#2A9D8F] dark:text-[#4FD1C5] uppercase tracking-widest">
+              {activasFiltradas.length} {activasFiltradas.length === 1 ? 'lab 3D' : 'labs 3D'}
+            </span>
         </div>
 
-        {/* 4. LABS PROPUESTOS */}
-        {propuestas.length > 0 && (
+        {activasFiltradas.length > 0 ? (
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 sm:gap-6 md:gap-8">
+             {activasFiltradas.map((practica) => (
+                <SpotlightCard key={practica.id} practica={practica} />
+             ))}
+          </div>
+        ) : (
+          <div className="w-full flex flex-col items-center justify-center p-16 bg-white dark:bg-[#0A1121] border border-slate-200 dark:border-slate-800 rounded-[32px]">
+             <Search className="w-16 h-16 text-slate-300 dark:text-slate-700 mb-4" />
+             <h3 className="text-2xl font-black text-[#023047] dark:text-white mb-2">No hay coincidencias</h3>
+             <p className="text-slate-500 dark:text-slate-400 font-semibold text-center">Ninguna práctica de mecánica coincide con «{searchQuery}».</p>
+             <button
+                onClick={() => setSearchQuery("")}
+                className="mt-6 px-6 py-3 rounded-xl bg-[#effaf7] dark:bg-slate-800 text-[#2A9D8F] dark:text-white font-bold hover:bg-[#2A9D8F]/10 transition-colors"
+              >
+                Limpiar búsqueda
+             </button>
+          </div>
+        )}
+
+        {/* 5. LABS PROPUESTOS */}
+        {propuestasFiltradas.length > 0 && (
           <>
             <div className="w-full flex items-center gap-6 mt-16 mb-8">
                 <h3 className="text-[#023047] dark:text-white font-black uppercase tracking-[0.3em] text-xs shrink-0 flex items-center gap-2">
@@ -279,11 +370,11 @@ export default function MecanicaCatalogPage() {
                   Próximos laboratorios
                 </h3>
                 <div className="h-[1px] flex-grow bg-slate-200 dark:bg-slate-800"></div>
-                <span className="text-xs font-black text-slate-400 uppercase tracking-widest shrink-0">{propuestas.length} en diseño</span>
+                <span className="text-xs font-black text-slate-400 uppercase tracking-widest shrink-0">{propuestasFiltradas.length} en diseño</span>
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-               {propuestas.map((practica) => (
+               {propuestasFiltradas.map((practica) => (
                   <PropuestoCard key={practica.id} practica={practica} />
                ))}
             </div>

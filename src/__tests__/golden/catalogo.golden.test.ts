@@ -76,6 +76,20 @@ describe('golden master — catálogo por categoría (invariante ante extracció
       'Genética y Evolución',
       'Anatomía y Ecología',
     ]);
-    expect(modulosDe('mecanica')).toEqual(['Autotrónica', 'Mecatrónica', 'Instrumentación', 'Circuitos Eléctricos', 'Electrónica', 'Sistemas Digitales', 'Hidráulica y Neumática']);
+    // Mecánica ya no cabía en el hardcode original: las 16 prácticas de máquinas
+    // eléctricas (mecanica-44..59) colgaban de 'Instrumentación' y el motor de
+    // combustión (mecanica-2, 111, 112) de 'Autotrónica'. Se separaron al montar
+    // las pestañas del hub, así que esta lista es más larga a propósito.
+    expect(modulosDe('mecanica')).toEqual([
+      'Autotrónica',
+      'Motor de Combustión Interna',
+      'Mecatrónica',
+      'Instrumentación',
+      'Circuitos Eléctricos',
+      'Electrónica',
+      'Máquinas Eléctricas',
+      'Sistemas Digitales',
+      'Hidráulica y Neumática',
+    ]);
   });
 });

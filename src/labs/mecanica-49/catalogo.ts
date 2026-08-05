@@ -1,7 +1,7 @@
 import type { CatalogoEntry } from '../_types';
 
 const catalogo: CatalogoEntry = {
-  modulo: "Instrumentación",
+  modulo: "Máquinas Eléctricas",
   titulo: "Motor de Inducción: Deslizamiento y Curva Par-Velocidad",
   duracion: "40 min",
   teoria:

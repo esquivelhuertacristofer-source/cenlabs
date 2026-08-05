@@ -1,7 +1,7 @@
 import type { CatalogoEntry } from '../_types';
 
 const catalogo: CatalogoEntry = {
-  modulo: "Instrumentación",
+  modulo: "Máquinas Eléctricas",
   titulo: "Motor Monofásico: Fase Partida y Capacitor — Diagnóstico",
   duracion: "40 min",
   teoria:

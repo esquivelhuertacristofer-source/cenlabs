@@ -1,7 +1,7 @@
 import type { CatalogoEntry } from '../_types';
 
 const catalogo: CatalogoEntry = {
-  modulo: "Instrumentación",
+  modulo: "Máquinas Eléctricas",
   titulo: "Circuito Equivalente por Ensayos de Vacío y Cortocircuito",
   duracion: "50 min",
   teoria:
