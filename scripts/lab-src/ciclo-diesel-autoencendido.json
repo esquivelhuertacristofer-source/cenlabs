@@ -1,0 +1,9 @@
+{
+  "donor": "escaner-obd.html",
+  "out": "ciclo-diesel-autoencendido.html",
+  "title": "CEN Labs · Ciclo Diésel y autoencendido — Laboratorio 3D",
+  "lt": "Motor de combustión interna · Mecánica",
+  "inspectHint": "👆 Toca el bloque, la camisa, el pistón, la biela, el cigüeñal, la culata, el inyector, el chorro, cualquiera de las dos válvulas, la columna de gas, el manómetro de cilindro, la ayuda de arranque en frío, la brida de escape con su termopar, el acelerómetro de ruido o el cuadro de pilotos del pliego para ver qué decide cada pieza",
+  "body": "ciclo-diesel-autoencendido.body.js",
+  "fichas": ["_ficha-tecnica.js", "_ficha-ciclo-diesel-autoencendido.js"]
+}

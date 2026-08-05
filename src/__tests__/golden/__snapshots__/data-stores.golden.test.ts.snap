@@ -2681,6 +2681,69 @@ Y lo cuarto es que el pliego son siete criterios a la vez —detonación, presi�
     "titulo": "Analiza el Ciclo Otto y su Eficiencia contra la Relación de Compresión",
     "videoUrl": "",
   },
+  "mecanica-112": {
+    "acento": "#E0783C",
+    "aplicaciones": [
+      {
+        "area": "Calibración de motores Diésel e inyección common-rail",
+        "ejemplo": "Un calibrador no adelanta la inyección hasta donde el rendimiento manda, sino hasta donde el gradiente de presión y la presión de pico lo permiten con el cetano que va a llegar al depósito. Aquí se practica con el retardo integrado a la vista y con cuatro combustibles de CN 42 a 54, que es la diferencia entre un mapa que sale bien en banco y uno que no rompe la culata en servicio.",
+      },
+      {
+        "area": "Diagnóstico de humo, ruido y arranque en taller",
+        "ejemplo": "Cascabeleo, humo, temperatura de escape alta y arranque perezoso en frío son síntomas distintos de causas distintas, y aquí se separan con números: retardo de autoencendido, fracción premezclada, duración de la inyección, fase de la combustión y margen térmico en el PMS. El laboratorio enseña además que un motor puede encender perfectamente y no arrancar, porque el combustible ha gelificado antes de llegar al inyector.",
+      },
+      {
+        "area": "Selección de motor y coste de propiedad a cinco años",
+        "ejemplo": "Elegir motor para una flota, una planta de emergencia o un barco es cruzar el pliego entero con el precio del combustible y las horas de trabajo al año. De los 3 200 puntos de la rejilla sólo 1 460 son construibles y sólo 202 pasan los seis criterios; firmar la válida más cara en vez de la óptima cuesta 38 479 € de combustible de más en el tractor y 361 686 € en el motor marino.",
+      },
+    ],
+    "bienvenida": "Delante tienes un motor Diésel de un cilindro abierto en canal —bloque, camisa con su columna de gas, pistón, biela, cigüeñal, culata, inyector con su tobera, riel común, las dos válvulas, el manómetro de cilindro, la ayuda de arranque en frío, la brida de escape con su termopar, el acelerómetro de ruido y el cuadro de recepción del pliego— y cuatro mandos: relación de compresión, inicio de inyección, presión de riel y combustible. Hay cinco máquinas detrás —tractor de 3 300 cm³ atmosférico, camioneta CRDi de 2 798, planta de emergencia de 6 002, compacto urbano de 1 501 y motor marino de 9 002— y una sola pregunta: ¿qué calibración firma el pliego, y por qué la más eficiente nunca lo firma?
+
+Lo primero que hay que desmontar son los tres techos. En el urbano a r = 16, con el MISMO calor y la MISMA compresión, el ciclo ideal de aire frío promete 58,88 % si el calor entra a presión constante, 61,91 % si entra como en el ciclo dual de Seiliger y 67,01 % si entrara todo a volumen constante. El motor real de ese punto da 46,44 % de eficiencia indicada y 38,29 % al freno, y esos 28,72 puntos de distancia se reparten en cinco tramos con nombre: 5,10 por quemar a presión y no a volumen constante, 3,03 por quemar de forma progresiva y no instantánea, 1,62 porque la admisión cierra a −140° del PMS y la relación que gobierna es la efectiva —14,731, no 16—, 10,83 por la combustión real y las pérdidas de Woschni a la pared, y 8,14 por bombeo, fricción y el trabajo que se lleva la bomba de inyección, que aquí no es un detalle: son el 21,1 % de todo el rozamiento del urbano y el 9,1 % del tractor atmosférico.
+
+Lo segundo es que en un Diésel el encendido no se ordena: se espera. El retardo se integra con Livengood-Wu sobre la correlación de Hardenberg-Hase, cuya energía de activación depende del cetano —E_a = 618 840/(CN + 25), de 7 833,4 J/mol para el B20 de CN 54 a 9 236,4 para el marino de CN 42—, y mientras el gas no se enciende el chorro sigue entrando. Toda esa masa quema de golpe en un pico premezclado y el resto va detrás en una cola difusiva: de ahí sale el gradiente de presión que mide el acelerómetro. Con el mismo calor por ciclo —los cuatro combustibles del urbano queman exactamente 1 143,6 J— el B20 inyecta 28,25 mg y es el más silencioso con 9,75 bar/°, el marino inyecta 27,06 mg y es el más ruidoso con 10,45, y además el más eficiente de los cuatro. La masa no manda: manda el cetano.
+
+Lo tercero es el riel. Pasar de 600 a 1 800 bar NO triplica el caudal: lo multiplica por 1,7945, porque Bernoulli manda la raíz de la diferencia de presiones y la contrapresión en el instante de inyectar son 59,5 bar. El retardo no se mueve ni una centésima —3,66° en las cuatro presiones—, pero la dosis pasa de tardar 41,10° a tardar 22,90°, la penalización por quemar tarde sube de 0,8712 a 1,0000 y la eficiencia al freno salta de 28,79 a 38,29 % con el consumo cayendo de 292,8 a 220,2 g/kWh. El riel no cambia cuándo empieza la combustión: cambia cuánto dura.
+
+Y lo cuarto es el arranque en frío, que separa dos ayudas que casi siempre se confunden. La rejilla calienta el aire ANTES de comprimirlo, así que sus 50,5 K llegan al PMS multiplicados por r_ef^(n−1) = 2,673, convertidos en 135,0 K —con el γ = 1,4 del libro parecerían 165,0 K, un regalo fantasma de 30,0 K que aquí no se cobra—, mientras la bujía del urbano añade 178,7 K después de comprimir y no se multiplica por nada. Con la misma rejilla, el mismo combustible y los mismos −5 °C, el tractor a r = 14 se queda 8,0 K corto y no arranca; a r = 21 sobra por 98,7 K. Y hay un segundo muro que no es térmico: a −20 °C los cuatro combustibles de la camioneta llegan a los mismos 825,9 K y los cuatro superan su umbral de autoinflamación —el B20 con el mayor margen, 144,9 K—, pero tres han gelificado antes de llegar al inyector.",
+    "codigo": "MEC-112",
+    "conceptos": [
+      {
+        "descripcion": "Con el mismo calor y la misma compresión, el urbano a r = 16 tiene techo de 58,88 % como Diésel, 61,91 % como dual de Seiliger y 67,01 % como Otto. El motor real da 46,44 % indicado y 38,29 % al freno: 28,72 puntos repartidos en 5,10 + 3,03 + 1,62 + 10,83 + 8,14, cada tramo con su causa medida.",
+        "icono": "📐",
+        "nombre": "Tres techos ideales, no uno",
+      },
+      {
+        "descripcion": "Hardenberg-Hase con E_a = 618 840/(CN + 25) —de 7 833,4 a 9 236,4 J/mol según el cetano— integrado por Livengood-Wu paso a paso desde que se abre el inyector. La masa que entra durante ese retardo es la fracción premezclada β, entre 0,095 y 0,159 en las cinco soluciones firmadas, y es la que hace el ruido.",
+        "icono": "⏱️",
+        "nombre": "El retardo se integra, no se declara",
+      },
+      {
+        "descripcion": "El premezclado quema con a = 6,908 y exponente 3, y se corta cuando se agota; la cola difusiva quema con a = 2,50 y exponente 1,55 y no se corta, porque la controla la mezcla. Con calor idéntico —1 143,6 J en los cuatro combustibles del urbano— el ruido va de 9,75 a 10,45 bar/° según el cetano, no según la masa.",
+        "icono": "💧",
+        "nombre": "Doble Wiebe: pico premezclado y cola difusiva",
+      },
+      {
+        "descripcion": "La rejilla calienta antes de comprimir y sus 50,5 K se multiplican por r_ef^(n−1) = 2,673 hasta 135,0 K; la bujía añade 178,7 K después de comprimir y no se multiplica. Y por encima del umbral térmico manda el filtro: a −20 °C tres de los cuatro combustibles de la camioneta gelifican aunque los cuatro enciendan.",
+        "icono": "❄️",
+        "nombre": "Dos ayudas de arranque que no se suman igual",
+      },
+    ],
+    "duracion": 45,
+    "mision": [
+      "RECONOCE el motor pieza a pieza: bloque y cárter, camisa con su columna de gas, pistón con aros y bulón, biela, cigüeñal con contrapesos y volante, culata y junta, inyector y tobera, riel común y línea de alta presión, ayuda al arranque en frío, válvula de admisión, válvula de escape, manómetro de cilindro, brida de escape con termopar, acelerómetro de ruido de combustión y cuadro de recepción con los seis pilotos del pliego — quince piezas, cada una con lo que decide.",
+      "COMPARA los tres techos en el urbano a r = 16, 10° y 1 800 bar: 67,01 % como Otto, 61,91 % como dual, 58,88 % como Diésel, todos con el mismo calor. El motor entrega 46,44 % indicado y 38,29 % al freno, y la telemetría le pone nombre y número a cada uno de los cinco escalones que hay entre medias.",
+      "MIRA el retardo por debajo: el inyector abre y no pasa nada durante 3,66°, mientras la integral de Livengood-Wu sube hasta 1. Toda la dosis que entra en ese hueco quema de golpe: ésa es la β = 0,136 del urbano, y el acelerómetro marca 10,08 bar/° por su culpa.",
+      "CAMBIA de combustible sin cambiar nada más: los cuatro queman exactamente 1 143,6 J, pero el B20 inyecta 28,25 mg y el marino 27,06 mg; el retardo va de 3,61° con B20 a 3,84° con marino y el ruido de 9,75 a 10,45 bar/°. El más ruidoso es además el más eficiente, con 38,48 % frente a 38,29 %.",
+      "BARRE la presión de riel de 600 a 1 800 bar: el caudal se multiplica por 1,7945 —no por 3, porque Bernoulli manda la raíz—, el retardo se queda clavado en 3,66°, la inyección se acorta de 41,10° a 22,90°, la penalización por quemar tarde sube de 0,8712 a 1,0000 y el consumo cae de 292,8 a 220,2 g/kWh. La factura del riel son 0,479 bar de presión media de fricción frente a 0,160.",
+      "ARRANCA EN FRÍO y separa las dos ayudas: la rejilla del tractor pone 50,5 K antes de comprimir y llegan al PMS como 135,0 K; con el γ = 1,4 del libro parecerían 165,0 K. Con la misma rejilla y el mismo gasóleo a −5 °C, r = 14 se queda 8,0 K corto y no arranca, y r = 21 sobra por 98,7 K: la compresión es la primera bujía.",
+      "CENSA los seis criterios sobre las 1 460 configuraciones construibles separando bajas totales de suspensos en solitario: la fase tumba 805 y decide 73; el ruido tumba sólo 166 pero decide 23; el escape tumba 568 y decide 35; el par tumba 446 y decide apenas 13. Y el arranque en frío tumba 750 y decide él solo 204, más que los otros cinco juntos.",
+      "RETO · Elige relación de compresión, inicio de inyección, presión de riel y combustible para pasar los seis criterios con el menor coste de combustible a cinco años. En las cinco máquinas la calibración más eficiente de todas es infirmable, y en las cinco la lista de criterios que la tumban incluye el ruido.",
+    ],
+    "subtitulo": "Autotrónica · doble Wiebe, retardo de Hardenberg-Hase integrado con Livengood-Wu y pliego de seis criterios",
+    "titulo": "Contrasta el Ciclo Diésel y el Autoencendido contra el Techo Ideal",
+    "videoUrl": "",
+  },
   "mecanica-12": {
     "acento": "#2A9D8F",
     "aplicaciones": [
@@ -18384,6 +18447,7 @@ exports[`golden master — stores de datos (invariante ante la migración a src/
   "mecanica-11": [],
   "mecanica-110": [],
   "mecanica-111": [],
+  "mecanica-112": [],
   "mecanica-12": [],
   "mecanica-13": [],
   "mecanica-14": [],
@@ -18730,6 +18794,7 @@ exports[`golden master — stores de datos (invariante ante la migración a src/
   "mecanica-11",
   "mecanica-110",
   "mecanica-111",
+  "mecanica-112",
   "mecanica-12",
   "mecanica-13",
   "mecanica-14",

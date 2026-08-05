@@ -1,0 +1,3122 @@
+// ============================================================ §1 ESCENA
+const mount=document.getElementById('stage');
+const S=createStage(mount,{cam:[7.4,4.9,11.0],target:[0.95,1.35,0.10],bgTop:'#0d1017',bgBot:'#05060a',bloom:0.44,minD:3.2,maxD:30});
+const {scene}=S;
+const synth=makeSynth({type:'sine',type2:'triangle',filterFreq:820,Q:0.80});
+const el=id=>document.getElementById(id);
+const clamp=(v,a,b)=>v<a?a:(v>b?b:v);
+
+// ============================================================================
+// MOTOR SELLADO — se copia tal cual desde el fichero de Capa 1, sin tocar una
+// sola cifra. Lo unico que cambia es que se le quitan los `export`. Cualquier
+// numero que aparezca en el pizarron, en la telemetria, en el informe o en el
+// cuestionario sale de aqui: la interfaz no recalcula nada por su cuenta.
+// ============================================================================
+// ============================================================================
+//  motor_diesel.mjs — CAPA 1 · motor sellado del laboratorio d6-02
+//  "Contrasta el ciclo Diesel y el autoencendido"
+//
+//  Periodo cerrado (IVC -> EVO) de una zona con:
+//   - volumen de biela-manivela exacto y gamma(T, x_prod) variable
+//   - RETARDO DE AUTOENCENDIDO por Hardenberg-Hase INTEGRADO (Livengood-Wu):
+//     el encendido no se ordena, se calcula
+//   - caudal de inyeccion por orificio (Bernoulli) -> duracion de inyeccion
+//   - fraccion premezclada = masa inyectada DURANTE el retardo (no correlacion)
+//   - liberacion de calor de doble Wiebe (forma segun Watson, SAE 800029)
+//   - transferencia de calor de Woschni
+//   - friccion de Chen-Flynn MAS el trabajo de la bomba de inyeccion
+//   - techos ideales Otto / Diesel / Dual (Seiliger) de aire frio
+//   - arranque en frio: politropica de arrastre + umbral termico del
+//     combustible + punto de obstruccion de filtro en frio (CFPP)
+// ============================================================================
+
+// ---------------------------------------------------------------- constantes
+const R_GAS   = 287.0;      // J/(kg K)
+const P_ATM   = 101325;     // Pa
+const CP_FRIO = 1005;       // J/(kg K)  — aire frio, ciclos ideales
+const CV_FRIO = 718;        // J/(kg K)  — aire frio, ciclos ideales
+const G_FRIO  = 1.4;        // gamma de aire frio de los ciclos ideales
+const DEG     = Math.PI / 180;
+const H_PASO  = 0.5;        // grados de cigueñal por paso
+const TH_IVC  = -140;       // ° ATDC — cierre de admision
+const TH_EVO  = 130;        // ° ATDC — apertura de escape
+const C1_WOS  = 2.28;       // Woschni, periodo cerrado
+const C2_WOS  = 3.24e-3;    // Woschni, combustion y expansion
+const N_MOT   = 1.35;       // politropico de la presion de arrastre
+const K_PORT  = 0.78;       // perdida del conducto hasta la brida
+const ETA_COMB= 0.985;      // combustion completa de referencia
+const AFR_ST  = 14.5;       // relacion estequiometrica de los gasoleos
+// Limite clasico de humo de un DI: por debajo de este exceso de aire el humo
+// se dispara. NO es un criterio del pliego porque el banco pide una energia
+// fija por ciclo, y con la dosis fija lambda apenas se mueve: el laboratorio
+// lo mide y lo declara, en vez de fingir que decide algo.
+const LAM_HUMO= 1.25;
+
+// -- Hardenberg-Hase (1979), tau en GRADOS de cigueñal
+const HH_A    = 0.36;
+const HH_B    = 0.22;       // (0,36 + 0,22 Sp)
+const HH_EA   = 618840;     // Ea = HH_EA/(CN + 25)  [J/mol]
+const HH_CN0  = 25;
+const R_MOL   = 8.3143;     // J/(mol K)
+const HH_TREF = 17190;      // K, referencia del termino 1/(RT) - 1/17190
+const HH_P0   = 21.2;       // bar
+const HH_PC   = 12.4;       // bar, polo de la correlacion
+const HH_PMIN = 12.6;       // bar, suelo declarado para no cruzar el polo
+const HH_EXMX = 40;         // tope del exponente (evita desbordar)
+
+// -- doble Wiebe declarada del banco
+const A_PREM  = 6.908;      // 99,9 % del pico premezclado en y = 1
+const A_DIF   = 2.50;       // la difusion NO acaba en y = 1: deja cola
+const M_PREM  = 2.0;        // exponente del pico premezclado
+const M_DIF   = 0.55;       // exponente de la cola por difusion
+const D_P0    = 3.2;        // ° — base de la duracion premezclada
+const D_P1    = 0.85;       // ° por ° de retardo acumulado
+const K_SPR   = 1.55;       // arrastre del chorro sobre la inyeccion
+const D_MIX   = 14.0;       // ° de cola de mezcla a Sp = 10 m/s
+const K_PREM  = 0.85;       // parte de lo inyectado en el retardo que
+                                   // llega a mezclarse hasta ser inflamable
+const BETA_MIN= 0.02;
+const BETA_MAX= 0.95;
+const TH_TARDE= 40;         // ° ATDC — a partir de aqui el gas ya se
+const K_TARDE = 0.0050;     // enfria y lo que queda no acaba de oxidar
+// CA90 nunca pasa de TH_EVO, asi que penTarde no baja de 1 - K_TARDE*(130-40)
+// = 0,55: la penalizacion no necesita suelo, la acota la propia geometria.
+
+// -- friccion
+const CF_A    = 0.55;       // Chen-Flynn [bar]
+const CF_B    = 0.0060;     // [bar/bar]
+const CF_C    = 0.0450;     // [bar/(m/s)]
+const CF_D    = 0.00080;    // [bar/(m/s)^2]
+const K_FUGA  = 2.2;        // la bomba mueve mas caudal del que inyecta
+const ETA_BOM = 0.72;       // rendimiento global de la bomba
+
+// -- arranque en frio
+const N_HI    = 1.37;       // politropica de arrastre, limite rapido
+const DN_ARR  = 0.17;       // caida maxima por fugas y paredes frias
+const RPM_ARR = 140;        // rpm de escala de la caida
+const B_REF   = 0.090;      // m — diametro de referencia de la caida
+const TAI_0   = 735;        // K — umbral termico a CN = 45
+const TAI_K   = 6.0;        // K por numero de cetano
+const TAI_CN0 = 45;
+const ANIOS   = 5;
+
+const R_G     = [14, 15, 16, 17, 18, 19, 20, 21];
+const SOI_G   = [2, 6, 10, 14, 18];          // ° antes del PMS
+const PINY_G  = [600, 1000, 1400, 1800];     // bar
+const FUEL_KEYS = ['uba', 'agricola', 'b20', 'marino'];
+
+// ------------------------------------------------------------- combustibles
+const FUEL = {
+  uba: {
+    nom: 'Diesel UBA de invierno', cn: 51, lhv: 42.7e6, rho: 0.832,
+    afr: 14.50, cfpp: -28, precio: 1.35,
+  },
+  agricola: {
+    nom: 'Gasoleo agricola B', cn: 46, lhv: 42.6e6, rho: 0.838,
+    afr: 14.48, cfpp: -4, precio: 0.92,
+  },
+  b20: {
+    nom: 'Biodiesel B20', cn: 54, lhv: 41.1e6, rho: 0.845,
+    afr: 14.02, cfpp: -18, precio: 1.48,
+  },
+  marino: {
+    nom: 'Destilado marino DMA', cn: 42, lhv: 42.9e6, rho: 0.855,
+    afr: 14.55, cfpp: -6, precio: 0.78,
+  },
+};
+
+// ------------------------------------------------------------------ maquinas
+// Qdem = energia pedida por ciclo y cilindro [J]; la dosis en masa la fija el
+// combustible, no el banco: quien pide la misma energia con un combustible de
+// menor poder calorifico tiene que inyectar mas masa.
+const MAQ = {
+  tractor: {
+    nom: 'Tractor 3,3 L DI atmosferico', B: 0.104, S: 0.1295, L: 0.208,
+    ncil: 3, rpm: 2200, pAdm: 97e3, Tadm: 315, Tpar: 460, pEscBase: 108e3,
+    rMax: 21, pInyMax: 1000, Qdem: 2036, nOr: 5, dOr: 1.67e-4, cd: 0.72,
+    pIref: 800,
+    pLim: 95e5, tEscLim: 850, bmepMin: 6.45, dpLim: 8.6,
+    ca50Lo: 4, ca50Hi: 14,
+    calent: 'rejilla', dTcal: 55, tauCal: 8, tCal: 20, rpmArr: 200, Thom: -5,
+    horas: 900, wAnio: 34000,
+  },
+  camioneta: {
+    nom: 'Camioneta 2,8 L CRDi turbo', B: 0.094, S: 0.1008, L: 0.162,
+    ncil: 4, rpm: 2600, pAdm: 200e3, Tadm: 320, Tpar: 470, pEscBase: 225e3,
+    rMax: 18, pInyMax: 1800, Qdem: 2210, nOr: 7, dOr: 1.435e-4, cd: 0.75,
+    pIref: 1400,
+    pLim: 150e5, tEscLim: 800, bmepMin: 11.60, dpLim: 12.5,
+    ca50Lo: 4, ca50Hi: 14,
+    calent: 'bujias', dTcal: 190, tauCal: 3, tCal: 8, rpmArr: 220, Thom: -20,
+    horas: 420, wAnio: 19000,
+  },
+  planta: {
+    nom: 'Planta de emergencia 6,0 L', B: 0.108, S: 0.1092, L: 0.176,
+    ncil: 6, rpm: 1800, pAdm: 180e3, Tadm: 318, Tpar: 465, pEscBase: 200e3,
+    rMax: 17, pInyMax: 1400, Qdem: 2750, nOr: 6, dOr: 1.487e-4, cd: 0.75,
+    pIref: 1200,
+    pLim: 130e5, tEscLim: 775, bmepMin: 10.25, dpLim: 10.0,
+    ca50Lo: 4, ca50Hi: 14,
+    calent: 'ambas', dTcal: 45, dTbuj: 150, tauCal: 10, tauBuj: 5, tCal: 15,
+    rpmArr: 180, Thom: -15,
+    horas: 4000, wAnio: 380000,
+  },
+  urbano: {
+    nom: 'Compacto urbano 1,5 L CRDi', B: 0.0755, S: 0.0838, L: 0.135,
+    ncil: 4, rpm: 3600, pAdm: 190e3, Tadm: 315, Tpar: 465, pEscBase: 215e3,
+    rMax: 17, pInyMax: 1800, Qdem: 1161, nOr: 8, dOr: 0.986e-4, cd: 0.78,
+    pIref: 1600,
+    pLim: 125e5, tEscLim: 808, bmepMin: 10.30, dpLim: 10.5,
+    ca50Lo: 4, ca50Hi: 16,
+    calent: 'bujias', dTcal: 230, tauCal: 4, tCal: 6, rpmArr: 250, Thom: -25,
+    horas: 380, wAnio: 8400,
+  },
+  marino: {
+    nom: 'Motor marino 9,0 L', B: 0.128, S: 0.1166, L: 0.190,
+    ncil: 6, rpm: 1500, pAdm: 220e3, Tadm: 322, Tpar: 475, pEscBase: 240e3,
+    rMax: 16, pInyMax: 1600, Qdem: 4805, nOr: 8, dOr: 1.439e-4, cd: 0.75,
+    pIref: 1300,
+    pLim: 140e5, tEscLim: 772, bmepMin: 12.10, dpLim: 9.4,
+    ca50Lo: 4, ca50Hi: 14,
+    calent: 'agua', dTcal: 62, tauCal: 300, tCal: 900, rpmArr: 150, Thom: 5,
+    horas: 2200, wAnio: 352000,
+  },
+};
+
+const MAQ_KEYS = ['tractor', 'camioneta', 'planta', 'urbano', 'marino'];
+const CRIT = ['okFase', 'okRuido', 'okPres', 'okEsc', 'okPar', 'okFrio'];
+
+// ------------------------------------------------------- propiedades del gas
+const T_TAB = [200, 250, 300, 350, 400, 450, 500, 550, 600, 650, 700, 750, 800,
+  850, 900, 950, 1000, 1100, 1200, 1300, 1400, 1500, 1600, 1700, 1800, 1900,
+  2000, 2100, 2200, 2300, 2400, 2500];
+const CP_TAB = [1002.5, 1003.4, 1004.9, 1008.2, 1014.0, 1020.7, 1029.5, 1039.2,
+  1051.0, 1063.5, 1075.2, 1087.0, 1098.7, 1110.1, 1121.2, 1132.1, 1141.7,
+  1160.0, 1176.0, 1190.0, 1202.0, 1212.0, 1220.0, 1229.0, 1237.0, 1244.0,
+  1250.0, 1256.0, 1261.0, 1265.0, 1270.0, 1274.0];
+
+function cpAire(T) {
+  if (T <= T_TAB[0]) return CP_TAB[0];
+  const n = T_TAB.length;
+  if (T >= T_TAB[n - 1]) {
+    const p = (CP_TAB[n - 1] - CP_TAB[n - 2]) / (T_TAB[n - 1] - T_TAB[n - 2]);
+    return CP_TAB[n - 1] + p * (T - T_TAB[n - 1]);
+  }
+  let i = 0;
+  while (T > T_TAB[i + 1]) i++;
+  const f = (T - T_TAB[i]) / (T_TAB[i + 1] - T_TAB[i]);
+  return CP_TAB[i] + f * (CP_TAB[i + 1] - CP_TAB[i]);
+}
+function gammaAire(T) { const cp = cpAire(T); return cp / (cp - R_GAS); }
+function gammaQuem(T) { return 1.338 - 6.0e-5 * T + 1.0e-8 * T * T; }
+function gammaMez(T, xp) {
+  const g = (1 - xp) * gammaAire(T) + xp * gammaQuem(T);
+  return g < 1.15 ? 1.15 : g;
+}
+function cvGas(T, xp) { return R_GAS / (gammaMez(T, xp) - 1); }
+
+// ------------------------------------------------------------------ geometria
+function geom(P, r) {
+  const Ap = Math.PI / 4 * P.B * P.B;
+  const Vd = Ap * P.S;
+  return { Ap, Vd, Vc: Vd / (r - 1), a: P.S / 2, L: P.L };
+}
+function vol(G, th) {
+  const st = Math.sin(th);
+  const s = Math.sqrt(G.L * G.L - G.a * G.a * st * st);
+  return G.Vc + G.Ap * (G.L + G.a - G.a * Math.cos(th) - s);
+}
+function dvol(G, th) {
+  const st = Math.sin(th), ct = Math.cos(th);
+  const s = Math.sqrt(G.L * G.L - G.a * G.a * st * st);
+  return G.Ap * G.a * (st + G.a * st * ct / s);
+}
+function area(G, V, B) { return Math.PI * B * B / 2 + 4 * V / B; }
+
+// -------------------------------------------- retardo de Hardenberg y Hase
+// Devuelve el retardo en GRADOS de cigueñal: la correlacion ya lleva dentro
+// el efecto de la velocidad por la velocidad media del piston.
+function tauHH(cn, p, T, Sp) {
+  const pb = Math.max(p / 1e5, HH_PMIN);
+  const Ea = HH_EA / (cn + HH_CN0);
+  let ex = Ea * (1 / (R_MOL * T) - 1 / HH_TREF) * Math.pow(HH_P0 / (pb - HH_PC), 0.63);
+  if (ex > HH_EXMX) ex = HH_EXMX;
+  return (HH_A + HH_B * Sp) * Math.exp(ex);
+}
+
+// --------------------------------------------------------------- doble Wiebe
+// La premezcla es un pico que se agota: con A_PREM = 6,908 esta quemada al
+// 99,9 % cuando y = 1, y ahi se corta. La difusion NO: su duracion es una
+// escala de mezcla, no un final, asi que y sigue creciendo mas alla de 1 y la
+// cola se apaga sola. Es la asimetria que da su forma al diagrama diesel.
+function wiebeP(th, ths, dth, m) {
+  if (th <= ths) return 0;
+  const y = (th - ths) / dth;
+  if (y >= 1) return 1;
+  return 1 - Math.exp(-A_PREM * Math.pow(y, m + 1));
+}
+function dwiebeP(th, ths, dth, m) {
+  if (th <= ths || th >= ths + dth) return 0;
+  const y = (th - ths) / dth;
+  return A_PREM * (m + 1) / dth * Math.pow(y, m)
+       * Math.exp(-A_PREM * Math.pow(y, m + 1));
+}
+function wiebeD(th, ths, dth, m) {
+  if (th <= ths) return 0;
+  const y = (th - ths) / dth;
+  return 1 - Math.exp(-A_DIF * Math.pow(y, m + 1));
+}
+function dwiebeD(th, ths, dth, m) {
+  if (th <= ths) return 0;
+  const y = (th - ths) / dth;
+  return A_DIF * (m + 1) / dth * Math.pow(y, m)
+       * Math.exp(-A_DIF * Math.pow(y, m + 1));
+}
+
+// ------------------------------------------------------------ caudal inyectado
+// Bernoulli por los orificios de la tobera; la contrapresion es la del
+// cilindro en el instante de abrir.
+function mdotIny(P, F, pIny, pCil) {
+  const dP = Math.max(pIny * 1e5 - pCil, 1e5);
+  const A = P.nOr * Math.PI / 4 * P.dOr * P.dOr;
+  return P.cd * A * Math.sqrt(2 * dP * F.rho * 1000);
+}
+
+// ================================================== ciclos ideales de aire frio
+function etaOttoId(r, g) { return 1 - Math.pow(r, 1 - (g || G_FRIO)); }
+
+function etaDieselId(r, rc, g) {
+  const G = g || G_FRIO;
+  if (Math.abs(rc - 1) < 1e-12) return etaOttoId(r, G);
+  return 1 - (1 / G) * Math.pow(r, 1 - G) * (Math.pow(rc, G) - 1) / (rc - 1);
+}
+
+function etaDualId(r, alfa, rc, g) {
+  const G = g || G_FRIO;
+  const den = (alfa - 1) + G * alfa * (rc - 1);
+  if (Math.abs(den) < 1e-14) return etaOttoId(r, G);
+  return 1 - Math.pow(r, 1 - G) * (alfa * Math.pow(rc, G) - 1) / den;
+}
+
+// Reparte el calor del ciclo entre volumen y presion constantes de forma que
+// la relacion de presiones del tramo isocoro sea la que de verdad alcanzo el
+// motor. Devuelve tambien los dos casos limite ya resueltos.
+function cicloIdeal(r, T1, p1, q, alfaReal) {
+  const T2 = T1 * Math.pow(r, G_FRIO - 1);
+  const p2 = p1 * Math.pow(r, G_FRIO);
+  const T3 = T2 + q / CP_FRIO;
+  const rc = T3 / T2;
+  const eOtto = etaOttoId(r, G_FRIO);
+  const eDiesel = etaDieselId(r, rc, G_FRIO);
+  // dual: el tramo isocoro se lleva alfa; si no cabe, el ciclo degenera en Otto
+  const alfaMax = 1 + q / (CV_FRIO * T2);
+  let alfa = alfaReal;
+  if (!(alfa > 1)) alfa = 1;
+  if (alfa > alfaMax) alfa = alfaMax;
+  const Tx = T2 * alfa;
+  const qv = CV_FRIO * (Tx - T2);
+  const qp = Math.max(q - qv, 0);
+  const rcD = 1 + qp / (CP_FRIO * Tx);
+  const eDual = etaDualId(r, alfa, rcD, G_FRIO);
+  return { T2, p2, T3, rc, alfa, alfaMax, Tx, rcD, eOtto, eDiesel, eDual };
+}
+
+// ============================================================ arranque en frio
+// Politropica de arrastre con exponente declarado: engloba las fugas por
+// segmentos y la perdida a unas paredes que estan a la temperatura ambiente.
+function nArrastre(P, rpm) {
+  const f = Math.exp(-rpm / RPM_ARR) * Math.sqrt(B_REF / P.B);
+  return N_HI - DN_ARR * f;
+}
+function tAutoenc(F) { return TAI_0 - TAI_K * (F.cn - TAI_CN0); }
+
+function arranque(mk, r, fk, Tamb, opts) {
+  const o = opts || {};
+  const P = MAQ[mk], F = FUEL[fk];
+  const G = geom(P, r);
+  const rpm = o.rpm != null ? o.rpm : P.rpmArr;
+  const t = o.t != null ? o.t : P.tCal;
+  const TambK = Tamb + 273.15;
+  const Vivc = vol(G, TH_IVC * DEG);
+  const rEf = Vivc / G.Vc;
+  const n = nArrastre(P, rpm);
+  // el calentador de rejilla calienta el AIRE (y la compresion lo multiplica),
+  // la bujia incandescente calienta el SITIO del encendido (y no se multiplica)
+  const usaRej = P.calent === 'rejilla' || P.calent === 'ambas' || P.calent === 'agua';
+  const usaBuj = P.calent === 'bujias' || P.calent === 'ambas';
+  const dRej = usaRej ? P.dTcal * (1 - Math.exp(-t / P.tauCal)) : 0;
+  const dBujBase = P.calent === 'ambas' ? P.dTbuj : P.dTcal;
+  const tauB = P.calent === 'ambas' ? P.tauBuj : P.tauCal;
+  const dBuj = usaBuj ? dBujBase * (1 - Math.exp(-t / tauB)) : 0;
+  const Tadm = TambK + dRej;
+  const Ttdc = Tadm * Math.pow(rEf, n - 1);
+  const ptdc = P.pAdm * Math.pow(rEf, n);
+  const TtdcEf = Ttdc + dBuj;
+  const Tai = tAutoenc(F);
+  const Tcfpp = F.cfpp;
+  const okFluido = Tamb >= Tcfpp - 1e-9;
+  const okTermico = TtdcEf >= Tai - 1e-9;
+  const Sp = 2 * P.S * rpm / 60;
+  return {
+    rpm, t, Tamb, TambK, n, rEf, dRej, dBuj, Tadm, Ttdc, ptdc, TtdcEf, Tai,
+    Tcfpp, okFluido, okTermico, arranca: okFluido && okTermico,
+    margen: TtdcEf - Tai, tauArr: tauHH(F.cn, ptdc, TtdcEf, Sp),
+  };
+}
+
+// ==================================================================== simulacion
+function sim(mk, r, soi, pIny, fk, opts) {
+  const o = opts || {};
+  const P = MAQ[mk], F = FUEL[fk];
+  const G = geom(P, r);
+  const w = P.rpm * 2 * Math.PI / 60;
+  const Sp = 2 * P.S * P.rpm / 60;
+  const thSOI = -soi;
+  const Vivc = vol(G, TH_IVC * DEG);
+  const rEf = Vivc / G.Vc;
+  const pEsc = P.pEscBase;
+  const guardar = !!o.traza;
+  const h = o.paso || H_PASO;
+  const N = Math.round((TH_EVO - TH_IVC) / h);
+
+  // dosis: la energia pedida la fija el banco, la masa la fija el combustible
+  const mComb = P.Qdem / F.lhv;
+
+  let Texh = 800, out = null, iters = 0, dTexh = Infinity;
+  for (let it = 0; it < 8; it++) {
+    iters = it + 1;
+    // ---- mezcla atrapada en el cierre de admision ------------------------
+    const mRes = pEsc * G.Vc / (R_GAS * Texh);
+    let Tivc = P.Tadm + 20, mTot = 0, mFres = 0;
+    for (let k = 0; k < 40; k++) {
+      mTot = P.pAdm * Vivc / (R_GAS * Tivc);
+      mFres = mTot - mRes;
+      if (mFres < 1e-9) mFres = 1e-9;
+      Tivc = (mFres * P.Tadm + mRes * Texh) / (mFres + mRes);
+    }
+    const fRes = mRes / mTot;
+    const mAire = mFres;                    // en Diesel solo entra aire
+    const lam = mAire / (mComb * F.afr);
+    // El calor NO se conoce todavia: depende de donde caiga la combustion, y
+    // eso lo decide el retardo. Se fija abajo, en el instante del encendido.
+    let etaC = 0, Q = 0, penTarde = 1, ca10 = null, ca50 = null, ca90 = null;
+    const T0 = Tivc;
+    // fraccion de la masa total que acaba siendo producto de combustion
+    const xpMax = Math.min(0.98, mComb * (1 + F.afr) / mTot);
+
+    // ---- inyeccion --------------------------------------------------------
+    const Vsoi = vol(G, thSOI * DEG);
+    const pSoi = P.pAdm * Math.pow(Vivc / Vsoi, N_MOT);
+    const mdot = mdotIny(P, F, pIny, pSoi);
+    const tIny = mComb / mdot;                       // s
+    const thIny = tIny * 6 * P.rpm;                  // grados
+
+    // ---- integracion del ciclo cerrado ------------------------------------
+    let T = T0, Wg = 0, pmax = 0, thPmax = 0, Tmax = 0, Qht = 0;
+    let dpMax = -1e9, thDpMax = 0;
+    let acc = 0, thSOC = null, invPrev = 0, arrancado = false;
+    let beta = 0, dthP = 0, dthD = 0, tRet = 0, thRet = 0;
+    let pPrev = P.pAdm, Vprev = Vivc;
+    const tz = guardar ? { th: [], V: [], p: [], T: [], xb: [], acc: [], dp: [] } : null;
+
+    const xbDe = (th) => {
+      if (thSOC === null || th <= thSOC) return 0;
+      return beta * wiebeP(th, thSOC, dthP, M_PREM)
+           + (1 - beta) * wiebeD(th, thSOC, dthD, M_DIF);
+    };
+    const dxbDe = (th) => {
+      if (thSOC === null || th <= thSOC) return 0;
+      return beta * dwiebeP(th, thSOC, dthP, M_PREM)
+           + (1 - beta) * dwiebeD(th, thSOC, dthD, M_DIF);
+    };
+    // angulo al que la fraccion quemada llega a f (CA10, CA50, CA90)
+    const angDe = (f) => {
+      if (thSOC === null) return null;
+      let lo = thSOC, hi = TH_EVO;
+      if (xbDe(hi) < f) return hi;
+      for (let k = 0; k < 60; k++) {
+        const m = 0.5 * (lo + hi);
+        if (xbDe(m) < f) lo = m; else hi = m;
+      }
+      return 0.5 * (lo + hi);
+    };
+
+    const dTdth = (th, T, xb) => {
+      const V = vol(G, th * DEG), dV = dvol(G, th * DEG);
+      const p = mTot * R_GAS * T / V;
+      const dQc = Q * dxbDe(th);
+      const pMot = P.pAdm * Math.pow(Vivc / V, N_MOT);
+      const c2 = (thSOC !== null && th > thSOC) ? C2_WOS : 0;
+      const wg = C1_WOS * Sp + c2 * (G.Vd * T0 / (P.pAdm * Vivc)) * (p - pMot);
+      const wg2 = wg > 0.5 ? wg : 0.5;
+      const hc = 3.26 * Math.pow(P.B, -0.2) * Math.pow(p / 1000, 0.8)
+               * Math.pow(T, -0.55) * Math.pow(wg2, 0.8);
+      const dQh_deg = hc * area(G, V, P.B) * (T - P.Tpar) / w * DEG;
+      return { d: (dQc - dQh_deg - p * dV * DEG) / (mTot * cvGas(T, xb * xpMax)),
+               p, V, dQh_deg };
+    };
+
+    for (let i = 0; i <= N; i++) {
+      const th = TH_IVC + i * h;
+      const xb = xbDe(th);
+      const V = vol(G, th * DEG);
+      const p = mTot * R_GAS * T / V;
+      if (p > pmax) { pmax = p; thPmax = th; }
+      if (T > Tmax) Tmax = T;
+      if (i > 0) {
+        Wg += 0.5 * (p + pPrev) * (V - Vprev);
+        const dp = (p - pPrev) / 1e5 / h;            // bar por grado
+        if (dp > dpMax) { dpMax = dp; thDpMax = th; }
+      }
+      // ---- retardo de autoencendido integrado ----------------------------
+      if (thSOC === null && th >= thSOI - 1e-9) {
+        const inv = 1 / tauHH(F.cn, p, T, Sp);
+        if (!arrancado) { arrancado = true; invPrev = inv; }
+        else {
+          const dAcc = 0.5 * h * (invPrev + inv);
+          if (acc + dAcc >= 1) {
+            const frac = (1 - acc) / dAcc;
+            thSOC = th - h + frac * h;
+            acc = 1;
+            // ahora ya se puede repartir la dosis en premezcla y difusion
+            thRet = thSOC - thSOI;
+            tRet = thRet / (6 * P.rpm);
+            const mPre = Math.min(mComb, mdot * tRet) * K_PREM;
+            beta = Math.min(BETA_MAX, Math.max(BETA_MIN, mPre / mComb));
+            dthP = D_P0 + D_P1 * thRet;
+            dthD = K_SPR * thIny + D_MIX * Math.sqrt(Sp / 10);
+            // Con la forma de la combustion ya cerrada se sabe cuanto se
+            // quema tarde: lo que llega al final encuentra un gas que ya se
+            // expande y se enfria, y no acaba de oxidarse.
+            ca10 = angDe(0.10); ca50 = angDe(0.50); ca90 = angDe(0.90);
+            penTarde = 1 - K_TARDE * Math.max(0, ca90 - TH_TARDE);
+            etaC = ETA_COMB * Math.min(1, 0.90 + 0.25 * (lam - 1)) * penTarde;
+            Q = P.Qdem * etaC;
+          } else { acc += dAcc; invPrev = inv; }
+        }
+      }
+      const cadaTz = Math.max(1, Math.round((o.pasoTraza != null ? o.pasoTraza : 2) / h));
+      if (guardar && (i % cadaTz === 0)) {
+        tz.th.push(th); tz.V.push(V); tz.p.push(p); tz.T.push(T);
+        tz.xb.push(xb); tz.acc.push(acc);
+        tz.dp.push(i > 0 ? (p - pPrev) / 1e5 / h : 0);
+      }
+      pPrev = p; Vprev = V;
+      if (i === N) break;
+      const k1 = dTdth(th, T, xbDe(th));
+      const k2 = dTdth(th + h / 2, T + h / 2 * k1.d, xbDe(th + h / 2));
+      const k3 = dTdth(th + h / 2, T + h / 2 * k2.d, xbDe(th + h / 2));
+      const k4 = dTdth(th + h, T + h * k3.d, xbDe(th + h));
+      Qht += (k1.dQh_deg + 2 * k2.dQh_deg + 2 * k3.dQh_deg + k4.dQh_deg) / 6 * h;
+      T = T + h / 6 * (k1.d + 2 * k2.d + 2 * k3.d + k4.d);
+      if (T < 200) T = 200;
+      if (T > 4000) T = 4000;
+    }
+
+    const Vevo = vol(G, TH_EVO * DEG);
+    const pEvo = mTot * R_GAS * T / Vevo;
+    const Tevo = T;
+    const gE = gammaMez(Tevo, xpMax);
+    const TexhNew = Tevo * Math.pow(pEsc / pEvo, (gE - 1) / gE);
+    const Tbrida = P.Tpar + (TexhNew - P.Tpar) * K_PORT;
+
+    // ---- indicadores -------------------------------------------------------
+    const imepG = Wg / G.Vd / 1e5;
+    const pmep = (pEsc - P.pAdm) / 1e5;
+    const imepN = imepG - pmep;
+    const fmepMec = CF_A + CF_B * (pmax / 1e5) + CF_C * Sp + CF_D * Sp * Sp;
+    const fmepIny = K_FUGA * mComb * pIny * 1e5 / (F.rho * 1000 * ETA_BOM) / G.Vd / 1e5;
+    const fmep = fmepMec + fmepIny;
+    const bmep = imepN - fmep;
+    const par = bmep * 1e5 * G.Vd * P.ncil / (4 * Math.PI);
+    const pot = par * w;
+    const etaI = imepG * 1e5 * G.Vd / (mComb * F.lhv);
+    const etaB = bmep * 1e5 * G.Vd / (mComb * F.lhv);
+    const bsfc = etaB > 0 ? 3.6e9 / (etaB * F.lhv) : Infinity;
+    const rhoAdm = P.pAdm / (R_GAS * P.Tadm);
+    const etaV = mAire / (rhoAdm * G.Vd);
+    // techos ideales de aire frio, con el reparto real de presiones
+    const q = Q / mTot;
+    const p2Id = P.pAdm * Math.pow(r, G_FRIO);
+    const ci = cicloIdeal(r, T0, P.pAdm, q, pmax / p2Id);
+    const ciEf = cicloIdeal(rEf, T0, P.pAdm, q, pmax / (P.pAdm * Math.pow(rEf, G_FRIO)));
+    const coste5 = etaB > 0
+      ? ANIOS * P.wAnio * 3.6e6 / (etaB * F.lhv) / F.rho * F.precio
+      : Infinity;
+
+    out = {
+      r, soi, pIny, fuel: fk, rEf, fRes, mAire, mComb, lam, Q, etaC, Tivc: T0,
+      penTarde, ca10, ca50, ca90, enciende: thSOC !== null,
+      mdot, tIny, thIny, pSoi, thSOC, thRet, tRet, beta, dthP, dthD, acc,
+      imepG, pmep, imepN, fmepMec, fmepIny, fmep, bmep, par, pot,
+      etaI, etaB, bsfc, etaV, pmax, thPmax, Tmax, Tevo, dpMax, thDpMax,
+      Qht, Qfrac: Q > 0 ? Qht / Q : 0, Texh: TexhNew, Tbrida, coste5,
+      rcId: ci.rc, alfaId: ci.alfa, rcDual: ci.rcD, T2Id: ci.T2, T3Id: ci.T3,
+      etaOttoId: ci.eOtto, etaDieselId: ci.eDiesel, etaDualId: ci.eDual,
+      etaDieselIdEf: ciEf.eDiesel, rcIdEf: ciEf.rc,
+      traza: tz, mTot, Sp, Vd: G.Vd, Vc: G.Vc, Vivc, xpMax, pEvo, Vevo, gEvo: gE,
+    };
+    dTexh = Math.abs(TexhNew - Texh);
+    if (dTexh < 0.05) { Texh = TexhNew; break; }
+    Texh = TexhNew;
+  }
+  out.iters = iters;
+  out.dTexh = dTexh;
+  out.convTexh = dTexh < 0.05;
+
+  // ---- pliego --------------------------------------------------------------
+  const arr = arranque(mk, r, fk, P.Thom);
+  out.arr = arr;
+  out.okFase  = out.ca50 !== null && out.ca50 >= P.ca50Lo && out.ca50 <= P.ca50Hi;
+  out.okRuido = out.dpMax <= P.dpLim;
+  out.okPres  = out.pmax <= P.pLim;
+  out.okEsc   = out.Tbrida <= P.tEscLim;
+  out.okPar   = out.bmep >= P.bmepMin;
+  out.okFrio  = arr.arranca;
+  // margen de humo: NO es criterio, es una lectura que el laboratorio declara
+  out.margenHumo = out.lam - LAM_HUMO;
+  out.rMecOk  = r <= P.rMax;
+  out.pInyOk  = pIny <= P.pInyMax;
+  out.construible = out.rMecOk && out.pInyOk;
+  out.valida  = CRIT.every(k => out[k]) && out.construible;
+  return out;
+}
+
+// ==================================================================== barridos
+function opcionesR(mk) { return R_G.filter(r => r <= MAQ[mk].rMax); }
+function opcionesP(mk) { return PINY_G.filter(p => p <= MAQ[mk].pInyMax); }
+
+// sim() es pura y determinista, asi que el barrido de una maquina se calcula
+// una sola vez y se guarda. Nadie modifica la lista devuelta: validas() la
+// filtra (array nuevo) y solucion() ordena esa copia, no el original.
+const _BAR = new Map();
+function barrido(mk) {
+  const hit = _BAR.get(mk);
+  if (hit) return hit;
+  const res = [];
+  for (const r of opcionesR(mk)) for (const s of SOI_G)
+    for (const pi of opcionesP(mk)) for (const fk of FUEL_KEYS) {
+      res.push(sim(mk, r, s, pi, fk));
+    }
+  _BAR.set(mk, res);
+  return res;
+}
+function validas(mk) { return barrido(mk).filter(s => s.valida); }
+
+function solucion(mk) {
+  const v = validas(mk);
+  if (!v.length) return null;
+  v.sort((a, b) => (a.coste5 - b.coste5) || (a.pmax - b.pmax)
+                || (a.r - b.r) || (a.soi - b.soi) || (a.pIny - b.pIny));
+  return v[0];
+}
+
+function censo(mk) {
+  const b = barrido(mk);
+  const tot = {}, solo = {};
+  for (const k of CRIT) { tot[k] = 0; solo[k] = 0; }
+  let val = 0;
+  for (const s of b) {
+    const fallan = CRIT.filter(k => !s[k]);
+    if (!fallan.length) { val++; continue; }
+    for (const k of fallan) tot[k]++;
+    if (fallan.length === 1) solo[fallan[0]]++;
+  }
+  return { n: b.length, validas: val, tot, solo };
+}
+
+function pistas(mk) {
+  const v = validas(mk);
+  if (!v.length) return [];
+  const s = solucion(mk);
+  const out = [];
+  let c = v.slice();
+  c = c.filter(x => x.fuel === s.fuel);
+  out.push({ txt: 'combustible', v: s.fuel, n: c.length });
+  c = c.filter(x => x.r === s.r);
+  out.push({ txt: 'relacion de compresion', v: s.r, n: c.length });
+  c = c.filter(x => x.pIny === s.pIny);
+  out.push({ txt: 'presion de inyeccion', v: s.pIny, n: c.length });
+  return out;
+}
+
+// ====================================================== FORMATO DE CIFRAS
+const NBSP=' ';
+const sepMil=s=>s.replace(/\B(?=(\d{3})+(?!\d))/g,NBSP);
+function fN(x,n){
+  if(!isFinite(x)) return '∞';
+  const neg=x<0||Object.is(x,-0);
+  const a=Math.abs(x).toFixed(n);
+  const [e,d]=a.split('.');
+  return (neg?'−':'')+sepMil(e)+(d?','+d:'');
+}
+const f0=x=>fN(x,0), f1=x=>fN(x,1), f2=x=>fN(x,2), f3=x=>fN(x,3), f4=x=>fN(x,4);
+const pc1=x=>fN(100*x,1)+NBSP+'%';
+const pc2=x=>fN(100*x,2)+NBSP+'%';
+const pcm=x=>Number.isFinite(x)?((x>=0?'+':'')+pc1(x)):'—';
+const fin=(x,n)=>Number.isFinite(x)?fN(x,n===undefined?1:n):'∞';
+const bar=p=>fN(p/1e5,1);            // Pa  → bar
+const cm3=v=>fN(v*1e6,1);            // m³  → cm³
+const gra=t=>fN(t,1)+'°';            // grados de cigüeñal
+const mg=m=>fN(m*1e6,1);             // kg  → mg
+const ms=t=>fN(t*1000,3);            // s   → ms
+
+// ============================================================ §3 ESTADO
+const MODES=['ciclo','retardo','riel','frio','censo','reto'];
+let mode='ciclo';
+let animT=0, autoRunning=false, solved=false;
+
+// El banco ofrece la rejilla COMPLETA: 8 relaciones de compresión, 5 avances de
+// inyección, 4 presiones de riel y 4 combustibles. No todas se pueden montar en
+// todas las máquinas —el bloque tiene un tope mecánico y la bomba un tope de
+// presión—, así que las combinaciones fuera de alcance se marcan como NO
+// CONSTRUIBLES y quedan fuera del censo del pliego.
+const ST={mk:'urbano',r:16,soi:10,pIny:1800,fk:'uba'};
+const RETO={cfg:{mk:'marino'},ejes:{r:R_G[0],soi:SOI_G[0],pIny:PINY_G[0],fk:FUEL_KEYS[0]},
+            sol:null,nval:0,resuelto:false,msg:'',pistas:{fk:false,r:false,pIny:false}};
+let CUR=null;
+
+const ICONO={tractor:'🚜',camioneta:'🛻',planta:'🏭',urbano:'🚗',marino:'🚢'};
+const CALENT_ROT={rejilla:'rejilla de admisión',bujias:'bujías incandescentes',
+                  ambas:'rejilla + bujías',agua:'precalentador de agua'};
+const CRIT_ROT={okFase:'fase de combustión (CA50)',okRuido:'gradiente de presión',
+                okPres:'presión máxima',okEsc:'temperatura de escape',
+                okPar:'par entregado',okFrio:'arranque en frío'};
+const CRIT_COR={okFase:'fase',okRuido:'ruido',okPres:'presión',okEsc:'escape',
+                okPar:'par',okFrio:'frío'};
+
+// barrido de ambiente para la vista de frío: cubre desde por debajo del CFPP
+// más bajo (−28 °C) hasta muy por encima de la homologación más cálida (+5 °C)
+const T_G=[]; for(let t=-32;t<=20;t+=1) T_G.push(t);
+
+const NPTS=MAQ_KEYS.length*R_G.length*SOI_G.length*PINY_G.length*FUEL_KEYS.length;
+const NMEC=MAQ_KEYS.reduce((a,mk)=>a+opcionesR(mk).length*SOI_G.length*opcionesP(mk).length*FUEL_KEYS.length,0);
+
+function cfgDe(m){
+  if(m==='reto') return {mk:RETO.cfg.mk,r:RETO.ejes.r,soi:RETO.ejes.soi,pIny:RETO.ejes.pIny,fk:RETO.ejes.fk};
+  return {mk:ST.mk,r:ST.r,soi:ST.soi,pIny:ST.pIny,fk:ST.fk};
+}
+const kDe=c=>c.mk+'|'+c.r+'|'+c.soi+'|'+c.pIny+'|'+c.fk;
+
+// Una sola simulación por configuración, con traza. Todo lo que se pinta, se
+// rotula o se responde sale de este objeto.
+const _SIM=new Map();
+function simT(c){
+  const k=kDe(c); let v=_SIM.get(k);
+  if(!v){ v=sim(c.mk,c.r,c.soi,c.pIny,c.fk,{traza:true}); _SIM.set(k,v); }
+  return v;
+}
+
+// Un solo barrido por máquina. De esa lista salen el censo, las válidas, la
+// solución y las pistas. El motor sellado tiene sus propias funciones
+// censo()/validas()/solucion()/pistas(); el puente de pruebas comprueba que lo
+// que aquí se deriva coincide exactamente con lo que devuelven ellas.
+const BAR_C=new Map(), CEN_C=new Map(), SOL_C=new Map(), VAL_C=new Map(), PIS_C=new Map();
+function barM(mk){ let v=BAR_C.get(mk); if(!v){ v=barrido(mk); BAR_C.set(mk,v); } return v; }
+function valM(mk){ let v=VAL_C.get(mk); if(!v){ v=barM(mk).filter(s=>s.valida); VAL_C.set(mk,v); } return v; }
+function solM(mk){
+  let v=SOL_C.get(mk);
+  if(v===undefined){
+    const c=valM(mk).slice();
+    c.sort((a,b)=>(a.coste5-b.coste5)||(a.pmax-b.pmax)||(a.r-b.r)||(a.soi-b.soi)||(a.pIny-b.pIny));
+    v=c.length?c[0]:null; SOL_C.set(mk,v);
+  }
+  return v;
+}
+function censoM(mk){
+  let v=CEN_C.get(mk);
+  if(!v){
+    const b=barM(mk), tot={}, solo={};
+    for(const k of CRIT){ tot[k]=0; solo[k]=0; }
+    let val=0;
+    for(const s of b){
+      const f=CRIT.filter(k=>!s[k]);
+      if(!f.length){ val++; continue; }
+      for(const k of f) tot[k]++;
+      if(f.length===1) solo[f[0]]++;
+    }
+    v={n:b.length,validas:val,tot,solo}; CEN_C.set(mk,v);
+  }
+  return v;
+}
+// El embudo de pistas va combustible → relación de compresión → presión de
+// riel. El avance de inyección NO se regala nunca: es el eje que el alumno
+// tiene que cerrar leyendo el pliego.
+function pisM(mk){
+  let v=PIS_C.get(mk);
+  if(!v){
+    const val=valM(mk), s=solM(mk);
+    if(!s){ v=[]; }
+    else{
+      let c=val.slice(); v=[];
+      c=c.filter(x=>x.fuel===s.fuel);   v.push({txt:'combustible',v:s.fuel,n:c.length});
+      c=c.filter(x=>x.r===s.r);         v.push({txt:'relación de compresión',v:s.r,n:c.length});
+      c=c.filter(x=>x.pIny===s.pIny);   v.push({txt:'presión de riel',v:s.pIny,n:c.length});
+    }
+    PIS_C.set(mk,v);
+  }
+  return v;
+}
+const PIS_EJE=['fk','r','pIny'];
+const EJE_ROT={r:'relación de compresión',soi:'avance de inyección',pIny:'presión de riel',fk:'combustible'};
+
+// barridos de un eje con el resto de la configuración congelada
+const _SW=new Map();
+function swp(tag,c,eje,vals){
+  const k=tag+'|'+kDe(c);
+  let v=_SW.get(k);
+  if(!v){
+    v=vals.map(x=>{ const d={mk:c.mk,r:c.r,soi:c.soi,pIny:c.pIny,fk:c.fk}; d[eje]=x;
+                    return sim(d.mk,d.r,d.soi,d.pIny,d.fk); });
+    _SW.set(k,v);
+  }
+  return v;
+}
+const sweepR=c=>swp('r',c,'r',R_G);
+const sweepS=c=>swp('s',c,'soi',SOI_G);
+const sweepP=c=>swp('p',c,'pIny',PINY_G);
+// para la vista de retardo: el barrido de avance repetido con los 4 combustibles
+function sweepSF(c){
+  return FUEL_KEYS.map(fk=>({fk,serie:sweepS({mk:c.mk,r:c.r,soi:c.soi,pIny:c.pIny,fk})}));
+}
+// arranque en frío: barrido de r a la temperatura de homologación, y barrido de
+// temperatura ambiente con la r elegida
+const arrR=c=>R_G.map(r=>arranque(c.mk,r,c.fk,MAQ[c.mk].Thom));
+const arrT=c=>T_G.map(t=>arranque(c.mk,c.r,c.fk,t));
+
+const maqAct=()=>MAQ[cfgDe(mode).mk];
+const fallosDe=s=>CRIT.filter(k=>!s[k]);
+function construible(c){ const P=MAQ[c.mk]; return c.r<=P.rMax && c.pIny<=P.pInyMax; }
+
+// Cambiar de máquina nunca deja al alumno en una configuración imposible: lo
+// que se sale del tope mecánico o del tope de bomba baja al mayor valor que esa
+// máquina sí monta. Elegir a mano una opción marcada con ⚠ sigue permitido —de
+// eso trata media práctica—, pero entonces es una decisión, no una herencia.
+function aplicaMaquina(mk){
+  const P=MAQ[mk];
+  ST.mk=mk;
+  ST.r=clamp(ST.r,R_G[0],R_G[R_G.length-1]);
+  if(ST.r>P.rMax) ST.r=opcionesR(mk).slice(-1)[0];
+  ST.pIny=PINY_G.indexOf(ST.pIny)<0?PINY_G[PINY_G.length-1]:ST.pIny;
+  if(ST.pIny>P.pInyMax) ST.pIny=opcionesP(mk).slice(-1)[0];
+  ST.soi=SOI_G.indexOf(ST.soi)<0?SOI_G[2]:ST.soi;
+  if(FUEL_KEYS.indexOf(ST.fk)<0) ST.fk=FUEL_KEYS[0];
+  return P;
+}
+// ===================== 4. MATERIALES =====================
+const AZUL='#8AB4F8', OK_HEX='#7CD992', BAD_HEX='#ff6b6b', WARN_HEX='#E9C46A',
+      VIO='#C08CF8', GRIS='#8f97a5', NARANJA='#F2A65A', CIAN='#5BD4E5', TINTA='#dbe4f0',
+      AMBAR='#E0A33E', ROSA='#EF8FB4';
+const std=(c,r,m)=>new THREE.MeshStandardMaterial({color:c,roughness:r,metalness:m});
+const emis=(hex,i)=>new THREE.MeshStandardMaterial({color:hex,roughness:0.35,metalness:0.10,emissive:hex,emissiveIntensity:i===undefined?0.9:i});
+const MAT={
+  acero:  std('#7e8798',0.42,0.72),
+  aceroC: std('#5a6270',0.50,0.65),
+  bancada:std('#2a3140',0.85,0.10),
+  bloque: std('#39424f',0.66,0.22),
+  culata: std('#4a5361',0.58,0.30),
+  aluminio:std('#b9c2ce',0.28,0.86),
+  piston: std('#cfd6e0',0.22,0.90),
+  aro:    std('#3c4452',0.60,0.40),
+  camisa: new THREE.MeshStandardMaterial({color:'#cfe0f5',roughness:0.12,metalness:0.05,transparent:true,opacity:0.20,side:THREE.DoubleSide}),
+  oro:    std('#c9a227',0.35,0.85),
+  cobre:  std('#c07a45',0.38,0.80),
+  rojo:   emis(BAD_HEX,0.85),
+  verde:  emis(OK_HEX,0.85),
+  ambar:  emis(WARN_HEX,0.85),
+  cian:   emis(CIAN,0.85),
+  azul:   emis(AZUL,0.80),
+  violeta:emis(VIO,0.80),
+  negro:  std('#161b25',0.90,0.05),
+  cristal:new THREE.MeshStandardMaterial({color:'#dfe8f5',roughness:0.10,metalness:0.05,transparent:true,opacity:0.35}),
+  chorro: new THREE.MeshStandardMaterial({color:'#cfe6ff',roughness:0.30,metalness:0.05,emissive:'#9fc7ff',emissiveIntensity:0.55,transparent:true,opacity:0.42}),
+};
+
+// ===================== 5. PIZARRÓN =====================
+const board=new THREE.Group();
+board.position.set(-4.15,0,-0.95); board.rotation.y=0.40; scene.add(board);
+(function(){
+  const marco=roundedBox(3.90,2.94,0.10,std('#0b0f16',0.90,0.10),0.05);
+  marco.position.set(0,1.86,0); board.add(marco);
+  const pata=x=>{ const p=new THREE.Mesh(new THREE.CylinderGeometry(0.05,0.06,0.42,14),MAT.acero);
+    p.position.set(x,0.21,0); board.add(p); };
+  pata(-1.55); pata(1.55);
+})();
+const BW=1024, BH=768;
+const bcv=document.createElement('canvas'); bcv.width=BW; bcv.height=BH;
+const bx=bcv.getContext('2d');
+const btex=new THREE.CanvasTexture(bcv);
+const bmesh=new THREE.Mesh(new THREE.PlaneGeometry(3.68,2.72),
+  new THREE.MeshBasicMaterial({map:btex,toneMapped:false}));
+bmesh.position.set(0,1.86,0.056); board.add(bmesh);
+
+function bg(){ bx.fillStyle='#080b11'; bx.fillRect(0,0,BW,BH);
+  bx.strokeStyle='rgba(138,180,248,0.06)'; bx.lineWidth=1;
+  for(let x=0;x<=BW;x+=64){ bx.beginPath(); bx.moveTo(x+0.5,0); bx.lineTo(x+0.5,BH); bx.stroke(); }
+  for(let y=0;y<=BH;y+=64){ bx.beginPath(); bx.moveTo(0,y+0.5); bx.lineTo(BW,y+0.5); bx.stroke(); } }
+function texto(t,x,y,col,size,align,weight){
+  bx.fillStyle=col||'#dbe4f0';
+  bx.font=(weight||'600')+' '+(size||18)+'px ui-sans-serif,system-ui,Segoe UI,Roboto,sans-serif';
+  bx.textAlign=align||'left'; bx.textBaseline='alphabetic';
+  bx.fillText(t,x,y); bx.textAlign='left'; }
+function linea(x1,y1,x2,y2,col,w,dash){
+  bx.strokeStyle=col||'#2b3446'; bx.lineWidth=w||1.5;
+  bx.setLineDash(dash||[]); bx.beginPath(); bx.moveTo(x1,y1); bx.lineTo(x2,y2); bx.stroke();
+  bx.setLineDash([]); }
+function curva(pts,col,w,dash){ if(!pts.length) return;
+  bx.strokeStyle=col||AZUL; bx.lineWidth=w||2; bx.setLineDash(dash||[]);
+  bx.beginPath(); bx.moveTo(pts[0][0],pts[0][1]);
+  for(let i=1;i<pts.length;i++) bx.lineTo(pts[i][0],pts[i][1]);
+  bx.stroke(); bx.setLineDash([]); }
+function wrapText(t,x,y,maxW,lh,col,size){
+  bx.fillStyle=col||'#8f9bb0';
+  bx.font='500 '+(size||14)+'px ui-sans-serif,system-ui,Segoe UI,Roboto,sans-serif';
+  const pal=String(t).split(' '); let ln='', yy=y;
+  for(const p of pal){ const pr=ln?ln+' '+p:p;
+    if(bx.measureText(pr).width>maxW && ln){ bx.fillText(ln,x,yy); ln=p; yy+=(lh||18); }
+    else ln=pr; }
+  if(ln) bx.fillText(ln,x,yy); return yy; }
+const PX={x:706,y:70,w:300};
+function rpanel(h){ bx.fillStyle='rgba(13,18,26,0.92)'; bx.strokeStyle='rgba(138,180,248,0.22)';
+  bx.lineWidth=1.5; bx.beginPath(); bx.roundRect(PX.x,PX.y,PX.w,h,12); bx.fill(); bx.stroke(); }
+function prow(y,k,v,col){ texto(k,PX.x+14,y,'#8f9bb0',14,'left','500');
+  texto(v,PX.x+PX.w-14,y,col||'#dbe4f0',15,'right','700'); }
+function title2(t,sub){ texto(t,44,52,'#eaf1fb',26,'left','800');
+  if(sub) texto(sub,44,78,'#8f9bb0',15,'left','500'); }
+function nota(t,y){ wrapText(t,44,y,620,19,'#8f9bb0',14); }
+function hbar(x,y,w,h,frac,col,bgc){ bx.fillStyle=bgc||'rgba(255,255,255,0.06)';
+  bx.beginPath(); bx.roundRect(x,y,w,h,h/2); bx.fill();
+  const f=Math.max(0,Math.min(1,frac));
+  if(f>0){ bx.fillStyle=col||AZUL; bx.beginPath(); bx.roundRect(x,y,Math.max(h,w*f),h,h/2); bx.fill(); } }
+function marca(x,y,ok){ bx.strokeStyle=ok?OK_HEX:BAD_HEX; bx.lineWidth=2.4; bx.beginPath();
+  if(ok){ bx.moveTo(x-6,y); bx.lineTo(x-2,y+5); bx.lineTo(x+7,y-6); }
+  else  { bx.moveTo(x-5,y-5); bx.lineTo(x+6,y+6); bx.moveTo(x+6,y-5); bx.lineTo(x-5,y+6); }
+  bx.stroke(); }
+const colOk=b=>b?OK_HEX:BAD_HEX;
+function tabla(x,y,cols,rows,anchos,colFn){ let yy=y;
+  cols.forEach((c,i)=>texto(c,x+anchos.slice(0,i).reduce((a,b)=>a+b,0),yy,'#7f8b9c',13,'left','700'));
+  yy+=8; linea(x,yy,x+anchos.reduce((a,b)=>a+b,0)-10,yy,'#243043',1); yy+=18;
+  rows.forEach((r,ri)=>{ r.forEach((c,ci)=>texto(c,x+anchos.slice(0,ci).reduce((a,b)=>a+b,0),yy,
+      (colFn&&colFn(ri,ci))||'#c8d3e2',14,'left','600')); yy+=22; });
+  return yy; }
+
+// ===================== 6. PRIMITIVAS DE GRÁFICA =====================
+function ejes(P,xmin,xmax,ymin,ymax,rotX,rotY,fmtX,fmtY,nx,ny){
+  const NX=nx||6, NY=ny||5;
+  bx.fillStyle='rgba(10,14,20,0.72)';
+  bx.beginPath(); bx.roundRect(P.x-52,P.y-18,P.w+72,P.h+72,10); bx.fill();
+  bx.strokeStyle='rgba(138,180,248,0.10)'; bx.lineWidth=1;
+  for(let i=0;i<=NX;i++){ const x=P.x+P.w*i/NX; bx.beginPath(); bx.moveTo(x,P.y); bx.lineTo(x,P.y+P.h); bx.stroke(); }
+  for(let i=0;i<=NY;i++){ const y=P.y+P.h*i/NY; bx.beginPath(); bx.moveTo(P.x,y); bx.lineTo(P.x+P.w,y); bx.stroke(); }
+  linea(P.x,P.y+P.h,P.x+P.w,P.y+P.h,'#3a465c',1.5);
+  linea(P.x,P.y,P.x,P.y+P.h,'#3a465c',1.5);
+  for(let i=0;i<=NX;i++){ const v=xmin+(xmax-xmin)*i/NX;
+    texto(fmtX?fmtX(v):fN(v,1),P.x+P.w*i/NX,P.y+P.h+20,'#7f8b9c',12,'center','600'); }
+  for(let i=0;i<=NY;i++){ const v=ymin+(ymax-ymin)*(NY-i)/NY;
+    texto(fmtY?fmtY(v):fN(v,1),P.x-8,P.y+P.h*i/NY+4,'#7f8b9c',12,'right','600'); }
+  if(rotX) texto(rotX,P.x+P.w/2,P.y+P.h+44,'#8f9bb0',13,'center','700');
+  if(rotY){ bx.save(); bx.translate(P.x-42,P.y+P.h/2); bx.rotate(-Math.PI/2);
+    texto(rotY,0,0,'#8f9bb0',13,'center','700'); bx.restore(); }
+  return { X:v=>P.x+P.w*(v-xmin)/(xmax-xmin), Y:v=>P.y+P.h-P.h*(v-ymin)/(ymax-ymin) }; }
+function punteo(x,y,col,r){ bx.fillStyle=col||AZUL; bx.beginPath(); bx.arc(x,y,r||5,0,Math.PI*2);
+  bx.fill(); bx.strokeStyle='#080b11'; bx.lineWidth=1.5; bx.stroke(); }
+function anillo(x,y,col,r){ bx.strokeStyle=col||'#eaf1fb'; bx.lineWidth=2.2;
+  bx.beginPath(); bx.arc(x,y,r||9,0,Math.PI*2); bx.stroke(); }
+function banda(A,x1,x2,y1,y2,col){ bx.fillStyle=col;
+  bx.fillRect(A.X(x1),A.Y(y2),A.X(x2)-A.X(x1),A.Y(y1)-A.Y(y2)); }
+function leyenda(x,y,items){ let xx=x;
+  items.forEach(it=>{ linea(xx,y-5,xx+22,y-5,it[1],3,it[2]||[]);
+    texto(it[0],xx+28,y,'#a9b6c8',13,'left','600');
+    xx += 28 + bx.measureText(it[0]).width + 22; }); }
+// Traza del ciclo contra el ángulo de cigüeñal.
+function serieTh(A,tr,campo,esc){
+  const pts=[]; const k=esc===undefined?1:esc;
+  for(let i=0;i<tr.th.length;i++) pts.push([A.X(tr.th[i]),A.Y(tr[campo][i]*k)]);
+  return pts; }
+// Traza del ciclo en el plano p–V: volumen en cm³, presión en bar.
+function seriePV(A,tr){
+  const pts=[];
+  for(let i=0;i<tr.V.length;i++) pts.push([A.X(tr.V[i]*1e6),A.Y(tr.p[i]/1e5)]);
+  return pts; }
+// Serie de un barrido (una lista de ciclos ya resueltos) contra el eje elegido.
+function serieBar(A,arr,ejeX,fnY){
+  return arr.map(s=>[A.X(s[ejeX]),A.Y(fnY(s))]); }
+// Serie genérica: dos funciones sobre una lista cualquiera (arranques, rejillas).
+function serieXY(A,arr,fnX,fnY){
+  return arr.map((s,i)=>[A.X(fnX(s,i)),A.Y(fnY(s,i))]); }
+// ===================== 7. VISTAS DEL PIZARRÓN =====================
+const FCOL={uba:AZUL,agricola:NARANJA,b20:OK_HEX,marino:ROSA};
+const FCOR={uba:'UBA',agricola:'agrícola B',b20:'B20',marino:'DMA marino'};
+
+// Las seis filas del pliego con el valor medido y el límite al lado. Es la
+// única fuente del veredicto: la vista, el informe y el reto leen de aquí.
+// En los 3 200 puntos de la rejilla la integral del retardo SIEMPRE llega a 1
+// antes de la apertura de escape: no hay ninguna configuración que no encienda,
+// así que ca50 nunca es nulo y el pliego no necesita un caso «no arranca».
+function pliegoFilas(s,P){
+  const frio=!s.arr.okFluido ? 'gelificado a '+f0(P.Thom)+' °C'
+                             : fN(s.arr.margen,0)+' K';
+  return [
+    {k:'okFase', med:fN(s.ca50,2)+'°',        lim:f0(P.ca50Lo)+'–'+f0(P.ca50Hi)+'°',   ok:s.okFase},
+    {k:'okRuido',med:fN(s.dpMax,2)+' bar/°',  lim:'≤ '+fN(P.dpLim,1)+' bar/°',         ok:s.okRuido},
+    {k:'okPres', med:bar(s.pmax)+' bar',      lim:'≤ '+f0(P.pLim/1e5)+' bar',          ok:s.okPres},
+    {k:'okEsc',  med:f0(s.Tbrida)+' K',       lim:'≤ '+f0(P.tEscLim)+' K',             ok:s.okEsc},
+    {k:'okPar',  med:fN(s.bmep,2)+' bar',     lim:'≥ '+fN(P.bmepMin,2)+' bar',         ok:s.okPar},
+    {k:'okFrio', med:frio,                    lim:'≥ 0 K a '+f0(P.Thom)+' °C',         ok:s.okFrio},
+  ];
+}
+// Ventana de la traza: sólo los puntos cuyo ángulo cae dentro del eje.
+function serieVen(A,tr,fn,x0,x1){
+  const p=[];
+  for(let i=0;i<tr.th.length;i++){ const th=tr.th[i];
+    if(th<x0||th>x1) continue; p.push([A.X(th),A.Y(fn(i))]); }
+  return p;
+}
+// Cursor de escritura del panel derecho: una sola pluma que baja sola.
+function panelIO(y0){
+  let y=y0;
+  const io={
+    row:(k,v,col)=>{ prow(y,k,v,col); y+=23; },
+    sep:t=>{ y+=8; texto(t,PX.x+14,y,'#5f6a7d',12,'left','800'); y+=18; },
+    tit:t=>{ texto(t,PX.x+14,y,'#eaf1fb',14,'left','800'); y+=21; },
+    cur:()=>y,
+  };
+  return io;
+}
+// Cabecera común del panel derecho: máquina, ejes y si el banco puede montarlo.
+function panelCfg(io,c){
+  const P=MAQ[c.mk];
+  io.tit((ICONO[c.mk]||'')+' '+P.nom);
+  io.row('relación r',fN(c.r,0)+(c.r>P.rMax?'  ✗':''),c.r>P.rMax?BAD_HEX:'#dbe4f0');
+  io.row('avance SOI',fN(c.soi,0)+'° antes del PMS');
+  io.row('riel',f0(c.pIny)+' bar'+(c.pIny>P.pInyMax?'  ✗':''),c.pIny>P.pInyMax?BAD_HEX:'#dbe4f0');
+  io.row('combustible',FCOR[c.fk],FCOL[c.fk]);
+  if(!construible(c)){
+    io.sep('NO CONSTRUIBLE');
+    io.row('tope mecánico','r ≤ '+f0(P.rMax),c.r>P.rMax?BAD_HEX:'#8f9bb0');
+    io.row('tope de bomba','≤ '+f0(P.pInyMax)+' bar',c.pIny>P.pInyMax?BAD_HEX:'#8f9bb0');
+  }
+}
+
+// ---------------------------------------------------------------- 7.1 ciclo
+function vistaCiclo(){
+  const c=cfgDe(mode), P=MAQ[c.mk], s=CUR, tr=s.traza;
+  title2('Ciclo cerrado y los tres techos ideales',
+         P.nom+' · del cierre de admisión ('+f0(TH_IVC)+'°) a la apertura de escape ('+f0(TH_EVO)+'°)');
+
+  // --- p–V real contra el ciclo Dual ideal de aire frío a la misma r --------
+  const Vc=s.Vc, p2=P.pAdm*Math.pow(c.r,G_FRIO)/1e5, al=s.alfaId, rcD=s.rcDual;
+  const pTop=Math.max(s.pmax/1e5,al*p2)*1.08;
+  const A=ejes({x:110,y:112,w:545,h:228},0,Vc*c.r*1e6,0,pTop,
+               'volumen del cilindro [cm³]','presión [bar]',v=>fN(v,0),v=>f0(v),6,5);
+  const idl=[];
+  for(let i=0;i<=48;i++){ const V=Vc*(c.r-(c.r-1)*i/48);
+    idl.push([A.X(V*1e6),A.Y(P.pAdm/1e5*Math.pow(c.r*Vc/V,G_FRIO))]); }
+  idl.push([A.X(Vc*1e6),A.Y(al*p2)]);
+  const Vx=Vc*rcD, px=al*p2;
+  idl.push([A.X(Vx*1e6),A.Y(px)]);
+  for(let i=0;i<=48;i++){ const V=Vx+(c.r*Vc-Vx)*i/48;
+    idl.push([A.X(V*1e6),A.Y(px*Math.pow(Vx/V,G_FRIO))]); }
+  idl.push([A.X(c.r*Vc*1e6),A.Y(P.pAdm/1e5)]);
+  curva(idl,VIO,1.8,[7,5]);
+  curva(seriePV(A,tr),AZUL,2.6);
+  linea(A.X(s.Vivc*1e6),A.Y(0),A.X(s.Vivc*1e6),A.Y(pTop),'#3d4a60',1.2,[4,4]);
+  texto('IVC',A.X(s.Vivc*1e6)+5,A.Y(pTop)+14,'#7f8b9c',12,'left','700');
+  punteo(A.X(vol(geom(P,c.r),s.thPmax*DEG)*1e6),A.Y(s.pmax/1e5),AZUL,5);
+  leyenda(300,108,[['ciclo medido',AZUL,[]],['Dual ideal a r = '+f0(c.r),VIO,[7,5]]]);
+
+  // --- liberación de calor, integral del retardo y gradiente ---------------
+  const X0=-60, X1=90;
+  const B=ejes({x:110,y:418,w:545,h:198},X0,X1,0,1.25,
+               'ángulo de cigüeñal [° respecto al PMS]','fracción · dp/dp_lím',
+               v=>fN(v,0),v=>fN(v,2),6,5);
+  banda(B,X0,X1,1,1.25,'rgba(255,107,107,0.10)');
+  const w0=-c.soi, w1=Math.min(X1,-c.soi+s.thIny);
+  banda(B,w0,w1,0,1.25,'rgba(138,180,248,0.09)');
+  linea(B.X(0),B.Y(0),B.X(0),B.Y(1.25),'#3d4a60',1.2,[4,4]);
+  texto('PMS',B.X(0)+5,B.Y(1.25)+14,'#7f8b9c',12,'left','700');
+  let rec=false;
+  const dpS=serieVen(B,tr,i=>{ let y=tr.dp[i]/P.dpLim;
+    if(y<0) y=0; if(y>1.25){ y=1.25; rec=true; } return y; },X0,X1);
+  curva(dpS,AMBAR,1.8);
+  curva(serieVen(B,tr,i=>tr.acc[i],X0,X1),VIO,1.8,[5,4]);
+  curva(serieVen(B,tr,i=>tr.xb[i],X0,X1),OK_HEX,2.6);
+  linea(B.X(0),B.Y(1),B.X(X1),B.Y(1),BAD_HEX,1.2,[6,4]);
+  linea(B.X(s.thSOC),B.Y(0),B.X(s.thSOC),B.Y(1.25),NARANJA,1.6,[]);
+  texto('SOC',B.X(s.thSOC)+5,B.Y(1.25)+30,NARANJA,12,'left','700');
+  [[s.ca10,0.10],[s.ca50,0.50],[s.ca90,0.90]].forEach(q=>{
+    if(q[0]>=X0&&q[0]<=X1) punteo(B.X(q[0]),B.Y(q[1]),OK_HEX,4.5); });
+  texto('SOI',B.X(w0)+5,B.Y(1.25)+14,CIAN,12,'left','700');
+  leyenda(160,412,[['x quemada',OK_HEX,[]],['integral del retardo',VIO,[5,4]],
+                   ['dp/dp_lím',AMBAR,[]]]);
+  nota(rec
+    ? 'El trazo ámbar llega recortado en 1,25: con esta configuración el gradiente se sale del eje. Banda roja: por encima de 1 se incumple el límite de ruido. Banda azul: ventana de inyección.'
+    : 'Banda roja: por encima de 1 el gradiente de presión supera el límite del pliego. Banda azul: ventana de inyección, desde el SOI hasta que la tobera cierra.',692);
+
+  // --- panel ---------------------------------------------------------------
+  rpanel(602);
+  const io=panelIO(PX.y+28);
+  panelCfg(io,c);
+  io.sep('TECHOS IDEALES DE AIRE FRÍO');
+  io.row('Otto a r = '+f0(c.r),pc2(s.etaOttoId),VIO);
+  io.row('Dual (Seiliger)',pc2(s.etaDualId),VIO);
+  io.row('Diesel a r = '+f0(c.r),pc2(s.etaDieselId),VIO);
+  io.row('Diesel a r_ef = '+fN(s.rEf,2),pc2(s.etaDieselIdEf),GRIS);
+  io.row('α · rc del Dual',fN(al,3)+' · '+fN(rcD,3));
+  io.sep('LO QUE DE VERDAD ENTREGA');
+  io.row('η indicado',pc2(s.etaI),AZUL);
+  io.row('η al freno',pc2(s.etaB),AZUL);
+  io.row('Dual − η indicado',fN((s.etaDualId-s.etaI)*100,2)+NBSP+'pts',WARN_HEX);
+  io.row('η indicado − η freno',fN((s.etaI-s.etaB)*100,2)+NBSP+'pts',WARN_HEX);
+  io.row('calor a las paredes',pc1(s.Qfrac),NARANJA);
+  io.row('η de combustión',fN(s.etaC,4));
+  io.sep('DOSIS Y AIRE');
+  io.row('masa inyectada',mg(s.mComb)+' mg');
+  io.row('λ (exceso de aire)',fN(s.lam,3));
+  io.row('margen de humo',fN(s.margenHumo,3)+' de λ sobre '+fN(LAM_HUMO,2),
+         s.margenHumo>0?OK_HEX:BAD_HEX);
+  io.row('p máxima',bar(s.pmax)+' bar a '+gra(s.thPmax));
+}
+
+// -------------------------------------------------------------- 7.2 retardo
+function vistaRetardo(){
+  const c=cfgDe(mode), P=MAQ[c.mk], s=CUR;
+  title2('Retardo de autoencendido: el número de cetano manda',
+         'Hardenberg y Hase integrado (Livengood y Wu): el encendido no se ordena, se calcula');
+
+  const fam=sweepSF(c);
+  let rLo=1e9,rHi=-1e9,dLo=1e9,dHi=-1e9;
+  fam.forEach(g=>g.serie.forEach(x=>{
+    rLo=Math.min(rLo,x.thRet); rHi=Math.max(rHi,x.thRet);
+    dLo=Math.min(dLo,x.dpMax); dHi=Math.max(dHi,x.dpMax); }));
+  dHi=Math.max(dHi,P.dpLim); dLo=Math.min(dLo,P.dpLim);
+  const pad=(lo,hi)=>{ const m=(hi-lo)*0.12+1e-6; return [lo-m,hi+m]; };
+  const rr=pad(rLo,rHi), dd=pad(dLo,dHi);
+
+  const A=ejes({x:105,y:118,w:250,h:222},SOI_G[0],SOI_G[SOI_G.length-1],rr[0],rr[1],
+               'avance de inyección [°]','retardo [° de cigüeñal]',v=>fN(v,0),v=>fN(v,2),4,5);
+  fam.forEach(g=>{ curva(serieBar(A,g.serie,'soi',x=>x.thRet),FCOL[g.fk],
+                         g.fk===c.fk?2.8:1.6,g.fk===c.fk?[]:[5,4]); });
+  punteo(A.X(c.soi),A.Y(s.thRet),FCOL[c.fk],5);
+
+  const B=ejes({x:440,y:118,w:220,h:222},SOI_G[0],SOI_G[SOI_G.length-1],dd[0],dd[1],
+               'avance de inyección [°]','dp/dθ máximo [bar/°]',v=>fN(v,0),v=>fN(v,1),4,5);
+  banda(B,SOI_G[0],SOI_G[SOI_G.length-1],P.dpLim,dd[1],'rgba(255,107,107,0.10)');
+  linea(B.X(SOI_G[0]),B.Y(P.dpLim),B.X(SOI_G[SOI_G.length-1]),B.Y(P.dpLim),BAD_HEX,1.6,[6,4]);
+  fam.forEach(g=>{ curva(serieBar(B,g.serie,'soi',x=>x.dpMax),FCOL[g.fk],
+                         g.fk===c.fk?2.8:1.6,g.fk===c.fk?[]:[5,4]); });
+  punteo(B.X(c.soi),B.Y(s.dpMax),FCOL[c.fk],5);
+  leyenda(44,414,FUEL_KEYS.map(fk=>[FCOR[fk],FCOL[fk],fk===c.fk?[]:[5,4]]));
+
+  // tabla de los cuatro combustibles en la configuración actual
+  const filas=FUEL_KEYS.map(fk=>{
+    const x=fam.find(g=>g.fk===fk).serie.find(z=>z.soi===c.soi);
+    return [FCOR[fk],f0(FUEL[fk].cn),gra(x.thRet),ms(x.tRet)+' ms',fN(x.beta,3),
+            fN(x.dpMax,2),x.okRuido?'sí':'no'];
+  });
+  const yFin=tabla(44,452,['combustible','CN','retardo','','premezcla β','dp/dθ','¿ruido ok?'],
+        filas,[148,48,74,86,104,78,100],(ri,ci)=>{
+          if(ci===6) return filas[ri][6]==='sí'?OK_HEX:BAD_HEX;
+          if(FUEL_KEYS[ri]===c.fk) return '#eaf1fb';
+          return '#c8d3e2'; });
+  nota('Menos cetano ⇒ más retardo ⇒ más masa inyectada antes de que arranque la llama ⇒ más premezcla ⇒ un pico de presión más brusco. La cadena entera se lee en esta tabla de izquierda a derecha.',yFin+20);
+
+  rpanel(602);
+  const io=panelIO(PX.y+28);
+  panelCfg(io,c);
+  io.sep('COMBUSTIBLE');
+  io.row('número de cetano',f0(FUEL[c.fk].cn),FCOL[c.fk]);
+  io.row('poder calorífico',fN(FUEL[c.fk].lhv/1e6,2)+' MJ/kg');
+  io.row('densidad',fN(FUEL[c.fk].rho,3)+' kg/L');
+  io.row('precio',fN(FUEL[c.fk].precio,2)+' €/L');
+  io.sep('CADENA DEL RETARDO');
+  io.row('inicio de inyección',gra(-c.soi));
+  io.row('retardo',gra(s.thRet)+' · '+ms(s.tRet)+' ms');
+  io.row('inicio de combustión',gra(s.thSOC));
+  io.row('masa en premezcla',pc1(s.beta),VIO);
+  io.row('duración premezclada',gra(s.dthP));
+  io.row('duración por difusión',gra(s.dthD));
+  io.sep('LO QUE SE OYE Y SE MIDE');
+  io.row('dp/dθ máximo',fN(s.dpMax,2)+' bar/°',colOk(s.okRuido));
+  io.row('… alcanzado en',gra(s.thDpMax));
+  io.row('límite del pliego',fN(P.dpLim,1)+' bar/°');
+  io.row('CA10 · CA50 · CA90',gra(s.ca10)+' '+gra(s.ca50)+' '+gra(s.ca90));
+  io.row('fase (CA50)',fN(s.ca50,2)+'°',colOk(s.okFase));
+}
+// ----------------------------------------------------------------- 7.3 riel
+function vistaRiel(){
+  const c=cfgDe(mode), P=MAQ[c.mk], s=CUR;
+  title2('Presión de riel: caudal, duración y lo que cuesta bombear',
+         'el orificio es un Bernoulli — triplicar la presión no triplica el caudal');
+
+  const sp=sweepP(c);
+  const P0=PINY_G[0], PN=PINY_G[PINY_G.length-1];
+  let gLo=1e9,gHi=-1e9,eLo=1e9,eHi=-1e9;
+  sp.forEach(x=>{ [x.thIny,x.dthD,x.ca90].forEach(v=>{ gLo=Math.min(gLo,v); gHi=Math.max(gHi,v); });
+    [x.etaI,x.etaB].forEach(v=>{ eLo=Math.min(eLo,v); eHi=Math.max(eHi,v); }); });
+  const mrg=(lo,hi)=>{ const m=(hi-lo)*0.12+1e-9; return [lo-m,hi+m]; };
+  const gg=mrg(gLo,gHi), ee=mrg(eLo*100,eHi*100);
+
+  const A=ejes({x:105,y:118,w:250,h:222},P0,PN,gg[0],gg[1],
+               'presión de riel [bar]','duración [° de cigüeñal]',v=>f0(v),v=>fN(v,0),3,5);
+  const marcaP=(Ax,arr,fy,col)=>{ arr.forEach(x=>{ const px=Ax.X(x.pIny),py=Ax.Y(fy(x));
+    if(x.pIny<=P.pInyMax) punteo(px,py,col,4.5); else anillo(px,py,col,5.5); }); };
+  curva(serieBar(A,sp,'pIny',x=>x.thIny),CIAN,2.4);   marcaP(A,sp,x=>x.thIny,CIAN);
+  curva(serieBar(A,sp,'pIny',x=>x.dthD),NARANJA,2.4); marcaP(A,sp,x=>x.dthD,NARANJA);
+  curva(serieBar(A,sp,'pIny',x=>x.ca90),VIO,2.4);     marcaP(A,sp,x=>x.ca90,VIO);
+  if(P.pInyMax<PN) banda(A,P.pInyMax,PN,gg[0],gg[1],'rgba(255,107,107,0.09)');
+
+  const B=ejes({x:440,y:118,w:220,h:222},P0,PN,ee[0],ee[1],
+               'presión de riel [bar]','rendimiento [%]',v=>f0(v),v=>fN(v,1),3,5);
+  curva(serieBar(B,sp,'pIny',x=>x.etaI*100),AZUL,2.4);   marcaP(B,sp,x=>x.etaI*100,AZUL);
+  curva(serieBar(B,sp,'pIny',x=>x.etaB*100),OK_HEX,2.4); marcaP(B,sp,x=>x.etaB*100,OK_HEX);
+  if(P.pInyMax<PN) banda(B,P.pInyMax,PN,ee[0],ee[1],'rgba(255,107,107,0.09)');
+  leyenda(44,414,[['inyección',CIAN,[]],['difusión',NARANJA,[]],['CA90',VIO,[]],
+                  ['η indicado',AZUL,[]],['η al freno',OK_HEX,[]]]);
+
+  const ref=sp[0], pS=s.pSoi/1e5;
+  const filas=sp.map(x=>[f0(x.pIny)+' bar',fN(x.mdot*1e3,4),fN(x.mdot/ref.mdot,4),
+    fN(Math.sqrt((x.pIny-pS)/(P0-pS)),4),gra(x.thIny),fN(x.fmepIny,3),
+    x.pIny<=P.pInyMax?'sí':'no']);
+  const yFin=tabla(44,452,['riel','caudal [g/s]','÷ el de 600','√(Δp÷Δp₆₀₀)','inyección',
+                           'fmep bomba','¿montable?'],
+        filas,[84,94,92,104,84,88,94],(ri,ci)=>{
+          if(ci===6) return filas[ri][6]==='sí'?OK_HEX:BAD_HEX;
+          if(sp[ri].pIny===c.pIny) return '#eaf1fb';
+          return '#c8d3e2'; });
+  nota('Las dos columnas centrales tienen que dar el mismo número: el caudal por el orificio va con la raíz del salto de presión, y el salto no se mide contra cero sino contra la presión que ya hay dentro del cilindro al abrir la tobera ('+fN(pS,1)+' bar aquí). Los anillos huecos y la banda roja marcan los rieles que esta bomba no alcanza.',yFin+20);
+
+  rpanel(602);
+  const io=panelIO(PX.y+28);
+  panelCfg(io,c);
+  io.sep('LA TOBERA');
+  io.row('orificios',f0(P.nOr)+' × '+fN(P.dOr*1e6,1)+' µm');
+  io.row('coeficiente de descarga',fN(P.cd,2));
+  io.row('presión en el cilindro',fN(pS,1)+' bar');
+  io.row('salto útil',fN(c.pIny-pS,1)+' bar');
+  io.row('caudal',fN(s.mdot*1e3,4)+' g/s',CIAN);
+  io.row('duración',ms(s.tIny)+' ms · '+gra(s.thIny));
+  io.sep('LO QUE CUESTA BOMBEAR');
+  io.row('fmep de la bomba',fN(s.fmepIny,3)+' bar',NARANJA);
+  io.row('fmep mecánico',fN(s.fmepMec,3)+' bar');
+  io.row('bombeo (pmep)',fN(s.pmep,3)+' bar');
+  io.row('imep bruto',fN(s.imepG,3)+' bar');
+  io.row('bmep',fN(s.bmep,3)+' bar',colOk(s.okPar));
+  io.sep('CONSECUENCIAS');
+  io.row('cola por difusión',gra(s.dthD));
+  io.row('CA90',gra(s.ca90));
+  io.row('penalización tardía',fN(s.penTarde,4));
+  io.row('η al freno',pc2(s.etaB),AZUL);
+  io.row('consumo específico',fin(s.bsfc,1)+' g/kWh');
+}
+
+// ----------------------------------------------------------------- 7.4 frío
+function vistaFrio(){
+  const c=cfgDe(mode), P=MAQ[c.mk], s=CUR, a=s.arr;
+  title2('Arranque en frío: comprimir hasta encender sin llama',
+         P.nom+' · homologa a '+f0(P.Thom)+' °C con '+CALENT_ROT[P.calent]);
+
+  const aR=arrR(c);
+  let tLo=1e9,tHi=-1e9;
+  aR.forEach(x=>{ tLo=Math.min(tLo,x.TtdcEf); tHi=Math.max(tHi,x.TtdcEf); });
+  FUEL_KEYS.forEach(fk=>{ const t=tAutoenc(FUEL[fk]);
+    tLo=Math.min(tLo,t); tHi=Math.max(tHi,t); });
+  const mA=(tHi-tLo)*0.12+1;
+  const A=ejes({x:105,y:118,w:250,h:222},R_G[0],R_G[R_G.length-1],tLo-mA,tHi+mA,
+               'relación de compresión','T en el PMS de arrastre [K]',v=>fN(v,0),v=>f0(v),7,5);
+  if(P.rMax<R_G[R_G.length-1]) banda(A,P.rMax,R_G[R_G.length-1],tLo-mA,tHi+mA,'rgba(255,107,107,0.09)');
+  FUEL_KEYS.forEach(fk=>{ const t=tAutoenc(FUEL[fk]);
+    linea(A.X(R_G[0]),A.Y(t),A.X(R_G[R_G.length-1]),A.Y(t),FCOL[fk],1.4,[6,4]);
+    texto(FCOR[fk],A.X(R_G[R_G.length-1])-4,A.Y(t)-5,FCOL[fk],11,'right','700'); });
+  curva(serieXY(A,aR,(x,i)=>R_G[i],x=>x.TtdcEf),TINTA,2.6);
+  aR.forEach((x,i)=>{ const px=A.X(R_G[i]),py=A.Y(x.TtdcEf);
+    if(R_G[i]<=P.rMax) punteo(px,py,x.okTermico?OK_HEX:BAD_HEX,4.5);
+    else anillo(px,py,GRIS,5); });
+  punteo(A.X(c.r),A.Y(a.TtdcEf),AZUL,6);
+
+  const aT=arrT(c);
+  let gLo=1e9,gHi=-1e9;
+  aT.forEach(x=>{ gLo=Math.min(gLo,x.margen); gHi=Math.max(gHi,x.margen); });
+  const mB=(gHi-gLo)*0.12+1;
+  const B=ejes({x:440,y:118,w:220,h:222},T_G[0],T_G[T_G.length-1],gLo-mB,gHi+mB,
+               'temperatura ambiente [°C]','margen térmico [K]',v=>fN(v,0),v=>f0(v),4,5);
+  banda(B,T_G[0],Math.min(T_G[T_G.length-1],FUEL[c.fk].cfpp),gLo-mB,gHi+mB,'rgba(91,212,229,0.12)');
+  linea(B.X(T_G[0]),B.Y(0),B.X(T_G[T_G.length-1]),B.Y(0),BAD_HEX,1.4,[6,4]);
+  linea(B.X(P.Thom),B.Y(gLo-mB),B.X(P.Thom),B.Y(gHi+mB),WARN_HEX,1.6,[]);
+  texto('homologación',B.X(P.Thom)+5,B.Y(gHi+mB)+14,WARN_HEX,11,'left','700');
+  curva(serieXY(B,aT,(x,i)=>T_G[i],x=>x.margen),FCOL[c.fk],2.6);
+  punteo(B.X(P.Thom),B.Y(a.margen),FCOL[c.fk],5.5);
+  leyenda(44,414,[['T alcanzada',TINTA,[]],['umbral del combustible',FCOL[c.fk],[6,4]],
+                  ['margen a la temperatura de homologación',WARN_HEX,[]]]);
+
+  const filas=FUEL_KEYS.map(fk=>{
+    const x=arranque(c.mk,c.r,fk,P.Thom);
+    return [FCOR[fk],f0(FUEL[fk].cn),f0(x.Tai)+' K',f0(FUEL[fk].cfpp)+' °C',
+            x.okFluido?'fluido':'GELIFICADO',fN(x.margen,0)+' K',x.arranca?'sí':'no'];
+  });
+  const yFin=tabla(44,452,['combustible','CN','umbral T_AI','CFPP','a '+f0(P.Thom)+' °C',
+                           'margen','¿arranca?'],
+        filas,[148,46,96,80,110,80,80],(ri,ci)=>{
+          const x=filas[ri];
+          if(ci===6) return x[6]==='sí'?OK_HEX:BAD_HEX;
+          if(ci===4) return x[4]==='fluido'?OK_HEX:CIAN;
+          if(ci===5) return x[5].charAt(0)==='−'?BAD_HEX:OK_HEX;
+          if(FUEL_KEYS[ri]===c.fk) return '#eaf1fb';
+          return '#c8d3e2'; });
+  nota('Dos puertas distintas y las dos hay que pasarlas: el gasóleo tiene que llegar líquido al filtro (CFPP) y el aire comprimido tiene que superar el umbral térmico del combustible. Un gasóleo de mucho cetano baja el umbral, pero no impide que se gelifique.',yFin+20);
+
+  rpanel(602);
+  const io=panelIO(PX.y+28);
+  panelCfg(io,c);
+  io.sep('ARRASTRE');
+  io.row('régimen de arranque',f0(P.rpmArr)+' rpm');
+  io.row('politrópica n',fN(a.n,4));
+  io.row('r efectiva (por IVC)',fN(a.rEf,3),GRIS);
+  io.row('multiplicador r_ef^(n−1)',fN(Math.pow(a.rEf,a.n-1),3),VIO);
+  io.sep('AYUDA AL ARRANQUE');
+  io.row('sistema',CALENT_ROT[P.calent]);
+  io.row('tiempo de espera',f0(a.t)+' s');
+  io.row('calienta el aire',fN(a.dRej,1)+' K',a.dRej>0?NARANJA:GRIS);
+  io.row('… ya comprimido',fN(a.dRej*Math.pow(a.rEf,a.n-1),1)+' K',a.dRej>0?NARANJA:GRIS);
+  io.row('calienta el sitio',fN(a.dBuj,1)+' K',a.dBuj>0?AMBAR:GRIS);
+  io.sep('EL VEREDICTO EN FRÍO');
+  io.row('ambiente de homologación',f0(P.Thom)+' °C');
+  io.row('T de admisión',fN(a.Tadm,1)+' K');
+  io.row('T en el PMS',fN(a.Ttdc,1)+' K');
+  io.row('T efectiva de encendido',fN(a.TtdcEf,1)+' K',TINTA);
+  io.row('umbral del combustible',fN(a.Tai,1)+' K',FCOL[c.fk]);
+  io.row('margen',fN(a.margen,1)+' K',colOk(a.okTermico));
+  io.row('CFPP del combustible',f0(a.Tcfpp)+' °C',colOk(a.okFluido));
+  io.row('¿arranca?',a.arranca?'sí':'no',colOk(a.arranca));
+}
+// ----------------------------------------------------------------- 7.5 censo
+const NPM=NPTS/MAQ_KEYS.length;      // combinaciones que ofrece el banco por máquina
+function vistaCenso(){
+  const c=cfgDe(mode), P=MAQ[c.mk], cen=censoM(c.mk);
+  title2('Censo del pliego: qué criterio tumba a cuántas',
+         P.nom+' · '+f0(cen.n)+' montables de '+f0(NPM)+' · '+f0(cen.validas)+' cumplen las seis');
+
+  texto('La barra larga cuenta todas las configuraciones montables que incumplen ese criterio; la corta, sólo aquellas en las que ese criterio es el ÚNICO que falla —las que se arreglarían tocando una sola cosa.',
+        44,110,'#8f9bb0',13,'left','500');
+
+  CRIT.forEach((k,i)=>{
+    const y0=138+i*76, tot=cen.tot[k], sol=cen.solo[k];
+    texto(CRIT_ROT[k],44,y0+4,'#eaf1fb',15,'left','700');
+    hbar(44,y0+14,300,13,tot/cen.n,BAD_HEX);
+    texto(f0(tot)+'  ('+pc1(tot/cen.n)+' de las montables)',356,y0+25,'#c8d3e2',13,'left','600');
+    hbar(44,y0+38,300,13,sol/cen.n,WARN_HEX);
+    texto(sol===0?'ninguna lo tiene como única causa'
+                 :f0(sol)+'  en solitario ('+pc1(sol/tot)+' de sus fallos)',
+          356,y0+49,sol===0?GRIS:WARN_HEX,13,'left','600');
+  });
+
+  const noMec=NPM-cen.n;
+  nota('Las '+f0(noMec)+' combinaciones restantes no entran en el censo porque esta máquina no las puede montar: el bloque aguanta hasta r = '+f0(P.rMax)+' y la bomba llega a '+f0(P.pInyMax)+' bar. Un criterio con barra larga y barra corta casi vacía casi nunca es el problema de verdad: cae acompañado.',
+       610);
+
+  rpanel(602);
+  const io=panelIO(PX.y+28);
+  io.tit((ICONO[c.mk]||'')+' '+P.nom);
+  io.row('rejilla del banco',f0(NPM));
+  io.row('tope mecánico','r ≤ '+f0(P.rMax));
+  io.row('tope de bomba','≤ '+f0(P.pInyMax)+' bar');
+  io.row('no montables',f0(noMec),GRIS);
+  io.row('montables',f0(cen.n));
+  io.row('cumplen las seis',f0(cen.validas),cen.validas>0?OK_HEX:BAD_HEX);
+  io.sep('LÍMITES DE ESTE PLIEGO');
+  io.row('CA50',f0(P.ca50Lo)+'–'+f0(P.ca50Hi)+'°');
+  io.row('gradiente','≤ '+fN(P.dpLim,1)+' bar/°');
+  io.row('presión máxima','≤ '+f0(P.pLim/1e5)+' bar');
+  io.row('brida de escape','≤ '+f0(P.tEscLim)+' K');
+  io.row('par (bmep)','≥ '+fN(P.bmepMin,2)+' bar');
+  io.row('arranque en frío',f0(P.Thom)+' °C');
+  io.sep('LA CONFIGURACIÓN EN PANTALLA');
+  const fal=fallosDe(CUR);
+  io.row('¿montable?',construible(c)?'sí':'no',colOk(construible(c)));
+  io.row('criterios que falla',fal.length?f0(fal.length):'ninguno',colOk(fal.length===0));
+  io.row('cuáles',fal.length?fal.map(k=>CRIT_COR[k]).join(', '):'—',
+         fal.length?BAD_HEX:OK_HEX);
+}
+
+// ------------------------------------------------------------------ 7.6 reto
+function vistaReto(){
+  const c=cfgDe('reto'), P=MAQ[c.mk], s=CUR, cen=censoM(c.mk);
+  title2('Reto de firma: la más barata que cumpla las seis',
+         P.nom+' · '+f0(ANIOS)+' años a '+f0(P.wAnio)+' kWh al año');
+  texto('De las '+f0(cen.n)+' que el banco puede montar en esta máquina, '+f0(cen.validas)+
+        ' cumplen el pliego entero. Firma la de menor coste de combustible en '+f0(ANIOS)+' años.',
+        44,110,'#8f9bb0',14,'left','500');
+
+  const fl=pliegoFilas(s,P);
+  const yFin=tabla(44,146,['criterio','medido','límite del pliego','veredicto'],
+    fl.map(x=>[CRIT_ROT[x.k],x.med,x.lim,x.ok?'✓  cumple':'✗  incumple']),
+    [210,140,176,114],
+    (ri,ci)=>ci===3?colOk(fl[ri].ok):(fl[ri].ok?'#c8d3e2':'#e9d0d0'));
+
+  const ok=construible(c) && fl.every(x=>x.ok);
+  texto('coste de combustible en '+f0(ANIOS)+' años',44,yFin+34,'#8f9bb0',14,'left','600');
+  texto(fin(s.coste5,0)+' €',44,yFin+66,ok?OK_HEX:GRIS,30,'left','800');
+  texto(construible(c)?(ok?'cumple el pliego':'no cumple: '+fallosDe(s).map(k=>CRIT_COR[k]).join(', '))
+                     :'esta máquina no puede montarla',
+        250,yFin+66,construible(c)?colOk(ok):BAD_HEX,15,'left','700');
+
+  const pis=pisM(c.mk), PK=['fk','r','pIny'];
+  const pval=(i,v)=>i===0?FCOR[v]:(i===1?fN(v,0):f0(v)+' bar');
+  pis.forEach((p,i)=>{
+    const y=yFin+112+i*30, ab=RETO.pistas[PK[i]];
+    texto('pista '+f0(i+1)+' · '+p.txt,44,y,'#7f8b9c',14,'left','600');
+    texto(ab?pval(i,p.v):'· · ·',250,y,ab?AZUL:'#4a5568',15,'left','800');
+    if(ab) texto('quedan '+f0(p.n)+' válidas con esa elección',360,y,'#8f9bb0',13,'left','500');
+  });
+
+  nota(RETO.resuelto
+    ? 'Firmada. La más barata no es la más eficiente: el precio del litro y el rendimiento tiran en sentidos distintos, y el pliego recorta por arriba las relaciones de compresión y los avances que más rinden.'
+    : 'Las pistas se abren en orden —combustible, relación de compresión, presión de riel— y ninguna toca el avance de inyección: ése lo tienes que encontrar tú con la vista del retardo.',
+    yFin+218);
+
+  rpanel(602);
+  const io=panelIO(PX.y+28);
+  panelCfg(io,c);
+  io.sep('LO QUE MIDE EL BANCO');
+  io.row('η al freno',pc2(s.etaB),AZUL);
+  io.row('consumo específico',fin(s.bsfc,1)+' g/kWh');
+  io.row('coste a '+f0(ANIOS)+' años',fin(s.coste5,0)+' €',ok?OK_HEX:'#dbe4f0');
+  io.sep('EL PLIEGO, CRITERIO A CRITERIO');
+  fl.forEach(x=>io.row(CRIT_ROT[x.k],x.ok?'cumple':'NO',colOk(x.ok)));
+  io.sep('ESTADO');
+  io.row('válidas en la máquina',f0(cen.validas));
+  io.row('pistas abiertas',f0(PK.filter(k=>RETO.pistas[k]).length)+' de 3');
+  io.row('reto',RETO.resuelto?'FIRMADO':'sin firmar',colOk(RETO.resuelto));
+}
+
+const VISTAS={ciclo:vistaCiclo,retardo:vistaRetardo,riel:vistaRiel,
+              frio:vistaFrio,censo:vistaCenso,reto:vistaReto};
+
+function pintaBoard(){
+  bg();
+  const c=cfgDe(mode);
+  (VISTAS[mode]||vistaCiclo)();
+  if(!construible(c)){
+    bx.fillStyle='rgba(255,107,107,0.16)'; bx.fillRect(0,0,BW,26);
+    texto('NO CONSTRUIBLE — '+MAQ[c.mk].nom+' admite r ≤ '+f0(MAQ[c.mk].rMax)+
+          ' y riel ≤ '+f0(MAQ[c.mk].pInyMax)+' bar; el banco simula igual, pero esta configuración no se puede montar',
+          BW/2,18,'#ffb3b3',13,'center','700');
+  }
+  btex.needsUpdate=true;
+}
+// ===================== 8. MÁQUINA EN 3D =====================
+// Escala única: ESC3 metros→unidades de escena. Diámetro, carrera, longitud de
+// biela y ALTURA DE LA CÁMARA salen de la máquina y de la r elegidas.
+// La corona del pistón se dibuja PLANA a propósito: el motor sellado no resuelve
+// la geometría del bol de un inyección directa, sino el volumen muerto
+// equivalente V_c = V_d/(r−1) en cámara de placa plana. Dibujar un bol haría que
+// el gas visible no fuese el V(θ) que se integra, y eso sería mentir.
+const ESC3=10, CY=0.85;                 // eje del cigüeñal a 0,85 de la bancada
+const G3=new THREE.Group(); G3.position.set(0.95,0,0.35); scene.add(G3);
+const V3=(x,y,z)=>new THREE.Vector3(x,y,z);
+function tubo(a,b,r,mat){
+  const d=b.clone().sub(a), L=d.length();
+  const m=new THREE.Mesh(new THREE.CylinderGeometry(r,r,L,14),mat);
+  m.position.copy(a).add(b).multiplyScalar(0.5);
+  m.quaternion.setFromUnitVectors(V3(0,1,0),d.clone().normalize());
+  return m;
+}
+const cilY=mat=>new THREE.Mesh(new THREE.CylinderGeometry(1,1,1,28),mat);
+const caja=mat=>new THREE.Mesh(new THREE.BoxGeometry(1,1,1),mat);
+function marcaKey(o,k){ o.traverse(n=>{ n.userData.key=k; }); o.userData.key=k; return o; }
+
+// --- bancada ---
+(function(){
+  const b=roundedBox(3.7,0.16,2.3,MAT.bancada,0.05); b.position.set(0,0.08,0); G3.add(b);
+  for(const x of [-1.35,1.35]) for(const z of [-0.85,0.85]){
+    const p=new THREE.Mesh(new THREE.BoxGeometry(0.20,0.28,0.20),MAT.aceroC);
+    p.position.set(x,-0.14,z); G3.add(p);
+  }
+})();
+
+// --- bloque: dos costados y un fondo, sin pared delantera ---
+const BLOQ=new THREE.Group(); G3.add(BLOQ);
+const bIzq=caja(MAT.bloque), bDer=caja(MAT.bloque), bFon=caja(MAT.bloque),
+      carter=caja(MAT.bloque);
+(function(){ BLOQ.add(bIzq); BLOQ.add(bDer); BLOQ.add(bFon); BLOQ.add(carter);
+  marcaKey(BLOQ,'bloque'); })();
+
+// --- camisa y columna de gas encerrada sobre el pistón ---
+const CAM=new THREE.Group(); G3.add(CAM);
+const camisa=cilY(MAT.camisa);
+const gas=cilY(new THREE.MeshStandardMaterial({color:CIAN,transparent:true,opacity:0.28,
+  emissive:CIAN,emissiveIntensity:0.35,roughness:0.40,depthWrite:false}));
+(function(){ CAM.add(camisa); CAM.add(gas); marcaKey(CAM,'camisa'); })();
+
+// --- pistón de corona plana con sus dos aros ---
+const PIS=new THREE.Group(); G3.add(PIS);
+const piston=cilY(MAT.piston), aro1=cilY(MAT.aro), aro2=cilY(MAT.aro);
+const bulon=cilY(MAT.aceroC);
+(function(){ PIS.add(piston); PIS.add(aro1); PIS.add(aro2);
+  bulon.rotation.x=Math.PI/2; PIS.add(bulon); marcaKey(PIS,'piston'); })();
+
+// --- biela ---
+const BIE=new THREE.Group(); G3.add(BIE);
+const bCuerpo=caja(MAT.acero), bPie=cilY(MAT.aceroC), bCab=cilY(MAT.aceroC);
+(function(){ BIE.add(bCuerpo);
+  bPie.rotation.x=Math.PI/2; bCab.rotation.x=Math.PI/2; BIE.add(bPie); BIE.add(bCab);
+  marcaKey(BIE,'biela'); })();
+
+// --- cigüeñal ---
+const CIG=new THREE.Group(); CIG.position.set(0,CY,0); G3.add(CIG);
+const muñ=cilY(MAT.acero), cp1=cilY(MAT.aceroC), cp2=cilY(MAT.aceroC), volante=cilY(MAT.acero);
+const GVOL=new THREE.Group();   // volante y su dentado: giran con el cigüeñal
+(function(){
+  const eje=cilY(MAT.acero); eje.rotation.x=Math.PI/2; eje.scale.set(0.13,1.90,0.13); CIG.add(eje);
+  muñ.rotation.x=Math.PI/2; CIG.add(muñ);
+  cp1.rotation.x=Math.PI/2; cp2.rotation.x=Math.PI/2; CIG.add(cp1); CIG.add(cp2);
+  GVOL.position.z=-1.02; CIG.add(GVOL);
+  volante.rotation.x=Math.PI/2; volante.scale.set(0.50,0.10,0.50); GVOL.add(volante);
+  for(let i=0;i<14;i++){
+    const d=new THREE.Mesh(new THREE.BoxGeometry(0.055,0.10,0.05),MAT.negro);
+    const a=i/14*Math.PI*2; d.position.set(0.52*Math.cos(a),0.52*Math.sin(a),0);
+    d.rotation.z=a; GVOL.add(d);
+  }
+  marcaKey(CIG,'cigue');
+})();
+
+// --- culata ---
+const CUL=new THREE.Group(); G3.add(CUL);
+const culata=caja(MAT.culata), junta=caja(MAT.rojo.clone());
+(function(){ CUL.add(culata); CUL.add(junta); marcaKey(CUL,'culata'); })();
+
+// --- inyector central de N orificios, con su racor y su tubo de riel ---
+const INY=new THREE.Group(); G3.add(INY);
+const inyCuerpo=cilY(MAT.acero), inyTuerca=cilY(MAT.aceroC), inyTobera=cilY(MAT.oro);
+const JETS=[];
+(function(){
+  INY.add(inyCuerpo); INY.add(inyTuerca); INY.add(inyTobera);
+  marcaKey(INY,'inyector');
+})();
+const RIEL=new THREE.Group(); G3.add(RIEL);
+const rielTubo=cilY(MAT.cobre), rielLinea=new THREE.Group();
+(function(){ rielTubo.rotation.x=Math.PI/2; RIEL.add(rielTubo); RIEL.add(rielLinea);
+  marcaKey(RIEL,'riel'); })();
+
+// Los chorros se reconstruyen cuando cambia el número de orificios de la máquina.
+let jetN=0;
+const matJet=MAT.chorro.clone();
+matJet.opacity=0; matJet.depthWrite=false; matJet.side=THREE.DoubleSide;
+function creaJets(n){
+  while(JETS.length){ const j=JETS.pop(); INY.remove(j); j.geometry.dispose(); }
+  for(let i=0;i<n;i++){
+    const m=new THREE.Mesh(new THREE.ConeGeometry(0.16,1,10,1,true),matJet);
+    m.userData.key='inyector'; INY.add(m); JETS.push(m);
+  }
+  jetN=n;
+}
+
+// --- ayuda al arranque: rejilla de admisión y/o bujía incandescente ---
+const AYU=new THREE.Group(); G3.add(AYU);
+const rejilla=caja(std('#5b4636',0.60,0.30)), bujInc=cilY(MAT.aceroC),
+      bujPunta=cilY(emis('#c9a227',0.10));
+(function(){
+  AYU.add(rejilla); AYU.add(bujInc); AYU.add(bujPunta);
+  marcaKey(AYU,'ayuda');
+})();
+
+// --- válvulas: cerradas de IVC a EVO ---
+function valvula(col){
+  const g=new THREE.Group();
+  const vast=cilY(MAT.acero); vast.scale.set(0.045,0.62,0.045); vast.position.y=0.31; g.add(vast);
+  const cab=new THREE.Mesh(new THREE.CylinderGeometry(1,0.86,0.10,22),MAT.aceroC.clone());
+  g.add(cab);
+  const as=new THREE.Mesh(new THREE.TorusGeometry(1,0.035,8,26),
+    new THREE.MeshStandardMaterial({color:col,roughness:0.4,metalness:0.3,
+      emissive:col,emissiveIntensity:0.35}));
+  as.rotation.x=Math.PI/2; as.position.y=0.055; g.add(as);
+  const mu=cilY(MAT.negro); mu.scale.set(0.085,0.16,0.085); mu.position.y=0.66; g.add(mu);
+  return {g,cab,as};
+}
+const VAD=valvula(CIAN), VES=valvula(NARANJA);
+G3.add(VAD.g); G3.add(VES.g);
+marcaKey(VAD.g,'vadm'); marcaKey(VES.g,'vesc');
+
+// --- manómetro de cilindro ---
+function manometro(){
+  const g=new THREE.Group(); G3.add(g);
+  const cja=new THREE.Mesh(new THREE.CylinderGeometry(0.20,0.20,0.06,26),MAT.acero);
+  cja.rotation.x=Math.PI/2; g.add(cja);
+  const esf=new THREE.Mesh(new THREE.CircleGeometry(0.172,26),
+    new THREE.MeshBasicMaterial({color:'#0d1220'}));
+  esf.position.z=0.032; g.add(esf);
+  for(let i=0;i<=10;i++){
+    const a=-Math.PI*0.75+1.5*Math.PI*i/10;
+    const t=new THREE.Mesh(new THREE.BoxGeometry(0.018,0.034,0.005),
+      new THREE.MeshBasicMaterial({color:i>=8?BAD_HEX:'#6b7788'}));
+    t.position.set(0.138*Math.sin(a),0.138*Math.cos(a),0.035); t.rotation.z=-a; g.add(t);
+  }
+  const piv=new THREE.Group(); g.add(piv);
+  const ag=new THREE.Mesh(new THREE.BoxGeometry(0.014,0.145,0.006),
+    new THREE.MeshBasicMaterial({color:BAD_HEX}));
+  ag.position.set(0,0.072,0.038); piv.add(ag);
+  const cen=new THREE.Mesh(new THREE.CircleGeometry(0.026,16),
+    new THREE.MeshBasicMaterial({color:'#c8d3e2'}));
+  cen.position.z=0.042; g.add(cen);
+  marcaKey(g,'mano');
+  return {g,piv};
+}
+const MAN=manometro();
+
+// --- escape: codo, brida y termopar ---
+const ESCP=new THREE.Group(); G3.add(ESCP);
+const matEsc=new THREE.MeshStandardMaterial({color:'#6b7788',roughness:0.55,metalness:0.55,
+  emissive:'#000000',emissiveIntensity:0.9});
+const brida=cilY(matEsc), tcCab=caja(MAT.negro);
+(function(){ brida.rotation.z=Math.PI/2; ESCP.add(brida); ESCP.add(tcCab);
+  marcaKey(ESCP,'brida'); })();
+const TUBO_ESC=new THREE.Group(); ESCP.add(TUBO_ESC);
+
+// --- acelerómetro de ruido de combustión ---
+const KNK=new THREE.Group(); G3.add(KNK);
+const knkLed=new THREE.Mesh(new THREE.SphereGeometry(0.055,16,12),MAT.verde.clone());
+(function(){
+  const cu=cilY(MAT.negro); cu.rotation.z=Math.PI/2; cu.scale.set(0.13,0.14,0.13); KNK.add(cu);
+  const to=cilY(MAT.aceroC); to.rotation.z=Math.PI/2; to.scale.set(0.05,0.22,0.05);
+  to.position.x=0.16; KNK.add(to);
+  knkLed.position.set(-0.10,0,0); KNK.add(knkLed);
+  marcaKey(KNK,'ruido');
+})();
+
+// --- cuadro de recepción: seis pilotos, uno por criterio ---
+const CUADRO=new THREE.Group(); CUADRO.position.set(-2.05,1.12,-0.62); G3.add(CUADRO);
+const pilotos=[];
+(function(){
+  const p=roundedBox(0.74,1.42,0.16,std('#1b2230',0.72,0.18),0.04); CUADRO.add(p);
+  const t=roundedBox(0.66,0.12,0.02,MAT.negro,0.01); t.position.set(0,0.78,0.09); CUADRO.add(t);
+  CRIT.forEach((c,i)=>{
+    const led=new THREE.Mesh(new THREE.SphereGeometry(0.055,18,14),MAT.verde.clone());
+    led.position.set(-0.20,0.52-i*0.20,0.09); CUADRO.add(led);
+    const rr=new THREE.Mesh(new THREE.TorusGeometry(0.075,0.014,10,20),MAT.aceroC);
+    rr.position.copy(led.position); rr.position.z-=0.01; CUADRO.add(rr);
+    const b=new THREE.Mesh(new THREE.BoxGeometry(0.30,0.05,0.02),std('#39424f',0.8,0.1));
+    b.position.set(0.16,0.52-i*0.20,0.09); CUADRO.add(b);
+    pilotos.push(led);
+  });
+  const pa=new THREE.Mesh(new THREE.CylinderGeometry(0.05,0.06,0.30,12),MAT.acero);
+  pa.position.set(0,-0.86,0); CUADRO.add(pa);
+  marcaKey(CUADRO,'cuadro');
+})();
+// ===================== 9. LA MÁQUINA SIGUE A LA TRAZA =====================
+// Regla de honestidad de esta sección: la columna de gas que se ve NO es un
+// adorno. Su altura es deck − corona, y como deck = corona(PMS) + h_c con
+// h_c = S/(r−1), se cumple exactamente
+//        A_p · (deck − corona(θ)) = V_c + A_p (L + a − a cos θ − s(θ)) = V(θ),
+// que es el mismo V(θ) que integra el motor sellado. El puente de pruebas lo
+// comprueba punto por punto contra vol(). Por eso el pistón se dibuja de corona
+// plana: un bol dibujado añadiría un volumen que el motor no integra.
+const GE={a:0,Lb:0,hc:0,hp:0,deck:0,B:0,Ap:0};
+function vaciar(g){
+  while(g.children.length){ const m=g.children.pop(); if(m.geometry) m.geometry.dispose(); }
+}
+function aplicaGeom(){
+  const c=cfgDe(mode), P=MAQ[c.mk];
+  const B=P.B*ESC3, S=P.S*ESC3;
+  const a=S/2, Lb=P.L*ESC3, hp=0.42*B, hc=(P.S/(c.r-1))*ESC3;
+  GE.a=a; GE.Lb=Lb; GE.hp=hp; GE.hc=hc; GE.B=B;
+  GE.Ap=Math.PI/4*B*B;
+  GE.deck=CY+a+Lb+hp/2+hc;
+  const yTope=GE.deck, yPie=CY-0.34;
+
+  // bloque y cárter
+  const eB=0.13*B;
+  bIzq.scale.set(eB,yTope-yPie,B*1.34); bIzq.position.set(-(B/2+eB/2),(yTope+yPie)/2,0);
+  bDer.scale.set(eB,yTope-yPie,B*1.34); bDer.position.set( (B/2+eB/2),(yTope+yPie)/2,0);
+  bFon.scale.set(B+2*eB,yTope-yPie,eB);  bFon.position.set(0,(yTope+yPie)/2,-(B*0.67+eB/2));
+  carter.scale.set(B+2*eB,0.52,B*1.34);  carter.position.set(0,CY-0.60,0);
+
+  // camisa: se ve el cilindro entero, del PMI al plano de junta
+  const yPMI=CY-a+Lb-hp/2;
+  camisa.scale.set(B/2,yTope-(yPMI-0.10),B/2);
+  camisa.position.set(0,(yTope+yPMI-0.10)/2,0);
+
+  // pistón, aros y bulón
+  piston.scale.set(B/2*0.985,hp,B/2*0.985);
+  aro1.scale.set(B/2*1.005,0.035*B,B/2*1.005);
+  aro2.scale.set(B/2*1.005,0.030*B,B/2*1.005);
+  bulon.scale.set(0.085*B,B*0.62,0.085*B);
+
+  // biela y cigüeñal
+  bCab.scale.set(0.16*B,0.30*B,0.16*B);
+  bPie.scale.set(0.105*B,0.26*B,0.105*B);
+  muñ.scale.set(0.13*B,0.42*B,0.13*B);
+  cp1.scale.set(0.40*B,0.13*B,0.40*B); cp2.scale.set(0.40*B,0.13*B,0.40*B);
+  cp1.position.z=0.34*B; cp2.position.z=-0.34*B;
+
+  // culata y junta: la junta marca el plano de fuego, la cámara queda debajo
+  junta.scale.set(B+2*eB,0.028,B*1.34);  junta.position.set(0,GE.deck+0.014,0);
+  culata.scale.set(B+2*eB,0.46,B*1.34);  culata.position.set(0,GE.deck+0.028+0.23,0);
+
+  // válvulas cerradas: asientos apoyados en el plano de fuego
+  const rv=0.27*B, dv=0.30*B;
+  [[VAD,-dv],[VES,dv]].forEach(([v,x])=>{
+    v.g.position.set(x,GE.deck,0.16*B);
+    v.cab.scale.set(rv,1,rv); v.as.scale.set(rv,rv,1);
+  });
+
+  // inyector central de nOr orificios, con su racor al riel
+  const yIny=GE.deck+0.02;
+  inyTobera.scale.set(0.052*B,0.13,0.052*B); inyTobera.position.set(0,yIny+0.05,-0.10*B);
+  inyTuerca.scale.set(0.10*B,0.10,0.10*B);   inyTuerca.position.set(0,yIny+0.16,-0.10*B);
+  inyCuerpo.scale.set(0.075*B,0.62,0.075*B); inyCuerpo.position.set(0,yIny+0.52,-0.10*B);
+  if(jetN!==P.nOr) creaJets(P.nOr);
+  // riel común: un tubo a lo largo del motor y el latiguillo hasta el inyector
+  rielTubo.scale.set(0.075,B*1.30,0.075);
+  rielTubo.position.set(0,yIny+1.02,-0.10*B);
+  vaciar(rielLinea);
+  rielLinea.add(tubo(V3(0,yIny+1.02,-0.10*B),V3(0,yIny+0.86,-0.10*B),0.045,MAT.cobre));
+  marcaKey(RIEL,'riel');
+
+  // ayuda al arranque: la rejilla calienta el AIRE DE ADMISIÓN (antes de
+  // comprimir), la bujía calienta la CÁMARA (después de comprimir). Se dibujan
+  // en sitios distintos porque actúan en sitios distintos.
+  const hayRej=(P.calent==='rejilla'||P.calent==='ambas');
+  const hayBuj=(P.calent==='bujias'||P.calent==='ambas');
+  const hayAgua=(P.calent==='agua');
+  rejilla.visible=hayRej;
+  rejilla.scale.set(0.34*B,0.10,0.34*B);
+  rejilla.position.set(-dv,GE.deck+0.86,0.16*B);
+  bujInc.visible=hayBuj||hayAgua;
+  bujPunta.visible=hayBuj||hayAgua;
+  if(hayAgua){
+    // precalentador de agua: un cuerpo en el costado del bloque, no en la cámara
+    bujInc.scale.set(0.16*B,0.40,0.16*B);
+    bujInc.position.set(-(B/2+eB+0.16),CY+0.55,0);
+    bujPunta.scale.set(0.10*B,0.26,0.10*B);
+    bujPunta.position.set(-(B/2+eB+0.16),CY+0.90,0);
+  }else{
+    bujInc.scale.set(0.055*B,0.34,0.055*B);
+    bujInc.position.set(0.30*B,GE.deck+0.20,-0.22*B);
+    bujPunta.scale.set(0.038*B,0.13,0.038*B);
+    bujPunta.position.set(0.30*B,GE.deck-0.05,-0.22*B);
+  }
+
+  // manómetro de cilindro, colgado del plano de fuego
+  MAN.g.position.set(B/2+eB+0.42,GE.deck+0.10,0.46);
+
+  // escape: brida, termopar y tubo
+  const xE=B/2+eB;
+  brida.scale.set(0.13,0.34,0.13); brida.position.set(xE+0.17,GE.deck-0.16,-0.20*B);
+  tcCab.scale.set(0.10,0.16,0.10);  tcCab.position.set(xE+0.30,GE.deck+0.06,-0.20*B);
+  vaciar(TUBO_ESC);
+  const pts=[V3(xE+0.30,GE.deck-0.16,-0.20*B),V3(xE+0.95,GE.deck-0.16,-0.20*B),
+             V3(xE+1.25,GE.deck-0.55,-0.20*B),V3(xE+1.25,GE.deck-1.30,-0.20*B)];
+  for(let i=0;i<pts.length-1;i++) TUBO_ESC.add(tubo(pts[i],pts[i+1],0.115,matEsc));
+  marcaKey(ESCP,'brida');
+
+  // acelerómetro de ruido, atornillado al costado del bloque
+  KNK.position.set(-(B/2+eB+0.18),GE.deck-0.62,0.22*B);
+
+  const G=geom(P,c.r);
+  const gt=el('geoTxt');
+  if(gt) gt.textContent='D '+f1(P.B*1000)+' mm · carrera '+f1(P.S*1000)+' mm · biela '+
+    f1(P.L*1000)+' mm · V_d '+cm3(G.Vd)+' cm³ · V_c '+cm3(G.Vc)+' cm³ · r '+f0(c.r)+
+    ' · r_ef '+f2(CUR.rEf)+' · '+f0(P.ncil)+' cilindros · '+f0(P.nOr)+' orificios';
+}
+
+const LERP=(a,b,t)=>a+(b-a)*clamp(t,0,1);
+const MIX=(c1,c2,t)=>new THREE.Color(c1).lerp(new THREE.Color(c2),clamp(t,0,1));
+let FR=0;                       // fase 0…1 dentro del periodo cerrado IVC→EVO
+const PER3D=5.2;                // segundos de reloj por recorrido completo
+function pinta3D(){
+  const s=CUR, tr=s.traza, n=tr.th.length, P=maqAct();
+  const u=FR*(n-1), i=Math.min(n-2,Math.floor(u)), fr=u-i;
+  const th=LERP(tr.th[i],tr.th[i+1],fr), p=LERP(tr.p[i],tr.p[i+1],fr),
+        xb=LERP(tr.xb[i],tr.xb[i+1],fr), acc=LERP(tr.acc[i],tr.acc[i+1],fr),
+        dp=LERP(tr.dp[i],tr.dp[i+1],fr);
+  const thr=th*Math.PI/180, a=GE.a, Lb=GE.Lb;
+  const sq=Math.sqrt(Lb*Lb-a*a*Math.sin(thr)*Math.sin(thr));
+  const pinY=CY+a*Math.cos(thr)+sq;
+
+  piston.position.set(0,pinY,0);
+  aro1.position.set(0,pinY+GE.hp*0.30,0);
+  aro2.position.set(0,pinY+GE.hp*0.10,0);
+  bulon.position.set(0,pinY,0);
+
+  const A=V3(a*Math.sin(thr),CY+a*Math.cos(thr),0), Bp=V3(0,pinY,0), d=Bp.clone().sub(A);
+  bCuerpo.position.copy(A).add(Bp).multiplyScalar(0.5);
+  bCuerpo.quaternion.setFromUnitVectors(V3(0,1,0),d.clone().normalize());
+  bCuerpo.scale.set(0.115*GE.B,d.length(),0.055*GE.B);
+  bPie.position.copy(Bp); bCab.position.copy(A);
+  muñ.position.set(a*Math.sin(thr),a*Math.cos(thr),0);
+  cp1.position.set(-0.55*a*Math.sin(thr),-0.55*a*Math.cos(thr),0.34*GE.B);
+  cp2.position.set(-0.55*a*Math.sin(thr),-0.55*a*Math.cos(thr),-0.34*GE.B);
+  GVOL.rotation.z=-thr;
+
+  // columna de gas = V(θ) exacto; el color dice cuánto se ha quemado ya
+  const hG=GE.deck-(pinY+GE.hp/2);
+  gas.scale.set(GE.B/2*0.965,hG,GE.B/2*0.965);
+  gas.position.set(0,pinY+GE.hp/2+hG/2,0);
+  gas.material.color.copy(MIX(CIAN,NARANJA,xb));
+  gas.material.emissive.copy(MIX(CIAN,'#ff7a3c',xb));
+  gas.material.emissiveIntensity=0.30+1.15*xb;
+  gas.material.opacity=0.20+0.30*clamp(p/P.pLim,0,1)+0.16*xb;
+
+  // chorros: sólo mientras la tobera está abierta. Su longitud es la fracción
+  // de dosis ya inyectada — el motor sellado no resuelve la penetración.
+  const thI=-s.soi, thF=thI+s.thIny, dentro=(th>=thI&&th<=thF);
+  const fInj=dentro?clamp((th-thI)/s.thIny,0,1):0;
+  matJet.opacity=dentro?(0.50-0.22*fInj):0;
+  const liq=(acc<1);
+  matJet.color.copy(MIX('#cfe6ff','#ffb46b',liq?0:clamp(xb*2,0,1)));
+  matJet.emissive.copy(MIX('#9fc7ff','#ff8a3c',liq?0:clamp(xb*2,0,1)));
+  const Lj=(0.10+0.34*fInj)*GE.B, yT=GE.deck-0.02, phi=72*Math.PI/180;
+  JETS.forEach((m,k)=>{
+    m.visible=dentro;
+    if(!dentro) return;
+    const ang=k/JETS.length*Math.PI*2;
+    const dir=V3(Math.sin(phi)*Math.cos(ang),-Math.cos(phi),Math.sin(phi)*Math.sin(ang));
+    m.scale.set(Lj,Lj,Lj);
+    m.quaternion.setFromUnitVectors(V3(0,1,0),dir.clone().negate());
+    m.position.copy(dir).multiplyScalar(Lj*0.5).add(V3(0,yT,-0.10*GE.B));
+  });
+
+  // aguja del manómetro: presión instantánea sobre el límite de la máquina
+  MAN.piv.rotation.z=-(-Math.PI*0.75+1.5*Math.PI*clamp(p/P.pLim,0,1));
+
+  // brida de escape: se pone al rojo con la temperatura CALCULADA en la brida
+  const tE=clamp((s.Tbrida-620)/(P.tEscLim-620),0,1);
+  matEsc.emissive.copy(MIX('#000000','#ff3b1f',tE));
+  matEsc.emissiveIntensity=0.25+0.85*tE;
+  tcCab.material=s.okEsc?MAT.negro:MAT.rojo;
+
+  // acelerómetro: gradiente INSTANTÁNEO frente al límite de ruido
+  const rN=dp/P.dpLim;
+  knkLed.material.color.set(rN>=1?BAD_HEX:(rN>=0.7?WARN_HEX:OK_HEX));
+  knkLed.material.emissive.set(rN>=1?BAD_HEX:(rN>=0.7?WARN_HEX:OK_HEX));
+  knkLed.material.emissiveIntensity=0.35+1.1*clamp(rN,0,1.4);
+
+  // la válvula de escape abre justo al acabar la traza: se avisa al llegar
+  VES.as.material.emissiveIntensity=0.35+1.5*clamp((th-(TH_EVO-12))/12,0,1);
+  VAD.as.material.emissiveIntensity=0.35;
+
+  // ayuda al arranque: sólo tiene sentido mirarla en el modo de frío
+  const enFrio=(mode==='frio');
+  const arrOk=s.arr.arranca;
+  bujPunta.material.emissiveIntensity=enFrio?(arrOk?1.35:0.25):0.10;
+  bujPunta.material.emissive.set(enFrio&&!arrOk?BAD_HEX:'#c9a227');
+  rejilla.material.emissive.set(enFrio?(arrOk?'#ff7a3c':BAD_HEX):'#000000');
+  rejilla.material.emissiveIntensity=enFrio?0.85:0;
+
+  // cuadro de recepción
+  CRIT.forEach((k,j)=>{
+    const ok=s[k];
+    pilotos[j].material.color.set(ok?OK_HEX:BAD_HEX);
+    pilotos[j].material.emissive.set(ok?OK_HEX:BAD_HEX);
+    pilotos[j].material.emissiveIntensity=ok?0.85:1.25;
+  });
+}
+// ===================== 10. HUD Y PANEL =====================
+el('hud').innerHTML =
+  '<div class="eyebrow">Motor de combustión interna · ciclo Diésel</div>'+
+  '<h2>Nadie manda encender: el gasóleo se enciende cuando le da la gana</h2>'+
+  '<p>En el Otto el instante de la chispa es un dato de entrada. Aquí no. Tú fijas '+
+  '<b>cuándo empieza a inyectarse</b>, y el momento en que arranca la combustión lo '+
+  '<b>calcula</b> el motor sellado integrando el reloj químico del autoencendido con la '+
+  'correlación de Hardenberg–Hase hasta que la cuenta de Livengood–Wu llega a 1. Lo que se '+
+  'haya inyectado durante ese retardo se quema de golpe —eso es la premezcla, y eso es el '+
+  'ruido—; el resto se quema al ritmo al que se mezcla. De ahí salen los '+f0(CRIT.length)+
+  ' criterios del pliego. Hay '+f0(MAQ_KEYS.length)+' máquinas, '+f0(FUEL_KEYS.length)+
+  ' combustibles y '+f0(NPTS)+' combinaciones en la rejilla; sólo '+f0(NMEC)+' son mecánicamente '+
+  'montables, y el censo de cada máquina dirá cuántas de ésas pasan además el pliego.</p>'+
+  '<div class="formula">'+
+    'p·V(θ) = m·R·T &nbsp;·&nbsp; R = '+f0(R_GAS)+' J/(kg·K) &nbsp;·&nbsp; RK4 sobre T(θ), paso '+f1(H_PASO)+'°<br>'+
+    'm·c<sub>v</sub>(T,x<sub>p</sub>)·dT/dθ = Q·(dx<sub>b</sub>/dθ) − p·(dV/dθ) − dQ<sub>pared</sub>/dθ<br>'+
+    '∫<sub>θ<sub>SOI</sub></sub><sup>θ<sub>SOC</sub></sup> dθ/(6·n·τ) = 1 &nbsp;·&nbsp; Livengood–Wu: el encendido es RESULTADO, no orden<br>'+
+    'τ = ('+f2(HH_A)+' + '+f2(HH_B)+'·S<sub>p</sub>)·p<sup>−'+f2(1.02)+'</sup>·exp[E<sub>a</sub>/(R̄·T)·(…)] , '+
+    'E<sub>a</sub> = '+f0(HH_EA)+'/(CN + '+f0(HH_CN0)+') J/mol &nbsp;·&nbsp; Hardenberg–Hase<br>'+
+    'x<sub>b</sub> = β·Wiebe<sub>prem</sub>(a='+f3(A_PREM)+', m='+f1(M_PREM)+') + (1−β)·Wiebe<sub>dif</sub>(a='+
+      f2(A_DIF)+', m='+f2(M_DIF)+') &nbsp;·&nbsp; β = '+f2(K_PREM)+'·ṁ·t<sub>ret</sub>/m<sub>comb</sub><br>'+
+    'ṁ = '+f0(1)+'·n<sub>or</sub>·A<sub>or</sub>·c<sub>d</sub>·√(2·ρ·Δp) &nbsp;·&nbsp; Bernoulli en la tobera<br>'+
+    'h<sub>c</sub> = 3,26·B<sup>−0,2</sup>·p<sup>0,8</sup>·T<sup>−0,55</sup>·w<sup>0,8</sup>, '+
+    'w = '+f2(C1_WOS)+'·S<sub>p</sub> + '+f4(C2_WOS)+'·(V<sub>d</sub>T₁/p₁V₁)(p−p<sub>arr</sub>) &nbsp;·&nbsp; Woschni<br>'+
+    'FMEP = '+f2(CF_A)+' + '+f4(CF_B)+'·p<sub>máx</sub> + '+f4(CF_C)+'·S<sub>p</sub> + '+f4(CF_D)+'·S<sub>p</sub>² '+
+    '+ '+f1(K_FUGA)+'·ṁ·Δp/(ρ·η<sub>b</sub>·V<sub>d</sub>) &nbsp;·&nbsp; Chen–Flynn + bomba de inyección<br>'+
+    'η<sub>Otto</sub> = 1 − r<sup>1−γ</sup> &nbsp;≥&nbsp; η<sub>Dual</sub>(α, r<sub>c</sub>) &nbsp;≥&nbsp; '+
+    'η<sub>Diésel</sub> = 1 − r<sup>1−γ</sup>·(r<sub>c</sub><sup>γ</sup>−1)/(γ(r<sub>c</sub>−1))'+
+  '</div>'+
+  '<div class="legend">'+
+    '<div class="li"><span class="dot" style="background:'+AZUL+'"></span>el ciclo real y todo lo <b>indicado</b>: lo que el gas hace sobre el pistón</div>'+
+    '<div class="li"><span class="dot" style="background:'+OK_HEX+'"></span>lo que queda <b>al freno</b> tras restar bombeo, fricción y bomba de inyección</div>'+
+    '<div class="li"><span class="dot" style="background:'+VIO+'"></span>los <b>techos ideales</b> de aire frío: Otto, Dual (Seiliger) y Diésel</div>'+
+    '<div class="li"><span class="dot" style="background:'+NARANJA+'"></span>el <b>reloj de la combustión</b>: la fracción quemada x<sub>b</sub></div>'+
+    '<div class="li"><span class="dot" style="background:'+BAD_HEX+'"></span>la cuenta del <b>autoencendido</b> y el <b>gradiente</b> de presión, que es el ruido</div>'+
+    '<div class="li"><span class="dot" style="background:'+CIAN+'"></span>el <b>chorro</b>: combustible líquido que todavía no se ha encendido</div>'+
+  '</div>'+
+  '<div class="fid">'+
+    '<div class="ft">🔒 Contrato de fidelidad</div>'+
+    '<div class="fl"><b>Sí modela:</b> gas ideal con c<sub>p</sub>(T) por tramos y γ mezclado entre '+
+    'aire y productos; residual atrapado resuelto por punto fijo sobre la temperatura de escape; '+
+    'retardo de autoencendido de <b>Hardenberg–Hase integrado por Livengood–Wu</b>, de modo que el '+
+    'inicio de la combustión se calcula y no se impone; ley de quemado de <b>doble Wiebe</b> con la '+
+    'fracción premezclada deducida del caudal de la tobera durante el retardo; caudal de inyección '+
+    'por Bernoulli con c<sub>d</sub> y n<sub>or</sub> de cada máquina; transferencia a la pared de '+
+    'Woschni con término de combustión; fricción de Chen–Flynn (SAE 650733) <b>más el trabajo real '+
+    'de la bomba de inyección</b>; techos ideales de aire frío Otto / Diésel / Dual calculados con '+
+    'el mismo calor liberado, tanto con r geométrica como con r efectiva; arranque en frío con '+
+    'politrópica de arrastre declarada, umbral térmico por número de cetano y puerta de gelificación '+
+    'por CFPP; RK4 con paso '+f1(H_PASO)+'°.</div>'+
+    '<div class="fl no"><b>NO modela:</b> sólo se integra el <b>periodo cerrado</b>, de IVC ('+
+    f0(TH_IVC)+'°) a EVO (+'+f0(TH_EVO)+'°). El lazo de bombeo no se integra: se cobra aparte como '+
+    'PMEP = p<sub>esc</sub> − p<sub>adm</sub>, y por eso el 3D sólo recorre ese tramo y las válvulas '+
+    'no llegan a abrirse. La geometría del bol no se resuelve: se trabaja con el volumen muerto '+
+    'equivalente V<sub>c</sub> = V<sub>d</sub>/(r−1) en cámara de placa plana, y por eso el pistón se '+
+    'dibuja con corona plana. La penetración del chorro no se calcula: los chorros del 3D crecen con '+
+    'la fracción de dosis ya inyectada. Sin inyección piloto ni múltiple, sin EGR, sin transitorio de '+
+    'turbo, sin química de NOx ni de hollín —el humo se vigila sólo por λ ≥ '+f2(LAM_HUMO)+' y se '+
+    'declara como lectura, nunca como criterio—. El coste de '+f0(ANIOS)+' años cuenta <b>sólo '+
+    'combustible</b>.</div>'+
+  '</div>'+
+  '<div class="src">Ref: Heywood, <i>Internal Combustion Engine Fundamentals</i> (1988) · '+
+  'Hardenberg &amp; Hase SAE 790493 · Livengood &amp; Wu, <i>5th Symp. Combustion</i> (1955) · '+
+  'Watson, Pilley &amp; Marzouk SAE 800029 (doble Wiebe) · Woschni SAE 670931 · '+
+  'Chen &amp; Flynn SAE 650733 · EN 590 y EN 116 (CFPP) · ISO 8178</div>';
+
+el('panel').innerHTML =
+  '<h4>Banco de ensayo <span id="p_mode"></span></h4>'+
+  '<div class="modebar">'+
+    '<button class="b" id="m_ciclo">1 · Ciclo</button>'+
+    '<button class="b" id="m_retardo">2 · Retardo</button>'+
+    '<button class="b" id="m_riel">3 · Riel</button>'+
+    '<button class="b" id="m_frio">4 · Frío</button>'+
+    '<button class="b" id="m_censo">5 · Censo</button>'+
+    '<button class="b" id="m_reto">6 · Reto</button>'+
+  '</div>'+
+  '<div id="scenarioInfo" class="scen"></div>'+
+  '<div class="modebar" id="selbar"></div>'+
+  '<div style="border:1px solid #243043;border-radius:10px;padding:10px 12px;margin:10px 0">'+
+    '<div id="hwrot" style="font-weight:700"></div>'+
+    '<div id="hwsub" class="mut" style="font-size:12px;margin-top:3px"></div>'+
+    '<div id="geoTxt" class="mut" style="font-size:12px;margin-top:6px;line-height:1.5"></div>'+
+  '</div>'+
+  '<div id="tele"></div>'+
+  '<div class="console" id="report"></div>'+
+  '<h4 class="sec" id="retoTitle">Reto de calibración</h4>'+
+  '<div id="retoBox">'+
+    '<div id="retoSpec" class="mut" style="font-size:12px;line-height:1.55"></div>'+
+    '<button class="b primary" id="btnCheck" style="margin-top:8px">Entregar la calibración</button>'+
+  '</div>'+
+  '<h4 class="sec">Pregunta de ingeniería</h4>'+
+  '<div id="q_text" style="font-size:13px;line-height:1.5"></div>'+
+  '<div class="btns" id="dxbtns"></div>'+
+  '<button class="b auto" id="btnAuto">▶︎ Recorrido guiado</button>'+
+  '<button class="b primary" id="btnNew">🔀 Otro caso</button>';
+
+// ===================== 11. AVISO FLOTANTE =====================
+function showToast(html){
+  const t=el('toast'); t.innerHTML=html; t.classList.add('show');
+  clearTimeout(showToast._t);
+  showToast._t=setTimeout(()=>t.classList.remove('show'),4600);
+}
+
+// ===================== 12. MODOS Y CONTROLES =====================
+const ROT={tractor:'Tractor',camioneta:'Camioneta',planta:'Planta',urbano:'Urbano',marino:'Marino'};
+const MODE_META={
+  ciclo:{nombre:'El ciclo cerrado',cam:[[6.4,4.4,10.2],[-1.10,1.55,-0.25]],
+    mision:'El motor integra el periodo cerrado, de IVC ('+f0(TH_IVC)+'°) a EVO (+'+f0(TH_EVO)+
+      '°), con RK4 y paso de '+f1(H_PASO)+'°. Arriba, el diagrama p–V y los tres techos ideales '+
+      'de aire frío calculados con el MISMO calor: Otto, Dual y Diésel, en ese orden y siempre en '+
+      'ese orden. Abajo, el reloj de la combustión: la cuenta del autoencendido subiendo hasta 1 y, '+
+      'a partir de ahí, la fracción quemada. Fíjate en que la chispa no existe: entre que empieza '+
+      'la inyección y empieza la combustión pasa un tiempo que nadie ha programado.'},
+  retardo:{nombre:'El retardo y el ruido',cam:[[1.2,4.2,8.6],[-2.60,1.75,-0.60]],
+    mision:'Se barren los '+f0(SOI_G.length)+' avances de inyección con los '+f0(FUEL_KEYS.length)+
+      ' combustibles a la vez. El número de cetano no cambia la energía que entra —la dosis la fija '+
+      'el banco— pero sí cambia cuánto tarda el gasóleo en encenderse. Cuanto más tarda, más '+
+      'combustible hay ya inyectado cuando por fin prende, más grande es la premezcla y más brusco '+
+      'es el gradiente de presión. Eso es exactamente el picado del diésel.'},
+  riel:{nombre:'La presión de riel',cam:[[0.2,3.9,7.8],[-3.20,1.80,-0.75]],
+    mision:'Subir la presión del riel acorta la inyección porque el caudal va con la RAÍZ del salto '+
+      'de presión, no con la presión. Eso adelanta el final de la combustión y mejora el '+
+      'rendimiento… pero la bomba que comprime ese combustible se paga en fricción, y esa cuenta '+
+      'crece de forma lineal. Aquí se ve dónde deja de compensar y qué presiones no admite la '+
+      'máquina que tienes montada.'},
+  frio:{nombre:'El arranque en frío',cam:[[-1.4,3.7,5.9],[-4.05,1.86,-0.90]],
+    mision:'Un diésel frío no arranca por dos motivos distintos, y conviene no confundirlos: '+
+      'porque el aire comprimido no llega a la temperatura de autoencendido del combustible, o '+
+      'porque el combustible se ha gelificado y no llega a la tobera. Aquí se ven los dos, y la '+
+      'diferencia entre calentar el AIRE DE ADMISIÓN con una rejilla —lo que se calienta antes de '+
+      'comprimir se multiplica al comprimirse— y calentar la CÁMARA con una bujía incandescente, '+
+      'que ya no multiplica nada.'},
+  censo:{nombre:'El censo del pliego',cam:[[-1.4,3.7,5.9],[-4.05,1.86,-0.90]],
+    mision:'Las '+f0(NPM)+' combinaciones de la rejilla de esta máquina pasadas por los '+
+      f0(CRIT.length)+' criterios. La barra larga dice cuántas veces reprueba cada criterio; la '+
+      'corta, cuántas veces ese criterio es el ÚNICO que reprueba. Manda la corta: quitar un '+
+      'criterio que nunca reprueba en solitario no abre ni una sola configuración nueva.'},
+  reto:{nombre:'Reto',cam:[[5.6,4.2,9.6],[-1.30,1.60,-0.30]],
+    mision:'Elige combustible, relación de compresión, avance de inyección y presión de riel. Gana '+
+      'la calibración válida —los '+f0(CRIT.length)+' criterios a la vez— más barata de alimentar a '+
+      f0(ANIOS)+' años, contando SÓLO el combustible que consume la carga anual de esa máquina. '+
+      'Aviso: la configuración de mayor rendimiento que el banco puede construir incumple el pliego '+
+      'en las cinco máquinas.'},
+};
+const lbl=t=>'<span style="align-self:center;color:var(--muted);font-size:12px;margin:0 4px 0 2px">'+t+'</span>';
+function optBtns(key,opts,cur){
+  return opts.map(o=>{
+    const v=Array.isArray(o)?o[0]:o, t=Array.isArray(o)?o[1]:o;
+    return '<button class="b sm '+(String(cur)===String(v)?'on':'')+'" data-'+key+'="'+v+'">'+t+'</button>';
+  }).join('');
+}
+const beep=()=>synth.beep(680,0.05,0.04);
+const OPT_MAQ=MAQ_KEYS.map(k=>[k,ICONO[k]+' '+ROT[k]]);
+const OPT_SOI=SOI_G.map(v=>[v,f0(v)+'°']);
+const OPT_FUEL=FUEL_KEYS.map(k=>[k,FCOR[k]]);
+// La rejilla se ofrece ENTERA y las opciones que la máquina no admite se marcan
+// con ⚠: el banco las simula igual, pero no se pueden montar. Ocultarlas
+// escondería justamente el límite que hay que aprender a leer.
+const optR=mk=>R_G.map(v=>[v,f0(v)+(v>MAQ[mk].rMax?' ⚠':'')]);
+const optP=mk=>PINY_G.map(v=>[v,f0(v)+(v>MAQ[mk].pInyMax?' ⚠':'')]);
+
+function buildControls(){
+  const sb=el('selbar'); let h='';
+  if(mode!=='reto'){
+    h+=lbl('Máquina')+optBtns('mq',OPT_MAQ,ST.mk);
+    h+=lbl('combustible')+optBtns('fk',OPT_FUEL,ST.fk);
+    h+=lbl('r · relación de compresión')+optBtns('rr',optR(ST.mk),ST.r);
+    h+=lbl('SOI · ° antes del PMS')+optBtns('so',OPT_SOI,ST.soi);
+    h+=lbl('riel · bar')+optBtns('pi',optP(ST.mk),ST.pIny);
+  }else{
+    h+=lbl('combustible')+optBtns('xf',OPT_FUEL,RETO.ejes.fk);
+    h+=lbl('r')+optBtns('xr',optR(RETO.cfg.mk),RETO.ejes.r);
+    h+=lbl('SOI')+optBtns('xs',OPT_SOI,RETO.ejes.soi);
+    h+=lbl('riel')+optBtns('xp',optP(RETO.cfg.mk),RETO.ejes.pIny);
+    h+='<button class="b sm" id="btnPista">💡 Pista</button>';
+  }
+  sb.innerHTML=h; sb.style.display='flex';
+  const wire=(attr,fn)=>sb.querySelectorAll('['+attr+']').forEach(b=>{
+    b.onclick=()=>{ if(autoRunning)return; fn(b.getAttribute(attr)); beep(); afterEdit(); };
+  });
+  const tocaReto=()=>{ RETO.msg=''; RETO.resuelto=false; };
+  wire('data-mq',v=>{ aplicaMaquina(v); });
+  wire('data-fk',v=>{ ST.fk=v; });
+  wire('data-rr',v=>{ ST.r=Number(v); });
+  wire('data-so',v=>{ ST.soi=Number(v); });
+  wire('data-pi',v=>{ ST.pIny=Number(v); });
+  wire('data-xf',v=>{ RETO.ejes.fk=v; tocaReto(); });
+  wire('data-xr',v=>{ RETO.ejes.r=Number(v); tocaReto(); });
+  wire('data-xs',v=>{ RETO.ejes.soi=Number(v); tocaReto(); });
+  wire('data-xp',v=>{ RETO.ejes.pIny=Number(v); tocaReto(); });
+  const bp=el('btnPista');
+  if(bp) bp.onclick=()=>{ if(autoRunning)return; pista(); };
+}
+// Una pista destapa UN eje de la solución, en orden combustible → r → riel, y
+// dice cuántas calibraciones válidas siguen compatibles. El avance de inyección
+// NO se destapa nunca: ese es el eje que hay que cerrar leyendo el pliego.
+function pista(){
+  const i=PIS_EJE.findIndex(e=>!RETO.pistas[e]);
+  if(i<0){ showToast('💡 Ya has destapado los tres ejes que se destapan. El avance de inyección no se regala: ciérralo tú con el pliego.'); return; }
+  const eje=PIS_EJE[i], p=pisM(RETO.cfg.mk)[i];
+  if(!p){ showToast('💡 Esta máquina no tiene ninguna calibración válida: no hay nada que destapar.'); return; }
+  RETO.pistas[eje]=true; beep();
+  const val=eje==='fk'?FCOR[p.v]:(eje==='pIny'?f0(p.v)+' bar':f0(p.v));
+  showToast('💡 <b>'+EJE_ROT[eje]+' = '+val+'.</b> Con eso quedan '+f0(p.n)+' de las '+
+    f0(RETO.nval)+' calibraciones válidas de esta máquina'+
+    (p.n===RETO.nval?'. Esta pista no descarta ninguna: todas las válidas ya coincidían en ese eje.':'.'));
+  afterEdit();
+}
+function retoSolveBuild(){
+  const mk=RETO.cfg.mk;
+  RETO.sol=solM(mk); RETO.nval=valM(mk).length;
+  RETO.ejes={mk,r:R_G[0],soi:SOI_G[0],pIny:PINY_G[0],fk:FUEL_KEYS[0]};
+  RETO.pistas={fk:false,r:false,pIny:false};
+  RETO.resuelto=false; RETO.msg='';
+}
+function updateScenarioInfo(){
+  const d=el('scenarioInfo');
+  d.style.display='block';
+  d.innerHTML='<b>'+MODE_META[mode].nombre+'.</b> '+MODE_META[mode].mision;
+}
+function updateHwRot(){
+  const c=cfgDe(mode), P=MAQ[c.mk], F=FUEL[c.fk], R=CUR;
+  el('hwrot').textContent=ICONO[c.mk]+' '+P.nom+' · '+f0(P.ncil)+
+    (P.ncil===1?' cilindro':' cilindros')+' · '+f0(P.rpm)+' rpm · '+F.nom;
+  const fal=fallosDe(R).length;
+  el('hwsub').textContent='r '+f0(c.r)+' · SOI '+f0(c.soi)+'° · riel '+f0(c.pIny)+' bar · '+
+    F.nom+' (CN '+f0(F.cn)+') → '+
+    (R.valida?'calibración aceptada'
+             :'rechazada por '+f0(fal)+(fal===1?' criterio':' criterios'))+
+    (R.construible?'':' · y además NO es montable en esta máquina');
+  aplicaGeom();
+}
+function afterEdit(){
+  buildControls();
+  updateScenarioInfo();
+  if(mode==='reto')updateRetoSpec();
+  refreshAll();
+}
+function setMode(k){
+  mode=k; animT=0;
+  // El reto barre toda la rejilla de la máquina: se arma la primera vez que se
+  // entra, no al cargar la página, para que el arranque no cueste cientos de ciclos.
+  if(k==='reto'&&!RETO.sol) retoSolveBuild();
+  MODES.forEach(m=>el('m_'+m).classList.toggle('on',m===k));
+  el('p_mode').textContent=MODE_META[k].nombre;
+  el('retoTitle').style.display=k==='reto'?'':'none';
+  el('retoBox').style.display=k==='reto'?'':'none';
+  buildControls(); updateScenarioInfo();
+  clearDx(); buildQuiz(); refreshQuestion();
+  if(k==='reto')updateRetoSpec();
+  const cam=MODE_META[k].cam; S.moveTo(cam[0],cam[1]);
+  refreshAll();
+}
+// "Otro caso": en el reto cambia de máquina y rearma la partida; en los modos de
+// estudio avanza al siguiente caso que enseña algo distinto del anterior.
+function newSignal(){
+  const sig=(arr,v)=>arr[(arr.indexOf(v)+1)%arr.length];
+  const alOptimo=()=>{ const o=solM(ST.mk);
+    if(o){ ST.r=o.r; ST.soi=o.soi; ST.pIny=o.pIny; ST.fk=o.fuel; }
+    else { ST.r=opcionesR(ST.mk)[0]; ST.soi=SOI_G[2]; ST.pIny=opcionesP(ST.mk)[0]; ST.fk=FUEL_KEYS[0]; } };
+  if(mode==='ciclo'||mode==='censo'){
+    aplicaMaquina(sig(MAQ_KEYS,ST.mk)); alOptimo();
+  }else if(mode==='retardo'){
+    ST.soi=sig(SOI_G,ST.soi);
+    if(ST.soi===SOI_G[0]){ aplicaMaquina(sig(MAQ_KEYS,ST.mk)); alOptimo(); }
+  }else if(mode==='riel'){
+    ST.fk=sig(FUEL_KEYS,ST.fk);
+    if(ST.fk===FUEL_KEYS[0]){ aplicaMaquina(sig(MAQ_KEYS,ST.mk)); alOptimo(); }
+  }else if(mode==='frio'){
+    ST.fk=sig(FUEL_KEYS,ST.fk);
+    if(ST.fk===FUEL_KEYS[0]){ aplicaMaquina(sig(MAQ_KEYS,ST.mk)); ST.r=opcionesR(ST.mk).slice(-1)[0]; }
+  }else{
+    RETO.cfg.mk=sig(MAQ_KEYS,RETO.cfg.mk);
+    retoSolveBuild();
+  }
+  solved=false;
+  buildControls(); updateScenarioInfo();
+  clearDx(); buildQuiz(); refreshQuestion();
+  if(mode==='reto')updateRetoSpec();
+  refreshAll();
+  showToast('🔀 <b>Escenario nuevo.</b> '+MODE_META[mode].mision);
+}
+// ===================== 13. TELEMETRÍA E INFORME =====================
+function computa(){ CUR=simT(cfgDe(mode)); }
+function teleRow(l,v,cls){
+  return '<div class="trow"><span class="tl">'+l+'</span><span class="tv'+(cls?' '+cls:'')+'">'+v+'</span></div>';
+}
+const cls2=b=>b?'ok':'bad';
+function filasPliego(R,P){
+  return pliegoFilas(R,P).map(f=>
+    teleRow(CRIT_ROT[f.k],f.med+'  <span style="opacity:.55">/ '+f.lim+'</span>',cls2(f.ok))).join('');
+}
+// Las cuatro filas que cambian con el fotograma. El resto de la telemetría es
+// propiedad de la calibración, no del instante del ciclo.
+function filasVivas(){
+  return teleRow('ángulo de cigüeñal','<span id="tvTh">—</span>')+
+         teleRow('presión · gradiente','<span id="tvP">—</span>')+
+         teleRow('temperatura de la masa','<span id="tvT">—</span>')+
+         teleRow('autoencendido · quemado','<span id="tvX">—</span>');
+}
+function updateTele(){
+  const c=cfgDe(mode), P=MAQ[c.mk], F=FUEL[c.fk], R=CUR;
+  let h='';
+  h+=teleRow('máquina',ICONO[c.mk]+' '+P.nom);
+  h+=teleRow('calibración','r '+f0(c.r)+' · SOI '+f0(c.soi)+'° · riel '+f0(c.pIny)+' bar · '+FCOR[c.fk]);
+  if(!R.construible)
+    h+=teleRow('montabilidad',(R.rMecOk?'':'r > '+f0(P.rMax)+' ')+(R.pInyOk?'':'riel > '+f0(P.pInyMax)+' bar')+' → NO montable','bad');
+  if(mode==='ciclo'||mode==='reto'){
+    h+=filasVivas();
+    h+=teleRow('inicio de inyección → de combustión',f0(c.soi)+'° antes del PMS → '+fN(R.thSOC,2)+'°');
+    h+=teleRow('retardo de autoencendido',fN(R.thRet,2)+'° = '+ms(R.tRet)+' ms');
+    h+=teleRow('fracción premezclada β',fN(R.beta,3)+' de la dosis');
+    h+=teleRow('CA10 · CA50 · CA90',fN(R.ca10,2)+'° · '+fN(R.ca50,2)+'° · '+fN(R.ca90,2)+'°');
+    h+=teleRow('presión de pico',bar(R.pmax)+' bar a '+fN(R.thPmax,1)+'° después del PMS');
+    h+=teleRow('gradiente máximo',fN(R.dpMax,2)+' bar/° a '+fN(R.thDpMax,1)+'°');
+    h+=teleRow('temperatura de pico',f0(R.Tmax)+' K');
+    h+=teleRow('imep bruta − PMEP − FMEP',
+      fN(R.imepG,2)+' − '+fN(R.pmep,2)+' − '+fN(R.fmep,2)+' bar');
+    h+=teleRow('presión media al freno',fN(R.bmep,2)+' bar → '+f1(R.par)+' N·m, '+f1(R.pot/1000)+' kW');
+    h+=teleRow('η indicada → η al freno',pc1(R.etaI)+' → '+pc1(R.etaB));
+    h+=teleRow('techos ideales Otto / Dual / Diésel',
+      pc1(R.etaOttoId)+' · '+pc1(R.etaDualId)+' · '+pc1(R.etaDieselId));
+    h+=filasPliego(R,P);
+    h+=teleRow('coste de combustible a '+f0(ANIOS)+' años',fin(R.coste5,0)+' €',cls2(R.valida));
+  }else if(mode==='retardo'){
+    const sf=swp('f',c,'fk',FUEL_KEYS);
+    const sw=sweepS(c);
+    const mejor=sw.filter(x=>x.valida).sort((a,b)=>b.etaB-a.etaB)[0];
+    h+=teleRow('combustible',F.nom+' · CN '+f0(F.cn)+' · '+f2(F.precio)+' €/L');
+    h+=teleRow('energía de activación de HH',f0(HH_EA/(F.cn+HH_CN0))+' J/mol'+
+      '  <span style="opacity:.55">= '+f0(HH_EA)+'/(CN + '+f0(HH_CN0)+')</span>');
+    h+=teleRow('retardo · tiempo real',fN(R.thRet,2)+'° = '+ms(R.tRet)+' ms');
+    h+=teleRow('dosis inyectada durante el retardo',mg(Math.min(R.mComb,R.mdot*R.tRet))+' de '+mg(R.mComb)+' mg');
+    h+=teleRow('fracción premezclada β',fN(R.beta,3),cls2(R.okRuido));
+    h+=teleRow('gradiente máximo',fN(R.dpMax,2)+'  <span style="opacity:.55">/ ≤ '+fN(P.dpLim,1)+' bar/°</span>',cls2(R.okRuido));
+    h+=teleRow('duración premezcla · difusión',fN(R.dthP,2)+'° · '+fN(R.dthD,2)+'°');
+    h+=teleRow('fase CA50',fN(R.ca50,2)+'  <span style="opacity:.55">/ '+f0(P.ca50Lo)+'–'+f0(P.ca50Hi)+'°</span>',cls2(R.okFase));
+    sf.forEach((s,i)=>h+=teleRow('· '+FCOR[FUEL_KEYS[i]]+' (CN '+f0(FUEL[FUEL_KEYS[i]].cn)+')',
+      fN(s.thRet,2)+'° → β '+fN(s.beta,3)+' → '+fN(s.dpMax,2)+' bar/°',cls2(s.okRuido)));
+    h+=teleRow('mejor SOI que pasa el pliego',
+      mejor?f0(mejor.soi)+'° · '+pc1(mejor.etaB):'ninguno con esta r, este riel y este combustible',cls2(!!mejor));
+  }else if(mode==='riel'){
+    const sw=sweepP(c), ps=opcionesP(c.mk);
+    const s0=sw[0], sM=sw[PINY_G.indexOf(ps[ps.length-1])];
+    const mejor=sw.filter(x=>x.valida).sort((a,b)=>b.etaB-a.etaB)[0];
+    h+=teleRow('presión de riel · en el SOI',f0(c.pIny)+' bar · el cilindro está a '+bar(R.pSoi)+' bar');
+    h+=teleRow('caudal por la tobera',fN(R.mdot*1e3,4)+' g/s con '+f0(P.nOr)+' orificios de Ø '+
+      fN(P.dOr*1e6,0)+' µm, c<sub>d</sub> = '+f2(P.cd));
+    h+=teleRow('duración de la inyección',ms(R.tIny)+' ms = '+fN(R.thIny,2)+'°');
+    h+=teleRow('duración de la difusión',fN(R.dthD,2)+'°');
+    h+=teleRow('CA90 · penalización por quemado tardío',fN(R.ca90,2)+'° · ×'+fN(R.penTarde,4));
+    h+=teleRow('FMEP mecánica + bomba de inyección',fN(R.fmepMec,3)+' + '+fN(R.fmepIny,3)+' = '+fN(R.fmep,3)+' bar');
+    h+=teleRow('η indicada · η al freno',pc1(R.etaI)+' · '+pc1(R.etaB));
+    h+=teleRow('consumo específico al freno',fin(R.bsfc,1)+' g/kWh');
+    h+=teleRow('de '+f0(s0.pIny)+' a '+f0(sM.pIny)+' bar el caudal ×',fN(sM.mdot/s0.mdot,4)+
+      '  <span style="opacity:.55">= √(Δp/Δp₀)</span>');
+    h+=teleRow('y la inyección pasa de',fN(s0.thIny,2)+'° a '+fN(sM.thIny,2)+'°');
+    h+=teleRow('la bomba pasa de cobrar',fN(s0.fmepIny,3)+' a '+fN(sM.fmepIny,3)+' bar');
+    h+=teleRow('η al freno pasa de',pc1(s0.etaB)+' a '+pc1(sM.etaB),cls2(sM.etaB>=s0.etaB));
+    h+=teleRow('mejor riel que pasa el pliego',
+      mejor?f0(mejor.pIny)+' bar · '+pc1(mejor.etaB):'ninguno con esta r y este SOI',cls2(!!mejor));
+  }else if(mode==='frio'){
+    const A=R.arr, mult=Math.pow(A.rEf,A.n-1);
+    const sr=arrR(c), prim=sr.find(a=>a.arranca);
+    const st=arrT(c), lim=st.find(a=>a.arranca);
+    h+=teleRow('homologación de arranque',f0(P.Thom)+' °C · arrastre a '+f0(P.rpmArr)+' rpm');
+    h+=teleRow('ayuda instalada',CALENT_ROT[P.calent]+' · '+f0(P.tCal)+' s de preparación');
+    h+=teleRow('politrópica de arrastre',fN(A.n,4)+'  <span style="opacity:.55">= '+fN(N_HI,2)+' − '+
+      fN(DN_ARR,2)+'·f(rpm, B)</span>');
+    h+=teleRow('r efectiva en el arrastre',fN(A.rEf,3)+' → r<sub>ef</sub><sup>n−1</sup> = '+fN(mult,3));
+    h+=teleRow('aire admitido',f0(A.TambK)+' K'+(A.dRej>0?' + '+f1(A.dRej)+' K de rejilla':'')+' = '+f1(A.Tadm)+' K');
+    h+=teleRow('tras comprimir',f1(A.Ttdc)+' K'+
+      (A.dRej>0?'  <span style="opacity:.55">(la rejilla aportó '+f1(A.dRej*mult)+' K aquí)</span>':''));
+    h+=teleRow('con la bujía incandescente',A.dBuj>0?'+ '+f1(A.dBuj)+' K → '+f1(A.TtdcEf)+' K':'sin bujía → '+f1(A.TtdcEf)+' K');
+    h+=teleRow('umbral de autoencendido T<sub>AI</sub>',f1(A.Tai)+' K  <span style="opacity:.55">('+F.nom+', CN '+f0(F.cn)+')</span>');
+    h+=teleRow('margen térmico',fN(A.margen,1)+' K',cls2(A.okTermico));
+    h+=teleRow('filtrabilidad CFPP',f0(F.cfpp)+' °C frente a '+f0(P.Thom)+' °C',cls2(A.okFluido));
+    h+=teleRow('veredicto',A.arranca?'arranca':(A.okFluido?'no llega a la temperatura de autoencendido':'gelificado: el combustible no llega'),cls2(A.arranca));
+    h+=teleRow('r mínima que arranca (a '+f0(P.Thom)+' °C)',
+      prim?f0(R_G[sr.indexOf(prim)]):'ninguna de la rejilla',cls2(!!prim));
+    h+=teleRow('con r = '+f0(c.r)+' arranca a partir de',
+      lim?f0(T_G[st.indexOf(lim)])+' °C':'ninguna temperatura del barrido',cls2(!!lim));
+  }else if(mode==='censo'){
+    const cn=censoM(c.mk), s=solM(c.mk);
+    const peor=CRIT.slice().sort((a,b)=>cn.tot[b]-cn.tot[a])[0];
+    const dec=CRIT.slice().sort((a,b)=>cn.solo[b]-cn.solo[a])[0];
+    h+=teleRow('combinaciones que ofrece el banco',f0(NPM));
+    h+=teleRow('montables en esta máquina',f0(cn.n)+'  <span style="opacity:.55">(r ≤ '+f0(P.rMax)+
+      ', riel ≤ '+f0(P.pInyMax)+' bar)</span>');
+    h+=teleRow('válidas',f0(cn.validas),cls2(cn.validas>0));
+    h+=teleRow('criterio con más bajas',CRIT_COR[peor]+' · '+f0(cn.tot[peor]));
+    h+=teleRow('criterio decisor (en solitario)',
+      cn.solo[dec]>0?CRIT_COR[dec]+' · '+f0(cn.solo[dec]):'ninguno');
+    h+=teleRow('tu calibración',
+      R.valida?'válida':(R.construible?'falla '+fallosDe(R).map(k=>CRIT_COR[k]).join(', '):'no montable'),cls2(R.valida));
+    h+=teleRow('coste de combustible a '+f0(ANIOS)+' años',fin(R.coste5,0)+' €');
+    h+=teleRow('la más barata válida',s?f0(s.coste5)+' €':'—',cls2(!!s));
+  }
+  el('tele').innerHTML=h;
+  updateLive();
+}
+function idxFR(){
+  const tr=CUR&&CUR.traza; if(!tr) return 0;
+  return clamp(Math.round(FR*(tr.th.length-1)),0,tr.th.length-1);
+}
+function updateLive(){
+  const R=CUR; if(!R||!R.traza) return;
+  const e1=el('tvTh'); if(!e1) return;
+  const tr=R.traza, i=idxFR();
+  e1.textContent=gra(tr.th[i])+' ('+(tr.th[i]<0?'antes':'después')+' del PMS) · '+cm3(tr.V[i])+' cm³';
+  el('tvP').textContent=bar(tr.p[i])+' bar · '+fN(tr.dp[i],2)+' bar/°';
+  el('tvT').textContent=f0(tr.T[i])+' K';
+  el('tvX').textContent=(tr.acc[i]<1?'cuenta '+fN(tr.acc[i],3)+' de 1':'encendido')+
+    '  ·  quemado '+pc1(tr.xb[i]);
+}
+
+function updateReport(){
+  const c=cfgDe(mode), P=MAQ[c.mk], F=FUEL[c.fk], R=CUR;
+  let t='';
+  if(mode==='ciclo'){
+    t='> '+P.nom+' a '+f0(P.rpm)+' rpm con '+F.nom+'. Se integra sólo el periodo cerrado, de IVC ('+
+      f0(TH_IVC)+'°) a EVO (+'+f0(TH_EVO)+'°): '+f0((TH_EVO-TH_IVC)/H_PASO)+' pasos de '+f1(H_PASO)+'°.\n';
+    t+='> Al cerrar la admisión quedan atrapados '+cm3(R.Vivc)+' cm³ a '+f0(R.Tivc)+' K con '+
+      pc1(R.fRes)+' de residual, así que la r que ve el gas es '+f2(R.rEf)+' y no '+f0(R.r)+'.\n';
+    t+='> La tobera se abre '+f0(c.soi)+'° antes del PMS y suelta '+fN(R.mdot*1e3,4)+' g/s durante '+
+      fN(R.thIny,2)+'°. Nadie ordena encender: la cuenta de Livengood–Wu sube hasta 1 y la '+
+      'combustión empieza sola '+fN(R.thRet,2)+'° más tarde ('+ms(R.tRet)+' ms), en '+fN(R.thSOC,2)+'°.\n';
+    t+='> En ese retardo ya se habían inyectado '+mg(Math.min(R.mComb,R.mdot*R.tRet))+' mg de los '+
+      mg(R.mComb)+' mg de la dosis. Eso es la premezcla: β = '+fN(R.beta,3)+', que se quema en '+
+      fN(R.dthP,2)+'° y levanta '+fN(R.dpMax,2)+' bar/°. El resto se quema al ritmo al que se mezcla, '+
+      'durante '+fN(R.dthD,2)+'°, y por eso CA90 cae en '+fN(R.ca90,2)+'°.\n';
+    t+='> Pico de '+bar(R.pmax)+' bar y '+f0(R.Tmax)+' K. El área del diagrama da '+fN(R.imepG,2)+
+      ' bar indicados brutos; el bombeo se lleva '+fN(R.pmep,2)+', la fricción mecánica '+
+      fN(R.fmepMec,3)+' y la bomba de inyección '+fN(R.fmepIny,3)+'. Quedan '+fN(R.bmep,2)+
+      ' bar al freno: '+f1(R.par)+' N·m y '+f1(R.pot/1000)+' kW con '+f0(P.ncil)+
+      (P.ncil===1?' cilindro.\n':' cilindros.\n');
+    t+='> Los tres techos ideales de aire frío, calculados con el MISMO calor: Otto '+
+      pc1(R.etaOttoId)+', Dual '+pc1(R.etaDualId)+', Diésel '+pc1(R.etaDieselId)+'. Siempre en ese '+
+      'orden, porque parte del calor entra a volumen constante (α = '+fN(R.alfaId,3)+') y el resto a '+
+      'presión constante (r_c = '+fN(R.rcDual,3)+'). La máquina real da '+pc1(R.etaI)+' indicada y '+
+      pc1(R.etaB)+' al freno, con '+pc1(R.Qfrac)+' del calor liberado yéndose a las paredes.\n';
+    t+=R.valida?'> Los '+f0(CRIT.length)+' criterios se cumplen. Coste de combustible a '+f0(ANIOS)+
+        ' años: '+f0(R.coste5)+' €.'
+      :'> Rechazada: '+(R.construible?'falla '+fallosDe(R).map(k=>CRIT_ROT[k]).join(', ')+'.'
+                                     :'ni siquiera es montable en esta máquina.');
+  }else if(mode==='retardo'){
+    const sf=swp('f',c,'fk',FUEL_KEYS);
+    const ord=sf.map((s,i)=>({fk:FUEL_KEYS[i],cn:FUEL[FUEL_KEYS[i]].cn,s})).sort((a,b)=>a.cn-b.cn);
+    const lo=ord[0], hi=ord[ord.length-1];
+    const sw=sweepS(c), pri=sw[0], ult=sw[sw.length-1];
+    const val=sw.filter(x=>x.valida);
+    t='> El número de cetano no cambia la energía que entra: la dosis la fija la demanda de la '+
+      'máquina ('+f1(P.Qdem)+' J por ciclo y cilindro) y es la misma para los '+f0(FUEL_KEYS.length)+
+      ' combustibles. Lo que cambia es el reloj.\n';
+    t+='> Hardenberg–Hase pone la energía de activación en '+f0(HH_EA)+'/(CN + '+f0(HH_CN0)+
+      ') J/mol. Con '+FCOR[lo.fk]+' (CN '+f0(lo.cn)+') el retardo es '+fN(lo.s.thRet,2)+'°; con '+
+      FCOR[hi.fk]+' (CN '+f0(hi.cn)+'), '+fN(hi.s.thRet,2)+'°.\n';
+    t+='> Y ese retardo se paga entero en la premezcla: β pasa de '+fN(hi.s.beta,3)+' a '+
+      fN(lo.s.beta,3)+', y el gradiente de '+fN(hi.s.dpMax,2)+' a '+fN(lo.s.dpMax,2)+' bar/° contra un '+
+      'límite de '+fN(P.dpLim,1)+'. Eso es literalmente el picado que se oye en un diésel frío o mal '+
+      'alimentado: presión que sube demasiado deprisa porque se ha acumulado combustible sin quemar.\n';
+    t+='> Con el avance ocurre lo mismo por otro camino: inyectar antes es inyectar en un gas más '+
+      'frío y menos denso, así que el retardo se alarga. De SOI '+f0(pri.soi)+'° a SOI '+f0(ult.soi)+
+      '°, el retardo va de '+fN(pri.thRet,2)+'° a '+fN(ult.thRet,2)+'° y CA50 de '+fN(pri.ca50,2)+
+      '° a '+fN(ult.ca50,2)+'°.\n';
+    t+=val.length
+      ? '> De los '+f0(SOI_G.length)+' avances de la rejilla pasan el pliego '+f0(val.length)+': '+
+        val.map(x=>f0(x.soi)+'°').join(', ')+'. Adelantar de más rompe por ruido y por presión; '+
+        'retrasar de más rompe por fase y por temperatura de escape. El óptimo está DENTRO.'
+      : '> Con esta r, este riel y este combustible NINGÚN avance pasa el pliego entero: '+
+        sw.map(x=>f0(x.soi)+'° ('+fallosDe(x).map(k=>CRIT_COR[k]).join('+')+')').join(', ')+'.';
+  }else if(mode==='riel'){
+    const sw=sweepP(c), ps=opcionesP(c.mk);
+    const s0=sw[0], sM=sw[PINY_G.indexOf(ps[ps.length-1])];
+    const rat=Math.sqrt((sM.pIny*1e5-sM.pSoi)/(s0.pIny*1e5-s0.pSoi));
+    const mejor=sw.filter(x=>x.valida).sort((a,b)=>b.etaB-a.etaB)[0];
+    t='> El caudal por la tobera es Bernoulli puro: ṁ = n_or·A_or·c_d·√(2·ρ·Δp). Va con la RAÍZ del '+
+      'salto de presión, no con la presión. Por eso subir el riel de '+f0(s0.pIny)+' a '+f0(sM.pIny)+
+      ' bar multiplica el caudal por '+fN(sM.mdot/s0.mdot,4)+', que es exactamente √('+f0(sM.pIny)+
+      '−'+bar(sM.pSoi)+')/('+f0(s0.pIny)+'−'+bar(s0.pSoi)+') = '+fN(rat,4)+'.\n';
+    t+='> Con la misma dosis, más caudal es menos tiempo: la inyección pasa de '+fN(s0.thIny,2)+
+      '° a '+fN(sM.thIny,2)+'°, la difusión de '+fN(s0.dthD,2)+'° a '+fN(sM.dthD,2)+'° y CA90 de '+
+      fN(s0.ca90,2)+'° a '+fN(sM.ca90,2)+'°. Quemar antes es quemar cuando el pistón todavía puede '+
+      'aprovecharlo: la penalización por quemado tardío sube de ×'+fN(s0.penTarde,4)+' a ×'+
+      fN(sM.penTarde,4)+' y la eficiencia indicada de '+pc1(s0.etaI)+' a '+pc1(sM.etaI)+'.\n';
+    t+='> Pero ese combustible hay que comprimirlo. El trabajo de la bomba se cobra como presión '+
+      'media y crece de forma LINEAL con la presión: de '+fN(s0.fmepIny,3)+' a '+fN(sM.fmepIny,3)+
+      ' bar, frente a una fricción mecánica de '+fN(sM.fmepMec,3)+' bar. Una ganancia con raíz '+
+      'contra una pérdida lineal siempre acaba cruzándose.\n';
+    t+='> Aquí la cuenta al freno va de '+pc1(s0.etaB)+' a '+pc1(sM.etaB)+
+      (sM.etaB>=s0.etaB?', así que en esta máquina todavía compensa llegar arriba'
+                       :', así que en esta máquina ya NO compensa llegar arriba')+
+      '. Y hay un tope duro: la bomba montada no pasa de '+f0(P.pInyMax)+' bar.\n';
+    t+=mejor
+      ? '> Con esta r y este SOI, el mejor riel que pasa el pliego entero es '+f0(mejor.pIny)+
+        ' bar con '+pc1(mejor.etaB)+' al freno y '+fin(mejor.bsfc,1)+' g/kWh.'
+      : '> Con esta r y este SOI ningún riel pasa el pliego entero: hay que mover el avance o la r.';
+  }else if(mode==='frio'){
+    const A=R.arr, mult=Math.pow(A.rEf,A.n-1);
+    const sr=arrR(c), prim=sr.find(a=>a.arranca);
+    const st=arrT(c), lim=st.find(a=>a.arranca);
+    const gel=FUEL_KEYS.filter(fk=>P.Thom<FUEL[fk].cfpp);
+    t='> Un diésel frío no arranca por dos motivos que conviene no confundir. Uno es TÉRMICO: el '+
+      'aire comprimido no llega a la temperatura a la que ese combustible se enciende solo. El otro '+
+      'es de FLUIDEZ: el gasóleo ha gelificado y no llega a la tobera, por muy caliente que esté la '+
+      'cámara.\n';
+    t+='> Arrastre a '+f0(P.rpmArr)+' rpm. A esa velocidad hay tiempo de sobra para que el calor se '+
+      'escape por las paredes, así que la compresión no es adiabática: la politrópica declarada es '+
+      'n = '+fN(A.n,4)+', no γ = '+f1(G_FRIO)+'. Con r_ef = '+fN(A.rEf,3)+', la compresión multiplica '+
+      'la temperatura absoluta por '+fN(mult,3)+'.\n';
+    t+=A.dRej>0
+      ? '> Esta máquina calienta el AIRE DE ADMISIÓN con '+CALENT_ROT[P.calent]+'. Eso son '+
+        f1(A.dRej)+' K antes de comprimir… que al comprimirse se convierten en '+f1(A.dRej*mult)+
+        ' K en el PMS. Calentar antes de comprimir rinde el triple: es el mismo factor r_ef^(n−1) '+
+        'que multiplica todo lo demás.\n'
+      : '> Esta máquina no calienta el aire de admisión.\n';
+    t+=A.dBuj>0
+      ? '> La bujía incandescente hace otra cosa: calienta el SITIO donde se enciende, ya dentro de '+
+        'la cámara. Sus '+f1(A.dBuj)+' K se suman al final y NO se multiplican por nada. Por eso '+
+        'una bujía de '+f1(A.dBuj)+' K y una rejilla de '+f1(A.dBuj)+' K no valen lo mismo.\n'
+      : '> Esta máquina no lleva bujías incandescentes: todo el margen sale de la compresión.\n';
+    t+='> Cuenta final: '+f0(A.TambK)+' K de ambiente → '+f1(A.Tadm)+' K admitidos → '+f1(A.Ttdc)+
+      ' K comprimidos → '+f1(A.TtdcEf)+' K con la ayuda, contra un umbral de '+f1(A.Tai)+' K para '+
+      F.nom+' (CN '+f0(F.cn)+'). Margen: '+fN(A.margen,1)+' K. '+
+      (A.okTermico?'Enciende.':'No enciende.')+'\n';
+    t+=A.okFluido
+      ? '> Y de fluidez va sobrado: el CFPP de este combustible es '+f0(F.cfpp)+' °C y la '+
+        'homologación pide '+f0(P.Thom)+' °C.\n'
+      : '> Pero da igual el margen térmico: el CFPP de este combustible es '+f0(F.cfpp)+
+        ' °C y la homologación pide '+f0(P.Thom)+' °C. Gelificado, no llega a la tobera.\n';
+    t+=(gel.length?'> A '+f0(P.Thom)+' °C gelifican '+gel.map(k=>FCOR[k]).join(', ')+
+        ': en esta máquina esos combustibles están descartados antes de mirar ningún otro criterio.\n'
+      :'> A '+f0(P.Thom)+' °C ningún combustible de la rejilla gelifica en esta máquina.\n');
+    t+=(prim?'> Subir la relación de compresión sube la temperatura de arrastre: con este '+
+        'combustible, la primera r de la rejilla que arranca es '+f0(R_G[sr.indexOf(prim)])+'.'
+      :'> Con este combustible NINGUNA r de la rejilla arranca en esta máquina.')+
+      (lim?' Y con r = '+f0(c.r)+' el motor arranca a partir de '+f0(T_G[st.indexOf(lim)])+' °C.'
+         :' Y con r = '+f0(c.r)+' no arranca a ninguna temperatura del barrido.');
+  }else if(mode==='censo'){
+    const cn=censoM(c.mk), s=solM(c.mk);
+    const peor=CRIT.slice().sort((a,b)=>cn.tot[b]-cn.tot[a])[0];
+    const dec=CRIT.slice().sort((a,b)=>cn.solo[b]-cn.solo[a])[0];
+    const nulos=CRIT.filter(k=>cn.solo[k]===0);
+    t='> De las '+f0(NPM)+' combinaciones que ofrece el banco, esta máquina sólo puede montar '+
+      f0(cn.n)+' (r ≤ '+f0(P.rMax)+' y riel ≤ '+f0(P.pInyMax)+' bar), y de ésas pasan el pliego '+
+      f0(cn.validas)+'.\n';
+    t+='> El criterio que más reprueba es «'+CRIT_ROT[peor]+'» con '+f0(cn.tot[peor])+' bajas. Pero '+
+      'esa cifra no dice qué hay que arreglar: casi siempre reprueba acompañado de otros.\n';
+    t+=cn.solo[dec]>0
+      ? '> El decisor es «'+CRIT_ROT[dec]+'»: '+f0(cn.solo[dec])+' configuraciones que TODO lo demás '+
+        'aprueba y sólo él tumba. Ésas, y ninguna otra, son las que se recuperarían si se pudiera '+
+        'relajar ese único criterio.\n'
+      : '> Aquí ningún criterio tumba nada en solitario: todas las bajas van acompañadas, así que '+
+        'relajar un criterio suelto no recupera ni una sola configuración.\n';
+    t+=nulos.length
+      ? '> Nunca deciden en solitario: '+nulos.map(k=>CRIT_ROT[k]).join(', ')+
+        '. Aflojar cualquiera de ésos no abre ni una configuración nueva en esta máquina.\n'
+      : '> Los '+f0(CRIT.length)+' criterios llegan a decidir en solitario alguna vez.\n';
+    t+=s
+      ? '> La más barata que pasa: r = '+f0(s.r)+', SOI '+f0(s.soi)+'°, riel '+f0(s.pIny)+' bar con '+
+        FCOR[s.fuel]+' → '+f0(s.coste5)+' € de combustible a '+f0(ANIOS)+' años.'
+      : '> Ninguna configuración pasa el pliego entero en esta máquina.';
+  }else{
+    const vistas=PIS_EJE.filter(e=>RETO.pistas[e]).length;
+    t='> Reto sobre '+P.nom+'. Rejilla montable: '+f0(censoM(c.mk).n)+' calibraciones, de las que '+
+      f0(RETO.nval)+' pasan el pliego entero.\n';
+    t+='> Se paga el combustible de '+f0(P.wAnio)+' kWh/año al freno durante '+f0(ANIOS)+' años, al '+
+      'precio del combustible que elijas: '+FUEL_KEYS.map(k=>FCOR[k]+' '+f2(FUEL[k].precio)+' €/L').join(' · ')+'.\n';
+    t+='> Pistas destapadas: '+f0(vistas)+' de '+f0(PIS_EJE.length)+
+      '. El avance de inyección no se destapa nunca: ése lo cierras tú con el pliego.\n';
+    t+='> Tu calibración: r = '+f0(c.r)+', SOI '+f0(c.soi)+'°, riel '+f0(c.pIny)+' bar, '+FCOR[c.fk]+
+      ' → '+(R.valida?'válida, '+f0(R.coste5)+' €.\n'
+                     :(R.construible?'rechazada por '+fallosDe(R).map(k=>CRIT_ROT[k]).join(', ')+'.\n'
+                                    :'ni siquiera es montable en esta máquina.\n'));
+    t+=RETO.msg?'> '+RETO.msg
+      :'> Entrega cuando la tengas: se compara contra la más barata de las '+f0(RETO.nval)+' válidas.';
+  }
+  el('report').textContent=t;
+}
+function refreshAll(){
+  computa();
+  pintaBoard();
+  updateTele();
+  updateReport();
+  updateHwRot();
+}
+// ===================== 14. RETO =====================
+// Cuántas calibraciones válidas empatan en coste con la más barata. Si empatan
+// varias, el reto se firma con cualquiera de ellas.
+const EMP_C=new Map();
+function empM(mk){
+  let v=EMP_C.get(mk);
+  if(v===undefined){
+    const s=solM(mk);
+    v=s?valM(mk).filter(x=>Math.abs(x.coste5-s.coste5)<1e-6).length:0;
+    EMP_C.set(mk,v);
+  }
+  return v;
+}
+const SERV={
+  tractor:'trabajo de campo con carga sostenida y arranques a la intemperie',
+  camioneta:'reparto urbano y de carretera, con arranques en frío frecuentes',
+  planta:'respaldo eléctrico: pocas arrancadas y muchas horas seguidas a carga fija',
+  urbano:'ciudad, con trayectos cortos y muchos arranques',
+  marino:'navegación a régimen sostenido, con el motor siempre atemperado',
+};
+function updateRetoSpec(){
+  const P=MAQ[RETO.cfg.mk], R=CUR, c=cfgDe('reto');
+  const cn=censoM(RETO.cfg.mk);
+  let h='<b>'+ICONO[RETO.cfg.mk]+' '+P.nom+'</b> · '+f0(P.ncil)+
+    (P.ncil===1?' cilindro':' cilindros')+' · '+cm3(R.Vd)+' cm³/cil · '+f0(P.rpm)+' rpm<br>';
+  h+='<span class="mut">Servicio: '+SERV[RETO.cfg.mk]+' · '+f0(P.horas)+' h/año, '+
+    f0(P.wAnio)+' kWh/año al freno.</span><br><br>';
+  h+='<b>Pliego</b> (los '+f0(CRIT.length)+' se cumplen o no hay firma):<br>';
+  h+='· fase de combustión: CA50 entre '+f0(P.ca50Lo)+'° y '+f0(P.ca50Hi)+'° después del PMS<br>';
+  h+='· gradiente de presión ≤ '+fN(P.dpLim,1)+' bar/°<br>';
+  h+='· presión máxima ≤ '+bar(P.pLim)+' bar<br>';
+  h+='· temperatura en la brida de escape ≤ '+f0(P.tEscLim)+' K<br>';
+  h+='· presión media al freno ≥ '+fN(P.bmepMin,1)+' bar<br>';
+  h+='· arranque a '+f0(P.Thom)+' °C con '+CALENT_ROT[P.calent]+'<br>';
+  h+='<span class="mut">Y ha de ser montable: r ≤ '+f0(P.rMax)+' y riel ≤ '+f0(P.pInyMax)+
+    ' bar. De las '+f0(NPM)+' combinaciones del banco, en esta máquina son montables '+f0(cn.n)+
+    ' y pasan el pliego '+f0(RETO.nval)+'.</span><br><br>';
+  h+='<b>Objetivo:</b> de entre las que pasan el pliego, la de <b>menor coste de combustible</b> a '+
+    f0(ANIOS)+' años, pagando '+f0(P.wAnio)+' kWh/año medidos al freno.'+
+    (empM(RETO.cfg.mk)>1?' Hay '+f0(empM(RETO.cfg.mk))+' que empatan en coste: vale cualquiera.':'')+'<br><br>';
+  h+='<span class="mut">Entregas: r = '+f0(c.r)+' · SOI '+f0(c.soi)+'° · riel '+f0(c.pIny)+' bar · '+
+    FCOR[c.fk]+' → '+(R.valida?'pasa el pliego, '+f0(R.coste5)+' €'
+                             :(R.construible?'falla '+fallosDe(R).map(k=>CRIT_COR[k]).join(', ')
+                                            :'no es montable'))+'</span>';
+  if(RETO.msg) h+='<br><br><b style="color:'+(RETO.resuelto?OK_HEX:WARN_HEX)+'">'+RETO.msg+'</b>';
+  el('retoSpec').innerHTML=h;
+}
+// El botón se bloquea durante el recorrido guiado, pero la función NO: el propio
+// recorrido entrega dos calibraciones para que el pliego conteste en pantalla.
+function checkReto(){
+  const mk=RETO.cfg.mk, S=RETO.sol, R=CUR;
+  if(!S){
+    RETO.msg='En esta máquina NINGUNA calibración pasa el pliego entero: no hay nada que firmar. '+
+      'Pasa a otra máquina con «Otro caso».';
+    RETO.resuelto=false;
+    synth.beep(180,0.22,0.05); afterEdit();
+    showToast('⚠️ Esta máquina no tiene solución. Nada que entregar.');
+    return;
+  }
+  if(!R.construible){
+    RETO.msg='No es montable: '+(R.rMecOk?'':'r = '+f0(R.r)+' supera el máximo de '+f0(MAQ[mk].rMax)+'. ')+
+      (R.pInyOk?'':'el riel de '+f0(R.pIny)+' bar supera la bomba montada de '+f0(MAQ[mk].pInyMax)+' bar. ')+
+      'Las opciones marcadas con ⚠ el banco las simula, pero no se pueden montar en esta máquina.';
+    RETO.resuelto=false;
+    synth.beep(180,0.22,0.05); afterEdit();
+    showToast('⚠️ Esa calibración no se puede montar en esta máquina.');
+    return;
+  }
+  if(!R.valida){
+    const f=fallosDe(R);
+    RETO.msg='Rechazada. Falla '+f0(f.length)+(f.length===1?' criterio: ':' criterios: ')+
+      f.map(k=>CRIT_ROT[k]).join(', ')+'. Mira la telemetría: cada fila lleva su límite al lado.';
+    RETO.resuelto=false;
+    synth.beep(200,0.20,0.05); afterEdit();
+    showToast('❌ Rechazada por '+f.map(k=>CRIT_COR[k]).join(', ')+'.');
+    return;
+  }
+  if(R.coste5>S.coste5+1e-6){
+    const dif=R.coste5-S.coste5;
+    RETO.msg='Pasa el pliego, pero no es la más barata: '+f0(R.coste5)+' € frente a los '+
+      f0(S.coste5)+' € de la mejor. Sobran '+f0(dif)+' € en '+f0(ANIOS)+' años. Quedan '+
+      f0(RETO.nval)+' calibraciones válidas en esta máquina; busca entre ellas.';
+    RETO.resuelto=false;
+    synth.beep(300,0.18,0.05); afterEdit();
+    showToast('🟡 Válida, pero '+f0(dif)+' € más cara que la mejor.');
+    return;
+  }
+  RETO.msg='Calibración firmada. r = '+f0(R.r)+', SOI '+f0(R.soi)+'°, riel '+f0(R.pIny)+' bar con '+
+    FCOR[R.fuel]+': pasa los '+f0(CRIT.length)+' criterios y es la más barata de las '+f0(RETO.nval)+
+    ' válidas — '+f0(R.coste5)+' € de combustible en '+f0(ANIOS)+' años, '+fin(R.bsfc,1)+' g/kWh, '+
+    pc1(R.etaB)+' al freno.';
+  RETO.resuelto=true; solved=true;
+  [523,659,784].forEach((f,i)=>setTimeout(()=>synth.beep(f,0.16,0.05),i*90));
+  afterEdit();
+  showToast('✅ Firmada: '+f0(R.coste5)+' € a '+f0(ANIOS)+' años.');
+}
+// ===================== 15. CUESTIONARIO =====================
+// Una pregunta por modo. Todas las cifras salen del motor sellado y están
+// comprobadas contra la simulación de la máquina que se nombra.
+let QORD=[], answered=false;
+const QUIZ={
+  ciclo:{pregunta:'En el compacto urbano con r = 16, los tres techos ideales de aire frío se calculan con el MISMO calor (1'+NBSP+'143,6 J) y el MISMO γ = 1,4, y aun así dan Otto 67,01 %, Dual 61,91 % y Diésel 58,88 %. ¿Por qué el Otto sale siempre el mayor de los tres?',
+    opciones:[
+      {t:'Porque en el Otto todo el calor entra en el punto muerto superior y el gas se expande las 16 veces enteras; en el Diésel entra empujando el pistón, y después de la combustión ya sólo quedan 6,30 de expansión.',ok:true,
+       why:'Ésa es la única diferencia entre los tres. En el Diésel ideal el calor entra a presión constante hasta r_c = 2,539, así que el gas ya ha bajado ahí antes de empezar a expandirse: le quedan 16/2,539 = 6,30. El Dual reparte (α = 1,279 a volumen constante y r_c = 2,048 a presión constante) y le quedan 7,81. Cuanto más tarde acabe de entrar el calor, menos carrera queda para cobrarlo.'},
+      {t:'Porque el ciclo Otto ideal se calcula con un γ mayor, al ser la mezcla de gasolina más ligera.',
+       why:'Los tres techos usan exactamente γ = 1,4, el del aire frío, y el mismo calor. Si se cambiara el γ dejarían de ser comparables, y precisamente por eso el motor los calcula con la misma hipótesis.'},
+      {t:'Porque un motor de gasolina rinde más que uno diésel.',
+       why:'Al revés, y ése es el chiste: el diésel REAL de este banco da 46,44 % indicado y 38,29 % al freno, muy por encima de cualquier gasolina de calle, porque puede subir a r = 16 y trabajar con λ = 1,81. Lo que el techo compara no son motores, son formas de meter el calor a la MISMA relación de compresión.'},
+      {t:'Porque en el ciclo Diésel se quema más combustible para la misma carrera.',
+       why:'Se quema exactamente el mismo: 1'+NBSP+'143,6 J en los tres. Ésa es la condición del cálculo. Lo que cambia es CUÁNDO entra ese calor, no cuánto.'},
+    ]},
+  retardo:{pregunta:'En el compacto urbano (r 16 · SOI 10° · riel 1'+NBSP+'800 bar) el B20 inyecta 28,25 mg y el DMA marino sólo 27,06 mg — un 4,4 % menos de combustible. Y sin embargo el DMA levanta 10,45 bar/° de gradiente y el B20 se queda en 9,75. ¿Cómo puede hacer más ruido el que menos masa mete?',
+    opciones:[
+      {t:'Porque lo que hace el ruido no es la dosis, sino la parte de la dosis que se acumula SIN QUEMAR durante el retardo: el DMA tiene CN 42 y tarda 3,84° en encenderse; el B20, CN 54, tarda 3,61°.',ok:true,
+       why:'Exacto. Ese retardo se paga entero en la premezcla: β pasa de 0,130 con B20 a 0,145 con DMA. Cuando por fin prende, ese 14,5 % de la dosis ya está mezclado y arde de golpe. El B20 mete más masa total, pero la mete casi toda cuando ya hay llama, y eso se quema al ritmo al que se mezcla, no de golpe.'},
+      {t:'Porque el DMA tiene más poder calorífico (42,9 frente a 41,1 MJ/kg) y por tanto libera más energía.',
+       why:'Libera exactamente la misma: la máquina pide 1'+NBSP+'143,6 J por ciclo y cilindro, y la dosis en masa se ajusta a cada combustible. Por eso el DMA, que tiene más poder calorífico, inyecta MENOS masa. La energía no explica la diferencia.'},
+      {t:'Porque el número de cetano mide la resistencia al autoencendido: cuanto más alto, más cuesta encender.',
+       why:'Es justo al revés, y confundirlo con el octanaje es el error clásico. El octano mide la RESISTENCIA a encenderse solo, que es lo que se quiere en gasolina. El cetano mide la FACILIDAD: más cetano, menos retardo. Por eso el B20 (CN 54) es el más silencioso y el DMA (CN 42) el más ruidoso.'},
+      {t:'Porque el DMA es más denso (0,855 frente a 0,845) y sale más deprisa por la tobera.',
+       why:'Sale algo más deprisa, sí: 25,99 g/s frente a 25,84. Pero eso es un 0,6 % de caudal, y actúa en contra del ruido, porque acorta la inyección. Los 0,70 bar/° de diferencia no salen de ahí: salen del retardo.'},
+    ]},
+  riel:{pregunta:'Subir el riel del compacto urbano de 600 a 1'+NBSP+'800 bar multiplica el caudal por 1,7945 (la raíz del salto de presión) pero multiplica por tres lo que cobra la bomba, de 0,160 a 0,479 bar de presión media. Una ganancia con raíz contra una pérdida lineal. ¿Por qué gana la raíz en este caso?',
+    opciones:[
+      {t:'Porque a 600 bar la inyección dura 41,10° y el 90 % no acaba de quemar hasta +65,75°: el ciclo se queda con una penalización por quemado tardío de ×0,8712 que vale muchísimo más que los 0,319 bar de la bomba.',ok:true,
+       why:'Ésa es la cuenta. A 1'+NBSP+'800 bar la inyección baja a 22,90°, CA90 se adelanta a +38,70° y la penalización desaparece (×1,0000): la imep bruta sube de 10,974 a 14,370 bar. La bomba se lleva 0,319 bar más. Se ganan 3,396 y se pagan 0,319, así que la eficiencia al freno pasa de 28,79 % a 38,29 %. La raíz no gana siempre: gana mientras quede quemado tardío que rescatar.'},
+      {t:'Porque el caudal se multiplica por tres, igual que la presión.',
+       why:'Se multiplica por 1,7945, que es √((1'+NBSP+'800 − 59,5)/(600 − 59,5)). La tobera es un orificio, y por un orificio el caudal va con la raíz del salto de presión. Triplicar la presión no triplica el caudal ni de lejos.'},
+      {t:'Porque a 1'+NBSP+'800 bar el retardo de autoencendido se acorta y la combustión empieza antes.',
+       why:'El retardo es 3,66° a 600 bar y 3,66° a 1'+NBSP+'800 bar: no cambia. Hardenberg–Hase depende de la presión y la temperatura DEL GAS en el cilindro, no de la presión del riel. Lo que cambia es la duración de la inyección, no cuándo prende.'},
+      {t:'Porque a más presión el chorro se pulveriza más fino y el combustible libera más energía.',
+       why:'Se pulveriza más fino y mezcla mejor, cierto, pero la energía que libera un kilo de gasóleo no depende de la presión a la que se inyecte. El poder calorífico es una propiedad del combustible. Lo que se gana es tiempo, no energía.'},
+    ]},
+  frio:{pregunta:'El tractor calienta el AIRE DE ADMISIÓN 50,5 K con la rejilla; el compacto urbano calienta el SITIO DEL ENCENDIDO 178,7 K con la bujía incandescente. En el punto muerto superior, ¿cuánto acaba valiendo cada aportación?',
+    opciones:[
+      {t:'La rejilla vale 135,0 K, porque la compresión multiplica la temperatura absoluta por r_ef^(n−1) = 2,673. La bujía vale sus 178,7 K y ni uno más, porque entra después de comprimir.',ok:true,
+       why:'Eso es. Calentar antes de comprimir rinde casi el triple, porque el mismo factor que multiplica la temperatura del aire multiplica también lo que le hayas añadido. La bujía no juega a eso: calienta un punto caliente dentro de la cámara, ya al final de la carrera. Por eso 50,5 K de rejilla y 50,5 K de bujía no son la misma ayuda ni de lejos.'},
+      {t:'Las dos valen lo que dicen: 50,5 K la rejilla y 178,7 K la bujía.',
+       why:'La bujía sí, la rejilla no. Los 50,5 K entran en el aire ANTES de la compresión, y la compresión los multiplica junto con todo lo demás: el tractor llega al PMS con 851,7 K en lugar de los 716,7 que tendría sin rejilla.'},
+      {t:'La rejilla vale 50,5 · 1,4 = 70,7 K, con el γ del aire.',
+       why:'Dos errores en uno. El factor no es γ, es r_ef^(n−1); y a 200 rpm de arrastre la compresión NO es adiabática: el motor declara una politrópica n = 1,3321 porque hay tiempo de sobra para que el calor se escape por las paredes frías. Con γ = 1,4 saldrían 165,0 K, un 22 % de más.'},
+      {t:'La bujía también se multiplica, porque está encendida durante toda la compresión.',
+       why:'Está encendida, pero lo que calienta es el punto donde va a prender la primera gota, no la masa de aire que se está comprimiendo. El motor lo declara así: la rejilla se suma antes de comprimir y la bujía después. Son dos ayudas distintas, no dos versiones de la misma.'},
+    ]},
+  censo:{pregunta:'En la camioneta hay 400 calibraciones montables y el criterio de «arranque en frío» reprueba exactamente 300: tres cuartas partes justas. ¿Qué está diciendo una cifra tan redonda?',
+    opciones:[
+      {t:'Que tres de los cuatro combustibles gelifican a la temperatura de homologación, y con ellos se caen sus 100 configuraciones enteras, sin que importe la r, el avance ni el riel.',ok:true,
+       why:'Ésa es la lectura. La camioneta homologa a −20 °C y el CFPP del agrícola es −4, el del B20 −18 y el del DMA −6: los tres por encima. Gelificado, el gasóleo no llega a la tobera y da igual lo caliente que esté la cámara. De hecho, en las 400 no hay ni un solo fallo TÉRMICO: la bujía incandescente da margen de sobra. Y las 31 calibraciones válidas queman UBA, las cuatro.'},
+      {t:'Que la bujía incandescente de la camioneta no da suficiente temperatura y hay que subir la relación de compresión.',
+       why:'Cero fallos térmicos en las 400. Las 300 bajas son todas por fluidez, y contra el gel la relación de compresión no puede hacer nada: el problema está antes de la cámara, en el filtro y la línea.'},
+      {t:'Que a −20 °C ningún gasóleo de la rejilla arranca en esta máquina.',
+       why:'El UBA de invierno arranca en las 100 configuraciones en que se usa: su CFPP es −28 °C. Por eso la cifra es 300 y no 400.'},
+      {t:'Que ése es el criterio que hay que relajar para recuperar más calibraciones.',
+       why:'Cuidado con esa lectura del censo: de las 300 bajas, sólo 91 se caen por el frío EN SOLITARIO; las otras 209 fallan además otra cosa y seguirían fuera. Aun así el frío es el decisor de esta máquina, con diferencia — pero por 91, no por 300.'},
+    ]},
+  reto:{pregunta:'En el motor marino, la calibración más eficiente que el banco puede montar (r 16 · SOI 10° · riel 1'+NBSP+'400 bar con DMA) da 39,95 % al freno y sale 1'+NBSP+'950 € MÁS BARATA en cinco años que la que se firma. Cumple presión (135,7 de 140 bar), fase (CA50 9,90°), escape (748 de 772 K) y par (12,79 de 12,10 bar). ¿Por qué se rechaza?',
+    opciones:[
+      {t:'Porque su gradiente de presión es 10,07 bar/° contra un límite de 9,4: es el único criterio que falla, y basta con uno.',ok:true,
+       why:'Ése es el punto del laboratorio. Un pliego no se aprueba por media: se aprueba entero. La firmada baja a r = 15, cede 0,23 puntos de rendimiento y paga 1'+NBSP+'950 € más de combustible, pero se queda en 9,39 bar/° — a una centésima del límite. Y no es un caso raro: en las CINCO máquinas la calibración más eficiente montable se cae, y en las cinco por lo mismo, el gradiente.'},
+      {t:'Porque r = 16 no se puede montar en el motor marino.',
+       why:'Sí se puede: r_máx del marino es exactamente 16. Es el tope, pero es montable, y por eso aparece en el censo como construible y reprobada, no como imposible.'},
+      {t:'Porque con DMA marino el motor no arrancaría en frío.',
+       why:'Arranca. El marino homologa a +5 °C y el CFPP del DMA es −6 °C: pasa con holgura. De hecho la calibración firmada quema ese mismo DMA — es el combustible más barato de los cuatro, 0,78 €/L.'},
+      {t:'Porque una diferencia de 0,23 puntos de eficiencia no justifica cambiar nada.',
+       why:'La diferencia va en el otro sentido: la rechazada es la MÁS eficiente y la MÁS barata. Si el pliego se pudiera negociar, ganaría ella. Lo que la tumba no es el dinero, es que 10,07 bar/° destroza cojinetes y hace un motor que nadie quiere oír.'},
+    ]},
+};
+function buildQuiz(){
+  const q=QUIZ[mode];
+  QORD=q.opciones.map((o,i)=>i);
+  for(let i=QORD.length-1;i>0;i--){ const j=Math.floor(Math.random()*(i+1));
+    const t=QORD[i];QORD[i]=QORD[j];QORD[j]=t; }
+  answered=false;
+}
+function clearDx(){ answered=false; }
+function refreshQuestion(){
+  const q=QUIZ[mode];
+  el('q_text').textContent=q.pregunta;
+  el('dxbtns').innerHTML=QORD.map((oi,i)=>'<button class="b" data-i="'+i+'">'+q.opciones[oi].t+'</button>').join('');
+  el('dxbtns').querySelectorAll('[data-i]').forEach(b=>{
+    b.onclick=()=>answer(Number(b.getAttribute('data-i')));
+  });
+}
+function answer(i){
+  if(answered) return;
+  answered=true;
+  const q=QUIZ[mode], btns=el('dxbtns').querySelectorAll('[data-i]');
+  btns.forEach((b,k)=>{ b.disabled=true; const o=q.opciones[QORD[k]];
+    if(o.ok) b.classList.add('right'); else if(k===i) b.classList.add('wrong'); });
+  const o=q.opciones[QORD[i]];
+  synth.beep(o.ok?880:200,0.10,0.05);
+  showToast((o.ok?'✅ ':'❌ ')+o.why);
+}
+function quizCorrectIndex(){ return QORD.indexOf(QUIZ[mode].opciones.findIndex(o=>o.ok)); }
+// ===================== 16. SELECCIÓN Y ETIQUETAS =====================
+// Cada pieza contesta con lo que decide en ESTA calibración y en ESTE fotograma.
+// Ninguna cifra está escrita a mano: todas salen de la traza, de la máquina
+// elegida o de las constantes selladas del motor.
+function pickCtx(){
+  const c=cfgDe(mode), P=MAQ[c.mk], R=CUR, tr=R&&R.traza;
+  return {c,P,F:FUEL[c.fk],R,tr,i:idxFR(),G:geom(P,c.r)};
+}
+const PICK_INFO={
+  bloque:()=>{ const {P,R,G}=pickCtx();
+    return ['Bloque y cárter',
+      P.nom+': '+f0(P.ncil)+(P.ncil===1?' cilindro':' cilindros')+' de Ø '+f1(P.B*1000)+' × '+
+      f1(P.S*1000)+' mm, '+cm3(G.Vd)+' cm³ por cilindro y '+cm3(G.Vd*P.ncil)+' cm³ en total. '+
+      'A '+f0(P.rpm)+' rpm la velocidad media del pistón es '+f2(R.Sp)+' m/s, y ese número entra '+
+      'dos veces en el resultado: manda en el retardo de autoencendido de Hardenberg-Hase (el '+
+      'factor '+f2(HH_A)+' + '+f2(HH_B)+'·Sp) y pesa en la fricción de Chen-Flynn, ahora '+
+      f3(R.fmepMec)+' bar. En 3D se dibuja UN cilindro: par y potencia sí multiplican por '+
+      f0(P.ncil)+', pero la masa, la presión y el calor que ves son los de este cilindro solo.'];
+  },
+  camisa:()=>{ const {P,R,tr,i,G}=pickCtx();
+    return ['Camisa y columna de gas',
+      'La columna translúcida es el volumen encerrado V(θ) que se está integrando: ahora '+
+      cm3(tr.V[i])+' cm³, entre '+cm3(G.Vc)+' cm³ en el punto muerto superior y '+cm3(R.Vivc)+
+      ' cm³ en el cierre de admisión. Su altura por el área del pistón es exactamente V(θ) —el '+
+      'puente de pruebas lo comprueba punto por punto—, y su color sigue la fracción quemada. La '+
+      'superficie que cede calor se toma como A = πB²/2 + 4V/B: con este volumen son '+
+      f1(area(G,tr.V[i],P.B)*1e4)+' cm², y por ahí se escapa '+pc1(R.Qfrac)+' del calor liberado, '+
+      'según Woschni (C₁ = '+f2(C1_WOS)+' en el tramo cerrado, C₂ = '+f2(C2_WOS*1e3)+
+      '×10⁻³ desde que empieza a arder).'];
+  },
+  piston:()=>{ const {P,R,tr,i,G}=pickCtx();
+    const th=tr.th[i]*DEG, st=Math.sin(th);
+    const s=Math.sqrt(Math.max(1e-12,G.L*G.L-G.a*G.a*st*st));
+    const x=G.L+G.a-G.a*Math.cos(th)-s;
+    return ['Pistón, aros y bulón',
+      'A '+gra(tr.th[i])+' del punto muerto superior la corona está '+f1(x*1000)+' mm por debajo del '+
+      'PMS, o sea '+pc1(x/P.S)+' de la carrera. Esa posición sale del mecanismo biela-manivela '+
+      'exacto, la misma fórmula que alimenta la física. La corona se dibuja PLANA a propósito: un '+
+      'motor diésel real lleva un bol de combustión labrado, pero el motor sellado sólo resuelve el '+
+      'equivalente de culata plana V_c = V_d/(r−1), así que dibujar el bol añadiría un volumen que '+
+      'nadie integra. Los dos aros se dibujan, pero el modelo NO tiene fuga: entre el cierre de '+
+      'admisión y la apertura de escape la masa encerrada es constante, '+mg(R.mTot)+' mg.'];
+  },
+  biela:()=>{ const {P,G}=pickCtx();
+    return ['Biela',
+      'L = '+f0(P.L*1000)+' mm sobre una manivela de a = '+f2(G.a*1000)+' mm: la relación L/a vale '+
+      f2(P.L/G.a)+'. Ese cociente es lo único que separa el mecanismo real del seno de libro. Cuanto '+
+      'más corta es la biela frente a la manivela, más se adelanta el pistón en la primera mitad de '+
+      'la carrera y más se deforma V(θ) respecto de la curva ideal. Aquí se integra '+
+      's = √(L² − a²·sen²θ) tanto en el dibujo como en la ecuación de estado.'];
+  },
+  cigue:()=>{ const {P,R}=pickCtx();
+    const msTramo=(TH_EVO-TH_IVC)/(P.rpm*6)*1000;
+    return ['Cigüeñal, contrapesos y volante',
+      'Gira a '+f0(P.rpm)+' rpm, así que los '+gra(TH_EVO-TH_IVC)+' del tramo cerrado que se simulan '+
+      'duran '+f2(msTramo)+' ms en el motor real; el pizarrón los estira a '+f1(PER3D)+' s para que '+
+      'se puedan mirar. Ahí está el problema del diésel: el retardo de autoencendido de esta '+
+      'calibración es '+ms(R.tRet)+' ms, un tiempo FÍSICO, y a estas vueltas se come '+gra(R.thRet)+
+      ' de cigüeñal. Lo que sale por este eje es par y potencia de la máquina completa: '+f1(R.par)+
+      ' N·m y '+f1(R.pot/1000)+' kW con los '+f0(P.ncil)+(P.ncil===1?' cilindro':' cilindros')+
+      '. La presión media efectiva, en cambio, es por unidad de cilindrada: '+f2(R.bmep)+' bar.'];
+  },
+  culata:()=>{ const {c,P,R,G}=pickCtx();
+    return ['Culata y junta',
+      'La altura libre de la cámara vale S/(r−1) = '+f2(P.S/(c.r-1)*1000)+' mm con r = '+f0(c.r)+
+      ', y el volumen muerto '+cm3(G.Vc)+' cm³. Sube un punto la relación de compresión y la cámara '+
+      'ADELGAZA en pantalla: no es un efecto decorativo, es la misma cota que entra en V(θ). La '+
+      'relación efectiva, medida desde donde de verdad empieza la compresión, es r_ef = '+f3(R.rEf)+
+      ', siempre menor que la nominal porque la admisión cierra '+f0(180+TH_IVC)+
+      '° después del punto muerto inferior. El techo Diésel ideal calculado con r da '+
+      pc2(R.etaDieselId)+' y con r_ef, '+pc2(R.etaDieselIdEf)+': la diferencia no la produce ninguna '+
+      'pérdida, sólo la carrera que el motor no llega a comprimir.'];
+  },
+  inyector:()=>{ const {c,P,R}=pickCtx();
+    return ['Inyector y tobera',
+      'Tobera de '+f0(P.nOr)+' orificios de Ø '+f3(P.dOr*1000)+' mm con C_d = '+f2(P.cd)+
+      '. Abre a '+gra(-c.soi)+' del PMS, cuando dentro ya hay '+bar(R.pSoi)+' bar, y por eso el '+
+      'caudal se calcula contra ESA contrapresión y no contra el vacío: ṁ = '+f4(R.mdot*1000)+
+      ' g/s por Bernoulli. La dosis de '+mg(R.mComb)+' mg tarda '+ms(R.tIny)+' ms en pasar, o sea '+
+      gra(R.thIny)+' de cigüeñal. Los conos naranjas miden la FRACCIÓN DE LA DOSIS YA INYECTADA, '+
+      'no la penetración del chorro: aquí no hay ninguna correlación de alcance ni de tamaño de '+
+      'gota, y decir lo contrario sería inventarse una física que este motor no resuelve.'];
+  },
+  riel:()=>{ const {c,P,R}=pickCtx();
+    return ['Riel común y línea de alta presión',
+      'El riel está a '+f0(c.pIny)+' bar y la bomba de esta máquina llega a '+f0(P.pInyMax)+
+      '. El caudal por la tobera va con la RAÍZ del salto de presión (√('+f0(c.pIny)+' − '+
+      bar(R.pSoi)+' bar), no con la presión a secas: doblar el riel no dobla el caudal. Lo que sí '+
+      'sube en línea recta es lo que cobra la bomba: la fmep de inyección vale '+f3(R.fmepIny)+
+      ' bar contra los '+f3(R.fmepMec)+' de la fricción mecánica, suponiendo que mueve '+f1(K_FUGA)+
+      ' veces el caudal inyectado (el resto vuelve al depósito por el retorno) con un rendimiento '+
+      'global de '+pc1(ETA_BOM)+'. La cuenta se cierra en el freno: '+f2(R.imepN)+
+      ' bar netos indicados menos '+f3(R.fmep)+' de fricción total dan '+f2(R.bmep)+' bar al freno.'];
+  },
+  ayuda:()=>{ const {P,R,F}=pickCtx();
+    const A=R.arr, mult=Math.pow(A.rEf,A.n-1);
+    let t='Ayuda al arranque: '+CALENT_ROT[P.calent]+'. Se juzga arrancando a '+f0(P.Thom)+
+      ' °C, la temperatura de homologación de esta máquina, girando a '+f0(A.rpm)+
+      ' rpm de arrastre y con '+f0(A.t)+' s de precalentamiento. ';
+    if(A.dRej>0) t+='La rejilla calienta el AIRE antes de comprimirlo: aporta '+f1(A.dRej)+
+      ' K, pero la compresión los multiplica por r_ef^(n−1) = '+f3(mult)+', así que en el punto '+
+      'muerto superior valen '+f1(A.dRej*mult)+' K. ';
+    if(A.dBuj>0) t+='La bujía incandescente calienta el SITIO del encendido, ya al final de la '+
+      'carrera: sus '+f1(A.dBuj)+' K se suman tal cual, sin multiplicar. ';
+    t+='La politrópica de arrastre no es la adiabática: a estas vueltas y con las paredes frías el '+
+      'motor declara n = '+f4(A.n)+' en vez de γ = '+f1(G_FRIO)+'. Resultado: '+f0(A.TtdcEf)+
+      ' K contra el umbral de '+f0(A.Tai)+' K del '+F.nom+' (baja '+f1(TAI_K)+
+      ' K por cada número de cetano por encima de '+f0(TAI_CN0)+'), '+
+      (A.okTermico?'margen de '+f0(A.margen)+' K.':'le faltan '+f0(-A.margen)+' K.')+' Y antes de '+
+      'eso hay otra puerta que el calor no abre: el CFPP del combustible es '+f0(F.cfpp)+' °C, así '+
+      'que a '+f0(P.Thom)+' °C '+(A.okFluido?'llega líquido al filtro.'
+        :'está gelificado y no llega a la tobera, por muy caliente que esté la cámara.');
+    return ['Ayuda al arranque en frío',t];
+  },
+  vadm:()=>{ const {P,R}=pickCtx();
+    return ['Válvula de admisión (permanece cerrada)',
+      'Este laboratorio integra SÓLO el tramo cerrado, de '+gra(TH_IVC)+' a '+gra(TH_EVO)+
+      ': la válvula no se abre en el 3D porque el modelo no simula ni el cruce ni el llenado. Lo que '+
+      'sí sale de aquí es el estado atrapado: con p_adm = '+bar(P.pAdm)+' bar de colector '+
+      (P.pAdm>1.05*P_ATM?'(sobrealimentado) ':'(atmosférico) ')+'y T_adm = '+f0(P.Tadm)+
+      ' K quedan encerrados '+
+      mg(R.mAire)+' mg de aire, de los cuales '+pc2(R.fRes)+' son gas residual caliente del ciclo '+
+      'anterior. El rendimiento volumétrico que resulta ('+pc1(R.etaV)+') es una CONSECUENCIA de esa '+
+      'presión impuesta, no una curva de llenado medida. Con la dosis de esta calibración el motor '+
+      'queda en λ = '+f3(R.lam)+', y el humo empieza a asomar por debajo de '+f2(LAM_HUMO)+
+      ': margen '+f3(R.margenHumo)+' —una lectura, no un criterio del pliego.'];
+  },
+  vesc:()=>{ const {P,R}=pickCtx();
+    return ['Válvula de escape (permanece cerrada)',
+      'Abre a '+gra(TH_EVO)+' y ahí termina la integración. El gas sale a '+f0(R.Tevo)+' K y '+
+      bar(R.pEvo)+' bar y se expande hasta '+bar(P.pEscBase)+' bar de forma isentrópica con el γ de '+
+      'la mezcla quemada ('+f3(R.gEvo)+', no 1,4): quedan '+f0(R.Texh)+' K en el conducto. No hay '+
+      'pulso de escape ni pérdida real de bombeo; el bombeo entra como un pmep constante de '+
+      f2(R.pmep)+' bar, que es lo que separa la '+f3(R.imepG)+' bar indicada bruta de la '+
+      f3(R.imepN)+' bar neta. Lo que quede sin quemar después de esta apertura no se contabiliza: '+
+      'la penalización por quemado tardío ya lo descuenta antes, con un factor de '+f4(R.penTarde)+'.'];
+  },
+  mano:()=>{ const {P,R,tr,i}=pickCtx();
+    return ['Manómetro de cilindro',
+      'La aguja sigue p(θ) = m·R·T/V con la masa encerrada constante: ahora '+bar(tr.p[i])+
+      ' bar. El pico del ciclo es '+bar(R.pmax)+' bar a '+gra(R.thPmax)+' después del PMS, contra un '+
+      'límite de bloque de '+f0(P.pLim/1e5)+' bar; la escala llega un 10 % más arriba ('+
+      f0(P.pLim*1.1/1e5)+' bar) y las marcas rojas empiezan al 80 % de esa escala. En un diésel el '+
+      'pico no lo pone la chispa: lo pone cuánta masa se acumuló sin arder durante el retardo. Aquí '+
+      'esa fracción premezclada es β = '+f3(R.beta)+' de la dosis.'];
+  },
+  brida:()=>{ const {P,R}=pickCtx();
+    return ['Brida de escape y termopar',
+      'El termopar no está pegado a la válvula: está en la brida del colector, y para cuando el gas '+
+      'llega ya cedió calor al conducto. Se modela como T_brida = T_pared + '+f2(K_PORT)+
+      '·(T_escape − T_pared) con T_pared = '+f0(P.Tpar)+' K, así que de los '+f0(R.Texh)+
+      ' K del gas quedan '+f0(R.Tbrida)+' K en la sonda, contra un límite de '+f0(P.tEscLim)+
+      ' K. El codo se pone al rojo con la temperatura de brida, no con la del cilindro: es la que '+
+      'aguantan la válvula, el colector y la turbina si la hay. Inyectar tarde calienta esta sonda '+
+      'aunque baje el pico de presión: lo que no arde a tiempo acaba ardiendo aquí.'];
+  },
+  ruido:()=>{ const {P,R,tr,i}=pickCtx();
+    return ['Acelerómetro de ruido de combustión',
+      'El piezoeléctrico se pinta con el gradiente de presión INSTANTÁNEO: ahora '+fN(tr.dp[i],2)+
+      ' bar/°, y el pico del ciclo es '+fN(R.dpMax,2)+' bar/° a '+gra(R.thDpMax)+', contra el '+
+      'límite de '+fN(P.dpLim,1)+' de esta máquina. Ese número es el «picado» del diésel, y no sale '+
+      'de la dosis total sino de la premezcla: durante los '+gra(R.thRet)+' de retardo entra '+
+      'combustible que no puede arder todavía, y cuando por fin prende arde de golpe. En esta '+
+      'calibración β = '+f3(R.beta)+' de la dosis va por la Wiebe premezclada, que dura '+
+      gra(R.dthP)+', y el resto por la de difusión, que dura '+gra(R.dthD)+' porque se quema al '+
+      'ritmo al que se mezcla. Menos cetano ⇒ más retardo ⇒ más β ⇒ más ruido.'];
+  },
+  cuadro:()=>{ const {P,R}=pickCtx();
+    const FS=pliegoFilas(R,P), mal=FS.filter(f=>!f.ok);
+    return ['Cuadro de recepción',
+      'Seis pilotos, uno por criterio del pliego, de arriba abajo: '+
+      FS.map(f=>CRIT_ROT[f.k]).join(', ')+'. '+
+      (mal.length? ('Ahora hay '+f0(mal.length)+' en rojo: '+
+        mal.map(f=>CRIT_COR[f.k]+' ('+f.med+' contra '+f.lim+')').join('; ')+'.')
+                 : 'Ahora los seis están en verde.')+
+      ' Verde no quiere decir buena calibración: quiere decir ENTREGABLE. La más barata de alimentar '+
+      'entre las entregables es otra cosa, y ésa es la que pide el reto.'];
+  },
+};
+
+// El pizarrón también responde: cada modo explica qué se está mirando.
+function boardClick(){
+  const c=cfgDe(mode), P=MAQ[c.mk], R=CUR;
+  if(mode==='ciclo'){
+    showToast('<b>El ciclo cerrado</b> · Arriba, p(θ) y T(θ) integradas con Runge-Kutta de cuarto '+
+      'orden entre '+gra(TH_IVC)+' y '+gra(TH_EVO)+', paso '+fN(H_PASO,1)+'°. Abajo, el mismo ciclo '+
+      'en p–V y la escalera de rendimientos. Los tres techos ideales se calculan con el MISMO calor '+
+      'y el MISMO γ = '+f1(G_FRIO)+', y sólo cambian en dónde entra ese calor: Otto '+
+      pc2(R.etaOttoId)+' todo en el PMS, Dual '+pc2(R.etaDualId)+' repartido (α = '+f3(R.alfaId)+
+      ' y r_c = '+f3(R.rcDual)+') y Diésel '+pc2(R.etaDieselId)+' todo a presión constante hasta '+
+      'r_c = '+f3(R.rcId)+'. Lo que de verdad hace este motor son '+pc2(R.etaI)+' indicados y '+
+      pc2(R.etaB)+' al freno.');
+  }else if(mode==='retardo'){
+    const F=FUEL[c.fk];
+    showToast('<b>Retardo de autoencendido</b> · No hay chispa: la primera gota espera a que el aire '+
+      'esté lo bastante caliente. El retardo se integra a la manera de Livengood-Wu sobre la '+
+      'correlación de Hardenberg-Hase, con energía de activación E_a = '+f0(HH_EA)+'/(CN + '+
+      f0(HH_CN0)+') J/mol: con '+F.nom+' (CN '+f0(F.cn)+') salen '+ms(R.tRet)+' ms, que a '+
+      f0(P.rpm)+' rpm son '+gra(R.thRet)+' de cigüeñal. Durante ese tiempo sigue entrando '+
+      'combustible: el '+pc1(R.beta)+' de la dosis se acumula sin arder y luego se va de golpe. Ése '+
+      'es el gradiente de '+fN(R.dpMax,2)+' bar/° que mide el acelerómetro.');
+  }else if(mode==='riel'){
+    showToast('<b>Presión de riel</b> · Dos efectos que tiran en sentidos contrarios. A favor: más '+
+      'presión, más caudal por la tobera (con la raíz del salto: '+f4(R.mdot*1000)+' g/s ahora) e '+
+      'inyección más corta ('+gra(R.thIny)+'), así que la combustión termina antes —CA90 a '+
+      gra(R.ca90)+'— y se rescata la penalización por quemado tardío, hoy ×'+f4(R.penTarde)+
+      '. En contra: la bomba cobra en línea recta, '+f3(R.fmepIny)+' bar de los '+f3(R.fmep)+
+      ' de fricción total. Lo que NO cambia con el riel es el retardo: '+gra(R.thRet)+
+      ' a cualquier presión, porque depende del gas del cilindro, no del combustible que llega.');
+  }else if(mode==='frio'){
+    const A=R.arr, F=FUEL[c.fk];
+    showToast('<b>Arranque en frío</b> · Dos puertas, y hay que pasar las dos. La térmica: girando a '+
+      f0(A.rpm)+' rpm la compresión no es adiabática (n = '+f4(A.n)+' en vez de '+f1(G_FRIO)+
+      ') y hay que llegar a '+f0(A.Tai)+' K con '+F.nom+'; con la ayuda de esta máquina se alcanzan '+
+      f0(A.TtdcEf)+' K. La de fluidez: el CFPP de este combustible es '+f0(F.cfpp)+
+      ' °C y se homologa a '+f0(P.Thom)+' °C. Gelificado, el gasóleo no llega a la tobera y da igual '+
+      'lo caliente que esté la cámara — por eso la curva de temperatura y la banda azul del CFPP se '+
+      'leen por separado.');
+  }else if(mode==='censo'){
+    const cn=censoM(c.mk);
+    showToast('<b>Censo del pliego</b> · Se construyen las '+f0(cn.n)+' calibraciones que caben en '+
+      'esta máquina (de las '+f0(NPM)+' de la rejilla) y se cuenta cada criterio dos veces: cuántas '+
+      'veces falla en total y cuántas veces falla EN SOLITARIO. La segunda columna es la que manda, '+
+      'porque un criterio que nunca decide solo nunca es la razón real de un rechazo. Sobreviven '+
+      f0(cn.validas)+'.');
+  }else{
+    showToast('<b>Reto de firma</b> · Se te pide la calibración válida más barata de ALIMENTAR '+
+      'durante '+f0(ANIOS)+' años a '+f0(P.wAnio)+' kWh/año, no la más eficiente en un punto. Las '+
+      'tres pistas se abren de una en una y cada una dice cuántas de las válidas comparten un valor '+
+      'de ese eje: eso estrecha la búsqueda sin regalar la terna. El avance de inyección no se '+
+      'destapa nunca. Hay '+f0(RETO.nval)+' válidas.');
+  }
+}
+
+pickerFor(scene,S.camera,S.renderer.domElement,hit=>{
+  const o=hit&&hit.object;
+  if(!o) return;
+  if(o===bmesh){ boardClick(); synth.beep(620,0.05,0.05); return; }
+  let n=o, k=null;
+  while(n&&!k){ if(n.userData&&n.userData.key) k=n.userData.key; n=n.parent; }
+  if(!k||!PICK_INFO[k]) return;
+  const inf=PICK_INFO[k]();
+  if(!inf) return;
+  synth.beep(760,0.05,0.05);
+  showToast('<b>'+inf[0]+'</b> · '+inf[1]);
+});
+// ===================== 17. RECORRIDO GUIADO =====================
+// Una sola historia: en un diésel no hay chispa, así que el instante en que
+// empieza a arder no lo elige el calibrador —lo elige el combustible—; de ese
+// retardo salen el ruido, el pico de presión y la mitad de los rechazos; la
+// presión de riel compra tiempo pero se paga en la bomba; el frío tiene dos
+// puertas que no se abren con lo mismo; y la calibración que se firma es la más
+// barata de las ENTREGABLES, que nunca es la que más rinde.
+// Ninguna cifra de los avisos está escrita a mano: todas se recalculan aquí.
+const sleep=t=>new Promise(r=>setTimeout(r,t));   // «ms» ya es el formateador de milisegundos
+async function runAuto(){
+  if(autoRunning) return;
+  autoRunning=true;
+  const b=el('btnAuto'), rot=b.textContent;
+  b.textContent='⏳ Recorriendo…';
+  synth.init();synth.resume();clearDx();
+  try{
+    // --- 1. un ciclo entero y los tres techos que caben encima ----------
+    aplicaMaquina('urbano'); ST.r=16; ST.soi=10; ST.pIny=1800; ST.fk='uba';
+    setMode('ciclo');
+    {
+      const c=cfgDe('ciclo'), R=CUR;
+      showToast('🔧 <b>Un ciclo cerrado, entero.</b> '+MAQ[c.mk].nom+' a '+f0(MAQ[c.mk].rpm)+
+        ' rpm con r = '+f0(c.r)+'. Encima del ciclo medido caben TRES techos de aire frío, todos '+
+        'con el mismo γ = '+f1(G_FRIO)+' y exactamente el mismo calor ('+f1(R.Q)+' J): Otto '+
+        pc2(R.etaOttoId)+', Dual '+pc2(R.etaDualId)+' y Diésel '+pc2(R.etaDieselId)+
+        '. Lo único que los separa es DÓNDE entra ese calor, y eso se lee en cuánta expansión queda '+
+        'después de la combustión: '+f0(c.r)+' veces en Otto, '+f3(c.r/R.rcDual)+' en Dual y '+
+        f3(c.r/R.rcId)+' en Diésel, porque quemar a presión constante empuja el pistón hacia abajo '+
+        'mientras arde. Lo que este motor hace de verdad son '+pc2(R.etaI)+' indicados y '+
+        pc2(R.etaB)+' al freno.');
+    }
+    await sleep(6200);
+
+    // --- 2. no hay chispa: el que decide cuándo arde es el combustible --
+    setMode('retardo');
+    {
+      const c=cfgDe('retardo'), P=MAQ[c.mk];
+      const S4=FUEL_KEYS.map(fk=>({fk,s:simT({mk:c.mk,r:c.r,soi:c.soi,pIny:c.pIny,fk})}));
+      const ruid=S4.slice().sort((x,y)=>y.s.dpMax-x.s.dpMax);
+      const A=ruid[0], Z=ruid[ruid.length-1];
+      showToast('⏱️ <b>Aquí no hay chispa.</b> La tobera abre a '+gra(c.soi)+' antes del PMS, pero '+
+        'nada arde hasta que el aire está lo bastante caliente. El banco pide la dosis en ENERGÍA '+
+        '('+f0(P.Qdem)+' J por ciclo y cilindro), así que los cuatro combustibles entregan el mismo '+
+        'calor y sólo cambian en el número de cetano. Con '+FCOR[A.fk]+' (CN '+f0(FUEL[A.fk].cn)+
+        ') el retardo es '+ms(A.s.tRet)+' ms —'+gra(A.s.thRet)+' de cigüeñal— y para cuando prende '+
+        'ya hay dentro el '+pc1(A.s.beta)+' de la dosis sin quemar: se va de golpe y el gradiente '+
+        'llega a '+fN(A.s.dpMax,2)+' bar/°. Con '+FCOR[Z.fk]+' (CN '+f0(FUEL[Z.fk].cn)+
+        ') el retardo baja a '+gra(Z.s.thRet)+', la premezcla a '+pc1(Z.s.beta)+' y el gradiente a '+
+        fN(Z.s.dpMax,2)+' bar/° — con MÁS masa inyectada ('+mg(Z.s.mComb)+' mg contra '+
+        mg(A.s.mComb)+'), porque su poder calorífico es menor. Más cetano no es más energía: es '+
+        'encender antes.');
+    }
+    await sleep(6200);
+
+    // --- 3. el riel: la raíz contra la línea recta ----------------------
+    setMode('riel');
+    {
+      const c=cfgDe('riel'), sw=sweepP(c);
+      const a=sw[0], z=sw[sw.length-1];
+      const raiz=Math.sqrt((z.pIny*1e5-z.pSoi)/(a.pIny*1e5-a.pSoi));
+      showToast('🛢️ <b>Sube el riel de '+f0(a.pIny)+' a '+f0(z.pIny)+' bar.</b> El caudal por la '+
+        'tobera NO se multiplica por '+f2(z.pIny/a.pIny)+': se multiplica por '+f4(z.mdot/a.mdot)+
+        ', que es exactamente la raíz del cociente de saltos de presión ('+f4(raiz)+
+        '), porque Bernoulli manda. Aun así gana: la inyección se acorta de '+gra(a.thIny)+' a '+
+        gra(z.thIny)+', el 90 % de la masa acaba de arder en '+gra(z.ca90)+' en vez de '+
+        gra(a.ca90)+', y la penalización por quemado tardío pasa de ×'+f4(a.penTarde)+' a ×'+
+        f4(z.penTarde)+'. Lo que sí crece en línea recta es lo que cobra la bomba: de '+
+        f3(a.fmepIny)+' a '+f3(z.fmepIny)+' bar. Saldo al freno: '+pc2(a.etaB)+' → '+pc2(z.etaB)+
+        '. Y fíjate en lo que NO cambia: el retardo es '+gra(a.thRet)+' a '+f0(a.pIny)+' bar y '+
+        gra(z.thRet)+' a '+f0(z.pIny)+' bar. Mientras no hay llama la tobera no calienta el aire, '+
+        'así que el instante en que prende lo sigue eligiendo el combustible.');
+    }
+    await sleep(6200);
+
+    // --- 4. frío: calentar el aire ANTES de comprimirlo ------------------
+    aplicaMaquina('tractor');
+    ST.r=opcionesR('tractor').slice(-1)[0]; ST.pIny=opcionesP('tractor').slice(-1)[0]; ST.fk='uba';
+    setMode('frio');
+    {
+      const c=cfgDe('frio'), P=MAQ[c.mk], A=CUR.arr, mult=Math.pow(A.rEf,A.n-1);
+      showToast('❄️ <b>'+P.nom+': rejilla de admisión.</b> Se homologa a '+f0(P.Thom)+
+        ' °C. La rejilla calienta el AIRE antes de comprimirlo, y ahí está el truco: aporta '+
+        f1(A.dRej)+' K en el colector, pero la compresión los multiplica por r_ef^(n−1) = '+
+        f3(mult)+', así que en el punto muerto superior valen '+f1(A.dRej*mult)+' K. Ojo con la n: '+
+        'girando a '+f0(A.rpm)+' rpm de arrastre y con las paredes heladas la compresión NO es '+
+        'adiabática, el motor declara n = '+f4(A.n)+' y no γ = '+f1(G_FRIO)+' (con γ saldrían '+
+        f1(A.dRej*Math.pow(A.rEf,G_FRIO-1))+' K: '+f1(A.dRej*Math.pow(A.rEf,G_FRIO-1)-A.dRej*mult)+
+        ' K de regalo que no existen). Se llega a '+f0(A.TtdcEf)+' K contra los '+f0(A.Tai)+
+        ' K que pide el '+FUEL[c.fk].nom+', o sea '+f0(A.margen)+' K de margen térmico.');
+    }
+    await sleep(6200);
+
+    // --- 5. frío: la otra puerta no se abre con calor -------------------
+    aplicaMaquina('urbano');
+    ST.r=opcionesR('urbano').slice(-1)[0]; ST.pIny=opcionesP('urbano').slice(-1)[0]; ST.fk='agricola';
+    afterEdit();
+    {
+      const c=cfgDe('frio'), P=MAQ[c.mk], F=FUEL[c.fk], A=CUR.arr;
+      showToast('🧊 <b>'+P.nom+': bujías incandescentes… y aun así no arranca.</b> La bujía calienta '+
+        'la CÁMARA, ya al final de la carrera, así que sus '+f1(A.dBuj)+
+        ' K se suman tal cual y no los multiplica nadie. Térmicamente sobra: '+f0(A.TtdcEf)+
+        ' K contra '+f0(A.Tai)+' K de umbral, '+f0(A.margen)+' K de sobra. Pero se homologa a '+
+        f0(P.Thom)+' °C y el '+F.nom+' gelifica a '+f0(F.cfpp)+' °C: el ambiente está '+
+        f0(F.cfpp-P.Thom)+' K POR DEBAJO de su punto de obstrucción, la parafina ya ha cristalizado '+
+        'y el gasóleo no atraviesa el filtro. La cámara puede estar al rojo; si el combustible no '+
+        'llega, no hay arranque. El '+FUEL.uba.nom+' obstruye a '+f0(FUEL.uba.cfpp)+' °C y deja '+
+        f0(P.Thom-FUEL.uba.cfpp)+' K de holgura a esa misma temperatura: ése sí fluye. Son dos '+
+        'puertas y hay que pasar las dos.');
+    }
+    await sleep(6200);
+
+    // --- 6. el censo: quién decide de verdad ---------------------------
+    aplicaMaquina('camioneta');
+    ST.r=opcionesR('camioneta')[0]; ST.pIny=opcionesP('camioneta').slice(-1)[0]; ST.fk='uba';
+    setMode('censo');
+    {
+      const c=cfgDe('censo'), P=MAQ[c.mk], C=censoM(c.mk), B=barM(c.mk);
+      const peor=CRIT.slice().sort((x,y)=>C.tot[y]-C.tot[x])[0];
+      const dec=CRIT.slice().sort((x,y)=>C.solo[y]-C.solo[x])[0];
+      const noArr=B.filter(s=>!s.okFrio);
+      const gel=noArr.filter(s=>!s.arr.okFluido).length;
+      const ter=noArr.filter(s=>s.arr.okFluido&&!s.arr.okTermico).length;
+      showToast('📊 <b>Las '+f0(C.n)+' calibraciones montables de '+P.nom+', por el pliego.</b> '+
+        'Sobreviven '+f0(C.validas)+'. El criterio con más bajas es «'+CRIT_ROT[peor]+'» ('+
+        f0(C.tot[peor])+'), pero esa columna engaña porque casi nunca falla solo; el que de verdad '+
+        'decide es «'+CRIT_ROT[dec]+'», que tumba '+f0(C.solo[dec])+' configuraciones a las que no '+
+        'les pasaba nada más. Y mira de qué muere el arranque a '+f0(P.Thom)+' °C: de las '+
+        f0(noArr.length)+' que no arrancan, gelificadas '+f0(gel)+' y cortas de temperatura '+
+        f0(ter)+'. No es un problema de compresión: es de surtidor.');
+    }
+    await sleep(6200);
+
+    // --- 7. el encargo -------------------------------------------------
+    RETO.cfg.mk='marino'; retoSolveBuild();
+    setMode('reto');
+    {
+      const P=MAQ[RETO.cfg.mk], s=RETO.sol, F=FUEL[s.fuel];
+      showToast('🎯 <b>El encargo.</b> De las '+f0(RETO.nval)+' calibraciones que pasan el pliego '+
+        'en el '+P.nom+', la más barata de ALIMENTAR durante '+f0(ANIOS)+' años. El servicio son '+
+        f0(P.wAnio)+' kWh/año al freno; con '+pc1(s.etaB)+' de rendimiento eso son '+fin(s.bsfc,1)+
+        ' g/kWh de '+F.nom+' a '+f2(F.precio)+' €/L, o sea '+fin(s.coste5,0)+' € de combustible. Un '+
+        'punto de rendimiento aquí no es un punto: son '+f0(ANIOS)+' años de facturas.');
+    }
+    await sleep(6000);
+
+    // --- 8. la que más rinde no se puede firmar -------------------------
+    {
+      const mk=RETO.cfg.mk, s=RETO.sol;
+      const mejor=barM(mk).slice().sort((x,y)=>y.etaB-x.etaB)[0];
+      const fal=fallosDe(mejor);
+      RETO.ejes={mk,r:mejor.r,soi:mejor.soi,pIny:mejor.pIny,fk:mejor.fuel};
+      RETO.msg=''; RETO.resuelto=false; afterEdit();
+      showToast('🏁 <b>La que más rinde.</b> De las '+f0(barM(mk).length)+
+        ' montables, la de mayor rendimiento al freno es r = '+f0(mejor.r)+' · SOI '+gra(mejor.soi)+
+        ' · riel '+f0(mejor.pIny)+' bar con '+FCOR[mejor.fuel]+': '+pc2(mejor.etaB)+' frente a '+
+        pc2(s.etaB)+' de la aceptada más barata, y encima '+fin(s.coste5-mejor.coste5,0)+
+        ' € más barata de alimentar. Suena a ganga. Entrégala y que conteste el pliego: falla por '+
+        fal.map(k=>CRIT_COR[k]).join(' y ')+'.');
+      await sleep(2600);
+      checkReto();
+    }
+    await sleep(6200);
+
+    // --- 9. la que sí se firma -----------------------------------------
+    {
+      const mk=RETO.cfg.mk, s=RETO.sol;
+      const mejor=barM(mk).slice().sort((x,y)=>y.etaB-x.etaB)[0];
+      RETO.ejes={mk,r:s.r,soi:s.soi,pIny:s.pIny,fk:s.fuel};
+      RETO.msg=''; RETO.resuelto=false; afterEdit();
+      showToast('✍️ <b>Un punto menos de relación de compresión.</b> De r = '+f0(mejor.r)+' a r = '+
+        f0(s.r)+', con el mismo avance y el mismo riel: el gradiente cae de '+fN(mejor.dpMax,2)+
+        ' a '+fN(s.dpMax,2)+' bar/° y entra bajo el límite de '+fN(MAQ[mk].dpLim,1)+
+        '. Se pagan '+pc2(mejor.etaB-s.etaB)+' de rendimiento y '+fin(s.coste5-mejor.coste5,0)+
+        ' € en '+f0(ANIOS)+' años. Ése es el precio de poder firmar.');
+      await sleep(2600);
+      checkReto();
+    }
+    await sleep(6000);
+    answer(quizCorrectIndex());
+  } finally {
+    autoRunning=false;
+    el('btnAuto').textContent=rot;
+    buildControls();
+  }
+}
+// ===================== 18. ANIMACIÓN, EVENTOS Y ARRANQUE =====================
+// El 3D se repinta en cada cuadro porque el pistón, el chorro, el color del gas y
+// la aguja del manómetro van sobre la traza del ciclo; la telemetría viva se
+// refresca a ~12 Hz, que es de sobra para leerla y evita rehacer el HTML del
+// panel sesenta veces por segundo.
+let liveT=0;
+S.setAnimate(dt=>{
+  animT+=dt;
+  pinta3D();
+  liveT+=dt;
+  if(liveT>=0.08){ liveT=0; updateLive(); }
+});
+
+MODES.forEach(m=>{ el('m_'+m).onclick=()=>{ if(!autoRunning) setMode(m); }; });
+el('btnAuto').onclick=()=>{ if(!autoRunning) runAuto(); };
+el('btnNew').onclick=()=>{ if(autoRunning) return; newSignal(); };
+el('btnCheck').onclick=()=>{ if(autoRunning) return; checkReto(); };
+// El botón de sonido viene en la plantilla del laboratorio y siempre está.
+const soundBtn=el('soundBtn');
+soundBtn.onclick=()=>{
+  synth.toggle();
+  const on=synth.isOn();
+  soundBtn.textContent=on?'🔊':'🔇';
+  soundBtn.classList.toggle('on',on);
+};
+// Los navegadores no dejan sonar nada hasta que el usuario toca la página.
+document.addEventListener('pointerdown',()=>{ synth.init(); synth.resume(); },{once:true});
+
+// Primero el modo —que es quien calcula CUR y arma el pizarrón— y después el
+// bucle de dibujo: pinta3D() lee la traza del ciclo vigente y no puede correr
+// con CUR todavía a null.
+setMode('ciclo');
+S.start();
+
+// ===================== 19. PUENTE DE PRUEBAS =====================
+// Todo lo que la Capa 2 necesita para comprobar en un navegador de verdad que lo
+// que se ve en pantalla es exactamente lo que calculó el motor sellado: las
+// constantes del dominio, el motor entero, las derivaciones que hace este cuerpo
+// (barM/censoM/solM/valM/pisM) para contrastarlas contra barrido/censo/solucion/
+// validas/pistas, el estado vivo, los equivalentes de cada botón y el recorrido.
+window.__labDebug={
+  // --- modos
+  mode:()=>mode, setMode, modes:()=>MODES.slice(), modeMeta:()=>MODE_META,
+  // --- constantes del dominio
+  R_GAS, P_ATM, CP_FRIO, CV_FRIO, G_FRIO, DEG, H_PASO, TH_IVC, TH_EVO,
+  C1_WOS, C2_WOS, N_MOT, K_PORT, ETA_COMB, AFR_ST, LAM_HUMO,
+  HH_A, HH_B, HH_EA, HH_CN0, R_MOL, HH_TREF, HH_P0, HH_PC, HH_PMIN, HH_EXMX,
+  A_PREM, A_DIF, M_PREM, M_DIF, D_P0, D_P1, K_SPR, D_MIX, K_PREM,
+  BETA_MIN, BETA_MAX, TH_TARDE, K_TARDE, CF_A, CF_B, CF_C, CF_D,
+  K_FUGA, ETA_BOM, N_HI, DN_ARR, RPM_ARR, B_REF, TAI_0, TAI_K, TAI_CN0, ANIOS,
+  R_G, SOI_G, PINY_G, T_G, NPTS, NMEC, NPM, PER3D, ESC3,
+  // --- catálogo, pliego y rótulos
+  FUEL, FUEL_KEYS, MAQ, MAQ_KEYS, CRIT, CRIT_ROT, CRIT_COR, CALENT_ROT,
+  ICONO, ROT, FCOR, FCOL, EJE_ROT, PIS_EJE, SERV,
+  // --- motor sellado
+  cpAire, gammaAire, gammaQuem, gammaMez, cv:cvGas, geom, vol, dvol, area,
+  tauHH, wiebeP, dwiebeP, wiebeD, dwiebeD, mdotIny,
+  etaOttoId, etaDieselId, etaDualId, cicloIdeal, nArrastre, tAutoenc, arranque,
+  sim, opcionesR, opcionesP, barrido, censo, solucion, validas, pistas,
+  // --- derivaciones de este cuerpo (deben coincidir con las del motor)
+  simT, barM, censoM, solM, valM, pisM, empM, pliegoFilas, fallosDe, construible,
+  sweepR, sweepS, sweepP, sweepSF, arrR, arrT,
+  // --- estado vivo
+  st:()=>({...ST}), cur:()=>CUR, cfg:()=>cfgDe(mode), cfgDe,
+  frame:()=>FR, idxFR, maq:()=>maqAct(),
+  reto:()=>({cfg:{...RETO.cfg}, ejes:{...RETO.ejes}, sol:RETO.sol, nval:RETO.nval,
+             resuelto:RETO.resuelto, msg:RETO.msg, pistas:{...RETO.pistas}}),
+  // --- setters equivalentes a los botones de la barra
+  setMaquina:v=>{ aplicaMaquina(v); afterEdit(); },
+  setR:v=>{ ST.r=Number(v); afterEdit(); },
+  setSoi:v=>{ ST.soi=Number(v); afterEdit(); },
+  setPiny:v=>{ ST.pIny=Number(v); afterEdit(); },
+  setFuel:v=>{ ST.fk=v; afterEdit(); },
+  setST:(mk,r,soi,pIny,fk)=>{ aplicaMaquina(mk);
+    ST.r=Number(r); ST.soi=Number(soi); ST.pIny=Number(pIny); ST.fk=fk; afterEdit(); },
+  newSignal,
+  // --- reto
+  setRetoMaquina:v=>{ RETO.cfg.mk=v; retoSolveBuild(); afterEdit(); },
+  setRetoR:v=>{ RETO.ejes.r=Number(v); RETO.msg=''; RETO.resuelto=false; afterEdit(); },
+  setRetoSoi:v=>{ RETO.ejes.soi=Number(v); RETO.msg=''; RETO.resuelto=false; afterEdit(); },
+  setRetoPiny:v=>{ RETO.ejes.pIny=Number(v); RETO.msg=''; RETO.resuelto=false; afterEdit(); },
+  setRetoFuel:v=>{ RETO.ejes.fk=v; RETO.msg=''; RETO.resuelto=false; afterEdit(); },
+  setReto:(r,soi,pIny,fk)=>{ RETO.ejes={mk:RETO.cfg.mk,r:Number(r),soi:Number(soi),
+    pIny:Number(pIny),fk}; RETO.msg=''; RETO.resuelto=false; afterEdit(); },
+  check:()=>checkReto(), pista:()=>pista(), retoSolveBuild,
+  solved:()=>solved,
+  // --- cuestionario
+  quizCorrectIndex, answer, quiz:()=>QUIZ[mode], qorden:()=>QORD.slice(),
+  // --- etiquetas de selección
+  pickKeys:()=>Object.keys(PICK_INFO), pick:k=>(PICK_INFO[k]?PICK_INFO[k]():null),
+  boardClick,
+  // --- formato y recorrido
+  fN, f0, f1, f2, f3, f4, pc1, pc2, pcm, fin, bar, cm3, gra, mg, ms,
+  runAuto, autoRunning:()=>autoRunning,
+};
+
+// __END__
