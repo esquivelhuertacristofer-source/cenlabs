@@ -146,6 +146,25 @@ describe('hub de mecánica — pestañas por módulo', () => {
     expect(idsPintados().length).toBeGreaterThan(0);
   });
 
+  it('las nueve pestañas caben en pantalla: se envuelven, no se ocultan tras un scroll', () => {
+    // Regresión real: la barra se copió de matemáticas, que tiene tres módulos y
+    // siempre caben, y venía con `overflow-x-auto` + `no-scrollbar`. Con nueve
+    // pestañas no caben en ningún ancho, y sin barra de scroll visible (la rueda
+    // del ratón no desplaza en horizontal) las últimas eran INALCANZABLES.
+    //
+    // jsdom no calcula diseño, así que no se puede medir el desbordamiento: lo
+    // que se comprueba es que el contenedor sigue siendo de los que envuelven y
+    // no de los que recortan. Es una comprobación de clases, no de píxeles.
+    montar();
+    const barra = pestana(MODULOS[0])!.parentElement!;
+
+    expect(barra.className).toContain('flex-wrap');
+    expect(barra.className).not.toContain('overflow-x-auto');
+    expect(barra.className).not.toContain('no-scrollbar');
+    // Y las nueve están en esa misma barra, no repartidas ni recortadas.
+    expect(barra.querySelectorAll('button')).toHaveLength(MODULOS.length);
+  });
+
   it('llegar con ?id= abre la pestaña que contiene ese lab, no la primera', () => {
     // Un lab de un módulo que NO es el que se abre por defecto: es el caso que
     // la lista plana resolvía sola y que las pestañas podrían romper en silencio.
