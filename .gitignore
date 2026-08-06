@@ -58,6 +58,10 @@ next-env.d.ts
 /scripts/piloto-config.ts
 /docs/CREDENCIALES-PILOTO-001.md
 
+# Depuración del generador de portadas (informe y PNG sin comprimir).
+# Lo que sí se commitea son los .webp de public/images/mecanica.
+/scripts/portadas/.salida/
+
 # Insumos de currículas de mecánica — currículas del cliente, no commitear
 # (se conserva solo el instructivo LEEME.md)
 /docs/curriculas-mecanica/*
