@@ -2420,7 +2420,10 @@ S.setAnimate((dt,tGlob)=>{
     p.grupo.visible=v>0.001;
     if(!p.grupo.visible) continue;
     for(let i=0;i<p.ms.length;i++){
-      p.fase[i]+=dt*v; if(p.fase[i]>=1) p.fase[i]-=1;
+      // Modulo, no una resta: si el navegador se salta fotogramas (pestaña en
+      // segundo plano, GC) dt puede valer segundos, la fase se pasa de 2 y
+      // getPointAt(u>1) revienta dentro de three, matando el bucle de dibujo.
+      p.fase[i]=(p.fase[i]+dt*v)%1;
       p.curve.getPointAt(p.fase[i],_pv);
       p.ms[i].position.copy(_pv);
     }

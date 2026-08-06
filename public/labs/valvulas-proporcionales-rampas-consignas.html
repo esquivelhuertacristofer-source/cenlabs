@@ -1607,7 +1607,9 @@ function colocaHW(dt){
     q.grupo.visible=vv>0.002;
     if(!q.grupo.visible) continue;
     for(let i=0;i<q.ms.length;i++){
-      q.fase[i]+=dt*vv; if(q.fase[i]>=1) q.fase[i]-=1;
+      // Modulo, no una resta: con dt grande (pestaña en segundo plano, GC) la fase
+      // se pasa de 1 mas de una vez y getPointAt(u>1) revienta dentro de three.
+      q.fase[i]=(q.fase[i]+dt*vv)%1;
       q.curve.getPointAt(q.fase[i],_pv);
       q.ms[i].position.copy(_pv);
     }

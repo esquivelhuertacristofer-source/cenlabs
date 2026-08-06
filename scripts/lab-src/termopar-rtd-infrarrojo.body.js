@@ -507,3 +507,4 @@ el('btnAuto').addEventListener('click', async () => {
 /* ===================== 14. Estado inicial ===================== */
 setScenario('termopar');
 setMedir(false);
+S.start();   // sin esto el bucle de render nunca arranca y el lienzo 3D se queda en negro

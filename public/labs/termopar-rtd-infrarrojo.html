@@ -918,6 +918,7 @@ el('btnAuto').addEventListener('click', async () => {
 /* ===================== 14. Estado inicial ===================== */
 setScenario('termopar');
 setMedir(false);
+S.start();   // sin esto el bucle de render nunca arranca y el lienzo 3D se queda en negro
 </script>
   <!-- Ficha técnica · Capa B del molde de lab 3D (componente compartido + contenido del lab) -->
   <script src="_ficha-tecnica.js"></script>
