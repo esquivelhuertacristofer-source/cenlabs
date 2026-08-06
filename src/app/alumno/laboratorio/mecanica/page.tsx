@@ -109,10 +109,21 @@ const SpotlightCard = ({ practica }: { practica: CatalogoItem }) => {
            </div>
         </div>
 
-        {/* Icono decorativo (mientras se generan los renders 3D) */}
-        <div className="absolute inset-y-0 right-0 w-[45%] md:w-[40%] lg:w-[35%] pointer-events-none hidden sm:flex items-center justify-center z-10">
+        {/* PORTADA: fotograma del propio simulador 3D de la práctica */}
+        <div className="absolute inset-y-0 right-0 w-[45%] md:w-[40%] lg:w-[35%] pointer-events-none hidden sm:block z-10">
+            {/* Gradiente degradado tipo máscara para fusionar el borde izquierdo de la imagen con el fondo de la ficha */}
             <div className="absolute inset-0 bg-gradient-to-r from-white dark:from-[#0A1121] via-transparent to-transparent z-10 w-full h-full"></div>
-            <Cog className="w-40 h-40 text-[#2A9D8F]/10 dark:text-[#2A9D8F]/20 group-hover:rotate-45 transition-transform duration-1000" strokeWidth={1} />
+            {/* Si un día falta la portada, mejor la ficha sin imagen que el icono de imagen rota */}
+            <img
+                src={`/images/mecanica/prac_${practica.orden}.webp`}
+                alt={`Vista del simulador 3D: ${practica.titulo}`}
+                width={720}
+                height={480}
+                loading="lazy"
+                decoding="async"
+                onError={(e) => { e.currentTarget.style.display = 'none'; }}
+                className="w-full h-full object-cover object-left md:object-center opacity-85 transition-transform duration-700 group-hover:scale-105 group-hover:opacity-100"
+            />
         </div>
     </div>
   );
