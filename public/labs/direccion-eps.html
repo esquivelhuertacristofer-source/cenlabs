@@ -108,7 +108,13 @@ function tex(canvas,repeat=1,srgb=false){
   const t=new THREE.CanvasTexture(canvas);
   t.wrapS=t.wrapT=THREE.RepeatWrapping;t.repeat.set(repeat,repeat);
   t.colorSpace = srgb?THREE.SRGBColorSpace:THREE.NoColorSpace;
-  t.generateMipmaps=false; t.minFilter=THREE.LinearFilter; t.anisotropy=1; return t;
+    // Mipmaps SI. Son mapas de ruido de 512 px sobre piezas que en pantalla ocupan
+  // decenas de pixeles: sin cadena de mipmaps cada pixel muestrea un texel suelto
+  // y, en el normalMap, la normal salta de pixel a pixel. El especular estalla en
+  // puntos blancos que ademas nadan al orbitar la camara. three recorta la
+  // anisotropia contra el maximo del dispositivo, asi que 8 es seguro en cualquier GPU.
+  t.generateMipmaps=true; t.minFilter=THREE.LinearMipmapLinearFilter;
+  t.magFilter=THREE.LinearFilter; t.anisotropy=8; return t;
 }
 // build a normal map from a height function h(x,y)->0..1
 function normalFromHeight(size, hfn, strength=2.0){
@@ -316,7 +322,7 @@ function createStage(mount, opts={}){
   // reflective showroom floor
   if(opts.floor!==false){
     const f = new THREE.Mesh(new THREE.CircleGeometry(40,80),
-      new THREE.MeshStandardMaterial({ color:0x0a0e13, roughness:0.14, metalness:0.62, envMapIntensity:1.15 }));
+      new THREE.MeshStandardMaterial({ color:0x0a0e13, roughness:0.26, metalness:0.62, envMapIntensity:1.15 }));
     f.rotation.x=-Math.PI/2; f.receiveShadow=true; scene.add(f);
     for(let r=2;r<=8;r+=2){
       const ring=new THREE.Mesh(new THREE.RingGeometry(r-0.012,r+0.012,80),

@@ -209,7 +209,13 @@ function tex(canvas,repeat=1,srgb=false){
   // Sin mipmaps: en algunos GL/webview (p.ej. Antigravity) generateMipmap sobre una textura
   // de <canvas> deja la textura "incompleta" y se muestrea NEGRA. Como en los metales el map
   // define F0, esas piezas salían como fichas negras. LinearFilter conserva todo el detalle.
-  t.generateMipmaps=false; t.minFilter=THREE.LinearFilter; t.anisotropy=1; return t;
+    // Mipmaps SI. Son mapas de ruido de 512 px sobre piezas que en pantalla ocupan
+  // decenas de pixeles: sin cadena de mipmaps cada pixel muestrea un texel suelto
+  // y, en el normalMap, la normal salta de pixel a pixel. El especular estalla en
+  // puntos blancos que ademas nadan al orbitar la camara. three recorta la
+  // anisotropia contra el maximo del dispositivo, asi que 8 es seguro en cualquier GPU.
+  t.generateMipmaps=true; t.minFilter=THREE.LinearMipmapLinearFilter;
+  t.magFilter=THREE.LinearFilter; t.anisotropy=8; return t;
 }
 // build a normal map from a height function h(x,y)->0..1
 function normalFromHeight(size, hfn, strength=2.0){
@@ -417,7 +423,18 @@ const lightMode=/[?&]light/.test(location.search);
   const _isMobile=/Mobi|Android|iPhone|iPad/i.test(navigator.userAgent)||innerWidth<860;
   if(!lightMode&&!_isMobile){
     const mirror=new Reflector(new THREE.CircleGeometry(40,80),{clipBias:0.003,textureWidth:innerWidth*Math.min(devicePixelRatio,2),textureHeight:innerHeight*Math.min(devicePixelRatio,2),color:0x0a0a0a});
-    mirror.rotation.x=-Math.PI/2;scene.add(mirror);
+    mirror.rotation.x=-Math.PI/2;
+    // El Reflector dibuja en un destino HalfFloat: el reflejo llega en HDR, sin recorte,
+    // y blendOverlay solo esta definido en [0,1]. Con base>1 su rama alta
+    // 1-2*(1-base)*(1-tinte) cambia de signo y AMPLIFICA en vez de atenuar, asi que el
+    // tinte oscuro del espejo no frenaba nada. Medido orbitando en motor-electrico:
+    // 2,114 % del lienzo recortado a blanco puro, un fogonazo que se tragaba el rotor.
+    // Recortando el reflejo a 1 antes de mezclar baja a 0,083 %, exactamente lo mismo
+    // que se mide ocultando el espejo entero: ese resto es brillo de la propia pieza.
+    // Si three cambiara el shader, el replace no encuentra el ancla y no hace nada.
+    mirror.material.fragmentShader = mirror.material.fragmentShader.replace(
+      'blendOverlay( base.rgb, color )', 'blendOverlay( min( base.rgb, vec3( 1.0 ) ), color )');
+    scene.add(mirror);
   } else {
     const flat=new THREE.Mesh(new THREE.CircleGeometry(40,80),new THREE.MeshStandardMaterial({color:0x0a0a0a,roughness:0.2,metalness:0.6}));
     flat.rotation.x=-Math.PI/2;flat.receiveShadow=true;scene.add(flat);

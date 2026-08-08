@@ -121,7 +121,13 @@ function tex(canvas,repeat=1,srgb=false){
   const t=new THREE.CanvasTexture(canvas);
   t.wrapS=t.wrapT=THREE.RepeatWrapping;t.repeat.set(repeat,repeat);
   t.colorSpace = srgb?THREE.SRGBColorSpace:THREE.NoColorSpace;
-  t.generateMipmaps=false; t.minFilter=THREE.LinearFilter; t.anisotropy=1; return t;
+    // Mipmaps SI. Son mapas de ruido de 512 px sobre piezas que en pantalla ocupan
+  // decenas de pixeles: sin cadena de mipmaps cada pixel muestrea un texel suelto
+  // y, en el normalMap, la normal salta de pixel a pixel. El especular estalla en
+  // puntos blancos que ademas nadan al orbitar la camara. three recorta la
+  // anisotropia contra el maximo del dispositivo, asi que 8 es seguro en cualquier GPU.
+  t.generateMipmaps=true; t.minFilter=THREE.LinearMipmapLinearFilter;
+  t.magFilter=THREE.LinearFilter; t.anisotropy=8; return t;
 }
 function normalFromHeight(size, hfn, strength=2.0){
   const c=cv(size),ctx=c.getContext('2d'),img=ctx.createImageData(size,size);
@@ -263,7 +269,7 @@ function createStage(mount, opts={}){
 
   if(opts.floor!==false){
     const f = new THREE.Mesh(new THREE.CircleGeometry(40,80),
-      new THREE.MeshStandardMaterial({ color:0x0a0e13, roughness:0.14, metalness:0.62, envMapIntensity:1.15 }));
+      new THREE.MeshStandardMaterial({ color:0x0a0e13, roughness:0.26, metalness:0.62, envMapIntensity:1.15 }));
     f.rotation.x=-Math.PI/2; f.receiveShadow=true; scene.add(f);
     for(let r=2;r<=8;r+=2){
       const ring=new THREE.Mesh(new THREE.RingGeometry(r-0.012,r+0.012,80),
@@ -366,7 +372,9 @@ function labelSprite(text,color='#ffd166'){
   rr(3,3,w-6,90,18);c.fill();
   c.strokeStyle=color;c.lineWidth=3;c.stroke();
   c.font='bold 36px Outfit, system-ui, sans-serif';c.fillStyle=color;c.textAlign='center';c.textBaseline='middle';c.fillText(text,w/2,48);
-  const tx=new THREE.CanvasTexture(cvE);tx.colorSpace=THREE.SRGBColorSpace;tx.generateMipmaps=false;tx.minFilter=THREE.LinearFilter;
+  const tx=new THREE.CanvasTexture(cvE);tx.colorSpace=THREE.SRGBColorSpace;
+    // El rotulo se lee de lejos y en escorzo: sin mipmaps el texto centellea igual que el metal.
+    tx.generateMipmaps=true;tx.minFilter=THREE.LinearMipmapLinearFilter;tx.magFilter=THREE.LinearFilter;tx.anisotropy=8;
   const sp=new THREE.Sprite(new THREE.SpriteMaterial({map:tx,depthTest:false,transparent:true}));
   const aspect=w/96;
   sp.scale.set(0.30*aspect,0.30,1);sp.renderOrder=999;return sp;
