@@ -1,0 +1,3028 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>CEN Labs · Sincronización de la distribución y puesta a punto — Laboratorio 3D</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#08201C;--panel:rgba(9,26,23,.86);--line:#1E3A34;--ink:#EAF4F1;
+    --dim:#8FB3AC;--accent:#2A9D8F;--accent2:#4FD1C5;--hv:#FFB703;--good:#34d399;--bad:#f4475e;
+    --mono:'Outfit',system-ui,'Segoe UI',Roboto,sans-serif;--disp:'Outfit','Arial Black',Impact,sans-serif;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  html,body{height:100%;background:var(--bg);color:var(--ink);font-family:'Outfit',system-ui,Segoe UI,Roboto,sans-serif}
+  body{overflow:hidden}
+  #stage{position:fixed;inset:0}
+  canvas{display:block;touch-action:none}
+
+  .topbar{position:fixed;top:0;left:0;right:0;height:56px;display:flex;align-items:center;gap:14px;padding:0 20px;z-index:20;background:linear-gradient(180deg,rgba(10,13,18,.92),transparent);pointer-events:none}
+  .brand{font-family:var(--disp);font-weight:bold;font-size:16px;text-transform:uppercase}
+  .brand span{color:var(--accent)}
+  .lt{font-family:var(--mono);font-size:11px;letter-spacing:.1em;text-transform:uppercase;color:var(--dim)}
+
+  .badge{position:fixed;top:16px;right:20px;z-index:20;font-family:var(--mono);font-size:9px;letter-spacing:.12em;text-transform:uppercase;background:rgba(255,209,102,.12);color:var(--hv);border:1px solid rgba(255,209,102,.35);padding:6px 12px;border-radius:20px}
+
+  .hud{position:fixed;top:70px;left:18px;z-index:15;max-width:330px;background:var(--panel);backdrop-filter:blur(14px);border:1px solid var(--line);border-radius:16px;padding:18px 20px;max-height:calc(100vh - 150px);overflow-y:auto}
+  .hud .eyebrow{font-family:var(--mono);font-size:10px;letter-spacing:.18em;text-transform:uppercase;color:var(--accent);margin-bottom:8px}
+  .hud h2{font-size:19px;line-height:1.15;margin-bottom:9px}
+  .hud p{font-size:13px;line-height:1.55;color:var(--dim);margin-bottom:10px}
+  .hud .formula{font-family:var(--mono);color:var(--accent2);text-align:center;font-size:12.5px;margin:8px 0;padding:8px;background:rgba(0,0,0,.25);border-radius:8px;line-height:1.5}
+  .hud .src{font-size:10.5px;color:#7a8894;font-style:italic;margin-top:4px;line-height:1.5}
+  .legend{display:flex;flex-direction:column;gap:6px;margin:12px 0;padding:10px 12px;background:rgba(0,0,0,.22);border-radius:10px}
+  .legend .li{display:flex;align-items:center;gap:8px;font-size:11px;color:#c4d0da}
+  .legend .dot{width:10px;height:10px;border-radius:50%;flex:0 0 auto}
+  .fid{margin:10px 0 2px;padding:10px 12px;background:rgba(0,0,0,.22);border-radius:10px;border:1px solid rgba(79,209,197,.18)}
+  .fid .ft{font-family:var(--mono);font-size:9.5px;letter-spacing:.14em;text-transform:uppercase;color:var(--accent2);margin-bottom:6px}
+  .fid .fl{font-size:11px;color:#c4d0da;line-height:1.5;margin-bottom:5px}
+  .fid .fl b{color:var(--ink)}
+  .fid .fl.no b{color:var(--hv)}
+
+  .panel{position:fixed;top:70px;right:18px;z-index:15;width:262px;background:var(--panel);backdrop-filter:blur(14px);border:1px solid var(--line);border-radius:16px;padding:16px;max-height:calc(100vh - 150px);overflow-y:auto}
+  .panel h4{font-family:var(--mono);font-size:10px;letter-spacing:.14em;text-transform:uppercase;color:var(--dim);margin:2px 0 10px}
+  .panel h4.sec{margin-top:16px;border-top:1px solid var(--line);padding-top:14px}
+  .g{margin-bottom:6px}
+  .gl{display:flex;justify-content:space-between;font-family:var(--mono);font-size:11px;color:var(--dim)}
+  .gl b{color:var(--accent2)}
+  .gl b.good{color:var(--good)}.gl b.warn{color:var(--hv)}.gl b.bad{color:var(--bad)}
+  .modebar{display:flex;gap:5px;margin-bottom:8px}
+  .modebar .b{flex:1;padding:8px 4px;font-size:11px}
+  .btns{display:flex;flex-direction:column;gap:7px;margin-top:6px}
+  .b{font-family:system-ui;font-size:12.5px;padding:10px;border-radius:9px;cursor:pointer;border:1px solid var(--line);background:#1b242f;color:var(--ink);transition:.15s;text-align:center}
+  .b:hover{border-color:var(--accent);background:#202c38}
+  .b.on{background:var(--accent);color:#06120f;border-color:var(--accent);font-weight:bold}
+  .b.primary{background:var(--accent);color:#06120f;border-color:var(--accent);font-weight:bold}
+  .b.auto{border-color:var(--hv);color:var(--hv);background:rgba(255,183,3,.10);font-weight:bold}
+  .b.auto:hover{background:rgba(255,183,3,.18);border-color:var(--hv)}
+  .b.auto:disabled{opacity:.6;cursor:default}
+  .b.dx{text-align:left;font-size:12px}
+  .b.dx.right{background:rgba(52,211,153,.18);border-color:var(--good);color:var(--good);font-weight:bold}
+  .b.dx.wrong{background:rgba(244,71,94,.15);border-color:var(--bad);color:var(--bad)}
+  .console{font-family:var(--mono);font-size:11px;line-height:1.55;color:#c4d0da;background:rgba(0,0,0,.28);border-radius:9px;padding:10px 12px;margin-bottom:8px;min-height:56px}
+  .console .dtc{color:var(--bad);font-weight:bold}
+  .console .ok{color:var(--good)}
+  .console .mono{color:var(--dim)}
+
+  .hint{position:fixed;bottom:18px;left:18px;z-index:14;font-family:var(--mono);font-size:10px;color:var(--dim);background:var(--panel);padding:7px 12px;border-radius:9px;border:1px solid var(--line)}
+  .toast{position:fixed;top:80px;left:50%;transform:translateX(-50%);z-index:30;background:rgba(18,24,32,.95);border:1px solid var(--accent);padding:10px 20px;border-radius:40px;font-family:var(--mono);font-size:12px;opacity:0;transition:.3s;pointer-events:none;max-width:80vw;text-align:center}
+  .toast.show{opacity:1}
+  .soundBtn{position:fixed;top:14px;right:18px;z-index:21;font-size:16px;background:var(--panel);backdrop-filter:blur(12px);border:1px solid var(--line);border-radius:50%;width:36px;height:36px;cursor:pointer;color:var(--dim);transition:.15s}
+  .soundBtn.on{color:var(--accent);border-color:var(--accent)}
+  .soundBtn:hover{transform:scale(1.08)}
+  .inspectHint{position:fixed;bottom:18px;right:18px;z-index:14;font-family:var(--mono);font-size:10px;color:var(--accent2);background:var(--panel);padding:7px 12px;border-radius:9px;border:1px solid var(--line)}
+
+  @media(max-width:820px){
+    .hud,.panel{position:fixed;left:8px;right:8px;top:auto;bottom:8px;max-width:none;width:auto;max-height:42vh;overflow-y:auto}
+    .hud{bottom:calc(8px + 42vh + 8px)}
+    .hint,.inspectHint{display:none}
+  }
+</style>
+</head>
+<body>
+<div id="stage"></div>
+<button class="soundBtn on" id="soundBtn">🔊</button>
+<div class="topbar">
+  <div class="brand">CEN<span> Labs</span></div>
+  <div class="lt">Motor de combustión interna · Mecánica</div>
+</div>
+<div class="hud" id="hud"></div>
+<div class="panel" id="panel"></div>
+<div class="hint">Arrastra para orbitar · rueda para zoom</div>
+<div class="inspectHint">👆 Toca cualquier pieza del banco para tomarla y su hueco luminoso para montarla; con el tren armado, toca el bloque, el cigüeñal, el pistón, la culata, las válvulas, el árbol de levas o la correa para ver qué decide cada una</div>
+<div class="toast" id="toast"></div>
+
+<script type="importmap">
+{ "imports": {
+  "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.min.js",
+  "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/"
+}}
+</script>
+<script type="module">
+import * as THREE from 'three';
+import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
+import { RoundedBoxGeometry } from 'three/addons/geometries/RoundedBoxGeometry.js';
+import { EffectComposer } from 'three/addons/postprocessing/EffectComposer.js';
+import { RenderPass } from 'three/addons/postprocessing/RenderPass.js';
+import { GTAOPass } from 'three/addons/postprocessing/GTAOPass.js';
+import { UnrealBloomPass } from 'three/addons/postprocessing/UnrealBloomPass.js';
+import { SMAAPass } from 'three/addons/postprocessing/SMAAPass.js';
+import { OutputPass } from 'three/addons/postprocessing/OutputPass.js';
+import { BokehPass } from 'three/addons/postprocessing/BokehPass.js';
+
+/* ============================================================
+   Texturas PBR procedurales (sin archivos externos) — compartidas
+   ============================================================ */
+function cv(s=512){const c=document.createElement('canvas');c.width=c.height=s;return c;}
+function tex(canvas,repeat=1,srgb=false){
+  const t=new THREE.CanvasTexture(canvas);
+  t.wrapS=t.wrapT=THREE.RepeatWrapping;t.repeat.set(repeat,repeat);
+  t.colorSpace = srgb?THREE.SRGBColorSpace:THREE.NoColorSpace;
+    // Mipmaps SI. Son mapas de ruido de 512 px sobre piezas que en pantalla ocupan
+  // decenas de pixeles: sin cadena de mipmaps cada pixel muestrea un texel suelto
+  // y, en el normalMap, la normal salta de pixel a pixel. El especular estalla en
+  // puntos blancos que ademas nadan al orbitar la camara. three recorta la
+  // anisotropia contra el maximo del dispositivo, asi que 8 es seguro en cualquier GPU.
+  t.generateMipmaps=true; t.minFilter=THREE.LinearMipmapLinearFilter;
+  t.magFilter=THREE.LinearFilter; t.anisotropy=8; return t;
+}
+function normalFromHeight(size, hfn, strength=2.0){
+  const c=cv(size),ctx=c.getContext('2d'),img=ctx.createImageData(size,size);
+  const H=(x,y)=>hfn((x+size)%size,(y+size)%size);
+  for(let y=0;y<size;y++)for(let x=0;x<size;x++){
+    const dx=(H(x+1,y)-H(x-1,y))*strength;
+    const dy=(H(x,y+1)-H(x,y-1))*strength;
+    const nz=1.0; const len=Math.hypot(dx,dy,nz);
+    const i=(y*size+x)*4;
+    img.data[i]  =((-dx/len)*0.5+0.5)*255;
+    img.data[i+1]=((-dy/len)*0.5+0.5)*255;
+    img.data[i+2]=((nz/len)*0.5+0.5)*255;
+    img.data[i+3]=255;
+  }
+  ctx.putImageData(img,0,0);return c;
+}
+function valueNoise(seed=1){
+  const g=(x,y)=>{const s=Math.sin((x*127.1+y*311.7)+seed*13.13)*43758.5453;return s-Math.floor(s);};
+  return (x,y)=>{
+    const xi=Math.floor(x),yi=Math.floor(y),xf=x-xi,yf=y-yi;
+    const u=xf*xf*(3-2*xf),v=yf*yf*(3-2*yf);
+    const a=g(xi,yi),b=g(xi+1,yi),c=g(xi,yi+1),d=g(xi+1,yi+1);
+    return a*(1-u)*(1-v)+b*u*(1-v)+c*(1-u)*v+d*u*v;
+  };
+}
+function fbm(noise,x,y,oct=4){let v=0,a=0.5,f=1;for(let i=0;i<oct;i++){v+=noise(x*f,y*f)*a;f*=2;a*=0.5;}return v;}
+
+function castAluminum(){
+  const S=512, n=valueNoise(7);
+  const c=cv(S),ctx=c.getContext('2d'),img=ctx.createImageData(S,S);
+  for(let y=0;y<S;y++)for(let x=0;x<S;x++){
+    const v=fbm(n,x/22,y/22,5);
+    const por=Math.pow(n(x/3.1,y/3.1),8);
+    const base=150+v*38-por*70;
+    const i=(y*S+x)*4; img.data[i]=base; img.data[i+1]=base+4; img.data[i+2]=base+10; img.data[i+3]=255;
+  }
+  ctx.putImageData(img,0,0);
+  const r=cv(S),rx=r.getContext('2d'),rimg=rx.createImageData(S,S);
+  for(let y=0;y<S;y++)for(let x=0;x<S;x++){
+    const v=fbm(n,x/18,y/18,4); const por=Math.pow(n(x/3.1,y/3.1),8);
+    const rough=120+v*40+por*90; const i=(y*S+x)*4;
+    rimg.data[i]=rimg.data[i+1]=rimg.data[i+2]=Math.min(255,rough); rimg.data[i+3]=255;
+  }
+  rx.putImageData(rimg,0,0);
+  const nrm=normalFromHeight(S,(x,y)=>fbm(n,x/16,y/16,5)+Math.pow(n(x/3.1,y/3.1),8)*0.6,3.0);
+  return {map:tex(c,1,true),roughnessMap:tex(r),normalMap:tex(nrm)};
+}
+function brushedMetal(){
+  const S=512, n=valueNoise(3);
+  const c=cv(S),ctx=c.getContext('2d'),img=ctx.createImageData(S,S);
+  for(let y=0;y<S;y++)for(let x=0;x<S;x++){
+    const streak=Math.sin(y*0.9)*2 + (n(x/120,y*0.5)-0.5)*40;
+    const base=185+streak; const i=(y*S+x)*4;
+    img.data[i]=base; img.data[i+1]=base+2; img.data[i+2]=base+6; img.data[i+3]=255;
+  }
+  ctx.putImageData(img,0,0);
+  const r=cv(S),rx=r.getContext('2d'),rimg=rx.createImageData(S,S);
+  for(let y=0;y<S;y++)for(let x=0;x<S;x++){
+    const streak=(n(x/120,y*0.5)-0.5)*60; const rough=40+Math.abs(streak); const i=(y*S+x)*4;
+    rimg.data[i]=rimg.data[i+1]=rimg.data[i+2]=Math.min(160,rough); rimg.data[i+3]=255;
+  }
+  rx.putImageData(rimg,0,0);
+  const nrm=normalFromHeight(S,(x,y)=>(n(x/120,y*0.5))*0.3+Math.sin(y*0.9)*0.02,1.2);
+  return {map:tex(c,1,true),roughnessMap:tex(r),normalMap:tex(nrm)};
+}
+function rubber(){
+  const S=256,n=valueNoise(5);
+  const nrm=normalFromHeight(S,(x,y)=>fbm(n,x/8,y/8,4),1.4);
+  const rough=cv(64),rc=rough.getContext('2d');rc.fillStyle='#e0e0e0';rc.fillRect(0,0,64,64);
+  return {roughnessMap:tex(rough),normalMap:tex(nrm,2)};
+}
+function gradientBG(top='#11161d',bottom='#05070a'){
+  const c=cv(512),ctx=c.getContext('2d');
+  const grd=ctx.createLinearGradient(0,0,0,512);
+  grd.addColorStop(0,top);grd.addColorStop(1,bottom);
+  ctx.fillStyle=grd;ctx.fillRect(0,0,512,512);
+  const rg=ctx.createRadialGradient(256,200,30,256,256,360);
+  rg.addColorStop(0,'rgba(42,157,143,0.10)');rg.addColorStop(1,'rgba(0,0,0,0)');
+  ctx.fillStyle=rg;ctx.fillRect(0,0,512,512);
+  return tex(c,1,true);
+}
+function techPlastic(r=0.10,g=0.11,b=0.13){
+  const S=256,n=valueNoise(31);
+  const c=cv(S),ctx=c.getContext('2d'),img=ctx.createImageData(S,S);
+  for(let y=0;y<S;y++)for(let x=0;x<S;x++){
+    const v=fbm(n,x/30,y/30,3)*0.1+0.92; const i=(y*S+x)*4;
+    img.data[i]=r*255*v;img.data[i+1]=g*255*v;img.data[i+2]=b*255*v;img.data[i+3]=255;
+  }
+  ctx.putImageData(img,0,0);
+  const nrm=normalFromHeight(S,(x,y)=>fbm(n,x/10,y/10,3),0.8);
+  const rough=cv(64),rc=rough.getContext('2d');rc.fillStyle='#9a9a9a';rc.fillRect(0,0,64,64);
+  return {map:tex(c,1,true),roughnessMap:tex(rough),normalMap:tex(nrm)};
+}
+
+/* ============================================================
+   ENGINE — render premium compartido por todos los laboratorios
+   ============================================================ */
+function createStage(mount, opts={}){
+  const bgTop = opts.bgTop||'#141b24', bgBot = opts.bgBot||'#05070a';
+  const renderer = new THREE.WebGLRenderer({ antialias:true, powerPreference:'high-performance' });
+  renderer.setPixelRatio(Math.min(devicePixelRatio,2));
+  renderer.setSize(mount.clientWidth, mount.clientHeight);
+  renderer.shadowMap.enabled = true;
+  renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+  renderer.toneMapping = THREE.ACESFilmicToneMapping;
+  renderer.toneMappingExposure = opts.exposure ?? 1.18;
+  renderer.outputColorSpace = THREE.SRGBColorSpace;
+  mount.appendChild(renderer.domElement);
+  renderer.domElement.style.touchAction='none';
+
+  const scene = new THREE.Scene();
+  scene.background = gradientBG(bgTop,bgBot);
+  const pmrem = new THREE.PMREMGenerator(renderer);
+  scene.environment = pmrem.fromScene(new RoomEnvironment(renderer), 0.04).texture;
+  scene.environmentIntensity = opts.envInt ?? 1.15;
+
+  const camera = new THREE.PerspectiveCamera(45, mount.clientWidth/mount.clientHeight, 0.1, 200);
+  const cam = opts.cam || [5.5,3.4,6.2];
+  camera.position.set(...cam);
+
+  const controls = new OrbitControls(camera, renderer.domElement);
+  controls.enableDamping = true; controls.dampingFactor = 0.07;
+  controls.minDistance = opts.minD ?? 3; controls.maxDistance = opts.maxD ?? 18;
+  controls.maxPolarAngle = Math.PI*0.52;
+  controls.target.set(...(opts.target||[0,1.4,0]));
+  controls.autoRotate = opts.autoRotate ?? false;
+  controls.autoRotateSpeed = opts.autoRotateSpeed ?? 0.6;
+
+  const key = new THREE.DirectionalLight(0xffffff, 2.7);
+  key.position.set(5,9,6); key.castShadow=true;
+  key.shadow.mapSize.set(2048,2048);
+  key.shadow.camera.near=0.5; key.shadow.camera.far=40;
+  const sd=8; Object.assign(key.shadow.camera,{left:-sd,right:sd,top:sd,bottom:-sd});
+  key.shadow.bias=-0.0003; key.shadow.normalBias=0.02; scene.add(key);
+  const rim = new THREE.SpotLight(0x2affce, 55, 30, Math.PI/5, 0.4, 1.5);
+  rim.position.set(-7,6,-5); scene.add(rim);
+  const fill = new THREE.DirectionalLight(0x6fb6ff, 0.5); fill.position.set(-4,3,7); scene.add(fill);
+  scene.add(new THREE.HemisphereLight(0x9fb4c8, 0x10151b, 0.35));
+
+  if(opts.floor!==false){
+    const f = new THREE.Mesh(new THREE.CircleGeometry(40,80),
+      new THREE.MeshStandardMaterial({ color:0x0a0e13, roughness:0.26, metalness:0.62, envMapIntensity:1.15 }));
+    f.rotation.x=-Math.PI/2; f.receiveShadow=true; scene.add(f);
+    for(let r=2;r<=8;r+=2){
+      const ring=new THREE.Mesh(new THREE.RingGeometry(r-0.012,r+0.012,80),
+        new THREE.MeshBasicMaterial({color:0x1a2632,transparent:true,opacity:0.4}));
+      ring.rotation.x=-Math.PI/2; ring.position.y=0.002; scene.add(ring);
+    }
+  }
+
+  const isMobile = /Mobi|Android|iPhone|iPad/i.test(navigator.userAgent) || innerWidth<820;
+  // GTAO desactivado por defecto: el pase de oclusión ambiental en espacio de pantalla
+  // producía un recuadro oscuro duro sobre el piso reflectante (artefacto dependiente de la
+  // cámara y del renderer). La escena tiene AO suficiente con luces directas + sombras + env.
+  // Se puede reactivar para pruebas con ?gtao.
+  const useGtao = /[?&]gtao\b/.test(location.search);
+  const composer = new EffectComposer(renderer);
+  composer.addPass(new RenderPass(scene,camera));
+  if(!isMobile && useGtao){
+    try{
+      const g=new GTAOPass(scene,camera,mount.clientWidth,mount.clientHeight);
+      g.output=GTAOPass.OUTPUT.Default;
+      if(g.updateGtaoMaterial)g.updateGtaoMaterial({radius:0.5,distanceExponent:1,thickness:1,scale:1.1,samples:16});
+      composer.addPass(g);
+    }catch(e){}
+  }
+  const bloom=new UnrealBloomPass(new THREE.Vector2(mount.clientWidth,mount.clientHeight),opts.bloom??0.42,0.5,0.9);
+  composer.addPass(bloom);
+  let bokeh=null;
+  const flat=/[?&]flat/.test(location.search);
+  if(!isMobile && !flat){
+    bokeh=new BokehPass(scene,camera,{focus:8.5,aperture:opts.aperture??0.00018,maxblur:opts.maxblur??0.004,width:mount.clientWidth,height:mount.clientHeight});
+    composer.addPass(bokeh);
+  }
+  composer.addPass(new OutputPass());
+  composer.addPass(new SMAAPass(mount.clientWidth*renderer.getPixelRatio(),mount.clientHeight*renderer.getPixelRatio()));
+
+  function resize(){
+    const w=mount.clientWidth,h=mount.clientHeight;
+    camera.aspect=w/h; camera.updateProjectionMatrix();
+    renderer.setSize(w,h); composer.setSize(w,h);
+  }
+  window.addEventListener('resize',resize);
+
+  const clock=new THREE.Clock();
+  let hook=null, raf=null;
+  const camCine={active:false,t:0,dur:1.4,from:new THREE.Vector3(),to:new THREE.Vector3(),fromT:new THREE.Vector3(),toT:new THREE.Vector3()};
+  let lastDrag=-99, cinematicIdle=false;
+  controls.addEventListener('start',()=>{ lastDrag=clock.elapsedTime; camCine.active=false; });
+  function easeInOutCubic(x){return x<0.5?4*x*x*x:1-Math.pow(-2*x+2,3)/2;}
+  function moveTo(pos,target,dur=1.4){
+    camCine.from.copy(camera.position); camCine.fromT.copy(controls.target);
+    camCine.to.set(...pos); camCine.toT.set(...target);
+    camCine.dur=dur; camCine.active=true; camCine.t=0;
+  }
+  function setCinematicIdle(v){ cinematicIdle=v; if(!v)controls.autoRotate=false; }
+  function loop(){ raf=requestAnimationFrame(loop); const dt=clock.getDelta(),t=clock.elapsedTime;
+    if(camCine.active){
+      camCine.t=Math.min(1,camCine.t+dt/camCine.dur);
+      const e=easeInOutCubic(camCine.t);
+      camera.position.lerpVectors(camCine.from,camCine.to,e);
+      controls.target.lerpVectors(camCine.fromT,camCine.toT,e);
+      if(camCine.t>=1)camCine.active=false;
+    } else if(cinematicIdle){
+      controls.autoRotate=(t-lastDrag)>1.4; controls.autoRotateSpeed=0.45;
+    }
+    if(hook)hook(dt,t); controls.update();
+    if(bokeh) bokeh.uniforms['focus'].value = camera.position.distanceTo(controls.target);
+    composer.render(); }
+  function start(){ if(!raf)loop(); }
+  function stop(){ cancelAnimationFrame(raf); raf=null; window.removeEventListener('resize',resize); }
+
+  return { THREE, renderer, scene, camera, controls, composer, bloom,
+    setAnimate:fn=>hook=fn, start, stop, resize, clock,
+    flyTo:(v)=>{ controls.target.copy(v); }, moveTo, setCinematicIdle };
+}
+
+/* ---------- shared geometry/material helpers ---------- */
+function roundedBox(w,h,d,mat,rf=0.08){
+  const r=Math.min(w,h,d)*rf;
+  const m=new THREE.Mesh(new RoundedBoxGeometry(w,h,d,4,r),mat);
+  m.castShadow=m.receiveShadow=true; return m;
+}
+function pickerFor(scene,camera,dom,onHit){
+  const ray=new THREE.Raycaster(),mouse=new THREE.Vector2(); let down=null;
+  dom.addEventListener('pointerdown',e=>down=[e.clientX,e.clientY]);
+  dom.addEventListener('pointerup',e=>{
+    if(!down)return; const moved=Math.abs(e.clientX-down[0])+Math.abs(e.clientY-down[1])>6; down=null;
+    if(moved)return;
+    const r=dom.getBoundingClientRect();
+    mouse.x=((e.clientX-r.left)/r.width)*2-1; mouse.y=-((e.clientY-r.top)/r.height)*2+1;
+    ray.setFromCamera(mouse,camera);
+    const hits=ray.intersectObjects(scene.children,true);
+    onHit(hits[0]||null);
+  });
+}
+function labelSprite(text,color='#ffd166'){
+  const w = Math.max(150, Math.min(520, text.length*26+60));
+  const cvE=document.createElement('canvas');cvE.width=w;cvE.height=96;
+  const c=cvE.getContext('2d');c.fillStyle='rgba(8,11,16,.95)';
+  const rr=(x,y,ww,hh,r)=>{c.beginPath();c.moveTo(x+r,y);c.arcTo(x+ww,y,x+ww,y+hh,r);c.arcTo(x+ww,y+hh,x,y+hh,r);c.arcTo(x,y+hh,x,y,r);c.arcTo(x,y,x+ww,y,r);c.closePath();};
+  rr(3,3,w-6,90,18);c.fill();
+  c.strokeStyle=color;c.lineWidth=3;c.stroke();
+  c.font='bold 36px Outfit, system-ui, sans-serif';c.fillStyle=color;c.textAlign='center';c.textBaseline='middle';c.fillText(text,w/2,48);
+  const tx=new THREE.CanvasTexture(cvE);tx.colorSpace=THREE.SRGBColorSpace;
+    // El rotulo se lee de lejos y en escorzo: sin mipmaps el texto centellea igual que el metal.
+    tx.generateMipmaps=true;tx.minFilter=THREE.LinearMipmapLinearFilter;tx.magFilter=THREE.LinearFilter;tx.anisotropy=8;
+  const sp=new THREE.Sprite(new THREE.SpriteMaterial({map:tx,depthTest:false,transparent:true}));
+  const aspect=w/96;
+  sp.scale.set(0.30*aspect,0.30,1);sp.renderOrder=999;return sp;
+}
+
+/* ============================================================
+   SYNTH — sintetizador Web Audio reutilizable
+   ============================================================ */
+function makeSynth(opts={}){
+  const type=opts.type||'sawtooth';
+  let ctx=null,oscA=null,oscB=null,gain=null,filter=null,soundOn=true;
+  function init(){
+    if(ctx)return;
+    try{
+      ctx=new (window.AudioContext||window.webkitAudioContext)();
+      oscA=ctx.createOscillator(); oscB=ctx.createOscillator();
+      oscA.type=type; oscB.type=opts.type2||'square';
+      filter=ctx.createBiquadFilter(); filter.type=opts.filterType||'lowpass'; filter.frequency.value=opts.filterFreq||500; filter.Q.value=opts.Q||3;
+      gain=ctx.createGain(); gain.gain.value=0;
+      oscA.connect(filter); oscB.connect(filter); filter.connect(gain); gain.connect(ctx.destination);
+      oscA.start(); oscB.start();
+    }catch(e){}
+  }
+  function update(freqA,freqB,vol,filterFreq){
+    if(!ctx||!soundOn){ if(gain)gain.gain.setTargetAtTime(0,ctx?.currentTime||0,0.1); return; }
+    oscA.frequency.setTargetAtTime(freqA,ctx.currentTime,0.04);
+    if(freqB!==undefined)oscB.frequency.setTargetAtTime(freqB,ctx.currentTime,0.04);
+    if(filterFreq!==undefined)filter.frequency.setTargetAtTime(filterFreq,ctx.currentTime,0.05);
+    gain.gain.setTargetAtTime(Math.max(0,vol),ctx.currentTime,0.06);
+  }
+  function beep(freq=880,dur=0.09,vol=0.06){
+    if(!ctx||!soundOn)return;
+    const o=ctx.createOscillator(),g=ctx.createGain();
+    o.type='sine'; o.frequency.value=freq;
+    g.gain.setValueAtTime(vol,ctx.currentTime); g.gain.exponentialRampToValueAtTime(0.001,ctx.currentTime+dur);
+    o.connect(g); g.connect(ctx.destination); o.start(); o.stop(ctx.currentTime+dur);
+  }
+  function toggle(){ soundOn=!soundOn; return soundOn; }
+  function resume(){ if(ctx&&ctx.state==='suspended')ctx.resume(); }
+  return { init, update, beep, toggle, resume, isOn:()=>soundOn, state:()=>ctx?.state||'none' };
+}
+
+/* ============================================================
+   LAB — SINCRONIZACIÓN DE LA DISTRIBUCIÓN Y PUESTA A PUNTO
+   (Dominio D6 · motor de combustión interna · práctica d6-03)
+
+   Qué se monta y qué se mide
+     · Se arma el tren de distribución pieza por pieza (bloque, cigüeñal,
+       pistón, culata, válvulas, árbol o árboles de levas y correa/cadena).
+     · Se cala el árbol contando DIENTES sobre el piñón, que es como se
+       equivoca de verdad un taller: nadie se salta «medio grado», se salta
+       un diente.
+     · Se leen las consecuencias en cuatro sitios distintos: el diagrama de
+       distribución, la curva de alzado (traslape), la holgura pistón-válvula
+       y el banco de pruebas.
+
+   Normatividad y fuentes de referencia
+     · Manual de taller del fabricante — es el único documento que fija los
+       ángulos, el juego de taqués y la holgura mínima de UN motor concreto.
+       Los cuatro arquetipos de este banco NO son modelos comerciales.
+     · SAE J604 — nomenclatura de motores alternativos (PMS/PMI, carrera,
+       relación de compresión, cilindrada).
+     · Criterios de referencia de alzado en uso: 0,15 mm (europeo, «a la
+       cota de reglaje»), 1,00 mm (SAE, el más publicado) y 0,050 in =
+       1,27 mm (norteamericano, típico de fichas de árboles de altas
+       prestaciones). El mismo árbol da TRES juegos de ángulos distintos.
+     · ISO 6789 / práctica de taller para el apriete: en la ficha técnica se
+       dan rangos representativos, nunca cifras cerradas.
+
+   Modelo de ingeniería
+     · Perfil de leva polinómico de continuidad C², sin escalón de
+       aceleración en el arranque de rampa.
+     · Cinemática exacta de biela finita (nada de movimiento armónico).
+     · Llenado y vaciado del cilindro por integración paso a paso, con
+       combustión de Wiebe y transferencia de calor de Woschni.
+     · Holgura pistón-válvula por modelo axial de un punto — da la tendencia
+       y el orden de magnitud, NO un permiso para no medir.
+   ============================================================ */
+const mount=document.getElementById('stage');
+const S=createStage(mount,{cam:[7.4,4.9,10.6],target:[0.4,2.00,0.10],bgTop:'#101720',bgBot:'#05070a',bloom:0.40,minD:2.2,maxD:34});
+const {scene}=S;
+const synth=makeSynth({type:'triangle',type2:'sine',filterFreq:760,Q:0.70});
+const el=id=>document.getElementById(id);
+const clamp=(v,a,b)=>v<a?a:(v>b?b:v);
+
+// ============================================================================
+// MOTOR SELLADO — se copia tal cual desde el fichero de Capa 1, sin tocar una
+// sola cifra. Lo unico que cambia es que se le quitan los `export`. Cualquier
+// numero que aparezca en el pizarron, en la telemetria, en el informe o en el
+// cuestionario sale de aqui: la interfaz no recalcula nada por su cuenta.
+// ============================================================================
+
+// ============================================================================
+//  motor_dist.mjs — CAPA 1 · motor sellado del laboratorio d6-03
+//  "Sincroniza la distribucion y verifica la puesta a punto"
+//
+//  Todo lo que el laboratorio afirme en pantalla sale de aqui. Contiene:
+//
+//   - cinematica exacta de biela-manivela (nada de armonica truncada)
+//   - perfil de leva polinomico 4-5-6-7 (Norton), C2 en ambos extremos
+//   - juego de taques: alzado neto = max(0, alzado bruto - juego), asi que el
+//     reglaje MUEVE los angulos de apertura y cierre, no solo el alzado
+//   - angulos de distribucion resueltos AL ALZADO DE REFERENCIA (0,15 / 1,00 /
+//     1,27 mm), que es como los publica un manual; el mismo arbol da tres
+//     juegos de cifras distintos y el laboratorio ensena por que
+//   - desfase por dientes: un diente de correa = 720/Z_leva grados de CIGUENAL
+//     en cualquier pinon, resultado que el laboratorio demuestra
+//   - traslape MEDIDO (intervalo donde ambos alzados netos superan la
+//     referencia) y area de traslape integrada
+//   - holgura valvula-piston C(th) = C0 + s(th) cos(alfa) - L(th), con minimo,
+//     angulo del minimo, penetracion y velocidad relativa de cierre
+//   - criterio exacto de motor interferente ante rotura de correa
+//   - relacion de compresion dinamica y presion de compresion de arranque
+//   - llenado y vaciado (Heywood cap. 6): sistema abierto + orificio
+//     compresible + Wiebe + Woschni, iterado a periodicidad -> rendimiento
+//     volumetrico, residuales, PMI, par y potencia
+// ============================================================================
+
+// ---------------------------------------------------------------- constantes
+const DEG      = Math.PI / 180;
+const R_GAS    = 287.0;        // J/(kg K)
+const P_ATM    = 101325;       // Pa
+const GAMMA    = 1.35;         // aire-estandar de propiedades constantes
+const CV_G     = R_GAS / (GAMMA - 1);   // 820,0 J/(kg K)
+const CP_G     = CV_G + R_GAS;          // 1107,0 J/(kg K)
+
+// Alzados de referencia con los que se publican los angulos.
+const LREF_ANU = 0.15;   // mm — "anunciado" (0,006 in), casi geometrico
+const LREF     = 1.00;   // mm — norma de taller europea
+const LREF_US  = 1.27;   // mm — 0,050 in, norma estadounidense
+
+// Flujo por las valvulas.
+const CD_ADM   = 0.65;   // coeficiente de descarga constante (declarado)
+const CD_ESC   = 0.65;
+const T_PARED  = 420;    // K — temperatura media de pared
+
+// Woschni (1967).
+const C1_CERR  = 2.28;   // periodo cerrado
+const C1_ABIER = 6.18;   // intercambio de gases
+const C2_WOS   = 3.24e-3;
+
+// Wiebe.
+const A_WIEBE  = 6.908;  // 99,9 % quemado en y = 1
+const M_WIEBE  = 2.0;
+
+// Integracion.
+const H_PASO   = 0.25;   // ° de cigueñal por paso
+const N_CICLOS = 14;     // ciclos hasta periodicidad
+const H_BARRIDO= 0.05;   // ° del barrido geometrico (traslape, holgura)
+
+// Politropico de la compresion de arranque: banda declarada, no un valor.
+// Arrancando a ~250 min-1 el gas tiene tiempo de sobra para ceder calor a una
+// pared fria, asi que el exponente cae por debajo de gamma.
+const N_ARR_MIN = 1.28;
+const N_ARR_MAX = 1.35;
+const P_ARR_ADM = 0.95;  // bar — el motor de arranque no llena del todo
+// Volumen muerto del PROPIO manometro (racor + manguera + camara del reloj).
+// No es un factor de correccion: es volumen real que el piston tambien tiene
+// que comprimir, y esta en serie con la camara. Por eso dos manometros
+// distintos leen cifras distintas en el mismo motor, y por eso un manual
+// serio dice "con el util referencia XXX". El laboratorio lo deja tocar.
+const V_MANG   = 8.0;    // cm3
+
+// ============================================================================
+//  1. PERFIL DE LEVA — polinomio 4-5-6-7 simetrico
+//
+//  q(v) = 35v^4 - 84v^5 + 70v^6 - 20v^7,  v = 1 - |th - centro|/(Dgeo/2)
+//  q(0)=q'(0)=q''(0)=0 y q(1)=1, q'(1)=q''(1)=0: no hay escalon de sacudida
+//  ni al despegar ni en el pico. q'(v) = 140 v^3 (1-v)^3 >= 0, o sea q es
+//  estrictamente creciente en [0,1] y por tanto invertible por biseccion.
+//
+//  DECLARACION DE FIDELIDAD: un arbol real NO es simetrico (la rama de
+//  apertura es mas rapida que la de cierre) y lleva rampa de reglaje. Este
+//  modelo no las tiene, asi que su duracion "anunciada" sale mas corta que la
+//  de un arbol real con la misma duracion a 1 mm.
+// ============================================================================
+function qPoly(v) {
+  if (v <= 0) return 0;
+  if (v >= 1) return 1;
+  const v2 = v * v, v3 = v2 * v, v4 = v2 * v2;
+  return 35 * v4 - 84 * v4 * v + 70 * v4 * v2 - 20 * v4 * v3;
+}
+function dqPoly(v) {
+  if (v <= 0 || v >= 1) return 0;
+  const a = v * v * v, b = 1 - v;
+  return 140 * a * b * b * b;
+}
+/** Inversa de qPoly por biseccion: v tal que q(v) = rho, con rho en [0,1]. */
+function qInv(rho) {
+  if (!(rho > 0)) return 0;
+  if (rho >= 1) return 1;
+  let lo = 0, hi = 1;
+  for (let i = 0; i < 60; i++) {
+    const m = 0.5 * (lo + hi);
+    if (qPoly(m) < rho) lo = m; else hi = m;
+  }
+  return 0.5 * (lo + hi);
+}
+
+// -------------------------------------------------------------- envolturas
+function norm720(a) { let x = a % 720; if (x < 0) x += 720; return x; }
+function wrap720(a) {
+  let x = a % 720;
+  if (x > 360) x -= 720;
+  if (x <= -360) x += 720;
+  return x;
+}
+
+/**
+ * Duracion geometrica del lobulo a partir de la duracion PUBLICADA.
+ * El manual publica D a un alzado NETO de referencia y con el juego nominal;
+ * el lobulo tiene que ser mas largo porque arranca en cero.
+ */
+function dGeoDe(Dpub, Lg, juego, lref = LREF) {
+  const rho = (juego + lref) / Lg;
+  if (rho >= 1) return NaN;           // el alzado no llega ni a la referencia
+  return Dpub / (1 - qInv(rho));
+}
+
+/**
+ * Construye la leva de un lado.
+ *   dientes > 0 = arbol ADELANTADO: todo sucede antes, el centro baja.
+ */
+function leva(eng, lado, dientes = 0, juego = null) {
+  const c = eng[lado];
+  const j = juego === null ? c.juego : juego;
+  const centroNom = lado === 'adm' ? 360 + eng.ICL : 360 - eng.ECL;
+  const Dgeo = dGeoDe(c.Dpub, c.Lg, c.juego, LREF);   // el lobulo NO cambia
+  return {
+    lado, Lg: c.Lg, juego: j, Dgeo,
+    centro: centroNom - dientes * dienteGrados(eng),
+    centroNom, dientes,
+    Lnet: Math.max(0, c.Lg - j),
+    alfa: c.alfa, Dv: c.Dv, Ds: c.Ds, C0: c.C0, margen: c.margen,
+  };
+}
+
+/** Alzado BRUTO en el vastago (alzado del lobulo x relacion de balancin). */
+function alzadoBruto(th, cam) {
+  const d = wrap720(th - cam.centro);
+  const u = Math.abs(d) / (cam.Dgeo / 2);
+  if (u >= 1) return 0;
+  return cam.Lg * qPoly(1 - u);
+}
+/** Alzado NETO: lo que se abre de verdad una vez consumido el juego. */
+function alzado(th, cam) {
+  return Math.max(0, alzadoBruto(th, cam) - cam.juego);
+}
+/**
+ * Derivada del alzado neto, mm por grado de cigueñal.
+ *   L = Lg q(1-u),  u = |d|/(Dgeo/2),  du/dth = sgn(d) (2/Dgeo)
+ *   dL/dth = -Lg q'(1-u) sgn(d) (2/Dgeo)
+ * Cero mientras el juego no se haya consumido: el vastago no se ha movido.
+ */
+function dAlzado(th, cam) {
+  const d = wrap720(th - cam.centro);
+  const u = Math.abs(d) / (cam.Dgeo / 2);
+  if (u >= 1) return 0;
+  if (cam.Lg * qPoly(1 - u) <= cam.juego) return 0;
+  const sgn = d >= 0 ? 1 : -1;
+  return -cam.Lg * dqPoly(1 - u) * sgn * (2 / cam.Dgeo);
+}
+
+// ============================================================================
+//  2. DIENTES Y MARCAS
+//
+//  Un diente de correa desplaza la correa un paso. Ese paso vale 1/Z_cig de
+//  vuelta de cigueñal Y 1/Z_leva de vuelta de arbol, porque es la MISMA
+//  correa. Como el arbol gira a la mitad, el error en grados de cigueñal es
+//  360/Z_cig = 720/Z_leva: sale lo mismo salte donde salte. Lo que se VE en
+//  el pinon del arbol es la mitad, y por eso un diente se pasa por alto.
+// ============================================================================
+function dienteGrados(eng) { return 720 / eng.Zlev; }   // ° de cigueñal
+function dienteGradosPinon(eng) { return 360 / eng.Zlev; } // ° que se ven
+function dienteGradosCig(eng) { return 360 / eng.Zcig; } // identidad
+
+// ============================================================================
+//  3. GEOMETRIA DEL CILINDRO
+// ============================================================================
+function radioManivela(eng) { return eng.S / 2; }
+function areaPiston(eng) { return Math.PI * eng.B * eng.B / 4; }   // mm2
+function cilindradaUnit(eng) { return areaPiston(eng) * eng.S / 1000; } // cm3
+function cilindradaTotal(eng) { return cilindradaUnit(eng) * eng.ncil; }
+function volCamara(eng) { return cilindradaUnit(eng) / (eng.rc - 1); }  // cm3
+
+/** Distancia del piston bajo el PMS, mm. Periodica en 360°. */
+function pistonS(th, eng) {
+  const r = radioManivela(eng), Lb = eng.Lb, lam = r / Lb;
+  const a = th * DEG, s = Math.sin(a);
+  return r * (1 - Math.cos(a)) + Lb * (1 - Math.sqrt(1 - lam * lam * s * s));
+}
+/** ds/dth, mm por grado de cigueñal. */
+function pistonDS(th, eng) {
+  const r = radioManivela(eng), Lb = eng.Lb, lam = r / Lb;
+  const a = th * DEG, s = Math.sin(a), c = Math.cos(a);
+  const raiz = Math.sqrt(1 - lam * lam * s * s);
+  return (r * s + Lb * lam * lam * s * c / raiz) * DEG;
+}
+/** Volumen instantaneo, cm3. */
+function volumen(th, eng) {
+  return volCamara(eng) + areaPiston(eng) * pistonS(th, eng) / 1000;
+}
+/** Velocidad media del piston, m/s. */
+function velMediaPiston(eng, rpm) { return 2 * eng.S * rpm / 60 / 1000; }
+
+// ============================================================================
+//  4. ANGULOS DE DISTRIBUCION
+// ============================================================================
+/**
+ * Apertura y cierre al alzado neto de referencia lref.
+ * Devuelve angulos CRUDOS (pueden salirse de [0,720)) para que la aritmetica
+ * de AAA/RCA/AAE/RCE sea directa, y ademas los normalizados para mostrar.
+ */
+function eventos(cam, lref = LREF) {
+  const rho = (cam.juego + lref) / cam.Lg;
+  if (rho >= 1) return null;              // nunca alcanza la referencia
+  const semi = (1 - qInv(rho)) * cam.Dgeo / 2;
+  const abre = cam.centro - semi, cierra = cam.centro + semi;
+  return { abre, cierra, dur: 2 * semi, centro: cam.centro,
+           abreN: norm720(abre), cierraN: norm720(cierra), lref };
+}
+
+/** Cuadro completo de la distribucion para un estado dado del motor. */
+function distribucion(eng, o = {}) {
+  const dA = o.dAdm ?? 0, dE = o.dEsc ?? 0;
+  const jA = o.jAdm ?? eng.adm.juego, jE = o.jEsc ?? eng.esc.juego;
+  const cA = leva(eng, 'adm', dA, jA), cE = leva(eng, 'esc', dE, jE);
+  const out = { camA: cA, camE: cE, refs: {} };
+  for (const [k, lr] of [['anu', LREF_ANU], ['mm1', LREF], ['us', LREF_US]]) {
+    const eA = eventos(cA, lr), eE = eventos(cE, lr);
+    out.refs[k] = eA && eE ? {
+      lref: lr,
+      AAA: 360 - eA.abre, RCA: eA.cierra - 540,
+      AAE: 180 - eE.abre, RCE: eE.cierra - 360,
+      durA: eA.dur, durE: eE.dur,
+      ivo: eA.abreN, ivc: eA.cierraN, evo: eE.abreN, evc: eE.cierraN,
+      ivoCrudo: eA.abre, ivcCrudo: eA.cierra,
+      evoCrudo: eE.abre, evcCrudo: eE.cierra,
+      traslapeSuma: (360 - eA.abre) + (eE.cierra - 360),
+    } : null;
+  }
+  const r1 = out.refs.mm1;
+  if (r1) {
+    out.ICL = cA.centro - 360;       // ° APMS del solape
+    out.ECL = 360 - cE.centro;       // ° antes del PMS
+    out.LCA = (out.ICL + out.ECL) / 2;
+  }
+  return out;
+}
+
+/**
+ * Traslape MEDIDO: recorre el entorno del PMS de solape y mide el intervalo
+ * en el que AMBOS alzados netos superan la referencia. No se supone
+ * AAA + RCE: se comprueba que coincide.
+ */
+function traslapeMedido(camA, camE, lref = LREF) {
+  let ini = null, fin = null, area = 0, pico = 0, thPico = null;
+  let aIni = null, eFin = null;
+  for (let th = 240; th <= 480; th += H_BARRIDO) {
+    const la = alzado(th, camA), le = alzado(th, camE);
+    if (la > lref && aIni === null) aIni = th;      // abre la admision
+    if (le > lref) eFin = th;                        // ultimo con escape abierto
+    if (la > lref && le > lref) { if (ini === null) ini = th; fin = th; }
+    const mn = Math.min(la, le);
+    if (mn > 0) {
+      area += mn * H_BARRIDO;
+      if (mn > pico) { pico = mn; thPico = th; }
+    }
+  }
+  // `cruce` va CON SIGNO: positivo = las dos abiertas a la vez; negativo = hay
+  // un hueco entre el cierre de escape y la apertura de admision. Un arbol
+  // suave de par puede tener traslape negativo al alzado de 1 mm y eso no es un
+  // error de medida, es su caracter. Devolverlo como cero mentiria.
+  const cruce = (aIni === null || eFin === null) ? NaN : eFin - aIni;
+  return {
+    ini, fin, grados: ini === null ? 0 : fin - ini + H_BARRIDO,
+    cruce, separacion: cruce < 0 ? -cruce : 0,
+    area, pico, thPico, lref,
+  };
+}
+
+// ============================================================================
+//  5. HOLGURA VALVULA-PISTON E INTERFERENCIA
+//
+//  C(th) = C0 + s(th) cos(alfa) - L(th)
+//    C0    holgura estatica con el piston en el PMS y la valvula asentada
+//          (lo que mide la plastilina)
+//    s(th) retroceso del piston, proyectado sobre el EJE DE LA VALVULA
+//    L(th) alzado neto
+//
+//  DECLARACION: modelo axial de un punto. La cazoleta real es una geometria
+//  3D y el contacto ocurre en el borde de la valvula, no en su eje; el modelo
+//  da la tendencia y el orden de magnitud, no un permiso para no medir.
+// ============================================================================
+function holgura(eng, cam, o = {}) {
+  const rpm = o.rpm ?? 3000;
+  const cosA = Math.cos(cam.alfa * DEG);
+  let min = Infinity, thMin = 0, cruce = null, vel = 0;
+  let prev = null;
+  for (let th = 0; th < 720; th += H_BARRIDO) {
+    const C = cam.C0 + pistonS(th, eng) * cosA - alzado(th, cam);
+    if (C < min) { min = C; thMin = th; }
+    if (prev !== null && prev.C >= 0 && C < 0 && cruce === null) {
+      cruce = th;
+      const dC = (pistonDS(th, eng) * cosA - dAlzado(th, cam));  // mm/°
+      vel = Math.abs(dC) * 6 * rpm;                              // mm/s
+    }
+    prev = { th, C };
+  }
+  return {
+    min, thMin: norm720(thMin), choca: min < 0, penetracion: Math.max(0, -min),
+    cruce, velCierre: vel, rpm,
+    margen: cam.margen, cumple: min >= cam.margen,
+  };
+}
+
+/**
+ * Criterio EXACTO de motor interferente ante rotura del mando: el arbol se
+ * para en un angulo cualquiera y el cigueñal sigue por inercia, asi que el
+ * peor caso siempre existe -> piston en el PMS con la valvula a alzado
+ * maximo. Es interferente si y solo si Lneto_max > C0. No depende del
+ * calado: un motor interferente lo es con la distribucion perfecta.
+ */
+function interferente(eng) {
+  const a = leva(eng, 'adm'), e = leva(eng, 'esc');
+  const dA = a.Lnet - a.C0, dE = e.Lnet - e.C0;
+  return {
+    adm: dA > 0, esc: dE > 0, any: dA > 0 || dE > 0,
+    penetraA: Math.max(0, dA), penetraE: Math.max(0, dE),
+    LnetA: a.Lnet, LnetE: e.Lnet, C0A: a.C0, C0E: e.C0,
+  };
+}
+
+// ============================================================================
+//  6. COMPRESION DINAMICA
+// ============================================================================
+/**
+ * Relacion de compresion dinamica: desde el cierre real de admision, no desde
+ * el PMI. Con vMan > 0 es la relacion que ve el MANOMETRO, cuyo volumen muerto
+ * se suma arriba y abajo — por eso rebaja la lectura y no es un ajuste
+ * cosmetico. Con vMan = 0 sale la del motor desnudo.
+ */
+function rcDinamica(eng, ivcCrudo, vMan = 0) {
+  return (volumen(norm720(ivcCrudo), eng) + vMan) / (volCamara(eng) + vMan);
+}
+/**
+ * Presion de compresion de arranque, en bar, como banda declarada y no como un
+ * valor: el exponente politropico real de un arranque cae entre N_ARR_MIN y
+ * N_ARR_MAX segun lo fria que este la pared y lo que fugue por segmentos.
+ * Devuelve tambien rdMotor (sin manometro) para poder ensenar la diferencia.
+ */
+function pCompresion(eng, ivcCrudo, pAdm = P_ARR_ADM, vMan = V_MANG) {
+  const rd = rcDinamica(eng, ivcCrudo, vMan);
+  return {
+    rd, vMan, rdMotor: rcDinamica(eng, ivcCrudo, 0),
+    min: pAdm * Math.pow(rd, N_ARR_MIN),
+    max: pAdm * Math.pow(rd, N_ARR_MAX),
+    nom: pAdm * Math.pow(rd, 0.5 * (N_ARR_MIN + N_ARR_MAX)),
+  };
+}
+
+// ============================================================================
+//  7. LLENADO Y VACIADO (Heywood cap. 6)
+//
+//  Sistema abierto sobre el cilindro, gas ideal de propiedades constantes:
+//     dm/dth  = (sum m_i)/w
+//     dT/dth  = [ -p dV/dth + sum(m_i h_i)/w + dQw/dth - cv T dm/dth ]/(m cv)
+//  Flujo por orificio isentropico con area efectiva
+//     A = Cd min( pi Dv L , pi/4 (Dv^2 - Ds^2) )
+//  Combustion de Wiebe, transferencia de Woschni. Se itera el ciclo completo
+//  hasta periodicidad.
+//
+//  DECLARACIONES:
+//   - Presiones de colector CONSTANTES: no hay dinamica de ondas, asi que el
+//     modelo NO puede reproducir el afinado por inercia/resonancia. La joroba
+//     de rendimiento volumetrico que si sale viene de la fisica correcta:
+//     a bajas lo limita el retorno por admision (RCA tardio) y a altas lo
+//     limita el estrangulamiento en la valvula.
+//   - Cd constante: en un banco de flujo Cd cae al subir el alzado.
+//   - Propiedades constantes (gamma = 1,35): no se sigue la composicion.
+// ============================================================================
+function flujo(pUp, TUp, pDn, A, gam) {
+  if (A <= 0) return 0;
+  const pr = pDn / pUp;
+  if (pr >= 1) return 0;
+  const crit = Math.pow(2 / (gam + 1), gam / (gam - 1));
+  const k = A * pUp / Math.sqrt(R_GAS * TUp);
+  if (pr <= crit) {
+    return k * Math.sqrt(gam) * Math.pow(2 / (gam + 1), (gam + 1) / (2 * (gam - 1)));
+  }
+  const t = Math.pow(pr, 1 / gam);
+  const rad = Math.max(0, 2 * gam / (gam - 1) * (1 - Math.pow(pr, (gam - 1) / gam)));
+  return k * t * Math.sqrt(rad);
+}
+function areaEfectiva(L, Dv, Ds, Cd) {
+  if (L <= 0) return 0;
+  const cortina = Math.PI * Dv * L;                     // mm2
+  const garganta = Math.PI * (Dv * Dv - Ds * Ds) / 4;   // mm2
+  return Cd * Math.min(cortina, garganta) / 1e6;        // m2
+}
+
+function intercambio(eng, rpm, o = {}) {
+  const dA = o.dAdm ?? 0, dE = o.dEsc ?? 0;
+  const jA = o.jAdm ?? eng.adm.juego, jE = o.jEsc ?? eng.esc.juego;
+  const camA = leva(eng, 'adm', dA, jA), camE = leva(eng, 'esc', dE, jE);
+  const pAdm = (o.pAdm ?? eng.pAdm) * 1e5, pEsc = (o.pEsc ?? eng.pEsc) * 1e5;
+  const Tadm = eng.Tadm, Tesc = eng.Tesc;
+  const w = rpm * Math.PI / 30;                     // rad/s
+  const Ap = areaPiston(eng) / 1e6;                 // m2
+  const Vc = volCamara(eng) / 1e6, Vd = cilindradaUnit(eng) / 1e6;  // m3
+  const B_m = eng.B / 1000;
+  // Densidad de referencia = la del COLECTOR, no la del ambiente. Es la
+  // convencion para motores sobrealimentados: asi el rendimiento volumetrico
+  // mide lo que hace la distribucion y no lo que hace el turbo, y el diesel de
+  // 1,75 bar se puede comparar con el atmosferico. Referido al ambiente
+  // pasaria de 1,5 y no diria nada de las valvulas.
+  const rhoRef = pAdm / (R_GAS * Tadm);
+  const socN = norm720(eng.soc), dcomb = eng.dcomb;
+  const h = o.h ?? H_PASO;                 // solo la verificacion lo cambia
+  const nCiclos = o.nCiclos ?? N_CICLOS;
+
+  // Estado inicial: PMS de combustion, valores de arranque razonables.
+  let m = rhoRef * (Vd + Vc) * 0.85, T = 800, mf = 0;
+  let Q = m * 0.8 / eng.AFR * eng.LHV * 0.98;       // se recalcula por ciclo
+  let mfIVC = rhoRef * Vd * 0.8, resIVC = 0.08, hist = null;
+  let pIVC = pAdm, VIVC = Vd + Vc, TIVC = Tadm, wImep = 0, pmax = 0, thPmax = 0;
+  const evA = eventos(camA, LREF);
+  const ivcCrudo = evA ? evA.cierra : 540;
+  const ivcN = norm720(ivcCrudo);
+
+  for (let ciclo = 0; ciclo < nCiclos; ciclo++) {
+    const ultimo = ciclo === nCiclos - 1;
+    mf = 0; wImep = 0; pmax = 0;
+    let mfMax = 0;
+    hist = (ultimo && !o.sinHist) ? [] : null;
+    let capturado = false;
+
+    for (let i = 0; i < 720 / h; i++) {
+      const th = i * h;
+      const V = Vc + Ap * pistonS(th, eng) / 1000;
+      const dV = Ap * pistonDS(th, eng) / 1000;      // m3 por grado
+      const p = m * R_GAS * T / V;
+      if (p > pmax) { pmax = p; thPmax = th; }
+      wImep += p * dV * h;
+
+      // --- captura del estado en el cierre de admision
+      if (!capturado && ivcN <= th + h && ivcN > th) {
+        mfIVC = mf; resIVC = (m - mf) / m; pIVC = p; VIVC = V; TIVC = T;
+        capturado = true;
+      }
+      // --- la carga fresca se consume en la combustion
+      if (th >= 90 && th < 90 + h) mf = 0;
+
+      // Sub-pasos adaptativos: la purga del escape es rapida.
+      let sub = 1, guard = 0;
+      let mm = m, TT = T, mff = mf;
+      do {
+        const paso = h / sub;
+        let ok = true;
+        mm = m; TT = T; mff = mf;
+        for (let k = 0; k < sub; k++) {
+          const thk = th + k * paso;
+          const Vk = Vc + Ap * pistonS(thk, eng) / 1000;
+          const dVk = Ap * pistonDS(thk, eng) / 1000;
+          const pk = mm * R_GAS * TT / Vk;
+          const La = alzado(thk, camA), Le = alzado(thk, camE);
+          const Aa = areaEfectiva(La, camA.Dv, camA.Ds, CD_ADM);
+          const Ae = areaEfectiva(Le, camE.Dv, camE.Ds, CD_ESC);
+
+          // caudales, positivo = hacia el cilindro
+          let mA = 0, hA = 0;
+          if (Aa > 0) {
+            if (pAdm > pk) { mA = flujo(pAdm, Tadm, pk, Aa, 1.40); hA = CP_G * Tadm; }
+            else if (pk > pAdm) { mA = -flujo(pk, TT, pAdm, Aa, GAMMA); hA = CP_G * TT; }
+          }
+          let mE = 0, hE = 0;
+          if (Ae > 0) {
+            if (pk > pEsc) { mE = -flujo(pk, TT, pEsc, Ae, GAMMA); hE = CP_G * TT; }
+            else if (pEsc > pk) { mE = flujo(pEsc, Tesc, pk, Ae, 1.33); hE = CP_G * Tesc; }
+          }
+
+          // combustion de Wiebe
+          const y = wrap720(thk - socN) / dcomb;
+          let dxb = 0;
+          if (y > 0 && y < 1) {
+            dxb = A_WIEBE * (M_WIEBE + 1) / dcomb * Math.pow(y, M_WIEBE)
+                * Math.exp(-A_WIEBE * Math.pow(y, M_WIEBE + 1));
+          }
+          const dQc = Q * dxb;                       // J por grado
+
+          // Woschni
+          const abierta = La > 0 || Le > 0;
+          const Sp = 2 * eng.S * rpm / 60 / 1000;
+          const pMot = pIVC * Math.pow(VIVC / Vk, 1.35);
+          const wg = (abierta ? C1_ABIER : C1_CERR) * Sp
+                   + (abierta ? 0 : C2_WOS * Vd * TIVC / (pIVC * VIVC) * Math.max(0, pk - pMot));
+          const hc = 3.26 * Math.pow(B_m, -0.2) * Math.pow(pk / 1000, 0.8)
+                   * Math.pow(TT, -0.55) * Math.pow(Math.max(wg, 0.5), 0.8);
+          const Area = 2 * Ap + Math.PI * B_m * pistonS(thk, eng) / 1000;
+          const dQw = hc * Area * (T_PARED - TT) / w * DEG;   // J por grado
+
+          const dm = (mA + mE) / w * DEG;
+          const dU = (-pk * dVk + (mA * hA + mE * hE) / w * DEG + dQc + dQw
+                      - CV_G * TT * dm);
+          const dT = dU / (mm * CV_G);
+          let dmf = 0;
+          if (mA > 0) dmf += mA / w * DEG;
+          else if (mA < 0) dmf += mA / w * DEG * (mff / mm);
+
+          if (Math.abs(dm * paso) > 0.02 * mm || Math.abs(dT * paso) > 0.02 * TT) {
+            if (sub < 64) { ok = false; break; }
+          }
+          mm += dm * paso; TT += dT * paso; mff = Math.max(0, mff + dmf * paso);
+          if (!(mm > 1e-9) || !(TT > 150) || !isFinite(TT)) { mm = Math.max(mm, 1e-9); TT = Math.min(Math.max(TT, 200), 4000); }
+        }
+        if (ok) break;
+        sub *= 4; guard++;
+      } while (guard < 4);
+
+      m = mm; T = TT; mf = mff;
+      if (mf > mfMax) mfMax = mf;
+      if (hist) hist.push({ th, p: m * R_GAS * T / V, T, V: V * 1e6, La: alzado(th, camA), Le: alzado(th, camE) });
+    }
+    if (!capturado) { mfIVC = mfMax; resIVC = Math.max(0, (m - mfMax) / m); }
+    Q = mfIVC / eng.AFR * eng.LHV * 0.98;
+  }
+
+  const etaV = mfIVC / (rhoRef * Vd);
+  const imep = wImep / Vd / 1e5;                       // bar, neto de 720°
+  const N = rpm / 1000;
+  const fmep = eng.fmep0 + eng.fmep1 * N + eng.fmep2 * N * N;   // bar
+  const bmep = imep - fmep;
+  const par = bmep * 1e5 * cilindradaTotal(eng) / 1e6 / (4 * Math.PI);  // N m
+  const pot = par * w / 1000;                                  // kW
+  return {
+    rpm, etaV, resIVC, mfIVC, imep, fmep, bmep, par, pot,
+    pmax: pmax / 1e5, thPmax, hist, camA, camE,
+    dAdm: dA, dEsc: dE, jAdm: jA, jEsc: jE,
+  };
+}
+
+// ---------------------------------------------------------- barridos y cache
+const _CACHE = new Map();
+function llave(eng, rpm, o) {
+  return [eng.key, rpm, o.dAdm ?? 0, o.dEsc ?? 0,
+          o.jAdm ?? eng.adm.juego, o.jEsc ?? eng.esc.juego,
+          o.pAdm ?? eng.pAdm].join('|');
+}
+function punto(eng, rpm, o = {}) {
+  const k = llave(eng, rpm, o);
+  if (_CACHE.has(k)) return _CACHE.get(k);
+  const r = intercambio(eng, rpm, { ...o, sinHist: true });
+  _CACHE.set(k, r);
+  return r;
+}
+function barridoRPM(eng, o = {}) {
+  const r0 = o.rpm0 ?? 1000, r1 = o.rpm1 ?? eng.rpmMax, n = o.n ?? 12;
+  const out = [];
+  for (let i = 0; i < n; i++) out.push(punto(eng, Math.round(r0 + (r1 - r0) * i / (n - 1)), o));
+  return out;
+}
+
+// ============================================================================
+//  8. RETO — diagnosticar el desfase en dientes desde el banco
+// ============================================================================
+const DIENTES = [-2, -1, 0, 1, 2];
+
+function firma(eng, dAdm, dEsc) {
+  const d = distribucion(eng, { dAdm, dEsc });
+  const r1 = d.refs.mm1;
+  const pc = pCompresion(eng, r1.ivcCrudo);
+  const bajo = punto(eng, eng.rpmBajo, { dAdm, dEsc });
+  const alto = punto(eng, eng.rpmPar, { dAdm, dEsc });
+  // El ralenti va con la mariposa casi cerrada: es la condicion en la que los
+  // residuales mandan, y con la de plena carga no se veria nada.
+  const ral = punto(eng, eng.rpmRal, { dAdm, dEsc, pAdm: eng.pRal });
+  const hA = holgura(eng, d.camA), hE = holgura(eng, d.camE);
+  return {
+    dAdm, dEsc,
+    pComp: pc.nom, rd: pc.rd,
+    parBajo: bajo.par, parAlto: alto.par,
+    resRal: ral.resIVC * 100,
+    traslape: traslapeMedido(d.camA, d.camE).grados,
+    holgA: hA.min, holgE: hE.min,
+  };
+}
+function clave(f) {
+  return [f.pComp.toFixed(1), f.parBajo.toFixed(0), f.parAlto.toFixed(0),
+          f.resRal.toFixed(0)].join('/');
+}
+function barridoDientes(eng) {
+  const k = 'dientes|' + eng.key;
+  if (_CACHE.has(k)) return _CACHE.get(k);
+  const out = [];
+  for (const a of DIENTES) {
+    if (eng.arboles === 1) out.push(firma(eng, a, a));
+    else for (const e of DIENTES) out.push(firma(eng, a, e));
+  }
+  for (const f of out) f.clave = clave(f);
+  const cuenta = {};
+  for (const f of out) cuenta[f.clave] = (cuenta[f.clave] || 0) + 1;
+  for (const f of out) f.unica = cuenta[f.clave] === 1;
+  _CACHE.set(k, out);
+  return out;
+}
+function censoDientes(eng) {
+  const b = barridoDientes(eng);
+  return { n: b.length, unicas: b.filter(f => f.unica).length,
+           ambiguas: b.filter(f => !f.unica).length };
+}
+/** Casos jugables: solo los que el banco distingue sin ambiguedad. */
+function casosReto(eng) {
+  return barridoDientes(eng).filter(f => f.unica && !(f.dAdm === 0 && f.dEsc === 0));
+}
+
+// ============================================================================
+//  9. ARQUETIPOS
+//
+//  HONESTIDAD: NO son modelos comerciales. Son arquetipos declarados cuyas
+//  cifras caen dentro de las bandas publicadas para su familia. Para calar un
+//  motor concreto hay que consultar el manual de taller de ESE motor: los
+//  angulos, el juego de taques y la holgura minima son datos del fabricante.
+// ============================================================================
+const COMUN_OTTO = { fmep0: 0.97, fmep1: 0.15, fmep2: 0.05 };
+const COMUN_DIES = { fmep0: 1.15, fmep1: 0.20, fmep2: 0.06 };
+
+const ARQ = {
+  g16: {
+    key: 'g16', nombre: 'Gasolina 1.6 DOHC 16 V', corto: '1.6 DOHC',
+    ciclo: 'otto', mando: 'correa', arboles: 2, Zcig: 20, Zlev: 40,
+    ncil: 4, B: 79.0, S: 81.5, Lb: 133.0, rc: 10.5,
+    ICL: 108, ECL: 108,
+    // C0 = fondo de la cazoleta del piston a la valvula asentada, con el piston
+    // en el PMS: lo que mide la plastilina. Muy por debajo del alzado maximo,
+    // que es lo que hace interferente al motor.
+    adm: { Dv: 31.0, Ds: 6.0, Lg: 8.8, juego: 0, Dpub: 232, alfa: 11, C0: 3.2, margen: 1.0 },
+    esc: { Dv: 27.0, Ds: 6.0, Lg: 8.4, juego: 0, Dpub: 228, alfa: 11, C0: 3.6, margen: 1.5 },
+    taque: 'hidraulico',
+    pAdm: 0.97, pRal: 0.32, pEsc: 1.10, Tadm: 310, Tesc: 950, AFR: 14.7, LHV: 44.0e6,
+    soc: -15, dcomb: 60,
+    rpmRal: 800, rpmBajo: 2000, rpmPar: 4200, rpmMax: 6400,
+    ...COMUN_OTTO,
+  },
+  g18: {
+    key: 'g18', nombre: 'Gasolina 1.8 SOHC 8 V', corto: '1.8 SOHC',
+    ciclo: 'otto', mando: 'correa', arboles: 1, Zcig: 19, Zlev: 38,
+    ncil: 4, B: 81.0, S: 87.4, Lb: 143.0, rc: 9.5,
+    ICL: 104, ECL: 106,
+    adm: { Dv: 38.0, Ds: 7.0, Lg: 10.5, juego: 0.20, Dpub: 220, alfa: 9, C0: 11.5, margen: 1.0 },
+    esc: { Dv: 32.0, Ds: 7.0, Lg: 10.2, juego: 0.25, Dpub: 216, alfa: 9, C0: 12.0, margen: 1.5 },
+    taque: 'mecanico',
+    pAdm: 0.96, pRal: 0.34, pEsc: 1.10, Tadm: 312, Tesc: 930, AFR: 14.7, LHV: 44.0e6,
+    soc: -16, dcomb: 62,
+    rpmRal: 800, rpmBajo: 2000, rpmPar: 3800, rpmMax: 5800,
+    ...COMUN_OTTO,
+  },
+  d20: {
+    key: 'd20', nombre: 'Diesel 2.0 DOHC 16 V turbo', corto: '2.0 TDI',
+    ciclo: 'diesel', mando: 'correa', arboles: 2, Zcig: 20, Zlev: 40,
+    ncil: 4, B: 81.0, S: 95.5, Lb: 144.0, rc: 18.5,
+    ICL: 112, ECL: 112,
+    // Con rc 18,5 no queda camara: la holgura sale entera de las cazuelas
+    // mecanizadas en la corona, y aun asi es la mas apretada de los cuatro.
+    adm: { Dv: 29.5, Ds: 6.0, Lg: 9.2, juego: 0, Dpub: 224, alfa: 6, C0: 2.5, margen: 1.0 },
+    esc: { Dv: 26.0, Ds: 6.0, Lg: 9.0, juego: 0, Dpub: 230, alfa: 6, C0: 3.0, margen: 1.5 },
+    taque: 'hidraulico',
+    // El diesel no lleva mariposa: a ralenti aspira a presion atmosferica y el
+    // turbo todavia no da nada, asi que pRal ~ 1 bar.
+    pAdm: 1.75, pRal: 1.00, pEsc: 2.10, Tadm: 320, Tesc: 800, AFR: 19.0, LHV: 43.0e6,
+    soc: -5, dcomb: 65,
+    rpmRal: 800, rpmBajo: 1600, rpmPar: 2400, rpmMax: 4200,
+    ...COMUN_DIES,
+  },
+  v8: {
+    key: 'v8', nombre: 'Gasolina 5.0 V8 OHV', corto: '5.0 OHV',
+    ciclo: 'otto', mando: 'cadena', arboles: 1, Zcig: 18, Zlev: 36,
+    ncil: 8, B: 101.6, S: 76.2, Lb: 145.0, rc: 9.0,
+    ICL: 110, ECL: 116,
+    adm: { Dv: 48.3, Ds: 8.7, Lg: 11.4, juego: 0, Dpub: 204, alfa: 18, C0: 12.5, margen: 1.0 },
+    esc: { Dv: 40.6, Ds: 8.7, Lg: 11.4, juego: 0, Dpub: 214, alfa: 18, C0: 13.2, margen: 1.5 },
+    taque: 'hidraulico',
+    pAdm: 0.96, pRal: 0.35, pEsc: 1.12, Tadm: 312, Tesc: 940, AFR: 14.7, LHV: 44.0e6,
+    soc: -18, dcomb: 64,
+    rpmRal: 700, rpmBajo: 2000, rpmPar: 3600, rpmMax: 5400,
+    ...COMUN_OTTO,
+  },
+};
+const ARQ_KEYS = Object.keys(ARQ);
+
+function limpiaCache() { _CACHE.clear(); }
+
+
+// ============================================================ §2 FORMATO DE CIFRAS
+// Todo el laboratorio escribe en convención mexicana: coma decimal y espacio
+// fino (U+202F) como separador de millares. Se usa el espacio FINO y no el
+// normal porque el normal permite que el navegador parta «1 598» en dos
+// líneas. El signo menos es U+2212, no el guion del teclado.
+const NBSP=' ';
+const sepMil=s=>s.replace(/\B(?=(\d{3})+(?!\d))/g,NBSP);
+function fN(x,n){
+  if(!isFinite(x)) return '∞';
+  const neg=x<0||Object.is(x,-0);
+  const a=Math.abs(x).toFixed(n);
+  const [e,d]=a.split('.');
+  return (neg?'−':'')+sepMil(e)+(d?','+d:'');
+}
+const f0=x=>fN(x,0), f1=x=>fN(x,1), f2=x=>fN(x,2), f3=x=>fN(x,3);
+const pc1=x=>fN(x,1)+NBSP+'%';
+const pcm=x=>Number.isFinite(x)?((x>=0?'+':'')+fN(x,1)):'—';
+const gr =x=>fN(x,1)+'°';
+const gr2=x=>fN(x,2)+'°';
+const mm =x=>fN(x,2)+NBSP+'mm';
+const rpmF=x=>fN(x,0)+NBSP+'rpm';
+
+// ============================================================ §3 ESTADO
+const MODES=['ensamble','marcas','traslape','interferencia','banco','reto'];
+let mode='ensamble';
+let animT=0, autoRunning=false, solved=false, simUnlocked=false;
+
+// Los tres criterios de alzado de referencia que conviven en la literatura.
+// El árbol es el mismo; lo único que cambia es dónde se decide que la válvula
+// «ya está abierta».
+const REFS=[[LREF_ANU,'0,15'],[LREF,'1,00'],[LREF_US,'1,27']];
+// Juego de taqués POR ENCIMA del nominal de la máquina. En un motor de taqué
+// hidráulico el nominal es cero, así que este mando reproduce un empujador
+// colapsado o agarrotado: no es una fantasía, es la avería más común de ese
+// tren de válvulas.
+const JX=[0,0.05,0.10,0.20,0.30];
+
+const ST={ mk:'g16', dA:0, dE:0, lref:LREF, jx:0 };
+const MQ=()=>ARQ[ST.mk];
+
+function cfgDe(k){
+  return { mk:ST.mk, dA:ST.dA, dE:ST.dE, lref:ST.lref, jx:(k==='reto'?0:ST.jx) };
+}
+let CUR=cfgDe('ensamble');
+
+// Al cambiar de máquina se arrastran los ajustes, pero se recortan a lo que la
+// máquina de destino admite: un motor de un solo árbol NO puede llevar
+// admisión y escape desfasados entre sí, porque son el mismo eje.
+function aplicaMaquina(mk){
+  ST.mk=mk;
+  const e=ARQ[mk];
+  if(e.arboles===1) ST.dE=ST.dA;
+  if(e.taque==='hidraulico'&&ST.jx>0.20) ST.jx=0.20;
+}
+
+// ---------------------------------------------------------------- memoria
+// Una sola llamada a punto() cuesta ~40 ms: integra catorce ciclos completos.
+// Todo lo que dependa de ella se memoriza por configuración, porque la
+// interfaz se repinta en cada clic y no puede permitirse repetir la física.
+const _DIS=new Map(), _TRA=new Map(), _HOL=new Map(), _PC=new Map(), _BAR=new Map();
+const _FIR=new Map(), _CEN=new Map(), _CSUB=new Map();
+const kc=c=>c.mk+'|'+c.dA+'|'+c.dE+'|'+c.jx;
+const jAdmDe=c=>ARQ[c.mk].adm.juego+c.jx;
+const jEscDe=c=>ARQ[c.mk].esc.juego+c.jx;
+
+function disM(c){
+  const k=kc(c);
+  if(!_DIS.has(k)) _DIS.set(k, distribucion(ARQ[c.mk],{dAdm:c.dA,dEsc:c.dE,jAdm:jAdmDe(c),jEsc:jEscDe(c)}));
+  return _DIS.get(k);
+}
+function refDe(c){
+  const d=disM(c);
+  return c.lref===LREF_ANU?d.refs.anu:(c.lref===LREF_US?d.refs.us:d.refs.mm1);
+}
+function traM(c){
+  const k=kc(c)+'|'+c.lref;
+  if(!_TRA.has(k)){ const d=disM(c); _TRA.set(k, traslapeMedido(d.camA,d.camE,c.lref)); }
+  return _TRA.get(k);
+}
+function holM(c,lado){
+  const k=kc(c)+'|'+lado;
+  if(!_HOL.has(k)){ const d=disM(c), e=ARQ[c.mk];
+    _HOL.set(k, holgura(e, lado==='adm'?d.camA:d.camE, {rpm:e.rpmPar})); }
+  return _HOL.get(k);
+}
+// La compresión dinámica se refiere SIEMPRE al criterio de 1,00 mm, se esté
+// mirando el que se esté mirando en el pizarrón: el criterio de alzado es una
+// convención de lectura, y mezclar convenciones al comparar cifras es
+// exactamente el error que esta práctica quiere desmontar.
+function pcM(c){
+  const k=kc(c);
+  if(!_PC.has(k)) _PC.set(k, pCompresion(ARQ[c.mk], disM(c).refs.mm1.ivcCrudo));
+  return _PC.get(k);
+}
+function barM(c){
+  const k=kc(c);
+  if(!_BAR.has(k)){ const e=ARQ[c.mk];
+    _BAR.set(k, barridoRPM(e,{rpm0:e.rpmRal,rpm1:e.rpmMax,n:9,
+      dAdm:c.dA,dEsc:c.dE,jAdm:jAdmDe(c),jEsc:jEscDe(c)})); }
+  return _BAR.get(k);
+}
+function firM(mk,dA,dE){
+  const k=mk+'|'+dA+'|'+dE;
+  if(!_FIR.has(k)) _FIR.set(k, firma(ARQ[mk],dA,dE));
+  return _FIR.get(k);
+}
+function cenM(mk){
+  if(!_CEN.has(mk)) _CEN.set(mk,{ b:barridoDientes(ARQ[mk]), c:censoDientes(ARQ[mk]), r:casosReto(ARQ[mk]) });
+  return _CEN.get(mk);
+}
+
+// ------------------------------------------------------ censo por instrumento
+// Cuatro medidas caben en el banco. La pregunta que de verdad importa en un
+// taller no es «¿cuánto mide?» sino «¿con qué instrumentos puedo distinguir
+// una avería de otra?». Se recorren los quince subconjuntos no vacíos y se
+// cuenta en cuántas clases distintas parte cada uno el censo de calados.
+const MED=[
+  {k:'pComp',   rot:'Presión de compresión',  cor:'p compresión', uni:'bar', dec:1, get:f=>f.pComp},
+  {k:'parBajo', rot:'Par a régimen bajo',     cor:'par bajo',     uni:'N·m', dec:0, get:f=>f.parBajo},
+  {k:'parAlto', rot:'Par al régimen de par',  cor:'par alto',     uni:'N·m', dec:0, get:f=>f.parAlto},
+  {k:'resRal',  rot:'Residuales a ralentí',   cor:'residuales',   uni:'%',   dec:0, get:f=>f.resRal},
+];
+const claveSub=(f,sub)=>sub.map(m=>m.get(f).toFixed(m.dec)).join('/');
+function censoSub(mk){
+  if(_CSUB.has(mk)) return _CSUB.get(mk);
+  const B=cenM(mk).b, out=[];
+  for(let m=1;m<16;m++){
+    const sub=MED.filter((_,i)=>m&(1<<i));
+    const set=new Set(B.map(f=>claveSub(f,sub)));
+    out.push({ mask:m, sub, clases:set.size, n:B.length });
+  }
+  out.sort((a,b)=>(b.clases-a.clases)||(a.sub.length-b.sub.length));
+  _CSUB.set(mk,out);
+  return out;
+}
+
+// ---------------------------------------------------------------- veredictos
+// El motor distingue dos cosas que en el taller se confunden a diario:
+//   · geometría INTERFERENTE  — el alzado neto es mayor que el hueco de la
+//     cazoleta, así que EXISTE una posición del árbol en la que la válvula
+//     tocaría el pistón. Es una propiedad del motor, no del calado.
+//   · CHOQUE — con ESTE calado la holgura mínima cae a cero o menos.
+// Un motor interferente bien calado no choca; uno no interferente no choca
+// nunca, ni saltando dos dientes.
+function veredicto(c){
+  const e=ARQ[c.mk], inter=interferente(e);
+  const hA=holM(c,'adm'), hE=holM(c,'esc');
+  const peor=hA.min<=hE.min?hA:hE, lado=hA.min<=hE.min?'admisión':'escape';
+  return { inter, hA, hE, peor, lado,
+    choca:hA.choca||hE.choca,
+    roza:!(hA.choca||hE.choca)&&(!hA.cumple||!hE.cumple) };
+}
+
+// ============================================================ §4 MATERIALES
+const std=o=>new THREE.MeshStandardMaterial(o);
+const emis=(hex,i)=>std({color:hex,emissive:hex,emissiveIntensity:i,roughness:0.42,metalness:0.10});
+const alu=castAluminum(), brush=brushedMetal(), plas=techPlastic(0.09,0.10,0.12), rub=rubber();
+
+const AZUL='#8AB4F8', NARANJA='#F2A65A', OK_HEX='#7CD992', BAD_HEX='#ff6b6b',
+      WARN_HEX='#E9C46A', VIO='#C08CF8', GRIS='#8f97a5', CIAN='#5BD4E5',
+      TINTA='#dbe4f0', AMBAR='#E0A33E', ROSA='#EF8FB4';
+
+const MAT={
+  bloque:  std({...alu, metalness:0.55, roughness:0.72}),
+  culata:  std({...alu, metalness:0.50, roughness:0.66}),
+  camisa:  std({...brush, metalness:1.0, roughness:0.26}),
+  acero:   std({...brush, metalness:1.0, roughness:0.32}),
+  arbol:   std({...brush, metalness:1.0, roughness:0.22}),
+  polea:   std({...brush, metalness:1.0, roughness:0.38}),
+  piston:  std({...alu, metalness:0.62, roughness:0.48}),
+  biela:   std({...brush, metalness:1.0, roughness:0.34}),
+  correa:  std({...rub, color:0x141a22, roughness:0.96, metalness:0.0}),
+  cadena:  std({...brush, color:0x9aa3ad, metalness:1.0, roughness:0.42}),
+  muelle:  std({color:0x7d8794, metalness:0.92, roughness:0.34}),
+  banco:   std({...plas, metalness:0.20, roughness:0.62}),
+  vAdm:    std({color:0x8AB4F8, metalness:0.86, roughness:0.26}),
+  vEsc:    std({color:0xF2A65A, metalness:0.86, roughness:0.26}),
+  marcaA:  emis(0x8AB4F8,1.5),
+  marcaE:  emis(0xF2A65A,1.5),
+  marcaC:  emis(0xE0A33E,1.5),
+  indice:  emis(0xFFFFFF,1.1),
+  ok:      emis(0x7CD992,1.3),
+  bad:     emis(0xff6b6b,1.5),
+};
+
+
+// ============================================================ §5 PIZARRÓN
+// Un lienzo 2D de 1024×768 pegado a un panel 3D. Se llama `bcv` y no `cv`
+// porque `cv` ya es la fábrica de lienzos del kit de la escena: reusar ese
+// nombre rompe la página entera antes de que arranque nada.
+const BW=1024, BH=768;
+const bcv=document.createElement('canvas'); bcv.width=BW; bcv.height=BH;
+const bx=bcv.getContext('2d');
+const btex=new THREE.CanvasTexture(bcv);
+btex.colorSpace=THREE.SRGBColorSpace;
+
+const board=new THREE.Group();
+board.position.set(-4.35,0,-0.95); board.rotation.y=0.42; scene.add(board);
+{
+  const marco=roundedBox(3.94,2.98,0.10,std({...plas,metalness:0.30,roughness:0.58}),0.05);
+  marco.position.y=1.88; board.add(marco);
+  const pl=new THREE.Mesh(new THREE.PlaneGeometry(3.72,2.76),
+    new THREE.MeshBasicMaterial({map:btex,toneMapped:false}));
+  pl.position.set(0,1.88,0.056); board.add(pl);
+  for(const sx of [-1,1]){
+    const p=new THREE.Mesh(new THREE.CylinderGeometry(0.05,0.06,0.40,16),MAT.acero);
+    p.position.set(sx*1.56,0.20,0); p.castShadow=true; board.add(p);
+  }
+}
+
+// ------------------------------------------------------------- primitivas 2D
+function bg(){
+  const g=bx.createLinearGradient(0,0,0,BH);
+  g.addColorStop(0,'#0d131c'); g.addColorStop(1,'#070a10');
+  bx.fillStyle=g; bx.fillRect(0,0,BW,BH);
+}
+function texto(t,x,y,o={}){
+  const s=o.s||16, w=o.b?'700':'400', it=o.it?'italic ':'';
+  bx.font=it+w+' '+s+'px '+(o.mono?'ui-monospace,Menlo,Consolas,monospace':'Inter,system-ui,sans-serif');
+  bx.fillStyle=o.c||TINTA; bx.textAlign=o.al||'left'; bx.textBaseline='alphabetic';
+  bx.fillText(t,x,y);
+}
+function linea(pts,c,w,dash){
+  if(pts.length<2) return;
+  bx.save(); bx.strokeStyle=c; bx.lineWidth=w||2; bx.lineJoin='round'; bx.lineCap='round';
+  if(dash) bx.setLineDash(dash);
+  bx.beginPath(); bx.moveTo(pts[0][0],pts[0][1]);
+  for(let i=1;i<pts.length;i++) bx.lineTo(pts[i][0],pts[i][1]);
+  bx.stroke(); bx.restore();
+}
+function wrapText(t,x,y,w,lh,o={}){
+  const s=o.s||14;
+  bx.font=(o.b?'700 ':'400 ')+s+'px Inter,system-ui,sans-serif';
+  bx.fillStyle=o.c||'#9aa6b6'; bx.textAlign='left'; bx.textBaseline='alphabetic';
+  let ln='', yy=y;
+  for(const p of t.split(' ')){
+    const test=ln?ln+' '+p:p;
+    if(bx.measureText(test).width>w&&ln){ bx.fillText(ln,x,yy); yy+=lh; ln=p; }
+    else ln=test;
+  }
+  if(ln){ bx.fillText(ln,x,yy); yy+=lh; }
+  return yy;
+}
+function rpanel(x,y,w,h,c,bd,rad){
+  const r=Math.min(rad===undefined?10:rad, w/2, h/2);
+  bx.save(); bx.beginPath();
+  bx.moveTo(x+r,y); bx.arcTo(x+w,y,x+w,y+h,r); bx.arcTo(x+w,y+h,x,y+h,r);
+  bx.arcTo(x,y+h,x,y,r); bx.arcTo(x,y,x+w,y,r); bx.closePath();
+  bx.fillStyle=c||'rgba(255,255,255,0.035)'; bx.fill();
+  if(bd){ bx.strokeStyle=bd; bx.lineWidth=1.4; bx.stroke(); }
+  bx.restore();
+}
+function hbar(x,y,w,h,frac,c){
+  rpanel(x,y,w,h,'rgba(255,255,255,0.06)',null,h/2);
+  const f=clamp(frac,0,1);
+  if(f>0) rpanel(x,y,Math.max(w*f,h),h,c,null,h/2);
+}
+function chk(x,y,ok){
+  bx.save(); bx.lineWidth=2.6; bx.lineCap='round';
+  bx.strokeStyle=ok?OK_HEX:'#3a4658';
+  bx.beginPath(); bx.arc(x,y,9,0,Math.PI*2); bx.stroke();
+  if(ok){ bx.beginPath(); bx.moveTo(x-4.5,y); bx.lineTo(x-1,y+3.6); bx.lineTo(x+4.8,y-4); bx.stroke(); }
+  bx.restore();
+}
+// Tabla genérica. Cada celda es texto o [texto, color]; la fila puede pedir
+// resalte de fondo (`hl`) y negrita (`b`). Devuelve la Y libre bajo la tabla.
+function tabla(x,y,cols,rows,o={}){
+  const rh=o.rh||26, fs=o.s||14, gap=o.gap===undefined?14:o.gap;
+  const ancho=cols.reduce((a,c)=>a+c.w+gap,0)-gap;
+  let cx=x;
+  cols.forEach(c=>{ texto(c.t,c.al==='right'?cx+c.w:cx,y,{s:fs,b:true,c:'#9aa6b6',al:c.al||'left'}); cx+=c.w+gap; });
+  linea([[x,y+8],[x+ancho,y+8]],'#243043',1.2);
+  rows.forEach((r,i)=>{
+    const yy=y+rh*(i+1)+6;
+    if(r.hl){ bx.save(); bx.fillStyle=r.hl; bx.fillRect(x-6,yy-rh+9,ancho+12,rh); bx.restore(); }
+    let px=x;
+    cols.forEach((c,j)=>{
+      const cell=r.v[j];
+      const val=Array.isArray(cell)?cell[0]:cell, col=Array.isArray(cell)?cell[1]:(r.c||TINTA);
+      texto(val,c.al==='right'?px+c.w:px,yy,{s:fs,c:col,al:c.al||'left',mono:c.mono,b:r.b});
+      px+=c.w+gap;
+    });
+  });
+  return y+rh*(rows.length+1)+6;
+}
+// Título que se encoge hasta caber. Un rótulo que se sale del ancho disponible
+// se monta encima del de al lado, y eso no se ve venir escribiendo el texto: se
+// ve cuando alguien cambia de máquina y el nombre es más largo.
+function textoFit(t,x,y,maxW,o={}){
+  let s=o.s||16;
+  while(s>11){
+    bx.font=(o.b?'700 ':'400 ')+s+'px Inter,system-ui,sans-serif';
+    if(bx.measureText(t).width<=maxW) break;
+    s-=0.5;
+  }
+  texto(t,x,y,Object.assign({},o,{s}));
+}
+// Etiqueta sobre un fondo propio: una anotación dentro de una gráfica se cruza
+// tarde o temprano con una curva o con otra etiqueta.
+function etiqueta(t,x,y,c,al){
+  bx.font='400 12px Inter,system-ui,sans-serif';
+  const w=bx.measureText(t).width+16, x0=(al==='right')?x-w:x;
+  rpanel(x0,y-14,w,20,'rgba(8,12,18,0.80)',null,6);
+  texto(t,x0+8,y,{s:12,c:c||TINTA});
+}
+// Cabecera común: toda vista dice qué máquina se está mirando y con qué calado,
+// porque una cifra sin su configuración al lado no significa nada.
+const dtx=n=>(n>0?'+':'')+n+(Math.abs(n)===1?' diente':' dientes');
+const TAQ={hidraulico:'hidráulico',mecanico:'mecánico'};
+function cabecera(t,sub){
+  const e=MQ();
+  textoFit(t,42,50,552,{s:26,b:true});
+  texto(e.nombre+' · '+f0(cilindradaTotal(e))+' cm³ · '+(e.arboles===2?'DOHC':'un solo árbol')+
+    ' · '+e.mando,BW-42,44,{s:13,c:CIAN,al:'right'});
+  texto('calado — admisión '+dtx(ST.dA)+' · escape '+dtx(ST.dE)+
+    (ST.jx>0?(' · juego extra '+mm(ST.jx)):''),
+    BW-42,68,{s:13,c:(ST.dA||ST.dE||ST.jx)?WARN_HEX:OK_HEX,al:'right'});
+  wrapText(sub,42,92,BW-84,18,{s:13,c:'#8c98a9'});
+  linea([[42,116],[BW-42,116]],'#1e2836',1.4);
+}
+
+// ============================================================ §6 GRÁFICA
+function ejes(P,x0,x1,y0,y1,rx,ry,fx,fy,nx,ny){
+  const X=v=>P.x+(v-x0)/(x1-x0)*P.w;
+  const Y=v=>P.y+P.h-(v-y0)/(y1-y0)*P.h;
+  bx.save(); bx.strokeStyle='#1d2735'; bx.lineWidth=1;
+  for(let i=0;i<=nx;i++){ const v=x0+(x1-x0)*i/nx, xx=X(v);
+    bx.beginPath(); bx.moveTo(xx,P.y); bx.lineTo(xx,P.y+P.h); bx.stroke();
+    texto(fx(v),xx,P.y+P.h+19,{s:12,c:'#7b8697',al:'center'}); }
+  for(let i=0;i<=ny;i++){ const v=y0+(y1-y0)*i/ny, yy=Y(v);
+    bx.beginPath(); bx.moveTo(P.x,yy); bx.lineTo(P.x+P.w,yy); bx.stroke();
+    texto(fy(v),P.x-9,yy+4,{s:12,c:'#7b8697',al:'right'}); }
+  bx.restore();
+  bx.save(); bx.strokeStyle='#3a4658'; bx.lineWidth=1.5; bx.strokeRect(P.x,P.y,P.w,P.h); bx.restore();
+  if(rx) texto(rx,P.x+P.w/2,P.y+P.h+44,{s:13,c:'#9aa6b6',al:'center'});
+  if(ry){ bx.save(); bx.translate(P.x-58,P.y+P.h/2); bx.rotate(-Math.PI/2);
+    texto(ry,0,0,{s:13,c:'#9aa6b6',al:'center'}); bx.restore(); }
+  return {X,Y};
+}
+function serieXY(M,pts,c,w,dash){ linea(pts.map(p=>[M.X(p[0]),M.Y(p[1])]),c,w,dash); }
+function punteo(M,x,y,c,r){
+  bx.save(); bx.fillStyle=c; bx.beginPath(); bx.arc(M.X(x),M.Y(y),r||4.5,0,Math.PI*2); bx.fill(); bx.restore();
+}
+function banda(P,M,a,b,c){
+  bx.save(); bx.fillStyle=c;
+  const xa=M.X(a), xb=M.X(b);
+  bx.fillRect(Math.min(xa,xb),P.y,Math.abs(xb-xa),P.h); bx.restore();
+}
+// La leyenda se pinta sobre su propio fondo. Dentro de una gráfica siempre
+// acaba cruzándose con una curva, y una leyenda ilegible es peor que ninguna.
+function leyenda(x,y,items){
+  bx.font='400 13px Inter,system-ui,sans-serif';
+  const w=Math.max(...items.map(it=>bx.measureText(it[0]).width))+48;
+  rpanel(x-10,y-19,w,items.length*22+8,'rgba(8,12,18,0.80)','#1e2836',8);
+  let yy=y;
+  items.forEach(it=>{
+    bx.save(); bx.strokeStyle=it[1]; bx.lineWidth=3.2; bx.lineCap='round';
+    if(it[2]) bx.setLineDash(it[2]);
+    bx.beginPath(); bx.moveTo(x,yy-4); bx.lineTo(x+26,yy-4); bx.stroke(); bx.restore();
+    texto(it[0],x+34,yy,{s:13,c:'#c3ccd8'});
+    yy+=22;
+  });
+  return yy;
+}
+// Recorta lo que se dibuje dentro al rectángulo de la gráfica. Sin esto una
+// curva que se sale por arriba se pinta sobre la cabecera y nadie lo nota hasta
+// que cambia la escala.
+function enCaja(P,fn){
+  bx.save(); bx.beginPath(); bx.rect(P.x,P.y,P.w,P.h); bx.clip();
+  fn(); bx.restore();
+}
+// Diagrama circular: PMS arriba, giro horario, 360° por vuelta. Las dos vueltas
+// del ciclo se superponen, que es como lo dibuja un manual de taller: el
+// traslape se ve porque los dos arcos se pisan sobre el PMS.
+const polar=(cx,cy,r,th)=>{ const a=((((th%360)+360)%360)-90)*Math.PI/180;
+  return [cx+r*Math.cos(a), cy+r*Math.sin(a)]; };
+function arcoTh(cx,cy,r,th0,th1,c,w){
+  const n=Math.max(2,Math.round(Math.abs(th1-th0)/2)), pts=[];
+  for(let i=0;i<=n;i++) pts.push(polar(cx,cy,r,th0+(th1-th0)*i/n));
+  linea(pts,c,w||9);
+}
+function radio(cx,cy,r0,r1,th,c,w,dash){ linea([polar(cx,cy,r0,th),polar(cx,cy,r1,th)],c,w||2,dash); }
+
+// ============================================================ §7 VISTAS
+// ---------------------------------------------------------------- 1 · ensamble
+function vistaEnsamble(){
+  cabecera('Montaje del tren de distribución',
+    'Toma una pieza del banco y suéltala sobre su hueco. Hasta que el tren no esté completo no hay nada que medir.');
+  const hechas=PARTS.filter(p=>ASM.done.has(p.id)).length;
+  let y=142;
+  PARTS.forEach((p,i)=>{
+    const ok=ASM.done.has(p.id);
+    chk(64,y-5,ok);
+    texto((i+1)+'. '+p.rot,88,y,{s:17,b:true,c:ok?TINTA:'#6d7889'});
+    texto(p.sub,88,y+21,{s:13,c:ok?'#8c98a9':'#4e5868'});
+    y+=54;
+  });
+
+  rpanel(560,136,404,152,'rgba(255,255,255,0.035)','#243043');
+  texto('Progreso',580,170,{s:16,b:true});
+  texto(hechas+' / '+PARTS.length,944,170,
+    {s:20,b:true,c:hechas===PARTS.length?OK_HEX:AMBAR,al:'right'});
+  hbar(580,188,364,14,hechas/PARTS.length,hechas===PARTS.length?OK_HEX:AMBAR);
+  wrapText(hechas===PARTS.length
+      ? 'Tren completo. Quedan abiertos los cinco modos de medida: marcas, traslape, holgura, banco y reto.'
+      : 'El motor no se cala a medias. Mientras falte una pieza el banco está apagado.',
+    580,232,364,20,{s:13,c:'#9aa6b6'});
+
+  rpanel(560,304,404,390,'rgba(255,255,255,0.03)','#243043');
+  texto('Por qué se cuentan DIENTES',580,336,{s:16,b:true,c:CIAN});
+  let yy=wrapText('Nadie se equivoca «medio grado» al montar una correa. El error real del taller es '+
+    'saltarse un diente del piñón, y ese salto vale lo que valga el piñón.',580,362,364,20,{s:13});
+  yy=tabla(580,yy+16,[{t:'máquina',w:154},{t:'Z piñón',w:70,al:'right'},{t:'1 diente',w:112,al:'right'}],
+    ARQ_KEYS.map(k=>({v:[ARQ[k].corto,String(ARQ[k].Zlev),gr2(dienteGrados(ARQ[k]))],
+      hl:k===ST.mk?'rgba(138,180,248,0.10)':null, b:k===ST.mk})),{rh:26,s:13,gap:12});
+  wrapText('El piñón del árbol gira a la mitad del cigüeñal, así que un diente del piñón vale el doble '+
+    'medido en el cigüeñal. En el pizarrón todo se da en grados de CIGÜEÑAL.',580,yy+20,364,19,{s:12,c:'#7b8697'});
+}
+
+// ---------------------------------------------------------------- 2 · marcas
+function vistaMarcas(){
+  cabecera('Diagrama de distribución y marcas de puesta a punto',
+    'El mismo árbol leído a tres alzados de referencia da tres juegos de ángulos distintos. Ninguno miente: cambia la convención.');
+  const c=CUR, d=disM(c), r=refDe(c);
+  const cx=286, cy=418, R=166;
+
+  texto('PMS arriba · giro horario · una vuelta de cigüeñal',60,132,{s:14,b:true,c:'#9aa6b6'});
+  bx.save(); bx.strokeStyle='#1d2735'; bx.lineWidth=1.4;
+  bx.beginPath(); bx.arc(cx,cy,R,0,Math.PI*2); bx.stroke(); bx.restore();
+  for(let th=0;th<360;th+=30) radio(cx,cy,R-9,R,th,'#2b3648',1.4);
+  radio(cx,cy,R-22,R+22,0,'#8c98a9',2.4);   texto('PMS',cx,cy-R-34,{s:14,b:true,al:'center',c:'#c3ccd8'});
+  radio(cx,cy,R-22,R+22,180,'#8c98a9',2.4); texto('PMI',cx,cy+R+44,{s:14,b:true,al:'center',c:'#c3ccd8'});
+
+  if(r){
+    arcoTh(cx,cy,R-26,r.ivoCrudo,r.ivcCrudo,AZUL,11);
+    arcoTh(cx,cy,R-48,r.evoCrudo,r.evcCrudo,NARANJA,11);
+    [[r.ivoCrudo,'AAA '+gr(r.AAA),AZUL],[r.ivcCrudo,'RCA '+gr(r.RCA),AZUL],
+     [r.evoCrudo,'AAE '+gr(r.AAE),NARANJA],[r.evcCrudo,'RCE '+gr(r.RCE),NARANJA]]
+    .forEach(([th,t,col])=>{
+      radio(cx,cy,R-56,R+8,th,col,1.6);
+      const p=polar(cx,cy,R+34,th);
+      texto(t,p[0],p[1]+5,{s:13,b:true,c:col,al:p[0]<cx?'right':'left'});
+    });
+    // Ejes de los centros de lóbulo: van a trazos porque son líneas de
+    // construcción, no eventos de la distribución.
+    radio(cx,cy,0,R-60,d.camA.centro,AZUL,1.2,[6,6]);
+    radio(cx,cy,0,R-60,d.camE.centro,NARANJA,1.2,[6,6]);
+  }else{
+    texto('Con este juego de taqués la válvula no llega',cx,cy-8,{s:14,c:BAD_HEX,al:'center'});
+    texto('nunca al alzado de referencia elegido.',cx,cy+14,{s:14,c:BAD_HEX,al:'center'});
+  }
+  if(d.ICL!==undefined){
+    texto('ICL '+gr(d.ICL),cx,cy+62,{s:13,c:AZUL,al:'center'});
+    texto('ECL '+gr(d.ECL),cx,cy+82,{s:13,c:NARANJA,al:'center'});
+    texto('LCA '+gr(d.LCA),cx,cy+102,{s:13,b:true,c:'#c3ccd8',al:'center'});
+  }
+  leyenda(60,692,[['admisión abierta',AZUL],['escape abierto',NARANJA]]);
+
+  const px=560;
+  texto('El mismo árbol, tres criterios de lectura',px,140,{s:17,b:true});
+  let y=tabla(px,178,[{t:'alzado',w:66},{t:'AAA',w:58,al:'right'},{t:'RCA',w:58,al:'right'},
+      {t:'AAE',w:58,al:'right'},{t:'RCE',w:58,al:'right'},{t:'traslape',w:72,al:'right'}],
+    REFS.map(([lr,nom])=>{
+      const rr=lr===LREF_ANU?d.refs.anu:(lr===LREF_US?d.refs.us:d.refs.mm1);
+      return { hl:lr===c.lref?'rgba(138,180,248,0.10)':null, b:lr===c.lref,
+        v: rr?[nom+' mm',gr(rr.AAA),gr(rr.RCA),gr(rr.AAE),gr(rr.RCE),
+               [gr(rr.traslapeSuma), rr.traslapeSuma<0?WARN_HEX:TINTA]]
+             :[nom+' mm','—','—','—','—','—'] };
+    }),{rh:28,s:13,gap:10});
+
+  y=wrapText('Los ángulos negativos no son un error de la tabla: al alzado de 1,27 mm hay árboles cuyo '+
+    'escape ya está cerrado antes de que abra la admisión. El traslape entonces es un HUECO, y la ficha '+
+    'del fabricante lo publica igual.',px,y+18,404,20,{s:13});
+
+  const dg=dienteGrados(MQ()), dp=dienteGradosPinon(MQ());
+  const yp=y+14;
+  rpanel(px,yp,404,176,'rgba(255,255,255,0.035)','#243043');
+  texto('Qué mueve un diente',px+20,yp+32,{s:16,b:true,c:CIAN});
+  [['1 diente del piñón',gr2(dp)+' de piñón','#c3ccd8'],
+   ['visto en el cigüeñal',gr2(dg)+' de cigüeñal','#c3ccd8'],
+   ['admisión, '+dtx(ST.dA),gr2(ST.dA===0?0:-ST.dA*dg)+' el centro',ST.dA?WARN_HEX:'#7b8697'],
+   ['escape, '+dtx(ST.dE),gr2(ST.dE===0?0:-ST.dE*dg)+' el centro',ST.dE?WARN_HEX:'#7b8697']]
+  .forEach((f,i)=>{
+    texto(f[0],px+20,yp+64+i*26,{s:13,c:'#9aa6b6'});
+    texto(f[1],px+384,yp+64+i*26,{s:13,c:f[2],al:'right',mono:true});
+  });
+  texto('Diente positivo = árbol ADELANTADO: todo sucede antes.',px+20,yp+164,{s:12,c:'#7b8697'});
+}
+
+// ---------------------------------------------------------------- 3 · traslape
+function vistaTraslape(){
+  cabecera('Curvas de alzado y traslape medido',
+    'El traslape no se calcula sumando ángulos de catálogo: se mide donde las dos curvas están por encima de la referencia a la vez.');
+  const c=CUR, d=disM(c), t=traM(c), r=refDe(c), e=MQ();
+  const P={x:110,y:150,w:800,h:300};
+  const Lmax=Math.max(d.camA.Lg,d.camE.Lg)*1.12;
+  const M=ejes(P,240,480,0,Lmax,'ángulo de cigüeñal (° · PMS de solape = 360°)','alzado neto (mm)',
+    v=>f0(v)+'°',v=>f1(v),8,6);
+
+  enCaja(P,()=>{
+    if(t.grados>0) banda(P,M,t.ini,t.fin,'rgba(124,217,146,0.15)');
+    else if(t.separacion>0&&r) banda(P,M,r.evcCrudo,r.ivoCrudo,'rgba(233,196,106,0.13)');
+    linea([[M.X(360),P.y],[M.X(360),P.y+P.h]],'#5f6a7b',1.4,[5,5]);
+    linea([[P.x,M.Y(c.lref)],[P.x+P.w,M.Y(c.lref)]],VIO,1.6,[7,5]);
+    const pa=[],pe=[];
+    for(let th=240;th<=480;th+=0.5){ pa.push([th,alzado(th,d.camA)]); pe.push([th,alzado(th,d.camE)]); }
+    serieXY(M,pa,AZUL,2.6); serieXY(M,pe,NARANJA,2.6);
+    if(t.thPico!==null&&t.pico>0) punteo(M,t.thPico,t.pico,OK_HEX,5);
+  });
+  texto('PMS',M.X(360),P.y-9,{s:12,c:'#8c98a9',al:'center'});
+  etiqueta('referencia '+f2(c.lref)+' mm',P.x+P.w-8,M.Y(c.lref)-10,VIO,'right');
+  if(t.thPico!==null&&t.pico>0)
+    etiqueta('pico simultáneo '+mm(t.pico),M.X(t.thPico)+12,M.Y(t.pico)+26,OK_HEX);
+  leyenda(P.x+26,P.y+30,[['alzado admisión',AZUL],['alzado escape',NARANJA],['referencia de lectura',VIO,[7,5]]]);
+
+  const hueco=t.separacion>0;
+  [['cruce medido',(t.cruce>=0?'+':'')+gr(t.cruce),hueco?WARN_HEX:OK_HEX],
+   ['por catálogo (AAA+RCE)',r?gr(r.traslapeSuma):'—',TINTA],
+   ['área de traslape',f2(t.area)+' mm·°',CIAN],
+   ['alzado simultáneo máx.',mm(t.pico),CIAN]]
+  .forEach((k,i)=>{
+    const X=110+i*205;
+    rpanel(X,520,190,74,'rgba(255,255,255,0.035)','#243043');
+    texto(k[0],X+14,546,{s:12,c:'#8c98a9'});
+    texto(k[1],X+14,578,{s:21,b:true,c:k[2]});
+  });
+  let y=wrapText(hueco
+    ? ('Aquí NO hay traslape: entre el cierre del escape y la apertura de la admisión quedan '+gr(t.separacion)+
+       ' de hueco. Es el carácter de un árbol suave, de par abajo y ralentí limpio — no una avería.')
+    : ('Las dos válvulas están abiertas a la vez durante '+gr(t.grados)+'. El barrido medido y la suma de '+
+       'catálogo coinciden porque se miden al mismo alzado: cambiar de criterio cambia las dos a la vez.'),
+    110,626,800,21,{s:14,c:'#c3ccd8'});
+  wrapText('Juego de taqués montado: admisión '+mm(jAdmDe(c))+', escape '+mm(jEscDe(c))+'. El juego se come el '+
+    'arranque de la rampa: recorta el alzado neto, acorta la duración por los dos extremos y estrecha el '+
+    'traslape sin haber tocado el árbol. El taqué de esta máquina es '+TAQ[e.taque]+'.',110,y+16,800,21,{s:13,c:'#8c98a9'});
+}
+
+// ---------------------------------------------------------- 4 · interferencia
+function vistaInterferencia(){
+  cabecera('Holgura pistón-válvula',
+    'Que un motor sea interferente es una propiedad de su geometría. Que CHOQUE depende del calado. No son la misma pregunta.');
+  const c=CUR, d=disM(c), V=veredicto(c), e=MQ();
+  const P={x:110,y:150,w:540,h:318};
+  const hs=[];
+  for(let th=250;th<=470;th+=0.5){
+    hs.push([th,
+      d.camA.C0+pistonS(th,e)*Math.cos(d.camA.alfa*DEG)-alzado(th,d.camA),
+      d.camE.C0+pistonS(th,e)*Math.cos(d.camE.alfa*DEG)-alzado(th,d.camE)]);
+  }
+  const lo=Math.min(-1.2,V.hA.min-0.8,V.hE.min-0.8);
+  const hi=Math.max(d.camA.C0,d.camE.C0)*1.10;
+  const M=ejes(P,250,470,lo,hi,'ángulo de cigüeñal (°)','holgura C(θ) (mm)',v=>f0(v)+'°',v=>f1(v),8,6);
+  enCaja(P,()=>{
+    bx.save(); bx.fillStyle='rgba(255,107,107,0.13)';
+    bx.fillRect(P.x,M.Y(0),P.w,P.y+P.h-M.Y(0)); bx.restore();
+    linea([[P.x,M.Y(0)],[P.x+P.w,M.Y(0)]],BAD_HEX,1.8);
+    linea([[P.x,M.Y(d.camA.margen)],[P.x+P.w,M.Y(d.camA.margen)]],WARN_HEX,1.4,[6,5]);
+    serieXY(M,hs.map(p=>[p[0],p[1]]),AZUL,2.6);
+    serieXY(M,hs.map(p=>[p[0],p[2]]),NARANJA,2.6);
+    punteo(M,V.hA.thMin,V.hA.min,AZUL,5); punteo(M,V.hE.thMin,V.hE.min,NARANJA,5);
+  });
+  texto('contacto',P.x+8,M.Y(0)+18,{s:12,c:BAD_HEX});
+  etiqueta('margen de taller '+mm(d.camA.margen),P.x+P.w-8,M.Y(d.camA.margen)-10,WARN_HEX,'right');
+  leyenda(P.x+26,P.y+30,[['holgura admisión',AZUL],['holgura escape',NARANJA],['margen exigido',WARN_HEX,[6,5]]]);
+
+  const px=690;
+  rpanel(px,150,224,182,'rgba(255,255,255,0.04)','#243043');
+  texto('La geometría',px+16,180,{s:15,b:true,c:CIAN});
+  texto(V.inter.any?'INTERFERENTE':'NO interferente',px+16,210,
+    {s:V.inter.any?18:17,b:true,c:V.inter.any?WARN_HEX:OK_HEX});
+  const yg=wrapText(V.inter.any
+    ? ('Con el árbol parado y el cigüeñal girando por inercia, la válvula penetraría hasta '+
+       mm(Math.max(V.inter.penetraA,V.inter.penetraE))+' en la corona.')
+    : 'Aunque se rompa el mando, la válvula a alzado máximo cabe bajo el pistón en el PMS.',
+    px+16,232,192,18,{s:12});
+  texto('adm '+mm(V.inter.LnetA)+' contra hueco '+mm(V.inter.C0A),px+16,yg+2,{s:11,c:'#7b8697'});
+  texto('esc '+mm(V.inter.LnetE)+' contra hueco '+mm(V.inter.C0E),px+16,yg+18,{s:11,c:'#7b8697'});
+
+  rpanel(px,346,224,244,'rgba(255,255,255,0.04)',V.choca?BAD_HEX:'#243043');
+  texto('Con ESTE calado',px+16,376,{s:15,b:true,c:CIAN});
+  texto(V.choca?'CHOCA':(V.roza?'AL LÍMITE':'LIBRE'),px+16,408,
+    {s:20,b:true,c:V.choca?BAD_HEX:(V.roza?WARN_HEX:OK_HEX)});
+  texto('mínimo '+mm(V.peor.min),px+16,436,{s:14,c:TINTA});
+  texto('en el '+V.lado+', a '+gr(V.peor.thMin),px+16,456,{s:12,c:'#8c98a9'});
+  texto('margen exigido '+mm(V.peor.margen),px+16,476,{s:12,c:'#8c98a9'});
+  wrapText(V.choca
+    ? ('Velocidad de aproximación en el cruce: '+f0(V.peor.velCierre)+' mm/s a '+rpmF(V.peor.rpm)+
+       '. A esa velocidad la válvula no se dobla: se parte.')
+    : ('Evaluado a '+rpmF(V.peor.rpm)+', el régimen de par máximo de esta máquina.'),
+    px+16,500,192,17,{s:11,c:V.choca?BAD_HEX:'#7b8697'});
+
+  wrapText('DECLARADO: modelo axial de un punto. La cazoleta real es una superficie 3D y el contacto ocurre '+
+    'en el borde de la válvula, no en su eje. Estas curvas dan la tendencia y el orden de magnitud; la holgura '+
+    'de un motor concreto se mide con plastilina y se compara contra el manual de taller.',
+    110,622,804,21,{s:13,c:'#7b8697'});
+  wrapText('El punto crítico de la admisión cae DESPUÉS del PMS de solape (está abriendo mientras el pistón sube: '+
+    'adelantar el árbol la aprieta) y el del escape ANTES (aún no ha cerrado: retrasar el árbol lo aprieta). '+
+    'Quien memoriza «un diente = peligro» sin el signo se equivoca la mitad de las veces.',
+    110,692,804,21,{s:13,c:'#9aa6b6'});
+}
+
+// ---------------------------------------------------------------- 5 · banco
+const maskDe=keys=>keys.reduce((m,k)=>m|(1<<MED.findIndex(x=>x.k===k)),0);
+const filaSub=(mk,keys)=>censoSub(mk).find(r=>r.mask===maskDe(keys));
+function vistaBanco(){
+  cabecera('Banco de pruebas',
+    'Cuatro instrumentos sobre el mismo motor. La pregunta útil no es cuánto marca cada uno, sino cuántas averías distintas es capaz de separar.');
+  const c=CUR, e=MQ();
+  const br=barM(c), sano=barM({mk:c.mk,dA:0,dE:0,lref:c.lref,jx:c.jx});
+  const P={x:104,y:146,w:520,h:250};
+  const pmax=Math.max(...br.map(p=>p.par),...sano.map(p=>p.par))*1.10;
+  const M=ejes(P,e.rpmRal,e.rpmMax,0,pmax,'régimen (rpm)','par efectivo (N·m)',v=>f0(v),v=>f0(v),7,5);
+  const cAct=(ST.dA||ST.dE)?WARN_HEX:OK_HEX;
+  const ip=br.reduce((a,p,i)=>p.par>br[a].par?i:a,0);
+  enCaja(P,()=>{
+    serieXY(M,sano.map(p=>[p.rpm,p.par]),GRIS,2.2,[7,5]);
+    serieXY(M,br.map(p=>[p.rpm,p.par]),cAct,2.8);
+    punteo(M,br[ip].rpm,br[ip].par,cAct,5);
+  });
+  etiqueta(f0(br[ip].par)+' N·m a '+rpmF(br[ip].rpm),M.X(br[ip].rpm)+12,M.Y(br[ip].par)-14,TINTA);
+  leyenda(P.x+26,P.y+P.h-58,[['calado actual',cAct],['calado correcto (0, 0)',GRIS,[7,5]]]);
+
+  const px=666, fa=firM(c.mk,c.dA,c.dE), fs=firM(c.mk,0,0);
+  texto('Lecturas del banco',px,172,{s:17,b:true});
+  const y1=tabla(px,206,[{t:'medida',w:120},{t:'ahora',w:66,al:'right'},{t:'sano',w:66,al:'right'}],
+    MED.map(m=>{
+      const a=m.get(fa), b=m.get(fs);
+      const dif=fN(a,m.dec)!==fN(b,m.dec);
+      return { v:[m.cor,[fN(a,m.dec),dif?WARN_HEX:TINTA],[fN(b,m.dec),'#7b8697']] };
+    }),{rh:28,s:13,gap:12});
+  texto('bar · N·m · N·m · %',px,y1+4,{s:11,c:'#5f6a7b'});
+  texto('η'+'v máx '+f3(Math.max(...br.map(p=>p.etaV))),px,y1+26,{s:12,c:CIAN});
+
+  texto('Poder de diagnóstico de cada instrumento',104,470,{s:17,b:true});
+  const filas=MED.map(m=>{ const rr=filaSub(c.mk,[m.k]);
+    return { v:[m.rot, String(rr.clases)+' / '+rr.n,
+      [rr.clases===rr.n?'separa todos los calados'
+        :(rr.clases===1?'no separa nada':'no puede separar '+(rr.n-rr.clases)+' casos'),
+       rr.clases===rr.n?OK_HEX:(rr.clases===1?BAD_HEX:WARN_HEX)]] }; });
+  const par2=censoSub(c.mk).filter(rr=>rr.sub.length===2)[0];
+  filas.push({ hl:'rgba(138,180,248,0.07)',
+    v:['la mejor pareja: '+par2.sub.map(m=>m.cor).join(' + '), String(par2.clases)+' / '+par2.n,
+      [par2.clases===par2.n?'separa todos los calados':'no puede separar '+(par2.n-par2.clases)+' casos',
+       par2.clases===par2.n?OK_HEX:WARN_HEX]] });
+  const todo=filaSub(c.mk,MED.map(m=>m.k));
+  filas.push({ b:true,
+    v:['los cuatro instrumentos juntos', String(todo.clases)+' / '+todo.n,
+      [todo.clases===todo.n?'separa todos los calados':'no puede separar '+(todo.n-todo.clases)+' casos',
+       todo.clases===todo.n?OK_HEX:WARN_HEX]] });
+  tabla(104,502,[{t:'instrumento(s)',w:390},{t:'clases',w:80,al:'right'},{t:'veredicto',w:280}],
+    filas,{rh:26,s:13,gap:16});
+
+  wrapText(e.arboles===1
+    ? ('Esta máquina lleva UN solo árbol: admisión y escape van en el mismo eje y no se pueden desfasar entre '+
+       'sí, así que el censo tiene '+cenM(c.mk).c.n+' calados posibles en vez de veinticinco.')
+    : ('La presión de compresión sólo ve el cierre de la admisión. Mueve el árbol de ESCAPE y el manómetro '+
+       'marca exactamente lo mismo: por eso una compresión correcta no absuelve a la distribución.'),
+    104,712,812,21,{s:13,c:'#9aa6b6'});
+}
+
+// ---------------------------------------------------------------- 6 · reto
+function vistaReto(){
+  cabecera('Reto de diagnóstico',
+    'El banco entrega las cuatro lecturas de un motor calado a ciegas. Hay que decir cuántos dientes se ha movido cada árbol.');
+  if(!RETO.sol){ texto('Preparando el censo de calados…',104,220,{s:18,c:'#8c98a9'}); return; }
+  const mk=RETO.mk;
+  const fv=firM(mk,RETO.sol.dA,RETO.sol.dE);
+  const fg=firM(mk,ST.dA,ST.dE);
+  const fs=firM(mk,0,0);
+
+  texto('Lecturas del motor averiado',104,172,{s:17,b:true});
+  let y=tabla(104,208,[{t:'medida',w:250},{t:'motor averiado',w:130,al:'right'},
+      {t:'tu hipótesis',w:120,al:'right'},{t:'motor sano',w:110,al:'right'}],
+    MED.map(m=>{
+      const a=m.get(fv), b=m.get(fg), s=m.get(fs);
+      const igual=fN(a,m.dec)===fN(b,m.dec);
+      return { v:[m.rot+' ('+m.uni+')',[fN(a,m.dec),AMBAR],[fN(b,m.dec),igual?OK_HEX:BAD_HEX],
+        [fN(s,m.dec),'#7b8697']] };
+    }),{rh:30,s:14,gap:16});
+
+  y+=20;
+  rpanel(104,y,380,158,'rgba(255,255,255,0.035)','#243043');
+  texto('Tu hipótesis',124,y+32,{s:15,b:true,c:CIAN});
+  texto('admisión '+dtx(ST.dA),124,y+62,{s:17,b:true,c:TINTA});
+  texto('escape '+dtx(ST.dE),124,y+86,{s:17,b:true,c:TINTA});
+  texto('pistas usadas: '+RETO.pistas,124,y+114,{s:13,c:'#8c98a9'});
+  texto('calados aún compatibles: '+RETO.cand.length,124,y+136,
+    {s:13,c:RETO.cand.length===1?OK_HEX:AMBAR});
+
+  rpanel(504,y,412,158,'rgba(255,255,255,0.035)','#243043');
+  texto('Regla del banco',524,y+32,{s:15,b:true,c:CIAN});
+  wrapText('Las cuatro lecturas salen del motor sellado con el calado oculto. La coincidencia se juzga sobre la '+
+    'clave de cuatro cifras: si dos calados dieran la misma clave este banco no podría separarlos, y el reto '+
+    'no los propone.',524,y+58,372,19,{s:12.5});
+
+  y+=186;
+  texto('Cómo se lee esta tabla',104,y,{s:16,b:true});
+  wrapText('La presión de compresión depende sólo del cierre de admisión: responde al árbol de admisión y es '+
+    'ciega al de escape. Los residuales a ralentí y el par a régimen bajo son lo que delata al escape. Con una '+
+    'sola medida no se llega — el reto está construido para que haga falta cruzar al menos dos.',
+    104,y+28,812,21,{s:13,c:'#9aa6b6'});
+  if(RETO.pistas>0) texto('Pista: '+RETO.pistaTxt,104,y+108,{s:14,c:AMBAR});
+  if(RETO.hecho) texto(RETO.acierto?'✔ Diagnóstico correcto.':'✘ Ese calado no reproduce las lecturas.',
+    104,y+134,{s:17,b:true,c:RETO.acierto?OK_HEX:BAD_HEX});
+}
+
+const VISTAS={ ensamble:vistaEnsamble, marcas:vistaMarcas, traslape:vistaTraslape,
+  interferencia:vistaInterferencia, banco:vistaBanco, reto:vistaReto };
+function pintaBoard(){
+  bg();
+  (VISTAS[mode]||vistaEnsamble)();
+  btex.needsUpdate=true;
+}
+
+
+// ============================================================ §8 MÁQUINA 3D
+// Todo el motor está dibujado a ESCALA 1:1 — una unidad de escena son cien
+// milímetros — y en corte: del bloque y de la culata sólo se levantan las
+// paredes, para que se vea el pistón dentro de la camisa y las válvulas dentro
+// de la cámara. Ninguna cota está exagerada. Si la holgura pistón-válvula
+// parece pequeña es porque lo es: son milímetros de verdad.
+const ESC=0.010, MX=1.20, YC=0.62;
+// La camisa se dibuja SÓLO por su cara interior (BackSide): la mitad que queda
+// entre la cámara y el pistón se descarta sola, así que el ánima se ve por
+// dentro sin recortar geometría a mano. Va con material liso a propósito: la
+// textura de metal cepillado, repetida sobre un cilindro alto y estrecho, da un
+// bandeado que se lee como una rosca y no como un cilindro rectificado.
+const MAT_BORE=std({color:0x8e97a2,metalness:1.0,roughness:0.20,side:THREE.BackSide});
+const MAT_JUNTA=std({color:0x24303d,metalness:0.35,roughness:0.75});
+const MAT_PORT={adm:std({...plas,color:0x2b4f7a,roughness:0.62,metalness:0.18}),
+                esc:std({...plas,color:0x7a4a22,roughness:0.62,metalness:0.18})};
+const MAT_LOB ={adm:std({...brush,color:0x9fb6d8,metalness:1.0,roughness:0.22}),
+                esc:std({...brush,color:0xd8ab8a,metalness:1.0,roughness:0.22})};
+const MAT_CAZ =std({color:0x2a323d,metalness:0.55,roughness:0.70});
+const nuevaFantasma=()=>std({color:0x5BD4E5,transparent:true,opacity:0.26,
+  emissive:0x2AA6B8,emissiveIntensity:0.60,depthWrite:false,roughness:0.5,metalness:0.1});
+
+// ------------------------------------------------------------------ geometría
+// Un solo sitio decide dónde cae cada eje. El resto del laboratorio no coloca
+// nada «a ojo»: lee de aquí. Las tres arquitecturas del banco (dos árboles en
+// culata, uno en culata con balancines y uno en el bloque con varillas) salen
+// del mismo cálculo cambiando sólo quién empuja a quién.
+function geoDe(e){
+  const lay=/OHV/.test(e.nombre)?'ohv':(e.arboles===2?'dohc':'sohc');
+  const B=e.B*ESC, rM=radioManivela(e)*ESC, Lb=e.Lb*ESC;
+  const yTDC=YC+rM+Lb;                                   // bulón en el PMS
+  const hCor=0.32*B;                                     // del bulón a la corona
+  const yDeck=yTDC+hCor+0.02;                            // plano de junta
+  const hCham=volCamara(e)*1000/areaPiston(e)*ESC;       // cámara, como disco
+  const ySeat=yDeck+hCham;
+  const zL=0.055, zF=0.5*B+0.16, xs=0.27*B, LSTU=1.05, HBUC=0.25;
+  const L={};
+  ['adm','esc'].forEach(k=>{
+    const c=e[k], sg=(k==='adm'?-1:1), al=c.alfa*DEG;
+    const o={ k, sg, al, ux:sg*Math.sin(al), uy:Math.cos(al), juego:c.juego,
+      Dv:c.Dv*ESC, Ds:c.Ds*ESC, Lg:c.Lg*ESC, C0:c.C0*ESC,
+      rb:(12+1.2*c.Lg)*ESC, z:sg*zL, xS:MX+sg*xs, yS:ySeat };
+    o.xT=o.xS+o.ux*LSTU; o.yT=o.yS+o.uy*LSTU;            // punta del vástago
+    L[k]=o;
+  });
+  const span=Math.abs(L.adm.xT-MX);
+  const g={ e, lay, B, rM, Lb, yTDC, hCor, yDeck, hCham, ySeat, zL, zF, xs,
+    LSTU, HBUC, L, span, RB:0.62/0.38, dB:B*1.15, wB:B*1.62 };
+
+  if(lay==='dohc'){
+    ['adm','esc'].forEach(k=>{ const o=L[k], dd=HBUC+o.rb+o.juego*ESC;
+      o.cx=o.xT+o.ux*dd; o.cy=o.yT+o.uy*dd; o.rbDraw=o.rb; o.ratio=1; });
+    g.ejes=[{k:'adm',x:L.adm.cx,y:L.adm.cy,tilt:L.adm.sg*L.adm.al,lobes:['adm'],ref:'adm'},
+            {k:'esc',x:L.esc.cx,y:L.esc.cy,tilt:L.esc.sg*L.esc.al,lobes:['esc'],ref:'esc'}];
+    g.RLEV=Math.hypot(L.esc.cx-L.adm.cx,L.esc.cy-L.adm.cy)/2-0.018;
+  }else{
+    const yRock=Math.max(L.adm.yT,L.esc.yT), rbS=Math.max(L.adm.rb,L.esc.rb);
+    g.yRock=yRock; g.rbShaft=rbS;
+    ['adm','esc'].forEach(k=>{ const o=L[k]; o.ratio=g.RB; o.rbDraw=rbS;
+      o.pivX=MX+o.sg*0.38*span; o.endX=MX+o.sg*span; });
+    g.ejes=[{k:'unico',x:MX,y:(lay==='ohv'?YC+0.62*(yDeck-YC):yRock-rbS),
+             tilt:0,lobes:['adm','esc'],ref:'adm'}];
+    g.RLEV=(lay==='ohv'?0.42:0.46);
+  }
+  g.RCIG=g.RLEV*e.Zcig/e.Zlev;   // la relación de radios ES la de dientes: 1 a 2
+  // La culata tiene que dar cabida a lo que lleva dentro. En un árbol en culata
+  // eso son casi doscientos milímetros de altura, y así es como son de altas las
+  // culatas DOHC de verdad: el árbol no puede quedar volando sobre la tapa.
+  const alto=(lay==='dohc')
+    ? Math.max(...g.ejes.map(j=>j.y+g.L[j.ref].rb))
+    : g.yRock;
+  g.yHead=Math.max(yDeck+Math.max(0.90,1.15*B), alto+0.12);
+
+  // El tensor va POR FUERA del ramal flojo, como un rodillo de espalda. Se le
+  // saca lo justo para que quede en el casco convexo y la correa lo abrace.
+  const dx=g.ejes[0].x-MX, dy=g.ejes[0].y-YC, dd=Math.hypot(dx,dy);
+  let nx=-dy/dd, ny=dx/dd; if(nx>0){ nx=-nx; ny=-ny; }
+  const rT=0.115, off=(g.RCIG+g.RLEV)/2+rT+0.05;
+  g.tensor={ x:MX+dx*0.52+nx*off, y:YC+dy*0.52+ny*off, r:rT, id:'ten' };
+  g.poleas=[{x:MX,y:YC,r:g.RCIG,id:'cig'}]
+    .concat(g.ejes.map(j=>({x:j.x,y:j.y,r:g.RLEV,id:'lev:'+j.k})))
+    .concat([g.tensor]);
+  return g;
+}
+
+// ------------------------------------------------------- primitivas mecánicas
+// Rueda dentada de una sola pieza: el radio ondula Z veces por vuelta. Se
+// extruye un único perfil en vez de sembrar Z cajitas porque cada malla suelta
+// cuesta una llamada de dibujo y aquí hay tres ruedas en pantalla.
+function ruedaDentada(rad,esp,Z,mat){
+  const n=Math.max(120,Z*10), pts=[];
+  for(let i=0;i<n;i++){
+    const a=i*Math.PI*2/n, rr=rad*(0.955+0.045*Math.cos(Z*a));
+    pts.push(new THREE.Vector2(rr*Math.cos(a),rr*Math.sin(a)));
+  }
+  const geo=new THREE.ExtrudeGeometry(new THREE.Shape(pts),
+    {depth:esp,bevelEnabled:false,curveSegments:1,steps:1});
+  geo.translate(0,0,-esp/2);
+  const m=new THREE.Mesh(geo,mat); m.castShadow=true; return m;
+}
+// El lóbulo NO es un dibujo decorativo: su radio en cada ángulo es el alzado
+// que el motor sellado integra. Se muestrea la propia ley de leva, dividida
+// entre la relación de balancín cuando la hay, porque el motor publica el
+// alzado medido en el VÁSTAGO y el lóbulo es lo que hay antes del balancín.
+function perfilLobulo(cam,rb,ratio,esp){
+  const N=256, pts=[];
+  for(let i=0;i<N;i++){
+    const psi=-180+360*i/N;
+    const rr=rb+alzadoBruto(cam.centro+2*psi,cam)/ratio*ESC;
+    pts.push(new THREE.Vector2(rr*Math.cos(psi*DEG),rr*Math.sin(psi*DEG)));
+  }
+  const geo=new THREE.ExtrudeGeometry(new THREE.Shape(pts),
+    {depth:esp,bevelEnabled:false,curveSegments:1,steps:1});
+  geo.translate(0,0,-esp/2);
+  return geo;
+}
+function cil(r0,r1,h,mat,seg){
+  const m=new THREE.Mesh(new THREE.CylinderGeometry(r0,r1,h,seg||22),mat);
+  m.castShadow=true; return m;
+}
+function muelle(r,h,n,mat){
+  const pts=[];
+  for(let i=0;i<=n*24;i++){ const t=i/24, a=t*Math.PI*2;
+    pts.push(new THREE.Vector3(r*Math.cos(a),h*t/n,r*Math.sin(a))); }
+  const m=new THREE.Mesh(new THREE.TubeGeometry(new THREE.CatmullRomCurve3(pts),n*24,r*0.16,6,false),mat);
+  m.castShadow=true; return m;
+}
+// Casco convexo (cadena monótona de Andrew) en orden antihorario.
+function cascoCCW(ps){
+  const p=ps.slice().sort((a,b)=>(a.x-b.x)||(a.y-b.y));
+  if(p.length<3) return p;
+  const cr=(o,a,b)=>(a.x-o.x)*(b.y-o.y)-(a.y-o.y)*(b.x-o.x);
+  const lo=[],hi=[];
+  for(const q of p){ while(lo.length>=2&&cr(lo[lo.length-2],lo[lo.length-1],q)<=0) lo.pop(); lo.push(q); }
+  for(let i=p.length-1;i>=0;i--){ const q=p[i];
+    while(hi.length>=2&&cr(hi[hi.length-2],hi[hi.length-1],q)<=0) hi.pop(); hi.push(q); }
+  lo.pop(); hi.pop(); return lo.concat(hi);
+}
+// Camino de la correa por TANGENTES EXTERIORES COMUNES: entre dos poleas
+// consecutivas del casco el tramo recto sale y entra al mismo ángulo
+// ang − acos((r1−r2)/d), y en cada polea se recorre el arco de abrazado. Eso es
+// exactamente la banda tensa, no una interpolación bonita.
+function caminoCorrea(pol){
+  const P=cascoCCW(pol), n=P.length, th=[];
+  for(let i=0;i<n;i++){
+    const a=P[i], b=P[(i+1)%n];
+    const ang=Math.atan2(b.y-a.y,b.x-a.x), d=Math.hypot(b.x-a.x,b.y-a.y);
+    th.push(ang-Math.acos(clamp((a.r-b.r)/d,-1,1)));
+  }
+  const pts=[];
+  for(let i=0;i<n;i++){
+    const c=P[i], b=P[(i+1)%n];
+    let ent=th[(i-1+n)%n], sal=th[i];
+    while(sal<ent) sal+=Math.PI*2;
+    const na=Math.max(2,Math.ceil((sal-ent)/0.10));
+    for(let k=0;k<=na;k++){ const t=ent+(sal-ent)*k/na;
+      pts.push(new THREE.Vector3(c.x+c.r*Math.cos(t),c.y+c.r*Math.sin(t),0)); }
+    const p0=new THREE.Vector3(c.x+c.r*Math.cos(sal),c.y+c.r*Math.sin(sal),0);
+    const p1=new THREE.Vector3(b.x+b.r*Math.cos(th[i]),b.y+b.r*Math.sin(th[i]),0);
+    for(let k=1;k<=3;k++) pts.push(p0.clone().lerp(p1,k/4));
+  }
+  return pts;
+}
+// Reorigina un grupo en el centro de su caja: `home` es dónde va montado y
+// `minY` cuánto sobresale por debajo, que es lo que necesita el pedestal.
+// El contenido entero baja un nivel, a un grupo interior desplazado −c. Así las
+// piezas móviles conservan COORDENADAS DE MÁQUINA y la animación puede seguir
+// escribiendo posiciones absolutas aunque la pieza esté sobre el banco.
+function centra(g){
+  const dentro=new THREE.Group();
+  while(g.children.length) dentro.add(g.children[0]);
+  const caja=new THREE.Box3().setFromObject(dentro);
+  const c=new THREE.Vector3(); caja.getCenter(c);
+  dentro.position.copy(c).negate();
+  g.add(dentro);
+  g.userData.home=c.clone();
+  g.userData.minY=caja.min.y-c.y;
+  g.position.copy(c);
+  return g;
+}
+function borra(o){
+  o.traverse(n=>{ if(n.isMesh&&n.geometry) n.geometry.dispose(); });
+  if(o.userData.gm) o.userData.gm.dispose();
+  if(o.parent) o.parent.remove(o);
+}
+
+
+// ------------------------------------------------------- constructores de pieza
+// Cada constructor levanta su pieza en COORDENADAS DE MÁQUINA y escribe sus
+// partes móviles en el saco `R` que se le pasa. El fantasma se construye con un
+// saco de usar y tirar, así que jamás le roba las referencias a la pieza buena:
+// ése es el error clásico de este molde y aquí no puede ocurrir.
+let G=null;                       // geometría de la máquina montada
+
+function bBloque(R){
+  const g=new THREE.Group(), yF=YC-0.34, hh=G.yDeck-yF;
+  for(const sx of [-1,1]){        // paredes laterales: el corte deja ver el ánima
+    const p=roundedBox(0.13,hh,G.dB,MAT.bloque,0.05);
+    p.position.set(MX+sx*(G.wB/2-0.065),(G.yDeck+yF)/2,0); g.add(p);
+  }
+  const fondo=roundedBox(G.wB,0.12,G.dB,MAT.bloque,0.06);
+  fondo.position.set(MX,yF+0.06,0); g.add(fondo);
+  const tras=roundedBox(G.wB,hh,0.10,MAT.bloque,0.04);
+  tras.position.set(MX,(G.yDeck+yF)/2,-G.dB/2+0.05); g.add(tras);
+  for(const sx of [-1,1]){        // plano de junta, partido por el ánima
+    const w=(G.wB/2-G.B/2);
+    const p=roundedBox(w,0.05,G.dB,MAT.culata,0.05);
+    p.position.set(MX+sx*(G.B/2+w/2),G.yDeck-0.025,0); g.add(p);
+  }
+  const camisa=new THREE.Mesh(new THREE.CylinderGeometry(G.B/2,G.B/2,G.yDeck-(YC+0.14),44,1,true),MAT_BORE);
+  camisa.position.set(MX,(G.yDeck+YC+0.14)/2,0); g.add(camisa);
+  const carter=roundedBox(G.wB*0.86,0.30,G.dB*0.80,MAT.bloque,0.16);
+  carter.position.set(MX,yF-0.15,0); g.add(carter);
+  // Índice fijo del cigüeñal: la referencia contra la que se lee la marca.
+  const ix=roundedBox(0.05,0.13,0.05,MAT.indice,0.22);
+  ix.position.set(MX,YC-G.RCIG-0.09,G.zF); g.add(ix);
+  const br=roundedBox(0.06,0.22,0.06,MAT.acero,0.20);
+  br.position.set(MX,YC-G.RCIG-0.22,G.zF-0.05); g.add(br);
+  if(G.lay==='ohv'){              // en el OHV el piñón del árbol también va al frente
+    const j=G.ejes[0], p=roundedBox(0.05,0.13,0.05,MAT.indice,0.22);
+    p.position.set(j.x,j.y+G.RLEV+0.09,G.zF); g.add(p);
+  }
+  R.bloque=g; return g;
+}
+
+function bCigu(R){
+  const g=new THREE.Group(), rot=new THREE.Group();
+  rot.position.set(MX,YC,0); g.add(rot); R.cigu=rot;
+  const rj=Math.max(0.10,G.rM*0.62);
+  const eje=cil(rj,rj,G.dB+0.10,MAT.acero,26); eje.rotation.x=Math.PI/2; rot.add(eje);
+  const nariz=cil(rj*0.62,rj*0.62,G.zF-0.02,MAT.acero,20);
+  nariz.rotation.x=Math.PI/2; nariz.position.z=(G.dB+G.zF)/2-0.04; rot.add(nariz);
+  for(const sz of [-1,1]){        // contrapesos
+    const cp=roundedBox(G.rM*1.55,G.rM*1.55,0.10,MAT.acero,0.30);
+    cp.position.set(0,-G.rM*0.42,sz*0.13); rot.add(cp);
+  }
+  const muñon=cil(rj*0.80,rj*0.80,0.30,MAT.acero,20);
+  muñon.rotation.x=Math.PI/2; muñon.position.set(0,G.rM,0); rot.add(muñon);
+  for(const sz of [-1,1]){        // brazos de manivela
+    const br=roundedBox(rj*1.5,G.rM+rj,0.09,MAT.acero,0.24);
+    br.position.set(0,G.rM/2,sz*0.19); rot.add(br);
+  }
+  const pin=ruedaDentada(G.RCIG,0.075,G.e.Zcig,MAT.polea);
+  pin.position.z=G.zF; rot.add(pin);
+  const marca=roundedBox(0.035,G.RCIG*0.34,0.02,MAT.marcaC,0.30);
+  marca.position.set(0,-G.RCIG*0.66,G.zF+0.05); rot.add(marca);
+  return g;
+}
+
+function bPiston(R){
+  const g=new THREE.Group();
+  const pg=new THREE.Group(); pg.position.set(MX,G.yTDC,0); g.add(pg); R.pist=pg;
+  const falda=cil(G.B/2-0.008,G.B/2-0.008,G.hCor*1.55,MAT.piston,36);
+  falda.position.y=G.hCor*0.28; pg.add(falda);
+  const corona=cil(G.B/2-0.004,G.B/2-0.004,0.035,MAT.piston,36);
+  corona.position.y=G.hCor; pg.add(corona);
+  for(let i=0;i<3;i++){
+    const ar=new THREE.Mesh(new THREE.TorusGeometry(G.B/2-0.006,0.010,8,40),MAT.acero);
+    ar.rotation.x=Math.PI/2; ar.position.y=G.hCor-0.055-i*0.035; pg.add(ar);
+  }
+  const bulon=cil(G.L.adm.Ds*0.9,G.L.adm.Ds*0.9,G.B*0.72,MAT.acero,18);
+  bulon.rotation.x=Math.PI/2; pg.add(bulon);
+  // Cazoletas: el hueco que la corona le regala a cada válvula. Su fondo está a
+  // C0 del plano de la válvula cerrada; es la cota que decide si el motor es
+  // interferente, y se dibuja al tamaño que dice el motor sellado.
+  ['adm','esc'].forEach(k=>{
+    const o=G.L[k];
+    const cz=cil(o.Dv/2,o.Dv/2,0.022,MAT_CAZ,28);
+    cz.position.set(o.sg*G.xs,G.hCor-0.006,o.z);
+    cz.rotation.z=-o.sg*o.al; pg.add(cz);
+  });
+  const bg=new THREE.Group(); bg.position.set(MX,YC+G.rM,0); g.add(bg); R.biela=bg;
+  const cuerpo=roundedBox(0.075,G.Lb-0.10,0.055,MAT.biela,0.30);
+  cuerpo.position.y=G.Lb/2; bg.add(cuerpo);
+  const pieB=cil(0.105,0.105,0.30,MAT.biela,22); pieB.rotation.x=Math.PI/2; bg.add(pieB);
+  const pieP=cil(0.055,0.055,0.16,MAT.biela,18);
+  pieP.rotation.x=Math.PI/2; pieP.position.y=G.Lb; bg.add(pieP);
+  return g;
+}
+
+function bCulata(R){
+  const g=new THREE.Group();
+  const yTop=G.yHead, hH=yTop-G.yDeck;
+  for(const sx of [-1,1]){
+    const p=roundedBox(0.12,hH,G.dB,MAT.culata,0.05);
+    p.position.set(MX+sx*(G.wB/2-0.06),G.yDeck+hH/2,0); g.add(p);
+  }
+  const tras=roundedBox(G.wB,hH,0.10,MAT.culata,0.04);
+  tras.position.set(MX,G.yDeck+hH/2,-G.dB/2+0.05); g.add(tras);
+  for(const sx of [-1,1]){        // junta de culata, partida por el ánima
+    const w=(G.wB/2-G.B/2);
+    const j=roundedBox(w,0.014,G.dB,MAT_JUNTA,0.05);
+    j.position.set(MX+sx*(G.B/2+w/2),G.yDeck+0.007,0); g.add(j);
+  }
+  const techo=roundedBox(G.wB*0.94,0.05,G.dB*0.86,MAT.culata,0.05);
+  techo.position.set(MX,G.ySeat+0.025,0); g.add(techo);
+  const tapa=roundedBox(G.wB,0.07,G.dB,MAT.culata,0.05);
+  tapa.position.set(MX,yTop-0.035,0); g.add(tapa);
+  ['adm','esc'].forEach(k=>{      // conductos y guías
+    const o=G.L[k];
+    const gu=cil(o.Ds*1.9,o.Ds*1.9,G.LSTU*0.52,MAT.acero,16);
+    gu.position.set(o.xS+o.ux*G.LSTU*0.42,o.yS+o.uy*G.LSTU*0.42,o.z);
+    gu.rotation.z=-o.sg*o.al; g.add(gu);
+    // Conducto: entra por el costado de la culata y muere sobre el asiento.
+    const cd=cil(o.Dv*0.40,o.Dv*0.44,G.wB*0.46,MAT_PORT[k],18);
+    cd.rotation.z=Math.PI/2;
+    cd.position.set(MX+o.sg*(G.wB/2-0.06),G.ySeat+0.26,o.z); g.add(cd);
+  });
+  if(G.lay==='dohc'){             // sombreretes de bancada del árbol
+    G.ejes.forEach(j=>{ for(const sz of [-1,1]){
+      const s=roundedBox(0.20,0.16,0.09,MAT.culata,0.20);
+      s.position.set(j.x,j.y-0.02,sz*(G.dB*0.30)); g.add(s); } });
+  }else{                          // soporte del eje de balancines
+    const s=cil(0.045,0.045,G.dB*0.72,MAT.acero,16);
+    s.rotation.x=Math.PI/2; s.position.set(G.L.adm.pivX,G.yRock,0); g.add(s);
+    const s2=s.clone(); s2.position.set(G.L.esc.pivX,G.yRock,0); g.add(s2);
+  }
+  if(G.lay!=='ohv'){              // índices fijos de los piñones del árbol
+    G.ejes.forEach(j=>{
+      const pa=Math.PI/2+j.tilt, ix=roundedBox(0.05,0.13,0.05,MAT.indice,0.22);
+      ix.position.set(j.x+(G.RLEV+0.09)*Math.cos(pa),j.y+(G.RLEV+0.09)*Math.sin(pa),G.zF);
+      ix.rotation.z=j.tilt; g.add(ix);
+    });
+  }
+  R.culata=g; return g;
+}
+
+function bValv(R){
+  const g=new THREE.Group();
+  R.val={}; R.bal={}; R.varilla={};
+  ['adm','esc'].forEach(k=>{
+    const o=G.L[k], mat=(k==='adm'?MAT.vAdm:MAT.vEsc);
+    const eje=new THREE.Group();
+    eje.position.set(o.xS,o.yS,o.z); eje.rotation.z=-o.sg*o.al; g.add(eje);
+    const v=new THREE.Group(); eje.add(v); R.val[k]=v;
+    const cab=cil(o.Dv/2,o.Dv/2*0.86,0.045,mat,30); cab.position.y=-0.020; v.add(cab);
+    const vast=cil(o.Ds/2,o.Ds/2,G.LSTU,MAT.acero,14); vast.position.y=G.LSTU/2; v.add(vast);
+    const plat=cil(o.Ds*1.6,o.Ds*1.2,0.035,MAT.acero,18);
+    plat.position.y=G.LSTU*0.74; v.add(plat);
+    const mu=muelle(o.Ds*1.5,G.LSTU*0.40,7,MAT.muelle);
+    mu.position.y=G.LSTU*0.34; v.add(mu);
+    if(G.lay==='dohc'){
+      const bu=cil(o.rb*0.62,o.rb*0.62,G.HBUC,MAT.acero,24);
+      bu.position.y=G.LSTU+G.HBUC/2; v.add(bu);
+    }else{
+      const b=new THREE.Group();
+      b.position.set(o.pivX,G.yRock,o.z); g.add(b); R.bal[k]=b;
+      // La barra va del extremo de leva (x = 0 de máquina) al de válvula, con el
+      // pivote a 0,38 del recorrido: la relación de balancín queda 0,62/0,38.
+      const barra=roundedBox(G.span,0.075,0.070,MAT.acero,0.28);
+      barra.position.x=o.sg*0.12*G.span; b.add(barra);
+      const rod=cil(0.030,0.030,0.10,MAT.acero,12);
+      rod.position.x=o.sg*0.62*G.span; b.add(rod);
+      if(G.lay==='ohv'){
+        const va=new THREE.Group(); va.position.set(MX,0,o.z); g.add(va); R.varilla[k]=va;
+        const y0=G.ejes[0].y+G.rbShaft, y1=G.yRock;
+        const tq=cil(o.rb*0.52,o.rb*0.52,0.10,MAT.acero,16); tq.position.y=y0+0.05; va.add(tq);
+        const vr=cil(0.022,0.022,y1-y0-0.10,MAT.acero,10);
+        vr.position.y=(y0+0.10+y1)/2; va.add(vr);
+      }
+    }
+  });
+  return g;
+}
+
+function bArbol(R){
+  const g=new THREE.Group(); R.ejes=[];
+  const D0=distribucion(G.e);     // nominales: fijan dónde se pinta la marca
+  G.ejes.forEach(j=>{
+    const nodo=new THREE.Group(); nodo.position.set(j.x,j.y,0); g.add(nodo);
+    const refNom=(j.ref==='adm'?D0.camA.centro:D0.camE.centro);
+    const rbD=(G.lay==='dohc'?G.L[j.ref].rbDraw:G.rbShaft);
+    const tubo=cil(rbD*0.72,rbD*0.72,G.dB/2+G.zF,MAT.arbol,26);
+    tubo.rotation.x=Math.PI/2; tubo.position.z=(G.zF-G.dB/2)/2; nodo.add(tubo);
+    j.lobes.forEach(k=>{
+      const o=G.L[k], camNom=(k==='adm'?D0.camA:D0.camE);
+      const m=new THREE.Mesh(perfilLobulo(camNom,rbD,o.ratio,0.085),MAT_LOB[k]);
+      m.castShadow=true; m.position.z=o.z;
+      m.rotation.z=(-90+(camNom.centro-refNom)/2)*DEG;
+      nodo.add(m);
+    });
+    const pin=ruedaDentada(G.RLEV,0.075,G.e.Zlev,MAT.polea);
+    pin.position.z=G.zF; nodo.add(pin);
+    const mk=roundedBox(0.035,G.RLEV*0.26,0.02,
+      (j.ref==='adm'?MAT.marcaA:MAT.marcaE),0.30);
+    const am=(90-refNom/2)*DEG, rr=G.RLEV*0.80;
+    mk.position.set(rr*Math.cos(am),rr*Math.sin(am),G.zF+0.05);
+    mk.rotation.z=am-Math.PI/2; nodo.add(mk);
+    R.ejes.push({k:j.k,ref:j.ref,tilt:j.tilt,nodo});
+  });
+  return g;
+}
+
+function bCorrea(R){
+  const g=new THREE.Group();
+  const pts=caminoCorrea(G.poleas);
+  const curva=new THREE.CatmullRomCurve3(pts,true,'catmullrom',0.0);
+  const m=new THREE.Mesh(new THREE.TubeGeometry(curva,pts.length*2,0.020,7,true),
+    G.e.mando==='cadena'?MAT.cadena:MAT.correa);
+  m.position.z=G.zF; m.scale.set(1,1,5); m.castShadow=true; g.add(m);
+  const t=G.tensor;
+  const pol=cil(t.r,t.r,0.10,MAT.polea,26);
+  pol.rotation.x=Math.PI/2; pol.position.set(t.x,t.y,G.zF); g.add(pol);
+  const bu=cil(t.r*0.34,t.r*0.34,0.16,MAT.acero,16);
+  bu.rotation.x=Math.PI/2; bu.position.set(t.x,t.y,G.zF-0.10); g.add(bu);
+  const brazo=roundedBox(0.30,0.07,0.06,MAT.acero,0.25);
+  const ang=Math.atan2(t.y-(YC+0.30),t.x-MX);
+  brazo.position.set(t.x-Math.cos(ang)*0.15,t.y-Math.sin(ang)*0.15,G.zF-0.10);
+  brazo.rotation.z=ang; g.add(brazo);
+  R.correa=g; return g;
+}
+
+// ------------------------------------------------------------- registro de piezas
+const PARTS=[
+  {id:'bloque', build:bBloque, rot:'Bloque, camisa y bancada',
+   sub:'El diámetro, la carrera y el plano de junta: la geometría desde la que se mide todo lo demás.',
+   nota:'El bloque fija diámetro y carrera. La cilindrada y la relación de compresión salen de aquí, y con ellas el volumen de la cámara.'},
+  {id:'cigu', build:bCigu, rot:'Cigüeñal y piñón de mando',
+   sub:'Lleva la marca de PMS. Sin su referencia no hay puesta a punto que valga.',
+   nota:'El piñón del cigüeñal tiene Z dientes y da DOS vueltas por ciclo. La marca del PMS es el origen de todos los ángulos del laboratorio.'},
+  {id:'piston', build:bPiston, rot:'Pistón, bulón y biela',
+   sub:'Biela finita: el pistón no se mueve en armónico simple, y por eso la holgura no es simétrica.',
+   nota:'La corona lleva las cazoletas. Su fondo está a C₀ de la válvula cerrada: ésa es la cota que decide si el motor es interferente.'},
+  {id:'culata', build:bCulata, rot:'Culata, cámara y conductos',
+   sub:'Aquí se apoya el árbol y aquí caben —o no— las válvulas cuando el pistón sube.',
+   nota:'La cámara se dibuja a su altura real: los milímetros que ves entre el techo y la corona son los que hay.'},
+  {id:'valv', build:bValv, rot:'Válvulas, muelles y taqués',
+   sub:'El juego de taqués se come el arranque de la rampa y recorta duración y traslape sin tocar el árbol.',
+   nota:'El juego no se dibuja: a escala 1:1 son dos centésimas de milímetro en pantalla. Sí entra en el alzado neto, en la curva y en todas las cifras.'},
+  {id:'arbol', build:bArbol,
+   get rot(){ return MQ().arboles===2?'Árboles de levas y sus piñones':'Árbol de levas y su piñón'; },
+   get sub(){ return MQ().arboles===2
+     ? 'Dos ejes independientes: admisión y escape se pueden desfasar entre sí, y salen veinticinco calados.'
+     : 'Un solo eje: admisión y escape van juntos por fuerza, y sólo quedan cinco calados posibles.'; },
+   nota:'El lóbulo que ves ES el perfil que integra el motor: su radio en cada ángulo es el alzado que devuelve la ley de leva.'},
+  {id:'correa', build:bCorrea,
+   get rot(){ return MQ().mando==='cadena'?'Cadena de distribución y tensor':'Correa de distribución y tensor'; },
+   sub:'Un diente de más o de menos aquí vale 720/Z grados de cigüeñal. Nadie se salta medio grado.',
+   nota:'El camino se traza por tangentes exteriores comunes a las poleas: es la banda tensa de verdad, no una curva dibujada a mano.'},
+];
+const PART=Object.fromEntries(PARTS.map(p=>[p.id,p]));
+const ORDEN=PARTS.map(p=>p.id);
+const ASM={ done:new Set(), sel:null };
+
+
+// ------------------------------------------------------------------ el banco
+const STAGE_S=0.34;
+const BENCH={cx:5.05,cz:0.55,top:1.00,cols:3,dx:1.06,dz:1.16,pedH:0.26};
+const NFIL=Math.ceil(PARTS.length/BENCH.cols), PED_Y=BENCH.top+BENCH.pedH;
+function pedXZ(i){
+  const c=i%BENCH.cols, f=Math.floor(i/BENCH.cols);
+  return [BENCH.cx+(c-(BENCH.cols-1)/2)*BENCH.dx, BENCH.cz+(f-(NFIL-1)/2)*BENCH.dz];
+}
+const peds=[];
+(function levantaBanco(){
+  const g=new THREE.Group();
+  const w=BENCH.cols*BENCH.dx+0.42, d=NFIL*BENCH.dz+0.42;
+  const losa=roundedBox(w,0.10,d,MAT.banco,0.04);
+  losa.position.set(BENCH.cx,BENCH.top,BENCH.cz); g.add(losa);
+  for(const sx of [-1,1]) for(const sz of [-1,1]){
+    const pa=roundedBox(0.10,BENCH.top,0.10,MAT.acero,0.20);
+    pa.position.set(BENCH.cx+sx*(w/2-0.15),BENCH.top/2,BENCH.cz+sz*(d/2-0.15)); g.add(pa);
+  }
+  PARTS.forEach((p,i)=>{
+    const [x,z]=pedXZ(i), pg=new THREE.Group(); pg.position.set(x,0,z);
+    const cu=cil(0.24,0.28,BENCH.pedH,MAT.banco,26);
+    cu.position.y=BENCH.top+BENCH.pedH/2; pg.add(cu);
+    const pl=cil(0.26,0.26,0.03,MAT.acero,26); pl.position.y=PED_Y; pg.add(pl);
+    const mm2=emis(0x2AA6B8,0.85);
+    const an=new THREE.Mesh(new THREE.TorusGeometry(0.27,0.013,10,40),mm2);
+    an.rotation.x=-Math.PI/2; an.position.y=PED_Y+0.02; pg.add(an);
+    const lb=labelSprite(String(i+1),'#9fb2c6');
+    lb.position.set(0,BENCH.top+0.14,0); lb.scale.multiplyScalar(0.46); pg.add(lb);
+    g.add(pg); peds.push({mat:mm2});
+  });
+  scene.add(g);
+})();
+function pedLibre(i){ const p=peds[i]; if(!p) return;
+  p.mat.color.setHex(0x2AA6B8); p.mat.emissive.setHex(0x2AA6B8); p.mat.emissiveIntensity=0.85; }
+function pedHecho(i){ const p=peds[i]; if(!p) return;
+  p.mat.color.setHex(0x7CD992); p.mat.emissive.setHex(0x7CD992); p.mat.emissiveIntensity=0.30; }
+
+// ------------------------------------------------------------------ ensamble
+let RIG=null, fantasmas=[], moviles=[], tweens=[], montadas=[];
+let TH=0;
+const ease=x=>x<0.5?4*x*x*x:1-Math.pow(-2*x+2,3)/2;
+let toastT=null;
+function showToast(html,ms){
+  const t=el('toast'); t.innerHTML=html; t.classList.add('show');
+  clearTimeout(toastT); toastT=setTimeout(()=>t.classList.remove('show'),ms||3800);
+}
+
+function limpiaEscena(){
+  [...fantasmas,...moviles,...montadas].forEach(o=>borra(o));
+  fantasmas=[]; moviles=[]; montadas=[]; tweens=[]; ASM.sel=null;
+}
+function nuevoRig(){ return {cigu:null,pist:null,biela:null,val:{},bal:{},varilla:{},ejes:[]}; }
+function haz(p,R){ const g=p.build(R); centra(g); g.userData.pid=p.id; return g; }
+
+function nuevaMaquina(){ G=geoDe(MQ()); RIG=nuevoRig(); }
+
+// Máquina ya montada: las siete piezas en su sitio, sin banco ni fantasmas. Es
+// lo que se ve al cambiar de arquetipo con el tren ya armado.
+function montaMaquina(){
+  limpiaEscena(); nuevaMaquina();
+  PARTS.forEach(p=>{
+    const g=haz(p,RIG); g.userData.kind='placed'; g.userData.id=p.id;
+    scene.add(g); montadas.push(g); ASM.done.add(p.id);
+  });
+  peds.forEach((_,i)=>pedHecho(i));
+  sigueMaquina(TH);
+}
+
+// Ensamble desde cero: piezas a escala sobre los pedestales y un fantasma
+// traslúcido en cada hueco de la máquina.
+function initAssembly(){
+  limpiaEscena(); nuevaMaquina();
+  ASM.done.clear();
+  PARTS.forEach((p,i)=>{
+    const g=haz(p,RIG);
+    g.scale.setScalar(STAGE_S);
+    const [x,z]=pedXZ(i);
+    const baseY=PED_Y+0.03-g.userData.minY*STAGE_S;
+    g.position.set(x,baseY,z);
+    g.userData.kind='part'; g.userData.id=p.id;
+    g.userData.baseY=baseY; g.userData.fase=i*1.7; g.userData.lift=0;
+    scene.add(g); moviles.push(g);
+
+    const f=haz(p,nuevoRig()), gm=nuevaFantasma();
+    f.traverse(o=>{ if(o.isMesh){ o.material=gm; o.castShadow=false; o.receiveShadow=false; }
+                    if(o.isSprite) o.visible=false; });
+    f.userData.kind='slot'; f.userData.id=p.id; f.userData.gm=gm; f.userData.shake=0;
+    scene.add(f); fantasmas.push(f);
+    pedLibre(i);
+  });
+  muestraHueco(null);
+  simUnlocked=false; solved=false;
+  sigueMaquina(0);
+  pintaBoard(); syncCtrlbar();
+  S.setCinematicIdle(false);
+  S.moveTo([7.4,5.0,10.4],[1.8,2.30,0.10],1.3);
+}
+function muestraHueco(id){
+  fantasmas.forEach(f=>{ f.visible=!ASM.done.has(f.userData.id)&&(!id||f.userData.id===id); });
+}
+function selPieza(o){
+  if(ASM.sel===o){ deselec(); return; }
+  deselec(); ASM.sel=o; o.userData.lift=0.16;
+  muestraHueco(o.userData.id); synth.beep(660,0.06,0.04);
+  showToast('<b>'+PART[o.userData.id].rot+'</b> en la mano. Ahora toca su <b>hueco luminoso</b> sobre la máquina.',2600);
+}
+function deselec(){ if(ASM.sel){ ASM.sel.userData.lift=0; ASM.sel=null; } muestraHueco(null); }
+function colocaPieza(o,f){
+  const p=PART[o.userData.id], i=ORDEN.indexOf(p.id);
+  f.visible=false;
+  tweens.push({o, p0:o.position.clone(), p1:o.userData.home.clone(),
+    s0:STAGE_S, s1:1, t:0, dur:0.85, fin:()=>{ o.userData.kind='placed'; o.userData.lift=0; }});
+  ASM.done.add(p.id); ASM.sel=null; pedHecho(i);
+  synth.beep(880,0.07,0.05); setTimeout(()=>synth.beep(1174,0.09,0.05),90);
+  showToast('✔ <b>'+p.rot+'</b> montada. '+p.nota,4400);
+  muestraHueco(null); pintaBoard();
+  if(ASM.done.size===PARTS.length) finEnsamble();
+}
+function huecoMal(f){
+  f.userData.shake=0.5; synth.beep(200,0.12,0.05);
+  showToast('<span style="color:var(--bad)">✗ Esa pieza no va en ese hueco.</span>',2000);
+}
+function finEnsamble(){
+  simUnlocked=true; syncCtrlbar();
+  synth.beep(523,0.10,0.05); setTimeout(()=>synth.beep(784,0.14,0.05),130);
+  showToast('🎉 <b>Tren de distribución completo.</b> Se abren los cinco modos de medida.',4600);
+  S.setCinematicIdle(true);
+  pintaBoard();
+}
+function autoAssemble(){
+  const pend=PARTS.filter(p=>!ASM.done.has(p.id));
+  pend.forEach((p,n)=>setTimeout(()=>{
+    const o=moviles.find(m=>m.userData.id===p.id), f=fantasmas.find(x=>x.userData.id===p.id);
+    if(o&&f&&!ASM.done.has(p.id)) colocaPieza(o,f);
+  },340+n*720));
+  return 340+pend.length*720+900;
+}
+
+function conEtiqueta(o){ let n=o; while(n){ if(n.userData&&n.userData.kind) return n; n=n.parent; } return null; }
+pickerFor(scene,S.camera,mount,hit=>{
+  if(!hit){ deselec(); return; }
+  const t=conEtiqueta(hit.object);
+  if(!t){ deselec(); return; }
+  const k=t.userData.kind;
+  if(k==='part') selPieza(t);
+  else if(k==='slot'){
+    if(!ASM.sel){ showToast('Primero toca una <b>pieza</b> del banco.',2200); return; }
+    if(t.userData.id===ASM.sel.userData.id) colocaPieza(ASM.sel,t); else huecoMal(t);
+  }else if(k==='placed'){
+    const p=PART[t.userData.id];
+    showToast('<b>'+p.rot+'</b> — '+p.nota,4400);
+  }
+});
+
+// ---------------------------------------------------------- la máquina en marcha
+// La posición de cada pieza sale del motor sellado, no de una animación
+// paralela: el pistón usa pistonS(), la válvula usa alzado() y el árbol lleva su
+// propio centro, que ya incluye los dientes saltados. Nada se dibuja «como si».
+function sigueMaquina(th){
+  if(!RIG||!G) return;
+  const e=G.e, D=disM(CUR);
+  if(RIG.cigu) RIG.cigu.rotation.z=-th*DEG;
+  const yP=G.yTDC-pistonS(th,e)*ESC;
+  if(RIG.pist) RIG.pist.position.y=yP;
+  if(RIG.biela){
+    const px=MX+G.rM*Math.sin(th*DEG), py=YC+G.rM*Math.cos(th*DEG);
+    RIG.biela.position.set(px,py,0);
+    RIG.biela.rotation.z=Math.atan2(yP-py,MX-px)-Math.PI/2;
+  }
+  RIG.ejes.forEach(j=>{
+    const ref=(j.ref==='adm'?D.camA:D.camE).centro;
+    j.nodo.rotation.z=j.tilt-((th-ref)/2)*DEG;
+  });
+  ['adm','esc'].forEach(k=>{
+    const cam=(k==='adm'?D.camA:D.camE), o=G.L[k];
+    const neto=alzado(th,cam)*ESC, bruto=alzadoBruto(th,cam)*ESC;
+    if(RIG.val[k]) RIG.val[k].position.y=-neto;
+    if(RIG.bal[k]){
+      const s=clamp(bruto/(0.62*G.span),-1,1);
+      RIG.bal[k].rotation.z=-o.sg*Math.asin(s);
+    }
+    if(RIG.varilla[k]) RIG.varilla[k].position.y=bruto/G.RB;
+  });
+}
+
+// Un solo latido: tweens del ensamble, respiración de las piezas en el banco,
+// pulso de los fantasmas y giro del motor cuando ya hay motor que girar.
+function pinta3D(dt){
+  const t=animT;
+  for(let i=tweens.length-1;i>=0;i--){
+    const w=tweens[i]; w.t+=dt;
+    const u=clamp(w.t/w.dur,0,1), q=ease(u);
+    w.o.position.lerpVectors(w.p0,w.p1,q);
+    w.o.position.y+=Math.sin(q*Math.PI)*0.42;
+    const s=w.s0+(w.s1-w.s0)*q; w.o.scale.setScalar(s);
+    if(u>=1){ w.o.position.copy(w.p1); w.o.scale.setScalar(w.s1); w.fin&&w.fin(); tweens.splice(i,1); }
+  }
+  moviles.forEach(o=>{
+    if(o.userData.kind!=='part') return;
+    const d=o.userData;
+    o.position.y=d.baseY+Math.sin(t*1.6+d.fase)*0.02+d.lift;
+    o.rotation.y=Math.sin(t*0.5+d.fase)*0.12;
+  });
+  fantasmas.forEach(f=>{
+    const d=f.userData;
+    if(d.gm) d.gm.opacity=0.22+0.13*Math.sin(t*3.2);
+    if(d.shake>0){ d.shake=Math.max(0,d.shake-dt*1.7);
+      f.position.x=f.userData.home.x+Math.sin(t*48)*d.shake*0.04; }
+  });
+  if(simUnlocked){
+    const v=(mode==='interferencia')?46:(mode==='marcas'?86:150);
+    TH=(TH+v*dt)%720;
+    sigueMaquina(TH);
+  }
+}
+
+
+// ============================================================ §9 HUD Y PANEL
+const MODE_META={
+  ensamble:{ n:'Ensamble', cam:[[7.4,5.0,10.4],[1.80,2.30,0.10]] },
+  marcas:{ n:'Marcas', cam:[[5.4,4.4,9.2],[-0.60,2.60,0.10]] },
+  traslape:{ n:'Traslape', cam:[[5.2,4.4,9.0],[-0.80,2.50,0.10]] },
+  interferencia:{ n:'Holgura', cam:[[2.5,2.9,4.1],[1.10,2.62,0.10]] },
+  banco:{ n:'Banco', cam:[[6.4,4.6,10.4],[-1.00,2.20,0.10]] },
+  reto:{ n:'Reto', cam:[[6.4,4.6,10.4],[-1.00,2.20,0.10]] },
+};
+const HUD_TXT={
+  ensamble:['Montaje','Arma el tren de distribución',
+    'Siete piezas sobre el banco y siete huecos sobre la máquina. Toca una pieza, toca su hueco. El motor no se cala a medias: hasta que el tren no esté completo no hay nada que medir.',
+    '1 diente = 720/Z<sub>leva</sub> grados de cigüeñal'],
+  marcas:['Puesta a punto','Marcas, ángulos y criterios de lectura',
+    'Las marcas del piñón y del cigüeñal enfrentadas a sus índices son la única referencia de un taller. Un diente saltado desplaza la marca justo 360/Z<sub>leva</sub> grados vistos en el piñón, y el doble medido en el cigüeñal.',
+    'AAA + RCE = traslape · ICL = centro de admisión tras el PMS'],
+  traslape:['Alzado','Cuánto se pisan las dos válvulas',
+    'El traslape no se calcula sumando ángulos de catálogo: se mide donde las dos curvas de alzado neto superan a la vez el alzado de referencia. Cambiar de criterio cambia las dos cifras al mismo tiempo.',
+    'L<sub>neto</sub>(θ) = máx(0, L<sub>bruto</sub>(θ) − juego)'],
+  interferencia:['Holgura','Interferente no es lo mismo que chocar',
+    'Que la válvula quepa bajo el pistón es una propiedad de la geometría. Que CHOQUE depende del calado. Un motor interferente bien calado no toca nada; uno no interferente no toca ni saltando dos dientes.',
+    'C(θ) = C₀ + s(θ)·cos α − L(θ)'],
+  banco:['Diagnóstico','Qué separa cada instrumento',
+    'Cuatro medidas sobre el mismo motor. La pregunta útil de un taller no es cuánto marca cada una, sino cuántas averías distintas es capaz de separar. La compresión, por ejemplo, es CIEGA al árbol de escape.',
+    'r<sub>d</sub> = V(RCA) / V<sub>cámara</sub> — desde el cierre real de admisión'],
+  reto:['Reto','Diagnostica el calado a ciegas',
+    'El banco entrega las cuatro lecturas de un motor calado en secreto. Hay que decir cuántos dientes se ha movido cada árbol. Con una sola medida no se llega: está construido para que haga falta cruzar al menos dos.',
+    'clave = p<sub>comp</sub> / par<sub>bajo</sub> / par<sub>alto</sub> / residuales'],
+};
+function pintaHUD(){
+  const t=HUD_TXT[mode]||HUD_TXT.ensamble, e=MQ();
+  el('hud').innerHTML=
+    '<div class="eyebrow">Distribución · '+t[0]+'</div>'+
+    '<h2>'+t[1]+'</h2>'+
+    '<p>'+t[2]+'</p>'+
+    '<div class="formula">'+t[3]+'</div>'+
+    '<div class="legend">'+
+      '<div class="li"><span class="dot" style="background:'+AZUL+'"></span>admisión</div>'+
+      '<div class="li"><span class="dot" style="background:'+NARANJA+'"></span>escape</div>'+
+      '<div class="li"><span class="dot" style="background:'+AMBAR+'"></span>marca del cigüeñal</div>'+
+      '<div class="li"><span class="dot" style="background:'+OK_HEX+'"></span>dentro de norma</div>'+
+      '<div class="li"><span class="dot" style="background:'+BAD_HEX+'"></span>contacto</div>'+
+    '</div>'+
+    '<div class="fid">'+
+      '<div class="ft">🔒 Contrato de fidelidad</div>'+
+      '<div class="fl"><b>Sí modela:</b> perfil de leva polinómico C², cinemática exacta de biela finita, llenado y vaciado del cilindro paso a paso con Wiebe y Woschni, y holgura pistón-válvula por modelo axial de un punto. El motor se dibuja a escala 1:1 y el lóbulo que ves ES el perfil que se integra.</div>'+
+      '<div class="fl no"><b>NO modela:</b> el juego de taqués entra en todas las cifras pero no se dibuja (a 1:1 son centésimas de milímetro en pantalla); el balancín se dibuja con relación 0,62/0,38 y el motor ya publica el alzado en el vástago; la cazoleta real es una superficie 3D y aquí el contacto se evalúa sobre el eje de la válvula. Los cuatro motores son arquetipos declarados, <b>no</b> modelos comerciales.</div>'+
+    '</div>'+
+    '<div class="src">Ref: manual de taller del fabricante (única fuente de los ángulos, el juego y la holgura mínima de un motor concreto) · SAE J604, nomenclatura de motores alternativos · criterios de alzado de referencia 0,15 / 1,00 / 1,27 mm (0,050 in) · Heywood, <i>Internal Combustion Engine Fundamentals</i> (1988) · Máquina en pantalla: '+e.nombre+'.</div>';
+}
+
+el('panel').innerHTML=
+  '<h4>Banco de distribución <span id="p_mode"></span></h4>'+
+  '<div class="modebar">'+
+    '<button class="b" id="m_ensamble">1 · Montar</button>'+
+    '<button class="b" id="m_marcas">2 · Marcas</button>'+
+    '<button class="b" id="m_traslape">3 · Alzado</button>'+
+  '</div>'+
+  '<div class="modebar">'+
+    '<button class="b" id="m_interferencia">4 · Holgura</button>'+
+    '<button class="b" id="m_banco">5 · Banco</button>'+
+    '<button class="b" id="m_reto">6 · Reto</button>'+
+  '</div>'+
+  '<div id="ctrlbar"></div>'+
+  '<div id="tele"></div>'+
+  '<div class="console" id="report"></div>'+
+  '<h4 class="sec" id="retoTitle">Diagnóstico a ciegas</h4>'+
+  '<div id="retoBox">'+
+    '<div class="console" id="retoSpec"></div>'+
+    '<div class="btns">'+
+      '<button class="b" id="btnPista">💡 Pedir una pista</button>'+
+      '<button class="b primary" id="btnCheck">Entregar el diagnóstico</button>'+
+    '</div>'+
+  '</div>'+
+  '<h4 class="sec">Pregunta de ingeniería</h4>'+
+  '<div id="q_text" class="console"></div>'+
+  '<div class="btns" id="dxbtns"></div>'+
+  '<div class="btns">'+
+    '<button class="b auto" id="btnAuto">▶︎ Recorrido guiado</button>'+
+    '<button class="b primary" id="btnNew">🔀 Otro caso</button>'+
+  '</div>';
+
+// ------------------------------------------------------------------ controles
+// Los mandos se levantan desde el estado, nunca al revés: si el motor de la
+// máquina elegida no admite un ajuste, el botón no se dibuja. Un mando que se
+// puede pulsar y no hace nada enseña a desconfiar de la interfaz.
+function fila(rot,attr,ops,cur){
+  return '<div class="gl" style="margin:9px 0 4px"><span>'+rot+'</span></div>'+
+    '<div class="modebar">'+ops.map(o=>
+      '<button class="b'+(String(o[0])===String(cur)?' on':'')+'" '+attr+'="'+o[0]+'">'+o[1]+'</button>'
+    ).join('')+'</div>';
+}
+function buildControls(){
+  const e=MQ(), reto=(mode==='reto');
+  let h='';
+  if(!reto) h+=fila('Máquina del banco','data-mk',
+    ARQ_KEYS.map(k=>[k,ARQ[k].corto]),ST.mk);
+  else h+='<div class="gl" style="margin:9px 0 4px"><span>Máquina bajo diagnóstico</span><b>'+e.corto+'</b></div>';
+
+  const dts=DIENTES.map(d=>[d,(d>0?'+':'')+d]);
+  h+=fila(reto?'Tu hipótesis · árbol de admisión':'Calado del árbol de admisión','data-da',dts,ST.dA);
+  if(e.arboles===2)
+    h+=fila(reto?'Tu hipótesis · árbol de escape':'Calado del árbol de escape','data-de',dts,ST.dE);
+  else
+    h+='<div class="gl" style="margin:9px 0 4px"><span>Árbol de escape</span><b>el mismo eje</b></div>';
+
+  if(!reto){
+    h+=fila('Criterio de alzado de lectura','data-lr',
+      REFS.map(([lr,nom])=>[lr,nom]),ST.lref);
+    h+=fila('Juego de taqués por encima del nominal','data-jx',
+      JX.map(j=>[j,j===0?'nom':f2(j)]),ST.jx);
+  }
+  el('ctrlbar').innerHTML=h;
+  const cb=el('ctrlbar');
+  const cablea=(attr,fn)=>cb.querySelectorAll('['+attr+']').forEach(b=>{
+    b.onclick=()=>{ if(autoRunning||!simUnlocked) return;
+      fn(b.getAttribute(attr)); synth.beep(680,0.05,0.04); afterEdit(); };
+  });
+  cablea('data-mk',v=>{ aplicaMaquina(v); montaMaquina(); });
+  cablea('data-da',v=>{ ST.dA=Number(v); if(MQ().arboles===1) ST.dE=ST.dA; });
+  cablea('data-de',v=>{ ST.dE=Number(v); });
+  cablea('data-lr',v=>{ ST.lref=Number(v); });
+  cablea('data-jx',v=>{ ST.jx=Number(v); });
+}
+// Mientras no esté montado el tren, sólo vive el modo de ensamble.
+function syncCtrlbar(){
+  MODES.forEach(m=>{
+    const b=el('m_'+m); if(!b) return;
+    const viva=(m==='ensamble')||simUnlocked;
+    b.disabled=!viva; b.style.opacity=viva?'1':'0.45';
+    b.classList.toggle('on',m===mode);
+  });
+  const rt=(mode==='reto');
+  el('retoTitle').style.display=rt?'':'none';
+  el('retoBox').style.display=rt?'':'none';
+  el('p_mode').textContent=simUnlocked?('· '+MODE_META[mode].n):'· tren incompleto';
+  el('btnNew').textContent=rt?'🔀 Otro motor averiado':'🔀 Otro caso';
+  el('btnAuto').disabled=autoRunning;
+}
+
+// ---------------------------------------------------------------- telemetría
+const gl=(l,v,c)=>'<div class="g"><div class="gl"><span>'+l+'</span><b'+(c?' class="'+c+'"':'')+'>'+v+'</b></div></div>';
+function pintaTele(){
+  if(!simUnlocked){
+    el('tele').innerHTML=gl('Piezas montadas',ASM.done.size+' / '+PARTS.length,
+      ASM.done.size===PARTS.length?'good':'warn');
+    return;
+  }
+  const c=CUR, e=MQ(), d=disM(c), r=refDe(c), t=traM(c), V=veredicto(c), pc=pcM(c);
+  let h='';
+  h+=gl('Un diente del piñón',gr2(dienteGradosPinon(e)));
+  h+=gl('Vale, en el cigüeñal',gr2(dienteGrados(e)));
+  h+=gl('Desfase de admisión',gr2(ST.dA===0?0:-ST.dA*dienteGrados(e)),ST.dA?'warn':'good');
+  h+=gl('Desfase de escape',gr2(ST.dE===0?0:-ST.dE*dienteGrados(e)),ST.dE?'warn':'good');
+  if(r){
+    h+=gl('AAA · RCA',gr(r.AAA)+' · '+gr(r.RCA));
+    h+=gl('AAE · RCE',gr(r.AAE)+' · '+gr(r.RCE));
+    h+=gl('Traslape medido',(t.cruce>=0?'+':'')+gr(t.cruce),t.separacion>0?'warn':'good');
+  }else{
+    h+=gl('Ángulos al criterio elegido','no llega','bad');
+  }
+  h+=gl('Compresión de arranque',f1(pc.nom)+NBSP+'bar');
+  h+=gl('Holgura mínima',mm(V.peor.min),V.choca?'bad':(V.roza?'warn':'good'));
+  h+=gl('Geometría',V.inter.any?'interferente':'no interferente',V.inter.any?'warn':'good');
+  el('tele').innerHTML=h;
+}
+
+// ------------------------------------------------------------------- informe
+// El informe dice qué ha cambiado respecto del calado correcto y por qué. Todas
+// las cifras salen del motor: aquí no se redondea a mano nada.
+function pintaInforme(){
+  const R=el('report');
+  if(!simUnlocked){
+    R.innerHTML='<span class="mono">Faltan '+(PARTS.length-ASM.done.size)+
+      ' piezas.</span> Toma una del banco y suéltala sobre su hueco luminoso.';
+    return;
+  }
+  const c=CUR, e=MQ(), V=veredicto(c), t=traM(c);
+  const fa=firM(c.mk,c.dA,c.dE), fs=firM(c.mk,0,0);
+  let h='';
+  if(!ST.dA&&!ST.dE&&!ST.jx) h+='<span class="ok">Calado correcto y juego nominal.</span> ';
+  else h+='<span class="dtc">Calado alterado.</span> ';
+  h+='Compresión '+f1(fa.pComp)+' bar (sana '+f1(fs.pComp)+'), par a '+
+     rpmF(e.rpmBajo)+' '+f0(fa.parBajo)+' N·m (sana '+f0(fs.parBajo)+'), residuales a ralentí '+
+     f1(fa.resRal)+' % (sana '+f1(fs.resRal)+').<br>';
+  if(ST.dE&&!ST.dA)
+    h+='<span class="mono">Sólo se ha movido el escape: la compresión no se entera porque el cierre de admisión no ha cambiado.</span><br>';
+  if(t.separacion>0)
+    h+='<span class="mono">Sin traslape: hay '+gr(t.separacion)+' de hueco entre el cierre del escape y la apertura de la admisión.</span><br>';
+  if(V.choca) h+='<span class="dtc">CHOCA:</span> la holgura mínima cae a '+mm(V.peor.min)+
+    ' en el '+V.lado+', a '+gr(V.peor.thMin)+' de cigüeñal.';
+  else if(V.roza) h+='<span class="dtc">Al límite:</span> '+mm(V.peor.min)+
+    ' en el '+V.lado+', por debajo del margen de taller de '+mm(V.peor.margen)+'.';
+  else h+='<span class="ok">Sin contacto:</span> quedan '+mm(V.peor.min)+' en el '+V.lado+'.';
+  R.innerHTML=h;
+}
+
+function afterEdit(){
+  CUR=cfgDe(mode);
+  pintaBoard(); pintaTele(); pintaInforme(); buildControls(); syncCtrlbar();
+  refrescaPregunta();
+}
+function setMode(k){
+  if(k!=='ensamble'&&!simUnlocked){
+    showToast('Primero hay que montar el tren de distribución.',2400); return;
+  }
+  mode=k;
+  if(k==='reto') armaReto(false);
+  CUR=cfgDe(k);
+  pintaHUD(); buildControls(); syncCtrlbar();
+  construyeQuiz(); limpiaDx();
+  pintaBoard(); pintaTele(); pintaInforme(); pintaReto();
+  S.moveTo(MODE_META[k].cam[0],MODE_META[k].cam[1]);
+}
+
+
+// ============================================================ §10 RETO
+// El motor averiado se calla su calado; lo único que enseña son las cuatro
+// lecturas del banco. Se juzga por la CLAVE de esas cuatro cifras y no por la
+// pareja de dientes: si dos calados dieran la misma clave el banco no podría
+// separarlos y sería injusto exigir uno de los dos. El censo dice que en estas
+// cuatro máquinas no ocurre, pero la regla se escribe igual.
+const RETO={ mk:'g16', sol:null, cand:[], pistas:0, pistaTxt:'', hecho:false, acierto:false, filtros:[] };
+const azar=n=>Math.floor(Math.random()*n);
+function baraja(a){ for(let i=a.length-1;i>0;i--){ const j=azar(i+1); const t=a[i]; a[i]=a[j]; a[j]=t; } return a; }
+const claveDe=f=>claveSub(f,MED);
+
+function armaReto(fuerza){
+  if(RETO.sol&&!fuerza) return;
+  const mk=ARQ_KEYS[azar(ARQ_KEYS.length)];
+  const casos=cenM(mk).r;
+  const sol=casos[azar(casos.length)];
+  RETO.mk=mk; RETO.sol={dA:sol.dAdm,dE:sol.dEsc};
+  RETO.pistas=0; RETO.pistaTxt=''; RETO.hecho=false; RETO.acierto=false; RETO.filtros=[];
+  RETO.cand=casos.map(c=>({dA:c.dAdm,dE:c.dEsc}));
+  if(ST.mk!==mk){ aplicaMaquina(mk); montaMaquina(); }
+  ST.dA=0; ST.dE=0; ST.jx=0;
+  CUR=cfgDe('reto');
+}
+function filtraCand(){
+  RETO.cand=cenM(RETO.mk).r.map(c=>({dA:c.dAdm,dE:c.dEsc}))
+    .filter(c=>RETO.filtros.every(f=>f(c)));
+}
+function pista(){
+  const s=RETO.sol; if(!s||RETO.hecho) return;
+  const e=ARQ[RETO.mk], uno=(e.arboles===1);
+  const sg=v=>v>0?'adelantado':(v<0?'retrasado':'en su sitio');
+  const P=[];
+  P.push([ 'el árbol de admisión '+(s.dA?'SÍ':'NO')+' se ha movido',
+           c=>(c.dA!==0)===(s.dA!==0) ]);
+  if(!uno) P.push([ 'el árbol de escape '+(s.dE?'SÍ':'NO')+' se ha movido',
+           c=>(c.dE!==0)===(s.dE!==0) ]);
+  P.push([ 'la admisión está '+sg(s.dA), c=>Math.sign(c.dA)===Math.sign(s.dA) ]);
+  if(!uno) P.push([ 'el escape está '+sg(s.dE), c=>Math.sign(c.dE)===Math.sign(s.dE) ]);
+  if(RETO.pistas>=P.length){ showToast('No quedan más pistas: ya está todo dicho.',2400); return; }
+  const [txt,f]=P[RETO.pistas];
+  RETO.filtros.push(f); RETO.pistas++;
+  RETO.pistaTxt=(RETO.pistaTxt?RETO.pistaTxt+' · ':'')+txt;
+  filtraCand();
+  synth.beep(520,0.08,0.05);
+  showToast('💡 '+txt+'. Quedan <b>'+RETO.cand.length+'</b> calados compatibles.',3600);
+  pintaBoard(); pintaReto();
+}
+function checkReto(){
+  const s=RETO.sol; if(!s) return;
+  const a=claveDe(firM(RETO.mk,ST.dA,ST.dE)), b=claveDe(firM(RETO.mk,s.dA,s.dE));
+  RETO.hecho=true; RETO.acierto=(a===b); solved=RETO.acierto;
+  if(RETO.acierto){
+    synth.beep(660,0.09,0.05); setTimeout(()=>synth.beep(990,0.14,0.05),110);
+    showToast('✔ <b>Diagnóstico correcto.</b> Admisión '+dtx(s.dA)+', escape '+dtx(s.dE)+'.',5200);
+  }else{
+    synth.beep(200,0.14,0.05);
+    showToast('✘ Ese calado no reproduce las lecturas del banco. Compara fila por fila.',4200);
+  }
+  pintaBoard(); pintaReto();
+}
+function pintaReto(){
+  const box=el('retoSpec'); if(!box) return;
+  if(mode!=='reto'||!RETO.sol){ box.innerHTML=''; return; }
+  const e=ARQ[RETO.mk];
+  const fv=firM(RETO.mk,RETO.sol.dA,RETO.sol.dE), fg=firM(RETO.mk,ST.dA,ST.dE);
+  let h='<span class="mono">'+e.nombre+'</span><br>';
+  MED.forEach(m=>{
+    const a=m.get(fv), b=m.get(fg), ig=fN(a,m.dec)===fN(b,m.dec);
+    h+=m.cor+': <b>'+fN(a,m.dec)+'</b> '+m.uni+' · tu hipótesis <span class="'+(ig?'ok':'dtc')+'">'+
+       fN(b,m.dec)+'</span><br>';
+  });
+  h+='<span class="mono">calados compatibles: '+RETO.cand.length+' · pistas usadas: '+RETO.pistas+'</span>';
+  if(RETO.hecho) h+='<br><span class="'+(RETO.acierto?'ok':'dtc')+'">'+
+    (RETO.acierto?'✔ correcto':'✘ no coincide')+'</span>';
+  box.innerHTML=h;
+  el('btnPista').disabled=RETO.hecho;
+}
+
+// ============================================================ §11 CUESTIONARIO
+// Una pregunta por modo. Todas se resuelven con el motor sellado y con la
+// máquina que hay en pantalla: no hay respuesta que se pueda memorizar de una
+// sesión para la siguiente, porque las cifras cambian con el arquetipo.
+let QCUR=null, QRESP=-1;
+function preguntaDe(){
+  const e=MQ(), c=CUR, d=disM(c), t=traM(c), V=veredicto(c);
+  const dg=dienteGrados(e), dp=dienteGradosPinon(e);
+  if(mode==='ensamble') return {
+    q:'En esta máquina el piñón del árbol tiene '+e.Zlev+' dientes. ¿Cuánto vale UN diente medido en el cigüeñal?',
+    ops:[[gr2(dg),true,'720/Z del piñón: el árbol gira a la mitad, así que un paso vale el doble en el cigüeñal.'],
+         [gr2(dp),false,'Ésos son los grados que se VEN girar en el piñón. En el cigüeñal es el doble.'],
+         [gr2(360/e.ncil),false,'Eso es el reparto de encendidos entre cilindros, no el paso del piñón.']]};
+  if(mode==='marcas'){
+    const a=d.refs.anu, u=d.refs.us;
+    const dif=(a&&u)?(a.durA-u.durA):null;
+    return { q:'La duración de admisión de este árbol leída a 0,15 mm y leída a 1,27 mm no coincide. ¿Cuánto se llevan?',
+      ops:[[dif===null?'no llega al criterio':gr(dif),true,'Es el mismo lóbulo: lo que cambia es dónde se decide que la válvula ya está abierta.'],
+           ['cero: la duración es del árbol',false,'La duración PUBLICADA depende del alzado de referencia. Sólo el lóbulo es del árbol.'],
+           [dif===null?gr(0):gr(dif/2),false,'Ése sería el desfase por un extremo. La duración pierde por los dos.']]};
+  }
+  if(mode==='traslape'){
+    const t0=traM({mk:c.mk,dA:c.dA,dE:c.dE,lref:c.lref,jx:0});
+    const t2=traM({mk:c.mk,dA:c.dA,dE:c.dE,lref:c.lref,jx:0.20});
+    const dd=t0.cruce-t2.cruce;
+    return { q:'Si a esta máquina le abres 0,20 mm de juego de taqués por encima del nominal, ¿qué le pasa al traslape medido?',
+      ops:[['se estrecha '+gr(dd),true,'El juego se come el arranque de la rampa: la válvula abre más tarde y cierra antes por los dos lados.'],
+           ['se ensancha '+gr(dd),false,'Al revés: más juego es menos alzado neto y menos ventana abierta.'],
+           ['no cambia: el árbol es el mismo',false,'El árbol no cambia, pero el traslape se mide sobre el alzado NETO, y el juego se lo come.']]};
+  }
+  if(mode==='interferencia') return {
+    q:'¿Esta máquina es interferente?',
+    ops:[[V.inter.any?'Sí: el alzado neto supera el hueco de la corona':'No: la válvula a alzado máximo cabe bajo el pistón en el PMS',true,
+          V.inter.any?('Con el mando roto la válvula penetraría hasta '+mm(Math.max(V.inter.penetraA,V.inter.penetraE))+'.')
+                     :('Ni con el árbol parado toca: '+mm(V.inter.LnetA)+' de alzado contra '+mm(V.inter.C0A)+' de hueco.')],
+         [V.inter.any?'No: con este calado no toca nada':'Sí: cualquier motor moderno lo es',false,
+          'Interferente es una propiedad de la GEOMETRÍA. Que choque o no con este calado es otra pregunta.'],
+         ['Depende del calado del árbol',false,
+          'No. El criterio es pistón en el PMS y válvula a alzado máximo: ese caso existe siempre si se rompe el mando.']]};
+  if(mode==='banco'){
+    if(e.arboles===2) return {
+      q:'Mueves SÓLO el árbol de escape un diente. ¿Qué marca el manómetro de compresión?',
+      ops:[['exactamente lo mismo',true,'La compresión dinámica se cuenta desde el cierre de ADMISIÓN. El escape no entra en esa cuenta.'],
+           ['baja, porque se escapa mezcla',false,'En arranque, con el escape cerrado durante la compresión, ese camino no existe.'],
+           ['sube, porque retiene más gas',false,'El volumen atrapado lo fija el RCA, y el RCA no se ha movido.']]};
+    const cn=cenM(e.key).c;
+    return { q:'Esta máquina lleva un solo árbol. ¿Cuántos calados distintos puede tener el banco?',
+      ops:[[String(cn.n),true,'Admisión y escape van en el mismo eje: sólo hay una variable, los cinco saltos de −2 a +2.'],
+           ['25',false,'Ésos son los de un motor de DOS árboles, que sí se pueden desfasar entre sí.'],
+           ['4',false,'También cuenta el calado correcto, que es el que hay que saber reconocer.']]};
+  }
+  const cn=cenM(RETO.mk||ST.mk).c;
+  return { q:'¿Por qué el reto nunca propone dos calados que den las mismas cuatro lecturas?',
+    ops:[['Porque serían indistinguibles con este banco y no habría respuesta única',true,
+          'El censo de esta máquina da '+cn.unicas+' claves distintas para '+cn.n+' calados: no hay empates.'],
+         ['Porque el motor no puede saltar tantos dientes',false,'Sí puede: el censo recorre de −2 a +2 en cada árbol.'],
+         ['Porque el manómetro no tiene resolución',false,'La clave se compara con las cifras redondeadas que se muestran, no con decimales ocultos.']]};
+}
+function construyeQuiz(){
+  const p=preguntaDe();
+  const ops=baraja(p.ops.map((o,i)=>({t:o[0],ok:o[1],why:o[2]})));
+  QCUR={q:p.q,ops}; QRESP=-1;
+  el('q_text').textContent=p.q;
+  el('dxbtns').innerHTML=ops.map((o,i)=>
+    '<button class="b dx" data-q="'+i+'">'+o.t+'</button>').join('');
+  el('dxbtns').querySelectorAll('[data-q]').forEach(b=>{
+    b.onclick=()=>{ if(autoRunning||QRESP>=0) return; respondeQuiz(Number(b.getAttribute('data-q'))); };
+  });
+}
+function respondeQuiz(i){
+  QRESP=i;
+  const bs=el('dxbtns').querySelectorAll('[data-q]');
+  QCUR.ops.forEach((o,j)=>{ if(o.ok) bs[j].classList.add('right'); });
+  if(!QCUR.ops[i].ok) bs[i].classList.add('wrong');
+  synth.beep(QCUR.ops[i].ok?880:200,0.10,0.05);
+  showToast((QCUR.ops[i].ok?'✔ ':'✘ ')+QCUR.ops[i].why,5200);
+}
+function limpiaDx(){ QRESP=-1; }
+function refrescaPregunta(){ if(QRESP<0) construyeQuiz(); }
+
+// ============================================================ §12 RECORRIDO
+function runAuto(){
+  if(autoRunning) return;
+  autoRunning=true; syncCtrlbar();
+  const paso=[];
+  if(!simUnlocked) paso.push([0,()=>{ showToast('Montando el tren pieza a pieza…',3000); autoAssemble(); },
+    340+PARTS.length*720+1200]);
+  paso.push([0,()=>{ setMode('marcas');
+    showToast('Marca del cigüeñal contra su índice, marca del piñón contra el suyo: eso es toda la puesta a punto.',4600); },5200]);
+  paso.push([0,()=>{ ST.dA=1; if(MQ().arboles===1) ST.dE=1; afterEdit();
+    showToast('Un diente de admisión: la marca se va '+gr2(dienteGradosPinon(MQ()))+' en el piñón, '+gr2(dienteGrados(MQ()))+' en el cigüeñal.',5000); },5600]);
+  paso.push([0,()=>{ setMode('traslape');
+    showToast('El traslape se MIDE donde las dos curvas pasan a la vez del alzado de referencia.',4600); },5200]);
+  paso.push([0,()=>{ ST.jx=0.20; afterEdit();
+    showToast('Con 0,20 mm de juego de más la ventana se estrecha sin haber tocado el árbol.',4600); },5200]);
+  paso.push([0,()=>{ ST.jx=0; setMode('interferencia'); afterEdit();
+    showToast('Interferente es de la geometría. Chocar es de este calado. No son la misma pregunta.',4800); },5400]);
+  paso.push([0,()=>{ setMode('banco');
+    showToast('Cuatro instrumentos. Lo que importa es cuántas averías distintas separa cada uno.',4600); },5200]);
+  paso.push([0,()=>{ ST.dA=0; ST.dE=0; afterEdit(); setMode('marcas');
+    showToast('Vuelta al calado correcto. Te toca.',3400); },3600]);
+  let t=0;
+  paso.forEach(p=>{ setTimeout(p[1],t); t+=p[2]; });
+  setTimeout(()=>{ autoRunning=false; syncCtrlbar(); },t);
+}
+function otroCaso(){
+  if(mode==='reto'){ armaReto(true); pintaBoard(); pintaTele(); pintaInforme(); pintaReto();
+    buildControls(); construyeQuiz(); limpiaDx();
+    showToast('Motor nuevo en el banco. Cuatro lecturas, un calado que encontrar.',3600); return; }
+  const mk=ARQ_KEYS[azar(ARQ_KEYS.length)];
+  if(mk!==ST.mk){ aplicaMaquina(mk); montaMaquina(); }
+  const cs=cenM(ST.mk).r, c=cs[azar(cs.length)];
+  ST.dA=c.dAdm; ST.dE=c.dEsc; ST.jx=JX[azar(JX.length)];
+  if(MQ().taque==='hidraulico'&&ST.jx>0.20) ST.jx=0.20;
+  afterEdit(); construyeQuiz(); limpiaDx();
+  showToast('Caso nuevo: '+MQ().corto+', admisión '+dtx(ST.dA)+', escape '+dtx(ST.dE)+'.',3800);
+}
+
+// ============================================================ §13 ARRANQUE
+MODES.forEach(m=>{ const b=el('m_'+m); if(b) b.onclick=()=>{ if(!autoRunning) setMode(m); }; });
+el('btnAuto').onclick=()=>{ if(!autoRunning) runAuto(); };
+el('btnNew').onclick=()=>{ if(!autoRunning) otroCaso(); };
+el('btnCheck').onclick=()=>{ if(!autoRunning) checkReto(); };
+el('btnPista').onclick=()=>{ if(!autoRunning) pista(); };
+const soundBtn=el('soundBtn');
+soundBtn.onclick=()=>{ synth.toggle(); const on=synth.isOn();
+  soundBtn.textContent=on?'🔊':'🔇'; soundBtn.classList.toggle('on',on); };
+document.addEventListener('pointerdown',()=>{ synth.init(); synth.resume(); },{once:true});
+
+let liveT=0;
+S.setAnimate(dt=>{ animT+=dt; pinta3D(dt); liveT+=dt;
+  if(liveT>=0.20){ liveT=0; if(simUnlocked&&!autoRunning) pintaTele(); } });
+
+initAssembly();
+pintaHUD(); construyeQuiz(); limpiaDx();
+pintaTele(); pintaInforme(); pintaReto(); syncCtrlbar();
+S.start();
+
+// ============================================================ §14 PUENTE DE PRUEBAS
+window.__labDebug={
+  version:'d6-03',
+  get mode(){ return mode; },
+  get unlocked(){ return simUnlocked; },
+  get solved(){ return solved; },
+  get running(){ return autoRunning; },
+  get piezas(){ return {hechas:[...ASM.done], total:PARTS.length}; },
+  get st(){ return {...ST}; },
+  get cur(){ return {...CUR}; },
+  get lay(){ return G?G.lay:null; },
+  get geo(){ return G?{lay:G.lay,RLEV:G.RLEV,RCIG:G.RCIG,yDeck:G.yDeck,ySeat:G.ySeat,
+    span:G.span,RB:G.RB,ejes:G.ejes.map(j=>({k:j.k,x:j.x,y:j.y,tilt:j.tilt}))}:null; },
+  get th(){ return TH; },
+  setTh(v){ TH=((v%720)+720)%720; sigueMaquina(TH); },
+  setMode:k=>setMode(k),
+  setMaquina(mk){ if(!ARQ[mk]) return false; aplicaMaquina(mk); montaMaquina(); afterEdit(); return true; },
+  set(o){ if(o.dA!==undefined) ST.dA=o.dA; if(o.dE!==undefined) ST.dE=o.dE;
+    if(o.lref!==undefined) ST.lref=o.lref; if(o.jx!==undefined) ST.jx=o.jx;
+    if(MQ().arboles===1) ST.dE=ST.dA; afterEdit(); return {...ST}; },
+  ensambla(){ return autoAssemble(); },
+  auto(){ runAuto(); },
+  otro(){ otroCaso(); },
+  reto(){ return RETO.sol?{mk:RETO.mk,cand:RETO.cand.length,pistas:RETO.pistas,
+    hecho:RETO.hecho,acierto:RETO.acierto}:null; },
+  retoSol(){ return RETO.sol?{...RETO.sol}:null; },
+  pista(){ pista(); return {n:RETO.pistas,cand:RETO.cand.length,txt:RETO.pistaTxt}; },
+  entrega(){ checkReto(); return {acierto:RETO.acierto}; },
+  quiz(){ return QCUR?{q:QCUR.q,ops:QCUR.ops.map(o=>o.t),ok:QCUR.ops.findIndex(o=>o.ok),resp:QRESP}:null; },
+  responde(i){ respondeQuiz(i); return QRESP; },
+  cifras(){ const c=CUR, d=disM(c), r=refDe(c), t=traM(c), V=veredicto(c), pc=pcM(c);
+    const f=firM(c.mk,c.dA,c.dE);
+    return { mk:c.mk, dA:c.dA, dE:c.dE, lref:c.lref, jx:c.jx,
+      diente:dienteGrados(ARQ[c.mk]), dientePinon:dienteGradosPinon(ARQ[c.mk]),
+      centroA:d.camA.centro, centroE:d.camE.centro,
+      AAA:r?r.AAA:null, RCA:r?r.RCA:null, AAE:r?r.AAE:null, RCE:r?r.RCE:null,
+      traslapeSuma:r?r.traslapeSuma:null, cruce:t.cruce, area:t.area, pico:t.pico,
+      pComp:pc.nom, holgA:V.hA.min, holgE:V.hE.min, choca:V.choca, inter:V.inter.any,
+      firma:{pComp:f.pComp,parBajo:f.parBajo,parAlto:f.parAlto,resRal:f.resRal},
+      clave:claveDe(f) }; },
+  texto(){ return { hud:el('hud').innerText, panel:el('panel').innerText,
+    report:el('report').innerText, tele:el('tele').innerText }; },
+  tablero(){ return bcv.toDataURL('image/png'); },
+};
+</script>
+  <!-- Ficha técnica · Capa B del molde de lab 3D (componente compartido + contenido del lab) -->
+  <script src="_ficha-tecnica.js"></script>
+  <script src="_ficha-sincronizacion-distribucion-puesta-a-punto.js"></script>
+</body>
+</html>

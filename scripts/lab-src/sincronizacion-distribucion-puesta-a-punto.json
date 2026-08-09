@@ -1,0 +1,9 @@
+{
+  "donor": "escaner-obd.html",
+  "out": "sincronizacion-distribucion-puesta-a-punto.html",
+  "title": "CEN Labs · Sincronización de la distribución y puesta a punto — Laboratorio 3D",
+  "lt": "Motor de combustión interna · Mecánica",
+  "inspectHint": "👆 Toca cualquier pieza del banco para tomarla y su hueco luminoso para montarla; con el tren armado, toca el bloque, el cigüeñal, el pistón, la culata, las válvulas, el árbol de levas o la correa para ver qué decide cada una",
+  "body": "sincronizacion-distribucion-puesta-a-punto.body.js",
+  "fichas": ["_ficha-tecnica.js", "_ficha-sincronizacion-distribucion-puesta-a-punto.js"]
+}

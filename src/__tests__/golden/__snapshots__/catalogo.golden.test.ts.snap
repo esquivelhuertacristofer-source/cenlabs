@@ -1411,6 +1411,16 @@ exports[`golden master — catálogo por categoría (invariante ante extracción
     "teoria": "Contrasta el ciclo Diésel contra su techo ideal y comprueba qué le hacen a la eficiencia el autoencendido y la relación de corte.",
     "titulo": "Contrasta el Ciclo Diésel y el Autoencendido contra el Techo Ideal",
   },
+  {
+    "duracion": "45 min",
+    "estado": "activo",
+    "id": "mecanica-113",
+    "modulo": "Motor de Combustión Interna",
+    "orden": 113,
+    "simuladorHtml": "/labs/sincronizacion-distribucion-puesta-a-punto.html",
+    "teoria": "Monta el tren de distribución pieza a pieza, cala el árbol contando dientes y lee la consecuencia en las marcas, el traslape, la holgura pistón-válvula y el banco.",
+    "titulo": "Sincroniza la Distribución y Verifica la Puesta a Punto",
+  },
 ]
 `;
 
@@ -1558,6 +1568,7 @@ exports[`golden master — catálogo por categoría (invariante ante extracción
   "mecanica-110",
   "mecanica-111",
   "mecanica-112",
+  "mecanica-113",
   "mecanica-12",
   "mecanica-13",
   "mecanica-14",
