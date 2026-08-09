@@ -1421,6 +1421,16 @@ exports[`golden master — catálogo por categoría (invariante ante extracción
     "teoria": "Monta el tren de distribución pieza a pieza, cala el árbol contando dientes y lee la consecuencia en las marcas, el traslape, la holgura pistón-válvula y el banco.",
     "titulo": "Sincroniza la Distribución y Verifica la Puesta a Punto",
   },
+  {
+    "duracion": "45 min",
+    "estado": "activo",
+    "id": "mecanica-114",
+    "modulo": "Motor de Combustión Interna",
+    "orden": 114,
+    "simuladorHtml": "/labs/sellado-compresion-fugas.html",
+    "teoria": "Monta el puesto de prueba, mide la compresión golpe a golpe, repite en húmedo y presuriza el cilindro para averiguar por dónde se escapa el aire. La ruta localiza; el porcentaje sólo cuantifica.",
+    "titulo": "Diagnostica el Sellado con Pruebas de Compresión y Fugas",
+  },
 ]
 `;
 
@@ -1569,6 +1579,7 @@ exports[`golden master — catálogo por categoría (invariante ante extracción
   "mecanica-111",
   "mecanica-112",
   "mecanica-113",
+  "mecanica-114",
   "mecanica-12",
   "mecanica-13",
   "mecanica-14",

@@ -1,0 +1,9 @@
+{
+  "donor": "escaner-obd.html",
+  "out": "sellado-compresion-fugas.html",
+  "title": "CEN Labs · Diagnóstico del sellado: compresión y fugas — Laboratorio 3D",
+  "lt": "Motor de combustión interna · Mecánica",
+  "inspectHint": "👆 Toca una pieza del banco para tomarla y su hueco luminoso sobre el motor para montarla; con el puesto armado, toca cualquier instrumento para saber qué mide y qué NO mide",
+  "body": "sellado-compresion-fugas.body.js",
+  "fichas": ["_ficha-tecnica.js", "_ficha-sellado-compresion-fugas.js"]
+}
