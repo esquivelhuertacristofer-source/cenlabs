@@ -1,0 +1,99 @@
+import type { BriefingConfig } from '@/components/MissionBriefing';
+
+const briefing: BriefingConfig = {
+  codigo: 'MEC-116',
+  titulo: 'Enfría el Motor: Termostato, Radiador y Refrigerante',
+  subtitulo: 'Motor de combustión interna · balance térmico, termostato de cera, radiador ε-NTU, ciclo del ventilador, altitud y censo de instrumentos',
+  acento: '#5BD4E5',
+  duracion: 45,
+  videoUrl: '',
+  bienvenida: `Sobre el banco hay siete piezas del circuito de refrigeración —bomba centrífuga, termostato de cera, radiador, ventilador, tapón de presión, calefactor de cabina y el sensor que mueve la aguja del tablero— y en el motor, siete huecos luminosos esperándolas. Mientras falte una, el tramo de manguera que la necesita se dibuja apagado y no pasa refrigerante por él: el circuito es un lazo cerrado, y un lazo con un hueco no es un lazo.
+
+La tesis de esta práctica es incómoda y hay que decirla desde el principio: **la aguja del tablero no mide la reserva del sistema**. Mide una temperatura. Y la temperatura de equilibrio sale de un balance de calor en el que la presión del circuito no aparece por ninguna parte, y en el que la altitud a la que se conduce sólo entra por la densidad del aire. Dos coches que marcan lo mismo pueden estar en situaciones completamente distintas, y el laboratorio está construido para enseñarte exactamente cuándo.
+
+Empieza por el balance, que es lo que hay debajo de todo. De todo el combustible que quema el motor, poco más de una cuarta parte acaba en el refrigerante: en la cuesta del protocolo, el 1.6 quema 108,4 kW y manda 31,97 kW al circuito, el 29,5 %. Y de ahí sólo sale por tres sitios: el radiador (31,06 kW), el calefactor si está abierto (0 con la calefacción apagada) y la superficie del bloque (0,91 kW). No hay un cuarto camino, y la suma cuadra hasta el último decimal. Fíjate además en que el calor NO se saca de la potencia al freno: a ralentí la potencia al cigüeñal es cero y el motor sigue calentándose, porque lo que hay que sacar sale del rozamiento y del bombeo.
+
+Después ve al termostato, y quítate la idea de que está para enfriar. Está para que el motor caliente PRONTO y se quede donde toca. Con 10 °C de ambiente, el 1.6 conduciendo a 2 500 rpm con el 45 % de par llega a temperatura de servicio en 154 segundos; el mismo motor a ralentí en el patio está a 68,6 °C a los quince minutos y todavía subiendo. Y si abres la calefacción a tope con el coche parado, se queda en 47,8 °C: el calefactor se lo lleva todo. Eso no es una avería del sistema —es el punto de trabajo— y el simulador lo dice con esas palabras en vez de condenarlo. Lo que sí es una avería es un termostato agarrotado ABIERTO: el motor se queda en 70,9 °C en carretera, gasta más, diluye el aceite y la calefacción no calienta, y no enciende ninguna luz. Es el único escenario de este laboratorio al que el veredicto de marcha absuelve, y por eso el frío se juzga aparte.
+
+Luego el radiador, que no tiene «capacidad de disipación». Disipa lo que le dejan los dos caudales y el salto contra el aire, y se resuelve por el método ε-NTU de flujo cruzado. Ahí hay una cosa que casi nadie tiene en la cabeza: el ventilador y la marcha NO se suman. La velocidad del aire frente al radiador es la MAYOR de las dos, porque empujan el mismo aire por el mismo sitio. Parado con el ventilador entran 1,872 kg/s; a 60 km/h sin ventilador, 1,610; a 90 km/h los dos casos dan 2,415. De ahí sale que un ventilador averiado dé exactamente la misma temperatura que el sano en carretera —91,0 °C— y 118,0 °C en la cuesta a 40 km/h. Es la avería que no se nota hasta que se entra en un atasco.
+
+Y aquí está el resultado central. El ventilador es un interruptor, no un mando continuo, así que cuando el equilibrio cae en su temperatura de arranque lo que hace un coche de verdad es CICLAR: arranca, enfría, para, se calienta. El balance cierra en promedio, y de ese promedio sale su ciclo de trabajo. Parado y al nivel del mar, a 750 rpm sin carga el ciclo vale el 3,0 %; a 1 200 rpm con el 45 % de par, el 32,3 %; a 2 500 rpm con el 70 %, el 87,5 %; a 4 000 rpm con el 25 %, el 89,2 %. La aguja marca 97,0 °C en los cuatro casos. Un coche al 90 % de ventilador está a un semáforo de recalentar y su tablero no lo dice.
+
+El tapón de presión hace lo mismo por el otro lado. En la cuesta, el sistema sano marca 101,0 °C y con el tapón agotado marca 101,0 °C, exactamente la misma cifra hasta el decimal. Lo que cambia es la temperatura a la que ese líquido hierve, de 126,8 a 111,3 °C, y con ella el margen, de 25,8 a 10,3 °C. Esa avería no la ve el indicador; la ve el comprobador de presión.
+
+La altitud pega por los dos lados, y más por el que no se espera. Del nivel del mar a Toluca, la presión atmosférica cae de 1,0132 a 0,7319 bar. La ebullición baja 5,0 °C. Pero el aire enrarecido también adelgaza el caudal del frontal, de 1,872 a 1,352 kg/s, y eso sube la temperatura del motor 8,6 °C. El margen se hunde 13,6 °C: ocho y medio los pone el aire y cinco la ebullición. Conducir en el Valle de México no es lo mismo que conducir en Veracruz, y ahora se ve por qué.
+
+La mezcla tira en tres sentidos contrarios y hay que mirarla entera. El agua es la que más calor se lleva por litro y la que peor protege; el glicol sube la ebullición, baja la congelación y empeora la transferencia. Y la curva de congelación NO es monótona: baja hasta el eutéctico, cerca del 60 % en volumen, y a partir de ahí vuelve a subir. Al 60 % congela a −51,1 °C y al 70 %, a −48,3: el 70 % protege menos, transporta menos calor por litro y deja el motor más caliente. Lo único que gana son 1,55 °C de ebullición. Poner glicol de más no es prudencia.
+
+Y al final está el censo, que es el teorema incómodo. Catorce escenarios, ocho observaciones, doscientos cincuenta y cinco subconjuntos. Con las tres temperaturas del indicador y nada más se separan 9 de los 14 en el 1.6, 8 en el 1.8, 7 en el diésel y 8 en el V8. Con TODO lo que se mide en un taller —temperaturas, pirómetro, ventilador y comprobador de presión— se llega a 14, 12, 11 y 12: en el 1.6 alcanza y en las otras tres no. No hay una regla única sobre qué instrumentos hacen falta; hay un censo por motor, y saber cuál es el tuyo forma parte del oficio.`,
+  conceptos: [
+    {
+      icono: '🌡️',
+      nombre: 'La aguja no mide la reserva',
+      descripcion: 'Marca una temperatura, y la temperatura de equilibrio sale de un balance de calor donde la presión no aparece. En la cuesta, el sistema sano y el tapón agotado marcan la MISMA cifra —101,0 °C— y su margen hasta la ebullición pasa de 25,8 a 10,3 °C. Esa avería la ve el comprobador de presión, no el tablero.',
+    },
+    {
+      icono: '🌀',
+      nombre: 'El ciclo del ventilador ES la medida de margen',
+      descripcion: 'El ventilador es un interruptor: cuando el equilibrio cae en su temperatura de arranque, la aguja se clava y lo que se mueve es el ciclo de trabajo. Parado y al nivel del mar, la misma cifra de 97,0 °C corresponde al 3,0 % de ventilador a ralentí y al 89,2 % a 4 000 rpm con el 25 % de par. El tablero no distingue esos dos coches.',
+    },
+    {
+      icono: '🔥',
+      nombre: 'El termostato no está para enfriar',
+      descripcion: 'Está para que el motor caliente pronto y se quede donde toca. Agarrotado cerrado, el motor hierve y el radiador se queda FRÍO por los dos lados. Agarrotado abierto, el motor se queda en 70,9 °C en carretera y no enciende ninguna luz: gasta más, se desgasta antes y la calefacción no calienta. Por eso el frío se juzga aparte.',
+    },
+    {
+      icono: '💨',
+      nombre: 'El ventilador y la marcha NO se suman',
+      descripcion: 'La velocidad del aire frente al radiador es la MAYOR de las dos, no la suma: empujan el mismo aire por el mismo sitio. Parado con ventilador entran 1,872 kg/s; a 90 km/h, 2,415 con ventilador y sin él. Por eso un ventilador averiado da 91,0 °C en carretera —la misma cifra que el sano— y 118,0 °C en la cuesta.',
+    },
+    {
+      icono: '⛰️',
+      nombre: 'La altitud pega por los dos lados',
+      descripcion: 'Del mar a Toluca la presión atmosférica cae a 0,7319 bar: la ebullición baja 5,0 °C y el aire enrarecido adelgaza el caudal del frontal de 1,872 a 1,352 kg/s, lo que sube el motor 8,6 °C. De los 13,6 °C de margen que se pierden, ocho y medio los pone el aire y cinco la ebullición.',
+    },
+    {
+      icono: '🧊',
+      nombre: 'Más glicol no es más protección',
+      descripcion: 'La curva de congelación no es monótona: tiene su mínimo en el eutéctico, cerca del 60 % en volumen. Al 60 % congela a −51,1 °C y al 70 %, a −48,3. Y el 70 % además transporta menos calor por litro y transfiere peor. Lo único que gana son 1,55 °C de punto de ebullición.',
+    },
+    {
+      icono: '🔍',
+      nombre: 'El teorema del censo',
+      descripcion: 'Catorce escenarios, ocho observaciones, 255 subconjuntos. Con las tres temperaturas del indicador se separan 9 de 14 en el 1.6, 8 en el 1.8, 7 en el diésel y 8 en el V8. Con todo lo de taller: 14, 12, 11 y 12. En una máquina alcanza y en tres no. No hay regla única: hay un censo por motor.',
+    },
+  ],
+  mision: [
+    'MONTA el circuito pieza a pieza: bomba, termostato, radiador, ventilador, tapón, calefactor y sensor. Mientras falte una pieza, el tramo de manguera que la necesita se dibuja apagado. Hasta que no estén las siete no se abre ningún modo de trabajo.',
+    'CIERRA el balance: en el modo 2, comprueba que radiador + calefactor + bloque es exactamente el calor generado, y que abrir la calefacción baja la temperatura del motor. Si alguna vez no cuadra, el modelo está mal.',
+    'CRONOMETRA el calentamiento desde 10 °C de ambiente a ralentí y después conduciendo. La diferencia no la hace el radiador: la hace el rozamiento con el aceite frío. Después abre la calefacción con el coche parado y mira dónde se queda.',
+    'MONTA «termostato agarrotado abierto» y busca la alarma. No hay ninguna: es la única avería que el veredicto de marcha absuelve. Decide por qué sigue siendo una avería.',
+    'SUBE la velocidad de 0 a 120 km/h con el punto de trabajo fijo y anota a qué velocidad el ciclo del ventilador llega a cero. A partir de ahí el ventilador sobra, y por eso su avería no se nota en carretera.',
+    'DEJA la aguja clavada en 97,0 °C y cambia el régimen y el par con el coche parado. La temperatura no se mueve y el ciclo del ventilador va del 3 % al 89 %. Ése es el experimento central de la práctica.',
+    'MONTA «tapón de presión que no aguanta» y busca la diferencia en la aguja. No la vas a encontrar: es idéntica hasta el decimal. Después mira el margen hasta hervir.',
+    'MONTA «termostato agarrotado cerrado» y mira el radiador en la escena: está azul mientras el bloque está al rojo. Ése es el aspecto del pirómetro sobre las dos mangueras, y es el síntoma que separa un termostato de un radiador sucio.',
+    'RECORRE las seis mezclas mirando sólo la columna de congelación y verás que la curva se da la vuelta. Después cambia de plaza con el mismo motor y reparte los grados de margen perdidos entre las dos causas: no van mitad y mitad.',
+    'CENSA los instrumentos: cuántos de los catorce escenarios separan las tres temperaturas solas, qué consigue todo lo de taller y qué hace falta añadir. Comprueba el teorema en las cuatro máquinas: el resultado NO es el mismo.',
+    'RETO · Un sistema averiado en secreto. Compra las observaciones que necesites —las seis de taller son baratas; el refractómetro y el detector de gases, no— y entrega la FAMILIA de avería. Se te dirá si acertaste y, sobre todo, qué observación lo demostraba.',
+  ],
+  aplicaciones: [
+    {
+      area: 'Diagnóstico de recalentamiento en taller',
+      ejemplo: 'La aguja en rojo manda al taller, y el reflejo es cambiar el termostato. Aquí se ve que hay al menos nueve familias con síntomas que se solapan y que separarlas exige medir en tres puntos de trabajo, no en uno. Un radiador FRÍO por los dos lados no es un radiador sucio: es un termostato que no abre, y eso lo dice el pirómetro en treinta segundos.',
+    },
+    {
+      area: 'Mantenimiento preventivo: por qué se cambia el tapón',
+      ejemplo: 'El tapón de presión es la pieza más barata del circuito y la que menos se cambia, porque su avería no mueve la aguja ni un grado. Lo único que hace es bajar el punto de ebullición: el mismo coche que iba con 25,8 °C de reserva se queda con 10,3. La primera cuesta larga en verano lo encuentra.',
+    },
+    {
+      area: 'Elegir la mezcla para una plaza concreta',
+      ejemplo: 'La etiqueta del garrafón dice «hasta −37 °C» y la gente concluye que más glicol es más seguro. Aquí se ve el eutéctico: pasado el 60 %, más glicol protege MENOS del frío, transporta menos calor por litro y deja el motor más caliente. Y en la Ciudad de México o en Toluca la decisión no es la misma que a nivel del mar, porque la ebullición baja con la altitud.',
+    },
+    {
+      area: 'Por qué un coche recalienta subiendo un puerto despacio y no en autopista',
+      ejemplo: 'Es la combinación de las dos cosas que este laboratorio separa: el calor al refrigerante lo manda el PAR pedido, no el régimen, y el aire del frontal lo manda la velocidad de marcha. Pie a fondo a 40 km/h es el peor punto posible: máximo calor y mínimo aire. Por eso el protocolo de taller mide ahí y no en autopista.',
+    },
+  ],
+};
+
+export default briefing;

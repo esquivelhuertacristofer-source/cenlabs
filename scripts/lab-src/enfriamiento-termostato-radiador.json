@@ -1,0 +1,9 @@
+{
+  "donor": "escaner-obd.html",
+  "out": "enfriamiento-termostato-radiador.html",
+  "title": "CEN Labs · Enfriamiento del motor: termostato, radiador y refrigerante — Laboratorio 3D",
+  "lt": "Motor de combustión interna · Mecánica",
+  "inspectHint": "👆 Toca una pieza del banco para tomarla y su hueco luminoso en el motor para montarla; con el circuito armado, toca cualquier pieza para saber qué hace y qué NO delata",
+  "body": "enfriamiento-termostato-radiador.body.js",
+  "fichas": ["_ficha-tecnica.js", "_ficha-enfriamiento-termostato-radiador.js"]
+}

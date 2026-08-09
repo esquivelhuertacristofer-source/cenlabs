@@ -1441,6 +1441,16 @@ exports[`golden master — catálogo por categoría (invariante ante extracción
     "teoria": "Monta el circuito de aceite pieza a pieza, elige el grado SAE y comprueba en un cojinete ampliado lo que de verdad protege el motor. El manómetro no mide la lubricación: mide la resistencia del circuito.",
     "titulo": "Lubrica el Motor: Grado SAE, Película y Presión",
   },
+  {
+    "duracion": "45 min",
+    "estado": "activo",
+    "id": "mecanica-116",
+    "modulo": "Motor de Combustión Interna",
+    "orden": 116,
+    "simuladorHtml": "/labs/enfriamiento-termostato-radiador.html",
+    "teoria": "Monta el circuito de refrigeración pieza a pieza, elige la mezcla y la plaza, y descubre por qué la aguja del tablero puede marcar lo mismo con el ventilador al 3 % y al 89 %. La temperatura no mide la reserva.",
+    "titulo": "Enfría el Motor: Termostato, Radiador y Refrigerante",
+  },
 ]
 `;
 
@@ -1591,6 +1601,7 @@ exports[`golden master — catálogo por categoría (invariante ante extracción
   "mecanica-113",
   "mecanica-114",
   "mecanica-115",
+  "mecanica-116",
   "mecanica-12",
   "mecanica-13",
   "mecanica-14",
