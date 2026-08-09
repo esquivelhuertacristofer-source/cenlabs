@@ -1,0 +1,3565 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>CEN Labs · Lubricación del motor: grado SAE, película y presión — Laboratorio 3D</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#08201C;--panel:rgba(9,26,23,.86);--line:#1E3A34;--ink:#EAF4F1;
+    --dim:#8FB3AC;--accent:#2A9D8F;--accent2:#4FD1C5;--hv:#FFB703;--good:#34d399;--bad:#f4475e;
+    --mono:'Outfit',system-ui,'Segoe UI',Roboto,sans-serif;--disp:'Outfit','Arial Black',Impact,sans-serif;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  html,body{height:100%;background:var(--bg);color:var(--ink);font-family:'Outfit',system-ui,Segoe UI,Roboto,sans-serif}
+  body{overflow:hidden}
+  #stage{position:fixed;inset:0}
+  canvas{display:block;touch-action:none}
+
+  .topbar{position:fixed;top:0;left:0;right:0;height:56px;display:flex;align-items:center;gap:14px;padding:0 20px;z-index:20;background:linear-gradient(180deg,rgba(10,13,18,.92),transparent);pointer-events:none}
+  .brand{font-family:var(--disp);font-weight:bold;font-size:16px;text-transform:uppercase}
+  .brand span{color:var(--accent)}
+  .lt{font-family:var(--mono);font-size:11px;letter-spacing:.1em;text-transform:uppercase;color:var(--dim)}
+
+  .badge{position:fixed;top:16px;right:20px;z-index:20;font-family:var(--mono);font-size:9px;letter-spacing:.12em;text-transform:uppercase;background:rgba(255,209,102,.12);color:var(--hv);border:1px solid rgba(255,209,102,.35);padding:6px 12px;border-radius:20px}
+
+  .hud{position:fixed;top:70px;left:18px;z-index:15;max-width:330px;background:var(--panel);backdrop-filter:blur(14px);border:1px solid var(--line);border-radius:16px;padding:18px 20px;max-height:calc(100vh - 150px);overflow-y:auto}
+  .hud .eyebrow{font-family:var(--mono);font-size:10px;letter-spacing:.18em;text-transform:uppercase;color:var(--accent);margin-bottom:8px}
+  .hud h2{font-size:19px;line-height:1.15;margin-bottom:9px}
+  .hud p{font-size:13px;line-height:1.55;color:var(--dim);margin-bottom:10px}
+  .hud .formula{font-family:var(--mono);color:var(--accent2);text-align:center;font-size:12.5px;margin:8px 0;padding:8px;background:rgba(0,0,0,.25);border-radius:8px;line-height:1.5}
+  .hud .src{font-size:10.5px;color:#7a8894;font-style:italic;margin-top:4px;line-height:1.5}
+  .legend{display:flex;flex-direction:column;gap:6px;margin:12px 0;padding:10px 12px;background:rgba(0,0,0,.22);border-radius:10px}
+  .legend .li{display:flex;align-items:center;gap:8px;font-size:11px;color:#c4d0da}
+  .legend .dot{width:10px;height:10px;border-radius:50%;flex:0 0 auto}
+  .fid{margin:10px 0 2px;padding:10px 12px;background:rgba(0,0,0,.22);border-radius:10px;border:1px solid rgba(79,209,197,.18)}
+  .fid .ft{font-family:var(--mono);font-size:9.5px;letter-spacing:.14em;text-transform:uppercase;color:var(--accent2);margin-bottom:6px}
+  .fid .fl{font-size:11px;color:#c4d0da;line-height:1.5;margin-bottom:5px}
+  .fid .fl b{color:var(--ink)}
+  .fid .fl.no b{color:var(--hv)}
+
+  .panel{position:fixed;top:70px;right:18px;z-index:15;width:262px;background:var(--panel);backdrop-filter:blur(14px);border:1px solid var(--line);border-radius:16px;padding:16px;max-height:calc(100vh - 150px);overflow-y:auto}
+  .panel h4{font-family:var(--mono);font-size:10px;letter-spacing:.14em;text-transform:uppercase;color:var(--dim);margin:2px 0 10px}
+  .panel h4.sec{margin-top:16px;border-top:1px solid var(--line);padding-top:14px}
+  .g{margin-bottom:6px}
+  .gl{display:flex;justify-content:space-between;font-family:var(--mono);font-size:11px;color:var(--dim)}
+  .gl b{color:var(--accent2)}
+  .gl b.good{color:var(--good)}.gl b.warn{color:var(--hv)}.gl b.bad{color:var(--bad)}
+  .modebar{display:flex;gap:5px;margin-bottom:8px}
+  .modebar .b{flex:1;padding:8px 4px;font-size:11px}
+  .btns{display:flex;flex-direction:column;gap:7px;margin-top:6px}
+  .b{font-family:system-ui;font-size:12.5px;padding:10px;border-radius:9px;cursor:pointer;border:1px solid var(--line);background:#1b242f;color:var(--ink);transition:.15s;text-align:center}
+  .b:hover{border-color:var(--accent);background:#202c38}
+  .b.on{background:var(--accent);color:#06120f;border-color:var(--accent);font-weight:bold}
+  .b.primary{background:var(--accent);color:#06120f;border-color:var(--accent);font-weight:bold}
+  .b.auto{border-color:var(--hv);color:var(--hv);background:rgba(255,183,3,.10);font-weight:bold}
+  .b.auto:hover{background:rgba(255,183,3,.18);border-color:var(--hv)}
+  .b.auto:disabled{opacity:.6;cursor:default}
+  .b.dx{text-align:left;font-size:12px}
+  .b.dx.right{background:rgba(52,211,153,.18);border-color:var(--good);color:var(--good);font-weight:bold}
+  .b.dx.wrong{background:rgba(244,71,94,.15);border-color:var(--bad);color:var(--bad)}
+  .console{font-family:var(--mono);font-size:11px;line-height:1.55;color:#c4d0da;background:rgba(0,0,0,.28);border-radius:9px;padding:10px 12px;margin-bottom:8px;min-height:56px}
+  .console .dtc{color:var(--bad);font-weight:bold}
+  .console .ok{color:var(--good)}
+  .console .mono{color:var(--dim)}
+
+  .hint{position:fixed;bottom:18px;left:18px;z-index:14;font-family:var(--mono);font-size:10px;color:var(--dim);background:var(--panel);padding:7px 12px;border-radius:9px;border:1px solid var(--line)}
+  .toast{position:fixed;top:80px;left:50%;transform:translateX(-50%);z-index:30;background:rgba(18,24,32,.95);border:1px solid var(--accent);padding:10px 20px;border-radius:40px;font-family:var(--mono);font-size:12px;opacity:0;transition:.3s;pointer-events:none;max-width:80vw;text-align:center}
+  .toast.show{opacity:1}
+  .soundBtn{position:fixed;top:14px;right:18px;z-index:21;font-size:16px;background:var(--panel);backdrop-filter:blur(12px);border:1px solid var(--line);border-radius:50%;width:36px;height:36px;cursor:pointer;color:var(--dim);transition:.15s}
+  .soundBtn.on{color:var(--accent);border-color:var(--accent)}
+  .soundBtn:hover{transform:scale(1.08)}
+  .inspectHint{position:fixed;bottom:18px;right:18px;z-index:14;font-family:var(--mono);font-size:10px;color:var(--accent2);background:var(--panel);padding:7px 12px;border-radius:9px;border:1px solid var(--line)}
+
+  @media(max-width:820px){
+    .hud,.panel{position:fixed;left:8px;right:8px;top:auto;bottom:8px;max-width:none;width:auto;max-height:42vh;overflow-y:auto}
+    .hud{bottom:calc(8px + 42vh + 8px)}
+    .hint,.inspectHint{display:none}
+  }
+</style>
+</head>
+<body>
+<div id="stage"></div>
+<button class="soundBtn on" id="soundBtn">🔊</button>
+<div class="topbar">
+  <div class="brand">CEN<span> Labs</span></div>
+  <div class="lt">Motor de combustión interna · Mecánica</div>
+</div>
+<div class="hud" id="hud"></div>
+<div class="panel" id="panel"></div>
+<div class="hint">Arrastra para orbitar · rueda para zoom</div>
+<div class="inspectHint">👆 Toca una pieza del banco para tomarla y su hueco luminoso en el motor para montarla; con el circuito armado, toca cualquier pieza para saber qué hace y qué NO delata</div>
+<div class="toast" id="toast"></div>
+
+<script type="importmap">
+{ "imports": {
+  "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.min.js",
+  "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/"
+}}
+</script>
+<script type="module">
+import * as THREE from 'three';
+import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
+import { RoundedBoxGeometry } from 'three/addons/geometries/RoundedBoxGeometry.js';
+import { EffectComposer } from 'three/addons/postprocessing/EffectComposer.js';
+import { RenderPass } from 'three/addons/postprocessing/RenderPass.js';
+import { GTAOPass } from 'three/addons/postprocessing/GTAOPass.js';
+import { UnrealBloomPass } from 'three/addons/postprocessing/UnrealBloomPass.js';
+import { SMAAPass } from 'three/addons/postprocessing/SMAAPass.js';
+import { OutputPass } from 'three/addons/postprocessing/OutputPass.js';
+import { BokehPass } from 'three/addons/postprocessing/BokehPass.js';
+
+/* ============================================================
+   Texturas PBR procedurales (sin archivos externos) — compartidas
+   ============================================================ */
+function cv(s=512){const c=document.createElement('canvas');c.width=c.height=s;return c;}
+function tex(canvas,repeat=1,srgb=false){
+  const t=new THREE.CanvasTexture(canvas);
+  t.wrapS=t.wrapT=THREE.RepeatWrapping;t.repeat.set(repeat,repeat);
+  t.colorSpace = srgb?THREE.SRGBColorSpace:THREE.NoColorSpace;
+    // Mipmaps SI. Son mapas de ruido de 512 px sobre piezas que en pantalla ocupan
+  // decenas de pixeles: sin cadena de mipmaps cada pixel muestrea un texel suelto
+  // y, en el normalMap, la normal salta de pixel a pixel. El especular estalla en
+  // puntos blancos que ademas nadan al orbitar la camara. three recorta la
+  // anisotropia contra el maximo del dispositivo, asi que 8 es seguro en cualquier GPU.
+  t.generateMipmaps=true; t.minFilter=THREE.LinearMipmapLinearFilter;
+  t.magFilter=THREE.LinearFilter; t.anisotropy=8; return t;
+}
+function normalFromHeight(size, hfn, strength=2.0){
+  const c=cv(size),ctx=c.getContext('2d'),img=ctx.createImageData(size,size);
+  const H=(x,y)=>hfn((x+size)%size,(y+size)%size);
+  for(let y=0;y<size;y++)for(let x=0;x<size;x++){
+    const dx=(H(x+1,y)-H(x-1,y))*strength;
+    const dy=(H(x,y+1)-H(x,y-1))*strength;
+    const nz=1.0; const len=Math.hypot(dx,dy,nz);
+    const i=(y*size+x)*4;
+    img.data[i]  =((-dx/len)*0.5+0.5)*255;
+    img.data[i+1]=((-dy/len)*0.5+0.5)*255;
+    img.data[i+2]=((nz/len)*0.5+0.5)*255;
+    img.data[i+3]=255;
+  }
+  ctx.putImageData(img,0,0);return c;
+}
+function valueNoise(seed=1){
+  const g=(x,y)=>{const s=Math.sin((x*127.1+y*311.7)+seed*13.13)*43758.5453;return s-Math.floor(s);};
+  return (x,y)=>{
+    const xi=Math.floor(x),yi=Math.floor(y),xf=x-xi,yf=y-yi;
+    const u=xf*xf*(3-2*xf),v=yf*yf*(3-2*yf);
+    const a=g(xi,yi),b=g(xi+1,yi),c=g(xi,yi+1),d=g(xi+1,yi+1);
+    return a*(1-u)*(1-v)+b*u*(1-v)+c*(1-u)*v+d*u*v;
+  };
+}
+function fbm(noise,x,y,oct=4){let v=0,a=0.5,f=1;for(let i=0;i<oct;i++){v+=noise(x*f,y*f)*a;f*=2;a*=0.5;}return v;}
+
+function castAluminum(){
+  const S=512, n=valueNoise(7);
+  const c=cv(S),ctx=c.getContext('2d'),img=ctx.createImageData(S,S);
+  for(let y=0;y<S;y++)for(let x=0;x<S;x++){
+    const v=fbm(n,x/22,y/22,5);
+    const por=Math.pow(n(x/3.1,y/3.1),8);
+    const base=150+v*38-por*70;
+    const i=(y*S+x)*4; img.data[i]=base; img.data[i+1]=base+4; img.data[i+2]=base+10; img.data[i+3]=255;
+  }
+  ctx.putImageData(img,0,0);
+  const r=cv(S),rx=r.getContext('2d'),rimg=rx.createImageData(S,S);
+  for(let y=0;y<S;y++)for(let x=0;x<S;x++){
+    const v=fbm(n,x/18,y/18,4); const por=Math.pow(n(x/3.1,y/3.1),8);
+    const rough=120+v*40+por*90; const i=(y*S+x)*4;
+    rimg.data[i]=rimg.data[i+1]=rimg.data[i+2]=Math.min(255,rough); rimg.data[i+3]=255;
+  }
+  rx.putImageData(rimg,0,0);
+  const nrm=normalFromHeight(S,(x,y)=>fbm(n,x/16,y/16,5)+Math.pow(n(x/3.1,y/3.1),8)*0.6,3.0);
+  return {map:tex(c,1,true),roughnessMap:tex(r),normalMap:tex(nrm)};
+}
+function brushedMetal(){
+  const S=512, n=valueNoise(3);
+  const c=cv(S),ctx=c.getContext('2d'),img=ctx.createImageData(S,S);
+  for(let y=0;y<S;y++)for(let x=0;x<S;x++){
+    const streak=Math.sin(y*0.9)*2 + (n(x/120,y*0.5)-0.5)*40;
+    const base=185+streak; const i=(y*S+x)*4;
+    img.data[i]=base; img.data[i+1]=base+2; img.data[i+2]=base+6; img.data[i+3]=255;
+  }
+  ctx.putImageData(img,0,0);
+  const r=cv(S),rx=r.getContext('2d'),rimg=rx.createImageData(S,S);
+  for(let y=0;y<S;y++)for(let x=0;x<S;x++){
+    const streak=(n(x/120,y*0.5)-0.5)*60; const rough=40+Math.abs(streak); const i=(y*S+x)*4;
+    rimg.data[i]=rimg.data[i+1]=rimg.data[i+2]=Math.min(160,rough); rimg.data[i+3]=255;
+  }
+  rx.putImageData(rimg,0,0);
+  const nrm=normalFromHeight(S,(x,y)=>(n(x/120,y*0.5))*0.3+Math.sin(y*0.9)*0.02,1.2);
+  return {map:tex(c,1,true),roughnessMap:tex(r),normalMap:tex(nrm)};
+}
+function rubber(){
+  const S=256,n=valueNoise(5);
+  const nrm=normalFromHeight(S,(x,y)=>fbm(n,x/8,y/8,4),1.4);
+  const rough=cv(64),rc=rough.getContext('2d');rc.fillStyle='#e0e0e0';rc.fillRect(0,0,64,64);
+  return {roughnessMap:tex(rough),normalMap:tex(nrm,2)};
+}
+function gradientBG(top='#11161d',bottom='#05070a'){
+  const c=cv(512),ctx=c.getContext('2d');
+  const grd=ctx.createLinearGradient(0,0,0,512);
+  grd.addColorStop(0,top);grd.addColorStop(1,bottom);
+  ctx.fillStyle=grd;ctx.fillRect(0,0,512,512);
+  const rg=ctx.createRadialGradient(256,200,30,256,256,360);
+  rg.addColorStop(0,'rgba(42,157,143,0.10)');rg.addColorStop(1,'rgba(0,0,0,0)');
+  ctx.fillStyle=rg;ctx.fillRect(0,0,512,512);
+  return tex(c,1,true);
+}
+function techPlastic(r=0.10,g=0.11,b=0.13){
+  const S=256,n=valueNoise(31);
+  const c=cv(S),ctx=c.getContext('2d'),img=ctx.createImageData(S,S);
+  for(let y=0;y<S;y++)for(let x=0;x<S;x++){
+    const v=fbm(n,x/30,y/30,3)*0.1+0.92; const i=(y*S+x)*4;
+    img.data[i]=r*255*v;img.data[i+1]=g*255*v;img.data[i+2]=b*255*v;img.data[i+3]=255;
+  }
+  ctx.putImageData(img,0,0);
+  const nrm=normalFromHeight(S,(x,y)=>fbm(n,x/10,y/10,3),0.8);
+  const rough=cv(64),rc=rough.getContext('2d');rc.fillStyle='#9a9a9a';rc.fillRect(0,0,64,64);
+  return {map:tex(c,1,true),roughnessMap:tex(rough),normalMap:tex(nrm)};
+}
+
+/* ============================================================
+   ENGINE — render premium compartido por todos los laboratorios
+   ============================================================ */
+function createStage(mount, opts={}){
+  const bgTop = opts.bgTop||'#141b24', bgBot = opts.bgBot||'#05070a';
+  const renderer = new THREE.WebGLRenderer({ antialias:true, powerPreference:'high-performance' });
+  renderer.setPixelRatio(Math.min(devicePixelRatio,2));
+  renderer.setSize(mount.clientWidth, mount.clientHeight);
+  renderer.shadowMap.enabled = true;
+  renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+  renderer.toneMapping = THREE.ACESFilmicToneMapping;
+  renderer.toneMappingExposure = opts.exposure ?? 1.18;
+  renderer.outputColorSpace = THREE.SRGBColorSpace;
+  mount.appendChild(renderer.domElement);
+  renderer.domElement.style.touchAction='none';
+
+  const scene = new THREE.Scene();
+  scene.background = gradientBG(bgTop,bgBot);
+  const pmrem = new THREE.PMREMGenerator(renderer);
+  scene.environment = pmrem.fromScene(new RoomEnvironment(renderer), 0.04).texture;
+  scene.environmentIntensity = opts.envInt ?? 1.15;
+
+  const camera = new THREE.PerspectiveCamera(45, mount.clientWidth/mount.clientHeight, 0.1, 200);
+  const cam = opts.cam || [5.5,3.4,6.2];
+  camera.position.set(...cam);
+
+  const controls = new OrbitControls(camera, renderer.domElement);
+  controls.enableDamping = true; controls.dampingFactor = 0.07;
+  controls.minDistance = opts.minD ?? 3; controls.maxDistance = opts.maxD ?? 18;
+  controls.maxPolarAngle = Math.PI*0.52;
+  controls.target.set(...(opts.target||[0,1.4,0]));
+  controls.autoRotate = opts.autoRotate ?? false;
+  controls.autoRotateSpeed = opts.autoRotateSpeed ?? 0.6;
+
+  const key = new THREE.DirectionalLight(0xffffff, 2.7);
+  key.position.set(5,9,6); key.castShadow=true;
+  key.shadow.mapSize.set(2048,2048);
+  key.shadow.camera.near=0.5; key.shadow.camera.far=40;
+  const sd=8; Object.assign(key.shadow.camera,{left:-sd,right:sd,top:sd,bottom:-sd});
+  key.shadow.bias=-0.0003; key.shadow.normalBias=0.02; scene.add(key);
+  const rim = new THREE.SpotLight(0x2affce, 55, 30, Math.PI/5, 0.4, 1.5);
+  rim.position.set(-7,6,-5); scene.add(rim);
+  const fill = new THREE.DirectionalLight(0x6fb6ff, 0.5); fill.position.set(-4,3,7); scene.add(fill);
+  scene.add(new THREE.HemisphereLight(0x9fb4c8, 0x10151b, 0.35));
+
+  if(opts.floor!==false){
+    const f = new THREE.Mesh(new THREE.CircleGeometry(40,80),
+      new THREE.MeshStandardMaterial({ color:0x0a0e13, roughness:0.26, metalness:0.62, envMapIntensity:1.15 }));
+    f.rotation.x=-Math.PI/2; f.receiveShadow=true; scene.add(f);
+    for(let r=2;r<=8;r+=2){
+      const ring=new THREE.Mesh(new THREE.RingGeometry(r-0.012,r+0.012,80),
+        new THREE.MeshBasicMaterial({color:0x1a2632,transparent:true,opacity:0.4}));
+      ring.rotation.x=-Math.PI/2; ring.position.y=0.002; scene.add(ring);
+    }
+  }
+
+  const isMobile = /Mobi|Android|iPhone|iPad/i.test(navigator.userAgent) || innerWidth<820;
+  // GTAO desactivado por defecto: el pase de oclusión ambiental en espacio de pantalla
+  // producía un recuadro oscuro duro sobre el piso reflectante (artefacto dependiente de la
+  // cámara y del renderer). La escena tiene AO suficiente con luces directas + sombras + env.
+  // Se puede reactivar para pruebas con ?gtao.
+  const useGtao = /[?&]gtao\b/.test(location.search);
+  const composer = new EffectComposer(renderer);
+  composer.addPass(new RenderPass(scene,camera));
+  if(!isMobile && useGtao){
+    try{
+      const g=new GTAOPass(scene,camera,mount.clientWidth,mount.clientHeight);
+      g.output=GTAOPass.OUTPUT.Default;
+      if(g.updateGtaoMaterial)g.updateGtaoMaterial({radius:0.5,distanceExponent:1,thickness:1,scale:1.1,samples:16});
+      composer.addPass(g);
+    }catch(e){}
+  }
+  const bloom=new UnrealBloomPass(new THREE.Vector2(mount.clientWidth,mount.clientHeight),opts.bloom??0.42,0.5,0.9);
+  composer.addPass(bloom);
+  let bokeh=null;
+  const flat=/[?&]flat/.test(location.search);
+  if(!isMobile && !flat){
+    bokeh=new BokehPass(scene,camera,{focus:8.5,aperture:opts.aperture??0.00018,maxblur:opts.maxblur??0.004,width:mount.clientWidth,height:mount.clientHeight});
+    composer.addPass(bokeh);
+  }
+  composer.addPass(new OutputPass());
+  composer.addPass(new SMAAPass(mount.clientWidth*renderer.getPixelRatio(),mount.clientHeight*renderer.getPixelRatio()));
+
+  function resize(){
+    const w=mount.clientWidth,h=mount.clientHeight;
+    camera.aspect=w/h; camera.updateProjectionMatrix();
+    renderer.setSize(w,h); composer.setSize(w,h);
+  }
+  window.addEventListener('resize',resize);
+
+  const clock=new THREE.Clock();
+  let hook=null, raf=null;
+  const camCine={active:false,t:0,dur:1.4,from:new THREE.Vector3(),to:new THREE.Vector3(),fromT:new THREE.Vector3(),toT:new THREE.Vector3()};
+  let lastDrag=-99, cinematicIdle=false;
+  controls.addEventListener('start',()=>{ lastDrag=clock.elapsedTime; camCine.active=false; });
+  function easeInOutCubic(x){return x<0.5?4*x*x*x:1-Math.pow(-2*x+2,3)/2;}
+  function moveTo(pos,target,dur=1.4){
+    camCine.from.copy(camera.position); camCine.fromT.copy(controls.target);
+    camCine.to.set(...pos); camCine.toT.set(...target);
+    camCine.dur=dur; camCine.active=true; camCine.t=0;
+  }
+  function setCinematicIdle(v){ cinematicIdle=v; if(!v)controls.autoRotate=false; }
+  function loop(){ raf=requestAnimationFrame(loop); const dt=clock.getDelta(),t=clock.elapsedTime;
+    if(camCine.active){
+      camCine.t=Math.min(1,camCine.t+dt/camCine.dur);
+      const e=easeInOutCubic(camCine.t);
+      camera.position.lerpVectors(camCine.from,camCine.to,e);
+      controls.target.lerpVectors(camCine.fromT,camCine.toT,e);
+      if(camCine.t>=1)camCine.active=false;
+    } else if(cinematicIdle){
+      controls.autoRotate=(t-lastDrag)>1.4; controls.autoRotateSpeed=0.45;
+    }
+    if(hook)hook(dt,t); controls.update();
+    if(bokeh) bokeh.uniforms['focus'].value = camera.position.distanceTo(controls.target);
+    composer.render(); }
+  function start(){ if(!raf)loop(); }
+  function stop(){ cancelAnimationFrame(raf); raf=null; window.removeEventListener('resize',resize); }
+
+  return { THREE, renderer, scene, camera, controls, composer, bloom,
+    setAnimate:fn=>hook=fn, start, stop, resize, clock,
+    flyTo:(v)=>{ controls.target.copy(v); }, moveTo, setCinematicIdle };
+}
+
+/* ---------- shared geometry/material helpers ---------- */
+function roundedBox(w,h,d,mat,rf=0.08){
+  const r=Math.min(w,h,d)*rf;
+  const m=new THREE.Mesh(new RoundedBoxGeometry(w,h,d,4,r),mat);
+  m.castShadow=m.receiveShadow=true; return m;
+}
+function pickerFor(scene,camera,dom,onHit){
+  const ray=new THREE.Raycaster(),mouse=new THREE.Vector2(); let down=null;
+  dom.addEventListener('pointerdown',e=>down=[e.clientX,e.clientY]);
+  dom.addEventListener('pointerup',e=>{
+    if(!down)return; const moved=Math.abs(e.clientX-down[0])+Math.abs(e.clientY-down[1])>6; down=null;
+    if(moved)return;
+    const r=dom.getBoundingClientRect();
+    mouse.x=((e.clientX-r.left)/r.width)*2-1; mouse.y=-((e.clientY-r.top)/r.height)*2+1;
+    ray.setFromCamera(mouse,camera);
+    const hits=ray.intersectObjects(scene.children,true);
+    onHit(hits[0]||null);
+  });
+}
+function labelSprite(text,color='#ffd166'){
+  const w = Math.max(150, Math.min(520, text.length*26+60));
+  const cvE=document.createElement('canvas');cvE.width=w;cvE.height=96;
+  const c=cvE.getContext('2d');c.fillStyle='rgba(8,11,16,.95)';
+  const rr=(x,y,ww,hh,r)=>{c.beginPath();c.moveTo(x+r,y);c.arcTo(x+ww,y,x+ww,y+hh,r);c.arcTo(x+ww,y+hh,x,y+hh,r);c.arcTo(x,y+hh,x,y,r);c.arcTo(x,y,x+ww,y,r);c.closePath();};
+  rr(3,3,w-6,90,18);c.fill();
+  c.strokeStyle=color;c.lineWidth=3;c.stroke();
+  c.font='bold 36px Outfit, system-ui, sans-serif';c.fillStyle=color;c.textAlign='center';c.textBaseline='middle';c.fillText(text,w/2,48);
+  const tx=new THREE.CanvasTexture(cvE);tx.colorSpace=THREE.SRGBColorSpace;
+    // El rotulo se lee de lejos y en escorzo: sin mipmaps el texto centellea igual que el metal.
+    tx.generateMipmaps=true;tx.minFilter=THREE.LinearMipmapLinearFilter;tx.magFilter=THREE.LinearFilter;tx.anisotropy=8;
+  const sp=new THREE.Sprite(new THREE.SpriteMaterial({map:tx,depthTest:false,transparent:true}));
+  const aspect=w/96;
+  sp.scale.set(0.30*aspect,0.30,1);sp.renderOrder=999;return sp;
+}
+
+/* ============================================================
+   SYNTH — sintetizador Web Audio reutilizable
+   ============================================================ */
+function makeSynth(opts={}){
+  const type=opts.type||'sawtooth';
+  let ctx=null,oscA=null,oscB=null,gain=null,filter=null,soundOn=true;
+  function init(){
+    if(ctx)return;
+    try{
+      ctx=new (window.AudioContext||window.webkitAudioContext)();
+      oscA=ctx.createOscillator(); oscB=ctx.createOscillator();
+      oscA.type=type; oscB.type=opts.type2||'square';
+      filter=ctx.createBiquadFilter(); filter.type=opts.filterType||'lowpass'; filter.frequency.value=opts.filterFreq||500; filter.Q.value=opts.Q||3;
+      gain=ctx.createGain(); gain.gain.value=0;
+      oscA.connect(filter); oscB.connect(filter); filter.connect(gain); gain.connect(ctx.destination);
+      oscA.start(); oscB.start();
+    }catch(e){}
+  }
+  function update(freqA,freqB,vol,filterFreq){
+    if(!ctx||!soundOn){ if(gain)gain.gain.setTargetAtTime(0,ctx?.currentTime||0,0.1); return; }
+    oscA.frequency.setTargetAtTime(freqA,ctx.currentTime,0.04);
+    if(freqB!==undefined)oscB.frequency.setTargetAtTime(freqB,ctx.currentTime,0.04);
+    if(filterFreq!==undefined)filter.frequency.setTargetAtTime(filterFreq,ctx.currentTime,0.05);
+    gain.gain.setTargetAtTime(Math.max(0,vol),ctx.currentTime,0.06);
+  }
+  function beep(freq=880,dur=0.09,vol=0.06){
+    if(!ctx||!soundOn)return;
+    const o=ctx.createOscillator(),g=ctx.createGain();
+    o.type='sine'; o.frequency.value=freq;
+    g.gain.setValueAtTime(vol,ctx.currentTime); g.gain.exponentialRampToValueAtTime(0.001,ctx.currentTime+dur);
+    o.connect(g); g.connect(ctx.destination); o.start(); o.stop(ctx.currentTime+dur);
+  }
+  function toggle(){ soundOn=!soundOn; return soundOn; }
+  function resume(){ if(ctx&&ctx.state==='suspended')ctx.resume(); }
+  return { init, update, beep, toggle, resume, isOn:()=>soundOn, state:()=>ctx?.state||'none' };
+}
+
+/* ============================================================
+   LAB — LUBRICACIÓN: GRADO SAE, PELÍCULA Y PRESIÓN
+   (Dominio D6 · motor de combustión interna · práctica d6-05)
+
+   Qué se monta y qué se mide
+     · Se arma el circuito de lubricación pieza a pieza: cárter con su colador,
+       bomba, válvula limitadora, filtro con su antirretorno y su derivación,
+       radiador de aceite, galería principal con sus taladros a las bancadas y
+       el manocontacto que enciende la luz roja.
+     · Se elige el grado SAE y se ve la recta de viscosidad contra temperatura.
+     · Se mide la presión de galería a cada régimen y temperatura.
+     · Y en un cojinete AMPLIADO se ve lo único que de verdad protege: el
+       espesor mínimo de película.
+
+   La tesis de la práctica
+     El manómetro NO mide la lubricación. Mide la resistencia del circuito.
+     Lo que protege es h_min, que el conductor no ve nunca, y hay averías
+     que hunden una cosa sin tocar la otra —y al revés—.
+
+   Normatividad y fuentes de referencia
+     · SAE J300 — clasificación de viscosidad de aceites de motor: grados de
+       invierno (CCS y MRV), banda de KV100 de cada grado de verano y HTHS.
+     · ASTM D341 — ecuación de Walther, viscosidad contra temperatura.
+     · ASTM D2270 — índice de viscosidad (dato declarado de cada aceite).
+     · Manual de taller del fabricante — única fuente de la holgura de montaje,
+       de la presión mínima admisible y del aceite que le corresponde a UN
+       motor concreto. Los cuatro motores de este banco NO son comerciales.
+
+   Modelo de ingeniería
+     · Viscosidad por Walther, con el tramo frío anclado en el punto MEDIDO
+       del ensayo de arranque en frío: la recta de catálogo no se extrapola.
+     · Cojinete corto (solución de Ocvirk): capacidad de carga cerrada,
+       excentricidad por bisección y h_min = c(1−ε).
+     · Espesor específico λ contra la rugosidad compuesta de las dos
+       superficies, y de ahí el régimen de lubricación.
+     · Circuito resuelto por balance de caudales: la bomba contra la fuga de
+       cada cojinete (ley del cubo de la holgura) y las restricciones
+       auxiliares, con la limitadora recortando por arriba.
+   ============================================================ */
+const mount=document.getElementById('stage');
+const S=createStage(mount,{cam:[6.8,4.6,10.4],target:[0.3,1.75,0.20],bgTop:'#101a20',bgBot:'#05070a',bloom:0.24,minD:2.2,maxD:34});
+const {scene}=S;
+const synth=makeSynth({type:'sine',type2:'triangle',filterFreq:820,Q:0.75});
+const el=id=>document.getElementById(id);
+const clamp=(v,a,b)=>v<a?a:(v>b?b:v);
+
+// ============================================================================
+// MOTOR SELLADO — copiado tal cual del fichero de Capa 1, sin tocar una sola
+// cifra: lo unico que cambia es que se le quitan los `export`. Cualquier numero
+// que aparezca en el pizarron, en la telemetria, en el informe o en el
+// cuestionario sale de aqui. La interfaz no recalcula nada por su cuenta.
+// ============================================================================
+
+// ============================================================================
+//  d6-05 · MOTOR SELLADO — LUBRICACION DEL MOTOR ALTERNATIVO
+//
+//  Cadena completa, sin ninguna cifra puesta a ojo:
+//
+//    grado SAE  --D341-->  viscosidad a la temperatura de trabajo
+//        |                        |
+//        |                        +--> caudal que pasa por cada cojinete (c^3/mu)
+//        |                        |         |
+//        |                        |         +--> presion de galeria (balance con la bomba)
+//        |                        |
+//        +------------------------+--> espesor MINIMO de pelicula (Ocvirk) --> lambda
+//                                              |
+//                                              +--> regimen de lubricacion y desgaste
+//
+//  La leccion que sostiene el laboratorio: el manometro NO mide lubricacion.
+//  Mide la resistencia del circuito. Lo que protege es h_min, que el conductor
+//  no ve nunca, y hay casos donde las dos cosas van en sentidos contrarios.
+//
+//  HONESTIDAD: los cuatro motores y los seis aceites son ARQUETIPOS declarados
+//  cuyas cifras caen dentro de las bandas publicadas para su clase. No son
+//  productos comerciales. Los limites de SAE J300 si son los de la norma.
+// ============================================================================
+
+const DEG = Math.PI / 180;
+
+// ============================================================================
+//  1 · VISCOSIDAD CONTRA TEMPERATURA — ASTM D341 (ecuacion de Walther)
+//
+//      log10(log10(nu + 0.7)) = A - B * log10(T)
+//
+//  con nu en mm2/s (cSt) y T en KELVIN. Dos puntos de la ficha del aceite
+//  —40 y 100 C, que son los que publica todo fabricante— determinan A y B sin
+//  ningun ajuste libre. B es la PENDIENTE: un aceite de indice de viscosidad
+//  alto tiene la recta mas tumbada, y eso es exactamente lo que significa el IV.
+// ============================================================================
+const K = c => c + 273.15;
+const ll = nu => Math.log10(Math.log10(nu + 0.7));
+
+/** Coeficientes de Walther a partir de las dos viscosidades de catalogo. */
+function walther(kv40, kv100) {
+  const x1 = Math.log10(K(40)), x2 = Math.log10(K(100));
+  const y1 = ll(kv40), y2 = ll(kv100);
+  const B = (y1 - y2) / (x2 - x1);          // positiva: la viscosidad baja al calentar
+  const A = y1 + B * x1;
+  return { A, B };
+}
+/**
+ * Viscosidad cinematica [mm2/s] a T [C].
+ *
+ * ATENCION — LA RECTA DE WALTHER NO SE EXTRAPOLA AL FRIO. D341 vale mientras el
+ * aceite se comporta como un fluido newtoniano, es decir por encima del punto de
+ * niebla. Por debajo, las parafinas empiezan a cristalizar y la viscosidad real
+ * se dispara muy por encima de la recta; ademas el mejorador del indice de
+ * viscosidad de un multigrado deja de aportar. Extrapolar a -30 C da un numero
+ * que no cumpliria su propio grado SAE, y ese es un error clasico.
+ *
+ * Aqui se hace lo que hace un formulador: el tramo frio se ANCLA en un punto
+ * MEDIDO, el del ensayo CCS de la norma, y se traza un segundo tramo de Walther
+ * entre 0 C y ese punto. Por encima de 0 C manda la recta de catalogo.
+ */
+function nuT(T, oil) {
+  const rec = (A, B) => Math.pow(10, Math.pow(10, A - B * Math.log10(K(T)))) - 0.7;
+  if (T >= 0 || !oil.wFrio) return rec(oil.w.A, oil.w.B);
+  return rec(oil.wFrio.A, oil.wFrio.B);
+}
+/** Densidad [kg/m3] a T [C]. Coeficiente de dilatacion tipico de un base mineral. */
+function rhoT(T, oil) { return oil.rho15 * (1 - 0.00065 * (T - 15)); }
+/** Viscosidad dinamica [Pa s] a T [C].  eta = nu * rho, con nu en m2/s. */
+function etaT(T, oil) { return nuT(T, oil) * 1e-6 * rhoT(T, oil); }
+
+// ============================================================================
+//  2 · LOS ACEITES — SAE J300
+//
+//  `wGrado` es el numero de invierno y `vGrado` el de verano. Los limites que
+//  se comprueban son los de la norma:
+//    · arranque en frio (CCS) : viscosidad dinamica maxima, en mPa s, a la
+//      temperatura que la norma asigna a cada grado W.
+//    · bombeabilidad (MRV)    : maxima a 10 C por debajo de la del CCS.
+//    · KV100                  : banda del grado de verano, en mm2/s.
+//    · HTHS                   : minimo a 150 C y 10^6 1/s, en mPa s. Es el
+//      numero que de verdad manda en el desgaste, y NO se deduce del grado.
+// ============================================================================
+/** Temperatura [C] a la que J300 mide el CCS de cada grado W, y su maximo [mPa s]. */
+const J300_W = {
+  0:  { tCCS: -35, ccsMax: 6200, tMRV: -40, mrvMax: 60000 },
+  5:  { tCCS: -30, ccsMax: 6600, tMRV: -35, mrvMax: 60000 },
+  10: { tCCS: -25, ccsMax: 7000, tMRV: -30, mrvMax: 60000 },
+  15: { tCCS: -20, ccsMax: 7000, tMRV: -25, mrvMax: 60000 },
+  20: { tCCS: -15, ccsMax: 9500, tMRV: -20, mrvMax: 60000 },
+};
+/** Banda de KV100 [mm2/s] de cada grado de verano, y HTHS minima [mPa s]. */
+const J300_V = {
+  20: { kvMin: 6.9,  kvMax: 9.29,  hthsMin: 2.6 },
+  30: { kvMin: 9.3,  kvMax: 12.49, hthsMin: 2.9 },
+  40: { kvMin: 12.5, kvMax: 16.29, hthsMin: 3.5 },   // 40 de grados 0W/5W/10W
+  50: { kvMin: 16.3, kvMax: 21.89, hthsMin: 3.7 },
+  60: { kvMin: 21.9, kvMax: 26.09, hthsMin: 3.7 },
+};
+
+function mkOil(o) {
+  o.w = walther(o.kv40, o.kv100);
+  // Tramo frio: entre la viscosidad de la recta a 0 C y el punto MEDIDO del
+  // ensayo de arranque en frio, que el fabricante publica en mPa s y aqui se
+  // pasa a cinematica con la densidad a esa temperatura.
+  const nu0 = Math.pow(10, Math.pow(10, o.w.A - o.w.B * Math.log10(K(0)))) - 0.7;
+  const rhoF = o.rho15 * (1 - 0.00065 * (o.tFrio - 15));
+  const nuF = o.ccs / rhoF * 1000;                     // mPa s -> mm2/s
+  const x1 = Math.log10(K(0)), x2 = Math.log10(K(o.tFrio));
+  const y1 = ll(nu0), y2 = ll(nuF);
+  const B = (y1 - y2) / (x2 - x1);
+  o.wFrio = { A: y1 + B * x1, B };
+  return o;
+}
+const ACEITES = {
+  a0w20: mkOil({ key: 'a0w20', rot: '0W-20 sintético', corto: '0W-20', wGrado: 0, vGrado: 20,
+    kv40: 44.5, kv100: 8.3, rho15: 845, iv: 168, hths: 2.65,
+    tFrio: -35, ccs: 5900, mrv: 21000, tGel: -46,
+    nota: 'El de menor arrastre: gana consumo y pierde película. Sólo si el fabricante lo pide.' }),
+  a5w30: mkOil({ key: 'a5w30', rot: '5W-30 sintético', corto: '5W-30', wGrado: 5, vGrado: 30,
+    kv40: 63.0, kv100: 11.0, rho15: 850, iv: 168, hths: 3.05,
+    tFrio: -30, ccs: 6100, mrv: 24000, tGel: -42,
+    nota: 'El compromiso más extendido en gasolina moderna.' }),
+  a10w40: mkOil({ key: 'a10w40', rot: '10W-40 semisintético', corto: '10W-40', wGrado: 10, vGrado: 40,
+    kv40: 97.0, kv100: 14.5, rho15: 862, iv: 154, hths: 3.65,
+    tFrio: -25, ccs: 6600, mrv: 27000, tGel: -34,
+    nota: 'Más película en caliente y más arrastre en frío que un 5W-30.' }),
+  a15w40: mkOil({ key: 'a15w40', rot: '15W-40 mineral, diésel', corto: '15W-40', wGrado: 15, vGrado: 40,
+    kv40: 108.0, kv100: 14.3, rho15: 878, iv: 136, hths: 3.85,
+    tFrio: -20, ccs: 6400, mrv: 29000, tGel: -29,
+    nota: 'El clásico de diésel de servicio pesado. Índice de viscosidad más bajo.' }),
+  a20w50: mkOil({ key: 'a20w50', rot: '20W-50 mineral', corto: '20W-50', wGrado: 20, vGrado: 50,
+    kv40: 168.0, kv100: 19.5, rho15: 885, iv: 128, hths: 4.45,
+    tFrio: -15, ccs: 9100, mrv: 41000, tGel: -24,
+    nota: 'Motor antiguo, clima cálido, holguras grandes. En frío es un tapón.' }),
+  sae30: mkOil({ key: 'sae30', rot: 'SAE 30 monogrado', corto: 'SAE 30', wGrado: null, vGrado: 30,
+    kv40: 88.0, kv100: 10.6, rho15: 880, iv: 98, hths: 3.10,
+    tFrio: -20, ccs: 26000, mrv: null, tGel: -17,
+    nota: 'Sin mejorador del índice: la recta de Walther cae mucho más. A −20 °C pide 26 000 mPa·s, casi el triple de lo que J300 admite al 20W: no le corresponde NINGÚN grado de invierno.' }),
+};
+const ACEITE_KEYS = Object.keys(ACEITES);
+
+/** Viscosidad dinamica [mPa s] usada por los ensayos de arranque en frio. */
+const etaMPas = (T, oil) => etaT(T, oil) * 1000;
+
+/**
+ * Verificacion contra J300. Devuelve, para cada criterio, el valor medido, el
+ * limite y si cumple. Un monogrado NO tiene grado W y por eso su casilla de
+ * arranque en frio se declara `null` en vez de inventarle un limite.
+ */
+function cumpleJ300(oil) {
+  const v = J300_V[oil.vGrado];
+  const out = {
+    kv100: { val: oil.kv100, min: v.kvMin, max: v.kvMax,
+      ok: oil.kv100 >= v.kvMin && oil.kv100 <= v.kvMax },
+    hths: { val: oil.hths, min: v.hthsMin, ok: oil.hths >= v.hthsMin },
+  };
+  if (oil.wGrado === null) { out.ccs = null; out.mrv = null; return out; }
+  const w = J300_W[oil.wGrado];
+  // El CCS es un DATO MEDIDO de la ficha del aceite, no una extrapolacion de la
+  // recta de Walther: por eso el modelo lo usa como ancla y no como resultado.
+  out.ccs = { T: w.tCCS, val: oil.ccs, max: w.ccsMax, ok: oil.ccs <= w.ccsMax };
+  out.mrv = { T: w.tMRV, val: oil.mrv, max: w.mrvMax, ok: oil.mrv !== null && oil.mrv <= w.mrvMax };
+  return out;
+}
+
+// ============================================================================
+//  3 · EL COJINETE DE BANCADA — solucion de cojinete corto (Ocvirk)
+//
+//  Para L/D <= 0.5 la componente circunferencial del flujo es despreciable
+//  frente a la axial y la ecuacion de Reynolds tiene solucion cerrada. La
+//  capacidad de carga vale
+//
+//     W = (mu * omega * L^3 * R / c^2) * eps/(2 (1-eps^2)^2)
+//                                     * sqrt(pi^2 (1-eps^2) + 16 eps^2)
+//
+//  y es MONOTONA creciente en eps sobre [0,1), asi que dada la carga se
+//  resuelve la excentricidad por biseccion y no hay ambiguedad.
+//
+//     h_min = c (1 - eps)
+// ============================================================================
+/** Capacidad de carga [N] de un cojinete corto con excentricidad relativa eps. */
+function cargaOcvirk(eps, mu, omega, L, R, c) {
+  const e2 = eps * eps;
+  return (mu * omega * Math.pow(L, 3) * R / (c * c)) *
+    (eps / (2 * Math.pow(1 - e2, 2))) * Math.sqrt(Math.PI * Math.PI * (1 - e2) + 16 * e2);
+}
+/**
+ * Excentricidad relativa que equilibra una carga W. Biseccion sobre [0, 1).
+ *
+ * La capacidad de carga DIVERGE al acercarse eps a 1, asi que para cualquier
+ * carga finita existe solucion y el resultado es siempre menor que 1: el
+ * `return 1` es una red de seguridad para entradas degeneradas (viscosidad o
+ * velocidad nulas), no un caso fisico. Quien quiera saber si hay contacto tiene
+ * que mirar lambda, no eps.
+ */
+function excentricidad(W, mu, omega, L, R, c) {
+  if (!(W > 0) || !(mu > 0) || !(omega > 0)) return 0;
+  let lo = 1e-9, hi = 1 - 1e-9;
+  if (cargaOcvirk(hi, mu, omega, L, R, c) < W) return 1;
+  for (let i = 0; i < 120; i++) {
+    const m = 0.5 * (lo + hi);
+    if (cargaOcvirk(m, mu, omega, L, R, c) < W) lo = m; else hi = m;
+  }
+  return 0.5 * (lo + hi);
+}
+/** Espesor minimo de pelicula [m]. */
+const hMin = (eps, c) => c * (1 - eps);
+/**
+ * Espesor especifico de pelicula. Es h_min medido en rugosidades: lambda < 1 es
+ * regimen limite (contacto metal-metal), 1..3 mixto y >= 3 hidrodinamico pleno.
+ * Divide por la rugosidad COMPUESTA de las dos superficies, no por una sola.
+ */
+const lambdaFilm = (h, rqA, rqB) => h / Math.sqrt(rqA * rqA + rqB * rqB);
+const REGIMEN = l => l < 1 ? 'limite' : (l < 3 ? 'mixto' : 'hidrodinamico');
+
+/**
+ * Par de friccion [N m] de un cojinete. Petroff con correccion de excentricidad:
+ * el termino viscoso domina y crece al acercarse el eje a la superficie.
+ * NO incluye el termino de carga (el desplazamiento del punto de presion
+ * maxima), que a excentricidades moderadas aporta menos del 10 %: esta
+ * declarado en el contrato de fidelidad.
+ */
+function parFriccion(mu, omega, R, L, c, eps) {
+  return 2 * Math.PI * mu * omega * Math.pow(R, 3) * L / (c * Math.sqrt(Math.max(1 - eps * eps, 1e-9)));
+}
+
+/**
+ * Caudal de fuga axial de un cojinete alimentado por ranura circunferencial,
+ * con la presion de galeria p [Pa]:
+ *
+ *     Q = (pi R c^3 p / (3 mu L)) * (1 + 1.5 eps^2)
+ *
+ * La ley del CUBO de la holgura es la que hace que un cojinete gastado se lleve
+ * el aceite de todo el motor y hunda la presion.
+ */
+function caudalCojinete(p, mu, R, c, L, eps) {
+  return (Math.PI * R * Math.pow(c, 3) * p / (3 * mu * L)) * (1 + 1.5 * eps * eps);
+}
+
+// ============================================================================
+//  4 · LA CARGA DEL COJINETE
+//
+//  Se compone de la fuerza de gas en el pico de combustion y de la inercia
+//  alternativa, que se restan porque actuan en sentidos contrarios en el PMS.
+//  El analisis del cojinete se hace en REGIMEN ESTACIONARIO con la carga de
+//  pico, que es el caso de diseño clasico de los abacos de Raimondi y Boyd.
+//  Un cojinete real trabaja bajo carga variable y el efecto de pelicula
+//  exprimida (squeeze film) le levanta h_min por encima de este valor: el
+//  modelo es CONSERVADOR, y esta declarado.
+// ============================================================================
+/**
+ * Fuerza maxima sobre el muñon [N] a un regimen y una carga del motor (0..1).
+ *
+ * La presion de pico NO es la de plena carga siempre. Sin carga, el pico del
+ * cilindro es el de COMPRESION —la misma cifra que mide la practica de sellado
+ * de este dominio, `pComp`— y solo al pedir par sube hasta el pico de combustion.
+ * Por eso el cojinete de un motor a ralenti va comodo aunque la presion de
+ * aceite sea baja, y el punto critico esta a regimen bajo con el pie a fondo.
+ */
+function cargaBancada(e, rpm, carga = 0) {
+  const Ap = Math.PI * Math.pow(e.B / 1000, 2) / 4;        // m2
+  const c = Math.max(0, Math.min(1, carga));
+  const pPico = e.pComp + c * (e.pMax - e.pComp);          // bar absolutos
+  const Fgas = pPico * 1e5 * Ap;                           // N
+  const om = rpm * 2 * Math.PI / 60;
+  const r = e.S / 2000;                                    // m
+  const lam = r / (e.Lb / 1000);
+  const Fin = e.mRecip * om * om * r * (1 + lam);          // N, en el PMS
+  // En el PMS de combustion la inercia tira del piston hacia arriba y DESCARGA
+  // el cojinete: por eso un motor a rpm altas no carga tanto el cojinete como
+  // se cree, y el punto critico esta a regimen bajo con plena carga.
+  // `fReparto` es la fraccion de esa fuerza que llega a UN cojinete de bancada:
+  // cada bancada reparte con la de al lado la carga de los cilindros vecinos.
+  return e.fReparto * Math.max(0.15 * Fgas, Fgas - Fin);
+}
+/**
+ * Carga de DISEÑO para el analisis estacionario del cojinete.
+ *
+ * En un cuatro tiempos la fuerza de gas actua durante una fraccion pequeña de
+ * los 720 grados; el resto del ciclo el cojinete va casi descargado. Meter el
+ * PICO como carga estacionaria ignora el efecto de pelicula exprimida —el
+ * aceite no tiene tiempo de salir mientras dura el pico— y da un h_min muy por
+ * debajo del real. La practica de diseño con los abacos de cojinete corto usa
+ * la carga MEDIA EQUIVALENTE del ciclo, del orden de un tercio del pico.
+ * `F_MEDIA` es ese factor, y esta declarado en el contrato de fidelidad.
+ */
+const F_MEDIA = 0.34;
+const cargaDiseno = (e, rpm, carga) => F_MEDIA * cargaBancada(e, rpm, carga);
+/** Presion especifica del cojinete [MPa] = carga / area proyectada. */
+const presionEsp = (W, e) => W / ((e.dMuñ / 1000) * (e.lCoj / 1000)) / 1e6;
+
+// ============================================================================
+//  5 · EL CIRCUITO — bomba, limitadora y galeria
+//
+//  La bomba es volumetrica: entrega D * n menos lo que se le escapa por los
+//  huelgos, que crece con la presion y baja con la viscosidad. Los cojinetes
+//  son la fuga util. La galeria se equilibra donde el caudal que entra iguala
+//  al que sale, y la limitadora recorta por arriba.
+// ============================================================================
+/** Caudal de la bomba [m3/s] a la presion p [Pa] con viscosidad mu [Pa s]. */
+function caudalBomba(e, rpm, mu, p, kDesl) {
+  const n = rpm * e.relBomba / 60;                          // rev/s de la bomba
+  const teo = e.despBomba * 1e-6 * n;                       // m3/s
+  const desl = (kDesl ?? e.kDesl) * p / mu;                 // m3/s de resbalamiento
+  return Math.max(0, teo - desl);
+}
+/** Suma del caudal que se van los cojinetes a la presion p. */
+function caudalCircuito(e, mu, p, hol, epsPorCoj, kAux) {
+  const R = e.dMuñ / 2000, L = e.lCoj / 1000;
+  let q = 0;
+  for (let i = 0; i < e.nCoj; i++) q += caudalCojinete(p, mu, R, hol[i], L, epsPorCoj[i]);
+  // Surtidores de refrigeracion del piston y arbol de levas: restricciones fijas
+  // que en un motor real se llevan una parte nada despreciable del caudal.
+  q += (kAux ?? e.kAux) * p / mu;
+  return q;
+}
+
+// ============================================================================
+//  6 · AVERIAS Y ESCENARIOS
+//
+//  Cada averia se declara por lo que CAMBIA fisicamente, no por el sintoma:
+//  holgura de un cojinete, holgura de todos, desgaste de la bomba, limitadora
+//  agarrotada, filtro obstruido (abre su derivacion), aceite diluido o el
+//  nivel bajo. El sintoma sale del modelo.
+// ============================================================================
+const FALLAS = {
+  sano: { rot: 'Sin avería', nota: 'La holgura está en el nominal del fabricante y la bomba entrega lo suyo.' },
+  cojGastado: { rot: 'Un cojinete de bancada gastado', holUno: 2.2,
+    nota: 'La holgura al cubo: ese cojinete se bebe el aceite de todos los demás.' },
+  cojTodos: { rot: 'Motor de muchos kilómetros, holguras al límite', holTodos: 1.7, kAuxMul: 2.4,
+    nota: 'No son sólo las bancadas: en un motor gastado también lo están las bielas, los apoyos del árbol y los tensores. Por eso ÉSTE sí hunde la presión y un solo cojinete gastado no.' },
+  bombaGastada: { rot: 'Bomba de aceite desgastada', kDeslMul: 4.5,
+    nota: 'Se le escapa el aceite por los huelgos internos. Se nota más en caliente y a ralentí.' },
+  limitadoraAbierta: { rot: 'Válvula limitadora agarrotada abierta', relMul: 0.42,
+    nota: 'Recorta la presión mucho antes de lo debido. La galería nunca sube.' },
+  limitadoraCerrada: { rot: 'Válvula limitadora agarrotada cerrada', relMul: Infinity,
+    nota: 'No recorta NADA: la presión es la que da el balance del circuito, y en frío eso revienta el filtro o su junta. La limitadora no protege al motor: protege al circuito.' },
+  filtroSucio: { rot: 'Filtro obstruido, derivación abierta', filtro: true,
+    nota: 'Sigue llegando aceite, pero SIN FILTRAR. El manómetro no se entera de nada.' },
+  aceiteDiluido: { rot: 'Aceite diluido con combustible', diluc: 0.55,
+    nota: 'Baja la viscosidad como si el aceite fuera dos grados más fino. Es una avería de inyección vista desde el aceite.' },
+  aceiteEnvejecido: { rot: 'Aceite pasado de intervalo, gelificado en frío', gelDelta: 26, viscMul: 1.35,
+    nota: 'Gelifica MUCHO antes de lo que le tocaría. Pasa el ensayo de arranque y falla el de bombeo: el motor gira y no le llega aceite.' },
+  antidrenaje: { rot: 'Antirretorno del filtro estropeado', drenMul: 5.0,
+    nota: 'El circuito se vacía al cárter con el motor parado. En marcha no se nota NADA: sólo se paga en cada arranque.' },
+  nivelBajo: { rot: 'Nivel de aceite bajo', aire: 0.30,
+    nota: 'La bomba aspira aire a ratos: el caudal cae y la presión oscila.' },
+};
+const FALLA_KEYS = Object.keys(FALLAS);
+
+/** Estado fisico del circuito con una averia montada. */
+function fisicaDe(e, falla, oil, T) {
+  const f = FALLAS[falla] || FALLAS.sano;
+  const hol = [];
+  for (let i = 0; i < e.nCoj; i++) {
+    let h = e.holgura;                                   // m
+    if (f.holTodos) h *= f.holTodos;
+    if (f.holUno && i === e.cojMalo) h *= f.holUno;
+    hol.push(h);
+  }
+  // Un solo factor para lo que la averia le hace a la viscosidad, y se devuelve
+  // para que TODO el que la necesite use el mismo: dejarlo solo en `mu` hacia
+  // que el analisis de aceite informara de la viscosidad del bidon, no de la
+  // del carter, y con eso dos averias distintas caian en la misma firma.
+  const viscMul = (f.diluc || 1) * (f.viscMul || 1);
+  const mu = etaT(T, oil) * viscMul;
+  return {
+    hol, mu, viscMul,
+    kDesl: e.kDesl * (f.kDeslMul || 1) * (f.aire ? 1 / (1 - f.aire) : 1),
+    kAux: e.kAux * (f.kAuxMul || 1),
+    pRel: e.pRel * (f.relMul || 1),
+    filtrado: !f.filtro,
+  };
+}
+
+/**
+ * Estado completo del motor a un regimen, una temperatura, un aceite y una
+ * averia. Resuelve el circuito y el cojinete a la vez, porque se necesitan
+ * mutuamente: la excentricidad cambia el caudal y el caudal no cambia la
+ * excentricidad —la carga la fija el ciclo, no la presion de alimentacion—,
+ * asi que el orden correcto es cojinete primero y circuito despues.
+ */
+function estado(e, o = {}) {
+  const oil = ACEITES[o.aceite ?? 'a5w30'];
+  const T = o.T ?? 100, rpm = o.rpm ?? 2000, falla = o.falla ?? 'sano';
+  const carga = o.carga ?? 0;
+  const F = fisicaDe(e, falla, oil, T);
+  const om = rpm * 2 * Math.PI / 60;
+  const R = e.dMuñ / 2000, L = e.lCoj / 1000;
+  const Wpico = cargaBancada(e, rpm, carga);
+  const W = F_MEDIA * Wpico;
+
+  // --- cojinetes: uno por uno, porque pueden tener holguras distintas -------
+  const cojinetes = F.hol.map((c, i) => {
+    const eps = excentricidad(W, F.mu, om, L, R, c);
+    const h = hMin(eps, c);
+    const lam = lambdaFilm(h, e.rqMuñ * 1e-6, e.rqCoj * 1e-6);
+    // La solucion de cojinete corto se ajusta bien a la numerica hasta eps ~ 0,9.
+    // Por encima, la cifra sigue siendo del lado conservador pero ya extrapola:
+    // se marca en vez de callarlo.
+    return { i, c, eps, h, lam, regimen: REGIMEN(lam), extrapola: eps > 0.90,
+      par: parFriccion(F.mu, om, R, L, c, eps) };
+  });
+  const peor = cojinetes.reduce((a, b) => a.lam <= b.lam ? a : b);
+
+  // --- circuito: biseccion sobre la presion de galeria ----------------------
+  const eps = cojinetes.map(c => c.eps);
+  const bal = p => caudalBomba(e, rpm, F.mu, p, F.kDesl) - caudalCircuito(e, F.mu, p, F.hol, eps, F.kAux);
+  let lo = 0, hi = 80e5;
+  if (bal(hi) > 0) lo = hi; else {
+    for (let i = 0; i < 120; i++) { const m = 0.5 * (lo + hi); if (bal(m) > 0) lo = m; else hi = m; }
+  }
+  let p = 0.5 * (lo + hi);
+  const pSinLim = p;
+  // Una limitadora agarrotada cerrada tiene tarado infinito: no recorta, y la
+  // presion es la que salga del balance. No se le pone un tarado alto a mano.
+  const abreLim = isFinite(F.pRel) && p > F.pRel;
+  if (abreLim) p = F.pRel;
+  const saturado = !abreLim && p > 79e5;
+  const Q = caudalCircuito(e, F.mu, p, F.hol, eps, F.kAux);
+
+  const parTot = cojinetes.reduce((s, c) => s + c.par, 0);
+  return {
+    oil, T, rpm, carga, falla, mu: F.mu, nu: nuT(T, oil) * F.viscMul, viscMul: F.viscMul,
+    W, Wpico, pEsp: presionEsp(Wpico, e), pEspDis: presionEsp(W, e),
+    cojinetes, peor, extrapola: cojinetes.some(c => c.extrapola),
+    p: p / 1e5, pSinLim: pSinLim / 1e5, pRel: F.pRel / 1e5, abreLim, saturado,
+    Q: Q * 6e4,                       // L/min
+    filtrado: F.filtrado,
+    par: parTot, potFric: parTot * om,
+    alarma: p / 1e5 < e.pAlarma,
+    // Una limitadora que no abre no rompe el motor: rompe el ELEMENTO MAS DEBIL
+    // del circuito, que es la carcasa del filtro o su junta. El modelo lo dice
+    // en vez de publicar una presion enorme como si no pasara nada.
+    revientaFiltro: p / 1e5 > e.pMaxFiltro,
+  };
+}
+
+// ============================================================================
+//  6 bis · EL ARRANQUE EN FRIO — donde de verdad se gasta el motor
+//
+//  En regimen estacionario un motor sano va sobrado de pelicula. El desgaste
+//  vive en los primeros segundos: mientras la galeria se llena, el cojinete
+//  trabaja con el aceite RESIDUAL, en regimen limite, y ahi si hay contacto.
+//  Los dos limites de invierno de J300 existen exactamente por esto:
+//    · CCS  garantiza que el motor de arranque pueda GIRARLO.
+//    · MRV  garantiza que la bomba pueda ASPIRARLO. Si falla el MRV la bomba
+//           se queda con una burbuja y el motor gira SIN aceite: es la averia
+//           mas cara que existe, y el manometro tarda en enterarse.
+// ============================================================================
+/** Par resistente del motor al arrancar [N m]: arrastre viscoso + compresion. */
+function parArrastre(e, oil, T, rpm) {
+  const mu = etaT(T, oil), om = rpm * 2 * Math.PI / 60;
+  const R = e.dMuñ / 2000, L = e.lCoj / 1000;
+  let par = 0;
+  for (let i = 0; i < e.nCoj; i++) par += parFriccion(mu, om, R, L, e.holgura, 0.6);
+  // El resto del motor —faldas de piston, arboles, bomba— arrastra del orden de
+  // tres veces lo que arrastran las bancadas, y ademas hay que comprimir.
+  return par * 4.0 + e.parComp;
+}
+/**
+ * Regimen de arranque real [rpm]. El motor de arranque tiene curva par-velocidad
+ * lineal: da `parCal` parado y se queda a `nVacio` sin carga. Se cruza con el par
+ * resistente, que crece con la viscosidad. Por eso el mismo motor gira a 250 rpm
+ * en verano y a 90 en una helada con el aceite equivocado.
+ */
+function regimenArranque(e, oil, T) {
+  const resist = n => parArrastre(e, oil, T, Math.max(n, 1));
+  const motor = n => e.parCal * (1 - n / e.nVacio);
+  if (motor(1) < resist(1)) return 0;                   // ni se mueve
+  let lo = 1, hi = e.nVacio;
+  for (let i = 0; i < 90; i++) {
+    const m = 0.5 * (lo + hi);
+    if (motor(m) > resist(m)) lo = m; else hi = m;
+  }
+  return 0.5 * (lo + hi);
+}
+/**
+ * Diagnostico completo del arranque. `bombea` compara la viscosidad dinamica
+ * con el umbral de bombeabilidad del circuito: por encima, la bomba aspira aire
+ * en vez de aceite y no ceba, por muy bien que gire el motor.
+ */
+function arranque(e, o = {}) {
+  const oil = ACEITES[o.aceite ?? e.aceiteOEM], T = o.T ?? -20;
+  const f = FALLAS[o.falla ?? 'sano'] || FALLAS.sano;
+  if (f.drenMul && o.drenMul === undefined) o = Object.assign({}, o, { drenMul: f.drenMul });
+  const eta = etaMPas(T, oil) * (f.viscMul || 1);
+  const n = regimenArranque(e, oil, T) / (f.viscMul || 1) ** 0.35;
+  const arranca = n >= e.nMinArr;
+  // Bombeabilidad: NO se deduce de la viscosidad de cizalla alta. Un aceite
+  // puede pasar el CCS —que se mide a cizalla alta, como el motor de arranque—
+  // y GELIFICAR a cizalla baja, que es lo que ve la aspiracion de la bomba. Por
+  // eso J300 pide DOS ensayos de invierno y no uno. `tGel` es un dato declarado
+  // de cada aceite, no una consecuencia de su viscosidad.
+  const tGel = oil.tGel + (f.gelDelta || 0);
+  const bombea = T > tGel && eta <= e.mrvLim;
+  // Cebado: el tiempo que tarda la bomba en llenar el circuito girando a n.
+  // Mientras la galeria se llena NO hay contrapresion, asi que la bomba entrega
+  // su caudal teorico: evaluarla a la presion de tarado subestima el cebado.
+  const mu = etaT(T, oil);
+  const q = arranca ? caudalBomba(e, n, mu, 0, e.kDesl * (f.kDeslMul || 1)) : 0;
+  // Y no hay que llenar el circuito entero: entre dos arranques solo se escurre
+  // al carter lo que hay por encima de la valvula antirretorno del filtro. Si
+  // esa valvula falla, se vacia mucho mas y el motor gira mas vueltas en seco.
+  const vDren = e.volDren * (o.drenMul ?? 1);
+  const tCeb = (arranca && bombea && q > 0) ? (vDren * 1e-6) / q : Infinity;
+  // Mientras no hay presion, el cojinete va en regimen LIMITE. El desgaste de
+  // un arranque se mide en vueltas dadas en seco, que es lo que de verdad
+  // cuenta: girar mas despacio no ayuda tanto como cebar antes.
+  const vueltasSeco = isFinite(tCeb) ? n / 60 * tCeb : Infinity;
+  return { oil, T, eta, n, arranca, bombea, tCeb, vueltasSeco,
+    limCCS: oil.wGrado === null ? null : J300_W[oil.wGrado].ccsMax,
+    veredicto: !arranca ? 'el motor de arranque no lo gira'
+      : (!bombea ? 'gira, pero la bomba no ceba: gira EN SECO'
+        : (vueltasSeco > e.vueltasMax ? 'ceba tarde: demasiadas vueltas en seco' : 'arranque correcto')) };
+}
+
+// ============================================================================
+//  7 · ESCENARIOS Y CENSO
+// ============================================================================
+const ESCEN = {
+  sano:      { rot: 'Motor sano', falla: 'sano', clave: 'nada que reparar' },
+  coj1:      { rot: 'Un cojinete de bancada gastado', falla: 'cojGastado', clave: 'holgura de cojinete' },
+  cojN:      { rot: 'Todos los cojinetes al límite', falla: 'cojTodos', clave: 'holgura de cojinete' },
+  bomba:     { rot: 'Bomba de aceite desgastada', falla: 'bombaGastada', clave: 'bomba' },
+  limAb:     { rot: 'Limitadora agarrotada abierta', falla: 'limitadoraAbierta', clave: 'limitadora' },
+  limCer:    { rot: 'Limitadora agarrotada cerrada', falla: 'limitadoraCerrada', clave: 'limitadora' },
+  filtro:    { rot: 'Filtro obstruido, derivacion abierta', falla: 'filtroSucio', clave: 'filtro' },
+  diluido:   { rot: 'Aceite diluido con combustible', falla: 'aceiteDiluido', clave: 'aceite equivocado o degradado' },
+  nivel:     { rot: 'Nivel de aceite bajo', falla: 'nivelBajo', clave: 'nivel' },
+  antidren:  { rot: 'Antirretorno del filtro estropeado', falla: 'antidrenaje', clave: 'antirretorno del filtro' },
+  envejecido:{ rot: 'Aceite pasado de intervalo', falla: 'aceiteEnvejecido', clave: 'aceite equivocado o degradado' },
+  finoFrio:  { rot: 'Aceite demasiado fino para el motor', falla: 'sano', aceite: 'a0w20', clave: 'aceite equivocado o degradado' },
+  gruesoFrio:{ rot: 'Aceite demasiado grueso para el clima', falla: 'sano', aceite: 'a20w50', clave: 'aceite equivocado o degradado' },
+};
+const ESCEN_KEYS = Object.keys(ESCEN);
+
+/** Lecturas del escenario en los tres puntos de trabajo del protocolo. */
+const PUNTOS = [
+  { k: 'frioRal', rot: 'frío, ralentí', T: 20, ral: true },
+  { k: 'calRal',  rot: 'caliente, ralentí', T: 110, ral: true },
+  { k: 'calAlto', rot: 'caliente, 3 000 rpm', T: 110, rpm: 3000 },
+];
+function lecturas(e, esc, o = {}) {
+  const E = ESCEN[esc] || ESCEN.sano;
+  const aceite = E.aceite || o.aceite || 'a5w30';
+  const pts = PUNTOS.map(P => {
+    const rpm = P.ral ? e.ralenti : P.rpm;
+    const s = estado(e, { aceite, T: P.T, rpm, falla: E.falla });
+    return { k: P.k, rot: P.rot, T: P.T, rpm, p: s.p, lam: s.peor.lam,
+      regimen: s.peor.regimen, Q: s.Q, abreLim: s.abreLim, alarma: s.alarma,
+      filtrado: s.filtrado, revienta: s.revientaFiltro };
+  });
+  const by = k => pts.find(p => p.k === k);
+  const arr = arranque(e, { aceite, T: o.Tarr ?? 20, falla: E.falla });
+  return {
+    esc, rot: E.rot, clave: E.clave, aceite, pts, arr,
+    // Las cuatro observaciones que un taller puede tomar de verdad:
+    pFrio: by('frioRal').p, pCalRal: by('calRal').p, pCalAlto: by('calAlto').p,
+    // y la que NO se puede tomar sin abrir el motor, que es la que protege
+    lamPeor: Math.min(...pts.map(p => p.lam)),
+    alarmaEn: pts.filter(p => p.alarma).map(p => p.k),
+    revientaEn: pts.filter(p => p.revienta).map(p => p.k),
+    sinFiltrar: pts.some(p => !p.filtrado),
+  };
+}
+
+/**
+ * Seis observaciones. Las tres primeras son lo que da un manometro; la cuarta,
+ * lo que dice la luz roja; la quinta exige un analisis de aceite y la sexta,
+ * abrir el motor y medir con plastigage. El censo demuestra cuales hacen falta.
+ */
+const OBS = [
+  { k: 'pFrio',    rot: 'Presión en frío a ralentí', res: 0.25, uni: 'bar', taller: true },
+  { k: 'pCalRal',  rot: 'Presión en caliente a ralentí', res: 0.25, uni: 'bar', taller: true },
+  { k: 'pCalAlto', rot: 'Presión en caliente a 3 000 rpm', res: 0.25, uni: 'bar', taller: true },
+  { k: 'luz',      rot: 'Se enciende la luz de presión', res: null, uni: '', taller: true },
+  { k: 'vueltas',  rot: 'Vueltas en seco al arrancar (lo que tarda en apagarse la luz)', res: 0.5, uni: 'vueltas', taller: true },
+  { k: 'visc',     rot: 'Análisis de aceite: viscosidad y contaminación', res: 1.0, uni: 'mm²/s', taller: false },
+  { k: 'holgura',  rot: 'Holgura medida con plastigage', res: 0.005, uni: 'mm', taller: false },
+];
+const cuant = (x, r) => Math.round(x / r) * r;
+
+function firmaObs(e, L, sub) {
+  return sub.map(m => {
+    if (m.k === 'luz') return L.alarmaEn.join('+') || 'no';
+    if (m.k === 'vueltas') {
+      const v = L.arr.vueltasSeco;
+      return isFinite(v) ? cuant(v, m.res).toFixed(1) : 'nunca';
+    }
+    if (m.k === 'visc') {
+      const s = estado(e, { aceite: L.aceite, T: 100, rpm: e.ralenti, falla: ESCEN[L.esc].falla });
+      return cuant(s.nu, m.res).toFixed(1) + (s.filtrado ? '' : '+sucio');
+    }
+    if (m.k === 'holgura') {
+      const F = fisicaDe(e, ESCEN[L.esc].falla, ACEITES[L.aceite], 100);
+      return F.hol.map(h => cuant(h * 2000, m.res).toFixed(3)).join('/');
+    }
+    return cuant(L[m.k], m.res).toFixed(2);
+  }).join('|');
+}
+function censoSub(e, o = {}) {
+  const cache = ESCEN_KEYS.map(k => ({ k, L: lecturas(e, k, o) }));
+  const out = [];
+  for (let m = 1; m < (1 << OBS.length); m++) {
+    const sub = OBS.filter((_, i) => m & (1 << i));
+    const grupos = new Map();
+    for (const { k, L } of cache) {
+      const f = firmaObs(e, L, sub);
+      if (!grupos.has(f)) grupos.set(f, []);
+      grupos.get(f).push({ k, clave: L.clave });
+    }
+    let conflictos = 0, enConflicto = 0;
+    for (const g of grupos.values()) {
+      const claves = new Set(g.map(x => x.clave));
+      if (claves.size > 1) { conflictos++; enConflicto += g.length; }
+    }
+    out.push({ mask: m, sub, clases: grupos.size, n: cache.length,
+      conflictos, enConflicto, resueltos: cache.length - enConflicto });
+  }
+  out.sort((a, b) => (b.resueltos - a.resueltos) || (a.sub.length - b.sub.length) || (b.clases - a.clases));
+  return out;
+}
+function casosReto() { return ESCEN_KEYS.filter(k => k !== 'sano'); }
+
+// ============================================================================
+//  8 · ARQUETIPOS
+//
+//  HONESTIDAD: NO son modelos comerciales. Son arquetipos declarados cuyas
+//  cotas caen dentro de las bandas publicadas para su familia. La holgura, la
+//  presion minima admisible y el aceite recomendado de un motor real estan en
+//  su manual de taller y en ningun otro sitio.
+// ============================================================================
+const ARQ = {
+  g16: { key: 'g16', nombre: 'Gasolina 1.6 DOHC 16 V', corto: '1.6 gasolina',
+    B: 79.0, S: 81.5, Lb: 133.0, nCil: 4, pMax: 55, pComp: 17.1, mRecip: 0.52,
+    nCoj: 5, fReparto: 0.55, cojMalo: 2, dMuñ: 48.0, lCoj: 20.0, holgura: 22e-6,
+    rqMuñ: 0.25, rqCoj: 0.80,
+    despBomba: 9.5, relBomba: 0.85, kDesl: 2.3e-12, kAux: 5.4e-12,
+    pRel: 4.5e5, pMaxFiltro: 11.0, pAlarma: 0.55, ralenti: 750, aceiteOEM: 'a5w30', parComp: 42, parCal: 145, nVacio: 520, nMinArr: 120, mrvLim: 9000, volDren: 30, vueltasMax: 8,
+    holMax: 0.060 },
+  g18: { key: 'g18', nombre: 'Gasolina 1.8 SOHC 8 V', corto: '1.8 gasolina',
+    B: 81.0, S: 87.4, Lb: 143.0, nCil: 4, pMax: 50, pComp: 16.0, mRecip: 0.58,
+    nCoj: 5, fReparto: 0.55, cojMalo: 3, dMuñ: 50.0, lCoj: 21.0, holgura: 26e-6,
+    rqMuñ: 0.30, rqCoj: 0.95,
+    despBomba: 10.5, relBomba: 0.80, kDesl: 2.9e-12, kAux: 6.2e-12,
+    pRel: 4.0e5, pMaxFiltro: 10.5, pAlarma: 0.50, ralenti: 800, aceiteOEM: 'a10w40', parComp: 44, parCal: 150, nVacio: 500, nMinArr: 120, mrvLim: 9500, volDren: 34, vueltasMax: 8,
+    holMax: 0.070 },
+  d20: { key: 'd20', nombre: 'Diésel 2.0 DOHC 16 V turbo', corto: '2.0 diésel',
+    B: 81.0, S: 95.5, Lb: 144.0, nCil: 4, pMax: 160, pComp: 34.9, mRecip: 0.78,
+    nCoj: 5, fReparto: 0.55, cojMalo: 1, dMuñ: 54.0, lCoj: 24.0, holgura: 30e-6,
+    rqMuñ: 0.25, rqCoj: 0.80,
+    despBomba: 14.0, relBomba: 0.95, kDesl: 2.6e-12, kAux: 8.8e-12,
+    pRel: 5.5e5, pMaxFiltro: 13.0, pAlarma: 0.80, ralenti: 800, aceiteOEM: 'a5w30', parComp: 96, parCal: 300, nVacio: 460, nMinArr: 140, mrvLim: 9000, volDren: 38, vueltasMax: 8,
+    holMax: 0.080 },
+  v8: { key: 'v8', nombre: 'Gasolina 5.0 V8 OHV', corto: '5.0 V8',
+    B: 101.6, S: 76.2, Lb: 145.0, nCil: 8, pMax: 48, pComp: 15.2, mRecip: 0.86,
+    nCoj: 5, fReparto: 0.55, cojMalo: 4, dMuñ: 63.5, lCoj: 26.0, holgura: 38e-6,
+    rqMuñ: 0.32, rqCoj: 1.00,
+    despBomba: 16.0, relBomba: 0.75, kDesl: 4.4e-12, kAux: 11.0e-12,
+    pRel: 4.2e5, pMaxFiltro: 10.0, pAlarma: 0.40, ralenti: 650, aceiteOEM: 'a10w40', parComp: 74, parCal: 260, nVacio: 480, nMinArr: 110, mrvLim: 11000, volDren: 46, vueltasMax: 8,
+    holMax: 0.090 },
+};
+const ARQ_KEYS = Object.keys(ARQ);
+
+/** Temperaturas de trabajo del banco [C]. */
+const TEMPS = [-20, 0, 20, 60, 100, 130];
+const T_ROT = { '-20': 'arranque en helada', '0': 'mañana de invierno', '20': 'motor frío',
+  '60': 'calentando', '100': 'temperatura de servicio', '130': 'sobrecalentado' };
+
+// ============================================================================
+// T1 · FORMATO, ESTADO Y CAPA DE MEMORIA
+// ============================================================================
+
+// Espacio fino no separable: el mismo que usa el resto del dominio D6. Nunca se
+// llama a toLocaleString, que en este navegador formatea a la inglesa.
+const NBSP=' ';
+function num(x,d=1){
+  if(!isFinite(x)) return x>0?'∞':'—';
+  const s=Math.abs(x).toFixed(d);
+  const [ent,dec]=s.split('.');
+  let e=''; for(let i=0;i<ent.length;i++){ if(i>0 && (ent.length-i)%3===0) e+=NBSP; e+=ent[i]; }
+  return (x<0?'−':'')+e+(dec?','+dec:'');
+}
+const bar=(x,d=2)=>num(x,d)+NBSP+'bar';
+const um=(x,d=2)=>num(x,d)+NBSP+'µm';
+const mPas=(x,d=0)=>num(x,d)+NBSP+'mPa·s';
+const cSt=(x,d=1)=>num(x,d)+NBSP+'mm²/s';
+const seg=(x,d=2)=>isFinite(x)?num(x,d)+NBSP+'s':'nunca';
+
+// --- estado observable ------------------------------------------------------
+const G={
+  maq:'g16',          // clave de ARQ
+  aceite:'a5w30',     // clave de ACEITES
+  esc:'sano',         // clave de ESCEN
+  T:100,              // temperatura del aceite, °C
+  rpm:2000,           // régimen del motor
+  carga:0,            // par pedido, 0..1
+  Tarr:-20,           // temperatura del ensayo de arranque
+  modo:'ensamble',
+  simUnlocked:false,
+  resuelto:false
+};
+const MQ=()=>ARQ[G.maq];
+const AC=()=>ACEITES[G.aceite];
+const FALLA=()=>ESCEN[G.esc].falla;
+
+// --- capa de memoria --------------------------------------------------------
+// `estado`, `arranque` y `censoSub` se piden muchas veces por fotograma. Se
+// cachean por firma EXACTA de los argumentos: si cambia un solo dígito se
+// recalcula. Nunca se reutiliza una cifra «parecida».
+const MEMO=new Map();
+function memo(k,fn){ if(MEMO.has(k)) return MEMO.get(k); const v=fn(); MEMO.set(k,v); return v; }
+function invalida(){ MEMO.clear(); }
+
+// El escenario puede imponer un aceite (los dos casos de aceite equivocado).
+// Cuando lo hace, manda el escenario: es parte de la avería, no una elección.
+const aceiteEfectivo=()=>ESCEN[G.esc].aceite||G.aceite;
+const aceiteForzado=()=>!!ESCEN[G.esc].aceite;
+
+function EST(o={}){
+  const a=o.aceite??aceiteEfectivo(), T=o.T??G.T, rpm=o.rpm??G.rpm,
+        ca=o.carga??G.carga, fa=o.falla??FALLA();
+  return memo(`e|${G.maq}|${a}|${T}|${rpm}|${ca}|${fa}`,
+              ()=>estado(MQ(),{aceite:a,T,rpm,carga:ca,falla:fa}));
+}
+function ARR(o={}){
+  const a=o.aceite??aceiteEfectivo(), T=o.T??G.Tarr, fa=o.falla??FALLA();
+  return memo(`a|${G.maq}|${a}|${T}|${fa}`,()=>arranque(MQ(),{aceite:a,T,falla:fa}));
+}
+function LECT(){ return memo(`l|${G.maq}|${G.esc}|${G.aceite}`,
+  ()=>lecturas(MQ(),G.esc,{aceite:G.aceite,Tarr:20})); }
+function CENSO(){ return memo(`n|${G.maq}|${G.aceite}`,
+  ()=>censoSub(MQ(),{aceite:G.aceite,Tarr:20})); }
+const J300=()=>memo(`j|${G.aceite}`,()=>cumpleJ300(AC()));
+
+// Veredicto del punto de trabajo actual, con los cuatro criterios separados.
+// Se evalúan por separado porque el laboratorio demuestra que NO son
+// equivalentes: hay averías que sólo caza uno.
+function veredicto(){
+  const s=EST(), e=MQ();
+  return {
+    presion: s.p>=e.pAlarma,
+    pelicula: s.peor.lam>=1,
+    plena: s.peor.lam>=3,
+    filtrado: s.filtrado,
+    revienta: s.revientaFiltro,
+    malo: s.p<e.pAlarma || s.peor.lam<3 || !s.filtrado || s.revientaFiltro,
+  };
+}
+// El arranque en frio se juzga APARTE, y a proposito. El motor en marcha y el
+// motor arrancando son dos preguntas distintas: un 10W-40 puede ser el aceite
+// correcto para el motor y no serlo para el clima, y meter las dos cosas en un
+// solo veredicto haria que un ensayo a -25 C condenara una presion de galeria
+// que esta perfectamente bien.
+function veredictoArranque(){
+  const r=ARR();
+  return {ok:r.veredicto==='arranque correcto', gira:r.arranca,
+    bombeable:r.bombea, rot:r.veredicto};
+}
+
+// --- materiales -------------------------------------------------------------
+// El donante ya define castAluminum/brushedMetal/rubber/techPlastic. Aquí sólo
+// van los que este laboratorio necesita. std() se llama en forma de objeto para
+// que componga con los spreads.
+const std=o=>new THREE.MeshStandardMaterial(o);
+const emis=(hex,i)=>std({color:hex,emissive:hex,emissiveIntensity:i,roughness:0.42,metalness:0.10});
+const alu=castAluminum(), brush=brushedMetal(), plas=techPlastic(0.09,0.10,0.12), rub=rubber();
+
+const AZUL='#8AB4F8', NARANJA='#F2A65A', OK_HEX='#7CD992', BAD_HEX='#ff6b6b',
+      WARN_HEX='#E9C46A', VIO='#C08CF8', GRIS='#8f97a5', CIAN='#5BD4E5',
+      TINTA='#dbe4f0', AMBAR='#E0A33E', ROSA='#EF8FB4';
+
+const MAT={
+  bloque: std({...alu, color:0x6f767f, metalness:0.55, roughness:0.72}),
+  culata: std({...alu, color:0x7b828b, metalness:0.50, roughness:0.66}),
+  acero:  std({...brush, metalness:1.0, roughness:0.32}),
+  crom:   std({...brush, metalness:1.0, roughness:0.16}),
+  banco:  std({...plas, metalness:0.20, roughness:0.62}),
+  caja:   std({...plas, metalness:0.24, roughness:0.54}),
+  goma:   std({...rub, color:0x141a22, roughness:0.96, metalness:0.0}),
+  ok:     emis(0x7CD992,1.3),
+  bad:    emis(0xff6b6b,1.5),
+  avi:    emis(0xE9C46A,1.4),
+};
+// El aceite tiene DOS colores y significan cosas distintas: ámbar el limpio que
+// sale del filtro y pardo el sucio que vuelve al cárter. Cuando la derivación
+// del filtro está abierta, lo que llega a las bancadas se pinta del color sucio.
+const MAT_ACEITE=std({color:0xE0A33E,emissive:0xE0A33E,emissiveIntensity:0.55,roughness:0.35,metalness:0.10});
+// El aceite QUIETO del cárter no es una gota en la galería: si se le pone el
+// mismo emisivo, el cárter se convierte en el objeto más brillante de la escena
+// y tapa el cigüeñal, que es lo que hay que mirar.
+const MAT_BANO  =std({color:0x8a5f18,emissive:0x2a1c06,emissiveIntensity:0.35,roughness:0.28,metalness:0.20,transparent:true,opacity:0.92});
+const MAT_SUCIO =std({color:0x6b4a12,emissive:0x6b4a12,emissiveIntensity:0.45,roughness:0.55,metalness:0.10});
+const MAT_CARTER=std({color:0x59626d,metalness:0.55,roughness:0.44,transparent:true,opacity:0.38});
+const MAT_MUNON =std({color:0xb9c2cc,metalness:1.0,roughness:0.14});
+const MAT_CASQ  =std({color:0xc8a06a,metalness:0.92,roughness:0.30});
+const MAT_PELIC =std({color:0xE0A33E,emissive:0xE0A33E,emissiveIntensity:0.85,transparent:true,opacity:0.55,roughness:0.3});
+const MAT_TUBO  =std({color:0x2a333f,metalness:0.60,roughness:0.52});
+
+// Color de cada régimen de lubricación: la misma clave en el 3D, en el pizarrón
+// y en la leyenda, para que el alumno no tenga que traducir entre vistas.
+const COL_REG={limite:'#ff6b6b', mixto:'#E9C46A', hidrodinamico:'#7CD992'};
+const COL3_REG={limite:0xff6b6b, mixto:0xE9C46A, hidrodinamico:0x7CD992};
+const ROT_REG={limite:'límite (hay contacto)', mixto:'mixto', hidrodinamico:'hidrodinámico pleno'};
+
+// ============================================================ T2 · PIZARRÓN
+// Un lienzo 2D de 1024×768 pegado a un panel 3D. Se llama `bcv` y no `cv`
+// porque `cv` ya es la fábrica de lienzos del kit de la escena: reusar ese
+// nombre rompe la página entera antes de que arranque nada.
+const BW=1024, BH=768;
+const bcv=document.createElement('canvas'); bcv.width=BW; bcv.height=BH;
+const bx=bcv.getContext('2d');
+const btex=new THREE.CanvasTexture(bcv);
+btex.colorSpace=THREE.SRGBColorSpace;
+
+const board=new THREE.Group();
+scene.add(board);
+// El pizarrón va siempre al costado izquierdo del motor, a distancia fija de su
+// extremo. Fijar la coordenada a mano lo mete dentro del bloque en cuanto el
+// motor es más largo, y eso no se ve venir escribiendo el número.
+function colocaTablero(anchoTot){
+  board.position.set(-(anchoTot/2+2.05),0,1.05);
+  board.rotation.y=0.72;
+}
+// Encuadre del pizarrón: se calcula desde su propia transformada, no con
+// coordenadas escritas a mano, porque el pizarrón se mueve con el ancho del
+// motor y unas coordenadas fijas lo dejan medio fuera de cuadro en cuanto se
+// cambia de arquetipo.
+function camTablero(d,off){
+  const c=board.position.clone(); c.y=1.88;
+  const n=new THREE.Vector3(Math.sin(board.rotation.y),0,Math.cos(board.rotation.y));
+  const p=c.clone().addScaledVector(n,d||5.85); p.y=2.38;
+  // El HUD tapa la franja izquierda de la pantalla, asi que por omision se apunta
+  // un poco a la izquierda del centro del pizarron para que el pizarron caiga a
+  // su derecha. Con un desplazamiento POSITIVO el pizarron se corre hacia la
+  // izquierda y el motor —que esta a su derecha— entra en el cuadro: eso es lo
+  // que hace falta en los modos que se leen con el motor delante.
+  const tg=new THREE.Vector3(Math.cos(board.rotation.y),0,-Math.sin(board.rotation.y));
+  const dx=(off===undefined)?-0.42:off;
+  p.addScaledVector(tg,dx); c.addScaledVector(tg,dx);
+  return [[p.x,p.y,p.z],[c.x,c.y,c.z]];
+}
+{
+  const marco=roundedBox(3.94,2.98,0.10,std({...plas,metalness:0.30,roughness:0.58}),0.05);
+  marco.position.y=1.88; board.add(marco);
+  const pl=new THREE.Mesh(new THREE.PlaneGeometry(3.72,2.76),
+    new THREE.MeshBasicMaterial({map:btex,toneMapped:false}));
+  pl.position.set(0,1.88,0.056); board.add(pl);
+  for(const sx of [-1,1]){
+    const p=new THREE.Mesh(new THREE.CylinderGeometry(0.05,0.06,0.40,16),MAT.acero);
+    p.position.set(sx*1.56,0.20,0); p.castShadow=true; board.add(p);
+  }
+}
+
+// ------------------------------------------------------------- primitivas 2D
+function bg(){
+  const g=bx.createLinearGradient(0,0,0,BH);
+  g.addColorStop(0,'#0d131c'); g.addColorStop(1,'#070a10');
+  bx.fillStyle=g; bx.fillRect(0,0,BW,BH);
+}
+function texto(t,x,y,o={}){
+  const s=o.s||16, w=o.b?'700':'400', it=o.it?'italic ':'';
+  bx.font=it+w+' '+s+'px '+(o.mono?'ui-monospace,Menlo,Consolas,monospace':'Inter,system-ui,sans-serif');
+  bx.fillStyle=o.c||TINTA; bx.textAlign=o.al||'left'; bx.textBaseline='alphabetic';
+  bx.fillText(t,x,y);
+}
+function linea(pts,c,w,dash){
+  if(pts.length<2) return;
+  bx.save(); bx.strokeStyle=c; bx.lineWidth=w||2; bx.lineJoin='round'; bx.lineCap='round';
+  if(dash) bx.setLineDash(dash);
+  bx.beginPath(); bx.moveTo(pts[0][0],pts[0][1]);
+  for(let i=1;i<pts.length;i++) bx.lineTo(pts[i][0],pts[i][1]);
+  bx.stroke(); bx.restore();
+}
+function wrapText(t,x,y,w,lh,o={}){
+  const s=o.s||14;
+  bx.font=(o.b?'700 ':'400 ')+s+'px Inter,system-ui,sans-serif';
+  bx.fillStyle=o.c||'#9aa6b6'; bx.textAlign='left'; bx.textBaseline='alphabetic';
+  let ln='', yy=y;
+  for(const p of t.split(' ')){
+    const test=ln?ln+' '+p:p;
+    if(bx.measureText(test).width>w&&ln){ bx.fillText(ln,x,yy); yy+=lh; ln=p; }
+    else ln=test;
+  }
+  if(ln){ bx.fillText(ln,x,yy); yy+=lh; }
+  return yy;
+}
+function rpanel(x,y,w,h,c,bd,rad){
+  const r=Math.min(rad===undefined?10:rad, w/2, h/2);
+  bx.save(); bx.beginPath();
+  bx.moveTo(x+r,y); bx.arcTo(x+w,y,x+w,y+h,r); bx.arcTo(x+w,y+h,x,y+h,r);
+  bx.arcTo(x,y+h,x,y,r); bx.arcTo(x,y,x+w,y,r); bx.closePath();
+  bx.fillStyle=c||'rgba(255,255,255,0.035)'; bx.fill();
+  if(bd){ bx.strokeStyle=bd; bx.lineWidth=1.4; bx.stroke(); }
+  bx.restore();
+}
+function chk(x,y,ok){
+  bx.save(); bx.lineWidth=2.6; bx.lineCap='round';
+  bx.strokeStyle=ok?OK_HEX:'#3a4658';
+  bx.beginPath(); bx.arc(x,y,9,0,Math.PI*2); bx.stroke();
+  if(ok){ bx.beginPath(); bx.moveTo(x-4.5,y); bx.lineTo(x-1,y+3.6); bx.lineTo(x+4.8,y-4); bx.stroke(); }
+  bx.restore();
+}
+function tabla(x,y,cols,rows,o={}){
+  const rh=o.rh||26, fs=o.s||14, gap=o.gap===undefined?14:o.gap;
+  const ancho=cols.reduce((a,c)=>a+c.w+gap,0)-gap;
+  let cx=x;
+  cols.forEach(c=>{ texto(c.t,c.al==='right'?cx+c.w:cx,y,{s:fs,b:true,c:'#9aa6b6',al:c.al||'left'}); cx+=c.w+gap; });
+  linea([[x,y+8],[x+ancho,y+8]],'#243043',1.2);
+  rows.forEach((r,i)=>{
+    const yy=y+rh*(i+1)+6;
+    if(r.hl){ bx.save(); bx.fillStyle=r.hl; bx.fillRect(x-6,yy-rh+9,ancho+12,rh); bx.restore(); }
+    let px=x;
+    cols.forEach((c,j)=>{
+      const cell=r.v[j];
+      const val=Array.isArray(cell)?cell[0]:cell, col=Array.isArray(cell)?cell[1]:(r.c||TINTA);
+      texto(val,c.al==='right'?px+c.w:px,yy,{s:fs,c:col,al:c.al||'left',mono:c.mono,b:r.b});
+      px+=c.w+gap;
+    });
+  });
+  return y+rh*(rows.length+1)+6;
+}
+// Título que se encoge hasta caber: cambiar de máquina cambia la longitud del
+// rótulo, y un rótulo largo se monta encima del de al lado sin avisar.
+function textoFit(t,x,y,maxW,o={}){
+  let s=o.s||16;
+  while(s>11){
+    bx.font=(o.b?'700 ':'400 ')+s+'px Inter,system-ui,sans-serif';
+    if(bx.measureText(t).width<=maxW) break;
+    s-=0.5;
+  }
+  texto(t,x,y,Object.assign({},o,{s}));
+}
+function etiqueta(t,x,y,c,al){
+  bx.font='400 12px Inter,system-ui,sans-serif';
+  const w=bx.measureText(t).width+16, x0=(al==='right')?x-w:x;
+  rpanel(x0,y-14,w,20,'rgba(8,12,18,0.80)',null,6);
+  texto(t,x0+8,y,{s:12,c:c||TINTA});
+}
+function leyenda(x,y,items){
+  bx.font='400 13px Inter,system-ui,sans-serif';
+  const w=Math.max(...items.map(it=>bx.measureText(it[0]).width))+48;
+  rpanel(x-10,y-19,w,items.length*22+8,'rgba(8,12,18,0.80)','#1e2836',8);
+  let yy=y;
+  items.forEach(it=>{
+    bx.save(); bx.strokeStyle=it[1]; bx.lineWidth=3.2; bx.lineCap='round';
+    if(it[2]) bx.setLineDash(it[2]);
+    bx.beginPath(); bx.moveTo(x,yy-4); bx.lineTo(x+26,yy-4); bx.stroke(); bx.restore();
+    texto(it[0],x+34,yy,{s:13,c:'#c3ccd8'});
+    yy+=22;
+  });
+  return yy;
+}
+// Recorta al rectángulo de la gráfica. Sin esto, una barra o una curva que se
+// sale por arriba se pinta sobre la cabecera y nadie lo nota.
+function enCaja(P,fn){ bx.save(); bx.beginPath(); bx.rect(P.x,P.y,P.w,P.h); bx.clip(); fn(); bx.restore(); }
+
+function ejes(P,x0,x1,y0,y1,rx,ry,fx,fy,nx,ny){
+  const X=v=>P.x+(v-x0)/(x1-x0)*P.w;
+  const Y=v=>P.y+P.h-(v-y0)/(y1-y0)*P.h;
+  bx.save(); bx.strokeStyle='#1d2735'; bx.lineWidth=1;
+  for(let i=0;i<=nx;i++){ const v=x0+(x1-x0)*i/nx, xx=X(v);
+    bx.beginPath(); bx.moveTo(xx,P.y); bx.lineTo(xx,P.y+P.h); bx.stroke();
+    if(fx) texto(fx(v),xx,P.y+P.h+19,{s:12,c:'#7b8697',al:'center'}); }
+  for(let i=0;i<=ny;i++){ const v=y0+(y1-y0)*i/ny, yy=Y(v);
+    bx.beginPath(); bx.moveTo(P.x,yy); bx.lineTo(P.x+P.w,yy); bx.stroke();
+    if(fy) texto(fy(v),P.x-9,yy+4,{s:12,c:'#7b8697',al:'right'}); }
+  bx.restore();
+  bx.save(); bx.strokeStyle='#3a4658'; bx.lineWidth=1.5; bx.strokeRect(P.x,P.y,P.w,P.h); bx.restore();
+  if(rx) texto(rx,P.x+P.w/2,P.y+P.h+44,{s:13,c:'#9aa6b6',al:'center'});
+  if(ry){ bx.save(); bx.translate(P.x-58,P.y+P.h/2); bx.rotate(-Math.PI/2);
+    texto(ry,0,0,{s:13,c:'#9aa6b6',al:'center'}); bx.restore(); }
+  return {X,Y};
+}
+function serieXY(M,pts,c,w,dash){ linea(pts.map(p=>[M.X(p[0]),M.Y(p[1])]),c,w,dash); }
+function punteo(M,x,y,c,r){
+  bx.save(); bx.fillStyle=c; bx.beginPath(); bx.arc(M.X(x),M.Y(y),r||4.5,0,Math.PI*2); bx.fill(); bx.restore();
+}
+// Línea de referencia horizontal. Si el nivel cae fuera del recuadro no se
+// pinta: una línea de límite dibujada sobre el borde miente sobre dónde está.
+function nivel(P,M,v,c,rot,dash){
+  const yy=M.Y(v);
+  if(yy<P.y-1||yy>P.y+P.h+1) return;
+  linea([[P.x,yy],[P.x+P.w,yy]],c,1.6,dash||[7,5]);
+  if(rot) etiqueta(rot,P.x+P.w-8,yy-6,c,'right');
+}
+
+// Cabecera común: toda vista dice qué motor, qué aceite y en qué punto de
+// trabajo se está mirando. Una cifra sin su configuración al lado no significa
+// nada, y aquí hay cuatro mandos que la cambian.
+// Lo que la cabecera dice del aceite. En el diagnostico a ciegas NO puede
+// decirlo: el aceite del carter delata por si solo los dos escenarios de aceite
+// equivocado, y el «(lo impone el escenario)» delata la familia entera.
+function cabAceite(){
+  return (G.modo==='reto') ? 'aceite del cárter: oculto'
+    : ACEITES[aceiteEfectivo()].rot+(aceiteForzado()?'  (lo impone el escenario)':'');
+}
+function cabecera(t,sub){
+  const e=MQ(), ciego=(G.modo==='reto');
+  textoFit(t,42,50,520,{s:26,b:true});
+  texto(e.nombre+' · '+e.nCoj+NBSP+'bancadas · holgura '+num(e.holgura*2e6,0)+NBSP+'µm',
+    BW-42,44,{s:13,c:CIAN,al:'right'});
+  texto(cabAceite()+' · '+num(G.T,0)+NBSP+'°C · '+
+    num(G.rpm,0)+NBSP+'rpm · carga '+num(G.carga*100,0)+NBSP+'%',
+    BW-42,68,{s:13,c:(ciego||aceiteForzado())?WARN_HEX:'#8c98a9',al:'right'});
+  wrapText(sub,42,92,BW-84,18,{s:13,c:'#8c98a9'});
+  linea([[42,116],[BW-42,116]],'#1e2836',1.4);
+}
+
+
+// ---------------------------------------------------------------- paleta y ejes
+// Un color por aceite, el mismo en la gráfica de Walther, en la del arranque y
+// en la leyenda. Si el alumno tiene que traducir entre vistas, la vista sobra.
+const COL_AC={a0w20:'#8AB4F8', a5w30:'#7CD992', a10w40:'#E9C46A',
+              a15w40:'#F2A65A', a20w50:'#EF8FB4', sae30:'#C08CF8'};
+
+// Ejes de ASTM D341. La gracia de esta transformación es que en ella la
+// viscosidad de un aceite es una RECTA, así que la pendiente se ve a ojo y es
+// literalmente lo que el método normalizado llama la recta de Walther.
+const KELV=T=>T+273.15;
+const D341X=T=>Math.log10(KELV(T));
+const D341Y=nu=>Math.log10(Math.log10(nu+0.7));
+const T_TICK=[-35,-20,0,25,50,75,100,125,150];
+const NU_TICK=[3,5,10,30,100,300,1000,5000,30000];
+function ejesD341(P){
+  const x0=D341X(-38), x1=D341X(155), y0=D341Y(2.4), y1=D341Y(45000);
+  const X=T=>P.x+(D341X(T)-x0)/(x1-x0)*P.w;
+  const Y=nu=>P.y+P.h-(D341Y(nu)-y0)/(y1-y0)*P.h;
+  bx.save(); bx.strokeStyle='#1d2735'; bx.lineWidth=1;
+  T_TICK.forEach(t=>{ const xx=X(t);
+    bx.beginPath(); bx.moveTo(xx,P.y); bx.lineTo(xx,P.y+P.h); bx.stroke();
+    texto(num(t,0),xx,P.y+P.h+19,{s:12,c:'#7b8697',al:'center'}); });
+  NU_TICK.forEach(v=>{ const yy=Y(v);
+    bx.beginPath(); bx.moveTo(P.x,yy); bx.lineTo(P.x+P.w,yy); bx.stroke();
+    texto(num(v,0),P.x-9,yy+4,{s:12,c:'#7b8697',al:'right'}); });
+  bx.restore();
+  bx.save(); bx.strokeStyle='#3a4658'; bx.lineWidth=1.5; bx.strokeRect(P.x,P.y,P.w,P.h); bx.restore();
+  texto('temperatura [°C] — escala de ASTM D341',P.x+P.w/2,P.y+P.h+44,{s:13,c:'#9aa6b6',al:'center'});
+  bx.save(); bx.translate(P.x-66,P.y+P.h/2); bx.rotate(-Math.PI/2);
+  texto('viscosidad cinemática [mm²/s]',0,0,{s:13,c:'#9aa6b6',al:'center'}); bx.restore();
+  return {X,Y};
+}
+
+// Barras verticales con su rótulo. Se usa en arranque y en censo.
+function barras(P,items,vmax,o={}){
+  const n=items.length, gap=o.gap===undefined?12:o.gap;
+  const bwid=(P.w-gap*(n-1))/n;
+  items.forEach((it,i)=>{
+    const x=P.x+i*(bwid+gap);
+    const v=clamp(it.v,0,vmax);
+    const h=v/vmax*P.h, y=P.y+P.h-h;
+    rpanel(x,y,bwid,h,it.c,null,4);
+    texto(it.top,x+bwid/2,y-6,{s:o.s||12,c:it.c,al:'center',b:true});
+    textoFit(it.rot,x+bwid/2,P.y+P.h+18,bwid+gap-4,{s:11.5,c:'#9aa6b6',al:'center'});
+    if(it.rot2) textoFit(it.rot2,x+bwid/2,P.y+P.h+34,bwid+gap-4,{s:11,c:it.c2||'#7b8697',al:'center'});
+  });
+}
+
+// Tarjeta de veredicto: un rótulo, un valor y un color. Es la unidad de lectura
+// rápida del pizarrón y aparece en cuatro vistas.
+function tarjeta(x,y,w,h,rot,val,c,pie){
+  rpanel(x,y,w,h,'rgba(255,255,255,0.030)','#1e2836',10);
+  texto(rot,x+14,y+24,{s:12.5,c:'#8c98a9'});
+  textoFit(val,x+14,y+54,w-28,{s:24,b:true,c});
+  if(pie) wrapText(pie,x+14,y+76,w-28,15,{s:11.5,c:'#7b8697'});
+}
+
+// ------------------------------------------------------------- vista ENSAMBLE
+function vistaEnsamble(){
+  const hechas=PARTS.filter(p=>ASM.done.has(p.k));
+  cabecera('Circuito de lubricación — montaje',
+    'El aceite hace un circuito cerrado: el cárter lo guarda, la bomba lo mueve, la limitadora recorta el exceso, el filtro lo limpia, el radiador le quita calor, la galería lo reparte a las bancadas y de ahí cae otra vez al cárter. Falta una pieza y el circuito no es circuito.');
+
+  // --- esquema del circuito -------------------------------------------------
+  // Se dibuja SIEMPRE entero. Las piezas que faltan van en trazo discontinuo y
+  // en gris: enseñar el hueco vale más que esconder la pieza.
+  const NODO=[
+    {k:'carter', x:70,  y:390, w:150, h:56, rot:'Cárter + colador'},
+    {k:'bomba',  x:70,  y:270, w:150, h:56, rot:'Bomba'},
+    {k:'limitadora', x:262, y:270, w:150, h:56, rot:'Limitadora'},
+    {k:'filtro', x:454, y:270, w:150, h:56, rot:'Filtro'},
+    {k:'radiador', x:646, y:270, w:150, h:56, rot:'Radiador'},
+    {k:'galeria', x:646, y:390, w:150, h:56, rot:'Galería'},
+    {k:'manocontacto', x:836, y:390, w:146, h:56, rot:'Manocontacto'},
+  ];
+  const puesta=k=>ASM.done.has(k);
+  const N=k=>NODO.find(n=>n.k===k);
+  const centro=n=>[n.x+n.w/2,n.y+n.h/2];
+  function flecha(pts,c){
+    linea(pts,c,2.2);
+    const a=pts[pts.length-2], b=pts[pts.length-1];
+    const dx=b[0]-a[0], dy=b[1]-a[1], m=Math.hypot(dx,dy)||1, ux=dx/m, uy=dy/m;
+    linea([[b[0]-ux*11-uy*6,b[1]-uy*11+ux*6],[b[0],b[1]],[b[0]-ux*11+uy*6,b[1]-uy*11-ux*6]],c,2.2);
+  }
+  // El color de cada tramo dice si el aceite puede pasar por ahí ahora mismo.
+  const tramo=(a,b,pts)=>flecha(pts, puesta(a)&&puesta(b)?AMBAR:'#39424f');
+  tramo('carter','bomba',[[centro(N('carter'))[0],N('carter').y],[centro(N('bomba'))[0],N('bomba').y+N('bomba').h]]);
+  tramo('bomba','limitadora',[[N('bomba').x+N('bomba').w,centro(N('bomba'))[1]],[N('limitadora').x,centro(N('limitadora'))[1]]]);
+  tramo('limitadora','filtro',[[N('limitadora').x+N('limitadora').w,centro(N('limitadora'))[1]],[N('filtro').x,centro(N('filtro'))[1]]]);
+  tramo('filtro','radiador',[[N('filtro').x+N('filtro').w,centro(N('filtro'))[1]],[N('radiador').x,centro(N('radiador'))[1]]]);
+  tramo('radiador','galeria',[[centro(N('radiador'))[0],N('radiador').y+N('radiador').h],[centro(N('galeria'))[0],N('galeria').y]]);
+  tramo('galeria','manocontacto',[[N('galeria').x+N('galeria').w,centro(N('galeria'))[1]],[N('manocontacto').x,centro(N('manocontacto'))[1]]]);
+  // Los dos caminos de vuelta: el sobrante de la limitadora y el goteo de las
+  // bancadas. Son la razón de que el circuito no gaste aceite: gasta PRESIÓN.
+  {
+    const l=N('limitadora'), c=N('carter'), g=N('galeria');
+    linea([[centro(l)[0],l.y+l.h],[centro(l)[0],478],[c.x+c.w/2+42,478],[c.x+c.w/2+42,c.y+c.h]],
+      puesta('limitadora')?'#5d6b7d':'#39424f',1.8,[8,6]);
+    etiqueta('retorno de la limitadora',centro(l)[0]+10,474,'#8c98a9');
+    linea([[centro(g)[0],g.y+g.h],[centro(g)[0],528],[c.x+c.w/2,528],[c.x+c.w/2,c.y+c.h]],
+      puesta('galeria')?'#5d6b7d':'#39424f',1.8,[8,6]);
+    etiqueta('goteo de las bancadas al cárter',centro(g)[0]-14,524,'#8c98a9','right');
+  }
+  NODO.forEach(n=>{
+    const on=puesta(n.k);
+    bx.save(); if(!on) bx.setLineDash([7,5]);
+    rpanel(n.x,n.y,n.w,n.h,on?'rgba(224,163,62,0.13)':'rgba(255,255,255,0.02)',on?AMBAR:'#3a4658',9);
+    bx.restore();
+    textoFit(n.rot,n.x+n.w/2,n.y+26,n.w-16,{s:13.5,b:true,c:on?TINTA:'#6b7686',al:'center'});
+    texto(on?'montada':'falta',n.x+n.w/2,n.y+44,{s:11.5,c:on?OK_HEX:'#6b7686',al:'center'});
+  });
+
+  // --- lista de piezas ------------------------------------------------------
+  texto('Piezas del circuito — '+hechas.length+'/'+PARTS.length,42,576,{s:15,b:true});
+  const filas=PARTS.map(p=>({v:[ASM.done.has(p.k)?'✔':'·', p.rot, p.fn, p.sin],
+                             c:ASM.done.has(p.k)?TINTA:'#75808f'}));
+  tabla(42,586,[{t:'',w:18,al:'center'},{t:'Pieza',w:160},{t:'Qué hace',w:330},{t:'Si falta',w:360}],
+    filas,{rh:23,s:12.5});
+}
+
+// ----------------------------------------------------------- vista VISCOSIDAD
+function vistaViscosidad(){
+  const o=ACEITES[aceiteEfectivo()], j=cumpleJ300(o), s=EST();
+  cabecera('Grado SAE y viscosidad — la recta de Walther',
+    'ASTM D341 dice que log₁₀log₁₀(ν+0,7) es una recta contra log₁₀ de la temperatura absoluta. En estos ejes cada aceite es literalmente una recta y su PENDIENTE es lo que pierde al calentarse. Cada línea empieza en el punto MEDIDO de su ensayo de arranque en frío: por debajo no se extrapola, porque extrapolar ahí da cifras que no cumplirían ni su propio grado.');
+
+  const P={x:104,y:152,w:512,h:462};
+  const M=ejesD341(P);
+  // Franja de la temperatura de servicio: la ventana donde el motor pasa la vida.
+  enCaja(P,()=>{
+    bx.save(); bx.fillStyle='rgba(124,217,146,0.055)';
+    bx.fillRect(M.X(90),P.y,M.X(130)-M.X(90),P.h); bx.restore();
+  });
+  etiqueta('servicio',M.X(130)+4,P.y+16,'#7CD992');
+
+  ACEITE_KEYS.forEach(k=>{
+    const a=ACEITES[k], act=(k===o.key), pts=[];
+    for(let i=0;i<=90;i++){
+      const T=a.tFrio+(155-a.tFrio)*i/90;
+      pts.push([M.X(T),M.Y(nuT(T,a))]);
+    }
+    enCaja(P,()=>{
+      linea(pts,COL_AC[k],act?3.4:1.5,act?null:[6,5]);
+      // El extremo frío es un DATO de ensayo, no un punto de la recta: se marca.
+      bx.save(); bx.fillStyle=COL_AC[k];
+      bx.beginPath(); bx.arc(M.X(a.tFrio),M.Y(nuT(a.tFrio,a)),act?6:3.6,0,Math.PI*2); bx.fill(); bx.restore();
+    });
+  });
+  {
+    const xT=M.X(G.T), yN=M.Y(s.nu), der=(xT+210>P.x+P.w);
+    enCaja(P,()=>{
+      linea([[xT,P.y],[xT,P.y+P.h]],CIAN,1.4,[5,5]);
+      bx.save(); bx.fillStyle=CIAN; bx.beginPath(); bx.arc(xT,yN,6.5,0,Math.PI*2); bx.fill(); bx.restore();
+    });
+    etiqueta(num(G.T,0)+NBSP+'°C · '+cSt(s.nu)+' · '+mPas(s.mu*1000,1),
+      der?xT-10:xT+10, clamp(yN-12,P.y+16,P.y+P.h-6), CIAN, der?'right':'left');
+  }
+  leyenda(P.x+14,P.y+26,ACEITE_KEYS.map(k=>[ACEITES[k].corto,COL_AC[k],k===o.key?null:[6,5]]));
+
+  // --- tarjeta de J300 ------------------------------------------------------
+  const X0=672, W0=310;
+  texto('SAE J300 — ¿cumple su propio grado?',X0,168,{s:15,b:true});
+  const fil=[
+    {v:['KV a 100 °C',num(o.kv100,2)+NBSP+'mm²/s',
+      num(J300_V[o.vGrado].kvMin,2)+'–'+num(J300_V[o.vGrado].kvMax,2),
+      [j.kv100.ok?'cumple':'no',j.kv100.ok?OK_HEX:BAD_HEX]]},
+    {v:['HTHS a 150 °C',num(o.hths,2)+NBSP+'mPa·s','≥'+NBSP+num(J300_V[o.vGrado].hthsMin,2),
+      [j.hths.ok?'cumple':'no',j.hths.ok?OK_HEX:BAD_HEX]]},
+  ];
+  if(j.ccs){
+    fil.push({v:['CCS a '+num(j.ccs.T,0)+NBSP+'°C',num(j.ccs.val,0)+NBSP+'mPa·s','≤'+NBSP+num(j.ccs.max,0),
+      [j.ccs.ok?'cumple':'no',j.ccs.ok?OK_HEX:BAD_HEX]]});
+    fil.push({v:['MRV a '+num(j.mrv.T,0)+NBSP+'°C',
+      o.mrv===null?'sin dato':num(j.mrv.val,0)+NBSP+'mPa·s','≤'+NBSP+num(j.mrv.max,0),
+      [j.mrv.ok?'cumple':'no',j.mrv.ok?OK_HEX:BAD_HEX]]});
+  }else{
+    fil.push({v:['Grado de invierno','no tiene','—',['monogrado',WARN_HEX]]});
+  }
+  fil.push({v:['Índice de viscosidad',num(o.iv,0),'D2270',['dato',GRIS]]});
+  tabla(X0,198,[{t:'Criterio',w:118},{t:'Medido',w:86,al:'right'},
+                {t:'J300',w:58,al:'right'},{t:'',w:48,al:'right'}],fil,{rh:24,s:12,gap:8});
+
+  let yy=380;
+  rpanel(X0,yy,W0,100,'rgba(255,255,255,0.030)','#1e2836',10);
+  texto('Lo que NO dice el grado',X0+14,yy+22,{s:13,b:true,c:WARN_HEX});
+  wrapText('El número de verano ordena la KV a 100 °C, no la protección. El 15W-40 de este banco tiene MENOS KV100 que el 10W-40 y MÁS HTHS ('+
+    num(ACEITES.a15w40.hths,2)+' contra '+num(ACEITES.a10w40.hths,2)+NBSP+'mPa·s): el que manda en el desgaste es el HTHS, y hay que mirarlo aparte.',
+    X0+14,yy+42,W0-28,15,{s:11.5});
+
+  yy=494;
+  rpanel(X0,yy,W0,124,'rgba(255,255,255,0.030)','#1e2836',10);
+  texto('Pendiente ≠ índice de viscosidad',X0+14,yy+22,{s:13,b:true,c:VIO});
+  wrapText('El IV de este aceite es '+num(o.iv,0)+' y la pendiente de su recta, '+num(o.w.B,3)+
+    '. No están ordenados entre grados distintos: el 0W-20 tiene mejor IV que el 10W-40 ('+
+    num(ACEITES.a0w20.iv,0)+' contra '+num(ACEITES.a10w40.iv,0)+') y MAYOR pendiente ('+
+    num(ACEITES.a0w20.w.B,3)+' contra '+num(ACEITES.a10w40.w.B,3)+
+    '). Por eso ASTM D2270 no mide la pendiente: compara contra aceites patrón de la misma KV100.',
+    X0+14,yy+42,W0-28,15,{s:11.5});
+
+  wrapText(o.nota,X0,644,W0,15,{s:11.5,c:'#8c98a9',b:true});
+}
+
+// -------------------------------------------------------------- vista PRESION
+function vistaPresion(){
+  const e=MQ(), s=EST();
+  cabecera('Presión de galería — lo único que ve el conductor',
+    'La presión no es una propiedad del aceite: es el equilibrio entre lo que la bomba mete y lo que el circuito deja salir. Sube con el régimen y con la viscosidad, y baja con la holgura —al cubo— y con la temperatura. La limitadora sólo recorta por arriba.');
+
+  const rpmMax=6000, rpmMin=Math.min(e.ralenti,600);
+  const relEje=isFinite(s.pRel)?s.pRel*1.15:0;
+  const P1={x:96,y:172,w:392,h:236};
+  const pMax=Math.max(2,Math.ceil(Math.max(s.p,relEje,EST({rpm:rpmMax}).p,
+    EST({rpm:rpmMax,falla:'sano',aceite:e.aceiteOEM}).p)*1.15));
+  const M1=ejes(P1,rpmMin,rpmMax,0,pMax,'régimen [rpm]','presión de galería [bar]',
+    v=>num(v,0),v=>num(v,1),5,4);
+  const curva=(fa,ac)=>{ const pts=[];
+    for(let i=0;i<=36;i++){ const r=rpmMin+(rpmMax-rpmMin)*i/36;
+      pts.push([r,EST({rpm:r,falla:fa,aceite:ac}).p]); }
+    return pts; };
+  enCaja(P1,()=>{
+    serieXY(M1,curva('sano',e.aceiteOEM),'#5d6b7d',1.8,[7,5]);
+    serieXY(M1,curva(FALLA(),aceiteEfectivo()),AZUL,3.2);
+  });
+  nivel(P1,M1,e.pAlarma,BAD_HEX,'luz roja: '+bar(e.pAlarma,2));
+  if(isFinite(s.pRel)) nivel(P1,M1,s.pRel,VIO,'tarado: '+bar(s.pRel,2),[4,4]);
+  punteo(M1,clamp(G.rpm,rpmMin,rpmMax),s.p,CIAN,6);
+  leyenda(P1.x+14,P1.y+26,[['este motor, este aceite',AZUL],
+    ['sano con el aceite del fabricante','#5d6b7d',[7,5]]]);
+
+  const P2={x:592,y:172,w:392,h:236};
+  const pTmax=Math.max(2,Math.ceil(Math.max(EST({T:-20}).p,relEje,4)*1.1));
+  const M2=ejes(P2,-20,140,0,pTmax,'temperatura del aceite [°C]','presión de galería [bar]',
+    v=>num(v,0),v=>num(v,1),4,4);
+  const curvaT=(fa,ac)=>{ const pts=[];
+    for(let i=0;i<=32;i++){ const T=-20+160*i/32; pts.push([T,EST({T,falla:fa,aceite:ac}).p]); }
+    return pts; };
+  enCaja(P2,()=>{
+    serieXY(M2,curvaT('sano',e.aceiteOEM),'#5d6b7d',1.8,[7,5]);
+    serieXY(M2,curvaT(FALLA(),aceiteEfectivo()),NARANJA,3.2);
+  });
+  nivel(P2,M2,e.pAlarma,BAD_HEX,'luz roja');
+  nivel(P2,M2,e.pMaxFiltro,BAD_HEX,'lo que aguanta el filtro: '+bar(e.pMaxFiltro,1),[3,4]);
+  punteo(M2,clamp(G.T,-20,140),s.p,CIAN,6);
+
+  // --- tarjetas y telemetría -----------------------------------------------
+  const yT=452;
+  tarjeta(96,yT,208,96,'Presión de galería',bar(s.p),
+    s.alarma?BAD_HEX:(s.abreLim?VIO:OK_HEX),
+    s.alarma?'Por debajo del mínimo del fabricante: la luz roja está encendida.'
+      :(s.abreLim?'La limitadora está abierta: devuelve el exceso al cárter.':'Dentro de lo previsto.'));
+  tarjeta(320,yT,208,96,'Caudal por la galería',num(s.Q,2)+NBSP+'L/min',CIAN,
+    'Lo que se van los cojinetes por su holgura, más los surtidores y los apoyos del árbol.');
+  tarjeta(544,yT,208,96,'Sin la limitadora',bar(s.pSinLim),
+    s.pSinLim>e.pMaxFiltro?BAD_HEX:GRIS,
+    s.pSinLim>e.pMaxFiltro?('Pasa de lo que aguanta el filtro ('+bar(e.pMaxFiltro,1)+'): reventaría.')
+      :'El balance del circuito no llega al tarado: la limitadora ni se entera.');
+  tarjeta(768,yT,214,96,'Par perdido en bancadas',num(s.par,2)+NBSP+'N·m',NARANJA,
+    'Son '+num(s.potFric/1000,2)+NBSP+'kW disipados sólo en las '+e.nCoj+' bancadas.');
+
+  const fil=[
+    {v:['Régimen y temperatura',num(G.rpm,0)+NBSP+'rpm · '+num(G.T,0)+NBSP+'°C',T_ROT[String(G.T)]||'punto intermedio']},
+    {v:['Viscosidad en el cárter',mPas(s.mu*1000,1)+' · '+cSt(s.nu),
+        s.viscMul===1?'aceite en su estado':'factor ×'+num(s.viscMul,2)+' por el escenario']},
+    {v:['Filtrado',s.filtrado?['sí',OK_HEX]:['NO — derivación abierta',BAD_HEX],
+        s.filtrado?'El aceite pasa por el elemento filtrante.':'Llega aceite, pero sin filtrar: el manómetro no lo nota.']},
+    {v:['Carcasa del filtro',s.revientaFiltro?['REVIENTA',BAD_HEX]:['aguanta',OK_HEX],
+        'Máximo del elemento: '+bar(e.pMaxFiltro,1)]},
+    {v:['Presión específica del cojinete',num(s.pEsp,1)+NBSP+'MPa de pico',
+        'Media equivalente del ciclo usada en el cálculo: '+num(s.pEspDis,1)+NBSP+'MPa']},
+  ];
+  tabla(96,584,[{t:'Magnitud',w:240},{t:'Valor',w:230},{t:'Qué significa',w:372}],fil,{rh:25,s:12.5});
+}
+
+// ------------------------------------------------------------- vista PELICULA
+function vistaPelicula(){
+  const e=MQ(), s=EST(), V=veredicto();
+  const rq=Math.sqrt(e.rqMuñ*e.rqMuñ+e.rqCoj*e.rqCoj);
+  cabecera('Espesor de película — lo que de verdad protege',
+    'El muñón flota sobre una cuña de aceite. Lo que separa las dos superficies es h mínima, y lo que dice si están separadas de verdad es λ = h ÷ rugosidad compuesta: por debajo de 1 hay contacto metal-metal; por encima de 3, película completa. Nada de esto sale en el manómetro.');
+
+  const rpmMax=6000, rpmMin=Math.min(e.ralenti,600);
+  const P1={x:96,y:172,w:392,h:236};
+  const lamMax=Math.max(4,Math.ceil(Math.max(EST({rpm:rpmMax}).peor.lam,s.peor.lam)*1.15));
+  const M1=ejes(P1,rpmMin,rpmMax,0,lamMax,'régimen [rpm]','espesor específico λ',
+    q=>num(q,0),q=>num(q,1),5,4);
+  // Bandas de régimen: el mismo código de color que el cojinete ampliado en 3D.
+  enCaja(P1,()=>{
+    const banda=(a,z,c)=>{ const yA=M1.Y(Math.min(z,lamMax)), yZ=M1.Y(a);
+      bx.save(); bx.fillStyle=c; bx.fillRect(P1.x,yA,P1.w,yZ-yA); bx.restore(); };
+    banda(0,1,'rgba(255,107,107,0.13)'); banda(1,3,'rgba(233,196,106,0.10)');
+    banda(3,lamMax,'rgba(124,217,146,0.08)');
+  });
+  const lamCurva=ca=>{ const pts=[];
+    for(let i=0;i<=36;i++){ const r=rpmMin+(rpmMax-rpmMin)*i/36;
+      pts.push([r,EST({rpm:r,carga:ca}).peor.lam]); }
+    return pts; };
+  enCaja(P1,()=>{
+    serieXY(M1,lamCurva(0),'#5d6b7d',1.8,[7,5]);
+    serieXY(M1,lamCurva(1),BAD_HEX,2.0,[3,4]);
+    serieXY(M1,lamCurva(G.carga),AZUL,3.2);
+  });
+  nivel(P1,M1,3,OK_HEX,'λ = 3 · película completa');
+  nivel(P1,M1,1,BAD_HEX,'λ = 1 · empieza el contacto');
+  punteo(M1,clamp(G.rpm,rpmMin,rpmMax),s.peor.lam,CIAN,6);
+  leyenda(P1.x+14,P1.y+26,[['sin carga','#5d6b7d',[7,5]],['carga actual',AZUL],['pie a fondo',BAD_HEX,[3,4]]]);
+
+  const P2={x:592,y:172,w:392,h:236};
+  const hMax=Math.max(2,Math.ceil(EST({T:-20}).peor.h*1e6*1.1));
+  const M2=ejes(P2,-20,140,0,hMax,'temperatura del aceite [°C]','h mínima [µm]',
+    q=>num(q,0),q=>num(q,1),4,4);
+  enCaja(P2,()=>{
+    const pts=[];
+    for(let i=0;i<=32;i++){ const T=-20+160*i/32; pts.push([T,EST({T}).peor.h*1e6]); }
+    serieXY(M2,pts,NARANJA,3.2);
+    serieXY(M2,[[-20,rq],[140,rq]],BAD_HEX,1.6);
+    serieXY(M2,[[-20,3*rq],[140,3*rq]],OK_HEX,1.6);
+  });
+  etiqueta('Rq compuesta = '+um(rq),P2.x+P2.w-8,P2.y+P2.h-10,BAD_HEX,'right');
+  punteo(M2,clamp(G.T,-20,140),s.peor.h*1e6,CIAN,6);
+
+  // --- la tesis del laboratorio, en tres tarjetas --------------------------
+  const yT=452;
+  tarjeta(96,yT,300,104,'Lo que dice el manómetro',bar(s.p),V.presion?OK_HEX:BAD_HEX,
+    V.presion?('Por encima del mínimo del fabricante ('+bar(e.pAlarma,2)+'): la luz está apagada y el conductor sigue conduciendo.')
+      :('Por debajo del mínimo ('+bar(e.pAlarma,2)+'): la luz roja está encendida.'));
+  tarjeta(412,yT,300,104,'Lo que dice la película',num(s.peor.lam,2)+' λ',COL_REG[s.peor.regimen],
+    'Régimen '+ROT_REG[s.peor.regimen]+', h mínima '+um(s.peor.h*1e6)+' en la bancada '+(s.peor.i+1)+'. Nadie mide esto con el motor montado.');
+  tarjeta(728,yT,254,104,'¿Coinciden?',V.presion===V.plena?'sí, aquí sí':'NO',
+    V.presion===V.plena?GRIS:WARN_HEX,
+    V.presion===V.plena
+      ?'En este punto las dos lecturas dicen lo mismo. No siempre pasa: cambia la temperatura o el escenario.'
+      :(V.presion?'El manómetro absuelve al motor y la película lo condena. Ésta es la avería que se paga sin avisar.'
+                 :'La luz está encendida y la película aguanta: la alarma es del CIRCUITO, no del cojinete.'));
+
+  // --- las bancadas, una por una -------------------------------------------
+  texto('Las '+e.nCoj+' bancadas, una por una',96,596,{s:15,b:true});
+  const fil=s.cojinetes.map(c=>({
+    v:['Bancada '+(c.i+1),num(c.c*2e6,0)+NBSP+'µm',num(c.eps,3),um(c.h*1e6),
+       [num(c.lam,2),COL_REG[c.regimen]],[ROT_REG[c.regimen],COL_REG[c.regimen]],
+       c.extrapola?['fuera de la validez de Ocvirk',WARN_HEX]:['—',GRIS]],
+    hl:c.i===s.peor.i?'rgba(91,212,229,0.10)':null}));
+  tabla(96,606,[{t:'',w:92},{t:'Holgura',w:88,al:'right'},{t:'ε',w:62,al:'right'},
+    {t:'h mínima',w:96,al:'right'},{t:'λ',w:54,al:'right'},{t:'Régimen',w:176},
+    {t:'Aviso del modelo',w:208}],fil,{rh:23,s:12.5,gap:10});
+}
+
+// ------------------------------------------------------------- vista ARRANQUE
+function vistaArranque(){
+  const e=MQ();
+  cabecera('Arranque en frío — donde de verdad se gasta el motor',
+    'A régimen estacionario un motor sano va sobrado de película. El desgaste vive en los primeros segundos: mientras la galería se llena, el cojinete trabaja con el aceite residual y en régimen límite. Por eso J300 pide DOS ensayos de invierno: el CCS garantiza que el motor de arranque lo GIRE y el MRV, que la bomba lo ASPIRE. Se puede pasar el primero y fallar el segundo.');
+
+  const P={x:96,y:186,w:886,h:190};
+  const dat=ACEITE_KEYS.map(k=>({k,r:arranque(e,{aceite:k,T:G.Tarr,falla:FALLA()})}));
+  const nMax=Math.max(e.nVacio*1.12,...dat.map(d=>d.r.n))*1.05;
+  const M=ejes(P,0,1,0,nMax,null,'régimen de arranque [rpm]',null,q=>num(q,0),1,4);
+  nivel(P,M,e.nMinArr,BAD_HEX,'mínimo para que encienda: '+num(e.nMinArr,0)+NBSP+'rpm');
+  barras({x:P.x+10,y:P.y,w:P.w-20,h:P.h},dat.map(d=>{
+    const r=d.r, c=!r.arranca?BAD_HEX:(!r.bombea?VIO:(r.vueltasSeco>e.vueltasMax?WARN_HEX:OK_HEX));
+    return {v:r.n,c,top:num(r.n,0),rot:ACEITES[d.k].corto,c2:c,
+      rot2:!r.arranca?'no gira':(!r.bombea?'GIRA EN SECO':num(r.vueltasSeco,1)+' vueltas')};
+  }),nMax,{gap:16});
+  texto('cada aceite ensayado a '+num(G.Tarr,0)+NBSP+'°C',P.x+P.w/2,P.y+P.h+52,{s:13,c:'#9aa6b6',al:'center'});
+
+  const fil=dat.map(d=>{
+    const r=d.r, col=!r.arranca?BAD_HEX:(!r.bombea?VIO:(r.veredicto==='arranque correcto'?OK_HEX:WARN_HEX));
+    return {v:[ACEITES[d.k].rot, num(r.eta,0)+NBSP+'mPa·s',
+      r.limCCS===null?['sin grado W',WARN_HEX]:num(r.limCCS,0)+NBSP+'mPa·s',
+      [r.arranca?'gira':'NO gira',r.arranca?OK_HEX:BAD_HEX],
+      [r.bombea?'ceba':'NO ceba',r.bombea?OK_HEX:VIO],
+      isFinite(r.tCeb)?seg(r.tCeb):'nunca',
+      isFinite(r.vueltasSeco)?num(r.vueltasSeco,1):'∞',
+      [r.veredicto,col]],
+      hl:d.k===aceiteEfectivo()?'rgba(91,212,229,0.10)':null};
+  });
+  tabla(96,468,[{t:'Aceite',w:156},{t:'η medida',w:96,al:'right'},{t:'Máx. J300',w:92,al:'right'},
+    {t:'Arranque',w:84},{t:'Bomba',w:72},{t:'Cebado',w:68,al:'right'},
+    {t:'Vueltas',w:70,al:'right'},{t:'Veredicto',w:178}],fil,{rh:24,s:12,gap:9});
+
+  rpanel(96,656,430,90,'rgba(255,255,255,0.030)','#1e2836',10);
+  texto('Las vueltas casi no dependen del frío',110,680,{s:13,b:true,c:CIAN});
+  {
+    const a=arranque(e,{aceite:aceiteEfectivo(),T:20,falla:FALLA()});
+    const b=arranque(e,{aceite:aceiteEfectivo(),T:G.Tarr,falla:FALLA()});
+    wrapText('A 20 °C el cebado tarda '+seg(a.tCeb)+' y a '+num(G.Tarr,0)+' °C, '+seg(b.tCeb)+
+      '; y sin embargo las vueltas en seco son '+(isFinite(a.vueltasSeco)?num(a.vueltasSeco,1):'∞')+
+      ' y '+(isFinite(b.vueltasSeco)?num(b.vueltasSeco,1):'∞')+
+      '. La bomba y el cigüeñal giran juntos y el cociente se cancela: girar más despacio no protege; cebar antes, sí.',
+      110,700,402,15,{s:11.5});
+  }
+  rpanel(552,656,430,90,'rgba(255,255,255,0.030)','#1e2836',10);
+  texto('La avería más cara del laboratorio',566,680,{s:13,b:true,c:VIO});
+  wrapText('Un aceite que pasa el CCS y falla el MRV deja al motor girando EN SECO. El manómetro tarda en enterarse porque no hay nada que medir: no hay aceite en la galería. Es el único caso en que la luz roja llega tarde por definición.',
+    566,700,402,15,{s:11.5});
+}
+
+// ---------------------------------------------------------------- vista CENSO
+function vistaCenso(){
+  const e=MQ(), C=CENSO(), NE=ESCEN_KEYS.length;
+  cabecera('Censo de instrumentos — ¿con qué se distingue cada avería?',
+    'Trece escenarios y siete observaciones. El censo prueba TODOS los subconjuntos de observaciones y cuenta cuántos escenarios quedan separados sin ambigüedad. No es una opinión sobre qué instrumento es mejor: es un recuento exhaustivo.');
+
+  const porMask=m=>C.find(c=>c.mask===m);
+  const mascara=ks=>ks.reduce((a,k)=>a|(1<<OBS.findIndex(o=>o.k===k)),0);
+  const soloMan=porMask(mascara(['pFrio','pCalRal','pCalAlto']));
+  const taller=porMask(mascara(OBS.filter(o=>o.taller).map(o=>o.k)));
+  const todo=porMask((1<<OBS.length)-1);
+  const mejor={};
+  for(const c of C){ const n=c.sub.length; if(!mejor[n]||c.resueltos>mejor[n].resueltos) mejor[n]=c; }
+
+  const YM=Math.ceil((NE+1)/2)*2;
+  const P={x:96,y:180,w:428,h:194};
+  const M=ejes(P,0,1,0,YM,null,'escenarios resueltos de '+NE,null,q=>num(q,0),1,YM/2);
+  barras({x:P.x+10,y:P.y,w:P.w-20,h:P.h},
+    OBS.map((_,i)=>{ const n=i+1, m=mejor[n];
+      return {v:m.resueltos, c:m.resueltos===NE?OK_HEX:(m.resueltos>=NE-3?WARN_HEX:BAD_HEX),
+        top:num(m.resueltos,0), rot:n+' obs.'}; }),YM,{gap:10});
+  texto('el MEJOR subconjunto de cada tamaño',P.x+P.w/2,P.y+P.h+46,{s:13,c:'#9aa6b6',al:'center'});
+
+  const X0=568, W0=414;
+  texto('Los tres cortes que importan',X0,196,{s:15,b:true});
+  let y=216;
+  [['Sólo el manómetro',soloMan,'Las tres presiones del protocolo y nada más.'],
+   ['Todo lo que se mide sin abrir',taller,'Presiones, luz roja y vueltas en seco.'],
+   ['Las siete observaciones',todo,'Añade el análisis de aceite y el plastigage.']
+  ].forEach(([rot,c,pie])=>{
+    const ok=c.resueltos===NE;
+    rpanel(X0,y,W0,64,'rgba(255,255,255,0.030)',ok?'#2a4436':'#1e2836',10);
+    texto(rot,X0+14,y+24,{s:13,b:true});
+    texto(num(c.resueltos,0)+' / '+num(NE,0),X0+W0-14,y+26,
+      {s:20,b:true,c:ok?OK_HEX:(c.resueltos>=NE-3?WARN_HEX:BAD_HEX),al:'right'});
+    texto(pie,X0+14,y+46,{s:11.5,c:'#7b8697'});
+    y+=74;
+  });
+
+  const min=C.filter(c=>c.resueltos===NE).sort((a,b)=>a.sub.length-b.sub.length)[0];
+  texto('El subconjunto más pequeño que resuelve los '+NE,96,452,{s:15,b:true});
+  const fil=OBS.map(o=>{
+    const dentro=min.sub.some(x=>x.k===o.k);
+    return {v:[dentro?'✔':'·',o.rot,
+      o.taller?['de taller',GRIS]:['hay que pedirla aparte',WARN_HEX],
+      o.res===null?'sí / no':num(o.res,3)+NBSP+o.uni],
+      c:dentro?TINTA:'#75808f'};
+  });
+  tabla(96,462,[{t:'',w:18,al:'center'},{t:'Observación',w:396},
+    {t:'¿Se puede tomar en el taller?',w:230},{t:'Resolución',w:160,al:'right'}],fil,{rh:23,s:12.5});
+
+  rpanel(96,672,886,74,'rgba(255,255,255,0.030)','#1e2836',10);
+  texto('Teorema del censo para el '+e.corto,110,696,{s:13,b:true,c:CIAN});
+  // Se NOMBRAN las observaciones del subconjunto mínimo en vez de afirmar
+  // cuáles son: no son las mismas en las cuatro máquinas —el 1.8 se resuelve
+  // con cuatro y sin plastigage— y una frase fija sería falsa en pantalla.
+  wrapText('Ningún subconjunto formado sólo con observaciones de taller separa los '+NE+
+    ' escenarios: el mejor llega a '+taller.resueltos+'. El más pequeño que llega a '+NE+' tiene '+
+    min.sub.length+': '+
+    min.sub.map(o=>corta(o.rot.replace(/\s*\([^)]*\)/,''),46).toLowerCase()).join(', ')+
+    '. Dicho de otro modo: hay averías de lubricación que NO se diagnostican con el motor montado, y eso no es una limitación del taller sino del conjunto de lo observable.',
+    110,716,862,15,{s:11.5});
+}
+
+// ----------------------------------------------------------------- vista RETO
+function vistaReto(){
+  const e=MQ();
+  cabecera('Diagnóstico a ciegas',
+    'Hay una avería montada y no se dice cuál. Se compran observaciones —las de taller son baratas, las otras dos no— y se nombra la familia. El censo ya demostró que con el manómetro solo no siempre alcanza.');
+
+  texto('Cuaderno del técnico',96,152,{s:15,b:true});
+  const fil=OBS.map(o=>{
+    const t=RETO.tomadas[o.k];
+    return {v:[t?'✔':'·',o.rot,t?[t,CIAN]:['— sin tomar —','#5b6675']],
+      c:t?TINTA:'#75808f'};
+  });
+  tabla(96,164,[{t:'',w:18,al:'center'},{t:'Observación',w:462},{t:'Lo medido',w:366}],fil,{rh:26,s:13});
+
+  const fam=[...new Set(ESCEN_KEYS.map(k=>ESCEN[k].clave))];
+  texto('Familias candidatas — '+fam.length,96,420,{s:15,b:true});
+  fam.forEach((f,i)=>{
+    const x=96+(i%2)*448, yy=434+Math.floor(i/2)*36, sel=(RETO.eleccion===f);
+    rpanel(x,yy,428,30,sel?'rgba(138,180,248,0.14)':'rgba(255,255,255,0.025)',sel?AZUL:'#1e2836',8);
+    texto((sel?'▸ ':'   ')+f,x+12,yy+20,{s:13,c:sel?TINTA:'#9aa6b6'});
+  });
+
+  const V=RETO.veredicto;
+  rpanel(96,612,886,134,'rgba(255,255,255,0.030)',V?(V.ok?'#2a4436':'#4a2b2b'):'#1e2836',10);
+  if(V){
+    texto(V.ok?'Acertaste':'Fallaste',110,638,{s:16,b:true,c:V.ok?OK_HEX:BAD_HEX});
+    wrapText(V.plano,110,662,862,16,{s:12.5,c:'#c3ccd8'});
+  }else{
+    texto('Sin entregar',110,638,{s:16,b:true,c:WARN_HEX});
+    wrapText('Compra en el panel las observaciones que necesites, elige una familia y entrega el diagnóstico. Entregar sin el análisis de aceite ni la holgura es legítimo —a veces basta—, pero el censo dice en qué casos no puede bastar.',
+      110,662,862,16,{s:12.5});
+    texto('Motor en el banco: '+e.nombre,110,730,{s:12,c:'#7b8697'});
+  }
+}
+
+// ------------------------------------------------------------------ despacho
+const VISTA={ensamble:vistaEnsamble, viscosidad:vistaViscosidad, presion:vistaPresion,
+  pelicula:vistaPelicula, arranque:vistaArranque, censo:vistaCenso, reto:vistaReto};
+function pintaTablero(){
+  bg();
+  (VISTA[G.modo]||vistaEnsamble)();
+  btex.needsUpdate=true;
+}
+
+// ============================================================ T3a · EL MOTOR
+// El motor se dibuja en corte y A ESCALA: un milímetro del arquetipo son ESC
+// unidades de escena. El diámetro, la carrera, el diámetro del muñón, el ancho
+// del cojinete y el número de bancadas salen del mismo objeto ARQ que usa el
+// modelo numérico, así que cambiar de máquina cambia la geometría y las cifras
+// a la vez y no pueden desmentirse entre sí.
+//
+// SIMPLIFICACIONES DECLARADAS (van también en el contrato de fidelidad):
+//  · El corte es por el eje del cigüeñal y de la junta de culata hacia ABAJO.
+//    Esta práctica no toca la combustión: no hay pistones, ni bielas, ni
+//    culata. Lo que hay que ver es el circuito de aceite y las bancadas.
+//  · Los cuatro arquetipos se dibujan con sus bancadas EN LÍNEA y equiespaciadas,
+//    también el V8. Ninguna cifra depende de la disposición de los cilindros.
+//  · La holgura real del cojinete es de micras: a escala sería invisible. En el
+//    cojinete ampliado se dibuja MULTIPLICADA por un factor declarado en
+//    pantalla, y la cifra que se publica es siempre la real.
+const ESC=0.010;
+const YC=0.50;                        // eje del cigüeñal sobre la raíz del motor
+
+function dims(e){
+  const B=e.B*ESC;
+  const px=1.34*B;                                     // separación entre bancadas
+  const luz=(e.nCoj-1)*px;
+  const anchoTot=Math.max(luz+1.20*B,1.6);
+  return {B,px,luz,anchoTot,
+    rMun:e.dMuñ/2*ESC,                                 // radio del muñón de bancada
+    lCoj:e.lCoj*ESC,                                   // ancho del cojinete
+    rMan:e.dMuñ/2*ESC*0.86,                            // muñequilla, algo menor
+    r:e.S/2*ESC,                                       // radio de manivela
+    yDeck:YC+0.92*B,                                   // plano de junta de culata
+    yGal:YC+0.60*B, zGal:-0.30*B,                      // galería principal
+    yCar:YC-0.34*B, hCar:0.62*B};                      // cárter
+}
+const xBancada=(i,D,e)=>-D.luz/2+i*D.px;
+// Escala del manometro: el fondo de escala es lo que aguanta el filtro. Asi la
+// aguja se clava justo cuando el circuito esta a punto de romperse, que es la
+// unica cifra de este instrumento que significa algo por si sola.
+const escalaMan=e=>Math.ceil(e.pMaxFiltro);
+// Las muñequillas van entre bancadas y desfasadas: sin desfase el cigüeñal
+// parece una barra recta y deja de leerse que gira.
+const faseMan=(i,e)=>(720/Math.max(1,e.nCoj-1))*i;
+
+// Referencias vivas de la escena. Se separan a proposito en dos familias: lo
+// que pertenece al MOTOR, que se rehace al cambiar de arquetipo, y lo que
+// pertenece al KIT, que lo gestiona el ensamble. El cojinete ampliado no es de
+// ninguna de las dos: se construye una sola vez y sobrevive a los cambios.
+const RIG={motor:null, cigu:null, casq:[], sombrerete:[],
+  piezas:{}, amp:null, lampara:null, aceite:null, aguja:null,
+  rotor:null, deriv:null, antidren:null, embolo:null, aceiteH:0};
+
+// Rótulo REESCRIBIBLE. El `labelSprite` del kit hornea el texto en su textura y
+// no se puede cambiar; aquí hay tres rótulos que cambian con cada punto de
+// trabajo, y crear un sprite nuevo por fotograma fuga memoria de vídeo.
+function rotulo(color){
+  const w=560,h=96;
+  const lienzo=document.createElement('canvas'); lienzo.width=w; lienzo.height=h;
+  const g=lienzo.getContext('2d');
+  const tx=new THREE.CanvasTexture(lienzo); tx.colorSpace=THREE.SRGBColorSpace;
+  tx.generateMipmaps=true; tx.minFilter=THREE.LinearMipmapLinearFilter;
+  tx.magFilter=THREE.LinearFilter; tx.anisotropy=8;
+  const sp=new THREE.Sprite(new THREE.SpriteMaterial({map:tx,depthTest:false,transparent:true}));
+  sp.scale.set(0.30*(w/h),0.30,1); sp.renderOrder=999;
+  sp.userData.set=(txt,col)=>{
+    const c=col||color;
+    g.clearRect(0,0,w,h);
+    // El lienzo tiene un ancho FIJO y fillText no recorta: desborda por las dos
+    // puntas y el rótulo sale mutilado. Si el texto no cabe se encoge la letra.
+    let px=36;
+    g.font='bold '+px+'px Outfit, system-ui, sans-serif';
+    const util=w-64, bruto=g.measureText(txt).width;
+    if(bruto>util){
+      px=Math.max(17,Math.floor(px*util/bruto));
+      g.font='bold '+px+'px Outfit, system-ui, sans-serif';
+    }
+    const tw=Math.max(150,Math.min(w-8,g.measureText(txt).width+56)), x0=(w-tw)/2, r=18;
+    g.beginPath();
+    g.moveTo(x0+r,3); g.arcTo(x0+tw,3,x0+tw,93,r); g.arcTo(x0+tw,93,x0,93,r);
+    g.arcTo(x0,93,x0,3,r); g.arcTo(x0,3,x0+tw,3,r); g.closePath();
+    g.fillStyle='rgba(8,11,16,0.95)'; g.fill();
+    g.strokeStyle=c; g.lineWidth=3; g.stroke();
+    g.fillStyle=c; g.textAlign='center'; g.textBaseline='middle'; g.fillText(txt,w/2,48);
+    tx.needsUpdate=true;
+  };
+  sp.userData.set('—',color);
+  return sp;
+}
+
+function limpiaMotor(){
+  if(RIG.motor){
+    scene.remove(RIG.motor);
+    RIG.motor.traverse(o=>{ if(o.geometry) o.geometry.dispose(); });
+  }
+  // Se limpia SOLO lo del motor. El cojinete ampliado y las piezas del kit
+  // tienen su propio ciclo de vida: ponerlos a null aquí los deja huérfanos en
+  // la escena, actualizándose nunca más, y eso no se ve hasta que se cambia de
+  // arquetipo y el cojinete ampliado se queda congelado en la cifra anterior.
+  RIG.motor=null; RIG.cigu=null; RIG.casq=[]; RIG.sombrerete=[];
+}
+
+function construyeMotor(){
+  limpiaMotor();
+  const e=MQ(), D=dims(e);
+  const raiz=new THREE.Group(); raiz.position.set(0,0.86,0); scene.add(raiz); RIG.motor=raiz;
+
+  // --- bloque en corte ------------------------------------------------------
+  // El bloque no es una caja: es una caja SIN la mitad delantera, partida por el
+  // plano que pasa por el eje del cigüeñal. Dibujarlo entero deja una pared lisa
+  // y no se ve ni una bancada, que es lo único que hay que ver aquí.
+  const zPared=-0.36*D.B, dPared=0.36*D.B;
+  const alto=D.yDeck-YC+0.10;
+  {
+    const blq=roundedBox(D.anchoTot,alto,dPared,MAT.bloque,0.03);
+    blq.position.set(0,YC+alto/2-0.05,zPared-dPared/2); blq.castShadow=true; raiz.add(blq);
+    const deck=roundedBox(D.anchoTot,0.05,1.00*D.B,MAT.bloque,0.01);
+    deck.position.set(0,D.yDeck,-0.18*D.B); raiz.add(deck);
+    // faldón: la parte del bloque que baja por debajo del eje y cierra el cárter
+    const fald=roundedBox(D.anchoTot,0.34*D.B,dPared,MAT.bloque,0.02);
+    fald.position.set(0,YC-0.17*D.B,zPared-dPared/2); raiz.add(fald);
+  }
+
+  // --- bancadas: tabique, casquillo y sombrerete ---------------------------
+  for(let i=0;i<e.nCoj;i++){
+    const x=xBancada(i,D,e);
+    const tab=roundedBox(D.lCoj*1.9,alto,0.96*D.B,MAT.bloque,0.012);
+    tab.position.set(x,YC+alto/2-0.05,-0.16*D.B); raiz.add(tab);
+    // Casquillo: media caña abierta hacia delante, que es por donde se mira.
+    // El material es el antifricción, no el acero del muñón: son dos piezas y
+    // el laboratorio habla todo el rato de la holgura entre ellas.
+    const cas=new THREE.Mesh(
+      new THREE.CylinderGeometry(D.rMun*1.16,D.rMun*1.16,D.lCoj,26,1,true,-Math.PI/2,Math.PI),
+      MAT_CASQ.clone());
+    cas.rotation.z=Math.PI/2; cas.position.set(x,YC,0); raiz.add(cas);
+    RIG.casq.push(cas);
+    const som=roundedBox(D.lCoj*1.8,0.30*D.B,0.62*D.B,MAT.bloque,0.012);
+    som.position.set(x,YC-D.rMun*1.16-0.15*D.B,-0.06*D.B); raiz.add(som);
+    RIG.sombrerete.push(som);
+    for(const sx of [-1,1]){
+      const per=new THREE.Mesh(new THREE.CylinderGeometry(0.020,0.020,0.30*D.B,10),MAT.acero);
+      per.position.set(x+sx*D.lCoj*0.62,YC-D.rMun*1.16-0.15*D.B,-0.06*D.B); raiz.add(per);
+    }
+    const et=labelSprite('bancada '+(i+1),'#c8a06a');
+    et.position.set(x,YC+0.40*D.B,0.40*D.B); et.scale.multiplyScalar(0.46); raiz.add(et);
+  }
+
+  // --- cigüeñal -------------------------------------------------------------
+  {
+    const cigu=new THREE.Group(); cigu.position.set(0,YC,0); raiz.add(cigu); RIG.cigu=cigu;
+    for(let i=0;i<e.nCoj;i++){
+      const mun=new THREE.Mesh(new THREE.CylinderGeometry(D.rMun,D.rMun,D.lCoj*0.96,26),MAT_MUNON);
+      mun.rotation.z=Math.PI/2; mun.position.x=xBancada(i,D,e); cigu.add(mun);
+    }
+    for(let i=0;i<e.nCoj-1;i++){
+      const g=new THREE.Group(); g.rotation.x=faseMan(i,e)*DEG; cigu.add(g);
+      const xm=(xBancada(i,D,e)+xBancada(i+1,D,e))/2;
+      const man=new THREE.Mesh(new THREE.CylinderGeometry(D.rMan,D.rMan,D.lCoj*0.92,22),MAT_MUNON);
+      man.rotation.z=Math.PI/2; man.position.set(xm,D.r,0); g.add(man);
+      for(const sx of [-1,1]){
+        const bra=roundedBox(D.lCoj*0.55,D.r+D.rMun*1.7,D.rMun*1.7,
+          std({...brush,color:0x8e9099,metalness:1.0,roughness:0.30}),0.012);
+        bra.position.set(xm+sx*(D.px/2-D.lCoj*0.75),D.r/2,0); g.add(bra);
+        const con=new THREE.Mesh(new THREE.CylinderGeometry(D.rMun*0.95,D.rMun*0.95,D.lCoj*0.5,18),
+          std({...brush,color:0x8e9099,metalness:1.0,roughness:0.30}));
+        con.rotation.z=Math.PI/2; con.position.set(xm+sx*(D.px/2-D.lCoj*0.75),-D.r*0.55,0); g.add(con);
+      }
+    }
+    const eje=new THREE.Mesh(new THREE.CylinderGeometry(D.rMun*0.8,D.rMun*0.8,D.anchoTot+0.30,20),MAT_MUNON);
+    eje.rotation.z=Math.PI/2; cigu.add(eje);
+    const vol=new THREE.Mesh(new THREE.CylinderGeometry(0.44,0.44,0.10,40),
+      std({...brush,metalness:1.0,roughness:0.44}));
+    vol.rotation.z=Math.PI/2; vol.position.x=-(D.anchoTot/2+0.12); cigu.add(vol);
+    const cor=new THREE.Mesh(new THREE.TorusGeometry(0.44,0.032,10,64),MAT.crom);
+    cor.position.x=-(D.anchoTot/2+0.12); cor.rotation.y=Math.PI/2; cigu.add(cor);
+  }
+
+  // --- soporte del banco ----------------------------------------------------
+  {
+    const base=roundedBox(D.anchoTot+0.70,0.10,1.30,MAT.banco,0.03);
+    base.position.set(0,-0.86,0); base.receiveShadow=true; raiz.add(base);
+    for(const sx of [-1,1]) for(const sz of [-1,1]){
+      const p=new THREE.Mesh(new THREE.BoxGeometry(0.11,0.72,0.11),MAT.banco);
+      p.position.set(sx*(D.anchoTot/2+0.22),-0.50,sz*0.50); raiz.add(p);
+    }
+  }
+
+  raiz.position.y=0.86;
+  // El 5.0 V8 mide bastante más que el 1.6. Con un encuadre fijo se sale del
+  // cuadro; con este factor la cámara y el pizarrón se separan lo justo.
+  G.k=Math.max(1,(D.anchoTot+0.70)/4.6);
+  colocaTablero(D.anchoTot);
+  colocaAmpliado();
+  return raiz;
+}
+
+// ------------------------------------------------------- el cojinete AMPLIADO
+// Lo que de verdad protege el motor mide micras: a la escala del bloque no se
+// ve. Aquí se dibuja UN cojinete en SECCIÓN —mirando a lo largo del eje, que es
+// como se dibuja en cualquier libro— con la holgura multiplicada por un factor
+// que se declara en pantalla. Todas las cifras que se publican son las reales.
+//
+// Cuatro discos concéntricos, del exterior al interior: dorso de acero,
+// casquillo antifricción, película de aceite y muñón. Al desplazarse el muñón
+// con la excentricidad, la corona de aceite se estrecha por abajo: ESA media
+// luna es h mínima, y se ve sin que nadie tenga que explicarla.
+const AMP={R:0.42, hol:0.24, x:0, y:1.95, z:1.05, factor:0};
+function disco(r,esp,mat){
+  const m=new THREE.Mesh(new THREE.CylinderGeometry(r,r,esp,54),mat);
+  m.rotation.x=Math.PI/2; return m;
+}
+function construyeAmpliado(){
+  const g=new THREE.Group(); scene.add(g); RIG.amp=g;
+  const R=AMP.R, c=R*AMP.hol;
+
+  const dorso=disco(R*1.46,0.26,std({color:0x6f767f,metalness:0.60,roughness:0.62}));
+  dorso.position.z=-0.06; g.add(dorso);
+  const casq=disco(R*1.30,0.28,std({color:0xc8a06a,metalness:0.92,roughness:0.30}));
+  casq.position.z=-0.02; g.add(casq);
+  // La película. Su radio exterior es el del casquillo, y el muñón que va encima
+  // la tapa salvo por la corona que queda libre: eso es el espesor de aceite.
+  const peli=disco(R+c,0.30,MAT_PELIC.clone());
+  peli.position.z=0.01; g.add(peli);
+
+  const mun=new THREE.Group(); mun.position.z=0.04; g.add(mun);
+  const cil=disco(R,0.32,MAT_MUNON); mun.add(cil);
+  // Marca del muñón: sin ella, un disco liso girando no se ve girar.
+  const marca=roundedBox(R*0.10,R*0.86,0.34,MAT.crom,0.02);
+  marca.position.set(0,R*0.50,0.01); mun.add(marca);
+
+  // Flecha de la carga: el muñón se desplaza en el sentido en que se le empuja.
+  const vast=new THREE.Mesh(new THREE.CylinderGeometry(0.022,0.022,R*0.62,12),
+    std({color:0xff6b6b,emissive:0xff6b6b,emissiveIntensity:0.40,roughness:0.4}));
+  vast.position.set(0,-R*1.98,0.06); g.add(vast);
+  const punta=new THREE.Mesh(new THREE.ConeGeometry(0.070,0.20,16),
+    std({color:0xff6b6b,emissive:0xff6b6b,emissiveIntensity:0.55,roughness:0.4}));
+  punta.position.set(0,-R*1.62,0.06); punta.rotation.x=Math.PI; g.add(punta);
+
+  const etReg=rotulo('#7CD992'); etReg.position.set(0,R*2.10,0.10);
+  etReg.scale.multiplyScalar(0.62); g.add(etReg);
+  const etH=rotulo('#E0A33E'); etH.position.set(0,R*1.62,0.10);
+  etH.scale.multiplyScalar(0.56); g.add(etH);
+  const etF=rotulo('#8c98a9'); etF.position.set(0,-R*2.60,0.10);
+  etF.scale.multiplyScalar(0.48); g.add(etF);
+
+  AMP.mun=mun; AMP.peli=peli; AMP.etReg=etReg; AMP.etH=etH; AMP.etF=etF;
+  g.visible=false;
+  colocaAmpliado();
+  return g;
+}
+// El cojinete ampliado se aparta a la derecha del motor, a distancia fija de su
+// extremo: con una coordenada escrita a mano se mete dentro del bloque en cuanto
+// el motor es el V8, y eso no se ve venir escribiendo el número.
+function colocaAmpliado(){
+  if(!RIG.amp||!RIG.motor) return;
+  const D=dims(MQ());
+  AMP.x=D.anchoTot/2+1.55;
+  RIG.amp.position.set(AMP.x,AMP.y,AMP.z);
+}
+
+// ================================================= T3b · EL CIRCUITO DE ACEITE
+const nuevaFantasma=()=>std({color:0x5BD4E5,transparent:true,opacity:0.26,
+  depthWrite:false,side:THREE.DoubleSide});
+const MAT_ESFERA=std({color:0xf2f4f7,roughness:0.85,metalness:0.0});
+const MAT_CRISTAL=std({color:0xffffff,transparent:true,opacity:0.16,roughness:0.06,metalness:0.0});
+const MAT_AGUJA=std({color:0xff5252,emissive:0xff5252,emissiveIntensity:0.5,roughness:0.40});
+const MAT_LATON=std({color:0xC8A24A,metalness:1.0,roughness:0.30});
+const MAT_MANG=std({...rub,color:0x1a1f27,roughness:0.95,metalness:0.0});
+
+function cil(r0,r1,h,mat,seg){
+  const m=new THREE.Mesh(new THREE.CylinderGeometry(r0,r1,h,seg||22),mat);
+  m.castShadow=true; return m;
+}
+function tubo(pts,r,mat){
+  const m=new THREE.Mesh(new THREE.TubeGeometry(new THREE.CatmullRomCurve3(pts),
+    Math.max(12,pts.length*8),r,10,false),mat);
+  m.castShadow=true; return m;
+}
+function centra(g){
+  const dentro=new THREE.Group();
+  while(g.children.length) dentro.add(g.children[0]);
+  const caja=new THREE.Box3().setFromObject(dentro);
+  const c=new THREE.Vector3(); caja.getCenter(c);
+  dentro.position.copy(c).negate();
+  g.add(dentro);
+  g.userData.home=c.clone(); g.userData.minY=caja.min.y-c.y;
+  g.position.copy(c); return g;
+}
+function borra(o){
+  o.traverse(n=>{ if(n.isMesh&&n.geometry) n.geometry.dispose(); });
+  if(o.userData.gm) o.userData.gm.dispose();
+  if(o.parent) o.parent.remove(o);
+}
+// Esfera de manómetro. Devuelve el grupo con setFrac: la aguja NUNCA se mueve a
+// ojo, recibe la fracción de escala que le calcula el motor sellado.
+function esfera(r,rojo){
+  const g=new THREE.Group();
+  const caja=cil(r,r,0.055,MAT.crom,34); caja.rotation.x=Math.PI/2; g.add(caja);
+  const cara=cil(r*0.92,r*0.92,0.010,MAT_ESFERA,34); cara.rotation.x=Math.PI/2;
+  cara.position.z=0.029; g.add(cara);
+  const vid=cil(r*0.93,r*0.93,0.006,MAT_CRISTAL,34); vid.rotation.x=Math.PI/2;
+  vid.position.z=0.036; g.add(vid);
+  // Zona roja: por debajo del mínimo del fabricante. Es la única marca de la
+  // esfera que significa algo, y por eso se dibuja del tamaño que le toca.
+  if(rojo>0){
+    // Las marcas de esta esfera van medidas desde las 12 y en el sentido del
+    // reloj; RingGeometry mide desde el eje X y al reves. La conversion se hace
+    // aqui una vez: girar la malla a ojo deja la zona roja en el lado que no es.
+    const f=clamp(rojo,0,1);
+    const arc=new THREE.Mesh(new THREE.RingGeometry(r*0.66,r*0.86,44,1,
+      Math.PI/2+135*DEG-f*270*DEG, f*270*DEG), std({color:0xff5252,roughness:0.9}));
+    arc.position.z=0.032; g.add(arc);
+  }
+  for(let i=0;i<=10;i++){
+    const a=(-135+i*27)*DEG;
+    const m=new THREE.Mesh(new THREE.BoxGeometry(0.006,r*0.16,0.004),std({color:0x1a2029,roughness:0.9}));
+    m.position.set(Math.sin(a)*r*0.76,Math.cos(a)*r*0.76,0.034); m.rotation.z=-a; g.add(m);
+  }
+  const ag=new THREE.Group(); ag.position.z=0.038; g.add(ag);
+  const cuerpo=new THREE.Mesh(new THREE.BoxGeometry(0.010,r*1.52,0.006),MAT_AGUJA);
+  cuerpo.position.y=r*0.50; ag.add(cuerpo);
+  ag.add(cil(0.016,0.016,0.012,MAT.crom,14).rotateX(Math.PI/2));
+  g.userData.setFrac=f=>{ ag.rotation.z=-(-135+clamp(f,0,1)*270)*DEG; };
+  g.userData.setFrac(0);
+  return g;
+}
+
+// ------------------------------------------------------------- las siete piezas
+function bCarter(){
+  const e=MQ(), D=dims(e), g=new THREE.Group();
+  const w=D.anchoTot*0.96, h=D.hCar, d=1.04*D.B;
+  // Cárter en corte, como el bloque: sin la pared delantera, para que se vean el
+  // nivel de aceite y el colador. Un cárter cerrado sería una caja opaca.
+  const par=[[0,-h/2,0,w,0.045,d],[0,0,-d/2,w,h,0.045],
+             [-w/2,0,0,0.045,h,d],[w/2,0,0,0.045,h,d]];
+  par.forEach(([x,y,z,a,b,c])=>{
+    const m=roundedBox(a,b,c,MAT_CARTER,0.012); m.position.set(x,y,z); g.add(m);
+  });
+  // El aceite. Su altura la fija el escenario: con el nivel bajo la bomba llega
+  // a aspirar aire, y eso hay que verlo.
+  const ace=roundedBox(w-0.09,h*0.46,d-0.09,MAT_BANO.clone(),0.01);
+  ace.position.set(0,-h/2+h*0.24,0); g.add(ace);
+  // La altura se publica aparte: RoundedBoxGeometry no expone sus cotas y
+  // leerlas de geometry.parameters devuelve undefined sin avisar.
+  g.userData.aceite=ace; g.userData.aceiteH=h*0.46;
+  // Colador de aspiración: la boca por la que entra todo.
+  const col=roundedBox(0.30*D.B,0.05,0.34*D.B,std({...brush,color:0x8b939d,roughness:0.55}),0.01);
+  col.position.set(w*0.24,-h/2+0.10,0.10); g.add(col);
+  g.add(tubo([new THREE.Vector3(w*0.24,-h/2+0.12,0.10),
+              new THREE.Vector3(w*0.34,-h/2+0.30,0.14),
+              new THREE.Vector3(w*0.46,h/2-0.02,0.16)],0.036,MAT_TUBO));
+  const tap=cil(0.055,0.055,0.05,MAT_LATON,16); tap.position.set(-w*0.30,-h/2-0.02,0.10); g.add(tap);
+  return g;
+}
+function bBomba(){
+  const g=new THREE.Group();
+  const car=cil(0.24,0.24,0.20,std({...alu,color:0x7b828b,metalness:0.55,roughness:0.62}),30);
+  car.rotation.x=Math.PI/2; g.add(car);
+  const tap=cil(0.25,0.25,0.02,MAT.crom,30); tap.rotation.x=Math.PI/2; tap.position.z=0.11; g.add(tap);
+  // Rotor interior: gira con el motor y es lo que hace de la bomba una
+  // VOLUMÉTRICA, que es la hipótesis de todo el balance de caudales.
+  const rot=new THREE.Group(); rot.position.z=0.06; g.add(rot);
+  for(let i=0;i<7;i++){
+    const a=i/7*Math.PI*2;
+    const d=cil(0.045,0.045,0.14,std({...brush,color:0x9aa3ad,metalness:1.0,roughness:0.30}),12);
+    d.rotation.x=Math.PI/2; d.position.set(Math.cos(a)*0.13,Math.sin(a)*0.13,0); rot.add(d);
+  }
+  g.userData.rotor=rot;
+  const ej=cil(0.030,0.030,0.34,MAT.acero,14); ej.rotation.x=Math.PI/2; g.add(ej);
+  g.add(tubo([new THREE.Vector3(0,-0.22,0),new THREE.Vector3(0,-0.40,0.04)],0.036,MAT_TUBO));
+  g.add(tubo([new THREE.Vector3(0,0.22,0),new THREE.Vector3(0,0.38,0.02)],0.032,MAT_TUBO));
+  return g;
+}
+function bLimitadora(){
+  const g=new THREE.Group();
+  const cu=cil(0.10,0.10,0.34,MAT_LATON,22); g.add(cu);
+  const hex=cil(0.13,0.13,0.05,MAT_LATON,6); hex.position.y=-0.19; g.add(hex);
+  // Émbolo y muelle. El émbolo se separa de su asiento cuando la limitadora
+  // abre, y ésa es toda la explicación de por qué la presión deja de subir.
+  const emb=cil(0.078,0.078,0.09,MAT.crom,20); emb.position.y=-0.06; g.add(emb);
+  g.userData.embolo=emb;
+  const mp=[];
+  for(let i=0;i<=60;i++){ const t=i/60;
+    mp.push(new THREE.Vector3(Math.cos(t*Math.PI*9)*0.055,0.02+t*0.15,Math.sin(t*Math.PI*9)*0.055)); }
+  g.add(tubo(mp,0.013,std({...brush,color:0xb8bec6,metalness:1.0,roughness:0.34})));
+  g.add(tubo([new THREE.Vector3(0,-0.24,0),new THREE.Vector3(0.02,-0.40,0.06)],0.030,MAT_TUBO));
+  // El retorno al cárter: por aquí se va el caudal que la limitadora recorta.
+  g.add(tubo([new THREE.Vector3(0.09,-0.10,0),new THREE.Vector3(0.28,-0.22,0.02),
+              new THREE.Vector3(0.34,-0.52,0.02)],0.026,MAT_TUBO));
+  return g;
+}
+function bFiltro(){
+  const g=new THREE.Group();
+  const bote=cil(0.20,0.20,0.42,std({...brush,color:0x2f4f7a,metalness:0.70,roughness:0.44}),30);
+  g.add(bote);
+  const tap=cil(0.205,0.185,0.05,std({...brush,color:0x9aa3ad,metalness:1.0,roughness:0.40}),30);
+  tap.position.y=-0.22; g.add(tap);
+  for(let i=0;i<3;i++){
+    const an=new THREE.Mesh(new THREE.TorusGeometry(0.202,0.007,8,44),
+      std({...brush,color:0x24406a,metalness:0.7,roughness:0.5}));
+    an.rotation.x=Math.PI/2; an.position.y=-0.08+i*0.10; g.add(an);
+  }
+  const jun=new THREE.Mesh(new THREE.TorusGeometry(0.165,0.016,10,40),MAT.goma);
+  jun.rotation.x=Math.PI/2; jun.position.y=-0.245; g.add(jun);
+  // Antirretorno: la membrana que impide que el filtro se vacíe al cárter con
+  // el motor parado. No cambia NADA en marcha; sólo se paga en cada arranque.
+  const mem=new THREE.Mesh(new THREE.TorusGeometry(0.115,0.020,10,36),MAT.goma);
+  mem.rotation.x=Math.PI/2; mem.position.y=-0.20; g.add(mem);
+  g.userData.antidren=mem;
+  // Derivación: si el elemento se tapa, esta válvula abre y el aceite pasa SIN
+  // FILTRAR. Se ilumina cuando eso ocurre, porque no hay ninguna otra señal.
+  const der=cil(0.045,0.045,0.10,std({color:0x3a4658,emissive:0x000000,
+    emissiveIntensity:0.0,roughness:0.5,metalness:0.4}),16);
+  der.rotation.z=Math.PI/2; der.position.set(0.19,-0.14,0.06); g.add(der);
+  g.userData.deriv=der;
+  return g;
+}
+function bRadiador(){
+  const g=new THREE.Group();
+  const nu=roundedBox(0.62,0.44,0.12,std({...brush,color:0x3a4550,roughness:0.66}),0.02); g.add(nu);
+  for(let i=0;i<11;i++){
+    const al=roundedBox(0.58,0.012,0.16,std({...brush,color:0x8b939d,roughness:0.58}),0.004);
+    al.position.set(0,-0.19+i*0.038,0); g.add(al);
+  }
+  for(const sy of [-1,1]){
+    const co=cil(0.045,0.045,0.10,MAT_LATON,16);
+    co.rotation.z=Math.PI/2; co.position.set(-0.34,sy*0.14,0); g.add(co);
+  }
+  return g;
+}
+function bGaleria(){
+  const e=MQ(), D=dims(e), g=new THREE.Group();
+  const L=D.luz+1.00*D.B;
+  const gal=cil(0.052,0.052,L,MAT_TUBO,20); gal.rotation.z=Math.PI/2; g.add(gal);
+  const tapa=cil(0.062,0.062,0.05,MAT_LATON,16);
+  tapa.rotation.z=Math.PI/2; tapa.position.x=L/2; g.add(tapa);
+  // Un taladro por bancada: el aceite entra al cojinete por aquí y sale por los
+  // dos costados. Son la razón de que el caudal dependa de la holgura al cubo.
+  for(let i=0;i<e.nCoj;i++){
+    const x=xBancada(i,D,e);
+    const t=cil(0.024,0.024,0.34*D.B,MAT_TUBO,12);
+    t.position.set(x,-0.17*D.B,0); g.add(t);
+    const bo=cil(0.034,0.028,0.04,MAT_LATON,14);
+    bo.position.set(x,-0.34*D.B,0); g.add(bo);
+  }
+  return g;
+}
+function bManocontacto(){
+  const g=new THREE.Group();
+  const cu=cil(0.062,0.062,0.16,MAT_LATON,20); g.add(cu);
+  const hex=cil(0.082,0.082,0.05,MAT_LATON,6); hex.position.y=-0.09; g.add(hex);
+  const es=esfera(0.19,MQ().pAlarma/escalaMan(MQ())); es.position.set(0,0.36,0.02); g.add(es);
+  g.userData.dial=es;
+  // La luz roja del cuadro: es TODO lo que ve el conductor de este circuito.
+  const lam=new THREE.Mesh(new THREE.SphereGeometry(0.075,20,14),
+    std({color:0x4a1b1b,emissive:0xff2020,emissiveIntensity:0.0,roughness:0.35,metalness:0.1}));
+  lam.position.set(0.28,0.20,0.04); g.add(lam);
+  g.userData.lampara=lam;
+  const sop=cil(0.020,0.020,0.30,MAT.acero,10);
+  sop.rotation.z=-0.9; sop.position.set(0.16,0.10,0.04); g.add(sop);
+  return g;
+}
+
+// --- anclajes: se leen de la geometría del motor, no se escriben a mano ------
+const Y0=0.86;                                   // altura de la raíz del motor
+function ancla(){
+  const e=MQ(), D=dims(e);
+  const derecha=D.anchoTot/2, izq=-D.anchoTot/2;
+  return {
+    carter:   new THREE.Vector3(0, Y0+YC-0.34*D.B-D.hCar/2, 0),
+    bomba:    new THREE.Vector3(derecha+0.30, Y0+YC-0.10, 0.34),
+    limitadora:new THREE.Vector3(derecha+0.30, Y0+YC+0.46, 0.34),
+    filtro:   new THREE.Vector3(derecha-0.10, Y0+YC+0.30, 0.88),
+    radiador: new THREE.Vector3(derecha-1.16, Y0+YC+0.64, 1.00),
+    galeria:  new THREE.Vector3(0, Y0+D.yGal, 0.30*D.B),
+    manocontacto:new THREE.Vector3(izq+0.34, Y0+D.yDeck+0.16, 0.34),
+  };
+}
+const PARTS=[
+  {k:'carter', rot:'Cárter y colador', build:bCarter,
+   fn:'Guarda el aceite, lo deja enfriar y lo devuelve al colador de aspiración.',
+   sin:'Sin depósito no hay nada que bombear: el circuito no existe.',
+   para:'El nivel importa: si baja, el colador chupa aire a ratos y el caudal se desploma.',
+   nota:'El aceite ya tiene dónde estar. El colador es la única boca de entrada del circuito.'},
+  {k:'bomba', rot:'Bomba de aceite', build:bBomba,
+   fn:'Volumétrica y arrastrada por el cigüeñal: entrega cilindrada × vueltas menos su resbalamiento.',
+   sin:'Sin bomba no hay caudal, y sin caudal no hay presión ni película.',
+   para:'El resbalamiento crece con la presión y baja con la viscosidad: por eso una bomba gastada se nota más en caliente.',
+   nota:'Ya hay caudal. La presión todavía no: la presión sale del equilibrio con lo que el circuito deja salir.'},
+  {k:'limitadora', rot:'Válvula limitadora', build:bLimitadora,
+   fn:'Abre a su tarado y devuelve el sobrante al cárter. Recorta la presión por arriba y nada más.',
+   sin:'En frío la presión sube sin freno hasta reventar el filtro o su junta.',
+   para:'No protege al motor: protege al CIRCUITO. Agarrotada cerrada no recorta y en frío revienta el filtro.',
+   nota:'La presión ya tiene techo. Ese techo es del circuito, no del cojinete.'},
+  {k:'filtro', rot:'Filtro con antirretorno y derivación', build:bFiltro,
+   fn:'Retiene las partículas. Su antirretorno impide que el circuito se vacíe con el motor parado y su derivación abre si el elemento se tapa.',
+   sin:'El aceite circula sucio y el circuito se vacía en cada parada.',
+   para:'Las dos válvulas del filtro son INVISIBLES para el manómetro: una se paga en desgaste y la otra, en vueltas en seco al arrancar.',
+   nota:'El aceite ya se filtra. Y si algún día deja de filtrarse, el manómetro no se enterará.'},
+  {k:'radiador', rot:'Radiador de aceite', build:bRadiador,
+   fn:'Le quita calor al aceite. La viscosidad depende de la temperatura, así que aquí se decide media práctica.',
+   sin:'El aceite se calienta más, se afina, y con él caen la presión y la película.',
+   para:'Enfriar el aceite es la manera más barata de subir la presión y el espesor de película a la vez.',
+   nota:'La temperatura del aceite ya es una variable de control, no una fatalidad.'},
+  {k:'galeria', rot:'Galería principal y taladros', build:bGaleria,
+   fn:'Reparte el aceite a cada bancada por un taladro. Es donde se mide la presión.',
+   sin:'El aceite no llega a los cojinetes: no hay a dónde repartirlo.',
+   para:'Lo que se va por cada taladro depende del CUBO de la holgura: un cojinete gastado se bebe el aceite de sus hermanos.',
+   nota:'Ya hay a dónde repartir. Ahora cada bancada se lleva lo suyo.'},
+  {k:'manocontacto', rot:'Manocontacto y luz de presión', build:bManocontacto,
+   fn:'Un contacto que se abre a la presión de tarado. Es TODO lo que ve el conductor.',
+   sin:'No hay ninguna señal: ni la luz ni la aguja.',
+   para:'Mide la presión de la galería, que es la resistencia del circuito. No mide la lubricación de ningún cojinete.',
+   nota:'Ya hay lectura. A partir de aquí toda la práctica consiste en no creérsela del todo.'},
+];
+const PART=Object.fromEntries(PARTS.map(p=>[p.k,p]));
+const ORDEN=PARTS.map(p=>p.k);
+const ASM={done:new Set(), sel:null};
+const posDe=k=>ancla()[k];
+
+// ---------------------------------------------------------------- el banco
+const STAGE_S=0.60;
+// El banco va DELANTE del motor: a un costado choca con el bloque en cuanto el
+// motor es el V8, que mide bastante más.
+const BENCH={cx:0.0,cz:4.55,top:0.90,cols:4,dx:1.00,dz:1.02,pedH:0.24};
+const NFIL=Math.ceil(PARTS.length/BENCH.cols), PED_Y=BENCH.top+BENCH.pedH;
+function pedXZ(i){
+  const c=i%BENCH.cols, f=Math.floor(i/BENCH.cols);
+  return [BENCH.cx+(c-(BENCH.cols-1)/2)*BENCH.dx, BENCH.cz+(f-(NFIL-1)/2)*BENCH.dz];
+}
+const peds=[];
+(function levantaBanco(){
+  const g=new THREE.Group();
+  const w=BENCH.cols*BENCH.dx+0.42, d=NFIL*BENCH.dz+0.42;
+  const losa=roundedBox(w,0.10,d,MAT.banco,0.04);
+  losa.position.set(BENCH.cx,BENCH.top,BENCH.cz); g.add(losa);
+  for(const sx of [-1,1]) for(const sz of [-1,1]){
+    const pa=roundedBox(0.10,BENCH.top,0.10,MAT.acero,0.20);
+    pa.position.set(BENCH.cx+sx*(w/2-0.15),BENCH.top/2,BENCH.cz+sz*(d/2-0.15)); g.add(pa);
+  }
+  PARTS.forEach((p,i)=>{
+    const [x,z]=pedXZ(i), pg=new THREE.Group(); pg.position.set(x,0,z);
+    const cu=cil(0.23,0.27,BENCH.pedH,MAT.banco,26);
+    cu.position.y=BENCH.top+BENCH.pedH/2; pg.add(cu);
+    const pl=cil(0.25,0.25,0.03,MAT.acero,26); pl.position.y=PED_Y; pg.add(pl);
+    const mm2=emis(0x2AA6B8,0.85);
+    const an=new THREE.Mesh(new THREE.TorusGeometry(0.26,0.013,10,40),mm2);
+    an.rotation.x=-Math.PI/2; an.position.y=PED_Y+0.02; pg.add(an);
+    const lb=labelSprite(String(i+1),'#9fb2c6');
+    lb.position.set(0,BENCH.top+0.14,0); lb.scale.multiplyScalar(0.44); pg.add(lb);
+    g.add(pg); peds.push({mat:mm2});
+  });
+  scene.add(g);
+})();
+function pedLibre(i){ const p=peds[i]; if(!p) return;
+  p.mat.color.setHex(0x2AA6B8); p.mat.emissive.setHex(0x2AA6B8); p.mat.emissiveIntensity=0.85; }
+function pedHecho(i){ const p=peds[i]; if(!p) return;
+  p.mat.color.setHex(0x7CD992); p.mat.emissive.setHex(0x7CD992); p.mat.emissiveIntensity=0.30; }
+
+// ---------------------------------------------------------------- ensamble
+let fantasmas=[], moviles=[], tweens=[], montadas=[];
+let TH=0, animT=0;
+const ease=x=>x<0.5?4*x*x*x:1-Math.pow(-2*x+2,3)/2;
+let toastT=null;
+function showToast(html,ms){
+  const t=el('toast'); t.innerHTML=html; t.classList.add('show');
+  clearTimeout(toastT); toastT=setTimeout(()=>t.classList.remove('show'),ms||3800);
+}
+function limpiaKit(){
+  [...fantasmas,...moviles,...montadas].forEach(o=>borra(o));
+  fantasmas=[]; moviles=[]; montadas=[]; tweens=[]; ASM.sel=null;
+  RIG.piezas={}; RIG.aceite=null; RIG.lampara=null; RIG.aguja=null;
+  RIG.rotor=null; RIG.deriv=null; RIG.antidren=null; RIG.embolo=null; RIG.aceiteH=0;
+}
+function haz(p){ const g=p.build(); centra(g); g.userData.pid=p.k; return g; }
+// Registra los mandos internos de la pieza recién montada: la aguja, la luz, el
+// nivel de aceite y las dos válvulas del filtro. Sin esto la pieza sería un
+// adorno; con esto, la pieza es lo que el modelo dice que hace.
+function registra(o){
+  const k=o.userData.id, u=o.userData;
+  RIG.piezas[k]=o;
+  if(k==='carter'){ RIG.aceite=u.aceite; RIG.aceiteH=u.aceiteH; }
+  if(k==='manocontacto'){ RIG.aguja=u.dial; RIG.lampara=u.lampara; }
+  if(k==='bomba') RIG.rotor=u.rotor;
+  if(k==='filtro'){ RIG.deriv=u.deriv; RIG.antidren=u.antidren; }
+  if(k==='limitadora') RIG.embolo=u.embolo;
+}
+function reposiciona(){
+  const A=ancla();
+  montadas.forEach(o=>{
+    if(tweens.some(w=>w.o===o)) return;
+    o.position.copy(A[o.userData.id]);
+  });
+  fantasmas.forEach(f=>{
+    f.position.copy(A[f.userData.id]);
+    f.userData.home=A[f.userData.id].clone();
+  });
+  armaCircuito();
+}
+function montaKit(){
+  limpiaKit();
+  PARTS.forEach(p=>{
+    const g=haz(p); g.userData.kind='placed'; g.userData.id=p.k;
+    scene.add(g); montadas.push(g); ASM.done.add(p.k); registra(g);
+  });
+  peds.forEach((_,i)=>pedHecho(i));
+  reposiciona();
+}
+function initAssembly(){
+  limpiaKit(); ASM.done.clear();
+  PARTS.forEach((p,i)=>{
+    const g=haz(p);
+    g.scale.setScalar(STAGE_S);
+    const [x,z]=pedXZ(i);
+    const baseY=PED_Y+0.03-g.userData.minY*STAGE_S;
+    g.position.set(x,baseY,z);
+    g.userData.kind='part'; g.userData.id=p.k;
+    g.userData.baseY=baseY; g.userData.fase=i*1.7; g.userData.lift=0;
+    scene.add(g); moviles.push(g);
+
+    const f=haz(p), gm=nuevaFantasma();
+    f.traverse(o=>{ if(o.isMesh){ o.material=gm; o.castShadow=false; o.receiveShadow=false; }
+                    if(o.isSprite) o.visible=false; });
+    f.userData.kind='slot'; f.userData.id=p.k; f.userData.gm=gm; f.userData.shake=0;
+    scene.add(f); fantasmas.push(f);
+    pedLibre(i);
+  });
+  reposiciona(); muestraHueco(null);
+  G.simUnlocked=false; G.resuelto=false;
+  S.setCinematicIdle(false);
+  S.moveTo([7.2,4.9,10.8],[0.6,1.95,0.30],1.3);
+}
+function muestraHueco(id){
+  fantasmas.forEach(f=>{ f.visible=!ASM.done.has(f.userData.id)&&(!id||f.userData.id===id); });
+}
+function selPieza(o){
+  if(ASM.sel===o){ deselec(); return; }
+  deselec(); ASM.sel=o; o.userData.lift=0.16;
+  muestraHueco(o.userData.id); synth.beep(660,0.06,0.04);
+  showToast('<b>'+PART[o.userData.id].rot+'</b> en la mano. Ahora toca su <b>hueco luminoso</b> en el motor.',2600);
+}
+function deselec(){ if(ASM.sel){ ASM.sel.userData.lift=0; ASM.sel=null; } muestraHueco(null); }
+function colocaPieza(o,f){
+  const p=PART[o.userData.id], i=ORDEN.indexOf(p.k);
+  f.visible=false;
+  tweens.push({o, p0:o.position.clone(), p1:posDe(p.k).clone(),
+    s0:o.scale.x, s1:1, t:0, dur:0.85,
+    fin:()=>{ o.userData.kind='placed'; o.userData.lift=0; registra(o); armaCircuito(); }});
+  ASM.done.add(p.k); ASM.sel=null; pedHecho(i);
+  montadas.push(o); moviles=moviles.filter(m=>m!==o);
+  synth.beep(880,0.07,0.05); setTimeout(()=>synth.beep(1174,0.09,0.05),90);
+  showToast('✔ <b>'+p.rot+'</b> montado. '+p.nota,4400);
+  muestraHueco(null); pintaTablero();
+  if(ASM.done.size===PARTS.length) finEnsamble();
+}
+function huecoMal(f){
+  f.userData.shake=0.5; synth.beep(200,0.12,0.05);
+  showToast('<span class="bad">✗ Esa pieza no va en ese hueco.</span>',2000);
+}
+function finEnsamble(){
+  G.simUnlocked=true; syncCtrlbar();
+  synth.beep(523,0.10,0.05); setTimeout(()=>synth.beep(784,0.14,0.05),130);
+  showToast('🎉 <b>Circuito completo.</b> Se abren los seis modos de trabajo.',4600);
+  S.setCinematicIdle(true);
+  afterEdit();
+}
+function autoAssemble(){
+  const pend=PARTS.filter(p=>!ASM.done.has(p.k));
+  pend.forEach((p,n)=>setTimeout(()=>{
+    const o=moviles.find(m=>m.userData.id===p.k), f=fantasmas.find(x=>x.userData.id===p.k);
+    if(o&&f&&!ASM.done.has(p.k)) colocaPieza(o,f);
+  },320+n*640));
+  return 320+pend.length*640+900;
+}
+function conEtiqueta(o){ let n=o; while(n){ if(n.userData&&n.userData.kind) return n; n=n.parent; } return null; }
+pickerFor(scene,S.camera,mount,hit=>{
+  if(!hit){ deselec(); return; }
+  const t=conEtiqueta(hit.object);
+  if(!t){ deselec(); return; }
+  const k=t.userData.kind;
+  if(k==='part') selPieza(t);
+  else if(k==='slot'){
+    if(!ASM.sel){ showToast('Primero toca una <b>pieza</b> del banco.',2200); return; }
+    if(t.userData.id===ASM.sel.userData.id) colocaPieza(ASM.sel,t); else huecoMal(t);
+  }else if(k==='placed'){
+    showToast('<b>'+PART[t.userData.id].rot+'</b> — '+PART[t.userData.id].para,4600);
+  }
+});
+
+const CIRC={curva:null, gotas:[], n:26, u:0};
+
+// ------------------------------------------------------------- las conducciones
+// Cada tramo une DOS piezas y sólo existe si las dos están montadas: así el
+// circuito se ve crecer, y mientras falte un tramo se ve exactamente por dónde
+// está cortado. La ruta completa es además la trayectoria de las gotas.
+const TRAMOS=[
+  ['carter','bomba'], ['bomba','limitadora'], ['limitadora','filtro'],
+  ['filtro','radiador'], ['radiador','galeria'], ['galeria','manocontacto'],
+];
+let mangueras=[];
+function ruta(a,b){
+  const A=ancla(), p=A[a].clone(), q=A[b].clone();
+  const m=p.clone().lerp(q,0.5);
+  m.z+=0.26; m.y+=0.10;
+  return [p,m,q];
+}
+function armaCircuito(){
+  mangueras.forEach(m=>borra(m)); mangueras=[];
+  TRAMOS.forEach(([a,b])=>{
+    if(!ASM.done.has(a)||!ASM.done.has(b)) return;
+    const t=tubo(ruta(a,b),0.034,MAT_TUBO);
+    scene.add(t); mangueras.push(t);
+  });
+  // La trayectoria de las gotas: cárter → bomba → limitadora → filtro →
+  // radiador → galería, y de la galería otra vez al cárter por los cojinetes.
+  const A=ancla(), pts=[];
+  ['carter','bomba','limitadora','filtro','radiador','galeria'].forEach((k,i,arr)=>{
+    if(i>0) pts.push(...ruta(arr[i-1],k).slice(1,2));
+    pts.push(A[k].clone());
+  });
+  pts.push(new THREE.Vector3(A.galeria.x-0.20,A.galeria.y-0.30,A.galeria.z));
+  pts.push(new THREE.Vector3(A.carter.x,A.carter.y+0.20,A.carter.z+0.16));
+  CIRC.curva=new THREE.CatmullRomCurve3(pts,true);
+}
+function armaGotas(){
+  CIRC.gotas.forEach(g=>borra(g)); CIRC.gotas=[];
+  for(let i=0;i<CIRC.n;i++){
+    const m=new THREE.Mesh(new THREE.SphereGeometry(0.052,12,9),MAT_ACEITE.clone());
+    m.visible=false; scene.add(m); CIRC.gotas.push(m);
+  }
+}
+
+// ================================ T3c · EL ACEITE EN MOVIMIENTO Y EL COJINETE
+// Nada de lo que se mueve aquí es decorativo. La velocidad de las gotas sale
+// del caudal que calcula el motor sellado, su color dice si el aceite está
+// filtrado, la aguja lee la presión de galería, la luz se enciende con el mismo
+// criterio que el manocontacto y el cojinete ampliado dibuja la excentricidad
+// que resuelve la ecuación de cojinete corto.
+
+// FACTORES DE ESCENA, declarados: el cigüeñal gira a FACTOR_GIRO veces su
+// velocidad real —a 2 000 rpm reales serían 33 vueltas por segundo, un borrón—
+// y las gotas viajan a FACTOR_GOTA vueltas de circuito por segundo y litro por
+// minuto. Ninguno de los dos toca una sola cifra: el régimen que entra en el
+// modelo es el real, no el de la pantalla.
+const FACTOR_GIRO=0.030;
+const FACTOR_GOTA=0.055;
+
+function mueveAgujas(){
+  if(!G.simUnlocked) return;
+  const e=MQ(), s=EST();
+  if(RIG.aguja) RIG.aguja.userData.setFrac(s.p/escalaMan(e));
+  if(RIG.lampara){
+    // La luz roja parpadea sólo si está encendida. Una luz que late apagada
+    // sería un adorno; ésta es la única señal que tiene el conductor.
+    const on=s.alarma?1:0;
+    RIG.lampara.material.emissiveIntensity=on*(1.15+0.55*Math.sin(animT*7.5));
+    RIG.lampara.material.color.setHex(on?0xff3b3b:0x4a1b1b);
+  }
+  if(RIG.deriv){
+    const abierta=!s.filtrado;
+    RIG.deriv.material.emissive.setHex(abierta?0xff6b6b:0x000000);
+    RIG.deriv.material.emissiveIntensity=abierta?1.2:0.0;
+  }
+  if(RIG.antidren){
+    const roto=(FALLA()==='antidrenaje');
+    RIG.antidren.material.emissive.setHex(roto?0xE9C46A:0x000000);
+    RIG.antidren.material.emissiveIntensity=roto?0.9:0.0;
+  }
+  // El émbolo de la limitadora se levanta cuando la válvula abre: eso es lo que
+  // explica que la presión deje de subir aunque suban las vueltas.
+  if(RIG.embolo) RIG.embolo.position.y=-0.06+(s.abreLim?0.055:0);
+  // Nivel del cárter. El modelo no simula la altura del aceite: declara la
+  // fracción de aire que la bomba llega a aspirar cuando el nivel está bajo.
+  // El dibujo se limita a decir cuál de los dos casos está montado.
+  if(RIG.aceite){
+    const u=RIG.aceite.userData;
+    if(u.y0===undefined) u.y0=RIG.aceite.position.y;
+    const bajo=(FALLA()==='nivelBajo');
+    RIG.aceite.scale.y=bajo?0.45:1.0;
+    // Al encoger en Y la caja mengua respecto de su CENTRO: hay que bajarla la
+    // mitad de lo que ha menguado o el aceite queda flotando sobre el fondo.
+    RIG.aceite.position.y=u.y0-(bajo?RIG.aceiteH*0.275:0);
+  }
+  // Cada casquillo se tiñe con el régimen de SU bancada: no hay un color medio.
+  s.cojinetes.forEach((c,i)=>{
+    const m=RIG.casq[i]; if(!m) return;
+    m.material.color.setHex(COL3_REG[c.regimen]);
+    m.material.emissive.setHex(COL3_REG[c.regimen]);
+    m.material.emissiveIntensity=c.regimen==='hidrodinamico'?0.18:0.55;
+  });
+}
+
+// ------------------------------------------------------------ gotas de aceite
+function mueveGotas(dt){
+  const hay=G.simUnlocked&&CIRC.curva;
+  CIRC.gotas.forEach(g=>{ g.visible=!!hay; });
+  if(!hay) return;
+  const s=EST();
+  const sucio=!s.filtrado;
+  CIRC.u=(CIRC.u+dt*s.Q*FACTOR_GOTA)%1;
+  CIRC.gotas.forEach((g,i)=>{
+    const u=(CIRC.u+i/CIRC.gotas.length)%1;
+    g.position.copy(CIRC.curva.getPoint(u));
+    const col=sucio?0x6b4a12:0xE0A33E;
+    g.material.color.setHex(col); g.material.emissive.setHex(col);
+    g.material.emissiveIntensity=sucio?0.35:0.60;
+  });
+}
+
+// -------------------------------------------------------- el cojinete ampliado
+function mueveAmpliado(){
+  const g=RIG.amp; if(!g) return;
+  g.visible=(G.modo==='pelicula')&&G.simUnlocked;
+  if(!g.visible) return;
+  const e=MQ(), s=EST(), c=s.peor;
+  // La holgura dibujada es una fracción FIJA del radio del muñón; la real es la
+  // del arquetipo. El cociente ES el factor de ampliación, y se publica en
+  // pantalla para que nadie confunda el dibujo con una medida.
+  const cDib=AMP.R*AMP.hol;
+  AMP.factor=AMP.hol/(c.c/(e.dMuñ/2000));
+  AMP.mun.position.y=-c.eps*cDib;
+  AMP.mun.rotation.z=-TH*DEG;
+  const col=COL3_REG[c.regimen];
+  AMP.peli.material.color.setHex(col);
+  AMP.peli.material.emissive.setHex(col);
+  AMP.peli.material.emissiveIntensity=c.regimen==='hidrodinamico'?0.55:0.95;
+  AMP.etReg.userData.set(ROT_REG[c.regimen]+' · λ '+num(c.lam,2),COL_REG[c.regimen]);
+  AMP.etH.userData.set('h mínima '+um(c.h*1e6)+' · ε '+num(c.eps,3),'#E0A33E');
+  AMP.etF.userData.set('holgura dibujada ×'+num(AMP.factor,0)+' · real '+um(c.c*1e6),'#8c98a9');
+}
+
+// ------------------------------------------------------------------- el latido
+// Contador de fotogramas. No es depuración: es la única manera de que una
+// prueba sepa que el bucle ha corrido, porque en un navegador sin GPU real la
+// escena va a unos pocos fotogramas por segundo y esperar por reloj miente.
+let PINTADAS=0;
+function pinta3D(dt){
+  animT+=dt; PINTADAS++;
+  const t=animT;
+  for(let i=tweens.length-1;i>=0;i--){
+    const w=tweens[i]; w.t+=dt;
+    const u=clamp(w.t/w.dur,0,1), q=ease(u);
+    w.o.position.lerpVectors(w.p0,w.p1,q);
+    w.o.position.y+=Math.sin(q*Math.PI)*0.42;
+    const sc=w.s0+(w.s1-w.s0)*q; w.o.scale.setScalar(sc);
+    if(u>=1){ w.o.position.copy(w.p1); w.o.scale.setScalar(w.s1);
+      w.o.rotation.set(0,0,0); w.fin&&w.fin(); tweens.splice(i,1); }
+  }
+  moviles.forEach(o=>{
+    if(o.userData.kind!=='part') return;
+    const d=o.userData;
+    o.position.y=d.baseY+Math.sin(t*1.6+d.fase)*0.02+d.lift;
+    o.rotation.y=Math.sin(t*0.5+d.fase)*0.12;
+  });
+  fantasmas.forEach(f=>{
+    const d=f.userData;
+    if(d.gm) d.gm.opacity=0.22+0.13*Math.sin(t*3.2);
+    if(d.shake>0){ d.shake=Math.max(0,d.shake-dt*1.7);
+      f.position.x=(d.home?d.home.x:f.position.x)+Math.sin(t*48)*d.shake*0.04; }
+  });
+  // El motor gira siempre que el circuito esté montado: esta práctica se hace
+  // con el motor en marcha, salvo el ensayo de arranque, que es otro modo.
+  if(G.simUnlocked){
+    TH=(TH+G.rpm*6*FACTOR_GIRO*dt)%720;
+    if(RIG.cigu) RIG.cigu.rotation.x=-TH*DEG;
+    if(RIG.rotor) RIG.rotor.rotation.z=-TH*DEG*MQ().relBomba;
+  }
+  mueveAgujas();
+  mueveGotas(dt);
+  mueveAmpliado();
+}
+
+// ================================================ T4a · HUD, PANEL Y MANDOS
+const MODES=['ensamble','viscosidad','presion','pelicula','arranque','censo','reto'];
+const MODE_META={
+  ensamble:  {n:'Montaje del circuito'},
+  viscosidad:{n:'Grado SAE y viscosidad'},
+  presion:   {n:'Presión de galería'},
+  pelicula:  {n:'Espesor de película'},
+  arranque:  {n:'Arranque en frío'},
+  censo:     {n:'Censo de instrumentos'},
+  reto:      {n:'Diagnóstico a ciegas'},
+};
+const HUD_TXT={
+  ensamble:['Montaje','Arma el circuito de aceite',
+    'Siete piezas sobre el banco y siete huecos luminosos en el motor. El circuito es un lazo cerrado: mientras falte una pieza, el tramo que la necesita se dibuja apagado y no pasa aceite por él.',
+    'Q<sub>bomba</sub>(p) = Q<sub>cojinetes</sub>(p) + Q<sub>aux</sub>(p)'],
+  viscosidad:['Viscosidad','La recta de Walther',
+    'Elige el grado SAE y mira lo que hace con la temperatura. En los ejes de ASTM D341 cada aceite es una recta; su pendiente es lo que pierde al calentarse, y el punto gordo del extremo frío es un dato de ensayo, no una extrapolación.',
+    'log₁₀log₁₀(ν+0,7) = A − B·log₁₀(T<sub>K</sub>)'],
+  presion:['Presión','Lo único que ve el conductor',
+    'La presión de galería es el equilibrio entre lo que la bomba mete y lo que el circuito deja salir. No es una propiedad del aceite ni una medida de la lubricación: es la resistencia del circuito.',
+    'p tal que Q<sub>bomba</sub>(p) = ΣQ<sub>coj</sub>(p) + Q<sub>aux</sub>(p)'],
+  pelicula:['Película','Lo que de verdad protege',
+    'El muñón flota sobre una cuña de aceite. Se resuelve la ecuación de cojinete corto, se saca la excentricidad y de ahí el espesor mínimo. λ compara ese espesor con la rugosidad de las dos superficies: por debajo de 1 hay contacto.',
+    'h<sub>mín</sub> = c(1−ε) · λ = h<sub>mín</sub> / √(Rq₁²+Rq₂²)'],
+  arranque:['Arranque','Donde se gasta el motor',
+    'Los dos ensayos de invierno de J300 miden cosas distintas: el CCS dice si el motor de arranque lo gira y el MRV, si la bomba lo aspira. Se puede pasar el primero y fallar el segundo, y eso es un motor girando en seco.',
+    'vueltas en seco = n·t<sub>cebado</sub>/60'],
+  censo:['Censo','¿Qué instrumentos hacen falta?',
+    'Siete observaciones, 127 subconjuntos, trece escenarios. La pregunta útil no es cuánto marca cada instrumento, sino cuántos escenarios distintos separa. Hay un teorema aquí, y es incómodo.',
+    'firma(sub) → clases de equivalencia'],
+  reto:['Reto','Diagnostica a ciegas',
+    'El escenario está oculto. Compra las observaciones que necesites y entrega la FAMILIA de avería. Dos de los trece escenarios no mueven el manómetro ni un dígito.',
+    'diagnóstico = f(p, luz, vueltas, análisis, holgura)'],
+};
+function pintaHUD(){
+  const t=HUD_TXT[G.modo]||HUD_TXT.ensamble, e=MQ();
+  el('hud').innerHTML=
+    '<div class="eyebrow">Lubricación del motor · '+t[0]+'</div>'+
+    '<h2>'+t[1]+'</h2>'+
+    '<p>'+t[2]+'</p>'+
+    '<div class="formula">'+t[3]+'</div>'+
+    '<div class="legend">'+
+      '<div class="li"><span class="dot" style="background:'+COL_REG.hidrodinamico+'"></span>película completa (λ ≥ 3)</div>'+
+      '<div class="li"><span class="dot" style="background:'+COL_REG.mixto+'"></span>régimen mixto (1 ≤ λ &lt; 3)</div>'+
+      '<div class="li"><span class="dot" style="background:'+COL_REG.limite+'"></span>régimen límite: hay contacto</div>'+
+      '<div class="li"><span class="dot" style="background:'+AMBAR+'"></span>aceite filtrado</div>'+
+      '<div class="li"><span class="dot" style="background:#6b4a12"></span>aceite sin filtrar</div>'+
+    '</div>'+
+    '<div class="fid">'+
+      '<div class="ft">🔒 Contrato de fidelidad</div>'+
+      '<div class="fl"><b>Sí modela:</b> viscosidad contra temperatura por la ecuación de Walther (ASTM D341), con el tramo frío anclado en el punto <b>medido</b> del ensayo de arranque en frío; verificación de los cuatro criterios de SAE J300 —banda de KV100, HTHS, CCS y MRV—; cojinete corto (solución de Ocvirk) con excentricidad por bisección, h<sub>mín</sub> = c(1−ε) y espesor específico contra la rugosidad compuesta; circuito resuelto por balance de caudales entre una bomba volumétrica con resbalamiento y la fuga de cada cojinete, que va con el <b>cubo</b> de su holgura; y el arranque en frío con su par resistente, su régimen de giro y su tiempo de cebado.</div>'+
+      '<div class="fl no"><b>NO modela:</b> el cojinete se analiza en régimen <b>estacionario</b> con la carga media equivalente del ciclo (factor '+num(F_MEDIA,2)+' del pico), porque meter el pico como carga estática ignora el efecto de película exprimida; por encima de ε = 0,90 la solución de cojinete corto ya extrapola y el modelo lo <b>avisa en pantalla</b> en vez de callarlo; las averías se declaran por lo que cambian físicamente, no por su síntoma; la gelificación en frío es un dato declarado de cada aceite y no se deduce de su viscosidad; el nivel del cárter se dibuja bajo cuando el escenario lo dice, pero lo que el modelo simula es la fracción de aire aspirado; el corte del motor es del eje del cigüeñal hacia abajo —esta práctica no toca la combustión, así que no hay pistones ni culata— y las bancadas se dibujan <b>en línea</b> en los cuatro arquetipos, también el V8; la escena gira el cigüeñal a <b>'+num(FACTOR_GIRO,3)+' veces</b> la velocidad real para que se vea girar, y el cojinete ampliado dibuja la holgura multiplicada por el factor que él mismo publica. Los cuatro motores son arquetipos declarados, <b>no</b> modelos comerciales: la holgura de montaje, la presión mínima admisible y el aceite que le corresponde a un motor real están en su manual de taller y en ningún otro sitio.</div>'+
+    '</div>'+
+    '<div class="src">Ref: SAE J300, clasificación de viscosidad de aceites de motor · ASTM D341, viscosidad contra temperatura · ASTM D2270, índice de viscosidad · manual de taller del fabricante (única fuente de la holgura, de la presión mínima y del aceite de un motor concreto) · Hamrock, <i>Fundamentals of Fluid Film Lubrication</i> · Motor en pantalla: '+e.nombre+'.</div>';
+}
+
+el('panel').innerHTML=
+  '<h4>Circuito de lubricación <span id="p_mode"></span></h4>'+
+  '<div class="modebar">'+
+    '<button class="b" id="m_ensamble">1 · Montar</button>'+
+    '<button class="b" id="m_viscosidad">2 · Viscosidad</button>'+
+    '<button class="b" id="m_presion">3 · Presión</button>'+
+    '<button class="b" id="m_pelicula">4 · Película</button>'+
+  '</div>'+
+  '<div class="modebar">'+
+    '<button class="b" id="m_arranque">5 · Arranque</button>'+
+    '<button class="b" id="m_censo">6 · Censo</button>'+
+    '<button class="b" id="m_reto">7 · Reto</button>'+
+  '</div>'+
+  '<div id="ctrlbar"></div>'+
+  '<div id="tele"></div>'+
+  '<div class="console" id="report"></div>'+
+  '<h4 class="sec" id="retoTitle">Diagnóstico a ciegas</h4>'+
+  '<div id="retoBox">'+
+    '<div class="console" id="retoSpec"></div>'+
+    '<div class="btns" id="obsreto"></div>'+
+    '<div class="btns" id="dxreto"></div>'+
+    '<div class="btns">'+
+      '<button class="b" id="btnPista">💡 Pedir una pista</button>'+
+      '<button class="b primary" id="btnCheck">Entregar el diagnóstico</button>'+
+    '</div>'+
+  '</div>'+
+  '<h4 class="sec">Pregunta de ingeniería</h4>'+
+  '<div id="q_text" class="console"></div>'+
+  '<div class="btns" id="dxbtns"></div>'+
+  '<div class="btns">'+
+    '<button class="b auto" id="btnAuto">▶︎ Recorrido guiado</button>'+
+    '<button class="b primary" id="btnNew">🔀 Otro caso</button>'+
+  '</div>';
+
+// ------------------------------------------------------------------ controles
+// Los mandos se levantan desde el estado. Un mando que no puede hacer nada en el
+// modo actual no se dibuja: un botón pulsable que no cambia nada enseña a
+// desconfiar de la interfaz.
+// Los botones de una barra se reparten el ancho a partes iguales, así que trece
+// en una sola fila salen ilegibles y el último se sale del panel. Se cortan en
+// varias barras de altura pareja, calculadas del número de opciones.
+function fila(rot,attr,ops,cur){
+  const filas=Math.ceil(ops.length/5), porFila=Math.ceil(ops.length/filas);
+  let h='<div class="gl" style="margin:9px 0 4px"><span>'+rot+'</span></div>';
+  for(let i=0;i<ops.length;i+=porFila){
+    h+='<div class="modebar">'+ops.slice(i,i+porFila).map(o=>
+      '<button class="b'+(String(o[0])===String(cur)?' on':'')+'" '+attr+'="'+o[0]+'">'+o[1]+'</button>'
+    ).join('')+'</div>';
+  }
+  return h;
+}
+// Rótulo corto de cada escenario para los botones. Si mañana aparece un
+// escenario nuevo sin rótulo corto, cae en el recorte del largo en vez de
+// quedarse sin botón.
+const ESC_CORTO={sano:'sano', coj1:'1 cojinete', cojN:'todos gastados', bomba:'bomba',
+  limAb:'lim. abierta', limCer:'lim. cerrada', filtro:'filtro tapado', diluido:'diluido',
+  nivel:'nivel bajo', antidren:'antirretorno', envejecido:'envejecido',
+  finoFrio:'muy fino', gruesoFrio:'muy grueso'};
+// El ralentí es una PROPIEDAD de la máquina, así que siempre está entre las
+// opciones y es adonde se vuelve al cambiar de motor. Si no, el panel ofrecería
+// un régimen que ese motor no tiene y la cifra saldría de un punto inexistente.
+const rpmOps=()=>[...new Set([MQ().ralenti,1200,2000,3000,4500])].sort((a,b)=>a-b);
+const CARGA_OPS=[[0,'sin carga'],[0.5,'media'],[1,'pie a fondo']];
+const T_ARR=[-30,-25,-20,-15,-10,0];
+const corta=(s,n)=>s.length>n?s.slice(0,n-1)+'…':s;
+
+function buildControls(){
+  const e=MQ(), reto=(G.modo==='reto');
+  let h='';
+  if(!reto) h+=fila('Motor en el banco','data-mk',ARQ_KEYS.map(k=>[k,ARQ[k].corto]),G.maq);
+  else h+='<div class="gl" style="margin:9px 0 4px"><span>Motor bajo diagnóstico</span><b>'+e.corto+'</b></div>';
+
+  if(!reto) h+=fila('Estado del motor','data-esc',
+    ESCEN_KEYS.map(k=>[k,ESC_CORTO[k]||corta(ESCEN[k].rot,16)]),G.esc);
+  else h+='<div class="gl" style="margin:9px 0 4px"><span>Estado del motor</span><b class="warn">oculto</b></div>';
+
+  if(!reto){
+    h+=fila('Aceite en el cárter','data-ac',ACEITE_KEYS.map(k=>[k,ACEITES[k].corto]),G.aceite);
+    if(aceiteForzado())
+      h+='<div class="gl" style="margin:4px 0 4px"><span>Ojo</span><b class="warn">el escenario impone '+
+        ACEITES[aceiteEfectivo()].corto+'</b></div>';
+  }
+  if(G.modo==='viscosidad'||G.modo==='presion'||G.modo==='pelicula')
+    h+=fila('Temperatura del aceite','data-t',TEMPS.map(t=>[t,num(t,0)+' °C']),G.T);
+  if(G.modo==='presion'||G.modo==='pelicula'){
+    h+=fila('Régimen del motor','data-rpm',
+      rpmOps().map(r=>[r,num(r,0)+(r===e.ralenti?'*':'')]),G.rpm);
+    h+=fila('Par pedido','data-cg',CARGA_OPS.map(c=>[c[0],c[1]]),G.carga);
+  }
+  if(G.modo==='arranque')
+    h+=fila('Temperatura del ensayo','data-ta',T_ARR.map(t=>[t,num(t,0)+' °C']),G.Tarr);
+  el('ctrlbar').innerHTML=h;
+}
+function syncCtrlbar(){
+  MODES.forEach(m=>{
+    const b=el('m_'+m); if(!b) return;
+    const viva=(m==='ensamble')||G.simUnlocked;
+    b.disabled=!viva; b.style.opacity=viva?'1':'0.45';
+    b.classList.toggle('on',m===G.modo);
+  });
+  const rt=(G.modo==='reto');
+  el('retoTitle').style.display=rt?'':'none';
+  el('retoBox').style.display=rt?'':'none';
+  el('p_mode').textContent=G.simUnlocked?('· '+MODE_META[G.modo].n):'· circuito incompleto';
+  el('btnNew').textContent=rt?'🔀 Otro motor averiado'
+    :(G.modo==='ensamble'?'🔁 Volver a montar':'🔀 Otro caso');
+  el('btnAuto').disabled=autoRunning;
+  buildControls();
+}
+
+// ---------------------------------------------------------------- telemetría
+const gl=(l,v,c)=>'<div class="g"><div class="gl"><span>'+l+'</span><b'+(c?' class="'+c+'"':'')+'>'+v+'</b></div></div>';
+function pintaTele(){
+  if(!G.simUnlocked){
+    el('tele').innerHTML=gl('Piezas montadas',ASM.done.size+' / '+PARTS.length,
+      ASM.done.size===PARTS.length?'good':'warn')+
+      gl('Siguiente','toca una pieza del banco','');
+    return;
+  }
+  const e=MQ(), s=EST(), V=veredicto();
+  let h='';
+  // En el diagnóstico a ciegas sólo se publica lo que el alumno ha COMPRADO.
+  // El aceite del cárter delata los dos escenarios de aceite equivocado, la
+  // fila de filtrado delata el filtro obstruido y el veredicto los delata
+  // todos: publicarlos aquí sería regalar la respuesta.
+  if(G.modo==='reto'){
+    // El motor y el «oculto» ya los escribe el panel justo encima: repetirlos
+    // aquí sólo gasta las cuatro líneas que tiene la telemetría.
+    h+=gl('Observaciones compradas',Object.keys(RETO.tomadas).length+' / '+OBS.length,
+      Object.keys(RETO.tomadas).length?'':'warn');
+    h+=gl('Familia elegida',RETO.eleccion||'ninguna todavía',RETO.eleccion?'':'warn');
+    if(RETO.veredicto) h+=gl('Diagnóstico entregado',RETO.veredicto.ok?'acertado':'fallado',
+      RETO.veredicto.ok?'good':'bad');
+    el('tele').innerHTML=h;
+    return;
+  }
+  h+=gl('Aceite en el cárter',ACEITES[aceiteEfectivo()].corto+(aceiteForzado()?' (impuesto)':''),
+    aceiteForzado()?'warn':'');
+  if(G.modo==='viscosidad'){
+    const j=J300(), fallos=['kv100','hths','ccs','mrv'].filter(k=>j[k]&&!j[k].ok);
+    h+=gl('Viscosidad a '+num(G.T,0)+' °C',cSt(s.nu)+' · '+mPas(s.mu*1000,1),'');
+    h+=gl('Cumple su grado J300',fallos.length?('no: '+fallos.join(', ')):'sí',fallos.length?'bad':'good');
+    h+=gl('HTHS a 150 °C',num(ACEITES[aceiteEfectivo()].hths,2)+NBSP+'mPa·s',
+      j.hths.ok?'good':'bad');
+  }
+  if(G.modo==='presion'||G.modo==='pelicula'){
+    h+=gl('Presión de galería',bar(s.p),s.alarma?'bad':(s.abreLim?'warn':'good'));
+    h+=gl('Mínimo del fabricante',bar(e.pAlarma,2),'warn');
+    h+=gl('Caudal por la galería',num(s.Q,2)+NBSP+'L/min','');
+    h+=gl('Limitadora',s.abreLim?'abierta, recorta':'cerrada, no recorta',s.abreLim?'warn':'');
+  }
+  if(G.modo==='pelicula'){
+    h+=gl('h mínima (bancada '+(s.peor.i+1)+')',um(s.peor.h*1e6),
+      s.peor.lam<1?'bad':(s.peor.lam<3?'warn':'good'));
+    h+=gl('Espesor específico λ',num(s.peor.lam,2)+' · '+ROT_REG[s.peor.regimen],
+      s.peor.lam<1?'bad':(s.peor.lam<3?'warn':'good'));
+    h+=gl('Excentricidad ε',num(s.peor.eps,3),s.peor.extrapola?'warn':'');
+    h+=gl('Carga de diseño del cojinete',num(s.pEspDis,1)+NBSP+'MPa de '+num(s.pEsp,1)+' de pico','');
+  }
+  if(G.modo==='arranque'){
+    const r=ARR(), VA=veredictoArranque();
+    h+=gl('Viscosidad a '+num(G.Tarr,0)+' °C',mPas(r.eta,0),'');
+    h+=gl('Régimen de arranque',num(r.n,0)+NBSP+'rpm (mín '+num(e.nMinArr,0)+')',
+      r.arranca?'good':'bad');
+    // «Bombeable» NO es «ceba»: es una propiedad del aceite a esa temperatura.
+    // Un motor que no gira tiene el aceite perfectamente bombeable y aun así no
+    // ceba nada, y llamar a las dos cosas igual convierte la fila en una
+    // contradicción en pantalla.
+    h+=gl('¿El aceite es bombeable?',r.bombea?'sí':'NO: gelificado',r.bombea?'good':'bad');
+    h+=gl('Vueltas en seco',isFinite(r.vueltasSeco)?num(r.vueltasSeco,1)+' (máx '+num(e.vueltasMax,0)+')'
+      :(r.arranca?'nunca ceba: gira EN SECO':'no llega a girar'),
+      isFinite(r.vueltasSeco)?(r.vueltasSeco>e.vueltasMax?'warn':'good'):'bad');
+    h+=gl('Veredicto del ensayo',VA.rot,VA.ok?'good':'bad');
+  }
+  if(G.modo==='censo'){
+    const C=CENSO(), N=ESCEN_KEYS.length;
+    const min=C.filter(x=>x.resueltos===N).sort((a,b)=>a.sub.length-b.sub.length)[0];
+    const tal=C.find(x=>x.sub.length===OBS.filter(o=>o.taller).length&&x.sub.every(o=>o.taller));
+    h+=gl('Escenarios en juego',String(N),'');
+    h+=gl('Sólo con lo de taller',tal.resueltos+' / '+N,tal.resueltos===N?'good':'bad');
+    h+=gl('Observaciones mínimas',min?String(min.sub.length):'—',min?'good':'bad');
+  }
+  h+=gl('Aceite filtrado',s.filtrado?'sí':'NO: derivación abierta',s.filtrado?'good':'bad');
+  h+=gl('Veredicto con el motor en marcha',
+    V.malo?'hay algo que corregir':(G.esc==='sano'?'todo en orden':'aquí no se nota nada'),
+    V.malo?'bad':(G.esc==='sano'?'good':'warn'));
+  el('tele').innerHTML=h;
+}
+
+// ------------------------------------------------------------------ informe
+// El informe dice el veredicto Y por qué criterio, porque el laboratorio
+// demuestra que los criterios no son equivalentes.
+function pintaInforme(){
+  const R=el('report'), e=MQ();
+  if(!G.simUnlocked){
+    R.innerHTML='<span class="mono">Faltan '+(PARTS.length-ASM.done.size)+
+      ' piezas del circuito.</span> Toca una pieza del banco y luego su hueco luminoso en el motor.';
+    return;
+  }
+  if(G.modo==='reto'){ pintaReto(); return; }
+  const s=EST(), V=veredicto(), VA=veredictoArranque();
+  const parte=[];
+  if(!V.presion) parte.push('<b class="bad">presión por debajo del mínimo:</b> '+bar(s.p)+
+    ' contra '+bar(e.pAlarma,2));
+  if(!V.pelicula) parte.push('<b class="bad">régimen límite en la bancada '+(s.peor.i+1)+':</b> λ = '+
+    num(s.peor.lam,2)+', hay contacto metal-metal');
+  else if(!V.plena) parte.push('<b class="warn">régimen mixto en la bancada '+(s.peor.i+1)+':</b> λ = '+
+    num(s.peor.lam,2)+', por debajo de la película completa');
+  if(!V.filtrado) parte.push('<b class="bad">el aceite circula sin filtrar</b> (la derivación está abierta)');
+  if(V.revienta) parte.push('<b class="bad">la presión pasa de lo que aguanta el filtro</b> ('+
+    bar(e.pMaxFiltro,1)+')');
+
+  let h;
+  if(!parte.length){
+    // Con una avería montada, «en orden» sería falso: lo que dice el modelo es
+    // que en ESTE punto de trabajo no se nota. Esa distinción es la práctica.
+    const sano=G.esc==='sano';
+    h=(sano?'<b class="good">Circuito y cojinetes en orden.</b> '
+           :'<b class="warn">En este punto de trabajo no se nota nada.</b> ')+
+      bar(s.p)+' de galería, λ = '+
+      num(s.peor.lam,2)+' en la peor bancada y '+num(s.Q,2)+NBSP+'L/min de caudal. '+
+      (sano?'Conviene fijarse en que estas dos cifras no se implican: sube la temperatura y verás cuál cae antes. '
+           :'Hay una avería montada y ninguna de las cuatro medidas se ha movido: cambia el régimen, la temperatura o el par pedido, o mira el ensayo de arranque, antes de dar el motor por bueno. ')+
+      'Escenario montado: <b>'+ESCEN[G.esc].rot+'</b> — '+ESCEN[G.esc].clave+'.';
+  }else{
+    h='<b>Hallazgos:</b> '+parte.join(' · ')+'. ';
+    // El criterio que se queda ciego, cuando lo hay: es el corazón de la práctica.
+    const ciegos=[];
+    if(V.presion&&!V.plena) ciegos.push('el manómetro NO lo ve: marca '+bar(s.p)+
+      ' y la luz está apagada');
+    if(!V.presion&&V.plena) ciegos.push('la película aguanta pese a la alarma: lo que ha caído es la resistencia del CIRCUITO, no la lubricación del cojinete');
+    if(!V.filtrado) ciegos.push('el filtro obstruido no mueve el manómetro ni un dígito: sólo se paga en desgaste');
+    if(!VA.ok&&V.presion&&V.plena) ciegos.push('con el motor caliente y en marcha no se ve nada: el ensayo de arranque a '+num(G.Tarr,0)+' °C sí ('+VA.rot+')');
+    if(ciegos.length) h+='<span class="warn">Y esto es lo que hay que llevarse: '+ciegos.join('; ')+'.</span> ';
+    h+='Escenario montado: <b>'+ESCEN[G.esc].rot+'</b> — '+ESCEN[G.esc].clave+'.';
+  }
+  // El arranque se informa aparte, y sólo en su modo: es otra pregunta.
+  if(G.modo==='arranque') h+=' <b>Ensayo de arranque a '+num(G.Tarr,0)+' °C:</b> '+
+    (VA.ok?'<b class="good">'+VA.rot+'</b>.':'<b class="bad">'+VA.rot+'</b>.')+
+    ' Esto se juzga aparte de la presión: el motor en marcha y el motor arrancando son dos preguntas distintas.';
+  if(s.extrapola) h+=' <span class="warn">Aviso del modelo: ε &gt; 0,90 en alguna bancada, '+
+    'donde la solución de cojinete corto ya extrapola. La cifra sigue siendo conservadora, pero es una extrapolación.</span>';
+  R.innerHTML=h;
+}
+
+// ------------------------------------------------------------------- modos
+function afterEdit(){
+  invalida();
+  if(!rpmOps().includes(G.rpm)) G.rpm=2000;
+  pintaTablero(); pintaTele(); pintaInforme(); syncCtrlbar();
+}
+function setMode(m){
+  if(m!=='ensamble'&&!G.simUnlocked){
+    showToast('Primero hay que <b>montar el circuito</b>.',2400);
+    return;
+  }
+  if(G.modo==='ensamble'&&m!=='ensamble'&&ASM.done.size<PARTS.length){
+    showToast('Faltan piezas por montar.',2200); return;
+  }
+  G.modo=m;
+  // Volver a la vista de montaje NO desmonta lo ya montado. Si lo hiciera, mirar
+  // cómo quedó el circuito costaría rehacerlo entero, y el alumno aprendería a
+  // no volver nunca. Para practicar el montaje otra vez está «Volver a montar».
+  if(m==='ensamble'){ if(ASM.done.size<PARTS.length) initAssembly(); }
+  else if(ASM.done.size<PARTS.length){ montaKit(); }
+  if(m==='reto') armaReto();
+  pintaHUD(); afterEdit(); refrescaPregunta();
+  // Encuadres. Los tres modos cuya materia está en el pizarrón van al pizarrón;
+  // los dos que hablan del circuito montado van a un plano que coge el motor Y
+  // el pizarrón a la vez, porque las gráficas y la telemetría se leen juntas; y
+  // película va al cojinete ampliado, que es de lo que trata ese modo.
+  if(m==='viscosidad'||m==='censo'){ const t=camTablero(); S.moveTo(t[0],t[1],1.1); return; }
+  if(m==='reto'){ const t=camTablero(6.4); S.moveTo(t[0],t[1],1.1); return; }
+  if(m==='pelicula'){ S.moveTo([AMP.x+0.10,AMP.y+0.16,AMP.z+3.15],[AMP.x,AMP.y-0.10,AMP.z],1.1); return; }
+  if(m==='ensamble'){ const k=G.k||1;
+    S.moveTo([7.2*k,4.9*Math.min(k,1.5),10.8*k],[0.6*k,1.95,0.30],1.2); return; }
+  // Presion y arranque: la gráfica hay que LEERLA, así que se va al pizarrón,
+  // pero corrido para que el motor —con su manómetro, su luz y el color del
+  // aceite— entre por la derecha. Un encuadre que coge las dos cosas de lejos
+  // deja la gráfica del tamaño de un sello y no sirve para nada.
+  const d=8.2+1.5*((G.k||1)-1);
+  const t=camTablero(d,0.321*d-1.75); S.moveTo(t[0],t[1],1.1);
+}
+
+// ============================== T4b · RETO, CUESTIONARIO, RECORRIDO Y ARRANQUE
+// Las familias que se pueden diagnosticar son exactamente las `clave` que
+// declara el motor sellado: si mañana se añade un escenario con una clave nueva,
+// aparece sola en la lista en vez de quedarse fuera sin avisar.
+const FAMILIAS=[...new Set(ESCEN_KEYS.map(k=>ESCEN[k].clave))];
+const RETO={caso:null, tomadas:{}, eleccion:null, veredicto:null, pistas:0};
+
+function barajaEn(a){                       // Fisher-Yates, para que la posición
+  for(let i=a.length-1;i>0;i--){            // de la respuesta no sea la pista
+    const j=Math.floor(Math.random()*(i+1)); [a[i],a[j]]=[a[j],a[i]];
+  }
+  return a;
+}
+function armaReto(){
+  const casos=casosReto();
+  RETO.caso=casos[Math.floor(Math.random()*casos.length)];
+  G.esc=RETO.caso;
+  // El motor entra al taller con el aceite que pide su fabricante. Si la avería
+  // es precisamente el aceite, el escenario lo impone y eso forma parte del caso.
+  G.aceite=MQ().aceiteOEM;
+  RETO.tomadas={}; RETO.eleccion=null; RETO.veredicto=null; RETO.pistas=0;
+  invalida(); pintaObsReto(); pintaDxReto();
+}
+// Valor legible de cada observación. Sale del motor sellado, con la misma
+// resolución que declara OBS: comprar el instrumento no da precisión infinita.
+function valorObs(k){
+  const e=MQ(), L=LECT(), o=OBS.find(x=>x.k===k);
+  if(k==='luz') return L.alarmaEn.length
+    ? 'se enciende en: '+L.alarmaEn.map(x=>PUNTOS.find(p=>p.k===x).rot).join(' y ')
+    : 'no se enciende en ningún punto';
+  if(k==='vueltas') return isFinite(L.arr.vueltasSeco)
+    ? num(cuant(L.arr.vueltasSeco,o.res),1)+' vueltas en seco'
+    : 'no llega a cebar';
+  if(k==='visc'){
+    const s=estado(e,{aceite:L.aceite,T:100,rpm:e.ralenti,falla:ESCEN[L.esc].falla});
+    return num(cuant(s.nu,o.res),1)+NBSP+'mm²/s a 100 °C'+(s.filtrado?', limpio':', CON PARTÍCULAS');
+  }
+  if(k==='holgura'){
+    const F=fisicaDe(e,ESCEN[L.esc].falla,ACEITES[L.aceite],100);
+    return F.hol.map(h=>num(cuant(h*2000,o.res),3)).join(' / ')+NBSP+'mm';
+  }
+  return bar(cuant(L[k],o.res),2);
+}
+function mide(k){
+  if(G.modo!=='reto'||RETO.tomadas[k]) return;
+  RETO.tomadas[k]=valorObs(k);
+  synth.beep(560,0.06,0.04);
+  pintaObsReto(); pintaReto(); pintaTablero();
+}
+function pintaObsReto(){
+  el('obsreto').innerHTML=OBS.map(o=>
+    '<button class="b'+(RETO.tomadas[o.k]?' on':'')+'" data-obs="'+o.k+'">'+
+    (o.taller?'':'💰 ')+corta(o.rot,30)+'</button>').join('');
+}
+function pintaDxReto(){
+  const ops=barajaEn(FAMILIAS.slice());
+  el('dxreto').innerHTML=ops.map(f=>
+    '<button class="b'+(RETO.eleccion===f?' on':'')+'" data-fam="'+f+'">'+f+'</button>').join('');
+}
+function pintaReto(){
+  const R=el('report'), n=Object.keys(RETO.tomadas).length;
+  let h='<b>Motor bajo diagnóstico:</b> '+MQ().nombre+'. Observaciones compradas: '+n+'/'+OBS.length+'. ';
+  if(RETO.veredicto) h+=(RETO.veredicto.ok?'<b class="good">Acertaste.</b> ':'<b class="bad">Fallaste.</b> ')+RETO.veredicto.texto;
+  else h+='Compra lo que necesites, elige la familia y entrega el diagnóstico.';
+  R.innerHTML=h;
+  const spec=el('retoSpec');
+  spec.innerHTML=n
+    ? '<span class="mono">'+OBS.filter(o=>RETO.tomadas[o.k])
+        .map(o=>corta(o.rot,34)+': '+RETO.tomadas[o.k]).join('<br>')+'</span>'
+    : '<span class="mono">Sin observaciones todavía.</span> Las cuatro primeras se toman en el taller; las dos últimas cuestan un análisis y un desarme.';
+}
+function pista(){
+  const e=MQ(), C=CENSO(), N=ESCEN_KEYS.length;
+  const tal=C.find(x=>x.sub.length===OBS.filter(o=>o.taller).length&&x.sub.every(o=>o.taller));
+  const p=[
+    'Empieza por las tres presiones. Si las tres coinciden con las de un motor sano, la avería es de las que el manómetro no ve.',
+    'Mira la luz y las vueltas en seco: hay una avería que sólo se paga al arrancar y no mueve la presión ni un dígito.',
+    'Con todo lo de taller se separan '+tal.resueltos+' de los '+N+' escenarios de este '+e.corto+
+      '. Si tu caso está entre los que quedan pegados, hace falta el análisis de aceite o el plastigage.',
+  ];
+  const i=Math.min(RETO.pistas,p.length-1);
+  RETO.pistas++;
+  showToast('💡 '+p[i],6500);
+  synth.beep(520,0.07,0.04);
+}
+function checkReto(){
+  if(!RETO.eleccion){ showToast('Elige primero una familia de avería.',2200); return; }
+  const e=MQ(), L=LECT(), s=EST({T:110,rpm:e.ralenti}), ok=(RETO.eleccion===L.clave);
+  const F=FALLAS[ESCEN[RETO.caso].falla];
+  const forzado=ESCEN[RETO.caso].aceite;
+  const queEra='Era <b>'+ESCEN[RETO.caso].rot+'</b> ('+L.clave+'). '+
+    (forzado?('El motor llevaba '+ACEITES[forzado].rot+'. '):'')+F.nota;
+  const pruebas='Lo que lo demostraba: presión en caliente a ralentí '+bar(L.pCalRal)+
+    ' contra '+bar(lecturas(e,'sano',{aceite:e.aceiteOEM}).pCalRal)+' del motor sano, '+
+    (isFinite(L.arr.vueltasSeco)?num(L.arr.vueltasSeco,1)+' vueltas en seco al arrancar':'una bomba que no ceba')+
+    ' y λ = '+num(s.peor.lam,2)+' en la peor bancada.';
+  let txt;
+  if(ok){
+    txt=queEra+' '+pruebas;
+    const compradas=Object.keys(RETO.tomadas).length;
+    if(compradas<3) txt+=' <span class="warn">Acertaste con sólo '+compradas+
+      ' observación'+(compradas===1?'':'es')+': acertar por corazonada y acertar por método se parecen en la respuesta y en nada en el taller.</span>';
+    G.resuelto=true;
+    synth.beep(660,0.09,0.05); setTimeout(()=>synth.beep(880,0.13,0.05),110);
+  }else{
+    txt=queEra+' '+pruebas;
+    synth.beep(180,0.14,0.05);
+  }
+  // Dos versiones del mismo veredicto: la del panel lleva etiquetas y la del
+  // pizarron va en texto plano, porque un lienzo 2D dibujaria las etiquetas
+  // literales. Guardar solo una obliga a que alguna de las dos mienta.
+  RETO.veredicto={ok, texto:txt, plano:txt.replace(/<[^>]+>/g,'')};
+  pintaReto(); pintaTablero();
+}
+
+// -------------------------------------------------------------- cuestionario
+// Una pregunta por modo, con la respuesta calculada por el motor sellado y las
+// opciones barajadas en cada refresco: la posición nunca es la pista.
+let QUIZ=null;
+function preguntaDe(m){
+  const e=MQ();
+  if(m==='viscosidad'){
+    const a=ACEITES.a10w40, b=ACEITES.a15w40;
+    const mejor=a.hths>=b.hths?a:b;
+    return {t:'El '+b.corto+' tiene menos viscosidad a 100 °C que el '+a.corto+' ('+
+      num(b.kv100,2)+' contra '+num(a.kv100,2)+NBSP+'mm²/s). ¿Cuál protege más el cojinete a 150 °C y cizalla alta?',
+      ops:[[a.corto+', porque tiene más KV100',a===mejor],
+           [b.corto+', porque tiene más HTHS ('+num(b.hths,2)+' contra '+num(a.hths,2)+')',b===mejor],
+           ['Los dos igual: el grado de verano ya lo dice todo',false]],
+      exp:'El número de verano ordena la KV a 100 °C, que se mide a cizalla baja. Lo que aguanta el cojinete es el HTHS, medido a 150 °C y 10⁶ s⁻¹, y NO se deduce del grado.'};
+  }
+  if(m==='presion'){
+    const fr=EST({T:20,rpm:e.ralenti}), ca=EST({T:110,rpm:e.ralenti});
+    return {t:'Con el motor a ralentí, la presión pasa de '+bar(fr.p)+' en frío a '+bar(ca.p)+
+      ' en caliente. ¿Qué ha cambiado?',
+      ops:[['La bomba entrega menos caudal al calentarse',false],
+           ['El aceite se ha afinado y el circuito deja salir más por la misma presión',true],
+           ['La limitadora ha empezado a abrir al calentarse',false]],
+      exp:'La bomba es volumétrica: entrega prácticamente lo mismo. Lo que cambia es la viscosidad, y con ella la fuga de cada cojinete. La presión es el equilibrio entre las dos cosas.'};
+  }
+  if(m==='pelicula'){
+    const a=EST({T:110,rpm:e.ralenti,carga:0}),
+          b=EST({T:110,rpm:3000,carga:0}),
+          c=EST({T:110,rpm:1200,carga:1});
+    const peor=[['ralentí sin carga',a],['3 000 rpm sin carga',b],['1 200 rpm a plena carga',c]]
+      .reduce((x,y)=>x[1].peor.lam<=y[1].peor.lam?x:y);
+    return {t:'Los tres puntos están a 110 °C. ¿En cuál es más delgada la película?',
+      ops:[['A ralentí sin carga (λ = '+num(a.peor.lam,2)+')',peor[0]==='ralentí sin carga'],
+           ['A 3 000 rpm sin carga (λ = '+num(b.peor.lam,2)+')',peor[0]==='3 000 rpm sin carga'],
+           ['A 1 200 rpm con el pie a fondo (λ = '+num(c.peor.lam,2)+')',peor[0]==='1 200 rpm a plena carga']],
+      exp:'La carga del cojinete la fija la presión del cilindro, y sin par pedido el pico es el de COMPRESIÓN, no el de combustión. Además la inercia descarga el cojinete al subir de vueltas: el punto crítico está a régimen bajo con el pie a fondo, no arriba.'};
+  }
+  if(m==='arranque'){
+    const g=arranque(e,{aceite:'a20w50',T:-20}), f=arranque(e,{aceite:'a0w20',T:-20});
+    return {t:'A −20 °C, con '+ACEITES.a20w50.corto+' el motor da '+num(g.n,0)+
+      ' rpm de arranque y con '+ACEITES.a0w20.corto+', '+num(f.n,0)+
+      '. El mínimo para que encienda es '+num(e.nMinArr,0)+'. ¿Qué ensayo de J300 mide eso?',
+      ops:[['El CCS: viscosidad a cizalla alta, la que ve el motor de arranque',true],
+           ['El MRV: viscosidad a cizalla baja, la que ve la bomba',false],
+           ['La KV a 100 °C del grado de verano',false]],
+      exp:'J300 pide DOS ensayos de invierno porque miden cosas distintas: el CCS garantiza que el motor de arranque lo gire y el MRV, que la bomba lo aspire. Se puede pasar el primero y fallar el segundo, y entonces el motor gira EN SECO.'};
+  }
+  if(m==='censo'){
+    const C=CENSO(), N=ESCEN_KEYS.length;
+    const man=C.find(x=>x.sub.length===3&&x.sub.every(o=>o.k.startsWith('p')));
+    return {t:'Con las tres presiones del protocolo y nada más se separan '+man.resueltos+
+      ' de los '+N+' escenarios de este '+e.corto+'. ¿Por qué no llegan a los '+N+'?',
+      ops:[['Porque el manómetro es poco preciso',false],
+           ['Porque hay averías que no cambian la presión: el filtro obstruido y el antirretorno roto la dejan idéntica',true],
+           ['Porque haría falta medir en más regímenes',false]],
+      exp:'No es cuestión de precisión ni de más puntos: son dos averías cuya firma en presión es IDÉNTICA a la del motor sano, hasta el último dígito. Una se paga en desgaste y la otra, en vueltas en seco al arrancar.'};
+  }
+  if(m==='reto'){
+    return {t:'Dos de los trece escenarios dejan la presión exactamente igual que la de un motor sano. ¿Cómo se cazan?',
+      ops:[['Con el análisis de aceite y con las vueltas en seco al arrancar',true],
+           ['Midiendo la presión a más regímenes',false],
+           ['Con un manómetro de más resolución',false]],
+      exp:'El filtro obstruido se delata en el análisis —el aceite lleva partículas— y el antirretorno roto, en las vueltas que el motor da en seco al arrancar. Ninguna de las dos cosas se lee en la galería.'};
+  }
+  const s=EST({T:110,rpm:e.ralenti,falla:'filtroSucio'}), b=EST({T:110,rpm:e.ralenti,falla:'sano'});
+  return {t:'Con el filtro obstruido y su derivación abierta, la presión de galería a ralentí en caliente vale '+
+    bar(s.p)+': exactamente la misma cifra que en el motor sano, '+bar(b.p)+
+    '. ¿Qué pieza del circuito avisa de esa avería?',
+    ops:[['El manocontacto: para eso está',false],
+         ['Ninguna de las que se montan: no hay señal, y por eso el filtro se cambia por kilómetros',true],
+         ['La limitadora, que abre antes',false]],
+    exp:'La derivación existe para que el motor no se quede SIN aceite cuando el elemento se tapa, y hace bien su trabajo: sigue llegando el mismo caudal. El precio es que llega sin filtrar y nada lo indica.'};
+}
+function refrescaPregunta(){
+  QUIZ=preguntaDe(G.modo);
+  QUIZ.ops=barajaEn(QUIZ.ops.map(o=>({rot:o[0],ok:o[1]})));
+  el('q_text').innerHTML=QUIZ.t;
+  el('dxbtns').innerHTML=QUIZ.ops.map((o,i)=>
+    '<button class="b" data-q="'+i+'">'+o.rot+'</button>').join('');
+}
+function responde(i){
+  if(!QUIZ||!QUIZ.ops[i]) return;
+  const o=QUIZ.ops[i];
+  [...el('dxbtns').children].forEach((b,k)=>{
+    b.classList.toggle('ok',QUIZ.ops[k].ok);
+    b.classList.toggle('wrong',k===i&&!o.ok);
+  });
+  showToast((o.ok?'<b class="good">Correcto.</b> ':'<b class="bad">No.</b> ')+QUIZ.exp,7000);
+  synth.beep(o.ok?740:190,0.10,0.05);
+}
+
+// -------------------------------------------------------------- otro caso
+function otroCaso(){
+  if(G.modo==='ensamble'){ initAssembly(); afterEdit(); return; }
+  if(G.modo==='reto'){ armaReto(); afterEdit(); refrescaPregunta(); return; }
+  const ops=ESCEN_KEYS.filter(k=>k!==G.esc);
+  G.esc=ops[Math.floor(Math.random()*ops.length)];
+  afterEdit(); refrescaPregunta();
+  showToast('Escenario nuevo: <b>'+ESCEN[G.esc].rot+'</b>.',3000);
+}
+
+// ----------------------------------------------------------- recorrido guiado
+let autoRunning=false, autoT=[];
+function paraAuto(){ autoT.forEach(t=>clearTimeout(t)); autoT=[]; autoRunning=false; syncCtrlbar(); }
+function auto(){
+  if(autoRunning){ paraAuto(); return; }
+  autoRunning=true; syncCtrlbar();
+  const paso=[];
+  let t=200;
+  if(ASM.done.size<PARTS.length){
+    paso.push([0,()=>{ setMode('ensamble'); showToast('<b>1 · Montaje.</b> Siete piezas, siete huecos.',3000); }]);
+    paso.push([600,()=>autoAssemble()]);
+    t=600+PARTS.length*640+1300;
+  }
+  const guion=[
+    ['viscosidad','<b>2 · Viscosidad.</b> En los ejes de ASTM D341 cada aceite es una recta. La pendiente es lo que pierde al calentarse.'],
+    ['presion','<b>3 · Presión.</b> Sube con las vueltas y cae con la temperatura. No es una medida de la lubricación.'],
+    ['pelicula','<b>4 · Película.</b> Esto es lo que protege, y nadie lo mide con el motor montado.'],
+    ['arranque','<b>5 · Arranque.</b> Aquí se gasta el motor: los dos ensayos de invierno de J300 miden cosas distintas.'],
+    ['censo','<b>6 · Censo.</b> Con lo que se mide en el taller no se separan los trece escenarios.'],
+  ];
+  guion.forEach(([m,msg])=>{
+    paso.push([t,()=>{ setMode(m); showToast(msg,4200); }]); t+=5200;
+  });
+  paso.push([t,()=>{ paraAuto(); showToast('Recorrido terminado. El reto sigue esperando.',3400); }]);
+  paso.forEach(([ms,fn])=>autoT.push(setTimeout(fn,ms)));
+}
+
+// ------------------------------------------------------------------- mandos
+el('panel').addEventListener('click',ev=>{
+  const b=ev.target.closest('button'); if(!b) return;
+  if(b.id&&b.id.startsWith('m_')){ setMode(b.id.slice(2)); return; }
+  if(b.id==='btnAuto'){ auto(); return; }
+  if(b.id==='btnNew'){ otroCaso(); return; }
+  if(b.id==='btnPista'){ pista(); return; }
+  if(b.id==='btnCheck'){ checkReto(); return; }
+  if(b.dataset.mk){ setMaquina(b.dataset.mk); return; }
+  if(b.dataset.esc){ G.esc=b.dataset.esc; afterEdit(); refrescaPregunta(); return; }
+  if(b.dataset.ac){ G.aceite=b.dataset.ac; afterEdit(); refrescaPregunta(); return; }
+  if(b.dataset.t){ G.T=+b.dataset.t; afterEdit(); return; }
+  if(b.dataset.rpm){ G.rpm=+b.dataset.rpm; afterEdit(); return; }
+  if(b.dataset.cg){ G.carga=+b.dataset.cg; afterEdit(); return; }
+  if(b.dataset.ta){ G.Tarr=+b.dataset.ta; afterEdit(); return; }
+  if(b.dataset.obs){ mide(b.dataset.obs); return; }
+  if(b.dataset.fam){ RETO.eleccion=b.dataset.fam; pintaDxReto(); pintaTablero(); return; }
+  if(b.dataset.q!==undefined){ responde(+b.dataset.q); return; }
+});
+function setMaquina(k){
+  if(!ARQ[k]) return;
+  G.maq=k;
+  // El aceite vuelve al que pide el fabricante de ESE motor: arrastrar el del
+  // motor anterior es exactamente el error que la práctica quiere enseñar a no
+  // cometer, y hacerlo en silencio sería enseñarlo al revés.
+  G.aceite=MQ().aceiteOEM;
+  G.rpm=2000;
+  construyeMotor();
+  if(G.simUnlocked) montaKit(); else initAssembly();
+  if(G.modo==='reto') armaReto();
+  afterEdit(); refrescaPregunta();
+}
+
+el('soundBtn').addEventListener('click',()=>{
+  const on=synth.toggle();
+  el('soundBtn').classList.toggle('on',on);
+  el('soundBtn').textContent=on?'🔊':'🔇';
+});
+
+// -------------------------------------------------------------------- puente
+// Sonda de pruebas. Expone LO QUE SE VE, no atajos que salten la interfaz: cada
+// método hace exactamente lo mismo que haría un dedo sobre el panel.
+window.__labDebug={
+  get mode(){ return G.modo; },
+  get unlocked(){ return G.simUnlocked; },
+  get solved(){ return G.resuelto; },
+  get piezas(){ return ASM.done.size; },
+  get total(){ return PARTS.length; },
+  get maquina(){ return G.maq; },
+  get aceite(){ return G.aceite; },
+  get aceiteEf(){ return aceiteEfectivo(); },
+  get esc(){ return G.esc; },
+  get cabecera(){ return cabAceite(); },
+  get T(){ return G.T; },
+  get rpm(){ return G.rpm; },
+  get carga(){ return G.carga; },
+  get Tarr(){ return G.Tarr; },
+  get est(){ const s=EST(); return {p:s.p, pSinLim:s.pSinLim, pRel:s.pRel, abreLim:s.abreLim,
+    Q:s.Q, nu:s.nu, mu:s.mu, viscMul:s.viscMul, filtrado:s.filtrado, alarma:s.alarma,
+    revienta:s.revientaFiltro, extrapola:s.extrapola, par:s.par, potFric:s.potFric,
+    pEsp:s.pEsp, pEspDis:s.pEspDis, peor:{i:s.peor.i, eps:s.peor.eps, h:s.peor.h,
+      lam:s.peor.lam, regimen:s.peor.regimen, c:s.peor.c},
+    cojinetes:s.cojinetes.map(c=>({i:c.i,c:c.c,eps:c.eps,h:c.h,lam:c.lam,regimen:c.regimen})) }; },
+  get arr(){ const r=ARR(); return {eta:r.eta,n:r.n,arranca:r.arranca,bombea:r.bombea,
+    tCeb:r.tCeb,vueltasSeco:r.vueltasSeco,veredicto:r.veredicto,limCCS:r.limCCS}; },
+  get lect(){ const L=LECT(); return {esc:L.esc,rot:L.rot,clave:L.clave,aceite:L.aceite,
+    pFrio:L.pFrio,pCalRal:L.pCalRal,pCalAlto:L.pCalAlto,lamPeor:L.lamPeor,
+    alarmaEn:L.alarmaEn.slice(),revientaEn:L.revientaEn.slice(),sinFiltrar:L.sinFiltrar,
+    vueltas:L.arr.vueltasSeco}; },
+  get j300(){ const j=J300(); return {kv100:j.kv100.ok, hths:j.hths.ok,
+    ccs:j.ccs?j.ccs.ok:null, mrv:j.mrv?j.mrv.ok:null}; },
+  get censo(){ const C=CENSO(), N=ESCEN_KEYS.length;
+    const mejor={}; for(const c of C){ const n=c.sub.length;
+      if(!mejor[n]||c.resueltos>mejor[n].resueltos) mejor[n]=c; }
+    const min=C.filter(c=>c.resueltos===N).sort((a,b)=>a.sub.length-b.sub.length)[0];
+    const tal=C.find(x=>x.sub.length===OBS.filter(o=>o.taller).length&&x.sub.every(o=>o.taller));
+    return {N, taller:tal.resueltos, minTam:min.sub.length,
+      minObs:min.sub.map(o=>o.k), porTam:Object.keys(mejor).map(n=>+mejor[n].resueltos)}; },
+  get veredicto(){ return veredicto(); },
+  get veredictoArr(){ return veredictoArranque(); },
+  get reto(){ return {caso:RETO.caso, tomadas:Object.keys(RETO.tomadas),
+    eleccion:RETO.eleccion, veredicto:RETO.veredicto?{ok:RETO.veredicto.ok}:null,
+    pistas:RETO.pistas, familias:FAMILIAS.slice()}; },
+  get quiz(){ return QUIZ?{t:QUIZ.t, ops:QUIZ.ops.map(o=>o.rot), ok:QUIZ.ops.findIndex(o=>o.ok)}:null; },
+  get autoRunning(){ return autoRunning; },
+  get amp(){ return {existe:!!RIG.amp, visible:!!(RIG.amp&&RIG.amp.visible),
+    factor:AMP.factor, frames:PINTADAS}; },
+  get gotas(){ return {n:CIRC.gotas.length, vivas:CIRC.gotas.filter(g=>g.visible).length}; },
+  get mangueras(){ return mangueras.length; },
+  setMode:m=>setMode(m),
+  setMaquina:k=>setMaquina(k),
+  setAceite:k=>{ if(ACEITES[k]){ G.aceite=k; afterEdit(); refrescaPregunta(); } },
+  set:(k,v)=>{ if(k==='esc'){ G.esc=v; } else G[k]=v; afterEdit(); refrescaPregunta(); },
+  ensambla:()=>autoAssemble(),
+  mide:k=>mide(k),
+  elige:f=>{ RETO.eleccion=f; pintaDxReto(); pintaTablero(); },
+  entrega:()=>checkReto(),
+  pista:()=>pista(),
+  retoNuevo:()=>{ armaReto(); afterEdit(); },
+  responde:i=>responde(i),
+  otro:()=>otroCaso(),
+  auto:()=>auto(),
+  cifras:()=>el('tele').textContent+' | '+el('report').textContent,
+  texto:()=>el('hud').textContent,
+  panel:()=>el('panel').textContent,
+};
+
+// -------------------------------------------------------------------- arranque
+construyeMotor();
+construyeAmpliado();
+armaGotas();
+initAssembly();
+pintaHUD(); afterEdit(); refrescaPregunta();
+// El hook del bucle se registra con setAnimate: start() no acepta callback, y
+// pasárselo lo descarta en silencio dejando la escena congelada.
+S.setAnimate(dt=>pinta3D(dt));
+S.start();
+addEventListener('resize',()=>S.resize());
+showToast('Monta el circuito: toca una <b>pieza</b> del banco y luego su <b>hueco luminoso</b> en el motor.',5200);
+</script>
+  <!-- Ficha técnica · Capa B del molde de lab 3D (componente compartido + contenido del lab) -->
+  <script src="_ficha-tecnica.js"></script>
+  <script src="_ficha-lubricacion-sae-pelicula-presion.js"></script>
+</body>
+</html>

@@ -1431,6 +1431,16 @@ exports[`golden master — catálogo por categoría (invariante ante extracción
     "teoria": "Monta el puesto de prueba, mide la compresión golpe a golpe, repite en húmedo y presuriza el cilindro para averiguar por dónde se escapa el aire. La ruta localiza; el porcentaje sólo cuantifica.",
     "titulo": "Diagnostica el Sellado con Pruebas de Compresión y Fugas",
   },
+  {
+    "duracion": "45 min",
+    "estado": "activo",
+    "id": "mecanica-115",
+    "modulo": "Motor de Combustión Interna",
+    "orden": 115,
+    "simuladorHtml": "/labs/lubricacion-sae-pelicula-presion.html",
+    "teoria": "Monta el circuito de aceite pieza a pieza, elige el grado SAE y comprueba en un cojinete ampliado lo que de verdad protege el motor. El manómetro no mide la lubricación: mide la resistencia del circuito.",
+    "titulo": "Lubrica el Motor: Grado SAE, Película y Presión",
+  },
 ]
 `;
 
@@ -1580,6 +1590,7 @@ exports[`golden master — catálogo por categoría (invariante ante extracción
   "mecanica-112",
   "mecanica-113",
   "mecanica-114",
+  "mecanica-115",
   "mecanica-12",
   "mecanica-13",
   "mecanica-14",
