@@ -3273,6 +3273,117 @@ El censo lo cierra. Trece escenarios, trece observaciones, 8 191 juegos posibl
     "titulo": "Formas de Onda de los Sensores del Motor",
     "videoUrl": "",
   },
+  "mecanica-119": {
+    "acento": "#F0A05A",
+    "aplicaciones": [
+      {
+        "area": "El fallo que sólo aparece en cuesta",
+        "ejemplo": "Es la queja más común del taller y aquí está explicada. La demanda de tensión sube con la presión del cilindro: de 8,19 kV a ralentí a 14,78 kV a plena carga. Cualquier avería que recorte la reserva —dwell corto, batería baja, masa del motor, bobina tocada— aguanta abajo y se cae arriba. Probar el coche parado en el taller no descarta nada; hay que cargarlo.",
+      },
+      {
+        "area": "Por qué una bujía nueva mal calibrada estropea el motor",
+        "ejemplo": "Cerrar el hueco parece inofensivo y la traza incluso mejora: con 0,55 mm la chispa dura 1,28 ms contra 0,76 ms de la de fábrica. Lo que se ha ido es el margen de energía, de 3,31 × a 1,40 ×, porque la llama se apaga contra los electrodos. El hueco que declara el fabricante es un compromiso entre dos criterios que van en direcciones contrarias, y por eso no se ajusta «a ojo».",
+      },
+      {
+        "area": "La bujía que da chispa y no enciende",
+        "ejemplo": "Es el caso que más dinero cuesta en piezas cambiadas sin motivo. La carbonilla del aislador ofrece un camino que rompe a 4,66 kV contra los 8,19 kV del hueco, así que el arco existe, se ve, dura más que el sano —1,88 ms contra 1,08 ms— y no sirve para nada, porque no está donde está la mezcla. Un comprobador de chispa dice «hay chispa» y tiene razón.",
+      },
+      {
+        "area": "Por qué el osciloscopio no es un lujo",
+        "ejemplo": "El censo lo demuestra en vez de afirmarlo: con escáner, multímetro, galgas y óhmetro se llega a 8 de 13 escenarios y ahí se para, porque encendido sano ≡ masa del motor con resistencia ≡ bobina con espiras en corto ≡ avance excesivo; corte en el camino a la bujía ≡ fuga a masa en el secundario ≡ dwell corto del módulo dan la misma huella. Y no basta con comprar el instrumento: hace falta leer DOS fases, porque el disparo a solas separa 8 y el quemado a solas 11, mientras que juntos llegan a 13.",
+      },
+    ],
+    "bienvenida": "Sobre el banco hay un encendido completo y abierto: la fuente de alimentación, la bobina, el cable de alta —si esta máquina lo lleva— y una bujía montada dentro de una cámara de presión transparente, para que se vea el hueco entre electrodos, el arco cuando salta y la carbonilla del aislador cuando la hay. Al lado, un oscilos​copio. No hay nada que montar: lo que se manipula son los MANDOS —máquina, avería, carga y régimen— y lo que hay que aprender a leer son las TRES FASES de la traza del secundario.
+
+La tesis de esta práctica cabe en una frase: **las tres fases se reparten un único presupuesto de energía**, y por eso ninguna se lee sola. La bobina carga contra una constante Lp/Rp de 10,00 ms y con 3,00 ms de dwell llega a 7,15 A, que son 32,0 mJ guardados en el hierro. Si el camino no rompiera nunca, esa energía cargaría los 50 pF del secundario hasta **35,77 kV**: eso es la tensión disponible, y no sale de la relación de espiras sino de la raíz de dos veces la energía entre la capacidad.
+
+Abrir el camino se paga con esa misma energía. A ralentí el hueco pide **8,19 kV** y romperlo consume 1,7 mJ; lo que queda mantiene el arco a 1,40 kV durante **1,08 ms**. Sube la carga a fondo, sin tocar ninguna avería: la presión del cilindro pasa de 6,80 bar a 14,50 bar, la demanda sube a 14,78 kV y la chispa se acorta sola hasta 0,76 ms. **Nada está roto.** Una línea de chispa corta no significa nada si no se dice a qué carga se ha medido, y ahí empieza la lectura de verdad.
+
+Después viene el caso que cambia cómo se mira una pantalla. Pon la bujía engrasada: hay arco en los tres puntos del protocolo y no enciende en ninguno. La carbonilla del aislador rompe a **4,66 kV**, por debajo de los 8,19 kV que pide el hueco, así que el arco se va por el camino barato —que es justo el que no pasa por la mezcla—. Y la traza sale **mejor** que la sana: el disparo baja de 8,19 kV a 4,66 kV y la chispa se alarga de 1,08 ms a 1,88 ms. Hay chispa y no hay encendido, y el osciloscopio parece estar dando buenas noticias.
+
+Los dos criterios de encendido —energía suficiente y tiempo suficiente— tiran además en direcciones opuestas cuando se toca el hueco. Con la bujía cerrada a 0,55 mm la chispa dura 1,28 ms contra 0,76 ms de la sana —mejor— y el margen de energía se hunde de 3,31 × a **1,40 ×**, porque una llama recién nacida se apaga contra los electrodos y cuanto más cerca estén, más energía hace falta. Con la bujía gastada a 1,60 mm pasa lo contrario: energía de sobra —5,92 × del mínimo— y falla igual en carga, porque el arco sólo dura 0,26 ms y hacen falta 0,30 ms.
+
+Hay una avería que no toca la primera fase en absoluto. El dwell corto deja la corriente en 5,01 A de 7,15 A y la tensión disponible en 25,03 kV de 35,77 kV. A ralentí no pasa nada: sobra reserva. A plena carga el cilindro se cae. Y la línea de disparo es **exactamente la misma** que la del sistema sano en ese punto, 14,78 kV, porque el camino no ha cambiado. Quien sólo mire el pico no verá nada nunca.
+
+La tercera fase mide otra cosa: la bobina. Con las espiras en corto la inductancia baja a 2,75 mH y ocurre algo que parece un error y no lo es: la bobina carga **más** corriente que la sana —7,50 A contra 7,15 A— y guarda menos energía, porque la energía va con L·i² y lo que se ha ido es la L. El timbre sube de 4 799 Hz a 8 725 Hz y las oscilaciones caen de 4 a **1**, con el criterio de taller en 4.
+
+Y luego está lo que el escáner ve, que es menos de lo que parece. El P0301 lo ponen 6 de los 13 escenarios de este banco, de 5 familias distintas —bujía, corte en serie, fuga a masa, mando de la bobina, mecánica—, y 6 escenarios con la chispa tocada pasan sin un solo código. Uno de los que sí lo dan ni siquiera es eléctrico: con la compresión al 62 % la chispa enciende la mezcla perfectamente y el cilindro no aporta. Ese umbral, el 75 %, es un **dato declarado** de esta práctica y no una deducción: este banco modela el encendido, no la combustión, y lo dice en pantalla en vez de fingir lo contrario.
+
+El censo lo cierra sin afirmar nada. 16 383 juegos de instrumentos sobre 13 escenarios. La línea de disparo a solas separa **8 de 13**; el tiempo de quemado a solas, **11**; los dos juntos, **13**. Ahí está la tesis medida: no es que dos medidas sean mejor que una, es que estas dos se reparten un presupuesto y por eso se completan. Todo el taller corriente junto se queda en **8 de 13**, y ese techo lo alcanza ya con 5 de sus 7 medidas: comprar las demás no separa un caso más.",
+    "codigo": "MEC-119",
+    "conceptos": [
+      {
+        "descripcion": "La bobina guarda 32,0 mJ y, si el camino no rompiera, esa energía cargaría los 50 pF del secundario hasta 35,77 kV. La tensión disponible es √(2E/C₂), no la relación de espiras.",
+        "icono": "⚡",
+        "nombre": "Todo cuelga de una capacidad",
+      },
+      {
+        "descripcion": "Romper el camino a 8,19 kV consume 1,7 mJ del presupuesto; lo que sobra mantiene el arco 1,08 ms. Todo lo que suba el disparo acorta la chispa. Es contabilidad, no estadística.",
+        "icono": "⚖️",
+        "nombre": "La ley inversa no es una tendencia",
+      },
+      {
+        "descripcion": "De ralentí a plena carga la presión pasa de 6,80 bar a 14,50 bar, la demanda de 8,19 kV a 14,78 kV y la chispa se acorta de 1,08 ms a 0,76 ms. Una cifra sin su punto de trabajo no dice nada.",
+        "icono": "🔥",
+        "nombre": "Dar gas cambia la traza sin averías",
+      },
+      {
+        "descripcion": "La bujía engrasada da arco en los tres puntos y no enciende en ninguno: la carbonilla rompe a 4,66 kV contra los 8,19 kV del hueco. Y la traza sale MEJOR que la sana.",
+        "icono": "🎭",
+        "nombre": "Chispa no es encendido",
+      },
+      {
+        "descripcion": "Cerrar el hueco alarga la chispa (1,28 ms contra 0,76 ms) y hunde el margen de energía (1,40 × contra 3,31 ×), porque la llama se apaga contra los electrodos. Abrirlo hace lo contrario.",
+        "icono": "🧊",
+        "nombre": "Los dos criterios van al revés",
+      },
+      {
+        "descripcion": "El dwell corto deja la corriente en 5,01 A de 7,15 A y falla sólo en carga. Su línea de disparo es EXACTAMENTE la del sistema sano, 14,78 kV: el camino no ha cambiado. Sólo la segunda fase lo delata.",
+        "icono": "🔋",
+        "nombre": "Una avería que no toca el pico",
+      },
+      {
+        "descripcion": "Con espiras en corto la bobina carga MÁS corriente (7,50 A contra 7,15 A) y guarda MENOS energía, porque va con L·i². El timbre sube a 8 725 Hz y las oscilaciones caen a 1 de 4.",
+        "icono": "🔔",
+        "nombre": "Contar crestas es medir la bobina",
+      },
+      {
+        "descripcion": "3,00 mm de aire en serie añaden 5,76 kV de demanda pase lo que pase. Y el óhmetro no lo ve: mide 13,0 kΩ, lo mismo que uno sano, porque no conduce hasta que hay tensión.",
+        "icono": "✂️",
+        "nombre": "Un corte de aire suma ruptura",
+      },
+      {
+        "descripcion": "El P0301 lo ponen 6 de 13 escenarios de 5 familias distintas, y 6 con la chispa tocada pasan sin código. Uno de ellos ni siquiera es eléctrico.",
+        "icono": "📟",
+        "nombre": "El escáner dice qué cilindro y ahí acaba",
+      },
+      {
+        "descripcion": "El disparo a solas separa 8/13; el quemado a solas, 11; los dos juntos, 13. El taller corriente entero se queda en 8, y lo alcanza ya con 5 medidas.",
+        "icono": "🔍",
+        "nombre": "El teorema del censo",
+      },
+    ],
+    "duracion": 45,
+    "mision": [
+      "MIRA primero el sistema sano a ralentí en el modo «traza». Anota las tres cifras: 8,19 kV de disparo, 1,08 ms de chispa y 4 oscilaciones. Sin saber cómo es una traza sana, ninguna traza averiada dice nada.",
+      "SUBE la carga al 100 % y el régimen a 4 000 sin tocar ninguna avería. El disparo sube a 14,78 kV y la chispa baja a 0,76 ms. Escribe por qué antes de seguir.",
+      "COMPRUEBA la contabilidad en el modo «energía»: de 32,0 mJ disponibles, ½·C₂·V² con V = 8,19 kV se van en romper. Divide lo que queda entre la potencia del arco y compara con el tiempo de quemado de la pantalla.",
+      "PON la bujía gastada. Enciende a ralentí y falla en carga. Mira los dos márgenes: energía 5,92 × y tiempo 0,86 ×. ¿Cuál falla? ¿Habrías llegado ahí mirando sólo el pico?",
+      "PON la bujía demasiado cerrada. La chispa dura 1,28 ms, más que la sana, y el margen de energía cae a 1,40 ×. Enuncia por qué una línea de chispa larga puede ser mala noticia.",
+      "PON la bujía engrasada. En el modo «demanda», comprueba que el hueco pide 8,19 kV y la carbonilla rompe a 4,66 kV. Explica por qué el cilindro está muerto con una traza mejor que la de referencia.",
+      "PON el dwell corto y anota la línea de disparo a ralentí y en carga. Comprueba que en los dos puntos coincide con la del sistema sano. ¿Qué fase es la única que ha cambiado?",
+      "EN el modo «bobina», sube el régimen de 750 a 5 500 con todo sano. Repite el barrido en el V6 con distribuidor: a 5 500 el dwell se recorta de 4,20 ms a 3,09 ms. Explica la diferencia sin hablar de la calidad de las bobinas.",
+      "PON las espiras en corto y ve al modo «timbre». Anota 7,50 A de corriente contra 7,15 A de la sana, y explica cómo puede haber más corriente y menos energía.",
+      "COMPARA el timbre de las espiras en corto (1 oscilaciones) con el de la fuga a masa de 1,50 MΩ (2). Las dos bajan de 4. Busca en el censo qué otra medida las separa.",
+      "MIDE con el óhmetro el corte en serie (13,0 kΩ) y el resistor degradado (68,0 kΩ). Explica por qué el instrumento ve una avería y no la otra.",
+      "PON la compresión baja. Comprueba que la chispa enciende en los tres puntos y que aun así hay P0301. Localiza en pantalla la frase que declara el umbral del 75 % como dato y explica por qué el laboratorio tiene que decirlo.",
+      "EN el modo «censo», anota qué separan el disparo (8/13), el quemado (11/13) y los dos juntos (13/13). Repite en las otras tres máquinas.",
+      "RETO · Un motor averiado en secreto. Toma las medidas que necesites —las de taller son baratas, las de osciloscopio no— y entrega la FAMILIA de avería. Se te dirá si acertaste y, sobre todo, qué medida lo demostraba.",
+    ],
+    "subtitulo": "Motor de combustión interna · dwell y carga de la bobina, tensión de demanda contra tensión disponible, presupuesto de energía y tiempo de quemado, timbre del devanado, y por qué el escáner no dice por qué",
+    "titulo": "El Encendido en sus Tres Fases",
+    "videoUrl": "",
+  },
   "mecanica-12": {
     "acento": "#2A9D8F",
     "aplicaciones": [
@@ -18983,6 +19094,7 @@ exports[`golden master — stores de datos (invariante ante la migración a src/
   "mecanica-116": [],
   "mecanica-117": [],
   "mecanica-118": [],
+  "mecanica-119": [],
   "mecanica-12": [],
   "mecanica-13": [],
   "mecanica-14": [],
@@ -19336,6 +19448,7 @@ exports[`golden master — stores de datos (invariante ante la migración a src/
   "mecanica-116",
   "mecanica-117",
   "mecanica-118",
+  "mecanica-119",
   "mecanica-12",
   "mecanica-13",
   "mecanica-14",

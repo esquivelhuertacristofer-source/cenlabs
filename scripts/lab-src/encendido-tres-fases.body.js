@@ -1,0 +1,2729 @@
+/* ============================================================
+   LAB — d6-09 · EL ENCENDIDO EN SUS TRES FASES
+   ------------------------------------------------------------
+   QUÉ SE MIDE AQUÍ
+   Un encendido por bobina visto por un osciloscopio. La traza del secundario
+   tiene tres fases y cada una mide otra cosa: el PICO de disparo mide lo que
+   cuesta abrir el camino, la LÍNEA DE CHISPA mide cuánto dura el arco, y el
+   TIMBRE del final mide el estado del devanado. La práctica es leerlas juntas.
+
+   LA TESIS
+   El escáner dice QUÉ cilindro falla; no dice por qué, y a veces no dice nada.
+   La forma de la onda sí, pero sólo si se leen las dos primeras fases a la vez:
+   ni la línea de disparo ni el tiempo de quemado bastan por separado. La razón
+   es que hay UN presupuesto de energía y las dos se lo reparten: todo lo que
+   suba el disparo acorta la chispa. Un número solo siempre engaña.
+
+   EL MODELO DE INGENIERÍA
+   Todo cuelga de la capacidad del secundario, C₂:
+     · la bobina carga     i(t)=(V/Rp)(1−e^(−t·Rp/Lp)) con tope de corriente
+     · guarda              E = η·½·Lp·i²
+     · podría dar          V_disp = √(2E/C₂)
+     · romper cuesta       E_cap  = ½·C₂·V_dem²
+     · al arco le queda    E_arco = ½·C₂·(V_disp² − V_dem²)
+     · y dura              t_q = E_arco/(V_q·i_arco)
+   De ahí sale la ley inversa sin escribirla, y el fallo de encendido con UNA
+   condición y no con dos: E_arco = 0 exactamente cuando V_dem = V_disp.
+
+   LA DISTINCIÓN QUE ORGANIZA TODA LA PRÁCTICA
+   Hay CHISPA y hay ENCENDIDO, y no son lo mismo. Se puede tener arco sin que la
+   mezcla prenda de tres maneras —no salta, salta por donde no debe, o salta
+   pobre— y cada una deja una firma distinta. El escáner pone el mismo código a
+   las tres.
+
+   FUENTES
+     · Ley de Paschen para la ruptura en gas, con el exponente rebajado a 0,8
+       por la temperatura y la turbulencia del cilindro; coeficientes calibrados
+       contra valores de taller (~9 kV a ralentí, ~17 kV a plena carga).
+     · Compresión politrópica con n = 1,32 desde la presión de colector hasta el
+       ángulo de avance, con biela infinita.
+     · Circuito RL de carga y transferencia resonante al secundario.
+     · Apagado del núcleo de llama por los electrodos: la energía mínima crece
+       con el cuadrado de lo que se cierra el hueco.
+
+   LO QUE NO MODELA, Y SE DICE EN PANTALLA
+     · La detonación. Del avance excesivo sólo se ve que la demanda baja.
+     · La combustión. Por eso la compresión hundida necesita una regla DECLARADA
+       (el 75 % de la compresión nominal) y no una deducida.
+     · El desgaste de electrodos con el tiempo ni el grado térmico de la bujía.
+   ============================================================ */
+const mount=document.getElementById('stage');
+// Estas seis cifras sólo valen para el primer fotograma: en cuanto la escena
+// arranca, el encuadre se CALCULA con camConjunto(), porque depende del ancho
+// del banco y de la forma de la ventana y no puede estar escrito a mano.
+const S=createStage(mount,{cam:[2.2,3.1,4.8],target:[-1.3,1.8,-0.9],
+  bgTop:'#101a22',bgBot:'#05070b',bloom:0.24,minD:2.4,maxD:36});
+const {scene}=S;
+const synth=makeSynth({type:'sawtooth',type2:'sine',filterFreq:1180,Q:0.80});
+// `clamp` NO se declara aquí: lo declara el motor sellado que se empalma justo
+// debajo, y declararlo dos veces es un SyntaxError que mata la página entera
+// antes de que exista window.__labDebug.
+const el=id=>document.getElementById(id);
+const TINTA='#e8eef6', CIAN='#5ad1e6', OK_HEX='#7cd992', WARN_HEX='#e9c46a',
+      BAD_HEX='#ff6b6b', GRIS='#7b8697', VIO='#b48ce0', NARANJA='#f0a05a',
+      AZUL='#6ea8fe', ROSA='#f28dbb';
+
+// ============================================================================
+//  d6-09 · EL ENCENDIDO EN SUS TRES FASES — MOTOR SELLADO
+//
+//  Esta es la ÚNICA fuente de cifras del laboratorio. La interfaz no calcula
+//  nada: pinta lo que aquí se decide. Si una cifra aparece en la prosa del lab
+//  y no sale de una función de este fichero, es una cifra inventada.
+//
+//  QUÉ SE MODELA
+//  Un encendido por bobina, visto por un osciloscopio en el primario y en el
+//  secundario. La traza del secundario tiene tres fases y cada una mide una
+//  cosa distinta:
+//
+//    1 · DISPARO      — el pico vertical. Su altura es la TENSIÓN DE DEMANDA:
+//                       lo que hace falta para ionizar el camino. Sube con la
+//                       presión del cilindro, con la separación de electrodos y
+//                       con toda resistencia en serie.
+//    2 · COMBUSTIÓN   — la línea de chispa. Su altura es la tensión de
+//                       mantenimiento del arco; su LARGO es el tiempo de
+//                       quemado. Sale del presupuesto de energía, no de un
+//                       parámetro suelto.
+//    3 · OSCILACIÓN   — el timbre de la bobina con la energía que sobra. El
+//                       número de oscilaciones visibles mide el factor de
+//                       calidad del devanado.
+//
+//  LA CADENA DE ENERGÍA, QUE ES LO QUE SOSTIENE TODO
+//  Todo el modelo cuelga de UNA capacidad, la del secundario reflejada, C₂:
+//
+//    · La bobina carga:            i(t) = (V/Rp)·(1 − e^(−t·Rp/Lp)), tope iLim
+//    · Guarda:                     E = η·½·Lp·i²        (η, rendimiento medido
+//                                                        de la transferencia)
+//    · Si el camino NO rompiera, esa energía cargaría C₂ hasta
+//                                  V_disp = √(2E/C₂)   ← la tensión DISPONIBLE
+//    · Romper el camino a V_dem gasta
+//                                  E_cap = ½·C₂·V_dem²
+//    · Y al arco le queda          E_arco = ½·C₂·(V_disp² − V_dem²)
+//    · Que se quema a potencia     P = V_q · i_arco
+//    · Durante                     t_q = E_arco / P     ← el tiempo de quemado
+//
+//  De aquí sale, SIN escribirla, la ley que la práctica quiere enseñar: para
+//  una misma carga de bobina, una línea de disparo más alta compra una línea de
+//  chispa más corta. Y sale también, con una sola condición y no con dos, el
+//  fallo de encendido: E_arco = 0 exactamente cuando V_dem = V_disp.
+//
+//  Y HAY CHISPA Y HAY ENCENDIDO, QUE NO ES LO MISMO
+//  `hayChispa` dice si salta un arco. `enciende` dice si la mezcla prende. Se
+//  puede tener lo primero sin lo segundo de tres maneras distintas, y cada una
+//  deja una firma distinta en la traza:
+//     · no salta arco             (la demanda supera lo disponible)
+//     · el arco va por donde no   (una vía de carbonilla sobre el aislador)
+//     · el arco es pobre          (energía o tiempo por debajo del mínimo)
+//  El escáner sólo ve la consecuencia —el cilindro no aporta— y por eso pone
+//  el mismo código en los tres casos.
+//
+//  FUENTES DE LOS ÓRDENES DE MAGNITUD
+//    · Ley de Paschen para la ruptura en gas: V ∝ p·d, con el exponente
+//      rebajado a 0,8 porque en el cilindro ni la temperatura ni la turbulencia
+//      son las del ensayo de laboratorio. Los coeficientes están calibrados
+//      contra los valores de taller: ~9 kV a ralentí y ~17 kV a plena carga con
+//      bujía nueva, y 25–45 kV de tensión disponible según la bobina.
+//    · Tensión de mantenimiento del arco: sube mucho más despacio con la
+//      presión (exponente 0,35) y vale ~1 kV a ralentí.
+//    · Corriente de arco en la fase de incandescencia: 20 mA.
+//    · Energía mínima de encendido en el cilindro y duración mínima del núcleo
+//      de llama: se declaran como `E_MIN` y `T_MIN` y son de la máquina.
+//  NADA de esto está afinado para que salga un resultado bonito: los resultados
+//  didácticos se comprobaron DESPUÉS, y los que no salieron se declaran.
+//
+//  LO QUE ESTE MODELO NO HACE, Y HAY QUE DECIRLO
+//    · No modela la DETONACIÓN. Del avance excesivo sólo se ve que la chispa
+//      salta antes, con menos presión, y que por eso la demanda BAJA. El picado
+//      —que es el daño de verdad— no está aquí.
+//    · No modela la COMBUSTIÓN. Que la mezcla prenda no dice cuánto par sale.
+//      Por eso la compresión baja necesita una regla DECLARADA (`COMPRESION_MIN`)
+//      y no una deducida: mírala marcada como tal más abajo.
+//    · No modela el desgaste de los electrodos con el tiempo, ni la temperatura
+//      del aislador, ni el grado térmico de la bujía.
+//    · La corriente de arco se toma constante (`I_ARCO`). En un arco real cae
+//      durante la fase de incandescencia; tomarla constante sobrestima un poco
+//      los tiempos de quemado más largos.
+// ============================================================================
+
+const clamp = (x, a, b) => Math.max(a, Math.min(b, x));
+
+// ============================================================================
+// 1 · CARGA DE LA BOBINA Y TENSIÓN DISPONIBLE
+// ============================================================================
+
+// Tensión de alimentación de la bobina. Girando con el motor de arranque la
+// batería se hunde: es el peor momento para pedirle chispa y es justo cuando se
+// le pide.
+const V_BAT = 13.8;
+const V_BAT_ARRANQUE = 10.2;
+const vBat = (F = {}) => (F.vBat === undefined ? V_BAT : F.vBat);
+
+const tauBobina = e => e.Lp / e.Rp;             // segundos
+
+// El tiempo entre chispas de UNA bobina, que es el tiempo que hay para cargarla.
+// Depende de la ARQUITECTURA y es lo que decide si el dwell cabe:
+//   · bobina sobre bujía  — una chispa cada dos vueltas: 120/rpm
+//   · chispa perdida      — una bobina para dos cilindros, una por vuelta: 60/rpm
+//   · distribuidor        — UNA bobina para todos: nCil/2 chispas por vuelta
+function chispasPorVuelta(e) {
+  if (e.bobinaPorCil) return 0.5;
+  if (e.chispaPerdida) return 1;
+  return e.nCil / 2;
+}
+const periodoChispa = (e, rpm) => 60 / (rpm * chispasPorVuelta(e));
+
+// El módulo pide un dwell, pero a régimen alto NO cabe: entre chispa y chispa
+// no hay tanto tiempo. Se deja un 15 % de guarda para la conmutación.
+const GUARDA_DWELL = 0.85;
+function dwell(e, rpm, F = {}) {
+  const pedido = e.dwell * (F.dwellMul === undefined ? 1 : F.dwellMul);
+  return Math.min(pedido, periodoChispa(e, rpm) * GUARDA_DWELL);
+}
+const dwellRecortado = (e, rpm, F = {}) =>
+  e.dwell * (F.dwellMul === undefined ? 1 : F.dwellMul) > periodoChispa(e, rpm) * GUARDA_DWELL;
+
+function corriente(e, rpm, F = {}) {
+  const t = dwell(e, rpm, F);
+  const i = (vBat(F) / e.Rp) * (1 - Math.exp(-t / tauBobina(e)));
+  return Math.min(e.iLim, i);
+}
+const enLimite = (e, rpm, F = {}) =>
+  (vBat(F) / e.Rp) * (1 - Math.exp(-dwell(e, rpm, F) / tauBobina(e))) >= e.iLim;
+
+// Energía guardada en el hierro, y la que de verdad llega al secundario.
+const energiaBobina = (e, rpm, F = {}) =>
+  e.eta * 0.5 * e.Lp * Math.pow(corriente(e, rpm, F), 2);
+
+// La impedancia característica del secundario: √(L₂/C₂), con L₂ = N²·Lp. Es lo
+// que decide cuánto baja la tensión disponible cuando hay una fuga en paralelo.
+const zSecundario = e => Math.sqrt((e.N * e.N * e.Lp) / e.C2);
+
+// Una fuga en paralelo (aislador húmedo, tapa sucia, bobina con el aislamiento
+// picado) reparte la tensión con la impedancia característica: es un divisor.
+const factorFuga = (e, F = {}) =>
+  F.rFuga ? 1 / (1 + zSecundario(e) / F.rFuga) : 1;
+
+// La tensión que la bobina PODRÍA dar si el camino no rompiera nunca: toda la
+// energía cargando C₂.
+function vDisponible(e, rpm, F = {}) {
+  return Math.sqrt(2 * energiaBobina(e, rpm, F) / e.C2) * factorFuga(e, F);
+}
+// Y la energía que corresponde a esa tensión, que es la que hay de verdad para
+// repartir entre romper el camino y mantener el arco.
+const energiaUtil = (e, rpm, F = {}) =>
+  0.5 * e.C2 * Math.pow(vDisponible(e, rpm, F), 2);
+
+// ============================================================================
+// 2 · LA PRESIÓN EN EL CILINDRO EN EL INSTANTE DE LA CHISPA
+// ============================================================================
+// No es la de compresión máxima: la chispa salta antes del punto muerto
+// superior. Se modela la compresión politrópica desde la presión del colector
+// hasta el ángulo de avance.
+
+const N_POLI = 1.32;
+const P_ATM = 1.013;
+
+// Presión en el colector: a ralentí hay vacío, a plena carga casi atmosférica.
+const presionColector = (e, carga) => P_ATM * (0.28 + 0.70 * clamp(carga, 0, 1));
+
+// Volumen relativo en el ángulo de la chispa, con biela infinita, referido al
+// volumen a válvula cerrada. Con avance θ antes del PMS:
+//   V(θ)/V_PMS = 1 + (r − 1)·(1 − cos θ)/2
+function volRel(e, avance) {
+  const th = avance * Math.PI / 180;
+  return 1 + (e.rc - 1) * (1 - Math.cos(th)) / 2;
+}
+function presionChispa(e, carga, F = {}) {
+  const av = avance(e, carga, F);
+  const rEf = e.rc / volRel(e, av);
+  const p = presionColector(e, carga) * Math.pow(rEf, N_POLI) * (F.compresionMul || 1);
+  return p;
+}
+// El avance sube con el régimen y baja con la carga; una avería puede moverlo.
+function avance(e, carga, F = {}) {
+  const base = e.avanceRal + (e.avanceMax - e.avanceRal) * clamp(carga, 0, 1) * 0.55;
+  return base + (F.avanceExtra || 0);
+}
+
+// Con chispa perdida, la bobina dispara a la vez en el cilindro que comprime y
+// en el que escapa. En el que escapa hay poco más que la atmosférica, así que
+// esa chispa pide una miseria: es NORMAL que las dos líneas de disparo de una
+// misma bobina no se parezcan en nada.
+const P_ESCAPE = 1.20;
+
+// ============================================================================
+// 3 · TENSIÓN DE DEMANDA, POR LOS DOS CAMINOS POSIBLES
+// ============================================================================
+// El arco va por donde le cuesta menos. Hay dos caminos: el hueco entre los
+// electrodos, y —si la porcelana está carbonizada— una vía superficial sobre el
+// aislador. El segundo rompe a mucha menos tensión y NO enciende la mezcla,
+// porque la chispa no está donde está la mezcla.
+
+const K_PASCHEN = 1900;   // V por (bar^0,8 · mm) — ruptura en el hueco
+const EXP_P_RUPTURA = 0.80;
+const K_ARCO = 650;       // V por (bar^0,35 · mm) — mantenimiento del arco
+const EXP_P_ARCO = 0.35;
+const K_VIA = 237;        // V por (bar^0,8 · mm) — ruptura sobre el aislador
+const K_ARCO_VIA = 73.5;  // V por (bar^0,35 · mm) — arco superficial
+const I_ARCO = 0.020;     // A, corriente de arco en incandescencia
+
+const separacion = (e, F = {}) => e.sep + (F.sepExtra || 0);
+const rSerie = (e, F = {}) => e.rBujia + e.rCable + (F.rExtra || 0);
+const sepSerie = (F = {}) => F.sepSerie || 0;   // mm de aire en serie
+
+// Ruptura del hueco, más la del corte en serie si lo hay (un cable partido, un
+// terminal despegado: es aire, y el aire rompe según la misma ley, sólo que a
+// presión ambiente), más la caída resistiva en serie.
+function vRuptura(e, p, F = {}) {
+  const hueco = K_PASCHEN * Math.pow(p, EXP_P_RUPTURA) * separacion(e, F);
+  const serie = K_PASCHEN * Math.pow(P_ATM, EXP_P_RUPTURA) * sepSerie(F);
+  return hueco + serie + I_ARCO * rSerie(e, F);
+}
+// Ruptura por la vía de carbonilla. `F.via` es la distancia de fuga en mm que
+// el depósito ha puenteado; sin depósito no hay vía.
+const hayVia = (F = {}) => (F.via || 0) > 0;
+function vVia(e, p, F = {}) {
+  if (!hayVia(F)) return Infinity;
+  return K_VIA * Math.pow(p, EXP_P_RUPTURA) * F.via + I_ARCO * rSerie(e, F);
+}
+// El camino que gana es el que rompe antes.
+function caminoDe(e, p, F = {}) {
+  return vVia(e, p, F) < vRuptura(e, p, F) ? 'via' : 'hueco';
+}
+function vDemanda(e, p, F = {}) {
+  return Math.min(vRuptura(e, p, F), vVia(e, p, F));
+}
+// Tensión de mantenimiento del arco por el camino que haya ganado.
+function vQuemado(e, p, F = {}) {
+  if (caminoDe(e, p, F) === 'via')
+    return K_ARCO_VIA * Math.pow(p, EXP_P_ARCO) * F.via + I_ARCO * rSerie(e, F);
+  const hueco = K_ARCO * Math.pow(p, EXP_P_ARCO) * separacion(e, F);
+  const serie = K_ARCO * Math.pow(P_ATM, EXP_P_ARCO) * sepSerie(F);
+  return hueco + serie + I_ARCO * rSerie(e, F);
+}
+
+// ============================================================================
+// 4 · LA CHISPA: ENERGÍA, TIEMPO DE QUEMADO Y SI PRENDE O NO
+// ============================================================================
+const E_MIN = 0.008;   // J entregados al arco por debajo de los cuales no
+                              //   se forma núcleo de llama en el cilindro
+const T_MIN = 0.00030; // s de duración mínima del arco para el mismo fin
+const SEP_REF = 0.90;  // mm de referencia del criterio de energía
+
+// El apagado del núcleo por los electrodos. Un hueco pequeño pide MÁS energía,
+// no menos: la llama recién nacida toca los electrodos y se enfría contra ellos.
+// La energía necesaria crece con el cuadrado de lo que se cierra el hueco, que
+// es la ley del apagado por pared. Sin esto, el modelo diría que una bujía
+// cerrada de más es mejor que una bien puesta, que es falso.
+const eMinDe = sep => E_MIN * Math.pow(SEP_REF / Math.max(0.05, sep), 2);
+
+function chispa(e, rpm, p, F = {}) {
+  const vDisp = vDisponible(e, rpm, F);
+  const vDem = vDemanda(e, p, F);
+  const camino = caminoDe(e, p, F);
+  const hay = vDem < vDisp;
+  const eUtil = energiaUtil(e, rpm, F);
+  const eCap = 0.5 * e.C2 * vDem * vDem;
+  const eArco = hay ? Math.max(0, eUtil - eCap) : 0;
+  const vQ = vQuemado(e, p, F);
+  const pot = vQ * I_ARCO;
+  const tQ = hay && pot > 0 ? eArco / pot : 0;
+  const eMin = eMinDe(separacion(e, F));
+  // Prende sólo si salta, si va por el hueco, y si el arco da la talla.
+  const enciende = hay && camino === 'hueco' && eArco >= eMin && tQ >= T_MIN;
+  let motivo = 'enciende';
+  if (!hay) motivo = 'sinArco';
+  else if (camino === 'via') motivo = 'fueraDeSitio';
+  else if (eArco < eMin) motivo = 'pocaEnergia';
+  else if (tQ < T_MIN) motivo = 'arcoCorto';
+  return { vDisp, vDem, vQ, camino, hay, eUtil, eCap, eArco, tQ, enciende, motivo, eMin,
+    margenE: eMin > 0 ? eArco / eMin : 0, margenT: tQ / T_MIN,
+    margen: vDisp - vDem, reserva: vDisp > 0 ? (vDisp - vDem) / vDisp : 0 };
+}
+
+// ============================================================================
+// 5 · LA TERCERA FASE: EL TIMBRE DE LA BOBINA
+// ============================================================================
+// Cuando el arco se apaga queda energía en el hierro y el conjunto Lp-Cp timbra.
+// Cada semiciclo decae por e^(−π/Q), así que el número de crestas visibles sale
+// de cuántos semiciclos tarda en bajar del umbral de visibilidad.
+
+const V_RING0 = 520;    // V de la primera cresta en el primario
+const V_RING_MIN = 55;  // V por debajo de los cuales no se distingue
+function qEfectiva(e, F = {}) {
+  let q = e.Q * (F.qMul === undefined ? 1 : F.qMul);
+  // Una fuga en paralelo también amortigua el timbre: es una resistencia más
+  // por la que se va la energía que queda.
+  if (F.rFuga) q *= factorFuga(e, F);
+  return q;
+}
+function oscilaciones(e, F = {}) {
+  const q = qEfectiva(e, F);
+  if (!(q > 0)) return 0;
+  const semis = Math.log(V_RING0 / V_RING_MIN) / (Math.PI / q);
+  return Math.max(0, Math.floor(semis / 2));
+}
+const fTimbre = (e, F = {}) =>
+  1 / (2 * Math.PI * Math.sqrt(e.Lp * (F.lpMul || 1) * e.Cp));
+const OSC_SANAS = 4;    // por debajo de esto, el devanado está tocado
+
+// ============================================================================
+// 6 · LA TRAZA DEL SECUNDARIO, PARA DIBUJARLA
+// ============================================================================
+// Se devuelve en kV contra ms, con las tres fases marcadas. Los puntos salen de
+// las MISMAS funciones que las cifras: no hay una curva bonita por un lado y un
+// número por otro.
+// La ventana de tiempo que el osciloscopio enseña. NO es el periodo entre
+// chispas —a ralentí serían 80 ms para mirar un suceso de 2— sino lo que dura el
+// suceso: la carga, la chispa y unos ciclos de timbre.
+function ventana(e, rpm, F = {}) {
+  const C = chispa(e, rpm, presionChispa(e, 0.5, F), F);
+  const tD = dwell(e, rpm, F);
+  return Math.min(periodoChispa(e, rpm), tD + Math.max(C.tQ, 0.0005) + 14 / fTimbre(e, F));
+}
+const T_SUBIDA = 0.00004;   // 40 µs de frente de subida del disparo
+
+function trazaSecundario(e, rpm, p, o = {}) {
+  const F = o.F || {};
+  const n = o.n || 900;
+  const C = chispa(e, rpm, p, F);
+  const tD = dwell(e, rpm, F);
+  const tTotal = o.dur || ventana(e, rpm, F);
+  const tDisparo = tD;                       // el disparo, al soltar el primario
+  const tFin = tDisparo + C.tQ;
+  const pts = [];
+  const tSubida = T_SUBIDA;
+  // Un frente de 40 µs sobre una rejilla uniforme de milisegundos cae ENTRE dos
+  // muestras y el pico dibujado se queda en una fracción del declarado: quien
+  // midiera la pantalla leería otra cosa que la telemetría. Por eso los
+  // instantes que deciden la lectura se clavan en la rejilla a mano.
+  const claves = [0, tDisparo - tSubida, tDisparo, tFin, tTotal].filter(t => t >= 0 && t <= tTotal);
+  const rejilla = [];
+  for (let i = 0; i < n; i++) rejilla.push(tTotal * i / (n - 1));
+  const ts = [...new Set(rejilla.concat(claves))].sort((a, b) => a - b);
+  for (const t of ts) {
+    let v = 0;
+    if (t < tDisparo - tSubida) {
+      v = 0;                                 // el secundario, en reposo
+    } else if (t <= tDisparo) {
+      // El frente termina EN el instante del disparo, no antes: si la cresta
+      // cayera en el intervalo abierto, la rejilla podría no tocarla nunca.
+      //
+      // Y sube hasta lo que la bobina PUEDE dar, no hasta lo que el camino
+      // pide. Cuando la demanda excede lo disponible no hay arco, y entonces la
+      // demanda NO SE ALCANZA NUNCA: ése es justo el problema. Dibujarla habría
+      // pintado un pico que el modelo declara imposible, y la prosa que dice
+      // «el pico es la disponible, no la de demanda» habría sido desmentida por
+      // el propio dibujo. Sólo lo vio la Capa 2, barriendo hasta 5 500 rpm a
+      // plena carga: en los tres puntos del protocolo no hay ni un caso sin
+      // arco, así que la comprobación de la Capa 1 se cumplía en el vacío.
+      v = (C.hay ? C.vDem : C.vDisp) * (1 - (tDisparo - t) / tSubida);
+    } else if (C.hay && t < tFin) {
+      // La línea de chispa sube despacio: al arco le cuesta más mantenerse
+      // según se enfría el canal. Un 12 % de subida sobre el tramo.
+      const u = C.tQ > 0 ? (t - tDisparo) / C.tQ : 0;
+      v = C.vQ * (1 + 0.12 * u);
+    } else if (C.hay) {
+      const u = (t - tFin) * 2 * Math.PI * fTimbre(e, F);
+      v = C.vQ * 0.85 * Math.cos(u) * Math.exp(-u / (2 * qEfectiva(e, F)));
+    } else {
+      // Sin arco no hay línea de chispa: la tensión sube hasta TODO lo que la
+      // bobina puede dar —que es menos que lo que el camino pide— y se derrumba
+      // timbrando. Es la firma de un cilindro que no recibe chispa ninguna, y el
+      // pico es la tensión DISPONIBLE, no la de demanda: la demanda no se
+      // alcanza nunca, que es justo el problema.
+      const u = (t - tDisparo) * 2 * Math.PI * fTimbre(e, F);
+      v = C.vDisp * Math.cos(u) * Math.exp(-u / (2 * qEfectiva(e, F)));
+    }
+    pts.push({ t: t * 1000, v: v / 1000 });   // ms y kV
+  }
+  return { pts, tDisparo: tDisparo * 1000, tFin: tFin * 1000, tTotal: tTotal * 1000,
+    vDem: C.vDem / 1000, vQ: C.vQ / 1000, tQ: C.tQ * 1000, hay: C.hay, C };
+}
+
+// La del primario: la rampa de corriente durante el dwell y la punta al cortar.
+function trazaPrimario(e, rpm, o = {}) {
+  const F = o.F || {};
+  const n = o.n || 600;
+  const tD = dwell(e, rpm, F);
+  const tTotal = o.dur || ventana(e, rpm, F);
+  const t0 = 0, pts = [];
+  const iMax = corriente(e, rpm, F);
+  // El último instante ANTES del corte es el que da la corriente que importa:
+  // sin clavarlo, la rampa dibujada se queda por debajo de la declarada.
+  const rejilla = [];
+  for (let i = 0; i < n; i++) rejilla.push(tTotal * i / (n - 1));
+  const ts = [...new Set(rejilla.concat([0, tD * 0.999999, tD, tTotal].filter(t => t >= 0 && t <= tTotal)))]
+    .sort((a, b) => a - b);
+  for (const t of ts) {
+    let a = 0;
+    if (t >= t0 && t < t0 + tD) {
+      a = Math.min(e.iLim, (vBat(F) / e.Rp) * (1 - Math.exp(-(t - t0) / tauBobina(e))));
+    }
+    pts.push({ t: t * 1000, i: a });
+  }
+  return { pts, iMax, tDwell: tD * 1000, tTotal: tTotal * 1000,
+    saturada: enLimite(e, rpm, F), recortada: dwellRecortado(e, rpm, F) };
+}
+
+// ============================================================================
+// 7 · AVERÍAS
+// ============================================================================
+// Cada avería es un puñado de parámetros del modelo, no un resultado escrito a
+// mano. Lo que se ve en pantalla se deduce; no se declara.
+const FALLAS = {
+  sano: {},
+  // Bujía desgastada: el hueco crece con los kilómetros.
+  bujiaGastada: { sepExtra: 0.70 },
+  // Resistor de la bujía degradado: 5 kΩ que se han vuelto 60.
+  resistorAlto: { rExtra: 55000 },
+  // Cable de bujía cortado por dentro: queda un hueco de aire en serie.
+  cableAbierto: { sepSerie: 3.0 },
+  // Carbonilla sobre el aislador: una vía de fuga de 4 mm.
+  bujiaEngrasada: { via: 4.0 },
+  // Aislamiento picado en la bobina o tapa sucia: fuga a masa en paralelo.
+  fugaMasa: { rFuga: 1.5e6 },
+  // El módulo carga la bobina menos de lo debido.
+  dwellCorto: { dwellMul: 0.667 },
+  // Devanado primario con espiras en corto: menos inductancia y menos calidad.
+  bobinaEspiras: { lpMul: 0.55, qMul: 0.45, rpMul: 0.62 },
+  // Batería baja: menos corriente en el mismo dwell.
+  bateriaBaja: { vBat: 10.6 },
+  // Compresión baja en un cilindro: la demanda BAJA. Una línea de disparo baja
+  // no siempre es un problema eléctrico.
+  compresionBaja: { compresionMul: 0.62 },
+  // Avance excesivo: se dispara antes, con menos presión todavía.
+  avanceExcesivo: { avanceExtra: 12 },
+  // Bujía nueva mal calibrada, demasiado cerrada.
+  bujiaCerrada: { sepExtra: -0.35 },
+  // Masa del motor con resistencia. Va en el PRIMARIO, que es donde está la
+  // trenza de masa: no es una resistencia del secundario. Se traduce en menos
+  // corriente de carga con el mismo dwell.
+  masaMotor: { rpExtra: 0.55 },
+};
+const FALLA_KEYS = Object.keys(FALLAS);
+
+// `bobinaEspiras` toca Lp y Rp a la vez, y `masaMotor` suma al primario. Todo
+// eso hay que aplicarlo al arquetipo antes de calcular nada, copiando la
+// máquina y sin mutarla nunca.
+function aplica(e, F = {}) {
+  if (!F.lpMul && !F.rpMul && !F.rpExtra) return e;
+  return { ...e, Lp: e.Lp * (F.lpMul || 1), Rp: e.Rp * (F.rpMul || 1) + (F.rpExtra || 0) };
+}
+
+// ============================================================================
+// 8 · ARQUETIPOS
+// ============================================================================
+const ARQ = {
+  dis4: {
+    key: 'dis4', corto: 'DIS 1.8', nombre: 'Cuatro cilindros con bobina doble (chispa perdida)',
+    nCil: 4, rc: 10.2, ralenti: 750, rpmMax: 6200,
+    chispaPerdida: true, bobinaPorCil: false,
+    Lp: 0.0050, Rp: 0.50, iLim: 7.5, dwell: 0.0030, N: 100, C2: 50e-12, Cp: 0.22e-6,
+    eta: 0.25, Q: 12, sep: 0.90, rBujia: 5000, rCable: 8000,
+    avanceRal: 10, avanceMax: 32,
+  },
+  cop4: {
+    key: 'cop4', corto: 'COP 2.0', nombre: 'Cuatro cilindros con bobina sobre bujía',
+    nCil: 4, rc: 11.5, ralenti: 700, rpmMax: 6600,
+    chispaPerdida: false, bobinaPorCil: true,
+    Lp: 0.0036, Rp: 0.45, iLim: 9.0, dwell: 0.0026, N: 110, C2: 42e-12, Cp: 0.20e-6,
+    eta: 0.25, Q: 14, sep: 1.05, rBujia: 5000, rCable: 0,
+    avanceRal: 12, avanceMax: 34,
+  },
+  dist6: {
+    key: 'dist6', corto: 'V6 distribuidor', nombre: 'V6 con distribuidor y cables de bujía',
+    nCil: 6, rc: 9.4, ralenti: 700, rpmMax: 5800,
+    chispaPerdida: false, bobinaPorCil: false,
+    Lp: 0.0070, Rp: 0.90, iLim: 6.0, dwell: 0.0042, N: 85, C2: 62e-12, Cp: 0.25e-6,
+    eta: 0.25, Q: 9, sep: 1.10, rBujia: 5000, rCable: 12000,
+    avanceRal: 8, avanceMax: 30,
+  },
+  cop3: {
+    key: 'cop3', corto: 'COP 1.0 tres cil.', nombre: 'Tres cilindros turbo con bobina sobre bujía',
+    nCil: 3, rc: 10.0, ralenti: 800, rpmMax: 6000,
+    chispaPerdida: false, bobinaPorCil: true,
+    Lp: 0.0030, Rp: 0.50, iLim: 8.0, dwell: 0.0022, N: 105, C2: 40e-12, Cp: 0.18e-6,
+    eta: 0.25, Q: 13, sep: 0.90, rBujia: 5000, rCable: 0,
+    avanceRal: 11, avanceMax: 28,
+  },
+};
+const ARQ_KEYS = Object.keys(ARQ);
+
+// En un motor sin cables NO puede haber un cable partido. Decirlo es parte de
+// la práctica: la arquitectura decide qué averías existen.
+const tieneCable = e => e.rCable > 0;
+
+// ============================================================================
+// 9 · PUNTOS DEL PROTOCOLO Y ESCENARIOS
+// ============================================================================
+const PUNTOS = [
+  { k: 'ralenti', rot: 'a ralentí', carga: 0.10, rpmDe: e => e.ralenti },
+  { k: 'crucero', rot: 'a 2 500 rpm y media carga', carga: 0.45, rpmDe: () => 2500 },
+  { k: 'carga', rot: 'a 4 000 rpm a plena carga', carga: 1.00, rpmDe: () => 4000 },
+];
+
+const ESCEN = {
+  sano: { falla: 'sano', clave: 'sin avería', rot: 'encendido sano' },
+  bujiaGastada: { falla: 'bujiaGastada', clave: 'bujía', rot: 'bujía desgastada, hueco abierto' },
+  bujiaCerrada: { falla: 'bujiaCerrada', clave: 'bujía', rot: 'bujía demasiado cerrada' },
+  bujiaEngrasada: { falla: 'bujiaEngrasada', clave: 'bujía', rot: 'bujía engrasada, vía de carbonilla' },
+  resistorAlto: { falla: 'resistorAlto', clave: 'resistencia en serie', rot: 'resistor de bujía degradado' },
+  cableAbierto: { falla: 'cableAbierto', clave: 'corte en serie', rot: 'corte en el camino a la bujía' },
+  masaMotor: { falla: 'masaMotor', clave: 'alimentación', rot: 'masa del motor con resistencia' },
+  fugaMasa: { falla: 'fugaMasa', clave: 'fuga a masa', rot: 'fuga a masa en el secundario' },
+  dwellCorto: { falla: 'dwellCorto', clave: 'mando de la bobina', rot: 'dwell corto del módulo' },
+  bobinaEspiras: { falla: 'bobinaEspiras', clave: 'bobina', rot: 'bobina con espiras en corto' },
+  bateriaBaja: { falla: 'bateriaBaja', clave: 'alimentación', rot: 'batería baja' },
+  compresionBaja: { falla: 'compresionBaja', clave: 'mecánica', rot: 'compresión baja en el cilindro' },
+  avanceExcesivo: { falla: 'avanceExcesivo', clave: 'puesta a punto', rot: 'avance excesivo' },
+};
+const ESCEN_KEYS = Object.keys(ESCEN);
+const FAMILIAS = [...new Set(ESCEN_KEYS.map(k => ESCEN[k].clave))];
+
+// ============================================================================
+// 10 · QUÉ VE EL ESCÁNER
+// ============================================================================
+// El escáner NO ve la chispa: ve que el cigüeñal se frena durante el ciclo de un
+// cilindro. Pone el mismo código a averías completamente distintas —y no pone
+// ninguno cuando la chispa es mala pero todavía enciende—, y esa es media
+// práctica. En estas máquinas el módulo no tiene diagnóstico de corriente de
+// primario: el ÚNICO código que puede aparecer es el de fallo de encendido.
+const CODIGO_ROT = {
+  P0301: 'fallo de encendido detectado en el cilindro 1',
+};
+
+// REGLA DECLARADA, NO DEDUCIDA. Este laboratorio modela el ENCENDIDO, no la
+// combustión. Un cilindro con la compresión hundida enciende igual —la chispa
+// salta y la mezcla prende— pero no aporta par, y el escáner lo cuenta como
+// fallo de encendido igual que si no hubiera chispa. Ese umbral, el 75 % de la
+// compresión nominal, es un DATO de esta práctica y no sale de ninguna de las
+// ecuaciones de arriba. Se declara aquí y se dice en pantalla, porque un lector
+// que lo tomara por deducido estaría creyéndose algo que no se ha demostrado.
+const COMPRESION_MIN = 0.75;
+function aportaPar(e, F = {}) {
+  const enciendeSiempre = PUNTOS.every(P =>
+    chispa(aplica(e, F), P.rpmDe(e), presionChispa(e, P.carga, F), F).enciende);
+  return enciendeSiempre && (F.compresionMul === undefined || F.compresionMul >= COMPRESION_MIN);
+}
+function codigos(e, F = {}) {
+  return aportaPar(e, F) ? [] : ['P0301'];
+}
+
+// ============================================================================
+// 11 · LECTURAS: TODO LO QUE UN ESCENARIO PRODUCE
+// ============================================================================
+function lecturas(e, esc) {
+  const E = ESCEN[esc];
+  const F = FALLAS[E.falla];
+  const eA = aplica(e, F);
+  const pts = PUNTOS.map(P => {
+    const rpm = P.rpmDe(e);
+    const p = presionChispa(e, P.carga, F);
+    const C = chispa(eA, rpm, p, F);
+    const compOk = F.compresionMul === undefined || F.compresionMul >= COMPRESION_MIN;
+    return { k: P.k, rot: P.rot, rpm, carga: P.carga, p, avance: avance(e, P.carga, F),
+      vDem: C.vDem, vDisp: C.vDisp, vQ: C.vQ, tQ: C.tQ, eArco: C.eArco, eUtil: C.eUtil,
+      eMin: C.eMin, margenE: C.margenE, margenT: C.margenT,
+      camino: C.camino, hay: C.hay, enciende: C.enciende, motivo: C.motivo,
+      aporta: C.enciende && compOk,
+      reserva: C.reserva, iBob: corriente(eA, rpm, F), dwell: dwell(eA, rpm, F),
+      recortado: dwellRecortado(eA, rpm, F) };
+  });
+  const sano = FALLAS.sano;
+  return {
+    esc, rot: E.rot, clave: E.clave, falla: E.falla,
+    pts,
+    enciendeTodo: pts.every(p => p.enciende),
+    aporta: aportaPar(e, F),
+    compresion: F.compresionMul || 1,
+    fallaEn: pts.filter(p => !p.enciende).map(p => p.k),
+    motivos: [...new Set(pts.filter(p => !p.enciende).map(p => p.motivo))],
+    osc: oscilaciones(eA, F), oscSano: oscilaciones(e, sano),
+    fTimbre: fTimbre(eA, F),
+    iBob: corriente(eA, e.ralenti, F), iSano: corriente(e, e.ralenti, sano),
+    dwell: dwell(eA, e.ralenti, F), dwellSano: dwell(e, e.ralenti, sano),
+    vBat: vBat(F), sep: separacion(e, F), rSerie: rSerie(e, F),
+    camino: pts[0].camino,
+    codigos: codigos(e, F),
+    // La chispa de la compañera, sólo si esta máquina es de chispa perdida.
+    vDemEscape: e.chispaPerdida ? chispa(eA, e.ralenti, P_ESCAPE, F).vDem : null,
+  };
+}
+
+// ============================================================================
+// 12 · OBSERVACIONES E INSTRUMENTOS
+// ============================================================================
+// `taller` = lo que se consigue sin osciloscopio. Lo demás pide el instrumento.
+const OBS = [
+  { k: 'codigo', rot: 'códigos del escáner', taller: true, res: 0 },
+  { k: 'ralentiOk', rot: '¿el motor se sostiene a ralentí?', taller: true, res: 0 },
+  { k: 'cargaOk', rot: '¿tira en carga?', taller: true, res: 0 },
+  { k: 'bateria', rot: 'tensión de batería en marcha', taller: true, res: 0.2 },
+  { k: 'aspecto', rot: 'aspecto de la bujía al desmontarla', taller: true, res: 0 },
+  { k: 'huecoBujia', rot: 'hueco de la bujía con galgas', taller: true, res: 0.05 },
+  // El óhmetro mide el camino entero hasta la bujía: en un motor con cables, el
+  // cable y el resistor; en uno de bobina sobre bujía, el resistor y el
+  // capuchón. Lo que NO mide es un corte que sólo se abre con tensión.
+  { k: 'ohmSec', rot: 'resistencia del secundario con el óhmetro', taller: true, res: 1000 },
+  { k: 'disparo', rot: 'línea de disparo a ralentí', taller: false, res: 500 },
+  { k: 'disparoCarga', rot: 'línea de disparo en carga', taller: false, res: 500 },
+  { k: 'quemado', rot: 'tiempo de quemado a ralentí', taller: false, res: 0.05e-3 },
+  { k: 'tensionQ', rot: 'tensión de la línea de chispa', taller: false, res: 100 },
+  { k: 'oscil', rot: 'oscilaciones de la bobina', taller: false, res: 0 },
+  { k: 'corriente', rot: 'corriente de la bobina en el primario', taller: false, res: 0.25 },
+  { k: 'dwellObs', rot: 'dwell medido en el primario', taller: false, res: 0.1e-3 },
+];
+
+const cuant = (v, res) => (res > 0 ? Math.round(v / res) * res : v);
+
+function firmaObs(e, L, sub) {
+  return sub.map(o => {
+    switch (o.k) {
+      case 'codigo': return L.codigos.join('+') || '-';
+      case 'ralentiOk': return L.pts[0].aporta ? 'si' : 'no';
+      case 'cargaOk': return L.pts[2].aporta ? 'si' : 'no';
+      case 'bateria': return cuant(L.vBat, o.res).toFixed(1);
+      // El aspecto es lo que se VE, no lo que pasa: una bujía engrasada se ve
+      // engrasada y una desgastada se ve desgastada, pero un dwell corto no deja
+      // ninguna marca en la porcelana.
+      case 'aspecto': return L.falla === 'bujiaEngrasada' ? 'humeda'
+        : L.falla === 'bujiaGastada' ? 'gastada'
+          : L.falla === 'compresionBaja' ? 'aceitosa' : 'normal';
+      case 'huecoBujia': return cuant(L.sep, o.res).toFixed(2);
+      case 'ohmSec': return cuant(L.rSerie, o.res).toFixed(0);
+      case 'disparo': return cuant(L.pts[0].vDem, o.res).toFixed(0);
+      case 'disparoCarga': return cuant(L.pts[2].vDem, o.res).toFixed(0);
+      case 'quemado': return cuant(L.pts[0].tQ, o.res).toFixed(5);
+      case 'tensionQ': return cuant(L.pts[0].vQ, o.res).toFixed(0);
+      case 'oscil': return String(L.osc);
+      case 'corriente': return cuant(L.iBob, o.res).toFixed(2);
+      case 'dwellObs': return cuant(L.dwell, o.res).toFixed(5);
+      default: return '?';
+    }
+  }).join('|');
+}
+
+// Censo exhaustivo: cuántos escenarios separa cada subconjunto de instrumentos.
+function censoSub(e) {
+  const out = [];
+  const n = OBS.length;
+  for (let m = 1; m < (1 << n); m++) {
+    const sub = [];
+    for (let i = 0; i < n; i++) if (m & (1 << i)) sub.push(OBS[i]);
+    const firmas = new Set(ESCEN_KEYS.map(k => firmaObs(e, lecturas(e, k), sub)));
+    out.push({ sub, resueltos: firmas.size });
+  }
+  out.sort((a, b) => b.resueltos - a.resueltos || a.sub.length - b.sub.length);
+  return out;
+}
+
+function distinguible(e, esc) {
+  if (esc === 'sano') return false;
+  return firmaObs(e, lecturas(e, esc), OBS) !== firmaObs(e, lecturas(e, 'sano'), OBS);
+}
+const casosReto = e => ESCEN_KEYS.filter(k => distinguible(e, k));
+const casosMudos = e => ESCEN_KEYS.filter(k => k !== 'sano' && !distinguible(e, k));
+
+// ============================================================================
+// T1 · FORMATO, ESTADO Y CAPA DE MEMORIA
+// ============================================================================
+
+// Espacio fino no separable, el mismo que usa el resto del dominio D6. Nunca se
+// llama a toLocaleString, que en este navegador formatea a la inglesa.
+const NBSP=' ';
+function num(x,d=1){
+  if(x===null||x===undefined) return '—';
+  if(!isFinite(x)) return x>0?'∞':'—';
+  const s=Math.abs(x).toFixed(d);
+  const [ent,dec]=s.split('.');
+  let e=''; for(let i=0;i<ent.length;i++){ if(i>0 && (ent.length-i)%3===0) e+=NBSP; e+=ent[i]; }
+  return (x<0?'−':'')+e+(dec?','+dec:'');
+}
+const kv=(x,d=2)=>num(x/1000,d)+NBSP+'kV';
+const volt=(x,d=1)=>num(x,d)+NBSP+'V';
+const mili=(x,d=2)=>num(x*1000,d)+NBSP+'ms';
+const amp=(x,d=2)=>num(x,d)+NBSP+'A';
+const mJ=(x,d=1)=>num(x*1000,d)+NBSP+'mJ';
+const barU=(x,d=2)=>num(x,d)+NBSP+'bar';
+const mm=(x,d=2)=>num(x,d)+NBSP+'mm';
+const kohm=(x,d=1)=>num(x/1000,d)+NBSP+'kΩ';
+const mohm=(x,d=2)=>num(x/1e6,d)+NBSP+'MΩ';
+const pc=(x,d=0)=>num(x,d)+NBSP+'%';
+const rpmT=x=>num(x,0)+NBSP+'rpm';
+const gra=(x,d=1)=>num(x,d)+NBSP+'°';
+const hzU=(x,d=0)=>num(x,d)+NBSP+'Hz';
+const vec=(x,d=2)=>num(x,d)+NBSP+'×';
+
+// --- estado observable ------------------------------------------------------
+const G={
+  maq:'dis4',        // clave de ARQ
+  esc:'sano',        // clave de ESCEN
+  carga:0.45,        // posición del acelerador, 0..1 — manda la PRESIÓN
+  rpm:2500,          // régimen — manda el DWELL y por tanto la energía
+  modo:'traza',
+  resuelto:false
+};
+const MQ=()=>ARQ[G.maq];
+const FALLA=()=>ESCEN[G.esc].falla;
+const FA=()=>FALLAS[FALLA()];
+// La máquina CON la avería aplicada: `bobinaEspiras` y `masaMotor` cambian el
+// primario, y usar el arquetipo pelado daría cifras de una bobina que no es la
+// que está montada.
+const MQF=()=>aplica(MQ(),FA());
+const OBS_TALLER=OBS.filter(o=>o.taller);
+const OBS_OSC=OBS.filter(o=>!o.taller);
+
+// --- memoria ----------------------------------------------------------------
+// El censo recorre 2^14−1 subconjuntos por máquina: sin memoria, cada repintado
+// del pizarrón lo recalcularía y la escena se caería a cero fotogramas.
+const MEMO=new Map();
+function memo(k,fn){ if(!MEMO.has(k)) MEMO.set(k,fn()); return MEMO.get(k); }
+function invalida(){ MEMO.clear(); }
+
+function LECT(){ return LECT_DE(G.esc); }
+function LECT_DE(esc){ return memo(`l|${G.maq}|${esc}`,()=>lecturas(MQ(),esc)); }
+function CENSO(){ return memo(`n|${G.maq}`,()=>censoSub(MQ())); }
+function RETO_CASOS(){ return memo(`r|${G.maq}`,()=>casosReto(MQ())); }
+function MUDOS(){ return memo(`m|${G.maq}`,()=>casosMudos(MQ())); }
+// Las familias que se ofrecen en el diagnóstico a ciegas salen de los casos que
+// ESTA máquina puede plantear: ofrecer una familia que nunca puede ser la
+// correcta es pedir que se adivine.
+function FAMILIAS_RETO(){ return memo(`f|${G.maq}`,()=>[...new Set(RETO_CASOS().map(k=>ESCEN[k].clave))]); }
+
+// El punto de trabajo de los MANDOS, que no es ninguno de los tres del
+// protocolo. La presión sale de la carga; el dwell, del régimen.
+function PRESION(esc){ const F=FALLAS[ESCEN[esc||G.esc].falla];
+  return presionChispa(MQ(),G.carga,F); }
+function CHISPA(esc){ const k=esc||G.esc;
+  return memo(`c|${G.maq}|${k}|${G.carga}|${G.rpm}`,()=>{
+    const F=FALLAS[ESCEN[k].falla];
+    return chispa(aplica(MQ(),F),G.rpm,presionChispa(MQ(),G.carga,F),F);
+  });
+}
+function TRZ(o={}){
+  const esc=o.esc===undefined?G.esc:o.esc;
+  const F=FALLAS[ESCEN[esc].falla];
+  const n=o.n===undefined?1100:o.n;
+  return memo(`t|${G.maq}|${esc}|${G.carga}|${G.rpm}|${n}`,
+    ()=>trazaSecundario(aplica(MQ(),F),G.rpm,presionChispa(MQ(),G.carga,F),{F,n}));
+}
+function TRZP(o={}){
+  const esc=o.esc===undefined?G.esc:o.esc;
+  const F=FALLAS[ESCEN[esc].falla];
+  return memo(`p|${G.maq}|${esc}|${G.rpm}`,
+    ()=>trazaPrimario(aplica(MQ(),F),G.rpm,{F,n:700}));
+}
+
+// ============================================================================
+// VEREDICTOS
+//
+// Se evalúan por SEPARADO a propósito, porque la práctica demuestra que no son
+// la misma pregunta: hay chispa sin encendido, hay encendido sin código, y hay
+// código sin avería eléctrica ninguna.
+// ============================================================================
+function veredicto(){
+  const e=MQ(), L=LECT(), C=CHISPA(), SN=LECT_DE('sano');
+  const SC=memo(`cs|${G.maq}|${G.carga}|${G.rpm}`,()=>chispa(e,G.rpm,presionChispa(e,G.carga,{}),{}));
+  return {
+    hay:C.hay, enciende:C.enciende, motivo:C.motivo, camino:C.camino,
+    // Comparaciones contra el MISMO motor sano en el MISMO punto de trabajo: un
+    // tiempo de quemado no se juzga contra una cifra de catálogo, se juzga
+    // contra lo que daría esta bobina sana aquí mismo.
+    disparoAlto:C.vDem>SC.vDem*1.15, disparoBajo:C.vDem<SC.vDem*0.85,
+    quemadoCorto:C.tQ<SC.tQ*0.85, quemadoLargo:C.tQ>SC.tQ*1.15,
+    pocaReserva:C.reserva<0.35,
+    timbreCorto:L.osc<OSC_SANAS, timbreSano:SN.osc,
+    dwellRecortado:L.pts.some(p=>p.recortado)||dwellRecortado(MQF(),G.rpm,FA()),
+    aporta:L.aporta, limpio:L.codigos.length===0,
+    ralenti:L.pts[0].aporta, carga:L.pts[2].aporta,
+    ciego:(G.modo==='reto'),
+    SC
+  };
+}
+
+// Lo que el TALLER CORRIENTE no puede separar de lo que hay puesto, y qué
+// medida del osciloscopio lo separaría. Es el argumento de la práctica escrito
+// como cálculo y no como opinión.
+function veredictoEngano(){
+  const e=MQ(), L=LECT();
+  const fT=firmaObs(e,L,OBS_TALLER);
+  const gemelos=ESCEN_KEYS.filter(k=>k!==G.esc&&firmaObs(e,LECT_DE(k),OBS_TALLER)===fT);
+  const fTodo=firmaObs(e,L,OBS);
+  const mudos=ESCEN_KEYS.filter(k=>k!==G.esc&&firmaObs(e,LECT_DE(k),OBS)===fTodo);
+  const separan=OBS_OSC.filter(m=>gemelos.length>0&&
+    gemelos.every(k=>firmaObs(e,LECT_DE(k),[m])!==firmaObs(e,L,[m])));
+  return { fT, gemelos, mudos, separan,
+    limpio:L.codigos.length===0, ciego:(G.modo==='reto'),
+    nivel: !L.aporta?'bad':(gemelos.length?'warn':'good') };
+}
+
+// --- colores por magnitud ---------------------------------------------------
+const COL={disparo:NARANJA, quemado:CIAN, corriente:VIO, energia:OK_HEX,
+  presion:AZUL, disponible:ROSA, timbre:WARN_HEX};
+
+// --- materiales -------------------------------------------------------------
+// El donante ya define castAluminum/brushedMetal/rubber/techPlastic. Aquí sólo
+// se instancian, y cada malla que comparte material lo CLONA antes de tocarle
+// el color: un material compartido cambia de color en todas las piezas a la vez.
+const cast=castAluminum(), brush=brushedMetal(), rub=rubber(), plas=techPlastic();
+const std=o=>new THREE.MeshStandardMaterial(o);
+const MAT={
+  banco:std({...plas,color:0x1b2430,roughness:0.72,metalness:0.18}),
+  acero:std({...brush,color:0x9aa4b0,metalness:0.92,roughness:0.34}),
+  crom:std({...brush,color:0xd7dee6,metalness:1.0,roughness:0.16}),
+  caja:std({...plas,color:0x232c38,roughness:0.62,metalness:0.22}),
+  bobina:std({...plas,color:0x14181f,roughness:0.52,metalness:0.30}),
+  cobre:std({color:0xb87333,metalness:0.85,roughness:0.38}),
+  porcelana:std({color:0xece6d8,roughness:0.42,metalness:0.05}),
+  ok:std({color:0x7cd992,emissive:0x7cd992,emissiveIntensity:1.1,roughness:0.4}),
+  avi:std({color:0xe9c46a,emissive:0xe9c46a,emissiveIntensity:1.1,roughness:0.4}),
+  bad:std({color:0xff6b6b,emissive:0xff6b6b,emissiveIntensity:1.1,roughness:0.4}),
+  apag:std({color:0x2a323d,roughness:0.6,metalness:0.2}),
+};
+const MAT_CABLE=std({...rub,color:0x8a1f1f,roughness:0.66});
+const MAT_VIDRIO=new THREE.MeshPhysicalMaterial({color:0x9fd8ea,transparent:true,
+  opacity:0.075,roughness:0.10,metalness:0.0,side:THREE.BackSide,depthWrite:false});
+const MAT_ARCO=std({color:0xbfe4ff,emissive:0x9fd0ff,emissiveIntensity:3.2,roughness:0.3});
+const MAT_VIA=std({color:0xffb36b,emissive:0xff9a4a,emissiveIntensity:2.8,roughness:0.3});
+
+// ============================================================ T2 · PIZARRÓN
+// Un lienzo 2D de 1024×768 pegado a un panel 3D. Se llama `bcv` y no `cv`
+// porque `cv` ya es la fábrica de lienzos del kit de la escena: reusar ese
+// nombre rompe la página entera antes de que arranque nada.
+const BW=1024, BH=768;
+const bcv=document.createElement('canvas'); bcv.width=BW; bcv.height=BH;
+const bx=bcv.getContext('2d');
+const btex=new THREE.CanvasTexture(bcv);
+btex.colorSpace=THREE.SRGBColorSpace;
+
+const board=new THREE.Group();
+scene.add(board);
+// Cotas del pizarrón. Es GRANDE a propósito: los paneles de la interfaz tapan
+// cuatro décimas del ancho de la pantalla, y con un pizarrón pequeño la única
+// forma de que el banco entrara en el hueco que queda era alejarse tanto que el
+// texto del tablero dejaba de leerse. Aquí la práctica está en el tablero.
+const BW3=5.60, BH3=4.04, BY3=2.25;
+function colocaTablero(d){
+  board.rotation.y=0.70;
+  // El pizarrón se pega al borde IZQUIERDO real del banco, descontando su propio
+  // medio ancho proyectado sobre el eje X. Colocarlo a partir de un «ancho
+  // total» inventado deja un metro de mesa vacía entre los dos y echa el banco
+  // fuera del cuadro.
+  const medio=(BW3/2+0.13)*Math.cos(board.rotation.y);
+  board.position.set(d.xIzq-0.70-medio,0,0.95);
+}
+// Encuadre que mete el pizarrón Y el banco. La distancia NO se calcula con una
+// regla de tres sobre el ancho: se PRUEBA contra el tronco de visión punto por
+// punto y se busca la menor que los mete todos. Repartir el ancho como si todo
+// estuviera a la misma profundidad deja al banco —que está mucho más cerca de la
+// cámara que el pizarrón— ocupando tres cuartos del cuadro mientras el pizarrón
+// se queda en un rincón, y eso sólo se ve mirando la pantalla.
+function puntosClave(){
+  const d=dims(MQ());
+  const a=BW3/2, mx=a*Math.cos(board.rotation.y), mz=a*Math.sin(board.rotation.y);
+  const y0=BY3-BH3/2, y1=BY3+BH3/2, bp=board.position;
+  return [
+    [bp.x-mx,y0,bp.z+mz],[bp.x+mx,y0,bp.z-mz],
+    [bp.x-mx,y1,bp.z+mz],[bp.x+mx,y1,bp.z-mz],
+    // Los OCHO extremos reales del banco. Sin el borde derecho aquí, la cámara
+    // no sabe dónde acaba el banco y deja el osciloscopio —y medio motor— debajo
+    // del panel de mandos: sale un encuadre que parece bueno hasta que se mira.
+    [d.xIzq,0.10,0.30],[d.xIzq,2.42,-0.30],
+    [d.xDer,0.10,0.30],[d.xDer,1.62,-0.80],
+    [d.xDer,0.10,-1.10],[d.centro,2.56,-0.25],
+    [d.xCam,2.56,-0.25],[d.centro,0.10,0.30],
+    [d.xOsc,1.32,d.zOsc-0.20],[d.xIzq,0.10,-1.32],
+  ].map(p=>new THREE.Vector3(...p));
+}
+// La franja de pantalla que de verdad se ve. El HUD tapa la izquierda y el panel
+// de mandos tapa la derecha: encuadrar contra el ancho completo del lienzo mete
+// casi cuatro décimas del banco DEBAJO de los paneles, y desde fuera parece que
+// la cámara está mal cuando lo que está mal es la cuenta.
+function zonaUtil(){
+  const rM=mount.getBoundingClientRect();
+  const W=rM.width||1600, H=rM.height||900;
+  let x0=0, x1=W;
+  const h=el('hud'), p=el('panel');
+  if(h){ const r=h.getBoundingClientRect();
+    if(r.width>0&&r.right-rM.left<W*0.60) x0=Math.max(x0,r.right-rM.left+18); }
+  if(p){ const r=p.getBoundingClientRect();
+    if(r.width>0&&r.left-rM.left>W*0.40) x1=Math.min(x1,r.left-rM.left-18); }
+  // En una pantalla estrecha los paneles no dejan hueco: entonces se usa todo el
+  // lienzo y que los paneles tapen lo que tapen, porque la alternativa es alejar
+  // la cámara hasta que no se lea nada.
+  if(x1-x0<W*0.34){ x0=0; x1=W; }
+  return { W, H, x0, x1 };
+}
+function camConjunto(margen){
+  const d=dims(MQ()), Z=zonaUtil();
+  const asp=clamp(Z.W/Math.max(1,Z.H),0.60,2.60);
+  const m=(margen===undefined?1:margen);
+  const TV=0.4142, TH=TV*asp;                    // tangentes del medio ángulo
+  const nx0=(2*Z.x0/Z.W-1)/m, nx1=(2*Z.x1/Z.W-1)/m, ny=0.94/m;
+  const pts=puntosClave();
+  const mx=1.86*Math.cos(board.rotation.y);
+  let off=(((board.position.x-mx)+d.xDer)/2-board.position.x)/Math.cos(board.rotation.y);
+  const proy=(dist,o)=>{
+    const [P,C]=camTablero(dist,o);
+    const p=new THREE.Vector3(...P), c=new THREE.Vector3(...C);
+    const f=c.clone().sub(p).normalize();
+    const r=new THREE.Vector3().crossVectors(f,new THREE.Vector3(0,1,0)).normalize();
+    const u=new THREE.Vector3().crossVectors(r,f).normalize();
+    let a=Infinity,b=-Infinity,vy=0,zs=0,n=0,malo=false;
+    for(const q of pts){
+      const v=q.clone().sub(p), z=v.dot(f);
+      if(z<=0.2){ malo=true; continue; }
+      a=Math.min(a,(v.dot(r)/z)/TH); b=Math.max(b,(v.dot(r)/z)/TH);
+      vy=Math.max(vy,Math.abs((v.dot(u)/z)/TV)); zs+=z; n++;
+    }
+    return { a, b, vy, z:n?zs/n:1, malo };
+  };
+  const cabe=(dist,o)=>{ const e=proy(dist,o); return !e.malo&&e.a>=nx0&&e.b<=nx1&&e.vy<=ny; };
+  let dist=26;
+  for(let it=0;it<7;it++){
+    // Menor distancia que mete todos los puntos clave dentro de la franja útil.
+    if(cabe(26,off)){
+      let lo=3, hi=26;
+      for(let k=0;k<26;k++){ const mid=(lo+hi)/2; if(cabe(mid,off)) hi=mid; else lo=mid; }
+      dist=hi;
+    }else dist=26;
+    // Y después se centra el contenido DENTRO de esa franja, no dentro del
+    // lienzo: si no, el banco queda pegado al panel de mandos.
+    const e=proy(dist,off);
+    const dn=(nx0+nx1)/2-(e.a+e.b)/2;
+    if(Math.abs(dn)<0.012) break;
+    off-=dn*TH*e.z;
+  }
+  return camTablero(dist,off);
+}
+// Encuadre del pizarrón: se calcula desde su propia transformada, no con
+// coordenadas escritas a mano, porque el pizarrón se mueve con el ancho del
+// banco y unas coordenadas fijas lo dejan medio fuera de cuadro en cuanto se
+// cambia de arquetipo.
+function camTablero(d,off){
+  const c=board.position.clone(); c.y=BY3;
+  const n=new THREE.Vector3(Math.sin(board.rotation.y),0,Math.cos(board.rotation.y));
+  const dd=d||5.85;
+  // La altura sube con la distancia. Con una altura fija, alejarse deja la vista
+  // casi horizontal y la mesa se ve de canto.
+  const p=c.clone().addScaledVector(n,dd); p.y=BY3+0.13*dd;
+  // El HUD tapa la franja izquierda de la pantalla, así que por omisión se apunta
+  // un poco a la izquierda del centro del pizarrón para que el pizarrón caiga a
+  // su derecha. Con un desplazamiento POSITIVO el pizarrón se corre hacia la
+  // izquierda y el banco —que está a su derecha— entra en el cuadro.
+  const tg=new THREE.Vector3(Math.cos(board.rotation.y),0,-Math.sin(board.rotation.y));
+  const dx=(off===undefined)?-0.42:off;
+  p.addScaledVector(tg,dx); c.addScaledVector(tg,dx);
+  return [[p.x,p.y,p.z],[c.x,c.y,c.z]];
+}
+{
+  const marco=roundedBox(BW3+0.26,BH3+0.24,0.10,std({...plas,metalness:0.30,roughness:0.58}),0.05);
+  marco.position.y=BY3; board.add(marco);
+  const pl=new THREE.Mesh(new THREE.PlaneGeometry(BW3,BH3),
+    new THREE.MeshBasicMaterial({map:btex,toneMapped:false}));
+  pl.position.set(0,BY3,0.056); board.add(pl);
+  const pie=BY3-BH3/2-0.12;
+  for(const sx of [-1,1]){
+    const p=new THREE.Mesh(new THREE.CylinderGeometry(0.05,0.06,pie,16),MAT.acero);
+    p.position.set(sx*2.36,pie/2,0); p.castShadow=true; board.add(p);
+  }
+}
+
+// ------------------------------------------------------------- primitivas 2D
+function bg(){
+  const g=bx.createLinearGradient(0,0,0,BH);
+  g.addColorStop(0,'#0d131c'); g.addColorStop(1,'#070a10');
+  bx.fillStyle=g; bx.fillRect(0,0,BW,BH);
+}
+function texto(t,x,y,o={}){
+  const s=o.s||16, w=o.b?'700':'400', it=o.it?'italic ':'';
+  bx.font=it+w+' '+s+'px '+(o.mono?'ui-monospace,Menlo,Consolas,monospace':'Inter,system-ui,sans-serif');
+  bx.fillStyle=o.c||TINTA; bx.textAlign=o.al||'left'; bx.textBaseline='alphabetic';
+  bx.fillText(t,x,y);
+}
+function linea(pts,c,w,dash){
+  if(pts.length<2) return;
+  bx.save(); bx.strokeStyle=c; bx.lineWidth=w||2; bx.lineJoin='round'; bx.lineCap='round';
+  if(dash) bx.setLineDash(dash);
+  bx.beginPath(); bx.moveTo(pts[0][0],pts[0][1]);
+  for(let i=1;i<pts.length;i++) bx.lineTo(pts[i][0],pts[i][1]);
+  bx.stroke(); bx.restore();
+}
+function wrapText(t,x,y,w,lh,o={}){
+  const s=o.s||14;
+  bx.font=(o.b?'700 ':'400 ')+s+'px Inter,system-ui,sans-serif';
+  bx.fillStyle=o.c||'#9aa6b6'; bx.textAlign='left'; bx.textBaseline='alphabetic';
+  let ln='', yy=y;
+  for(const p of t.split(' ')){
+    const test=ln?ln+' '+p:p;
+    if(bx.measureText(test).width>w&&ln){ bx.fillText(ln,x,yy); yy+=lh; ln=p; }
+    else ln=test;
+  }
+  if(ln){ bx.fillText(ln,x,yy); yy+=lh; }
+  return yy;
+}
+function rpanel(x,y,w,h,c,bd,rad){
+  const r=Math.min(rad===undefined?10:rad, w/2, h/2);
+  bx.save(); bx.beginPath();
+  bx.moveTo(x+r,y); bx.arcTo(x+w,y,x+w,y+h,r); bx.arcTo(x+w,y+h,x,y+h,r);
+  bx.arcTo(x,y+h,x,y,r); bx.arcTo(x,y,x+w,y,r); bx.closePath();
+  bx.fillStyle=c||'rgba(255,255,255,0.035)'; bx.fill();
+  if(bd){ bx.strokeStyle=bd; bx.lineWidth=1.4; bx.stroke(); }
+  bx.restore();
+}
+function chk(x,y,ok){
+  bx.save(); bx.lineWidth=2.6; bx.lineCap='round';
+  bx.strokeStyle=ok?OK_HEX:'#3a4658';
+  bx.beginPath(); bx.arc(x,y,9,0,Math.PI*2); bx.stroke();
+  if(ok){ bx.beginPath(); bx.moveTo(x-4.5,y); bx.lineTo(x-1,y+3.6); bx.lineTo(x+4.8,y-4); bx.stroke(); }
+  bx.restore();
+}
+function tabla(x,y,cols,rows,o={}){
+  const rh=o.rh||26, fs=o.s||14, gap=o.gap===undefined?14:o.gap;
+  const ancho=cols.reduce((a,c)=>a+c.w+gap,0)-gap;
+  let cx=x;
+  cols.forEach(c=>{ texto(c.t,c.al==='right'?cx+c.w:cx,y,{s:fs,b:true,c:'#9aa6b6',al:c.al||'left'}); cx+=c.w+gap; });
+  linea([[x,y+8],[x+ancho,y+8]],'#243043',1.2);
+  rows.forEach((r,i)=>{
+    const yy=y+rh*(i+1)+6;
+    if(r.hl){ bx.save(); bx.fillStyle=r.hl; bx.fillRect(x-6,yy-rh+9,ancho+12,rh); bx.restore(); }
+    let px=x;
+    cols.forEach((c,j)=>{
+      const cell=r.v[j];
+      const val=Array.isArray(cell)?cell[0]:cell, col=Array.isArray(cell)?cell[1]:(r.c||TINTA);
+      texto(val,c.al==='right'?px+c.w:px,yy,{s:fs,c:col,al:c.al||'left',mono:c.mono,b:r.b});
+      px+=c.w+gap;
+    });
+  });
+  return y+rh*(rows.length+1)+6;
+}
+// Título que se encoge hasta caber: cambiar de máquina cambia la longitud del
+// rótulo, y un rótulo largo se monta encima del de al lado sin avisar.
+function textoFit(t,x,y,maxW,o={}){
+  let s=o.s||16;
+  while(s>11){
+    bx.font=(o.b?'700 ':'400 ')+s+'px Inter,system-ui,sans-serif';
+    if(bx.measureText(t).width<=maxW) break;
+    s-=0.5;
+  }
+  texto(t,x,y,Object.assign({},o,{s}));
+}
+function etiqueta(t,x,y,c,al){
+  bx.font='400 12px Inter,system-ui,sans-serif';
+  const w=bx.measureText(t).width+16, x0=(al==='right')?x-w:x;
+  rpanel(x0,y-14,w,20,'rgba(8,12,18,0.80)',null,6);
+  texto(t,x0+8,y,{s:12,c:c||TINTA});
+}
+function leyenda(x,y,items){
+  bx.font='400 13px Inter,system-ui,sans-serif';
+  const w=Math.max(...items.map(it=>bx.measureText(it[0]).width))+48;
+  rpanel(x-10,y-19,w,items.length*22+8,'rgba(8,12,18,0.80)','#1e2836',8);
+  let yy=y;
+  items.forEach(it=>{
+    bx.save(); bx.strokeStyle=it[1]; bx.lineWidth=3.2; bx.lineCap='round';
+    if(it[2]) bx.setLineDash(it[2]);
+    bx.beginPath(); bx.moveTo(x,yy-4); bx.lineTo(x+26,yy-4); bx.stroke(); bx.restore();
+    texto(it[0],x+34,yy,{s:13,c:'#c3ccd8'});
+    yy+=22;
+  });
+  return yy;
+}
+// Recorta al rectángulo de la gráfica. Sin esto, una barra o una curva que se
+// sale por arriba se pinta sobre la cabecera y nadie lo nota.
+function enCaja(P,fn){ bx.save(); bx.beginPath(); bx.rect(P.x,P.y,P.w,P.h); bx.clip(); fn(); bx.restore(); }
+
+function ejes(P,x0,x1,y0,y1,rx,ry,fx,fy,nx,ny){
+  const X=v=>P.x+(v-x0)/(x1-x0)*P.w;
+  const Y=v=>P.y+P.h-(v-y0)/(y1-y0)*P.h;
+  bx.save(); bx.strokeStyle='#1d2735'; bx.lineWidth=1;
+  for(let i=0;i<=nx;i++){ const v=x0+(x1-x0)*i/nx, xx=X(v);
+    bx.beginPath(); bx.moveTo(xx,P.y); bx.lineTo(xx,P.y+P.h); bx.stroke();
+    if(fx) texto(fx(v),xx,P.y+P.h+19,{s:12,c:'#7b8697',al:'center'}); }
+  for(let i=0;i<=ny;i++){ const v=y0+(y1-y0)*i/ny, yy=Y(v);
+    bx.beginPath(); bx.moveTo(P.x,yy); bx.lineTo(P.x+P.w,yy); bx.stroke();
+    if(fy) texto(fy(v),P.x-9,yy+4,{s:12,c:'#7b8697',al:'right'}); }
+  bx.restore();
+  bx.save(); bx.strokeStyle='#3a4658'; bx.lineWidth=1.5; bx.strokeRect(P.x,P.y,P.w,P.h); bx.restore();
+  if(rx) texto(rx,P.x+P.w/2,P.y+P.h+44,{s:13,c:'#9aa6b6',al:'center'});
+  if(ry){ bx.save(); bx.translate(P.x-58,P.y+P.h/2); bx.rotate(-Math.PI/2);
+    texto(ry,0,0,{s:13,c:'#9aa6b6',al:'center'}); bx.restore(); }
+  return {X,Y};
+}
+function serieXY(M,pts,c,w,dash){ linea(pts.map(p=>[M.X(p[0]),M.Y(p[1])]),c,w,dash); }
+function punteo(M,x,y,c,r){
+  bx.save(); bx.fillStyle=c; bx.beginPath(); bx.arc(M.X(x),M.Y(y),r||4.5,0,Math.PI*2); bx.fill(); bx.restore();
+}
+// Línea de referencia horizontal. Si el nivel cae fuera del recuadro no se
+// pinta: una línea de límite dibujada sobre el borde miente sobre dónde está.
+function nivel(P,M,v,c,rot,dash){
+  const yy=M.Y(v);
+  if(yy<P.y-1||yy>P.y+P.h+1) return;
+  linea([[P.x,yy],[P.x+P.w,yy]],c,1.6,dash||[7,5]);
+  if(rot) etiqueta(rot,P.x+P.w-8,yy-6,c,'right');
+}
+// Cabecera común: toda vista dice qué motor y en qué punto de trabajo se está
+// mirando. Una cifra sin su configuración al lado no significa nada, y aquí hay
+// cuatro mandos que la cambian.
+function cabMaquina(){
+  const e=MQ();
+  return e.corto+' · '+(e.bobinaPorCil?'bobina sobre bujía':(e.chispaPerdida?'bobina doble, chispa perdida':'distribuidor'))+
+    ' · '+e.nCil+NBSP+'cil. · hueco '+mm(e.sep)+' · '+num(e.Lp*1000,1)+NBSP+'mH';
+}
+// La cabecera dice el punto de trabajo de los MANDOS y la presión NOMINAL de
+// esta máquina en ese punto —la del mapa del motor, con todo sano—. La presión
+// y el avance REALES dependen de la avería, así que decirlos aquí delataría la
+// respuesta en el diagnóstico a ciegas: son medidas, y van en la telemetría.
+function cabPunto(){
+  return rpmT(G.rpm)+' · carga '+pc(G.carga*100,0)+' · nominal '+
+    barU(presionChispa(MQ(),G.carga,{}))+' a '+gra(avance(MQ(),G.carga,{}),1);
+}
+// En el diagnóstico a ciegas la cabecera NO puede decir qué avería está puesta:
+// decirlo delataría la respuesta antes de tomar la primera medida.
+function cabecera(t,sub){
+  const ciego=(G.modo==='reto');
+  const l1=cabMaquina();
+  const l2=cabPunto()+(ciego?'  ·  avería: por determinar':'');
+  texto(l1,BW-42,44,{s:13,c:CIAN,al:'right'});
+  texto(l2,BW-42,68,{s:13,c:ciego?WARN_HEX:'#8c98a9',al:'right'});
+  // El ancho que le queda al título es el que NO ocupa la línea de la máquina, y
+  // se mide de verdad: escribir un ancho fijo deja el título montado encima del
+  // rótulo del motor en cuanto la pregunta es larga.
+  bx.font='400 13px Inter,system-ui,sans-serif';
+  const libre=Math.max(240,(BW-42-bx.measureText(l1).width-24)-42);
+  textoFit(t,42,50,libre,{s:26,b:true});
+  wrapText(sub,42,92,BW-84,18,{s:13,c:'#8c98a9'});
+  linea([[42,116],[BW-42,116]],'#1e2836',1.4);
+}
+// Banda de veredicto al pie del pizarrón. La altura se MIDE a partir del texto
+// que va a llevar: una banda de altura fija recorta su tercera línea y el texto
+// existe pero no se ve, y ninguna prueba numérica puede darse cuenta.
+function lineasDe(t,w,s){
+  bx.font='400 '+s+'px Inter,system-ui,sans-serif';
+  let n=1, ln='';
+  for(const p of String(t).split(' ')){
+    const test=ln?ln+' '+p:p;
+    if(bx.measureText(test).width>w&&ln){ n++; ln=p; } else ln=test;
+  }
+  return n;
+}
+function banda(y,nivel,rot,txt){
+  const SZ=12.5, LH=17, W=BW-120;
+  const h=Math.max(60, 32+lineasDe(txt,W,SZ)*LH+10);
+  const yy=Math.min(y, BH-14-h);
+  const col=nivel==='bad'?BAD_HEX:(nivel==='warn'?WARN_HEX:OK_HEX);
+  const fondo=nivel==='bad'?'rgba(255,107,107,0.10)':(nivel==='warn'?'rgba(233,196,106,0.10)':'rgba(124,217,146,0.10)');
+  rpanel(42,yy,BW-84,h,fondo,col,10);
+  texto(rot,60,yy+24,{s:14,b:true,c:col});
+  wrapText(txt,60,yy+44,W,LH,{s:SZ,c:'#c3ccd8'});
+  return yy+h;
+}
+
+// ============================================================ T2b · LAS VISTAS
+const ESC_CORTO={
+  sano:'sano', bujiaGastada:'bujía gastada', bujiaCerrada:'bujía cerrada',
+  bujiaEngrasada:'bujía engrasada', resistorAlto:'resistor alto',
+  cableAbierto:'corte en serie', masaMotor:'masa del motor', fugaMasa:'fuga a masa',
+  dwellCorto:'dwell corto', bobinaEspiras:'espiras en corto', bateriaBaja:'batería baja',
+  compresionBaja:'compresión baja', avanceExcesivo:'avance excesivo',
+};
+const OBS_CORTO={
+  codigo:'códigos', ralentiOk:'¿ralentí?', cargaOk:'¿tira?', bateria:'batería',
+  aspecto:'aspecto', huecoBujia:'galgas', ohmSec:'óhmetro',
+  disparo:'disparo ralentí', disparoCarga:'disparo carga', quemado:'quemado',
+  tensionQ:'tensión de arco', oscil:'oscilaciones', corriente:'corriente', dwellObs:'dwell',
+};
+const MOTIVO_ROT={
+  enciende:'la mezcla prende', sinArco:'no salta el arco',
+  fueraDeSitio:'el arco va por el aislador, no por el hueco',
+  pocaEnergia:'el arco no lleva energía para formar el núcleo',
+  arcoCorto:'el arco dura menos de lo que tarda en formarse el núcleo',
+};
+
+// El nombre que se le da a la avería en el escenario, para el reto: los rótulos
+// hablan del cable en máquinas que no lo llevan.
+function escRot(k){
+  const e=MQ();
+  if(k==='cableAbierto') return tieneCable(e)?'cable de bujía partido':'muelle del capuchón despegado';
+  return ESCEN[k].rot;
+}
+
+// Banda vertical que abarca una serie con holgura, sin dejar la curva pegada al
+// borde ni el cero fuera cuando importa. `noNeg` recorta el margen inferior en
+// cero: un eje de tiempos o de energía con marcas negativas es una escala que
+// miente sobre lo que puede pasar.
+function bandaY(vals,min,max,noNeg){
+  let a=Math.min(...vals), b=Math.max(...vals);
+  if(min!==null&&min!==undefined) a=Math.min(a,min);
+  if(max!==null&&max!==undefined) b=Math.max(b,max);
+  if(!(b>a)){ a-=1; b+=1; }
+  const m=(b-a)*0.12;
+  return [noNeg?Math.max(0,a-m):a-m, b+m];
+}
+
+// La columna derecha del pizarrón. Las gráficas llegan hasta x = 694 y el margen
+// del tablero está en 982, así que TODA tabla de la derecha vive entre esos dos
+// números. Escribir anchos a mano en cada vista dejó las seis tablas cortadas por
+// el borde, y sólo se vio mirando la pantalla.
+const DER_X=708, DER_W=274;
+function tablaDer(y,rot,rows,o={}){
+  const nv=rot.length-1;                       // columnas de valor
+  const wv=nv===1?98:60, gap=8;
+  const w0=DER_W-(wv+gap)*nv;
+  const cols=[{t:rot[0]||'',w:w0}];
+  for(let i=0;i<nv;i++) cols.push({t:rot[i+1]||'',w:wv,al:'right'});
+  // Una fila con menos celdas que columnas pinta «undefined» en la última, y
+  // eso pasa desapercibido en cualquier prueba numérica: se rellena aquí.
+  rows.forEach(r=>{ while(r.v.length<cols.length) r.v.push(''); });
+  return tabla(DER_X,y,cols,rows,Object.assign({rh:25,s:13,gap},o));
+}
+
+// ---------------------------------------------------------------- 1 · LA TRAZA
+function vistaTraza(){
+  const e=MQ(), L=LECT(), C=CHISPA(), V=veredicto();
+  const T=TRZ(), P1=TRZP();
+  cabecera('La traza del secundario y sus tres fases',
+    'El pico mide lo que cuesta abrir el camino; la meseta, cuánto dura el arco; el timbre del final, el estado del devanado. Las tres salen del mismo presupuesto de energía, y por eso ninguna se lee sola.');
+
+  const P={x:96,y:150,w:598,h:250};
+  const ys=T.pts.map(q=>q.v);
+  let [y0,y1]=bandaY(ys,0,null,true);
+  const M=ejes(P,0,T.tTotal,y0,y1,'tiempo (ms)','tensión del secundario (kV)',
+    v=>num(v,2),v=>num(v,1),5,5);
+  enCaja(P,()=>{
+    // Sombreado de las tres fases, para que se vean como fases y no como una
+    // curva cualquiera.
+    const fases=C.hay
+      ?[[T.tDisparo-0.06,T.tDisparo,'rgba(240,160,90,0.14)'],
+        [T.tDisparo,T.tFin,'rgba(90,209,230,0.13)'],
+        [T.tFin,T.tTotal,'rgba(233,196,106,0.10)']]
+      :[[T.tDisparo-0.06,T.tTotal,'rgba(255,107,107,0.12)']];
+    fases.forEach(([a,b,c])=>{ bx.save(); bx.fillStyle=c;
+      bx.fillRect(M.X(a),P.y,Math.max(2,M.X(b)-M.X(a)),P.h); bx.restore(); });
+    serieXY(M,T.pts.map(q=>[q.t,q.v]),C.camino==='via'?NARANJA:COL.quemado,2.2);
+    // La tensión disponible: el techo que la bobina puede dar. Si el pico lo
+    // tocara, no habría chispa.
+    nivel(P,M,C.vDisp/1000,COL.disponible,'disponible '+kv(C.vDisp),[7,5]);
+  });
+  if(C.vDisp/1000>y1)
+    etiqueta('disponible '+kv(C.vDisp)+', fuera de escala',P.x+P.w-8,P.y+18,COL.disponible,'right');
+  if(C.hay){
+    etiqueta('1 · disparo '+kv(C.vDem),M.X(T.tDisparo)+8,P.y+26,NARANJA);
+    etiqueta('2 · chispa '+mili(C.tQ),M.X((T.tDisparo+T.tFin)/2),P.y+P.h-16,COL.quemado);
+    etiqueta('3 · timbre '+num(L.osc,0)+' osc.',M.X(T.tFin)+8,P.y+60,WARN_HEX);
+  }else{
+    etiqueta('no llega: pedía '+kv(C.vDem)+' y la bobina da '+kv(C.vDisp),
+      M.X(T.tDisparo)+8,P.y+26,BAD_HEX);
+  }
+
+  // El primario, debajo y con el mismo eje de tiempos.
+  const Q={x:96,y:452,w:598,h:104};
+  const M2=ejes(Q,0,T.tTotal,0,Math.max(e.iLim,P1.iMax)*1.15,'','corriente del primario (A)',
+    v=>num(v,2),v=>num(v,0),5,3);
+  enCaja(Q,()=>{
+    serieXY(M2,P1.pts.map(q=>[q.t,q.i]),COL.corriente,2.0);
+    nivel(Q,M2,MQF().iLim,GRIS,'tope '+amp(MQF().iLim),[5,4]);
+  });
+  etiqueta('dwell '+mili(P1.tDwell/1000)+(P1.recortada?' (recortado)':''),
+    M2.X(P1.tDwell/2),Q.y+22,P1.recortada?WARN_HEX:COL.corriente);
+
+  // Las cifras, a la derecha.
+  const SC=V.SC;
+  tablaDer(178,['','aquí','sano'],[
+    {v:['disparo',kv(C.vDem),kv(SC.vDem)],c:V.disparoAlto?BAD_HEX:(V.disparoBajo?WARN_HEX:TINTA)},
+    {v:['quemado',mili(C.tQ),mili(SC.tQ)],c:V.quemadoCorto?BAD_HEX:(V.quemadoLargo?WARN_HEX:TINTA)},
+    {v:['tensión de arco',kv(C.vQ),kv(SC.vQ)]},
+    {v:['disponible',kv(C.vDisp),kv(SC.vDisp)]},
+    {v:['reserva',pc(C.reserva*100,0),pc(SC.reserva*100,0)],c:V.pocaReserva?WARN_HEX:TINTA},
+    {v:['energía al arco',mJ(C.eArco),mJ(SC.eArco)]},
+    {v:['oscilaciones',num(L.osc,0),num(V.timbreSano,0)],c:V.timbreCorto?BAD_HEX:TINTA},
+    {v:['camino',C.camino==='via'?'aislador':'hueco',SC.camino==='via'?'aislador':'hueco'],
+      c:C.camino==='via'?BAD_HEX:TINTA},
+  ]);
+
+  const txt=C.enciende
+    ? 'Las tres fases dicen lo mismo: el pico pide '+kv(C.vDem)+' de los '+kv(C.vDisp)+' que la bobina puede dar —queda '+pc(C.reserva*100,0)+' de reserva—, el arco se mantiene a '+kv(C.vQ)+' durante '+mili(C.tQ)+' y el timbre deja '+num(L.osc,0)+' oscilaciones. La mezcla prende.'
+    : 'Hay '+(C.hay?'chispa':'pico')+' y no hay encendido: '+MOTIVO_ROT[C.motivo]+'. '+
+      (C.motivo==='fueraDeSitio'
+        ? 'La carbonilla del aislador rompe a '+kv(C.vDem)+', menos que los '+kv(vRuptura(MQF(),PRESION(),FA()))+' que pide el hueco, así que el arco se va por donde no hay mezcla. En el osciloscopio se ve una traza MEJOR que la sana: disparo más bajo y chispa más larga.'
+        : C.motivo==='sinArco'
+          ? 'El camino pide '+kv(C.vDem)+' y la bobina sólo llega a '+kv(C.vDisp)+'.'
+          : 'El arco lleva '+mJ(C.eArco)+' durante '+mili(C.tQ)+', y este hueco pide al menos '+mJ(C.eMin)+' y '+mili(T_MIN)+'.');
+  banda(602,C.enciende?'good':'bad',C.enciende?'La chispa hace su trabajo':'Chispa no es encendido',txt);
+}
+
+// ------------------------------------------------------------- 2 · LA BOBINA
+function vistaBobina(){
+  const e=MQ(), eA=MQF(), F=FA(), L=LECT();
+  cabecera('Qué pasa mientras la bobina se carga',
+    'La corriente sube por una exponencial de constante Lp/Rp y se para donde la pare el dwell —o el régimen, si entre chispa y chispa no cabe—. Toda la tensión disponible sale de esa corriente: V = √(2E/C₂).');
+
+  // Corriente contra tiempo de carga, con el dwell de este punto marcado.
+  const P={x:96,y:158,w:598,h:196};
+  const tMax=Math.max(e.dwell*1.9,dwell(eA,G.rpm,F)*1.9,0.004);
+  const curva=[];
+  for(let i=0;i<=180;i++){ const t=tMax*i/180;
+    curva.push([t*1000,Math.min(eA.iLim,(vBat(F)/eA.Rp)*(1-Math.exp(-t/tauBobina(eA))))]); }
+  const M=ejes(P,0,tMax*1000,0,Math.max(eA.iLim,vBat(F)/eA.Rp*0.9)*1.12,
+    'tiempo de carga (ms)','corriente (A)',v=>num(v,1),v=>num(v,0),5,4);
+  enCaja(P,()=>{
+    serieXY(M,curva,COL.corriente,2.4);
+    // La misma curva de la máquina sana, para comparar contra ella y no contra
+    // una cifra de catálogo.
+    if(eA!==e||F.vBat!==undefined){
+      const c2=[];
+      for(let i=0;i<=180;i++){ const t=tMax*i/180;
+        c2.push([t*1000,Math.min(e.iLim,(V_BAT/e.Rp)*(1-Math.exp(-t/tauBobina(e))))]); }
+      serieXY(M,c2,GRIS,1.6,[6,5]);
+    }
+    nivel(P,M,eA.iLim,GRIS,'tope del módulo',[5,4]);
+    const td=dwell(eA,G.rpm,F);
+    linea([[M.X(td*1000),P.y],[M.X(td*1000),P.y+P.h]],WARN_HEX,1.8,[6,4]);
+    punteo(M,td*1000,corriente(eA,G.rpm,F),COL.corriente,5.5);
+  });
+  etiqueta('dwell '+mili(dwell(eA,G.rpm,F)),M.X(dwell(eA,G.rpm,F)*1000)+8,P.y+22,WARN_HEX);
+  etiqueta('τ = Lp/Rp = '+mili(tauBobina(eA)),P.x+P.w-8,P.y+22,COL.corriente,'right');
+
+  // Barrido de régimen: dónde deja de caber el dwell.
+  const Q={x:96,y:430,w:598,h:150};
+  const rr=[], vv=[];
+  for(let r=500;r<=e.rpmMax;r+=100){
+    rr.push([r,dwell(eA,r,F)*1000]);
+    vv.push([r,vDisponible(eA,r,F)/1000]);
+  }
+  const M3=ejes(Q,500,e.rpmMax,0,Math.max(...rr.map(p=>p[1]))*1.18,
+    'régimen (rpm)','dwell que cabe (ms)',v=>num(v,0),v=>num(v,1),5,3);
+  enCaja(Q,()=>{
+    serieXY(M3,rr,WARN_HEX,2.2);
+    nivel(Q,M3,e.dwell*1000*(F.dwellMul||1),GRIS,'dwell pedido',[6,4]);
+    linea([[M3.X(G.rpm),Q.y],[M3.X(G.rpm),Q.y+Q.h]],CIAN,1.4,[4,4]);
+  });
+  const cae=rr.find(p=>p[1]<e.dwell*1000*(F.dwellMul||1)-1e-9);
+  if(cae) etiqueta('a partir de '+rpmT(cae[0])+' ya no cabe',M3.X(cae[0])+8,Q.y+20,BAD_HEX);
+
+  tablaDer(186,['','aquí','sano'],[
+    {v:['alimentación',volt(vBat(F)),volt(V_BAT)]},
+    {v:['resistencia primario',num(eA.Rp,2)+NBSP+'Ω',num(e.Rp,2)+NBSP+'Ω']},
+    {v:['inductancia',num(eA.Lp*1000,2)+NBSP+'mH',num(e.Lp*1000,2)+NBSP+'mH']},
+    {v:['constante τ',mili(tauBobina(eA)),mili(tauBobina(e))]},
+    {v:['dwell',mili(dwell(eA,G.rpm,F)),mili(dwell(e,G.rpm,{}))],
+      c:dwellRecortado(eA,G.rpm,F)?WARN_HEX:TINTA},
+    {v:['corriente',amp(corriente(eA,G.rpm,F)),amp(corriente(e,G.rpm,{}))]},
+    {v:['energía',mJ(energiaBobina(eA,G.rpm,F)),mJ(energiaBobina(e,G.rpm,{}))]},
+    {v:['disponible',kv(vDisponible(eA,G.rpm,F)),kv(vDisponible(e,G.rpm,{}))]},
+  ]);
+
+  const rec=dwellRecortado(eA,G.rpm,F);
+  const per=periodoChispa(e,G.rpm);
+  banda(632,rec?'warn':(corriente(eA,G.rpm,F)<corriente(e,G.rpm,{})*0.85?'warn':'good'),
+    rec?'A este régimen el dwell ya no cabe':'La bobina llega cargada',
+    rec
+      ? 'Entre chispa y chispa hay '+mili(per)+' y esta bobina pide '+mili(e.dwell*(F.dwellMul||1))+'. Con la guarda de conmutación sólo caben '+mili(dwell(eA,G.rpm,F))+', así que la corriente se queda en '+amp(corriente(eA,G.rpm,F))+' de los '+amp(corriente(e,e.ralenti,{}))+' de abajo y la tensión disponible baja a '+kv(vDisponible(eA,G.rpm,F))+'. Ésta es la razón de que un motor con distribuidor pierda chispa arriba: no es la bobina, es la aritmética del ciclo.'
+      : 'Con '+mili(dwell(eA,G.rpm,F))+' de carga la corriente llega a '+amp(corriente(eA,G.rpm,F))+' —'+(enLimite(eA,G.rpm,F)?'el módulo la corta en su tope':'sin llegar al tope del módulo')+'— y guarda '+mJ(energiaBobina(eA,G.rpm,F))+'. Esa energía, puesta sobre los '+num(eA.C2*1e12,0)+NBSP+'pF del secundario, son '+kv(vDisponible(eA,G.rpm,F))+' de tensión disponible. Todo lo demás de esta práctica se gasta de ahí.');
+}
+
+// ------------------------------------------------------------ 3 · LA DEMANDA
+function vistaDemanda(){
+  const e=MQ(), eA=MQF(), F=FA(), C=CHISPA(), V=veredicto();
+  cabecera('Qué pone la línea de disparo donde está',
+    'La ruptura del hueco va con la presión elevada a 0,8 y con la separación de electrodos. Lo que hay en serie —el resistor, el cable, un corte— suma su propia caída. Y si el aislador está carbonizado, hay un segundo camino que rompe antes.');
+
+  // Barrido de carga: la demanda contra la presión, con y sin la avería.
+  const P={x:96,y:158,w:598,h:214};
+  const s1=[],s2=[],s3=[];
+  for(let c=0;c<=1.0001;c+=0.02){
+    const p=presionChispa(e,c,F), pS=presionChispa(e,c,{});
+    s1.push([c*100,vDemanda(eA,p,F)/1000]);
+    s2.push([c*100,vDemanda(e,pS,{})/1000]);
+    s3.push([c*100,vDisponible(eA,G.rpm,F)/1000]);
+  }
+  let [y0,y1]=bandaY(s1.map(p=>p[1]).concat(s2.map(p=>p[1])),0,vDisponible(eA,G.rpm,F)/1000*1.02);
+  const M=ejes(P,0,100,y0,y1,'carga del motor (%)','tensión (kV)',v=>num(v,0),v=>num(v,0),5,5);
+  enCaja(P,()=>{
+    serieXY(M,s3,COL.disponible,2.0,[7,5]);
+    serieXY(M,s2,'#aab4c2',2.2,[7,5]);
+    serieXY(M,s1,NARANJA,2.6);
+    punteo(M,G.carga*100,C.vDem/1000,NARANJA,6);
+  });
+  leyenda(120,P.y+24,[['demanda con lo que hay puesto',NARANJA],
+    ['demanda de esta máquina sana','#aab4c2',[7,5]],
+    ['tensión disponible',COL.disponible,[7,5]]]);
+
+  // El desglose de la demanda: de dónde sale cada kilovoltio.
+  const p=PRESION();
+  const hueco=K_PASCHEN*Math.pow(p,EXP_P_RUPTURA)*separacion(eA,F);
+  const serieAire=K_PASCHEN*Math.pow(P_ATM,EXP_P_RUPTURA)*sepSerie(F);
+  const serieR=I_ARCO*rSerie(eA,F);
+  const via=hayVia(F)?vVia(eA,p,F):null;
+  const Q={x:96,y:436,w:598,h:120};
+  const partes=[['hueco de la bujía',hueco,AZUL],['corte en serie (aire)',serieAire,BAD_HEX],
+    ['resistencia en serie',serieR,VIO]];
+  const total=partes.reduce((a,x)=>a+x[1],0);
+  const M4=ejes(Q,0,Math.max(total,via||0)*1.15/1000,0,1,'','',v=>num(v,0),null,5,1);
+  enCaja(Q,()=>{
+    let x0=0;
+    partes.forEach(([rot,v,col])=>{
+      if(v<=0) return;
+      bx.save(); bx.fillStyle=col; bx.globalAlpha=0.72;
+      bx.fillRect(M4.X(x0/1000),Q.y+18,Math.max(1,M4.X(v/1000)-M4.X(0)),34); bx.restore();
+      x0+=v;
+    });
+    if(via!==null){
+      bx.save(); bx.fillStyle=NARANJA; bx.globalAlpha=0.72;
+      bx.fillRect(M4.X(0),Q.y+70,Math.max(1,M4.X(via/1000)-M4.X(0)),30); bx.restore();
+      texto('por el aislador '+kv(via),M4.X(via/1000)+10,Q.y+91,{s:12,c:NARANJA});
+    }
+    texto('por el hueco '+kv(total),M4.X(total/1000)+10,Q.y+40,{s:12,c:TINTA});
+  });
+  // Los sumandos se rotulan DEBAJO de su propio tramo: una leyenda encima se
+  // montaria sobre la grafica de arriba, y una al lado no cabe.
+  {
+    let x0=0, k=0;
+    partes.forEach(([rot,v,col])=>{
+      if(v<=0) return;
+      const cx=M4.X((x0+v/2)/1000);
+      etiqueta(rot+' '+kv(v),cx,Q.y+(k%2?66:12),col,'center');
+      x0+=v; k++;
+    });
+  }
+
+  tablaDer(186,['','valor'],[
+    {v:['presión de chispa',barU(p)]},
+    {v:['avance',gra(avance(e,G.carga,F),1)]},
+    {v:['hueco',mm(separacion(eA,F))]},
+    {v:['resistencia en serie',kohm(rSerie(eA,F))]},
+    {v:['corte de aire en serie',sepSerie(F)>0?mm(sepSerie(F)):'ninguno'],
+      c:sepSerie(F)>0?BAD_HEX:TINTA},
+    {v:['vía de carbonilla',hayVia(F)?mm(F.via):'ninguna'],c:hayVia(F)?BAD_HEX:TINTA},
+    {v:['camino del arco',C.camino==='via'?'el aislador':'el hueco'],
+      c:C.camino==='via'?BAD_HEX:OK_HEX},
+    {v:['demanda',kv(C.vDem)],b:true},
+  ]);
+
+  banda(596,C.camino==='via'?'bad':(V.disparoAlto?'warn':'good'),
+    C.camino==='via'?'La chispa se va por donde no hay mezcla'
+      :(V.disparoAlto?'La línea de disparo está por encima de lo que debería':'La demanda es la que le toca'),
+    C.camino==='via'
+      ? 'El hueco pide '+kv(total)+' y la carbonilla del aislador rompe a '+kv(via)+'. El arco elige el camino barato, que es justo el que no pasa por la mezcla. Por eso hay chispa perfecta en la pantalla y el cilindro está muerto.'
+      : 'De los '+kv(total)+' que pide el camino, '+kv(hueco)+' son del hueco a '+barU(p)+
+        (serieAire>0?', '+kv(serieAire)+' del corte de aire en serie':'')+
+        ' y '+kv(serieR)+' de la caída resistiva. Dar gas sube la presión y con ella el primer sumando: por eso una avería que aguanta a ralentí se destapa en carga y no al revés.');
+}
+
+// -------------------------------------------------------- 4 · EL PRESUPUESTO
+function vistaPresupuesto(){
+  const e=MQ(), eA=MQF(), F=FA(), C=CHISPA(), V=veredicto(), SC=V.SC;
+  cabecera('El presupuesto de energía y la ley inversa',
+    'La bobina trae una energía y sólo una. Romper el camino se lleva ½·C₂·V², y lo que sobra mantiene el arco. De ahí sale, sin decirla, la regla que ordena toda la lectura: todo lo que suba la línea de disparo acorta la de chispa.');
+
+  // La ley inversa, dibujada: disparo contra quemado para todos los escenarios.
+  const P={x:96,y:158,w:598,h:246};
+  const pts=ESCEN_KEYS.map(k=>{
+    const Fk=FALLAS[ESCEN[k].falla];
+    const c=chispa(aplica(e,Fk),G.rpm,presionChispa(e,G.carga,Fk),Fk);
+    return {k,x:c.vDem/1000,y:c.tQ*1000,via:c.camino==='via',enc:c.enciende};
+  });
+  // Y la curva teórica: qué tiempo de quemado sale de cada demanda, con esta
+  // bobina, si lo único que cambia es la demanda. Es la ley, no una tendencia.
+  // La ley se dibuja moviendo SÓLO la demanda y dejando quieto todo lo demás:
+  // la tensión de mantenimiento del arco no depende de lo que costó romper, así
+  // que escalarla con la demanda inventaría una asíntota que no existe y
+  // aplastaría los trece casos contra el suelo del recuadro.
+  const teo=[];
+  const eU=energiaUtil(eA,G.rpm,F), vqFijo=vQuemado(eA,PRESION(),F);
+  for(let v=500;v<vDisponible(eA,G.rpm,F);v+=200){
+    const eArco=Math.max(0,eU-0.5*eA.C2*v*v);
+    teo.push([v/1000,eArco/(vqFijo*I_ARCO)*1000]);
+  }
+  const [y0,y1]=bandaY(pts.map(q=>q.y).concat(teo.map(q=>q[1])),0,null,true);
+  const M=ejes(P,0,Math.max(...pts.map(q=>q.x))*1.12,y0,y1,
+    'línea de disparo (kV)','tiempo de quemado (ms)',v=>num(v,0),v=>num(v,2),5,5);
+  enCaja(P,()=>{
+    serieXY(M,teo,GRIS,1.8,[6,5]);
+    pts.forEach(q=>punteo(M,q.x,q.y,q.k===G.esc?CIAN:(q.via?NARANJA:(q.enc?OK_HEX:BAD_HEX)),
+      q.k===G.esc?7:4.5));
+    nivel(P,M,T_MIN*1000,BAD_HEX,'mínimo para encender',[6,4]);
+  });
+  etiqueta(ESC_CORTO[G.esc],M.X(C.vDem/1000)+10,M.Y(C.tQ*1000)-8,CIAN);
+  leyenda(120,P.y+24,[['enciende',OK_HEX],['no enciende',BAD_HEX],
+    ['por el aislador',NARANJA],['la ley, con esta bobina',GRIS,[6,5]]]);
+
+  // El reparto, en barras.
+  const Q={x:96,y:466,w:598,h:96};
+  const eCap=C.eCap, eArc=C.eArco, eTot=C.eUtil;
+  const M5=ejes(Q,0,eTot*1000*1.1,0,1,'','',v=>num(v,0),null,5,1);
+  enCaja(Q,()=>{
+    bx.save(); bx.globalAlpha=0.74;
+    bx.fillStyle=NARANJA; bx.fillRect(M5.X(0),Q.y+20,Math.max(1,M5.X(eCap*1000)-M5.X(0)),50);
+    bx.fillStyle=COL.quemado;
+    bx.fillRect(M5.X(eCap*1000),Q.y+20,Math.max(1,M5.X(eArc*1000)-M5.X(0)),50);
+    bx.restore();
+    const xm=M5.X(C.eMin*1000);
+    if(xm>=Q.x&&xm<=Q.x+Q.w) linea([[xm,Q.y+10],[xm,Q.y+80]],BAD_HEX,1.8,[6,4]);
+  });
+  etiqueta('mínimo de este hueco '+mJ(C.eMin),M5.X(C.eMin*1000)+8,Q.y+46,BAD_HEX);
+  etiqueta('romper el camino  '+mJ(eCap),M5.X(eCap*1000/2),Q.y+16,NARANJA,'center');
+  etiqueta('mantener el arco  '+mJ(eArc),M5.X((eCap+eArc/2)*1000),Q.y+86,COL.quemado,'center');
+
+  tablaDer(186,['','aquí','sano'],[
+    {v:['energía de la bobina',mJ(C.eUtil),mJ(SC.eUtil)]},
+    {v:['se va en romper',mJ(C.eCap),mJ(SC.eCap)]},
+    {v:['queda para el arco',mJ(C.eArco),mJ(SC.eArco)]},
+    {v:['potencia del arco',num(C.vQ*I_ARCO,1)+NBSP+'W',num(SC.vQ*I_ARCO,1)+NBSP+'W']},
+    {v:['tiempo de quemado',mili(C.tQ),mili(SC.tQ)]},
+    {v:['margen de energía',vec(C.margenE),vec(SC.margenE)],
+      c:C.margenE<1?BAD_HEX:(C.margenE<1.6?WARN_HEX:TINTA)},
+    {v:['margen de tiempo',vec(C.margenT),vec(SC.margenT)],
+      c:C.margenT<1?BAD_HEX:(C.margenT<1.6?WARN_HEX:TINTA)},
+  ]);
+
+  const cuál=C.margenE<C.margenT?'de energía':'de tiempo';
+  banda(602,C.enciende?(Math.min(C.margenE,C.margenT)<1.6?'warn':'good'):'bad',
+    C.enciende?'Enciende, y con este margen':'No enciende',
+    'De los '+mJ(C.eUtil)+' que trae la bobina, '+mJ(C.eCap)+' se van en abrir el camino a '+kv(C.vDem)+' y quedan '+mJ(C.eArco)+' para el arco. A '+num(C.vQ*I_ARCO,1)+NBSP+'W eso dura '+mili(C.tQ)+'. '+
+    'Los dos criterios de encendido no van juntos: aquí el más apretado es el '+cuál+', a '+vec(Math.min(C.margenE,C.margenT))+' del mínimo. '+
+    (C.margenE<1.6&&C.margenT>2.5
+      ? 'Fíjate en lo que eso significa: la traza sale MÁS bonita que la sana —chispa más larga— y el margen de encendido es PEOR. Una línea de chispa larga no es buena noticia por sí sola.'
+      : C.margenT<1.6&&C.margenE>2.5
+        ? 'Y al revés: energía sobra de largo, pero se gasta tan deprisa que el arco no dura lo que tarda en formarse el núcleo de llama.'
+        : 'Por eso las dos primeras fases se leen juntas y nunca una sola.'));
+}
+
+// ----------------------------------------------------------- 5 · EL TIMBRE
+function vistaTimbre(){
+  const e=MQ(), eA=MQF(), F=FA(), L=LECT(), SN=LECT_DE('sano');
+  cabecera('La tercera fase: el timbre de la bobina',
+    'Cuando el arco se apaga queda energía en el hierro y el conjunto timbra a 1/(2π√(LpCp)). Cada semiciclo se va en e^(−π/Q), así que contar crestas es medir el factor de calidad del devanado sin desmontarlo.');
+
+  const P={x:96,y:158,w:598,h:212};
+  const q=qEfectiva(eA,F), qs=qEfectiva(e,{});
+  const f=fTimbre(eA,F), fs=fTimbre(e,{});
+  const dib=(qq,ff,col,w,dash)=>{
+    const s=[];
+    for(let i=0;i<=520;i++){
+      const t=i/520*6/Math.min(ff,fs);
+      const u=t*2*Math.PI*ff;
+      s.push([t*1000,V_RING0*Math.cos(u)*Math.exp(-u/(2*qq))]);
+    }
+    serieXY(M,s,col,w,dash);
+  };
+  const M=ejes(P,0,6/Math.min(f,fs)*1000,-V_RING0*1.15,V_RING0*1.15,
+    'tiempo desde el fin de la chispa (ms)','tensión del primario (V)',
+    v=>num(v,2),v=>num(v,0),5,4);
+  enCaja(P,()=>{
+    if(q!==qs||f!==fs) dib(qs,fs,GRIS,1.6,[6,5]);
+    dib(q,f,WARN_HEX,2.3);
+    nivel(P,M,V_RING_MIN,BAD_HEX,'umbral de visibilidad',[6,4]);
+    nivel(P,M,-V_RING_MIN,BAD_HEX,'',[6,4]);
+  });
+  leyenda(120,P.y+24,[['esta bobina  '+num(L.osc,0)+' osc.',WARN_HEX],
+    ['sana  '+num(SN.osc,0)+' osc.',GRIS,[6,5]]]);
+
+  // Barrido: cuántas oscilaciones da cada factor de calidad.
+  const Q={x:96,y:432,w:598,h:132};
+  const s=[];
+  for(let qq=1;qq<=26;qq+=0.25) s.push([qq,Math.floor(Math.log(V_RING0/V_RING_MIN)/(Math.PI/qq)/2)]);
+  const M2=ejes(Q,1,26,0,Math.max(...s.map(p=>p[1]))*1.15,'factor de calidad Q','oscilaciones',
+    v=>num(v,0),v=>num(v,0),5,4);
+  enCaja(Q,()=>{
+    serieXY(M2,s,VIO,2.2);
+    nivel(Q,M2,OSC_SANAS,OK_HEX,'criterio de taller',[6,4]);
+    punteo(M2,q,L.osc,WARN_HEX,6);
+  });
+  etiqueta('Q = '+num(q,1),M2.X(q)+8,M2.Y(L.osc)-10,WARN_HEX);
+
+  tablaDer(186,['','aquí','sana'],[
+    {v:['inductancia',num(eA.Lp*1000,2)+NBSP+'mH',num(e.Lp*1000,2)+NBSP+'mH']},
+    {v:['factor de calidad',num(q,1),num(qs,1)]},
+    {v:['frecuencia',hzU(f),hzU(fs)]},
+    {v:['oscilaciones',num(L.osc,0),num(SN.osc,0)],c:L.osc<OSC_SANAS?BAD_HEX:OK_HEX},
+    {v:['criterio de taller','≥ '+num(OSC_SANAS,0),'']},
+    {v:['fuga en paralelo',F.rFuga?mohm(F.rFuga):'ninguna','ninguna'],c:F.rFuga?BAD_HEX:TINTA},
+    {v:['impedancia Z₂',mohm(zSecundario(eA)),mohm(zSecundario(e))]},
+  ]);
+
+  banda(618,L.osc<OSC_SANAS?'bad':'good',
+    L.osc<OSC_SANAS?'El devanado no aguanta el criterio':'El devanado está sano',
+    L.osc<OSC_SANAS
+      ? 'Quedan '+num(L.osc,0)+' oscilaciones contra las '+num(SN.osc,0)+' de una bobina sana, con el criterio de taller en '+num(OSC_SANAS,0)+'. '+
+        (F.rFuga?'La causa no está en el devanado: una fuga de '+mohm(F.rFuga)+' en paralelo se lleva la energía que debería timbrar, y por eso también baja la tensión disponible sin tocar la de demanda.'
+          :'Con espiras en corto la inductancia baja a '+num(eA.Lp*1000,2)+NBSP+'mH, el timbre sube a '+hzU(f)+' y la calidad se hunde. Ojo con lo que pasa en el primario: la bobina carga MÁS corriente que la sana —'+amp(corriente(eA,G.rpm,F))+' contra '+amp(corriente(e,G.rpm,{}))+'— y aun así guarda menos energía, porque la energía va con L·i² y la L es la que se ha ido.')
+      : 'Las '+num(L.osc,0)+' oscilaciones a '+hzU(f)+' dicen que el devanado tiene su inductancia y su calidad. Esta fase no mide la chispa: mide la bobina. Es la única de las tres que sigue diciendo algo cuando el cilindro ni siquiera enciende.');
+}
+
+// -------------------------------------------------------- 6 · LOS CILINDROS
+function vistaCilindros(){
+  const e=MQ(), L=LECT(), C=CHISPA();
+  cabecera('Lo que ve el escáner y lo que ve el osciloscopio',
+    'El escáner no mira la chispa: mira si el cigüeñal se frena. Pone el mismo código a averías que no tienen nada que ver, y no pone ninguno mientras la chispa sea mala pero suficiente. Aquí están los tres puntos del protocolo, uno al lado de otro.');
+
+  const P={x:96,y:150,w:598,h:212};
+  const M=ejes(P,-0.5,L.pts.length-0.5,0,Math.max(...L.pts.map(p=>Math.max(p.vDem,p.vDisp)))/1000*1.14,
+    '','tensión (kV)',null,v=>num(v,0),L.pts.length,5);
+  enCaja(P,()=>{
+    const w=P.w/L.pts.length*0.30;
+    L.pts.forEach((p,i)=>{
+      const x=M.X(i);
+      // Disponible, en fondo; demanda, encima. Se ve de un vistazo cuánta
+      // reserva queda en cada punto.
+      bx.save(); bx.globalAlpha=0.30; bx.fillStyle=COL.disponible;
+      bx.fillRect(x-w,M.Y(p.vDisp/1000),w*2,M.Y(0)-M.Y(p.vDisp/1000)); bx.restore();
+      bx.save(); bx.globalAlpha=0.85;
+      bx.fillStyle=p.aporta?OK_HEX:(p.camino==='via'?NARANJA:BAD_HEX);
+      bx.fillRect(x-w*0.62,M.Y(p.vDem/1000),w*1.24,M.Y(0)-M.Y(p.vDem/1000)); bx.restore();
+      texto(kv(p.vDem),x,M.Y(p.vDem/1000)-8,{s:12,c:TINTA,al:'center'});
+    });
+  });
+  L.pts.forEach((p,i)=>{
+    texto(p.k,M.X(i),P.y+P.h+22,{s:13,c:TINTA,al:'center',b:true});
+    texto('chispa '+mili(p.tQ),M.X(i),P.y+P.h+40,{s:12,c:COL.quemado,al:'center'});
+  });
+  leyenda(120,P.y+24,[['disponible',COL.disponible],['demanda, y aporta',OK_HEX],
+    ['demanda, y no aporta',BAD_HEX],['el arco va por el aislador',NARANJA]]);
+
+  // La tabla del protocolo, punto por punto, con el motivo.
+  tabla(96,470,[{t:'punto',w:70},{t:'presión',w:70,al:'right'},{t:'disparo',w:70,al:'right'},
+    {t:'quemado',w:72,al:'right'},{t:'¿chispa?',w:62},{t:'¿aporta?',w:62},{t:'qué pasa',w:236}],
+    L.pts.map(p=>({v:[p.k,barU(p.p),kv(p.vDem),mili(p.tQ),
+      p.hay?'sí':'NO',p.aporta?'sí':'NO',MOTIVO_ROT[p.motivo]],
+      c:p.aporta?TINTA:BAD_HEX})),{rh:26,s:12.5,gap:10});
+
+  tablaDer(186,['',''],[
+    {v:['códigos',L.codigos.length?L.codigos.join(' · '):'ninguno'],
+      c:L.codigos.length?BAD_HEX:OK_HEX},
+    {v:['¿sostiene a ralentí?',L.pts[0].aporta?'sí':'NO'],c:L.pts[0].aporta?TINTA:BAD_HEX},
+    {v:['¿tira en carga?',L.pts[2].aporta?'sí':'NO'],c:L.pts[2].aporta?TINTA:BAD_HEX},
+    {v:['compresión',pc(L.compresion*100,0)],c:L.compresion<COMPRESION_MIN?BAD_HEX:TINTA},
+    {v:['camino del arco',C.camino==='via'?'el aislador':'el hueco']},
+    ...(e.chispaPerdida?[{v:['chispa de la compañera',kv(L.vDemEscape)]}]:[]),
+  ]);
+
+  const conCod=ESCEN_KEYS.filter(k=>LECT_DE(k).codigos.includes('P0301'));
+  const fam=[...new Set(conCod.map(k=>ESCEN[k].clave))];
+  banda(602,L.aporta?(L.codigos.length?'warn':'good'):'bad',
+    L.codigos.length?'El escáner dice qué cilindro, no por qué':'El escáner no tiene nada que decir',
+    L.codigos.length
+      ? 'El P0301 lo ponen '+num(conCod.length,0)+' de los '+num(ESCEN_KEYS.length,0)+' escenarios de este banco, repartidos en '+num(fam.length,0)+' familias distintas: '+fam.join(', ')+'. El código dice el cilindro y ahí se acaba su información. '+
+        (L.compresion<COMPRESION_MIN?'Éste, además, ni siquiera es eléctrico: la chispa enciende la mezcla perfectamente y el cilindro no aporta porque le falta compresión. Esta práctica no modela la combustión; el umbral del '+pc(COMPRESION_MIN*100,0)+' es un dato declarado, no una deducción.':'')
+      : 'Sin código no significa sin avería: '+num(ESCEN_KEYS.filter(k=>LECT_DE(k).codigos.length===0).length-1,0)+' escenarios de este banco pasan la prueba del escáner con la chispa tocada. Lo único que dice un escáner limpio es que el cigüeñal no se ha frenado lo bastante para que el algoritmo lo cuente.');
+}
+
+// ------------------------------------------------------------- 7 · EL CENSO
+function vistaCenso(){
+  const e=MQ(), C=CENSO(), N=ESCEN_KEYS.length;
+  cabecera('Qué separa cada instrumento, y cuál no puede faltar',
+    'El censo prueba los '+num(Math.pow(2,OBS.length)-1,0)+' juegos posibles de instrumentos y cuenta cuántos de los '+num(N,0)+' escenarios distingue cada uno. No es una opinión sobre qué hace falta: es la cuenta.');
+
+  const soloT=C.filter(c=>c.sub.every(s=>s.taller));
+  const techoT=Math.max(...soloT.map(c=>c.resueltos));
+  const cortoT=soloT.filter(c=>c.resueltos===techoT).sort((a,b)=>a.sub.length-b.sub.length)[0];
+  const min=C.filter(c=>c.resueltos===C[0].resueltos).sort((a,b)=>a.sub.length-b.sub.length)[0];
+
+  // Cada observación a solas.
+  const P={x:236,y:158,w:458,h:250};
+  const solas=OBS.map(o=>({o,n:new Set(ESCEN_KEYS.map(k=>firmaObs(e,LECT_DE(k),[o]))).size}))
+    .sort((a,b)=>b.n-a.n);
+  const M=ejes(P,0,N,-0.5,solas.length-0.5,'escenarios que separa a solas','',
+    v=>num(v,0),null,N,1);
+  enCaja(P,()=>{
+    const h=P.h/solas.length*0.62;
+    solas.forEach((s,i)=>{
+      const y=P.y+P.h-(i+0.5)/solas.length*P.h;
+      bx.save(); bx.globalAlpha=0.80; bx.fillStyle=s.o.taller?AZUL:COL.quemado;
+      bx.fillRect(M.X(0),y-h/2,Math.max(1,M.X(s.n)-M.X(0)),h); bx.restore();
+      texto(num(s.n,0),M.X(s.n)+8,y+4,{s:12,c:TINTA});
+    });
+  });
+  // Los rótulos van fuera del recuadro: dentro, una barra de dos escenarios es
+  // más corta que su propio nombre y el texto se sale al fondo negro.
+  solas.forEach((s,i)=>{
+    const y=P.y+P.h-(i+0.5)/solas.length*P.h;
+    texto(OBS_CORTO[s.o.k]+(s.o.taller?'':' 💰'),P.x-10,y+4,
+      {s:12,c:s.o.taller?AZUL:COL.quemado,al:'right'});
+  });
+  leyenda(430,P.y+22,[['taller corriente',AZUL],['pide osciloscopio',COL.quemado]]);
+
+  // Y la tesis: disparo y quemado, solos y juntos.
+  const dis=OBS.find(o=>o.k==='disparo'), que=OBS.find(o=>o.k==='quemado');
+  const nD=new Set(ESCEN_KEYS.map(k=>firmaObs(e,LECT_DE(k),[dis]))).size;
+  const nQ=new Set(ESCEN_KEYS.map(k=>firmaObs(e,LECT_DE(k),[que]))).size;
+  const nDQ=new Set(ESCEN_KEYS.map(k=>firmaObs(e,LECT_DE(k),[dis,que]))).size;
+
+  tablaDer(186,['juego','separa'],[
+    {v:['sólo la línea de disparo',num(nD,0)+'/'+num(N,0)]},
+    {v:['sólo el tiempo de quemado',num(nQ,0)+'/'+num(N,0)]},
+    {v:['los dos juntos',num(nDQ,0)+'/'+num(N,0)],b:true,c:CIAN},
+    {v:['todo el taller corriente',num(techoT,0)+'/'+num(N,0)]},
+    {v:['…y le basta con',num(cortoT.sub.length,0)+' de '+num(OBS_TALLER.length,0)]},
+    {v:['todo el banco',num(C[0].resueltos,0)+'/'+num(N,0)],b:true},
+    {v:['juego mínimo que lo logra',num(min.sub.length,0)+' medidas'],b:true,c:OK_HEX},
+  ]);
+  texto('El juego mínimo:',DER_X,404,{s:13,b:true,c:'#9aa6b6'});
+  let yy=428;
+  min.sub.forEach(o=>{ texto('· '+o.rot,DER_X,yy,{s:12.5,c:o.taller?AZUL:COL.quemado}); yy+=20; });
+
+  const mudos=MUDOS();
+  banda(556,mudos.length?'warn':'good',
+    'Ni una cifra ni la otra: las dos',
+    'La línea de disparo a solas separa '+num(nD,0)+' de los '+num(N,0)+' escenarios y el tiempo de quemado a solas, '+num(nQ,0)+'. Juntos llegan a '+num(nDQ,0)+', más que cualquiera de los dos por su cuenta: eso es lo que significa que se repartan un presupuesto. '+
+    'Todo el taller corriente junto —códigos, síntoma, batería, aspecto de la bujía, galgas y óhmetro— se queda en '+num(techoT,0)+' de '+num(N,0)+', y ese techo ya lo alcanza con '+num(cortoT.sub.length,0)+' de sus '+num(OBS_TALLER.length,0)+' medidas: comprar las demás no separa un caso más. '+
+    (mudos.length?'En esta máquina quedan '+num(mudos.length,0)+' escenarios que NINGÚN instrumento del banco distingue del sano ('+mudos.map(k=>ESC_CORTO[k]).join(', ')+'), y por eso no se sortean en el diagnóstico a ciegas.'
+      :'En esta máquina no queda ningún escenario indistinguible: el banco entero separa los '+num(N,0)+'.'));
+}
+
+// -------------------------------------------------------------- 8 · EL RETO
+function vistaReto(){
+  const e=MQ();
+  cabecera('Diagnóstico a ciegas',
+    'Hay una avería puesta y no se dice cuál. Cada medida cuesta: las de taller corriente son gratis, las que llevan 💰 piden el osciloscopio. Toma las que necesites, elige la familia y entrega.');
+  const tom=Object.keys(RETO.tomadas);
+
+  const P={x:96,y:158,w:598,h:300};
+  rpanel(P.x,P.y,P.w,P.h,'rgba(255,255,255,0.028)','#1e2836',10);
+  texto('Lo que llevas medido',P.x+20,P.y+30,{s:15,b:true});
+  if(!tom.length){
+    wrapText('Todavía nada. Empieza por lo que no cuesta: ¿hay código?, ¿se sostiene a ralentí?, ¿tira en carga? Con eso solo llegarás hasta cierto punto —el censo dice exactamente hasta cuál— y ahí tendrás que decidir qué medida del osciloscopio compras.',
+      P.x+20,P.y+58,P.w-40,20,{s:13.5});
+  }else{
+    let yy=P.y+58;
+    OBS.forEach(o=>{
+      if(RETO.tomadas[o.k]===undefined) return;
+      texto((o.taller?'':'💰 ')+o.rot,P.x+20,yy,{s:13.5,c:'#9aa6b6'});
+      texto(RETO.tomadas[o.k],P.x+P.w-20,yy,{s:13.5,c:TINTA,al:'right',b:true});
+      yy+=25;
+    });
+    // Cuántos escenarios siguen siendo compatibles con lo medido.
+    const sub=OBS.filter(o=>RETO.tomadas[o.k]!==undefined);
+    const f=firmaObs(e,LECT_DE(RETO.caso),sub);
+    const vivos=ESCEN_KEYS.filter(k=>firmaObs(e,LECT_DE(k),sub)===f);
+    yy+=14;
+    linea([[P.x+20,yy-14],[P.x+P.w-20,yy-14]],'#243043',1.2);
+    texto('Escenarios que siguen encajando: '+num(vivos.length,0),P.x+20,yy+8,
+      {s:14,b:true,c:vivos.length===1?OK_HEX:WARN_HEX});
+    const fams=[...new Set(vivos.map(k=>ESCEN[k].clave))];
+    wrapText('Familias todavía en juego: '+fams.join(', '),P.x+20,yy+32,P.w-40,19,{s:13});
+  }
+
+  texto('Familias posibles en este motor',DER_X,180,{s:14,b:true,c:'#9aa6b6'});
+  let yy=206;
+  FAMILIAS_RETO().forEach(f=>{ texto('· '+f,DER_X,yy,{s:13,c:TINTA}); yy+=23; });
+
+  if(RETO.veredicto){
+    const V=RETO.veredicto;
+    banda(500,V.ok?'good':'bad',V.ok?'Acertaste':'Fallaste',V.texto);
+  }else{
+    banda(500,'warn','Sin entregar',
+      'Llevas '+num(tom.length,0)+' de '+num(OBS.length,0)+' medidas. Recuerda lo que dice el censo de este banco: hay un techo para lo que se puede decidir sin osciloscopio, y una vez alcanzado, seguir midiendo gratis no separa nada más.');
+  }
+}
+
+const VISTAS={traza:vistaTraza, bobina:vistaBobina, demanda:vistaDemanda,
+  presupuesto:vistaPresupuesto, timbre:vistaTimbre, cilindros:vistaCilindros,
+  censo:vistaCenso, reto:vistaReto};
+
+function pintaTablero(){
+  bg();
+  (VISTAS[G.modo]||vistaTraza)();
+  btex.needsUpdate=true;
+}
+
+// ============================================================ T3a · EL BANCO
+// Cotas del banco. TODO lo que se coloca después sale de aquí: el pizarrón se
+// pega al borde izquierdo real y la cámara encuadra contra estos extremos, así
+// que una cota escrita a mano en cualquier otro sitio deja el banco fuera del
+// cuadro en cuanto se cambia de arquetipo.
+function dims(e){
+  const xBat=-0.24;                    // fuente de alimentación
+  const xBob=0.60;                     // bobina
+  const xCam=1.76;                     // cámara de presión con la bujía
+  const xOsc=2.28;                     // osciloscopio, DETRÁS de la cámara
+  const zOsc=-1.16;                    // por eso va en otra fila de profundidad
+  const xIzq=xBat-0.42, xDer=xOsc+0.50;
+  return { xBat, xBob, xCam, xOsc, zOsc, xIzq, xDer,
+    ancho:xDer-xIzq, centro:(xIzq+xDer)/2 };
+}
+const pon=(o,p)=>{ o.position.set(p[0],p[1],p[2]); return o; };
+// `labelSprite` del kit devuelve el rótulo ya escalado y es el LLAMANTE quien lo
+// coloca: pasarle una posición como segundo argumento le pasa un color. Y viene
+// pre-escalado para un banco del tamaño del donante, que es más grande que éste:
+// a su tamaño natural seis rótulos se montan unos sobre otros.
+const ESC_ROT=0.60;
+const ROTULOS=[];
+const rot3=(t,c,p)=>{ ROTULOS.push(t); const s=pon(labelSprite(t,c),p);
+  s.scale.multiplyScalar(ESC_ROT); return s; };
+const corta=(s,n)=>s.length>n?s.slice(0,n-1)+'…':s;
+
+let TOAST=null;
+function showToast(html,ms){
+  const c=el('toast'); if(!c) return;
+  c.innerHTML=html; c.classList.add('on');
+  if(TOAST) clearTimeout(TOAST);
+  TOAST=setTimeout(()=>c.classList.remove('on'),ms||2600);
+}
+
+const banco=new THREE.Group(); scene.add(banco);
+const gFuente=new THREE.Group();
+const gBobina=new THREE.Group();
+const gCable=new THREE.Group();
+const gCamara=new THREE.Group();
+const gInstr=new THREE.Group();
+banco.add(gFuente,gBobina,gCable,gCamara,gInstr);
+
+// --- la mesa ---------------------------------------------------------------
+let mesa=null;
+function construyeMesa(d){
+  if(mesa){ banco.remove(mesa); mesa=null; }
+  mesa=new THREE.Group();
+  // Todas las piezas viven entre z = −0,92 y z = −0,12, así que una mesa
+  // centrada en cero deja medio metro de tablero vacío por delante y obliga a la
+  // cámara a alejarse para encuadrar madera.
+  const L=d.ancho+0.50, Z=1.52, h=0.74, zc=-0.56;
+  const tab=roundedBox(L,0.075,Z,MAT.banco,0.02);
+  pon(tab,[d.centro,h,zc]); tab.receiveShadow=true; mesa.add(tab);
+  const chapa=roundedBox(L-0.10,0.010,Z-0.10,std({...brush,metalness:1.0,roughness:0.30}),0.004);
+  pon(chapa,[d.centro,h+0.043,zc]); chapa.receiveShadow=true; mesa.add(chapa);
+  for(const sx of [-1,1]) for(const sz of [-1,1]){
+    const p=new THREE.Mesh(new THREE.BoxGeometry(0.062,h,0.062),MAT.acero);
+    pon(p,[d.centro+sx*(L/2-0.11), h/2, zc+sz*(Z/2-0.11)]);
+    p.castShadow=true; mesa.add(p);
+  }
+  const trav=new THREE.Mesh(new THREE.BoxGeometry(L-0.30,0.045,0.045),MAT.acero);
+  pon(trav,[d.centro,0.20,zc]); mesa.add(trav);
+  banco.add(mesa);
+  return h+0.048;
+}
+
+// --- la fuente de alimentación ----------------------------------------------
+let ledBat=null;
+function construyeFuente(e,d,y0){
+  gFuente.clear();
+  const y=y0+0.20;
+  const caja=roundedBox(0.56,0.40,0.34,MAT.caja,0.04);
+  pon(caja,[d.xBat,y,-0.42]); caja.castShadow=true; gFuente.add(caja);
+  const pan=roundedBox(0.44,0.16,0.02,std({color:0x0b1017,roughness:0.5}),0.01);
+  pon(pan,[d.xBat,y+0.08,-0.42+0.175]); gFuente.add(pan);
+  ledBat=new THREE.Mesh(new THREE.SphereGeometry(0.026,14,10),MAT.ok);
+  pon(ledBat,[d.xBat-0.16,y-0.10,-0.42+0.18]); gFuente.add(ledBat);
+  for(const [sx,col] of [[-0.10,0xd03030],[0.10,0x202020]]){
+    const b=new THREE.Mesh(new THREE.CylinderGeometry(0.026,0.026,0.05,14),
+      std({color:col,metalness:0.7,roughness:0.35}));
+    b.rotation.x=Math.PI/2; pon(b,[d.xBat+sx,y-0.10,-0.42+0.19]); gFuente.add(b);
+  }
+  gFuente.add(rot3('alimentación',CIAN,[d.xBat,y+0.40,-0.42]));
+}
+
+// --- la bobina --------------------------------------------------------------
+let ledBob=null, torre=null;
+function construyeBobina(e,d,y0){
+  gBobina.clear();
+  const y=y0+0.24;
+  // Cuerpo: en bobina sobre bujía es alargada y estrecha; en las otras, un
+  // bloque con torre de alta. La forma DICE la arquitectura.
+  const anch=e.bobinaPorCil?0.22:0.44;
+  const cuerpo=roundedBox(anch,0.46,0.30,MAT.bobina,0.035);
+  pon(cuerpo,[d.xBob,y,-0.42]); cuerpo.castShadow=true; gBobina.add(cuerpo);
+  // Devanado visible por un costado, para que se vea que es una bobina.
+  for(let i=0;i<7;i++){
+    const a=new THREE.Mesh(new THREE.TorusGeometry(0.085,0.010,8,26),MAT.cobre);
+    a.rotation.y=Math.PI/2;
+    pon(a,[d.xBob+anch/2+0.008,y-0.15+i*0.05,-0.42]); gBobina.add(a);
+  }
+  torre=new THREE.Mesh(new THREE.CylinderGeometry(0.055,0.070,0.20,18),MAT.bobina);
+  pon(torre,[d.xBob,y+0.32,-0.42]); gBobina.add(torre);
+  ledBob=new THREE.Mesh(new THREE.SphereGeometry(0.028,14,10),MAT.apag);
+  pon(ledBob,[d.xBob-anch/2-0.05,y+0.14,-0.42+0.14]); gBobina.add(ledBob);
+  gBobina.add(rot3(e.bobinaPorCil?'bobina sobre bujía':(e.chispaPerdida?'bobina doble':'bobina y distribuidor'),
+    VIO,[d.xBob-0.06,y+1.24,-0.42]));
+  // El cable del primario, hasta la fuente.
+  const lar=d.xBob-d.xBat-0.30;
+  const c=new THREE.Mesh(new THREE.CylinderGeometry(0.014,0.014,lar,10),
+    std({...rub,color:0x1d2530}));
+  c.rotation.z=Math.PI/2; pon(c,[(d.xBat+d.xBob)/2,y-0.06,-0.30]); gBobina.add(c);
+}
+
+// --- el cable de alta -------------------------------------------------------
+// Sólo existe si la máquina lo lleva. Que una avería de cable no pueda darse en
+// un motor sin cables es parte de la práctica, y se ve.
+function construyeCable(e,d,y0){
+  gCable.clear();
+  const y=y0+0.56;
+  if(!tieneCable(e)){
+    // Bobina sobre bujía: no hay cable, sólo el capuchón. Se dice con un rótulo
+    // porque la ausencia de una pieza no se ve.
+    gCable.add(rot3('sin cable: capuchón directo',GRIS,[(d.xBob+d.xCam)/2,y+0.30,-0.42]));
+    return;
+  }
+  const pts=[];
+  for(let i=0;i<=28;i++){
+    const u=i/28;
+    const x=d.xBob+(d.xCam-d.xBob)*u;
+    const yy=y+0.20+0.16*Math.sin(Math.PI*u)-0.10*u;
+    pts.push(new THREE.Vector3(x,yy,-0.42));
+  }
+  const cur=new THREE.CatmullRomCurve3(pts);
+  const tubo=new THREE.Mesh(new THREE.TubeGeometry(cur,40,0.022,10,false),MAT_CABLE);
+  tubo.castShadow=true; gCable.add(tubo);
+  gCable.add(rot3('cable de bujía · '+kohm(e.rCable),NARANJA,
+    [(d.xBob+d.xCam)/2,y+0.30,-0.42]));
+}
+
+// ================================ T3b · CÁMARA, BUJÍA, INSTRUMENTO Y ANIMACIÓN
+let arco=null, viaMesh=null, electrodoM=null, masaM=null, agujaP=null, deposito=null;
+let oscTex=null, oscCv=null, oscCtx=null, ledCam=null;
+
+// --- la cámara de presión con la bujía dentro -------------------------------
+// La bujía se monta en una cámara transparente para que se VEA el hueco, el arco
+// y —si la hay— la carbonilla del aislador. Sin esto, «la chispa se va por el
+// aislador» es una frase; con esto, es algo que se mira.
+function construyeCamara(e,d,y0){
+  gCamara.clear();
+  const F=FA();
+  const yb=y0+0.30;                     // base de la cámara
+  const R=0.30, H=0.62;
+  const base=new THREE.Mesh(new THREE.CylinderGeometry(R+0.05,R+0.07,0.08,28),MAT.acero);
+  pon(base,[d.xCam,yb,-0.42]); base.castShadow=true; gCamara.add(base);
+  const vidrio=new THREE.Mesh(new THREE.CylinderGeometry(R,R,H,32,1,true),MAT_VIDRIO);
+  pon(vidrio,[d.xCam,yb+H/2+0.04,-0.42]); gCamara.add(vidrio);
+  const tapa=new THREE.Mesh(new THREE.CylinderGeometry(R+0.05,R+0.05,0.07,28),MAT.acero);
+  pon(tapa,[d.xCam,yb+H+0.08,-0.42]); tapa.castShadow=true; gCamara.add(tapa);
+
+  // La bujía, colgando de la tapa hacia dentro.
+  const yB=yb+H+0.04;
+  const hex=new THREE.Mesh(new THREE.CylinderGeometry(0.055,0.055,0.10,6),MAT.acero);
+  pon(hex,[d.xCam,yB+0.14,-0.42]); gCamara.add(hex);
+  const porc=new THREE.Mesh(new THREE.CylinderGeometry(0.042,0.052,0.26,20),MAT.porcelana);
+  pon(porc,[d.xCam,yB+0.30,-0.42]); gCamara.add(porc);
+  const cuerpo=new THREE.Mesh(new THREE.CylinderGeometry(0.038,0.038,0.16,18),MAT.acero);
+  pon(cuerpo,[d.xCam,yB-0.02,-0.42]); gCamara.add(cuerpo);
+  // La punta del aislador y el electrodo central.
+  const nariz=new THREE.Mesh(new THREE.CylinderGeometry(0.020,0.024,0.11,16),MAT.porcelana);
+  pon(nariz,[d.xCam,yB-0.15,-0.42]); gCamara.add(nariz);
+  const sep=separacion(e,F);
+  const yPunta=yB-0.215;
+  electrodoM=new THREE.Mesh(new THREE.CylinderGeometry(0.008,0.008,0.05,10),MAT.crom);
+  pon(electrodoM,[d.xCam,yPunta+0.02,-0.42]); gCamara.add(electrodoM);
+  // La masa lateral se coloca a la separación REAL, escalada: un hueco grande
+  // tiene que VERSE grande.
+  const gap=sep*0.055;
+  masaM=new THREE.Mesh(new THREE.BoxGeometry(0.016,0.055,0.030),MAT.acero);
+  pon(masaM,[d.xCam+0.048,yPunta-gap-0.028,-0.42]); gCamara.add(masaM);
+  const brazo=new THREE.Mesh(new THREE.BoxGeometry(0.075,0.016,0.030),MAT.acero);
+  pon(brazo,[d.xCam+0.030,yPunta-gap-0.048,-0.42]); gCamara.add(brazo);
+
+  // El arco: un cilindro fino que se enciende y se apaga con el ciclo.
+  arco=new THREE.Mesh(new THREE.CylinderGeometry(0.004,0.004,Math.max(0.012,gap),8),MAT_ARCO);
+  pon(arco,[d.xCam+0.010,yPunta-gap/2-0.004,-0.42]);
+  arco.rotation.z=0.32; arco.visible=false; gCamara.add(arco);
+  // La vía de carbonilla sobre el aislador, y el arco que la recorre.
+  deposito=new THREE.Mesh(new THREE.CylinderGeometry(0.0225,0.0265,0.11,16),
+    std({color:0x2a2622,roughness:0.92,metalness:0.05}));
+  pon(deposito,[d.xCam,yB-0.15,-0.42]);
+  deposito.visible=hayVia(F); gCamara.add(deposito);
+  viaMesh=new THREE.Mesh(new THREE.CylinderGeometry(0.004,0.004,0.115,8),MAT_VIA);
+  pon(viaMesh,[d.xCam+0.026,yB-0.15,-0.42]);
+  viaMesh.visible=false; gCamara.add(viaMesh);
+
+  // El manómetro de la cámara: la presión de chispa, que es un mando.
+  const dial=new THREE.Mesh(new THREE.CylinderGeometry(0.10,0.10,0.03,24),MAT.caja);
+  dial.rotation.x=Math.PI/2; pon(dial,[d.xCam-0.40,yb+0.30,-0.42]); gCamara.add(dial);
+  agujaP=new THREE.Mesh(new THREE.BoxGeometry(0.008,0.075,0.006),MAT.bad);
+  pon(agujaP,[d.xCam-0.40,yb+0.30,-0.42+0.02]);
+  agujaP.geometry.translate(0,0.037,0); gCamara.add(agujaP);
+  ledCam=new THREE.Mesh(new THREE.SphereGeometry(0.026,14,10),MAT.ok);
+  pon(ledCam,[d.xCam-0.40,yb+0.10,-0.40]); gCamara.add(ledCam);
+
+  gCamara.add(rot3('cámara de presión',AZUL,[d.xCam-0.46,yb-0.14,-0.28]));
+  const midioHueco=(G.modo!=='reto')||RETO.tomadas.huecoBujia!==undefined;
+  gCamara.add(rot3(midioHueco?'bujía · hueco '+mm(sep):'bujía · hueco sin medir',
+    TINTA,[d.xCam+0.48,yB+0.54,-0.42]));
+}
+
+// --- el osciloscopio --------------------------------------------------------
+// Un instrumento de verdad, con su pantalla, que pinta desde el MISMO motor
+// sellado que el pizarrón. No hay dos fuentes de curvas.
+function construyeInstrumento(e,d,y0){
+  gInstr.clear();
+  if(!oscCv){
+    oscCv=document.createElement('canvas'); oscCv.width=512; oscCv.height=288;
+    oscCtx=oscCv.getContext('2d');
+    oscTex=new THREE.CanvasTexture(oscCv); oscTex.colorSpace=THREE.SRGBColorSpace;
+  }
+  const x=d.xOsc, y=y0+0.42, z=d.zOsc;
+  const caja=roundedBox(0.86,0.62,0.30,MAT.caja,0.04);
+  pon(caja,[x,y,z]); caja.castShadow=true; gInstr.add(caja);
+  const pan=new THREE.Mesh(new THREE.PlaneGeometry(0.70,0.40),
+    new THREE.MeshBasicMaterial({map:oscTex,toneMapped:false}));
+  pon(pan,[x,y+0.05,z+0.152]); gInstr.add(pan);
+  for(let i=0;i<4;i++){
+    const b=new THREE.Mesh(new THREE.CylinderGeometry(0.022,0.022,0.03,12),MAT.crom);
+    b.rotation.x=Math.PI/2; pon(b,[x-0.28+i*0.185,y-0.24,z+0.152]); gInstr.add(b);
+  }
+  gInstr.add(rot3('osciloscopio',TINTA,[x,y+0.44,z]));
+  // Las dos sondas, tendidas hacia la cámara y hacia la bobina.
+  for(const [dx,dz,col] of [[d.xCam-x,0.34,COL.quemado],[d.xBob-x,0.44,COL.corriente]]){
+    const a=new THREE.Vector3(x,y-0.28,z+0.15), b=new THREE.Vector3(x+dx,y0+0.18,z+dz);
+    const mid=a.clone().lerp(b,0.5); mid.y-=0.10;
+    const cur=new THREE.CatmullRomCurve3([a,mid,b]);
+    const cab=new THREE.Mesh(new THREE.TubeGeometry(cur,22,0.011,8,false),
+      std({...rub,color:0x1d2530}));
+    gInstr.add(cab);
+  }
+}
+function oscPublica(){
+  const ciego=(G.modo==='reto');
+  return {ciego,
+    enganchado:!ciego||OBS_OSC.some(o=>RETO.tomadas[o.k]!==undefined),
+    kv:!ciego||RETO.tomadas.disparo!==undefined||RETO.tomadas.disparoCarga!==undefined,
+    ms:!ciego||RETO.tomadas.quemado!==undefined};
+}
+function pintaOsc(){
+  if(!oscCtx) return;
+  const W=512,H=288,c=oscCtx;
+  c.fillStyle='#060a0f'; c.fillRect(0,0,W,H);
+  c.strokeStyle='#16202c'; c.lineWidth=1;
+  for(let i=1;i<10;i++){ c.beginPath(); c.moveTo(W*i/10,0); c.lineTo(W*i/10,H); c.stroke(); }
+  for(let i=1;i<6;i++){ c.beginPath(); c.moveTo(0,H*i/6); c.lineTo(W,H*i/6); c.stroke(); }
+  const OP=oscPublica();
+  if(!OP.enganchado){
+    c.fillStyle='#9aa6b6'; c.font='600 17px Inter,system-ui,sans-serif';
+    c.textAlign='center';
+    c.fillText('osciloscopio sin enganchar',W/2,H/2-4);
+    c.font='500 13px Inter,system-ui,sans-serif';
+    c.fillText('se engancha al comprar la primera medida de pago',W/2,H/2+20);
+    c.textAlign='left';
+    oscTex.needsUpdate=true;
+    return;
+  }
+  const T=TRZ({n:600}), C=CHISPA();
+  let a=0,b=-Infinity;
+  for(const p of T.pts) b=Math.max(b,p.v);
+  if(!(b>0)) b=1;
+  const m=b*0.14;
+  const X=v=>28+v/(T.tTotal||1)*(W-40);
+  const Y=v=>H-26-(v-a)/((b+m)-a)*(H-48);
+  c.strokeStyle=C.camino==='via'?'#f0a05a':'#5ad1e6'; c.lineWidth=2; c.lineJoin='round';
+  c.beginPath();
+  T.pts.forEach((p,i)=>{ const xx=X(p.t), yy=Y(p.v); if(i) c.lineTo(xx,yy); else c.moveTo(xx,yy); });
+  c.stroke();
+  c.fillStyle='#9aa6b6'; c.font='600 14px Inter,system-ui,sans-serif';
+  c.fillText('secundario',12,20);
+  c.textAlign='right';
+  if(OP.kv) c.fillText(num(b,1)+' kV máx',W-12,20);
+  if(OP.ms) c.fillText(C.hay?num(C.tQ*1000,2)+' ms de chispa':'sin chispa',W-12,H-8);
+  c.textAlign='left';
+  oscTex.needsUpdate=true;
+}
+
+// --- montaje completo ------------------------------------------------------
+function construyeBanco(){
+  ROTULOS.length=0;
+  const e=MQ(), d=dims(e);
+  const y0=construyeMesa(d);
+  construyeFuente(e,d,y0);
+  construyeBobina(e,d,y0);
+  construyeCable(e,d,y0);
+  construyeCamara(e,d,y0);
+  construyeInstrumento(e,d,y0);
+  colocaTablero(d);
+}
+
+// --- animación -------------------------------------------------------------
+// El ciclo se pinta RALENTIZADO: a 2 500 rpm una chispa dura milisegundos y el
+// ciclo entero se repite decenas de veces por segundo. El factor se declara.
+const LENTO=140;
+let RELOJ=0;
+// Cuenta FOTOGRAMAS de la escena, no repintados del pizarrón: puesto en
+// pintaTablero() sólo avanzaría al tocar un mando, y la Capa 2 se quedaría
+// esperando para siempre en cuanto nadie tocara nada.
+let PINTADAS=0;
+function pinta3D(dt){
+  RELOJ+=dt; PINTADAS++;
+  const e=MQ(), eA=MQF(), F=FA(), C=CHISPA();
+  const T=periodoChispa(e,G.rpm)*LENTO;
+  const f=(RELOJ%T)/T;                       // fase del ciclo, 0..1
+  const fD=dwell(eA,G.rpm,F)/periodoChispa(e,G.rpm);
+  const fQ=fD+(C.hay?C.tQ/periodoChispa(e,G.rpm):0);
+
+  // El testigo de la bobina sigue la carga: apagado, cargando, cargada.
+  if(ledBob) ledBob.material=f<fD
+    ? (f>fD*0.75?MAT.avi:MAT.apag)
+    : (C.enciende?MAT.ok:MAT.bad);
+  if(ledBat) ledBat.material=vBat(F)<V_BAT*0.9?MAT.avi:MAT.ok;
+  if(ledCam) ledCam.material=C.enciende?MAT.ok:(C.hay?MAT.avi:MAT.bad);
+
+  // El arco: sólo durante la línea de chispa, y por el camino que gane.
+  const enChispa=C.hay&&f>=fD&&f<fQ;
+  if(arco) arco.visible=enChispa&&C.camino==='hueco';
+  if(viaMesh) viaMesh.visible=enChispa&&C.camino==='via';
+  if(deposito) deposito.visible=hayVia(F);
+  if(arco&&arco.visible) arco.material.emissiveIntensity=2.4+1.4*Math.sin(RELOJ*90);
+  if(viaMesh&&viaMesh.visible) viaMesh.material.emissiveIntensity=2.0+1.2*Math.sin(RELOJ*90);
+
+  // La aguja del manómetro: la presión de chispa contra el fondo de escala.
+  if(agujaP){
+    const p=PRESION(), fondo=24;
+    agujaP.rotation.z=Math.PI*0.80-clamp(p/fondo,0,1)*Math.PI*1.60;
+  }
+  pintaOsc();
+}
+
+// =========================================== T4a · HUD, MANDOS Y TELEMETRÍA
+const MODES=['traza','bobina','demanda','presupuesto','timbre','cilindros','censo','reto'];
+// Rótulos CORTOS. Con los largos la cabecera del panel envuelve a dos líneas y el
+// título del modo se lee partido por la mitad.
+const MODE_META={
+  traza:      ['· traza',      'LAS TRES FASES'],
+  bobina:     ['· bobina',     'LA CARGA'],
+  demanda:    ['· demanda',    'LA LÍNEA DE DISPARO'],
+  presupuesto:['· energía',    'EL PRESUPUESTO'],
+  timbre:     ['· timbre',     'LA TERCERA FASE'],
+  cilindros:  ['· protocolo',  'ESCÁNER CONTRA OSCILOSCOPIO'],
+  censo:      ['· censo',      'QUÉ SEPARA CADA INSTRUMENTO'],
+  reto:       ['· reto',       'DIAGNÓSTICO A CIEGAS'],
+};
+const HUD_TXT={
+  traza:'El pico, la meseta y el timbre. Cambia de escenario y mira cuál de las tres se mueve: casi ninguna avería mueve las tres.',
+  bobina:'Todo sale de la corriente que la bobina alcanza. Sube el régimen y mira si el dwell sigue cabiendo.',
+  demanda:'La demanda es una suma: el hueco a su presión, el aire de cualquier corte, y la caída resistiva. Dar gas sube el primer sumando.',
+  presupuesto:'Una energía y dos gastos. Todo lo que suba el disparo acorta la chispa: por eso las dos primeras fases se leen juntas.',
+  timbre:'Contar crestas es medir el devanado. Es la única fase que sigue diciendo algo cuando el cilindro está muerto.',
+  cilindros:'Tres puntos del protocolo, uno al lado de otro, y lo que el escáner saca de ellos. Que es menos de lo que parece.',
+  censo:'La cuenta exacta de qué separa cada instrumento. Aquí se demuestra que el osciloscopio hace falta, no se afirma.',
+  reto:'Hay una avería puesta. Mide lo que necesites —las de 💰 piden osciloscopio—, elige la familia y entrega.',
+};
+function pintaHUD(){
+  const m=MODE_META[G.modo]||MODE_META.traza;
+  el('hud').innerHTML='<h1>Encendido · '+m[1]+'</h1><p>'+HUD_TXT[G.modo]+'</p>';
+}
+
+// --- el panel de mandos -----------------------------------------------------
+el('panel').innerHTML=
+  '<h4>Banco de encendido</h4>'+
+  '<div id="ctrl"></div>'+
+  '<div id="retobox" style="display:none">'+
+    '<div class="gl" style="margin:10px 0 4px"><span>Medidas del diagnóstico</span></div>'+
+    '<div class="btns" id="obsreto"></div>'+
+    '<div class="gl" style="margin:10px 0 4px"><span>Familia de la avería</span></div>'+
+    '<div class="btns" id="dxreto"></div>'+
+    '<div class="modebar" style="margin-top:8px">'+
+      '<button class="b" id="btnPista">Pista</button>'+
+      '<button class="b on" id="btnEntrega">Entregar diagnóstico</button>'+
+      '<button class="b" id="btnOtro">Otro caso</button>'+
+    '</div>'+
+  '</div>'+
+  '<div id="tele"></div>'+
+  '<div class="console" id="report"></div>'+
+  '<div class="modebar" style="margin-top:10px">'+
+    '<button class="b auto" id="btnAuto">▶︎ Recorrido guiado</button>'+
+  '</div>'+
+  '<h4 class="sec">Comprueba lo que has leído</h4>'+
+  '<div id="quiz"></div>';
+
+// Reparto uniforme en filas de como mucho cuatro: trece opciones en filas de
+// cuatro dejan 4/4/4/1 y la última fila estira un botón de punta a punta. Con el
+// reparto uniforme salen 4/3/3/3 y todos miden lo mismo.
+function fila(rot,attr,ops,cur){
+  const filas=Math.max(1,Math.ceil(ops.length/4));
+  let h='<div class="gl" style="margin:9px 0 4px"><span>'+rot+'</span></div>';
+  let i=0;
+  for(let f=0;f<filas;f++){
+    const n=Math.ceil((ops.length-i)/(filas-f));
+    h+='<div class="modebar">'+ops.slice(i,i+n).map(o=>
+      '<button class="b'+(String(o[0])===String(cur)?' on':'')+'" '+attr+'="'+o[0]+'">'+o[1]+'</button>'
+    ).join('')+'</div>';
+    i+=n;
+  }
+  return h;
+}
+const CARGA_OPS=[[0,'0 %'],[0.10,'10 %'],[0.45,'45 %'],[0.75,'75 %'],[1,'100 %']];
+function rpmOps(){
+  const e=MQ();
+  return [[e.ralenti,num(e.ralenti,0)],[1500,'1 500'],[2500,'2 500'],[4000,'4 000'],
+    [Math.min(5500,e.rpmMax),num(Math.min(5500,e.rpmMax),0)]];
+}
+function syncCtrl(){
+  const ciego=(G.modo==='reto');
+  let h=fila('Vista','data-mode',MODES.map(m=>[m,MODE_META[m][0]]),G.modo);
+  h+=fila('Motor del banco','data-maq',ARQ_KEYS.map(k=>[k,ARQ[k].corto]),G.maq);
+  // En el diagnóstico a ciegas NO se ofrece el escenario: elegirlo sería ver la
+  // respuesta antes de medir nada.
+  if(!ciego) h+=fila('Escenario','data-esc',
+    ESCEN_KEYS.map(k=>[k,corta(ESC_CORTO[k]||ESCEN[k].rot,18)]),G.esc);
+  h+=fila('Carga del motor','data-carga',CARGA_OPS,G.carga);
+  h+=fila('Régimen','data-rpm',rpmOps(),G.rpm);
+  el('ctrl').innerHTML=h;
+  el('retobox').style.display=ciego?'block':'none';
+}
+
+// ----------------------------------------------------------------- telemetría
+const gl=(l,v,c)=>'<div class="g"><div class="gl"><span>'+l+'</span><b'+(c?' class="'+c+'"':'')+'>'+v+'</b></div></div>';
+function pintaTele(){
+  const e=MQ(), eA=MQF(), F=FA(), L=LECT(), C=CHISPA(), V=veredicto();
+  const ciego=(G.modo==='reto');
+  let h='';
+  if(ciego){
+    h+=gl('Motor',e.corto);
+    h+=gl('Punto de trabajo',rpmT(G.rpm)+' · '+pc(G.carga*100,0));
+    h+=gl('Presión nominal aquí',barU(presionChispa(e,G.carga,{})));
+    h+=gl('Avería','oculta hasta entregar','warn');
+    const tom=OBS.filter(o=>RETO.tomadas[o.k]!==undefined);
+    h+=gl('Medidas compradas',num(tom.length,0)+' de '+num(OBS.length,0));
+    tom.forEach(o=>{ h+=gl((o.taller?'':'💰 ')+(OBS_CORTO[o.k]||o.rot),RETO.tomadas[o.k]); });
+    el('tele').innerHTML=h;
+    return;
+  }
+  h+=gl('Presión de chispa',barU(PRESION()));
+  h+=gl('Corriente de la bobina',amp(corriente(eA,G.rpm,F)),
+    corriente(eA,G.rpm,F)<corriente(e,G.rpm,{})*0.85?'bad':'good');
+  h+=gl('Dwell',mili(dwell(eA,G.rpm,F)),dwellRecortado(eA,G.rpm,F)?'warn':'good');
+  h+=gl('Energía de la bobina',mJ(energiaBobina(eA,G.rpm,F)));
+  h+=gl('Tensión disponible',kv(vDisponible(eA,G.rpm,F)),
+    vDisponible(eA,G.rpm,F)<vDisponible(e,G.rpm,{})*0.85?'bad':'good');
+  h+=gl('Línea de disparo',kv(C.vDem),V.disparoAlto?'bad':(V.disparoBajo?'warn':'good'));
+  h+=gl('Reserva de tensión',pc(C.reserva*100,0),V.pocaReserva?'warn':'good');
+  h+=gl('Tensión de arco',kv(C.vQ));
+  h+=gl('Tiempo de quemado',mili(C.tQ),V.quemadoCorto?'bad':(V.quemadoLargo?'warn':'good'));
+  h+=gl('Energía al arco',mJ(C.eArco),C.eArco<C.eMin?'bad':'good');
+  h+=gl('Margen de encendido',vec(Math.min(C.margenE,C.margenT)),
+    Math.min(C.margenE,C.margenT)<1?'bad':(Math.min(C.margenE,C.margenT)<1.6?'warn':'good'));
+  h+=gl('Camino del arco',C.camino==='via'?'el aislador':'el hueco',C.camino==='via'?'bad':'good');
+  h+=gl('Oscilaciones',num(L.osc,0)+' de '+num(LECT_DE('sano').osc,0),
+    L.osc<OSC_SANAS?'bad':'good');
+  h+=gl('¿Enciende aquí?',C.enciende?'sí':'NO',C.enciende?'good':'bad');
+  h+=gl('Códigos',L.codigos.length?L.codigos.join(' · '):'ninguno',L.codigos.length?'bad':'good');
+  if(e.chispaPerdida) h+=gl('Chispa de la compañera',kv(L.vDemEscape));
+  el('tele').innerHTML=h;
+}
+
+// ------------------------------------------------------------------- informe
+function pintaInforme(){
+  if(G.modo==='reto'){ pintaReto(); return; }
+  const e=MQ(), L=LECT(), C=CHISPA(), V=veredicto(), E=veredictoEngano(), SC=V.SC;
+  let h='<b>'+ESCEN[G.esc].rot.replace(/^./,c=>c.toUpperCase())+'</b> en '+e.nombre.toLowerCase()+
+    ', a '+rpmT(G.rpm)+' con el '+pc(G.carga*100,0)+' de carga. ';
+  if(C.enciende){
+    h+='La chispa <b class="good">enciende</b>: pide '+kv(C.vDem)+' de los '+kv(C.vDisp)+
+      ' disponibles y el arco dura '+mili(C.tQ)+'. ';
+  }else{
+    h+='<b class="bad">No enciende</b>: '+MOTIVO_ROT[C.motivo]+'. ';
+  }
+  // Qué se ha movido respecto del mismo motor sano en el mismo punto.
+  const mov=[];
+  if(V.disparoAlto) mov.push('el disparo sube de '+kv(SC.vDem)+' a '+kv(C.vDem));
+  if(V.disparoBajo) mov.push('el disparo baja de '+kv(SC.vDem)+' a '+kv(C.vDem));
+  if(V.quemadoCorto) mov.push('la chispa se acorta de '+mili(SC.tQ)+' a '+mili(C.tQ));
+  if(V.quemadoLargo) mov.push('la chispa se alarga de '+mili(SC.tQ)+' a '+mili(C.tQ));
+  if(V.timbreCorto) mov.push('el timbre cae a '+num(L.osc,0)+' oscilaciones de '+num(V.timbreSano,0));
+  if(C.camino==='via') mov.push('el arco se va por el aislador');
+  if(V.dwellRecortado) mov.push('el dwell no cabe entero a este régimen');
+  h+=mov.length?'Contra esta misma máquina sana aquí mismo: '+mov.join(', ')+'. '
+    :'Contra esta misma máquina sana aquí mismo no se mueve nada de la traza. ';
+  // Y lo que el taller corriente NO puede separar de esto.
+  if(E.gemelos.length){
+    h+='<b class="warn">Sin osciloscopio</b>, esto no se distingue de: '+
+      E.gemelos.map(k=>ESC_CORTO[k]).join(', ')+'. ';
+    h+=E.separan.length
+      ? 'Lo que los separa: '+E.separan.map(o=>o.rot).join(', ')+'.'
+      : 'Ninguna medida suelta del osciloscopio los separa: hace falta más de una.';
+  }else{
+    h+='El taller corriente ya distingue este caso de todos los demás de este banco.';
+  }
+  if(!L.aporta&&L.compresion<COMPRESION_MIN)
+    h+=' <b class="warn">Ojo:</b> aquí la chispa está perfecta. El cilindro no aporta por compresión, y el umbral del '+
+      pc(COMPRESION_MIN*100,0)+' es un dato declarado de esta práctica, no una deducción del modelo.';
+  el('report').innerHTML=h;
+}
+
+// --------------------------------------------------------------- orquestación
+function afterEdit(){
+  invalida(); construyeBanco(); pintaTablero(); pintaTele(); pintaInforme();
+  syncCtrl(); pintaPregunta();
+}
+function cambiaMaquina(k){
+  if(!ARQ[k]) return;
+  G.maq=k;
+  // El régimen puede no existir en la máquina nueva: se lleva al más cercano de
+  // los que ofrece, porque dejar un valor fuera de la lista deja los botones sin
+  // ninguno encendido y parece que el mando no funciona.
+  const ops=rpmOps().map(o=>o[0]);
+  if(!ops.includes(G.rpm)) G.rpm=ops.reduce((a,b)=>Math.abs(b-G.rpm)<Math.abs(a-G.rpm)?b:a,ops[0]);
+  if(G.modo==='reto') armaReto();
+  G.resuelto=false;
+  afterEdit(); refrescaPregunta();
+  const t=camConjunto(MARGEN[G.modo]||1.00); S.moveTo(t[0],t[1],0.9);
+}
+// El encuadre es lo único que cambia de un modo a otro, y sólo para acercarse un
+// poco cuando la vista es de mucho texto.
+const MARGEN={traza:1.00, bobina:0.97, demanda:0.97, presupuesto:0.96,
+  timbre:0.97, cilindros:0.95, censo:0.94, reto:0.96};
+function setMode(m){
+  const salgoDelReto=(G.modo==='reto'&&m!=='reto'&&!RETO.veredicto);
+  G.modo=m;
+  if(salgoDelReto){ G.esc='sano'; RETO.caso=null; invalida(); }
+  if(m==='reto') armaReto();
+  pintaHUD(); afterEdit(); refrescaPregunta();
+  const t=camConjunto(MARGEN[m]||1.00); S.moveTo(t[0],t[1],1.1);
+}
+
+// ============================== T4b · RETO, CUESTIONARIO, RECORRIDO Y ARRANQUE
+const RETO={caso:null, tomadas:{}, eleccion:null, veredicto:null, pistas:0};
+
+function barajaEn(a){                       // Fisher-Yates, para que la posición
+  for(let i=a.length-1;i>0;i--){            // de la respuesta no sea la pista
+    const j=Math.floor(Math.random()*(i+1)); [a[i],a[j]]=[a[j],a[i]];
+  }
+  return a;
+}
+function armaReto(){
+  const casos=RETO_CASOS();
+  RETO.caso=casos[Math.floor(Math.random()*casos.length)];
+  G.esc=RETO.caso;
+  RETO.tomadas={}; RETO.eleccion=null; RETO.veredicto=null; RETO.pistas=0;
+  G.resuelto=false;
+  invalida(); pintaObsReto(); pintaDxReto();
+}
+// Valor legible de cada observación. Sale del motor sellado y se publica con la
+// MISMA resolución con la que el censo la cuenta: comprar el instrumento no da
+// precisión infinita, y si la pantalla diera más dígitos que el censo, el censo
+// estaría contando otra cosa que la que se ve.
+function valorObs(k){
+  const L=LECT(), o=OBS.find(x=>x.k===k);
+  if(k==='codigo')   return L.codigos.length?L.codigos.join(' · '):'ningún código';
+  if(k==='ralentiOk')return L.pts[0].aporta?'se sostiene':'NO se sostiene';
+  if(k==='cargaOk')  return L.pts[2].aporta?'tira bien':'NO tira';
+  if(k==='bateria')  return volt(cuant(L.vBat,o.res),1);
+  if(k==='aspecto')  return {humeda:'húmeda y negra',gastada:'electrodos redondeados',
+    aceitosa:'con aceite',normal:'normal'}[firmaObs(MQ(),L,[o])]||'normal';
+  if(k==='huecoBujia')return mm(cuant(L.sep,o.res));
+  if(k==='ohmSec')   return kohm(cuant(L.rSerie,o.res));
+  if(k==='disparo')  return kv(cuant(L.pts[0].vDem,o.res));
+  if(k==='disparoCarga')return kv(cuant(L.pts[2].vDem,o.res));
+  if(k==='quemado')  return mili(cuant(L.pts[0].tQ,o.res));
+  if(k==='tensionQ') return kv(cuant(L.pts[0].vQ,o.res));
+  if(k==='oscil')    return num(L.osc,0)+' oscilaciones';
+  if(k==='corriente')return amp(cuant(L.iBob,o.res));
+  if(k==='dwellObs') return mili(cuant(L.dwell,o.res));
+  return '—';
+}
+function mide(k){
+  if(G.modo!=='reto'||RETO.tomadas[k]!==undefined) return;
+  RETO.tomadas[k]=valorObs(k);
+  synth.beep(580,0.06,0.04);
+  construyeBanco(); pintaObsReto(); pintaTablero(); pintaTele();
+}
+function pintaObsReto(){
+  el('obsreto').innerHTML=OBS.map(o=>
+    '<button class="b'+(RETO.tomadas[o.k]!==undefined?' on':'')+'" data-obs="'+o.k+'">'+
+    (o.taller?'':'💰 ')+(OBS_CORTO[o.k]||corta(o.rot,30))+'</button>').join('');
+}
+function pintaDxReto(){
+  const ops=barajaEn(FAMILIAS_RETO().slice());
+  el('dxreto').innerHTML=ops.map(f=>
+    '<button class="b'+(RETO.eleccion===f?' on':'')+'" data-fam="'+f+'">'+f+'</button>').join('');
+}
+function pintaReto(){
+  const n=Object.keys(RETO.tomadas).length;
+  let h='<b>Motor bajo diagnóstico:</b> '+MQ().nombre+'. Medidas tomadas: '+n+'/'+OBS.length+'. ';
+  if(RETO.veredicto) h+=(RETO.veredicto.ok?'<b class="good">Acertaste.</b> ':'<b class="bad">Fallaste.</b> ')+RETO.veredicto.texto;
+  else h+='Mide lo que necesites —las de 💰 piden osciloscopio—, elige la familia y entrega el diagnóstico.';
+  el('report').innerHTML=h;
+}
+function pistaReto(){
+  if(G.modo!=='reto'||RETO.veredicto) return;
+  RETO.pistas++;
+  const e=MQ(), L=LECT_DE(RETO.caso);
+  // Las pistas NO dicen la avería: dicen qué mirar, que es lo que enseña.
+  const p=[
+    'Empieza por lo que no cuesta: ¿hay código?, ¿se sostiene a ralentí?, ¿tira en carga? Con eso descartas familias enteras.',
+    'Si el escáner sale limpio y aun así algo va mal, la avería no ha llegado a frenar el cigüeñal lo bastante. Mira la traza.',
+    'La línea de disparo y el tiempo de quemado se reparten un presupuesto. Si el disparo sube y la chispa se acorta, el problema está en el camino; si el disparo NO se mueve y la chispa se acorta igual, el problema está en la bobina o en lo que la alimenta.',
+    'La tercera fase no mide la chispa: mide el devanado. Cuenta las oscilaciones.',
+    'Una línea de disparo BAJA con una chispa LARGA no es buena noticia: puede ser que el arco haya encontrado un camino que no pasa por la mezcla.',
+  ][Math.min(RETO.pistas-1,4)];
+  showToast('<b>Pista '+RETO.pistas+'</b><br>'+p,5200);
+}
+function entregaReto(){
+  if(G.modo!=='reto'||!RETO.eleccion) return;
+  const e=MQ(), correcta=ESCEN[RETO.caso].clave;
+  const ok=RETO.eleccion===correcta;
+  const L=LECT_DE(RETO.caso), C=chispa(aplica(e,FALLAS[ESCEN[RETO.caso].falla]),G.rpm,
+    presionChispa(e,G.carga,FALLAS[ESCEN[RETO.caso].falla]),FALLAS[ESCEN[RETO.caso].falla]);
+  const n=Object.keys(RETO.tomadas).length;
+  const osc=OBS.filter(o=>!o.taller&&RETO.tomadas[o.k]!==undefined).length;
+  let t='Era <b>'+escRot(RETO.caso)+'</b>, de la familia «'+correcta+'». ';
+  t+='A '+rpmT(G.rpm)+' y '+pc(G.carga*100,0)+' de carga, el disparo pide '+kv(C.vDem)+
+     ', el arco dura '+mili(C.tQ)+' y el timbre deja '+num(L.osc,0)+' oscilaciones. ';
+  t+=L.codigos.length?'El escáner pone '+L.codigos.join(' · ')+'. ':'El escáner sale limpio. ';
+  t+='Lo resolviste con '+n+' medidas, '+osc+' de ellas con osciloscopio.';
+  if(!ok) t+=' Habías dicho «'+RETO.eleccion+'».';
+  RETO.veredicto={ok,texto:t};
+  G.resuelto=ok;
+  synth.beep(ok?720:220,0.14,0.08);
+  pintaReto(); pintaTablero(); pintaTele();
+}
+
+// ---------------------------------------------------------------- cuestionario
+// Las preguntas se DERIVAN del estado: cambiar de máquina o de escenario cambia
+// las respuestas, así que no se pueden memorizar.
+function preguntas(){
+  const e=MQ(), eA=MQF(), F=FA(), L=LECT(), C=CHISPA(), SN=LECT_DE('sano');
+  const SC=chispa(e,G.rpm,presionChispa(e,G.carga,{}),{});
+  const Q=[];
+  Q.push({t:'A '+rpmT(G.rpm)+' con el '+pc(G.carga*100,0)+' de carga, ¿cuánto pide la línea de disparo en este motor?',
+    ops:[[kv(C.vDem),true],[kv(C.vDisp),false],[kv(C.vQ),false],[kv(C.vDem*1.6),false]]});
+  Q.push({t:'La bobina guarda '+mJ(C.eUtil)+' y romper el camino se lleva '+mJ(C.eCap)+'. ¿Cuánto dura el arco?',
+    ops:[[mili(C.tQ),true],[mili(C.tQ*2),false],[mili(C.tQ/2),false],['no se puede saber sin medirlo',false]]});
+  Q.push({t:'¿De dónde sale la tensión disponible de esta bobina, '+kv(C.vDisp)+'?',
+    ops:[['de poner toda la energía guardada sobre la capacidad del secundario, V=√(2E/C₂)',true],
+      ['de multiplicar la tensión de batería por la relación de espiras',false],
+      ['de la ley de Paschen aplicada al hueco de la bujía',false],
+      ['de la resistencia del secundario por la corriente de arco',false]]});
+  Q.push({t:'Si sólo sube la línea de disparo y nada más cambia, ¿qué le pasa al tiempo de quemado?',
+    ops:[['se acorta, porque romper el camino se lleva más energía del mismo presupuesto',true],
+      ['se alarga, porque hay más tensión disponible para el arco',false],
+      ['no cambia: son dos fases independientes',false],
+      ['depende del régimen, no de la tensión',false]]});
+  Q.push({t:'En este motor, ¿qué escenarios pone el escáner bajo el MISMO código P0301?',
+    ops:[(()=>{const c=ESCEN_KEYS.filter(k=>LECT_DE(k).codigos.includes('P0301'));
+      return [num(c.length,0)+' escenarios de '+num([...new Set(c.map(k=>ESCEN[k].clave))].length,0)+' familias distintas',true];})(),
+      ['sólo los de la familia «bobina»',false],['sólo los que dejan al motor sin chispa',false],
+      ['uno por familia, para poder distinguirlos',false]]});
+  Q.push({t:'Contar las oscilaciones del final de la traza sirve para medir…',
+    ops:[['el factor de calidad del devanado de la bobina',true],
+      ['cuánta mezcla ha quedado sin quemar',false],
+      ['la separación de los electrodos de la bujía',false],
+      ['la presión del cilindro en el momento de la chispa',false]]});
+  // Preguntas que dependen de la avería puesta.
+  if(C.camino==='via')
+    Q.push({t:'Aquí la traza sale con el disparo más bajo y la chispa más larga que la sana. ¿Qué significa?',
+      ops:[['que el arco ha encontrado un camino más barato por el aislador, donde no hay mezcla',true],
+        ['que la bujía está nueva y funciona mejor que la de referencia',false],
+        ['que la bobina da más energía de la cuenta',false],
+        ['que la compresión ha subido',false]]});
+  if(L.osc<OSC_SANAS)
+    Q.push({t:'Esta bobina carga '+amp(L.iBob)+' contra los '+amp(SN.iBob)+' de la sana y aun así da menos tensión. ¿Por qué?',
+      ops:[['porque la energía va con L·i² y lo que se ha perdido es la inductancia',true],
+        ['porque la tensión no depende de la energía sino de la corriente',false],
+        ['porque el módulo corta antes por seguridad',false],
+        ['porque el secundario tiene más capacidad',false]]});
+  if(dwellRecortado(eA,G.rpm,F))
+    Q.push({t:'A '+rpmT(G.rpm)+' el dwell se queda en '+mili(dwell(eA,G.rpm,F))+' de los '+mili(e.dwell*(F.dwellMul||1))+' pedidos. ¿Por qué?',
+      ops:[['porque entre chispa y chispa sólo hay '+mili(periodoChispa(e,G.rpm))+' y hay que dejar guarda',true],
+        ['porque la batería no da más corriente a ese régimen',false],
+        ['porque el módulo lo acorta para no calentar la bobina',false],
+        ['porque la bujía ya no necesita tanta energía arriba',false]]});
+  if(L.compresion<COMPRESION_MIN)
+    Q.push({t:'Aquí la chispa enciende la mezcla y aun así hay P0301. ¿Qué está pasando?',
+      ops:[['el cilindro enciende pero no aporta par: es mecánico, y el escáner sólo ve que el cigüeñal se frena',true],
+        ['el escáner se ha equivocado: no hay avería',false],
+        ['la bobina falla intermitentemente y el escáner lo detecta',false],
+        ['el arco se va por el aislador',false]]});
+  return Q;
+}
+let QI=0, QSEL=null, QCACHE=null;
+function bancoQ(){
+  if(!QCACHE){ QCACHE=preguntas();
+    QCACHE.forEach(q=>{ q.baraja=barajaEn(q.ops.map(o=>({o}))); }); }
+  return QCACHE;
+}
+function refrescaPregunta(){ QCACHE=null; QI=0; QSEL=null; pintaPregunta(); }
+function pintaPregunta(){
+  const B=bancoQ(); if(!B.length){ el('quiz').innerHTML=''; return; }
+  const q=B[QI%B.length];
+  let h='<div class="lt">Pregunta '+((QI%B.length)+1)+' de '+B.length+'</div>';
+  h+='<div class="console">'+q.t+'</div>';
+  h+='<div class="btns">'+q.baraja.map((b,i)=>{
+    const bien=b.o[1];
+    // Antes de contestar, ninguna opción va marcada: marcar la correcta de
+    // salida sería regalar la respuesta. Después, la correcta se pinta verde
+    // —esté o no elegida— y la elegida por error, roja.
+    const cls=QSEL===null?'':(bien?' right':(i===QSEL?' wrong':''));
+    return '<button class="b dx'+cls+'" data-q="'+i+'">'+b.o[0]+'</button>';
+  }).join('')+'</div>';
+  h+='<div class="modebar" style="margin-top:8px"><button class="b" data-qnext="1">Siguiente pregunta</button></div>';
+  el('quiz').innerHTML=h;
+}
+function pregunta(i){
+  const B=bancoQ(), q=B[QI%B.length];
+  if(QSEL!==null) return;
+  QSEL=i;
+  synth.beep(q.baraja[i].o[1]?700:210,0.10,0.06);
+  pintaPregunta();
+}
+
+// ------------------------------------------------------------ recorrido guiado
+let AUTO=null;
+function paraAuto(){ if(AUTO){ clearTimeout(AUTO); AUTO=null; } el('btnAuto').disabled=false; }
+function runAuto(){
+  paraAuto();
+  el('btnAuto').disabled=true;
+  const pasos=[
+    ()=>{ cambiaMaquina('dis4'); G.esc='sano'; G.rpm=750; G.carga=0.10; setMode('traza');
+      showToast('<b>Las tres fases</b><br>Pico de disparo, meseta de chispa y timbre. Empezamos con todo sano y el motor a ralentí.',3400); },
+    ()=>{ G.carga=1; G.rpm=4000; afterEdit();
+      showToast('<b>Dar gas cambia la traza sin que nada esté roto</b><br>Sube la presión, sube el disparo y por eso mismo se acorta la chispa.',3400); },
+    ()=>{ setMode('demanda');
+      showToast('<b>De dónde sale cada kilovoltio</b><br>El hueco a su presión, el aire de cualquier corte, y la caída resistiva.',3400); },
+    ()=>{ G.esc='bujiaGastada'; afterEdit();
+      showToast('<b>Bujía gastada</b><br>El hueco crece y con él la demanda. En carga se queda sin arco.',3400); },
+    ()=>{ setMode('presupuesto');
+      showToast('<b>Una energía y dos gastos</b><br>Aquí sobra energía de largo y aun así falla: lo que se agota es el TIEMPO.',3600); },
+    ()=>{ G.esc='bujiaCerrada'; afterEdit();
+      showToast('<b>Y ahora el revés</b><br>La bujía cerrada dibuja una chispa MÁS larga que la sana y tiene PEOR margen de encendido.',3800); },
+    ()=>{ G.esc='bujiaEngrasada'; setMode('traza');
+      showToast('<b>La traza que engaña</b><br>Disparo bajo y chispa larga. Y el cilindro está muerto.',3400); },
+    ()=>{ setMode('demanda');
+      showToast('<b>Por qué</b><br>La carbonilla del aislador rompe antes que el hueco, así que el arco se va por donde no hay mezcla.',3800); },
+    ()=>{ G.esc='dwellCorto'; G.rpm=750; G.carga=0.10; setMode('bobina');
+      showToast('<b>Dwell corto</b><br>A ralentí no pasa nada: la reserva de tensión tapa la avería.',3400); },
+    ()=>{ G.rpm=4000; G.carga=1; afterEdit();
+      showToast('<b>En carga, sí</b><br>La misma avería, el mismo instrumento, y ahora el cilindro se cae.',3400); },
+    ()=>{ G.esc='bobinaEspiras'; setMode('timbre');
+      showToast('<b>La tercera fase</b><br>Espiras en corto: MÁS corriente en el primario y MENOS energía, porque la que se ha ido es la inductancia.',3800); },
+    ()=>{ cambiaMaquina('dist6'); G.esc='sano'; G.rpm=5500; setMode('bobina');
+      showToast('<b>Aritmética del ciclo</b><br>Una bobina para seis cilindros: arriba no cabe el dwell y la chispa se debilita sola.',3800); },
+    ()=>{ cambiaMaquina('dis4'); G.esc='compresionBaja'; G.rpm=2500; G.carga=0.45; setMode('cilindros');
+      showToast('<b>Un P0301 que no es eléctrico</b><br>La chispa enciende perfectamente. El cilindro no aporta por compresión.',3800); },
+    ()=>{ setMode('censo');
+      showToast('<b>La cuenta</b><br>Ni la línea de disparo ni el tiempo de quemado bastan a solas. Juntos, sí.',3600); },
+    ()=>{ setMode('reto');
+      showToast('<b>Tu turno</b><br>Hay una avería puesta y no se dice cuál. Mide, decide y entrega.',3600); },
+  ];
+  let i=0;
+  const tic=()=>{ if(i>=pasos.length){ paraAuto(); return; } pasos[i++](); AUTO=setTimeout(tic,2800); };
+  tic();
+}
+
+// ------------------------------------------------------------------- sucesos
+// Un ÚNICO despachador delegado. Nada de onclick en el HTML generado: el cuerpo
+// del laboratorio va dentro de un <script type="module"> y sus funciones no
+// existen en el ámbito global, así que un onclick inline no encuentra nada.
+document.addEventListener('click',ev=>{
+  const b=ev.target.closest('button'); if(!b) return;
+  const id=b.id;
+  if(id==='btnAuto'){ runAuto(); return; }
+  if(id==='btnPista'){ pistaReto(); return; }
+  if(id==='btnEntrega'){ entregaReto(); return; }
+  if(id==='btnOtro'){ paraAuto(); armaReto(); afterEdit(); refrescaPregunta(); return; }
+  if(b.dataset.mode){ paraAuto(); setMode(b.dataset.mode); return; }
+  if(b.dataset.maq){ paraAuto(); cambiaMaquina(b.dataset.maq); return; }
+  if(b.dataset.esc){ paraAuto(); G.esc=b.dataset.esc; G.resuelto=false; afterEdit(); refrescaPregunta(); return; }
+  if(b.dataset.carga!==undefined){ paraAuto(); G.carga=Number(b.dataset.carga); afterEdit(); refrescaPregunta(); return; }
+  if(b.dataset.rpm!==undefined){ paraAuto(); G.rpm=Number(b.dataset.rpm); afterEdit(); refrescaPregunta(); return; }
+  if(b.dataset.obs){ mide(b.dataset.obs); return; }
+  if(b.dataset.fam){ RETO.eleccion=b.dataset.fam; pintaDxReto(); pintaTablero(); return; }
+  if(b.dataset.q!==undefined){ pregunta(Number(b.dataset.q)); return; }
+  if(b.dataset.qnext){ QI++; QSEL=null; pintaPregunta(); return; }
+});
+document.addEventListener('keydown',ev=>{
+  if(ev.target&&/^(INPUT|TEXTAREA)$/.test(ev.target.tagName)) return;
+  const i=Number(ev.key);
+  if(i>=1&&i<=MODES.length){ paraAuto(); setMode(MODES[i-1]); }
+});
+
+// ------------------------------------------------------------------- depuración
+// Superficie mínima y estable para la Capa 2. Todo lo que publica sale del motor
+// sellado por el mismo camino que la pantalla.
+window.__labDebug={
+  get mode(){ return G.modo; },
+  get solved(){ return G.resuelto; },
+  get maquina(){ return G.maq; },
+  get esc(){ return G.esc; },
+  get carga(){ return G.carga; },
+  get rpm(){ return G.rpm; },
+  get frames(){ return PINTADAS; },
+  get cabecera(){ return cabMaquina()+' | '+cabPunto(); },
+  get maq(){ const e=MQ(); return {key:e.key, corto:e.corto, nCil:e.nCil, ralenti:e.ralenti,
+    rc:e.rc, rpmMax:e.rpmMax, chispaPerdida:e.chispaPerdida, bobinaPorCil:e.bobinaPorCil,
+    Lp:e.Lp, Rp:e.Rp, iLim:e.iLim, dwellPedido:e.dwell, N:e.N, C2:e.C2, Cp:e.Cp,
+    eta:e.eta, Q:e.Q, sep:e.sep, rBujia:e.rBujia, rCable:e.rCable,
+    avanceRal:e.avanceRal, avanceMax:e.avanceMax,
+    chispasPorVuelta:chispasPorVuelta(e), zSec:zSecundario(e), tieneCable:tieneCable(e),
+    oscSanas:oscilaciones(e,{}), fTimbre:fTimbre(e,{}), tau:tauBobina(e)}; },
+  get lect(){ const L=LECT(); return {esc:L.esc, rot:L.rot, clave:L.clave, falla:L.falla,
+    enciendeTodo:L.enciendeTodo, aporta:L.aporta, compresion:L.compresion,
+    fallaEn:L.fallaEn.slice(), motivos:L.motivos.slice(),
+    osc:L.osc, oscSano:L.oscSano, fTimbre:L.fTimbre,
+    iBob:L.iBob, iSano:L.iSano, dwell:L.dwell, dwellSano:L.dwellSano,
+    vBat:L.vBat, sep:L.sep, rSerie:L.rSerie, camino:L.camino,
+    codigos:L.codigos.slice(), vDemEscape:L.vDemEscape,
+    pts:L.pts.map(p=>({k:p.k, rpm:p.rpm, carga:p.carga, p:p.p, avance:p.avance,
+      vDem:p.vDem, vDisp:p.vDisp, vQ:p.vQ, tQ:p.tQ, eArco:p.eArco, eUtil:p.eUtil,
+      eMin:p.eMin, margenE:p.margenE, margenT:p.margenT,
+      camino:p.camino, hay:p.hay, enciende:p.enciende, motivo:p.motivo, aporta:p.aporta,
+      reserva:p.reserva, iBob:p.iBob, dwell:p.dwell, recortado:p.recortado}))}; },
+  // El punto de trabajo de los MANDOS, que no es ninguno de los tres del
+  // protocolo: la carga manda la presión y el régimen manda el dwell.
+  get punto(){ const e=MQ(), eA=MQF(), F=FA(), C=CHISPA(); return {
+    rpm:G.rpm, carga:G.carga, presion:PRESION(), avance:avance(e,G.carga,F),
+    dwell:dwell(eA,G.rpm,F), recortado:dwellRecortado(eA,G.rpm,F),
+    periodo:periodoChispa(e,G.rpm), iBob:corriente(eA,G.rpm,F),
+    enLimite:enLimite(eA,G.rpm,F), energia:energiaBobina(eA,G.rpm,F),
+    vDisp:C.vDisp, vDem:C.vDem, vQ:C.vQ, tQ:C.tQ, eUtil:C.eUtil, eCap:C.eCap,
+    eArco:C.eArco, eMin:C.eMin, margenE:C.margenE, margenT:C.margenT,
+    camino:C.camino, hay:C.hay, enciende:C.enciende, motivo:C.motivo, reserva:C.reserva}; },
+  get censo(){ const C=CENSO(), N=ESCEN_KEYS.length;
+    const soloT=C.filter(c=>c.sub.every(s=>s.taller));
+    const techoT=Math.max(...soloT.map(c=>c.resueltos));
+    const cortoT=soloT.filter(c=>c.resueltos===techoT).sort((a,b)=>a.sub.length-b.sub.length)[0];
+    const min=C.filter(c=>c.resueltos===C[0].resueltos).sort((a,b)=>a.sub.length-b.sub.length)[0];
+    const uno=k=>new Set(ESCEN_KEYS.map(x=>firmaObs(MQ(),LECT_DE(x),[OBS.find(o=>o.k===k)]))).size;
+    const dos=(a,b)=>new Set(ESCEN_KEYS.map(x=>firmaObs(MQ(),LECT_DE(x),
+      OBS.filter(o=>o.k===a||o.k===b)))).size;
+    return {N, techo:C[0].resueltos, techoTaller:techoT,
+      cortoTallerTam:cortoT.sub.length, minTam:min.sub.length, minObs:min.sub.map(o=>o.k),
+      soloDisparo:uno('disparo'), soloQuemado:uno('quemado'), disparoYQuemado:dos('disparo','quemado'),
+      mudos:MUDOS().slice(), reto:RETO_CASOS().slice()}; },
+  get veredicto(){ const V=veredicto(), E=veredictoEngano(); return {
+    hay:V.hay, enciende:V.enciende, motivo:V.motivo, camino:V.camino,
+    disparoAlto:V.disparoAlto, disparoBajo:V.disparoBajo,
+    quemadoCorto:V.quemadoCorto, quemadoLargo:V.quemadoLargo,
+    pocaReserva:V.pocaReserva, timbreCorto:V.timbreCorto, timbreSano:V.timbreSano,
+    dwellRecortado:V.dwellRecortado, aporta:V.aporta, limpio:V.limpio,
+    ralenti:V.ralenti, carga:V.carga,
+    gemelos:E.gemelos.slice(), separan:E.separan.map(o=>o.k), mudos:E.mudos.slice(),
+    nivel:E.nivel}; },
+  // Lo que la pantalla del banco publica de verdad, para poder comprobar que el
+  // instrumento no regala en el banco lo que el reto hace comprar.
+  get osc(){ return oscPublica(); },
+  // Lo que las chapas del banco DICEN, para poder comprobar que no publican lo
+  // que el reto hace comprar.
+  get rotulos(){ return ROTULOS.slice(); },
+  get reto(){ return {caso:RETO.caso, eleccion:RETO.eleccion,
+    tomadas:Object.keys(RETO.tomadas), veredicto:RETO.veredicto?RETO.veredicto.ok:null,
+    familias:FAMILIAS_RETO().slice()}; },
+  get preguntas(){ return preguntas().map(q=>({t:q.t, n:q.ops.length,
+    correctas:q.ops.filter(o=>o[1]).length})); },
+  get texto(){ return el('report').textContent+' || '+el('tele').textContent; },
+  get autoRunning(){ return AUTO!==null; },
+  setMaquina(k){ cambiaMaquina(k); },
+  setEsc(k){ G.esc=k; G.resuelto=false; afterEdit(); refrescaPregunta(); },
+  setCarga(c){ G.carga=c; afterEdit(); },
+  setRpm(r){ G.rpm=r; afterEdit(); },
+  setMode(m){ setMode(m); },
+  mide(k){ mide(k); },
+  eligeFam(f){ RETO.eleccion=f; pintaDxReto(); pintaTablero(); },
+  entrega(){ entregaReto(); },
+  obs(k){ return valorObs(k); },
+  firma(sub){ return firmaObs(MQ(),LECT(),OBS.filter(o=>sub.includes(o.k))); },
+  traza(){ const T=TRZ({n:600}); return {n:T.pts.length, tTotal:T.tTotal,
+    tDisparo:T.tDisparo, tFin:T.tFin, vDem:T.vDem, vQ:T.vQ, tQ:T.tQ, hay:T.hay,
+    pico:Math.max(...T.pts.map(p=>p.v)), minimo:Math.min(...T.pts.map(p=>p.v))}; },
+  primario(){ const P=TRZP(); return {n:P.pts.length, iMax:P.iMax, tDwell:P.tDwell,
+    saturada:P.saturada, recortada:P.recortada,
+    pico:Math.max(...P.pts.map(p=>p.i))}; },
+};
+
+// ------------------------------------------------------------------- arranque
+pintaHUD();
+construyeBanco();
+syncCtrl();
+pintaTablero();
+pintaTele();
+pintaInforme();
+pintaObsReto();
+pintaDxReto();
+refrescaPregunta();
+S.setAnimate(dt=>pinta3D(dt));
+S.start();
+{ const t=camConjunto(MARGEN.traza); S.moveTo(t[0],t[1],0.01); }
+addEventListener('resize',()=>S.resize());

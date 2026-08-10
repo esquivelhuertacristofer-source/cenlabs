@@ -1,0 +1,9 @@
+{
+  "donor": "escaner-obd.html",
+  "out": "encendido-tres-fases.html",
+  "title": "CEN Labs · El encendido en sus tres fases — Laboratorio 3D",
+  "lt": "Motor de combustión interna · Mecánica",
+  "inspectHint": "👆 Pon la bujía engrasada y mira la traza: sale con el disparo más BAJO y la chispa más LARGA que la sana, y el cilindro está muerto",
+  "body": "encendido-tres-fases.body.js",
+  "fichas": ["_ficha-tecnica.js", "_ficha-encendido-tres-fases.js"]
+}

@@ -1471,6 +1471,16 @@ exports[`golden master — catálogo por categoría (invariante ante extracción
     "teoria": "El escáner no es un osciloscopio lento: es un muestreador que lee cada 80 ms. Un hueco de 12,0 ms en la pista del acelerador lo caza el 15 % de las veces —y barriendo despacio, siempre. Aprende a leer la FORMA de seis señales.",
     "titulo": "Formas de Onda de los Sensores del Motor",
   },
+  {
+    "duracion": "45 min",
+    "estado": "activo",
+    "id": "mecanica-119",
+    "modulo": "Motor de Combustión Interna",
+    "orden": 119,
+    "simuladorHtml": "/labs/encendido-tres-fases.html",
+    "teoria": "Las tres fases de la traza se reparten un solo presupuesto de energía: todo lo que suba la línea de disparo acorta la de chispa. Por eso el disparo a solas separa 8 de 13 averías, el quemado a solas 11, y los dos juntos 13. Y por eso hay chispa perfecta con el cilindro muerto.",
+    "titulo": "El Encendido en sus Tres Fases",
+  },
 ]
 `;
 
@@ -1624,6 +1634,7 @@ exports[`golden master — catálogo por categoría (invariante ante extracción
   "mecanica-116",
   "mecanica-117",
   "mecanica-118",
+  "mecanica-119",
   "mecanica-12",
   "mecanica-13",
   "mecanica-14",
