@@ -1461,6 +1461,16 @@ exports[`golden master — catálogo por categoría (invariante ante extracción
     "teoria": "La sonda de banda estrecha no mide la mezcla: dice de qué lado del estequiométrico está. De lambda 0,80 a 0,90 no mueve ni medio milivoltio. Descubre por qué hay averías con el escáner impecable y el analizador de gases diciendo que la mezcla está mal.",
     "titulo": "Inyección y Sonda Lambda: Ajustes de Mezcla",
   },
+  {
+    "duracion": "45 min",
+    "estado": "activo",
+    "id": "mecanica-118",
+    "modulo": "Motor de Combustión Interna",
+    "orden": 118,
+    "simuladorHtml": "/labs/formas-de-onda-motor.html",
+    "teoria": "El escáner no es un osciloscopio lento: es un muestreador que lee cada 80 ms. Un hueco de 12,0 ms en la pista del acelerador lo caza el 15 % de las veces —y barriendo despacio, siempre. Aprende a leer la FORMA de seis señales.",
+    "titulo": "Formas de Onda de los Sensores del Motor",
+  },
 ]
 `;
 
@@ -1613,6 +1623,7 @@ exports[`golden master — catálogo por categoría (invariante ante extracción
   "mecanica-115",
   "mecanica-116",
   "mecanica-117",
+  "mecanica-118",
   "mecanica-12",
   "mecanica-13",
   "mecanica-14",

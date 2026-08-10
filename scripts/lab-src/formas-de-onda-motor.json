@@ -1,0 +1,9 @@
+{
+  "donor": "escaner-obd.html",
+  "out": "formas-de-onda-motor.html",
+  "title": "CEN Labs · Formas de onda de los sensores del motor — Laboratorio 3D",
+  "lt": "Motor de combustión interna · Mecánica",
+  "inspectHint": "👆 Pon la pista del acelerador gastada y ve al modo «Cazar»: el mismo escáner que falla el 85 % de las veces en un pisotón no falla nunca barriendo despacio",
+  "body": "formas-de-onda-motor.body.js",
+  "fichas": ["_ficha-tecnica.js", "_ficha-formas-de-onda-motor.js"]
+}
