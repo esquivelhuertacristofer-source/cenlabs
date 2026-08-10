@@ -1,0 +1,9 @@
+{
+  "donor": "escaner-obd.html",
+  "out": "inyeccion-sonda-lambda.html",
+  "title": "CEN Labs · Inyección electrónica: sonda lambda y ajustes de mezcla — Laboratorio 3D",
+  "lt": "Motor de combustión interna · Mecánica",
+  "inspectHint": "👆 Mueve el acelerador y mira el ajuste largo: hay averías que sólo se ven en cómo CAMBIA entre ralentí y crucero, y dos que el escáner no ve en absoluto",
+  "body": "inyeccion-sonda-lambda.body.js",
+  "fichas": ["_ficha-tecnica.js", "_ficha-inyeccion-sonda-lambda.js"]
+}

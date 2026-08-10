@@ -1,0 +1,102 @@
+import type { BriefingConfig } from '@/components/MissionBriefing';
+
+const briefing: BriefingConfig = {
+  codigo: 'MEC-117',
+  titulo: 'Inyección y Sonda Lambda: Ajustes de Mezcla',
+  subtitulo: 'Motor de combustión interna · carga de aire por densidad y régimen, caudal de inyector, curva de Nernst, lazo cerrado, ajustes largo y corto y censo de instrumentos',
+  acento: '#5BD4E5',
+  duracion: 45,
+  videoUrl: '',
+  bienvenida: `Sobre el banco hay un motor de inyección secuencial completo: colector de admisión con su mariposa y su medidor de aire, riel con un inyector por cilindro, escape con la sonda lambda roscada antes del catalizador, un manómetro de riel y la pantalla de un escáner con los datos en directo. No hay nada que montar. Lo que se manipula aquí son los MANDOS —régimen, acelerador, combustible, tensión de batería, temperatura del aire— y lo que hay que aprender a leer son los instrumentos.
+
+La tesis de esta práctica es incómoda y conviene decirla desde el primer minuto: **la sonda de banda estrecha no mide la mezcla**. Dice de qué lado del estequiométrico está, y sólo eso. Su curva es la de Nernst, casi vertical en lambda uno y casi plana a los dos lados. Los números lo dejan sin discusión: de lambda 0,80 a 0,90 —de humo negro a francamente rica— la sonda mueve **0,328 mV**, el 0,041 % de su carrera de 800; entre 0,99 y 1,01 recorre **297 mV**, el 37,1 %. Casi toda su carrera se gasta en el diez por ciento central de la banda. Eso la hace perfecta para lo único que la centralita necesita —saber hacia qué lado corregir— y completamente inútil para responder «¿cuánto de rica va?».
+
+De ahí sale todo lo demás. La centralita mide el aire, lo divide entre los 14,70 que tiene GRABADOS —que son los de la gasolina, no los del combustible que haya en el depósito— y ordena un tiempo de inyección. Después mira la sonda y corrige con el ajuste largo hasta que la sonda diga uno. Fíjate bien en esa frase: hasta que la SONDA diga uno, no hasta que la mezcla esté bien. Cuando la sonda dice la verdad, las dos cosas coinciden. Cuando no, no.
+
+Monta «sonda contaminada» y mira lo que pasa. El ajuste largo se queda en **+5,5 %** a ralentí y +5,5 % en crucero, por debajo del ±10 % que dispara un código; no salta ningún P0171 ni P0172; el escáner sale impecable. Y el analizador de gases mide lambda **0,948**. La centralita ha hecho su trabajo perfectamente y el coche va rico. Eso no lo caza un escáner por definición, y es la razón de que exista el analizador de gases.
+
+Después ve a la FORMA del ajuste, que es donde está el oficio. Una fuga de vacío da +16,9 % a ralentí y **+1,6 %** en crucero; un sensor de aire sucio da +13,6 % y +13,6 %, exactamente lo mismo arriba y abajo. Con un solo punto de medida son la misma avería. Con dos, no se parecen en nada: la fuga mete un CAUDAL fijo de gramos por segundo, que a ralentí es una parte enorme del aire total y a plena carga es una gota, mientras que el sensor se equivoca en un porcentaje constante. El cociente entre los dos puntos vale 10,4 en la fuga y 1,00 en el sensor. Por eso el protocolo tiene tres puntos y no uno.
+
+El tercer punto del protocolo —pie a fondo— es el mejor reactivo que tiene este banco y no cuesta nada. Por encima del 92 % de acelerador la centralita ABRE el lazo: deja de mirar la sonda y enriquece ×1,14 para proteger el motor, así que el objetivo pasa a ser lambda 0,877. Ahí, con la sonda fuera de juego, se destapa todo lo que ella tapaba: el sensor de aire sucio da **0,997**, peligrosamente pobre justo donde el motor más lo sufre; la presión de riel baja da 1,048 y la alta, 0,736. Y a la vez desaparecen las tres averías de la sonda, que dan 0,877 exactas. Abrir el lazo separa las averías de MEDIDA de las de SONDA sin comprar un solo instrumento.
+
+Hay dos averías más que enseñan cosas distintas. Con un inyector obstruido al 28 %, la mezcla de los cuatro escapes sale en lambda 1,000 clavada y la centralita enriquece +7,5 %: el cilindro 1 se queda en **1,292** y los otros tres se van a **0,930**. La sonda va en el colector y lee la mezcla de todos: mezclar escapes es sumar masas, no promediar lambdas, así que un cilindro pobre arrastra a los otros tres. Y con el filtro de aire tapado, la centralita mide bien y dosifica bien —lambda 1,000, ajustes en cero, sin códigos— y el motor sólo da el **68,0 %** de su par a plena carga. Un escáner limpio no es un motor sano.
+
+Cuidado también con el osciloscopio, que es un instrumento que se malinterpreta con facilidad. Una sonda envejecida baja los cruces de 4,51 a **2,81** por segundo con la mezcla media, el ajuste largo y el analizador de gases impecables: es la única avería que sólo delata el osciloscopio. Pero el filtro de aire tapado los baja a **3,10** con la sonda perfectamente sana, porque entra menos aire y los gases tardan más en llegar. Lo que acusa a la sonda es su constante de tiempo —85 ms contra 442—, no la frecuencia del lazo. Un lazo lento y una sonda lenta no son lo mismo, y confundirlos hace cambiar una sonda que no tenía nada.
+
+Y al final está el censo, que es el teorema incómodo. Trece escenarios, ocho observaciones, doscientos cincuenta y cinco juegos posibles. Con los dos ajustes del escáner y nada más se separan **9 de los 13** en las cuatro máquinas, y los cuatro que se confunden son siempre los mismos: sistema sano, sonda envejecida, filtro de aire tapado y batería baja, porque ninguno de los cuatro mueve el ajuste largo. Con todo lo que se mide en un taller corriente se llega a **11 de 13**, y tampoco alcanza en ninguna. El juego mínimo tiene tres observaciones en el 1.6 y cinco en el 1.4 turbo, y en las cuatro máquinas incluye los cruces por segundo. El osciloscopio no es un lujo: es la única forma de cerrar el caso, y eso queda demostrado, no afirmado.`,
+  conceptos: [
+    {
+      icono: '📉',
+      nombre: 'La sonda no mide: dice de qué lado está',
+      descripcion: 'De lambda 0,80 a 0,90 la tensión se mueve 0,328 mV, el 0,041 % de su carrera; de 0,99 a 1,01 recorre 297 mV, el 37,1 %. La curva de Nernst es casi vertical en el estequiométrico y casi plana a los dos lados. Sirve para detectar un CRUCE, no para medir una mezcla: eso lo dice el analizador de gases o una banda ancha.',
+    },
+    {
+      icono: '🎭',
+      nombre: 'Una sonda que miente arrastra a la centralita',
+      descripcion: 'El lazo busca el ajuste que hace que la SONDA diga uno, no el que centra la mezcla. Con la sonda contaminada, el ajuste largo se queda en +5,5 % —por debajo del umbral de código—, no salta ningún P0171 y el analizador de gases mide lambda 0,948. El escáner sale impecable y el coche va rico.',
+    },
+    {
+      icono: '📐',
+      nombre: 'La FORMA del ajuste contra la carga',
+      descripcion: 'Una fuga de vacío da +16,9 % a ralentí y +1,6 % en crucero; un sensor sucio da +13,6 % y +13,6 %. La fuga mete un caudal fijo que se diluye cuando el motor bombea; el sensor se equivoca en un porcentaje constante. El cociente vale 10,4 contra 1,00. Con un solo punto de medida son la misma avería.',
+    },
+    {
+      icono: '🔓',
+      nombre: 'Abrir el lazo destapa lo que la sonda tapaba',
+      descripcion: 'A pie a fondo la centralita deja de mirar la sonda y enriquece ×1,14: el objetivo pasa a ser 0,877. Ahí el sensor sucio da 0,997 y la presión baja, 1,048 —peligrosamente pobres— mientras las tres averías de sonda dan 0,877 exactas. Separa medida de sonda y no cuesta un peso.',
+    },
+    {
+      icono: '🔥',
+      nombre: 'Un cilindro pobre arrastra a los otros tres',
+      descripcion: 'Con un inyector al 72 %, la mezcla de los cuatro escapes sale en 1,000 y la centralita enriquece +7,5 %: el cilindro 1 queda en 1,292 y los otros tres en 0,930. Mezclar escapes es sumar masas, no promediar lambdas. Ni el escáner ni el analizador de gases ven ese reparto: hace falta la prueba de corte.',
+    },
+    {
+      icono: '⏱️',
+      nombre: 'Un lazo lento NO es una sonda lenta',
+      descripcion: 'La sonda envejecida baja los cruces de 4,51 a 2,81 con la mezcla media y el ajuste largo impecables. Pero el filtro tapado los baja a 3,10 con la sonda sana, porque entra menos aire. Lo que acusa a la sonda es su constante de tiempo —85 ms contra 442—, no la frecuencia del lazo.',
+    },
+    {
+      icono: '√',
+      nombre: 'El caudal va con la RAÍZ de la presión',
+      descripcion: 'Cuadruplicar la caída de presión sólo duplica el caudal: 2,850 → 5,700 g/s. Con el riel al 70 % de su presión, el inyector entrega el 83,7 %, no el 70. Recuperar un 10 % de caudal perdido exige subir la presión un 21,0 %. Por eso la presión baja se paga donde el pulso ya era largo: a plena carga.',
+    },
+    {
+      icono: '🔍',
+      nombre: 'El teorema del censo',
+      descripcion: 'Trece escenarios, ocho observaciones, 255 juegos. Los dos ajustes del escáner separan 9 de 13 en las cuatro máquinas, y los cuatro que confunde son siempre los mismos: sano, sonda vieja, filtro tapado y batería baja. Todo el taller llega a 11. El juego mínimo va de 3 a 5 observaciones e incluye SIEMPRE los cruces por segundo.',
+    },
+  ],
+  mision: [
+    'RECORRE la cadena del combustible con el sistema sano, de arriba abajo: aire que entra, aire que se mide, combustible que se pide, tiempo que se ordena, combustible que entra, lambda real, lo que la sonda dice. Ésa es la referencia contra la que vas a comparar todo lo demás.',
+    'COMPARA «fuga de vacío» y «sensor de aire sucio» en DOS puntos: ralentí y 2 500 rpm con el 35 %. Con un solo punto son la misma avería; con dos, no se parecen. Escribe el cociente entre los dos ajustes de cada una antes de mirar la explicación.',
+    'SUBE el régimen con la mariposa suelta y mira la presión del colector. Baja. Explica por qué antes de leer la respuesta, y después decide por qué una fuga de vacío se nota tanto a ralentí.',
+    'BAJA la batería de 14,5 a 10,5 V con el motor a plena carga. El pulso ordenado crece y la mezcla no se mueve: la centralita conoce su tabla de tiempo muerto. Mira el ciclo de trabajo y decide cuánto margen le queda a ese inyector.',
+    'MONTA «presión de riel baja» y comprueba con la calculadora que el caudal cae con la RAÍZ: 70 % de presión, 83,7 % de caudal. Después vete a plena carga y mira dónde acaba la mezcla cuando el lazo se abre.',
+    'MONTA «sonda contaminada» y busca la avería en el escáner. No la vas a encontrar: el ajuste se queda por debajo del umbral de código. Después mira la lambda del analizador de gases y las DOS líneas verticales de la gráfica de la sonda.',
+    'MONTA «fuga de escape» y ponte a ralentí. Lambda real 0,808 y la sonda diciendo uno. Busca 0,808 en la curva y comprueba a qué tensión corresponde: ahí se ve por qué la zona ciega no es un detalle académico.',
+    'COMPARA en el lazo la sonda envejecida y el filtro de aire tapado. Los dos bajan los cruces. Sólo uno es culpa de la sonda, y la tabla del pizarrón dice cuál con dos cifras.',
+    'SUBE el acelerador por encima del 92 % con «sensor de aire sucio» montado. El lazo se abre y la mezcla se va a 0,997 cuando debería estar en 0,877. Eso es un motor pobre a plena carga, y el ajuste largo no dice nada porque ya no existe.',
+    'CENSA los instrumentos en las cuatro máquinas: cuántos de los trece escenarios separan los dos ajustes del escáner, qué consigue todo el taller y qué juego mínimo cierra el caso. Fíjate en qué observación aparece en las cuatro.',
+    'RETO · Un coche averiado en secreto. Compra las observaciones que necesites —las cinco de taller son baratas; el analizador de gases, el osciloscopio y la prueba de corte, no— y entrega la FAMILIA de avería. Se te dirá si acertaste y, sobre todo, qué observación lo demostraba.',
+  ],
+  aplicaciones: [
+    {
+      area: 'Diagnóstico de P0171 y P0172 en taller',
+      ejemplo: 'El código sale y el reflejo es limpiar el sensor de aire o buscar una fuga. Aquí se ve que cuatro averías distintas disparan el mismo P0171 y que separarlas no exige más instrumentos sino medir en DOS puntos de carga: la forma del ajuste contra el gasto de aire es la firma, no su valor. Y se ve también que hay averías que no disparan ningún código y que estropean el catalizador igual.',
+    },
+    {
+      area: 'Verificación vehicular y prueba de gases',
+      ejemplo: 'La NOM de verificación mide lo que sale por el escape, no lo que dice la centralita. Este laboratorio enseña por qué un coche puede llegar con el escáner sin códigos y reprobar por mezcla: la sonda contaminada deja los ajustes limpios con lambda 0,948, y a partir de ahí el catalizador de tres vías ya no puede trabajar.',
+    },
+    {
+      area: 'Combustibles con etanol',
+      ejemplo: 'El E85 pide 1,505 veces más masa que la gasolina, porque el etanol lleva oxígeno en la molécula. En un motor mapeado para gasolina, el ajuste largo se planta en su tope del +25 % en las cuatro máquinas y el motor se queda en lambda 1,204, pobre de verdad. Es la única avería del laboratorio en la que la autoridad del lazo no alcanza, y explica de un vistazo por qué un vehículo flex necesita otra centralita y otros inyectores.',
+    },
+    {
+      area: 'Por qué el osciloscopio no es un lujo',
+      ejemplo: 'El censo lo demuestra en las cuatro máquinas: sin los cruces por segundo no hay juego de instrumentos que separe los trece escenarios. Una sonda envejecida sigue centrando bien la mezcla, así que el escáner y el analizador de gases la dan por buena; sólo la frecuencia del lazo la delata. Es el argumento técnico —y no comercial— para comprar el instrumento.',
+    },
+  ],
+};
+
+export default briefing;

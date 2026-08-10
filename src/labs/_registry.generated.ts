@@ -148,6 +148,7 @@ import mecanica_113 from './mecanica-113';
 import mecanica_114 from './mecanica-114';
 import mecanica_115 from './mecanica-115';
 import mecanica_116 from './mecanica-116';
+import mecanica_117 from './mecanica-117';
 import quimica_1 from './quimica-1';
 import quimica_2 from './quimica-2';
 import quimica_3 from './quimica-3';
@@ -306,6 +307,7 @@ export const LABS: Record<string, LabModule> = {
   'mecanica-114': mecanica_114,
   'mecanica-115': mecanica_115,
   'mecanica-116': mecanica_116,
+  'mecanica-117': mecanica_117,
   'quimica-1': quimica_1,
   'quimica-2': quimica_2,
   'quimica-3': quimica_3,

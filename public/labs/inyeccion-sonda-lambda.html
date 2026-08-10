@@ -1,0 +1,3437 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>CEN Labs · Inyección electrónica: sonda lambda y ajustes de mezcla — Laboratorio 3D</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#08201C;--panel:rgba(9,26,23,.86);--line:#1E3A34;--ink:#EAF4F1;
+    --dim:#8FB3AC;--accent:#2A9D8F;--accent2:#4FD1C5;--hv:#FFB703;--good:#34d399;--bad:#f4475e;
+    --mono:'Outfit',system-ui,'Segoe UI',Roboto,sans-serif;--disp:'Outfit','Arial Black',Impact,sans-serif;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  html,body{height:100%;background:var(--bg);color:var(--ink);font-family:'Outfit',system-ui,Segoe UI,Roboto,sans-serif}
+  body{overflow:hidden}
+  #stage{position:fixed;inset:0}
+  canvas{display:block;touch-action:none}
+
+  .topbar{position:fixed;top:0;left:0;right:0;height:56px;display:flex;align-items:center;gap:14px;padding:0 20px;z-index:20;background:linear-gradient(180deg,rgba(10,13,18,.92),transparent);pointer-events:none}
+  .brand{font-family:var(--disp);font-weight:bold;font-size:16px;text-transform:uppercase}
+  .brand span{color:var(--accent)}
+  .lt{font-family:var(--mono);font-size:11px;letter-spacing:.1em;text-transform:uppercase;color:var(--dim)}
+
+  .badge{position:fixed;top:16px;right:20px;z-index:20;font-family:var(--mono);font-size:9px;letter-spacing:.12em;text-transform:uppercase;background:rgba(255,209,102,.12);color:var(--hv);border:1px solid rgba(255,209,102,.35);padding:6px 12px;border-radius:20px}
+
+  .hud{position:fixed;top:70px;left:18px;z-index:15;max-width:330px;background:var(--panel);backdrop-filter:blur(14px);border:1px solid var(--line);border-radius:16px;padding:18px 20px;max-height:calc(100vh - 150px);overflow-y:auto}
+  .hud .eyebrow{font-family:var(--mono);font-size:10px;letter-spacing:.18em;text-transform:uppercase;color:var(--accent);margin-bottom:8px}
+  .hud h2{font-size:19px;line-height:1.15;margin-bottom:9px}
+  .hud p{font-size:13px;line-height:1.55;color:var(--dim);margin-bottom:10px}
+  .hud .formula{font-family:var(--mono);color:var(--accent2);text-align:center;font-size:12.5px;margin:8px 0;padding:8px;background:rgba(0,0,0,.25);border-radius:8px;line-height:1.5}
+  .hud .src{font-size:10.5px;color:#7a8894;font-style:italic;margin-top:4px;line-height:1.5}
+  .legend{display:flex;flex-direction:column;gap:6px;margin:12px 0;padding:10px 12px;background:rgba(0,0,0,.22);border-radius:10px}
+  .legend .li{display:flex;align-items:center;gap:8px;font-size:11px;color:#c4d0da}
+  .legend .dot{width:10px;height:10px;border-radius:50%;flex:0 0 auto}
+  .fid{margin:10px 0 2px;padding:10px 12px;background:rgba(0,0,0,.22);border-radius:10px;border:1px solid rgba(79,209,197,.18)}
+  .fid .ft{font-family:var(--mono);font-size:9.5px;letter-spacing:.14em;text-transform:uppercase;color:var(--accent2);margin-bottom:6px}
+  .fid .fl{font-size:11px;color:#c4d0da;line-height:1.5;margin-bottom:5px}
+  .fid .fl b{color:var(--ink)}
+  .fid .fl.no b{color:var(--hv)}
+
+  .panel{position:fixed;top:70px;right:18px;z-index:15;width:262px;background:var(--panel);backdrop-filter:blur(14px);border:1px solid var(--line);border-radius:16px;padding:16px;max-height:calc(100vh - 150px);overflow-y:auto}
+  .panel h4{font-family:var(--mono);font-size:10px;letter-spacing:.14em;text-transform:uppercase;color:var(--dim);margin:2px 0 10px}
+  .panel h4.sec{margin-top:16px;border-top:1px solid var(--line);padding-top:14px}
+  .g{margin-bottom:6px}
+  .gl{display:flex;justify-content:space-between;font-family:var(--mono);font-size:11px;color:var(--dim)}
+  .gl b{color:var(--accent2)}
+  .gl b.good{color:var(--good)}.gl b.warn{color:var(--hv)}.gl b.bad{color:var(--bad)}
+  .modebar{display:flex;gap:5px;margin-bottom:8px}
+  .modebar .b{flex:1;padding:8px 4px;font-size:11px}
+  .btns{display:flex;flex-direction:column;gap:7px;margin-top:6px}
+  .b{font-family:system-ui;font-size:12.5px;padding:10px;border-radius:9px;cursor:pointer;border:1px solid var(--line);background:#1b242f;color:var(--ink);transition:.15s;text-align:center}
+  .b:hover{border-color:var(--accent);background:#202c38}
+  .b.on{background:var(--accent);color:#06120f;border-color:var(--accent);font-weight:bold}
+  .b.primary{background:var(--accent);color:#06120f;border-color:var(--accent);font-weight:bold}
+  .b.auto{border-color:var(--hv);color:var(--hv);background:rgba(255,183,3,.10);font-weight:bold}
+  .b.auto:hover{background:rgba(255,183,3,.18);border-color:var(--hv)}
+  .b.auto:disabled{opacity:.6;cursor:default}
+  .b.dx{text-align:left;font-size:12px}
+  .b.dx.right{background:rgba(52,211,153,.18);border-color:var(--good);color:var(--good);font-weight:bold}
+  .b.dx.wrong{background:rgba(244,71,94,.15);border-color:var(--bad);color:var(--bad)}
+  .console{font-family:var(--mono);font-size:11px;line-height:1.55;color:#c4d0da;background:rgba(0,0,0,.28);border-radius:9px;padding:10px 12px;margin-bottom:8px;min-height:56px}
+  .console .dtc{color:var(--bad);font-weight:bold}
+  .console .ok{color:var(--good)}
+  .console .mono{color:var(--dim)}
+
+  .hint{position:fixed;bottom:18px;left:18px;z-index:14;font-family:var(--mono);font-size:10px;color:var(--dim);background:var(--panel);padding:7px 12px;border-radius:9px;border:1px solid var(--line)}
+  .toast{position:fixed;top:80px;left:50%;transform:translateX(-50%);z-index:30;background:rgba(18,24,32,.95);border:1px solid var(--accent);padding:10px 20px;border-radius:40px;font-family:var(--mono);font-size:12px;opacity:0;transition:.3s;pointer-events:none;max-width:80vw;text-align:center}
+  .toast.show{opacity:1}
+  .soundBtn{position:fixed;top:14px;right:18px;z-index:21;font-size:16px;background:var(--panel);backdrop-filter:blur(12px);border:1px solid var(--line);border-radius:50%;width:36px;height:36px;cursor:pointer;color:var(--dim);transition:.15s}
+  .soundBtn.on{color:var(--accent);border-color:var(--accent)}
+  .soundBtn:hover{transform:scale(1.08)}
+  .inspectHint{position:fixed;bottom:18px;right:18px;z-index:14;font-family:var(--mono);font-size:10px;color:var(--accent2);background:var(--panel);padding:7px 12px;border-radius:9px;border:1px solid var(--line)}
+
+  @media(max-width:820px){
+    .hud,.panel{position:fixed;left:8px;right:8px;top:auto;bottom:8px;max-width:none;width:auto;max-height:42vh;overflow-y:auto}
+    .hud{bottom:calc(8px + 42vh + 8px)}
+    .hint,.inspectHint{display:none}
+  }
+</style>
+</head>
+<body>
+<div id="stage"></div>
+<button class="soundBtn on" id="soundBtn">🔊</button>
+<div class="topbar">
+  <div class="brand">CEN<span> Labs</span></div>
+  <div class="lt">Motor de combustión interna · Mecánica</div>
+</div>
+<div class="hud" id="hud"></div>
+<div class="panel" id="panel"></div>
+<div class="hint">Arrastra para orbitar · rueda para zoom</div>
+<div class="inspectHint">👆 Mueve el acelerador y mira el ajuste largo: hay averías que sólo se ven en cómo CAMBIA entre ralentí y crucero, y dos que el escáner no ve en absoluto</div>
+<div class="toast" id="toast"></div>
+
+<script type="importmap">
+{ "imports": {
+  "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.min.js",
+  "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/"
+}}
+</script>
+<script type="module">
+import * as THREE from 'three';
+import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
+import { RoundedBoxGeometry } from 'three/addons/geometries/RoundedBoxGeometry.js';
+import { EffectComposer } from 'three/addons/postprocessing/EffectComposer.js';
+import { RenderPass } from 'three/addons/postprocessing/RenderPass.js';
+import { GTAOPass } from 'three/addons/postprocessing/GTAOPass.js';
+import { UnrealBloomPass } from 'three/addons/postprocessing/UnrealBloomPass.js';
+import { SMAAPass } from 'three/addons/postprocessing/SMAAPass.js';
+import { OutputPass } from 'three/addons/postprocessing/OutputPass.js';
+import { BokehPass } from 'three/addons/postprocessing/BokehPass.js';
+
+/* ============================================================
+   Texturas PBR procedurales (sin archivos externos) — compartidas
+   ============================================================ */
+function cv(s=512){const c=document.createElement('canvas');c.width=c.height=s;return c;}
+function tex(canvas,repeat=1,srgb=false){
+  const t=new THREE.CanvasTexture(canvas);
+  t.wrapS=t.wrapT=THREE.RepeatWrapping;t.repeat.set(repeat,repeat);
+  t.colorSpace = srgb?THREE.SRGBColorSpace:THREE.NoColorSpace;
+    // Mipmaps SI. Son mapas de ruido de 512 px sobre piezas que en pantalla ocupan
+  // decenas de pixeles: sin cadena de mipmaps cada pixel muestrea un texel suelto
+  // y, en el normalMap, la normal salta de pixel a pixel. El especular estalla en
+  // puntos blancos que ademas nadan al orbitar la camara. three recorta la
+  // anisotropia contra el maximo del dispositivo, asi que 8 es seguro en cualquier GPU.
+  t.generateMipmaps=true; t.minFilter=THREE.LinearMipmapLinearFilter;
+  t.magFilter=THREE.LinearFilter; t.anisotropy=8; return t;
+}
+function normalFromHeight(size, hfn, strength=2.0){
+  const c=cv(size),ctx=c.getContext('2d'),img=ctx.createImageData(size,size);
+  const H=(x,y)=>hfn((x+size)%size,(y+size)%size);
+  for(let y=0;y<size;y++)for(let x=0;x<size;x++){
+    const dx=(H(x+1,y)-H(x-1,y))*strength;
+    const dy=(H(x,y+1)-H(x,y-1))*strength;
+    const nz=1.0; const len=Math.hypot(dx,dy,nz);
+    const i=(y*size+x)*4;
+    img.data[i]  =((-dx/len)*0.5+0.5)*255;
+    img.data[i+1]=((-dy/len)*0.5+0.5)*255;
+    img.data[i+2]=((nz/len)*0.5+0.5)*255;
+    img.data[i+3]=255;
+  }
+  ctx.putImageData(img,0,0);return c;
+}
+function valueNoise(seed=1){
+  const g=(x,y)=>{const s=Math.sin((x*127.1+y*311.7)+seed*13.13)*43758.5453;return s-Math.floor(s);};
+  return (x,y)=>{
+    const xi=Math.floor(x),yi=Math.floor(y),xf=x-xi,yf=y-yi;
+    const u=xf*xf*(3-2*xf),v=yf*yf*(3-2*yf);
+    const a=g(xi,yi),b=g(xi+1,yi),c=g(xi,yi+1),d=g(xi+1,yi+1);
+    return a*(1-u)*(1-v)+b*u*(1-v)+c*(1-u)*v+d*u*v;
+  };
+}
+function fbm(noise,x,y,oct=4){let v=0,a=0.5,f=1;for(let i=0;i<oct;i++){v+=noise(x*f,y*f)*a;f*=2;a*=0.5;}return v;}
+
+function castAluminum(){
+  const S=512, n=valueNoise(7);
+  const c=cv(S),ctx=c.getContext('2d'),img=ctx.createImageData(S,S);
+  for(let y=0;y<S;y++)for(let x=0;x<S;x++){
+    const v=fbm(n,x/22,y/22,5);
+    const por=Math.pow(n(x/3.1,y/3.1),8);
+    const base=150+v*38-por*70;
+    const i=(y*S+x)*4; img.data[i]=base; img.data[i+1]=base+4; img.data[i+2]=base+10; img.data[i+3]=255;
+  }
+  ctx.putImageData(img,0,0);
+  const r=cv(S),rx=r.getContext('2d'),rimg=rx.createImageData(S,S);
+  for(let y=0;y<S;y++)for(let x=0;x<S;x++){
+    const v=fbm(n,x/18,y/18,4); const por=Math.pow(n(x/3.1,y/3.1),8);
+    const rough=120+v*40+por*90; const i=(y*S+x)*4;
+    rimg.data[i]=rimg.data[i+1]=rimg.data[i+2]=Math.min(255,rough); rimg.data[i+3]=255;
+  }
+  rx.putImageData(rimg,0,0);
+  const nrm=normalFromHeight(S,(x,y)=>fbm(n,x/16,y/16,5)+Math.pow(n(x/3.1,y/3.1),8)*0.6,3.0);
+  return {map:tex(c,1,true),roughnessMap:tex(r),normalMap:tex(nrm)};
+}
+function brushedMetal(){
+  const S=512, n=valueNoise(3);
+  const c=cv(S),ctx=c.getContext('2d'),img=ctx.createImageData(S,S);
+  for(let y=0;y<S;y++)for(let x=0;x<S;x++){
+    const streak=Math.sin(y*0.9)*2 + (n(x/120,y*0.5)-0.5)*40;
+    const base=185+streak; const i=(y*S+x)*4;
+    img.data[i]=base; img.data[i+1]=base+2; img.data[i+2]=base+6; img.data[i+3]=255;
+  }
+  ctx.putImageData(img,0,0);
+  const r=cv(S),rx=r.getContext('2d'),rimg=rx.createImageData(S,S);
+  for(let y=0;y<S;y++)for(let x=0;x<S;x++){
+    const streak=(n(x/120,y*0.5)-0.5)*60; const rough=40+Math.abs(streak); const i=(y*S+x)*4;
+    rimg.data[i]=rimg.data[i+1]=rimg.data[i+2]=Math.min(160,rough); rimg.data[i+3]=255;
+  }
+  rx.putImageData(rimg,0,0);
+  const nrm=normalFromHeight(S,(x,y)=>(n(x/120,y*0.5))*0.3+Math.sin(y*0.9)*0.02,1.2);
+  return {map:tex(c,1,true),roughnessMap:tex(r),normalMap:tex(nrm)};
+}
+function rubber(){
+  const S=256,n=valueNoise(5);
+  const nrm=normalFromHeight(S,(x,y)=>fbm(n,x/8,y/8,4),1.4);
+  const rough=cv(64),rc=rough.getContext('2d');rc.fillStyle='#e0e0e0';rc.fillRect(0,0,64,64);
+  return {roughnessMap:tex(rough),normalMap:tex(nrm,2)};
+}
+function gradientBG(top='#11161d',bottom='#05070a'){
+  const c=cv(512),ctx=c.getContext('2d');
+  const grd=ctx.createLinearGradient(0,0,0,512);
+  grd.addColorStop(0,top);grd.addColorStop(1,bottom);
+  ctx.fillStyle=grd;ctx.fillRect(0,0,512,512);
+  const rg=ctx.createRadialGradient(256,200,30,256,256,360);
+  rg.addColorStop(0,'rgba(42,157,143,0.10)');rg.addColorStop(1,'rgba(0,0,0,0)');
+  ctx.fillStyle=rg;ctx.fillRect(0,0,512,512);
+  return tex(c,1,true);
+}
+function techPlastic(r=0.10,g=0.11,b=0.13){
+  const S=256,n=valueNoise(31);
+  const c=cv(S),ctx=c.getContext('2d'),img=ctx.createImageData(S,S);
+  for(let y=0;y<S;y++)for(let x=0;x<S;x++){
+    const v=fbm(n,x/30,y/30,3)*0.1+0.92; const i=(y*S+x)*4;
+    img.data[i]=r*255*v;img.data[i+1]=g*255*v;img.data[i+2]=b*255*v;img.data[i+3]=255;
+  }
+  ctx.putImageData(img,0,0);
+  const nrm=normalFromHeight(S,(x,y)=>fbm(n,x/10,y/10,3),0.8);
+  const rough=cv(64),rc=rough.getContext('2d');rc.fillStyle='#9a9a9a';rc.fillRect(0,0,64,64);
+  return {map:tex(c,1,true),roughnessMap:tex(rough),normalMap:tex(nrm)};
+}
+
+/* ============================================================
+   ENGINE — render premium compartido por todos los laboratorios
+   ============================================================ */
+function createStage(mount, opts={}){
+  const bgTop = opts.bgTop||'#141b24', bgBot = opts.bgBot||'#05070a';
+  const renderer = new THREE.WebGLRenderer({ antialias:true, powerPreference:'high-performance' });
+  renderer.setPixelRatio(Math.min(devicePixelRatio,2));
+  renderer.setSize(mount.clientWidth, mount.clientHeight);
+  renderer.shadowMap.enabled = true;
+  renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+  renderer.toneMapping = THREE.ACESFilmicToneMapping;
+  renderer.toneMappingExposure = opts.exposure ?? 1.18;
+  renderer.outputColorSpace = THREE.SRGBColorSpace;
+  mount.appendChild(renderer.domElement);
+  renderer.domElement.style.touchAction='none';
+
+  const scene = new THREE.Scene();
+  scene.background = gradientBG(bgTop,bgBot);
+  const pmrem = new THREE.PMREMGenerator(renderer);
+  scene.environment = pmrem.fromScene(new RoomEnvironment(renderer), 0.04).texture;
+  scene.environmentIntensity = opts.envInt ?? 1.15;
+
+  const camera = new THREE.PerspectiveCamera(45, mount.clientWidth/mount.clientHeight, 0.1, 200);
+  const cam = opts.cam || [5.5,3.4,6.2];
+  camera.position.set(...cam);
+
+  const controls = new OrbitControls(camera, renderer.domElement);
+  controls.enableDamping = true; controls.dampingFactor = 0.07;
+  controls.minDistance = opts.minD ?? 3; controls.maxDistance = opts.maxD ?? 18;
+  controls.maxPolarAngle = Math.PI*0.52;
+  controls.target.set(...(opts.target||[0,1.4,0]));
+  controls.autoRotate = opts.autoRotate ?? false;
+  controls.autoRotateSpeed = opts.autoRotateSpeed ?? 0.6;
+
+  const key = new THREE.DirectionalLight(0xffffff, 2.7);
+  key.position.set(5,9,6); key.castShadow=true;
+  key.shadow.mapSize.set(2048,2048);
+  key.shadow.camera.near=0.5; key.shadow.camera.far=40;
+  const sd=8; Object.assign(key.shadow.camera,{left:-sd,right:sd,top:sd,bottom:-sd});
+  key.shadow.bias=-0.0003; key.shadow.normalBias=0.02; scene.add(key);
+  const rim = new THREE.SpotLight(0x2affce, 55, 30, Math.PI/5, 0.4, 1.5);
+  rim.position.set(-7,6,-5); scene.add(rim);
+  const fill = new THREE.DirectionalLight(0x6fb6ff, 0.5); fill.position.set(-4,3,7); scene.add(fill);
+  scene.add(new THREE.HemisphereLight(0x9fb4c8, 0x10151b, 0.35));
+
+  if(opts.floor!==false){
+    const f = new THREE.Mesh(new THREE.CircleGeometry(40,80),
+      new THREE.MeshStandardMaterial({ color:0x0a0e13, roughness:0.26, metalness:0.62, envMapIntensity:1.15 }));
+    f.rotation.x=-Math.PI/2; f.receiveShadow=true; scene.add(f);
+    for(let r=2;r<=8;r+=2){
+      const ring=new THREE.Mesh(new THREE.RingGeometry(r-0.012,r+0.012,80),
+        new THREE.MeshBasicMaterial({color:0x1a2632,transparent:true,opacity:0.4}));
+      ring.rotation.x=-Math.PI/2; ring.position.y=0.002; scene.add(ring);
+    }
+  }
+
+  const isMobile = /Mobi|Android|iPhone|iPad/i.test(navigator.userAgent) || innerWidth<820;
+  // GTAO desactivado por defecto: el pase de oclusión ambiental en espacio de pantalla
+  // producía un recuadro oscuro duro sobre el piso reflectante (artefacto dependiente de la
+  // cámara y del renderer). La escena tiene AO suficiente con luces directas + sombras + env.
+  // Se puede reactivar para pruebas con ?gtao.
+  const useGtao = /[?&]gtao\b/.test(location.search);
+  const composer = new EffectComposer(renderer);
+  composer.addPass(new RenderPass(scene,camera));
+  if(!isMobile && useGtao){
+    try{
+      const g=new GTAOPass(scene,camera,mount.clientWidth,mount.clientHeight);
+      g.output=GTAOPass.OUTPUT.Default;
+      if(g.updateGtaoMaterial)g.updateGtaoMaterial({radius:0.5,distanceExponent:1,thickness:1,scale:1.1,samples:16});
+      composer.addPass(g);
+    }catch(e){}
+  }
+  const bloom=new UnrealBloomPass(new THREE.Vector2(mount.clientWidth,mount.clientHeight),opts.bloom??0.42,0.5,0.9);
+  composer.addPass(bloom);
+  let bokeh=null;
+  const flat=/[?&]flat/.test(location.search);
+  if(!isMobile && !flat){
+    bokeh=new BokehPass(scene,camera,{focus:8.5,aperture:opts.aperture??0.00018,maxblur:opts.maxblur??0.004,width:mount.clientWidth,height:mount.clientHeight});
+    composer.addPass(bokeh);
+  }
+  composer.addPass(new OutputPass());
+  composer.addPass(new SMAAPass(mount.clientWidth*renderer.getPixelRatio(),mount.clientHeight*renderer.getPixelRatio()));
+
+  function resize(){
+    const w=mount.clientWidth,h=mount.clientHeight;
+    camera.aspect=w/h; camera.updateProjectionMatrix();
+    renderer.setSize(w,h); composer.setSize(w,h);
+  }
+  window.addEventListener('resize',resize);
+
+  const clock=new THREE.Clock();
+  let hook=null, raf=null;
+  const camCine={active:false,t:0,dur:1.4,from:new THREE.Vector3(),to:new THREE.Vector3(),fromT:new THREE.Vector3(),toT:new THREE.Vector3()};
+  let lastDrag=-99, cinematicIdle=false;
+  controls.addEventListener('start',()=>{ lastDrag=clock.elapsedTime; camCine.active=false; });
+  function easeInOutCubic(x){return x<0.5?4*x*x*x:1-Math.pow(-2*x+2,3)/2;}
+  function moveTo(pos,target,dur=1.4){
+    camCine.from.copy(camera.position); camCine.fromT.copy(controls.target);
+    camCine.to.set(...pos); camCine.toT.set(...target);
+    camCine.dur=dur; camCine.active=true; camCine.t=0;
+  }
+  function setCinematicIdle(v){ cinematicIdle=v; if(!v)controls.autoRotate=false; }
+  function loop(){ raf=requestAnimationFrame(loop); const dt=clock.getDelta(),t=clock.elapsedTime;
+    if(camCine.active){
+      camCine.t=Math.min(1,camCine.t+dt/camCine.dur);
+      const e=easeInOutCubic(camCine.t);
+      camera.position.lerpVectors(camCine.from,camCine.to,e);
+      controls.target.lerpVectors(camCine.fromT,camCine.toT,e);
+      if(camCine.t>=1)camCine.active=false;
+    } else if(cinematicIdle){
+      controls.autoRotate=(t-lastDrag)>1.4; controls.autoRotateSpeed=0.45;
+    }
+    if(hook)hook(dt,t); controls.update();
+    if(bokeh) bokeh.uniforms['focus'].value = camera.position.distanceTo(controls.target);
+    composer.render(); }
+  function start(){ if(!raf)loop(); }
+  function stop(){ cancelAnimationFrame(raf); raf=null; window.removeEventListener('resize',resize); }
+
+  return { THREE, renderer, scene, camera, controls, composer, bloom,
+    setAnimate:fn=>hook=fn, start, stop, resize, clock,
+    flyTo:(v)=>{ controls.target.copy(v); }, moveTo, setCinematicIdle };
+}
+
+/* ---------- shared geometry/material helpers ---------- */
+function roundedBox(w,h,d,mat,rf=0.08){
+  const r=Math.min(w,h,d)*rf;
+  const m=new THREE.Mesh(new RoundedBoxGeometry(w,h,d,4,r),mat);
+  m.castShadow=m.receiveShadow=true; return m;
+}
+function pickerFor(scene,camera,dom,onHit){
+  const ray=new THREE.Raycaster(),mouse=new THREE.Vector2(); let down=null;
+  dom.addEventListener('pointerdown',e=>down=[e.clientX,e.clientY]);
+  dom.addEventListener('pointerup',e=>{
+    if(!down)return; const moved=Math.abs(e.clientX-down[0])+Math.abs(e.clientY-down[1])>6; down=null;
+    if(moved)return;
+    const r=dom.getBoundingClientRect();
+    mouse.x=((e.clientX-r.left)/r.width)*2-1; mouse.y=-((e.clientY-r.top)/r.height)*2+1;
+    ray.setFromCamera(mouse,camera);
+    const hits=ray.intersectObjects(scene.children,true);
+    onHit(hits[0]||null);
+  });
+}
+function labelSprite(text,color='#ffd166'){
+  const w = Math.max(150, Math.min(520, text.length*26+60));
+  const cvE=document.createElement('canvas');cvE.width=w;cvE.height=96;
+  const c=cvE.getContext('2d');c.fillStyle='rgba(8,11,16,.95)';
+  const rr=(x,y,ww,hh,r)=>{c.beginPath();c.moveTo(x+r,y);c.arcTo(x+ww,y,x+ww,y+hh,r);c.arcTo(x+ww,y+hh,x,y+hh,r);c.arcTo(x,y+hh,x,y,r);c.arcTo(x,y,x+ww,y,r);c.closePath();};
+  rr(3,3,w-6,90,18);c.fill();
+  c.strokeStyle=color;c.lineWidth=3;c.stroke();
+  c.font='bold 36px Outfit, system-ui, sans-serif';c.fillStyle=color;c.textAlign='center';c.textBaseline='middle';c.fillText(text,w/2,48);
+  const tx=new THREE.CanvasTexture(cvE);tx.colorSpace=THREE.SRGBColorSpace;
+    // El rotulo se lee de lejos y en escorzo: sin mipmaps el texto centellea igual que el metal.
+    tx.generateMipmaps=true;tx.minFilter=THREE.LinearMipmapLinearFilter;tx.magFilter=THREE.LinearFilter;tx.anisotropy=8;
+  const sp=new THREE.Sprite(new THREE.SpriteMaterial({map:tx,depthTest:false,transparent:true}));
+  const aspect=w/96;
+  sp.scale.set(0.30*aspect,0.30,1);sp.renderOrder=999;return sp;
+}
+
+/* ============================================================
+   SYNTH — sintetizador Web Audio reutilizable
+   ============================================================ */
+function makeSynth(opts={}){
+  const type=opts.type||'sawtooth';
+  let ctx=null,oscA=null,oscB=null,gain=null,filter=null,soundOn=true;
+  function init(){
+    if(ctx)return;
+    try{
+      ctx=new (window.AudioContext||window.webkitAudioContext)();
+      oscA=ctx.createOscillator(); oscB=ctx.createOscillator();
+      oscA.type=type; oscB.type=opts.type2||'square';
+      filter=ctx.createBiquadFilter(); filter.type=opts.filterType||'lowpass'; filter.frequency.value=opts.filterFreq||500; filter.Q.value=opts.Q||3;
+      gain=ctx.createGain(); gain.gain.value=0;
+      oscA.connect(filter); oscB.connect(filter); filter.connect(gain); gain.connect(ctx.destination);
+      oscA.start(); oscB.start();
+    }catch(e){}
+  }
+  function update(freqA,freqB,vol,filterFreq){
+    if(!ctx||!soundOn){ if(gain)gain.gain.setTargetAtTime(0,ctx?.currentTime||0,0.1); return; }
+    oscA.frequency.setTargetAtTime(freqA,ctx.currentTime,0.04);
+    if(freqB!==undefined)oscB.frequency.setTargetAtTime(freqB,ctx.currentTime,0.04);
+    if(filterFreq!==undefined)filter.frequency.setTargetAtTime(filterFreq,ctx.currentTime,0.05);
+    gain.gain.setTargetAtTime(Math.max(0,vol),ctx.currentTime,0.06);
+  }
+  function beep(freq=880,dur=0.09,vol=0.06){
+    if(!ctx||!soundOn)return;
+    const o=ctx.createOscillator(),g=ctx.createGain();
+    o.type='sine'; o.frequency.value=freq;
+    g.gain.setValueAtTime(vol,ctx.currentTime); g.gain.exponentialRampToValueAtTime(0.001,ctx.currentTime+dur);
+    o.connect(g); g.connect(ctx.destination); o.start(); o.stop(ctx.currentTime+dur);
+  }
+  function toggle(){ soundOn=!soundOn; return soundOn; }
+  function resume(){ if(ctx&&ctx.state==='suspended')ctx.resume(); }
+  return { init, update, beep, toggle, resume, isOn:()=>soundOn, state:()=>ctx?.state||'none' };
+}
+
+/* ============================================================
+   LAB — INYECCIÓN ELECTRÓNICA: SONDA LAMBDA Y AJUSTES DE MEZCLA
+   (Dominio D6 · motor de combustión interna · práctica d6-07)
+
+   Qué se mide y con qué
+     · Con el escáner: los ajustes de mezcla —largo y corto— en los tres
+       puntos del protocolo, el ciclo de trabajo del inyector y los códigos
+       de avería.
+     · Con el manómetro: la presión del riel. Con el multímetro: la tensión
+       de batería con el motor en marcha.
+     · Con el analizador de gases: lambda de VERDAD. Con el osciloscopio:
+       la onda de la sonda y sus cruces por segundo. Con la prueba de corte:
+       la dispersión entre cilindros.
+
+   La tesis de la práctica
+     La sonda de banda estrecha NO mide la mezcla: dice de qué lado del
+     estequiométrico está. Entre lambda 0,80 y 0,90 su tensión no se mueve
+     ni un 2 % de su carrera. Por eso una sonda que miente arrastra a la
+     centralita hasta una mezcla rica de verdad mientras los ajustes salen
+     impecables y no salta ningún código; y por eso hay averías que sólo se
+     ven en la FORMA del ajuste contra la carga, no en su valor.
+
+   Fuentes de referencia
+     · Ecuación de Nernst para la celda de circonia y curva publicada de la
+       sonda de banda estrecha (Bosch, «Automotive Handbook»).
+     · Método de densidad y régimen (speed-density) y rendimiento
+       volumétrico — Heywood, «Internal Combustion Engine Fundamentals»,
+       cap. 6.
+     · Caudal de inyector por raíz de la caída de presión y tabla de tiempo
+       muerto contra tensión de batería — catálogo del fabricante.
+     · SAE J1979 / ISO 15031-5, modos 01 y 06 del diagnóstico a bordo: de
+       ahí salen los ajustes de mezcla y los códigos P0171 y P0172.
+     · Manual de taller del fabricante — única fuente del caudal del
+       inyector, de la presión del riel y del mapa de UNA centralita
+       concreta. Los cuatro motores de este banco NO son comerciales.
+
+   Modelo de ingeniería
+     · El lazo cerrado se resuelve por bisección: se busca el ajuste que
+       hace que la SONDA diga uno, no el que hace que la mezcla esté bien.
+       Cuando la sonda miente, esas dos cosas no son la misma.
+     · Mezclar escapes es sumar masas, no promediar lambdas: por eso un
+       cilindro pobre arrastra a los otros tres cuando la centralita
+       corrige.
+     · El ajuste corto no puede quedarse quieto —la sonda sólo detecta el
+       cruce—, así que oscila con salto y rampa contra el retardo de
+       transporte de los gases y la constante de tiempo de la sonda. Esa
+       oscilación es lo único que delata una sonda envejecida.
+   ============================================================ */
+const mount=document.getElementById('stage');
+// La cámara de arranque es exactamente la que calcula el modo de mezcla para el
+// 1.6: si fueran distintas, la página abriría en un encuadre y saltaría a otro
+// en cuanto se tocara el primer botón.
+// Estas seis cifras sólo valen para el primer fotograma: en cuanto la escena
+// arranca, el encuadre se CALCULA con camConjunto() y se aplica de golpe, porque
+// depende del ancho del banco y de la forma de la ventana y no puede estar
+// escrito a mano en ningún sitio.
+const S=createStage(mount,{cam:[2.2,3.1,4.4],target:[-1.6,1.6,-1.1],bgTop:'#101a24',bgBot:'#05070b',bloom:0.22,minD:2.4,maxD:36});
+const {scene}=S;
+const synth=makeSynth({type:'square',type2:'sine',filterFreq:960,Q:0.80});
+const el=id=>document.getElementById(id);
+// `clamp` NO se declara aquí: lo declara el motor sellado unas líneas más abajo
+// y declararlo dos veces es un SyntaxError que mata la página entera antes de
+// que exista window.__labDebug.
+
+// ============================================================================
+// MOTOR SELLADO — copiado tal cual del fichero de Capa 1, sin tocar una sola
+// cifra: lo unico que cambia es que se le quitan los `export`. Cualquier numero
+// que aparezca en el pizarron, en la telemetria, en el informe o en el
+// cuestionario sale de aqui. La interfaz no recalcula nada por su cuenta.
+// ============================================================================
+
+// ============================================================================
+//  d6-07 · INYECCION DE COMBUSTIBLE Y SONDA LAMBDA — MOTOR SELLADO
+//
+//  Molde P+S: panel de instrumentos (escaner, osciloscopio, manometro y
+//  analizador de gases) sobre una simulacion numerica del camino del
+//  combustible. Aqui NO hay interfaz: aqui solo hay fisica, y todo lo que
+//  aparezca en pantalla sale de este fichero.
+//
+//  La tesis de la practica: LA SONDA DE BANDA ESTRECHA NO MIDE LA MEZCLA. Su
+//  tension es una curva de Nernst practicamente vertical en el estequiometrico:
+//  a un lado dice «rica» y al otro «pobre», y en toda la banda util de un motor
+//  no distingue lambda 0,80 de lambda 0,90. La centralita no regula a una
+//  mezcla: regula a un CRUCE. De ahi salen los tres resultados incomodos del
+//  laboratorio:
+//
+//   1. Si la sonda MIENTE —contaminada, o con una fuga de escape delante de
+//      ella— la centralita corrige hasta que la sonda dice «uno» y la mezcla
+//      REAL se va a donde haga falta. Los ajustes de combustible salen limpios
+//      y el motor va rico.
+//   2. Una fuga de vacio mete un caudal de aire CONSTANTE, no un porcentaje:
+//      pesa muchisimo a ralenti y no se nota a plena carga. Un sensor de aire
+//      sucio hace justo lo contrario. Los dos suben el ajuste; el que dice cual
+//      es no es el numero, es su forma contra la carga.
+//   3. El lazo se ABRE a plena carga y en arranque, que es cuando mas duele:
+//      justo entonces la averia que el ajuste tapaba deja de estar tapada.
+//
+//  Fuentes: relacion estequiometrica de los combustibles y su poder calorifico
+//  (Heywood, «Internal Combustion Engine Fundamentals», 1988, cap. 3);
+//  ecuacion de Nernst para la celda de circonia y curva de la sonda de banda
+//  estrecha (Bosch, «Automotive Handbook»); ecuacion de llenado por densidad y
+//  regimen (speed-density) y rendimiento volumetrico (Heywood cap. 6); caudal
+//  de inyector por raiz de la caida de presion y tiempo muerto contra tension
+//  de bateria (dato de catalogo del fabricante del inyector); estrategia de
+//  ajuste corto y largo y apertura del lazo (SAE J1979 / ISO 15031-5, modos 01
+//  y 06 del diagnostico a bordo).
+// ============================================================================
+
+const DEG = Math.PI / 180;
+const clamp = (x, a, b) => Math.min(b, Math.max(a, x));
+
+// ============================================================================
+//  1 · LOS COMBUSTIBLES
+//
+//  La relacion estequiometrica NO es una constante universal: es una propiedad
+//  del combustible. 14,7 es la de la gasolina pura. Con etanol baja, porque el
+//  etanol ya lleva oxigeno en la molecula y necesita menos aire. Por eso un
+//  motor que corre con E85 pide casi un tercio mas de MASA de combustible para
+//  la misma mezcla, y por eso meterle E85 a un motor mapeado para gasolina
+//  agota el ajuste largo antes de llegar a nada.
+// ============================================================================
+
+const COMBUSTIBLES = [
+  { key: 'g100', rot: 'Gasolina sin etanol', corto: 'gasolina', afr: 14.70, pci: 44.0,
+    nota: 'La referencia: 14,70 kg de aire por kg de combustible y 44,0 MJ/kg.' },
+  { key: 'e10', rot: 'Gasolina con 10 % de etanol', corto: 'E10', afr: 14.08, pci: 41.8,
+    nota: 'La que se despacha en casi todas las estaciones. Pide un 4,4 % mas de masa para la misma mezcla.' },
+  { key: 'e85', rot: 'E85 (85 % de etanol)', corto: 'E85', afr: 9.77, pci: 29.2,
+    nota: 'Pide un 50 % mas de masa que la gasolina pura. En un motor mapeado para gasolina, el ajuste largo no da para tanto.' },
+];
+const COMB_KEYS = COMBUSTIBLES.map(c => c.key);
+const COMB = Object.fromEntries(COMBUSTIBLES.map(c => [c.key, c]));
+
+// La centralita SUPONE gasolina: ese es su numero grabado, y no lo mide.
+const AFR_ECU = 14.70;
+
+// ============================================================================
+//  2 · LA CARGA DE AIRE
+//
+//  Metodo de densidad y regimen: la masa de aire que entra en un cilindro por
+//  ciclo es el volumen desplazado por la densidad del colector y por el
+//  rendimiento volumetrico. El rendimiento volumetrico NO es una constante: es
+//  un mapa contra regimen y contra llenado, y su forma es la que le da al motor
+//  su curva de par.
+// ============================================================================
+
+const R_AIRE = 287.05;                       // J/kg K
+const K = c => c + 273.15;
+
+// Rendimiento volumetrico. Una campana en el regimen —maxima donde el motor da
+// su par— por un factor de llenado que cae cuando la mariposa esta cerrada,
+// porque el cilindro se queda con los gases residuales que no consiguio echar.
+function etaVol(e, rpm, mapBar) {
+  const x = (rpm - e.rpmPar) / e.anchoRpm;
+  const campana = 1 - 0.30 * x * x;
+  // A mariposa muy cerrada el residual pesa mucho: lo que el cilindro no
+  // consiguio echar se queda dentro y ocupa sitio. Por encima de la atmosferica
+  // —un motor sobrealimentado— ese termino ya no penaliza nada.
+  const carga = clamp(mapBar / e.pAtm, 0.05, 2.4);
+  const resid = 1 - 0.42 * Math.pow(1 - Math.min(carga, 1), 1.6);
+  return clamp(e.etaVolMax * campana * resid, 0.10, 1.10);
+}
+
+// Presion del colector. Es una CONSECUENCIA de la mariposa y del regimen, no un
+// mando independiente. A mariposa cerrada, subir de vueltas BAJA la presion:
+// el motor bombea mas deprisa contra la misma restriccion y hace mas vacio. Y
+// un motor sobrealimentado pasa de la atmosferica en cuanto el turbo sopla.
+function presionColector(e, rpm, acel, F) {
+  const min = clamp(e.mapRalenti * Math.pow(e.ralenti / Math.max(rpm, 1), 0.34), 0.10, e.pAtm);
+  const techo = e.pMax === undefined ? e.pAtm : e.pMax;
+  // El soplado del turbo no aparece de golpe: necesita gasto, y por eso el
+  // techo util crece con el regimen hasta el del compresor.
+  const tope = e.pMax === undefined ? techo
+    : e.pAtm + (techo - e.pAtm) * clamp((rpm - e.rpmSopla) / (e.rpmPar - e.rpmSopla), 0, 1);
+  const p = min + (tope - min) * Math.pow(clamp(acel, 0, 1), 0.62);
+  // Un filtro de aire tapado es una perdida de carga AGUAS ARRIBA: con la
+  // mariposa abierta del todo, el colector ya no llega adonde llegaba.
+  return clamp(p * (F.filtroMul === undefined ? 1 : F.filtroMul), 0.10, techo);
+}
+
+// Masa de aire por cilindro y por ciclo, en gramos. Esta es la que de verdad
+// entra; lo que la centralita CREE que entra es otra cosa, y esa diferencia es
+// media practica.
+function masaAireCiclo(e, rpm, mapBar, Tadm) {
+  const Vcil = (e.cil / e.nCil) * 1e-6;             // m3
+  const rho = (mapBar * 1e5) / (R_AIRE * K(Tadm));  // kg/m3
+  return etaVol(e, rpm, mapBar) * Vcil * rho * 1000;
+}
+
+// ============================================================================
+//  3 · EL INYECTOR
+//
+//  Un inyector es una valvula que se abre un tiempo. Lo que entrega es su
+//  caudal estatico por el tiempo que esta ABIERTO, y ese tiempo no es el que la
+//  centralita ordena: hay que descontar lo que tarda en abrir, que depende de la
+//  tension de la bateria y que la centralita compensa con una tabla. El caudal
+//  estatico escala con la RAIZ de la caida de presion a traves del inyector.
+// ============================================================================
+
+// Tiempo muerto del inyector contra la tension de bateria, en milisegundos.
+// Tabla del catalogo del inyector: crece muy deprisa al bajar la tension.
+const TABLA_TMUERTO = [[8, 2.35], [10, 1.55], [12, 1.05], [13.5, 0.80], [14.5, 0.68], [16, 0.55]];
+function tMuerto(vBat) {
+  const T = TABLA_TMUERTO;
+  if (vBat <= T[0][0]) return T[0][1];
+  if (vBat >= T[T.length - 1][0]) return T[T.length - 1][1];
+  for (let i = 1; i < T.length; i++) {
+    if (vBat <= T[i][0]) {
+      const [x0, y0] = T[i - 1], [x1, y1] = T[i];
+      return y0 + (y1 - y0) * (vBat - x0) / (x1 - x0);
+    }
+  }
+  return T[T.length - 1][1];
+}
+
+// Caida de presion a traves del inyector. Con regulador referenciado al vacio
+// —el de los sistemas con retorno— la caida es CONSTANTE pase lo que pase en el
+// colector. Sin retorno, el riel esta a presion fija contra la atmosfera y la
+// caida sube con el vacio: el mismo tiempo de pulso entrega mas combustible a
+// ralenti que a plena carga, y la centralita tiene que saberlo.
+function caidaInyector(e, mapBar, F) {
+  const riel = e.pRiel * (F.pRielMul === undefined ? 1 : F.pRielMul);
+  return e.referenciado ? riel : clamp(riel + (e.pAtm - mapBar), 0.5, 12);
+}
+
+// Caudal estatico corregido por la caida real, en gramos por segundo.
+function caudalInyector(e, mapBar, F) {
+  const dp = caidaInyector(e, mapBar, F);
+  return e.qEstatico * Math.sqrt(dp / e.pRiel);
+}
+
+// Ciclo de trabajo del inyector: en secuencial completa, una inyeccion cada dos
+// vueltas. Por encima del 85 % el inyector ya no tiene donde crecer.
+const cicloInyector = (tms, rpm) => (tms * rpm) / (2 * 60 * 1000) * 100;
+
+// ============================================================================
+//  4 · LA SONDA
+//
+//  Banda estrecha: celda de circonia que da una tension de Nernst entre los dos
+//  lados. La curva es practicamente vertical en el estequiometrico. ESA es la
+//  clave de la practica: la sonda no mide la mezcla, dice de que lado esta.
+//
+//  Banda ancha: celda de bombeo que MIDE lambda de verdad en toda la banda util.
+//  Es la unica manera de saber si la de banda estrecha esta mintiendo.
+// ============================================================================
+
+const V_POBRE = 0.10, V_RICA = 0.90, K_NERNST = 78;
+function tensionSonda(lam) {
+  // Logistica muy empinada centrada en lambda = 1. Con K = 78, de 0,99 a 1,01
+  // la tension recorre casi toda su carrera: eso es lo que hace que la sonda
+  // sea un DETECTOR DE CRUCE y no un medidor.
+  return V_POBRE + (V_RICA - V_POBRE) / (1 + Math.exp(K_NERNST * (lam - 1)));
+}
+const UMBRAL_CRUCE = 0.45;                   // el umbral que usa la centralita
+
+// ============================================================================
+//  5 · LAS AVERIAS
+//
+//  Cada averia se declara por lo que CAMBIA fisicamente, nunca por su sintoma.
+//  El sintoma lo tiene que sacar el modelo.
+// ============================================================================
+
+const FALLAS = {
+  sano: { rot: 'Sin avería',
+    nota: 'El sensor de aire mide lo que entra, los inyectores entregan lo suyo y la sonda dice la verdad.' },
+  fugaVacio: { fugaGs: 0.30, rot: 'Fuga de vacío después de la mariposa',
+    nota: 'Entra un caudal de aire CONSTANTE que el sensor no ha contado. A ralentí es una parte enorme del total y a plena carga no se nota. El ajuste largo sube mucho abajo y casi nada arriba.' },
+  mafSucio: { mafMul: 0.88, rot: 'Sensor de aire sucio: mide de menos',
+    nota: 'Sub-reporta un 12 % del aire SIEMPRE. El ajuste largo sube parecido en toda la banda, y a plena carga es donde más masa falta.' },
+  inyObstruido: { injCilMul: [0.72, 1, 1, 1], rot: 'Un inyector obstruido',
+    nota: 'El cilindro 1 recibe un 28 % menos. La sonda ve la MEZCLA de los cuatro escapes, así que la centralita enriquece a los cuatro: uno sigue pobre y tres se van ricos.' },
+  presionBaja: { pRielMul: 0.70, rot: 'Presión de riel baja',
+    nota: 'Bomba o regulador flojos. El caudal cae con la raíz de la presión, así que el pulso tiene que alargarse. Donde el pulso ya era largo —plena carga— es donde se acaba el margen.' },
+  presionAlta: { pRielMul: 1.42, rot: 'Presión de riel alta',
+    nota: 'Regulador agarrotado o retorno tapado. Entra de más y la centralita quita: el ajuste largo se va a negativo.' },
+  sondaLenta: { tauMul: 5.2, rot: 'Sonda envejecida: responde lenta',
+    nota: 'La mezcla media sigue saliendo bien y el ajuste largo no se entera. Lo único que cambia son los CRUCES por segundo, y ese número no lo mira nadie.' },
+  sondaVaga: { sondaSesgo: 0.055, rot: 'Sonda contaminada: lee pobre de más',
+    nota: 'La sonda dice «pobre» cuando la mezcla ya está bien, y con el MISMO error en todos los puntos de trabajo. La centralita enriquece hasta que la sonda dice «uno», y la mezcla REAL se va rica. Los ajustes salen limpios y el analizador de gases no.' },
+  fugaEscape: { fugaEscapeGs: 0.42, rot: 'Fuga de escape delante de la sonda',
+    nota: 'Entra al escape un caudal de aire CONSTANTE por una junta rota. La sonda lo lee como mezcla pobre y la centralita enriquece. Igual que la sonda contaminada en el desenlace, pero su peso relativo se hunde con el gasto: molesta a ralentí y casi no se nota en crucero.' },
+  purga: { combExtraGs: 0.0144, rot: 'Válvula de purga del cánister pegada',
+    nota: 'Entra combustible que la centralita no ha inyectado. Como el caudal es casi constante, molesta a ralentí y desaparece con carga: el ajuste largo se va NEGATIVO abajo.' },
+  filtroAire: { filtroMul: 0.72, rot: 'Filtro de aire tapado',
+    nota: 'Estrangula el llenado. La centralita mide bien el aire que entra y dosifica bien: lambda no se mueve y los ajustes tampoco. Lo único que se pierde es par, y de eso el escáner no dice nada.' },
+  bateriaBaja: { vBat: 10.6, rot: 'Tensión de batería baja',
+    nota: 'El tiempo muerto del inyector se dispara. La centralita lo compensa con su tabla, así que la mezcla aguanta; lo que cambia es que el pulso ordenado crece y el ciclo de trabajo se acerca a su techo.' },
+  combE85: { comb: 'e85', rot: 'Depósito lleno de E85',
+    nota: 'Pide un 50 % más de masa. El ajuste largo se planta en su tope del 25 % y el motor se queda pobre de verdad: es la única avería en la que la centralita se rinde.' },
+};
+const FALLA_KEYS = Object.keys(FALLAS);
+
+// ============================================================================
+//  6 · EL LAZO
+//
+//  La centralita calcula el combustible con el aire que CREE que entra y con la
+//  relacion estequiometrica que tiene GRABADA, y despues corrige con lo que le
+//  dice la sonda. Aqui se resuelve el permanente: cuanto tiene que corregir para
+//  que la sonda diga «uno», y a donde acaba yendo la mezcla de verdad.
+// ============================================================================
+
+const AUTORIDAD = 0.25;    // +-25 % de ajuste total. Valor DECLARADO.
+const DTC_UMBRAL = 0.10;   // a partir de +-10 % de ajuste largo, codigo
+
+// Lo que la centralita cree que entra de aire, por cilindro y ciclo, en gramos.
+function aireMedido(e, rpm, mapBar, Tadm, F) {
+  const real = masaAireCiclo(e, rpm, mapBar, Tadm);
+  return real * (F.mafMul === undefined ? 1 : F.mafMul);
+}
+
+// Lo que de verdad entra: lo que pasa por el sensor mas lo que se cuela por la
+// fuga. La fuga es un CAUDAL —gramos por segundo— y por eso su peso relativo
+// depende del regimen y de la carga: ahi esta toda la gracia.
+function aireReal(e, rpm, mapBar, Tadm, F) {
+  const medido = masaAireCiclo(e, rpm, mapBar, Tadm);
+  const ciclosPorSeg = rpm / (2 * 60) * e.nCil;     // inyecciones por segundo
+  const fuga = (F.fugaGs || 0) / Math.max(ciclosPorSeg, 1e-9);
+  return medido + fuga;
+}
+
+// El combustible que de verdad entra en UN cilindro, en gramos.
+function combReal(e, i, tOrden, rpm, mapBar, F, vBat) {
+  const q = caudalInyector(e, mapBar, F);           // g/s con el inyector abierto
+  const td = tMuerto(vBat);
+  const abierto = Math.max(tOrden - td, 0);         // ms de verdad abierto
+  const mul = (F.injCilMul && F.injCilMul[i] !== undefined) ? F.injCilMul[i] : 1;
+  const ciclosPorSeg = rpm / (2 * 60) * e.nCil;
+  const extra = (F.combExtraGs || 0) / Math.max(ciclosPorSeg, 1e-9);
+  return q * (abierto / 1000) * mul + extra;
+}
+
+// El tiempo que la centralita ORDENA para una masa de combustible pedida.
+function tOrdenado(e, mComb, rpm, mapBar, F, vBat) {
+  const q = caudalInyector(e, mapBar, F);
+  // La centralita conoce su tabla de tiempo muerto y la suma. Lo que NO conoce
+  // es que el riel este a otra presion: eso lo tiene que descubrir la sonda.
+  const qCreido = e.qEstatico * Math.sqrt(caidaInyector(e, mapBar, {}) / e.pRiel);
+  return (mComb / qCreido) * 1000 + tMuerto(vBat);
+}
+
+// Lambda de la mezcla de los cuatro escapes, y lambda de cada cilindro. La sonda
+// va en el colector de escape: ve la MEZCLA, y mezclar escapes es sumar masas,
+// no promediar lambdas.
+function lambdaDe(mAire, mComb, afrEst) {
+  return mComb > 1e-12 ? (mAire / mComb) / afrEst : Infinity;
+}
+
+// El camino del combustible en UN punto de trabajo, parametrizado por el ajuste
+// total. Se saca aparte porque lo necesitan los dos: el permanente, que busca el
+// ajuste que centra la sonda, y la traza, que perturba ese ajuste y mira a donde
+// se va la mezcla. Calcularlo dos veces con codigo distinto es la forma mas
+// segura de que el permanente y la traza acaben contando cosas diferentes.
+function camino(e, o = {}) {
+  const F = FALLAS[o.falla || 'sano'];
+  const combKey = F.comb || o.comb || 'g100';
+  const C = COMB[combKey];
+  const rpm = o.rpm === undefined ? e.ralenti : o.rpm;
+  const acel = o.acel === undefined ? 0 : clamp(o.acel, 0, 1);
+  const Tadm = o.Tadm === undefined ? 35 : o.Tadm;
+  const vBat = o.vBat === undefined ? (F.vBat === undefined ? 13.8 : F.vBat) : o.vBat;
+  const lazoAbierto = !!o.abierto || acel >= e.acelPotencia;
+
+  const map = presionColector(e, rpm, acel, F);
+  const mAireCil = aireReal(e, rpm, map, Tadm, F);
+  const mMedido = aireMedido(e, rpm, map, Tadm, F);
+
+  // Lo que la sonda LEE no tiene por que ser lo que hay, y las dos maneras de
+  // enganyarla NO se parecen aunque acaben igual:
+  //   · una sonda contaminada tiene un SESGO propio, el mismo en todos los
+  //     puntos de trabajo;
+  //   · una fuga de escape delante de ella le mete un CAUDAL de aire constante,
+  //     asi que su peso relativo se hunde en cuanto el motor bombea de verdad.
+  // Esa diferencia de forma contra la carga es lo unico que las separa, y es lo
+  // que el laboratorio quiere que se vea.
+  const ciclosPorSeg = rpm / (2 * 60) * e.nCil;
+  const aireEscapeCil = (F.fugaEscapeGs || 0) / Math.max(ciclosPorSeg, 1e-9);
+  const leeSonda = (lam, mComb) => {
+    const lamConFuga = mComb > 1e-12
+      ? ((mAireCil + aireEscapeCil) / mComb) / C.afr
+      : Infinity;
+    return lamConFuga * (1 + (F.sondaSesgo || 0));
+  };
+
+  // Reparto por cilindro con un ajuste dado, y lambda de la mezcla de escapes.
+  // Mezclar escapes es SUMAR MASAS, no promediar lambdas: por eso un cilindro
+  // pobre arrastra a los otros tres cuando la centralita corrige.
+  const conAjuste = T => {
+    const pedido = (mMedido / AFR_ECU) * (1 + T) * (lazoAbierto ? e.enriqPotencia : 1);
+    const tOrd = tOrdenado(e, pedido, rpm, map, F, vBat);
+    let sumaC = 0;
+    const cil = [];
+    for (let i = 0; i < e.nCil; i++) {
+      const mc = combReal(e, i, tOrd, rpm, map, F, vBat);
+      sumaC += mc;
+      cil.push({ i, mComb: mc, lam: lambdaDe(mAireCil, mc, C.afr) });
+    }
+    const mCombMedio = sumaC / e.nCil;
+    const lam = lambdaDe(mAireCil, mCombMedio, C.afr);
+    // `pedido` es lo que la centralita QUERIA meter; `mCombMedio` es lo que de
+    // verdad entro. La diferencia entre los dos es exactamente el grupo de
+    // averias del inyector y del riel, y por eso se publican los dos.
+    return { T, tOrd, cil, pedido, mCombMedio, lam, lamSonda: leeSonda(lam, mCombMedio) };
+  };
+
+  // En lazo cerrado la centralita busca el ajuste que hace que la SONDA diga
+  // uno. Es monotona decreciente en T —mas combustible, menos lambda— asi que
+  // se resuelve por biseccion. Y tiene un tope: su autoridad.
+  const centra = () => {
+    if (lazoAbierto) return { T: 0, saturado: false };
+    let lo = -AUTORIDAD, hi = AUTORIDAD;
+    const f = t => conAjuste(t).lamSonda - 1;
+    if (f(lo) < 0) return { T: lo, saturado: true };   // ni quitando todo baja a uno
+    if (f(hi) > 0) return { T: hi, saturado: true };   // ni metiendo todo sube a uno
+    for (let k = 0; k < 80; k++) {
+      const mid = (lo + hi) / 2;
+      if (f(mid) > 0) lo = mid; else hi = mid;
+    }
+    return { T: (lo + hi) / 2, saturado: false };
+  };
+  return { F, C, combKey, rpm, acel, Tadm, vBat, lazoAbierto, map, mAireCil, mMedido,
+    conAjuste, centra, leeSonda };
+}
+
+function estado(e, o = {}) {
+  const X = camino(e, o);
+  const { F, C, combKey, rpm, acel, Tadm, vBat, lazoAbierto, map, mAireCil, mMedido } = X;
+  const { T, saturado } = X.centra();
+  const S = X.conAjuste(T);
+
+  const ciclo = cicloInyector(S.tOrd, rpm);
+  const dp = caidaInyector(e, map, F);
+  const mAireSeg = mAireCil * (rpm / (2 * 60)) * e.nCil;
+  // Par al freno: proporcional al COMBUSTIBLE QUEMADO, y sólo se quema lo que
+  // encuentra oxígeno. Con mezcla rica sobra combustible; con mezcla pobre
+  // sobra aire y el motor pierde par y acaba fallando.
+  const quemado = Math.min(S.mCombMedio, mAireCil / C.afr);
+  const parRel = clamp(quemado * C.pci / (e.mCombNom * COMB.g100.pci), 0, 2);
+
+  return {
+    maq: e.key, comb: combKey, afrEst: C.afr, rpm, acel, Tadm, vBat,
+    falla: o.falla || 'sano', lazoAbierto, saturado,
+    map, etaVol: etaVol(e, rpm, map), mAireCil, mMedido, mAireSeg,
+    ajuste: T, ajustePct: T * 100,
+    tOrden: S.tOrd, tMuerto: tMuerto(vBat), tAbierto: Math.max(S.tOrd - tMuerto(vBat), 0),
+    ciclo, dpInyector: dp, qInyector: caudalInyector(e, map, F),
+    mComb: S.mCombMedio, mPedido: S.pedido,
+    enriq: lazoAbierto ? e.enriqPotencia : 1,
+    afrReal: S.mCombMedio > 1e-12 ? mAireCil / S.mCombMedio : Infinity,
+    lam: S.lam, lamSonda: S.lamSonda, vSonda: tensionSonda(S.lamSonda),
+    cil: S.cil, parRel,
+    dtc: !lazoAbierto && Math.abs(T) >= DTC_UMBRAL
+      ? (T > 0 ? 'P0171 · sistema demasiado pobre' : 'P0172 · sistema demasiado rico') : null,
+    // Lo que el analizador de gases mide es lambda REAL, no lo que dice la sonda.
+    // Esa diferencia es el corazon de dos de las averias.
+    mienteSonda: Math.abs(S.lamSonda - S.lam) > 1e-6,
+  };
+}
+
+// ============================================================================
+//  7 · EL LAZO EN EL TIEMPO
+//
+//  El permanente no cuenta toda la historia. La centralita de banda estrecha no
+//  puede quedarse quieta: como la sonda solo dice de que lado esta, el ajuste
+//  corto tiene que OSCILAR alrededor del estequiometrico. La frecuencia de esa
+//  oscilacion la fija el retardo total del lazo —el viaje de los gases hasta la
+//  sonda mas la constante de tiempo de la sonda— y es la unica manera de ver una
+//  sonda envejecida, porque su mezcla MEDIA sigue saliendo bien.
+// ============================================================================
+
+function trazaLazo(e, o = {}) {
+  const rpm = o.rpm === undefined ? 2500 : o.rpm;
+  const dur = o.dur === undefined ? 8 : o.dur;
+  const dt = o.dt === undefined ? 0.002 : o.dt;
+  const X = camino(e, { ...o, rpm, abierto: false });
+  const F = X.F;
+  const { T: largo } = X.centra();
+  const S0 = X.conAjuste(largo);
+  const lam0 = S0.lam;
+  // En KILOGRAMOS por segundo. `mAireCil` viene en gramos, y olvidar el factor
+  // mil dejaba el retardo de transporte pegado a su tope inferior: el lazo
+  // oscilaba a cuarenta y cinco cruces por segundo y una sonda envejecida daba
+  // exactamente el mismo numero que una sana.
+  const mAireSeg = X.mAireCil * (rpm / (2 * 60)) * e.nCil / 1000;
+
+  // Retardo de transporte: lo que tardan los gases en llegar a la sonda. Va con
+  // el inverso del gasto, porque el motor bombea mas deprisa. La sonda de un
+  // motor a 5 000 rpm ve lo que paso hace mucho menos tiempo que la de un motor
+  // a ralenti, y por eso el lazo oscila mas rapido arriba.
+  const tTrans = clamp(e.volEscape / Math.max(mAireSeg / 1.18, 1e-9), 0.01, 1.2);
+  const tau = e.tauSonda * (F.tauMul === undefined ? 1 : F.tauMul);
+  const salto = e.saltoCorto, rampa = e.rampaCorta;   // % y %/s
+
+  const nRet = Math.max(1, Math.round(tTrans / dt));
+  const cola = new Array(nRet).fill(S0);
+  let corto = 0, lamFiltrada = X.leeSonda(lam0, S0.mCombMedio), sentido = 0, cruces = 0;
+  const traza = [];
+  let primero = null, ultimo = null;
+
+  for (let k = 0, t = 0; t <= dur; k++, t += dt) {
+    // Mezcla instantanea: el ajuste largo que la centralita ya aprendio MAS el
+    // corto de este instante, por el mismo camino de combustible que usa el
+    // permanente. No hay una segunda formula que pueda decir otra cosa.
+    const Si = X.conAjuste(largo + corto);
+    const lamInst = Si.lam;
+    cola.push(Si);
+    const enSonda = cola.shift();
+    // La sonda no responde al instante: primer orden con su constante de tiempo.
+    const leido = X.leeSonda(enSonda.lam, enSonda.mCombMedio);
+    lamFiltrada += (leido - lamFiltrada) * (dt / tau);
+    const v = tensionSonda(lamFiltrada);
+
+    // Estrategia de salto y rampa: al cruzar, un salto en sentido contrario y
+    // despues una rampa lenta hasta el siguiente cruce.
+    const rica = v > UMBRAL_CRUCE;
+    const nuevoSentido = rica ? -1 : +1;
+    if (sentido !== 0 && nuevoSentido !== sentido) {
+      corto += nuevoSentido * salto / 100;
+      cruces++;
+      if (primero === null) primero = t;
+      ultimo = t;
+    } else {
+      corto += nuevoSentido * (rampa / 100) * dt;
+    }
+    sentido = nuevoSentido;
+    corto = clamp(corto, -AUTORIDAD, AUTORIDAD);
+    if (k % 5 === 0) traza.push({ t, lam: lamInst, lamSonda: lamFiltrada, v, corto: corto * 100 });
+  }
+
+  // Los cruces por segundo se cuentan sobre la ventana en la que de verdad
+  // hubo cruces: contar sobre toda la duracion penaliza el arranque del lazo.
+  const ventana = (primero !== null && ultimo !== null && ultimo > primero) ? ultimo - primero : dur;
+  const cps = cruces > 1 ? (cruces - 1) / ventana : 0;
+  const lams = traza.map(p => p.lam);
+  return {
+    traza, cruces, cps, tTrans, tau,
+    lamMin: Math.min(...lams), lamMax: Math.max(...lams),
+    lamMedia: lams.reduce((a, b) => a + b, 0) / lams.length,
+    amplitud: (Math.max(...lams) - Math.min(...lams)) / 2,
+  };
+}
+
+// ============================================================================
+//  8 · ESCENARIOS, PROTOCOLO Y CENSO
+// ============================================================================
+
+const ESCEN = {
+  sano:         { rot: 'Sistema sano', falla: 'sano', clave: 'nada que reparar' },
+  fugaVacio:    { rot: 'Fuga de vacío después de la mariposa', falla: 'fugaVacio', clave: 'aire sin medir' },
+  mafSucio:     { rot: 'Sensor de aire sucio', falla: 'mafSucio', clave: 'medición de aire' },
+  inyObstruido: { rot: 'Un inyector obstruido', falla: 'inyObstruido', clave: 'inyector' },
+  presionBaja:  { rot: 'Presión de riel baja', falla: 'presionBaja', clave: 'presión de combustible' },
+  presionAlta:  { rot: 'Presión de riel alta', falla: 'presionAlta', clave: 'presión de combustible' },
+  sondaLenta:   { rot: 'Sonda envejecida: responde lenta', falla: 'sondaLenta', clave: 'sonda' },
+  sondaVaga:    { rot: 'Sonda contaminada: lee pobre de más', falla: 'sondaVaga', clave: 'sonda' },
+  fugaEscape:   { rot: 'Fuga de escape delante de la sonda', falla: 'fugaEscape', clave: 'escape' },
+  purga:        { rot: 'Válvula de purga del cánister pegada', falla: 'purga', clave: 'combustible de más' },
+  filtroAire:   { rot: 'Filtro de aire tapado', falla: 'filtroAire', clave: 'admisión estrangulada' },
+  bateriaBaja:  { rot: 'Tensión de batería baja', falla: 'bateriaBaja', clave: 'alimentación eléctrica' },
+  combE85:      { rot: 'Depósito lleno de E85', falla: 'combE85', clave: 'combustible equivocado' },
+};
+const ESCEN_KEYS = Object.keys(ESCEN);
+const FAMILIAS = [...new Set(ESCEN_KEYS.map(k => ESCEN[k].clave))];
+
+// Los tres puntos del protocolo. Se toman con el escaner conectado y el coche
+// en el patio o dando una vuelta; no hace falta desmontar nada.
+const PUNTOS = [
+  { k: 'ralenti', rot: 'ralentí en el patio', ral: true, acel: 0 },
+  { k: 'crucero', rot: '2 500 rpm a media carga', rpm: 2500, acel: 0.35 },
+  { k: 'plena', rot: '4 000 rpm con el pie a fondo', rpm: 4000, acel: 1 },
+];
+
+function lecturas(e, esc, o = {}) {
+  const E = ESCEN[esc];
+  const base = { comb: o.comb || 'g100', Tadm: o.Tadm === undefined ? 35 : o.Tadm, falla: E.falla };
+  const pts = PUNTOS.map(P => {
+    const s = estado(e, { ...base, rpm: P.ral ? e.ralenti : P.rpm, acel: P.acel });
+    return { k: P.k, rot: P.rot, ajuste: s.ajustePct, lam: s.lam, lamSonda: s.lamSonda,
+      ciclo: s.ciclo, tOrden: s.tOrden, map: s.map, dtc: s.dtc, saturado: s.saturado,
+      lazoAbierto: s.lazoAbierto, parRel: s.parRel,
+      disp: Math.max(...s.cil.map(c => c.lam)) - Math.min(...s.cil.map(c => c.lam)) };
+  });
+  const T = trazaLazo(e, { ...base, rpm: 2500, acel: 0.35 });
+  const pr = estado(e, { ...base, rpm: e.ralenti, acel: 0 });
+  return { esc, rot: E.rot, clave: E.clave, pts, cps: T.cps,
+    pRiel: e.pRiel * (FALLAS[E.falla].pRielMul === undefined ? 1 : FALLAS[E.falla].pRielMul),
+    disp: pts[1].disp, lamGases: pts[1].lam, parPlena: pts[2].parRel, vBat: pr.vBat,
+    dtcEn: pts.filter(p => p.dtc).map(p => p.k) };
+}
+
+// Las ocho observaciones. Las cinco primeras salen del escaner y del manometro,
+// que hay en cualquier taller; las tres ultimas piden analizador de gases,
+// osciloscopio o una prueba de corte, y por eso valen aparte.
+const OBS = [
+  { k: 'ajRal',   rot: 'Ajuste largo a ralentí (escáner)', res: 2, uni: '%', taller: true },
+  { k: 'ajCruc',  rot: 'Ajuste largo en crucero (escáner)', res: 2, uni: '%', taller: true },
+  { k: 'ciclo',   rot: 'Ciclo de trabajo del inyector a plena carga', res: 5, uni: '%', taller: true },
+  { k: 'presion', rot: 'Presión del riel con el manómetro', res: 0.2, uni: 'bar', taller: true },
+  { k: 'bateria', rot: 'Tensión de batería con el motor en marcha', res: 0.5, uni: 'V', taller: true },
+  { k: 'lambda',  rot: 'Lambda real con el analizador de gases', res: 0.02, uni: '', taller: false },
+  { k: 'cruces',  rot: 'Cruces por segundo de la sonda (osciloscopio)', res: 0.5, uni: '1/s', taller: false },
+  { k: 'balance', rot: 'Dispersión entre cilindros (prueba de corte)', res: 0.05, uni: '', taller: false },
+];
+const cuant = (x, r) => Math.round(x / r) * r;
+
+function firmaObs(e, L, sub) {
+  return sub.map(m => {
+    if (m.k === 'ajRal') return cuant(L.pts[0].ajuste, m.res).toFixed(0);
+    if (m.k === 'ajCruc') return cuant(L.pts[1].ajuste, m.res).toFixed(0);
+    if (m.k === 'ciclo') return cuant(L.pts[2].ciclo, m.res).toFixed(0);
+    if (m.k === 'presion') return cuant(L.pRiel, m.res).toFixed(1);
+    if (m.k === 'bateria') return cuant(L.vBat, m.res).toFixed(1);
+    if (m.k === 'lambda') return cuant(L.lamGases, m.res).toFixed(2);
+    if (m.k === 'cruces') return cuant(L.cps, m.res).toFixed(1);
+    if (m.k === 'balance') return cuant(L.disp, m.res).toFixed(2);
+    return '?';
+  }).join('|');
+}
+
+function censoSub(e, o = {}) {
+  const cache = ESCEN_KEYS.map(k => ({ k, L: lecturas(e, k, o) }));
+  const out = [];
+  for (let m = 1; m < (1 << OBS.length); m++) {
+    const sub = OBS.filter((_, i) => m & (1 << i));
+    const grupos = new Map();
+    for (const { k, L } of cache) {
+      const f = firmaObs(e, L, sub);
+      if (!grupos.has(f)) grupos.set(f, []);
+      grupos.get(f).push({ k, clave: L.clave });
+    }
+    let conflictos = 0, enConflicto = 0;
+    for (const g of grupos.values()) {
+      const claves = new Set(g.map(x => x.clave));
+      if (claves.size > 1) { conflictos++; enConflicto += g.length; }
+    }
+    out.push({ mask: m, sub, clases: grupos.size, n: cache.length,
+      conflictos, enConflicto, resueltos: cache.length - enConflicto });
+  }
+  out.sort((a, b) => (b.resueltos - a.resueltos) || (a.sub.length - b.sub.length) || (b.clases - a.clases));
+  return out;
+}
+function casosReto() { return ESCEN_KEYS.filter(k => k !== 'sano'); }
+
+// ============================================================================
+//  9 · ARQUETIPOS
+//
+//  Cuatro motores de inyeccion. Sus cotas caen dentro de las bandas publicadas
+//  para su familia, pero NO son modelos comerciales: el caudal del inyector, la
+//  presion del riel y el mapa de una centralita concreta estan en su manual de
+//  taller y en ningun otro sitio.
+// ============================================================================
+
+const mkMaq = m => ({ ...m,
+  pAtm: 1.013,
+  // Masa de combustible de referencia: la que pediria el motor con el colector
+  // lleno del todo —atmosferica, o la presion del turbo si lo lleva— al
+  // rendimiento volumetrico maximo y con gasolina. Sirve solo para normalizar el
+  // par relativo, y por eso el turbo se normaliza contra SU techo y no contra la
+  // atmosferica: si no, su par relativo saldria por encima de dos y no
+  // significaria nada.
+  mCombNom: (m.cil / m.nCil) * 1e-6 * ((m.pMax === undefined ? 1.013 : m.pMax) * 1e5 / (R_AIRE * K(35)))
+    * m.etaVolMax * 1000 / COMB.g100.afr,
+});
+
+const ARQ = {
+  g16: mkMaq({ key: 'g16', nombre: 'Gasolina 1.6 · inyección secuencial', corto: '1.6 secuencial',
+    nCil: 4, cil: 1598, ralenti: 750, rpmPar: 4200, anchoRpm: 3400, etaVolMax: 0.92,
+    mapRalenti: 0.32, qEstatico: 2.85, pRiel: 3.0, referenciado: false, tauSonda: 0.085,
+    volEscape: 0.0022, saltoCorto: 2.2, rampaCorta: 5.5, acelPotencia: 0.92, enriqPotencia: 1.14 }),
+  g20: mkMaq({ key: 'g20', nombre: 'Gasolina 2.0 · inyección secuencial', corto: '2.0 secuencial',
+    nCil: 4, cil: 1998, ralenti: 700, rpmPar: 4000, anchoRpm: 3300, etaVolMax: 0.94,
+    mapRalenti: 0.30, qEstatico: 3.60, pRiel: 3.5, referenciado: true, tauSonda: 0.075,
+    volEscape: 0.0026, saltoCorto: 2.0, rampaCorta: 5.0, acelPotencia: 0.90, enriqPotencia: 1.16 }),
+  // El unico sobrealimentado del banco: su colector PASA de la atmosferica, y
+  // por eso su masa de aire por ciclo no se parece a la de los otros tres.
+  t14: mkMaq({ key: 't14', nombre: 'Gasolina 1.4 turbo · inyección secuencial', corto: '1.4 turbo',
+    nCil: 4, cil: 1395, ralenti: 800, rpmPar: 3200, anchoRpm: 3000, etaVolMax: 0.95,
+    mapRalenti: 0.34, qEstatico: 4.20, pRiel: 4.0, referenciado: true, tauSonda: 0.070,
+    pMax: 1.95, rpmSopla: 1600,
+    volEscape: 0.0019, saltoCorto: 1.8, rampaCorta: 4.6, acelPotencia: 0.88, enriqPotencia: 1.22 }),
+  v6: mkMaq({ key: 'v6', nombre: 'Gasolina 3.5 V6 · inyección secuencial', corto: '3.5 V6',
+    nCil: 6, cil: 3498, ralenti: 650, rpmPar: 4600, anchoRpm: 3800, etaVolMax: 0.95,
+    mapRalenti: 0.28, qEstatico: 4.05, pRiel: 3.8, referenciado: false, tauSonda: 0.080,
+    volEscape: 0.0031, saltoCorto: 2.0, rampaCorta: 5.2, acelPotencia: 0.90, enriqPotencia: 1.18 }),
+};
+const ARQ_KEYS = Object.keys(ARQ);
+
+const REGIMENES = [800, 1500, 2500, 3500, 4500, 5500];
+const ACELERACIONES = [0, 0.2, 0.35, 0.6, 0.85, 1];
+const TENSIONES = [10.5, 12.0, 13.8, 14.5];
+const TEMPS_ADM = [10, 25, 35, 50];
+
+// ============================================================================
+// T1 · FORMATO, ESTADO Y CAPA DE MEMORIA
+// ============================================================================
+
+// Espacio fino no separable: el mismo que usa el resto del dominio D6. Nunca se
+// llama a toLocaleString, que en este navegador formatea a la inglesa.
+const NBSP=' ';
+function num(x,d=1){
+  if(x===null||x===undefined) return '—';
+  if(!isFinite(x)) return x>0?'∞':'—';
+  const s=Math.abs(x).toFixed(d);
+  const [ent,dec]=s.split('.');
+  let e=''; for(let i=0;i<ent.length;i++){ if(i>0 && (ent.length-i)%3===0) e+=NBSP; e+=ent[i]; }
+  return (x<0?'−':'')+e+(dec?','+dec:'');
+}
+const gC=(x,d=0)=>num(x,d)+NBSP+'°C';
+const bar=(x,d=2)=>num(x,d)+NBSP+'bar';
+const volt=(x,d=1)=>num(x,d)+NBSP+'V';
+const mili=(x,d=2)=>num(x,d)+NBSP+'ms';
+const gs=(x,d=2)=>num(x,d)+NBSP+'g/s';
+const mg=(x,d=1)=>num(x,d)+NBSP+'mg';
+const pc=(x,d=1)=>num(x,d)+NBSP+'%';
+const rpmT=x=>num(x,0)+NBSP+'rpm';
+// El ajuste se escribe SIEMPRE con signo: un +12 % y un −12 % apuntan a averías
+// opuestas, y un «12 %» a secas no dice nada.
+const firm=(x,d=1)=>(x>=0?'+':'')+num(x,d)+NBSP+'%';
+const lamT=(x,d=3)=>isFinite(x)?num(x,d):'—';
+
+// --- estado observable ------------------------------------------------------
+const G={
+  maq:'g16',          // clave de ARQ
+  comb:'g100',        // clave de COMB — lo que el alumno cree que hay en el depósito
+  esc:'sano',         // clave de ESCEN
+  rpm:2500,           // régimen del motor
+  acel:0.35,          // posición del acelerador, 0..1
+  vBat:13.8,          // tensión de batería con el motor en marcha
+  Tadm:35,            // temperatura del aire de admisión, °C
+  modo:'mezcla',
+  resuelto:false
+};
+const MQ=()=>ARQ[G.maq];
+const FALLA=()=>ESCEN[G.esc].falla;
+const FA=()=>FALLAS[FALLA()];
+
+// El escenario puede imponer el combustible —el depósito lleno de E85— y puede
+// imponer la tensión de batería. Cuando lo hace, manda el escenario: es parte de
+// la avería, no una elección de quien opera el banco.
+const combEfectivo=()=>FA().comb||G.comb;
+const combForzado=()=>!!FA().comb;
+const vBatEfectiva=()=>FA().vBat===undefined?G.vBat:FA().vBat;
+const vBatForzada=()=>FA().vBat!==undefined;
+const CB=()=>COMB[combEfectivo()];
+
+// --- capa de memoria --------------------------------------------------------
+// `estado`, `trazaLazo` y `censoSub` se piden muchas veces por fotograma —y la
+// traza recorre cuatro mil pasos—. Se cachean por firma EXACTA de los
+// argumentos: si cambia un solo dígito se recalcula. Nunca se reutiliza una
+// cifra «parecida».
+const MEMO=new Map();
+function memo(k,fn){ if(MEMO.has(k)) return MEMO.get(k); const v=fn(); MEMO.set(k,v); return v; }
+function invalida(){ MEMO.clear(); }
+
+// La tensión SÓLO se pasa cuando no la impone la avería: el motor sellado
+// entiende `undefined` como «la que traiga el vehículo», y pasarle la del mando
+// borraría la batería baja del escenario que la declara.
+function argsPunto(o={}){
+  return {
+    comb:G.comb,
+    rpm:o.rpm===undefined?G.rpm:o.rpm,
+    acel:o.acel===undefined?G.acel:o.acel,
+    Tadm:o.Tadm===undefined?G.Tadm:o.Tadm,
+    vBat:o.vBat!==undefined?o.vBat:(vBatForzada()?undefined:G.vBat),
+    falla:o.falla===undefined?FALLA():o.falla,
+    abierto:o.abierto
+  };
+}
+function EST(o={}){
+  const a=argsPunto(o);
+  return memo(`e|${G.maq}|${a.comb}|${a.falla}|${a.rpm}|${a.acel}|${a.Tadm}|${a.vBat}|${!!a.abierto}`,
+    ()=>estado(MQ(),a));
+}
+function TRZ(o={}){
+  const a=argsPunto(o);
+  return memo(`t|${G.maq}|${a.comb}|${a.falla}|${a.rpm}|${a.acel}|${a.Tadm}|${a.vBat}`,
+    ()=>trazaLazo(MQ(),a));
+}
+// El protocolo se toma con la máquina como está: en sus tres puntos, con el aire
+// a la temperatura del banco y con la batería que traiga el vehículo. NO lleva
+// los mandos de régimen, acelerador ni tensión, porque un protocolo que cambia
+// con quien lo toma no sirve para comparar dos coches.
+function LECT(){ return memo(`l|${G.maq}|${G.esc}|${G.comb}|${G.Tadm}`,
+  ()=>lecturas(MQ(),G.esc,{comb:G.comb,Tadm:G.Tadm})); }
+function LECT_DE(esc){ return memo(`l|${G.maq}|${esc}|${G.comb}|${G.Tadm}`,
+  ()=>lecturas(MQ(),esc,{comb:G.comb,Tadm:G.Tadm})); }
+function CENSO(){ return memo(`n|${G.maq}|${G.comb}|${G.Tadm}`,
+  ()=>censoSub(MQ(),{comb:G.comb,Tadm:G.Tadm})); }
+
+// ============================================================================
+// VEREDICTOS
+//
+// Se evalúan SEPARADOS a propósito, porque el laboratorio demuestra que no son
+// equivalentes: hay averías que sólo caza el escáner, hay una que sólo caza el
+// osciloscopio, hay una que no caza NINGÚN instrumento del escáner porque no
+// toca la mezcla, y hay dos en las que el escáner sale impecable mientras el
+// analizador de gases dice que la mezcla está mal.
+// ============================================================================
+
+const BANDA_LAM=0.02;    // ±2 % alrededor del objetivo. Valor DECLARADO.
+const CICLO_TECHO=85;    // % de ciclo de trabajo por encima del cual el inyector
+                         // ya no tiene dónde crecer. Valor DECLARADO.
+// Fracción del par que este motor daría SANO en el MISMO punto por debajo de la
+// cual se declara que ha perdido potencia. Comparar el par relativo contra uno a
+// secas condenaría a un motor perfectamente sano en cuanto se soltara el
+// acelerador: el par relativo está normalizado a plena carga, así que a media
+// carga vale la mitad y eso no es una avería, es la mariposa.
+const PAR_MIN=0.90;
+const DISP_MIN=0.05;     // dispersión entre cilindros por encima de la cual el
+                         // reparto ya no es parejo. Valor DECLARADO.
+
+// El objetivo de mezcla NO es siempre uno. En lazo abierto la centralita
+// enriquece a propósito para proteger el motor, y juzgar esa mezcla contra el
+// estequiométrico condenaría a un motor perfectamente sano a plena carga.
+const lamObjetivo=s=>s.lazoAbierto?1/MQ().enriqPotencia:1;
+
+function veredicto(o={}){
+  const s=EST(o), obj=lamObjetivo(s), desv=Math.abs(s.lam-obj);
+  // La referencia de par es el MISMO motor sin avería en el MISMO punto, no un
+  // uno absoluto: sólo así «ha perdido par» significa lo que dice.
+  const sn=EST({...o,falla:'sano'});
+  const parCaido=s.parRel<sn.parRel*PAR_MIN;
+  return {
+    s, obj, desv, parSano:sn.parRel,
+    lazoAbierto:s.lazoAbierto,
+    enBanda:desv<=BANDA_LAM,
+    // La sonda dice una cosa y el analizador de gases dice otra. Es el hallazgo
+    // más importante que este banco puede dar y NO lo ve ningún escáner.
+    miente:s.mienteSonda,
+    saturado:s.saturado,
+    dtc:s.dtc,
+    ciclo:s.ciclo,
+    sinMargenInyector:s.ciclo>=CICLO_TECHO,
+    parCaido,
+    malo:desv>BANDA_LAM||s.saturado||s.mienteSonda||s.ciclo>=CICLO_TECHO||parCaido
+  };
+}
+
+// Lo que el escáner —y sólo el escáner— es capaz de ver del protocolo completo.
+// Se mira únicamente en los puntos de LAZO CERRADO: en lazo abierto no hay
+// ajuste que mirar porque la centralita no está corrigiendo nada.
+function loQueVeElEscaner(){
+  const L=LECT();
+  const cerrados=L.pts.filter(p=>!p.lazoAbierto);
+  const max=cerrados.length?Math.max(...cerrados.map(p=>Math.abs(p.ajuste))):0;
+  return { max, limpio:max<DTC_UMBRAL*100, dtcEn:L.dtcEn, hayDtc:L.dtcEn.length>0 };
+}
+
+// El engaño: el escáner sale limpio —ningún ajuste llega al umbral de código— y
+// sin embargo el analizador de gases dice que la mezcla real no está donde
+// debería. Ésta es la conclusión que la práctica quiere que quede escrita.
+function veredictoEngano(){
+  const L=LECT(), esc=loQueVeElEscaner();
+  const lam=L.pts[1].lam;                       // crucero: lazo cerrado
+  const fuera=Math.abs(lam-1)>BANDA_LAM;
+  // A plena carga el par relativo SÍ se compara contra uno: ahí su
+  // normalización es exactamente ese punto.
+  const par=L.parPlena, disp=L.disp;
+  const engana=esc.limpio&&fuera;
+  const mudo=esc.limpio&&!fuera&&par<PAR_MIN;
+  const disperso=esc.limpio&&disp>DISP_MIN;
+  return {
+    limpio:esc.limpio, max:esc.max, lam, fuera, par, disp,
+    // Tres maneras distintas de que el escáner no sirva: que mienta sobre la
+    // mezcla; que la mezcla esté bien y aun así el motor no dé lo suyo; y que la
+    // MEDIA esté bien mientras los cilindros van cada uno por su lado, que es lo
+    // único que la sonda no puede ver porque lee la mezcla de todos los escapes.
+    engana, mudo, disperso,
+    nivel:engana?'bad':((mudo||disperso)?'warn':'good')
+  };
+}
+
+// --- materiales -------------------------------------------------------------
+// El donante ya define castAluminum/brushedMetal/rubber/techPlastic. Aquí sólo
+// van los que este laboratorio necesita. std() se llama en forma de objeto para
+// que componga con los spreads.
+const std=o=>new THREE.MeshStandardMaterial(o);
+const emis=(hex,i)=>std({color:hex,emissive:hex,emissiveIntensity:i,roughness:0.42,metalness:0.10});
+const alu=castAluminum(), brush=brushedMetal(), plas=techPlastic(0.09,0.10,0.12), rub=rubber();
+
+const AZUL='#8AB4F8', NARANJA='#F2A65A', OK_HEX='#7CD992', BAD_HEX='#ff6b6b',
+      WARN_HEX='#E9C46A', VIO='#C08CF8', GRIS='#8f97a5', CIAN='#5BD4E5',
+      TINTA='#dbe4f0', AMBAR='#E0A33E', ROSA='#EF8FB4';
+
+const MAT={
+  bloque: std({...alu, color:0x6b727b, metalness:0.55, roughness:0.72}),
+  culata: std({...alu, color:0x79808a, metalness:0.50, roughness:0.66}),
+  acero:  std({...brush, metalness:1.0, roughness:0.32}),
+  crom:   std({...brush, metalness:1.0, roughness:0.16}),
+  banco:  std({...plas, metalness:0.20, roughness:0.62}),
+  caja:   std({...plas, metalness:0.24, roughness:0.54}),
+  goma:   std({...rub, color:0x141a22, roughness:0.96, metalness:0.0}),
+  ok:     emis(0x7CD992,1.3),
+  bad:    emis(0xff6b6b,1.5),
+  avi:    emis(0xE9C46A,1.4),
+};
+
+// La mezcla se pinta del color de su LAMBDA, y con la misma escala en la escena,
+// en el pizarrón y en la leyenda, para que nadie tenga que traducir entre
+// vistas. Rica hacia el naranja, pobre hacia el azul, estequiométrica en verde.
+function colorLam(lam){
+  if(!isFinite(lam)) return 0x8f97a5;
+  const u=clamp((lam-0.80)/(1.25-0.80),0,1);
+  const P=[[0.00,0xff6b6b],[0.28,0xF2A65A],[0.44,0x7CD992],[0.56,0x7CD992],[0.74,0x5BD4E5],[1.00,0x8AB4F8]];
+  for(let i=1;i<P.length;i++){
+    if(u<=P[i][0]||i===P.length-1){
+      const [u0,c0]=P[i-1],[u1,c1]=P[i];
+      const t=clamp((u-u0)/(u1-u0||1),0,1);
+      const mz=(a,b)=>Math.round(a+(b-a)*t);
+      return (mz((c0>>16)&255,(c1>>16)&255)<<16)|(mz((c0>>8)&255,(c1>>8)&255)<<8)|mz(c0&255,c1&255);
+    }
+  }
+  return 0x7CD992;
+}
+const hex6=n=>'#'+n.toString(16).padStart(6,'0');
+const colLam=lam=>hex6(colorLam(lam));
+
+// Régimen de mezcla: la misma clave en el 3D, en el pizarrón y en la leyenda.
+const ROT_MEZ={rica:'mezcla rica', esteq:'en el estequiométrico', pobre:'mezcla pobre'};
+function regimenLam(lam){
+  if(!isFinite(lam)) return 'pobre';
+  if(lam<1-BANDA_LAM) return 'rica';
+  if(lam>1+BANDA_LAM) return 'pobre';
+  return 'esteq';
+}
+
+const MAT_RIEL  =std({color:0x9aa3ad,metalness:0.92,roughness:0.26});
+const MAT_INY   =std({color:0x2b333d,metalness:0.35,roughness:0.52});
+const MAT_TUBO  =std({color:0x2a333f,metalness:0.55,roughness:0.58});
+const MAT_MANG  =std({...rub, color:0x181e26, roughness:0.94, metalness:0.0});
+const MAT_VIDRIO=std({color:0xbfd4e2,metalness:0.10,roughness:0.08,transparent:true,opacity:0.26});
+const MAT_ESFERA=std({color:0xf2f5f8,metalness:0.05,roughness:0.85});
+const MAT_AGUJA =std({color:0xff5252,emissive:0xff2020,emissiveIntensity:0.9,roughness:0.4});
+const MAT_ESCAPE=std({color:0x4a4034,metalness:0.62,roughness:0.68});
+
+// ============================================================ T2 · PIZARRÓN
+// Un lienzo 2D de 1024×768 pegado a un panel 3D. Se llama `bcv` y no `cv`
+// porque `cv` ya es la fábrica de lienzos del kit de la escena: reusar ese
+// nombre rompe la página entera antes de que arranque nada.
+const BW=1024, BH=768;
+const bcv=document.createElement('canvas'); bcv.width=BW; bcv.height=BH;
+const bx=bcv.getContext('2d');
+const btex=new THREE.CanvasTexture(bcv);
+btex.colorSpace=THREE.SRGBColorSpace;
+
+const board=new THREE.Group();
+scene.add(board);
+// El pizarrón va siempre al costado izquierdo del banco, a distancia fija de su
+// extremo. Fijar la coordenada a mano lo mete dentro del motor en cuanto el
+// banco es más largo —el V6 lleva dos cilindros más—, y eso no se ve venir
+// escribiendo el número.
+// Cotas del pizarrón. Es GRANDE a propósito: los paneles de la interfaz tapan
+// cuatro décimas del ancho de la pantalla, y con un pizarrón pequeño la única
+// forma de que el banco entrara en el hueco que queda era alejarse tanto que el
+// texto del tablero dejaba de leerse. Aquí la práctica está en el tablero.
+const BW3=5.60, BH3=4.04, BY3=2.25;
+function colocaTablero(d){
+  board.rotation.y=0.70;
+  // El pizarrón se pega al borde IZQUIERDO real del banco —el filtro de aire—,
+  // descontando su propio medio ancho proyectado sobre el eje X. Colocarlo a
+  // partir de un «ancho total» inventado dejaba un metro de mesa vacía entre los
+  // dos y echaba el motor fuera del cuadro.
+  const medio=(BW3/2+0.13)*Math.cos(board.rotation.y);
+  board.position.set(d.xIzq-0.70-medio,0,0.95);
+}
+// Encuadre que mete el pizarrón Y el banco. La distancia NO se calcula con una
+// regla de tres sobre el ancho: se PRUEBA contra el tronco de visión punto por
+// punto y se busca la menor que los mete todos. Repartir el ancho como si todo
+// estuviera a la misma profundidad deja al motor —que está mucho más cerca de la
+// cámara que el pizarrón— ocupando tres cuartos del cuadro mientras el pizarrón
+// se queda en un rincón, y eso sólo se ve mirando la pantalla.
+function puntosClave(){
+  const d=dims(MQ());
+  const a=BW3/2, mx=a*Math.cos(board.rotation.y), mz=a*Math.sin(board.rotation.y);
+  const y0=BY3-BH3/2, y1=BY3+BH3/2, bp=board.position;
+  return [
+    [bp.x-mx,y0,bp.z+mz],[bp.x+mx,y0,bp.z-mz],
+    [bp.x-mx,y1,bp.z+mz],[bp.x+mx,y1,bp.z-mz],
+    [d.xIzq,2.30,0.62],[d.xIzq,0.90,0.62],
+    [d.xVista,1.14,-0.64],[d.xVista,2.10,0.30],
+    [d.centro,0.84,1.05],[d.centro,2.20,-0.96],
+  ].map(p=>new THREE.Vector3(...p));
+}
+// La franja de pantalla que de verdad se ve. El HUD tapa la izquierda y el panel
+// de mandos tapa la derecha: encuadrar contra el ancho completo del lienzo mete
+// casi cuatro décimas del banco DEBAJO de los paneles, y desde fuera parece que
+// la cámara está mal cuando lo que está mal es la cuenta.
+function zonaUtil(){
+  const rM=mount.getBoundingClientRect();
+  const W=rM.width||1600, H=rM.height||900;
+  let x0=0, x1=W;
+  const h=el('hud'), p=el('panel');
+  if(h){ const r=h.getBoundingClientRect();
+    if(r.width>0&&r.right-rM.left<W*0.60) x0=Math.max(x0,r.right-rM.left+18); }
+  if(p){ const r=p.getBoundingClientRect();
+    if(r.width>0&&r.left-rM.left>W*0.40) x1=Math.min(x1,r.left-rM.left-18); }
+  // En una pantalla estrecha los paneles no dejan hueco: entonces se usa todo el
+  // lienzo y que los paneles tapen lo que tapen, porque la alternativa es alejar
+  // la cámara hasta que no se lea nada.
+  if(x1-x0<W*0.34){ x0=0; x1=W; }
+  return { W, H, x0, x1 };
+}
+function camConjunto(margen){
+  const d=dims(MQ()), Z=zonaUtil();
+  const asp=clamp(Z.W/Math.max(1,Z.H),0.60,2.60);
+  const m=(margen===undefined?1:margen);
+  const TV=0.4142, TH=TV*asp;                    // tangentes del medio ángulo
+  const nx0=(2*Z.x0/Z.W-1)/m, nx1=(2*Z.x1/Z.W-1)/m, ny=0.94/m;
+  const pts=puntosClave();
+  const mx=1.86*Math.cos(board.rotation.y);
+  let off=(((board.position.x-mx)+d.xDer)/2-board.position.x)/Math.cos(board.rotation.y);
+  const proy=(dist,o)=>{
+    const [P,C]=camTablero(dist,o);
+    const p=new THREE.Vector3(...P), c=new THREE.Vector3(...C);
+    const f=c.clone().sub(p).normalize();
+    const r=new THREE.Vector3().crossVectors(f,new THREE.Vector3(0,1,0)).normalize();
+    const u=new THREE.Vector3().crossVectors(r,f).normalize();
+    let a=Infinity,b=-Infinity,vy=0,zs=0,n=0,malo=false;
+    for(const q of pts){
+      const v=q.clone().sub(p), z=v.dot(f);
+      if(z<=0.2){ malo=true; continue; }
+      a=Math.min(a,(v.dot(r)/z)/TH); b=Math.max(b,(v.dot(r)/z)/TH);
+      vy=Math.max(vy,Math.abs((v.dot(u)/z)/TV)); zs+=z; n++;
+    }
+    return { a, b, vy, z:n?zs/n:1, malo };
+  };
+  const cabe=(dist,o)=>{ const e=proy(dist,o); return !e.malo&&e.a>=nx0&&e.b<=nx1&&e.vy<=ny; };
+  let dist=26;
+  for(let it=0;it<7;it++){
+    // Menor distancia que mete todos los puntos clave dentro de la franja útil.
+    if(cabe(26,off)){
+      let lo=3, hi=26;
+      for(let k=0;k<26;k++){ const mid=(lo+hi)/2; if(cabe(mid,off)) hi=mid; else lo=mid; }
+      dist=hi;
+    }else dist=26;
+    // Y después se centra el contenido DENTRO de esa franja, no dentro del
+    // lienzo: si no, el banco queda pegado al panel de mandos.
+    const e=proy(dist,off);
+    const dn=(nx0+nx1)/2-(e.a+e.b)/2;
+    if(Math.abs(dn)<0.012) break;
+    off-=dn*TH*e.z;
+  }
+  return camTablero(dist,off);
+}
+// Encuadre del pizarrón: se calcula desde su propia transformada, no con
+// coordenadas escritas a mano, porque el pizarrón se mueve con el ancho del
+// banco y unas coordenadas fijas lo dejan medio fuera de cuadro en cuanto se
+// cambia de arquetipo.
+function camTablero(d,off){
+  const c=board.position.clone(); c.y=BY3;
+  const n=new THREE.Vector3(Math.sin(board.rotation.y),0,Math.cos(board.rotation.y));
+  const dd=d||5.85;
+  // La altura sube con la distancia. Con una altura fija, alejarse deja la vista
+  // casi horizontal y la mesa se ve de canto.
+  const p=c.clone().addScaledVector(n,dd); p.y=BY3+0.13*dd;
+  // El HUD tapa la franja izquierda de la pantalla, así que por omisión se apunta
+  // un poco a la izquierda del centro del pizarrón para que el pizarrón caiga a
+  // su derecha. Con un desplazamiento POSITIVO el pizarrón se corre hacia la
+  // izquierda y el banco —que está a su derecha— entra en el cuadro.
+  const tg=new THREE.Vector3(Math.cos(board.rotation.y),0,-Math.sin(board.rotation.y));
+  const dx=(off===undefined)?-0.42:off;
+  p.addScaledVector(tg,dx); c.addScaledVector(tg,dx);
+  return [[p.x,p.y,p.z],[c.x,c.y,c.z]];
+}
+{
+  const marco=roundedBox(BW3+0.26,BH3+0.24,0.10,std({...plas,metalness:0.30,roughness:0.58}),0.05);
+  marco.position.y=BY3; board.add(marco);
+  const pl=new THREE.Mesh(new THREE.PlaneGeometry(BW3,BH3),
+    new THREE.MeshBasicMaterial({map:btex,toneMapped:false}));
+  pl.position.set(0,BY3,0.056); board.add(pl);
+  const pie=BY3-BH3/2-0.12;
+  for(const sx of [-1,1]){
+    const p=new THREE.Mesh(new THREE.CylinderGeometry(0.05,0.06,pie,16),MAT.acero);
+    p.position.set(sx*2.36,pie/2,0); p.castShadow=true; board.add(p);
+  }
+}
+
+// ------------------------------------------------------------- primitivas 2D
+function bg(){
+  const g=bx.createLinearGradient(0,0,0,BH);
+  g.addColorStop(0,'#0d131c'); g.addColorStop(1,'#070a10');
+  bx.fillStyle=g; bx.fillRect(0,0,BW,BH);
+}
+function texto(t,x,y,o={}){
+  const s=o.s||16, w=o.b?'700':'400', it=o.it?'italic ':'';
+  bx.font=it+w+' '+s+'px '+(o.mono?'ui-monospace,Menlo,Consolas,monospace':'Inter,system-ui,sans-serif');
+  bx.fillStyle=o.c||TINTA; bx.textAlign=o.al||'left'; bx.textBaseline='alphabetic';
+  bx.fillText(t,x,y);
+}
+function linea(pts,c,w,dash){
+  if(pts.length<2) return;
+  bx.save(); bx.strokeStyle=c; bx.lineWidth=w||2; bx.lineJoin='round'; bx.lineCap='round';
+  if(dash) bx.setLineDash(dash);
+  bx.beginPath(); bx.moveTo(pts[0][0],pts[0][1]);
+  for(let i=1;i<pts.length;i++) bx.lineTo(pts[i][0],pts[i][1]);
+  bx.stroke(); bx.restore();
+}
+function wrapText(t,x,y,w,lh,o={}){
+  const s=o.s||14;
+  bx.font=(o.b?'700 ':'400 ')+s+'px Inter,system-ui,sans-serif';
+  bx.fillStyle=o.c||'#9aa6b6'; bx.textAlign='left'; bx.textBaseline='alphabetic';
+  let ln='', yy=y;
+  for(const p of t.split(' ')){
+    const test=ln?ln+' '+p:p;
+    if(bx.measureText(test).width>w&&ln){ bx.fillText(ln,x,yy); yy+=lh; ln=p; }
+    else ln=test;
+  }
+  if(ln){ bx.fillText(ln,x,yy); yy+=lh; }
+  return yy;
+}
+function rpanel(x,y,w,h,c,bd,rad){
+  const r=Math.min(rad===undefined?10:rad, w/2, h/2);
+  bx.save(); bx.beginPath();
+  bx.moveTo(x+r,y); bx.arcTo(x+w,y,x+w,y+h,r); bx.arcTo(x+w,y+h,x,y+h,r);
+  bx.arcTo(x,y+h,x,y,r); bx.arcTo(x,y,x+w,y,r); bx.closePath();
+  bx.fillStyle=c||'rgba(255,255,255,0.035)'; bx.fill();
+  if(bd){ bx.strokeStyle=bd; bx.lineWidth=1.4; bx.stroke(); }
+  bx.restore();
+}
+function chk(x,y,ok){
+  bx.save(); bx.lineWidth=2.6; bx.lineCap='round';
+  bx.strokeStyle=ok?OK_HEX:'#3a4658';
+  bx.beginPath(); bx.arc(x,y,9,0,Math.PI*2); bx.stroke();
+  if(ok){ bx.beginPath(); bx.moveTo(x-4.5,y); bx.lineTo(x-1,y+3.6); bx.lineTo(x+4.8,y-4); bx.stroke(); }
+  bx.restore();
+}
+function tabla(x,y,cols,rows,o={}){
+  const rh=o.rh||26, fs=o.s||14, gap=o.gap===undefined?14:o.gap;
+  const ancho=cols.reduce((a,c)=>a+c.w+gap,0)-gap;
+  let cx=x;
+  cols.forEach(c=>{ texto(c.t,c.al==='right'?cx+c.w:cx,y,{s:fs,b:true,c:'#9aa6b6',al:c.al||'left'}); cx+=c.w+gap; });
+  linea([[x,y+8],[x+ancho,y+8]],'#243043',1.2);
+  rows.forEach((r,i)=>{
+    const yy=y+rh*(i+1)+6;
+    if(r.hl){ bx.save(); bx.fillStyle=r.hl; bx.fillRect(x-6,yy-rh+9,ancho+12,rh); bx.restore(); }
+    let px=x;
+    cols.forEach((c,j)=>{
+      const cell=r.v[j];
+      const val=Array.isArray(cell)?cell[0]:cell, col=Array.isArray(cell)?cell[1]:(r.c||TINTA);
+      texto(val,c.al==='right'?px+c.w:px,yy,{s:fs,c:col,al:c.al||'left',mono:c.mono,b:r.b});
+      px+=c.w+gap;
+    });
+  });
+  return y+rh*(rows.length+1)+6;
+}
+// Título que se encoge hasta caber: cambiar de máquina cambia la longitud del
+// rótulo, y un rótulo largo se monta encima del de al lado sin avisar.
+function textoFit(t,x,y,maxW,o={}){
+  let s=o.s||16;
+  while(s>11){
+    bx.font=(o.b?'700 ':'400 ')+s+'px Inter,system-ui,sans-serif';
+    if(bx.measureText(t).width<=maxW) break;
+    s-=0.5;
+  }
+  texto(t,x,y,Object.assign({},o,{s}));
+}
+function etiqueta(t,x,y,c,al){
+  bx.font='400 12px Inter,system-ui,sans-serif';
+  const w=bx.measureText(t).width+16, x0=(al==='right')?x-w:x;
+  rpanel(x0,y-14,w,20,'rgba(8,12,18,0.80)',null,6);
+  texto(t,x0+8,y,{s:12,c:c||TINTA});
+}
+function leyenda(x,y,items){
+  bx.font='400 13px Inter,system-ui,sans-serif';
+  const w=Math.max(...items.map(it=>bx.measureText(it[0]).width))+48;
+  rpanel(x-10,y-19,w,items.length*22+8,'rgba(8,12,18,0.80)','#1e2836',8);
+  let yy=y;
+  items.forEach(it=>{
+    bx.save(); bx.strokeStyle=it[1]; bx.lineWidth=3.2; bx.lineCap='round';
+    if(it[2]) bx.setLineDash(it[2]);
+    bx.beginPath(); bx.moveTo(x,yy-4); bx.lineTo(x+26,yy-4); bx.stroke(); bx.restore();
+    texto(it[0],x+34,yy,{s:13,c:'#c3ccd8'});
+    yy+=22;
+  });
+  return yy;
+}
+// Recorta al rectángulo de la gráfica. Sin esto, una barra o una curva que se
+// sale por arriba se pinta sobre la cabecera y nadie lo nota.
+function enCaja(P,fn){ bx.save(); bx.beginPath(); bx.rect(P.x,P.y,P.w,P.h); bx.clip(); fn(); bx.restore(); }
+
+function ejes(P,x0,x1,y0,y1,rx,ry,fx,fy,nx,ny){
+  const X=v=>P.x+(v-x0)/(x1-x0)*P.w;
+  const Y=v=>P.y+P.h-(v-y0)/(y1-y0)*P.h;
+  bx.save(); bx.strokeStyle='#1d2735'; bx.lineWidth=1;
+  for(let i=0;i<=nx;i++){ const v=x0+(x1-x0)*i/nx, xx=X(v);
+    bx.beginPath(); bx.moveTo(xx,P.y); bx.lineTo(xx,P.y+P.h); bx.stroke();
+    if(fx) texto(fx(v),xx,P.y+P.h+19,{s:12,c:'#7b8697',al:'center'}); }
+  for(let i=0;i<=ny;i++){ const v=y0+(y1-y0)*i/ny, yy=Y(v);
+    bx.beginPath(); bx.moveTo(P.x,yy); bx.lineTo(P.x+P.w,yy); bx.stroke();
+    if(fy) texto(fy(v),P.x-9,yy+4,{s:12,c:'#7b8697',al:'right'}); }
+  bx.restore();
+  bx.save(); bx.strokeStyle='#3a4658'; bx.lineWidth=1.5; bx.strokeRect(P.x,P.y,P.w,P.h); bx.restore();
+  if(rx) texto(rx,P.x+P.w/2,P.y+P.h+44,{s:13,c:'#9aa6b6',al:'center'});
+  if(ry){ bx.save(); bx.translate(P.x-58,P.y+P.h/2); bx.rotate(-Math.PI/2);
+    texto(ry,0,0,{s:13,c:'#9aa6b6',al:'center'}); bx.restore(); }
+  return {X,Y};
+}
+function serieXY(M,pts,c,w,dash){ linea(pts.map(p=>[M.X(p[0]),M.Y(p[1])]),c,w,dash); }
+function punteo(M,x,y,c,r){
+  bx.save(); bx.fillStyle=c; bx.beginPath(); bx.arc(M.X(x),M.Y(y),r||4.5,0,Math.PI*2); bx.fill(); bx.restore();
+}
+// Línea de referencia horizontal. Si el nivel cae fuera del recuadro no se
+// pinta: una línea de límite dibujada sobre el borde miente sobre dónde está.
+function nivel(P,M,v,c,rot,dash){
+  const yy=M.Y(v);
+  if(yy<P.y-1||yy>P.y+P.h+1) return;
+  linea([[P.x,yy],[P.x+P.w,yy]],c,1.6,dash||[7,5]);
+  if(rot) etiqueta(rot,P.x+P.w-8,yy-6,c,'right');
+}
+// Cabecera común: toda vista dice qué motor, qué combustible y en qué punto de
+// trabajo se está mirando. Una cifra sin su configuración al lado no significa
+// nada, y aquí hay seis mandos que la cambian.
+// En el diagnóstico a ciegas la cabecera NO puede decir el combustible ni la
+// tensión de batería: los dos los impone un escenario, y decirlos delataría la
+// familia de la avería antes de tomar la primera medida.
+function cabCombustible(){
+  if(G.modo==='reto') return 'combustible: por determinar';
+  return CB().corto+(combForzado()?'  (lo impone el escenario)':'');
+}
+function cabBateria(){
+  if(G.modo==='reto') return 'batería: por determinar';
+  return volt(vBatEfectiva(),1)+(vBatForzada()?'  (lo impone el escenario)':'');
+}
+function cabecera(t,sub){
+  const e=MQ(), ciego=(G.modo==='reto');
+  const l1=e.corto+' · riel '+bar(e.pRiel,1)+' · inyector '+gs(e.qEstatico,2)+
+    ' · '+(e.referenciado?'regulador referenciado al vacío':'sin retorno, presión fija');
+  const l2=cabCombustible()+' · '+cabBateria()+' · aire a '+gC(G.Tadm,0)+' · '+
+    rpmT(G.rpm)+' · acelerador '+pc(G.acel*100,0);
+  texto(l1,BW-42,44,{s:13,c:CIAN,al:'right'});
+  texto(l2,BW-42,68,{s:13,c:(ciego||combForzado()||vBatForzada())?WARN_HEX:'#8c98a9',al:'right'});
+  // El ancho que le queda al título es el que NO ocupa la línea de la máquina, y
+  // se mide de verdad: escribir un ancho fijo dejaba el título del censo montado
+  // encima del rótulo del motor en cuanto la pregunta era larga.
+  bx.font='400 13px Inter,system-ui,sans-serif';
+  const libre=Math.max(240,(BW-42-bx.measureText(l1).width-24)-42);
+  textoFit(t,42,50,libre,{s:26,b:true});
+  wrapText(sub,42,92,BW-84,18,{s:13,c:'#8c98a9'});
+  linea([[42,116],[BW-42,116]],'#1e2836',1.4);
+}
+
+// ============================================================ T2b · LAS VISTAS
+// Siete modos, siete dibujos. Ninguna cifra de aquí se calcula en esta capa: se
+// piden al motor sellado y se formatean.
+
+// Rótulos cortos propios de cada observación. Recortar el rótulo largo deja
+// botones y celdas IDÉNTICOS —«Ajuste largo a …» tres veces— y entonces no se
+// puede distinguir ralentí de crucero.
+const OBS_CORTO={ajRal:'ajuste a ralentí', ajCruc:'ajuste en crucero',
+  ciclo:'ciclo del inyector', presion:'presión del riel', bateria:'tensión de batería',
+  lambda:'lambda del analizador', cruces:'cruces por segundo', balance:'dispersión entre cilindros'};
+
+// Las familias entre las que se elige en el diagnóstico a ciegas salen de los
+// casos que el reto puede plantear, NO de todos los escenarios: `casosReto()`
+// nunca saca el sistema sano, así que ofrecer «nada que reparar» sería una
+// opción que jamás puede ser la correcta, y eso se aprende en dos partidas.
+const FAMILIAS_RETO=[...new Set(casosReto().map(k=>ESCEN[k].clave))];
+
+// Eslabón de la cadena del combustible. El rótulo va arriba, el valor a la
+// derecha y la nota debajo; cuando el eslabón se aparta del motor sano se
+// enmarca en rojo, porque lo que enseña esta vista es DÓNDE se rompe la cadena.
+function eslabon(x,y,w,rot,val,col,nota,alerta){
+  rpanel(x,y,w,40,alerta?'rgba(255,107,107,0.10)':'rgba(255,255,255,0.035)',
+    alerta?'#5a2f35':'#1c2534',8);
+  texto(rot,x+14,y+17,{s:13,c:'#9aa6b6'});
+  texto(val,x+w-14,y+17,{s:15,b:true,c:col||TINTA,al:'right'});
+  if(nota) texto(nota,x+14,y+33,{s:11.5,c:alerta?WARN_HEX:'#6d788a'});
+}
+// Cuántas líneas ocupará un texto envuelto a un ancho dado. Se mide con la MISMA
+// fuente con la que después se dibuja: contar caracteres a ojo deja la última
+// línea fuera del recuadro y el pizarrón la recorta sin avisar.
+function lineasDe(t,w,s){
+  bx.font='400 '+s+'px Inter,system-ui,sans-serif';
+  let ln='', n=1;
+  for(const p of t.split(' ')){
+    const test=ln?ln+' '+p:p;
+    if(bx.measureText(test).width>w&&ln){ n++; ln=p; } else ln=test;
+  }
+  return n;
+}
+// Banda de veredicto a pie de pizarrón. Un solo sitio, siempre el mismo, para
+// que no haya que buscarlo en cada vista. La ALTURA sale del texto y la banda se
+// sube sola si no cabe: una altura fija de sesenta píxeles dejaba la tercera
+// línea del veredicto por debajo del borde del lienzo, y eso no lo ve ninguna
+// prueba numérica porque el texto existe, sólo que nadie puede leerlo.
+function banda(y,nivel,rot,txt){
+  const c=nivel==='bad'?BAD_HEX:(nivel==='warn'?WARN_HEX:OK_HEX);
+  const f=nivel==='bad'?'rgba(255,107,107,0.10)':(nivel==='warn'?'rgba(233,196,106,0.10)':'rgba(124,217,146,0.09)');
+  const S=12.5, LH=17, W=BW-120;
+  const h=Math.max(60, 32+lineasDe(txt,W,S)*LH+10);
+  const yy=Math.min(y, BH-14-h);
+  rpanel(42,yy,BW-84,h,f,c,10);
+  texto(rot,60,yy+24,{s:15,b:true,c});
+  wrapText(txt,60,yy+44,W,LH,{s:S,c:'#aab6c6'});
+  return yy;
+}
+
+// Diferencia relativa contra el motor sano en el mismo punto de trabajo. Sirve
+// para decidir qué eslabón se enmarca, y se usa el MISMO umbral en todos.
+const roto=(a,b)=>isFinite(a)&&isFinite(b)&&Math.abs(a-b)>Math.max(1e-9,Math.abs(b)*0.005);
+
+// -------------------------------------------------------------- 1 · LA MEZCLA
+function vistaMezcla(){
+  const e=MQ(), C=CB(), s=EST(), V=veredicto(), sn=EST({falla:'sano'});
+  cabecera('El camino del combustible',
+    'La centralita mide el aire, lo divide entre la relación que tiene GRABADA —14,70, la de la gasolina— y ordena ese tiempo de inyección. '+
+    'Después mira la sonda y corrige con el ajuste largo. Cada eslabón de esa cadena puede fallar por su cuenta, y el resultado sólo se lee al final, en el escape.');
+
+  let y=150;
+  texto('La cadena, eslabón a eslabón',42,y,{s:15,b:true,c:CIAN});
+  y=172;
+  const dy=47, W=452;
+  eslabon(42,y,W,'Aire que entra de verdad',mg(s.mAireCil*1000,2),TINTA,
+    'por cilindro y ciclo · '+gs(s.mAireSeg,2)+' en total',roto(s.mAireCil,sn.mAireCil)); y+=dy;
+  eslabon(42,y,W,'Aire que la centralita mide',mg(s.mMedido*1000,2),
+    roto(s.mMedido,s.mAireCil)?WARN_HEX:TINTA,
+    s.mMedido===s.mAireCil?'coincide con el que entra'
+      :('se aparta '+firm((s.mMedido/s.mAireCil-1)*100,1)+' del que entra'),
+    roto(s.mMedido,s.mAireCil)); y+=dy;
+  eslabon(42,y,W,'Combustible que pide',mg(s.mPedido*1000,3),TINTA,
+    'aire medido ÷ 14,70, corregido '+firm(s.ajustePct,1)+
+    (s.lazoAbierto?(' y enriquecido ×'+num(s.enriq,2)):''),false); y+=dy;
+  eslabon(42,y,W,'Tiempo que ordena',mili(s.tOrden,2),TINTA,
+    mili(s.tAbierto,2)+' de verdad abierto + '+mili(s.tMuerto,2)+' de tiempo muerto',
+    roto(s.tOrden,sn.tOrden)); y+=dy;
+  eslabon(42,y,W,'Combustible que entra',mg(s.mComb*1000,3),
+    roto(s.mComb,s.mPedido)?WARN_HEX:TINTA,
+    roto(s.mComb,s.mPedido)?('se aparta '+firm((s.mComb/s.mPedido-1)*100,1)+' de lo pedido: falla el inyector o el riel')
+      :'entra exactamente lo pedido',roto(s.mComb,s.mPedido)); y+=dy;
+  eslabon(42,y,W,'Lambda de verdad (analizador de gases)',lamT(s.lam),colLam(s.lam),
+    'relación real '+num(s.afrReal,2)+' contra '+num(C.afr,2)+' del '+C.corto,
+    Math.abs(s.lam-V.obj)>BANDA_LAM); y+=dy;
+  eslabon(42,y,W,'Lo que la sonda le dice a la centralita',
+    lamT(s.lamSonda)+'  ·  '+num(s.vSonda*1000,0)+NBSP+'mV',
+    s.mienteSonda?BAD_HEX:colLam(s.lamSonda),
+    s.mienteSonda?'MIENTE: se aparta '+firm((s.lamSonda/s.lam-1)*100,1)+' de la mezcla real'
+      :'dice la verdad',s.mienteSonda); y+=dy;
+  eslabon(42,y,W,'Ajuste largo que sostiene el lazo',
+    s.lazoAbierto?'—  (lazo abierto)':firm(s.ajustePct,1),
+    s.saturado?BAD_HEX:(Math.abs(s.ajustePct)>=DTC_UMBRAL*100?WARN_HEX:TINTA),
+    s.lazoAbierto?'con el pie a fondo la centralita deja de corregir'
+      :(s.saturado?'SATURADO en su tope de '+pc(AUTORIDAD*100,0)+': la centralita se ha rendido'
+        :'autoridad total ±'+pc(AUTORIDAD*100,0)+' · código a partir de ±'+pc(DTC_UMBRAL*100,0)),
+    s.saturado);
+
+  // --- columna derecha: el resumen que daría el escáner
+  const X=524, WD=458;
+  texto('Lo que enseñaría el escáner',X,150,{s:15,b:true,c:CIAN});
+  const rows=[
+    {v:['Presión del colector',bar(s.map,3)]},
+    {v:['Rendimiento volumétrico',pc(s.etaVol*100,1)]},
+    {v:['Caudal del inyector',gs(s.qInyector,2)]},
+    {v:['Ciclo de trabajo',[pc(s.ciclo,1),V.sinMargenInyector?BAD_HEX:TINTA]]},
+    {v:['Ajuste largo',[s.lazoAbierto?'—':firm(s.ajustePct,1),
+      s.saturado?BAD_HEX:(Math.abs(s.ajustePct)>=DTC_UMBRAL*100?WARN_HEX:TINTA)]]},
+    {v:['Tensión de la sonda',num(s.vSonda*1000,0)+NBSP+'mV']},
+    {v:['Código de avería',[s.dtc||'ninguno',s.dtc?BAD_HEX:OK_HEX]]},
+    {v:['Par contra este motor sano',[pc(s.parRel/V.parSano*100,1),V.parCaido?WARN_HEX:TINTA]]},
+  ];
+  tabla(X,178,[{t:'magnitud',w:270},{t:'valor',w:172,al:'right',mono:true}],rows,{rh:25,s:13.5});
+
+  // --- lambda de cada cilindro
+  texto('Lambda de cada cilindro',X,424,{s:15,b:true,c:CIAN});
+  const lams=s.cil.map(c=>c.lam);
+  const lo=Math.min(0.94,Math.min(...lams)-0.03), hi=Math.max(1.06,Math.max(...lams)+0.03);
+  const P={x:X+74,y:446,w:WD-90,h:132};
+  const M=ejes(P,0.5,e.nCil+0.5,lo,hi,'cilindro','lambda',
+    v=>Math.abs(v-Math.round(v))<0.01?String(Math.round(v)):'',v=>num(v,2),e.nCil,4);
+  // Las barras salen del OBJETIVO, no de cero: lo que este dibujo tiene que
+  // enseñar es cuánto se aparta cada cilindro del punto al que la centralita
+  // apunta, y con la escala arrancando en 0,94 unas barras medidas desde cero
+  // llenan el recuadro entero y parecen enormes aunque todos vayan iguales.
+  // Y encima de cada barra va un punto, para que un reparto perfecto —barras de
+  // altura nula— siga viéndose en vez de dejar la gráfica vacía.
+  const anchoB=Math.min(34,P.w/(e.nCil*1.7));
+  enCaja(P,()=>{
+    s.cil.forEach(c=>{
+      const y0=M.Y(V.obj), y1=M.Y(c.lam);
+      bx.save(); bx.fillStyle=colLam(c.lam);
+      bx.fillRect(M.X(c.i+1)-anchoB/2,Math.min(y0,y1),anchoB,Math.abs(y1-y0));
+      bx.restore();
+      punteo(M,c.i+1,c.lam,colLam(c.lam),5);
+    });
+  });
+  nivel(P,M,V.obj,'#8AB4F8','objetivo '+lamT(V.obj));
+  const disp=Math.max(...lams)-Math.min(...lams);
+  texto('dispersión '+num(disp,3)+(disp<1e-6?'  ·  los cilindros van iguales':'  ·  la sonda sólo ve la MEZCLA de todos'),
+    X,634,{s:12.5,c:disp>DISP_MIN?WARN_HEX:'#8c98a9'});
+
+  // Debajo de la cadena queda hueco: ahí va lo que la cadena no dice por sí sola,
+  // que es contra QUÉ objetivo hay que juzgar la mezcla en este punto de trabajo.
+  rpanel(42,556,W,104,'rgba(255,255,255,0.03)','#1c2534',10);
+  texto(s.lazoAbierto?'Objetivo con el lazo abierto':'Objetivo con el lazo cerrado',
+    60,582,{s:14,b:true,c:CIAN});
+  wrapText(s.lazoAbierto
+    ? ('Por encima del '+pc(e.acelPotencia*100,0)+' de acelerador la centralita deja de mirar la sonda y enriquece ×'+
+       num(s.enriq,2)+' para proteger el motor: aquí el objetivo es lambda '+lamT(V.obj)+', no uno. Sale '+
+       lamT(s.lam)+', que se aparta '+num(V.desv,3)+'.')
+    : ('Con el lazo cerrado el objetivo es lambda uno, porque es la única mezcla con la que el catalizador de tres vías trabaja. '+
+       'Sale '+lamT(s.lam)+', que se aparta '+num(V.desv,3)+' de ese uno; la banda que este banco da por buena es ±'+num(BANDA_LAM,2)+'.'),
+    60,604,W-36,19,{s:13,c:'#9aa6b6'});
+
+  // --- veredicto
+  const nivelV=V.malo?(V.miente||!V.enBanda?'bad':'warn'):'good';
+  const rot=V.lazoAbierto
+    ? (V.enBanda?'Lazo abierto y mezcla de potencia correcta':'Lazo abierto y la mezcla NO es la que protege el motor')
+    : (V.miente?'La sonda miente y la centralita la cree'
+      :(V.enBanda?'Mezcla centrada en el estequiométrico':'La mezcla no está donde debería'));
+  const txt=V.lazoAbierto
+    ? ('Con el pie a fondo la centralita deja de mirar la sonda y enriquece '+num(s.enriq,2)+
+       ' veces para proteger el motor: el objetivo aquí es lambda '+lamT(V.obj)+', no uno. Sale '+
+       lamT(s.lam)+', que se aparta '+num(V.desv,3)+'. Sin sonda que corrija, cualquier error de MEDIDA del aire pasa entero a la mezcla.')
+    : (V.miente
+      ? ('La centralita ha hecho su trabajo: ha movido el ajuste hasta que la sonda dice uno. Pero la sonda dice '+
+         lamT(s.lamSonda)+' cuando la mezcla real es '+lamT(s.lam)+', así que la mezcla real acaba donde no debe. '+
+         'El escáner sale '+(Math.abs(s.ajustePct)>=DTC_UMBRAL*100?'con ajuste alto':'impecable')+' y el analizador de gases, no.')
+      : ('El lazo ha centrado la mezcla en '+lamT(s.lam)+' con un ajuste largo de '+firm(s.ajustePct,1)+
+         '. Ese ajuste es la MEDIDA de lo que falla aguas arriba: cuanto más lejos de cero, más lejos está la centralita de acertar a la primera.'));
+  banda(676,nivelV,rot,txt);
+}
+
+// ----------------------------------------------------------- 2 · CARGA DE AIRE
+function vistaAire(){
+  const e=MQ(), s=EST(), sn=EST({falla:'sano'}), F=FA();
+  cabecera('La carga de aire: lo que entra y lo que se mide',
+    'La masa de aire de un cilindro sale del volumen que desplaza, de la densidad que hay en el colector y del rendimiento volumétrico. '+
+    'La presión del colector NO es un mando: es la consecuencia de la mariposa y del régimen, y a mariposa cerrada subir de vueltas la BAJA.');
+
+  texto('Presión del colector contra el régimen',42,150,{s:15,b:true,c:CIAN});
+  const P1={x:104,y:186,w:398,h:206};
+  const techo=e.pMax===undefined?e.pAtm:e.pMax;
+  const M1=ejes(P1,600,6000,0,Math.max(1.10,techo*1.06),'régimen (rpm)','presión absoluta (bar)',
+    v=>num(v,0),v=>num(v,1),6,4);
+  const ACEL=[[0,'#5BD4E5'],[0.2,'#8AB4F8'],[0.35,'#7CD992'],[0.6,'#E9C46A'],[1,'#F2A65A']];
+  enCaja(P1,()=>{
+    for(const [a,c] of ACEL){
+      const pts=[]; for(let r=600;r<=6000;r+=100) pts.push([r,presionColector(e,r,a,F)]);
+      serieXY(M1,pts,c,2.2);
+    }
+    punteo(M1,G.rpm,s.map,'#ffffff',5.4);
+  });
+  nivel(P1,M1,e.pAtm,'#6d788a','atmosférica',[4,4]);
+  leyenda(P1.x+14,P1.y+22,ACEL.map(([a,c])=>['acelerador '+pc(a*100,0),c]));
+
+  texto('Masa de aire por cilindro y ciclo',530,150,{s:15,b:true,c:CIAN});
+  const P2={x:592,y:186,w:390,h:206};
+  const serieR=[], serieM=[];
+  for(let a=0;a<=1.0001;a+=0.025){
+    const mp=presionColector(e,G.rpm,a,F);
+    serieR.push([a*100,aireReal(e,G.rpm,mp,G.Tadm,F)*1000]);
+    serieM.push([a*100,aireMedido(e,G.rpm,mp,G.Tadm,F)*1000]);
+  }
+  const tope=Math.max(...serieR.map(p=>p[1]),...serieM.map(p=>p[1]))*1.10;
+  const M2=ejes(P2,0,100,0,tope,'acelerador (%)','masa de aire (mg)',v=>num(v,0),v=>num(v,0),5,4);
+  enCaja(P2,()=>{
+    serieXY(M2,serieR,'#7CD992',2.6);
+    serieXY(M2,serieM,'#F2A65A',2.2,[7,5]);
+    punteo(M2,G.acel*100,s.mAireCil*1000,'#ffffff',5.4);
+  });
+  leyenda(P2.x+14,P2.y+22,[['la que entra de verdad','#7CD992'],['la que mide el sensor','#F2A65A',[7,5]]]);
+
+  const dif=(s.mMedido/s.mAireCil-1)*100;
+  const rows=[
+    {v:['Presión del colector',bar(s.map,3),bar(sn.map,3)]},
+    {v:['Rendimiento volumétrico',pc(s.etaVol*100,1),pc(sn.etaVol*100,1)]},
+    {v:['Aire que entra, por ciclo',mg(s.mAireCil*1000,2),mg(sn.mAireCil*1000,2)]},
+    {v:['Aire que mide el sensor',mg(s.mMedido*1000,2),mg(sn.mMedido*1000,2)]},
+    {v:['Diferencia medido − real',[firm(dif,2),Math.abs(dif)>0.5?WARN_HEX:OK_HEX],
+      firm((sn.mMedido/sn.mAireCil-1)*100,2)]},
+    {v:['Gasto total de aire',gs(s.mAireSeg,2),gs(sn.mAireSeg,2)]},
+  ];
+  tabla(42,478,[{t:'magnitud',w:340},{t:'con este escenario',w:250,al:'right',mono:true},
+    {t:'motor sano, mismo punto',w:270,al:'right',mono:true}],rows,{rh:25,s:13.5});
+
+  const nivelA=Math.abs(dif)>0.5?'warn':'good';
+  banda(676,nivelA,
+    Math.abs(dif)>0.5?'El sensor y el motor no cuentan lo mismo':'El sensor cuenta el aire que entra',
+    Math.abs(dif)>0.5
+      ? ('En este punto el sensor se aparta '+firm(dif,2)+' del aire que de verdad entra. La centralita dosifica sobre lo que MIDE, '+
+         'así que ese error va entero a la mezcla y la sonda tiene que taparlo con el ajuste largo. '+
+         'Un caudal de fuga constante pesa mucho a ralentí y casi nada a plena carga; un sensor sucio se equivoca en el mismo porcentaje siempre. '+
+         'Esa diferencia de FORMA contra la carga es lo único que las separa.')
+      : ('Aquí no hay aire sin contar: lo que mide el sensor es lo que entra. Si aun así la mezcla no sale bien, el fallo está aguas abajo —en el inyector, en el riel o en la sonda—, no en la medida del aire.'));
+}
+
+// -------------------------------------------------------------- 3 · EL INYECTOR
+function vistaInyector(){
+  const e=MQ(), s=EST(), sn=EST({falla:'sano'}), F=FA(), V=veredicto();
+  cabecera('El inyector: cuánto entrega y en cuánto tiempo',
+    'Un inyector es una válvula que se abre un rato. Lo que entrega es su caudal por el tiempo que está ABIERTO, y ése no es el que la centralita ordena: '+
+    'hay que descontar lo que tarda en abrir, que crece muy deprisa cuando cae la tensión de batería. El caudal, además, escala con la RAÍZ de la caída de presión.');
+
+  texto('Ciclo de trabajo contra el régimen',42,150,{s:15,b:true,c:CIAN});
+  const P1={x:104,y:186,w:398,h:198};
+  const M1=ejes(P1,600,6000,0,100,'régimen (rpm)','ciclo de trabajo (%)',v=>num(v,0),v=>num(v,0),6,5);
+  const CG=[[0.15,'#5BD4E5'],[0.35,'#7CD992'],[0.6,'#E9C46A'],[1,'#F2A65A']];
+  enCaja(P1,()=>{
+    // Paso de 200 rpm y no de 100: cada punto resuelve un lazo completo por
+    // bisección, y doblar la resolución dobla el coste de repintar sin añadir
+    // una sola inflexión que la curva no tenga ya.
+    for(const [a,c] of CG){
+      const pts=[];
+      for(let r=600;r<=6000;r+=200){ const p=EST({rpm:r,acel:a}); pts.push([r,p.ciclo]); }
+      serieXY(M1,pts,c,2.2);
+    }
+    punteo(M1,G.rpm,s.ciclo,'#ffffff',5.4);
+  });
+  nivel(P1,M1,CICLO_TECHO,BAD_HEX,'techo '+pc(CICLO_TECHO,0));
+  leyenda(P1.x+14,P1.y+22,CG.map(([a,c])=>['acelerador '+pc(a*100,0),c]));
+
+  texto('Tiempo muerto contra la tensión de batería',530,150,{s:15,b:true,c:CIAN});
+  const P2={x:606,y:186,w:376,h:198};
+  const M2=ejes(P2,8,16,0,2.6,'tensión de batería (V)','tiempo muerto (ms)',v=>num(v,0),v=>num(v,1),4,4);
+  enCaja(P2,()=>{
+    const pts=[]; for(let v=8;v<=16.001;v+=0.1) pts.push([v,tMuerto(v)]);
+    serieXY(M2,pts,'#C08CF8',2.6);
+    TABLA_TMUERTO.forEach(([v,t])=>punteo(M2,v,t,'#C08CF8',3.6));
+    punteo(M2,vBatEfectiva(),s.tMuerto,'#ffffff',5.4);
+  });
+  texto('los puntos son la tabla del catálogo; entre ellos se interpola',P2.x+8,P2.y+P2.h-12,{s:11.5,c:'#7b8697'});
+
+  const dp=s.dpInyector;
+  const rows=[
+    {v:['Presión del riel',bar(e.pRiel*(F.pRielMul===undefined?1:F.pRielMul),2),bar(e.pRiel,2)]},
+    {v:['Caída a través del inyector',bar(dp,2),bar(sn.dpInyector,2)]},
+    {v:['Caudal con el inyector abierto',gs(s.qInyector,3),gs(sn.qInyector,3)]},
+    {v:['Tiempo que ordena la centralita',mili(s.tOrden,3),mili(sn.tOrden,3)]},
+    {v:['Tiempo muerto',mili(s.tMuerto,3),mili(sn.tMuerto,3)]},
+    {v:['Tiempo de verdad abierto',mili(s.tAbierto,3),mili(sn.tAbierto,3)]},
+    {v:['Ciclo de trabajo',[pc(s.ciclo,1),V.sinMargenInyector?BAD_HEX:TINTA],pc(sn.ciclo,1)]},
+  ];
+  tabla(42,462,[{t:'magnitud',w:330},{t:'con este escenario',w:250,al:'right',mono:true},
+    {t:'motor sano, mismo punto',w:280,al:'right',mono:true}],rows,{rh:24,s:13.5});
+
+  const relQ=s.qInyector/sn.qInyector, relP=dp/sn.dpInyector;
+  banda(676,V.sinMargenInyector?'bad':'good',
+    V.sinMargenInyector?'El inyector ya no tiene dónde crecer'
+      :(e.referenciado?'Regulador referenciado al vacío: la caída es constante'
+        :'Sin retorno: la caída sube con el vacío del colector'),
+    (e.referenciado
+      ? 'Con el regulador referenciado al colector, la caída a través del inyector no cambia con la carga: el mismo pulso entrega siempre lo mismo. '
+      : 'Sin retorno, el riel está a presión fija contra la atmósfera, así que a ralentí —con vacío— la caída SUBE y el mismo pulso entrega más. La centralita lo sabe y lo compensa. ')+
+    'Aquí la caída va '+num(relP,3)+' veces la del motor sano y el caudal, '+num(relQ,3)+
+    ': el caudal escala con la raíz de la presión, no con la presión. '+
+    (V.sinMargenInyector
+      ? 'Y con el ciclo en '+pc(s.ciclo,1)+' ya no queda pulso que alargar: pedir más combustible aquí es imposible.'
+      : 'Queda margen de pulso hasta el '+pc(CICLO_TECHO,0)+'.'));
+}
+
+// ----------------------------------------------------------------- 4 · LA SONDA
+function vistaSonda(){
+  const s=EST();
+  // La cifra de la zona ciega NO se escribe a mano: se pide a la misma curva
+  // que dibuja la gráfica, para que recalibrar la sonda no deje la frase
+  // mintiendo en silencio.
+  const CIEGO_A=0.80, CIEGO_B=0.90;
+  const dV=Math.abs(tensionSonda(CIEGO_A)-tensionSonda(CIEGO_B));
+  const carrera=V_RICA-V_POBRE;
+  const dVsalto=Math.abs(tensionSonda(0.99)-tensionSonda(1.01));
+
+  cabecera('La sonda de banda estrecha no mide la mezcla',
+    'Es una celda de circonia: da la tensión de Nernst entre el oxígeno del escape y el del aire. '+
+    'Su curva es casi vertical en el estequiométrico y casi plana a los dos lados, así que sirve para detectar un CRUCE y no para medir una mezcla.');
+
+  const P={x:110,y:180,w:520,h:266};
+  const M=ejes(P,0.78,1.26,0,1.0,'lambda de los gases','tensión de la sonda (V)',
+    v=>num(v,2),v=>num(v,1),6,5);
+  enCaja(P,()=>{
+    // La zona ciega, sombreada: entre 0,80 y 0,90 la tensión no se mueve.
+    bx.save(); bx.fillStyle='rgba(255,107,107,0.10)';
+    bx.fillRect(M.X(CIEGO_A),P.y,M.X(CIEGO_B)-M.X(CIEGO_A),P.h); bx.restore();
+    const pts=[]; for(let l=0.78;l<=1.2601;l+=0.002) pts.push([l,tensionSonda(l)]);
+    serieXY(M,pts,'#5BD4E5',2.8);
+    // Lo que hay y lo que la sonda dice que hay: si no coinciden, se ven los dos.
+    linea([[M.X(s.lam),P.y],[M.X(s.lam),P.y+P.h]],colLam(s.lam),1.8,[6,5]);
+    if(s.mienteSonda) linea([[M.X(s.lamSonda),P.y],[M.X(s.lamSonda),P.y+P.h]],BAD_HEX,1.8,[3,4]);
+    punteo(M,s.lamSonda,s.vSonda,'#ffffff',5.6);
+  });
+  nivel(P,M,UMBRAL_CRUCE,'#E9C46A','umbral de cruce '+num(UMBRAL_CRUCE*1000,0)+NBSP+'mV');
+  etiqueta('zona ciega',M.X(CIEGO_A)+8,P.y+24,BAD_HEX);
+  etiqueta('lambda real '+lamT(s.lam),M.X(s.lam)+8,P.y+P.h-14,colLam(s.lam));
+  if(s.mienteSonda) etiqueta('lo que la sonda dice: '+lamT(s.lamSonda),M.X(s.lamSonda)+8,P.y+P.h-38,BAD_HEX);
+
+  // La columna arranca en 652 y no en 676: con las anchuras de antes la tabla
+  // terminaba en 996 y el pizarrón acaba en 982, así que la columna de valores
+  // se salía por el borde derecho y las cifras aparecían cortadas.
+  const X=652;
+  texto('Lo que se lee ahora',X,166,{s:15,b:true,c:CIAN});
+  tabla(X,194,[{t:'magnitud',w:180},{t:'valor',w:116,al:'right',mono:true}],[
+    {v:['Lambda real',[lamT(s.lam),colLam(s.lam)]]},
+    {v:['Lambda que lee',[lamT(s.lamSonda),s.mienteSonda?BAD_HEX:TINTA]]},
+    {v:['Tensión',num(s.vSonda*1000,0)+NBSP+'mV']},
+    {v:['Dice que está',regimenLam(s.lamSonda)==='rica'?'rica':(regimenLam(s.lamSonda)==='pobre'?'pobre':'en el punto')]},
+    {v:['Y de verdad está',[regimenLam(s.lam)==='rica'?'rica':(regimenLam(s.lam)==='pobre'?'pobre':'en el punto'),colLam(s.lam)]]},
+  ],{rh:25,s:13.5});
+
+  texto('La zona ciega, en números',X,368,{s:15,b:true,c:CIAN});
+  tabla(X,396,[{t:'tramo de lambda',w:180},{t:'se mueve',w:116,al:'right',mono:true}],[
+    {v:['de '+num(CIEGO_A,2)+' a '+num(CIEGO_B,2),[num(dV*1000,2)+NBSP+'mV',BAD_HEX]]},
+    {v:['eso, de su carrera',[pc(dV/carrera*100,2),BAD_HEX]]},
+    {v:['de 0,99 a 1,01',[num(dVsalto*1000,0)+NBSP+'mV',OK_HEX]]},
+    {v:['eso, de su carrera',[pc(dVsalto/carrera*100,1),OK_HEX]]},
+  ],{rh:25,s:13.5});
+
+  banda(600,s.mienteSonda?'bad':'good',
+    s.mienteSonda?'Esta sonda está mintiendo':'La sonda dice lo que hay',
+    'Un motor que va a lambda '+num(CIEGO_A,2)+' —un 20 % rico, humo negro y catalizador arruinado— y otro a '+
+    num(CIEGO_B,2)+' le dan a la centralita tensiones que se diferencian en '+num(dV*1000,2)+NBSP+'mV: el '+
+    pc(dV/carrera*100,2)+' de su carrera. En cambio, entre 0,99 y 1,01 recorre '+num(dVsalto*1000,0)+NBSP+'mV. '+
+    (s.mienteSonda
+      ? 'Aquí la sonda lee '+lamT(s.lamSonda)+' cuando hay '+lamT(s.lam)+
+        ', y la centralita no tiene forma de saberlo: hace exactamente lo que la sonda le pide y acaba con la mezcla donde no debe.'
+      : 'Por eso una sonda sirve para centrar el lazo y NO sirve para medir cuánto de rica o de pobre va una mezcla: eso lo dice el analizador de gases o una sonda de banda ancha.'));
+}
+
+// -------------------------------------------------------- 5 · EL LAZO EN EL TIEMPO
+function vistaLazo(){
+  const e=MQ(), s=EST();
+  cabecera('El lazo cerrado en el tiempo',
+    'Como la sonda sólo dice de qué lado está la mezcla, el ajuste corto no puede quedarse quieto: al cruzar da un salto en sentido contrario y después una rampa lenta hasta el cruce siguiente. '+
+    'La velocidad de esa oscilación la fijan el viaje de los gases hasta la sonda y la constante de tiempo de la sonda.');
+
+  if(s.lazoAbierto){
+    rpanel(120,210,BW-240,220,'rgba(233,196,106,0.09)',WARN_HEX,12);
+    texto('Aquí no hay lazo que trazar',150,262,{s:22,b:true,c:WARN_HEX});
+    wrapText('Con el acelerador en '+pc(G.acel*100,0)+' la centralita ha ABIERTO el lazo: por encima de '+
+      pc(e.acelPotencia*100,0)+' deja de mirar la sonda y enriquece ×'+num(e.enriqPotencia,2)+
+      ' para proteger el motor. El ajuste corto está congelado en cero y la sonda no manda nada.',
+      150,296,BW-300,22,{s:14.5,c:'#c3ccd8'});
+    wrapText('Eso no es un hueco del banco: es la lección. Con el lazo abierto no hay nada que tape un error de MEDIDA del aire, '+
+      'y por eso las averías del sensor y del riel se destapan justo aquí mientras las de la sonda desaparecen. '+
+      'Baja el acelerador por debajo del '+pc(e.acelPotencia*100,0)+' para ver el lazo trabajar.',
+      150,378,BW-300,20,{s:13,c:'#8c98a9'});
+    banda(676,'warn','Lazo abierto: la sonda no pinta nada',
+      'La mezcla la fija el mapa de potencia, no la sonda. Objetivo lambda '+lamT(1/e.enriqPotencia)+
+      ', y sale '+lamT(s.lam)+'.');
+    return;
+  }
+
+  const T=TRZ(), Tsano=TRZ({falla:'sano'});
+  const dur=T.traza.length?T.traza[T.traza.length-1].t:8;
+  const t0=Math.max(0,dur-3);
+  const ven=T.traza.filter(p=>p.t>=t0);
+
+  texto('Últimos 3 s del ensayo · lambda de los gases y lo que ve la sonda',42,150,{s:15,b:true,c:CIAN});
+  const P1={x:104,y:184,w:596,h:186};
+  const ls=ven.map(p=>p.lam).concat(ven.map(p=>p.lamSonda));
+  const lo=Math.min(...ls)-0.006, hi=Math.max(...ls)+0.006;
+  const M1=ejes(P1,t0,dur,lo,hi,null,'lambda',v=>num(v-t0,1),v=>num(v,3),6,4);
+  enCaja(P1,()=>{
+    serieXY(M1,ven.map(p=>[p.t,p.lam]),'#7CD992',2.2);
+    serieXY(M1,ven.map(p=>[p.t,p.lamSonda]),'#5BD4E5',2.0,[6,4]);
+  });
+  nivel(P1,M1,1,'#8AB4F8','lambda uno');
+  leyenda(P1.x+14,P1.y+22,[['la mezcla que hay','#7CD992'],['lo que la sonda ve','#5BD4E5',[6,4]]]);
+
+  texto('El ajuste corto, que es quien la mueve',42,412,{s:15,b:true,c:CIAN});
+  const P2={x:104,y:446,w:596,h:142};
+  const cs=ven.map(p=>p.corto);
+  const cl=Math.min(...cs), ch=Math.max(...cs), pad=Math.max(0.6,(ch-cl)*0.20);
+  const M2=ejes(P2,t0,dur,cl-pad,ch+pad,'tiempo (s)','ajuste corto (%)',v=>num(v-t0,1),v=>num(v,1),6,4);
+  enCaja(P2,()=>serieXY(M2,ven.map(p=>[p.t,p.corto]),'#F2A65A',2.4));
+  nivel(P2,M2,0,'#6d788a','sin corrección',[4,4]);
+
+  const X=736;
+  texto('El lazo, medido',X,150,{s:15,b:true,c:CIAN});
+  // Un lazo lento NO es lo mismo que una sonda lenta, y confundirlos es el error
+  // más fácil de cometer con un osciloscopio en la mano: el filtro de aire
+  // tapado baja los cruces de 4,51 a 3,10 con la sonda perfectamente sana,
+  // porque entra menos aire y los gases tardan más en llegar. Lo que acusa a la
+  // sonda es su CONSTANTE DE TIEMPO, no la frecuencia del lazo.
+  const lento=T.cps<Tsano.cps*0.75;
+  const sondaVieja=T.tau>Tsano.tau*1.5;
+  tabla(X,180,[{t:'magnitud',w:150},{t:'valor',w:96,al:'right',mono:true}],[
+    {v:['Cruces por segundo',[num(T.cps,2),lento?(sondaVieja?BAD_HEX:WARN_HEX):OK_HEX]]},
+    {v:['Un motor sano da',num(Tsano.cps,2)]},
+    {v:['Viaje de los gases',[num(T.tTrans*1000,0)+NBSP+'ms',
+      T.tTrans>Tsano.tTrans*1.25?WARN_HEX:TINTA]]},
+    {v:['Constante de la sonda',[num(T.tau*1000,0)+NBSP+'ms',sondaVieja?BAD_HEX:TINTA]]},
+    {v:['Amplitud de lambda','±'+num(T.amplitud,4)]},
+    {v:['Lambda media',lamT(T.lamMedia)]},
+    {v:['Ajuste largo',firm(s.ajustePct,1)]},
+  ],{rh:25,s:13});
+
+  texto('Salto y rampa',X,404,{s:14,b:true,c:CIAN});
+  wrapText('Al cruzar, la centralita da un salto de '+pc(e.saltoCorto,1)+' en sentido contrario; '+
+    'entre cruces sube o baja a '+num(e.rampaCorta,1)+NBSP+'%/s.',X,428,236,18,{s:12.5,c:'#8c98a9'});
+
+  banda(628,sondaVieja?'bad':(lento?'warn':'good'),
+    sondaVieja?'Esta sonda responde tarde'
+      :(lento?'El lazo va más despacio, y NO es la sonda':'El lazo oscila a su ritmo'),
+    'La mezcla MEDIA sale '+lamT(T.lamMedia)+' y el ajuste largo, '+firm(s.ajustePct,1)+
+    ': dos cifras que un escáner da por buenas. '+
+    (sondaVieja
+      ? ('Lo que ha cambiado es la FRECUENCIA: '+num(T.cps,2)+' cruces por segundo contra '+num(Tsano.cps,2)+
+         ' de una sonda sana, porque su constante de tiempo pasa de '+num(Tsano.tau*1000,0)+' a '+
+         num(T.tau*1000,0)+NBSP+'ms. Ese número no lo mira ningún escáner: hace falta el osciloscopio.')
+      : (lento
+        ? ('Los cruces han bajado a '+num(T.cps,2)+' contra '+num(Tsano.cps,2)+
+           ', pero la constante de tiempo de la sonda sigue en '+num(T.tau*1000,0)+NBSP+'ms: la sonda está bien. '+
+           'Lo que se ha alargado es el viaje de los gases, de '+num(Tsano.tTrans*1000,0)+' a '+num(T.tTrans*1000,0)+
+           NBSP+'ms, porque por el motor pasa menos aire. Un lazo lento y una sonda lenta NO son lo mismo, '+
+           'y confundirlos hace cambiar una sonda que no tenía nada.')
+        : ('El viaje de los gases hasta la sonda son '+num(T.tTrans*1000,0)+NBSP+'ms y la constante de la sonda, '+
+           num(T.tau*1000,0)+'. Si los cruces bajan, hay que mirar cuál de los dos ha crecido antes de acusar a la sonda: '+
+           'con menos aire por el motor el lazo se frena solo.'))));
+}
+
+// ---------------------------------------------------------------- 6 · EL CENSO
+// Los grupos que un juego de instrumentos NO consigue separar. Se sacan con la
+// MISMA firma que usa el censo del motor sellado: si la pantalla agrupara de
+// otra manera que el censo, una de las dos estaría mintiendo.
+function gruposDe(sub){
+  const m=new Map();
+  for(const k of ESCEN_KEYS){
+    const L=LECT_DE(k), f=firmaObs(MQ(),L,sub);
+    if(!m.has(f)) m.set(f,[]);
+    m.get(f).push({k,clave:L.clave});
+  }
+  return [...m.values()];
+}
+const mascaraDe=ks=>ks.reduce((a,k)=>a|(1<<OBS.findIndex(o=>o.k===k)),0);
+
+function vistaCenso(){
+  const e=MQ(), C=CENSO(), N=ESCEN_KEYS.length;
+  const busca=ks=>C.find(c=>c.mask===mascaraDe(ks));
+  const escaner=busca(['ajRal','ajCruc']);
+  const tallerKs=OBS.filter(o=>o.taller).map(o=>o.k);
+  const taller=busca(tallerKs);
+  const todo=C.find(c=>c.mask===(1<<OBS.length)-1);
+  const min=C.filter(c=>c.resueltos===N).sort((a,b)=>a.sub.length-b.sub.length)[0];
+
+  cabecera('¿Con qué instrumentos se separan los '+N+' escenarios?',
+    'Un instrumento sirve si dos averías distintas le dan lecturas distintas. El censo prueba los '+
+    ((1<<OBS.length)-1)+' juegos posibles de las ocho observaciones sobre los '+N+
+    ' escenarios de este '+e.corto+' y cuenta cuántos quedan separados. Las cinco primeras observaciones están en cualquier taller; las tres últimas hay que pedirlas aparte.');
+
+  texto('Juegos de instrumentos',42,150,{s:15,b:true,c:CIAN});
+  const fil=(rot,c,nota)=>({v:[rot,c?String(c.sub.length):'—',
+    [c?c.resueltos+'/'+N:'—',!c?GRIS:(c.resueltos===N?OK_HEX:(c.resueltos>=N-2?WARN_HEX:BAD_HEX))],nota]});
+  tabla(42,182,[{t:'juego de instrumentos',w:300},{t:'obs.',w:56,al:'right',mono:true},
+    {t:'separa',w:96,al:'right',mono:true},{t:'qué se le escapa',w:430}],[
+    fil('Sólo los dos ajustes del escáner',escaner,queFalta(escaner)),
+    fil('Todo lo que hay en un taller corriente',taller,queFalta(taller)),
+    fil('Las ocho observaciones',todo,queFalta(todo)),
+    fil('El juego mínimo que llega a '+N+'/'+N,min,min?min.sub.map(o=>OBS_CORTO[o.k]).join(' · '):'ninguno llega'),
+  ],{rh:27,s:13.5});
+
+  // Columna izquierda: los grupos que el escáner solo no consigue separar.
+  texto('Lo que el escáner solo NO puede separar',42,356,{s:15,b:true,c:CIAN});
+  const conf=gruposDe(escaner.sub).filter(g=>new Set(g.map(x=>x.clave)).size>1);
+  if(conf.length){
+    conf.slice(0,4).forEach((g,i)=>{
+      const y=382+i*46;
+      rpanel(42,y,494,40,'rgba(255,107,107,0.09)','#5a2f35',8);
+      texto(g.map(x=>ESCEN[x.k].clave).join('  ·  '),56,y+17,{s:12.5,b:true,c:BAD_HEX});
+      textoFit(g.map(x=>ESCEN[x.k].rot).join(' / '),56,y+33,468,{s:11.5,c:'#9aa6b6'});
+    });
+    if(conf.length>4) texto('… y '+(conf.length-4)+' grupo'+(conf.length-4===1?'':'s')+' más',
+      42,382+4*46+18,{s:12.5,c:'#8c98a9'});
+  }else{
+    rpanel(42,382,494,60,'rgba(124,217,146,0.09)',OK_HEX,10);
+    texto('En este '+e.corto+' los dos ajustes',56,406,{s:13.5,c:OK_HEX});
+    texto('del escáner separan las '+N+' averías por sí solos.',56,426,{s:13.5,c:OK_HEX});
+  }
+
+  // Columna derecha: cuántos separa el MEJOR juego de cada tamaño. Enseña que la
+  // curva se estanca: comprar más instrumentos deja de comprar información.
+  texto('Cuántos separa el mejor juego de cada tamaño',556,356,{s:15,b:true,c:CIAN});
+  const mejor={};
+  for(const c of C){ const n=c.sub.length; if(!mejor[n]||c.resueltos>mejor[n].resueltos) mejor[n]=c; }
+  const P={x:614,y:382,w:352,h:154};
+  const M=ejes(P,0.5,OBS.length+0.5,0,N,'observaciones compradas','escenarios separados',
+    v=>Math.abs(v-Math.round(v))<0.01?String(Math.round(v)):'',v=>num(v,0),OBS.length,Math.min(N,6));
+  enCaja(P,()=>{
+    for(let n=1;n<=OBS.length;n++){
+      const c=mejor[n]; if(!c) continue;
+      const y0=M.Y(0),y1=M.Y(c.resueltos);
+      bx.save(); bx.fillStyle=c.resueltos===N?OK_HEX:(c.resueltos>=N-2?WARN_HEX:'#3f6ea8');
+      bx.fillRect(M.X(n)-14,Math.min(y0,y1),28,Math.abs(y1-y0)); bx.restore();
+    }
+  });
+  nivel(P,M,N,OK_HEX,'los '+N+' escenarios');
+
+  banda(648,min?'good':'warn',
+    min?('Con '+min.sub.length+' observaciones bien elegidas se cierra el caso')
+      :('Ni con las ocho se cierran los '+N+' escenarios de este '+e.corto),
+    min
+      ? ('El juego mínimo de este '+e.corto+' es '+min.sub.map(o=>OBS_CORTO[o.k]).join(', ')+
+         '. Comprar las ocho separa lo mismo que comprar esas '+min.sub.length+': lo que decide no es cuántos instrumentos hay sino cuáles. '+
+         'Y fíjate en que '+(min.sub.some(o=>!o.taller)
+           ? 'ese juego mínimo incluye al menos una observación que NO está en un taller corriente: por eso el escáner solo se queda en '+escaner.resueltos+'/'+N+'.'
+           : 'ese juego mínimo se toma entero con lo que hay en cualquier taller.'))
+      : ('Hay escenarios que dan exactamente las mismas ocho lecturas. Separarlos pediría otra observación distinta, no más precisión en las que ya hay.'));
+}
+// Qué escenarios deja sin separar un juego de instrumentos, para la columna de
+// la tabla. Se nombra a los que quedan en conflicto, no se cuentan a secas.
+function queFalta(c){
+  if(!c) return 'no evaluado';
+  if(c.enConflicto===0) return 'nada: los separa todos';
+  const g=gruposDe(c.sub).filter(x=>new Set(x.map(y=>y.clave)).size>1);
+  const nom=g.slice(0,2).map(x=>x.map(y=>ESCEN[y.k].clave).join(' / ')).join('  ·  ');
+  return nom+(g.length>2?('  · y '+(g.length-2)+' más'):'');
+}
+
+// ------------------------------------------------------------------- 7 · RETO
+function vistaReto(){
+  const N=ESCEN_KEYS.length;
+  cabecera('Diagnóstico a ciegas',
+    'El coche entra al taller y nadie dice qué le pasa. Cada observación cuesta —las tres últimas, bastante— y hay que entregar una FAMILIA de avería, no una corazonada. '+
+    'El motor sellado ya ha decidido el caso: las lecturas que aparecen aquí son las suyas, tomadas con el protocolo de los tres puntos.');
+
+  texto('Lo que llevas medido',42,152,{s:15,b:true,c:CIAN});
+  const tom=OBS.filter(o=>RETO.tomadas[o.k]);
+  if(tom.length){
+    tabla(42,186,[{t:'observación',w:390},{t:'instrumento',w:250},{t:'lectura',w:230,al:'right',mono:true}],
+      tom.map(o=>({v:[OBS_CORTO[o.k]||o.rot,o.taller?'taller corriente':'hay que pedirlo',
+        [RETO.tomadas[o.k],TINTA]]})),{rh:27,s:13.5});
+  }else{
+    rpanel(42,180,BW-84,72,'rgba(255,255,255,0.035)','#1c2534',10);
+    texto('Todavía no has medido nada. Empieza por los dos ajustes del escáner: son los más baratos y ya descartan medio taller.',
+      62,222,{s:14.5,c:'#9aa6b6'});
+  }
+
+  const yb=tom.length?186+27*(tom.length+1)+28:276;
+  texto('Familias de avería entre las que elegir',42,yb,{s:15,b:true,c:CIAN});
+  let yy=yb+26;
+  FAMILIAS_RETO.forEach((f,i)=>{
+    const x=42+(i%3)*315, y=yy+Math.floor(i/3)*34;
+    rpanel(x,y,300,28,RETO.eleccion===f?'rgba(138,180,248,0.16)':'rgba(255,255,255,0.03)',
+      RETO.eleccion===f?AZUL:'#1c2534',7);
+    texto(f,x+12,y+19,{s:13,c:RETO.eleccion===f?AZUL:'#9aa6b6'});
+  });
+  const yf=yy+Math.ceil(FAMILIAS_RETO.length/3)*34+16;
+
+  if(RETO.veredicto){
+    banda(Math.min(yf,676),RETO.veredicto.ok?'good':'bad',
+      RETO.veredicto.ok?'Diagnóstico correcto':'Diagnóstico equivocado',RETO.veredicto.plano);
+  }else{
+    const n=tom.length;
+    banda(Math.min(yf,676),'warn','Sin entregar',
+      'Llevas '+n+' de '+OBS.length+' observaciones. Recuerda lo que dice el censo: hay averías que dan a los dos ajustes del escáner exactamente las mismas cifras, '+
+      'y hay una que no mueve ni la mezcla ni los ajustes porque no toca la dosificación —sólo el par—. Con '+N+' escenarios posibles, adivinar sale a una entre '+N+'.');
+  }
+}
+
+// ------------------------------------------------------------------- despacho
+function pintaTablero(){
+  bg();
+  if(G.modo==='mezcla') vistaMezcla();
+  else if(G.modo==='aire') vistaAire();
+  else if(G.modo==='inyector') vistaInyector();
+  else if(G.modo==='sonda') vistaSonda();
+  else if(G.modo==='lazo') vistaLazo();
+  else if(G.modo==='censo') vistaCenso();
+  else vistaReto();
+  btex.needsUpdate=true;
+}
+
+// ======================================================= T3a · EL BANCO Y EL AIRE
+// Un banco de inyección: bloque y culata de recorte, colector de admisión con su
+// mariposa y su medidor de aire, y —en T3b— el riel con los inyectores, el
+// escape con la sonda y los instrumentos. No hay montaje que hacer: este molde
+// es de panel-instrumento, así que todo está en su sitio desde el primer
+// fotograma y lo que se manipula son los MANDOS, no las piezas.
+
+// Cotas del banco, derivadas del número de cilindros. Fijarlas a mano dejaría al
+// V6 con dos cilindros fuera del bloque, y eso no se ve venir escribiendo el
+// número.
+// Las cotas del banco NO se escriben a mano: se derivan del número de cilindros
+// y de los voladizos reales de cada extremo —el filtro de aire por un lado y la
+// cola del escape por el otro—. La primera versión declaraba un ancho inventado
+// y dejaba media mesa vacía en primer plano con el motor fuera de cuadro; eso no
+// se ve venir escribiendo el número, sólo mirando la pantalla.
+function dims(e){
+  const paso=0.42, largo=e.nCil*paso;
+  const xTh=-(largo/2+0.30);            // eje del cuerpo de mariposa
+  const xIzq=xTh-0.55-0.20;             // borde exterior del filtro de aire
+  const xDer=largo/2+1.10+0.34;         // final del escape con su penacho
+  // Lo que el encuadre está OBLIGADO a meter llega hasta el catalizador; la cola
+  // y el penacho pueden quedarse debajo del panel de mandos. Exigir el banco
+  // entero obliga a alejarse tanto que el pizarrón deja de leerse, y el pizarrón
+  // es donde está la práctica.
+  const xVista=largo/2+0.95;
+  return { paso, largo, xTh, xIzq, xDer, xVista, ancho:xDer-xIzq, centro:(xIzq+xDer)/2 };
+}
+const xCil=(e,i)=>{ const d=dims(e); return -d.largo/2+d.paso*(i+0.5); };
+
+// Cilindro entre dos puntos. Sale muchas veces —tubos de admisión, de escape y
+// de combustible— y calcular la orientación a mano en cada uno es la forma más
+// segura de dejar un tubo apuntando a ninguna parte.
+function tuboEntre(a,b,r,mat,seg){
+  const A=new THREE.Vector3(...a), B=new THREE.Vector3(...b);
+  const d=new THREE.Vector3().subVectors(B,A), L=d.length();
+  const m=new THREE.Mesh(new THREE.CylinderGeometry(r,r,L,seg||16),mat);
+  m.position.copy(A).addScaledVector(d,0.5);
+  m.quaternion.setFromUnitVectors(new THREE.Vector3(0,1,0),d.clone().normalize());
+  m.castShadow=true;
+  return m;
+}
+// Tubo curvo por una lista de puntos de control. Los conductos de admisión y de
+// escape no son rectos, y dibujarlos rectos hace que el banco parezca un
+// esquema en vez de un motor.
+function tuboCurvo(pts,r,mat,seg){
+  const c=new THREE.CatmullRomCurve3(pts.map(p=>new THREE.Vector3(...p)));
+  const m=new THREE.Mesh(new THREE.TubeGeometry(c,seg||28,r,14,false),mat);
+  m.castShadow=true;
+  return m;
+}
+
+// Coloca un objeto y lo devuelve, para poder colgarlo en la misma expresión.
+const pon=(o,p)=>{ o.position.set(p[0],p[1],p[2]); return o; };
+const corta=(s,n)=>s.length>n?s.slice(0,n-1)+'…':s;
+let toastT=null;
+function showToast(html,ms){
+  const t=el('toast'); t.innerHTML=html; t.classList.add('show');
+  clearTimeout(toastT); toastT=setTimeout(()=>t.classList.remove('show'),ms||3800);
+}
+
+const banco=new THREE.Group(); scene.add(banco);
+// Todo lo que se reconstruye al cambiar de arquetipo cuelga de este grupo, y se
+// vacía entero: dejar mallas viejas colgando duplica los inyectores del V6 sobre
+// los del anterior y la escena empieza a mentir sin avisar.
+const motorG=new THREE.Group(); banco.add(motorG);
+
+// Referencias que el bucle de animación necesita tocar cada fotograma.
+const REF={ inyectores:[], chorros:[], mariposa:null, sonda:null, sondaLuz:null,
+  aguja:null, agujaMax:null, escGas:null, panelTex:null, panelCv:null, panelCx:null,
+  ledDtc:null, ledLazo:null, maf:null, runners:[] };
+
+function limpiaGrupo(g){
+  while(g.children.length){
+    const c=g.children.pop();
+    c.traverse&&c.traverse(o=>{ if(o.geometry) o.geometry.dispose(); });
+    g.remove(c);
+  }
+}
+
+// ------------------------------------------------------------------ el pedestal
+// La mesa se rehace con el banco porque su largo tiene que salir del ancho REAL
+// del motor: una mesa fija de seis metros y medio deja al 1.6 en una esquina y
+// llena el primer plano de tablero vacío.
+const mesaG=new THREE.Group(); banco.add(mesaG);
+{
+  const suelo=new THREE.Mesh(new THREE.CircleGeometry(9,64),
+    std({color:0x0b1018,roughness:0.94,metalness:0.05}));
+  suelo.rotation.x=-Math.PI/2; suelo.position.y=0.001; suelo.receiveShadow=true; scene.add(suelo);
+}
+function construyeMesa(d){
+  limpiaGrupo(mesaG);
+  const L=d.ancho+0.60, Z=2.10, cx=d.centro;
+  const mesa=roundedBox(L,0.16,Z,MAT.banco,0.05);
+  mesa.position.set(cx,0.84,0); mesa.receiveShadow=true; mesa.castShadow=true; mesaG.add(mesa);
+  for(const sx of [-1,1]) for(const sz of [-1,1]){
+    const p=new THREE.Mesh(new THREE.BoxGeometry(0.14,0.84,0.14),MAT.acero);
+    p.position.set(cx+sx*(L/2-0.24),0.42,sz*(Z/2-0.22)); p.castShadow=true; mesaG.add(p);
+  }
+  const trav=new THREE.Mesh(new THREE.BoxGeometry(L-0.30,0.07,0.07),MAT.acero);
+  trav.position.set(cx,0.26,0); mesaG.add(trav);
+}
+
+// ------------------------------------------------------- bloque, culata y aire
+function construyeMotor(){
+  limpiaGrupo(motorG);
+  REF.inyectores=[]; REF.chorros=[]; REF.runners=[];
+  const e=MQ(), d=dims(e);
+
+  // --- bloque y culata
+  const bloque=roundedBox(d.largo+0.26,0.52,0.64,MAT.bloque,0.04);
+  bloque.position.set(0,1.18,0); bloque.castShadow=true; motorG.add(bloque);
+  const culata=roundedBox(d.largo+0.26,0.22,0.64,MAT.culata,0.03);
+  culata.position.set(0,1.55,0); culata.castShadow=true; motorG.add(culata);
+  const tapa=roundedBox(d.largo+0.16,0.10,0.50,std({...plas,color:0x2a323c,roughness:0.48}),0.03);
+  tapa.position.set(0,1.71,0); tapa.castShadow=true; motorG.add(tapa);
+  // Aletas del bloque: dan escala y hacen que el V6 se lea como un motor mayor y
+  // no como el mismo motor estirado.
+  for(let i=0;i<e.nCil;i++){
+    const a=new THREE.Mesh(new THREE.BoxGeometry(0.03,0.44,0.68),MAT.bloque);
+    a.position.set(xCil(e,i)+d.paso/2,1.18,0); motorG.add(a);
+  }
+
+  // --- colector de admisión: plénum, conductos y mariposa
+  const plen=new THREE.Mesh(new THREE.CylinderGeometry(0.135,0.135,d.largo+0.34,24),
+    std({...alu,color:0x8d949d,metalness:0.55,roughness:0.52}));
+  plen.rotation.z=Math.PI/2; plen.position.set(0,2.06,0.62); plen.castShadow=true; motorG.add(plen);
+  for(let i=0;i<e.nCil;i++){
+    const x=xCil(e,i);
+    const t=tuboCurvo([[x,2.02,0.62],[x,1.92,0.52],[x,1.78,0.40],[x,1.66,0.33]],0.055,
+      std({...alu,color:0x8d949d,metalness:0.55,roughness:0.52}));
+    motorG.add(t); REF.runners.push(t);
+  }
+  // Cuerpo de mariposa en el extremo del plénum, del lado del pizarrón, para que
+  // se vea sin girar la cámara cuando se está leyendo el tablero.
+  const xTh=d.xTh;
+  const cuerpo=new THREE.Mesh(new THREE.CylinderGeometry(0.155,0.155,0.30,24),
+    std({...alu,color:0x9aa1aa,metalness:0.70,roughness:0.36}));
+  cuerpo.rotation.z=Math.PI/2; cuerpo.position.set(xTh-0.12,2.06,0.62); cuerpo.castShadow=true; motorG.add(cuerpo);
+  // La mariposa es una PLACA, no un disco tumbado: gira alrededor de un eje
+  // perpendicular al flujo. Cerrada, su cara tapa el conducto —su normal va con
+  // el aire—; abierta del todo se pone de canto. Modelarla como cilindro deja
+  // una tapa que gira sobre sí misma sin abrir nada.
+  const mari=new THREE.Mesh(new THREE.BoxGeometry(0.010,0.276,0.276),MAT.crom);
+  mari.position.set(xTh-0.12,2.06,0.62); motorG.add(mari);
+  REF.mariposa=mari;
+  const eje=new THREE.Mesh(new THREE.CylinderGeometry(0.012,0.012,0.32,10),MAT.acero);
+  eje.position.set(xTh-0.12,2.06,0.62); motorG.add(eje);
+  // Medidor de aire aguas arriba de la mariposa, con su filtro.
+  const mafC=new THREE.Mesh(new THREE.CylinderGeometry(0.115,0.115,0.28,20),
+    std({...plas,color:0x1e252e,roughness:0.52}));
+  mafC.rotation.z=Math.PI/2; mafC.position.set(xTh-0.34,2.06,0.62); mafC.castShadow=true; motorG.add(mafC);
+  REF.maf=mafC;
+  const filtro=new THREE.Mesh(new THREE.CylinderGeometry(0.20,0.20,0.26,24),
+    std({...plas,color:0x14191f,roughness:0.86}));
+  filtro.rotation.z=Math.PI/2; filtro.position.set(xTh-0.55,2.06,0.62); filtro.castShadow=true; motorG.add(filtro);
+  for(let i=-2;i<=2;i++){
+    const an=new THREE.Mesh(new THREE.TorusGeometry(0.203,0.010,8,28),MAT.goma);
+    an.rotation.y=Math.PI/2; an.position.set(xTh-0.55+i*0.045,2.06,0.62); motorG.add(an);
+  }
+
+  construyeCombustible(e,d);
+  construyeEscape(e,d);
+  construyeMesa(d);
+  colocaInstrumentos(d);
+  colocaTablero(d);
+}
+
+// =========================================== T3b · COMBUSTIBLE, ESCAPE E INSTRUMENTOS
+
+// ------------------------------------------------------------- el combustible
+function construyeCombustible(e,d){
+  const zR=0.30, yR=1.92;
+  const riel=new THREE.Mesh(new THREE.CylinderGeometry(0.050,0.050,d.largo+0.30,20),MAT_RIEL);
+  riel.rotation.z=Math.PI/2; riel.position.set(0,yR,zR); riel.castShadow=true; motorG.add(riel);
+  for(const sx of [-1,1]){
+    const tap=new THREE.Mesh(new THREE.SphereGeometry(0.052,16,12),MAT_RIEL);
+    tap.position.set(sx*(d.largo/2+0.15),yR,zR); motorG.add(tap);
+  }
+  // Manguera de alimentación desde la bomba, por debajo de la mesa.
+  motorG.add(tuboCurvo([[-(d.largo/2+0.15),yR,zR],[-(d.largo/2+0.55),1.72,0.38],
+    [-(d.largo/2+0.72),1.30,0.62],[-(d.largo/2+0.72),1.02,0.78]],0.030,MAT_MANG));
+
+  for(let i=0;i<e.nCil;i++){
+    const x=xCil(e,i);
+    const cuerpo=new THREE.Mesh(new THREE.CylinderGeometry(0.036,0.030,0.20,14),MAT_INY);
+    cuerpo.position.set(x,yR-0.11,zR+0.02); cuerpo.rotation.x=-0.16; cuerpo.castShadow=true;
+    motorG.add(cuerpo);
+    const conector=new THREE.Mesh(new THREE.BoxGeometry(0.052,0.048,0.040),
+      std({...plas,color:0x2b3440,roughness:0.5}));
+    conector.position.set(x,yR-0.02,zR+0.07); motorG.add(conector);
+    // El anillo del inyector es lo que PARPADEA: su brillo dice si está abierto
+    // en este instante, y su color, cuánto entrega ese cilindro comparado con los
+    // demás. Cada uno lleva su propio material —clonado— porque compartirlo haría
+    // que los cuatro se encendieran a la vez y el reparto por cilindro dejaría de
+    // verse.
+    const anillo=new THREE.Mesh(new THREE.TorusGeometry(0.040,0.011,10,22),
+      emis(0x7CD992,0.25).clone());
+    anillo.rotation.x=Math.PI/2-0.16; anillo.position.set(x,yR-0.20,zR+0.035);
+    motorG.add(anillo);
+    // Chorro: cono translúcido que aparece mientras el inyector está abierto.
+    const chorro=new THREE.Mesh(new THREE.ConeGeometry(0.038,0.13,14,1,true),
+      std({color:0xF2A65A,emissive:0xF2A65A,emissiveIntensity:0.7,transparent:true,
+        opacity:0.0,depthWrite:false,roughness:0.6}));
+    chorro.position.set(x,yR-0.29,zR+0.05); chorro.rotation.x=Math.PI-0.16;
+    motorG.add(chorro);
+    REF.inyectores.push(anillo); REF.chorros.push(chorro);
+  }
+}
+
+// ------------------------------------------------------------------- el escape
+function construyeEscape(e,d){
+  const yC=1.14, zC=-0.64;
+  for(let i=0;i<e.nCil;i++){
+    const x=xCil(e,i);
+    motorG.add(tuboCurvo([[x,1.52,-0.32],[x,1.42,-0.44],[x,1.26,-0.58],[x,yC,zC]],0.048,MAT_ESCAPE));
+  }
+  const xCol0=-(d.largo/2+0.12), xCol1=d.largo/2+1.10;
+  const col=new THREE.Mesh(new THREE.CylinderGeometry(0.078,0.078,xCol1-xCol0,20),MAT_ESCAPE);
+  col.rotation.z=Math.PI/2; col.position.set((xCol0+xCol1)/2,yC,zC); col.castShadow=true; motorG.add(col);
+
+  // La sonda va ANTES del catalizador y en el colector, donde ve la mezcla de
+  // todos los escapes. Ponerla después mediría lo que sale del catalizador, que
+  // es otra cosa.
+  const xS=d.largo/2+0.32;
+  const boss=new THREE.Mesh(new THREE.CylinderGeometry(0.048,0.048,0.10,14),MAT.acero);
+  boss.position.set(xS,yC+0.10,zC); motorG.add(boss);
+  const cuerpo=new THREE.Mesh(new THREE.CylinderGeometry(0.040,0.052,0.20,16),
+    std({...brush,color:0xb9c0c8,metalness:0.95,roughness:0.30}));
+  cuerpo.position.set(xS,yC+0.24,zC); cuerpo.castShadow=true; motorG.add(cuerpo);
+  const tapa=new THREE.Mesh(new THREE.CylinderGeometry(0.030,0.030,0.10,14),
+    std({...plas,color:0x232a34,roughness:0.5}));
+  tapa.position.set(xS,yC+0.38,zC); motorG.add(tapa);
+  const luz=new THREE.Mesh(new THREE.SphereGeometry(0.055,18,14),
+    std({color:0x7CD992,emissive:0x7CD992,emissiveIntensity:1.4,roughness:0.4}));
+  luz.position.set(xS,yC+0.44,zC); motorG.add(luz);
+  REF.sonda=cuerpo; REF.sondaLuz=luz;
+  // `labelSprite` del kit devuelve el sprite YA escalado y hornea el texto en su
+  // textura: la posición la pone quien lo cuelga. Pasarle coordenadas como
+  // segundo argumento lo dejaría con un color inválido y el rótulo en el origen.
+  motorG.add(pon(labelSprite('sonda λ','#5BD4E5'),[xS,yC+0.66,zC]));
+
+  // Catalizador y cola de escape.
+  const xCat=d.largo/2+0.72;
+  const cat=new THREE.Mesh(new THREE.CylinderGeometry(0.150,0.150,0.46,24),
+    std({...brush,color:0x8e959c,metalness:0.85,roughness:0.42}));
+  cat.rotation.z=Math.PI/2; cat.position.set(xCat,yC,zC); cat.castShadow=true; motorG.add(cat);
+  for(const sx of [-1,1]){
+    const cono=new THREE.Mesh(new THREE.CylinderGeometry(0.080,0.151,0.12,24),
+      std({...brush,color:0x8e959c,metalness:0.85,roughness:0.42}));
+    cono.rotation.z=sx*Math.PI/2; cono.position.set(xCat+sx*0.29,yC,zC); motorG.add(cono);
+  }
+  // Gases a la salida: su color es el de la lambda REAL, que es justo lo que la
+  // sonda de banda estrecha no sabe decir.
+  const gas=new THREE.Mesh(new THREE.ConeGeometry(0.14,0.56,18,1,true),
+    std({color:0x7CD992,emissive:0x7CD992,emissiveIntensity:0.55,transparent:true,
+      opacity:0.16,depthWrite:false,roughness:0.9}));
+  gas.rotation.z=-Math.PI/2; gas.position.set(xCol1+0.30,yC,zC); motorG.add(gas);
+  REF.escGas=gas;
+}
+
+// -------------------------------------------------------------- instrumentos
+// El molde de esta práctica es de PANEL: lo que se manipula no son piezas sino
+// mandos, y los instrumentos que responden tienen que estar en la escena, no
+// sólo en el HUD. Aquí van los dos que un taller usaría de verdad: el manómetro
+// del riel y la pantalla del escáner.
+const instr=new THREE.Group(); banco.add(instr);
+// Los instrumentos van DETRÁS del motor y no delante: puestos delante tapaban el
+// riel y los inyectores, que son lo que hay que mirar, y puestos a un costado
+// alargaban el banco un metro entero y echaban el motor fuera de cuadro. Su sitio
+// se recalcula con el motor porque depende del ancho.
+function colocaInstrumentos(d){
+  instr.position.set(d.centro+0.25,0,-0.96);
+  instr.rotation.y=0.26;
+}
+{
+  instr.position.set(0.25,0,-0.96); instr.rotation.y=0.26;
+  const poste=new THREE.Mesh(new THREE.CylinderGeometry(0.035,0.045,0.72,14),MAT.acero);
+  poste.position.set(0,1.28,0); poste.castShadow=true; instr.add(poste);
+  const base=new THREE.Mesh(new THREE.CylinderGeometry(0.20,0.22,0.05,20),MAT.banco);
+  base.position.set(0,0.945,0); instr.add(base);
+
+  // --- manómetro del riel
+  const caja=roundedBox(0.44,0.44,0.10,std({...plas,color:0x1b222b,roughness:0.5}),0.05);
+  caja.position.set(-0.30,1.74,0); caja.castShadow=true; instr.add(caja);
+  const esfera=new THREE.Mesh(new THREE.CircleGeometry(0.175,40),MAT_ESFERA);
+  esfera.position.set(-0.30,1.74,0.052); instr.add(esfera);
+  for(let i=0;i<=10;i++){
+    const a=Math.PI*1.25-Math.PI*1.5*(i/10);
+    const t=new THREE.Mesh(new THREE.BoxGeometry(i%5===0?0.010:0.006,i%5===0?0.038:0.022,0.004),
+      std({color:0x1a1f27,roughness:0.8}));
+    t.position.set(-0.30+Math.cos(a)*0.148,1.74+Math.sin(a)*0.148,0.055);
+    t.rotation.z=a-Math.PI/2; instr.add(t);
+  }
+  const ag=new THREE.Mesh(new THREE.BoxGeometry(0.012,0.150,0.006),MAT_AGUJA);
+  ag.position.set(0,0.075,0);
+  const pivot=new THREE.Group(); pivot.position.set(-0.30,1.74,0.060); pivot.add(ag); instr.add(pivot);
+  const tuerca=new THREE.Mesh(new THREE.CylinderGeometry(0.020,0.020,0.014,14),MAT.crom);
+  tuerca.rotation.x=Math.PI/2; tuerca.position.set(-0.30,1.74,0.066); instr.add(tuerca);
+  const cristal=new THREE.Mesh(new THREE.CircleGeometry(0.178,40),MAT_VIDRIO);
+  cristal.position.set(-0.30,1.74,0.072); instr.add(cristal);
+  REF.aguja=pivot;
+  instr.add(pon(labelSprite('presión del riel','#9aa6b6'),[-0.30,1.42,0.06]));
+
+  // --- pantalla del escáner
+  const pcv=document.createElement('canvas'); pcv.width=512; pcv.height=340;
+  const pcx=pcv.getContext('2d');
+  const ptex=new THREE.CanvasTexture(pcv); ptex.colorSpace=THREE.SRGBColorSpace;
+  REF.panelCv=pcv; REF.panelCx=pcx; REF.panelTex=ptex;
+  const marco=roundedBox(0.86,0.60,0.06,std({...plas,color:0x171d25,roughness:0.55}),0.04);
+  marco.position.set(0.42,1.74,0); marco.castShadow=true; instr.add(marco);
+  const pant=new THREE.Mesh(new THREE.PlaneGeometry(0.78,0.52),
+    new THREE.MeshBasicMaterial({map:ptex,toneMapped:false}));
+  pant.position.set(0.42,1.74,0.032); instr.add(pant);
+  instr.add(labelSprite('escáner',[0.42,1.40,0.03],0.28));
+
+  // Dos testigos: uno de código de avería y otro de estado del lazo. Son los que
+  // un mecánico mira primero, y aquí sirven para no tener que leer números para
+  // saber si la centralita está corrigiendo o se ha rendido.
+  const mk=(x,hex)=>{ const m=new THREE.Mesh(new THREE.SphereGeometry(0.038,16,12),
+    std({color:hex,emissive:hex,emissiveIntensity:0.25,roughness:0.4}));
+    m.position.set(x,1.36,0.04); instr.add(m); return m; };
+  REF.ledDtc=mk(0.16,0xff6b6b);
+  REF.ledLazo=mk(0.68,0x7CD992);
+}
+
+// ------------------------------------------------------- pantalla del escáner
+function pintaPanel3D(){
+  const cx=REF.panelCx; if(!cx) return;
+  const s=EST(), W=512, H=340;
+  cx.fillStyle='#080c12'; cx.fillRect(0,0,W,H);
+  const P=(t,x,y,o={})=>{ cx.font=(o.b?'700 ':'400 ')+(o.s||18)+'px '+
+    (o.mono?'ui-monospace,Menlo,Consolas,monospace':'Inter,system-ui,sans-serif');
+    cx.fillStyle=o.c||'#dbe4f0'; cx.textAlign=o.al||'left'; cx.textBaseline='alphabetic';
+    cx.fillText(t,x,y); };
+  cx.strokeStyle='#1e2836'; cx.lineWidth=2; cx.strokeRect(10,10,W-20,H-20);
+  P('DATOS EN DIRECTO · MODO 01',26,44,{s:16,b:true,c:'#5BD4E5'});
+  cx.strokeStyle='#1e2836'; cx.beginPath(); cx.moveTo(26,56); cx.lineTo(W-26,56); cx.stroke();
+
+  const fila=(y,rot,val,col)=>{ P(rot,26,y,{s:17,c:'#8c98a9'}); P(val,W-26,y,{s:19,b:true,c:col,al:'right',mono:true}); };
+  fila(92,'Ajuste largo',s.lazoAbierto?'—':firm(s.ajustePct,1),
+    s.saturado?'#ff6b6b':(Math.abs(s.ajustePct)>=DTC_UMBRAL*100?'#E9C46A':'#7CD992'));
+  fila(126,'Sonda',num(s.vSonda*1000,0)+' mV',colLam(s.lamSonda));
+  fila(160,'Colector',num(s.map,3)+' bar','#dbe4f0');
+  fila(194,'Régimen',num(s.rpm,0)+' rpm','#dbe4f0');
+  fila(228,'Pulso',num(s.tOrden,2)+' ms','#dbe4f0');
+  fila(262,'Ciclo',num(s.ciclo,1)+' %',s.ciclo>=CICLO_TECHO?'#ff6b6b':'#dbe4f0');
+  cx.strokeStyle='#1e2836'; cx.beginPath(); cx.moveTo(26,282); cx.lineTo(W-26,282); cx.stroke();
+  P(s.dtc?('⚠ '+s.dtc):(s.lazoAbierto?'lazo abierto · enriquecimiento de potencia':'sin códigos · lazo cerrado'),
+    26,312,{s:16,b:!!s.dtc,c:s.dtc?'#ff6b6b':(s.lazoAbierto?'#E9C46A':'#7CD992')});
+  REF.panelTex.needsUpdate=true;
+}
+
+// ------------------------------------------------------------------ animación
+// Las inyecciones se pintan RALENTIZADAS: a 2 500 rpm hay veintiuna por segundo
+// y por cilindro, y a esa velocidad los anillos son un borrón. El factor se
+// declara en pantalla para que nadie confunda lo que ve con la frecuencia real.
+const LENTO=8;
+let RELOJ=0;
+// Contador de FOTOGRAMAS de la escena, no de repintados del pizarrón. La Capa 2
+// espera por él para leer cualquier cosa que sólo se actualice en el bucle, y si
+// contara repintados del pizarrón —que sólo ocurren al tocar un mando— la espera
+// se quedaría colgada para siempre en cuanto nadie tocara nada.
+let PINTADAS=0;
+function pinta3D(dt){
+  RELOJ+=dt; PINTADAS++;
+  const e=MQ(), s=EST(), d=dims(e);
+
+  // --- mariposa: cerrada, su cara tapa el conducto; abierta, se pone de canto
+  if(REF.mariposa) REF.mariposa.rotation.y=G.acel*(Math.PI/2)*0.94;
+
+  // --- inyectores: uno detrás de otro, con el ciclo de trabajo que sale del motor
+  const fCil=Math.max(0.4,(s.rpm/(2*60))/LENTO);      // aperturas por segundo y cilindro
+  const duty=clamp(s.ciclo/100,0,1);
+  REF.inyectores.forEach((an,i)=>{
+    const fase=(RELOJ*fCil+i/Math.max(e.nCil,1))%1;
+    const abierto=fase<duty;
+    // El reparto por cilindro se ve en el COLOR del anillo: con un inyector
+    // obstruido, el suyo se queda azul mientras los otros tres se van a naranja.
+    const cil=s.cil[i]||s.cil[0];
+    an.material.color.setHex(colorLam(cil.lam));
+    an.material.emissive.setHex(colorLam(cil.lam));
+    an.material.emissiveIntensity=abierto?1.9:0.20;
+    const ch=REF.chorros[i];
+    if(ch){
+      const rel=s.mComb>1e-12?clamp(cil.mComb/s.mComb,0.2,1.8):1;
+      ch.material.opacity=abierto?0.34*rel:0.0;
+      ch.material.color.setHex(colorLam(cil.lam));
+      ch.material.emissive.setHex(colorLam(cil.lam));
+      ch.scale.set(1,rel,1);
+    }
+  });
+
+  // --- la sonda: su luz es la TENSIÓN que entrega, no la mezcla que hay
+  if(REF.sondaLuz){
+    const T=s.lazoAbierto?null:TRZ();
+    // Con el lazo cerrado la tensión no se está quieta: oscila al ritmo de los
+    // cruces que ha medido la traza, y ese ritmo es lo único que delata una
+    // sonda envejecida.
+    let v=s.vSonda;
+    if(T&&T.cps>0){
+      const osc=Math.sin(2*Math.PI*(T.cps/LENTO)*RELOJ);
+      v=clamp(V_POBRE+(V_RICA-V_POBRE)*(osc>0?0.86:0.14),0,1);
+    }
+    const c=colorLam(s.lamSonda);
+    REF.sondaLuz.material.color.setHex(c);
+    REF.sondaLuz.material.emissive.setHex(c);
+    REF.sondaLuz.material.emissiveIntensity=0.5+2.0*v;
+  }
+
+  // --- gases a la salida: color de la lambda REAL
+  if(REF.escGas){
+    const c=colorLam(s.lam);
+    REF.escGas.material.color.setHex(c);
+    REF.escGas.material.emissive.setHex(c);
+    REF.escGas.material.opacity=0.10+0.16*clamp(s.mAireSeg/24,0,1)+0.03*Math.sin(RELOJ*3.1);
+  }
+
+  // --- manómetro del riel: fondo de escala fijo, para poder comparar máquinas
+  if(REF.aguja){
+    const p=e.pRiel*(FA().pRielMul===undefined?1:FA().pRielMul);
+    const u=clamp(p/6.0,0,1);
+    REF.aguja.rotation.z=Math.PI*0.75-Math.PI*1.5*u;
+  }
+
+  // --- testigos
+  if(REF.ledDtc){ REF.ledDtc.material.emissiveIntensity=s.dtc?(1.4+0.7*Math.sin(RELOJ*6)):0.10; }
+  if(REF.ledLazo){
+    const c=s.lazoAbierto?0xE9C46A:(s.saturado?0xff6b6b:0x7CD992);
+    REF.ledLazo.material.color.setHex(c);
+    REF.ledLazo.material.emissive.setHex(c);
+    REF.ledLazo.material.emissiveIntensity=1.2;
+  }
+  pintaPanel3D();
+}
+
+// ================================================ T4a · HUD, PANEL Y MANDOS
+const MODES=['mezcla','aire','inyector','sonda','lazo','censo','reto'];
+const MODE_META={
+  mezcla:  {n:'El camino del combustible'},
+  aire:    {n:'La carga de aire'},
+  inyector:{n:'El inyector'},
+  sonda:   {n:'La sonda lambda'},
+  lazo:    {n:'El lazo en el tiempo'},
+  censo:   {n:'Censo de instrumentos'},
+  reto:    {n:'Diagnóstico a ciegas'},
+};
+const HUD_TXT={
+  mezcla:['Mezcla','De aire medido a lambda',
+    'La centralita mide el aire, lo divide entre los 14,70 que tiene GRABADOS y ordena ese pulso. Después mira la sonda y corrige con el ajuste largo. Cada eslabón puede fallar por su cuenta, y sólo se lee al final: en el escape.',
+    'λ = (ṁ<sub>aire</sub> / ṁ<sub>comb</sub>) / AFR<sub>estequiométrica</sub>'],
+  aire:['Aire','Lo que entra y lo que se mide',
+    'Densidad y régimen: la masa que entra en un cilindro sale del volumen desplazado, de la densidad del colector y del rendimiento volumétrico. La presión del colector NO es un mando: es la consecuencia de la mariposa y del régimen.',
+    'm<sub>aire</sub> = η<sub>vol</sub> · V<sub>cil</sub> · p<sub>MAP</sub> / (R · T<sub>adm</sub>)'],
+  inyector:['Inyector','Caudal, presión y tiempo muerto',
+    'Lo que entrega un inyector es su caudal por el tiempo que está ABIERTO, y ése no es el que la centralita ordena. El caudal escala con la RAÍZ de la caída de presión, y el tiempo muerto se dispara cuando cae la batería.',
+    'm<sub>comb</sub> = q<sub>est</sub>·√(Δp/Δp<sub>0</sub>) · (t<sub>orden</sub> − t<sub>muerto</sub>)'],
+  sonda:['Sonda','No mide: dice de qué lado está',
+    'Celda de circonia y ecuación de Nernst. La curva es casi vertical en el estequiométrico y casi plana a los dos lados. Es un DETECTOR DE CRUCE, no un medidor, y ahí empieza todo lo que puede salir mal.',
+    'V = V<sub>pobre</sub> + ΔV / (1 + e<sup>k(λ−1)</sup>)'],
+  lazo:['Lazo','Por qué el ajuste corto oscila',
+    'Como la sonda sólo dice de qué lado está, el ajuste corto no puede quedarse quieto: salto al cruzar y rampa entre cruces. La frecuencia la fijan el viaje de los gases hasta la sonda y la constante de tiempo de la sonda.',
+    'f<sub>cruces</sub> ≈ 1 / (t<sub>transporte</sub> + τ<sub>sonda</sub>)'],
+  censo:['Censo','¿Qué instrumentos hacen falta?',
+    'Trece escenarios, ocho observaciones, 255 juegos posibles. La pregunta útil no es cuánto marca cada instrumento, sino cuántas averías distintas separa. Y el resultado NO es el mismo en las cuatro máquinas.',
+    'firma(sub) → clases de equivalencia'],
+  reto:['Reto','Diagnostica a ciegas',
+    'El escenario está oculto. Compra las observaciones que necesites y entrega la FAMILIA de avería. Hay una avería en la que el escáner sale impecable y el analizador de gases no, y otra que no mueve ni la mezcla ni los ajustes.',
+    'diagnóstico = f(ajustes, ciclo, presión, batería, λ, cruces, dispersión)'],
+};
+function pintaHUD(){
+  const t=HUD_TXT[G.modo]||HUD_TXT.mezcla, e=MQ();
+  el('hud').innerHTML=
+    '<div class="eyebrow">Inyección y sonda lambda · '+t[0]+'</div>'+
+    '<h2>'+t[1]+'</h2>'+
+    '<p>'+t[2]+'</p>'+
+    '<div class="formula">'+t[3]+'</div>'+
+    '<div class="legend">'+
+      '<div class="li"><span class="dot" style="background:'+colLam(0.86)+'"></span>mezcla rica: sobra combustible</div>'+
+      '<div class="li"><span class="dot" style="background:'+colLam(1.00)+'"></span>en el estequiométrico (±'+num(BANDA_LAM,2)+')</div>'+
+      '<div class="li"><span class="dot" style="background:'+colLam(1.14)+'"></span>mezcla pobre: sobra aire</div>'+
+      '<div class="li"><span class="dot" style="background:'+BAD_HEX+'"></span>la sonda dice una cosa y el gas, otra</div>'+
+    '</div>'+
+    '<div class="fid">'+
+      '<div class="ft">🔒 Contrato de fidelidad</div>'+
+      '<div class="fl"><b>Sí modela:</b> la carga de aire por <b>densidad y régimen</b>, con un rendimiento volumétrico que es campana en el régimen y cae con la mariposa cerrada por los gases residuales; la presión del colector como CONSECUENCIA de la mariposa y del régimen, con el soplado del turbo creciendo con el gasto en el arquetipo sobrealimentado; el caudal del inyector por la <b>raíz</b> de la caída de presión, distinta según el regulador esté o no referenciado al vacío; el tiempo muerto por la tabla de catálogo contra la tensión de batería, con su interpolación; la sonda de banda estrecha por una <b>logística de Nernst</b> centrada en lambda uno; el lazo cerrado resuelto por bisección buscando el ajuste que hace que la <b>sonda</b> diga uno —no el que centra la mezcla—, con su autoridad de ±'+pc(AUTORIDAD*100,0)+' y su código a partir de ±'+pc(DTC_UMBRAL*100,0)+'; la apertura del lazo a plena carga con su enriquecimiento de potencia; el reparto por cilindro sumando <b>masas</b> de escape, que es como se mezclan de verdad; y la oscilación del ajuste corto contra el retardo de transporte de los gases y la constante de tiempo de la sonda.</div>'+
+      '<div class="fl no"><b>NO modela:</b> la combustión en sí, el avance de encendido ni la detonación —el par relativo sale del combustible <b>quemado</b>, que es el que encuentra oxígeno, y no de un modelo de ciclo—; el catalizador, que aquí es geometría y no química; la inyección directa, la estratificada ni el arranque en frío; el transitorio de aceleración —todas las cifras son de <b>permanente</b>, salvo la traza del lazo—; la dinámica del propio regulador de presión; la sonda de banda ancha, que se nombra pero no se simula; y los sensores de detonación, de árbol o de cigüeñal. El régimen y el acelerador son mandos <b>independientes</b> en este banco: no hay carga externa que los ligue. Las inyecciones se pintan ralentizadas '+num(LENTO,0)+' veces para que los anillos no sean un borrón, y los cilindros se dibujan <b>en línea</b> también en el V6. Los cuatro motores son arquetipos declarados, <b>no</b> modelos comerciales: el caudal del inyector, la presión del riel y el mapa de una centralita concreta están en su manual de taller y en ningún otro sitio.</div>'+
+    '</div>'+
+    '<div class="src">Ref: ecuación de Nernst y curva publicada de la sonda de banda estrecha (Bosch, «Automotive Handbook») · método de densidad y régimen y rendimiento volumétrico (Heywood, cap. 6) · caudal de inyector por raíz de la caída de presión y tabla de tiempo muerto del catálogo del fabricante · SAE J1979 / ISO 15031-5, modos 01 y 06 del diagnóstico a bordo (ajustes de mezcla, P0171 y P0172) · manual de taller del fabricante (única fuente del inyector, del riel y del mapa de un motor concreto) · Motor en pantalla: '+e.nombre+'.</div>';
+}
+
+el('panel').innerHTML=
+  '<h4>Banco de inyección <span id="p_mode"></span></h4>'+
+  '<div class="modebar">'+
+    '<button class="b" id="m_mezcla">1 · Mezcla</button>'+
+    '<button class="b" id="m_aire">2 · Aire</button>'+
+    '<button class="b" id="m_inyector">3 · Inyector</button>'+
+    '<button class="b" id="m_sonda">4 · Sonda</button>'+
+  '</div>'+
+  '<div class="modebar">'+
+    '<button class="b" id="m_lazo">5 · Lazo</button>'+
+    '<button class="b" id="m_censo">6 · Censo</button>'+
+    '<button class="b" id="m_reto">7 · Reto</button>'+
+  '</div>'+
+  '<div id="ctrlbar"></div>'+
+  '<div id="tele"></div>'+
+  '<div class="console" id="report"></div>'+
+  '<h4 class="sec" id="retoTitle">Diagnóstico a ciegas</h4>'+
+  '<div id="retoBox">'+
+    '<div class="console" id="retoSpec"></div>'+
+    '<div class="btns" id="obsreto"></div>'+
+    '<div class="btns" id="dxreto"></div>'+
+    '<div class="btns">'+
+      '<button class="b" id="btnPista">💡 Pedir una pista</button>'+
+      '<button class="b primary" id="btnCheck">Entregar el diagnóstico</button>'+
+    '</div>'+
+  '</div>'+
+  '<h4 class="sec">Pregunta de ingeniería</h4>'+
+  '<div id="q_text" class="console"></div>'+
+  '<div class="btns" id="dxbtns"></div>'+
+  '<div class="btns">'+
+    '<button class="b auto" id="btnAuto">▶︎ Recorrido guiado</button>'+
+    '<button class="b primary" id="btnNew">🔀 Otro caso</button>'+
+  '</div>';
+
+// ------------------------------------------------------------------ controles
+// Los mandos se levantan desde el estado. Un mando que no puede hacer nada en el
+// modo actual no se dibuja: un botón pulsable que no cambia nada enseña a
+// desconfiar de la interfaz.
+// Los botones de una barra se reparten el ancho a partes iguales, así que trece
+// en una sola fila salen ilegibles y el último se sale del panel. Se cortan en
+// varias barras de altura pareja, calculadas del número de opciones.
+function fila(rot,attr,ops,cur){
+  const filas=Math.ceil(ops.length/5), porFila=Math.ceil(ops.length/filas);
+  let h='<div class="gl" style="margin:9px 0 4px"><span>'+rot+'</span></div>';
+  for(let i=0;i<ops.length;i+=porFila){
+    h+='<div class="modebar">'+ops.slice(i,i+porFila).map(o=>
+      '<button class="b'+(String(o[0])===String(cur)?' on':'')+'" '+attr+'="'+o[0]+'">'+o[1]+'</button>'
+    ).join('')+'</div>';
+  }
+  return h;
+}
+// Rótulo corto de cada escenario para los botones. Si mañana aparece un
+// escenario nuevo sin rótulo corto, cae en el recorte del largo en vez de
+// quedarse sin botón.
+const ESC_CORTO={sano:'sano', fugaVacio:'fuga de vacío', mafSucio:'sensor sucio',
+  inyObstruido:'inyector obstruido', presionBaja:'riel bajo', presionAlta:'riel alto',
+  sondaLenta:'sonda lenta', sondaVaga:'sonda contaminada', fugaEscape:'fuga de escape',
+  purga:'purga pegada', filtroAire:'filtro tapado', bateriaBaja:'batería baja',
+  combE85:'E85 en el depósito'};
+// El ralentí es una PROPIEDAD de la máquina, así que siempre está entre las
+// opciones y es adonde se vuelve al cambiar de motor. Si no, el panel ofrecería
+// un régimen que ese motor no tiene y la cifra saldría de un punto inexistente.
+const rpmOps=()=>[...new Set([MQ().ralenti,1500,2500,3500,4500,5500])].sort((a,b)=>a-b);
+// Las opciones de acelerador incluyen SIEMPRE una por encima de la apertura del
+// lazo y varias por debajo: si todas cayeran de un lado, media práctica —la
+// mitad que enseña qué pasa cuando la sonda deja de mandar— sería inalcanzable.
+const ACEL_OPS=[[0,'suelto'],[0.15,'poco'],[0.35,'crucero'],[0.6,'firme'],[0.85,'casi a fondo'],[1,'a fondo']];
+
+function buildControls(){
+  const e=MQ(), reto=(G.modo==='reto');
+  let h='';
+  if(!reto) h+=fila('Motor en el banco','data-mk',ARQ_KEYS.map(k=>[k,ARQ[k].corto]),G.maq);
+  else h+='<div class="gl" style="margin:9px 0 4px"><span>Motor bajo diagnóstico</span><b>'+e.corto+'</b></div>';
+
+  if(!reto) h+=fila('Estado del sistema','data-esc',
+    ESCEN_KEYS.map(k=>[k,ESC_CORTO[k]||corta(ESCEN[k].rot,16)]),G.esc);
+  else h+='<div class="gl" style="margin:9px 0 4px"><span>Estado del sistema</span><b class="warn">oculto</b></div>';
+
+  if(!reto){
+    h+=fila('Combustible en el depósito','data-cb',COMB_KEYS.map(k=>[k,COMB[k].corto]),G.comb);
+    if(combForzado())
+      h+='<div class="gl" style="margin:4px 0 4px"><span>Ojo</span><b class="warn">el escenario impone '+
+        CB().corto+'</b></div>';
+  }
+  if(G.modo==='mezcla'||G.modo==='aire'||G.modo==='inyector'||G.modo==='sonda'||G.modo==='lazo'){
+    h+=fila('Régimen del motor','data-rpm',
+      rpmOps().map(r=>[r,num(r,0)+(r===e.ralenti?'*':'')]),G.rpm);
+    h+=fila('Acelerador','data-ac',ACEL_OPS.map(c=>[c[0],c[1]]),G.acel);
+  }
+  if(G.modo==='mezcla'||G.modo==='inyector'){
+    h+=fila('Tensión de batería','data-vb',TENSIONES.map(v=>[v,num(v,1)+' V']),G.vBat);
+    if(vBatForzada())
+      h+='<div class="gl" style="margin:4px 0 4px"><span>Ojo</span><b class="warn">el escenario impone '+
+        volt(vBatEfectiva(),1)+'</b></div>';
+  }
+  if(G.modo==='aire'||G.modo==='censo')
+    h+=fila('Aire de admisión','data-ta',TEMPS_ADM.map(t=>[t,num(t,0)+' °C']),G.Tadm);
+  el('ctrlbar').innerHTML=h;
+}
+function syncCtrlbar(){
+  MODES.forEach(m=>{
+    const b=el('m_'+m); if(!b) return;
+    b.classList.toggle('on',m===G.modo);
+  });
+  const rt=(G.modo==='reto');
+  el('retoTitle').style.display=rt?'':'none';
+  el('retoBox').style.display=rt?'':'none';
+  el('p_mode').textContent='· '+MODE_META[G.modo].n;
+  el('btnNew').textContent=rt?'🔀 Otro coche averiado':'🔀 Otro caso';
+  el('btnAuto').disabled=autoRunning;
+  buildControls();
+}
+
+// ---------------------------------------------------------------- telemetría
+const gl=(l,v,c)=>'<div class="g"><div class="gl"><span>'+l+'</span><b'+(c?' class="'+c+'"':'')+'>'+v+'</b></div></div>';
+function pintaTele(){
+  const e=MQ(), s=EST(), V=veredicto();
+  let h='';
+  // En el diagnóstico a ciegas sólo se publica lo que se ha COMPRADO. Publicar
+  // aquí la lambda, el ajuste o el veredicto sería regalar la respuesta.
+  if(G.modo==='reto'){
+    h+=gl('Observaciones compradas',Object.keys(RETO.tomadas).length+' / '+OBS.length,
+      Object.keys(RETO.tomadas).length?'':'warn');
+    h+=gl('Familia elegida',RETO.eleccion||'ninguna todavía',RETO.eleccion?'':'warn');
+    if(RETO.veredicto) h+=gl('Diagnóstico entregado',RETO.veredicto.ok?'acertado':'fallado',
+      RETO.veredicto.ok?'good':'bad');
+    el('tele').innerHTML=h;
+    return;
+  }
+  h+=gl('Combustible',CB().corto+(combForzado()?' (impuesto)':''),combForzado()?'warn':'');
+  h+=gl('Lazo',s.lazoAbierto?'ABIERTO: manda el mapa de potencia':'cerrado: manda la sonda',
+    s.lazoAbierto?'warn':'good');
+  h+=gl('Lambda real',lamT(s.lam),V.enBanda?'good':'bad');
+  // Que la sonda mienta es el hallazgo más importante que este banco puede dar,
+  // y no depende del modo en el que se esté mirando: se publica siempre que
+  // aparezca, no sólo en la vista de la sonda.
+  if(s.mienteSonda) h+=gl('La sonda lee','λ '+lamT(s.lamSonda)+': MIENTE','bad');
+  h+=gl('Ajuste largo',s.lazoAbierto?'—':firm(s.ajustePct,1),
+    s.saturado?'bad':(Math.abs(s.ajustePct)>=DTC_UMBRAL*100?'warn':'good'));
+  if(s.saturado) h+=gl('Autoridad','SATURADA en ±'+pc(AUTORIDAD*100,0),'bad');
+  if(G.modo==='aire'){
+    h+=gl('Presión del colector',bar(s.map,3),'');
+    h+=gl('Rendimiento volumétrico',pc(s.etaVol*100,1),'');
+    h+=gl('Aire que entra',mg(s.mAireCil*1000,2),'');
+    h+=gl('Lo que mide el sensor',mg(s.mMedido*1000,2),
+      roto(s.mMedido,s.mAireCil)?'warn':'good');
+  }
+  if(G.modo==='inyector'){
+    h+=gl('Caída en el inyector',bar(s.dpInyector,2),'');
+    h+=gl('Pulso ordenado',mili(s.tOrden,2),'');
+    h+=gl('Tiempo muerto',mili(s.tMuerto,2),s.tMuerto>1.2?'warn':'');
+    h+=gl('Ciclo de trabajo',pc(s.ciclo,1),V.sinMargenInyector?'bad':'good');
+  }
+  if(G.modo==='sonda'){
+    h+=gl('Tensión de la sonda',num(s.vSonda*1000,0)+NBSP+'mV','');
+    h+=gl('Dice que la mezcla está',ROT_MEZ[regimenLam(s.lamSonda)],
+      s.mienteSonda?'bad':'good');
+    h+=gl('Y de verdad está',ROT_MEZ[regimenLam(s.lam)],V.enBanda?'good':'bad');
+  }
+  if(G.modo==='lazo'){
+    if(s.lazoAbierto) h+=gl('Cruces por segundo','no aplica: el lazo está abierto','warn');
+    else{
+      const T=TRZ(), Tsano=TRZ({falla:'sano'});
+      // Los cruces bajan por dos motivos distintos —sonda vieja o poco aire— y
+      // sólo el segundo campo distingue cuál: pintar los cruces de rojo a secas
+      // acusaría a una sonda sana cada vez que se estrangula la admisión.
+      const vieja=T.tau>Tsano.tau*1.5;
+      h+=gl('Cruces por segundo',num(T.cps,2)+' (sano: '+num(Tsano.cps,2)+')',
+        T.cps<Tsano.cps*0.75?(vieja?'bad':'warn'):'good');
+      h+=gl('Viaje de los gases',num(T.tTrans*1000,0)+NBSP+'ms',
+        T.tTrans>Tsano.tTrans*1.25?'warn':'');
+      h+=gl('Constante de la sonda',num(T.tau*1000,0)+NBSP+'ms',vieja?'bad':'good');
+    }
+  }
+  if(G.modo==='censo'){
+    const C=CENSO(), N=ESCEN_KEYS.length;
+    const min=C.filter(x=>x.resueltos===N).sort((a,b)=>a.sub.length-b.sub.length)[0];
+    const tal=C.find(x=>x.sub.length===OBS.filter(o=>o.taller).length&&x.sub.every(o=>o.taller));
+    const esc=C.find(x=>x.mask===mascaraDe(['ajRal','ajCruc']));
+    h+=gl('Escenarios en juego',String(N),'');
+    h+=gl('Sólo con los dos ajustes',esc.resueltos+' / '+N,esc.resueltos===N?'good':'bad');
+    h+=gl('Con todo lo de taller',tal.resueltos+' / '+N,tal.resueltos===N?'good':'bad');
+    h+=gl('Observaciones mínimas',min?String(min.sub.length):'—',min?'good':'bad');
+  }
+  h+=gl('Código de avería',s.dtc||'ninguno',s.dtc?'bad':'good');
+  // El par se publica contra lo que daría ESTE motor sano en ESTE punto. El par
+  // relativo a secas está normalizado a plena carga, así que a media carga vale
+  // la mitad y leído solo parece una avería que no existe.
+  h+=gl('Par contra este motor sano',pc(s.parRel/V.parSano*100,1),V.parCaido?'warn':'good');
+  h+=gl('Veredicto con el motor en marcha',
+    V.malo?'hay algo que corregir':(G.esc==='sano'?'todo en orden':'aquí no se nota nada'),
+    V.malo?'bad':(G.esc==='sano'?'good':'warn'));
+  el('tele').innerHTML=h;
+}
+
+// ------------------------------------------------------------------ informe
+// El informe dice el veredicto Y por qué criterio, porque el laboratorio entero
+// trata de que los criterios NO son equivalentes: hay averías que sólo caza el
+// escáner, una que sólo caza el osciloscopio y dos en las que el escáner sale
+// impecable mientras el analizador de gases dice que la mezcla está mal.
+function pintaInforme(){
+  const R=el('report'), e=MQ();
+  if(G.modo==='reto'){ pintaReto(); return; }
+  const s=EST(), V=veredicto(), E=veredictoEngano();
+  const parte=[];
+  if(!V.enBanda) parte.push('<b class="bad">la mezcla no está donde debería:</b> lambda '+
+    lamT(s.lam)+' contra el objetivo '+lamT(V.obj)+
+    (s.lazoAbierto?' del enriquecimiento de potencia':' del lazo cerrado'));
+  if(V.miente) parte.push('<b class="bad">la sonda miente:</b> le dice a la centralita '+
+    lamT(s.lamSonda)+' cuando hay '+lamT(s.lam));
+  if(V.saturado) parte.push('<b class="bad">el ajuste está SATURADO</b> en su tope de ±'+
+    pc(AUTORIDAD*100,0)+': la centralita ya no puede corregir más');
+  if(V.sinMargenInyector) parte.push('<b class="warn">el inyector va al '+pc(s.ciclo,1)+
+    ':</b> por encima del '+pc(CICLO_TECHO,0)+' no queda pulso que alargar');
+  if(V.parCaido) parte.push('<b class="warn">el par ha caído a '+pc(s.parRel/V.parSano*100,1)+
+    '</b> de lo que daría este motor sano en el mismo punto');
+  if(s.dtc) parte.push('<b class="warn">'+s.dtc+'</b>');
+
+  let h;
+  if(!parte.length){
+    // Con una avería montada, «en orden» sería falso: lo que dice el modelo es
+    // que en ESTE punto de trabajo no se nota. Esa distinción es la práctica.
+    const sano=G.esc==='sano';
+    h=(sano?'<b class="good">Sistema de inyección en orden.</b> '
+           :'<b class="warn">En este punto de trabajo no se nota nada.</b> ')+
+      'Lambda '+lamT(s.lam)+', ajuste largo '+(s.lazoAbierto?'—':firm(s.ajustePct,1))+
+      ', pulso '+mili(s.tOrden,2)+' y ciclo '+pc(s.ciclo,1)+'. '+
+      (sano?'Conviene fijarse en que el ajuste largo y la mezcla real NO se implican: hay averías que dejan el ajuste limpio y la mezcla torcida, y al revés. '
+           :'Hay una avería montada y ninguna medida del escáner se ha movido: cambia el punto de trabajo —sobre todo el acelerador— antes de dar el sistema por bueno. ')+
+      'Escenario montado: <b>'+ESCEN[G.esc].rot+'</b> — '+ESCEN[G.esc].clave+'.';
+  }else{
+    h='<b>Hallazgos:</b> '+parte.join(' · ')+'. ';
+    // El criterio que se queda ciego, cuando lo hay: es el corazón de la práctica.
+    const ciegos=[];
+    if(E.engana) ciegos.push('el escáner sale LIMPIO —su ajuste mayor es '+firm(E.max,1)+
+      ', por debajo del ±'+pc(DTC_UMBRAL*100,0)+' que dispara un código— y sin embargo el analizador de gases mide lambda '+
+      lamT(E.lam)+' en crucero');
+    if(E.mudo) ciegos.push('el escáner no dice NADA —ni ajuste ni código— y aun así el motor sólo da el '+
+      pc(E.par*100,1)+' de su par a plena carga');
+    if(E.disperso) ciegos.push('la mezcla MEDIA sale bien y el escáner sale limpio, pero los cilindros van cada uno por su lado: '+
+      num(E.disp,3)+' de dispersión entre el más pobre y el más rico. La sonda lee la mezcla de todos los escapes a la vez, '+
+      'así que ese reparto no lo puede ver de ninguna manera');
+    if(!s.lazoAbierto&&!V.enBanda&&Math.abs(s.ajustePct)<DTC_UMBRAL*100)
+      ciegos.push('el ajuste largo se queda en '+firm(s.ajustePct,1)+', por debajo del umbral de código, con la mezcla ya fuera de banda');
+    if(ciegos.length) h+='<span class="warn">Y esto es lo que hay que llevarse: '+ciegos.join('; ')+'.</span> ';
+    h+='Escenario montado: <b>'+ESCEN[G.esc].rot+'</b> — '+ESCEN[G.esc].clave+'.';
+  }
+  // Lo que el protocolo completo enseña, que no es lo mismo que este punto.
+  const L=LECT();
+  h+=' <b>Protocolo:</b> ajuste '+firm(L.pts[0].ajuste,1)+' a ralentí y '+firm(L.pts[1].ajuste,1)+
+    ' en crucero'+(L.pts[0].ajuste*L.pts[1].ajuste!==0&&Math.abs(L.pts[0].ajuste-L.pts[1].ajuste)>2
+      ? ' — que no coincidan es el dato: un caudal de fuga constante pesa mucho abajo y casi nada arriba, y un sensor que se equivoca en porcentaje se equivoca igual en toda la banda'
+      : ' — la misma cifra en los dos puntos apunta a un error proporcional, no a un caudal fijo')+'.';
+  R.innerHTML=h;
+}
+
+// ------------------------------------------------------------------- modos
+function afterEdit(){
+  invalida();
+  if(!rpmOps().includes(G.rpm)) G.rpm=2500;
+  pintaTablero(); pintaTele(); pintaInforme(); syncCtrlbar();
+}
+function setMode(m){
+  G.modo=m;
+  if(m==='reto') armaReto();
+  pintaHUD(); afterEdit(); refrescaPregunta();
+  // Encuadre. Todos los modos se leen en el pizarrón, y el banco tiene que caber
+  // al lado: el encuadre sale del ancho real de los dos juntos y no de una
+  // distancia escrita a mano. El margen es lo único que cambia de un modo a otro,
+  // y sólo para acercarse un poco cuando la vista es de mucho texto.
+  const MG={mezcla:1.00, aire:1.00, inyector:1.00, sonda:0.96, lazo:0.94, censo:0.94, reto:0.96};
+  const t=camConjunto(MG[m]||1.00); S.moveTo(t[0],t[1],1.1);
+}
+
+// ============================== T4b · RETO, CUESTIONARIO, RECORRIDO Y ARRANQUE
+const RETO={caso:null, tomadas:{}, eleccion:null, veredicto:null, pistas:0};
+
+function barajaEn(a){                       // Fisher-Yates, para que la posición
+  for(let i=a.length-1;i>0;i--){            // de la respuesta no sea la pista
+    const j=Math.floor(Math.random()*(i+1)); [a[i],a[j]]=[a[j],a[i]];
+  }
+  return a;
+}
+function armaReto(){
+  const casos=casosReto();
+  RETO.caso=casos[Math.floor(Math.random()*casos.length)];
+  G.esc=RETO.caso;
+  // El coche entra al taller con gasolina en el depósito, que es lo que dice su
+  // manual. Si la avería es precisamente el combustible, el escenario lo impone
+  // y eso ES el caso: por eso la cabecera no puede publicarlo en este modo.
+  G.comb='g100';
+  RETO.tomadas={}; RETO.eleccion=null; RETO.veredicto=null; RETO.pistas=0;
+  invalida(); pintaObsReto(); pintaDxReto();
+}
+// Valor legible de cada observación. Sale del motor sellado y se publica con la
+// MISMA resolución con la que el censo la cuenta: comprar el instrumento no da
+// precisión infinita, y si la pantalla diera más dígitos que el censo, el censo
+// estaría contando otra cosa que la que se ve en pantalla.
+function valorObs(k){
+  const L=LECT(), o=OBS.find(x=>x.k===k);
+  if(k==='ajRal')   return firm(cuant(L.pts[0].ajuste,o.res),0);
+  if(k==='ajCruc')  return firm(cuant(L.pts[1].ajuste,o.res),0);
+  if(k==='ciclo')   return pc(cuant(L.pts[2].ciclo,o.res),0);
+  if(k==='presion') return bar(cuant(L.pRiel,o.res),1);
+  if(k==='bateria') return volt(cuant(L.vBat,o.res),1);
+  if(k==='lambda')  return 'λ '+num(cuant(L.lamGases,o.res),2);
+  if(k==='cruces')  return num(cuant(L.cps,o.res),1)+NBSP+'1/s';
+  if(k==='balance') return num(cuant(L.disp,o.res),2);
+  return '—';
+}
+function mide(k){
+  if(G.modo!=='reto'||RETO.tomadas[k]) return;
+  RETO.tomadas[k]=valorObs(k);
+  synth.beep(560,0.06,0.04);
+  pintaObsReto(); pintaReto(); pintaTablero(); pintaTele();
+}
+function pintaObsReto(){
+  el('obsreto').innerHTML=OBS.map(o=>
+    '<button class="b'+(RETO.tomadas[o.k]?' on':'')+'" data-obs="'+o.k+'">'+
+    (o.taller?'':'💰 ')+(OBS_CORTO[o.k]||corta(o.rot,30))+'</button>').join('');
+}
+function pintaDxReto(){
+  const ops=barajaEn(FAMILIAS_RETO.slice());
+  el('dxreto').innerHTML=ops.map(f=>
+    '<button class="b'+(RETO.eleccion===f?' on':'')+'" data-fam="'+f+'">'+f+'</button>').join('');
+}
+function pintaReto(){
+  const R=el('report'), n=Object.keys(RETO.tomadas).length;
+  let h='<b>Coche bajo diagnóstico:</b> '+MQ().nombre+'. Observaciones compradas: '+n+'/'+OBS.length+'. ';
+  if(RETO.veredicto) h+=(RETO.veredicto.ok?'<b class="good">Acertaste.</b> ':'<b class="bad">Fallaste.</b> ')+RETO.veredicto.texto;
+  else h+='Compra lo que necesites, elige la familia y entrega el diagnóstico.';
+  R.innerHTML=h;
+  const spec=el('retoSpec');
+  spec.innerHTML=n
+    ? '<span class="mono">'+OBS.filter(o=>RETO.tomadas[o.k])
+        .map(o=>(OBS_CORTO[o.k]||corta(o.rot,34))+': '+RETO.tomadas[o.k]).join('<br>')+'</span>'
+    : '<span class="mono">Sin observaciones todavía.</span> Las cinco primeras se toman con lo que hay en cualquier taller —escáner, manómetro y multímetro—; el analizador de gases, el osciloscopio y la prueba de corte hay que pedirlos aparte.';
+}
+function pista(){
+  const e=MQ(), C=CENSO(), N=ESCEN_KEYS.length;
+  const tal=C.find(x=>x.sub.length===OBS.filter(o=>o.taller).length&&x.sub.every(o=>o.taller));
+  const esc=C.find(x=>x.mask===mascaraDe(['ajRal','ajCruc']));
+  const p=[
+    'Empieza por los dos ajustes del escáner: son los más baratos y ya separan '+esc.resueltos+
+      ' de los '+N+' escenarios de este '+e.corto+'. Lo que importa no es cuánto valen, sino si COINCIDEN entre ralentí y crucero.',
+    'Un ajuste que vale lo mismo abajo y arriba señala un error PROPORCIONAL —el sensor de aire, la presión del riel—. '+
+      'Uno que es enorme a ralentí y casi nada en crucero señala un CAUDAL fijo: una fuga de aire o una purga pegada.',
+    'Con todo lo que se mide en un taller corriente se separan '+tal.resueltos+' de los '+N+
+      ' escenarios de este '+e.corto+'. '+(tal.resueltos===N
+        ? 'En esta máquina alcanza: si sigues dudando, es que falta tomar alguna.'
+        : 'En esta máquina NO alcanza: hay casos que sólo separan el analizador de gases, el osciloscopio o la prueba de corte.'),
+  ];
+  const i=Math.min(RETO.pistas,p.length-1);
+  RETO.pistas++;
+  showToast('💡 '+p[i],6800);
+  synth.beep(520,0.07,0.04);
+}
+function checkReto(){
+  if(!RETO.eleccion){ showToast('Elige primero una familia de avería.',2200); return; }
+  const e=MQ(), L=LECT(), ok=(RETO.eleccion===L.clave);
+  const F=FALLAS[ESCEN[RETO.caso].falla];
+  const sano=lecturas(e,'sano',{comb:'g100',Tadm:G.Tadm});
+  const queEra='Era <b>'+ESCEN[RETO.caso].rot+'</b> ('+L.clave+'). '+F.nota;
+  const pruebas='Lo que lo demostraba: ajuste largo '+firm(L.pts[0].ajuste,1)+' a ralentí y '+
+    firm(L.pts[1].ajuste,1)+' en crucero, contra '+firm(sano.pts[0].ajuste,1)+' y '+
+    firm(sano.pts[1].ajuste,1)+' de un sistema sano; lambda de los gases '+lamT(L.lamGases)+
+    ' contra '+lamT(sano.lamGases)+'; presión de riel '+bar(L.pRiel,2)+' contra '+bar(sano.pRiel,2)+
+    '; batería '+volt(L.vBat,1)+'; cruces '+num(L.cps,2)+NBSP+'1/s contra '+num(sano.cps,2)+
+    '; dispersión entre cilindros '+num(L.disp,3)+' contra '+num(sano.disp,3)+
+    '; y par a plena carga '+pc(L.parPlena*100,1)+' contra '+pc(sano.parPlena*100,1)+'.';
+  let txt=queEra+' '+pruebas;
+  if(ok){
+    const compradas=Object.keys(RETO.tomadas).length;
+    if(compradas<3) txt+=' <span class="warn">Acertaste con sólo '+compradas+
+      ' observación'+(compradas===1?'':'es')+': acertar por corazonada y acertar por método se parecen en la respuesta y en nada en el taller.</span>';
+    G.resuelto=true;
+    synth.beep(660,0.09,0.05); setTimeout(()=>synth.beep(880,0.13,0.05),110);
+  }else{
+    synth.beep(180,0.14,0.05);
+  }
+  // Dos versiones del mismo veredicto: la del panel lleva etiquetas y la del
+  // pizarrón va en texto plano, porque un lienzo 2D dibujaría las etiquetas
+  // literales. Guardar sólo una obliga a que alguna de las dos mienta.
+  RETO.veredicto={ok, texto:txt, plano:txt.replace(/<[^>]+>/g,'')};
+  pintaReto(); pintaTablero(); pintaTele();
+}
+
+// -------------------------------------------------------------- cuestionario
+// Una pregunta por modo. La respuesta correcta NO se escribe a mano: se decide
+// comparando cifras que acaba de dar el motor sellado, así que si mañana se
+// recalibra un arquetipo la pregunta sigue siendo verdad o deja de compilar,
+// pero no se queda mintiendo en silencio.
+let QUIZ=null;
+function preguntaDe(m){
+  const e=MQ();
+  if(m==='mezcla'){
+    const fv=LECT_DE('fugaVacio'), ms=LECT_DE('mafSucio');
+    const planoMaf=Math.abs(ms.pts[0].ajuste-ms.pts[1].ajuste)<Math.abs(fv.pts[0].ajuste-fv.pts[1].ajuste);
+    return {t:'Una fuga de vacío da '+firm(fv.pts[0].ajuste,1)+' de ajuste a ralentí y '+
+      firm(fv.pts[1].ajuste,1)+' en crucero. Un sensor de aire sucio da '+firm(ms.pts[0].ajuste,1)+
+      ' y '+firm(ms.pts[1].ajuste,1)+'. ¿Por qué una se aplana y la otra no?',
+      ops:[['Porque la fuga es un CAUDAL fijo y pesa cada vez menos cuando el motor bombea más aire, mientras que el sensor se equivoca en el mismo porcentaje siempre',planoMaf],
+           ['Porque la fuga se cierra sola al subir la presión del colector',false],
+           ['Porque el sensor mide peor a ralentí que en crucero',!planoMaf]],
+      exp:'La fuga mete gramos por segundo, no un porcentaje: a ralentí eso es una parte enorme del aire total y a plena carga es una gota. El sensor sucio sub-reporta un tanto por ciento constante. Esa diferencia de FORMA contra la carga es lo único que las separa, y por eso el protocolo tiene que tomarse en más de un punto.'};
+  }
+  if(m==='aire'){
+    const F=FA();
+    const a=presionColector(e,e.ralenti,0,F), b=presionColector(e,3000,0,F);
+    const baja=b<a;
+    return {t:'Con la mariposa cerrada del todo, el colector está a '+bar(a,3)+' a ralentí. '+
+      '¿Qué pasa si el motor sube a 3 000 rpm sin tocar la mariposa?',
+      ops:[['Baja a '+bar(b,3)+': el motor bombea más deprisa contra la misma restricción y hace más vacío',baja],
+           ['Sube a '+bar(b,3)+': más vueltas, más aire entrando',!baja],
+           ['No cambia: la presión la fija sólo la mariposa',false]],
+      exp:'La presión del colector no es un mando independiente: es el equilibrio entre lo que deja pasar la mariposa y lo que el motor se lleva. Subir de vueltas con la mariposa quieta AUMENTA el vacío. Por eso una fuga de vacío se nota tanto a ralentí, donde la diferencia de presión que la empuja es máxima.'};
+  }
+  if(m==='inyector'){
+    const q1=caudalInyector(e,e.pAtm,{}), q4=caudalInyector(e,e.pAtm,{pRielMul:4});
+    const raiz=Math.abs(q4/q1-2)<Math.abs(q4/q1-4);
+    return {t:'Este inyector entrega '+gs(q1,3)+' con el riel a su presión nominal. '+
+      'Si se cuadruplicara la caída de presión, ¿cuánto entregaría?',
+      ops:[['El doble, '+gs(q4,3)+': el caudal va con la RAÍZ de la presión',raiz],
+           ['El cuádruple: el caudal es proporcional a la presión',!raiz],
+           ['Lo mismo: el caudal lo fija la sección del orificio',false]],
+      exp:'Un inyector es un orificio, y por un orificio el caudal va con la raíz de la caída de presión. De ahí sale algo muy poco intuitivo: para recuperar un 10 % de caudal perdido hay que subir la presión un 21 %. Y por eso una presión de riel baja se nota sobre todo donde el pulso ya era largo — a plena carga.'};
+  }
+  if(m==='sonda'){
+    const d1=Math.abs(tensionSonda(0.80)-tensionSonda(0.90));
+    const d2=Math.abs(tensionSonda(0.99)-tensionSonda(1.01));
+    const menos=d1<d2;
+    return {t:'De lambda 0,80 a 0,90 —de humo negro a rica— la sonda mueve '+num(d1*1000,2)+
+      NBSP+'mV. De 0,99 a 1,01 mueve '+num(d2*1000,0)+NBSP+'mV. ¿Qué se deduce?',
+      ops:[['Que la sonda de banda estrecha sirve para detectar el CRUCE por lambda uno y no para medir cuánto de rica va una mezcla',menos],
+           ['Que la sonda está averiada: debería responder igual en toda la banda',!menos],
+           ['Que hay que calibrarla antes de cada medición',false]],
+      exp:'La curva de Nernst es casi vertical en el estequiométrico. Eso la hace perfecta para lo único que la centralita necesita —saber de qué lado está para corregir— y completamente inútil para responder «¿cuánto de rica?». Esa pregunta la contesta el analizador de gases o una sonda de banda ancha, que es otro principio de medida.'};
+  }
+  if(m==='lazo'){
+    const sn=TRZ({falla:'sano',rpm:2500,acel:0.35}), lt=TRZ({falla:'sondaLenta',rpm:2500,acel:0.35});
+    const bajan=lt.cps<sn.cps;
+    const medias=Math.abs(lt.lamMedia-sn.lamMedia)<0.01;
+    return {t:'Una sonda envejecida da '+num(lt.cps,2)+' cruces por segundo contra '+num(sn.cps,2)+
+      ' de una sana, y su mezcla media sale '+lamT(lt.lamMedia)+' contra '+lamT(sn.lamMedia)+
+      '. ¿Qué instrumento la caza?',
+      ops:[['El osciloscopio: lo único que ha cambiado es la FRECUENCIA, y el escáner no la mira',bajan&&medias],
+           ['El escáner: el ajuste largo se dispara',false],
+           ['El analizador de gases: la mezcla media se va rica',!medias]],
+      exp:'Una sonda lenta sigue diciendo la verdad, sólo que tarde. El lazo la sigue centrando, la mezcla media sale bien y el ajuste largo se queda en cero: el escáner la da por buena y el analizador de gases también. Lo único que cambia es cada cuánto cruza, y ese número hay que ir a buscarlo con el osciloscopio.'};
+  }
+  if(m==='censo'){
+    const C=CENSO(), N=ESCEN_KEYS.length;
+    const esc=C.find(c=>c.mask===mascaraDe(['ajRal','ajCruc']));
+    const min=C.filter(c=>c.resueltos===N).sort((a,b)=>a.sub.length-b.sub.length)[0];
+    const hayFuera=min&&min.sub.some(o=>!o.taller);
+    return {t:'Con los dos ajustes del escáner se separan '+esc.resueltos+' de los '+N+
+      ' escenarios de este '+e.corto+'. ¿Por qué no llegan a los '+N+'?',
+      ops:[['Porque hay averías que dejan los ajustes exactamente donde estaban: una sonda lenta y un filtro tapado no mueven la mezcla',true],
+           ['Porque el escáner tiene poca resolución en el ajuste',false],
+           ['Porque haría falta tomar los ajustes en más puntos de trabajo',false]],
+      exp:'No es resolución ni número de puntos: hay averías que NO tocan la dosificación. Una sonda envejecida centra igual de bien y un filtro tapado se limita a estrangular el llenado, así que la centralita mide bien y dosifica bien. '+
+        (hayFuera?'Por eso el juego mínimo que llega a '+N+'/'+N+' en esta máquina incluye una observación que no está en un taller corriente.'
+                 :'En esta máquina el juego mínimo se toma entero con lo que hay en cualquier taller.')};
+  }
+  if(m==='reto'){
+    const sv=LECT_DE('sondaVaga'), fa=LECT_DE('filtroAire');
+    const svLimpia=Math.abs(sv.pts[1].ajuste)<DTC_UMBRAL*100;
+    return {t:'Dos coches llegan con el escáner sin códigos. En uno la lambda de los gases es '+
+      lamT(sv.lamGases)+' y en el otro, '+lamT(fa.lamGases)+' con el par a plena carga en '+
+      pc(fa.parPlena*100,1)+'. ¿Qué tienen en común?',
+      ops:[['Que el escáner no basta para ninguno de los dos: uno miente sobre la mezcla y al otro no le pasa nada que el escáner sepa medir',svLimpia],
+           ['Que los dos son la misma avería vista en puntos distintos',false],
+           ['Que los dos se arreglan cambiando la sonda',false]],
+      exp:'La sonda contaminada dice «pobre» cuando la mezcla ya está bien, la centralita enriquece hasta creerla y la mezcla real se va rica: el ajuste se queda en '+
+        firm(sv.pts[1].ajuste,1)+', por debajo del umbral de código. El filtro tapado no toca la dosificación en absoluto: lambda sale '+
+        lamT(fa.lamGases)+' y los ajustes en cero, y lo único que se ha perdido es par. Un escáner limpio no es un motor sano.'};
+  }
+  const s=EST();
+  return {t:'El escáner marca ajuste largo '+firm(s.ajustePct,1)+' y ningún código. ¿Qué NO se sabe con eso?',
+    ops:[['Dónde está de verdad la mezcla, porque eso depende de si la sonda dice la verdad',true],
+         ['Cuánto está corrigiendo la centralita',false],
+         ['Si la corrección ha llegado al umbral de código',false]],
+    exp:'El ajuste largo mide cuánto corrige la centralita para que la SONDA diga uno. Si la sonda miente, ese número puede salir impecable con la mezcla completamente torcida. Por eso hay que llevar el analizador de gases.'};
+}
+function refrescaPregunta(){
+  QUIZ=preguntaDe(G.modo);
+  QUIZ.ops=barajaEn(QUIZ.ops.map(o=>({rot:o[0],ok:o[1]})));
+  el('q_text').innerHTML=QUIZ.t;
+  el('dxbtns').innerHTML=QUIZ.ops.map((o,i)=>
+    '<button class="b" data-q="'+i+'">'+o.rot+'</button>').join('');
+}
+function responde(i){
+  if(!QUIZ||!QUIZ.ops[i]) return;
+  const o=QUIZ.ops[i];
+  [...el('dxbtns').children].forEach((b,k)=>{
+    b.classList.toggle('ok',QUIZ.ops[k].ok);
+    b.classList.toggle('wrong',k===i&&!o.ok);
+  });
+  showToast((o.ok?'<b class="good">Correcto.</b> ':'<b class="bad">No.</b> ')+QUIZ.exp,7600);
+  synth.beep(o.ok?740:190,0.10,0.05);
+}
+
+// -------------------------------------------------------------------- otro caso
+function otroCaso(){
+  if(G.modo==='reto'){ armaReto(); afterEdit(); refrescaPregunta(); return; }
+  const ops=ESCEN_KEYS.filter(k=>k!==G.esc);
+  G.esc=ops[Math.floor(Math.random()*ops.length)];
+  afterEdit(); refrescaPregunta();
+  showToast('Escenario nuevo: <b>'+ESCEN[G.esc].rot+'</b>.',3000);
+}
+
+// ----------------------------------------------------------- recorrido guiado
+let autoRunning=false, autoT=[];
+function paraAuto(){ autoT.forEach(t=>clearTimeout(t)); autoT=[]; autoRunning=false; syncCtrlbar(); }
+function auto(){
+  if(autoRunning){ paraAuto(); return; }
+  autoRunning=true; syncCtrlbar();
+  const paso=[]; let t=200;
+  const guion=[
+    ['mezcla','<b>1 · Mezcla.</b> El aire se mide, se divide entre 14,70 y se ordena un pulso. Lo que sale se lee al final, en el escape.'],
+    ['aire','<b>2 · Aire.</b> A mariposa cerrada, subir de vueltas BAJA la presión del colector. Y lo que el sensor mide no siempre es lo que entra.'],
+    ['inyector','<b>3 · Inyector.</b> El caudal va con la raíz de la presión, y el tiempo muerto se dispara cuando cae la batería.'],
+    ['sonda','<b>4 · Sonda.</b> De lambda 0,80 a 0,90 no se mueve. Es un detector de cruce, no un medidor.'],
+    ['lazo','<b>5 · Lazo.</b> El ajuste corto no puede quedarse quieto. Una sonda vieja sólo se delata en la frecuencia.'],
+    ['censo','<b>6 · Censo.</b> Con los dos ajustes del escáner no se separan las trece averías en ninguna máquina.'],
+  ];
+  guion.forEach(([m,msg])=>{
+    paso.push([t,()=>{ setMode(m); showToast(msg,4200); }]); t+=5200;
+  });
+  paso.push([t,()=>{ paraAuto(); showToast('Recorrido terminado. El reto sigue esperando.',3400); }]);
+  paso.forEach(([ms,fn])=>autoT.push(setTimeout(fn,ms)));
+}
+
+// ------------------------------------------------------------------- mandos
+el('panel').addEventListener('click',ev=>{
+  const b=ev.target.closest('button'); if(!b) return;
+  if(b.id&&b.id.startsWith('m_')){ setMode(b.id.slice(2)); return; }
+  if(b.id==='btnAuto'){ auto(); return; }
+  if(b.id==='btnNew'){ otroCaso(); return; }
+  if(b.id==='btnPista'){ pista(); return; }
+  if(b.id==='btnCheck'){ checkReto(); return; }
+  if(b.dataset.mk){ setMaquina(b.dataset.mk); return; }
+  if(b.dataset.esc){ G.esc=b.dataset.esc; afterEdit(); refrescaPregunta(); return; }
+  if(b.dataset.cb){ G.comb=b.dataset.cb; afterEdit(); refrescaPregunta(); return; }
+  if(b.dataset.rpm){ G.rpm=+b.dataset.rpm; afterEdit(); refrescaPregunta(); return; }
+  if(b.dataset.ac){ G.acel=+b.dataset.ac; afterEdit(); refrescaPregunta(); return; }
+  if(b.dataset.vb){ G.vBat=+b.dataset.vb; afterEdit(); refrescaPregunta(); return; }
+  if(b.dataset.ta){ G.Tadm=+b.dataset.ta; afterEdit(); refrescaPregunta(); return; }
+  if(b.dataset.obs){ mide(b.dataset.obs); return; }
+  if(b.dataset.fam){ RETO.eleccion=b.dataset.fam; pintaDxReto(); pintaTablero(); pintaTele(); return; }
+  if(b.dataset.q!==undefined){ responde(+b.dataset.q); return; }
+});
+function setMaquina(k){
+  if(!ARQ[k]) return;
+  G.maq=k;
+  // El régimen vuelve a un valor que ESTE motor tiene. Arrastrar el ralentí del
+  // anterior publicaría cifras de un punto de trabajo inexistente.
+  G.rpm=2500;
+  construyeMotor();
+  if(G.modo==='reto') armaReto();
+  afterEdit(); refrescaPregunta();
+  // El banco cambia de ancho con el número de cilindros y el pizarrón se mueve
+  // con él: reencuadrar es obligatorio, o el V6 se sale por la derecha.
+  setMode(G.modo);
+}
+
+el('soundBtn').addEventListener('click',()=>{
+  const on=synth.toggle();
+  el('soundBtn').classList.toggle('on',on);
+  el('soundBtn').textContent=on?'🔊':'🔇';
+});
+
+// -------------------------------------------------------------------- puente
+// Sonda de pruebas. Expone LO QUE SE VE, no atajos que salten la interfaz: cada
+// método hace exactamente lo mismo que haría un dedo sobre el panel.
+window.__labDebug={
+  get mode(){ return G.modo; },
+  get solved(){ return G.resuelto; },
+  get maquina(){ return G.maq; },
+  get comb(){ return G.comb; },
+  get combEf(){ return combEfectivo(); },
+  get combForzado(){ return combForzado(); },
+  get cabecera(){ return cabCombustible()+' | '+cabBateria(); },
+  get esc(){ return G.esc; },
+  get rpm(){ return G.rpm; },
+  get acel(){ return G.acel; },
+  get vBat(){ return G.vBat; },
+  get vBatEf(){ return vBatEfectiva(); },
+  get Tadm(){ return G.Tadm; },
+  get est(){ const s=EST(); return {maq:s.maq, comb:s.comb, afrEst:s.afrEst,
+    rpm:s.rpm, acel:s.acel, vBat:s.vBat, falla:s.falla,
+    lazoAbierto:s.lazoAbierto, saturado:s.saturado,
+    map:s.map, etaVol:s.etaVol, mAireCil:s.mAireCil, mMedido:s.mMedido, mAireSeg:s.mAireSeg,
+    ajuste:s.ajuste, ajustePct:s.ajustePct,
+    tOrden:s.tOrden, tMuerto:s.tMuerto, tAbierto:s.tAbierto,
+    ciclo:s.ciclo, dpInyector:s.dpInyector, qInyector:s.qInyector,
+    mComb:s.mComb, mPedido:s.mPedido, enriq:s.enriq, afrReal:s.afrReal,
+    lam:s.lam, lamSonda:s.lamSonda, vSonda:s.vSonda,
+    cil:s.cil.map(c=>({i:c.i, mComb:c.mComb, lam:c.lam})),
+    parRel:s.parRel, dtc:s.dtc, mienteSonda:s.mienteSonda}; },
+  get traza(){ const s=EST(); if(s.lazoAbierto) return null;
+    const T=TRZ(); return {cps:T.cps, cruces:T.cruces, tTrans:T.tTrans, tau:T.tau,
+      lamMin:T.lamMin, lamMax:T.lamMax, lamMedia:T.lamMedia, amplitud:T.amplitud,
+      n:T.traza.length}; },
+  get lect(){ const L=LECT(); return {esc:L.esc, rot:L.rot, clave:L.clave,
+    cps:L.cps, pRiel:L.pRiel, disp:L.disp, lamGases:L.lamGases, parPlena:L.parPlena,
+    vBat:L.vBat, dtcEn:L.dtcEn.slice(),
+    pts:L.pts.map(p=>({k:p.k, ajuste:p.ajuste, lam:p.lam, lamSonda:p.lamSonda,
+      ciclo:p.ciclo, tOrden:p.tOrden, map:p.map, dtc:p.dtc, saturado:p.saturado,
+      lazoAbierto:p.lazoAbierto, parRel:p.parRel, disp:p.disp}))}; },
+  get censo(){ const C=CENSO(), N=ESCEN_KEYS.length;
+    const mejor={}; for(const c of C){ const n=c.sub.length;
+      if(!mejor[n]||c.resueltos>mejor[n].resueltos) mejor[n]=c; }
+    const min=C.filter(c=>c.resueltos===N).sort((a,b)=>a.sub.length-b.sub.length)[0];
+    const tal=C.find(x=>x.sub.length===OBS.filter(o=>o.taller).length&&x.sub.every(o=>o.taller));
+    const esc=C.find(c=>c.mask===mascaraDe(['ajRal','ajCruc']));
+    return {N, taller:tal.resueltos, escaner:esc.resueltos,
+      minTam:min?min.sub.length:null, minObs:min?min.sub.map(o=>o.k):null,
+      porTam:Object.keys(mejor).map(n=>+mejor[n].resueltos)}; },
+  get veredicto(){ const V=veredicto(); return {obj:V.obj, desv:V.desv,
+    lazoAbierto:V.lazoAbierto, enBanda:V.enBanda, miente:V.miente, saturado:V.saturado,
+    dtc:V.dtc, ciclo:V.ciclo, sinMargenInyector:V.sinMargenInyector,
+    parCaido:V.parCaido, malo:V.malo}; },
+  get engano(){ return veredictoEngano(); },
+  get escaner(){ return loQueVeElEscaner(); },
+  get reto(){ return {caso:RETO.caso, tomadas:Object.keys(RETO.tomadas),
+    valores:{...RETO.tomadas}, eleccion:RETO.eleccion,
+    veredicto:RETO.veredicto?{ok:RETO.veredicto.ok}:null,
+    pistas:RETO.pistas, familias:FAMILIAS_RETO.slice()}; },
+  get quiz(){ return QUIZ?{t:QUIZ.t, ops:QUIZ.ops.map(o=>o.rot), ok:QUIZ.ops.findIndex(o=>o.ok)}:null; },
+  get autoRunning(){ return autoRunning; },
+  get inyectores(){ return REF.inyectores.length; },
+  get frames(){ return PINTADAS; },
+  setMode:m=>setMode(m),
+  setMaquina:k=>setMaquina(k),
+  set:(k,v)=>{ G[k]=v; afterEdit(); refrescaPregunta(); },
+  mide:k=>mide(k),
+  elige:f=>{ RETO.eleccion=f; pintaDxReto(); pintaTablero(); pintaTele(); },
+  entrega:()=>checkReto(),
+  pista:()=>pista(),
+  retoNuevo:()=>{ armaReto(); afterEdit(); },
+  responde:i=>responde(i),
+  otro:()=>otroCaso(),
+  auto:()=>auto(),
+  cifras:()=>el('tele').textContent+' | '+el('report').textContent,
+  texto:()=>el('hud').textContent,
+  panel:()=>el('panel').textContent,
+};
+
+// ------------------------------------------------------------------- arranque
+construyeMotor();
+pintaHUD(); afterEdit(); refrescaPregunta();
+// El hook del bucle se registra con setAnimate: start() no acepta callback, y
+// pasárselo lo descarta en silencio dejando la escena congelada.
+S.setAnimate(dt=>pinta3D(dt));
+S.start();
+// El encuadre de arranque se CALCULA, igual que el de cualquier otro modo, y se
+// aplica de golpe. Dejar una cámara escrita a mano en la cabecera obliga a que
+// esas seis cifras coincidan con las que sale del cálculo, y en cuanto cambia el
+// ancho del banco o la forma de la ventana dejan de coincidir: la página abre en
+// un cuadro y salta a otro en cuanto se toca el primer botón.
+{ const t=camConjunto(1.00); S.moveTo(t[0],t[1],0.01); }
+addEventListener('resize',()=>S.resize());
+showToast('El escenario ya está montado. Mueve el <b>acelerador</b> y mira qué le pasa al <b>ajuste largo</b>: ahí empieza todo.',5200);
+</script>
+  <!-- Ficha técnica · Capa B del molde de lab 3D (componente compartido + contenido del lab) -->
+  <script src="_ficha-tecnica.js"></script>
+  <script src="_ficha-inyeccion-sonda-lambda.js"></script>
+</body>
+</html>

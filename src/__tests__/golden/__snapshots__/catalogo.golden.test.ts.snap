@@ -1451,6 +1451,16 @@ exports[`golden master — catálogo por categoría (invariante ante extracción
     "teoria": "Monta el circuito de refrigeración pieza a pieza, elige la mezcla y la plaza, y descubre por qué la aguja del tablero puede marcar lo mismo con el ventilador al 3 % y al 89 %. La temperatura no mide la reserva.",
     "titulo": "Enfría el Motor: Termostato, Radiador y Refrigerante",
   },
+  {
+    "duracion": "45 min",
+    "estado": "activo",
+    "id": "mecanica-117",
+    "modulo": "Motor de Combustión Interna",
+    "orden": 117,
+    "simuladorHtml": "/labs/inyeccion-sonda-lambda.html",
+    "teoria": "La sonda de banda estrecha no mide la mezcla: dice de qué lado del estequiométrico está. De lambda 0,80 a 0,90 no mueve ni medio milivoltio. Descubre por qué hay averías con el escáner impecable y el analizador de gases diciendo que la mezcla está mal.",
+    "titulo": "Inyección y Sonda Lambda: Ajustes de Mezcla",
+  },
 ]
 `;
 
@@ -1602,6 +1612,7 @@ exports[`golden master — catálogo por categoría (invariante ante extracción
   "mecanica-114",
   "mecanica-115",
   "mecanica-116",
+  "mecanica-117",
   "mecanica-12",
   "mecanica-13",
   "mecanica-14",
