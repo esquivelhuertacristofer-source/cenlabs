@@ -48,6 +48,8 @@ const __dirname = dirname(fileURLToPath(import.meta.url));
 const ROOT = join(__dirname, '..');
 const LABS_DIR = join(ROOT, 'src', 'labs');
 const GEN_SCRIPT = join(__dirname, 'gen-lab-registry.mjs');
+/** Publica los briefing.ts como JSON en public/labs-data/briefing/. */
+const GEN_BRIEFINGS = join(__dirname, 'gen-lab-briefings.mjs');
 
 const CATEGORIAS = ['quimica', 'fisica', 'matematicas', 'biologia', 'mecanica'];
 /** Prefijo de código de briefing por categoría (cosmético; el autor puede cambiarlo). */
@@ -230,16 +232,19 @@ const catalogo: CatalogoEntry = {
 export default catalogo;
 `;
 
+// OJO: `briefing` NO se importa aquí. La portada de misión es prosa y se publica
+// como activo estático (public/labs-data/briefing/<id>.json, ver
+// scripts/gen-lab-briefings.mjs); si volviera al index.ts, los ~160 briefings
+// volverían a entrar al worker de Cloudflare, que está topado en 3 MiB.
 const indexTs = (c) => {
   const imports = [
     `import type { LabModule } from '../_types';`,
     `import contenido from './contenido';`,
-    `import briefing from './briefing';`,
     `import tutorSteps from './tutorSteps';`,
     `import quiz from './quiz';`,
   ];
   if (c.objetivos) imports.push(`import objetivos from './objetivos';`);
-  const fields = ['  contenido,', '  briefing,', '  tutorSteps,', '  quiz,'];
+  const fields = ['  contenido,', '  tutorSteps,', '  quiz,'];
   if (c.objetivos) fields.push('  objetivos,');
   return `${imports.join('\n')}
 
@@ -253,17 +258,16 @@ export default lab;
 };
 
 // index.ts de un lab "iframe 3D": el simulador es un HTML three.js embebido (ver
-// catalogo.simuladorHtml), no un simulador React. Por eso el módulo sólo aporta
-// `briefing` — sin contenido/tutorSteps/quiz — que es el único campo de datos
-// común a ambas clases de lab. fromRegistry omite los undefined, así que este lab
-// no ensucia MASTER_DATA / ALL_TUTOR_STEPS / ALL_QUIZZES.
+// catalogo.simuladorHtml), no un simulador React. Por eso el módulo no aporta
+// datos — sin contenido/tutorSteps/quiz, y el briefing va como activo estático —:
+// su único cometido es dar de alta el lab en el registro LABS.
 const indexIframeTs = (c) => `import type { LabModule } from '../_types';
-import briefing from './briefing';
 
-const lab: LabModule = {
-  id: '${c.id}',
-  briefing,
-};
+// Lab iframe 3D (three.js): no tiene datos de simulador React. El simulador HTML
+// se declara en catalogo.ts (simuladorHtml) y lo embebe MecanicaShellClient por
+// <iframe>; el briefing se publica como activo estático (ver _briefing-meta.ts).
+// Su presencia aquí es lo que da de alta el lab en el registro LABS.
+const lab: LabModule = { id: '${c.id}' };
 
 export default lab;
 `;
@@ -350,8 +354,9 @@ if (esIframe) {
 if (opts.gen) {
   console.log('\n[new-lab] Regenerando registros…');
   execFileSync(process.execPath, [GEN_SCRIPT], { stdio: 'inherit', cwd: ROOT });
+  execFileSync(process.execPath, [GEN_BRIEFINGS], { stdio: 'inherit', cwd: ROOT });
 } else {
-  console.log('\n⚠  --no-gen: corre `npm run gen:labs` para actualizar los registros.');
+  console.log('\n⚠  --no-gen: corre `npm run gen:labs && npm run gen:briefings` para actualizar los registros.');
 }
 
 console.log(`\nSiguientes pasos para ${id}:`);
@@ -362,7 +367,10 @@ if (esIframe) {
   console.log(`  1. Rellena los TODO en src/labs/${id}/ (contenido, briefing, tutorSteps, quiz, catalogo).`);
   console.log(`  2. Enchufa el simulador real en components.ts (Piloto/Bitácora).`);
 }
-console.log(`  3. Verifica: npx tsc --noEmit && npm test && npm run gen:labs:check\n`);
+// El briefing se sirve desde public/labs-data/briefing/: al tocar briefing.ts hay
+// que republicarlo, o el alumno seguirá viendo la portada anterior.
+console.log(`  3. Al editar briefing.ts: npm run gen:briefings (lo publica como JSON).`);
+console.log(`  4. Verifica: npx tsc --noEmit && npm test && npm run gen:labs:check && npm run gen:briefings:check\n`);
 
 // Confirma que el lab quedó registrado y no rompe el discovery (readdir determinista).
 const registrado = readdirSync(LABS_DIR).includes(id);

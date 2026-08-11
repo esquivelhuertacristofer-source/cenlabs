@@ -24,7 +24,7 @@ import {
 } from "lucide-react";
 import MissionBriefing from "@/components/MissionBriefing";
 import AsistenteVirtual from "@/components/AsistenteVirtual";
-import { ALL_BRIEFING_CONFIGS } from "@/data/briefingConfigs";
+import { useBriefing } from "@/hooks/useBriefing";
 import { CATALOGO } from "@/labs/_catalogo";
 import { supabase } from "@/lib/supabase-browser";
 import { getCurrentProfile } from "@/lib/supabase-helpers";
@@ -69,8 +69,18 @@ export default function MecanicaShellClient({
   // derivado por codegen de src/labs/<id>/catalogo.ts. Ya no hay mapa hardcodeado:
   // agregar un lab de mecánica es crear su carpeta, sin tocar este shell.
   const htmlSrc = CATALOGO[simuladorId]?.simuladorHtml ?? CATALOGO["mecanica-1"]?.simuladorHtml;
-  const config  = ALL_BRIEFING_CONFIGS[simuladorId] ?? ALL_BRIEFING_CONFIGS["mecanica-1"];
+  // El briefing se pide como activo estático al montar, en vez de leerse de un
+  // mapa con los 160 en memoria (ver @/data/briefingConfigs). Mismo respaldo que
+  // antes: si el lab no tiene portada, se usa la de mecanica-1.
+  const { config, cargando: cargandoBriefing } = useBriefing(simuladorId, "mecanica-1");
   const acento  = config?.acento ?? "#2A9D8F";
+
+  // La portada tapa el <iframe> hasta que el alumno pulsa «empezar». Se DERIVA de
+  // que además exista el config: si la petición del briefing falló, sin esto
+  // `showBriefing` se quedaría en true para siempre, MissionBriefing no se
+  // renderizaría (necesita un config) y el alumno vería un hueco negro sin salida.
+  // Derivándolo, el fallo degrada a «se entra directo al lab», no a un callejón.
+  const mostrarPortada = showBriefing && !!config;
 
   // Registro de visita (mismo patrón que SimuladorClient)
   useEffect(() => {
@@ -113,7 +123,10 @@ export default function MecanicaShellClient({
     }
   };
 
-  if (!mounted) {
+  // Se espera también al briefing: entrar sin él dejaría la barra de misión vacía
+  // un instante y luego la rellenaría de golpe. El giro ya estaba aquí para el
+  // montaje; ahora cubre las dos esperas.
+  if (!mounted || cargandoBriefing) {
     return (
       <div className="fixed inset-0 bg-[#08201C] flex items-center justify-center z-[200]">
         <div
@@ -384,7 +397,7 @@ export default function MecanicaShellClient({
             >
               {config?.codigo ?? simuladorId.toUpperCase()}
             </div>
-            <LabTimer active={!showBriefing} />
+            <LabTimer active={!mostrarPortada} />
           </div>
 
           <div className="flex items-center gap-2 md:gap-3">
@@ -417,7 +430,7 @@ export default function MecanicaShellClient({
         <div className="flex-1 flex overflow-hidden">
           {/* Centro: iframe del lab three.js */}
           <div className="flex-1 relative bg-[#080b10]">
-            {!showBriefing && (
+            {!mostrarPortada && (
               <iframe
                 key={simuladorId}
                 src={htmlSrc}
@@ -470,7 +483,11 @@ export default function MecanicaShellClient({
           OVERLAYS
       ══════════════════════════════════════════════════════════════ */}
       <AnimatePresence mode="wait">
-        {showBriefing && (
+        {/* `config` puede ser null si falló la petición del briefing (y también la
+            del respaldo). MissionBriefing da por hecho un config, así que en ese
+            caso se entra directo al lab: el HTML three.js es autónomo y funciona
+            sin su portada. Todo lo demás de este shell ya va con `config?.`. */}
+        {mostrarPortada && (
           <MissionBriefing
             key="briefing"
             config={config}

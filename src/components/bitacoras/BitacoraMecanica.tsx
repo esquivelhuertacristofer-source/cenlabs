@@ -13,7 +13,13 @@ import { CheckCircle2, Circle, BookOpen, Target, Globe2, Pencil, ChevronDown, Ch
 import type { BriefingConfig } from "@/components/MissionBriefing";
 
 interface Props {
-  config: BriefingConfig;
+  /**
+   * Puede ser null: el briefing se pide como activo estático y la petición puede
+   * fallar (ver @/data/briefingConfigs). El cuerpo de este componente ya leía todo
+   * con `config?.`, así que degrada a un panel sin conceptos ni retos —el bloc de
+   * notas sigue sirviendo—; el tipo ahora dice la verdad de lo que puede llegar.
+   */
+  config: BriefingConfig | null;
   simuladorId: string;
 }
 

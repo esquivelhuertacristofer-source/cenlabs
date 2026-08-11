@@ -16,10 +16,21 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { LABS } from '@/labs/_registry';
 import { CATALOGO } from '@/labs/_catalogo';
+import { BRIEFING_META } from '@/labs/_briefing-meta';
 import { categoriaDeId, ordenDeId } from '@/labs/_types';
 import type { Categoria } from '@/labs/_types';
 
 const LABS_DIR = path.join(__dirname, '..', 'labs');
+/**
+ * Los briefings ya no son un campo de LabModule: son prosa y se publican como
+ * activos estáticos para no inflar el worker de Cloudflare (ver _types.ts). Así
+ * que el contrato se verifica sobre el JSON PUBLICADO — el que de verdad recibe
+ * el alumno— y no sobre un objeto en memoria.
+ */
+const BRIEFING_DIR = path.join(__dirname, '..', '..', 'public', 'labs-data', 'briefing');
+const briefingPublicado = (id: string) => path.join(BRIEFING_DIR, `${id}.json`);
+const leeBriefing = (id: string) => JSON.parse(fs.readFileSync(briefingPublicado(id), 'utf8'));
+
 const CATEGORIAS_VALIDAS: Categoria[] = [
   'quimica',
   'fisica',
@@ -90,9 +101,6 @@ describe('contrato de carpeta — src/labs/<id>', () => {
       expect(typeof lab.contenido).toBe('object');
       expect(typeof lab.contenido!.titulo).toBe('string');
       expect(lab.contenido!.titulo.length).toBeGreaterThan(0);
-      expect(typeof lab.briefing).toBe('object');
-      expect(typeof lab.briefing.codigo).toBe('string');
-      expect(typeof lab.briefing.duracion).toBe('number');
       expect(Array.isArray(lab.tutorSteps)).toBe(true);
       expect(lab.tutorSteps!.length).toBeGreaterThan(0);
       expect(Array.isArray(lab.quiz)).toBe(true);
@@ -146,11 +154,8 @@ describe('contrato de carpeta — src/labs/<id>', () => {
       expect(ordenDeId(id)).toBeGreaterThan(0);
     });
 
-    it('solo aporta briefing (sin contenido/tutorSteps/quiz)', () => {
+    it('no aporta datos de simulador React (sin contenido/tutorSteps/quiz)', () => {
       const lab = LABS[id];
-      expect(typeof lab.briefing).toBe('object');
-      expect(typeof lab.briefing.codigo).toBe('string');
-      expect(typeof lab.briefing.duracion).toBe('number');
       // No debe ensuciar MASTER_DATA / ALL_TUTOR_STEPS / ALL_QUIZZES.
       expect(lab.contenido).toBeUndefined();
       expect(lab.tutorSteps).toBeUndefined();
@@ -184,5 +189,64 @@ describe('contrato de carpeta — src/labs/<id>', () => {
         expect(gen).toContain(`'${id}':`);
       }
     });
+  });
+});
+
+/**
+ * CONTRATO DE PUBLICACIÓN DE LOS BRIEFINGS
+ * ─────────────────────────────────────────────────────────────────────────────
+ * La portada de misión es prosa: no se ejecuta, sólo se lee. Vive como activo
+ * estático en public/labs-data/briefing/ porque el worker de Cloudflare inlinea
+ * todo lo alcanzable desde el código y está topado en 3 MiB comprimidos — los 160
+ * briefings son 823 KB y el 2026-08-11 reventaron el despliegue.
+ *
+ * Estas pruebas cubren las dos formas de romperlo, que son silenciosas las dos:
+ * publicar un JSON desactualizado (el alumno ve la portada vieja) o volver a
+ * importar briefing.ts desde el código (la prosa regresa al worker sin que nada
+ * falle hasta que un despliegue rebota).
+ */
+const DIRS_CON_BRIEFING = LAB_DIRS.filter((id) => has(id, 'briefing.ts'));
+
+describe('briefings publicados como activos estáticos', () => {
+  it('hay briefings que verificar', () => {
+    expect(DIRS_CON_BRIEFING.length).toBeGreaterThan(0);
+  });
+
+  describe.each(DIRS_CON_BRIEFING)('%s', (id) => {
+    it('tiene su JSON publicado y con la forma de BriefingConfig', () => {
+      expect(fs.existsSync(briefingPublicado(id))).toBe(true);
+      const b = leeBriefing(id);
+      expect(typeof b.codigo).toBe('string');
+      expect(typeof b.titulo).toBe('string');
+      expect(b.titulo.length).toBeGreaterThan(0);
+      expect(typeof b.duracion).toBe('number');
+      expect(Array.isArray(b.mision)).toBe(true);
+      expect(Array.isArray(b.conceptos)).toBe(true);
+    });
+
+    it('está en _briefing-meta.generated.ts, que es lo que imprime el <head>', () => {
+      const meta = BRIEFING_META[id];
+      expect(meta).toBeDefined();
+      const b = leeBriefing(id);
+      expect(meta.titulo).toBe(b.titulo);
+      expect(meta.subtitulo).toBe(b.subtitulo);
+      // generateMetadata usa `subtitulo || bienvenidaCorta`: el recorte tiene que
+      // ser el mismo `substring(0, 160)` que había en [id]/page.tsx.
+      expect(meta.bienvenidaCorta).toBe(String(b.bienvenida ?? '').substring(0, 160));
+    });
+  });
+
+  it('no sobra ningún JSON de un lab que ya no existe', () => {
+    const publicados = fs
+      .readdirSync(BRIEFING_DIR)
+      .filter((f) => f.endsWith('.json'))
+      .map((f) => f.replace(/\.json$/, ''))
+      .sort();
+    expect(publicados).toEqual([...DIRS_CON_BRIEFING].sort());
+  });
+
+  it('ningún index.ts importa su briefing.ts (volvería a meter la prosa al worker)', () => {
+    const culpables = DIRS_CON_INDEX.filter((id) => /from\s+'\.\/briefing'/.test(read(id, 'index.ts')));
+    expect(culpables).toEqual([]);
   });
 });

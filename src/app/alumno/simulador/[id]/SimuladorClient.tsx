@@ -22,12 +22,12 @@ import { getCurrentProfile } from '@/lib/supabase-helpers';
 import { SyncManager } from '@/components/SyncManager';
 import AsistenteVirtual from '@/components/AsistenteVirtual';
 import DrQuantumTutor, { TutorStep } from '@/components/DrQuantumTutor';
-import MissionBriefing, { BriefingConfig } from '@/components/MissionBriefing';
+import MissionBriefing from '@/components/MissionBriefing';
 import { MASTER_DATA, SimuladorId } from '@/data/simuladoresData';
 import { audio } from '@/utils/audioEngine';
 import { generateLabReport } from '@/utils/pdfGenerator';
 import ScientificCalculator from '@/components/ScientificCalculator';
-import { ALL_BRIEFING_CONFIGS } from '@/data/briefingConfigs';
+import { useBriefing } from '@/hooks/useBriefing';
 import { ALL_TUTOR_STEPS } from '@/data/tutorSteps';
 import LabQuiz from '@/components/LabQuiz';
 import { getQuizForPractice } from '@/data/quizQuestions';
@@ -93,6 +93,18 @@ export default function SimuladorClient({ simuladorId }: { simuladorId: string }
 
   const category = normalizedId.split('-')[0];
   const hubPath = `/alumno/laboratorio/${category}`;
+
+  // El briefing se pide como activo estático al montar, en vez de leerse de un mapa
+  // con los 160 en memoria (ver @/data/briefingConfigs). Mismo respaldo que antes:
+  // si el lab no tiene portada, se usa la de quimica-1.
+  const { config: briefing, cargando: cargandoBriefing } = useBriefing(normalizedId, 'quimica-1');
+
+  // La portada tapa el simulador hasta que el alumno pulsa «empezar». Se DERIVA de
+  // que además exista el config: si la petición falló, sin esto `showBriefing` se
+  // quedaría en true para siempre, MissionBriefing no se renderizaría (necesita un
+  // config) y el simulador nunca llegaría a montarse. Derivándolo, el fallo degrada
+  // a «se entra directo a la práctica», no a un callejón sin salida.
+  const mostrarPortada = showBriefing && !!briefing;
 
   // Grupo 1 — Core / UI actions (1 suscripción con shallow comparison)
   const { pasoActual, setPasoActual, resetPractica, setAsistente,
@@ -234,7 +246,9 @@ export default function SimuladorClient({ simuladorId }: { simuladorId: string }
     }
   }, [mounted, normalizedId]);
 
-  if (!mounted) return <div className="fixed inset-0 bg-[#0A1121] flex items-center justify-center z-[200]"><div className="w-16 h-16 border-4 border-[#219EBC] border-t-transparent rounded-full animate-spin" /></div>;
+  // Se espera también al briefing (activo estático): sin esto se vería un instante
+  // el simulador desnudo antes de que la portada cayera encima.
+  if (!mounted || cargandoBriefing) return <div className="fixed inset-0 bg-[#0A1121] flex items-center justify-center z-[200]"><div className="w-16 h-16 border-4 border-[#219EBC] border-t-transparent rounded-full animate-spin" /></div>;
 
   const data = MASTER_DATA[normalizedId as SimuladorId];
   
@@ -712,7 +726,7 @@ export default function SimuladorClient({ simuladorId }: { simuladorId: string }
                  }} 
                />
              )}
-             {!showBriefing && renderPiloto()}
+             {!mostrarPortada && renderPiloto()}
            </div>
            
            {/* Backdrop de la bitácora (solo móvil) */}
@@ -737,10 +751,10 @@ export default function SimuladorClient({ simuladorId }: { simuladorId: string }
         </div>
 
         <AnimatePresence mode="wait">
-          {showBriefing && (
-            <MissionBriefing 
+          {mostrarPortada && (
+            <MissionBriefing
               key="mission-briefing"
-              config={ALL_BRIEFING_CONFIGS[normalizedId] || ALL_BRIEFING_CONFIGS['quimica-1']}
+              config={briefing!}
               onStart={() => setShowBriefing(false)}
             />
           )}
