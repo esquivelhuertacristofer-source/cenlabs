@@ -1,0 +1,9 @@
+{
+  "donor": "escaner-obd.html",
+  "out": "gases-verificacion.html",
+  "title": "CEN Labs · Gases de escape y verificación — Laboratorio 3D",
+  "lt": "Motor de combustión interna · Mecánica",
+  "inspectHint": "👆 Pon el Monopunto 92 y cambia de método: el mismo coche pasa de HC ≤ 400 a HC ≤ 100 sin tocar nada, porque los cortes de año de las dos tablas NO coinciden",
+  "body": "gases-verificacion.body.js",
+  "fichas": ["_ficha-tecnica.js", "_ficha-gases-verificacion.js"]
+}

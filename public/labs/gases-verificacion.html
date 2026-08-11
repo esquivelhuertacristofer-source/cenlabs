@@ -1,0 +1,3237 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>CEN Labs · Gases de escape y verificación — Laboratorio 3D</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#08201C;--panel:rgba(9,26,23,.86);--line:#1E3A34;--ink:#EAF4F1;
+    --dim:#8FB3AC;--accent:#2A9D8F;--accent2:#4FD1C5;--hv:#FFB703;--good:#34d399;--bad:#f4475e;
+    --mono:'Outfit',system-ui,'Segoe UI',Roboto,sans-serif;--disp:'Outfit','Arial Black',Impact,sans-serif;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  html,body{height:100%;background:var(--bg);color:var(--ink);font-family:'Outfit',system-ui,Segoe UI,Roboto,sans-serif}
+  body{overflow:hidden}
+  #stage{position:fixed;inset:0}
+  canvas{display:block;touch-action:none}
+
+  .topbar{position:fixed;top:0;left:0;right:0;height:56px;display:flex;align-items:center;gap:14px;padding:0 20px;z-index:20;background:linear-gradient(180deg,rgba(10,13,18,.92),transparent);pointer-events:none}
+  .brand{font-family:var(--disp);font-weight:bold;font-size:16px;text-transform:uppercase}
+  .brand span{color:var(--accent)}
+  .lt{font-family:var(--mono);font-size:11px;letter-spacing:.1em;text-transform:uppercase;color:var(--dim)}
+
+  .badge{position:fixed;top:16px;right:20px;z-index:20;font-family:var(--mono);font-size:9px;letter-spacing:.12em;text-transform:uppercase;background:rgba(255,209,102,.12);color:var(--hv);border:1px solid rgba(255,209,102,.35);padding:6px 12px;border-radius:20px}
+
+  .hud{position:fixed;top:70px;left:18px;z-index:15;max-width:330px;background:var(--panel);backdrop-filter:blur(14px);border:1px solid var(--line);border-radius:16px;padding:18px 20px;max-height:calc(100vh - 150px);overflow-y:auto}
+  .hud .eyebrow{font-family:var(--mono);font-size:10px;letter-spacing:.18em;text-transform:uppercase;color:var(--accent);margin-bottom:8px}
+  .hud h2{font-size:19px;line-height:1.15;margin-bottom:9px}
+  .hud p{font-size:13px;line-height:1.55;color:var(--dim);margin-bottom:10px}
+  .hud .formula{font-family:var(--mono);color:var(--accent2);text-align:center;font-size:12.5px;margin:8px 0;padding:8px;background:rgba(0,0,0,.25);border-radius:8px;line-height:1.5}
+  .hud .src{font-size:10.5px;color:#7a8894;font-style:italic;margin-top:4px;line-height:1.5}
+  .legend{display:flex;flex-direction:column;gap:6px;margin:12px 0;padding:10px 12px;background:rgba(0,0,0,.22);border-radius:10px}
+  .legend .li{display:flex;align-items:center;gap:8px;font-size:11px;color:#c4d0da}
+  .legend .dot{width:10px;height:10px;border-radius:50%;flex:0 0 auto}
+  .fid{margin:10px 0 2px;padding:10px 12px;background:rgba(0,0,0,.22);border-radius:10px;border:1px solid rgba(79,209,197,.18)}
+  .fid .ft{font-family:var(--mono);font-size:9.5px;letter-spacing:.14em;text-transform:uppercase;color:var(--accent2);margin-bottom:6px}
+  .fid .fl{font-size:11px;color:#c4d0da;line-height:1.5;margin-bottom:5px}
+  .fid .fl b{color:var(--ink)}
+  .fid .fl.no b{color:var(--hv)}
+
+  .panel{position:fixed;top:70px;right:18px;z-index:15;width:262px;background:var(--panel);backdrop-filter:blur(14px);border:1px solid var(--line);border-radius:16px;padding:16px;max-height:calc(100vh - 150px);overflow-y:auto}
+  .panel h4{font-family:var(--mono);font-size:10px;letter-spacing:.14em;text-transform:uppercase;color:var(--dim);margin:2px 0 10px}
+  .panel h4.sec{margin-top:16px;border-top:1px solid var(--line);padding-top:14px}
+  .g{margin-bottom:6px}
+  .gl{display:flex;justify-content:space-between;font-family:var(--mono);font-size:11px;color:var(--dim)}
+  .gl b{color:var(--accent2)}
+  .gl b.good{color:var(--good)}.gl b.warn{color:var(--hv)}.gl b.bad{color:var(--bad)}
+  .modebar{display:flex;gap:5px;margin-bottom:8px}
+  .modebar .b{flex:1;padding:8px 4px;font-size:11px}
+  .btns{display:flex;flex-direction:column;gap:7px;margin-top:6px}
+  .b{font-family:system-ui;font-size:12.5px;padding:10px;border-radius:9px;cursor:pointer;border:1px solid var(--line);background:#1b242f;color:var(--ink);transition:.15s;text-align:center}
+  .b:hover{border-color:var(--accent);background:#202c38}
+  .b.on{background:var(--accent);color:#06120f;border-color:var(--accent);font-weight:bold}
+  .b.primary{background:var(--accent);color:#06120f;border-color:var(--accent);font-weight:bold}
+  .b.auto{border-color:var(--hv);color:var(--hv);background:rgba(255,183,3,.10);font-weight:bold}
+  .b.auto:hover{background:rgba(255,183,3,.18);border-color:var(--hv)}
+  .b.auto:disabled{opacity:.6;cursor:default}
+  .b.dx{text-align:left;font-size:12px}
+  .b.dx.right{background:rgba(52,211,153,.18);border-color:var(--good);color:var(--good);font-weight:bold}
+  .b.dx.wrong{background:rgba(244,71,94,.15);border-color:var(--bad);color:var(--bad)}
+  .console{font-family:var(--mono);font-size:11px;line-height:1.55;color:#c4d0da;background:rgba(0,0,0,.28);border-radius:9px;padding:10px 12px;margin-bottom:8px;min-height:56px}
+  .console .dtc{color:var(--bad);font-weight:bold}
+  .console .ok{color:var(--good)}
+  .console .mono{color:var(--dim)}
+
+  .hint{position:fixed;bottom:18px;left:18px;z-index:14;font-family:var(--mono);font-size:10px;color:var(--dim);background:var(--panel);padding:7px 12px;border-radius:9px;border:1px solid var(--line)}
+  .toast{position:fixed;top:80px;left:50%;transform:translateX(-50%);z-index:30;background:rgba(18,24,32,.95);border:1px solid var(--accent);padding:10px 20px;border-radius:40px;font-family:var(--mono);font-size:12px;opacity:0;transition:.3s;pointer-events:none;max-width:80vw;text-align:center}
+  .toast.show{opacity:1}
+  .soundBtn{position:fixed;top:14px;right:18px;z-index:21;font-size:16px;background:var(--panel);backdrop-filter:blur(12px);border:1px solid var(--line);border-radius:50%;width:36px;height:36px;cursor:pointer;color:var(--dim);transition:.15s}
+  .soundBtn.on{color:var(--accent);border-color:var(--accent)}
+  .soundBtn:hover{transform:scale(1.08)}
+  .inspectHint{position:fixed;bottom:18px;right:18px;z-index:14;font-family:var(--mono);font-size:10px;color:var(--accent2);background:var(--panel);padding:7px 12px;border-radius:9px;border:1px solid var(--line)}
+
+  @media(max-width:820px){
+    .hud,.panel{position:fixed;left:8px;right:8px;top:auto;bottom:8px;max-width:none;width:auto;max-height:42vh;overflow-y:auto}
+    .hud{bottom:calc(8px + 42vh + 8px)}
+    .hint,.inspectHint{display:none}
+  }
+</style>
+</head>
+<body>
+<div id="stage"></div>
+<button class="soundBtn on" id="soundBtn">🔊</button>
+<div class="topbar">
+  <div class="brand">CEN<span> Labs</span></div>
+  <div class="lt">Motor de combustión interna · Mecánica</div>
+</div>
+<div class="hud" id="hud"></div>
+<div class="panel" id="panel"></div>
+<div class="hint">Arrastra para orbitar · rueda para zoom</div>
+<div class="inspectHint">👆 Pon el Monopunto 92 y cambia de método: el mismo coche pasa de HC ≤ 400 a HC ≤ 100 sin tocar nada, porque los cortes de año de las dos tablas NO coinciden</div>
+<div class="toast" id="toast"></div>
+
+<script type="importmap">
+{ "imports": {
+  "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.min.js",
+  "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/"
+}}
+</script>
+<script type="module">
+import * as THREE from 'three';
+import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
+import { RoundedBoxGeometry } from 'three/addons/geometries/RoundedBoxGeometry.js';
+import { EffectComposer } from 'three/addons/postprocessing/EffectComposer.js';
+import { RenderPass } from 'three/addons/postprocessing/RenderPass.js';
+import { GTAOPass } from 'three/addons/postprocessing/GTAOPass.js';
+import { UnrealBloomPass } from 'three/addons/postprocessing/UnrealBloomPass.js';
+import { SMAAPass } from 'three/addons/postprocessing/SMAAPass.js';
+import { OutputPass } from 'three/addons/postprocessing/OutputPass.js';
+import { BokehPass } from 'three/addons/postprocessing/BokehPass.js';
+
+/* ============================================================
+   Texturas PBR procedurales (sin archivos externos) — compartidas
+   ============================================================ */
+function cv(s=512){const c=document.createElement('canvas');c.width=c.height=s;return c;}
+function tex(canvas,repeat=1,srgb=false){
+  const t=new THREE.CanvasTexture(canvas);
+  t.wrapS=t.wrapT=THREE.RepeatWrapping;t.repeat.set(repeat,repeat);
+  t.colorSpace = srgb?THREE.SRGBColorSpace:THREE.NoColorSpace;
+    // Mipmaps SI. Son mapas de ruido de 512 px sobre piezas que en pantalla ocupan
+  // decenas de pixeles: sin cadena de mipmaps cada pixel muestrea un texel suelto
+  // y, en el normalMap, la normal salta de pixel a pixel. El especular estalla en
+  // puntos blancos que ademas nadan al orbitar la camara. three recorta la
+  // anisotropia contra el maximo del dispositivo, asi que 8 es seguro en cualquier GPU.
+  t.generateMipmaps=true; t.minFilter=THREE.LinearMipmapLinearFilter;
+  t.magFilter=THREE.LinearFilter; t.anisotropy=8; return t;
+}
+function normalFromHeight(size, hfn, strength=2.0){
+  const c=cv(size),ctx=c.getContext('2d'),img=ctx.createImageData(size,size);
+  const H=(x,y)=>hfn((x+size)%size,(y+size)%size);
+  for(let y=0;y<size;y++)for(let x=0;x<size;x++){
+    const dx=(H(x+1,y)-H(x-1,y))*strength;
+    const dy=(H(x,y+1)-H(x,y-1))*strength;
+    const nz=1.0; const len=Math.hypot(dx,dy,nz);
+    const i=(y*size+x)*4;
+    img.data[i]  =((-dx/len)*0.5+0.5)*255;
+    img.data[i+1]=((-dy/len)*0.5+0.5)*255;
+    img.data[i+2]=((nz/len)*0.5+0.5)*255;
+    img.data[i+3]=255;
+  }
+  ctx.putImageData(img,0,0);return c;
+}
+function valueNoise(seed=1){
+  const g=(x,y)=>{const s=Math.sin((x*127.1+y*311.7)+seed*13.13)*43758.5453;return s-Math.floor(s);};
+  return (x,y)=>{
+    const xi=Math.floor(x),yi=Math.floor(y),xf=x-xi,yf=y-yi;
+    const u=xf*xf*(3-2*xf),v=yf*yf*(3-2*yf);
+    const a=g(xi,yi),b=g(xi+1,yi),c=g(xi,yi+1),d=g(xi+1,yi+1);
+    return a*(1-u)*(1-v)+b*u*(1-v)+c*(1-u)*v+d*u*v;
+  };
+}
+function fbm(noise,x,y,oct=4){let v=0,a=0.5,f=1;for(let i=0;i<oct;i++){v+=noise(x*f,y*f)*a;f*=2;a*=0.5;}return v;}
+
+function castAluminum(){
+  const S=512, n=valueNoise(7);
+  const c=cv(S),ctx=c.getContext('2d'),img=ctx.createImageData(S,S);
+  for(let y=0;y<S;y++)for(let x=0;x<S;x++){
+    const v=fbm(n,x/22,y/22,5);
+    const por=Math.pow(n(x/3.1,y/3.1),8);
+    const base=150+v*38-por*70;
+    const i=(y*S+x)*4; img.data[i]=base; img.data[i+1]=base+4; img.data[i+2]=base+10; img.data[i+3]=255;
+  }
+  ctx.putImageData(img,0,0);
+  const r=cv(S),rx=r.getContext('2d'),rimg=rx.createImageData(S,S);
+  for(let y=0;y<S;y++)for(let x=0;x<S;x++){
+    const v=fbm(n,x/18,y/18,4); const por=Math.pow(n(x/3.1,y/3.1),8);
+    const rough=120+v*40+por*90; const i=(y*S+x)*4;
+    rimg.data[i]=rimg.data[i+1]=rimg.data[i+2]=Math.min(255,rough); rimg.data[i+3]=255;
+  }
+  rx.putImageData(rimg,0,0);
+  const nrm=normalFromHeight(S,(x,y)=>fbm(n,x/16,y/16,5)+Math.pow(n(x/3.1,y/3.1),8)*0.6,3.0);
+  return {map:tex(c,1,true),roughnessMap:tex(r),normalMap:tex(nrm)};
+}
+function brushedMetal(){
+  const S=512, n=valueNoise(3);
+  const c=cv(S),ctx=c.getContext('2d'),img=ctx.createImageData(S,S);
+  for(let y=0;y<S;y++)for(let x=0;x<S;x++){
+    const streak=Math.sin(y*0.9)*2 + (n(x/120,y*0.5)-0.5)*40;
+    const base=185+streak; const i=(y*S+x)*4;
+    img.data[i]=base; img.data[i+1]=base+2; img.data[i+2]=base+6; img.data[i+3]=255;
+  }
+  ctx.putImageData(img,0,0);
+  const r=cv(S),rx=r.getContext('2d'),rimg=rx.createImageData(S,S);
+  for(let y=0;y<S;y++)for(let x=0;x<S;x++){
+    const streak=(n(x/120,y*0.5)-0.5)*60; const rough=40+Math.abs(streak); const i=(y*S+x)*4;
+    rimg.data[i]=rimg.data[i+1]=rimg.data[i+2]=Math.min(160,rough); rimg.data[i+3]=255;
+  }
+  rx.putImageData(rimg,0,0);
+  const nrm=normalFromHeight(S,(x,y)=>(n(x/120,y*0.5))*0.3+Math.sin(y*0.9)*0.02,1.2);
+  return {map:tex(c,1,true),roughnessMap:tex(r),normalMap:tex(nrm)};
+}
+function rubber(){
+  const S=256,n=valueNoise(5);
+  const nrm=normalFromHeight(S,(x,y)=>fbm(n,x/8,y/8,4),1.4);
+  const rough=cv(64),rc=rough.getContext('2d');rc.fillStyle='#e0e0e0';rc.fillRect(0,0,64,64);
+  return {roughnessMap:tex(rough),normalMap:tex(nrm,2)};
+}
+function gradientBG(top='#11161d',bottom='#05070a'){
+  const c=cv(512),ctx=c.getContext('2d');
+  const grd=ctx.createLinearGradient(0,0,0,512);
+  grd.addColorStop(0,top);grd.addColorStop(1,bottom);
+  ctx.fillStyle=grd;ctx.fillRect(0,0,512,512);
+  const rg=ctx.createRadialGradient(256,200,30,256,256,360);
+  rg.addColorStop(0,'rgba(42,157,143,0.10)');rg.addColorStop(1,'rgba(0,0,0,0)');
+  ctx.fillStyle=rg;ctx.fillRect(0,0,512,512);
+  return tex(c,1,true);
+}
+function techPlastic(r=0.10,g=0.11,b=0.13){
+  const S=256,n=valueNoise(31);
+  const c=cv(S),ctx=c.getContext('2d'),img=ctx.createImageData(S,S);
+  for(let y=0;y<S;y++)for(let x=0;x<S;x++){
+    const v=fbm(n,x/30,y/30,3)*0.1+0.92; const i=(y*S+x)*4;
+    img.data[i]=r*255*v;img.data[i+1]=g*255*v;img.data[i+2]=b*255*v;img.data[i+3]=255;
+  }
+  ctx.putImageData(img,0,0);
+  const nrm=normalFromHeight(S,(x,y)=>fbm(n,x/10,y/10,3),0.8);
+  const rough=cv(64),rc=rough.getContext('2d');rc.fillStyle='#9a9a9a';rc.fillRect(0,0,64,64);
+  return {map:tex(c,1,true),roughnessMap:tex(rough),normalMap:tex(nrm)};
+}
+
+/* ============================================================
+   ENGINE — render premium compartido por todos los laboratorios
+   ============================================================ */
+function createStage(mount, opts={}){
+  const bgTop = opts.bgTop||'#141b24', bgBot = opts.bgBot||'#05070a';
+  const renderer = new THREE.WebGLRenderer({ antialias:true, powerPreference:'high-performance' });
+  renderer.setPixelRatio(Math.min(devicePixelRatio,2));
+  renderer.setSize(mount.clientWidth, mount.clientHeight);
+  renderer.shadowMap.enabled = true;
+  renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+  renderer.toneMapping = THREE.ACESFilmicToneMapping;
+  renderer.toneMappingExposure = opts.exposure ?? 1.18;
+  renderer.outputColorSpace = THREE.SRGBColorSpace;
+  mount.appendChild(renderer.domElement);
+  renderer.domElement.style.touchAction='none';
+
+  const scene = new THREE.Scene();
+  scene.background = gradientBG(bgTop,bgBot);
+  const pmrem = new THREE.PMREMGenerator(renderer);
+  scene.environment = pmrem.fromScene(new RoomEnvironment(renderer), 0.04).texture;
+  scene.environmentIntensity = opts.envInt ?? 1.15;
+
+  const camera = new THREE.PerspectiveCamera(45, mount.clientWidth/mount.clientHeight, 0.1, 200);
+  const cam = opts.cam || [5.5,3.4,6.2];
+  camera.position.set(...cam);
+
+  const controls = new OrbitControls(camera, renderer.domElement);
+  controls.enableDamping = true; controls.dampingFactor = 0.07;
+  controls.minDistance = opts.minD ?? 3; controls.maxDistance = opts.maxD ?? 18;
+  controls.maxPolarAngle = Math.PI*0.52;
+  controls.target.set(...(opts.target||[0,1.4,0]));
+  controls.autoRotate = opts.autoRotate ?? false;
+  controls.autoRotateSpeed = opts.autoRotateSpeed ?? 0.6;
+
+  const key = new THREE.DirectionalLight(0xffffff, 2.7);
+  key.position.set(5,9,6); key.castShadow=true;
+  key.shadow.mapSize.set(2048,2048);
+  key.shadow.camera.near=0.5; key.shadow.camera.far=40;
+  const sd=8; Object.assign(key.shadow.camera,{left:-sd,right:sd,top:sd,bottom:-sd});
+  key.shadow.bias=-0.0003; key.shadow.normalBias=0.02; scene.add(key);
+  const rim = new THREE.SpotLight(0x2affce, 55, 30, Math.PI/5, 0.4, 1.5);
+  rim.position.set(-7,6,-5); scene.add(rim);
+  const fill = new THREE.DirectionalLight(0x6fb6ff, 0.5); fill.position.set(-4,3,7); scene.add(fill);
+  scene.add(new THREE.HemisphereLight(0x9fb4c8, 0x10151b, 0.35));
+
+  if(opts.floor!==false){
+    const f = new THREE.Mesh(new THREE.CircleGeometry(40,80),
+      new THREE.MeshStandardMaterial({ color:0x0a0e13, roughness:0.26, metalness:0.62, envMapIntensity:1.15 }));
+    f.rotation.x=-Math.PI/2; f.receiveShadow=true; scene.add(f);
+    for(let r=2;r<=8;r+=2){
+      const ring=new THREE.Mesh(new THREE.RingGeometry(r-0.012,r+0.012,80),
+        new THREE.MeshBasicMaterial({color:0x1a2632,transparent:true,opacity:0.4}));
+      ring.rotation.x=-Math.PI/2; ring.position.y=0.002; scene.add(ring);
+    }
+  }
+
+  const isMobile = /Mobi|Android|iPhone|iPad/i.test(navigator.userAgent) || innerWidth<820;
+  // GTAO desactivado por defecto: el pase de oclusión ambiental en espacio de pantalla
+  // producía un recuadro oscuro duro sobre el piso reflectante (artefacto dependiente de la
+  // cámara y del renderer). La escena tiene AO suficiente con luces directas + sombras + env.
+  // Se puede reactivar para pruebas con ?gtao.
+  const useGtao = /[?&]gtao\b/.test(location.search);
+  const composer = new EffectComposer(renderer);
+  composer.addPass(new RenderPass(scene,camera));
+  if(!isMobile && useGtao){
+    try{
+      const g=new GTAOPass(scene,camera,mount.clientWidth,mount.clientHeight);
+      g.output=GTAOPass.OUTPUT.Default;
+      if(g.updateGtaoMaterial)g.updateGtaoMaterial({radius:0.5,distanceExponent:1,thickness:1,scale:1.1,samples:16});
+      composer.addPass(g);
+    }catch(e){}
+  }
+  const bloom=new UnrealBloomPass(new THREE.Vector2(mount.clientWidth,mount.clientHeight),opts.bloom??0.42,0.5,0.9);
+  composer.addPass(bloom);
+  let bokeh=null;
+  const flat=/[?&]flat/.test(location.search);
+  if(!isMobile && !flat){
+    bokeh=new BokehPass(scene,camera,{focus:8.5,aperture:opts.aperture??0.00018,maxblur:opts.maxblur??0.004,width:mount.clientWidth,height:mount.clientHeight});
+    composer.addPass(bokeh);
+  }
+  composer.addPass(new OutputPass());
+  composer.addPass(new SMAAPass(mount.clientWidth*renderer.getPixelRatio(),mount.clientHeight*renderer.getPixelRatio()));
+
+  function resize(){
+    const w=mount.clientWidth,h=mount.clientHeight;
+    camera.aspect=w/h; camera.updateProjectionMatrix();
+    renderer.setSize(w,h); composer.setSize(w,h);
+  }
+  window.addEventListener('resize',resize);
+
+  const clock=new THREE.Clock();
+  let hook=null, raf=null;
+  const camCine={active:false,t:0,dur:1.4,from:new THREE.Vector3(),to:new THREE.Vector3(),fromT:new THREE.Vector3(),toT:new THREE.Vector3()};
+  let lastDrag=-99, cinematicIdle=false;
+  controls.addEventListener('start',()=>{ lastDrag=clock.elapsedTime; camCine.active=false; });
+  function easeInOutCubic(x){return x<0.5?4*x*x*x:1-Math.pow(-2*x+2,3)/2;}
+  function moveTo(pos,target,dur=1.4){
+    camCine.from.copy(camera.position); camCine.fromT.copy(controls.target);
+    camCine.to.set(...pos); camCine.toT.set(...target);
+    camCine.dur=dur; camCine.active=true; camCine.t=0;
+  }
+  function setCinematicIdle(v){ cinematicIdle=v; if(!v)controls.autoRotate=false; }
+  function loop(){ raf=requestAnimationFrame(loop); const dt=clock.getDelta(),t=clock.elapsedTime;
+    if(camCine.active){
+      camCine.t=Math.min(1,camCine.t+dt/camCine.dur);
+      const e=easeInOutCubic(camCine.t);
+      camera.position.lerpVectors(camCine.from,camCine.to,e);
+      controls.target.lerpVectors(camCine.fromT,camCine.toT,e);
+      if(camCine.t>=1)camCine.active=false;
+    } else if(cinematicIdle){
+      controls.autoRotate=(t-lastDrag)>1.4; controls.autoRotateSpeed=0.45;
+    }
+    if(hook)hook(dt,t); controls.update();
+    if(bokeh) bokeh.uniforms['focus'].value = camera.position.distanceTo(controls.target);
+    composer.render(); }
+  function start(){ if(!raf)loop(); }
+  function stop(){ cancelAnimationFrame(raf); raf=null; window.removeEventListener('resize',resize); }
+
+  return { THREE, renderer, scene, camera, controls, composer, bloom,
+    setAnimate:fn=>hook=fn, start, stop, resize, clock,
+    flyTo:(v)=>{ controls.target.copy(v); }, moveTo, setCinematicIdle };
+}
+
+/* ---------- shared geometry/material helpers ---------- */
+function roundedBox(w,h,d,mat,rf=0.08){
+  const r=Math.min(w,h,d)*rf;
+  const m=new THREE.Mesh(new RoundedBoxGeometry(w,h,d,4,r),mat);
+  m.castShadow=m.receiveShadow=true; return m;
+}
+function pickerFor(scene,camera,dom,onHit){
+  const ray=new THREE.Raycaster(),mouse=new THREE.Vector2(); let down=null;
+  dom.addEventListener('pointerdown',e=>down=[e.clientX,e.clientY]);
+  dom.addEventListener('pointerup',e=>{
+    if(!down)return; const moved=Math.abs(e.clientX-down[0])+Math.abs(e.clientY-down[1])>6; down=null;
+    if(moved)return;
+    const r=dom.getBoundingClientRect();
+    mouse.x=((e.clientX-r.left)/r.width)*2-1; mouse.y=-((e.clientY-r.top)/r.height)*2+1;
+    ray.setFromCamera(mouse,camera);
+    const hits=ray.intersectObjects(scene.children,true);
+    onHit(hits[0]||null);
+  });
+}
+function labelSprite(text,color='#ffd166'){
+  const w = Math.max(150, Math.min(520, text.length*26+60));
+  const cvE=document.createElement('canvas');cvE.width=w;cvE.height=96;
+  const c=cvE.getContext('2d');c.fillStyle='rgba(8,11,16,.95)';
+  const rr=(x,y,ww,hh,r)=>{c.beginPath();c.moveTo(x+r,y);c.arcTo(x+ww,y,x+ww,y+hh,r);c.arcTo(x+ww,y+hh,x,y+hh,r);c.arcTo(x,y+hh,x,y,r);c.arcTo(x,y,x+ww,y,r);c.closePath();};
+  rr(3,3,w-6,90,18);c.fill();
+  c.strokeStyle=color;c.lineWidth=3;c.stroke();
+  c.font='bold 36px Outfit, system-ui, sans-serif';c.fillStyle=color;c.textAlign='center';c.textBaseline='middle';c.fillText(text,w/2,48);
+  const tx=new THREE.CanvasTexture(cvE);tx.colorSpace=THREE.SRGBColorSpace;
+    // El rotulo se lee de lejos y en escorzo: sin mipmaps el texto centellea igual que el metal.
+    tx.generateMipmaps=true;tx.minFilter=THREE.LinearMipmapLinearFilter;tx.magFilter=THREE.LinearFilter;tx.anisotropy=8;
+  const sp=new THREE.Sprite(new THREE.SpriteMaterial({map:tx,depthTest:false,transparent:true}));
+  const aspect=w/96;
+  sp.scale.set(0.30*aspect,0.30,1);sp.renderOrder=999;return sp;
+}
+
+/* ============================================================
+   SYNTH — sintetizador Web Audio reutilizable
+   ============================================================ */
+function makeSynth(opts={}){
+  const type=opts.type||'sawtooth';
+  let ctx=null,oscA=null,oscB=null,gain=null,filter=null,soundOn=true;
+  function init(){
+    if(ctx)return;
+    try{
+      ctx=new (window.AudioContext||window.webkitAudioContext)();
+      oscA=ctx.createOscillator(); oscB=ctx.createOscillator();
+      oscA.type=type; oscB.type=opts.type2||'square';
+      filter=ctx.createBiquadFilter(); filter.type=opts.filterType||'lowpass'; filter.frequency.value=opts.filterFreq||500; filter.Q.value=opts.Q||3;
+      gain=ctx.createGain(); gain.gain.value=0;
+      oscA.connect(filter); oscB.connect(filter); filter.connect(gain); gain.connect(ctx.destination);
+      oscA.start(); oscB.start();
+    }catch(e){}
+  }
+  function update(freqA,freqB,vol,filterFreq){
+    if(!ctx||!soundOn){ if(gain)gain.gain.setTargetAtTime(0,ctx?.currentTime||0,0.1); return; }
+    oscA.frequency.setTargetAtTime(freqA,ctx.currentTime,0.04);
+    if(freqB!==undefined)oscB.frequency.setTargetAtTime(freqB,ctx.currentTime,0.04);
+    if(filterFreq!==undefined)filter.frequency.setTargetAtTime(filterFreq,ctx.currentTime,0.05);
+    gain.gain.setTargetAtTime(Math.max(0,vol),ctx.currentTime,0.06);
+  }
+  function beep(freq=880,dur=0.09,vol=0.06){
+    if(!ctx||!soundOn)return;
+    const o=ctx.createOscillator(),g=ctx.createGain();
+    o.type='sine'; o.frequency.value=freq;
+    g.gain.setValueAtTime(vol,ctx.currentTime); g.gain.exponentialRampToValueAtTime(0.001,ctx.currentTime+dur);
+    o.connect(g); g.connect(ctx.destination); o.start(); o.stop(ctx.currentTime+dur);
+  }
+  function toggle(){ soundOn=!soundOn; return soundOn; }
+  function resume(){ if(ctx&&ctx.state==='suspended')ctx.resume(); }
+  return { init, update, beep, toggle, resume, isOn:()=>soundOn, state:()=>ctx?.state||'none' };
+}
+
+/* ============================================================
+   LAB — d6-10 · GASES DE ESCAPE Y VERIFICACIÓN
+   ------------------------------------------------------------
+   QUÉ SE MIDE AQUÍ
+   Un vehículo de gasolina sobre el dinamómetro de un centro de verificación,
+   con la sonda de un analizador de cinco gases metida en el escape. Se corren
+   las DOS pruebas que la NOM-047-SEMARNAT-2014 define —la estática y la
+   dinámica— y se juzga el resultado contra las DOS tablas de la
+   NOM-041-SEMARNAT-2015.
+
+   LA TESIS
+   Aprobar la verificación y tener el motor bien NO son lo mismo, y las dos
+   direcciones fallan. Hay averías que aprueban —el método estático no mide NOx
+   contra nada, y un catalizador de tres vías esconde el NOx que el motor echa—
+   y hay mediciones que reprueban sin que el motor tenga nada: basta con que
+   entre aire por donde no debe. Leer el resultado exige saber cuál de los seis
+   criterios se ha caído y por qué.
+
+   EL MODELO DE INGENIERÍA
+   Todo cuelga de UN balance de átomos, en cuatro pasos encadenados:
+     1 · CÁMARA      C, H y O se conservan; el carbono se reparte entre CO₂ y CO
+                     por el equilibrio agua-gas [CO]·[H₂O] = 3,5·[CO₂]·[H₂], que
+                     es el mismo «3,5» que aparece en Brettschneider.
+     2 · NOx         Zeldovich: K·e^(−E/T)·√[O₂]. La temperatura tira hacia el
+                     lado rico y el oxígeno hacia el pobre, y de que los dos
+                     máximos NO coincidan sale que el de NOx caiga en λ ≈ 1,06.
+     3 · CATALIZADOR dos sigmoides opuestas, una por reacción. Que la ventana de
+                     las dos a la vez sea estrecha no se declara: se ve.
+     4 · SONDA       la dilución mezcla la muestra con aire: todo baja y el O₂
+                     sube hacia 20,9 %.
+   Y el Factor Lambda se CALCULA con Brettschneider sobre los gases MEDIDOS. Con
+   el balance cerrado recupera el λ del motor exacto en rica y con menos de
+   0,04 % de error en pobre; con la muestra diluida se va un 13 o un 27 %.
+
+   LA TRAMPA QUE ORGANIZA LA PRÁCTICA
+   Los cortes de año-modelo de la TABLA 1 (1990/1991) y de la TABLA 2
+   (1993/1994) NO coinciden. Para un vehículo de 1992 el límite de HC del método
+   estático es CUATRO veces el del dinámico, sobre el mismo coche y las mismas
+   emisiones. No es un error de la norma ni de este laboratorio: está escrito
+   así, y hay que saberlo leer.
+
+   FUENTES
+     · NOM-041-SEMARNAT-2015 — TABLA 1 y TABLA 2 transcritas literalmente; num.
+       4.1, 4.2.1, 4.2.1.1, 4.2.2, 4.2.2.1, 4.3 y 5.1.5; definiciones 3.5
+       (Factor Lambda por Brettschneider), 3.6.2 (HC en base hexano) y 3.7.
+     · NOM-047-SEMARNAT-2014 — método estático (crucero 2 500 ± 250 rpm y marcha
+       lenta 350–1 100 rpm, promedio de los segundos 26 a 30) y método dinámico
+       (PAS 5024 a 24 km/h ± 2,4 y PAS 2540 a 40 km/h ± 4, promedio de t = 21 a
+       t = 30); Tabla 3 de exactitud y ruido del analizador.
+     · Brettschneider, J. — Bosch Technische Berichte 6 (1979) 4, 177-186.
+
+   LO QUE NO MODELA, Y SE DICE EN PANTALLA
+     · El holograma. Sale del PVVO de cada entidad, no de la NOM, y cambia cada
+       año: ponerlo aquí sería inventar.
+     · El método SDB de la NOM-167 para los 2006 y posteriores de la megalópolis.
+       Eso ya es otro laboratorio.
+     · La excepción del num. 4.3 para los vehículos que POR DISEÑO operan con
+       mezcla pobre: ninguno de los cuatro de este banco lo es.
+     · La corrección por humedad de los NOx.
+     · Las excursiones de velocidad y el rechazo por humo del método dinámico:
+       se citan, no se simulan.
+   ============================================================ */
+const mount=document.getElementById('stage');
+// Estas seis cifras sólo valen para el primer fotograma: en cuanto la escena
+// arranca, el encuadre se CALCULA con camConjunto(), porque depende del ancho
+// del banco y de la forma de la ventana y no puede estar escrito a mano.
+const S=createStage(mount,{cam:[2.4,3.2,5.0],target:[-1.3,1.7,-0.9],
+  bgTop:'#101a22',bgBot:'#05070b',bloom:0.22,minD:2.4,maxD:38});
+const {scene}=S;
+const synth=makeSynth({type:'sawtooth',type2:'sine',filterFreq:1080,Q:0.78});
+// `clamp` NO se declara aquí: lo declara el motor sellado que se empalma justo
+// debajo, y declararlo dos veces es un SyntaxError que mata la página entera
+// antes de que exista window.__labDebug.
+const el=id=>document.getElementById(id);
+const TINTA='#e8eef6', CIAN='#5ad1e6', OK_HEX='#7cd992', WARN_HEX='#e9c46a',
+      BAD_HEX='#ff6b6b', GRIS='#7b8697', VIO='#b48ce0', NARANJA='#f0a05a',
+      AZUL='#6ea8fe', ROSA='#f28dbb';
+
+// ============================================================================
+//  d6-10 · GASES DE ESCAPE Y VERIFICACIÓN — MOTOR SELLADO
+//
+//  Ésta es la ÚNICA fuente de cifras del laboratorio. La interfaz no calcula
+//  nada: pinta lo que aquí se decide. Si una cifra aparece en la prosa del lab
+//  y no sale de una función de este fichero, es una cifra inventada.
+//
+//  QUÉ SE MODELA
+//  Un vehículo de gasolina con la sonda del analizador metida en el escape, y
+//  las dos pruebas que la NOM-047-SEMARNAT-2014 define para verificarlo. Todo
+//  sale de UN balance de átomos, en cuatro pasos encadenados:
+//
+//    1 · CÁMARA      — con λ y una fracción de fallo de encendido, un balance
+//                      de C, H y O reparte el carbono entre CO₂ y CO por el
+//                      equilibrio agua-gas y deja el O₂ que sobre. De ahí salen
+//                      los gases CRUDOS, antes de nada más.
+//    2 · NOx         — no sale del balance de átomos sino de la TEMPERATURA de
+//                      pico: Zeldovich. Sube con la carga, sube con el avance,
+//                      baja con la recirculación y tiene un máximo del lado
+//                      POBRE, no en el estequiométrico.
+//    3 · CATALIZADOR — oxida CO y HC y reduce NOx, con una ventana estrecha
+//                      alrededor de λ = 1 y sólo por encima de su temperatura
+//                      de encendido. El carbono NO se crea ni se destruye al
+//                      pasar por él: eso tendrá consecuencias.
+//    4 · SONDA       — lo que el analizador chupa puede venir mezclado con aire
+//                      de la calle: una fuga en el escape o la sonda mal metida
+//                      DILUYEN la muestra. Todo baja y el O₂ sube hacia el 20,9
+//                      del aire. Ésa es la única razón de que exista el criterio
+//                      de dilución de la norma.
+//
+//  Y encima de los cuatro, el VEREDICTO: las dos tablas de la
+//  NOM-041-SEMARNAT-2015 por año-modelo, el criterio de dilución, el Factor
+//  Lambda calculado con Brettschneider a partir de los gases MEDIDOS —no del λ
+//  del motor— y la regla 5.1.5, que exige no rebasar NINGUNO de los límites.
+//
+//  QUÉ NO SE MODELA, Y HAY QUE DECIRLO
+//  · El holograma (00, 0, 1, 2). No sale de la NOM sino del PVVO de cada
+//    entidad y cambia cada año: ponerlo aquí sería inventar.
+//  · El método SDB, que sustituye la medición por la lectura del OBD en los
+//    2006 y posteriores de la megalópolis. Eso es la NOM-167 y ya es un
+//    laboratorio entero.
+//  · La corrección por humedad de los NOx, que los equipos aplican.
+//  · La química fina del HC: aquí el HC es un solo número en base hexano, como
+//    lo mide el equipo y como lo define la NOM-041 num. 3.6.2. No hay reparto
+//    entre metano, aromáticos ni aldehídos.
+//  · El transitorio del catalizador al calentarse: se modela por encima o por
+//    debajo de su temperatura de encendido, sin la curva del arranque en frío.
+//  · La dinámica del dinamómetro: las excursiones de velocidad, los tres
+//    intentos y el rechazo por humo se citan, no se simulan.
+//  · El NOx no entra en el balance de átomos: a 1 000 ppm son 0,05 % de oxígeno
+//    y moverlo cambiaría el CO₂ en la cuarta cifra. Se declara.
+//
+//  NORMATIVA (transcrita y contrastada en dos renderizados independientes)
+//  · NOM-041-SEMARNAT-2015 — TABLA 1 (dinámico) y TABLA 2 (estático), num.
+//    4.1, 4.2.1, 4.2.1.1, 4.2.2, 4.2.2.1, 4.3, 5.1.5 y definiciones 3.5, 3.6,
+//    3.7.
+//  · NOM-047-SEMARNAT-2014 — método estático (crucero 2 500 ± 250 rpm y marcha
+//    lenta 350–1 100 rpm, promedio de los segundos 26 a 30) y método dinámico
+//    (PAS 5024 a 24 km/h ± 2,4 y PAS 2540 a 40 km/h ± 4, promedio de t = 21 a
+//    t = 30), y la Tabla 3 de exactitud del analizador.
+// ============================================================================
+
+const clamp = (x, a, b) => Math.max(a, Math.min(b, x));
+
+// ============================================================================
+// 1 · EL COMBUSTIBLE
+// ============================================================================
+// La gasolina se trata como un solo hidrocarburo CH_HCV. La relación H/C manda
+// en TODO: en el aire estequiométrico, en el CO₂ máximo alcanzable y en el
+// denominador de Brettschneider.
+const HCV = 1.85;     // átomos de H por átomo de C
+const OCV = 0;        // átomos de O por átomo de C: gasolina sin oxigenados
+const K_AGUA = 3.5;   // [CO]·[H₂O] = K·[CO₂]·[H₂] — el «3,5» de Brettschneider
+const K1_HEXANO = 6;  // el HC se mide en base hexano (NOM-041 num. 3.6.2)
+const O2_AIRE = 20.9; // % vol de oxígeno en el aire seco
+const N2_AIRE = 79.1;
+
+// Oxígeno estequiométrico por átomo de carbono: CH_n + (1 + n/4 − o/2) O₂
+const O2_ESTEQ = 1 + HCV / 4 - OCV / 2;
+// Y la relación aire/combustible estequiométrica en masa, que es la cifra que
+// todo el mundo cita como «14,7».
+const M_C = 12.011, M_H = 1.008, M_O = 15.999, M_AIRE = 28.96;
+const AFR_ESTEQ = (O2_ESTEQ * (100 / O2_AIRE) * M_AIRE) / (M_C + HCV * M_H);
+
+// ============================================================================
+// 2 · LA CÁMARA — el balance de átomos
+// ============================================================================
+// Se razona sobre UN mol de carbono de combustible. Entra aire en proporción λ
+// respecto del estequiométrico. Una fracción `fFallo` de la carga no se quema y
+// sale entera: su combustible entero como HC y su aire entero como O₂.
+const CO_RESIDUAL = 0.004;   // mol de CO por mol de C quemado, lado pobre
+// El combustible que se apaga contra la pared fría del cilindro y sale entero.
+// Va DENTRO del balance, como una fracción de carga que no se quema, no como un
+// número de ppm añadido al final: si se sumara aparte, sería combustible que
+// aparece de la nada, el balance no cerraría y el λ calculado con
+// Brettschneider —que sí lo cuenta— saldría sesgado contra el λ del motor.
+const F_PARED = 0.0070;      // fracción de carga apagada contra la pared
+
+// Reparto rico por el equilibrio agua-gas, resuelto exactamente.
+// Incógnitas: co, co2, h2, h2o con
+//   co + co2 = cQ                                   (carbono)
+//   h2 + h2o = hTot = cQ·HCV/2                      (hidrógeno)
+//   2·o2Q = 2·co2 + co + h2o                        (oxígeno)
+//   [CO]·[H₂O] = K·[CO₂]·[H₂]                       (equilibrio agua-gas)
+// Con d = 2·o2Q − 2·cQ queda co2 = cQ − co, h2o = co + d, h2 = hTot − co − d, y
+// el equilibrio se convierte en una cuadrática en co:
+//   (K − 1)·co² + [K·(d − cQ − hTot) − d]·co + K·cQ·(hTot − d) = 0
+function resuelveRica(cQ, o2Q, hTot) {
+  const d = 2 * o2Q - 2 * cQ;
+  const A = K_AGUA - 1;
+  const B = K_AGUA * (d - cQ - hTot) - d;
+  const C = K_AGUA * cQ * (hTot - d);
+  // De las dos raíces sólo una es física: la que deja las cuatro especies con
+  // cantidad no negativa. Se elige por eso, no por el signo del discriminante.
+  const cand = [];
+  if (Math.abs(A) < 1e-12) {
+    if (Math.abs(B) > 1e-12) cand.push(-C / B);
+  } else {
+    const disc = B * B - 4 * A * C;
+    if (disc >= 0) {
+      const r = Math.sqrt(disc);
+      cand.push((-B - r) / (2 * A), (-B + r) / (2 * A));
+    }
+  }
+  const bueno = cand.filter(x => x >= -1e-9 && x <= cQ + 1e-9 &&
+    x + d >= -1e-9 && hTot - x - d >= -1e-9);
+  const co = clamp(bueno.length ? bueno[0] : Math.max(0, -d), 0, cQ);
+  const co2 = cQ - co;
+  const h2o = Math.max(0, co + d);
+  const h2 = Math.max(0, hTot - h2o);
+  return { co, co2, h2, h2o, raices: cand.slice() };
+}
+
+// El límite de mezcla pobre: por encima de cierto λ la llama se vuelve tan
+// lenta que hay ciclos que no llegan a quemar. Esto NO es una constante de la
+// naturaleza, es un ajuste didáctico, y por eso se declara aquí con nombre.
+const LAM_POBRE_ESTABLE = 1.25;   // hasta aquí, combustión limpia
+const LAM_APAGA = 1.60;           // aquí ya falla la mitad de los ciclos
+function falloPorPobre(lam) {
+  if (lam <= LAM_POBRE_ESTABLE) return 0;
+  const u = (lam - LAM_POBRE_ESTABLE) / (LAM_APAGA - LAM_POBRE_ESTABLE);
+  return clamp(0.5 * u * u, 0, 0.5);
+}
+
+// Los gases CRUDOS, en % vol de gas seco (y el HC en ppm de hexano).
+function cruda(lam, fFalloBase) {
+  const l = Math.max(0.30, lam);
+  const f = clamp(fFalloBase + falloPorPobre(l) + F_PARED, 0, 0.6);
+  const cQ = 1 - f;                       // carbono que sí se quema
+  const o2Disp = l * O2_ESTEQ;            // O₂ que entra por mol de C total
+  const o2Q = o2Disp * cQ;                // el que acompaña a la parte quemada
+  const hTot = cQ * HCV / 2;
+  let co2, co, o2, h2;
+  if (l < 1) {
+    const R = resuelveRica(cQ, o2Q, hTot);
+    co = R.co; co2 = R.co2; h2 = R.h2;
+    // La carga que NO se quema sale entera: su combustible como HC y SU AIRE
+    // como O₂. Ponerlo a cero aquí —que es lo que hacía este modelo— tiraba a
+    // la basura el oxígeno de esa fracción, el balance no cerraba, y además
+    // dejaba a los motores ricos con un oxígeno exactamente nulo, que ningún
+    // analizador lee jamás.
+    o2 = o2Disp - o2Q;
+  } else {
+    co = CO_RESIDUAL * cQ;
+    co2 = cQ - co;
+    h2 = 0;
+    // Lo que sobra tras quemar la parte quemada. El aire de la carga fallada no
+    // se toca, y por eso un fallo de encendido SUBE el oxígeno medido.
+    o2 = o2Disp - (co2 + co / 2 + cQ * HCV / 4);
+  }
+  // El combustible crudo de los ciclos fallados, más el apagado contra la pared.
+  const hcC = f;                          // mol de C crudo por mol de C total
+  const n2 = o2Disp * (N2_AIRE / O2_AIRE);
+  // Gas SECO: el analizador condensa el agua antes de medir.
+  const seco = co2 + co + Math.max(0, o2) + h2 + n2 + hcC;
+  const pc = x => (x / seco) * 100;
+  return {
+    lam: l, fFallo: f,
+    CO2: pc(co2), CO: pc(co), O2: pc(Math.max(0, o2)), H2: pc(h2),
+    HC: (hcC / seco) * 1e6 / K1_HEXANO,
+    seco, moles: { co2, co, o2: Math.max(0, o2), h2, n2, hcC },
+  };
+}
+
+// ============================================================================
+// 3 · NOx — la temperatura de pico, no el balance de átomos
+// ============================================================================
+// Zeldovich: la formación de NO va con exp(−E/T) y con la raíz del oxígeno
+// disponible. El resultado, que NO se escribe sino que sale, es que el máximo
+// cae del lado POBRE —hay más oxígeno y todavía hace calor— y que en rica se
+// hunde aunque la temperatura sea alta.
+// Las cuatro constantes del ajuste. NO son constantes de la naturaleza: son un
+// ajuste didáctico calibrado para que las cifras caigan donde caen en un banco
+// real, y por eso llevan nombre y se declaran en la ficha.
+const T_ADIAB = 2600;      // K de pico a λ de máxima llama, plena carga, sin EGR
+const E_NOx = 21000;       // K, energía de activación reducida de Zeldovich
+const K_NOx = 3.90e7;      // ppm, factor de escala
+const T_MIN_NOx = 1200;    // K por debajo de los cuales no se forma NO apreciable
+const LAM_T_MAX = 0.95;    // el pico de temperatura cae del lado RICO
+const SIGMA_T = 0.40;      // anchura de la campana de temperatura
+const K_EGR_T = 0.62;      // cuánto enfría el pico lo recirculado
+const K_AVANCE_T = 0.0055; // por grado de avance sobre el nominal
+const O2_DISOC = 0.30;     // % de O₂ que la disociación deja a λ = 1
+const N_DISOC = 6;         // con cuánta fuerza se hunde ese resto en rica
+
+// La temperatura de pico: baja al alejarse del estequiométrico por los dos
+// lados, sube con la carga y con el avance, y baja con lo recirculado.
+function tPico(e, lam, carga, F = {}) {
+  const l = Math.max(0.5, lam);
+  // El máximo de temperatura cae un poco del lado RICO, donde la llama es más
+  // rápida. El de NOx, en cambio, caerá del lado POBRE: eso no se escribe aquí,
+  // sale de multiplicar esta campana por el oxígeno disponible.
+  const dl = l - LAM_T_MAX;
+  const forma = Math.exp(-(dl * dl) / (2 * SIGMA_T * SIGMA_T));
+  const egr = clamp((e.egr || 0) * (F.egrMul === undefined ? 1 : F.egrMul), 0, 0.30);
+  const avance = (e.avance || 12) + (F.avanceExtra || 0);
+  const fAv = 1 + K_AVANCE_T * (avance - 12);
+  const fCarga = 0.86 + 0.14 * clamp(carga, 0, 1);
+  return T_ADIAB * forma * fCarga * fAv * (1 - K_EGR_T * egr);
+}
+// El oxígeno del término de Zeldovich NO es una curva ajustada: es el O₂ que el
+// balance de átomos dice que hay, con un suelo por la disociación —a esas
+// temperaturas queda algo de O₂ libre incluso en mezcla rica—. Así el máximo de
+// NOx cae donde cae por una razón, no porque se haya puesto ahí: la temperatura
+// tira hacia el lado rico y el oxígeno hacia el pobre, y ganan a medias.
+function noxCrudo(e, lam, carga, g0, F = {}) {
+  const T = tPico(e, lam, carga, F);
+  if (T <= T_MIN_NOx) return 0;
+  // El resto de disociación no es constante: cuanto más rica es la mezcla,
+  // menos oxígeno libre queda incluso a temperatura de pico. Sin esta caída, el
+  // modelo daba 2 200 ppm a λ = 0,85, que es el doble de lo que da un motor.
+  const suelo = O2_DISOC * Math.pow(Math.min(1, lam), N_DISOC);
+  const o2 = Math.max(g0.O2, suelo);
+  return K_NOx * Math.exp(-E_NOx / T) * Math.sqrt(o2);
+}
+
+// ============================================================================
+// 4 · EL CATALIZADOR
+// ============================================================================
+// Oxida CO y HC —para lo que necesita oxígeno, o sea λ ≥ 1— y reduce NOx —para
+// lo que necesita lo contrario—. Por eso la ventana de los tres a la vez es
+// estrecha, y por eso el lazo cerrado oscila alrededor de λ = 1 en lugar de
+// quedarse quieto en un lado.
+const T_ENCENDIDO = 550;   // K de encendido del catalizador (light-off)
+// Los dos bordes de la ventana y su anchura. Están puestos de modo que en
+// λ = 1,000 las DOS reacciones vayan casi al máximo a la vez —que es lo que
+// hace que la ventana exista— y que fuera de ella cada una se caiga sola.
+const LAM_OX = 0.985, LAM_RED = 1.020, W_CAT = 0.005;
+const ETA_OX = 0.985, ETA_RED = 0.975;
+
+function eficacias(e, lam, F = {}) {
+  const salud = clamp((e.catSalud === undefined ? 1 : e.catSalud) *
+    (F.catMul === undefined ? 1 : F.catMul), 0, 1);
+  const tCat = (e.tCat || 750) + (F.tCatDelta || 0);
+  if (!e.catalizador || salud <= 0 || tCat < T_ENCENDIDO) {
+    return { ox: 0, red: 0, salud, tCat, encendido: tCat >= T_ENCENDIDO,
+      hay: !!e.catalizador, treVias: !!e.treVias };
+  }
+  // Oxidación: necesita oxígeno. Se cae por debajo de λ = 1.
+  const ox = salud * ETA_OX / (1 + Math.exp(-(lam - LAM_OX) / W_CAT));
+  // Reducción: necesita atmósfera reductora. Se cae por encima de λ = 1. Un
+  // catalizador de DOS vías no reduce nada: sólo oxida.
+  const red = !e.treVias ? 0
+    : salud * ETA_RED / (1 + Math.exp((lam - LAM_RED) / W_CAT));
+  return { ox, red, salud, tCat, encendido: true, hay: true, treVias: !!e.treVias };
+}
+
+// El paso por el catalizador, con el carbono contado. Oxidar CO gasta medio O₂
+// por mol y pasa ese carbono a CO₂; oxidar HC gasta más y también lo pasa. El
+// CARBONO TOTAL no cambia: entra y sale el mismo. De ahí sale, sin que nadie lo
+// escriba, que CO+CO₂ mida la MUESTRA y no el estado del motor.
+function pasaCatalizador(e, g, nox, lam, F = {}) {
+  const ef = eficacias(e, lam, F);
+  const m = g.moles;
+  const coQuemado = m.co * ef.ox;
+  // El HC en moles de carbono: el que hay en ppm de hexano por 6 carbonos.
+  const hcC0 = m.hcC;
+  const hcQuemado = hcC0 * ef.ox;
+  const co = m.co - coQuemado;
+  const hcC = hcC0 - hcQuemado;
+  const co2 = m.co2 + coQuemado + hcQuemado;
+  // El oxígeno que se gasta: 1/2 por CO y (1 + HCV/4) por carbono de HC.
+  const o2Gasto = coQuemado / 2 + hcQuemado * O2_ESTEQ;
+  const o2 = Math.max(0, m.o2 - o2Gasto);
+  const seco = co2 + co + o2 + m.h2 + m.n2 + hcC;
+  const pc = x => (x / seco) * 100;
+  return {
+    CO2: pc(co2), CO: pc(co), O2: pc(o2), H2: pc(m.h2),
+    HC: (hcC / seco) * 1e6 / K1_HEXANO,
+    NOx: nox * (1 - ef.red),
+    ef, seco, moles: { co2, co, o2, h2: m.h2, n2: m.n2, hcC },
+  };
+}
+
+// ============================================================================
+// 5 · LA SONDA — la dilución
+// ============================================================================
+// Una fuga en el escape antes del punto de muestreo, o la sonda mal metida,
+// mezcla el gas con aire de la calle. `dil` es la fracción de aire en lo que el
+// equipo chupa. Todo baja proporcionalmente y el O₂ sube hacia el 20,9 del aire.
+function diluye(g, dil) {
+  const d = clamp(dil, 0, 0.95);
+  const k = 1 - d;
+  return {
+    CO2: g.CO2 * k, CO: g.CO * k, O2: g.O2 * k + O2_AIRE * d,
+    H2: g.H2 * k, HC: g.HC * k, NOx: g.NOx * k, dil: d,
+  };
+}
+
+// ============================================================================
+// 6 · EL FACTOR LAMBDA — Brettschneider sobre lo MEDIDO
+// ============================================================================
+// La NOM-041 num. 3.5 nombra la fórmula pero no fija sus constantes, y circulan
+// variantes. Ésta es la forma publicada por Bosch, con Hcv, Ocv y K₁ declarados
+// arriba. Se calcula sobre los gases que el equipo MIDE, no sobre el λ del
+// motor: si la muestra viene diluida, este número también viene mal, y eso es
+// justo lo que el criterio de dilución existe para atrapar.
+function brettschneider(G) {
+  const CO = G.CO, CO2 = G.CO2, O2 = G.O2;
+  const HC = G.HC / 1e4;                 // ppm hexano → % vol
+  if (CO2 <= 1e-9) return null;
+  const agua = HCV / 4 * (K_AGUA / (K_AGUA + CO / CO2)) - OCV / 2;
+  const num = CO2 + CO / 2 + O2 + agua * (CO2 + CO);
+  const den = (1 + HCV / 4 - OCV / 2) * (CO2 + CO + K1_HEXANO * HC);
+  return den > 0 ? num / den : null;
+}
+
+// ============================================================================
+// 7 · LOS PUNTOS DE PRUEBA DE LA NOM-047
+// ============================================================================
+// Estático: crucero PRIMERO (2 500 ± 250 rpm) y marcha lenta en vacío DESPUÉS
+// (350–1 100 rpm), un mínimo de 30 s cada uno, promediando los segundos 26 a 30.
+// Dinámico: PAS 5024 a 24 km/h con el 50 % de la carga y PAS 2540 a 40 km/h con
+// el 25 %, promediando de t = 21 a t = 30.
+const RPM_CRUCERO = 2500, TOL_CRUCERO = 250;
+const RPM_RALENTI_MIN = 350, RPM_RALENTI_MAX = 1100;
+const SEG_ESTATICO = [26, 27, 28, 29, 30];
+const SEG_DINAMICO = [21, 22, 23, 24, 25, 26, 27, 28, 29, 30];
+const VEL_5024 = 24, TOL_5024 = 2.4, CARGA_5024 = 0.50;
+const VEL_2540 = 40, TOL_2540 = 4.0, CARGA_2540 = 0.25;
+
+// `cargaNom` es lo que la norma fija en el freno: el 50 % y el 25 %. `carga` es
+// la fracción de carga que eso supone PARA EL MOTOR, y el paso de una a otra es
+// una hipótesis didáctica de este laboratorio, no un dato de la norma: se
+// declara aquí y en la ficha. Lo que importa de esos números es que las dos
+// fases del método dinámico piden trabajo al motor y las dos del estático no.
+const PUNTOS = {
+  estatico: [
+    { k: 'crucero', rot: 'crucero a 2 500 rpm', metodo: 'estatico', rpm: 2500, carga: 0.12, cargaNom: null, ralenti: false },
+    { k: 'ralenti', rot: 'marcha lenta en vacío', metodo: 'estatico', rpm: null, carga: 0.00, cargaNom: null, ralenti: true },
+  ],
+  dinamico: [
+    { k: 'pas5024', rot: 'PAS 5024 · 24 km/h al 50 %', metodo: 'dinamico', rpm: 1900, carga: 0.35, cargaNom: CARGA_5024, vel: VEL_5024, ralenti: false },
+    { k: 'pas2540', rot: 'PAS 2540 · 40 km/h al 25 %', metodo: 'dinamico', rpm: 2300, carga: 0.28, cargaNom: CARGA_2540, vel: VEL_2540, ralenti: false },
+  ],
+};
+const METODOS = ['estatico', 'dinamico'];
+
+// ============================================================================
+// 8 · LAS TABLAS DE LA NOM-041-SEMARNAT-2015
+// ============================================================================
+// Transcritas literalmente. El corte de año NO es el mismo en las dos, y eso
+// tiene consecuencias que esta práctica va a enseñar sin decirlas.
+const DIL_MIN = 13, DIL_MAX = 16.5, LAMBDA_MAX = 1.05;
+const TABLA1 = [   // método dinámico, num. 4.2.1
+  { hasta: 1990, rot: '1990 y anteriores', HC: 350, CO: 2.5, O2: 2.0, NOx: 2500 },
+  { hasta: Infinity, rot: '1991 y posteriores', HC: 100, CO: 1.0, O2: 2.0, NOx: 1500 },
+];
+const TABLA2 = [   // método estático, num. 4.2.2
+  { hasta: 1993, rot: '1993 y anteriores', HC: 400, CO: 3.0, O2: 2.0, NOx: null },
+  { hasta: Infinity, rot: '1994 y posteriores', HC: 100, CO: 1.0, O2: 2.0, NOx: null },
+];
+function limites(metodo, anio) {
+  const T = metodo === 'dinamico' ? TABLA1 : TABLA2;
+  const f = T.find(r => anio <= r.hasta) || T[T.length - 1];
+  return { ...f, dilMin: DIL_MIN, dilMax: DIL_MAX, lambda: LAMBDA_MAX,
+    tabla: metodo === 'dinamico' ? 'TABLA 1' : 'TABLA 2' };
+}
+
+// ============================================================================
+// 9 · AVERÍAS
+// ============================================================================
+// Cada avería es un puñado de parámetros del modelo, no un resultado escrito a
+// mano. Lo que se ve en pantalla se deduce; no se declara.
+const FALLAS = {
+  sano: {},
+  // El lazo cerrado manda de más: la mezcla se va a rica en todo el rango.
+  mezclaRica: { lamMul: 0.92 },
+  mezclaPobre: { lamMul: 1.12 },
+  // La sonda perezosa deja de corregir y el motor cae a su MAPA BASE, que en
+  // lazo abierto se calibra rico para no quedarse corto en ningún sitio. No
+  // lleva multiplicador de mezcla: si lo llevara, la avería seguiría haciendo
+  // algo en un coche que no tiene lazo cerrado que perder, y decir que «no
+  // aplica» sería mentira.
+  sondaVaga: { lazoAbierto: true },
+  catalizadorMuerto: { catMul: 0.03 },
+  // Trayectos cortos: el catalizador nunca llega a su temperatura de encendido.
+  catalizadorFrio: { tCatDelta: -320 },
+  falloEncendido: { fallo: 0.06 },
+  // Una fuga en el escape antes del punto de muestreo.
+  fugaEscape: { dil: 0.22 },
+  // La sonda no entra lo suficiente y chupa aire del borde del tubo.
+  sondaMalMetida: { dil: 0.13 },
+  // La recirculación pegada cerrada: nada refrigera el pico.
+  egrPegada: { egrMul: 0 },
+  avanceExcesivo: { avanceExtra: 11 },
+  // El filtro tapado ahoga el aire: la mezcla se enriquece.
+  filtroSucio: { lamMul: 0.90 },
+  // Un inyector que gotea con el motor parado y sigue goteando en marcha.
+  inyectorGoteo: { lamMul: 0.94, hcExtra: 320 },
+};
+const FALLA_KEYS = Object.keys(FALLAS);
+
+// ============================================================================
+// 10 · ARQUETIPOS
+// ============================================================================
+// Cuatro vehículos que caen en casillas distintas de las dos tablas. El de 1992
+// existe por una razón concreta: los cortes de año de la TABLA 1 (1990/1991) y
+// de la TABLA 2 (1993/1994) NO coinciden.
+const ARQ = {
+  carb88: {
+    key: 'carb88', corto: 'Carburado 88', nombre: 'Sedán de 1988 con carburador, sin catalizador',
+    anio: 1988, nCil: 4, ralenti: 800, cilindrada: 1.6,
+    lazoCerrado: false, catalizador: false, treVias: false, catSalud: 0, tCat: 300,
+    egr: 0.04, avance: 10,
+    // Sin lazo cerrado el carburador se calibra rico para que no falle en frío.
+    lamRalenti: 0.94, lamCrucero: 0.96, lamCarga: 0.90,
+  },
+  tbi92: {
+    key: 'tbi92', corto: 'Monopunto 92', nombre: 'Sedán de 1992 con inyección monopunto y catalizador de dos vías',
+    anio: 1992, nCil: 4, ralenti: 850, cilindrada: 1.8,
+    lazoCerrado: false, catalizador: true, treVias: false, catSalud: 0.90, tCat: 700,
+    egr: 0.17, avance: 12,
+    lamRalenti: 1.00, lamCrucero: 1.02, lamCarga: 0.93,
+  },
+  mpi04: {
+    key: 'mpi04', corto: 'MPI 2004', nombre: 'Sedán de 2004 con inyección multipunto y catalizador de tres vías',
+    anio: 2004, nCil: 4, ralenti: 750, cilindrada: 2.0,
+    lazoCerrado: true, catalizador: true, treVias: true, catSalud: 0.96, tCat: 780,
+    egr: 0.10, avance: 14,
+    lamRalenti: 0.94, lamCrucero: 0.95, lamCarga: 0.92,
+  },
+  gdi16: {
+    key: 'gdi16', corto: 'GDI 2016', nombre: 'Compacto de 2016 con inyección directa, tres vías y recirculación',
+    anio: 2016, nCil: 4, ralenti: 700, cilindrada: 1.4,
+    lazoCerrado: true, catalizador: true, treVias: true, catSalud: 0.98, tCat: 800,
+    egr: 0.16, avance: 16,
+    lamRalenti: 0.95, lamCrucero: 0.96, lamCarga: 0.95,
+  },
+};
+const ARQ_KEYS = Object.keys(ARQ);
+
+// El λ que el motor mantiene en un punto de trabajo dado. En lazo cerrado la
+// sonda lo clava en 1,00 salvo a plena carga, donde el mapa enriquece para
+// proteger; en lazo abierto manda el mapa y nada lo corrige.
+// El enriquecimiento de POTENCIA sólo entra cerca de mariposa abierta. Ninguna
+// de las cuatro fases de las dos pruebas llega ahí: las dos del método dinámico
+// piden trabajo, pero un 24 o un 40 km/h sostenidos son carga parcial. Ponerlo
+// más bajo hacía que todos los vehículos sanos suspendieran el dinámico, que es
+// justo lo contrario de lo que pasa en un centro de verificación.
+const CARGA_ENRIQUECE = 0.80;
+function lambdaEn(e, carga, F = {}) {
+  const c = clamp(carga, 0, 1);
+  const base = c >= CARGA_ENRIQUECE ? e.lamCarga
+    : c <= 0.03 ? e.lamRalenti
+      : e.lamCrucero;
+  const cerrado = e.lazoCerrado && !F.lazoAbierto;
+  // Con lazo cerrado y sin avería, la sonda clava λ = 1 mientras no haya
+  // enriquecimiento de potencia. Sin lazo cerrado manda el mapa y nada corrige.
+  const conLazo = cerrado && c < CARGA_ENRIQUECE ? 1.00 : base;
+  return conLazo * (F.lamMul === undefined ? 1 : F.lamMul);
+}
+
+// ============================================================================
+// 11 · LA MEDICIÓN COMPLETA EN UN PUNTO
+// ============================================================================
+function mide(e, P, F = {}) {
+  const carga = P.carga;
+  const rpm = P.ralenti ? e.ralenti : P.rpm;
+  const lam = lambdaEn(e, carga, F);
+  const g0 = cruda(lam, F.fallo || 0);
+  const nox0 = noxCrudo(e, lam, carga, g0, F);
+  const gc = pasaCatalizador(e, g0, nox0, lam, F);
+  // El goteo de un inyector añade crudo que el catalizador ya no ve.
+  const gHC = { ...gc, HC: gc.HC + (F.hcExtra || 0) };
+  const G = diluye(gHC, F.dil || 0);
+  const lamCalc = brettschneider(G);
+  return {
+    k: P.k, rot: P.rot, metodo: P.metodo, rpm, carga, ralenti: !!P.ralenti,
+    lamMotor: lam, lamCalc,
+    CO: G.CO, CO2: G.CO2, O2: G.O2, HC: G.HC, NOx: G.NOx,
+    dilucion: G.CO + G.CO2, dil: G.dil,
+    fFallo: g0.fFallo, tPico: tPico(e, lam, carga, F), ef: gc.ef,
+    crudo: { CO: g0.CO, CO2: g0.CO2, O2: g0.O2, HC: g0.HC, NOx: nox0 },
+    sinDiluir: { CO: gHC.CO, CO2: gHC.CO2, O2: gHC.O2, HC: gHC.HC, NOx: gHC.NOx },
+  };
+}
+
+// ============================================================================
+// 11 bis · LO QUE EL EQUIPO PUBLICA — la traza y la ventana de la norma
+// ============================================================================
+// El analizador no publica el estado estacionario: publica el PROMEDIO de una
+// ventana de segundos que la NOM-047 fija. Y la fija tarde por una razón: entre
+// la sonda y la celda hay manguera, y el gas tarda en llegar. Si se promediara
+// al principio de la fase, la lectura saldría por debajo de lo que el motor
+// está echando de verdad. Eso no se afirma aquí: se mide en la Capa 1.
+const RESP_TAU = 4.0;      // s de constante de la manguera y la celda
+const DUR_ESTATICO = 30;   // s de cada fase del método estático
+const DUR_DINAMICO = 60;   // s de cada fase del método dinámico
+
+// El rizo del instrumento. Las amplitudes son las de RUIDO de la Tabla 3 de la
+// NOM-047. Es determinista y su periodo divide exactamente la ventana de cada
+// método, así que su promedio sobre la ventana es CERO por construcción: lo que
+// se publica es el promedio del transitorio, no un número que dependa del rizo.
+// Un equipo real no tiene esa suerte, y por eso la norma le exige la exactitud
+// de esa misma tabla.
+const RUIDO = { CO: 0.02, CO2: 0.20, O2: 0.30, HC: 6, NOx: 16 };
+const FASE_RUIDO = { CO: 0, CO2: 1.1, O2: 2.3, HC: 0.7, NOx: 1.9 };
+function ventanaDe(metodo) {
+  return metodo === 'dinamico' ? SEG_DINAMICO : SEG_ESTATICO;
+}
+function periodoRuido(metodo) {
+  return ventanaDe(metodo).length;   // 5 s en estático, 10 s en dinámico
+}
+function rizo(gas, t, metodo) {
+  const T = periodoRuido(metodo);
+  return RUIDO[gas] * Math.sin(2 * Math.PI * t / T + FASE_RUIDO[gas]);
+}
+
+// La traza segundo a segundo de una fase completa.
+function traza(e, P, F = {}, o = {}) {
+  const est = mide(e, P, F);
+  const dur = P.metodo === 'dinamico' ? DUR_DINAMICO : DUR_ESTATICO;
+  const paso = o.paso || 1;
+  const gases = ['CO', 'CO2', 'O2', 'HC', 'NOx'];
+  const pts = [];
+  for (let t = 0; t <= dur + 1e-9; t += paso) {
+    const sube = 1 - Math.exp(-t / RESP_TAU);
+    const p = { t };
+    // El rizo NO se multiplica por la subida y NO se recorta en cero: el ruido
+    // del instrumento está ahí llegue o no el gas, y recortarlo sesgaría el
+    // promedio hacia arriba justo en las lecturas pequeñas —un CO de 0,006 %
+    // con un ruido de ±0,02 % salía un 62 % alto sólo por el recorte—. Que la
+    // traza baje de cero un instante es lo que hace un equipo de verdad cuando
+    // la lectura es del tamaño de su propio ruido, y verlo enseña algo.
+    for (const g of gases) p[g] = est[g] * sube + rizo(g, t, P.metodo);
+    pts.push(p);
+  }
+  return { pts, dur, est, ventana: ventanaDe(P.metodo), metodo: P.metodo };
+}
+
+// El promedio de la ventana: ESTO es lo que el equipo publica y lo que se juzga.
+function lectura(e, P, F = {}) {
+  const T = traza(e, P, F, { paso: 1 });
+  const seg = T.ventana;
+  const gases = ['CO', 'CO2', 'O2', 'HC', 'NOx'];
+  const out = {};
+  for (const g of gases) {
+    let s = 0;
+    for (const t of seg) s += T.pts[t][g];
+    out[g] = s / seg.length;
+  }
+  return { ...T.est, ...out, dilucion: out.CO + out.CO2,
+    lamCalc: brettschneider(out), estacionario: T.est, ventana: seg };
+}
+
+// ============================================================================
+// 12 · EL VEREDICTO
+// ============================================================================
+// NOM-041 num. 5.1.5: cumple cuando no rebasa NINGUNO de los límites. Y hay dos
+// criterios que no son límites de emisión sino de validez de la medición: la
+// dilución y —salvo en marcha mínima, num. 4.2.2.1— el Factor Lambda.
+function juzgaPunto(e, m, F = {}) {
+  const L = limites(m.metodo, e.anio);
+  const fallos = [];
+  if (m.HC > L.HC) fallos.push('HC');
+  if (m.CO > L.CO) fallos.push('CO');
+  if (m.O2 > L.O2) fallos.push('O2');
+  if (L.NOx !== null && m.NOx > L.NOx) fallos.push('NOx');
+  const dilBaja = m.dilucion < L.dilMin;
+  const dilAlta = m.dilucion > L.dilMax;
+  // num. 4.2.2.1: «No aplicará el valor del Factor Lambda en el caso de la
+  // prueba en marcha mínima». El num. 4.3 exceptúa además a los vehículos que
+  // POR DISEÑO operan con mezcla pobre; ninguno de los cuatro de este banco lo
+  // es, así que esa excepción se cita en la ficha y no se modela: ponerla aquí
+  // sería una rama que nunca se recorre.
+  const lamAplica = !m.ralenti;
+  const lamFalla = lamAplica && m.lamCalc !== null && m.lamCalc > L.lambda;
+  if (lamFalla) fallos.push('lambda');
+  return {
+    ...m, L, fallos,
+    dilBaja, dilAlta, dilValida: !dilBaja && !dilAlta,
+    lamAplica, lamFalla,
+    // Una medición con la dilución fuera de ventana NO es una aprobación ni un
+    // rechazo por emisiones: es una medición que no vale.
+    valida: !dilBaja && !dilAlta,
+    aprueba: !dilBaja && !dilAlta && fallos.length === 0,
+  };
+}
+
+function verifica(e, esc, metodo) {
+  const F = FALLAS[ESCEN[esc].falla];
+  // Se juzga lo que el EQUIPO PUBLICA —el promedio de la ventana de la norma—,
+  // no el estado estacionario del motor. Son distintos, y por poco: la
+  // diferencia es justo el transitorio de la manguera.
+  const pts = PUNTOS[metodo].map(P => juzgaPunto(e, lectura(e, P, F), F));
+  const invalida = pts.some(p => !p.valida);
+  const aprueba = !invalida && pts.every(p => p.aprueba);
+  const motivos = [...new Set(pts.flatMap(p => p.fallos))];
+  return {
+    metodo, anio: e.anio, L: limites(metodo, e.anio), pts,
+    invalida, aprueba, motivos,
+    // Cuál de los dos puntos manda el rechazo, que casi nunca son los dos.
+    peor: pts.slice().sort((a, b) => (a.aprueba ? 1 : 0) - (b.aprueba ? 1 : 0))[0],
+  };
+}
+
+// ============================================================================
+// 13 · ESCENARIOS
+// ============================================================================
+const ESCEN = {
+  sano: { falla: 'sano', rot: 'sistema sano', clave: 'ninguna' },
+  mezclaRica: { falla: 'mezclaRica', rot: 'mezcla rica en todo el rango', clave: 'mezcla' },
+  mezclaPobre: { falla: 'mezclaPobre', rot: 'mezcla pobre en todo el rango', clave: 'mezcla' },
+  sondaVaga: { falla: 'sondaVaga', rot: 'sonda de oxígeno perezosa', clave: 'lazo' },
+  catalizadorMuerto: { falla: 'catalizadorMuerto', rot: 'catalizador agotado', clave: 'postratamiento' },
+  catalizadorFrio: { falla: 'catalizadorFrio', rot: 'catalizador por debajo de su encendido', clave: 'postratamiento' },
+  falloEncendido: { falla: 'falloEncendido', rot: 'fallo de encendido intermitente', clave: 'combustión' },
+  fugaEscape: { falla: 'fugaEscape', rot: 'fuga en el escape antes de la sonda', clave: 'muestreo' },
+  sondaMalMetida: { falla: 'sondaMalMetida', rot: 'sonda del analizador mal metida', clave: 'muestreo' },
+  egrPegada: { falla: 'egrPegada', rot: 'recirculación pegada cerrada', clave: 'NOx' },
+  avanceExcesivo: { falla: 'avanceExcesivo', rot: 'avance de encendido excesivo', clave: 'NOx' },
+  filtroSucio: { falla: 'filtroSucio', rot: 'filtro de aire tapado', clave: 'mezcla' },
+  inyectorGoteo: { falla: 'inyectorGoteo', rot: 'inyector que gotea', clave: 'mezcla' },
+};
+const ESCEN_KEYS = Object.keys(ESCEN);
+const FAMILIAS = [...new Set(ESCEN_KEYS.map(k => ESCEN[k].clave))];
+
+// Hay averías que NO PUEDEN darse en una máquina concreta: un catalizador
+// agotado en un coche que nunca llevó catalizador, o uno por debajo de su
+// temperatura de encendido en el mismo caso. El modelo las calcula igual y
+// devuelve exactamente las cifras del sistema sano; eso, sin avisar, se lee
+// como «la avería no hace nada», que es una lectura falsa. Por eso hay que
+// poder preguntarlo, y la interfaz lo dice en pantalla.
+function aplica(e, esc) {
+  const F = FALLAS[ESCEN[esc].falla];
+  if (!e.catalizador && (F.catMul !== undefined || F.tCatDelta !== undefined)) return false;
+  if (F.lazoAbierto && !e.lazoCerrado) return false;
+  return true;
+}
+function porQueNoAplica(e, esc) {
+  if (aplica(e, esc)) return null;
+  const F = FALLAS[ESCEN[esc].falla];
+  if (!e.catalizador && (F.catMul !== undefined || F.tCatDelta !== undefined))
+    return 'esta máquina no lleva catalizador';
+  if (F.lazoAbierto && !e.lazoCerrado) return 'esta máquina no tiene lazo cerrado que perder';
+  return 'no aplica';
+}
+const escenariosDe = e => ESCEN_KEYS.filter(k => aplica(e, k));
+
+// ============================================================================
+// 14 · LA LECTURA COMPLETA DE UN CASO
+// ============================================================================
+// Un escenario, las dos pruebas enteras, y lo que de ahí se sigue. Es lo único
+// que la interfaz necesita pedir.
+const CRITERIOS = ['HC', 'CO', 'O2', 'NOx', 'lambda', 'dilucion'];
+
+function lecturas(e, esc) {
+  const F = FALLAS[ESCEN[esc].falla];
+  const est = verifica(e, esc, 'estatico');
+  const din = verifica(e, esc, 'dinamico');
+  const cae = V => {
+    const s = new Set(V.motivos);
+    if (V.pts.some(p => p.dilBaja)) s.add('dilucionBaja');
+    if (V.pts.some(p => p.dilAlta)) s.add('dilucionAlta');
+    return [...s];
+  };
+  return {
+    esc, rot: ESCEN[esc].rot, clave: ESCEN[esc].clave, falla: ESCEN[esc].falla,
+    aplica: aplica(e, esc), porQueNo: porQueNoAplica(e, esc),
+    est, din,
+    criteriosEst: cae(est), criteriosDin: cae(din),
+    // Que los dos métodos no den lo mismo NO es un fallo del modelo: los cortes
+    // de año de la TABLA 1 y de la TABLA 2 no coinciden, y el método estático no
+    // tiene límite de NOx ninguno.
+    discrepan: est.aprueba !== din.aprueba,
+    soloPorTabla: est.aprueba !== din.aprueba &&
+      limites('estatico', e.anio).rot !== limites('dinamico', e.anio).rot,
+    // El λ del motor y el que sale de los gases: iguales mientras la muestra sea
+    // buena, distintos en cuanto entra aire por donde no debe.
+    lamMotor: est.pts[0].lamMotor, lamCalc: est.pts[0].lamCalc,
+    sesgoLambda: est.pts[0].lamCalc === null ? null
+      : est.pts[0].lamCalc - est.pts[0].lamMotor,
+  };
+}
+
+// ¿Qué criterio atrapa cada avería, y cuál se le escapa? Es la cuenta que
+// justifica que la norma tenga SEIS criterios y no sólo dos límites de emisión.
+function censoCriterios(e, metodo) {
+  const out = [];
+  for (const c of CRITERIOS) {
+    const atrapa = escenariosDe(e).filter(k => {
+      if (k === 'sano') return false;
+      const L = lecturas(e, k);
+      const cs = metodo === 'dinamico' ? L.criteriosDin : L.criteriosEst;
+      return c === 'dilucion' ? cs.includes('dilucionBaja') || cs.includes('dilucionAlta')
+        : cs.includes(c);
+    });
+    out.push({ criterio: c, atrapa, n: atrapa.length });
+  }
+  return out.sort((a, b) => b.n - a.n);
+}
+// Y las que NINGÚN criterio atrapa: el vehículo pasa la verificación con la
+// avería puesta. Que existan es el resultado más incómodo de esta práctica.
+function pasanConAveria(e, metodo) {
+  return escenariosDe(e).filter(k => k !== 'sano' &&
+    (metodo === 'dinamico' ? lecturas(e, k).din : lecturas(e, k).est).aprueba);
+}
+
+// ========================================= T1 · FORMATOS, ESTADO Y MATERIALES
+
+// El separador de millares es U+202F, un espacio fino que no rompe línea. NO se
+// usa toLocaleString: en este proyecto ya costó un error que 'es-MX' formateara
+// a la inglesa en el navegador de las pruebas y no en el del desarrollo.
+const NBSP=' ';
+function num(x,d=1){
+  if(x===null||x===undefined) return '—';
+  if(!isFinite(x)) return x>0?'∞':'—';
+  const s=Math.abs(x).toFixed(d);
+  const [ent,dec]=s.split('.');
+  let e=''; for(let i=0;i<ent.length;i++){ if(i>0 && (ent.length-i)%3===0) e+=NBSP; e+=ent[i]; }
+  return (x<0?'−':'')+e+(dec?','+dec:'');
+}
+const pcv=(x,d=2)=>num(x,d)+NBSP+'%';          // por ciento de volumen
+const ppm=(x,d=0)=>num(x,d)+NBSP+'ppm';
+const lamF=(x,d=3)=>x===null?'—':num(x,d);
+const rpmT=x=>num(x,0)+NBSP+'rpm';
+const kmh=(x,d=0)=>num(x,d)+NBSP+'km/h';
+const gra=(x,d=1)=>num(x,d)+NBSP+'°';
+const kel=(x,d=0)=>num(x,d)+NBSP+'K';
+const seg=(x,d=0)=>num(x,d)+NBSP+'s';
+const pcc=(x,d=0)=>num(x,d)+NBSP+'%';          // por ciento a secas
+const vec=(x,d=2)=>num(x,d)+NBSP+'×';
+// Un año-modelo NO lleva separador de millares: `num(1992,0)` imprime «1 992»,
+// que se lee como una cantidad y no como una fecha. Esto no lo ve ninguna prueba
+// numérica —la cifra es correcta—; se vio en una captura.
+const anio=x=>String(Math.round(x));
+const corta=(s,n)=>s.length>n?s.slice(0,n-1)+'…':s;
+
+// El valor de cada gas con la unidad que le toca. El HC va en ppm y los demás
+// en % de volumen: mezclarlos es el error de lectura más común del taller.
+const UNI={CO:'%',CO2:'%',O2:'%',HC:'ppm',NOx:'ppm'};
+function gasF(g,v){
+  if(v===null||v===undefined) return '—';
+  return g==='HC'||g==='NOx' ? ppm(v,0) : pcv(v, g==='CO'?3:2);
+}
+const GAS_ROT={CO:'CO',CO2:'CO₂',O2:'O₂',HC:'HC',NOx:'NOx'};
+const GAS_COL={CO:BAD_HEX,CO2:OK_HEX,O2:AZUL,HC:NARANJA,NOx:VIO};
+const CRIT_ROT={HC:'HC',CO:'CO',O2:'O₂',NOx:'NOx',lambda:'Factor Lambda',
+  dilucion:'dilución',dilucionBaja:'dilución baja',dilucionAlta:'dilución alta'};
+const MET_ROT={estatico:'método estático',dinamico:'método dinámico'};
+const MET_CORTO={estatico:'estático',dinamico:'dinámico'};
+const ESC_CORTO={
+  sano:'sano', mezclaRica:'mezcla rica', mezclaPobre:'mezcla pobre',
+  sondaVaga:'sonda perezosa', catalizadorMuerto:'catalizador agotado',
+  catalizadorFrio:'catalizador frío', falloEncendido:'fallo de encendido',
+  fugaEscape:'fuga en el escape', sondaMalMetida:'sonda mal metida',
+  egrPegada:'EGR pegada', avanceExcesivo:'avance excesivo',
+  filtroSucio:'filtro tapado', inyectorGoteo:'inyector que gotea',
+};
+
+// ------------------------------------------------------------------- estado
+const G={
+  maq:'mpi04', esc:'sano', metodo:'estatico', modo:'quimica',
+  // El punto de trabajo LIBRE, que no es ninguno de los cuatro del protocolo.
+  // Existe para poder recorrer la curva de mezcla entera —incluido el
+  // enriquecimiento de potencia, al que ninguna fase de las dos pruebas llega—
+  // y ver que los gases salen de una sola cosa.
+  lam:1.00, carga:0.35, libre:false,
+  // Cuál de los cinco gases se sigue en la vista de la traza. Los cinco tienen
+  // el mismo transitorio pero no la misma relación señal/ruido, y el CO —que es
+  // el que peor sale parado— es justo el que la norma limita más fino.
+  gasTraza:'CO2',
+  // Cuál de las dos fases de la prueba enseña la pantalla del analizador.
+  fase:0,
+  resuelto:false,
+};
+const MQ=()=>ARQ[G.maq];
+const FA=()=>FALLAS[ESCEN[G.esc].falla];
+
+// --------------------------------------------------------------------- memo
+// El censo de criterios recorre 13 escenarios × 2 métodos × 2 puntos por
+// máquina, y cada punto arrastra una traza de 60 muestras. Sin memoria, cada
+// repintado del pizarrón lo recalcularía y la escena se caería a cero
+// fotogramas.
+const MEMO=new Map();
+function memo(k,fn){ if(!MEMO.has(k)) MEMO.set(k,fn()); return MEMO.get(k); }
+function invalida(){ MEMO.clear(); }
+
+function LECT(){ return LECT_DE(G.esc); }
+function LECT_DE(esc){ return memo(`l|${G.maq}|${esc}`,()=>lecturas(MQ(),esc)); }
+function VERIF(){ return G.metodo==='dinamico'?LECT().din:LECT().est; }
+function CENSO(met){ return memo(`n|${G.maq}|${met||G.metodo}`,
+  ()=>censoCriterios(MQ(),met||G.metodo)); }
+function PASAN(met){ return memo(`p|${G.maq}|${met||G.metodo}`,
+  ()=>pasanConAveria(MQ(),met||G.metodo)); }
+function PUNTOS_M(){ return PUNTOS[G.metodo]; }
+// La fase que se está mirando, recortada al número de fases que el método tiene.
+// Sin el recorte, cambiar de método con la fase 2 elegida deja un `undefined` en
+// media telemetría y el panel imprime «—» sin que nada falle.
+function FASE(){ return Math.min(G.fase,PUNTOS_M().length-1); }
+function TRAZA(P){ return memo(`t|${G.maq}|${G.esc}|${P.k}`,
+  ()=>traza(MQ(),P,FA(),{paso:1})); }
+
+// El punto LIBRE: la mezcla y la carga las pone el alumno, y de ahí salen los
+// gases por el mismo camino que en una fase de la prueba. Es la única forma de
+// ver la curva entera sin que la sonda del lazo cerrado la clave en λ = 1.
+function PUNTO_LIBRE(){
+  const e=MQ(), F=FA();
+  // El λ NO se lee de G.lam sino de LAM_AQUI(): con el mando libre apagado, el
+  // que hay de verdad lo pone el motor, y una tabla calculada a G.lam mientras
+  // la gráfica marca otro λ enseña dos cifras distintas del mismo punto.
+  const l=LAM_AQUI();
+  return memo(`q|${G.maq}|${G.esc}|${l}|${G.carga}`,()=>{
+    const g0=cruda(l,F.fallo||0);
+    const nox0=noxCrudo(e,l,G.carga,g0,F);
+    const gc=pasaCatalizador(e,g0,nox0,l,F);
+    const gHC={...gc,HC:gc.HC+(F.hcExtra||0)};
+    const Gm=diluye(gHC,F.dil||0);
+    return {lam:l, crudo:g0, cat:gHC, medido:Gm, ef:gc.ef, nox0,
+      lamCalc:brettschneider(Gm), tPico:tPico(e,l,G.carga,F),
+      dilucion:Gm.CO+Gm.CO2};
+  });
+}
+
+// El λ que de verdad hay en el punto de trabajo: en las fases del protocolo lo
+// pone el motor; en el punto libre lo pone el mando.
+function LAM_AQUI(){ return G.libre?G.lam:lambdaEn(MQ(),G.carga,FA()); }
+
+// -------------------------------------------------------------- veredictos
+// Lo que el informe y la banda del pizarrón tienen que decir, en un solo sitio.
+function veredicto(){
+  const L=LECT(), V=VERIF(), e=MQ();
+  const S=LECT_DE('sano');
+  const SV=G.metodo==='dinamico'?S.din:S.est;
+  const cs=G.metodo==='dinamico'?L.criteriosDin:L.criteriosEst;
+  return {
+    L, V, S, SV, cs, e,
+    aprueba:V.aprueba,
+    invalida:V.invalida,
+    dilBaja:V.pts.some(p=>p.dilBaja), dilAlta:V.pts.some(p=>p.dilAlta),
+    // Lo que se ha movido respecto del mismo vehículo sano en la misma prueba.
+    subeCO:V.pts[0].CO>SV.pts[0].CO*1.5,
+    subeHC:V.pts[0].HC>SV.pts[0].HC*1.5,
+    subeNOx:V.pts[0].NOx>SV.pts[0].NOx*1.5,
+    subeO2:V.pts[0].O2>SV.pts[0].O2+0.5,
+    // Y la pregunta que el alumno tiene que aprender a hacerse: ¿lo que falla
+    // es el motor o es la medición?
+    esMuestreo:V.pts.some(p=>p.dil>0),
+    aplica:L.aplica, porQueNo:L.porQueNo,
+    discrepan:L.discrepan,
+    otro:G.metodo==='dinamico'?L.est:L.din,
+  };
+}
+
+// ---------------------------------------------------------------- materiales
+const rub={roughness:0.86,metalness:0.04};
+const plas={roughness:0.42,metalness:0.16};
+const std=o=>new THREE.MeshStandardMaterial(o);
+const MAT={
+  acero:brushedMetal(0xb9c4cf),
+  crom:std({color:0xd8e2ec,roughness:0.18,metalness:0.92}),
+  caja:std({color:0x1c2531,...plas}),
+  carro:std({color:0x2d3a4b,roughness:0.34,metalness:0.28}),
+  vidrio:std({color:0x9fd8e6,roughness:0.12,metalness:0.05,
+    transparent:true,opacity:0.26}),
+  goma:std({color:0x14181e,...rub}),
+  rodillo:std({color:0x3a444f,roughness:0.55,metalness:0.55}),
+  manguera:std({color:0x1d2530,...rub}),
+  ok:std({color:0x1a3a26,emissive:0x2fbf62,emissiveIntensity:1.5}),
+  bad:std({color:0x3a1a1e,emissive:0xff4d5e,emissiveIntensity:1.5}),
+  avi:std({color:0x3a3116,emissive:0xe9c46a,emissiveIntensity:1.4}),
+  apag:std({color:0x232a33,roughness:0.6,metalness:0.1}),
+};
+
+// ============================================================ T2 · PIZARRÓN
+// Un lienzo 2D de 1024×768 pegado a un panel 3D. Se llama `bcv` y no `cv`
+// porque `cv` ya es la fábrica de lienzos del kit de la escena: reusar ese
+// nombre rompe la página entera antes de que arranque nada.
+const BW=1024, BH=768;
+const bcv=document.createElement('canvas'); bcv.width=BW; bcv.height=BH;
+const bx=bcv.getContext('2d');
+const btex=new THREE.CanvasTexture(bcv);
+btex.colorSpace=THREE.SRGBColorSpace;
+
+const board=new THREE.Group();
+scene.add(board);
+// Cotas del pizarrón. Es GRANDE a propósito: los paneles de la interfaz tapan
+// cuatro décimas del ancho de la pantalla, y con un pizarrón pequeño la única
+// forma de que el banco entrara en el hueco que queda era alejarse tanto que el
+// texto dejaba de leerse. Aquí la práctica está en el tablero; el banco explica
+// de dónde sale la muestra, que es justo lo que este laboratorio discute.
+// El tamaño del pizarrón se elige por lo que MIDE EN PANTALLA, no por lo que
+// parece razonable en metros. La textura tiene 1 024 px de ancho: si el pizarrón
+// sale a 420 px de ventana, el texto de 13 px del lienzo llega al ojo a 5 y no se
+// lee. El laboratorio anterior lo saca a 535 px con un banco más estrecho; aquí
+// el vehículo es un coche entero, así que el pizarrón tiene que crecer con él.
+const BW3=8.20, BH3=5.92, BY3=3.20;
+function colocaTablero(d){
+  board.rotation.y=0.70;
+  // El pizarrón se pega al borde IZQUIERDO real del banco, descontando su propio
+  // medio ancho proyectado sobre el eje X. Colocarlo a partir de un «ancho
+  // total» inventado deja un metro de mesa vacía entre los dos y echa el banco
+  // fuera del cuadro.
+  const medio=(BW3/2+0.13)*Math.cos(board.rotation.y);
+  board.position.set(d.xIzq-0.45-medio,0,0.95);
+}
+// Encuadre que mete el pizarrón Y el banco. La distancia NO se calcula con una
+// regla de tres sobre el ancho: se PRUEBA contra el tronco de visión punto por
+// punto y se busca la menor que los mete todos. Repartir el ancho como si todo
+// estuviera a la misma profundidad deja al banco —que está mucho más cerca de la
+// cámara que el pizarrón— ocupando tres cuartos del cuadro mientras el pizarrón
+// se queda en un rincón, y eso sólo se ve mirando la pantalla.
+function puntosClave(){
+  const d=dims(MQ());
+  const a=BW3/2, mx=a*Math.cos(board.rotation.y), mz=a*Math.sin(board.rotation.y);
+  const y0=BY3-BH3/2, y1=BY3+BH3/2, bp=board.position;
+  return [
+    [bp.x-mx,y0,bp.z+mz],[bp.x+mx,y0,bp.z-mz],
+    [bp.x-mx,y1,bp.z+mz],[bp.x+mx,y1,bp.z-mz],
+    // Los extremos REALES del banco: el morro del vehículo, la cola con la
+    // sonda, lo alto del analizador y los dos bordes en profundidad. Sin el
+    // borde del analizador aquí, la cámara lo deja debajo del panel de mandos y
+    // el encuadre parece bueno hasta que se mira la pantalla.
+    [d.xIzq,0.05,0.80],[d.xIzq,1.60,-0.80],
+    [d.xDer,0.05,0.80],[d.xDer,1.10,-0.95],
+    [d.xEsc,0.05,-0.42],[d.xAna,1.55,d.zAna],
+    [d.xAna-0.40,0.05,d.zAna-0.30],[d.xAna+0.40,0.05,d.zAna-0.30],
+    [d.centro,1.72,0.80],[d.centro,0.05,-0.95],
+    [d.xRod,0.05,0.80],[d.xRod,0.05,-0.95],
+  ].map(p=>new THREE.Vector3(...p));
+}
+// La franja de pantalla que de verdad se ve. El HUD tapa la izquierda y el panel
+// de mandos tapa la derecha: encuadrar contra el ancho completo del lienzo mete
+// casi cuatro décimas del banco DEBAJO de los paneles, y desde fuera parece que
+// la cámara está mal cuando lo que está mal es la cuenta.
+function zonaUtil(){
+  const rM=mount.getBoundingClientRect();
+  const W=rM.width||1600, H=rM.height||900;
+  let x0=0, x1=W;
+  const h=el('hud'), p=el('panel');
+  if(h){ const r=h.getBoundingClientRect();
+    if(r.width>0&&r.right-rM.left<W*0.60) x0=Math.max(x0,r.right-rM.left+18); }
+  if(p){ const r=p.getBoundingClientRect();
+    if(r.width>0&&r.left-rM.left>W*0.40) x1=Math.min(x1,r.left-rM.left-18); }
+  // En una pantalla estrecha los paneles no dejan hueco: entonces se usa todo el
+  // lienzo y que los paneles tapen lo que tapen, porque la alternativa es alejar
+  // la cámara hasta que no se lea nada.
+  if(x1-x0<W*0.34){ x0=0; x1=W; }
+  return { W, H, x0, x1 };
+}
+function camConjunto(margen){
+  const d=dims(MQ()), Z=zonaUtil();
+  const asp=clamp(Z.W/Math.max(1,Z.H),0.60,2.60);
+  const m=(margen===undefined?1:margen);
+  const TV=0.4142, TH=TV*asp;                    // tangentes del medio ángulo
+  const nx0=(2*Z.x0/Z.W-1)/m, nx1=(2*Z.x1/Z.W-1)/m, ny=0.94/m;
+  const pts=puntosClave();
+  const mx=1.86*Math.cos(board.rotation.y);
+  let off=(((board.position.x-mx)+d.xDer)/2-board.position.x)/Math.cos(board.rotation.y);
+  const proy=(dist,o)=>{
+    const [P,C]=camTablero(dist,o);
+    const p=new THREE.Vector3(...P), c=new THREE.Vector3(...C);
+    const f=c.clone().sub(p).normalize();
+    const r=new THREE.Vector3().crossVectors(f,new THREE.Vector3(0,1,0)).normalize();
+    const u=new THREE.Vector3().crossVectors(r,f).normalize();
+    let a=Infinity,b=-Infinity,vy=0,zs=0,n=0,malo=false;
+    for(const q of pts){
+      const v=q.clone().sub(p), z=v.dot(f);
+      if(z<=0.2){ malo=true; continue; }
+      a=Math.min(a,(v.dot(r)/z)/TH); b=Math.max(b,(v.dot(r)/z)/TH);
+      vy=Math.max(vy,Math.abs((v.dot(u)/z)/TV)); zs+=z; n++;
+    }
+    return { a, b, vy, z:n?zs/n:1, malo };
+  };
+  const cabe=(dist,o)=>{ const e=proy(dist,o); return !e.malo&&e.a>=nx0&&e.b<=nx1&&e.vy<=ny; };
+  let dist=26;
+  for(let it=0;it<7;it++){
+    // Menor distancia que mete todos los puntos clave dentro de la franja útil.
+    if(cabe(26,off)){
+      let lo=3, hi=26;
+      for(let k=0;k<26;k++){ const mid=(lo+hi)/2; if(cabe(mid,off)) hi=mid; else lo=mid; }
+      dist=hi;
+    }else dist=26;
+    // Y después se centra el contenido DENTRO de esa franja, no dentro del
+    // lienzo: si no, el banco queda pegado al panel de mandos.
+    const e=proy(dist,off);
+    const dn=(nx0+nx1)/2-(e.a+e.b)/2;
+    if(Math.abs(dn)<0.012) break;
+    off-=dn*TH*e.z;
+  }
+  return camTablero(dist,off);
+}
+// Encuadre del pizarrón: se calcula desde su propia transformada, no con
+// coordenadas escritas a mano, porque el pizarrón se mueve con el ancho del
+// banco y unas coordenadas fijas lo dejan medio fuera de cuadro en cuanto se
+// cambia de arquetipo.
+function camTablero(d,off){
+  const c=board.position.clone(); c.y=BY3;
+  const n=new THREE.Vector3(Math.sin(board.rotation.y),0,Math.cos(board.rotation.y));
+  const dd=d||5.85;
+  // La altura sube con la distancia. Con una altura fija, alejarse deja la vista
+  // casi horizontal y la mesa se ve de canto.
+  const p=c.clone().addScaledVector(n,dd); p.y=BY3+0.13*dd;
+  // El HUD tapa la franja izquierda de la pantalla, así que por omisión se apunta
+  // un poco a la izquierda del centro del pizarrón para que el pizarrón caiga a
+  // su derecha. Con un desplazamiento POSITIVO el pizarrón se corre hacia la
+  // izquierda y el banco —que está a su derecha— entra en el cuadro.
+  const tg=new THREE.Vector3(Math.cos(board.rotation.y),0,-Math.sin(board.rotation.y));
+  const dx=(off===undefined)?-0.42:off;
+  p.addScaledVector(tg,dx); c.addScaledVector(tg,dx);
+  return [[p.x,p.y,p.z],[c.x,c.y,c.z]];
+}
+{
+  const marco=roundedBox(BW3+0.26,BH3+0.24,0.10,std({...plas,metalness:0.30,roughness:0.58}),0.05);
+  marco.position.y=BY3; board.add(marco);
+  const pl=new THREE.Mesh(new THREE.PlaneGeometry(BW3,BH3),
+    new THREE.MeshBasicMaterial({map:btex,toneMapped:false}));
+  pl.position.set(0,BY3,0.056); board.add(pl);
+  // Las patas se separan con el ancho del pizarrón, no con un número escrito a
+  // mano: si el pizarrón crece y ellas no, quedan dos palos en mitad del marco.
+  const pie=Math.max(0.10,BY3-BH3/2-0.12);
+  for(const sx of [-1,1]){
+    const p=new THREE.Mesh(new THREE.CylinderGeometry(0.05,0.06,pie,16),MAT.acero);
+    p.position.set(sx*BW3*0.42,pie/2,0); p.castShadow=true; board.add(p);
+  }
+}
+
+// ------------------------------------------------------------- primitivas 2D
+function bg(){
+  const g=bx.createLinearGradient(0,0,0,BH);
+  g.addColorStop(0,'#0d131c'); g.addColorStop(1,'#070a10');
+  bx.fillStyle=g; bx.fillRect(0,0,BW,BH);
+}
+function texto(t,x,y,o={}){
+  const s=o.s||16, w=o.b?'700':'400', it=o.it?'italic ':'';
+  bx.font=it+w+' '+s+'px '+(o.mono?'ui-monospace,Menlo,Consolas,monospace':'Inter,system-ui,sans-serif');
+  bx.fillStyle=o.c||TINTA; bx.textAlign=o.al||'left'; bx.textBaseline='alphabetic';
+  bx.fillText(t,x,y);
+}
+function linea(pts,c,w,dash){
+  if(pts.length<2) return;
+  bx.save(); bx.strokeStyle=c; bx.lineWidth=w||2; bx.lineJoin='round'; bx.lineCap='round';
+  if(dash) bx.setLineDash(dash);
+  bx.beginPath(); bx.moveTo(pts[0][0],pts[0][1]);
+  for(let i=1;i<pts.length;i++) bx.lineTo(pts[i][0],pts[i][1]);
+  bx.stroke(); bx.restore();
+}
+function wrapText(t,x,y,w,lh,o={}){
+  const s=o.s||14;
+  bx.font=(o.b?'700 ':'400 ')+s+'px Inter,system-ui,sans-serif';
+  bx.fillStyle=o.c||'#9aa6b6'; bx.textAlign='left'; bx.textBaseline='alphabetic';
+  let ln='', yy=y;
+  for(const p of t.split(' ')){
+    const test=ln?ln+' '+p:p;
+    if(bx.measureText(test).width>w&&ln){ bx.fillText(ln,x,yy); yy+=lh; ln=p; }
+    else ln=test;
+  }
+  if(ln){ bx.fillText(ln,x,yy); yy+=lh; }
+  return yy;
+}
+function rpanel(x,y,w,h,c,bd,rad){
+  const r=Math.min(rad===undefined?10:rad, w/2, h/2);
+  bx.save(); bx.beginPath();
+  bx.moveTo(x+r,y); bx.arcTo(x+w,y,x+w,y+h,r); bx.arcTo(x+w,y+h,x,y+h,r);
+  bx.arcTo(x,y+h,x,y,r); bx.arcTo(x,y,x+w,y,r); bx.closePath();
+  bx.fillStyle=c||'rgba(255,255,255,0.035)'; bx.fill();
+  if(bd){ bx.strokeStyle=bd; bx.lineWidth=1.4; bx.stroke(); }
+  bx.restore();
+}
+function chk(x,y,ok){
+  bx.save(); bx.lineWidth=2.6; bx.lineCap='round';
+  bx.strokeStyle=ok?OK_HEX:'#3a4658';
+  bx.beginPath(); bx.arc(x,y,9,0,Math.PI*2); bx.stroke();
+  if(ok){ bx.beginPath(); bx.moveTo(x-4.5,y); bx.lineTo(x-1,y+3.6); bx.lineTo(x+4.8,y-4); bx.stroke(); }
+  bx.restore();
+}
+function tabla(x,y,cols,rows,o={}){
+  const rh=o.rh||26, fs=o.s||14, gap=o.gap===undefined?14:o.gap;
+  const ancho=cols.reduce((a,c)=>a+c.w+gap,0)-gap;
+  let cx=x;
+  cols.forEach(c=>{ texto(c.t,c.al==='right'?cx+c.w:cx,y,{s:fs,b:true,c:'#9aa6b6',al:c.al||'left'}); cx+=c.w+gap; });
+  linea([[x,y+8],[x+ancho,y+8]],'#243043',1.2);
+  rows.forEach((r,i)=>{
+    const yy=y+rh*(i+1)+6;
+    if(r.hl){ bx.save(); bx.fillStyle=r.hl; bx.fillRect(x-6,yy-rh+9,ancho+12,rh); bx.restore(); }
+    let px=x;
+    cols.forEach((c,j)=>{
+      const cell=r.v[j];
+      const val=Array.isArray(cell)?cell[0]:cell, col=Array.isArray(cell)?cell[1]:(r.c||TINTA);
+      texto(val,c.al==='right'?px+c.w:px,yy,{s:fs,c:col,al:c.al||'left',mono:c.mono,b:r.b});
+      px+=c.w+gap;
+    });
+  });
+  return y+rh*(rows.length+1)+6;
+}
+// Título que se encoge hasta caber: cambiar de máquina cambia la longitud del
+// rótulo, y un rótulo largo se monta encima del de al lado sin avisar.
+function textoFit(t,x,y,maxW,o={}){
+  let s=o.s||16;
+  while(s>11){
+    bx.font=(o.b?'700 ':'400 ')+s+'px Inter,system-ui,sans-serif';
+    if(bx.measureText(t).width<=maxW) break;
+    s-=0.5;
+  }
+  texto(t,x,y,Object.assign({},o,{s}));
+}
+function etiqueta(t,x,y,c,al){
+  bx.font='400 12px Inter,system-ui,sans-serif';
+  const w=bx.measureText(t).width+16, x0=(al==='right')?x-w:x;
+  rpanel(x0,y-14,w,20,'rgba(8,12,18,0.80)',null,6);
+  texto(t,x0+8,y,{s:12,c:c||TINTA});
+}
+function leyenda(x,y,items){
+  bx.font='400 13px Inter,system-ui,sans-serif';
+  const w=Math.max(...items.map(it=>bx.measureText(it[0]).width))+48;
+  rpanel(x-10,y-19,w,items.length*22+8,'rgba(8,12,18,0.80)','#1e2836',8);
+  let yy=y;
+  items.forEach(it=>{
+    bx.save(); bx.strokeStyle=it[1]; bx.lineWidth=3.2; bx.lineCap='round';
+    if(it[2]) bx.setLineDash(it[2]);
+    bx.beginPath(); bx.moveTo(x,yy-4); bx.lineTo(x+26,yy-4); bx.stroke(); bx.restore();
+    texto(it[0],x+34,yy,{s:13,c:'#c3ccd8'});
+    yy+=22;
+  });
+  return yy;
+}
+// Recorta al rectángulo de la gráfica. Sin esto, una barra o una curva que se
+// sale por arriba se pinta sobre la cabecera y nadie lo nota.
+function enCaja(P,fn){ bx.save(); bx.beginPath(); bx.rect(P.x,P.y,P.w,P.h); bx.clip(); fn(); bx.restore(); }
+
+function ejes(P,x0,x1,y0,y1,rx,ry,fx,fy,nx,ny){
+  const X=v=>P.x+(v-x0)/(x1-x0)*P.w;
+  const Y=v=>P.y+P.h-(v-y0)/(y1-y0)*P.h;
+  bx.save(); bx.strokeStyle='#1d2735'; bx.lineWidth=1;
+  for(let i=0;i<=nx;i++){ const v=x0+(x1-x0)*i/nx, xx=X(v);
+    bx.beginPath(); bx.moveTo(xx,P.y); bx.lineTo(xx,P.y+P.h); bx.stroke();
+    if(fx) texto(fx(v),xx,P.y+P.h+19,{s:12,c:'#7b8697',al:'center'}); }
+  for(let i=0;i<=ny;i++){ const v=y0+(y1-y0)*i/ny, yy=Y(v);
+    bx.beginPath(); bx.moveTo(P.x,yy); bx.lineTo(P.x+P.w,yy); bx.stroke();
+    if(fy) texto(fy(v),P.x-9,yy+4,{s:12,c:'#7b8697',al:'right'}); }
+  bx.restore();
+  bx.save(); bx.strokeStyle='#3a4658'; bx.lineWidth=1.5; bx.strokeRect(P.x,P.y,P.w,P.h); bx.restore();
+  if(rx) texto(rx,P.x+P.w/2,P.y+P.h+44,{s:13,c:'#9aa6b6',al:'center'});
+  if(ry){ bx.save(); bx.translate(P.x-58,P.y+P.h/2); bx.rotate(-Math.PI/2);
+    texto(ry,0,0,{s:13,c:'#9aa6b6',al:'center'}); bx.restore(); }
+  return {X,Y};
+}
+function serieXY(M,pts,c,w,dash){ linea(pts.map(p=>[M.X(p[0]),M.Y(p[1])]),c,w,dash); }
+function punteo(M,x,y,c,r){
+  bx.save(); bx.fillStyle=c; bx.beginPath(); bx.arc(M.X(x),M.Y(y),r||4.5,0,Math.PI*2); bx.fill(); bx.restore();
+}
+// Línea de referencia horizontal. Si el nivel cae fuera del recuadro no se
+// pinta: una línea de límite dibujada sobre el borde miente sobre dónde está.
+function nivel(P,M,v,c,rot,dash){
+  const yy=M.Y(v);
+  if(yy<P.y-1||yy>P.y+P.h+1) return;
+  linea([[P.x,yy],[P.x+P.w,yy]],c,1.6,dash||[7,5]);
+  if(rot) etiqueta(rot,P.x+P.w-8,yy-6,c,'right');
+}
+// Cabecera común: toda vista dice qué motor y en qué punto de trabajo se está
+// mirando. Una cifra sin su configuración al lado no significa nada, y aquí hay
+// cuatro mandos que la cambian.
+function cabMaquina(){
+  const e=MQ();
+  return e.corto+' · '+e.anio+' · '+(e.catalizador?(e.treVias?'tres vías':'dos vías'):'sin catalizador')+
+    ' · '+(e.lazoCerrado?'lazo cerrado':'lazo abierto')+' · '+num(e.cilindrada,1)+NBSP+'L';
+}
+// La cabecera dice QUÉ prueba se está corriendo y contra qué casilla de qué
+// tabla se va a juzgar, porque eso es la mitad del resultado. El año-modelo
+// manda más que el motor.
+function cabPunto(){
+  const e=MQ(), L=limites(G.metodo,e.anio);
+  const pt=G.libre
+    ? 'punto libre · λ '+lamF(G.lam)+' · carga '+pcc(G.carga*100,0)
+    : MET_ROT[G.metodo];
+  return pt+'  ·  '+L.tabla+' «'+L.rot+'»  ·  HC ≤ '+num(L.HC,0)+', CO ≤ '+num(L.CO,1)+
+    (L.NOx===null?', sin límite de NOx':', NOx ≤ '+num(L.NOx,0));
+}
+// En la verificación a ciegas la cabecera NO puede decir qué avería está puesta.
+function cabecera(t,sub){
+  const ciego=(G.modo==='reto');
+  const l1=cabMaquina();
+  const l2=cabPunto()+(ciego?'  ·  avería: por determinar':'');
+  texto(l1,BW-42,44,{s:13,c:CIAN,al:'right'});
+  texto(l2,BW-42,68,{s:13,c:ciego?WARN_HEX:'#8c98a9',al:'right'});
+  // El ancho que le queda al título es el que NO ocupa la línea de la máquina, y
+  // se mide de verdad: escribir un ancho fijo deja el título montado encima del
+  // rótulo del vehículo en cuanto la pregunta es larga.
+  bx.font='400 13px Inter,system-ui,sans-serif';
+  const libre=Math.max(240,(BW-42-bx.measureText(l1).width-24)-42);
+  textoFit(t,42,50,libre,{s:26,b:true});
+  wrapText(sub,42,92,BW-84,18,{s:13,c:'#8c98a9'});
+  linea([[42,116],[BW-42,116]],'#1e2836',1.4);
+}
+// Banda de veredicto al pie del pizarrón. La altura se MIDE a partir del texto
+// que va a llevar: una banda de altura fija recorta su tercera línea y el texto
+// existe pero no se ve, y ninguna prueba numérica puede darse cuenta.
+function lineasDe(t,w,s){
+  bx.font='400 '+s+'px Inter,system-ui,sans-serif';
+  let n=1, ln='';
+  for(const p of String(t).split(' ')){
+    const test=ln?ln+' '+p:p;
+    if(bx.measureText(test).width>w&&ln){ n++; ln=p; } else ln=test;
+  }
+  return n;
+}
+function banda(y,nivel,rot,txt){
+  const SZ=12.5, LH=17, W=BW-120;
+  const h=Math.max(60, 32+lineasDe(txt,W,SZ)*LH+10);
+  const yy=Math.min(y, BH-14-h);
+  const col=nivel==='bad'?BAD_HEX:(nivel==='warn'?WARN_HEX:OK_HEX);
+  const fondo=nivel==='bad'?'rgba(255,107,107,0.10)':(nivel==='warn'?'rgba(233,196,106,0.10)':'rgba(124,217,146,0.10)');
+  rpanel(42,yy,BW-84,h,fondo,col,10);
+  texto(rot,60,yy+24,{s:14,b:true,c:col});
+  wrapText(txt,60,yy+44,W,LH,{s:SZ,c:'#c3ccd8'});
+  return yy+h;
+}
+
+// ============================================================ T2b · LAS VISTAS
+
+// La columna derecha del pizarrón. Las gráficas llegan hasta x = 694 y el margen
+// del tablero está en 982, así que TODA tabla de la derecha vive entre esos dos
+// números. Escribir anchos a mano en cada vista deja las tablas cortadas por el
+// borde, y eso sólo se ve mirando la pantalla.
+const DER_X=708, DER_W=274;
+function tablaDer(y,rot,rows,o={}){
+  const nv=rot.length-1;
+  const wv=nv===1?110:(nv===2?76:56), gap=8;
+  const w0=DER_W-(wv+gap)*nv;
+  const cols=[{t:rot[0]||'',w:w0}];
+  for(let i=0;i<nv;i++) cols.push({t:rot[i+1]||'',w:wv,al:'right'});
+  // Una fila con menos celdas que columnas pinta «undefined» en la última, y eso
+  // pasa desapercibido en cualquier prueba numérica: se rellena aquí.
+  rows.forEach(r=>{ while(r.v.length<cols.length) r.v.push(''); });
+  return tabla(DER_X,y,cols,rows,Object.assign({rh:25,s:13,gap},o));
+}
+
+// El barrido de λ que casi todas las vistas necesitan. Se memoriza: recorrerlo a
+// cada repintado tira los fotogramas al suelo.
+const LAM0=0.75, LAM1=1.35, NLAM=121;
+function barrido(){
+  const e=MQ(), F=FA();
+  return memo(`b|${G.maq}|${G.esc}|${G.carga}`,()=>{
+    const out=[];
+    for(let i=0;i<NLAM;i++){
+      const l=LAM0+(LAM1-LAM0)*i/(NLAM-1);
+      const g0=cruda(l,F.fallo||0);
+      const n0=noxCrudo(e,l,G.carga,g0,F);
+      const gc=pasaCatalizador(e,g0,n0,l,F);
+      const gm=diluye({...gc,HC:gc.HC+(F.hcExtra||0)},F.dil||0);
+      out.push({lam:l, crudo:g0, cat:gc, med:gm, nox0:n0,
+        ef:gc.ef, T:tPico(e,l,G.carga,F)});
+    }
+    return out;
+  });
+}
+
+// ---------------------------------------------------------- 1 · LA MEZCLA
+// Los cinco gases contra λ. Es la vista madre: todo lo demás son cortes de aquí.
+function vistaQuimica(){
+  cabecera('La mezcla manda: los cinco gases contra λ',
+    'Un solo mando —cuánto aire por cuánta gasolina— y los cinco gases se mueven a la vez, cada uno a su manera. '+
+    'El CO₂ es máximo justo en el estequiométrico y cae por los DOS lados, así que un CO₂ bajo siempre significa algo. '+
+    'La curva de puntos es lo que sale del motor; la llena, lo que el equipo mide después del catalizador y de la sonda.');
+  const B=barrido();
+  const P={x:96,y:150,w:598,h:250};
+  const M=ejes(P,LAM0,LAM1,0,17,'Factor Lambda λ','% de volumen  (HC y NOx a escala aparte)',
+    v=>num(v,2),v=>num(v,0),6,6);
+  enCaja(P,()=>{
+    for(const g of ['CO2','CO','O2']){
+      serieXY(M,B.map(p=>[p.lam,p.crudo[g]]),GAS_COL[g],1.6,[5,4]);
+      serieXY(M,B.map(p=>[p.lam,p.med[g]]),GAS_COL[g],2.6);
+    }
+    // HC y NOx viven en ppm: se pintan sobre el mismo recuadro con su propia
+    // escala y se dice cuál es, porque si no la comparación visual mentiría.
+    const mxHC=Math.max(...B.map(p=>Math.max(p.crudo.HC,p.med.HC)),400);
+    const mxN=Math.max(...B.map(p=>Math.max(p.nox0,p.med.NOx)),1500);
+    serieXY(M,B.map(p=>[p.lam,p.crudo.HC/mxHC*17]),GAS_COL.HC,1.6,[5,4]);
+    serieXY(M,B.map(p=>[p.lam,p.med.HC/mxHC*17]),GAS_COL.HC,2.6);
+    serieXY(M,B.map(p=>[p.lam,p.nox0/mxN*17]),GAS_COL.NOx,1.6,[5,4]);
+    serieXY(M,B.map(p=>[p.lam,p.med.NOx/mxN*17]),GAS_COL.NOx,2.6);
+    const l=LAM_AQUI();
+    linea([[M.X(l),P.y],[M.X(l),P.y+P.h]],TINTA,1.6,[4,4]);
+    etiqueta('aquí λ = '+lamF(l),M.X(l)+8,P.y+18,TINTA);
+    etiqueta('HC a fondo de escala '+ppm(mxHC,0),P.x+P.w-8,P.y+40,GAS_COL.HC,'right');
+    etiqueta('NOx a fondo de escala '+ppm(mxN,0),P.x+P.w-8,P.y+62,GAS_COL.NOx,'right');
+  });
+  leyenda(120,P.y+22,[['a la salida del motor',GRIS,[5,4]],['lo que el equipo mide',TINTA]]);
+
+  const Q=PUNTO_LIBRE(), l=LAM_AQUI();
+  tablaDer(150,['gas','motor','equipo'],
+    ['CO2','CO','O2','HC','NOx'].map(g=>({v:[GAS_ROT[g],
+      gasF(g,g==='NOx'?Q.nox0:Q.crudo[g]), gasF(g,Q.medido[g])],c:GAS_COL[g]})));
+  tablaDer(340,['','valor'],[
+    {v:['λ del motor',lamF(l)]},
+    {v:['λ de los gases',lamF(Q.lamCalc)],c:Q.lamCalc!==null&&Math.abs(Q.lamCalc-l)>0.02?BAD_HEX:OK_HEX},
+    {v:['CO + CO₂',pcv(Q.dilucion)],c:Q.dilucion<DIL_MIN||Q.dilucion>DIL_MAX?BAD_HEX:OK_HEX},
+    {v:['temperatura de pico',kel(Q.tPico)]},
+  ]);
+
+  const ok=Q.lamCalc!==null&&Math.abs(Q.lamCalc-l)<=0.02;
+  banda(560,ok?'ok':'bad',
+    ok?'El λ de los gases ES el λ del motor':'El λ de los gases NO es el λ del motor',
+    ok?('El equipo no mide λ: lo CALCULA con Brettschneider a partir del CO, el CO₂, el O₂ y el HC. '+
+        'Con la muestra limpia le sale '+lamF(Q.lamCalc)+' contra los '+lamF(l)+' que hay de verdad. '+
+        'Que coincidan no es magia: el balance de átomos que produce los gases y la fórmula que los lee son la misma contabilidad.')
+      :('El equipo calcula '+lamF(Q.lamCalc)+' cuando el motor está en '+lamF(l)+'. '+
+        'La fórmula no se ha equivocado: le han dado una muestra que no es la del escape. '+
+        'Con aire de la calle metido en la manguera, el O₂ sube y el CO₂ baja, y Brettschneider lee eso como una mezcla pobre que no existe.'));
+}
+
+// ------------------------------------------------------- 2 · LOS CUATRO PASOS
+function vistaCadena(){
+  cabecera('De la cámara a la pantalla: los cuatro pasos',
+    'Entre lo que el motor echa y lo que el equipo imprime hay tres cosas que pasan, y cada una mueve los gases en otra dirección. '+
+    'La cuenta es la misma para los cinco: el catalizador quema, la dilución reparte, y sólo entonces se lee.');
+  const Q=PUNTO_LIBRE(), l=LAM_AQUI(), e=MQ(), F=FA();
+  const pasos=[
+    {k:'crudo', rot:'1 · sale de la cámara', v:Q.crudo, nox:Q.nox0},
+    {k:'cat',   rot:'2 · pasa el catalizador', v:Q.cat, nox:Q.cat.NOx},
+    {k:'med',   rot:'3 · llega a la celda', v:Q.medido, nox:Q.medido.NOx},
+  ];
+  const P={x:96,y:158,w:598,h:236};
+  const gases=['CO2','CO','O2','HC','NOx'];
+  // Cada gas, normalizado a su valor CRUDO, para poder ver los cinco juntos:
+  // el CO₂ está en porcentaje y el NOx en partes por millón, y sin normalizar
+  // sólo se vería una barra.
+  const M=ejes(P,-0.5,gases.length-0.5,0,1.30,'','fracción de lo que salió del motor',
+    null,v=>num(v*100,0)+' %',gases.length,5);
+  const anc=P.w/gases.length*0.22;
+  enCaja(P,()=>{
+    gases.forEach((g,i)=>{
+      const base=g==='NOx'?Q.nox0:Q.crudo[g];
+      pasos.forEach((s,j)=>{
+        const v=g==='NOx'?s.nox:s.v[g];
+        const f=base>1e-9?v/base:0;
+        const x=M.X(i)+(j-1)*anc*1.15;
+        const y0=M.Y(0), y1=M.Y(clamp(f,0,1.30));
+        bx.save(); bx.globalAlpha=0.35+0.32*j; bx.fillStyle=GAS_COL[g];
+        bx.fillRect(x-anc/2,Math.min(y0,y1),anc,Math.abs(y1-y0)); bx.restore();
+        // Una barra recortada por el techo del recuadro se lee como «justo en el
+        // tope» valga lo que valga: si se ha cortado, se DICE cuánto vale.
+        if(f>1.30) texto(vec(f,1),x,P.y+14,{s:11,c:GAS_COL[g],al:'center',b:true});
+      });
+    });
+    nivel(P,M,1,GRIS,'lo que salió del motor',[6,5]);
+  });
+  gases.forEach((g,i)=>{
+    texto(GAS_ROT[g],M.X(i),P.y+P.h+22,{s:14,c:GAS_COL[g],al:'center',b:true});
+    const base=g==='NOx'?Q.nox0:Q.crudo[g];
+    const fin=g==='NOx'?Q.medido.NOx:Q.medido[g];
+    texto(base>1e-9?pcc(fin/base*100,0):'—',M.X(i),P.y+P.h+40,
+      {s:12,c:'#8c98a9',al:'center'});
+  });
+  leyenda(120,P.y+22,[['1 · cámara',GRIS],['2 · tras el catalizador','#8fa0b4'],['3 · en la celda',TINTA]]);
+
+  const ef=Q.ef;
+  tablaDer(158,['paso','qué hace'],[
+    {v:['catalizador',ef.hay?(ef.encendido?'oxida '+pcc(ef.ox*100,0):'apagado'):'no lleva'],
+      c:ef.hay&&ef.encendido?OK_HEX:WARN_HEX},
+    {v:['',ef.treVias?('reduce '+pcc(ef.red*100,0)):'no reduce NOx'],
+      c:ef.treVias&&ef.red>0.5?OK_HEX:WARN_HEX},
+    {v:['dilución',F.dil?('aire '+pcc((F.dil||0)*100,0)):'ninguna'],c:F.dil?BAD_HEX:OK_HEX},
+    {v:['CO + CO₂',pcv(Q.dilucion)],c:Q.dilucion<DIL_MIN?BAD_HEX:TINTA},
+  ]);
+  // El carbono, que es lo que NO cambia. Y hay que contarlo en MOLES: en tanto
+  // por ciento la suma CO+CO₂ sí se mueve un poco al pasar el catalizador,
+  // porque oxidar consume O₂ y el gas seco total encoge. Decir «no cambia»
+  // enseñando dos cifras distintas es exactamente el tipo de cosa que un alumno
+  // atento pilla y un laboratorio honesto no puede permitirse.
+  const mC=Q.crudo.moles, mM=Q.cat.moles;
+  const carbC=mC.co2+mC.co+mC.hcC, carbM=mM.co2+mM.co+mM.hcC;
+  const cC=Q.crudo.CO+Q.crudo.CO2, cM=Q.cat.CO+Q.cat.CO2;
+  tablaDer(292,['el carbono','cámara','celda'],[
+    {v:['carbono total (mol)',num(carbC,4),num(carbM,4)],
+      c:Math.abs(carbM-carbC)>1e-6?BAD_HEX:OK_HEX},
+    {v:['de él, como HC (mol)',num(mC.hcC,4),num(mM.hcC,4)]},
+    {v:['gas seco (mol)',num(Q.crudo.seco,3),num(Q.cat.seco,3)]},
+    {v:['CO + CO₂',pcv(cC,2),pcv(cM,2)]},
+    {v:['tras la sonda','',pcv(Q.dilucion,2)],
+      c:Math.abs(Q.dilucion-cM)>0.05?BAD_HEX:TINTA},
+  ]);
+
+  // La suma CO+CO₂ SÍ se mueve un poco al pasar el catalizador, y hay que decir
+  // por qué en vez de afirmar que no cambia enseñando dos cifras distintas: el
+  // carbono que venía como HC pasa a CO₂ —y el HC no entraba en esa suma—, y
+  // encima oxidar consume O₂ y el gas seco total encoge.
+  const dCat=cM-cC, dDil=Q.dilucion-cM;
+  const porHC=(mC.hcC-mM.hcC)/Q.cat.seco*100;
+  banda(560,F.dil?'bad':'ok',
+    F.dil?'CO+CO₂ ha bajado, y el catalizador no ha sido':'El catalizador no crea ni destruye carbono',
+    'Por el catalizador entran '+num(carbC,4)+' mol de carbono y salen '+num(carbM,4)+': los mismos, hasta la cuarta cifra. '+
+    (Math.abs(dCat)<0.005
+      ? 'Y la suma CO+CO₂ tampoco se mueve. '
+      : 'La suma CO+CO₂ sí se mueve, de '+pcv(cC,2)+' a '+pcv(cM,2)+' —'+pcc(dCat,2)+'—, y no porque aparezca carbono: '+
+        pcc(porHC,2)+' de ese salto es el carbono que venía como HC sin quemar y que el catalizador ha pasado a CO₂, y el resto, que oxidar consume O₂ y el gas seco encoge de '+
+        num(Q.crudo.seco,3)+' a '+num(Q.cat.seco,3)+' mol. ')+
+    (F.dil
+      ? 'La sonda hace algo de otro orden: de '+pcv(cM,2)+' a '+pcv(Q.dilucion,2)+', '+pcc(dDil,2)+', sin que el motor toque nada. Ése es el único motivo por el que la norma pone un mínimo de '+num(DIL_MIN,0)+' %.'
+      : 'Una fuga en el escape, en cambio, se lleva varios enteros de golpe. Por eso la norma pone un mínimo de '+num(DIL_MIN,0)+' %: no para vigilar el catalizador, sino para vigilar la muestra.'));
+}
+
+// ------------------------------------------------------- 3 · LA VENTANA DEL CAT
+function vistaCatalizador(){
+  cabecera('La ventana del catalizador: dos reacciones que se estorban',
+    'Oxidar CO y HC pide oxígeno; reducir NOx pide justo lo contrario. Las dos curvas son independientes y se cruzan en un sitio muy estrecho: '+
+    'ésa es la ventana, y es la razón de que el lazo cerrado oscile alrededor de λ = 1 en vez de quedarse quieto en un lado.');
+  const e=MQ(), F=FA(), B=barrido();
+  const P={x:96,y:150,w:598,h:236};
+  const M=ejes(P,LAM0,LAM1,0,100,'Factor Lambda λ','eficacia de conversión (%)',
+    v=>num(v,2),v=>num(v,0),6,5);
+  enCaja(P,()=>{
+    serieXY(M,B.map(p=>[p.lam,p.ef.ox*100]),NARANJA,2.8);
+    serieXY(M,B.map(p=>[p.lam,p.ef.red*100]),VIO,2.8);
+    // La ventana: donde las DOS pasan del 80 %.
+    const dentro=B.filter(p=>p.ef.ox>0.80&&p.ef.red>0.80);
+    if(dentro.length){
+      bx.save(); bx.fillStyle='rgba(124,217,146,0.14)';
+      bx.fillRect(M.X(dentro[0].lam),P.y,M.X(dentro[dentro.length-1].lam)-M.X(dentro[0].lam),P.h);
+      bx.restore();
+    }
+    const l=LAM_AQUI();
+    linea([[M.X(l),P.y],[M.X(l),P.y+P.h]],TINTA,1.6,[4,4]);
+    etiqueta('aquí λ = '+lamF(l),M.X(l)+8,P.y+18,TINTA);
+  });
+  leyenda(120,P.y+22,[['oxida CO y HC',NARANJA],['reduce NOx',VIO]]);
+
+  const ef=eficacias(e,LAM_AQUI(),F);
+  const dentro=B.filter(p=>p.ef.ox>0.80&&p.ef.red>0.80);
+  tablaDer(150,['','valor'],[
+    {v:['catalizador',ef.hay?(e.treVias?'tres vías':'dos vías'):'no lleva'],c:ef.hay?TINTA:WARN_HEX},
+    {v:['temperatura',kel(ef.tCat)],c:ef.encendido?OK_HEX:BAD_HEX},
+    {v:['encendido a partir de',kel(T_ENCENDIDO)]},
+    {v:['salud',pcc(ef.salud*100,0)],c:ef.salud<0.4?BAD_HEX:OK_HEX},
+    {v:['oxida aquí',pcc(ef.ox*100,0)],c:ef.ox>0.8?OK_HEX:BAD_HEX},
+    {v:['reduce aquí',pcc(ef.red*100,0)],c:ef.red>0.8?OK_HEX:(e.treVias?BAD_HEX:GRIS)},
+  ]);
+  tablaDer(348,['la ventana','λ'],[
+    {v:['las dos por encima del 80 %',dentro.length?lamF(dentro[0].lam,3)+' – '+lamF(dentro[dentro.length-1].lam,3):'no existe'],
+      c:dentro.length?OK_HEX:BAD_HEX},
+    {v:['anchura',dentro.length?num((dentro[dentro.length-1].lam-dentro[0].lam),3):'—']},
+  ]);
+
+  const anch=dentro.length?dentro[dentro.length-1].lam-dentro[0].lam:0;
+  banda(548, !ef.hay?'warn':(ef.encendido&&ef.salud>0.5?'ok':'bad'),
+    !ef.hay?'Este vehículo no lleva catalizador'
+      :(ef.encendido&&ef.salud>0.5?'La ventana existe, y mide '+num(anch,3)+' de λ':'Aquí no hay ventana'),
+    !ef.hay
+      ? 'Un '+e.anio+' sin catalizador sale de fábrica así. Todo lo que el motor echa llega tal cual a la cola del escape, y por eso sus límites de la '+limites(G.metodo,e.anio).tabla+' son más anchos: la norma sabía a quién se los ponía.'
+      : (e.treVias
+        ? 'Las dos reacciones pasan del 80 % a la vez sólo en '+num(anch,3)+' de λ. Fuera de ahí una de las dos se cae: en rica deja de oxidar y el CO se va entero a la calle; en pobre deja de reducir y el NOx pasa de largo. Mantenerse dentro es literalmente el trabajo de la sonda de oxígeno.'
+        : 'Un catalizador de DOS vías sólo oxida: no reduce NOx en ningún λ, no porque esté malo sino porque no lleva el metal que hace falta. Por eso los vehículos de esa época controlaban el NOx con recirculación de gases y no con el catalizador.'));
+}
+
+// ------------------------------------------------------------- 4 · EL NOx
+function vistaNox(){
+  cabecera('NOx: dos máximos que no coinciden',
+    'La temperatura de pico es máxima un poco del lado RICO, donde la llama va más deprisa. El oxígeno disponible sólo crece hacia el POBRE. '+
+    'El NOx es el producto de los dos, y por eso su máximo cae entre ellos, en mezcla ligeramente pobre. No está puesto ahí: sale de multiplicar.');
+  const e=MQ(), F=FA(), B=barrido();
+  const P={x:96,y:150,w:598,h:236};
+  const mxN=Math.max(...B.map(p=>p.nox0),1000)*1.12;
+  const M=ejes(P,LAM0,LAM1,0,mxN,'Factor Lambda λ','NOx a la salida del motor (ppm)',
+    v=>num(v,2),v=>num(v,0),6,5);
+  enCaja(P,()=>{
+    // La temperatura, normalizada al mismo recuadro, para poder compararlas.
+    const mxT=Math.max(...B.map(p=>p.T));
+    serieXY(M,B.map(p=>[p.lam,p.T/mxT*mxN]),WARN_HEX,2.0,[6,5]);
+    serieXY(M,B.map(p=>[p.lam,p.nox0]),VIO,3.0);
+    serieXY(M,B.map(p=>[p.lam,p.med.NOx]),VIO,2.2,[3,3]);
+    const iT=B.reduce((a,p,i)=>p.T>B[a].T?i:a,0);
+    const iN=B.reduce((a,p,i)=>p.nox0>B[a].nox0?i:a,0);
+    linea([[M.X(B[iT].lam),P.y],[M.X(B[iT].lam),P.y+P.h]],WARN_HEX,1.4,[4,4]);
+    linea([[M.X(B[iN].lam),P.y],[M.X(B[iN].lam),P.y+P.h]],VIO,1.4,[4,4]);
+    etiqueta('T máxima en λ '+lamF(B[iT].lam),M.X(B[iT].lam)-8,P.y+20,WARN_HEX,'right');
+    etiqueta('NOx máximo en λ '+lamF(B[iN].lam),M.X(B[iN].lam)+8,P.y+42,VIO);
+    etiqueta('temperatura a fondo de escala '+kel(mxT),P.x+P.w-8,P.y+P.h-12,WARN_HEX,'right');
+  });
+  leyenda(120,P.y+64,[['temperatura de pico',WARN_HEX,[6,5]],
+    ['NOx del motor',VIO],['NOx en la cola del escape',VIO,[3,3]]]);
+
+  const Q=PUNTO_LIBRE(), ef=Q.ef;
+  tablaDer(150,['','valor'],[
+    {v:['temperatura de pico',kel(Q.tPico)]},
+    {v:['recirculación',pcc((e.egr||0)*(F.egrMul===undefined?1:F.egrMul)*100,0)],
+      c:F.egrMul===0?BAD_HEX:TINTA},
+    {v:['avance',gra((e.avance||12)+(F.avanceExtra||0),0)],c:F.avanceExtra?BAD_HEX:TINTA},
+    {v:['NOx del motor',ppm(Q.nox0,0)]},
+    {v:['reduce el catalizador',pcc(ef.red*100,0)],c:ef.red>0.5?OK_HEX:WARN_HEX},
+    {v:['NOx en la cola',ppm(Q.medido.NOx,0)],c:TINTA},
+  ]);
+  const L=limites(G.metodo,e.anio);
+  tablaDer(348,['contra la norma','valor'],[
+    {v:[L.tabla+' límite',L.NOx===null?'no hay':ppm(L.NOx,0)],c:L.NOx===null?WARN_HEX:TINTA},
+    {v:['aquí',ppm(Q.medido.NOx,0)],c:L.NOx!==null&&Q.medido.NOx>L.NOx?BAD_HEX:OK_HEX},
+  ]);
+
+  const esconde=Q.nox0>1200&&Q.medido.NOx<Q.nox0*0.4;
+  banda(548, L.NOx===null?'warn':(esconde?'warn':'ok'),
+    L.NOx===null?'El método estático no mide el NOx contra nada'
+      :(esconde?'El catalizador esconde el NOx del motor':'El NOx que sale es el que se juzga'),
+    L.NOx===null
+      ? 'La TABLA 2 no tiene columna de NOx: el método estático no lo limita. Con el motor sin carga apenas se forma, así que medirlo ahí no diría gran cosa —pero eso significa que una avería de NOx pasa la prueba estática entera sin que nadie se entere.'
+      : (esconde
+        ? 'El motor está echando '+ppm(Q.nox0,0)+' y por la cola salen '+ppm(Q.medido.NOx,0)+': el catalizador se come el '+pcc(ef.red*100,0)+'. La verificación mide la cola, así que aprueba. Eso es correcto —lo que sale a la atmósfera es lo que importa— pero quien lea el resultado como un diagnóstico del motor se equivocará.'
+        : 'Sin reducción por catalizador, lo que el motor forma es lo que se mide. En estos vehículos el único freno del NOx es la recirculación de gases de escape, y por eso una válvula pegada se ve entera en la lectura.'));
+}
+
+// -------------------------------------------------- 5 · LA VENTANA DE LA NORMA
+function vistaTraza(){
+  cabecera('La ventana de la norma: por qué se promedia al final',
+    'Entre la sonda y la celda hay manguera, y el gas tarda en llegar. La NOM-047 promedia los últimos segundos de cada fase, no los primeros. '+
+    'Aquí se ve cuánto costaría promediar en el sitio equivocado.');
+  const e=MQ(), F=FA();
+  const Ps=PUNTOS_M();
+  const P={x:96,y:150,w:598,h:230};
+  const T0=TRAZA(Ps[0]);
+  const gas=G.gasTraza||'CO2';
+  const mx=Math.max(...T0.pts.map(p=>p[gas]),1)*1.20;
+  const M=ejes(P,0,T0.dur,0,mx,'segundos desde el inicio de la fase',
+    GAS_ROT[gas]+' ('+UNI[gas]+')',v=>num(v,0),v=>num(v,gas==='CO'?2:(gas==='HC'||gas==='NOx'?0:1)),6,5);
+  enCaja(P,()=>{
+    // La franja de la ventana de la norma.
+    bx.save(); bx.fillStyle='rgba(90,209,230,0.14)';
+    const a=M.X(T0.ventana[0]), b=M.X(T0.ventana[T0.ventana.length-1]);
+    bx.fillRect(a,P.y,Math.max(2,b-a),P.h); bx.restore();
+    Ps.forEach((Pt,i)=>{
+      const T=TRAZA(Pt);
+      serieXY(M,T.pts.map(p=>[p.t,p[gas]]),i?ROSA:CIAN,2.4);
+    });
+    const L0=lectura(e,Ps[0],F);
+    nivel(P,M,L0[gas],OK_HEX,'lo que se publica: '+gasF(gas,L0[gas]),[6,5]);
+  });
+  etiqueta('ventana de la norma: segundos '+T0.ventana[0]+' a '+T0.ventana[T0.ventana.length-1],
+    M.X((T0.ventana[0]+T0.ventana[T0.ventana.length-1])/2),P.y+P.h+62,CIAN,'center');
+  leyenda(120,P.y+22,Ps.map((Pt,i)=>[Pt.rot,i?ROSA:CIAN]));
+
+  // Qué habría salido promediando en otro sitio. La comparación es la lección.
+  const T=T0, prom=(a,b)=>{ let s=0,n=0; for(let t=a;t<=b;t++){ s+=T.pts[t][gas]; n++; } return s/n; };
+  const Lb=lectura(e,Ps[0],F);
+  const est=mide(e,Ps[0],F);
+  tablaDer(150,['dónde se promedia',GAS_ROT[gas]],[
+    {v:['segundos 1 a 5',gasF(gas,prom(1,5))],c:BAD_HEX},
+    {v:['segundos 11 a 15',gasF(gas,prom(11,15))],c:WARN_HEX},
+    {v:['la ventana de la norma',gasF(gas,Lb[gas])],c:OK_HEX},
+    {v:['el motor, de verdad',gasF(gas,est[gas])],c:TINTA},
+  ]);
+  tablaDer(300,['','valor'],[
+    {v:['constante de la manguera',seg(RESP_TAU,1)]},
+    {v:['duración de la fase',seg(T.dur,0)]},
+    {v:['se queda corto en',pcc((1-Lb[gas]/est[gas])*100,3)]},
+  ]);
+
+  const err=(1-prom(1,5)/est[gas])*100;
+  banda(538,'ok','La ventana está al final por una razón',
+    'Promediando los cinco primeros segundos, este mismo vehículo publicaría '+gasF(gas,prom(1,5))+
+    ' en vez de '+gasF(gas,est[gas])+': un '+pcc(err,0)+' por debajo, sólo porque el gas todavía viene por la manguera. '+
+    'Con la ventana de la norma la lectura se queda corta en un '+pcc((1-Lb[gas]/est[gas])*100,3)+', que es despreciable frente a la exactitud que la propia NOM-047 le exige al equipo. '+
+    'El rizo que se ve es el RUIDO de la Tabla 3 de esa norma, y su periodo divide exactamente la ventana: promediado, se va.');
+}
+
+// --------------------------------------------------------- 6 · EL VEREDICTO
+function vistaVeredicto(){
+  const e=MQ(), V=VERIF(), L=limites(G.metodo,e.anio);
+  cabecera('El veredicto: seis criterios, y basta que caiga uno',
+    'La NOM-041 num. 5.1.5 dice que el vehículo cumple cuando no rebasa NINGUNO de los límites. Aquí están los seis, fase por fase, '+
+    'con lo medido al lado de lo permitido. El Factor Lambda no aplica en marcha mínima (num. 4.2.2.1), y eso también se ve.');
+  const P={x:96,y:150,w:598,h:238};
+  const crit=['HC','CO','O2'].concat(L.NOx===null?[]:['NOx']);
+  const M=ejes(P,-0.5,crit.length-0.5,0,1.60,'','fracción del límite permitido',
+    null,v=>pcc(v*100,0),crit.length,4);
+  const anc=P.w/crit.length*0.26;
+  enCaja(P,()=>{
+    crit.forEach((c,i)=>{
+      V.pts.forEach((p,j)=>{
+        const lim=L[c], v=p[c];
+        const f=lim>0?v/lim:0;
+        const x=M.X(i)+(j-0.5)*anc*1.2;
+        const y0=M.Y(0), y1=M.Y(Math.min(f,1.60));
+        bx.save(); bx.fillStyle=f>1?BAD_HEX:GAS_COL[c];
+        bx.globalAlpha=j?0.95:0.60;
+        bx.fillRect(x-anc/2,Math.min(y0,y1),anc,Math.abs(y1-y0)); bx.restore();
+        // Una barra recortada por el techo se lee como «justo pasado el límite»
+        // valga lo que valga: un CO al 221 % del límite tiene que DECIR 2,2 ×.
+        if(f>1.60) texto(vec(f,1),x,P.y+14,{s:11,c:BAD_HEX,al:'center',b:true});
+      });
+    });
+    nivel(P,M,1,BAD_HEX,'el límite',[6,5]);
+  });
+  crit.forEach((c,i)=>{
+    texto(CRIT_ROT[c],M.X(i),P.y+P.h+22,{s:14,c:TINTA,al:'center',b:true});
+    texto('≤ '+num(L[c],c==='CO'||c==='O2'?1:0),M.X(i),P.y+P.h+40,{s:12,c:'#8c98a9',al:'center'});
+  });
+  leyenda(120,P.y+22,V.pts.map((p,j)=>[p.rot,j?TINTA:'#8fa0b4']));
+
+  // Los dos criterios que NO son límites de emisión sino de validez.
+  const p0=V.pts[0];
+  tablaDer(150,['criterio','valor','límite'],[
+    {v:['CO + CO₂',pcv(p0.dilucion),'≥ '+num(DIL_MIN,0)],
+      c:p0.dilBaja?BAD_HEX:(p0.dilAlta?WARN_HEX:OK_HEX)},
+    {v:['Factor Lambda',lamF(p0.lamCalc),'≤ '+num(LAMBDA_MAX,2)],
+      c:p0.lamFalla?BAD_HEX:(p0.lamAplica?OK_HEX:GRIS)},
+  ]);
+  const filas=V.pts.map(p=>({v:[p.rot.replace(/ ·.*/,''),
+    p.aprueba?'aprueba':(p.valida?'rechaza':'inválida')],
+    c:p.aprueba?OK_HEX:(p.valida?BAD_HEX:WARN_HEX)}));
+  tablaDer(266,['fase','resultado'],filas);
+  const otro=G.metodo==='dinamico'?LECT().est:LECT().din;
+  tablaDer(380,['el otro método','resultado'],[
+    {v:[MET_ROT[G.metodo==='dinamico'?'estatico':'dinamico'],
+      otro.aprueba?'aprueba':'rechaza'],c:otro.aprueba?OK_HEX:BAD_HEX},
+    {v:[otro.L.tabla+' «'+otro.L.rot+'»','']},
+  ]);
+
+  const cs=(G.metodo==='dinamico'?LECT().criteriosDin:LECT().criteriosEst)
+    .map(c=>CRIT_ROT[c]||c);
+  banda(500, V.invalida?'warn':(V.aprueba?'ok':'bad'),
+    V.invalida?'La medición no es válida'
+      :(V.aprueba?'APRUEBA la verificación':'RECHAZA: '+cs.join(', ')),
+    V.invalida
+      ? 'La suma CO+CO₂ se ha salido de la ventana de la norma, así que esta lectura no dice nada del motor: dice que la muestra no es buena. Antes de diagnosticar nada hay que arreglar por dónde entra el gas y volver a medir.'
+      : (V.aprueba
+        ? 'Ninguno de los criterios se ha rebasado, así que el vehículo cumple la NOM-041 por este método. Cumplir no es lo mismo que estar bien: mira el censo.'
+        : 'Se ha caído '+(cs.length>1?'más de un criterio':'un criterio')+' —'+cs.join(', ')+'—, y con uno basta. '+
+          (LECT().discrepan?'Por el otro método este mismo vehículo, con estas mismas emisiones, '+(otro.aprueba?'APROBARÍA':'también rechazaría')+': los cortes de año de las dos tablas no coinciden.':'')));
+}
+
+// ------------------------------------------------------------- 7 · EL CENSO
+function vistaCenso(){
+  const e=MQ();
+  cabecera('Qué atrapa cada criterio, y qué se le escapa',
+    'La cuenta exacta: cuántas de las averías de este banco caza cada uno de los seis criterios, y cuántas aprueban la verificación con la avería puesta. '+
+    'No es una opinión sobre si la norma es suficiente: es el censo.');
+  const C=CENSO(), pasan=PASAN(), esc=escenariosDe(e).filter(k=>k!=='sano');
+  // Este recuadro empieza más a la derecha que los demás: los rótulos de los
+  // criterios van FUERA, a su izquierda, y «Factor Lambda» a 13 px mide casi
+  // noventa píxeles. Con el margen de las otras vistas se salía del lienzo.
+  const P={x:190,y:158,w:504,h:222};
+  const M=ejes(P,0,Math.max(1,esc.length),-0.5,C.length-0.5,
+    'averías que atrapa (de '+esc.length+')','',v=>num(v,0),null,Math.min(7,esc.length),C.length);
+  const alto=P.h/C.length*0.56;
+  enCaja(P,()=>{
+    C.forEach((c,i)=>{
+      const y=M.Y(i), x0=M.X(0), x1=M.X(c.n);
+      bx.save(); bx.fillStyle=c.n?CIAN:'#2a3444';
+      bx.fillRect(x0,y-alto/2,Math.max(2,x1-x0),alto); bx.restore();
+      // El rótulo va FUERA de la barra si la barra es corta: dentro de una barra
+      // de dos píxeles no cabe nada y el texto desaparece.
+      const dentro=(x1-x0)>150;
+      texto(num(c.n,0),dentro?x1-10:x1+10,y+5,
+        {s:13,b:true,c:dentro?'#06120f':TINTA,al:dentro?'right':'left'});
+    });
+  });
+  C.forEach((c,i)=>texto(CRIT_ROT[c.criterio],P.x-10,M.Y(i)+5,{s:13,c:TINTA,al:'right'}));
+
+  tablaDer(158,['',MET_CORTO[G.metodo]],[
+    {v:['averías del banco',num(esc.length,0)]},
+    {v:['las atrapa alguna',num(esc.length-pasan.length,0)],c:OK_HEX},
+    {v:['APRUEBAN con avería',num(pasan.length,0)],c:pasan.length?BAD_HEX:OK_HEX},
+  ]);
+  const otroM=G.metodo==='dinamico'?'estatico':'dinamico';
+  tablaDer(268,['el otro método',MET_CORTO[otroM]],[
+    {v:['aprueban con avería',num(PASAN(otroM).length,0)],
+      c:PASAN(otroM).length>pasan.length?BAD_HEX:OK_HEX},
+  ]);
+  // La lista se corta a seis por sitio, pero el corte se DICE: una tabla que
+  // enseña seis de nueve sin avisar se lee como si fueran nueve.
+  if(pasan.length){
+    const filas=pasan.slice(0,6).map(k=>({v:[corta(ESC_CORTO[k]||k,26),''],c:BAD_HEX}));
+    if(pasan.length>6) filas.push({v:['y '+num(pasan.length-6,0)+' más',''],c:GRIS});
+    tablaDer(348,['aprueban con la avería puesta',''],filas);
+  }
+
+  const dif=PASAN(otroM).length-pasan.length;
+  banda(560, pasan.length?'warn':'ok',
+    pasan.length?num(pasan.length,0)+' averías aprueban la verificación':'Este método atrapa todas las averías del banco',
+    (pasan.length
+      ? 'Con el '+MET_ROT[G.metodo]+', '+num(pasan.length,0)+' de las '+num(esc.length,0)+' averías de este banco pasan la prueba: '+
+        pasan.map(k=>ESC_CORTO[k]||k).join(', ')+'. El vehículo sale con su comprobante y la avería sigue puesta. '
+      : 'Los seis criterios juntos atrapan las '+num(esc.length,0)+' averías de este banco por este método. ')+
+    (dif!==0
+      ? 'Por el '+MET_ROT[otroM]+' el número es '+num(PASAN(otroM).length,0)+': '+
+        (dif>0?'el otro método perdona MÁS.':'el otro método perdona MENOS, y no por ser mejor sino porque a este año-modelo le tocan otros límites.')
+      : 'Por el otro método el número es el mismo.'));
+}
+
+// ------------------------------------------------------- 8 · A CIEGAS (reto)
+function vistaReto(){
+  cabecera('Verificación a ciegas',
+    'Llega un vehículo al centro. Corre la prueba, lee los seis criterios y decide: ¿aprueba, rechaza —y por qué— o la medición no vale? '+
+    'Si la muestra está mal no hay diagnóstico que valga: primero se arregla la toma.');
+  const P={x:96,y:150,w:598,h:250};
+  rpanel(P.x,P.y,P.w,P.h,'rgba(255,255,255,0.03)','#1e2836',10);
+  let y=P.y+34;
+  texto('Lo que llevas medido',P.x+22,y,{s:15,b:true,c:CIAN}); y+=26;
+  if(!RETO.corrida){
+    y=wrapText('Todavía nada. Pulsa «Correr la prueba» en el panel: el equipo tomará la muestra y publicará los cinco gases y el Factor Lambda, como en un centro de verdad. '+
+      'Después dilo: aprueba, rechaza por tal criterio, o la medición no vale.',P.x+22,y,P.w-44,19,{s:13.5});
+  }else{
+    const V=RETO.V;
+    const filas=['CO','CO2','O2','HC','NOx'].map(g=>({v:[GAS_ROT[g],gasF(g,V.pts[0][g])],
+      c:V.pts[0].fallos.includes(g)?BAD_HEX:TINTA}));
+    tabla(P.x+22,y,[{t:'gas',w:120},{t:'fase 1',w:120,al:'right'}],filas,{rh:24,s:13});
+    const f2=['CO','CO2','O2','HC','NOx'].map(g=>({v:[GAS_ROT[g],gasF(g,V.pts[1][g])],
+      c:V.pts[1].fallos.includes(g)?BAD_HEX:TINTA}));
+    tabla(P.x+300,y,[{t:'gas',w:120},{t:'fase 2',w:120,al:'right'}],f2,{rh:24,s:13});
+    // Cinco filas de 24 px más la cabecera dejan la última línea base en y+150.
+    y+=176;
+    texto('CO + CO₂ '+pcv(V.pts[0].dilucion)+'  ·  λ '+lamF(V.pts[0].lamCalc),
+      P.x+22,y,{s:13.5,c:'#c3ccd8'});
+  }
+  tablaDer(150,['lo que se sabe',''],[
+    {v:['vehículo',MQ().corto]},
+    {v:['año-modelo',anio(MQ().anio)]},
+    {v:['método',MET_CORTO[G.metodo]]},
+    {v:['tabla que aplica',limites(G.metodo,MQ().anio).tabla]},
+    {v:['avería','oculta hasta entregar'],c:WARN_HEX},
+  ]);
+  const R=RETO.veredicto;
+  banda(470, R?(R.ok?'ok':'bad'):'warn',
+    R?(R.ok?'Correcto':'No era eso'):'Sin entregar',
+    R?R.texto
+      :'Corre la prueba, mira los seis criterios y elige en el panel. Recuerda que hay tres desenlaces y no dos: una medición inválida no es un rechazo por emisiones, y decir «rechaza por CO» cuando lo que pasa es que entra aire por el escape es un diagnóstico equivocado con la cifra delante.');
+}
+
+// ------------------------------------------------------------------ despacho
+const VISTAS={
+  quimica:vistaQuimica, cadena:vistaCadena, catalizador:vistaCatalizador,
+  nox:vistaNox, traza:vistaTraza, veredicto:vistaVeredicto,
+  censo:vistaCenso, reto:vistaReto,
+};
+function pintaTablero(){
+  bg();
+  (VISTAS[G.modo]||vistaQuimica)();
+  btex.needsUpdate=true;
+}
+
+// ================================ T3 · EL BANCO: DINAMÓMETRO, ESCAPE Y SONDA
+// La escena no es decorado: es el argumento. Lo que este laboratorio discute es
+// de dónde sale la muestra, y eso hay que VERLO — la sonda metida en el tubo, la
+// manguera hasta el analizador, y el agujero por el que entra aire cuando lo hay.
+
+const gSuelo=new THREE.Group(), gRod=new THREE.Group(), gVeh=new THREE.Group(),
+      gEsc=new THREE.Group(), gAna=new THREE.Group();
+scene.add(gSuelo,gRod,gVeh,gEsc,gAna);
+
+// El aviso flotante. La clase es `show`, NO `on`: la única regla que la hoja de
+// estilo del donante declara sobre el aviso es `.toast.show{opacity:1}`, y
+// `.toast` nace con `opacity:0`. Con cualquier otra clase el texto se escribe,
+// el elemento existe, no salta ningún error y NADIE LO VE NUNCA. Los dos
+// laboratorios anteriores de este dominio salieron publicados así.
+let TOAST=null;
+function showToast(html,ms){
+  const c=el('toast'); if(!c) return;
+  c.innerHTML=html; c.classList.add('show');
+  if(TOAST) clearTimeout(TOAST);
+  TOAST=setTimeout(()=>c.classList.remove('show'),ms||2600);
+}
+
+const pon=(o,p)=>{ o.position.set(p[0],p[1],p[2]); return o; };
+// Los rótulos vienen escalados para un banco mayor que éste, así que hay que
+// encogerlos. Y cada uno deja su texto en ROTULOS: un sprite es una textura y de
+// una textura no se lee texto, así que ésta es la única forma de comprobar desde
+// fuera lo que las chapas del banco DICEN.
+const ESC_ROT=0.60;
+const ROTULOS=[];
+const rot3=(t,c,p)=>{ ROTULOS.push(t); const s=pon(labelSprite(t,c),p);
+  s.scale.multiplyScalar(ESC_ROT); return s; };
+
+// Las cotas del banco salen de la máquina: un 1.4 no ocupa lo que un 2.0.
+// El analizador va DETRÁS del vehículo y no más allá de la cola. Puesto en línea
+// con el escape, el banco medía seis metros de punta a punta, y el encuadre —que
+// tiene que meter el pizarrón Y el banco en la franja que los paneles no tapan—
+// dejaba el pizarrón en 420 px de los 1 600 de la ventana: el texto no se leía.
+// Esto NO se ve en ninguna prueba numérica; se vio comparando la captura con la
+// del laboratorio anterior.
+function dims(e){
+  const largo=2.90+e.cilindrada*0.42;
+  const xVeh=0;
+  return {
+    xVeh, largo,
+    xIzq:xVeh-largo/2-0.22,           // el morro
+    xRod:xVeh-largo*0.30,             // los rodillos, bajo las ruedas motrices
+    xEsc:xVeh+largo/2+0.06,           // la boca del escape
+    xSonda:xVeh+largo/2+0.30,
+    xAna:xVeh+largo*0.26,             // el analizador, detrás del vehículo
+    zAna:-1.86,
+    xDer:xVeh+largo/2+0.46,
+    centro:xVeh,
+  };
+}
+
+// --------------------------------------------------------------- el suelo
+function construyeSuelo(d){
+  gSuelo.clear();
+  // La losa tiene que llegar por detrás hasta debajo del analizador: si se
+  // dimensiona sólo con el ancho del vehículo, el equipo queda flotando sobre el
+  // vacío y eso sólo se ve mirando la pantalla.
+  const losa=new THREE.Mesh(new THREE.BoxGeometry(d.xDer-d.xIzq+1.4,0.10,4.4),
+    std({color:0x2a3038,roughness:0.92,metalness:0.05}));
+  pon(losa,[(d.xIzq+d.xDer)/2,-0.05,-0.42]); losa.receiveShadow=true; gSuelo.add(losa);
+  // La fosa del dinamómetro, que es lo que distingue un centro de verificación
+  // con método dinámico de uno que sólo puede hacer el estático.
+  const fosa=new THREE.Mesh(new THREE.BoxGeometry(1.50,0.12,1.90),
+    std({color:0x14181e,roughness:0.95,metalness:0.02}));
+  pon(fosa,[d.xRod,0.005,-0.10]); gSuelo.add(fosa);
+}
+
+// ------------------------------------------------- los rodillos del freno
+let rodA=null, rodB=null;
+function construyeRodillos(d){
+  gRod.clear();
+  const R=0.21;
+  rodA=new THREE.Mesh(new THREE.CylinderGeometry(R,R,1.70,26),MAT.rodillo);
+  rodA.rotation.x=Math.PI/2; pon(rodA,[d.xRod-0.27,R,-0.10]);
+  rodA.castShadow=true; gRod.add(rodA);
+  rodB=new THREE.Mesh(new THREE.CylinderGeometry(R,R,1.70,26),MAT.rodillo);
+  rodB.rotation.x=Math.PI/2; pon(rodB,[d.xRod+0.27,R,-0.10]);
+  rodB.castShadow=true; gRod.add(rodB);
+  // El freno de corrientes de Foucault: la caja que pone la carga.
+  const fre=roundedBox(0.42,0.34,0.42,MAT.caja,0.05);
+  pon(fre,[d.xRod,0.20,-1.16]); gRod.add(fre);
+  gRod.add(rot3('dinamómetro de rodillos',AZUL,[d.xRod,0.72,-1.16]));
+}
+
+// -------------------------------------------------------------- el vehículo
+// Una silueta, no un modelo: lo que importa es dónde está el escape.
+function construyeVehiculo(d,e){
+  gVeh.clear();
+  const L=d.largo, W=1.62, yR=0.30;
+  const cuerpo=roundedBox(L,0.52,W,MAT.carro,0.14);
+  pon(cuerpo,[d.xVeh,yR+0.32,-0.10]); cuerpo.castShadow=true; gVeh.add(cuerpo);
+  const cabina=roundedBox(L*0.44,0.40,W*0.88,MAT.carro,0.12);
+  pon(cabina,[d.xVeh-L*0.04,yR+0.76,-0.10]); cabina.castShadow=true; gVeh.add(cabina);
+  // El cristal tiene que ser MÁS ANCHO que la cabina para asomar por los lados y
+  // leerse como ventanilla, y más BAJO para no sobresalir por el techo: con la
+  // caja de cristal más alta que la cabina, el vehículo se ve como un contenedor
+  // con una losa encima, y eso es lo que sale en la portada del laboratorio.
+  const cris=new THREE.Mesh(new THREE.BoxGeometry(L*0.41,0.20,W*0.90),MAT.vidrio);
+  pon(cris,[d.xVeh-L*0.04,yR+0.82,-0.10]); gVeh.add(cris);
+  // Cuatro ruedas. Las traseras van sobre los rodillos.
+  for(const sx of [-1,1]) for(const sz of [-1,1]){
+    const r=new THREE.Mesh(new THREE.CylinderGeometry(yR,yR,0.20,22),MAT.goma);
+    r.rotation.x=Math.PI/2;
+    pon(r,[d.xVeh+sx*L*0.30,yR,-0.10+sz*(W/2-0.06)]);
+    r.castShadow=true; gVeh.add(r);
+    const t=new THREE.Mesh(new THREE.CylinderGeometry(yR*0.55,yR*0.55,0.21,18),MAT.crom);
+    t.rotation.x=Math.PI/2;
+    pon(t,[d.xVeh+sx*L*0.30,yR,-0.10+sz*(W/2-0.055)]); gVeh.add(t);
+  }
+  gVeh.add(rot3(e.corto+' · '+e.anio,TINTA,[d.xVeh,yR+1.24,-0.10]));
+  gVeh.add(rot3(e.catalizador?(e.treVias?'catalizador de tres vías':'catalizador de dos vías')
+    :'sin catalizador',e.catalizador?OK_HEX:WARN_HEX,[d.xVeh+0.30,yR+0.06,0.86]));
+}
+
+// -------------------------------------------- el escape, la sonda y la fuga
+let sondaM=null, fugaM=null, humoM=null, catM=null;
+function construyeEscape(d,e,F){
+  gEsc.clear();
+  const yT=0.30, L=d.largo;
+  // El tubo, de debajo del coche a la cola.
+  const tubo=new THREE.Mesh(new THREE.CylinderGeometry(0.055,0.055,L*0.62,18),MAT.acero);
+  tubo.rotation.z=Math.PI/2; pon(tubo,[d.xVeh+L*0.16,yT*0.52,-0.42]); gEsc.add(tubo);
+  // El catalizador, si lo lleva: una lata más gorda a media longitud.
+  if(e.catalizador){
+    const ef=eficacias(e,LAM_AQUI(),F);
+    catM=new THREE.Mesh(new THREE.CylinderGeometry(0.105,0.105,0.44,20),
+      std({color:0x8a6f3a,roughness:0.55,metalness:0.65}));
+    catM.rotation.z=Math.PI/2; pon(catM,[d.xVeh-L*0.02,yT*0.52,-0.42]);
+    gEsc.add(catM);
+    gEsc.add(rot3(ef.encendido?'catalizador caliente':'catalizador FRÍO',
+      ef.encendido?OK_HEX:WARN_HEX,[d.xVeh-L*0.02,yT*0.52+0.34,-0.42]));
+  } else catM=null;
+  // La cola.
+  const cola=new THREE.Mesh(new THREE.CylinderGeometry(0.065,0.070,0.30,18),MAT.crom);
+  cola.rotation.z=Math.PI/2; pon(cola,[d.xEsc-0.10,yT*0.52,-0.42]); gEsc.add(cola);
+
+  // LA SONDA. Si la avería es de muestreo, se ve mal metida: fuera del tubo.
+  const mal=ESCEN[G.esc].falla==='sondaMalMetida';
+  const dentro=mal?0.06:0.26;
+  sondaM=new THREE.Mesh(new THREE.CylinderGeometry(0.018,0.018,0.46,14),MAT.crom);
+  sondaM.rotation.z=Math.PI/2.6;
+  pon(sondaM,[d.xEsc+0.16-dentro*0.5,yT*0.52+0.16,-0.42]); gEsc.add(sondaM);
+  gEsc.add(rot3(mal?'sonda MAL METIDA':'sonda del analizador',mal?BAD_HEX:CIAN,
+    [d.xEsc+0.30,yT*0.52+0.52,-0.42]));
+
+  // LA FUGA, si la hay: un agujero en el tubo antes del punto de muestreo.
+  const hayFuga=ESCEN[G.esc].falla==='fugaEscape';
+  fugaM=new THREE.Mesh(new THREE.SphereGeometry(0.045,14,10),
+    std({color:0x0a0d12,roughness:0.98,metalness:0}));
+  pon(fugaM,[d.xVeh+L*0.30,yT*0.52+0.05,-0.42]);
+  fugaM.visible=hayFuga; gEsc.add(fugaM);
+  humoM=new THREE.Mesh(new THREE.ConeGeometry(0.11,0.34,14,1,true),
+    std({color:0x9fb4c6,transparent:true,opacity:0.30,roughness:1,metalness:0}));
+  pon(humoM,[d.xVeh+L*0.30,yT*0.52+0.26,-0.42]);
+  humoM.visible=hayFuga; gEsc.add(humoM);
+  if(hayFuga) gEsc.add(rot3('fuga: entra aire',BAD_HEX,[d.xVeh+L*0.30,yT*0.52+0.60,-0.42]));
+
+  // La manguera, de la sonda al analizador. Es la razón de que el gas TARDE en
+  // llegar, y de que la norma promedie al final de la fase y no al principio.
+  const a=new THREE.Vector3(d.xEsc+0.34,yT*0.52+0.30,-0.42);
+  const b=new THREE.Vector3(d.xAna+0.22,0.62,d.zAna+0.26);
+  const mid=a.clone().lerp(b,0.5); mid.y-=0.26;
+  const cur=new THREE.CatmullRomCurve3([a,mid,b]);
+  gEsc.add(new THREE.Mesh(new THREE.TubeGeometry(cur,26,0.017,8,false),MAT.manguera));
+}
+
+// --------------------------------------------------------- el analizador
+let panTex=null, panCv=null, panCtx=null, ledAna=null;
+function construyeAnalizador(d){
+  gAna.clear();
+  if(!panCv){
+    panCv=document.createElement('canvas'); panCv.width=512; panCv.height=320;
+    panCtx=panCv.getContext('2d');
+    panTex=new THREE.CanvasTexture(panCv); panTex.colorSpace=THREE.SRGBColorSpace;
+  }
+  const x=d.xAna, z=d.zAna;
+  const carro=roundedBox(0.68,1.16,0.52,MAT.caja,0.06);
+  pon(carro,[x,0.58,z]); carro.castShadow=true; gAna.add(carro);
+  const pan=new THREE.Mesh(new THREE.PlaneGeometry(0.56,0.36),
+    new THREE.MeshBasicMaterial({map:panTex,toneMapped:false}));
+  pon(pan,[x,0.96,z+0.262]); gAna.add(pan);
+  for(let i=0;i<4;i++){
+    const b=new THREE.Mesh(new THREE.CylinderGeometry(0.020,0.020,0.03,12),MAT.crom);
+    b.rotation.x=Math.PI/2; pon(b,[x-0.21+i*0.14,0.66,z+0.262]); gAna.add(b);
+  }
+  ledAna=new THREE.Mesh(new THREE.SphereGeometry(0.030,14,10),MAT.ok);
+  pon(ledAna,[x+0.24,1.10,z+0.24]); gAna.add(ledAna);
+  // Cuatro ruedecillas: en un centro de verificación el equipo se mueve.
+  for(const sx of [-1,1]) for(const sz of [-1,1]){
+    const r=new THREE.Mesh(new THREE.CylinderGeometry(0.035,0.035,0.03,12),MAT.goma);
+    r.rotation.x=Math.PI/2; pon(r,[x+sx*0.26,0.035,z+sz*0.20]); gAna.add(r);
+  }
+  gAna.add(rot3('analizador de cinco gases',TINTA,[x,1.42,z]));
+}
+
+// La pantalla del analizador: los cinco gases y el Factor Lambda, como los
+// publica un equipo de verdad. En la verificación a ciegas NO se enciende hasta
+// que el alumno corre la prueba: un equipo apagado no regala nada.
+// El contenido sólo cambia cuando cambia el estado, y esto se llama en cada
+// fotograma: sin la firma, la escena repinta un lienzo de 512×320 y sube una
+// textura a la tarjeta sesenta veces por segundo para no cambiar ni un píxel.
+let panFirma=null;
+function pintaPanel(){
+  if(!panCtx) return;
+  const W=512,H=320,c=panCtx;
+  c.fillStyle='#060a0f'; c.fillRect(0,0,W,H);
+  c.strokeStyle='#16202c'; c.lineWidth=1;
+  const P=publicaPanel();
+  const firma=JSON.stringify([P.enciende,P.rot,P.lam,P.mal,P.v]);
+  if(firma===panFirma) return;
+  panFirma=firma;
+  c.fillStyle='#060a0f'; c.fillRect(0,0,W,H);
+  c.strokeStyle='#16202c'; c.lineWidth=1;
+  c.strokeRect(8,8,W-16,H-16);
+  c.textAlign='left';
+  if(!P.enciende){
+    c.fillStyle='#9aa6b6'; c.font='600 19px Inter,system-ui,sans-serif';
+    c.textAlign='center';
+    c.fillText('equipo en espera',W/2,H/2-8);
+    c.font='500 14px Inter,system-ui,sans-serif';
+    c.fillText('corre la prueba para tomar la muestra',W/2,H/2+20);
+    c.textAlign='left'; panTex.needsUpdate=true; return;
+  }
+  c.fillStyle='#7b8697'; c.font='600 13px Inter,system-ui,sans-serif';
+  c.fillText(P.rot,20,32);
+  let y=70;
+  for(const g of ['CO','CO2','O2','HC','NOx']){
+    c.fillStyle='#9aa6b6'; c.font='600 15px Inter,system-ui,sans-serif';
+    c.fillText(GAS_ROT[g],22,y);
+    c.fillStyle=P.mal.includes(g)?'#ff6b6b':'#e8eef6';
+    c.font='700 20px ui-monospace,Menlo,Consolas,monospace';
+    c.textAlign='right'; c.fillText(gasF(g,P.v[g]),W-90,y);
+    c.textAlign='left';
+    c.fillStyle='#5b6675'; c.font='500 13px Inter,system-ui,sans-serif';
+    c.fillText(UNI[g],W-80,y);
+    y+=42;
+  }
+  c.fillStyle='#9aa6b6'; c.font='600 14px Inter,system-ui,sans-serif';
+  c.fillText('λ',22,y+4);
+  c.fillStyle=P.mal.includes('lambda')?'#ff6b6b':'#5ad1e6';
+  c.font='700 18px ui-monospace,Menlo,Consolas,monospace';
+  c.textAlign='right'; c.fillText(lamF(P.lam),W-90,y+4); c.textAlign='left';
+  panTex.needsUpdate=true;
+}
+
+// --------------------------------------------------------------- ensamblaje
+function construyeBanco(){
+  ROTULOS.length=0;
+  const e=MQ(), d=dims(e), F=FA();
+  construyeSuelo(d);
+  construyeRodillos(d);
+  construyeVehiculo(d,e);
+  construyeEscape(d,e,F);
+  construyeAnalizador(d);
+  colocaTablero(d);
+}
+
+// ---------------------------------------------------------------- animación
+// Los rodillos giran cuando la prueba pide velocidad, y se paran cuando no: en
+// el método estático el coche no se mueve, y eso es la mitad de la diferencia
+// entre las dos pruebas.
+let RELOJ=0, PINTADAS=0;
+function pinta3D(dt){
+  RELOJ+=dt; PINTADAS++;
+  const V=veredicto();
+  const gira=(G.metodo==='dinamico'&&!G.libre)?1:0;
+  if(rodA&&rodB){
+    const w=gira*5.2;
+    rodA.rotation.y+=w*dt; rodB.rotation.y+=w*dt;
+  }
+  if(ledAna) ledAna.material=!publicaPanel().enciende?MAT.apag
+    :(V.invalida?MAT.avi:(V.aprueba?MAT.ok:MAT.bad));
+  if(humoM&&humoM.visible){
+    humoM.material.opacity=0.20+0.14*Math.sin(RELOJ*3.1);
+    humoM.scale.y=1+0.12*Math.sin(RELOJ*2.3);
+  }
+  if(catM){
+    // El material es propio de esta lata —se crea en cada construyeBanco()—, así
+    // que se puede mutar sin tocar el de nadie más. Y se muta con setHex, no con
+    // un THREE.Color nuevo: esto corre en cada fotograma.
+    const ef=eficacias(MQ(),LAM_AQUI(),FA());
+    catM.material.emissive.setHex(ef.encendido?0x3a2408:0x000000);
+    catM.material.emissiveIntensity=ef.encendido?0.55:0;
+  }
+  pintaPanel();
+}
+
+// =========================================== T4a · HUD, MANDOS Y TELEMETRÍA
+const MODES=['quimica','cadena','catalizador','nox','traza','veredicto','censo','reto'];
+// Rótulos CORTOS para la barra de vistas: con los largos la fila envuelve y los
+// botones dejan de medir lo mismo.
+const MODE_META={
+  quimica:    ['· mezcla',   'LOS CINCO GASES'],
+  cadena:     ['· cadena',   'DE LA CÁMARA A LA PANTALLA'],
+  catalizador:['· cat',      'LA VENTANA'],
+  nox:        ['· NOx',      'TEMPERATURA POR OXÍGENO'],
+  traza:      ['· traza',    'LA VENTANA DE LA NORMA'],
+  veredicto:  ['· veredicto','SEIS CRITERIOS'],
+  censo:      ['· censo',    'QUÉ ATRAPA CADA CRITERIO'],
+  reto:       ['· reto',     'VERIFICACIÓN A CIEGAS'],
+};
+const HUD_TXT={
+  quimica:'Un solo mando —cuánto aire por cuánta gasolina— y los cinco gases se mueven a la vez. Mueve λ y mira cuál sube y cuál baja.',
+  cadena:'Entre la cámara y la pantalla pasan tres cosas. El catalizador no toca la suma CO+CO₂: por eso esa suma mide la MUESTRA.',
+  catalizador:'Oxidar pide oxígeno y reducir pide lo contrario. La ventana donde las dos van a la vez es estrechísima, y por eso existe la sonda.',
+  nox:'La temperatura tira hacia el lado rico y el oxígeno hacia el pobre. El máximo de NOx cae entre los dos, y eso no está escrito: sale.',
+  traza:'El gas tarda en llegar por la manguera. Mira lo que habría salido promediando al principio de la fase en vez de al final.',
+  veredicto:'Seis criterios y basta que caiga uno. Cambia de método y mira si el veredicto aguanta: los cortes de año no coinciden.',
+  censo:'La cuenta exacta de qué atrapa cada criterio, y cuántas averías aprueban la verificación con la avería puesta.',
+  reto:'Llega un vehículo. Corre la prueba, lee los seis criterios y decide: aprueba, rechaza —y por qué— o la medición no vale.',
+};
+function pintaHUD(){
+  const m=MODE_META[G.modo]||MODE_META.quimica;
+  el('hud').innerHTML='<h1>Verificación · '+m[1]+'</h1><p>'+HUD_TXT[G.modo]+'</p>';
+}
+
+// --- el panel de mandos -----------------------------------------------------
+el('panel').innerHTML=
+  '<h4>Centro de verificación</h4>'+
+  '<div id="ctrl"></div>'+
+  '<div id="retobox" style="display:none">'+
+    '<div class="modebar" style="margin-top:8px">'+
+      '<button class="b auto" id="btnCorre">Correr la prueba</button>'+
+    '</div>'+
+    '<div class="gl" style="margin:10px 0 4px"><span>Tu dictamen</span></div>'+
+    '<div class="btns" id="dxreto"></div>'+
+    '<div class="modebar" style="margin-top:8px">'+
+      '<button class="b" id="btnPista">Pista</button>'+
+      '<button class="b on" id="btnEntrega">Entregar dictamen</button>'+
+      '<button class="b" id="btnOtro">Otro vehículo</button>'+
+    '</div>'+
+  '</div>'+
+  '<div id="tele"></div>'+
+  '<div class="console" id="report"></div>'+
+  '<div class="modebar" style="margin-top:10px">'+
+    '<button class="b auto" id="btnAuto">▶︎ Recorrido guiado</button>'+
+  '</div>'+
+  '<h4 class="sec">Comprueba lo que has leído</h4>'+
+  '<div id="quiz"></div>';
+
+// Reparto uniforme en filas de como mucho cuatro: trece opciones en filas de
+// cuatro dejan 4/4/4/1 y la última fila estira un botón de punta a punta. Con el
+// reparto uniforme salen 4/3/3/3 y todos miden lo mismo.
+function fila(rot,attr,ops,cur){
+  const filas=Math.max(1,Math.ceil(ops.length/4));
+  let h='<div class="gl" style="margin:9px 0 4px"><span>'+rot+'</span></div>';
+  let i=0;
+  for(let f=0;f<filas;f++){
+    const n=Math.ceil((ops.length-i)/(filas-f));
+    h+='<div class="modebar">'+ops.slice(i,i+n).map(o=>
+      '<button class="b'+(String(o[0])===String(cur)?' on':'')+'" '+attr+'="'+o[0]+'">'+o[1]+'</button>'
+    ).join('')+'</div>';
+    i+=n;
+  }
+  return h;
+}
+// Las vistas que barren λ. En las demás, un mando de mezcla no cambiaría nada de
+// lo que se está mirando, y un mando que no hace nada visible se lee como roto.
+const VISTAS_LAMBDA=['quimica','cadena','catalizador','nox'];
+const LAM_OPS=[[0.85,'0,85'],[0.92,'0,92'],[0.98,'0,98'],[1.00,'1,00'],[1.05,'1,05'],[1.15,'1,15']];
+const CARGA_OPS=[[0,'0 %'],[0.12,'12 %'],[0.35,'35 %'],[0.60,'60 %'],[1,'100 %']];
+const GAS_OPS=[['CO','CO'],['CO2','CO₂'],['O2','O₂'],['HC','HC'],['NOx','NOx']];
+function faseOps(){
+  return PUNTOS_M().map((P,i)=>[i,'fase '+(i+1)]);
+}
+function syncCtrl(){
+  const ciego=(G.modo==='reto');
+  let h=fila('Vista','data-mode',MODES.map(m=>[m,MODE_META[m][0]]),G.modo);
+  h+=fila('Vehículo','data-maq',ARQ_KEYS.map(k=>[k,ARQ[k].corto]),G.maq);
+  // En la verificación a ciegas NO se ofrece la avería: elegirla sería ver la
+  // respuesta antes de medir nada.
+  if(!ciego) h+=fila('Avería','data-esc',
+    ESCEN_KEYS.map(k=>[k,corta(ESC_CORTO[k]||ESCEN[k].rot,18)]),G.esc);
+  // El método tampoco se ofrece a ciegas: lo pone el centro, es la mitad del
+  // veredicto, y poder cambiarlo mientras se dictamina convierte el reto en un
+  // tanteo —se prueban los dos y se entrega el que salga mejor—.
+  if(!ciego) h+=fila('Método de prueba','data-met',
+    METODOS.map(m=>[m,MET_CORTO[m]]),G.metodo);
+  h+=fila('Fase que muestra el equipo','data-fase',faseOps(),G.fase);
+  if(VISTAS_LAMBDA.includes(G.modo)){
+    h+=fila('Carga del motor','data-carga',CARGA_OPS,G.carga);
+    h+=fila('Mezcla','data-libre',
+      [[0,'la que pone el motor'],[1,'la que yo elija']],G.libre?1:0);
+    if(G.libre) h+=fila('Factor Lambda λ','data-lam',LAM_OPS,G.lam);
+  }
+  if(G.modo==='traza') h+=fila('Gas que se sigue','data-gas',GAS_OPS,G.gasTraza);
+  el('ctrl').innerHTML=h;
+  el('retobox').style.display=ciego?'block':'none';
+}
+
+// -------------------------------------------- lo que el analizador PUBLICA
+// Una sola función decide qué enseña la pantalla del equipo, y de ella cuelgan
+// el panel 3D, el piloto del analizador y la prueba de fuga del reto. Si la
+// regla viviera en dos sitios, uno de los dos acabaría enseñando de más.
+function publicaPanel(){
+  if(G.modo==='reto'&&!RETO.corrida)
+    return {enciende:false, rot:'', v:{}, lam:null, mal:[], fuente:'apagado'};
+  if(G.libre&&G.modo!=='reto'){
+    const Q=PUNTO_LIBRE();
+    return {enciende:true, rot:'punto libre · λ '+lamF(Q.lam),
+      v:{CO:Q.medido.CO,CO2:Q.medido.CO2,O2:Q.medido.O2,HC:Q.medido.HC,NOx:Q.medido.NOx},
+      lam:Q.lamCalc, mal:[], fuente:'libre'};
+  }
+  const V=VERIF(), p=V.pts[FASE()];
+  // `mal` marca en rojo lo que rebasa el límite. No es un chivatazo: el límite
+  // sale del año-modelo, que está a la vista, y la lectura también.
+  return {enciende:true, rot:p.rot,
+    v:{CO:p.CO,CO2:p.CO2,O2:p.O2,HC:p.HC,NOx:p.NOx},
+    lam:p.lamCalc, mal:p.fallos, fuente:'prueba'};
+}
+
+// ----------------------------------------------------------------- telemetría
+const gl=(l,v,c)=>'<div class="g"><div class="gl"><span>'+l+'</span><b'+(c?' class="'+c+'"':'')+'>'+v+'</b></div></div>';
+function pintaTele(){
+  const e=MQ(), L=LECT(), V=VERIF(), Q=PUNTO_LIBRE(), P=publicaPanel();
+  const lim=limites(G.metodo,e.anio);
+  let h='';
+  if(G.modo==='reto'){
+    // A ciegas sólo se enseña lo que un verificador ve: el vehículo, su año, el
+    // método y lo que el equipo imprime. Ni el λ del motor, ni la temperatura de
+    // pico, ni la eficacia del catalizador, ni el NOx de antes del catalizador.
+    h+=gl('Vehículo',e.corto);
+    h+=gl('Año-modelo',anio(e.anio));
+    h+=gl('Método',MET_ROT[G.metodo]);
+    h+=gl('Tabla que aplica',lim.tabla+' · '+lim.rot);
+    h+=gl('Límites','HC '+num(lim.HC,0)+' · CO '+num(lim.CO,1)+' · O₂ '+num(lim.O2,1)+
+      (lim.NOx===null?' · sin NOx':' · NOx '+num(lim.NOx,0)));
+    h+=gl('Avería','oculta hasta entregar','warn');
+    if(!RETO.corrida){
+      h+=gl('Muestra','sin tomar','warn');
+    }else{
+      RETO.V.pts.forEach((p,i)=>{
+        h+=gl('Fase '+(i+1),p.rot);
+        for(const g of ['CO','CO2','O2','HC','NOx'])
+          h+=gl(GAS_ROT[g],gasF(g,p[g]),p.fallos.includes(g)?'bad':'good');
+        h+=gl('CO + CO₂',pcv(p.dilucion),p.dilBaja||p.dilAlta?'bad':'good');
+        h+=gl('Factor Lambda',p.lamAplica?lamF(p.lamCalc):'no aplica aquí',
+          p.lamFalla?'bad':(p.lamAplica?'good':'warn'));
+      });
+    }
+    el('tele').innerHTML=h;
+    return;
+  }
+  h+=gl('Vehículo',e.corto+' · '+anio(e.anio));
+  h+=gl('Postratamiento',e.catalizador?(e.treVias?'tres vías':'dos vías'):'ninguno',
+    e.catalizador?'good':'warn');
+  if(!L.aplica) h+=gl('Esta avería','no aplica: '+L.porQueNo,'warn');
+  h+=gl('Método',MET_ROT[G.metodo]);
+  h+=gl('Tabla que aplica',lim.tabla+' · '+lim.rot);
+  // El punto de trabajo de la GRÁFICA, que no es el de la prueba: la prueba
+  // tiene sus dos fases y las pone la norma. Decir cuál es cuál evita leer dos
+  // cifras del mismo motor como si fueran del mismo sitio.
+  h+=gl('Punto de la gráfica',(G.libre?'mezcla elegida':'mezcla del motor')+
+    ' · carga '+pcc(G.carga*100,0));
+  h+=gl('λ ahí',lamF(Q.lam));
+  h+=gl('λ que calcula el equipo ahí',lamF(Q.lamCalc),
+    Q.lamCalc!==null&&Math.abs(Q.lamCalc-Q.lam)>0.02?'bad':'good');
+  h+=gl('Temperatura de pico',kel(Q.tPico));
+  h+=gl('Oxida el catalizador',pcc(Q.ef.ox*100,0),Q.ef.ox>0.8?'good':'warn');
+  h+=gl('Reduce el catalizador',pcc(Q.ef.red*100,0),Q.ef.red>0.8?'good':'warn');
+  h+=gl('NOx antes del catalizador',ppm(Q.nox0,0));
+  h+=gl('NOx en la cola',ppm(Q.medido.NOx,0));
+  h+=gl('Lo que el equipo publica',P.enciende?P.rot:'nada');
+  for(const g of ['CO','CO2','O2','HC','NOx'])
+    h+=gl(GAS_ROT[g]+' publicado',P.enciende?gasF(g,P.v[g]):'—',
+      P.mal.includes(g)?'bad':'good');
+  h+=gl('CO + CO₂',pcv(V.pts[FASE()].dilucion),
+    V.pts[FASE()].dilBaja||V.pts[FASE()].dilAlta?'bad':'good');
+  h+=gl('Veredicto · '+MET_CORTO[G.metodo],
+    V.invalida?'medición inválida':(V.aprueba?'aprueba':'rechaza'),
+    V.invalida?'warn':(V.aprueba?'good':'bad'));
+  const otroM=G.metodo==='dinamico'?'estatico':'dinamico', otro=L[otroM==='dinamico'?'din':'est'];
+  h+=gl('Veredicto · '+MET_CORTO[otroM],
+    otro.invalida?'medición inválida':(otro.aprueba?'aprueba':'rechaza'),
+    otro.invalida?'warn':(otro.aprueba?'good':'bad'));
+  const cs=(G.metodo==='dinamico'?L.criteriosDin:L.criteriosEst);
+  h+=gl('Criterios caídos',cs.length?cs.map(c=>CRIT_ROT[c]||c).join(' · '):'ninguno',
+    cs.length?'bad':'good');
+  el('tele').innerHTML=h;
+}
+
+// ------------------------------------------------------------------- informe
+function pintaInforme(){
+  if(G.modo==='reto'){ pintaReto(); return; }
+  const e=MQ(), L=LECT(), V=veredicto(), lim=limites(G.metodo,e.anio);
+  let h='<b>'+ESCEN[G.esc].rot.replace(/^./,c=>c.toUpperCase())+'</b> en '+
+    e.nombre.toLowerCase()+', por el '+MET_ROT[G.metodo]+'. ';
+  if(!L.aplica){
+    h+='<b class="warn">Esta avería no aplica aquí</b>: '+L.porQueNo+
+      ', así que lo que ves son exactamente las cifras del sistema sano. No es que la avería no haga nada: es que no puede existir en este vehículo. ';
+  }
+  if(V.invalida){
+    h+='La medición <b class="warn">no es válida</b>: la suma CO+CO₂ se sale de la ventana de '+
+      num(DIL_MIN,0)+' a '+num(DIL_MAX,1)+' %. '+
+      (V.esMuestreo?'Está entrando aire en la muestra antes de la celda, así que estas cifras no dicen nada del motor. '
+        :'Con la muestra así, ninguna de las otras cinco lecturas significa lo que parece. ');
+  }else if(V.aprueba){
+    h+='<b class="good">Aprueba</b> los seis criterios de la '+lim.tabla+' «'+lim.rot+'». ';
+  }else{
+    h+='<b class="bad">Rechaza</b> por '+V.cs.map(c=>CRIT_ROT[c]||c).join(', ')+
+      ', y con uno basta (num. 5.1.5). ';
+  }
+  // Qué se ha movido respecto del MISMO vehículo sano en la MISMA prueba.
+  const mov=[];
+  const p=V.V.pts[0], s=V.SV.pts[0];
+  if(V.subeCO) mov.push('el CO sube de '+gasF('CO',s.CO)+' a '+gasF('CO',p.CO));
+  if(V.subeHC) mov.push('el HC sube de '+gasF('HC',s.HC)+' a '+gasF('HC',p.HC));
+  if(V.subeNOx) mov.push('el NOx sube de '+gasF('NOx',s.NOx)+' a '+gasF('NOx',p.NOx));
+  if(V.subeO2) mov.push('el O₂ sube de '+gasF('O2',s.O2)+' a '+gasF('O2',p.O2));
+  if(V.dilBaja) mov.push('la suma CO+CO₂ cae de '+pcv(s.dilucion)+' a '+pcv(p.dilucion));
+  h+=mov.length?'Contra este mismo vehículo sano en la misma fase: '+mov.join(', ')+'. '
+    :'Contra este mismo vehículo sano en la misma fase no se mueve ninguna lectura de forma apreciable. ';
+  // Y la pregunta incómoda: ¿los dos métodos dicen lo mismo?
+  if(V.discrepan){
+    h+='<b class="warn">Los dos métodos no coinciden</b>: por el '+MET_ROT[G.metodo]+' '+
+      (V.V.aprueba?'aprueba':'rechaza')+' y por el otro '+(V.otro.aprueba?'aprueba':'rechaza')+'. '+
+      (L.soloPorTabla
+        ? 'Y no es por las emisiones, que son las mismas: es porque a un '+anio(e.anio)+
+          ' le toca «'+limites('dinamico',e.anio).rot+'» en la TABLA 1 y «'+
+          limites('estatico',e.anio).rot+'» en la TABLA 2. Los cortes de año de las dos tablas no coinciden.'
+        : 'La diferencia está en lo que cada método mide: el estático no tiene límite de NOx ninguno, y sus dos fases no piden trabajo al motor.');
+  }else{
+    h+='Los dos métodos coinciden en el veredicto';
+    h+=PASAN().includes(G.esc)
+      ? ', y los dos la dejan pasar: esta avería sale del centro con su comprobante.'
+      : '.';
+  }
+  el('report').innerHTML=h;
+}
+
+// --------------------------------------------------------------- orquestación
+function afterEdit(){
+  invalida(); construyeBanco(); pintaTablero(); pintaTele(); pintaInforme();
+  syncCtrl(); pintaPregunta();
+}
+function cambiaMaquina(k){
+  if(!ARQ[k]) return;
+  G.maq=k;
+  // La avería puede no existir en el vehículo nuevo. NO se cambia sola: el
+  // modelo sabe decir por qué no aplica y la interfaz lo dice en pantalla, que
+  // enseña más que saltar a «sano» sin avisar.
+  if(G.modo==='reto') armaReto();
+  G.resuelto=false;
+  afterEdit(); refrescaPregunta();
+  const t=camConjunto(MARGEN[G.modo]||1.00); S.moveTo(t[0],t[1],0.9);
+}
+// El encuadre es lo único que cambia de un modo a otro, y sólo para acercarse un
+// poco cuando la vista lleva mucho texto.
+const MARGEN={quimica:1.00, cadena:0.98, catalizador:0.98, nox:0.98,
+  traza:0.97, veredicto:0.96, censo:0.95, reto:0.96};
+function setMode(m){
+  // Al salir del reto sin haber entregado, el vehículo vuelve a estar sano: si
+  // no, la avería del caso se queda puesta y la siguiente vista la enseña con
+  // nombre y apellidos.
+  const salgoDelReto=(G.modo==='reto'&&m!=='reto'&&!RETO.veredicto);
+  G.modo=m;
+  if(salgoDelReto){ G.esc='sano'; RETO.caso=null; RETO.corrida=false; invalida(); }
+  if(m==='reto') armaReto();
+  pintaHUD(); afterEdit(); refrescaPregunta();
+  const t=camConjunto(MARGEN[m]||1.00); S.moveTo(t[0],t[1],1.1);
+}
+
+// ============================== T4b · RETO, CUESTIONARIO, RECORRIDO Y ARRANQUE
+const RETO={caso:null, corrida:false, V:null, sel:[], veredicto:null, pistas:0};
+
+function barajaEn(a){                       // Fisher-Yates, para que la posición
+  for(let i=a.length-1;i>0;i--){            // de la respuesta no sea la pista
+    const j=Math.floor(Math.random()*(i+1)); [a[i],a[j]]=[a[j],a[i]];
+  }
+  return a;
+}
+// Los casos del reto: las averías que PUEDEN darse en este vehículo, más el
+// sistema sano. Que «sano» sea un caso posible es deliberado: un verificador que
+// siempre encuentra algo no está verificando.
+function RETO_CASOS(){ return escenariosDe(MQ()); }
+function armaReto(){
+  const casos=RETO_CASOS();
+  RETO.caso=casos[Math.floor(Math.random()*casos.length)];
+  G.esc=RETO.caso;
+  // El método lo pone el centro, no el alumno: es la mitad del veredicto, y
+  // poder cambiarlo mientras se dictamina convertiría el reto en un tanteo.
+  G.metodo=METODOS[Math.floor(Math.random()*METODOS.length)];
+  RETO.corrida=false; RETO.V=null; RETO.sel=[]; RETO.veredicto=null; RETO.pistas=0;
+  G.resuelto=false;
+  invalida(); pintaDxReto();
+}
+// Correr la prueba: el equipo toma la muestra y publica. Hasta que esto pasa, la
+// pantalla del analizador está apagada y la telemetría no enseña ninguna cifra.
+function correPrueba(){
+  if(G.modo!=='reto'||RETO.corrida) return;
+  RETO.corrida=true; RETO.V=VERIF();
+  synth.beep(560,0.10,0.05);
+  construyeBanco(); pintaTablero(); pintaTele(); pintaReto();
+}
+const DX_OPS=[
+  ['aprueba','APRUEBA'],
+  ['invalida','la medición no vale'],
+  ['HC','rechaza · HC'],
+  ['CO','rechaza · CO'],
+  ['O2','rechaza · O₂'],
+  ['NOx','rechaza · NOx'],
+  ['lambda','rechaza · λ'],
+];
+function pintaDxReto(){
+  el('dxreto').innerHTML=DX_OPS.map(o=>
+    '<button class="b'+(RETO.sel.includes(o[0])?' on':'')+'" data-dx="'+o[0]+'">'+o[1]+'</button>').join('');
+}
+function eligeDx(k){
+  if(G.modo!=='reto'||RETO.veredicto) return;
+  // «Aprueba» y «no vale» son exclusivos de todo lo demás: un veredicto no puede
+  // ser a la vez una aprobación y un rechazo por CO.
+  if(k==='aprueba'||k==='invalida') RETO.sel=RETO.sel.includes(k)?[]:[k];
+  else{
+    RETO.sel=RETO.sel.filter(x=>x!=='aprueba'&&x!=='invalida');
+    RETO.sel=RETO.sel.includes(k)?RETO.sel.filter(x=>x!==k):RETO.sel.concat([k]);
+  }
+  pintaDxReto(); pintaTablero(); pintaReto();
+}
+// Lo que había que contestar. Sale del motor, no de una lista escrita a mano.
+function esperadoReto(){
+  const V=RETO.V||VERIF();
+  if(V.invalida) return ['invalida'];
+  if(V.aprueba) return ['aprueba'];
+  return V.motivos.slice().sort();
+}
+function pintaReto(){
+  let h='<b>Vehículo bajo verificación:</b> '+MQ().nombre+'. ';
+  h+=RETO.corrida?'Muestra tomada por el '+MET_ROT[G.metodo]+'. ':'Muestra sin tomar. ';
+  if(RETO.veredicto)
+    h+=(RETO.veredicto.ok?'<b class="good">Acertaste.</b> ':'<b class="bad">Fallaste.</b> ')+RETO.veredicto.texto;
+  else if(!RETO.corrida) h+='Pulsa «Correr la prueba»: hasta que el equipo no chupe muestra, no hay nada que leer.';
+  else h+='Lee los seis criterios y entrega tu dictamen. Recuerda que hay TRES desenlaces: aprueba, rechaza por lo que sea, o la medición no vale.';
+  el('report').innerHTML=h;
+}
+function pistaReto(){
+  if(G.modo!=='reto'||RETO.veredicto) return;
+  RETO.pistas++;
+  const p=[
+    'Antes que nada, la suma CO+CO₂. Si se ha caído por debajo de '+num(DIL_MIN,0)+' %, la muestra viene con aire y ninguna de las otras cinco lecturas significa lo que parece.',
+    'El límite no lo pone el motor: lo pone el AÑO-MODELO, y no es el mismo en las dos tablas. Mira contra qué casilla estás juzgando.',
+    'El Factor Lambda no aplica en marcha mínima (num. 4.2.2.1). Si la fase de ralentí sale con λ raro, no es un criterio: es una casilla que ahí no se rellena.',
+    'Con el método estático no hay límite de NOx ninguno. Una avería de NOx puede pasar la prueba entera sin que salte nada.',
+    'Basta que se caiga UNO (num. 5.1.5). Pero el dictamen tiene que decir cuáles se cayeron, no sólo que rechaza.',
+  ][Math.min(RETO.pistas-1,4)];
+  showToast('<b>Pista '+RETO.pistas+'</b><br>'+p,5200);
+}
+function entregaReto(){
+  if(G.modo!=='reto'||!RETO.sel.length) return;
+  if(!RETO.corrida){ showToast('<b>Todavía no hay muestra</b><br>Corre la prueba antes de dictaminar.',3200); return; }
+  const esp=esperadoReto(), dado=RETO.sel.slice().sort();
+  const ok=esp.join('|')===dado.join('|');
+  const V=RETO.V, p0=V.pts[0], e=MQ(), lim=V.L;
+  const rotDx=k=>(DX_OPS.find(o=>o[0]===k)||[k,k])[1];
+  let t='Era <b>'+ESCEN[RETO.caso].rot+'</b>. ';
+  t+='Por el '+MET_ROT[G.metodo]+', a un '+anio(e.anio)+' le toca la '+lim.tabla+
+     ' «'+lim.rot+'»: HC ≤ '+num(lim.HC,0)+', CO ≤ '+num(lim.CO,1)+', O₂ ≤ '+num(lim.O2,1)+
+     (lim.NOx===null?' y sin límite de NOx. ':' y NOx ≤ '+num(lim.NOx,0)+'. ');
+  t+='En la fase 1 el equipo publicó CO '+gasF('CO',p0.CO)+', CO₂ '+gasF('CO2',p0.CO2)+
+     ', O₂ '+gasF('O2',p0.O2)+', HC '+gasF('HC',p0.HC)+', NOx '+gasF('NOx',p0.NOx)+
+     ', con CO+CO₂ = '+pcv(p0.dilucion)+'. ';
+  t+='El dictamen correcto era «'+esp.map(rotDx).join(' + ')+'». ';
+  if(V.invalida)
+    t+='La suma CO+CO₂ está fuera de la ventana de la norma, así que esto no es un rechazo por emisiones: es una medición que no vale. ';
+  else if(V.aprueba)
+    t+='Ninguno de los criterios se rebasó. '+
+      (RETO.caso!=='sano'
+        ? 'Y sin embargo la avería estaba puesta: por este método, esta avería sale del centro con su comprobante.'
+        : 'El vehículo estaba sano de verdad.');
+  else
+    t+='Se cayó '+(esp.length>1?'más de un criterio':'un criterio')+', y con uno basta (num. 5.1.5). ';
+  const L=LECT_DE(RETO.caso);
+  if(L.discrepan)
+    t+=' Y ojo: por el otro método este mismo vehículo '+
+      ((G.metodo==='dinamico'?L.est:L.din).aprueba?'APROBARÍA':'también rechazaría')+'.';
+  if(!ok) t+=' Habías dicho «'+dado.map(rotDx).join(' + ')+'».';
+  if(RETO.pistas) t+=' Con '+num(RETO.pistas,0)+' pista'+(RETO.pistas>1?'s':'')+'.';
+  RETO.veredicto={ok,texto:t};
+  G.resuelto=ok;
+  synth.beep(ok?720:220,0.14,0.08);
+  pintaReto(); pintaTablero(); pintaTele();
+}
+
+// ---------------------------------------------------------------- cuestionario
+// Las preguntas se DERIVAN del estado: cambiar de vehículo, de avería o de método
+// cambia las respuestas, así que no se pueden memorizar.
+function preguntas(){
+  const e=MQ(), L=LECT(), V=VERIF(), Q=PUNTO_LIBRE(), B=barrido();
+  const lim=limites(G.metodo,e.anio), otroM=G.metodo==='dinamico'?'estatico':'dinamico';
+  const limO=limites(otroM,e.anio);
+  const iT=B.reduce((a,p,i)=>p.T>B[a].T?i:a,0);
+  const iN=B.reduce((a,p,i)=>p.nox0>B[a].nox0?i:a,0);
+  const T0=TRAZA(PUNTOS_M()[0]), ven=T0.ventana;
+  const P=[];
+  P.push({t:'A un '+anio(e.anio)+' verificado por el '+MET_ROT[G.metodo]+', ¿qué límite de HC le toca?',
+    ops:[[lim.tabla+' «'+lim.rot+'» · '+ppm(lim.HC,0),true],
+      [limO.tabla+' «'+limO.rot+'» · '+ppm(limO.HC,0),false],
+      ['el que corresponda a su cilindrada, '+num(e.cilindrada,1)+' L',false],
+      ['el mismo para todos los vehículos de gasolina',false]]});
+  P.push({t:'El catalizador convierte CO en CO₂. ¿Qué le hace eso a la SUMA CO+CO₂?',
+    ops:[['nada: el carbono ni se crea ni se destruye, y por eso esa suma mide la MUESTRA y no el motor',true],
+      ['la sube, porque el CO₂ pesa más que el CO',false],
+      ['la baja, porque parte del carbono se queda en el catalizador',false],
+      ['la deja en el 20,9 %, que es el valor del aire',false]]});
+  P.push({t:'El equipo imprime un Factor Lambda de '+lamF(Q.lamCalc)+'. ¿De dónde lo ha sacado?',
+    ops:[['lo CALCULA con Brettschneider a partir del CO, el CO₂, el O₂ y el HC que ha medido',true],
+      ['lo lee de la sonda de oxígeno del propio vehículo por el conector de diagnóstico',false],
+      ['lo mide con una celda de circonio propia, independiente de los cinco gases',false],
+      ['lo estima a partir del régimen y de la cilindrada',false]]});
+  P.push({t:'En este motor la temperatura de pico es máxima en λ = '+lamF(B[iT].lam)+
+      ' y el NOx en λ = '+lamF(B[iN].lam)+'. ¿Por qué no coinciden?',
+    ops:[['porque el NOx va con la temperatura Y con el oxígeno disponible, y el oxígeno sólo crece hacia el lado pobre',true],
+      ['porque el catalizador desplaza el máximo hacia el lado pobre',false],
+      ['porque la medición del NOx llega con retraso por la manguera',false],
+      ['porque a esa temperatura el NO ya se ha descompuesto en N₂ y O₂',false]]});
+  P.push({t:'La NOM-047 promedia los segundos '+num(ven[0],0)+' a '+num(ven[ven.length-1],0)+
+      ' de la fase. ¿Por qué al final y no al principio?',
+    ops:[['porque entre la sonda y la celda hay manguera: al principio de la fase la lectura todavía viene subiendo y saldría baja',true],
+      ['porque el motor tarda ese tiempo en calentarse y antes contamina más',false],
+      ['porque es el tiempo que el operador necesita para escribir la placa',false],
+      ['porque el rizo del instrumento es mayor al principio de la fase',false]]});
+  P.push({t:'NOM-041 num. 5.1.5: ¿cuándo cumple un vehículo?',
+    ops:[['cuando no rebasa NINGUNO de los límites que le aplican',true],
+      ['cuando la media de sus emisiones queda por debajo de la media de los límites',false],
+      ['cuando rebasa como mucho uno de los límites',false],
+      ['cuando el Factor Lambda está entre 0,95 y 1,05, sea cual sea el resto',false]]});
+  // --- preguntas que sólo existen si el estado las hace existir ---------------
+  if(V.invalida)
+    P.push({t:'Aquí la suma CO+CO₂ vale '+pcv(V.pts.find(p=>!p.valida).dilucion)+
+        ', fuera de la ventana de '+num(DIL_MIN,0)+' a '+num(DIL_MAX,1)+' %. ¿Qué procede?',
+      ops:[['la medición NO vale: se busca por dónde entra aire, se arregla y se vuelve a medir',true],
+        ['se rechaza el vehículo por exceso de emisiones',false],
+        ['se aprueba, porque una muestra diluida siempre da valores más bajos',false],
+        ['se repite la prueba por el otro método, que no tiene ese criterio',false]]});
+  if(PASAN().includes(G.esc)&&G.esc!=='sano')
+    P.push({t:'Este vehículo APRUEBA por el '+MET_ROT[G.metodo]+' con «'+ESCEN[G.esc].rot+'» puesta. ¿Qué demuestra eso?',
+      ops:[['que aprobar la verificación y tener el motor bien no son lo mismo: la norma mide lo que sale por la cola, no el estado del motor',true],
+        ['que la avería no existe: si no se ve en los gases, no está',false],
+        ['que el equipo de medición está descalibrado',false],
+        ['que hay que repetir la prueba hasta que la avería aparezca',false]]});
+  if(lim.NOx===null)
+    P.push({t:'La TABLA 2 no tiene columna de NOx. ¿Qué consecuencia tiene?',
+      ops:[['que por el método estático una avería de NOx —una recirculación pegada, un avance excesivo— pasa la prueba sin que salte nada',true],
+        ['que el método estático mide el NOx pero no lo imprime',false],
+        ['que los vehículos verificados en estático no producen NOx',false],
+        ['que el NOx se juzga con el límite de la TABLA 1 aunque la prueba sea estática',false]]});
+  if(L.discrepan&&L.soloPorTabla)
+    P.push({t:'Este mismo vehículo, con estas mismas emisiones, aprueba por un método y rechaza por el otro. ¿Por qué?',
+      ops:[['porque los cortes de año-modelo de las dos tablas no coinciden: 1990/1991 en la TABLA 1 y 1993/1994 en la TABLA 2',true],
+        ['porque el método dinámico mide con más exactitud',false],
+        ['porque en el dinámico el motor está caliente y en el estático no',false],
+        ['porque uno de los dos resultados es un error del equipo',false]]});
+  if(Q.ef.red>0.5&&Q.nox0>1000)
+    P.push({t:'El motor echa '+ppm(Q.nox0,0)+' de NOx y por la cola salen '+ppm(Q.medido.NOx,0)+
+        '. ¿Qué está midiendo la verificación?',
+      ops:[['lo que sale a la atmósfera, que es lo correcto para una norma ambiental, pero NO el estado del motor',true],
+        ['el estado del motor, porque el catalizador no altera el NOx',false],
+        ['un valor sin sentido: el NOx no se puede medir después del catalizador',false],
+        ['el promedio de los dos, que es lo que la norma define',false]]});
+  return P;
+}
+let QI=0, QSEL=null, QCACHE=null;
+function bancoQ(){
+  if(!QCACHE){ QCACHE=preguntas();
+    QCACHE.forEach(q=>{ q.baraja=barajaEn(q.ops.map(o=>({o}))); }); }
+  return QCACHE;
+}
+function refrescaPregunta(){ QCACHE=null; QI=0; QSEL=null; pintaPregunta(); }
+function pintaPregunta(){
+  const B=bancoQ(); if(!B.length){ el('quiz').innerHTML=''; return; }
+  const q=B[QI%B.length];
+  let h='<div class="lt">Pregunta '+((QI%B.length)+1)+' de '+B.length+'</div>';
+  h+='<div class="console">'+q.t+'</div>';
+  h+='<div class="btns">'+q.baraja.map((b,i)=>{
+    const bien=b.o[1];
+    // Antes de contestar, ninguna opción va marcada: marcar la correcta de
+    // salida sería regalar la respuesta. Después, la correcta se pinta verde
+    // —esté o no elegida— y la elegida por error, roja.
+    const cls=QSEL===null?'':(bien?' right':(i===QSEL?' wrong':''));
+    return '<button class="b dx'+cls+'" data-q="'+i+'">'+b.o[0]+'</button>';
+  }).join('')+'</div>';
+  h+='<div class="modebar" style="margin-top:8px"><button class="b" data-qnext="1">Siguiente pregunta</button></div>';
+  el('quiz').innerHTML=h;
+}
+function pregunta(i){
+  const B=bancoQ(), q=B[QI%B.length];
+  if(QSEL!==null) return;
+  QSEL=i;
+  synth.beep(q.baraja[i].o[1]?700:210,0.10,0.06);
+  pintaPregunta();
+}
+
+// ------------------------------------------------------------ recorrido guiado
+let AUTO=null;
+function paraAuto(){ if(AUTO){ clearTimeout(AUTO); AUTO=null; } el('btnAuto').disabled=false; }
+function runAuto(){
+  paraAuto();
+  el('btnAuto').disabled=true;
+  const pasos=[
+    ()=>{ cambiaMaquina('mpi04'); G.esc='sano'; G.metodo='estatico'; G.libre=true;
+      G.lam=1.00; G.carga=0.35; setMode('quimica');
+      showToast('<b>Los cinco gases</b><br>Un solo mando —cuánto aire por cuánta gasolina— y los cinco se mueven a la vez.',3400); },
+    ()=>{ G.lam=0.88; afterEdit();
+      showToast('<b>Mezcla rica</b><br>Falta oxígeno: el carbono se queda a medio quemar y sale CO. El CO₂ baja aunque haya MÁS combustible.',3600); },
+    ()=>{ G.lam=1.15; afterEdit();
+      showToast('<b>Y pobre</b><br>El CO₂ vuelve a bajar. Es máximo SÓLO en el estequiométrico: un CO₂ bajo siempre significa algo.',3600); },
+    ()=>{ G.lam=1.00; setMode('cadena');
+      showToast('<b>Los cuatro pasos</b><br>Cámara, catalizador, sonda, celda. Fíjate en lo único que no cambia: la suma CO+CO₂.',3600); },
+    ()=>{ setMode('catalizador');
+      showToast('<b>La ventana</b><br>Oxidar pide oxígeno y reducir pide lo contrario. Las dos a la vez, sólo en una franja estrechísima.',3600); },
+    ()=>{ setMode('nox');
+      showToast('<b>Dos máximos que no coinciden</b><br>La temperatura tira hacia el rico y el oxígeno hacia el pobre. El NOx cae entre los dos.',3800); },
+    ()=>{ G.libre=false; G.esc='sano'; setMode('traza');
+      showToast('<b>Por qué se promedia al final</b><br>El gas tarda en llegar por la manguera. Promediar al principio da una lectura baja de mentira.',3800); },
+    ()=>{ G.esc='fugaEscape'; setMode('veredicto');
+      showToast('<b>Una fuga en el escape</b><br>El motor está perfecto. Entra aire en la muestra, y la medición deja de valer.',3600); },
+    ()=>{ setMode('cadena');
+      showToast('<b>Ahí está</b><br>CO+CO₂ se ha caído sin que el motor toque nada. Ése es el único motivo de que exista el criterio de dilución.',3800); },
+    ()=>{ G.esc='sondaMalMetida'; setMode('veredicto');
+      showToast('<b>La sonda mal metida</b><br>Menos aire, y la dilución ya NO la atrapa. Lo que la caza es el límite de O₂.',3600); },
+    ()=>{ cambiaMaquina('tbi92'); G.esc='sano'; G.metodo='estatico'; setMode('veredicto');
+      showToast('<b>Un 1992</b><br>Por el método estático le toca «1993 y anteriores»: HC ≤ 400.',3400); },
+    ()=>{ G.metodo='dinamico'; afterEdit();
+      showToast('<b>El mismo coche, el otro método</b><br>Ahora le toca «1991 y posteriores»: HC ≤ 100. Cuatro veces más estricto, y no ha cambiado nada del vehículo.',4000); },
+    ()=>{ cambiaMaquina('gdi16'); G.esc='egrPegada'; G.metodo='estatico'; setMode('nox');
+      showToast('<b>Recirculación pegada</b><br>El motor echa mucho más NOx. El catalizador se come casi todo, y el estático no lo limita.',3800); },
+    ()=>{ setMode('censo');
+      showToast('<b>La cuenta</b><br>Cuántas averías atrapa cada criterio, y cuántas aprueban con la avería puesta.',3600); },
+    ()=>{ G.metodo='dinamico'; afterEdit();
+      showToast('<b>Y por el otro método</b><br>El número cambia. No porque un método sea mejor, sino porque a este año le tocan otros límites.',3800); },
+    ()=>{ setMode('reto');
+      showToast('<b>Tu turno</b><br>Llega un vehículo, no se dice qué tiene. Corre la prueba y dictamina.',3600); },
+  ];
+  let i=0;
+  const tic=()=>{ if(i>=pasos.length){ paraAuto(); return; } pasos[i++](); AUTO=setTimeout(tic,3000); };
+  tic();
+}
+
+// ------------------------------------------------------------------- sucesos
+// Un ÚNICO despachador delegado. Nada de onclick en el HTML generado: el cuerpo
+// del laboratorio va dentro de un <script type="module"> y sus funciones no
+// existen en el ámbito global, así que un onclick inline no encuentra nada.
+document.addEventListener('click',ev=>{
+  const b=ev.target.closest('button'); if(!b) return;
+  const id=b.id;
+  if(id==='btnAuto'){ runAuto(); return; }
+  if(id==='btnCorre'){ correPrueba(); return; }
+  if(id==='btnPista'){ pistaReto(); return; }
+  if(id==='btnEntrega'){ entregaReto(); return; }
+  if(id==='btnOtro'){ paraAuto(); armaReto(); afterEdit(); refrescaPregunta(); return; }
+  if(b.dataset.mode){ paraAuto(); setMode(b.dataset.mode); return; }
+  if(b.dataset.maq){ paraAuto(); cambiaMaquina(b.dataset.maq); return; }
+  if(b.dataset.esc){ paraAuto(); G.esc=b.dataset.esc; G.resuelto=false; afterEdit(); refrescaPregunta(); return; }
+  if(b.dataset.met){ paraAuto(); G.metodo=b.dataset.met; afterEdit(); refrescaPregunta(); return; }
+  if(b.dataset.fase!==undefined){ G.fase=Number(b.dataset.fase); afterEdit(); return; }
+  if(b.dataset.carga!==undefined){ paraAuto(); G.carga=Number(b.dataset.carga); afterEdit(); refrescaPregunta(); return; }
+  if(b.dataset.libre!==undefined){ paraAuto(); G.libre=b.dataset.libre==='1'; afterEdit(); refrescaPregunta(); return; }
+  if(b.dataset.lam!==undefined){ paraAuto(); G.lam=Number(b.dataset.lam); afterEdit(); refrescaPregunta(); return; }
+  if(b.dataset.gas){ G.gasTraza=b.dataset.gas; afterEdit(); return; }
+  if(b.dataset.dx){ eligeDx(b.dataset.dx); return; }
+  if(b.dataset.q!==undefined){ pregunta(Number(b.dataset.q)); return; }
+  if(b.dataset.qnext){ QI++; QSEL=null; pintaPregunta(); return; }
+});
+document.addEventListener('keydown',ev=>{
+  if(ev.target&&/^(INPUT|TEXTAREA)$/.test(ev.target.tagName)) return;
+  const i=Number(ev.key);
+  if(i>=1&&i<=MODES.length){ paraAuto(); setMode(MODES[i-1]); }
+});
+
+// ------------------------------------------------------------------- depuración
+// Superficie mínima y estable para la Capa 2. Todo lo que publica sale del motor
+// sellado por el mismo camino que la pantalla.
+window.__labDebug={
+  get mode(){ return G.modo; },
+  get solved(){ return G.resuelto; },
+  get maquina(){ return G.maq; },
+  get esc(){ return G.esc; },
+  get metodo(){ return G.metodo; },
+  get fase(){ return FASE(); },
+  get libre(){ return G.libre; },
+  get lam(){ return G.lam; },
+  get carga(){ return G.carga; },
+  get gasTraza(){ return G.gasTraza; },
+  get frames(){ return PINTADAS; },
+  get cabecera(){ return cabMaquina()+' | '+cabPunto(); },
+  get maq(){ const e=MQ(); return {key:e.key, corto:e.corto, nombre:e.nombre, anio:e.anio,
+    cilindrada:e.cilindrada, ralenti:e.ralenti, lazoCerrado:e.lazoCerrado,
+    catalizador:e.catalizador, treVias:e.treVias, catSalud:e.catSalud, tCat:e.tCat,
+    egr:e.egr, avance:e.avance,
+    lamRalenti:e.lamRalenti, lamCrucero:e.lamCrucero, lamCarga:e.lamCarga,
+    escenarios:escenariosDe(e)}; },
+  // El punto de la GRÁFICA: la mezcla que se está mirando, que no es ninguna de
+  // las fases del protocolo.
+  get punto(){ const Q=PUNTO_LIBRE(); return {lam:Q.lam, carga:G.carga, libre:G.libre,
+    crudo:{CO:Q.crudo.CO,CO2:Q.crudo.CO2,O2:Q.crudo.O2,HC:Q.crudo.HC,H2:Q.crudo.H2},
+    cat:{CO:Q.cat.CO,CO2:Q.cat.CO2,O2:Q.cat.O2,HC:Q.cat.HC,NOx:Q.cat.NOx},
+    medido:{CO:Q.medido.CO,CO2:Q.medido.CO2,O2:Q.medido.O2,HC:Q.medido.HC,NOx:Q.medido.NOx},
+    nox0:Q.nox0, lamCalc:Q.lamCalc, tPico:Q.tPico, dilucion:Q.dilucion,
+    ef:{ox:Q.ef.ox, red:Q.ef.red, salud:Q.ef.salud, tCat:Q.ef.tCat,
+      encendido:Q.ef.encendido, hay:Q.ef.hay, treVias:Q.ef.treVias},
+    fFallo:Q.crudo.fFallo}; },
+  get lect(){ const L=LECT(); const emp=V=>({aprueba:V.aprueba, invalida:V.invalida,
+    motivos:V.motivos.slice(), tabla:V.L.tabla, rot:V.L.rot,
+    lim:{HC:V.L.HC,CO:V.L.CO,O2:V.L.O2,NOx:V.L.NOx},
+    pts:V.pts.map(p=>({k:p.k, rot:p.rot, rpm:p.rpm, carga:p.carga, ralenti:p.ralenti,
+      lamMotor:p.lamMotor, lamCalc:p.lamCalc,
+      CO:p.CO, CO2:p.CO2, O2:p.O2, HC:p.HC, NOx:p.NOx,
+      dilucion:p.dilucion, dil:p.dil, fallos:p.fallos.slice(),
+      dilBaja:p.dilBaja, dilAlta:p.dilAlta, lamAplica:p.lamAplica, lamFalla:p.lamFalla,
+      valida:p.valida, aprueba:p.aprueba, tPico:p.tPico, fFallo:p.fFallo,
+      crudo:{CO:p.crudo.CO,CO2:p.crudo.CO2,O2:p.crudo.O2,HC:p.crudo.HC,NOx:p.crudo.NOx}}))});
+    return {esc:L.esc, rot:L.rot, clave:L.clave, falla:L.falla,
+      aplica:L.aplica, porQueNo:L.porQueNo, discrepan:L.discrepan, soloPorTabla:L.soloPorTabla,
+      lamMotor:L.lamMotor, lamCalc:L.lamCalc, sesgoLambda:L.sesgoLambda,
+      criteriosEst:L.criteriosEst.slice(), criteriosDin:L.criteriosDin.slice(),
+      est:emp(L.est), din:emp(L.din)}; },
+  // Lo que la pantalla del analizador PUBLICA de verdad. Es la superficie por la
+  // que un reto a ciegas se escapa, así que se comprueba desde fuera.
+  get panel(){ const P=publicaPanel(); return {enciende:P.enciende, rot:P.rot,
+    fuente:P.fuente, lam:P.lam, mal:P.mal.slice(),
+    v:P.enciende?{CO:P.v.CO,CO2:P.v.CO2,O2:P.v.O2,HC:P.v.HC,NOx:P.v.NOx}:null}; },
+  // Lo que las chapas del banco DICEN: de una textura no se lee texto, y el 3D
+  // también puede regalar la respuesta.
+  get rotulos(){ return ROTULOS.slice(); },
+  get censo(){ return {criterios:CENSO().map(c=>({criterio:c.criterio, n:c.n,
+    atrapa:c.atrapa.slice()})), pasan:PASAN().slice(),
+    pasanOtro:PASAN(G.metodo==='dinamico'?'estatico':'dinamico').slice(),
+    escenarios:escenariosDe(MQ()).filter(k=>k!=='sano')}; },
+  get barrido(){ const B=barrido();
+    const iT=B.reduce((a,p,i)=>p.T>B[a].T?i:a,0);
+    const iN=B.reduce((a,p,i)=>p.nox0>B[a].nox0?i:a,0);
+    const iC=B.reduce((a,p,i)=>p.crudo.CO2>B[a].crudo.CO2?i:a,0);
+    const ven=B.filter(p=>p.ef.ox>0.80&&p.ef.red>0.80);
+    return {n:B.length, lamTMax:B[iT].lam, lamNoxMax:B[iN].lam, lamCO2Max:B[iC].lam,
+      tMax:B[iT].T, noxMax:B[iN].nox0,
+      ventana:ven.length?[ven[0].lam,ven[ven.length-1].lam]:null}; },
+  traza(){ const T=TRAZA(PUNTOS_M()[0]);
+    const g=G.gasTraza, pr=(a,b)=>{ let s=0,n=0; for(let t=a;t<=b;t++){ s+=T.pts[t][g]; n++; } return s/n; };
+    const Lb=lectura(MQ(),PUNTOS_M()[0],FA());
+    return {gas:g, n:T.pts.length, dur:T.dur, ventana:T.ventana.slice(),
+      estacionario:T.est[g], publicado:Lb[g], primeros:pr(1,5), medios:pr(11,15),
+      tau:RESP_TAU}; },
+  get reto(){ return {caso:RETO.caso, metodo:G.metodo, corrida:RETO.corrida,
+    sel:RETO.sel.slice(), esperado:RETO.corrida?esperadoReto():null,
+    veredicto:RETO.veredicto?RETO.veredicto.ok:null, pistas:RETO.pistas,
+    casos:RETO_CASOS().slice()}; },
+  get preguntas(){ return preguntas().map(q=>({t:q.t, n:q.ops.length,
+    correctas:q.ops.filter(o=>o[1]).length})); },
+  get texto(){ return el('report').textContent+' || '+el('tele').textContent; },
+  get autoRunning(){ return AUTO!==null; },
+  setMaquina(k){ cambiaMaquina(k); },
+  setEsc(k){ G.esc=k; G.resuelto=false; afterEdit(); refrescaPregunta(); },
+  setMetodo(m){ G.metodo=m; afterEdit(); refrescaPregunta(); },
+  setFase(i){ G.fase=i; afterEdit(); },
+  setCarga(c){ G.carga=c; afterEdit(); refrescaPregunta(); },
+  setLibre(v){ G.libre=!!v; afterEdit(); refrescaPregunta(); },
+  setLam(l){ G.lam=l; afterEdit(); refrescaPregunta(); },
+  setGas(g){ G.gasTraza=g; afterEdit(); },
+  setMode(m){ setMode(m); },
+  corre(){ correPrueba(); },
+  elige(k){ eligeDx(k); },
+  entrega(){ entregaReto(); },
+  pista(){ pistaReto(); },
+  arma(){ armaReto(); afterEdit(); refrescaPregunta(); },
+  // Para poder poner un caso concreto del reto sin depender del azar.
+  armaCaso(k,met){ armaReto(); RETO.caso=k; G.esc=k; if(met) G.metodo=met;
+    RETO.corrida=false; RETO.V=null; RETO.sel=[]; RETO.veredicto=null;
+    invalida(); afterEdit(); refrescaPregunta(); },
+};
+
+// ------------------------------------------------------------------- arranque
+pintaHUD();
+construyeBanco();
+syncCtrl();
+pintaTablero();
+pintaTele();
+pintaInforme();
+pintaDxReto();
+refrescaPregunta();
+S.setAnimate(dt=>pinta3D(dt));
+S.start();
+{ const t=camConjunto(MARGEN.quimica); S.moveTo(t[0],t[1],0.01); }
+addEventListener('resize',()=>S.resize());
+</script>
+  <!-- Ficha técnica · Capa B del molde de lab 3D (componente compartido + contenido del lab) -->
+  <script src="_ficha-tecnica.js"></script>
+  <script src="_ficha-gases-verificacion.js"></script>
+</body>
+</html>

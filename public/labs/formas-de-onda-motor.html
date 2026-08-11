@@ -2272,9 +2272,14 @@ const corta=(s,n)=>s.length>n?s.slice(0,n-1)+'…':s;
 let TOAST=null;
 function showToast(html,ms){
   const c=el('toast'); if(!c) return;
-  c.innerHTML=html; c.classList.add('on');
+  c.innerHTML=html;
+  // La clase es `show`, NO `on`: la unica regla que la hoja de estilo del
+  // donante declara sobre el aviso es `.toast.show{opacity:1}`. Con cualquier
+  // otra clase el texto se escribe, el elemento existe, no salta ningun error
+  // y NADIE LO VE NUNCA, porque `.toast` nace con `opacity:0`.
+  c.classList.add('show');
   if(TOAST) clearTimeout(TOAST);
-  TOAST=setTimeout(()=>c.classList.remove('on'),ms||2600);
+  TOAST=setTimeout(()=>c.classList.remove('show'),ms||2600);
 }
 
 const banco=new THREE.Group(); scene.add(banco);

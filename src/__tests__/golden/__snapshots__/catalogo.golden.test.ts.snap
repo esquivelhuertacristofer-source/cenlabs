@@ -1481,6 +1481,16 @@ exports[`golden master — catálogo por categoría (invariante ante extracción
     "teoria": "Las tres fases de la traza se reparten un solo presupuesto de energía: todo lo que suba la línea de disparo acorta la de chispa. Por eso el disparo a solas separa 8 de 13 averías, el quemado a solas 11, y los dos juntos 13. Y por eso hay chispa perfecta con el cilindro muerto.",
     "titulo": "El Encendido en sus Tres Fases",
   },
+  {
+    "duracion": "45 min",
+    "estado": "activo",
+    "id": "mecanica-120",
+    "modulo": "Motor de Combustión Interna",
+    "orden": 120,
+    "simuladorHtml": "/labs/gases-verificacion.html",
+    "teoria": "Aprobar la verificación y tener el motor bien no son lo mismo, y falla en las dos direcciones. En el monopunto de 1992, 6 averías aprueban el método estático y suspenden el dinámico sin que cambie una sola emisión: los cortes de año de las dos tablas de la NOM-041 no coinciden. Y una fuga en el escape reprueba a un motor intacto.",
+    "titulo": "Gases de Escape y Verificación",
+  },
 ]
 `;
 
@@ -1636,6 +1646,7 @@ exports[`golden master — catálogo por categoría (invariante ante extracción
   "mecanica-118",
   "mecanica-119",
   "mecanica-12",
+  "mecanica-120",
   "mecanica-13",
   "mecanica-14",
   "mecanica-15",

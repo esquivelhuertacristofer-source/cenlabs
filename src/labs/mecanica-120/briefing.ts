@@ -1,0 +1,114 @@
+import type { BriefingConfig } from '@/components/MissionBriefing';
+
+const briefing: BriefingConfig = {
+  codigo: 'MEC-120',
+  titulo: 'Gases de Escape y Verificación',
+  subtitulo: 'Motor de combustión interna · balance de átomos y los cinco gases, equilibrio agua-gas, NOx por Zeldovich, ventana del catalizador de tres vías, dilución de la muestra, Factor Lambda por Brettschneider y las dos tablas de la NOM-041',
+  acento: '#5AD1E6',
+  duracion: 45,
+  videoUrl: '',
+  bienvenida: `Un vehículo de gasolina sobre el dinamómetro de un centro de verificación, con la sonda de un analizador de cinco gases metida en el escape. Se corren las dos pruebas que define la NOM-047-SEMARNAT-2014 —la estática y la dinámica— y el resultado se juzga contra las dos tablas de la NOM-041-SEMARNAT-2015. No hay nada que montar: lo que se manipula son los MANDOS —vehículo, avería, método y mezcla— y lo que hay que aprender a leer son SEIS criterios, no dos.
+
+La tesis cabe en una frase incómoda: **aprobar la verificación y tener el motor bien no son lo mismo, y falla en las dos direcciones.**
+
+Todo cuelga de un solo balance de átomos. La gasolina se trata como CH₁,₈₅, así que la relación aire/combustible estequiométrica sale **14,60** en masa. De ese balance —y no de una curva ajustada por gas— salen los cinco números que el equipo imprime, y por eso están todos atados entre sí. El CO₂ es máximo justo en λ = 1,000 y cae por los DOS lados: un CO₂ bajo siempre significa algo, y por sí solo no dice de qué lado. El reparto del carbono en mezcla rica no es una interpolación sino un equilibrio químico, [CO]·[H₂O] = 3,5·[CO₂]·[H₂], y ese «3,5» es exactamente el que aparece dentro de la fórmula de Brettschneider: por eso las dos cuentas cierran.
+
+El NOx no sale del balance sino de la temperatura. La campana de temperatura es máxima en **λ = 0,950** —lado rico, donde la llama va más deprisa— y el oxígeno disponible sólo crece hacia el pobre. El producto de los dos pone el máximo de NOx en **λ = 1,060**. Ese desplazamiento no está escrito en ninguna parte del modelo: sale de multiplicar.
+
+El catalizador de tres vías hace dos cosas incompatibles a la vez. Oxidar CO y HC pide oxígeno; reducir NOx pide justo lo contrario. Las dos reacciones pasan del 80 % a la vez sólo entre **λ = 0,995 y λ = 1,010**: quince milésimas de λ. Mantenerse dentro de esa rendija es, literalmente, el trabajo de la sonda de oxígeno. Un catalizador de DOS vías, como el del 1992, no reduce NOx en ningún λ: no le falta ajuste, le falta el metal.
+
+Después está la muestra, que es lo que casi nadie mira. Pasar CO a CO₂ no crea ni destruye carbono: por el catalizador entran 1,0000 mol de carbono y salen 1,0000. Por eso la suma CO+CO₂ no mide el estado del motor sino **la muestra**. Con una fuga en el escape de este banco esa suma cae a **11,91 %**, por debajo del mínimo de 13 % de la norma, con el motor intacto. Y el Factor Lambda, que el equipo no mide sino que CALCULA, se va a **1,263** cuando el motor está clavado en 1,000. La fórmula no se ha equivocado: le han dado una muestra que no es la del escape. Con la sonda mal metida el engaño es más fino: CO+CO₂ se queda en 13,29 % y pasa el criterio de dilución; lo que la caza es el límite de O₂.
+
+Y luego la trampa que organiza la práctica entera. Los cortes de año-modelo de las dos tablas **no coinciden**: la TABLA 1 corta en 1990/1991 y la TABLA 2 en 1993/1994. A un 1992 le toca «1993 y anteriores» en el estático —HC ≤ 400— y «1991 y posteriores» en el dinámico —HC ≤ 100—. Cuatro veces más estricto, sobre el mismo coche y las mismas emisiones. Eso se cuenta: de las 11 averías que pueden darse en ese vehículo, **6** aprueban el estático y suspenden el dinámico sin que cambie una sola cifra de emisión.
+
+Y en el otro sentido: en el multipunto de 2004, la recirculación pegada y el avance excesivo aprueban **las dos pruebas** con la avería puesta. El motivo está a la vista: con la EGR pegada el motor forma **3 039 ppm** de NOx contra los 1 692 del sano, y el catalizador de tres vías deja salir por la cola **245 ppm** contra 136. La norma mide lo que sale a la atmósfera —que es lo correcto para una norma ambiental— y por eso aprueba. Quien lea ese comprobante como un certificado de salud mecánica se equivocará.
+
+Queda un detalle de procedimiento que enseña más de lo que parece: entre la sonda y las celdas hay manguera, con una constante de 4,0 s. Promediando los cinco primeros segundos de la fase, este mismo vehículo publicaría un **50 %** menos de CO₂ del que está echando. Promediando la ventana que la norma fija —segundos 26 a 30— el error se queda en 0,097 %. La norma no promedia al final por costumbre.`,
+  conceptos: [
+    {
+      icono: '⚛️',
+      nombre: 'Un solo balance de átomos',
+      descripcion: 'C, H y O se conservan. De ahí salen los cinco gases, la relación estequiométrica 14,60 y el hecho de que estén todos atados: no hay una curva ajustada por gas.',
+    },
+    {
+      icono: '📈',
+      nombre: 'El CO₂ cae por los dos lados',
+      descripcion: 'Es máximo en λ = 1,000. Rico, el carbono se queda a medio quemar; pobre, el mismo carbono se reparte entre más gas. Un CO₂ bajo siempre significa algo, y no dice de qué lado.',
+    },
+    {
+      icono: '💧',
+      nombre: 'El reparto rico es un equilibrio',
+      descripcion: '[CO]·[H₂O] = 3,5·[CO₂]·[H₂], resuelto como cuadrática exacta. Ese «3,5» es el mismo que lleva dentro Brettschneider, y por eso las dos cuentas cierran.',
+    },
+    {
+      icono: '🔥',
+      nombre: 'Dos máximos que no coinciden',
+      descripcion: 'La temperatura es máxima en λ = 0,950 y el NOx en λ = 1,060, porque el NOx va con la temperatura Y con el oxígeno. No está puesto ahí: sale de multiplicar.',
+    },
+    {
+      icono: '🪟',
+      nombre: 'La ventana mide 0,015 de λ',
+      descripcion: 'Oxidar pide oxígeno y reducir pide lo contrario. Las dos pasan del 80 % a la vez sólo entre 0,995 y 1,010. Por eso el lazo cerrado oscila en vez de quedarse quieto.',
+    },
+    {
+      icono: '⚖️',
+      nombre: 'CO+CO₂ mide la MUESTRA',
+      descripcion: 'Por el catalizador entran 1,0000 mol de carbono y salen 1,0000. Si la suma baja sin que el motor cambie, lo que ha cambiado es por dónde entra el gas.',
+    },
+    {
+      icono: '🧮',
+      nombre: 'El Factor Lambda no se mide: se calcula',
+      descripcion: 'Brettschneider sobre los gases medidos. Con la muestra limpia recupera el λ del motor exacto; con una fuga en el escape imprime 1,263 cuando el motor está en 1,000.',
+    },
+    {
+      icono: '📅',
+      nombre: 'Los cortes de año no coinciden',
+      descripcion: 'TABLA 1 corta en 1990/1991 y TABLA 2 en 1993/1994. A un 1992 le tocan HC ≤ 400 en estático y HC ≤ 100 en dinámico. 6 averías aprueban una prueba y suspenden la otra.',
+    },
+    {
+      icono: '🎭',
+      nombre: 'El catalizador esconde el motor',
+      descripcion: 'Con la EGR pegada el motor echa 3 039 ppm de NOx y por la cola salen 245. La verificación mide la cola y aprueba. Es correcto para una norma ambiental, y no es un diagnóstico.',
+    },
+    {
+      icono: '⏱️',
+      nombre: 'Por qué se promedia al final',
+      descripcion: 'La manguera tiene una constante de 4,0 s. Promediando los cinco primeros segundos la lectura sale un 50 % baja; con la ventana de la norma, un 0,097 %.',
+    },
+  ],
+  mision: [
+    'MIRA primero el multipunto de 2004 sano en el modo «mezcla», con la mezcla libre. Recorre λ de 0,85 a 1,15 anotando el CO₂ y localiza el máximo. Escribe por qué un CO₂ bajo no basta para saber de qué lado está la mezcla.',
+    'PON λ = 0,90 y compara el λ que calcula el equipo con el del motor. Los dos números salen del mismo balance: uno de repartir el carbono por el equilibrio agua-gas, el otro de leer ese reparto con Brettschneider.',
+    'VE al modo «cat» y anota los dos bordes de la ventana: 0,995 y 1,010. Cambia al monopunto de 1992, que lleva catalizador de dos vías, y mira qué pasa con la curva de reducción.',
+    'EN el modo «NOx», anota dónde está el máximo de temperatura (λ = 0,950) y dónde el de NOx (λ = 1,060). Explica por qué no coinciden sin usar la palabra «ajuste».',
+    'PON la fuga en el escape y ve al modo «cadena». El motor no ha cambiado nada y la suma CO+CO₂ cae a 11,91 %. Escribe qué le dirías a alguien que, con ese informe delante, diagnostica «mezcla pobre».',
+    'PON ahora la sonda mal metida. La suma CO+CO₂ se queda en 13,29 % y pasa el criterio de dilución. ¿Qué criterio la atrapa entonces? Compruébalo en el modo «censo».',
+    'VE al modo «traza» y sigue el CO₂. Anota lo que saldría promediando los segundos 1 a 5 y lo que sale con la ventana de la norma. Explica por qué la norma no promedia al principio.',
+    'CAMBIA el gas seguido al CO. El rizo del instrumento es del tamaño de la propia lectura y la traza llega a bajar de cero. Escribe por qué eso no es un error del modelo.',
+    'PON el monopunto de 1992 con la mezcla rica y ve al modo «veredicto» con el método estático: aprueba. Cambia al dinámico sin tocar nada más. Anota los dos límites de HC y explica el cambio de veredicto sin hablar del motor.',
+    'EN el modo «censo» sobre ese mismo vehículo, anota cuántas averías aprueban con cada método. Repite en el multipunto de 2004. ¿Cuál perdona más, y por qué NO es porque uno sea mejor instrumento?',
+    'PON el multipunto con la recirculación pegada y el método dinámico. Anota el NOx antes del catalizador (3 039 ppm) y en la cola (245 ppm). El vehículo aprueba. Escribe qué mide la verificación y qué no.',
+    'PON el carburado de 1988, que no lleva catalizador, e intenta ponerle «catalizador agotado». Localiza en pantalla la frase que dice por qué esa avería no aplica, y explica por qué el laboratorio prefiere decirlo a cambiarla por su cuenta.',
+    'RETO · Llega un vehículo y no se dice qué tiene. Corre la prueba, lee los seis criterios y entrega el dictamen COMPLETO: no basta con «rechaza», hay que decir qué criterio se cayó. Y recuerda que hay TRES desenlaces, no dos.',
+  ],
+  aplicaciones: [
+    {
+      area: 'El coche que reprueba con el motor perfecto',
+      ejemplo: 'Es el caso que más tiempo hace perder en un centro de verificación. Una fuga en el escape antes del punto de muestreo mete aire en la manguera: el O₂ sube a 4,61 %, el CO₂ baja, la suma CO+CO₂ cae a 11,91 % y el equipo imprime un Factor Lambda de 1,263 sobre un motor clavado en 1,000. Quien lea eso como «mezcla pobre» cambiará sensores que están bien. El criterio de dilución de la NOM existe exactamente para atrapar esto ANTES de que nadie diagnostique nada.',
+    },
+    {
+      area: 'El comprobante que no certifica nada mecánico',
+      ejemplo: 'Con la recirculación de gases pegada, un multipunto de 2004 forma 3 039 ppm de NOx contra los 1 692 del mismo coche sano —casi el doble— y aprueba las dos pruebas, porque el catalizador de tres vías deja salir 245 ppm por la cola. La norma mide lo que llega a la atmósfera, que es lo que debe limitar. Usar el comprobante como certificado de salud del motor es un error de lectura, no un fallo de la norma.',
+    },
+    {
+      area: 'Dos centros, dos veredictos, ningún error',
+      ejemplo: 'Un vehículo de 1992 verificado por el método estático se juzga con «1993 y anteriores»: HC ≤ 400. El mismo vehículo por el método dinámico cae en «1991 y posteriores»: HC ≤ 100. En este banco, 6 de sus 11 averías aprueban una prueba y suspenden la otra sin que cambie una sola emisión. No es un error de nadie: está escrito así, y hay que saber leerlo antes de discutir un resultado.',
+    },
+    {
+      area: 'Por qué el analizador se calibra y se espera',
+      ejemplo: 'La lectura tarda en llegar: con una constante de manguera de 4,0 s, promediar los cinco primeros segundos de la fase da un CO₂ un 50 % por debajo del real, es decir, aprobaría vehículos que no deben aprobar. Por eso todos los procedimientos promedian los últimos segundos —26 a 30 en el estático, 21 a 30 en el dinámico— y por eso la NOM-047 le exige al equipo una exactitud declarada: el rizo de la propia celda es, en el CO de un coche sano, del tamaño de la lectura.',
+    },
+  ],
+};
+
+export default briefing;
