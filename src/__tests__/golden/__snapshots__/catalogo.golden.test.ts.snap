@@ -1491,6 +1491,26 @@ exports[`golden master — catálogo por categoría (invariante ante extracción
     "teoria": "Aprobar la verificación y tener el motor bien no son lo mismo, y falla en las dos direcciones. En el monopunto de 1992, 6 averías aprueban el método estático y suspenden el dinámico sin que cambie una sola emisión: los cortes de año de las dos tablas de la NOM-041 no coinciden. Y una fuga en el escape reprueba a un motor intacto.",
     "titulo": "Gases de Escape y Verificación",
   },
+  {
+    "duracion": "45 min",
+    "estado": "activo",
+    "id": "mecanica-121",
+    "modulo": "Motor de Combustión Interna",
+    "orden": 121,
+    "simuladorHtml": "/labs/catalizador-sondas.html",
+    "teoria": "Un P0420 no dice que el catalizador esté malo: dice que el ordenador midió poco almacenamiento de oxígeno y dedujo el resto. De 45 celdas se equivoca en 20. Una sonda anterior desviada saca P0420 con 37 ppm de HC; el fósforo hunde la conversión a 539 ppm sin encender nada; y el umbral está calibrado a 1,5 veces la NOM-041, así que hay 40 000 km en que el coche reprueba con el tablero limpio.",
+    "titulo": "Eficiencia del Catalizador y Sondas de Oxígeno",
+  },
+  {
+    "duracion": "50 min",
+    "estado": "activo",
+    "id": "mecanica-122",
+    "modulo": "Motor de Combustión Interna",
+    "orden": 122,
+    "simuladorHtml": "/labs/common-rail-precalentamiento.html",
+    "teoria": "El escáner no diagnostica un conducto común: lo acota. De 60 casillas hay 31 con síntoma y la pantalla limpia, y de las doce averías nombra bien la pieza en una. La bomba gastada y el filtro tapado dan el mismo P0087; el sensor que lee de menos sube la presión real a 1 907 bar enseñando 1 655; y la batería floja no da poca chispa, da poca compresión. Las probetas de retorno separan lo que la electrónica confunde.",
+    "titulo": "Conducto Común Diésel y Precalentamiento",
+  },
 ]
 `;
 
@@ -1647,6 +1667,8 @@ exports[`golden master — catálogo por categoría (invariante ante extracción
   "mecanica-119",
   "mecanica-12",
   "mecanica-120",
+  "mecanica-121",
+  "mecanica-122",
   "mecanica-13",
   "mecanica-14",
   "mecanica-15",

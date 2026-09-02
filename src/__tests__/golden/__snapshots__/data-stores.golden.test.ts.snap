@@ -3553,6 +3553,268 @@ Queda un detalle de procedimiento que enseña más de lo que parece: entre la so
     "titulo": "Gases de Escape y Verificación",
     "videoUrl": "",
   },
+  "mecanica-121": {
+    "acento": "#F0A05A",
+    "aplicaciones": [
+      {
+        "area": "El catalizador que se cambió sin hacer falta",
+        "ejemplo": "Es el error más caro de este dominio. Entra un coche con P0420, se cambia el catalizador, y a los tres días vuelve con el mismo código. En este banco, una sonda anterior desviada 0,1 V da índice 0,737 —P0420 de libro— con 37 ppm de hidrocarburos por el tubo, y una sonda anterior lenta da 1,265 con 47 ppm. Las dos veces la pieza cara está intacta. Medir los gases de cola antes de tocar nada cuesta diez minutos y descarta las dos.",
+      },
+      {
+        "area": "El coche que reprueba con el tablero limpio",
+        "ejemplo": "Un cliente llega indignado del centro de verificación: reprobó por hidrocarburos y el testigo de motor nunca se encendió. No hay nada que reclamar. El monitor de a bordo está calibrado para avisar a 1,5 veces el límite, así que entre una vez y una vez y media el coche está fuera de norma con el sistema en silencio. En este banco esa franja va de los 82 000 a los 122 000 km, y existe en todos los vehículos con diagnóstico a bordo.",
+      },
+      {
+        "area": "La verificación por diagnóstico a bordo",
+        "ejemplo": "La NOM-167-SEMARNAT-2017 permite verificar los modelos 2006 y posteriores leyendo el sistema de a bordo en vez de midiendo gases: monitores completos y sin códigos de emisiones. Este laboratorio enseña exactamente qué se está aceptando con eso. De 45 situaciones, el monitor se equivoca en 20, y en 16 de ellas se equivoca callándose. La ventaja del método es de tiempo y de coste, no de exactitud, y conviene saberlo.",
+      },
+      {
+        "area": "Por qué un catalizador nuevo se muere en un año",
+        "ejemplo": "Cuando la conversión se ha caído pero el almacén sigue dando sus segundos, eso no es edad: el cerio y los metales preciosos se van juntos con los kilómetros. Es un veneno, y viene de algún sitio —fósforo del aceite que pasa por los retenes, azufre del combustible, silicio de un anticongelante que se cuela—. Poner una lata nueva sin quitar la causa la mata en unos miles de kilómetros, y el cliente vuelve con la factura en la mano.",
+      },
+      {
+        "area": "El instrumento que se engaña a sí mismo",
+        "ejemplo": "El índice del monitor y la prueba intrusiva de almacenamiento parecen dos medidas independientes, y no lo son: las dos entran por la sonda posterior. Con esa sonda envejecida y lenta, las dos dicen que el catalizador está bien mientras por el tubo salen 374 ppm. Es el argumento de por qué un taller no puede diagnosticar emisiones sólo con un escáner, por bueno que sea el escáner.",
+      },
+    ],
+    "bienvenida": "Una línea de escape en alto sobre el elevador, con las dos sondas de oxígeno a la vista: la anterior en el colector y la posterior pasada el catalizador. Y tres instrumentos delante de la misma lata, que es lo que hace especial a esta práctica: el escáner de diagnóstico, que acaba en un P0420 o en nada; la prueba intrusiva de almacenamiento, que da un tiempo en segundos; y el analizador de gases de cola, que da el veredicto de la NOM-041.
+
+La tesis cabe en una frase que en el taller cuesta cara: el monitor no mide lo que la ley mide. La ley mide hidrocarburos por el tubo; el monitor mide cuánto oxígeno guarda el cerio del recubrimiento. Son dos magnitudes distintas que envejecen juntas, y de esa correlación vive el sistema entero.
+
+Empieza por lo que se ve. La sonda de delante oscila, y no porque esté estropeada: oscila porque el ordenador la hace oscilar. Rampa la mezcla a velocidad fija y da media vuelta cada vez que la sonda cruza los 0,45 voltios. Con el retardo de este motor —0,112 s de transporte por el colector más 0,09 s de la propia sonda— eso da un periodo de 0,808 s y una amplitud de ±0,0202 de λ. Ninguno de los dos números está escrito en el modelo: salen de integrar el lazo.
+
+La de detrás, con el catalizador nuevo, se queda quieta en 0,63 voltios. No está alta porque la mezcla sea rica. Está alta porque el gas que sale de la lata viene equilibrado y lleva hidrógeno, y el circonio es hipersensible al hidrógeno. Una sonda posterior alta y quieta es la firma de que el catalizador está trabajando.
+
+Y está quieta por una razón concreta: el cerio se traga el oxígeno que sobra en cada media oscilación. Con la lata nueva el depósito recorre seis centésimas de su carrera y por detrás no sale nada; con el catalizador gastado recorre nueve décimas y toca los dos topes. Cuando toca los topes, el oxígeno sale por el otro lado y la sonda de atrás empieza a copiar a la de delante. Eso es todo lo que el monitor sabe medir.
+
+Aquí conviene pararse, porque hay algo que casi nadie cuenta. Ese almacén no es sólo lo que el monitor mide: es el mecanismo que hace posible la conversión de tres vías. Oxidar CO e hidrocarburos pide oxígeno y reducir NOx pide justo lo contrario; las dos por encima del 90 % sólo entre λ 0,9960 y λ 1,0090, trece milésimas. Mantenerse ahí con un motor real es imposible, así que lo que se hace es oscilar alrededor y dejar que el catalizador promedie. Quitando sólo el cerio y dejando los metales intactos, el HC de cola sube de 46 a 110 ppm sin que se envenene un átomo de platino.
+
+Ahora la trampa, que organiza la práctica entera. El umbral que separa el aprobado del P0420 no es una propiedad del catalizador: es un número de calibración. Está elegido para que el monitor salte donde el HC de cola llega a 148 ppm, una vez y media el límite de 100 de la TABLA 1, porque eso es lo que la reglamentación de diagnóstico a bordo exige. Y de ahí sale una consecuencia inevitable: la ley rechaza este coche a los 82 000 km y el testigo no se enciende hasta los 122 000. En esos 40 000 km el vehículo reprueba la verificación con el tablero limpio, y no hay nada roto.
+
+Después están las averías que rompen la correlación, y van en las dos direcciones. Una sonda ANTERIOR que lee una décima de voltio de más hacia rica hace que el ordenador empobrezca de más: el almacén se queda lleno para siempre, el índice se va a 0,737 y salta un P0420 con 37 ppm de hidrocarburos por el tubo. El catalizador está nuevo.
+
+Y el caso contrario, que es peor porque no avisa. El fósforo del aceite tapa los metales preciosos y deja el cerio casi entero: índice 0,107, almacenamiento 2,95 s, los dos limpios, y 539 ppm de HC por el tubo. El envenenamiento del rodio es todavía más fino: el rodio es el metal del NOx y el primero que se envenena, así que el HC sale perfecto, el índice sale perfecto, y por la cola van 1 662 ppm de NOx. Ese coche pasa el monitor, pasa el método estático —que no tiene límite de NOx— y sólo lo caza el dinámico.
+
+Queda el peor de todos, y es el que enseña a desconfiar del instrumento. El monitor y la prueba de almacenamiento leen los DOS por la sonda posterior. Con esa sonda lenta y el catalizador agotado, el índice sale 0,105 y el cronómetro 0,74 s —los dos dentro de lo normal— mientras por el tubo salen 374 ppm. El único instrumento que no se engaña es el analizador de gases, porque es el único que no pasa por ahí.
+
+Todo eso se cuenta al final: nueve averías por cinco edades, 45 celdas. El ordenador acierta en 25 y falla en 20, cuatro acusando a un catalizador limpio y dieciséis callándose con un coche que reprueba. La conclusión no es que el monitor sea malo. Es que un P0420 es una pista sobre el almacén de oxígeno, no un diagnóstico sobre el catalizador, y que la ausencia de código no certifica nada.",
+    "codigo": "MEC-121",
+    "conceptos": [
+      {
+        "descripcion": "El ordenador rampa la mezcla y da media vuelta al cruzar 0,45 V. Con 0,202 s de retardo total salen 0,808 s de periodo y ±0,0202 de λ. No están escritos: salen de integrar el lazo.",
+        "icono": "〰️",
+        "nombre": "La de delante oscila porque la hacen oscilar",
+      },
+      {
+        "descripcion": "0,095 g de O₂ por litro de cilindrada cuando es nuevo. Ése es el amortiguador que aplana la señal de atrás, y es lo único que el monitor sabe medir.",
+        "icono": "🔋",
+        "nombre": "El cerio guarda oxígeno",
+      },
+      {
+        "descripcion": "0,63 V y quieta. No porque la mezcla sea rica: el gas que sale del catalizador viene equilibrado y lleva hidrógeno, y el circonio lo lee como rica. Es la firma de que la lata trabaja.",
+        "icono": "⬆️",
+        "nombre": "La sonda posterior sana vive ALTA",
+      },
+      {
+        "descripcion": "Lo que se escapa va con Θ elevado a 6: hasta el 80 % de lleno no pasa casi nada. Por eso la señal de atrás está plana hasta que un día deja de estarlo.",
+        "icono": "📉",
+        "nombre": "La ruptura no es suave",
+      },
+      {
+        "descripcion": "La prueba intrusiva da 3,51 s en marcha mínima y 0,72 s en crucero con el MISMO catalizador. El tiempo es capacidad entre caudal: un número sin su régimen no significa nada.",
+        "icono": "⏱️",
+        "nombre": "Segundos, no una nota",
+      },
+      {
+        "descripcion": "La ventana mide 0,0130 de λ, y además hace falta pasar de 230 °C. El monitor no mide ninguna de las dos cosas: mide el amortiguador y deduce el resto.",
+        "icono": "🪟",
+        "nombre": "Guardar no es convertir",
+      },
+      {
+        "descripcion": "El 0,32 hace que el monitor salte con 148 ppm de HC, 1,48 veces el límite de la TABLA 1. No es una constante física: es lo que la reglamentación de diagnóstico a bordo pide.",
+        "icono": "⚖️",
+        "nombre": "El umbral está calibrado contra la ley",
+      },
+      {
+        "descripcion": "La ley rechaza a los 82 000 km y el testigo se enciende a los 122 000. En esos 40 000 km el coche reprueba con el tablero limpio, y no hay nada roto.",
+        "icono": "🕳️",
+        "nombre": "La banda ciega es de diseño",
+      },
+      {
+        "descripcion": "La sonda ANTERIOR desviada 0,1 V deja el almacén lleno para siempre: índice 0,737 con 37 ppm de HC por el tubo. Cambiar el catalizador no lo arregla.",
+        "icono": "🎯",
+        "nombre": "Un P0420 con la lata nueva",
+      },
+      {
+        "descripcion": "Envenenado: HC 46 ppm perfecto, índice 0,099 perfecto, NOx 1 662 ppm. Pasa el monitor, pasa el estático —que no limita NOx— y sólo lo caza el dinámico.",
+        "icono": "☠️",
+        "nombre": "El rodio es el metal del NOx",
+      },
+      {
+        "descripcion": "El monitor y el cronómetro leen los dos por la posterior. Con esa sonda lenta, los dos dicen que todo va bien con 374 ppm de HC saliendo por el tubo.",
+        "icono": "🙈",
+        "nombre": "Dos instrumentos, una sola sonda",
+      },
+      {
+        "descripcion": "Nueve averías por cinco edades. Cuatro veces acusa a un catalizador limpio y dieciséis se calla con un coche que reprueba. Sale de recorrer la rejilla, no está escrito.",
+        "icono": "🧮",
+        "nombre": "20 de 45 celdas",
+      },
+    ],
+    "duracion": 45,
+    "mision": [
+      "MIRA el multipunto 1.6 nuevo y sano en la vista «sondas». Anota el periodo de la señal de delante y el recorrido de la de atrás. Escribe por qué la de atrás está en 0,63 V y no en 0,45.",
+      "SUBE la edad del catalizador a «gastado» sin tocar nada más. La de delante hace exactamente lo mismo. Anota qué le pasa a la de atrás y explica cuál de los dos cambios lo causa.",
+      "VE a «almacén» con la lata nueva y anota el recorrido ΔΘ. Repítelo con el catalizador gastado. Mira después la curva de abajo y explica por qué la señal de atrás no se degrada poco a poco.",
+      "EN «prueba», anota los dos tiempos de almacenamiento —marcha mínima y crucero— del mismo catalizador. Calcula la razón y explícala sin usar la palabra «mejor».",
+      "CAMBIA a la vista «ventana» y anota los dos bordes de la franja donde las tres conversiones van a la vez. Después pon «catalizador frío» y mira qué le pasa al índice del monitor. Escribe qué demuestra eso.",
+      "EN «monitor», sube la edad de «nuevo» a «agotado» siguiendo las dos curvas. Anota en qué edad cruza cada una su raya y explica por qué cruzan casi juntas.",
+      "PON la edad «medio» y localiza la franja amarilla. Anota el HC de cola, el límite de la norma y el estado del testigo. Escribe qué le dirías a alguien que reprueba la verificación con el tablero limpio.",
+      "PON «anterior desviada» con el catalizador NUEVO. Anota el índice y el HC de cola. Escribe qué pieza hay que cambiar y cuánto habría costado equivocarse.",
+      "PON «fósforo» con el catalizador nuevo y anota las TRES medidas. Explica cuál de las tres es la que no se deja engañar, y por qué.",
+      "PON «plomo · rodio» y compara los dos métodos de verificación sobre el mismo coche sin tocar nada más. Anota el veredicto de cada uno y explica por qué difieren.",
+      "PON «posterior lenta» con el catalizador «agotado» y anota el índice, el almacenamiento y el HC. Escribe qué tienen en común los dos instrumentos que se equivocan.",
+      "COMPARA «fuga pequeña» y «fuga grande» con la misma edad. Anota el código de cada una y la tensión media de la sonda posterior. Explica por qué la misma avería da dos códigos distintos.",
+      "VE a «censo» y cuenta las celdas rojas y las ámbar. Cambia después al TBI de 1992 y anota qué cambia en toda la rejilla y por qué.",
+      "RETO · Llega un coche y no se dice qué tiene. Tienes tres instrumentos y cada uno cuesta tiempo. Decide QUÉ HAY QUE CAMBIAR, no qué avería es: y recuerda que un veneno tiene una causa aguas arriba.",
+    ],
+    "subtitulo": "Motor de combustión interna · ciclo límite del lazo cerrado, almacenamiento de oxígeno del cerio, índice de la sonda posterior, P0420 y su calibración contra la NOM-041",
+    "titulo": "Eficiencia del Catalizador y Sondas de Oxígeno",
+    "videoUrl": "",
+  },
+  "mecanica-122": {
+    "acento": "#5AD1E6",
+    "aplicaciones": [
+      {
+        "area": "La bomba de alta que se cambió sin hacer falta",
+        "ejemplo": "Es el error más caro de este dominio. Entra un coche con P0087 y sin fuerza, se cambia la bomba de alta presión, y sigue igual. En este banco la bomba gastada y el filtro tapado dan el mismo código, la misma dosificación al 100 % y la misma pérdida de presión; lo único que los distingue es un manómetro en el circuito de baja: 4,20 bar contra 1,93. La comprobación cuesta veinte minutos y un filtro cuesta cien veces menos que una bomba.",
+      },
+      {
+        "area": "La prueba de retornos como primer paso",
+        "ejemplo": "Es el procedimiento estándar de cualquier taller diésel serio, y esta práctica explica por qué funciona. Con un inyector con fuga, el escáner da exactamente el mismo P0087 que una bomba muerta. Sólo la probeta enseña 91,2 mL/min en un cilindro contra 12,4 en los otros tres. Y cuando los cuatro salen altos pero parejos, la información está en el «parejos»: no señala a ninguno, señala al juego entero y al kilometraje.",
+      },
+      {
+        "area": "El sensor de riel que revienta un motor",
+        "ejemplo": "Es la avería que más respeto merece de las doce. Un sensor que lee de menos hace que el ordenador suba la presión real por encima del límite del sistema mientras la pantalla enseña una cifra perfecta. En este banco son 1 907 bar contra un máximo de 1 800. Con la presión real fuera de rango, lo que se rompe primero es un tubo de alta o la propia tobera, y en la pantalla no hay ni un código que lo explique después.",
+      },
+      {
+        "area": "El coche que no arranca en la primera helada",
+        "ejemplo": "Todos los inviernos entran talleres llenos de estos. El escáner no da nada, las bujías consumen corriente y el motor gira. Este laboratorio separa las tres causas que se confunden: bujías que conducen sin calentar, batería que gira despacio —y por tanto comprime poco—, y un cilindro con la compresión caída que en verano no se notaba. Las tres dan la misma queja del cliente y ninguna da un código.",
+      },
+      {
+        "area": "La inyección piloto y el ruido del motor",
+        "ejemplo": "Cuando un diésel moderno empieza a sonar a martilleo en frío, lo primero que se sospecha es la inyección piloto, y con razón: es la que prepara la cámara para que la principal no entre de golpe. Como su pulso es del orden del tiempo muerto del inyector, cualquier deriva —del actuador, de la tensión de mando, del propio inyector con los años— se lleva por delante un porcentaje enorme de esa dosis. Y no hay ningún código que la vigile, porque el ordenador manda tiempos y no mide combustible.",
+      },
+    ],
+    "bienvenida": "Un motor diésel en su soporte con todo el circuito de combustible a la vista: depósito, filtro, bomba de alta, riel con su sensor y su regulador, un inyector por cilindro, y las mangueras de retorno cayendo cada una en su probeta graduada. Al lado, un escáner de diagnóstico. Y un manómetro mecánico intercalado en el riel, que es la pieza que va a desmentir a la electrónica más de una vez esta tarde.
+
+La tesis de la práctica cabe en una frase: el escáner no diagnostica un sistema de conducto común, lo acota. De las doce averías que este banco puede tener, el escáner nombra bien la pieza en una. En dos acusa a la pieza equivocada. En nueve no dice nada, y siete de esas nueve el conductor las nota.
+
+Empieza por el riel, que es un condensador hidráulico. No guarda combustible en cantidad —treinta y dos centímetros cúbicos— sino presión. La bomba mete caudal de forma continua y los inyectores lo sacan a bocanadas: ochenta y siete por segundo a plena carga. De ahí sale un rizo de 47,8 bar sobre 1 604, casi un tres por ciento, que no es un defecto sino la firma del funcionamiento. En marcha mínima el mismo riel da un rizo de dos coma siete bar: menos caudal, menos rizo.
+
+El ordenador sostiene esa presión en lazo cerrado, y aquí empieza el problema del taller. Cierra el lazo sobre la lectura de un sensor, y mientras el sensor diga lo que la consigna pide, el ordenador está satisfecho. Pon el sensor leyendo un catorce por ciento del fondo por debajo: el ordenador cree que falta presión, sube la de verdad hasta 1 907 bar —un seis por ciento por encima del máximo del sistema— y el escáner enseña 1 655 sin levantar ningún código. La desviación leída es del tres y medio por ciento; la real, del diecinueve.
+
+Después viene el tiempo muerto, que es el número más útil que te vas a llevar de aquí. El inyector tarda en abrir, y ese retardo no encoge cuando el pulso es corto. En la inyección principal —cincuenta y cinco milímetros cúbicos— el tiempo muerto es el diecisiete por ciento del pulso. En la inyección piloto, el sesenta y seis. En el V8, el setenta y siete. La consecuencia es que subir el pulso un cinco por ciento da un seis por ciento más de combustible en la principal y un quince por ciento en la piloto. Por eso las pilotos se corrigen en milímetros cúbicos y nunca en porcentaje. Y con la batería a nueve coma cuatro voltios el tiempo muerto se hace más largo que el pulso entero de la piloto: no sale nada, y el ordenador no tiene forma de enterarse porque manda un tiempo y da por hecho el combustible.
+
+Luego está la probeta, que es el instrumento que la electrónica no tiene. Todo lo que la bomba mete y no se quema vuelve al depósito por tres caminos distintos: la fuga estática entre el émbolo del inyector y su casquillo, el combustible que el inyector usa para mandarse a sí mismo, y lo que el regulador tira a propósito. Con cinco recipientes y un reloj se miden los tres por separado. Un inyector con fuga devuelve 91,2 mililitros por minuto contra los 12,4 de sus hermanos; el juego entero desgastado devuelve 41,5 cada uno, parejos, señalando al kilometraje y no a ninguno; y con el regulador pegado los cuatro están normales mientras por la manguera vuelven 202,7, de los cuales 153,6 no han pasado por ningún cilindro. Esa resta —total menos suma— es lo que convierte cuatro averías indistinguibles en cuatro diagnósticos.
+
+Y para rematar, la bomba gastada y el filtro tapado dan el mismo P0087, la misma dosificación al cien por cien y la misma pérdida de fuerza. Lo único que los separa es la presión de alimentación: 4,20 bar contra 1,93. La pieza cara y la pieza barata, con el mismo código en la pantalla.
+
+La segunda mitad de la práctica es otro asunto y no depende de nada de lo anterior. Un diésel no tiene chispa: el aire se enciende porque la compresión lo calienta. La temperatura que alcanza sale de la relación politrópica, y el exponente de esa relación no es una constante del gas: cae cuando el motor gira despacio, porque el calor tiene más tiempo para escaparse por la pared. De ahí sale el resultado que más cuesta creer en el taller. A veinte bajo cero el motor sano gira a 140 rpm con un exponente de 1,231 y la compresión llega a 227 grados. Con la batería floja gira a 75, el exponente cae a 1,140, la compresión se queda en 114 grados y no prende ni un cilindro — con las cuatro bujías perfectas y el escáner sin nada que declarar. Una batería floja no da poca chispa: da poca compresión.
+
+Las bujías incandescentes no calientan el motor: calientan un punto al que llega el chorro. Ciento cuarenta y cuatro kelvin de salto efectivo en el criterio de encendido, y nada en el manómetro de compresión. El ordenador vigila que consuman corriente, que es lo único que puede medir por el circuito. Una bujía en circuito abierto se detecta —P0380— aunque a veinticinco grados el motor arranque redondo. Unas bujías envejecidas que siguen conduciendo consumen 3,7 amperios en vez de 8,7, llegan a 326 grados en vez de 1 007, y a veinte bajo cero no prende ninguno de los cuatro sin ningún código en la pantalla.
+
+Todo eso se cuenta al final: doce averías por cinco temperaturas, sesenta casillas. Cuarenta y cuatro se notan conduciendo y en treinta y una de ellas el escáner está mudo. Cuatro dejan el coche parado, y cinco ponen el riel por encima del máximo del sistema enseñando una cifra correcta. La conclusión no es que el escáner sea malo. Es que un código acota y no diagnostica, y que la ausencia de código no certifica nada.",
+    "codigo": "MEC-122",
+    "conceptos": [
+      {
+        "descripcion": "Treinta y dos centímetros cúbicos que no guardan combustible: guardan presión. 87 inyecciones por segundo le sacan un bocado cada una y de ahí sale un rizo de 47,8 bar sobre 1 604.",
+        "icono": "🫙",
+        "nombre": "El riel es un condensador hidráulico",
+      },
+      {
+        "descripcion": "El módulo de compresibilidad va de 1,30 GPa a la atmosférica a 2,42 GPa a 1 600 bar. Casi el doble: por eso el riel amortigua mejor cuanto más lleno está.",
+        "icono": "🧱",
+        "nombre": "El gasóleo se pone rígido con la presión",
+      },
+      {
+        "descripcion": "Es el 17 % de la inyección principal y el 66 % de la piloto — el 77 % en el V8. El mismo número absoluto sobre pulsos de tamaños muy distintos.",
+        "icono": "⏳",
+        "nombre": "El tiempo muerto no encoge con el pulso",
+      },
+      {
+        "descripcion": "+6 % de combustible en la principal y +15 % en la piloto. Por eso las piloto se corrigen en mm³ y nunca en porcentaje.",
+        "icono": "📈",
+        "nombre": "Un +5 % no vale lo mismo en las dos",
+      },
+      {
+        "descripcion": "El tiempo muerto sube a 0,267 ms y el pulso entero dura 0,259. Salen 0,00 mm³ de los 1,4 pedidos, y el ordenador no lo sabe: manda un tiempo, no combustible.",
+        "icono": "🔋",
+        "nombre": "A 9,4 V la piloto no llega a salir",
+      },
+      {
+        "descripcion": "Un inyector con fuga devuelve 91,2 mL/min contra 12,4. El juego entero, 41,5 parejos. Y con el regulador pegado, los cuatro normales y el total en 202,7.",
+        "icono": "🧪",
+        "nombre": "La probeta separa lo que el código junta",
+      },
+      {
+        "descripcion": "153,6 mL/min que vuelven al depósito sin haber pasado por ningún cilindro. Que se pueda RESTAR es lo que hace de la probeta una medida y no una impresión.",
+        "icono": "➖",
+        "nombre": "Total menos suma es el diagnóstico",
+      },
+      {
+        "descripcion": "Bomba gastada y filtro tapado: misma presión baja, misma dosificación al 100 %, mismo código. Los separa la alimentación de baja, 4,20 bar contra 1,93.",
+        "icono": "🎭",
+        "nombre": "El mismo P0087 para dos piezas",
+      },
+      {
+        "descripcion": "Con el sensor leyendo de menos, la presión real sube a 1 907 bar —un 6 % sobre el máximo— y la pantalla enseña 1 655 sin código. Ver una cifra correcta no prueba que la haya.",
+        "icono": "🪞",
+        "nombre": "El lazo cierra sobre el sensor",
+      },
+      {
+        "descripcion": "Cae cuando el motor gira despacio, porque el calor tiene más tiempo para irse por la pared. 1,231 a 140 rpm y 1,140 a 75.",
+        "icono": "🌡️",
+        "nombre": "El exponente politrópico no es una constante",
+      },
+      {
+        "descripcion": "A −20 °C: 75 rpm, compresión de 24,8 bar y 114 °C, cero cilindros prendiendo, cuatro bujías perfectas y el escáner mudo.",
+        "icono": "🪫",
+        "nombre": "La batería floja es falta de COMPRESIÓN",
+      },
+      {
+        "descripcion": "Unas bujías envejecidas consumen 3,7 A en vez de 8,7 y llegan a 326 °C en vez de 1 007. Para el ordenador están bien, porque sólo puede medir el circuito.",
+        "icono": "🔥",
+        "nombre": "Corriente no es temperatura",
+      },
+      {
+        "descripcion": "Doce averías por cinco temperaturas. En 31 hay un síntoma que el conductor nota y la pantalla está limpia. Sale de recorrer la rejilla, no está escrito.",
+        "icono": "🧮",
+        "nombre": "31 de 60 casillas mudas",
+      },
+    ],
+    "duracion": 50,
+    "mision": [
+      "MIRA el turismo 2.0 sano en la vista «riel». Anota la presión media, el rizo y las inyecciones por segundo. Después cambia a marcha mínima y anota el rizo otra vez. Explica por qué encoge.",
+      "PON «sensor lee bajo» sin tocar nada más. Anota las dos líneas de la gráfica y el código que da el escáner. Escribe por qué el ordenador no levanta nada teniendo el riel un 6 % por encima de su máximo.",
+      "PON «sensor lee alto» y anota lo mismo. Escribe cuál de los dos casos es más peligroso para el motor y cuál es más difícil de encontrar en un taller.",
+      "VE a «caudal» con el motor sano. Anota el tiempo muerto y el pulso de la piloto y de la principal, y las dos fracciones. Explica por qué un mismo +5 % de pulso no da el mismo combustible.",
+      "PON «batería floja» y vuelve a «caudal». Anota lo que le pasa a la piloto. Escribe qué haría el ordenador si supiera lo que está pasando, y por qué no puede saberlo.",
+      "VE a «retornos» con todo sano y anota los cuatro valores y el total. Ésta es tu referencia: sin ella lo demás no significa nada.",
+      "PON «un inyector» y anota los cuatro. Después «todos los inyectores». Escribe qué te dice la DISPERSIÓN en cada caso, y qué pieza pedirías en cada uno.",
+      "PON «regulador pegado». Los cuatro inyectores están normales. Anota el total y réstale la suma. Explica por dónde se ha ido esa diferencia y cómo lo has demostrado.",
+      "COMPARA «bomba gastada» y «filtro tapado» en la vista «riel», mirando la tabla entera. Anota qué única fila los distingue y cuál de las dos piezas es la cara.",
+      "VE a «arranque» con el motor sano y baja la temperatura de +25 a −30 anotando el giro, el exponente y el retardo. Marca a qué temperatura el motor dejaría de arrancar SIN bujías.",
+      "PON «batería floja» a −20 °C. Anota el giro, el exponente, la presión y la temperatura de compresión. Explica en dos frases por qué esto es un problema de compresión y no de chispa.",
+      "VE a «bujías» con «bujías lentas» a −20 °C. Anota la corriente de cada una y la temperatura de la punta. Escribe por qué el ordenador no tiene ningún código que dar.",
+      "CAMBIA al furgón Diésel 3.0 de 2006 con todo sano y anota el tiempo de precalentamiento y la corriente. Compáralo con el turismo y explica de dónde sale la diferencia.",
+      "VE a «censo» y cuenta las casillas rojas. Cambia después de vehículo y anota qué se mueve en la rejilla y por qué.",
+      "RETO · Llega un coche y nadie dice qué tiene. Cada instrumento cuesta tiempo. Mira cómo se estrecha la lista de sospechosos con cada medida y dictamina con los menos posibles: eso es exactamente lo que se cobra en un taller.",
+    ],
+    "subtitulo": "Motor de combustión interna · el riel como condensador hidráulico, tiempo muerto del inyector, la prueba de la probeta, compresión politrópica y bujías incandescentes",
+    "titulo": "Conducto Común Diésel y Precalentamiento",
+    "videoUrl": "",
+  },
   "mecanica-13": {
     "acento": "#2A9D8F",
     "aplicaciones": [
@@ -19207,6 +19469,8 @@ exports[`golden master — stores de datos (invariante ante la migración a src/
   "mecanica-119": [],
   "mecanica-12": [],
   "mecanica-120": [],
+  "mecanica-121": [],
+  "mecanica-122": [],
   "mecanica-13": [],
   "mecanica-14": [],
   "mecanica-15": [],
@@ -19562,6 +19826,8 @@ exports[`golden master — stores de datos (invariante ante la migración a src/
   "mecanica-119",
   "mecanica-12",
   "mecanica-120",
+  "mecanica-121",
+  "mecanica-122",
   "mecanica-13",
   "mecanica-14",
   "mecanica-15",

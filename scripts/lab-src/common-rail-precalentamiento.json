@@ -1,0 +1,9 @@
+{
+  "donor": "gases-verificacion.html",
+  "out": "common-rail-precalentamiento.html",
+  "title": "CEN Labs · Conducto común diésel y precalentamiento — Laboratorio 3D",
+  "lt": "Motor de combustión interna · Mecánica",
+  "inspectHint": "👆 Pon el sensor de presión leyendo de menos: el escáner enseña 1 655 bar perfectos mientras en el tubo hay 1 907. Y después mira los retornos con un solo inyector con fuga",
+  "body": "common-rail-precalentamiento.body.js",
+  "fichas": ["_ficha-tecnica.js", "_ficha-common-rail-precalentamiento.js"]
+}

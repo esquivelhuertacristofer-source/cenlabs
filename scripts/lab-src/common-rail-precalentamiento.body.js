@@ -1,0 +1,2838 @@
+const mount=document.getElementById('stage');
+// Estas cifras sólo valen para el primer fotograma: en cuanto la escena arranca
+// el encuadre se CALCULA con camConjunto(), porque depende del largo del banco y
+// de la forma de la ventana y no puede estar escrito a mano.
+const S=createStage(mount,{cam:[2.4,3.2,5.0],target:[-1.3,1.7,-0.9],
+  bgTop:'#141a20',bgBot:'#05070b',bloom:0.24,minD:2.4,maxD:38});
+const {scene}=S;
+const synth=makeSynth({type:'square',type2:'sine',filterFreq:900,Q:0.72});
+// `clamp` NO se declara aquí: lo declara el motor sellado que se empalma justo
+// debajo, y declararlo dos veces es un SyntaxError que mata la página entera
+// antes de que exista window.__labDebug.
+const el=id=>document.getElementById(id);
+const TINTA='#e8eef6', CIAN='#5ad1e6', OK_HEX='#7cd992', WARN_HEX='#e9c46a',
+      BAD_HEX='#ff6b6b', GRIS='#7b8697', VIO='#b48ce0', NARANJA='#f0a05a',
+      AZUL='#6ea8fe', ROSA='#f28dbb';
+
+// ============================================================================
+//  d6-12 · COMMON-RAIL DIÉSEL Y PRECALENTAMIENTO — MOTOR SELLADO
+//
+//  QUÉ SE MIDE
+//  Un motor diésel de inyección por conducto común sobre el banco, con cuatro
+//  instrumentos: el escáner (presión de riel mandada contra real y el mando de
+//  la válvula reguladora), la prueba de retornos (cuánto devuelve cada inyector
+//  a un tubo graduado), la prueba de arranque (velocidad de giro, presión de
+//  compresión y si prende) y la prueba de bujías (corriente de cada una).
+//
+//  LA TESIS
+//  El riel es un CONDENSADOR HIDRÁULICO. Todo lo que pasa en él sale de una sola
+//  ecuación —dp/dt = (K/V)·(lo que entra − lo que sale)— y de ahí salen solos el
+//  rizo de presión, el tiempo de recuperación y, sobre todo, el hecho de que
+//  «presión baja» tenga por lo menos CUATRO causas que el escáner no distingue.
+//  La única que las separa es una probeta.
+//
+//  Y en la otra mitad: una bujía incandescente no calienta el motor, calienta un
+//  PUNTO. Que el motor prenda o no lo decide el retardo de encendido, que sale de
+//  la temperatura de compresión — y esa temperatura depende de la velocidad de
+//  giro tanto como de la relación de compresión. Por eso una batería floja es un
+//  problema de COMPRESIÓN, y no lo parece.
+//
+//  EL MODELO DE INGENIERÍA
+//  · El riel se integra paso a paso: entrega de la bomba, extracción de cada
+//    inyección, retorno de mando, fuga estática y regulador, con el módulo de
+//    compresibilidad del gasóleo creciendo con la presión.
+//  · El caudal inyectado sale de Bernoulli por los orificios de la tobera, con
+//    el TIEMPO MUERTO de apertura, que crece con la presión de riel y con la
+//    caída de tensión de la batería.
+//  · La fuga estática de un inyector va con el CUBO del juego del émbolo de
+//    mando: por eso el desgaste no la sube un poco, la multiplica.
+//  · El arranque en frío sale de una compresión politrópica cuyo exponente cae
+//    con la velocidad de giro —menos vueltas, más tiempo para que el calor se
+//    escape a la pared— y de un retardo de encendido de Arrhenius.
+//  · Las bujías se calientan con su propia constante térmica y aportan un salto
+//    de temperatura EFECTIVA al criterio de encendido, cilindro por cilindro.
+//
+//  LA TRAMPA
+//  El escáner enseña «presión de riel baja» y el código P0087, y esa lectura es
+//  compatible con la bomba gastada, con un inyector que se desangra, con el
+//  regulador pegado y con el filtro tapado. Peor todavía: si el que miente es el
+//  SENSOR de presión, el ordenador sube la presión REAL por encima de lo que
+//  debería para alcanzar una consigna que ya había alcanzado, y el síntoma que
+//  se lee es exactamente el contrario de lo que está pasando.
+//
+//  FUENTES
+//  · Bosch, Diesel-Engine Management y Automotive Handbook — conducto común,
+//    regulación por válvula de dosificación, tiempos muertos del inyector,
+//    caudal de retorno y bujías de espiga cerámicas y metálicas.
+//  · Heywood, Internal Combustion Engine Fundamentals — retardo de encendido,
+//    compresión politrópica en arranque y arranque en frío del diésel.
+//  · Hardenberg, H. O. y Hase, F. W., SAE 790493 (1979) — correlación empírica
+//    del retardo de encendido en diésel de inyección directa.
+//  · SAE J2012 / ISO 15031-6 — P0087 y P0088 (presión de riel baja y alta),
+//    P0380 (circuito de calentadores) y P0263… (contribución por cilindro).
+//  · ISO 4113 y EN 590 — fluido de calibración y gasóleo: densidad, viscosidad
+//    y módulo de compresibilidad.
+//
+//  LO QUE NO MODELA, y se declara
+//  · La hidráulica interna del inyector. El tiempo muerto es una función de la
+//    presión y de la tensión, no el resultado de resolver el movimiento de la
+//    aguja y de su cámara de mando.
+//  · La pulverización, la penetración del chorro y la mezcla. El encendido se
+//    juzga por la temperatura de la carga y un retardo de Arrhenius, no por la
+//    evaporación de una gota.
+//  · La combustión en sí. Este laboratorio termina donde el cilindro prende: no
+//    hay diagrama de liberación de calor ni par instantáneo. Para el ciclo
+//    Diésel completo está el d6-02.
+//  · La bomba de alta por dentro: es una entrega proporcional al régimen con un
+//    rendimiento volumétrico, no tres émbolos radiales con sus levas.
+//  · Las ondas de presión en los tubos a los inyectores, que en un riel real
+//    deforman la inyección múltiple. Aquí el riel es un solo volumen.
+//  · La química del gasóleo y su número de cetano, que entra como una constante
+//    del combustible y no como una composición.
+// ============================================================================
+
+const clamp = (x, a, b) => Math.max(a, Math.min(b, x));
+
+// ============================================================================
+// 1 · EL GASÓLEO
+// ============================================================================
+const RHO_D = 830;          // kg/m³ a 40 °C, EN 590
+// El módulo de compresibilidad CRECE con la presión, y eso importa: a 1 600 bar
+// el gasóleo es casi el doble de rígido que a presión atmosférica, así que el
+// mismo milímetro cúbico inyectado hunde la presión mucho menos.
+const K0 = 1.30e9, K_P = 7.0;
+function bulk(p) { return K0 + K_P * p; }              // Pa, con p en Pa
+
+// ============================================================================
+// 2 · EL INYECTOR
+// ============================================================================
+// Caudal por Bernoulli a través de los orificios de la tobera. Nada de tablas:
+// la raíz de la presión está ahí porque es la que sale de la ecuación.
+function areaTobera(e) { return e.nOrif * Math.PI * Math.pow(e.dOrif, 2) / 4; }
+function caudalTobera(e, p) {                          // m³/s a presión p [Pa]
+  return e.cd * areaTobera(e) * Math.sqrt(2 * Math.max(0, p) / RHO_D);
+}
+// EL TIEMPO MUERTO. La aguja no se levanta cuando la bobina se energiza: la
+// presión del riel la mantiene abajo, así que el retardo CRECE con la presión. Y
+// crece otra vez si la batería está floja, porque la corriente sube más despacio.
+const TM_BASE = 1.60e-4;    // s a presión cero
+const TM_P = 9.0e-5;        // s por cada 1 000 bar
+const TM_V = 1.5;           // exponente de la corrección por tensión
+function tiempoMuerto(e, p, vBat) {
+  const base = TM_BASE + TM_P * (p / 1e8);
+  return base * Math.pow(12.0 / Math.max(6, vBat), TM_V) * (e.piezo ? 0.62 : 1);
+}
+// El caudal de UNA inyección. Por debajo del tiempo muerto no sale NADA, y ésa
+// es la razón de que la inyección piloto sea la difícil: de sus tres décimas de
+// milisegundo, nueve de cada diez son tiempo muerto.
+function inyecta(e, p, tOn, vBat) {
+  const tm = tiempoMuerto(e, p, vBat);
+  const tEf = Math.max(0, tOn - tm);
+  return caudalTobera(e, p) * tEf * 1e9;               // mm³
+}
+// Y al revés: cuánto hay que mandar para que salga lo que se quiere.
+function pulsoPara(e, p, mm3, vBat) {
+  const q = caudalTobera(e, p) * 1e9;                  // mm³/s
+  return tiempoMuerto(e, p, vBat) + (q > 0 ? mm3 / q : 0);
+}
+
+// ============================================================================
+// 3 · LOS RETORNOS
+// ============================================================================
+// Un inyector de solenoide abre su aguja descargando una cámara de mando al
+// retorno: cada inyección devuelve un tanto fijo, prenda o no. Encima hay una
+// fuga ESTÁTICA por el juego del émbolo de mando, laminar, que va con el cubo
+// del juego. Por eso el desgaste no sube el retorno un poco: lo multiplica.
+const Q_MANDO = 7.5;        // mm³ por inyección, inyector de solenoide
+const FUGA_REF = 2.6;       // mL/min por inyector sano a 1 600 bar
+function fugaEstatica(e, p, juego) {
+  return FUGA_REF * Math.pow(juego, 3) * (p / 1.6e8) * (e.piezo ? 0.35 : 1);
+}
+function retornoInyector(e, p, tOn, rpm, juego, vBat) {
+  const inyMin = rpm / 2;                              // una por ciclo y cilindro
+  const mando = (e.piezo ? Q_MANDO * 0.25 : Q_MANDO) * inyMin / 1000;   // mL/min
+  return mando + fugaEstatica(e, p, juego);
+}
+
+// ============================================================================
+// 4 · EL RIEL COMO CONDENSADOR
+// ============================================================================
+// La ecuación de la que cuelga toda la primera mitad del laboratorio:
+//     dp/dt = (K(p)/V) · (lo que entra − lo que sale)
+// El rizo, el tiempo de recuperación y la incapacidad de sostener la consigna a
+// plena carga salen de integrarla. No hay ninguno escrito.
+const DT = 2e-5;            // s
+const T_SIM = 0.36, T_ASIENTA = 0.12;
+// La bomba entrega proporcional al régimen, con su rendimiento volumétrico.
+function caudalBomba(e, rpm, mando, salud, feed) {
+  // `feed` es la presión de alimentación: con el filtro tapado la bomba cavita y
+  // no llena sus émbolos, así que pierde caudal aunque el mando sea del 100 %.
+  return e.qBomba * (rpm / 1000) * clamp(mando, 0, 1) * salud * clamp(feed, 0, 1) / 60e6; // m³/s
+}
+// El regulador de presión del riel: un orificio de sección mandada.
+function caudalRegulador(p, ab) {
+  return ab * 3.1e-9 * Math.sqrt(2 * Math.max(0, p) / RHO_D);
+}
+
+function simulaRiel(e, P, F) {
+  F = F || {};
+  const rpm = P.rpm, consigna = P.pRiel, carga = P.carga;
+  const vBat = F.vBat || 12.6;
+  const saludBomba = F.saludBomba === undefined ? 1 : F.saludBomba;
+  const feed = F.feed === undefined ? 1 : F.feed;
+  const regPegado = F.regPegado || 0;
+  const sesgoSensor = F.sesgoSensor || 0;              // fracción del fondo
+  const juegos = F.juegos || new Array(e.cil).fill(1);
+  const mm3 = e.mm3Max * carga;
+  const inyPorSeg = e.cil * (rpm / 2) / 60;
+  const V = e.vRiel;
+
+  // El integrador arranca del equilibrio ESTIMADO, no de la mitad: un lazo real
+  // lleva su mapa previo, y arrancar de 0,5 mete un transitorio de medio segundo
+  // que no existe y que se comería la ventana de medida.
+  const qNecesario = (mm3 * inyPorSeg + (e.piezo ? Q_MANDO * 0.25 : Q_MANDO) * inyPorSeg) * 1e-9
+    + juegos.reduce((a, j) => a + fugaEstatica(e, consigna, j), 0) * 1e-6 / 60;
+  const qLleno = caudalBomba(e, rpm, 1, saludBomba, feed);
+  let p = consigna, mando = clamp(qLleno > 0 ? qNecesario / qLleno : 1, 0, 1), integ = mando;
+  let pMin = 1e12, pMax = -1e12, sumP = 0, n = 0;
+  let sumMando = 0, sumQ = 0, sumRet = 0;
+  const pts = [], eventos = [];
+  const nPasos = Math.round(T_SIM / DT);
+  let tProxima = 0;
+  const periodo = 1 / inyPorSeg;
+
+  for (let k = 0; k < nPasos; k++) {
+    const t = k * DT, vivo = t > T_ASIENTA;
+    // Lo que el ordenador CREE que hay en el riel.
+    const pLeida = p + sesgoSensor * e.pMax;
+    // Regulación por dosificación en la aspiración: integrador puro con límite.
+    const err = (consigna - pLeida) / e.pMax;
+    // Proporcional + integral. La integral tiene que cerrar en unas decenas de
+    // milisegundos, que es lo que tarda un riel real: con una ganancia lenta el
+    // lazo no llega a su régimen dentro de la ventana y todo lo que se mide es
+    // el transitorio del arranque de la simulación.
+    integ = clamp(integ + err * 26 * DT, 0, 1);
+    mando = clamp(integ + err * 2.2, 0, 1);
+
+    const qEntra = caudalBomba(e, rpm, mando, saludBomba, feed);
+    // Fugas estáticas de los inyectores, siempre presentes.
+    let qFuga = 0;
+    for (const j of juegos) qFuga += fugaEstatica(e, p, j) * 1e-6 / 60;   // mL/min → m³/s
+    // Retorno de mando: un tanto por inyección, repartido en el tiempo.
+    const qMando = (e.piezo ? Q_MANDO * 0.25 : Q_MANDO) * inyPorSeg * 1e-9;
+    const qReg = caudalRegulador(p, regPegado);
+
+    // Las inyecciones son EVENTOS: cada una saca su bocado de golpe, y de ahí
+    // sale el rizo. Repartirlas como un caudal medio borraría justo lo que este
+    // laboratorio quiere enseñar.
+    let qIny = 0;
+    if (t >= tProxima) {
+      const tOn = pulsoPara(e, consigna, mm3, vBat);
+      const sale = inyecta(e, p, tOn, vBat);
+      p -= bulk(p) * (sale * 1e-9) / V;
+      tProxima += periodo;
+      if (vivo) { eventos.push({ t: t - T_ASIENTA, mm3: sale }); sumQ += sale; }
+    }
+    p += bulk(p) / V * (qEntra - qFuga - qMando - qReg) * DT;
+    p = Math.max(2e5, p);
+
+    if (vivo) {
+      pMin = Math.min(pMin, p); pMax = Math.max(pMax, p);
+      sumP += p; sumMando += mando; n++;
+      sumRet += (qFuga + qMando + qReg) * 60 * 1e6;    // mL/min instantáneo
+      if (k % 4 === 0) pts.push({ t: t - T_ASIENTA, p: p, pLeida: p + sesgoSensor * e.pMax, mando: mando });
+    }
+  }
+  const dur = T_SIM - T_ASIENTA;
+  const pMed = sumP / n;
+  return {
+    pMed, pMin, pMax, rizo: pMax - pMin,
+    pLeidaMed: pMed + sesgoSensor * e.pMax,
+    mandoMed: sumMando / n, saturado: sumMando / n > 0.985,
+    consigna, error: pMed - consigna,
+    mm3Objetivo: mm3, mm3Real: eventos.length ? sumQ / eventos.length : 0,
+    tOn: pulsoPara(e, consigna, mm3, vBat), tm: tiempoMuerto(e, consigna, vBat),
+    retornoTotal: sumRet / n, inyPorSeg, pts, eventos,
+  };
+}
+
+// ============================================================================
+// 5 · EL ARRANQUE EN FRÍO
+// ============================================================================
+// La compresión es politrópica, y el exponente NO es gamma: cae con la velocidad
+// de giro, porque cuanto más despacio gira más tiempo tiene el calor de
+// escaparse a una pared fría. De ahí sale el resultado que más cuesta creer en
+// el taller: una batería floja es un problema de COMPRESIÓN.
+const N_AD = 1.40, N_RPM = 16, N_FRIO = 0.055;
+function exponente(rpm, tMotor) {
+  return clamp(N_AD - N_RPM / Math.max(40, rpm) - N_FRIO * (20 - tMotor) / 40, 1.14, 1.38);
+}
+// La velocidad de giro del arranque sale de la batería y de lo que cuesta mover
+// el motor, que crece cuando el aceite está frío.
+function rpmArranque(e, vBat, tMotor, salud) {
+  // El aceite frío frena, pero no tanto: una batería sana gira un diésel a
+  // 120-160 rpm a veinticinco bajo cero, no a ochenta.
+  const par = 1 + 0.62 * Math.pow(clamp((20 - tMotor) / 45, 0, 1.4), 1.2);
+  return clamp(e.rpmArr * (vBat / 12.6) * salud / par, 25, 400);
+}
+// La presión de compresión que mediría un manómetro, y la temperatura que le
+// corresponde por la relación politrópica T/T₀ = (p/p₀)^((n−1)/n). Que las dos
+// salgan de la MISMA relación es lo que ata la prueba de compresión al arranque.
+const P_ADM = 1.0e5;
+function compresion(e, rpm, tMotor, sello) {
+  const n = exponente(rpm, tMotor);
+  const p = P_ADM * Math.pow(e.rc, n) * sello;
+  const tAdm = (tMotor + 273.15) + 8;                  // el colector calienta poco en frío
+  const T = tAdm * Math.pow(p / P_ADM, (n - 1) / n);
+  return { n, p, T, tAdm };
+}
+// Retardo de encendido de Arrhenius. La constante se ancla para que un motor
+// sano y caliente prenda en menos de un milisegundo y uno frío y gastado no
+// llegue a tiempo.
+// La constante se ancla para que un motor sano y caliente prenda en ocho
+// décimas de milisegundo —que es el retardo real de un diésel a temperatura— y
+// para que el mismo motor sin bujías a diez bajo cero no llegue a tiempo.
+const A_RET = 1.73e-4, E_RET = 4650, N_RET = 1.2;
+function retardo(p, T) {
+  return A_RET * Math.pow(p / 1e5, -N_RET) * Math.exp(E_RET / Math.max(200, T)) * 1000; // ms
+}
+// La ventana útil: si la combustión no ha empezado dentro de estos grados desde
+// que se inyecta, el pistón ya está bajando, la carga se enfría y el cilindro no
+// prende. Ocho grados es un ajuste didáctico declarado.
+const GRADOS_UTILES = 8;
+function ventanaMs(rpm) { return GRADOS_UTILES / (6 * Math.max(20, rpm)) * 1000; }
+
+// ============================================================================
+// 6 · LAS BUJÍAS INCANDESCENTES
+// ============================================================================
+// Una bujía no calienta el motor: calienta un PUNTO al que llega el chorro. En
+// el criterio de encendido eso es un salto de temperatura efectiva, no un
+// cambio de la compresión — y por eso una bujía muerta deja al motor con la
+// compresión intacta y el cilindro sin prender.
+const T_BUJIA_MAX = 1050;   // °C de la punta, cerámica
+const DT_BUJIA = 150;       // K de salto efectivo con la bujía a tope
+function tempBujia(e, t, salud) {
+  // Calentamiento exponencial con la constante de la propia bujía.
+  return T_BUJIA_MAX * salud * (1 - Math.exp(-t / (e.tauBujia / salud)));
+}
+function saltoBujia(e, t, salud) {
+  return DT_BUJIA * (tempBujia(e, t, salud) / T_BUJIA_MAX);
+}
+// Cuánto precalienta el ordenador antes de dejar arrancar: sale de la
+// temperatura del motor, no de un reloj fijo.
+function tiempoPrecal(e, tMotor) {
+  if (tMotor >= 40) return 0;
+  return e.tauBujia * clamp((40 - tMotor) / 45, 0, 1) * 3.2;
+}
+
+// ============================================================================
+// 7 · ¿PRENDE?
+// ============================================================================
+// Cilindro por cilindro, porque el laboratorio existe para enseñar que no es una
+// pregunta de sí o no: un motor puede arrancar con la mitad de los cilindros
+// muertos y temblar y humear hasta que se calienta.
+function enciende(e, F, tMotor, tPrecal) {
+  F = F || {};
+  const vBat = F.vBat || 12.6;
+  const sellos = F.sellos || new Array(e.cil).fill(1);
+  const bujias = F.bujias || new Array(e.cil).fill(1);
+  const rpm = rpmArranque(e, vBat, tMotor, F.saludArranque === undefined ? 1 : F.saludArranque);
+  const vent = ventanaMs(rpm);
+  const cils = [];
+  for (let i = 0; i < e.cil; i++) {
+    const C = compresion(e, rpm, tMotor, sellos[i]);
+    const dT = saltoBujia(e, tPrecal, bujias[i]);
+    const tau = retardo(C.p, C.T + dT);
+    cils.push({ i: i, rpm: rpm, n: C.n, pComp: C.p, T: C.T, dT: dT,
+      Tef: C.T + dT, tau: tau, vent: vent, prende: tau <= vent,
+      margen: vent - tau, bujia: bujias[i], sello: sellos[i] });
+  }
+  const n = cils.filter(c => c.prende).length;
+  return {
+    rpm: rpm, ventana: vent, cils: cils, nPrende: n,
+    // Un diésel necesita más de la mitad de sus cilindros para sostenerse solo.
+    arranca: n > e.cil / 2,
+    parejo: n === e.cil,
+  };
+}
+
+// ============================================================================
+// 8 · LOS VEHÍCULOS
+// ============================================================================
+// El de 2006 está aquí por una razón: bujías METÁLICAS, que tardan tres veces
+// más en ponerse al rojo, y un riel de 1 350 bar. Es el que enseña que el
+// precalentamiento no es un detalle de confort.
+const ARQ = {
+  hdi20: {
+    key: 'hdi20', corto: 'HDi 2.0', nombre: 'Turismo 2.0 L de conducto común, 2014',
+    cil: 4, rc: 16.7, pMax: 1.80e8, pRalenti: 2.8e7, pCarga: 1.60e8,
+    vRiel: 3.2e-5, qBomba: 235, nOrif: 7, dOrif: 1.25e-4, cd: 0.72,
+    mm3Max: 55, piezo: false, tauBujia: 1.9, rpmArr: 215,
+    ralenti: 800, rpmCarga: 2600,
+  },
+  tdi16: {
+    key: 'tdi16', corto: 'TDI 1.6', nombre: 'Compacto 1.6 L con inyector piezoeléctrico, 2018',
+    cil: 4, rc: 16.2, pMax: 2.00e8, pRalenti: 3.0e7, pCarga: 1.75e8,
+    vRiel: 2.6e-5, qBomba: 173, nOrif: 8, dOrif: 1.10e-4, cd: 0.74,
+    mm3Max: 44, piezo: true, tauBujia: 1.4, rpmArr: 230,
+    ralenti: 820, rpmCarga: 2800,
+  },
+  v8_66: {
+    key: 'v8_66', corto: 'V8 6.6', nombre: 'Camioneta 6.6 L V8 de conducto común, 2010',
+    cil: 8, rc: 16.8, pMax: 1.85e8, pRalenti: 3.2e7, pCarga: 1.65e8,
+    vRiel: 5.4e-5, qBomba: 1035, nOrif: 7, dOrif: 1.55e-4, cd: 0.72,
+    mm3Max: 132, piezo: false, tauBujia: 2.2, rpmArr: 190,
+    ralenti: 680, rpmCarga: 2400,
+  },
+  d30_06: {
+    key: 'd30_06', corto: 'Diésel 3.0', nombre: 'Furgón 3.0 L de primera generación, 2006',
+    cil: 6, rc: 17.5, pMax: 1.35e8, pRalenti: 2.6e7, pCarga: 1.25e8,
+    vRiel: 4.2e-5, qBomba: 488, nOrif: 6, dOrif: 1.45e-4, cd: 0.70,
+    mm3Max: 78, piezo: false, tauBujia: 6.4, rpmArr: 180,
+    ralenti: 720, rpmCarga: 2200,
+  },
+};
+const ARQ_KEYS = Object.keys(ARQ);
+
+// ============================================================================
+// 9 · LAS AVERÍAS
+// ============================================================================
+// Ninguna es «hace frío»: la temperatura es un mando aparte, y el censo cuenta
+// la REJILLA. Hay averías que a veinte grados no existen y a veinte bajo cero
+// dejan el vehículo en la calle.
+function avería(e, k) {
+  const cil = e.cil;
+  const unos = v => new Array(cil).fill(v);
+  switch (k) {
+    case 'sano': return {};
+    case 'bombaGastada': return { saludBomba: 0.40 };
+    case 'inyectorFuga': { const j = unos(1); j[2] = 3.15; return { juegos: j }; }
+    case 'inyectoresFuga': return { juegos: unos(2.30) };
+    case 'reguladorPegado': return { regPegado: 1.35 };
+    case 'sensorBajo': return { sesgoSensor: -0.14 };
+    case 'sensorAlto': return { sesgoSensor: +0.14 };
+    case 'filtroTapado': return { feed: 0.46 };
+    case 'bujiaMuerta': { const b = unos(1); b[1] = 0; return { bujias: b }; }
+    case 'bujiasLentas': return { bujias: unos(0.42) };
+    case 'compresionBaja': {
+      // 64 % de la compresión nominal en UN cilindro: la avería de la válvula
+      // quemada. Está elegida para que a veinticinco grados el motor arranque
+      // redondo y a veinte bajo cero ese cilindro se quede fuera — que es
+      // exactamente como la cuenta el cliente: «en verano iba bien».
+      const s = unos(1); s[cil - 1] = 0.64; return { sellos: s };
+    }
+    case 'bateriaDebil': return { vBat: 9.4, saludArranque: 0.72 };
+    default: return {};
+  }
+}
+const FALLAS = {
+  sano: { rot: 'nada: el motor está bien', corto: 'sano',
+    pista: 'Lo que se vea aquí es sólo lo que la temperatura hace.' },
+  bombaGastada: { rot: 'bomba de alta presión gastada', corto: 'bomba gastada',
+    pista: 'Mira el MANDO de la dosificación a plena carga. Si está pegado al 100 % y aun así no llega, la bomba ya no da lo que le piden.' },
+  inyectorFuga: { rot: 'un inyector con fuga interna excesiva', corto: 'un inyector',
+    pista: 'La presión cae y el mando se satura, igual que con la bomba gastada. La probeta de retornos es lo único que los separa: uno solo devuelve mucho más que sus hermanos.' },
+  inyectoresFuga: { rot: 'los cuatro inyectores desgastados', corto: 'todos los inyectores',
+    pista: 'Los retornos están altos pero PAREJOS. Eso no señala a ninguno: señala al juego de todos, y al kilometraje.' },
+  reguladorPegado: { rot: 'regulador de presión pegado abierto', corto: 'regulador pegado',
+    pista: 'Se está tirando caudal al retorno sin que nadie lo pida. Mira el retorno TOTAL contra la suma de los inyectores: sobra por algún sitio.' },
+  sensorBajo: { rot: 'sensor de presión de riel que lee de menos', corto: 'sensor lee bajo',
+    pista: 'Cuidado con éste. El ordenador cree que falta presión y sube la de verdad por encima de la consigna. Lo que lees es lo contrario de lo que pasa.' },
+  sensorAlto: { rot: 'sensor de presión de riel que lee de más', corto: 'sensor lee alto',
+    pista: 'El ordenador cree que sobra presión y baja la real. El motor va sin fuerza con el escáner enseñando una presión perfecta.' },
+  filtroTapado: { rot: 'filtro de combustible tapado', corto: 'filtro tapado',
+    pista: 'La bomba de alta no está gastada: está sin llenar. El síntoma es el mismo y la pieza que hay que cambiar cuesta cien veces menos.' },
+  bujiaMuerta: { rot: 'una bujía incandescente en circuito abierto', corto: 'una bujía',
+    pista: 'Mira las corrientes una por una, y después cuenta CUÁNTOS cilindros prenden. A veinte grados no lo vas a notar.' },
+  bujiasLentas: { rot: 'bujías incandescentes envejecidas', corto: 'bujías lentas',
+    pista: 'Todas conducen, todas calientan, y ninguna llega a tiempo. El precalentamiento tiene un reloj y ellas ya no lo cumplen.' },
+  compresionBaja: { rot: 'un cilindro con compresión baja', corto: 'compresión baja',
+    pista: 'Ese cilindro tiene menos presión Y menos temperatura, porque las dos salen de la misma relación politrópica. Y su bujía está perfecta.' },
+  bateriaDebil: { rot: 'batería floja', corto: 'batería floja',
+    pista: 'Gira despacio. Y girar despacio le da tiempo al calor de la compresión para escaparse por la pared: es un problema de compresión, aunque no lo parezca.' },
+};
+const FALLA_KEYS = Object.keys(FALLAS);
+const TEMPS = [
+  { t: 25, rot: '+25 °C' }, { t: 5, rot: '+5 °C' }, { t: -10, rot: '−10 °C' },
+  { t: -20, rot: '−20 °C' }, { t: -30, rot: '−30 °C' },
+];
+
+// ============================================================================
+// 10 · LO QUE SE MIDE DE UN MOTOR
+// ============================================================================
+const P_FEED = 4.2e5;       // Pa nominales del circuito de baja
+function presionFeed(F) { return P_FEED * (F.feed === undefined ? 1 : F.feed); }
+
+function puntoRalenti(e) { return { rpm: e.ralenti, pRiel: e.pRalenti, carga: 0.08, rot: 'marcha mínima' }; }
+function puntoCarga(e) { return { rpm: e.rpmCarga, pRiel: e.pCarga, carga: 1.0, rot: 'plena carga' }; }
+
+// Códigos que el ordenador puede levantar. El umbral de presión es el que usan
+// los sistemas reales: un tanto por ciento de desviación sostenida sobre la
+// consigna, medido con el SENSOR — que es justo la trampa.
+const TOL_RIEL = 0.10;
+const DTC_ROT = {
+  P0087: 'P0087 · presión del conducto común demasiado baja',
+  P0088: 'P0088 · presión del conducto común demasiado alta',
+  P0380: 'P0380 · circuito de calentadores, avería',
+};
+
+function evalua(e, F) {
+  const cond = Object.assign({}, avería(e, F.falla || 'sano'));
+  const tMotor = F.temp === undefined ? 25 : F.temp;
+  const ral = simulaRiel(e, puntoRalenti(e), cond);
+  const carga = simulaRiel(e, puntoCarga(e), cond);
+  const tPrecal = tiempoPrecal(e, tMotor);
+  const arr = enciende(e, cond, tMotor, tPrecal);
+
+  // Los retornos, inyector por inyector, medidos a plena carga que es como se
+  // hace la prueba: a marcha mínima las diferencias no se ven.
+  const juegos = cond.juegos || new Array(e.cil).fill(1);
+  const retornos = juegos.map(j =>
+    retornoInyector(e, carga.pMed, carga.tOn, puntoCarga(e).rpm, j, cond.vBat || 12.6));
+  const sumaIny = retornos.reduce((a, b) => a + b, 0);
+  // Lo que sobra entre el retorno total y la suma de los inyectores es lo que se
+  // está yendo por el regulador. Que se pueda RESTAR es lo que hace de esta
+  // prueba un diagnóstico y no una impresión.
+  const porRegulador = Math.max(0, carga.retornoTotal - sumaIny);
+
+  // Las bujías: corriente de cada una, que es lo que un amperímetro de pinza ve.
+  const bujias = (cond.bujias || new Array(e.cil).fill(1)).map(b => ({
+    salud: b, corriente: b > 0 ? e.tauBujia * 4.6 * b : 0,
+    tempFin: tempBujia(e, tPrecal, Math.max(0.001, b)) * (b > 0 ? 1 : 0),
+  }));
+
+  // El dictamen del ordenador. Se juzga con lo que el SENSOR dice, no con lo que
+  // hay: por eso un sensor mentiroso puede a la vez causar el problema y taparlo.
+  let dtc = null, motivo = 'nada que declarar';
+  const desv = (carga.pLeidaMed - carga.consigna) / carga.consigna;
+  const noLlega = carga.saturado && desv < -0.02;
+  if (desv < -TOL_RIEL || noLlega) {
+    dtc = 'P0087';
+    motivo = noLlega && desv >= -TOL_RIEL
+      ? 'la dosificación está al tope y aun así no alcanza la consigna'
+      : 'la presión leída se queda por debajo de la consigna';
+  }
+  else if (desv > TOL_RIEL) { dtc = 'P0088'; motivo = 'la presión leída se pasa de la consigna'; }
+  else if (bujias.some(b => b.corriente === 0)) { dtc = 'P0380'; motivo = 'un calentador no consume corriente'; }
+
+  // Y la realidad, que no siempre coincide. El SÍNTOMA es lo que un cliente
+  // describe y lo que un taller tiene que explicar; el código es sólo lo que el
+  // ordenador se ha enterado de que pasa. Contarlos por separado es de lo que
+  // trata esta práctica.
+  const sobrepresion = carga.pMed > e.pMax * 1.02;
+  const sinFuerza = carga.pMed < carga.consigna * 0.92;
+  // La referencia de retorno sano SALE DEL MOTOR, no de una constante: un
+  // piezoeléctrico devuelve 3,6 mL/min por inyector y uno de solenoide 12,4,
+  // porque ni la fuga ni el combustible de mando son los mismos. Con un número
+  // escrito a mano, la misma avería daba síntoma en un motor y no en otro.
+  const retSanoIny = retornoInyector(e, e.pCarga,
+    pulsoPara(e, e.pCarga, e.mm3Max, 12.6), puntoCarga(e).rpm, 1, 12.6);
+  const RET_SANO = retSanoIny * e.cil;
+  const retornoAlto = carga.retornoTotal > RET_SANO * 1.6;
+  const mandoAlto = carga.mandoMed > 0.80;
+  const sintomas = [];
+  if (!arr.arranca) sintomas.push('no arranca');
+  else if (!arr.parejo) sintomas.push('arranca desparejo');
+  if (sobrepresion) sintomas.push('sobrepresión en el riel');
+  if (sinFuerza) sintomas.push('sin fuerza');
+  if (retornoAlto) sintomas.push('retorno excesivo');
+  else if (mandoAlto && !sinFuerza) sintomas.push('dosificación forzada');
+
+  return {
+    cond, tMotor, tPrecal, ral, carga, arr, retornos, sumaIny, porRegulador, bujias,
+    retSanoIny, retSano: RET_SANO,
+    pFeed: presionFeed(cond), pFeedNom: P_FEED,
+    dtc, motivo, desvLeida: desv, desvReal: (carga.pMed - carga.consigna) / carga.consigna,
+    sobrepresion, sinFuerza, retornoAlto, mandoAlto, sintomas,
+    hay: sintomas.length > 0,
+    // La celda incómoda: hay un síntoma que el cliente nota y el ordenador no
+    // tiene nada que declarar.
+    mudo: sintomas.length > 0 && dtc === null,
+    arranca: arr.arranca, parejo: arr.parejo, nPrende: arr.nPrende,
+    // Las dos discrepancias que organizan la práctica.
+    mienteEscaner: (dtc === 'P0087' && !sinFuerza) || (dtc === null && sinFuerza)
+      || (dtc === 'P0088' && carga.pMed <= e.pMax * 1.02),
+    peligro: sobrepresion,
+  };
+}
+
+// ============================================================================
+// 11 · EL CENSO
+// ============================================================================
+// Doce averías por cinco temperaturas. Que existan celdas donde el motor no
+// arranca y el ordenador no tiene nada que declarar —y celdas donde el ordenador
+// acusa y el motor va perfecto— es el resultado más incómodo de esta práctica, y
+// no está escrito: sale de recorrer la rejilla.
+function censo(e) {
+  const filas = [];
+  let noArranca = 0, mudo = 0, total = 0, peligro = 0, conSintoma = 0;
+  for (const k of FALLA_KEYS) {
+    const celdas = TEMPS.map(T => {
+      const V = evalua(e, { falla: k, temp: T.t });
+      total++;
+      if (!V.arranca) noArranca++;
+      if (V.hay) conSintoma++;
+      if (V.mudo) mudo++;
+      if (V.peligro) peligro++;
+      return { temp: T.t, rot: T.rot, dtc: V.dtc, arranca: V.arranca,
+        nPrende: V.nPrende, cil: e.cil, peligro: V.peligro, mudo: V.mudo,
+        sintomas: V.sintomas.slice(), hay: V.hay,
+        pMed: V.carga.pMed, pLeida: V.carga.pLeidaMed, retorno: V.carga.retornoTotal };
+    });
+    filas.push({ falla: k, rot: FALLAS[k].rot, corto: FALLAS[k].corto, celdas,
+      noArranca: celdas.filter(c => !c.arranca).length,
+      mudo: celdas.filter(c => c.mudo).length });
+  }
+  return { filas, total, noArranca, mudo, peligro, conSintoma };
+}
+
+// ============================================================ T1 · FORMATOS, ESTADO Y MATERIALES
+
+// El separador de millares es U+202F, un espacio fino que no rompe línea. NO se
+// usa en años: «2 014» no es un año, es un error de formato.
+const NBSP=' ';
+function num(x,d=1){
+  if(x===null||x===undefined||!isFinite(x)) return '—';
+  const s=Math.abs(x).toFixed(d), p=s.split('.');
+  let ent=p[0], out='';
+  while(ent.length>3){ out=NBSP+ent.slice(-3)+out; ent=ent.slice(0,-3); }
+  out=ent+out;
+  return (x<0?'−':'')+out+(p[1]?','+p[1]:'');
+}
+// Las presiones se guardan en pascales y se ENSEÑAN en bar, que es como habla
+// el taller y como viene rotulado cualquier manómetro.
+const barF=(p,d=0)=>num(p/1e5,d)+NBSP+'bar';
+const ms=(t,d=3)=>num(t*1000,d)+NBSP+'ms';
+const mlm=(q,d=1)=>num(q,d)+NBSP+'mL/min';
+const mm3=(q,d=1)=>num(q,d)+NBSP+'mm³';
+const pcc=(x,d=0)=>num(x,d)+NBSP+'%';
+const rpmT=x=>num(x,0)+NBSP+'rpm';
+const seg=(x,d=1)=>num(x,d)+NBSP+'s';
+const cel=(x,d=0)=>num(x,d)+NBSP+'°C';
+const kel=(x,d=0)=>num(x,d)+NBSP+'K';
+const amp=(x,d=1)=>num(x,d)+NBSP+'A';
+const volt=(x,d=1)=>num(x,d)+NBSP+'V';
+const anioF=x=>String(Math.round(x));
+const corta=(s,n)=>s.length>n?s.slice(0,n-1)+'…':s;
+
+// ------------------------------------------------------------------- estado
+const G={
+  modo:'riel', maq:'hdi20', falla:'sano', temp:-10, punto:'carga',
+  pLibre:1.6e8, resuelto:false,
+};
+const MQ=()=>ARQ[G.maq];
+const FL=()=>FALLAS[G.falla];
+const TEMP_ROT=t=>(TEMPS.find(T=>T.t===t)||{rot:cel(t)}).rot;
+
+// --------------------------------------------------------------------- memo
+// Cada `evalua` son dos integraciones de 18 000 pasos más el arranque. Sin
+// memorizar, repintar el pizarrón a cada fotograma tira la página al suelo.
+const MEMO=new Map();
+function memo(k,fn){ if(!MEMO.has(k)) MEMO.set(k,fn()); return MEMO.get(k); }
+function invalida(){ MEMO.clear(); }
+function EV(){ return EV_DE(G.falla,G.temp); }
+function EV_DE(f,t){ return memo('v|'+G.maq+'|'+f+'|'+t,()=>evalua(MQ(),{falla:f,temp:t})); }
+function CENSO(){ return memo('c|'+G.maq,()=>censo(MQ())); }
+function RIEL(){ return G.punto==='ralenti'?EV().ral:EV().carga; }
+function PUNTO(){ return G.punto==='ralenti'?puntoRalenti(MQ()):puntoCarga(MQ()); }
+
+// ---------------------------------------------------------------- veredictos
+function veredicto(){
+  const V=EV();
+  if(!V.arranca) return {nivel:'bad',rot:'NO ARRANCA'};
+  if(V.peligro) return {nivel:'bad',rot:'SOBREPRESIÓN EN EL RIEL'};
+  if(V.mudo) return {nivel:'warn',rot:'HAY SÍNTOMA Y NO HAY CÓDIGO'};
+  if(V.hay) return {nivel:'warn',rot:'CON SÍNTOMA'};
+  return {nivel:'ok',rot:'SIN NOVEDAD'};
+}
+
+// ---------------------------------------------------------------- materiales
+const rub={roughness:0.86,metalness:0.04};
+const plas={roughness:0.42,metalness:0.16};
+const std=o=>new THREE.MeshStandardMaterial(o);
+// OJO con `brushedMetal()`: NO devuelve un material, devuelve el juego de
+// texturas (map, roughnessMap, normalMap). Pasárselo tal cual a un Mesh no da
+// ningún error —three comprueba `material.visible===true` y, al ser undefined,
+// SE SALTA la pieza en silencio—: la malla existe, no se ve, y no hay prueba
+// numérica que se entere. Se envuelve en un material de verdad.
+const MAT={
+  acero:std(Object.assign({},brushedMetal(),
+    {color:0xb9c4cf,roughness:0.42,metalness:0.78})),
+  crom:std({color:0xd8e2ec,roughness:0.18,metalness:0.92}),
+  riel:std({color:0x9aa8b6,roughness:0.26,metalness:0.88}),
+  bloque:std({color:0x39424e,roughness:0.62,metalness:0.35}),
+  caja:std({color:0x1c2531,...plas}),
+  goma:std({color:0x14181e,...rub}),
+  tubo:std({color:0x8d99a6,roughness:0.40,metalness:0.74}),
+  manguera:std({color:0x1d2530,...rub}),
+  vidrio:std({color:0xbfd8e6,roughness:0.10,metalness:0.02,
+    transparent:true,opacity:0.24}),
+  gasoleo:std({color:0xd9b45c,roughness:0.30,metalness:0.05,
+    transparent:true,opacity:0.82}),
+  bujia:std({color:0x6b7480,roughness:0.36,metalness:0.72}),
+  ok:std({color:0x1a3a26,emissive:0x2fbf62,emissiveIntensity:1.5}),
+  bad:std({color:0x3a1a1e,emissive:0xff4d5e,emissiveIntensity:1.5}),
+  avi:std({color:0x3a3116,emissive:0xe9c46a,emissiveIntensity:1.4}),
+  apag:std({color:0x232a33,roughness:0.6,metalness:0.1}),
+};
+
+// ============================================================ T2 · PIZARRÓN
+// Un lienzo 2D de 1024×768 pegado a un panel 3D. Se llama `bcv` y no `cv`
+// porque `cv` ya es la fábrica de lienzos del kit de la escena: reusar ese
+// nombre rompe la página entera antes de que arranque nada.
+const BW=1024, BH=768;
+const bcv=document.createElement('canvas'); bcv.width=BW; bcv.height=BH;
+const bx=bcv.getContext('2d');
+const btex=new THREE.CanvasTexture(bcv);
+btex.colorSpace=THREE.SRGBColorSpace;
+
+const board=new THREE.Group();
+scene.add(board);
+// El tamaño del pizarrón se elige por lo que MIDE EN PANTALLA, no por lo que
+// parece razonable en metros: la textura tiene 1 024 px de ancho, y si sale a
+// 420 px de ventana el texto de 13 px llega al ojo a 5 y no se lee. El banco de
+// este laboratorio es compacto —un motor en su soporte con la probeta al lado—,
+// así que el pizarrón puede crecer hasta el mismo tamaño que en el d6-11.
+const BW3=8.40, BH3=6.06, BY3=3.26;
+function colocaTablero(d){
+  board.rotation.y=0.70;
+  // El hueco no es decorativo: los rótulos del banco son sprites que sobresalen
+  // de la pieza que nombran, y con menos de un metro se pintan sobre el marco.
+  const medio=(BW3/2+0.13)*Math.cos(board.rotation.y);
+  board.position.set(d.xIzq-1.05*d.K-medio,0,0.95*d.K);
+}
+function puntosClave(){
+  const d=dims(MQ());
+  const a=BW3/2, mx=a*Math.cos(board.rotation.y), mz=a*Math.sin(board.rotation.y);
+  const y0=BY3-BH3/2, y1=BY3+BH3/2, bp=board.position;
+  return [
+    [bp.x-mx,y0,bp.z+mz],[bp.x+mx,y0,bp.z-mz],
+    [bp.x-mx,y1,bp.z+mz],[bp.x+mx,y1,bp.z-mz],
+    // Los extremos REALES del banco: el bloque, el riel con sus inyectores, la
+    // bomba de alta, la torre de probetas y lo alto del escáner. Sin la probeta
+    // aquí, la cámara la deja bajo el panel de mandos y el encuadre parece bueno
+    // hasta que se mira la pantalla.
+    [d.xBloque-d.largo/2,0.05,-0.70],[d.xBloque+d.largo/2,d.yTapa+0.30,0.70],
+    [d.xRiel-d.largoRiel/2,d.yRiel+0.26,d.zRiel],
+    [d.xRiel+d.largoRiel/2,d.yRiel+0.26,d.zRiel],
+    [d.xBomba,d.yBomba+0.30,d.zBomba],
+    [d.xProb,d.yProb+d.hProb+0.30,d.zProb],
+    [d.xProb-d.wProb/2-0.20,0.05,d.zProb],[d.xProb+d.wProb/2+0.20,0.05,d.zProb],
+    [d.xEsc,1.86,d.zEsc],[d.xEsc-0.44,0.05,d.zEsc],
+  ].map(p=>new THREE.Vector3(...p));
+}
+// La franja de pantalla que de verdad se ve: el HUD tapa la izquierda y el panel
+// de mandos tapa la derecha. Encuadrar contra el ancho completo del lienzo mete
+// casi cuatro décimas del banco DEBAJO de los paneles.
+function zonaUtil(){
+  const rM=mount.getBoundingClientRect();
+  const W=rM.width||1600, H=rM.height||900;
+  let x0=0, x1=W;
+  const h=el('hud'), p=el('panel');
+  if(h){ const r=h.getBoundingClientRect();
+    if(r.width>0&&r.right-rM.left<W*0.60) x0=Math.max(x0,r.right-rM.left+18); }
+  if(p){ const r=p.getBoundingClientRect();
+    if(r.width>0&&r.left-rM.left>W*0.40) x1=Math.min(x1,r.left-rM.left-18); }
+  if(x1-x0<W*0.34){ x0=0; x1=W; }
+  return { W, H, x0, x1 };
+}
+function camConjunto(margen){
+  const d=dims(MQ()), Z=zonaUtil();
+  const asp=clamp(Z.W/Math.max(1,Z.H),0.60,2.60);
+  const m=(margen===undefined?1:margen);
+  const TV=0.4142, TH=TV*asp;                    // tangentes del medio ángulo
+  const nx0=(2*Z.x0/Z.W-1)/m, nx1=(2*Z.x1/Z.W-1)/m, ny=0.94/m;
+  const pts=puntosClave();
+  const mx=1.86*Math.cos(board.rotation.y);
+  let off=(((board.position.x-mx)+d.xDer)/2-board.position.x)/Math.cos(board.rotation.y);
+  const proy=(dist,o)=>{
+    const c=camTablero(dist,o);
+    const p=new THREE.Vector3(c[0][0],c[0][1],c[0][2]);
+    const q=new THREE.Vector3(c[1][0],c[1][1],c[1][2]);
+    const f=q.clone().sub(p).normalize();
+    const r=new THREE.Vector3().crossVectors(f,new THREE.Vector3(0,1,0)).normalize();
+    const u=new THREE.Vector3().crossVectors(r,f).normalize();
+    let a=Infinity,b=-Infinity,vy=0,zs=0,n=0,malo=false;
+    for(const v0 of pts){
+      const v=v0.clone().sub(p), z=v.dot(f);
+      if(z<=0.2){ malo=true; continue; }
+      a=Math.min(a,(v.dot(r)/z)/TH); b=Math.max(b,(v.dot(r)/z)/TH);
+      vy=Math.max(vy,Math.abs((v.dot(u)/z)/TV)); zs+=z; n++;
+    }
+    return { a, b, vy, z:n?zs/n:1, malo };
+  };
+  const cabe=(dist,o)=>{ const e=proy(dist,o); return !e.malo&&e.a>=nx0&&e.b<=nx1&&e.vy<=ny; };
+  let dist=26;
+  for(let it=0;it<7;it++){
+    if(cabe(26,off)){
+      let lo=3, hi=26;
+      for(let k=0;k<26;k++){ const mid=(lo+hi)/2; if(cabe(mid,off)) hi=mid; else lo=mid; }
+      dist=hi;
+    }else dist=26;
+    const e=proy(dist,off);
+    const dn=(nx0+nx1)/2-(e.a+e.b)/2;
+    if(Math.abs(dn)<0.012) break;
+    off-=dn*TH*e.z;
+  }
+  return camTablero(dist,off);
+}
+function camTablero(d,off){
+  const c=board.position.clone(); c.y=BY3;
+  const n=new THREE.Vector3(Math.sin(board.rotation.y),0,Math.cos(board.rotation.y));
+  const dd=d||5.85;
+  const p=c.clone().addScaledVector(n,dd); p.y=BY3+0.13*dd;
+  const tg=new THREE.Vector3(Math.cos(board.rotation.y),0,-Math.sin(board.rotation.y));
+  const dx=(off===undefined)?-0.42:off;
+  p.addScaledVector(tg,dx); c.addScaledVector(tg,dx);
+  return [[p.x,p.y,p.z],[c.x,c.y,c.z]];
+}
+{
+  const marco=roundedBox(BW3+0.26,BH3+0.24,0.10,std({...plas,metalness:0.30,roughness:0.58}),0.05);
+  marco.position.y=BY3; board.add(marco);
+  const pl=new THREE.Mesh(new THREE.PlaneGeometry(BW3,BH3),
+    new THREE.MeshBasicMaterial({map:btex,toneMapped:false}));
+  pl.position.set(0,BY3,0.056); board.add(pl);
+  const pie=Math.max(0.10,BY3-BH3/2-0.12);
+  for(const sx of [-1,1]){
+    const p=new THREE.Mesh(new THREE.CylinderGeometry(0.05,0.06,pie,16),MAT.acero);
+    p.position.set(sx*BW3*0.42,pie/2,0); p.castShadow=true; board.add(p);
+  }
+}
+// ------------------------------------------------------------- primitivas 2D
+function bg(){
+  const g=bx.createLinearGradient(0,0,0,BH);
+  g.addColorStop(0,'#0d131c'); g.addColorStop(1,'#070a10');
+  bx.fillStyle=g; bx.fillRect(0,0,BW,BH);
+}
+function texto(t,x,y,o){
+  o=o||{};
+  const s=o.s||16, w=o.b?'700':'400', it=o.it?'italic ':'';
+  bx.font=it+w+' '+s+'px '+(o.mono?'ui-monospace,Menlo,Consolas,monospace':'Inter,system-ui,sans-serif');
+  bx.fillStyle=o.c||TINTA; bx.textAlign=o.al||'left'; bx.textBaseline='alphabetic';
+  bx.fillText(t,x,y);
+}
+function linea(pts,c,w,dash){
+  if(pts.length<2) return;
+  bx.save(); bx.strokeStyle=c; bx.lineWidth=w||2; bx.lineJoin='round'; bx.lineCap='round';
+  if(dash) bx.setLineDash(dash);
+  bx.beginPath(); bx.moveTo(pts[0][0],pts[0][1]);
+  for(let i=1;i<pts.length;i++) bx.lineTo(pts[i][0],pts[i][1]);
+  bx.stroke(); bx.restore();
+}
+function wrapText(t,x,y,w,lh,o){
+  o=o||{};
+  const s=o.s||14;
+  bx.font=(o.b?'700 ':'400 ')+s+'px Inter,system-ui,sans-serif';
+  bx.fillStyle=o.c||'#9aa6b6'; bx.textAlign='left'; bx.textBaseline='alphabetic';
+  let ln='', yy=y;
+  for(const p of t.split(' ')){
+    const test=ln?ln+' '+p:p;
+    if(bx.measureText(test).width>w&&ln){ bx.fillText(ln,x,yy); yy+=lh; ln=p; }
+    else ln=test;
+  }
+  if(ln){ bx.fillText(ln,x,yy); yy+=lh; }
+  return yy;
+}
+function rpanel(x,y,w,h,c,bd,rad){
+  const r=Math.min(rad===undefined?10:rad, w/2, h/2);
+  bx.save(); bx.beginPath();
+  bx.moveTo(x+r,y); bx.arcTo(x+w,y,x+w,y+h,r); bx.arcTo(x+w,y+h,x,y+h,r);
+  bx.arcTo(x,y+h,x,y,r); bx.arcTo(x,y,x+w,y,r); bx.closePath();
+  bx.fillStyle=c||'rgba(255,255,255,0.035)'; bx.fill();
+  if(bd){ bx.strokeStyle=bd; bx.lineWidth=1.4; bx.stroke(); }
+  bx.restore();
+}
+function chk(x,y,ok){
+  bx.save(); bx.lineWidth=2.6; bx.lineCap='round';
+  bx.strokeStyle=ok?OK_HEX:'#3a4658';
+  bx.beginPath(); bx.arc(x,y,9,0,Math.PI*2); bx.stroke();
+  if(ok){ bx.beginPath(); bx.moveTo(x-4.5,y); bx.lineTo(x-1,y+3.6); bx.lineTo(x+4.8,y-4); bx.stroke(); }
+  bx.restore();
+}
+function tabla(x,y,cols,rows,o){
+  o=o||{};
+  const rh=o.rh||26, fs=o.s||14, gap=o.gap===undefined?14:o.gap;
+  const ancho=cols.reduce((a,c)=>a+c.w+gap,0)-gap;
+  let cx=x;
+  cols.forEach(c=>{ texto(c.t,c.al==='right'?cx+c.w:cx,y,{s:fs,b:true,c:'#9aa6b6',al:c.al||'left'}); cx+=c.w+gap; });
+  linea([[x,y+8],[x+ancho,y+8]],'#243043',1.2);
+  rows.forEach((r,i)=>{
+    const yy=y+rh*(i+1)+6;
+    if(r.hl){ bx.save(); bx.fillStyle=r.hl; bx.fillRect(x-6,yy-rh+9,ancho+12,rh); bx.restore(); }
+    let px=x;
+    cols.forEach((c,j)=>{
+      const cell=r.v[j];
+      const val=Array.isArray(cell)?cell[0]:cell, col=Array.isArray(cell)?cell[1]:(r.c||TINTA);
+      texto(val,c.al==='right'?px+c.w:px,yy,{s:fs,c:col,al:c.al||'left',mono:c.mono,b:r.b});
+      px+=c.w+gap;
+    });
+  });
+  return y+rh*(rows.length+1)+6;
+}
+// Título que se encoge hasta caber: cambiar de vehículo cambia la longitud del
+// rótulo, y un rótulo largo se monta encima del de al lado sin avisar.
+function textoFit(t,x,y,maxW,o){
+  o=o||{};
+  let s=o.s||16;
+  while(s>11){
+    bx.font=(o.b?'700 ':'400 ')+s+'px Inter,system-ui,sans-serif';
+    if(bx.measureText(t).width<=maxW) break;
+    s-=0.5;
+  }
+  texto(t,x,y,Object.assign({},o,{s:s}));
+}
+function etiqueta(t,x,y,c,al){
+  bx.font='400 12px Inter,system-ui,sans-serif';
+  const w=bx.measureText(t).width+16, x0=(al==='right')?x-w:x;
+  rpanel(x0,y-14,w,20,'rgba(8,12,18,0.80)',null,6);
+  texto(t,x0+8,y,{s:12,c:c||TINTA});
+}
+function leyenda(x,y,items){
+  bx.font='400 13px Inter,system-ui,sans-serif';
+  const w=Math.max.apply(null,items.map(it=>bx.measureText(it[0]).width))+48;
+  rpanel(x-10,y-19,w,items.length*22+8,'rgba(8,12,18,0.80)','#1e2836',8);
+  let yy=y;
+  items.forEach(it=>{
+    bx.save(); bx.strokeStyle=it[1]; bx.lineWidth=3.2; bx.lineCap='round';
+    if(it[2]) bx.setLineDash(it[2]);
+    bx.beginPath(); bx.moveTo(x,yy-4); bx.lineTo(x+26,yy-4); bx.stroke(); bx.restore();
+    texto(it[0],x+34,yy,{s:13,c:'#c3ccd8'});
+    yy+=22;
+  });
+  return yy;
+}
+// Recorta al rectángulo de la gráfica. Sin esto, una curva que se sale por
+// arriba se pinta sobre la cabecera y nadie lo nota.
+function enCaja(P,fn){ bx.save(); bx.beginPath(); bx.rect(P.x,P.y,P.w,P.h); bx.clip(); fn(); bx.restore(); }
+
+function ejes(P,x0,x1,y0,y1,rx,ry,fx,fy,nx,ny){
+  const X=v=>P.x+(v-x0)/(x1-x0)*P.w;
+  const Y=v=>P.y+P.h-(v-y0)/(y1-y0)*P.h;
+  bx.save(); bx.strokeStyle='#1d2735'; bx.lineWidth=1;
+  for(let i=0;i<=nx;i++){ const v=x0+(x1-x0)*i/nx, xx=X(v);
+    bx.beginPath(); bx.moveTo(xx,P.y); bx.lineTo(xx,P.y+P.h); bx.stroke();
+    if(fx) texto(fx(v),xx,P.y+P.h+19,{s:12,c:'#7b8697',al:'center'}); }
+  for(let i=0;i<=ny;i++){ const v=y0+(y1-y0)*i/ny, yy=Y(v);
+    bx.beginPath(); bx.moveTo(P.x,yy); bx.lineTo(P.x+P.w,yy); bx.stroke();
+    if(fy) texto(fy(v),P.x-9,yy+4,{s:12,c:'#7b8697',al:'right'}); }
+  bx.restore();
+  bx.save(); bx.strokeStyle='#3a4658'; bx.lineWidth=1.5; bx.strokeRect(P.x,P.y,P.w,P.h); bx.restore();
+  if(rx) texto(rx,P.x+P.w/2,P.y+P.h+44,{s:13,c:'#9aa6b6',al:'center'});
+  if(ry){ bx.save(); bx.translate(P.x-58,P.y+P.h/2); bx.rotate(-Math.PI/2);
+    texto(ry,0,0,{s:13,c:'#9aa6b6',al:'center'}); bx.restore(); }
+  return {X:X,Y:Y};
+}
+function serieXY(M,pts,c,w,dash){ linea(pts.map(p=>[M.X(p[0]),M.Y(p[1])]),c,w,dash); }
+function punteo(M,x,y,c,r){
+  bx.save(); bx.fillStyle=c; bx.beginPath(); bx.arc(M.X(x),M.Y(y),r||4.5,0,Math.PI*2); bx.fill(); bx.restore();
+}
+// Línea de referencia horizontal. Si el nivel cae fuera del recuadro NO se
+// pinta: una línea de límite dibujada sobre el borde miente sobre dónde está.
+function nivel(P,M,v,c,rot,dash,izq){
+  const yy=M.Y(v);
+  if(yy<P.y-1||yy>P.y+P.h+1) return;
+  linea([[P.x,yy],[P.x+P.w,yy]],c,1.6,dash||[7,5]);
+  // Dos niveles cercanos con el rótulo en el mismo lado se pisan y las dos
+  // cifras se vuelven ilegibles. Por eso hay un lado a elegir.
+  if(rot){ if(izq) etiqueta(rot,P.x+8,yy-6,c);
+    else etiqueta(rot,P.x+P.w-8,yy-6,c,'right'); }
+}
+function nivelV(P,M,v,c,rot,dash){
+  const xx=M.X(v);
+  if(xx<P.x-1||xx>P.x+P.w+1) return;
+  linea([[xx,P.y],[xx,P.y+P.h]],c,1.6,dash||[7,5]);
+  if(rot) etiqueta(rot,xx+6,P.y+16,c);
+}
+// Banda de veredicto al pie. La altura se MIDE a partir del texto que va a
+// llevar: una banda de altura fija recorta su tercera línea, el texto existe
+// pero no se ve, y ninguna prueba numérica puede darse cuenta.
+function lineasDe(t,w,s){
+  bx.font='400 '+s+'px Inter,system-ui,sans-serif';
+  let n=1, ln='';
+  for(const p of String(t).split(' ')){
+    const test=ln?ln+' '+p:p;
+    if(bx.measureText(test).width>w&&ln){ n++; ln=p; } else ln=test;
+  }
+  return n;
+}
+function banda(y,niv,rot,txt){
+  const SZ=12.5, LH=17, W=BW-120;
+  const h=Math.max(60, 32+lineasDe(txt,W,SZ)*LH+10);
+  const yy=Math.min(y, BH-14-h);
+  const col=niv==='bad'?BAD_HEX:(niv==='warn'?WARN_HEX:OK_HEX);
+  const fondo=niv==='bad'?'rgba(255,107,107,0.10)':(niv==='warn'?'rgba(233,196,106,0.10)':'rgba(124,217,146,0.10)');
+  rpanel(42,yy,BW-84,h,fondo,col,10);
+  texto(rot,60,yy+24,{s:14,b:true,c:col});
+  wrapText(txt,60,yy+44,W,LH,{s:SZ,c:'#c3ccd8'});
+  return yy+h;
+}
+
+// La columna derecha del pizarrón. Las gráficas llegan hasta x = 694 y el margen
+// del tablero está en 982, así que TODA tabla de la derecha vive entre esos dos
+// números. Escribir anchos a mano en cada vista deja las tablas cortadas por el
+// borde, y eso sólo se ve mirando la pantalla.
+const DER_X=708, DER_W=274;
+function tablaDer(y,rot,rows,o){
+  o=o||{};
+  const nv=rot.length-1;
+  const wv=nv===1?110:(nv===2?76:56), gap=8;
+  const w0=DER_W-(wv+gap)*nv;
+  const cols=[{t:rot[0]||'',w:w0}];
+  for(let i=0;i<nv;i++) cols.push({t:rot[i+1]||'',w:wv,al:'right'});
+  // Una fila con menos celdas que columnas pinta «undefined» en la última, y eso
+  // pasa desapercibido en cualquier prueba numérica: se rellena aquí.
+  rows.forEach(r=>{ while(r.v.length<cols.length) r.v.push(''); });
+  return tabla(DER_X,y,cols,rows,Object.assign({rh:25,s:13,gap:gap},o));
+}
+
+
+// ------------------------------------------------- medidas del banco 3D
+// La escala es DIDÁCTICA y se declara: un tubo de retorno real tiene cuatro
+// milímetros y a la distancia a la que la cámara tiene que ponerse para que
+// quepa el pizarrón sale a menos de un píxel. Lo que se respeta es el ORDEN de
+// los tamaños y la topología del circuito, no los milímetros.
+// El factor K es la escala didáctica, y está aquí por una razón medida: con el
+// banco a tamaño de taller y el pizarrón lo bastante grande para que su texto de
+// 13 px se lea, la cámara tiene que retroceder tanto que el motor sale como un
+// puñado de píxeles en una esquina. Se declara y se sube.
+// 1,25 sale de MEDIR: con el pizarrón a 8,40 m y el banco a esta escala, el
+// lienzo cae en 520-530 px de ventana, que es donde su texto de 13 px llega al
+// ojo a 7 y se lee. A 1,75 el banco se veía estupendo y el pizarrón bajaba a
+// 407. Lo comprueba `scripts/auditoria/.medida_122.mjs`.
+const K_BANCO=1.25;
+function dims(e){
+  const K=K_BANCO;
+  const L=(1.02+e.cil*0.132)*K;             // 4 cil → 2,71 m · 8 cil → 3,63 m
+  const xBloque=0, yBase=0.62*K, hBloque=0.84*K;
+  const yTapa=yBase+hBloque;
+  const xBomba=xBloque-L/2-0.30*K, xFiltro=xBomba-0.52*K;
+  // La torre de probetas va DELANTE del motor y el escáner DETRÁS de ella: en
+  // fila, los cinco elementos suman ocho metros y medio y la cámara tiene que
+  // irse tan lejos que el pizarrón se queda en 380 px de ventana. Lo que se
+  // gana en profundidad cuesta menos que lo que se gastaba a lo ancho.
+  const wProb=(0.16+e.cil*0.115)*K;
+  const xProb=xBloque+L*0.16, xEsc=xBloque+L/2+0.42*K;
+  return {
+    K, largo:L, xBloque, yBase, hBloque, yTapa, ancho:0.70*K,
+    xRiel:xBloque, yRiel:yTapa+0.34*K, zRiel:-0.02*K, largoRiel:L*0.80,
+    xBomba, yBomba:yBase+0.30*K, zBomba:0.16*K,
+    xFiltro, yFiltro:0.96*K, zFiltro:0.24*K,
+    xProb, yProb:0.74*K, zProb:0.80*K, wProb, hProb:0.66*K,
+    xEsc, zEsc:-0.70*K,
+    xIzq:xFiltro-0.40*K, xDer:Math.max(xEsc+0.40*K,xProb+wProb/2+0.30*K),
+  };
+}
+
+// ------------------------------------------------------------- cabecera común
+// Toda vista dice, con las mismas palabras y en el mismo sitio, qué vehículo,
+// qué avería, a qué temperatura y en qué punto de funcionamiento. Sin eso, una
+// captura del pizarrón no significa nada.
+function cabecera(titulo,sub,ciego){
+  const e=MQ(), F=FL();
+  bg();
+  textoFit(titulo,42,44,660,{s:23,b:true});
+  if(sub) wrapText(sub,42,68,660,17,{s:13.5,c:'#8f9bad'});
+  // A ciegas la esquina derecha NO puede nombrar la avería. Se decide aquí, en
+  // la única función que la escribe: taparla después con un rectángulo deja el
+  // texto vivo debajo y a merced de cualquier cambio de encuadre.
+  const dcho=ciego?[
+    [e.corto+' · '+e.cil+' cil · '+num(e.rc,1)+':1', CIAN],
+    ['motor a '+TEMP_ROT(RETO.temp), NARANJA],
+    ['avería desconocida', GRIS],
+  ]:[
+    [e.corto+' · '+e.cil+' cil · '+num(e.rc,1)+':1', CIAN],
+    [G.falla==='sano'?'sin avería':F.corto, G.falla==='sano'?GRIS:WARN_HEX],
+    [TEMP_ROT(G.temp)+' · '+PUNTO().rot, NARANJA],
+  ];
+  let yy=32;
+  for(const d of dcho){ texto(d[0],BW-42,yy,{s:13.5,c:d[1],al:'right',b:true}); yy+=20; }
+  linea([[42,86],[BW-42,86]],'#1b2432',1.2);
+  return 86;
+}
+
+// ============================================================ T2b · LAS VISTAS
+
+// ---------------------------------------------------------------- 1 · el riel
+// El resultado que organiza la vista: la línea que el escáner enseña y la línea
+// que hay en el tubo son DOS, y con el sensor desviado se separan sin que nada
+// en el tablero lo diga.
+function vistaRiel(){
+  const e=MQ(), V=EV(), R=RIEL(), P0=PUNTO();
+  cabecera('El riel por dentro: lo que hay y lo que el ordenador cree que hay',
+    'Presión medida paso a paso durante '+num((T_SIM-T_ASIENTA)*1000,0)+NBSP+'ms a '+
+    rpmT(P0.rpm)+'. La línea continua es la presión REAL del tubo; la punteada, la que el sensor le manda al ordenador.');
+
+  const t1=(T_SIM-T_ASIENTA);
+  const ps=R.pts.map(q=>q.p/1e5), pl=R.pts.map(q=>q.pLeida/1e5);
+  const cons=R.consigna/1e5;
+  const lo=Math.min(cons*0.80,Math.min.apply(null,ps),Math.min.apply(null,pl));
+  const hi=Math.max(cons*1.20,Math.max.apply(null,ps),Math.max.apply(null,pl));
+  const P={x:112,y:120,w:582,h:206};
+  const M=ejes(P,0,t1*1000,lo,hi,'tiempo [ms]','presión del riel [bar]',
+    v=>num(v,0),v=>num(v,0),6,5);
+  enCaja(P,()=>{
+    // La banda de tolerancia del ordenador: ±10 % de la consigna. Fuera de ella
+    // levanta código — pero la juzga con la línea PUNTEADA.
+    bx.save(); bx.fillStyle='rgba(110,168,254,0.10)';
+    bx.fillRect(P.x,M.Y(cons*(1+TOL_RIEL)),P.w,M.Y(cons*(1-TOL_RIEL))-M.Y(cons*(1+TOL_RIEL)));
+    bx.restore();
+    serieXY(M,R.pts.map(q=>[q.t*1000,q.p/1e5]),CIAN,2.2);
+    if(Math.abs(V.cond.sesgoSensor||0)>1e-9)
+      serieXY(M,R.pts.map(q=>[q.t*1000,q.pLeida/1e5]),ROSA,2.0,[7,5]);
+  });
+  nivel(P,M,cons,VIO,'consigna '+num(cons,0)+NBSP+'bar');
+  nivel(P,M,e.pMax/1e5,BAD_HEX,'máximo del sistema',[4,4]);
+  const leyItems=[['presión real del tubo',CIAN,null]];
+  if(Math.abs(V.cond.sesgoSensor||0)>1e-9) leyItems.push(['la que lee el sensor',ROSA,[7,5]]);
+  leyItems.push(['ventana en la que el ordenador calla',AZUL,[3,3]]);
+  leyenda(P.x+16,P.y+22,leyItems);
+
+  // El rizo, en su propia gráfica y a su propia escala: en la de arriba son dos
+  // píxeles y parece una raya.
+  const per=1000/R.inyPorSeg;
+  const z0=t1*1000-3*per, z1=t1*1000;
+  const zp=R.pts.filter(q=>q.t*1000>=z0);
+  const zlo=Math.min.apply(null,zp.map(q=>q.p/1e5)), zhi=Math.max.apply(null,zp.map(q=>q.p/1e5));
+  const mrg=Math.max(1,(zhi-zlo)*0.30);
+  const P2={x:112,y:398,w:582,h:150};
+  const M2=ejes(P2,z0,z1,zlo-mrg,zhi+mrg,'tiempo [ms] · tres inyecciones seguidas',
+    'presión [bar]',v=>num(v,0),v=>num(v,0),3,4);
+  enCaja(P2,()=>{ serieXY(M2,zp.map(q=>[q.t*1000,q.p/1e5]),CIAN,2.4); });
+  for(const ev of R.eventos) if(ev.t*1000>=z0) nivelV(P2,M2,ev.t*1000,NARANJA,null,[3,4]);
+  etiqueta('cada raya naranja es una inyección',P2.x+P2.w-8,P2.y+18,NARANJA,'right');
+
+  let y=132;
+  y=tablaDer(y,['','valor'],[
+    {v:['consigna',barF(R.consigna)],c:VIO},
+    {v:['presión REAL media',barF(R.pMed)],c:CIAN,b:true},
+    {v:['la que enseña el escáner',barF(R.pLeidaMed)],c:ROSA,b:true},
+    {v:['desviación real',pcc(V.desvReal*100,1)],c:Math.abs(V.desvReal)>TOL_RIEL?BAD_HEX:TINTA},
+    {v:['desviación leída',pcc(V.desvLeida*100,1)],c:Math.abs(V.desvLeida)>TOL_RIEL?BAD_HEX:TINTA},
+    {v:['rizo pico a pico',barF(R.rizo,1)]},
+    {v:['inyecciones por segundo',num(R.inyPorSeg,0)]},
+    {v:['dosificación de la bomba',pcc(R.mandoMed*100)],
+      c:R.saturado?BAD_HEX:(R.mandoMed>0.8?WARN_HEX:OK_HEX),b:true},
+    {v:['presión de alimentación',barF(V.pFeed,2)],
+      c:V.pFeed<P_FEED*0.80?BAD_HEX:GRIS},
+  ]);
+  y+=14;
+  y=tablaDer(y,['el ordenador','' ],[
+    {v:[V.dtc||'sin código',''],c:V.dtc?BAD_HEX:OK_HEX,b:true},
+  ]);
+  y=wrapText(V.motivo,DER_X,y+6,DER_W,17,{s:12.5,c:'#9aa6b6'});
+
+  const v=veredicto();
+  banda(Math.max(y+18,606),v.nivel,v.rot,dictamenRiel(V,R));
+}
+function dictamenRiel(V,R){
+  const e=MQ();
+  if(G.falla==='sensorBajo')
+    return 'El sensor lee '+pcc(Math.abs(V.cond.sesgoSensor*100),0)+' del fondo de escala por debajo. El ordenador cree que falta presión y sube la de verdad hasta '+
+      barF(R.pMed)+', que es '+pcc((R.pMed/e.pMax-1)*100,1)+' por encima del máximo del sistema. El escáner enseña '+barF(R.pLeidaMed)+
+      ' y no levanta ningún código: lo que está midiendo es su propio error.';
+  if(G.falla==='sensorAlto')
+    return 'El sensor lee de más, el ordenador baja la presión real a '+barF(R.pMed)+' y el escáner sigue enseñando '+barF(R.pLeidaMed)+
+      ', dentro de tolerancia. El cliente dirá que el coche no tira, y en la pantalla no habrá nada. Ésta es la avería que más talleres pierden.';
+  if(R.saturado)
+    return 'La dosificación está pegada al '+pcc(R.mandoMed*100)+' y aun así la presión se queda en '+barF(R.pMed)+
+      '. La bomba pide todo lo que puede: o no da, o no le llega. Cuál de las dos es lo dice la presión de alimentación, ahí abajo en la tabla: '+
+      barF(V.pFeed,2)+' contra '+barF(P_FEED,2)+' nominales.';
+  if(R.mandoMed>0.80)
+    return 'La presión llega, pero la bomba está trabajando al '+pcc(R.mandoMed*100)+' para sostenerla cuando lo normal en este punto es la mitad. Ese caudal de más se está yendo por algún sitio, y la probeta dice por cuál.';
+  return 'Presión '+barF(R.pMed)+' contra una consigna de '+barF(R.consigna)+', rizo de '+barF(R.rizo,1)+
+    ' y la bomba al '+pcc(R.mandoMed*100)+'. El riel hace su trabajo: mantiene la presión constante mientras le sacan '+
+    num(R.mm3Real,1)+NBSP+'mm³ '+num(R.inyPorSeg,0)+' veces por segundo.';
+}
+
+// --------------------------------------------------------------- 2 · el caudal
+// Aquí vive el resultado más útil de la práctica: el tiempo muerto no es una
+// corrección pequeña, es la MITAD del pulso de la inyección piloto.
+function vistaCaudal(){
+  const e=MQ(), V=EV(), R=RIEL();
+  cabecera('Cuánto sale por el inyector: el pulso, la presión y el tiempo muerto',
+    'El ordenador manda un tiempo. El inyector tarda en abrir, y lo que entra al cilindro sale de restar. Con el riel bajo, esa resta se come la inyección piloto entera.');
+
+  const vBat=V.cond.vBat||12.6;
+  const tmC=tiempoMuerto(e,EV().carga.pMed,vBat);
+  const tmR=tiempoMuerto(e,EV().ral.pMed,vBat);
+  const t1=Math.max(1.6,(R.tOn*1000)*1.35);
+  const qC=caudalTobera(e,EV().carga.pMed)*1e9, qR=caudalTobera(e,EV().ral.pMed)*1e9;
+  const hi=Math.max(e.mm3Max*1.15,(t1/1000-tmC)*qC*1.05);
+  const P={x:112,y:120,w:582,h:216};
+  const M=ejes(P,0,t1,0,hi,'tiempo de mando del inyector [ms]','combustible inyectado [mm³]',
+    v=>num(v,2),v=>num(v,0),6,5);
+  const curva=(tm,q)=>{
+    const pts=[];
+    for(let i=0;i<=160;i++){ const t=t1*i/160/1000;
+      pts.push([t*1000,Math.max(0,(t-tm))*q]); }
+    return pts;
+  };
+  enCaja(P,()=>{
+    serieXY(M,curva(tmR,qR),AZUL,2.0,[7,5]);
+    serieXY(M,curva(tmC,qC),CIAN,2.6);
+  });
+  nivel(P,M,e.mm3Max,VIO,'dosis máxima del ciclo',[4,4],true);
+  nivelV(P,M,tmC*1000,ROSA,null);
+  punteo(M,R.tOn*1000,R.mm3Real,NARANJA,6);
+  // El rótulo del punto de trabajo se pone a la izquierda cuando el punto está
+  // en la mitad derecha: escrito siempre a la derecha se sale del recuadro y se
+  // pinta encima de la tabla.
+  {
+    const xx=M.X(R.tOn*1000), yy=M.Y(R.mm3Real);
+    if(xx>P.x+P.w*0.55) etiqueta('el punto de trabajo de ahora',xx-10,yy-8,NARANJA,'right');
+    else etiqueta('el punto de trabajo de ahora',xx+10,yy-8,NARANJA);
+  }
+  leyenda(P.x+16,P.y+P.h-58,[
+    ['con el riel a '+barF(EV().carga.pMed),CIAN,null],
+    ['con el riel a '+barF(EV().ral.pMed),AZUL,[7,5]],
+  ]);
+
+  // La sensibilidad: subir el pulso un 5 % NO sube la dosis un 5 %.
+  const sens=(mm,pr,tm)=>{
+    const q=caudalTobera(e,pr)*1e9, tOn=mm/q+tm;
+    const q2=Math.max(0,tOn*1.05-tm)*q;
+    return { tOn, tm, q, frac:tm/tOn, d:(q2/mm-1)*100 };
+  };
+  const sPil=sens(1.4,EV().ral.pMed,tmR), sPrin=sens(e.mm3Max,EV().carga.pMed,tmC);
+
+  // Y la misma curva, ampliada sobre la inyección piloto. Aquí el tiempo muerto
+  // deja de ser una corrección y se ve por lo que es: el corte del eje.
+  const z1=Math.max(sPil.tOn*1000*1.9,tmR*1000*2.4);
+  const P2={x:112,y:414,w:582,h:172};
+  const M2=ejes(P2,0,z1,0,3.2,'tiempo de mando [ms] · ampliado sobre la inyección piloto',
+    'inyectado [mm³]',v=>num(v,3),v=>num(v,1),4,4);
+  enCaja(P2,()=>{
+    bx.save(); bx.fillStyle='rgba(242,141,187,0.14)';
+    bx.fillRect(P2.x,P2.y,M2.X(tmR*1000)-P2.x,P2.h); bx.restore();
+    serieXY(M2,curva(tmR,qR),AZUL,2.6);
+  });
+  // El rótulo del tiempo muerto va ABAJO: arriba se monta con el del +5 %, que
+  // cae a tres píxeles del pulso mandado.
+  nivelV(P2,M2,tmR*1000,ROSA,null);
+  etiqueta('aquí el inyector aún no ha abierto',M2.X(tmR*1000)-8,P2.y+P2.h-12,ROSA,'right');
+  nivel(P2,M2,1.4,VIO,'la piloto que se pide: 1,4 mm³',[4,4],true);
+  {
+    const x1=M2.X(sPil.tOn*1000), x2=M2.X(sPil.tOn*1.05*1000);
+    linea([[x1,P2.y],[x1,P2.y+P2.h]],OK_HEX,1.6);
+    linea([[x2,P2.y],[x2,P2.y+P2.h]],WARN_HEX,1.6);
+    etiqueta('pulso mandado',x1+6,P2.y+P2.h-10,OK_HEX);
+    etiqueta('+5 % → +'+pcc(sPil.d,0)+' de combustible',x2+6,P2.y+18,WARN_HEX);
+  }
+
+  let y=132;
+  y=tablaDer(y,['','piloto','princ.'],[
+    {v:['pulso mandado',ms(sPil.tOn,3),ms(sPrin.tOn,3)]},
+    {v:['tiempo muerto',ms(sPil.tm,3),ms(sPrin.tm,3)],c:ROSA},
+    {v:['fracción muerta',pcc(sPil.frac*100),pcc(sPrin.frac*100)],b:true},
+    {v:['+5 % de pulso da',pcc(sPil.d,0),pcc(sPrin.d,0)],c:WARN_HEX,b:true},
+  ]);
+  y+=14;
+  y=tablaDer(y,['','valor'],[
+    {v:['orificios',num(e.nOrif,0)+' × '+num(e.dOrif*1e6,0)+NBSP+'µm']},
+    {v:['caudal a '+barF(EV().carga.pMed),num(qC/1000,1)+NBSP+'mm³/ms']},
+    {v:['caudal a '+barF(EV().ral.pMed),num(qR/1000,1)+NBSP+'mm³/ms']},
+    {v:['mando del inyector',e.piezo?'piezoeléctrico':'solenoide'],
+      c:e.piezo?OK_HEX:TINTA},
+    {v:['tensión de mando',volt(vBat)],c:vBat<11?BAD_HEX:TINTA},
+  ]);
+
+  const bajaV=vBat<11;
+  const txt=bajaV
+    ? 'Con '+volt(V.cond.vBat)+' en la batería el inyector tarda '+ms(sPil.tm,2)+' en abrir, y el pulso que el ordenador manda para la piloto dura '+ms(sPil.tOn,2)+
+      '. La piloto no sale. El ordenador no lo sabe: manda el tiempo y da por hecho el combustible.'
+    : 'Un mismo tanto por ciento de pulso vale muy distinto según la inyección: +5 % sobre la piloto da '+pcc(sPil.d,0)+
+      ' más de combustible, y sobre la principal sólo '+pcc(sPrin.d,0)+'. Por eso las piloto se corrigen en mm³ y no en porcentaje, y por eso un inyector con el tiempo muerto cambiado suena y no se ve en ningún código.';
+  banda(Math.max(y+18,648),bajaV?'warn':'ok',
+    bajaV?'LA INYECCIÓN PILOTO NO LLEGA A SALIR':'EL TIEMPO MUERTO NO ES UNA CORRECCIÓN PEQUEÑA',txt);
+}
+
+// ------------------------------------------------------------ 3 · los retornos
+// La probeta. El instrumento más barato del taller y el único que separa cuatro
+// averías que dan exactamente el mismo síntoma.
+function vistaRetornos(){
+  const e=MQ(), V=EV(), R=EV().carga;
+  cabecera('La prueba de la probeta: quién se está bebiendo el caudal',
+    'Se desconectan los retornos, se recogen por separado durante un minuto a plena carga y se comparan. Lo que sobra entre el total y la suma de los inyectores se va por el regulador.');
+
+  const hi=Math.max(V.retSanoIny*2.2,Math.max.apply(null,V.retornos)*1.25,
+    V.porRegulador*1.25);
+  const P={x:112,y:126,w:582,h:376};
+  const n=e.cil+1;
+  const M=ejes(P,0,n,0,hi,'','recogido en un minuto [mL]',null,v=>num(v,0),1,5);
+  const bw=P.w/n*0.62;
+  const med=V.retornos.reduce((a,b)=>a+b,0)/e.cil;
+  enCaja(P,()=>{
+    for(let i=0;i<e.cil;i++){
+      const cx=P.x+P.w*(i+0.5)/n, h=(V.retornos[i]/hi)*P.h;
+      const raro=V.retornos[i]>med*1.6;
+      bx.save(); bx.fillStyle=raro?'rgba(255,107,107,0.55)':'rgba(90,209,230,0.42)';
+      bx.fillRect(cx-bw/2,P.y+P.h-h,bw,h);
+      bx.strokeStyle=raro?BAD_HEX:CIAN; bx.lineWidth=1.6;
+      bx.strokeRect(cx-bw/2,P.y+P.h-h,bw,h); bx.restore();
+    }
+    const cx=P.x+P.w*(e.cil+0.5)/n, h=(V.porRegulador/hi)*P.h;
+    if(h>0.5){
+      bx.save(); bx.fillStyle='rgba(240,160,90,0.45)';
+      bx.fillRect(cx-bw/2,P.y+P.h-h,bw,h);
+      bx.strokeStyle=NARANJA; bx.lineWidth=1.6;
+      bx.strokeRect(cx-bw/2,P.y+P.h-h,bw,h); bx.restore();
+    }
+  });
+  for(let i=0;i<e.cil;i++){
+    const cx=P.x+P.w*(i+0.5)/n;
+    const raro=V.retornos[i]>med*1.6;
+    texto('cil '+(i+1),cx,P.y+P.h+19,{s:12,c:raro?BAD_HEX:'#7b8697',al:'center'});
+    // La cifra va DENTRO de la barra cuando la barra da de sí. Encima del borde
+    // se pisa con la línea de la media, que en el caso sano cae exactamente ahí.
+    const hb=(V.retornos[i]/hi)*P.h;
+    if(hb>34) texto(num(V.retornos[i],1),cx,P.y+P.h-hb+20,
+      {s:12.5,c:'#0b111a',al:'center',b:true});
+    else etiqueta(num(V.retornos[i],1),cx-16,P.y+P.h-hb-6,raro?BAD_HEX:CIAN);
+  }
+  {
+    const cx=P.x+P.w*(e.cil+0.5)/n;
+    texto('regul.',cx,P.y+P.h+19,{s:12,c:V.porRegulador>1?NARANJA:'#7b8697',al:'center'});
+    const hr=(V.porRegulador/hi)*P.h;
+    if(V.porRegulador>0.4){
+      if(hr>34) texto(num(V.porRegulador,1),cx,P.y+P.h-hr+20,
+        {s:12.5,c:'#0b111a',al:'center',b:true});
+      else etiqueta(num(V.porRegulador,1),cx-20,P.y+P.h-hr-6,NARANJA);
+    }
+  }
+  nivel(P,M,med,VIO,'media de los inyectores');
+  // El nivel de referencia va al OTRO lado: con todo sano los dos caen a un
+  // píxel uno de otro y los dos rótulos se pisan.
+  nivel(P,M,V.retSanoIny,OK_HEX,'lo normal con todo nuevo',[4,4],true);
+  texto('cada barra es una probeta',P.x+P.w/2,P.y+P.h+44,{s:13,c:'#9aa6b6',al:'center'});
+
+  let y=132;
+  const rows=V.retornos.map((q,i)=>({
+    v:['cilindro '+(i+1),mlm(q,1),num(q/med,2)+'×'],
+    c:q>med*1.6?BAD_HEX:TINTA, b:q>med*1.6,
+  }));
+  y=tablaDer(y,['','mL/min','vs media'],rows);
+  y+=12;
+  y=tablaDer(y,['','valor'],[
+    {v:['suma de inyectores',mlm(V.sumaIny,1)],c:CIAN},
+    {v:['retorno TOTAL medido',mlm(R.retornoTotal,1)],b:true},
+    {v:['sobra por el regulador',mlm(V.porRegulador,1)],
+      c:V.porRegulador>1?NARANJA:GRIS,b:V.porRegulador>1},
+    {v:['dosificación de la bomba',pcc(R.mandoMed*100)],
+      c:R.saturado?BAD_HEX:TINTA},
+  ]);
+
+  const disp=Math.max.apply(null,V.retornos)/Math.max(1e-9,Math.min.apply(null,V.retornos));
+  let niv='ok', rot='LOS RETORNOS ESTÁN PAREJOS Y EN SU SITIO', txt;
+  if(V.porRegulador>2){
+    niv='warn'; rot='SOBRA CAUDAL QUE NO PASA POR NINGÚN INYECTOR';
+    txt='Los inyectores devuelven '+mlm(V.sumaIny,1)+' entre todos y por la manguera de retorno vuelven '+mlm(R.retornoTotal,1)+
+      '. La diferencia, '+mlm(V.porRegulador,1)+', no ha pasado por ningún cilindro: se está tirando al depósito por el regulador. Las probetas de los inyectores están normales, y ésa es la prueba de que los inyectores no tienen la culpa.';
+  } else if(disp>1.8){
+    const peor=V.retornos.indexOf(Math.max.apply(null,V.retornos))+1;
+    niv='bad'; rot='UN INYECTOR DEVUELVE '+num(disp,1)+' VECES LO QUE SUS HERMANOS';
+    txt='El cilindro '+peor+' recoge '+mlm(Math.max.apply(null,V.retornos),1)+' contra los '+mlm(med,1)+
+      ' de media. La presión del riel cae y la bomba se satura exactamente igual que con la bomba gastada, y el escáner levanta el mismo P0087 en los dos casos. Esta probeta es lo único que los separa — y el repuesto cuesta diez veces menos.';
+  } else if(med>V.retSanoIny*1.7){
+    niv='warn'; rot='TODOS LOS RETORNOS ALTOS, Y PAREJOS';
+    txt='Los '+e.cil+' devuelven alrededor de '+mlm(med,1)+' cuando en este motor lo normal es '+mlm(V.retSanoIny,1)+
+      '. Que estén PAREJOS es la información: no señalan a ninguno, señalan al juego entero y al kilometraje. Cambiar uno solo no arregla nada.';
+  } else {
+    txt='Los '+e.cil+' inyectores devuelven entre '+mlm(Math.min.apply(null,V.retornos),1)+' y '+mlm(Math.max.apply(null,V.retornos),1)+
+      ', y el total coincide con la suma: el regulador no está tirando nada. Esta medida es la referencia contra la que se leen todas las demás.';
+  }
+  banda(Math.max(y+18,600),niv,rot,txt);
+}
+
+// ------------------------------------------------------------- 4 · el arranque
+// La vista donde sale el resultado que nadie se cree la primera vez: una batería
+// floja no es «poca chispa», es POCA COMPRESIÓN, porque girar despacio le da
+// tiempo al calor a escaparse por la pared del cilindro.
+function vistaArranque(){
+  const e=MQ(), V=EV(), A=V.arr;
+  cabecera('El arranque en frío, cilindro por cilindro',
+    'La compresión calienta el aire. Si no llega a la temperatura de autoencendido dentro de la ventana útil, ese cilindro no prende: no hay chispa que valga.');
+
+  // τ contra la temperatura del motor, con y sin bujías, a la velocidad de giro
+  // que de verdad tiene este arranque. La ventana es la línea que no se cruza.
+  const P={x:112,y:122,w:582,h:246};
+  const vent=A.ventana;
+  const curva=(usaBujia)=>{
+    const pts=[];
+    for(let i=0;i<=90;i++){
+      const t=30-65*i/90;
+      const rp=rpmArranque(e,V.cond.vBat||12.6,t,V.cond.saludArranque===undefined?1:V.cond.saludArranque);
+      const C=compresion(e,rp,t,1);
+      const dT=usaBujia?saltoBujia(e,tiempoPrecal(e,t),1):0;
+      pts.push([t,clamp(retardo(C.p,C.T+dT),0,60)]);
+    }
+    return pts;
+  };
+  const cSin=curva(false), cCon=curva(true);
+  const M=ejes(P,-35,30,0,Math.min(24,Math.max(vent*3.4,8)),
+    'temperatura del motor [°C]','retardo de encendido [ms]',
+    v=>num(v,0),v=>num(v,1),5,4);
+  enCaja(P,()=>{
+    bx.save(); bx.fillStyle='rgba(255,107,107,0.09)';
+    bx.fillRect(P.x,P.y,P.w,M.Y(vent)-P.y); bx.restore();
+    serieXY(M,cSin,BAD_HEX,2.2,[7,5]);
+    serieXY(M,cCon,OK_HEX,2.6);
+    // Dónde está ahora este motor, cilindro a cilindro.
+    for(const c of A.cils)
+      punteo(M,G.temp,clamp(c.tau,0,60),c.prende?CIAN:BAD_HEX,5.5);
+  });
+  nivel(P,M,vent,VIO,'ventana útil: '+ms(vent/1000,2));
+  nivelV(P,M,G.temp,NARANJA,'aquí');
+  etiqueta('por encima de la línea, no prende',P.x+14,P.y+20,BAD_HEX);
+  // La leyenda va abajo a la izquierda: arriba a la derecha se come el rótulo
+  // de la ventana útil, que es la cifra que organiza la vista.
+  leyenda(P.x+P.w-244,P.y+P.h-58,[
+    ['con las bujías al rojo',OK_HEX,null],
+    ['sin precalentar',BAD_HEX,[7,5]],
+  ]);
+
+  // Cilindro por cilindro: barras horizontales de margen contra la ventana.
+  const P2={x:112,y:438,w:582,h:24+e.cil*22};
+  texto('margen de cada cilindro contra la ventana',P2.x,P2.y-8,{s:13,c:'#9aa6b6'});
+  const worst=Math.max(vent*1.6,Math.max.apply(null,A.cils.map(c=>c.tau))*1.08);
+  for(let i=0;i<e.cil;i++){
+    const c=A.cils[i], yy=P2.y+8+i*22;
+    rpanel(P2.x+58,yy,P2.w-58,16,'rgba(255,255,255,0.045)',null,4);
+    const w=(P2.w-58)*clamp(c.tau/worst,0,1);
+    rpanel(P2.x+58,yy,w,16,c.prende?'rgba(124,217,146,0.45)':'rgba(255,107,107,0.50)',
+      c.prende?OK_HEX:BAD_HEX,4);
+    texto('cil '+(i+1),P2.x,yy+13,{s:12,c:c.prende?'#9aa6b6':BAD_HEX});
+    texto(ms(c.tau/1000,2),P2.x+64+w+6,yy+13,{s:12,c:c.prende?OK_HEX:BAD_HEX,b:true});
+  }
+  {
+    const xv=P2.x+58+(P2.w-58)*clamp(vent/worst,0,1);
+    linea([[xv,P2.y+4],[xv,P2.y+12+e.cil*22]],VIO,1.8,[5,4]);
+    etiqueta('ventana',xv+6,P2.y+2,VIO);
+  }
+
+  let y=132;
+  y=tablaDer(y,['','valor'],[
+    {v:['giro del arranque',rpmT(A.rpm)],c:A.rpm<130?BAD_HEX:TINTA,b:true},
+    {v:['exponente politrópico',num(A.cils[0].n,3)],c:CIAN},
+    {v:['presión de compresión',barF(A.cils[0].pComp)]},
+    {v:['temperatura sin bujía',cel(A.cils[0].T-273.15)]},
+    {v:['salto de la bujía','+'+num(A.cils[0].dT,0)+NBSP+'K'],c:OK_HEX},
+    {v:['temperatura efectiva',cel(A.cils[0].Tef-273.15)],b:true},
+    {v:['ventana útil',ms(A.ventana/1000,2)],c:VIO},
+    {v:['retardo del cilindro 1',ms(A.cils[0].tau/1000,2)],
+      c:A.cils[0].prende?OK_HEX:BAD_HEX,b:true},
+  ]);
+  y+=14;
+  y=tablaDer(y,['','de '+e.cil],[
+    {v:['cilindros que prenden',num(A.nPrende,0)],
+      c:A.nPrende===e.cil?OK_HEX:(A.arranca?WARN_HEX:BAD_HEX),b:true},
+  ]);
+
+  let niv='ok', rot='ARRANCA Y ARRANCA PAREJO', txt;
+  if(!A.arranca){
+    niv='bad'; rot='NO ARRANCA: '+A.nPrende+' DE '+e.cil+' CILINDROS';
+    txt='A '+rpmT(A.rpm)+' el exponente politrópico baja a '+num(A.cils[0].n,3)+
+      ' y la compresión sólo llega a '+cel(A.cils[0].T-273.15)+'. Con el salto de las bujías la carga se queda en '+
+      cel(A.cils[0].Tef-273.15)+' y el retardo, '+ms(A.cils[0].tau/1000,2)+', no cabe en la ventana de '+ms(A.ventana/1000,2)+
+      '. Un diésel necesita más de la mitad de sus cilindros para sostenerse solo.';
+  } else if(!A.parejo){
+    const malos=A.cils.filter(c=>!c.prende).map(c=>c.i+1).join(', ');
+    niv='warn'; rot='ARRANCA DESPAREJO: NO PRENDE EL CILINDRO '+malos;
+    txt='El motor se sostiene con '+A.nPrende+' de '+e.cil+', tiembla y saca humo blanco sin quemar hasta que se calienta. El cilindro '+malos+
+      ' tiene todo el combustible que le corresponde: lo que no tiene es con qué encenderlo.';
+  } else {
+    txt='Los '+e.cil+' prenden con '+ms(A.cils[0].margen/1000,2)+' de margen sobre la ventana. La compresión sube el aire a '+
+      cel(A.cils[0].T-273.15)+' y la bujía le añade '+num(A.cils[0].dT,0)+NBSP+'K en el punto donde llega el chorro. '+
+      (G.temp>=20?'A esta temperatura las bujías casi no hacen falta, y por eso una bujía muerta se puede pasar meses sin dar la cara.'
+                 :'Sin ese salto, a '+cel(G.temp)+' el retardo se iría a '+ms(retardo(A.cils[0].pComp,A.cils[0].T)/1000,2)+' y no arrancaría.');
+  }
+  banda(Math.max(y+18,P2.y+P2.h+24,626),niv,rot,txt);
+}
+
+// -------------------------------------------------------------- 5 · las bujías
+// Una bujía no calienta el motor: calienta el punto al que llega el chorro. Por
+// eso una bujía muerta deja la compresión intacta y el cilindro apagado.
+function vistaBujias(){
+  const e=MQ(), V=EV(), A=V.arr;
+  cabecera('Las bujías incandescentes: cuánto calientan y cuánto tardan',
+    'El ordenador decide el tiempo de precalentamiento por la temperatura del motor. La bujía sube por una exponencial con su propia constante — y una bujía envejecida no llega tarde: no llega.');
+
+  const tMax=Math.max(10,tiempoPrecal(e,-30)*1.4);
+  const P={x:112,y:122,w:582,h:248};
+  const M=ejes(P,0,tMax,0,1150,'tiempo desde que se da el contacto [s]',
+    'temperatura de la punta [°C]',v=>num(v,0),v=>num(v,0),5,4);
+  const cur=sal=>{ const pts=[];
+    for(let i=0;i<=140;i++){ const t=tMax*i/140; pts.push([t,tempBujia(e,t,Math.max(0.001,sal))]); }
+    return pts; };
+  enCaja(P,()=>{
+    serieXY(M,cur(1),OK_HEX,2.6);
+    const distintas=new Set(V.bujias.map(b=>b.salud));
+    for(const s of distintas){
+      if(Math.abs(s-1)<1e-9) continue;
+      if(s<=0){ linea([[P.x,M.Y(0)],[P.x+P.w,M.Y(0)]],BAD_HEX,2.6); continue; }
+      serieXY(M,cur(s),WARN_HEX,2.4,[7,5]);
+    }
+  });
+  const tp=V.tPrecal;
+  nivelV(P,M,tp,VIO,'el ordenador deja arrancar aquí');
+  nivel(P,M,850,NARANJA,'temperatura a la que la bujía sirve de algo',[4,4]);
+  punteo(M,tp,tempBujia(e,tp,1),OK_HEX,6);
+  leyenda(P.x+16,P.y+P.h-58,[
+    ['bujía nueva',OK_HEX,null],
+    ['bujía de este motor',WARN_HEX,[7,5]],
+  ]);
+
+  // Corrientes: es lo que un amperímetro de pinza ve, y es la única forma de
+  // encontrar la bujía abierta sin desmontar nada.
+  const P2={x:112,y:452,w:582,h:20+e.cil*22};
+  texto('corriente de cada calentador, medida con pinza',P2.x,P2.y-10,{s:13,c:'#9aa6b6'});
+  // La escala es la corriente de una bujía NUEVA de este motor, no la mayor de
+  // las que hay puestas: contra la mayor, cuatro bujías igual de agotadas salen
+  // con la barra llena y la vista dice justo lo contrario de lo que pasa.
+  const iMax=Math.max(1,e.tauBujia*4.6*1.15);
+  for(let i=0;i<e.cil;i++){
+    const b=V.bujias[i], yy=P2.y+4+i*22;
+    rpanel(P2.x+58,yy,P2.w-58,16,'rgba(255,255,255,0.045)',null,4);
+    const w=(P2.w-58)*clamp(b.corriente/iMax,0,1);
+    const col=b.corriente===0?BAD_HEX:(b.salud<0.7?WARN_HEX:OK_HEX);
+    if(w>1) rpanel(P2.x+58,yy,w,16,col+'55',col,4);
+    texto('cil '+(i+1),P2.x,yy+13,{s:12,c:col});
+    texto(b.corriente===0?'circuito abierto':amp(b.corriente),
+      P2.x+64+Math.max(w,6)+6,yy+13,{s:12,c:col,b:true});
+  }
+  {
+    const xn=P2.x+58+(P2.w-58)/1.15;
+    linea([[xn,P2.y],[xn,P2.y+12+e.cil*22]],OK_HEX,1.6,[5,4]);
+    etiqueta('lo que consume una nueva',xn-6,P2.y-2,OK_HEX,'right');
+  }
+
+  let y=132;
+  y=tablaDer(y,['','valor'],[
+    {v:['constante de la bujía',seg(e.tauBujia,1)],
+      c:e.tauBujia>4?WARN_HEX:CIAN,b:e.tauBujia>4},
+    {v:['tipo',e.tauBujia>4?'metálica':'cerámica']},
+    {v:['precalentamiento',seg(V.tPrecal,1)],c:VIO,b:true},
+    {v:['punta, bujía nueva',cel(tempBujia(e,V.tPrecal,1))],c:OK_HEX},
+    {v:['punta, la de este motor',
+      V.bujias[0].salud>0?cel(tempBujia(e,V.tPrecal,Math.max(0.001,V.bujias[0].salud))):'fría'],
+      c:V.bujias[0].salud<1?WARN_HEX:TINTA},
+    {v:['salto efectivo',(A.cils[0].dT>0?'+':'')+num(A.cils[0].dT,0)+NBSP+'K'],b:true},
+  ]);
+  y+=14;
+  y=tablaDer(y,['','valor'],[
+    {v:['código del ordenador',V.dtc||'ninguno'],c:V.dtc?BAD_HEX:OK_HEX,b:true},
+    {v:['calentadores abiertos',
+      num(V.bujias.filter(b=>b.corriente===0).length,0)+' de '+num(e.cil,0)],
+      c:V.bujias.some(b=>b.corriente===0)?BAD_HEX:OK_HEX},
+  ]);
+
+  const abiertas=V.bujias.filter(b=>b.corriente===0).length;
+  const lentas=V.bujias.filter(b=>b.corriente>0&&b.salud<0.7).length;
+  let niv='ok', rot='LOS CALENTADORES CUMPLEN', txt;
+  if(abiertas>0){
+    niv='bad'; rot=abiertas+' CALENTADOR'+(abiertas>1?'ES':'')+' EN CIRCUITO ABIERTO';
+    txt='La pinza da cero amperios en '+abiertas+' de los '+e.cil+'. El ordenador lo ve —levanta P0380— porque una bujía que no consume se detecta por el circuito. '+
+      (G.temp>=20?'A '+cel(G.temp)+' el motor arranca igual y nadie se entera: esta avería se descubre en noviembre.'
+                 :'A '+cel(G.temp)+' ese cilindro se queda sin prender y el motor arranca con '+A.nPrende+' de '+e.cil+'.');
+  } else if(lentas>0){
+    niv='warn'; rot='LAS BUJÍAS CONDUCEN Y NO CALIENTAN';
+    txt='Las '+e.cil+' consumen corriente, así que para el ordenador están bien y NO hay código. Pero llegan a '+
+      cel(tempBujia(e,V.tPrecal,Math.max(0.001,V.bujias[0].salud)))+' en lugar de '+cel(tempBujia(e,V.tPrecal,1))+
+      ', y el salto efectivo se queda en '+num(A.cils[0].dT,0)+NBSP+'K. '+
+      (A.arranca?'Hoy todavía arranca. Con cinco grados menos, no.':'A esta temperatura ya no arranca, y el escáner sigue mudo.');
+  } else if(e.tauBujia>4){
+    niv='warn'; rot='BUJÍAS METÁLICAS: EL PRECALENTAMIENTO SE NOTA';
+    txt='Con una constante de '+seg(e.tauBujia,1)+' este motor necesita '+seg(V.tPrecal,1)+
+      ' de contacto antes de dar arranque. Una cerámica moderna llega al rojo en menos de dos segundos y por eso el testigo se apaga casi al instante: no es que caliente más, es que llega antes.';
+  } else {
+    txt='Las '+e.cil+' consumen '+amp(V.bujias[0].corriente)+' y llegan a '+cel(tempBujia(e,V.tPrecal,1))+
+      ' en los '+seg(V.tPrecal,1)+' que el ordenador precalienta. Ese calor no sube la compresión: sube la temperatura del PUNTO al que llega el chorro, y por eso vale '+
+      num(A.cils[0].dT,0)+NBSP+'K en el criterio de encendido y nada en el manómetro.';
+  }
+  banda(Math.max(y+18,P2.y+P2.h+24,630),niv,rot,txt);
+}
+
+// ---------------------------------------------------------------- 6 · el censo
+// Doce averías por cinco temperaturas. La rejilla no ilustra nada: se recorre
+// entera y de ahí SALE el resultado. Las celdas rojas son las que este
+// laboratorio existe para enseñar.
+const CX0=214, CCW=152, CCH=36, CY0=146;
+const SINT_CORTO=s=>({
+  'sobrepresión en el riel':'sobrepresión',
+  'arranca desparejo':'arranca desparejo',
+  'retorno excesivo':'retorno alto',
+  'dosificación forzada':'bomba forzada',
+}[s]||s);
+function claseCelda(c){
+  if(c.hay&&!c.dtc) return 'mudo';
+  if(c.hay&&c.dtc) return 'visto';
+  if(!c.hay&&c.dtc) return 'aviso';
+  return 'limpio';
+}
+const CLASE_COL={
+  mudo:[BAD_HEX,'rgba(255,107,107,0.20)'],
+  visto:[OK_HEX,'rgba(124,217,146,0.16)'],
+  aviso:[AZUL,'rgba(110,168,254,0.18)'],
+  limpio:[GRIS,'rgba(255,255,255,0.035)'],
+};
+function vistaCenso(){
+  const e=MQ(), C=CENSO();
+  cabecera('El censo: doce averías contra cinco temperaturas',
+    'Cada casilla es un motor entero simulado. Arriba, lo que el ordenador declara; abajo, lo que el conductor nota. Que no coincidan es el asunto de esta práctica.');
+
+  TEMPS.forEach((T,j)=>{
+    texto(T.rot,CX0+CCW*j+CCW/2,CY0-14,{s:13.5,b:true,c:'#9aa6b6',al:'center'});
+  });
+  C.filas.forEach((f,i)=>{
+    const y=CY0+CCH*i;
+    texto(corta(f.corto,22),CX0-12,y+CCH/2+5,{s:12.5,c:'#c3ccd8',al:'right'});
+    f.celdas.forEach((c,j)=>{
+      const x=CX0+CCW*j, cl=claseCelda(c), col=CLASE_COL[cl];
+      rpanel(x+3,y+2,CCW-6,CCH-5,col[1],col[0]+'66',5);
+      texto(c.dtc?c.dtc:'sin código',x+11,y+16,
+        {s:11.5,c:c.dtc?col[0]:'#5d6878',b:!!c.dtc,mono:true});
+      // Los síntomas se acortan aquí, no con puntos suspensivos: «sobrepresión
+      // en el …» no dice dónde, y ése es justo el dato de la celda.
+      const sint=!c.arranca?'no arranca':(c.sintomas.length?SINT_CORTO(c.sintomas[0]):'va bien');
+      texto(corta(sint,22),x+11,y+29,
+        {s:11,c:c.hay?col[0]:'#5d6878'});
+      if(c.peligro){ bx.save(); bx.fillStyle=BAD_HEX;
+        bx.beginPath(); bx.arc(x+CCW-13,y+13,4.2,0,Math.PI*2); bx.fill(); bx.restore(); }
+      if(!c.arranca){ bx.save(); bx.strokeStyle=BAD_HEX; bx.lineWidth=1.6;
+        bx.strokeRect(x+3,y+2,CCW-6,CCH-5); bx.restore(); }
+    });
+  });
+
+  // La tira de leyenda va DEBAJO de la rejilla, no encima de una casilla.
+  const yl=CY0+CCH*C.filas.length+16;
+  const items=[
+    ['hay síntoma y el ordenador CALLA',CLASE_COL.mudo[0],C.filas.reduce((a,f)=>a+f.celdas.filter(c=>claseCelda(c)==='mudo').length,0)],
+    ['hay síntoma y hay código',CLASE_COL.visto[0],C.filas.reduce((a,f)=>a+f.celdas.filter(c=>claseCelda(c)==='visto').length,0)],
+    ['código sin síntoma todavía',CLASE_COL.aviso[0],C.filas.reduce((a,f)=>a+f.celdas.filter(c=>claseCelda(c)==='aviso').length,0)],
+    ['ni una cosa ni la otra',CLASE_COL.limpio[0],C.filas.reduce((a,f)=>a+f.celdas.filter(c=>claseCelda(c)==='limpio').length,0)],
+  ];
+  let xl=44;
+  for(const it of items){
+    bx.save(); bx.fillStyle=it[1]; bx.fillRect(xl,yl-9,11,11); bx.restore();
+    texto(it[0]+': '+it[2],xl+17,yl,{s:12,c:'#9aa6b6'});
+    xl+=bx.measureText(it[0]+': '+it[2]).width+42;
+  }
+  // Los dos símbolos van en SU PROPIA línea: en la misma se montan sobre el
+  // último recuento, y la colisión sólo se ve mirando la captura.
+  texto('● sobrepresión peligrosa   ·   recuadro rojo: no arranca',44,yl+21,
+    {s:12,c:'#7b8697'});
+
+  const mudo=items[0][2];
+  banda(Math.max(yl+40,652),mudo>C.total*0.3?'bad':'warn',
+    'EL ORDENADOR NO SE ENTERA EN '+mudo+' DE '+C.total+' CASILLAS',
+    'De las '+C.total+' situaciones, '+C.conSintoma+' se notan conduciendo y el escáner sólo tiene algo que decir en '+
+    (C.conSintoma-mudo)+'. En '+mudo+' hay un síntoma real y la pantalla está limpia. '+C.noArranca+
+    ' dejan el vehículo parado, y en '+C.peligro+' la presión del riel se pasa del máximo del sistema con el escáner enseñando una cifra correcta. '+
+    'El escáner no diagnostica: acota. Lo que separa una avería de otra es la probeta, el manómetro y la pinza.');
+}
+
+// ============================================================ T2c · EL RETO
+// A ciegas: se sortea una avería y una temperatura y NADA en pantalla la nombra.
+// Los cuatro instrumentos hay que pedirlos uno a uno, y cada uno cuesta lo que
+// cuesta en el taller: el escáner es el más rápido y el que menos dice.
+const DICTAMEN=[
+  { k:'nada', rot:'no cambiar nada: el motor está bien' },
+  { k:'cambiaBomba', rot:'bomba de alta presión' },
+  { k:'cambiaInyector', rot:'un inyector' },
+  { k:'cambiaJuegoInyectores', rot:'el juego completo de inyectores' },
+  { k:'cambiaRegulador', rot:'regulador de presión' },
+  { k:'cambiaSensor', rot:'sensor de presión del riel' },
+  { k:'cambiaFiltro', rot:'filtro de combustible' },
+  { k:'cambiaBujia', rot:'una bujía incandescente' },
+  { k:'cambiaJuegoBujias', rot:'el juego de bujías incandescentes' },
+  { k:'motorCompresion', rot:'el motor: un cilindro sin compresión' },
+  { k:'cambiaBateria', rot:'batería y circuito de arranque' },
+];
+const ESPERADO={
+  sano:'nada', bombaGastada:'cambiaBomba', inyectorFuga:'cambiaInyector',
+  inyectoresFuga:'cambiaJuegoInyectores', reguladorPegado:'cambiaRegulador',
+  sensorBajo:'cambiaSensor', sensorAlto:'cambiaSensor', filtroTapado:'cambiaFiltro',
+  bujiaMuerta:'cambiaBujia', bujiasLentas:'cambiaJuegoBujias',
+  compresionBaja:'motorCompresion', bateriaDebil:'cambiaBateria',
+};
+const INSTR=[
+  { k:'escaner', rot:'escáner de diagnóstico', coste:'2 min' },
+  { k:'manometro', rot:'manómetro intercalado', coste:'20 min' },
+  { k:'probeta', rot:'probetas de retorno', coste:'35 min' },
+  { k:'pinza', rot:'pinza amperimétrica', coste:'8 min' },
+  { k:'arranque', rot:'prueba de arranque', coste:'5 min' },
+];
+// Un caso sólo se sortea si ALGÚN instrumento puede verlo. Sortear una avería
+// invisible no es un reto difícil: es un reto sin respuesta.
+function loQueVe(V,e){
+  const med=V.retornos.reduce((a,b)=>a+b,0)/e.cil;
+  const disp=Math.max.apply(null,V.retornos)/Math.max(1e-9,Math.min.apply(null,V.retornos));
+  return {
+    escaner: V.dtc!==null,
+    manometro: Math.abs(V.desvReal)>0.05||V.pFeed<P_FEED*0.80,
+    probeta: disp>1.35||V.porRegulador>2||med>V.retSanoIny*1.5,
+    pinza: V.bujias.some(b=>b.corriente===0)||V.bujias.some(b=>b.salud<0.75),
+    // La prueba de arranque no sólo cuenta cilindros: MIDE la velocidad de giro,
+    // y una batería floja se ve ahí aunque el motor acabe arrancando.
+    arranque: V.nPrende<e.cil||V.arr.rpm<e.rpmArr*0.85,
+  };
+}
+function detectable(e,f,t){
+  const V=EV_DE(f,t), q=loQueVe(V,e);
+  return q.escaner||q.manometro||q.probeta||q.pinza||q.arranque;
+}
+const RETO={ falla:'sano', temp:25, medido:{}, elegido:null, veredicto:null, intentos:0 };
+// El caso vive en RETO y NO se copia a G: si se copiara, salir del reto dejaría
+// la avería puesta y la siguiente vista la enseñaría con nombre y apellidos.
+function armaCaso(f,t){
+  RETO.falla=f; RETO.temp=t; RETO.medido={};
+  RETO.elegido=null; RETO.veredicto=null;
+  reconstruye(); pinta();
+}
+function arma(){
+  const e=MQ(), cand=[];
+  for(const f of FALLA_KEYS) for(const T of TEMPS)
+    if(f==='sano'||detectable(e,f,T.t)) cand.push([f,T.t]);
+  const p=cand[Math.floor(Math.random()*cand.length)];
+  armaCaso(p[0],p[1]);
+}
+// Pagar un instrumento cambia lo que el BANCO enseña, no sólo el pizarrón: las
+// probetas se llenan, las bujías se ponen al rojo y el escáner se enciende.
+function mide(k){
+  if(!INSTR.some(i=>i.k===k)) return false;
+  RETO.medido[k]=true; reconstruye(); pinta(); return true;
+}
+function elige(k){ RETO.elegido=k; pinta(); }
+function entrega(){
+  if(!RETO.elegido) return false;
+  RETO.intentos++;
+  RETO.veredicto=(RETO.elegido===ESPERADO[RETO.falla]);
+  if(RETO.veredicto&&!G.resuelto){ G.resuelto=true; marcaResuelto(); }
+  pinta(); return RETO.veredicto;
+}
+
+// Qué averías siguen siendo compatibles con lo MEDIDO. No es una ayuda: es la
+// destreza de la que trata la práctica —acotar por medidas, no por corazonadas—
+// y sólo se estrecha cuando se paga un instrumento. La verdadera está siempre
+// entre las que quedan, porque se compara contra la simulación de cada una.
+function compatible(f){
+  const e=MQ(), M=RETO.medido;
+  const A=EV_DE(RETO.falla,RETO.temp), B=EV_DE(f,RETO.temp);
+  if(M.escaner&&A.dtc!==B.dtc) return false;
+  if(M.manometro){
+    if(Math.abs(A.carga.pMed-B.carga.pMed)/e.pMax>0.03) return false;
+    if(Math.abs(A.pFeed-B.pFeed)/P_FEED>0.05) return false;
+  }
+  if(M.probeta){
+    for(let i=0;i<e.cil;i++)
+      if(Math.abs(A.retornos[i]-B.retornos[i])>Math.max(1.2,A.retornos[i]*0.08)) return false;
+    if(Math.abs(A.porRegulador-B.porRegulador)>1.5) return false;
+  }
+  if(M.pinza)
+    for(let i=0;i<e.cil;i++)
+      if(Math.abs(A.bujias[i].corriente-B.bujias[i].corriente)>
+         Math.max(0.4,A.bujias[i].corriente*0.05)) return false;
+  if(M.arranque){
+    if(A.nPrende!==B.nPrende) return false;
+    if(Math.abs(A.arr.rpm-B.arr.rpm)>A.arr.rpm*0.08) return false;
+  }
+  return true;
+}
+
+function vistaReto(){
+  const e=MQ(), V=EV_DE(RETO.falla,RETO.temp);
+  cabecera('Reto: el vehículo entra al taller y nadie te dice qué tiene',
+    'Un cliente deja el coche. Pide los instrumentos que necesites —cada uno cuesta tiempo— y dictamina qué pieza hay que tocar. El escáner es el más rápido y el que menos sabe.',true);
+  // La queja del cliente sale del SÍNTOMA, no de si hay avería: «no tira» con la
+  // presión perfecta y los retornos disparados es una queja que no encaja, y el
+  // alumno se fía de ella.
+  texto('lo que dice el cliente: '+queja(V),42,108,{s:13.5,c:'#9aa6b6',it:true});
+
+  const y0=128;
+  const M=RETO.medido;
+  // Cada caja lleva su propio desplazamiento: encadenar todas al mismo `y` es
+  // como se monta una encima de otra sin que ninguna prueba lo note.
+  const cajita=(x,dy,w,h,tit,col)=>{
+    rpanel(x,y0+dy,w,h,'rgba(255,255,255,0.035)',col+'55',9);
+    texto(tit,x+14,y0+dy+22,{s:13.5,b:true,c:col});
+    return y0+dy;
+  };
+  const vacia=(x,yy,t)=>texto(t,x+14,yy+52,{s:13,c:'#5d6878',it:true});
+
+  // Escáner: dos minutos y la mitad de la verdad.
+  let yy=cajita(42,0,470,102,'ESCÁNER DE DIAGNÓSTICO',M.escaner?CIAN:'#3a4658');
+  if(M.escaner){
+    texto(V.dtc?DTC_ROT[V.dtc]:'no hay códigos almacenados',56,yy+50,
+      {s:13,c:V.dtc?BAD_HEX:OK_HEX,b:true,mono:!!V.dtc});
+    texto('presión que declara el sistema: '+barF(V.carga.pLeidaMed)+
+      '  ·  consigna '+barF(V.carga.consigna),56,yy+76,{s:12.5,c:'#9aa6b6'});
+  } else vacia(42,yy,'sin pedir · 2 min');
+
+  // Manómetro: la presión que hay de verdad, y la de baja.
+  yy=cajita(530,0,452,102,'MANÓMETRO INTERCALADO',M.manometro?ROSA:'#3a4658');
+  if(M.manometro){
+    texto('presión REAL del riel: '+barF(V.carga.pMed),544,yy+50,{s:13,c:ROSA,b:true});
+    texto('alimentación de baja: '+barF(V.pFeed,2)+'  (nominal '+barF(P_FEED,2)+')',
+      544,yy+76,{s:12.5,c:V.pFeed<P_FEED*0.8?BAD_HEX:'#9aa6b6'});
+  } else vacia(530,yy,'sin pedir · 20 min');
+
+  // Probetas: el instrumento más lento y el único que separa cuatro averías.
+  yy=cajita(42,116,470,186,'PROBETAS DE RETORNO',M.probeta?CIAN:'#3a4658');
+  if(M.probeta){
+    const med=V.retornos.reduce((a,b)=>a+b,0)/e.cil;
+    const bwv=(470-46)/e.cil, hi=Math.max(20,Math.max.apply(null,V.retornos)*1.2);
+    for(let i=0;i<e.cil;i++){
+      const x=56+bwv*i, h=(V.retornos[i]/hi)*74;
+      const raro=V.retornos[i]>med*1.6;
+      rpanel(x,yy+156-h,bwv*0.62,h,raro?'rgba(255,107,107,0.5)':'rgba(90,209,230,0.4)',
+        raro?BAD_HEX:CIAN,3);
+      texto(num(V.retornos[i],0),x+bwv*0.31,yy+172,
+        {s:11,c:raro?BAD_HEX:'#9aa6b6',al:'center'});
+    }
+    texto('total por la manguera: '+mlm(V.carga.retornoTotal,1)+
+      '  ·  suma de los '+e.cil+': '+mlm(V.sumaIny,1),56,yy+50,{s:12.5,c:TINTA});
+    texto('la diferencia se va por el regulador: '+mlm(V.porRegulador,1),
+      56,yy+72,{s:12.5,c:V.porRegulador>2?NARANJA:'#9aa6b6',b:V.porRegulador>2});
+  } else vacia(42,yy,'sin pedir · 35 min');
+
+  // Pinza: corriente, que no es temperatura. De ahí sale media práctica.
+  yy=cajita(530,116,452,84,'PINZA AMPERIMÉTRICA',M.pinza?WARN_HEX:'#3a4658');
+  if(M.pinza){
+    const t=V.bujias.map((b,i)=>(i+1)+':'+(b.corriente===0?'0':num(b.corriente,1))).join('  ');
+    texto(t+'  [A]',544,yy+52,
+      {s:12.5,c:V.bujias.some(b=>b.corriente===0)?BAD_HEX:TINTA,mono:true});
+    texto('lo que consume una nueva: '+amp(e.tauBujia*4.6),544,yy+72,{s:12,c:'#7b8697'});
+  } else vacia(530,yy,'sin pedir · 8 min');
+
+  yy=cajita(530,214,452,88,'PRUEBA DE ARRANQUE',M.arranque?VIO:'#3a4658');
+  if(M.arranque){
+    texto('gira a '+rpmT(V.arr.rpm)+' · prenden '+V.arr.nPrende+' de '+e.cil,
+      544,yy+52,{s:12.5,c:V.arranca?(V.parejo?OK_HEX:WARN_HEX):BAD_HEX,b:true});
+    texto(V.arranca?(V.parejo?'arranca redondo':'arranca desparejo, humea'):'NO llega a arrancar',
+      544,yy+74,{s:12,c:'#9aa6b6'});
+  } else vacia(530,yy,'sin pedir · 5 min');
+
+  // La tira que se estrecha: qué sigue siendo posible con lo medido.
+  const yq=y0+320;
+  const nPed=Object.keys(M).length;
+  const vivas=FALLA_KEYS.filter(compatible);
+  texto('con lo que has medido, esto sigue siendo posible ('+vivas.length+' de '+
+    FALLA_KEYS.length+'):',42,yq,{s:13,c:'#9aa6b6'});
+  {
+    const CW2=(BW-84)/4, CH2=30;
+    FALLA_KEYS.forEach((f,i)=>{
+      const cx=42+CW2*(i%4), cy=yq+12+CH2*Math.floor(i/4);
+      const viva=vivas.indexOf(f)>=0;
+      rpanel(cx,cy,CW2-10,CH2-7,
+        viva?'rgba(90,209,230,0.13)':'rgba(255,255,255,0.02)',
+        viva?CIAN+'66':'#1c2532',5);
+      texto(corta(FALLAS[f].corto,26),cx+10,cy+16,
+        {s:12,c:viva?TINTA:'#39424f'});
+    });
+  }
+
+  const yt=yq+12+30*Math.ceil(FALLA_KEYS.length/4)+22;
+  const gasto=INSTR.filter(i=>M[i.k]).reduce((a,i)=>a+parseInt(i.coste,10),0);
+  texto('instrumentos pedidos: '+nPed+' de '+INSTR.length+
+    '  ·  tiempo invertido: '+num(gasto,0)+' min',42,yt,{s:13,c:'#7b8697'});
+  texto(RETO.elegido?('tu dictamen: '+DICTAMEN.find(d=>d.k===RETO.elegido).rot)
+    :'sin dictamen todavía',
+    BW-42,yt,{s:13.5,c:RETO.elegido?CIAN:'#5d6878',al:'right',b:!!RETO.elegido});
+
+  let niv='warn', rot='DIAGNOSTICA Y DICTAMINA', txt=
+    'Pide instrumentos en el panel de la derecha y elige qué pieza hay que tocar. Ojo con dar por buena la primera pantalla: hay averías que el escáner acusa a la pieza equivocada, y otras que no acusa a nadie.';
+  if(RETO.veredicto===true){
+    niv='ok'; rot='DICTAMEN CORRECTO';
+    txt='Era '+FALLAS[RETO.falla].rot+'. '+explicaCaso(V,e)+
+      ' Lo resolviste con '+nPed+' instrumento'+(nPed===1?'':'s')+' y '+num(gasto,0)+' minutos.';
+  } else if(RETO.veredicto===false){
+    niv='bad'; rot='ESA PIEZA NO ERA';
+    txt='Era '+FALLAS[RETO.falla].rot+'. '+FALLAS[RETO.falla].pista+' '+explicaCaso(V,e);
+  }
+  banda(Math.max(yt+18,640),niv,rot,txt);
+}
+function queja(V){
+  if(!V.arranca) return '«no arranca»';
+  if(!V.parejo) return '«arranca mal y tiembla hasta que se calienta»';
+  if(V.sinFuerza) return '«no tira»';
+  if(V.retornoAlto) return '«gasta más de lo normal y suena distinto»';
+  if(V.sobrepresion) return '«va con un tirón raro cuando piso a fondo»';
+  if(V.hay) return '«algo no va»';
+  return '«revisión de los 100 000»';
+}
+function explicaCaso(V,e){
+  if(RETO.falla==='sensorBajo')
+    return 'La presión real llegó a '+barF(V.carga.pMed)+' contra una consigna de '+barF(V.carga.consigna)+
+      ', y el escáner enseñaba '+barF(V.carga.pLeidaMed)+' sin levantar ningún código: el sensor estaba midiendo su propio error.';
+  if(RETO.falla==='sensorAlto')
+    return 'El escáner enseñaba '+barF(V.carga.pLeidaMed)+', perfecta, y en el tubo había '+barF(V.carga.pMed)+
+      '. Sólo el manómetro intercalado lo dice.';
+  if(RETO.falla==='filtroTapado')
+    return 'La bomba pedía el '+pcc(V.carga.mandoMed*100)+' y no llegaba, igual que si estuviera gastada. La diferencia estaba en la baja: '+
+      barF(V.pFeed,2)+' contra '+barF(P_FEED,2)+' nominales.';
+  if(RETO.falla==='inyectorFuga')
+    return 'El escáner daba el mismo P0087 que una bomba gastada. La probeta enseñó '+
+      mlm(Math.max.apply(null,V.retornos),1)+' en un cilindro contra '+
+      mlm(V.retornos.reduce((a,b)=>a+b,0)/e.cil,1)+' de media.';
+  if(RETO.falla==='reguladorPegado')
+    return 'Por la manguera volvían '+mlm(V.carga.retornoTotal,1)+' y los inyectores sólo justificaban '+
+      mlm(V.sumaIny,1)+'. Los '+mlm(V.porRegulador,1)+' que faltaban se iban por el regulador.';
+  if(RETO.falla==='bujiasLentas')
+    return 'Todas conducían —'+amp(V.bujias[0].corriente)+' cada una— y ninguna llegaba al rojo a tiempo. El ordenador no tiene forma de saberlo: mide corriente, no temperatura.';
+  if(RETO.falla==='bateriaDebil')
+    return 'Giraba a '+rpmT(V.arr.rpm)+', y girar despacio baja el exponente politrópico a '+num(V.arr.cils[0].n,3)+
+      ': la compresión se queda en '+cel(V.arr.cils[0].T-273.15)+'. Las bujías estaban perfectas.';
+  if(RETO.falla==='compresionBaja')
+    return 'Un cilindro con menos presión Y menos temperatura, porque las dos salen de la misma relación politrópica. Su bujía consumía lo mismo que las demás.';
+  if(RETO.falla==='sano')
+    return 'Los retornos parejos, la presión en su sitio y los '+e.cil+' cilindros prendiendo. Saber cuándo NO hay que cambiar nada también es diagnóstico.';
+  return FALLAS[RETO.falla].pista;
+}
+
+// ================================ T3 · EL BANCO: EL CIRCUITO DE COMBUSTIBLE
+// La escena no es decorado: es el argumento. Lo que esta práctica discute es
+// POR DÓNDE se va el caudal, y eso hay que verlo — depósito, filtro, bomba de
+// alta, riel, inyectores, y las mangueras de retorno cayendo cada una en su
+// probeta. La torre de probetas es la estrella de la escena a propósito: es el
+// instrumento que separa cuatro averías que el escáner confunde.
+
+// El aviso flotante. La clase es `show`, NO `on`: la única regla que la hoja de
+// estilo declara sobre el aviso es `.toast.show{opacity:1}`, y `.toast` nace con
+// `opacity:0`. Con cualquier otra clase el texto se escribe, el elemento existe,
+// no salta ningún error y NADIE LO VE NUNCA.
+let TOAST=null;
+function showToast(html,msDur){
+  const c=el('toast'); if(!c) return;
+  c.innerHTML=html; c.classList.add('show');
+  if(TOAST) clearTimeout(TOAST);
+  TOAST=setTimeout(()=>c.classList.remove('show'),msDur||2600);
+}
+
+{
+  // La luz del banco. La clave de la escena apunta al centro, y el centro lo
+  // ocupa el pizarrón —que se ilumina solo, porque es una textura emisiva—, así
+  // que el motor se quedaba en penumbra. No proyecta sombras a propósito: la
+  // sombra buena ya la da la clave y una segunda sombra ensucia el suelo.
+  const foco=new THREE.SpotLight(0xfff2e0,90,26,Math.PI/4.2,0.55,1.4);
+  foco.position.set(2.6,8.2,4.2); foco.target.position.set(1.2,1.6,0);
+  scene.add(foco); scene.add(foco.target);
+  const relleno=new THREE.PointLight(0xbcd8ff,26,20,1.6);
+  relleno.position.set(-1.0,3.4,4.6); scene.add(relleno);
+}
+
+const pon=(o,p)=>{ o.position.set(p[0],p[1],p[2]); return o; };
+// Los rótulos vienen escalados para un banco mayor, así que hay que encogerlos.
+// Y cada uno deja su texto en ROTULOS: un sprite es una textura y de una textura
+// no se lee texto, así que ésta es la única forma de comprobar desde fuera lo
+// que las chapas del banco DICEN — y de que el 3D no regale la respuesta.
+const ESC_ROT=0.86;
+let ROTULOS=[];
+const rot3=(t,c,p)=>{ ROTULOS.push(t); const s=pon(labelSprite(t,c),p);
+  s.scale.multiplyScalar(ESC_ROT); return s; };
+
+// Qué se le deja ver al alumno. En el reto, el banco enseña sólo lo que ya se ha
+// PAGADO con un instrumento: si las probetas se llenaran solas, la prueba de
+// treinta y cinco minutos sería gratis y el reto no enseñaría nada.
+function visible(inst){ return G.modo!=='reto'||!!RETO.medido[inst]; }
+
+let banco=null, probM=[], bujiaM=[], panelEsc=null, agujaM=null, gotaM=[];
+function construyeBanco(){
+  if(banco){ scene.remove(banco); banco.traverse(o=>{
+    if(o.geometry) o.geometry.dispose();
+    if(o.material&&o.material.__propio) o.material.dispose();
+  }); }
+  banco=new THREE.Group(); scene.add(banco);
+  ROTULOS=[]; probM=[]; bujiaM=[]; panelEsc=null; agujaM=null; gotaM=[];
+  const e=MQ(), d=dims(e);
+  const V=(G.modo==='reto')?EV_DE(RETO.falla,RETO.temp):EV();
+
+  // ---- suelo del taller
+  {
+    const suelo=new THREE.Mesh(new THREE.PlaneGeometry(28,22),
+      std({color:0x161b22,roughness:0.96,metalness:0.02}));
+    suelo.rotation.x=-Math.PI/2; suelo.position.y=-0.01;
+    suelo.receiveShadow=true; banco.add(suelo);
+  }
+
+  // ---- el soporte del motor: dos largueros y cuatro patas. Una chapa maciza
+  // tapa justo las mangueras de retorno, que es lo que hay que ver.
+  {
+    for(const sz of [-1,1]){
+      const lg=roundedBox(d.largo+0.44,0.09,0.11,MAT.acero,0.30);
+      lg.position.set(d.xBloque,d.yBase-0.10,sz*0.30); banco.add(lg);
+    }
+    for(const sx of [-1,1]) for(const sz of [-1,1]){
+      const p=new THREE.Mesh(new THREE.CylinderGeometry(0.045,0.055,d.yBase-0.15,12),MAT.acero);
+      p.position.set(d.xBloque+sx*(d.largo*0.40),(d.yBase-0.15)/2,sz*0.30);
+      p.castShadow=true; banco.add(p);
+      const rd=new THREE.Mesh(new THREE.TorusGeometry(0.055,0.028,8,16),MAT.goma);
+      rd.rotation.y=Math.PI/2;
+      rd.position.set(d.xBloque+sx*(d.largo*0.40),0.055,sz*0.30); banco.add(rd);
+    }
+  }
+
+  // ---- el bloque y la culata
+  {
+    const bl=roundedBox(d.largo,d.hBloque*0.62,d.ancho,MAT.bloque,0.06);
+    bl.position.set(d.xBloque,d.yBase+d.hBloque*0.31,0); banco.add(bl);
+    const cu=roundedBox(d.largo*0.94,d.hBloque*0.30,d.ancho*0.86,
+      std({color:0x424c59,roughness:0.55,metalness:0.42}),0.08);
+    cu.position.set(d.xBloque,d.yBase+d.hBloque*0.62+d.hBloque*0.15,0); banco.add(cu);
+    const tp=roundedBox(d.largo*0.86,d.hBloque*0.14,d.ancho*0.62,
+      std({color:0x2a323d,roughness:0.44,metalness:0.30}),0.14);
+    tp.position.set(d.xBloque,d.yTapa-d.hBloque*0.03,0); banco.add(tp);
+    // El cárter, para que el motor no parezca flotar.
+    const ca=roundedBox(d.largo*0.80,0.20,d.ancho*0.70,MAT.bloque,0.14);
+    ca.position.set(d.xBloque,d.yBase-0.05,0); banco.add(ca);
+    banco.add(rot3('motor '+e.cil+' cil · '+num(e.rc,1)+':1',AZUL,
+      [d.xBloque,d.yBase+0.30,d.ancho/2+0.30]));
+  }
+
+  // ---- el riel, con su sensor a un extremo y el regulador al otro
+  const xIny=[];
+  {
+    const r=new THREE.Mesh(new THREE.CylinderGeometry(0.062,0.062,d.largoRiel,20),MAT.riel);
+    r.rotation.z=Math.PI/2; r.castShadow=true;
+    r.position.set(d.xRiel,d.yRiel,d.zRiel); banco.add(r);
+    for(const sx of [-1,1]){
+      const t=new THREE.Mesh(new THREE.SphereGeometry(0.070,18,14),MAT.riel);
+      t.position.set(d.xRiel+sx*d.largoRiel/2,d.yRiel,d.zRiel); banco.add(t);
+    }
+    // Sensor de presión: la pieza que miente en dos de las doce averías.
+    const s=roundedBox(0.13,0.16,0.13,MAT.caja,0.18);
+    s.position.set(d.xRiel-d.largoRiel/2-0.10,d.yRiel+0.09,d.zRiel); banco.add(s);
+    banco.add(rot3('sensor de presión',CIAN,
+      [d.xRiel-d.largoRiel/2-0.10*d.K,d.yRiel+0.36*d.K,d.zRiel]));
+    // Regulador.
+    const g=new THREE.Mesh(new THREE.CylinderGeometry(0.070,0.084,0.19,16),MAT.crom);
+    g.position.set(d.xRiel+d.largoRiel/2+0.11,d.yRiel+0.06,d.zRiel);
+    g.rotation.z=-0.35; banco.add(g);
+    banco.add(rot3('regulador',NARANJA,
+      [d.xRiel+d.largoRiel/2+0.22*d.K,d.yRiel+0.34*d.K,d.zRiel]));
+    // Los rótulos del riel se reparten a lo LARGO: apilados en la misma
+    // vertical se pisan unos a otros en cuanto la cámara se aleja.
+    banco.add(rot3('riel a '+barF(V.carga.consigna),VIO,
+      [d.xRiel-d.largoRiel*0.26,d.yRiel+0.46*d.K,d.zRiel]));
+
+    // Manómetro de aguja intercalado en el riel: el instrumento que dice la
+    // verdad cuando el sensor no. La aguja se mueve con la presión REAL.
+    const dial=new THREE.Mesh(new THREE.CylinderGeometry(0.15,0.15,0.035,28),MAT.crom);
+    dial.rotation.x=Math.PI/2;
+    dial.position.set(d.xRiel+d.largoRiel*0.22,d.yRiel+0.36,d.zRiel+0.16);
+    banco.add(dial);
+    const cara=new THREE.Mesh(new THREE.CircleGeometry(0.132,28),
+      std({color:0xe9eef5,roughness:0.5,metalness:0.05}));
+    cara.position.set(d.xRiel+d.largoRiel*0.22,d.yRiel+0.36,d.zRiel+0.181);
+    banco.add(cara);
+    const ag=new THREE.Mesh(new THREE.BoxGeometry(0.012,0.115,0.006),
+      std({color:0xc0392b,roughness:0.5,metalness:0.1}));
+    ag.geometry.translate(0,0.048,0);
+    ag.position.set(d.xRiel+d.largoRiel*0.22,d.yRiel+0.36,d.zRiel+0.186);
+    banco.add(ag); agujaM=ag;
+  }
+
+  // ---- los inyectores, del riel a la culata, con su manguera de retorno
+  {
+    const paso=d.largoRiel/e.cil;
+    for(let i=0;i<e.cil;i++){
+      const x=d.xRiel-d.largoRiel/2+paso*(i+0.5);
+      xIny.push(x);
+      const cuerpo=new THREE.Mesh(new THREE.CylinderGeometry(0.040,0.052,0.30,14),MAT.crom);
+      cuerpo.position.set(x,d.yTapa+0.16,d.zRiel); cuerpo.castShadow=true;
+      banco.add(cuerpo);
+      const bob=roundedBox(0.10,0.13,0.10,MAT.caja,0.20);
+      bob.position.set(x,d.yTapa+0.34,d.zRiel); banco.add(bob);
+      // El tubo de alta, del riel al inyector.
+      const tb=new THREE.Mesh(new THREE.CylinderGeometry(0.017,0.017,
+        Math.abs(d.yRiel-(d.yTapa+0.34))+0.05,10),MAT.tubo);
+      tb.position.set(x,(d.yRiel+d.yTapa+0.34)/2,d.zRiel); banco.add(tb);
+    }
+    banco.add(rot3(e.piezo?'inyectores piezoeléctricos':'inyectores de solenoide',CIAN,
+      [d.xRiel+d.largoRiel*0.30,d.yTapa+0.62*d.K,d.zRiel]));
+  }
+
+  // ---- las bujías incandescentes, en el otro costado de la culata
+  {
+    const paso=d.largoRiel/e.cil;
+    for(let i=0;i<e.cil;i++){
+      const x=d.xRiel-d.largoRiel/2+paso*(i+0.5);
+      const b=new THREE.Mesh(new THREE.CylinderGeometry(0.026,0.026,0.20,12),MAT.bujia);
+      b.rotation.z=0.42;
+      b.position.set(x,d.yTapa-0.13,-d.ancho*0.30); banco.add(b);
+      // La punta, que es la que se pone al rojo. Material PROPIO: se muta por
+      // fotograma y los del mapa MAT son compartidos.
+      const m=std({color:0x30363f,emissive:0x000000,roughness:0.5,metalness:0.4});
+      m.__propio=true;
+      const p=new THREE.Mesh(new THREE.CylinderGeometry(0.021,0.017,0.09,12),m);
+      p.rotation.z=0.42;
+      p.position.set(x+0.06,d.yTapa-0.26,-d.ancho*0.30); banco.add(p);
+      bujiaM.push(m);
+      // El cable, hasta la barra común.
+      const c=new THREE.Mesh(new THREE.CylinderGeometry(0.010,0.010,0.16,8),MAT.manguera);
+      c.position.set(x,d.yTapa+0.02,-d.ancho*0.30-0.04); banco.add(c);
+    }
+    const barra=roundedBox(d.largoRiel+0.10,0.030,0.036,MAT.crom,0.35);
+    barra.position.set(d.xRiel,d.yTapa+0.10,-d.ancho*0.30-0.04); banco.add(barra);
+    banco.add(rot3('calentadores',WARN_HEX,
+      [d.xRiel-d.largoRiel*0.30,d.yTapa+0.24*d.K,-d.ancho*0.30-0.20]));
+  }
+
+  // ---- el circuito de baja: depósito, filtro y bomba de alta
+  {
+    const dep=roundedBox(0.42,0.40,0.34,MAT.caja,0.10);
+    dep.position.set(d.xFiltro-0.30,0.34,d.zFiltro+0.10); banco.add(dep);
+    const f=new THREE.Mesh(new THREE.CylinderGeometry(0.10,0.10,0.30,18),
+      std({color:0x2f3a46,roughness:0.55,metalness:0.30}));
+    f.position.set(d.xFiltro,d.yFiltro,d.zFiltro); f.castShadow=true; banco.add(f);
+    banco.add(rot3('filtro',AZUL,[d.xFiltro,d.yFiltro+0.34,d.zFiltro]));
+    const b=roundedBox(0.28,0.30,0.26,
+      std({color:0x4a545f,roughness:0.48,metalness:0.55}),0.12);
+    b.position.set(d.xBomba,d.yBomba,d.zBomba); b.castShadow=true; banco.add(b);
+    const pol=new THREE.Mesh(new THREE.CylinderGeometry(0.11,0.11,0.05,20),MAT.acero);
+    pol.rotation.x=Math.PI/2;
+    pol.position.set(d.xBomba+0.17,d.yBomba,d.zBomba); banco.add(pol);
+    banco.add(rot3('bomba de alta',NARANJA,[d.xBomba,d.yBomba+0.36,d.zBomba]));
+    // Las mangueras: filtro → bomba → riel.
+    manguera([d.xFiltro,d.yFiltro-0.16,d.zFiltro],[d.xBomba-0.16,d.yBomba,d.zBomba],
+      MAT.manguera,0.020);
+    manguera([d.xBomba,d.yBomba+0.16,d.zBomba],
+      [d.xRiel-d.largoRiel/2,d.yRiel,d.zRiel],MAT.tubo,0.017);
+  }
+
+  // ---- LA TORRE DE PROBETAS: el instrumento del que trata la práctica
+  {
+    const mesa=roundedBox(d.wProb+0.16,0.05,0.40,MAT.acero,0.20);
+    mesa.position.set(d.xProb,d.yProb-0.03,d.zProb); banco.add(mesa);
+    for(const sx of [-1,1]){
+      const p=new THREE.Mesh(new THREE.CylinderGeometry(0.026,0.030,d.yProb-0.05,10),MAT.acero);
+      p.position.set(d.xProb+sx*(d.wProb/2-0.02),(d.yProb-0.05)/2,d.zProb);
+      banco.add(p);
+    }
+    const n=e.cil+1;
+    const paso=d.wProb/n;
+    const maxQ=Math.max(20,Math.max.apply(null,V.retornos),V.porRegulador)*1.15;
+    for(let i=0;i<n;i++){
+      const x=d.xProb-d.wProb/2+paso*(i+0.5);
+      const tubo=new THREE.Mesh(new THREE.CylinderGeometry(0.036,0.036,d.hProb,16,1,true),
+        MAT.vidrio);
+      tubo.position.set(x,d.yProb+d.hProb/2,d.zProb); banco.add(tubo);
+      const q=(i<e.cil)?V.retornos[i]:V.porRegulador;
+      const h=visible('probeta')?clamp(q/maxQ,0,1)*d.hProb*0.94:0;
+      const m=std({color:(i<e.cil)?0xd9b45c:0xe08a4a,roughness:0.30,metalness:0.05,
+        transparent:true,opacity:0.86});
+      m.__propio=true;
+      const liq=new THREE.Mesh(new THREE.CylinderGeometry(0.032,0.032,Math.max(0.004,h),16),m);
+      liq.position.set(x,d.yProb+Math.max(0.004,h)/2+0.006,d.zProb);
+      liq.visible=h>0.004; banco.add(liq);
+      probM.push({mesh:liq,mat:m,x:x,h:h,base:d.yProb});
+      // La manguera de retorno que cae en esta probeta.
+      const desde=(i<e.cil)
+        ? [xIny[i],d.yTapa+0.40,d.zRiel]
+        : [d.xRiel+d.largoRiel/2+0.11,d.yRiel+0.14,d.zRiel];
+      manguera(desde,[x,d.yProb+d.hProb+0.04,d.zProb],MAT.manguera,0.013);
+    }
+    banco.add(rot3('probetas de retorno',CIAN,[d.xProb,d.yProb+d.hProb+0.42,d.zProb]));
+  }
+
+  // ---- el escáner en su carro
+  {
+    const K=d.K, yPan=1.48*K;
+    const carro=new THREE.Mesh(new THREE.CylinderGeometry(0.05*K,0.07*K,1.10*K,12),MAT.acero);
+    carro.position.set(d.xEsc,0.55*K,d.zEsc); banco.add(carro);
+    const base=new THREE.Mesh(new THREE.CylinderGeometry(0.24*K,0.26*K,0.05*K,20),MAT.acero);
+    base.position.set(d.xEsc,0.03*K,d.zEsc); banco.add(base);
+    const marco=roundedBox(0.62*K,0.74*K,0.06*K,MAT.caja,0.10);
+    marco.position.set(d.xEsc,yPan,d.zEsc); marco.rotation.y=-0.30; banco.add(marco);
+    const pl=new THREE.Mesh(new THREE.PlaneGeometry(0.54*K,0.64*K),
+      new THREE.MeshBasicMaterial({map:panTex,toneMapped:false}));
+    pl.position.set(d.xEsc,yPan,d.zEsc); pl.rotation.y=-0.30;
+    pl.translateZ(0.034*K); banco.add(pl); panelEsc=pl;
+    banco.add(rot3('escáner',VIO,[d.xEsc,yPan+0.50*K,d.zEsc]));
+  }
+
+  colocaTablero(d);
+}
+// Una manguera entre dos puntos, con la curva que le da su propio peso. Un
+// cilindro recto entre dos piezas parece una barra soldada y no una manguera.
+function manguera(a,b,mat,r){
+  const A=new THREE.Vector3(a[0],a[1],a[2]), B=new THREE.Vector3(b[0],b[1],b[2]);
+  const M=A.clone().add(B).multiplyScalar(0.5);
+  M.y-=A.distanceTo(B)*0.22;
+  const c=new THREE.CatmullRomCurve3([A,M,B]);
+  const m=new THREE.Mesh(new THREE.TubeGeometry(c,20,r||0.015,10,false),mat);
+  m.castShadow=true; banco.add(m);
+  return m;
+}
+
+// ---- la pantalla del escáner, en su propio lienzo
+const panCv=document.createElement('canvas'); panCv.width=512; panCv.height=608;
+const panCtx=panCv.getContext('2d');
+const panTex=new THREE.CanvasTexture(panCv);
+panTex.colorSpace=THREE.SRGBColorSpace;
+let panFirma='';
+function publicaEscaner(){
+  const V=(G.modo==='reto')?EV_DE(RETO.falla,RETO.temp):EV();
+  const enciende=visible('escaner');
+  return {
+    enciende,
+    dtc: enciende?V.dtc:null,
+    motivo: enciende?V.motivo:'',
+    pRiel: enciende?V.carga.pLeidaMed:null,
+    consigna: enciende?V.carga.consigna:null,
+    mando: enciende?V.carga.mandoMed:null,
+    precal: enciende?V.tPrecal:null,
+    temp: enciende?(G.modo==='reto'?RETO.temp:G.temp):null,
+  };
+}
+function pintaPanel(){
+  if(!panCtx) return;
+  const W=512,H=608,c=panCtx;
+  const P=publicaEscaner();
+  const firma=JSON.stringify(P);
+  if(firma===panFirma) return;
+  panFirma=firma;
+  c.fillStyle='#060a0f'; c.fillRect(0,0,W,H);
+  c.strokeStyle='#16202c'; c.lineWidth=1; c.strokeRect(8,8,W-16,H-16);
+  c.textAlign='left';
+  if(!P.enciende){
+    c.fillStyle='#9aa6b6'; c.font='600 22px Inter,system-ui,sans-serif';
+    c.textAlign='center'; c.fillText('escáner en espera',W/2,H/2-10);
+    c.font='500 16px Inter,system-ui,sans-serif';
+    c.fillText('conéctalo para leer los códigos',W/2,H/2+22);
+    c.textAlign='left'; panTex.needsUpdate=true; return;
+  }
+  c.fillStyle='#7b8697'; c.font='600 15px Inter,system-ui,sans-serif';
+  c.fillText('MODO $03 · CÓDIGOS GUARDADOS',24,44);
+  c.font='700 30px Inter,system-ui,sans-serif';
+  c.fillStyle=P.dtc?'#ff6b6b':'#7cd992';
+  c.fillText(P.dtc||'sin códigos',24,86);
+  c.font='500 15px Inter,system-ui,sans-serif'; c.fillStyle='#9aa6b6';
+  {
+    const t=P.dtc?DTC_ROT[P.dtc]:P.motivo;
+    let ln='', y=116;
+    for(const w of String(t).split(' ')){
+      const test=ln?ln+' '+w:w;
+      if(c.measureText(test).width>W-56&&ln){ c.fillText(ln,24,y); y+=21; ln=w; }
+      else ln=test;
+    }
+    if(ln) c.fillText(ln,24,y);
+  }
+  c.strokeStyle='#16202c'; c.beginPath(); c.moveTo(24,178); c.lineTo(W-24,178); c.stroke();
+  c.fillStyle='#7b8697'; c.font='600 15px Inter,system-ui,sans-serif';
+  c.fillText('MODO $01 · DATOS EN VIVO',24,208);
+  const filas=[
+    ['presión del riel',barF(P.pRiel),'#5ad1e6'],
+    ['consigna',barF(P.consigna),'#b48ce0'],
+    ['dosificación de la bomba',pcc(P.mando*100),P.mando>0.9?'#ff6b6b':'#e8eef6'],
+    ['temperatura del motor',cel(P.temp),'#f0a05a'],
+    ['precalentamiento',seg(P.precal,1),'#e9c46a'],
+  ];
+  let y=248;
+  for(const f of filas){
+    c.fillStyle='#7b8697'; c.font='500 16px Inter,system-ui,sans-serif';
+    c.fillText(f[0],24,y);
+    c.fillStyle=f[2]; c.font='700 20px Inter,system-ui,sans-serif';
+    c.textAlign='right'; c.fillText(f[1],W-24,y); c.textAlign='left';
+    y+=44;
+  }
+  c.strokeStyle='#16202c'; c.beginPath(); c.moveTo(24,y-18); c.lineTo(W-24,y-18); c.stroke();
+  c.fillStyle='#5d6878'; c.font='500 14px Inter,system-ui,sans-serif';
+  c.fillText('el escáner enseña lo que el SENSOR dice.',24,y+12);
+  c.fillText('No sabe qué presión hay en el tubo.',24,y+32);
+  panTex.needsUpdate=true;
+}
+
+// ---- lo que se mueve por fotograma: la aguja del manómetro y el rojo de las
+// bujías. Todo lo demás es geometría y se reconstruye al cambiar de estado.
+let tAnim=0;
+function anima(dt){
+  tAnim+=dt;
+  const e=MQ();
+  const V=(G.modo==='reto')?EV_DE(RETO.falla,RETO.temp):EV();
+  if(agujaM){
+    // La aguja recorre 270° entre 0 y el máximo del sistema. Enseña la presión
+    // REAL: es un manómetro mecánico y no sabe mentir.
+    const f=clamp(V.carga.pMed/e.pMax,0,1.08);
+    const obj=(-135+270*f)*Math.PI/180;
+    agujaM.rotation.z+=(obj-agujaM.rotation.z)*Math.min(1,dt*6);
+  }
+  if(bujiaM.length){
+    const ver=visible('pinza')||G.modo==='bujias'||G.modo!=='reto';
+    const ciclo=(tAnim%12)/12;                  // el precalentamiento, en bucle
+    const tp=V.tPrecal>0?V.tPrecal:1;
+    const tt=clamp(ciclo*12/3.2,0,1)*tp;
+    for(let i=0;i<bujiaM.length;i++){
+      const b=V.bujias[i];
+      const T=(ver&&b.salud>0)?tempBujia(e,tt,Math.max(0.001,b.salud)):0;
+      const f=clamp(T/T_BUJIA_MAX,0,1);
+      bujiaM[i].emissive.setRGB(f*1.0,f*f*0.42,f*f*f*0.10);
+      bujiaM[i].emissiveIntensity=0.2+2.6*f;
+    }
+  }
+  for(const p of probM){
+    if(!p.mesh.visible) continue;
+    const s=clamp((tAnim-0.2)/1.4,0,1);
+    p.mesh.scale.y=s;
+    p.mesh.position.y=p.base+p.h*s/2+0.006;
+  }
+}
+
+// Reconstruir es tirar el banco y volverlo a levantar. Se llama SIEMPRE que
+// cambia algo que el banco enseña: vehículo, avería, temperatura o —en el
+// reto— un instrumento recién pagado.
+function reconstruye(){
+  construyeBanco(); pintaPanel();
+  const t=camConjunto(MARGEN[G.modo]||1.00); S.moveTo(t[0],t[1],0.9);
+}
+
+// =========================================== T4a · HUD, MANDOS Y TELEMETRÍA
+const MODES=['riel','caudal','retornos','arranque','bujias','censo','reto'];
+// Rótulos CORTOS para la barra de vistas: con los largos la fila envuelve y los
+// botones dejan de medir lo mismo.
+const MODE_META={
+  riel:     ['· riel',      'LA PRESIÓN, REAL Y LEÍDA'],
+  caudal:   ['· caudal',    'PULSO, PRESIÓN Y TIEMPO MUERTO'],
+  retornos: ['· retornos',  'LA PRUEBA DE LA PROBETA'],
+  arranque: ['· arranque',  'COMPRESIÓN Y AUTOENCENDIDO'],
+  bujias:   ['· bujías',    'LOS CALENTADORES'],
+  censo:    ['· censo',     'LAS 60 CASILLAS'],
+  reto:     ['· reto',      'DIAGNÓSTICO A CIEGAS'],
+};
+const HUD_TXT={
+  riel:'La línea continua es la presión que hay en el tubo; la punteada, la que el sensor le cuenta al ordenador. Pon el sensor desviado y mira cómo se separan sin que salte ningún código.',
+  caudal:'El ordenador manda un tiempo y da por hecho el combustible. Entre las dos cosas está el tiempo muerto, que en la inyección piloto se come casi todo el pulso.',
+  retornos:'Cinco probetas y un minuto. Es el instrumento más lento del taller y el único que separa una bomba gastada de un inyector con fuga.',
+  arranque:'No hay chispa: el aire se enciende porque la compresión lo calienta. Baja la temperatura y mira cuántos cilindros se quedan por el camino.',
+  bujias:'Una bujía no calienta el motor: calienta el punto al que llega el chorro. El ordenador mide su corriente, no su temperatura, y ahí está la trampa.',
+  censo:'Doce averías por cinco temperaturas. Cuenta las casillas donde hay síntoma y la pantalla del escáner está limpia.',
+  reto:'Llega un coche y nadie dice qué tiene. Cada instrumento cuesta tiempo; el más rápido es el que menos sabe.',
+};
+function pintaHUD(){
+  const m=MODE_META[G.modo]||MODE_META.riel;
+  el('hud').innerHTML='<h1>Conducto común '+m[1]+'</h1><p>'+HUD_TXT[G.modo]+'</p>';
+}
+
+// --- el panel de mandos -----------------------------------------------------
+el('panel').innerHTML=
+  '<h4>Banco de inyección diésel</h4>'+
+  '<div id="ctrl"></div>'+
+  '<div id="retobox" style="display:none">'+
+    '<div class="gl" style="margin:9px 0 4px"><span>Instrumentos · cada uno cuesta tiempo</span></div>'+
+    '<div class="btns" id="instrreto"></div>'+
+    '<div class="gl" style="margin:10px 0 4px"><span>Tu dictamen: qué pieza hay que tocar</span></div>'+
+    '<div class="btns" id="dxreto"></div>'+
+    '<div class="modebar" style="margin-top:8px">'+
+      '<button class="b" id="btnPista">Pista</button>'+
+      '<button class="b on" id="btnEntrega">Entregar dictamen</button>'+
+      '<button class="b" id="btnOtro">Otro coche</button>'+
+    '</div>'+
+  '</div>'+
+  '<div id="tele"></div>'+
+  '<div class="console" id="report"></div>'+
+  '<div class="modebar" style="margin-top:10px">'+
+    '<button class="b auto" id="btnAuto">▶︎ Recorrido guiado</button>'+
+  '</div>'+
+  '<h4 class="sec">Comprueba lo que has leído</h4>'+
+  '<div id="quiz"></div>';
+
+// Reparto uniforme en filas de como mucho cuatro: doce opciones en filas de
+// cuatro salen 4/4/4, pero cinco salen 4/1 y la última estira un botón de punta
+// a punta. Con el reparto uniforme salen 3/2 y todos miden lo mismo.
+function fila(rot,attr,ops,cur){
+  const filas=Math.max(1,Math.ceil(ops.length/4));
+  let h='<div class="gl" style="margin:9px 0 4px"><span>'+rot+'</span></div>';
+  let i=0;
+  for(let f=0;f<filas;f++){
+    const n=Math.ceil((ops.length-i)/(filas-f));
+    h+='<div class="modebar">'+ops.slice(i,i+n).map(o=>
+      '<button class="b'+(String(o[0])===String(cur)?' on':'')+'" '+attr+'="'+o[0]+'">'+o[1]+'</button>'
+    ).join('')+'</div>';
+    i+=n;
+  }
+  return h;
+}
+function syncCtrl(){
+  const ciego=(G.modo==='reto');
+  let h=fila('Vista','data-mode',MODES.map(m=>[m,MODE_META[m][0]]),G.modo);
+  h+=fila('Vehículo','data-maq',ARQ_KEYS.map(k=>[k,ARQ[k].corto]),G.maq);
+  // A ciegas NO se ofrecen ni la avería ni la temperatura: las dos SON la
+  // respuesta, y una barra de mandos que las enseñe convierte el reto en un
+  // ejercicio de leer el panel.
+  if(!ciego){
+    h+=fila('Qué le pasa','data-falla',
+      FALLA_KEYS.map(k=>[k,corta(FALLAS[k].corto,17)]),G.falla);
+    h+=fila('Temperatura del motor','data-temp',
+      TEMPS.map(T=>[String(T.t),T.rot]),String(G.temp));
+    h+=fila('Punto de trabajo','data-punto',
+      [['carga','plena carga'],['ralenti','marcha mínima']],G.punto);
+  }
+  el('ctrl').innerHTML=h;
+  el('retobox').style.display=ciego?'block':'none';
+  if(ciego){
+    el('instrreto').innerHTML=INSTR.map(i=>
+      '<button class="b dx'+(RETO.medido[i.k]?' on':'')+'" data-inst="'+i.k+'">'+
+      i.rot+' · '+i.coste+'</button>').join('');
+    el('dxreto').innerHTML=DICTAMEN.map(d=>{
+      const cls=RETO.veredicto===null
+        ? (RETO.elegido===d.k?' on':'')
+        : (d.k===ESPERADO[RETO.falla]?' right'
+          :(d.k===RETO.elegido?' wrong':''));
+      return '<button class="b dx'+cls+'" data-dx="'+d.k+'">'+d.rot+'</button>';
+    }).join('');
+  }
+}
+
+// ----------------------------------------------------------------- telemetría
+const glf=(l,v,c)=>'<div class="g"><div class="gl"><span>'+l+'</span><b'+(c?' class="'+c+'"':'')+'>'+v+'</b></div></div>';
+function pintaTele(){
+  const e=MQ();
+  let h='';
+  if(G.modo==='reto'){
+    // A ciegas sólo se enseña lo que ya se ha pagado.
+    const V=EV_DE(RETO.falla,RETO.temp), M=RETO.medido;
+    h+=glf('Vehículo',e.corto+' · '+e.cil+' cil');
+    h+=glf('Temperatura del motor',TEMP_ROT(RETO.temp));
+    h+=glf('Lo que dice el cliente',V.hay?(V.arranca?'va mal':'no arranca'):'revisión');
+    if(M.escaner){
+      h+=glf('Código',V.dtc||'ninguno',V.dtc?'bad':'good');
+      h+=glf('Presión que declara',barF(V.carga.pLeidaMed));
+      h+=glf('Dosificación de la bomba',pcc(V.carga.mandoMed*100),
+        V.carga.saturado?'bad':'');
+    }
+    if(M.manometro){
+      h+=glf('Presión REAL del riel',barF(V.carga.pMed),
+        Math.abs(V.desvReal)>TOL_RIEL?'bad':'good');
+      h+=glf('Alimentación de baja',barF(V.pFeed,2),
+        V.pFeed<P_FEED*0.80?'bad':'good');
+    }
+    if(M.probeta){
+      h+=glf('Retorno total',mlm(V.carga.retornoTotal,1));
+      h+=glf('Sobra por el regulador',mlm(V.porRegulador,1),
+        V.porRegulador>2?'bad':'good');
+    }
+    if(M.pinza) h+=glf('Calentadores abiertos',
+      num(V.bujias.filter(b=>b.corriente===0).length,0)+' de '+e.cil,
+      V.bujias.some(b=>b.corriente===0)?'bad':'good');
+    if(M.arranque) h+=glf('Cilindros que prenden',V.arr.nPrende+' de '+e.cil,
+      V.arr.nPrende===e.cil?'good':'bad');
+    el('tele').innerHTML=h; return;
+  }
+  const V=EV(), R=RIEL();
+  h+=glf('Punto de trabajo',PUNTO().rot+' · '+rpmT(PUNTO().rpm));
+  h+=glf('Consigna del riel',barF(R.consigna));
+  h+=glf('Presión REAL',barF(R.pMed),Math.abs(V.desvReal)>TOL_RIEL?'bad':'good');
+  h+=glf('La que enseña el escáner',barF(R.pLeidaMed),
+    Math.abs(V.desvLeida)>TOL_RIEL?'bad':'good');
+  h+=glf('Rizo pico a pico',barF(R.rizo,1));
+  h+=glf('Dosificación de la bomba',pcc(R.mandoMed*100),
+    R.saturado?'bad':(R.mandoMed>0.80?'warn':'good'));
+  h+=glf('Alimentación de baja',barF(V.pFeed,2),V.pFeed<P_FEED*0.80?'bad':'good');
+  h+=glf('Retorno total',mlm(R.retornoTotal,1)+' / '+mlm(V.retSano,1),
+    V.retornoAlto?'bad':'good');
+  h+=glf('Sobra por el regulador',mlm(V.porRegulador,1),V.porRegulador>2?'bad':'good');
+  h+=glf('Tiempo muerto del inyector',ms(R.tm,2));
+  h+=glf('Pulso para '+num(R.mm3Objetivo,0)+' mm³',ms(R.tOn,2));
+  h+=glf('Precalentamiento',seg(V.tPrecal,1));
+  h+=glf('Giro del arranque',rpmT(V.arr.rpm),V.arr.rpm<130?'bad':'good');
+  h+=glf('Cilindros que prenden',V.arr.nPrende+' de '+e.cil,
+    V.arr.nPrende===e.cil?'good':'bad');
+  h+=glf('Código del ordenador',V.dtc||'ninguno',V.dtc?'bad':'good');
+  el('tele').innerHTML=h;
+}
+
+function pintaInforme(){
+  const e=MQ(), V=EV();
+  if(G.modo==='reto'){
+    const W=EV_DE(RETO.falla,RETO.temp);
+    let h='<b>'+e.nombre+'</b>, motor a '+TEMP_ROT(RETO.temp)+'. ';
+    h+='El cliente dice: '+queja(W)+'. ';
+    if(RETO.veredicto===true) h+='<b class="good">Dictamen correcto:</b> era '+FALLAS[RETO.falla].rot+'.';
+    else if(RETO.veredicto===false) h+='<b class="bad">Esa pieza no era:</b> era '+FALLAS[RETO.falla].rot+'.';
+    else h+='Pide instrumentos y dictamina. Ninguno de ellos ve el motor entero.';
+    el('report').innerHTML=h; return;
+  }
+  let h='<b>'+e.nombre+'.</b> ';
+  h+=G.falla==='sano'?'Sin avería, ':FL().rot+', ';
+  h+='a '+TEMP_ROT(G.temp)+'. ';
+  if(V.peligro)
+    h+='<b class="bad">La presión real se pasa del máximo del sistema</b> ('+barF(V.carga.pMed)+
+      ' contra '+barF(e.pMax)+') y el escáner enseña '+barF(V.carga.pLeidaMed)+' sin levantar código.';
+  else if(!V.arranca)
+    h+='<b class="bad">No arranca:</b> prenden '+V.arr.nPrende+' de '+e.cil+
+      ' cilindros girando a '+rpmT(V.arr.rpm)+'.';
+  else if(V.mudo)
+    h+='<b class="warn">Hay síntoma y no hay código:</b> '+V.sintomas.join(', ')+
+      ', y la pantalla del escáner está limpia.';
+  else if(V.hay)
+    h+='Síntoma: '+V.sintomas.join(', ')+'. El ordenador declara '+(V.dtc||'nada')+'.';
+  else
+    h+='Todo en su sitio: '+barF(V.carga.pMed)+' de riel con la bomba al '+
+      pcc(V.carga.mandoMed*100)+', retornos de '+mlm(V.sumaIny/e.cil,1)+' por inyector y los '+
+      e.cil+' cilindros prendiendo.';
+  el('report').innerHTML=h;
+}
+
+function pinta(){
+  pintaTablero(); pintaTele(); pintaInforme(); syncCtrl(); pintaPregunta();
+}
+function afterEdit(){
+  invalida(); construyeBanco(); pintaPanel(); pinta();
+}
+function cambiaMaquina(k){
+  if(!ARQ[k]) return;
+  G.maq=k; G.resuelto=false;
+  invalida();
+  if(G.modo==='reto') arma(); else { afterEdit(); refrescaPregunta(); }
+  const t=camConjunto(MARGEN[G.modo]||1.00); S.moveTo(t[0],t[1],0.9);
+}
+// El encuadre es lo único que cambia de un modo a otro, y sólo para acercarse un
+// poco cuando la vista lleva mucho texto.
+const MARGEN={riel:1.00, caudal:0.99, retornos:0.99, arranque:0.98,
+  bujias:0.98, censo:0.95, reto:0.96};
+function setMode(m){
+  if(!MODE_META[m]) return;
+  const entro=(m==='reto'&&G.modo!=='reto');
+  G.modo=m;
+  pintaHUD();
+  if(entro) arma();
+  else { invalida(); construyeBanco(); pintaPanel(); pinta(); refrescaPregunta(); }
+  const t=camConjunto(MARGEN[m]||1.00); S.moveTo(t[0],t[1],1.1);
+}
+const VISTAS={
+  riel:vistaRiel, caudal:vistaCaudal, retornos:vistaRetornos, arranque:vistaArranque,
+  bujias:vistaBujias, censo:vistaCenso, reto:vistaReto,
+};
+let PINTADAS=0;
+function pintaTablero(){
+  bg();
+  (VISTAS[G.modo]||vistaRiel)();
+  btex.needsUpdate=true;
+}
+
+// ============================== T4b · CUESTIONARIO, RECORRIDO Y ARRANQUE
+function marcaResuelto(){
+  synth.beep(720,0.16,0.09);
+  showToast('<b>Dictamen correcto</b><br>Era '+FALLAS[RETO.falla].rot+'.',3600);
+}
+function pistaReto(){
+  RETO.pistas=(RETO.pistas||0)+1;
+  showToast('<b>Pista</b><br>'+FALLAS[RETO.falla].pista,5200);
+}
+function otroCoche(){ paraAuto(); arma(); refrescaPregunta(); }
+
+function barajaEn(a){                       // Fisher-Yates, para que la posición
+  for(let i=a.length-1;i>0;i--){            // de la respuesta no sea la pista
+    const j=Math.floor(Math.random()*(i+1)); const t=a[i]; a[i]=a[j]; a[j]=t;
+  }
+  return a;
+}
+
+// ---------------------------------------------------------------- cuestionario
+// Las preguntas se DERIVAN del estado: cambiar de coche, de avería o de
+// temperatura cambia las cifras del enunciado y las respuestas, así que no se
+// pueden memorizar.
+function preguntas(){
+  const e=MQ(), V=EV(), C=CENSO(), R=EV().carga, A=V.arr;
+  const mudo=C.filas.reduce((a,f)=>a+f.celdas.filter(c=>c.mudo).length,0);
+  const tmC=tiempoMuerto(e,EV().ral.pMed,V.cond.vBat||12.6);
+  const qR=caudalTobera(e,EV().ral.pMed)*1e9;
+  const tOnPil=1.4/qR+tmC;
+  const q=[];
+  q.push({t:'Para meter 1,4 mm³ en la inyección piloto, este motor manda un pulso de '+
+      ms(tOnPil,2)+' del que '+ms(tmC,2)+' es tiempo muerto. Si el pulso sube un 5 %, ¿cuánto sube el combustible?',
+    ops:[
+      ['Mucho más de un 5 %, porque el aumento entero cae sobre la parte que de verdad inyecta, que es la más pequeña',true],
+      ['Exactamente un 5 %: el caudal es proporcional al tiempo de mando',false],
+      ['Menos de un 5 %, porque al abrir más se estrangula el orificio',false],
+      ['Nada: el tiempo muerto se lo come todo siempre',false],
+    ]});
+  q.push({t:'El motor gira a '+rpmT(A.rpm)+' en el arranque y el exponente politrópico vale '+
+      num(A.cils[0].n,3)+'. ¿Por qué una batería floja es un problema de COMPRESIÓN?',
+    ops:[
+      ['Porque girando despacio el calor de la compresión tiene tiempo de escaparse a la pared, el exponente baja y la carga no llega a la temperatura de autoencendido',true],
+      ['Porque con poca tensión los inyectores no abren y no entra combustible',false],
+      ['Porque las bujías incandescentes no llegan al rojo con poca tensión',false],
+      ['Porque el motor de arranque calienta el bloque y roba calor a la cámara',false],
+    ]});
+  q.push({t:'El retorno total mide '+mlm(R.retornoTotal,1)+' y la suma de los '+e.cil+
+      ' inyectores, '+mlm(V.sumaIny,1)+'. ¿Qué significa la diferencia?',
+    ops:[
+      ['Que ese caudal ha vuelto al depósito sin pasar por ningún cilindro: se va por el regulador de presión',true],
+      ['Que un inyector está midiendo mal y hay que repetir la prueba',false],
+      ['Que hay aire en el circuito y las probetas se han llenado de espuma',false],
+      ['Que el filtro está reteniendo parte del caudal',false],
+    ]});
+  q.push({t:'De las '+num(C.total,0)+' casillas del censo de este motor, en '+num(mudo,0)+
+      ' hay un síntoma y el escáner no tiene nada que declarar. ¿Qué conclusión práctica se saca?',
+    ops:[
+      ['Que la ausencia de código no certifica nada, y que un diagnóstico serio empieza por medir presión y retornos',true],
+      ['Que el sistema de diagnóstico a bordo de este motor está averiado',false],
+      ['Que hay que borrar los códigos y repetir el ciclo de conducción',false],
+      ['Que esos síntomas los está imaginando el cliente',false],
+    ]});
+  if(G.falla==='sensorBajo'||G.falla==='sensorAlto')
+    q.push({t:'El escáner enseña '+barF(R.pLeidaMed)+' y en el tubo hay '+barF(R.pMed)+
+        '. ¿Por qué el ordenador no levanta ningún código?',
+      ops:[
+        ['Porque juzga la presión con la lectura del propio sensor averiado, y contra esa lectura el lazo está cerrando perfecto',true],
+        ['Porque el umbral del código es mucho más ancho que esa diferencia',false],
+        ['Porque el código de presión sólo se guarda después de tres ciclos de conducción',false],
+        ['Porque el sensor sólo se vigila con el motor parado',false],
+      ]});
+  else
+    q.push({t:'Con este motor la dosificación de la bomba va al '+pcc(R.mandoMed*100)+
+        '. ¿Qué se está midiendo con ese número?',
+      ops:[
+        ['Cuánto caudal tiene que meter la bomba para sostener la presión: si sube sin que suba la demanda, algo se está fugando',true],
+        ['La cantidad de combustible que entra a los cilindros',false],
+        ['El rendimiento mecánico de la bomba de alta',false],
+        ['La proporción de combustible que vuelve al depósito',false],
+      ]});
+  q.push({t:'Las bujías de este motor tienen una constante de '+seg(e.tauBujia,1)+
+      ' y el ordenador precalienta '+seg(V.tPrecal,1)+'. Si envejecen y calientan menos pero SIGUEN consumiendo corriente, ¿qué pasa?',
+    ops:[
+      ['Que no hay código: el ordenador vigila el circuito, no la temperatura de la punta',true],
+      ['Que salta un P0380 en cuanto la temperatura baja del umbral',false],
+      ['Que el ordenador alarga solo el precalentamiento hasta compensarlo',false],
+      ['Que se nota igual en verano que en invierno',false],
+    ]});
+  q.push({t:'La ventana útil de este arranque dura '+ms(A.ventana/1000,2)+
+      ' y sale de ocho grados de giro. ¿Por qué encoge cuando el motor gira más deprisa?',
+    ops:[
+      ['Porque son GRADOS, no milisegundos: los mismos grados se recorren en menos tiempo cuanto más rápido gira',true],
+      ['Porque a más vueltas hay menos tiempo para inyectar',false],
+      ['Porque la turbulencia aumenta y apaga la llama',false],
+      ['Porque el retardo de encendido crece con el régimen',false],
+    ]});
+  return q;
+}
+let QI=0, QSEL=null, QCACHE=null;
+function bancoQ(){
+  if(!QCACHE){ QCACHE=preguntas();
+    QCACHE.forEach(q=>{ q.baraja=barajaEn(q.ops.map(o=>({o:o}))); }); }
+  return QCACHE;
+}
+function refrescaPregunta(){ QCACHE=null; QI=0; QSEL=null; pintaPregunta(); }
+function pintaPregunta(){
+  const B=bancoQ(); if(!B.length){ el('quiz').innerHTML=''; return; }
+  const q=B[QI%B.length];
+  let h='<div class="lt">Pregunta '+((QI%B.length)+1)+' de '+B.length+'</div>';
+  h+='<div class="console">'+q.t+'</div>';
+  h+='<div class="btns">'+q.baraja.map((b,i)=>{
+    const bien=b.o[1];
+    // Antes de contestar, ninguna opción va marcada: marcar la correcta de
+    // salida sería regalar la respuesta. Después, la correcta se pinta verde
+    // —esté o no elegida— y la elegida por error, roja.
+    const cls=QSEL===null?'':(bien?' right':(i===QSEL?' wrong':''));
+    return '<button class="b dx'+cls+'" data-q="'+i+'">'+b.o[0]+'</button>';
+  }).join('')+'</div>';
+  h+='<div class="modebar" style="margin-top:8px"><button class="b" data-qnext="1">Siguiente pregunta</button></div>';
+  el('quiz').innerHTML=h;
+}
+function pregunta(i){
+  const B=bancoQ(), q=B[QI%B.length];
+  if(QSEL!==null) return;
+  QSEL=i;
+  synth.beep(q.baraja[i].o[1]?700:210,0.10,0.06);
+  pintaPregunta();
+}
+
+// ------------------------------------------------------------ recorrido guiado
+let AUTO=null;
+function paraAuto(){ if(AUTO){ clearTimeout(AUTO); AUTO=null; }
+  const b=el('btnAuto'); if(b) b.disabled=false; }
+function runAuto(){
+  paraAuto();
+  el('btnAuto').disabled=true;
+  const pasos=[
+    ()=>{ G.maq='hdi20'; G.falla='sano'; G.temp=25; G.punto='carga'; setMode('riel');
+      showToast('<b>El riel</b><br>Cada raya naranja es una inyección, y cada inyección le saca un bocado a la presión. La bomba lo repone. De ese pulso vive el sistema.',3900); },
+    ()=>{ G.falla='sensorBajo'; afterEdit(); refrescaPregunta();
+      showToast('<b>Las dos líneas se separan</b><br>El sensor lee de menos, el ordenador sube la presión de verdad por encima del máximo del sistema, y el escáner sigue limpio.',4400); },
+    ()=>{ G.falla='sano'; setMode('caudal');
+      showToast('<b>El tiempo muerto</b><br>El inyector tarda en abrir. En la inyección principal es un detalle; en la piloto se come casi todo el pulso.',3900); },
+    ()=>{ setMode('retornos');
+      showToast('<b>La probeta</b><br>Cinco recipientes y un minuto. Míralos con todo sano: ésta es la referencia contra la que se lee todo lo demás.',3800); },
+    ()=>{ G.falla='inyectorFuga'; afterEdit(); refrescaPregunta();
+      showToast('<b>Uno que se bebe el caudal</b><br>El escáner da el mismo código que una bomba gastada. La probeta señala al culpable, y el repuesto cuesta diez veces menos.',4400); },
+    ()=>{ G.falla='reguladorPegado'; afterEdit(); refrescaPregunta();
+      showToast('<b>Y aquí no es ningún inyector</b><br>Los cinco tubos normales y el total disparado: lo que sobra se va por el regulador. La resta es el diagnóstico.',4400); },
+    ()=>{ G.falla='sano'; G.temp=-20; setMode('arranque');
+      showToast('<b>Veinte bajo cero</b><br>No hay chispa. El aire se enciende porque la compresión lo calienta, y el retardo tiene que caber en la ventana.',4000); },
+    ()=>{ G.falla='bateriaDebil'; afterEdit(); refrescaPregunta();
+      showToast('<b>La batería floja</b><br>Gira despacio, el exponente politrópico baja y la compresión se queda fría. Es un problema de compresión, aunque no lo parezca.',4400); },
+    ()=>{ G.falla='bujiasLentas'; setMode('bujias');
+      showToast('<b>Conducen y no calientan</b><br>La pinza da corriente en las cuatro, así que para el ordenador están bien. No hay código, y el coche no arranca.',4400); },
+    ()=>{ G.maq='d30_06'; G.falla='sano'; afterEdit(); refrescaPregunta();
+      showToast('<b>Bujías metálicas, 2006</b><br>Tres veces más lentas. Aquí el precalentamiento no es un detalle de confort: es la diferencia entre arrancar y no arrancar.',4400); },
+    ()=>{ G.maq='hdi20'; G.temp=25; setMode('censo');
+      showToast('<b>Sesenta casillas</b><br>Cuenta las rojas: hay síntoma y el escáner está mudo. Ésa es la razón de que el manómetro y la probeta sigan existiendo.',4600); },
+    ()=>{ setMode('reto');
+      showToast('<b>Ahora tú</b><br>Un coche, ningún dato. Pide instrumentos, mira cómo se estrecha la lista de sospechosos y dictamina.',4200); },
+  ];
+  let i=0;
+  const tic=()=>{ if(i>=pasos.length){ paraAuto(); return; } pasos[i++](); AUTO=setTimeout(tic,3900); };
+  tic();
+}
+
+// ------------------------------------------------------------------- sucesos
+// Un ÚNICO despachador delegado. Nada de onclick en el HTML generado: el cuerpo
+// del laboratorio va dentro de un <script type="module"> y sus funciones no
+// existen en el ámbito global, así que un onclick inline no encuentra nada.
+document.addEventListener('click',ev=>{
+  const b=ev.target.closest('button'); if(!b) return;
+  const id=b.id;
+  if(id==='btnAuto'){ runAuto(); return; }
+  if(id==='btnPista'){ pistaReto(); return; }
+  if(id==='btnEntrega'){ entregaConAviso(); return; }
+  if(id==='btnOtro'){ otroCoche(); return; }
+  if(b.dataset.mode){ paraAuto(); setMode(b.dataset.mode); return; }
+  if(b.dataset.maq){ paraAuto(); cambiaMaquina(b.dataset.maq); return; }
+  if(b.dataset.falla){ paraAuto(); G.falla=b.dataset.falla; G.resuelto=false;
+    afterEdit(); refrescaPregunta(); return; }
+  if(b.dataset.temp!==undefined){ paraAuto(); G.temp=Number(b.dataset.temp);
+    afterEdit(); refrescaPregunta(); return; }
+  if(b.dataset.punto){ paraAuto(); G.punto=b.dataset.punto; afterEdit(); refrescaPregunta(); return; }
+  if(b.dataset.inst){ paraAuto(); mide(b.dataset.inst); return; }
+  if(b.dataset.dx){ elige(b.dataset.dx); return; }
+  if(b.dataset.q!==undefined){ pregunta(Number(b.dataset.q)); return; }
+  if(b.dataset.qnext){ QI++; QSEL=null; pintaPregunta(); return; }
+});
+function entregaConAviso(){
+  if(!RETO.elegido){
+    showToast('<b>Elige primero qué pieza hay que tocar</b><br>El dictamen es la parte que se corrige.',3200);
+    return;
+  }
+  if(!Object.keys(RETO.medido).length){
+    showToast('<b>Todavía no has medido nada</b><br>Pide al menos un instrumento antes de dictaminar.',3400);
+    return;
+  }
+  const ok=entrega();
+  if(!ok) synth.beep(220,0.14,0.08);
+}
+document.addEventListener('keydown',ev=>{
+  if(ev.target&&/^(INPUT|TEXTAREA)$/.test(ev.target.tagName)) return;
+  const i=Number(ev.key);
+  if(i>=1&&i<=MODES.length){ paraAuto(); setMode(MODES[i-1]); }
+});
+
+// ------------------------------------------------------------------- depuración
+// Superficie mínima y estable para la Capa 2. Todo lo que publica sale del motor
+// sellado por el mismo camino que la pantalla.
+window.__labDebug={
+  get mode(){ return G.modo; },
+  get solved(){ return G.resuelto; },
+  get maquina(){ return G.maq; },
+  get falla(){ return G.falla; },
+  get temp(){ return G.temp; },
+  get punto(){ return G.punto; },
+  get frames(){ return PINTADAS; },
+  get maq(){ const e=MQ(); return {key:e.key, corto:e.corto, nombre:e.nombre,
+    cil:e.cil, rc:e.rc, pMax:e.pMax, pCarga:e.pCarga, pRalenti:e.pRalenti,
+    vRiel:e.vRiel, qBomba:e.qBomba, nOrif:e.nOrif, dOrif:e.dOrif,
+    mm3Max:e.mm3Max, piezo:e.piezo, tauBujia:e.tauBujia, rpmArr:e.rpmArr,
+    ralenti:e.ralenti, rpmCarga:e.rpmCarga}; },
+  // Lo que se está mirando ahora mismo. Sale del motor sellado tal cual.
+  get lect(){ const V=EV();
+    const emp=r=>({pMed:r.pMed, pMin:r.pMin, pMax:r.pMax, rizo:r.rizo,
+      pLeidaMed:r.pLeidaMed, mandoMed:r.mandoMed, saturado:r.saturado,
+      consigna:r.consigna, error:r.error, mm3Objetivo:r.mm3Objetivo,
+      mm3Real:r.mm3Real, tOn:r.tOn, tm:r.tm, retornoTotal:r.retornoTotal,
+      inyPorSeg:r.inyPorSeg, n:r.pts.length, eventos:r.eventos.length});
+    return {falla:G.falla, temp:G.temp, cond:Object.assign({},V.cond),
+      ral:emp(V.ral), carga:emp(V.carga),
+      retornos:V.retornos.slice(), sumaIny:V.sumaIny, porRegulador:V.porRegulador,
+      retSanoIny:V.retSanoIny, retSano:V.retSano,
+      pFeed:V.pFeed, tPrecal:V.tPrecal,
+      bujias:V.bujias.map(b=>({salud:b.salud, corriente:b.corriente, tempFin:b.tempFin})),
+      arr:{rpm:V.arr.rpm, ventana:V.arr.ventana, nPrende:V.arr.nPrende,
+        arranca:V.arr.arranca, parejo:V.arr.parejo,
+        cils:V.arr.cils.map(c=>({n:c.n, pComp:c.pComp, T:c.T, dT:c.dT, Tef:c.Tef,
+          tau:c.tau, prende:c.prende, margen:c.margen}))},
+      dtc:V.dtc, motivo:V.motivo, desvLeida:V.desvLeida, desvReal:V.desvReal,
+      sintomas:V.sintomas.slice(), hay:V.hay, mudo:V.mudo, peligro:V.peligro,
+      arranca:V.arranca, parejo:V.parejo, nPrende:V.nPrende,
+      mienteEscaner:V.mienteEscaner}; },
+  // Lo que la pantalla del escáner PUBLICA de verdad. Es la superficie por la
+  // que un reto a ciegas se escapa, así que se comprueba desde fuera.
+  get escaner(){ return publicaEscaner(); },
+  // Lo que las chapas del banco DICEN: de una textura no se lee texto, y el 3D
+  // también puede regalar la respuesta.
+  get rotulos(){ return ROTULOS.slice(); },
+  // El lienzo del pizarrón, a tamaño completo. No está en el DOM —vive como
+  // textura— así que capturar la pantalla lo da en escorzo y a media
+  // resolución, que es justo donde un solape de seis píxeles se vuelve
+  // invisible. Las colisiones de trazado no las caza ninguna prueba numérica:
+  // se ven mirando, y ésta es la única forma de mirarlo de verdad.
+  get tableroPNG(){ return bcv.toDataURL('image/png'); },
+  // Cuánto MIDE el pizarrón en la pantalla, en píxeles. El texto del lienzo es
+  // de 13 px sobre 1 024 de ancho: por debajo de unos 480 px de ventana ese
+  // texto llega al ojo a menos de 6 y el laboratorio deja de leerse. Hasta hoy
+  // eso se comprobaba «comparando capturas», que no es comprobarlo.
+  get anchoTableroPx(){
+    const c=S.camera, r=S.renderer.domElement.getBoundingClientRect();
+    const m=new THREE.Vector3(BW3/2,BY3,0.06).applyMatrix4(board.matrixWorld).project(c);
+    const q=new THREE.Vector3(-BW3/2,BY3,0.06).applyMatrix4(board.matrixWorld).project(c);
+    return Math.abs(m.x-q.x)/2*r.width;
+  },
+  // Mallas con un material que NO es un material. `brushedMetal()` devuelve el
+  // juego de texturas, no un THREE.Material; three encuentra `visible===undefined`
+  // y se salta la pieza EN SILENCIO. No hay error, no hay aviso, y la pieza
+  // simplemente no está. Se publica para que la Capa 2 pueda contarlas.
+  get materialesFalsos(){
+    const malas=[];
+    scene.traverse(o=>{ if(o.isMesh&&(!o.material||o.material.isMaterial!==true))
+      malas.push(o.type+':'+(o.name||'?')); });
+    return malas;
+  },
+  get censo(){ const C=CENSO(); return {total:C.total, mudo:C.mudo,
+    noArranca:C.noArranca, peligro:C.peligro, conSintoma:C.conSintoma,
+    filas:C.filas.map(f=>({falla:f.falla, mudo:f.mudo, noArranca:f.noArranca,
+      celdas:f.celdas.map(c=>({temp:c.temp, dtc:c.dtc, arranca:c.arranca,
+        nPrende:c.nPrende, mudo:c.mudo, hay:c.hay, peligro:c.peligro,
+        pMed:c.pMed, pLeida:c.pLeida, retorno:c.retorno}))}))}; },
+  get reto(){ return {falla:RETO.falla, temp:RETO.temp,
+    medido:Object.assign({},RETO.medido), elegido:RETO.elegido,
+    esperado:ESPERADO[RETO.falla], veredicto:RETO.veredicto,
+    pistas:RETO.pistas||0,
+    vivas:FALLA_KEYS.filter(compatible)}; },
+  get preguntas(){ return preguntas().map(q=>({t:q.t, n:q.ops.length,
+    correctas:q.ops.filter(o=>o[1]).length})); },
+  get texto(){ return el('report').textContent+' || '+el('tele').textContent; },
+  get autoRunning(){ return AUTO!==null; },
+  // Constantes del motor sellado, para que la Capa 2 no las escriba a mano.
+  get K(){ return {TOL_RIEL:TOL_RIEL, P_FEED:P_FEED, Q_MANDO:Q_MANDO,
+    FUGA_REF:FUGA_REF, GRADOS_UTILES:GRADOS_UTILES, T_BUJIA_MAX:T_BUJIA_MAX,
+    DT_BUJIA:DT_BUJIA, N_AD:N_AD, A_RET:A_RET, E_RET:E_RET, DT:DT, T_SIM:T_SIM,
+    TEMPS:TEMPS.map(T=>T.t), FALLAS:FALLA_KEYS.slice(),
+    // Los rótulos de las averías, publicados para que la comprobación de fuga
+    // del reto no tenga que escribirlos a mano: una lista escrita fuera se
+    // queda vieja en cuanto se añade una avería, y la fuga vuelve sin avisar.
+    ROT:FALLA_KEYS.reduce((a,k)=>(a[k]=FALLAS[k].corto,a),{}),
+    ROT_LARGO:FALLA_KEYS.reduce((a,k)=>(a[k]=FALLAS[k].rot,a),{}),
+    MODES:MODES.slice(), ARQ:ARQ_KEYS.slice(), DX:DICTAMEN.map(d=>d.k),
+    INSTR:INSTR.map(i=>i.k)}; },
+  setMaquina(k){ cambiaMaquina(k); },
+  setFalla(k){ G.falla=k; G.resuelto=false; afterEdit(); refrescaPregunta(); },
+  setTemp(t){ G.temp=t; afterEdit(); refrescaPregunta(); },
+  setPunto(p){ G.punto=p; afterEdit(); refrescaPregunta(); },
+  setMode(m){ setMode(m); },
+  mide(k){ return mide(k); },
+  elige(k){ elige(k); },
+  entrega(){ return entrega(); },
+  pista(){ pistaReto(); },
+  arma(){ arma(); refrescaPregunta(); },
+  // Para poner un caso concreto del reto sin depender del azar.
+  armaCaso(falla,temp){ armaCaso(falla,temp===undefined?G.temp:temp);
+    refrescaPregunta(); },
+};
+
+// ------------------------------------------------------------------- arranque
+pintaHUD();
+construyeBanco();
+pintaPanel();
+pinta();
+refrescaPregunta();
+S.setAnimate(dt=>{ PINTADAS++; anima(dt); });
+S.start();
+{ const t=camConjunto(MARGEN.riel); S.moveTo(t[0],t[1],0.01); }
+addEventListener('resize',()=>S.resize());

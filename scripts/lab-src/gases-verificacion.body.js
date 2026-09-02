@@ -945,8 +945,15 @@ function veredicto(){
 const rub={roughness:0.86,metalness:0.04};
 const plas={roughness:0.42,metalness:0.16};
 const std=o=>new THREE.MeshStandardMaterial(o);
+// OJO: `brushedMetal()` NO devuelve un material, devuelve el juego de texturas
+// (map, roughnessMap, normalMap). Pasárselo tal cual a un Mesh no da ningún
+// error —three comprueba `material.visible===true` y, al ser undefined, SE SALTA
+// la pieza en silencio—: la malla existe, no se ve, y no hay prueba numérica que
+// se entere. Aquí dejaba sin dibujar las columnas del elevador, sus largueros y
+// el pie del escáner. Se envuelve en un material de verdad.
 const MAT={
-  acero:brushedMetal(0xb9c4cf),
+  acero:std(Object.assign({},brushedMetal(),
+    {color:0xb9c4cf,roughness:0.42,metalness:0.78})),
   crom:std({color:0xd8e2ec,roughness:0.18,metalness:0.92}),
   caja:std({color:0x1c2531,...plas}),
   carro:std({color:0x2d3a4b,roughness:0.34,metalness:0.28}),
