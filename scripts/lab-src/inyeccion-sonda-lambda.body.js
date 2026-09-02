@@ -695,7 +695,7 @@ const TEMPS_ADM = [10, 25, 35, 50];
 
 // Espacio fino no separable: el mismo que usa el resto del dominio D6. Nunca se
 // llama a toLocaleString, que en este navegador formatea a la inglesa.
-const NBSP=' ';
+const NBSP=' ';
 function num(x,d=1){
   if(x===null||x===undefined) return '—';
   if(!isFinite(x)) return x>0?'∞':'—';

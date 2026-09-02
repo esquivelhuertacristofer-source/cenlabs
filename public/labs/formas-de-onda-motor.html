@@ -1091,7 +1091,7 @@ const casosMudos = e => ESCEN_KEYS.filter(k => k !== 'sano' && !distinguible(e, 
 
 // Espacio fino no separable: el mismo que usa el resto del dominio D6. Nunca se
 // llama a toLocaleString, que en este navegador formatea a la inglesa.
-const NBSP=' ';
+const NBSP=' ';
 function num(x,d=1){
   if(x===null||x===undefined) return '—';
   if(!isFinite(x)) return x>0?'∞':'—';
@@ -3167,7 +3167,7 @@ addEventListener('resize',()=>S.resize());
   <!-- Ficha técnica · Capa B del molde de lab 3D (componente compartido + contenido del lab) -->
   <script src="_ficha-tecnica.js"></script>
   <script src="_ficha-formas-de-onda-motor.js"></script>
-  <!-- Puente con la plataforma · reporta avance al shell (ver _puente.js) -->
+  <!-- Reporta avance y cierre al shell del alumno (src/lib/puente.ts) -->
   <script src="_puente.js"></script>
 </body>
 </html>

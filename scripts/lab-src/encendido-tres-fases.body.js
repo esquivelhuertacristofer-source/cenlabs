@@ -730,7 +730,7 @@ const casosMudos = e => ESCEN_KEYS.filter(k => k !== 'sano' && !distinguible(e, 
 
 // Espacio fino no separable, el mismo que usa el resto del dominio D6. Nunca se
 // llama a toLocaleString, que en este navegador formatea a la inglesa.
-const NBSP=' ';
+const NBSP=' ';
 function num(x,d=1){
   if(x===null||x===undefined) return '—';
   if(!isFinite(x)) return x>0?'∞':'—';

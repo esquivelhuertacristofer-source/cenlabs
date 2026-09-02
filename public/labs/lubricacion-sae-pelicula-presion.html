@@ -1145,7 +1145,7 @@ const T_ROT = { '-20': 'arranque en helada', '0': 'mañana de invierno', '20': '
 
 // Espacio fino no separable: el mismo que usa el resto del dominio D6. Nunca se
 // llama a toLocaleString, que en este navegador formatea a la inglesa.
-const NBSP=' ';
+const NBSP=' ';
 function num(x,d=1){
   if(!isFinite(x)) return x>0?'∞':'—';
   const s=Math.abs(x).toFixed(d);
@@ -3559,7 +3559,7 @@ showToast('Monta el circuito: toca una <b>pieza</b> del banco y luego su <b>huec
   <!-- Ficha técnica · Capa B del molde de lab 3D (componente compartido + contenido del lab) -->
   <script src="_ficha-tecnica.js"></script>
   <script src="_ficha-lubricacion-sae-pelicula-presion.js"></script>
-  <!-- Puente con la plataforma · reporta avance al shell (ver _puente.js) -->
+  <!-- Reporta avance y cierre al shell del alumno (src/lib/puente.ts) -->
   <script src="_puente.js"></script>
 </body>
 </html>

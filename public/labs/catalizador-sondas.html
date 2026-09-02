@@ -969,7 +969,7 @@ function censo(e) {
 
 // El separador de millares es U+202F, un espacio fino que no rompe línea. NO se
 // usa en años: «2 012» no es un año, es un error de formato.
-const NBSP=' ';
+const NBSP=' ';
 function num(x,d=1){
   if(x===null||x===undefined||!isFinite(x)) return '—';
   const s=Math.abs(x).toFixed(d), p=s.split('.');

@@ -1,0 +1,9 @@
+{
+  "donor": "gases-verificacion.html",
+  "out": "dinamometro-par-potencia-correccion.html",
+  "title": "CEN Labs · Dinamómetro: par, potencia y corrección a norma — Laboratorio 3D",
+  "lt": "Motor de combustión interna · Mecánica",
+  "inspectHint": "👆 Monta la célula, mide el mismo coche con cinco normas y mira cómo el número cambia sin que el motor cambie. Después llévalo a Toluca con un turbo y verás inventarse un tercio de la potencia",
+  "body": "dinamometro-par-potencia-correccion.body.js",
+  "fichas": ["_ficha-tecnica.js", "_ficha-dinamometro-par-potencia-correccion.js"]
+}

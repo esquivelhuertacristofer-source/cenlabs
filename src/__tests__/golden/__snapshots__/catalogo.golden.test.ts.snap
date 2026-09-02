@@ -1521,6 +1521,16 @@ exports[`golden master — catálogo por categoría (invariante ante extracción
     "teoria": "Un turbo no da potencia: da densidad. Quitarle el intercooler a este 1.4 deja la misma presión en el colector y le quita el 40,6 % del par, porque el control de picado baja la consigna de 1,00 a 0,34 bar; al 2.0 TDI le quita el 23,9 % sin recortar nada, sólo por densidad. En Toluca el turbo mantiene la presión absoluta y lo paga a 230 357 rpm. De 45 casillas, 31 tienen síntoma y 14 son mudas.",
     "titulo": "Sobrealimentación: Turbo, Wastegate e Intercooler",
   },
+  {
+    "duracion": "50 min",
+    "estado": "activo",
+    "id": "mecanica-124",
+    "modulo": "Motor de Combustión Interna",
+    "orden": 124,
+    "simuladorHtml": "/labs/dinamometro-par-potencia-correccion.html",
+    "teoria": "El mismo 1.4 turbo, el mismo día en Toluca: 140 CV medidos, 195 por DIN, 198 por SAE J1349, 201 por ISO 1585 y 220 por la J607 bruta. Ochenta caballos de diferencia sin tocar el motor. La fórmula no se rompe por la altura —para un atmosférico acierta al 2,8 % a 2 660 m—: se rompe con un motor que se defiende, y le regala un 34,5 % inventado. Un banco de inercia se deja del 10 al 23 % entre el pistón y el rodillo, y la desaceleración libre no puede medirlo todo.",
+    "titulo": "Dinamómetro: Par, Potencia y Corrección a Norma",
+  },
 ]
 `;
 
@@ -1680,6 +1690,7 @@ exports[`golden master — catálogo por categoría (invariante ante extracción
   "mecanica-121",
   "mecanica-122",
   "mecanica-123",
+  "mecanica-124",
   "mecanica-13",
   "mecanica-14",
   "mecanica-15",

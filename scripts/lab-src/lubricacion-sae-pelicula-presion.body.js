@@ -728,7 +728,7 @@ const T_ROT = { '-20': 'arranque en helada', '0': 'mañana de invierno', '20': '
 
 // Espacio fino no separable: el mismo que usa el resto del dominio D6. Nunca se
 // llama a toLocaleString, que en este navegador formatea a la inglesa.
-const NBSP=' ';
+const NBSP=' ';
 function num(x,d=1){
   if(!isFinite(x)) return x>0?'∞':'—';
   const s=Math.abs(x).toFixed(d);

@@ -729,7 +729,7 @@ const CARGAS = [0, 0.25, 0.45, 0.7, 1];
 
 // Espacio fino no separable: el mismo que usa el resto del dominio D6. Nunca se
 // llama a toLocaleString, que en este navegador formatea a la inglesa.
-const NBSP=' ';
+const NBSP=' ';
 function num(x,d=1){
   if(!isFinite(x)) return x>0?'∞':'—';
   const s=Math.abs(x).toFixed(d);

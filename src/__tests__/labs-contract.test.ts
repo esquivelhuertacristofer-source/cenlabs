@@ -249,4 +249,21 @@ describe('briefings publicados como activos estáticos', () => {
     const culpables = DIRS_CON_INDEX.filter((id) => /from\s+'\.\/briefing'/.test(read(id, 'index.ts')));
     expect(culpables).toEqual([]);
   });
+
+  // El separador de millares de los labs 3D tiene que ser U+202F, un espacio
+  // FINO que no rompe línea. `wrapText` y `lineasDe` cortan por el literal ' '
+  // (U+0020), así que con un espacio normal «2 660 m» se convierte en tres
+  // fichas y puede partirse al final de una línea. Diez cuerpos lo habían
+  // perdido copiándose el encabezado unos a otros, y nadie podía notarlo
+  // porque sólo se ve cuando la cifra cae justo en el borde del recuadro.
+  it('el separador de millares de los cuerpos 3D es U+202F, no un espacio normal', () => {
+    const SRC = path.join(__dirname, '..', '..', 'scripts', 'lab-src');
+    if (!fs.existsSync(SRC)) return;
+    const malos: string[] = [];
+    for (const f of fs.readdirSync(SRC).filter((x) => x.endsWith('.body.js'))) {
+      const m = /const NBSP\s*=\s*'(.)'\s*;/.exec(fs.readFileSync(path.join(SRC, f), 'utf8'));
+      if (m && m[1] !== ' ') malos.push(`${f} (U+${m[1].charCodeAt(0).toString(16).toUpperCase().padStart(4, '0')})`);
+    }
+    expect(malos).toEqual([]);
+  });
 });

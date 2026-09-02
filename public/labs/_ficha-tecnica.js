@@ -135,8 +135,15 @@
     // §5 Qué modela y qué no
     if (c.s5) {
       parts.push('<div class="fh">5 · Qué modela y qué no</div>');
-      if (c.s5.modela) parts.push('<p><b>Sí modela:</b> ' + c.s5.modela + '</p>');
-      if (c.s5.noModela) parts.push('<p><b>No modela:</b> ' + c.s5.noModela + '</p>');
+      // Admite texto corrido o una lista. Con un array, concatenarlo con `+` lo
+      // pegaba separado por comas y sin viñetas: una tira ilegible.
+      var m5 = function (rot, v) {
+        if (!v) return;
+        if (Array.isArray(v)) { parts.push('<p><b>' + rot + '</b></p>'); parts.push(renderList(v)); }
+        else parts.push('<p><b>' + rot + '</b> ' + v + '</p>');
+      };
+      m5('Sí modela:', c.s5.modela);
+      m5('No modela:', c.s5.noModela);
     }
 
     // §6 Normas y fuentes
