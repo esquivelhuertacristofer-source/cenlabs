@@ -1,0 +1,9 @@
+{
+  "donor": "gases-verificacion.html",
+  "out": "catalizador-sondas.html",
+  "title": "CEN Labs · Eficiencia del catalizador y sondas de oxígeno — Laboratorio 3D",
+  "lt": "Motor de combustión interna · Mecánica",
+  "inspectHint": "👆 Pon la sonda anterior desviada con el catalizador NUEVO: sale un P0420 con 37 ppm de HC por el tubo. Y después el fósforo, que hace justo lo contrario",
+  "body": "catalizador-sondas.body.js",
+  "fichas": ["_ficha-tecnica.js", "_ficha-catalizador-sondas.js"]
+}
