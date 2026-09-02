@@ -94,8 +94,24 @@ html += body
   + '</script>\n'
   + '  <!-- Ficha técnica · Capa B del molde de lab 3D (componente compartido + contenido del lab) -->\n'
   + fichaTags + '\n'
+  // El puente al panel del profesor va SIEMPRE, y va aquí. El corte del donor
+  // se hace por encima de él, así que un lab recién construido nacía sin
+  // reportar nada — y nadie se enteraba, porque el lab funciona igual de bien
+  // sin él: lo único que falta es la nota del alumno. Lo comprueba
+  // `node scripts/instala-puente.mjs --comprueba`.
+  + '  <!-- Reporta avance y cierre al shell del alumno (src/lib/puente.ts) -->\n'
+  + '  <script src="_puente.js"></script>\n'
   + '</body>\n'
   + '</html>\n';
+
+// El lab tiene que arrancar sin internet: el motor 3D y la tipografía viven en
+// public/labs/vendor (ver scripts/vendor-labs.mjs). Si el donor es viejo y
+// todavía apunta al CDN, esto lo detiene aquí en vez de dejar un lab más que en
+// una escuela sin red pinta una pantalla negra sin decir por qué.
+const EXTERNO = /https:\/\/(cdn\.jsdelivr\.net|unpkg\.com|fonts\.googleapis\.com|fonts\.gstatic\.com)/;
+if (EXTERNO.test(html)) {
+  fail(`El donor ${cfg.donor} todavía carga recursos de internet. Corre antes:  node scripts/vendor-labs.mjs`);
+}
 
 const outPath = join(LABS_PUB, cfg.out);
 writeFileSync(outPath, html, 'utf8');

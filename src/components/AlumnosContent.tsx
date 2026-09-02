@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { materiaDe, rotuloMateria, ROTULOS } from "@/lib/materias";
 import Sidebar from "@/components/Sidebar";
 import { useAppContext } from "@/context/AppContext";
 import StudentProfileModal from "@/components/StudentProfileModal";
@@ -102,23 +103,23 @@ export default function AlumnosContent() {
             const groupName = (p.alumnos_grupos?.[0]?.grupos as any)?.nombre || "Sin Grupo";
             const initials = p.full_name?.split(' ').map((n: string) => n[0]).slice(0, 2).join('').toUpperCase() || "??";
             
-            // Generate stats for radar chart
-            const categories: Record<string, { total: number; count: number }> = {
-              'Química': { total: 0, count: 0 },
-              'Física': { total: 0, count: 0 },
-              'Biología': { total: 0, count: 0 },
-              'Matemáticas': { total: 0, count: 0 }
-            };
+            /* Radar de competencias. La clasificación va por `materiaDe` y no
+               por una cadena de `startsWith` con Matemáticas de omisión: así
+               era antes, y significaba que cualquier práctica que no fuera
+               química, física o biología se contaba como matemáticas. Con las
+               120 de mecánica ya reportando, eso habría torcido el radar de
+               todos los alumnos sin dar un solo error. */
+            const categories: Record<string, { total: number; count: number }> =
+              Object.fromEntries(ROTULOS.map((r) => [r, { total: 0, count: 0 }]));
 
             completed.forEach((i: any) => {
-              let cat = 'Matemáticas';
-              const sim = (i.sim_id as string).toLowerCase();
-              if (sim.startsWith('quimica')) cat = 'Química';
-              else if (sim.startsWith('fisica')) cat = 'Física';
-              else if (sim.startsWith('biologia')) cat = 'Biología';
-
-              categories[cat].total += (i.score || 0);
-              categories[cat].count += 1;
+              const cat = materiaDe(i.sim_id);
+              // Lo que no se reconoce no se reparte: se deja fuera del radar en
+              // vez de sumarlo a una materia que no le toca.
+              if (!cat) return;
+              const rot = rotuloMateria(i.sim_id);
+              categories[rot].total += (i.score || 0);
+              categories[rot].count += 1;
             });
 
             const stats = Object.entries(categories).map(([subject, stats]) => ({
@@ -141,15 +142,10 @@ export default function AlumnosContent() {
               lastActivity: "Recientemente", // Could be derived from completed_at
               stats,
               practices: intentos.map((i: any) => {
-                const prefix = (i.sim_id as string).split('-')[0].toLowerCase();
-                const subjectMap: Record<string, string> = {
-                  quimica: 'Química', fisica: 'Física',
-                  biologia: 'Biología', matematicas: 'Matemáticas',
-                };
                 return {
                   id: i.id,
                   name: i.sim_id,
-                  subject: subjectMap[prefix] ?? prefix.toUpperCase(),
+                  subject: rotuloMateria(i.sim_id),
                   status: i.status === 'completed' ? 'completada' : 'en_progreso',
                   score: i.score,
                   date: i.completed_at,

@@ -15,7 +15,7 @@
  * El MissionBriefing inicial es el mismo componente que usan los otros labs.
  */
 
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect, useRef, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { AnimatePresence } from "framer-motion";
 import {
@@ -29,6 +29,11 @@ import { CATALOGO } from "@/labs/_catalogo";
 import { supabase } from "@/lib/supabase-browser";
 import { getCurrentProfile } from "@/lib/supabase-helpers";
 import BitacoraMecanica from "@/components/bitacoras/BitacoraMecanica";
+import MarcadorLab from "@/components/MarcadorLab";
+import {
+  esMensajeLab, aplica, resumeDe, SESION_VACIA,
+} from "@/lib/puente";
+import type { Sesion } from "@/lib/puente";
 
 // ─── Timer local (no necesita el store de Zustand) ────────────────────────────
 function LabTimer({ active }: { active: boolean }) {
@@ -107,6 +112,87 @@ export default function MecanicaShellClient({
     };
     recordVisit();
   }, [simuladorId]);
+
+  /* ── EL PUENTE CON EL LAB ────────────────────────────────────────────────
+     Hasta ahora este shell embebía el lab y no se enteraba de nada de lo que
+     pasaba dentro: ni cuánto trabajó el alumno, ni si resolvió el reto. Por eso
+     el panel del profesor estaba vacío para las 120 prácticas de mecánica.
+     `public/labs/_puente.js` corre dentro del iframe y va contando; aquí se
+     recoge. Ver `src/lib/puente.ts` para el contrato y para cómo se convierte
+     una sesión en calificación. */
+  const [sesion, setSesion] = useState<Sesion>(SESION_VACIA);
+  const sesionRef = useRef<Sesion>(SESION_VACIA);
+  const iframeRef = useRef<HTMLIFrameElement>(null);
+
+  useEffect(() => {
+    const alLlegar = (ev: MessageEvent) => {
+      /* Dos filtros, y hacen falta los dos: el origen descarta lo que venga de
+         fuera de la plataforma, y la comprobación de la fuente descarta lo que
+         mande el propio Next en desarrollo o una extensión del navegador. */
+      if (ev.origin !== window.location.origin) return;
+      if (!esMensajeLab(ev.data)) return;
+      setSesion((previa) => {
+        const nueva = aplica(previa, ev.data);
+        sesionRef.current = nueva;
+        return nueva;
+      });
+    };
+    window.addEventListener("message", alLlegar);
+    return () => window.removeEventListener("message", alLlegar);
+  }, []);
+
+  /* ── EL GUARDADO ─────────────────────────────────────────────────────────
+     SE GUARDA MIENTRAS SE TRABAJA, NO AL SALIR, y eso no es una preferencia:
+     una tableta de escuela a la que se le acaba la batería, un navegador que
+     mata la pestaña por memoria o un alumno que cierra la tapa no disparan
+     ningún evento de salida fiable. Lo que se hizo tiene que estar guardado
+     antes de que eso pase.
+
+     TAMPOCO SE ESCRIBE EN CADA MENSAJE. El puente avisa cada vez que el alumno
+     cambia de modo, y eso serían decenas de escrituras por práctica para acabar
+     guardando lo mismo. Se escribe cuando la NOTA cambia —que es lo único que
+     el profesor va a ver— y una vez más al desmontar.
+
+     Y VA POR SUPABASE, NO POR `/api/resultados`. Se miró: esa ruta, con su
+     autenticación por Bearer y su doble limitador, no la llama nadie en toda la
+     aplicación —los labs de ciencias guardan con `supabase.from('intentos')`
+     directo, protegido por RLS—. Meter aquí una segunda vía de escritura habría
+     dejado dos caminos distintos para el mismo dato; se usa el que ya está
+     probado en producción. */
+  const ultimoGuardado = useRef<number>(-1);
+
+  const guardaSesion = useCallback(async (s: Sesion) => {
+    // Sin montaje no hubo práctica: un lab que no llegó a abrir no debe dejar
+    // un cero en el expediente del alumno.
+    if (!s.monto || s.segundos < 20) return;
+    const r = resumeDe(s);
+    if (r.score === ultimoGuardado.current) return;
+    ultimoGuardado.current = r.score;
+    try {
+      const user = await getCurrentProfile();
+      if (!user) return;
+      const { error } = await supabase.from("intentos").upsert(
+        {
+          id_alumno: user.id,
+          sim_id: simuladorId,
+          status: "completed",
+          score: r.score,
+          total_time_seconds: s.segundos,
+          completed_at: new Date().toISOString(),
+        },
+        { onConflict: "id_alumno, sim_id, status" }
+      );
+      if (error) console.error("[MecanicaShell] no se pudo guardar el avance:", error.message);
+    } catch (e) {
+      console.error("[MecanicaShell] no se pudo guardar el avance:", e);
+    }
+  }, [simuladorId]);
+
+  useEffect(() => {
+    void guardaSesion(sesion);
+  }, [sesion, guardaSesion]);
+
+  useEffect(() => () => { void guardaSesion(sesionRef.current); }, [guardaSesion]);
 
   // Sincroniza estado del botón con la Fullscreen API nativa
   useEffect(() => {
@@ -398,6 +484,7 @@ export default function MecanicaShellClient({
               {config?.codigo ?? simuladorId.toUpperCase()}
             </div>
             <LabTimer active={!mostrarPortada} />
+            {!mostrarPortada && <MarcadorLab sesion={sesion} acento={acento} />}
           </div>
 
           <div className="flex items-center gap-2 md:gap-3">
@@ -432,6 +519,7 @@ export default function MecanicaShellClient({
           <div className="flex-1 relative bg-[#080b10]">
             {!mostrarPortada && (
               <iframe
+                ref={iframeRef}
                 key={simuladorId}
                 src={htmlSrc}
                 title={config?.titulo ?? "Laboratorio de Mecánica"}
@@ -491,6 +579,7 @@ export default function MecanicaShellClient({
           <MissionBriefing
             key="briefing"
             config={config}
+            labId={simuladorId}
             onStart={() => setShowBriefing(false)}
           />
         )}

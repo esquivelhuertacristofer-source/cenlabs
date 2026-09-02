@@ -755,6 +755,7 @@ export default function SimuladorClient({ simuladorId }: { simuladorId: string }
             <MissionBriefing
               key="mission-briefing"
               config={briefing!}
+              labId={normalizedId}
               onStart={() => setShowBriefing(false)}
             />
           )}

@@ -22,7 +22,12 @@
     "preview:cf": "npm run cf:build && opennextjs-cloudflare preview",
     "deploy:cf": "npm run cf:build && opennextjs-cloudflare deploy",
     "lint": "eslint",
-    "test": "jest"
+    "test": "jest",
+    "voz:extraer": "node --experimental-strip-types --import ./scripts/_resolver-ts.mjs --disable-warning=ExperimentalWarning --disable-warning=MODULE_TYPELESS_PACKAGE_JSON scripts/voz/extraer-voz.mjs > zz-voz.json",
+    "voz:narrar": "python scripts/voz/narrar.py",
+    "voz:manifiesto": "node scripts/voz/manifiesto-voz.mjs",
+    "voz": "npm run voz:extraer && npm run voz:narrar && npm run voz:manifiesto",
+    "auditar:labs": "node scripts/auditoria/barrido-labs.mjs"
   },
   "dependencies": {
     "@base-ui/react": "^1.3.0",

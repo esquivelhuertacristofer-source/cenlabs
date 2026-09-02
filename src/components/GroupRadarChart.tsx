@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { materiaDe, rotuloMateria, ROTULOS } from "@/lib/materias";
 import {
   Radar,
   RadarChart,
@@ -52,22 +53,22 @@ export default function GroupRadarChart() {
         const { data: records } = await query;
 
         if (records && records.length > 0) {
-          const categories: Record<string, { total: number; count: number }> = {
-            'Química': { total: 0, count: 0 },
-            'Física': { total: 0, count: 0 },
-            'Biología': { total: 0, count: 0 },
-            'Matemáticas': { total: 0, count: 0 }
-          };
+          /* La clasificación va por `materiaDe`, no por los prefijos cortos.
+             Este bloque comparaba contra `QMI`, `FIS` y `BIO`, que son los
+             identificadores VIEJOS; los que se guardan hoy son `quimica-3`,
+             `fisica-1`… Con eso, `FISICA-1` y `BIOLOGIA-1` acertaban de
+             casualidad —empiezan por FIS y BIO— pero `QUIMICA-1` no empieza por
+             QMI, así que TODA la química se estaba contando como matemáticas y
+             el eje de Química del radar de grupo salía en cero. Mecánica caía en
+             el mismo saco por la omisión. */
+          const categories: Record<string, { total: number; count: number }> =
+            Object.fromEntries(ROTULOS.map((r) => [r, { total: 0, count: 0 }]));
 
           records.forEach(r => {
-            let cat = 'Matemáticas';
-            const sim = r.sim_id.toUpperCase();
-            if (sim.startsWith('QMI')) cat = 'Química';
-            else if (sim.startsWith('FIS')) cat = 'Física';
-            else if (sim.startsWith('BIO')) cat = 'Biología';
-            
-            categories[cat].total += (r.score || 0);
-            categories[cat].count += 1;
+            if (!materiaDe(r.sim_id)) return;
+            const rot = rotuloMateria(r.sim_id);
+            categories[rot].total += (r.score || 0);
+            categories[rot].count += 1;
           });
 
           const formatted = Object.entries(categories).map(([subject, stats]) => ({

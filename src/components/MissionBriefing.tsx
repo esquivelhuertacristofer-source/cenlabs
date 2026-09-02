@@ -18,6 +18,10 @@ import {
 } from "lucide-react";
 import Image from "next/image";
 import { InlineMath } from "react-katex";
+import { ProveedorLector, Bocina, CallarAlCambiar } from "@/components/voz/Lector";
+import { clipsDeBriefing } from "@/lib/voz/claves";
+import type { Bloque, Clip } from "@/lib/voz/claves";
+import { tieneVoz } from "@/lib/voz/hecha";
 
 // ─── Tipos ────────────────────────────────────────────────────────────────────
 export interface BriefingConfig {
@@ -48,17 +52,36 @@ export interface BriefingConfig {
 interface MissionBriefingProps {
   config: BriefingConfig;
   onStart: () => void;
+  /**
+   * El lab al que pertenece esta portada (`mecanica-120`, `quimica-3`…). Es lo
+   * que decide de qué carpeta salen los MP3 de la narración. Sin él la portada
+   * se pinta igual, sólo que muda: los labs que todavía no se han grabado pasan
+   * por aquí sin `labId` y no ven bocinas.
+   */
+  labId?: string;
 }
 
 // ─── Componente ───────────────────────────────────────────────────────────────
-export default function MissionBriefing({ config, onStart }: MissionBriefingProps) {
+export default function MissionBriefing({ config, onStart, labId }: MissionBriefingProps) {
   const [mounted, setMounted] = useState(false);
   useEffect(() => { setMounted(true); }, []);
-  
+
   const [imgError, setImgError] = useState(false);
   const [exiting, setExiting] = useState(false);
   const [scrolled, setScrolled] = useState(false);
   const acento = config.acento ?? "#219EBC";
+
+  /* Las frases y sus claves se deducen del MISMO briefing que se está pintando,
+     con el mismo código que usó el extractor al grabarlas. Por eso no hay lista
+     de claves que mantener a mano: si el texto cambia, cambian las dos cosas a
+     la vez y el manifiesto deja el lab fuera hasta que se vuelva a grabar. */
+  const conVoz = !!labId && tieneVoz(labId);
+  const porBloque = React.useMemo<Record<Bloque, Clip[]>>(() => {
+    const vacio = { titulo: [], bienvenida: [], conceptos: [], mision: [], aplicaciones: [] } as Record<Bloque, Clip[]>;
+    if (!conVoz) return vacio;
+    for (const clip of clipsDeBriefing(config)) vacio[clip.bloque].push(clip);
+    return vacio;
+  }, [conVoz, config]);
 
   const handleStart = () => {
     setExiting(true);
@@ -66,6 +89,7 @@ export default function MissionBriefing({ config, onStart }: MissionBriefingProp
   };
 
   return (
+    <ProveedorLector labId={labId ?? ""} activo={conVoz}>
     <AnimatePresence>
       {!exiting ? (
         <motion.div
@@ -80,6 +104,7 @@ export default function MissionBriefing({ config, onStart }: MissionBriefingProp
         >
           {/* ── Partículas de fondo (decoración) ── */}
           <Particles acento={acento} />
+          <CallarAlCambiar testigo={exiting} />
 
           {/* ── Card Central ── */}
           <motion.div
@@ -192,6 +217,12 @@ export default function MissionBriefing({ config, onStart }: MissionBriefingProp
                   >
                     {config.titulo}
                   </motion.h1>
+                  {/* La bocina del bloque de bienvenida va aqui, pegada al
+                      texto que lee, y no en una barra de herramientas: quien la
+                      busca la busca al lado de lo que quiere oir. */}
+                  <div className="mb-3">
+                    <Bocina clips={porBloque.bienvenida} etiqueta="la bienvenida" />
+                  </div>
                   <motion.p
                     initial={{ opacity: 0 }}
                     animate={{ opacity: 1 }}
@@ -218,7 +249,7 @@ export default function MissionBriefing({ config, onStart }: MissionBriefingProp
               )}
 
               {/* ── CONCEPTOS FUNDAMENTALES ── */}
-              <Section title="Conceptos Fundamentales" icon={<BookOpen size={14} />} acento={acento}>
+              <Section title="Conceptos Fundamentales" icon={<BookOpen size={14} />} acento={acento} accion={<Bocina clips={porBloque.conceptos} etiqueta="los conceptos" compacta />}>
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                   {config.conceptos.map((c, i) => (
                     <motion.div
@@ -238,7 +269,7 @@ export default function MissionBriefing({ config, onStart }: MissionBriefingProp
               </Section>
 
               {/* ── MISIÓN ── */}
-              <Section title="Tu Misión en Esta Práctica" icon={<Rocket size={14} />} acento={acento}>
+              <Section title="Tu Misión en Esta Práctica" icon={<Rocket size={14} />} acento={acento} accion={<Bocina clips={porBloque.mision} etiqueta="la misión" compacta />}>
                 <ol className="space-y-3">
                   {config.mision.map((paso, i) => (
                     <motion.li
@@ -261,7 +292,7 @@ export default function MissionBriefing({ config, onStart }: MissionBriefingProp
               </Section>
 
               {/* ── APLICACIONES REALES ── */}
-              <Section title="¿Para Qué Sirve en la Vida Real?" icon={<Globe2 size={14} />} acento={acento}>
+              <Section title="¿Para Qué Sirve en la Vida Real?" icon={<Globe2 size={14} />} acento={acento} accion={<Bocina clips={porBloque.aplicaciones} etiqueta="las aplicaciones" compacta />}>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   {config.aplicaciones.map((ap, i) => (
                     <motion.div
@@ -372,6 +403,7 @@ export default function MissionBriefing({ config, onStart }: MissionBriefingProp
         </motion.div>
       ) : null}
     </AnimatePresence>
+    </ProveedorLector>
   );
 }
 
@@ -408,8 +440,13 @@ function VideoPlayer({ url, acento }: { url: string; acento: string }) {
 
 // ─── Sub-componente: Sección con título ───────────────────────────────────────
 function Section({
-  title, icon, acento, children,
-}: { title: string; icon: React.ReactNode; acento: string; children: React.ReactNode }) {
+  title, icon, acento, accion, children,
+}: {
+  title: string; icon: React.ReactNode; acento: string;
+  /** Botón al final de la cabecera —hoy la bocina—. Opcional: sin él la barra queda como estaba. */
+  accion?: React.ReactNode;
+  children: React.ReactNode;
+}) {
   return (
     <div>
       <div className="flex items-center gap-2 mb-4">
@@ -421,6 +458,7 @@ function Section({
         </div>
         <h2 className="text-[11px] font-black uppercase tracking-[0.2em] text-white/60">{title}</h2>
         <div className="flex-1 h-px bg-white/5" />
+        {accion}
       </div>
       {children}
     </div>

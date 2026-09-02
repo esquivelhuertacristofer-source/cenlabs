@@ -66,3 +66,13 @@ next-env.d.ts
 # (se conserva solo el instructivo LEEME.md)
 /docs/curriculas-mecanica/*
 !/docs/curriculas-mecanica/LEEME.md
+
+# LA NARRACIÓN NO ENTRA AL REPO. Son ~6 700 MP3 y del orden de 250 MB, y se
+# regeneran solos: `npm run voz` los rehace desde los briefings publicados y
+# sólo baja lo que falta o lo que cambió de texto. Meterlos en git sería cargar
+# un cuarto de giga en cada clon para guardar algo derivado.
+# El manifiesto `src/lib/voz/hecha.ts` SÍ se versiona: es la lista de qué labs
+# tienen voz, y es lo que impide que la página pida un archivo que no está.
+public/assets/voz/
+zz-voz.json
+scripts/auditoria/.salida/

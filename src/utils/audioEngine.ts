@@ -253,17 +253,55 @@ export class AudioEngine {
     }
   }
 
+  /**
+   * EL NARRADOR DE RESPALDO, y sólo eso.
+   *
+   * La voz de la plataforma es Dalia grabada: `es-MX-DaliaNeural` por edge-tts,
+   * servida como MP3 desde `/assets/voz/` y reproducida por
+   * `src/components/voz/Lector.tsx`. Suena igual en todas las máquinas y se
+   * puede revisar antes de entrar al salón. Esto de aquí es lo que queda para
+   * los textos que NO se pueden grabar porque se arman en el momento —un aviso
+   * de error con el parámetro que falló, por ejemplo—.
+   *
+   * DOS COSAS QUE NO SE VUELVEN A PONER:
+   *
+   * · `pitch`. Estaba en 1.1 «para que el Dr. Quantum sonara un poco más
+   *   agudo». Subir el tono no le pide al sintetizador que hable más agudo:
+   *   desplaza la frecuencia de lo ya sintetizado y arrastra los formantes, que
+   *   son las resonancias que hacen que una voz suene a persona de cierta edad
+   *   y cierto tamaño. Subirlos encoge la garganta. La plataforma de robótica ya
+   *   pagó este error y el cliente lo describió así: «a veces se escucha como
+   *   niña, otras como monstruo». No hay dosis pequeña que lo salve: es el
+   *   mecanismo. Se queda en el 1.0 que el motor da por omisión.
+   * · Dar por hecho que la máquina tiene voz en español. `getVoices()` devuelve
+   *   lo que ESE equipo tenga instalado, y en una laptop de escuela puede no
+   *   haber ninguna. Si no la hay, esto se calla en vez de leer con acento
+   *   inglés, que se entiende peor que el silencio.
+   *
+   * Se prefieren las voces `local` (Microsoft las instala con el idioma) sobre
+   * las de red, porque en un salón sin internet estable una voz remota se corta
+   * a media frase.
+   */
   public playGuide(text: string) {
     if (typeof window === 'undefined' || !window.speechSynthesis) return;
     window.speechSynthesis.cancel();
+
+    const voces = window.speechSynthesis.getVoices();
+    const esES = voces.filter(v => v.lang.toLowerCase().startsWith('es'));
+    if (esES.length === 0) return;
+
+    const voz =
+      esES.find(v => v.lang.toLowerCase().startsWith('es-mx') && v.localService) ??
+      esES.find(v => v.lang.toLowerCase().startsWith('es-mx')) ??
+      esES.find(v => v.localService) ??
+      esES[0];
+
     const ut = new SpeechSynthesisUtterance(text);
-    const voices = window.speechSynthesis.getVoices();
-    const voice = voices.find(v => v.lang.includes('es-MX') && v.name.includes('Google')) || 
-                  voices.find(v => v.lang.includes('es-MX')) || 
-                  voices.find(v => v.lang.includes('es'));
-    if (voice) ut.voice = voice;
-    ut.rate = 1.0;
-    ut.pitch = 1.1; // Un poco más agudo para el Dr. Quantum
+    ut.voice = voz;
+    ut.lang = voz.lang;
+    // 0.95 y no 1.0: es texto técnico y el respaldo no tiene la dirección por
+    // frases que sí lleva el audio grabado.
+    ut.rate = 0.95;
     window.speechSynthesis.speak(ut);
   }
 
