@@ -1,0 +1,3184 @@
+const mount=document.getElementById('stage');
+// Estas cifras sólo valen para el primer fotograma: en cuanto la escena arranca
+// el encuadre se CALCULA, porque depende del tamaño del banco y de la forma de
+// la ventana y no puede estar escrito a mano.
+const S=createStage(mount,{cam:[7.2,4.9,10.8],target:[0.6,1.95,0.30],
+  bgTop:'#151b23',bgBot:'#05070b',bloom:0.26,minD:2.6,maxD:40});
+const {scene}=S;
+const synth=makeSynth({type:'square',type2:'sine',filterFreq:960,Q:0.70});
+// `clamp` NO se declara aquí: lo declara el motor sellado que se empalma justo
+// debajo, y declararlo dos veces es un SyntaxError que mata la página entera
+// antes de que exista window.__labDebug.
+const el=id=>document.getElementById(id);
+const TINTA='#e8eef6', CIAN='#5ad1e6', OK_HEX='#7cd992', WARN_HEX='#e9c46a',
+      BAD_HEX='#ff6b6b', GRIS='#7b8697', VIO='#b48ce0', NARANJA='#f0a05a',
+      AZUL='#6ea8fe', ROSA='#f28dbb';
+
+// ============================================================================
+//  d6-13 · SOBREALIMENTACIÓN: TURBO, WASTEGATE E INTERCOOLER — MOTOR SELLADO
+//
+//  QUÉ SE MIDE
+//  Un motor sobrealimentado en un banco, con el camino del aire entero a la
+//  vista: filtro, compresor, intercooler, mariposa, cilindros, turbina y
+//  válvula de descarga. Lo que se mide es la presión y la temperatura en cada
+//  punto del camino, el sitio donde el compresor está trabajando dentro de su
+//  MAPA, y la masa de aire que de verdad entra al cilindro — que es lo único
+//  que da par.
+//
+//  LA TESIS. Un turbo no da potencia: da DENSIDAD. Y la densidad es presión
+//  ENTRE temperatura, así que la mitad de lo que el compresor gana comprimiendo
+//  se pierde calentando. El intercooler no es un accesorio de confort: es la
+//  pieza que convierte esa presión en masa. Sin él, subir el soplado deja de
+//  dar par mucho antes de lo que la presión sugiere, y empieza a picar.
+//
+//  CÓMO SE RESUELVE
+//  · El compresor se lee de un MAPA cerrado: para cada velocidad reducida hay
+//    una elipse de relación de presiones contra gasto corregido, con su línea
+//    de bombeo y su línea de bloqueo, y unas islas de rendimiento gaussianas.
+//    De ahí sale η del compresor, y de η sale la temperatura de salida.
+//  · El eje se EQUILIBRA: la potencia que la turbina saca del escape tiene que
+//    ser exactamente la que el compresor gasta. La válvula de descarga es la
+//    que sobra: se abre lo justo para que el equilibrio caiga en la consigna.
+//    Si con la descarga cerrada la turbina todavía no da bastante, la presión
+//    NO llega — y eso es el retardo del turbo a bajas vueltas, que aquí no se
+//    afirma: sale de resolver el equilibrio.
+//  · La turbina traga por una ley de tobera: el gasto que le entra fija la
+//    contrapresión, y la contrapresión se paga en el rendimiento volumétrico.
+//  · El intercooler es un intercambiador con efectividad y con pérdida de
+//    carga. Las dos cosas: enfría, y estorba.
+//  · El límite de detonación cierra el argumento. Con la temperatura de la
+//    mezcla al final de la compresión y el octanaje del combustible sale un
+//    soplado máximo, y ése es el que manda cuando el intercooler no está.
+//
+//  QUÉ NO SE MODELA (y se declara)
+//  · La geometría variable de la turbina con su ley de mando. Aquí la turbina
+//    tiene una sección efectiva fija por arquetipo y una válvula de descarga.
+//  · El transitorio del colector de admisión. El retardo que se calcula es el
+//    del EJE (su inercia contra el par neto), no el llenado del volumen.
+//  · La combustión. El par sale de la masa de aire por ciclo y de un
+//    rendimiento indicado, no de resolver el ciclo.
+//  · La acústica: ni el silbido del compresor ni el golpe de la válvula de
+//    alivio, que aquí sólo se nombran.
+//  · La lubricación y la refrigeración del turbo, y por tanto la coquización
+//    del aceite, que es la causa real de la mitad de los turbos muertos.
+//
+//  FUENTES ANCLA
+//  · Watson, N. y Janota, M. S., «Turbocharging the Internal Combustion
+//    Engine» — mapas de compresor y turbina, equilibrio del eje, bombeo.
+//  · Heywood, J. B., «Internal Combustion Engine Fundamentals» — rendimiento
+//    volumétrico, contrapresión de escape, detonación y su dependencia de la
+//    temperatura de la carga.
+//  · Robert Bosch GmbH, «Automotive Handbook» — sobrealimentación, refrigeración
+//    del aire de admisión y regulación de la presión de soplado.
+//  · SAE J1826 — ensayo y presentación de mapas de compresor de turbocompresor.
+//  · Kays, W. M. y London, A. L., «Compact Heat Exchangers» — efectividad-NTU
+//    del intercambiador de flujos cruzados del intercooler.
+// ============================================================================
+
+const clamp = (x, a, b) => Math.max(a, Math.min(b, x));
+
+// ============================================================================
+// 1 · EL AIRE
+// ============================================================================
+const R_AIRE = 287.05;      // J/(kg·K)
+const CP_AIRE = 1005;       // J/(kg·K)
+const G_AIRE = 1.400;
+const K_AIRE = (G_AIRE - 1) / G_AIRE;          // 0,2857
+// El gas de escape es más pesado y menos «duro»: por eso una misma relación de
+// expansión da menos trabajo por kilo del que costó comprimir.
+const CP_ESC = 1150, G_ESC = 1.330;
+const K_ESC = (G_ESC - 1) / G_ESC;             // 0,2481
+
+const P_REF = 101325, T_REF = 298.15;          // condiciones de referencia SAE J1826
+
+function densidad(p, T) { return p / (R_AIRE * T); }
+
+// La atmósfera cambia con la altitud, y esto es México: la Ciudad de México
+// está a 2 240 m y la presión ambiente es el 76 % de la del nivel del mar. Un
+// turbo lo compensa —por eso un coche sobrealimentado pierde mucha menos
+// potencia en altura que uno atmosférico—, pero lo compensa TRABAJANDO MÁS.
+function presionAmbiente(alt) {
+  return P_REF * Math.pow(1 - 2.25577e-5 * alt, 5.25588);
+}
+
+// ============================================================================
+// 2 · EL MAPA DEL COMPRESOR
+// ============================================================================
+// No es una tabla: es un mapa cerrado, y cada línea de velocidad reducida es
+// una elipse. Ese modelo reproduce lo que importa de un mapa real —que subir la
+// relación de presiones cierra el margen contra el bombeo, que el bloqueo pone
+// un techo al gasto, y que el rendimiento tiene una isla— sin necesitar 400
+// puntos medidos que no tenemos.
+function correGasto(m, p1, T1) {              // gasto corregido, kg/s
+  return m * Math.sqrt(T1 / T_REF) / (p1 / P_REF);
+}
+function correVel(N, T1) {                    // velocidad corregida, rpm
+  return N / Math.sqrt(T1 / T_REF);
+}
+// Para una velocidad reducida u ∈ [0,1]: el tope de relación de presiones y el
+// gasto de bloqueo de esa línea.
+function piMax(e, u) { return 1 + (e.piMax - 1) * Math.pow(clamp(u, 0, 1.15), 1.85); }
+function mChoke(e, u) { return e.mChoke * Math.pow(clamp(u, 0.02, 1.15), 0.85); }
+// La línea de bombeo NO es una fracción fija del bloqueo: es una curva en el
+// plano (gasto, relación de presiones), y sube con la relación de presiones.
+// Ponerla como fracción constante de la línea de velocidad hacía que un 1.4 a
+// 1 500 rpm apareciera bombeando cuando lo que hace es vivir CERCA del bombeo,
+// que es distinto y es la mitad de lo que esta práctica enseña.
+function mBombeo(e, pi) {
+  return e.mChoke * e.cBombeo * Math.pow(Math.max(0, pi - 1), 0.72);
+}
+// La elipse: dado el gasto y la velocidad reducida, la relación de presiones.
+function piDe(e, m, u) {
+  const mc = mChoke(e, u);
+  if (m >= mc) return 1;
+  const f = 1 - Math.pow(m / mc, 3);
+  return 1 + (piMax(e, u) - 1) * Math.sqrt(Math.max(0, f));
+}
+// Y al revés, que es como se usa: sé qué relación de presiones necesito y qué
+// gasto tengo; ¿a qué velocidad tiene que girar el compresor?
+function uPara(e, m, pi) {
+  let lo = 0.02, hi = 1.60;
+  if (piDe(e, m, hi) < pi) return null;        // no llega ni a tope de vueltas
+  for (let i = 0; i < 46; i++) {
+    const mid = (lo + hi) / 2;
+    if (piDe(e, m, mid) < pi) lo = mid; else hi = mid;
+  }
+  return hi;
+}
+// El rendimiento isentrópico: dos gaussianas, una en el gasto relativo al
+// bloqueo de su línea y otra en la velocidad. De ahí sale la isla.
+function etaComp(e, m, u) {
+  const mc = mChoke(e, u);
+  const x = mc > 0 ? m / mc : 0;
+  const a = (x - 0.64) / 0.46, b = (u - 0.74) / 0.55;
+  return clamp(e.etaMax * Math.exp(-(a * a + b * b) * 0.70), 0.30, e.etaMax);
+}
+// La temperatura de salida del compresor. Ésta es la mitad de la práctica: un
+// compresor perfecto ya calienta, y uno real calienta el doble.
+function T2de(T1, pi, eta) {
+  return T1 * (1 + (Math.pow(pi, K_AIRE) - 1) / Math.max(0.10, eta));
+}
+function potenciaComp(m, T1, pi, eta) {
+  return m * CP_AIRE * T1 * (Math.pow(pi, K_AIRE) - 1) / Math.max(0.10, eta);
+}
+
+// ============================================================================
+// 3 · EL INTERCOOLER
+// ============================================================================
+// Enfría Y estorba. Las dos cosas a la vez, y por eso hay un tamaño óptimo:
+// uno demasiado grande baja tanto la presión que se come lo que ganó bajando
+// la temperatura.
+function epsilonIC(e, m, vAire, F) {
+  const suciedad = F.icSucio ? 0.55 : 1;
+  if (F.sinIC) return 0;
+  // NTU sube con la superficie y baja con el gasto; el aire de marcha ayuda.
+  // El aire de marcha se refiere a 60 km/h, que es donde se ajusta `icNTU`: con
+  // la referencia en 22 la efectividad salia del 90 % en un intercooler de
+  // turismo, y eso es mas de lo que da un aire-aire de serie. Ahora a 60 km/h da
+  // 86 %, a 110 sube y en ciudad, a 20, se cae al 74 % — que es exactamente la
+  // razon de que un coche muy soplado sufra parado en un atasco.
+  const NTU = e.icNTU * suciedad * Math.pow(clamp(vAire / 60, 0.30, 2.0), 0.42)
+    / Math.pow(Math.max(0.008, m) / e.mRef, 0.55);
+  // Flujos cruzados con los dos fluidos sin mezclar (Kays & London).
+  const Cr = 0.30;
+  return clamp(1 - Math.exp((Math.pow(NTU, 0.22) / Cr) * (Math.exp(-Cr * Math.pow(NTU, 0.78)) - 1)),
+    0, 0.96);
+}
+function dpIC(e, m, F) {
+  if (F.sinIC) return 0;
+  const suciedad = F.icSucio ? 2.6 : 1;
+  return e.icDp * suciedad * Math.pow(Math.max(0, m) / e.mRef, 1.85);
+}
+// El filtro de aire estorba a la ENTRADA, que es donde más caro sale: cada
+// milibar que falta ahí el compresor lo tiene que poner con más vueltas.
+function dpFiltro(e, m, F) {
+  const suciedad = F.filtroSucio ? 7.0 : 1;
+  return e.dpFiltro * suciedad * Math.pow(Math.max(0, m) / e.mRef, 1.85);
+}
+
+// ============================================================================
+// 4 · EL MOTOR COMO BOMBA
+// ============================================================================
+// El rendimiento volumétrico no es una constante del motor: baja con la
+// contrapresión de escape, que es justo lo que la turbina crea. Ése es el
+// precio del turbo, y sin él la práctica mentiría a favor del turbo.
+function etaVol(e, rpm, pAdm, pEsc) {
+  // La parábola va en régimen NORMALIZADO al recorrido del motor, no en
+  // múltiplos del régimen de par máximo: con lo segundo, un motor que gira
+  // hasta 2,5 veces su par máximo se topaba en el suelo del clamp y la curva
+  // salía con un escalón que no existe en ningún banco.
+  const x = (rpm - e.rpmPar) / Math.max(1, e.rpmMax - e.rpmRal);
+  const forma = 1 - 0.30 * x * x;
+  // Y el barrido: cuanto más contrapresión deja la turbina, más gas quemado se
+  // queda dentro. Es el precio del turbo y aquí se cobra.
+  const barrido = 1 - 0.22 * clamp(pEsc / Math.max(1e3, pAdm) - 1, -0.4, 3.0);
+  return clamp(e.etaVolMax * clamp(forma, 0.55, 1.03) * barrido, 0.30, 1.05);
+}
+function gastoAire(e, rpm, pAdm, TAdm, pEsc) {
+  const rho = densidad(pAdm, TAdm);
+  const ciclosPorSeg = (rpm / 60) / 2;
+  return etaVol(e, rpm, pAdm, pEsc) * e.cilindrada * 1e-3 * ciclosPorSeg * rho;   // kg/s
+}
+
+// ============================================================================
+// 5 · LA TURBINA Y LA VÁLVULA DE DESCARGA
+// ============================================================================
+// La turbina traga por una ley de tobera: el gasto que le mandan FIJA la
+// presión que hay delante de ella. Por eso una turbina pequeña sopla antes y
+// ahoga después, y por eso la válvula de descarga existe.
+function fiTobera(pi) {                       // función de gasto, normalizada
+  const p = clamp(pi, 1.0001, 6);
+  const f = Math.sqrt(1 - 1 / (p * p));
+  return f;
+}
+// La turbina y la válvula de descarga son DOS toberas EN PARALELO alimentadas
+// por la misma presión. De ahí sale todo: la contrapresión la fija el área
+// total, y la potencia sólo la da el gasto que pasa por la turbina.
+function presionDelante(Atot, mEsc, T3, pSalida) {
+  let lo = pSalida, hi = pSalida * 12;
+  for (let i = 0; i < 52; i++) {
+    const p3 = (lo + hi) / 2;
+    const m = Atot * p3 / Math.sqrt(T3) * fiTobera(p3 / pSalida);
+    if (m < mEsc) lo = p3; else hi = p3;
+  }
+  return hi;
+}
+function potenciaTurbina(mT, T3, piT, eta) {
+  return mT * CP_ESC * T3 * eta * (1 - Math.pow(1 / Math.max(1.0001, piT), K_ESC));
+}
+// El equilibrio del eje: se busca la apertura de la descarga con la que la
+// turbina da EXACTAMENTE lo que el compresor gasta. Si con la descarga cerrada
+// todavía no llega, se devuelve lo que hay y quien llama baja la consigna: eso
+// es el retardo del turbo, y no está escrito en ninguna constante.
+function equilibraEje(e, mEsc, T3, pSalida, Pc, etaT, F) {
+  const At = e.aTurbina * (F.escapeTapado ? 0.52 : 1);
+  const Awg = e.aWastegate;
+  const potPara = x => {
+    const Atot = At + Awg * x;
+    const p3 = presionDelante(Atot, mEsc, T3, pSalida);
+    const mT = mEsc * At / Atot;
+    const piT = p3 / pSalida;
+    return { x, p3, piT, mT, Pt: potenciaTurbina(mT, T3, piT, etaT) };
+  };
+  // Averías que fijan la apertura por su cuenta.
+  if (F.wgAbierta) return Object.assign(potPara(1), { forzada: 'abierta' });
+  if (F.wgPegada) return Object.assign(potPara(0), { forzada: 'cerrada' });
+  const cerrada = potPara(0);
+  if (cerrada.Pt <= Pc) return Object.assign(cerrada, { faltaPotencia: true });
+  let lo = 0, hi = 1;
+  for (let i = 0; i < 40; i++) {
+    const mid = (lo + hi) / 2;
+    if (potPara(mid).Pt > Pc) lo = mid; else hi = mid;
+  }
+  return Object.assign(potPara(lo), { faltaPotencia: false });
+}
+// La temperatura delante de la turbina. Sale del aire que entra y de lo que la
+// combustión le añade, que crece con la carga y con el régimen. `dTComb` es,
+// por construcción, el salto a PLENA CARGA y régimen máximo: un motor de
+// gasolina pone ahí 880-920 K —900 °C delante de la turbina— y un diésel, con
+// mucho más aire por gramo de combustible, se queda 200 K por debajo.
+function T3de(e, TAdm, carga, rpm) {
+  const salto = e.dTComb * (0.42 + 0.58 * carga) * (0.86 + 0.14 * clamp(rpm / e.rpmMax, 0, 1.2));
+  return TAdm + salto;
+}
+
+// ============================================================================
+// 6 · LA DETONACIÓN
+// ============================================================================
+// Cierra el argumento de la práctica: la temperatura de la mezcla al final de
+// la compresión sale de la de admisión por la misma relación politrópica del
+// d6-01, y la detonación aparece cuando esa temperatura pasa de un umbral que
+// depende del octanaje. En diésel no aplica —ahí la autoinflamación es lo que
+// se busca—, y por eso un diésel puede soplar mucho más.
+const N_POLI = 1.34;
+function Tcompresion(e, TAdm) {
+  return TAdm * Math.pow(e.rc, N_POLI - 1);
+}
+function Tdetona(e, octanaje) {
+  if (e.diesel) return 1e9;
+  return 720 + 7.4 * (octanaje - 87);          // K
+}
+// Y de ahí sale el soplado máximo que este combustible aguanta en este motor.
+// Devuelve la RELACIÓN DE PRESIONES máxima que este combustible tolera en este
+// motor con este intercooler. El aire entra al compresor a la temperatura
+// ambiente, así que T1 y la temperatura del aire de refrigeración del
+// intercooler son la misma: por eso sólo hace falta un argumento de
+// temperatura. El rendimiento que se usa es el del PUNTO, no el mejor del
+// mapa: un compresor trabajando fuera de su isla calienta más para la misma
+// presión, y eso adelanta la detonación.
+function piMaxDetona(e, T1, octanaje, epsIC, etaC) {
+  if (e.diesel) return 1e9;
+  const Tlim = Tdetona(e, octanaje);
+  const TAdmLim = Tlim / Math.pow(e.rc, N_POLI - 1);
+  // Se invierte el intercooler: qué T2 admite ese TAdm.
+  const T2lim = epsIC >= 0.999 ? T1 : (TAdmLim - epsIC * T1) / (1 - epsIC);
+  if (T2lim <= T1) return 1;
+  const pi = Math.pow(1 + (T2lim / T1 - 1) * clamp(etaC, 0.25, 0.90), 1 / K_AIRE);
+  return Math.max(1, pi);
+}
+
+// ============================================================================
+// 7 · EL PUNTO DE FUNCIONAMIENTO: SE RESUELVE, NO SE DECLARA
+// ============================================================================
+// El bucle exterior busca la presión de soplado; el interior cierra el camino
+// del aire —el gasto depende de la presión de admisión y la presión de admisión
+// de la pérdida del intercooler, que depende del gasto— y el equilibrio del eje
+// decide si esa presión es alcanzable. Si con la descarga CERRADA la turbina no
+// llega, la presión baja hasta donde el equilibrio la deje: eso es el retardo
+// del turbo a bajas vueltas, y aquí no se afirma, sale.
+function caminoAire(e, rpm, p2, F, C) {
+  let m = C.m0, pEsc = C.pAmb * 1.35;
+  let T2 = C.Tamb, TAdm = C.Tamb, eps = 0, p1 = C.pAmb, pi = 1, etaC = e.etaMax, u = null;
+  for (let j = 0; j < 26; j++) {
+    p1 = C.pAmb - dpFiltro(e, m, F);
+    pi = Math.max(1.0001, p2 / Math.max(1e3, p1));
+    const mCorr = correGasto(m, p1, C.Tamb);
+    u = uPara(e, mCorr, pi);
+    etaC = u === null ? 0.30 : etaComp(e, mCorr, u);
+    T2 = T2de(C.Tamb, pi, etaC);
+    eps = epsilonIC(e, m, C.vAire, F);
+    TAdm = T2 - eps * (T2 - C.Tamb);
+    let pAdm = p2 - dpIC(e, m, F) - (F.fugaCarga ? e.fugaDp : 0);
+    pAdm = Math.max(C.pAmb * 0.28, pAdm);
+    const mNuevo = gastoAire(e, rpm, pAdm, TAdm, pEsc);
+    m += (mNuevo - m) * 0.55;
+    const mE = m * (1 + 1 / e.afr);
+    const T3 = T3de(e, TAdm, C.carga, rpm);
+    // La contrapresión que hay AHORA mismo depende de la apertura de la
+    // descarga, y ésa la decide el equilibrio: se usa la del paso anterior.
+    const Atot = e.aTurbina * (F.escapeTapado ? 0.52 : 1) + e.aWastegate * C.xWG;
+    pEsc = presionDelante(Atot, mE, T3, C.pAmb);
+  }
+  const pAdm = Math.max(C.pAmb * 0.28,
+    p2 - dpIC(e, m, F) - (F.fugaCarga ? e.fugaDp : 0));
+  return { m, mCorr: correGasto(m, p1, C.Tamb), u, etaC, pi, p1, p2, pAdm, T2, TAdm, eps, pEsc,
+    T3: T3de(e, TAdm, C.carga, rpm), mEsc: m * (1 + 1 / e.afr) };
+}
+
+function resuelve(e, rpm, carga, F, amb) {
+  F = F || {}; amb = amb || {};
+  const alt = amb.alt === undefined ? 0 : amb.alt;
+  const Tamb = (amb.Tamb === undefined ? 25 : amb.Tamb) + 273.15;
+  const vAire = amb.vAire === undefined ? 60 : amb.vAire;
+  const octanaje = amb.octanaje === undefined ? 91 : amb.octanaje;
+  const pAmb = presionAmbiente(alt);
+  const etaT = e.etaTurbina * (F.turboGastado ? 0.72 : 1);
+  const etaMec = e.etaMecEje * (F.turboGastado ? 0.86 : 1);
+  const C = { pAmb, Tamb, vAire, carga, m0: e.mRef * Math.max(0.08, carga), xWG: 0.25 };
+
+  // La consigna del ordenador es de presión ABSOLUTA de colector, referida al
+  // nivel del mar: `sopladoObj` es lo que el motor sopla en el llano, y en
+  // altura el ordenador pide LA MISMA PRESIÓN ABSOLUTA. Por eso un turbo
+  // recupera en Toluca casi todo lo que un atmosférico pierde —y por eso el
+  // turbo gira mucho más deprisa allí, que es lo que hay que enseñar—. El
+  // límite sigue siendo el soplado máximo del sistema en manométrico.
+  const pAbsObj = (P_REF + e.sopladoObj * carga);
+  const pObjetivo = Math.max(pAmb, Math.min(pAbsObj, pAmb + e.sopladoMax * carga));
+
+  // El control de picado. Con una pasada previa del camino del aire se sabe qué
+  // efectividad tiene el intercooler y con qué rendimiento comprime; de ahí sale
+  // la relación de presiones que el combustible tolera. El ordenador NO deja
+  // detonar: baja la consigna hasta ahí. La pérdida de par es la consecuencia,
+  // y no hay código de avería que la delate.
+  // El lazo se recorre TRES veces porque la efectividad del intercooler y el
+  // rendimiento del compresor cambian al bajar la consigna, y con ellos el
+  // propio límite: con una sola pasada el motor se quedaba 11 K por encima del
+  // umbral, o sea seguía detonando después de que el control lo hubiera
+  // «arreglado».
+  let pDeton = Infinity, piDeton = Infinity;
+  if (!e.diesel) {
+    let pPrueba = pObjetivo;
+    for (let i = 0; i < 3; i++) {
+      const A0 = caminoAire(e, rpm, pPrueba, F, C);
+      piDeton = piMaxDetona(e, Tamb, octanaje, A0.eps, A0.etaC);
+      pDeton = Math.max(pAmb, A0.p1 * piDeton);
+      pPrueba = Math.min(pObjetivo, pDeton);
+    }
+  }
+
+  // Bisección sobre la presión de soplado: la mayor que el eje sostiene, sin
+  // pasar de la consigna. Es monótona —más presión pide más potencia y da menos
+  // margen— así que la bisección es legítima y converge en veinte pasos.
+  const alcanzable = p2 => {
+    const A = caminoAire(e, rpm, p2, F, C);
+    const Pc = potenciaComp(A.m, Tamb, A.pi, A.etaC) / Math.max(0.5, etaMec);
+    const EJ = equilibraEje(e, A.mEsc, A.T3, pAmb, Pc, etaT, F);
+    return { A, Pc, EJ, ok: !EJ.faltaPotencia };
+  };
+  let techo = F.wgAbierta ? pAmb
+    : (F.wgPegada ? pAmb + e.sopladoMax * 1.35 : Math.min(pObjetivo, pDeton));
+  techo = Math.max(techo, pAmb);
+  // La apertura de la descarga cambia la contrapresión, la contrapresión cambia
+  // el gasto y el gasto cambia la apertura: el lazo se recorre TRES veces
+  // realimentando la apertura, o la cifra que se publica es la de otra
+  // apertura que la que se dice —lo que hacía la primera versión, que sacaba
+  // una potencia de turbina distinta de la del compresor en el mismo punto—.
+  let R = null;
+  for (let pasada = 0; pasada < 3; pasada++) {
+    R = alcanzable(techo);
+    if (!R.ok) {
+      let lo = pAmb, hi = techo;
+      for (let i = 0; i < 22; i++) {
+        const mid = (lo + hi) / 2;
+        if (alcanzable(mid).ok) lo = mid; else hi = mid;
+      }
+      R = alcanzable(lo);
+    }
+    C.xWG = R.EJ.x;
+  }
+  const A = R.A, Pc = R.Pc, EJ = R.EJ;
+  return Object.assign({}, A, { Pc, Pt: EJ.Pt, piT: EJ.piT, xWG: EJ.x, mT: EJ.mT,
+    pEsc: EJ.p3, pAmb, Tamb, vAire, alt, faltaPotencia: !!EJ.faltaPotencia,
+    forzada: EJ.forzada || null, pObjetivo, pAbsObj, pDeton, piDeton, octanaje,
+    // Se recorta por picado cuando el límite del combustible manda de verdad,
+    // es decir cuando está por debajo de la consigna y por encima del ambiente.
+    limitadoDeton: !e.diesel && pDeton < pObjetivo - 1e3 && !F.wgPegada && !F.wgAbierta });
+}
+
+// ============================================================================
+// 8 · LO QUE SALE DE UN PUNTO DE FUNCIONAMIENTO
+// ============================================================================
+// El par sale de la MASA de aire por ciclo, no de la presión: ésa es la frase
+// que esta práctica existe para demostrar.
+function paresDe(e, rpm, carga, F, amb) {
+  const S = resuelve(e, rpm, carga, F, amb);
+  const ciclosPorSeg = (rpm / 60) / 2;
+  const masaPorCiclo = S.m / Math.max(1e-9, ciclosPorSeg);      // kg de aire por ciclo
+  // Combustible que ese aire admite, y trabajo indicado. El rendimiento
+  // indicado baja un poco con la carga por la refrigeración de la cámara.
+  const mComb = masaPorCiclo / e.afr;
+  const eta_i = e.etaInd * (1 - 0.06 * clamp(carga, 0, 1));
+  const W = mComb * e.pci * eta_i;                              // J por ciclo
+  // Bombeo: lo que cuesta respirar contra la contrapresión.
+  const Wbomb = (S.pEsc - S.pAdm) * e.cilindrada * 1e-3;
+  // Un ciclo de cuatro tiempos son DOS vueltas, o sea 4π radianes. El par
+  // indicado medio es el trabajo del ciclo dividido por 4π y nada más: el ×2
+  // que había aquí duplicaba el par y ponía 547 N·m en un 1.4 de gasolina.
+  const parInd = (W - Wbomb) / (4 * Math.PI);                   // N·m
+  const parFric = e.parFric * (0.72 + 0.28 * rpm / e.rpmPar);
+  const par = Math.max(0, parInd - parFric);
+  const pot = par * rpm * 2 * Math.PI / 60 / 1000;              // kW
+
+  // Los tres límites que pueden estar mandando, y cuál manda de verdad.
+  const octanaje = (amb && amb.octanaje) !== undefined ? amb.octanaje : 91;
+  const Tcomp = Tcompresion(e, S.TAdm);
+  const Tdet = Tdetona(e, octanaje);
+  // Cuando el control de picado ha hecho su trabajo el motor se queda JUSTO en
+  // el umbral, así que Tcomp ≈ Tdet por construcción: afirmar «detona» ahí sería
+  // afirmar el residuo numérico del lazo que baja la consigna. Se declaran
+  // 8 K de tolerancia —el residuo medido es de 2— y se separan las dos cosas:
+  // `limitadoDeton` es que el ordenador te quitó presión para que no detonaras,
+  // y `detona` es que ni quitándotela lo consiguió.
+  const margenPicado = Tdet > 1e8 ? null : Tdet - Tcomp;
+  const detona = Tcomp > Tdet + 8;
+  // Los avisos del mapa sólo tienen sentido donde hay mapa. Con la descarga
+  // abierta de par en par la relación de presiones es 1, el compresor está
+  // girando en vacío y la velocidad reducida que sale de invertir el mapa es
+  // cualquiera: allí no se afirma ni bombeo ni bloqueo.
+  const enMapa = S.pi > 1.12 && S.u !== null;
+  const mSurge = mBombeo(e, S.pi);
+  const bombeo = enMapa && S.mCorr < mSurge;
+  const margenBombeo = (enMapa && mSurge > 0) ? S.mCorr / mSurge - 1 : null;
+  const bloqueo = enMapa && S.mCorr > mChoke(e, S.u) * 0.985;
+  // El 2 % es la tolerancia del propio modelo, no una holgura del fabricante:
+  // con el umbral en el 6 % un eje a 232 684 rpm sobre un límite de 220 000 no
+  // levantaba el aviso, y ése es exactamente el caso de la descarga pegada.
+  const sobreVel = enMapa && S.u > 1.02;
+  const sobreT3 = S.T3 > e.T3Max;
+  const sobrePresion = (S.p2 - S.pAmb) > e.sopladoMax * 1.02;
+
+  return {
+    ...S, rpm, carga, par, pot, masaPorCiclo, mComb, Wbomb, parInd, parFric,
+    soplado: S.p2 - S.pAmb, sopladoAdm: S.pAdm - S.pAmb,
+    rhoAdm: densidad(S.pAdm, S.TAdm), rhoSinIC: densidad(S.pAdm, S.T2),
+    Tcomp, Tdet, margenPicado, detona, bombeo, bloqueo, sobreVel, sobreT3, sobrePresion,
+    piMaxLinea: S.u === null ? null : piMax(e, S.u),
+    mChokeLinea: S.u === null ? null : mChoke(e, S.u),
+    mBombeoLinea: mSurge, margenBombeo,
+    nTurbo: S.u === null ? null : S.u * e.nMax,
+  };
+}
+
+// ============================================================================
+// 9 · EL RETARDO DEL TURBO
+// ============================================================================
+// La inercia del eje contra el par neto. No es «el turbo tarda»: es que hasta
+// que el eje no coge vueltas no hay presión, y las vueltas cuestan energía que
+// sólo el escape puede dar. Se integra desde el régimen de ralentí del turbo
+// hasta el equilibrio, con la carga puesta de golpe.
+const DT_TRANS = 0.004, T_TRANS = 4.0;
+// El mando de la descarga: proporcional, integral y actuador con velocidad de
+// carrera limitada. No es un adorno: sin la limitación de carrera el mando
+// abre y cierra en un paso de integración y el sobreimpulso desaparece.
+const WG_KP = 2.6, WG_KI = 14.0, WG_SLEW = 7.0;
+function transitorio(e, rpm, F, amb) {
+  F = F || {}; amb = amb || {};
+  const etaT = e.etaTurbina * (F.turboGastado ? 0.72 : 1);
+  const etaMec = e.etaMecEje * (F.turboGastado ? 0.86 : 1);
+  const pAmb = presionAmbiente(amb.alt === undefined ? 0 : amb.alt);
+  const Tamb = (amb.Tamb === undefined ? 25 : amb.Tamb) + 273.15;
+  const vAire = amb.vAire === undefined ? 60 : amb.vAire;
+  const At = e.aTurbina * (F.escapeTapado ? 0.52 : 1);
+  const objetivo = e.sopladoObj;
+
+  // Punto de partida: el motor girando a ese régimen SIN pisar, o sea el turbo
+  // en vacío. Se pisa a fondo en t = 0 y el régimen se mantiene —es un banco de
+  // rodillos, no una aceleración libre—.
+  let n = e.nMax * 0.11, xWG = 0, integ = 0;
+  let m = e.mRef * 0.18;
+  const pts = [];
+  let tSopla = null, sopladoPico = 0, tPico = 0;
+  const pasos = Math.round(T_TRANS / DT_TRANS);
+  for (let k = 0; k <= pasos; k++) {
+    const t = k * DT_TRANS;
+    const u = n / e.nMax;
+    // El camino del aire con la velocidad de eje que hay AHORA. El compresor
+    // da lo que su mapa da: aquí no se le pone techo, el techo lo pone la
+    // descarga abriendo.
+    let p2 = pAmb, TAdm = Tamb, T2 = Tamb, etaC = 0.5, p1 = pAmb, pAdm = pAmb, pi = 1;
+    for (let j = 0; j < 16; j++) {
+      p1 = pAmb - dpFiltro(e, m, F);
+      const mCorr = correGasto(m, p1, Tamb);
+      pi = Math.max(1.0001, piDe(e, mCorr, u));
+      p2 = p1 * pi;
+      etaC = etaComp(e, mCorr, u);
+      T2 = T2de(Tamb, pi, etaC);
+      const eps = epsilonIC(e, m, vAire, F);
+      TAdm = T2 - eps * (T2 - Tamb);
+      pAdm = Math.max(pAmb * 0.28,
+        p2 - dpIC(e, m, F) - (F.fugaCarga ? e.fugaDp : 0));
+      const mNuevo = gastoAire(e, rpm, pAdm, TAdm, pAmb * 1.6);
+      m += (mNuevo - m) * 0.55;
+    }
+    const Pc = potenciaComp(m, Tamb, pi, etaC) / Math.max(0.5, etaMec);
+    const mEsc = m * (1 + 1 / e.afr);
+    const T3 = T3de(e, TAdm, 1, rpm);
+    const xUso = F.wgAbierta ? 1 : (F.wgPegada ? 0 : xWG);
+    const Atot = At + e.aWastegate * xUso;
+    const p3 = presionDelante(Atot, mEsc, T3, pAmb);
+    const mT = mEsc * At / Atot;
+    const piT = p3 / pAmb;
+    const Pt = potenciaTurbina(mT, T3, piT, etaT);
+
+    const soplado = p2 - pAmb;
+    if (tSopla === null && soplado >= objetivo * 0.90) tSopla = t;
+    if (soplado > sopladoPico) { sopladoPico = soplado; tPico = t; }
+    if (k % 5 === 0) pts.push({ t, n, u, soplado, sopladoAdm: pAdm - pAmb, m, pi,
+      xWG: xUso, Pt, Pc, p3, TAdm, T3 });
+
+    // El eje: par neto entre inercia. Nada más.
+    const w = Math.max(300, n * 2 * Math.PI / 60);
+    const dn = (Pt - Pc) / (e.inerciaEje * w) * DT_TRANS * 60 / (2 * Math.PI);
+    n = clamp(n + dn, e.nMax * 0.04, e.nMax * 1.60);
+    // Y el mando de la descarga, con su actuador.
+    const err = soplado / Math.max(1e3, objetivo) - 1;
+    integ = clamp(integ + WG_KI * err * DT_TRANS, -0.6, 1.4);
+    const xObj = clamp(WG_KP * err + integ, 0, 1);
+    xWG = clamp(xWG + clamp(xObj - xWG, -WG_SLEW * DT_TRANS, WG_SLEW * DT_TRANS), 0, 1);
+  }
+  const fin = pts[pts.length - 1];
+  return { pts, tSopla, sopladoPico, tPico, objetivo,
+    sobreimpulso: objetivo > 0 ? sopladoPico / objetivo - 1 : 0,
+    nFin: fin.n, sopladoFin: fin.soplado, xWGFin: fin.xWG, J: e.inerciaEje, rpm };
+}
+
+// ============================================================================
+// 10 · LOS VEHÍCULOS
+// ============================================================================
+// El 1.4 de gasolina es el que enseña que el intercooler NO es un accesorio: es
+// el que detona sin él. El diésel es el que enseña que sin detonación se puede
+// soplar el doble. Y el V8 es el que enseña que el bloqueo del compresor existe.
+const ARQ = {
+  gas14t: {
+    key: 'gas14t', corto: '1.4 T', nombre: 'Turismo 1.4 L turbo de gasolina, 2016',
+    cilindrada: 1.4, cil: 4, rc: 10.0, diesel: false,
+    etaVolMax: 0.93, rpmPar: 2400, rpmMax: 6000, rpmRal: 800,
+    sopladoObj: 1.00e5, sopladoMax: 1.35e5,
+    afr: 12.6, pci: 43.0e6, etaInd: 0.362, parFric: 13,
+    dTComb: 880, T3Max: 1223,
+    // compresor
+    mChoke: 0.145, piMax: 2.75, etaMax: 0.765, cBombeo: 0.21, nMax: 220000,
+    // turbina y descarga
+    aTurbina: 7.4e-6, aWastegate: 4.5e-5, etaTurbina: 0.680, etaMecEje: 0.960,
+    inerciaEje: 5.2e-6,
+    // conducciones
+    mRef: 0.10, icNTU: 1.80, icDp: 8000, dpFiltro: 2500, fugaDp: 45000,
+  },
+  die20t: {
+    key: 'die20t', corto: 'TDI 2.0', nombre: 'Turismo 2.0 L turbodiésel, 2018',
+    cilindrada: 2.0, cil: 4, rc: 16.5, diesel: true,
+    etaVolMax: 0.95, rpmPar: 2000, rpmMax: 4500, rpmRal: 780,
+    sopladoObj: 1.25e5, sopladoMax: 1.60e5,
+    afr: 19.5, pci: 42.6e6, etaInd: 0.430, parFric: 16,
+    dTComb: 700, T3Max: 1123,
+    mChoke: 0.190, piMax: 3.10, etaMax: 0.755, cBombeo: 0.23, nMax: 200000,
+    aTurbina: 1.02e-5, aWastegate: 5.2e-5, etaTurbina: 0.700, etaMecEje: 0.962,
+    inerciaEje: 8.0e-6,
+    mRef: 0.14, icNTU: 2.05, icDp: 9000, dpFiltro: 2800, fugaDp: 52000,
+  },
+  gas20bi: {
+    key: 'gas20bi', corto: '2.0 T dep.', nombre: 'Deportivo 2.0 L de gasolina sobrealimentado, 2020',
+    cilindrada: 2.0, cil: 4, rc: 9.6, diesel: false,
+    etaVolMax: 0.96, rpmPar: 3000, rpmMax: 7000, rpmRal: 850,
+    sopladoObj: 1.32e5, sopladoMax: 1.72e5,
+    afr: 12.4, pci: 43.0e6, etaInd: 0.352, parFric: 19,
+    dTComb: 920, T3Max: 1273,
+    mChoke: 0.265, piMax: 3.30, etaMax: 0.780, cBombeo: 0.20, nMax: 210000,
+    aTurbina: 1.28e-5, aWastegate: 7.0e-5, etaTurbina: 0.700, etaMecEje: 0.965,
+    inerciaEje: 9.5e-6,
+    mRef: 0.19, icNTU: 2.35, icDp: 10500, dpFiltro: 3100, fugaDp: 60000,
+  },
+  die66t: {
+    key: 'die66t', corto: 'V8 6.6', nombre: 'Camioneta 6.6 L V8 turbodiésel, 2015',
+    cilindrada: 6.6, cil: 8, rc: 16.8, diesel: true,
+    etaVolMax: 0.94, rpmPar: 1900, rpmMax: 3600, rpmRal: 700,
+    sopladoObj: 1.46e5, sopladoMax: 1.88e5,
+    afr: 20.5, pci: 42.6e6, etaInd: 0.420, parFric: 48,
+    dTComb: 690, T3Max: 1103,
+    mChoke: 0.520, piMax: 3.40, etaMax: 0.760, cBombeo: 0.22, nMax: 150000,
+    aTurbina: 2.90e-5, aWastegate: 1.45e-4, etaTurbina: 0.705, etaMecEje: 0.965,
+    inerciaEje: 3.4e-5,
+    mRef: 0.40, icNTU: 2.20, icDp: 11000, dpFiltro: 4200, fugaDp: 70000,
+  },
+};
+const ARQ_KEYS = Object.keys(ARQ);
+
+// ============================================================================
+// 11 · LAS AVERÍAS
+// ============================================================================
+// Ninguna es «hace calor» ni «estamos en altura»: la temperatura ambiente, la
+// altitud y el octanaje son mandos aparte, y el censo cuenta la REJILLA.
+function averia(k) {
+  switch (k) {
+    case 'sano': return {};
+    case 'sinIC': return { sinIC: true };
+    case 'icSucio': return { icSucio: true };
+    case 'filtroSucio': return { filtroSucio: true };
+    case 'fugaCarga': return { fugaCarga: true };
+    case 'wgAbierta': return { wgAbierta: true };
+    case 'wgPegada': return { wgPegada: true };
+    case 'escapeTapado': return { escapeTapado: true };
+    case 'turboGastado': return { turboGastado: true };
+    default: return {};
+  }
+}
+const FALLAS = {
+  sano: { rot: 'nada: el motor está bien', corto: 'sano',
+    pista: 'Lo que se vea aquí es lo que el ambiente hace, no una avería.' },
+  sinIC: { rot: 'intercooler puenteado o sin caudal de aire', corto: 'sin intercooler',
+    pista: 'La presión es la de siempre y el par no está. Mira la TEMPERATURA de admisión antes de mirar nada más: la densidad es presión entre temperatura.' },
+  icSucio: { rot: 'intercooler obstruido por suciedad', corto: 'intercooler sucio',
+    pista: 'Enfría menos Y estorba más. Las dos cosas a la vez: compara la presión a la salida del compresor con la del colector.' },
+  filtroSucio: { rot: 'filtro de aire saturado', corto: 'filtro sucio',
+    pista: 'Estorba en el sitio más caro: a la ENTRADA. El compresor tiene que dar la misma presión partiendo de menos, y eso lo empuja hacia el bombeo.' },
+  fugaCarga: { rot: 'manguito de carga reventado', corto: 'fuga de carga',
+    pista: 'El compresor sopla lo que le piden y al colector no le llega. Compara los dos manómetros: entre ellos sólo debería estar el intercooler.' },
+  wgAbierta: { rot: 'válvula de descarga pegada abierta', corto: 'descarga abierta',
+    pista: 'El escape se va por el atajo sin pasar por la turbina. No hay presión, y el escáner no tiene por qué enterarse.' },
+  wgPegada: { rot: 'válvula de descarga pegada cerrada', corto: 'descarga cerrada',
+    pista: 'Nada frena al turbo. La presión se dispara por encima de la consigna, y con ella la contrapresión y la temperatura antes de la turbina.' },
+  escapeTapado: { rot: 'escape restringido aguas abajo de la turbina', corto: 'escape tapado',
+    pista: 'La turbina tiene que expulsar contra más presión, así que saca menos trabajo del mismo gas. Y el motor respira peor.' },
+  turboGastado: { rot: 'turbo con holgura y rendimiento caído', corto: 'turbo gastado',
+    pista: 'Ni la turbina saca lo que sacaba ni el compresor comprime como comprimía. El aire sale más caliente para la misma presión: eso es rendimiento perdido.' },
+};
+const FALLA_KEYS = Object.keys(FALLAS);
+
+// Los regímenes del censo: el retardo vive abajo y el bloqueo, arriba.
+function regimenes(e) {
+  return [
+    { rpm: Math.round(e.rpmPar * 0.62), rot: 'baja' },
+    { rpm: Math.round(e.rpmPar * 0.90), rot: 'sopla' },
+    { rpm: e.rpmPar, rot: 'par máximo' },
+    { rpm: Math.round((e.rpmPar + e.rpmMax) / 2), rot: 'media' },
+    { rpm: e.rpmMax, rot: 'máximo' },
+  ];
+}
+
+// ============================================================================
+// 12 · LO QUE SE MIDE DE UN MOTOR
+// ============================================================================
+function evalua(e, o) {
+  o = o || {};
+  const F = averia(o.falla || 'sano');
+  const amb = { alt: o.alt || 0, Tamb: o.Tamb === undefined ? 25 : o.Tamb,
+    vAire: o.vAire === undefined ? 60 : o.vAire,
+    octanaje: o.octanaje === undefined ? 91 : o.octanaje };
+  const rpm = o.rpm === undefined ? e.rpmPar : o.rpm;
+  const carga = o.carga === undefined ? 1 : o.carga;
+  const P = paresDe(e, rpm, carga, F, amb);
+  const sano = (o.falla && o.falla !== 'sano')
+    ? paresDe(e, rpm, carga, {}, amb) : null;
+
+  // Los tres avisos que un banco de verdad daría, y el veredicto.
+  const avisos = [];
+  if (P.bombeo) avisos.push('el compresor está bombeando');
+  if (P.bloqueo) avisos.push('el compresor está bloqueado');
+  if (P.sobreVel) avisos.push('el turbo pasa de sus vueltas máximas');
+  if (P.sobreT3) avisos.push('la turbina pasa de su temperatura máxima');
+  if (P.sobrePresion) avisos.push('sobrepresión de soplado');
+  if (P.detona) avisos.push('detonación');
+  else if (P.limitadoDeton) avisos.push('el control de picado está recortando la consigna');
+  if (P.faltaPotencia && carga > 0.5 && P.soplado < e.sopladoObj * carga * 0.90)
+    avisos.push('no llega a la presión de consigna');
+
+  const perdida = sano ? (1 - P.par / Math.max(1e-9, sano.par)) : 0;
+  return {
+    e: e.key, rpm, carga, F, amb, ...P,
+    sano, perdida, avisos, hay: avisos.length > 0,
+    // Lo que el ordenador puede ver: mide presión de soplado y temperatura de
+    // admisión, y nada más. Por eso hay averías que no puede distinguir.
+    dtc: dtcDe(e, P),
+  };
+}
+// El diagnóstico a bordo de un sistema de sobrealimentación es corto: si la
+// presión no llega a la consigna, P0299; si se pasa, P0234. Nada más. Toda la
+// diferencia entre siete averías se queda fuera de esos dos códigos.
+const DTC_ROT = {
+  P0299: 'P0299 · presión de sobrealimentación por debajo de lo esperado',
+  P0234: 'P0234 · sobrepresión de sobrealimentación',
+  P0401: 'P0401 · caudal de recirculación insuficiente',
+};
+function dtcDe(e, P) {
+  const obj = e.sopladoObj * P.carga;
+  // CONDICIONES DE HABILITACIÓN. El diagnóstico de presión baja sólo corre por
+  // encima del régimen de soplado: por debajo, ningún turbo sano llega a la
+  // consigna —eso es el retardo, no una avería— y un código que saltara ahí lo
+  // haría en cada arranque en cuesta. Sin esto, el motor SANO daba P0299 a
+  // 1 240 rpm a plena carga, que es un falso positivo de manual.
+  const habilitado = P.carga > 0.55 && P.rpm >= e.rpmPar * 0.85 && obj > 1e4;
+  if (habilitado && P.soplado < obj * 0.80) return 'P0299';
+  // La sobrepresión, en cambio, se vigila SIEMPRE: pasarse de presión rompe el
+  // turbo a cualquier régimen.
+  if (P.soplado > e.sopladoMax * 1.02) return 'P0234';
+  return null;
+}
+
+// ============================================================================
+// 13 · LA CURVA Y EL CENSO
+// ============================================================================
+// La curva de par y potencia contra régimen, que es donde se ve el retardo y
+// donde se ve el bloqueo.
+function curva(e, o) {
+  o = o || {};
+  const pts = [];
+  const n0 = Math.round(e.rpmRal * 1.4), n1 = e.rpmMax;
+  const N = 26;
+  for (let i = 0; i <= N; i++) {
+    const rpm = Math.round(n0 + (n1 - n0) * i / N);
+    const V = evalua(e, Object.assign({}, o, { rpm, carga: 1 }));
+    pts.push({ rpm, par: V.par, pot: V.pot, soplado: V.soplado, m: V.m,
+      TAdm: V.TAdm, pi: V.pi, mCorr: V.mCorr, u: V.u, xWG: V.xWG,
+      pEsc: V.pEsc, bombeo: V.bombeo, bloqueo: V.bloqueo, detona: V.detona });
+  }
+  const parMax = pts.reduce((a, b) => b.par > a.par ? b : a, pts[0]);
+  const potMax = pts.reduce((a, b) => b.pot > a.pot ? b : a, pts[0]);
+  return { pts, parMax, potMax };
+}
+
+// Nueve averías por cinco regímenes. Que existan celdas donde el motor pierde
+// un tercio del par y el ordenador no tiene nada que declarar es el resultado
+// más incómodo de la práctica, y no está escrito: sale de recorrer la rejilla.
+function censo(e, o) {
+  o = o || {};
+  const regs = regimenes(e);
+  const filas = [];
+  let total = 0, mudo = 0, conAviso = 0, conCodigo = 0, peligro = 0;
+  for (const k of FALLA_KEYS) {
+    const celdas = regs.map(R => {
+      const V = evalua(e, Object.assign({}, o, { falla: k, rpm: R.rpm, carga: 1 }));
+      total++;
+      const nota = V.perdida > 0.08 || V.hay;
+      if (nota) conAviso++;
+      if (V.dtc) conCodigo++;
+      if (nota && !V.dtc) mudo++;
+      if (V.detona || V.sobreT3 || V.sobrePresion || V.sobreVel) peligro++;
+      return { rpm: R.rpm, rot: R.rot, dtc: V.dtc, par: V.par, soplado: V.soplado,
+        TAdm: V.TAdm, perdida: V.perdida, avisos: V.avisos.slice(),
+        detona: V.detona, bombeo: V.bombeo, bloqueo: V.bloqueo,
+        sobreT3: V.sobreT3, sobrePresion: V.sobrePresion, nota };
+    });
+    filas.push({ falla: k, rot: FALLAS[k].rot, corto: FALLAS[k].corto, celdas,
+      mudo: celdas.filter(c => c.nota && !c.dtc).length });
+  }
+  return { filas, total, mudo, conAviso, conCodigo, peligro, regs };
+}
+
+// ============================================================ T1 · FORMATOS, ESTADO Y MATERIALES
+
+// El separador de millares es U+202F, un espacio fino que no rompe línea. NO se
+// usa en años ni en octanajes: «2 020» no es un año y «9 1» no es un octanaje.
+const NBSP=' ';
+function num(x,d=1){
+  if(x===null||x===undefined||!isFinite(x)) return '—';
+  const s=Math.abs(x).toFixed(d), p=s.split('.');
+  let ent=p[0], out='';
+  while(ent.length>3){ out=NBSP+ent.slice(-3)+out; ent=ent.slice(0,-3); }
+  out=ent+out;
+  return (x<0?'−':'')+out+(p[1]?','+p[1]:'');
+}
+// Las presiones se guardan en pascales. En el taller se habla de dos cosas
+// distintas con la misma palabra: el SOPLADO, que es manométrico —lo que marca
+// el manómetro del turbo, cero con el motor parado— y la PRESIÓN DE COLECTOR,
+// que es absoluta —lo que lee el sensor del ordenador—. Se distinguen siempre.
+const barF=(p,d=2)=>num(p/1e5,d)+NBSP+'bar';
+const barA=(p,d=2)=>num(p/1e5,d)+NBSP+'bar abs';
+const kpa=(p,d=0)=>num(p/1e3,d)+NBSP+'kPa';
+const cel=(T,d=0)=>num(T-273.15,d)+NBSP+'°C';
+const celC=(t,d=0)=>num(t,d)+NBSP+'°C';
+const kel=(T,d=0)=>num(T,d)+NBSP+'K';
+const nm=(x,d=1)=>num(x,d)+NBSP+'N·m';
+const kw=(x,d=1)=>num(x,d)+NBSP+'kW';
+// OJO: el kit del donante ya declara cv() como fabrica de lienzos. Declarar
+// aqui otro cv rompe la pagina ENTERA con 'Identifier cv has already been
+// declared' antes de que exista window.__labDebug.
+const cvF=(x,d=0)=>num(x,d)+NBSP+'CV';
+const kgs=(x,d=3)=>num(x,d)+NBSP+'kg/s';
+const rhoF=(x,d=3)=>num(x,d)+NBSP+'kg/m³';
+const rpmT=x=>num(x,0)+NBSP+'rpm';
+const seg=(x,d=2)=>num(x,d)+NBSP+'s';
+const pcc=(x,d=0)=>num(x,d)+NBSP+'%';
+const met=(x,d=0)=>num(x,d)+NBSP+'m';
+const kmh=(x,d=0)=>num(x,d)+NBSP+'km/h';
+const corta=(s,n)=>s.length>n?s.slice(0,n-1)+'…':s;
+// La presión media efectiva es la cifra con la que se comparan motores de
+// cilindrada distinta, y esta práctica la enseña porque sin ella «1 100 N·m»
+// no dice si el motor está muy cargado o es que es muy grande.
+const pmeDe=(par,cilLitros)=>4*Math.PI*par/(cilLitros*1e-3);
+
+// ------------------------------------------------------------------- estado
+const ALTS=[
+  {a:0,    rot:'nivel del mar'},
+  {a:1200, rot:'Monterrey, 540 m redondeado a 1 200'},
+  {a:2240, rot:'Ciudad de México, 2 240 m'},
+  {a:2660, rot:'Toluca, 2 660 m'},
+  {a:3500, rot:'paso de montaña, 3 500 m'},
+];
+const OCTS=[87,91,95];
+const G={
+  modo:'ensamble', maq:'gas14t', falla:'sano',
+  alt:0, Tamb:25, vAire:60, octanaje:91,
+  rpm:null, carga:1,
+  simUnlocked:false, resuelto:false, k:1,
+};
+const MQ=()=>ARQ[G.maq];
+const FL=()=>FALLAS[G.falla];
+const ALT_ROT=a=>(ALTS.find(A=>A.a===a)||{rot:met(a)}).rot;
+const RPM=()=>G.rpm===null?MQ().rpmPar:G.rpm;
+const AMB=()=>({alt:G.alt,Tamb:G.Tamb,vAire:G.vAire,octanaje:G.octanaje});
+
+// --------------------------------------------------------------------- memo
+// Cada `evalua` son tres pasadas de bisección sobre la presión de soplado, y
+// cada una recorre el camino del aire veintiséis veces con una tobera resuelta
+// por bisección dentro. Sin memorizar, repintar el pizarrón a cada fotograma
+// tira la página al suelo: el censo solo son 45 evaluaciones.
+const MEMO=new Map();
+function memo(k,fn){ if(!MEMO.has(k)) MEMO.set(k,fn()); return MEMO.get(k); }
+function invalida(){ MEMO.clear(); }
+const AMBK=()=>G.maq+'|'+G.alt+'|'+G.Tamb+'|'+G.vAire+'|'+G.octanaje;
+function EV(){ return EV_DE(G.falla,RPM(),G.carga); }
+function EV_DE(f,rpm,carga){
+  return memo('v|'+AMBK()+'|'+f+'|'+rpm+'|'+carga,
+    ()=>evalua(MQ(),Object.assign({falla:f,rpm,carga},AMB())));
+}
+function CURVA(f){ return memo('k|'+AMBK()+'|'+(f||G.falla),
+  ()=>curva(MQ(),Object.assign({falla:f||G.falla},AMB()))); }
+function CENSO(){ return memo('c|'+AMBK(),()=>censo(MQ(),AMB())); }
+function TRANS(f){ return memo('t|'+AMBK()+'|'+(f||G.falla)+'|'+RPM(),
+  ()=>transitorio(MQ(),RPM(),averia(f||G.falla),AMB())); }
+
+// ---------------------------------------------------------------- veredictos
+function veredicto(){
+  const V=EV();
+  if(V.sobreVel||V.sobrePresion||V.sobreT3) return {nivel:'bad',rot:'EL TURBO ESTÁ FUERA DE SUS LÍMITES'};
+  if(V.detona) return {nivel:'bad',rot:'DETONA'};
+  if(V.bombeo) return {nivel:'bad',rot:'EL COMPRESOR BOMBEA'};
+  if(V.perdida>0.08&&!V.dtc) return {nivel:'warn',rot:'PIERDE PAR Y NO HAY CÓDIGO'};
+  if(V.dtc) return {nivel:'warn',rot:V.dtc.slice(0,5)};
+  if(V.hay||V.perdida>0.03) return {nivel:'warn',rot:'CON SÍNTOMA'};
+  return {nivel:'ok',rot:'SIN NOVEDAD'};
+}
+
+// ---------------------------------------------------------------- materiales
+const rub={roughness:0.86,metalness:0.04};
+const plas={roughness:0.42,metalness:0.16};
+const std=o=>new THREE.MeshStandardMaterial(o);
+const emis=(hex,i)=>std({color:hex,emissive:hex,emissiveIntensity:i,roughness:0.42,metalness:0.10});
+// OJO con `brushedMetal()`: NO devuelve un material, devuelve el juego de
+// texturas (map, roughnessMap, normalMap). Pasárselo tal cual a un Mesh no da
+// ningún error —three comprueba `material.visible===true` y, al ser undefined,
+// SE SALTA la pieza en silencio—: la malla existe, no se ve, y no hay prueba
+// numérica que se entere. Costó dos laboratorios publicados con piezas
+// invisibles. Se envuelve en un material de verdad.
+const MAT={
+  acero:std(Object.assign({},brushedMetal(),
+    {color:0xb9c4cf,roughness:0.42,metalness:0.78})),
+  crom:std({color:0xd8e2ec,roughness:0.18,metalness:0.92}),
+  bloque:std({color:0x4c5765,roughness:0.62,metalness:0.35}),
+  culata:std({color:0x5c6774,roughness:0.58,metalness:0.38}),
+  // La carcasa del compresor es de aluminio fundido; la de la turbina, de
+  // fundición y a novecientos grados: no se parecen ni de lejos.
+  aluFun:std({color:0x9aa3ad,roughness:0.72,metalness:0.42}),
+  fundicion:std({color:0x4e4640,roughness:0.86,metalness:0.30}),
+  nucleo:std({color:0x7f8894,roughness:0.55,metalness:0.62}),
+  caja:std({color:0x1c2531,...plas}),
+  goma:std({color:0x14181e,...rub}),
+  tubo:std({color:0x8d99a6,roughness:0.40,metalness:0.74}),
+  manguera:std({color:0x1d2530,...rub}),
+  banco:std({color:0x232c38,...plas}),
+  vidrio:std({color:0xbfd8e6,roughness:0.10,metalness:0.02,
+    transparent:true,opacity:0.24}),
+  ok:emis(0x2fbf62,1.5),
+  bad:emis(0xff4d5e,1.5),
+  avi:emis(0xe9c46a,1.4),
+  apag:std({color:0x232a33,roughness:0.6,metalness:0.1}),
+};
+const nuevaFantasma=()=>std({color:0x5AD1E6,transparent:true,opacity:0.26,
+  depthWrite:false,side:THREE.DoubleSide});
+
+function cil(r0,r1,h,mat,seg){
+  const m=new THREE.Mesh(new THREE.CylinderGeometry(r0,r1,h,seg||22),mat);
+  m.castShadow=true; return m;
+}
+function tubo(pts,r,mat){
+  const m=new THREE.Mesh(new THREE.TubeGeometry(new THREE.CatmullRomCurve3(pts),
+    Math.max(12,pts.length*8),r,12,false),mat);
+  m.castShadow=true; return m;
+}
+function centra(g){
+  const dentro=new THREE.Group();
+  while(g.children.length) dentro.add(g.children[0]);
+  const caja=new THREE.Box3().setFromObject(dentro);
+  const c=new THREE.Vector3(); caja.getCenter(c);
+  dentro.position.copy(c).negate();
+  g.add(dentro);
+  g.userData.home=c.clone(); g.userData.minY=caja.min.y-c.y;
+  g.position.copy(c); return g;
+}
+function borra(o){
+  o.traverse(n=>{ if(n.isMesh&&n.geometry) n.geometry.dispose(); });
+  if(o.userData.gm) o.userData.gm.dispose();
+  if(o.parent) o.parent.remove(o);
+}
+
+// ============================================================ T2 · PIZARRÓN
+// Un lienzo 2D de 1024×768 pegado a un panel 3D. Se llama `bcv` y no `cv`
+// porque `cv` ya es la fábrica de lienzos del kit de la escena: reusar ese
+// nombre rompe la página entera antes de que arranque nada.
+const BW=1024, BH=768;
+const bcv=document.createElement('canvas'); bcv.width=BW; bcv.height=BH;
+const bx=bcv.getContext('2d');
+const btex=new THREE.CanvasTexture(bcv);
+btex.colorSpace=THREE.SRGBColorSpace;
+
+const board=new THREE.Group();
+scene.add(board);
+// El tamaño del pizarrón se elige por lo que MIDE EN PANTALLA, no por lo que
+// parece razonable en metros: la textura tiene 1 024 px de ancho, y si sale a
+// 420 px de ventana el texto de 13 px llega al ojo a 5 y no se lee. El estándar
+// de la casa es ≥ 480 px en 1600×900, y se COMPRUEBA con
+// `window.__labDebug.anchoTableroPx`.
+const BW3=8.40, BH3=6.06, BY3=3.26;
+function colocaTablero(d){
+  board.rotation.y=0.70;
+  // El hueco no es decorativo: los rótulos del banco son sprites que sobresalen
+  // de la pieza que nombran, y con menos de un metro se pintan sobre el marco.
+  const medio=(BW3/2+0.13)*Math.cos(board.rotation.y);
+  board.position.set(d.xIzq-1.05*d.K-medio,0,0.95*d.K);
+}
+function puntosClave(){
+  const d=dims(MQ());
+  const a=BW3/2, mx=a*Math.cos(board.rotation.y), mz=a*Math.sin(board.rotation.y);
+  const y0=BY3-BH3/2, y1=BY3+BH3/2, bp=board.position;
+  const pts=[
+    [bp.x-mx,y0,bp.z+mz],[bp.x+mx,y0,bp.z-mz],
+    [bp.x-mx,y1,bp.z+mz],[bp.x+mx,y1,bp.z-mz],
+    // Los extremos REALES del banco. Sin el intercooler aquí —que va DELANTE
+    // del motor, no a un costado— la cámara lo deja debajo del panel de mandos
+    // y el encuadre parece bueno hasta que se mira la pantalla.
+    [d.xBloque-d.largo/2,0.05,-0.70*d.K],[d.xBloque+d.largo/2,d.yTapa+0.36*d.K,0.70*d.K],
+    [d.xTurbo,d.yTurbo+d.rComp+0.22*d.K,d.zComp+d.rComp],
+    [d.xTurbo,d.yTurbo-d.rComp-0.10*d.K,d.zTurb-d.rTurb],
+    [d.xIC-d.wIC/2,0.05,d.zIC],[d.xIC+d.wIC/2,d.yIC+d.hIC/2+0.20*d.K,d.zIC],
+    [d.xFiltro-0.36*d.K,d.yFiltro-0.30*d.K,d.zFiltro],
+    [d.xFiltro+0.36*d.K,d.yFiltro+0.34*d.K,d.zFiltro],
+    [d.xEsc,d.yEsc+0.24*d.K,d.zEsc],
+    [d.xBanco,1.30,d.zBanco],
+  ];
+  return pts.map(p=>new THREE.Vector3(...p));
+}
+// La franja de pantalla que de verdad se ve: el HUD tapa la izquierda y el panel
+// de mandos tapa la derecha. Encuadrar contra el ancho completo del lienzo mete
+// casi cuatro décimas del banco DEBAJO de los paneles.
+function zonaUtil(){
+  const rM=mount.getBoundingClientRect();
+  const W=rM.width||1600, H=rM.height||900;
+  let x0=0, x1=W;
+  const h=el('hud'), p=el('panel');
+  if(h){ const r=h.getBoundingClientRect();
+    if(r.width>0&&r.right-rM.left<W*0.60) x0=Math.max(x0,r.right-rM.left+18); }
+  if(p){ const r=p.getBoundingClientRect();
+    if(r.width>0&&r.left-rM.left>W*0.40) x1=Math.min(x1,r.left-rM.left-18); }
+  if(x1-x0<W*0.34){ x0=0; x1=W; }
+  return { W, H, x0, x1 };
+}
+function camConjunto(margen){
+  const d=dims(MQ()), Z=zonaUtil();
+  const asp=clamp(Z.W/Math.max(1,Z.H),0.60,2.60);
+  const m=(margen===undefined?1:margen);
+  const TV=0.4142, TH=TV*asp;                    // tangentes del medio ángulo
+  const nx0=(2*Z.x0/Z.W-1)/m, nx1=(2*Z.x1/Z.W-1)/m, ny=0.94/m;
+  const pts=puntosClave();
+  const mx=1.86*Math.cos(board.rotation.y);
+  let off=(((board.position.x-mx)+d.xDer)/2-board.position.x)/Math.cos(board.rotation.y);
+  const proy=(dist,o)=>{
+    const c=camTablero(dist,o);
+    const p=new THREE.Vector3(c[0][0],c[0][1],c[0][2]);
+    const q=new THREE.Vector3(c[1][0],c[1][1],c[1][2]);
+    const f=q.clone().sub(p).normalize();
+    const r=new THREE.Vector3().crossVectors(f,new THREE.Vector3(0,1,0)).normalize();
+    const u=new THREE.Vector3().crossVectors(r,f).normalize();
+    let a=Infinity,b=-Infinity,vy=0,zs=0,n=0,malo=false;
+    for(const v0 of pts){
+      const v=v0.clone().sub(p), z=v.dot(f);
+      if(z<=0.2){ malo=true; continue; }
+      a=Math.min(a,(v.dot(r)/z)/TH); b=Math.max(b,(v.dot(r)/z)/TH);
+      vy=Math.max(vy,Math.abs((v.dot(u)/z)/TV)); zs+=z; n++;
+    }
+    return { a, b, vy, z:n?zs/n:1, malo };
+  };
+  const cabe=(dist,o)=>{ const e=proy(dist,o); return !e.malo&&e.a>=nx0&&e.b<=nx1&&e.vy<=ny; };
+  let dist=26;
+  for(let it=0;it<7;it++){
+    if(cabe(26,off)){
+      let lo=3, hi=26;
+      for(let k=0;k<26;k++){ const mid=(lo+hi)/2; if(cabe(mid,off)) hi=mid; else lo=mid; }
+      dist=hi;
+    }else dist=26;
+    const e=proy(dist,off);
+    const dn=(nx0+nx1)/2-(e.a+e.b)/2;
+    if(Math.abs(dn)<0.012) break;
+    off-=dn*TH*e.z;
+  }
+  return camTablero(dist,off);
+}
+function camTablero(d,off){
+  const c=board.position.clone(); c.y=BY3;
+  const n=new THREE.Vector3(Math.sin(board.rotation.y),0,Math.cos(board.rotation.y));
+  const dd=d||5.85;
+  const p=c.clone().addScaledVector(n,dd); p.y=BY3+0.13*dd;
+  const tg=new THREE.Vector3(Math.cos(board.rotation.y),0,-Math.sin(board.rotation.y));
+  const dx=(off===undefined)?-0.42:off;
+  p.addScaledVector(tg,dx); c.addScaledVector(tg,dx);
+  return [[p.x,p.y,p.z],[c.x,c.y,c.z]];
+}
+{
+  const marco=roundedBox(BW3+0.26,BH3+0.24,0.10,std({...plas,metalness:0.30,roughness:0.58}),0.05);
+  marco.position.y=BY3; board.add(marco);
+  const pl=new THREE.Mesh(new THREE.PlaneGeometry(BW3,BH3),
+    new THREE.MeshBasicMaterial({map:btex,toneMapped:false}));
+  pl.position.set(0,BY3,0.056); board.add(pl);
+  const pie=Math.max(0.10,BY3-BH3/2-0.12);
+  for(const sx of [-1,1]){
+    const p=new THREE.Mesh(new THREE.CylinderGeometry(0.05,0.06,pie,16),MAT.acero);
+    p.position.set(sx*BW3*0.42,pie/2,0); p.castShadow=true; board.add(p);
+  }
+}
+// ------------------------------------------------------------- primitivas 2D
+function bg(){
+  const g=bx.createLinearGradient(0,0,0,BH);
+  g.addColorStop(0,'#0d131c'); g.addColorStop(1,'#070a10');
+  bx.fillStyle=g; bx.fillRect(0,0,BW,BH);
+}
+function texto(t,x,y,o){
+  o=o||{};
+  const s=o.s||16, w=o.b?'700':'400', it=o.it?'italic ':'';
+  bx.font=it+w+' '+s+'px '+(o.mono?'ui-monospace,Menlo,Consolas,monospace':'Inter,system-ui,sans-serif');
+  bx.fillStyle=o.c||TINTA; bx.textAlign=o.al||'left'; bx.textBaseline='alphabetic';
+  bx.fillText(t,x,y);
+}
+function linea(pts,c,w,dash){
+  if(pts.length<2) return;
+  bx.save(); bx.strokeStyle=c; bx.lineWidth=w||2; bx.lineJoin='round'; bx.lineCap='round';
+  if(dash) bx.setLineDash(dash);
+  bx.beginPath(); bx.moveTo(pts[0][0],pts[0][1]);
+  for(let i=1;i<pts.length;i++) bx.lineTo(pts[i][0],pts[i][1]);
+  bx.stroke(); bx.restore();
+}
+function wrapText(t,x,y,w,lh,o){
+  o=o||{};
+  const s=o.s||14;
+  bx.font=(o.b?'700 ':'400 ')+s+'px Inter,system-ui,sans-serif';
+  bx.fillStyle=o.c||'#9aa6b6'; bx.textAlign='left'; bx.textBaseline='alphabetic';
+  let ln='', yy=y;
+  for(const p of t.split(' ')){
+    const test=ln?ln+' '+p:p;
+    if(bx.measureText(test).width>w&&ln){ bx.fillText(ln,x,yy); yy+=lh; ln=p; }
+    else ln=test;
+  }
+  if(ln){ bx.fillText(ln,x,yy); yy+=lh; }
+  return yy;
+}
+function rpanel(x,y,w,h,c,bd,rad){
+  const r=Math.min(rad===undefined?10:rad, w/2, h/2);
+  bx.save(); bx.beginPath();
+  bx.moveTo(x+r,y); bx.arcTo(x+w,y,x+w,y+h,r); bx.arcTo(x+w,y+h,x,y+h,r);
+  bx.arcTo(x,y+h,x,y,r); bx.arcTo(x,y,x+w,y,r); bx.closePath();
+  bx.fillStyle=c||'rgba(255,255,255,0.035)'; bx.fill();
+  if(bd){ bx.strokeStyle=bd; bx.lineWidth=1.4; bx.stroke(); }
+  bx.restore();
+}
+function chk(x,y,ok){
+  bx.save(); bx.lineWidth=2.6; bx.lineCap='round';
+  bx.strokeStyle=ok?OK_HEX:'#3a4658';
+  bx.beginPath(); bx.arc(x,y,9,0,Math.PI*2); bx.stroke();
+  if(ok){ bx.beginPath(); bx.moveTo(x-4.5,y); bx.lineTo(x-1,y+3.6); bx.lineTo(x+4.8,y-4); bx.stroke(); }
+  bx.restore();
+}
+function tabla(x,y,cols,rows,o){
+  o=o||{};
+  const rh=o.rh||26, fs=o.s||14, gap=o.gap===undefined?14:o.gap;
+  const ancho=cols.reduce((a,c)=>a+c.w+gap,0)-gap;
+  let cx=x;
+  cols.forEach(c=>{ texto(c.t,c.al==='right'?cx+c.w:cx,y,{s:fs,b:true,c:'#9aa6b6',al:c.al||'left'}); cx+=c.w+gap; });
+  linea([[x,y+8],[x+ancho,y+8]],'#243043',1.2);
+  rows.forEach((r,i)=>{
+    const yy=y+rh*(i+1)+6;
+    if(r.hl){ bx.save(); bx.fillStyle=r.hl; bx.fillRect(x-6,yy-rh+9,ancho+12,rh); bx.restore(); }
+    let px=x;
+    cols.forEach((c,j)=>{
+      const cell=r.v[j];
+      const val=Array.isArray(cell)?cell[0]:cell, col=Array.isArray(cell)?cell[1]:(r.c||TINTA);
+      texto(val,c.al==='right'?px+c.w:px,yy,{s:fs,c:col,al:c.al||'left',mono:c.mono,b:r.b});
+      px+=c.w+gap;
+    });
+  });
+  return y+rh*(rows.length+1)+6;
+}
+// Título que se encoge hasta caber: cambiar de vehículo cambia la longitud del
+// rótulo, y un rótulo largo se monta encima del de al lado sin avisar.
+function textoFit(t,x,y,maxW,o){
+  o=o||{};
+  let s=o.s||16;
+  while(s>11){
+    bx.font=(o.b?'700 ':'400 ')+s+'px Inter,system-ui,sans-serif';
+    if(bx.measureText(t).width<=maxW) break;
+    s-=0.5;
+  }
+  texto(t,x,y,Object.assign({},o,{s:s}));
+}
+function etiqueta(t,x,y,c,al){
+  bx.font='400 12px Inter,system-ui,sans-serif';
+  const w=bx.measureText(t).width+16, x0=(al==='right')?x-w:x;
+  rpanel(x0,y-14,w,20,'rgba(8,12,18,0.80)',null,6);
+  texto(t,x0+8,y,{s:12,c:c||TINTA});
+}
+function leyenda(x,y,items){
+  bx.font='400 13px Inter,system-ui,sans-serif';
+  const w=Math.max.apply(null,items.map(it=>bx.measureText(it[0]).width))+48;
+  rpanel(x-10,y-19,w,items.length*22+8,'rgba(8,12,18,0.80)','#1e2836',8);
+  let yy=y;
+  items.forEach(it=>{
+    bx.save(); bx.strokeStyle=it[1]; bx.lineWidth=3.2; bx.lineCap='round';
+    if(it[2]) bx.setLineDash(it[2]);
+    bx.beginPath(); bx.moveTo(x,yy-4); bx.lineTo(x+26,yy-4); bx.stroke(); bx.restore();
+    texto(it[0],x+34,yy,{s:13,c:'#c3ccd8'});
+    yy+=22;
+  });
+  return yy;
+}
+// Recorta al rectángulo de la gráfica. Sin esto, una curva que se sale por
+// arriba se pinta sobre la cabecera y nadie lo nota.
+function enCaja(P,fn){ bx.save(); bx.beginPath(); bx.rect(P.x,P.y,P.w,P.h); bx.clip(); fn(); bx.restore(); }
+
+function ejes(P,x0,x1,y0,y1,rx,ry,fx,fy,nx,ny){
+  const X=v=>P.x+(v-x0)/(x1-x0)*P.w;
+  const Y=v=>P.y+P.h-(v-y0)/(y1-y0)*P.h;
+  bx.save(); bx.strokeStyle='#1d2735'; bx.lineWidth=1;
+  for(let i=0;i<=nx;i++){ const v=x0+(x1-x0)*i/nx, xx=X(v);
+    bx.beginPath(); bx.moveTo(xx,P.y); bx.lineTo(xx,P.y+P.h); bx.stroke();
+    if(fx) texto(fx(v),xx,P.y+P.h+19,{s:12,c:'#7b8697',al:'center'}); }
+  for(let i=0;i<=ny;i++){ const v=y0+(y1-y0)*i/ny, yy=Y(v);
+    bx.beginPath(); bx.moveTo(P.x,yy); bx.lineTo(P.x+P.w,yy); bx.stroke();
+    if(fy) texto(fy(v),P.x-9,yy+4,{s:12,c:'#7b8697',al:'right'}); }
+  bx.restore();
+  bx.save(); bx.strokeStyle='#3a4658'; bx.lineWidth=1.5; bx.strokeRect(P.x,P.y,P.w,P.h); bx.restore();
+  if(rx) texto(rx,P.x+P.w/2,P.y+P.h+44,{s:13,c:'#9aa6b6',al:'center'});
+  if(ry){ bx.save(); bx.translate(P.x-58,P.y+P.h/2); bx.rotate(-Math.PI/2);
+    texto(ry,0,0,{s:13,c:'#9aa6b6',al:'center'}); bx.restore(); }
+  return {X:X,Y:Y};
+}
+function serieXY(M,pts,c,w,dash){ linea(pts.map(p=>[M.X(p[0]),M.Y(p[1])]),c,w,dash); }
+function punteo(M,x,y,c,r){
+  bx.save(); bx.fillStyle=c; bx.beginPath(); bx.arc(M.X(x),M.Y(y),r||4.5,0,Math.PI*2); bx.fill(); bx.restore();
+}
+// Línea de referencia horizontal. Si el nivel cae fuera del recuadro NO se
+// pinta: una línea de límite dibujada sobre el borde miente sobre dónde está.
+function nivel(P,M,v,c,rot,dash,izq){
+  const yy=M.Y(v);
+  if(yy<P.y-1||yy>P.y+P.h+1) return;
+  linea([[P.x,yy],[P.x+P.w,yy]],c,1.6,dash||[7,5]);
+  // Dos niveles cercanos con el rótulo en el mismo lado se pisan y las dos
+  // cifras se vuelven ilegibles. Por eso hay un lado a elegir.
+  if(rot){ if(izq) etiqueta(rot,P.x+8,yy-6,c);
+    else etiqueta(rot,P.x+P.w-8,yy-6,c,'right'); }
+}
+function nivelV(P,M,v,c,rot,dash){
+  const xx=M.X(v);
+  if(xx<P.x-1||xx>P.x+P.w+1) return;
+  linea([[xx,P.y],[xx,P.y+P.h]],c,1.6,dash||[7,5]);
+  if(rot) etiqueta(rot,xx+6,P.y+16,c);
+}
+// Banda de veredicto al pie. La altura se MIDE a partir del texto que va a
+// llevar: una banda de altura fija recorta su tercera línea, el texto existe
+// pero no se ve, y ninguna prueba numérica puede darse cuenta.
+function lineasDe(t,w,s){
+  bx.font='400 '+s+'px Inter,system-ui,sans-serif';
+  let n=1, ln='';
+  for(const p of String(t).split(' ')){
+    const test=ln?ln+' '+p:p;
+    if(bx.measureText(test).width>w&&ln){ n++; ln=p; } else ln=test;
+  }
+  return n;
+}
+function banda(y,niv,rot,txt){
+  const SZ=12.5, LH=17, W=BW-120;
+  const h=Math.max(60, 32+lineasDe(txt,W,SZ)*LH+10);
+  const yy=Math.min(y, BH-14-h);
+  const col=niv==='bad'?BAD_HEX:(niv==='warn'?WARN_HEX:OK_HEX);
+  const fondo=niv==='bad'?'rgba(255,107,107,0.10)':(niv==='warn'?'rgba(233,196,106,0.10)':'rgba(124,217,146,0.10)');
+  rpanel(42,yy,BW-84,h,fondo,col,10);
+  texto(rot,60,yy+24,{s:14,b:true,c:col});
+  wrapText(txt,60,yy+44,W,LH,{s:SZ,c:'#c3ccd8'});
+  return yy+h;
+}
+
+// La columna derecha del pizarrón. Las gráficas llegan hasta x = 694 y el margen
+// del tablero está en 982, así que TODA tabla de la derecha vive entre esos dos
+// números. Escribir anchos a mano en cada vista deja las tablas cortadas por el
+// borde, y eso sólo se ve mirando la pantalla.
+const DER_X=708, DER_W=274;
+function tablaDer(y,rot,rows,o){
+  o=o||{};
+  const nv=rot.length-1;
+  const wv=nv===1?110:(nv===2?76:56), gap=8;
+  const w0=DER_W-(wv+gap)*nv;
+  const cols=[{t:rot[0]||'',w:w0}];
+  for(let i=0;i<nv;i++) cols.push({t:rot[i+1]||'',w:wv,al:'right'});
+  // Una fila con menos celdas que columnas pinta «undefined» en la última, y eso
+  // pasa desapercibido en cualquier prueba numérica: se rellena aquí.
+  rows.forEach(r=>{ while(r.v.length<cols.length) r.v.push(''); });
+  return tabla(DER_X,y,cols,rows,Object.assign({rh:25,s:13,gap:gap},o));
+}
+
+
+
+// ------------------------------------------------- medidas del banco 3D
+// La escala es DIDÁCTICA y se declara: la rueda del compresor de un 1.4 mide
+// cuarenta y seis milímetros, y a la distancia a la que la cámara tiene que
+// ponerse para que el pizarrón quepa, eso sale a menos de un píxel. Lo que se
+// respeta es el ORDEN de los tamaños y la TOPOLOGÍA del camino del aire —filtro,
+// compresor, intercooler, mariposa, motor, turbina, descarga—, no los
+// milímetros. El factor K se midió en el d6-12: con el pizarrón a 8,40 m, a
+// K = 1,25 el lienzo cae en 520-530 px de ventana, que es donde su texto de
+// 13 px llega al ojo a 7 y se lee. Se comprueba con `anchoTableroPx`.
+const K_BANCO=1.45;
+function dims(e){
+  const K=K_BANCO;
+  const L=(1.02+e.cil*0.132)*K;             // 4 cil → 2,71 m · 8 cil → 3,63 m
+  const xBloque=0, yBase=0.62*K, hBloque=0.84*K;
+  const yTapa=yBase+hBloque;
+  // El turbo va a la izquierda del bloque, con las dos carcasas separadas por
+  // el eje: el compresor mirando al aire limpio (+z) y la turbina al escape
+  // (−z). Que estén EN EL MISMO EJE es la mitad de lo que hay que entender.
+  const xTurbo=xBloque-L/2-0.62*K, yTurbo=0.94*K;
+  const rComp=(0.19+e.mChoke*0.30)*K, rTurb=rComp*0.92;
+  const zComp=0.40*K, zTurb=-0.40*K;
+  // El filtro va ENCIMA y DELANTE del turbo, no un metro a su izquierda: en
+  // fila, el conjunto se estiraba tanto a lo ancho que el motor entero salia a
+  // 330 px de ventana mientras el pizarron se llevaba 520. Lo que se gana en
+  // profundidad cuesta mucho menos que lo que se gastaba a lo ancho.
+  const xFiltro=xTurbo-0.30*K, yFiltro=1.62*K, zFiltro=1.06*K;
+  // El intercooler va DELANTE del motor, que es donde va en un coche —detrás de
+  // la parrilla— y además es donde no le roba anchura al encuadre.
+  const wIC=(0.86+e.cil*0.105)*K, hIC=0.80*K, eIC=0.22*K;
+  const xIC=xBloque+L*0.06, yIC=1.16*K, zIC=1.62*K;
+  const xMar=xBloque+L*0.24, yMar=yTapa+0.30*K, zMar=0.44*K;
+  const xCol=xBloque, yCol=yTapa+0.30*K, zCol=0.12*K;   // colector de admisión
+  const xEsc=xBloque+L/2+0.66*K, yEsc=0.80*K, zEsc=-0.56*K;
+  const xWG=xTurbo-0.02*K, yWG=yTurbo-rTurb-0.26*K, zWG=zTurb-0.06*K;
+  const xTmap=xBloque-L*0.16, yTmap=yCol+0.22*K, zTmap=zCol+0.26*K;
+  return {
+    K, largo:L, xBloque, yBase, hBloque, yTapa, ancho:0.72*K,
+    xTurbo, yTurbo, rComp, rTurb, zComp, zTurb,
+    xFiltro, yFiltro, zFiltro,
+    xIC, yIC, zIC, wIC, hIC, eIC,
+    xMar, yMar, zMar, xCol, yCol, zCol,
+    xEsc, yEsc, zEsc, xWG, yWG, zWG, xTmap, yTmap, zTmap,
+    xBanco:xBloque+L*0.10, zBanco:2.55*K,
+    xIzq:xFiltro-0.46*K,
+    xDer:Math.max(xEsc+0.44*K, xIC+wIC/2+0.24*K),
+  };
+}
+
+// ------------------------------------------------------------- cabecera común
+// Toda vista dice, con las mismas palabras y en el mismo sitio, qué vehículo,
+// qué avería y en qué ambiente. Sin eso, una captura del pizarrón no significa
+// nada: la misma gráfica a 0 m y a 2 660 m son dos gráficas distintas.
+function cabecera(titulo,sub,ciego){
+  const e=MQ(), F=FL();
+  bg();
+  textoFit(titulo,42,44,660,{s:23,b:true});
+  if(sub) wrapText(sub,42,68,660,17,{s:13.5,c:'#8f9bad'});
+  // A ciegas la esquina derecha NO puede nombrar la avería. Se decide aquí, en
+  // la única función que la escribe: taparla después con un rectángulo deja el
+  // texto vivo debajo y a merced de cualquier cambio de encuadre.
+  const amb=celC(ciego?RETO.Tamb:G.Tamb)+' · '+met(ciego?RETO.alt:G.alt)+
+    (e.diesel?'':' · '+(ciego?RETO.octanaje:G.octanaje)+' octanos');
+  const dcho=ciego?[
+    [e.corto+' · '+num(e.cilindrada,1)+' L · '+e.cil+' cil', CIAN],
+    ['avería desconocida', GRIS],
+    [amb, NARANJA],
+  ]:[
+    [e.corto+' · '+num(e.cilindrada,1)+' L · '+e.cil+' cil', CIAN],
+    [G.falla==='sano'?'sin avería':F.corto, G.falla==='sano'?GRIS:WARN_HEX],
+    [amb, NARANJA],
+  ];
+  let yy=32;
+  for(const d of dcho){ texto(d[0],BW-42,yy,{s:13.5,c:d[1],al:'right',b:true}); yy+=20; }
+  linea([[42,86],[BW-42,86]],'#1b2432',1.2);
+  return 86;
+}
+
+// ============================================================ T3 · LAS PIEZAS
+// Siete piezas, y el camino del aire pasa por las siete en este orden. Cada una
+// dice para qué está y qué pasa sin ella, y ese «qué pasa sin ella» no es una
+// frase bonita: es lo que el modelo hace cuando se le quita.
+const PART={
+  filtro:{ rot:'Filtro de aire', fn:'Deja pasar el aire y retiene la suciedad.',
+    sin:'Sin él, el compresor se come la arena.',
+    para:'Estorba a la ENTRADA, que es donde más caro sale: cada milibar que falta ahí el compresor lo tiene que poner con más vueltas. Y esa es la clave de lo que enseña sucio: cuesta muy poco par y mucha velocidad de eje.',
+    nota:'El aire ya entra limpio.'},
+  compresor:{ rot:'Compresor', fn:'Comprime el aire de admisión.',
+    sin:'Sin él el motor es atmosférico y punto.',
+    para:'Vive dentro de un MAPA cerrado: para cada velocidad hay una curva de presión contra gasto, con el bombeo a la izquierda y el bloqueo a la derecha. Fuera de esa ventana no hay presión que valga.',
+    nota:'Ya hay quien comprima.'},
+  intercooler:{ rot:'Intercooler', fn:'Enfría el aire que sale del compresor.',
+    sin:'Sin él la presión es la misma y la densidad, no.',
+    para:'Enfría Y estorba, las dos cosas a la vez. Por eso hay un tamaño óptimo: uno demasiado grande baja tanto la presión que se come lo que ganó bajando la temperatura.',
+    nota:'Ahora el aire llega frío, que es lo que hace falta.'},
+  mariposa:{ rot:'Mariposa', fn:'Decide cuánto aire deja pasar al motor.',
+    sin:'Sin ella no hay forma de pedir menos.',
+    para:'Aquí es un mando de CARGA, no una restricción modelada: a plena carga está abierta de par en par y quien manda es el turbo.',
+    nota:'Ya se puede pedir menos de todo.'},
+  turbina:{ rot:'Turbina', fn:'Saca del escape la potencia que el compresor gasta.',
+    sin:'Sin ella el compresor no tiene quien lo mueva.',
+    para:'Traga por una ley de tobera: el gasto que le mandan FIJA la presión que hay delante de ella. Por eso una turbina pequeña sopla antes y ahoga después.',
+    nota:'El eje ya tiene quien lo empuje.'},
+  wastegate:{ rot:'Válvula de descarga', fn:'Desvía escape para que el turbo no se pase.',
+    sin:'Sin ella no hay nada que frene al turbo.',
+    para:'Es la SEGUNDA tobera, en paralelo con la turbina. Cuanto más abre, menos gasto pasa por la turbina y menos potencia saca: así es como se limita el soplado.',
+    nota:'Ya hay quien ponga el freno.'},
+  tmap:{ rot:'Sensor de presión y temperatura', fn:'Es TODO lo que el ordenador ve del turbo.',
+    sin:'Sin él el ordenador no sabe ni qué presión hay.',
+    para:'Mide presión ABSOLUTA de colector y temperatura de admisión, y nada más. Ni gasto, ni vueltas de turbo, ni contrapresión, ni margen de bombeo. Por eso hay averías que le quitan a este motor la tercera parte del par sin que salte un solo código.',
+    nota:'Ahora se ve lo poco que ve el ordenador.'},
+};
+const ORDEN=['filtro','compresor','intercooler','mariposa','turbina','wastegate','tmap'];
+const PARTS=ORDEN.map(k=>({k,...PART[k],build:()=>BUILD[k]()}));
+const ASM={done:new Set(), sel:null};
+
+// Anclas: dónde va cada pieza. Se calculan de las dimensiones REALES del
+// arquetipo, no con coordenadas escritas a mano, porque el V8 mide bastante más
+// que el 1.4 y unas coordenadas fijas lo meten dentro del bloque.
+function ancla(){
+  const d=dims(MQ());
+  return {
+    filtro:      new THREE.Vector3(d.xFiltro, d.yFiltro, d.zFiltro),
+    compresor:   new THREE.Vector3(d.xTurbo, d.yTurbo, d.zComp),
+    intercooler: new THREE.Vector3(d.xIC, d.yIC, d.zIC),
+    mariposa:    new THREE.Vector3(d.xMar, d.yMar, d.zMar),
+    turbina:     new THREE.Vector3(d.xTurbo, d.yTurbo, d.zTurb),
+    wastegate:   new THREE.Vector3(d.xWG, d.yWG, d.zWG),
+    tmap:        new THREE.Vector3(d.xTmap, d.yTmap, d.zTmap),
+  };
+}
+const posDe=k=>ancla()[k];
+
+// ------------------------------------------------------------- constructores
+// Cada pieza publica sus mandos por `userData` y NO escribe en RIG: si lo
+// hiciera, el fantasma —que se construye con el mismo constructor— pisaría la
+// referencia de la pieza montada y el laboratorio animaría el hueco vacío.
+const RIG={piezas:{}, ruedaC:null, ruedaT:null, aletaWG:null, nucleoIC:null,
+  aguja:null, mariposa:null, ejeTurbo:null};
+const BUILD={
+  filtro(){
+    const g=new THREE.Group(), d=dims(MQ()), K=d.K;
+    const caja=cil(0.34*K,0.34*K,0.46*K,std({...plas,color:0x21262e,roughness:0.66}),30);
+    caja.rotation.z=Math.PI/2; g.add(caja);
+    // El elemento filtrante plisado: se ve por qué estorba.
+    const el0=cil(0.30*K,0.30*K,0.30*K,std({color:0xd9d2bc,roughness:0.92,metalness:0.02}),30);
+    el0.rotation.z=Math.PI/2; g.add(el0);
+    for(let i=0;i<26;i++){
+      const a=i/26*Math.PI*2;
+      const p=roundedBox(0.30*K,0.020*K,0.055*K,std({color:0xc9c0a6,roughness:0.94}),0.006*K);
+      p.rotation.x=a; p.position.set(0,Math.cos(a)*0.295*K,Math.sin(a)*0.295*K); g.add(p);
+    }
+    const boca=cil(0.115*K,0.115*K,0.30*K,MAT.tubo,22);
+    boca.rotation.z=Math.PI/2; boca.position.x=0.36*K; g.add(boca);
+    const lab=labelSprite('filtro de aire','#9fb2c6');
+    lab.position.set(0,0.44*K,0); lab.scale.multiplyScalar(0.40); g.add(lab);
+    return g;
+  },
+  compresor(){
+    const g=new THREE.Group(), d=dims(MQ()), K=d.K, r=d.rComp;
+    // La caracola: un toro achatado con la salida tangencial. No es adorno,
+    // es la forma que convierte velocidad en presión.
+    const car=new THREE.Mesh(new THREE.TorusGeometry(r*0.86,r*0.40,14,42),MAT.aluFun);
+    car.rotation.y=Math.PI/2; g.add(car);
+    const tapa=cil(r*0.92,r*0.72,r*0.30,MAT.aluFun,34);
+    tapa.rotation.z=Math.PI/2; tapa.position.x=-r*0.42; g.add(tapa);
+    const boca=cil(r*0.52,r*0.52,r*0.44,MAT.aluFun,26);
+    boca.rotation.z=Math.PI/2; boca.position.x=-r*0.70; g.add(boca);
+    // La rueda, con álabes de verdad: gira con el modelo.
+    const rue=new THREE.Group(); rue.position.x=-r*0.18; g.add(rue);
+    const buje=cil(r*0.16,r*0.26,r*0.34,MAT.crom,20);
+    buje.rotation.z=Math.PI/2; rue.add(buje);
+    for(let i=0;i<10;i++){
+      const a=i/10*Math.PI*2;
+      const al=roundedBox(r*0.26,r*0.60,r*0.030,MAT.crom,r*0.010);
+      al.position.set(0,Math.cos(a)*r*0.40,Math.sin(a)*r*0.40);
+      al.rotation.x=a; al.rotation.y=0.55; rue.add(al);
+    }
+    // Salida tangencial hacia arriba: por ahí sale el aire caliente al
+    // intercooler.
+    const sal=cil(r*0.40,r*0.40,r*0.70,MAT.aluFun,24);
+    sal.position.set(0,r*1.05,0); g.add(sal);
+    const lab=labelSprite('compresor','#9fb2c6');
+    lab.position.set(0,r*1.62,0); lab.scale.multiplyScalar(0.40); g.add(lab);
+    g.userData.rueda=rue;
+    return g;
+  },
+  turbina(){
+    const g=new THREE.Group(), d=dims(MQ()), K=d.K, r=d.rTurb;
+    const car=new THREE.Mesh(new THREE.TorusGeometry(r*0.88,r*0.42,14,42),MAT.fundicion);
+    car.rotation.y=Math.PI/2; g.add(car);
+    const tapa=cil(r*0.94,r*0.74,r*0.30,MAT.fundicion,34);
+    tapa.rotation.z=Math.PI/2; tapa.position.x=r*0.42; g.add(tapa);
+    const rue=new THREE.Group(); rue.position.x=r*0.16; g.add(rue);
+    const buje=cil(r*0.16,r*0.22,r*0.32,MAT.crom,20);
+    buje.rotation.z=Math.PI/2; rue.add(buje);
+    for(let i=0;i<11;i++){
+      const a=i/11*Math.PI*2;
+      const al=roundedBox(r*0.24,r*0.56,r*0.032,std({color:0x8d8378,roughness:0.52,metalness:0.70}),r*0.010);
+      al.position.set(0,Math.cos(a)*r*0.38,Math.sin(a)*r*0.38);
+      al.rotation.x=a; al.rotation.y=-0.62; rue.add(al);
+    }
+    // La salida del escape, hacia abajo.
+    const sal=cil(r*0.46,r*0.46,r*0.80,MAT.fundicion,24);
+    sal.position.set(0,-r*1.12,0); g.add(sal);
+    const lab=labelSprite('turbina','#c9a58a');
+    lab.position.set(0,r*1.36,0); lab.scale.multiplyScalar(0.40); g.add(lab);
+    g.userData.rueda=rue;
+    return g;
+  },
+  intercooler(){
+    const g=new THREE.Group(), d=dims(MQ()), K=d.K;
+    const w=d.wIC, h=d.hIC, e0=d.eIC;
+    const marco=roundedBox(w,h,e0,std({color:0x6b7581,roughness:0.60,metalness:0.55}),0.03*K);
+    g.add(marco);
+    // El núcleo: tubos horizontales y aletas. Se colorea con la efectividad.
+    const nuc=new THREE.Group(); g.add(nuc);
+    const nfil=7;
+    const mn=std({color:0x8d99a6,roughness:0.50,metalness:0.66});
+    for(let i=0;i<nfil;i++){
+      const y=(i-(nfil-1)/2)*h*0.118;
+      const t=roundedBox(w*0.92,h*0.052,e0*0.86,mn,0.008*K);
+      t.position.y=y; nuc.add(t);
+      const al=roundedBox(w*0.92,h*0.048,e0*0.60,std({color:0x707b88,roughness:0.72,metalness:0.42}),0.004*K);
+      al.position.y=y+h*0.059; nuc.add(al);
+    }
+    // Los dos colectores laterales, que es por donde entra y sale el aire.
+    for(const sx of [-1,1]){
+      const c=cil(h*0.16,h*0.16,h*0.92,MAT.aluFun,22);
+      c.position.set(sx*w*0.50,0,0); g.add(c);
+      const b=cil(h*0.10,h*0.10,e0*2.4,MAT.aluFun,18);
+      b.rotation.x=Math.PI/2; b.position.set(sx*w*0.50,sx>0?h*0.30:-h*0.30,e0*1.1); g.add(b);
+    }
+    const lab=labelSprite('intercooler','#9fb2c6');
+    lab.position.set(0,h*0.74,0); lab.scale.multiplyScalar(0.42); g.add(lab);
+    g.userData.nucleo=nuc; g.userData.matNucleo=mn;
+    return g;
+  },
+  mariposa(){
+    const g=new THREE.Group(), K=dims(MQ()).K;
+    const cuerpo=cil(0.17*K,0.17*K,0.24*K,MAT.aluFun,28);
+    cuerpo.rotation.z=Math.PI/2; g.add(cuerpo);
+    const pl=cil(0.15*K,0.15*K,0.016*K,MAT.crom,26);
+    pl.rotation.z=Math.PI/2; g.add(pl);
+    const eje=cil(0.016*K,0.016*K,0.40*K,MAT.crom,12); g.add(eje);
+    const mot=roundedBox(0.22*K,0.20*K,0.16*K,MAT.caja,0.03*K);
+    mot.position.set(0,0.22*K,0); g.add(mot);
+    const lab=labelSprite('mariposa','#9fb2c6');
+    lab.position.set(0,0.40*K,0); lab.scale.multiplyScalar(0.36); g.add(lab);
+    g.userData.plato=pl;
+    return g;
+  },
+  wastegate(){
+    const g=new THREE.Group(), K=dims(MQ()).K;
+    // La cápsula neumática y su varilla: el actuador que abre la trampilla.
+    const cap=cil(0.16*K,0.16*K,0.11*K,std({color:0x7f8894,roughness:0.44,metalness:0.70}),26);
+    cap.rotation.x=Math.PI/2; cap.position.set(0,0.30*K,0); g.add(cap);
+    const var0=cil(0.020*K,0.020*K,0.30*K,MAT.crom,12);
+    var0.position.set(0,0.13*K,0); g.add(var0);
+    const braz=roundedBox(0.19*K,0.036*K,0.030*K,MAT.acero,0.010*K);
+    braz.position.set(0.08*K,0.005*K,0); g.add(braz);
+    // La trampilla: gira de verdad con la apertura que calcula el modelo.
+    const piv=new THREE.Group(); piv.position.set(0.17*K,0,0); g.add(piv);
+    const tap=roundedBox(0.020*K,0.15*K,0.15*K,std({color:0x6d655c,roughness:0.70,metalness:0.55}),0.008*K);
+    tap.position.set(0,-0.07*K,0); piv.add(tap);
+    const asiento=new THREE.Mesh(new THREE.TorusGeometry(0.085*K,0.016*K,10,26),MAT.fundicion);
+    asiento.rotation.y=Math.PI/2; asiento.position.set(0.17*K,-0.14*K,0); g.add(asiento);
+    const man=tubo([new THREE.Vector3(0,0.30*K,0.02*K),
+      new THREE.Vector3(-0.22*K,0.34*K,0.10*K),
+      new THREE.Vector3(-0.34*K,0.16*K,0.18*K)],0.014*K,MAT.manguera); g.add(man);
+    const lab=labelSprite('descarga','#c9a58a');
+    lab.position.set(0,0.50*K,0); lab.scale.multiplyScalar(0.36); g.add(lab);
+    g.userData.trampilla=piv;
+    return g;
+  },
+  tmap(){
+    const g=new THREE.Group(), K=dims(MQ()).K;
+    const cuerpo=roundedBox(0.14*K,0.16*K,0.10*K,MAT.caja,0.02*K); g.add(cuerpo);
+    const vast=cil(0.030*K,0.030*K,0.14*K,std({color:0x8d99a6,roughness:0.40,metalness:0.72}),14);
+    vast.position.y=-0.14*K; g.add(vast);
+    const con=roundedBox(0.09*K,0.07*K,0.06*K,std({color:0x2a3038,...plas}),0.012*K);
+    con.position.set(0,0.11*K,0.02*K); g.add(con);
+    const cab=tubo([new THREE.Vector3(0,0.14*K,0.03*K),
+      new THREE.Vector3(-0.16*K,0.22*K,0.10*K),
+      new THREE.Vector3(-0.34*K,0.10*K,0.16*K)],0.010*K,MAT.goma); g.add(cab);
+    // El testigo: sólo se enciende cuando hay CÓDIGO, no cuando hay avería.
+    const tes=cil(0.026*K,0.026*K,0.014*K,std({color:0x3a3116,emissive:0x000000,
+      emissiveIntensity:0,roughness:0.4}),16);
+    tes.rotation.x=Math.PI/2; tes.position.set(0.05*K,0.05*K,0.055*K); g.add(tes);
+    const lab=labelSprite('presión y temperatura','#9fb2c6');
+    lab.position.set(0,0.30*K,0); lab.scale.multiplyScalar(0.34); g.add(lab);
+    g.userData.testigo=tes;
+    return g;
+  },
+};
+
+// ============================================== T4 · EL MOTOR Y SUS CONDUCTOS
+// El bloque no es una pieza que se monte: es el sitio donde se montan las
+// demás. Se rehace cuando cambia el vehículo, porque el V8 mide un metro más.
+let motor3D=null;
+function levantaMotor(){
+  if(motor3D){ borra(motor3D); motor3D=null; }
+  const e=MQ(), d=dims(e), K=d.K;
+  const raiz=new THREE.Group(); scene.add(raiz); motor3D=raiz;
+
+  const bloque=roundedBox(d.largo,d.hBloque,d.ancho,MAT.bloque,0.05*K);
+  bloque.position.set(d.xBloque,d.yBase+d.hBloque/2,0); raiz.add(bloque);
+  const culata=roundedBox(d.largo*0.94,0.30*K,d.ancho*0.94,MAT.culata,0.04*K);
+  culata.position.set(d.xBloque,d.yTapa-0.15*K,0); raiz.add(culata);
+  const tapa=roundedBox(d.largo*0.86,0.14*K,d.ancho*0.70,std({color:0x2c333c,...plas}),0.03*K);
+  tapa.position.set(d.xBloque,d.yTapa+0.07*K,0); raiz.add(tapa);
+  // El cárter, para que el motor no salga flotando.
+  const cart=roundedBox(d.largo*0.90,0.42*K,d.ancho*0.86,MAT.bloque,0.06*K);
+  cart.position.set(d.xBloque,d.yBase-0.21*K,0); raiz.add(cart);
+  for(const sx of [-1,1]){
+    const pa=roundedBox(0.14*K,d.yBase-0.42*K,0.14*K,MAT.acero,0.03*K);
+    pa.position.set(d.xBloque+sx*d.largo*0.34,(d.yBase-0.42*K)/2,0); raiz.add(pa);
+  }
+
+  // El colector de admisión: el plenum sobre la culata y sus corredores.
+  const plen=roundedBox(d.largo*0.72,0.20*K,0.26*K,std({color:0x39424e,roughness:0.55,metalness:0.40}),0.05*K);
+  plen.position.set(d.xCol,d.yCol,d.zCol); raiz.add(plen);
+  for(let i=0;i<e.cil;i++){
+    const x=d.xBloque+(i-(e.cil-1)/2)*(d.largo*0.80/Math.max(1,e.cil-1));
+    const c=tubo([new THREE.Vector3(x,d.yCol,d.zCol-0.10*K),
+      new THREE.Vector3(x,d.yCol-0.02*K,-0.02*K),
+      new THREE.Vector3(x,d.yTapa+0.06*K,-0.16*K)],0.045*K,
+      std({color:0x424c58,roughness:0.58,metalness:0.38}));
+    raiz.add(c);
+  }
+  // El colector de escape, del lado contrario, en fundición y con su calor.
+  const cabecero=[];
+  for(let i=0;i<e.cil;i++){
+    const x=d.xBloque+(i-(e.cil-1)/2)*(d.largo*0.80/Math.max(1,e.cil-1));
+    const c=tubo([new THREE.Vector3(x,d.yTapa-0.06*K,-d.ancho*0.46),
+      new THREE.Vector3(x,d.yTapa-0.20*K,-d.ancho*0.72),
+      new THREE.Vector3(x*0.55+d.xTurbo*0.45,d.yTurbo+0.10*K,d.zTurb+0.10*K)],0.042*K,MAT.fundicion);
+    raiz.add(c); cabecero.push(c);
+  }
+  // El escape aguas abajo de la turbina.
+  const esc=tubo([new THREE.Vector3(d.xTurbo,d.yTurbo-d.rTurb*1.5,d.zTurb),
+    new THREE.Vector3(d.xTurbo+0.5*K,0.52*K,d.zEsc),
+    new THREE.Vector3(d.xEsc-0.5*K,d.yEsc-0.10*K,d.zEsc),
+    new THREE.Vector3(d.xEsc,d.yEsc,d.zEsc)],0.062*K,MAT.tubo);
+  raiz.add(esc);
+  const cola=cil(0.09*K,0.10*K,0.26*K,MAT.crom,20);
+  cola.rotation.z=Math.PI/2; cola.position.set(d.xEsc+0.16*K,d.yEsc,d.zEsc); raiz.add(cola);
+
+  // El suelo del banco. Iba de un extremo a otro de la escena y en un material
+  // claro: se comía la mitad del encuadre y el motor quedaba encima de una losa
+  // más llamativa que él. Se ciñe al motor y se oscurece.
+  const anchoLosa=(d.xEsc-d.xTurbo)+1.2*K;
+  const losa=roundedBox(anchoLosa,0.09*K,2.3*K,
+    std({color:0x161d27,roughness:0.72,metalness:0.14}),0.04*K);
+  losa.position.set((d.xTurbo+d.xEsc)/2,0.045*K,0.42*K); raiz.add(losa);
+
+  G.k=Math.max(1,(d.xDer-d.xIzq)/4.6);
+  colocaTablero(d);
+  return raiz;
+}
+
+// ------------------------------------------------- los conductos que unen todo
+// Cada tramo une DOS piezas y sólo existe si las dos están montadas: así el
+// camino del aire se ve APARECER mientras se ensambla, y un camino a medias se
+// ve a medias. Los tramos se rehacen cada vez que cambia el montaje.
+let conductos=[];
+function limpiaConductos(){ conductos.forEach(o=>borra(o)); conductos=[]; }
+function tramo(a,b,pts,r,mat){
+  if(!ASM.done.has(a)||!ASM.done.has(b)) return;
+  const t=tubo(pts,r,mat); scene.add(t); conductos.push(t);
+}
+function armaCamino(){
+  limpiaConductos();
+  const d=dims(MQ()), K=d.K;
+  const V=(x,y,z)=>new THREE.Vector3(x,y,z);
+  // 1 · filtro → compresor (aire limpio, frío, a la presión de la calle)
+  tramo('filtro','compresor',[
+    V(d.xFiltro+0.36*K,d.yFiltro,d.zFiltro),
+    V(d.xTurbo-0.34*K,d.yFiltro-0.12*K,d.zComp+0.10*K),
+    V(d.xTurbo-d.rComp*0.70,d.yTurbo,d.zComp)],0.052*K,MAT.manguera);
+  // 2 · compresor → intercooler (aire caliente y comprimido)
+  tramo('compresor','intercooler',[
+    V(d.xTurbo,d.yTurbo+d.rComp*1.05,d.zComp),
+    V(d.xTurbo+0.40*K,d.yIC+d.hIC*0.42,d.zComp+0.60*K),
+    V(d.xIC-d.wIC*0.50,d.yIC+d.hIC*0.30,d.zIC-d.eIC*1.1)],0.050*K,
+    std({color:0x8a5a4a,roughness:0.52,metalness:0.30}));
+  // 3 · intercooler → mariposa (aire frío y comprimido: el que sirve)
+  tramo('intercooler','mariposa',[
+    V(d.xIC+d.wIC*0.50,d.yIC-d.hIC*0.30,d.zIC-d.eIC*1.1),
+    V(d.xMar+0.30*K,d.yMar-0.16*K,d.zIC-0.70*K),
+    V(d.xMar+0.14*K,d.yMar,d.zMar)],0.050*K,MAT.manguera);
+  // 4 · mariposa → colector
+  tramo('mariposa','tmap',[
+    V(d.xMar-0.14*K,d.yMar,d.zMar),
+    V(d.xCol+0.20*K,d.yCol,d.zCol+0.16*K),
+    V(d.xTmap,d.yTmap-0.12*K,d.zTmap)],0.050*K,
+    std({color:0x424c58,roughness:0.58,metalness:0.38}));
+  // 5 · turbina → descarga: la segunda tobera, EN PARALELO
+  tramo('turbina','wastegate',[
+    V(d.xTurbo+0.10*K,d.yTurbo-d.rTurb*0.80,d.zTurb),
+    V(d.xWG+0.10*K,d.yWG+0.16*K,d.zWG+0.04*K),
+    V(d.xWG,d.yWG-0.02*K,d.zWG)],0.038*K,MAT.fundicion);
+}
+
+// ---------------------------------------------------------------- el banco
+const STAGE_S=0.62;
+const BENCH={cx:0.0,cz:0.0,top:0.90,cols:4,dx:1.02,dz:1.04,pedH:0.24};
+const NFIL=Math.ceil(PARTS.length/BENCH.cols), PED_Y=BENCH.top+BENCH.pedH;
+function pedXZ(i){
+  const d=dims(MQ());
+  const c=i%BENCH.cols, f=Math.floor(i/BENCH.cols);
+  return [d.xBanco+(c-(BENCH.cols-1)/2)*BENCH.dx, d.zBanco+(f-(NFIL-1)/2)*BENCH.dz];
+}
+const peds=[];
+// El banco entero se guarda para poder APAGARLO. Una vez montado el camino del
+// aire el banco está vacío y sus siete aros luminosos se quedan en primer plano
+// sembrando de resplandor el pizarrón —el `bloom` los recoge y los reparte por
+// encima del texto—. Un banco vacío no informa de nada.
+let banco=null;
+function levantaBanco(){
+  if(banco){ borra(banco); banco=null; }
+  peds.length=0;
+  const g=new THREE.Group(); banco=g;
+  const d=dims(MQ());
+  const w=BENCH.cols*BENCH.dx+0.42, dd=NFIL*BENCH.dz+0.42;
+  const losa=roundedBox(w,0.10,dd,MAT.banco,0.04);
+  losa.position.set(d.xBanco,BENCH.top,d.zBanco); g.add(losa);
+  for(const sx of [-1,1]) for(const sz of [-1,1]){
+    const pa=roundedBox(0.10,BENCH.top,0.10,MAT.acero,0.20);
+    pa.position.set(d.xBanco+sx*(w/2-0.15),BENCH.top/2,d.zBanco+sz*(dd/2-0.15)); g.add(pa);
+  }
+  PARTS.forEach((p,i)=>{
+    const [x,z]=pedXZ(i), pg=new THREE.Group(); pg.position.set(x,0,z);
+    const cu=cil(0.23,0.27,BENCH.pedH,MAT.banco,26);
+    cu.position.y=BENCH.top+BENCH.pedH/2; pg.add(cu);
+    const pl=cil(0.25,0.25,0.03,MAT.acero,26); pl.position.y=PED_Y; pg.add(pl);
+    const mm2=emis(0x2AA6B8,0.85);
+    const an=new THREE.Mesh(new THREE.TorusGeometry(0.26,0.013,10,40),mm2);
+    an.rotation.x=-Math.PI/2; an.position.y=PED_Y+0.02; pg.add(an);
+    const lb=labelSprite(String(i+1),'#9fb2c6');
+    lb.position.set(0,BENCH.top+0.14,0); lb.scale.multiplyScalar(0.44); pg.add(lb);
+    g.add(pg); peds.push({mat:mm2});
+  });
+  scene.add(g);
+}
+function muestraBanco(v){ if(banco) banco.visible=v; }
+function pedLibre(i){ const p=peds[i]; if(!p) return;
+  p.mat.color.setHex(0x2AA6B8); p.mat.emissive.setHex(0x2AA6B8); p.mat.emissiveIntensity=0.85; }
+function pedHecho(i){ const p=peds[i]; if(!p) return;
+  p.mat.color.setHex(0x7CD992); p.mat.emissive.setHex(0x7CD992); p.mat.emissiveIntensity=0.30; }
+
+// ---------------------------------------------------------------- ensamble
+let fantasmas=[], moviles=[], tweens=[], montadas=[];
+let TH=0, animT=0;
+const ease=x=>x<0.5?4*x*x*x:1-Math.pow(-2*x+2,3)/2;
+let toastT=null;
+function showToast(html,ms){
+  const t=el('toast'); t.innerHTML=html; t.classList.add('show');
+  clearTimeout(toastT); toastT=setTimeout(()=>t.classList.remove('show'),ms||3800);
+}
+function limpiaKit(){
+  [...fantasmas,...moviles,...montadas].forEach(o=>borra(o));
+  fantasmas=[]; moviles=[]; montadas=[]; tweens=[]; ASM.sel=null;
+  RIG.piezas={}; RIG.ruedaC=null; RIG.ruedaT=null; RIG.aletaWG=null;
+  RIG.nucleoIC=null; RIG.matIC=null; RIG.mariposa=null; RIG.testigo=null;
+  limpiaConductos();
+}
+function haz(p){ const g=p.build(); centra(g); g.userData.pid=p.k; return g; }
+function registra(o){
+  const k=o.userData.id, u=o.userData;
+  RIG.piezas[k]=o;
+  if(k==='compresor') RIG.ruedaC=u.rueda;
+  if(k==='turbina') RIG.ruedaT=u.rueda;
+  if(k==='wastegate') RIG.aletaWG=u.trampilla;
+  if(k==='intercooler'){ RIG.nucleoIC=u.nucleo; RIG.matIC=u.matNucleo; }
+  if(k==='mariposa') RIG.mariposa=u.plato;
+  if(k==='tmap') RIG.testigo=u.testigo;
+}
+function reposiciona(){
+  const A=ancla();
+  montadas.forEach(o=>{
+    if(tweens.some(w=>w.o===o)) return;
+    o.position.copy(A[o.userData.id]);
+  });
+  fantasmas.forEach(f=>{
+    f.position.copy(A[f.userData.id]);
+    f.userData.home=A[f.userData.id].clone();
+  });
+  armaCamino();
+}
+function montaKit(){
+  limpiaKit();
+  PARTS.forEach(p=>{
+    const g=haz(p); g.userData.kind='placed'; g.userData.id=p.k;
+    scene.add(g); montadas.push(g); ASM.done.add(p.k); registra(g);
+  });
+  peds.forEach((_,i)=>pedHecho(i));
+  reposiciona();
+}
+function initAssembly(){
+  limpiaKit(); ASM.done.clear();
+  PARTS.forEach((p,i)=>{
+    const g=haz(p);
+    g.scale.setScalar(STAGE_S);
+    const [x,z]=pedXZ(i);
+    const baseY=PED_Y+0.03-g.userData.minY*STAGE_S;
+    g.position.set(x,baseY,z);
+    g.userData.kind='part'; g.userData.id=p.k;
+    g.userData.baseY=baseY; g.userData.fase=i*1.7; g.userData.lift=0;
+    scene.add(g); moviles.push(g);
+
+    const f=haz(p), gm=nuevaFantasma();
+    f.traverse(o=>{ if(o.isMesh){ o.material=gm; o.castShadow=false; o.receiveShadow=false; }
+                    if(o.isSprite) o.visible=false; });
+    f.userData.kind='slot'; f.userData.id=p.k; f.userData.gm=gm; f.userData.shake=0;
+    scene.add(f); fantasmas.push(f);
+    pedLibre(i);
+  });
+  reposiciona(); muestraHueco(null);
+  G.simUnlocked=false; G.resuelto=false;
+  S.setCinematicIdle(false);
+  const c=camConjunto(0.98);
+  S.moveTo(c[0],c[1],1.3);
+}
+function muestraHueco(id){
+  fantasmas.forEach(f=>{ f.visible=!ASM.done.has(f.userData.id)&&(!id||f.userData.id===id); });
+}
+function selPieza(o){
+  if(ASM.sel===o){ deselec(); return; }
+  deselec(); ASM.sel=o; o.userData.lift=0.16;
+  muestraHueco(o.userData.id); synth.beep(660,0.06,0.04);
+  showToast('<b>'+PART[o.userData.id].rot+'</b> en la mano. Ahora toca su <b>hueco luminoso</b> en el banco.',2600);
+}
+function deselec(){ if(ASM.sel){ ASM.sel.userData.lift=0; ASM.sel=null; } muestraHueco(null); }
+function colocaPieza(o,f){
+  const p=PART[o.userData.id], i=ORDEN.indexOf(o.userData.id);
+  f.visible=false;
+  tweens.push({o, p0:o.position.clone(), p1:posDe(o.userData.id).clone(),
+    s0:o.scale.x, s1:1, t:0, dur:0.85,
+    fin:()=>{ o.userData.kind='placed'; o.userData.lift=0; registra(o); armaCamino(); }});
+  ASM.done.add(o.userData.id); ASM.sel=null; pedHecho(i);
+  montadas.push(o); moviles=moviles.filter(m=>m!==o);
+  synth.beep(880,0.07,0.05); setTimeout(()=>synth.beep(1174,0.09,0.05),90);
+  showToast('✔ <b>'+p.rot+'</b> montado. '+p.nota,4400);
+  muestraHueco(null); pintaTablero();
+  if(ASM.done.size===PARTS.length) finEnsamble();
+}
+function huecoMal(f){
+  f.userData.shake=0.5; synth.beep(200,0.12,0.05);
+  showToast('<span class="bad">✗ Esa pieza no va en ese hueco.</span>',2000);
+}
+function finEnsamble(){
+  G.simUnlocked=true; syncCtrl();
+  // El banco vacio se APAGA. Sus siete aros luminosos se quedaban en primer
+  // plano inundando de verde el suelo y el pizarron —el bloom los recoge y los
+  // reparte por encima del texto— y un banco sin piezas no informa de nada.
+  muestraBanco(false);
+  synth.beep(523,0.10,0.05); setTimeout(()=>synth.beep(784,0.14,0.05),130);
+  showToast('🎉 <b>Camino del aire completo.</b> Se abren los seis modos de trabajo.',4600);
+  S.setCinematicIdle(true);
+  afterEdit();
+}
+function autoAssemble(){
+  const pend=PARTS.filter(p=>!ASM.done.has(p.k));
+  pend.forEach((p,n)=>setTimeout(()=>{
+    const o=moviles.find(m=>m.userData.id===p.k), f=fantasmas.find(x=>x.userData.id===p.k);
+    if(o&&f&&!ASM.done.has(p.k)) colocaPieza(o,f);
+  },320+n*640));
+  return 320+pend.length*640+900;
+}
+function conEtiqueta(o){ let n=o; while(n){ if(n.userData&&n.userData.kind) return n; n=n.parent; } return null; }
+pickerFor(scene,S.camera,mount,hit=>{
+  if(!hit){ deselec(); return; }
+  const t=conEtiqueta(hit.object);
+  if(!t){ deselec(); return; }
+  const k=t.userData.kind;
+  if(k==='part') selPieza(t);
+  else if(k==='slot'){
+    if(!ASM.sel){ showToast('Primero toca una <b>pieza</b> del banco.',2200); return; }
+    if(t.userData.id===ASM.sel.userData.id) colocaPieza(ASM.sel,t); else huecoMal(t);
+  }else if(k==='placed'){
+    showToast('<b>'+PART[t.userData.id].rot+'</b> — '+PART[t.userData.id].para,5200);
+  }
+});
+
+// ============================================================ T5 · LAS VISTAS
+
+// ------------------------------------------------------------ 1 · el ensamble
+function vistaEnsamble(){
+  const e=MQ();
+  const y0=cabecera('Montaje del camino del aire',
+    'Siete piezas en el orden en que el aire las atraviesa. Hasta que estén las siete no hay nada que simular: '+
+    'un turbo al que le falta la turbina no es un turbo lento, es un adorno.');
+  const hechas=PARTS.filter(p=>ASM.done.has(p.k));
+  const puesta=k=>ASM.done.has(k);
+
+  // El camino, dibujado como lo que es: una cadena. Cada eslabón se enciende
+  // cuando su pieza está puesta, y los tramos entre dos piezas puestas se
+  // pintan enteros. Un camino a medias se ve a medias.
+  const CX=64, CY=150, CW=BW-128, PASO=CW/(ORDEN.length-1);
+  linea([[CX,CY],[CX+CW,CY]],'#1c2634',3);
+  for(let i=0;i<ORDEN.length-1;i++){
+    if(puesta(ORDEN[i])&&puesta(ORDEN[i+1]))
+      linea([[CX+i*PASO,CY],[CX+(i+1)*PASO,CY]],CIAN,3.4);
+  }
+  ORDEN.forEach((k,i)=>{
+    const x=CX+i*PASO, on=puesta(k);
+    bx.save();
+    bx.fillStyle=on?'#12303a':'#141a23'; bx.strokeStyle=on?CIAN:'#2b3648'; bx.lineWidth=2;
+    bx.beginPath(); bx.arc(x,CY,17,0,Math.PI*2); bx.fill(); bx.stroke(); bx.restore();
+    texto(String(i+1),x,CY+5,{s:14,b:true,c:on?CIAN:'#5d6a7d',al:'center'});
+    const rot=PART[k].rot.split(' ');
+    texto(rot[0],x,CY+38,{s:12,c:on?TINTA:'#67717f',al:'center'});
+    if(rot.length>1) texto(rot.slice(1).join(' '),x,CY+53,{s:12,c:on?TINTA:'#67717f',al:'center'});
+  });
+
+  texto('Piezas montadas — '+hechas.length+' de '+PARTS.length,42,244,{s:15,b:true});
+  const filas=PARTS.map(p=>({v:[ASM.done.has(p.k)?'✔':'·', p.rot, p.fn, p.sin],
+    c:ASM.done.has(p.k)?TINTA:'#75808f'}));
+  tabla(42,268,[{t:'',w:22},{t:'pieza',w:196},{t:'para qué está',w:330},{t:'qué pasa sin ella',w:290}],
+    filas,{rh:30,s:13});
+
+  const listo=hechas.length===PARTS.length;
+  banda(600,listo?'ok':'warn',
+    listo?'CAMINO COMPLETO':'FALTAN '+(PARTS.length-hechas.length)+' PIEZAS',
+    listo
+      ? 'El aire ya puede recorrer las siete estaciones. A partir de aquí todo lo que se vea sale de resolver el '+
+        'equilibrio del eje —la turbina tiene que dar exactamente lo que el compresor gasta— y de invertir el mapa del '+
+        'compresor. Ninguna cifra de este laboratorio está escrita a mano.'
+      : 'Toca una pieza del banco y después su hueco luminoso. Mientras falte una sola, los modos de trabajo siguen '+
+        'cerrados: en un banco de verdad tampoco se arranca un motor al que le falta el colector de escape.');
+  return true;
+}
+
+// ------------------------------------------------------ el mapa del compresor
+// Geometría del mapa. Todo sale del motor sellado: aquí sólo se recorren sus
+// funciones y se convierten en puntos de pantalla.
+function lineaVelocidad(e,u){
+  const pts=[], m1=mChoke(e,u);
+  for(let i=0;i<=44;i++){
+    const m=m1*(0.12+0.88*i/44);
+    const pi=piDe(e,m,u);
+    if(pi>1.005&&m>=mBombeo(e,pi)*0.72) pts.push([m,pi]);
+  }
+  return pts;
+}
+function lineaBombeo(e){
+  const pts=[];
+  for(let i=0;i<=40;i++){
+    const pi=1.05+(e.piMax*1.06-1.05)*i/40;
+    pts.push([mBombeo(e,pi),pi]);
+  }
+  return pts;
+}
+// La isla de rendimiento a un nivel dado. Para cada línea de velocidad se
+// buscan por bisección los DOS gastos que dan ese rendimiento —uno a cada lado
+// del máximo— y se unen las dos ramas en un lazo cerrado. Dibujar la isla como
+// una elipse a ojo sería dibujar otra cosa distinta de la que el modelo usa.
+function islaRendimiento(e,L){
+  const izq=[], der=[];
+  for(let i=0;i<=34;i++){
+    const u=0.24+(1.06-0.24)*i/34;
+    const mc=mChoke(e,u), mp=mc*0.64;
+    if(etaComp(e,mp,u)<L) continue;
+    const busca=(a,b)=>{
+      for(let k=0;k<26;k++){ const c=(a+b)/2; if(etaComp(e,c,u)>L) a=c; else b=c; }
+      return (a+b)/2;
+    };
+    const mi=busca(mp,mc*0.06), md=busca(mp,mc*1.14);
+    const pI=piDe(e,mi,u), pD=piDe(e,md,u);
+    if(pI>1.01) izq.push([mi,pI]);
+    if(pD>1.01) der.push([md,pD]);
+  }
+  if(izq.length<2) return [];
+  return izq.concat(der.reverse(),[izq[0]]);
+}
+// El bloqueo NO se puede pintar como una curva aparte. En este mapa cada línea
+// de velocidad ACABA en su gasto de bloqueo, y ahí la relación de presiones ya
+// ha caído a 1: el lugar geométrico de los bloqueos es el eje de abajo, y
+// dibujarlo no dice nada. Lo que sí dice algo es marcar el FINAL de cada línea,
+// que es el gasto que esa velocidad no puede pasar. Una vertical en `mChoke`
+// —que es lo que había— afirmaba que el bloqueo llega al mismo gasto a
+// cualquier velocidad, y eso es falso.
+function finDeLinea(e,u){
+  const l=lineaVelocidad(e,u);
+  return l.length?l[l.length-1]:null;
+}
+function vistaMapa(){
+  const e=MQ(), V=EV(), C=CURVA();
+  const y0=cabecera('El mapa del compresor',
+    'La ventana entera en la que un compresor puede trabajar: gasto corregido en el eje horizontal, relación de '+
+    'presiones en el vertical. A la izquierda se acaba en el BOMBEO y a la derecha, en el BLOQUEO. Todo lo que este '+
+    'motor hace vive dentro de este recuadro.');
+  const P={x:96,y:126,w:566,h:438};
+  const mMax=e.mChoke*1.18, pMax=e.piMax*1.10;
+  const M=ejes(P,0,mMax,1,pMax,'gasto corregido (kg/s)','relación de presiones',
+    v=>num(v,2),v=>num(v,1),6,5);
+
+  enCaja(P,()=>{
+    // Las islas de rendimiento, de fuera hacia dentro.
+    [[e.etaMax*0.90,'rgba(90,209,230,0.055)','rgba(90,209,230,0.30)'],
+     [e.etaMax*0.955,'rgba(90,209,230,0.075)','rgba(90,209,230,0.42)'],
+     [e.etaMax*0.99,'rgba(90,209,230,0.10)','rgba(90,209,230,0.55)']].forEach(([L,relleno,borde])=>{
+      const iso=islaRendimiento(e,L);
+      if(iso.length<4) return;
+      bx.save(); bx.beginPath();
+      iso.forEach((p,i)=>{ const X=M.X(p[0]),Y=M.Y(p[1]); if(i)bx.lineTo(X,Y); else bx.moveTo(X,Y); });
+      bx.closePath(); bx.fillStyle=relleno; bx.fill();
+      bx.strokeStyle=borde; bx.lineWidth=1.3; bx.stroke(); bx.restore();
+    });
+    // Las líneas de velocidad reducida. Se rotulan de dos en dos: con las ocho
+    // rotuladas los números se montaban unos sobre otros en el pico del mapa.
+    [0.3,0.4,0.5,0.6,0.7,0.8,0.9,1.0].forEach((u,i)=>{
+      const l=lineaVelocidad(e,u);
+      serieXY(M,l,'#46566d',1.5);
+      if(l.length&&i%2===1){
+        const q=l[l.length-1];
+        texto(num(u*e.nMax/1000,0)+'k',M.X(q[0])+6,M.Y(q[1])+12,{s:11,c:'#6b7d93'});
+      }
+    });
+    // El bombeo, y el final de cada línea, que es su bloqueo.
+    serieXY(M,lineaBombeo(e),BAD_HEX,2.4);
+    [0.3,0.4,0.5,0.6,0.7,0.8,0.9,1.0].forEach(u=>{
+      const q=finDeLinea(e,u); if(q) punteo(M,q[0],q[1],VIO,3.4);
+    });
+    // La línea de funcionamiento del motor: dónde vive de verdad.
+    serieXY(M,C.pts.map(p=>[p.mCorr,p.pi]),NARANJA,2.8);
+    C.pts.filter((_,i)=>i%4===0).forEach(p=>punteo(M,p.mCorr,p.pi,NARANJA,3.2));
+    // Y el punto de ahora.
+    if(V.u!==null){
+      punteo(M,V.mCorr,V.pi,TINTA,7);
+      bx.save(); bx.strokeStyle=TINTA; bx.lineWidth=1.6;
+      bx.beginPath(); bx.arc(M.X(V.mCorr),M.Y(V.pi),12,0,Math.PI*2); bx.stroke(); bx.restore();
+    }
+  });
+  // La leyenda va ARRIBA A LA DERECHA. Arriba a la izquierda se sentaba encima
+  // de la línea de bombeo —que es la que hay que mirar— y abajo a la derecha
+  // tapaba los rótulos de velocidad reducida.
+  leyenda(P.x+P.w-236,P.y+22,[
+    ['línea de bombeo',BAD_HEX],['línea de funcionamiento',NARANJA],
+    ['velocidad reducida','#46566d'],['donde cada una se bloquea',VIO,[2,3]],
+  ]);
+
+  let y=132;
+  y=tablaDer(y,['el punto de ahora',''],[
+    {v:['gasto de aire',kgs(V.m)]},
+    {v:['gasto corregido',kgs(V.mCorr)]},
+    {v:['relación de presiones',num(V.pi,2)]},
+    {v:['vueltas del turbo',V.nTurbo===null?'—':rpmT(V.nTurbo)]},
+    {v:['rendimiento del compresor',V.u===null?'—':pcc(etaComp(e,V.mCorr,V.u)*100,1)]},
+    {v:['potencia del compresor',kw(V.Pc/1000,2)]},
+    {v:['margen hasta el bombeo',V.margenBombeo===null?'—':pcc(V.margenBombeo*100)],
+     c:V.margenBombeo!==null&&V.margenBombeo<0.12?WARN_HEX:TINTA},
+    {v:['margen hasta el bloqueo',V.mChokeLinea===null?'—':pcc((1-V.mCorr/V.mChokeLinea)*100)]},
+  ])+16;
+  y=tablaDer(y,['los límites del turbo',''],[
+    {v:['vueltas máximas',rpmT(e.nMax)]},
+    {v:['relación máxima',num(e.piMax,2)]},
+    {v:['bloqueo del compresor',kgs(e.mChoke)]},
+    {v:['mejor rendimiento',pcc(e.etaMax*100,1)]},
+  ])+16;
+
+  const q=V.bombeo?{n:'bad',r:'EL COMPRESOR ESTÁ BOMBEANDO',
+      t:'El punto de trabajo se ha metido a la izquierda de la línea de bombeo: el aire ya no puede seguir el álabe, '+
+        'se desprende y el flujo se INVIERTE varias veces por segundo. Se oye como un aleteo y se paga con el eje y '+
+        'con los cojinetes. La salida no es más presión: es más gasto o menos presión.'}
+    : V.bloqueo?{n:'bad',r:'EL COMPRESOR ESTÁ BLOQUEADO',
+      t:'A la derecha del mapa el aire llega a la velocidad del sonido en la entrada de la rueda y el gasto deja de '+
+        'crecer por mucho que se gire más. Ahí el rendimiento se hunde: el compresor calienta más de lo que comprime.'}
+    : V.margenBombeo===null?{n:'warn',r:'EL COMPRESOR NO ESTÁ COMPRIMIENDO',
+      t:'Con una relación de presiones de '+num(V.pi,2)+' el compresor está girando prácticamente en vacío: no hay '+
+        'punto de trabajo que situar en el mapa, y por eso ni el margen de bombeo ni el de bloqueo significan nada '+
+        'aquí. El motor está respirando como un atmosférico.'}
+    : V.margenBombeo<0.15?{n:'warn',r:'MARGEN DE BOMBEO ESTRECHO',
+      t:'Quedan '+pcc(V.margenBombeo*100)+' de gasto hasta la línea de bombeo. Es donde vive cualquier motor pequeño '+
+        'muy soplado a bajas vueltas, y por eso un filtro sucio —que baja la presión de entrada y sube la relación de '+
+        'presiones para la misma presión de salida— puede empujarlo dentro.'}
+    : {n:'ok',r:'DENTRO DE LA VENTANA',
+      t:'El punto de trabajo está en la parte útil del mapa, con '+pcc(V.margenBombeo*100)+' de margen hasta el bombeo '+
+        'y '+pcc((1-V.mCorr/V.mChokeLinea)*100)+' hasta el bloqueo de su línea de velocidad. El compresor comprime con '+
+        pcc(etaComp(e,V.mCorr,V.u)*100,1)+' de rendimiento.'};
+  banda(608,q.n,q.r,q.t);
+  return true;
+}
+
+// ------------------------------------------------- 3 · el camino del aire
+// Las seis estaciones por las que pasa el gas, con su presión y su temperatura.
+// Puestas en fila se ve de un golpe lo que ninguna cifra suelta enseña: que
+// entre la salida del compresor y el colector se pierde presión, que entre el
+// colector y el escape hay MENOS diferencia de la que parece, y que la
+// temperatura sube dos veces —en el compresor y en la combustión— y baja una.
+function estaciones(V){
+  return [
+    {rot:'ambiente',      p:V.pAmb, T:V.Tamb, c:GRIS},
+    {rot:'tras el filtro',p:V.p1,   T:V.Tamb, c:AZUL},
+    {rot:'sale compresor',p:V.p2,   T:V.T2,   c:NARANJA},
+    {rot:'colector',      p:V.pAdm, T:V.TAdm, c:CIAN},
+    {rot:'antes turbina', p:V.pEsc, T:V.T3,   c:BAD_HEX},
+    {rot:'tras turbina',  p:V.pAmb, T:V.T3*0.86, c:VIO},
+  ];
+}
+function vistaCamino(){
+  const e=MQ(), V=EV(), C=CURVA();
+  cabecera('El camino del aire, estación por estación',
+    'Presión ABSOLUTA y temperatura en los seis puntos por los que pasa el gas. La densidad que le llega al cilindro '+
+    'no la fija la presión sola: la fija la presión DIVIDIDA por la temperatura, y por eso las dos columnas hay que '+
+    'leerlas juntas.');
+  const ES=estaciones(V);
+  const P={x:96,y:126,w:566,h:206};
+  const pTop=Math.max(V.pEsc,V.p2)*1.16/1e5;
+  const M=ejes(P,0,ES.length,0,pTop,'','presión absoluta (bar)',null,v=>num(v,1),1,4);
+  const bw=P.w/ES.length*0.56;
+  ES.forEach((s,i)=>{
+    const cx=P.x+P.w*(i+0.5)/ES.length, h=(s.p/1e5)/pTop*P.h;
+    bx.save(); bx.fillStyle=s.c+'2e'; bx.strokeStyle=s.c; bx.lineWidth=1.6;
+    bx.fillRect(cx-bw/2,P.y+P.h-h,bw,h); bx.strokeRect(cx-bw/2,P.y+P.h-h,bw,h); bx.restore();
+    texto(num(s.p/1e5,2),cx,P.y+P.h-h-8,{s:12.5,b:true,c:s.c,al:'center'});
+    texto(s.rot,cx,P.y+P.h+19,{s:11.5,c:'#8d99a9',al:'center'});
+    texto(cel(s.T),cx,P.y+P.h+36,{s:12,c:'#c3ccd8',al:'center'});
+  });
+  texto('temperatura →',P.x-9,P.y+P.h+36,{s:11.5,c:'#7b8697',al:'right'});
+  // La línea del ambiente: todo lo que esté por debajo es depresión.
+  nivel(P,M,V.pAmb/1e5,'#4b5a6e','ambiente',[5,4],true);
+
+  // Y la curva de par y potencia, que es el resultado de todo lo anterior.
+  const Q={x:96,y:404,w:566,h:150};
+  // Los topes se REDONDEAN. Con el máximo por 1,14 los rótulos del eje salían
+  // «0 · 100 · 201 · 301» y los del régimen «1 120 · 2 096 · 3 072», que es una
+  // escala que nadie lee: se pierde más tiempo descifrándola que mirando la
+  // curva.
+  const paso=e.rpmMax>5000?1000:500;
+  const r0=Math.floor(C.pts[0].rpm/paso)*paso, r1=Math.ceil(e.rpmMax/paso)*paso;
+  const parMax=Math.ceil(C.parMax.par*1.14/50)*50, potMax=Math.max(C.potMax.pot,1)*1.14;
+  const N=ejes(Q,r0,r1,0,parMax,'régimen (rpm)','par (N·m)',
+    v=>num(v,0),v=>num(v,0),Math.round((r1-r0)/paso),4);
+  enCaja(Q,()=>{
+    serieXY(N,C.pts.map(p=>[p.rpm,p.par]),CIAN,2.6);
+    // La potencia va a la MISMA caja con su propia escala; se rotula para que
+    // nadie la lea en newton metro.
+    serieXY(N,C.pts.map(p=>[p.rpm,p.pot/potMax*parMax]),NARANJA,2.2,[7,4]);
+    punteo(N,V.rpm,V.par,TINTA,5.5);
+  });
+  texto('potencia máxima '+kw(C.potMax.pot,1)+' ('+cvF(C.potMax.pot*1.341)+') a '+rpmT(C.potMax.rpm),
+    Q.x+Q.w,Q.y-8,{s:12,c:NARANJA,al:'right'});
+  texto('par máximo '+nm(C.parMax.par,0)+' a '+rpmT(C.parMax.rpm),Q.x,Q.y-8,{s:12,c:CIAN});
+
+  let y=132;
+  y=tablaDer(y,['lo que sale de aquí',''],[
+    {v:['masa de aire por ciclo',num(V.masaPorCiclo*1e3,3)+NBSP+'g']},
+    {v:['densidad en el colector',rhoF(V.rhoAdm)]},
+    {v:['densidad sin enfriar',rhoF(V.rhoSinIC)]},
+    {v:['par',nm(V.par,1)]},
+    {v:['potencia',kw(V.pot,1)]},
+    {v:['presión media efectiva',barF(pmeDe(V.par,e.cilindrada),1)]},
+    {v:['trabajo de bombeo',num(V.Wbomb,1)+NBSP+'J/ciclo'],
+     c:V.Wbomb>0?WARN_HEX:OK_HEX},
+    {v:['rendimiento volumétrico',pcc(etaVol(e,V.rpm,V.pAdm,V.pEsc)*100,1)]},
+  ])+16;
+  y=tablaDer(y,['contrapresión',''],[
+    {v:['antes de la turbina',barF(V.pEsc)]},
+    {v:['en el colector',barF(V.pAdm)]},
+    {v:['diferencia',barF(V.pEsc-V.pAdm)],c:V.pEsc>V.pAdm?WARN_HEX:OK_HEX},
+    {v:['apertura de la descarga',pcc(V.xWG*100)]},
+  ])+16;
+
+  const barre=V.pEsc>V.pAdm;
+  banda(600,barre&&V.pEsc/V.pAdm>1.30?'warn':'ok',
+    barre?'EL ESCAPE ESTÁ POR ENCIMA DEL COLECTOR':'EL COLECTOR ESTÁ POR ENCIMA DEL ESCAPE',
+    barre
+      ? 'Delante de la turbina hay '+barF(V.pEsc)+' y en el colector '+barF(V.pAdm)+': el motor tiene que EMPUJAR los '+
+        'gases quemados contra más presión de la que respira, y eso son '+num(V.Wbomb,1)+' julios por ciclo que salen '+
+        'del par. Es el precio del turbo, y por eso el rendimiento volumétrico de este punto es '+
+        pcc(etaVol(e,V.rpm,V.pAdm,V.pEsc)*100,1)+' y no el máximo del motor.'
+      : 'En el colector hay '+barF(V.pAdm)+' y delante de la turbina sólo '+barF(V.pEsc)+': el motor no empuja los gases, '+
+        'lo empujan a él. El trabajo de bombeo es NEGATIVO —'+num(-V.Wbomb,1)+' julios por ciclo A FAVOR— y además barre '+
+        'mejor la cámara. Es la ventaja que un turbo bien elegido tiene a bajas vueltas y que se pierde arriba.');
+  return true;
+}
+
+// ------------------------------------------------------------ 4 · intercooler
+// Un intercooler enfría Y estorba, así que la densidad que se lleva al cilindro
+// NO crece indefinidamente con su tamaño: hay un máximo interior. Se recorre el
+// tamaño de verdad —se reevalúa el motor entero con cada tamaño— y se enseña
+// dónde está el máximo y dónde está el de serie.
+// El barrido de tamaño se hace SIN las averías del propio intercooler: con
+// «sin intercooler» puesto, recorrer tamaños de un intercooler que no está no
+// significa nada. Con cualquier otra avería sí se conserva, porque un filtro
+// sucio o una descarga pegada cambian de verdad dónde está el tamaño óptimo.
+function fallaBarrido(){
+  return (G.falla==='sinIC'||G.falla==='icSucio')?'sano':G.falla;
+}
+function barridoIC(){
+  const e=MQ(), fb=fallaBarrido();
+  return memo('ic|'+AMBK()+'|'+fb+'|'+RPM()+'|'+G.carga,()=>{
+    const pts=[];
+    for(let i=0;i<=22;i++){
+      const f=0.12+(3.0-0.12)*i/22;
+      const e2=Object.assign({},e,{icNTU:e.icNTU*f, icDp:e.icDp*f});
+      const V=evalua(e2,Object.assign({falla:fb,rpm:RPM(),carga:G.carga},AMB()));
+      pts.push({f, rho:V.rhoAdm, par:V.par, TAdm:V.TAdm, eps:V.eps,
+        dp:V.p2-V.pAdm, soplado:V.soplado, lim:V.limitadoDeton});
+    }
+    const mejor=pts.reduce((a,b)=>b.par>a.par?b:a,pts[0]);
+    // El de serie es el punto del barrido con f = 1, no la evaluación actual:
+    // así la ganancia se compara contra el MISMO barrido y no contra otro motor.
+    const serie=pts.reduce((a,b)=>Math.abs(b.f-1)<Math.abs(a.f-1)?b:a,pts[0]);
+    return {pts, mejor, serie, falla:fb};
+  });
+}
+function vistaIntercooler(){
+  const e=MQ(), B=barridoIC();
+  // Las dos columnas SIEMPRE son cosas distintas: con intercooler y sin él. Si
+  // la avería puesta ya es «sin intercooler», la de la izquierda pasa a ser el
+  // motor sano; si no, es el estado actual.
+  const quitado=(G.falla==='sinIC');
+  const V=quitado?EV_DE('sano',RPM(),G.carga):EV();
+  const sin=quitado?EV():EV_DE('sinIC',RPM(),G.carga);
+  cabecera('El intercooler: enfría y estorba',
+    'Un intercambiador más grande enfría más —y eso sube la densidad— pero también deja caer más presión —y eso la '+
+    'baja—. Las dos cosas a la vez, así que el par NO crece sin fin con el tamaño: tiene un máximo, y aquí se busca '+
+    'recorriendo el tamaño y resolviendo el motor entero con cada uno.');
+  const P={x:96,y:126,w:566,h:206};
+  const pMin=Math.min.apply(null,B.pts.map(p=>p.par))*0.94;
+  const pMax=Math.max.apply(null,B.pts.map(p=>p.par))*1.05;
+  const M=ejes(P,0,3.05,pMin,pMax,'tamaño del intercooler (× el de serie)','par (N·m)',
+    v=>num(v,1),v=>num(v,0),6,4);
+  enCaja(P,()=>{
+    serieXY(M,B.pts.map(p=>[p.f,p.par]),CIAN,2.8);
+    B.pts.forEach(p=>punteo(M,p.f,p.par,p.lim?WARN_HEX:CIAN,3));
+    punteo(M,B.mejor.f,B.mejor.par,OK_HEX,7);
+  });
+  nivelV(P,M,1.0,NARANJA,'el de serie');
+  nivelV(P,M,B.mejor.f,OK_HEX,'el mejor: ×'+num(B.mejor.f,2));
+  leyenda(P.x+P.w-224,P.y+P.h-86,[['par contra tamaño',CIAN],
+    ['tamaño de serie',NARANJA,[7,5]],['máximo del barrido',OK_HEX,[7,5]]]);
+
+  // El segundo panel: las DOS cosas que el intercooler hace, contra el gasto que
+  // lo atraviesa. Enfría menos cuanto más aire pasa —menos tiempo de contacto—
+  // y estorba más. Sin este panel el «enfría y estorba» del título se queda en
+  // una frase.
+  const Q={x:96,y:418,w:566,h:128};
+  // El panel de abajo dibuja el intercooler de la columna IZQUIERDA, que con
+  // la avería puesta es el sano: si no, la curva salía plana en cero y el
+  // punto de ahora flotaba al 87 % encima de ella.
+  const F=averia(quitado?'sano':G.falla), C2=CURVA(quitado?'sano':G.falla);
+  const dpTop=Math.max(0.1,Math.max.apply(null,C2.pts.map(q=>dpIC(e,q.m,F)))/1e3)*1.20;
+  const N2=ejes(Q,0,Math.max.apply(null,C2.pts.map(q=>q.m))*1.06,0,100,
+    'gasto de aire por el intercooler (kg/s)','efectividad (%)',
+    v=>num(v,3),v=>num(v,0),5,4);
+  enCaja(Q,()=>{
+    serieXY(N2,C2.pts.map(q=>[q.m,epsilonIC(e,q.m,G.vAire,F)*100]),CIAN,2.6);
+    // La pérdida de carga va en la misma caja con su propia escala, y se dice.
+    serieXY(N2,C2.pts.map(q=>[q.m,dpIC(e,q.m,F)/1e3/dpTop*100]),NARANJA,2.2,[7,4]);
+    punteo(N2,V.m,V.eps*100,TINTA,5.5);
+  });
+  texto('trazos: pérdida de carga, 0 a '+num(dpTop,1)+NBSP+'kPa',Q.x+Q.w,Q.y-12,
+    {s:12,c:NARANJA,al:'right'});
+  texto('efectividad a '+kmh(G.vAire)+' de marcha',Q.x,Q.y-12,{s:12,c:CIAN});
+  if(B.falla!==G.falla)
+    texto('el barrido de arriba es con el intercooler SANO',P.x+P.w,P.y-8,
+      {s:11.5,c:'#8d99a9',al:'right'});
+
+  let y=132;
+  // La cabecera lleva TRES entradas porque la tabla tiene dos columnas de
+  // valores: con dos, `tablaDer` monta una sola columna y la segunda cifra de
+  // cada fila se pierde en silencio —la columna se pintaba vacía—.
+  y=tablaDer(y,['',quitado?'con intercooler':'con el de serie','sin ninguno'],[
+    {v:['temperatura de admisión',cel(V.TAdm),cel(sin.TAdm)]},
+    {v:['densidad',num(V.rhoAdm,3),num(sin.rhoAdm,3)]},
+    {v:['presión de colector',num(V.pAdm/1e5,2),num(sin.pAdm/1e5,2)]},
+    {v:['soplado',num(V.soplado/1e5,2),num(sin.soplado/1e5,2)]},
+    {v:['par',num(V.par,1),num(sin.par,1)]},
+    {v:['efectividad',pcc(V.eps*100),'0 %']},
+    {v:['pérdida de carga',num((V.p2-V.pAdm)/1e3,1)+' kPa','0 kPa']},
+  ])+16;
+  y=tablaDer(y,['el máximo del barrido',''],[
+    {v:['tamaño','× '+num(B.mejor.f,2)]},
+    {v:['par ahí',nm(B.mejor.par,1)]},
+    {v:['el de serie da',nm(B.serie.par,1)]},
+    {v:['gana sobre el de serie',pcc((B.mejor.par/Math.max(1e-9,B.serie.par)-1)*100,1)]},
+  ])+16;
+
+  const dPar=(sin.par/V.par-1)*100;
+  banda(604, e.diesel?'warn':(sin.limitadoDeton?'bad':'warn'),
+    e.diesel?'SIN INTERCOOLER: TODA LA PRESIÓN, MENOS DE LA MITAD DEL AIRE'
+            :'SIN INTERCOOLER EL ORDENADOR TE QUITA LA PRESIÓN',
+    e.diesel
+      ? 'Quitando el intercooler la presión de colector no baja —'+barF(sin.pAdm)+' contra '+barF(V.pAdm)+', incluso sube '+
+        'un poco porque ya no hay nada que estorbe— y sin embargo el par cae '+pcc(-dPar,1)+'. La razón está en la otra '+
+        'columna: el aire entra a '+cel(sin.TAdm)+' en vez de a '+cel(V.TAdm)+', y la densidad pasa de '+rhoF(V.rhoAdm)+
+        ' a '+rhoF(sin.rhoAdm)+'. Un diésel no detona, así que se queda con toda la presión y pierde sólo densidad.'
+      : 'En gasolina pasa algo peor. El aire a '+cel(sin.TAdm)+' llegaría al final de la compresión a '+kel(sin.Tcomp)+
+        ', y con '+G.octanaje+' octanos el umbral está en '+kel(sin.Tdet)+': el motor detonaría. El control de picado no lo '+
+        'permite, así que BAJA LA CONSIGNA hasta '+barF(sin.soplado)+' de soplado en vez de '+barF(V.soplado)+'. Resultado: '+
+        pcc(-dPar,1)+' de par. El intercooler no da potencia — es lo que TE DEJA USAR la que ya tienes.');
+  return true;
+}
+
+// ------------------------------------------------------------- 5 · respuesta
+function vistaRespuesta(){
+  const e=MQ(), T=TRANS(), Tsano=G.falla==='sano'?null:TRANS('sano');
+  cabecera('El retardo del turbo',
+    'Se pisa a fondo en el instante cero con el motor girando a '+rpmT(RPM())+' y ahí se sostiene. Lo que tarda la '+
+    'presión en llegar no es un número del fabricante: sale de integrar el par neto sobre el eje —lo que la turbina '+
+    'da menos lo que el compresor gasta— contra la inercia del conjunto.');
+  // La ventana de tiempo se ADAPTA. Con los cuatro segundos enteros, un turbo
+  // que sopla en 0,15 s pinta el 96 % del recuadro en una recta horizontal y el
+  // transitorio —que es de lo que va la vista— cabe en veinte píxeles.
+  // Y el tope se redondea a dos décimas, o los rótulos del eje salen
+  // «0,00 · 0,27 · 0,55 · 0,82 · 1,09», que no es una escala, es una lista.
+  const tCrudo=clamp(Math.max((T.tSopla===null?T_TRANS:T.tSopla)*7, 0.9), 0.9, T_TRANS);
+  const tFin=Math.min(T_TRANS, Math.ceil(tCrudo/0.2)*0.2);
+  const P={x:96,y:120,w:566,h:196};
+  const sCrudo=Math.max(T.sopladoPico, Tsano?Tsano.sopladoPico:0, e.sopladoObj)*1.14/1e5;
+  const sMax=Math.ceil(sCrudo/0.5)*0.5;
+  const M=ejes(P,0,tFin,0,sMax,'tiempo (s)','soplado (bar)',
+    v=>num(v,2),v=>num(v,1),Math.round(tFin/0.2)>6?4:Math.round(tFin/0.2),Math.round(sMax/0.5));
+  enCaja(P,()=>{
+    if(Tsano) serieXY(M,Tsano.pts.map(p=>[p.t,p.soplado/1e5]),'#4b5a6e',2,[7,4]);
+    serieXY(M,T.pts.map(p=>[p.t,p.soplado/1e5]),CIAN,2.8);
+    // La apertura de la descarga va CON el soplado, no con las vueltas: las dos
+    // son las mitades del mismo lazo de control y se leen juntas.
+    serieXY(M,T.pts.map(p=>[p.t,p.xWG*sMax]),NARANJA,2,[6,4]);
+  });
+  nivel(P,M,e.sopladoObj/1e5,WARN_HEX,'consigna',[6,5],true);
+  if(T.tSopla!==null&&T.tSopla<tFin) nivelV(P,M,T.tSopla,OK_HEX,'90 % en '+seg(T.tSopla));
+  leyenda(P.x+P.w-224,P.y+P.h-80,Tsano
+    ?[['soplado con la avería',CIAN],['soplado del motor sano','#4b5a6e',[7,4]],
+      ['descarga, de 0 a 100 %',NARANJA,[6,4]]]
+    :[['soplado',CIAN],['consigna',WARN_HEX,[6,5]],
+      ['descarga, de 0 a 100 %',NARANJA,[6,4]]]);
+
+  const Q={x:96,y:376,w:566,h:150};
+  const nTop=Math.ceil(Math.max(Math.max.apply(null,T.pts.map(p=>p.n)), e.nMax)*1.08/5e4)*5e4;
+  const N=ejes(Q,0,tFin,0,nTop/1000,'tiempo (s)','vueltas del turbo (miles)',
+    v=>num(v,2),v=>num(v,0),Math.round(tFin/0.2)>6?4:Math.round(tFin/0.2),
+    Math.round(nTop/5e4));
+  enCaja(Q,()=>{ serieXY(N,T.pts.map(p=>[p.t,p.n/1000]),VIO,2.6); });
+  nivel(Q,N,e.nMax/1000,BAD_HEX,'vueltas máximas del turbo',[6,5],true);
+
+  let y=132;
+  y=tablaDer(y,['el arranque',''],[
+    {v:['régimen sostenido',rpmT(RPM())]},
+    {v:['llega al 90 %',T.tSopla===null?'no llega':seg(T.tSopla)],
+     c:T.tSopla===null?BAD_HEX:TINTA},
+    {v:['sobreimpulso',pcc(T.sobreimpulso*100)],c:T.sobreimpulso>0.35?WARN_HEX:TINTA},
+    {v:['pico de soplado',barF(T.sopladoPico)]},
+    {v:['soplado al final',barF(T.sopladoFin)]},
+    {v:['vueltas al final',rpmT(T.nFin)],c:T.nFin>e.nMax?BAD_HEX:TINTA},
+    {v:['descarga al final',pcc(T.xWGFin*100)]},
+    // 1 kg·m² son 10⁷ g·cm², no 10⁶: con el factor equivocado el eje de un
+    // turbo pequeño publicaba 5,2 g·cm² en vez de 52.
+    {v:['inercia del eje',num(T.J*1e7,0)+NBSP+'g·cm²']},
+  ])+16;
+  if(Tsano) y=tablaDer(y,['el motor sano',''],[
+    {v:['llega al 90 %',Tsano.tSopla===null?'no llega':seg(Tsano.tSopla)]},
+    {v:['pico',barF(Tsano.sopladoPico)]},
+  ])+16;
+
+  const q=T.tSopla===null?{n:'bad',r:'NO LLEGA A LA CONSIGNA',
+      t:'Con este régimen y esta avería el eje no reúne nunca la potencia que el compresor le pide para esa presión. '+
+        'No es que tarde: es que se estabiliza más abajo. Eso es exactamente lo que hace un turbo por debajo de su '+
+        'régimen de soplado, y por eso los motores sobrealimentados se eligen por el par ABAJO y no por la punta.'}
+    : Tsano&&Tsano.tSopla!==null&&T.tSopla>Tsano.tSopla*1.4?{n:'warn',r:'TARDA '+num(T.tSopla/Tsano.tSopla,1)+' VECES MÁS QUE EL MOTOR SANO',
+      t:'Con la avería el eje reúne el par neto mucho más despacio. Nada de esto sale en un código: el ordenador acaba '+
+        'viendo la presión que pedía, sólo que más tarde. Lo que el conductor nota es el retardo, y lo que el escáner '+
+        've es un motor sin novedad.'}
+    : T.nFin>e.nMax?{n:'bad',r:'EL EJE SE PASA DE VUELTAS',
+      t:'El eje acaba a '+rpmT(T.nFin)+' contra un límite de '+rpmT(e.nMax)+'. Con la descarga sin frenar nada, la '+
+        'realimentación es positiva: más presión da más gasto, más gasto da más contrapresión y más contrapresión da '+
+        'más potencia de turbina. La válvula de descarga no es un accesorio de seguridad; es lo que cierra el lazo.'}
+    : {n:'ok',r:'LLEGA EN '+seg(T.tSopla)+' CON '+pcc(T.sobreimpulso*100)+' DE SOBREIMPULSO',
+      t:'La descarga está cerrada mientras falta presión —así todo el escape pasa por la turbina— y empieza a abrir '+
+        'cuando el soplado alcanza la consigna. Como el actuador tiene una velocidad de carrera finita, la presión se '+
+        'pasa un poco antes de asentarse: ese sobreimpulso es real y es la razón de que el mando lleve parte integral.'};
+  banda(604,q.n,q.r,q.t);
+  return true;
+}
+
+// ---------------------------------------------------------------- 6 · censo
+// Nueve averías por cinco regímenes. La pregunta que organiza la rejilla no es
+// «qué se rompe», es: de todo lo que este motor puede tener roto, ¿cuánto de
+// ello llega al escáner? La respuesta se cuenta aquí, no se afirma.
+const CX0=232, CCW=142, CCH=36, CY0=150;
+function claseCelda(c){
+  if(c.detona||c.sobreT3||c.sobrePresion||c.bombeo) return 'peligro';
+  if(c.dtc) return 'codigo';
+  if(c.nota) return 'mudo';
+  return 'nada';
+}
+const CLASE_COL={
+  peligro:{f:'rgba(255,107,107,0.20)',b:BAD_HEX,t:BAD_HEX},
+  codigo: {f:'rgba(110,168,254,0.16)',b:'#3f6ea8',t:AZUL},
+  mudo:   {f:'rgba(233,196,106,0.16)',b:'#8a7433',t:WARN_HEX},
+  nada:   {f:'rgba(255,255,255,0.028)',b:'#232d3d',t:'#6d7889'},
+};
+function vistaCenso(){
+  const e=MQ(), C=CENSO();
+  cabecera('El censo: nueve averías contra cinco regímenes',
+    'Cada celda es el motor entero resuelto con esa avería a ese régimen y a plena carga. El color dice qué se '+
+    'ENTERA el ordenador, no qué de grave es: azul hay código, ámbar hay síntoma y NO hay código, rojo el motor está '+
+    'fuera de sus límites.');
+  const regs=C.regs;
+  regs.forEach((R,j)=>{
+    const x=CX0+j*CCW;
+    texto(rpmT(R.rpm),x+CCW/2-6,CY0-24,{s:12.5,b:true,c:'#c3ccd8',al:'center'});
+    texto(R.rot,x+CCW/2-6,CY0-9,{s:11.5,c:'#7b8697',al:'center'});
+  });
+  C.filas.forEach((f,i)=>{
+    const y=CY0+i*CCH;
+    texto(corta(f.corto,22),CX0-14,y+23,{s:13,c:f.falla==='sano'?GRIS:TINTA,al:'right'});
+    f.celdas.forEach((c,j)=>{
+      const x=CX0+j*CCW, cl=claseCelda(c), col=CLASE_COL[cl];
+      rpanel(x,y+4,CCW-12,CCH-8,col.f,col.b,6);
+      const txt=cl==='nada'?'—':(c.dtc?c.dtc:(cl==='peligro'?'⚠':'muda'));
+      texto(txt,x+10,y+22,{s:12,b:cl!=='nada',c:cl==='nada'?'#5b6675':col.t});
+      // Cuando la avería hace SUBIR el par —la descarga pegada cerrada sube el
+      // soplado por encima de la consigna— el número es positivo, y sin el signo
+      // «38 %» se lee como una pérdida del 38 %, que es lo contrario.
+      if(cl!=='nada'){
+        const g=-c.perdida*100;
+        texto((g>0.5?'+':'')+pcc(g,0),x+CCW-22,y+22,
+          {s:12,c:c.perdida>0.15?BAD_HEX:(g>0.5?WARN_HEX:'#9aa6b6'),al:'right'});
+      }
+    });
+  });
+  const yFin=CY0+C.filas.length*CCH;
+  leyenda(42,yFin+26,[
+    ['el ordenador da un código',AZUL],
+    ['hay síntoma y el ordenador calla',WARN_HEX],
+    ['el motor está fuera de sus límites',BAD_HEX],
+  ]);
+  texto('el número de la derecha de cada celda es la pérdida de par frente al motor sano',
+    BW-42,yFin+30,{s:12,c:'#7b8697',al:'right'});
+  texto('en la columna, el régimen; en la fila, la avería. 45 celdas = 9 × 5.',
+    BW-42,yFin+50,{s:12,c:'#7b8697',al:'right'});
+
+  banda(yFin+72,C.mudo>C.conCodigo?'warn':'ok',
+    C.mudo+' DE '+C.conAviso+' CELDAS CON SÍNTOMA SON MUDAS',
+    'De las '+C.total+' celdas, '+C.conAviso+' tienen síntoma —pérdida de par por encima del 8 % o el motor fuera de '+
+    'sus límites— y de ésas '+C.mudo+' no producen ningún código. El diagnóstico de a bordo de un sistema de '+
+    'sobrealimentación sólo tiene dos códigos, P0299 y P0234, y los dos hablan de PRESIÓN: por debajo o por encima. '+
+    'Ninguna avería que respete la presión y estropee la densidad, la contrapresión o el margen de bombeo tiene forma '+
+    'de aparecer ahí. '+C.peligro+' celdas están además fuera de los límites del turbo o del combustible.');
+  return true;
+}
+
+// ============================================================ T5b · EL RETO
+// Un caso a ciegas: el motor tiene una de las nueve averías —o ninguna—, y hay
+// seis instrumentos. Cada uno cuesta lo mismo: una consulta. Lo que se aprende
+// no es a adivinar, es CUÁL instrumento separa qué, y cuántos hacen falta.
+const INSTR=[
+  {k:'tmap', rot:'El escáner (presión y temperatura de colector)',
+   nota:'Es literalmente todo lo que el ordenador ve.'},
+  {k:'manos', rot:'Dos manómetros: salida del compresor y colector',
+   nota:'Entre esos dos puntos sólo debería estar el intercooler.'},
+  {k:'banco', rot:'El banco de rodillos: par y potencia',
+   nota:'Dice cuánto se ha perdido, nunca por qué.'},
+  {k:'sonda3', rot:'Sonda antes de la turbina: presión y temperatura',
+   nota:'La contrapresión no la mide ningún sensor de serie.'},
+  {k:'taco', rot:'Tacómetro de turbo y posición de la descarga',
+   nota:'Instrumento de banco de pruebas, no de taller.'},
+  {k:'mapa', rot:'El punto sobre el mapa del compresor',
+   nota:'Márgenes hasta el bombeo y hasta el bloqueo.'},
+];
+const RETO={falla:'sano', alt:0, Tamb:25, octanaje:91, rpm:0,
+  medido:{}, elegido:null, veredicto:null, intentos:0};
+function retoAmb(){ return {alt:RETO.alt,Tamb:RETO.Tamb,vAire:G.vAire,octanaje:RETO.octanaje}; }
+function retoEv(f){
+  return memo('r|'+G.maq+'|'+f+'|'+RETO.alt+'|'+RETO.Tamb+'|'+RETO.octanaje+'|'+RETO.rpm,
+    ()=>evalua(MQ(),Object.assign({falla:f,rpm:RETO.rpm,carga:1},retoAmb())));
+}
+// Lo que cada instrumento LEE. Es una firma: dos averías con la misma firma en
+// los instrumentos medidos son indistinguibles con esos instrumentos, y eso es
+// justo lo que el reto tiene que enseñar.
+// La resolución de cada instrumento es la que TIENE, no la del número de coma
+// flotante: un manómetro de taller aprecia media décima de bar y un banco de
+// rodillos, un par de por ciento. Con la resolución infinita cada avería tenía
+// firma única y el primer instrumento resolvía el caso siempre — que es
+// exactamente lo contrario de lo que esta práctica quiere enseñar.
+function firma(V,k){
+  switch(k){
+    case 'tmap':  return [Math.round(V.pAdm/5e3), Math.round((V.TAdm-273.15)/5), V.dtc||'—'];
+    case 'manos': return [Math.round(V.p2/5e3), Math.round(V.pAdm/5e3)];
+    case 'banco': return [Math.round(V.par/8), Math.round(V.pot/4)];
+    case 'sonda3':return [Math.round(V.pEsc/1e4), Math.round((V.T3-273.15)/20)];
+    case 'taco':  return [Math.round((V.nTurbo||0)/5000), Math.round(V.xWG*10)];
+    case 'mapa':  return [Math.round((V.margenBombeo===null?9:V.margenBombeo)*5),
+                          Math.round((V.mChokeLinea?V.mCorr/V.mChokeLinea:0)*8)];
+    default: return [];
+  }
+}
+function compatible(f){
+  const A=retoEv(f), B=retoEv(RETO.falla);
+  for(const k of Object.keys(RETO.medido)){
+    if(!RETO.medido[k]) continue;
+    const a=firma(A,k).join('|'), b=firma(B,k).join('|');
+    if(a!==b) return false;
+  }
+  return true;
+}
+function armaReto(){
+  const e=MQ();
+  const fs=FALLA_KEYS.slice();
+  RETO.falla=fs[Math.floor(Math.random()*fs.length)];
+  RETO.alt=ALTS[Math.floor(Math.random()*3)].a;
+  RETO.Tamb=[15,25,35][Math.floor(Math.random()*3)];
+  RETO.octanaje=e.diesel?91:OCTS[Math.floor(Math.random()*OCTS.length)];
+  const regs=regimenes(e);
+  RETO.rpm=regs[1+Math.floor(Math.random()*(regs.length-1))].rpm;
+  RETO.medido={}; RETO.elegido=null; RETO.veredicto=null;
+  invalida();
+}
+function mide(k){ RETO.medido[k]=true; RETO.veredicto=null; pinta(); }
+function eligeFalla(k){ RETO.elegido=k; pinta(); }
+function entrega(){
+  if(!RETO.elegido) return;
+  RETO.intentos++;
+  const ok=RETO.elegido===RETO.falla;
+  RETO.veredicto=ok?'ok':'mal';
+  if(ok){
+    G.resuelto=true; synth.beep(523,0.10,0.05); setTimeout(()=>synth.beep(784,0.14,0.05),130);
+  }else synth.beep(190,0.16,0.06);
+  pinta(); reporta();
+}
+function vistaReto(){
+  const e=MQ(), V=retoEv(RETO.falla);
+  cabecera('Diagnóstico a ciegas',
+    'El motor tiene una de las nueve averías del censo —o ninguna—. Seis instrumentos, y el objetivo no es acertar a '+
+    'la primera: es descubrir cuál de ellos separa de verdad y cuántos hacen falta.',true);
+
+  texto('Instrumentos',42,120,{s:15,b:true});
+  let y=146;
+  INSTR.forEach((I,i)=>{
+    const puesto=!!RETO.medido[I.k];
+    rpanel(42,y-16,624,puesto?60:34,puesto?'rgba(90,209,230,0.07)':'rgba(255,255,255,0.030)',
+      puesto?'#2b6d7d':'#232d3d',8);
+    chk(60,y+1,puesto);
+    texto(I.rot,78,y+5,{s:13,b:true,c:puesto?TINTA:'#8d99a9'});
+    if(!puesto) texto('sin medir',658,y+5,{s:12,c:'#6d7889',al:'right'});
+    if(puesto){
+      const L=lecturaDe(V,I.k);
+      texto(L,78,y+26,{s:12.5,c:CIAN,mono:true});
+      texto(I.nota,78,y+42,{s:11.5,c:'#7b8697',it:true});
+      y+=76;
+    }else y+=44;
+  });
+
+  // Lo que queda en pie con lo medido.
+  const vivas=FALLA_KEYS.filter(compatible);
+  let yd=132;
+  yd=tablaDer(yd,['aún compatibles',''],
+    FALLA_KEYS.map(f=>({v:[corta(FALLAS[f].corto,20), compatible(f)?'sí':'—'],
+      c:compatible(f)?(RETO.elegido===f?CIAN:TINTA):'#4e5866'})))+14;
+  texto(vivas.length+' de '+FALLA_KEYS.length+' siguen en pie',DER_X,yd,{s:12.5,c:'#8d99a9'});
+  yd+=26;
+  if(RETO.elegido) texto('tu respuesta: '+FALLAS[RETO.elegido].corto,DER_X,yd,{s:12.5,b:true,c:CIAN});
+
+  const q=RETO.veredicto==='ok'
+    ? {n:'ok',r:'ACERTASTE: '+FALLAS[RETO.falla].rot.toUpperCase(),
+       t:'Con '+Object.keys(RETO.medido).length+
+         (Object.keys(RETO.medido).length===1?' instrumento. ':' instrumentos. ')+
+         FALLAS[RETO.falla].pista}
+    : RETO.veredicto==='mal'
+    ? {n:'bad',r:'NO: NO ERA '+FALLAS[RETO.elegido].corto.toUpperCase(),
+       t:'Quedan '+vivas.length+' averías compatibles con lo que has medido, así que todavía hay por dónde tirar. '+
+         'Pista: '+FALLAS[RETO.elegido].pista}
+    : {n:'warn',r:'MIDE, DESCARTA Y ENTREGA',
+       t:vivas.length===FALLA_KEYS.length
+         ? 'Sin ninguna medida las nueve averías siguen en pie, más el motor sano. Empieza por el instrumento que creas '+
+           'que parte el problema en dos mitades parecidas: ese es el que más información da.'
+         : 'Con lo medido quedan '+vivas.length+'. Si dos averías siguen empatadas, es que ningún instrumento de los '+
+           'usados las separa: hace falta otro, no repetir el mismo.'};
+  // La banda se coloca DEBAJO de la lista, que crece de 264 a 456 píxeles según
+  // cuántos instrumentos se hayan pedido: con la y fija, el sexto instrumento se
+  // metía dentro del recuadro del veredicto.
+  banda(Math.max(566, y+12),q.n,q.r,q.t);
+  return true;
+}
+function lecturaDe(V,k){
+  switch(k){
+    case 'tmap':  return 'colector '+barA(V.pAdm)+'  ·  admisión '+cel(V.TAdm)+'  ·  código '+(V.dtc||'ninguno');
+    case 'manos': return 'salida del compresor '+barA(V.p2)+'  ·  colector '+barA(V.pAdm)+
+                         '  ·  entre ellos '+num((V.p2-V.pAdm)/1e3,1)+NBSP+'kPa';
+    case 'banco': return 'par '+nm(V.par,1)+'  ·  potencia '+kw(V.pot,1)+'  ·  pme '+barF(pmeDe(V.par,MQ().cilindrada),1);
+    case 'sonda3':return 'antes de la turbina '+barA(V.pEsc)+' y '+cel(V.T3)+
+                         '  ·  sobre el colector '+num((V.pEsc-V.pAdm)/1e3,1)+NBSP+'kPa';
+    case 'taco':  return 'turbo '+(V.nTurbo===null?'—':rpmT(V.nTurbo))+'  ·  descarga '+pcc(V.xWG*100)+
+                         (V.forzada?'  ·  actuador '+V.forzada:'');
+    case 'mapa':  return 'margen de bombeo '+(V.margenBombeo===null?'—':pcc(V.margenBombeo*100))+
+                         '  ·  del bloqueo '+(V.mChokeLinea?pcc((1-V.mCorr/V.mChokeLinea)*100):'—');
+    default: return '';
+  }
+}
+
+// ===================================== T6 · LO QUE SE MUEVE POR FOTOGRAMA
+// Nada de esto es decorativo: la rueda gira a las vueltas que el modelo calcula,
+// la trampilla abre lo que el equilibrio del eje decide y el núcleo del
+// intercooler se colorea con la temperatura que de verdad tiene el aire.
+function anima(dt){
+  animT+=dt; TH+=dt;
+  // Las piezas del banco flotan y la seleccionada se levanta.
+  moviles.forEach(o=>{
+    const u=o.userData;
+    o.position.y=u.baseY+Math.sin(animT*1.5+u.fase)*0.022+u.lift;
+    o.rotation.y+=dt*0.30;
+  });
+  // Los huecos laten, y el que recibe una pieza equivocada tiembla.
+  fantasmas.forEach(f=>{
+    const u=f.userData;
+    if(u.gm) u.gm.opacity=0.18+0.12*(0.5+0.5*Math.sin(animT*2.6));
+    if(u.shake>0){
+      u.shake=Math.max(0,u.shake-dt*2);
+      f.position.x=u.home.x+Math.sin(animT*40)*0.05*u.shake;
+    }else if(u.home) f.position.x=u.home.x;
+  });
+  // Los viajes de una pieza a su hueco.
+  for(let i=tweens.length-1;i>=0;i--){
+    const w=tweens[i]; w.t+=dt;
+    const k=ease(clamp(w.t/w.dur,0,1));
+    w.o.position.lerpVectors(w.p0,w.p1,k);
+    const s=w.s0+(w.s1-w.s0)*k; w.o.scale.setScalar(s);
+    w.o.rotation.y*=(1-k*0.22);
+    if(w.t>=w.dur){ w.o.position.copy(w.p1); w.o.scale.setScalar(w.s1);
+      w.o.rotation.set(0,0,0); if(w.fin) w.fin(); tweens.splice(i,1); }
+  }
+  if(!G.simUnlocked) return;
+
+  const V=(G.modo==='reto')?retoEv(RETO.falla):EV();
+  // Las dos ruedas del turbo giran EN EL MISMO EJE y a las MISMAS vueltas: es la
+  // idea central de la máquina y por eso no se animan por separado.
+  const w=(V.nTurbo||0)/60*2*Math.PI*0.012;   // rad/s en pantalla, ralentizado
+  if(RIG.ruedaC) RIG.ruedaC.rotation.x+=w*dt;
+  if(RIG.ruedaT) RIG.ruedaT.rotation.x+=w*dt;
+  // La trampilla de la descarga abre lo que el modelo diga.
+  if(RIG.aletaWG) RIG.aletaWG.rotation.z=-clamp(V.xWG,0,1)*0.95;
+  // La mariposa gira con la carga.
+  if(RIG.mariposa) RIG.mariposa.rotation.x=(1-clamp(V.carga,0,1))*Math.PI*0.44;
+  // El núcleo del intercooler, del rojo del aire que entra al azul del que sale.
+  if(RIG.matIC){
+    const t=clamp((V.TAdm-V.Tamb)/Math.max(1,V.T2-V.Tamb),0,1);
+    RIG.matIC.color.setRGB(0.42+0.50*t, 0.52-0.10*t, 0.62-0.34*t);
+  }
+  // Y el testigo del sensor: sólo con CÓDIGO, ni un síntoma antes. Que se quede
+  // apagado con el motor perdiendo un tercio del par es el resultado.
+  if(RIG.testigo){
+    const on=!!V.dtc;
+    RIG.testigo.material.emissive.setHex(on?0xe9a63a:0x000000);
+    RIG.testigo.material.emissiveIntensity=on?(1.1+0.5*Math.sin(animT*4)):0;
+    RIG.testigo.material.color.setHex(on?0x6a4a12:0x3a3116);
+  }
+}
+
+// =========================================== T7 · HUD, MANDOS Y TELEMETRÍA
+const MODES=['ensamble','mapa','camino','intercooler','respuesta','censo','reto'];
+const MODE_META={
+  ensamble:   ['· montaje',    'EL CAMINO DEL AIRE'],
+  mapa:       ['· mapa',       'EL MAPA DEL COMPRESOR'],
+  camino:     ['· estaciones', 'PRESIONES Y TEMPERATURAS'],
+  intercooler:['· intercooler','ENFRÍA Y ESTORBA'],
+  respuesta:  ['· respuesta',  'EL RETARDO DEL TURBO'],
+  censo:      ['· censo',      'LAS 45 CASILLAS'],
+  reto:       ['· reto',       'DIAGNÓSTICO A CIEGAS'],
+};
+const HUD_TXT={
+  ensamble:'Siete piezas en el orden en que el aire las atraviesa. Hasta que no estén las siete no hay nada que simular.',
+  mapa:'Un compresor no da la presión que le pidas: da la que su mapa permite para el gasto que le llega. A la izquierda bombea, a la derecha se bloquea.',
+  camino:'Presión y temperatura en las seis estaciones. La densidad es presión ENTRE temperatura, y por eso las dos columnas se leen juntas.',
+  intercooler:'Enfría y estorba a la vez. Prueba tamaños y busca el máximo; después quítalo y mira qué pasa con la misma presión.',
+  respuesta:'Se pisa a fondo y se cronometra. El retardo no es un número del fabricante: sale de la inercia del eje contra el par neto.',
+  censo:'Nueve averías por cinco regímenes. Cuenta las casillas donde hay síntoma y el ordenador está mudo.',
+  reto:'Llega un motor y nadie dice qué tiene. Seis instrumentos; el asunto no es acertar, es saber cuál separa.',
+};
+function pintaHUD(){
+  const m=MODE_META[G.modo]||MODE_META.ensamble;
+  el('hud').innerHTML='<h1>Sobrealimentación '+m[1]+'</h1><p>'+HUD_TXT[G.modo]+'</p>';
+}
+
+el('panel').innerHTML=
+  '<h4>Banco de sobrealimentación</h4>'+
+  '<div id="ctrl"></div>'+
+  '<div id="retobox" style="display:none">'+
+    '<div class="gl" style="margin:9px 0 4px"><span>Instrumentos · cada uno cuesta una consulta</span></div>'+
+    '<div class="btns" id="instrreto"></div>'+
+    '<div class="gl" style="margin:10px 0 4px"><span>Tu dictamen: qué tiene el motor</span></div>'+
+    '<div class="btns" id="dxreto"></div>'+
+    '<div class="modebar" style="margin-top:8px">'+
+      '<button class="b" id="btnPista">Pista</button>'+
+      '<button class="b on" id="btnEntrega">Entregar dictamen</button>'+
+      '<button class="b" id="btnOtro">Otro motor</button>'+
+    '</div>'+
+  '</div>'+
+  '<div id="tele"></div>'+
+  '<div class="console" id="report"></div>'+
+  '<div class="modebar" style="margin-top:10px">'+
+    '<button class="b auto" id="btnAuto">▶︎ Recorrido guiado</button>'+
+  '</div>'+
+  '<h4 class="sec">Comprueba lo que has leído</h4>'+
+  '<div id="quiz"></div>';
+
+function fila(rot,attr,ops,cur){
+  const filas=Math.max(1,Math.ceil(ops.length/4));
+  let h='<div class="gl" style="margin:9px 0 4px"><span>'+rot+'</span></div>';
+  let i=0;
+  for(let f=0;f<filas;f++){
+    const n=Math.ceil((ops.length-i)/(filas-f));
+    h+='<div class="modebar">'+ops.slice(i,i+n).map(o=>
+      '<button class="b'+(String(o[0])===String(cur)?' on':'')+'" '+attr+'="'+o[0]+'">'+o[1]+'</button>'
+    ).join('')+'</div>';
+    i+=n;
+  }
+  return h;
+}
+function syncCtrl(){
+  const ciego=(G.modo==='reto'), e=MQ();
+  // Los modos que no son el montaje se ofrecen SIEMPRE, pero deshabilitados
+  // hasta que el camino del aire esté completo: esconderlos haría creer que no
+  // existen, y enseñarlos vivos dejaría entrar a un motor sin turbina.
+  let h='<div class="gl" style="margin:9px 0 4px"><span>Vista</span></div>';
+  const dis=m=>(m!=='ensamble'&&!G.simUnlocked)?' disabled':'';
+  h+='<div class="modebar">'+MODES.slice(0,4).map(m=>
+    '<button class="b'+(G.modo===m?' on':'')+dis(m)+'" data-mode="'+m+'">'+MODE_META[m][0]+'</button>').join('')+'</div>';
+  h+='<div class="modebar">'+MODES.slice(4).map(m=>
+    '<button class="b'+(G.modo===m?' on':'')+dis(m)+'" data-mode="'+m+'">'+MODE_META[m][0]+'</button>').join('')+'</div>';
+  h+=fila('Vehículo','data-maq',ARQ_KEYS.map(k=>[k,ARQ[k].corto]),G.maq);
+  if(G.modo==='ensamble'){
+    h+='<div class="modebar" style="margin-top:8px">'+
+       '<button class="b" id="btnMonta">Montar solo</button>'+
+       '<button class="b" id="btnDesmonta">Desmontar</button></div>';
+  }
+  if(!ciego&&G.simUnlocked){
+    h+=fila('Qué le pasa','data-falla',
+      FALLA_KEYS.map(k=>[k,corta(FALLAS[k].corto,16)]),G.falla);
+    const regs=regimenes(e);
+    h+=fila('Régimen','data-rpm',regs.map(R=>[String(R.rpm),num(R.rpm,0)]),String(RPM()));
+    h+=fila('Altitud','data-alt',ALTS.map(A=>[String(A.a),num(A.a,0)+' m']),String(G.alt));
+    h+=fila('Aire ambiente','data-tamb',[['5','5 °C'],['25','25 °C'],['40','40 °C']],String(G.Tamb));
+    h+=fila('Marcha del coche','data-vaire',
+      [['20','20 km/h'],['60','60 km/h'],['110','110 km/h']],String(G.vAire));
+    if(!e.diesel)
+      h+=fila('Octanaje','data-oct',OCTS.map(o=>[String(o),String(o)]),String(G.octanaje));
+  }
+  el('ctrl').innerHTML=h;
+  el('retobox').style.display=ciego?'block':'none';
+  if(ciego){
+    el('instrreto').innerHTML=INSTR.map(i=>
+      '<button class="b dx'+(RETO.medido[i.k]?' on':'')+'" data-inst="'+i.k+'">'+
+      corta(i.rot,42)+'</button>').join('');
+    el('dxreto').innerHTML=FALLA_KEYS.map(k=>{
+      const cls=RETO.veredicto===null
+        ? (RETO.elegido===k?' on':'')
+        : (k===RETO.falla?' right':(k===RETO.elegido?' wrong':''));
+      return '<button class="b dx'+cls+'" data-dx="'+k+'">'+FALLAS[k].corto+'</button>';
+    }).join('');
+  }
+}
+
+// ----------------------------------------------------------------- telemetría
+const glf=(l,v,c)=>'<div class="g"><div class="gl"><span>'+l+'</span><b'+(c?' class="'+c+'"':'')+'>'+v+'</b></div></div>';
+function pintaTele(){
+  const e=MQ();
+  let h='';
+  if(!G.simUnlocked){
+    h+=glf('Piezas montadas',ASM.done.size+' / '+PARTS.length,
+      ASM.done.size===PARTS.length?'good':'warn');
+    h+=glf('Siguiente',(PARTS.find(p=>!ASM.done.has(p.k))||{rot:'—'}).rot);
+    el('tele').innerHTML=h; return;
+  }
+  if(G.modo==='reto'){
+    const V=retoEv(RETO.falla), M=RETO.medido;
+    h+=glf('Motor',e.corto+' · '+num(e.cilindrada,1)+' L');
+    h+=glf('Ambiente',celC(RETO.Tamb)+' · '+met(RETO.alt));
+    h+=glf('Régimen del ensayo',rpmT(RETO.rpm));
+    if(M.tmap){ h+=glf('Colector',barA(V.pAdm)); h+=glf('Admisión',cel(V.TAdm));
+      h+=glf('Código',V.dtc||'ninguno',V.dtc?'bad':'good'); }
+    if(M.banco){ h+=glf('Par',nm(V.par,1)); h+=glf('Potencia',kw(V.pot,1)); }
+    if(M.manos) h+=glf('Salida del compresor',barA(V.p2));
+    if(M.sonda3){ h+=glf('Antes de la turbina',barA(V.pEsc)); h+=glf('Temperatura ahí',cel(V.T3)); }
+    if(M.taco){ h+=glf('Vueltas del turbo',V.nTurbo===null?'—':rpmT(V.nTurbo));
+      h+=glf('Descarga',pcc(V.xWG*100)); }
+    if(M.mapa) h+=glf('Margen de bombeo',V.margenBombeo===null?'—':pcc(V.margenBombeo*100));
+    h+=glf('Instrumentos usados',Object.keys(M).length+' de '+INSTR.length);
+    el('tele').innerHTML=h; return;
+  }
+  const V=EV(), q=veredicto();
+  h+=glf('Soplado',barF(V.soplado),V.sobrePresion?'bad':'');
+  h+=glf('Colector',barA(V.pAdm));
+  h+=glf('Admisión',cel(V.TAdm),V.TAdm>340?'warn':'');
+  h+=glf('Densidad',rhoF(V.rhoAdm));
+  h+=glf('Par',nm(V.par,1),V.perdida>0.15?'bad':(V.perdida>0.05?'warn':''));
+  h+=glf('Potencia',kw(V.pot,1));
+  h+=glf('Vueltas del turbo',V.nTurbo===null?'—':rpmT(V.nTurbo),V.sobreVel?'bad':'');
+  h+=glf('Descarga abierta',pcc(V.xWG*100));
+  h+=glf('Antes de la turbina',barA(V.pEsc)+' · '+cel(V.T3),V.sobreT3?'bad':'');
+  h+=glf('Margen de bombeo',V.margenBombeo===null?'—':pcc(V.margenBombeo*100),
+    V.bombeo?'bad':(V.margenBombeo!==null&&V.margenBombeo<0.15?'warn':''));
+  h+=glf('Código del ordenador',V.dtc||'ninguno',V.dtc?'bad':'good');
+  h+=glf('Veredicto',q.rot,q.nivel==='bad'?'bad':(q.nivel==='warn'?'warn':'good'));
+  el('tele').innerHTML=h;
+}
+function pintaInforme(){
+  const e=MQ();
+  if(!G.simUnlocked){
+    el('report').innerHTML='<span class="mono">Faltan '+(PARTS.length-ASM.done.size)+
+      ' piezas.</span> Toca una pieza del banco y después su hueco luminoso. '+
+      'Sin las siete no hay camino del aire, y sin camino no hay nada que medir.';
+    return;
+  }
+  if(G.modo==='reto'){
+    const W=retoEv(RETO.falla);
+    let h='<b>'+e.nombre+'</b>, a '+rpmT(RETO.rpm)+' y plena carga, '+celC(RETO.Tamb)+' y '+met(RETO.alt)+'. ';
+    h+='El cliente dice: '+queja(W)+'. ';
+    if(RETO.veredicto==='ok') h+='<b class="good">Dictamen correcto:</b> era '+FALLAS[RETO.falla].rot+'.';
+    else if(RETO.veredicto==='mal') h+='<b class="bad">No era eso:</b> era '+FALLAS[RETO.falla].rot+'.';
+    else h+='Pide instrumentos y dictamina. Ninguno de ellos ve el motor entero.';
+    el('report').innerHTML=h; return;
+  }
+  const V=EV();
+  let h='<b>'+e.nombre+'.</b> ';
+  h+=G.falla==='sano'?'Sin avería, ':FL().rot+', ';
+  h+='a '+rpmT(V.rpm)+' y plena carga. ';
+  if(V.sobreVel||V.sobrePresion)
+    h+='<b class="bad">El turbo está fuera de sus límites:</b> '+rpmT(V.nTurbo)+' contra '+rpmT(e.nMax)+
+      ' y '+barF(V.soplado)+' de soplado contra un máximo de '+barF(e.sopladoMax)+'.';
+  else if(V.detona)
+    h+='<b class="bad">Detona:</b> la mezcla llega a '+kel(V.Tcomp)+' al final de la compresión y con '+
+      G.octanaje+' octanos el umbral está en '+kel(V.Tdet)+'.';
+  else if(V.bombeo)
+    h+='<b class="bad">El compresor bombea:</b> el punto está a la izquierda de la línea de bombeo, con '+
+      kgs(V.mCorr)+' de gasto corregido contra los '+kgs(V.mBombeoLinea)+' que esa relación de presiones exige.';
+  else if(V.limitadoDeton)
+    h+='<b class="warn">El control de picado está recortando:</b> la consigna era '+barF(e.sopladoObj)+
+      ' y sólo se dan '+barF(V.soplado)+'. Con eso el par cae '+pcc(V.perdida*100,1)+' y no hay código.';
+  else if(V.perdida>0.08&&!V.dtc)
+    h+='<b class="warn">Pierde '+pcc(V.perdida*100,1)+' de par y el ordenador no dice nada:</b> la presión de '+
+      'colector sigue en '+barA(V.pAdm)+', que es lo único que él mide.';
+  else if(V.dtc)
+    h+='El ordenador declara <b class="bad">'+V.dtc+'</b> y el par cae '+pcc(V.perdida*100,1)+'.';
+  else
+    h+='Todo en su sitio: '+barF(V.soplado)+' de soplado, aire a '+cel(V.TAdm)+', '+nm(V.par,1)+' de par y el turbo a '+
+      rpmT(V.nTurbo)+' con la descarga abierta el '+pcc(V.xWG*100)+'.';
+  el('report').innerHTML=h;
+}
+function queja(V){
+  if(V.sobreVel||V.sobrePresion) return '«silba muchísimo y me da miedo»';
+  if(V.detona) return '«pica cuando lo estiro»';
+  if(V.bombeo) return '«hace un ruido raro, como un aleteo»';
+  if(V.perdida>0.28) return '«no tira de nada»';
+  if(V.perdida>0.12) return '«le falta fuerza»';
+  if(V.perdida>0.05) return '«lo noto un poco flojo»';
+  if(V.dtc) return '«se encendió el testigo»';
+  return '«vengo a la revisión»';
+}
+
+function pinta(){ pintaTablero(); pintaTele(); pintaInforme(); syncCtrl(); pintaPregunta(); }
+function afterEdit(){ invalida(); pinta(); }
+function cambiaMaquina(k){
+  if(!ARQ[k]) return;
+  G.maq=k; G.resuelto=false; G.rpm=null; invalida();
+  levantaMotor(); levantaBanco();
+  if(G.simUnlocked) montaKit(); else initAssembly();
+  if(G.modo==='reto') armaReto();
+  pintaHUD(); afterEdit(); refrescaPregunta();
+  const t=camConjunto(MARGEN[G.modo]||1.00); S.moveTo(t[0],t[1],0.9);
+}
+const MARGEN={ensamble:0.98, mapa:0.99, camino:0.99, intercooler:0.99,
+  respuesta:0.99, censo:0.95, reto:0.96};
+function setMode(m){
+  if(!MODE_META[m]) return;
+  if(m!=='ensamble'&&!G.simUnlocked){
+    showToast('<b>Primero hay que montar el camino del aire.</b> Faltan '+
+      (PARTS.length-ASM.done.size)+' piezas.',3000);
+    return;
+  }
+  const entro=(m==='reto'&&G.modo!=='reto');
+  G.modo=m;
+  if(m==='ensamble'){ if(ASM.done.size<PARTS.length) initAssembly(); }
+  else if(ASM.done.size<PARTS.length){ montaKit(); }
+  muestraBanco(m==='ensamble'&&ASM.done.size<PARTS.length);
+  pintaHUD();
+  if(entro) armaReto();
+  invalida(); pinta(); refrescaPregunta();
+  const t=camConjunto(MARGEN[m]||1.00); S.moveTo(t[0],t[1],1.1);
+}
+const VISTAS={
+  ensamble:vistaEnsamble, mapa:vistaMapa, camino:vistaCamino,
+  intercooler:vistaIntercooler, respuesta:vistaRespuesta,
+  censo:vistaCenso, reto:vistaReto,
+};
+let PINTADAS=0;
+function pintaTablero(){
+  bg();
+  (VISTAS[G.modo]||vistaEnsamble)();
+  btex.needsUpdate=true;
+}
+
+// ============================== T8 · CUESTIONARIO, RECORRIDO Y ARRANQUE
+function pistaReto(){
+  RETO.pistas=(RETO.pistas||0)+1;
+  showToast('<b>Pista</b><br>'+FALLAS[RETO.falla].pista,5600);
+}
+function otroMotor(){ paraAuto(); armaReto(); refrescaPregunta(); pinta(); }
+function barajaEn(a){
+  for(let i=a.length-1;i>0;i--){
+    const j=Math.floor(Math.random()*(i+1)); const t=a[i]; a[i]=a[j]; a[j]=t;
+  }
+  return a;
+}
+let QCACHE=null, QI=0, QSEL=null;
+// Las preguntas se DERIVAN del estado: cambiar de motor, de avería o de altitud
+// las rehace con las cifras nuevas. Ninguna respuesta está escrita a mano.
+function preguntas(){
+  const e=MQ();
+  if(!G.simUnlocked) return [];
+  const V=EV(), sin=EV_DE('sinIC',RPM(),G.carga), C=CURVA('sano');
+  const alto=evalua(e,Object.assign({falla:'sano',rpm:RPM(),carga:1},AMB(),{alt:2660}));
+  const llano=evalua(e,Object.assign({falla:'sano',rpm:RPM(),carga:1},AMB(),{alt:0}));
+  const wgP=EV_DE('wgPegada',RPM(),1);
+  const cen=CENSO();
+  const Q=[];
+  Q.push({t:'Sin intercooler, la presión en el colector de este motor pasa de '+barA(V.pAdm)+' a '+barA(sin.pAdm)+
+      ', o sea prácticamente la misma, y sin embargo el par pasa de '+nm(V.par,0)+' a '+nm(sin.par,0)+'. ¿Por qué?',
+    ops:[['Porque la DENSIDAD es presión entre temperatura, y el aire pasa de '+cel(V.TAdm)+' a '+cel(sin.TAdm),true],
+      ['Porque el intercooler también comprime',false],
+      ['Porque sin intercooler el turbo gira menos',false],
+      ['Porque el ordenador da un código y corta',false]]});
+  Q.push({t:'Subiendo de 0 a 2 660 m, la presión ambiente baja de '+barA(llano.pAmb)+' a '+barA(alto.pAmb)+
+      '. ¿Qué le pasa a este motor?',
+    ops:[['Mantiene '+barA(alto.pAdm)+' en el colector y pierde sólo '+pcc((1-alto.par/llano.par)*100,1)+
+        ' de par, pero el turbo sube a '+rpmT(alto.nTurbo),true],
+      ['Pierde presión de colector en la misma proporción que el ambiente',false],
+      ['No cambia nada: el turbo compensa sin coste',false],
+      ['Pierde un 30 % de par, como un motor atmosférico',false]]});
+  Q.push({t:'La válvula de descarga se queda pegada CERRADA. El soplado sube a '+barF(wgP.soplado)+
+      ' y el turbo a '+rpmT(wgP.nTurbo)+'. ¿Qué es lo grave?',
+    ops:[['Que '+rpmT(wgP.nTurbo)+' pasa de las '+rpmT(e.nMax)+' que el turbo aguanta',true],
+      ['Que el par sube, y eso rompe la caja de cambios',false],
+      ['Que el ordenador no puede leer la presión',false],
+      ['Nada: más presión siempre es mejor',false]]});
+  Q.push({t:'De las '+cen.total+' casillas del censo, '+cen.conAviso+' tienen síntoma. ¿Cuántas de ésas NO producen ningún código?',
+    ops:[[String(cen.mudo)+' casillas',true],['ninguna: todo síntoma da código',false],
+      [String(Math.max(0,cen.mudo-4))+' casillas',false],[String(cen.conAviso)+': ninguna da código',false]]});
+  Q.push({t:'¿Qué mide de verdad el sensor que el ordenador usa para controlar el turbo?',
+    ops:[['Presión absoluta de colector y temperatura de admisión, y nada más',true],
+      ['El gasto de aire y las vueltas del turbo',false],
+      ['La contrapresión antes de la turbina',false],
+      ['El margen que queda hasta el bombeo',false]]});
+  Q.push({t:'El par máximo de este motor sale a '+rpmT(C.parMax.rpm)+' y no más abajo. ¿Por qué justo ahí?',
+    ops:[['Porque es el primer régimen en el que la turbina reúne la potencia que el compresor pide para la consigna',true],
+      ['Porque ahí el ordenador abre la mariposa del todo',false],
+      ['Porque ahí el rendimiento volumétrico es máximo',false],
+      ['Porque el fabricante lo declara así en la ficha',false]]});
+  return Q;
+}
+function bancoQ(){
+  if(!QCACHE){ QCACHE=preguntas();
+    QCACHE.forEach(q=>{ q.baraja=barajaEn(q.ops.map(o=>({o:o}))); }); }
+  return QCACHE;
+}
+function refrescaPregunta(){ QCACHE=null; QI=0; QSEL=null; pintaPregunta(); }
+function pintaPregunta(){
+  // Sin camino del aire NO hay preguntas, y el banco en caché no se entera: al
+  // desmontar, `pinta()` volvía a pintar las preguntas del motor que acababa de
+  // desaparecer, porque QCACHE seguía lleno y sólo `refrescaPregunta()` lo vacía.
+  // La condición de verdad es el mode-lock, así que se pregunta por él aquí y
+  // no por el camino que haya llegado hasta esta función.
+  const B=G.simUnlocked?bancoQ():[]; if(!B.length){ el('quiz').innerHTML=
+    '<div class="lt">Las preguntas se abren cuando el camino del aire está montado.</div>'; return; }
+  const q=B[QI%B.length];
+  let h='<div class="lt">Pregunta '+((QI%B.length)+1)+' de '+B.length+'</div>';
+  h+='<div class="console">'+q.t+'</div>';
+  h+='<div class="btns">'+q.baraja.map((b,i)=>{
+    const bien=b.o[1];
+    const cls=QSEL===null?'':(bien?' right':(i===QSEL?' wrong':''));
+    return '<button class="b dx'+cls+'" data-q="'+i+'">'+b.o[0]+'</button>';
+  }).join('')+'</div>';
+  h+='<div class="modebar" style="margin-top:8px"><button class="b" data-qnext="1">Siguiente pregunta</button></div>';
+  el('quiz').innerHTML=h;
+}
+function pregunta(i){
+  const B=bancoQ(); if(!B.length) return;
+  const q=B[QI%B.length];
+  if(QSEL!==null) return;
+  QSEL=i;
+  synth.beep(q.baraja[i].o[1]?700:210,0.10,0.06);
+  pintaPregunta();
+}
+
+// ------------------------------------------------------------ recorrido guiado
+let AUTO=null;
+function paraAuto(){ if(AUTO){ clearTimeout(AUTO); AUTO=null; }
+  const b=el('btnAuto'); if(b) b.disabled=false; }
+function runAuto(){
+  paraAuto();
+  el('btnAuto').disabled=true;
+  const pasos=[];
+  let espera=3900;
+  if(ASM.done.size<PARTS.length){
+    pasos.push(()=>{ setMode('ensamble');
+      showToast('<b>1 · Montaje.</b> Siete piezas y un camino: filtro, compresor, intercooler, mariposa, motor, turbina y descarga.',3400); });
+    pasos.push(()=>{ autoAssemble(); });
+    espera=PARTS.length*640+1800;
+  }
+  const resto=[
+    ()=>{ G.maq='gas14t'; G.falla='sano'; G.alt=0; G.Tamb=25; G.octanaje=91; G.rpm=null;
+      cambiaMaquina('gas14t'); setMode('mapa');
+      showToast('<b>El mapa</b><br>La línea naranja es dónde vive este motor a plena carga. A su izquierda está el bombeo; a su derecha, el bloqueo.',4200); },
+    ()=>{ setMode('camino');
+      showToast('<b>Las seis estaciones</b><br>Fíjate en la temperatura: sube en el compresor, baja en el intercooler y se dispara en la combustión.',4200); },
+    ()=>{ setMode('intercooler');
+      showToast('<b>Enfría y estorba</b><br>El par contra el tamaño del intercooler tiene un máximo interior. Más grande no es mejor.',4200); },
+    ()=>{ G.falla='sinIC'; afterEdit(); refrescaPregunta();
+      showToast('<b>Sin intercooler</b><br>La misma presión y un tercio menos de par. En gasolina el control de picado además te quita la consigna.',4600); },
+    ()=>{ G.falla='sano'; G.alt=2660; afterEdit(); refrescaPregunta(); setMode('mapa');
+      showToast('<b>A 2 660 metros</b><br>El turbo mantiene la presión de colector, pero para conseguirlo se va a sus vueltas máximas.',4600); },
+    ()=>{ G.alt=0; G.falla='wgPegada'; afterEdit(); refrescaPregunta(); setMode('respuesta');
+      showToast('<b>La descarga pegada cerrada</b><br>Nada frena al eje. El sobreimpulso ya no se corta y el turbo pasa de sus vueltas.',4600); },
+    ()=>{ G.falla='turboGastado'; afterEdit(); refrescaPregunta();
+      showToast('<b>Un turbo gastado</b><br>Mismo motor, mismo régimen: tarda varias veces más en soplar y el ordenador no tiene nada que declarar.',4600); },
+    ()=>{ G.maq='die20t'; cambiaMaquina('die20t'); G.falla='sinIC'; afterEdit(); refrescaPregunta();
+      setMode('intercooler');
+      showToast('<b>Y en diésel</b><br>Aquí no hay detonación que valga, así que se queda con toda la presión y pierde sólo densidad. Compara los dos casos.',4800); },
+    ()=>{ G.falla='sano'; afterEdit(); setMode('censo');
+      showToast('<b>Cuarenta y cinco casillas</b><br>Cuenta las ámbar: hay síntoma y el ordenador está mudo. Ésa es la razón de que el manómetro siga existiendo.',4800); },
+    ()=>{ setMode('reto');
+      showToast('<b>Ahora tú</b><br>Un motor, ningún dato. Pide instrumentos, mira cómo se estrecha la lista y dictamina.',4200); },
+  ];
+  const todos=pasos.concat(resto);
+  let i=0;
+  const tic=()=>{ if(i>=todos.length){ paraAuto(); return; }
+    const primera=(i===0&&pasos.length>0);
+    todos[i++]();
+    AUTO=setTimeout(tic, (i===2&&pasos.length>0)?espera:(primera?1200:3900)); };
+  tic();
+}
+
+// ------------------------------------------------------------------- sucesos
+// Un ÚNICO despachador delegado. Nada de onclick en el HTML generado: el cuerpo
+// del laboratorio va dentro de un <script type="module"> y sus funciones no
+// existen en el ámbito global, así que un onclick inline no encuentra nada.
+document.addEventListener('click',ev=>{
+  const b=ev.target.closest('button'); if(!b||b.disabled) return;
+  const id=b.id;
+  if(id==='btnAuto'){ runAuto(); return; }
+  if(id==='btnPista'){ pistaReto(); return; }
+  if(id==='btnEntrega'){ entregaConAviso(); return; }
+  if(id==='btnOtro'){ otroMotor(); return; }
+  if(id==='btnMonta'){ paraAuto(); autoAssemble(); return; }
+  if(id==='btnDesmonta'){ paraAuto(); initAssembly(); afterEdit(); return; }
+  if(b.dataset.mode){ paraAuto(); setMode(b.dataset.mode); return; }
+  if(b.dataset.maq){ paraAuto(); cambiaMaquina(b.dataset.maq); return; }
+  if(b.dataset.falla){ paraAuto(); G.falla=b.dataset.falla; G.resuelto=false;
+    afterEdit(); refrescaPregunta(); return; }
+  if(b.dataset.rpm){ paraAuto(); G.rpm=Number(b.dataset.rpm); afterEdit(); refrescaPregunta(); return; }
+  if(b.dataset.alt){ paraAuto(); G.alt=Number(b.dataset.alt); afterEdit(); refrescaPregunta(); return; }
+  if(b.dataset.tamb){ paraAuto(); G.Tamb=Number(b.dataset.tamb); afterEdit(); refrescaPregunta(); return; }
+  if(b.dataset.vaire){ paraAuto(); G.vAire=Number(b.dataset.vaire); afterEdit(); refrescaPregunta(); return; }
+  if(b.dataset.oct){ paraAuto(); G.octanaje=Number(b.dataset.oct); afterEdit(); refrescaPregunta(); return; }
+  if(b.dataset.inst){ paraAuto(); mide(b.dataset.inst); return; }
+  if(b.dataset.dx){ eligeFalla(b.dataset.dx); return; }
+  if(b.dataset.q!==undefined){ pregunta(Number(b.dataset.q)); return; }
+  if(b.dataset.qnext){ QI++; QSEL=null; pintaPregunta(); return; }
+});
+function entregaConAviso(){
+  if(!RETO.elegido){
+    showToast('<b>Elige primero qué tiene el motor</b><br>El dictamen es la parte que se corrige.',3200);
+    return;
+  }
+  if(!Object.keys(RETO.medido).length){
+    showToast('<b>Todavía no has medido nada</b><br>Pide al menos un instrumento antes de dictaminar.',3400);
+    return;
+  }
+  entrega();
+}
+document.addEventListener('keydown',ev=>{
+  if(ev.target&&/^(INPUT|TEXTAREA)$/.test(ev.target.tagName)) return;
+  const i=Number(ev.key);
+  if(i>=1&&i<=MODES.length){ paraAuto(); setMode(MODES[i-1]); }
+});
+
+// ------------------------------------------------------------------- el puente
+function reporta(){
+  if(typeof window.__labReporta==='function'){
+    try{ window.__labReporta({resuelto:G.resuelto}); }catch(e){}
+  }
+}
+
+// ------------------------------------------------------------------- depuración
+// Superficie mínima y estable para la Capa 2. Todo lo que publica sale del motor
+// sellado por el mismo camino que la pantalla.
+window.__labDebug={
+  get mode(){ return G.modo; },
+  get solved(){ return G.resuelto; },
+  get maquina(){ return G.maq; },
+  get falla(){ return G.falla; },
+  get simUnlocked(){ return G.simUnlocked; },
+  get montadas(){ return ASM.done.size; },
+  get piezas(){ return PARTS.length; },
+  get frames(){ return PINTADAS; },
+  get amb(){ return {alt:G.alt, Tamb:G.Tamb, octanaje:G.octanaje, vAire:G.vAire, rpm:RPM(), carga:G.carga}; },
+  get maq(){ const e=MQ(); return {key:e.key, corto:e.corto, nombre:e.nombre,
+    cilindrada:e.cilindrada, cil:e.cil, rc:e.rc, diesel:e.diesel,
+    sopladoObj:e.sopladoObj, sopladoMax:e.sopladoMax, nMax:e.nMax,
+    mChoke:e.mChoke, piMax:e.piMax, etaMax:e.etaMax, cBombeo:e.cBombeo,
+    aTurbina:e.aTurbina, aWastegate:e.aWastegate, rpmPar:e.rpmPar, rpmMax:e.rpmMax,
+    icNTU:e.icNTU, icDp:e.icDp, T3Max:e.T3Max, afr:e.afr, inerciaEje:e.inerciaEje}; },
+  lect(f,rpm,carga){
+    const V=evalua(MQ(),Object.assign({falla:f||G.falla, rpm:rpm===undefined?RPM():rpm,
+      carga:carga===undefined?G.carga:carga},AMB()));
+    return {soplado:V.soplado, p2:V.p2, pAdm:V.pAdm, p1:V.p1, pAmb:V.pAmb,
+      T2:V.T2, TAdm:V.TAdm, T3:V.T3, Tamb:V.Tamb, eps:V.eps,
+      pi:V.pi, m:V.m, mCorr:V.mCorr, u:V.u, nTurbo:V.nTurbo, xWG:V.xWG,
+      pEsc:V.pEsc, Pc:V.Pc, Pt:V.Pt, par:V.par, pot:V.pot, rhoAdm:V.rhoAdm,
+      rhoSinIC:V.rhoSinIC, masaPorCiclo:V.masaPorCiclo, Wbomb:V.Wbomb,
+      Tcomp:V.Tcomp, Tdet:V.Tdet, margenPicado:V.margenPicado,
+      detona:V.detona, limitadoDeton:V.limitadoDeton, bombeo:V.bombeo,
+      bloqueo:V.bloqueo, sobreVel:V.sobreVel, sobreT3:V.sobreT3,
+      sobrePresion:V.sobrePresion, faltaPotencia:V.faltaPotencia,
+      margenBombeo:V.margenBombeo, mBombeoLinea:V.mBombeoLinea,
+      mChokeLinea:V.mChokeLinea, dtc:V.dtc, perdida:V.perdida,
+      avisos:V.avisos.slice(), hay:V.hay, forzada:V.forzada};
+  },
+  curva(f){ const C=curva(MQ(),Object.assign({falla:f||G.falla},AMB()));
+    return {n:C.pts.length, parMax:{par:C.parMax.par,rpm:C.parMax.rpm},
+      potMax:{pot:C.potMax.pot,rpm:C.potMax.rpm},
+      pts:C.pts.map(p=>({rpm:p.rpm,par:p.par,pot:p.pot,soplado:p.soplado,
+        pi:p.pi,mCorr:p.mCorr,u:p.u,xWG:p.xWG,bombeo:p.bombeo,bloqueo:p.bloqueo}))}; },
+  transitorio(f){ const T=transitorio(MQ(),RPM(),averia(f||G.falla),AMB());
+    return {tSopla:T.tSopla, sopladoPico:T.sopladoPico, sobreimpulso:T.sobreimpulso,
+      nFin:T.nFin, sopladoFin:T.sopladoFin, xWGFin:T.xWGFin, n:T.pts.length}; },
+  censo(){ const C=CENSO();
+    return {total:C.total, mudo:C.mudo, conAviso:C.conAviso, conCodigo:C.conCodigo,
+      peligro:C.peligro, filas:C.filas.map(f=>({falla:f.falla, mudo:f.mudo,
+        celdas:f.celdas.map(c=>({rpm:c.rpm, dtc:c.dtc, perdida:c.perdida,
+          nota:c.nota, detona:c.detona, bombeo:c.bombeo}))}))}; },
+  // Lo que las chapas del banco DICEN: de una textura no se lee texto, y el 3D
+  // también puede regalar la respuesta de un reto a ciegas.
+  get rotulos(){ return PARTS.map(p=>p.rot).concat(['presión y temperatura','descarga','filtro de aire']); },
+  get retoCfg(){ return {falla:RETO.falla, alt:RETO.alt, Tamb:RETO.Tamb,
+    octanaje:RETO.octanaje, rpm:RETO.rpm, medido:Object.keys(RETO.medido),
+    elegido:RETO.elegido, veredicto:RETO.veredicto,
+    vivas:FALLA_KEYS.filter(compatible)}; },
+  mide(k){ mide(k); },
+  elige(k){ eligeFalla(k); },
+  entrega(){ entrega(); return RETO.veredicto==='ok'; },
+  armaCaso(falla,rpm){ RETO.falla=falla;
+    if(rpm!==undefined) RETO.rpm=rpm;
+    RETO.medido={}; RETO.elegido=null; RETO.veredicto=null;
+    invalida(); pinta(); refrescaPregunta(); },
+  monta(){ autoAssemble(); },
+  // Los mandos. Hacen EXACTAMENTE lo que hace un dedo sobre la barra de vistas:
+  // si se saltaran `setMode`, la Capa 2 estaría probando un camino que ningún
+  // alumno recorre.
+  setMode(m){ setMode(m); },
+  setMaq(k){ cambiaMaquina(k); },
+  setFalla(f){ if(!FALLAS[f]) return false; G.falla=f; G.resuelto=false;
+    afterEdit(); refrescaPregunta(); return true; },
+  setAmb(o){ o=o||{};
+    if(o.alt!==undefined) G.alt=o.alt;
+    if(o.Tamb!==undefined) G.Tamb=o.Tamb;
+    if(o.octanaje!==undefined) G.octanaje=o.octanaje;
+    if(o.vAire!==undefined) G.vAire=o.vAire;
+    if(o.rpm!==undefined) G.rpm=o.rpm;
+    if(o.carga!==undefined) G.carga=o.carga;
+    afterEdit(); refrescaPregunta(); },
+  desmonta(){ initAssembly(); afterEdit(); },
+  // Las constantes que la Capa 2 necesita para no escribirse a mano las listas.
+  get K(){ return {MODES:MODES.slice(), FALLAS:FALLA_KEYS.slice(),
+    ARQ:ARQ_KEYS.slice(), PIEZAS:ORDEN.slice(), INSTR:INSTR.map(i=>i.k),
+    ALTS:ALTS.map(A=>A.a), OCTS:OCTS.slice(),
+    ROT:FALLA_KEYS.map(k=>FALLAS[k].corto), ROT_LARGO:FALLA_KEYS.map(k=>FALLAS[k].rot),
+    DTC:Object.keys(DTC_ROT)}; },
+  // Lo que el panel de mandos y la telemetría PUBLICAN de verdad: es la
+  // superficie por la que un reto a ciegas se escapa.
+  get panel(){ return {ctrl:(el('ctrl')||{}).textContent||'',
+    tele:(el('tele')||{}).textContent||'',
+    report:(el('report')||{}).textContent||'',
+    quiz:(el('quiz')||{}).textContent||'',
+    hud:(el('hud')||{}).textContent||''}; },
+  get toastOpacidad(){ const t=el('toast');
+    return t?Number(getComputedStyle(t).opacity):0; },
+  // Caza mallas cuyo material no sea un material de verdad: three se las salta
+  // EN SILENCIO y la pieza no existe en pantalla sin que salte ningún error.
+  get materialesFalsos(){
+    const malas=[];
+    scene.traverse(o=>{ if(o.isMesh&&(!o.material||o.material.isMaterial!==true))
+      malas.push(o.type+':'+(o.name||'?')); });
+    return malas;
+  },
+  get tableroPNG(){ return bcv.toDataURL('image/png'); },
+  get anchoTableroPx(){
+    const c=S.camera, r=S.renderer.domElement.getBoundingClientRect();
+    const m=new THREE.Vector3(BW3/2,BY3,0.06).applyMatrix4(board.matrixWorld).project(c);
+    const q=new THREE.Vector3(-BW3/2,BY3,0.06).applyMatrix4(board.matrixWorld).project(c);
+    return Math.abs(m.x-q.x)/2*r.width;
+  },
+};
+
+// ------------------------------------------------------------------- arranque
+levantaMotor();
+levantaBanco();
+initAssembly();
+pintaHUD();
+pinta();
+refrescaPregunta();
+S.setAnimate(dt=>{ PINTADAS++; anima(dt); });
+S.start();
+{ const t=camConjunto(MARGEN.ensamble); S.moveTo(t[0],t[1],0.01); }
+addEventListener('resize',()=>{ S.resize();
+  const t=camConjunto(MARGEN[G.modo]||1.00); S.moveTo(t[0],t[1],0.4); });

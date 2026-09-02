@@ -57,11 +57,17 @@ for (const k of ['donor', 'out', 'title', 'lt', 'inspectHint', 'body', 'fichas']
 
 const donorPath = join(LABS_PUB, cfg.donor);
 if (!existsSync(donorPath)) fail(`Donor no encontrado: ${donorPath}`);
-const donor = readFileSync(donorPath, 'utf8');
+// El repositorio se clona en Windows con core.autocrlf=true, así que TODO el
+// árbol de trabajo llega con CRLF mientras el índice guarda LF. El marcador
+// de corte se busca con un salto de línea de Unix, de modo que sobre un donor
+// recién sacado de git no casaba NUNCA y el error decía que al donor le
+// faltaba el marcador —que estaba ahí—. Se normaliza a LF al leer, y se
+// escribe en LF, que es lo que el índice guarda de todas formas.
+const donor = readFileSync(donorPath, 'utf8').replace(/\r\n/g, '\n');
 
 const bodyPath = join(LAB_SRC, cfg.body);
 if (!existsSync(bodyPath)) fail(`Body no encontrado: ${bodyPath}`);
-const body = readFileSync(bodyPath, 'utf8');
+const body = readFileSync(bodyPath, 'utf8').replace(/\r\n/g, '\n');
 
 // El </script del framework queda ANTES del corte; el body vive dentro del
 // <script type="module"> abierto, así que no puede cerrarlo él mismo.

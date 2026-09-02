@@ -66,6 +66,7 @@ const CON_VOZ: ReadonlySet<string> = new Set([
   'mecanica-120',
   'mecanica-121',
   'mecanica-122',
+  'mecanica-123',
   'mecanica-13',
   'mecanica-14',
   'mecanica-15',

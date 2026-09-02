@@ -1,0 +1,9 @@
+{
+  "donor": "gases-verificacion.html",
+  "out": "sobrealimentacion-turbo-intercooler.html",
+  "title": "CEN Labs · Sobrealimentación: turbo, wastegate e intercooler — Laboratorio 3D",
+  "lt": "Motor de combustión interna · Mecánica",
+  "inspectHint": "👆 Monta las siete piezas, quítale el intercooler a un motor de gasolina y mira lo que pasa: la misma presión, un tercio menos de par y ningún código. Después súbelo a 2 660 m y mira las vueltas del turbo",
+  "body": "sobrealimentacion-turbo-intercooler.body.js",
+  "fichas": ["_ficha-tecnica.js", "_ficha-sobrealimentacion-turbo-intercooler.js"]
+}
