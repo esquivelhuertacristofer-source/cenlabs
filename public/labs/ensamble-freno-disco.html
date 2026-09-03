@@ -103,6 +103,8 @@ import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
 import { RoundedBoxGeometry } from 'three/addons/geometries/RoundedBoxGeometry.js';
+import * as P3 from '/labs/_piezas3d.js';
+import { instalaDiag } from '/labs/_diag3d.js';
 import { EffectComposer } from 'three/addons/postprocessing/EffectComposer.js';
 import { RenderPass } from 'three/addons/postprocessing/RenderPass.js';
 import { GTAOPass } from 'three/addons/postprocessing/GTAOPass.js';
@@ -496,11 +498,30 @@ function buildRotor(){
 }
 function buildPad(faceZ){   // faceZ = +1 (fricción hacia -Z) ó -1
   const g=new THREE.Group();
-  const back=roundedBox(0.5,0.34,0.05,MAT.padBack,0.1); back.position.z=0.03*faceZ;
-  const fric=roundedBox(0.46,0.30,0.055,MAT.padFric,0.06); fric.position.z=-0.03*faceZ;
-  g.add(back,fric);
-  // orejas de la placa
-  const ear=new THREE.Mesh(new THREE.BoxGeometry(0.58,0.06,0.045),MAT.padBack); ear.position.set(0,0.18,0.03*faceZ); g.add(ear);
+  /* La placa soporte de una pastilla no es un rectangulo: es una pieza cortada
+     con las OREJAS integradas —por donde apoya en la horquilla y por donde se
+     transmite todo el par de frenado— y el material de friccion ACHAFLANADO en
+     los dos extremos, que es lo que evita el chirrido al morder. Cortar la oreja
+     aparte y pegarla encima escondia justo eso.                                */
+  const perfil=P3.contornoRedondeado([
+    [-0.29,-0.17],[0.29,-0.17],[0.29,0.10],[0.25,0.15],
+    [0.25,0.19],[-0.25,0.19],[-0.25,0.15],[-0.29,0.10]],0.022,3);
+  const back=new THREE.Mesh(P3.normalizaUV(P3.extruido(perfil,{espesor:0.05,bisel:0.008}),2),
+    MAT.padBack);
+  back.position.z=0.03*faceZ; back.castShadow=true; g.add(back);
+  const fric=new THREE.Mesh(P3.extruido(P3.contornoRedondeado([
+    [-0.225,-0.145],[0.225,-0.145],[0.225,0.125],[-0.225,0.125]],0.030,3),
+    {espesor:0.055,bisel:0.014}),MAT.padFric);
+  fric.position.z=-0.03*faceZ; fric.castShadow=true; g.add(fric);
+  // El muelle antivibracion sobre el lomo, y el testigo de desgaste: el chirrido
+  // que avisa de que quedan tres milimetros es una lamina, no una alarma.
+  const muelle=new THREE.Mesh(P3.extruido([
+    [-0.20,0.19],[0.20,0.19],[0.20,0.215],[0.10,0.215],[0.10,0.245],
+    [-0.10,0.245],[-0.10,0.215],[-0.20,0.215]],{espesor:0.030,bisel:0.004,curvaSeg:2}),
+    MAT.dark);
+  muelle.position.z=0.03*faceZ; g.add(muelle);
+  const testigo=new THREE.Mesh(new THREE.BoxGeometry(0.03,0.10,0.012),MAT.dark);
+  testigo.position.set(0.24,0.10,0.06*faceZ); g.add(testigo);
   return g;
 }
 function buildPiston(){
@@ -512,10 +533,25 @@ function buildPiston(){
 }
 function buildCaliper(){
   const g=new THREE.Group();
-  const inner=roundedBox(0.66,0.74,0.26,MAT.caliper,0.14); inner.position.set(0,0,-0.3);   // cuerpo (aloja pistón)
-  const outer=roundedBox(0.66,0.74,0.14,MAT.caliper,0.14); outer.position.set(0,0,0.26);    // dedos exteriores
-  const bridge=roundedBox(0.42,0.26,0.68,MAT.caliper,0.16); bridge.position.set(0,0.34,-0.02);// puente superior
-  g.add(inner,outer,bridge);
+  /* La mordaza es UNA pieza fundida en forma de C, no tres cajas apiladas: el
+     cuerpo que aloja el piston, el puente que salta por encima del disco y los
+     dedos que muerden por fuera. Y esa C es el concepto de la mordaza FLOTANTE:
+     el piston solo empuja por dentro, y la pastilla de fuera aprieta porque la
+     mordaza entera se DESLIZA sobre sus bulones. Tres cajas separadas dejaban
+     entender que cada lado empuja por su cuenta, que es justo lo contrario.    */
+  const C=P3.contornoRedondeado([
+    [-0.33,-0.37],[-0.33,-0.10],[-0.06,-0.10],[-0.06,0.20],[-0.33,0.20],
+    [-0.33,0.47],[0.10,0.47],[0.43,0.37],[0.43,-0.37]],0.075,4);
+  const cuerpo=new THREE.Mesh(P3.normalizaUV(P3.extruido(C,{espesor:0.62,bisel:0.028}),2),
+    MAT.caliper);
+  cuerpo.rotation.y=Math.PI/2; cuerpo.position.set(0,0,-0.02);
+  cuerpo.castShadow=true; g.add(cuerpo);
+  // La nervadura de la fundicion, que es lo que le da su aspecto de pieza
+  // colada y no de bloque mecanizado.
+  for(const sy of [-1,1]){
+    const nerv=new THREE.Mesh(new THREE.BoxGeometry(0.055,0.30,0.50),MAT.caliper);
+    nerv.position.set(sy*0.18,0.30,-0.30); g.add(nerv);
+  }
   // boss de entrada + purga (latón)
   const boss=new THREE.Mesh(new THREE.CylinderGeometry(0.06,0.06,0.16,16),MAT.brass); boss.position.set(0.24,0.2,-0.3); boss.rotation.z=Math.PI/2*0.7; g.add(boss);
   const bleed=new THREE.Mesh(new THREE.CylinderGeometry(0.03,0.03,0.14,12),MAT.brass); bleed.position.set(-0.22,0.32,-0.3); g.add(bleed);
@@ -960,6 +996,9 @@ async function runAuto(){
 initAssembly();
 el('btnAuto').onclick=runAuto;
 showToast('👆 Toca una pieza del banco y luego su hueco luminoso para armar el freno.',4200);
+instalaDiag('ensamble-freno-disco',{escena:scene,camara:S.camera,controles:S.controls,
+  renderizador:S.renderer, grupos:{}});
+
 </script>
   <!-- Puente con la plataforma · reporta avance al shell (ver _puente.js) -->
   <script src="_puente.js"></script>
