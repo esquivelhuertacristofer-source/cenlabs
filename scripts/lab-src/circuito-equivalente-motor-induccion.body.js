@@ -404,12 +404,31 @@ const mesa=roundedBox(3.6,0.14,1.9,MAT.bench,0.05); mesa.position.set(0.3,0.82,0
 
 /* motor bajo prueba */
 const motG=new THREE.Group(); motG.position.set(-0.85,0.96,0.5);
-const housing=new THREE.Mesh(new THREE.CylinderGeometry(0.26,0.26,0.62,28),MAT.carcasa); housing.rotation.z=Math.PI/2; housing.castShadow=true; motG.add(housing);
-const bell=new THREE.Mesh(new THREE.CylinderGeometry(0.27,0.27,0.08,28),MAT.cap); bell.rotation.z=Math.PI/2; bell.position.x=0.35; bell.castShadow=true; motG.add(bell);
-const shaft=new THREE.Mesh(new THREE.CylinderGeometry(0.05,0.05,0.46,20),MAT.shaft); shaft.rotation.z=Math.PI/2; shaft.position.x=0.58; shaft.castShadow=true; motG.add(shaft);
+/* Los nombres con los que trabaja la biblioteca de piezas (`P3`, que el molde ya
+   importa), traducidos una vez a los materiales de este laboratorio. */
+const MATP={
+  aluminio:MAT.carcasa, acero:MAT.shaft, cromo:MAT.shaft, chapa:MAT.carcasa,
+  cobre:std({color:0xb87333,roughness:0.35,metalness:0.75}),
+  negro:std({color:0x14181e,roughness:0.62,metalness:0.06}),
+  goma:std({color:0x14181e,roughness:0.80,metalness:0.02}),
+  blanco:std({color:0xd7dee6,roughness:0.40,metalness:0.20}),
+  ceramica:std({color:0xd7dee6,roughness:0.60,metalness:0.05}),
+};
+/* LA MAQUINA, con la silueta por la que se reconoce un motor desde el otro lado
+   del taller: ALETAS —la superficie por la que evacua lo que no convierte en
+   par—, TAPA DEL VENTILADOR con su rejilla y el ventilador calado al eje
+   —por eso a media velocidad ventila la mitad—, PATAS por donde se atornilla a
+   la bancada, CAJA DE BORNES por donde entra la alimentacion y placa de datos.
+   Ninguna de las cinco es decorativa, y ninguna estaba dibujada: era un tubo
+   liso con un disco pegado en la punta. */
+const motMaq=P3.maquinaElectrica(MATP,{d:0.52,largo:0.62,eje:0.34,aletas:14});
+let motGiro=0;   // el angulo del eje y del ventilador, que van calados juntos
+motG.add(motMaq);
+/* LA POLEA, con sus GARGANTAS: es por donde se traba el eje en el ensayo de
+   rotor bloqueado. */
 const pulleyG=new THREE.Group(); pulleyG.position.x=0.74;
-const rim=new THREE.Mesh(new THREE.CylinderGeometry(0.13,0.13,0.08,24),MAT.cap); rim.rotation.z=Math.PI/2; rim.castShadow=true; pulleyG.add(rim);
-for(let i=0;i<4;i++){ const a=i*Math.PI/2; const spoke=new THREE.Mesh(new THREE.BoxGeometry(0.08,0.018,0.018),MAT.shaft); spoke.position.set(0,Math.cos(a)*0.055,Math.sin(a)*0.055); spoke.rotation.x=a; pulleyG.add(spoke); }
+const pol=P3.polea({acero:MAT.cap},{d:0.26,ancho:0.10,gargantas:2,dEje:0.09});
+pol.rotation.z=Math.PI/2;pulleyG.add(pol);
 motG.add(pulleyG);
 const lockClamp=roundedBox(0.11,0.15,0.11,MAT.lock,0.02); lockClamp.position.set(0.7,-0.16,0); lockClamp.visible=false; lockClamp.castShadow=true; motG.add(lockClamp);
 motG.userData={act:'motor',title:'Motor de inducción bajo prueba'};
@@ -657,7 +676,7 @@ S.setAnimate((dt,t)=>{
   simT=t;
   const rate=Math.min(1,dt*4);
   vVal+=(vTarget-vVal)*rate; iVal+=(iTarget-iVal)*rate; pVal+=(pTarget-pVal)*rate;
-  if(active && caseKey==='ensayoVacio' && pulleyG){ pulleyG.rotation.x+=dt*10; shaft.rotation.x+=dt*10; }
+  if(active && caseKey==='ensayoVacio' && pulleyG){ pulleyG.rotation.x+=dt*10; motGiro+=dt*10; motMaq.userData.gira(motGiro); }
   if((!active || caseKey==='rotorBloqueado' || caseKey==='ensayoDC') && pulleyG){ /* sin giro */ }
   if(t-((S.__lastDraw)||0)>0.09){ S.__lastDraw=t; drawBoard(); refreshBench(); }
 });

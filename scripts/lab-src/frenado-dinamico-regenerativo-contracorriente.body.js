@@ -445,10 +445,23 @@ benchG.add(busBar);
 
 // motor + volante
 const motG=new THREE.Group();
-const housing=new THREE.Mesh(new THREE.CylinderGeometry(0.4,0.4,0.7,28),MAT.motorBody);
-housing.rotation.z=Math.PI/2; housing.castShadow=true;
-const endA=new THREE.Mesh(new THREE.CylinderGeometry(0.42,0.42,0.08,28),MAT.motorEnd);
-endA.rotation.z=Math.PI/2; endA.position.x=-0.39;
+/* Los nombres con los que trabaja la biblioteca de piezas (`P3`, que el molde ya
+   importa), traducidos una vez a los materiales de este laboratorio. */
+const MATP={
+  aluminio:MAT.motorBody, acero:MAT.shaft, cromo:MAT.shaft, chapa:MAT.motorBody,
+  cobre:std({color:0xb87333,roughness:0.35,metalness:0.75}),
+  negro:std({color:0x14181e,roughness:0.62,metalness:0.06}),
+  goma:std({color:0x14181e,roughness:0.80,metalness:0.02}),
+  blanco:std({color:0xd7dee6,roughness:0.40,metalness:0.20}),
+  ceramica:std({color:0xd7dee6,roughness:0.60,metalness:0.05}),
+};
+/* LA MAQUINA, con la silueta por la que se reconoce desde el otro lado del
+   taller: ALETAS —la superficie por la que evacua lo que no convierte en par—,
+   TAPA DEL VENTILADOR con su rejilla y el ventilador calado al eje, PATAS por
+   donde se atornilla a la bancada, CAJA DE BORNES por donde entra la
+   alimentacion y placa de datos. Ninguna de las cinco es decorativa, y ninguna
+   estaba dibujada: era un tubo liso con un disco pegado en la punta. */
+const maq=P3.maquinaElectrica(MATP,{d:0.80,largo:0.70,eje:0.42,aletas:14});
 const flyG=new THREE.Group();
 const flyDisc=new THREE.Mesh(new THREE.CylinderGeometry(0.34,0.34,0.1,28),MAT.flywheel);
 flyDisc.rotation.z=Math.PI/2;
@@ -459,11 +472,11 @@ for(let i=0;i<6;i++){
   flyG.add(spoke);
 }
 flyG.position.x=0.55;
-motG.add(housing,endA,flyG);
+motG.add(maq,flyG);
 motG.add(labelSprite('M+J','#8ab4f8'));
 motG.position.set(-1.7,1.15,-0.05);
 motG.userData={act:'mot3d',title:'Motor + volante de inercia (energía cinética a disipar)'};
-housing.userData=motG.userData; endA.userData=motG.userData;
+maq.traverse(o=>{ if(o.isMesh) o.userData=motG.userData; });
 benchG.add(motG);
 
 // banco de resistencias (dinámico)

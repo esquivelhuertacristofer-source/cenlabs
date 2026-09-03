@@ -781,24 +781,35 @@ benchG.add(dialG);
 
 // motor de inducción (housing + tapas + eje + acople)
 const motG=new THREE.Group();
-const housing=new THREE.Mesh(new THREE.CylinderGeometry(0.42,0.42,0.95,28),MAT.motorBody);
-housing.rotation.z=Math.PI/2; housing.castShadow=true;
-const endA=new THREE.Mesh(new THREE.CylinderGeometry(0.44,0.44,0.08,28),MAT.motorEnd);
-endA.rotation.z=Math.PI/2; endA.position.x=-0.5;
-const endB=endA.clone(); endB.position.x=0.5;
-const shaft=new THREE.Mesh(new THREE.CylinderGeometry(0.07,0.07,0.55,16),MAT.shaft);
-shaft.rotation.z=Math.PI/2; shaft.position.x=0.75;
+/* Los nombres con los que trabaja la biblioteca de piezas (`P3`, que el molde ya
+   importa), traducidos una vez a los materiales de este laboratorio. */
+const MATP={
+  aluminio:MAT.motorBody, acero:MAT.shaft, cromo:MAT.shaft, chapa:MAT.motorBody,
+  cobre:std({color:0xb87333,roughness:0.35,metalness:0.75}),
+  negro:std({color:0x14181e,roughness:0.62,metalness:0.06}),
+  goma:std({color:0x14181e,roughness:0.80,metalness:0.02}),
+  blanco:std({color:0xd7dee6,roughness:0.40,metalness:0.20}),
+  ceramica:std({color:0xd7dee6,roughness:0.60,metalness:0.05}),
+};
+/* LA MAQUINA, con la silueta por la que se reconoce desde el otro lado del
+   taller: ALETAS —la superficie por la que evacua lo que no convierte en par—,
+   TAPA DEL VENTILADOR con su rejilla y el ventilador calado al eje, PATAS por
+   donde se atornilla a la bancada, CAJA DE BORNES por donde entra la
+   alimentacion y placa de datos. Ninguna de las cinco es decorativa, y ninguna
+   estaba dibujada: era un tubo liso con un disco pegado en la punta. */
+const maq=P3.maquinaElectrica(MATP,{d:0.84,largo:0.95,eje:0.62,aletas:16});
+/* EL ACOPLE de garras, que es por donde sale el par hacia la carga. */
 const couplingG=new THREE.Group();
 for(let i=0;i<6;i++){
   const spoke=new THREE.Mesh(new THREE.BoxGeometry(0.22,0.05,0.05),MAT.shaft);
   spoke.rotation.x=(i/6)*Math.PI*2; couplingG.add(spoke);
 }
 couplingG.position.x=1.05;
-motG.add(housing,endA,endB,shaft,couplingG);
+motG.add(maq,couplingG);
 motG.add(labelSprite('M 3~','#8ab4f8'));
 motG.position.set(-0.3,1.15,-0.05);
 motG.userData={act:'mot3d',title:'Motor de inducción trifásico'};
-housing.userData=motG.userData; endA.userData=motG.userData; endB.userData=motG.userData;
+maq.traverse(o=>{ if(o.isMesh) o.userData=motG.userData; });
 benchG.add(motG);
 
 // carga mecánica (freno / dinamómetro)

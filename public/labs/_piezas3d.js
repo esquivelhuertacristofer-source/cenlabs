@@ -967,6 +967,110 @@ export function carcasaMotor(mat, opts = {}) {
 }
 
 /**
+ * TAPA DEL VENTILADOR: el sombrerete con rejilla que cierra el lado opuesto al
+ * accionamiento de casi cualquier motor, con el ventilador dentro.
+ *
+ * Es, junto con las aletas, la silueta por la que se reconoce un motor a diez
+ * metros. Y dice algo que importa: el motor se enfria con SU PROPIO
+ * ventilador, calado al eje —por eso a media velocidad ventila la mitad, que es
+ * justo el problema de un motor con variador—. Eje +X, saliendo del origen.
+ */
+export function tapaVentilador(mat, opts = {}) {
+  const { d = 0.62, largo = 0.22, radios = 8, aspas = 7, seg = 32,
+          ventilador = true } = opts;
+  const g = new THREE.Group();
+  const R = d / 2;
+  const met = mat.aluminio || mat.acero;
+  const mch = mat.chapa || met;
+  const fal = new THREE.Mesh(
+    new THREE.CylinderGeometry(R, R * 0.95, largo * 0.80, seg, 1, true), mch);
+  const mm = fal.material.clone(); mm.side = THREE.DoubleSide; fal.material = mm;
+  fal.rotation.z = Math.PI / 2; fal.position.x = largo * 0.40; fal.castShadow = true;
+  g.add(fal);
+  const aro = new THREE.Mesh(new THREE.TorusGeometry(R * 0.94, d * 0.020, 8, seg), mch);
+  aro.rotation.y = Math.PI / 2; aro.position.x = largo * 0.80; g.add(aro);
+  for (let i = 0; i < radios; i++) {
+    const a = (i / radios) * Math.PI;
+    const rb = new THREE.Mesh(new THREE.BoxGeometry(d * 0.018, R * 1.86, d * 0.026), mch);
+    rb.rotation.x = a; rb.position.x = largo * 0.80; g.add(rb);
+  }
+  const cub = new THREE.Mesh(new THREE.CylinderGeometry(R * 0.20, R * 0.20, d * 0.05, 14), mch);
+  cub.rotation.z = Math.PI / 2; cub.position.x = largo * 0.80; g.add(cub);
+  let rot = null;
+  if (ventilador) {
+    const neg = mat.negro || mat.goma || mch;
+    // El ventilador va en SU PROPIO grupo, centrado en el eje: así el
+    // laboratorio puede hacerlo girar con el eje y no con la carcasa.
+    rot = new THREE.Group(); g.add(rot);
+    const buje = new THREE.Mesh(new THREE.CylinderGeometry(R * 0.24, R * 0.24, largo * 0.32, 14), neg);
+    buje.rotation.z = Math.PI / 2; buje.position.x = largo * 0.34; rot.add(buje);
+    for (let i = 0; i < aspas; i++) {
+      const a = (i / aspas) * Math.PI * 2;
+      const as = new THREE.Mesh(new THREE.BoxGeometry(largo * 0.26, R * 0.62, d * 0.020), neg);
+      as.position.set(largo * 0.34, Math.cos(a) * R * 0.54, Math.sin(a) * R * 0.54);
+      as.rotation.x = -a; as.rotation.y = 0.55; rot.add(as);
+    }
+  }
+  g.userData = { d, largo, rotor: rot };
+  return g;
+}
+
+/**
+ * MÁQUINA ELÉCTRICA COMPLETA, vista por fuera: carcasa con aletas, patas y caja
+ * de bornes, tapa del ventilador con su rejilla, eje saliendo por el lado de
+ * accionamiento y placa de datos.
+ *
+ * Un cilindro liso con un disco pegado no es un motor: es un bote. Lo que
+ * distingue a un motor de un bote son las ALETAS —la superficie por donde
+ * evacúa lo que no convierte en par—, la TAPA DEL VENTILADOR, las PATAS por
+ * donde se atornilla a la bancada y la CAJA DE BORNES por donde entra la
+ * alimentación. Ninguna de las cuatro es decorativa. Eje X; el eje de salida
+ * sale por +X.
+ */
+export function maquinaElectrica(mat, opts = {}) {
+  const { d = 0.60, largo = 0.90, aletas = 16, patas = true, bornes = true,
+          ventilador = true, eje = 0.34, dEje = null, placa = true } = opts;
+  const g = new THREE.Group();
+  g.add(carcasaMotor(mat, { d, largo, nAletas: aletas, patas, bornes }));
+  const R = d / 2, De = dEje || d * 0.14;
+  const met = mat.acero || mat.cromo || mat.aluminio;
+  // Todo lo que GIRA va en un grupo aparte, centrado en el eje X: el eje con su
+  // chavetero y el ventilador. Así el laboratorio hace girar lo que gira y deja
+  // quieto lo que no —que es la carcasa—.
+  const gir = new THREE.Group(); g.add(gir);
+  const ej = new THREE.Mesh(new THREE.CylinderGeometry(De / 2, De / 2, eje, 16), met);
+  ej.rotation.z = Math.PI / 2; ej.position.x = largo / 2 + eje / 2 - d * 0.02;
+  ej.castShadow = true; gir.add(ej);
+  const cha = new THREE.Mesh(new THREE.BoxGeometry(eje * 0.34, De * 0.22, De * 0.34), met);
+  cha.position.set(largo / 2 + eje * 0.72, De * 0.52, 0); gir.add(cha);   // el chavetero
+  let vent = null;
+  if (ventilador) {
+    const t = tapaVentilador(mat, { d: d * 1.02, largo: d * 0.34 });
+    t.rotation.y = Math.PI; t.position.x = -largo / 2 - d * 0.01; g.add(t);
+    vent = t.userData.rotor;
+  }
+  if (placa) {
+    const a = -0.95;
+    const pl = new THREE.Mesh(new THREE.BoxGeometry(largo * 0.30, d * 0.20, d * 0.012),
+      mat.blanco || mat.aluminio);
+    pl.position.set(0, Math.cos(a) * (R + d * 0.055), Math.sin(a) * (R + d * 0.055));
+    pl.rotation.x = -a; g.add(pl);
+    g.userData.placa = pl;
+  }
+  g.userData.d = d; g.userData.largo = largo;
+  g.userData.eje = { x: largo / 2 + eje - d * 0.02, d: De };
+  g.userData.rotor = gir;
+  /* `gira(a)` pone el eje Y EL VENTILADOR en el mismo ángulo. El ventilador
+     está calado al eje: si el motor gira, ventila, y si va a la mitad de
+     velocidad, ventila la mitad. La tapa está girada media vuelta, así que su
+     ángulo es el contrario. */
+  g.userData.gira = (a) => { gir.rotation.x = a; if (vent) vent.rotation.x = -a; };
+  g.userData.frente = largo / 2 + eje - d * 0.02;
+  g.userData.cola = -largo / 2 - d * 0.01 - d * 0.34;
+  return g;
+}
+
+/**
  * POLEA de correa trapezoidal o poli-V, con sus gargantas de verdad. Una polea
  * lisa no dice por dónde va la correa; una con gargantas, sí.
  */

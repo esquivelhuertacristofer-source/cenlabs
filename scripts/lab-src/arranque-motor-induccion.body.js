@@ -261,17 +261,31 @@ function makeDisplayBox(w,h,dp,cw,ch){
 /* motor de inducción: carcasa + eje + polea giratoria */
 const motG=new THREE.Group();motG.position.set(1.15,0.75,1.15);benchG.add(motG);
 motG.userData={act:'mot3d',title:'Motor de inducción (toca para inspeccionar)'};
-const motHousing=new THREE.Mesh(new THREE.CylinderGeometry(0.24,0.24,0.62,28),MAT.housing);
-motHousing.rotation.z=Math.PI/2;motG.add(motHousing);
-const motBell=new THREE.Mesh(new THREE.CylinderGeometry(0.26,0.26,0.05,28),MAT.endbell);
-motBell.rotation.z=Math.PI/2;motBell.position.x=-0.335;motG.add(motBell);
-const shaft=new THREE.Mesh(new THREE.CylinderGeometry(0.035,0.035,0.34,16),MAT.shaft);
-shaft.rotation.z=Math.PI/2;shaft.position.x=-0.48;motG.add(shaft);
+/* Los nombres con los que trabaja la biblioteca de piezas (`P3`, que el molde ya
+   importa), traducidos una vez a los materiales de este laboratorio. */
+const MATP={
+  aluminio:MAT.housing, acero:MAT.shaft, cromo:MAT.shaft, chapa:MAT.housing,
+  cobre:std({color:0xb87333,roughness:0.35,metalness:0.75}),
+  negro:std({color:0x14181e,roughness:0.62,metalness:0.06}),
+  goma:std({color:0x14181e,roughness:0.80,metalness:0.02}),
+  blanco:std({color:0xd7dee6,roughness:0.40,metalness:0.20}),
+  ceramica:std({color:0xd7dee6,roughness:0.60,metalness:0.05}),
+};
+/* LA MAQUINA, con la silueta por la que se reconoce un motor desde el otro lado
+   del taller: ALETAS —la superficie por la que evacua lo que no convierte en
+   par—, TAPA DEL VENTILADOR con su rejilla y el ventilador calado al eje
+   —por eso a media velocidad ventila la mitad—, PATAS por donde se atornilla a
+   la bancada, CAJA DE BORNES por donde entra la alimentacion y placa de datos.
+   Ninguna de las cinco es decorativa, y ninguna estaba dibujada: era un tubo
+   liso con un disco pegado en la punta. */
+const motMaq=P3.maquinaElectrica(MATP,{d:0.48,largo:0.62,eje:0.30,aletas:14});
+motMaq.rotation.y=Math.PI;   // el lado de accionamiento mira a -X
+motG.add(motMaq);
+/* LA POLEA, con sus GARGANTAS: por ahi va la correa, y por eso una polea de
+   correa trapezoidal no es un disco liso. */
 const pulleyG=new THREE.Group();pulleyG.position.x=-0.66;motG.add(pulleyG);
-const pulleyRim=new THREE.Mesh(new THREE.CylinderGeometry(0.15,0.15,0.06,24),MAT.pulley);
-pulleyRim.rotation.z=Math.PI/2;pulleyG.add(pulleyRim);
-[0,1,2,3].forEach(k=>{const spoke=new THREE.Mesh(new THREE.BoxGeometry(0.05,0.028,0.26),MAT.shaft);
-  spoke.rotation.x=k*Math.PI/4;pulleyG.add(spoke);});
+const pol=P3.polea({acero:MAT.pulley},{d:0.30,ancho:0.09,gargantas:2,dEje:0.07});
+pol.rotation.z=Math.PI/2;pulleyG.add(pol);
 const motLbl=labelSprite('M','#4FD1C5');motLbl.position.set(0,0.42,0);motLbl.scale.multiplyScalar(0.8);motG.add(motLbl);
 /* equipo de arranque: cuerpo + dial de tap (cosmético, refleja a) */
 const starterG=new THREE.Group();starterG.position.set(1.95,0.72,0.65);benchG.add(starterG);

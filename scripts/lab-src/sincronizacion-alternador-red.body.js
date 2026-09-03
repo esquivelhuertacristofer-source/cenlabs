@@ -269,12 +269,26 @@ function makeDisplayBox(w,h,dp,cw,ch){
 /* alternador: carcasa + eje + tapa */
 const altG=new THREE.Group();altG.position.set(1.15,0.75,1.15);benchG.add(altG);
 altG.userData={act:'alt3d',title:'Alternador (toca para inspeccionar)'};
-const altHousing=new THREE.Mesh(new THREE.CylinderGeometry(0.24,0.24,0.62,28),MAT.housing);
-altHousing.rotation.z=Math.PI/2;altG.add(altHousing);
-const altBell=new THREE.Mesh(new THREE.CylinderGeometry(0.26,0.26,0.05,28),MAT.endbell);
-altBell.rotation.z=Math.PI/2;altBell.position.x=-0.335;altG.add(altBell);
-const altShaft=new THREE.Mesh(new THREE.CylinderGeometry(0.035,0.035,0.34,16),MAT.shaft);
-altShaft.rotation.z=Math.PI/2;altShaft.position.x=-0.48;altG.add(altShaft);
+/* Los nombres con los que trabaja la biblioteca de piezas (`P3`, que el molde ya
+   importa), traducidos una vez a los materiales de este laboratorio. */
+const MATP={
+  aluminio:MAT.housing, acero:MAT.shaft, cromo:MAT.shaft, chapa:MAT.housing,
+  cobre:std({color:0xb87333,roughness:0.35,metalness:0.75}),
+  negro:std({color:0x14181e,roughness:0.62,metalness:0.06}),
+  goma:std({color:0x14181e,roughness:0.80,metalness:0.02}),
+  blanco:std({color:0xd7dee6,roughness:0.40,metalness:0.20}),
+  ceramica:std({color:0xd7dee6,roughness:0.60,metalness:0.05}),
+};
+/* LA MAQUINA, con la silueta por la que se reconoce desde el otro lado del
+   taller: ALETAS —la superficie por la que evacua lo que no convierte en par—,
+   TAPA DEL VENTILADOR con su rejilla y el ventilador calado al eje, PATAS por
+   donde se atornilla a la bancada, CAJA DE BORNES por donde entra la
+   alimentacion y placa de datos. Ninguna de las cinco es decorativa, y ninguna
+   estaba dibujada: era un tubo liso con un disco pegado en la punta. */
+const altMaq=P3.maquinaElectrica(MATP,{d:0.48,largo:0.62,eje:0.30,aletas:14});
+altMaq.rotation.y=Math.PI;   // el lado de accionamiento mira a -X
+let altGiro=0;   // el angulo del eje y del ventilador, que van calados juntos
+altG.add(altMaq);
 const altLbl=labelSprite('G','#4FD1C5');altLbl.position.set(0,0.42,0);altLbl.scale.multiplyScalar(0.8);altG.add(altLbl);
 /* interruptor de sincronismo (52): cuerpo + palanca (cosmético, refleja estado abierto/cerrado) */
 const brkG=new THREE.Group();brkG.position.set(1.95,0.72,0.65);benchG.add(brkG);
@@ -642,7 +656,7 @@ S.setAnimate((dt,t)=>{
     teleAcc+=dt;
     if(teleAcc>0.1){teleAcc=0;updateTele();updateReport();refreshBenchDyn();}
   }
-  altShaft.rotation.x+=dt*(0.6+0.4*(Vgen/100));
+  altGiro+=dt*(0.6+0.4*(Vgen/100)); altMaq.userData.gira(altGiro);
 });
 /* wiring */
 ['explora','comparar','reto'].forEach(m=>el('m_'+m).onclick=()=>setMode(m));
