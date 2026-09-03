@@ -154,6 +154,15 @@ pon('lubricador', P3.vasoFRL(MAT, { d: 0.34, alto: 0.70, tipo: 'lubricador' }), 
 pon('regulador', P3.reguladorPresion(MAT, { d: 0.34, alto: 0.70 }), 1.0, -0.32);
 pon('ventosa', P3.ventosa(MAT, { d: 0.50, fuelles: 2 }), 1.0, 0.30);
 
+pon('polo saliente', (()=>{ const g=new THREE.Group();
+  const p1=P3.poloSaliente(MAT,{rArm:0.24,rYugo:0.58,largo:0.42,chapas:8});
+  g.add(p1);
+  const nu=p1.userData.nucleo;
+  const b=P3.bobinaCampo(MAT,{ancho:nu.ancho+0.05,prof:nu.largo+0.05,alto:nu.alto*0.86,vueltas:8,hilo:0.022,capas:2});
+  b.position.y=nu.y; g.add(b);
+  g.position.y=-0.42; return g; })(), 1.0, 0.0);
+pon('bobina de campo', P3.bobinaCampo(MAT,{ancho:0.26,prof:0.46,alto:0.44,vueltas:10,hilo:0.024,capas:2}), 1.0, 0.0);
+
 // El muestrario se anuncia cuando ha pintado, para que la captura sepa esperar.
 let n = 0;
 (function bucle() {

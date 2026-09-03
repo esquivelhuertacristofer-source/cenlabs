@@ -76,68 +76,161 @@ function motorState(Va,If,TL){
   return {kphi,Ia,Ea,unphysical,w,n,T,Pmech,Pin,Ploss,eta,overcurrent};
 }
 
-/* ---------- constructores de piezas (three.js primitivo) ---------- */
+/* ---------- constructores de piezas ---------- */
+/* Los nombres con los que trabaja la biblioteca de piezas (`P3`, que el molde
+   ya importa), traducidos una vez a los materiales de este laboratorio. */
+const MATP={aluminio:MAT.cap, acero:MAT.shaft, cobre:MAT.coil, cromo:MAT.shaft,
+  chapa:MAT.core, hierro:MAT.yugo, negro:MAT.dark, goma:MAT.dark,
+  blanco:MAT.shaft, ceramica:MAT.holder};
+const R_ARM=0.245, LARGO=0.86, N_RAN=20;
+
+/* EL CAMPO SON DOS POLOS SALIENTES, no dos tacos con aros. Lo que hay que ver
+   es la ZAPATA POLAR: está torneada al radio de la armadura, y por eso el
+   entrehierro es el mismo bajo todo el polo y el flujo entra radial. Con un
+   taco recto el entrehierro sería mínimo en el centro y enorme en las puntas, y
+   Φ dejaría de tener el sentido que tiene en T = KΦ·Ia.
+   La bobina es hilo enrollado vuelta a vuelta y en dos capas, no seis aros
+   sueltos: el flujo lo hacen las VUELTAS por la corriente, y con aros
+   equiespaciados no se puede contar ni una cosa ni la otra. */
 function buildCampo(){
   const g=new THREE.Group();
   const coreLen=0.9;
   [1,-1].forEach(side=>{
-    const core=roundedBox(0.24,0.3,coreLen,MAT.core,0.05); core.position.set(0,side*0.4,0); core.castShadow=true; g.add(core);
-    const shoe=roundedBox(0.34,0.08,coreLen,MAT.core,0.04); shoe.position.set(0,side*(0.4+0.19),0); shoe.castShadow=true; g.add(shoe);
-    for(let i=0;i<6;i++){ const t=new THREE.Mesh(new THREE.TorusGeometry(0.19,0.026,8,20),MAT.coil);
-      t.rotation.y=Math.PI/2; t.position.set(-coreLen/2+0.16+i*0.12, side*0.4, 0); t.castShadow=true; g.add(t); }
+    const w=new THREE.Group();
+    const polo=P3.poloSaliente(MATP,{rArm:R_ARM,entrehierro:0.024,arcoPolo:1.55,
+      altoZapata:0.09,anchoNucleo:0.30,rYugo:0.585,largo:coreLen,chapas:14});
+    const nu=polo.userData.nucleo;
+    const bob=P3.bobinaCampo({cobre:MAT.coil},{ancho:nu.ancho+0.055,prof:nu.largo+0.055,
+      alto:nu.alto*0.82,vueltas:11,hilo:0.023,capas:2});
+    bob.position.y=nu.y; polo.add(bob);
+    polo.rotation.y=Math.PI/2;                 // el apilado de chapas, sobre el eje
+    w.add(polo); w.rotation.x=side>0?0:Math.PI;
+    g.add(w);
   });
   const lb=labelSprite('Campo (polos + devanado)','#8A94A0'); lb.position.set(0,0.95,0); lb.scale.multiplyScalar(0.62); g.add(lb);
   return g;
 }
+/* LA ARMADURA es chapa RANURADA con el cobre METIDO en las ranuras, y con las
+   cabezas de bobina doblando por los dos extremos. Los conductores van dentro
+   del hierro por una razón que se ve al dibujarlo: si estuvieran pegados por
+   fuera, la fuerza los arrancaría —la fuerza del par se hace sobre el DIENTE,
+   no sobre el cobre— y el entrehierro tendría que ser tan grande como el hilo.
+   Encima van los FLEJES de vendaje, que es lo que sujeta las cabezas a 3000 rpm. */
 function buildArmadura(){
   const g=new THREE.Group();
-  const len=0.86, R=0.24;
-  const core=new THREE.Mesh(new THREE.CylinderGeometry(R,R,len,28),MAT.core); core.rotation.z=Math.PI/2; core.castShadow=true; g.add(core);
-  for(let i=0;i<10;i++){ const a=i/10*Math.PI*2; const slot=new THREE.Mesh(new THREE.BoxGeometry(len*0.9,0.03,0.05),MAT.dark);
-    slot.position.set(0,Math.cos(a)*(R+0.006),Math.sin(a)*(R+0.006)); slot.rotation.x=a; g.add(slot); }
-  for(let i=0;i<8;i++){ const a=i/8*Math.PI*2; const c=new THREE.Mesh(new THREE.TorusGeometry(R+0.05,0.022,8,24,Math.PI*1.15),MAT.coil);
-    c.rotation.set(0,a,Math.PI/2*0.12); c.castShadow=true; g.add(c); }
+  const len=LARGO, R=R_ARM;
+  const nuc=P3.nucleoRanurado(MATP,{rExt:R,rInt:0.080,ranuras:N_RAN,largo:len,
+    hacia:'fuera',fondo:0.44,anchoRanura:0.52});
+  nuc.rotation.y=Math.PI/2; g.add(nuc);
+  const dev=P3.devanado({cobre:MAT.coil},{r:R-0.042,ranuras:N_RAN,largo:len,
+    paso:9,hilo:0.017,bobinas:N_RAN,salto:1});
+  dev.rotation.y=Math.PI/2; g.add(dev);
+  [-1,1].forEach(sx=>{ const fl=new THREE.Mesh(new THREE.TorusGeometry(R-0.028,0.012,8,36),MAT.dark);
+    fl.rotation.y=Math.PI/2; fl.position.x=sx*(len/2+0.085); g.add(fl); });
   const shaft=new THREE.Mesh(new THREE.CylinderGeometry(0.07,0.07,len+0.7,20),MAT.shaft); shaft.rotation.z=Math.PI/2; shaft.castShadow=true; g.add(shaft);
   const lb=labelSprite('Armadura (rotor + devanado)','#8A94A0'); lb.position.set(0,0.55,0); lb.scale.multiplyScalar(0.6); g.add(lb);
   return g;
 }
+/* EL CONMUTADOR, con las TRES cosas que lo hacen un conmutador y no un tubo
+   estriado: las delgas separadas por mica, los CONOS DE APRIETE que las
+   sujetan por dentro —la fuerza centrífuga tira de cada delga hacia fuera y
+   sólo esa cuña las mantiene en su sitio: por eso una delga suelta es avería de
+   taller— y las ALETAS donde se sueldan los extremos de las bobinas de la
+   armadura. Sin las aletas, el conmutador y el devanado son dos piezas que no
+   se tocan, y entonces no se ve por qué invertir la conexión invierte el par. */
 function buildConmutador(){
   const g=new THREE.Group();
-  const R=0.11, len=0.16, n=12;
-  for(let i=0;i<n;i++){ const a0=i/n*Math.PI*2, a1=(i+0.86)/n*Math.PI*2;
-    const seg=new THREE.Mesh(new THREE.CylinderGeometry(R,R,len,8,1,false,a0,a1-a0),MAT.comm);
-    seg.rotation.z=Math.PI/2; seg.castShadow=true; g.add(seg); }
-  const hub=new THREE.Mesh(new THREE.CylinderGeometry(0.07,0.07,len+0.06,16),MAT.shaft); hub.rotation.z=Math.PI/2; g.add(hub);
+  const R=0.11, len=0.16, n=N_RAN;
+  for(let i=0;i<n;i++){ const a0=i/n*Math.PI*2, a1=(i+0.80)/n*Math.PI*2;
+    const seg=new THREE.Mesh(new THREE.CylinderGeometry(R,R,len,6,1,false,a0,a1-a0),MAT.comm);
+    seg.rotation.z=Math.PI/2; seg.castShadow=true; g.add(seg);
+    // La aleta: el rabillo por el que la delga se suelda a la bobina.
+    const am=(a0+a1)/2;
+    const al=new THREE.Mesh(new THREE.BoxGeometry(0.045,0.030,0.016),MAT.comm);
+    al.position.set(len/2+0.020,Math.cos(am)*(R+0.012),Math.sin(am)*(R+0.012));
+    al.rotation.x=-am; g.add(al);
+  }
+  [-1,1].forEach(sx=>{
+    const cono=new THREE.Mesh(P3.revolucion(
+      [[0.072,0],[0.108,0.052],[0.108,0.070],[0.072,0.070]],{seg:28}),MAT.shaft);
+    cono.rotation.z=-sx*Math.PI/2; cono.position.x=sx*(len/2+0.002); g.add(cono);
+  });
+  const hub=new THREE.Mesh(new THREE.CylinderGeometry(0.07,0.07,len+0.22,16),MAT.shaft); hub.rotation.z=Math.PI/2; g.add(hub);
   const lb=labelSprite('Conmutador (delgas)','#8A94A0'); lb.position.set(0,0.32,0); lb.scale.multiplyScalar(0.58); g.add(lb);
   return g;
 }
+/* LAS ESCOBILLAS, montadas como se montan: dos tacos de grafito DENTRO de un
+   portaescobillas que las guía, un MUELLE que las empuja contra el conmutador y
+   un LATIGUILLO de cobre trenzado que lleva la corriente. El latiguillo es la
+   pieza que más sorprende: la corriente NO pasa por el muelle ni por la guía
+   —se quemarían—, pasa por ese cable, y por eso una escobilla con el latiguillo
+   partido sigue en su sitio, sigue rozando y no conduce nada.
+   La cara de la escobilla va CURVADA al radio del conmutador: una escobilla
+   nueva de cara plana toca sólo por una arista y chispea hasta que se asienta.
+   Las dos van una al lado de la otra sobre el mismo eje, como en la máquina. */
 function buildEscobillas(){
   const g=new THREE.Group();
-  const holder=roundedBox(0.16,0.3,0.4,MAT.holder,0.04); holder.position.set(0,0.22,0); holder.castShadow=true; g.add(holder);
+  const RC=0.11, DZ=0.32;             // radio del conmutador y separación al hogar
+  const zc=-DZ;                       // el eje del conmutador, visto desde la pieza
   [1,-1].forEach(s=>{
-    const brushP=roundedBox(0.05,0.16,0.05,MAT.brushC,0.01); brushP.position.set(0,0.05,s*0.1); brushP.castShadow=true; g.add(brushP);
-    const spring=new THREE.Mesh(new THREE.TorusGeometry(0.025,0.006,6,12),MAT.shaft); spring.rotation.x=Math.PI/2; spring.position.set(0,0.14,s*0.1); g.add(spring);
-    const lead=new THREE.Mesh(new THREE.CylinderGeometry(0.008,0.008,0.14,8),MAT.dark); lead.rotation.z=Math.PI/2*0.4; lead.position.set(0.07,0.28,s*0.1); g.add(lead);
+    const dx=s*0.062;
+    // Portaescobillas: un tubo rectangular, con su ventana. El grafito corre por
+    // dentro y baja solo según se desgasta.
+    const caja=new THREE.Mesh(P3.extruido(
+      P3.contornoRedondeado([[-DZ+RC+0.015,-0.088],[-0.030,-0.088],[-0.030,0.088],[-DZ+RC+0.015,0.088]],0.012,3),
+      {espesor:0.085,bisel:0.004,huecos:[P3.contornoRedondeado(
+        [[-DZ+RC+0.030,-0.060],[-0.045,-0.060],[-0.045,0.060],[-DZ+RC+0.030,0.060]],0.008,3)]}),MAT.holder);
+    caja.rotation.y=-Math.PI/2; caja.position.x=dx; caja.castShadow=true; g.add(caja);
+    // La escobilla: cara cóncava al radio del conmutador.
+    const esc=new THREE.Mesh(P3.extruido([
+      ...P3.arco(zc,0,RC,-0.52,0.52,10),
+      [-0.075,0.055],[-0.075,-0.055]],{espesor:0.062,bisel:0.004}),MAT.brushC);
+    esc.rotation.y=-Math.PI/2; esc.position.x=dx; esc.castShadow=true; g.add(esc);
+    const mu=P3.muelle(MATP,{r:0.030,largo:0.042,vueltas:4,hilo:0.008});
+    mu.rotation.x=Math.PI/2; mu.position.set(dx,0,-0.052); g.add(mu);
+    // El latiguillo, del lomo de la escobilla al borne.
+    g.add(P3.manguera({...MATP,goma:MAT.comm},{puntos:[[dx,0.030,-0.070],
+      [dx,0.090,-0.045],[dx*0.6,0.150,0.010],[0,0.175,0.052]],r:0.011,abrazaderas:false}));
   });
+  const borne=new THREE.Mesh(new THREE.CylinderGeometry(0.026,0.026,0.055,12),MAT.comm);
+  borne.position.set(0,0.190,0.058); g.add(borne);
   const lb=labelSprite('Escobillas (grafito)','#8A94A0'); lb.position.set(0,0.5,0); lb.scale.multiplyScalar(0.58); g.add(lb);
+  return g;
+}
+/* LAS TAPAS son fundición con nervios y con el RODAMIENTO dentro. El rodamiento
+   se dibuja porque es lo que mantiene la armadura centrada en un entrehierro de
+   décimas de milímetro; cuando se sale de sitio, el rotor roza el polo, y esa
+   es la avería. */
+function tapaFundida(sx){
+  const g=new THREE.Group();
+  const cap=new THREE.Mesh(P3.revolucion([
+    [0.11,0],[0.56,0],[0.56,0.05],[0.48,0.09],[0.19,0.10],[0.19,0.15],[0.11,0.15]],
+    {seg:36}),MAT.cap);
+  cap.rotation.z=sx*Math.PI/2; cap.castShadow=true; g.add(cap);
+  for(let i=0;i<8;i++){ const a=i/8*Math.PI*2;
+    const nb=new THREE.Mesh(new THREE.BoxGeometry(0.045,0.34,0.030),MAT.cap);
+    nb.position.set(sx*0.07,Math.cos(a)*0.33,Math.sin(a)*0.33); nb.rotation.x=-a; g.add(nb); }
+  for(let i=0;i<6;i++){ const a=i/6*Math.PI*2;
+    const bolt=new THREE.Mesh(new THREE.CylinderGeometry(0.02,0.02,0.06,10),MAT.dark);
+    bolt.rotation.z=Math.PI/2; bolt.position.set(-sx*0.03,Math.cos(a)*0.50,Math.sin(a)*0.50); g.add(bolt); }
+  const rod=P3.rodamiento(MATP,{dExt:0.22,dInt:0.11,ancho:0.07});
+  rod.rotation.z=Math.PI/2; rod.position.x=sx*0.105; g.add(rod);
   return g;
 }
 function buildTapaD(){
   const g=new THREE.Group();
-  const cap=new THREE.Mesh(new THREE.CylinderGeometry(0.56,0.56,0.1,36),MAT.cap); cap.rotation.z=Math.PI/2; cap.castShadow=true; g.add(cap);
-  const boss=new THREE.Mesh(new THREE.CylinderGeometry(0.13,0.13,0.14,24),MAT.cap); boss.rotation.z=Math.PI/2; boss.position.x=0.1; g.add(boss);
+  g.add(tapaFundida(1));
   const stub=new THREE.Mesh(new THREE.CylinderGeometry(0.06,0.06,0.34,20),MAT.shaft); stub.rotation.z=Math.PI/2; stub.position.x=0.32; stub.castShadow=true; g.add(stub);
-  for(let i=0;i<6;i++){ const a=i/6*Math.PI*2; const bolt=new THREE.Mesh(new THREE.CylinderGeometry(0.02,0.02,0.06,10),MAT.dark);
-    bolt.rotation.z=Math.PI/2; bolt.position.set(-0.03,Math.cos(a)*0.5,Math.sin(a)*0.5); g.add(bolt); }
+  const chav=new THREE.Mesh(new THREE.BoxGeometry(0.16,0.022,0.030),MAT.shaft);
+  chav.position.set(0.38,0.066,0); g.add(chav);          // chavetero del acople
   const lb=labelSprite('Tapa delantera (lado de mando)','#8A94A0'); lb.position.set(0,0.75,0); lb.scale.multiplyScalar(0.56); g.add(lb);
   return g;
 }
 function buildTapaT(){
   const g=new THREE.Group();
-  const cap=new THREE.Mesh(new THREE.CylinderGeometry(0.56,0.56,0.1,36),MAT.cap); cap.rotation.z=Math.PI/2; cap.castShadow=true; g.add(cap);
-  const boss=new THREE.Mesh(new THREE.CylinderGeometry(0.1,0.1,0.08,20),MAT.cap); boss.rotation.z=Math.PI/2; boss.position.x=-0.06; g.add(boss);
-  for(let i=0;i<8;i++){ const a=i/8*Math.PI*2; const vent=new THREE.Mesh(new THREE.CylinderGeometry(0.02,0.02,0.11,8),MAT.dark);
-    vent.rotation.z=Math.PI/2; vent.position.set(-0.02,Math.cos(a)*0.3,Math.sin(a)*0.3); g.add(vent); }
+  g.add(tapaFundida(-1));
+  for(let i=0;i<8;i++){ const a=i/8*Math.PI*2; const vent=new THREE.Mesh(new THREE.CylinderGeometry(0.03,0.03,0.12,10),MAT.dark);
+    vent.rotation.z=Math.PI/2; vent.position.set(-0.03,Math.cos(a)*0.42,Math.sin(a)*0.42); g.add(vent); }
   const lb=labelSprite('Tapa trasera (porta escobillas)','#8A94A0'); lb.position.set(0,0.75,0); lb.scale.multiplyScalar(0.56); g.add(lb);
   return g;
 }
@@ -149,6 +242,15 @@ function buildYugo(){
   shell.rotation.z=Math.PI/2; shell.castShadow=shell.receiveShadow=true; g.add(shell);
   [-len/2+0.04, len/2-0.04].forEach(dx=>{ const ring=new THREE.Mesh(new THREE.TorusGeometry(R,0.035,10,40),MAT.yugo); ring.rotation.y=Math.PI/2; ring.position.x=dx; g.add(ring); });
   [-1,1].forEach(s=>{ const foot=roundedBox(0.34,0.14,0.5,MAT.yugo,0.05); foot.position.set(s*0.55,-R-0.05,0); foot.castShadow=true; g.add(foot); });
+  // Caja de bornes y cáncamo: por ahí entran los cuatro cables de una máquina
+  // de excitación independiente (A1-A2 de armadura, F1-F2 de campo), que es
+  // justo lo que este laboratorio deja gobernar por separado.
+  const caja=roundedBox(0.40,0.22,0.34,MAT.yugo,0.03); caja.position.set(0.30,R+0.10,0.28); caja.castShadow=true; g.add(caja);
+  const tapaC=roundedBox(0.34,0.03,0.28,MAT.cap,0.02); tapaC.position.set(0.30,R+0.22,0.28); g.add(tapaC);
+  ['A1','A2','F1','F2'].forEach((_,i)=>{ const b=new THREE.Mesh(new THREE.CylinderGeometry(0.022,0.022,0.05,10),MAT.comm);
+    b.position.set(0.30-0.12+ (i%2)*0.24, R+0.235, 0.28-0.07+Math.floor(i/2)*0.14); g.add(b); });
+  const canc=new THREE.Mesh(new THREE.TorusGeometry(0.075,0.020,8,20),MAT.yugo);
+  canc.position.set(-0.30,R+0.075,0); g.add(canc);
   const lb=labelSprite('Yugo / carcasa (fija)','#8A94A0'); lb.position.set(0,R+0.55,0); lb.scale.multiplyScalar(0.72); g.add(lb);
   return g;
 }
@@ -523,7 +625,7 @@ el('hud').innerHTML=`
     <div class="ft">Contrato de fidelidad</div>
     <div class="fl">SÍ modela: <b>T=KΦ·Ia, Ea=KΦ·ω y la malla de armadura Va=Ea+Ia·Ra en estado estacionario; KΦ proporcional a If; Ia queda fijada por la carga mecánica (independiente de Va).</b></div>
     <div class="fl no">NO modela: <b>saturación magnética, inductancias/transitorios eléctricos, fricción y ventilación (par de vacío), reacción de armadura, ni el circuito de campo (If es un parámetro directo, no se deriva de Vf/Rf).</b></div>
-    <div class="fl no">Geometría <b>didáctica</b>: omite rodamientos, ventilador, caja de terminales y resortes de escobilla → detalle completo en la Ficha técnica.</div>
+    <div class="fl no">Geometría <b>didáctica</b>: el corte del yugo y las separaciones del despiece no son cotas de taller, y falta el ventilador de refrigeración. Sí están dibujados los rodamientos, la caja de bornes y el muelle y el latiguillo de cada escobilla → medidas y datos, en la Ficha técnica.</div>
   </div>
   <div class="src">Motor de ejemplo del simulador (excitación independiente), <b>no un datasheet real</b>. Ra=1.2 Ω, KM=0.85 V·s/rad, If nominal=1.0 A. Sin norma ancla específica; modelo estándar de conversión electromecánica (programa ELE-II.1).</div>
   <div class="modebar">

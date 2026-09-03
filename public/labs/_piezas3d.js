@@ -1263,6 +1263,106 @@ export function nucleoEI(mat, opts = {}) {
 }
 
 /**
+ * POLO SALIENTE de una máquina de CD o de un alternador: núcleo de chapa y
+ * ZAPATA POLAR curva. La zapata no es un adorno rectangular: está torneada al
+ * radio de la armadura, y eso es lo que mantiene el ENTREHIERRO constante bajo
+ * todo el polo. Dibujado como un taco recto, el entrehierro sería mínimo en el
+ * centro y enorme en las puntas, y no se entendería por qué el flujo entra
+ * radial ni por qué la zapata es más ancha que el núcleo (para repartir el
+ * flujo y, de paso, sujetar la bobina, que si no se saldría).
+ *
+ * El polo se dibuja apuntando a +Y con la armadura en el origen, y su espesor
+ * —el apilado de chapas— va en +Z, como todas las piezas extruidas de la casa.
+ * `userData.nucleo` da el rectángulo del núcleo para colgarle la bobina.
+ */
+export function poloSaliente(mat, opts = {}) {
+  const { rArm = 0.24, entrehierro = 0.022, arcoPolo = 1.45, altoZapata = 0.085,
+          anchoNucleo = 0.26, rYugo = 0.58, largo = 0.9, chapas = 0 } = opts;
+  const g = new THREE.Group();
+  const Ri = rArm + entrehierro;            // cara interior de la zapata
+  const Rz = Ri + altoZapata;               // espalda de la zapata
+  const h = arcoPolo / 2;                   // semiángulo del arco polar
+  const w = anchoNucleo / 2;
+  const pol = (a, r) => [Math.cos(a) * r, Math.sin(a) * r];
+  const P = Math.PI / 2;
+  const der = [
+    pol(P - h, Ri),
+    pol(P - h, Ri + altoZapata * 0.45),     // la punta de la zapata es más fina
+    pol(P - h * 0.55, Rz),
+    [w, Rz * Math.sin(P - h * 0.55) + 0.02],
+    [w, rYugo],
+  ];
+  const contorno = [
+    ...arco(0, 0, Ri, P + h, P - h, 22),    // cara cóncava, del extremo izq al der
+    ...der,
+    ...der.slice().reverse().map(([x, y]) => [-x, y]),
+  ];
+  const cuerpo = contornoRedondeado(contorno, 0.012, 2);
+  if (chapas > 0) {
+    // Apilado visible: el polo de una máquina de CD es un paquete de chapas
+    // remachado, no una pieza maciza.
+    const e = largo / chapas;
+    for (let i = 0; i < chapas; i++) {
+      const m = new THREE.Mesh(extruido(cuerpo, { espesor: e * 0.9, bisel: 0 }),
+        mat.chapa || mat.acero);
+      m.position.z = -largo / 2 + e * (i + 0.5);
+      m.castShadow = true;
+      g.add(m);
+    }
+  } else {
+    const m = new THREE.Mesh(extruido(cuerpo, { espesor: largo, bisel: 0.006 }),
+      mat.chapa || mat.acero);
+    m.castShadow = true;
+    g.add(m);
+  }
+  const yNuc = (Rz * Math.sin(P - h * 0.55) + 0.02 + rYugo) / 2;
+  g.userData = { nucleo: { y: yNuc, ancho: anchoNucleo, alto: rYugo - (Rz * Math.sin(P - h * 0.55) + 0.02), largo }, Ri, Rz };
+  return g;
+}
+
+/**
+ * BOBINA DE CAMPO: el hilo enrollado sobre el núcleo del polo, vuelta a vuelta
+ * y capa a capa. Se dibuja como lo que es —un hilo continuo que sube dando
+ * vueltas— y no como un montón de aros sueltos, porque de ahí sale lo que hay
+ * que ver: que el campo lo hace el NÚMERO DE VUELTAS por la corriente, y que
+ * dos bobinas con la misma corriente y distinto número de vueltas no dan el
+ * mismo flujo. El eje del arrollamiento es +Y (el del polo).
+ */
+export function bobinaCampo(mat, opts = {}) {
+  const { ancho = 0.26, prof = 0.9, alto = 0.3, vueltas = 9, hilo = 0.026,
+          capas = 2, seg = 5 } = opts;
+  const g = new THREE.Group();
+  const col = mat.cobre || mat.acero;
+  for (let c = 0; c < capas; c++) {
+    const d = hilo * 2 * c;
+    const rect = contornoRedondeado([
+      [-ancho / 2 - d, -prof / 2 - d], [ancho / 2 + d, -prof / 2 - d],
+      [ancho / 2 + d, prof / 2 + d], [-ancho / 2 - d, prof / 2 + d],
+    ], Math.min(ancho, prof) * 0.28 + d, seg);
+    const K = rect.length;
+    const paso = (alto - hilo * 2) / vueltas;
+    const y0 = -alto / 2 + hilo;
+    const pts = [];
+    for (let t = 0; t < vueltas; t++) {
+      for (let k = 0; k < K; k++) {
+        // Las capas impares se enrollan de vuelta hacia abajo: es como se
+        // devana de verdad, sin cortar el hilo al llegar al final de una capa.
+        const u = t + k / K;
+        const y = c % 2 === 0 ? y0 + u * paso : y0 + (vueltas - u) * paso;
+        const [x, z] = rect[k];
+        pts.push(new THREE.Vector3(x, y, z));
+      }
+    }
+    const m = new THREE.Mesh(new THREE.TubeGeometry(
+      new THREE.CatmullRomCurve3(pts, false), pts.length, hilo, 6, false), col);
+    m.castShadow = true;
+    g.add(m);
+  }
+  g.userData = { ancho, prof, alto };
+  return g;
+}
+
+/**
  * NÚCLEO RANURADO: la chapa de un estator o de un rotor, con sus ranuras y sus
  * zapatas de diente.
  *
