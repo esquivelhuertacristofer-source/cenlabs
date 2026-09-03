@@ -422,27 +422,63 @@ variacG.add(variacBody,variacKnob,variacT1,variacT2);
 variacG.userData={title:'Autotransformador variable (Variac)',info:'Suministra la tensión de prueba reducida y ajustable al banco de ensayo.'};
 HOVER_LABELS.set(variacBody,'Variac — fuente de tensión de prueba');
 
+/* Los nombres con los que trabaja la biblioteca de piezas (`P3`, que el molde ya
+   importa), traducidos una vez a los materiales de este laboratorio. */
+const MATP={
+  aluminio:MAT.cap, acero:MAT.cap, cromo:MAT.cap,
+  cobre:std({color:0xb87333,roughness:0.35,metalness:0.75}),
+  chapa:MAT.tank, negro:std({color:0x14181e,roughness:0.62,metalness:0.06}),
+  goma:std({color:0x14181e,roughness:0.80,metalness:0.02}),
+  blanco:std({color:0xd7dee6,roughness:0.40,metalness:0.20}),
+  ceramica:std({color:0xd7dee6,roughness:0.60,metalness:0.05}),
+};
 const xfmr=new THREE.Group(); xfmr.position.set(0,0.5,0); scene.add(xfmr);
 const tank=sh(new THREE.Mesh(new THREE.BoxGeometry(1.3,0.7,0.9),MAT.tank));
 tank.position.set(0,0.85,0);
 xfmr.add(tank);
-function makeBushing(x,z,mat,label,info){
-  const g=new THREE.Group(); g.position.set(x,1.2,z);
-  const post=sh(new THREE.Mesh(new THREE.CylinderGeometry(0.045,0.05,0.42,16),mat));
-  post.position.set(0,0.21,0);
-  const cap=sh(new THREE.Mesh(new THREE.SphereGeometry(0.06,16,16),MAT.cap));
-  cap.position.set(0,0.42,0);
-  g.add(post,cap);
-  g.userData={title:label,info:info};
-  HOVER_LABELS.set(post,label);
+/* EL TANQUE, con lo que tiene un transformador de verdad y aqui faltaba: TAPA
+   ATORNILLADA y RADIADORES en los costados. Los radiadores no son adorno: por
+   ellos sale el calor de las perdidas que esta practica mide —las del cobre y
+   las del hierro—, y sin ellos la maquina no aguanta su propia carga. */
+const tapa=sh(new THREE.Mesh(new THREE.BoxGeometry(1.38,0.07,0.98),MAT.tank));
+tapa.position.set(0,1.235,0); xfmr.add(tapa);
+for(let i=0;i<14;i++){
+  const a=i/14*Math.PI*2;
+  const t=sh(new THREE.Mesh(new THREE.CylinderGeometry(0.022,0.022,0.026,6),MAT.cap));
+  t.position.set(Math.cos(a)*0.63,1.283,Math.sin(a)*0.44); xfmr.add(t);
+}
+[-1,1].forEach(sx=>{
+  for(let k=0;k<6;k++){
+    const al=sh(new THREE.Mesh(new THREE.BoxGeometry(0.11,0.50,0.052),MAT.tank));
+    al.position.set(sx*0.705,0.86,-0.325+k*0.13); xfmr.add(al);
+  }
+  [1.10,0.62].forEach(y=>{
+    const col=sh(new THREE.Mesh(new THREE.BoxGeometry(0.09,0.05,0.76),MAT.tank));
+    col.position.set(sx*0.705,y,0); xfmr.add(col);
+  });
+});
+/* LOS BUJES, de porcelana con FALDAS: alargan el camino que tendria que
+   recorrer el agua o la suciedad hasta el tanque —que esta a tierra—, y por eso
+   los de ALTA llevan mas faldas que los de BAJA. Un poste liso con una bola
+   encima no distinguia uno de otro. */
+function makeBushing(x,z,mat,alta,label,info){
+  const g=new THREE.Group(); g.position.set(x,1.27,z);
+  const b=P3.bujePorcelana(MATP,{alto:alta?0.30:0.22,d:alta?0.15:0.13,
+    faldas:alta?4:2,color:mat.color.getHex()});
+  g.add(b);
+  sh(b.userData.porcelana); sh(b.userData.borne);
+  g.userData={title:label,info:info,borneY:b.userData.borneY};
+  HOVER_LABELS.set(b.userData.porcelana,label);
   xfmr.add(g);
   return g;
 }
-const H1=makeBushing(-0.32,0.22,MAT.bushHV,'H1 (AT)','Terminal de alta tensión H1 — devanado primario');
-const H2=makeBushing(0.32,0.22,MAT.bushHV,'H2 (AT)','Terminal de alta tensión H2 — devanado primario');
-const X1=makeBushing(-0.32,-0.22,MAT.bushLV,'X1 (BT)','Terminal de baja tensión X1 — devanado secundario');
-const X2=makeBushing(0.32,-0.22,MAT.bushLV,'X2 (BT)','Terminal de baja tensión X2 — devanado secundario');
-function topOf(g){ return new THREE.Vector3(g.position.x,1.42,g.position.z); }
+const H1=makeBushing(-0.32,0.22,MAT.bushHV,true,'H1 (AT)','Terminal de alta tensión H1 — devanado primario');
+const H2=makeBushing(0.32,0.22,MAT.bushHV,true,'H2 (AT)','Terminal de alta tensión H2 — devanado primario');
+const X1=makeBushing(-0.32,-0.22,MAT.bushLV,false,'X1 (BT)','Terminal de baja tensión X1 — devanado secundario');
+const X2=makeBushing(0.32,-0.22,MAT.bushLV,false,'X2 (BT)','Terminal de baja tensión X2 — devanado secundario');
+// Cada cable se ata AL BORNE de su buje: los de alta quedan mas altos que los
+// de baja, como en la maquina.
+function topOf(g){ return new THREE.Vector3(g.position.x,g.position.y+g.userData.borneY,g.position.z); }
 
 function drawPlate(key){
   const cv=document.createElement('canvas'); cv.width=420; cv.height=260;

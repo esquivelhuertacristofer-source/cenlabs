@@ -720,6 +720,16 @@ const bench=sh(roundedBox(3.4,0.5,2.0,MAT.bench,0.05));bench.position.set(1.7,0.
 bench.userData={title:'Banco trifásico',info:'Tres transformadores monofásicos idénticos, amarrados en banco. Cada unidad conserva sus 4 terminales propios (H1,H2 en AT; X1,X2 en BT).'};
 addHoverLabel(bench,'Banco de 3 unidades monofásicas','#4FD1C5',new THREE.Vector3(0,0.32,0.9),0.8);
 
+/* Los nombres con los que trabaja la biblioteca de piezas (`P3`, que el molde ya
+   importa), traducidos una vez a los materiales de este laboratorio. */
+const MATP={
+  aluminio:MAT.bus, acero:MAT.bus, cromo:MAT.bus,
+  cobre:std({color:0xb87333,roughness:0.35,metalness:0.75}),
+  chapa:MAT.tank, negro:std({color:0x14181e,roughness:0.62,metalness:0.06}),
+  goma:std({color:0x14181e,roughness:0.80,metalness:0.02}),
+  blanco:std({color:0xd7dee6,roughness:0.40,metalness:0.20}),
+  ceramica:std({color:0xd7dee6,roughness:0.60,metalness:0.05}),
+};
 const UNITS=[];
 ['A','B','C'].forEach((letter,i)=>{
   const ux=0.9+i*0.8;
@@ -727,13 +737,36 @@ const UNITS=[];
   tank.position.set(ux,0.70,1.0);scene.add(tank);
   tank.userData={title:'Unidad monofásica '+letter,info:'Transformador monofásico independiente del banco. Conserva sus 4 terminales propios: H1/H2 en alta tensión, X1/X2 en baja tensión.'};
   addHoverLabel(tank,'Unidad '+letter,'#cfe8e2',new THREE.Vector3(0,0.28,0),0.6);
-  const H1=[ux-0.09,0.97,0.86], H2=[ux+0.09,0.97,0.86];
-  const X1=[ux-0.09,0.97,1.14], X2=[ux+0.09,0.97,1.14];
+  /* Cada unidad, con lo que tiene un transformador de verdad: TAPA ATORNILLADA
+     y RADIADORES en los costados. Tres cubos lisos no se distinguian de tres
+     cajas de conexiones. */
+  const tp=sh(roundedBox(0.50,0.04,0.50,MAT.tank,0.015));
+  tp.position.set(ux,0.915,1.0);scene.add(tp);tp.userData=tank.userData;
+  for(let k=0;k<8;k++){
+    const a=k/8*Math.PI*2;
+    const t=sh(new THREE.Mesh(new THREE.CylinderGeometry(0.012,0.012,0.016,6),MAT.bus));
+    t.position.set(ux+Math.cos(a)*0.215,0.942,1.0+Math.sin(a)*0.215);scene.add(t);
+  }
+  [-1,1].forEach(sx=>{ for(let k=0;k<4;k++){
+    const al=sh(new THREE.Mesh(new THREE.BoxGeometry(0.055,0.28,0.032),MAT.tank));
+    al.position.set(ux+sx*0.252,0.70,0.865+k*0.09);scene.add(al);
+  }});
+  // Cada cable se ata AL BORNE de su buje: los de alta quedan mas altos que los
+  // de baja, como en la maquina.
+  const H1=[ux-0.10,1.11,0.86], H2=[ux+0.10,1.11,0.86];
+  const X1=[ux-0.10,1.07,1.14], X2=[ux+0.10,1.07,1.14];
+  /* LOS BUJES, de porcelana con FALDAS: alargan el camino de fuga hasta el
+     tanque, que esta a tierra, y por eso los de ALTA llevan mas que los de
+     BAJA. Cuatro cilindros iguales no dejaban ver ni cual era cual. */
   const mkBush=(pos,mat,label,info)=>{
-    const b=sh(new THREE.Mesh(new THREE.CylinderGeometry(0.035,0.04,0.14,14),mat));
-    b.position.set(pos[0],pos[1],pos[2]);scene.add(b);
-    b.userData={title:label,info};
-    addHoverLabel(b,label,mat===MAT.bushHV?'#e08a80':'#8ab4e0',new THREE.Vector3(0,0.14,0),0.5);
+    const alta=(mat===MAT.bushHV);
+    const g=new THREE.Group();
+    const b=P3.bujePorcelana(MATP,{alto:alta?0.155:0.115,d:alta?0.062:0.054,
+      faldas:alta?3:2,color:mat.color.getHex()});
+    g.add(b);g.position.set(pos[0],0.935,pos[2]);scene.add(g);
+    const por=sh(b.userData.porcelana);sh(b.userData.borne);
+    por.userData={title:label,info};b.userData.borne.userData=por.userData;
+    addHoverLabel(por,label,alta?'#e08a80':'#8ab4e0',new THREE.Vector3(0,0.20,0),0.5);
   };
   mkBush(H1,MAT.bushHV,'H1 · unidad '+letter,'Terminal de alta tensión — inicio del devanado primario (referencia de polaridad).');
   mkBush(H2,MAT.bushHV,'H2 · unidad '+letter,'Terminal de alta tensión — final del devanado primario.');

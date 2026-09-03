@@ -191,25 +191,77 @@ const variacLabel=labelSprite('Fuente CA · tensión reducida','#8FB3AC'); varia
 variacLabel.visible=false; variacLabel.raycast=()=>{}; scene.add(variacLabel); HOVER_LABELS.set(variacBody,variacLabel);
 
 // --- transformador bajo prueba (tanque + bujes H1/H2/X1/X2) ---
+/* Los nombres con los que trabaja la biblioteca de piezas (`P3`, que el molde ya
+   importa), traducidos una vez a los materiales de este laboratorio. */
+const MATP={
+  aluminio:MAT.cap, acero:MAT.cap, cromo:MAT.cap,
+  cobre:std({color:0xb87333,roughness:0.35,metalness:0.75}),
+  chapa:MAT.tank, negro:std({color:0x14181e,roughness:0.62,metalness:0.06}),
+  goma:std({color:0x14181e,roughness:0.80,metalness:0.02}),
+  blanco:std({color:0xd7dee6,roughness:0.40,metalness:0.20}),
+  ceramica:std({color:0xd7dee6,roughness:0.60,metalness:0.05}),
+};
 const xfmr=new THREE.Group(); xfmr.position.set(0,0,0); scene.add(xfmr);
 const tank=roundedBox(1.3,0.7,0.9,MAT.tank,0.05); tank.position.set(0,0.85,0); xfmr.add(tank);
 tank.userData={title:'Transformador bajo prueba',info:'Tanque del transformador monofásico. Terminales H1/H2 = alta tensión (AT); X1/X2 = baja tensión (BT).'};
 
-function makeBushing(x,z,mat,label,info){
-  const g=new THREE.Group(); g.position.set(x,1.20,z);
-  const post=sh(new THREE.Mesh(new THREE.CylinderGeometry(0.05,0.06,0.22,14),mat)); post.position.set(0,0.11,0); g.add(post);
-  const cap=sh(new THREE.Mesh(new THREE.SphereGeometry(0.055,12,10),MAT.cap)); cap.position.set(0,0.23,0); g.add(cap);
+/* EL TANQUE, con lo que tiene un transformador de verdad y aqui faltaba: la TAPA
+   ATORNILLADA, los RADIADORES de los dos costados —paneles por los que circula
+   el aceite y se enfria; sin ellos la maquina no aguanta su propia carga—, el
+   nivel de aceite, la valvula de purga y la zapata de tierra. Un cajon liso no
+   se reconoce como transformador; esto si. */
+const tapa=roundedBox(1.38,0.07,0.98,MAT.tank,0.02); tapa.position.set(0,1.235,0); xfmr.add(tapa);
+tapa.userData=tank.userData;
+for(let i=0;i<14;i++){
+  const a=i/14*Math.PI*2;
+  const t=sh(new THREE.Mesh(new THREE.CylinderGeometry(0.022,0.022,0.026,6),MAT.cap));
+  t.position.set(Math.cos(a)*0.63,1.283,Math.sin(a)*0.44); xfmr.add(t);
+}
+[-1,1].forEach(sx=>{
+  for(let k=0;k<6;k++){
+    const al=sh(new THREE.Mesh(new THREE.BoxGeometry(0.11,0.50,0.052),MAT.tank));
+    al.position.set(sx*0.705,0.86,-0.325+k*0.13); xfmr.add(al);
+    al.userData={title:'Radiador',info:'Paneles por los que circula el aceite: el calor de las pérdidas sale por su superficie, no por el tanque.'};
+  }
+  const col=sh(new THREE.Mesh(new THREE.BoxGeometry(0.09,0.05,0.76),MAT.tank));
+  col.position.set(sx*0.705,1.10,0); xfmr.add(col);
+  const col2=col.clone(); col2.position.set(sx*0.705,0.62,0); xfmr.add(col2);
+});
+const nivel=sh(new THREE.Mesh(new THREE.CylinderGeometry(0.055,0.055,0.03,16),
+  std({color:0x0d1418,roughness:0.25,metalness:0.1})));
+nivel.rotation.x=Math.PI/2; nivel.position.set(-0.46,1.10,0.455); xfmr.add(nivel);
+nivel.userData={title:'Nivel de aceite',info:'Mirilla del nivel de aceite: el aceite aisla y evacua el calor a la vez.'};
+const purga=sh(new THREE.Mesh(new THREE.CylinderGeometry(0.035,0.035,0.10,12),MAT.cap));
+purga.rotation.x=Math.PI/2; purga.position.set(0.42,0.60,0.49); xfmr.add(purga);
+purga.userData={title:'Válvula de purga',info:'Por aquí se toma la muestra de aceite y se drena el tanque.'};
+const tierra=sh(new THREE.Mesh(new THREE.BoxGeometry(0.10,0.09,0.05),MAT.cap));
+tierra.position.set(-0.62,0.58,0.42); xfmr.add(tierra);
+tierra.userData={title:'Zapata de tierra',info:'El tanque va conectado a tierra: es la masa que las faldas de los bujes mantienen lejos de las terminales.'};
+
+/* LOS BUJES, de porcelana con FALDAS. Las faldas alargan el camino que tendria
+   que recorrer el agua o la suciedad para puentear la terminal con el tanque
+   —que esta a tierra—, y por eso los de ALTA llevan mas que los de BAJA. Un
+   poste liso con una bola encima no dice nada de eso. */
+function makeBushing(x,z,mat,alta,label,info){
+  const g=new THREE.Group(); g.position.set(x,1.27,z);
+  const b=P3.bujePorcelana(MATP,{alto:alta?0.30:0.20,d:alta?0.15:0.13,
+    faldas:alta?4:2,color:mat.color.getHex()});
+  g.add(b); xfmr.add(g);
+  const post=b.userData.porcelana, cap=b.userData.borne;
+  sh(post); sh(cap);
   post.userData={title:label,info}; cap.userData=post.userData;
-  const lb=labelSprite(label,'#EAF4F1'); lb.position.set(x,1.62,z); lb.visible=false; lb.raycast=()=>{};
+  const lb=labelSprite(label,'#EAF4F1'); lb.position.set(x,1.72,z); lb.visible=false; lb.raycast=()=>{};
   xfmr.add(lb); HOVER_LABELS.set(post,lb); HOVER_LABELS.set(cap,lb);
+  g.userData.borneY=b.userData.borneY;
   return g;
 }
-const H1=makeBushing(-0.32,0.22,MAT.bushHV,'H1','Terminal de alta tensión H1 — junto con H2, recibe la tensión de prueba reducida durante ambos ensayos.');
-const H2=makeBushing( 0.32,0.22,MAT.bushHV,'H2','Terminal de alta tensión H2.');
-const X1=makeBushing(-0.32,-0.22,MAT.bushLV,'X1','Terminal de baja tensión X1 — en la prueba de polaridad, se puentea directamente a H1.');
-const X2=makeBushing( 0.32,-0.22,MAT.bushLV,'X2','Terminal de baja tensión X2.');
-xfmr.add(H1,H2,X1,X2);
-const topOf=g=>new THREE.Vector3(g.position.x,1.42,g.position.z);
+const H1=makeBushing(-0.32,0.22,MAT.bushHV,true,'H1','Terminal de alta tensión H1 — junto con H2, recibe la tensión de prueba reducida durante ambos ensayos.');
+const H2=makeBushing( 0.32,0.22,MAT.bushHV,true,'H2','Terminal de alta tensión H2.');
+const X1=makeBushing(-0.32,-0.22,MAT.bushLV,false,'X1','Terminal de baja tensión X1 — en la prueba de polaridad, se puentea directamente a H1.');
+const X2=makeBushing( 0.32,-0.22,MAT.bushLV,false,'X2','Terminal de baja tensión X2.');
+// Los cables se atan AL BORNE de cada buje, que ahora esta a su propia altura:
+// los de alta son mas altos que los de baja, como en la maquina.
+const topOf=g=>new THREE.Vector3(g.position.x,g.position.y+g.userData.borneY,g.position.z);
 
 // --- placa de datos (canvas) ---
 const plateCanvas=document.createElement('canvas'); plateCanvas.width=420; plateCanvas.height=260;

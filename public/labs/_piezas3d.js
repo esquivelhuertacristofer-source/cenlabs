@@ -3030,6 +3030,39 @@ export function led(mat, opts = {}) {
 }
 
 /**
+ * BUJE DE PORCELANA: por donde sale una terminal de un tanque —de un
+ * transformador, de un interruptor— sin tocar la chapa.
+ *
+ * Las FALDAS no son un adorno: alargan el camino que tendría que recorrer el
+ * agua o la suciedad para puentear la terminal con el tanque, y por eso un buje
+ * de más tensión tiene más faldas. Un poste liso con una bola encima no dice
+ * nada de eso, y es la pieza que más se reconoce de un transformador.
+ */
+export function bujePorcelana(mat, opts = {}) {
+  const { alto = 0.24, d = 0.10, faldas = 3, color = 0xbfc4c9, seg = 18 } = opts;
+  const g = new THREE.Group();
+  const R = d / 2, h = alto;
+  const pts = [[0, 0], [R * 1.7, 0], [R * 1.7, h * 0.07]];
+  for (let k = 0; k < faldas; k++) {
+    const y0 = h * (0.10 + 0.76 * k / faldas);
+    const y1 = h * (0.10 + 0.76 * (k + 0.62) / faldas);
+    pts.push([R * 0.74, y0], [R * 1.50, y0 + h * 0.035],
+             [R * 1.50, y0 + h * 0.065], [R * 0.74, y1]);
+  }
+  pts.push([R * 0.74, h * 0.90], [R * 0.58, h * 0.94], [0, h * 0.94]);
+  const por = new THREE.Mesh(revolucion(pts, { seg }),
+    new THREE.MeshStandardMaterial({ color, roughness: 0.34, metalness: 0.04 }));
+  por.castShadow = true; g.add(por);
+  const met = mat.cromo || mat.acero || mat.aluminio;
+  const esp = new THREE.Mesh(new THREE.CylinderGeometry(R * 0.34, R * 0.34, h * 0.36, 12), met);
+  esp.position.y = h * 1.02; g.add(esp);
+  const tue = new THREE.Mesh(new THREE.CylinderGeometry(R * 0.52, R * 0.52, h * 0.09, 6), met);
+  tue.position.y = h * 0.97; g.add(tue);
+  g.userData = { alto: h, d, porcelana: por, borne: esp, borneY: h * 1.14 };
+  return g;
+}
+
+/**
  * BORNERA de tornillo: la regleta por la que entra y sale un cable en cualquier
  * banco. Cuerpo de plástico con una BOCA por vía, el TORNILLO encima —que es lo
  * que aprieta el cable contra la jaula— y las patas por debajo.
