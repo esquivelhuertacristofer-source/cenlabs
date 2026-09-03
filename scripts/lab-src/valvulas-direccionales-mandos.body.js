@@ -35,7 +35,7 @@
 
 // ===================== 1. ESCENA =====================
 const mount=document.getElementById('stage');
-const S=createStage(mount,{cam:[5.4,3.0,7.6],target:[0.6,1.05,0.4],bgTop:'#0d1017',bgBot:'#05060a',bloom:0.42,minD:3.2,maxD:16});
+const S=createStage(mount,{cam:[4.9,2.2,4.6],target:[2.45,0.95,0.95],bgTop:'#0d1017',bgBot:'#05060a',bloom:0.42,minD:3.2,maxD:16});
 const {scene}=S;
 const synth=makeSynth({type:'square',type2:'sine',filterFreq:2400,Q:0.7});
 const el=id=>document.getElementById(id);
@@ -904,31 +904,67 @@ function boardClick(){
 const bench=roundedBox(4.2,0.5,1.9,MAT.bench,0.05);bench.position.set(2.05,0.25,0.55);scene.add(bench);
 bench.userData={title:'Banco de mando neumático',info:'Una válvula direccional con su accionamiento, sus tubos y el cilindro al que manda. El carrete se mueve con la posición y los tubos se colorean con el estado de cada cámara.'};
 
-const GEO_CIL=new THREE.CylinderGeometry(1,1,1,28);
-const barrel=new THREE.Mesh(GEO_CIL,MAT.barrel);
-barrel.rotation.z=Math.PI/2;barrel.position.set(2.30,1.02,0.98);scene.add(barrel);
-barrel.userData={title:'Cilindro de la estación',info:'El diámetro dibujado sigue el de la estación. Un simple efecto sólo tiene UN puerto de aire: el otro extremo respira a la atmósfera.'};
-addHoverLabel(barrel,'cilindro ISO 15552',AZUL,new THREE.Vector3(2.30,1.58,0.98),2.1);
+/* Los nombres con los que trabaja la biblioteca de piezas (`P3`, que el molde
+   ya importa), traducidos una vez a los materiales de este laboratorio. */
+const MATP={
+  aluminio: std(0x757d85,0.58,0.45), acero: std(0x848c93,0.42,0.75),
+  cromo: std(0xaeb6bb,0.26,0.88),    chapa: std(0x6f777e,0.50,0.65),
+  cobre: std(0xb87333,0.35,0.75),    negro: std(0x14181e,0.62,0.06),
+  goma: std(0x101418,0.92,0.02),     blanco: std(0xd7dee6,0.42,0.15),
+  rojo: std(0xd64545,0.50,0.10),     ceramica: std(0xd9dcd6,0.62,0.04),
+};
 
-const rod=new THREE.Mesh(GEO_CIL,MAT.rod);
-rod.rotation.z=Math.PI/2;rod.position.set(2.95,1.02,0.98);scene.add(rod);
+/* EL CILINDRO, con lo que de verdad lo hace reconocible: las dos tapas, los
+   cuatro TIRANTES que las sujetan contra la presión y las tomas de aire. Antes
+   eran dos cilindros lisos escalados, que es la silueta de cualquier cosa. Se
+   rearma sólo cuando cambia el diámetro de la estación —no en cada fotograma—,
+   porque un cilindro de tirantes no se puede estirar con `scale` sin
+   deformarle las tapas. */
+const X_CULATA=1.87, CARRERA3D=0.70, Y_CIL=1.02, Z_CIL=0.98;
+const cilG=new THREE.Group();cilG.position.set(0,Y_CIL,Z_CIL);scene.add(cilG);
+cilG.userData={title:'Cilindro de la estación',info:'Cilindro de doble efecto de tirantes: son los cuatro tirantes los que sujetan las tapas contra la presión. El diámetro dibujado sigue el de la estación. Un simple efecto sólo tiene UN puerto de aire: el otro extremo respira a la atmósfera.'};
+addHoverLabel(cilG,'cilindro ISO 15552',AZUL,new THREE.Vector3(2.30,1.58,0.98),2.1);
+let cilD3=-1, cilP3=null;
+function ponCilindro(dC,vas){
+  if(cilD3===dC) return;
+  cilD3=dC;
+  if(cilP3){ cilG.remove(cilP3); cilP3.traverse(o=>{ if(o.isMesh) o.geometry.dispose(); }); }
+  cilP3=P3.cilindroHidraulico(MATP,{d:dC,carrera:CARRERA3D,vastago:vas,
+    tirantes:4,horquilla:false,tomas:true});
+  cilP3.rotation.z=-Math.PI/2;                 // el +Y de la pieza es el +X del banco
+  cilP3.position.set(X_CULATA+(CARRERA3D+dC*0.85)/2,0,0);
+  cilP3.traverse(o=>{ if(o.isMesh) o.castShadow=true; });
+  cilG.add(cilP3);
+}
+/* La punta del vástago en x del banco, sacada de la geometría de la pieza. */
+const puntaCil=(dC,p)=>X_CULATA+CARRERA3D+1.17*dC+CARRERA3D*p;
 const tip=roundedBox(0.07,0.20,0.20,MAT.plate,0.02);tip.position.set(3.28,1.02,0.98);scene.add(tip);
 const carga=roundedBox(0.32,0.32,0.32,MAT.carga,0.03);carga.position.set(3.52,1.02,0.98);scene.add(carga);
 carga.userData={title:'Lo que mueve el vástago',info:'La carga de la estación. Sin aire de red y sin muelle, es ella la que decide dónde queda el vástago.'};
 addHoverLabel(carga,'carga',WARN_HEX,new THREE.Vector3(3.52,1.44,0.98),1.1);
 
-// cuerpo de la válvula con carrete visible
-const vBody=roundedBox(0.78,0.24,0.30,MAT.valve,0.03);vBody.position.set(2.30,0.66,0.16);scene.add(vBody);
-vBody.userData={title:'Válvula direccional',info:'Las vías son los orificios de trabajo y las posiciones los estados del carrete. Aquí el carrete se desliza a la posición que la orden impone.'};
-addHoverLabel(vBody,'válvula direccional',VIO,new THREE.Vector3(2.30,1.02,0.16),2.1);
+/* LA VÁLVULA ES DE PLACA: cuerpo de corredera sobre una base con sus CINCO
+   ORIFICIOS por debajo. Esa base es el motivo de que una válvula se cambie sin
+   tocar la tubería, y los orificios son literalmente las «vías» de las que
+   habla toda la práctica: dibujar un taco liso dejaba las vías sin dónde estar.
+   Se monta a 0,86 para que sus orificios queden por encima del banco. */
+/* La válvula va DELANTE del cilindro, no detrás: es el objeto del que trata la
+   práctica entera y desde la vista de entrada quedaba tapada por el cilindro.
+   Se monta a 0,86 de alto para que sus orificios queden por encima del banco. */
+const Y_VAL=0.86, Z_VAL=1.34;
+const vBody=P3.valvulaDireccional(MATP,{ancho:0.78,alto:0.24,fondo:0.30,
+  vias:5,solenoides:0,pilotos:0,base:true});
+vBody.position.set(2.30,Y_VAL,Z_VAL);scene.add(vBody);
+vBody.userData={title:'Válvula direccional',info:'Las vías son los orificios de trabajo —los cinco de la base— y las posiciones los estados del carrete. Aquí el carrete se desliza a la posición que la orden impone.'};
+addHoverLabel(vBody,'válvula direccional',VIO,new THREE.Vector3(2.30,1.26,Z_VAL),2.1);
 const spool=new THREE.Mesh(new THREE.CylinderGeometry(0.055,0.055,0.62,16),MAT.spool);
-spool.rotation.z=Math.PI/2;spool.position.set(2.30,0.66,0.32);scene.add(spool);
+spool.rotation.z=Math.PI/2;spool.position.set(2.30,Y_VAL,Z_VAL+0.16);scene.add(spool);
 spool.userData={title:'Carrete',info:'El carrete es el que comunica los puertos. Su recorrido tiene tantos topes como posiciones tenga la válvula.'};
 
 // accionamiento (izquierda) y retorno (derecha)
-const accBox=roundedBox(0.16,0.20,0.22,MAT.body,0.02);accBox.position.set(1.82,0.66,0.16);scene.add(accBox);
+const accBox=roundedBox(0.16,0.20,0.22,MAT.body,0.02);accBox.position.set(1.82,Y_VAL,Z_VAL);scene.add(accBox);
 accBox.userData={title:'Accionamiento',info:'Quien da la orden: pulsador, palanca, rodillo, solenoide o pilotaje neumático. Se enciende mientras la orden está puesta.'};
-const retBox=roundedBox(0.16,0.20,0.22,MAT.body,0.02);retBox.position.set(2.78,0.66,0.16);scene.add(retBox);
+const retBox=roundedBox(0.16,0.20,0.22,MAT.body,0.02);retBox.position.set(2.78,Y_VAL,Z_VAL);scene.add(retBox);
 retBox.userData={title:'Retorno de la válvula',info:'En una monoestable es un muelle; en una biestable o en una de tres posiciones es la segunda orden. Si falta, la biestable se queda pegada y la 5/3 vuelve al centro: en los dos casos la otra posición de trabajo queda inalcanzable.'};
 
 // tubos de trabajo (uno por cámara), con material propio cada uno
@@ -942,15 +978,15 @@ function tubo(a,b,r,mat){
   m.quaternion.setFromUnitVectors(new THREE.Vector3(0,1,0),dir.clone().normalize());
   return m;
 }
-const tuboTras=tubo(new THREE.Vector3(2.06,0.66,0.16),new THREE.Vector3(1.98,1.02,0.98),0.032,MAT_TUBO.tras);scene.add(tuboTras);
-const tuboAnu=tubo(new THREE.Vector3(2.54,0.66,0.16),new THREE.Vector3(2.62,1.02,0.98),0.032,MAT_TUBO.anu);scene.add(tuboAnu);
+const tuboTras=tubo(new THREE.Vector3(2.06,Y_VAL-0.30,Z_VAL),new THREE.Vector3(1.99,1.02,0.98),0.032,MAT_TUBO.tras);scene.add(tuboTras);
+const tuboAnu=tubo(new THREE.Vector3(2.54,Y_VAL-0.30,Z_VAL),new THREE.Vector3(2.60,1.02,0.98),0.032,MAT_TUBO.anu);scene.add(tuboAnu);
 tuboTras.userData={title:'Tubo de la cámara trasera',info:'La cámara del lado del émbolo: la que hace SALIR el vástago. Se colorea con su estado: presión, escape, bloqueada o atmósfera.'};
 tuboAnu.userData={title:'Tubo de la cámara anular',info:'La cámara del lado del vástago: la que hace ENTRAR el vástago. Su área es menor porque el vástago resta.'};
-addHoverLabel(tuboTras,'cámara trasera',AZUL,new THREE.Vector3(1.94,1.30,0.60),2.0);
-addHoverLabel(tuboAnu,'cámara anular',VIO,new THREE.Vector3(2.72,1.30,0.60),2.0);
+addHoverLabel(tuboTras,'cámara trasera',AZUL,new THREE.Vector3(1.92,1.32,1.16),2.0);
+addHoverLabel(tuboAnu,'cámara anular',VIO,new THREE.Vector3(2.70,1.32,1.16),2.0);
 
 // alimentación
-const linea1=tubo(new THREE.Vector3(2.30,0.54,0.16),new THREE.Vector3(2.30,0.30,-0.35),0.030,std(0x8AB4F8,0.4,0.5));scene.add(linea1);
+const linea1=tubo(new THREE.Vector3(2.30,Y_VAL-0.33,Z_VAL),new THREE.Vector3(2.30,0.30,1.86),0.030,std(0x8AB4F8,0.4,0.5));scene.add(linea1);
 linea1.userData={title:'Puerto 1: alimentación',info:'El aire de red entra siempre por el 1. Al despresurizar la red, ninguna válvula puede empujar nada.'};
 
 // pilotos de los cuatro criterios
@@ -991,13 +1027,13 @@ function updateHW(){
   const sc=curSc(),cfg=curCfg(),V=VALVULAS[cfg.valv],e=evalua(sc,cfg);
   const pos=curPos(),cams=curCams();
   const r=0.055+sc.D/100*0.115;
-  barrel.scale.set(r,0.86,r);
   const rr=0.018+CIL_ISO[sc.D]/100*0.060;
-  rod.scale.set(rr,0.62,rr);
+  ponCilindro(2*r,2*rr);
   const p=animP;
-  rod.position.x=2.92+0.30*p;
-  tip.position.x=3.22+0.30*p;
-  carga.position.x=3.48+0.30*p;
+  cilP3.userData.vastago.position.y=CARRERA3D*(p-1);   // en p = 0 está DENTRO
+  const xp=puntaCil(2*r,p);
+  tip.position.x=xp;
+  carga.position.x=xp+0.26;
   // carrete: tantos topes como posiciones
   const off=V.np===3?(pos-1)*0.11:(pos-0.5)*0.16;
   spool.position.x=2.30+off;

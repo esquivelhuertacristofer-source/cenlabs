@@ -1614,11 +1614,34 @@ function setTuboAB(m,a,b,r){
 
 // --- cilindro ---
 const ZC=0.28, YC=0.80, X0=0.72, X1=1.86, LROD=0.94;
-const barrel=new THREE.Mesh(GEO_CIL,MAT.barrel);
-barrel.rotation.z=Math.PI/2;barrel.scale.set(0.135,X1-X0,0.135);barrel.position.set((X0+X1)/2,YC,ZC);scene.add(barrel);
-const tapaA=new THREE.Mesh(GEO_CIL,MAT.tapa);tapaA.rotation.z=Math.PI/2;tapaA.scale.set(0.155,0.05,0.155);tapaA.position.set(X0,YC,ZC);scene.add(tapaA);
-const tapaB=new THREE.Mesh(GEO_CIL,MAT.tapa);tapaB.rotation.z=Math.PI/2;tapaB.scale.set(0.155,0.05,0.155);tapaB.position.set(X1,YC,ZC);scene.add(tapaB);
-const rod=new THREE.Mesh(GEO_CIL,MAT.rod);rod.rotation.z=Math.PI/2;scene.add(rod);
+/* Los nombres con los que trabaja la biblioteca de piezas (`P3`, que el molde
+   ya importa), traducidos una vez a los materiales de este laboratorio. */
+const MATP={
+  aluminio: std(0x757d85,0.58,0.45), acero: std(0x848c93,0.42,0.75),
+  cromo: std(0xaeb6bb,0.26,0.88),    chapa: std(0x6f777e,0.50,0.65),
+  cobre: std(0xb87333,0.35,0.75),    negro: std(0x14181e,0.62,0.06),
+  goma: std(0x101418,0.92,0.02),     blanco: std(0xd7dee6,0.42,0.15),
+  rojo: std(0xd64545,0.50,0.10),     ceramica: std(0xd9dcd6,0.62,0.04),
+};
+/* EL CILINDRO, con lo que de verdad lo hace reconocible: las dos tapas, los
+   cuatro TIRANTES que las sujetan contra la presión —por eso un cilindro de
+   tirantes se puede desarmar y uno soldado no— y las tomas de aire, una a cada
+   lado del émbolo. Antes eran dos cilindros lisos escalados, que es la silueta
+   de cualquier cosa. Se rearma sólo cuando cambia el diámetro de la estación,
+   no en cada fotograma, porque un cilindro de tirantes no se puede estirar con
+   `scale` sin deformarle las tapas. Y el vástago se coloca en carrera·(p−1):
+   así en p = 0 asoma sólo lo que sobresale de la tapa —el cilindro está
+   DENTRO— y en p = 1 ha hecho la carrera entera. */
+const D_CIL=0.27, VAS_CIL=0.124;
+const cilG=new THREE.Group();cilG.position.set(0,YC,ZC);scene.add(cilG);
+const cilP3=P3.cilindroHidraulico(MATP,{d:D_CIL,carrera:LROD,vastago:VAS_CIL,
+  tirantes:4,horquilla:false,tomas:true});
+cilP3.rotation.z=-Math.PI/2;                   // el +Y de la pieza es el +X del banco
+cilP3.position.set(X0+(LROD+D_CIL*0.85)/2,0,0);
+cilP3.traverse(o=>{ if(o.isMesh) o.castShadow=true; });
+cilG.add(cilP3);
+/* La punta del vástago en x del banco, sacada de la geometría de la pieza. */
+const puntaCil=(p)=>X0+LROD+1.17*D_CIL+LROD*p;
 const carga=roundedBox(0.26,0.36,0.36,MAT.carga,0.03);scene.add(carga);
 const soporte=roundedBox(0.16,0.42,0.44,MAT.post,0.03);soporte.position.set(X0-0.16,0.63,ZC);scene.add(soporte);
 const tope=roundedBox(0.10,0.44,0.44,MAT.post,0.03);tope.position.set(X1+LROD+0.40,0.72,ZC);scene.add(tope);
@@ -1716,8 +1739,8 @@ function drawPlaca(sc,cfg,e){
 }
 
 // --- etiquetas y picking ---
-barrel.userData={title:'Cilindro de la estación',info:'El mismo banco horizontal sirve a las cinco estaciones: lo que cambia son la carrera, los tiempos de ida y vuelta y lo que el proceso exige. La carga vertical de la mesa elevadora vive en los números (la deriva del actuador suelto), no en el dibujo.'};
-addHoverLabel(barrel,'Cilindro',AZUL,[(X0+X1)/2,YC+0.42,ZC],0.62);
+cilG.userData={title:'Cilindro de la estación',info:'El mismo banco horizontal sirve a las cinco estaciones: lo que cambia son la carrera, los tiempos de ida y vuelta y lo que el proceso exige. La carga vertical de la mesa elevadora vive en los números (la deriva del actuador suelto), no en el dibujo.'};
+addHoverLabel(cilG,'Cilindro',AZUL,[(X0+X1)/2,YC+0.42,ZC],0.62);
 cuerpo.userData={title:'Electroválvula',info:'La válvula es la que decide qué pasa cuando falta la tensión: con muelle vuelve sola a su posición de reposo, con memoria biestable se queda donde estaba y con centros cerrados bloquea el actuador donde esté.'};
 addHoverLabel(cuerpo,'Electroválvula',VIO,[-0.02,1.02,ZC],0.66);
 solY1.b.userData={title:'Bobina Y1 · avance',info:'Una bobina no es un contacto: pilota el carrete. Mientras esté excitada consume; una válvula monoestable hay que sostenerla toda la carrera, una biestable sólo necesita un pulso.'};
@@ -1746,9 +1769,8 @@ function updateHW(){
   const V=VALV[cfg.valvula], M=MANDO[cfg.mando];
   const sg=senales(sc,cfg,fr,sinOrdenAhora());
   const p=Math.max(0,Math.min(1,fr.x));
-  const lr=0.12+LROD*p;
-  rod.scale.set(0.062,lr,0.062);rod.position.set(X1+lr/2,YC,ZC);
-  carga.position.set(X1+lr+0.15,YC,ZC);
+  cilP3.userData.vastago.position.y=LROD*(p-1);       // en p = 0 está DENTRO
+  carga.position.set(puntaCil(p)+0.15,YC,ZC);
   tope.position.set(X1+LROD+0.42,0.72,ZC);
   ledCol(reedB0,fr.B0);ledCol(reedB1,fr.B1);
   spool3.position.set(fr.spool==='A'?-0.13:(fr.spool==='B'?0.13:0),0,0.21);

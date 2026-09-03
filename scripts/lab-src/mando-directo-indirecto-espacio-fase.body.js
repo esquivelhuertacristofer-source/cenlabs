@@ -937,13 +937,46 @@ const bench=roundedBox(4.6,0.5,1.9,MAT.bench,0.05);bench.position.set(1.85,0.25,
 });
 
 const GEO_CIL=new THREE.CylinderGeometry(1,1,1,28);
-const barrel=new THREE.Mesh(GEO_CIL,MAT.barrel);barrel.rotation.z=Math.PI/2;barrel.position.set(2.86,1.02,0.98);scene.add(barrel);
-const rod=new THREE.Mesh(GEO_CIL,MAT.rod);rod.rotation.z=Math.PI/2;rod.position.set(3.44,1.02,0.98);scene.add(rod);
+/* Los nombres con los que trabaja la biblioteca de piezas (`P3`, que el molde
+   ya importa), traducidos una vez a los materiales de este laboratorio. */
+const MATP={
+  aluminio: std(0x757d85,0.58,0.45), acero: std(0x848c93,0.42,0.75),
+  cromo: std(0xaeb6bb,0.26,0.88),    chapa: std(0x6f777e,0.50,0.65),
+  cobre: std(0xb87333,0.35,0.75),    negro: std(0x14181e,0.62,0.06),
+  goma: std(0x101418,0.92,0.02),     blanco: std(0xd7dee6,0.42,0.15),
+  rojo: std(0xd64545,0.50,0.10),     ceramica: std(0xd9dcd6,0.62,0.04),
+};
+/* EL CILINDRO, con lo que de verdad lo hace reconocible: las dos tapas, los
+   cuatro TIRANTES que las sujetan contra la presión —por eso un cilindro de
+   tirantes se puede desarmar y uno soldado no— y las tomas de aire, una a cada
+   lado del émbolo. Antes eran dos cilindros lisos escalados, que es la silueta
+   de cualquier cosa. Se rearma sólo cuando cambia el diámetro de la estación,
+   no en cada fotograma, porque un cilindro de tirantes no se puede estirar con
+   `scale` sin deformarle las tapas. Y el vástago se coloca en carrera·(p−1):
+   así en p = 0 asoma sólo lo que sobresale de la tapa —el cilindro está
+   DENTRO— y en p = 1 ha hecho la carrera entera. */
+const X_CULATA=2.38, CARRERA3D=0.52;
+const cilG=new THREE.Group();cilG.position.set(0,1.02,0.98);scene.add(cilG);
+let cilD3=-1, cilP3=null;
+function ponCilindro(dC,vas){
+  if(cilD3===dC) return;
+  cilD3=dC;
+  if(cilP3){ cilG.remove(cilP3); cilP3.traverse(o=>{ if(o.isMesh) o.geometry.dispose(); }); }
+  cilP3=P3.cilindroHidraulico(MATP,{d:dC,carrera:CARRERA3D,vastago:vas,
+    tirantes:4,horquilla:false,tomas:true});
+  cilP3.rotation.z=-Math.PI/2;                 // el +Y de la pieza es el +X del banco
+  cilP3.position.set(X_CULATA+(CARRERA3D+dC*0.85)/2,0,0);
+  cilP3.traverse(o=>{ if(o.isMesh) o.castShadow=true; });
+  cilG.add(cilP3);
+}
+/* La punta del vástago en x del banco, sacada de la geometría de la pieza. */
+const puntaCil=(dC,p)=>X_CULATA+CARRERA3D+1.17*dC+CARRERA3D*p;
+
 const tip=roundedBox(0.07,0.20,0.20,MAT.plate,0.02);tip.position.set(3.74,1.02,0.98);scene.add(tip);
 const carga=roundedBox(0.32,0.32,0.32,MAT.carga,0.03);carga.position.set(3.96,1.02,0.98);scene.add(carga);
 [2.58,3.14].forEach(x=>{const s=roundedBox(0.12,0.52,0.34,MAT.post,0.02);s.position.set(x,0.76,0.98);scene.add(s);});
-barrel.userData={title:'Cilindro de la estación',info:'Su diámetro y su carrera fijan el consumo; el área anular es menor que la del émbolo, y por eso el retorno es más rápido con la misma válvula'};
-addHoverLabel(barrel,'ISO 15552',AZUL,new THREE.Vector3(2.86,1.62,0.98),1.5);
+cilG.userData={title:'Cilindro de la estación',info:'Cilindro de doble efecto de tirantes. Su diámetro y su carrera fijan el consumo; el área anular es menor que la del émbolo, y por eso el retorno es más rápido con la misma válvula'};
+addHoverLabel(cilG,'ISO 15552',AZUL,new THREE.Vector3(2.86,1.62,0.98),1.5);
 
 // puesto del operador (izquierda): válvulas de señal / de mando manual
 const post=roundedBox(0.46,0.62,0.42,MAT.post,0.04);post.position.set(0.42,0.81,0.30);scene.add(post);
@@ -1013,10 +1046,13 @@ function updateHW(){
   const sc=curSc(),cfg=curCfg(),e=curEval();
   const dire=cfg.tipo==='directo';
   // cilindro
-  const r=0.055+sc.D/100*0.115;barrel.scale.set(r,0.86,r);
-  const rr=0.018+CIL_ISO[sc.D]/100*0.060;rod.scale.set(rr,0.62,rr);
+  const r=0.055+sc.D/100*0.115;
+  const rr=0.018+CIL_ISO[sc.D]/100*0.060;
+  ponCilindro(2*r,2*rr);
   const p=animP;
-  rod.position.x=3.40+0.30*p;tip.position.x=3.70+0.30*p;carga.position.x=3.92+0.30*p;
+  cilP3.userData.vastago.position.y=CARRERA3D*(p-1);   // en p = 0 está DENTRO
+  const xp=puntaCil(2*r,p);
+  tip.position.x=xp;carga.position.x=xp+0.24;
   const cs=0.20+sc.D/100*0.22;carga.scale.set(cs/0.32,cs/0.32,cs/0.32);
   // válvulas de señal visibles según la estación
   senBox.forEach((s,i)=>{const on=i<sc.sen;s.b.visible=on;s.kn.visible=on;});

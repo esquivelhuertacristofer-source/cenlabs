@@ -1352,10 +1352,41 @@ const vPot=roundedBox(0.40,0.24,0.28,MAT.valve,0.03);vPot.position.set(2.38,0.74
 const spool=roundedBox(0.12,0.11,0.30,MAT.spool,0.02);spool.position.set(2.38,0.74,0.35);scene.add(spool);
 
 // cilindro
-const barrel=new THREE.Mesh(GEO_CIL,MAT.barrel);barrel.rotation.z=Math.PI/2;
-barrel.position.set(3.02,0.70,0.35);scene.add(barrel);
-const rod=new THREE.Mesh(GEO_CIL,MAT.rod);rod.rotation.z=Math.PI/2;
-rod.position.set(3.58,0.70,0.35);scene.add(rod);
+/* Los nombres con los que trabaja la biblioteca de piezas (`P3`, que el molde
+   ya importa), traducidos una vez a los materiales de este laboratorio. */
+const MATP={
+  aluminio: std(0x757d85,0.58,0.45), acero: std(0x848c93,0.42,0.75),
+  cromo: std(0xaeb6bb,0.26,0.88),    chapa: std(0x6f777e,0.50,0.65),
+  cobre: std(0xb87333,0.35,0.75),    negro: std(0x14181e,0.62,0.06),
+  goma: std(0x101418,0.92,0.02),     blanco: std(0xd7dee6,0.42,0.15),
+  rojo: std(0xd64545,0.50,0.10),     ceramica: std(0xd9dcd6,0.62,0.04),
+};
+/* EL CILINDRO, con lo que de verdad lo hace reconocible: las dos tapas, los
+   cuatro TIRANTES que las sujetan contra la presión —por eso un cilindro de
+   tirantes se puede desarmar y uno soldado no— y las tomas de aire, una a cada
+   lado del émbolo. Antes eran dos cilindros lisos escalados, que es la silueta
+   de cualquier cosa. Se rearma sólo cuando cambia el diámetro de la estación,
+   no en cada fotograma, porque un cilindro de tirantes no se puede estirar con
+   `scale` sin deformarle las tapas. Y el vástago se coloca en carrera·(p−1):
+   así en p = 0 asoma sólo lo que sobresale de la tapa —el cilindro está
+   DENTRO— y en p = 1 ha hecho la carrera entera. */
+const X_CULATA=2.60, CARRERA3D=0.55;
+const cilG=new THREE.Group();cilG.position.set(0,0.70,0.35);scene.add(cilG);
+let cilD3=-1, cilP3=null;
+function ponCilindro(dC,vas){
+  if(cilD3===dC) return;
+  cilD3=dC;
+  if(cilP3){ cilG.remove(cilP3); cilP3.traverse(o=>{ if(o.isMesh) o.geometry.dispose(); }); }
+  cilP3=P3.cilindroHidraulico(MATP,{d:dC,carrera:CARRERA3D,vastago:vas,
+    tirantes:4,horquilla:false,tomas:true});
+  cilP3.rotation.z=-Math.PI/2;                 // el +Y de la pieza es el +X del banco
+  cilP3.position.set(X_CULATA+(CARRERA3D+dC*0.85)/2,0,0);
+  cilP3.traverse(o=>{ if(o.isMesh) o.castShadow=true; });
+  cilG.add(cilP3);
+}
+/* La punta del vástago en x del banco, sacada de la geometría de la pieza. */
+const puntaCil=(dC,p)=>X_CULATA+CARRERA3D+1.17*dC+CARRERA3D*p;
+
 const tip=roundedBox(0.10,0.16,0.16,MAT.plate,0.02);tip.position.set(3.86,0.70,0.35);scene.add(tip);
 const carga=roundedBox(0.24,0.26,0.30,MAT.carga,0.03);carga.position.set(4.02,0.70,0.35);scene.add(carga);
 [[2.68],[3.36]].forEach(p=>{
@@ -1406,7 +1437,7 @@ addHoverLabel(elemBox,'Elemento lógico','#C7D6F5',[1.02,1.14,0.35],0.72);
 addHoverLabel(estrKnob,'Estrangulador',WARN_HEX,[1.52,1.20,0.35],0.72);
 addHoverLabel(depBody,'Depósito',AZUL,[1.94,1.18,0.35],0.66);
 addHoverLabel(vPot,'Válvula 5/2 pilotada','#C7D6F5',[2.38,1.06,0.35],0.86);
-addHoverLabel(barrel,'Cilindro de la estación','#C7D6F5',[3.06,1.02,0.35],0.90);
+addHoverLabel(cilG,'Cilindro de la estación','#C7D6F5',[3.06,1.02,0.35],0.90);
 entA.g.userData={title:'Entrada 1',info:'Primera señal de la estación. Su presión es la que entra por la vía X del elemento lógico.'};
 entB.g.userData={title:'Entrada 2',info:'Segunda señal. En algunas estaciones no es un pulsador sino una señal ya generada (final de carrera, presostato, rama regulada).'};
 elemBox.userData={title:'Elemento lógico',info:'La bola roja marca la entrada que queda bloqueada: en la simultaneidad se bloquea la de MAYOR presión (sale la menor) y en la selectora la de MENOR (sale la mayor).'};
@@ -1419,7 +1450,7 @@ estrBase.userData=estrKnob.userData;
 depBody.userData={title:'Depósito de temporización',info:'Decide la ESCALA del retardo. El aire que se mete aquí en cada ciclo no hace trabajo: es consumo puro.'};
 depFill.userData=depBody.userData;
 vPot.userData={title:'Válvula de potencia 5/2 pilotada',info:'Conmuta cuando el depósito alcanza el umbral de pilotaje. Si la salida del elemento lógico no llega a ese umbral, no se mueve nunca.'};
-barrel.userData={title:'Cilindro de la estación',info:'Diámetro y carrera vienen de la estación (ISO 15552). El banco conserva las proporciones del ciclo, no lo cronometra.'};
+cilG.userData={title:'Cilindro de la estación',info:'Cilindro de doble efecto de tirantes. Diámetro y carrera vienen de la estación (ISO 15552). El banco conserva las proporciones del ciclo, no lo cronometra.'};
 LEDS.forEach((l,i)=>{l.userData={title:'Criterio · '+CRIT[i].rot,info:CRIT[i].det};});
 
 function updateHW(){
@@ -1471,11 +1502,11 @@ function updateHW(){
   const xs=2.38+(conmuta?0.055:-0.055);
   spool.position.x+=(xs-spool.position.x)*0.16;
   const D=sc.D, rB=0.055+D/1000*0.9, rR=rB*CIL_ISO[D]/D;
-  barrel.scale.set(rB,0.84,rB);
-  rod.scale.set(rR,0.62,rR);
-  rod.position.x=3.58+0.30*animP;
-  tip.position.x=3.90+0.30*animP;
-  carga.position.x=4.06+0.30*animP;
+  ponCilindro(2*rB,2*rR);
+  cilP3.userData.vastago.position.y=CARRERA3D*(animP-1);   // en p = 0 está DENTRO
+  const xp=puntaCil(2*rB,animP);
+  tip.position.x=xp;
+  carga.position.x=xp+0.16;
   // LEDs
   CRIT.forEach((cr,i)=>{
     const okv=e[cr.k];
