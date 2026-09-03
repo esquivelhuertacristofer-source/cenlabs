@@ -3028,7 +3028,7 @@ export function to220(mat, opts = {}) {
     const pa = new THREE.Mesh(new THREE.BoxGeometry(paso * 0.32, patas, fondo * 0.32), met);
     pa.position.set(i * paso, -patas / 2, 0); g.add(pa);
   }
-  g.userData = { ancho, alto, paso, cuerpo: cue };
+  g.userData = { ancho, alto, paso, cuerpo: cue, aleta: ale };
   return g;
 }
 

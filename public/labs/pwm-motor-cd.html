@@ -1233,16 +1233,34 @@ const brG=new THREE.Group();brG.position.set(0.28,0.78,0.05);benchG.add(brG);
 const brPcb=roundedBox(0.86,0.035,0.62,MAT.pcb,0.02);brG.add(brPcb);
 const qMats=[emis(OK_HEX),emis(OK_HEX),emis(OK_HEX),emis(OK_HEX)];
 const Q_POS=[[-0.26,0.18],[-0.26,-0.18],[0.26,0.18],[0.26,-0.18]];  // HA, LA, HB, LB
+/* Los nombres con los que trabaja la biblioteca de piezas (`P3`, que el molde ya
+   importa), traducidos una vez a los materiales de este laboratorio. */
+const MATP={
+  aluminio:MAT.plate, acero:MAT.shiny, cromo:MAT.shiny, chapa:MAT.plate,
+  cobre:MAT.copper, negro:MAT.dark,
+  goma:std(0x14181e,0.8,0.02), blanco:std(0xd7dee6,0.4,0.2),
+  ceramica:std(0xd7dee6,0.6,0.05),
+};
+/* LOS CUATRO MOSFET, en TO-220 de verdad: cuerpo de plastico, ALETA con su
+   agujero —la aleta es por donde sale el calor, y es la que se enciende aqui
+   cuando el transistor conduce— y las tres patas metidas en la placa. Cajitas
+   con una pegatina encima no dejaban ver ni por donde se atornillan. */
 const qMesh=Q_POS.map((p,i)=>{
-  const g=new THREE.Group();g.position.set(p[0],0.02,p[1]);brG.add(g);
-  const body=roundedBox(0.16,0.13,0.09,MAT.dark,0.01);body.position.set(0,0.07,0);g.add(body);
-  const tab=new THREE.Mesh(new THREE.BoxGeometry(0.14,0.10,0.012),qMats[i]);
-  tab.position.set(0,0.08,0.05);g.add(tab);
-  return {g,tab};
+  const g=new THREE.Group();g.position.set(p[0],0.0175,p[1]);brG.add(g);
+  const to=P3.to220(MATP,{ancho:0.15,alto:0.20,fondo:0.05,patas:0.05,paso:0.042,
+    cuerpo:MAT.dark.color.getHex()});
+  to.userData.aleta.material=qMats[i];
+  g.add(to);
+  return {g,tab:to.userData.aleta};
 });
+/* EL DIODO DE RUEDA LIBRE, con SU BANDA DE CATODO: este diodo solo hace su
+   trabajo montado en un sentido —al reves cortocircuita la fuente— y la banda
+   es la unica marca que lo dice. */
 const diodeMat=emis(BAD_HEX);
-const diode=new THREE.Mesh(new THREE.CylinderGeometry(0.035,0.035,0.16,14),diodeMat);
-diode.rotation.z=Math.PI/2;diode.position.set(0,0.09,0);brG.add(diode);
+const diode=P3.diodoAxial(MATP,{largo:0.16,d:0.066,patas:0.05,paso:0.24,
+  cuerpo:0x14181c,banda:0xe8e8e8,catodo:1});
+diode.userData.cuerpo.material=diodeMat;
+diode.position.set(0,0.0175,0);brG.add(diode);
 const shunt=roundedBox(0.16,0.05,0.07,MAT.copper,0.01);shunt.position.set(0,0.05,-0.26);brG.add(shunt);
 brPcb.userData={title:'Puente de potencia',info:'Cuatro MOSFET en dos ramas. Se encienden en diagonal para dar tensión al motor y, en el tramo apagado, la corriente recircula por el diodo o por el transistor de abajo.'};
 addHoverLabel(brPcb,'Puente en H',OK_HEX,new THREE.Vector3(0.28,1.30,0.05).add(benchG.position),1.4);
@@ -1250,19 +1268,20 @@ diode.userData={title:'Diodo de rueda libre',info:'Cierra el camino de la corrie
 
 // --- motor y carga
 const mtG=new THREE.Group();mtG.position.set(1.30,0.78,0.0);benchG.add(mtG);
-const mtBody=new THREE.Mesh(new THREE.CylinderGeometry(0.26,0.26,0.62,28),MAT.steel);
-mtBody.rotation.z=Math.PI/2;mtBody.position.set(0,0.34,0);mtG.add(mtBody);
-const mtCap=new THREE.Mesh(new THREE.CylinderGeometry(0.27,0.27,0.05,28),MAT.plate);
-mtCap.rotation.z=Math.PI/2;mtCap.position.set(-0.33,0.34,0);mtG.add(mtCap);
+/* EL MOTOR, con la silueta por la que se reconoce: ALETAS —la superficie por la
+   que evacua lo que no convierte en par; en PWM ese calor incluye el de la
+   conmutacion—, TAPA DEL VENTILADOR con el ventilador calado al eje (a media
+   velocidad ventila la mitad, que es justo lo que hay que pensar al bajar el
+   duty), PATAS y CAJA DE BORNES. */
+const mtBody=P3.maquinaElectrica(MATP,{d:0.52,largo:0.62,eje:0.32,aletas:14});
+mtBody.position.set(0,0.34,0);mtG.add(mtBody);
 const shaftG=new THREE.Group();shaftG.position.set(0.31,0.34,0);mtG.add(shaftG);
-const shaft=new THREE.Mesh(new THREE.CylinderGeometry(0.035,0.035,0.36,14),MAT.shiny);
-shaft.rotation.z=Math.PI/2;shaft.position.set(0.18,0,0);shaftG.add(shaft);
 const disc=new THREE.Mesh(new THREE.CylinderGeometry(0.20,0.20,0.045,28),MAT.plate);
 disc.rotation.z=Math.PI/2;disc.position.set(0.36,0,0);shaftG.add(disc);
 const markMat=emis(WARN_HEX);markMat.emissiveIntensity=0.9;
 const mark=new THREE.Mesh(new THREE.BoxGeometry(0.03,0.15,0.05),markMat);
 mark.position.set(0.385,0.10,0);shaftG.add(mark);
-mtBody.userData={title:'Motor de imán permanente',info:'La velocidad sigue a la tensión MEDIA, no al valor instantáneo: la inductancia del inducido alisa la corriente entre pulso y pulso.'};
+Object.assign(mtBody.userData,{title:'Motor de imán permanente',info:'La velocidad sigue a la tensión MEDIA, no al valor instantáneo: la inductancia del inducido alisa la corriente entre pulso y pulso.'});
 addHoverLabel(mtBody,'Motor de CD',VIO,new THREE.Vector3(1.30,1.35,0).add(benchG.position),1.4);
 mark.userData={title:'Marca del eje',info:'Gira a la velocidad que da el punto de trabajo. En la zona muerta se queda quieta aunque el duty ya no sea cero.'};
 
@@ -1398,6 +1417,7 @@ function updateHW(){
   diodeMat.emissiveIntensity=fr.diode?1.4:0.06;
   shaftAng+=fr.rpm*0.00035;
   shaftG.rotation.x=shaftAng;
+  mtBody.userData.gira(shaftAng);   // el eje y el ventilador, calados juntos
   drum.rotation.x=shaftAng*0.4;
   markMat.emissiveIntensity=Math.abs(fr.rpm)<0.5?0.15:0.9;
   drawPanel3D(fr);
