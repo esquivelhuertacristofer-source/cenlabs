@@ -372,18 +372,29 @@ function leads(g){
   l1.rotation.z=Math.PI/2;l1.position.x=-0.16;g.add(l1);
   const l2=l1.clone();l2.position.x=0.16;g.add(l2);
 }
+
+/* Los nombres con los que trabaja la biblioteca de piezas (`P3`, que el molde ya
+   importa), traducidos una vez a los materiales de este laboratorio. */
+const MATP={
+  aluminio:std({color:0x9aa3ad,roughness:0.34,metalness:0.86}),
+  acero:MAT.lead, cromo:MAT.lead,
+  cobre:std({color:0xb87333,roughness:0.35,metalness:0.75}),
+  chapa:std({color:0x8f98a3,roughness:0.40,metalness:0.80}),
+  negro:std({color:0x14181e,roughness:0.62,metalness:0.06}),
+  goma:std({color:0x14181e,roughness:0.80,metalness:0.02}),
+  blanco:std({color:0xd7dee6,roughness:0.40,metalness:0.20}),
+  ceramica:std({color:0xd7dee6,roughness:0.60,metalness:0.05}),
+};
+/* LOS COMPONENTES, con la forma que tienen en la mano. Lo que convierte un taco
+   en un componente son las PATAS —por donde entra la corriente y por donde se
+   suelda— y las MARCAS: las bandas de la resistencia, la banda del catodo, la
+   cara plana del TO-92, la aleta del TO-220. Cada marca evita una averia
+   distinta, y ninguna estaba dibujada. */
 function makeResistor3D(){
-  const g=new THREE.Group();
-  const body=new THREE.Mesh(new THREE.CylinderGeometry(0.05,0.05,0.26,20),MAT.resistor);
-  body.rotation.z=Math.PI/2;g.add(body);
-  leads(g);
-  const bands=[];
-  for(let i=0;i<3;i++){
-    const band=new THREE.Mesh(new THREE.CylinderGeometry(0.052,0.052,0.018,20),std({color:0x333333}));
-    band.rotation.z=Math.PI/2;band.position.x=-0.07+i*0.05;
-    g.add(band);bands.push(band);
-  }
-  g.userData.bands=bands;
+  const g=P3.resistencia(MATP,{largo:0.24,d:0.095,patas:0.10,paso:0.36,
+    bandas:[0x333333,0x333333,0x333333],cuerpo:MAT.resistor.color.getHex()});
+  g.userData.bands=g.userData.bandas;
+  g.userData.body=g.userData.cuerpo;
   return g;
 }
 function paintBands(g,r){
@@ -392,24 +403,20 @@ function paintBands(g,r){
   g.userData.bands.forEach(function(band,i){band.material=std({color:parseInt(cols[i].slice(1),16)});});
 }
 function makeMOSFET3D(){
-  const g=new THREE.Group();
-  const body=new THREE.Mesh(new THREE.BoxGeometry(0.15,0.17,0.05),MAT.mosfetBody);
-  g.add(body);
-  const tab=new THREE.Mesh(new THREE.BoxGeometry(0.1,0.06,0.02),MAT.mosfetTab);
-  tab.position.set(0,0.115,-0.008);g.add(tab);
-  const l1=new THREE.Mesh(new THREE.CylinderGeometry(0.008,0.008,0.14,8),MAT.lead);
-  l1.position.set(-0.045,-0.15,0.02);g.add(l1);
-  const l2=l1.clone();l2.position.set(0,-0.15,0.02);g.add(l2);
-  const l3=l1.clone();l3.position.set(0.045,-0.15,0.02);g.add(l3);
-  g.userData.bodyMesh=body;
+  const g=P3.to220(MATP,{ancho:0.17,alto:0.24,fondo:0.055,patas:0.13,paso:0.045});
+  g.userData.bodyMesh=g.userData.cuerpo;
   return g;
 }
+// Todos apoyan en la CARA de la placa: la biblioteca dibuja cada componente
+// con y = 0 en la placa y las patas por debajo. Antes flotaban dos decimas
+// por encima, que con patas horizontales no se notaba y con patas si.
+const Y_PCB=0.035;
 const rdG=makeResistor3D();
-rdG.position.set(-0.15,0.24,1.1);
+rdG.position.set(-0.15,Y_PCB,1.1);
 rdG.userData.act='rd3d';rdG.userData.title='RD';
 benchG.add(rdG);
 const mosfetG=makeMOSFET3D();
-mosfetG.position.set(0.45,0.24,1.15);
+mosfetG.position.set(0.45,Y_PCB,1.15);
 mosfetG.userData.act='mosfet3d';mosfetG.userData.title='MOSFET (Q1)';
 benchG.add(mosfetG);
 const driverChipG=new THREE.Mesh(new THREE.BoxGeometry(0.16,0.05,0.16),MAT.mosfetTab);

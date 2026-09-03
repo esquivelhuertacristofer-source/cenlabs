@@ -741,18 +741,29 @@ function leads(g){
   l1.rotation.z=Math.PI/2;l1.position.x=-0.16;g.add(l1);
   const l2=l1.clone();l2.position.x=0.16;g.add(l2);
 }
+
+/* Los nombres con los que trabaja la biblioteca de piezas (`P3`, que el molde ya
+   importa), traducidos una vez a los materiales de este laboratorio. */
+const MATP={
+  aluminio:std({color:0x9aa3ad,roughness:0.34,metalness:0.86}),
+  acero:MAT.lead, cromo:MAT.lead,
+  cobre:std({color:0xb87333,roughness:0.35,metalness:0.75}),
+  chapa:std({color:0x8f98a3,roughness:0.40,metalness:0.80}),
+  negro:std({color:0x14181e,roughness:0.62,metalness:0.06}),
+  goma:std({color:0x14181e,roughness:0.80,metalness:0.02}),
+  blanco:std({color:0xd7dee6,roughness:0.40,metalness:0.20}),
+  ceramica:std({color:0xd7dee6,roughness:0.60,metalness:0.05}),
+};
+/* LOS COMPONENTES, con la forma que tienen en la mano. Lo que convierte un taco
+   en un componente son las PATAS —por donde entra la corriente y por donde se
+   suelda— y las MARCAS: las bandas de la resistencia, la banda del catodo, la
+   cara plana del TO-92, la aleta del TO-220. Cada marca evita una averia
+   distinta, y ninguna estaba dibujada. */
 function makeResistor3D(){
-  const g=new THREE.Group();
-  const body=new THREE.Mesh(new THREE.CylinderGeometry(0.05,0.05,0.26,20),MAT.resistor);
-  body.rotation.z=Math.PI/2;g.add(body);
-  leads(g);
-  const bands=[];
-  for(let i=0;i<3;i++){
-    const band=new THREE.Mesh(new THREE.CylinderGeometry(0.052,0.052,0.018,20),std({color:0x333333}));
-    band.rotation.z=Math.PI/2;band.position.x=-0.07+i*0.05;
-    g.add(band);bands.push(band);
-  }
-  g.userData.bands=bands;
+  const g=P3.resistencia(MATP,{largo:0.24,d:0.095,patas:0.10,paso:0.36,
+    bandas:[0x333333,0x333333,0x333333],cuerpo:MAT.resistor.color.getHex()});
+  g.userData.bands=g.userData.bandas;
+  g.userData.body=g.userData.cuerpo;
   return g;
 }
 function paintBands(g,r){
@@ -761,24 +772,25 @@ function paintBands(g,r){
   g.userData.bands.forEach(function(band,i){band.material=std({color:parseInt(cols[i].slice(1),16)});});
 }
 function makeZener3D(){
-  const g=new THREE.Group();
-  const body=new THREE.Mesh(new THREE.CylinderGeometry(0.045,0.045,0.16,16),MAT.zenerBody);
-  body.rotation.z=Math.PI/2;g.add(body);
-  const band=new THREE.Mesh(new THREE.CylinderGeometry(0.047,0.047,0.02,16),MAT.zenerBand);
-  band.rotation.z=Math.PI/2;band.position.x=0.06;g.add(band);
-  leads(g);
+  const g=P3.diodoAxial(MATP,{largo:0.17,d:0.075,patas:0.10,paso:0.36,
+    cuerpo:MAT.zenerBody.color.getHex(),banda:MAT.zenerBand.color.getHex(),catodo:1});
+  g.userData.bodyMesh=g.userData.cuerpo;
   return g;
 }
+// Todos apoyan en la CARA de la placa: la biblioteca dibuja cada componente
+// con y = 0 en la placa y las patas por debajo. Antes flotaban dos decimas
+// por encima, que con patas horizontales no se notaba y con patas si.
+const Y_PCB=0.035;
 const rsG=makeResistor3D();
-rsG.position.set(-0.15,0.24,1.15);
+rsG.position.set(-0.15,Y_PCB,1.15);
 rsG.userData.act='rs3d';rsG.userData.title='Resistor serie Rs';
 benchG.add(rsG);
 const zenG=makeZener3D();
-zenG.position.set(0.15,0.24,1.15);zenG.rotation.y=Math.PI/2;
+zenG.position.set(0.15,Y_PCB,1.15);zenG.rotation.y=Math.PI/2;
 zenG.userData.act='zen3d';zenG.userData.title='Diodo zener';
 benchG.add(zenG);
 const rlG=makeResistor3D();
-rlG.position.set(0.45,0.24,1.15);
+rlG.position.set(0.45,Y_PCB,1.15);
 rlG.userData.act='rl3d';rlG.userData.title='Resistor de carga RL';
 benchG.add(rlG);
 

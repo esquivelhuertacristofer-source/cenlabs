@@ -2869,6 +2869,35 @@ export function to220(mat, opts = {}) {
 }
 
 /**
+ * ENCAPSULADO TO-92: el del transistor pequeno. Es medio cilindro con una CARA
+ * PLANA, y esa cara plana no es un capricho de moldeo: es la referencia con la
+ * que se identifican las tres patas. Un cilindro liso deja al alumno sin saber
+ * cual es la base, y equivocarse de pata es no polarizar nada.
+ */
+export function to92(mat, opts = {}) {
+  const { d = 0.11, alto = 0.17, patas = 0.13, paso = 0.032,
+          cuerpo = 0x1d2229, seg = 20 } = opts;
+  const g = new THREE.Group();
+  const R = d / 2;
+  const aFlat = Math.acos(0.62), cont = [];
+  for (let k = 0; k <= seg; k++) {
+    const a2 = aFlat + (2 * Math.PI - 2 * aFlat) * (k / seg);
+    cont.push([Math.cos(a2) * R, Math.sin(a2) * R]);
+  }
+  const cue = new THREE.Mesh(extruido(cont, { espesor: alto, bisel: R * 0.30, biselSeg: 3 }),
+    new THREE.MeshStandardMaterial({ color: cuerpo, roughness: 0.66, metalness: 0.05 }));
+  cue.rotation.x = -Math.PI / 2; cue.position.y = alto; cue.castShadow = true; g.add(cue);
+  const met = mat.cromo || mat.acero || mat.aluminio;
+  for (let i = -1; i <= 1; i++) {
+    const l = new THREE.Mesh(new THREE.CylinderGeometry(d * 0.055, d * 0.055, patas + 0.02, 8), met);
+    l.position.set(i * paso, -(patas + 0.02) / 2 + 0.01, i === 0 ? -R * 0.30 : R * 0.06);
+    g.add(l);
+  }
+  g.userData = { d, alto, cuerpo: cue };
+  return g;
+}
+
+/**
  * INDUCTOR de nucleo de tambor, CON SU HILO A LA VISTA. Una bobina dibujada
  * como un taco negro esconde lo unico que hay que entender: que una inductancia
  * son VUELTAS de hilo alrededor de un nucleo, y que por eso una bobina de mas
