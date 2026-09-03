@@ -2824,6 +2824,76 @@ export function ventosa(mat, opts = {}) {
 }
 
 
+/**
+ * TIRA DE PINES macho, el conector de 2,54 mm de toda placa: base de plastico
+ * negro y pines de seccion CUADRADA, no redondos. Son cuadrados porque asi
+ * muerden el contacto elastico del conector hembra y porque asi se les puede
+ * enganchar una pinza sin que resbale — que es exactamente lo que se hace para
+ * pinchar un bus. Convenio §11: la cara de la placa es y = 0 y las patas bajan.
+ */
+export function tiraPines(mat, opts = {}) {
+  const { n = 4, filas = 1, paso = 0.10, alto = 0.06, pin = 0.09, patas = 0.05,
+          cuerpo = 0x14171b } = opts;
+  const g = new THREE.Group();
+  const met = mat.cobre || mat.acero || mat.aluminio;
+  const matC = new THREE.MeshStandardMaterial({ color: cuerpo, roughness: 0.66, metalness: 0.05 });
+  const W = n * paso, D = filas * paso;
+  const base = new THREE.Mesh(new THREE.BoxGeometry(W, alto, D), matC);
+  base.position.y = alto / 2; base.castShadow = true; g.add(base);
+  const e = paso * 0.24;                              // el lado del pin cuadrado
+  const pines = [];
+  for (let i = 0; i < n; i++) for (let j = 0; j < filas; j++) {
+    const x = (i - (n - 1) / 2) * paso, z = (j - (filas - 1) / 2) * paso;
+    const pn = new THREE.Mesh(new THREE.BoxGeometry(e, pin, e), met);
+    pn.position.set(x, alto + pin / 2, z); pn.castShadow = true; g.add(pn);
+    pines.push(pn);                       // el laboratorio los enciende uno a uno
+    if (patas > 0) {
+      const pt = new THREE.Mesh(new THREE.BoxGeometry(e, patas, e), met);
+      pt.position.set(x, -patas / 2, z); g.add(pt);
+    }
+  }
+  g.userData = { n, filas, paso, alto, pin, ancho: W, fondo: D, pines,
+    punta: (i, j = 0) => new THREE.Vector3(
+      (i - (n - 1) / 2) * paso, alto + pin, (j - (filas - 1) / 2) * paso) };
+  return g;
+}
+
+/**
+ * PINZA DE GARRA (grabber) de punta de prueba: el cuerpo de plastico del color
+ * del canal, el GANCHO metalico que sale por la punta y el aro por el que
+ * asoma. Es la pieza que convierte un cable suelto en una conexion que se queda
+ * puesta: el gancho se retrae con el embolo, se engancha en el pin y ahi se
+ * queda mientras dura la captura. Eje +Y: el gancho MUERDE en y = 0 y el cable
+ * sale por arriba.
+ */
+export function pinzaGarra(mat, opts = {}) {
+  const { largo = 0.16, d = 0.030, color = 0xd8a12a, seg = 12 } = opts;
+  const g = new THREE.Group();
+  const R = d / 2;
+  const met = mat.acero || mat.aluminio || mat.cromo;
+  const matC = new THREE.MeshStandardMaterial({ color, roughness: 0.52, metalness: 0.10 });
+  const cue = new THREE.Mesh(revolucion([
+    [0, largo * 0.24], [R * 0.50, largo * 0.24], [R, largo * 0.36],
+    [R, largo * 0.86], [R * 0.72, largo], [0, largo]], { seg }), matC);
+  cue.castShadow = true; g.add(cue);
+  const emb = new THREE.Mesh(new THREE.CylinderGeometry(R * 0.52, R * 0.52, largo * 0.24, seg), met);
+  emb.position.y = largo * 1.06; g.add(emb);
+  /* EL GANCHO en J: sale por la punta, baja, se curva y vuelve a subir. Ese
+     rizo es lo que abraza el pin y lo que hace que la pinza se quede puesta;
+     un arco escondido dentro del cuerpo no sujetaria nada. */
+  const gan = new THREE.Mesh(new THREE.TubeGeometry(new THREE.CatmullRomCurve3([
+    new THREE.Vector3(0, largo * 0.26, 0),
+    new THREE.Vector3(0, largo * 0.07, 0),
+    new THREE.Vector3(R * 0.32, largo * 0.005, 0),
+    new THREE.Vector3(R * 1.10, largo * 0.02, 0),
+    new THREE.Vector3(R * 1.48, largo * 0.10, 0),
+    new THREE.Vector3(R * 1.22, largo * 0.20, 0),
+  ], false), 26, R * 0.17, 6, false), met);
+  gan.castShadow = true; g.add(gan);
+  g.userData = { largo, d, color, salida: new THREE.Vector3(0, largo * 1.18, 0) };
+  return g;
+}
+
 /* ==========================================================================
    §12 · MEDIDA DE TEMPERATURA
    --------------------------------------------------------------------------

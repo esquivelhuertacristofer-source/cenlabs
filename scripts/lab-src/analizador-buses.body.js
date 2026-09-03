@@ -999,14 +999,39 @@ const top=roundedBox(3.3,0.12,1.6,MAT.bench,0.03);top.position.set(0,0.72,0);ben
 // -- equipo bajo prueba
 const dutG=new THREE.Group();dutG.position.set(-1.05,0.78,0.18);benchG.add(dutG);
 const dutPcb=roundedBox(0.9,0.03,0.66,MAT.pcb,0.02);dutPcb.position.set(0,0.02,0);dutG.add(dutPcb);
-const dutChip=roundedBox(0.26,0.06,0.26,MAT.dark,0.01);dutChip.position.set(-0.12,0.065,0.02);dutG.add(dutChip);
-const dutMem=roundedBox(0.16,0.05,0.12,MAT.dark,0.01);dutMem.position.set(0.18,0.06,-0.14);dutG.add(dutMem);
-const dutHdr=roundedBox(0.08,0.06,0.42,MAT.plate,0.01);dutHdr.position.set(0.38,0.065,0.06);dutG.add(dutHdr);
-const dutPins=[];
-for(let i=0;i<4;i++){
-  const p=new THREE.Mesh(new THREE.CylinderGeometry(0.012,0.012,0.09,8),MAT.copper);
-  p.position.set(0.38,0.115,0.21-i*0.10);dutG.add(p);dutPins.push(p);
-}
+/* Los nombres con los que trabaja la biblioteca de piezas (`P3`, que el molde ya
+   importa), traducidos una vez a los materiales de este laboratorio. */
+const MATP={
+  aluminio:MAT.steel, acero:MAT.steel, cromo:MAT.shiny, chapa:MAT.plate,
+  cobre:MAT.copper, negro:MAT.dark,
+  goma:std(0x14181e,0.8,0.02), blanco:std(0xd7dee6,0.4,0.2),
+  ceramica:std(0xd7dee6,0.6,0.05),
+};
+/* LOS INTEGRADOS, en DIP: cuerpo con MUESCA y PUNTO DE PATILLA 1 —sin ellos no
+   se sabe por donde empieza el pinout, que es lo primero que se mira antes de
+   pinchar nada— y las patas por las que estan soldados. Un taco negro liso no
+   dice ni cuantas patas tiene. */
+const dutChip=P3.dip(MATP,{pines:20,paso:0.026,ancho:0.20,alto:0.05,patas:0.04});
+dutChip.position.set(-0.12,0.035,0.02);dutG.add(dutChip);
+const dutMem=P3.dip(MATP,{pines:8,paso:0.032,ancho:0.13,alto:0.045,patas:0.04});
+dutMem.position.set(0.18,0.035,-0.14);dutG.add(dutMem);
+/* Un par de pasivos, para que la placa parezca una placa. */
+const dutR=P3.resistencia(MATP,{largo:0.10,d:0.036,patas:0.03,paso:0.16,
+  bandas:[0x7a4a1e,0x111318,0xb03a2e,0xc9a227]});
+dutR.position.set(-0.12,0.035,0.24);dutR.rotation.y=Math.PI/2;dutG.add(dutR);
+const dutC=P3.condensadorRadial(MATP,{d:0.075,alto:0.11,patas:0.03,paso:0.045});
+dutC.position.set(0.10,0.035,0.24);dutG.add(dutC);
+/* LA TIRA DE PINES: pines de seccion CUADRADA sobre base de plastico. Son
+   cuadrados para que muerdan el contacto —y para que una pinza no resbale—, y
+   es justo ahi donde se pincha el bus. */
+const dutHdr=P3.tiraPines(MATP,{n:4,paso:0.10,alto:0.05,pin:0.09,patas:0.03});
+dutHdr.rotation.y=Math.PI/2;                       // la fila corre en Z
+dutHdr.position.set(0.38,0.035,0.06);dutG.add(dutHdr);
+/* La tira nace con la fila en X y se gira un cuarto de vuelta sobre Y, que
+   lleva +X a −Z: el pin 0 (el de x menor) queda en el z MAYOR, que es
+   justamente el canal 0. El orden del array ya sale bien; invertirlo apagaba
+   el pin del otro extremo. */
+const dutPins=dutHdr.userData.pines;
 dutG.userData={title:'Equipo bajo prueba',info:'La placa que habla: aquí nacen los flancos que hay que capturar'};
 addHoverLabel(dutG,'Equipo bajo prueba',SCCOL[0],new THREE.Vector3(-1.05,1.30,0.18).add(benchG.position),1.9);
 
@@ -1050,15 +1075,29 @@ function lead(p0,p1,colHex,r){
   m.quaternion.setFromUnitVectors(new THREE.Vector3(0,1,0),d.clone().normalize());
   return m;
 }
+/* LAS PINZAS DE GARRA, una por canal, mordiendo su pin. Son lo que convierte
+   cuatro cables sueltos en una conexion que se queda puesta mientras dura la
+   captura: el gancho abraza el pin y no se suelta al mover el banco. */
+const garras=[];
+for(let i=0;i<4;i++){
+  const g=P3.pinzaGarra(MATP,{largo:0.15,d:0.030,color:new THREE.Color(CHC[i]).getHex()});
+  g.position.set(-0.67,0.935,0.39-i*0.10);benchG.add(g);garras.push(g);
+}
+/* La entrada del analizador es su propia TIRA DE PINES: los latiguillos se
+   enchufan ahi, no al aire contra el costado de la caja. */
+const anaHdr=P3.tiraPines(MATP,{n:4,paso:0.10,alto:0.05,pin:0.09,patas:0});
+anaHdr.rotation.y=Math.PI/2;
+anaHdr.position.set(0.63,1.14,0.0);benchG.add(anaHdr);
+
 const leads=[];
 for(let i=0;i<4;i++){
-  const a=new THREE.Vector3(-0.67,0.94,0.39-i*0.10);
+  const a=new THREE.Vector3(-0.67,1.112,0.39-i*0.10);   // sale de la garra
   const b=new THREE.Vector3(-0.36,0.90,0.16-i*0.05);
   const m=lead(a,b,CHC[i]);benchG.add(m);leads.push(m);
 }
 for(let i=0;i<4;i++){
   const a=new THREE.Vector3(0.16,0.90,0.16-i*0.05);
-  const b=new THREE.Vector3(0.52,0.92,0.06-i*0.05);
+  const b=new THREE.Vector3(0.63,1.28,0.15-i*0.10);     // hasta el pin del analizador
   const m=lead(a,b,CHC[i]);benchG.add(m);leads.push(m);
 }
 
@@ -1158,6 +1197,7 @@ function updateHW(){
   capMat.emissiveIntensity=de.ok?1.4:0.7;
   leads.forEach((m,i)=>{m.visible=act.indexOf(i%4)>=0;});
   dutPins.forEach((p,i)=>{p.visible=act.indexOf(i)>=0;});
+  garras.forEach((g,i)=>{g.visible=act.indexOf(i)>=0;});
   drawPanel3D(fr,step);
 }
 
