@@ -3907,3 +3907,103 @@ export function moduloBanco(mat, opts = {}) {
   g.userData = { ancho, fondo, alto, base, bornas: lista, bocas };
   return g;
 }
+
+/** Alias interno: dentro de `instrumentoBanco` el nombre `bnc` es un parámetro. */
+const bnc_ = bnc;
+
+/**
+ * INSTRUMENTO DE BANCO: un generador de funciones, un osciloscopio, un
+ * frecuencímetro. Lo que hace que un aparato de laboratorio se reconozca no es
+ * la caja —todas las cajas son iguales—: es su FRENTE. El visor rebajado en su
+ * marco, la fila de mandos con su índice, los conectores BNC por los que entra
+ * y sale la señal y las patas de goma con el pie inclinable. Un cubo gris con
+ * una pantalla pegada encima puede ser cualquier cosa, incluso un microondas.
+ *
+ * El frente mira a +Z. `userData.pantalla` es el punto donde colgar el plano
+ * de la señal (ya rebajado en el marco) y `userData.bnc` da los conectores
+ * creados, para engancharles el cable sin cifras a mano.
+ */
+export function instrumentoBanco(mat, opts = {}) {
+  const { ancho = 0.72, alto = 0.46, fondo = 0.34, color = 0x8b9490,
+          visor = 0.56, visorAlto = 0.46, mandos = 3, bnc = 0,
+          bncColores = null, rejilla = true, pie = true } = opts;
+  const g = new THREE.Group();
+  const W = ancho, H = alto, D = fondo;
+  const matC = new THREE.MeshStandardMaterial({ color, roughness: 0.58, metalness: 0.30 });
+  const cuerpo = new THREE.Mesh(extruido(contornoRedondeado([
+    [-W / 2, -H / 2], [W / 2, -H / 2], [W / 2, H / 2], [-W / 2, H / 2]],
+    Math.min(W, H) * 0.09, 3), { espesor: D, bisel: D * 0.05 }), matC);
+  cuerpo.castShadow = true; cuerpo.receiveShadow = true; g.add(cuerpo);
+
+  /* EL MARCO DEL VISOR. La pantalla de un instrumento va HUNDIDA: el marco la
+     protege de los golpes y del reflejo. Pegada por fuera, el aparato parece
+     una tableta con imanes. */
+  const vw = W * visor, vh = H * visorAlto;
+  const my = H * 0.14;
+  /* El marco es un MARCO: lleva su hueco. Extruido macizo tapaba la pantalla
+     que dice proteger, y las tres pantallas del banco salían en negro. */
+  const marco = new THREE.Mesh(extruido(contornoRedondeado([
+    [-vw / 2 - W * 0.030, -vh / 2 - W * 0.030], [vw / 2 + W * 0.030, -vh / 2 - W * 0.030],
+    [vw / 2 + W * 0.030, vh / 2 + W * 0.030], [-vw / 2 - W * 0.030, vh / 2 + W * 0.030]],
+    W * 0.022, 3), { espesor: W * 0.045, bisel: W * 0.010,
+      huecos: [[[-vw / 2, -vh / 2], [vw / 2, -vh / 2], [vw / 2, vh / 2], [-vw / 2, vh / 2]]] }),
+    mat.negro || mat.chapa);
+  marco.position.set(-W * 0.10, my, D / 2 + W * 0.015); g.add(marco);
+  const fondoV = new THREE.Mesh(new THREE.PlaneGeometry(vw, vh),
+    new THREE.MeshStandardMaterial({ color: 0x070d0b, roughness: 0.42, metalness: 0.06 }));
+  fondoV.position.set(-W * 0.10, my, D / 2 + W * 0.026); g.add(fondoV);
+  const pantalla = new THREE.Group();
+  pantalla.position.set(-W * 0.10, my, D / 2 + W * 0.030); g.add(pantalla);
+
+  /* LOS MANDOS. Cada uno con su índice: un mando sin índice no dice en qué
+     posición está, que es justo para lo que sirve un mando. */
+  const mandosL = [];
+  const matM = mat.negro || mat.chapa;
+  const matI = mat.blanco || mat.cromo || mat.acero;
+  for (let i = 0; i < mandos; i++) {
+    const k = new THREE.Group();
+    const rk = H * 0.085;
+    const cu = new THREE.Mesh(revolucion([
+      [0, 0], [rk, 0], [rk, H * 0.055], [rk * 0.72, H * 0.070], [0, H * 0.070]], { seg: 20 }), matM);
+    cu.rotation.x = Math.PI / 2; k.add(cu);
+    /* El índice va POR FUERA de la cara del mando: a la altura del cuerpo se
+       quedaba dentro y el mando volvía a ser un botón sin posición. */
+    const ix = new THREE.Mesh(new THREE.BoxGeometry(rk * 0.20, rk * 1.02, H * 0.014), matI);
+    ix.position.set(0, rk * 0.46, H * 0.074); k.add(ix);
+    // Los mandos, en la franja de abajo a la DERECHA; los BNC, abajo a la
+    // izquierda. Repartidos por el centro se comían el visor.
+    const x = W * 0.42 - i * Math.min(W * 0.16, H * 0.30);
+    k.position.set(x, -H * 0.30, D / 2 + H * 0.006);
+    g.add(k); mandosL.push(k);
+  }
+
+  /* LOS BNC. Es por donde entra y sale la señal: sin ellos, el cable de un
+     osciloscopio nace de un costado cualquiera de la caja. */
+  const bncL = [];
+  for (let i = 0; i < bnc; i++) {
+    const b = bnc_(mat, { d: H * 0.20, largo: H * 0.20,
+      color: bncColores ? bncColores[i % bncColores.length] : 0xd8a12a });
+    const x = -W * 0.40 + i * Math.min(W * 0.16, H * 0.30);
+    b.position.set(x, -H * 0.30, D / 2);
+    g.add(b); bncL.push(b);
+  }
+
+  if (rejilla) {                        // la rejilla de ventilación de un costado
+    const mr = mat.negro || mat.chapa;
+    for (let i = 0; i < 5; i++) {
+      const r = new THREE.Mesh(new THREE.BoxGeometry(W * 0.012, H * 0.30, D * 0.55), mr);
+      r.position.set(W / 2 - W * 0.006, -H * 0.06, -D * 0.06 + (i - 2) * D * 0.085);
+      g.add(r);
+    }
+  }
+  if (pie) {                            // las cuatro patas de goma
+    const mg = mat.goma || mat.negro || matC;
+    for (const sx of [-1, 1]) for (const sz of [-1, 1]) {
+      const p = new THREE.Mesh(new THREE.CylinderGeometry(H * 0.045, H * 0.045, H * 0.055, 10), mg);
+      p.position.set(sx * W * 0.40, -H / 2 - H * 0.026, sz * D * 0.34); g.add(p);
+    }
+  }
+  g.userData = { ancho: W, alto: H, fondo: D, pantalla, mandos: mandosL, bnc: bncL,
+    visor: { ancho: vw, alto: vh }, alturaPata: H * 0.055 };
+  return g;
+}

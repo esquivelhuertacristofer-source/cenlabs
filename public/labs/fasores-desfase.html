@@ -455,7 +455,7 @@ function makeSynth(opts={}){
 
 // ============================== 1) ESCENA ==============================
 const mount=document.getElementById('stage');
-const S=createStage(mount,{cam:[3.0,2.2,6.6],target:[0.4,1.2,0.0],bgTop:'#0d1a17',bgBot:'#04060a',bloom:0.35,minD:3.0,maxD:16});
+const S=createStage(mount,{cam:[3.8,2.3,5.2],target:[1.45,1.02,0.55],bgTop:'#0d1a17',bgBot:'#04060a',bloom:0.35,minD:3.0,maxD:16});
 const {scene}=S;
 const synth=makeSynth({type:'sine',type2:'triangle',filterFreq:2600,Q:0.8});
 
@@ -562,6 +562,21 @@ const MAT={
   cableCh1:std({...rub.maps,color:0x2e7d74,roughness:1.0,metalness:0}),
   cableCh2:std({...rub.maps,color:0xb5661f,roughness:1.0,metalness:0}),
   knobDark:std({color:0x1c2226,roughness:0.6,metalness:0.3}),
+};
+
+/* Los nombres con los que trabaja la biblioteca de piezas (`P3`, que el molde
+   ya importa), traducidos una vez a los materiales de este laboratorio. */
+const MATP={
+  aluminio: std({color:0x8f979f,roughness:0.55,metalness:0.60}),
+  acero:    std({color:0x9aa2a9,roughness:0.34,metalness:0.85}),
+  cromo:    std({color:0xc9d1d6,roughness:0.22,metalness:0.90}),
+  chapa:    std({color:0x828a91,roughness:0.45,metalness:0.75}),
+  cobre:    std({color:0xb87333,roughness:0.35,metalness:0.75}),
+  negro:    std({color:0x13181c,roughness:0.62,metalness:0.06}),
+  goma:     std({color:0x0f1216,roughness:0.94,metalness:0.0}),
+  blanco:   std({color:0xd7dee6,roughness:0.42,metalness:0.15}),
+  rojo:     std({color:0xd64545,roughness:0.50,metalness:0.10}),
+  ceramica: std({color:0xd9dcd6,roughness:0.62,metalness:0.04}),
 };
 
 const HOVER_LABELS=new Map();
@@ -720,25 +735,34 @@ function boardClick(u,v){
 const bench=sh(roundedBox(2.9,0.5,1.6,MAT.bench,0.05));bench.position.set(1.75,0.25,0.85);scene.add(bench);
 bench.userData={title:'Banco de trabajo',info:'Montaje de los dos generadores de señal y el osciloscopio.'};
 
-function makeGen(x,label,title){
-  const g=new THREE.Group();g.position.set(x,0.72,0.25);scene.add(g);
-  const box=sh(roundedBox(0.56,0.46,0.42,MAT.gen,0.06));g.add(box);
+const YB=0.50;                       // la tapa del banco, de donde arranca todo
+
+/* UN GENERADOR DE FUNCIONES NO ES UN CAJÓN CON UNA PANTALLA PEGADA. Se reconoce
+   por su frente: el visor HUNDIDO en su marco, la fila de mandos con su índice
+   —el de fase es el que se toca en esta práctica, y por eso gira— y el BNC por
+   el que sale la señal, que es de donde tiene que nacer el cable. */
+function makeGen(x,z,label,title,colBNC){
+  const g=new THREE.Group();
+  const A=0.72,H=0.46,F=0.36;
+  const cuerpo=P3.instrumentoBanco(MATP,{ancho:A,alto:H,fondo:F,color:0x8d9793,
+    mandos:2,bnc:1,bncColores:[colBNC]});
+  g.position.set(x,YB+H/2+H*0.054,z);scene.add(g);g.add(cuerpo);
   const cv=document.createElement('canvas');cv.width=256;cv.height=120;
   const tx=new THREE.CanvasTexture(cv);tx.colorSpace=THREE.SRGBColorSpace;tx.minFilter=THREE.LinearFilter;tx.generateMipmaps=false;
-  const pl=new THREE.Mesh(new THREE.PlaneGeometry(0.42,0.19),new THREE.MeshBasicMaterial({map:tx,toneMapped:false}));
-  pl.position.set(0,0.06,0.215);g.add(pl);
-  const knob=new THREE.Group();knob.position.set(0,-0.14,0.19);g.add(knob);
-  const knobBase=sh(new THREE.Mesh(new THREE.CylinderGeometry(0.055,0.055,0.025,16),MAT.knobDark));
-  knobBase.rotation.x=Math.PI/2;knob.add(knobBase);
-  const knobPointer=sh(new THREE.Mesh(new THREE.BoxGeometry(0.007,0.045,0.01),std({color:0xFF8A5B,roughness:0.4,metalness:0.2})));
-  knobPointer.position.set(0,0.028,0.006);knob.add(knobPointer);
+  const V=cuerpo.userData.visor;
+  const pl=new THREE.Mesh(new THREE.PlaneGeometry(V.ancho*0.94,V.alto*0.90),
+    new THREE.MeshBasicMaterial({map:tx,toneMapped:false}));
+  cuerpo.userData.pantalla.add(pl);
+  const knob=cuerpo.userData.mandos[0];      // el mando de fase, el que se toca
   g.userData={el:label};
-  addHoverLabel(g,title,'#f0a5a5',new THREE.Vector3(0,0.5,0),0.8);
-  return{g,cv,tx,knob};
+  addHoverLabel(g,title,'#f0a5a5',new THREE.Vector3(0,0.42,0),0.8);
+  // La boca del BNC, para colgar de ahí el coaxial.
+  const b=cuerpo.userData.bnc[0];
+  const salida=g.position.clone().add(b.position).add(new THREE.Vector3(0,0,H*0.16));
+  return{g,cv,tx,knob,salida,cuerpo};
 }
-const gen1=makeGen(0.95,'GEN1','Generador 1 · referencia fija (10 V, 0°)');
-const gen2=makeGen(1.85,'GEN2','Generador 2 · señal a caracterizar');
-gen1.knob.visible=false;
+const gen1=makeGen(0.78,1.02,'GEN1','Generador 1 · referencia fija (10 V, 0°)',0x2e7d74);
+const gen2=makeGen(2.72,1.02,'GEN2','Generador 2 · señal a caracterizar',0xb5661f);
 
 function drawGenDisplay(genObj,vmText,phiText,accent){
   const c=genObj.cv.getContext('2d');
@@ -751,10 +775,53 @@ function drawGenDisplay(genObj,vmText,phiText,accent){
   genObj.tx.needsUpdate=true;
 }
 
-const scopeBox=sh(roundedBox(0.62,0.5,0.10,MAT.scopeBox,0.05));
-scopeBox.position.set(1.4,1.0,-0.15);
-scene.add(scopeBox);
-scopeBox.userData={title:'Osciloscopio (referencia física)',info:'La medición real ocurre en el pizarrón — este cajón representa el instrumento conectado a ambos canales.'};
+/* EL OSCILOSCOPIO, con su pantalla ENCENDIDA. Estaba flotando en el aire —fuera
+   del banco, a 0,10 de fondo y sin nada debajo— y era una plancha de 10 cm de
+   canto con la etiqueta «referencia física». Ahora es un aparato de dos canales
+   apoyado en el banco, con sus dos BNC de entrada y con las DOS TRAZAS pintadas
+   en su visor: el pizarrón sigue siendo donde se mide, porque ahí se lee, pero
+   el instrumento ya no finge estar apagado. */
+const scopeG=new THREE.Group();
+const SC_A=0.98,SC_H=0.64,SC_F=0.44;
+scopeG.position.set(1.75,YB+SC_H/2+SC_H*0.054,0.42);scene.add(scopeG);
+const scopeBox=P3.instrumentoBanco(MATP,{ancho:SC_A,alto:SC_H,fondo:SC_F,color:0x8d9793,
+  mandos:3,bnc:2,bncColores:[0x2e7d74,0xb5661f]});
+scopeG.add(scopeBox);
+scopeG.userData={title:'Osciloscopio de dos canales',info:'Las dos entradas BNC reciben cada una su generador. En su visor van las mismas dos trazas que amplía el pizarrón: ahí se leen los cruces por cero con los cursores.'};
+addHoverLabel(scopeG,'osciloscopio · 2 canales','#8ad6c8',new THREE.Vector3(0,0.52,0),0.8);
+const scCv=document.createElement('canvas');scCv.width=512;scCv.height=280;
+const scTx=new THREE.CanvasTexture(scCv);scTx.colorSpace=THREE.SRGBColorSpace;
+scTx.minFilter=THREE.LinearFilter;scTx.generateMipmaps=false;
+{
+  const V=scopeBox.userData.visor;
+  const pl=new THREE.Mesh(new THREE.PlaneGeometry(V.ancho*0.95,V.alto*0.92),
+    new THREE.MeshBasicMaterial({map:scTx,toneMapped:false}));
+  scopeBox.userData.pantalla.add(pl);
+}
+/* Las dos trazas del visor. Se repintan cuando cambia el estado, no cada
+   fotograma: la señal no se mueve mientras no se toque un mando. */
+function drawScopeFace(vm2,phi2){
+  const c=scCv.getContext('2d'),W=scCv.width,H=scCv.height;
+  c.fillStyle='#04120e';c.fillRect(0,0,W,H);
+  c.strokeStyle='rgba(79,209,197,0.16)';c.lineWidth=1;
+  for(let i=1;i<10;i++){const x=i*W/10;c.beginPath();c.moveTo(x,0);c.lineTo(x,H);c.stroke();}
+  for(let j=1;j<6;j++){const y=j*H/6;c.beginPath();c.moveTo(0,y);c.lineTo(W,y);c.stroke();}
+  c.strokeStyle='rgba(79,209,197,0.34)';
+  c.beginPath();c.moveTo(0,H/2);c.lineTo(W,H/2);c.stroke();
+  const CICLOS=2.6, AMP=H*0.34/Math.max(V1,vm2);
+  const traza=(vm,phiDeg,col)=>{
+    c.strokeStyle=col;c.lineWidth=2.6;c.beginPath();
+    for(let px=0;px<=W;px++){
+      const t=px/W*CICLOS*Math.PI*2+phiDeg*Math.PI/180;
+      const y=H/2-Math.sin(t)*vm*AMP;
+      px?c.lineTo(px,y):c.moveTo(px,y);
+    }
+    c.stroke();
+  };
+  traza(V1,PHI1,'#4FD1C5');
+  traza(vm2,phi2,'#FF8A5B');
+  scTx.needsUpdate=true;
+}
 
 function cable(ax,ay,az,bx,by,bz,mat){
   const a=new THREE.Vector3(ax,ay,az),b=new THREE.Vector3(bx,by,bz);
@@ -763,23 +830,32 @@ function cable(ax,ay,az,bx,by,bz,mat){
   t.castShadow=true;scene.add(t);
   return t;
 }
-const cbl1=cable(0.95,0.95,0.44,1.25,1.0,-0.1,MAT.cableCh1);
-const cbl2=cable(1.85,0.95,0.44,1.55,1.0,-0.1,MAT.cableCh2);
+/* Los dos coaxiales van de BNC a BNC: nacen en la salida de cada generador y
+   mueren en su entrada del osciloscopio, no en un costado cualquiera. */
+{
+  const bs=scopeBox.userData.bnc;
+  const ent=i=>scopeG.position.clone().add(bs[i].position).add(new THREE.Vector3(0,0,SC_H*0.16));
+  const e0=ent(0), e1=ent(1);
+  cable(gen1.salida.x,gen1.salida.y,gen1.salida.z,e0.x,e0.y,e0.z,MAT.cableCh1);
+  cable(gen2.salida.x,gen2.salida.y,gen2.salida.z,e1.x,e1.y,e1.z,MAT.cableCh2);
+}
 
 function refreshNet3D(){
   drawGenDisplay(gen1,fmtV(V1),fmtDeg(PHI1),'#4FD1C5');
   let vm2Text,phi2Text;
   if(mode==='explora'){
     vm2Text=fmtV(expVm2);phi2Text=fmtDeg(expPhi2);
-    gen2.knob.visible=true;gen2.knob.rotation.z=expPhi2*Math.PI/180;
+    gen2.knob.rotation.z=-expPhi2*Math.PI/180;   // el índice del mando marca la fase
   }else if(mode==='medicion'){
     vm2Text=fmtV(medVm2);phi2Text='φ 🔒';
-    gen2.knob.visible=false;
   }else{
     vm2Text='🔒';phi2Text='🔒';
-    gen2.knob.visible=false;
   }
   drawGenDisplay(gen2,vm2Text,phi2Text,'#FF8A5B');
+  /* El visor del osciloscopio SÍ enseña la señal aunque la fase esté sellada:
+     eso es precisamente lo que hay que medir, y ocultarlo dejaría al alumno sin
+     con qué. Lo que se sella es la CIFRA del generador, no la traza. */
+  drawScopeFace(currentVm2True(),currentPhi2True());
 }
 
 // ============================== 7) HUD Y PANEL ==============================
@@ -868,9 +944,9 @@ function toastPart(id){
 
 // ============================== 9) MODOS Y SELBAR ==============================
 const MODE_META={
-  explora:{nombre:'Explora',cam:[[3.0,2.2,6.6],[0.4,1.2,0.0]],mision:'Ajusta Vm2, f y φ2 del canal 2 y observa cómo cambian el osciloscopio y el diagrama fasorial en tiempo real.'},
+  explora:{nombre:'Explora',cam:[[3.8,2.3,5.2],[1.45,1.02,0.55]],mision:'Ajusta Vm2, f y φ2 del canal 2 y observa cómo cambian el osciloscopio y el diagrama fasorial en tiempo real.'},
   medicion:{nombre:'Medición',cam:[[-0.2,2.0,3.4],[-1.0,1.6,-0.5]],mision:'El desfase del canal 2 está sellado. Alinea ambos cursores al MISMO tipo de cruce por cero y mide φ.'},
-  reto:{nombre:'Reto',cam:[[2.4,1.9,4.0],[1.5,1.0,0.5]],mision:'Amplitud y desfase del canal 2 sellados. Lee Vm2 en la rejilla y mide φ con los cursores.'},
+  reto:{nombre:'Reto',cam:[[3.4,1.9,3.8],[1.75,0.85,0.70]],mision:'Amplitud y desfase del canal 2 sellados. Lee Vm2 en la rejilla y mide φ con los cursores.'},
 };
 function buildSelBar(){
   const bar=el('selbar');
