@@ -1917,21 +1917,65 @@ const posDe=k=>ancla()[k];
 // ------------------------------------------------------------- constructores
 const BUILD={
   bomba(){
+    /* Una bomba centrífuga no es un tambor: es una VOLUTA, un caracol cuyo
+       radio crece con el ángulo. Esa espiral es la pieza: recoge el caudal que
+       el impulsor lanza hacia afuera y lo va frenando hasta la salida, que es
+       donde la velocidad se convierte en presión. Dibujada como un cilindro,
+       la ley que el laboratorio usa —presión por el cuadrado del caudal— no
+       tiene de dónde salir en la pantalla. */
     const g=new THREE.Group();
-    const vol=cil(0.20,0.20,0.16,std({...alu,color:0x828a94,metalness:0.60,roughness:0.55}),30);
-    vol.rotation.x=Math.PI/2; g.add(vol);
-    const cue=cil(0.085,0.085,0.24,MAT.acero,18); cue.rotation.x=Math.PI/2;
-    cue.position.z=-0.18; g.add(cue);
-    const pol=cil(0.15,0.15,0.05,MAT.crom,28); pol.rotation.x=Math.PI/2;
-    pol.position.z=-0.31; g.add(pol);
-    // El impulsor gira: sin él la bomba es una caja y no se ve que mueva nada.
-    const rot=new THREE.Group(); rot.position.z=0.05; g.add(rot);
+    const MATB=std({...alu,color:0x828a94,metalness:0.60,roughness:0.55});
+    const R0=0.112, R1=0.200, ESP=0.020, N=72, TAU=Math.PI*2, ANCHO=0.17;
+    const rv=t=>R0+(R1-R0)*t;
+    /* La pared, como banda entre el radio de la voluta y ese radio más su
+       espesor. El salto del final al principio —de R1 a R0 sobre el mismo eje—
+       es la LENGÜETA: el filo que separa el caudal que sale del que vuelve a
+       dar otra vuelta, y el sitio por donde una bomba cavita cuando se estropea. */
+    const cara=[];
+    for(let i=0;i<=N;i++){ const a=i/N*TAU, r=rv(i/N)+ESP;
+      cara.push([Math.cos(a)*r,Math.sin(a)*r]); }
+    for(let i=N;i>=0;i--){ const a=i/N*TAU, r=rv(i/N);
+      cara.push([Math.cos(a)*r,Math.sin(a)*r]); }
+    const vol=new THREE.Mesh(P3.normalizaUV(P3.extruido(
+      cara,{espesor:ANCHO,bisel:0.005}),2),MATB);
+    vol.castShadow=true; vol.position.z=-ANCHO/2; g.add(vol);
+    // La tapa trasera cierra el caracol por detrás; delante queda la boca.
+    const tapa=new THREE.Mesh(P3.revolucion(
+      [[0,0],[R1+ESP,0],[R1+ESP,0.018],[0,0.018]],{seg:44}),MATB);
+    tapa.rotation.x=Math.PI/2; tapa.position.z=-ANCHO/2; tapa.castShadow=true; g.add(tapa);
+    // La boca de impulsión, tangente y en el radio mayor: ahí sale el agua.
+    const boca=cil(0.058,0.058,0.17,MAT.acero,18); boca.rotation.z=Math.PI/2;
+    boca.position.set(R1+0.10,0,0); g.add(boca);
+    const brida=new THREE.Mesh(P3.revolucion(
+      [[0.058,0],[0.095,0],[0.095,0.016],[0.058,0.016]],{seg:22}),MAT.acero);
+    brida.rotation.z=-Math.PI/2; brida.position.set(R1+0.185,0,0); g.add(brida);
+    const cue=cil(0.075,0.075,0.30,MAT.acero,20); cue.rotation.x=Math.PI/2;
+    cue.position.z=-0.24; g.add(cue);
+    // La polea, con su garganta de correa: es por donde el cigüeñal la arrastra.
+    const pol=new THREE.Mesh(P3.revolucion([
+      [0,0],[0.150,0],[0.150,0.016],[0.126,0.026],[0.126,0.034],
+      [0.150,0.044],[0.150,0.058],[0,0.058]],{seg:28}),MAT.crom);
+    pol.rotation.x=Math.PI/2; pol.position.z=-0.36; pol.castShadow=true; g.add(pol);
+    /* El IMPULSOR, con álabes CURVADOS HACIA ATRÁS. La curvatura no es estética:
+       es lo que hace que la bomba no se embale al abrirse el circuito, y es la
+       diferencia entre un rodete de bomba y una rueda de paletas. */
+    const rot=new THREE.Group(); rot.position.z=-0.062; g.add(rot);
+    const disco=new THREE.Mesh(P3.revolucion(
+      [[0,0],[0.148,0],[0.148,0.012],[0,0.012]],{seg:34}),MAT_LATON);
+    disco.rotation.x=-Math.PI/2; rot.add(disco);
     for(let i=0;i<7;i++){
-      const p=roundedBox(0.024,0.13,0.055,MAT_LATON,0.008);
-      p.position.set(Math.sin(i/7*Math.PI*2)*0.075,Math.cos(i/7*Math.PI*2)*0.075,0);
-      p.rotation.z=-i/7*Math.PI*2; rot.add(p);
+      const a0=i/7*Math.PI*2, arc=[];
+      for(let k=0;k<=8;k++){ const t=k/8, a=a0-t*0.85, r=0.040+t*0.098;
+        arc.push([Math.cos(a)*r,Math.sin(a)*r]); }
+      const al=[...arc];
+      for(let k=8;k>=0;k--){ const t=k/8, a=a0-t*0.85, r=0.040+t*0.098;
+        al.push([Math.cos(a)*(r+0.011),Math.sin(a)*(r+0.011)]); }
+      const p=new THREE.Mesh(P3.extruido(al,{espesor:0.055,bisel:0.004,curvaSeg:2}),MAT_LATON);
+      rot.add(p);
     }
-    rot.add(cil(0.038,0.038,0.07,MAT.crom,14).rotateX(Math.PI/2));
+    const cubo=new THREE.Mesh(P3.revolucion([
+      [0,0],[0.042,0],[0.042,0.070],[0,0.070]],{seg:16}),MAT.crom);
+    cubo.rotation.x=Math.PI/2; rot.add(cubo);
     const bo=cil(0.055,0.055,0.14,MAT.acero,16); bo.position.set(0,-0.22,0); g.add(bo);
     g.userData.rotor=rot;
     return g;
@@ -1954,15 +1998,46 @@ const BUILD={
   radiador(){
     const g=new THREE.Group();
     const W=1.06, H=0.78;
-    const nuc=roundedBox(W,H,0.10,MAT_ALETA,0.01); g.add(nuc);
-    // Las aletas: sin ellas el radiador es una plancha y no se lee de qué va.
-    for(let i=0;i<13;i++){
-      const a=roundedBox(W*0.97,0.008,0.13,std({color:0x4a5663,metalness:0.68,roughness:0.44}),0.003);
-      a.position.set(0,-H/2+0.045+i*(H-0.09)/12,0.005); g.add(a);
+    /* Un radiador es TUBOS Y ALETAS, no una plancha con rayas: el refrigerante
+       va por los tubos, el aire pasa entre las aletas, y toda la superficie que
+       el método ε-NTU del laboratorio pone en la cuenta está justo ahí. El
+       serpentín se saca de UN contorno extruido —el mismo truco del peine del
+       disipador—, así que las aletas TOCAN los tubos en vez de flotar delante. */
+    const NT=17, paso=W*0.96/NT;
+    const MAT_FIN=std({color:0x4a5663,metalness:0.68,roughness:0.44});
+    /* Material PROPIO de los tubos, uno por radiador: es el que el panel repinta
+       con la temperatura del refrigerante, y quien lleva refrigerante son los
+       tubos. Las aletas se quedan a la temperatura del aire, que es la verdad. */
+    const MAT_TUBO=std({color:0x39434f,metalness:0.72,roughness:0.46});
+    let nuc=null;
+    for(let i=0;i<NT;i++){
+      const x=-W*0.48+paso*(i+0.5);
+      const tubo=new THREE.Mesh(P3.extruido(P3.contornoRedondeado(
+        [[-paso*0.20,-H*0.46],[paso*0.20,-H*0.46],[paso*0.20,H*0.46],[-paso*0.20,H*0.46]],
+        paso*0.19,3),{espesor:0.085,bisel:0.004}),MAT_TUBO);
+      tubo.position.set(x,0,0.005); tubo.castShadow=true; g.add(tubo);
+      if(!nuc) nuc=tubo;
+      if(i===NT-1) continue;
+      // La aleta corrugada entre dos tubos: sube y baja como un acordeón.
+      const c=[], xa=x+paso*0.20, xb=x+paso*0.80, NP=11;
+      for(let k=0;k<=NP;k++){ const y=-H*0.44+(H*0.88)*(k/NP);
+        c.push([k%2?xa:xb,y],[k%2?xb:xa,y]); }
+      for(let k=NP;k>=0;k--){ const y=-H*0.44+(H*0.88)*(k/NP);
+        c.push([k%2?xb:xa,y+0.006],[k%2?xa:xb,y+0.006]); }
+      const fin=new THREE.Mesh(P3.extruido(c,{espesor:0.075,bisel:0.002,curvaSeg:1}),MAT_FIN);
+      fin.position.z=0.005; g.add(fin);
     }
+    // Los largueros laterales: lo que sujeta el panal entre los dos tanques.
+    for(const sx of [-1,1]){
+      const lar=roundedBox(0.045,H+0.02,0.11,MAT_ALETA,0.10);
+      lar.position.set(sx*(W*0.48+0.022),0,0.005); g.add(lar);
+    }
+    // Los dos tanques, con su costura de engarce.
     for(const sy of [-1,1]){
       const t=roundedBox(W*1.04,0.13,0.14,MAT_TANQ,0.03);
       t.position.set(0,sy*(H/2+0.055),0); g.add(t);
+      const eng=new THREE.Mesh(new THREE.BoxGeometry(W*1.06,0.014,0.15),MAT.acero);
+      eng.position.set(0,sy*(H/2+0.005),0); g.add(eng);
     }
     const ent=cil(0.062,0.062,0.16,MAT.acero,16); ent.rotation.z=Math.PI/2;
     ent.position.set(-W/2-0.10,H/2+0.055,0); g.add(ent);

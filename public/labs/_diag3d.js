@@ -27,6 +27,26 @@ export function instalaDiag(nombre, o) {
 
   const api = {
     lab: nombre,
+    /* La escena en crudo, para las preguntas que no cabe prever: una sonda que
+       sólo pueda hacer lo que ya está escrito aquí se queda corta el día que
+       falta una pieza y hay que ir a buscarla por el árbol. */
+    escena, camara, controles, renderizador, THREE,
+
+    /** Caja envolvente en coordenadas de MUNDO de lo que case con el filtro.
+     *  Una pieza que no aparece en la foto está en un sitio: aquí se ve cuál. */
+    caja: (filtro) => {
+      const r = [];
+      escena.traverse((o) => {
+        if (!filtro(o)) return;
+        const b = new THREE.Box3().setFromObject(o);
+        let n = 0; o.traverse((m) => { if (m.isMesh) n++; });
+        r.push({ id: o.userData.id || o.name || o.type, tipo: o.userData.kind || null,
+          mallas: n, visible: o.visible, esc: red(o.scale.x), pos: arr(o.position),
+          min: isFinite(b.min.x) ? arr(b.min) : null,
+          max: isFinite(b.max.x) ? arr(b.max) : null });
+      });
+      return r;
+    },
 
     /**
      * La prueba que más veces ha salvado una tarde: normales de longitud CERO.
@@ -110,6 +130,10 @@ export function instalaDiag(nombre, o) {
     },
   };
 
+  /* Dos puertas. `window.__test` es la cómoda, pero un laboratorio que declare
+     el suyo DESPUÉS aplasta ésta sin decir nada; `window.__diag3d` es la que
+     sobrevive siempre, y es la que usa el kit de escena compartido. */
+  window.__diag3d = api;
   window.__test = Object.assign(window.__test || {}, api);
   return api;
 }

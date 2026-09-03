@@ -340,6 +340,13 @@ function createStage(mount, opts={}){
   function start(){ if(!raf)loop(); }
   function stop(){ cancelAnimationFrame(raf); raf=null; window.removeEventListener('resize',resize); }
 
+  /* Sonda de escena para las auditorías del 3D. No cambia nada de lo que se ve
+     y cuelga de `window.__diag3d`, que ningún laboratorio pisa: así CUALQUIER
+     laboratorio construido con este molde se puede auditar —salud(), mira(),
+     piezas()— sin tocarle una línea. */
+  try { instalaDiag(document.title || location.pathname,
+    { escena:scene, camara:camera, controles:controls, renderizador:renderer }); } catch(_){}
+
   return { THREE, renderer, scene, camera, controls, composer, bloom,
     setAnimate:fn=>hook=fn, start, stop, resize, clock,
     flyTo:(v)=>{ controls.target.copy(v); }, moveTo, setCinematicIdle };
