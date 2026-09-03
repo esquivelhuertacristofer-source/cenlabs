@@ -80,36 +80,87 @@ function motorState(f,p,TL){
   return {ns,s,n,T:TL,stalled:false,w,Pmech};
 }
 
-/* ---------- constructores de piezas (three.js primitivo) ---------- */
+/* Los nombres con los que trabaja la biblioteca de piezas (`P3`, que el molde
+   ya importa), traducidos una vez a los materiales de este laboratorio. */
+const MATP={aluminio:MAT.carcasa, acero:MAT.shaft, cobre:MAT.rotorBar, cromo:MAT.shaft,
+  chapa:MAT.core, hierro:MAT.core, negro:MAT.termBox, goma:MAT.fanPlastic,
+  blanco:MAT.shaft, ceramica:MAT.shaft};
+
+/* ---------- constructores de piezas ---------- */
+/* EL ESTÁTOR ES UNA CHAPA TROQUELADA, no un tubo con anillos de colores
+   pegados por dentro. Lo que hay que reconocer son las 36 RANURAS con sus
+   zapatas —la zapata cierra la ranura para que el conductor no se salga y
+   reparte el flujo en el entrehierro— y el devanado TRIFÁSICO metido en ellas,
+   con una fase en cada tercera ranura. Ese reparto no es decorativo: es
+   exactamente lo que hace que tres corrientes desfasadas 120° den un campo
+   GIRATORIO, que es de lo que va toda la práctica. Y las cabezas de bobina que
+   asoman por los dos extremos son la mitad del cobre de la máquina, la razón de
+   que un motor sea más largo que su chapa y el sitio donde el cobre se calienta
+   sin hierro que lo refrigere. */
+const RANURAS_EST=36;
 function buildEstator(){
   const g=new THREE.Group();
   const coreLen=0.86, R=0.34, Rin=0.24;
-  const core=new THREE.Mesh(new THREE.CylinderGeometry(R,R,coreLen,36,1,true),MAT.core); core.rotation.z=Math.PI/2; core.castShadow=core.receiveShadow=true; g.add(core);
-  const bore=new THREE.Mesh(new THREE.CylinderGeometry(Rin,Rin,coreLen*0.98,36,1,true),MAT.dark); bore.rotation.z=Math.PI/2; g.add(bore);
+  const nuc=P3.nucleoRanurado(MATP,{rExt:R,rInt:Rin,ranuras:RANURAS_EST,largo:coreLen,
+    hacia:'dentro',fondo:0.58});
+  nuc.rotation.y=Math.PI/2;                       // las piezas extruidas van en Z
+  g.add(nuc);
   const phases=[MAT.phaseA,MAT.phaseB,MAT.phaseC];
-  for(let i=0;i<9;i++){ const a=i/9*Math.PI*2;
-    const c=new THREE.Mesh(new THREE.TorusGeometry(R*0.95,0.04,8,20,Math.PI*0.55),phases[i%3]);
-    c.rotation.set(0,a,Math.PI/2*0.25); c.castShadow=true; g.add(c); }
+  for(let f=0;f<3;f++){
+    const dev=P3.devanado({cobre:phases[f]},{r:Rin+0.045,ranuras:RANURAS_EST,
+      largo:coreLen,paso:9,hilo:0.020,bobinas:12,desde:f,salto:3});
+    dev.rotation.y=Math.PI/2; g.add(dev);
+  }
   const lb=labelSprite('Estátor (devanado trifásico)','#8A94A0'); lb.position.set(0,R+0.28,0); lb.scale.multiplyScalar(0.6); g.add(lb);
   return g;
 }
+/* EL ROTOR DE JAULA también es chapa ranurada: las barras van METIDAS en las
+   ranuras, no pegadas por fuera. Que estén dentro del hierro es la razón de que
+   el rotor no necesite ninguna conexión eléctrica al exterior y de que las
+   barras no salgan despedidas a 3 000 vueltas. */
 function buildRotor(){
   const g=new THREE.Group();
-  const len=0.86, R=0.22;
-  const core=new THREE.Mesh(new THREE.CylinderGeometry(R,R,len,28),MAT.core); core.rotation.z=Math.PI/2; core.castShadow=true; g.add(core);
-  const nBars=16;
+  const len=0.86, R=0.22, nBars=28;
+  const nuc=P3.nucleoRanurado(MATP,{rExt:R,rInt:0.072,ranuras:nBars,largo:len,
+    hacia:'fuera',fondo:0.34,anchoRanura:0.50});
+  nuc.rotation.y=Math.PI/2; g.add(nuc);
+  const rBar=R-0.030;
   for(let i=0;i<nBars;i++){ const a=i/nBars*Math.PI*2;
-    const bar=new THREE.Mesh(new THREE.CylinderGeometry(0.018,0.018,len*0.96,8),MAT.rotorBar);
-    bar.rotation.z=Math.PI/2; bar.position.set(0,Math.cos(a)*(R+0.012),Math.sin(a)*(R+0.012)); bar.castShadow=true; g.add(bar); }
-  [-len/2+0.01, len/2-0.01].forEach(dx=>{ const ring=new THREE.Mesh(new THREE.TorusGeometry(R+0.012,0.03,10,nBars),MAT.rotorBar); ring.rotation.y=Math.PI/2; ring.position.x=dx; g.add(ring); });
+    const bar=new THREE.Mesh(new THREE.CylinderGeometry(0.016,0.016,len*1.06,8),MAT.rotorBar);
+    bar.rotation.z=Math.PI/2; bar.position.set(0,Math.cos(a)*rBar,Math.sin(a)*rBar); bar.castShadow=true; g.add(bar); }
+  // Los dos ANILLOS que cortocircuitan las barras: sin ellos no hay jaula, hay
+  // 28 barras sueltas, y por ellas no circularía ninguna corriente.
+  [-len/2-0.02, len/2+0.02].forEach(dx=>{
+    const ring=new THREE.Mesh(P3.revolucion(
+      [[rBar-0.030,-0.026],[R-0.004,-0.026],[R-0.004,0.026],[rBar-0.030,0.026]],{seg:36}),MAT.rotorBar);
+    ring.rotation.z=Math.PI/2; ring.position.x=dx; ring.castShadow=true; g.add(ring); });
   const shaft=new THREE.Mesh(new THREE.CylinderGeometry(0.07,0.07,len+0.9,20),MAT.shaft); shaft.rotation.z=Math.PI/2; shaft.castShadow=true; g.add(shaft);
   const lb=labelSprite('Rotor (jaula de ardilla)','#8A94A0'); lb.position.set(0,R+0.32,0); lb.scale.multiplyScalar(0.6); g.add(lb);
   return g;
 }
+/* LAS TAPAS son piezas de fundición con un ALOJAMIENTO para el rodamiento en el
+   centro y nervios que llevan la carga del rodamiento al borde. El rodamiento se
+   dibuja de verdad —pista, bolas y jaula— porque es lo que sostiene el rotor
+   centrado en un entrehierro de décimas de milímetro: si se sale de sitio, el
+   rotor roza el estátor, y esa es la avería. */
+function tapaFundida(sx){
+  const g=new THREE.Group();
+  const cap=new THREE.Mesh(P3.revolucion([
+    [0.11,0],[0.58,0],[0.58,0.05],[0.50,0.09],[0.19,0.10],[0.19,0.14],[0.11,0.14]],
+    {seg:36}),MAT.cap);
+  cap.rotation.z=sx*Math.PI/2; cap.castShadow=true; g.add(cap);
+  for(let i=0;i<8;i++){                       // los nervios de la fundición
+    const a=i/8*Math.PI*2;
+    const nb=new THREE.Mesh(new THREE.BoxGeometry(0.045,0.36,0.030),MAT.cap);
+    nb.position.set(sx*0.07,Math.cos(a)*0.34,Math.sin(a)*0.34); nb.rotation.x=-a; g.add(nb);
+  }
+  const rod=P3.rodamiento(MATP,{dExt:0.22,dInt:0.11,ancho:0.07});
+  rod.rotation.z=Math.PI/2; rod.position.x=sx*0.10; g.add(rod);
+  return g;
+}
 function buildTapaT(){
   const g=new THREE.Group();
-  const cap=new THREE.Mesh(new THREE.CylinderGeometry(0.58,0.58,0.1,36),MAT.cap); cap.rotation.z=Math.PI/2; cap.castShadow=true; g.add(cap);
-  const boss=new THREE.Mesh(new THREE.CylinderGeometry(0.12,0.12,0.1,24),MAT.cap); boss.rotation.z=Math.PI/2; boss.position.x=-0.06; g.add(boss);
+  g.add(tapaFundida(-1));
   const stub=new THREE.Mesh(new THREE.CylinderGeometry(0.055,0.055,0.22,20),MAT.shaft); stub.rotation.z=Math.PI/2; stub.position.x=-0.16; stub.castShadow=true; g.add(stub);
   for(let i=0;i<8;i++){ const a=i/8*Math.PI*2; const vent=new THREE.Mesh(new THREE.CylinderGeometry(0.02,0.02,0.11,8),MAT.dark);
     vent.rotation.z=Math.PI/2; vent.position.set(0.02,Math.cos(a)*0.34,Math.sin(a)*0.34); g.add(vent); }
@@ -118,8 +169,7 @@ function buildTapaT(){
 }
 function buildTapaD(){
   const g=new THREE.Group();
-  const cap=new THREE.Mesh(new THREE.CylinderGeometry(0.58,0.58,0.1,36),MAT.cap); cap.rotation.z=Math.PI/2; cap.castShadow=true; g.add(cap);
-  const boss=new THREE.Mesh(new THREE.CylinderGeometry(0.13,0.13,0.14,24),MAT.cap); boss.rotation.z=Math.PI/2; boss.position.x=0.1; g.add(boss);
+  g.add(tapaFundida(1));
   const stub=new THREE.Mesh(new THREE.CylinderGeometry(0.065,0.065,0.36,20),MAT.shaft); stub.rotation.z=Math.PI/2; stub.position.x=0.33; stub.castShadow=true; g.add(stub);
   for(let i=0;i<6;i++){ const a=i/6*Math.PI*2; const bolt=new THREE.Mesh(new THREE.CylinderGeometry(0.02,0.02,0.06,10),MAT.dark);
     bolt.rotation.z=Math.PI/2; bolt.position.set(-0.03,Math.cos(a)*0.52,Math.sin(a)*0.52); g.add(bolt); }
@@ -129,10 +179,16 @@ function buildTapaD(){
 function buildVentilador(){
   const g=new THREE.Group();
   const hub=new THREE.Mesh(new THREE.CylinderGeometry(0.09,0.09,0.12,20),MAT.fanPlastic); hub.rotation.z=Math.PI/2; hub.castShadow=true; g.add(hub);
+  /* Las ASPAS de un ventilador de motor son RADIALES y planas a propósito: el
+     motor gira en los dos sentidos y el ventilador tiene que soplar igual en
+     los dos, así que no puede llevar el perfil inclinado de un ventilador de
+     un solo sentido. Se dibujan como palas, no como tacos. */
   const nBlades=9;
   for(let i=0;i<nBlades;i++){ const a=i/nBlades*Math.PI*2;
-    const blade=roundedBox(0.05,0.3,0.12,MAT.fanPlastic,0.02);
-    blade.position.set(0,Math.cos(a)*0.2,Math.sin(a)*0.2); blade.rotation.x=a; blade.castShadow=true; g.add(blade); }
+    const blade=new THREE.Mesh(P3.extruido(P3.contornoRedondeado(
+      [[-0.055,0.085],[0.055,0.085],[0.070,0.30],[-0.070,0.30]],0.012,3),
+      {espesor:0.016,bisel:0.004}),MAT.fanPlastic);
+    blade.rotation.z=a; blade.rotation.y=Math.PI/2; blade.castShadow=true; g.add(blade); }
   const lb=labelSprite('Ventilador externo','#8A94A0'); lb.position.set(0,0.5,0); lb.scale.multiplyScalar(0.58); g.add(lb);
   return g;
 }
@@ -152,16 +208,22 @@ function buildCubiertaVentilador(){
 function buildCarcasa(){
   const g=new THREE.Group();
   const len=1.9, R=0.62;
-  const shell=new THREE.Mesh(new THREE.CylinderGeometry(R,R,len,40,1,true,0.55,Math.PI*2-1.1),MAT.carcasa);
-  shell.rotation.z=Math.PI/2; shell.castShadow=shell.receiveShadow=true; g.add(shell);
-  const finArc0=0.62, finArc1=Math.PI*2-1.16, nFins=14;
-  for(let i=0;i<nFins;i++){ const a=finArc0+(i/(nFins-1))*(finArc1-finArc0);
-    const fin=new THREE.Mesh(new THREE.BoxGeometry(len*0.86,0.09,0.02),MAT.carcasa);
-    fin.position.set(0,Math.cos(a)*(R+0.05),Math.sin(a)*(R+0.05)); fin.rotation.x=a; fin.castShadow=true; g.add(fin); }
-  [-len/2+0.04, len/2-0.04].forEach(dx=>{ const ring=new THREE.Mesh(new THREE.TorusGeometry(R,0.035,10,40),MAT.carcasa); ring.rotation.y=Math.PI/2; ring.position.x=dx; g.add(ring); });
+  /* La carcasa, ABIERTA por delante para poder ver el montaje por dentro. Las
+     aletas se reparten sólo por la chapa que queda: una aleta flotando sobre el
+     hueco delataría que el corte es un truco de dibujo. Y son ellas las que
+     hacen que un motor TEFC —totalmente cerrado— pueda echar su calor sin
+     meter aire sucio dentro; por eso un motor con las aletas llenas de polvo se
+     quema sin que nadie le haya pedido un vatio de más. */
+  g.add(P3.carcasaMotor(MATP,{d:2*R,largo:len,nAletas:14,patas:false,bornes:false,
+    tapas:false,corte:{ini:0.62,arco:Math.PI*2-1.16}}));
   [-1,1].forEach(s=>{ const foot=roundedBox(0.34,0.14,0.5,MAT.carcasa,0.05); foot.position.set(s*0.55,-R-0.05,0); foot.castShadow=true; g.add(foot); });
   const tbox=roundedBox(0.34,0.26,0.3,MAT.termBox,0.04); tbox.position.set(0,R+0.18,0); tbox.castShadow=true; g.add(tbox);
   const tlid=roundedBox(0.3,0.06,0.26,MAT.termLid,0.02); tlid.position.set(0,R+0.32,0); g.add(tlid);
+  // Los tres bornes de la placa: es donde se decide estrella o triángulo.
+  for(let i=0;i<3;i++){
+    const b=new THREE.Mesh(new THREE.CylinderGeometry(0.022,0.022,0.05,10),MAT.rotorBar);
+    b.position.set(-0.09+i*0.09,R+0.31,0.02); g.add(b);
+  }
   const lb=labelSprite('Carcasa con aletas (fija, TEFC)','#8A94A0'); lb.position.set(0,R+0.7,0); lb.scale.multiplyScalar(0.72); g.add(lb);
   return g;
 }
@@ -554,7 +616,7 @@ el('hud').innerHTML=`
     <div class="ft">Contrato de fidelidad</div>
     <div class="fl">SÍ modela: <b>ns=120·f/p; s=(ns−n)/ns; la curva par-deslizamiento simplificada de Kloss T(s)=2·Tmáx/(s/sm+sm/s), con sm y Tmáx como parámetros ilustrativos fijos del simulador; distingue la rama estable (0&lt;s≤sm) del estancamiento cuando TL supera Tmáx.</b></div>
     <div class="fl no">NO modela: <b>el circuito eléctrico equivalente (R1, X1, R2', X2', Xm — ver práctica d5-08), la relación V/f de un variador de frecuencia, corriente de arranque (inrush), calentamiento, ni la resistencia del estátor (se desprecia, como es estándar en la ecuación de Kloss simplificada). Tmáx y sm se tratan como constantes fijas, independientes de f — no hay debilitamiento de campo modelado.</b></div>
-    <div class="fl no">Geometría <b>didáctica</b>: omite rodamientos, aislamiento de ranura, balanceo dinámico del rotor y el detalle interno de la caja de conexiones. El diagrama de deslizamiento (modo Operación) es simbólico: el ángulo de atraso del rotor no está a escala temporal real.</div>
+    <div class="fl no">Geometría <b>didáctica</b>: el número de ranuras del estátor (36) y de barras del rotor (28) es el de un dibujo, no el de un motor concreto, y el devanado se representa con doce bobinas por fase de paso 9 sin distinguir capas ni conexión serie-paralelo; omite el aislamiento de ranura, el balanceo dinámico del rotor y el detalle interno de la caja de conexiones. El diagrama de deslizamiento (modo Operación) es simbólico: el ángulo de atraso del rotor no está a escala temporal real.</div>
   </div>
   <div class="src">Motor de ejemplo del simulador (jaula de ardilla), <b>no un datasheet real</b>: Tmáx=22 N·m, sm=0.18 (parámetros ilustrativos). El deslizador de frecuencia cubre 50-60 Hz (los dos estándares de red); no representa un variador de frecuencia. Referencias normativas generales: IEEE 112 (procedimiento de prueba de motores de inducción polifásicos) e IEC 60034 (máquinas eléctricas rotativas) — programa curricular ELE-II.1 / EM-II.1. ⚑ Cláusulas específicas sin confirmar por experto.</div>
   <div class="modebar">

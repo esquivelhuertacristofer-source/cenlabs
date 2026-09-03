@@ -916,22 +916,38 @@ export function mordaza(mat, opts = {}) {
  * taller.
  */
 export function carcasaMotor(mat, opts = {}) {
-  const { d = 0.6, largo = 0.9, nAletas = 16, patas = true, bornes = true } = opts;
+  /* `corte` abre la carcasa por un sector —{ini, arco} en radianes, medidos como
+     los de THREE.CylinderGeometry— para poder ver lo que hay dentro; con él, las
+     aletas se reparten sólo por la parte que queda de chapa, porque una aleta
+     flotando sobre el hueco delata el truco. `tapas` se apaga cuando las tapas
+     son piezas aparte, como en un laboratorio de montaje. */
+  const { d = 0.6, largo = 0.9, nAletas = 16, patas = true, bornes = true,
+          corte = null, tapas = true } = opts;
   const g = new THREE.Group();
   const R = d / 2;
-  const cu = new THREE.Mesh(new THREE.CylinderGeometry(R, R, largo, 40), mat.aluminio);
+  const ini = corte ? corte.ini : 0, arco = corte ? corte.arco : Math.PI * 2;
+  const cu = new THREE.Mesh(
+    new THREE.CylinderGeometry(R, R, largo, 40, 1, !!corte, ini, arco), mat.aluminio);
+  if (corte) { const m = cu.material.clone(); m.side = THREE.DoubleSide; cu.material = m; }
   cu.rotation.z = Math.PI / 2; cu.castShadow = true; g.add(cu);
   for (let i = 0; i < nAletas; i++) {
-    const a = (i / nAletas) * Math.PI * 2;
+    const a = corte ? ini + (i / Math.max(1, nAletas - 1)) * arco
+                    : (i / nAletas) * Math.PI * 2;
     const al = new THREE.Mesh(new THREE.BoxGeometry(largo * 0.94, d * 0.075, d * 0.030), mat.aluminio);
     al.position.set(0, Math.cos(a) * (R + d * 0.030), Math.sin(a) * (R + d * 0.030));
     al.rotation.x = -a; g.add(al);
   }
-  for (const s of [-1, 1]) {
+  if (tapas) for (const s of [-1, 1]) {
     const t = new THREE.Mesh(revolucion([
       [0, 0], [R * 0.98, 0], [R * 0.98, d * 0.05], [R * 0.72, d * 0.09], [0, d * 0.09]],
       { seg: 36 }), mat.aluminio);
     t.rotation.z = s * Math.PI / 2; t.position.x = s * largo / 2; g.add(t);
+  }
+  if (corte) for (const s of [-1, 1]) {      // los dos aros de refuerzo del tubo
+    const ar = new THREE.Mesh(
+      new THREE.CylinderGeometry(R * 1.03, R * 1.03, d * 0.05, 40, 1, false, ini, arco),
+      mat.aluminio);
+    ar.rotation.z = Math.PI / 2; ar.position.x = s * (largo / 2 - d * 0.03); g.add(ar);
   }
   if (patas) for (const s of [-1, 1]) {
     const p = new THREE.Mesh(extruido(contornoRedondeado([
@@ -1320,13 +1336,19 @@ export function nucleoRanurado(mat, opts = {}) {
  * cobre se calienta donde no hay hierro que lo refrigere.
  */
 export function devanado(mat, opts = {}) {
-  const { r = 0.98, ranuras = 48, largo = 0.9, paso = 6, hilo = 0.052, bobinas = 0 } = opts;
+  /* `desde` y `salto` son lo que hace falta para dibujar una máquina TRIFÁSICA:
+     cada fase ocupa una de cada tres ranuras, así que se llama tres veces con
+     desde = 0, 1 y 2 y salto = 3. Sin ellos, las bobinas salían todas seguidas
+     en las primeras ranuras y el devanado parecía un motor con el cobre
+     amontonado en un lado, que es justo lo que no es. */
+  const { r = 0.98, ranuras = 48, largo = 0.9, paso = 6, hilo = 0.052, bobinas = 0,
+          desde = 0, salto = 1 } = opts;
   const g = new THREE.Group();
   const n = bobinas || ranuras;
   const col = mat.cobre || mat.acero;
   for (let i = 0; i < n; i++) {
-    const a0 = (i / ranuras) * Math.PI * 2;
-    const a1 = ((i + paso) / ranuras) * Math.PI * 2;
+    const a0 = ((desde + i * salto) / ranuras) * Math.PI * 2;
+    const a1 = ((desde + i * salto + paso) / ranuras) * Math.PI * 2;
     // Una espira: baja por su ranura, cruza por la cabeza, sube por la ranura
     // de vuelta y cierra por la otra cabeza.
     const pts = [];

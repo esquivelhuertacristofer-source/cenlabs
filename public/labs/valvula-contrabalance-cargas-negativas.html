@@ -1324,6 +1324,12 @@ function particulas(key,n,mat){
   }
 })();
 
+/* Los nombres con los que trabaja la biblioteca de piezas (`P3`, que el molde
+   ya importa), traducidos una vez a los materiales de este laboratorio. */
+const MATP={aluminio:MAT.motor, acero:MAT.acero, cobre:MAT.crom, cromo:MAT.crom,
+  chapa:MAT.acero2, hierro:MAT.acero2, negro:MAT.valv, goma:MAT.cable,
+  blanco:MAT.crom, ceramica:MAT.crom};
+
 // ---- grupo de accionamiento: deposito, motor y bomba ----
 const gGrupo=new THREE.Group(); rig.add(gGrupo);
 (function(){
@@ -1333,13 +1339,13 @@ const gGrupo=new THREE.Group(); rig.add(gGrupo);
   niv.position.set(-0.14,0.36,0); gGrupo.add(niv);
   const vis=new THREE.Mesh(new THREE.BoxGeometry(0.99,0.58,0.75),MAT.vidrio);
   vis.position.set(-0.14,0.45,0); gGrupo.add(vis);
-  const mot=new THREE.Mesh(new THREE.CylinderGeometry(0.17,0.17,0.44,24),MAT.motor);
-  mot.rotation.z=Math.PI/2; mot.position.set(-0.42,0.92,0); gGrupo.add(mot);
-  for(let i=0;i<10;i++){
-    const a=new THREE.Mesh(new THREE.BoxGeometry(0.42,0.03,0.03),MAT.acero2);
-    a.position.set(-0.42,0.92+0.175*Math.cos(i/10*Math.PI*2),0.175*Math.sin(i/10*Math.PI*2));
-    gGrupo.add(a);
-  }
+  /* EL MOTOR, con carcasa de aletas, patas y caja de bornes. Las aletas no son
+     rayas pegadas al tubo: son la superficie por la que un motor cerrado echa
+     todo su calor, y por eso un motor tapado por el polvo se quema aunque no le
+     pidas ni un vatio de más. */
+  const mot=P3.carcasaMotor(MATP,{d:0.34,largo:0.44,nAletas:16});
+  mot.position.set(-0.42,0.92,0);
+  mot.traverse(o=>{ if(o.isMesh) o.castShadow=true; }); gGrupo.add(mot);
   const bo=new THREE.Mesh(new THREE.CylinderGeometry(0.13,0.13,0.24,20),MAT.bomba);
   bo.rotation.z=Math.PI/2; bo.position.set(-0.06,0.92,0); gGrupo.add(bo);
   const eje=new THREE.Mesh(new THREE.CylinderGeometry(0.035,0.035,0.10,12),MAT.crom);
@@ -1378,8 +1384,11 @@ let cbMuelle=null, cbPomo=null, cbCuerpo=null, cbPiloto=null, cbLbl=null;
   gCB.add(cbCuerpo);
   const cap=new THREE.Mesh(new THREE.CylinderGeometry(0.085,0.085,0.20,16),MAT.acero2);
   cap.position.set(0,0.24,0); gCB.add(cap);
-  cbMuelle=new THREE.Mesh(new THREE.TorusGeometry(0.055,0.014,8,20),MAT.muelle);
-  cbMuelle.rotation.x=Math.PI/2; cbMuelle.position.set(0,0.24,0); gCB.add(cbMuelle);
+  /* EL MUELLE es una HÉLICE, no un anillo. Aquí importa: el tarado de la
+     contrabalance es la fuerza de este muelle, y verlo comprimirse al apretar
+     el tornillo es lo que hace que «subir el tarado» deje de ser una palabra. */
+  cbMuelle=P3.muelle({acero:MAT.muelle},{r:0.052,largo:0.16,vueltas:6,hilo:0.011});
+  cbMuelle.position.set(0,0.24,0); gCB.add(cbMuelle);
   cbPomo=new THREE.Mesh(new THREE.CylinderGeometry(0.05,0.062,0.10,14),MAT.crom);
   cbPomo.position.set(0,0.40,0); gCB.add(cbPomo);
   // antirretorno en paralelo: la subida es libre
@@ -1402,6 +1411,18 @@ let cilVas=null, cilMasa=null, anMot=null, anRes=null, tamMasa=null, tamCable=nu
   for(const y of [0.84,1.86]){
     const br=new THREE.Mesh(new THREE.CylinderGeometry(0.225,0.225,0.07,28),MAT.acero2);
     br.position.set(2.35,y,0); gCil.add(br);
+  }
+  /* LOS CUATRO TIRANTES. Con una carga negativa colgando, la cámara resistente
+     se INTENSIFICA por encima de la presión de la bomba —de eso va la práctica—,
+     y quien aguanta esa presión contra las tapas son ellos. */
+  for(let i=0;i<4;i++){
+    const a=(i+0.5)/4*Math.PI*2;
+    const t=new THREE.Mesh(new THREE.CylinderGeometry(0.020,0.020,1.16,10),MAT.acero2);
+    t.position.set(2.35+Math.cos(a)*0.212,1.35,Math.sin(a)*0.212); gCil.add(t);
+    for(const y of [0.80,1.90]){
+      const tu=new THREE.Mesh(new THREE.CylinderGeometry(0.033,0.033,0.05,6),MAT.acero2);
+      tu.position.set(2.35+Math.cos(a)*0.212,y,Math.sin(a)*0.212); gCil.add(tu);
+    }
   }
   anRes=new THREE.Mesh(new THREE.CylinderGeometry(0.207,0.207,0.24,28),
     new THREE.MeshStandardMaterial({color:'#7CD992',roughness:0.4,metalness:0.3,
@@ -1566,7 +1587,9 @@ function updateHW(){
   if(cbLbl) cbLbl.position.set(cp[0],cp[1]+0.60,cp[2]);
   const kt=(c.tarado-TARADOS[0])/(TARADOS[TARADOS.length-1]-TARADOS[0]);
   cbPomo.position.y=0.40+0.09*kt;
-  cbMuelle.scale.setScalar(1-0.26*kt);
+  // Un muelle se comprime a lo LARGO, no se encoge por igual en las tres
+  // direcciones: el diámetro del hilo no cambia al apretar el tornillo.
+  cbMuelle.scale.y=1-0.26*kt;
   cbCuerpo.material=r.sinTarado?MAT.valvOn:MAT.cbal;
 
   const ext=(hw.ext===undefined)?0.35:hw.ext;

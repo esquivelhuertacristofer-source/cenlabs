@@ -978,6 +978,7 @@ const camisa=cilUnit(MAT.camisa), pist=cilUnit(MAT.aceroC.clone()),
 const cam1=cilUnit(new THREE.MeshStandardMaterial({color:CIAN,transparent:true,opacity:0.30,emissive:CIAN,emissiveIntensity:0.35,roughness:0.4}));
 const cam2=cilUnit(new THREE.MeshStandardMaterial({color:VIO,transparent:true,opacity:0.30,emissive:VIO,emissiveIntensity:0.35,roughness:0.4}));
 const CX0=-0.35, CX1=2.65;   // extremos interiores de la camisa (unidades de escena)
+const TIRANTES=[], TUERCAS=[];
 (function(){
   camisa.position.set((CX0+CX1)/2,0,0); CIL.add(camisa);
   cam1.position.set(0,0,0); CIL.add(cam1);
@@ -989,6 +990,19 @@ const CX0=-0.35, CX1=2.65;   // extremos interiores de la camisa (unidades de es
   for(const s of [-1,1]){
     const t=new THREE.Mesh(new THREE.BoxGeometry(0.12,0.16,0.16),MAT.aceroC);
     t.position.set(s<0?CX0-0.16:CX1+0.16,0,0); CIL.add(t);
+  }
+  /* LOS CUATRO TIRANTES. La presión empuja las dos tapas hacia fuera con toda
+     el área del émbolo detrás: son ellos los que las sujetan, y por eso un
+     cilindro de tirantes se desarma y uno soldado no. Se escalan con el
+     diámetro, como todo lo demás de esta camisa. */
+  for(let i=0;i<4;i++){
+    const a=(i+0.5)/4*Math.PI*2;
+    const t=cilUnit(MAT.aceroC); t.userData.tirante=a; CIL.add(t); TIRANTES.push(t);
+    for(const sx of [-1,1]){
+      const tu=new THREE.Mesh(new THREE.CylinderGeometry(0.038,0.038,0.05,6),MAT.aceroC);
+      tu.rotation.z=Math.PI/2; tu.userData.tirante=a; tu.userData.lado=sx;
+      CIL.add(tu); TUERCAS.push(tu);
+    }
   }
   marcaKey(CIL,'cilindro');
 })();
@@ -1113,6 +1127,15 @@ function aplicaMaquina(){
   vast.scale.set(rV,RODL,rV);
   cam1.scale.set(rInt-0.02,1,rInt-0.02);
   cam2.scale.set(rInt-0.02,1,rInt-0.02);
+  for(const t of TIRANTES){
+    const a=t.userData.tirante, rr=rCam+0.035;
+    t.scale.set(0.024,(CX1-CX0)+0.34,0.024);
+    t.position.set((CX0+CX1)/2,Math.cos(a)*rr,Math.sin(a)*rr);
+  }
+  for(const tu of TUERCAS){
+    const a=tu.userData.tirante, rr=rCam+0.035;
+    tu.position.set(tu.userData.lado<0?CX0-0.19:CX1+0.19,Math.cos(a)*rr,Math.sin(a)*rr);
+  }
   bloque.scale.set(1,0.75+0.55*(M.m/1800),0.75+0.55*(M.m/1800));
   const sr=clamp(M.xr/M.L,0,1);
   diana.position.x=PX0+(PX1-PX0)*sr;

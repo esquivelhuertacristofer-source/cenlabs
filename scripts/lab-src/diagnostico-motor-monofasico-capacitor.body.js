@@ -84,56 +84,96 @@ const FALLAS_ORDER=['sano','aux_abierto','principal_abierto','capacitor_corto','
 function ohm(v){ return v===Infinity ? 'OL (circuito abierto)' : `${tf(v,1)} Ω`; }
 
 /* ---------- constructores de piezas (three.js primitivo) ---------- */
+/* Los nombres con los que trabaja la biblioteca de piezas (`P3`, que el molde
+   ya importa), traducidos una vez a los materiales de este laboratorio. */
+const MATP={aluminio:MAT.carcasa, acero:MAT.shaft, cobre:MAT.rotorBar, cromo:MAT.shaft,
+  chapa:MAT.core, hierro:MAT.core, negro:MAT.termBox, goma:MAT.fanPlastic,
+  blanco:MAT.shaft, ceramica:MAT.shaft};
+const RANURAS_EST=24, CORE_LEN=0.86, R_EST=0.34, RIN_EST=0.24;
+
+/* EL ESTÁTOR ES UNA CHAPA TROQUELADA con 24 ranuras y sus zapatas, no un tubo
+   con anillos pegados. Y los dos devanados están donde tienen que estar: el
+   PRINCIPAL sobre un eje y el AUXILIAR a 90° ELÉCTRICOS de él. Esa separación
+   en el espacio es media explicación del arranque —la otra media es el desfase
+   en el tiempo que mete el capacitor—, y con los dos devanados repartidos por
+   igual alrededor del hierro no se veía ni una ni otra.
+   El auxiliar se dibuja además con hilo MÁS FINO, que es lo que de verdad es:
+   más resistencia, más desfase, y una bobina que no aguanta trabajar seguida
+   —por eso hay un interruptor centrífugo que la desconecta—. */
 function buildEstatorPrincipal(){
   const g=new THREE.Group();
-  const coreLen=0.86, R=0.34, Rin=0.24;
-  const core=new THREE.Mesh(new THREE.CylinderGeometry(R,R,coreLen,36,1,true),MAT.core); core.rotation.z=Math.PI/2; core.castShadow=core.receiveShadow=true; g.add(core);
-  const bore=new THREE.Mesh(new THREE.CylinderGeometry(Rin,Rin,coreLen*0.98,36,1,true),MAT.dark); bore.rotation.z=Math.PI/2; g.add(bore);
-  for(let i=0;i<6;i++){ const a=i/6*Math.PI*2;
-    const c=new THREE.Mesh(new THREE.TorusGeometry(R*0.95,0.05,8,20,Math.PI*0.72),MAT.mainWind);
-    c.rotation.set(0,a,Math.PI/2*0.25); c.castShadow=true; g.add(c); }
-  const lb=labelSprite('Devanado principal (marcha)','#8A94A0'); lb.position.set(0,R+0.28,0); lb.scale.multiplyScalar(0.6); g.add(lb);
+  const nuc=P3.nucleoRanurado(MATP,{rExt:R_EST,rInt:RIN_EST,ranuras:RANURAS_EST,
+    largo:CORE_LEN,hacia:'dentro',fondo:0.58});
+  nuc.rotation.y=Math.PI/2; g.add(nuc);
+  for(let k=0;k<3;k++){
+    const dev=P3.devanado({cobre:MAT.mainWind},{r:RIN_EST+0.048,ranuras:RANURAS_EST,
+      largo:CORE_LEN,paso:11-2*k,hilo:0.026,bobinas:2,desde:k,salto:12});
+    dev.rotation.y=Math.PI/2; g.add(dev);
+  }
+  const lb=labelSprite('Devanado principal (marcha)','#8A94A0'); lb.position.set(0,R_EST+0.28,0); lb.scale.multiplyScalar(0.6); g.add(lb);
   return g;
 }
 function buildDevanadoAuxiliar(){
   const g=new THREE.Group();
-  const R=0.34;
-  for(let i=0;i<6;i++){ const a=i/6*Math.PI*2 + Math.PI/6; // medio paso respecto al devanado principal
-    const c=new THREE.Mesh(new THREE.TorusGeometry(R*1.06,0.028,8,20,Math.PI*0.6),MAT.auxWind);
-    c.rotation.set(0,a,Math.PI/2*0.25); c.castShadow=true; g.add(c); }
-  const lb=labelSprite('Devanado auxiliar (arranque)','#8A94A0'); lb.position.set(0,R*1.06+0.3,0); lb.scale.multiplyScalar(0.6); g.add(lb);
+  for(let k=0;k<3;k++){
+    const dev=P3.devanado({cobre:MAT.auxWind},{r:RIN_EST+0.090,ranuras:RANURAS_EST,
+      largo:CORE_LEN,paso:11-2*k,hilo:0.015,bobinas:2,desde:6+k,salto:12});
+    dev.rotation.y=Math.PI/2; g.add(dev);
+  }
+  const lb=labelSprite('Devanado auxiliar (arranque)','#8A94A0'); lb.position.set(0,R_EST*1.06+0.3,0); lb.scale.multiplyScalar(0.6); g.add(lb);
   return g;
 }
+/* EL ROTOR DE JAULA es chapa ranurada con las barras METIDAS en las ranuras. Que
+   estén dentro del hierro es la razón de que el rotor no necesite ninguna
+   conexión eléctrica al exterior y de que las barras no salgan despedidas. */
 function buildRotorJaula(){
   const g=new THREE.Group();
-  const len=0.86, R=0.22;
-  const core=new THREE.Mesh(new THREE.CylinderGeometry(R,R,len,28),MAT.core); core.rotation.z=Math.PI/2; core.castShadow=true; g.add(core);
-  const nBars=16;
+  const len=0.86, R=0.22, nBars=28;
+  const nuc=P3.nucleoRanurado(MATP,{rExt:R,rInt:0.072,ranuras:nBars,largo:len,
+    hacia:'fuera',fondo:0.34,anchoRanura:0.50});
+  nuc.rotation.y=Math.PI/2; g.add(nuc);
+  const rBar=R-0.030;
   for(let i=0;i<nBars;i++){ const a=i/nBars*Math.PI*2;
-    const bar=new THREE.Mesh(new THREE.CylinderGeometry(0.018,0.018,len*0.96,8),MAT.rotorBar);
-    bar.rotation.z=Math.PI/2; bar.position.set(0,Math.cos(a)*(R+0.012),Math.sin(a)*(R+0.012)); bar.castShadow=true; g.add(bar); }
-  [-len/2+0.01, len/2-0.01].forEach(dx=>{ const ring=new THREE.Mesh(new THREE.TorusGeometry(R+0.012,0.03,10,nBars),MAT.rotorBar); ring.rotation.y=Math.PI/2; ring.position.x=dx; g.add(ring); });
+    const bar=new THREE.Mesh(new THREE.CylinderGeometry(0.016,0.016,len*1.06,8),MAT.rotorBar);
+    bar.rotation.z=Math.PI/2; bar.position.set(0,Math.cos(a)*rBar,Math.sin(a)*rBar); bar.castShadow=true; g.add(bar); }
+  [-len/2-0.02, len/2+0.02].forEach(dx=>{
+    const ring=new THREE.Mesh(P3.revolucion(
+      [[rBar-0.030,-0.026],[R-0.004,-0.026],[R-0.004,0.026],[rBar-0.030,0.026]],{seg:36}),MAT.rotorBar);
+    ring.rotation.z=Math.PI/2; ring.position.x=dx; ring.castShadow=true; g.add(ring); });
   const shaft=new THREE.Mesh(new THREE.CylinderGeometry(0.07,0.07,len+0.9,20),MAT.shaft); shaft.rotation.z=Math.PI/2; shaft.castShadow=true; g.add(shaft);
   const lb=labelSprite('Rotor (jaula de ardilla)','#8A94A0'); lb.position.set(0,R+0.32,0); lb.scale.multiplyScalar(0.6); g.add(lb);
   return g;
 }
+/* LAS TAPAS son fundición con alojamiento de rodamiento y nervios. El rodamiento
+   va dibujado —pista, bolas y jaula— porque es lo que sostiene el rotor centrado
+   en un entrehierro de décimas de milímetro: si se sale de sitio, el rotor roza
+   el estátor, y esa es la avería. */
+function tapaFundida(sx){
+  const g=new THREE.Group();
+  const cap=new THREE.Mesh(P3.revolucion([
+    [0.11,0],[0.58,0],[0.58,0.05],[0.50,0.09],[0.19,0.10],[0.19,0.14],[0.11,0.14]],
+    {seg:36}),MAT.cap);
+  cap.rotation.z=sx*Math.PI/2; cap.castShadow=true; g.add(cap);
+  for(let i=0;i<8;i++){
+    const a=i/8*Math.PI*2;
+    const nb=new THREE.Mesh(new THREE.BoxGeometry(0.045,0.36,0.030),MAT.cap);
+    nb.position.set(sx*0.07,Math.cos(a)*0.34,Math.sin(a)*0.34); nb.rotation.x=-a; g.add(nb);
+  }
+  const rod=P3.rodamiento(MATP,{dExt:0.22,dInt:0.11,ancho:0.07});
+  rod.rotation.z=Math.PI/2; rod.position.x=sx*0.10; g.add(rod);
+  return g;
+}
 function buildTapaTrasera(){
   const g=new THREE.Group();
-  const cap=new THREE.Mesh(new THREE.CylinderGeometry(0.58,0.58,0.1,36),MAT.cap); cap.rotation.z=Math.PI/2; cap.castShadow=true; g.add(cap);
-  const boss=new THREE.Mesh(new THREE.CylinderGeometry(0.12,0.12,0.1,24),MAT.cap); boss.rotation.z=Math.PI/2; boss.position.x=-0.06; g.add(boss);
+  g.add(tapaFundida(-1));
   const stub=new THREE.Mesh(new THREE.CylinderGeometry(0.055,0.055,0.22,20),MAT.shaft); stub.rotation.z=Math.PI/2; stub.position.x=-0.16; stub.castShadow=true; g.add(stub);
-  for(let i=0;i<8;i++){ const a=i/8*Math.PI*2; const vent=new THREE.Mesh(new THREE.CylinderGeometry(0.02,0.02,0.11,8),MAT.dark);
-    vent.rotation.z=Math.PI/2; vent.position.set(0.02,Math.cos(a)*0.34,Math.sin(a)*0.34); g.add(vent); }
   const lb=labelSprite('Tapa trasera (NDE)','#8A94A0'); lb.position.set(0,0.78,0); lb.scale.multiplyScalar(0.56); g.add(lb);
   return g;
 }
 function buildTapaDelantera(){
   const g=new THREE.Group();
-  const cap=new THREE.Mesh(new THREE.CylinderGeometry(0.58,0.58,0.1,36),MAT.cap); cap.rotation.z=Math.PI/2; cap.castShadow=true; g.add(cap);
-  const boss=new THREE.Mesh(new THREE.CylinderGeometry(0.13,0.13,0.14,24),MAT.cap); boss.rotation.z=Math.PI/2; boss.position.x=0.1; g.add(boss);
+  g.add(tapaFundida(1));
   const stub=new THREE.Mesh(new THREE.CylinderGeometry(0.065,0.065,0.36,20),MAT.shaft); stub.rotation.z=Math.PI/2; stub.position.x=0.33; stub.castShadow=true; g.add(stub);
-  for(let i=0;i<6;i++){ const a=i/6*Math.PI*2; const bolt=new THREE.Mesh(new THREE.CylinderGeometry(0.02,0.02,0.06,10),MAT.dark);
-    bolt.rotation.z=Math.PI/2; bolt.position.set(-0.03,Math.cos(a)*0.52,Math.sin(a)*0.52); g.add(bolt); }
   const lb=labelSprite('Tapa delantera (DE) — acople de carga','#8A94A0'); lb.position.set(0,0.8,0); lb.scale.multiplyScalar(0.56); g.add(lb);
   return g;
 }
@@ -154,10 +194,16 @@ function buildVentilador(){
   const g=new THREE.Group();
   const fanCore=new THREE.Group();
   const hub=new THREE.Mesh(new THREE.CylinderGeometry(0.09,0.09,0.12,20),MAT.fanPlastic); hub.rotation.z=Math.PI/2; hub.castShadow=true; fanCore.add(hub);
+  /* Las ASPAS de un ventilador de motor son RADIALES y planas a propósito: el
+     motor puede girar en los dos sentidos y tiene que soplar igual en los dos,
+     así que no puede llevar el perfil inclinado de un ventilador de un solo
+     sentido. Se dibujan como palas, no como tacos. */
   const nBlades=9;
   for(let i=0;i<nBlades;i++){ const a=i/nBlades*Math.PI*2;
-    const blade=roundedBox(0.05,0.3,0.12,MAT.fanPlastic,0.02);
-    blade.position.set(0,Math.cos(a)*0.2,Math.sin(a)*0.2); blade.rotation.x=a; blade.castShadow=true; fanCore.add(blade); }
+    const blade=new THREE.Mesh(P3.extruido(P3.contornoRedondeado(
+      [[-0.055,0.085],[0.055,0.085],[0.070,0.30],[-0.070,0.30]],0.012,3),
+      {espesor:0.016,bisel:0.004}),MAT.fanPlastic);
+    blade.rotation.z=a; blade.rotation.y=Math.PI/2; blade.castShadow=true; fanCore.add(blade); }
   g.add(fanCore);
   const coverShell=new THREE.Group();
   const domeLen=0.22, R=0.5, ox=-0.29;
@@ -187,13 +233,11 @@ function buildCapacitorArranque(){
 function buildCarcasa(){
   const g=new THREE.Group();
   const len=1.9, R=0.62;
-  const shell=new THREE.Mesh(new THREE.CylinderGeometry(R,R,len,40,1,true,0.55,Math.PI*2-1.1),MAT.carcasa);
-  shell.rotation.z=Math.PI/2; shell.castShadow=shell.receiveShadow=true; g.add(shell);
-  const finArc0=0.62, finArc1=Math.PI*2-1.16, nFins=14;
-  for(let i=0;i<nFins;i++){ const a=finArc0+(i/(nFins-1))*(finArc1-finArc0);
-    const fin=new THREE.Mesh(new THREE.BoxGeometry(len*0.86,0.09,0.02),MAT.carcasa);
-    fin.position.set(0,Math.cos(a)*(R+0.05),Math.sin(a)*(R+0.05)); fin.rotation.x=a; fin.castShadow=true; g.add(fin); }
-  [-len/2+0.04, len/2-0.04].forEach(dx=>{ const ring=new THREE.Mesh(new THREE.TorusGeometry(R,0.035,10,40),MAT.carcasa); ring.rotation.y=Math.PI/2; ring.position.x=dx; g.add(ring); });
+  /* La carcasa, ABIERTA por delante para ver el montaje. Las aletas se reparten
+     sólo por la chapa que queda: una aleta flotando sobre el hueco delataría que
+     el corte es un truco de dibujo. */
+  g.add(P3.carcasaMotor(MATP,{d:2*R,largo:len,nAletas:14,patas:false,bornes:false,
+    tapas:false,corte:{ini:0.62,arco:Math.PI*2-1.16}}));
   [-1,1].forEach(s=>{ const foot=roundedBox(0.34,0.14,0.5,MAT.carcasa,0.05); foot.position.set(s*0.55,-R-0.05,0); foot.castShadow=true; g.add(foot); });
   const tbox=roundedBox(0.34,0.26,0.3,MAT.termBox,0.04); tbox.position.set(0,R+0.18,0); tbox.castShadow=true; g.add(tbox);
   const tlid=roundedBox(0.3,0.06,0.26,MAT.termLid,0.02); tlid.position.set(0,R+0.32,0); g.add(tlid);
