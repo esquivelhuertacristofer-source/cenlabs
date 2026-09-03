@@ -37,6 +37,24 @@ const MAT={
   cyl: std({color:0xb8c0c8, roughness:0.45, metalness:0.85}),
   bezel: std({color:0x05100d, roughness:0.8, metalness:0.2}),
   crank: std({...brush, metalness:0.9, roughness:0.3}),
+  /* La tapa de balancines NO es del mismo metal que el bloque: es una pieza de
+     aleación ligera (o de plástico) atornillada encima, y en el motor se
+     distingue a simple vista del bloque por el color. */
+  cover: std({...alu, color:0x5b636a, metalness:0.42, roughness:0.80}),
+};
+
+/* Los nombres con los que trabaja la biblioteca de piezas (`P3`, que el molde
+   ya importa), traducidos una vez a los materiales de este laboratorio. */
+const MATP={
+  aluminio: std({...alu, color:0x8f979f, roughness:0.62, metalness:0.60}),
+  acero:    std({...brush, color:0x9aa2a9, roughness:0.34, metalness:0.85}),
+  cromo:    std({...brush, color:0xc9d1d6, roughness:0.22, metalness:0.90}),
+  chapa:    std({...brush, color:0x828a91, roughness:0.45, metalness:0.75}),
+  cobre:    std({color:0xb87333, roughness:0.35, metalness:0.75}),
+  negro:    std({...plas, color:0x13181c, roughness:0.62, metalness:0.06}),
+  goma:     std({...rub, color:0x0f1216, roughness:0.94, metalness:0.0}),
+  blanco:   std({color:0xd7dee6, roughness:0.42, metalness:0.15}),
+  ceramica: std({color:0xd9dcd6, roughness:0.62, metalness:0.04}),
 };
 
 const HOVER_LABELS=new Map();
@@ -45,14 +63,102 @@ const HOVER_LABELS=new Map();
 const dash=new THREE.Group(); dash.position.set(-2.5,1.4,0.6); dash.rotation.y=0.4; scene.add(dash);
 const dashBody=roundedBox(1.7,1.05,0.42,MAT.housing,0.14); dashBody.castShadow=true; dash.add(dashBody);
 const dashBezel=roundedBox(1.5,0.85,0.10,MAT.bezel,0.08); dashBezel.position.set(0,0,0.2); dash.add(dashBezel);
-const gaugeRing1=new THREE.Mesh(new THREE.TorusGeometry(0.32,0.02,10,32), MAT.crank);
-gaugeRing1.position.set(-0.42,0.06,0.26); dash.add(gaugeRing1);
-const gaugeRing2=gaugeRing1.clone(); gaugeRing2.position.set(0.42,0.06,0.26); dash.add(gaugeRing2);
+/* LOS RELOJES, con esfera y aguja. Dos aros vacíos no son un tablero: el
+   cuentavueltas es el instrumento por el que un conductor NOTA un fallo de
+   encendido —el ralentí se vuelve irregular y la aguja tiembla—, así que su
+   aguja va enganchada al mismo régimen que publica la telemetría, sin inventar
+   una lectura aparte. El velocímetro marca cero y así se queda: el motor está
+   en marcha, pero el vehículo está parado en el taller. */
+function reloj(x,max,paso,etiqueta,rojoDesde){
+  const g=new THREE.Group(); g.position.set(x,0.06,0.255); dash.add(g);
+  const aro=new THREE.Mesh(new THREE.TorusGeometry(0.32,0.02,10,32), MAT.crank);
+  aro.position.z=0.005; g.add(aro);
+  const cv=document.createElement('canvas'); cv.width=cv.height=320;
+  const tx=new THREE.CanvasTexture(cv); tx.colorSpace=THREE.SRGBColorSpace;
+  tx.minFilter=THREE.LinearFilter; tx.generateMipmaps=false;
+  const c=cv.getContext('2d'), R=124, cx=160, cy=160, A0=-Math.PI*2/3, A1=Math.PI*2/3;
+  c.fillStyle='#0a1210'; c.beginPath(); c.arc(cx,cy,152,0,Math.PI*2); c.fill();
+  const n=Math.round(max/paso);
+  for(let i=0;i<=n;i++){
+    const v=i*paso, t=v/max, a=A0+t*(A1-A0);
+    const rojo=rojoDesde!==null&&v>=rojoDesde;
+    c.strokeStyle=rojo?'#f4475e':'#cfe6de'; c.lineWidth=i%2===0?6:3;
+    const r0=i%2===0?R-22:R-14;
+    c.beginPath();
+    c.moveTo(cx+Math.sin(a)*r0, cy-Math.cos(a)*r0);
+    c.lineTo(cx+Math.sin(a)*R,  cy-Math.cos(a)*R);
+    c.stroke();
+    if(i%2===0){
+      c.fillStyle=rojo?'#f4475e':'#cfe6de'; c.font='bold 30px system-ui';
+      c.textAlign='center'; c.textBaseline='middle';
+      c.fillText(String(v/(paso>=100?1000:1)), cx+Math.sin(a)*(R-48), cy-Math.cos(a)*(R-48));
+    }
+  }
+  c.fillStyle='#7f9a92'; c.font='600 24px system-ui'; c.textAlign='center';
+  c.fillText(etiqueta, cx, cy+86);
+  tx.needsUpdate=true;
+  const cara=new THREE.Mesh(new THREE.PlaneGeometry(0.62,0.62),
+    new THREE.MeshBasicMaterial({map:tx,toneMapped:false}));
+  cara.position.z=-0.004; g.add(cara);
+  const piv=new THREE.Group(); piv.position.z=0.012; g.add(piv);
+  const ag=new THREE.Mesh(new THREE.BoxGeometry(0.016,0.26,0.008),
+    std({color:0xf4475e, emissive:0xf4475e, emissiveIntensity:0.6, roughness:0.5}));
+  ag.position.y=0.10; piv.add(ag);
+  const eje=new THREE.Mesh(new THREE.CylinderGeometry(0.028,0.028,0.02,14), MAT.crank);
+  eje.rotation.x=Math.PI/2; eje.position.z=0.016; g.add(eje);
+  const fija=v=>{ piv.rotation.z=-(A0+Math.min(1,Math.max(0,v/max))*(A1-A0)); };
+  fija(0);
+  return {grupo:g, aro, fija};
+}
+const tacometro=reloj(-0.42,8000,1000,'×1000 min⁻¹',6000);
+const velocimetro=reloj(0.42,180,20,'km/h',null);
+const gaugeRing1=tacometro.aro, gaugeRing2=velocimetro.aro;
 const milMat=std({color:0x2a1a0c, emissive:0xffb703, emissiveIntensity:0.0, roughness:0.45, metalness:0.2});
 const mil=new THREE.Mesh(new THREE.BoxGeometry(0.30,0.22,0.05), milMat);
 mil.position.set(0,-0.30,0.26); dash.add(mil);
-const milGlyph=new THREE.Mesh(new THREE.TorusGeometry(0.07,0.013,8,16), std({color:0x1a1006,roughness:0.6}));
-milGlyph.position.set(0,-0.30,0.29); dash.add(milGlyph);
+/* EL TESTIGO MIL ES UN DIBUJO CONCRETO: la silueta de un motor. No es un aro
+   ni una mancha —el conductor lo reconoce por su forma, y media práctica trata
+   de qué significa que ESE símbolo esté encendido, fijo o parpadeando—, así que
+   se dibuja el símbolo. Se enciende variando su opacidad junto con el emisivo
+   de la lente, para que apagado se adivine y encendido queme. */
+const milCanvas=document.createElement('canvas'); milCanvas.width=320; milCanvas.height=224;
+const milTex=new THREE.CanvasTexture(milCanvas); milTex.colorSpace=THREE.SRGBColorSpace;
+milTex.minFilter=THREE.LinearFilter; milTex.generateMipmaps=false;
+(function dibujaMIL(){
+  const c=milCanvas.getContext('2d'), W=milCanvas.width, H=milCanvas.height;
+  c.clearRect(0,0,W,H);
+  c.fillStyle='#ffb703'; c.strokeStyle='#ffb703'; c.lineJoin='round';
+  const S=W/320, ox=48*S, oy=44*S;              // el símbolo, en su propia rejilla
+  c.save(); c.translate(ox,oy); c.scale(S,S);
+  c.beginPath();                                 // cuerpo del bloque
+  c.moveTo(28,44); c.lineTo(44,44); c.lineTo(52,28); c.lineTo(96,28);
+  c.lineTo(104,44); c.lineTo(128,44); c.lineTo(128,32); c.lineTo(150,32);
+  c.lineTo(150,60); c.lineTo(176,60); c.lineTo(176,104); c.lineTo(150,104);
+  c.lineTo(150,120); c.lineTo(104,120); c.lineTo(104,136); c.lineTo(60,136);
+  c.lineTo(60,120); c.lineTo(28,120); c.closePath();
+  c.fill();
+  c.fillStyle='#3a2600';                         // el «rayo» interior, en hueco
+  c.beginPath();
+  c.moveTo(88,54); c.lineTo(112,54); c.lineTo(96,80); c.lineTo(116,80);
+  c.lineTo(78,116); c.lineTo(90,86); c.lineTo(72,86); c.closePath();
+  c.fill();
+  c.restore();
+  milTex.needsUpdate=true;
+})();
+const milGlyphMat=new THREE.MeshBasicMaterial({map:milTex,transparent:true,opacity:0.09,toneMapped:false,depthWrite:false});
+const milGlyph=new THREE.Mesh(new THREE.PlaneGeometry(0.26,0.182), milGlyphMat);
+milGlyph.position.set(0,-0.30,0.286); milGlyph.raycast=()=>{}; dash.add(milGlyph);
+/* EL CONECTOR DE DIAGNÓSTICO, bajo el tablero: es donde se enchufa el escáner,
+   y por tanto el único punto por el que este laboratorio existe. Antes el cable
+   del escáner moría contra la cara del cuadro de relojes, cruzándolo por
+   delante. Se dibuja genérico a propósito: la práctica no modela el pinado de
+   ningún conector normalizado en concreto, sólo el gesto de conectarse. */
+const dlc=P3.conector(MATP,{ancho:0.30,alto:0.12,fondo:0.11,pines:8});
+dlc.position.set(0.35,-0.62,0.18); dash.add(dlc);
+const dlcLabel=labelSprite('Conector de diagnóstico','#4FD1C5');
+dlcLabel.position.set(0.35,-0.35,0.18); dlcLabel.scale.multiplyScalar(0.66);
+dlcLabel.visible=false; dlcLabel.raycast=()=>{}; dash.add(dlcLabel); HOVER_LABELS.set(dlc,dlcLabel);
+
 const dashLabel=labelSprite('Tablero · testigo MIL','#FFB703'); dashLabel.position.set(0,0.75,0);
 dashLabel.visible=false; dashLabel.raycast=()=>{}; dash.add(dashLabel); HOVER_LABELS.set(dashBody,dashLabel);
 const milLabel=labelSprite('Testigo MIL','#FFB703'); milLabel.position.set(0,-0.05,0.26);
@@ -79,28 +185,89 @@ const head=roundedBox(2.35,0.4,1.4,MAT.block,0.08); head.position.set(0,1.55,0);
 const blockLabel=labelSprite('Bloque del motor','#8FB3AC'); blockLabel.position.set(0,0.65,0.2);
 blockLabel.visible=false; blockLabel.raycast=()=>{}; eng.add(blockLabel); HOVER_LABELS.set(block,blockLabel);
 
-const cylMarks=[];
+/* LA TAPA DE BALANCINES: la cara que se ve al abrir el capó y la superficie
+   sobre la que se atornillan las bobinas. Sin ella, las bobinas salían del aire
+   por encima de la culata. Se saca de su sección transversal —falda, hombro y
+   meseta— y se extruye a lo largo del motor. */
+const tapa=new THREE.Mesh(P3.normalizaUV(P3.extruido(P3.contornoRedondeado(
+  [[-0.68,0],[0.68,0],[0.68,0.06],[0.56,0.06],[0.50,0.20],[0.40,0.27],
+   [-0.40,0.27],[-0.50,0.20],[-0.56,0.06],[-0.68,0.06]],
+  0.035,3), {espesor:2.26, bisel:0.018}), 4), MAT.cover);
+tapa.rotation.y=Math.PI/2; tapa.position.set(0,1.75,0); tapa.castShadow=true; eng.add(tapa);
+/* Los TORNILLOS de la tapa, en las dos faldas: es por donde se abre. */
+for(let i=0;i<6;i++) for(const sz of [-1,1]){
+  const t=P3.tornilloHex(MATP,{d:0.036,largo:0.05,arandela:false});
+  t.position.set(-1.0+i*0.40,1.812,sz*0.62); eng.add(t);
+}
+/* EL TAPÓN DE LLENADO DE ACEITE, con su tirador. Es la única pieza de la tapa
+   que se toca a diario, y sin él la tapa es una chapa cualquiera. */
+const taponMat=std({...plas, color:0x2b323a, roughness:0.52, metalness:0.20});
+const tapon=new THREE.Group(); tapon.position.set(0.86,2.02,0.16); eng.add(tapon);
+const taponCuello=new THREE.Mesh(new THREE.CylinderGeometry(0.10,0.115,0.05,20), MAT.cover);
+taponCuello.position.y=0.02; tapon.add(taponCuello);
+const taponCab=new THREE.Mesh(new THREE.CylinderGeometry(0.125,0.125,0.085,6), taponMat);
+taponCab.position.y=0.085; taponCab.castShadow=true; tapon.add(taponCab);
+const taponTop=new THREE.Mesh(new THREE.CylinderGeometry(0.095,0.095,0.02,20), taponMat);
+taponTop.position.y=0.135; tapon.add(taponTop);
+const taponLabel=labelSprite('Tapón de llenado de aceite','#8FB3AC');
+taponLabel.position.set(0.86,2.40,0.16); taponLabel.scale.multiplyScalar(0.62);
+taponLabel.visible=false; taponLabel.raycast=()=>{}; eng.add(taponLabel); HOVER_LABELS.set(tapon,taponLabel);
+
+/* LAS BOBINAS SOBRE BUJÍA, una por cilindro, atornilladas a la tapa. Este es el
+   cambio que importa en todo el laboratorio: quien diagnostica un fallo de
+   encendido no mira un cilindro —no se ve—, mira y TIRA de la bobina del
+   cilindro sospechoso. Antes había cuatro cilindros de cromo flotando sobre la
+   culata, que no son ninguna pieza del motor. */
+const cylMarks=[], cylAros=[];
 for(let i=0;i<CYL_N;i++){
   const x=-0.78+i*0.52;
-  const c=new THREE.Mesh(new THREE.CylinderGeometry(0.17,0.17,0.34,20), MAT.cyl.clone());
-  c.position.set(x,1.9,0); c.castShadow=true; eng.add(c);
-  c.material.emissive=new THREE.Color(0x123028); cylMarks.push(c);
-  const lb=labelSprite('Cil. '+(i+1),'#8FB3AC'); lb.position.set(x,2.28,0); lb.scale.multiplyScalar(0.6);
+  const pozo=new THREE.Mesh(new THREE.CylinderGeometry(0.105,0.115,0.05,20), MAT.cover);
+  pozo.position.set(x,2.005,0); eng.add(pozo);
+  const c=P3.bobinaEncendido(MATP,{alto:0.50,d:0.105});
+  c.position.set(x,2.03,0); c.rotation.y=Math.PI/2; eng.add(c);
+  cylMarks.push(c);
+  /* EL ARO DE ESTADO es una ANOTACIÓN del laboratorio, no una pieza: en un
+     motor real no hay ningún aro que se encienda al pie de la bobina. Marca en
+     qué cilindro está el evento que la telemetría acaba de contar. */
+  const aro=new THREE.Mesh(new THREE.TorusGeometry(0.125,0.018,8,26),
+    std({color:0x0c1a16, emissive:0x123028, emissiveIntensity:0.25, roughness:0.5, metalness:0.1}));
+  aro.rotation.x=Math.PI/2; aro.position.set(x,2.045,0); aro.raycast=()=>{}; eng.add(aro);
+  cylAros.push(aro);
+  const lb=labelSprite('Bobina cil. '+(i+1),'#8FB3AC'); lb.position.set(x,2.72,0); lb.scale.multiplyScalar(0.6);
   lb.visible=false; lb.raycast=()=>{}; eng.add(lb); HOVER_LABELS.set(c,lb);
 }
 
-const crankGroup=new THREE.Group(); crankGroup.position.set(-1.2,0.5,0.42); eng.add(crankGroup);
-const crankDisc=new THREE.Mesh(new THREE.CylinderGeometry(0.34,0.34,0.12,28), MAT.crank);
-crankDisc.rotation.x=Math.PI/2; crankGroup.add(crankDisc);
-const crankNotch=new THREE.Mesh(new THREE.BoxGeometry(0.045,0.24,0.13), std({color:0xffd166,emissive:0xffd166,emissiveIntensity:0.5,roughness:0.5}));
-crankNotch.position.set(0,0.16,0.07); crankGroup.add(crankNotch);
-const crankLabel=labelSprite('Cigüeñal · sensor CKP','#8FB3AC'); crankLabel.position.set(-1.2,0.9,0.42); crankLabel.scale.multiplyScalar(0.72);
-crankLabel.visible=false; crankLabel.raycast=()=>{}; eng.add(crankLabel); HOVER_LABELS.set(crankDisc,crankLabel);
+/* LA RUEDA FÓNICA DEL CIGÜEÑAL, 60−2, y el captador que la lee. Un disco liso
+   con una muesca pintada no explicaba nada: lo que el sensor cuenta son los
+   DIENTES, y el hueco de dos dientes que falta es la única marca angular del
+   eje —la referencia por la que la centralita sabe en qué grado está—. Es
+   además el instrumento del que sale todo este laboratorio: el fallo de
+   encendido se detecta midiendo cuánto se frena el cigüeñal entre diente y
+   diente. Gira sobre su eje, +X, que es el del cigüeñal. */
+const crankGroup=new THREE.Group(); crankGroup.position.set(-1.24,0.70,0); eng.add(crankGroup);
+const crankDisc=P3.ruedaFonica(MATP,{d:0.62,dientes:60,falta:2,alto:0.045,ancho:0.09});
+crankGroup.add(crankDisc);
+const cubo=new THREE.Mesh(new THREE.CylinderGeometry(0.10,0.10,0.13,20), MAT.crank);
+cubo.rotation.z=Math.PI/2; crankGroup.add(cubo);
+/* El hueco de referencia, resaltado por el laboratorio para poder seguirlo con
+   la vista: en la rueda real no está iluminado, sencillamente no hay diente. */
+const crankNotch=new THREE.Mesh(new THREE.BoxGeometry(0.10,0.055,0.055),
+  std({color:0xffd166,emissive:0xffd166,emissiveIntensity:0.5,roughness:0.5}));
+const A_HUECO=Math.PI/30;                 // el centro del hueco de dos dientes
+crankNotch.position.set(0, 0.288*Math.sin(A_HUECO), -0.288*Math.cos(A_HUECO));
+crankGroup.add(crankNotch);
+/* EL CAPTADOR, apuntando al borde de la rueda con su entrehierro. */
+const ckp=P3.captador(MATP,{d:0.10,largo:0.32});
+ckp.position.set(-1.24,1.20,0); eng.add(ckp);
+const crankLabel=labelSprite('Rueda fónica 60−2 · sensor CKP','#8FB3AC');
+crankLabel.position.set(-1.24,1.55,0); crankLabel.scale.multiplyScalar(0.72);
+crankLabel.visible=false; crankLabel.raycast=()=>{}; eng.add(crankLabel);
+HOVER_LABELS.set(crankDisc,crankLabel); HOVER_LABELS.set(ckp,crankLabel);
 
 /* ---------- 4) CABLES (escáner → tablero, tablero → motor) ---------- */
 const cableCurve1=new THREE.CatmullRomCurve3([
   new THREE.Vector3(2.0,1.6,0.9), new THREE.Vector3(0.4,0.5,1.5),
-  new THREE.Vector3(-1.2,0.9,1.2), new THREE.Vector3(-2.2,1.5,0.9),
+  new THREE.Vector3(-1.25,0.55,1.15), new THREE.Vector3(-2.11,0.80,0.70),
 ]);
 const cable1=new THREE.Mesh(new THREE.TubeGeometry(cableCurve1,48,0.045,10), MAT.cable); cable1.castShadow=true; scene.add(cable1);
 const cableCurve2=new THREE.CatmullRomCurve3([
@@ -116,16 +283,19 @@ function showToast(html){toast.innerHTML=html;toast.classList.add('show');clearT
 const PART_DESC=new Map([
   [toolBody,{name:'Escáner OBD-II',desc:'Lee Modo $01 (vivo), $07 (pendientes), $03 (confirmados) y $02 (cuadro congelado).'}],
   [dashBody,{name:'Tablero de instrumentos',desc:'Aquí vive el testigo MIL — la luz de "check engine" que ve el conductor, sin necesidad de escáner.'}],
+  [dlc,{name:'Conector de diagnóstico',desc:'Bajo el tablero. Es donde se enchufa el escáner para leer los modos $01, $07, $03 y $02. Se dibuja genérico: la práctica no modela el pinado de ningún conector normalizado en concreto.'}],
   [mil,{name:'Testigo MIL',desc:'Apagado = sin falla activa. Fija = falla confirmada (Tipo B, umbral de emisiones). Parpadeante = falla activa que puede dañar el catalizador (Tipo A).'}],
   [block,{name:'Bloque del motor',desc:'Aloja los 4 cilindros; un fallo de encendido es una combustión que no ocurre como debería en uno o más de ellos.'}],
-  [crankDisc,{name:'Cigüeñal · sensor CKP',desc:'El sensor de posición del cigüeñal detecta variaciones diminutas de velocidad angular: así "sospecha" la ECU un fallo de encendido.'}],
+  [crankDisc,{name:'Rueda fónica del cigüeñal (60−2)',desc:'Sesenta dientes menos dos: el hueco es la referencia angular del eje. El sensor CKP cuenta los dientes y mide cuánto tarda cada uno; una combustión que falta frena el cigüeñal esa milésima de más, y ahí es donde la ECU "sospecha" el fallo de encendido.'}],
+  [ckp,{name:'Sensor CKP',desc:'Capta el paso de cada diente de la rueda fónica a través de su entrehierro. No mide el fallo de encendido: mide tiempo entre dientes, y la ECU deduce el resto.'}],
+  [tapon,{name:'Tapón de llenado de aceite',desc:'Va en la tapa de balancines. Aquí es sólo referencia visual: la práctica no modela el nivel ni el estado del aceite.'}],
 ]);
 pickerFor(scene,S.camera,S.renderer.domElement,hit=>{
   if(!hit)return; let o=hit.object;
   while(o){
     if(PART_DESC.has(o)){ const p=PART_DESC.get(o); showToast(`<b style="color:var(--accent2)">${p.name}</b><br><span style="color:var(--dim);font-size:11px">${p.desc}</span>`); return; }
     const ci=cylMarks.indexOf(o);
-    if(ci>=0){ showToast(`<b style="color:var(--accent)">Cilindro ${ci+1}</b><br><span style="color:var(--dim);font-size:11px">Si la gran mayoría de los eventos de fallo se concentra aquí, la regla de atribución le asigna el código específico P030${ci+1}.</span>`); return; }
+    if(ci>=0){ showToast(`<b style="color:var(--accent)">Bobina del cilindro ${ci+1}</b><br><span style="color:var(--dim);font-size:11px">Bobina sobre bujía (COP): conector de tres vías, cuerpo atornillado a la tapa y bota de goma hasta el pozo. Si la gran mayoría de los eventos de fallo se concentra aquí, la regla de atribución le asigna el código específico P030${ci+1}. El aro encendido a su pie es una anotación del laboratorio, no una pieza del motor.</span>`); return; }
     o=o.parent;
   }
 });
@@ -261,12 +431,13 @@ S.setAnimate((dt,time)=>{
       if(targetIdx===null||targetIdx===undefined||targetIdx===i) miss=cylinderMisses(i,rate,time);
     }
     if(miss&&i===clock){ fire=false; anyMiss=true; }
-    cyl.material.emissive.setHex(miss?0xf4475e:(fire?0x2A9D8F:0x102a24));
-    cyl.material.emissiveIntensity=miss?0.95:(fire?0.9:0.25);
+    const am=cylAros[i].material;
+    am.emissive.setHex(miss?0xf4475e:(fire?0x2A9D8F:0x102a24));
+    am.emissiveIntensity=miss?0.95:(fire?0.9:0.25);
   });
   stumbleFactor += ((anyMiss?0.3:1)-stumbleFactor)*Math.min(1,dt*10);
   const angSpeed=connected?(rpmLive/60)*2*Math.PI*0.35:0;
-  crankGroup.rotation.z += dt*angSpeed*stumbleFactor;
+  crankGroup.rotation.x += dt*angSpeed*stumbleFactor;   // el cigüeñal gira sobre +X
   crankNotch.material.emissiveIntensity=0.35+(anyMiss?0.5:0);
 
   const st=milEffectiveState();
@@ -274,6 +445,8 @@ S.setAnimate((dt,time)=>{
   if(st==='solid') milI=0.85;
   else if(st==='blink') milI=(Math.sin(time*2*Math.PI*2)>0)?1.0:0.08;
   milMat.emissiveIntensity += (milI-milMat.emissiveIntensity)*Math.min(1,dt*20);
+  milGlyphMat.opacity = 0.09+0.91*Math.min(1,milMat.emissiveIntensity/0.85);
+  tacometro.fija(connected?rpmLive+jit:0);
 
   if(connected) updateTele(rpmLive+jit);
   if(time-(drawToolScreen._t||0)>0.22){ drawToolScreen(rpmLive+jit); drawToolScreen._t=time; }

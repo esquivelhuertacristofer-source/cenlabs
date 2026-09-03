@@ -789,6 +789,57 @@ export function inyector(mat, opts = {}) {
   return g;
 }
 
+/**
+ * BOBINA DE ENCENDIDO DE LÁPIZ (bobina sobre bujía, COP): el conector de tres
+ * vías arriba, el cuerpo de plástico con su brida de sujeción, y abajo la BOTA
+ * de goma que baja al pozo de la bujía.
+ *
+ * La bota es la pieza que hay que reconocer. Es lo que distingue esta bobina de
+ * un cilindro cualquiera: dentro lleva el muelle que entrega los ~25 kV al
+ * electrodo, y por fuera es el faldón que sella el pozo para que la chispa no
+ * se vaya a masa por el aceite o el agua que se acumulan ahí. Quien diagnostica
+ * un fallo de encendido tira JUSTO de esta pieza —la desenchufa, la saca del
+ * pozo y mira la bujía—, así que un laboratorio de fallo de encendido que
+ * dibuje cilindros lisos está escondiendo el gesto que enseña.
+ *
+ * Eje +Y: la punta de la bota apoya en y = 0 (la cara de la tapa de balancines)
+ * y la bobina sube. `userData.pozoY` es la profundidad a la que quedaría la
+ * bujía si el laboratorio quiere dibujarla debajo.
+ */
+export function bobinaEncendido(mat, opts = {}) {
+  const { alto = 0.42, d = 0.075, color = 0x2a3038, brida = true, seg = 20 } = opts;
+  const g = new THREE.Group();
+  const R = d / 2;
+  const plas = new THREE.MeshStandardMaterial({ color, roughness: 0.56, metalness: 0.06 });
+  const gom = mat.goma || new THREE.MeshStandardMaterial({ color: 0x0f1216, roughness: 0.94, metalness: 0.0 });
+  /* LA BOTA: faldón acampanado abajo y cuello estrecho arriba. */
+  const bot = new THREE.Mesh(revolucion([
+    [0, 0], [R * 0.96, 0], [R * 1.04, alto * 0.04], [R * 0.80, alto * 0.13],
+    [R * 0.62, alto * 0.22], [R * 0.60, alto * 0.32], [0, alto * 0.32]], { seg }), gom);
+  bot.castShadow = true; g.add(bot);
+  /* EL CUERPO, con el hombro por el que se agarra al tirar. */
+  const cue = new THREE.Mesh(revolucion([
+    [0, alto * 0.26], [R * 0.64, alto * 0.26], [R * 0.98, alto * 0.38],
+    [R, alto * 0.86], [R * 0.88, alto * 0.94], [0, alto * 0.94]], { seg }), plas);
+  cue.castShadow = true; g.add(cue);
+  /* LA BRIDA con su taladro y el tornillo: una bobina no se sujeta sola en el
+     pozo, se atornilla a la tapa, y sin la oreja no se ve por dónde. */
+  if (brida) {
+    const or = new THREE.Mesh(extruido(contornoRedondeado(
+      [[-R * 0.5, -R * 0.62], [R * 2.5, -R * 0.62], [R * 2.5, R * 0.62], [-R * 0.5, R * 0.62]],
+      R * 0.5, 3), { huecos: [circulo(R * 1.75, 0, R * 0.42, 12)], espesor: R * 0.44, bisel: R * 0.05 }),
+      plas);
+    or.rotation.x = Math.PI / 2; or.position.y = alto * 0.40; g.add(or);
+    const tor = tornilloHex(mat, { d: R * 0.52, largo: R * 0.6, arandela: false });
+    tor.position.set(R * 1.75, alto * 0.40 + R * 0.22, 0); g.add(tor);
+  }
+  const con = conector(mat, { ancho: d * 1.55, alto: d * 0.86, fondo: d * 0.72, pines: 3 });
+  con.position.y = alto * 0.98; con.rotation.x = -Math.PI / 2; g.add(con);
+  g.userData = { alto, d, cuerpo: cue, bota: bot, conector: con,
+                 pozoY: -alto * 0.30, salida: new THREE.Vector3(0, alto * 1.06, 0) };
+  return g;
+}
+
 /* ==========================================================================
    §4 · PIEZAS DE FRENO
    ========================================================================== */
@@ -1197,17 +1248,28 @@ export function neumatico(mat, opts = {}) {
 }
 
 /**
- * RUEDA FÓNICA del ABS: la corona dentada que pasa por delante del captador. Los
+ * RUEDA FÓNICA: la corona dentada que pasa por delante del captador. Los
  * dientes SON la señal —cada uno da un pulso, y la cuenta de pulsos por vuelta
  * fija la resolución del sistema—. Un aro liso no da ninguna señal, y dibujarlo
  * liso deja el laboratorio sin explicar de dónde sale la medida.
+ *
+ * `falta` quita ese número de dientes seguidos. En una rueda de ABS no falta
+ * ninguno; en la del cigüeñal de un motor faltan DOS de sesenta, y ese hueco no
+ * es un defecto: es la única marca angular que tiene el eje, la referencia por
+ * la que la centralita sabe en qué vuelta y en qué grado está. Sin el hueco, la
+ * rueda no dice dónde está el punto muerto superior y el dibujo se calla justo
+ * lo que hace falta explicar. El eje de giro es +X.
  */
 export function ruedaFonica(mat, opts = {}) {
-  const { d = 0.92, dientes = 48, alto = 0.05, ancho = 0.04 } = opts;
+  const { d = 0.92, dientes = 48, alto = 0.05, ancho = 0.04, falta = 0 } = opts;
   const R = d / 2, c = [];
   for (let i = 0; i < dientes; i++) {
     const a0 = (i / dientes) * Math.PI * 2, p = Math.PI * 2 / dientes;
-    for (const [t, r] of [[0, R], [p * 0.5, R], [p * 0.5, R - alto], [p, R - alto]]) {
+    const hueco = i < falta;                 // los que faltan, seguidos, al inicio
+    const tramos = hueco
+      ? [[0, R - alto], [p, R - alto]]
+      : [[0, R], [p * 0.5, R], [p * 0.5, R - alto], [p, R - alto]];
+    for (const [t, r] of tramos) {
       c.push([Math.cos(a0 + t) * r, Math.sin(a0 + t) * r]);
     }
   }
@@ -1215,7 +1277,7 @@ export function ruedaFonica(mat, opts = {}) {
     mat.acero);
   cor.rotation.y = Math.PI / 2; cor.castShadow = true;
   const g = new THREE.Group(); g.add(cor);
-  g.userData.dientes = dientes; g.userData.d = d;
+  g.userData.dientes = dientes; g.userData.d = d; g.userData.falta = falta;
   return g;
 }
 
