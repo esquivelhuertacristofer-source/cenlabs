@@ -2658,3 +2658,279 @@ export function ventosa(mat, opts = {}) {
   g.userData.d = d; g.userData.alturaBoca = -(y + R * 0.70);
   return g;
 }
+
+
+/* ==========================================================================
+   §11 · COMPONENTES DE PLACA
+   --------------------------------------------------------------------------
+   Un laboratorio de electronica dibujado con un rectangulo negro, un cilindro
+   azul y un taco sobre una plancha verde no ensena nada: no se ve por donde
+   entra la corriente, ni cual es el positivo, ni por que un componente se monta
+   de una manera y no de otra. Lo que convierte un taco en un COMPONENTE son las
+   PATAS —donde se suelda—, las MARCAS —bandas, franjas, chaflanes— y la forma
+   del encapsulado, que es lo que se reconoce en la mano.
+   Convenio: la cara de la placa es y = 0 y las patas bajan a y negativa. Los
+   componentes AXIALES se tumban en +X; los RADIALES se levantan en +Y.
+   ========================================================================== */
+
+function _hilo(pts, r, mat) {
+  return new THREE.Mesh(new THREE.TubeGeometry(
+    new THREE.CatmullRomCurve3(pts), Math.max(8, pts.length * 6), r, 7, false), mat);
+}
+
+/**
+ * RESISTENCIA axial con sus BANDAS DE COLOR y sus patas dobladas. El cuerpo es
+ * abarrilado, con hombros: no es un tubo recto, y esa forma es la que se
+ * reconoce en la mano. Las bandas se pasan como colores, en el orden en que se
+ * leen —empezando por el extremo mas cercano a la primera—, de modo que el
+ * dibujo diga el mismo valor que el panel.
+ */
+export function resistencia(mat, opts = {}) {
+  const { largo = 0.20, d = 0.075, bandas = ['#7a4a1e', '#111318', '#b03a2e', '#c9a227'],
+          patas = 0.12, paso = null, cuerpo = 0x9a815c, seg = 18 } = opts;
+  const g = new THREE.Group();
+  const R = d / 2, L = largo;
+  const cue = new THREE.Mesh(revolucion([
+    [0, -L / 2], [R * 0.40, -L / 2], [R * 0.74, -L / 2 + L * 0.07],
+    [R, -L / 2 + L * 0.18], [R, L / 2 - L * 0.18], [R * 0.74, L / 2 - L * 0.07],
+    [R * 0.40, L / 2], [0, L / 2]], { seg }),
+    new THREE.MeshStandardMaterial({ color: cuerpo, roughness: 0.88, metalness: 0.02 }));
+  cue.rotation.z = -Math.PI / 2; cue.castShadow = true; g.add(cue);
+  // Las bandas: las tres primeras juntas hacia un extremo y la tolerancia
+  // separada al otro, que es como se imprimen y como se sabe por donde leer.
+  const n = bandas.length;
+  bandas.forEach((col, i) => {
+    const x = (i < n - 1)
+      ? -L * 0.30 + i * L * 0.155
+      : L * 0.32;
+    const b = new THREE.Mesh(new THREE.CylinderGeometry(R * 1.03, R * 1.03, L * 0.085, seg),
+      new THREE.MeshStandardMaterial({ color: col, roughness: 0.62, metalness: 0.05 }));
+    b.rotation.z = Math.PI / 2; b.position.x = x; g.add(b);
+  });
+  const P = (paso || L + d * 2.2) / 2;
+  const met = mat.cromo || mat.acero || mat.aluminio;
+  for (const sx of [-1, 1]) {
+    g.add(_hilo([
+      new THREE.Vector3(sx * L * 0.48, 0, 0),
+      new THREE.Vector3(sx * (P - d * 0.35), 0, 0),
+      new THREE.Vector3(sx * P, -d * 0.30, 0),
+      new THREE.Vector3(sx * P, -patas, 0)], d * 0.10, met));
+  }
+  g.userData = { largo: L, d, paso: P * 2, cuerpo: cue };
+  return g;
+}
+
+/**
+ * DIODO de encapsulado axial (DO-41) con su BANDA DE CATODO. La banda es la
+ * pieza de informacion: dice hacia donde conduce, y montar el diodo al reves es
+ * la averia mas repetida de un montaje de practicas. Por eso se dibuja.
+ */
+export function diodoAxial(mat, opts = {}) {
+  const { largo = 0.13, d = 0.06, patas = 0.12, paso = null,
+          cuerpo = 0x1d2229, banda = 0xdfe6ee, catodo = 1, seg = 16 } = opts;
+  const g = new THREE.Group();
+  const R = d / 2, L = largo;
+  const cue = new THREE.Mesh(revolucion([
+    [0, -L / 2], [R * 0.52, -L / 2], [R, -L / 2 + L * 0.10],
+    [R, L / 2 - L * 0.10], [R * 0.52, L / 2], [0, L / 2]], { seg }),
+    new THREE.MeshStandardMaterial({ color: cuerpo, roughness: 0.45, metalness: 0.10 }));
+  cue.rotation.z = -Math.PI / 2; cue.castShadow = true; g.add(cue);
+  const bd = new THREE.Mesh(new THREE.CylinderGeometry(R * 1.04, R * 1.04, L * 0.14, seg),
+    new THREE.MeshStandardMaterial({ color: banda, roughness: 0.55, metalness: 0.05 }));
+  bd.rotation.z = Math.PI / 2; bd.position.x = catodo * L * 0.30; g.add(bd);
+  const P = (paso || L + d * 3.0) / 2;
+  const met = mat.cromo || mat.acero || mat.aluminio;
+  for (const sx of [-1, 1]) {
+    g.add(_hilo([
+      new THREE.Vector3(sx * L * 0.48, 0, 0),
+      new THREE.Vector3(sx * (P - d * 0.35), 0, 0),
+      new THREE.Vector3(sx * P, -d * 0.30, 0),
+      new THREE.Vector3(sx * P, -patas, 0)], d * 0.10, met));
+  }
+  g.userData = { largo: L, d, paso: P * 2, catodo, cuerpo: cue };
+  return g;
+}
+
+/**
+ * CONDENSADOR ELECTROLITICO radial. Lleva las tres marcas que tiene uno de
+ * verdad y que ninguna lata lisa tiene: el ENGARCE del fondo, donde la lata se
+ * cierra sobre el tapon de goma; la CRUZ de la tapa, que es una entalla hecha
+ * para que reviente por ahi y no por el fondo; y la FRANJA del negativo. Un
+ * electrolitico montado al reves se hincha y abre esa cruz, y esa es la razon
+ * de que la franja este dibujada.
+ */
+export function condensadorRadial(mat, opts = {}) {
+  const { d = 0.18, alto = 0.24, patas = 0.12, paso = null,
+          lata = 0x2a4a68, franja = 0xd8e4f0, seg = 22 } = opts;
+  const g = new THREE.Group();
+  const R = d / 2, H = alto;
+  const matLata = new THREE.MeshStandardMaterial({ color: lata, roughness: 0.42, metalness: 0.22 });
+  const cue = new THREE.Mesh(revolucion([
+    [0, 0], [R * 0.92, 0], [R, R * 0.10], [R, H * 0.90],
+    [R * 0.97, H * 0.94], [R * 0.97, H], [0, H]], { seg }), matLata);
+  cue.castShadow = true; g.add(cue);
+  const eng = new THREE.Mesh(new THREE.TorusGeometry(R * 0.99, R * 0.075, 8, seg), matLata);
+  eng.rotation.x = Math.PI / 2; eng.position.y = R * 0.16; g.add(eng);
+  // la cruz de alivio de la tapa
+  const tinta = new THREE.MeshStandardMaterial({ color: 0x11161c, roughness: 0.9, metalness: 0 });
+  for (const a of [0, Math.PI / 2]) {
+    const e = new THREE.Mesh(new THREE.BoxGeometry(R * 1.55, R * 0.06, R * 0.10), tinta);
+    e.position.y = H + R * 0.02; e.rotation.y = a; g.add(e);
+  }
+  // la franja del negativo, en un costado
+  const fr = new THREE.Mesh(new THREE.CylinderGeometry(R * 1.012, R * 1.012, H * 0.74, seg, 1, true,
+    Math.PI * 0.82, Math.PI * 0.36),
+    new THREE.MeshStandardMaterial({ color: franja, roughness: 0.7, metalness: 0.03,
+      side: THREE.DoubleSide }));
+  fr.position.y = H * 0.48; g.add(fr);
+  const P = (paso || d * 0.55) / 2;
+  const met = mat.cromo || mat.acero || mat.aluminio;
+  for (const sx of [-1, 1]) {
+    const l = new THREE.Mesh(new THREE.CylinderGeometry(d * 0.045, d * 0.045, patas + 0.02, 8), met);
+    l.position.set(sx * P, -(patas + 0.02) / 2 + 0.01, 0); g.add(l);
+  }
+  g.userData = { d, alto: H, paso: P * 2, cuerpo: cue };
+  return g;
+}
+
+/**
+ * ENCAPSULADO DIP con PATAS. Las patas son la mitad del dibujo: un integrado no
+ * es un rectangulo negro, es un bicho de catorce patas dobladas hacia dentro, y
+ * la MUESCA de un extremo —con el punto de la patilla 1— es lo unico que dice
+ * como se orienta. Montarlo girado media vuelta lo quema; por eso la muesca.
+ */
+export function dip(mat, opts = {}) {
+  const { pines = 8, paso = 0.055, ancho = 0.17, alto = 0.045, patas = 0.10,
+          cuerpo = 0x14181e } = opts;
+  const g = new THREE.Group();
+  const n = Math.max(2, Math.round(pines / 2));
+  const L = n * paso + paso * 0.6;
+  const matC = new THREE.MeshStandardMaterial({ color: cuerpo, roughness: 0.62, metalness: 0.06 });
+  const cue = new THREE.Mesh(extruido(contornoRedondeado(
+    [[-L / 2, -ancho / 2], [L / 2, -ancho / 2], [L / 2, ancho / 2], [-L / 2, ancho / 2]],
+    ancho * 0.06, 2), { espesor: alto, bisel: alto * 0.14 }), matC);
+  cue.rotation.x = -Math.PI / 2; cue.position.y = alto / 2 + 0.004; cue.castShadow = true;
+  g.add(cue);
+  // la muesca del extremo y el punto de la patilla 1
+  const mu = new THREE.Mesh(new THREE.CylinderGeometry(ancho * 0.16, ancho * 0.16, alto * 0.7, 14),
+    new THREE.MeshStandardMaterial({ color: 0x05070a, roughness: 0.95, metalness: 0 }));
+  mu.position.set(-L / 2 + ancho * 0.05, alto * 0.72, 0); g.add(mu);
+  const pt = new THREE.Mesh(new THREE.CylinderGeometry(ancho * 0.07, ancho * 0.07, alto * 0.5, 12),
+    new THREE.MeshStandardMaterial({ color: 0x05070a, roughness: 0.95, metalness: 0 }));
+  pt.position.set(-L / 2 + paso * 0.8, alto * 0.80, -ancho * 0.26); g.add(pt);
+  const met = mat.cromo || mat.acero || mat.aluminio;
+  for (const sz of [-1, 1]) for (let i = 0; i < n; i++) {
+    const x = -((n - 1) / 2) * paso + i * paso;
+    const z0 = sz * ancho / 2, z1 = sz * (ancho / 2 + paso * 0.30);
+    const pa = new THREE.Mesh(new THREE.BoxGeometry(paso * 0.34, alto * 0.28, paso * 0.36), met);
+    pa.position.set(x, alto * 0.42, (z0 + z1) / 2); g.add(pa);
+    const pb = new THREE.Mesh(new THREE.BoxGeometry(paso * 0.34, patas + alto * 0.4, alto * 0.24), met);
+    pb.position.set(x, alto * 0.30 - (patas + alto * 0.4) / 2, z1); g.add(pb);
+  }
+  g.userData = { largo: L, ancho, pines: n * 2, paso, cuerpo: cue };
+  return g;
+}
+
+/**
+ * ENCAPSULADO TO-220: el del regulador y el del transistor de potencia. Lo que
+ * lo hace reconocible es la ALETA metalica con su agujero de tornillo —por ahi
+ * se atornilla al disipador, y esa aleta suele estar conectada a una de las
+ * patas, que es la razon de que a veces haga falta una mica aislante— y las
+ * TRES patas en un solo lado.
+ */
+export function to220(mat, opts = {}) {
+  const { ancho = 0.20, alto = 0.24, fondo = 0.06, patas = 0.14, paso = 0.06,
+          cuerpo = 0x14181e } = opts;
+  const g = new THREE.Group();
+  const met = mat.aluminio || mat.acero;
+  const matC = new THREE.MeshStandardMaterial({ color: cuerpo, roughness: 0.66, metalness: 0.05 });
+  const cue = new THREE.Mesh(extruido(contornoRedondeado(
+    [[-ancho / 2, 0], [ancho / 2, 0], [ancho / 2, alto * 0.62], [-ancho / 2, alto * 0.62]],
+    ancho * 0.05, 2), { espesor: fondo, bisel: fondo * 0.16 }), matC);
+  cue.castShadow = true; g.add(cue);
+  // la aleta: chapa con su agujero, mas ancha que el plastico por arriba
+  const ale = new THREE.Mesh(extruido(contornoRedondeado(
+    [[-ancho / 2, alto * 0.58], [ancho / 2, alto * 0.58], [ancho / 2, alto],
+     [-ancho / 2, alto]], ancho * 0.10, 3),
+    { huecos: [circulo(0, alto * 0.86, ancho * 0.13, 14)], espesor: fondo * 0.42,
+      bisel: fondo * 0.06 }), met);
+  ale.castShadow = true; g.add(ale);
+  for (let i = -1; i <= 1; i++) {
+    const pa = new THREE.Mesh(new THREE.BoxGeometry(paso * 0.32, patas, fondo * 0.32), met);
+    pa.position.set(i * paso, -patas / 2, 0); g.add(pa);
+  }
+  g.userData = { ancho, alto, paso, cuerpo: cue };
+  return g;
+}
+
+/**
+ * INDUCTOR de nucleo de tambor, CON SU HILO A LA VISTA. Una bobina dibujada
+ * como un taco negro esconde lo unico que hay que entender: que una inductancia
+ * son VUELTAS de hilo alrededor de un nucleo, y que por eso una bobina de mas
+ * inductancia es mas gorda y aguanta menos corriente antes de saturar.
+ */
+export function inductorTambor(mat, opts = {}) {
+  const { d = 0.24, alto = 0.16, vueltas = 9, hilo = 0.017, patas = 0.12,
+          nucleo = 0x2a2f36, seg = 22 } = opts;
+  const g = new THREE.Group();
+  const R = d / 2, rn = R * 0.52;
+  const matN = new THREE.MeshStandardMaterial({ color: nucleo, roughness: 0.78, metalness: 0.08 });
+  const tam = new THREE.Mesh(revolucion([
+    [0, 0], [R, 0], [R, alto * 0.16], [rn, alto * 0.24], [rn, alto * 0.76],
+    [R, alto * 0.84], [R, alto], [0, alto]], { seg }), matN);
+  tam.castShadow = true; g.add(tam);
+  const col = mat.cobre || mat.acero;
+  const pts = [];
+  const K = 26, y0 = alto * 0.27, y1 = alto * 0.73;
+  for (let i = 0; i <= vueltas * K; i++) {
+    const t = i / K, a = t * Math.PI * 2;
+    const y = y0 + (y1 - y0) * (t / vueltas);
+    pts.push(new THREE.Vector3(Math.cos(a) * (rn + hilo * 0.9), y, Math.sin(a) * (rn + hilo * 0.9)));
+  }
+  const bob = new THREE.Mesh(new THREE.TubeGeometry(
+    new THREE.CatmullRomCurve3(pts), pts.length, hilo, 6, false), col);
+  bob.castShadow = true; g.add(bob);
+  for (const sx of [-1, 1]) {
+    const l = new THREE.Mesh(new THREE.CylinderGeometry(hilo * 0.8, hilo * 0.8, patas + 0.02, 8), col);
+    l.position.set(sx * R * 0.62, -(patas + 0.02) / 2 + 0.01, 0); g.add(l);
+  }
+  g.userData = { d, alto, cuerpo: tam };
+  return g;
+}
+
+/**
+ * LED de 5 mm, con la CARA PLANA del catodo y la pata corta. Las dos marcas
+ * dicen lo mismo —cual es el negativo— y estan ahi porque un LED al reves no
+ * quema nada pero tampoco luce, y es la primera cosa que se comprueba.
+ */
+export function led(mat, opts = {}) {
+  const { d = 0.10, color = 0xd64545, patas = 0.14, encendido = false, seg = 18 } = opts;
+  const g = new THREE.Group();
+  const R = d / 2;
+  const matL = new THREE.MeshStandardMaterial({ color, roughness: 0.18, metalness: 0.0,
+    transparent: true, opacity: 0.82, emissive: color,
+    emissiveIntensity: encendido ? 1.15 : 0.10 });
+  const cuerpo = new THREE.Mesh(revolucion([
+    [0, 0], [R, 0], [R, d * 0.62], [R * 0.86, d * 0.86], [R * 0.52, d * 1.02],
+    [0, d * 1.06]], { seg }), matL);
+  cuerpo.castShadow = true; g.add(cuerpo);
+  /* La pestana no es redonda: tiene un CHAFLAN plano en el lado del catodo. Es
+     la marca que se busca con el dedo cuando el LED ya esta montado y no se le
+     ven las patas, asi que se dibuja como lo que es —un corte en la pestana— y
+     no como una pegatina en el costado. */
+  const aFlat = Math.acos(-0.86), pest = [];
+  for (let k = 0; k <= 22; k++) {
+    const a2 = -aFlat + (2 * aFlat) * (k / 22);
+    pest.push([Math.cos(a2) * R * 1.16, Math.sin(a2) * R * 1.16]);
+  }
+  const pes = new THREE.Mesh(extruido(pest, { espesor: d * 0.10, bisel: d * 0.012 }), matL);
+  pes.rotation.x = -Math.PI / 2; pes.position.y = d * 0.05; g.add(pes);
+  const met = mat.cromo || mat.acero || mat.aluminio;
+  // anodo largo, catodo corto: en un LED la pata larga es el +
+  [[1, patas], [-1, patas * 0.72]].forEach(([sx, lg]) => {
+    const l = new THREE.Mesh(new THREE.CylinderGeometry(d * 0.05, d * 0.05, lg + 0.02, 8), met);
+    l.position.set(sx * R * 0.42, -(lg + 0.02) / 2 + 0.01, 0); g.add(l);
+  });
+  g.userData = { d, material: matL, enciende: (v) => { matL.emissiveIntensity = v ? 1.15 : 0.10; } };
+  return g;
+}

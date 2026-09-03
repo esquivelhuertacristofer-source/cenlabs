@@ -163,6 +163,14 @@ pon('polo saliente', (()=>{ const g=new THREE.Group();
   g.position.y=-0.42; return g; })(), 1.0, 0.0);
 pon('bobina de campo', P3.bobinaCampo(MAT,{ancho:0.26,prof:0.46,alto:0.44,vueltas:10,hilo:0.024,capas:2}), 1.0, 0.0);
 
+pon('resistencia', P3.resistencia(MAT,{largo:0.44,d:0.165,patas:0.26}), 1.0, 0.10);
+pon('diodo axial', P3.diodoAxial(MAT,{largo:0.30,d:0.14,patas:0.26}), 1.0, 0.10);
+pon('electrolitico', P3.condensadorRadial(MAT,{d:0.40,alto:0.54,patas:0.26}), 1.0, -0.24);
+pon('DIP', P3.dip(MAT,{pines:14,paso:0.115,ancho:0.36,alto:0.10,patas:0.22}), 1.0, 0.06);
+pon('TO-220', P3.to220(MAT,{ancho:0.42,alto:0.52,fondo:0.13,patas:0.30,paso:0.13}), 1.0, -0.20);
+pon('inductor', P3.inductorTambor(MAT,{d:0.50,alto:0.34,vueltas:9,hilo:0.036,patas:0.26}), 1.0, -0.14);
+pon('LED', P3.led(MAT,{d:0.22,patas:0.30,encendido:true}), 1.0, -0.10);
+
 // El muestrario se anuncia cuando ha pintado, para que la captura sepa esperar.
 let n = 0;
 (function bucle() {

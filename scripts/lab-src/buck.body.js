@@ -201,71 +201,50 @@
   };
   function std(spec) { return new THREE.MeshStandardMaterial(spec); }
 
-  function makeCapacitor3D() {
-    const g = new THREE.Group();
-    const body = new THREE.Mesh(new THREE.CylinderGeometry(0.09, 0.09, 0.16, 20), std(MAT.capBody));
-    g.add(body);
-    const top = new THREE.Mesh(new THREE.CylinderGeometry(0.09, 0.09, 0.01, 20), std({ color: 0xd7dee6, roughness: 0.5, metalness: 0.2 }));
-    top.position.y = 0.085;
-    g.add(top);
-    for (let s = -1; s <= 1; s += 2) {
-      const leg = new THREE.Mesh(new THREE.CylinderGeometry(0.006, 0.006, 0.1, 8), std(MAT.lead));
-      leg.position.set(s * 0.04, -0.13, 0);
-      g.add(leg);
-    }
-    g.userData.body = body;
+  /* Los nombres con los que trabaja la biblioteca de piezas (`P3`, que el molde
+     ya importa), traducidos una vez a los materiales de este laboratorio. */
+  const MATP = {
+    aluminio: std({ color: 0x9aa3ad, roughness: 0.34, metalness: 0.86 }),
+    acero: std(MAT.lead), cromo: std(MAT.lead), cobre: std(MAT.windCopper),
+    chapa: std({ color: 0x8f98a3, roughness: 0.40, metalness: 0.80 }),
+    negro: std(MAT.icBody), goma: std(MAT.icBody),
+    blanco: std(MAT.diodeBand), ceramica: std(MAT.diodeBand),
+  };
+  /* LOS COMPONENTES, con la forma que tienen en la mano y no como tacos sobre
+     una plancha verde. Lo que convierte un taco en un componente son las PATAS
+     —por donde entra la corriente y por donde se suelda— y las MARCAS: la banda
+     del cátodo del diodo, la muesca de la patilla 1 del integrado, la franja
+     del negativo del electrolítico. Cada una de esas tres marcas evita una
+     avería distinta, y ninguna se veía. */
+  function makeCapacitor3D(uF) {
+    const f = Math.max(0, Math.min(1, (uF || 220e-6) / 1000e-6));
+    const g = P3.condensadorRadial(MATP, {
+      d: 0.14 + 0.10 * f, alto: 0.18 + 0.16 * f, patas: 0.10,
+      lata: 0x2255aa, franja: 0xdbe6f2 });
+    g.userData.body = g.userData.cuerpo;
     return g;
   }
   function makeDIP3D() {
-    const g = new THREE.Group();
-    const body = new THREE.Mesh(new THREE.BoxGeometry(0.32, 0.09, 0.16), std(MAT.icBody));
-    g.add(body);
-    const notch = new THREE.Mesh(new THREE.CylinderGeometry(0.015, 0.015, 0.1, 12), std(MAT.notch));
-    notch.rotation.x = Math.PI / 2;
-    notch.position.set(-0.14, 0.05, 0);
-    g.add(notch);
-    for (let side = -1; side <= 1; side += 2) {
-      for (let i = 0; i < 4; i++) {
-        const leg = new THREE.Mesh(new THREE.CylinderGeometry(0.006, 0.006, 0.06, 6), std(MAT.lead));
-        leg.position.set(-0.12 + i * 0.08, -0.06, side * 0.09);
-        g.add(leg);
-      }
-    }
-    g.userData.body = body;
+    const g = P3.dip(MATP, { pines: 8, paso: 0.075, ancho: 0.19, alto: 0.055, patas: 0.09 });
+    g.userData.body = g.userData.cuerpo;
     return g;
   }
   function makeDiode3D() {
-    const g = new THREE.Group();
-    const body = new THREE.Mesh(new THREE.CylinderGeometry(0.05, 0.05, 0.2, 16), std(MAT.diodeBody));
-    body.rotation.z = Math.PI / 2;
-    g.add(body);
-    const band = new THREE.Mesh(new THREE.CylinderGeometry(0.052, 0.052, 0.02, 16), std(MAT.diodeBand));
-    band.rotation.z = Math.PI / 2;
-    band.position.x = 0.07;
-    g.add(band);
-    for (let s = -1; s <= 1; s += 2) {
-      const leg = new THREE.Mesh(new THREE.CylinderGeometry(0.007, 0.007, 0.1, 8), std(MAT.lead));
-      leg.rotation.z = Math.PI / 2;
-      leg.position.x = s * 0.15;
-      g.add(leg);
-    }
-    g.userData.body = body;
+    const g = P3.diodoAxial(MATP, { largo: 0.19, d: 0.075, patas: 0.10, paso: 0.40,
+      cuerpo: 0x1a1a1a, banda: 0xd7dee6, catodo: 1 });
+    g.userData.body = g.userData.cuerpo;
     return g;
   }
-  function makeInductor3D() {
-    const g = new THREE.Group();
-    const body = new THREE.Mesh(new THREE.CylinderGeometry(0.13, 0.14, 0.12, 20), std({ color: 0x2b2b2b, roughness: 0.6, metalness: 0.3 }));
-    g.add(body);
-    const wind = new THREE.Mesh(new THREE.TorusGeometry(0.1, 0.025, 10, 24), std(MAT.windCopper));
-    wind.rotation.x = Math.PI / 2;
-    wind.position.y = 0.03;
-    g.add(wind);
-    for (let s = -1; s <= 1; s += 2) {
-      const leg = new THREE.Mesh(new THREE.CylinderGeometry(0.01, 0.01, 0.08, 8), std(MAT.lead));
-      leg.position.set(s * 0.1, -0.1, 0);
-      g.add(leg);
-    }
-    g.userData.body = body;
+  /* EL INDUCTOR crece con la inductancia Y CON LAS VUELTAS. No se estira una
+     malla: se vuelve a hacer la pieza, porque estirar el dibujo estiraría
+     también las patas y el hilo, y lo que hace grande a una bobina de 220 µH
+     frente a una de 47 µH es que tiene más vueltas sobre más hierro. */
+  function makeInductor3D(L) {
+    const f = Math.max(0, Math.min(1, (L || 100e-6) / 220e-6));
+    const g = P3.inductorTambor(MATP, {
+      d: 0.20 + 0.10 * f, alto: 0.13 + 0.06 * f,
+      vueltas: 6 + Math.round(6 * f), hilo: 0.017, patas: 0.10, nucleo: 0x2b2b2b });
+    g.userData.body = g.userData.cuerpo;
     return g;
   }
   function makeDisplayBox(w, h, dp, cw, ch) {
@@ -538,19 +517,28 @@
   pcb.position.set(0.5, 0.62, 1.0);
   benchG.add(mesa, pcb);
 
-  const cinG = makeCapacitor3D(); cinG.position.set(-0.9, 0.76, 1.0); benchG.add(cinG);
-  const icG = makeDIP3D(); icG.position.set(-0.25, 0.7, 1.0); benchG.add(icG);
-  const diodeG = makeDiode3D(); diodeG.position.set(0.35, 0.68, 1.0); benchG.add(diodeG);
-  const indG = makeInductor3D(); indG.position.set(1.0, 0.72, 1.0); benchG.add(indG);
-  const coutG = makeCapacitor3D(); coutG.position.set(1.6, 0.76, 1.0); benchG.add(coutG);
+  // Todos apoyan en la CARA de la placa: la biblioteca dibuja cada componente
+  // con y = 0 en la placa y las patas por debajo.
+  const Y_PCB = 0.635;
+  const cinG = makeCapacitor3D(100e-6); cinG.position.set(-0.9, Y_PCB, 1.0); benchG.add(cinG);
+  const icG = makeDIP3D(); icG.position.set(-0.25, Y_PCB, 1.0); benchG.add(icG);
+  const diodeG = makeDiode3D(); diodeG.position.set(0.35, Y_PCB, 1.0); benchG.add(diodeG);
+  let indG = makeInductor3D(curL()); indG.position.set(1.0, Y_PCB, 1.0); benchG.add(indG);
+  let coutG = makeCapacitor3D(curC()); coutG.position.set(1.6, Y_PCB, 1.0); benchG.add(coutG);
   S.scene.add(benchG);
 
+  function tira(o){ o.traverse(m=>{ if(m.isMesh) m.geometry.dispose(); }); }
+  let firmaLC = '';
   function refreshBenchSel() {
     icG.userData.body.material.color.setHex(DEVS.lm2596.color);
-    const scale = 0.85 + Math.min(0.4, curL() / 220e-6 * 0.4);
-    indG.scale.setScalar(scale);
-    const cScale = 0.8 + Math.min(0.5, curC() / 1000e-6 * 0.5);
-    coutG.scale.setScalar(cScale);
+    const firma = curL() + '|' + curC();
+    if (firma !== firmaLC) {
+      firmaLC = firma;
+      benchG.remove(indG); tira(indG);
+      indG = makeInductor3D(curL()); indG.position.set(1.0, Y_PCB, 1.0); benchG.add(indG);
+      benchG.remove(coutG); tira(coutG);
+      coutG = makeCapacitor3D(curC()); coutG.position.set(1.6, Y_PCB, 1.0); benchG.add(coutG);
+    }
   }
 
   const fuenteBox = makeDisplayBox(0.7, 0.42, 0.06, 220, 132);
