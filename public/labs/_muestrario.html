@@ -184,6 +184,10 @@ pon('motor', P3.maquinaElectrica(MAT,{d:0.66,largo:1.0,eje:0.34}), 1.0, 0.34);
 pon('buje', P3.bujePorcelana(MAT,{alto:0.80,d:0.34,faldas:4}), 1.0, -0.36);
 pon('bornera', P3.bornera(MAT,{vias:3,paso:0.30,alto:0.26,fondo:0.28,patas:0.14}), 1.0, -0.16);
 pon('trafo E-I', P3.transformadorEI(MAT,{ancho:0.68,alto:0.78,prof:0.50}), 1.0, 0.44);
+pon('borna de 4 mm', P3.bornaBanana(MAT,{d:0.42,alto:0.26,color:0xd64545}), 1.0, -0.10);
+pon('resistencia bobinada', P3.resistenciaBobinada(MAT,{largo:0.90,d:0.26,vueltas:18}), 1.0, 0.0);
+pon('bobina de hierro', P3.bobinaHierro(MAT,{ancho:0.52,alto:0.62,prof:0.28,vueltas:9,hilo:0.020}), 1.0, 0.0);
+pon('modulo de banco', P3.moduloBanco(MAT,{ancho:0.90,fondo:0.60,alto:0.10,dBorna:0.16}), 1.0, -0.06);
 
 // El muestrario se anuncia cuando ha pintado, para que la captura sepa esperar.
 let n = 0;

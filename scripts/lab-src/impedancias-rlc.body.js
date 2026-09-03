@@ -21,7 +21,7 @@
 
 // ============================== 1) ESCENA ==============================
 const mount=document.getElementById('stage');
-const S=createStage(mount,{cam:[3.0,2.2,6.6],target:[0.4,1.2,0.0],bgTop:'#0d1a17',bgBot:'#04060a',bloom:0.35,minD:3.0,maxD:16});
+const S=createStage(mount,{cam:[3.4,2.1,5.2],target:[1.05,1.00,0.30],bgTop:'#0d1a17',bgBot:'#04060a',bloom:0.35,minD:3.0,maxD:16});
 const {scene}=S;
 const synth=makeSynth({type:'sine',type2:'triangle',filterFreq:2600,Q:0.8});
 
@@ -203,6 +203,21 @@ const MAT={
   knobDark:std({color:0x1c2226,roughness:0.6,metalness:0.3}),
 };
 
+/* Los nombres con los que trabaja la biblioteca de piezas (`P3`, que el molde
+   ya importa), traducidos una vez a los materiales de este laboratorio. */
+const MATP={
+  aluminio: std({...brush.maps,color:0x8f979f,roughness:0.55,metalness:0.60}),
+  acero:    std({...brush.maps,color:0x9aa2a9,roughness:0.34,metalness:0.85}),
+  cromo:    std({...brush.maps,color:0xc9d1d6,roughness:0.22,metalness:0.90}),
+  chapa:    std({...brush.maps,color:0x828a91,roughness:0.45,metalness:0.75}),
+  cobre:    std({color:0xb87333,roughness:0.35,metalness:0.75}),
+  negro:    std({...plas.maps,color:0x13181c,roughness:0.62,metalness:0.06}),
+  goma:     std({...rub.maps,color:0x0f1216,roughness:0.94,metalness:0.0}),
+  blanco:   std({color:0xd7dee6,roughness:0.42,metalness:0.15}),
+  rojo:     std({color:0xd64545,roughness:0.50,metalness:0.10}),
+  ceramica: std({color:0xd9dcd6,roughness:0.62,metalness:0.04}),
+};
+
 const HOVER_LABELS=new Map();
 function addHoverLabel(obj,text,color,pos,scale){
   const lb=labelSprite(text,color);lb.position.copy(pos);if(scale)lb.scale.multiplyScalar(scale);
@@ -360,8 +375,10 @@ function boardClick(u,v){
 const bench=sh(roundedBox(2.9,0.5,1.6,MAT.bench,0.05));bench.position.set(1.75,0.25,0.85);scene.add(bench);
 bench.userData={title:'Banco de trabajo',info:'Montaje de la fuente de voltaje, el sensor de corriente (shunt) y el osciloscopio.'};
 
-function makeGen(x,label,title){
-  const g=new THREE.Group();g.position.set(x,0.72,0.25);scene.add(g);
+const YB=0.50;                       // la tapa del banco, de donde arranca todo
+
+function makeGen(x,label,title,z){
+  const g=new THREE.Group();g.position.set(x,YB+0.23,z===undefined?0.35:z);scene.add(g);
   const box=sh(roundedBox(0.56,0.46,0.42,MAT.gen,0.06));g.add(box);
   const cv=document.createElement('canvas');cv.width=256;cv.height=120;
   const tx=new THREE.CanvasTexture(cv);tx.colorSpace=THREE.SRGBColorSpace;tx.minFilter=THREE.LinearFilter;tx.generateMipmaps=false;
@@ -372,12 +389,22 @@ function makeGen(x,label,title){
   knobBase.rotation.x=Math.PI/2;knob.add(knobBase);
   const knobPointer=sh(new THREE.Mesh(new THREE.BoxGeometry(0.007,0.045,0.01),std({color:0xFF8A5B,roughness:0.4,metalness:0.2})));
   knobPointer.position.set(0,0.028,0.006);knob.add(knobPointer);
+  /* Las dos bornas por las que el aparato se conecta al circuito. Sin ellas los
+     cables salían del aire: un instrumento de banco se enchufa por delante. */
+  const bocas=[];
+  [-1,1].forEach((sx,i)=>{
+    const b=P3.bornaBanana(MATP,{d:0.078,color:i?0x2a5fa8:0xd64545});
+    b.rotation.x=-Math.PI/2;
+    b.position.set(sx*0.13,-0.145,0.212);
+    g.add(b);
+    bocas.push(g.position.clone().add(new THREE.Vector3(sx*0.13,-0.145,0.212+b.userData.boca.y)));
+  });
   g.userData={el:label};
   addHoverLabel(g,title,'#f0a5a5',new THREE.Vector3(0,0.5,0),0.8);
-  return{g,cv,tx,knob};
+  return{g,cv,tx,knob,bocas};
 }
-const gen1=makeGen(0.95,'GEN1','Fuente de voltaje · referencia fija (10 V, 0°)');
-const gen2=makeGen(1.85,'GEN2','Sensor de corriente (shunt '+RS+' Ω)');
+const gen1=makeGen(0.78,'GEN1','Fuente de voltaje · referencia fija (10 V, 0°)',0.34);
+const gen2=makeGen(2.72,'GEN2','Sensor de corriente (shunt '+RS+' Ω)',0.34);
 gen1.knob.visible=false;
 gen2.knob.visible=false;
 
@@ -392,10 +419,20 @@ function drawGenDisplay(genObj,vmText,phiText,accent){
   genObj.tx.needsUpdate=true;
 }
 
-const scopeBox=sh(roundedBox(0.62,0.5,0.10,MAT.scopeBox,0.05));
-scopeBox.position.set(1.4,1.0,-0.15);
-scene.add(scopeBox);
-scopeBox.userData={title:'Osciloscopio (referencia física)',info:'La medición real ocurre en el pizarrón — este cajón representa el instrumento conectado a ambos canales.'};
+/* El osciloscopio estaba flotando en el aire, fuera del banco y sin nada que lo
+   sujetase. Ahora se apoya en la tapa por su patín, como cualquier instrumento
+   de mesa, y lleva sus dos entradas BNC: es por donde le llegan los dos canales
+   de los que habla toda la práctica. */
+const scopeG=new THREE.Group();scopeG.position.set(1.75,YB,0.22);scene.add(scopeG);
+const scopeBox=sh(roundedBox(0.62,0.46,0.26,MAT.scopeBox,0.04));
+scopeBox.position.y=0.27;scopeG.add(scopeBox);
+const scopePata=sh(new THREE.Mesh(new THREE.BoxGeometry(0.50,0.08,0.20),MAT.gen));
+scopePata.position.y=0.04;scopeG.add(scopePata);
+[[-0.16,'#2e7d74'],[0.16,'#b5661f']].forEach(([bx,col],i)=>{
+  const b=P3.bnc(MATP,{d:0.085,largo:0.085,color:i?0xb5661f:0x2e7d74});
+  b.position.set(bx,0.13,0.13);scopeG.add(b);
+});
+scopeG.userData={title:'Osciloscopio (referencia física)',info:'Instrumento de dos canales apoyado en el banco: por el BNC teal entra el voltaje aplicado y por el ámbar la caída en el shunt. La lectura se dibuja en el pizarrón para que se pueda leer.'};
 
 function cable(ax,ay,az,bx,by,bz,mat){
   const a=new THREE.Vector3(ax,ay,az),b=new THREE.Vector3(bx,by,bz);
@@ -404,10 +441,176 @@ function cable(ax,ay,az,bx,by,bz,mat){
   t.castShadow=true;scene.add(t);
   return t;
 }
-const cbl1=cable(0.95,0.95,0.44,1.25,1.0,-0.1,MAT.cableCh1);
-const cbl2=cable(1.85,0.95,0.44,1.55,1.0,-0.1,MAT.cableCh2);
+const cbl1=cable(0.78,YB+0.45,0.50,1.59,YB+0.13,0.35,MAT.cableCh1);
+const cbl2=cable(2.72,YB+0.45,0.50,1.91,YB+0.13,0.35,MAT.cableCh2);
+
+/* ===================== EL CIRCUITO, MONTADO CON MÓDULOS =====================
+   Un banco de prácticas de CA no es una tapa vacía con dos cajas: son módulos
+   enchufables, cada uno con SU componente encima y sus dos bornas de 4 mm. Aquí
+   estaban la fuente y el sensor de corriente, pero la R, la L y la C —los tres
+   protagonistas de Z = R + j(ωL − 1/ωC)— no existían en la escena: el alumno
+   leía la fórmula y no tenía dónde señalarlos.
+
+   Los tres componentes se REARMAN cuando cambia su valor, no en cada fotograma:
+   más ohmios son más vueltas de nicromo, más milihenrios son más vueltas sobre
+   el hierro y más microfaradios son una lata más grande. Y el cableado se
+   rehace al cambiar de topología, que es lo único que de verdad distingue el
+   circuito serie del paralelo: en serie la corriente recorre los tres en fila;
+   en paralelo los tres cuelgan de los MISMOS dos nodos. Dibujar el mismo
+   montaje para las dos topologías sería enseñar que da igual, y da al revés. */
+const MOD_Z=0.92, NODO_Z=1.36;
+const XR=1.06, XL=1.75, XC=2.44;
+const MAT_LEAD=std({...rub.maps,color:0xc8443a,roughness:1.0,metalness:0});
+const MAT_LEAD2=std({...rub.maps,color:0x2a5fa8,roughness:1.0,metalness:0});
+const MAT_PATA=std({color:0xb87333,roughness:0.40,metalness:0.80});
+
+function ponModulo(x,z,ancho,bornas,colores,titulo,info,etiqueta){
+  const m=P3.moduloBanco(MATP,{ancho,fondo:0.30,alto:0.050,color:0x2b333a,
+    bornas,dBorna:0.078,colores});
+  m.position.set(x,YB,z);
+  m.traverse(o=>{ if(o.isMesh){o.castShadow=true;o.receiveShadow=true;} });
+  scene.add(m);
+  m.userData.title=titulo; m.userData.info=info;
+  addHoverLabel(m,etiqueta,'#8ad6c8',new THREE.Vector3(0,0.44,0),0.72);
+  return m;
+}
+const modR=ponModulo(XR,MOD_Z,0.44,[-1,1],[0xd64545,0x2a5fa8],
+  'Resistencia de banco','Resistencia bobinada de potencia: hilo de nicromo sobre tubo de cerámica. Es la parte REAL de la impedancia — la única que disipa energía— y por eso no depende de la frecuencia.','R');
+const modL=ponModulo(XL,MOD_Z,0.44,[-1,1],[0xd64545,0x2a5fa8],
+  'Bobina de banco','Bobina sobre núcleo de chapa E-I. Su reactancia XL = ωL CRECE con la frecuencia, y su corriente va retrasada 90° respecto al voltaje.','L');
+const modC=ponModulo(XC,MOD_Z,0.44,[-1,1],[0xd64545,0x2a5fa8],
+  'Condensador de banco','Condensador de lata. Su reactancia XC = 1/ωC BAJA con la frecuencia, y su corriente va adelantada 90°: por eso XL y XC se restan en la fórmula.','C');
+const nodoA=ponModulo(1.30,NODO_Z,0.40,[-1,-0.34,0.34,1],
+  [0xd64545,0xd64545,0xd64545,0xd64545],
+  'Nodo común (lado vivo)','En paralelo los tres componentes comparten los dos MISMOS nodos: por eso se suman las admitancias y no las impedancias. Este es el nodo del lado de la fuente.','nodo 1');
+const nodoB=ponModulo(2.20,NODO_Z,0.40,[-1,-0.34,0.34,1],
+  [0x2a5fa8,0x2a5fa8,0x2a5fa8,0x2a5fa8],
+  'Nodo común (lado de retorno)','El segundo nodo compartido del montaje en paralelo. Con los dos nodos puestos, cada componente ve el mismo voltaje: eso es lo que define un paralelo.','nodo 2');
+
+/** El punto de enchufe de una borna, ya en coordenadas de la escena. */
+function boca(mod,i){ return mod.position.clone().add(mod.userData.bocas[i]); }
+
+/* Los componentes, cada uno rearmado sólo cuando cambia su valor. */
+const compR={g:new THREE.Group(),v:-1}, compL={g:new THREE.Group(),v:-1}, compC={g:new THREE.Group(),v:-1};
+[compR,compL,compC].forEach(c=>scene.add(c.g));
+compR.g.position.set(XR,YB+0.050,MOD_Z+0.03);
+compL.g.position.set(XL,YB+0.050,MOD_Z+0.03);
+compC.g.position.set(XC,YB+0.050,MOD_Z+0.03);
+function vacia(g){ while(g.children.length){ const o=g.children.pop();
+  o.traverse(q=>{ if(q.isMesh) q.geometry.dispose(); }); } }
+function patillas(g,dx,y){            // los dos hilos que bajan del componente a sus bornas
+  for(const sx of [-1,1]){
+    const a=new THREE.Vector3(sx*dx,y,0), b=new THREE.Vector3(sx*0.176,-0.036,-0.084);
+    const m=new THREE.Vector3((a.x+b.x)/2,Math.max(a.y,b.y)*0.72,(a.z+b.z)/2-0.02);
+    const t=new THREE.Mesh(new THREE.TubeGeometry(
+      new THREE.CatmullRomCurve3([a,m,b]),16,0.0085,7),MAT_PATA);
+    t.castShadow=true;g.add(t);
+  }
+}
+function ponR(ohm){
+  if(compR.v===ohm)return; compR.v=ohm; vacia(compR.g);
+  /* Más ohmios, más hilo: 10 Ω son pocas vueltas gruesas y 100 Ω muchas y
+     finas. La proporción es ilustrativa —el valor lo fija el panel—, pero la
+     dirección es la de verdad. */
+  const n=Math.round(9+11*Math.log(ohm/10)/Math.log(10));
+  const r=P3.resistenciaBobinada(MATP,{largo:0.30,d:0.088,vueltas:n,
+    hilo:0.0145-0.0035*Math.log(ohm/10)/Math.log(10)});
+  r.position.y=0.075; r.traverse(o=>{ if(o.isMesh) o.castShadow=true; });
+  compR.g.add(r);
+  patillas(compR.g,0.131,0.075);
+}
+function ponL(mh){
+  if(compL.v===mh)return; compL.v=mh; vacia(compL.g);
+  const n=Math.round(5+5*Math.log(mh/10)/Math.log(4.7));
+  const b=P3.bobinaHierro(MATP,{ancho:0.17,alto:0.21,prof:0.095,chapas:8,
+    vueltas:Math.max(5,n),hilo:0.0105,capas:2});
+  b.position.y=0.115; b.traverse(o=>{ if(o.isMesh) o.castShadow=true; });
+  compL.g.add(b);
+  patillas(compL.g,0.10,0.045);
+}
+function ponC(uf){
+  if(compC.v===uf)return; compC.v=uf; vacia(compC.g);
+  const d=0.085+0.055*Math.log(uf/2.2)/Math.log(10);
+  const c=P3.condensador(MATP,{d,alto:d*1.55,bornes:2,
+    aislante:std({color:0x2a4a68,roughness:0.42,metalness:0.24})});
+  c.traverse(o=>{ if(o.isMesh) o.castShadow=true; });
+  compC.g.add(c);
+  patillas(compC.g,d*0.45,d*1.62);
+}
+
+/* EL PRECINTO del Reto. El componente sellado no puede dibujarse a su valor:
+   si lo hiciera, la respuesta se leería contando vueltas de nicromo o midiendo
+   la lata, y el ejercicio dejaría de ser una medida para ser una inspección.
+   Así que el sellado se dibuja SIEMPRE igual y se le pone encima este precinto
+   ámbar, que además es lo que dice cuál de los tres está tapado. */
+const selloG=new THREE.Group();selloG.visible=false;scene.add(selloG);
+{
+  const tapa=new THREE.Mesh(new THREE.BoxGeometry(0.30,0.012,0.20),
+    std({color:0xd8a12a,roughness:0.55,metalness:0.15,emissive:0xd8a12a,emissiveIntensity:0.22}));
+  tapa.position.y=0.006;selloG.add(tapa);
+  for(const sx of [-1,1]){
+    const c=new THREE.Mesh(new THREE.BoxGeometry(0.012,0.09,0.20),
+      std({color:0xd8a12a,roughness:0.55,metalness:0.15,emissive:0xd8a12a,emissiveIntensity:0.22}));
+    c.position.set(sx*0.144,-0.045,0);selloG.add(c);
+  }
+  selloG.traverse(o=>{ if(o.isMesh){o.castShadow=true;o.raycast=()=>{};} });
+}
+function ponSello(k){
+  const m=k==='R'?modR:(k==='L'?modL:(k==='C'?modC:null));
+  selloG.visible=!!m;
+  if(m)selloG.position.set(m.position.x,YB+0.28,MOD_Z+0.03);
+}
+
+/* El cableado. Se rehace entero al cambiar de topología: es lo único que
+   distingue las dos, y tiene que verse. */
+const cablesG=new THREE.Group();scene.add(cablesG);
+let cableTopo='';
+function latiguillo(a,b,mat){
+  const m=a.clone().lerp(b,0.5);
+  m.y=Math.max(a.y,b.y)+0.06+a.distanceTo(b)*0.10;
+  const t=new THREE.Mesh(new THREE.TubeGeometry(
+    new THREE.CatmullRomCurve3([a,m,b]),24,0.011,7),mat);
+  t.castShadow=true;cablesG.add(t);
+  for(const p of [a,b]){                       // la clavija metida en la borna
+    const cl=new THREE.Mesh(new THREE.CylinderGeometry(0.017,0.017,0.05,10),MATP.cromo);
+    cl.position.copy(p).y-=0.015;cablesG.add(cl);
+  }
+}
+const FUENTE_A=gen1.bocas[0], FUENTE_B=gen1.bocas[1];
+const SHUNT_A=gen2.bocas[0],  SHUNT_B=gen2.bocas[1];
+function ponCables(topo){
+  if(cableTopo===topo)return; cableTopo=topo;
+  vacia(cablesG);
+  const R0=boca(modR,0),R1=boca(modR,1),L0=boca(modL,0),L1=boca(modL,1),
+        C0=boca(modC,0),C1=boca(modC,1);
+  if(topo==='serie'){
+    nodoA.visible=false;nodoB.visible=false;
+    latiguillo(FUENTE_A,R0,MAT_LEAD);
+    latiguillo(R1,L0,MAT_LEAD);
+    latiguillo(L1,C0,MAT_LEAD);
+    latiguillo(C1,SHUNT_A,MAT_LEAD);
+    latiguillo(SHUNT_B,FUENTE_B,MAT_LEAD2);
+  }else{
+    nodoA.visible=true;nodoB.visible=true;
+    latiguillo(FUENTE_A,boca(nodoA,0),MAT_LEAD);
+    latiguillo(boca(nodoA,1),R0,MAT_LEAD);
+    latiguillo(boca(nodoA,2),L0,MAT_LEAD);
+    latiguillo(boca(nodoA,3),C0,MAT_LEAD);
+    latiguillo(R1,boca(nodoB,1),MAT_LEAD2);
+    latiguillo(L1,boca(nodoB,2),MAT_LEAD2);
+    latiguillo(C1,boca(nodoB,3),MAT_LEAD2);
+    latiguillo(boca(nodoB,0),SHUNT_A,MAT_LEAD2);
+    latiguillo(SHUNT_B,FUENTE_B,MAT_LEAD2);
+  }
+}
 
 function refreshNet3D(){
+  const sell=mode==='reto'?retoSealedKey:'';
+  ponR(sell==='R'?47:currentR());
+  ponL(sell==='L'?22:currentL());
+  ponC(sell==='C'?4.7:currentC());
+  ponSello(sell);
+  ponCables(currentTopology());
   drawGenDisplay(gen1,fmtV(V1),fmtDeg(PHI1),'#4FD1C5');
   const I=currentI();
   let imText,phiText;
@@ -505,9 +708,9 @@ function toastPart(id){
 
 // ============================== 9) MODOS Y SELBAR ==============================
 const MODE_META={
-  explora:{nombre:'Explora',cam:[[3.0,2.2,6.6],[0.4,1.2,0.0]],mision:'Elige la topología y ajusta R, L, C y la frecuencia. Observa cómo cambian |Z|, θz y las trazas de voltaje/corriente en tiempo real.'},
+  explora:{nombre:'Explora',cam:[[3.4,2.1,5.2],[1.05,1.00,0.30]],mision:'Elige la topología y ajusta R, L, C y la frecuencia. Observa cómo cambian |Z|, θz y las trazas de voltaje/corriente en tiempo real.'},
   medicion:{nombre:'Medición',cam:[[-0.2,2.0,3.4],[-1.0,1.6,-0.5]],mision:'El circuito es conocido pero θz está sellado. Alinea ambos cursores al MISMO tipo de cruce por cero y mide θz.'},
-  reto:{nombre:'Reto',cam:[[2.4,1.9,4.0],[1.5,1.0,0.5]],mision:'Un componente está sellado. Mide |Z| y θz con el osciloscopio y despeja su valor a partir de las ecuaciones de la topología activa.'},
+  reto:{nombre:'Reto',cam:[[3.2,1.8,3.9],[1.75,0.78,0.72]],mision:'Un componente está sellado. Mide |Z| y θz con el osciloscopio y despeja su valor a partir de las ecuaciones de la topología activa.'},
 };
 function buildSelBar(){
   const bar=el('selbar');

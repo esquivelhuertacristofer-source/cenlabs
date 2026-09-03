@@ -3743,3 +3743,167 @@ export function multimetro(mat, opts = {}) {
                  boca: (i) => new THREE.Vector3((i - (nB - 1) / 2) * W * 0.30, -A * 0.40, F / 2 + F * 0.09) };
   return g;
 }
+
+/* ==========================================================================
+   §14 · MÓDULOS DE UN BANCO DE PRÁCTICAS DE CA
+   Un laboratorio de circuitos de corriente alterna no se monta con cubos: se
+   monta con MÓDULOS que se enchufan entre sí por bornas de 4 mm. Cada módulo
+   lleva encima el componente de verdad —una resistencia bobinada de cerámica,
+   una bobina sobre núcleo de chapa, un condensador de lata— y por eso el
+   alumno puede señalar en la pantalla la R, la L y la C de las que habla la
+   fórmula. Un banco con dos cajitas y ningún componente enseña lo contrario:
+   que el circuito está en otro sitio, no delante.
+   ========================================================================== */
+
+/**
+ * BORNA DE 4 mm (banana). Es la pieza que convierte un montaje en un montaje:
+ * el color dice la polaridad o la fase, el collar aislante es lo único que se
+ * puede tocar con tensión puesta, y el TALADRO —no un disco pintado— es lo que
+ * dice que ahí se ENCHUFA algo. La boca mira a +Y; `userData.boca` da el punto
+ * donde entra la clavija, para colgar de ahí el cable sin cifras a mano.
+ */
+export function bornaBanana(mat, opts = {}) {
+  const { d = 0.10, alto = 0.062, color = 0xd64545, seg = 20 } = opts;
+  const g = new THREE.Group();
+  const R = d / 2, rb = R * 0.40;           // rb: el radio del taladro de 4 mm
+  const matI = new THREE.MeshStandardMaterial({ color, roughness: 0.52, metalness: 0.04 });
+  /* Perfil CERRADO: sube por fuera, cruza el chaflán de la boca, baja por la
+     pared del taladro y vuelve por debajo. Sin la vuelta por el taladro la
+     borna sería un tapón macizo y no habría dónde enchufar. */
+  const collar = new THREE.Mesh(revolucion([
+    [rb, 0], [R, 0], [R, alto * 0.72], [R * 0.88, alto * 0.86], [R * 0.88, alto],
+    [rb * 1.22, alto], [rb, alto * 0.86], [rb, 0],
+  ], { seg }), matI);
+  collar.castShadow = true; g.add(collar);
+  // El casquillo metálico del fondo: es lo que de verdad hace contacto.
+  const casq = new THREE.Mesh(new THREE.CylinderGeometry(rb * 0.94, rb * 0.94, alto * 0.62, 12),
+    mat.cromo || mat.acero || mat.aluminio);
+  casq.position.y = alto * 0.30; g.add(casq);
+  g.userData = { d, alto, boca: new THREE.Vector3(0, alto * 0.90, 0), color };
+  return g;
+}
+
+/**
+ * RESISTENCIA BOBINADA de potencia, la de un banco de prácticas: tubo de
+ * cerámica, HILO DE NICROMO enrollado a la vista y dos casquillos con su
+ * tornillo. El hilo enrollado es la explicación entera de la pieza —más vueltas
+ * y más fino, más ohmios— y de por qué una resistencia de potencia es un
+ * componente con inductancia parásita, cosa que en un lab de CA importa.
+ *
+ * Eje en X, como la resistencia axial de §11. `userData.bornas` da los dos
+ * puntos de conexión.
+ */
+export function resistenciaBobinada(mat, opts = {}) {
+  const { largo = 0.62, d = 0.17, vueltas = 18, hilo = 0.015,
+          ceramica = 0xe4ded0, patas = true, seg = 22 } = opts;
+  const g = new THREE.Group();
+  const R = d / 2, L = largo, rt = R * 0.80;
+  const matC = new THREE.MeshStandardMaterial({ color: ceramica, roughness: 0.74, metalness: 0.02 });
+  const tubo = new THREE.Mesh(new THREE.CylinderGeometry(rt, rt, L, seg), matC);
+  tubo.rotation.z = Math.PI / 2; tubo.castShadow = true; g.add(tubo);
+  // El nicromo. Se enrolla sólo en el tramo central: los extremos son donde
+  // aprietan los casquillos, y ahí no puede haber hilo.
+  const col = mat.acero || mat.cromo || mat.aluminio;
+  const pts = [];
+  const K = 22, x0 = -L * 0.34, x1 = L * 0.34, rr = rt + hilo * 0.55;
+  for (let i = 0; i <= vueltas * K; i++) {
+    const t = i / K, a = t * Math.PI * 2;
+    pts.push(new THREE.Vector3(x0 + (x1 - x0) * (t / vueltas), Math.cos(a) * rr, Math.sin(a) * rr));
+  }
+  const bob = new THREE.Mesh(new THREE.TubeGeometry(
+    new THREE.CatmullRomCurve3(pts, false), pts.length, hilo * 0.5, 6, false), col);
+  bob.castShadow = true; g.add(bob);
+  const bornas = [];
+  for (const sx of [-1, 1]) {
+    const cap = new THREE.Mesh(new THREE.CylinderGeometry(R, R, L * 0.13, seg),
+      mat.aluminio || mat.acero);
+    cap.rotation.z = Math.PI / 2; cap.position.x = sx * L * 0.435; cap.castShadow = true; g.add(cap);
+    const tor = tornilloHex(mat, { d: R * 0.52, largo: R * 0.42, arandela: false });
+    tor.position.set(sx * L * 0.435, R * 0.98, 0); g.add(tor);
+    bornas.push(new THREE.Vector3(sx * L * 0.435, R * 1.30, 0));
+  }
+  if (patas) {
+    for (const sx of [-1, 1]) {
+      const pa = new THREE.Mesh(new THREE.BoxGeometry(L * 0.10, R * 1.15, d * 0.72),
+        mat.chapa || mat.acero);
+      pa.position.set(sx * L * 0.30, -R * 1.05, 0); pa.castShadow = true; g.add(pa);
+    }
+  }
+  g.userData = { largo: L, d, cuerpo: tubo, hilo: bob, bornas };
+  return g;
+}
+
+/**
+ * BOBINA DE HIERRO de banco: núcleo E-I de chapa con su carrete devanado en la
+ * COLUMNA CENTRAL. Es la pieza que hace que una L deje de ser un símbolo: el
+ * hierro es el que fija la inductancia, y el ENTREHIERRO —si lo tiene— es el
+ * que decide a qué corriente se satura, que es justo la razón de que la L de un
+ * banco no valga lo mismo a 1 A que a 5 A.
+ *
+ * Las chapas se apilan en Z, como en `nucleoEI`. El grupo queda centrado en su
+ * núcleo, con `userData.alto` para poder apoyarlo.
+ */
+export function bobinaHierro(mat, opts = {}) {
+  const { ancho = 0.30, alto = 0.34, prof = 0.16, chapas = 9, entrehierro = 0,
+          vueltas = 9, hilo = 0.011, capas = 2 } = opts;
+  const g = new THREE.Group();
+  const nuc = nucleoEI(mat, { ancho, alto, prof, chapas, entrehierro });
+  g.add(nuc);
+  const br = nuc.userData.brazo;
+  const car = new THREE.Mesh(new THREE.BoxGeometry(br.largo * 0.30, br.alto * 1.5, prof * 1.5),
+    mat.negro || mat.chapa);
+  car.position.set(br.x, br.y, 0); g.add(car);
+  /* La bobina se devana ALREDEDOR de la columna central, y esa columna va en X.
+     `bobinaCampo` entrega el devanado con su eje en +Y, así que se tumba un
+     cuarto de vuelta sobre Z —y sólo sobre Z: una segunda rotación lo dejaría
+     enrollado sobre el apilado de chapas, que es justo por donde el flujo NO
+     pasa—. Al tumbarla, su `ancho` pasa a ser la altura de la ventana y su
+     `prof` el espesor del paquete: por eso van cruzados. */
+  const bob = bobinaCampo(mat, {
+    ancho: br.alto * 2.0, prof: prof * 1.9, alto: br.largo * 0.74,
+    vueltas, hilo, capas,
+  });
+  bob.rotation.z = Math.PI / 2;
+  bob.position.set(br.x, br.y, 0); g.add(bob);
+  g.userData = { ancho, alto, prof, nucleo: nuc, bobina: bob, alturaTotal: alto };
+  return g;
+}
+
+/**
+ * MÓDULO DE BANCO: la bandeja sobre la que va montado un componente, con sus
+ * patas de goma y sus BORNAS de 4 mm. Es lo que hace que en la pantalla se vea
+ * un montaje y no un montón de piezas sueltas: el componente está sujeto a algo
+ * y sus dos extremos salen a dos bornas por las que se enchufan los cables.
+ *
+ * `userData.bornas` son las bornas creadas (en el orden en que se piden) y
+ * `userData.bocas` sus puntos de enchufe ya en coordenadas del módulo.
+ */
+export function moduloBanco(mat, opts = {}) {
+  const { ancho = 0.52, fondo = 0.34, alto = 0.055, color = 0x2a3138,
+          bornas = [-1, 1], dBorna = 0.085, colores = null, patas = true } = opts;
+  const g = new THREE.Group();
+  const matB = new THREE.MeshStandardMaterial({ color, roughness: 0.66, metalness: 0.14 });
+  const base = new THREE.Mesh(extruido(contornoRedondeado([
+    [-ancho / 2, -fondo / 2], [ancho / 2, -fondo / 2],
+    [ancho / 2, fondo / 2], [-ancho / 2, fondo / 2]], Math.min(ancho, fondo) * 0.10, 3),
+    { espesor: alto, bisel: alto * 0.16 }), matB);
+  base.rotation.x = -Math.PI / 2;            // la plancha, tumbada sobre el banco
+  base.position.y = alto / 2; base.castShadow = true; base.receiveShadow = true; g.add(base);
+  if (patas) {
+    const mg = mat.goma || mat.negro || matB;
+    for (const sx of [-1, 1]) for (const sz of [-1, 1]) {
+      const p = new THREE.Mesh(new THREE.CylinderGeometry(alto * 0.42, alto * 0.42, alto * 0.5, 10), mg);
+      p.position.set(sx * ancho * 0.40, -alto * 0.25, sz * fondo * 0.34); g.add(p);
+    }
+  }
+  const cols = colores || bornas.map((_, i) => (i % 2 === 0 ? 0xd64545 : 0x14181e));
+  const lista = [], bocas = [];
+  bornas.forEach((sx, i) => {
+    const b = bornaBanana(mat, { d: dBorna, color: cols[i] });
+    b.position.set(sx * ancho * 0.40, alto, -fondo * 0.28);
+    g.add(b); lista.push(b);
+    bocas.push(b.position.clone().add(b.userData.boca));
+  });
+  g.userData = { ancho, fondo, alto, base, bornas: lista, bocas };
+  return g;
+}
