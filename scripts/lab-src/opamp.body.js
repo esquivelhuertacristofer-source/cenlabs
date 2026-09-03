@@ -232,47 +232,34 @@ Boylestad & Nashelsky, "Electronic Devices and Circuit Theory".
     }
   }
 
+  /* Los nombres con los que trabaja la biblioteca de piezas (`P3`, que el molde
+     ya importa), traducidos una vez a los materiales de este laboratorio. */
+  const MATP = {
+    aluminio: std({ color: 0x9aa3ad, roughness: 0.34, metalness: 0.86 }),
+    acero: std(MAT.lead), cromo: std(MAT.lead),
+    cobre: std({ color: 0xb87333, roughness: 0.35, metalness: 0.75 }),
+    chapa: std({ color: 0x8f98a3, roughness: 0.40, metalness: 0.80 }),
+    negro: std({ color: 0x14181e, roughness: 0.62, metalness: 0.06 }),
+    goma: std({ color: 0x14181e, roughness: 0.8, metalness: 0.02 }),
+    blanco: std({ color: 0xd7dee6, roughness: 0.4, metalness: 0.2 }),
+    ceramica: std({ color: 0xd7dee6, roughness: 0.6, metalness: 0.05 }),
+  };
+  /* LOS COMPONENTES, con la forma que tienen en la mano. Lo que convierte un
+     taco en un componente son las PATAS —por donde entra la corriente y por
+     donde se suelda— y las MARCAS: las bandas de la resistencia, la banda del
+     catodo, la muesca de la patilla 1, la franja del negativo. Cada marca evita
+     una averia distinta y ninguna estaba dibujada. */
   function makeResistor3D() {
-    const g = new THREE.Group();
-    const body = new THREE.Mesh(new THREE.CylinderGeometry(0.045, 0.045, 0.34, 16), std(MAT.resistorBody));
-    body.rotation.z = Math.PI / 2;
-    g.add(body);
-    const bandMeshes = [];
-    for (let i = 0; i < 3; i++) {
-      const band = new THREE.Mesh(new THREE.CylinderGeometry(0.047, 0.047, 0.025, 16), std({ color: 0x000000 }));
-      band.rotation.z = Math.PI / 2;
-      band.position.x = -0.09 + i * 0.06;
-      g.add(band);
-      bandMeshes.push(band);
-    }
-    const legM = std(MAT.lead);
-    const legL = new THREE.Mesh(new THREE.CylinderGeometry(0.01, 0.01, 0.16, 8), legM);
-    legL.rotation.z = Math.PI / 2; legL.position.x = -0.25; g.add(legL);
-    const legR = new THREE.Mesh(new THREE.CylinderGeometry(0.01, 0.01, 0.16, 8), legM);
-    legR.rotation.z = Math.PI / 2; legR.position.x = 0.25; g.add(legR);
-    g.userData.bandMeshes = bandMeshes;
-    g.userData.body = body;
+    const g = P3.resistencia(MATP, { largo: 0.30, d: 0.09, patas: 0.10, paso: 0.46,
+      bandas: [0x1a1a1a, 0x1a1a1a, 0x1a1a1a], cuerpo: MAT.resistorBody.color });
+    g.userData.bandMeshes = g.userData.bandas;
+    g.userData.bands = g.userData.bandas;
+    g.userData.body = g.userData.cuerpo;
     return g;
   }
-
   function makeDIP3D() {
-    const g = new THREE.Group();
-    const body = new THREE.Mesh(new THREE.BoxGeometry(0.32, 0.09, 0.16), std(MAT.icBody));
-    g.add(body);
-    const notch = new THREE.Mesh(new THREE.CylinderGeometry(0.02, 0.02, 0.1, 12), std(MAT.notch));
-    notch.rotation.z = Math.PI / 2;
-    notch.position.set(-0.16, 0.02, 0);
-    g.add(notch);
-    const legM = std(MAT.lead);
-    for (let i = 0; i < 4; i++) {
-      const legF = new THREE.Mesh(new THREE.CylinderGeometry(0.008, 0.008, 0.06, 8), legM);
-      legF.position.set(-0.12 + i * 0.08, -0.06, 0.09);
-      g.add(legF);
-      const legB = new THREE.Mesh(new THREE.CylinderGeometry(0.008, 0.008, 0.06, 8), legM);
-      legB.position.set(-0.12 + i * 0.08, -0.06, -0.09);
-      g.add(legB);
-    }
-    g.userData.body = body;
+    const g = P3.dip(MATP, { pines: 8, paso: 0.075, ancho: 0.17, alto: 0.055, patas: 0.09 });
+    g.userData.body = g.userData.cuerpo;
     return g;
   }
 
@@ -554,9 +541,12 @@ Boylestad & Nashelsky, "Electronic Devices and Circuit Theory".
   benchG.add(pcb);
   S.scene.add(benchG);
 
-  const riG = makeResistor3D(); riG.position.set(-0.5, 0.68, 1.0); benchG.add(riG);
-  const rfG = makeResistor3D(); rfG.position.set(0.1, 0.68, 1.0); benchG.add(rfG);
-  const icG = makeDIP3D(); icG.position.set(0.9, 0.7, 1.0); benchG.add(icG);
+  // Todos apoyan en la CARA de la placa: la biblioteca dibuja cada
+  // componente con y = 0 en la placa y las patas por debajo.
+  const Y_PCB = 0.635;
+  const riG = makeResistor3D(); riG.position.set(-0.5, Y_PCB, 1.0); benchG.add(riG);
+  const rfG = makeResistor3D(); rfG.position.set(0.1, Y_PCB, 1.0); benchG.add(rfG);
+  const icG = makeDIP3D(); icG.position.set(0.9, Y_PCB, 1.0); benchG.add(icG);
 
   function refreshBenchSel() {
     paintBands(riG, curRI());

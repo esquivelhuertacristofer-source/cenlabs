@@ -2690,33 +2690,37 @@ export function resistencia(mat, opts = {}) {
           patas = 0.12, paso = null, cuerpo = 0x9a815c, seg = 18 } = opts;
   const g = new THREE.Group();
   const R = d / 2, L = largo;
+  const yb = d * 0.62;                      // el eje del cuerpo, POR ENCIMA de la placa
   const cue = new THREE.Mesh(revolucion([
     [0, -L / 2], [R * 0.40, -L / 2], [R * 0.74, -L / 2 + L * 0.07],
     [R, -L / 2 + L * 0.18], [R, L / 2 - L * 0.18], [R * 0.74, L / 2 - L * 0.07],
     [R * 0.40, L / 2], [0, L / 2]], { seg }),
     new THREE.MeshStandardMaterial({ color: cuerpo, roughness: 0.88, metalness: 0.02 }));
-  cue.rotation.z = -Math.PI / 2; cue.castShadow = true; g.add(cue);
-  // Las bandas: las tres primeras juntas hacia un extremo y la tolerancia
-  // separada al otro, que es como se imprimen y como se sabe por donde leer.
-  const n = bandas.length;
+  cue.rotation.z = -Math.PI / 2; cue.position.y = yb; cue.castShadow = true; g.add(cue);
+  /* Las bandas. Con cuatro, las tres primeras van juntas hacia un extremo y la
+     TOLERANCIA separada al otro: esa separacion es la que dice por que lado se
+     empieza a leer, y sin ella el mismo dibujo vale para dos valores distintos.
+     Con tres, van agrupadas y se lee desde el extremo mas cercano. */
+  const n = bandas.length, conTol = n >= 4;
+  const cintas = [];
   bandas.forEach((col, i) => {
-    const x = (i < n - 1)
-      ? -L * 0.30 + i * L * 0.155
-      : L * 0.32;
-    const b = new THREE.Mesh(new THREE.CylinderGeometry(R * 1.03, R * 1.03, L * 0.085, seg),
+    const x = conTol
+      ? (i < n - 1 ? -L * 0.30 + i * L * 0.155 : L * 0.32)
+      : -L * 0.24 + i * L * 0.17;
+    const bb = new THREE.Mesh(new THREE.CylinderGeometry(R * 1.03, R * 1.03, L * 0.085, seg),
       new THREE.MeshStandardMaterial({ color: col, roughness: 0.62, metalness: 0.05 }));
-    b.rotation.z = Math.PI / 2; b.position.x = x; g.add(b);
+    bb.rotation.z = Math.PI / 2; bb.position.set(x, yb, 0); g.add(bb); cintas.push(bb);
   });
   const P = (paso || L + d * 2.2) / 2;
   const met = mat.cromo || mat.acero || mat.aluminio;
   for (const sx of [-1, 1]) {
     g.add(_hilo([
-      new THREE.Vector3(sx * L * 0.48, 0, 0),
-      new THREE.Vector3(sx * (P - d * 0.35), 0, 0),
-      new THREE.Vector3(sx * P, -d * 0.30, 0),
+      new THREE.Vector3(sx * L * 0.48, yb, 0),
+      new THREE.Vector3(sx * (P - d * 0.35), yb, 0),
+      new THREE.Vector3(sx * P, yb - d * 0.42, 0),
       new THREE.Vector3(sx * P, -patas, 0)], d * 0.10, met));
   }
-  g.userData = { largo: L, d, paso: P * 2, cuerpo: cue };
+  g.userData = { largo: L, d, paso: P * 2, cuerpo: cue, bandas: cintas, alturaEje: yb };
   return g;
 }
 
@@ -2730,24 +2734,25 @@ export function diodoAxial(mat, opts = {}) {
           cuerpo = 0x1d2229, banda = 0xdfe6ee, catodo = 1, seg = 16 } = opts;
   const g = new THREE.Group();
   const R = d / 2, L = largo;
+  const yb = d * 0.62;                      // el eje del cuerpo, POR ENCIMA de la placa
   const cue = new THREE.Mesh(revolucion([
     [0, -L / 2], [R * 0.52, -L / 2], [R, -L / 2 + L * 0.10],
     [R, L / 2 - L * 0.10], [R * 0.52, L / 2], [0, L / 2]], { seg }),
     new THREE.MeshStandardMaterial({ color: cuerpo, roughness: 0.45, metalness: 0.10 }));
-  cue.rotation.z = -Math.PI / 2; cue.castShadow = true; g.add(cue);
+  cue.rotation.z = -Math.PI / 2; cue.position.y = yb; cue.castShadow = true; g.add(cue);
   const bd = new THREE.Mesh(new THREE.CylinderGeometry(R * 1.04, R * 1.04, L * 0.14, seg),
     new THREE.MeshStandardMaterial({ color: banda, roughness: 0.55, metalness: 0.05 }));
-  bd.rotation.z = Math.PI / 2; bd.position.x = catodo * L * 0.30; g.add(bd);
+  bd.rotation.z = Math.PI / 2; bd.position.set(catodo * L * 0.30, yb, 0); g.add(bd);
   const P = (paso || L + d * 3.0) / 2;
   const met = mat.cromo || mat.acero || mat.aluminio;
   for (const sx of [-1, 1]) {
     g.add(_hilo([
-      new THREE.Vector3(sx * L * 0.48, 0, 0),
-      new THREE.Vector3(sx * (P - d * 0.35), 0, 0),
-      new THREE.Vector3(sx * P, -d * 0.30, 0),
+      new THREE.Vector3(sx * L * 0.48, yb, 0),
+      new THREE.Vector3(sx * (P - d * 0.35), yb, 0),
+      new THREE.Vector3(sx * P, yb - d * 0.42, 0),
       new THREE.Vector3(sx * P, -patas, 0)], d * 0.10, met));
   }
-  g.userData = { largo: L, d, paso: P * 2, catodo, cuerpo: cue };
+  g.userData = { largo: L, d, paso: P * 2, catodo, cuerpo: cue, banda: bd, alturaEje: yb };
   return g;
 }
 
