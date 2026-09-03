@@ -151,6 +151,50 @@ export function extruido(contorno, opts = {}) {
 }
 
 /**
+ * CÁSCARA paramétrica con espesor: la forma de fabricar cualquier pieza de
+ * CHAPA CURVA —un álabe, una garra de alternador, una teja de imán— que no sale
+ * ni de un perfil de revolución ni de un contorno extruido.
+ *
+ * `f(u,v)` devuelve el punto [x,y,z] de la superficie media para u y v en [0,1].
+ * A cada punto se le da espesor desplazándolo por la NORMAL de la superficie, y
+ * se cierran los cuatro cantos: sin eso la pieza es una lámina de grosor cero,
+ * que a contraluz desaparece y que ninguna sombra puede proyectar.
+ */
+export function cascara(f, opts = {}) {
+  const { nu = 20, nv = 8, espesor = 0.02 } = opts;
+  const pos = [], idx = [], h = 1e-3;
+  const res = (A, B) => [A[0] - B[0], A[1] - B[1], A[2] - B[2]];
+  const cru = (A, B) => [A[1] * B[2] - A[2] * B[1], A[2] * B[0] - A[0] * B[2], A[0] * B[1] - A[1] * B[0]];
+  const uni = (V) => { const L = Math.hypot(V[0], V[1], V[2]) || 1; return [V[0] / L, V[1] / L, V[2] / L]; };
+  for (let i = 0; i <= nu; i++) for (let j = 0; j <= nv; j++) {
+    const u = i / nu, v = j / nv, c = f(u, v);
+    const du = res(f(Math.min(1, u + h), v), f(Math.max(0, u - h), v));
+    const dv = res(f(u, Math.min(1, v + h)), f(u, Math.max(0, v - h)));
+    const n = uni(cru(du, dv));
+    for (const sg of [1, -1]) pos.push(c[0] + n[0] * sg * espesor / 2,
+      c[1] + n[1] * sg * espesor / 2, c[2] + n[2] * sg * espesor / 2);
+  }
+  const V = (i, j, k) => (i * (nv + 1) + j) * 2 + k;
+  for (let i = 0; i < nu; i++) for (let j = 0; j < nv; j++) {
+    idx.push(V(i, j, 0), V(i, j + 1, 0), V(i + 1, j, 0), V(i, j + 1, 0), V(i + 1, j + 1, 0), V(i + 1, j, 0));
+    idx.push(V(i, j, 1), V(i + 1, j, 1), V(i, j + 1, 1), V(i, j + 1, 1), V(i + 1, j, 1), V(i + 1, j + 1, 1));
+  }
+  for (let i = 0; i < nu; i++) {                       // los dos cantos en v
+    idx.push(V(i, 0, 0), V(i + 1, 0, 0), V(i, 0, 1), V(i, 0, 1), V(i + 1, 0, 0), V(i + 1, 0, 1));
+    idx.push(V(i, nv, 0), V(i, nv, 1), V(i + 1, nv, 0), V(i, nv, 1), V(i + 1, nv, 1), V(i + 1, nv, 0));
+  }
+  for (let j = 0; j < nv; j++) {                       // los dos cantos en u
+    idx.push(V(0, j, 0), V(0, j, 1), V(0, j + 1, 0), V(0, j + 1, 0), V(0, j, 1), V(0, j + 1, 1));
+    idx.push(V(nu, j, 0), V(nu, j + 1, 0), V(nu, j, 1), V(nu, j, 1), V(nu, j + 1, 0), V(nu, j + 1, 1));
+  }
+  const g = new THREE.BufferGeometry();
+  g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
+  g.setIndex(idx);
+  g.computeVertexNormals(); sanaNormales(g);
+  return g;
+}
+
+/**
  * Reescala las UV de una geometria para que una textura la cubra `veces` veces.
  *
  * `ExtrudeGeometry` genera las UV en UNIDADES DEL MUNDO: una pieza de tres
@@ -1307,6 +1351,70 @@ export function rotorImanes(mat, opts = {}) {
  * Es la pieza por la que un eje gira, y en un despiece no puede faltar porque es
  * lo único que explica por qué el rotor no roza con el estator.
  */
+/**
+ * ROTOR DE GARRAS (Lundell): el rotor de CUALQUIER alternador de coche, y una
+ * de las piezas más reconocibles que hay. Son dos platos con dedos triangulares
+ * que se meten unos entre otros SIN TOCARSE, y dentro de esa jaula, quieta, una
+ * sola bobina de excitación. Los dedos de un plato salen norte y los del otro
+ * sur, alternándose: por eso un rotor de doce garras da SEIS pares de polos y
+ * la frecuencia sale a seis veces las vueltas. Con un cilindro con imanes
+ * pegados encima no hay forma de contar los polos ni de explicar por qué la
+ * bobina no gira con un colector.
+ *
+ * Eje en +Y. `userData.bobina` es el anillo de excitación, que es lo que hay
+ * que apagar y encender cuando el laboratorio hable del regulador.
+ */
+export function rotorGarras(mat, opts = {}) {
+  const { r = 0.34, largo = 0.30, polos = 12, dEje = 0.12, espesor = null } = opts;
+  const N = Math.max(4, Math.round(polos / 2) * 2), M = N / 2;   // M garras por plato
+  const T = espesor == null ? r * 0.17 : espesor;
+  const g = new THREE.Group();
+  const paso = Math.PI * 2 / M, anchoBase = paso * 0.42;
+  for (const sy of [-1, 1]) {
+    // El plato: disco con su cubo, del que salen las garras.
+    const pl = new THREE.Mesh(revolucion(
+      [[dEje / 2, 0], [r * 0.74, 0], [r * 0.74, largo * 0.16], [dEje / 2, largo * 0.16]], { seg: 40 }), mat.acero);
+    pl.position.y = sy > 0 ? largo / 2 - largo * 0.16 : -largo / 2;
+    pl.castShadow = true; g.add(pl);
+    for (let k = 0; k < M; k++) {
+      const th0 = k * paso + (sy > 0 ? 0 : paso / 2);
+      /* La garra ARRANCA en el borde del plato y se abre hasta el diámetro
+         exterior en el primer palmo: si naciera ya en el diámetro exterior, el
+         plato la taparía entera y el rotor volvería a ser un tambor liso. */
+      const sup = (u, v) => {
+        const t = Math.min(1, u / 0.20);
+        const R = r * 0.74 + (r - T / 2 - r * 0.74) * t;
+        const semi = anchoBase * (1 - 0.72 * u);          // la garra se afila
+        const th = th0 - semi + v * 2 * semi;
+        const y = sy * (largo / 2 - largo * 0.16) - sy * u * (largo - largo * 0.20);
+        return [Math.cos(th) * R, y, Math.sin(th) * R];
+      };
+      const m = new THREE.Mesh(cascara(sup, { nu: 12, nv: 5, espesor: T }), mat.acero);
+      m.castShadow = true; g.add(m);
+    }
+  }
+  // La bobina de excitación: va DENTRO de la jaula y NO gira con el campo, gira
+  // con el rotor. Es la que se alimenta por las escobillas y los anillos rozantes.
+  const bob = new THREE.Mesh(revolucion(
+    [[dEje * 0.62, -largo * 0.28], [r * 0.70, -largo * 0.28],
+      [r * 0.70, largo * 0.28], [dEje * 0.62, largo * 0.28]], { seg: 34 }),
+    mat.cobre || mat.acero);
+  g.add(bob); g.userData.bobina = bob;
+  const eje = new THREE.Mesh(revolucion(
+    [[0, -largo * 0.95], [dEje / 2, -largo * 0.95], [dEje / 2, largo * 0.95], [0, largo * 0.95]],
+    { seg: 20 }), mat.cromo || mat.acero);
+  g.add(eje);
+  // Los dos anillos rozantes, por donde entra la corriente de excitación.
+  for (const sy of [-1, 1]) {
+    const an = new THREE.Mesh(revolucion(
+      [[dEje * 0.62, 0], [dEje * 0.82, 0], [dEje * 0.82, largo * 0.09], [dEje * 0.62, largo * 0.09]],
+      { seg: 24 }), mat.cobre || mat.acero);
+    an.position.y = -largo * 0.72 + (sy > 0 ? largo * 0.13 : 0); g.add(an);
+  }
+  g.userData.polos = N;
+  return g;
+}
+
 export function rodamiento(mat, opts = {}) {
   const { dExt = 0.42, dInt = 0.22, ancho = 0.14, bolas = 9 } = opts;
   const g = new THREE.Group();
@@ -1800,6 +1908,89 @@ export function panal(mat, opts = {}) {
   }
   if (eje === 'x') g.rotation.z = Math.PI / 2;
   g.userData.matTubo = mTubo; g.userData.matAleta = mAleta;
+  return g;
+}
+
+/**
+ * SONDA LAMBDA (o de NOx, o de temperatura de escape: todas se parecen). Lo que
+ * la hace reconocible no es el cuerpo, es el TUBO DE PROTECCIÓN ranurado de la
+ * punta: el gas tiene que llegar al elemento de circonio, pero el elemento no
+ * puede recibir el chorro directo ni el agua de condensación. Esas ranuras son
+ * la pieza. Y el hexágono no es adorno: una sonda se aprieta con una llave de
+ * vaso partido porque el cable no se puede pasar por la llave.
+ *
+ * Eje en +Y, con la punta hacia −Y: se enrosca mirando hacia abajo, como va.
+ */
+export function sondaLambda(mat, opts = {}) {
+  const { d = 0.10, largo = 0.42, ranuras = 6, cable = true } = opts;
+  const R = d / 2, g = new THREE.Group();
+  const cuerpo = new THREE.Mesh(revolucion([
+    [0, largo * 0.10], [R * 0.72, largo * 0.10], [R * 0.72, largo * 0.30],
+    [R * 0.52, largo * 0.34], [R * 0.52, largo * 0.52], [0, largo * 0.52]],
+    { seg: 24 }), mat.acero);
+  cuerpo.castShadow = true; g.add(cuerpo);
+  const hex = new THREE.Mesh(revolucion(
+    [[0, 0], [R, 0], [R, largo * 0.13], [0, largo * 0.13]], { seg: 6 }), mat.acero);
+  g.add(hex);
+  const rosc = new THREE.Mesh(revolucion(
+    [[0, -largo * 0.16], [R * 0.66, -largo * 0.16], [R * 0.66, 0], [0, 0]], { seg: 20 }), mat.acero);
+  g.add(rosc);
+  g.add(rosca(mat, { r: R * 0.70, paso: largo * 0.038, vueltas: 4, grueso: largo * 0.016 })
+    .translateY(-largo * 0.08));
+  // El tubo de protección, con sus ranuras.
+  const tubo = new THREE.Mesh(revolucion([
+    [R * 0.40, -largo * 0.46], [R * 0.56, -largo * 0.46],
+    [R * 0.56, -largo * 0.16], [R * 0.40, -largo * 0.16]], { seg: 20 }), mat.cromo || mat.acero);
+  g.add(tubo);
+  for (let i = 0; i < ranuras; i++) {
+    const a = (i / ranuras) * Math.PI * 2;
+    const r = new THREE.Mesh(new THREE.BoxGeometry(R * 0.20, largo * 0.16, R * 0.34), mat.negro || mat.acero);
+    r.position.set(Math.cos(a) * R * 0.50, -largo * 0.34, Math.sin(a) * R * 0.50);
+    r.rotation.y = -a; g.add(r);
+  }
+  if (cable) {
+    const c = new THREE.Mesh(revolucion(
+      [[0, largo * 0.52], [R * 0.24, largo * 0.52], [R * 0.24, largo * 0.86], [0, largo * 0.86]],
+      { seg: 14 }), mat.negro || mat.goma || mat.acero);
+    g.add(c);
+  }
+  g.userData.largo = largo;
+  return g;
+}
+
+/**
+ * MONOLITO cerámico: el interior de un catalizador o de un filtro de partículas.
+ * Es un panal de miles de canales rectos y paralelos —«celdas por pulgada
+ * cuadrada»—, y esa geometría es la razón de todo: da una superficie enorme sin
+ * ahogar el escape, y por eso un catalizador convierte sin costar apenas
+ * contrapresión... hasta que se funde y los canales se cierran.
+ *
+ * Las paredes se sacan de dos peines de planchas cruzadas: da la lectura de
+ * panal con unas decenas de mallas en vez de con miles de agujeros extruidos,
+ * que es lo que costaría dibujar celda a celda. Eje en Z.
+ */
+export function monolito(mat, opts = {}) {
+  const { r = 0.32, largo = 0.46, celdas = 13, carcasa = true } = opts;
+  const g = new THREE.Group();
+  const paso = (r * 2 * 0.94) / celdas;
+  const cer = mat.ceramica || mat.blanco || mat.aluminio;
+  for (let i = 1; i < celdas; i++) {
+    const t = -r * 0.94 + paso * i;
+    const semi = Math.sqrt(Math.max(0, (r * 0.94) ** 2 - t * t));
+    if (semi < paso * 0.4) continue;
+    for (const eje of [0, 1]) {
+      const m = new THREE.Mesh(new THREE.BoxGeometry(
+        eje ? semi * 2 : paso * 0.10, eje ? paso * 0.10 : semi * 2, largo), cer);
+      m.position.set(eje ? 0 : t, eje ? t : 0, 0);
+      g.add(m);
+    }
+  }
+  if (carcasa) {
+    const car = new THREE.Mesh(revolucion(
+      [[r * 0.95, -largo / 2], [r, -largo / 2], [r, largo / 2], [r * 0.95, largo / 2]],
+      { seg: 34 }), mat.acero);
+    car.rotation.x = Math.PI / 2; g.add(car);
+  }
   return g;
 }
 

@@ -1100,6 +1100,14 @@ MAT.apag=std({color:0x232a33,roughness:0.6,metalness:0.1});
 const nuevaFantasma=()=>std({color:0x5AD1E6,transparent:true,opacity:0.26,
   depthWrite:false,side:THREE.DoubleSide});
 
+/* Los nombres con los que trabaja la biblioteca de piezas (`P3`, que el molde
+   ya importa), traducidos una vez a los materiales de este laboratorio. */
+const MATP={aluminio:MAT.bloque, acero:MAT.acero, cobre:MAT.cobre, cromo:MAT.acero,
+  chapa:MAT.acero, hierro:MAT.acero, negro:MAT.negro, goma:MAT.aislante,
+  blanco:MAT.acero, ceramica:MAT.aislante};
+/* Una pieza EN CORTE deja ver el REVÉS de su pared del fondo: con una sola cara
+   se vuelve transparente por el lado abierto y desaparece al mirarla de frente. */
+const corte=(m)=>{ const c=m.clone(); c.side=THREE.DoubleSide; return c; };
 function cil(r0,r1,h,mat,seg){
   const m=new THREE.Mesh(new THREE.CylinderGeometry(r0,r1,h,seg||22),mat);
   m.castShadow=true; return m;
@@ -1227,26 +1235,94 @@ function haceCablePos(){
   return rotula(centra(g),'cable +','#ff6b6b');
 }
 function haceArranque(){
-  const d=dims(VH()), g=new THREE.Group(), K=d.K;
-  const cuerpo=cil(d.rArr,d.rArr,d.lArr,MAT.acero,24);
-  cuerpo.rotation.x=Math.PI/2; g.add(cuerpo);
-  // Las nervaduras de la carcasa, que es lo que la hace reconocible.
+  const d=dims(VH()), g=new THREE.Group(), K=d.K, R=d.rArr, L=d.lArr;
+  /* EL ARRANQUE, EN CORTE. Cerrado es un bote con otro bote encima, y un bote
+     no explica de dónde salen los cuatrocientos amperios de los que va este
+     laboratorio. Abierto se ve lo que los consume: un INDUCIDO de doce ranuras
+     con su COLECTOR y sus escobillas, cuatro MASAS POLARES con sus bobinas
+     inductoras alrededor, y arriba el SOLENOIDE con su núcleo móvil —que hace
+     dos cosas a la vez: empujar el piñón contra la corona y cerrar el contacto
+     principal—. El eje del arranque va en Z; las piezas extruidas de la
+     biblioteca ya vienen con el suyo en Z, así que entran sin girar. */
+  const sector=(r0,r1,a0,a1,n)=>[...P3.arco(0,0,r1,a0,a1,n),...P3.arco(0,0,r0,a1,a0,n)];
+
+  // --- la carcasa, abierta por el costado ----------------------------------
+  const car=new THREE.Mesh(P3.revolucion([
+    [R*0.90,-L/2],[R,-L/2],[R,L/2],[R*0.90,L/2]],
+    {seg:34,fase:Math.PI*0.79,arco:Math.PI*1.42}),corte(MAT.acero));
+  car.rotation.x=Math.PI/2; car.castShadow=true; g.add(car);
   for(let i=0;i<10;i++){
     const a=i/10*Math.PI*2;
-    const n=roundedBox(0.012*K,0.012*K,d.lArr*0.92,MAT.acero,0.004*K);
-    n.position.set(Math.cos(a)*d.rArr,Math.sin(a)*d.rArr,0); g.add(n);
+    const n=roundedBox(0.012*K,0.012*K,L*0.92,MAT.acero,0.004*K);
+    n.position.set(Math.cos(a)*R,Math.sin(a)*R,0); g.add(n);
   }
-  // El solenoide, encima y más corto. Es donde están los contactos.
-  const sol=cil(d.rArr*0.56,d.rArr*0.56,d.lArr*0.62,MAT.acero,18);
-  sol.rotation.x=Math.PI/2; sol.position.set(0,d.rArr*1.30,-d.lArr*0.10); g.add(sol);
-  for(const [x,y,z,mat] of [[0.10*K,d.rArr*1.30,-d.lArr*0.42,MAT.cobre],
-                            [-0.10*K,d.rArr*1.30,-d.lArr*0.42,MAT.cobre]]){
-    const t=cil(0.020*K,0.020*K,0.06*K,mat,12);
-    t.rotation.x=Math.PI/2; t.position.set(x,y,z); g.add(t);
+  for(const sz of [-1,1]){                       // las dos tapas
+    const t=new THREE.Mesh(P3.revolucion([
+      [R*0.10,0],[R*1.02,0],[R*1.02,L*0.09],[R*0.10,L*0.09]],{seg:30}),MAT.acero);
+    t.rotation.x=sz>0?-Math.PI/2:Math.PI/2; t.position.z=sz*L*0.50; g.add(t);
   }
-  // El piñón, que es lo que engrana con la corona.
-  const pin=cil(d.rArr*0.34,d.rArr*0.34,0.10*K,MAT.acero,14);
-  pin.rotation.x=Math.PI/2; pin.position.set(0,0,d.lArr*0.58); g.add(pin);
+
+  // --- las cuatro masas polares, con sus bobinas inductoras -----------------
+  for(let k=0;k<4;k++){
+    const a0=k*Math.PI/2-0.50, a1=k*Math.PI/2+0.50;
+    const zap=new THREE.Mesh(P3.extruido(sector(R*0.66,R*0.88,a0,a1,10),
+      {espesor:L*0.50,bisel:R*0.012}),MAT.acero);
+    g.add(zap);
+    const bob=new THREE.Mesh(P3.extruido(sector(R*0.60,R*0.68,a0-0.10,a1+0.10,10),
+      {espesor:L*0.34,bisel:R*0.010}),MAT.cobre);
+    g.add(bob);
+  }
+
+  // --- el inducido: chapa ranurada, devanado, eje y colector ---------------
+  const ind=new THREE.Group(); g.add(ind); g.userData.inducido=ind;
+  ind.add(P3.nucleoRanurado(MATP,{rExt:R*0.60,rInt:R*0.16,ranuras:12,
+    largo:L*0.46,hacia:'fuera',fondo:0.55}));
+  ind.add(P3.devanado(MATP,{r:R*0.50,ranuras:12,largo:L*0.46,paso:5,
+    hilo:R*0.05,bobinas:12}));
+  const arb=cil(R*0.11,R*0.11,L*1.34,MAT.acero,16);
+  arb.rotation.x=Math.PI/2; arb.position.z=L*0.16; g.add(arb);
+  // El COLECTOR: doce delgas de cobre separadas por mica. Es la pieza que se
+  // quema cuando un arranque «se pone duro», y la que las escobillas rozan.
+  const col=new THREE.Group(); col.position.z=-L*0.34; ind.add(col);
+  for(let i=0;i<12;i++){
+    const a=(i+0.5)/12*Math.PI*2;
+    const de=new THREE.Mesh(P3.extruido(sector(R*0.20,R*0.30,
+      a-0.22,a+0.22,4),{espesor:L*0.16,bisel:R*0.006}),MAT.cobre);
+    col.add(de);
+  }
+  // Las dos escobillas, con su muelle, apoyando en el colector.
+  for(const sy of [-1,1]){
+    const es=roundedBox(R*0.14,R*0.12,L*0.13,MAT.negro,0.10);
+    es.position.set(0,sy*R*0.34,-L*0.34); g.add(es);
+  }
+
+  // --- el solenoide, también en corte ---------------------------------------
+  const sol=new THREE.Mesh(P3.revolucion([
+    [R*0.48,-L*0.31],[R*0.56,-L*0.31],[R*0.56,L*0.31],[R*0.48,L*0.31]],
+    {seg:26,fase:Math.PI*0.79,arco:Math.PI*1.42}),corte(MAT.acero));
+  sol.rotation.x=Math.PI/2; sol.position.set(0,R*1.30,-L*0.10); g.add(sol);
+  const bobS=new THREE.Mesh(P3.revolucion([
+    [R*0.30,-L*0.24],[R*0.46,-L*0.24],[R*0.46,L*0.24],[R*0.30,L*0.24]],{seg:24}),MAT.cobre);
+  bobS.rotation.x=Math.PI/2; bobS.position.set(0,R*1.30,-L*0.10); g.add(bobS);
+  // El NÚCLEO MÓVIL: al entrar empuja la horquilla y cierra el contacto. Las
+  // dos cosas a la vez, y en ese orden: por eso un solenoide que pega el piñón
+  // pero no cierra el contacto hace «clac» y el motor no gira.
+  const nuc=cil(R*0.27,R*0.27,L*0.36,MAT.acero,18);
+  nuc.rotation.x=Math.PI/2; nuc.position.set(0,R*1.30,-L*0.04); g.add(nuc);
+  for(const [x,z] of [[0.10*K,-L*0.42],[-0.10*K,-L*0.42],[0,-L*0.42]]){
+    const t=cil(0.020*K,0.020*K,0.06*K,MAT.cobre,12);
+    t.rotation.x=Math.PI/2; t.position.set(x,R*1.30+(x===0?R*0.30:0),z); g.add(t);
+  }
+  // La horquilla, que es lo que traduce el tirón del solenoide en empuje.
+  const hor=roundedBox(0.014*K,R*1.00,0.05*K,MAT.acero,0.10);
+  hor.position.set(0,R*0.78,L*0.16); hor.rotation.x=-0.28; g.add(hor);
+
+  // --- el piñón con dientes de verdad y su rueda libre ----------------------
+  const rl=cil(R*0.42,R*0.42,L*0.20,MAT.acero,22);
+  rl.rotation.x=Math.PI/2; rl.position.z=L*0.44; g.add(rl);
+  const pin=new THREE.Mesh(P3.engrane({z:9,m:R*0.072,ancho:0.10*K}).geo,MAT.acero);
+  pin.position.z=L*0.62; g.add(pin);
+  g.userData.pinon=pin;
   return rotula(centra(g),'arranque','#5ad1e6');
 }
 function haceMasaMotor(){

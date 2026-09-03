@@ -103,6 +103,8 @@ import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
 import { RoundedBoxGeometry } from 'three/addons/geometries/RoundedBoxGeometry.js';
+import * as P3 from '/labs/_piezas3d.js';
+import { instalaDiag } from '/labs/_diag3d.js';
 import { EffectComposer } from 'three/addons/postprocessing/EffectComposer.js';
 import { RenderPass } from 'three/addons/postprocessing/RenderPass.js';
 import { GTAOPass } from 'three/addons/postprocessing/GTAOPass.js';
@@ -337,6 +339,13 @@ function createStage(mount, opts={}){
     composer.render(); }
   function start(){ if(!raf)loop(); }
   function stop(){ cancelAnimationFrame(raf); raf=null; window.removeEventListener('resize',resize); }
+
+  /* Sonda de escena para las auditorías del 3D. No cambia nada de lo que se ve
+     y cuelga de `window.__diag3d`, que ningún laboratorio pisa: así CUALQUIER
+     laboratorio construido con este molde se puede auditar —salud(), mira(),
+     piezas()— sin tocarle una línea. */
+  try { instalaDiag(document.title || location.pathname,
+    { escena:scene, camara:camera, controles:controls, renderizador:renderer }); } catch(_){}
 
   return { THREE, renderer, scene, camera, controls, composer, bloom,
     setAnimate:fn=>hook=fn, start, stop, resize, clock,
@@ -1072,6 +1081,9 @@ const std=o=>new THREE.MeshStandardMaterial(o);
 // ningún error —three comprueba `material.visible===true` y, al ser undefined,
 // SE SALTA la pieza en silencio—: la malla existe, no se ve, y no hay prueba
 // numérica que se entere. Se envuelve en un material de verdad.
+/* Los nombres con los que trabaja la biblioteca de piezas (`P3`, que el molde
+   ya importa). Se rellena justo después de MAT. */
+let MATP=null;
 const MAT={
   acero:std(Object.assign({},brushedMetal(),
     {color:0xb9c4cf,roughness:0.42,metalness:0.78})),
@@ -1092,6 +1104,12 @@ const MAT={
   avi:std({color:0x3a3116,emissive:0xe9c46a,emissiveIntensity:1.4}),
   apag:std({color:0x232a33,roughness:0.6,metalness:0.1}),
 };
+MATP={aluminio:MAT.bloque, acero:MAT.acero, cobre:MAT.crom, cromo:MAT.crom,
+  chapa:MAT.acero, hierro:MAT.bloque, negro:MAT.caja, goma:MAT.goma,
+  blanco:MAT.crom, ceramica:MAT.crom, papel:MAT.crom};
+/* Una pieza EN CORTE deja ver el REVÉS de su pared del fondo: con una sola cara
+   se vuelve transparente por el lado abierto y desaparece al mirarla de frente. */
+const corte=(m)=>{ const c=m.clone(); c.side=THREE.DoubleSide; return c; };
 
 // ============================================================ T2 · PIZARRÓN
 // Un lienzo 2D de 1024×768 pegado a un panel 3D. Se llama `bcv` y no `cv`
@@ -2453,11 +2471,16 @@ function construyeBanco(){
     for(let i=0;i<e.cil;i++){
       const x=d.xRiel-d.largoRiel/2+paso*(i+0.5);
       xIny.push(x);
-      const cuerpo=new THREE.Mesh(new THREE.CylinderGeometry(0.040,0.052,0.30,14),MAT.crom);
-      cuerpo.position.set(x,d.yTapa+0.16,d.zRiel); cuerpo.castShadow=true;
+      /* EL INYECTOR, con lo que tiene un inyector: cuerpo de bobina —o de pila
+         piezoeléctrica—, conector, las juntas tóricas que lo sellan contra la
+         culata y la tobera. Un cono truncado con una caja encima no enseña
+         ninguna de las tres, y aquí el inyector es la pieza del laboratorio. */
+      const cuerpo=P3.inyector({...MATP,acero:MAT.crom},{d:0.104,largo:0.46});
+      cuerpo.position.set(x,d.yTapa+0.22,d.zRiel);
+      cuerpo.traverse(o=>{if(o.isMesh)o.castShadow=true;});
       banco.add(cuerpo);
       const bob=roundedBox(0.10,0.13,0.10,MAT.caja,0.20);
-      bob.position.set(x,d.yTapa+0.34,d.zRiel); banco.add(bob);
+      bob.position.set(x,d.yTapa+0.40,d.zRiel); banco.add(bob);
       // El tubo de alta, del riel al inyector.
       const tb=new THREE.Mesh(new THREE.CylinderGeometry(0.017,0.017,
         Math.abs(d.yRiel-(d.yTapa+0.34))+0.05,10),MAT.tubo);
@@ -2472,9 +2495,18 @@ function construyeBanco(){
     const paso=d.largoRiel/e.cil;
     for(let i=0;i<e.cil;i++){
       const x=d.xRiel-d.largoRiel/2+paso*(i+0.5);
-      const b=new THREE.Mesh(new THREE.CylinderGeometry(0.026,0.026,0.20,12),MAT.bujia);
+      /* La BUJÍA INCANDESCENTE, con su hexágono y su rosca: se aprieta con
+         llave y se rompe por la rosca, que es la avería que todo el mundo teme
+         al cambiarlas. Un tubo liso no dice ni por dónde se coge. */
+      const b=new THREE.Mesh(P3.revolucion([
+        [0,-0.10],[0.026,-0.10],[0.026,0.02],[0.038,0.02],
+        [0.038,0.06],[0.026,0.06],[0.026,0.10],[0,0.10]],{seg:16}),MAT.bujia);
       b.rotation.z=0.42;
       b.position.set(x,d.yTapa-0.13,-d.ancho*0.30); banco.add(b);
+      const hx=new THREE.Mesh(P3.revolucion(
+        [[0,0],[0.040,0],[0.040,0.036],[0,0.036]],{seg:6}),MAT.bujia);
+      hx.rotation.z=0.42; hx.position.set(x-0.026,d.yTapa-0.07,-d.ancho*0.30);
+      banco.add(hx);
       // La punta, que es la que se pone al rojo. Material PROPIO: se muta por
       // fotograma y los del mapa MAT son compartidos.
       const m=std({color:0x30363f,emissive:0x000000,roughness:0.5,metalness:0.4});
@@ -2497,9 +2529,20 @@ function construyeBanco(){
   {
     const dep=roundedBox(0.42,0.40,0.34,MAT.caja,0.10);
     dep.position.set(d.xFiltro-0.30,0.34,d.zFiltro+0.10); banco.add(dep);
-    const f=new THREE.Mesh(new THREE.CylinderGeometry(0.10,0.10,0.30,18),
-      std({color:0x2f3a46,roughness:0.55,metalness:0.30}));
+    /* El filtro de gasóleo, EN CORTE: lo que filtra es el PAPEL PLISADO, y en
+       un diésel ese papel hace además de decantador de agua —por eso lleva
+       purga abajo—. Un bote cerrado no enseña ninguna de las dos cosas. */
+    const f=new THREE.Mesh(P3.revolucion(
+      [[0.092,-0.15],[0.100,-0.15],[0.100,0.15],[0.092,0.15]],
+      {seg:24,fase:Math.PI*0.29,arco:Math.PI*1.42}),
+      corte(std({color:0x2f3a46,roughness:0.55,metalness:0.30})));
     f.position.set(d.xFiltro,d.yFiltro,d.zFiltro); f.castShadow=true; banco.add(f);
+    const pap=P3.filtroPlisado({papel:std({color:0xd9d2bc,roughness:0.92,metalness:0.03})},
+      {rExt:0.082,rInt:0.050,alto:0.24,pliegues:30});
+    pap.position.set(d.xFiltro,d.yFiltro,d.zFiltro); banco.add(pap);
+    const pur=new THREE.Mesh(P3.revolucion(
+      [[0,0],[0.024,0],[0.024,0.05],[0,0.05]],{seg:6}),MAT.crom);
+    pur.position.set(d.xFiltro,d.yFiltro-0.19,d.zFiltro); banco.add(pur);
     banco.add(rot3('filtro',AZUL,[d.xFiltro,d.yFiltro+0.34,d.zFiltro]));
     const b=roundedBox(0.28,0.30,0.26,
       std({color:0x4a545f,roughness:0.48,metalness:0.55}),0.12);

@@ -1334,6 +1334,14 @@ MAT.apag=std({color:0x232a33,roughness:0.6,metalness:0.1});
 const nuevaFantasma=()=>std({color:0x5AD1E6,transparent:true,opacity:0.26,
   depthWrite:false,side:THREE.DoubleSide});
 
+/* Los nombres con los que trabaja la biblioteca de piezas (`P3`, que el molde
+   ya importa), traducidos una vez a los materiales de este laboratorio. */
+const MATP={aluminio:MAT.aluminio, acero:MAT.acero, cobre:MAT.cobre, cromo:MAT.acero,
+  chapa:MAT.acero, hierro:MAT.acero, negro:MAT.negro, goma:MAT.goma,
+  blanco:MAT.acero, ceramica:MAT.aislante};
+/* Una pieza EN CORTE deja ver el REVÉS de su pared del fondo: con una sola cara
+   se vuelve transparente por el lado abierto y desaparece al mirarla de frente. */
+const corte=(m)=>{ const c=m.clone(); c.side=THREE.DoubleSide; return c; };
 function cil(r0,r1,h,mat,seg){
   const m=new THREE.Mesh(new THREE.CylinderGeometry(r0,r1,h,seg||22),mat);
   m.castShadow=true; return m;
@@ -1431,34 +1439,79 @@ function haceBateria(){
 }
 function haceAlternador(){
   const d=dims(VH()), g=new THREE.Group(), K=d.K;
-  // La carcasa: dos tapas de aluminio fundido con el estator en medio.
-  const cuerpo=cil(d.rAlt,d.rAlt,d.lAlt,MAT.aluminio,26);
-  cuerpo.rotation.z=Math.PI/2; g.add(cuerpo);
+  /* EL ALTERNADOR, EN CORTE. Cerrado es un tambor de aluminio, y un tambor no
+     explica nada de lo que este laboratorio mide. Abierto se ve lo único que
+     hay que entender: un ROTOR DE GARRAS —dos platos con dedos que se meten
+     unos entre otros sin tocarse, y dentro, quieta, una sola bobina de
+     excitación— girando dentro de un ESTATOR TRIFÁSICO, y detrás el PUENTE DE
+     SEIS DIODOS que convierte esa alterna en continua. De ahí salen las tres
+     cifras del laboratorio: la excitación que el regulador manda por las
+     escobillas, la frecuencia —seis pares de polos, seis veces las vueltas— y
+     la caída de dos diodos que el puente se queda por el camino.
+     El eje del alternador va en X. Las piezas de la biblioteca vienen con el
+     suyo en Z —las extruidas— o en Y —las de revolución—: cada una se tumba. */
+  const eje=new THREE.Group(); g.add(eje); g.userData.polea=eje;
+
+  // --- el estator: chapa ranurada y devanado trifásico -----------------------
+  const est=new THREE.Group(); est.rotation.y=Math.PI/2; g.add(est);
+  est.add(P3.nucleoRanurado(MATP,{rExt:d.rAlt*0.93,rInt:d.rAlt*0.64,ranuras:36,
+    largo:d.lAlt*0.44,fondo:0.62}));
+  est.add(P3.devanado(MATP,{r:d.rAlt*0.72,ranuras:36,largo:d.lAlt*0.44,paso:3,
+    hilo:d.rAlt*0.028,bobinas:36}));
+
+  // --- el rotor de garras, calado en el eje ----------------------------------
+  const rot=new THREE.Group(); rot.rotation.z=Math.PI/2; eje.add(rot);
+  rot.add(P3.rotorGarras(MATP,{r:d.rAlt*0.60,largo:d.lAlt*0.48,polos:12,
+    dEje:d.rAlt*0.24}));
+  const arbol=cil(d.rAlt*0.11,d.rAlt*0.11,d.lAlt*1.30,MAT.acero,18);
+  arbol.rotation.z=Math.PI/2; arbol.position.x=-d.lAlt*0.10; eje.add(arbol);
+
+  // --- las dos tapas de aluminio fundido, abiertas por delante ---------------
   for(const sx of [-1,1]){
-    const t=cil(d.rAlt*1.04,d.rAlt*0.92,0.05*K,MAT.aluminio,26);
-    t.rotation.z=Math.PI/2; t.position.x=sx*d.lAlt*0.50; g.add(t);
+    const tap=new THREE.Mesh(P3.revolucion([
+      [d.rAlt*0.26,0],[d.rAlt*1.00,0],[d.rAlt*1.00,d.lAlt*0.30],
+      [d.rAlt*0.88,d.lAlt*0.30],[d.rAlt*0.88,d.lAlt*0.07],[d.rAlt*0.26,d.lAlt*0.07]],
+      {seg:30,fase:Math.PI*0.30,arco:Math.PI*1.40}),corte(MAT.aluminio));
+    /* Ojo con el sentido: girada +90° sobre Z, una pieza de revolución crece
+       hacia −X; girada −90°, hacia +X. Puestas las dos en ±0,26·l se montaban
+       UNA ENCIMA DE OTRA en el centro, tapando el estator, y el alternador
+       volvia a ser un disco con un eje. */
+    tap.rotation.z=sx*Math.PI/2; tap.position.x=sx*d.lAlt*0.56;
+    tap.castShadow=true; g.add(tap);
+    // Las ventanas de ventilación: por ahí entra el aire que la enfría, y es lo
+    // que hace a un alternador reconocible de un vistazo.
+    for(let i=0;i<9;i++){
+      const a=(i/9)*Math.PI*1.4+Math.PI*0.32;
+      const v=roundedBox(0.028*K,0.030*K,0.022*K,MAT.negro,0.006*K);
+      v.position.set(sx*d.lAlt*0.52,Math.cos(a)*d.rAlt*0.74,Math.sin(a)*d.rAlt*0.74);
+      g.add(v);
+    }
   }
-  // Las ventanas de ventilación, que es lo que lo hace reconocible de un vistazo.
-  for(let i=0;i<12;i++){
-    const a=i/12*Math.PI*2;
-    const v=roundedBox(0.03*K,0.024*K,0.024*K,MAT.negro,0.006*K);
-    v.position.set(-d.lAlt*0.50,Math.sin(a)*d.rAlt*0.66,Math.cos(a)*d.rAlt*0.66);
-    g.add(v);
+
+  // --- el puente de seis diodos, en su disipador -----------------------------
+  const dis=new THREE.Mesh(P3.revolucion([
+    [d.rAlt*0.30,0],[d.rAlt*0.90,0],[d.rAlt*0.90,d.lAlt*0.05],[d.rAlt*0.30,d.lAlt*0.05]],
+    {seg:26,fase:Math.PI*0.30,arco:Math.PI*1.40}),corte(MAT.aluminio));
+  dis.rotation.z=Math.PI/2; dis.position.x=d.lAlt*0.50; g.add(dis);
+  for(let i=0;i<6;i++){
+    const a=Math.PI*0.34+(i/5)*Math.PI*1.32;
+    const dd=cil(0.022*K,0.022*K,0.030*K,i<3?MAT.cobre:MAT.plomo,14);
+    dd.rotation.z=Math.PI/2;
+    dd.position.set(d.lAlt*0.44,Math.cos(a)*d.rAlt*0.62,Math.sin(a)*d.rAlt*0.62);
+    g.add(dd);
   }
-  // La polea va hacia el BLOQUE (−x), que es donde está la del cigüeñal, y el
-  // cuerpo queda por delante. Al revés, la polea caía fuera del plano de la
-  // correa y el alternador se metía dentro del bloque.
-  const pol=cil(d.rPolAlt,d.rPolAlt,0.07*K,MAT.acero,26);
-  pol.rotation.z=Math.PI/2; pol.position.x=-d.lAlt*0.62; g.add(pol);
-  g.userData.polea=pol;
-  // El ventilador, entre la polea y la carcasa.
+
+  // --- la polea, con su garganta, y el ventilador ---------------------------
+  const pol=P3.polea(MATP,{d:d.rPolAlt*2,ancho:0.075*K,gargantas:6});
+  pol.rotation.z=Math.PI/2; pol.position.x=-d.lAlt*0.62; eje.add(pol);
   for(let i=0;i<8;i++){
     const a=i/8*Math.PI*2;
     const p=roundedBox(0.010*K,0.07*K,0.03*K,MAT.acero,0.003*K);
-    p.position.set(-d.lAlt*0.54,Math.sin(a)*d.rAlt*0.44,Math.cos(a)*d.rAlt*0.44);
-    p.rotation.x=a; g.add(p);
+    p.position.set(-d.lAlt*0.50,Math.sin(a)*d.rAlt*0.44,Math.cos(a)*d.rAlt*0.44);
+    p.rotation.x=a+0.5; eje.add(p);
   }
-  // El borne B+ y el conector del regulador, arriba y por el lado de fuera.
+
+  // El borne B+ y el regulador con sus escobillas, por el lado de los anillos.
   const bplus=cil(0.026*K,0.026*K,0.06*K,MAT.cobre,14);
   bplus.position.set(d.lAlt*0.24,d.rAlt*0.86,d.rAlt*0.30); g.add(bplus);
   const reg=roundedBox(0.09*K,0.07*K,0.05*K,MAT.negro,0.010*K);

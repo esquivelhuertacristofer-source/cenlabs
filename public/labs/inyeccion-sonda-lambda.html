@@ -103,6 +103,8 @@ import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
 import { RoundedBoxGeometry } from 'three/addons/geometries/RoundedBoxGeometry.js';
+import * as P3 from '/labs/_piezas3d.js';
+import { instalaDiag } from '/labs/_diag3d.js';
 import { EffectComposer } from 'three/addons/postprocessing/EffectComposer.js';
 import { RenderPass } from 'three/addons/postprocessing/RenderPass.js';
 import { GTAOPass } from 'three/addons/postprocessing/GTAOPass.js';
@@ -337,6 +339,13 @@ function createStage(mount, opts={}){
     composer.render(); }
   function start(){ if(!raf)loop(); }
   function stop(){ cancelAnimationFrame(raf); raf=null; window.removeEventListener('resize',resize); }
+
+  /* Sonda de escena para las auditorías del 3D. No cambia nada de lo que se ve
+     y cuelga de `window.__diag3d`, que ningún laboratorio pisa: así CUALQUIER
+     laboratorio construido con este molde se puede auditar —salud(), mira(),
+     piezas()— sin tocarle una línea. */
+  try { instalaDiag(document.title || location.pathname,
+    { escena:scene, camara:camera, controles:controls, renderizador:renderer }); } catch(_){}
 
   return { THREE, renderer, scene, camera, controls, composer, bloom,
     setAnimate:fn=>hook=fn, start, stop, resize, clock,
@@ -2305,6 +2314,14 @@ const xCil=(e,i)=>{ const d=dims(e); return -d.largo/2+d.paso*(i+0.5); };
 // Cilindro entre dos puntos. Sale muchas veces —tubos de admisión, de escape y
 // de combustible— y calcular la orientación a mano en cada uno es la forma más
 // segura de dejar un tubo apuntando a ninguna parte.
+/* Los nombres con los que trabaja la biblioteca de piezas (`P3`, que el molde
+   ya importa), traducidos una vez a los materiales de este laboratorio. */
+const MATP={aluminio:MAT.culata, acero:MAT.acero, cobre:MAT.crom, cromo:MAT.crom,
+  chapa:MAT.acero, hierro:MAT.bloque, negro:MAT.goma, goma:MAT.goma,
+  blanco:MAT.crom, ceramica:MAT.crom};
+/* Una pieza EN CORTE deja ver el REVÉS de su pared del fondo: con una sola cara
+   se vuelve transparente por el lado abierto y desaparece al mirarla de frente. */
+const corte=(m)=>{ const c=m.clone(); c.side=THREE.DoubleSide; return c; };
 function tuboEntre(a,b,r,mat,seg){
   const A=new THREE.Vector3(...a), B=new THREE.Vector3(...b);
   const d=new THREE.Vector3().subVectors(B,A), L=d.length();
@@ -2408,14 +2425,20 @@ function construyeMotor(){
   // Cuerpo de mariposa en el extremo del plénum, del lado del pizarrón, para que
   // se vea sin girar la cámara cuando se está leyendo el tablero.
   const xTh=d.xTh;
-  const cuerpo=new THREE.Mesh(new THREE.CylinderGeometry(0.155,0.155,0.30,24),
+  /* El cuerpo de mariposa es un TUBO con bridas, no un tapón macizo: por dentro
+     pasa todo el aire del motor y el plato tiene que caber girado del todo. */
+  const cuerpo=new THREE.Mesh(P3.revolucion([
+    [0.128,-0.15],[0.170,-0.15],[0.170,-0.12],[0.142,-0.11],
+    [0.142,0.11],[0.170,0.12],[0.170,0.15],[0.128,0.15]],{seg:30}),
     std({...alu,color:0x9aa1aa,metalness:0.70,roughness:0.36}));
   cuerpo.rotation.z=Math.PI/2; cuerpo.position.set(xTh-0.12,2.06,0.62); cuerpo.castShadow=true; motorG.add(cuerpo);
   // La mariposa es una PLACA, no un disco tumbado: gira alrededor de un eje
   // perpendicular al flujo. Cerrada, su cara tapa el conducto —su normal va con
   // el aire—; abierta del todo se pone de canto. Modelarla como cilindro deja
   // una tapa que gira sobre sí misma sin abrir nada.
-  const mari=new THREE.Mesh(new THREE.BoxGeometry(0.010,0.276,0.276),MAT.crom);
+  const mari=new THREE.Mesh(P3.revolucion([
+    [0,-0.007],[0.130,-0.012],[0.138,0],[0.130,0.012],[0,0.007]],{seg:28}),MAT.crom);
+  mari.rotation.z=Math.PI/2;
   mari.position.set(xTh-0.12,2.06,0.62); motorG.add(mari);
   REF.mariposa=mari;
   const eje=new THREE.Mesh(new THREE.CylinderGeometry(0.012,0.012,0.32,10),MAT.acero);
@@ -2425,9 +2448,12 @@ function construyeMotor(){
     std({...plas,color:0x1e252e,roughness:0.52}));
   mafC.rotation.z=Math.PI/2; mafC.position.set(xTh-0.34,2.06,0.62); mafC.castShadow=true; motorG.add(mafC);
   REF.maf=mafC;
-  const filtro=new THREE.Mesh(new THREE.CylinderGeometry(0.20,0.20,0.26,24),
-    std({...plas,color:0x14191f,roughness:0.86}));
-  filtro.rotation.z=Math.PI/2; filtro.position.set(xTh-0.55,2.06,0.62); filtro.castShadow=true; motorG.add(filtro);
+  // El elemento PLISADO: lo que filtra es la superficie, y el plisado es la
+  // manera de meter un metro cuadrado de papel en un palmo de caja.
+  const filtro=P3.filtroPlisado({papel:std({color:0xd9d2bc,roughness:0.92,metalness:0.03})},
+    {rExt:0.20,rInt:0.135,alto:0.26,pliegues:36});
+  filtro.rotation.z=Math.PI/2; filtro.position.set(xTh-0.55,2.06,0.62);
+  filtro.traverse(o=>{if(o.isMesh)o.castShadow=true;}); motorG.add(filtro);
   for(let i=-2;i<=2;i++){
     const an=new THREE.Mesh(new THREE.TorusGeometry(0.203,0.010,8,28),MAT.goma);
     an.rotation.y=Math.PI/2; an.position.set(xTh-0.55+i*0.045,2.06,0.62); motorG.add(an);
@@ -2457,12 +2483,14 @@ function construyeCombustible(e,d){
 
   for(let i=0;i<e.nCil;i++){
     const x=xCil(e,i);
-    const cuerpo=new THREE.Mesh(new THREE.CylinderGeometry(0.036,0.030,0.20,14),MAT_INY);
-    cuerpo.position.set(x,yR-0.11,zR+0.02); cuerpo.rotation.x=-0.16; cuerpo.castShadow=true;
+    /* EL INYECTOR, con lo que tiene un inyector: cuerpo de bobina, conector,
+       las DOS juntas tóricas que lo sellan contra el riel y contra el colector
+       —por ahí es por donde entra aire falso cuando se cuartean— y la tobera.
+       Un cono truncado no enseña ninguna de las tres. */
+    const cuerpo=P3.inyector(MATP,{d:0.072,largo:0.30});
+    cuerpo.position.set(x,yR-0.10,zR+0.02); cuerpo.rotation.x=-0.16;
+    cuerpo.traverse(o=>{if(o.isMesh)o.castShadow=true;});
     motorG.add(cuerpo);
-    const conector=new THREE.Mesh(new THREE.BoxGeometry(0.052,0.048,0.040),
-      std({...plas,color:0x2b3440,roughness:0.5}));
-    conector.position.set(x,yR-0.02,zR+0.07); motorG.add(conector);
     // El anillo del inyector es lo que PARPADEA: su brillo dice si está abierto
     // en este instante, y su color, cuánto entrega ese cilindro comparado con los
     // demás. Cada uno lleva su propio material —clonado— porque compartirlo haría
@@ -2499,12 +2527,16 @@ function construyeEscape(e,d){
   const xS=d.largo/2+0.32;
   const boss=new THREE.Mesh(new THREE.CylinderGeometry(0.048,0.048,0.10,14),MAT.acero);
   boss.position.set(xS,yC+0.10,zC); motorG.add(boss);
-  const cuerpo=new THREE.Mesh(new THREE.CylinderGeometry(0.040,0.052,0.20,16),
-    std({...brush,color:0xb9c0c8,metalness:0.95,roughness:0.30}));
-  cuerpo.position.set(xS,yC+0.24,zC); cuerpo.castShadow=true; motorG.add(cuerpo);
-  const tapa=new THREE.Mesh(new THREE.CylinderGeometry(0.030,0.030,0.10,14),
-    std({...plas,color:0x232a34,roughness:0.5}));
-  tapa.position.set(xS,yC+0.38,zC); motorG.add(tapa);
+  /* LA SONDA, con su tubo de protección ranurado: el gas tiene que llegar al
+     elemento de circonio, pero el elemento no puede recibir el chorro directo ni
+     el agua de condensación. Esas ranuras SON la pieza, y el hexágono no es
+     adorno —una sonda se aprieta con llave de vaso partido porque el cable no
+     pasa por la llave—. */
+  const sonda=P3.sondaLambda({...MATP,acero:std({...brush,color:0xb9c0c8,metalness:0.95,roughness:0.30})},
+    {d:0.104,largo:0.46});
+  sonda.position.set(xS,yC+0.34,zC);
+  sonda.traverse(o=>{if(o.isMesh)o.castShadow=true;}); motorG.add(sonda);
+  const cuerpo=sonda;
   const luz=new THREE.Mesh(new THREE.SphereGeometry(0.055,18,14),
     std({color:0x7CD992,emissive:0x7CD992,emissiveIntensity:1.4,roughness:0.4}));
   luz.position.set(xS,yC+0.44,zC); motorG.add(luz);
@@ -2516,9 +2548,19 @@ function construyeEscape(e,d){
 
   // Catalizador y cola de escape.
   const xCat=d.largo/2+0.72;
-  const cat=new THREE.Mesh(new THREE.CylinderGeometry(0.150,0.150,0.46,24),
-    std({...brush,color:0x8e959c,metalness:0.85,roughness:0.42}));
+  /* EL CATALIZADOR, EN CORTE. Un tubo cerrado no dice por qué convierte: lo que
+     convierte es el MONOLITO cerámico de dentro, un panal de miles de canales
+     rectos que da una superficie enorme sin ahogar el escape. Cuando se funde,
+     esos canales se cierran: es la avería, y hay que poder verla. */
+  const cat=new THREE.Mesh(P3.revolucion(
+    [[0.140,-0.23],[0.150,-0.23],[0.150,0.23],[0.140,0.23]],
+    {seg:28,fase:Math.PI*0.29,arco:Math.PI*1.42}),
+    corte(std({...brush,color:0x8e959c,metalness:0.85,roughness:0.42})));
   cat.rotation.z=Math.PI/2; cat.position.set(xCat,yC,zC); cat.castShadow=true; motorG.add(cat);
+  const mono=P3.monolito({ceramica:std({color:0xd7d2c6,roughness:0.86,metalness:0.02}),
+    acero:std({...brush,color:0x8e959c,metalness:0.85,roughness:0.42})},
+    {r:0.138,largo:0.42,celdas:11,carcasa:false});
+  mono.rotation.y=Math.PI/2; mono.position.set(xCat,yC,zC); motorG.add(mono);
   for(const sx of [-1,1]){
     const cono=new THREE.Mesh(new THREE.CylinderGeometry(0.080,0.151,0.12,24),
       std({...brush,color:0x8e959c,metalness:0.85,roughness:0.42}));

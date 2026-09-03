@@ -2350,25 +2350,41 @@ function construyeRodillos(d){
 function construyeVehiculo(d,e){
   gVeh.clear();
   const L=d.largo, W=1.62, yR=0.30;
-  const cuerpo=roundedBox(L,0.52,W,MAT.carro,0.14);
-  pon(cuerpo,[d.xVeh,yR+0.32,-0.10]); cuerpo.castShadow=true; gVeh.add(cuerpo);
-  const cabina=roundedBox(L*0.44,0.40,W*0.88,MAT.carro,0.12);
-  pon(cabina,[d.xVeh-L*0.04,yR+0.76,-0.10]); cabina.castShadow=true; gVeh.add(cabina);
-  // El cristal tiene que ser MÁS ANCHO que la cabina para asomar por los lados y
-  // leerse como ventanilla, y más BAJO para no sobresalir por el techo: con la
-  // caja de cristal más alta que la cabina, el vehículo se ve como un contenedor
-  // con una losa encima, y eso es lo que sale en la portada del laboratorio.
-  const cris=new THREE.Mesh(new THREE.BoxGeometry(L*0.41,0.20,W*0.90),MAT.vidrio);
-  pon(cris,[d.xVeh-L*0.04,yR+0.82,-0.10]); gVeh.add(cris);
-  // Cuatro ruedas. Las traseras van sobre los rodillos.
+  /* EL COCHE, POR SU SILUETA. Dos cajas apiladas con una losa de cristal encima
+     no son un coche: son un contenedor. Un coche se reconoce por su perfil
+     —morro, parabrisas, techo, luneta, portón— y por los PASOS DE RUEDA, que
+     además son lo que deja ver que las ruedas traseras están apoyadas sobre los
+     rodillos del banco, que es de lo que va la práctica. Todo eso sale de UN
+     contorno extruido a lo ancho del coche. */
+  const rA=0.38, ySill=0.34, xd=L*0.30;
+  const perfil=[
+    [-L*0.50,ySill],[-xd-rA,ySill],
+    ...P3.arco(-xd,ySill,rA,Math.PI,0,14),
+    [xd-rA,ySill],
+    ...P3.arco(xd,ySill,rA,Math.PI,0,14),
+    [L*0.50,ySill],
+    [L*0.50,0.60],[L*0.46,0.66],[L*0.30,0.64],
+    [L*0.15,0.96],[-L*0.07,0.98],[-L*0.26,0.56],
+    [-L*0.44,0.48],[-L*0.50,0.44],
+  ];
+  const cuerpo=new THREE.Mesh(P3.normalizaUV(P3.extruido(
+    P3.contornoRedondeado(perfil,0.05,3),{espesor:W,bisel:0.05}),2),MAT.carro);
+  cuerpo.castShadow=true;
+  pon(cuerpo,[d.xVeh,yR,-0.10]); gVeh.add(cuerpo);
+  // El cristal, un poco más ancho que la carrocería para asomar por los lados.
+  const cris=new THREE.Mesh(P3.extruido([
+    [-L*0.235,0.56],[-L*0.06,0.92],[L*0.14,0.90],[L*0.27,0.60]],
+    {espesor:W*1.01,bisel:0.012}),MAT.vidrio);
+  pon(cris,[d.xVeh,yR,-0.10]); gVeh.add(cris);
+  // Cuatro ruedas de verdad, con su llanta y su hombro. Las traseras van sobre
+  // los rodillos, y por eso el diámetro importa: es el que traduce vueltas a
+  // kilómetros por hora en la lectura del banco.
   for(const sx of [-1,1]) for(const sz of [-1,1]){
-    const r=new THREE.Mesh(new THREE.CylinderGeometry(yR,yR,0.20,22),MAT.goma);
+    const r=P3.neumatico({...MATP,goma:MAT.goma,cromo:MAT.crom,aluminio:MAT.crom},
+      {dExt:yR*2,dLlanta:yR*1.06,ancho:0.20});
     r.rotation.x=Math.PI/2;
-    pon(r,[d.xVeh+sx*L*0.30,yR,-0.10+sz*(W/2-0.06)]);
-    r.castShadow=true; gVeh.add(r);
-    const t=new THREE.Mesh(new THREE.CylinderGeometry(yR*0.55,yR*0.55,0.21,18),MAT.crom);
-    t.rotation.x=Math.PI/2;
-    pon(t,[d.xVeh+sx*L*0.30,yR,-0.10+sz*(W/2-0.055)]); gVeh.add(t);
+    pon(r,[d.xVeh+sx*xd,yR,-0.10+sz*(W/2-0.02)]);
+    r.traverse(o=>{if(o.isMesh)o.castShadow=true;}); gVeh.add(r);
   }
   gVeh.add(rot3(e.corto+' · '+e.anio,TINTA,[d.xVeh,yR+1.24,-0.10]));
   gVeh.add(rot3(e.catalizador?(e.treVias?'catalizador de tres vías':'catalizador de dos vías')
@@ -2376,6 +2392,14 @@ function construyeVehiculo(d,e){
 }
 
 // -------------------------------------------- el escape, la sonda y la fuga
+/* Los nombres con los que trabaja la biblioteca de piezas (`P3`, que el molde
+   ya importa), traducidos una vez a los materiales de este laboratorio. */
+const MATP={aluminio:MAT.carro, acero:MAT.acero, cobre:MAT.crom, cromo:MAT.crom,
+  chapa:MAT.acero, hierro:MAT.acero, negro:MAT.goma, goma:MAT.goma,
+  blanco:MAT.crom, ceramica:MAT.crom};
+/* Una pieza EN CORTE deja ver el REVÉS de su pared del fondo: con una sola cara
+   se vuelve transparente por el lado abierto y desaparece al mirarla de frente. */
+const corte=(m)=>{ const c=m.clone(); c.side=THREE.DoubleSide; return c; };
 let sondaM=null, fugaM=null, humoM=null, catM=null;
 function construyeEscape(d,e,F){
   gEsc.clear();
@@ -2386,10 +2410,18 @@ function construyeEscape(d,e,F){
   // El catalizador, si lo lleva: una lata más gorda a media longitud.
   if(e.catalizador){
     const ef=eficacias(e,LAM_AQUI(),F);
-    catM=new THREE.Mesh(new THREE.CylinderGeometry(0.105,0.105,0.44,20),
-      std({color:0x8a6f3a,roughness:0.55,metalness:0.65}));
-    catM.rotation.z=Math.PI/2; pon(catM,[d.xVeh-L*0.02,yT*0.52,-0.42]);
-    gEsc.add(catM);
+    /* EL CATALIZADOR, EN CORTE: lo que convierte es el MONOLITO de dentro, un
+       panal de canales rectos. Cerrado, una lata más gorda no dice ni por qué
+       convierte ni por qué, frío, no convierte nada. */
+    const mp=std({color:0x8a6f3a,roughness:0.55,metalness:0.65});
+    const lata=new THREE.Mesh(P3.revolucion(
+      [[0.098,-0.22],[0.105,-0.22],[0.105,0.22],[0.098,0.22]],
+      {seg:24,fase:Math.PI*0.29,arco:Math.PI*1.42}),corte(MAT.acero));
+    lata.rotation.z=Math.PI/2; pon(lata,[d.xVeh-L*0.02,yT*0.52,-0.42]); gEsc.add(lata);
+    const mono=P3.monolito({ceramica:mp,acero:MAT.acero},
+      {r:0.096,largo:0.40,celdas:9,carcasa:false});
+    mono.rotation.y=Math.PI/2; pon(mono,[d.xVeh-L*0.02,yT*0.52,-0.42]); gEsc.add(mono);
+    catM=null; mono.traverse(o=>{ if(o.isMesh && !catM) catM=o; });
     gEsc.add(rot3(ef.encendido?'catalizador caliente':'catalizador FRÍO',
       ef.encendido?OK_HEX:WARN_HEX,[d.xVeh-L*0.02,yT*0.52+0.34,-0.42]));
   } else catM=null;

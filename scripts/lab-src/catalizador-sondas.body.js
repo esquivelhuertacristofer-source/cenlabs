@@ -1480,6 +1480,14 @@ function dims(e){
     centro:0, xIzq:xCol-0.50, xDer:xCola+1.45 };
 }
 
+/* Los nombres con los que trabaja la biblioteca de piezas (`P3`, que el molde
+   ya importa), traducidos una vez a los materiales de este laboratorio. */
+const MATP={aluminio:MAT.lata, acero:MAT.acero, cobre:MAT.crom, cromo:MAT.crom,
+  chapa:MAT.acero, hierro:MAT.tubo, negro:MAT.cable, goma:MAT.goma,
+  blanco:MAT.crom, ceramica:MAT.crom};
+/* Una pieza EN CORTE deja ver el REVÉS de su pared del fondo: con una sola cara
+   se vuelve transparente por el lado abierto y desaparece al mirarla de frente. */
+const corte=(m)=>{ const c=m.clone(); c.side=THREE.DoubleSide; c.__propio=true; return c; };
 let banco=null, catM=null, ledEsc=null, humoM=null, fugaM=null;
 let preM=null, postM=null;
 function construyeBanco(){
@@ -1541,7 +1549,15 @@ function construyeBanco(){
     tub(d.xLata+d.lata/2,d.xSil-0.34,zb);
     // la lata
     {
-      const cuerpo=new THREE.Mesh(new THREE.CylinderGeometry(d.rLata,d.rLata,d.lata,26),MAT.lata);
+      /* LA LATA, EN CORTE. Cerrada es un bote, y un bote no dice por qué
+         convierte ni por qué se estropea. Abierta se ve el MONOLITO: un panal
+         de miles de canales rectos que da una superficie enorme sin ahogar el
+         escape. Cuando se sobrecalienta, esos canales se cierran —y eso es
+         exactamente lo que el laboratorio pide diagnosticar—. */
+      const cuerpo=new THREE.Mesh(P3.revolucion([
+        [d.rLata*0.94,-d.lata/2],[d.rLata,-d.lata/2],
+        [d.rLata,d.lata/2],[d.rLata*0.94,d.lata/2]],
+        {seg:30,fase:Math.PI*0.29,arco:Math.PI*1.42}),corte(MAT.lata));
       cuerpo.rotation.z=Math.PI/2; cuerpo.position.set(d.xLata,d.yTubo,zb);
       cuerpo.castShadow=true; banco.add(cuerpo);
       for(const s of [-1,1]){
@@ -1554,10 +1570,13 @@ function construyeBanco(){
       // compartido teñiría media escena.
       const mp=std({color:0x2a3038,roughness:0.92,metalness:0.02});
       mp.__propio=true;
-      const panal=new THREE.Mesh(new THREE.CylinderGeometry(d.rLata*0.86,d.rLata*0.86,d.lata*0.92,24,1,true),mp);
-      panal.rotation.z=Math.PI/2; panal.position.set(d.xLata,d.yTubo,zb);
+      const panal=P3.monolito({ceramica:mp,acero:MAT.lata},
+        {r:d.rLata*0.90,largo:d.lata*0.92,celdas:11,carcasa:false});
+      panal.rotation.y=Math.PI/2; panal.position.set(d.xLata,d.yTubo,zb);
       banco.add(panal);
-      if(ib===0) catM=panal;
+      // `catM` sólo tiene que llevar el material: todas las paredes comparten
+      // `mp`, así que repintarlo por una de ellas las repinta todas.
+      if(ib===0) panal.traverse(o=>{ if(o.isMesh && !catM) catM=o; });
     }
     // el silenciador y la cola
     {
@@ -1570,12 +1589,12 @@ function construyeBanco(){
     // las dos sondas
     const sonda=(x,rot,col)=>{
       const g=new THREE.Group();
-      const cu=new THREE.Mesh(new THREE.CylinderGeometry(0.052,0.066,0.24,14),MAT.sonda);
-      cu.position.y=0.12; g.add(cu);
-      const hex=new THREE.Mesh(new THREE.CylinderGeometry(0.080,0.080,0.09,6),MAT.acero);
-      hex.position.y=0.035; g.add(hex);
-      const cab=new THREE.Mesh(new THREE.CylinderGeometry(0.038,0.038,0.20,10),MAT.cable);
-      cab.position.y=0.33; g.add(cab);
+      /* LA SONDA, con su tubo de protección ranurado: el gas tiene que llegar
+         al elemento de circonio, pero el elemento no puede recibir el chorro
+         directo ni el agua de condensación. Esas ranuras SON la pieza. */
+      const so=P3.sondaLambda({...MATP,acero:MAT.sonda,negro:MAT.cable,cromo:MAT.crom},
+        {d:0.16,largo:0.62});
+      so.position.y=0.30; so.traverse(o=>{if(o.isMesh)o.castShadow=true;}); g.add(so);
       g.position.set(x,d.yTubo+d.rTubo,zb);
       g.castShadow=true; banco.add(g);
       if(ib===0) banco.add(rot3(rot,col,[x,d.yTubo+0.62,zb]));
