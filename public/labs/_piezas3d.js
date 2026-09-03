@@ -2215,8 +2215,12 @@ export function manometro(mat, opts = {}) {
     [R * 0.87, R * 0.06], [0, R * 0.06],
   ], { seg: 34 }), mat.acero);
   caja.rotation.x = Math.PI / 2; caja.castShadow = true; g.add(caja);
+  // La esfera lleva algo de emisión propia: un manómetro se lee tambien cuando
+  // le da la sombra, y una esfera que se apaga con la luz de la escena deja de
+  // ser un instrumento y pasa a ser un adorno.
   const esf = new THREE.Mesh(new THREE.CircleGeometry(R * 0.87, 34),
-    new THREE.MeshStandardMaterial({ color: fondo, roughness: 0.88, metalness: 0.02 }));
+    new THREE.MeshStandardMaterial({ color: fondo, roughness: 0.88, metalness: 0.02,
+      emissive: fondo, emissiveIntensity: 0.42 }));
   esf.position.z = R * 0.055; g.add(esf);
   const tinta = new THREE.MeshBasicMaterial({ color: 0x232a31 });
   for (let i = 0; i <= divisiones; i++) {
