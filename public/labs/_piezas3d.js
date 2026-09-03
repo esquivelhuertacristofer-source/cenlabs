@@ -413,40 +413,51 @@ export function cremallera(opts = {}) {
  *     visto de perfil no se parecen.
  */
 export function piston(mat, opts = {}) {
-  const { D = 0.6, seg = 40, bulon = true } = opts;
+  /* `hCorona` es la ALTURA DE COMPRESIÓN: del eje del bulón a la cara de la
+     cabeza. No es un detalle de dibujo —es la cota que, con la carrera y la
+     biela, decide dónde queda el pistón en el PMS y por tanto la relación de
+     compresión—, y va de 0,30 a 0,50 veces el diámetro según el motor. Sin
+     poder fijarla, la pieza sólo servía para el motor para el que se dibujó.
+     Cuando se da, el pistón se estira o se achata en vertical para cumplirla, y
+     el BULÓN queda en el origen del grupo; sin ella se mantiene el reparto
+     original (cabeza en +0,46·D) para no mover los laboratorios ya hechos. */
+  const { D = 0.6, seg = 40, bulon = true, hCorona = null } = opts;
   const g = new THREE.Group();
-  const R = D / 2, H = D * 0.92;
+  const k = hCorona ? hCorona / (D * 0.68) : 1;
+  const R = D / 2, H = D * 0.92 * k;
   const yc = H * 0.5;                       // cara de la cabeza
   const rSeg = R * 0.965;                   // fondo de las ranuras
   // Perfil de la cabeza, las tres ranuras y la falda. Los puntos repetidos son
   // los cantos vivos: el del plato y los dos de cada ranura.
   const p = [];
   p.push([0, yc], [R * 0.86, yc]);                       // plato con su valle
-  p.push([R, yc - D * 0.03], [R, yc - D * 0.03]);        // canto de la cabeza
-  let y = yc - D * 0.10;
+  p.push([R, yc - D * 0.03 * k], [R, yc - D * 0.03 * k]);   // canto de la cabeza
+  let y = yc - D * 0.10 * k;
   for (const [ancho, hueco] of [[0.045, 1], [0.045, 1], [0.062, 1]]) {
-    p.push([R, y], [rSeg, y], [rSeg, y - D * ancho], [R, y - D * ancho], [R, y - D * ancho]);
-    y -= D * (ancho + 0.055) * hueco;
+    p.push([R, y], [rSeg, y], [rSeg, y - D * ancho * k], [R, y - D * ancho * k],
+           [R, y - D * ancho * k]);
+    y -= D * (ancho + 0.055) * k * hueco;
   }
   // El escalón entre la zona de segmentos y la falda: dos décimas de milímetro
   // en un pistón de verdad, aquí exagerado para que se vea que están a
   // diámetros distintos.
-  p.push([R, y + D * 0.010], [R * 0.972, y - D * 0.004], [R * 0.972, -H * 0.42],
+  p.push([R, y + D * 0.010 * k], [R * 0.972, y - D * 0.004 * k], [R * 0.972, -H * 0.42],
          [R * 0.955, -H * 0.5]);
   // Y de vuelta por DENTRO: el hueco de la falda, que es donde va el pie de la
   // biela. Un pistón macizo no deja sitio para la biela, y eso ya no es una
   // simplificación: es enseñar una pieza que no podría funcionar.
-  p.push([R * 0.68, -H * 0.5], [R * 0.68, yc - D * 0.34], [0, yc - D * 0.34]);
+  p.push([R * 0.68, -H * 0.5], [R * 0.68, yc - D * 0.34 * k], [0, yc - D * 0.34 * k]);
   const cuerpo = new THREE.Mesh(revolucion(p, { seg }), mat.aluminio);
   cuerpo.castShadow = true; g.add(cuerpo);
   // Los tres segmentos, metidos en sus ranuras. Se ven porque son de otro
   // material: son de fundición y el pistón es de aluminio.
-  let ys = yc - D * 0.125;
+  let ys = yc - D * 0.125 * k;
   for (let i = 0; i < 3; i++) {
     const s = new THREE.Mesh(
-      new THREE.TorusGeometry(R * 0.995, D * (i === 2 ? 0.026 : 0.020), 8, seg), mat.hierro);
+      new THREE.TorusGeometry(R * 0.995, D * (i === 2 ? 0.026 : 0.020) * Math.min(1, k), 8, seg),
+      mat.hierro);
     s.rotation.x = Math.PI / 2; s.position.y = ys; g.add(s);
-    ys -= D * (i === 1 ? 0.117 : 0.100);
+    ys -= D * (i === 1 ? 0.117 : 0.100) * k;
   }
   // Los dos ALIVIOS de la falda: en un pistón de verdad la falda está recortada
   // por los lados del bulón para dejar pasar el contrapeso del cigüeñal, y por
@@ -462,9 +473,9 @@ export function piston(mat, opts = {}) {
   if (bulon) {
     const b = new THREE.Mesh(
       new THREE.CylinderGeometry(D * 0.115, D * 0.115, D * 0.80, 20, 1, true), mat.acero);
-    b.rotation.x = Math.PI / 2; b.position.y = -D * 0.22; g.add(b);
+    b.rotation.x = Math.PI / 2; b.position.y = -D * 0.22 * k; g.add(b);
   }
-  g.userData.alturaBulon = -D * 0.22;
+  g.userData.alturaBulon = -D * 0.22 * k;
   g.userData.D = D;
   return g;
 }

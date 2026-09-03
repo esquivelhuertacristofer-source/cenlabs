@@ -103,6 +103,8 @@ import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
 import { RoundedBoxGeometry } from 'three/addons/geometries/RoundedBoxGeometry.js';
+import * as P3 from '/labs/_piezas3d.js';
+import { instalaDiag } from '/labs/_diag3d.js';
 import { EffectComposer } from 'three/addons/postprocessing/EffectComposer.js';
 import { RenderPass } from 'three/addons/postprocessing/RenderPass.js';
 import { GTAOPass } from 'three/addons/postprocessing/GTAOPass.js';
@@ -1349,6 +1351,12 @@ const MAT={
   ok:      emis(0x7CD992,1.3),
   bad:     emis(0xff6b6b,1.5),
 };
+/* Los nombres con los que trabaja la biblioteca de piezas (`P3`, que el molde
+   ya importa). Aquí se traducen una vez a los materiales de este laboratorio,
+   para que el centinela de materiales falsos siga sirviendo. */
+const MATP={aluminio:MAT.piston, acero:MAT.acero, hierro:MAT.acero, cromo:MAT.acero,
+  chapa:MAT.acero, negro:MAT.correa, goma:MAT.correa, cobre:MAT.polea,
+  blanco:MAT.acero, ceramica:MAT.acero};
 
 
 // ============================================================ §5 PIZARRÓN
@@ -2112,15 +2120,30 @@ function bCigu(R){
   const eje=cil(rj,rj,G.dB+0.10,MAT.acero,26); eje.rotation.x=Math.PI/2; rot.add(eje);
   const nariz=cil(rj*0.62,rj*0.62,G.zF-0.02,MAT.acero,20);
   nariz.rotation.x=Math.PI/2; nariz.position.z=(G.dB+G.zF)/2-0.04; rot.add(nariz);
-  for(const sz of [-1,1]){        // contrapesos
-    const cp=roundedBox(G.rM*1.55,G.rM*1.55,0.10,MAT.acero,0.30);
-    cp.position.set(0,-G.rM*0.42,sz*0.13); rot.add(cp);
+  /* El CONTRAPESO de un cigüeñal es un abanico, no un ladrillo: masa repartida
+     por igual a los dos lados del plano del brazo y opuesta a la muñequilla,
+     porque lo que compensa es la fuerza centrífuga de la manivela y el pie de
+     la biela. Un cubo no dice ni hacia dónde compensa. */
+  for(const sz of [-1,1]){
+    const Rcw=G.rM*1.05;
+    const cp=new THREE.Mesh(P3.extruido([
+      ...P3.arco(0,0,Rcw,Math.PI*0.80,Math.PI*2.20,22),
+      ...P3.arco(0,0,rj*1.05,Math.PI*2.20,Math.PI*0.80,14),
+    ],{espesor:0.10,bisel:0.010}),MAT.acero);
+    cp.position.set(0,0,sz*0.13); cp.castShadow=true; rot.add(cp);
   }
   const muñon=cil(rj*0.80,rj*0.80,0.30,MAT.acero,20);
   muñon.rotation.x=Math.PI/2; muñon.position.set(0,G.rM,0); rot.add(muñon);
-  for(const sz of [-1,1]){        // brazos de manivela
-    const br=roundedBox(rj*1.5,G.rM+rj,0.09,MAT.acero,0.24);
-    br.position.set(0,G.rM/2,sz*0.19); rot.add(br);
+  /* Los BRAZOS de manivela: una placa que va del apoyo a la muñequilla y que se
+     estrecha por el centro, con los dos ojos redondeados. Es la pieza que
+     convierte el giro en carrera, y dibujada como una caja recta no se ve ni
+     dónde apoya ni dónde tira. */
+  for(const sz of [-1,1]){
+    const br=new THREE.Mesh(P3.extruido(P3.contornoRedondeado([
+      [-rj*1.20,-rj*0.30],[rj*1.20,-rj*0.30],
+      [rj*0.86,G.rM+rj*0.92],[-rj*0.86,G.rM+rj*0.92]],rj*0.55,5),
+      {espesor:0.09,bisel:0.008}),MAT.acero);
+    br.position.set(0,0,sz*0.19); br.castShadow=true; rot.add(br);
   }
   const pin=ruedaDentada(G.RCIG,0.075,G.e.Zcig,MAT.polea);
   pin.position.z=G.zF; rot.add(pin);
@@ -2132,14 +2155,17 @@ function bCigu(R){
 function bPiston(R){
   const g=new THREE.Group();
   const pg=new THREE.Group(); pg.position.set(MX,G.yTDC,0); g.add(pg); R.pist=pg;
-  const falda=cil(G.B/2-0.008,G.B/2-0.008,G.hCor*1.55,MAT.piston,36);
-  falda.position.y=G.hCor*0.28; pg.add(falda);
-  const corona=cil(G.B/2-0.004,G.B/2-0.004,0.035,MAT.piston,36);
-  corona.position.y=G.hCor; pg.add(corona);
-  for(let i=0;i<3;i++){
-    const ar=new THREE.Mesh(new THREE.TorusGeometry(G.B/2-0.006,0.010,8,40),MAT.acero);
-    ar.rotation.x=Math.PI/2; ar.position.y=G.hCor-0.055-i*0.035; pg.add(ar);
-  }
+  /* El pistón, con lo que tiene un pistón: cabeza, las TRES RANURAS con sus
+     segmentos —dos de compresión y el rascador, más ancho—, el escalón entre la
+     zona de segmentos y la falda, y la falda HUECA, porque por dentro va el pie
+     de la biela. Un cilindro macizo no es una simplificación: es una pieza que
+     no podría funcionar.
+     `hCorona` es la altura de compresión de ESTE motor —del bulón a la cabeza—,
+     que es la cota con la que el laboratorio calcula la relación de compresión;
+     la pieza se estira o se achata para cumplirla en vez de imponer la suya. */
+  const pz=P3.piston(MATP,{D:G.B,hCorona:G.hCor,bulon:false,seg:36});
+  pz.position.y=-pz.userData.alturaBulon;   // el bulón, en el origen del grupo
+  pg.add(pz);
   const bulon=cil(G.L.adm.Ds*0.9,G.L.adm.Ds*0.9,G.B*0.72,MAT.acero,18);
   bulon.rotation.x=Math.PI/2; pg.add(bulon);
   // Cazoletas: el hueco que la corona le regala a cada válvula. Su fondo está a
@@ -2152,11 +2178,14 @@ function bPiston(R){
     cz.rotation.z=-o.sg*o.al; pg.add(cz);
   });
   const bg=new THREE.Group(); bg.position.set(MX,YC+G.rM,0); g.add(bg); R.biela=bg;
-  const cuerpo=roundedBox(0.075,G.Lb-0.10,0.055,MAT.biela,0.30);
-  cuerpo.position.y=G.Lb/2; bg.add(cuerpo);
-  const pieB=cil(0.105,0.105,0.30,MAT.biela,22); pieB.rotation.x=Math.PI/2; bg.add(pieB);
-  const pieP=cil(0.055,0.055,0.16,MAT.biela,18);
-  pieP.rotation.x=Math.PI/2; pieP.position.y=G.Lb; bg.add(pieP);
+  const rjBiela=Math.max(0.10,G.rM*0.62)*0.80;   // radio de la muñequilla
+  /* La biela: ojo de cabeza con su SOMBRERETE y sus dos tornillos, alma que se
+     estrecha y ojo de pie. El sombrerete no es adorno: es por donde la biela se
+     abre para montarla sobre la muñequilla, y sin él no se entiende cómo entra
+     un cigüeñal de una pieza dentro de cuatro bielas cerradas. */
+  const bl=P3.biela({...MATP,acero:MAT.biela},
+    {largo:G.Lb,dPie:G.L.adm.Ds*1.8,dCabeza:rjBiela*1.60,espesor:0.085});
+  bg.add(bl);
   return g;
 }
 
@@ -2215,8 +2244,13 @@ function bValv(R){
     const eje=new THREE.Group();
     eje.position.set(o.xS,o.yS,o.z); eje.rotation.z=-o.sg*o.al; g.add(eje);
     const v=new THREE.Group(); eje.add(v); R.val[k]=v;
-    const cab=cil(o.Dv/2,o.Dv/2*0.86,0.045,mat,30); cab.position.y=-0.020; v.add(cab);
-    const vast=cil(o.Ds/2,o.Ds/2,G.LSTU,MAT.acero,14); vast.position.y=G.LSTU/2; v.add(vast);
+    /* La válvula, de una pieza: plato, CHAFLÁN DE ASIENTO —los 45° que sellan
+       contra la culata, que es de lo que va media clase de rectificado—, la
+       garganta que une el plato con el vástago y la ranura del retén arriba.
+       Un cono y un palo no enseñan por dónde sella ni por dónde se sujeta. */
+    const vv=P3.valvula({...MATP,acero:mat},{d:o.Dv,largo:G.LSTU,vastago:o.Ds});
+    vv.traverse(x=>{if(x.isMesh)x.castShadow=true;});
+    v.add(vv);
     const plat=cil(o.Ds*1.6,o.Ds*1.2,0.035,MAT.acero,18);
     plat.position.y=G.LSTU*0.74; v.add(plat);
     const mu=muelle(o.Ds*1.5,G.LSTU*0.40,7,MAT.muelle);
@@ -3022,7 +3056,7 @@ window.__labDebug={
   <!-- Ficha técnica · Capa B del molde de lab 3D (componente compartido + contenido del lab) -->
   <script src="_ficha-tecnica.js"></script>
   <script src="_ficha-sincronizacion-distribucion-puesta-a-punto.js"></script>
-  <!-- Puente con la plataforma · reporta avance al shell (ver _puente.js) -->
+  <!-- Reporta avance y cierre al shell del alumno (src/lib/puente.ts) -->
   <script src="_puente.js"></script>
 </body>
 </html>
