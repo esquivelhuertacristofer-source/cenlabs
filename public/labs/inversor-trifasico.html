@@ -183,6 +183,8 @@ import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
 import { RoundedBoxGeometry } from 'three/addons/geometries/RoundedBoxGeometry.js';
+import * as P3 from '/labs/_piezas3d.js';
+import { instalaDiag } from '/labs/_diag3d.js';
 import { EffectComposer } from 'three/addons/postprocessing/EffectComposer.js';
 import { RenderPass } from 'three/addons/postprocessing/RenderPass.js';
 import { GTAOPass } from 'three/addons/postprocessing/GTAOPass.js';
@@ -456,7 +458,13 @@ const MAT={
   board:std({color:0x0d3b2e,roughness:0.6,metalness:0.2}),
   steel:std({color:0xc2cad3,roughness:0.3,metalness:1,map:Tsteel.map,roughnessMap:Tsteel.roughnessMap,normalMap:Tsteel.normalMap}),
   ghost:std({color:0x4FD1C5,transparent:true,opacity:0.16,side:THREE.DoubleSide}),
+  cobre:std({color:0xb8763c,roughness:0.32,metalness:1}),
+  negro:std({color:0x14171b,roughness:0.62,metalness:0.18}),
+  blanco:std({color:0xd8dde3,roughness:0.7,metalness:0.05}),
 };
+const MATP={aluminio:MAT.heatsink, acero:MAT.steel, cromo:MAT.steel, hierro:MAT.heatsink,
+  negro:MAT.igbt, cobre:MAT.cobre, verde:MAT.board, blanco:MAT.blanco,
+  goma:MAT.negro, ceramica:MAT.blanco, chapa:MAT.steel};
 function rbox(w,h,d,m,rf=0.1){const r=Math.min(w,h,d)*rf;const x=new THREE.Mesh(new RoundedBoxGeometry(w,h,d,4,r),m);x.castShadow=x.receiveShadow=true;return x;}
 
 /* ============================================================
@@ -469,40 +477,111 @@ const invRoot=new THREE.Group(); invRoot.position.set(0,1.0,0); scene.add(invRoo
 // ---- DISIPADOR (heatsink base) ----
 const heatsinkGroup=new THREE.Group(); invRoot.add(heatsinkGroup);
 (function(){
-  const base=rbox(3.0,0.18,1.6,MAT.heatsink,0.15); base.position.y=0.09; heatsinkGroup.add(base);
-  for(let i=0;i<12;i++){const fin=rbox(3.0,0.32,0.05,MAT.heatsink,0.3); fin.position.set(0,0.18+0.16,-0.75+i*0.14); heatsinkGroup.add(fin);}
+  /* Las aletas iban por ARRIBA, y encima de ellas se apoyaban los condensadores
+     y los módulos: un disipador con la cara caliente tapada no disipa nada. En
+     un inversor de verdad los módulos van atornillados a la cara plana de la
+     placa fría y las aletas —o los canales de refrigerante— quedan por debajo.
+     Y el peine sale de UN contorno extruido: doce cajas sueltas no tocan la
+     base, y el camino del calor es justo lo que este laboratorio explica.      */
+  const hs=P3.disipador(MATP,{ancho:3.0,fondo:1.6,base:0.18,alto:0.34,aletas:16,espesorAleta:0.045});
+  hs.rotation.x=Math.PI; hs.position.y=0.18; heatsinkGroup.add(hs);
+  // Los racores del circuito de refrigeración, que es por donde entra y sale el
+  // agua-glicol de un inversor de tracción.
+  for(const s2 of [-1,1]){
+    const racor=new THREE.Mesh(P3.revolucion([
+      [0,0],[0.085,0],[0.085,0.10],[0.070,0.13],[0.070,0.24],[0.086,0.27],
+      [0.070,0.30],[0,0.30]],{seg:20}),MAT.heatsink);
+    racor.rotation.z=Math.PI/2; racor.position.set(s2*1.62,0.09,0.45);
+    racor.castShadow=true; heatsinkGroup.add(racor);
+  }
+  // Y los taladros de fijación, con sus tornillos.
+  for(const sx of [-1,1]) for(const sz of [-1,1]){
+    const tor=P3.tornilloHex(MATP,{d:0.10,largo:0.12});
+    tor.position.set(sx*1.40,0.19,sz*0.68); heatsinkGroup.add(tor);
+  }
 })();
 
 // ---- CAPACITORES DEL BUS DC ----
 const capGroup=new THREE.Group(); invRoot.add(capGroup);
 const capMeshes=[];
 (function(){
-  for(let i=0;i<3;i++){const cap=new THREE.Mesh(new THREE.CylinderGeometry(0.26,0.26,0.72,28),MAT.cap);cap.position.set(-0.9+i*0.55,0.54,-0.5);cap.castShadow=true;capGroup.add(cap);capMeshes.push(cap);
-    const top=new THREE.Mesh(new THREE.CylinderGeometry(0.26,0.26,0.04,28),std({color:0x444b54,metalness:0.9,roughness:0.3}));top.position.set(-0.9+i*0.55,0.9,-0.5);capGroup.add(top);}
+  /* Un condensador de bus no es una lata lisa: lleva su reborde engarzado, la
+     CRUZ DE ALIVIO en la tapa y sus dos bornes de tornillo. La cruz no es un
+     dibujo —es por donde revienta de forma controlada si el condensador se
+     embala—, y es lo primero que se mira al abrir un inversor quemado.         */
+  for(let i=0;i<3;i++){
+    const cap=P3.condensador(MATP,{d:0.52,alto:0.72,bornes:2,aislante:MAT.cap});
+    cap.position.set(-0.9+i*0.55,0.18,-0.5); capGroup.add(cap); capMeshes.push(cap);
+  }
 })();
 
 // ---- MÓDULOS IGBT (6) ----
 const igbtGroup=new THREE.Group(); invRoot.add(igbtGroup);
 const igbtMeshes=[];
 (function(){
-  for(let i=0;i<6;i++){const g=rbox(0.38,0.18,0.46,MAT.igbt.clone(),0.12); g.position.set(-0.95+(i%3)*0.72,0.36,0.35+(i<3?0:0.5)); igbtGroup.add(g); igbtMeshes.push(g);}
+  /* Un módulo de potencia tiene suela metálica, carcasa de plástico, taladros
+     de sujeción y TERMINALES: por dos entra el bus de continua y por el otro
+     sale la fase. Sin terminales, un módulo es un ladrillo negro del que no se
+     sabe cómo se conecta —que es justo lo que hay que saber—.                  */
+  for(let i=0;i<6;i++){
+    const g=P3.moduloPotencia(MATP,{ancho:0.38,fondo:0.46,alto:0.18,potencia:3,pines:5,
+      carcasa:MAT.igbt.clone()});
+    g.position.set(-0.95+(i%3)*0.72,0.18,0.22+(i<3?0:0.50));
+    igbtGroup.add(g);
+    // La malla a la que el laboratorio le enciende el emisivo al conmutar.
+    igbtMeshes.push(g.userData.cuerpo);
+  }
 })();
 
 // ---- PLACA DE CONTROL + GATE DRIVER ----
 const boardGroup=new THREE.Group(); invRoot.add(boardGroup);
 (function(){
-  const pcb=rbox(2.6,0.05,1.2,MAT.board); pcb.position.y=0.62; boardGroup.add(pcb);
-  for(let i=0;i<6;i++){const chip=rbox(0.14,0.06,0.14,std({color:0x111318,roughness:0.5,metalness:0.4})); chip.position.set(-1.0+i*0.4,0.68,0); boardGroup.add(chip);}
-  const mcu=rbox(0.4,0.06,0.4,std({color:0x1a1d22,roughness:0.4,metalness:0.5})); mcu.position.set(0.9,0.68,-0.3); boardGroup.add(mcu);
+  /* Una placa se reconoce por su RELIEVE, no por ser un rectángulo verde: sus
+     taladros de montaje, los seis excitadores de puerta —uno por módulo—, el
+     microcontrolador con sus patillas y la muesca del pin 1, los condensadores
+     de filtro y el conector del mazo.                                          */
+  const pcb=P3.placa(MATP,{ancho:2.6,fondo:1.2,espesor:0.05,taladros:true,verde:MAT.board});
+  pcb.position.y=1.16; boardGroup.add(pcb);
+  // Los separadores que la levantan sobre la potencia. Sin ellos la placa
+  // parece flotar, y flotando no se entiende que debajo hay 350 V.
+  for(const sx of [-1,1]) for(const sz of [-1,1]){
+    const sep=new THREE.Mesh(P3.revolucion([
+      [0,0],[0.045,0],[0.045,0.52],[0.030,0.52],[0.030,0.58],[0,0.58]],{seg:12}),MAT.steel);
+    sep.position.set(sx*1.22,0.58,sz*0.53); boardGroup.add(sep);
+  }
+  for(let i=0;i<6;i++){
+    const dr=P3.chip(MATP,{lado:0.17,alto:0.05,pines:5});
+    dr.position.set(-1.0+i*0.4,1.185,0.02); boardGroup.add(dr);
+  }
+  const mcu=P3.chip(MATP,{lado:0.40,alto:0.06,pines:11});
+  mcu.position.set(0.90,1.185,-0.30); boardGroup.add(mcu);
+  for(let i=0;i<4;i++){
+    const c=P3.condensador(MATP,{d:0.11,alto:0.17,bornes:0,aislante:MAT.negro});
+    c.position.set(-1.10+i*0.24,1.185,-0.42); boardGroup.add(c);
+  }
+  const conPlaca=P3.conector(MATP,{ancho:0.42,alto:0.11,fondo:0.13,pines:10});
+  conPlaca.position.set(-0.60,1.24,0.48); boardGroup.add(conPlaca);
 })();
 
 // ---- BUSBARRAS DE SALIDA (3 fases) ----
 const busGroup=new THREE.Group(); invRoot.add(busGroup);
 const busBars=[];
 (function(){
+  /* Una barra de potencia es una PLETINA plana doblada, con su terminal
+     taladrado: plana porque así disipa, y taladrada porque se atornilla. Un
+     palo redondo no es una barra —y en un cuadro, el par de apriete de esos
+     tornillos es la mitad de las averías térmicas—.                            */
   const cols=[0xff6b1a,0x37e0c7,0x6fb6ff];
-  for(let i=0;i<3;i++){const bar=rbox(0.14,0.08,1.3,std({color:cols[i],metalness:0.9,roughness:0.3,emissive:cols[i],emissiveIntensity:0.15}));
-    bar.position.set(1.75,0.32,-0.45+i*0.42); busGroup.add(bar); busBars.push(bar);}
+  for(let i=0;i<3;i++){
+    const col=std({color:cols[i],metalness:0.9,roughness:0.3,
+      emissive:cols[i],emissiveIntensity:0.15});
+    const barra=P3.barraCobre(MATP,{largo:1.3,ancho:0.14,espesor:0.045,doblez:0.20,color:col});
+    barra.position.set(1.75,0.24,-0.45+i*0.42);
+    barra.rotation.y=Math.PI/2;
+    busGroup.add(barra); busBars.push(barra.children[0]);
+    const b=P3.borne(MATP,{d:0.075,alto:0.13});
+    b.position.set(1.75,0.29,-0.45+i*0.42-0.58); busGroup.add(b);
+  }
 })();
 
 
@@ -1027,6 +1106,10 @@ window.__test={
     igbtInstalled:travel.igbt.installed,boardInstalled:travel.board.installed,busInstalled:travel.bus.installed}),
   audioState:()=>({ctxState:audioCtx?.state||'none', vol:audioGain?.gain.value||0, freq:oscA?.frequency.value||0, soundOn}),
 };
+instalaDiag('inversor-trifasico',{escena:scene,camara:camera,controles:controls,renderizador:renderer,
+  grupos:{disipador:heatsinkGroup,condensadores:capGroup,modulos:igbtGroup,
+          placa:boardGroup,barras:busGroup}});
+
 
 </script>
   <!-- Ficha técnica · Capa B del molde de lab 3D (componente compartido + contenido del lab) -->

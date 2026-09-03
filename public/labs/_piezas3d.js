@@ -1313,3 +1313,214 @@ export function rodamiento(mat, opts = {}) {
   }
   return g;
 }
+
+/* ==========================================================================
+   §8 · ELECTRÓNICA DE POTENCIA Y CUADROS
+   Las piezas que se repiten en el inversor, el cargador, el BMS y el escáner.
+   ========================================================================== */
+
+/**
+ * DISIPADOR: base y peine de aletas, sacado de UN contorno extruido en vez de
+ * apilar cajas sueltas. Una aleta suelta no toca la base; un peine sí, y es lo
+ * que hace que el calor salga del silicio —que es de lo que va el laboratorio—.
+ * `taladros` pone los agujeros de sujeción, que son por donde el módulo se
+ * atornilla con su pasta térmica.
+ */
+export function disipador(mat, opts = {}) {
+  const { ancho = 3.0, fondo = 1.6, base = 0.18, alto = 0.32,
+          aletas: n = 12, espesorAleta = 0.05 } = opts;
+  const g = new THREE.Group();
+  // El peine, dibujado de perfil: se sube y se baja una vez por aleta.
+  const c = [[-fondo / 2, 0]];
+  const paso = fondo / n;
+  for (let i = 0; i < n; i++) {
+    const z = -fondo / 2 + i * paso + (paso - espesorAleta) / 2;
+    c.push([z, base], [z, base + alto], [z + espesorAleta, base + alto], [z + espesorAleta, base]);
+  }
+  c.push([fondo / 2, 0]);
+  const m = new THREE.Mesh(normalizaUV(extruido(c, { espesor: ancho, bisel: 0.008, curvaSeg: 2 }), 2),
+    mat.aluminio);
+  m.rotation.y = Math.PI / 2; m.castShadow = m.receiveShadow = true; g.add(m);
+  g.userData.base = base; g.userData.alto = base + alto;
+  return g;
+}
+
+/**
+ * CONDENSADOR de bus: lata con su reborde engarzado, la CRUZ DE ALIVIO en la
+ * tapa y dos bornes de tornillo. La cruz no es un dibujo: es por donde revienta
+ * de forma controlada si el condensador se embala, y es lo primero que se mira
+ * al abrir un inversor quemado. Una lata lisa no cuenta nada de eso.
+ */
+export function condensador(mat, opts = {}) {
+  const { d = 0.52, alto = 0.76, bornes = 2, aislante = null } = opts;
+  const g = new THREE.Group(); const R = d / 2;
+  const cuerpo = new THREE.Mesh(revolucion([
+    [0, 0], [R, 0], [R, alto * 0.94], [R * 0.96, alto * 0.96],
+    [R * 0.86, alto * 0.96], [R * 0.90, alto], [R * 0.86, alto * 1.02], [0, alto * 1.02],
+  ], { seg: 34 }), aislante || mat.negro || mat.aluminio);
+  cuerpo.castShadow = true; g.add(cuerpo);
+  // El engarce: el anillo donde la lata se cierra sobre la tapa.
+  const engarce = new THREE.Mesh(new THREE.TorusGeometry(R * 0.97, R * 0.045, 8, 34), mat.aluminio);
+  engarce.rotation.x = Math.PI / 2; engarce.position.y = alto * 0.93; g.add(engarce);
+  // La cruz de alivio, rebajada en la tapa.
+  for (const a of [0, Math.PI / 2]) {
+    const r = new THREE.Mesh(new THREE.BoxGeometry(R * 1.30, R * 0.05, R * 0.16), mat.aluminio);
+    r.position.y = alto * 1.02; r.rotation.y = a; g.add(r);
+  }
+  for (let i = 0; i < bornes; i++) {
+    const x = bornes === 1 ? 0 : (i - (bornes - 1) / 2) * R * 0.90;
+    const b = new THREE.Mesh(revolucion([
+      [0, 0], [R * 0.20, 0], [R * 0.20, alto * 0.055], [R * 0.13, alto * 0.065],
+      [R * 0.13, alto * 0.14], [0, alto * 0.14]], { seg: 14 }), mat.cobre || mat.acero);
+    b.position.set(x, alto * 1.02, 0); g.add(b);
+  }
+  g.userData.alto = alto * 1.16;
+  return g;
+}
+
+/**
+ * MÓDULO DE POTENCIA (IGBT, MOSFET, puente): base metálica, carcasa de plástico
+ * negro, taladros de sujeción en las esquinas, terminales de potencia arriba y
+ * la peineta de pines de mando. Los terminales son la mitad de la pieza: es por
+ * donde entra el bus de continua y por donde sale la fase, y sin ellos el
+ * módulo es un ladrillo negro que no se sabe cómo se conecta.
+ */
+export function moduloPotencia(mat, opts = {}) {
+  const { ancho = 0.38, fondo = 0.46, alto = 0.18, potencia = 3, pines = 5,
+          carcasa = null } = opts;
+  const g = new THREE.Group();
+  const suela = new THREE.Mesh(extruido(contornoRedondeado(
+    [[-ancho / 2, -fondo / 2], [ancho / 2, -fondo / 2], [ancho / 2, fondo / 2], [-ancho / 2, fondo / 2]],
+    ancho * 0.10, 3), { espesor: alto * 0.22, bisel: alto * 0.02 }), mat.aluminio);
+  suela.rotation.x = -Math.PI / 2; suela.position.y = alto * 0.11;
+  suela.castShadow = true; g.add(suela);
+  const cuerpo = new THREE.Mesh(extruido(contornoRedondeado(
+    [[-ancho * 0.44, -fondo * 0.44], [ancho * 0.44, -fondo * 0.44],
+     [ancho * 0.44, fondo * 0.44], [-ancho * 0.44, fondo * 0.44]], ancho * 0.10, 3),
+    { espesor: alto * 0.78, bisel: alto * 0.04 }), carcasa || mat.negro || mat.aluminio);
+  cuerpo.rotation.x = -Math.PI / 2; cuerpo.position.y = alto * 0.61;
+  cuerpo.castShadow = true; g.add(cuerpo);
+  // Los taladros de sujeción: dos casquillos en las esquinas largas.
+  for (const s of [-1, 1]) {
+    const t = new THREE.Mesh(revolucion([
+      [ancho * 0.055, 0], [ancho * 0.13, 0], [ancho * 0.13, alto * 0.24], [ancho * 0.055, alto * 0.24],
+    ], { seg: 14 }), mat.acero);
+    t.position.set(0, alto * 0.11, s * fondo * 0.40); g.add(t);
+  }
+  // Terminales de potencia: pletinas con su agujero de tornillo.
+  for (let i = 0; i < potencia; i++) {
+    const x = (i - (potencia - 1) / 2) * ancho * 0.52;
+    const p = new THREE.Mesh(extruido(contornoRedondeado(
+      [[-ancho * 0.10, -fondo * 0.07], [ancho * 0.10, -fondo * 0.07],
+       [ancho * 0.10, fondo * 0.07], [-ancho * 0.10, fondo * 0.07]], ancho * 0.05, 3),
+      { huecos: [circulo(0, 0, ancho * 0.045, 10)], espesor: alto * 0.10 }), mat.cobre || mat.acero);
+    p.rotation.x = -Math.PI / 2; p.position.set(x, alto * 1.05, -fondo * 0.26);
+    g.add(p);
+  }
+  // La peineta de mando.
+  for (let i = 0; i < pines; i++) {
+    const x = (i - (pines - 1) / 2) * ancho * 0.13;
+    const pin = new THREE.Mesh(new THREE.BoxGeometry(ancho * 0.035, alto * 0.55, ancho * 0.035),
+      mat.cobre || mat.acero);
+    pin.position.set(x, alto * 1.25, fondo * 0.30); g.add(pin);
+  }
+  g.userData.alto = alto * 1.5; g.userData.cuerpo = cuerpo;
+  return g;
+}
+
+/**
+ * PLACA de circuito: sustrato con esquinas redondeadas, taladros de montaje y
+ * —lo que la hace reconocible— un puñado de componentes de verdad encima. Una
+ * caja plana verde no es una placa; una placa se reconoce por su relieve.
+ */
+export function placa(mat, opts = {}) {
+  const { ancho = 2.6, fondo = 1.2, espesor = 0.05, taladros = true,
+          verde = null } = opts;
+  const g = new THREE.Group();
+  const hue = [];
+  if (taladros) {
+    for (const sx of [-1, 1]) for (const sz of [-1, 1])
+      hue.push(circulo(sx * (ancho / 2 - ancho * 0.035), sz * (fondo / 2 - fondo * 0.06),
+        Math.min(ancho, fondo) * 0.018, 10));
+  }
+  const sub = new THREE.Mesh(normalizaUV(extruido(contornoRedondeado(
+    [[-ancho / 2, -fondo / 2], [ancho / 2, -fondo / 2], [ancho / 2, fondo / 2], [-ancho / 2, fondo / 2]],
+    Math.min(ancho, fondo) * 0.05, 3), { huecos: hue, espesor, bisel: espesor * 0.15 }), 2),
+    verde || mat.verde || mat.negro || mat.aluminio);
+  sub.rotation.x = -Math.PI / 2; sub.castShadow = sub.receiveShadow = true; g.add(sub);
+  g.userData.cara = espesor / 2;
+  return g;
+}
+
+/**
+ * CIRCUITO INTEGRADO encapsulado, con sus patillas por los cuatro lados y la
+ * muesca del pin 1. La muesca importa: es lo que dice por dónde va montado, y
+ * es la primera cosa que se busca al soldar uno.
+ */
+export function chip(mat, opts = {}) {
+  const { lado = 0.40, alto = 0.06, pines = 10, patilla = null } = opts;
+  const g = new THREE.Group();
+  const cuerpo = new THREE.Mesh(extruido(contornoRedondeado(
+    [[-lado / 2, -lado / 2], [lado / 2, -lado / 2], [lado / 2, lado / 2], [-lado / 2, lado / 2]],
+    lado * 0.06, 3), { espesor: alto, bisel: alto * 0.12 }), mat.negro || mat.aluminio);
+  cuerpo.rotation.x = -Math.PI / 2; cuerpo.position.y = alto / 2; cuerpo.castShadow = true;
+  g.add(cuerpo);
+  const marca = new THREE.Mesh(new THREE.CylinderGeometry(lado * 0.05, lado * 0.05, alto * 0.12, 12),
+    mat.blanco || mat.acero);
+  marca.position.set(-lado * 0.34, alto, -lado * 0.34); g.add(marca);
+  const mp = patilla || mat.acero;
+  for (let lado_i = 0; lado_i < 4; lado_i++) {
+    for (let i = 0; i < pines; i++) {
+      const t = (i + 0.5) / pines - 0.5;
+      const p = new THREE.Mesh(new THREE.BoxGeometry(lado * 0.035, alto * 0.18, lado * 0.13), mp);
+      const d = lado * 0.56;
+      if (lado_i === 0) p.position.set(t * lado * 0.9, alto * 0.16, -d);
+      else if (lado_i === 1) { p.position.set(d, alto * 0.16, t * lado * 0.9); p.rotation.y = Math.PI / 2; }
+      else if (lado_i === 2) p.position.set(t * lado * 0.9, alto * 0.16, d);
+      else { p.position.set(-d, alto * 0.16, t * lado * 0.9); p.rotation.y = Math.PI / 2; }
+      g.add(p);
+    }
+  }
+  return g;
+}
+
+/**
+ * BARRA DE COBRE: pletina plana doblada, con su terminal taladrado en cada
+ * punta. Un palo redondo no es una barra: la barra es plana porque así disipa,
+ * y va taladrada porque se atornilla —que es como se conecta la potencia—.
+ */
+export function barraCobre(mat, opts = {}) {
+  const { largo = 1.3, ancho = 0.14, espesor = 0.04, doblez = 0.18, color = null } = opts;
+  const perfil = [
+    [-largo / 2, 0], [-largo / 2 + doblez, 0], [-largo / 2 + doblez * 1.6, doblez * 0.9],
+    [largo / 2 - doblez * 1.6, doblez * 0.9], [largo / 2 - doblez, 0], [largo / 2, 0],
+    [largo / 2, espesor], [largo / 2 - doblez, espesor],
+    [largo / 2 - doblez * 1.6, doblez * 0.9 + espesor],
+    [-largo / 2 + doblez * 1.6, doblez * 0.9 + espesor], [-largo / 2 + doblez, espesor],
+    [-largo / 2, espesor],
+  ];
+  const m = new THREE.Mesh(extruido(perfil, { espesor: ancho, bisel: espesor * 0.12, curvaSeg: 2 }),
+    color || mat.cobre || mat.acero);
+  m.rotation.y = Math.PI / 2; m.castShadow = true;
+  const g = new THREE.Group(); g.add(m);
+  return g;
+}
+
+/**
+ * BORNE de tornillo: casquillo, tuerca hexagonal y arandela. Es la pieza por la
+ * que se aprieta un cable de potencia, y la que se afloja y provoca la mitad de
+ * las averías térmicas de un cuadro.
+ */
+export function borne(mat, opts = {}) {
+  const { d = 0.10, alto = 0.14 } = opts;
+  const g = new THREE.Group();
+  const base = new THREE.Mesh(revolucion([
+    [0, 0], [d * 0.9, 0], [d * 0.9, alto * 0.22], [d * 0.55, alto * 0.30], [0, alto * 0.30],
+  ], { seg: 18 }), mat.aluminio);
+  g.add(base);
+  const ar = new THREE.Mesh(new THREE.CylinderGeometry(d * 0.72, d * 0.72, alto * 0.10, 18), mat.acero);
+  ar.position.y = alto * 0.36; g.add(ar);
+  const tu = tornilloHex(mat, { d: d * 1.05, largo: alto * 0.55 });
+  tu.position.y = alto * 0.42; g.add(tu);
+  return g;
+}
