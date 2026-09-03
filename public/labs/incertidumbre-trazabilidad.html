@@ -728,12 +728,33 @@ const plate=roundedBox(1.7,0.09,1.05,MAT.granite,0.03); plate.position.set(0,0.0
 plate.userData={title:'Placa de referencia (granito)',info:'Superficie plana de referencia sobre la que descansan la pieza y la base del comparador — ISO 1 fija 20 °C como temperatura de referencia para metrología dimensional.'};
 const lbPlate=labelSprite('Placa de referencia','#8a949c'); lbPlate.position.set(0,0.32,0.5); lbPlate.visible=false; lbPlate.raycast=()=>{}; stationG.add(lbPlate); HOVER_LABELS.set(plate,lbPlate);
 
+/* El bloque se pone DEBAJO del palpador, no a un lado: la practica mide cinco
+   veces la misma pieza sin desmontarla, y con el bloque descolocado el 3D
+   ensenaba un palpador midiendo el aire. */
 const gaugeBlk=sh(new THREE.Mesh(new THREE.BoxGeometry(0.30,0.14,0.22),MAT.gaugeBlk));
-gaugeBlk.position.set(0.20,0.16,0.16); stationG.add(gaugeBlk);
+gaugeBlk.position.set(0.35,0.16,0.06); stationG.add(gaugeBlk);
+/* Un bloque patron lleva GRABADA su dimension nominal: es su identidad, y es lo
+   que se contrasta contra el certificado. */
+const blkCanvas=document.createElement('canvas'); blkCanvas.width=256; blkCanvas.height=192;
+(function(){ const c=blkCanvas.getContext('2d');
+  c.fillStyle='#b8952a'; c.fillRect(0,0,256,192);
+  c.fillStyle='#3a2f0c'; c.textAlign='center'; c.font='bold 96px system-ui';
+  c.fillText('10', 128, 108); c.font='bold 34px system-ui'; c.fillText('mm', 128, 150); })();
+const blkTex=new THREE.CanvasTexture(blkCanvas); blkTex.colorSpace=THREE.SRGBColorSpace;
+blkTex.minFilter=THREE.LinearFilter; blkTex.generateMipmaps=false;
+const blkMarca=new THREE.Mesh(new THREE.PlaneGeometry(0.13,0.098),
+  new THREE.MeshStandardMaterial({map:blkTex, roughness:0.42, metalness:0.35}));
+blkMarca.position.set(0.35,0.16,0.1705); stationG.add(blkMarca);
+blkMarca.userData={title:'Grabado del bloque patrón',info:'La dimensión nominal va grabada en el propio bloque: es su identidad y lo que se contrasta contra el número del certificado de calibración.'};
 gaugeBlk.userData={title:'Bloque patrón (pieza bajo prueba)',info:'Dimensión nominal 10 mm. Se mide 5 veces con el comparador para estimar la repetibilidad (Tipo A) — la misma pieza, sin desmontarla entre lecturas.'};
 const lbBlk=labelSprite('Bloque patrón · Ø nominal 10 mm','#C9A227'); lbBlk.position.set(0.20,0.42,0.30); lbBlk.visible=false; lbBlk.raycast=()=>{}; stationG.add(lbBlk); HOVER_LABELS.set(gaugeBlk,lbBlk);
 
 const compBase=roundedBox(0.30,0.09,0.30,MAT.base,0.05); compBase.position.set(-0.15,0.075,-0.10); stationG.add(compBase);
+/* LA PALANCA de la base magnetica: es lo que la enciende y la apaga, y lo que
+   la distingue de un taco de acero cualquiera. */
+const compPalanca=sh(new THREE.Mesh(new THREE.CylinderGeometry(0.018,0.018,0.11,10),MAT.bezel));
+compPalanca.rotation.x=Math.PI/2; compPalanca.position.set(-0.04,0.075,0.02); stationG.add(compPalanca);
+compPalanca.userData={title:'Palanca de la base magnética',info:'Conecta y desconecta el imán permanente. Sin ella la base no agarra, y un comparador que se mueve entre lecturas mete en la repetibilidad un error que no es del operador ni del instrumento.'};
 compBase.userData={title:'Base magnética',info:'Fija el comparador de forma rígida sobre la placa de referencia.'};
 const compPost=sh(new THREE.Mesh(new THREE.CylinderGeometry(0.03,0.03,0.85,12),MAT.steelDk));
 compPost.position.set(-0.15,0.53,-0.10); stationG.add(compPost);
@@ -752,6 +773,15 @@ dialFace.userData={title:'Carátula del comparador',info:'Nota de fidelidad: la 
 const plunger=sh(new THREE.Mesh(new THREE.CylinderGeometry(0.032,0.032,0.24,14),MAT.steel));
 plunger.position.set(0.35,0.42,0.06); stationG.add(plunger);
 plunger.userData={title:'Palpador (husillo)',info:'Toca el bloque patrón y transmite su posición a la aguja de la carátula.'};
+/* EL VASTAGO y la PUNTA DE CONTACTO. La bolita toca la pieza en UN punto, y por
+   eso lo que se mide es la altura de ese punto; ademas ahora APOYA de verdad en
+   el bloque, en vez de quedarse a siete centesimas por encima. */
+const plungerRod=sh(new THREE.Mesh(new THREE.CylinderGeometry(0.014,0.014,0.07,10),MAT.steel));
+plungerRod.position.set(0.35,0.275,0.06); stationG.add(plungerRod);
+plungerRod.userData=plunger.userData;
+const plungerBall=sh(new THREE.Mesh(new THREE.SphereGeometry(0.024,16,12),MAT.bezel));
+plungerBall.position.set(0.35,0.254,0.06); stationG.add(plungerBall);
+plungerBall.userData={title:'Punta de contacto',info:'Bolita de metal duro en el extremo del palpador: toca el bloque en un solo punto.'};
 const lbComp=labelSprite('Comparador de carátula','#4FD1C5'); lbComp.position.set(0.35,0.98,0.15); lbComp.visible=false; lbComp.raycast=()=>{}; stationG.add(lbComp); HOVER_LABELS.set(dialFace,lbComp);
 
 // Placa pequeña: resolución del comparador
