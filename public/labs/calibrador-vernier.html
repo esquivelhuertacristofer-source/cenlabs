@@ -621,31 +621,110 @@ stand.userData={title:'Soporte de banco',info:'Base de trabajo del instrumento.'
 
 const cal=new THREE.Group(); cal.position.set(-1.9,1.35,-0.05); cal.rotation.set(-0.06,0.36,0); scene.add(cal);
 
-const beam=roundedBox(BEAM_LEN,0.11,0.30,MAT.steel,0.02); beam.position.set(BEAM_LEN/2,0,0); cal.add(beam);
+/* EL ORIGEN DE MEDIDA ES x = 0, y de ahi cuelga TODA la geometria: la cara de
+   la mordaza fija esta en x=0, la de la movil en x=sliderX y la raya CERO del
+   nonio tambien en x=sliderX. Asi la separacion que se ve entre mordazas es,
+   unidad por unidad, la lectura — y coincide con lo que ya suponian las piezas
+   a medir, dibujadas de x=0 a x=diametro·SCALE. Antes la mordaza fija estaba
+   centrada en 0.02 con 0.10 de ancho: su cara caia en 0.07 y se comia casi 3 mm
+   del perno que supuestamente estaba sujetando. */
+const beam=roundedBox(BEAM_LEN+0.12,0.11,0.30,MAT.steel,0.02); beam.position.set(BEAM_LEN/2-0.06,0,0); cal.add(beam);
 beam.userData={title:'Escala principal (regla)',info:'Graduada en milímetros. El extremo izquierdo (x=0) corresponde a mordazas cerradas (lectura 0.000 mm).'};
 
-// mordaza fija (x=0): mordaza externa hacia abajo, mordaza interna hacia arriba
-const fixExt=roundedBox(0.10,0.55,0.26,MAT.steelDk,0.015); fixExt.position.set(0.02,-0.30,0); cal.add(fixExt);
-fixExt.userData={title:'Mordaza externa fija',info:'Cara de referencia para mediciones EXTERNAS (diámetros, espesores).'};
-const fixInt=roundedBox(0.07,0.22,0.16,MAT.steelDk,0.01); fixInt.position.set(0.02,0.24,0); cal.add(fixInt);
-fixInt.userData={title:'Mordaza interna fija',info:'Punta de referencia para mediciones INTERNAS (diámetros de barreno, ranuras).'};
+/* LA GRADUACION, grabada en la mitad alta de la cara de la regla: raya cada
+   milimetro, mas larga cada 5 y numerada cada centimetro. Es lo que convierte
+   una barra de acero en una REGLA, y aqui ademas es honesta: 1 mm ocupa
+   exactamente SCALE unidades, asi que la raya sobre la que cae el cero del
+   nonio ES la parte entera de la lectura. */
+const escCanvas=document.createElement('canvas'); escCanvas.width=2048; escCanvas.height=96;
+const escTex=new THREE.CanvasTexture(escCanvas); escTex.colorSpace=THREE.SRGBColorSpace;
+escTex.anisotropy=8; escTex.minFilter=THREE.LinearFilter; escTex.generateMipmaps=false;
+(function dibujaEscala(){
+  const c=escCanvas.getContext('2d'), W=escCanvas.width, H=escCanvas.height;
+  c.fillStyle='#c9d1d5'; c.fillRect(0,0,W,H);
+  c.strokeStyle='#20272b'; c.fillStyle='#20272b'; c.textAlign='center';
+  for(let mm=0;mm<=BEAM_LEN_MM;mm++){
+    const x=Math.min(W-1.5,Math.max(1.5,(mm/BEAM_LEN_MM)*W));
+    const largo = mm%10===0 ? H*0.66 : (mm%5===0 ? H*0.46 : H*0.26);
+    c.lineWidth = mm%10===0 ? 3 : 2;
+    c.beginPath(); c.moveTo(x,H); c.lineTo(x,H-largo); c.stroke();   // suben desde el borde de abajo
+    if(mm%10===0){ c.font='bold 30px system-ui'; c.fillText(String(mm/10), Math.min(W-16,Math.max(16,x)), 28); }
+  }
+  escTex.needsUpdate=true;
+})();
+const escPlate=new THREE.Mesh(new THREE.PlaneGeometry(BEAM_LEN,0.052),
+  std({map:escTex, roughness:0.42, metalness:0.35}));
+escPlate.position.set(BEAM_LEN/2,0.028,0.1512); cal.add(escPlate);
+escPlate.userData=beam.userData;
+
+/* LAS MORDAZAS no son tacos: se AFILAN hacia la punta. El filo es lo que
+   permite entrar en una ranura estrecha, y la cara plana del lado de medida es
+   la unica superficie que llega a tocar la pieza. */
+function mordazaExt(signo){
+  const c=[[0,0.02],[0,-0.58],[signo*0.030,-0.58],[signo*0.10,-0.30],[signo*0.10,0.02]];
+  return sh(new THREE.Mesh(P3.extruido(c,{espesor:0.26,bisel:0.010}),MAT.steelDk));
+}
+function mordazaInt(signo){
+  const c=[[0,0.05],[0,0.46],[signo*0.028,0.46],[signo*0.070,0.05]];
+  return sh(new THREE.Mesh(P3.extruido(c,{espesor:0.16,bisel:0.006}),MAT.steelDk));
+}
+const fixExt=mordazaExt(-1); cal.add(fixExt);
+fixExt.userData={title:'Mordaza externa fija',info:'Cara de referencia para mediciones EXTERNAS (diámetros, espesores). Su cara plana está en el cero de la regla: la separación entre las dos mordazas es la lectura.'};
+const fixInt=mordazaInt(+1); cal.add(fixInt);
+fixInt.userData={title:'Mordaza interna fija',info:'Punta de referencia para mediciones INTERNAS (diámetros de barreno, ranuras). Las mordazas internas empujan hacia AFUERA: la cara que mide es la de fuera, no la de dentro.'};
 
 // nonio deslizante
 const slider=new THREE.Group(); slider.position.set(0,0,0); cal.add(slider);
-const sliderBody=roundedBox(0.34,0.24,0.32,MAT.steel,0.02); sliderBody.position.set(0,-0.02,0); slider.add(sliderBody);
+const sliderBody=roundedBox(1.0,0.20,0.32,MAT.steel,0.02); slider.add(sliderBody);
 sliderBody.userData={title:'Cursor del nonio',info:'Porta la escala del nonio y las mordazas móviles. Se desliza a lo largo de la escala principal.'};
-const vPlate=new THREE.Mesh(new THREE.PlaneGeometry(0.30,0.10), new THREE.MeshStandardMaterial({...MAT.vplate}));
-vPlate.position.set(0,0.02,0.165); slider.add(vPlate);
-vPlate.userData={title:'Escala del nonio (N divisiones)',info:'Usa la LUPA del panel para leer con precisión dónde coincide una línea del nonio con una de la escala principal.'};
-const movExt=roundedBox(0.10,0.55,0.26,MAT.steelDk,0.015); movExt.position.set(0,-0.30,0); slider.add(movExt);
+const puente=roundedBox(1.0,0.045,0.36,MAT.steel,0.02); slider.add(puente);
+puente.userData=sliderBody.userData;
+
+/* EL NONIO, con sus N divisiones repartidas sobre (N−1) mm de la regla —que es
+   de donde sale LC = 1 mm/N— y con la longitud FISICA que le toca: 19 mm
+   cuando N=20 y 49 mm cuando N=50. Por eso el cursor de un calibrador de 0.02
+   es visiblemente mas largo que el de uno de 0.05, y aqui tambien lo es. */
+const nonCanvas=document.createElement('canvas'); nonCanvas.width=2048; nonCanvas.height=128;
+const nonTex=new THREE.CanvasTexture(nonCanvas); nonTex.colorSpace=THREE.SRGBColorSpace;
+nonTex.anisotropy=8; nonTex.minFilter=THREE.LinearFilter; nonTex.generateMipmaps=false;
+function dibujaNonio(N){
+  const c=nonCanvas.getContext('2d'), W=nonCanvas.width, H=nonCanvas.height;
+  c.fillStyle='#c9d1d5'; c.fillRect(0,0,W,H);
+  c.strokeStyle='#20272b'; c.fillStyle='#20272b'; c.textAlign='center';
+  const cada = N===20 ? 5 : 10;                 // se numera cada 0.25 mm / cada 0.20 mm
+  for(let i=0;i<=N;i++){
+    const x=Math.min(W-1.5,Math.max(1.5,(i/N)*W));
+    const marca = i%cada===0;
+    c.lineWidth = marca?3:2;
+    c.beginPath(); c.moveTo(x,0); c.lineTo(x,marca?H*0.60:H*0.40); c.stroke();  // bajan desde arriba
+    if(marca){ c.font='bold 30px system-ui';
+      c.fillText(String(Math.round(i*100/N)), Math.min(W-18,Math.max(18,x)), H-14); }
+  }
+  nonTex.needsUpdate=true;
+}
+const vPlate=new THREE.Mesh(new THREE.PlaneGeometry(1.0,0.052), std({map:nonTex, roughness:0.42, metalness:0.35}));
+slider.add(vPlate);
+vPlate.userData={title:'Escala del nonio (N divisiones)',info:'Sus N divisiones abarcan (N−1) mm de la escala principal: de esa diferencia de un paso sale la lectura de 1 mm/N. Los números están en centésimas de milímetro. Usa la LUPA del panel para leer con precisión dónde coincide una línea del nonio con una de la escala principal.'};
+const movExt=mordazaExt(+1); slider.add(movExt);
 movExt.userData=fixExt.userData;
-const movInt=roundedBox(0.07,0.22,0.16,MAT.steelDk,0.01); movInt.position.set(0,0.24,0); slider.add(movInt);
+const movInt=mordazaInt(-1); slider.add(movInt);
 movInt.userData=fixInt.userData;
-const thumb=roundedBox(0.16,0.09,0.30,MAT.thumb,0.03); thumb.position.set(0,-0.16,0.16); slider.add(thumb);
+const thumb=roundedBox(0.16,0.09,0.30,MAT.thumb,0.03); thumb.position.set(0,-0.19,0.16); slider.add(thumb);
 thumb.userData={title:'Pulgar de arrastre',info:'Superficie estriada para deslizar el cursor con el pulgar.'};
 const lockScrew=sh(new THREE.Mesh(new THREE.CylinderGeometry(0.035,0.035,0.07,14),MAT.lock));
 lockScrew.rotation.x=Math.PI/2; lockScrew.position.set(0,0.02,-0.20); slider.add(lockScrew);
 lockScrew.userData={title:'Tornillo de fijación',info:'Bloquea el cursor en la lectura actual para transcribirla sin que se mueva.'};
+
+/* El cursor y su plato se REDIMENSIONAN con la resolucion, porque la longitud
+   del nonio no es una eleccion de dibujo: son (N−1) milimetros de la regla. */
+function ajustaNonio(N){
+  const L=(N-1)*SCALE, Lc=L+0.16;
+  vPlate.scale.x=L;      vPlate.position.set(L/2,-0.026,0.1655);
+  sliderBody.scale.x=Lc; sliderBody.position.set(L/2,-0.10,0);
+  puente.scale.x=Lc;     puente.position.set(L/2,0.078,0);
+  thumb.position.x=L/2;  lockScrew.position.set(L/2,-0.02,-0.20);
+  dibujaNonio(N);
+}
 
 // varilla de profundidad: asoma por la cola de la regla (TAIL_X), su protrusión
 // crece con la misma apertura que las mordazas.
@@ -870,6 +949,7 @@ function answer(i){
 
 function setRes(key){
   resKey=key;
+  ajustaNonio(RES_CFG[key].div);
   ['005','002'].forEach(k=>el('r_'+k).classList.toggle('on', ('0.'+k.slice(1))===key));
   sliderTargetX=targetSliderMM()*SCALE;
   solved=false; clearDx(); refreshQuestion(); refreshInstrument();
@@ -980,7 +1060,7 @@ S.setAnimate((dt,time)=>{
   simT=time;
   sliderX += (sliderTargetX-sliderX)*Math.min(1,dt*6);
   slider.position.x=sliderX;
-  depthRod.position.set(TAIL_X+sliderX-ROD_LEN/2+0.02,-0.02,0);
+  depthRod.position.set(TAIL_X+sliderX-ROD_LEN/2,-0.02,0);
   if(time-(drawLupa._t||0)>0.25){
     if(jawsClosed){ const raw=currentRawMM(); drawLupa(raw,resKey); }
     drawLupa._t=time;
