@@ -688,26 +688,90 @@ stand.userData={title:'Soporte de banco',info:'Base de trabajo compartida por am
 
 const micG=new THREE.Group(); micG.position.set(-1.7,0.10,-0.05); scene.add(micG);
 
-const spine=roundedBox(0.16,1.65,0.30,MAT.steelDk,0.02); spine.position.set(0,0.85,0); micG.add(spine);
-spine.userData={title:'Bastidor (arco en C)',info:'Cuerpo rígido del micrómetro; mantiene el yunque y el husillo alineados en el mismo eje de medición.'};
-const grip=roundedBox(0.13,0.5,0.27,MAT.thumb,0.03); grip.position.set(0,0.30,0.02); micG.add(grip);
-grip.userData={title:'Empuñadura',info:'Zona de sujeción con la mano; aísla parcialmente el bastidor de la dilatación térmica de los dedos.'};
-const topArm=roundedBox(0.85,0.15,0.26,MAT.steel,0.02); topArm.position.set(0.42,1.53,0); micG.add(topArm);
-topArm.userData={title:'Brazo superior',info:'Sostiene el yunque fijo.'};
-const bottomArm=roundedBox(0.85,0.15,0.26,MAT.steel,0.02); bottomArm.position.set(0.42,0.30,0); micG.add(bottomArm);
-bottomArm.userData={title:'Brazo inferior',info:'Sostiene el manguito y guía el husillo.'};
+/* EL BASTIDOR ES UNA SOLA PIEZA EN C, no tres tacos apilados: se saca de su
+   silueta y se extruye. El arco es lo que da nombre al instrumento y lo que
+   explica su unica funcion mecanica —mantener yunque y husillo enfrentados en
+   el mismo eje—, y ademas coloca el brazo inferior donde de verdad va: sujeta
+   el manguito por ARRIBA del tambor, dejando que tambor y trinquete queden
+   fuera del arco. Antes el brazo cruzaba por donde esta el trinquete, que
+   quedaba enterrado dentro del acero. */
+const spine=sh(new THREE.Mesh(P3.extruido(P3.contornoRedondeado([
+  [0.95,1.66],[0.95,1.46],[0.12,1.46],[0.12,0.86],[0.95,0.86],
+  [0.95,0.70],[0.12,0.70],[0.12,0.30],[-0.12,0.30],[-0.12,1.66],
+], [0.05,0.05,0.10,0.10,0.05,0.05,0.10,0.06,0.06,0.16], 5),
+  {espesor:0.28, bisel:0.012}), MAT.steelDk));
+micG.add(spine);
+spine.userData={title:'Bastidor (arco en C)',info:'Cuerpo rígido del micrómetro; mantiene el yunque y el husillo alineados en el mismo eje de medición. El brazo superior sostiene el yunque; el inferior sujeta el manguito.'};
+/* Las PLACAS AISLANTES del arco. No son adorno ergonomico: el calor de los
+   dedos dilata el acero del bastidor lo bastante como para verse en centesimas,
+   y por eso un micrometro se agarra por ahi y no por el arco desnudo. */
+for(const sz of [-1,1]){
+  const grip=roundedBox(0.20,0.55,0.05,MAT.thumb,0.02);
+  grip.position.set(0,0.72,sz*0.155); micG.add(grip);
+  grip.userData={title:'Placas aislantes del arco',info:'Zona de sujeción con la mano; aíslan el bastidor del calor de los dedos, que dilata el acero lo suficiente para verse en centésimas de milímetro.'};
+}
+/* El pie: en esta practica el micrometro esta MONTADO EN SOPORTE sobre el
+   banco, que es como se mide una serie de piezas sin que la mano lo caliente. */
+const micPie=roundedBox(0.46,0.10,0.46,MAT.lock,0.03); micPie.position.set(0,0.35,0); micG.add(micPie);
+micPie.userData={title:'Soporte del micrómetro',info:'Base que sujeta el arco por su lomo para medir una serie de piezas sin sostener el instrumento con la mano.'};
 
 const anvil=sh(new THREE.Mesh(new THREE.CylinderGeometry(0.055,0.055,0.16,14),MAT.steel));
 anvil.position.set(ARM_X,1.38,0); micG.add(anvil);
 anvil.userData={title:'Yunque (tope fijo)',info:'Superficie de referencia fija — el husillo se cierra contra ella (o contra la pieza) para tomar la lectura.'};
 
-const sleeve=sh(new THREE.Mesh(new THREE.CylinderGeometry(0.108,0.108,0.50,20),MAT.steel));
-sleeve.position.set(ARM_X,0.60,0); micG.add(sleeve);
-sleeve.userData={title:'Manguito (escala fija, mm y 0.5 mm)',info:'Porta la escala fija en milímetros y la línea de 0.5 mm; no se mueve, es solidario al bastidor.'};
+/* EL MANGUITO lleva SU LINEA DE REFERENCIA, que es contra la que se lee el
+   tambor. La escala de milimetros NO se dibuja aqui a proposito: en este modelo
+   el tambor no se desplaza al girar, asi que una escala de milimetros grabada
+   nunca se recorreria — seria un dibujo que miente. Los milimetros y la linea
+   de 0.5 mm se leen en el visor, que si los calcula. */
+const mangCanvas=document.createElement('canvas'); mangCanvas.width=512; mangCanvas.height=256;
+const mangTex=new THREE.CanvasTexture(mangCanvas); mangTex.colorSpace=THREE.SRGBColorSpace;
+mangTex.anisotropy=8; mangTex.minFilter=THREE.LinearFilter; mangTex.generateMipmaps=false;
+(function dibujaManguito(){
+  const c=mangCanvas.getContext('2d'), W=mangCanvas.width, H=mangCanvas.height;
+  c.fillStyle='#c6ced2'; c.fillRect(0,0,W,H);
+  c.strokeStyle='#1b2226'; c.lineWidth=7;
+  c.beginPath(); c.moveTo(W/2,0); c.lineTo(W/2,H); c.stroke();   // la línea de referencia
+  mangTex.needsUpdate=true;
+})();
+const matManguito=std({map:mangTex, roughness:0.34, metalness:0.55});
+const sleeve=sh(new THREE.Mesh(new THREE.CylinderGeometry(0.108,0.108,0.50,24),
+  [matManguito, MAT.steel, MAT.steel]));
+sleeve.position.set(ARM_X,0.60,0); sleeve.rotation.y=Math.PI; micG.add(sleeve);
+sleeve.userData={title:'Manguito (escala fija) · línea de referencia',info:'Cuerpo fijo solidario al bastidor. Su línea de referencia longitudinal es contra la que se lee la división del tambor. Los milímetros y la línea de 0.5 mm se leen en el visor.'};
 
-const thimble=sh(new THREE.Mesh(new THREE.CylinderGeometry(0.128,0.128,0.28,20),MAT.steelDk));
+/* EL TAMBOR con sus 50 DIVISIONES grabadas, numeradas de 5 en 5. No es decorado:
+   gira (raw/0.5)·2π, asi que la division que cae sobre la linea de referencia es
+   exactamente la centesima de la lectura — la misma que muestra el visor. */
+const tamCanvas=document.createElement('canvas'); tamCanvas.width=2048; tamCanvas.height=256;
+const tamTex=new THREE.CanvasTexture(tamCanvas); tamTex.colorSpace=THREE.SRGBColorSpace;
+tamTex.anisotropy=8; tamTex.minFilter=THREE.LinearFilter; tamTex.generateMipmaps=false;
+(function dibujaTambor(){
+  const c=tamCanvas.getContext('2d'), W=tamCanvas.width, H=tamCanvas.height;
+  c.fillStyle='#aeb7bd'; c.fillRect(0,0,W,H);
+  c.strokeStyle='#12181c'; c.fillStyle='#12181c'; c.textAlign='center';
+  for(let k=0;k<50;k++){
+    /* Se dibuja en sentido INVERSO (u = 1 − k/50) porque el tambor gira sobre
+       +Y: con el sentido directo, la division que cae sobre la referencia seria
+       −k y la lectura saldria al reves que la del visor. */
+    const xb=W*(1-k/50);
+    const marca=k%5===0;
+    /* Cada raya se pinta TRES veces —en x, x−W y x+W— porque el lienzo da la
+       vuelta al tambor: la costura caeria justo sobre la division 0 y la
+       partiria por la mitad, y su numero habria que empujarlo hacia dentro,
+       descolocandolo casi una division respecto de su propia raya. */
+    for(const x of [xb-W, xb, xb+W]){
+      c.lineWidth=marca?5:3;
+      c.beginPath(); c.moveTo(x,0); c.lineTo(x,marca?H*0.52:H*0.32); c.stroke();
+      if(marca){ c.font='bold 62px system-ui'; c.fillText(String(k), x, H*0.86); }
+    }
+  }
+  tamTex.needsUpdate=true;
+})();
+const thimble=sh(new THREE.Mesh(new THREE.CylinderGeometry(0.128,0.128,0.28,28),
+  [std({map:tamTex, roughness:0.38, metalness:0.55}), MAT.steelDk, MAT.steelDk]));
 thimble.position.set(ARM_X,THIMBLE_Y,0); micG.add(thimble);
-thimble.userData={title:'Tambor (escala móvil, centésimas)',info:'50 divisiones × 0.01 mm = 0.5 mm por vuelta completa. Gira solidario al husillo.'};
+thimble.userData={title:'Tambor (escala móvil, centésimas)',info:'50 divisiones × 0.01 mm = 0.5 mm por vuelta completa. Gira solidario al husillo: la división que cae sobre la línea de referencia del manguito es la centésima de la lectura.'};
 
 const ratchet=sh(new THREE.Mesh(new THREE.CylinderGeometry(0.07,0.07,0.09,16),MAT.lock));
 ratchet.position.set(ARM_X,0.365,0); micG.add(ratchet);
@@ -718,7 +782,7 @@ rod.position.set(ARM_X,ROD_BASE_Y,0); micG.add(rod);
 rod.userData={title:'Husillo (parte roscada)',info:'Avanza hacia el yunque al girar el tambor: paso de rosca 0.5 mm/vuelta.'};
 
 const lockLever=sh(new THREE.Mesh(new THREE.BoxGeometry(0.11,0.05,0.06),MAT.lock));
-lockLever.position.set(0.03,0.95,0.16); micG.add(lockLever);
+lockLever.position.set(0.03,1.20,0.155); micG.add(lockLever);
 lockLever.userData={title:'Tornillo de fijación (lock)',info:'Bloquea el husillo en su posición actual — a diferencia del trinquete, NO estandariza fuerza de medición, solo evita que el husillo gire una vez tomada la lectura.'};
 
 // visor — panel de lectura ampliada (manguito+tambor), posición fija y siempre legible
@@ -735,7 +799,7 @@ const thimbleLabel=labelSprite('Tambor · 0.01 mm/división','#4FD1C5'); thimble
 thimbleLabel.visible=false; thimbleLabel.raycast=()=>{}; micG.add(thimbleLabel); HOVER_LABELS.set(thimble,thimbleLabel);
 const ratchetLabel=labelSprite('Trinquete','#ffd166'); ratchetLabel.position.set(ARM_X,0.20,0.25);
 ratchetLabel.visible=false; ratchetLabel.raycast=()=>{}; micG.add(ratchetLabel); HOVER_LABELS.set(ratchet,ratchetLabel);
-const lockLabel=labelSprite('Tornillo de fijación','#ffd166'); lockLabel.position.set(0.25,1.15,0.3);
+const lockLabel=labelSprite('Tornillo de fijación','#ffd166'); lockLabel.position.set(0.25,1.38,0.3);
 lockLabel.visible=false; lockLabel.raycast=()=>{}; micG.add(lockLabel); HOVER_LABELS.set(lockLever,lockLabel);
 const visorLabel=labelSprite('Visor · lectura ampliada','#4FD1C5'); visorLabel.position.set(0.42,2.45,0.32);
 visorLabel.visible=false; visorLabel.raycast=()=>{}; micG.add(visorLabel); HOVER_LABELS.set(micVisorScreen,visorLabel);
@@ -768,28 +832,68 @@ const magBase=roundedBox(0.42,0.12,0.42,MAT.base,0.02); magBase.position.set(0,0
 magBase.userData={title:'Base magnética',info:'Se fija sobre una superficie ferrosa del banco de trabajo para sostener el comparador de forma rígida.'};
 const post=sh(new THREE.Mesh(new THREE.CylinderGeometry(0.035,0.035,1.05,12),MAT.steelDk));
 post.position.set(0,0.585,0); compG.add(post);
+/* LA PALANCA de la base magnetica: es lo que la enciende y la apaga, y lo que
+   la distingue de un taco de acero cualquiera. */
+const magPalanca=sh(new THREE.Mesh(new THREE.CylinderGeometry(0.022,0.022,0.14,10),MAT.lock));
+magPalanca.rotation.x=Math.PI/2; magPalanca.position.set(0.16,0.06,0.16); compG.add(magPalanca);
+magPalanca.userData={title:'Palanca de la base magnética',info:'Conecta y desconecta el imán permanente de la base: con la palanca en ON la base queda firme sobre el banco ferroso, y sin ella el comparador se movería con cada toque.'};
+
+/* EL BRAZO gira sobre la columna y la CABEZA sube y baja por él, que es como se
+   coloca un comparador de verdad sobre el punto que se va a medir. Aqui ademas
+   hace falta: la practica de planitud pasea el palpador por CINCO puntos de la
+   placa, y con la cabeza clavada en un sitio el 3D decia que no se movia. */
+const compBrazo=new THREE.Group(); compG.add(compBrazo);
 const armH=sh(new THREE.Mesh(new THREE.CylinderGeometry(0.03,0.03,0.55,12),MAT.steelDk));
-armH.rotation.z=Math.PI/2; armH.position.set(0.275,1.05,0); compG.add(armH);
+armH.rotation.z=Math.PI/2; armH.position.set(0.275,1.05,0); compBrazo.add(armH);
+const cabeza=new THREE.Group(); cabeza.position.set(0.55,0,0); compBrazo.add(cabeza);
 const armV=sh(new THREE.Mesh(new THREE.CylinderGeometry(0.03,0.03,0.22,12),MAT.steelDk));
-armV.position.set(0.55,0.93,0); compG.add(armV);
+armV.position.set(0,0.93,0); cabeza.add(armV);
 
 const dialBezel=sh(new THREE.Mesh(new THREE.CylinderGeometry(0.30,0.30,0.09,32),MAT.lock));
-dialBezel.rotation.x=Math.PI/2; dialBezel.position.set(0.55,0.80,0.05); compG.add(dialBezel);
+dialBezel.rotation.x=Math.PI/2; dialBezel.position.set(0,0.80,0.05); cabeza.add(dialBezel);
 const compCanvas=document.createElement('canvas'); compCanvas.width=384; compCanvas.height=384;
 const compTex=new THREE.CanvasTexture(compCanvas); compTex.colorSpace=THREE.SRGBColorSpace; compTex.minFilter=THREE.LinearFilter; compTex.generateMipmaps=false;
 const dialFace=new THREE.Mesh(new THREE.PlaneGeometry(0.54,0.54), new THREE.MeshBasicMaterial({map:compTex,toneMapped:false}));
-dialFace.position.set(0.55,0.80,0.10); compG.add(dialFace);
+dialFace.position.set(0,0.80,0.10); cabeza.add(dialFace);
 dialFace.userData={title:'Carátula del comparador',info:'Una vuelta completa de la aguja equivale a 1.00 mm de desplazamiento del palpador; cada división = 0.01 mm.'};
 const plungerHousing=sh(new THREE.Mesh(new THREE.CylinderGeometry(0.045,0.045,0.30,14),MAT.steel));
-plungerHousing.position.set(0.55,0.50,0.10); compG.add(plungerHousing);
+plungerHousing.position.set(0,0.62,0); cabeza.add(plungerHousing);
 plungerHousing.userData={title:'Palpador (husillo)',info:'Toca la pieza y transmite su desplazamiento lineal a la aguja mediante un mecanismo de cremallera y piñón.'};
+/* EL VASTAGO y su PUNTA DE CONTACTO. La punta es una bolita de metal duro: toca
+   la pieza en UN solo punto, y por eso lo que mide es la altura de ese punto y
+   no un promedio de la zona. Sin ella el palpador terminaba en un tubo cortado
+   a ras, flotando cinco centesimas por encima del eje. */
+const plungerRod=sh(new THREE.Mesh(new THREE.CylinderGeometry(0.016,0.016,0.09,10),MAT.steel));
+plungerRod.position.set(0,0.432,0); cabeza.add(plungerRod);
+plungerRod.userData=plungerHousing.userData;
+const plungerBall=sh(new THREE.Mesh(new THREE.SphereGeometry(0.028,16,12),MAT.lock));
+plungerBall.position.set(0,0.388,0); cabeza.add(plungerBall);
+plungerBall.userData={title:'Punta de contacto',info:'Bolita de metal duro en el extremo del palpador. Toca la pieza en un solo punto: la lectura es la altura de ESE punto, no un promedio de la zona.'};
+const Y_PUNTA=0.360;                     // y local de la bolita cuando cabeza.y = 0
 
-const dialLabel=labelSprite('Carátula · lectura','#4FD1C5'); dialLabel.position.set(0.55,1.15,0.15);
-dialLabel.visible=false; dialLabel.raycast=()=>{}; compG.add(dialLabel); HOVER_LABELS.set(dialFace,dialLabel);
+/* Coloca la cabeza sobre el punto que se esta midiendo: el brazo gira sobre la
+   columna lo justo, se estira hasta el radio que toca y la cabeza baja hasta
+   que la bolita apoya en la pieza. */
+function colocaCabeza(x,z,yPunta){
+  const R=Math.max(0.20,Math.hypot(x,z));
+  compBrazo.rotation.y=-Math.atan2(z,x);
+  armH.scale.y=R/0.55; armH.position.x=R/2;
+  cabeza.position.set(R,yPunta-Y_PUNTA,0);
+}
+
+const dialLabel=labelSprite('Carátula · lectura','#4FD1C5'); dialLabel.position.set(0,1.15,0.15);
+dialLabel.visible=false; dialLabel.raycast=()=>{}; cabeza.add(dialLabel); HOVER_LABELS.set(dialFace,dialLabel);
 const baseLabel=labelSprite('Base magnética','#ffd166'); baseLabel.position.set(0,0.30,0.25);
 baseLabel.visible=false; baseLabel.raycast=()=>{}; compG.add(baseLabel); HOVER_LABELS.set(magBase,baseLabel);
-const plungerLabel=labelSprite('Palpador (husillo)','#ffd166'); plungerLabel.position.set(0.55,0.65,0.25);
-plungerLabel.visible=false; plungerLabel.raycast=()=>{}; compG.add(plungerLabel); HOVER_LABELS.set(plungerHousing,plungerLabel);
+const plungerLabel=labelSprite('Palpador (husillo)','#ffd166'); plungerLabel.position.set(0,0.68,0.25);
+plungerLabel.visible=false; plungerLabel.raycast=()=>{}; cabeza.add(plungerLabel); HOVER_LABELS.set(plungerHousing,plungerLabel);
+
+/* Los cinco puntos de muestreo de la placa, en coordenadas del comparador: los
+   usan tanto los marcadores de la placa como la colocacion de la cabeza, para
+   que el palpador este SIEMPRE sobre el punto que dice la telemetria. */
+const PLAN_PTS=[[-0.36,-0.22],[0.36,-0.22],[-0.36,0.22],[0.36,0.22],[0,0]];
+const Y_EJE_CRESTA=0.360;   // y de la generatriz superior del eje de runout
+const Y_PLACA_CARA=0.205;   // y de la cara de la placa de planitud (con marcador)
 
 function makeRunoutShaft(){
   const g=new THREE.Group();
@@ -814,7 +918,7 @@ function makePlanitudPlate(){
   const plate=sh(new THREE.Mesh(new THREE.BoxGeometry(0.85,0.05,0.55),MAT.plate));
   plate.position.set(0.55,0.16,0); g.add(plate);
   plate.userData={title:'Placa de referencia rectificada',info:'Superficie de referencia; el comparador se pasea por 5 puntos (4 esquinas + centro) para evaluar planitud.'};
-  const pts=[[-0.36,-0.22],[0.36,-0.22],[-0.36,0.22],[0.36,0.22],[0,0]];
+  const pts=PLAN_PTS;
   const markers=pts.map((p,i)=>{
     const mk=sh(new THREE.Mesh(new THREE.CylinderGeometry(0.045,0.045,0.02,16),MAT.markerOff));
     mk.position.set(0.55+p[0],0.195,p[1]); g.add(mk);
@@ -1000,6 +1104,10 @@ function refreshInstrument(){
     drawCompDial(raw);
     if(caseKey==='planitud'){
       WK_GROUPS_COMP.planitud.userData._markers.forEach((mk,i)=>{ mk.material = i===idx?MAT.marker:MAT.markerOff; });
+      const pt=PLAN_PTS[idx];
+      colocaCabeza(0.55+pt[0], pt[1], Y_PLACA_CARA);
+    } else {
+      colocaCabeza(0.55, 0, Y_EJE_CRESTA);
     }
   }
   updateTele(raw); updateReport(raw);
