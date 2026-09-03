@@ -1126,9 +1126,21 @@ function borra(o){
   if(o.userData.gm) o.userData.gm.dispose();
   if(o.parent) o.parent.remove(o);
 }
-function rotulo(g,t,y,c){
+// El rotulo se pone DESPUES de centrar y como hijo directo del grupo. Si se
+// anade antes, `centra` se lo lleva al subgrupo desplazado y el letrero acaba en
+// el ORIGEN DEL MUNDO en vez de encima de su pieza: con las piezas dibujadas
+// alrededor del origen la diferencia es de centimetros, pero las que se dibujan
+// en coordenadas del mundo —el cable y las dos masas— se quedan con el letrero a
+// un metro largo de donde va.
+// La altura no se afina a mano: `centra` deja la pieza centrada en su grupo, asi
+// que su borde de arriba esta exactamente en −minY, y el letrero va ahi mas un
+// margen. Asi vale para las seis y no hay que retocarlo cuando cambia el coche.
+function rotula(g,t,c,margen){
   const s=labelSprite(t,c||'#cfe0ee');
-  s.position.set(0,y,0); s.scale.multiplyScalar(0.50); g.add(s);
+  const m=(margen===undefined?0.16*dims(VH()).K:margen);
+  s.position.set(0,-(g.userData.minY||0)+m,0);
+  s.scale.multiplyScalar(0.50); g.add(s);
+  return g;
 }
 
 // ============================================================ T3 · LAS PIEZAS
@@ -1184,9 +1196,7 @@ function haceBateria(){
   mR.position.set(d.wBat*0.34,d.hBat+0.13*K,d.dBat*0.24); g.add(mR);
   const mN=roundedBox(0.05*K,0.014*K,0.05*K,MAT.negro,0.004*K);
   mN.position.set(-d.wBat*0.34,d.hBat+0.13*K,d.dBat*0.24); g.add(mN);
-  rotulo(g,'batería',d.hBat+0.30*K,'#cfe0ee');
-  g.position.set(d.xBat,d.yBat-d.hBat/2,d.zBat);
-  return centra(g);
+  return rotula(centra(g),'batería','#cfe0ee');
 }
 function haceBornePos(){
   const d=dims(VH()), g=new THREE.Group(), K=d.K;
@@ -1197,9 +1207,7 @@ function haceBornePos(){
   torn.rotation.z=Math.PI/2; torn.position.set(-0.058*K,0,0); g.add(torn);
   const term=roundedBox(0.07*K,0.018*K,0.05*K,MAT.cobre,0.006*K);
   term.position.set(0.062*K,0,0); g.add(term);
-  rotulo(g,'borne +',0.20*K,'#f0a05a');
-  g.position.set(d.xBat+d.wBat*0.34, d.yBat+d.hBat/2+0.13*K, d.zBat+d.dBat*0.24);
-  return centra(g);
+  return rotula(centra(g),'borne +','#f0a05a');
 }
 function haceCablePos(){
   const d=dims(VH()), g=new THREE.Group(), K=d.K;
@@ -1216,8 +1224,7 @@ function haceCablePos(){
   g.add(tuboDe([a,m2,m,m3,b],r,MAT.rojo));
   for(const p of [a,b]){ const l=cil(r*1.5,r*1.5,0.05*K,MAT.cobre,12);
     l.position.copy(p); g.add(l); }
-  rotulo(g,'cable +',0.24*K,'#ff6b6b');
-  return centra(g);
+  return rotula(centra(g),'cable +','#ff6b6b');
 }
 function haceArranque(){
   const d=dims(VH()), g=new THREE.Group(), K=d.K;
@@ -1240,9 +1247,7 @@ function haceArranque(){
   // El piñón, que es lo que engrana con la corona.
   const pin=cil(d.rArr*0.34,d.rArr*0.34,0.10*K,MAT.acero,14);
   pin.rotation.x=Math.PI/2; pin.position.set(0,0,d.lArr*0.58); g.add(pin);
-  rotulo(g,'arranque',d.rArr*2.5,'#5ad1e6');
-  g.position.set(d.xArr,d.yArr,d.zArr);
-  return centra(g);
+  return rotula(centra(g),'arranque','#5ad1e6');
 }
 function haceMasaMotor(){
   const d=dims(VH()), g=new THREE.Group(), K=d.K;
@@ -1252,8 +1257,7 @@ function haceMasaMotor(){
   g.add(tuboDe([a,m,b],0.020*K,MAT.negro));
   for(const p of [a,b]){ const l=cil(0.030*K,0.030*K,0.04*K,MAT.acero,12);
     l.position.copy(p); g.add(l); }
-  rotulo(g,'masa del arranque',0.20*K,'#9aa6b6');
-  return centra(g);
+  return rotula(centra(g),'masa del arranque','#9aa6b6');
 }
 function haceMasaChasis(){
   const d=dims(VH()), g=new THREE.Group(), K=d.K;
@@ -1270,8 +1274,7 @@ function haceMasaChasis(){
   g.add(tuboDe([c,m2,b],rt,MAT.negro));
   for(const p of [a,c,b]){ const l=cil(rt*1.4,rt*1.4,0.04*K,MAT.acero,12);
     l.position.copy(p); g.add(l); }
-  rotulo(g,'trenza de masa',0.22*K,'#7b8697');
-  return centra(g);
+  return rotula(centra(g),'trenza de masa','#7b8697');
 }
 const FABRICA={ bateria:haceBateria, bornePos:haceBornePos, cablePos:haceCablePos,
   arranque:haceArranque, masaMotor:haceMasaMotor, masaChasis:haceMasaChasis };
@@ -1286,13 +1289,18 @@ function ancla(){
   return {
     bateria:   new THREE.Vector3(d.xBat, d.yBat, d.zBat),
     bornePos:  new THREE.Vector3(d.xBat+d.wBat*0.34, d.yBat+d.hBat/2+0.13*d.K, d.zBat+d.dBat*0.24),
-    cablePos:  new THREE.Vector3(0,0,0),
     arranque:  new THREE.Vector3(d.xArr, d.yArr, d.zArr),
-    masaMotor: new THREE.Vector3(0,0,0),
-    masaChasis:new THREE.Vector3(0,0,0),
   };
 }
-const posDe=k=>ancla()[k];
+/** Donde va la pieza `k`. Las que se dibujan en coordenadas del mundo —el cable
+ *  positivo y las dos masas— no declaran ancla: la suya es el centro que
+ *  `centra` les dejo en `userData.home`. */
+function posDe(k,o){
+  const A=ancla();
+  if(A[k]) return A[k].clone();
+  if(o&&o.userData&&o.userData.home) return o.userData.home.clone();
+  return new THREE.Vector3();
+}
 
 // Lo que SIEMPRE está: el suelo, el bloque del motor y el larguero del chasis.
 // No se monta porque no es el circuito: es aquello contra lo que el circuito
@@ -1408,14 +1416,13 @@ function registra(o){
   if(o.userData.id==='arranque') RIG.pinon=o.userData.pinon||null;
 }
 function reposiciona(){
-  const A=ancla();
   montadas.forEach(o=>{
     if(tweens.some(w=>w.o===o)) return;
-    o.position.copy(A[o.userData.id]);
+    o.position.copy(posDe(o.userData.id,o));
   });
   fantasmas.forEach(f=>{
-    f.position.copy(A[f.userData.id]);
-    f.userData.home=A[f.userData.id].clone();
+    const q=posDe(f.userData.id,f);
+    f.position.copy(q); f.userData.home=q.clone();
   });
 }
 function montaKit(){
@@ -1465,7 +1472,7 @@ function deselec(){ if(ASM.sel){ ASM.sel.userData.lift=0; ASM.sel=null; } muestr
 function colocaPieza(o,f){
   const p=PART[o.userData.id], i=ORDEN.indexOf(o.userData.id);
   f.visible=false;
-  tweens.push({o, p0:o.position.clone(), p1:posDe(o.userData.id).clone(),
+  tweens.push({o, p0:o.position.clone(), p1:posDe(o.userData.id,o),
     s0:o.scale.x, s1:1, t:0, dur:0.85,
     fin:()=>{ o.userData.kind='placed'; o.userData.lift=0; registra(o); }});
   ASM.done.add(o.userData.id); ASM.sel=null; pedHecho(i);
@@ -2594,6 +2601,33 @@ window.__labDebug={
       if(!isFinite(p.x)||!isFinite(p.y)||!isFinite(p.z))
         malas.push(o.type+':'+(o.name||o.userData.id||'?')); });
     return malas;
+  },
+  // Una pieza puede estar en la escena, con su material bueno y sin un solo NaN,
+  // y aun asi estar en el sitio equivocado. Pasa cuando se le declara un ancla
+  // que no es la suya: la pieza y su hueco fantasma se van juntos a donde diga
+  // el ancla, y en el 3D no salta nada.
+  get piezasDescolocadas(){
+    const malas=[];
+    for(const o of montadas.concat(fantasmas)){
+      const d=posDe(o.userData.id,o).distanceTo(o.position);
+      if(d>0.20) malas.push(o.userData.id+':'+d.toFixed(2));
+    }
+    return malas;
+  },
+  // Y el centinela hermano: un rotulo tiene que estar ENCIMA de su pieza. Si se
+  // anade al grupo antes de centrarlo, `centra` se lo lleva al subgrupo
+  // desplazado y el letrero acaba en el origen del mundo. La pieza se ve bien,
+  // el letrero se ve bien, y estan a un metro el uno del otro: por separado no
+  // hay nada que mirar, y por eso hace falta medir la distancia.
+  get rotulosSueltos(){
+    const malos=[], v=new THREE.Vector3(), w=new THREE.Vector3();
+    for(const o of montadas.concat(moviles)){
+      o.getWorldPosition(v);
+      o.traverse(n=>{ if(n.isSprite){ n.getWorldPosition(w);
+        const d=Math.hypot(w.x-v.x, w.z-v.z);
+        if(d>0.25) malos.push(o.userData.id+':'+d.toFixed(2)); } });
+    }
+    return malos;
   },
   get tableroPNG(){ return bcv.toDataURL('image/png'); },
   get anchoTableroPx(){

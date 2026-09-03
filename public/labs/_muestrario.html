@@ -1,0 +1,140 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<title>CEN Labs · Muestrario de piezas</title>
+<style>
+  html,body{margin:0;height:100%;background:#0b0f13;color:#cfe0ee;
+    font:13px/1.4 system-ui,'Segoe UI',Roboto,sans-serif;overflow:hidden}
+  canvas{display:block}
+  #hud{position:fixed;left:12px;top:10px;z-index:5;opacity:.85}
+  #hud b{color:#4FD1C5}
+</style>
+</head>
+<body>
+<div id="hud"><b>Muestrario</b> · arrastra para orbitar · rueda para acercar</div>
+<script type="importmap">
+{"imports":{
+  "three": "/labs/vendor/three@0.160.0/build/three.module.min.js",
+  "three/addons/": "/labs/vendor/three@0.160.0/examples/jsm/"
+}}
+</script>
+<script type="module">
+import * as THREE from 'three';
+import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
+import * as P3 from '/labs/_piezas3d.js';
+
+const ren = new THREE.WebGLRenderer({ antialias: true });
+ren.setSize(innerWidth, innerHeight);
+ren.setPixelRatio(Math.min(2, devicePixelRatio));
+ren.shadowMap.enabled = true; ren.shadowMap.type = THREE.PCFSoftShadowMap;
+ren.toneMapping = THREE.ACESFilmicToneMapping; ren.toneMappingExposure = 1.05;
+document.body.appendChild(ren.domElement);
+
+const scene = new THREE.Scene();
+scene.background = new THREE.Color(0x0b0f13);
+const pmrem = new THREE.PMREMGenerator(ren);
+scene.environment = pmrem.fromScene(new RoomEnvironment(), 0.02).texture;
+scene.environmentIntensity = 1.6;
+
+const cam = new THREE.PerspectiveCamera(42, innerWidth / innerHeight, 0.05, 200);
+cam.position.set(0.2, 6.4, 7.2);
+const ctr = new OrbitControls(cam, ren.domElement);
+ctr.target.set(0, -0.1, 0.6); ctr.enableDamping = true;
+
+scene.add(new THREE.HemisphereLight(0xbdd7ff, 0x2a2a2e, 1.5));
+const key = new THREE.DirectionalLight(0xffffff, 3.0);
+key.position.set(4, 7, 5); key.castShadow = true;
+key.shadow.mapSize.set(2048, 2048);
+key.shadow.camera.left = -6; key.shadow.camera.right = 6;
+key.shadow.camera.top = 6; key.shadow.camera.bottom = -6;
+scene.add(key);
+const fill = new THREE.DirectionalLight(0x9fd8ff, 1.3); fill.position.set(-5, 3, -4); scene.add(fill);
+const back = new THREE.DirectionalLight(0xffe8c0, 1.1); back.position.set(-2, 4, -7); scene.add(back);
+
+const suelo = new THREE.Mesh(new THREE.PlaneGeometry(40, 40),
+  new THREE.MeshStandardMaterial({ color: 0x151b22, roughness: 0.9, metalness: 0.1 }));
+suelo.rotation.x = -Math.PI / 2; suelo.position.y = -0.75; suelo.receiveShadow = true;
+scene.add(suelo);
+
+const std = o => new THREE.MeshStandardMaterial(o);
+const MAT = {
+  aluminio: std({ color: 0x9aa4b0, roughness: 0.42, metalness: 0.95 }),
+  acero:    std({ color: 0xc2cad3, roughness: 0.28, metalness: 1.0 }),
+  hierro:   std({ color: 0x5b646e, roughness: 0.72, metalness: 0.85 }),
+  cromo:    std({ color: 0xeef2f6, roughness: 0.06, metalness: 1.0 }),
+  cobre:    std({ color: 0xc98a4b, roughness: 0.30, metalness: 1.0 }),
+  negro:    std({ color: 0x22262b, roughness: 0.55, metalness: 0.30 }),
+  goma:     std({ color: 0x17191c, roughness: 0.92, metalness: 0.05 }),
+  ceramica: std({ color: 0xe8e2d6, roughness: 0.42, metalness: 0.03 }),
+  friccion: std({ color: 0x3a2f28, roughness: 0.95, metalness: 0.10 }),
+  blanco:   std({ color: 0xe9edf2, roughness: 0.40, metalness: 0.10 }),
+};
+
+// Un rótulo de texto plano, sólo para el muestrario.
+function etiqueta(t) {
+  const c = document.createElement('canvas'); c.width = 512; c.height = 96;
+  const x = c.getContext('2d');
+  x.fillStyle = '#cfe0ee'; x.font = 'bold 46px system-ui'; x.textAlign = 'center';
+  x.fillText(t, 256, 62);
+  const tex = new THREE.CanvasTexture(c); tex.anisotropy = 8;
+  const s = new THREE.Sprite(new THREE.SpriteMaterial({ map: tex, transparent: true }));
+  s.scale.set(1.1, 0.21, 1);
+  return s;
+}
+
+// Rejilla de piezas: cada una en su casilla, con su nombre debajo.
+const PASO = 2.1, POR_FILA = 5;
+let i = 0;
+function pon(nombre, obj, escala = 1, dy = 0) {
+  const g = new THREE.Group();
+  obj.scale.setScalar(escala);
+  obj.position.y = dy;
+  g.add(obj);
+  const e = etiqueta(nombre); e.position.set(0, -0.62, 0); g.add(e);
+  g.position.set((i % POR_FILA - (POR_FILA - 1) / 2) * PASO, 0, (Math.floor(i / POR_FILA) - 1) * PASO);
+  scene.add(g); i++;
+  return g;
+}
+const malla = (geo, mat) => { const m = new THREE.Mesh(geo, mat); m.castShadow = true; return m; };
+
+// ---- las piezas ----
+pon('pistón', P3.piston(MAT, { D: 0.62 }), 1.0, 0.05);
+pon('biela', P3.biela(MAT, { largo: 0.85, espesor: 0.10 }), 0.85, -0.2);
+pon('cigüeñal', P3.ciguenal(MAT, { n: 4, paso: 0.42, carrera: 0.34 }), 0.72);
+pon('válvula', P3.valvula(MAT, { d: 0.24, largo: 0.70 }), 0.9, -0.3);
+pon('muelle', P3.muelle(MAT, { r: 0.13, largo: 0.5, vueltas: 7, hilo: 0.020 }), 1.0);
+pon('árbol de levas', P3.arbolLevas(MAT, { n: 6, paso: 0.20, rBase: 0.09, alzado: 0.05 }), 0.9);
+pon('bujía', P3.bujia(MAT, { d: 0.16, largo: 0.80 }), 0.9);
+pon('inyector', P3.inyector(MAT, { d: 0.18, largo: 0.72 }), 0.9);
+pon('disco ventilado', P3.discoFreno(MAT, { dExt: 0.95, dInt: 0.50, espesor: 0.12, perforado: 12 }), 0.95);
+pon('mordaza', P3.mordaza(MAT, { dDisco: 0.95, espesorDisco: 0.12, ancho: 0.30 }), 1.0);
+pon('carcasa de motor', P3.carcasaMotor(MAT, { d: 0.52, largo: 0.78 }), 1.0);
+pon('polea poli-V', P3.polea(MAT, { d: 0.55, ancho: 0.20, gargantas: 6 }), 1.0);
+pon('engrane z=18', malla(P3.engrane({ z: 18, m: 0.055, ancho: 0.16 }).geo, MAT.acero), 1.0);
+pon('cremallera', malla(P3.cremallera({ z: 8, m: 0.055, ancho: 0.16, alto: 0.22 }).geo, MAT.acero), 1.0);
+pon('conector', P3.conector(MAT, { ancho: 0.34, alto: 0.22, fondo: 0.17, pines: 4 }), 1.0);
+pon('tornillo', P3.tornilloHex(MAT, { d: 0.13, largo: 0.36 }), 1.0, -0.1);
+pon('rosca', P3.rosca(MAT, { r: 0.14, paso: 0.055, vueltas: 7, grueso: 0.022 }), 1.0);
+pon('aletas', P3.aletas(MAT, { r: 0.32, rInt: 0.16, n: 7, paso: 0.075, espesor: 0.020 }), 1.0);
+pon('manguera', P3.manguera(MAT, { puntos: [[-0.45, -0.25, 0], [-0.1, 0.30, 0.2], [0.45, -0.20, 0]], r: 0.055 }), 1.0);
+pon('corona de tornillos', P3.corona(MAT, { r: 0.34, n: 6, d: 0.075, largo: 0.20 }), 1.0);
+
+// El muestrario se anuncia cuando ha pintado, para que la captura sepa esperar.
+let n = 0;
+(function bucle() {
+  requestAnimationFrame(bucle);
+  ctr.update(); ren.render(scene, cam);
+  window.__listo = ++n > 3;
+})();
+addEventListener('resize', () => {
+  cam.aspect = innerWidth / innerHeight; cam.updateProjectionMatrix();
+  ren.setSize(innerWidth, innerHeight);
+});
+window.__cam = (x, y, z, tx, ty, tz) => {
+  cam.position.set(x, y, z); ctr.target.set(tx || 0, ty || 0, tz || 0); ctr.update();
+};
+</script>
+</body>
+</html>
