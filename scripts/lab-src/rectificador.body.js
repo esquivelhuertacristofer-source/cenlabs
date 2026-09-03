@@ -430,53 +430,106 @@ fuenteBox.g.position.set(-0.15,0.42,0.55);benchG.add(fuenteBox.g);
 const medidorBox=makeDisplayBox(0.62,0.42,0.14,256,180);
 medidorBox.g.position.set(0.55,0.42,0.55);benchG.add(medidorBox.g);
 
-// Transformador / fuente (bloque + 2 bobinas)
+/* Los nombres con los que trabaja la biblioteca de piezas (`P3`, que el molde ya
+   importa), traducidos una vez a los materiales de este laboratorio. */
+const MATP={
+  aluminio:std({color:0x9aa3ad,roughness:0.34,metalness:0.86}),
+  acero:MAT.lead, cromo:MAT.lead,
+  cobre:std({color:0xb87333,roughness:0.35,metalness:0.75}),
+  chapa:std({color:0x8f98a3,roughness:0.40,metalness:0.80}),
+  negro:std({color:0x14181e,roughness:0.62,metalness:0.06}),
+  goma:std({color:0x14181e,roughness:0.80,metalness:0.02}),
+  blanco:std({color:0xd7dee6,roughness:0.40,metalness:0.20}),
+  ceramica:std({color:0xd7dee6,roughness:0.60,metalness:0.05}),
+};
+// Todo lo que va en la placa apoya en su CARA: la biblioteca dibuja cada
+// componente con y = 0 en la placa y las patas por debajo, atravesandola.
+const Y_PCB=0.035;
+/* EL TRANSFORMADOR de la fuente, como el que hay en cualquier banco: NUCLEO E-I
+   de chapas apiladas, carrete partido —primario y secundario, cada uno en su
+   hueco, sobre EL MISMO hierro— y el fleje de sujecion con sus patas. El bloque
+   liso con dos cilindros pegados a los lados no decia de donde sale la tension
+   del secundario; asi se ve que sale de un devanado enrollado sobre el mismo
+   nucleo que el otro. */
 const xfmrG=new THREE.Group();
-const xfCore=new THREE.Mesh(new THREE.BoxGeometry(0.34,0.28,0.24),MAT.xfmr);xfmrG.add(xfCore);
-const coil1=new THREE.Mesh(new THREE.CylinderGeometry(0.09,0.09,0.2,16),MAT.psu);
-coil1.rotation.z=Math.PI/2;coil1.position.set(-0.12,0,0);xfmrG.add(coil1);
-const coil2=coil1.clone();coil2.position.set(0.12,0,0);xfmrG.add(coil2);
+const xfNuc=P3.nucleoEI(MATP,{ancho:0.30,alto:0.34,prof:0.22,chapas:9});
+xfmrG.add(xfNuc);
+const XBRZ=xfNuc.userData.brazo;
+const flanCont=[[-0.150,-0.086],[0.150,-0.086],[0.150,0.086],[-0.150,0.086]];
+const flanHueco=[[-0.118,-0.046],[0.118,-0.046],[0.118,0.046],[-0.118,0.046]];
+[-0.100,0,0.100].forEach(dx=>{
+  const f=new THREE.Mesh(P3.extruido(flanCont,{huecos:[flanHueco],espesor:0.012,bisel:0.002}),MATP.negro);
+  f.rotation.y=Math.PI/2;f.position.set(XBRZ.x+dx,XBRZ.y,0);xfmrG.add(f);
+});
+[[-0.050,0xb87333,0.0085],[0.050,0x8a5a2c,0.0105]].forEach(a=>{
+  const w=P3.bobinaCampo({cobre:std({color:a[1],roughness:0.38,metalness:0.72})},
+    {ancho:0.118,prof:0.238,alto:0.086,vueltas:7,hilo:a[2],capas:2,seg:4});
+  w.rotation.z=-Math.PI/2;w.position.set(XBRZ.x+a[0],XBRZ.y,0);xfmrG.add(w);
+});
+const xfFleje=new THREE.Mesh(new THREE.BoxGeometry(0.42,0.016,0.30),MATP.chapa);
+xfFleje.position.y=-0.178;xfmrG.add(xfFleje);
+[-0.17,0.17].forEach(x=>{
+  const pa=new THREE.Mesh(new THREE.BoxGeometry(0.016,0.16,0.26),MATP.chapa);
+  pa.position.set(x,-0.10,0);xfmrG.add(pa);
+});
 xfmrG.userData.act='src3d';xfmrG.userData.title='Fuente CA (secundario)';
-xfmrG.position.set(-1.55,0.24,1.15);benchG.add(xfmrG);
+xfmrG.position.set(-1.55,0.19,1.15);benchG.add(xfmrG);
 
 // Diodos (hasta 4 instancias, visibilidad y color según topología/dispositivo)
 const dioG=new THREE.Group();
+/* LOS DIODOS, cada uno con SU BANDA DE CATODO alrededor del cuerpo y las patas
+   dobladas metidas en la placa. La banda es la unica marca que dice hacia donde
+   conduce: en el puente, dos de los cuatro van con la banda al reves que los
+   otros dos, y equivocarse ahi es cortocircuitar el secundario. */
 const DIO3D=[0,1,2,3].map(i=>{
-  const g=new THREE.Group();
-  const body=new THREE.Mesh(new THREE.CylinderGeometry(0.042,0.042,0.16,20),std({color:DIODES.si.color,roughness:0.3}));
-  body.rotation.z=Math.PI/2;g.add(body);
-  const band=new THREE.Mesh(new THREE.CylinderGeometry(0.044,0.044,0.02,20),std({color:0x111111,roughness:0.4}));
-  band.rotation.z=Math.PI/2;band.position.x=0.06;g.add(band);
-  leads(g);
+  const g=P3.diodoAxial(MATP,{largo:0.16,d:0.070,patas:0.06,paso:0.22,
+    cuerpo:DIODES.si.color,banda:0x111111,catodo:1});
   g.userData.act='topo3d';g.userData.title='Red de diodos';
-  g.position.set(-0.9+i*0.24,0.24,0.55);
+  g.position.set(-0.56+i*0.30,Y_PCB,0.30);
   dioG.add(g);
-  return {g,body,band};
+  return {g,body:g.userData.cuerpo,band:g.userData.banda};
 });
 benchG.add(dioG);
 
-// Resistor con bandas (carga)
-const resG=new THREE.Group();
-const resBody=new THREE.Mesh(new THREE.CylinderGeometry(0.05,0.05,0.26,20),std({color:0xe8d9b0,roughness:0.6}));
-resBody.rotation.z=Math.PI/2;resG.add(resBody);
-leads(resG);
-const bandMeshes=[0,1,2].map(i=>{
-  const m=new THREE.Mesh(new THREE.CylinderGeometry(0.052,0.052,0.018,20),std({color:0x000000}));
-  m.rotation.z=Math.PI/2;m.position.x=-0.07+i*0.05;resG.add(m);return m;
-});
+/* LA RESISTENCIA DE CARGA, con el cuerpo abarrilado y las TRES BANDAS de valor
+   que el panel cambia cuando se mueve R_L: aqui el codigo de colores se lee de
+   verdad. */
+const resP3=P3.resistencia(MATP,{largo:0.22,d:0.085,patas:0.06,paso:0.34,
+  bandas:[0x000000,0x000000,0x000000],cuerpo:0xe8d9b0});
+const resG=new THREE.Group();resG.add(resP3);
+const resBody=resP3.userData.cuerpo;
+const bandMeshes=resP3.userData.bandas;
 resG.userData.act='res3d';resG.userData.title='Resistor de carga R_L';
-resG.position.set(0.15,0.24,1.15);benchG.add(resG);
+resG.position.set(0.15,Y_PCB,1.15);benchG.add(resG);
 
-// Capacitor de filtro (visible solo si C>0)
-const capG=new THREE.Group();
-const capBody=new THREE.Mesh(new THREE.CylinderGeometry(0.07,0.07,0.2,20),MAT.cap);
-capBody.rotation.z=0;capG.add(capBody);
-leads(capG);
+/* EL CONDENSADOR DE FILTRO, electrolitico: de pie, con el engarce del fondo, la
+   CRUZ DE ALIVIO de la tapa y la FRANJA DEL NEGATIVO. Las tres marcas son las de
+   uno de verdad, y la franja es la que importa: un electrolitico al reves a la
+   salida de un rectificador revienta por la cruz. */
+const capP3=P3.condensadorRadial(MATP,{d:0.18,alto:0.24,patas:0.06,paso:0.10,
+  lata:0x1f3a52,franja:0xcfe8ff});
+const capG=new THREE.Group();capG.add(capP3);
+const capBody=capP3.userData.cuerpo;
 capG.userData.act='cap3d';capG.userData.title='Capacitor de filtro';
-capG.position.set(0.55,0.24,1.15);benchG.add(capG);
+capG.position.set(0.55,Y_PCB,1.15);benchG.add(capG);
 
-cable([[-1.4,0.24,1.15],[-1.1,0.3,0.85],[-0.5,0.24,0.55]],MAT.cableRed);
-cable([[-1.4,0.16,1.15],[-1.1,0.1,0.85],[-0.5,0.16,0.55]],MAT.cableBlk);
+/* LAS PISTAS Y LAS ISLAS de la placa. Solo se dibujan las que son ciertas en
+   TODAS las topologias: las islas de entrada, las de cada diodo y el lazo que
+   pone el condensador EN PARALELO con la carga —la unica conexion que no cambia
+   al pasar de media onda a puente—. */
+function isla(x,z){
+  const m=new THREE.Mesh(new THREE.CylinderGeometry(0.026,0.026,0.005,14),MAT.trace);
+  m.position.set(x,0.037,z);benchG.add(m);
+}
+DIO3D.forEach(d=>{isla(d.g.position.x-0.11,0.30);isla(d.g.position.x+0.11,0.30);});
+[[-0.02,1.15],[0.32,1.15],[0.50,1.15],[0.60,1.15],[-0.50,0.50]].forEach(a=>isla(a[0],a[1]));
+trace(0.32,1.15,0.50,1.15,0.045);
+trace(-0.02,1.15,-0.02,1.42,0.045);
+trace(-0.02,1.42,0.60,1.42,0.045);
+trace(0.60,1.42,0.60,1.15,0.045);
+
+cable([[-1.40,0.13,1.22],[-1.05,0.17,0.85],[-0.67,0.05,0.30]],MAT.cableRed);
+cable([[-1.40,0.13,1.08],[-1.05,0.11,0.80],[-0.50,0.05,0.50]],MAT.cableBlk);
 
 benchG.traverse(o=>{if(o.isMesh){o.castShadow=true;o.receiveShadow=true;}});
 board.castShadow=false;boardFrame.receiveShadow=true;

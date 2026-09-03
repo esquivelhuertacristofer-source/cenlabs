@@ -315,49 +315,58 @@ const scopeScr=new THREE.Mesh(new THREE.PlaneGeometry(0.56,0.42),
 scopeScr.position.set(0,0.01,0.212);scopeG.add(scopeScr);
 scopeG.userData={act:'tracer',title:'Trazador de curvas (toca: LIN ⇄ SEMILOG)'};
 /* resistor con bandas vivas */
-const resG=new THREE.Group();resG.position.set(1.35,0.62,0.85);benchG.add(resG);
+/* Los nombres con los que trabaja la biblioteca de piezas (`P3`, que el molde ya
+   importa), traducidos una vez a los materiales de este laboratorio. */
+const MATP={aluminio:MAT.lead, acero:MAT.lead, cromo:MAT.lead,
+  cobre:new THREE.MeshStandardMaterial({color:0xb87333,roughness:0.35,metalness:0.75}),
+  chapa:MAT.lead, hierro:MAT.lead,
+  negro:new THREE.MeshStandardMaterial({color:0x14181e,roughness:0.62,metalness:0.06}),
+  goma:new THREE.MeshStandardMaterial({color:0x14181e,roughness:0.8,metalness:0.02}),
+  blanco:new THREE.MeshStandardMaterial({color:0xd7dee6,roughness:0.4,metalness:0.2}),
+  ceramica:new THREE.MeshStandardMaterial({color:0xd7dee6,roughness:0.6,metalness:0.05})};
+const Y_PCB=0.56;                       // la cara de la placa: 0,53 + 0,03 de canto
+/* LA RESISTENCIA, con sus CUATRO bandas —tres de valor y la de tolerancia,
+   separada— y las patas dobladas hacia la placa. Aqui el codigo de colores se
+   lee de verdad: el panel cambia las bandas con el valor. */
+const resG=new THREE.Group();resG.position.set(1.35,Y_PCB,0.85);benchG.add(resG);
 resG.userData={act:'res3d',title:'Resistor limitador (toca para cambiar R)'};
-const resBody=new THREE.Mesh(new THREE.CylinderGeometry(0.045,0.045,0.20,24),
-  new THREE.MeshStandardMaterial({color:0xd8c49a,roughness:0.7}));
-resBody.rotation.z=Math.PI/2;resG.add(resBody);
-const bandMeshes=[-0.060,-0.020,0.020,0.070].map(x=>{
-  const b=new THREE.Mesh(new THREE.CylinderGeometry(0.047,0.047,0.018,24),
-    new THREE.MeshStandardMaterial({color:0xffffff,roughness:0.6}));
-  b.rotation.z=Math.PI/2;b.position.x=x;resG.add(b);return b;});
-[-0.17,0.17].forEach(x=>{const l=new THREE.Mesh(new THREE.CylinderGeometry(0.008,0.008,0.14,8),MAT.lead);
-  l.rotation.z=Math.PI/2;l.position.set(x,0,0);resG.add(l);});
+const resP3=P3.resistencia(MATP,{largo:0.20,d:0.090,patas:0.09,paso:0.34,
+  bandas:[0xffffff,0xffffff,0xffffff,0xc9a227],cuerpo:0xd8c49a});
+resP3.traverse(o=>{ if(o.isMesh){o.castShadow=true;o.receiveShadow=true;} });
+resG.add(resP3);
+const resBody=resP3.userData.cuerpo;
+const bandMeshes=resP3.userData.bandas;
 /* diodos: 3 encarnaciones + caja misteriosa (visibilidad conmutada) */
-const dioG=new THREE.Group();dioG.position.set(2.05,0.62,0.85);benchG.add(dioG);
+const dioG=new THREE.Group();dioG.position.set(2.05,Y_PCB,0.85);benchG.add(dioG);
 dioG.userData={act:'dio3d',title:'Diodo bajo prueba (toca para cambiarlo)'};
 function leads(g){[-0.16,0.16].forEach(x=>{const l=new THREE.Mesh(
   new THREE.CylinderGeometry(0.008,0.008,0.14,8),MAT.lead);
   l.rotation.z=Math.PI/2;l.position.set(x,0,0);g.add(l);});}
-const gSi=new THREE.Group();
-const siBody=new THREE.Mesh(new THREE.CylinderGeometry(0.040,0.040,0.15,24),
-  new THREE.MeshStandardMaterial({color:0xd88a2e,roughness:0.25,metalness:0,transparent:true,opacity:0.88}));
-siBody.rotation.z=Math.PI/2;gSi.add(siBody);
-const siBand=new THREE.Mesh(new THREE.CylinderGeometry(0.042,0.042,0.02,24),
-  new THREE.MeshStandardMaterial({color:0x111111,roughness:0.4}));
-siBand.rotation.z=Math.PI/2;siBand.position.x=0.05;gSi.add(siBand);leads(gSi);dioG.add(gSi);
-const gSch=new THREE.Group();
-const schBody=new THREE.Mesh(new THREE.CylinderGeometry(0.050,0.050,0.18,24),
-  new THREE.MeshStandardMaterial({color:0x141414,roughness:0.5}));
-schBody.rotation.z=Math.PI/2;gSch.add(schBody);
-const schBand=new THREE.Mesh(new THREE.CylinderGeometry(0.052,0.052,0.022,24),
-  new THREE.MeshStandardMaterial({color:0xc8c8c8,roughness:0.35,metalness:0.6}));
-schBand.rotation.z=Math.PI/2;schBand.position.x=0.06;gSch.add(schBand);leads(gSch);dioG.add(gSch);
-const gLed=new THREE.Group();
-const ledMat=new THREE.MeshStandardMaterial({color:0xb02020,roughness:0.3,
-  emissive:0xff2222,emissiveIntensity:0});
-const ledBase=new THREE.Mesh(new THREE.CylinderGeometry(0.05,0.05,0.05,24),ledMat);
-ledBase.position.y=0.02;gLed.add(ledBase);
-const ledDome=new THREE.Mesh(new THREE.SphereGeometry(0.05,24,16,0,Math.PI*2,0,Math.PI/2),ledMat);
-ledDome.position.y=0.045;gLed.add(ledDome);
+/* LOS TRES DIODOS, cada uno con SU BANDA DE CATODO alrededor del cuerpo. La
+   banda es la unica marca que dice hacia donde conduce, y en esta practica se
+   compara justo eso: el mismo montaje con tres uniones distintas. */
+const gSi=P3.diodoAxial(MATP,{largo:0.15,d:0.080,patas:0.09,paso:0.32,
+  cuerpo:0xd88a2e,banda:0x111111,catodo:1});
+gSi.traverse(o=>{ if(o.isMesh) o.castShadow=true; });
+const siBody=gSi.userData.cuerpo, siBand=gSi.userData.banda;
+siBody.material.transparent=true; siBody.material.opacity=0.88;
+dioG.add(gSi);
+const gSch=P3.diodoAxial(MATP,{largo:0.18,d:0.100,patas:0.09,paso:0.34,
+  cuerpo:0x141414,banda:0xc8c8c8,catodo:1});
+gSch.traverse(o=>{ if(o.isMesh) o.castShadow=true; });
+const schBody=gSch.userData.cuerpo, schBand=gSch.userData.banda;
+schBand.material.metalness=0.6;
+dioG.add(gSch);
+/* EL LED, con el CHAFLAN del catodo cortado en la pestana y la pata corta. Las
+   dos marcas dicen lo mismo —cual es el negativo— y estan ahi porque un LED al
+   reves no quema nada pero tampoco luce. */
+const gLed=P3.led(MATP,{d:0.10,color:0xb02020,patas:0.10});
+gLed.traverse(o=>{ if(o.isMesh) o.castShadow=true; });
+const ledMat=gLed.userData.material;
+ledMat.emissive.set(0xff2222); ledMat.emissiveIntensity=0;
 const halo=new THREE.Mesh(new THREE.SphereGeometry(0.10,16,12),
   new THREE.MeshBasicMaterial({color:0xff4444,transparent:true,opacity:0,toneMapped:false}));
-halo.position.y=0.05;gLed.add(halo);
-[-0.03,0.03].forEach(x=>{const l=new THREE.Mesh(new THREE.CylinderGeometry(0.007,0.007,0.10,8),MAT.lead);
-  l.position.set(x,-0.03,0);gLed.add(l);});
+halo.position.y=0.07;gLed.add(halo);
 dioG.add(gLed);
 const gMyst=new THREE.Group();
 const mystBox=roundedBox(0.16,0.10,0.12,
