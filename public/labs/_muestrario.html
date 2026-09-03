@@ -144,6 +144,15 @@ pon('rotor de garras', P3.rotorGarras(MAT, { r: 0.40, largo: 0.36, polos: 12, dE
 pon('sonda lambda', P3.sondaLambda(MAT, { d: 0.20, largo: 0.80 }), 1.0);
 pon('monolito', P3.monolito(MAT, { r: 0.40, largo: 0.52, celdas: 13 }), 1.0);
 pon('nucleo E-I', P3.nucleoEI(MAT, { ancho: 0.60, alto: 0.72, prof: 0.30, chapas: 9, entrehierro: 0.03 }), 1.0);
+pon('manometro', P3.manometro(MAT, { d: 0.80 }), 1.0);
+pon('cilindro', P3.cilindroHidraulico(MAT, { d: 0.34, carrera: 0.50, vastago: 0.15 }), 0.9);
+pon('valvula 5/2', P3.valvulaDireccional(MAT, { ancho: 0.80, alto: 0.26, fondo: 0.28 }), 1.0);
+pon('bomba de pistones', P3.bombaPistones(MAT, { d: 0.72, largo: 0.80, angulo: 0.34 }), 1.0);
+pon('deposito', P3.deposito(MAT, { ancho: 0.90, alto: 0.52, fondo: 0.56, nivel: 0.62 }), 1.0, -0.26);
+pon('vaso de filtro', P3.vasoFRL(MAT, { d: 0.34, alto: 0.70, tipo: 'filtro' }), 1.0, -0.32);
+pon('lubricador', P3.vasoFRL(MAT, { d: 0.34, alto: 0.70, tipo: 'lubricador' }), 1.0, -0.32);
+pon('regulador', P3.reguladorPresion(MAT, { d: 0.34, alto: 0.70 }), 1.0, -0.32);
+pon('ventosa', P3.ventosa(MAT, { d: 0.50, fuelles: 2 }), 1.0, 0.30);
 
 // El muestrario se anuncia cuando ha pintado, para que la captura sepa esperar.
 let n = 0;

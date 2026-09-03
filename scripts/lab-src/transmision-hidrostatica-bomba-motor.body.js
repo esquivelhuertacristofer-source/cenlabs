@@ -954,6 +954,15 @@ function particulas(key,n,mat){
   PART.push(p); return p;
 }
 
+/* Los nombres con los que trabaja la biblioteca de piezas (`P3`, que el molde
+   ya importa), traducidos una vez a los materiales de este laboratorio. */
+const MATP={aluminio:MAT.acero2, acero:MAT.acero, cobre:MAT.tuboA, cromo:MAT.crom,
+  chapa:MAT.acero2, hierro:MAT.acero2, negro:MAT.goma, goma:MAT.goma,
+  blanco:MAT.crom, ceramica:MAT.crom, papel:MAT.aleta};
+/* Una pieza EN CORTE deja ver el REVÉS de su pared del fondo: con una sola cara
+   se vuelve transparente por el lado abierto y desaparece al mirarla de frente. */
+const corte=(m)=>{ const c=m.clone(); c.side=THREE.DoubleSide; return c; };
+
 // ---- bancada ----
 (function(){
   const b=roundedBox(6.30,0.16,2.60,MAT.bancada,0.03);
@@ -974,12 +983,30 @@ let volante=null;
   cuerpo.position.set(0.20,0.62,0); gDiesel.add(cuerpo);
   const culata=roundedBox(1.02,0.16,0.72,MAT.acero2,0.05);
   culata.position.set(0.20,1.10,0); gDiesel.add(culata);
-  for(let i=0;i<4;i++){
-    const es=new THREE.Mesh(new THREE.CylinderGeometry(0.045,0.045,0.26,12),MAT.acero);
-    es.position.set(-0.16+i*0.24,1.30,0); gDiesel.add(es);
+  /* EL DIÉSEL, con lo que se le ve a un motor desde fuera: la TAPA DE BALANCINES
+     con su boca de llenado, el COLECTOR DE ESCAPE de cuatro tubos que se juntan
+     en uno —cuatro cilindros, cuatro tubos: la cuenta se puede hacer mirando— y
+     el CÁRTER con su tapón de vaciado. Un ladrillo con cuatro palitos encima no
+     es un motor: es un ladrillo. */
+  const tapa=roundedBox(0.92,0.20,0.52,MAT.diesel,0.05);
+  tapa.position.set(0.20,1.28,0.02); tapa.castShadow=true; gDiesel.add(tapa);
+  const boca=new THREE.Mesh(P3.revolucion([
+    [0,0],[0.075,0],[0.075,0.05],[0.090,0.055],[0.090,0.075],[0,0.075]],{seg:16}),MAT.acero2);
+  boca.position.set(-0.14,1.38,0.02); gDiesel.add(boca);
+  for(let i=0;i<4;i++){                      // los cuatro tubos del colector
+    const x=-0.16+i*0.24;
+    gDiesel.add(P3.manguera(MATP,{puntos:[[x,1.16,-0.30],[x,1.32,-0.36],
+      [x,1.36,-0.44],[0.20,1.36,-0.46]],r:0.036,abrazaderas:false}));
   }
-  const escape=new THREE.Mesh(new THREE.CylinderGeometry(0.08,0.08,0.62,16),MAT.acero2);
-  escape.position.set(0.20,1.45,-0.28); escape.rotation.z=Math.PI/2; gDiesel.add(escape);
+  const colector=new THREE.Mesh(new THREE.CylinderGeometry(0.062,0.062,0.86,16),MAT.acero2);
+  colector.rotation.z=Math.PI/2; colector.position.set(0.20,1.36,-0.46); gDiesel.add(colector);
+  const escape=new THREE.Mesh(new THREE.CylinderGeometry(0.08,0.08,0.50,16),MAT.acero2);
+  escape.position.set(0.20,1.62,-0.46); gDiesel.add(escape);
+  const carter=new THREE.Mesh(P3.extruido(P3.contornoRedondeado(
+    [[-0.52,0],[0.52,0],[0.46,-0.26],[-0.46,-0.26]],0.05,3),{espesor:0.80,bisel:0.02}),MAT.acero2);
+  carter.position.set(0.20,0.22,0); carter.castShadow=true; gDiesel.add(carter);
+  const tapon=new THREE.Mesh(new THREE.CylinderGeometry(0.038,0.038,0.05,6),MAT.crom);
+  tapon.position.set(0.42,-0.02,0); gDiesel.add(tapon);
   volante=new THREE.Mesh(new THREE.CylinderGeometry(0.31,0.31,0.13,30),MAT.acero);
   volante.rotation.z=Math.PI/2; volante.position.set(0.86,0.62,0); gDiesel.add(volante);
   // dientes de la corona: hijos del volante, giran con el
@@ -1017,6 +1044,13 @@ let platoB=null, mandoArm=null, bombaCuerpo=null, bombaLbl=null;
     p.rotation.z=Math.PI/2;
     p.position.set(2.06,0.62+0.185*Math.cos(a),0.185*Math.sin(a));
     p.userData.ang=a; gBomba.add(p); PIS.push(p);
+    // El PATÍN: la zapata de bronce con la que cada pistón se apoya en el plato.
+    // Es la pieza que hace que el plato pueda estar inclinado y quieto mientras
+    // el barrilete gira, y sin ella el dibujo no explica cómo se tocan.
+    const pt=new THREE.Mesh(new THREE.CylinderGeometry(0.062,0.062,0.028,14),MAT.tuboA);
+    pt.rotation.z=Math.PI/2;
+    pt.position.set(2.21,0.62+0.185*Math.cos(a),0.185*Math.sin(a));
+    pt.userData.ang=a; pt.userData.patin=true; gBomba.add(pt); PIS.push(pt);
   }
   gBomba.userData.pistones=PIS;
   // plato inclinable: su angulo ES el mando alfa
@@ -1113,16 +1147,19 @@ let nivel=null, depCuerpo=null;
 const gCargaB=new THREE.Group(); rig.add(gCargaB);
 let rotCarga=null;
 (function(){
-  const c=new THREE.Mesh(new THREE.CylinderGeometry(0.20,0.20,0.30,22),MAT.bomba);
+  /* LA BOMBA DE CARGA, en corte y con su GEROTOR dentro. Es una bomba pequeña de
+     engranajes internos, y hay que verla por dentro por una razón concreta: es
+     la que repone las fugas del lazo cerrado. Si no se ve que tiene un
+     desplazamiento fijo y pequeño, no se entiende por qué un lazo con demasiada
+     fuga se queda sin aceite por mucho que el diésel siga girando. */
+  const c=new THREE.Mesh(P3.revolucion(
+    [[0.185,-0.15],[0.20,-0.15],[0.20,0.15],[0.185,0.15]],
+    {seg:24,fase:Math.PI*0.29,arco:Math.PI*1.42}),corte(MAT.bomba));
   c.rotation.z=Math.PI/2; c.position.set(2.30,0.40,-0.96); gCargaB.add(c);
-  rotCarga=new THREE.Mesh(new THREE.CylinderGeometry(0.13,0.13,0.34,16),MAT.crom);
-  rotCarga.rotation.z=Math.PI/2; rotCarga.position.set(2.30,0.40,-0.96); gCargaB.add(rotCarga);
-  for(let i=0;i<6;i++){
-    const a=i/6*Math.PI*2;
-    const p=new THREE.Mesh(new THREE.BoxGeometry(0.36,0.10,0.02),MAT.acero);
-    p.position.set(0,0.075*Math.cos(a),0.075*Math.sin(a)); p.rotation.x=-a;
-    rotCarga.add(p);
-  }
+  rotCarga=P3.gerotor(MATP,{dientes:6,rExt:0.165,ancho:0.20,seg:44});
+  rotCarga.rotation.y=Math.PI/2; rotCarga.position.set(2.30,0.40,-0.96);
+  gCargaB.add(rotCarga);
+  rotCarga.traverse(o=>{ o.userData.pick='carga_b'; });
   const val=new THREE.Mesh(new THREE.CylinderGeometry(0.07,0.07,0.20,14),MAT.tuboC);
   val.position.set(2.62,0.44,-0.96); gCargaB.add(val);
   addHoverLabel(c,'Bomba de carga',OK_HEX,[2.30,1.02,-0.96],0.60);
@@ -1134,12 +1171,19 @@ const gRad=new THREE.Group(); rig.add(gRad);
 let ventRad=null, radLbl=null;
 const ALETAS=[];
 (function(){
-  const cuerpo=roundedBox(1.10,0.86,0.16,MAT.radiador,0.04);
-  cuerpo.position.set(3.60,0.78,-1.24); gRad.add(cuerpo);
-  for(let i=0;i<11;i++){
-    const a=new THREE.Mesh(new THREE.BoxGeometry(0.94,0.045,0.20),MAT.aleta);
-    a.position.set(3.60,0.44+i*0.068,-1.24); gRad.add(a); ALETAS.push(a);
-  }
+  /* EL RADIADOR, con su PANAL de verdad: tubos por dentro y aletas entre ellos.
+     Un bloque liso con unas rayas no dice por qué enfría —lo que enfría es la
+     superficie de las aletas, no el volumen del bloque— ni por qué un radiador
+     con las aletas dobladas deja de servir aunque no pierda una gota. */
+  const cuerpo=roundedBox(1.16,0.10,0.24,MAT.radiador,0.03);
+  cuerpo.position.set(3.60,1.24,-1.24); gRad.add(cuerpo);
+  const cuerpo2=roundedBox(1.16,0.10,0.24,MAT.radiador,0.03);
+  cuerpo2.position.set(3.60,0.34,-1.24); gRad.add(cuerpo2);
+  const nucleo=P3.panal({...MATP,chapa:MAT.aleta},
+    {ancho:1.06,alto:0.84,prof:0.20,tubos:13,eje:'y',
+     colorTubo:MAT.radiador.color.getHex(),colorAleta:MAT.aleta.color.getHex()});
+  nucleo.position.set(3.60,0.79,-1.24); gRad.add(nucleo);
+  nucleo.traverse(o=>{ if(o.isMesh) ALETAS.push(o); });
   ventRad=new THREE.Group(); ventRad.position.set(3.60,0.78,-1.44); gRad.add(ventRad);
   const buje=new THREE.Mesh(new THREE.CylinderGeometry(0.07,0.07,0.10,14),MAT.acero2);
   buje.rotation.x=Math.PI/2; ventRad.add(buje);
@@ -1996,7 +2040,14 @@ S.setAnimate((dt,tGlob)=>{
   if(volante) volante.rotation.x=giroV;
   if(ejeMotor) ejeMotor.rotation.x=giroM;
   if(tambor) tambor.rotation.x=-giroM;
-  if(rotCarga) rotCarga.rotation.x=giroB;              // bomba de carga, al eje del diesel
+  // El gerotor no gira en bloque: el rotor interior va al eje y el exterior le
+  // sigue con una vuelta MENOS por cada N —de esa diferencia sale el volumen que
+  // la bomba desplaza, y girar los dos igual sería dibujar una bomba que no bombea.
+  if(rotCarga){
+    const G=rotCarga.userData;
+    G.interior.rotation.z=giroB;
+    G.exterior.rotation.z=giroB*G.relacion;
+  }
   if(ventRad) ventRad.rotation.z=tGlob*(1.4+5.0*(hw.fC||0)); // el ventilador acelera con el calor
 
   // --- barriletes: giran, y su carrera axial la manda la inclinacion del plato ---

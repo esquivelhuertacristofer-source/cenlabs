@@ -46,6 +46,15 @@
   .gl{display:flex;justify-content:space-between;font-family:var(--mono);font-size:11px;color:var(--dim)}
   .gl b{color:var(--accent2)}
   .gl b.good{color:var(--good)}.gl b.warn{color:var(--hv)}.gl b.bad{color:var(--bad)}
+  /* Filas de telemetria: etiqueta a la izquierda, valor a la derecha. Sin esto
+     los dos <span> quedan pegados y el panel dice cosas como «Par que pide la
+     maquina280 N-m»: el numero se lee como parte de la palabra. */
+  .trow{display:flex;justify-content:space-between;align-items:baseline;gap:12px;font-family:var(--mono);font-size:11px;color:var(--dim);padding:2px 0}
+  .trow .tl{flex:1 1 auto;min-width:0}
+  .trow .tv{flex:0 0 auto;text-align:right;color:var(--accent2);font-variant-numeric:tabular-nums}
+  .trow .tv.ok,.trow .tv.good{color:var(--good)}
+  .trow .tv.warn{color:var(--hv)}
+  .trow .tv.bad{color:var(--bad)}
   .modebar{display:flex;gap:5px;margin-bottom:8px}
   .modebar .b{flex:1;padding:8px 4px;font-size:11px}
   .btns{display:flex;flex-direction:column;gap:7px;margin-top:6px}
@@ -103,6 +112,8 @@ import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
 import { RoundedBoxGeometry } from 'three/addons/geometries/RoundedBoxGeometry.js';
+import * as P3 from '/labs/_piezas3d.js';
+import { instalaDiag } from '/labs/_diag3d.js';
 import { EffectComposer } from 'three/addons/postprocessing/EffectComposer.js';
 import { RenderPass } from 'three/addons/postprocessing/RenderPass.js';
 import { GTAOPass } from 'three/addons/postprocessing/GTAOPass.js';
@@ -337,6 +348,13 @@ function createStage(mount, opts={}){
     composer.render(); }
   function start(){ if(!raf)loop(); }
   function stop(){ cancelAnimationFrame(raf); raf=null; window.removeEventListener('resize',resize); }
+
+  /* Sonda de escena para las auditorías del 3D. No cambia nada de lo que se ve
+     y cuelga de `window.__diag3d`, que ningún laboratorio pisa: así CUALQUIER
+     laboratorio construido con este molde se puede auditar —salud(), mira(),
+     piezas()— sin tocarle una línea. */
+  try { instalaDiag(document.title || location.pathname,
+    { escena:scene, camara:camera, controles:controls, renderizador:renderer }); } catch(_){}
 
   return { THREE, renderer, scene, camera, controls, composer, bloom,
     setAnimate:fn=>hook=fn, start, stop, resize, clock,
@@ -1254,7 +1272,7 @@ window.__labDebug={
   <!-- Ficha técnica · Capa B del molde de lab 3D (componente compartido + contenido del lab) -->
   <script src="_ficha-tecnica.js"></script>
   <script src="_ficha-registros-desplazamiento.js"></script>
-  <!-- Puente con la plataforma · reporta avance al shell (ver _puente.js) -->
+  <!-- Reporta avance y cierre al shell del alumno (src/lib/puente.ts) -->
   <script src="_puente.js"></script>
 </body>
 </html>

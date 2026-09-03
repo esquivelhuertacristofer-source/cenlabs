@@ -2064,3 +2064,471 @@ export function filtroPlisado(mat, opts = {}) {
   g.rotation.x = -Math.PI / 2;   // eje en +Y, como toda pieza de revolución
   return g;
 }
+
+/* ==========================================================================
+   §10 · HIDRÁULICA Y NEUMÁTICA
+   Las piezas de un banco de fluidos. Casi todas se dibujaban como cilindros
+   lisos y cajas, y ahí se perdía justo lo que hay que reconocer: que un
+   manómetro tiene una esfera con divisiones que se LEEN, que un cilindro lleva
+   cuatro tirantes porque la presión intenta separarle las tapas, que una
+   válvula direccional tiene solenoides y accionamiento manual de emergencia, y
+   que una bomba de pistones se manda inclinando un plato.
+   ========================================================================== */
+
+/**
+ * MANÓMETRO de esfera. La esfera mira a +Z y el racor sale por −Y, que es como
+ * se monta en una toma horizontal.
+ *
+ * `userData.marca(f)` pone la aguja en la fracción 0..1 del barrido: llamarlo
+ * es lo que convierte la pieza en un instrumento y no en un adorno. La aguja va
+ * en un grupo propio para que gire sobre su eje y no sobre el de la esfera.
+ */
+export function manometro(mat, opts = {}) {
+  const { d = 0.24, divisiones = 10, barrido = Math.PI * 1.5, fondo = 0xf1ede2,
+          color = 0xd6452f, racor = true } = opts;
+  const R = d / 2, g = new THREE.Group();
+  const caja = new THREE.Mesh(revolucion([
+    [0, -R * 0.32], [R * 0.94, -R * 0.32], [R * 0.94, R * 0.02],
+    [R, R * 0.04], [R, R * 0.15], [R * 0.87, R * 0.15],
+    [R * 0.87, R * 0.06], [0, R * 0.06],
+  ], { seg: 34 }), mat.acero);
+  caja.rotation.x = Math.PI / 2; caja.castShadow = true; g.add(caja);
+  const esf = new THREE.Mesh(new THREE.CircleGeometry(R * 0.87, 34),
+    new THREE.MeshStandardMaterial({ color: fondo, roughness: 0.88, metalness: 0.02 }));
+  esf.position.z = R * 0.055; g.add(esf);
+  const tinta = new THREE.MeshBasicMaterial({ color: 0x232a31 });
+  for (let i = 0; i <= divisiones; i++) {
+    const a = Math.PI / 2 + barrido / 2 - (i / divisiones) * barrido;
+    const largo = (i % 5 === 0) ? R * 0.22 : R * 0.12;
+    const t = new THREE.Mesh(new THREE.BoxGeometry(R * 0.05, largo, R * 0.02), tinta);
+    const rr = R * 0.78 - largo / 2;
+    t.position.set(Math.cos(a) * rr, Math.sin(a) * rr, R * 0.062);
+    t.rotation.z = a - Math.PI / 2; g.add(t);
+  }
+  const aguja = new THREE.Group(); aguja.position.z = R * 0.075; g.add(aguja);
+  const ag = new THREE.Mesh(new THREE.BoxGeometry(R * 0.055, R * 0.76, R * 0.02),
+    new THREE.MeshBasicMaterial({ color }));
+  ag.position.y = R * 0.30; aguja.add(ag);
+  const cubo = new THREE.Mesh(new THREE.CylinderGeometry(R * 0.10, R * 0.10, R * 0.07, 14), mat.acero);
+  cubo.rotation.x = Math.PI / 2; aguja.add(cubo);
+  if (racor) {
+    const hex = new THREE.Mesh(new THREE.CylinderGeometry(R * 0.21, R * 0.21, R * 0.24, 6), mat.acero);
+    hex.position.y = -R * 1.06; g.add(hex);
+    const tb = new THREE.Mesh(new THREE.CylinderGeometry(R * 0.14, R * 0.14, R * 0.34, 14),
+      mat.cromo || mat.acero);
+    tb.position.y = -R * 1.34; g.add(tb);
+  }
+  g.userData.aguja = aguja;
+  g.userData.marca = (f) => {
+    aguja.rotation.z = barrido / 2 - Math.max(0, Math.min(1, f || 0)) * barrido;
+  };
+  g.userData.marca(0);
+  g.userData.d = d;
+  return g;
+}
+
+/**
+ * CILINDRO de doble efecto, hidráulico o neumático. Lo que lo hace reconocible
+ * no es el tubo: son los cuatro TIRANTES que unen las dos tapas —la presión
+ * empuja las tapas hacia fuera y son los tirantes los que las sujetan; por eso
+ * un cilindro de tirantes se puede desarmar y uno soldado no—, la brida del
+ * cabezal por donde sale el vástago y las dos tomas, una a cada lado del émbolo.
+ *
+ * Eje en +Y, con el vástago saliendo por +Y. `userData.vastago` es el grupo que
+ * se desplaza: ponerle `position.y = salida` es sacar el cilindro.
+ */
+export function cilindroHidraulico(mat, opts = {}) {
+  const { d = 0.20, carrera = 0.40, vastago = 0.09, tirantes = 4,
+          horquilla = true, tomas = true } = opts;
+  const R = d / 2, rv = vastago / 2, g = new THREE.Group();
+  const L = carrera + d * 0.85;
+  const cam = new THREE.Mesh(revolucion([
+    [R * 0.84, -L / 2], [R, -L / 2], [R, L / 2], [R * 0.84, L / 2]], { seg: 30 }), mat.acero);
+  cam.castShadow = true; g.add(cam);
+  for (const sy of [-1, 1]) {                       // las dos tapas
+    // La de arriba va TALADRADA: por ahí sale el vástago, y ese agujero con su
+    // reten es por donde un cilindro gastado empieza a gotear.
+    const r0 = sy > 0 ? rv * 1.14 : 0;
+    const t = new THREE.Mesh(revolucion([
+      [r0, 0], [R * 1.16, 0], [R * 1.16, d * 0.16], [R * 0.90, d * 0.18], [r0, d * 0.18]],
+      { seg: 26 }), mat.aluminio || mat.acero);
+    t.position.y = sy * L / 2; t.rotation.z = sy > 0 ? 0 : Math.PI;
+    t.castShadow = true; g.add(t);
+  }
+  for (let i = 0; i < tirantes; i++) {              // los tirantes
+    const a = (i + 0.5) / tirantes * Math.PI * 2;
+    const tt = new THREE.Mesh(new THREE.CylinderGeometry(d * 0.045, d * 0.045, L + d * 0.36, 10),
+      mat.acero);
+    tt.position.set(Math.cos(a) * R * 1.03, 0, Math.sin(a) * R * 1.03); g.add(tt);
+    for (const sy of [-1, 1]) {
+      const tu = new THREE.Mesh(new THREE.CylinderGeometry(d * 0.075, d * 0.075, d * 0.075, 6),
+        mat.acero);
+      tu.position.set(Math.cos(a) * R * 1.03, sy * (L / 2 + d * 0.20), Math.sin(a) * R * 1.03);
+      g.add(tu);
+    }
+  }
+  if (tomas) for (const sy of [-1, 1]) {            // una toma a cada lado del émbolo
+    const bo = new THREE.Mesh(new THREE.CylinderGeometry(d * 0.12, d * 0.12, d * 0.22, 12),
+      mat.acero);
+    bo.rotation.z = Math.PI / 2;
+    bo.position.set(R * 1.05, sy * (L / 2 - d * 0.32), 0); g.add(bo);
+    const co = new THREE.Mesh(new THREE.CylinderGeometry(d * 0.075, d * 0.075, d * 0.20, 10),
+      mat.cromo || mat.acero);
+    co.position.set(R * 1.14, sy * (L / 2 - d * 0.32) + d * 0.10, 0); g.add(co);
+  }
+  const vas = new THREE.Group(); g.add(vas);
+  const largoV = carrera + d * 0.62;
+  const vr = new THREE.Mesh(new THREE.CylinderGeometry(rv, rv, largoV, 18), mat.cromo || mat.acero);
+  vr.position.y = L / 2 + largoV / 2 - d * 0.30; vr.castShadow = true; vas.add(vr);
+  if (horquilla) {                                  // la horquilla del extremo
+    const yh = L / 2 + largoV - d * 0.30;
+    for (const sz of [-1, 1]) {
+      const o = new THREE.Mesh(extruido(contornoRedondeado(
+        [[-rv * 1.5, 0], [rv * 1.5, 0], [rv * 1.5, rv * 3.2], [-rv * 1.5, rv * 3.2]], rv * 0.9, 4),
+        { huecos: [circulo(0, rv * 2.2, rv * 0.8, 14)], espesor: rv * 0.7, bisel: rv * 0.08 }),
+        mat.acero);
+      o.position.set(0, yh, sz * rv * 1.1); vas.add(o);
+    }
+    const pi = new THREE.Mesh(new THREE.CylinderGeometry(rv * 0.75, rv * 0.75, rv * 3.4, 12),
+      mat.acero);
+    pi.rotation.x = Math.PI / 2; pi.position.set(0, yh + rv * 2.2, 0); vas.add(pi);
+  }
+  g.userData.vastago = vas; g.userData.carrera = carrera; g.userData.L = L;
+  g.userData.d = d;
+  return g;
+}
+
+/**
+ * VÁLVULA DIRECCIONAL de corredera, con su base de montaje. Los SOLENOIDES no
+ * son adorno: son por donde se manda, y el pulsador de emergencia que llevan en
+ * la punta es la manera de mover la corredera con el dedo cuando no hay
+ * corriente —comprobar con él si el problema es eléctrico o hidráulico es lo
+ * primero que se hace en una avería—. Las tomas van por debajo, en la base,
+ * porque es una válvula de placa: se cambia sin tocar la tubería.
+ *
+ * Cuerpo a lo largo de X. `userData.tomas` da los centros de los orificios.
+ */
+export function valvulaDireccional(mat, opts = {}) {
+  const { ancho = 0.34, alto = 0.11, fondo = 0.12, vias = 5, solenoides = 2,
+          base = true } = opts;
+  const g = new THREE.Group();
+  const cuerpo = new THREE.Mesh(extruido(contornoRedondeado(
+    [[-ancho / 2, -alto / 2], [ancho / 2, -alto / 2], [ancho / 2, alto / 2], [-ancho / 2, alto / 2]],
+    alto * 0.16, 3), { espesor: fondo, bisel: alto * 0.05 }), mat.aluminio || mat.acero);
+  cuerpo.castShadow = true; g.add(cuerpo);
+  const tapa = new THREE.Mesh(extruido(contornoRedondeado(
+    [[-ancho * 0.30, -alto * 0.30], [ancho * 0.30, -alto * 0.30],
+     [ancho * 0.30, alto * 0.30], [-ancho * 0.30, alto * 0.30]], alto * 0.12, 3),
+    { espesor: fondo * 1.06, bisel: alto * 0.04 }), mat.acero);
+  tapa.position.y = alto * 0.34; g.add(tapa);
+  for (let i = 0; i < solenoides; i++) {
+    const sx = i === 0 ? -1 : 1;
+    const bob = new THREE.Mesh(revolucion([
+      [0, 0], [alto * 0.52, 0], [alto * 0.52, alto * 0.90], [0, alto * 0.90]], { seg: 18 }),
+      mat.negro || mat.acero);
+    bob.rotation.z = -sx * Math.PI / 2;
+    bob.position.x = sx * (ancho / 2 + alto * 0.06); g.add(bob);
+    const nu = new THREE.Mesh(new THREE.CylinderGeometry(alto * 0.20, alto * 0.20, alto * 0.34, 12),
+      mat.acero);
+    nu.rotation.z = Math.PI / 2;
+    nu.position.x = sx * (ancho / 2 + alto * 1.10); g.add(nu);
+    // el pulsador de emergencia, en la punta
+    const pu = new THREE.Mesh(new THREE.CylinderGeometry(alto * 0.08, alto * 0.08, alto * 0.16, 10),
+      mat.rojo || mat.cromo || mat.acero);
+    pu.rotation.z = Math.PI / 2;
+    pu.position.x = sx * (ancho / 2 + alto * 1.34); g.add(pu);
+    const con = conector(mat, { ancho: alto * 0.7, alto: alto * 0.6, fondo: alto * 0.5, pines: 2 });
+    con.position.set(sx * (ancho / 2 + alto * 0.50), alto * 0.62, 0); g.add(con);
+  }
+  const tomas = [];
+  if (base) {
+    const b = new THREE.Mesh(extruido(contornoRedondeado(
+      [[-ancho * 0.56, -alto * 0.30], [ancho * 0.56, -alto * 0.30],
+       [ancho * 0.56, alto * 0.30], [-ancho * 0.56, alto * 0.30]], alto * 0.10, 3),
+      { espesor: fondo * 1.30, bisel: alto * 0.04 }), mat.acero);
+    b.position.y = -alto * 0.80; g.add(b);
+    for (let i = 0; i < vias; i++) {
+      const x = (-(vias - 1) / 2 + i) * (ancho * 0.96 / vias);
+      const bo = new THREE.Mesh(new THREE.CylinderGeometry(alto * 0.16, alto * 0.16, alto * 0.30, 12),
+        mat.cromo || mat.acero);
+      bo.position.set(x, -alto * 1.22, 0); g.add(bo);
+      tomas.push([x, -alto * 1.37, 0]);
+    }
+  }
+  g.userData.tomas = tomas; g.userData.ancho = ancho;
+  return g;
+}
+
+/**
+ * BOMBA (o MOTOR) DE PISTONES AXIALES, en corte. Es la máquina de la que va
+ * media hidráulica y la que peor se entiende cerrada: por fuera es un bidón.
+ * Por dentro, un TAMBOR con siete pistones gira arrastrado por el eje, y cada
+ * pistón apoya su patín sobre un PLATO INCLINADO que no gira. Cuanto más
+ * inclinado está el plato, más carrera hace cada pistón por vuelta: el ángulo
+ * del plato ES la cilindrada, y por eso una transmisión hidrostática no lleva
+ * caja de cambios. Detrás, la placa de distribución con sus dos riñones separa
+ * la mitad de la vuelta que aspira de la mitad que impulsa.
+ *
+ * Eje en +Z. `userData.plato` es el grupo del plato (girarlo en X cambia la
+ * cilindrada) y `userData.tambor` el que gira con el eje.
+ */
+export function bombaPistones(mat, opts = {}) {
+  const { d = 0.30, largo = 0.34, pistones = 7, angulo = 0.30, carcasa = true } = opts;
+  const R = d / 2, g = new THREE.Group();
+  const rp = R * 0.62;                    // círculo de centros de los pistones
+  const rPis = R * 0.17;
+  const eje = new THREE.Mesh(new THREE.CylinderGeometry(R * 0.13, R * 0.13, largo * 1.9, 18),
+    mat.acero);
+  eje.rotation.x = Math.PI / 2; g.add(eje);
+  const tambor = new THREE.Group(); g.add(tambor);
+  // El tambor va ABIERTO por el mismo lado que la carcasa. Entero, sus siete
+  // pistones quedarían dentro del metal y no se vería ninguno: una bomba de
+  // pistones cerrada es un bidón, y un bidón no explica de dónde sale el caudal.
+  const tb = new THREE.Mesh(revolucion([
+    [R * 0.14, -largo * 0.30], [R * 0.82, -largo * 0.30],
+    [R * 0.82, largo * 0.30], [R * 0.14, largo * 0.30]],
+    { seg: 30, fase: Math.PI * 1.29, arco: Math.PI * 1.42 }), mat.acero);
+  const tc = tb.material.clone(); tc.side = THREE.DoubleSide; tb.material = tc;
+  tb.rotation.x = Math.PI / 2; tambor.add(tb);
+  for (let i = 0; i < pistones; i++) {
+    const a = (i / pistones) * Math.PI * 2;
+    const x = Math.cos(a) * rp, y = Math.sin(a) * rp;
+    // La carrera de cada pistón sale del plato: z = y·tan(ángulo). Es la misma
+    // cuenta que hace la máquina, y por eso el dibujo no puede inventarla.
+    const z = -largo * 0.34 - y * Math.tan(angulo);
+    const pi = new THREE.Mesh(new THREE.CylinderGeometry(rPis, rPis, largo * 0.62, 14),
+      mat.cromo || mat.acero);
+    pi.rotation.x = Math.PI / 2; pi.position.set(x, y, z + largo * 0.02); tambor.add(pi);
+    const pat = new THREE.Mesh(revolucion([
+      [0, 0], [rPis * 1.5, 0], [rPis * 1.5, largo * 0.05], [0, largo * 0.05]], { seg: 12 }),
+      mat.cobre || mat.acero);
+    pat.rotation.x = -Math.PI / 2;
+    pat.position.set(x, y, z - largo * 0.30); tambor.add(pat);
+  }
+  const plato = new THREE.Group(); g.add(plato);
+  const pl = new THREE.Mesh(revolucion([
+    [0, 0], [R * 0.94, 0], [R * 0.94, largo * 0.10], [0, largo * 0.10]], { seg: 30 }), mat.acero);
+  pl.rotation.x = -Math.PI / 2; plato.add(pl);
+  plato.position.z = -largo * 0.44; plato.rotation.x = angulo;
+  // La placa de distribución, con sus dos riñones.
+  const pd = new THREE.Mesh(revolucion([
+    [R * 0.16, 0], [R * 0.92, 0], [R * 0.92, largo * 0.09], [R * 0.16, largo * 0.09]], { seg: 30 }),
+    mat.acero);
+  pd.rotation.x = -Math.PI / 2; pd.position.z = largo * 0.40; g.add(pd);
+  for (const s of [1, -1]) {
+    const c = [];
+    for (const [r, a0, a1, n] of [[rp * 1.24, 0.22, Math.PI - 0.22, 12],
+                                  [rp * 0.76, Math.PI - 0.22, 0.22, 12]]) {
+      c.push(...arco(0, 0, r, s * a0, s * a1, n));
+    }
+    const ri = new THREE.Mesh(extruido(c, { espesor: largo * 0.10, bisel: largo * 0.008 }),
+      mat.negro || mat.acero);
+    ri.position.z = largo * 0.415; g.add(ri);
+  }
+  if (carcasa) {
+    const ca = new THREE.Mesh(revolucion([
+      [R * 1.02, -largo * 0.62], [R * 1.12, -largo * 0.62],
+      [R * 1.12, largo * 0.52], [R * 1.02, largo * 0.52]],
+      // El hueco del corte mira ARRIBA una vez tumbada la carcasa sobre Z: en
+      // el torno la fase 0 apunta a +Z, y al girar la pieza 90° sobre X ese +Z
+      // acaba mirando a −Y. La fase se calcula, no se tantea.
+      { seg: 34, fase: Math.PI * 1.29, arco: Math.PI * 1.42 }), mat.aluminio || mat.acero);
+    const cc = ca.material.clone(); cc.side = THREE.DoubleSide; ca.material = cc;
+    ca.rotation.x = Math.PI / 2; ca.castShadow = true; g.add(ca);
+  }
+  g.userData.plato = plato; g.userData.tambor = tambor;
+  g.userData.inclina = (rad) => { plato.rotation.x = rad; };
+  return g;
+}
+
+/**
+ * DEPÓSITO de aceite con su NIVEL VISOR. El visor es la pieza: es lo único de
+ * un depósito que se mira, y el nivel que marca es el que decide si la bomba
+ * aspira aceite o aire. Lleva además su tapón de llenado con respiradero —un
+ * depósito estanco se abolla al vaciarse— y su tapón de vaciado.
+ *
+ * `userData.nivel(f)` pone el aceite del visor en la fracción 0..1.
+ */
+export function deposito(mat, opts = {}) {
+  const { ancho = 0.80, alto = 0.44, fondo = 0.50, nivel = 0.6,
+          aceite = 0xd9a441 } = opts;
+  const g = new THREE.Group();
+  const cuba = new THREE.Mesh(extruido(contornoRedondeado(
+    [[-ancho / 2, 0], [ancho / 2, 0], [ancho / 2, alto], [-ancho / 2, alto]], alto * 0.06, 3),
+    { espesor: fondo, bisel: alto * 0.02 }), mat.acero);
+  cuba.castShadow = true; g.add(cuba);
+  // el visor de nivel, en un costado, con su aceite dentro
+  const zv = fondo / 2 + 0.004;
+  const marco = new THREE.Mesh(new THREE.BoxGeometry(alto * 0.16, alto * 0.66, 0.012),
+    mat.negro || mat.acero);
+  marco.position.set(ancho * 0.34, alto * 0.50, zv); g.add(marco);
+  const oil = new THREE.Mesh(new THREE.BoxGeometry(alto * 0.10, 1, 0.014),
+    new THREE.MeshStandardMaterial({ color: aceite, roughness: 0.30, metalness: 0.10,
+      emissive: aceite, emissiveIntensity: 0.16 }));
+  oil.position.z = zv + 0.002; g.add(oil);
+  const y0 = alto * 0.19, hv = alto * 0.62;
+  g.userData.nivel = (f) => {
+    const q = Math.max(0.02, Math.min(1, f));
+    oil.scale.y = hv * q;
+    oil.position.set(ancho * 0.34, y0 + hv * q / 2, zv + 0.002);
+  };
+  g.userData.nivel(nivel);
+  // tapón de llenado con respiradero y tapón de vaciado
+  const bo = new THREE.Mesh(revolucion([
+    [0, 0], [alto * 0.13, 0], [alto * 0.13, alto * 0.10], [alto * 0.09, alto * 0.12], [0, alto * 0.12]],
+    { seg: 16 }), mat.cromo || mat.acero);
+  bo.position.set(-ancho * 0.30, alto, 0); g.add(bo);
+  const dr = new THREE.Mesh(new THREE.CylinderGeometry(alto * 0.06, alto * 0.06, alto * 0.08, 6),
+    mat.acero);
+  dr.position.set(ancho * 0.34, alto * 0.04, 0); g.add(dr);
+  g.userData.alto = alto; g.userData.ancho = ancho;
+  return g;
+}
+
+/**
+ * ELEMENTO DE UNA UNIDAD FRL: filtro, lubricador o secador. Los tres comparten
+ * el CABEZAL con sus dos tomas y se distinguen por lo que cuelga debajo: el
+ * filtro lleva un vaso transparente con el elemento plisado y la purga; el
+ * lubricador, un vaso con aceite y la cúpula por la que se ven caer las gotas
+ * —contarlas es como se regula—; el secador, un cuerpo ciego con aletas.
+ *
+ * Eje en +Y, con el cabezal arriba y las tomas en ±X.
+ */
+export function vasoFRL(mat, opts = {}) {
+  const { d = 0.16, alto = 0.30, tipo = 'filtro', purga = true } = opts;
+  const R = d / 2, g = new THREE.Group();
+  const cab = new THREE.Mesh(extruido(contornoRedondeado(
+    [[-d * 0.62, -d * 0.26], [d * 0.62, -d * 0.26], [d * 0.62, d * 0.26], [-d * 0.62, d * 0.26]],
+    d * 0.08, 3), { espesor: d * 0.86, bisel: d * 0.03 }), mat.aluminio || mat.acero);
+  cab.position.y = alto * 0.86; cab.castShadow = true; g.add(cab);
+  for (const sx of [-1, 1]) {
+    const to = new THREE.Mesh(new THREE.CylinderGeometry(R * 0.34, R * 0.34, d * 0.26, 12),
+      mat.cromo || mat.acero);
+    to.rotation.z = Math.PI / 2; to.position.set(sx * d * 0.72, alto * 0.86, 0); g.add(to);
+  }
+  if (tipo === 'secador') {
+    const cu = new THREE.Mesh(revolucion([
+      [0, 0], [R, 0], [R, alto * 0.72], [0, alto * 0.72]], { seg: 24 }), mat.aluminio || mat.acero);
+    g.add(cu);
+    for (let i = 0; i < 7; i++) {
+      const al = new THREE.Mesh(revolucion([
+        [R, 0], [R * 1.22, 0], [R * 1.22, alto * 0.018], [R, alto * 0.018]], { seg: 24 }),
+        mat.aluminio || mat.acero);
+      al.position.y = alto * (0.08 + i * 0.085); g.add(al);
+    }
+  } else {
+    const vidrio = new THREE.MeshStandardMaterial({ color: 0xbcd6e4, roughness: 0.10,
+      metalness: 0.02, transparent: true, opacity: 0.26, side: THREE.DoubleSide });
+    const vaso = new THREE.Mesh(revolucion([
+      [R * 0.86, alto * 0.10], [R, alto * 0.10], [R, alto * 0.76], [R * 0.86, alto * 0.76]],
+      { seg: 26 }), vidrio);
+    g.add(vaso);
+    const fon = new THREE.Mesh(revolucion([
+      [0, alto * 0.04], [R, alto * 0.04], [R, alto * 0.12], [0, alto * 0.12]], { seg: 26 }),
+      mat.acero);
+    g.add(fon);
+    // la jaula que protege el vaso: sin ella, un vaso de plástico a 10 bar es
+    // una granada, y por eso todos los vasos llevan una
+    for (let i = 0; i < 6; i++) {
+      const a = (i / 6) * Math.PI * 2;
+      const b = new THREE.Mesh(new THREE.BoxGeometry(R * 0.10, alto * 0.66, R * 0.10),
+        mat.acero);
+      b.position.set(Math.cos(a) * R * 1.02, alto * 0.43, Math.sin(a) * R * 1.02); g.add(b);
+    }
+    if (tipo === 'lubricador') {
+      const oil = new THREE.Mesh(revolucion([
+        [0, alto * 0.12], [R * 0.90, alto * 0.12], [R * 0.90, alto * 0.42], [0, alto * 0.42]],
+        { seg: 24 }), new THREE.MeshStandardMaterial({ color: 0xd9a441, roughness: 0.28,
+          metalness: 0.08, transparent: true, opacity: 0.85 }));
+      g.add(oil);
+      const cup = new THREE.Mesh(new THREE.SphereGeometry(R * 0.34, 16, 12, 0, Math.PI * 2, 0, Math.PI / 2),
+        vidrio);
+      cup.position.y = alto * 0.80; g.add(cup);
+    } else {
+      const el = filtroPlisado({ papel: mat.papel || mat.blanco || mat.aluminio },
+        { rExt: R * 0.74, rInt: R * 0.42, alto: alto * 0.52, pliegues: 26 });
+      el.position.y = alto * 0.42; g.add(el);
+    }
+    if (purga) {
+      const pu = new THREE.Mesh(new THREE.CylinderGeometry(R * 0.16, R * 0.16, alto * 0.10, 10),
+        mat.negro || mat.acero);
+      pu.position.y = alto * 0.02; g.add(pu);
+    }
+  }
+  g.userData.alto = alto; g.userData.d = d;
+  return g;
+}
+
+/**
+ * REGULADOR DE PRESIÓN de membrana. Lo que hay que reconocer es el SOMBRERETE
+ * —la campana que aloja el muelle y la membrana— y el mando que lo comprime:
+ * girar el mando no ajusta ninguna presión directamente, aprieta un muelle, y
+ * el equilibrio entre ese muelle y la presión de salida es lo que fija el
+ * valor. Por eso la presión regulada CAE cuando aumenta el caudal: es el
+ * «droop», y sale de que el muelle se relaja al abrirse la válvula.
+ */
+export function reguladorPresion(mat, opts = {}) {
+  const { d = 0.16, alto = 0.30 } = opts;
+  const R = d / 2, g = new THREE.Group();
+  const cuerpo = new THREE.Mesh(extruido(contornoRedondeado(
+    [[-d * 0.62, -d * 0.26], [d * 0.62, -d * 0.26], [d * 0.62, d * 0.26], [-d * 0.62, d * 0.26]],
+    d * 0.08, 3), { espesor: d * 0.86, bisel: d * 0.03 }), mat.aluminio || mat.acero);
+  cuerpo.castShadow = true; g.add(cuerpo);
+  for (const sx of [-1, 1]) {
+    const to = new THREE.Mesh(new THREE.CylinderGeometry(R * 0.34, R * 0.34, d * 0.26, 12),
+      mat.cromo || mat.acero);
+    to.rotation.z = Math.PI / 2; to.position.x = sx * d * 0.72; g.add(to);
+  }
+  const somb = new THREE.Mesh(revolucion([
+    [0, d * 0.24], [R * 1.10, d * 0.26], [R * 1.10, alto * 0.44],
+    [R * 0.98, alto * 0.48], [R * 0.98, alto * 0.54],
+    [R * 0.34, alto * 0.58], [R * 0.34, alto * 0.62], [0, alto * 0.62]], { seg: 24 }),
+    mat.aluminio || mat.acero);
+  somb.castShadow = true; g.add(somb);
+  const mando = new THREE.Mesh(revolucion([
+    [0, alto * 0.64], [R * 0.68, alto * 0.68], [R * 0.68, alto * 0.96],
+    [R * 0.50, alto * 1.00], [0, alto * 1.00]], { seg: 20 }), mat.negro || mat.acero);
+  g.add(mando);
+  for (let i = 0; i < 12; i++) {                     // el moleteado del mando
+    const a = (i / 12) * Math.PI * 2;
+    const m = new THREE.Mesh(new THREE.BoxGeometry(R * 0.08, alto * 0.26, R * 0.08),
+      mat.negro || mat.acero);
+    m.position.set(Math.cos(a) * R * 0.68, alto * 0.82, Math.sin(a) * R * 0.68);
+    m.rotation.y = -a; g.add(m);
+  }
+  g.userData.mando = mando; g.userData.alto = alto;
+  return g;
+}
+
+/**
+ * VENTOSA de fuelle. Los pliegues no son decoración: son lo que le deja bajar
+ * sobre una pieza que no está a la altura prevista y lo que le permite agarrar
+ * una superficie inclinada. Y el labio, que es lo único que sella, es la parte
+ * que se gasta: una ventosa vieja no agarra menos porque tire menos la bomba,
+ * sino porque el labio ya no cierra.
+ *
+ * Boca hacia −Y, racor hacia +Y.
+ */
+export function ventosa(mat, opts = {}) {
+  const { d = 0.10, fuelles = 2, racor = true } = opts;
+  const R = d / 2, g = new THREE.Group();
+  const p = [[0, 0], [R * 0.30, 0], [R * 0.30, R * 0.30]];
+  let y = R * 0.30;
+  for (let i = 0; i < fuelles; i++) {
+    p.push([R * 0.62, y + R * 0.12], [R * 0.34, y + R * 0.30]);
+    y += R * 0.34;
+  }
+  p.push([R * 0.52, y + R * 0.22], [R * 0.98, y + R * 0.62], [R, y + R * 0.70], [R * 0.86, y + R * 0.70]);
+  const goma = new THREE.Mesh(revolucion(p, { seg: 26 }), mat.goma || mat.negro || mat.acero);
+  goma.rotation.z = Math.PI;                       // la boca, hacia abajo
+  goma.castShadow = true; g.add(goma);
+  if (racor) {
+    const hx = new THREE.Mesh(new THREE.CylinderGeometry(R * 0.34, R * 0.34, R * 0.26, 6), mat.acero);
+    hx.position.y = R * 0.14; g.add(hx);
+    const tb = new THREE.Mesh(new THREE.CylinderGeometry(R * 0.20, R * 0.20, R * 0.50, 12),
+      mat.cromo || mat.acero);
+    tb.position.y = R * 0.48; g.add(tb);
+  }
+  g.userData.d = d; g.userData.alturaBoca = -(y + R * 0.70);
+  return g;
+}
