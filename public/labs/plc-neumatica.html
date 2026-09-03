@@ -86,6 +86,8 @@ import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
 import { RoundedBoxGeometry } from 'three/addons/geometries/RoundedBoxGeometry.js';
+import * as P3 from '/labs/_piezas3d.js';
+import { instalaDiag } from '/labs/_diag3d.js';
 import { EffectComposer } from 'three/addons/postprocessing/EffectComposer.js';
 import { RenderPass } from 'three/addons/postprocessing/RenderPass.js';
 import { GTAOPass } from 'three/addons/postprocessing/GTAOPass.js';
@@ -486,24 +488,147 @@ const MAT={
   rod:std({color:0xd6dce2,roughness:0.15,metalness:1}),
   valve:std({color:0x2a3038,roughness:0.4,metalness:0.6}),
   led:std({color:0x222,emissive:0x000000}),
+  aluminio:std({color:0x9aa4b0,roughness:0.44,metalness:0.80}),
+  negro:std({color:0x15181c,roughness:0.66,metalness:0.14}),
+  cobre:std({color:0xb8763c,roughness:0.32,metalness:1}),
+  bronce:std({color:0xc0a25e,roughness:0.38,metalness:0.9}),
 };
+const MATP={aluminio:MAT.aluminio, acero:MAT.rod, cromo:MAT.rod, hierro:MAT.cylBody,
+  negro:MAT.negro, cobre:MAT.cobre, verde:MAT.plc, blanco:MAT.rod,
+  goma:MAT.negro, ceramica:MAT.rod, chapa:MAT.cylBody};
 
 const group=new THREE.Group(); group.position.set(0,1.2,0); scene.add(group);
-// PLC
-const plc=roundedBox(0.55,0.8,0.18,MAT.plc,0.1); plc.position.set(-2.3,0,0); group.add(plc);
+/* ---- EL PLC -----------------------------------------------------------
+   Un autómata no es un ladrillo negro: es un módulo de carril DIN con sus dos
+   BORNERAS —entradas arriba, salidas abajo—, sus testigos y su clip de carril.
+   Las borneras son la pieza: el trabajo de quien monta un cuadro es cablearlas,
+   y sin ellas no se entiende por dónde entra un final de carrera ni por dónde
+   sale la orden a la válvula.                                                 */
+const plcGrp=new THREE.Group(); plcGrp.position.set(-2.3,0,0); group.add(plcGrp);
+const plc=new THREE.Mesh(P3.normalizaUV(P3.extruido(P3.contornoRedondeado(
+  [[-0.275,-0.40],[0.275,-0.40],[0.275,0.40],[-0.275,0.40]],0.035,3),
+  {espesor:0.18,bisel:0.010}),2),MAT.plc);
+plc.castShadow=true; plcGrp.add(plc);
+// El carril DIN sobre el que va enganchado, con su clip.
+const carril=new THREE.Mesh(P3.extruido([
+  [-0.05,-0.018],[0.05,-0.018],[0.05,0.018],[0.032,0.018],[0.032,0.006],
+  [-0.032,0.006],[-0.032,0.018],[-0.05,0.018]],{espesor:1.10,bisel:0.004,curvaSeg:2}),
+  MAT.rod);
+carril.rotation.y=Math.PI/2; carril.position.set(0,0,-0.115); plcGrp.add(carril);
+// Las dos borneras, con sus tornillos de apriete.
+for(const sy of [1,-1]){
+  const bornera=new THREE.Mesh(P3.extruido(P3.contornoRedondeado(
+    [[-0.265,-0.055],[0.265,-0.055],[0.265,0.055],[-0.265,0.055]],0.014,3),
+    {espesor:0.11,bisel:0.006}),MAT.negro);
+  bornera.position.set(0,sy*0.335,0.145); plcGrp.add(bornera);
+  for(let k=0;k<8;k++){
+    const t=new THREE.Mesh(P3.revolucion([
+      [0,0],[0.017,0],[0.017,0.012],[0,0.012]],{seg:8}),MAT.bronce);
+    t.position.set(-0.225+k*0.064,sy*0.335,0.205); t.rotation.x=Math.PI/2; plcGrp.add(t);
+  }
+}
+// La ventana de testigos: en un PLC son LEDs planos en fila, no bolas.
 const leds=[];
-for(let i=0;i<4;i++){const led=new THREE.Mesh(new THREE.SphereGeometry(0.03,12,12),MAT.led.clone());led.position.set(-2.3,0.25-i*0.13,0.1);plc.add(led);leds.push(led);}
+for(let i=0;i<4;i++){
+  const led=new THREE.Mesh(new THREE.BoxGeometry(0.055,0.028,0.012),MAT.led.clone());
+  led.position.set(-0.13+ (i%2)*0.26, 0.10-Math.floor(i/2)*0.10, 0.093);
+  plcGrp.add(led); leds.push(led);
+}
+const marcaPlc=new THREE.Mesh(new THREE.BoxGeometry(0.34,0.10,0.006),MAT.negro);
+marcaPlc.position.set(0,-0.13,0.092); plcGrp.add(marcaPlc);
 
 // función para construir un cilindro de doble efecto
+/* ---- EL CILINDRO ------------------------------------------------------
+   Un cilindro neumático normalizado es una CAMISA entre dos tapas, apretadas
+   por cuatro tirantes, con su racor en cada tapa y el vástago saliendo por el
+   casquillo guía. Y aquí va SECCIONADO por delante: la camisa se dibuja como
+   revolución de 270°, dejando una ventana de 90° mirando a la cámara. Sin esa
+   ventana el pistón se queda dentro y el laboratorio pierde lo único que de
+   verdad enseña —que el aire empuja un émbolo y el émbolo arrastra el vástago—.
+   Un tubo cerrado con un disco fuera no cuenta eso; cuenta lo contrario.      */
 function buildCylinder(x,color){
   const grp=new THREE.Group(); grp.position.set(x,0,0); group.add(grp);
-  const body=roundedBox(0.9,0.22,0.22,MAT.cylBody,0.25); grp.add(body);
-  const rod=new THREE.Mesh(new THREE.CylinderGeometry(0.045,0.045,0.7,16),MAT.rod);
-  rod.rotation.z=Math.PI/2; rod.position.set(0.75,0,0); grp.add(rod);
-  const piston=new THREE.Mesh(new THREE.CylinderGeometry(0.09,0.09,0.06,16),MAT.rod);
-  piston.rotation.z=Math.PI/2; piston.position.set(0.4,0,0); grp.add(piston);
-  const valve=roundedBox(0.22,0.18,0.18,MAT.valve,0.2); valve.position.set(-0.65,-0.35,0); grp.add(valve);
-  const led=new THREE.Mesh(new THREE.SphereGeometry(0.03,10,10),MAT.led.clone()); led.position.set(-0.65,-0.24,0.09); grp.add(led);
+  const LC=0.45, RC=0.105;
+  // La camisa, abierta 90° hacia +Z para ver dentro.
+  const body=new THREE.Mesh(P3.revolucion([
+    [RC,-LC],[RC+0.012,-LC],[RC+0.012,LC],[RC,LC]],
+    {seg:40,fase:Math.PI*0.25,arco:Math.PI*1.5}),MAT.cylBody);
+  body.rotation.z=Math.PI/2; body.castShadow=true; grp.add(body);
+  // Las dos tapas, con su racor y su amortiguación regulable.
+  for(const sx of [-1,1]){
+    const tapa=new THREE.Mesh(P3.normalizaUV(P3.extruido(P3.contornoRedondeado(
+      [[-0.135,-0.135],[0.135,-0.135],[0.135,0.135],[-0.135,0.135]],0.028,3),
+      {espesor:0.09,bisel:0.008}),2),MAT.aluminio);
+    tapa.rotation.y=Math.PI/2; tapa.position.x=sx*(LC+0.045);
+    tapa.castShadow=true; grp.add(tapa);
+    const racor=new THREE.Mesh(P3.revolucion([
+      [0,0],[0.028,0],[0.028,0.030],[0.022,0.036],[0.022,0.070],[0,0.070]],{seg:12}),
+      MAT.bronce);
+    racor.position.set(sx*(LC+0.045),0.135,0); grp.add(racor);
+    const amort=new THREE.Mesh(P3.revolucion([
+      [0,0],[0.016,0],[0.016,0.026],[0,0.026]],{seg:8}),MAT.bronce);
+    amort.position.set(sx*(LC+0.045),0.135,-0.075); grp.add(amort);
+  }
+  // Los cuatro tirantes: son lo que aprieta la camisa entre las tapas, y lo
+  // primero que se afloja cuando un cilindro pierde aire por los extremos.
+  for(const sy of [-1,1]) for(const sz of [-1,1]){
+    const tir=new THREE.Mesh(new THREE.CylinderGeometry(0.014,0.014,LC*2+0.16,10),MAT.rod);
+    tir.rotation.z=Math.PI/2; tir.position.set(0,sy*0.098,sz*0.098); grp.add(tir);
+  }
+  // El casquillo guía del vástago.
+  const guia=new THREE.Mesh(P3.revolucion([
+    [0.048,0],[0.085,0],[0.085,0.055],[0.048,0.055]],{seg:18}),MAT.bronce);
+  guia.rotation.z=-Math.PI/2; guia.position.x=LC+0.09; grp.add(guia);
+  // El sensor magnético de final de carrera, en su ranura.
+  const sensor=new THREE.Mesh(new THREE.BoxGeometry(0.075,0.030,0.030),MAT.negro);
+  sensor.position.set(LC*0.62,0.118,0.055); grp.add(sensor);
+
+  const rod=new THREE.Mesh(P3.revolucion([
+    [0,-0.35],[0.045,-0.35],[0.045,0.30],[0.038,0.31],[0.038,0.35],[0,0.35]],{seg:18}),MAT.rod);
+  rod.rotation.z=-Math.PI/2; rod.position.set(0.75,0,0); rod.castShadow=true; grp.add(rod);
+  // El ÉMBOLO, que es la pieza que la ventana deja ver: dos juntas y el imán
+  // entre ellas —el imán es lo que detecta el sensor de final de carrera—.
+  const piston=new THREE.Group(); piston.position.set(0.4,0,0); grp.add(piston);
+  const cuerpoEmb=new THREE.Mesh(P3.revolucion([
+    [0,-0.030],[0.100,-0.030],[0.104,-0.020],[0.104,0.020],[0.100,0.030],[0,0.030]],{seg:24}),
+    MAT.rod);
+  cuerpoEmb.rotation.z=Math.PI/2; piston.add(cuerpoEmb);
+  for(const sx of [-1,1]){
+    const junta=new THREE.Mesh(new THREE.TorusGeometry(0.098,0.012,8,24),MAT.negro);
+    junta.rotation.y=Math.PI/2; junta.position.x=sx*0.026; piston.add(junta);
+  }
+
+  /* ---- LA VÁLVULA 5/2 -------------------------------------------------
+     Cuerpo con sus cinco vías, BOBINA con su conector, pulsador de mando
+     manual y los dos silenciadores del escape. El pulsador manual no es un
+     adorno: es como se prueba un circuito sin PLC, y es lo primero que hace
+     cualquiera al poner en marcha una máquina.                              */
+  const valveGrp=new THREE.Group(); valveGrp.position.set(-0.65,-0.35,0); grp.add(valveGrp);
+  const valve=new THREE.Mesh(P3.normalizaUV(P3.extruido(P3.contornoRedondeado(
+    [[-0.16,-0.075],[0.16,-0.075],[0.16,0.075],[-0.16,0.075]],0.018,3),
+    {espesor:0.13,bisel:0.008}),2),MAT.valve.clone());
+  valve.castShadow=true; valveGrp.add(valve);
+  const bobina=new THREE.Mesh(P3.normalizaUV(P3.extruido(P3.contornoRedondeado(
+    [[-0.055,-0.055],[0.055,-0.055],[0.055,0.055],[-0.055,0.055]],0.012,3),
+    {espesor:0.10,bisel:0.006}),2),MAT.negro);
+  bobina.rotation.y=Math.PI/2; bobina.position.x=-0.215; valveGrp.add(bobina);
+  const conBob=P3.conector(MATP,{ancho:0.07,alto:0.04,fondo:0.035,pines:2});
+  conBob.position.set(-0.215,0.075,0); valveGrp.add(conBob);
+  const manual=new THREE.Mesh(P3.revolucion([
+    [0,0],[0.016,0],[0.016,0.020],[0,0.020]],{seg:10}),MAT.bronce);
+  manual.position.set(-0.135,0,0.075); manual.rotation.x=Math.PI/2; valveGrp.add(manual);
+  for(let k=0;k<5;k++){
+    const via=new THREE.Mesh(P3.revolucion([
+      [0,0],[0.020,0],[0.020,0.024],[0,0.024]],{seg:10}),MAT.bronce);
+    via.position.set(-0.12+k*0.06,-0.075,0); via.rotation.z=Math.PI; valveGrp.add(via);
+  }
+  for(const sx of [-1,1]){
+    const sil=new THREE.Mesh(P3.revolucion([
+      [0,0],[0.026,0],[0.026,0.045],[0.018,0.052],[0,0.052]],{seg:12}),MAT.bronce);
+    sil.position.set(sx*0.12,0.075,0); valveGrp.add(sil);
+  }
+  const led=new THREE.Mesh(new THREE.BoxGeometry(0.035,0.020,0.010),MAT.led.clone());
+  led.position.set(-0.06,0.045,0.068); valveGrp.add(led);
   return {grp,rod,piston,valve,led};
 }
 const cylA=buildCylinder(-0.6,0x37e0c7);
@@ -517,6 +642,9 @@ const parts=[
   {obj:cylA.valve,name:'Válvula solenoide A',desc:'El PLC la energiza para avanzar o retraer el cilindro A.'},
   {obj:cylB.valve,name:'Válvula solenoide B',desc:'El PLC la energiza para avanzar o retraer el cilindro B.'},
 ];
+instalaDiag('plc-neumatica',{escena:scene,camara:S.camera,controles:S.controls,
+  renderizador:S.renderer, grupos:{plc:plcGrp,cilindroA:cylA.grp,cilindroB:cylB.grp}});
+
 const toast=document.getElementById('toast');
 function showToast(html){toast.innerHTML=html;toast.classList.add('show');clearTimeout(showToast._t);showToast._t=setTimeout(()=>toast.classList.remove('show'),2600);}
 pickerFor(scene,S.camera,S.renderer.domElement,hit=>{
