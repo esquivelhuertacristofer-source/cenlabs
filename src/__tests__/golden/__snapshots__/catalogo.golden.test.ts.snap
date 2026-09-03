@@ -1531,6 +1531,16 @@ exports[`golden master — catálogo por categoría (invariante ante extracción
     "teoria": "El mismo 1.4 turbo, el mismo día en Toluca: 140 CV medidos, 195 por DIN, 198 por SAE J1349, 201 por ISO 1585 y 220 por la J607 bruta. Ochenta caballos de diferencia sin tocar el motor. La fórmula no se rompe por la altura —para un atmosférico acierta al 2,8 % a 2 660 m—: se rompe con un motor que se defiende, y le regala un 34,5 % inventado. Un banco de inercia se deja del 10 al 23 % entre el pistón y el rodillo, y la desaceleración libre no puede medirlo todo.",
     "titulo": "Dinamómetro: Par, Potencia y Corrección a Norma",
   },
+  {
+    "duracion": "50 min",
+    "estado": "activo",
+    "id": "mecanica-125",
+    "modulo": "Motor de Combustión Interna",
+    "orden": 125,
+    "simuladorHtml": "/labs/arranque-caidas-de-tension.html",
+    "teoria": "Doce y medio en los bornes no significa doce y medio en el arranque. Ocho de los nueve montajes dan EXACTAMENTE 12,59 V en reposo: sin corriente no hay caída, y una avería de conexión no puede verse con la llave quitada. El límite de 0,20 V es POR CONEXIÓN, y una furgoneta sana con 3,5 m de cable cae 0,30 V sin estar averiada. Y hay una avería —las escobillas gastadas— que este procedimiento no puede encontrar: las cinco caídas salen bien y el coche gira a 191 rpm en vez de 216.",
+    "titulo": "El Arranque: Caídas de Tensión y Arranque en Frío",
+  },
 ]
 `;
 
@@ -1691,6 +1701,7 @@ exports[`golden master — catálogo por categoría (invariante ante extracción
   "mecanica-122",
   "mecanica-123",
   "mecanica-124",
+  "mecanica-125",
   "mecanica-13",
   "mecanica-14",
   "mecanica-15",

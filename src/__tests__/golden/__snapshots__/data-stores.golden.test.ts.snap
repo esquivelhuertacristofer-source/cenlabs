@@ -4095,6 +4095,137 @@ Sales de esta práctica con una regla que vale para toda la vida profesional: un
     "titulo": "Dinamómetro: Par, Potencia y Corrección a Norma",
     "videoUrl": "",
   },
+  "mecanica-125": {
+    "acento": "#5AD1E6",
+    "aplicaciones": [
+      {
+        "area": "El arranque que se cambia y no era el arranque",
+        "ejemplo": "Es la reparación mal hecha más común del oficio. El coche gira despacio, se sustituye el motor de arranque —que es la pieza cara— y a los dos días vuelve igual, porque lo que tenía resistencia era un borne, una masa o los contactos del solenoide. Este laboratorio pone al alumno delante de los nueve montajes y le obliga a localizar el tramo antes de tocar nada: en cinco de los nueve, el procedimiento de caídas señala exactamente dónde apretar, limpiar o cambiar, y en ninguno de esos cinco la pieza a cambiar es el arranque.",
+      },
+      {
+        "area": "La batería que se cambia y estaba bien",
+        "ejemplo": "La otra mitad de la misma factura. El cliente dice que el coche no arranca por las mañanas, se mide la batería en reposo, marca doce coma cuatro y se cambia igualmente «por si acaso». Aquí se ve por qué esa medida no puede decidir nada: ocho de los nueve montajes dan la misma cifra en reposo. Lo que separa una batería cansada de un circuito con resistencia es el ensayo de arranque en frío, y este laboratorio lo pone como uno de los seis instrumentos precisamente para que el alumno descubra que sin él está adivinando.",
+      },
+      {
+        "area": "Vehículos con la batería lejos del motor",
+        "ejemplo": "Furgonetas con la batería bajo el asiento, coches con la batería en el maletero, camiones y autobuses. Son los vehículos en los que el límite de 0,20 V se aplica mal con más frecuencia, porque su cable positivo cae más que ése estando sano. Saber que ese límite es por conexión y que a un cable se le exige lo que su longitud y su sección predicen evita condenar una instalación que está bien montada, y también evita lo contrario: aceptar como normal un cable que cae el doble de lo que le toca.",
+      },
+      {
+        "area": "Flotas y talleres en climas fríos",
+        "ejemplo": "Una flota que amanece a varios grados bajo cero tiene dos palancas antes de tocar el circuito: el estado de carga con el que los vehículos pasan la noche y el grado del aceite. Este laboratorio permite cuantificar las dos por separado y ver que a −18 °C el mismo motor arranca con un 0W-20 y no arranca con un 15W-40. Es un argumento que se puede llevar a una reunión de mantenimiento con números encima de la mesa, y no con la impresión de que «en invierno cuesta más».",
+      },
+      {
+        "area": "Elegir el instrumento antes de comprarlo",
+        "ejemplo": "La pinza amperimétrica es el aparato que más ilusión hace y aquí se demuestra cuándo no sirve: con la resolución real de una pinza de taller, los nueve montajes del utilitario templado caen en dos cajones, y a dieciocho bajo cero, en uno solo. No es que mienta; es que la diferencia que hay que ver es más pequeña que su resolución. Aprender a preguntarse qué separa cada instrumento —y no sólo qué mide— es lo que distingue a un diagnosticador de alguien con una caja de herramientas cara.",
+      },
+      {
+        "area": "Saber cuándo un método se ha acabado",
+        "ejemplo": "La lección más transferible del laboratorio no es de arranques: es que todo procedimiento de diagnóstico tiene un punto ciego, y que un resultado limpio no significa que no haya avería. Aquí está contado y no afirmado: once de las ciento ochenta casillas del censo son casos en los que el coche no arranca y las caídas de tensión no señalan nada. Reconocer ese momento —y decir «hasta aquí llega este método, ahora hace falta otra medida»— es exactamente lo que se espera de un técnico y lo que casi nunca se enseña.",
+      },
+    ],
+    "bienvenida": "Vas a montar un circuito de arranque pieza a pieza: la batería, el borne positivo, el cable positivo, el motor de arranque, la masa del arranque y la trenza de masa. Seis piezas, y las seis son el circuito. Fíjate en lo que NO está entre ellas: el motor. El motor no es parte del circuito de arranque, es la carga contra la que ese circuito trabaja, y confundir las dos cosas es la primera causa de que se cambien arranques que estaban perfectamente bien.
+
+La tesis de la práctica cabe en una frase que vas a comprobar nueve veces: doce y medio en los bornes no significa doce y medio en el arranque. Coge el utilitario uno punto seis, una mañana templada de veinte grados y la batería llena, y mide la tensión en reposo de los nueve montajes: uno bien hecho y ocho averiados. Ocho de los nueve dan exactamente doce coma cincuenta y nueve voltios. El borne oxidado, la masa floja, los contactos picados, el cable de menos sección, la batería sulfatada, las escobillas gastadas y el solenoide flojo marcan lo mismo que el coche sano. Sólo el vaso en corto se separa, y marca diez coma cuarenta y nueve.
+
+La razón es la ley de Ohm y no hay más misterio: en circuito abierto no circula corriente, y una resistencia sin corriente no cae tensión. Un borne con tres miliohmios de más es invisible con la llave quitada y se lleva casi un voltio con trescientos amperios pasando por él. Por eso una avería de arranque no se busca con el circuito parado, y por eso todo este laboratorio se mide con el motor girando.
+
+El procedimiento se llama caídas de tensión y consiste en poner el multímetro en paralelo con el tramo que sospechas —punta roja en un extremo, punta negra en el otro— y hacer girar el motor. Lo que marca no es la tensión del sistema: es exactamente la resistencia de ese tramo multiplicada por la corriente que pasa. Un tramo sano cae milivoltios; uno con resistencia cae décimas de voltio. El oficio pone un límite de cero coma veinte voltios por conexión, medio voltio en todo el lado positivo y cero coma veinte en toda la masa.
+
+Y aquí viene el primer error de categoría que vas a desmontar. Ese límite de cero coma veinte voltios es POR CONEXIÓN, no por metro de cable. Un cable tiene la resistencia que le dan su longitud, su sección y la resistividad del cobre, y esa resistencia no es un defecto: es el cable. Pon la furgoneta, que lleva la batería bajo el asiento con tres metros y medio de cable positivo, y mídelo sano: cae cero coma treinta voltios con doscientos cuarenta y seis amperios. Está perfectamente bien. A una conexión se le exige un umbral fijo; a un cable, que caiga lo que su longitud y su sección predicen. Aplicarle el límite de una conexión condena a un vehículo que funciona.
+
+La segunda cosa que vas a aprender es dónde se acaba este procedimiento, porque todo método tiene un punto ciego y saber cuál es vale más que la mitad de lo demás. Pon las escobillas gastadas. Las cinco caídas salen dentro de límite, la batería aguanta la tensión y el coche gira a ciento noventa y una revoluciones en vez de doscientas dieciséis. Lo que ha subido de resistencia está DENTRO del arranque, y un procedimiento de caídas mide conexiones, no motores. Sólo la corriente y el régimen lo delatan. Levanta el censo de los cuatro vehículos y cuéntalas: en once de las ciento ochenta casillas el coche no arranca y el procedimiento no señala nada.
+
+Luego está el frío, que ataca por los dos lados a la vez y por eso engaña. El mismo coche sano pasa de doscientas veinticinco revoluciones una mañana de treinta y cinco grados a ciento cuarenta y cuatro a dieciocho bajo cero con la batería a media carga, y la corriente SUBE de ciento setenta y cinco a doscientos sesenta amperios. La resistencia interna de la batería casi se dobla —de tres coma once a siete coma cero ocho miliohmios— porque la conductividad del electrolito sigue una ley de Arrhenius, y a la vez el aceite se espesa y pide más par. La que empuja da menos y el que se deja arrastrar pide más.
+
+Y la tensión en reposo no ve nada de eso. En esa misma mañana la batería sólo baja de doce coma sesenta y uno a doce coma diez voltios —cinco décimas— mientras su corriente de arranque en frío cae de seiscientos cuarenta a cuatrocientos treinta y cuatro amperios: un treinta y dos por ciento menos. Medio voltio de diferencia esconde un tercio de la batería, y ésa es la razón de que exista el ensayo de arranque en frío de la SAE J537. De hecho, de esa norma sale todo el modelo de batería del laboratorio: la etiqueta dice cuántos amperios tiene que entregar durante treinta segundos a dieciocho bajo cero sin bajar de siete coma dos voltios, y de ahí se deduce exactamente cuánto puede valer su resistencia interna.
+
+El aceite también decide, y no sólo en el frío. Los tres grados dan doscientas veinte, doscientas dieciséis y doscientas nueve revoluciones a veinte grados; a dieciocho bajo cero dan ciento sesenta, ciento cuarenta y cuatro y ciento dieciocho. Y el motor pide ciento cuarenta: con el quince cuarenta no arranca y con el cero veinte sí. El mismo coche, la misma batería, el mismo día.
+
+Termina con el reto a ciegas, que es donde se junta todo. Te dan un coche que no arranca y seis instrumentos, y cada uno cuesta una consulta. Ninguno resuelve el caso él solo, y la razón es la resolución de verdad de los aparatos: los nueve montajes del utilitario dan nueve corrientes distintas —de ciento ochenta y cinco coma dos a ciento noventa y uno coma cero amperios—, pero una pinza de taller resuelve al cuarto de centenar de amperios y las mete a todas en dos cajones. A dieciocho bajo cero, en uno solo. El mejor instrumento del juego, la caída de todo el lado positivo, separa cinco de los nueve. Hay que combinar dos o tres medidas, que es exactamente lo que se hace delante de un coche.
+
+Sales de esta práctica con una regla que vale para toda la vida profesional: si no hay corriente, no hay diagnóstico.",
+    "codigo": "MEC-125",
+    "conceptos": [
+      {
+        "descripcion": "Ocho de los nueve montajes dan EXACTAMENTE 12,59 V con la llave quitada. La medida que casi todo el mundo hace dice el estado de carga y nada más.",
+        "icono": "🔋",
+        "nombre": "En reposo no circula corriente, y sin corriente no hay caída",
+      },
+      {
+        "descripcion": "Un borne con 3 mΩ es invisible parado y se lleva 0,9 V con 300 A pasando. Por eso el procedimiento entero se mide con el motor girando.",
+        "icono": "⚡",
+        "nombre": "La caída de un tramo es su resistencia por LA CORRIENTE",
+      },
+      {
+        "descripcion": "La furgoneta, sana, cae 0,30 V en sus 3,5 m de cable positivo. No está averiada: cae lo que su longitud y su sección predicen. A un cable se le exige otra cosa.",
+        "icono": "📏",
+        "nombre": "El límite de 0,20 V es POR CONEXIÓN, no por cable",
+      },
+      {
+        "descripcion": "Las cinco caídas dentro de límite, la batería firme, y el coche gira a 191 rpm en vez de 216. Lo que subió está DENTRO del arranque, y este procedimiento no entra ahí.",
+        "icono": "🕳️",
+        "nombre": "El punto ciego: las escobillas gastadas",
+      },
+      {
+        "descripcion": "De 225 a 144 rpm entre agosto y enero, y la corriente SUBE de 175 a 260 A. La batería casi dobla su resistencia interna y el aceite pide más par.",
+        "icono": "🌡️",
+        "nombre": "El frío ataca por los dos lados a la vez",
+      },
+      {
+        "descripcion": "De 12,61 a 12,10 V —cinco décimas— mientras el arranque en frío cae de 640 a 434 A. Marca bien y no arranca.",
+        "icono": "🪫",
+        "nombre": "La tensión en reposo esconde un tercio de la batería",
+      },
+      {
+        "descripcion": "La SAE J537 exige entregar esos amperios 30 s a −18 °C sin bajar de 7,2 V. De ahí sale la resistencia interna del modelo: 3,556 mΩ para una de 640 A.",
+        "icono": "📐",
+        "nombre": "La etiqueta de la batería es una NORMA, no un adorno",
+      },
+      {
+        "descripcion": "A −18 °C: 160 rpm con 0W-20, 144 con 5W-30 y 118 con 15W-40. El motor pide 140. Con uno arranca y con otro no, el mismo coche y el mismo día.",
+        "icono": "🛢️",
+        "nombre": "El aceite decide si arranca, y no sólo en el frío",
+      },
+      {
+        "descripcion": "El par del arranque baja con el régimen porque la fuerza contraelectromotriz le come tensión, y el del motor sube. Donde se cruzan, ahí gira. Sin fórmula cerrada.",
+        "icono": "⚙️",
+        "nombre": "El régimen de arrastre no se declara: se busca",
+      },
+      {
+        "descripcion": "La corriente vuelve por el bloque, por el chasis y por una trenza que suele estar debajo de todo. Una masa floja se lleva 0,82 V y no se ve en el voltímetro de la batería.",
+        "icono": "🔌",
+        "nombre": "La masa es la mitad del circuito, y es la mitad que nadie mide",
+      },
+      {
+        "descripcion": "Gira despacio con MUCHA corriente, la resistencia es mecánica. Gira despacio con POCA, es eléctrica. Es la única lectura que separa las dos.",
+        "icono": "🔎",
+        "nombre": "Corriente alta o baja: dos familias de avería",
+      },
+      {
+        "descripcion": "Nueve montajes, nueve corrientes distintas de 185,2 a 191,0 A. Una pinza de 25 A las mete en dos cajones. Ningún instrumento resuelve el caso él solo.",
+        "icono": "🎯",
+        "nombre": "La resolución del aparato es parte del diagnóstico",
+      },
+    ],
+    "duracion": 50,
+    "mision": [
+      "Monta el circuito completo: batería, borne positivo, cable positivo, arranque y las dos masas. Fíjate en que el motor NO está entre las piezas, y explica por qué. Hasta que no estén las seis, los seis modos de trabajo están cerrados.",
+      "Mide la tensión en reposo de los nueve montajes en la mañana templada y anótalas todas. Cuenta cuántas son distintas antes de seguir.",
+      "Repite la medida con el motor girando y compara. Localiza en qué tramo se va la tensión que falta.",
+      "Recorre la vista de tramos con los nueve montajes y comprueba que la caída de cada uno es exactamente su resistencia por la corriente del cruce.",
+      "Pon la furgoneta sana y mide su cable positivo. Decide si está averiado y justifica la respuesta con su longitud y su sección, no con el límite de 0,20 V.",
+      "Pon las escobillas gastadas y busca la avería con el procedimiento de caídas. Cuando no la encuentres, explica por qué y di qué medida sí la delata.",
+      "Recorre las cinco mañanas con el coche sano y anota régimen y corriente en cada una. Explica por qué las dos se mueven en sentidos contrarios.",
+      "Compara la tensión en reposo con los amperios de arranque en frío a lo largo de las cinco mañanas. Calcula cuánto pierde cada una en porcentaje.",
+      "Cambia el aceite sin tocar nada más, primero templado y después a −18 °C. Encuentra la combinación en la que el mismo coche arranca con un grado y no arranca con otro.",
+      "Abre la vista del cruce y mueve una sola resistencia de un tramo. Observa qué le pasa a la recta azul entera y dónde queda el nuevo punto de funcionamiento.",
+      "Levanta el censo de los cuatro vehículos y cuenta las casillas en las que el coche no arranca y el procedimiento no señala nada. Ésas son el punto ciego del método.",
+      "Resuelve el reto a ciegas: pide instrumentos de uno en uno y anota cuántos montajes siguen en pie después de cada medida. Dictamina sólo cuando quede uno.",
+    ],
+    "subtitulo": "Motor de combustión interna · la medida en reposo que no dice nada, el límite de 0,20 V por conexión, el punto ciego del procedimiento y el frío que ataca por los dos lados",
+    "titulo": "El Arranque: Caídas de Tensión y Arranque en Frío",
+    "videoUrl": "",
+  },
   "mecanica-13": {
     "acento": "#2A9D8F",
     "aplicaciones": [
@@ -19753,6 +19884,7 @@ exports[`golden master — stores de datos (invariante ante la migración a src/
   "mecanica-122": [],
   "mecanica-123": [],
   "mecanica-124": [],
+  "mecanica-125": [],
   "mecanica-13": [],
   "mecanica-14": [],
   "mecanica-15": [],
@@ -20112,6 +20244,7 @@ exports[`golden master — stores de datos (invariante ante la migración a src/
   "mecanica-122",
   "mecanica-123",
   "mecanica-124",
+  "mecanica-125",
   "mecanica-13",
   "mecanica-14",
   "mecanica-15",

@@ -1,0 +1,9 @@
+{
+  "donor": "gases-verificacion.html",
+  "out": "arranque-caidas-de-tension.html",
+  "title": "CEN Labs · El arranque: caídas de tensión y arranque en frío — Laboratorio 3D",
+  "lt": "Motor de combustión interna · Mecánica",
+  "inspectHint": "👆 Monta el circuito y mide dónde se pierde la tensión. Doce y medio en los bornes no significa doce y medio en el arranque, y ocho de las nueve averías dan la misma lectura en reposo",
+  "body": "arranque-caidas-de-tension.body.js",
+  "fichas": ["_ficha-tecnica.js", "_ficha-arranque-caidas-de-tension.js"]
+}
