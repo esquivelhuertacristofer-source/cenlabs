@@ -253,16 +253,32 @@ const footBar=roundedBox(BOARD_W*0.7,0.06,0.22,MAT.frame,0.02);
 footBar.position.set(0,0.05,-0.05);boardG.add(footBar);
 
 const motG=new THREE.Group();motG.position.set(1.6,0.62,1.05);motG.rotation.y=-0.35;S.scene.add(motG);
-const body=new THREE.Mesh(new THREE.CylinderGeometry(0.42,0.42,1.35,28),MAT.body);
-body.rotation.z=Math.PI/2;motG.add(body);
-body.userData={act:'motorBody',title:'Carcasa del motor (toca para inspeccionar)'};
-[[-0.72,0.30],[0.72,0.44]].forEach(([x,r2])=>{
-  const bell=new THREE.Mesh(new THREE.CylinderGeometry(0.44,r2,0.16,28),MAT.bell);
-  bell.rotation.z=Math.PI/2;bell.position.x=x;motG.add(bell);});
-const fanCover=new THREE.Mesh(new THREE.CylinderGeometry(0.30,0.44,0.22,28,1,true),MAT.bell);
-fanCover.rotation.z=Math.PI/2;fanCover.position.x=-0.86;motG.add(fanCover);
-const fanBlade=new THREE.Mesh(new THREE.CylinderGeometry(0.26,0.26,0.02,16),MAT.base);
-fanBlade.rotation.z=Math.PI/2;fanBlade.position.x=-0.9;motG.add(fanBlade);
+/* Los nombres con los que trabaja la biblioteca de piezas (`P3`, que el molde ya
+   importa), traducidos una vez a los materiales de este laboratorio. */
+const MATP={
+  // Sin los mapas de la carcasa vieja: repetidos en cada aleta y en cada pata,
+  // el cepillado se lee como piedra en vez de como fundicion.
+  aluminio:std({color:MAT.body.color.getHex(),roughness:0.52,metalness:0.62}),
+  acero:std({color:0xc9ced3,roughness:0.28,metalness:0.90}),
+  cromo:std({color:0xc9ced3,roughness:0.28,metalness:0.90}),
+  chapa:std({color:0x8f979d,roughness:0.44,metalness:0.72}),
+  cobre:std({color:0xb87333,roughness:0.35,metalness:0.75}),
+  negro:std({color:0x14181e,roughness:0.62,metalness:0.06}),
+  goma:std({color:0x14181e,roughness:0.80,metalness:0.02}),
+  blanco:std({color:0xd7dee6,roughness:0.40,metalness:0.20}),
+  ceramica:std({color:0xd7dee6,roughness:0.60,metalness:0.05}),
+};
+/* LA MAQUINA. Le faltaban las dos cosas que mas dicen de ella y que ademas son
+   las que se leen en la placa: las ALETAS —la superficie por la que evacua lo
+   que no convierte en par, y de la que depende la clase de aislamiento y la
+   elevacion de temperatura que la placa declara— y las PATAS, que son la forma
+   constructiva (B3) que tambien va rotulada. La caja de bornes se deja como
+   pieza aparte porque este lab la usa como zona tactil. */
+const maq=P3.maquinaElectrica(MATP,{d:0.84,largo:1.35,eje:0.34,aletas:18,
+  bornes:false,placa:false});
+maq.position.y=0.103;      // las patas apoyan en el carril de la bancada
+maq.traverse(o=>{ if(o.isMesh) o.userData={act:'motorBody',title:'Carcasa del motor (toca para inspeccionar)'}; });
+motG.add(maq);
 const condBox=roundedBox(0.28,0.24,0.24,MAT.box,0.03);
 condBox.position.set(0.05,0.5,0);motG.add(condBox);
 condBox.userData={act:'condBox',title:'Caja de conexión / terminal box (toca para inspeccionar)'};
@@ -566,7 +582,9 @@ async function runAuto(){
     showToast('Recorrido completo: te dejo un motor candidato nuevo sin resolver — analízalo tú.');
   }finally{autoRunning=false;b.disabled=false;b.textContent='✨ Recorrido guiado';}
 }
-S.setAnimate(()=>{fanBlade.rotation.x+=0.02;});
+// Gira lo que gira —eje y ventilador— y deja quieta la carcasa.
+let motGiro=0;
+S.setAnimate(()=>{ motGiro+=0.02; maq.userData.gira(motGiro); });
 
 /* wiring */
 ['explora','corriente','fs','reto'].forEach(m=>el('m_'+m).onclick=()=>setMode(m));
