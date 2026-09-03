@@ -86,6 +86,8 @@ import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
 import { RoundedBoxGeometry } from 'three/addons/geometries/RoundedBoxGeometry.js';
+import * as P3 from '/labs/_piezas3d.js';
+import { instalaDiag } from '/labs/_diag3d.js';
 import { EffectComposer } from 'three/addons/postprocessing/EffectComposer.js';
 import { RenderPass } from 'three/addons/postprocessing/RenderPass.js';
 import { GTAOPass } from 'three/addons/postprocessing/GTAOPass.js';
@@ -486,25 +488,219 @@ const MAT={
   rack:std({color:0xc7ccd2,roughness:0.3,metalness:0.9}),
   sensor:std({color:0xffd166,roughness:0.4,metalness:0.5}),
   ecu:std({color:0x14181c,roughness:0.5,metalness:0.4}),
+  // El fuelle y el puño del volante son de goma, y la goma no reflaja: si se
+  // pintan con el metal de la columna, la mitad de la dirección parece maciza.
+  goma:std({color:0x15171a,roughness:0.95,metalness:0.03}),
+  aluminio:std({color:0x9aa4b0,roughness:0.46,metalness:0.78}),
 };
+const MATP={aluminio:MAT.aluminio, acero:MAT.column, cromo:MAT.rack, hierro:MAT.motor,
+  chapa:MAT.motor, negro:MAT.wheel, goma:MAT.goma, cobre:MAT.sensor,
+  ceramica:MAT.sensor, blanco:MAT.rack, friccion:MAT.wheel};
+
+/* Una pieza que va DE un punto A un punto: la columna, el árbol intermedio,
+   las barras de acoplamiento. Se construye con el eje en Y —que es como salen
+   de `revolucion`— y se orienta con un cuaternión, en vez de dejar cada tubo
+   suelto en el aire con un giro aproximado a ojo. Antes la columna era un
+   cilindro con rotation.z=π/2,3: ni tocaba el volante ni tocaba el piñón.      */
+const V=(x,y,z)=>new THREE.Vector3(x,y,z);
+function entre(a,b,perfil,mat,seg=24){
+  const d=b.clone().sub(a), L=d.length();
+  const m=new THREE.Mesh(P3.revolucion(perfil(L),{seg}),mat);
+  m.position.copy(a).addScaledVector(d,0.5);
+  m.quaternion.setFromUnitVectors(V(0,1,0),d.clone().normalize());
+  m.castShadow=true; return m;
+}
+// Una junta cardán de verdad: dos horquillas y la cruceta entre ellas. Es la
+// pieza que explica por qué la columna puede ir quebrada y aun así transmitir
+// el giro, y es lo que se ve al levantar la alfombrilla de cualquier coche.
+function cardan(mat,r=0.075){
+  const g=new THREE.Group();
+  for(const s of [-1,1]){
+    const h=new THREE.Group(); h.rotation.y=s>0?0:Math.PI/2;
+    for(const q of [-1,1]){
+      const br=new THREE.Mesh(P3.extruido(P3.contornoRedondeado(
+        [[-r*0.42,-r*0.30],[r*0.42,-r*0.30],[r*0.42,r*1.55],[-r*0.42,r*1.55]],r*0.30,3),
+        {espesor:r*0.55,bisel:r*0.05}),mat);
+      br.position.set(q*r*0.78,s*r*0.90,0); br.rotation.x=Math.PI/2;
+      br.rotation.z=s>0?0:Math.PI; h.add(br);
+    }
+    g.add(h);
+  }
+  for(const eje of ['x','z']){
+    const c=new THREE.Mesh(new THREE.CylinderGeometry(r*0.26,r*0.26,r*2.0,14),mat);
+    c.rotation.z=eje==='x'?Math.PI/2:0; c.rotation.x=eje==='z'?Math.PI/2:0; g.add(c);
+  }
+  return g;
+}
 
 const group=new THREE.Group(); group.position.set(0,1.1,0); scene.add(group);
-// volante
-const wheelGrp=new THREE.Group(); wheelGrp.position.set(-1.8,0.9,0); group.add(wheelGrp);
-const rim=new THREE.Mesh(new THREE.TorusGeometry(0.38,0.045,16,32),MAT.wheel); rim.rotation.x=Math.PI/2.1; wheelGrp.add(rim);
-for(let i=0;i<3;i++){const a=i/3*Math.PI*2;const spoke=new THREE.Mesh(new THREE.BoxGeometry(0.35,0.04,0.04),MAT.wheel);spoke.position.set(Math.cos(a)*0.18,0,Math.sin(a)*0.18*0.4);spoke.rotation.y=a;wheelGrp.add(spoke);}
-// columna de dirección
-const column=new THREE.Mesh(new THREE.CylinderGeometry(0.06,0.06,1.1,20),MAT.column); column.rotation.z=Math.PI/2.3; column.position.set(-1.1,0.55,0); group.add(column);
-// sensor de par
-const torqueSensor=new THREE.Mesh(new THREE.CylinderGeometry(0.1,0.1,0.15,16),MAT.sensor); torqueSensor.rotation.z=Math.PI/2.3; torqueSensor.position.set(-0.55,0.28,0); group.add(torqueSensor);
-// motor de asistencia
-const assistMotor=new THREE.Mesh(new THREE.CylinderGeometry(0.22,0.22,0.4,24),MAT.motor); assistMotor.rotation.z=Math.PI/2; assistMotor.position.set(0.1,0.05,0.35); group.add(assistMotor);
-// cremallera (rack)
-const rack=new THREE.Mesh(new THREE.CylinderGeometry(0.05,0.05,2.0,16),MAT.rack); rack.rotation.z=Math.PI/2; rack.position.set(0.4,0.0,0); group.add(rack);
-const tieL=new THREE.Mesh(new THREE.CylinderGeometry(0.03,0.03,0.5,12),MAT.column); tieL.rotation.z=Math.PI/2.6; tieL.position.set(-0.55,-0.1,0); group.add(tieL);
-const tieR=new THREE.Mesh(new THREE.CylinderGeometry(0.03,0.03,0.5,12),MAT.column); tieR.rotation.z=-Math.PI/2.6; tieR.position.set(1.35,-0.1,0); group.add(tieR);
-// ECU
-const ecu=roundedBox(0.5,0.32,0.55,MAT.ecu,0.15); ecu.position.set(1.9,0.4,0.4); group.add(ecu);
+
+/* La dirección se traza sobre TRES puntos, y todo lo demás cuelga de ellos:
+   el cubo del volante, el codo donde va el cardán y el piñón que ataca a la
+   cremallera. Antes cada pieza estaba puesta a ojo con su propio giro, y el
+   resultado era una columna que no llegaba al volante y un piñón que no
+   tocaba la cremallera: un despiece sin ensamblar.                            */
+const P_VOLANTE=V(-1.80,0.90,0), P_CODO=V(-0.75,0.62,0), P_PINON=V(0.15,0.10,0);
+
+/* ---- EL VOLANTE --------------------------------------------------------
+   Llanta con su alma de acero y su puño de goma, tres radios que se estrechan
+   hacia el cubo, y el cubo con la tapa del airbag. El pivote lleva la
+   inclinación de la columna; el grupo que gira va dentro, para que el volante
+   gire sobre su PROPIO eje y no cabecee.                                      */
+const wheelPivot=new THREE.Group(); wheelPivot.position.copy(P_VOLANTE);
+{ const d=P_CODO.clone().sub(P_VOLANTE).normalize();
+  wheelPivot.quaternion.setFromUnitVectors(V(0,1,0),d); }
+group.add(wheelPivot);
+const wheelGrp=new THREE.Group(); wheelPivot.add(wheelGrp);
+const RVOL=0.38;
+const alma=new THREE.Mesh(new THREE.TorusGeometry(RVOL,0.020,10,40),MAT.column);
+alma.rotation.x=Math.PI/2; wheelGrp.add(alma);
+const rim=new THREE.Mesh(new THREE.TorusGeometry(RVOL,0.046,16,44),MAT.goma);
+rim.rotation.x=Math.PI/2; rim.castShadow=true; wheelGrp.add(rim);
+for(let i=0;i<3;i++){
+  const a=i/3*Math.PI*2+Math.PI/6;
+  const radio=new THREE.Mesh(P3.extruido(P3.contornoRedondeado(
+    [[-0.052,0],[0.052,0],[0.030,RVOL-0.03],[-0.030,RVOL-0.03]],0.018,3),
+    {espesor:0.036,bisel:0.008}),MAT.wheel);
+  radio.rotation.x=Math.PI/2; radio.rotation.y=-a; wheelGrp.add(radio);
+}
+const cubo=new THREE.Mesh(P3.revolucion(
+  [[0,-0.030],[0.150,-0.030],[0.160,-0.010],[0.160,0.052],[0.140,0.072],[0,0.072]],{seg:32}),
+  MAT.wheel);
+cubo.castShadow=true; wheelGrp.add(cubo);
+
+/* ---- LA COLUMNA --------------------------------------------------------
+   Tubo de columna con su collarín, el sensor de par montado ENCIMA —no
+   flotando al lado—, la junta cardán en el codo y el árbol intermedio
+   estriado hasta el piñón. La columna de un coche va quebrada precisamente
+   porque el volante y la cremallera no están alineados: sin el cardán, esa
+   quiebra no se puede dibujar sin mentir.                                     */
+const column=entre(P_VOLANTE,P_CODO,L=>[
+  [0,-L/2],[0.028,-L/2],[0.028,-L*0.40],[0.052,-L*0.36],[0.052,L*0.30],
+  [0.040,L*0.34],[0.040,L/2],[0,L/2]],MAT.column,26);
+group.add(column);
+const collarin=entre(P_VOLANTE.clone().lerp(P_CODO,0.30),P_VOLANTE.clone().lerp(P_CODO,0.46),
+  L=>[[0,-L/2],[0.082,-L/2],[0.090,-L*0.30],[0.090,L*0.30],[0.082,L/2],[0,L/2]],MAT.aluminio,26);
+group.add(collarin);
+
+const torqueSensor=new THREE.Group();
+torqueSensor.position.copy(P_VOLANTE.clone().lerp(P_CODO,0.62));
+{ const d=P_CODO.clone().sub(P_VOLANTE).normalize();
+  torqueSensor.quaternion.setFromUnitVectors(V(0,1,0),d); }
+const carcasaSensor=new THREE.Mesh(P3.revolucion(
+  [[0.040,-0.085],[0.108,-0.085],[0.116,-0.062],[0.116,0.062],[0.108,0.085],[0.040,0.085]],{seg:26}),
+  MAT.sensor);
+carcasaSensor.castShadow=true; torqueSensor.add(carcasaSensor);
+const conSensor=P3.conector(MATP,{ancho:0.10,alto:0.058,fondo:0.052,pines:4});
+conSensor.position.set(0,0,0.13); conSensor.rotation.x=Math.PI/2; torqueSensor.add(conSensor);
+group.add(torqueSensor);
+
+const junta=cardan(MAT.column,0.085); junta.position.copy(P_CODO);
+{ const d=P_PINON.clone().sub(P_VOLANTE).normalize();
+  junta.quaternion.setFromUnitVectors(V(0,1,0),d); }
+group.add(junta);
+
+// El árbol intermedio, con su tramo ESTRIADO: es por donde se desliza en un
+// choque frontal, y por donde se desmonta la dirección en el taller.
+const arbol=entre(P_CODO,P_PINON,L=>[
+  [0,-L/2],[0.034,-L/2],[0.034,-L*0.12],[0.046,-L*0.06],[0.046,L*0.30],
+  [0.034,L*0.34],[0.034,L/2],[0,L/2]],MAT.column,22);
+group.add(arbol);
+for(let i=0;i<12;i++){
+  const a=i/12*Math.PI*2;
+  const est=new THREE.Mesh(new THREE.BoxGeometry(0.010,0.30,0.012),MAT.column);
+  const mid=P_CODO.clone().lerp(P_PINON,0.62);
+  est.position.copy(mid);
+  est.position.x+=Math.cos(a)*0.044*0.4; est.position.z+=Math.sin(a)*0.044;
+  est.quaternion.copy(arbol.quaternion); group.add(est);
+}
+
+/* ---- LA CREMALLERA -----------------------------------------------------
+   Aquí estaba la mentira más grande: la cremallera era un cilindro liso. Una
+   cremallera es una BARRA DENTADA dentro de su carcasa, con el piñón
+   engranando en los dientes, dos fuelles de goma que guardan el engrase, y las
+   barras de acoplamiento con sus rótulas en los extremos. Sin dientes no se
+   puede enseñar lo único que hace: convertir el giro en desplazamiento.        */
+const rackGrp=new THREE.Group(); rackGrp.position.set(0.4,0,0); group.add(rackGrp);
+const barra=new THREE.Mesh(new THREE.CylinderGeometry(0.042,0.042,2.0,20),MAT.rack);
+barra.rotation.z=Math.PI/2; barra.castShadow=true; rackGrp.add(barra);
+const dientes=P3.cremallera({z:13,m:0.028,alto:0.045,ancho:0.10});
+const meshDientes=new THREE.Mesh(dientes.geo,MAT.rack);
+meshDientes.position.set(-0.25,0.042,0); meshDientes.castShadow=true; rackGrp.add(meshDientes);
+const rack=barra;   // la pieza que el laboratorio mueve y deja inspeccionar
+
+// La carcasa de la cremallera, abierta por arriba justo donde ataca el piñón.
+const carcasaRack=new THREE.Mesh(P3.revolucion(
+  [[0,-0.62],[0.085,-0.62],[0.098,-0.58],[0.098,0.30],[0.085,0.34],[0,0.34]],{seg:28}),
+  MAT.aluminio);
+carcasaRack.rotation.z=Math.PI/2; carcasaRack.position.x=-0.10;
+carcasaRack.castShadow=true; rackGrp.add(carcasaRack);
+// El piñón, con sus dientes, metido en su torreta sobre la carcasa.
+const pinon=P3.engrane({z:9,m:0.028,ancho:0.10});
+const meshPinon=new THREE.Mesh(pinon.geo,MAT.rack);
+meshPinon.position.set(-0.25,0.042+pinon.rp,0); meshPinon.castShadow=true; rackGrp.add(meshPinon);
+const torreta=new THREE.Mesh(P3.revolucion(
+  [[0,0],[0.105,0],[0.105,0.12],[0.088,0.16],[0,0.16]],{seg:24}),MAT.aluminio);
+torreta.position.set(-0.25,0.09,0); rackGrp.add(torreta);
+
+// Los dos fuelles: goma corrugada, y no adorno —guardan el engrase de la
+// cremallera, y cuando se rompen entra tierra y la dirección se raya—.
+function fuelle(){
+  const pts=[[0.034,-0.19]];
+  for(let i=0;i<7;i++){ const y=-0.19+i*0.055;
+    pts.push([0.038,y],[0.086,y+0.014],[0.086,y+0.030],[0.038,y+0.044]); }
+  pts.push([0.040,0.19]);
+  const m=new THREE.Mesh(P3.revolucion(pts,{seg:26}),MAT.goma);
+  m.rotation.z=Math.PI/2; m.castShadow=true; return m;
+}
+[-0.92,0.92].forEach(x=>{ const f=fuelle(); f.position.x=x; rackGrp.add(f); });
+
+// Las barras de acoplamiento, con rótula en el extremo: es la pieza que se
+// afloja para alinear las ruedas, y la que se revisa buscando holgura.
+function barraAcople(signo){
+  const g=new THREE.Group();
+  const b=new THREE.Mesh(P3.revolucion(
+    [[0,-0.26],[0.026,-0.26],[0.026,0.18],[0.034,0.20],[0.034,0.26],[0,0.26]],{seg:18}),MAT.column);
+  b.rotation.z=signo*Math.PI/2.6; g.add(b);
+  const rot=new THREE.Mesh(P3.revolucion(
+    [[0,-0.070],[0.062,-0.070],[0.070,-0.040],[0.070,0.030],[0.040,0.058],[0,0.058]],{seg:20}),MAT.motor);
+  rot.position.set(signo*0.24,-0.11,0); g.add(rot);
+  const bola=new THREE.Mesh(new THREE.SphereGeometry(0.042,18,12),MAT.rack);
+  bola.position.set(signo*0.24,-0.03,0); g.add(bola);
+  g.traverse(o=>{if(o.isMesh)o.castShadow=true;});
+  return g;
+}
+const tieL=barraAcople(-1); tieL.position.set(-1.10,-0.05,0); rackGrp.add(tieL);
+const tieR=barraAcople(1);  tieR.position.set( 1.10,-0.05,0); rackGrp.add(tieR);
+
+/* ---- EL MOTOR DE ASISTENCIA -------------------------------------------
+   Con su carcasa aleteada, su conector y —lo que faltaba del todo— el
+   REDUCTOR DE TORNILLO SIN FIN. El motor no ataca la cremallera: ataca una
+   corona a través de un sinfín, y de ahí sale la desmultiplicación que
+   convierte un motorcito en la fuerza que mueve las ruedas paradas.            */
+const assistMotor=new THREE.Group(); assistMotor.position.set(0.15,0.05,0.42);
+group.add(assistMotor);
+const carcasaMot=P3.carcasaMotor(MATP,{d:0.30,largo:0.42,nAletas:18,patas:false,bornes:false});
+carcasaMot.rotation.y=Math.PI/2; assistMotor.add(carcasaMot);
+const conMot=P3.conector(MATP,{ancho:0.11,alto:0.06,fondo:0.055,pines:3});
+conMot.position.set(0.10,0.16,0.16); assistMotor.add(conMot);
+// El eje del motor, que es lo único que gira aquí: una carcasa que da vueltas
+// no es un motor, es un bombo de lotería.
+const assistEje=new THREE.Mesh(new THREE.CylinderGeometry(0.030,0.030,0.30,16),MAT.rack);
+assistEje.rotation.x=Math.PI/2; assistEje.position.z=-0.30; assistMotor.add(assistEje);
+for(let i=0;i<3;i++){
+  const h=new THREE.Mesh(new THREE.TorusGeometry(0.038,0.011,8,20),MAT.rack);
+  h.position.z=-0.34+i*0.05; h.rotation.x=0.5; assistEje.parent.add(h);
+}
+const cajaSinfin=new THREE.Mesh(P3.normalizaUV(P3.extruido(P3.contornoRedondeado(
+  [[-0.15,-0.13],[0.15,-0.13],[0.15,0.13],[-0.15,0.13]],0.06,4),{espesor:0.24,bisel:0.012}),2),
+  MAT.aluminio);
+cajaSinfin.position.set(0.15,0.05,-0.02); cajaSinfin.castShadow=true; group.add(cajaSinfin);
+
+/* ---- LA ECU ----------------------------------------------------------- */
+const ecu=P3.cajaMando(MATP,{ancho:0.52,alto:0.28,fondo:0.58,aletas:12,pines:12});
+ecu.traverse(o=>{if(o.isMesh&&o.material===MATP.aluminio)o.material=MAT.ecu;});
+ecu.position.set(1.9,0.4,0.4); group.add(ecu);
 
 /* ---- inspección por clic ---- */
 const parts=[
@@ -523,6 +719,10 @@ pickerFor(scene,S.camera,S.renderer.domElement,hit=>{
 });
 
 const homes={ecu:ecu.position.clone(),motor:assistMotor.position.clone(),sensor:torqueSensor.position.clone()};
+instalaDiag('direccion-eps',{escena:scene,camara:S.camera,controles:S.controls,
+  renderizador:S.renderer,
+  grupos:{volante:wheelPivot,columna:column,sensor:torqueSensor,cardan:junta,
+          arbol,cremallera:rackGrp,motor:assistMotor,ecu}});
 let exploded=false,running=false,vKmh=0,steerAngle=0,driverTorque=3.0;
 const synth=makeSynth({type:'sine',type2:'triangle',filterFreq:900,Q:3});
 
@@ -535,8 +735,8 @@ S.setAnimate((dt,t)=>{
   if(running){
     steerAngle=Math.sin(t*0.8)*0.6;
     wheelGrp.rotation.y=steerAngle*1.5;
-    rack.position.x=0.4+Math.sin(t*0.8)*0.15;
-    assistMotor.rotation.x+=dt*(2+vKmh*0.05);
+    rackGrp.position.x=0.4+Math.sin(t*0.8)*0.15;
+    assistEje.rotation.z+=dt*(2+vKmh*0.05);
     const gain=assistGain(vKmh);
     const totalTorque=driverTorque*gain;
     const set=(id,v)=>{const e=document.getElementById(id);if(e)e.textContent=v;};
