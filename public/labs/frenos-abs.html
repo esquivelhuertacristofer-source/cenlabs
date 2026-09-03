@@ -86,6 +86,7 @@ import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
 import { RoundedBoxGeometry } from 'three/addons/geometries/RoundedBoxGeometry.js';
+import { instalaDiag } from '/labs/_diag3d.js';
 import * as P3 from '/labs/_piezas3d.js';
 import { EffectComposer } from 'three/addons/postprocessing/EffectComposer.js';
 import { RenderPass } from 'three/addons/postprocessing/RenderPass.js';
@@ -704,6 +705,8 @@ async function runAuto(){
 document.getElementById('btnAuto').onclick=runAuto;
 const soundBtn=document.getElementById('soundBtn');
 soundBtn.onclick=()=>{const on=synth.toggle();soundBtn.textContent=on?'🔊':'🔇';soundBtn.classList.toggle('on',on);};
+
+instalaDiag('frenos-abs',{escena:scene,camara:S.camera,controles:S.controls,renderizador:S.renderer,grupos:{}});
 
 </script>
   <!-- Ficha técnica · Capa B del molde de lab 3D (componente compartido + contenido del lab) -->

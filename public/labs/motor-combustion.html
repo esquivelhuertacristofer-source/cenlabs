@@ -187,6 +187,7 @@ import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
 import { RoundedBoxGeometry } from 'three/addons/geometries/RoundedBoxGeometry.js';
+import { instalaDiag } from '/labs/_diag3d.js';
 import * as P3 from '/labs/_piezas3d.js';
 import { EffectComposer } from 'three/addons/postprocessing/EffectComposer.js';
 import { RenderPass } from 'three/addons/postprocessing/RenderPass.js';
@@ -1358,6 +1359,8 @@ window.__test={start:()=>$('start').click(),action:(a)=>handleAction(a,null),
     blockInstalled:travel.block.installed,crankInstalled:travel.crank.installed,
     pistonsInstalled:travel.pistons.installed,headInstalled:travel.head.installed}),
   audioState:()=>({ctxState:audioCtx?.state||'none', vol:audioGain?.gain.value||0, freq:oscA?.frequency.value||0, soundOn})};
+
+instalaDiag('motor-combustion',{escena:scene,camara:camera,controles:controls,renderizador:renderer,grupos:{}});
 
 </script>
   <!-- Ficha técnica · Capa B del molde de lab 3D (componente compartido + contenido del lab) -->
