@@ -103,6 +103,8 @@ import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
 import { RoundedBoxGeometry } from 'three/addons/geometries/RoundedBoxGeometry.js';
+import * as P3 from '/labs/_piezas3d.js';
+import { instalaDiag } from '/labs/_diag3d.js';
 import { EffectComposer } from 'three/addons/postprocessing/EffectComposer.js';
 import { RenderPass } from 'three/addons/postprocessing/RenderPass.js';
 import { GTAOPass } from 'three/addons/postprocessing/GTAOPass.js';
@@ -454,10 +456,34 @@ const PINCOL={ power:0xf4475e, ground:0x8a9299, can:0x4FD1C5, kline:0xFFB703, di
 
 /* ---------- 1) CONECTOR DLC J1962 (16 pines, 2 filas de 8) ---------- */
 const conn=new THREE.Group(); conn.position.set(-2.35,1.25,0.9); conn.rotation.y=0.5; scene.add(conn);
-const housing=roundedBox(1.9,0.95,0.5,MAT.housing,0.12); conn.add(housing);
-// cavidad frontal (bisel) — un marco oscuro hacia +Z
-const bezel=roundedBox(1.7,0.78,0.12,std({color:0x05100d,roughness:0.8,metalness:0.2}),0.1);
-bezel.position.set(0,0,0.24); conn.add(bezel);
+/* La forma del J1962 no es un detalle: es LA senal. Un conector de diagnostico
+   se reconoce debajo del salpicadero por su silueta TRAPEZOIDAL —ancho arriba,
+   estrecho abajo— y por la lengueta central que separa las dos filas de ocho.
+   Esa asimetria es lo que impide enchufarlo del reves, y por eso un tecnico lo
+   identifica a oscuras y con una mano. Dibujado como un ladrillo redondeado,
+   el laboratorio pedia reconocer una pieza que no se parecia a la real.       */
+const TRAP=[[-0.95,0.475],[0.95,0.475],[0.78,-0.475],[-0.78,-0.475]];
+const TRAP_INT=[[-0.85,0.375],[0.85,0.375],[0.69,-0.375],[-0.69,-0.375]];
+const housing=new THREE.Mesh(P3.normalizaUV(P3.extruido(
+  P3.contornoRedondeado(TRAP,0.07,4),
+  {huecos:[P3.contornoRedondeado(TRAP_INT,0.05,4)],espesor:0.50,bisel:0.020}),2),MAT.housing);
+housing.castShadow=true; conn.add(housing);
+// El fondo de la cavidad, donde nacen los pines.
+const fondoCav=new THREE.Mesh(P3.extruido(P3.contornoRedondeado(TRAP_INT,0.05,4),
+  {espesor:0.10,bisel:0.010}),std({color:0x05100d,roughness:0.8,metalness:0.2}));
+fondoCav.position.z=-0.16; conn.add(fondoCav);
+// La LENGUETA central, que separa la fila A de la fila B y hace de chavetero.
+const bezel=new THREE.Mesh(P3.extruido(P3.contornoRedondeado(
+  [[-0.80,-0.045],[0.80,-0.045],[0.80,0.045],[-0.80,0.045]],0.020,3),
+  {espesor:0.34,bisel:0.010}),std({color:0x05100d,roughness:0.8,metalness:0.2}));
+bezel.position.set(0,0,0.05); conn.add(bezel);
+// Las dos orejetas de anclaje al soporte del salpicadero.
+for(const sx of [-1,1]){
+  const orej=new THREE.Mesh(P3.extruido(P3.contornoRedondeado(
+    [[-0.10,-0.11],[0.10,-0.11],[0.10,0.11],[-0.10,0.11]],0.04,3),
+    {huecos:[P3.circulo(0,0,0.045,10)],espesor:0.10,bisel:0.008}),MAT.housing);
+  orej.position.set(sx*1.03,0.20,-0.16); conn.add(orej);
+}
 // pines: fila superior (A) 1..8 izq→der ; fila inferior (B) 9..16 izq→der
 const PIN_FN={
   1:'Discrecional del fabricante', 2:'J1850 Bus+ (PWM/VPW)', 3:'Discrecional del fabricante',
@@ -475,8 +501,11 @@ const pinMeshes=[];
 for(let n=1;n<=16;n++){
   const row=n<=8?0:1;               // 0 arriba, 1 abajo
   const col=(n-1)%8;                // 0..7 izq→der
-  const x=-0.72+col*0.206;
-  const y=row===0? 0.17 : -0.17;
+  // Las dos filas siguen el trapecio: la de abajo es mas corta que la de
+  // arriba, igual que la carcasa. Ponerlas iguales delataba el ladrillo.
+  const ancho=row===0?0.72:0.60;
+  const x=-ancho+col*(ancho*2/7);
+  const y=row===0? 0.20 : -0.20;
   const m=new THREE.Mesh(new THREE.CylinderGeometry(0.035,0.035,0.18,14), MAT.pin.clone());
   m.rotation.x=Math.PI/2; m.position.set(x,y,0.28); m.castShadow=true;
   const col3=pinColor(n);
@@ -489,8 +518,32 @@ connLabel.visible=false; connLabel.raycast=()=>{}; conn.add(connLabel); HOVER_LA
 
 /* ---------- 2) ESCÁNER (herramienta de exploración) ---------- */
 const tool=new THREE.Group(); tool.position.set(2.15,1.15,1.15); tool.rotation.y=-0.55; tool.rotation.x=-0.12; scene.add(tool);
-const toolBody=roundedBox(1.15,1.7,0.24,MAT.tool,0.14); tool.add(toolBody);
-const grip=roundedBox(1.2,0.55,0.3,MAT.toolGrip,0.35); grip.position.set(0,-0.62,0); tool.add(grip);
+/* El escaner: cuerpo con el CANTO DE GOMA que lo protege de las caidas —que es
+   lo primero que se ve en cualquier equipo de taller—, el marco de la pantalla
+   y el paso de cable con su descarga de traccion. */
+const toolBody=new THREE.Mesh(P3.normalizaUV(P3.extruido(P3.contornoRedondeado(
+  [[-0.575,-0.85],[0.575,-0.85],[0.575,0.85],[-0.575,0.85]],0.12,4),
+  {espesor:0.24,bisel:0.020}),2),MAT.tool);
+toolBody.castShadow=true; tool.add(toolBody);
+const canto=new THREE.Mesh(P3.extruido(P3.contornoRedondeado(
+  [[-0.625,-0.90],[0.625,-0.90],[0.625,0.90],[-0.625,0.90]],0.15,4),
+  {huecos:[P3.contornoRedondeado([[-0.545,-0.82],[0.545,-0.82],[0.545,0.82],[-0.545,0.82]],0.11,4)],
+   espesor:0.30,bisel:0.030}),MAT.toolGrip);
+tool.add(canto);
+const marcoScr=new THREE.Mesh(P3.extruido(P3.contornoRedondeado(
+  [[-0.52,-0.60],[0.52,-0.60],[0.52,0.60],[-0.52,0.60]],0.05,3),
+  {huecos:[P3.contornoRedondeado([[-0.46,-0.53],[0.46,-0.53],[0.46,0.53],[-0.46,0.53]],0.03,3)],
+   espesor:0.04,bisel:0.006}),std({color:0x0a1512,roughness:0.7,metalness:0.2}));
+marcoScr.position.set(0,0.28,0.125); tool.add(marcoScr);
+const grip=new THREE.Mesh(P3.extruido(P3.contornoRedondeado(
+  [[-0.60,-0.275],[0.60,-0.275],[0.60,0.275],[-0.60,0.275]],0.19,5),
+  {espesor:0.30,bisel:0.045}),MAT.toolGrip);
+grip.position.set(0,-0.62,0); grip.castShadow=true; tool.add(grip);
+// La descarga de traccion por donde sale el cable hacia el conector.
+const descarga=new THREE.Mesh(P3.revolucion([
+  [0,0],[0.075,0],[0.075,0.06],[0.060,0.09],[0.052,0.20],[0.044,0.30],[0,0.30]],{seg:16}),
+  MAT.toolGrip);
+descarga.position.set(0.30,0.86,0); tool.add(descarga);
 // pantalla emisiva con textura canvas actualizable
 const scrCanvas=document.createElement('canvas'); scrCanvas.width=320; scrCanvas.height=384;
 const scrTex=new THREE.CanvasTexture(scrCanvas); scrTex.colorSpace=THREE.SRGBColorSpace; scrTex.minFilter=THREE.LinearFilter; scrTex.generateMipmaps=false;
@@ -498,8 +551,19 @@ const screen=new THREE.Mesh(new THREE.PlaneGeometry(0.92,1.05),
   new THREE.MeshBasicMaterial({map:scrTex,toneMapped:false}));
 screen.position.set(0,0.28,0.13); tool.add(screen);
 // botonera decorativa
-for(let i=0;i<4;i++){ const b=roundedBox(0.18,0.12,0.06,std({color:0x1a2622,roughness:0.6,metalness:0.3}),0.2);
-  b.position.set(-0.33+i*0.22,-0.35,0.13); tool.add(b); }
+/* La botonera: cuatro teclas de cursor alrededor de la de aceptar, que es la
+   disposicion de cualquier escaner de mano —y lo que permite decirle a un
+   alumno "baja hasta el DTC y pulsa OK" sin tener el aparato delante—.        */
+const tecla=(x,y,w,h)=>{
+  const b=new THREE.Mesh(P3.extruido(P3.contornoRedondeado(
+    [[-w/2,-h/2],[w/2,-h/2],[w/2,h/2],[-w/2,h/2]],Math.min(w,h)*0.30,3),
+    {espesor:0.055,bisel:0.010}),std({color:0x1a2622,roughness:0.6,metalness:0.3}));
+  b.position.set(x,y,0.145); tool.add(b); return b;
+};
+tecla(0,-0.35,0.16,0.16);
+tecla(0,-0.20,0.14,0.10); tecla(0,-0.50,0.14,0.10);
+tecla(-0.19,-0.35,0.10,0.14); tecla(0.19,-0.35,0.10,0.14);
+tecla(-0.40,-0.35,0.16,0.11); tecla(0.40,-0.35,0.16,0.11);
 
 /* ---------- 3) CABLE escáner → DLC ---------- */
 const cableCurve=new THREE.CatmullRomCurve3([
@@ -513,14 +577,58 @@ cable.castShadow=true; scene.add(cable);
 
 /* ---------- 4) MOTOR estilizado + sensores (origen de los datos) ---------- */
 const eng=new THREE.Group(); eng.position.set(0.9,0,-1.55); scene.add(eng);
-const block=roundedBox(2.3,1.0,1.35,MAT.block,0.06); block.position.set(0,0.95,0); eng.add(block);
-const head=roundedBox(2.35,0.4,1.4,MAT.block,0.08); head.position.set(0,1.55,0); eng.add(head);
+/* El motor es aqui el ORIGEN de los datos, no el sujeto del laboratorio, pero
+   dos ladrillos apilados no son un motor. Con el faldon del bloque, la culata,
+   la tapa de balancines nervada y su tapon de aceite basta para que se lea como
+   lo que es, y para que los sensores tengan donde ir atornillados.            */
+const block=new THREE.Mesh(P3.normalizaUV(P3.extruido(P3.contornoRedondeado(
+  [[-1.15,-0.50],[1.15,-0.50],[1.15,0.50],[-1.15,0.50]],0.10,4),
+  {espesor:1.35,bisel:0.05}),2),MAT.block);
+block.rotation.x=Math.PI/2; block.position.set(0,0.95,0);
+block.castShadow=block.receiveShadow=true; eng.add(block);
+// El faldon del carter, que es lo que da al bloque su perfil de motor.
+const carter=new THREE.Mesh(P3.normalizaUV(P3.extruido(P3.contornoRedondeado(
+  [[-1.05,-0.28],[1.05,-0.28],[0.92,0.28],[-0.92,0.28]],0.10,4),
+  {espesor:1.20,bisel:0.05}),2),MAT.block);
+carter.rotation.x=Math.PI/2; carter.position.set(0,0.20,0); carter.castShadow=true; eng.add(carter);
+const head=new THREE.Mesh(P3.normalizaUV(P3.extruido(P3.contornoRedondeado(
+  [[-1.18,-0.20],[1.18,-0.20],[1.18,0.20],[-1.18,0.20]],0.06,3),
+  {espesor:1.40,bisel:0.04}),2),MAT.block);
+head.rotation.x=Math.PI/2; head.position.set(0,1.55,0); head.castShadow=true; eng.add(head);
+// La tapa de balancines, nervada, con su tapon de aceite y su respiradero.
+const tapa=new THREE.Mesh(P3.normalizaUV(P3.extruido(P3.contornoRedondeado(
+  [[-1.10,-0.42],[1.10,-0.42],[1.10,0.42],[-1.10,0.42]],0.14,4),
+  {espesor:0.26,bisel:0.03}),2),std({color:0x2b3138,roughness:0.55,metalness:0.45}));
+tapa.rotation.x=-Math.PI/2; tapa.position.set(0,1.88,0); tapa.castShadow=true; eng.add(tapa);
+for(let k=0;k<9;k++){
+  const nerv=new THREE.Mesh(new THREE.BoxGeometry(0.045,0.05,0.78),
+    std({color:0x2b3138,roughness:0.55,metalness:0.45}));
+  nerv.position.set(-0.92+k*0.23,2.02,0); eng.add(nerv);
+}
+const tapon=new THREE.Mesh(P3.revolucion([
+  [0,0],[0.15,0],[0.15,0.055],[0.11,0.075],[0,0.075]],{seg:18}),
+  std({color:0x1d2228,roughness:0.6,metalness:0.3}));
+tapon.position.set(-0.80,2.01,-0.28); eng.add(tapon);
 // 4 cilindros (indicadores de encendido)
 const cylMarks=[];
 for(let i=0;i<4;i++){
   const x=-0.78+i*0.52;
-  const c=new THREE.Mesh(new THREE.CylinderGeometry(0.17,0.17,0.34,20), MAT.cyl.clone());
-  c.position.set(x,1.9,0); c.castShadow=true; eng.add(c);
+  /* Lo que se enciende no es "un cilindro": es la BOBINA sobre la bujia, con su
+     cuerpo, su conector de dos vias y el faldon que baja al pozo de la bujia.
+     Es la pieza que se desmonta para diagnosticar un fallo de encendido, que es
+     justo lo que este laboratorio hace pulsar al alumno.                       */
+  const c=new THREE.Mesh(P3.revolucion([
+    [0,-0.17],[0.075,-0.17],[0.075,0.00],[0.135,0.04],[0.135,0.15],
+    [0.115,0.17],[0,0.17]],{seg:22}), MAT.cyl.clone());
+  c.position.set(x,2.08,0); c.castShadow=true; eng.add(c);
+  const conBob=new THREE.Mesh(P3.extruido(P3.contornoRedondeado(
+    [[-0.075,-0.045],[0.075,-0.045],[0.075,0.045],[-0.075,0.045]],0.018,3),
+    {espesor:0.07,bisel:0.008}),std({color:0x14181c,roughness:0.6,metalness:0.3}));
+  conBob.position.set(x,2.18,0.13); conBob.rotation.x=Math.PI/2; eng.add(conBob);
+  const faldon=new THREE.Mesh(P3.revolucion([
+    [0.030,0],[0.052,0],[0.052,0.22],[0.030,0.22]],{seg:14}),
+    std({color:0x14181c,roughness:0.7,metalness:0.2}));
+  faldon.position.set(x,1.90,0); eng.add(faldon);
   c.material.emissive=new THREE.Color(0x123028); cylMarks.push(c);
   const lb=labelSprite(String(i+1),'#8FB3AC'); lb.position.set(x,2.28,0); lb.scale.multiplyScalar(0.6);
   lb.visible=false; lb.raycast=()=>{}; eng.add(lb); HOVER_LABELS.set(c,lb);
@@ -535,8 +643,13 @@ const SENSORS=[
 ];
 SENSORS.forEach(sn=>{
   const mat=(sn.key==='O2')?MAT.o2.clone():MAT.sensor.clone();
-  const s=new THREE.Mesh(new THREE.CylinderGeometry(0.12,0.14,0.22,18), mat);
-  s.position.set(...sn.pos); s.castShadow=true; eng.add(s); sn.mesh=s;
+  // Cada sensor, con su cuerpo, su brida de sujecion y su conector: un tronco
+  // de cono suelto no dice ni donde se atornilla ni por donde se desenchufa,
+  // que son las dos cosas que se le piden a un alumno delante de un sensor.
+  const s=P3.captador({aluminio:MAT.block,acero:MAT.block,negro:mat,cobre:mat,
+    cromo:MAT.block,goma:mat,blanco:MAT.block,ceramica:mat},{d:0.20,largo:0.40});
+  s.position.set(...sn.pos); s.rotation.z=Math.PI; sn.mesh=s;
+  s.traverse(o=>{if(o.isMesh)o.castShadow=true;}); eng.add(s);
   const lb=labelSprite(sn.key, sn.key==='O2'?'#4FD1C5':'#ffd166');
   lb.position.set(sn.pos[0],sn.pos[1]+0.42,sn.pos[2]); lb.scale.multiplyScalar(0.72);
   lb.visible=false; lb.raycast=()=>{}; eng.add(lb); HOVER_LABELS.set(s,lb);
@@ -902,6 +1015,9 @@ async function runAuto(){
 el('btnAuto').onclick=runAuto;
 
 refreshCaseLabel();
+
+instalaDiag('escaner-obd',{escena:scene,camara:S.camera,controles:S.controls,
+  renderizador:S.renderer, grupos:{conector:conn,escaner:tool,motor:eng}});
 </script>
   <!-- Ficha técnica · Capa B del molde de lab 3D (componente compartido + contenido del lab) -->
   <script src="_ficha-tecnica.js"></script>
