@@ -2562,7 +2562,7 @@ export function cilindroHidraulico(mat, opts = {}) {
  */
 export function valvulaDireccional(mat, opts = {}) {
   const { ancho = 0.34, alto = 0.11, fondo = 0.12, vias = 5, solenoides = 2,
-          base = true } = opts;
+          pilotos = 0, base = true } = opts;
   const g = new THREE.Group();
   const cuerpo = new THREE.Mesh(extruido(contornoRedondeado(
     [[-ancho / 2, -alto / 2], [ancho / 2, -alto / 2], [ancho / 2, alto / 2], [-ancho / 2, alto / 2]],
@@ -2592,6 +2592,28 @@ export function valvulaDireccional(mat, opts = {}) {
     const con = conector(mat, { ancho: alto * 0.7, alto: alto * 0.6, fondo: alto * 0.5, pines: 2 });
     con.position.set(sx * (ancho / 2 + alto * 0.50), alto * 0.62, 0); g.add(con);
   }
+  /* TAPAS DE PILOTAJE. Una válvula pilotada por AIRE no lleva bobina: lleva una
+     tapa con su racor, y la orden le llega por un tubo en vez de por un cable.
+     En un mando en cascada esa es toda la diferencia —lo que conmuta la memoria
+     es la línea de presión del grupo—, así que dibujarle solenoides sería decir
+     que el mando es eléctrico cuando no lo es. */
+  const pilotosPos = [];
+  for (let i = 0; i < pilotos; i++) {
+    const sx = i === 0 ? -1 : 1;
+    const cap = new THREE.Mesh(revolucion([
+      [0, 0], [alto * 0.44, 0], [alto * 0.44, alto * 0.62],
+      [alto * 0.34, alto * 0.74], [0, alto * 0.74]], { seg: 18 }),
+      mat.aluminio || mat.acero);
+    cap.rotation.z = -sx * Math.PI / 2;
+    cap.position.x = sx * (ancho / 2 + alto * 0.03); g.add(cap);
+    const rac = new THREE.Mesh(new THREE.CylinderGeometry(alto * 0.13, alto * 0.15, alto * 0.30, 12),
+      mat.negro || mat.acero);
+    rac.rotation.z = Math.PI / 2;
+    rac.position.x = sx * (ancho / 2 + alto * 0.90); g.add(rac);
+    pilotosPos.push([sx * (ancho / 2 + alto * 1.05), 0, 0]);
+  }
+  g.userData.pilotos = pilotosPos;
+
   const tomas = [];
   if (base) {
     const b = new THREE.Mesh(extruido(contornoRedondeado(

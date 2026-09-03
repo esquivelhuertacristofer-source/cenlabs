@@ -1425,6 +1425,16 @@ const bench=roundedBox(4.8,0.5,2.1,MAT.bench,0.05);bench.position.set(1.95,0.25,
   const l=new THREE.Mesh(new THREE.CylinderGeometry(0.05,0.05,0.5,12),MAT.leg);
   l.position.set(p[0],0.25,p[1]);scene.add(l);
 });
+/* Los nombres con los que trabaja la biblioteca de piezas (`P3`, que el molde
+   ya importa), traducidos una vez a los materiales de este laboratorio. */
+const MATP={
+  aluminio: std(0x717981,0.60,0.45), acero: std(0x828a91,0.42,0.75),
+  cromo: std(0xa9b1b6,0.26,0.88),    chapa: std(0x6f777e,0.50,0.65),
+  cobre: std(0xb87333,0.35,0.75),    negro: std(0x14181e,0.62,0.06),
+  goma: std(0x101418,0.92,0.02),     blanco: std(0xd7dee6,0.42,0.15),
+  rojo: std(0xd64545,0.50,0.10),     ceramica: std(0xd9dcd6,0.62,0.04),
+};
+
 const GEO_CIL=new THREE.CylinderGeometry(1,1,1,28);
 const GEO_TUB=new THREE.CylinderGeometry(1,1,1,14);
 const _vA=new THREE.Vector3(),_vB=new THREE.Vector3(),_vD=new THREE.Vector3(),_up=new THREE.Vector3(0,1,0);
@@ -1440,34 +1450,91 @@ const CILZ=[0.00,0.58,1.16];
 const EST=CILZ.map((z,i)=>{
   const g=new THREE.Group();g.position.set(0,0,z);scene.add(g);
   const soporte=roundedBox(0.14,0.34,0.36,MAT.post,0.03);soporte.position.set(0.58,0.67,0);g.add(soporte);
-  const barrel=new THREE.Mesh(GEO_CIL,MAT.barrel);barrel.rotation.z=Math.PI/2;g.add(barrel);
-  const tapa1=new THREE.Mesh(GEO_CIL,MAT.tapa);tapa1.rotation.z=Math.PI/2;g.add(tapa1);
-  const tapa2=new THREE.Mesh(GEO_CIL,MAT.tapa);tapa2.rotation.z=Math.PI/2;g.add(tapa2);
-  const rod=new THREE.Mesh(GEO_CIL,MAT.rod);rod.rotation.z=Math.PI/2;g.add(rod);
   const carga=roundedBox(0.22,0.28,0.34,MAT.carga,0.03);g.add(carga);
-  const fc0=new THREE.Mesh(new THREE.SphereGeometry(0.036,14,10),std(0x8f97a5,0.35,0.2));fc0.position.set(0.66,0.94,0);g.add(fc0);
-  const fc1=new THREE.Mesh(new THREE.SphereGeometry(0.036,14,10),std(0x8f97a5,0.35,0.2));fc1.position.set(1.90,0.94,0);g.add(fc1);
-  const val=roundedBox(0.36,0.24,0.34,MAT.valve,0.03);val.position.set(0.14,0.62,0);g.add(val);
-  const spool=roundedBox(0.12,0.07,0.07,MAT.spool,0.02);spool.position.set(0.06,0.62,0.18);g.add(spool);
+  const fc0=new THREE.Mesh(new THREE.SphereGeometry(0.036,14,10),std(0x8f97a5,0.35,0.2));fc0.position.set(0.66,0.86,0);g.add(fc0);
+  const fc1=new THREE.Mesh(new THREE.SphereGeometry(0.036,14,10),std(0x8f97a5,0.35,0.2));fc1.position.set(1.90,0.86,0);g.add(fc1);
+  /* LA MEMORIA 5/2 ES UNA VÁLVULA PILOTADA POR AIRE, no un taco: cuerpo de
+     corredera sobre su base de placa —se cambia sin tocar la tubería—, sus
+     cinco tomas por debajo y, en los extremos, las TAPAS DE PILOTAJE con su
+     racor. No lleva bobinas a propósito: lo que la conmuta es la línea de
+     presión del grupo, y ponerle solenoides diría que el mando es eléctrico. */
+  const val=P3.valvulaDireccional(MATP,{ancho:0.34,alto:0.115,fondo:0.20,
+    vias:5,solenoides:0,pilotos:2,base:true});
+  val.position.set(0.16,0.70,0);g.add(val);
+  const spool=roundedBox(0.11,0.05,0.05,MAT.spool,0.02);spool.position.set(0.06,0.775,0.11);g.add(spool);
   const tA=tuboAB(MAT.tuboA), tB=tuboAB(MAT.tuboB);
-  return {g,z,barrel,tapa1,tapa2,rod,carga,fc0,fc1,val,spool,tA,tB,soporte};
+  return {g,z,carga,fc0,fc1,val,spool,tA,tB,soporte,cil:null,cilD:-1,cilCar:-1};
 });
+
+/* EL CILINDRO SE RECONSTRUYE, no se estira. Un cilindro de tirantes no se puede
+   escalar a lo largo sin deformarle las tapas, así que se vuelve a armar sólo
+   cuando cambia el diámetro o la carrera —al tocar la configuración, no en cada
+   fotograma—. Y el vástago se coloca en `carrera·(p−1)`: así en p = 0 asoma
+   sólo lo que sobresale de la tapa (el cilindro está DENTRO, que es lo que dice
+   el final de carrera de retroceso) y en p = 1 ha hecho la carrera entera. */
+const X_CULATA=0.62;
+function ponCilindro(E,dC,vas,car){
+  if(E.cilD===dC && E.cilCar===car) return;
+  E.cilD=dC; E.cilCar=car;
+  if(E.cil){ E.g.remove(E.cil); E.cil.traverse(o=>{ if(o.isMesh) o.geometry.dispose(); }); }
+  const c=P3.cilindroHidraulico(MATP,{d:dC,carrera:car,vastago:vas,
+    tirantes:4,horquilla:false,tomas:true});
+  c.rotation.z=-Math.PI/2;                       // el +Y de la pieza es el +X del banco
+  c.position.set(X_CULATA+(car+dC*0.85)/2, 0.72, 0);
+  c.traverse(o=>{ if(o.isMesh) o.castShadow=true; });
+  E.g.add(c); E.cil=c;
+}
+/* La punta del vástago, en x del banco, para colgar de ella la carga y el final
+   de carrera. Sale de la propia geometría de la pieza, no de una cifra a mano. */
+const puntaCil=(dC,car,p)=>X_CULATA+car+1.17*dC+car*p;
 
 // panel de la cascada
 const panelG=new THREE.Group();panelG.position.set(3.55,0,0.55);scene.add(panelG);
 const placaP=roundedBox(0.10,1.42,1.72,MAT.plate,0.03);placaP.position.set(0,1.24,0);panelG.add(placaP);
+/* Las cinco LÍNEAS DE PRESIÓN y sus inversores van en la cara de la placa que
+   MIRA AL BANCO. Estaban en la de atrás: desde la cámara de entrada, el panel
+   entero —que es donde se ve cuál es la línea viva, o sea el corazón del método
+   cascada— era una plancha negra y lisa. */
 const LIN=[0,1,2,3,4].map(i=>{
   const m=new THREE.Mesh(GEO_TUB,std(0x8f97a5,0.45,0.5));
   m.rotation.x=Math.PI/2;
-  m.position.set(-0.09,0.72+i*0.23,0);
+  m.position.set(0.09,0.72+i*0.23,0);
   m.scale.set(0.030,1.52,0.030);
   panelG.add(m);return m;
 });
 const INV=[0,1,2,3].map(i=>{
   const b=roundedBox(0.16,0.17,0.22,MAT.valve2,0.02);
-  b.position.set(-0.16,0.835+i*0.23,-0.66);panelG.add(b);return b;
+  b.position.set(0.16,0.835+i*0.23,-0.66);panelG.add(b);return b;
 });
-const alim=roundedBox(0.20,0.20,0.26,MAT.knob,0.03);alim.position.set(-0.16,0.50,0.72);panelG.add(alim);
+const alim=roundedBox(0.20,0.20,0.26,MAT.knob,0.03);alim.position.set(0.16,0.50,0.72);panelG.add(alim);
+/* LA PLACA ROTULADA. Cinco tubos iguales no dicen cual es cual, y todo el metodo
+   cascada consiste en saber que linea esta viva: sin los rotulos hay que
+   contar de abajo arriba cada vez. Las alturas salen de la misma formula que
+   coloca los tubos, no de una tabla escrita a mano. */
+const rCv=document.createElement('canvas');rCv.width=512;rCv.height=424;
+const rTex=new THREE.CanvasTexture(rCv);rTex.colorSpace=THREE.SRGBColorSpace;
+rTex.minFilter=THREE.LinearFilter;rTex.generateMipmaps=false;
+(function dibujaRotulos(){
+  const c=rCv.getContext('2d'),W=rCv.width,H=rCv.height;
+  c.fillStyle='#22262c';c.fillRect(0,0,W,H);
+  c.fillStyle='#8f97a5';c.font='bold 26px Outfit, sans-serif';c.textBaseline='middle';
+  c.textAlign='left';c.fillText('LÍNEAS DE PRESIÓN · CASCADA',26,34);
+  c.strokeStyle='#3a4048';c.lineWidth=2;
+  c.beginPath();c.moveTo(24,54);c.lineTo(W-24,54);c.stroke();
+  for(let i=0;i<5;i++){
+    const y=0.72+i*0.23;                       // la misma cota que el tubo i
+    const py=(1.95-y)/1.42*H;
+    c.fillStyle=GCOL[i];c.font='bold 30px Outfit, sans-serif';c.textAlign='right';
+    c.fillText('L'+(i+1),44,py);
+    c.strokeStyle='#2f353c';c.lineWidth=1.5;
+    c.beginPath();c.moveTo(54,py);c.lineTo(W-26,py);c.stroke();
+  }
+  rTex.needsUpdate=true;
+})();
+const rotulos=new THREE.Mesh(new THREE.PlaneGeometry(1.72,1.42),
+  new THREE.MeshBasicMaterial({map:rTex,toneMapped:false}));
+rotulos.rotation.y=Math.PI/2;rotulos.position.set(0.053,1.24,0);
+rotulos.raycast=()=>{};panelG.add(rotulos);
 
 function makeLED(x,color){
   const m=new THREE.Mesh(new THREE.SphereGeometry(0.042,16,12),std(color,0.3,0.1));
@@ -1509,12 +1576,12 @@ function drawPlaca(sc,cfg,e,cy,tl){
 
 // etiquetas y picking
 EST.forEach((st,i)=>{
-  st.barrel.userData={title:'Cilindro '+String.fromCharCode(65+i),info:'Cilindro de doble efecto ISO 15552. El área anular es siempre menor que la del émbolo, así que a igual presión el retroceso da menos fuerza pero se hace más rápido.'};
+  st.soporte.userData={title:'Cilindro '+String.fromCharCode(65+i),info:'Cilindro de doble efecto ISO 15552, de tirantes: son los cuatro tirantes los que sujetan las tapas contra la presión, y por eso este cilindro se puede desarmar. El área anular es siempre menor que la del émbolo, así que a igual presión el retroceso da menos fuerza pero se hace más rápido.'};
   st.val.userData={title:'Memoria biestable 5/2',info:'Es la memoria del cilindro: se queda en la última posición que le ordenaron. Si recibe las dos órdenes a la vez, no se mueve: eso es lo que rompe una secuencia mal repartida.'};
   st.fc0.userData={title:'Final de carrera de retroceso',info:'Confirma que el vástago está dentro. En cascada, el final de carrera del último movimiento de un grupo es la señal que conmuta la línea.'};
   st.fc1.userData={title:'Final de carrera de avance',info:'Confirma que el vástago está fuera. Sin confirmación no hay orden siguiente: la cascada encadena movimiento a movimiento.'};
-  addHoverLabel(st.barrel,'Cilindro '+String.fromCharCode(65+i),AZUL,[1.25,1.18,st.z],0.62);
-  addHoverLabel(st.val,'5/2 biestable',VIO,[0.14,0.92,st.z],0.58);
+  addHoverLabel(st.soporte,'Cilindro '+String.fromCharCode(65+i),AZUL,[1.25,1.18,st.z],0.62);
+  addHoverLabel(st.val,'5/2 biestable',VIO,[0.16,1.02,st.z],0.58);
 });
 placaP.userData={title:'Panel de la cascada',info:'Una línea de presión por grupo. Sólo una está viva; las demás están a escape, y con ellas mueren todas las órdenes de sus grupos.'};
 addHoverLabel(placaP,'Panel de cascada',OK_HEX,[3.55,2.05,0.55],0.72);
@@ -1535,13 +1602,11 @@ function updateHW(){
     const rB=0.055+D/1000*0.9, rR=rB*CIL_ISO[D]/D;
     const car=0.22+0.62*Math.min(1,cil.s/400);
     const p=Math.max(0,Math.min(1,st.pos[cil.id]));
-    E.barrel.scale.set(rB,1.10,rB);E.barrel.position.set(1.15,0.72,0);
-    E.tapa1.scale.set(rB*1.15,0.05,rB*1.15);E.tapa1.position.set(0.62,0.72,0);
-    E.tapa2.scale.set(rB*1.15,0.05,rB*1.15);E.tapa2.position.set(1.68,0.72,0);
-    const lr=0.10+car*p;
-    E.rod.scale.set(rR,lr,rR);E.rod.position.set(1.70+lr/2,0.72,0);
-    E.carga.position.set(1.70+lr+0.13,0.72,0);
-    E.fc1.position.set(1.70+0.10+car+0.10,0.94,0);
+    ponCilindro(E,2*rB,2*rR,car);
+    E.cil.userData.vastago.position.y=car*(p-1);
+    E.carga.position.set(puntaCil(2*rB,car,p)+0.13,0.72,0);
+    E.fc0.position.set(X_CULATA+0.05,0.72+rB*1.55,0);
+    E.fc1.position.set(puntaCil(2*rB,car,1)+0.06,0.72+rB*1.55,0);
     const on0=p<=1e-4, on1=p>=1-1e-4;
     E.fc0.material.color.set(on0?0x7CD992:0x8f97a5);
     E.fc0.material.emissive.set(on0?0x7CD992:0x000000);
@@ -1549,9 +1614,9 @@ function updateHW(){
     E.fc1.material.color.set(on1?0x7CD992:0x8f97a5);
     E.fc1.material.emissive.set(on1?0x7CD992:0x000000);
     E.fc1.material.emissiveIntensity=on1?1.2:0;
-    E.spool.position.set(0.06+(p>0.5?0.16:0),0.62,0.18);
-    setTuboAB(E.tA,[0.32,0.62,E.z+0.10],[0.62,0.72,E.z+0.10],0.018);
-    setTuboAB(E.tB,[0.32,0.62,E.z-0.10],[1.68,0.72,E.z-0.10],0.018);
+    E.spool.position.set(0.06+(p>0.5?0.19:0),0.775,0.11);
+    setTuboAB(E.tA,[0.30,0.60,E.z+0.07],[X_CULATA+0.02,0.72,E.z+0.09],0.018);
+    setTuboAB(E.tB,[0.30,0.60,E.z-0.07],[X_CULATA+car+2*rB*0.85-0.02,0.72,E.z-0.09],0.018);
   });
   LIN.forEach((m,i)=>{
     m.visible=i<G;
