@@ -72,12 +72,43 @@ import * as THREE from 'three';
  * captura. Así que aquí se mide el área con signo del perfil, cerrado contra el
  * eje, y si sale negativa se le da la vuelta. Un perfil correcto no se toca.
  */
+/**
+ * NORMALES SANAS —y esto no es una manía de limpieza, es un fallo que deja la
+ * pantalla NEGRA—.
+ *
+ * `computeVertexNormals()` deja la normal en (0,0,0) en todo vértice que sólo
+ * toca triángulos degenerados, y `ExtrudeGeometry` los fabrica a puñados en
+ * cuanto el bisel de un contorno muy muestreado se pisa a sí mismo. Una normal
+ * nula no salta a la vista: es finita, pasa cualquier prueba de `isFinite`, la
+ * esfera envolvente sale bien y la caja de la pieza sale bien. Sólo estalla ya
+ * dentro del sombreador, donde `normalize(vec3(0))` da NaN. Y un solo píxel NaN
+ * se reparte por TODA la imagen en el desenfoque del bloom: la escena entera se
+ * va a negro —plataforma, luces y demás piezas incluidas— sin un solo error en
+ * consola. Se diagnostica en media hora larga; se evita aquí en diez líneas.
+ */
+export function sanaNormales(geo) {
+  const n = geo.attributes.normal; if (!n) return geo;
+  const p = geo.attributes.position; let malas = 0;
+  for (let i = 0; i < n.count; i++) {
+    const x = n.getX(i), y = n.getY(i), z = n.getZ(i);
+    if (x * x + y * y + z * z > 1e-12) continue;
+    malas++;
+    // Se sustituye por la dirección radial del vértice, que en una pieza de
+    // revolución o extruida es la normal correcta salvo en las tapas; y si el
+    // vértice cae justo en el eje, por la normal de la tapa.
+    const vx = p.getX(i), vy = p.getY(i), L = Math.hypot(vx, vy);
+    if (L > 1e-6) n.setXYZ(i, vx / L, vy / L, 0); else n.setXYZ(i, 0, 0, 1);
+  }
+  if (malas) { n.needsUpdate = true; geo.userData.normalesReparadas = malas; }
+  return geo;
+}
+
 export function revolucion(perfil, opts = {}) {
   const { seg = 48, fase = 0, arco = Math.PI * 2 } = opts;
   let P = perfil.map(([r, y]) => [Math.max(0, r), y]);
   if (areaConSigno(P) < 0) P = P.slice().reverse();
   const g = new THREE.LatheGeometry(P.map(([r, y]) => new THREE.Vector2(r, y)), seg, fase, arco);
-  g.computeVertexNormals();
+  g.computeVertexNormals(); sanaNormales(g);
   return g;
 }
 /** Área con signo de la poligonal, cerrándola por donde haga falta. Positiva
@@ -115,7 +146,7 @@ export function extruido(contorno, opts = {}) {
   // El origen en el centro del espesor: el ensamble coloca las piezas por su
   // centro, y una pieza cuyo origen está en una cara se monta descentrada.
   g.translate(0, 0, -(espesor - bisel * 2) / 2);
-  g.computeVertexNormals();
+  g.computeVertexNormals(); sanaNormales(g);
   return g;
 }
 
@@ -1104,5 +1135,180 @@ export function cajaMando(mat, opts = {}) {
   con.position.set(0, -alto * 0.10, fondo / 2 + fondo * 0.11);
   g.add(con);
   g.userData.conector = con;
+  return g;
+}
+
+/* ==========================================================================
+   §7 · MÁQUINAS ELÉCTRICAS
+   ========================================================================== */
+
+/**
+ * NÚCLEO RANURADO: la chapa de un estator o de un rotor, con sus ranuras y sus
+ * zapatas de diente.
+ *
+ * Un tubo liso con cajas pegadas por dentro no es un estator. Un estator es UNA
+ * CHAPA troquelada —repetida unos cientos de veces— cuyo contorno tiene tantas
+ * ranuras como conductores hay que meter, y cada diente acaba en una ZAPATA más
+ * ancha que el diente. La zapata no es un adorno: es lo que cierra la ranura
+ * para que el conductor no se salga y lo que reparte el flujo en el entrehierro.
+ * Dibujarlo sin zapatas quita de la vista lo único que distingue un estator de
+ * un tubo con aletas.
+ *
+ * `hacia` dice a qué lado miran las ranuras: 'dentro' para un estator —las
+ * ranuras se abren al eje— y 'fuera' para un rotor de jaula o bobinado.
+ */
+export function nucleoRanurado(mat, opts = {}) {
+  const { rExt = 1.18, rInt = 0.62, ranuras = 48, largo = 0.9,
+          hacia = 'dentro', anchoRanura = 0.46, fondo = 0.55, zapata = 0.34 } = opts;
+  // `fondo` es la FRACCIÓN de la altura radial que ocupa la ranura, no una
+  // medida: así una chapa pequeña y una grande salen igual de proporcionadas.
+  const hRad = Math.max(1e-6, rExt - rInt), prof = hRad * Math.min(0.9, fondo);
+  const c = [];
+  const paso = Math.PI * 2 / ranuras;
+  // El radio del entrehierro es el que lleva las ranuras; el otro es la corona.
+  const rD = hacia === 'dentro' ? rInt : rExt;   // donde se abren las ranuras
+  const rF = hacia === 'dentro' ? rInt + prof : rExt - prof;    // fondo de ranura
+  const sg = hacia === 'dentro' ? 1 : -1;
+  const semi = paso * anchoRanura / 2;           // media ranura, en ángulo
+  const boca = semi * (1 - zapata);              // la boca, estrechada por la zapata
+  for (let i = 0; i < ranuras; i++) {
+    const a = i * paso;
+    // Diente: se recorre el arco del entrehierro hasta la boca de la ranura...
+    for (let k = 0; k <= 5; k++) {
+      const t = a - paso / 2 + (paso / 2 - boca) * (k / 5);
+      c.push([Math.cos(t) * rD, Math.sin(t) * rD]);
+    }
+    // ...se entra por la boca, se abre a la anchura de la ranura, se llega al
+    // fondo, y se sale por el otro lado en espejo. Ese escalón es la ZAPATA.
+    c.push([Math.cos(a - boca) * (rD + sg * 0.06 * prof), Math.sin(a - boca) * (rD + sg * 0.06 * prof)]);
+    c.push([Math.cos(a - semi) * (rD + sg * 0.16 * prof), Math.sin(a - semi) * (rD + sg * 0.16 * prof)]);
+    for (let k = 0; k <= 5; k++) {
+      const t = a - semi + 2 * semi * (k / 5);
+      c.push([Math.cos(t) * rF, Math.sin(t) * rF]);
+    }
+    c.push([Math.cos(a + semi) * (rD + sg * 0.16 * prof), Math.sin(a + semi) * (rD + sg * 0.16 * prof)]);
+    c.push([Math.cos(a + boca) * (rD + sg * 0.06 * prof), Math.sin(a + boca) * (rD + sg * 0.06 * prof)]);
+    for (let k = 0; k <= 5; k++) {
+      const t = a + boca + (paso / 2 - boca) * (k / 5);
+      c.push([Math.cos(t) * rD, Math.sin(t) * rD]);
+    }
+  }
+  let geo;
+  if (hacia === 'dentro') {
+    // El contorno dentado es el AGUJERO de la chapa; el borde exterior es un
+    // círculo liso, que es la culata por donde se cierra el flujo.
+    geo = extruido(circulo(0, 0, rExt, 96), { huecos: [c], espesor: largo, bisel: largo * 0.012 });
+  } else {
+    geo = extruido(c, { huecos: [circulo(0, 0, rInt, 48)], espesor: largo, bisel: largo * 0.012 });
+  }
+  const m = new THREE.Mesh(normalizaUV(geo, 3), mat.chapa || mat.acero);
+  m.castShadow = m.receiveShadow = true;
+  const g = new THREE.Group(); g.add(m);
+  g.userData.ranuras = ranuras; g.userData.rExt = rExt; g.userData.rInt = rInt;
+  return g;
+}
+
+/**
+ * DEVANADO metido en las ranuras: los conductores dentro y las CABEZAS DE
+ * BOBINA doblando por los dos extremos. Las cabezas son la mitad del cobre de
+ * una máquina y la razón de que un motor sea más largo que su chapa; dibujar
+ * sólo un anillo por cada lado las esconde y con ellas se esconde por qué el
+ * cobre se calienta donde no hay hierro que lo refrigere.
+ */
+export function devanado(mat, opts = {}) {
+  const { r = 0.98, ranuras = 48, largo = 0.9, paso = 6, hilo = 0.052, bobinas = 0 } = opts;
+  const g = new THREE.Group();
+  const n = bobinas || ranuras;
+  const col = mat.cobre || mat.acero;
+  for (let i = 0; i < n; i++) {
+    const a0 = (i / ranuras) * Math.PI * 2;
+    const a1 = ((i + paso) / ranuras) * Math.PI * 2;
+    // Una espira: baja por su ranura, cruza por la cabeza, sube por la ranura
+    // de vuelta y cierra por la otra cabeza.
+    const pts = [];
+    const dentro = (a, z) => new THREE.Vector3(Math.cos(a) * r, Math.sin(a) * r, z);
+    const cabeza = (a, z) => new THREE.Vector3(Math.cos(a) * r * 1.02, Math.sin(a) * r * 1.02, z);
+    pts.push(dentro(a0, -largo / 2), dentro(a0, largo / 2));
+    pts.push(cabeza((a0 + a1) / 2, largo / 2 + largo * 0.16));
+    pts.push(dentro(a1, largo / 2), dentro(a1, -largo / 2));
+    pts.push(cabeza((a0 + a1) / 2, -largo / 2 - largo * 0.16));
+    pts.push(dentro(a0, -largo / 2));
+    const m = new THREE.Mesh(
+      new THREE.TubeGeometry(new THREE.CatmullRomCurve3(pts, true), 40, hilo, 7, true), col);
+    m.castShadow = true;
+    g.add(m);
+  }
+  return g;
+}
+
+/**
+ * ROTOR DE IMANES PERMANENTES enterrados, en V. Los imanes de un motor de
+ * tracción no van pegados por fuera: van METIDOS en bolsillos dentro de la
+ * chapa, y en V. La V no es capricho —concentra el flujo y añade par de
+ * reluctancia, que es de donde sale una parte del par del motor— y un rotor
+ * dibujado como un cilindro liso con pegatinas no lo puede enseñar.
+ */
+export function rotorImanes(mat, opts = {}) {
+  const { r = 0.56, largo = 0.92, polos = 8, dEje = 0.34, apertura = 0.42,
+          imanN = null, imanS = null } = opts;
+  const g = new THREE.Group();
+  const bolsillos = [];
+  for (let i = 0; i < polos; i++) {
+    const a = (i / polos) * Math.PI * 2;
+    for (const s of [-1, 1]) {
+      const b = a + s * apertura * (Math.PI / polos);
+      bolsillos.push(contornoRedondeado([
+        [-r * 0.20, -r * 0.045], [r * 0.20, -r * 0.045],
+        [r * 0.20, r * 0.045], [-r * 0.20, r * 0.045],
+      ], r * 0.02, 2).map(([x, y]) => {
+        // El bolsillo se dibuja en su propio marco —x tangencial, y hacia el
+        // eje—, se tumba su ángulo, y se lleva a su polo. Los dos de un mismo
+        // polo se tumban en sentidos contrarios: eso es la V.
+        const incl = s * 0.55;
+        const xr = x * Math.cos(incl) - y * Math.sin(incl);
+        const yr = x * Math.sin(incl) + y * Math.cos(incl);
+        const ur = [Math.cos(b), Math.sin(b)];          // radial hacia fuera
+        const tg = [-Math.sin(b), Math.cos(b)];         // tangencial
+        const R = r * 0.62;
+        return [R * ur[0] + xr * tg[0] - yr * ur[0],
+                R * ur[1] + xr * tg[1] - yr * ur[1]];
+      }));
+    }
+  }
+  const chapa = new THREE.Mesh(normalizaUV(extruido(circulo(0, 0, r, 72), {
+    huecos: [circulo(0, 0, dEje / 2, 32), ...bolsillos], espesor: largo, bisel: largo * 0.010,
+  }), 3), mat.chapa || mat.acero);
+  chapa.castShadow = true; g.add(chapa);
+  // Los imanes dentro de sus bolsillos, con los polos alternados.
+  bolsillos.forEach((b, k) => {
+    const norte = Math.floor(k / 2) % 2 === 0;
+    const m = new THREE.Mesh(extruido(b, { espesor: largo * 0.96 }),
+      norte ? (imanN || mat.negro || mat.acero) : (imanS || mat.cobre || mat.acero));
+    g.add(m);
+  });
+  g.userData.polos = polos;
+  return g;
+}
+
+/**
+ * RODAMIENTO de bolas: pistas interior y exterior, y las bolas entre las dos.
+ * Es la pieza por la que un eje gira, y en un despiece no puede faltar porque es
+ * lo único que explica por qué el rotor no roza con el estator.
+ */
+export function rodamiento(mat, opts = {}) {
+  const { dExt = 0.42, dInt = 0.22, ancho = 0.14, bolas = 9 } = opts;
+  const g = new THREE.Group();
+  const Re = dExt / 2, Ri = dInt / 2, rm = (Re + Ri) / 2, rb = (Re - Ri) * 0.26;
+  const pista = (r0, r1) => new THREE.Mesh(revolucion(
+    [[r0, -ancho / 2], [r1, -ancho / 2], [r1, ancho / 2], [r0, ancho / 2]], { seg: 40 }), mat.acero);
+  const ext = pista(rm + rb * 0.75, Re), int = pista(Ri, rm - rb * 0.75);
+  ext.rotation.x = Math.PI / 2; int.rotation.x = Math.PI / 2;
+  ext.castShadow = int.castShadow = true; g.add(ext, int);
+  for (let i = 0; i < bolas; i++) {
+    const a = (i / bolas) * Math.PI * 2;
+    const b = new THREE.Mesh(new THREE.SphereGeometry(rb, 14, 10), mat.cromo || mat.acero);
+    b.position.set(Math.cos(a) * rm, Math.sin(a) * rm, 0);
+    g.add(b);
+  }
   return g;
 }

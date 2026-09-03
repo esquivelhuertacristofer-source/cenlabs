@@ -201,6 +201,7 @@ import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
 import { RoundedBoxGeometry } from 'three/addons/geometries/RoundedBoxGeometry.js';
+import * as P3 from '/labs/_piezas3d.js';
 import { EffectComposer } from 'three/addons/postprocessing/EffectComposer.js';
 import { RenderPass } from 'three/addons/postprocessing/RenderPass.js';
 import { GTAOPass } from 'three/addons/postprocessing/GTAOPass.js';
@@ -481,6 +482,10 @@ const MAT={
   shaft:std({color:0xd2d8de,roughness:0.22,metalness:1,envMapIntensity:1.5}),
   ghost:std({color:0x37e0c7,transparent:true,opacity:0.18,side:THREE.DoubleSide}),
 };
+// Los nombres con los que trabaja la biblioteca de piezas.
+const MATP={aluminio:MAT.case, acero:MAT.steel, chapa:MAT.laminate, cromo:MAT.shaft,
+  cobre:MAT.copper, hierro:MAT.laminate, negro:MAT.laminate, goma:MAT.laminate,
+  blanco:MAT.shaft, ceramica:MAT.shaft};
 function magMat(north){return std({color:north?0x4a82ff:0xf4475e,roughness:0.5,metalness:0.3,emissive:north?0x10224d:0x4d1018,emissiveIntensity:0.5});}
 
 /* ============================================================
@@ -499,22 +504,104 @@ const statorGroup=new THREE.Group(); motor.add(statorGroup);
   const rimFront=new THREE.Mesh(new THREE.RingGeometry(1.18,1.32,64),rimMat); rimFront.position.z=0.525; statorGroup.add(rimFront);
   const rimBack=new THREE.Mesh(new THREE.RingGeometry(1.18,1.32,64),rimMat); rimBack.position.z=-0.525; rimBack.rotation.x=Math.PI; statorGroup.add(rimBack);
   for(let i=0;i<28;i++){const a=i/28*Math.PI*2;const fin=new THREE.Mesh(new RoundedBoxGeometry(0.06,0.22,1.05,2,0.02),MAT.case);fin.position.set(Math.cos(a)*1.33,Math.sin(a)*1.33,0);fin.rotation.z=a;statorGroup.add(fin);}
-  const core=new THREE.Mesh(new THREE.CylinderGeometry(1.18,1.18,0.9,64,1,true),MAT.laminate);core.rotation.x=Math.PI/2;statorGroup.add(core);
-  for(let i=0;i<EM57.slots;i++){const a=i/EM57.slots*Math.PI*2;
-    const tooth=new THREE.Mesh(new RoundedBoxGeometry(0.085,0.42,0.86,2,0.02),MAT.steel);tooth.position.set(Math.cos(a)*0.95,Math.sin(a)*0.95,0);tooth.rotation.z=a+Math.PI/2;statorGroup.add(tooth);
-    [0.37,-0.37].forEach(z=>{const c=new THREE.Mesh(new THREE.TorusGeometry(0.07,0.045,8,14),MAT.copper.clone());c.position.set(Math.cos(a)*0.95,Math.sin(a)*0.95,z);c.rotation.y=Math.PI/2;c.rotation.z=a;c.userData.phase=i%3;statorGroup.add(c);});
-  }
+  /* ---- LA CHAPA DEL ESTÁTOR --------------------------------------------
+     Un tubo liso con 48 cajitas pegadas por dentro no es un estátor. Un estátor
+     es UNA CHAPA troquelada, repetida unos cientos de veces, cuyo agujero lleva
+     48 ranuras y cuyos dientes acaban en una ZAPATA más ancha que el diente. La
+     zapata no es adorno: cierra la ranura para que el conductor no se salga y
+     reparte el flujo en el entrehierro. Sin ella, esto era un tubo con aletas.
+     La geometría sale extruida en Z, que es justo el eje de este motor: por eso
+     aquí no se gira nada, al revés que con los cilindros de three.               */
+  const core=P3.nucleoRanurado(MATP,{rExt:1.18,rInt:0.74,ranuras:EM57.slots,
+    largo:0.90,hacia:'dentro',anchoRanura:0.46,fondo:0.55,zapata:0.34});
+  statorGroup.add(core);
+
+  /* ---- EL DEVANADO ------------------------------------------------------
+     Antes eran 96 roscas sueltas flotando delante de los dientes. Un devanado
+     es una espira que BAJA por su ranura, cruza por la cabeza de bobina, sube
+     por la ranura de vuelta y cierra por la otra cabeza. Las cabezas son la
+     mitad del cobre de la máquina y la razón de que un motor sea más largo que
+     su chapa —y de que el cobre se caliente justo donde no hay hierro que lo
+     refrigere—. El paso es de 6 ranuras porque 48 ranuras entre 8 polos son 6:
+     la bobina abraza un polo entero, que es como se devana de verdad.
+     Con q = 48/(8·3) = 2 ranuras por polo y fase, las bobinas van de dos en dos
+     por fase; por eso el reparto es Math.floor(i/2)%3 y no i%3.                  */
+  const dev=P3.devanado(MATP,{r:0.87,ranuras:EM57.slots,largo:0.90,paso:6,hilo:0.046});
+  dev.children.forEach((m,i)=>{ m.material=MAT.copper.clone(); m.userData.phase=Math.floor(i/2)%3; });
+  statorGroup.add(dev);
+
+  /* ---- LA CAJA DE BORNES ------------------------------------------------
+     Toda máquina trifásica tiene su caja con las tres bornas: es por donde
+     entran las tres fases de las que habla el laboratorio, y no estaba.          */
+  const bornes=new THREE.Mesh(P3.extruido(P3.contornoRedondeado(
+    [[-0.26,-0.17],[0.26,-0.17],[0.26,0.17],[-0.26,0.17]],0.05,3),
+    {espesor:0.30,bisel:0.014}),MAT.case);
+  bornes.rotation.x=Math.PI/2; bornes.position.set(0,1.44,0);
+  bornes.castShadow=true; statorGroup.add(bornes);
+  ['#e0483f','#e8e8e8','#3a7de0'].forEach((c,i)=>{
+    const b=new THREE.Mesh(new THREE.CylinderGeometry(0.032,0.032,0.09,10),
+      std({color:parseInt(c.slice(1),16),roughness:0.35,metalness:0.9}));
+    b.position.set(-0.16+i*0.16,1.58,0); statorGroup.add(b);
+  });
 })();
+
+/* Un imán de superficie es una TEJA CURVA, no un ladrillo. Y el ladrillo que
+   había estaba además tumbado: sus 0,42 salían en dirección RADIAL, así que
+   cada imán asomaba como una aleta de 0,21 por fuera del rotor. Un imán de
+   superficie es ancho a lo largo del arco y fino en el radio —justo al revés—.
+   La teja se dibuja centrada en el ángulo 0 y se corre hasta que su origen
+   local cae en su propio centro; así valen tal cual la posición y el giro con
+   que el laboratorio ya coloca cada imán en su ranura. */
+const RIMAN_INT=0.60, RIMAN_EXT=0.72, ARCO_IMAN=38*Math.PI/180;
+function tejaIman(){
+  const g=P3.extruido([
+    ...P3.arco(0,0,RIMAN_EXT,-ARCO_IMAN/2,ARCO_IMAN/2,16),
+    ...P3.arco(0,0,RIMAN_INT,ARCO_IMAN/2,-ARCO_IMAN/2,16),
+  ],{espesor:0.84,bisel:0.010});
+  g.translate(-(RIMAN_INT+RIMAN_EXT)/2,0,0);
+  return g;
+}
 
 // ---- Rotor core + shaft (magnets added separately by the student) ----
 const rotorGroup=new THREE.Group(); motor.add(rotorGroup);
 const magnetSlots=[]; // where magnets go; filled during assembly
 (function buildRotorBase(){
-  const core=new THREE.Mesh(new THREE.CylinderGeometry(0.56,0.56,0.92,48),MAT.steel);core.rotation.x=Math.PI/2;rotorGroup.add(core);
-  const shaft=new THREE.Mesh(new THREE.CylinderGeometry(0.17,0.17,2.6,32),MAT.shaft);shaft.rotation.x=Math.PI/2;shaft.userData.piece='shaft';rotorGroup.add(shaft);
+  /* ---- LA CHAPA DEL ROTOR ----------------------------------------------
+     Un paquete de chapa con sus dos platos de apriete, no un cilindro macizo.
+     El diámetro es el que manda: 0,60 de radio, para que la teja del imán —de
+     0,60 a 0,72— apoye en toda su cara y deje un entrehierro de 0,02 hasta la
+     boca de las ranuras del estátor, que está en 0,74. Ese entrehierro es el
+     que el propio laboratorio explica en el paso 2, y hasta ahora no medía.     */
+  const core=new THREE.Mesh(P3.normalizaUV(P3.extruido(P3.circulo(0,0,0.60,120),
+    {huecos:[P3.circulo(0,0,0.175,28)],espesor:0.92,bisel:0.012}),3),MAT.laminate);
+  core.castShadow=true; rotorGroup.add(core);
+  // Los dos platos de apriete que sujetan el paquete de chapa.
+  [-0.475,0.475].forEach(z=>{
+    const pl=new THREE.Mesh(P3.revolucion(
+      [[0.175,-0.015],[0.578,-0.015],[0.578,0.015],[0.175,0.015]],{seg:40}),MAT.steel);
+    pl.rotation.x=Math.PI/2; pl.position.z=z; rotorGroup.add(pl);
+  });
+  /* ---- EL EJE -----------------------------------------------------------
+     Escalonado, como cualquier eje torneado: el asiento del paquete de chapa,
+     los dos asientos de rodamiento —más finos— y la punta de salida. Un tubo
+     de diámetro único no dice dónde apoya ni dónde se monta nada.                */
+  const shaft=new THREE.Mesh(P3.revolucion([
+    [0,-1.30],[0.085,-1.30],[0.085,-0.92],[0.115,-0.88],[0.115,-0.66],
+    [0.150,-0.62],[0.150,-0.50],[0.175,-0.47],[0.175,0.47],[0.150,0.50],
+    [0.150,0.62],[0.115,0.66],[0.115,0.88],[0.085,0.92],[0.085,1.30],[0,1.30],
+  ],{seg:34}),MAT.shaft);
+  shaft.userData.piece='shaft'; shaft.castShadow=true; rotorGroup.add(shaft);
+  /* ---- LOS DOS RODAMIENTOS ----------------------------------------------
+     Son lo único que explica por qué el rotor gira sin rozar con el estátor,
+     con un entrehierro de dos centésimas. En un motor de verdad son la pieza
+     que se cambia; aquí no existían.                                            */
+  [-0.77,0.77].forEach(z=>{
+    const rod=P3.rodamiento(MATP,{dExt:0.44,dInt:0.23,ancho:0.16,bolas:9});
+    rod.position.z=z; rotorGroup.add(rod);
+  });
   // 8 pole slots (each shows a ghost until a magnet is placed)
   for(let i=0;i<EM57.poles;i++){const a=i/EM57.poles*Math.PI*2;
-    const ghost=new THREE.Mesh(new RoundedBoxGeometry(0.42,0.12,0.84,2,0.02),MAT.ghost.clone());
+    const ghost=new THREE.Mesh(tejaIman(),MAT.ghost.clone());
     ghost.position.set(Math.cos(a)*0.66,Math.sin(a)*0.66,0);ghost.rotation.z=a;rotorGroup.add(ghost);
     magnetSlots.push({angle:a,ghost,magnet:null,wantNorth:(i%2===0)}); // alternation required
   }
@@ -777,7 +864,7 @@ function placeNextMagnet(forced){
   const slot=magnetSlots[magIndex];
   const wantNorth=slot.wantNorth;
   const isNorth = forced===undefined ? wantNorth : (forced==='north');
-  const mag=new THREE.Mesh(new RoundedBoxGeometry(0.42,0.12,0.84,2,0.02),magMat(isNorth));
+  const mag=new THREE.Mesh(tejaIman(),magMat(isNorth));
   const dir=new THREE.Vector2(slot.ghost.position.x,slot.ghost.position.y).normalize();
   const startPos=new THREE.Vector3(dir.x*1.0,dir.y*1.0,slot.ghost.position.z);
   mag.position.copy(startPos);mag.rotation.copy(slot.ghost.rotation);
@@ -999,6 +1086,7 @@ function updateAudio(rpmNow){
 let animFrameId=null;
 function animate(){
   animFrameId=requestAnimationFrame(animate);
+  window.__vueltas=(window.__vueltas||0)+1;
   const dt=clock.getDelta(),t=clock.elapsedTime;
 
   // mesa de piezas: estátor y rotor viajan físicamente a su lugar al instalarse
@@ -1066,9 +1154,11 @@ function animate(){
   // Foco dinámico: el DOF sigue al objetivo de la cámara para que el sujeto
   // quede siempre nítido a cualquier zoom (evita que "todo se desenfoque al alejar").
   if(bokeh){ bokeh.uniforms['focus'].value=camera.position.distanceTo(controls.target); }
-  composer.render();
+  try{ composer.render(); }
+  catch(e){ if(!window.__errComp){ window.__errComp=String(e).slice(0,200); console.error('composer:',e); } }
   // Etiquetas por encima del composer (fuera del DOF/GTAO) -> nítidas y sin cuadros negros.
-  renderer.autoClear=false; renderer.clearDepth(); renderer.render(labelScene,camera); renderer.autoClear=true;
+  try{ renderer.autoClear=false; renderer.clearDepth(); renderer.render(labelScene,camera); renderer.autoClear=true;
+  }catch(e){ if(!window.__errEtiq){ window.__errEtiq=String(e).slice(0,200); console.error('etiquetas:',e); } }
 }
 animate();
 
@@ -1105,6 +1195,69 @@ window.__test={
   setAns:(id,v)=>{const e=$(id);if(e)e.value=v;},
   setAutoMode:(v)=>{autoMode=v; document.querySelectorAll('.modeBtn').forEach(b=>b.classList.toggle('active',(b.dataset.mode==='auto')===v));},
   audioState:()=>({ctxState:audioCtx?.state||'none', vol:audioGain?.gain.value||0, freq:oscA?.frequency.value||0, soundOn}),
+  // Qué hay de verdad en la escena. Sin esto, una foto negra no se puede
+  // diagnosticar: no se sabe si la pieza falta, si está fuera de cuadro o si
+  // está donde debe y lo que falla es la luz.
+  piezas:()=>{const r={};
+    [['estator',statorGroup],['rotor',rotorGroup]].forEach(([k,g])=>{
+      let n=0,nan=0; g.traverse(o=>{ if(!o.isMesh)return; n++;
+        const p=o.getWorldPosition(new THREE.Vector3());
+        if(!isFinite(p.x+p.y+p.z))nan++; });
+      const b=new THREE.Box3().setFromObject(g);
+      const f=v=>v.toArray().map(x=>+x.toFixed(2));
+      r[k]={mallas:n,nan,visible:g.visible,pos:f(g.position),
+        min:isFinite(b.min.x)?f(b.min):null,max:isFinite(b.max.x)?f(b.max):null};
+    });
+    r.camara={pos:camera.position.toArray().map(x=>+x.toFixed(2)),
+      mira:controls.target.toArray().map(x=>+x.toFixed(2))};
+    return r;},
+  // Salud de la escena: geometrías con esfera envolvente rota —que three
+  // descarta en silencio, sin error de consola— y cuánto se dibujó de verdad.
+  salud:()=>{const mal=[];scene.traverse(o=>{ if(!o.isMesh)return;
+      const g=o.geometry; if(!g.boundingSphere)g.computeBoundingSphere();
+      const b=g.boundingSphere;
+      if(!b||!isFinite(b.radius)||!isFinite(b.center.x+b.center.y+b.center.z))
+        mal.push((o.name||'')+':'+g.type); });
+    // Normales de longitud CERO en cualquier pieza de la escena: son finitas,
+    // pasan todas las pruebas, y en el sombreador dan NaN. Un píxel NaN se
+    // reparte por toda la imagen en el desenfoque del bloom y la deja NEGRA.
+    let cero=0; scene.traverse(o=>{ if(!o.isMesh)return;
+      const n=o.geometry.attributes.normal; if(!n)return;
+      for(let j=0;j<n.count;j++){ const x=n.getX(j),y=n.getY(j),z=n.getZ(j);
+        if(x*x+y*y+z*z<1e-12)cero++; } });
+    return {rotas:mal, normalesCero:cero, errComp:window.__errComp||null,
+      tri:renderer.info.render.triangles,
+      llamadas:renderer.info.render.calls,
+      cam:camera.position.toArray().map(v=>+v.toFixed(2)),
+      mira:controls.target.toArray().map(v=>+v.toFixed(2))};},
+  atrib:(q,i)=>{const g=({motor,estator:statorGroup,rotor:rotorGroup})[q].children[i].geometry;
+    const r={tipo:g.type};
+    for(const k of Object.keys(g.attributes)){const a=g.attributes[k].array;
+      let nan=0,mx=0; for(let j=0;j<a.length;j++){const v=a[j];
+        if(!isFinite(v))nan++; else if(Math.abs(v)>mx)mx=Math.abs(v);}
+      r[k]={n:a.length,nan,max:+mx.toFixed(3)};}
+    r.indices=g.index?g.index.count:0;
+    // Normales de longitud CERO: pasan cualquier prueba de isFinite y en el
+    // sombreador se convierten en NaN al normalizarlas. Un solo píxel NaN se
+    // reparte por toda la imagen en el desenfoque del bloom y la deja negra.
+    const nrm=g.attributes.normal;
+    if(nrm){let z=0;for(let j=0;j<nrm.count;j++){
+      const x=nrm.getX(j),y=nrm.getY(j),w=nrm.getZ(j);
+      if(x*x+y*y+w*w<1e-12)z++;} r.normalesCero=z;}
+    return r;},
+  hijos:(q)=>({motor,estator:statorGroup,rotor:rotorGroup})[q].children
+    .map(c=>(c.name||c.type)+'/'+(c.geometry?c.geometry.type:'-')),
+  verHijo:(q,i,v)=>{const g=({motor,estator:statorGroup,rotor:rotorGroup})[q];
+    if(g&&g.children[i])g.children[i].visible=v; return true;},
+  ver:(q,v)=>{const m={motor,estator:statorGroup,rotor:rotorGroup};
+    if(m[q])m[q].visible=v; return Object.keys(m).map(k=>k+'='+m[k].visible);},
+  pasos:()=>composer.passes.map(p=>p.constructor.name+(p.enabled?'':' [off]')),
+  paso:(n,v)=>{composer.passes.forEach(p=>{if(p.constructor.name===n)p.enabled=v;});
+    return composer.passes.map(p=>p.constructor.name+(p.enabled?'':' [off]'));},
+  pinta:()=>{try{renderer.render(scene,camera);
+      return {tri:renderer.info.render.triangles,llamadas:renderer.info.render.calls,
+        vueltas:window.__vueltas};}catch(e){return {e:String(e).slice(0,180)};}},
+  mira:(x,y,z,tx,ty,tz)=>{camera.position.set(x,y,z);controls.target.set(tx||0,ty||1.4,tz||0);controls.update();},
 };
 
 </script>

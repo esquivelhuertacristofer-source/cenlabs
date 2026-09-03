@@ -125,6 +125,13 @@ pon('rueda fónica', P3.ruedaFonica(MAT, { d: 0.80, dientes: 44, alto: 0.045, an
 pon('captador', P3.captador(MAT, { d: 0.16, largo: 0.55 }), 1.0);
 pon('grupo ABS', P3.grupoABS(MAT, { ancho: 0.62, alto: 0.38, fondo: 0.44 }), 1.0);
 pon('caja de mando', P3.cajaMando(MAT, { ancho: 0.56, alto: 0.34, fondo: 0.46 }), 1.0);
+MAT.chapa = std({ color: 0x6b7480, roughness: 0.55, metalness: 0.85 });
+pon('núcleo ranurado', P3.nucleoRanurado(MAT, { rExt: 0.52, rInt: 0.28, ranuras: 24, largo: 0.34 }), 1.0);
+pon('devanado', (()=>{ const g=new THREE.Group();
+  g.add(P3.nucleoRanurado(MAT,{rExt:0.52,rInt:0.28,ranuras:24,largo:0.34}));
+  g.add(P3.devanado(MAT,{r:0.36,ranuras:24,largo:0.34,paso:4,hilo:0.026,bobinas:24})); return g; })(), 1.0);
+pon('rotor de imanes', P3.rotorImanes(MAT, { r: 0.42, largo: 0.34, polos: 8, dEje: 0.16 }), 1.0);
+pon('rodamiento', P3.rodamiento(MAT, { dExt: 0.52, dInt: 0.26, ancho: 0.17 }), 1.0);
 
 // El muestrario se anuncia cuando ha pintado, para que la captura sepa esperar.
 let n = 0;
