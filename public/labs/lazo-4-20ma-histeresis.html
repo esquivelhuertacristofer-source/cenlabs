@@ -1282,20 +1282,48 @@ panelFace.position.set(0,0.62,0.075);panelG.add(panelFace);
 panelBox.userData={title:'Panel de instrumentos',info:'Indicador de corriente, porcentaje de señal, tensión sobre la resistencia de medida, estado NAMUR NE 43 y salida al contactor.'};
 addHoverLabel(panelBox,'Panel de instrumentos',OK_HEX,new THREE.Vector3(2.95,1.85,0.10),2.4);
 
-// --- resistencia de medida ---
-const rBlock=roundedBox(0.24,0.14,0.16,MAT.plate,0.02);rBlock.position.set(2.95,0.58,0.62);scene.add(rBlock);
-const rBand=new THREE.Mesh(new THREE.CylinderGeometry(0.045,0.045,0.20,14),MAT.copper);
-rBand.rotation.z=Math.PI/2;rBand.position.set(2.95,0.58,0.62);scene.add(rBand);
+/* Los nombres con los que trabaja la biblioteca de piezas (`P3`, que el molde ya
+   importa), traducidos una vez a los materiales de este laboratorio. */
+const MATP={
+  aluminio:MAT.plate, acero:MAT.shiny, cromo:MAT.shiny, chapa:MAT.plate,
+  cobre:MAT.copper, negro:MAT.dark,
+  goma:std(0x14181e,0.8,0.02), blanco:std(0xd7dee6,0.4,0.2),
+  ceramica:std(0xd7dee6,0.6,0.05),
+};
+/* LA RESISTENCIA DE MEDIDA, con sus bandas: aqui el codigo de colores importa
+   de verdad, porque la practica se juega entre 250 Ω (1-5 V) y 500 Ω (2-10 V) y
+   confundirlas cambia toda la escala de la entrada analogica. */
+const rBlock=P3.resistencia(MATP,{largo:0.22,d:0.095,patas:0.07,paso:0.36,
+  bandas:[0xd42a2a,0xb03a2e,0x8a5a2c,0xc9a227],cuerpo:0xe8d9b0});
+rBlock.position.set(2.95,0.52,0.62);
+rBlock.traverse(o=>{ if(o.isMesh){o.castShadow=true;o.receiveShadow=true;} });
+scene.add(rBlock);
 rBlock.userData={title:'Resistencia de medida',info:'Cierra el lazo y convierte la corriente en tensión para la entrada analógica: 250 Ω dan 1–5 V y 500 Ω dan 2–10 V.'};
 
 // --- grupo de bombeo ---
 const pumpG=new THREE.Group();pumpG.position.set(1.75,0.5,1.15);scene.add(pumpG);
-const motor=new THREE.Mesh(new THREE.CylinderGeometry(0.16,0.16,0.42,20),MAT.steel);
-motor.rotation.z=Math.PI/2;motor.position.set(0,0.22,0);pumpG.add(motor);
-const volute=new THREE.Mesh(new THREE.CylinderGeometry(0.19,0.19,0.14,20),MAT.dark);
-volute.rotation.x=Math.PI/2;volute.position.set(0.32,0.22,0);pumpG.add(volute);
+/* EL GRUPO DE BOMBEO. El motor gana su silueta —aletas, tapa del ventilador,
+   patas, caja de bornes—, y la bomba deja de ser un disco: una VOLUTA es una
+   espiral cuya seccion crece con el angulo, y esa espiral es lo que convierte
+   la velocidad que el rodete da al agua en presion. Un cilindro liso no dice
+   por que una bomba centrifuga da presion. */
+const motor=P3.maquinaElectrica(MATP,{d:0.32,largo:0.42,eje:0.18,aletas:12});
+motor.position.set(0,0.22,0);pumpG.add(motor);
+const volute=new THREE.Mesh(P3.voluta({r0:0.105,r1:0.185,espesor:0.022,ancho:0.15,
+  eje:'z',fase:Math.PI*0.5}),MAT.dark);
+volute.rotation.y=Math.PI/2;volute.position.set(0.34,0.22,0);pumpG.add(volute);
+const vTapa=new THREE.Mesh(new THREE.CylinderGeometry(0.207,0.207,0.022,24),MAT.dark);
+vTapa.rotation.z=Math.PI/2;vTapa.position.set(0.425,0.22,0);pumpG.add(vTapa);
+const vBoca=new THREE.Mesh(new THREE.CylinderGeometry(0.062,0.062,0.12,16),MAT.dark);
+vBoca.rotation.z=Math.PI/2;vBoca.position.set(0.49,0.22,0);pumpG.add(vBoca);
+const vBrida=new THREE.Mesh(new THREE.CylinderGeometry(0.085,0.085,0.02,16),MAT.plate);
+vBrida.rotation.z=Math.PI/2;vBrida.position.set(0.552,0.22,0);pumpG.add(vBrida);
+const vImp=new THREE.Mesh(new THREE.CylinderGeometry(0.055,0.055,0.16,16),MAT.dark);
+vImp.position.set(0.34,0.46,0);pumpG.add(vImp);
+const vImpBrida=new THREE.Mesh(new THREE.CylinderGeometry(0.078,0.078,0.02,16),MAT.plate);
+vImpBrida.position.set(0.34,0.545,0);pumpG.add(vImpBrida);
 const pumpBase=roundedBox(0.80,0.06,0.34,MAT.plate,0.02);pumpBase.position.set(0.10,0.03,0);pumpG.add(pumpBase);
-motor.userData={title:'Grupo de bombeo',info:'El contactor lo arranca y lo para. Cada arranque calienta el motor: por eso el número de arranques por hora es un límite de diseño, no un capricho.'};
+Object.assign(motor.userData,{title:'Grupo de bombeo',info:'El contactor lo arranca y lo para. Cada arranque calienta el motor: por eso el número de arranques por hora es un límite de diseño, no un capricho.'});
 addHoverLabel(motor,'Bomba',VIO,new THREE.Vector3(1.75,1.15,1.15),1.5);
 
 // --- LEDs de estado ---
