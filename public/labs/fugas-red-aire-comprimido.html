@@ -1427,6 +1427,11 @@ function paint(){
 
 // ===================== 7. GRUPO 3D =====================
 const V3=(x,y,z)=>new THREE.Vector3(x,y,z);
+/* Los nombres con los que trabaja la biblioteca de piezas (`P3`, que el molde
+   ya importa), traducidos una vez a los materiales de este laboratorio. */
+const MATP={aluminio:MAT.aceroC, acero:MAT.acero, cobre:MAT.oro, cromo:MAT.acero,
+  chapa:MAT.aceroC, hierro:MAT.motor, negro:MAT.negro, goma:MAT.negro,
+  blanco:MAT.acero, ceramica:MAT.acero};
 function tuboEntre(a,b,r,mat){
   const dir=new THREE.Vector3().subVectors(b,a), len=dir.length();
   const m=new THREE.Mesh(new THREE.CylinderGeometry(r,r,Math.max(len,1e-4),12),mat);
@@ -1437,6 +1442,14 @@ function tuboEntre(a,b,r,mat){
 function mkManometro(r){
   const g=new THREE.Group();
   const caja=new THREE.Mesh(new THREE.CylinderGeometry(r,r,0.035,24),MAT.acero);
+  for(let i=0;i<=20;i++){        // las divisiones: sin ellas no se lee entre cifras
+    const a=Math.PI*0.75-i/20*Math.PI*1.5;
+    const largo=(i%5===0)?r*0.22:r*0.12;
+    const tk=new THREE.Mesh(new THREE.BoxGeometry(largo,r*0.05,0.004),
+      new THREE.MeshBasicMaterial({color:'#2b3138',toneMapped:false}));
+    const rr=r*0.78-largo/2;
+    tk.position.set(Math.cos(a)*rr,Math.sin(a)*rr,0.021); tk.rotation.z=a; g.add(tk);
+  }
   caja.rotation.x=Math.PI/2; g.add(caja);
   const esf=new THREE.Mesh(new THREE.CircleGeometry(r*0.86,24),
     new THREE.MeshBasicMaterial({color:'#e8eef7',toneMapped:false}));
@@ -1467,16 +1480,62 @@ const Y_TRONCO=1.95, X_T0=1.95, X_T1=6.55;
 (function(){
   const g=new THREE.Group(); g.userData.key='compresor'; maq.add(g); M3.gComp=g;
   const bas=roundedBox(1.10,0.16,0.90,MAT.aceroC,0.03); bas.position.set(-0.30,0.28,0); g.add(bas);
-  const cue=new THREE.Mesh(new THREE.CylinderGeometry(0.30,0.30,0.86,26),MAT.motor);
-  cue.rotation.z=Math.PI/2; cue.position.set(-0.30,0.74,0); g.add(cue);
-  for(let i=0;i<16;i++){
-    const ang=i*Math.PI/8;
-    const al=new THREE.Mesh(new THREE.BoxGeometry(0.84,0.03,0.05),MAT.aceroC);
-    al.position.set(-0.30,0.74+0.305*Math.cos(ang),0.305*Math.sin(ang));
-    al.rotation.x=ang; g.add(al);
-  }
-  const cab=new THREE.Mesh(new THREE.CylinderGeometry(0.21,0.21,0.34,20),MAT.aceroC);
-  cab.rotation.z=Math.PI/2; cab.position.set(0.34,0.74,0); g.add(cab);
+  // El motor de la casa: aletas repartidas por la carcasa, tapas y caja de bornes.
+  const mot=P3.carcasaMotor(MATP,{d:0.60,largo:0.86,nAletas:16,patas:false,bornes:true});
+  mot.position.set(-0.30,0.74,0); g.add(mot);
+  /* EL COMPRESOR es de PISTÓN, y ahora se le nota: cárter, dos cilindros en V con
+     sus aletas de refrigeración, culatas y filtro de admisión. La forma no es
+     decorado: un compresor de pistón comprime a golpes —por eso el depósito
+     existe, para alisar esos golpes— y se refrigera por aire, que es la razón de
+     que la temperatura de salida y el agua condensada aparezcan en esta
+     práctica. Un cilindro liso no dice ni que hay pistones ni que hay que
+     enfriarlos. */
+  const carter=new THREE.Mesh(P3.extruido(P3.contornoRedondeado(
+    [[-0.19,-0.15],[0.19,-0.15],[0.19,0.05],[-0.19,0.05]],0.05,3),
+    {espesor:0.34,bisel:0.012}),MAT.aceroC);
+  carter.rotation.y=Math.PI/2; carter.position.set(0.34,0.74,0); g.add(carter);
+  const bocas=[];
+  [-1,1].forEach(sz=>{
+    const dir=new THREE.Vector3(0,Math.cos(0.42),sz*Math.sin(0.42)).normalize();
+    const cil=new THREE.Group();
+    cil.quaternion.setFromUnitVectors(V3(0,1,0),dir);
+    cil.position.set(0.34,0.79,0); g.add(cil);
+    const cuerpo=new THREE.Mesh(new THREE.CylinderGeometry(0.082,0.082,0.30,18),MAT.aceroC);
+    cuerpo.position.y=0.17; cil.add(cuerpo);
+    for(let k=0;k<6;k++){        // aletas del cilindro
+      const al=new THREE.Mesh(new THREE.CylinderGeometry(0.128,0.128,0.016,22),MAT.aceroC);
+      al.position.y=0.075+k*0.042; cil.add(al);
+    }
+    const cul=new THREE.Mesh(new THREE.CylinderGeometry(0.098,0.098,0.10,18),MAT.motor);
+    cul.position.y=0.375; cil.add(cul);
+    for(let k=0;k<4;k++){        // aletas de la culata
+      const al=new THREE.Mesh(new THREE.CylinderGeometry(0.140,0.140,0.014,22),MAT.motor);
+      al.position.y=0.345+k*0.030; cil.add(al);
+    }
+    // la boca de descarga de cada culata, en coordenadas del banco
+    const pb=new THREE.Vector3(0,0.44,0).applyQuaternion(cil.quaternion).add(cil.position);
+    bocas.push(pb);
+  });
+  // Filtro de admisión, colgado del cárter.
+  const filtro=new THREE.Mesh(P3.revolucion([
+    [0,0],[0.075,0],[0.085,0.02],[0.085,0.11],[0.075,0.13],[0,0.13]],{seg:20}),MAT.negro);
+  filtro.position.set(0.34,0.86,-0.30); g.add(filtro);
+  for(let k=0;k<3;k++){ const rn=new THREE.Mesh(new THREE.TorusGeometry(0.086,0.008,8,22),MAT.aceroC);
+    rn.rotation.x=Math.PI/2; rn.position.set(0.34,0.90+k*0.03,-0.30); g.add(rn); }
+  // Colector de descarga: junta las dos culatas y baja al depósito.
+  g.add(P3.manguera({...MATP,goma:MAT.acero},{puntos:[bocas[0],
+    V3(0.34,1.28,-0.10),V3(0.34,1.28,0.10),bocas[1]],r:0.026,abrazaderas:false}));
+  g.add(tuboEntre(V3(0.34,1.28,0),V3(0.55,0.90,0),0.026,MAT.acero));
+  // Volante-ventilador del compresor: en un compresor de pistón, el volante ES
+  // el ventilador, y es lo que iguala el par entre carrera y carrera.
+  const vol=new THREE.Group(); vol.position.set(0.13,0.74,0); g.add(vol);
+  const llanta=new THREE.Mesh(new THREE.TorusGeometry(0.20,0.030,10,28),MAT.aceroC);
+  llanta.rotation.y=Math.PI/2; vol.add(llanta);
+  for(let k=0;k<6;k++){ const ra=new THREE.Mesh(new THREE.BoxGeometry(0.020,0.36,0.045),MAT.aceroC);
+    ra.rotation.x=k*Math.PI/6; vol.add(ra); }
+  const buje=new THREE.Mesh(new THREE.CylinderGeometry(0.045,0.045,0.09,14),MAT.aceroC);
+  buje.rotation.z=Math.PI/2; vol.add(buje);
+  M3.volante=vol;
   const vent=new THREE.Group(); vent.position.set(-0.80,0.74,0); g.add(vent);
   for(let i=0;i<7;i++){
     const p=new THREE.Mesh(new THREE.BoxGeometry(0.02,0.22,0.07),MAT.negro);
@@ -1489,14 +1548,37 @@ const Y_TRONCO=1.95, X_T0=1.95, X_T1=6.55;
   const g=new THREE.Group(); g.userData.key='deposito'; maq.add(g); M3.gDep=g;
   const cub=new THREE.Mesh(new THREE.CylinderGeometry(0.34,0.34,1.30,26),MAT.deposito);
   cub.position.set(0.86,0.87,0); g.add(cub);
-  [0.24,1.50].forEach(y=>{
-    const t=new THREE.Mesh(new THREE.CylinderGeometry(0.36,0.36,0.07,26),MAT.acero);
-    t.position.set(0.86,y,0); g.add(t);
+  /* LOS FONDOS DEL DEPÓSITO son ABOMBADOS, no dos tapaderas planas. No es
+     estética: un fondo plano trabaja a flexión y no aguanta presión —por eso no
+     existe ningún calderín con las tapas planas—, mientras que el abombado
+     trabaja a tracción en su propia superficie. Aquí el aire está a 7 bar. */
+  const perfilFondo=(()=>{
+    const R=0.34, h=0.17, e=0.018, Ri=R-e, hi=h-e;
+    const pts=[[R,-0.06],[R,0]];
+    for(let k=1;k<=8;k++){ const r=R*(1-k/8);
+      pts.push([r,h*Math.sqrt(Math.max(0,1-(r/R)*(r/R)))]); }
+    for(let k=1;k<=8;k++){ const r=Ri*k/8;
+      pts.push([r,hi*Math.sqrt(Math.max(0,1-(r/Ri)*(r/Ri)))]); }
+    pts.push([Ri,-0.06]);
+    return pts;
+  })();
+  // El fondo de abajo es el mismo, girado media vuelta: con scale.y negativo se
+  // invierten las normales y la pieza sale del revés.
+  [[1.52,0],[0.22,Math.PI]].forEach(([y,gir])=>{
+    const t=new THREE.Mesh(P3.revolucion(perfilFondo,{seg:26}),MAT.acero);
+    t.position.set(0.86,y,0); t.rotation.z=gir; g.add(t);
+    const ar=new THREE.Mesh(new THREE.TorusGeometry(0.345,0.016,8,26),MAT.acero);
+    ar.rotation.x=Math.PI/2; ar.position.set(0.86,y,0); g.add(ar);   // cordón de soldadura
   });
   const pie=roundedBox(0.80,0.14,0.80,MAT.aceroC,0.03); pie.position.set(0.86,0.27,0); g.add(pie);
   const purga=new THREE.Mesh(new THREE.CylinderGeometry(0.05,0.05,0.16,14),MAT.oro);
   purga.position.set(0.86,0.14,0.30); g.add(purga);
-  M3.nivel=new THREE.Mesh(new THREE.CylinderGeometry(0.345,0.345,0.10,26),MAT.aire);
+  /* La columna de aire almacenado va TRASLUCIDA y algo mas estrecha que la
+     virola. Opaca y a ras de pared tapaba el deposito entero: se veia el aire y
+     no se veia el recipiente, que es la pieza. */
+  const matAire=MAT.aire.clone();
+  matAire.transparent=true; matAire.opacity=0.52; matAire.depthWrite=false;
+  M3.nivel=new THREE.Mesh(new THREE.CylinderGeometry(0.30,0.30,0.10,26),matAire);
   M3.nivel.position.set(0.86,0.40,0); g.add(M3.nivel);
 })();
 (function(){
@@ -1520,8 +1602,13 @@ const Y_TRONCO=1.95, X_T0=1.95, X_T1=6.55;
   g.add(tuboEntre(V3(1.62,1.36,0),V3(1.62,Y_TRONCO,0),0.048,MAT.tubo));
   g.add(tuboEntre(V3(X_T0,Y_TRONCO,0),V3(X_T1,Y_TRONCO,0),0.058,MAT.tubo));
   for(let i=0;i<9;i++){
-    const s=roundedBox(0.10,0.10,0.24,MAT.aceroC,0.02);
-    s.position.set(X_T0+(X_T1-X_T0)*i/8,Y_TRONCO+0.10,0); g.add(s);
+    // Abrazadera de tubo: escuadra y arco, que es como cuelga un tronco de aire.
+    const xs=X_T0+(X_T1-X_T0)*i/8;
+    const s=roundedBox(0.055,0.16,0.14,MAT.aceroC,0.015);
+    s.position.set(xs,Y_TRONCO+0.13,0); g.add(s);
+    const ab=new THREE.Mesh(new THREE.TorusGeometry(0.066,0.011,8,20,Math.PI*1.15),MAT.aceroC);
+    ab.rotation.y=Math.PI/2; ab.rotation.z=-Math.PI/2*0.42;
+    ab.position.set(xs,Y_TRONCO,0); g.add(ab);
   }
   M3.gTronco=g;
 })();
@@ -1531,9 +1618,22 @@ const gZona=[];
 XZ.forEach((x,j)=>{
   const g=new THREE.Group(); g.userData.key='zona'; g.userData.j=j; maq.add(g); gZona.push(g);
   g.add(tuboEntre(V3(x,Y_TRONCO,0),V3(x,1.02,0),0.040,MAT.ramal));
-  const ll=new THREE.Mesh(new THREE.CylinderGeometry(0.07,0.07,0.14,16),MAT.oro);
+  /* LA LLAVE DE ZONA es una válvula de bola, y su MANETA dice si está abierta:
+     en línea con el tubo, abierta; atravesada, cerrada. Es lo primero que se
+     mira en una auditoría de fugas, porque una zona parada con la llave abierta
+     sigue fugando las 8 760 horas del año. */
+  const ll=new THREE.Mesh(P3.revolucion([
+    [0,-0.09],[0.052,-0.09],[0.052,-0.055],[0.075,-0.045],[0.075,0.045],
+    [0.052,0.055],[0.052,0.09],[0,0.09]],{seg:20}),MAT.oro);
   ll.position.set(x,1.60,0); g.add(ll);
-  const pal=roundedBox(0.05,0.05,0.26,MAT.rojo,0.02); pal.position.set(x,1.60,0.16); g.add(pal);
+  [-1,1].forEach(sy=>{ const hx=new THREE.Mesh(new THREE.CylinderGeometry(0.058,0.058,0.05,6),MAT.aceroC);
+    hx.position.set(x,1.60+sy*0.115,0); g.add(hx); });
+  const cue=new THREE.Mesh(new THREE.CylinderGeometry(0.020,0.020,0.06,10),MAT.aceroC);
+  cue.rotation.x=Math.PI/2; cue.position.set(x,1.60,0.085); g.add(cue);
+  const pal=roundedBox(0.045,0.045,0.30,MAT.rojo,0.02);
+  pal.rotation.x=Math.PI/2; pal.position.set(x,1.60,0.125); g.add(pal);
+  const emp=new THREE.Mesh(new THREE.CylinderGeometry(0.028,0.028,0.055,12),MAT.rojo);
+  emp.position.set(x,1.74,0.125); g.add(emp);
   const cu=roundedBox(0.74,0.62,0.74,MAT.maquina,0.05); cu.position.set(x,0.53,0); g.add(cu);
   const tp=roundedBox(0.60,0.06,0.60,MAT.aceroC,0.02); tp.position.set(x,0.87,0); g.add(tp);
   const led=new THREE.Mesh(new THREE.SphereGeometry(0.055,16,12),MAT.verde.clone());
@@ -2619,7 +2719,9 @@ function paso3D(t){
   const p=CUR; if(!p) return;
   const c=cfgDe(mode);
   // ventilador del compresor: gira con la carga
-  if(M3.vent) M3.vent.rotation.x=t*(2.2+6.0*clamp(p.qTot/1000/PLANTAS[p.pk].qComp,0,1));
+  const wComp=2.2+6.0*clamp(p.qTot/1000/PLANTAS[p.pk].qComp,0,1);
+  if(M3.vent) M3.vent.rotation.x=t*wComp;
+  if(M3.volante) M3.volante.rotation.x=t*wComp;
   // particulas del tronco: velocidad proporcional al caudal que circula
   const vel=0.28+1.35*clamp(p.qTot/2600,0,1.6), L=X_T1-X_T0;
   M3.part.forEach((m,i)=>{
