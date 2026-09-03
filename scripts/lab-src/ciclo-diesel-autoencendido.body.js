@@ -1421,6 +1421,15 @@ function tubo(a,b,r,mat){
   m.quaternion.setFromUnitVectors(V3(0,1,0),d.clone().normalize());
   return m;
 }
+/* Los nombres con los que trabaja la biblioteca de piezas (`P3`, que el molde
+   ya importa), traducidos una vez a los materiales de este laboratorio. */
+const MATP={aluminio:MAT.piston, acero:MAT.aceroC, hierro:MAT.aro, cobre:MAT.cobre,
+  cromo:MAT.acero, chapa:MAT.acero, negro:MAT.negro, goma:MAT.negro,
+  blanco:MAT.aluminio, ceramica:MAT.aluminio};
+/* Cuatro piezas se REHACEN cada vez que cambia el motor, porque su forma
+   depende del diámetro y de la carrera. Al rehacerlas hay que soltar la
+   geometría vieja o cada vuelta del mando deja una copia muerta en la tarjeta. */
+const tira=(o)=>{ o.traverse(n=>{ if(n.isMesh) n.geometry.dispose(); }); };
 const cilY=mat=>new THREE.Mesh(new THREE.CylinderGeometry(1,1,1,28),mat);
 const caja=mat=>new THREE.Mesh(new THREE.BoxGeometry(1,1,1),mat);
 function marcaKey(o,k){ o.traverse(n=>{ n.userData.key=k; }); o.userData.key=k; return o; }
@@ -1450,17 +1459,13 @@ const gas=cilY(new THREE.MeshStandardMaterial({color:CIAN,transparent:true,opaci
 
 // --- pistón de corona plana con sus dos aros ---
 const PIS=new THREE.Group(); G3.add(PIS);
-const piston=cilY(MAT.piston), aro1=cilY(MAT.aro), aro2=cilY(MAT.aro);
 const bulon=cilY(MAT.aceroC);
-(function(){ PIS.add(piston); PIS.add(aro1); PIS.add(aro2);
-  bulon.rotation.x=Math.PI/2; PIS.add(bulon); marcaKey(PIS,'piston'); })();
+let pisP3=null;               // se construye en aplicaGeom(), con el diámetro
+(function(){ bulon.rotation.x=Math.PI/2; PIS.add(bulon); marcaKey(PIS,'piston'); })();
 
 // --- biela ---
 const BIE=new THREE.Group(); G3.add(BIE);
-const bCuerpo=caja(MAT.acero), bPie=cilY(MAT.aceroC), bCab=cilY(MAT.aceroC);
-(function(){ BIE.add(bCuerpo);
-  bPie.rotation.x=Math.PI/2; bCab.rotation.x=Math.PI/2; BIE.add(bPie); BIE.add(bCab);
-  marcaKey(BIE,'biela'); })();
+let bieP3=null;               // se construye en aplicaGeom(), con la longitud
 
 // --- cigüeñal ---
 const CIG=new THREE.Group(); CIG.position.set(0,CY,0); G3.add(CIG);
@@ -1487,12 +1492,8 @@ const culata=caja(MAT.culata), junta=caja(MAT.rojo.clone());
 
 // --- inyector central de N orificios, con su racor y su tubo de riel ---
 const INY=new THREE.Group(); G3.add(INY);
-const inyCuerpo=cilY(MAT.acero), inyTuerca=cilY(MAT.aceroC), inyTobera=cilY(MAT.oro);
 const JETS=[];
-(function(){
-  INY.add(inyCuerpo); INY.add(inyTuerca); INY.add(inyTobera);
-  marcaKey(INY,'inyector');
-})();
+let inyP3=null;               // se construye en aplicaGeom(), con el diámetro
 const RIEL=new THREE.Group(); G3.add(RIEL);
 const rielTubo=cilY(MAT.cobre), rielLinea=new THREE.Group();
 (function(){ rielTubo.rotation.x=Math.PI/2; RIEL.add(rielTubo); RIEL.add(rielLinea);
@@ -1522,16 +1523,18 @@ const rejilla=caja(std('#5b4636',0.60,0.30)), bujInc=cilY(MAT.aceroC),
 
 // --- válvulas: cerradas de IVC a EVO ---
 function valvula(col){
+  /* La válvula sale de la biblioteca con lo único que de verdad la define: el
+     CHAFLÁN de 45° de la cabeza —la única superficie que se rectifica, porque es
+     donde sella— y la garganta de los semiconos. El anillo de color no es la
+     válvula: es el ASIENTO, y está para distinguir de un vistazo la de admisión
+     de la de escape. */
   const g=new THREE.Group();
-  const vast=cilY(MAT.acero); vast.scale.set(0.045,0.62,0.045); vast.position.y=0.31; g.add(vast);
-  const cab=new THREE.Mesh(new THREE.CylinderGeometry(1,0.86,0.10,22),MAT.aceroC.clone());
-  g.add(cab);
   const as=new THREE.Mesh(new THREE.TorusGeometry(1,0.035,8,26),
     new THREE.MeshStandardMaterial({color:col,roughness:0.4,metalness:0.3,
       emissive:col,emissiveIntensity:0.35}));
   as.rotation.x=Math.PI/2; as.position.y=0.055; g.add(as);
   const mu=cilY(MAT.negro); mu.scale.set(0.085,0.16,0.085); mu.position.y=0.66; g.add(mu);
-  return {g,cab,as};
+  return {g,as,p3:null};
 }
 const VAD=valvula(CIAN), VES=valvula(NARANJA);
 G3.add(VAD.g); G3.add(VES.g);
@@ -1635,15 +1638,23 @@ function aplicaGeom(){
   camisa.scale.set(B/2,yTope-(yPMI-0.10),B/2);
   camisa.position.set(0,(yTope+yPMI-0.10)/2,0);
 
-  // pistón, aros y bulón
-  piston.scale.set(B/2*0.985,hp,B/2*0.985);
-  aro1.scale.set(B/2*1.005,0.035*B,B/2*1.005);
-  aro2.scale.set(B/2*1.005,0.030*B,B/2*1.005);
+  /* EL PISTÓN Y LA BIELA se REHACEN, no se estiran: escalar una malla estira
+     también las ranuras de los segmentos y el ojo del pie, y un pistón con las
+     ranuras estiradas ya no es un pistón. La cota que se le pasa es la ALTURA DE
+     COMPRESIÓN —del eje del bulón a la cara de la cabeza, aquí hp/2—, que es la
+     que decide dónde queda la corona en el PMS y por tanto la relación de
+     compresión de la que arranca el autoencendido. */
+  if(pisP3){ PIS.remove(pisP3); tira(pisP3); }
+  pisP3=P3.piston(MATP,{D:B*0.985,hCorona:hp/2,seg:34,bulon:false});
+  PIS.add(pisP3); marcaKey(PIS,'piston');
   bulon.scale.set(0.085*B,B*0.62,0.085*B);
 
-  // biela y cigüeñal
-  bCab.scale.set(0.16*B,0.30*B,0.16*B);
-  bPie.scale.set(0.105*B,0.26*B,0.105*B);
+  if(bieP3){ BIE.remove(bieP3); tira(bieP3); }
+  bieP3=P3.biela({...MATP,acero:MAT.acero},
+    {largo:Lb,dPie:0.17*B,dCabeza:0.26*B,espesor:0.085*B});
+  BIE.add(bieP3); marcaKey(BIE,'biela');
+
+  // cigüeñal
   muñ.scale.set(0.13*B,0.42*B,0.13*B);
   cp1.scale.set(0.40*B,0.13*B,0.40*B); cp2.scale.set(0.40*B,0.13*B,0.40*B);
   cp1.position.z=0.34*B; cp2.position.z=-0.34*B;
@@ -1655,15 +1666,24 @@ function aplicaGeom(){
   // válvulas cerradas: asientos apoyados en el plano de fuego
   const rv=0.27*B, dv=0.30*B;
   [[VAD,-dv],[VES,dv]].forEach(([v,x])=>{
+    if(v.p3){ v.g.remove(v.p3); tira(v.p3); }
+    v.p3=P3.valvula({...MATP,acero:MAT.aceroC},{d:rv*2,largo:0.62,vastago:0.052});
+    v.g.add(v.p3);
     v.g.position.set(x,GE.deck,0.16*B);
-    v.cab.scale.set(rv,1,rv); v.as.scale.set(rv,rv,1);
+    v.as.scale.set(rv,rv,1);
+    marcaKey(v.g,x<0?'vadm':'vesc');
   });
 
   // inyector central de nOr orificios, con su racor al riel
-  const yIny=GE.deck+0.02;
-  inyTobera.scale.set(0.052*B,0.13,0.052*B); inyTobera.position.set(0,yIny+0.05,-0.10*B);
-  inyTuerca.scale.set(0.10*B,0.10,0.10*B);   inyTuerca.position.set(0,yIny+0.16,-0.10*B);
-  inyCuerpo.scale.set(0.075*B,0.62,0.075*B); inyCuerpo.position.set(0,yIny+0.52,-0.10*B);
+  /* EL INYECTOR entero, de la biblioteca: conector eléctrico arriba, cuerpo de
+     bobina y las dos juntas tóricas que lo sellan contra la culata —lo que se
+     seca y hace que un inyector gotee—, con la punta justo en el plano de fuego,
+     que es de donde tienen que salir los chorros. */
+  const yIny=GE.deck+0.02, yTobera=GE.deck-0.02, LIny=0.86;
+  if(inyP3){ INY.remove(inyP3); tira(inyP3); }
+  inyP3=P3.inyector({...MATP,acero:MAT.acero},{d:0.19*B,largo:LIny});
+  inyP3.position.set(0,yTobera+LIny*0.50,-0.10*B);
+  INY.add(inyP3); marcaKey(INY,'inyector');
   if(jetN!==P.nOr) creaJets(P.nOr);
   // riel común: un tubo a lo largo del motor y el latiguillo hasta el inyector
   rielTubo.scale.set(0.075,B*1.30,0.075);
@@ -1733,16 +1753,18 @@ function pinta3D(){
   const sq=Math.sqrt(Lb*Lb-a*a*Math.sin(thr)*Math.sin(thr));
   const pinY=CY+a*Math.cos(thr)+sq;
 
-  piston.position.set(0,pinY,0);
-  aro1.position.set(0,pinY+GE.hp*0.30,0);
-  aro2.position.set(0,pinY+GE.hp*0.10,0);
+  // El pistón de la biblioteca lleva el eje del BULÓN a una altura conocida de
+  // su propio origen: se cuelga de ahí, que es de donde cuelga de verdad.
+  if(pisP3) pisP3.position.set(0,pinY-pisP3.userData.alturaBulon,0);
   bulon.position.set(0,pinY,0);
 
   const A=V3(a*Math.sin(thr),CY+a*Math.cos(thr),0), Bp=V3(0,pinY,0), d=Bp.clone().sub(A);
-  bCuerpo.position.copy(A).add(Bp).multiplyScalar(0.5);
-  bCuerpo.quaternion.setFromUnitVectors(V3(0,1,0),d.clone().normalize());
-  bCuerpo.scale.set(0.115*GE.B,d.length(),0.055*GE.B);
-  bPie.position.copy(Bp); bCab.position.copy(A);
+  // La biela tiene la CABEZA en su origen y el pie en +Y: se ancla en la
+  // muñequilla del cigüeñal, no en el punto medio.
+  if(bieP3){
+    bieP3.position.copy(A);
+    bieP3.quaternion.setFromUnitVectors(V3(0,1,0),d.clone().normalize());
+  }
   muñ.position.set(a*Math.sin(thr),a*Math.cos(thr),0);
   cp1.position.set(-0.55*a*Math.sin(thr),-0.55*a*Math.cos(thr),0.34*GE.B);
   cp2.position.set(-0.55*a*Math.sin(thr),-0.55*a*Math.cos(thr),-0.34*GE.B);

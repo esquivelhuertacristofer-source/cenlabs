@@ -103,6 +103,8 @@ import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
 import { RoundedBoxGeometry } from 'three/addons/geometries/RoundedBoxGeometry.js';
+import * as P3 from '/labs/_piezas3d.js';
+import { instalaDiag } from '/labs/_diag3d.js';
 import { EffectComposer } from 'three/addons/postprocessing/EffectComposer.js';
 import { RenderPass } from 'three/addons/postprocessing/RenderPass.js';
 import { GTAOPass } from 'three/addons/postprocessing/GTAOPass.js';
@@ -337,6 +339,13 @@ function createStage(mount, opts={}){
     composer.render(); }
   function start(){ if(!raf)loop(); }
   function stop(){ cancelAnimationFrame(raf); raf=null; window.removeEventListener('resize',resize); }
+
+  /* Sonda de escena para las auditorías del 3D. No cambia nada de lo que se ve
+     y cuelga de `window.__diag3d`, que ningún laboratorio pisa: así CUALQUIER
+     laboratorio construido con este molde se puede auditar —salud(), mira(),
+     piezas()— sin tocarle una línea. */
+  try { instalaDiag(document.title || location.pathname,
+    { escena:scene, camara:camera, controles:controls, renderizador:renderer }); } catch(_){}
 
   return { THREE, renderer, scene, camera, controls, composer, bloom,
     setAnimate:fn=>hook=fn, start, stop, resize, clock,
@@ -1418,6 +1427,16 @@ function tubo(a,b,r,mat){
 }
 const cilY=mat=>new THREE.Mesh(new THREE.CylinderGeometry(1,1,1,28),mat);
 const caja=mat=>new THREE.Mesh(new THREE.BoxGeometry(1,1,1),mat);
+/* Los nombres con los que trabaja la biblioteca de piezas (`P3`, que el molde
+   ya importa), traducidos una vez a los materiales de este laboratorio. */
+const MATP={aluminio:MAT.piston, acero:MAT.aceroC, hierro:MAT.aro, cobre:MAT.oro,
+  cromo:MAT.acero, chapa:MAT.acero, negro:MAT.negro, goma:MAT.negro,
+  blanco:MAT.aluminio, ceramica:MAT.aluminio};
+/* Este laboratorio REHACE cuatro piezas cada vez que cambia la geometría del
+   motor, porque su forma depende del diámetro y de la carrera. Al rehacerlas
+   hay que soltar la geometría vieja: si no, cada vuelta del mando deja en la
+   tarjeta gráfica un pistón que ya nadie dibuja. */
+const tira=(o)=>{ o.traverse(n=>{ if(n.isMesh) n.geometry.dispose(); }); };
 function marcaKey(o,k){ o.traverse(n=>{ n.userData.key=k; }); o.userData.key=k; return o; }
 
 // --- bancada ---
@@ -1447,23 +1466,16 @@ const gas=cilY(new THREE.MeshStandardMaterial({color:CIAN,transparent:true,opaci
 
 // --- pistón con sus dos aros ---
 const PIS=new THREE.Group(); G3.add(PIS);
-const piston=cilY(MAT.piston), aro1=cilY(MAT.aro), aro2=cilY(MAT.aro);
 const bulon=cilY(MAT.aceroC);
+let pisP3=null;               // se construye en aplicaGeom(), con el diámetro
 (function(){
-  PIS.add(piston); PIS.add(aro1); PIS.add(aro2);
   bulon.rotation.x=Math.PI/2; PIS.add(bulon);
   marcaKey(PIS,'piston');
 })();
 
 // --- biela ---
 const BIE=new THREE.Group(); G3.add(BIE);
-const bCuerpo=caja(MAT.acero), bPie=cilY(MAT.aceroC), bCab=cilY(MAT.aceroC);
-(function(){
-  BIE.add(bCuerpo);
-  bPie.rotation.x=Math.PI/2; bCab.rotation.x=Math.PI/2;
-  BIE.add(bPie); BIE.add(bCab);
-  marcaKey(BIE,'biela');
-})();
+let bieP3=null;               // se construye en aplicaGeom(), con la longitud
 
 // --- cigüeñal: muñequilla, contrapesos y volante ---
 const CIG=new THREE.Group(); CIG.position.set(0,CY,0); G3.add(CIG);
@@ -1493,25 +1505,36 @@ const culata=caja(MAT.culata), junta=caja(MAT.rojo.clone());
 
 // --- bujía ---
 const BUJ=new THREE.Group(); G3.add(BUJ);
-const bujCer=cilY(MAT.aluminio), bujHex=cilY(MAT.acero), bujEle=cilY(emis('#c9a227',0.10));
+const bujEle=cilY(emis('#c9a227',0.10));
 const chispa=new THREE.Mesh(new THREE.SphereGeometry(1,12,10),
   new THREE.MeshBasicMaterial({color:'#eaf1fb',transparent:true,opacity:0}));
 (function(){
-  BUJ.add(bujCer); BUJ.add(bujHex); BUJ.add(bujEle); BUJ.add(chispa);
+  /* La bujía viene entera de la biblioteca: hexágono de la llave, aislador con
+     sus corrugas —que alargan el camino de fuga para que los 25 kV salten en la
+     punta y no por fuera—, cuerpo roscado y los dos electrodos. El electrodo
+     central de la pieza HEREDA el material del que este laboratorio enciende al
+     saltar la chispa, para que la que se ilumine sea la punta de verdad. */
+  const bj=P3.bujia({...MATP,acero:MAT.acero,ceramica:MAT.aluminio},{d:0.11,largo:0.52});
+  bj.userData.chispa.material=bujEle.material;
+  bujEle.visible=false;
+  BUJ.add(bj); BUJ.add(bujEle); BUJ.add(chispa);
+  BUJ.userData.pieza=bj;
   marcaKey(BUJ,'bujia');
 })();
 
 // --- válvulas: en este laboratorio permanecen cerradas de IVC a EVO ---
 function valvula(col){
+  /* La válvula sale de la biblioteca, con lo único que de verdad la define: el
+     CHAFLÁN de 45° de la cabeza —la única superficie de la pieza que se
+     rectifica, porque es donde sella— y la garganta de los semiconos. El anillo
+     de color no es la válvula: es el ASIENTO, y está para poder decir de un
+     vistazo cuál es la de admisión y cuál la de escape. */
   const g=new THREE.Group();
-  const vast=cilY(MAT.acero); vast.scale.set(0.045,0.62,0.045); vast.position.y=0.31; g.add(vast);
-  const cab=new THREE.Mesh(new THREE.CylinderGeometry(1,0.86,0.10,22),MAT.aceroC.clone());
-  g.add(cab);
   const as=new THREE.Mesh(new THREE.TorusGeometry(1,0.035,8,26),
     new THREE.MeshStandardMaterial({color:col,roughness:0.4,metalness:0.3,emissive:col,emissiveIntensity:0.35}));
   as.rotation.x=Math.PI/2; as.position.y=0.055; g.add(as);
   const mu=cilY(MAT.negro); mu.scale.set(0.085,0.16,0.085); mu.position.y=0.66; g.add(mu);
-  return {g,cab,as};
+  return {g,as,p3:null};
 }
 const VAD=valvula(CIAN), VES=valvula(NARANJA);
 G3.add(VAD.g); G3.add(VES.g);
@@ -1613,13 +1636,22 @@ function aplicaGeom(){
   camisa.scale.set(Rb+0.045,hLin,Rb+0.045);
   camisa.position.set(0,yLinB+hLin/2,0);
 
-  piston.scale.set(Rb-0.015,hp,Rb-0.015);
-  aro1.scale.set(Rb+0.005,0.045,Rb+0.005);
-  aro2.scale.set(Rb+0.005,0.045,Rb+0.005);
+  /* EL PISTÓN Y LA BIELA se REHACEN, no se estiran. Escalar una malla estira
+     también las ranuras de los segmentos y el ojo del pie, y un pistón con las
+     ranuras estiradas ya no es un pistón. La cota que se le pasa es la ALTURA DE
+     COMPRESIÓN —del eje del bulón a la cara de la cabeza, aquí hp/2—, que es
+     justamente la que, con la carrera y la biela, decide dónde queda la corona
+     en el PMS y por tanto la relación de compresión de la que va el laboratorio. */
+  if(pisP3){ PIS.remove(pisP3); tira(pisP3); }
+  pisP3=P3.piston(MATP,{D:2*(Rb-0.015),hCorona:hp/2,seg:34,bulon:false});
+  pisP3.position.y=-pisP3.userData.alturaBulon;
+  PIS.add(pisP3); marcaKey(PIS,'piston');
   bulon.scale.set(0.055,2*Rb*0.92,0.055);
-  bPie.scale.set(0.085,0.30,0.085);
-  bCab.scale.set(0.145,0.42,0.145);
-  bCuerpo.scale.set(0.16,Lb,0.10);
+
+  if(bieP3){ BIE.remove(bieP3); tira(bieP3); }
+  bieP3=P3.biela({...MATP,acero:MAT.acero},
+    {largo:Lb,dPie:0.115,dCabeza:0.235,espesor:0.115});
+  BIE.add(bieP3); marcaKey(BIE,'biela');
   muñ.scale.set(0.115,0.52,0.115);
   cp1.scale.set(a*0.92,0.16,a*0.92); cp2.scale.set(a*0.92,0.16,a*0.92);
   cp1.position.set(0,0,0.34); cp2.position.set(0,0,-0.34);
@@ -1629,17 +1661,20 @@ function aplicaGeom(){
   junta.scale.set(2*(hol+e)+0.04,0.05,2*(hol+e)+0.04);
   junta.position.set(0,GE.deck+0.005,0);
 
-  bujHex.scale.set(0.085,0.16,0.085); bujHex.position.set(0,GE.deck+0.10,0);
-  bujCer.scale.set(0.065,0.34,0.065); bujCer.position.set(0,GE.deck+0.35,0);
-  bujEle.scale.set(0.020,Math.max(0.05,hc*0.55),0.020);
-  bujEle.position.set(0,GE.deck-hc*0.28,0);
+  // La bujía entra por la culata y su punta asoma a la cámara: la chispa salta
+  // ahí dentro, que es lo único que hay que ver.
+  BUJ.userData.pieza.position.set(0,GE.deck-hc*0.30+0.52*0.40,0);
   chispa.scale.setScalar(Math.max(0.035,hc*0.30));
   chispa.position.set(0,GE.deck-hc*0.55,0);
 
   const rV=Rb*0.30, xV=Rb*0.46;
   [[VAD,-1],[VES,1]].forEach(([V,s])=>{
-    V.cab.scale.set(rV,1,rV); V.as.scale.set(rV*0.97,rV*0.97,1);
+    if(V.p3){ V.g.remove(V.p3); tira(V.p3); }
+    V.p3=P3.valvula({...MATP,acero:MAT.aceroC},{d:rV*2,largo:0.62,vastago:0.052});
+    V.g.add(V.p3);
+    V.as.scale.set(rV*0.97,rV*0.97,1);
     V.g.position.set(0,GE.deck-0.05,s*xV);
+    marcaKey(V.g,s<0?'vadm':'vesc');
   });
   llama.position.set(0,GE.deck-hc*0.5,0);
 
@@ -1678,12 +1713,12 @@ function pinta3D(){
   cp1.position.set(0,-a*0.55,0.34); cp2.position.set(0,-a*0.55,-0.34);
 
   PIS.position.set(0,pinY,0);
-  aro1.position.set(0,GE.hp*0.32,0); aro2.position.set(0,GE.hp*0.14,0);
 
+  // La biela de la biblioteca tiene la CABEZA en su origen y el pie en +Y: se
+  // ancla en la muñequilla del cigüeñal, no en el punto medio.
   const cpx=a*st, cpy=CY+a*ct;
-  BIE.position.set(cpx/2,(cpy+pinY)/2,0);
+  BIE.position.set(cpx,cpy,0);
   BIE.rotation.z=Math.atan2(a*st,s);
-  bPie.position.set(0,Lb/2,0); bCab.position.set(0,-Lb/2,0);
 
   // La columna de gas es el volumen del cilindro a escala: su altura por el
   // área del pistón es exactamente V(θ). En el PMS mide la altura de la cámara.
@@ -2781,7 +2816,7 @@ window.__labDebug={
   <!-- Ficha técnica · Capa B del molde de lab 3D (componente compartido + contenido del lab) -->
   <script src="_ficha-tecnica.js"></script>
   <script src="_ficha-ciclo-otto-relacion-compresion.js"></script>
-  <!-- Puente con la plataforma · reporta avance al shell (ver _puente.js) -->
+  <!-- Reporta avance y cierre al shell del alumno (src/lib/puente.ts) -->
   <script src="_puente.js"></script>
 </body>
 </html>
