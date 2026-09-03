@@ -104,14 +104,31 @@ const shuntModule=new THREE.Group();
 shuntModule.position.set(0,0.94,0.45);
 shuntModule.visible=false;
 scene.add(shuntModule);
-const shuntBodyMesh=roundedBox(0.62,0.20,0.20,MAT.shuntBody,0.15);
+/* EL SHUNT, con la forma que tiene en la mano: dos BLOQUES DE COBRE con sus
+   tornillos —por donde entra y sale TODA la corriente del circuito— unidos por
+   varias LAMINAS DE MANGANINA sobre una base aislante. Las laminas son la
+   resistencia patron: van en paralelo y son de manganina justamente porque su
+   resistencia casi no cambia con la temperatura, que es lo que permite que la
+   caida de tension siga siendo proporcional a la corriente aunque el shunt se
+   caliente. Un taco liso con dos tapas no dejaba ver nada de eso. */
+const shuntBodyMesh=roundedBox(0.52,0.06,0.24,MAT.shuntBody,0.02);
+shuntBodyMesh.position.set(0,-0.10,0);
 shuntModule.add(shuntBodyMesh);
-const shuntCapA=new THREE.Mesh(new THREE.CylinderGeometry(0.07,0.07,0.06,16),MAT.shuntCap);
-shuntCapA.rotation.z=Math.PI/2; shuntCapA.position.set(-0.31,0,0);
-shuntModule.add(shuntCapA);
-const shuntCapB=new THREE.Mesh(new THREE.CylinderGeometry(0.07,0.07,0.06,16),MAT.shuntCap);
-shuntCapB.rotation.z=Math.PI/2; shuntCapB.position.set(0.31,0,0);
-shuntModule.add(shuntCapB);
+[-1,1].forEach(sx=>{
+  const blq=roundedBox(0.16,0.17,0.22,MAT.shuntCap,0.015);
+  blq.position.set(sx*0.25,0.02,0);shuntModule.add(blq);
+  [-0.06,0.06].forEach(dz=>{
+    const tor=new THREE.Mesh(new THREE.CylinderGeometry(0.028,0.028,0.05,6),MAT.post);
+    tor.position.set(sx*0.25,0.12,dz);shuntModule.add(tor);
+  });
+});
+[-0.075,-0.025,0.025,0.075].forEach(dz=>{
+  const lam=new THREE.Mesh(new THREE.BoxGeometry(0.36,0.018,0.030),MAT.post);
+  lam.position.set(0,0.055,dz);shuntModule.add(lam);
+});
+const shuntPlaca=new THREE.Mesh(new THREE.BoxGeometry(0.22,0.09,0.006),
+  new THREE.MeshStandardMaterial({color:0xd7dee6,roughness:0.5,metalness:0.2}));
+shuntPlaca.position.set(0,-0.03,0.121);shuntModule.add(shuntPlaca);
 registerPart(shuntBodyMesh,'Shunt','Resistencia patrón de muy bajo valor (miliohms). Se inserta EN SERIE: toda la corriente la atraviesa y genera una caída de tensión proporcional (ley de Ohm) que el instrumento convierte en lectura de corriente.','#ffd166');
 
 /* ---------- 6) PINZA AMPERIMÉTRICA ---------- */
@@ -122,13 +139,46 @@ scene.add(clampGroup);
 const jawRingMat=MAT.jaw.clone();
 jawRingMat.emissive=new THREE.Color(0x4fd1c5);
 jawRingMat.emissiveIntensity=0.05;
-const jawRing=new THREE.Mesh(new THREE.TorusGeometry(0.13,0.028,10,28),jawRingMat);
-jawRing.rotation.y=Math.PI/2;
+/* LA MORDAZA, que es lo que hace que una pinza sea una pinza: DOS MITADES de
+   nucleo que se abren por una BISAGRA y se cierran alrededor del conductor sin
+   tocarlo. Ese es el motivo de que la pinza no altere el circuito que mide, y
+   un aro cerrado —por el que ningun cable podria entrar— decia lo contrario. La
+   mitad movil se abre con el GATILLO del costado. */
+function mediaMordaza(a0,a1){
+  const ri=0.105, ro=0.158;
+  const c=[...P3.arco(0,0,ro,a0,a1,22),...P3.arco(0,0,ri,a1,a0,22)];
+  const m=new THREE.Mesh(P3.extruido(c,{espesor:0.085,bisel:0.006}),jawRingMat);
+  m.rotation.y=Math.PI/2; m.castShadow=true; return m;
+}
+const jawRing=mediaMordaza(-0.30*Math.PI,1.22*Math.PI);   // la mitad fija
 clampGroup.add(jawRing);
+const jawMovil=mediaMordaza(1.22*Math.PI,1.70*Math.PI);   // la que abre el gatillo
+clampGroup.add(jawMovil);
+const jawPivote=new THREE.Mesh(new THREE.CylinderGeometry(0.022,0.022,0.11,12),MAT.post);
+jawPivote.rotation.z=Math.PI/2;
+jawPivote.position.set(0,Math.sin(1.22*Math.PI)*0.132,Math.cos(1.22*Math.PI)*0.132);
+clampGroup.add(jawPivote);
 
 const clampCase=roundedBox(0.42,0.62,0.28,MAT.toolBody,0.14);
 clampCase.position.set(0,0.5,0.05);
 clampGroup.add(clampCase);
+/* EL GATILLO: el dedo lo empuja y la mitad movil se abre. */
+const clampGatillo=roundedBox(0.07,0.24,0.09,MAT.toolGrip,0.03);
+clampGatillo.position.set(-0.22,0.34,0.02);
+clampGatillo.rotation.z=-0.16;
+clampGroup.add(clampGatillo);
+/* EL SELECTOR y los dos botones: es un instrumento, no un mango. */
+const clampDial=new THREE.Mesh(new THREE.CylinderGeometry(0.10,0.11,0.05,24),MAT.toolGrip);
+clampDial.rotation.x=Math.PI/2;
+clampDial.position.set(0,0.30,0.17);
+clampGroup.add(clampDial);
+const clampMarca=new THREE.Mesh(new THREE.BoxGeometry(0.018,0.06,0.02),MAT.post);
+clampMarca.position.set(0,0.36,0.19);
+clampGroup.add(clampMarca);
+[-0.10,0.10].forEach(dx=>{
+  const b=roundedBox(0.10,0.05,0.03,MAT.toolGrip,0.01);
+  b.position.set(dx,0.79,0.16);clampGroup.add(b);
+});
 
 const clampGrip=roundedBox(0.20,0.32,0.20,MAT.toolGrip,0.20);
 clampGrip.position.set(0,0.86,0.08);

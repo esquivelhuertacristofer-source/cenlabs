@@ -22,14 +22,15 @@ const srv = createServer(async (q, r) => {
 });
 await new Promise(r => srv.listen(0, '127.0.0.1', r));
 const B = `http://127.0.0.1:${srv.address().port}`;
-const [slug, x, y, z, tx, ty, tz, salida, clic] = process.argv.slice(2);
+const [slug, x, y, z, tx, ty, tz, salida, clic, js] = process.argv.slice(2);
 const nav = await chromium.launch({ args: ['--use-gl=swiftshader', '--enable-unsafe-swiftshader'] });
 const p = await nav.newPage({ viewport: { width: 1600, height: 900 } });
 p.on('pageerror', e => console.log('  ‼', e.message));
 await p.goto(`${B}/labs/${slug}.html`, { waitUntil: 'load', timeout: 90000 });
 await p.waitForFunction(() => window.__diag3d, null, { timeout: 90000 });
 await p.waitForTimeout(1200);
-if (clic) { await p.click(clic); await p.waitForTimeout(500); }
+if (clic) { for (const c of clic.split('|')) { await p.click(c); await p.waitForTimeout(400); } }
+if (js) { await p.evaluate(js); await p.waitForTimeout(300); }
 await p.evaluate(([c]) => {
   const D = window.__diag3d;
   D.escena.traverse(o => { if (o.isSprite) o.visible = false; });
