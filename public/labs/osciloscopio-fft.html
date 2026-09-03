@@ -499,23 +499,63 @@ registerPart(scopeBody,'Osciloscopio digital','Un solo canal activo (CH1) para e
 const scrCanvas=document.createElement('canvas');
 scrCanvas.width=300; scrCanvas.height=240;
 const scrTex=new THREE.CanvasTexture(scrCanvas);
-const screenMesh=new THREE.Mesh(new THREE.PlaneGeometry(1.10,0.88),new THREE.MeshBasicMaterial({map:scrTex}));
-screenMesh.position.set(0,0.32,0.586);
+/* LA PANTALLA a la izquierda y los mandos a la derecha, el reparto real del
+   frente de un osciloscopio de banco. Ademas 0,88 de alto se salia por encima
+   de la tapa de la caja, que esta en 0,65. */
+const screenMesh=new THREE.Mesh(new THREE.PlaneGeometry(0.90,0.72),new THREE.MeshBasicMaterial({map:scrTex}));
+screenMesh.position.set(-0.40,0.20,0.586);
 scopeGroup.add(screenMesh);
 registerPart(screenMesh,'Pantalla','Traza, cursores y espectro FFT se dibujan aquí según el caso activo.','#ffd166');
 
-const jackCh1=new THREE.Mesh(new THREE.CylinderGeometry(0.045,0.045,0.06,14),MAT.jackCh1);
-jackCh1.rotation.x=Math.PI/2;
-jackCh1.position.set(-0.75,-0.30,0.585);
+/* Los nombres con los que trabaja la biblioteca de piezas (`P3`, que el molde ya
+   importa), traducidos una vez a los materiales de este laboratorio. */
+const MATP={
+  aluminio:MAT.knobBase, acero:MAT.knobBase, cromo:MAT.knobBase, chapa:MAT.knobBase,
+  cobre:new THREE.MeshStandardMaterial({color:0xb87333,roughness:0.35,metalness:0.75}),
+  negro:new THREE.MeshStandardMaterial({color:0x14181e,roughness:0.62,metalness:0.06}),
+  goma:new THREE.MeshStandardMaterial({color:0x14181e,roughness:0.80,metalness:0.02}),
+  blanco:new THREE.MeshStandardMaterial({color:0xd7dee6,roughness:0.40,metalness:0.20}),
+  ceramica:new THREE.MeshStandardMaterial({color:0xd7dee6,roughness:0.60,metalness:0.05}),
+};
+/* EL BNC no es un cilindro de color: lleva los DOS TETONES de la bayoneta —se
+   mete y se gira un cuarto de vuelta—, el aislante y el pin central. Los tetones
+   son lo que hace que el cable no se salga solo de un tiron, que es justo por lo
+   que un osciloscopio no lleva bananas; el anillo de color dice el canal. */
+const jackCh1=P3.bnc(MATP,{d:0.11,largo:0.10,color:MAT.jackCh1.color.getHex()});
+jackCh1.position.set(-0.62,-0.44,0.575);
 scopeGroup.add(jackCh1);
 registerPart(jackCh1,'Entrada CH1 (BNC)','Único canal de entrada usado en esta práctica. Aquí se conecta el cable de la sonda.','#ffd166');
 
 const probeCompTerm=new THREE.Mesh(new THREE.CylinderGeometry(0.025,0.025,0.05,10),MAT.compTerm);
 probeCompTerm.rotation.x=Math.PI/2;
-probeCompTerm.position.set(-0.50,-0.30,0.585);
+probeCompTerm.position.set(-0.30,-0.44,0.585);
 scopeGroup.add(probeCompTerm);
 registerPart(probeCompTerm,'Terminal de compensación de sonda','Salida de calibración propia del osciloscopio: onda cuadrada de referencia (típicamente ≈1 kHz, unos pocos volts) usada para ajustar el trimmer de una sonda 10X. En esta práctica el generador de señales cumple ese mismo papel, para no tener que mover la sonda de sitio.','#c77dff');
 
+/* EL VESTIDO DEL INSTRUMENTO: MARCO de la pantalla, ASA de transporte, PATAS y
+   REJILLA de ventilacion. Sin ellos la caja no se distingue de un cajon: son las
+   cuatro cosas por las que un aparato de banco se reconoce como aparato. */
+{
+  const marco=new THREE.Mesh(P3.extruido(
+    [[-0.49,-0.40],[0.49,-0.40],[0.49,0.40],[-0.49,0.40]],
+    {huecos:[[[-0.45,-0.36],[0.45,-0.36],[0.45,0.36],[-0.45,0.36]]],
+     espesor:0.035,bisel:0.006}),MAT.knobBase);
+  marco.position.set(-0.40,0.20,0.586-0.030);scopeGroup.add(marco);
+  const asa=new THREE.Mesh(new THREE.TubeGeometry(new THREE.CatmullRomCurve3([
+    new THREE.Vector3(-0.98,0.30,0),new THREE.Vector3(-0.98,0.72,0),
+    new THREE.Vector3(0,0.86,0),
+    new THREE.Vector3(0.98,0.72,0),new THREE.Vector3(0.98,0.30,0)],false),
+    26,0.032,8,false),MAT.knobRub);
+  asa.castShadow=true;scopeGroup.add(asa);
+  [[-1,-1],[1,-1],[-1,1],[1,1]].forEach(([sx,sz])=>{
+    const pa=new THREE.Mesh(new THREE.CylinderGeometry(0.055,0.062,0.05,12),MAT.knobRub);
+    pa.position.set(sx*0.80,-0.68,sz*0.46);scopeGroup.add(pa);
+  });
+  for(let i=0;i<7;i++){
+    const r=new THREE.Mesh(new THREE.BoxGeometry(1.10,0.014,0.035),MAT.knobRub);
+    r.position.set(0,0.652,-0.42+i*0.06);scopeGroup.add(r);
+  }
+}
 function makeCosmeticKnob(x,y,name,desc){
   const g=new THREE.Group();
   g.position.set(x,y,0.585);
@@ -533,8 +573,8 @@ function makeCosmeticKnob(x,y,name,desc){
   registerPart(grip,name,desc,'#8aa0b8');
   return g;
 }
-makeCosmeticKnob(-0.15,-0.30,'Volts/división','Fija en esta práctica para que la lectura dependa únicamente de la sonda y del ajuste de canal, no de la escala vertical.');
-makeCosmeticKnob(0.10,-0.30,'Base de tiempo','Fija en esta práctica; el foco está en la sonda, la compensación, los cursores y la FFT, no en el barrido horizontal.');
+makeCosmeticKnob(0.36,0.38,'Volts/división','Fija en esta práctica para que la lectura dependa únicamente de la sonda y del ajuste de canal, no de la escala vertical.');
+makeCosmeticKnob(0.36,0.04,'Base de tiempo','Fija en esta práctica; el foco está en la sonda, la compensación, los cursores y la FFT, no en el barrido horizontal.');
 
 const btnFFT=new THREE.Mesh(new THREE.BoxGeometry(0.10,0.06,0.02),MAT.btnLit);
 btnFFT.position.set(0.72,0.45,0.586);
@@ -613,7 +653,7 @@ function cableTube(points,radius,mat){
   const geo=new THREE.TubeGeometry(curve,24,radius,8,false);
   return new THREE.Mesh(geo,mat);
 }
-const cableProbe=cableTube([[-2.15,0.47,0.485],[-0.8,0.65,0.20],[0.523,0.60,-0.057]],0.026,MAT.wireProbe);
+const cableProbe=cableTube([[-2.02,0.33,0.485],[-0.8,0.65,0.20],[0.523,0.60,-0.057]],0.026,MAT.wireProbe);
 scene.add(cableProbe);
 
 // ===== 7) Pantalla: dibujo =====

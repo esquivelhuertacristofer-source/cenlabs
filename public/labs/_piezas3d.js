@@ -3134,6 +3134,44 @@ export function led(mat, opts = {}) {
 }
 
 /**
+ * CONECTOR BNC de panel, el de cualquier osciloscopio o generador: barrilete,
+ * los DOS TETONES de la bayoneta, el aislante y el pin central.
+ *
+ * Los tetones no son adorno: son lo que convierte al conector en una BAYONETA
+ * —se mete y se gira un cuarto de vuelta— y lo que hace que no se salga solo
+ * tirando del cable, que es justo por lo que un osciloscopio no lleva bananas.
+ * El anillo de color es lo que dice qué canal es. Eje +Z, saliendo del panel.
+ */
+export function bnc(mat, opts = {}) {
+  const { d = 0.11, largo = 0.10, color = null, seg = 18 } = opts;
+  const g = new THREE.Group();
+  const R = d / 2;
+  const met = mat.cromo || mat.acero || mat.aluminio;
+  const bar = new THREE.Mesh(new THREE.CylinderGeometry(R, R, largo, seg), met);
+  bar.rotation.x = Math.PI / 2; bar.position.z = largo / 2; bar.castShadow = true; g.add(bar);
+  const bri = new THREE.Mesh(new THREE.CylinderGeometry(R * 1.28, R * 1.28, largo * 0.16, seg), met);
+  bri.rotation.x = Math.PI / 2; bri.position.z = largo * 0.08; g.add(bri);
+  for (const sx of [-1, 1]) {           // los tetones de la bayoneta
+    const te = new THREE.Mesh(new THREE.CylinderGeometry(R * 0.17, R * 0.17, R * 0.34, 10), met);
+    te.rotation.z = Math.PI / 2;
+    te.position.set(sx * (R + R * 0.14), 0, largo * 0.62); g.add(te);
+  }
+  const ais = new THREE.Mesh(new THREE.CylinderGeometry(R * 0.62, R * 0.62, largo * 0.30, seg),
+    new THREE.MeshStandardMaterial({ color: 0xd7dee6, roughness: 0.55, metalness: 0.02 }));
+  ais.rotation.x = Math.PI / 2; ais.position.z = largo * 0.86; g.add(ais);
+  const pin = new THREE.Mesh(new THREE.CylinderGeometry(R * 0.13, R * 0.13, largo * 0.5, 10), met);
+  pin.rotation.x = Math.PI / 2; pin.position.z = largo * 0.90; g.add(pin);
+  if (color !== null) {
+    const an = new THREE.Mesh(new THREE.TorusGeometry(R * 1.34, R * 0.14, 8, seg),
+      new THREE.MeshStandardMaterial({ color, roughness: 0.5, metalness: 0.1 }));
+    an.position.z = largo * 0.04; g.add(an);
+    g.userData.anillo = an;
+  }
+  g.userData.d = d; g.userData.largo = largo;
+  return g;
+}
+
+/**
  * BUJE DE PORCELANA: por donde sale una terminal de un tanque —de un
  * transformador, de un interruptor— sin tocar la chapa.
  *

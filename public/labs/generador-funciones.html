@@ -496,20 +496,60 @@ registerPart(scopeBody,'Osciloscopio digital','En esta práctica actúa como ins
 const scrCanvas=document.createElement('canvas');
 scrCanvas.width=300; scrCanvas.height=240;
 const scrTex=new THREE.CanvasTexture(scrCanvas);
-const screenMesh=new THREE.Mesh(new THREE.PlaneGeometry(1.00,0.80),new THREE.MeshBasicMaterial({map:scrTex}));
-screenMesh.position.set(0,0.26,0.526);
+/* LA PANTALLA a la izquierda del frente y el mando a la derecha. Con 0,80 de
+   alto centrada en 0,26 el borde superior caia en 0,66, por encima de la tapa
+   de la caja (0,575): el marco quedaba en el aire. */
+const screenMesh=new THREE.Mesh(new THREE.PlaneGeometry(0.80,0.64),new THREE.MeshBasicMaterial({map:scrTex}));
+screenMesh.position.set(-0.36,0.16,0.526);
 scopeGroup.add(screenMesh);
 registerPart(screenMesh,'Pantalla','Traza, espectro o curva de Bode se dibujan aquí según el caso activo.','#ffd166');
 
-const jackCh1=new THREE.Mesh(new THREE.CylinderGeometry(0.045,0.045,0.06,14),MAT.jackCh1);
-jackCh1.rotation.x=Math.PI/2;
-jackCh1.position.set(-0.65,-0.28,0.526);
+/* Los nombres con los que trabaja la biblioteca de piezas (`P3`, que el molde ya
+   importa), traducidos una vez a los materiales de este laboratorio. */
+const MATP={
+  aluminio:MAT.knobBase, acero:MAT.knobBase, cromo:MAT.knobBase, chapa:MAT.knobBase,
+  cobre:new THREE.MeshStandardMaterial({color:0xb87333,roughness:0.35,metalness:0.75}),
+  negro:new THREE.MeshStandardMaterial({color:0x14181e,roughness:0.62,metalness:0.06}),
+  goma:new THREE.MeshStandardMaterial({color:0x14181e,roughness:0.80,metalness:0.02}),
+  blanco:new THREE.MeshStandardMaterial({color:0xd7dee6,roughness:0.40,metalness:0.20}),
+  ceramica:new THREE.MeshStandardMaterial({color:0xd7dee6,roughness:0.60,metalness:0.05}),
+};
+/* EL BNC no es un cilindro de color: lleva los DOS TETONES de la bayoneta —se
+   mete y se gira un cuarto de vuelta—, el aislante y el pin central. Los tetones
+   son lo que hace que el cable no se salga solo de un tiron, que es justo por lo
+   que un osciloscopio no lleva bananas; el anillo de color dice el canal. */
+const jackCh1=P3.bnc(MATP,{d:0.11,largo:0.10,color:MAT.jackCh1.color.getHex()});
+jackCh1.position.set(-0.56,-0.40,0.516);
 scopeGroup.add(jackCh1);
 registerPart(jackCh1,'Entrada CH1 (BNC)','Entrada de alta impedancia (Hi-Z) del osciloscopio, salvo que se le conecte un terminador externo de 50 Ω.','#ffd166');
 
-const termCap=new THREE.Mesh(new THREE.CylinderGeometry(0.05,0.05,0.09,14),MAT.termCap);
+/* EL VESTIDO DEL INSTRUMENTO: MARCO de la pantalla, ASA de transporte, PATAS y
+   REJILLA de ventilacion. Sin ellos la caja no se distingue de un cajon: son las
+   cuatro cosas por las que un aparato de banco se reconoce como aparato. */
+{
+  const marco=new THREE.Mesh(P3.extruido(
+    [[-0.44,-0.36],[0.44,-0.36],[0.44,0.36],[-0.44,0.36]],
+    {huecos:[[[-0.40,-0.32],[0.40,-0.32],[0.40,0.32],[-0.40,0.32]]],
+     espesor:0.035,bisel:0.006}),MAT.knobBase);
+  marco.position.set(-0.36,0.16,0.526-0.030);scopeGroup.add(marco);
+  const asa=new THREE.Mesh(new THREE.TubeGeometry(new THREE.CatmullRomCurve3([
+    new THREE.Vector3(-0.88,0.26,0),new THREE.Vector3(-0.88,0.64,0),
+    new THREE.Vector3(0,0.78,0),
+    new THREE.Vector3(0.88,0.64,0),new THREE.Vector3(0.88,0.26,0)],false),
+    26,0.032,8,false),MAT.knobRub);
+  asa.castShadow=true;scopeGroup.add(asa);
+  [[-1,-1],[1,-1],[-1,1],[1,1]].forEach(([sx,sz])=>{
+    const pa=new THREE.Mesh(new THREE.CylinderGeometry(0.055,0.062,0.05,12),MAT.knobRub);
+    pa.position.set(sx*0.72,-0.60,sz*0.40);scopeGroup.add(pa);
+  });
+  for(let i=0;i<7;i++){
+    const r=new THREE.Mesh(new THREE.BoxGeometry(1.00,0.014,0.035),MAT.knobRub);
+    r.position.set(0,0.577,-0.36+i*0.06);scopeGroup.add(r);
+  }
+}
+const termCap=new THREE.Mesh(new THREE.CylinderGeometry(0.075,0.075,0.12,16),MAT.termCap);
 termCap.rotation.x=Math.PI/2;
-termCap.position.set(-0.65,-0.28,0.60);
+termCap.position.set(-0.56,-0.40,0.585);
 termCap.visible=false;
 scopeGroup.add(termCap);
 registerPart(termCap,'Terminador de 50 Ω','Adaptador que presenta una carga real de 50 Ω a la entrada del osciloscopio. Sin él, la entrada es de alta impedancia (Hi-Z). Solo relevante en el Caso 1 (Carga).','#c77dff');
@@ -531,7 +571,7 @@ function makeKnob(group,x,y,z,name,desc){
   registerPart(grip,name,desc,'#8aa0b8');
   return g;
 }
-makeKnob(scopeGroup,0.55,-0.28,0.526,'Volts/división','Fija en esta práctica para que la lectura dependa de la carga y no de la escala vertical.');
+makeKnob(scopeGroup,0.45,0.22,0.526,'Volts/división','Fija en esta práctica para que la lectura dependa de la carga y no de la escala vertical.');
 
 // ===== 4) Generador de funciones (protagonista de esta práctica) =====
 const srcGroup=new THREE.Group();
@@ -608,7 +648,7 @@ function cableTube(points,radius,mat){
   const geo=new THREE.TubeGeometry(curve,24,radius,8,false);
   return new THREE.Mesh(geo,mat);
 }
-const cableGenScope=cableTube([[2.22,0.21,0.66],[0.15,0.75,1.05],[-2.25,0.44,0.43]],0.026,MAT.wireGen);
+const cableGenScope=cableTube([[2.22,0.21,0.66],[0.15,0.75,1.05],[-2.16,0.32,0.43]],0.026,MAT.wireGen);
 scene.add(cableGenScope);
 
 // ===== 7) Pantalla: dibujo =====
