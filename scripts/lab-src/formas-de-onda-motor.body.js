@@ -1895,6 +1895,12 @@ function construyeMesa(d){
   return h+0.048;
 }
 
+/* Los nombres con los que trabaja la biblioteca de piezas (`P3`, que el molde
+   ya importa), traducidos una vez a los materiales de este laboratorio. */
+const MATP={aluminio:MAT.bloque, acero:MAT.acero, cobre:MAT.crom, cromo:MAT.crom,
+  chapa:MAT.acero, hierro:MAT.acero, negro:MAT.caja, goma:MAT_MANG,
+  blanco:MAT.crom, ceramica:MAT.crom};
+
 // --- la rueda fónica y su captador ------------------------------------------
 let ckpSensor=null, ckpLed=null, cmpSensor=null, cmpLed=null, dientesMesh=[];
 function construyeMotor(e,d,y0){
@@ -1927,11 +1933,14 @@ function construyeMotor(e,d,y0){
   // un entrehierro grande se VEA grande.
   const g=entrehierroDe(e,FA());
   const sep=d.rR*0.86+0.075+g*0.055;
+  /* EL CAPTADOR, con lo que tiene un captador de verdad: la BRIDA por la que se
+     atornilla —que es lo que fija el entrehierro y lo que se dobla cuando
+     alguien lo aprieta de más—, la punta afinada que apunta a la rueda y el
+     conector de dos pines. Un cilindro suelto no apunta a nada. */
   ckpSensor=new THREE.Group();
-  const cuerpo=new THREE.Mesh(new THREE.CylinderGeometry(0.048,0.055,0.24,18),MAT_INY);
-  cuerpo.rotation.z=Math.PI/2; ckpSensor.add(cuerpo);
-  const punta=new THREE.Mesh(new THREE.CylinderGeometry(0.030,0.030,0.06,14),MAT.crom);
-  punta.rotation.z=Math.PI/2; punta.position.x=-0.15; ckpSensor.add(punta);
+  const cap=P3.captador(MATP,{d:0.10,largo:0.30});
+  cap.rotation.z=-Math.PI/2;          // la punta, hacia la rueda (−x)
+  cap.traverse(o=>{if(o.isMesh)o.castShadow=true;}); ckpSensor.add(cap);
   ckpLed=new THREE.Mesh(new THREE.SphereGeometry(0.028,14,10),MAT.ok);
   ckpLed.position.x=0.16; ckpSensor.add(ckpLed);
   pon(ckpSensor,[d.xR+sep+0.15, yEje, -0.22]); gMotor.add(ckpSensor);
@@ -1941,14 +1950,14 @@ function construyeMotor(e,d,y0){
   // en X: puesta justo encima del cigüeñal, las dos ruedas dentadas se leen como
   // una sola columna rayada y no se distingue cuál es cuál.
   const dxA=0.62, yA=yEje+0.78;
-  const pol=new THREE.Mesh(new THREE.CylinderGeometry(0.30,0.30,0.048,Math.min(48,e.dientesArbol)),MAT.acero);
-  pol.rotation.x=Math.PI/2; pol.castShadow=true; gArbol.add(pol);
-  for(let i=0;i<Math.min(24,e.dientesArbol);i++){
-    const a=i/Math.min(24,e.dientesArbol)*Math.PI*2;
-    const m=new THREE.Mesh(new THREE.BoxGeometry(0.030,0.055,0.046),MAT_DIENTE);
-    m.position.set(Math.cos(a)*0.315,Math.sin(a)*0.315,0); m.rotation.z=a;
-    gArbol.add(m);
-  }
+  /* El piñón del árbol, con DIENTES de verdad —perfil de evolvente— en vez de
+     tacos pegados a un disco: es una rueda dentada, y la correa engrana en
+     ella. */
+  const nzA=Math.min(30,e.dientesArbol);
+  const pol=new THREE.Mesh(P3.engrane({z:nzA,m:0.63/nzA,ancho:0.052}).geo,MAT.acero);
+  pol.castShadow=true; gArbol.add(pol);
+  const cuboA=new THREE.Mesh(new THREE.CylinderGeometry(0.085,0.085,0.10,18),MAT.crom);
+  cuboA.rotation.x=Math.PI/2; gArbol.add(cuboA);
   // La marca de reglaje: es LA referencia visible de la sincronía.
   const marca=new THREE.Mesh(new THREE.BoxGeometry(0.036,0.15,0.052),
     std({color:0xffd166,emissive:0xffd166,emissiveIntensity:0.8,roughness:0.4}));
@@ -1956,8 +1965,9 @@ function construyeMotor(e,d,y0){
   pon(gArbol,[d.xR+dxA,yA,-0.22]); gMotor.add(gArbol);
 
   cmpSensor=new THREE.Group();
-  const c2=new THREE.Mesh(new THREE.CylinderGeometry(0.040,0.046,0.20,16),MAT_INY);
-  c2.rotation.z=Math.PI/2; cmpSensor.add(c2);
+  const cap2=P3.captador(MATP,{d:0.085,largo:0.26});
+  cap2.rotation.z=-Math.PI/2;
+  cap2.traverse(o=>{if(o.isMesh)o.castShadow=true;}); cmpSensor.add(cap2);
   cmpLed=new THREE.Mesh(new THREE.SphereGeometry(0.026,14,10),MAT.ok);
   cmpLed.position.x=0.13; cmpSensor.add(cmpLed);
   pon(cmpSensor,[d.xR+dxA+0.46, yA, -0.22]); gMotor.add(cmpSensor);
@@ -1997,9 +2007,20 @@ function construyeAdmision(e,d,y0){
 
   // Cuerpo de mariposa: la placa gira sobre su eje. Es una PLACA, no un disco:
   // un disco a media apertura se ve como una elipse y parece otra pieza.
-  const cuerpo=new THREE.Mesh(new THREE.CylinderGeometry(r*1.20,r*1.20,0.20,22),MAT.bloque);
+  /* El cuerpo de mariposa es un TUBO con bridas, no un tapón macizo: por dentro
+     pasa TODO el aire del motor, y el plato tiene que caber girado del todo.
+     Cerrado, la placa parecía flotar dentro de un cilindro sólido. */
+  const cuerpo=new THREE.Mesh(P3.revolucion([
+    [r*0.98,-0.10],[r*1.30,-0.10],[r*1.30,-0.078],[r*1.10,-0.068],
+    [r*1.10,0.068],[r*1.30,0.078],[r*1.30,0.10],[r*0.98,0.10]],{seg:26}),MAT.bloque);
   cuerpo.rotation.z=Math.PI/2; pon(cuerpo,[d.xAdm0+1.02,yT,-0.22]); gAdm.add(cuerpo);
-  mariposa=new THREE.Mesh(new THREE.BoxGeometry(0.010,r*1.96,r*1.96),MAT.crom);
+  // El plato, con su canto BISELADO —así cierra contra el tubo— y su eje.
+  mariposa=new THREE.Group();
+  const plato=new THREE.Mesh(P3.revolucion([
+    [0,-0.006],[r*0.86,-0.012],[r*0.965,0],[r*0.86,0.012],[0,0.006]],{seg:26}),MAT.crom);
+  plato.rotation.z=Math.PI/2; mariposa.add(plato);
+  const ejeM=new THREE.Mesh(new THREE.CylinderGeometry(0.011,0.011,r*2.5,10),MAT.crom);
+  mariposa.add(ejeM);
   pon(mariposa,[d.xAdm0+1.02,yT,-0.22]); gAdm.add(mariposa);
   const tpsCaja=roundedBox(0.14,0.14,0.07,MAT.caja,0.02);
   pon(tpsCaja,[d.xAdm0+1.02,yT,-0.22+r*1.30]); gAdm.add(tpsCaja);
@@ -2017,8 +2038,12 @@ function construyeAdmision(e,d,y0){
   gAdm.add(rot3('presión de colector',COL_SEN.map,[d.xAdm1-0.44,yT+0.58,-0.24]));
 
   // Un inyector, con su testigo de mando.
-  const iny=new THREE.Mesh(new THREE.CylinderGeometry(0.038,0.030,0.24,14),MAT_INY);
-  pon(iny,[d.xAdm1-0.02,yT-0.24,-0.24]); iny.castShadow=true; gAdm.add(iny);
+  /* EL INYECTOR entero: conector eléctrico arriba, cuerpo de bobina, las dos
+     juntas tóricas que lo sellan contra el colector —lo que se seca y hace que
+     entre aire falso— y la tobera. */
+  const iny=P3.inyector({...MATP,acero:MAT_INY},{d:0.078,largo:0.28});
+  pon(iny,[d.xAdm1-0.02,yT-0.24,-0.24]);
+  iny.traverse(o=>{if(o.isMesh)o.castShadow=true;}); gAdm.add(iny);
   inyLed=new THREE.Mesh(new THREE.SphereGeometry(0.028,14,10),MAT.avi);
   pon(inyLed,[d.xAdm1-0.02,yT-0.06,-0.24]); gAdm.add(inyLed);
   gAdm.add(rot3('inyector',COL_SEN.iny,[d.xAdm1+0.06,yT-0.66,-0.24]));

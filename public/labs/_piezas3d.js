@@ -1199,6 +1199,54 @@ export function cajaMando(mat, opts = {}) {
    ========================================================================== */
 
 /**
+ * NÚCLEO E–I laminado: el de un transformador pequeño y el de una bobina de
+ * encendido. Se dibuja como lo que es, un montón de CHAPAS apiladas, y no como
+ * un bloque macizo, porque el laminado no es un detalle de fabricación: cada
+ * chapa corta las corrientes de Foucault que si no calentarían el hierro, y es
+ * la razón de que un núcleo macizo del mismo tamaño se pusiera al rojo.
+ *
+ * La VENTANA es por donde pasa el devanado. El ENTREHIERRO entre la E y la I no
+ * está en todos: en un transformador se busca que NO lo haya —cuanto menos
+ * entrehierro, menos corriente de vacío—, y en una bobina de encendido se pone
+ * a propósito, porque ahí es donde se almacena la energía que luego sale por la
+ * chispa. La misma pieza, con el hueco o sin él, dice de qué máquina se trata.
+ *
+ * Las chapas se apilan en Z; la cara de la E mira a ±Z. `userData.brazo` da el
+ * centro y las cotas del brazo central, que es donde se enrolla la bobina.
+ */
+export function nucleoEI(mat, opts = {}) {
+  const { ancho = 0.30, alto = 0.34, prof = 0.14, chapas = 8,
+          entrehierro = 0, cierre = true } = opts;
+  const g = new THREE.Group();
+  const t = ancho * 0.26;                    // lomo de la E y espesor de la I
+  const b = alto * 0.24;                     // espesor de los tres brazos
+  const E = [
+    [0, 0], [ancho, 0], [ancho, b], [t, b],
+    [t, alto / 2 - b / 2], [ancho, alto / 2 - b / 2],
+    [ancho, alto / 2 + b / 2], [t, alto / 2 + b / 2],
+    [t, alto - b], [ancho, alto - b], [ancho, alto], [0, alto],
+  ];
+  const xI = ancho + entrehierro;
+  const I = [[xI, 0], [xI + t, 0], [xI + t, alto], [xI, alto]];
+  const e = prof / chapas;
+  const mch = mat.chapa || mat.hierro || mat.acero;
+  for (let i = 0; i < chapas; i++) {
+    const z = -prof / 2 + e * (i + 0.5);
+    const a = new THREE.Mesh(extruido(E, { espesor: e * 0.86, bisel: e * 0.12 }), mch);
+    a.position.z = z; a.castShadow = true; g.add(a);
+    if (cierre) {
+      const c = new THREE.Mesh(extruido(I, { espesor: e * 0.86, bisel: e * 0.12 }), mch);
+      c.position.z = z; g.add(c);
+    }
+  }
+  const dx = -(xI + (cierre ? t : 0)) / 2, dy = -alto / 2;
+  for (const c of g.children) { c.position.x += dx; c.position.y += dy; }
+  g.userData.brazo = { x: (t + ancho) / 2 + dx, y: 0, largo: ancho - t, alto: b, prof };
+  g.userData.ventana = { alto: alto / 2 - b * 1.5, largo: ancho - t };
+  return g;
+}
+
+/**
  * NÚCLEO RANURADO: la chapa de un estator o de un rotor, con sus ranuras y sus
  * zapatas de diente.
  *

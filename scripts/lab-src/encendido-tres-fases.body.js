@@ -1924,18 +1924,67 @@ function construyeBobina(e,d,y0){
   // Cuerpo: en bobina sobre bujía es alargada y estrecha; en las otras, un
   // bloque con torre de alta. La forma DICE la arquitectura.
   const anch=e.bobinaPorCil?0.22:0.44;
-  const cuerpo=roundedBox(anch,0.46,0.30,MAT.bobina,0.035);
-  pon(cuerpo,[d.xBob,y,-0.42]); cuerpo.castShadow=true; gBobina.add(cuerpo);
-  // Devanado visible por un costado, para que se vea que es una bobina.
-  for(let i=0;i<7;i++){
-    const a=new THREE.Mesh(new THREE.TorusGeometry(0.085,0.010,8,26),MAT.cobre);
-    a.rotation.y=Math.PI/2;
-    pon(a,[d.xBob+anch/2+0.008,y-0.15+i*0.05,-0.42]); gBobina.add(a);
+  /* LA BOBINA, ABIERTA. Una caja cerrada con unos anillos pegados por fuera no
+     dice de dónde salen los 25 kV. Lo que hay dentro son DOS devanados sobre un
+     núcleo de CHAPAS: el primario, de hilo grueso y pocas vueltas, que es el que
+     el módulo corta; y el secundario, de hilo finísimo y decenas de miles de
+     vueltas, que es donde aparece la tensión al cortarlo. El núcleo va laminado
+     porque cada chapa corta las corrientes de Foucault, y lleva ENTREHIERRO a
+     propósito: ahí es donde se almacena la energía del dwell —justo lo contrario
+     de un transformador, donde el entrehierro se evita—.
+     Y la forma DICE la arquitectura: la bobina sobre bujía es alargada y lleva
+     núcleo de barra; las otras, un núcleo E–I dentro de su carcasa. */
+  const gB=new THREE.Group(); pon(gB,[d.xBob,y,-0.42]); gBobina.add(gB);
+  const MATB={chapa:MAT.acero,hierro:MAT.acero,acero:MAT.cobre};
+  let brazo;
+  if(e.bobinaPorCil){
+    const nb=new THREE.Group();
+    for(let i=0;i<6;i++){
+      const ch=new THREE.Mesh(new THREE.BoxGeometry(0.034,0.42,0.013),MAT.acero);
+      ch.position.z=-0.038+i*0.015; nb.add(ch);
+    }
+    nb.castShadow=true; gB.add(nb);
+    brazo={x:0,y:0,largo:0.36};
+  }else{
+    const nuc=P3.nucleoEI(MATB,{ancho:0.30,alto:0.36,prof:0.16,chapas:8,entrehierro:0.014});
+    nuc.rotation.z=Math.PI/2;             // el brazo central, horizontal
+    gB.add(nuc);
+    const br=nuc.userData.brazo;
+    brazo={x:0,y:-br.x,largo:br.largo};   // al girar 90°, la x del brazo cae en −y
   }
-  torre=new THREE.Mesh(new THREE.CylinderGeometry(0.055,0.070,0.20,18),MAT.bobina);
-  pon(torre,[d.xBob,y+0.32,-0.42]); gBobina.add(torre);
+  // Secundario: hilo fino, muchas vueltas. Primario: hilo grueso, pocas, encima.
+  const ejeY=e.bobinaPorCil;
+  const sec=P3.muelle({acero:MAT.cobre},
+    {r:e.bobinaPorCil?0.052:0.070,largo:brazo.largo*0.92,vueltas:e.bobinaPorCil?34:22,
+     hilo:0.0055,seg:12});
+  if(!ejeY) sec.rotation.z=Math.PI/2;
+  sec.position.set(brazo.x,brazo.y,0); gB.add(sec);
+  const pri=P3.muelle({acero:MAT.cobre},
+    {r:e.bobinaPorCil?0.068:0.088,largo:brazo.largo*0.74,vueltas:8,hilo:0.011,seg:12});
+  if(!ejeY) pri.rotation.z=Math.PI/2;
+  pri.position.set(brazo.x,brazo.y,0); gB.add(pri);
+  /* La carcasa, como un MARCO: cerrada por los cuatro costados y abierta por
+     delante y por detrás, que es la única manera de que se vea el devanado sin
+     mentir sobre que la bobina va encapsulada. */
+  const hB=0.46, marco=new THREE.Mesh(P3.extruido(
+    P3.contornoRedondeado([[-anch/2,-hB/2],[anch/2,-hB/2],[anch/2,hB/2],[-anch/2,hB/2]],0.03,3),
+    {huecos:[[[-anch/2+0.038,-hB/2+0.038],[anch/2-0.038,-hB/2+0.038],
+              [anch/2-0.038,hB/2-0.038],[-anch/2+0.038,hB/2-0.038]]],
+     espesor:0.30,bisel:0.012}),MAT.bobina);
+  marco.castShadow=true; gB.add(marco);
+  // La torre de alta, con su reborde para el capuchón del cable.
+  torre=new THREE.Mesh(P3.revolucion([
+    [0,0],[0.070,0],[0.070,0.10],[0.058,0.11],[0.058,0.16],
+    [0.070,0.17],[0.070,0.19],[0.030,0.20],[0,0.20]],{seg:20}),MAT.bobina);
+  torre.position.set(0,hB/2-0.02,0); gB.add(torre);
   ledBob=new THREE.Mesh(new THREE.SphereGeometry(0.028,14,10),MAT.apag);
   pon(ledBob,[d.xBob-anch/2-0.05,y+0.14,-0.42+0.14]); gBobina.add(ledBob);
+  // Los dos bornes del primario: por ahí entra la corriente que luego se corta.
+  for(const sx of [-1,1]){
+    const t=new THREE.Mesh(new THREE.CylinderGeometry(0.016,0.016,0.05,12),MAT.crom);
+    t.rotation.x=Math.PI/2;
+    pon(t,[d.xBob+sx*0.05,y-0.19,-0.42+0.17]); gBobina.add(t);
+  }
   gBobina.add(rot3(e.bobinaPorCil?'bobina sobre bujía':(e.chispaPerdida?'bobina doble':'bobina y distribuidor'),
     VIO,[d.xBob-0.06,y+1.24,-0.42]));
   // El cable del primario, hasta la fuente.
@@ -1993,12 +2042,18 @@ function construyeCamara(e,d,y0){
 
   // La bujía, colgando de la tapa hacia dentro.
   const yB=yb+H+0.04;
-  const hex=new THREE.Mesh(new THREE.CylinderGeometry(0.055,0.055,0.10,6),MAT.acero);
-  pon(hex,[d.xCam,yB+0.14,-0.42]); gCamara.add(hex);
-  const porc=new THREE.Mesh(new THREE.CylinderGeometry(0.042,0.052,0.26,20),MAT.porcelana);
-  pon(porc,[d.xCam,yB+0.30,-0.42]); gCamara.add(porc);
-  const cuerpo=new THREE.Mesh(new THREE.CylinderGeometry(0.038,0.038,0.16,18),MAT.acero);
-  pon(cuerpo,[d.xCam,yB-0.02,-0.42]); gCamara.add(cuerpo);
+  /* LA BUJÍA sale entera de la biblioteca, con las CORRUGAS del aislador y la
+     ROSCA, que en este laboratorio no son adorno: las corrugas alargan el camino
+     de fuga por fuera, y de eso va media práctica —«la chispa se va por el
+     aislador» sólo se entiende viendo por dónde tendría que irse—. Se le quitan
+     sus dos electrodos porque los de aquí se mueven: el hueco es un mando. */
+  const bj=P3.bujia({acero:MAT.acero,ceramica:MAT.porcelana,negro:MAT.caja,
+    goma:MAT.caja,cromo:MAT.crom},{d:0.11,largo:0.62});
+  for(const c of [...bj.children]){
+    if(c===bj.userData.chispa || (c.geometry&&c.geometry.type==='TorusGeometry')) bj.remove(c);
+  }
+  pon(bj,[d.xCam,yB+0.10,-0.42]);
+  bj.traverse(o=>{if(o.isMesh)o.castShadow=true;}); gCamara.add(bj);
   // La punta del aislador y el electrodo central.
   const nariz=new THREE.Mesh(new THREE.CylinderGeometry(0.020,0.024,0.11,16),MAT.porcelana);
   pon(nariz,[d.xCam,yB-0.15,-0.42]); gCamara.add(nariz);

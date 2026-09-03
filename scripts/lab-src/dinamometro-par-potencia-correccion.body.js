@@ -1338,6 +1338,11 @@ const PARTS=ORDEN.map(k=>Object.assign({k:k},PART[k]));
 // Cada pieza se construye centrada en su propio grupo y `centra()` la deja con
 // el origen en su centro geométrico, que es lo que el ensamble necesita para
 // moverla del banco a su sitio sin saltos.
+/* Los nombres con los que trabaja la biblioteca de piezas (`P3`, que el molde
+   ya importa), traducidos una vez a los materiales de este laboratorio. */
+const MATP={aluminio:MAT.llanta, acero:MAT.acero, cobre:MAT.crom, cromo:MAT.llanta,
+  chapa:MAT.acero, hierro:MAT.acero, negro:MAT.neumatico, goma:MAT.neumatico,
+  blanco:MAT.crom, ceramica:MAT.crom};
 function rotulo(g,t,y,c){
   const s=labelSprite(t,c||'#cfe0ee');
   s.position.set(0,y,0); s.scale.multiplyScalar(0.52); g.add(s);
@@ -1503,12 +1508,36 @@ function levantaCelda(){
   foso.position.set(d.foso.x,-d.foso.h/2-0.02*K,0); g.add(foso);
   // ---- el coche
   const car=new THREE.Group();
-  const cuerpo=roundedBox(d.L,d.hCarro,d.W,MAT.carroceria,0.14*K);
-  cuerpo.position.y=d.yPiso+d.hCarro/2; car.add(cuerpo);
-  const techo=roundedBox(d.L*0.52,d.hTecho,d.W*0.90,MAT.carroceria,0.13*K);
-  techo.position.set(-d.L*0.04,d.yPiso+d.hCarro+d.hTecho/2,0); car.add(techo);
-  const luna=roundedBox(d.L*0.50,d.hTecho*0.72,d.W*0.93,MAT.cristal,0.10*K);
-  luna.position.set(-d.L*0.04,d.yPiso+d.hCarro+d.hTecho*0.56,0); car.add(luna);
+  /* EL COCHE, POR SU SILUETA. Dos cajas apiladas no son un coche: son un
+     contenedor. Un coche se reconoce por su perfil —morro, parabrisas, techo,
+     luneta— y sobre todo por los PASOS DE RUEDA, que aquí no son adorno: son lo
+     que deja ver que las ruedas del eje motriz están metidas en la V de los
+     rodillos y las otras no, que es de lo que va el banco. Todo sale de UN
+     contorno extruido a lo ancho del coche. */
+  const yS=d.yPiso, yC=d.yPiso+d.hCarro, yT=yC+d.hTecho;
+  const x0=-d.L*0.5, x1=d.L*0.5, rA=d.rRueda*1.24;
+  const [xa,xb]=[d.xEjeD,d.xEjeT].slice().sort((u,v)=>u-v);
+  const perfil=[
+    [x0,yS],[xa-rA,yS],
+    ...P3.arco(xa,yS,rA,Math.PI,0,14),
+    [xb-rA,yS],
+    ...P3.arco(xb,yS,rA,Math.PI,0,14),
+    [x1,yS],
+    [x1,yS+(yC-yS)*0.62],[x1*0.94,yC],[x1*0.34,yC],
+    [x1*0.06,yT],[-d.L*0.20,yT],[-d.L*0.40,yC],
+    [x0,yC],
+  ];
+  const cuerpo=new THREE.Mesh(P3.normalizaUV(P3.extruido(
+    P3.contornoRedondeado(perfil,0.05*K,3),{espesor:d.W,bisel:0.05*K}),2),MAT.carroceria);
+  cuerpo.castShadow=true; car.add(cuerpo);
+  // El cristal, un poco MÁS ancho que la carrocería y por dentro de la línea del
+  // techo: así asoma por los costados y se lee como ventanilla. Coplanario con
+  // la chapa no se veía —dos superficies en el mismo sitio no son dos piezas—.
+  const yB=yC+(yT-yC)*0.20, yV=yT-(yT-yC)*0.14;
+  const luna=new THREE.Mesh(P3.extruido([
+    [x1*0.28,yB],[x1*0.09,yV],[-d.L*0.185,yV],[-d.L*0.355,yB]],
+    {espesor:d.W*1.02,bisel:0.010*K}),MAT.cristal);
+  car.add(luna);
   for(const sx of [-1,1]){
     const far=cil(0.09*K,0.09*K,0.05*K,emis(0xf3f0d8,sx>0?1.2:0.4),16);
     far.rotation.z=Math.PI/2;
@@ -1518,17 +1547,15 @@ function levantaCelda(){
   // Las cuatro ruedas. Las del eje motriz van sobre los rodillos y GIRAN; las
   // otras no, y eso también se ve.
   for(const xe of [d.xEjeD,d.xEjeT]) for(const sz of [-1,1]){
+    /* LA RUEDA de verdad, con su flanco, su hombro y su llanta de radios. El
+       diámetro no es decorativo: es el que traduce vueltas del rodillo a
+       kilómetros por hora, y el que decide cuánto se hunde el neumático en la V
+       —de ahí sale la pérdida por deformación que el banco tiene que descontar—. */
     const rg=new THREE.Group();
-    const nm2=cil(d.rRueda,d.rRueda,0.24*K,MAT.neumatico,30);
-    nm2.rotation.x=Math.PI/2; rg.add(nm2);
-    const ll=cil(d.rRueda*0.62,d.rRueda*0.62,0.25*K,MAT.llanta,24);
-    ll.rotation.x=Math.PI/2; rg.add(ll);
-    for(let i=0;i<5;i++){
-      const a=i/5*Math.PI*2;
-      const r=new THREE.Mesh(new THREE.BoxGeometry(d.rRueda*0.52,0.045*K,0.26*K),MAT.llanta);
-      r.position.set(Math.cos(a)*d.rRueda*0.30,Math.sin(a)*d.rRueda*0.30,0);
-      r.rotation.z=a; rg.add(r);
-    }
+    const nm2=P3.neumatico(MATP,
+      {dExt:d.rRueda*2,dLlanta:d.rRueda*1.24,ancho:0.25*K,radios:5});
+    nm2.rotation.x=Math.PI/2;
+    nm2.traverse(o=>{if(o.isMesh)o.castShadow=true;}); rg.add(nm2);
     rg.position.set(xe,d.yEje,sz*(d.W*0.5-0.04*K));
     car.add(rg);
     if(Math.abs(xe-d.xRod)<1e-6) RIG.ruedas.push(rg);
