@@ -11,7 +11,7 @@
 
 // ===================== 1. ESCENA =====================
 const mount=document.getElementById('stage');
-const S=createStage(mount,{cam:[3.0,2.2,6.6],target:[0.4,1.2,0.0],bgTop:'#0d1a17',bgBot:'#04060a',bloom:0.35,minD:3.0,maxD:16});
+const S=createStage(mount,{cam:[4.0,2.4,5.4],target:[1.55,1.00,0.45],bgTop:'#0d1a17',bgBot:'#04060a',bloom:0.35,minD:3.0,maxD:16});
 const {scene}=S;
 const synth=makeSynth({type:'sine',type2:'triangle',filterFreq:2600,Q:0.8});
 
@@ -205,16 +205,28 @@ function brush(base){return std(base,0.55,0.35);}
 function rub(base){return std(base,0.85,0.02);}
 function plas(base){return std(base,0.35,0.08);}
 const MAT={
-  bench:brush(0x2a3532),
+  /* El banco y los aparatos estaban tan oscuros que en la escena sólo se veía
+     su pantalla: siluetas sin cara. Un instrumento de banco es chapa gris. */
+  bench:brush(0x57635f),
   frame:brush(0x1f2b28),
   leg:brush(0x141c1a),
-  gen:plas(0x22302c),
-  scopeBox:plas(0x1a2422),
+  gen:plas(0x9aa5a2),
+  scopeBox:plas(0x7d8886),
   lead:rub(0x0d0d0d),
   cableCh1:rub(0x2f9e91),
   cableCh2:rub(0xd98a4a),
   knobDark:rub(0x111815),
 };
+/* Los nombres con los que trabaja la biblioteca de piezas (`P3`, que el molde
+   ya importa), traducidos una vez a los materiales de este laboratorio. */
+const MATP={
+  aluminio: std(0x8f979f,0.55,0.60), acero: std(0x9aa2a9,0.34,0.85),
+  cromo:    std(0xc9d1d6,0.22,0.90), chapa: std(0x828a91,0.45,0.75),
+  cobre:    std(0xb87333,0.35,0.75), negro: std(0x13181c,0.62,0.06),
+  goma:     std(0x0f1216,0.94,0.00), blanco:std(0xd7dee6,0.42,0.15),
+  rojo:     std(0xd64545,0.50,0.10), ceramica:std(0xd9dcd6,0.62,0.04),
+};
+
 const HOVER_LABELS=new Map();
 function addHoverLabel(obj,text,color,pos,scale){
   const cv=document.createElement('canvas');cv.width=256;cv.height=64;
@@ -388,8 +400,10 @@ const bench=roundedBox(2.9,0.5,1.6,MAT.bench,0.05);
 bench.position.set(1.75,0.25,0.85);
 scene.add(bench);
 
-function makeGen(x,label,title){
-  const g=new THREE.Group();g.position.set(x,0.73,0.85);
+const YB=0.50;                       // la tapa del banco, de donde arranca todo
+
+function makeGen(x,label,title,z){
+  const g=new THREE.Group();g.position.set(x,YB+0.23,z===undefined?0.30:z);
   const body=new THREE.Mesh(new THREE.BoxGeometry(0.56,0.46,0.42),MAT.gen);
   g.add(body);
   const cv=document.createElement('canvas');cv.width=256;cv.height=120;
@@ -402,13 +416,23 @@ function makeGen(x,label,title){
   const kPtr=new THREE.Mesh(new THREE.BoxGeometry(0.008,0.045,0.01),std(0xEAF4F1,0.4,0.1));
   kPtr.position.set(0,0.03,0.02);knob.add(kPtr);
   knob.position.set(0,-0.16,0.22);knob.visible=false;g.add(knob);
-  g.userData={el:label,title,_cv:cv,_tex:tex};
+  /* Las dos bornas por las que el aparato se conecta al circuito: sin ellas los
+     cables salían del aire. */
+  const bocas=[];
+  [-1,1].forEach((sx,i)=>{
+    const b=P3.bornaBanana(MATP,{d:0.078,color:i?0x2a5fa8:0xd64545});
+    b.rotation.x=-Math.PI/2;
+    b.position.set(sx*0.15,-0.155,0.212);
+    g.add(b);
+    bocas.push(g.position.clone().add(new THREE.Vector3(sx*0.15,-0.155,0.212+b.userData.boca.y)));
+  });
+  g.userData={el:label,title,_cv:cv,_tex:tex,bocas};
   scene.add(g);
-  addHoverLabel(g,label,'#FF8A5B',new THREE.Vector3(x,1.25,0.85),1.1);
+  addHoverLabel(g,label,'#FF8A5B',new THREE.Vector3(x,1.25,0.30),1.1);
   return g;
 }
-const gen1=makeGen(0.95,'GEN1','Bus de voltaje · referencia fija (10 V, 0°)');
-const gen2=makeGen(1.85,'GEN2','Sensor de corriente total (shunt '+RS+' Ω)');
+const gen1=makeGen(0.70,'GEN1','Bus de voltaje · referencia fija (10 V, 0°)',0.30);
+const gen2=makeGen(2.80,'GEN2','Sensor de corriente total (shunt '+RS+' Ω)',0.30);
 gen1.userData.knob&&(gen1.userData.knob.visible=false);
 gen2.userData.knob&&(gen2.userData.knob.visible=false);
 
@@ -423,8 +447,10 @@ function drawGenDisplay(genObj,vmText,phiText,accent){
   cx.fillText(phiText,128,88);
   tex.needsUpdate=true;
 }
-const scopeBox=roundedBox(0.62,0.5,0.10,MAT.scopeBox,0.04);
-scopeBox.position.set(1.4,1.0,-0.15);
+/* El osciloscopio estaba flotando en el aire, fuera del banco (z = −0,15, o sea
+   por detrás del canto) y sin nada que lo sujetase. Ahora se apoya en la tapa. */
+const scopeBox=roundedBox(0.66,0.46,0.30,MAT.scopeBox,0.04);
+scopeBox.position.set(1.75,YB+0.23,0.26);
 scopeBox.userData={title:'Osciloscopio (referencia física)',info:'La medición real ocurre en el pizarrón — este bloque solo representa el instrumento.'};
 scene.add(scopeBox);
 
@@ -435,12 +461,130 @@ function cable(ax,ay,az,bx,by,bz,mat){
   const geo=new THREE.TubeGeometry(curve,20,0.012,8,false);
   return new THREE.Mesh(geo,mat);
 }
-const cbl1=cable(0.95,0.96,0.85,-1.05+ -0.45,1.85,-0.85+0.35,MAT.cableCh1);
+const cbl1=cable(0.70,YB+0.45,0.48,1.50,YB+0.36,0.42,MAT.cableCh1);
 scene.add(cbl1);
-const cbl2=cable(1.85,0.96,0.85,-1.05+0.45,1.85,-0.85+0.35,MAT.cableCh2);
+const cbl2=cable(2.80,YB+0.45,0.48,2.00,YB+0.36,0.42,MAT.cableCh2);
 scene.add(cbl2);
 
+/* ================= LAS DOS CARGAS, MONTADAS DE VERDAD =================
+   Toda la práctica va de dos cargas EN PARALELO sobre el mismo bus y de cómo se
+   suman sus (P,Q). En la escena no había cargas: sólo la tapa del banco y dos
+   cajones. Ahora cada carga es un módulo con lo que de verdad la compone: su
+   resistencia bobinada —la parte que consume P— en serie con su elemento
+   reactivo —la que sólo intercambia Q—: una bobina si es inductiva, un
+   condensador si es capacitiva y un PUENTE metálico si es puramente resistiva,
+   que es exactamente lo que se pone en un tablero cuando no hay reactancia.
+   Y los dos NODOS del bus, que son los que hacen que esto sea un paralelo. */
+const MOD_Z=1.02;
+const MAT_LEAD=std(0xc8443a,1.0,0.0), MAT_LEAD2=std(0x2a5fa8,1.0,0.0);
+const MAT_PATA=std(0xb87333,0.40,0.80);
+
+function ponModulo(x,z,ancho,bornas,colores,titulo,info,etiqueta){
+  const m=P3.moduloBanco(MATP,{ancho,fondo:0.34,alto:0.050,color:0x2b333a,
+    bornas,dBorna:0.078,colores});
+  m.position.set(x,YB,z);
+  m.traverse(o=>{ if(o.isMesh){o.castShadow=true;o.receiveShadow=true;} });
+  scene.add(m);
+  m.userData.title=titulo; m.userData.info=info;
+  addHoverLabel(m,etiqueta,'#8ad6c8',new THREE.Vector3(0,0.46,0),0.72);
+  return m;
+}
+const nodoA=ponModulo(0.72,MOD_Z,0.30,[-1,0,1],[0xd64545,0xd64545,0xd64545],
+  'Nodo del bus (lado vivo)','Las dos cargas cuelgan de los MISMOS dos nodos: por eso ven el mismo voltaje y por eso sus corrientes se suman como vectores, no como números.','bus +');
+const modC1=ponModulo(1.48,MOD_Z,0.74,[-1,1],[0xd64545,0x2a5fa8],
+  'Carga 1','Módulo de carga: resistencia bobinada en serie con su elemento reactivo. La R es la que consume potencia activa; el elemento reactivo sólo se la presta a la fuente y se la devuelve cada medio ciclo.','Carga 1');
+const modC2=ponModulo(2.42,MOD_Z,0.74,[-1,1],[0xd64545,0x2a5fa8],
+  'Carga 2','La segunda carga del bus. Si una es inductiva y la otra capacitiva, sus Q se restan: ahí es donde se ve por qué S_total no es la suma de las S.','Carga 2');
+const nodoB=ponModulo(3.02,MOD_Z,0.30,[-1,0,1],[0x2a5fa8,0x2a5fa8,0x2a5fa8],
+  'Nodo del bus (lado de retorno)','El segundo nodo del bus, el que devuelve la corriente total al sensor. Por él pasa la SUMA de las dos corrientes.','bus −');
+
+/** El punto de enchufe de una borna, ya en coordenadas de la escena. */
+function boca(mod,i){ return mod.position.clone().add(mod.userData.bocas[i]); }
+function vacia(g){ while(g.children.length){ const o=g.children.pop();
+  o.traverse(q=>{ if(q.isMesh) q.geometry.dispose(); }); } }
+function hilo(g,a,b,r){
+  const m=a.clone().lerp(b,0.5); m.y=Math.max(a.y,b.y)+0.03;
+  const t=new THREE.Mesh(new THREE.TubeGeometry(
+    new THREE.CatmullRomCurve3([a,m,b]),16,r||0.0085,7),MAT_PATA);
+  t.castShadow=true; g.add(t);
+}
+
+/* Cada carga se rearma sólo cuando cambia su tipo o sus valores. */
+const cargas=[{g:new THREE.Group(),k:''},{g:new THREE.Group(),k:''}];
+cargas[0].g.position.set(1.48,YB+0.050,MOD_Z+0.03);
+cargas[1].g.position.set(2.42,YB+0.050,MOD_Z+0.03);
+cargas.forEach(c=>scene.add(c.g));
+function ponCarga(i,tipo,Rv,Xv){
+  const c=cargas[i], k=tipo+'|'+Rv+'|'+Xv;
+  if(c.k===k) return; c.k=k; vacia(c.g);
+  const XA=-0.185, XB=0.185;               // la R a un lado, la reactancia al otro
+  /* Más ohmios, más hilo de nicromo: 10 Ω son pocas vueltas gruesas y 100 Ω
+     muchas y finas. La proporción es ilustrativa; la dirección, la de verdad. */
+  const n=Math.round(9+11*Math.log(Rv/10)/Math.log(10));
+  const r=P3.resistenciaBobinada(MATP,{largo:0.26,d:0.082,vueltas:n,
+    hilo:0.0135-0.0032*Math.log(Rv/10)/Math.log(10)});
+  r.position.set(XA,0.070,0); r.traverse(o=>{ if(o.isMesh) o.castShadow=true; });
+  c.g.add(r);
+  let ent=new THREE.Vector3(XB-0.10,0.070,0), sal=new THREE.Vector3(XB+0.10,0.070,0);
+  if(tipo==='inductiva'){
+    const nb=Math.round(5+5*Math.log(Xv/10)/Math.log(10));
+    const b=P3.bobinaHierro(MATP,{ancho:0.155,alto:0.19,prof:0.085,chapas:8,
+      vueltas:Math.max(5,nb),hilo:0.0100,capas:2});
+    b.position.set(XB,0.105,0); b.traverse(o=>{ if(o.isMesh) o.castShadow=true; });
+    c.g.add(b);
+    ent.set(XB-0.085,0.040,0); sal.set(XB+0.085,0.040,0);
+  }else if(tipo==='capacitiva'){
+    const d=0.078+0.045*Math.log(Xv/10)/Math.log(10);
+    const q=P3.condensador(MATP,{d,alto:d*1.55,bornes:2,
+      aislante:std(0x2a4a68,0.42,0.24)});
+    q.position.set(XB,0,0); q.traverse(o=>{ if(o.isMesh) o.castShadow=true; });
+    c.g.add(q);
+    ent.set(XB-d*0.45,d*1.62,0); sal.set(XB+d*0.45,d*1.62,0);
+  }else{
+    /* PUENTE. Una carga puramente resistiva no lleva nada en ese hueco: se pone
+       un puente para cerrar el circuito, y verlo es entender que ahí NO hay
+       reactancia —no que se haya olvidado dibujarla—. */
+    const p=new THREE.Mesh(new THREE.BoxGeometry(0.20,0.016,0.030),MATP.cromo);
+    p.position.set(XB,0.048,0); p.castShadow=true; c.g.add(p);
+    for(const sx of [-1,1]){
+      const t=new THREE.Mesh(new THREE.CylinderGeometry(0.009,0.009,0.048,10),MATP.cromo);
+      t.position.set(XB+sx*0.092,0.024,0); c.g.add(t);
+    }
+    ent.set(XB-0.092,0.048,0); sal.set(XB+0.092,0.048,0);
+  }
+  const bR=r.userData.bornas;                      // las dos de la resistencia
+  hilo(c.g,new THREE.Vector3(XA+bR[0].x,bR[0].y+0.070,0),new THREE.Vector3(-0.296,-0.036,-0.095));
+  hilo(c.g,new THREE.Vector3(XA+bR[1].x,bR[1].y+0.070,0),ent);   // R en serie con la reactancia
+  hilo(c.g,sal,new THREE.Vector3(0.296,-0.036,-0.095));
+}
+
+/* El cableado del bus. Aquí no cambia con ningún mando —las dos cargas están
+   siempre en paralelo—, así que se monta una vez. */
+{
+  const cablesG=new THREE.Group(); scene.add(cablesG);
+  const lat=(a,b,mat)=>{
+    const m=a.clone().lerp(b,0.5);
+    m.y=Math.max(a.y,b.y)+0.05+Math.min(0.11,a.distanceTo(b)*0.09);
+    const t=new THREE.Mesh(new THREE.TubeGeometry(
+      new THREE.CatmullRomCurve3([a,m,b]),24,0.011,7),mat);
+    t.castShadow=true; cablesG.add(t);
+    for(const p of [a,b]){
+      const cl=new THREE.Mesh(new THREE.CylinderGeometry(0.017,0.017,0.05,10),MATP.cromo);
+      cl.position.copy(p).y-=0.015; cablesG.add(cl);
+    }
+  };
+  lat(gen1.userData.bocas[0],boca(nodoA,1),MAT_LEAD);
+  lat(boca(nodoA,0),boca(modC1,0),MAT_LEAD);
+  lat(boca(nodoA,2),boca(modC2,0),MAT_LEAD);
+  lat(boca(modC1,1),boca(nodoB,0),MAT_LEAD2);
+  lat(boca(modC2,1),boca(nodoB,2),MAT_LEAD2);
+  lat(boca(nodoB,1),gen2.userData.bocas[0],MAT_LEAD2);
+  lat(gen2.userData.bocas[1],gen1.userData.bocas[1],MAT_LEAD2);
+}
+
 function refreshNet3D(){
+  ponCarga(0,currentType1(),currentR1(),currentX1());
+  ponCarga(1,currentType2(),currentR2(),currentX2());
   drawGenDisplay(gen1,fmtV(V),fmtDeg(PHI1),'#4FD1C5');
   const Itotal=currentITotal();
   let imText,phiText;
@@ -543,9 +687,9 @@ function toastPart(id){
 
 // ===================== 9. MODOS Y SELBAR =====================
 const MODE_META={
-  explora:{nombre:'Explora',cam:[[3.0,2.2,6.6],[0.4,1.2,0.0]],mision:'Configura libremente el tipo y valores de dos cargas en paralelo. Observa cómo se suman los vectores (P,Q) de cada carga en el triángulo de potencias.'},
+  explora:{nombre:'Explora',cam:[[4.0,2.4,5.4],[1.55,1.00,0.45]],mision:'Configura libremente el tipo y valores de dos cargas en paralelo. Observa cómo se suman los vectores (P,Q) de cada carga en el triángulo de potencias.'},
   medicion:{nombre:'Medición',cam:[[-0.2,2.0,3.4],[-1.0,1.6,-0.5]],mision:'Ambas cargas son conocidas pero θ_total está sellado. Alinea ambos cursores al MISMO tipo de cruce por cero y mide θ_total.'},
-  reto:{nombre:'Reto',cam:[[2.4,1.9,4.0],[1.5,1.0,0.5]],mision:'Ambas cargas son conocidas pero I_total (magnitud y fase) está sellada. Mide θ_total con el osciloscopio y calcula la cantidad pedida.'},
+  reto:{nombre:'Reto',cam:[[3.6,1.9,4.0],[1.85,0.78,0.85]],mision:'Ambas cargas son conocidas pero I_total (magnitud y fase) está sellada. Mide θ_total con el osciloscopio y calcula la cantidad pedida.'},
 };
 function loadGroup(n,type,R,Xmag){
   const typeBtns=TYPES.map(t=>`<button class="b sm ${t===type?'on':''}" data-type="${n}:${t}">${TYPE_LABELS[t]}</button>`).join('');
