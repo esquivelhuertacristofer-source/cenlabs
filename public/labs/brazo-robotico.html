@@ -183,6 +183,8 @@ import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
 import { RoundedBoxGeometry } from 'three/addons/geometries/RoundedBoxGeometry.js';
+import * as P3 from '/labs/_piezas3d.js';
+import { instalaDiag } from '/labs/_diag3d.js';
 import { EffectComposer } from 'three/addons/postprocessing/EffectComposer.js';
 import { RenderPass } from 'three/addons/postprocessing/RenderPass.js';
 import { GTAOPass } from 'three/addons/postprocessing/GTAOPass.js';
@@ -478,6 +480,60 @@ const MAT={
 function rbox(w,h,d,m,rf=0.15){const r=Math.min(w,h,d)*rf;const x=new THREE.Mesh(new RoundedBoxGeometry(w,h,d,4,r),m);x.castShadow=x.receiveShadow=true;return x;}
 function jointSphere(r,m=MAT.joint){const s=new THREE.Mesh(new THREE.SphereGeometry(r,28,28),m);s.castShadow=true;return s;}
 
+/* ---------------------------------------------------------------------------
+   PIEZAS DEL ROBOT
+   Un brazo industrial no es una cadena de cajas y bolas. Una articulación es un
+   CUERPO CILÍNDRICO alrededor de su eje —el que aloja el reductor— cerrado por
+   una tapa atornillada; y un eslabón es una pieza FUNDIDA que se estrecha por
+   el centro, porque el material sólo hace falta donde hay momento. Una bola en
+   la articulación no dice ni por dónde gira; una caja de sección constante dice
+   que el diseñador no sabía dónde estaba la carga.
+   --------------------------------------------------------------------------- */
+
+// Articulación: carcasa del reductor, tapa y círculo de tornillos. El eje del
+// cilindro ES el eje de giro, así que mirando la pieza se sabe hacia dónde gira.
+function articulacion(r,ancho,mat=MAT.joint){
+  const g=new THREE.Group();
+  const cuerpo=new THREE.Mesh(P3.revolucion([
+    [0,-ancho/2],[r*0.92,-ancho/2],[r,-ancho*0.38],[r,ancho*0.38],
+    [r*0.92,ancho/2],[0,ancho/2]],{seg:34}),mat);
+  cuerpo.rotation.x=Math.PI/2; cuerpo.castShadow=true; g.add(cuerpo);
+  for(const s2 of [-1,1]){
+    const tapa=new THREE.Mesh(P3.revolucion([
+      [0,-ancho*0.030],[r*0.74,-ancho*0.030],[r*0.70,ancho*0.030],[0,ancho*0.030]],{seg:28}),MAT.steel);
+    tapa.rotation.x=Math.PI/2; tapa.position.z=s2*ancho*0.52; g.add(tapa);
+    g.add(P3.corona(MAT.steel,{r:r*0.56,n:8,d:r*0.10,largo:ancho*0.10,
+      y:s2*ancho*0.55,eje:'z'}));
+  }
+  return g;
+}
+
+// Eslabón fundido: se estrecha por el centro y engorda en los dos cubos, con
+// una nervadura por la cara. Va de x=0 a x=L, que es como lo coloca la
+// cinemática; el rectángulo anterior iba centrado y había que correrlo a mano.
+function eslabon(L,h,w,r0,r1){
+  const g=new THREE.Group();
+  const c=P3.contornoRedondeado([
+    [0,-h*0.52],[L*0.30,-h*0.30],[L*0.70,-h*0.26],[L,-h*0.40],
+    [L,h*0.40],[L*0.70,h*0.26],[L*0.30,h*0.30],[0,h*0.52]],h*0.14,4);
+  const cuerpo=new THREE.Mesh(P3.normalizaUV(P3.extruido(c,{espesor:w,bisel:w*0.06}),2),MAT.arm);
+  cuerpo.castShadow=cuerpo.receiveShadow=true; g.add(cuerpo);
+  // La nervadura: una costilla por cada cara, que es lo que hace que una pieza
+  // fundida sea rígida sin ser maciza.
+  for(const s2 of [-1,1]){
+    const nerv=new THREE.Mesh(P3.extruido(P3.contornoRedondeado([
+      [L*0.16,-h*0.16],[L*0.84,-h*0.13],[L*0.84,h*0.13],[L*0.16,h*0.16]],h*0.08,3),
+      {espesor:w*0.14,bisel:w*0.02}),MAT.arm);
+    nerv.position.z=s2*(w*0.5+w*0.06); g.add(nerv);
+  }
+  // Los dos cubos, uno por articulación.
+  const cubo=(x,r)=>{const m=new THREE.Mesh(P3.revolucion([
+      [0,-w*0.62],[r*0.90,-w*0.62],[r,-w*0.48],[r,w*0.48],[r*0.90,w*0.62],[0,w*0.62]],{seg:30}),MAT.arm);
+    m.rotation.x=Math.PI/2; m.position.x=x; m.castShadow=true; return m;};
+  g.add(cubo(0,r0),cubo(L,r1));
+  return g;
+}
+
 /* ============================================================
    PARTES DEL BRAZO (grupos ensamblables, posicionamiento explícito por cinemática)
    ============================================================ */
@@ -486,33 +542,91 @@ const armRoot=new THREE.Group(); armRoot.position.set(0,0.2,0); scene.add(armRoo
 // ---- BASE (con motor de giro / yaw) ----
 const baseGroup=new THREE.Group(); armRoot.add(baseGroup);
 (function(){
-  const plate=new THREE.Mesh(new THREE.CylinderGeometry(0.75,0.85,0.22,40),MAT.base);plate.position.y=0.11;plate.castShadow=plate.receiveShadow=true;plate.userData.piece='base';baseGroup.add(plate);
-  const collar=new THREE.Mesh(new THREE.CylinderGeometry(0.42,0.48,0.5,32),MAT.base);collar.position.y=0.22+0.25;collar.castShadow=true;collar.userData.piece='encoder';baseGroup.add(collar);
-  const j0=jointSphere(0.32);j0.position.y=hBase;j0.userData.piece='servo';baseGroup.add(j0);
+  /* La BASE de un robot es una pieza fundida atornillada al suelo: pestaña con
+     su corona de tornillos, cuerpo troncocónico y la torreta que gira encima.
+     Los tornillos no son adorno —son la primera pieza que se mira cuando un
+     robot vibra— y no estaban. */
+  const plate=new THREE.Mesh(P3.normalizaUV(P3.revolucion([
+    [0,0],[0.86,0],[0.86,0.07],[0.76,0.13],[0.74,0.22],[0,0.22]],{seg:44}),2),MAT.base);
+  plate.castShadow=plate.receiveShadow=true;plate.userData.piece='base';baseGroup.add(plate);
+  baseGroup.add(P3.corona(MAT.steel,{r:0.79,n:6,d:0.075,largo:0.09,y:0.06,eje:'y'}));
+
+  const collar=new THREE.Mesh(P3.normalizaUV(P3.revolucion([
+    [0,0.22],[0.62,0.22],[0.58,0.30],[0.44,0.34],[0.44,0.60],[0.50,0.66],
+    [0.46,0.72],[0,0.72]],{seg:34}),2),MAT.base);
+  collar.castShadow=true;collar.userData.piece='encoder';baseGroup.add(collar);
+  // El encoder del eje 1, con su tapa y su conector: es lo que mide el giro de
+  // la base, y hasta ahora la pieza que se llamaba 'encoder' era un cono liso.
+  const encTapa=new THREE.Mesh(P3.revolucion([
+    [0,0.72],[0.30,0.72],[0.32,0.76],[0.32,0.84],[0.26,0.88],[0,0.88]],{seg:26}),MAT.steel);
+  encTapa.castShadow=true; baseGroup.add(encTapa);
+  const encCon=P3.conector({aluminio:MAT.steel,acero:MAT.steel,negro:MAT.joint,
+    cobre:MAT.steel,cromo:MAT.steel},{ancho:0.20,alto:0.11,fondo:0.10,pines:4});
+  encCon.position.set(0.30,0.80,0); encCon.rotation.z=-Math.PI/2; baseGroup.add(encCon);
+
+  // El eje 2 —el hombro— visto por lo que es: la carcasa de su reductor.
+  const j0=articulacion(0.34,0.52);j0.position.y=hBase;j0.userData.piece='servo';
+  j0.traverse(o=>{o.userData.piece='servo';});baseGroup.add(j0);
 })();
 
 // ---- HOMBRO + BRAZO SUPERIOR (link 1) ----
 const shoulderGroup=new THREE.Group(); armRoot.add(shoulderGroup);
 (function(){
-  const link=rbox(L1,0.34,0.30,MAT.arm,0.28); link.position.x=L1/2; link.userData.piece='link1'; shoulderGroup.add(link); // se orienta luego en poseArm()
-  const cap=jointSphere(0.22,MAT.steel); cap.position.x=L1; cap.userData.piece='servo'; shoulderGroup.add(cap);
+  const link=eslabon(L1,0.38,0.28,0.30,0.22); link.userData.piece='link1';
+  link.traverse(o=>{o.userData.piece='link1';}); shoulderGroup.add(link);
+  const cap=articulacion(0.23,0.34,MAT.steel); cap.position.x=L1; cap.userData.piece='servo';
+  cap.traverse(o=>{o.userData.piece='servo';}); shoulderGroup.add(cap);
 })();
 
 // ---- CODO + ANTEBRAZO (link 2) ----
 const elbowGroup=new THREE.Group(); armRoot.add(elbowGroup);
 (function(){
-  const link=rbox(L2,0.26,0.24,MAT.arm,0.3); link.position.x=L2/2; link.userData.piece='link2'; elbowGroup.add(link);
-  const cap=jointSphere(0.17,MAT.steel); cap.position.x=L2; cap.userData.piece='servo'; elbowGroup.add(cap);
+  const link=eslabon(L2,0.29,0.22,0.22,0.16); link.userData.piece='link2';
+  link.traverse(o=>{o.userData.piece='link2';}); elbowGroup.add(link);
+  const cap=articulacion(0.17,0.26,MAT.steel); cap.position.x=L2; cap.userData.piece='servo';
+  cap.traverse(o=>{o.userData.piece='servo';}); elbowGroup.add(cap);
 })();
 
 // ---- MUÑECA + PINZA (end effector) ----
 const wristGroup=new THREE.Group(); armRoot.add(wristGroup);
 const gripFingers=[];
 (function(){
-  const hub=jointSphere(0.14,MAT.joint); hub.userData.piece='wrist'; wristGroup.add(hub);
-  const palm=rbox(0.22,0.14,0.22,MAT.steel,0.2); palm.position.x=0.16; palm.userData.piece='wrist'; wristGroup.add(palm);
+  /* La muñeca de un robot son TRES giros seguidos, y se reconocen porque cada
+     uno es un cuerpo cilíndrico con su eje puesto en otra dirección. Detrás va
+     la BRIDA normalizada —con su círculo de tornillos y su chaveta— que es por
+     donde se cambia la herramienta: es la pieza que hace que un robot sirva
+     para soldar por la mañana y para paletizar por la tarde. */
+  const hub=articulacion(0.15,0.22,MAT.joint); hub.userData.piece='wrist';
+  hub.traverse(o=>{o.userData.piece='wrist';}); wristGroup.add(hub);
+  const gir2=articulacion(0.13,0.20,MAT.joint); gir2.rotation.y=Math.PI/2;
+  gir2.position.x=0.14; gir2.traverse(o=>{o.userData.piece='wrist';}); wristGroup.add(gir2);
+  const brida=new THREE.Mesh(P3.revolucion([
+    [0,0],[0.135,0],[0.135,0.030],[0.100,0.046],[0.100,0.075],[0,0.075]],{seg:28}),MAT.steel);
+  brida.rotation.z=-Math.PI/2; brida.position.x=0.24; brida.castShadow=true;
+  brida.userData.piece='wrist'; wristGroup.add(brida);
+  const coronaBrida=P3.corona(MAT.joint,{r:0.105,n:6,d:0.028,largo:0.03,y:0.255,eje:'x'});
+  coronaBrida.traverse(o=>{o.userData.piece='wrist';}); wristGroup.add(coronaBrida);
+  // El cuerpo de la pinza: guía sobre la que corren los dos dedos.
+  const guia=new THREE.Mesh(P3.normalizaUV(P3.extruido(P3.contornoRedondeado(
+    [[-0.055,-0.16],[0.055,-0.16],[0.055,0.16],[-0.055,0.16]],0.035,3),
+    {espesor:0.19,bisel:0.010}),2),MAT.joint);
+  guia.rotation.y=Math.PI/2; guia.position.x=0.33; guia.castShadow=true;
+  guia.userData.piece='gripper'; wristGroup.add(guia);
+  /* Los DEDOS, con su cara de agarre estriada. Las estrías no son textura: son
+     lo que impide que la pieza se escurra, y la razón de que una pinza se elija
+     por su cara y no por su fuerza. */
   for(const s of [-1,1]){
-    const f=rbox(0.05,0.28,0.14,MAT.steel,0.25); f.position.set(0.30,0.12*s,0); f.userData.piece='gripper'; wristGroup.add(f); gripFingers.push({mesh:f,sign:s});
+    const f=new THREE.Group();
+    const dedo=new THREE.Mesh(P3.extruido(P3.contornoRedondeado([
+      [-0.030,-0.16],[0.030,-0.16],[0.030,0.10],[0.070,0.13],[0.070,0.17],
+      [-0.030,0.17]],0.020,3),{espesor:0.13,bisel:0.008}),MAT.steel);
+    dedo.rotation.z=s>0?0:Math.PI; f.add(dedo);
+    for(let k=0;k<4;k++){
+      const est=new THREE.Mesh(new THREE.BoxGeometry(0.016,0.012,0.115),MAT.joint);
+      est.position.set(s*0.052,-0.10+k*0.038,0); f.add(est);
+    }
+    f.position.set(0.30,0.12*s,0); f.traverse(o=>{o.castShadow=true;o.userData.piece='gripper';});
+    wristGroup.add(f); gripFingers.push({mesh:f,sign:s});
   }
 })();
 
@@ -1128,6 +1242,9 @@ window.__test={
     elbowInstalled:travel.elbow.installed,wristInstalled:travel.wrist.installed}),
   audioState:()=>({ctxState:audioCtx?.state||'none', vol:audioGain?.gain.value||0, freq:oscA?.frequency.value||0, soundOn}),
 };
+instalaDiag('brazo-robotico',{escena:scene,camara:camera,controles:controls,renderizador:renderer,
+  grupos:{base:baseGroup,hombro:shoulderGroup,codo:elbowGroup,muneca:wristGroup}});
+
 
 </script>
   <!-- Ficha técnica · Capa B del molde de lab 3D (componente compartido + contenido del lab) -->

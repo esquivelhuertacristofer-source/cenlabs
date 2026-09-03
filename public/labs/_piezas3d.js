@@ -278,6 +278,7 @@ export function corona(mat, opts = {}) {
     const a = fase + (i / n) * Math.PI * 2;
     const t = tornilloHex(mat, { d, largo });
     if (eje === 'y') t.position.set(Math.cos(a) * r, y, Math.sin(a) * r);
+    else if (eje === 'z') { t.position.set(Math.cos(a) * r, Math.sin(a) * r, y); t.rotation.x = Math.PI / 2; }
     else { t.position.set(y, Math.cos(a) * r, Math.sin(a) * r); t.rotation.z = -Math.PI / 2; }
     g.add(t);
   }
