@@ -86,6 +86,8 @@ import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
 import { RoundedBoxGeometry } from 'three/addons/geometries/RoundedBoxGeometry.js';
+import * as P3 from '/labs/_piezas3d.js';
+import { instalaDiag } from '/labs/_diag3d.js';
 import { EffectComposer } from 'three/addons/postprocessing/EffectComposer.js';
 import { RenderPass } from 'three/addons/postprocessing/RenderPass.js';
 import { GTAOPass } from 'three/addons/postprocessing/GTAOPass.js';
@@ -488,30 +490,143 @@ const MAT={
   bms:std({color:0x0d3b2e,roughness:0.6,metalness:0.2}),
   contactor:std({color:0xd6432f,roughness:0.4,metalness:0.5}),
   plastic:std({color:0x14181c,roughness:0.5,metalness:0.4}),
+  niquel:std({color:0xc8ced6,roughness:0.28,metalness:1}),
+  cobre:std({color:0xb8763c,roughness:0.32,metalness:1}),
+  ceramica:std({color:0xd9d2c4,roughness:0.85,metalness:0.05}),
+  aislante:std({color:0x1b2026,roughness:0.72,metalness:0.10}),
 };
+const MATP={aluminio:MAT.case, acero:MAT.niquel, cromo:MAT.niquel, hierro:MAT.case,
+  negro:MAT.plastic, cobre:MAT.cobre, verde:MAT.bms, blanco:MAT.ceramica,
+  goma:MAT.aislante, ceramica:MAT.ceramica, chapa:MAT.niquel};
 
 const group=new THREE.Group(); group.position.set(0,1.0,0); scene.add(group);
-// carcasa del pack (base)
-const caseBox=roundedBox(3.0,0.15,2.0,MAT.case,0.15); caseBox.position.set(0,0.0,0); group.add(caseBox);
+/* ---- LA BANDEJA DEL PAQUETE ------------------------------------------
+   Una plancha plana no es la carcasa de una batería de tracción. Una carcasa
+   es una BANDEJA: fondo, paredes y una pestaña con su junta y sus tornillos,
+   porque el paquete tiene que quedar estanco —el agua dentro de una batería de
+   400 V no es una avería, es un incendio— y porque es la pieza estructural que
+   aguanta 300 kg colgados del bastidor.                                       */
+const caseGrp=new THREE.Group(); caseGrp.position.set(0,0,0); group.add(caseGrp);
+const fondo=new THREE.Mesh(P3.normalizaUV(P3.extruido(P3.contornoRedondeado(
+  [[-1.5,-1.0],[1.5,-1.0],[1.5,1.0],[-1.5,1.0]],0.12,4),{espesor:0.15,bisel:0.02}),2),MAT.case);
+fondo.rotation.x=-Math.PI/2; fondo.castShadow=fondo.receiveShadow=true; caseGrp.add(fondo);
+// Las paredes: marco cerrado, hueco por dentro.
+const pared=new THREE.Mesh(P3.normalizaUV(P3.extruido(
+  P3.contornoRedondeado([[-1.5,-1.0],[1.5,-1.0],[1.5,1.0],[-1.5,1.0]],0.12,4),
+  {huecos:[P3.contornoRedondeado([[-1.42,-0.92],[1.42,-0.92],[1.42,0.92],[-1.42,0.92]],0.10,4)],
+   espesor:0.62,bisel:0.015}),2),MAT.case);
+pared.rotation.x=-Math.PI/2; pared.position.y=0.385; pared.castShadow=true; caseGrp.add(pared);
+// La pestaña de cierre, con su corona de tornillos: es donde va la junta.
+const pestana=new THREE.Mesh(P3.extruido(
+  P3.contornoRedondeado([[-1.60,-1.10],[1.60,-1.10],[1.60,1.10],[-1.60,1.10]],0.14,4),
+  {huecos:[P3.contornoRedondeado([[-1.44,-0.94],[1.44,-0.94],[1.44,0.94],[-1.44,0.94]],0.10,4)],
+   espesor:0.05,bisel:0.010}),MAT.case);
+pestana.rotation.x=-Math.PI/2; pestana.position.y=0.70; caseGrp.add(pestana);
+for(let k=0;k<14;k++){
+  const t=k/14*Math.PI*2;
+  const tor=P3.tornilloHex(MATP,{d:0.055,largo:0.07});
+  tor.position.set(Math.cos(t)*1.54,0.72,Math.sin(t)*1.04); caseGrp.add(tor);
+}
+const caseBox=fondo;
 // 4 módulos de celdas (visual: cada módulo = grid de celdas cilíndricas)
 const modules=[]; const cellMeshes=[];
 for(let m=0;m<4;m++){
   const modGrp=new THREE.Group(); modGrp.position.set(-1.05+m*0.7,0.35,0); group.add(modGrp); modules.push(modGrp);
+  /* Una celda cilíndrica no es un tubo: tiene el reborde ENGARZADO donde se
+     cierra la lata, el botón positivo saliente y el anillo negativo alrededor
+     —separados por la junta de plástico—. Ese botón y ese anillo son justo lo
+     que decide la polaridad al montar un módulo, y por lo que una celda puesta
+     del revés cortocircuita el paquete.                                        */
   for(let r=0;r<4;r++)for(let c=0;c<3;c++){
-    const cell=new THREE.Mesh(new THREE.CylinderGeometry(0.06,0.06,0.5,16),MAT.cell);
-    cell.position.set(-0.15+c*0.15,0.25,-0.3+r*0.2); modGrp.add(cell);
-    const top=new THREE.Mesh(new THREE.CylinderGeometry(0.062,0.062,0.02,16),MAT.cellTop.clone());
-    top.position.set(cell.position.x,0.51,cell.position.z); modGrp.add(top);
+    const x=-0.15+c*0.15, z=-0.3+r*0.2;
+    const cell=new THREE.Mesh(P3.revolucion([
+      [0,0],[0.058,0],[0.060,0.012],[0.060,0.46],[0.058,0.475],
+      [0.040,0.485],[0.040,0.495],[0.024,0.495],[0.024,0.515],[0,0.515]],{seg:22}),MAT.cell);
+    cell.position.set(x,0.25,z); cell.castShadow=true; modGrp.add(cell);
+    // La funda retráctil, que es de donde se lee de qué celda se trata.
+    const funda=new THREE.Mesh(new THREE.CylinderGeometry(0.0615,0.0615,0.34,20,1,true),
+      MAT.aislante);
+    funda.position.set(x,0.25+0.24,z); modGrp.add(funda);
+    // El botón positivo: la malla cuyo color usa el laboratorio para pintar el
+    // estado de cada celda.
+    const top=new THREE.Mesh(P3.revolucion([
+      [0,0],[0.024,0],[0.024,0.020],[0,0.020]],{seg:16}),MAT.cellTop.clone());
+    top.position.set(x,0.25+0.515,z); modGrp.add(top);
     cellMeshes.push(top);
   }
-
+  /* Las CINTAS DE NÍQUEL soldadas por puntos, que es como se conecta un módulo
+     de celdas cilíndricas. Sin ellas, doce celdas sueltas no son un módulo:
+     son doce pilas en una caja. */
+  for(let r=0;r<4;r++){
+    const cinta=new THREE.Mesh(P3.extruido(P3.contornoRedondeado(
+      [[-0.21,-0.030],[0.21,-0.030],[0.21,0.030],[-0.21,0.030]],0.014,3),
+      {espesor:0.012,bisel:0.003}),MAT.niquel);
+    cinta.rotation.x=-Math.PI/2; cinta.position.set(0,0.25+0.545,-0.3+r*0.2);
+    cinta.castShadow=true; modGrp.add(cinta);
+  }
 }
-// BMS board (sobre los módulos)
-const bms=roundedBox(2.8,0.05,0.5,MAT.bms); bms.position.set(0,0.62,0.75); group.add(bms);
-// contactor de seguridad
-const contactor=roundedBox(0.3,0.3,0.3,MAT.contactor,0.2); contactor.position.set(1.6,0.4,-0.7); group.add(contactor);
-// caja de fusible
-const fuse=roundedBox(0.24,0.15,0.24,MAT.plastic,0.2); fuse.position.set(-1.6,0.35,-0.7); group.add(fuse);
+/* ---- LA PLACA DEL BMS ------------------------------------------------
+   Con lo que de verdad lleva: el microcontrolador, los circuitos de medida
+   —uno por grupo de celdas—, las RESISTENCIAS DE BALANCEO con su disipador, y
+   los dos conectores. Las resistencias no son un detalle: el balanceo pasivo
+   quema en calor la energía sobrante de las celdas más llenas, y por eso una
+   placa de BMS es lo único caliente de un paquete parado.                     */
+const bms=new THREE.Group(); bms.position.set(0,0.62,0.75); group.add(bms);
+const pcbBms=P3.placa(MATP,{ancho:2.8,fondo:0.50,espesor:0.05,taladros:true,verde:MAT.bms});
+bms.add(pcbBms);
+const mcuBms=P3.chip(MATP,{lado:0.20,alto:0.05,pines:8});
+mcuBms.position.set(-1.05,0.025,0); bms.add(mcuBms);
+for(let i=0;i<4;i++){
+  const med=P3.chip(MATP,{lado:0.13,alto:0.04,pines:6});
+  med.position.set(-0.55+i*0.42,0.025,-0.10); bms.add(med);
+}
+for(let i=0;i<12;i++){
+  const rr=new THREE.Mesh(new THREE.BoxGeometry(0.055,0.035,0.10),MAT.ceramica);
+  rr.position.set(-0.62+i*0.11,0.045,0.14); bms.add(rr);
+}
+const conBms=P3.conector(MATP,{ancho:0.40,alto:0.10,fondo:0.12,pines:12});
+conBms.position.set(1.10,0.07,0); bms.add(conBms);
+
+/* ---- EL CONTACTOR DE ALTA TENSIÓN -----------------------------------
+   Un cubo rojo no dice nada. Un contactor de tracción es un cuerpo sellado con
+   DOS BORNES DE POTENCIA gordos arriba —por donde pasan los cientos de
+   amperios— y un conector fino de mando: la diferencia entre esos dos tamaños
+   ES el concepto, porque explica que un hilo de señal gobierne un cable de
+   dedo. Y lleva su testigo de estado, que es lo que se mira para saber si el
+   paquete está vivo.                                                          */
+const contactor=new THREE.Group(); contactor.position.set(1.6,0.75,-0.7); group.add(contactor);
+const cuerpoCon=new THREE.Mesh(P3.normalizaUV(P3.extruido(P3.contornoRedondeado(
+  [[-0.17,-0.15],[0.17,-0.15],[0.17,0.15],[-0.17,0.15]],0.05,4),
+  {espesor:0.30,bisel:0.014}),2),MAT.contactor);
+cuerpoCon.rotation.x=-Math.PI/2; cuerpoCon.position.y=0.15;
+cuerpoCon.castShadow=true; contactor.add(cuerpoCon);
+for(const sx of [-1,1]){
+  const b=P3.borne(MATP,{d:0.075,alto:0.13});
+  b.position.set(sx*0.10,0.30,0); contactor.add(b);
+}
+const conMando=P3.conector(MATP,{ancho:0.13,alto:0.06,fondo:0.06,pines:2});
+conMando.position.set(0,0.10,0.18); conMando.rotation.x=-Math.PI/2; contactor.add(conMando);
+
+/* ---- EL FUSIBLE DE ALTA TENSIÓN -------------------------------------
+   Cuerpo de CERÁMICA —no de plástico: tiene que aguantar el arco— con sus dos
+   cuchillas taladradas y su banda de características. La cerámica y el tamaño
+   de las cuchillas es lo que distingue un fusible de 400 V de uno de coche, y
+   por eso un cubito negro no valía.                                           */
+const fuse=new THREE.Group(); fuse.position.set(-1.6,0.75,-0.7); group.add(fuse);
+const cuerpoFus=new THREE.Mesh(P3.normalizaUV(P3.extruido(P3.contornoRedondeado(
+  [[-0.09,-0.09],[0.09,-0.09],[0.09,0.09],[-0.09,0.09]],0.02,3),
+  {espesor:0.30,bisel:0.010}),2),MAT.ceramica);
+cuerpoFus.rotation.z=Math.PI/2; cuerpoFus.position.y=0.14;
+cuerpoFus.castShadow=true; fuse.add(cuerpoFus);
+const banda=new THREE.Mesh(new THREE.BoxGeometry(0.10,0.185,0.185),MAT.plastic);
+banda.position.y=0.14; fuse.add(banda);
+for(const sx of [-1,1]){
+  const cuchilla=new THREE.Mesh(P3.extruido(P3.contornoRedondeado(
+    [[-0.075,-0.055],[0.075,-0.055],[0.075,0.055],[-0.075,0.055]],0.02,3),
+    {huecos:[P3.circulo(0.035,0,0.022,10)],espesor:0.020}),MAT.cobre);
+  cuchilla.rotation.y=Math.PI/2; cuchilla.rotation.z=sx>0?0:Math.PI;
+  cuchilla.position.set(sx*0.215,0.14,0); fuse.add(cuchilla);
+}
 
 /* ---- inspección por clic ---- */
 const parts=[
@@ -521,6 +636,10 @@ const parts=[
   {obj:caseBox,name:'Carcasa del pack',desc:'Estructura que aloja y protege los módulos de celdas.'},
 ];
 modules.forEach((m,i)=>parts.push({obj:m,name:'Módulo '+(i+1),desc:'Grupo de celdas de litio conectadas en serie.'}));
+instalaDiag('bateria-bms',{escena:scene,camara:S.camera,controles:S.controls,
+  renderizador:S.renderer,
+  grupos:{carcasa:caseGrp,bms,contactor,fusible:fuse}});
+
 const toast=document.getElementById('toast');
 function showToast(html){toast.innerHTML=html;toast.classList.add('show');clearTimeout(showToast._t);showToast._t=setTimeout(()=>toast.classList.remove('show'),2600);}
 pickerFor(scene,S.camera,S.renderer.domElement,hit=>{
