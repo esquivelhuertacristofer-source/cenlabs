@@ -139,6 +139,7 @@ pon('voluta', malla(P3.voluta({ r0: 0.30, r1: 0.52, espesor: 0.055, ancho: 0.42,
 pon('rodete', P3.rodete(MAT, { rExt: 0.42, rOjo: 0.27, rCubo: 0.10, largo: 0.30, alabes: 9 }), 1.0, -0.25);
 pon('panal', P3.panal(MAT, { ancho: 1.0, alto: 0.72, prof: 0.10, tubos: 15 }), 1.0);
 pon('filtro plisado', P3.filtroPlisado(MAT, { rExt: 0.42, rInt: 0.28, alto: 0.44 }), 1.0);
+pon('gerotor', P3.gerotor(MAT, { dientes: 6, rExt: 0.44, ancho: 0.18 }), 1.0);
 
 // El muestrario se anuncia cuando ha pintado, para que la captura sepa esperar.
 let n = 0;

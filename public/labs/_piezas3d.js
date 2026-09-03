@@ -1670,6 +1670,100 @@ export function rodete(mat, opts = {}) {
 }
 
 /**
+ * GEROTOR: la bomba de aceite de casi cualquier motor, y también la de muchas
+ * transmisiones hidrostáticas. Son DOS rotores: el interior, con `dientes`
+ * lóbulos, va calado en el eje; el exterior tiene UNO MÁS y gira suelto,
+ * descentrado. Esa diferencia de un diente es toda la máquina: entre los dos
+ * quedan cámaras que crecen por el lado de la aspiración y se encogen por el de
+ * la impulsión, y por eso la bomba es VOLUMÉTRICA —da caudal proporcional a las
+ * vueltas, pase lo que pase con la presión—, que es la hipótesis de la que
+ * cuelga cualquier balance de caudales.
+ *
+ * El rotor exterior se dibuja con sus lóbulos circulares, que es como se fabrica.
+ * El interior NO se dibuja: se CALCULA como la envolvente de esos lóbulos a lo
+ * largo de una vuelta entera —el perfil conjugado, el único que engrana sin
+ * holgura—. Dibujarlo a ojo daría una estrella que no cierra ninguna cámara.
+ *
+ * Eje en Z (piezas extruidas). `userData.interior` y `userData.exterior` son los
+ * dos grupos que hay que girar: el exterior, a `dientes/(dientes+1)` de la
+ * velocidad del interior, que es la relación que impone el engrane.
+ */
+export function gerotor(mat, opts = {}) {
+  const { dientes = 6, rExt = 0.42, ancho = 0.16, exc = null, seg = 168, pasos = 240 } = opts;
+  const n = Math.max(3, Math.round(dientes)), N = n + 1;
+  /* Las tres cotas de un gerotor no son libres: los lóbulos del rotor exterior
+     tienen que quedar TANGENTES entre sí —si se solapan, el agujero se vuelve
+     redondo y el rotor interior se queda en un alfiler— y la excentricidad vale
+     el radio del círculo de centros dividido por el número de lóbulos. */
+  const Rt = rExt * 0.58;                       // círculo de centros de los lóbulos
+  const rt = Rt * Math.sin(Math.PI / N) * 1.03;
+  const E = exc == null ? Rt / N : exc;         // excentricidad entre los dos ejes
+  const acero = mat.acero || mat.aluminio;
+
+  // --- el rotor EXTERIOR: un anillo cuyo agujero son N lóbulos circulares ----
+  const centros = [];
+  for (let k = 0; k < N; k++) {
+    const a = (k / N) * Math.PI * 2;
+    centros.push([Math.cos(a) * Rt, Math.sin(a) * Rt]);
+  }
+  const hueco = [];
+  for (let i = 0; i < seg; i++) {
+    const f = (i / seg) * Math.PI * 2, ux = Math.cos(f), uy = Math.sin(f);
+    let r = 0;
+    for (const [cx, cy] of centros) {
+      const cu = cx * ux + cy * uy, d2 = cx * cx + cy * cy - cu * cu;
+      if (d2 > rt * rt) continue;
+      const q = cu + Math.sqrt(rt * rt - d2);
+      if (q > r) r = q;
+    }
+    hueco.push([ux * r, uy * r]);
+  }
+  const gExt = extruido(circulo(0, 0, rExt, 72), { huecos: [hueco], espesor: ancho, bisel: ancho * 0.05 });
+  const mExt = new THREE.Mesh(normalizaUV(gExt, 2), acero);
+  mExt.castShadow = true;
+
+  // --- el rotor INTERIOR: la envolvente de esos lóbulos, muestreada -----------
+  // Se mira desde el rotor interior: mientras la bomba gira un vuelta entera,
+  // cada lóbulo del exterior barre una circunferencia, y el perfil interior es
+  // lo que queda DENTRO de todas ellas.
+  const RMAX = Rt + rt, perfil = new Array(seg).fill(RMAX);
+  for (let p = 0; p < pasos; p++) {
+    const al = (p / pasos) * Math.PI * 2, be = al * n / N;
+    for (let k = 0; k < N; k++) {
+      const a = be + (k / N) * Math.PI * 2;
+      // centro del lóbulo, llevado al sistema del rotor interior
+      const wx = E + Math.cos(a) * Rt, wy = Math.sin(a) * Rt;
+      const cx = wx * Math.cos(-al) - wy * Math.sin(-al);
+      const cy = wx * Math.sin(-al) + wy * Math.cos(-al);
+      for (let i = 0; i < seg; i++) {
+        const f = (i / seg) * Math.PI * 2, ux = Math.cos(f), uy = Math.sin(f);
+        const cu = cx * ux + cy * uy;
+        if (cu <= 0) continue;
+        const d2 = cx * cx + cy * cy - cu * cu;
+        if (d2 > rt * rt) continue;
+        const q = cu - Math.sqrt(rt * rt - d2);
+        if (q < perfil[i]) perfil[i] = q;
+      }
+    }
+  }
+  const cara = perfil.map((r, i) => {
+    const f = (i / seg) * Math.PI * 2;
+    return [Math.cos(f) * r, Math.sin(f) * r];
+  });
+  const gInt = extruido(cara, { huecos: [circulo(0, 0, rExt * 0.13, 24)], espesor: ancho * 0.98, bisel: ancho * 0.05 });
+  const mInt = new THREE.Mesh(normalizaUV(gInt, 2), mat.cromo || acero);
+  mInt.castShadow = true;
+
+  const g = new THREE.Group();
+  const iInt = new THREE.Group(), iExt = new THREE.Group();
+  iInt.add(mInt); iExt.add(mExt); iExt.position.x = E;
+  g.add(iInt, iExt);
+  g.userData.interior = iInt; g.userData.exterior = iExt;
+  g.userData.relacion = n / N; g.userData.exc = E;
+  return g;
+}
+
+/**
  * PANAL de tubos y aletas: el núcleo de un radiador, de un intercooler, de un
  * evaporador. El fluido va por los TUBOS, el aire pasa entre las ALETAS, y toda
  * la superficie que un método ε-NTU pone en la cuenta está justo ahí. Con una

@@ -103,6 +103,8 @@ import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
 import { RoundedBoxGeometry } from 'three/addons/geometries/RoundedBoxGeometry.js';
+import * as P3 from '/labs/_piezas3d.js';
+import { instalaDiag } from '/labs/_diag3d.js';
 import { EffectComposer } from 'three/addons/postprocessing/EffectComposer.js';
 import { RenderPass } from 'three/addons/postprocessing/RenderPass.js';
 import { GTAOPass } from 'three/addons/postprocessing/GTAOPass.js';
@@ -337,6 +339,13 @@ function createStage(mount, opts={}){
     composer.render(); }
   function start(){ if(!raf)loop(); }
   function stop(){ cancelAnimationFrame(raf); raf=null; window.removeEventListener('resize',resize); }
+
+  /* Sonda de escena para las auditorías del 3D. No cambia nada de lo que se ve
+     y cuelga de `window.__diag3d`, que ningún laboratorio pisa: así CUALQUIER
+     laboratorio construido con este molde se puede auditar —salud(), mira(),
+     piezas()— sin tocarle una línea. */
+  try { instalaDiag(document.title || location.pathname,
+    { escena:scene, camara:camera, controles:controls, renderizador:renderer }); } catch(_){}
 
   return { THREE, renderer, scene, camera, controls, composer, bloom,
     setAnimate:fn=>hook=fn, start, stop, resize, clock,
@@ -2032,7 +2041,7 @@ const faseMan=(i,e)=>(720/Math.max(1,e.nCoj-1))*i;
 // ninguna de las dos: se construye una sola vez y sobrevive a los cambios.
 const RIG={motor:null, cigu:null, casq:[], sombrerete:[],
   piezas:{}, amp:null, lampara:null, aceite:null, aguja:null,
-  rotor:null, deriv:null, antidren:null, embolo:null, aceiteH:0};
+  rotor:null, rotorExt:null, relGer:1, deriv:null, antidren:null, embolo:null, aceiteH:0};
 
 // Rótulo REESCRIBIBLE. El `labelSprite` del kit hornea el texto en su textura y
 // no se puede cambiar; aquí hay tres rótulos que cambian con cada punto de
@@ -2250,6 +2259,11 @@ const MAT_AGUJA=std({color:0xff5252,emissive:0xff5252,emissiveIntensity:0.5,roug
 const MAT_LATON=std({color:0xC8A24A,metalness:1.0,roughness:0.30});
 const MAT_MANG=std({...rub,color:0x1a1f27,roughness:0.95,metalness:0.0});
 
+/* Una pieza EN CORTE deja ver su interior, pero también deja ver el REVÉS de
+   la pared del fondo: dibujando una sola cara, la pieza se vuelve transparente
+   por el lado abierto y desaparece justo cuando se la mira de frente. Se
+   descubrió con el cuerpo de la limitadora, que no salía en ninguna foto. */
+const corte=(m)=>{ const c=m.clone(); c.side=THREE.DoubleSide; return c; };
 function cil(r0,r1,h,mat,seg){
   const m=new THREE.Mesh(new THREE.CylinderGeometry(r0,r1,h,seg||22),mat);
   m.castShadow=true; return m;
@@ -2337,18 +2351,41 @@ function bCarter(){
 }
 function bBomba(){
   const g=new THREE.Group();
-  const car=cil(0.24,0.24,0.20,std({...alu,color:0x7b828b,metalness:0.55,roughness:0.62}),30);
-  car.rotation.x=Math.PI/2; g.add(car);
-  const tap=cil(0.25,0.25,0.02,MAT.crom,30); tap.rotation.x=Math.PI/2; tap.position.z=0.11; g.add(tap);
-  // Rotor interior: gira con el motor y es lo que hace de la bomba una
-  // VOLUMÉTRICA, que es la hipótesis de todo el balance de caudales.
-  const rot=new THREE.Group(); rot.position.z=0.06; g.add(rot);
-  for(let i=0;i<7;i++){
-    const a=i/7*Math.PI*2;
-    const d=cil(0.045,0.045,0.14,std({...brush,color:0x9aa3ad,metalness:1.0,roughness:0.30}),12);
-    d.rotation.x=Math.PI/2; d.position.set(Math.cos(a)*0.13,Math.sin(a)*0.13,0); rot.add(d);
+  /* La bomba de aceite de un motor es un GEROTOR: rotor interior de SEIS
+     lóbulos calado en el eje y rotor exterior de SIETE, suelto y descentrado.
+     Esa diferencia de un diente es toda la máquina: entre los dos quedan cámaras
+     que crecen por el lado de la aspiración y se encogen por el de la impulsión,
+     y de ahí que el caudal salga proporcional a las vueltas —VOLUMÉTRICA—, que
+     es la hipótesis de la que cuelga todo el balance de caudales de aquí. Siete
+     cilindros sueltos dentro de un tambor no cerraban ninguna cámara. */
+  const MATG={acero:std({...brush,color:0x9aa3ad,metalness:1.0,roughness:0.30}),
+    cromo:std({...brush,color:0xc6ccd4,metalness:1.0,roughness:0.22})};
+  const ger=P3.gerotor(MATG,{dientes:6,rExt:0.215,ancho:0.13});
+  g.add(ger);
+  const E=ger.userData.exc;
+  // El cuerpo, EN CORTE: la tapa se queda fuera para que se vean los dos
+  // rotores engranando, que es lo único que hay que ver aquí dentro.
+  const mCuerpo=std({...alu,color:0x7b828b,metalness:0.55,roughness:0.62});
+  const car=new THREE.Mesh(P3.revolucion(
+    [[0.218,-0.075],[0.262,-0.075],[0.262,0.075],[0.218,0.075]],{seg:36}),mCuerpo);
+  car.rotation.x=Math.PI/2; car.position.x=E; car.castShadow=true; g.add(car);
+  const fon=new THREE.Mesh(P3.revolucion(
+    [[0,0],[0.262,0],[0.262,0.024],[0,0.024]],{seg:36}),mCuerpo);
+  fon.rotation.x=-Math.PI/2; fon.position.set(E,0,-0.075); g.add(fon);
+  // Las dos lumbreras, en riñón: la de aspiración donde las cámaras crecen y la
+  // de impulsión donde se encogen. Por eso una bomba tiene un sentido de giro.
+  for(const sy of [-1,1]){
+    const ri=[];
+    for(let i=0;i<=14;i++){ const a=sy*(0.35+i/14*2.1);
+      ri.push([Math.cos(a)*0.185,Math.sin(a)*0.185]); }
+    for(let i=14;i>=0;i--){ const a=sy*(0.35+i/14*2.1);
+      ri.push([Math.cos(a)*0.115,Math.sin(a)*0.115]); }
+    const lu=new THREE.Mesh(P3.extruido(ri,{espesor:0.020,bisel:0.004}),MAT.crom);
+    lu.position.set(E,0,-0.084); g.add(lu);
   }
-  g.userData.rotor=rot;
+  g.userData.rotor=ger.userData.interior;
+  g.userData.rotorExt=ger.userData.exterior;
+  g.userData.relGer=ger.userData.relacion;
   const ej=cil(0.030,0.030,0.34,MAT.acero,14); ej.rotation.x=Math.PI/2; g.add(ej);
   g.add(tubo([new THREE.Vector3(0,-0.22,0),new THREE.Vector3(0,-0.40,0.04)],0.036,MAT_TUBO));
   g.add(tubo([new THREE.Vector3(0,0.22,0),new THREE.Vector3(0,0.38,0.02)],0.032,MAT_TUBO));
@@ -2356,16 +2393,26 @@ function bBomba(){
 }
 function bLimitadora(){
   const g=new THREE.Group();
-  const cu=cil(0.10,0.10,0.34,MAT_LATON,22); g.add(cu);
-  const hex=cil(0.13,0.13,0.05,MAT_LATON,6); hex.position.y=-0.19; g.add(hex);
-  // Émbolo y muelle. El émbolo se separa de su asiento cuando la limitadora
+  /* El cuerpo, EN CORTE y con su ASIENTO CÓNICO: contra ese cono apoya el
+     émbolo, y cuando la presión lo levanta el aceite se va al cárter. Ese
+     asiento es la pieza; un tubo liso no explica contra qué cierra. */
+  const cu=new THREE.Mesh(P3.revolucion(
+    [[0.082,-0.17],[0.100,-0.17],[0.100,0.17],[0.082,0.17],
+      [0.082,-0.09],[0.056,-0.13],[0.056,-0.17]],
+    {seg:26,fase:Math.PI*0.275,arco:Math.PI*1.45}),corte(MAT_LATON));
+  cu.castShadow=true; g.add(cu);
+  const hex=new THREE.Mesh(P3.revolucion(
+    [[0,0],[0.130,0],[0.130,0.05],[0,0.05]],{seg:6}),MAT_LATON);
+  hex.position.y=-0.215; g.add(hex);
+  // El émbolo, con su falda cónica: se separa del asiento cuando la limitadora
   // abre, y ésa es toda la explicación de por qué la presión deja de subir.
-  const emb=cil(0.078,0.078,0.09,MAT.crom,20); emb.position.y=-0.06; g.add(emb);
+  const emb=new THREE.Mesh(P3.revolucion(
+    [[0,0],[0.078,0.030],[0.078,0.090],[0,0.090]],{seg:24}),MAT.crom);
+  emb.position.y=-0.10; g.add(emb);
   g.userData.embolo=emb;
-  const mp=[];
-  for(let i=0;i<=60;i++){ const t=i/60;
-    mp.push(new THREE.Vector3(Math.cos(t*Math.PI*9)*0.055,0.02+t*0.15,Math.sin(t*Math.PI*9)*0.055)); }
-  g.add(tubo(mp,0.013,std({...brush,color:0xb8bec6,metalness:1.0,roughness:0.34})));
+  const mue=P3.muelle({acero:std({...brush,color:0xb8bec6,metalness:1.0,roughness:0.34})},
+    {r:0.056, largo:0.17, vueltas:8, hilo:0.013});
+  mue.position.y=0.055; g.add(mue);
   g.add(tubo([new THREE.Vector3(0,-0.24,0),new THREE.Vector3(0.02,-0.40,0.06)],0.030,MAT_TUBO));
   // El retorno al cárter: por aquí se va el caudal que la limitadora recorta.
   g.add(tubo([new THREE.Vector3(0.09,-0.10,0),new THREE.Vector3(0.28,-0.22,0.02),
@@ -2374,15 +2421,41 @@ function bLimitadora(){
 }
 function bFiltro(){
   const g=new THREE.Group();
-  const bote=cil(0.20,0.20,0.42,std({...brush,color:0x2f4f7a,metalness:0.70,roughness:0.44}),30);
-  g.add(bote);
+  /* El bote, EN CORTE. Un cilindro azul cerrado no enseña qué hay dentro, y lo
+     que hay dentro es de lo que va la pieza: el PAPEL PLISADO, que es toda la
+     superficie de filtrado, y el tubo central perforado por donde sale el
+     aceite ya limpio. Un filtro se tapa porque ese papel se llena, y sin verlo
+     no se entiende por qué abre la derivación. */
+  const mLata=std({...brush,color:0x2f4f7a,metalness:0.70,roughness:0.44});
+  const bote=new THREE.Mesh(P3.revolucion(
+    [[0.190,-0.21],[0.205,-0.21],[0.205,0.20],[0.190,0.20]],
+    {seg:34,fase:Math.PI*0.29,arco:Math.PI*1.42}),corte(mLata));
+  bote.castShadow=true; g.add(bote);
+  const fondo=new THREE.Mesh(P3.revolucion(
+    [[0,0.19],[0.205,0.19],[0.205,0.21],[0,0.21]],{seg:34}),mLata);
+  g.add(fondo);
+  const pap=P3.filtroPlisado({papel:std({color:0xd9d2bc,roughness:0.92,metalness:0.03})},
+    {rExt:0.163,rInt:0.108,alto:0.33,pliegues:40});
+  g.add(pap);
+  // El tubo central perforado: por sus agujeros sale el aceite ya filtrado.
+  const cen=new THREE.Mesh(P3.revolucion(
+    [[0.088,-0.17],[0.100,-0.17],[0.100,0.17],[0.088,0.17]],{seg:24}),
+    std({...brush,color:0x8b939d,metalness:0.9,roughness:0.42}));
+  g.add(cen);
+  for(const sy of [-1,0,1]) for(let i=0;i<8;i++){
+    const a=(i/8+sy*0.06)*Math.PI*2;
+    const h=cil(0.016,0.016,0.03,MAT.goma,8);
+    h.rotation.z=Math.PI/2; h.rotation.y=-a;
+    h.position.set(Math.cos(a)*0.094,sy*0.10,Math.sin(a)*0.094); g.add(h);
+  }
+  // Los dos platos que cierran el papel por arriba y por abajo.
+  for(const sy of [-1,1]){
+    const pl=new THREE.Mesh(P3.revolucion(
+      [[0.100,0],[0.172,0],[0.172,0.016],[0.100,0.016]],{seg:30}),MAT.goma);
+    pl.position.y=sy*0.172-(sy>0?0.016:0); g.add(pl);
+  }
   const tap=cil(0.205,0.185,0.05,std({...brush,color:0x9aa3ad,metalness:1.0,roughness:0.40}),30);
   tap.position.y=-0.22; g.add(tap);
-  for(let i=0;i<3;i++){
-    const an=new THREE.Mesh(new THREE.TorusGeometry(0.202,0.007,8,44),
-      std({...brush,color:0x24406a,metalness:0.7,roughness:0.5}));
-    an.rotation.x=Math.PI/2; an.position.y=-0.08+i*0.10; g.add(an);
-  }
   const jun=new THREE.Mesh(new THREE.TorusGeometry(0.165,0.016,10,40),MAT.goma);
   jun.rotation.x=Math.PI/2; jun.position.y=-0.245; g.add(jun);
   // Antirretorno: la membrana que impide que el filtro se vacíe al cárter con
@@ -2400,10 +2473,17 @@ function bFiltro(){
 }
 function bRadiador(){
   const g=new THREE.Group();
-  const nu=roundedBox(0.62,0.44,0.12,std({...brush,color:0x3a4550,roughness:0.66}),0.02); g.add(nu);
-  for(let i=0;i<11;i++){
-    const al=roundedBox(0.58,0.012,0.16,std({...brush,color:0x8b939d,roughness:0.58}),0.004);
-    al.position.set(0,-0.19+i*0.038,0); g.add(al);
+  /* Un enfriador de aceite es un PANAL: el aceite va por los tubos y el aire
+     pasa entre las aletas. Once planchas apiladas delante de un bloque macizo
+     daban la silueta, pero no dejaban ver por dónde pasa el aire —que es de lo
+     que depende que enfríe—. */
+  const pan=P3.panal({aluminio:std({...brush,color:0x8b939d,roughness:0.58})},
+    {ancho:0.60, alto:0.42, prof:0.11, tubos:11, onda:9,
+      colorTubo:0x3a4550, colorAleta:0x8b939d});
+  g.add(pan);
+  for(const sx of [-1,1]){
+    const lr=roundedBox(0.035,0.46,0.12,std({...brush,color:0x3a4550,roughness:0.66}),0.16);
+    lr.position.x=sx*0.305; g.add(lr);
   }
   for(const sy of [-1,1]){
     const co=cil(0.045,0.045,0.10,MAT_LATON,16);
@@ -2564,7 +2644,7 @@ function registra(o){
   RIG.piezas[k]=o;
   if(k==='carter'){ RIG.aceite=u.aceite; RIG.aceiteH=u.aceiteH; }
   if(k==='manocontacto'){ RIG.aguja=u.dial; RIG.lampara=u.lampara; }
-  if(k==='bomba') RIG.rotor=u.rotor;
+  if(k==='bomba'){ RIG.rotor=u.rotor; RIG.rotorExt=u.rotorExt; RIG.relGer=u.relGer; }
   if(k==='filtro'){ RIG.deriv=u.deriv; RIG.antidren=u.antidren; }
   if(k==='limitadora') RIG.embolo=u.embolo;
 }
@@ -2847,6 +2927,10 @@ function pinta3D(dt){
     TH=(TH+G.rpm*6*FACTOR_GIRO*dt)%720;
     if(RIG.cigu) RIG.cigu.rotation.x=-TH*DEG;
     if(RIG.rotor) RIG.rotor.rotation.z=-TH*DEG*MQ().relBomba;
+    // El rotor exterior va MÁS DESPACIO, en la relación que impone el engrane:
+    // seis dientes contra siete. Si girase igual no habría cámara que cambiase
+    // de volumen y la bomba no daría caudal.
+    if(RIG.rotorExt) RIG.rotorExt.rotation.z=-TH*DEG*MQ().relBomba*RIG.relGer;
   }
   mueveAgujas();
   mueveGotas(dt);

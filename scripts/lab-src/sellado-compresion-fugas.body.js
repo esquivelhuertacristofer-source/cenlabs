@@ -639,6 +639,11 @@ const MAT={
   foco:   emis(0xFFFFFF,1.1),
 };
 
+/* Los nombres con los que trabaja la biblioteca de piezas (`P3`, que el molde
+   ya importa), traducidos una vez a los materiales de este laboratorio. */
+const MATP={aluminio:MAT.piston, acero:MAT.acero, hierro:MAT.bloque, cromo:MAT.crom,
+  chapa:MAT.acero, negro:MAT.caja, goma:MAT.goma, cobre:MAT.crom,
+  blanco:MAT.crom, ceramica:MAT.culata};
 const MAT_CAMISA=std({color:0x8d959f,metalness:1.0,roughness:0.22,side:THREE.BackSide});
 const MAT_ACEITE=std({color:0x6b4a12,metalness:0.10,roughness:0.35,transparent:true,opacity:0.72});
 const MAT_ESFERA=std({color:0xf2f4f7,metalness:0.05,roughness:0.85});
@@ -1215,14 +1220,22 @@ function construyeMotor(){
       const cam=new THREE.Mesh(new THREE.CylinderGeometry(D.B/2,D.B/2,D.S+0.34,44,1,true),MAT_CAMISA);
       cam.position.set(x,YC+D.r+D.Lb-0.02,0); banco.add(cam);
       // pistón + biela
+      /* EL PISTÓN CON SUS TRES RANURAS. En un laboratorio que va justamente de
+         SELLADO no vale un cilindro liso con tres anillos pegados por fuera: lo
+         que sella es un segmento alojado en su ranura, empujado contra la pared
+         por el propio gas que hay encima, y el tercero —el rascador, más
+         ancho— no sella nada, devuelve el aceite. Las tres ranuras, el escalón
+         entre la zona de segmentos y la falda y la falda hueca salen de la
+         biblioteca; el cilindro macizo de antes era una pieza que no podría
+         funcionar. */
       const pis=new THREE.Group(); banco.add(pis);
-      const falda=new THREE.Mesh(new THREE.CylinderGeometry(D.B/2-0.008,D.B/2-0.008,0.42*D.B,32),MAT.piston);
-      pis.add(falda);
-      for(let a=0;a<3;a++){
-        const aro=new THREE.Mesh(new THREE.TorusGeometry(D.B/2-0.004,0.010,8,40),MAT.crom);
-        aro.rotation.x=Math.PI/2; aro.position.y=0.13*D.B-a*0.055*D.B; pis.add(aro);
-      }
-      const bie=new THREE.Mesh(new THREE.CylinderGeometry(0.030,0.042,D.Lb,14),MAT.biela);
+      const pz=P3.piston(MATP,{D:D.B,hCorona:0.32*D.B,bulon:false,seg:34});
+      pz.position.y=-pz.userData.alturaBulon;   // el bulón, en el origen del grupo
+      pis.add(pz);
+      // La biela, con su sombrerete: por ahí se abre para montarla sobre la
+      // muñequilla, y sin él no se entiende cómo entra un cigüeñal de una pieza.
+      const bie=P3.biela({...MATP,acero:MAT.biela},
+        {largo:D.Lb, dPie:0.075, dCabeza:0.115, espesor:0.085});
       banco.add(bie);
       // muñequilla, para que se vea de dónde sale el movimiento
       const mun=new THREE.Mesh(new THREE.CylinderGeometry(0.055,0.055,0.10,16),MAT.acero);
@@ -1231,11 +1244,15 @@ function construyeMotor(){
       // válvulas: admisión y escape, inclinadas hacia fuera
       const vg=[];
       [['vAdm',-1],['vEsc',+1]].forEach(([m,sg])=>{
+        /* La válvula, con su CHAFLÁN DE ASIENTO: los cuarenta y cinco grados
+           que apoyan contra la culata son literalmente por donde sella, y en
+           esta práctica —donde una válvula que no asienta manda el aire al
+           colector— es la superficie que hay que poder señalar. Un cono y un
+           palo no la enseñan. */
         const v=new THREE.Group(); banco.add(v);
-        const vas=new THREE.Mesh(new THREE.CylinderGeometry(0.016,0.016,0.30*D.B,12),MAT[m]);
-        vas.position.y=0.17*D.B; v.add(vas);
-        const cab=new THREE.Mesh(new THREE.CylinderGeometry(0.17*D.B,0.15*D.B,0.026,20),MAT[m]);
-        v.add(cab);
+        const vv=P3.valvula({...MATP,acero:MAT[m]},
+          {d:0.34*D.B, largo:0.46*D.B, vastago:0.032});
+        v.add(vv);
         v.position.set(x+sg*0.26*D.B, D.yDeck+0.03, 0);
         v.rotation.z=-sg*0.16;
         vg.push(v);
@@ -1245,7 +1262,7 @@ function construyeMotor(){
       const bh=new THREE.Group(); banco.add(bh);
       const tubo=new THREE.Mesh(new THREE.CylinderGeometry(0.055,0.055,D.hCul*0.9,16,1,true),MAT_CAMISA);
       bh.add(tubo);
-      const buj=new THREE.Mesh(new THREE.CylinderGeometry(0.048,0.048,D.hCul*0.55,14),MAT.crom);
+      const buj=P3.bujia(MATP,{d:0.096, largo:D.hCul*0.62});
       buj.position.y=D.hCul*0.16; buj.userData.esBujia=true; bh.add(buj);
       bh.position.set(x,D.yDeck+D.hCul*0.52,0.05);
       RIG.bujia.push({g:bh, buj, cil, x, banco:bk.ang, yBoca:D.yDeck+D.hCul*0.95});
@@ -1284,7 +1301,12 @@ function construyeMotor(){
     const esc=new THREE.Mesh(new THREE.CylinderGeometry(0.10,0.11,0.70,20),std({...brush,color:0x5a5148,roughness:0.72}));
     esc.rotation.z=Math.PI/2; esc.position.copy(RIG.destino.escape.g.position);
     esc.position.x-=0.30; raiz.add(esc);
-    const rad=roundedBox(0.10,0.72,0.62,std({...brush,color:0x3a4550,roughness:0.66}),0.02);
+    // El radiador: tubos y aletas, que es lo que hace de un radiador un
+    // radiador. Una plancha vertical no dice por dónde pasa el aire.
+    const rad=P3.panal({aluminio:std({...brush,color:0x8b939d,roughness:0.58})},
+      {ancho:0.62, alto:0.70, prof:0.10, tubos:11, onda:11,
+        colorTubo:0x3a4550, colorAleta:0x77828e});
+    rad.rotation.y=Math.PI/2;
     rad.position.copy(RIG.destino.agua.g.position); rad.position.y-=0.18; raiz.add(rad);
   }
 
@@ -1365,8 +1387,14 @@ function esfera(r){
 // ------------------------------------------------------------ las siete piezas
 function bAdapt(){
   const g=new THREE.Group();
-  g.add(cil(0.046,0.046,0.16,MAT_LATON,18));                        // rosca de bujía
-  const hex=cil(0.070,0.070,0.05,MAT_LATON,6); hex.position.y=0.105; g.add(hex);
+  /* La ROSCA de verdad, no un tubo liso: este adaptador se enrosca en el hueco
+     de la bujía y su paso tiene que ser el del motor —M14×1,25 en casi todos—.
+     Es la pieza que decide si el ensayo se puede hacer o no. */
+  g.add(cil(0.046,0.046,0.16,MAT_LATON,18));
+  const ros=P3.rosca({acero:MAT_LATON},{r:0.048,paso:0.024,vueltas:6,grueso:0.010});
+  ros.position.y=-0.02; g.add(ros);
+  const hex=new THREE.Mesh(P3.revolucion([[0,0],[0.070,0],[0.070,0.05],[0,0.05]],{seg:6}),MAT_LATON);
+  hex.position.y=0.085; g.add(hex);
   const cop=cil(0.052,0.040,0.09,MAT.crom,18); cop.position.y=0.175; g.add(cop);
   return g;
 }
@@ -1672,7 +1700,9 @@ function sigueMotor(th){
     p.g.position.set(p.x,y,0);
     const mx=p.x+D.r*Math.sin(t*DEG), my=YC+D.r*Math.cos(t*DEG);
     p.mun.position.set(mx,my,0);
-    p.bie.position.set((p.x+mx)/2,(y+my)/2,0);
+    // La biela de la biblioteca tiene la CABEZA en su origen y el PIE en su
+    // extremo: se ancla en la muñequilla, no en el punto medio.
+    p.bie.position.set(mx,my,0);
     p.bie.rotation.z=Math.atan2(y-my,p.x-mx)-Math.PI/2;
   });
   // Válvulas: en esta práctica interesa que se vean CERRADAS en la prueba de
