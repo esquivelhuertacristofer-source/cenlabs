@@ -1363,6 +1363,66 @@ export function bobinaCampo(mat, opts = {}) {
 }
 
 /**
+ * TRANSFORMADOR E-I MONTADO: el de una fuente de banco, entero. Núcleo E-I de
+ * chapas, CARRETE PARTIDO con el primario y el secundario cada uno en su hueco
+ * —sobre EL MISMO hierro— y fleje de sujeción con patas para atornillarlo.
+ *
+ * Un taco con dos cilindros pegados a los lados no dice de dónde sale la
+ * tensión del secundario. Lo que la explica es que los dos devanados abrazan la
+ * MISMA columna de hierro: por ahí pasa el flujo que induce en uno lo que se
+ * mete por el otro. Si los devanados están dibujados fuera del núcleo, el
+ * dibujo enseña justo lo contrario de lo que hay que entender.
+ */
+export function transformadorEI(mat, opts = {}) {
+  const { ancho = 0.30, alto = 0.34, prof = 0.22, chapas = 9, vueltas = 7,
+          hilo = 0.009, primario = 0xb87333, secundario = 0x8a5a2c,
+          fleje = true, carrete = 0x14181e } = opts;
+  const g = new THREE.Group();
+  const nuc = nucleoEI(mat, { ancho, alto, prof, chapas });
+  g.add(nuc);
+  const brazo = nuc.userData.brazo;
+  const t = ancho * 0.26, b = alto * 0.24, ventana = alto / 2 - b * 1.5;
+  const largoBrazo = ancho - t;
+  const flanY = b / 2 + ventana * 0.94, flanZ = prof / 2 + prof * 0.16;
+  const hueY = b / 2 + alto * 0.014, hueZ = prof / 2 + prof * 0.04;
+  const matC = new THREE.MeshStandardMaterial({ color: carrete, roughness: 0.66, metalness: 0.04 });
+  for (const dx of [-largoBrazo * 0.45, 0, largoBrazo * 0.45]) {
+    const f = new THREE.Mesh(extruido(
+      [[-flanZ, -flanY], [flanZ, -flanY], [flanZ, flanY], [-flanZ, flanY]],
+      { huecos: [[[-hueZ, -hueY], [hueZ, -hueY], [hueZ, hueY], [-hueZ, hueY]]],
+        espesor: largoBrazo * 0.055, bisel: largoBrazo * 0.009 }), matC);
+    f.rotation.y = Math.PI / 2;
+    f.position.set(brazo.x + dx, brazo.y, 0);
+    g.add(f);
+  }
+  const coilY = 2 * (b / 2 + ventana * 0.72) - hilo * 4;
+  const coilZ = prof * 1.08;
+  [[-largoBrazo * 0.225, primario], [largoBrazo * 0.225, secundario]].forEach(([dx, col]) => {
+    const w = bobinaCampo(
+      { cobre: new THREE.MeshStandardMaterial({ color: col, roughness: 0.38, metalness: 0.72 }) },
+      { ancho: coilY, prof: coilZ, alto: largoBrazo * 0.39, vueltas, hilo, capas: 2, seg: 4 });
+    w.rotation.z = -Math.PI / 2;
+    w.position.set(brazo.x + dx, brazo.y, 0);
+    g.add(w);
+  });
+  let base = -alto / 2;
+  if (fleje) {
+    const mch = mat.chapa || mat.acero || mat.aluminio;
+    const e = alto * 0.047;
+    const fl = new THREE.Mesh(new THREE.BoxGeometry(ancho * 1.40, e, prof * 1.36), mch);
+    fl.position.y = -alto / 2 - e / 2; g.add(fl);
+    for (const sx of [-1, 1]) {
+      const pa = new THREE.Mesh(new THREE.BoxGeometry(e, alto * 0.47, prof * 1.18), mch);
+      pa.position.set(sx * (ancho + t) / 2 * 0.90, -alto * 0.29, 0); g.add(pa);
+    }
+    base = -alto / 2 - e;
+  }
+  g.traverse(o => { if (o.isMesh) o.castShadow = true; });
+  g.userData = { ancho, alto, prof, base, brazo, salida: { x: (ancho + t) / 2, y: -b, z: prof * 0.32 } };
+  return g;
+}
+
+/**
  * NÚCLEO RANURADO: la chapa de un estator o de un rotor, con sus ranuras y sus
  * zapatas de diente.
  *
@@ -2966,5 +3026,42 @@ export function led(mat, opts = {}) {
     l.position.set(sx * R * 0.42, -(lg + 0.02) / 2 + 0.01, 0); g.add(l);
   });
   g.userData = { d, material: matL, enciende: (v) => { matL.emissiveIntensity = v ? 1.15 : 0.10; } };
+  return g;
+}
+
+/**
+ * BORNERA de tornillo: la regleta por la que entra y sale un cable en cualquier
+ * banco. Cuerpo de plástico con una BOCA por vía, el TORNILLO encima —que es lo
+ * que aprieta el cable contra la jaula— y las patas por debajo.
+ *
+ * Es la pieza que dice dónde termina un cable y empieza la placa. Sin ella los
+ * cables aparecen clavados en el aire.
+ */
+export function bornera(mat, opts = {}) {
+  const { vias = 2, paso = 0.13, alto = 0.11, fondo = 0.12, patas = 0.06,
+          cuerpo = 0x1c5fa8 } = opts;
+  const g = new THREE.Group();
+  const W = vias * paso;
+  const matC = new THREE.MeshStandardMaterial({ color: cuerpo, roughness: 0.72, metalness: 0.04 });
+  const met = mat.cromo || mat.acero || mat.aluminio;
+  const tinta = new THREE.MeshStandardMaterial({ color: 0x0a0d11, roughness: 0.95, metalness: 0 });
+  const cue = new THREE.Mesh(extruido(contornoRedondeado(
+    [[-W / 2, 0], [W / 2, 0], [W / 2, alto], [-W / 2, alto]], paso * 0.10, 2),
+    { espesor: fondo, bisel: fondo * 0.10 }), matC);
+  cue.castShadow = true; g.add(cue);
+  for (let i = 0; i < vias; i++) {
+    const x = (i - (vias - 1) / 2) * paso;
+    const boca = new THREE.Mesh(new THREE.CylinderGeometry(paso * 0.21, paso * 0.21, fondo * 0.62, 12), tinta);
+    boca.rotation.x = Math.PI / 2;
+    boca.position.set(x, alto * 0.36, fondo * 0.22); g.add(boca);
+    const tor = new THREE.Mesh(new THREE.CylinderGeometry(paso * 0.26, paso * 0.26, alto * 0.16, 14), met);
+    tor.position.set(x, alto * 1.02, 0); g.add(tor);
+    const ran = new THREE.Mesh(new THREE.BoxGeometry(paso * 0.42, alto * 0.03, paso * 0.09), tinta);
+    ran.position.set(x, alto * 1.10, 0); g.add(ran);
+    const pin = new THREE.Mesh(new THREE.BoxGeometry(paso * 0.14, patas, fondo * 0.16), met);
+    pin.position.set(x, -patas / 2, 0); g.add(pin);
+  }
+  g.userData = { vias, paso, alto, fondo, ancho: W,
+    boca: (i) => new THREE.Vector3((i - (vias - 1) / 2) * paso, alto * 0.36, fondo * 0.52) };
   return g;
 }

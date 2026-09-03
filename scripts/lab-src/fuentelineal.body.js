@@ -416,7 +416,7 @@ function trace(x0,z0,x1,z1,w){
   const len=Math.hypot(x1-x0,z1-z0);
   const g=new THREE.BoxGeometry(len,0.006,w||0.03);
   const m=new THREE.Mesh(g,MAT.trace);
-  m.position.set((x0+x1)/2,0.001,(z0+z1)/2);
+  m.position.set((x0+x1)/2,0.021,(z0+z1)/2);
   m.rotation.y=-Math.atan2(z1-z0,x1-x0);
   return m;
 }
@@ -464,74 +464,124 @@ const medidorBox=makeDisplayBox(0.62,0.42,0.14,256,180);
 medidorBox.g.position.set(0.55,0.42,0.55);
 benchG.add(medidorBox.g);
 
-const xfmrG=new THREE.Group();
-{
-  const core=new THREE.Mesh(new THREE.BoxGeometry(0.22,0.24,0.18),MAT.xfmr); xfmrG.add(core);
-  const c1=new THREE.Mesh(new THREE.CylinderGeometry(0.09,0.09,0.14,16),MAT.psu); c1.rotation.z=Math.PI/2; c1.position.x=-0.15; xfmrG.add(c1);
-  const c2=new THREE.Mesh(new THREE.CylinderGeometry(0.09,0.09,0.14,16),MAT.psu); c2.rotation.z=Math.PI/2; c2.position.x=0.15; xfmrG.add(c2);
+/* Los nombres con los que trabaja la biblioteca de piezas (`P3`, que el molde ya
+   importa), traducidos una vez a los materiales de este laboratorio. */
+const MATP={
+  aluminio:std({color:0x9aa3ad,roughness:0.34,metalness:0.86}),
+  acero:MAT.lead, cromo:MAT.lead,
+  cobre:std({color:0xb87333,roughness:0.35,metalness:0.75}),
+  chapa:std({color:0x8f98a3,roughness:0.40,metalness:0.80}),
+  negro:std({color:0x14181e,roughness:0.62,metalness:0.06}),
+  goma:std({color:0x14181e,roughness:0.80,metalness:0.02}),
+  blanco:std({color:0xd7dee6,roughness:0.40,metalness:0.20}),
+  ceramica:std({color:0xd7dee6,roughness:0.60,metalness:0.05}),
+};
+// Todo lo que va en la placa apoya en su CARA. La biblioteca dibuja cada
+// componente con y = 0 en la placa y las patas por debajo, atravesandola.
+const Y_PCB=0.02;
+const Z_FILA=1.15, Z_GND=1.42;
+function isla(x,z){
+  const m=new THREE.Mesh(new THREE.CylinderGeometry(0.026,0.026,0.005,14),MAT.trace);
+  m.position.set(x,0.021,z); benchG.add(m);
 }
+
+/* EL TRANSFORMADOR REDUCTOR, entero: nucleo E-I de chapas, carrete partido con
+   el primario y el secundario cada uno en su hueco —sobre EL MISMO hierro— y
+   fleje de sujecion apoyado en la mesa. El taco con dos cilindros pegados a los
+   lados no decia de donde sale la tension del secundario. */
+const xfmrG=P3.transformadorEI(MATP,{ancho:0.30,alto:0.32,prof:0.22,chapas:9});
 xfmrG.userData.act='xfmr3d'; xfmrG.userData.title='Transformador reductor';
-xfmrG.position.set(-1.55,0.24,1.15);
+xfmrG.position.set(-1.55,0.175,Z_FILA);
 benchG.add(xfmrG);
 
+/* LA BORNERA de entrada: por sus dos bocas entra el secundario en la placa. Es
+   la pieza que dice donde acaba el cable y empieza el circuito. */
+const bornEnt=P3.bornera(MATP,{vias:2,paso:0.13,alto:0.11,fondo:0.12,patas:0.05});
+bornEnt.rotation.y=-Math.PI/2;
+bornEnt.position.set(-1.20,Y_PCB,Z_FILA);
+bornEnt.userData.act='xfmr3d'; bornEnt.userData.title='Entrada del secundario';
+benchG.add(bornEnt);
+
+/* EL PUENTE: cuatro diodos con SU BANDA DE CATODO. Las cuatro bandas miran al
+   mismo lado porque en el puente los cuatro conducen hacia el rail positivo;
+   uno solo montado al reves cortocircuita el secundario. Sin banda dibujada no
+   habia nada que mirar. */
 const DIO3D=[];
 for(let i=0;i<4;i++){
-  const g=new THREE.Group();
-  const body=new THREE.Mesh(new THREE.CylinderGeometry(0.05,0.05,0.16,14),std({color:DIODE.color||0xd88a2e,roughness:0.4,metalness:0.3}));
-  body.rotation.z=Math.PI/2; g.add(body);
-  const band=new THREE.Mesh(new THREE.CylinderGeometry(0.052,0.052,0.02,14),std({color:0xe8e8e8,roughness:0.3}));
-  band.rotation.z=Math.PI/2; band.position.x=0.05; g.add(band);
-  leads(g);
+  const g=P3.diodoAxial(MATP,{largo:0.16,d:0.070,patas:0.05,paso:0.22,
+    cuerpo:0xd88a2e,banda:0xe8e8e8,catodo:1});
   g.userData.act='bridge3d'; g.userData.title='Red de diodos del puente';
-  g.position.set(-1.05+i*0.16,0.24,1.15);
+  g.position.set(-1.05+i*0.30,Y_PCB,Z_FILA);
+  isla(g.position.x-0.11,Z_FILA); isla(g.position.x+0.11,Z_FILA);
   DIO3D.push(g); benchG.add(g);
 }
 
+/* EL CONDENSADOR DE FILTRO, electrolitico de pie: engarce, CRUZ DE ALIVIO y
+   FRANJA DEL NEGATIVO. La franja es la marca que importa —al reves, revienta— y
+   el tamano del bote crece con la capacidad, que es justo el compromiso de la
+   practica. */
 const capG=new THREE.Group();
-{
-  const body=new THREE.Mesh(new THREE.CylinderGeometry(0.08,0.08,0.2,18),MAT.cap); capG.add(body);
-  const top=new THREE.Mesh(new THREE.CylinderGeometry(0.081,0.081,0.01,18),std({color:0xdedede,roughness:0.3})); top.position.y=0.105; capG.add(top);
-  leads(capG);
-}
+capG.add(P3.condensadorRadial(MATP,{d:0.20,alto:0.30,patas:0.05,paso:0.11,
+  lata:0x1f3a52,franja:0xcfe8ff}));
 capG.userData.act='cap3d'; capG.userData.title='Capacitor de filtro';
-capG.position.set(-0.25,0.24,1.15);
+capG.position.set(0.25,Y_PCB,Z_FILA);
+isla(0.195,Z_FILA); isla(0.305,Z_FILA);
 benchG.add(capG);
 
-const regG=new THREE.Group();
-{
-  const body=new THREE.Mesh(new THREE.BoxGeometry(0.14,0.18,0.05),MAT.reg); regG.add(body);
-  const tab=new THREE.Mesh(new THREE.BoxGeometry(0.09,0.1,0.01),MAT.regTab); tab.position.set(0,0.06,0.03); regG.add(tab);
-  const pinG=new THREE.CylinderGeometry(0.007,0.007,0.1,8);
-  for(let i=-1;i<=1;i++){ const p=new THREE.Mesh(pinG,MAT.lead); p.position.set(i*0.035,-0.14,0); regG.add(p); }
-}
-regG.userData.act='reg3d'; regG.userData.title='Regulador lineal 7805 (TO-220)';
-regG.position.set(0.2,0.28,1.15);
-benchG.add(regG);
-
-const hsG=new THREE.Group();
-for(let i=0;i<4;i++){
-  const fin=new THREE.Mesh(new THREE.BoxGeometry(0.01,0.14,0.12),MAT.hsFin);
-  fin.position.set(0.03+i*0.015,0,0);
-  hsG.add(fin);
-}
+/* EL DISIPADOR es un PEINE: lo que enfria es la superficie de las aletas, no el
+   volumen del taco. Cuatro chapas planas no dejaban ver por que un disipador
+   mas grande baja la temperatura de union. */
+const HS_X=0.70, HS_Z=1.22, HS_FONDO=0.34;
+const hsG=P3.disipador(MATP,{ancho:0.42,fondo:HS_FONDO,base:0.05,alto:0.26,
+  aletas:7,espesorAleta:0.022});
 hsG.userData.act='hs3d'; hsG.userData.title='Disipador de calor del regulador';
-hsG.position.set(0.24,0.38,1.13);
+hsG.position.set(HS_X,Y_PCB,HS_Z);
 benchG.add(hsG);
 
+/* EL 7805 en su TO-220, ATORNILLADO al disipador por la aleta: la aleta con su
+   agujero es la pieza por la que sale el calor, y el tornillo es lo unico que
+   la une al disipador. Dibujado como una caja con una chapita pegada, la union
+   —que es de lo que trata la practica— no existia. */
+const regG=new THREE.Group();
+const regTO=P3.to220(MATP,{ancho:0.17,alto:0.26,fondo:0.055,patas:0.07,paso:0.05,
+  cuerpo:MAT.reg.color.getHex()});
+regG.add(regTO);
+const regTor=new THREE.Mesh(new THREE.CylinderGeometry(0.020,0.020,0.030,12),MATP.aluminio);
+regTor.rotation.x=Math.PI/2; regTor.position.set(0,0.26*0.86,0.040); regG.add(regTor);
+regG.userData.act='reg3d'; regG.userData.title='Regulador lineal 7805 (TO-220)';
+regG.position.set(HS_X,Y_PCB,HS_Z+HS_FONDO/2+0.030);
+benchG.add(regG);
+
+/* LA CARGA ELECTRONICA: un modulo con su bornera de salida. No es una
+   resistencia —consume la corriente que se le pida sea cual sea la tension— y
+   por eso se dibuja como un modulo con bornes, no como un componente pasivo. */
 const loadG=new THREE.Group();
-{
-  const body=new THREE.Mesh(new THREE.BoxGeometry(0.18,0.14,0.14),MAT.load); loadG.add(body);
-  leads(loadG);
+const loadCue=new THREE.Mesh(new THREE.BoxGeometry(0.28,0.16,0.18),MAT.load);
+loadCue.position.y=0.08; loadG.add(loadCue);
+for(let i=0;i<4;i++){
+  const r=new THREE.Mesh(new THREE.BoxGeometry(0.20,0.012,0.008),
+    std({color:0x0a0d11,roughness:0.95,metalness:0}));
+  r.position.set(0,0.045+i*0.022,-0.091); loadG.add(r);
 }
+const bornSal=P3.bornera(MATP,{vias:2,paso:0.12,alto:0.09,fondo:0.10,patas:0.02,
+  cuerpo:0x1d7a4a});
+bornSal.position.set(0,0.16,-0.02); loadG.add(bornSal);
 loadG.userData.act='load3d'; loadG.userData.title='Carga electrónica (fuente de corriente)';
-loadG.position.set(0.65,0.24,1.15);
+loadG.position.set(1.25,Y_PCB,Z_FILA);
 benchG.add(loadG);
 
+/* LAS PISTAS: el RAIL DE MASA, que es el unico nodo comun a todo el montaje
+   —negativo del puente, negativo del condensador, pata central del 7805 y
+   retorno de la carga—, con su derivacion desde cada pieza. */
+benchG.add(trace(-1.16,Z_GND,1.25,Z_GND,0.05));
+[[-1.16,Z_FILA],[0.195,Z_FILA],[HS_X,HS_Z],[1.25,Z_FILA]].forEach(a=>{
+  benchG.add(trace(a[0],a[1],a[0],Z_GND,0.04)); isla(a[0],Z_GND);
+});
+
 {
-  const rp1=[-1.7,0.36,1.05], rp2=[-0.3,0.24,1.15];
-  benchG.add(cable([rp1,[-1.0,0.5,1.3],rp2],MAT.cableRed));
-  const bp1=[-1.65,0.15,1.25], bp2=[-0.32,0.16,1.28];
-  benchG.add(cable([bp1,[-1.0,0.05,1.5],bp2],MAT.cableBlk));
+  const bx=-1.20-0.062, by=Y_PCB+0.11*0.36, bz=Z_FILA;
+  benchG.add(cable([[-1.39,0.115,bz+0.075],[-1.31,0.175,bz+0.075],[bx,by,bz+0.065]],MAT.cableRed));
+  benchG.add(cable([[-1.39,0.115,bz-0.075],[-1.31,0.155,bz-0.075],[bx,by,bz-0.065]],MAT.cableBlk));
 }
 
 benchG.traverse(o=>{ if(o.isMesh){ o.castShadow=true; o.receiveShadow=true; } });
@@ -582,6 +632,9 @@ function refreshBenchSel(){
   const hsScale=0.4+0.9*((HS.length-1-hsIdx)/(HS.length-1));
   hsG.scale.set(hsScale,hsScale,hsScale);
   hsG.visible=hsIdx>0;
+  // El 7805 va ATORNILLADO a la cara del disipador: si el disipador cambia de
+  // tamano, el tornillo lo sigue en vez de quedarse en el aire.
+  regG.position.z=hsIdx>0?HS_Z+(HS_FONDO/2)*hsScale+0.030:HS_Z;
 }
 function refreshBenchDyn(){ drawFuenteScreen(); drawMedidorScreen(); }
 

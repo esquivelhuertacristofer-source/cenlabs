@@ -886,27 +886,7 @@ const Y_PCB=0.035;
    liso con dos cilindros pegados a los lados no decia de donde sale la tension
    del secundario; asi se ve que sale de un devanado enrollado sobre el mismo
    nucleo que el otro. */
-const xfmrG=new THREE.Group();
-const xfNuc=P3.nucleoEI(MATP,{ancho:0.30,alto:0.34,prof:0.22,chapas:9});
-xfmrG.add(xfNuc);
-const XBRZ=xfNuc.userData.brazo;
-const flanCont=[[-0.150,-0.086],[0.150,-0.086],[0.150,0.086],[-0.150,0.086]];
-const flanHueco=[[-0.118,-0.046],[0.118,-0.046],[0.118,0.046],[-0.118,0.046]];
-[-0.100,0,0.100].forEach(dx=>{
-  const f=new THREE.Mesh(P3.extruido(flanCont,{huecos:[flanHueco],espesor:0.012,bisel:0.002}),MATP.negro);
-  f.rotation.y=Math.PI/2;f.position.set(XBRZ.x+dx,XBRZ.y,0);xfmrG.add(f);
-});
-[[-0.050,0xb87333,0.0085],[0.050,0x8a5a2c,0.0105]].forEach(a=>{
-  const w=P3.bobinaCampo({cobre:std({color:a[1],roughness:0.38,metalness:0.72})},
-    {ancho:0.118,prof:0.238,alto:0.086,vueltas:7,hilo:a[2],capas:2,seg:4});
-  w.rotation.z=-Math.PI/2;w.position.set(XBRZ.x+a[0],XBRZ.y,0);xfmrG.add(w);
-});
-const xfFleje=new THREE.Mesh(new THREE.BoxGeometry(0.42,0.016,0.30),MATP.chapa);
-xfFleje.position.y=-0.178;xfmrG.add(xfFleje);
-[-0.17,0.17].forEach(x=>{
-  const pa=new THREE.Mesh(new THREE.BoxGeometry(0.016,0.16,0.26),MATP.chapa);
-  pa.position.set(x,-0.10,0);xfmrG.add(pa);
-});
+const xfmrG=P3.transformadorEI(MATP,{ancho:0.30,alto:0.34,prof:0.22,chapas:9});
 xfmrG.userData.act='src3d';xfmrG.userData.title='Fuente CA (secundario)';
 xfmrG.position.set(-1.55,0.19,1.15);benchG.add(xfmrG);
 
