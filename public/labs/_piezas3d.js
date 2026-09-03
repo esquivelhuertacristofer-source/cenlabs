@@ -1535,3 +1535,199 @@ export function borne(mat, opts = {}) {
   tu.position.y = alto * 0.42; g.add(tu);
   return g;
 }
+
+/* ==========================================================================
+   §9 · TURBOMÁQUINAS E INTERCAMBIADORES
+   La bomba de agua, el turbo, el ventilador y el radiador comparten dos
+   formas que con cajas y cilindros no salen: la VOLUTA —el caracol cuyo
+   radio crece con el ángulo— y el RODETE de álabes curvos. Y todo radiador,
+   intercooler, evaporador o condensador es el mismo PANAL de tubos y aletas.
+   ========================================================================== */
+
+/**
+ * VOLUTA: la pared en espiral de una bomba centrífuga, de un compresor o de
+ * una turbina. Su radio crece con el ángulo porque va recogiendo el caudal que
+ * el rodete lanza hacia fuera, y al ensancharse lo frena: ahí es donde la
+ * velocidad se convierte en presión. Dibujada como un tambor —que es como
+ * salía con un cilindro— esa ley no tiene de dónde salir en la pantalla.
+ *
+ * Se devuelve como PARED, no como plancha maciza: por la boca abierta se ve el
+ * rodete girando dentro, que es lo que enseña una bomba de corte de taller.
+ * El salto del radio final al inicial sobre el mismo eje es la LENGÜETA, el
+ * filo que separa lo que sale de lo que vuelve a dar otra vuelta.
+ *
+ * Eje en Z (es una pieza extruida); con `eje:'y'` se entrega ya tumbada para
+ * montarla contra un `rodete`, que sí tiene su eje en +Y. `fase` gira el
+ * caracol entero: es por dónde queda la boca de salida, y eso lo manda el
+ * montaje —hacia arriba en un compresor, hacia abajo en una turbina—.
+ */
+export function voluta(opts = {}) {
+  const { r0 = 0.55, r1 = 1, espesor = 0.10, ancho = 0.8, seg = 72,
+    bisel = 0.005, eje = 'z', fase = 0 } = opts;
+  const TAU = Math.PI * 2, cara = [];
+  const rv = (t) => r0 + (r1 - r0) * t;
+  for (let i = 0; i <= seg; i++) {
+    const a = fase + (i / seg) * TAU, r = rv(i / seg) + espesor;
+    cara.push([Math.cos(a) * r, Math.sin(a) * r]);
+  }
+  for (let i = seg; i >= 0; i--) {
+    const a = fase + (i / seg) * TAU, r = rv(i / seg);
+    cara.push([Math.cos(a) * r, Math.sin(a) * r]);
+  }
+  const g = normalizaUV(extruido(cara, { espesor: ancho, bisel }), 2);
+  if (eje === 'y') g.rotateX(-Math.PI / 2);
+  return g;
+}
+
+/**
+ * RODETE de flujo radial: la rueda del compresor de un turbo, la de la turbina,
+ * el impulsor de una bomba. Sus álabes NO son paletas planas: entran por el ojo
+ * en dirección axial, giran noventa grados y salen por el diámetro exterior
+ * barriendo un ángulo —la ENVOLTURA—, y esa curvatura hacia atrás es lo que
+ * hace que la máquina no se embale cuando se le abre la salida.
+ *
+ * El álabe se construye como superficie reglada entre la línea del CUBO y la
+ * de la CUBIERTA —las dos curvas meridianas del canal—, y se le da espesor
+ * desplazando cada punto por la normal de la superficie. Con una caja girada no
+ * hay forma de enseñar ni el inductor ni el ángulo de salida.
+ *
+ * Eje en +Y: la entrada mira a +Y y el disco de salida queda en y=0.
+ */
+export function rodete(mat, opts = {}) {
+  const {
+    rExt = 0.30, rOjo = 0.20, rCubo = 0.075, largo = 0.22,
+    b2 = null, alabes = 8, envoltura = 0.85, espesor = null,
+    sentido = 1, seg = 20, tuerca = true,
+  } = opts;
+  const B2 = b2 == null ? rExt * 0.20 : b2;
+  const E = espesor == null ? rExt * 0.055 : espesor;
+  const acero = mat.aluminio || mat.acero || mat.cromo;
+  const g = new THREE.Group();
+
+  // --- las dos curvas meridianas, en (radio, altura) -----------------------
+  const hub = (u) => [rCubo + (rExt - rCubo) * Math.pow(Math.sin(u), 1.5),
+    largo * Math.pow(Math.cos(u), 1.1)];
+  const shr = (u) => [rOjo + (rExt - rOjo) * Math.pow(Math.sin(u), 1.1),
+    B2 + (largo - B2) * Math.pow(Math.cos(u), 0.9)];
+  const giro = (t) => sentido * envoltura * Math.pow(t, 1.35);
+
+  // --- los álabes, todos en una sola geometría -----------------------------
+  const pos = [], idx = [];
+  const P = (t, j, fase) => {
+    const u = (t * Math.PI) / 2, [rh, yh] = hub(u), [rs, ys] = shr(u);
+    const r = rh + (rs - rh) * j, y = yh + (ys - yh) * j, a = giro(t) + fase;
+    return [Math.cos(a) * r, y, Math.sin(a) * r];
+  };
+  const resta = (A, B) => [A[0] - B[0], A[1] - B[1], A[2] - B[2]];
+  const cruz = (A, B) => [A[1] * B[2] - A[2] * B[1], A[2] * B[0] - A[0] * B[2],
+    A[0] * B[1] - A[1] * B[0]];
+  const unit = (V) => { const L = Math.hypot(V[0], V[1], V[2]) || 1;
+    return [V[0] / L, V[1] / L, V[2] / L]; };
+  for (let k = 0; k < alabes; k++) {
+    const fase = (k / alabes) * Math.PI * 2, base = pos.length / 3;
+    // Dos capas (t, j) desplazadas por la normal: la cara y el dorso del álabe.
+    for (let i = 0; i <= seg; i++) for (let j = 0; j <= 1; j++) {
+      const t = i / seg, c = P(t, j, fase);
+      const dt = resta(P(Math.min(1, t + 1e-3), j, fase), P(Math.max(0, t - 1e-3), j, fase));
+      const dj = resta(P(t, 1, fase), P(t, 0, fase));
+      const n = unit(cruz(dt, dj));
+      for (const sg of [1, -1]) pos.push(c[0] + n[0] * sg * E / 2,
+        c[1] + n[1] * sg * E / 2, c[2] + n[2] * sg * E / 2);
+    }
+    // Índice del vértice (i, j, capa): cuatro por cada paso meridiano.
+    const V = (i, j, c) => base + i * 4 + j * 2 + c;
+    for (let i = 0; i < seg; i++) {
+      idx.push(V(i, 0, 0), V(i, 1, 0), V(i + 1, 0, 0), V(i, 1, 0), V(i + 1, 1, 0), V(i + 1, 0, 0));
+      idx.push(V(i, 0, 1), V(i + 1, 0, 1), V(i, 1, 1), V(i, 1, 1), V(i + 1, 0, 1), V(i + 1, 1, 1));
+      // El canto: el álabe tiene grosor y hay que cerrarlo por los cuatro lados.
+      idx.push(V(i, 1, 0), V(i, 1, 1), V(i + 1, 1, 0), V(i, 1, 1), V(i + 1, 1, 1), V(i + 1, 1, 0));
+      idx.push(V(i, 0, 0), V(i + 1, 0, 0), V(i, 0, 1), V(i, 0, 1), V(i + 1, 0, 0), V(i + 1, 0, 1));
+    }
+    idx.push(V(0, 0, 0), V(0, 0, 1), V(0, 1, 0), V(0, 1, 0), V(0, 0, 1), V(0, 1, 1));
+    idx.push(V(seg, 0, 0), V(seg, 1, 0), V(seg, 0, 1), V(seg, 0, 1), V(seg, 1, 0), V(seg, 1, 1));
+  }
+  const gal = new THREE.BufferGeometry();
+  gal.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
+  gal.setIndex(idx);
+  gal.computeVertexNormals(); sanaNormales(gal);
+  const mAl = new THREE.Mesh(gal, acero);
+  mAl.castShadow = true; g.add(mAl);
+
+  // --- el cubo: la pieza maciza sobre la que van los álabes ----------------
+  const perf = [[0, 0], [rExt, 0]];
+  for (let i = seg; i >= 0; i--) { const u = (i / seg) * Math.PI / 2; perf.push(hub(u)); }
+  perf.push([0, largo]);
+  const cubo = new THREE.Mesh(revolucion(perf, { seg: 44 }), acero);
+  cubo.castShadow = true; g.add(cubo);
+  if (tuerca) {
+    const tu = new THREE.Mesh(revolucion([[0, 0], [rCubo * 0.85, 0],
+      [rCubo * 0.62, rCubo * 0.9], [0, rCubo * 0.9]], { seg: 22 }),
+      mat.cromo || mat.acero || acero);
+    tu.position.y = largo; g.add(tu);
+  }
+  g.userData.rExt = rExt; g.userData.largo = largo;
+  return g;
+}
+
+/**
+ * PANAL de tubos y aletas: el núcleo de un radiador, de un intercooler, de un
+ * evaporador. El fluido va por los TUBOS, el aire pasa entre las ALETAS, y toda
+ * la superficie que un método ε-NTU pone en la cuenta está justo ahí. Con una
+ * plancha rayada no se ve ni por dónde pasa el aire.
+ *
+ * La aleta corrugada de cada hueco sale de UN contorno extruido —el mismo truco
+ * del peine del disipador—, así que TOCA los dos tubos en vez de flotar delante.
+ * `userData.matTubo` es el material de los tubos, propio de cada panal: es el
+ * que hay que repintar cuando el laboratorio quiera enseñar la temperatura del
+ * fluido, que la llevan los tubos y no las aletas.
+ */
+export function panal(mat, opts = {}) {
+  const { ancho = 1, alto = 0.7, prof = 0.09, tubos = 17, eje = 'y',
+    onda = 11, colorTubo = 0x39434f, colorAleta = 0x4a5663 } = opts;
+  const g = new THREE.Group();
+  const base = mat.aluminio || mat.acero;
+  const nuevo = (col) => { const m = base.clone(); m.color = new THREE.Color(col); return m; };
+  const mTubo = mat.tubo || nuevo(colorTubo), mAleta = mat.aleta || nuevo(colorAleta);
+  const paso = (ancho * 0.96) / tubos;
+  for (let i = 0; i < tubos; i++) {
+    const x = -ancho * 0.48 + paso * (i + 0.5);
+    const t = new THREE.Mesh(extruido(contornoRedondeado(
+      [[-paso * 0.20, -alto * 0.46], [paso * 0.20, -alto * 0.46],
+        [paso * 0.20, alto * 0.46], [-paso * 0.20, alto * 0.46]], paso * 0.19, 3),
+      { espesor: prof * 0.94, bisel: prof * 0.045 }), mTubo);
+    t.position.x = x; t.castShadow = true; g.add(t);
+    if (i === tubos - 1) continue;
+    const c = [], xa = x + paso * 0.20, xb = x + paso * 0.80;
+    for (let k = 0; k <= onda; k++) { const y = -alto * 0.44 + alto * 0.88 * (k / onda);
+      c.push([k % 2 ? xa : xb, y], [k % 2 ? xb : xa, y]); }
+    for (let k = onda; k >= 0; k--) { const y = -alto * 0.44 + alto * 0.88 * (k / onda);
+      c.push([k % 2 ? xb : xa, y + alto * 0.008], [k % 2 ? xa : xb, y + alto * 0.008]); }
+    g.add(new THREE.Mesh(extruido(c, { espesor: prof * 0.82, bisel: prof * 0.02, curvaSeg: 1 }), mAleta));
+  }
+  if (eje === 'x') g.rotation.z = Math.PI / 2;
+  g.userData.matTubo = mTubo; g.userData.matAleta = mAleta;
+  return g;
+}
+
+/**
+ * FILTRO PLISADO: el elemento de papel de un filtro de aire. Lo que filtra es
+ * la SUPERFICIE, y el plisado es la manera de meter un metro cuadrado de papel
+ * en una caja de un palmo: por eso un filtro sucio ahoga el motor y por eso se
+ * cuenta el número de pliegues. Sale de un contorno en estrella extruido, de
+ * una pieza, en vez de repartir tablillas sueltas alrededor de un cilindro.
+ */
+export function filtroPlisado(mat, opts = {}) {
+  const { rExt = 0.30, rInt = 0.20, alto = 0.30, pliegues = 34 } = opts;
+  const cara = [];
+  for (let i = 0; i < pliegues; i++) {
+    const a0 = (i / pliegues) * Math.PI * 2, a1 = ((i + 0.5) / pliegues) * Math.PI * 2;
+    cara.push([Math.cos(a0) * rInt, Math.sin(a0) * rInt],
+      [Math.cos(a1) * rExt, Math.sin(a1) * rExt]);
+  }
+  const g = new THREE.Group();
+  const pap = new THREE.Mesh(normalizaUV(extruido(cara,
+    { espesor: alto, bisel: 0.004, curvaSeg: 1 }), 3), mat.papel || mat.blanco || mat.aluminio);
+  pap.castShadow = true; g.add(pap);
+  g.rotation.x = -Math.PI / 2;   // eje en +Y, como toda pieza de revolución
+  return g;
+}

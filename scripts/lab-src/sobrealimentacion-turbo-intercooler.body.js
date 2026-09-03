@@ -933,6 +933,13 @@ const MAT={
   avi:emis(0xe9c46a,1.4),
   apag:std({color:0x232a33,roughness:0.6,metalness:0.1}),
 };
+/* Los nombres con los que trabaja la biblioteca de piezas (`P3`, que el molde
+   ya importa), traducidos una vez a los materiales de este laboratorio: así el
+   centinela de materiales falsos sigue sirviendo y la biblioteca no inventa
+   ninguno por su cuenta. */
+const MATP={aluminio:MAT.aluFun, acero:MAT.acero, hierro:MAT.fundicion,
+  cromo:MAT.crom, chapa:MAT.acero, negro:MAT.caja, goma:MAT.goma,
+  cobre:MAT.crom, blanco:MAT.crom, ceramica:MAT.nucleo};
 const nuevaFantasma=()=>std({color:0x5AD1E6,transparent:true,opacity:0.26,
   depthWrite:false,side:THREE.DoubleSide});
 
@@ -1417,13 +1424,16 @@ const BUILD={
     const caja=cil(0.34*K,0.34*K,0.46*K,std({...plas,color:0x21262e,roughness:0.66}),30);
     caja.rotation.z=Math.PI/2; g.add(caja);
     // El elemento filtrante plisado: se ve por qué estorba.
-    const el0=cil(0.30*K,0.30*K,0.30*K,std({color:0xd9d2bc,roughness:0.92,metalness:0.02}),30);
+    /* El elemento, PLISADO de una pieza. Lo que filtra es la superficie, y el
+       plisado es la manera de meter un metro cuadrado de papel en un palmo de
+       caja: por eso un filtro sucio ahoga el motor y por eso se cuenta el
+       número de pliegues. Repartir tablillas sueltas alrededor de un cilindro
+       daba la silueta, pero el papel no tocaba el cilindro por ningún lado. */
+    const el0=P3.filtroPlisado({papel:std({color:0xd9d2bc,roughness:0.92,metalness:0.02})},
+      {rExt:0.31*K, rInt:0.235*K, alto:0.32*K, pliegues:38});
     el0.rotation.z=Math.PI/2; g.add(el0);
-    for(let i=0;i<26;i++){
-      const a=i/26*Math.PI*2;
-      const p=roundedBox(0.30*K,0.020*K,0.055*K,std({color:0xc9c0a6,roughness:0.94}),0.006*K);
-      p.rotation.x=a; p.position.set(0,Math.cos(a)*0.295*K,Math.sin(a)*0.295*K); g.add(p);
-    }
+    const malla=cil(0.235*K,0.235*K,0.34*K,MAT.acero,26);
+    malla.rotation.z=Math.PI/2; g.add(malla);
     const boca=cil(0.115*K,0.115*K,0.30*K,MAT.tubo,22);
     boca.rotation.z=Math.PI/2; boca.position.x=0.36*K; g.add(boca);
     const lab=labelSprite('filtro de aire','#9fb2c6');
@@ -1431,73 +1441,116 @@ const BUILD={
     return g;
   },
   compresor(){
-    const g=new THREE.Group(), d=dims(MQ()), K=d.K, r=d.rComp;
-    // La caracola: un toro achatado con la salida tangencial. No es adorno,
-    // es la forma que convierte velocidad en presión.
-    const car=new THREE.Mesh(new THREE.TorusGeometry(r*0.86,r*0.40,14,42),MAT.aluFun);
-    car.rotation.y=Math.PI/2; g.add(car);
-    const tapa=cil(r*0.92,r*0.72,r*0.30,MAT.aluFun,34);
-    tapa.rotation.z=Math.PI/2; tapa.position.x=-r*0.42; g.add(tapa);
-    const boca=cil(r*0.52,r*0.52,r*0.44,MAT.aluFun,26);
-    boca.rotation.z=Math.PI/2; boca.position.x=-r*0.70; g.add(boca);
-    // La rueda, con álabes de verdad: gira con el modelo.
-    const rue=new THREE.Group(); rue.position.x=-r*0.18; g.add(rue);
-    const buje=cil(r*0.16,r*0.26,r*0.34,MAT.crom,20);
-    buje.rotation.z=Math.PI/2; rue.add(buje);
-    for(let i=0;i<10;i++){
-      const a=i/10*Math.PI*2;
-      const al=roundedBox(r*0.26,r*0.60,r*0.030,MAT.crom,r*0.010);
-      al.position.set(0,Math.cos(a)*r*0.40,Math.sin(a)*r*0.40);
-      al.rotation.x=a; al.rotation.y=0.55; rue.add(al);
-    }
-    // Salida tangencial hacia arriba: por ahí sale el aire caliente al
-    // intercooler.
+    /* EL EJE VA EN Z, que es el eje del turbo: el compresor mira al aire limpio
+       (+z) y la turbina al escape (−z), y las dos ruedas están CALADAS EN EL
+       MISMO EJE. Antes cada carcasa giraba sobre su propio eje X y quedaban una
+       al lado de la otra como dos piezas sin relación, que es justo lo contrario
+       de lo que hay que entender. Cada mitad trae medio cuerpo de cojinetes:
+       cuando las dos están montadas, el eje se ve continuo de punta a punta. */
+    const g=new THREE.Group(), d=dims(MQ()), K=d.K, r=d.rComp, W=r*0.62;
+    /* La CARACOLA: pared en espiral cuyo radio crece con el ángulo, no un toro.
+       Es la forma que va frenando el aire que la rueda lanza hacia fuera, y
+       frenarlo es exactamente convertir velocidad en presión. Se deja abierta
+       por delante —como un turbo de corte de taller— para que se vea la rueda. */
+    const car=new THREE.Mesh(P3.voluta({r0:r*0.50,r1:r*0.94,espesor:r*0.15,
+      ancho:W,fase:Math.PI/2,seg:76}),MAT.aluFun);
+    car.castShadow=true; g.add(car);
+    const tapa=new THREE.Mesh(P3.revolucion(
+      [[0,0],[r*1.09,0],[r*1.09,r*0.11],[0,r*0.11]],{seg:46}),MAT.aluFun);
+    tapa.rotation.x=Math.PI/2; tapa.position.z=-W/2-r*0.11;
+    tapa.castShadow=true; g.add(tapa);
+    // La boca de entrada, ABOCINADA: el aire tiene que entrar sin desprenderse.
+    const boca=new THREE.Mesh(P3.revolucion([
+      [r*0.42,0],[r*0.42,r*0.34],[r*0.54,r*0.50],[r*0.63,r*0.52],
+      [r*0.63,r*0.44],[r*0.49,r*0.30],[r*0.49,0]],{seg:36}),MAT.aluFun);
+    boca.rotation.x=Math.PI/2; boca.position.z=W/2; g.add(boca);
+    // La RUEDA: inductor, álabes curvados hacia atrás y tuerca de punta.
+    const rue=new THREE.Group(); g.add(rue);
+    const rod=P3.rodete(MATP,{rExt:r*0.78,rOjo:r*0.50,rCubo:r*0.17,
+      largo:r*0.50,b2:r*0.14,alabes:9,envoltura:0.95,sentido:1,seg:22});
+    rod.rotation.x=Math.PI/2; rod.position.z=-W/2+r*0.06; rue.add(rod);
+    // Medio cuerpo de cojinetes y medio eje, hacia la turbina.
+    const chra=new THREE.Mesh(P3.revolucion([
+      [r*0.13,0],[r*0.40,0],[r*0.40,r*0.16],[r*0.30,r*0.24],
+      [r*0.30,r*1.05],[r*0.13,r*1.05]],{seg:30}),MAT.acero);
+    chra.rotation.x=-Math.PI/2; chra.position.z=-W/2-r*0.11; g.add(chra);
+    // El eje llega hasta la mitad del hueco: con la turbina montada enfrente,
+    // los dos medios ejes se encuentran y el turbo se ve como lo que es, UNA
+    // sola pieza girando. Suelto sobre el banco, ese medio eje al aire es
+    // exactamente lo que se ve cuando se abre un turbo.
+    const eje=cil(r*0.10,r*0.10,r*1.60,MAT.crom,16);
+    eje.rotation.x=Math.PI/2; eje.position.z=-W/2-r*0.80; rue.add(eje);
+    // Salida tangencial hacia arriba: por ahí sale el aire caliente y comprimido.
     const sal=cil(r*0.40,r*0.40,r*0.70,MAT.aluFun,24);
-    sal.position.set(0,r*1.05,0); g.add(sal);
+    sal.position.set(0,r*1.16,0); g.add(sal);
+    const bri=new THREE.Mesh(P3.revolucion(
+      [[r*0.40,0],[r*0.54,0],[r*0.54,r*0.07],[r*0.40,r*0.07]],{seg:24}),MAT.aluFun);
+    bri.position.set(0,r*1.48,0); g.add(bri);
     const lab=labelSprite('compresor','#9fb2c6');
-    lab.position.set(0,r*1.62,0); lab.scale.multiplyScalar(0.40); g.add(lab);
+    lab.position.set(0,r*1.72,0); lab.scale.multiplyScalar(0.40); g.add(lab);
     g.userData.rueda=rue;
     return g;
   },
   turbina(){
-    const g=new THREE.Group(), d=dims(MQ()), K=d.K, r=d.rTurb;
-    const car=new THREE.Mesh(new THREE.TorusGeometry(r*0.88,r*0.42,14,42),MAT.fundicion);
-    car.rotation.y=Math.PI/2; g.add(car);
-    const tapa=cil(r*0.94,r*0.74,r*0.30,MAT.fundicion,34);
-    tapa.rotation.z=Math.PI/2; tapa.position.x=r*0.42; g.add(tapa);
-    const rue=new THREE.Group(); rue.position.x=r*0.16; g.add(rue);
-    const buje=cil(r*0.16,r*0.22,r*0.32,MAT.crom,20);
-    buje.rotation.z=Math.PI/2; rue.add(buje);
-    for(let i=0;i<11;i++){
-      const a=i/11*Math.PI*2;
-      const al=roundedBox(r*0.24,r*0.56,r*0.032,std({color:0x8d8378,roughness:0.52,metalness:0.70}),r*0.010);
-      al.position.set(0,Math.cos(a)*r*0.38,Math.sin(a)*r*0.38);
-      al.rotation.x=a; al.rotation.y=-0.62; rue.add(al);
-    }
-    // La salida del escape, hacia abajo.
-    const sal=cil(r*0.46,r*0.46,r*0.80,MAT.fundicion,24);
-    sal.position.set(0,-r*1.12,0); g.add(sal);
+    /* La misma caracola, pero del revés y en fundición: aquí el gas entra por
+       la boca grande y sale por el centro, AXIALMENTE, que es por donde va el
+       tubo de escape. La boca de entrada mira al motor (+x), que es de donde
+       viene el colector. */
+    const g=new THREE.Group(), d=dims(MQ()), K=d.K, r=d.rTurb, W=r*0.60;
+    const car=new THREE.Mesh(P3.voluta({r0:r*0.52,r1:r*0.96,espesor:r*0.16,
+      ancho:W,fase:0,seg:76}),MAT.fundicion);
+    car.castShadow=true; g.add(car);
+    const tapa=new THREE.Mesh(P3.revolucion(
+      [[0,0],[r*1.12,0],[r*1.12,r*0.12],[0,r*0.12]],{seg:46}),MAT.fundicion);
+    tapa.rotation.x=-Math.PI/2; tapa.position.z=W/2+r*0.12;
+    tapa.castShadow=true; g.add(tapa);
+    // La brida de entrada, la que se atornilla al colector de escape.
+    const ent=new THREE.Mesh(P3.extruido(P3.contornoRedondeado(
+      [[-r*0.34,-r*0.30],[r*0.34,-r*0.30],[r*0.34,r*0.30],[-r*0.34,r*0.30]],
+      r*0.10,4),{espesor:r*0.12,bisel:r*0.02}),MAT.fundicion);
+    ent.rotation.y=Math.PI/2; ent.position.set(r*1.16,0,0); g.add(ent);
+    // La RUEDA de la turbina: menos álabes, más rectos y sin tuerca —va soldada
+    // al eje— y el exductor descargando hacia el tubo de escape (−z).
+    const rue=new THREE.Group(); g.add(rue);
+    const rod=P3.rodete({...MATP,aluminio:std({color:0x8d8378,roughness:0.52,metalness:0.70})},
+      {rExt:r*0.76,rOjo:r*0.46,rCubo:r*0.16,largo:r*0.46,b2:r*0.16,
+        alabes:11,envoltura:0.55,sentido:-1,seg:20,tuerca:false});
+    rod.rotation.x=-Math.PI/2; rod.position.z=W/2-r*0.06; rue.add(rod);
+    const eje=cil(r*0.10,r*0.10,r*2.00,MAT.crom,16);
+    eje.rotation.x=Math.PI/2; eje.position.z=W/2+r*1.00; rue.add(eje);
+    // Medio cuerpo de cojinetes, hacia el compresor, y la pantalla térmica.
+    const chra=new THREE.Mesh(P3.revolucion([
+      [r*0.13,0],[r*0.42,0],[r*0.42,r*0.16],[r*0.32,r*0.24],
+      [r*0.32,r*1.15],[r*0.13,r*1.15]],{seg:30}),MAT.acero);
+    chra.rotation.x=Math.PI/2; chra.position.z=W/2+r*0.12; g.add(chra);
+    // La salida del escape, AXIAL: el tubo se enchufa en el exductor.
+    const sal=new THREE.Mesh(P3.revolucion([
+      [r*0.40,0],[r*0.52,0],[r*0.52,r*0.62],[r*0.40,r*0.62]],{seg:28}),MAT.fundicion);
+    sal.rotation.x=-Math.PI/2; sal.position.z=-W/2; g.add(sal);
     const lab=labelSprite('turbina','#c9a58a');
-    lab.position.set(0,r*1.36,0); lab.scale.multiplyScalar(0.40); g.add(lab);
+    lab.position.set(0,r*1.42,0); lab.scale.multiplyScalar(0.40); g.add(lab);
     g.userData.rueda=rue;
     return g;
   },
   intercooler(){
     const g=new THREE.Group(), d=dims(MQ()), K=d.K;
     const w=d.wIC, h=d.hIC, e0=d.eIC;
-    const marco=roundedBox(w,h,e0,std({color:0x6b7581,roughness:0.60,metalness:0.55}),0.03*K);
-    g.add(marco);
-    // El núcleo: tubos horizontales y aletas. Se colorea con la efectividad.
-    const nuc=new THREE.Group(); g.add(nuc);
-    const nfil=7;
-    const mn=std({color:0x8d99a6,roughness:0.50,metalness:0.66});
-    for(let i=0;i<nfil;i++){
-      const y=(i-(nfil-1)/2)*h*0.118;
-      const t=roundedBox(w*0.92,h*0.052,e0*0.86,mn,0.008*K);
-      t.position.y=y; nuc.add(t);
-      const al=roundedBox(w*0.92,h*0.048,e0*0.60,std({color:0x707b88,roughness:0.72,metalness:0.42}),0.004*K);
-      al.position.y=y+h*0.059; nuc.add(al);
+    // El marco: los dos largueros que sujetan el panal, no una plancha maciza
+    // por delante —que era lo que antes tapaba el núcleo entero—.
+    const mMarco=std({color:0x6b7581,roughness:0.60,metalness:0.55});
+    for(const sy of [-1,1]){
+      const b=roundedBox(w,h*0.10,e0,mMarco,0.20);
+      b.position.y=sy*h*0.47; g.add(b);
     }
+    /* El NÚCLEO, tubos y aletas de verdad: el aire comprimido va por dentro de
+       los tubos, el aire de la calle pasa entre las aletas, y toda la superficie
+       que el método ε-NTU pone en la cuenta está justo ahí. Con siete planchas
+       superpuestas no se veía ni por dónde pasaba el aire de fuera. Lo que se
+       repinta con la efectividad son los TUBOS, que son los que llevan la carga. */
+    const nuc=P3.panal(MATP,{ancho:h*0.90, alto:w*0.94, prof:e0*0.80,
+      tubos:9, eje:'x', onda:15, colorTubo:0x8d99a6, colorAleta:0x707b88});
+    g.add(nuc);
+    const mn=nuc.userData.matTubo;
     // Los dos colectores laterales, que es por donde entra y sale el aire.
     for(const sx of [-1,1]){
       const c=cil(h*0.16,h*0.16,h*0.92,MAT.aluFun,22);
@@ -1512,13 +1565,29 @@ const BUILD={
   },
   mariposa(){
     const g=new THREE.Group(), K=dims(MQ()).K;
-    const cuerpo=cil(0.17*K,0.17*K,0.24*K,MAT.aluFun,28);
-    cuerpo.rotation.z=Math.PI/2; g.add(cuerpo);
-    const pl=cil(0.15*K,0.15*K,0.016*K,MAT.crom,26);
+    /* El cuerpo de mariposa es un TUBO con bridas, no un tapón macizo: por
+       dentro pasa todo el aire del motor, y el plato tiene que caber girado del
+       todo. Se dibuja hueco, con sus dos bridas atornilladas. */
+    const cuerpo=new THREE.Mesh(P3.revolucion([
+      [0.150*K,-0.13*K],[0.205*K,-0.13*K],[0.205*K,-0.10*K],[0.170*K,-0.09*K],
+      [0.170*K,0.09*K],[0.205*K,0.10*K],[0.205*K,0.13*K],[0.150*K,0.13*K]],
+      {seg:34}),MAT.aluFun);
+    cuerpo.rotation.z=Math.PI/2; cuerpo.castShadow=true; g.add(cuerpo);
+    // El plato, con su borde en bisel: es lo que le permite cerrar contra el
+    // tubo estando inclinado, y por eso una mariposa «cerrada» nunca cierra del
+    // todo —siempre deja pasar el aire de ralentí—.
+    const pl=new THREE.Mesh(P3.revolucion([
+      [0,-0.008*K],[0.140*K,-0.014*K],[0.148*K,0],[0.140*K,0.014*K],[0,0.008*K]],
+      {seg:30}),MAT.crom);
     pl.rotation.z=Math.PI/2; g.add(pl);
     const eje=cil(0.016*K,0.016*K,0.40*K,MAT.crom,12); g.add(eje);
     const mot=roundedBox(0.22*K,0.20*K,0.16*K,MAT.caja,0.03*K);
     mot.position.set(0,0.22*K,0); g.add(mot);
+    // El sector dentado del mando y el potenciómetro de posición.
+    const sec=new THREE.Mesh(P3.engrane({z:22,m:0.0085*K,ancho:0.022*K}).geo,MAT.acero);
+    sec.rotation.z=Math.PI/2; sec.position.set(0,0.11*K,0.10*K); g.add(sec);
+    const tps=cil(0.055*K,0.055*K,0.045*K,MAT.caja,18);
+    tps.rotation.z=Math.PI/2; tps.position.set(-0.20*K,0,0); g.add(tps);
     const lab=labelSprite('mariposa','#9fb2c6');
     lab.position.set(0,0.40*K,0); lab.scale.multiplyScalar(0.36); g.add(lab);
     g.userData.plato=pl;
@@ -1527,16 +1596,30 @@ const BUILD={
   wastegate(){
     const g=new THREE.Group(), K=dims(MQ()).K;
     // La cápsula neumática y su varilla: el actuador que abre la trampilla.
-    const cap=cil(0.16*K,0.16*K,0.11*K,std({color:0x7f8894,roughness:0.44,metalness:0.70}),26);
-    cap.rotation.x=Math.PI/2; cap.position.set(0,0.30*K,0); g.add(cap);
+    /* La cápsula es DOS CONCHAS ENGARZADAS con un diafragma entre ellas: esa
+       costura es lo que aguanta la presión de soplado por un lado y el muelle
+       por el otro, y es la pieza que se cambia cuando un turbo «no sopla». */
+    const mCap=std({color:0x7f8894,roughness:0.44,metalness:0.70});
+    const cap=new THREE.Mesh(P3.revolucion([
+      [0,-0.055*K],[0.145*K,-0.055*K],[0.168*K,-0.010*K],[0.168*K,0.010*K],
+      [0.145*K,0.055*K],[0,0.055*K]],{seg:30}),mCap);
+    cap.rotation.x=Math.PI/2; cap.position.set(0,0.30*K,0);
+    cap.castShadow=true; g.add(cap);
+    const tomap=cil(0.020*K,0.020*K,0.07*K,MAT.tubo,12);
+    tomap.rotation.x=Math.PI/2; tomap.position.set(0,0.30*K,0.09*K); g.add(tomap);
     const var0=cil(0.020*K,0.020*K,0.30*K,MAT.crom,12);
     var0.position.set(0,0.13*K,0); g.add(var0);
     const braz=roundedBox(0.19*K,0.036*K,0.030*K,MAT.acero,0.010*K);
     braz.position.set(0.08*K,0.005*K,0); g.add(braz);
     // La trampilla: gira de verdad con la apertura que calcula el modelo.
     const piv=new THREE.Group(); piv.position.set(0.17*K,0,0); g.add(piv);
-    const tap=roundedBox(0.020*K,0.15*K,0.15*K,std({color:0x6d655c,roughness:0.70,metalness:0.55}),0.008*K);
-    tap.position.set(0,-0.07*K,0); piv.add(tap);
+    /* La trampilla es un PLATO REDONDO sobre un asiento redondo: si fuera
+       cuadrada no sellaría contra la tobera, y el caudal que se escapa por ella
+       —el que no pasa por la turbina— es justo lo que regula el soplado. */
+    const tap=new THREE.Mesh(P3.revolucion([
+      [0,0],[0.098*K,0],[0.086*K,0.020*K],[0,0.020*K]],{seg:26}),
+      std({color:0x6d655c,roughness:0.70,metalness:0.55}));
+    tap.rotation.z=Math.PI/2; tap.position.set(0,-0.07*K,0); piv.add(tap);
     const asiento=new THREE.Mesh(new THREE.TorusGeometry(0.085*K,0.016*K,10,26),MAT.fundicion);
     asiento.rotation.y=Math.PI/2; asiento.position.set(0.17*K,-0.14*K,0); g.add(asiento);
     const man=tubo([new THREE.Vector3(0,0.30*K,0.02*K),
@@ -1612,7 +1695,9 @@ function levantaMotor(){
     raiz.add(c); cabecero.push(c);
   }
   // El escape aguas abajo de la turbina.
-  const esc=tubo([new THREE.Vector3(d.xTurbo,d.yTurbo-d.rTurb*1.5,d.zTurb),
+  // El escape sale del EXDUCTOR, por el eje: es por donde descarga una turbina
+  // radial, no por debajo de la caracola.
+  const esc=tubo([new THREE.Vector3(d.xTurbo,d.yTurbo,d.zTurb-d.rTurb*0.62),
     new THREE.Vector3(d.xTurbo+0.5*K,0.52*K,d.zEsc),
     new THREE.Vector3(d.xEsc-0.5*K,d.yEsc-0.10*K,d.zEsc),
     new THREE.Vector3(d.xEsc,d.yEsc,d.zEsc)],0.062*K,MAT.tubo);
@@ -1650,11 +1735,11 @@ function armaCamino(){
   // 1 · filtro → compresor (aire limpio, frío, a la presión de la calle)
   tramo('filtro','compresor',[
     V(d.xFiltro+0.36*K,d.yFiltro,d.zFiltro),
-    V(d.xTurbo-0.34*K,d.yFiltro-0.12*K,d.zComp+0.10*K),
-    V(d.xTurbo-d.rComp*0.70,d.yTurbo,d.zComp)],0.052*K,MAT.manguera);
+    V(d.xTurbo-0.30*K,d.yFiltro-0.12*K,d.zComp+0.52*K),
+    V(d.xTurbo,d.yTurbo,d.zComp+d.rComp*0.62)],0.052*K,MAT.manguera);
   // 2 · compresor → intercooler (aire caliente y comprimido)
   tramo('compresor','intercooler',[
-    V(d.xTurbo,d.yTurbo+d.rComp*1.05,d.zComp),
+    V(d.xTurbo,d.yTurbo+d.rComp*1.30,d.zComp),
     V(d.xTurbo+0.40*K,d.yIC+d.hIC*0.42,d.zComp+0.60*K),
     V(d.xIC-d.wIC*0.50,d.yIC+d.hIC*0.30,d.zIC-d.eIC*1.1)],0.050*K,
     std({color:0x8a5a4a,roughness:0.52,metalness:0.30}));
@@ -2604,8 +2689,10 @@ function anima(dt){
   // Las dos ruedas del turbo giran EN EL MISMO EJE y a las MISMAS vueltas: es la
   // idea central de la máquina y por eso no se animan por separado.
   const w=(V.nTurbo||0)/60*2*Math.PI*0.012;   // rad/s en pantalla, ralentizado
-  if(RIG.ruedaC) RIG.ruedaC.rotation.x+=w*dt;
-  if(RIG.ruedaT) RIG.ruedaT.rotation.x+=w*dt;
+  // Las dos ruedas giran sobre el eje del turbo, que va en Z: son la MISMA
+  // pieza girando, y por eso la velocidad es la misma para las dos.
+  if(RIG.ruedaC) RIG.ruedaC.rotation.z+=w*dt;
+  if(RIG.ruedaT) RIG.ruedaT.rotation.z+=w*dt;
   // La trampilla de la descarga abre lo que el modelo diga.
   if(RIG.aletaWG) RIG.aletaWG.rotation.z=-clamp(V.xWG,0,1)*0.95;
   // La mariposa gira con la carga.

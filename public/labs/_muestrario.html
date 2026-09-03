@@ -132,6 +132,13 @@ pon('devanado', (()=>{ const g=new THREE.Group();
   g.add(P3.devanado(MAT,{r:0.36,ranuras:24,largo:0.34,paso:4,hilo:0.026,bobinas:24})); return g; })(), 1.0);
 pon('rotor de imanes', P3.rotorImanes(MAT, { r: 0.42, largo: 0.34, polos: 8, dEje: 0.16 }), 1.0);
 pon('rodamiento', P3.rodamiento(MAT, { dExt: 0.52, dInt: 0.26, ancho: 0.17 }), 1.0);
+MAT.tubo = std({ color: 0x39434f, roughness: 0.46, metalness: 0.72 });
+MAT.aleta = std({ color: 0x4a5663, roughness: 0.44, metalness: 0.68 });
+MAT.papel = std({ color: 0xd9d2bc, roughness: 0.92, metalness: 0.02 });
+pon('voluta', malla(P3.voluta({ r0: 0.30, r1: 0.52, espesor: 0.055, ancho: 0.42, eje: 'y' }), MAT.aluminio), 1.0);
+pon('rodete', P3.rodete(MAT, { rExt: 0.42, rOjo: 0.27, rCubo: 0.10, largo: 0.30, alabes: 9 }), 1.0, -0.25);
+pon('panal', P3.panal(MAT, { ancho: 1.0, alto: 0.72, prof: 0.10, tubos: 15 }), 1.0);
+pon('filtro plisado', P3.filtroPlisado(MAT, { rExt: 0.42, rInt: 0.28, alto: 0.44 }), 1.0);
 
 // El muestrario se anuncia cuando ha pintado, para que la captura sepa esperar.
 let n = 0;
