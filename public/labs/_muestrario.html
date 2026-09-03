@@ -120,6 +120,11 @@ pon('rosca', P3.rosca(MAT, { r: 0.14, paso: 0.055, vueltas: 7, grueso: 0.022 }),
 pon('aletas', P3.aletas(MAT, { r: 0.32, rInt: 0.16, n: 7, paso: 0.075, espesor: 0.020 }), 1.0);
 pon('manguera', P3.manguera(MAT, { puntos: [[-0.45, -0.25, 0], [-0.1, 0.30, 0.2], [0.45, -0.20, 0]], r: 0.055 }), 1.0);
 pon('corona de tornillos', P3.corona(MAT, { r: 0.34, n: 6, d: 0.075, largo: 0.20 }), 1.0);
+pon('neumático y llanta', P3.neumatico(MAT, { dExt: 1.05, dLlanta: 0.58, ancho: 0.30 }), 1.0);
+pon('rueda fónica', P3.ruedaFonica(MAT, { d: 0.80, dientes: 44, alto: 0.045, ancho: 0.04 }), 1.0);
+pon('captador', P3.captador(MAT, { d: 0.16, largo: 0.55 }), 1.0);
+pon('grupo ABS', P3.grupoABS(MAT, { ancho: 0.62, alto: 0.38, fondo: 0.44 }), 1.0);
+pon('caja de mando', P3.cajaMando(MAT, { ancho: 0.56, alto: 0.34, fondo: 0.46 }), 1.0);
 
 // El muestrario se anuncia cuando ha pintado, para que la captura sepa esperar.
 let n = 0;

@@ -86,6 +86,7 @@ import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
 import { RoundedBoxGeometry } from 'three/addons/geometries/RoundedBoxGeometry.js';
+import * as P3 from '/labs/_piezas3d.js';
 import { EffectComposer } from 'three/addons/postprocessing/EffectComposer.js';
 import { RenderPass } from 'three/addons/postprocessing/RenderPass.js';
 import { GTAOPass } from 'three/addons/postprocessing/GTAOPass.js';
@@ -482,37 +483,92 @@ const {scene}=S;
 const std=o=>new THREE.MeshStandardMaterial(o);
 const MAT={
   tire:std({color:0x111417,roughness:0.9,metalness:0}),
-  disc:std({color:0xb8bcc0,roughness:0.35,metalness:0.95}),
+  // Un disco de freno NO es cromado: es fundición gris, y a los dos días de
+  // usarlo está mate y con la huella de la pastilla marcada. Con metalness 0,95
+  // sólo enseñaba lo que reflejaba.
+  disc:std({color:0x8d9298,roughness:0.52,metalness:0.62}),
   caliper:std({color:0xd6432f,roughness:0.4,metalness:0.6}),
   hub:std({color:0x8893a0,roughness:0.4,metalness:0.9}),
   modulator:std({color:0x2a3038,roughness:0.4,metalness:0.6}),
   ecu:std({color:0x14181c,roughness:0.5,metalness:0.4}),
   sensor:std({color:0xffd166,roughness:0.4,metalness:0.5}),
   wire:std({color:0x1a1a1a,roughness:0.7}),
+  // La pastilla y la llanta no estaban porque no había ni pastilla ni llanta.
+  friccion:std({color:0x3a3128,roughness:0.95,metalness:0.08}),
+  llanta:std({color:0x9fa8b2,roughness:0.34,metalness:0.92}),
+  negro:std({color:0x1e2227,roughness:0.62,metalness:0.15}),
+  cobre:std({color:0xb8763c,roughness:0.32,metalness:1}),
 };
+// La biblioteca de piezas trabaja con nombres de material, no con los de este
+// laboratorio: aquí se traducen una vez.
+const MATP={aluminio:MAT.llanta, acero:MAT.hub, hierro:MAT.disc, cromo:MAT.hub,
+  negro:MAT.negro, goma:MAT.tire, friccion:MAT.friccion, cobre:MAT.cobre,
+  ceramica:MAT.sensor, blanco:MAT.hub};
 
 const group=new THREE.Group(); group.position.set(0,1.1,0); scene.add(group);
-// rueda + neumático
+
+/* ---- LA RUEDA ----------------------------------------------------------
+   Antes era un toro liso y un cilindro. Una rueda es lo que se BLOQUEA en este
+   laboratorio, así que tiene que verse que rueda: dibujo con tacos, llanta con
+   radios, buje con sus cinco espárragos. Y el dibujo no es decoración —la
+   huella del neumático es de donde sale el rozamiento del que va todo—.        */
 const wheelGrp=new THREE.Group(); wheelGrp.position.set(-1.4,0,0); group.add(wheelGrp);
-const tire=new THREE.Mesh(new THREE.TorusGeometry(0.55,0.22,16,40),MAT.tire); tire.rotation.y=Math.PI/2; wheelGrp.add(tire);
-const hub=new THREE.Mesh(new THREE.CylinderGeometry(0.3,0.3,0.25,24),MAT.hub); hub.rotation.z=Math.PI/2; wheelGrp.add(hub);
-// disco de freno
+const rueda=P3.neumatico(MATP,{dExt:1.48,dLlanta:0.86,ancho:0.42,tacos:30,radios:5});
+wheelGrp.add(rueda);
+const tire=rueda;
+const hub=new THREE.Mesh(P3.revolucion(
+  [[0,-0.11],[0.28,-0.11],[0.30,-0.06],[0.30,0.08],[0.24,0.13],[0,0.13]],{seg:26}),MAT.hub);
+hub.rotation.z=Math.PI/2; hub.castShadow=true; wheelGrp.add(hub);
+
+/* ---- EL DISCO ----------------------------------------------------------
+   VENTILADO: dos pistas separadas por aletas radiales, con su campana. Que sea
+   ventilado no es estética —es la razón de que un disco aguante una bajada de
+   puerto— y un cilindro liso enseña justo lo contrario.                        */
 const discGrp=new THREE.Group(); discGrp.position.set(-1.4,0,0); group.add(discGrp);
-const disc=new THREE.Mesh(new THREE.CylinderGeometry(0.42,0.42,0.04,40),MAT.disc); disc.rotation.z=Math.PI/2; discGrp.add(disc);
-for(let i=0;i<12;i++){const a=i/12*Math.PI*2;const vent=new THREE.Mesh(new THREE.BoxGeometry(0.03,0.02,0.06),MAT.disc);vent.position.set(0,Math.cos(a)*0.3,Math.sin(a)*0.3);discGrp.add(vent);}
-// mordaza (caliper) — fija, no rota
-const caliper=roundedBox(0.16,0.32,0.42,MAT.caliper,0.2); caliper.position.set(-1.05,0.35,0); group.add(caliper);
-// sensor de velocidad de rueda (anillo dentado + sensor)
-const tone=new THREE.Mesh(new THREE.TorusGeometry(0.46,0.015,8,48),MAT.hub); tone.rotation.y=Math.PI/2; wheelGrp.add(tone);
-const wss=new THREE.Mesh(new THREE.CylinderGeometry(0.04,0.04,0.14,12),MAT.sensor); wss.position.set(-1.0,0.46,0); group.add(wss);
-// modulador hidráulico
-const modulator=roundedBox(0.6,0.4,0.5,MAT.modulator,0.2); modulator.position.set(1.2,0.7,0); group.add(modulator);
-// ECU
-const ecu=roundedBox(0.55,0.35,0.6,MAT.ecu,0.15); ecu.position.set(2.1,0.55,0); group.add(ecu);
+const discoP=P3.discoFreno(MATP,{dExt:1.06,dInt:0.58,espesor:0.13,nAletas:34,
+  campana:true,perforado:10});
+discoP.rotation.z=Math.PI/2; discGrp.add(discoP);
+const disc=discoP;
+
+/* ---- LA MORDAZA --------------------------------------------------------
+   Flotante, en forma de C: abraza el disco por fuera y sus pistones empujan
+   sólo por dentro. La de fuera aprieta porque la mordaza se DESLIZA, que es
+   precisamente lo que se agarrota en una mordaza vieja.                        */
+const caliper=P3.mordaza(MATP,{dDisco:1.06,espesorDisco:0.13,ancho:0.34,nPistones:2});
+caliper.traverse(o=>{if(o.isMesh&&o.material===MATP.aluminio)o.material=MAT.caliper;});
+caliper.position.set(0,0.50,0); caliper.rotation.y=Math.PI/2;
+discGrp.add(caliper);
+
+/* ---- LA MEDIDA ---------------------------------------------------------
+   La rueda fónica y su captador. Los dientes SON la señal: cada uno da un
+   pulso, y la cuenta de pulsos por vuelta es lo que fija la resolución del
+   sistema. Un aro liso no da ninguna señal y deja el laboratorio sin explicar
+   de dónde sale la medida que compara con la velocidad del coche.              */
+const toneG=P3.ruedaFonica(MATP,{d:0.72,dientes:48,alto:0.05,ancho:0.05});
+wheelGrp.add(toneG);
+const tone=toneG;
+const wssG=P3.captador(MATP,{d:0.11,largo:0.34});
+wssG.position.set(-1.40,0.44,0); wssG.rotation.z=Math.PI;
+group.add(wssG);
+const wss=wssG;
+
+/* ---- EL GRUPO HIDRÁULICO ----------------------------------------------
+   No es una caja: es un bloque de aluminio con OCHO electroválvulas —una de
+   admisión y una de escape por canal—, el motor de la bomba de retorno al
+   costado y los racores de las cuatro tuberías. Sin ver las válvulas no se
+   entiende qué modula; sin ver la bomba, adónde vuelve el líquido que libera.  */
+const modulator=P3.grupoABS(MATP,{ancho:0.66,alto:0.40,fondo:0.46,valvulas:8,canales:4});
+modulator.traverse(o=>{if(o.isMesh&&o.material===MATP.aluminio)o.material=MAT.modulator;});
+modulator.position.set(1.2,0.7,0); group.add(modulator);
+
+/* ---- LA ECU ------------------------------------------------------------ */
+const ecu=P3.cajaMando(MATP,{ancho:0.58,alto:0.32,fondo:0.52,aletas:11,pines:10});
+ecu.traverse(o=>{if(o.isMesh&&o.material===MATP.aluminio)o.material=MAT.ecu;});
+ecu.position.set(2.1,0.55,0); group.add(ecu);
 // mangueras/cables
-const line1=new THREE.Mesh(new THREE.TubeGeometry(new THREE.QuadraticBezierCurve3(new THREE.Vector3(-1.05,0.35,0),new THREE.Vector3(0.1,0.55,0),new THREE.Vector3(0.9,0.7,0)),20,0.025,8),MAT.modulator.clone());
+const line1=new THREE.Mesh(new THREE.TubeGeometry(new THREE.QuadraticBezierCurve3(new THREE.Vector3(-1.26,0.66,0.12),new THREE.Vector3(0.1,0.66,0.05),new THREE.Vector3(0.94,0.50,0.06)),20,0.025,8),MAT.modulator.clone());
 group.add(line1);
-const wire1=new THREE.Mesh(new THREE.TubeGeometry(new THREE.QuadraticBezierCurve3(new THREE.Vector3(-1.0,0.46,0),new THREE.Vector3(0.3,0.9,0),new THREE.Vector3(1.9,0.7,0)),20,0.018,8),MAT.wire);
+const wire1=new THREE.Mesh(new THREE.TubeGeometry(new THREE.QuadraticBezierCurve3(new THREE.Vector3(-1.40,0.64,0),new THREE.Vector3(0.3,1.02,0),new THREE.Vector3(1.88,0.50,0.30)),20,0.018,8),MAT.wire);
 group.add(wire1);
 const wire2=new THREE.Mesh(new THREE.TubeGeometry(new THREE.QuadraticBezierCurve3(new THREE.Vector3(1.2,0.9,0),new THREE.Vector3(1.7,0.9,0),new THREE.Vector3(2.1,0.75,0)),20,0.018,8),MAT.wire);
 group.add(wire2);
@@ -536,12 +592,27 @@ pickerFor(scene,S.camera,S.renderer.domElement,hit=>{
 
 const homes={wheel:wheelGrp.position.clone(),disc:discGrp.position.clone(),modulator:modulator.position.clone(),ecu:ecu.position.clone()};
 let exploded=false,running=false,vVehicle=20,vWheel=20,ang=0,braking=false,pulseT=0;
+// El asidero de pruebas. Sin él una prueba sólo puede dar clics a ciegas sobre
+// coordenadas de pantalla, y deja de valer en cuanto se mueve un botón.
+window.__labDebug={
+  frena(){ braking=true; running=true; },
+  suelta(){ braking=false; },
+  despieza(v){ exploded=(v===undefined?!exploded:!!v); },
+  get vehiculo(){ return vVehicle; },
+  get rueda(){ return vWheel; },
+  get deslizamiento(){ return vVehicle>0.1?(vVehicle-vWheel)/vVehicle:0; },
+  get dientes(){ return toneG.userData.dientes; },
+  get piezasNaN(){ const m=[]; scene.traverse(o=>{ const q=o.position;
+    if(!isFinite(q.x)||!isFinite(q.y)||!isFinite(q.z)) m.push(o.type); }); return m; },
+  mira(x,y,z,tx,ty,tz){ S.camera.position.set(x,y,z);
+    if(S.controls){S.controls.target.set(tx||0,ty||1.1,tz||0);S.controls.update();} },
+};
 const synth=makeSynth({type:'sawtooth',type2:'square',filterFreq:600,Q:6});
 
 S.setAnimate((dt,t)=>{
   const ex=exploded?1:0;
-  wheelGrp.position.x=THREE.MathUtils.lerp(wheelGrp.position.x,homes.wheel.x-ex*0.6,0.1);
-  discGrp.position.x=THREE.MathUtils.lerp(discGrp.position.x,homes.disc.x+ex*0.6,0.1);
+  wheelGrp.position.x=THREE.MathUtils.lerp(wheelGrp.position.x,homes.wheel.x-ex*1.15,0.1);
+  discGrp.position.x=THREE.MathUtils.lerp(discGrp.position.x,homes.disc.x+ex*0.55,0.1);
   modulator.position.x=THREE.MathUtils.lerp(modulator.position.x,homes.modulator.x+ex*0.4,0.1);
   ecu.position.x=THREE.MathUtils.lerp(ecu.position.x,homes.ecu.x+ex*0.4,0.1);
 

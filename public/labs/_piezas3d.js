@@ -930,3 +930,179 @@ export function manguera(mat, opts = {}) {
   }
   return g;
 }
+
+/* ==========================================================================
+   §6 · RUEDA, FRENO ELECTRÓNICO Y CAJAS DE MANDO
+   ========================================================================== */
+
+/**
+ * NEUMÁTICO con su llanta. Un toro liso es una rosquilla: lo que hace que una
+ * rueda se lea como una rueda son los TACOS del dibujo, el flanco con su hombro
+ * y la llanta con sus radios y su pestaña. Y el dibujo no es adorno en un
+ * laboratorio de ABS: la huella es de donde sale el rozamiento del que va todo.
+ */
+export function neumatico(mat, opts = {}) {
+  const { dExt = 1.2, dLlanta = 0.66, ancho = 0.34, tacos = 28, radios = 5 } = opts;
+  const g = new THREE.Group();
+  const Re = dExt / 2, Rl = dLlanta / 2, a = ancho / 2;
+  // El flanco: de la pestaña de la llanta al hombro, con la curva del flanco.
+  const goma = new THREE.Mesh(revolucion([
+    [Rl, -a * 0.86], [Rl * 1.06, -a * 0.94], [Re * 0.80, -a], [Re * 0.94, -a * 0.86],
+    [Re, -a * 0.62], [Re, a * 0.62], [Re * 0.94, a * 0.86], [Re * 0.80, a],
+    [Rl * 1.06, a * 0.94], [Rl, a * 0.86],
+  ], { seg: 56 }), mat.goma || mat.negro);
+  goma.rotation.z = Math.PI / 2; goma.castShadow = true; g.add(goma);
+  // Los tacos, en dos hileras y al tresbolillo, que es como van.
+  for (let i = 0; i < tacos; i++) {
+    const ang = (i / tacos) * Math.PI * 2;
+    for (const [k, z] of [[0, -0.30], [1, 0.30]]) {
+      const t = new THREE.Mesh(
+        new THREE.BoxGeometry(ancho * 0.34, dExt * 0.022, dExt * 0.055),
+        mat.goma || mat.negro);
+      const off = k ? Math.PI / tacos : 0;
+      t.position.set(z * ancho, Math.cos(ang + off) * Re, Math.sin(ang + off) * Re);
+      t.rotation.x = -(ang + off);
+      g.add(t);
+    }
+  }
+  // La llanta: aro con sus dos pestañas, plato y radios.
+  const aro = new THREE.Mesh(revolucion([
+    [Rl * 0.62, -a * 0.90], [Rl * 0.98, -a * 0.90], [Rl * 0.98, -a * 0.72],
+    [Rl * 0.90, -a * 0.60], [Rl * 0.90, a * 0.60], [Rl * 0.98, a * 0.72],
+    [Rl * 0.98, a * 0.90], [Rl * 0.62, a * 0.90],
+  ], { seg: 48 }), mat.aluminio);
+  aro.rotation.z = Math.PI / 2; aro.castShadow = true; g.add(aro);
+  const plato = new THREE.Mesh(
+    new THREE.CylinderGeometry(Rl * 0.34, Rl * 0.34, ancho * 0.30, 26), mat.aluminio);
+  plato.rotation.z = Math.PI / 2; plato.position.x = -a * 0.34; g.add(plato);
+  for (let i = 0; i < radios; i++) {
+    const ang = (i / radios) * Math.PI * 2;
+    const r = new THREE.Mesh(
+      new THREE.BoxGeometry(ancho * 0.20, Rl * 0.62, dLlanta * 0.15), mat.aluminio);
+    r.position.set(-a * 0.34, Math.cos(ang) * Rl * 0.62, Math.sin(ang) * Rl * 0.62);
+    r.rotation.x = -ang; r.castShadow = true; g.add(r);
+  }
+  // Los cinco espárragos con sus tuercas: es por donde se quita una rueda.
+  g.add(corona(mat, { r: Rl * 0.22, n: 5, d: dLlanta * 0.035, largo: ancho * 0.12,
+                      y: -a * 0.50, eje: 'x' }));
+  g.userData.dExt = dExt; g.userData.ancho = ancho;
+  return g;
+}
+
+/**
+ * RUEDA FÓNICA del ABS: la corona dentada que pasa por delante del captador. Los
+ * dientes SON la señal —cada uno da un pulso, y la cuenta de pulsos por vuelta
+ * fija la resolución del sistema—. Un aro liso no da ninguna señal, y dibujarlo
+ * liso deja el laboratorio sin explicar de dónde sale la medida.
+ */
+export function ruedaFonica(mat, opts = {}) {
+  const { d = 0.92, dientes = 48, alto = 0.05, ancho = 0.04 } = opts;
+  const R = d / 2, c = [];
+  for (let i = 0; i < dientes; i++) {
+    const a0 = (i / dientes) * Math.PI * 2, p = Math.PI * 2 / dientes;
+    for (const [t, r] of [[0, R], [p * 0.5, R], [p * 0.5, R - alto], [p, R - alto]]) {
+      c.push([Math.cos(a0 + t) * r, Math.sin(a0 + t) * r]);
+    }
+  }
+  const cor = new THREE.Mesh(extruido(c, { espesor: ancho, bisel: ancho * 0.10, curvaSeg: 2 }),
+    mat.acero);
+  cor.rotation.y = Math.PI / 2; cor.castShadow = true;
+  const g = new THREE.Group(); g.add(cor);
+  g.userData.dientes = dientes; g.userData.d = d;
+  return g;
+}
+
+/**
+ * CAPTADOR inductivo o de efecto Hall: cuerpo cilíndrico con brida de sujeción,
+ * punta afinada y conector. Lo que hay que reconocer es que APUNTA a algo, y un
+ * cilindro suelto no apunta a nada.
+ */
+export function captador(mat, opts = {}) {
+  const { d = 0.09, largo = 0.30 } = opts;
+  const g = new THREE.Group(); const R = d / 2;
+  const cuerpo = new THREE.Mesh(revolucion([
+    [0, -largo * 0.50], [R * 0.62, -largo * 0.50], [R * 0.62, -largo * 0.34],
+    [R, -largo * 0.26], [R, largo * 0.30], [R * 0.86, largo * 0.36], [0, largo * 0.36],
+  ], { seg: 22 }), mat.negro || mat.acero);
+  cuerpo.castShadow = true; g.add(cuerpo);
+  // La brida por la que se atornilla al soporte: sin ella el captador flota.
+  const brida = new THREE.Mesh(extruido(contornoRedondeado(
+    [[-R * 0.9, -R * 0.5], [R * 2.4, -R * 0.5], [R * 2.4, R * 0.5], [-R * 0.9, R * 0.5]], R * 0.4, 3),
+    { huecos: [circulo(R * 1.7, 0, R * 0.42, 12)], espesor: R * 0.5, bisel: R * 0.06 }),
+    mat.acero);
+  brida.rotation.x = Math.PI / 2; brida.position.y = largo * 0.06; g.add(brida);
+  const con = conector(mat, { ancho: d * 1.5, alto: d * 0.9, fondo: d * 0.8, pines: 2 });
+  con.position.y = largo * 0.52; con.rotation.x = -Math.PI / 2; g.add(con);
+  g.userData.puntaY = -largo * 0.50;
+  return g;
+}
+
+/**
+ * GRUPO HIDRÁULICO de ABS: el bloque de aluminio con sus electroválvulas
+ * encima, el motor de la bomba de retorno a un lado y los racores de las
+ * tuberías. Son tres cosas distintas y una caja gris no enseña ninguna: sin ver
+ * las válvulas no se entiende qué modula, y sin ver la bomba no se entiende de
+ * dónde vuelve el líquido que se libera.
+ */
+export function grupoABS(mat, opts = {}) {
+  const { ancho = 0.56, alto = 0.34, fondo = 0.40, valvulas = 8, canales = 4 } = opts;
+  const g = new THREE.Group();
+  const bloque = new THREE.Mesh(normalizaUV(extruido(contornoRedondeado(
+    [[-ancho / 2, -alto / 2], [ancho / 2, -alto / 2], [ancho / 2, alto / 2], [-ancho / 2, alto / 2]],
+    alto * 0.10, 3), { espesor: fondo, bisel: alto * 0.03 }), 2), mat.aluminio);
+  bloque.castShadow = true; g.add(bloque);
+  // Las electroválvulas: una de admisión y una de escape por canal, en dos filas.
+  for (let i = 0; i < valvulas; i++) {
+    const f = i % 2, c = Math.floor(i / 2);
+    const v = new THREE.Mesh(revolucion([
+      [0, 0], [ancho * 0.042, 0], [ancho * 0.042, alto * 0.30],
+      [ancho * 0.052, alto * 0.32], [ancho * 0.052, alto * 0.52],
+      [ancho * 0.030, alto * 0.56], [0, alto * 0.56]], { seg: 18 }), mat.acero);
+    v.position.set((c - (valvulas / 2 - 1) / 2) * ancho * 0.21, alto / 2,
+                   (f - 0.5) * fondo * 0.42);
+    g.add(v);
+  }
+  // El motor de la bomba de retorno, en el costado.
+  const bomba = new THREE.Mesh(
+    new THREE.CylinderGeometry(alto * 0.30, alto * 0.30, ancho * 0.30, 26), mat.negro || mat.acero);
+  bomba.rotation.z = Math.PI / 2; bomba.position.set(-ancho * 0.62, -alto * 0.06, 0);
+  bomba.castShadow = true; g.add(bomba);
+  // Los racores de las tuberías, en la cara de abajo.
+  for (let i = 0; i < canales; i++) {
+    const r = new THREE.Mesh(
+      new THREE.CylinderGeometry(ancho * 0.026, ancho * 0.032, alto * 0.22, 6), mat.acero);
+    r.position.set((i - (canales - 1) / 2) * ancho * 0.20, -alto * 0.60, fondo * 0.10);
+    g.add(r);
+  }
+  g.userData.ancho = ancho;
+  return g;
+}
+
+/**
+ * CAJA DE MANDO —una ECU, una centralita, un módulo—: carcasa de aluminio con
+ * aletas de disipación, tapa y el conector del mazo. El conector es la mitad de
+ * la pieza: es por donde se diagnostica y por donde se desenchufa, y en un
+ * laboratorio de diagnóstico es justo lo que se le pide al alumno que haga.
+ */
+export function cajaMando(mat, opts = {}) {
+  const { ancho = 0.5, alto = 0.30, fondo = 0.42, aletas: nAl = 9, pines = 8 } = opts;
+  const g = new THREE.Group();
+  const cuerpo = new THREE.Mesh(normalizaUV(extruido(contornoRedondeado(
+    [[-ancho / 2, -alto / 2], [ancho / 2, -alto / 2], [ancho / 2, alto / 2], [-ancho / 2, alto / 2]],
+    alto * 0.13, 4), { espesor: fondo, bisel: alto * 0.035 }), 2), mat.aluminio);
+  cuerpo.castShadow = true; g.add(cuerpo);
+  for (let i = 0; i < nAl; i++) {
+    const a = new THREE.Mesh(
+      new THREE.BoxGeometry(ancho * 0.92, alto * 0.055, fondo * 0.30 / nAl * 3), mat.aluminio);
+    a.position.set(0, alto / 2 + alto * 0.028, (i - (nAl - 1) / 2) * (fondo * 0.92 / nAl));
+    g.add(a);
+  }
+  const tapa = new THREE.Mesh(new THREE.BoxGeometry(ancho * 0.96, alto * 0.05, fondo * 0.96),
+    mat.negro || mat.acero);
+  tapa.position.y = -alto / 2 - alto * 0.02; g.add(tapa);
+  const con = conector(mat, { ancho: ancho * 0.52, alto: alto * 0.46, fondo: fondo * 0.22, pines });
+  con.position.set(0, -alto * 0.10, fondo / 2 + fondo * 0.11);
+  g.add(con);
+  g.userData.conector = con;
+  return g;
+}

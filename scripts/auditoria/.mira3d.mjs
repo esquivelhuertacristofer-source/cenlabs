@@ -56,7 +56,19 @@ for (const slug of process.argv.slice(2)) {
     // El recorte del centro-derecha, que es donde estos laboratorios ponen la
     // escena. A tamaño real se ve si una pieza es una pieza o es un ladrillo.
     await pag.screenshot({ path: join(OUT, slug + '__cerca.png'),
-      clip: { x: 640, y: 230, width: 720, height: 520 } });
+      clip: { x: 500, y: 200, width: 900, height: 600 } });
+    // Y con el despiece abierto, si el laboratorio tiene uno: es la vista en la
+    // que se ven las piezas que en el conjunto quedan tapadas.
+    const hay = await pag.evaluate(() => {
+      const b = [...document.querySelectorAll('button,.btn,[role="button"]')]
+        .find(e => /despiece|explode|separar/i.test(e.textContent || ''));
+      if (!b) return false; b.click(); return true;
+    });
+    if (hay) {
+      await pag.waitForTimeout(1800);
+      await pag.screenshot({ path: join(OUT, slug + '__despiece.png'),
+        clip: { x: 380, y: 180, width: 1120, height: 640 } });
+    }
     console.log('  ' + slug.padEnd(26) + (errs.length ? '‼ ' + errs[0] : 'ok'));
   } catch (e) { console.log('  ' + slug.padEnd(26) + '‼ ' + String(e).slice(0, 90)); }
   await pag.close();
