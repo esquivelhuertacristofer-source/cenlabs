@@ -601,14 +601,19 @@ milLabel.visible=false; milLabel.raycast=()=>{}; dash.add(milLabel); HOVER_LABEL
 
 /* ---------- 2) ESCÁNER (pantalla con canvas actualizable) ---------- */
 const tool=new THREE.Group(); tool.position.set(2.3,1.2,1.0); tool.rotation.y=-0.5; tool.rotation.x=-0.1; scene.add(tool);
-const toolBody=roundedBox(1.15,1.7,0.24,MAT.tool,0.14); toolBody.castShadow=true; tool.add(toolBody);
-const grip=roundedBox(1.2,0.55,0.3,MAT.toolGrip,0.35); grip.position.set(0,-0.62,0); tool.add(grip);
+/* EL ESCÁNER ES UN APARATO DE MANO, y un aparato de mano se reconoce por tres
+   cosas, ninguna de las cuales es la caja: el sobremoldeado de goma por el que
+   se agarra, el TECLADO por el que se recorren los menús —modo $01, $07, $03,
+   $02, que es literalmente lo que hace esta práctica— y el prensaestopas por
+   donde sale el cable. Antes era una losa con cuatro botones pegados. */
+const toolBody=P3.escanerOBD(MATP,{ancho:1.15,alto:1.70,fondo:0.24,visor:0.62,
+  color:0x152420, goma:0x0c1512});
+tool.add(toolBody);
+
 const scrCanvas=document.createElement('canvas'); scrCanvas.width=320; scrCanvas.height=384;
 const scrTex=new THREE.CanvasTexture(scrCanvas); scrTex.colorSpace=THREE.SRGBColorSpace; scrTex.minFilter=THREE.LinearFilter; scrTex.generateMipmaps=false;
 const screen=new THREE.Mesh(new THREE.PlaneGeometry(0.92,1.05), new THREE.MeshBasicMaterial({map:scrTex,toneMapped:false}));
-screen.position.set(0,0.28,0.13); tool.add(screen);
-for(let i=0;i<4;i++){ const b=roundedBox(0.18,0.12,0.06,std({color:0x1a2622,roughness:0.6,metalness:0.3}),0.2);
-  b.position.set(-0.33+i*0.22,-0.35,0.13); tool.add(b); }
+toolBody.userData.pantalla.add(screen);          // el visor ya está rebajado en su marco
 const toolLabel=labelSprite('Escáner OBD-II','#4FD1C5'); toolLabel.position.set(0,1.1,0);
 toolLabel.visible=false; toolLabel.raycast=()=>{}; tool.add(toolLabel); HOVER_LABELS.set(toolBody,toolLabel);
 
@@ -700,8 +705,11 @@ crankLabel.visible=false; crankLabel.raycast=()=>{}; eng.add(crankLabel);
 HOVER_LABELS.set(crankDisc,crankLabel); HOVER_LABELS.set(ckp,crankLabel);
 
 /* ---------- 4) CABLES (escáner → tablero, tablero → motor) ---------- */
+/* El cable sale por el prensaestopas del escáner, no por un costado cualquiera. */
+tool.updateMatrixWorld(true);
+const salidaEsc=tool.localToWorld(toolBody.userData.salida.clone());
 const cableCurve1=new THREE.CatmullRomCurve3([
-  new THREE.Vector3(2.0,1.6,0.9), new THREE.Vector3(0.4,0.5,1.5),
+  salidaEsc, new THREE.Vector3(0.4,0.5,1.5),
   new THREE.Vector3(-1.25,0.55,1.15), new THREE.Vector3(-2.11,0.80,0.70),
 ]);
 const cable1=new THREE.Mesh(new THREE.TubeGeometry(cableCurve1,48,0.045,10), MAT.cable); cable1.castShadow=true; scene.add(cable1);

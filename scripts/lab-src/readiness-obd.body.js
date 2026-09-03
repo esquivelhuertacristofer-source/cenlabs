@@ -57,6 +57,21 @@ const MAT={
   bracket: std({...alu, metalness:0.6, roughness:0.6}),
 };
 
+const brush=brushedMetal();
+/* Los nombres con los que trabaja la biblioteca de piezas (`P3`, que el molde
+   ya importa), traducidos una vez a los materiales de este laboratorio. */
+const MATP={
+  aluminio: std({...alu, color:0x8f979f, roughness:0.55, metalness:0.60}),
+  acero:    std({...brush, color:0x9aa2a9, roughness:0.34, metalness:0.85}),
+  cromo:    std({...brush, color:0xc9d1d6, roughness:0.22, metalness:0.90}),
+  chapa:    std({...brush, color:0x828a91, roughness:0.45, metalness:0.75}),
+  cobre:    std({color:0xb87333, roughness:0.35, metalness:0.75}),
+  negro:    std({...plas, color:0x13181c, roughness:0.62, metalness:0.06}),
+  goma:     std({...rub, color:0x0f1216, roughness:0.94, metalness:0.0}),
+  blanco:   std({color:0xd7dee6, roughness:0.42, metalness:0.15}),
+  ceramica: std({color:0xd9dcd6, roughness:0.62, metalness:0.04}),
+};
+
 const HOVER_LABELS=new Map();
 
 /* ---------- 1) PANEL BAJO EL TABLERO + CONECTOR DLC + TESTIGO MIL ---------- */
@@ -66,7 +81,14 @@ const dashBezel=roundedBox(1.4,0.8,0.08,MAT.bezel,0.08); dashBezel.position.set(
 
 const dlcGroup=new THREE.Group(); dlcGroup.position.set(0,-0.55,0.3); dash.add(dlcGroup);
 const dlcBracket=roundedBox(0.56,0.38,0.03,MAT.bracket,0.03); dlcBracket.position.set(0,0,-0.09); dlcGroup.add(dlcBracket);
-const dlcHousing=roundedBox(0.46,0.30,0.14,MAT.connectorBody,0.06); dlcHousing.castShadow=true; dlcGroup.add(dlcHousing);
+/* EL DLC TIENE FORMA, y es media práctica: lo primero que se hace es
+   RECONOCERLO bajo el tablero y meter el conector del escáner en él. Es un
+   trapecio —ancho arriba, estrecho abajo— y esa asimetría es lo que impide
+   enchufarlo del revés. Un rectángulo no impide nada. */
+const dlcHousing=new THREE.Mesh(P3.extruido(P3.contornoRedondeado(
+  [[-0.23,0.10],[0.23,0.10],[0.195,-0.10],[-0.195,-0.10]], 0.022, 3),
+  {espesor:0.14, bisel:0.012}), MAT.connectorBody);
+dlcHousing.castShadow=true; dlcGroup.add(dlcHousing);
 const pinGeo=new THREE.CylinderGeometry(0.012,0.012,0.05,8);
 for(let row=0;row<2;row++){
   for(let i=0;i<8;i++){
@@ -82,6 +104,36 @@ connLed.position.set(0.19,0.11,0.09); dlcGroup.add(connLed);
 const milMat=std({color:0x2a1a0c, emissive:0xffb703, emissiveIntensity:0.0, roughness:0.45, metalness:0.2});
 const mil=new THREE.Mesh(new THREE.BoxGeometry(0.22,0.16,0.04), milMat);
 mil.position.set(0.5,0.15,0.22); dash.add(mil);
+/* EL TESTIGO MIL ES UN DIBUJO CONCRETO: la silueta de un motor. El conductor lo
+   reconoce por su forma —no por una mancha ámbar—, y esta práctica pregunta
+   justamente si está encendido o no, así que se dibuja el símbolo. */
+const milCanvas=document.createElement('canvas'); milCanvas.width=320; milCanvas.height=224;
+const milTex=new THREE.CanvasTexture(milCanvas); milTex.colorSpace=THREE.SRGBColorSpace;
+milTex.minFilter=THREE.LinearFilter; milTex.generateMipmaps=false;
+(function dibujaMIL(){
+  const c=milCanvas.getContext('2d'), W=milCanvas.width, H=milCanvas.height;
+  c.clearRect(0,0,W,H);
+  c.fillStyle='#ffb703'; c.lineJoin='round';
+  const K=W/320, ox=48*K, oy=44*K;
+  c.save(); c.translate(ox,oy); c.scale(K,K);
+  c.beginPath();
+  c.moveTo(28,44); c.lineTo(44,44); c.lineTo(52,28); c.lineTo(96,28);
+  c.lineTo(104,44); c.lineTo(128,44); c.lineTo(128,32); c.lineTo(150,32);
+  c.lineTo(150,60); c.lineTo(176,60); c.lineTo(176,104); c.lineTo(150,104);
+  c.lineTo(150,120); c.lineTo(104,120); c.lineTo(104,136); c.lineTo(60,136);
+  c.lineTo(60,120); c.lineTo(28,120); c.closePath();
+  c.fill();
+  c.fillStyle='#3a2600';
+  c.beginPath();
+  c.moveTo(88,54); c.lineTo(112,54); c.lineTo(96,80); c.lineTo(116,80);
+  c.lineTo(78,116); c.lineTo(90,86); c.lineTo(72,86); c.closePath();
+  c.fill();
+  c.restore();
+  milTex.needsUpdate=true;
+})();
+const milGlyphMat=new THREE.MeshBasicMaterial({map:milTex,transparent:true,opacity:0.09,toneMapped:false,depthWrite:false});
+const milGlyph=new THREE.Mesh(new THREE.PlaneGeometry(0.19,0.133), milGlyphMat);
+milGlyph.position.set(0.5,0.15,0.245); milGlyph.raycast=()=>{}; dash.add(milGlyph);
 
 const dashLabel=labelSprite('Panel bajo el tablero','#4FD1C5'); dashLabel.position.set(0,0.7,0);
 dashLabel.visible=false; dashLabel.raycast=()=>{}; dash.add(dashLabel); HOVER_LABELS.set(dashBody,dashLabel);
@@ -92,20 +144,28 @@ milLabel.visible=false; milLabel.raycast=()=>{}; dash.add(milLabel); HOVER_LABEL
 
 /* ---------- 2) ESCÁNER (pantalla con canvas actualizable) ---------- */
 const tool=new THREE.Group(); tool.position.set(2.3,1.2,1.0); tool.rotation.y=-0.5; tool.rotation.x=-0.1; scene.add(tool);
-const toolBody=roundedBox(1.15,1.7,0.24,MAT.tool,0.14); toolBody.castShadow=true; tool.add(toolBody);
-const grip=roundedBox(1.2,0.55,0.3,MAT.toolGrip,0.35); grip.position.set(0,-0.62,0); tool.add(grip);
+/* EL ESCÁNER ES UN APARATO DE MANO, y un aparato de mano se reconoce por tres
+   cosas, ninguna de las cuales es la caja: el sobremoldeado de goma por el que
+   se agarra, el TECLADO por el que se recorren los menús —modo $01, $07, $03,
+   $02, que es literalmente lo que hace esta práctica— y el prensaestopas por
+   donde sale el cable. Antes era una losa con cuatro botones pegados. */
+const toolBody=P3.escanerOBD(MATP,{ancho:1.15,alto:1.70,fondo:0.24,visor:0.62,
+  color:0x152420, goma:0x0c1512});
+tool.add(toolBody);
+
 const scrCanvas=document.createElement('canvas'); scrCanvas.width=320; scrCanvas.height=384;
 const scrTex=new THREE.CanvasTexture(scrCanvas); scrTex.colorSpace=THREE.SRGBColorSpace; scrTex.minFilter=THREE.LinearFilter; scrTex.generateMipmaps=false;
 const screen=new THREE.Mesh(new THREE.PlaneGeometry(0.92,1.05), new THREE.MeshBasicMaterial({map:scrTex,toneMapped:false}));
-screen.position.set(0,0.28,0.13); tool.add(screen);
-for(let i=0;i<4;i++){ const b=roundedBox(0.18,0.12,0.06,std({color:0x1a2622,roughness:0.6,metalness:0.3}),0.2);
-  b.position.set(-0.33+i*0.22,-0.35,0.13); tool.add(b); }
+toolBody.userData.pantalla.add(screen);          // el visor ya está rebajado en su marco
 const toolLabel=labelSprite('Escáner SDB','#4FD1C5'); toolLabel.position.set(0,1.1,0);
 toolLabel.visible=false; toolLabel.raycast=()=>{}; tool.add(toolLabel); HOVER_LABELS.set(toolBody,toolLabel);
 
 /* ---------- 3) CABLE (escáner → conector DLC) ---------- */
+/* El cable sale por el prensaestopas, no por un costado cualquiera. */
+tool.updateMatrixWorld(true);
+const salidaEsc=tool.localToWorld(toolBody.userData.salida.clone());
 const cableCurve=new THREE.CatmullRomCurve3([
-  new THREE.Vector3(2.0,1.5,0.9), new THREE.Vector3(0.3,0.6,1.3),
+  salidaEsc, new THREE.Vector3(0.3,0.6,1.3),
   new THREE.Vector3(-1.1,0.9,1.0), new THREE.Vector3(-2.0,0.85,0.75),
 ]);
 const cable=new THREE.Mesh(new THREE.TubeGeometry(cableCurve,48,0.045,10), MAT.cable); cable.castShadow=true; scene.add(cable);
@@ -265,6 +325,7 @@ S.setAnimate((dt,time)=>{
 
   const milTarget=(connected&&sdbLinked===true&&CASES[scenarioKey].dtc)?0.85:0.0;
   milMat.emissiveIntensity += (milTarget-milMat.emissiveIntensity)*Math.min(1,dt*8);
+  milGlyphMat.opacity = 0.09+0.91*Math.min(1,milMat.emissiveIntensity/0.85);
 
   synth.update(0,0,0);
 });

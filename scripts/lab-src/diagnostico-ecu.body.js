@@ -52,6 +52,21 @@ const MAT={
   llaveGlow: std({color:0x1a1005, emissive:0xff8c42, emissiveIntensity:0.05, roughness:0.35, metalness:0.1}),
 };
 
+const alu=castAluminum();
+/* Los nombres con los que trabaja la biblioteca de piezas (`P3`, que el molde
+   ya importa), traducidos una vez a los materiales de este laboratorio. */
+const MATP={
+  aluminio: std({...alu, color:0x8f979f, roughness:0.55, metalness:0.60}),
+  acero:    std({...brush, color:0x9aa2a9, roughness:0.34, metalness:0.85}),
+  cromo:    std({...brush, color:0xc9d1d6, roughness:0.22, metalness:0.90}),
+  chapa:    std({...brush, color:0x828a91, roughness:0.45, metalness:0.75}),
+  cobre:    std({color:0xb87333, roughness:0.35, metalness:0.75}),
+  negro:    std({...plas, color:0x13181c, roughness:0.62, metalness:0.06}),
+  goma:     std({...rub, color:0x0f1216, roughness:0.94, metalness:0.0}),
+  blanco:   std({color:0xd7dee6, roughness:0.42, metalness:0.15}),
+  ceramica: std({color:0xd9dcd6, roughness:0.62, metalness:0.04}),
+};
+
 const PARTS=[];
 const HOVER_LABELS=new Map();
 function registerPart(mesh,name,desc,color){
@@ -86,7 +101,12 @@ scene.add(bench);
 
 /* ---------- 2) ECU + CONECTOR DE 9 PINES ---------- */
 const ecuGroup=new THREE.Group(); ecuGroup.position.set(-2.05,0.62,0); scene.add(ecuGroup);
-const ecuBody=roundedBox(0.85,0.62,0.42,MAT.nodeBody,0.07);
+/* UNA ECU ES UNA CAJA DE ALUMINIO CON ALETAS, no un ladrillo negro: se refrigera
+   por conducción a través de su propia carcasa, y las aletas son lo que la
+   delata a simple vista bajo el capó. Su conector de biblioteca se oculta
+   porque este laboratorio dibuja el suyo propio, con los pines nombrados. */
+const ecuBody=P3.cajaMando(MATP,{ancho:0.85,alto:0.62,fondo:0.42,aletas:11,pines:0});
+ecuBody.userData.conector.visible=false;
 ecuGroup.add(ecuBody);
 registerPart(ecuBody,'Módulo de la ECU','La computadora del motor. Aquí llegan alimentaciones, tierras y señales de sensores para procesarse — antes de sospechar de ella, un técnico revisa primero lo que la rodea.','#8fb3ac');
 
@@ -144,18 +164,38 @@ registerPart(cargaBodyMesh,'Consumidor de prueba (carga)','Actívalo para hacer 
 
 /* ---------- 5) INTERRUPTOR DE CONTACTO (LLAVE, CASO 4) ---------- */
 const llaveGroup=new THREE.Group(); llaveGroup.position.set(-2.05,0.28,0.65); scene.add(llaveGroup);
-const llaveBodyMesh=roundedBox(0.18,0.20,0.14,MAT.llaveBody,0.04);
-llaveGroup.add(llaveBodyMesh);
-const llaveRing=new THREE.Mesh(new THREE.TorusGeometry(0.055,0.014,10,20),MAT.llaveGlow);
-llaveRing.position.set(0,0,0.08);
+/* EL INTERRUPTOR DE CONTACTO, con su BOMBÍN y su LLAVE, y la llave GIRA. Que
+   gire no es adorno: el caso 4 entero trata de que el pin de alimentación
+   conmutada lee 0 V con la llave apagada y 12,6 V con ella en marcha —diseño,
+   no avería—, y con un cubo y un aro no había forma de ver en qué posición
+   estaba. Ahora se ve. */
+const llaveBodyMesh=roundedBox(0.20,0.24,0.13,MAT.llaveBody,0.035);
+llaveBodyMesh.position.set(0,-0.02,-0.01); llaveGroup.add(llaveBodyMesh);
+const llaveBombin=new THREE.Mesh(new THREE.CylinderGeometry(0.055,0.055,0.12,20),MAT.llaveBody);
+llaveBombin.rotation.x=Math.PI/2; llaveBombin.position.set(0,0.02,0.08); llaveGroup.add(llaveBombin);
+const llaveRing=new THREE.Mesh(new THREE.TorusGeometry(0.058,0.012,10,22),MAT.llaveGlow);
+llaveRing.position.set(0,0.02,0.128);
 llaveGroup.add(llaveRing);
+/* La llave misma: paletón dentro del bombín, cabeza fuera y su anilla. */
+const llavePiv=new THREE.Group(); llavePiv.position.set(0,0.02,0.132); llaveGroup.add(llavePiv);
+const llaveCana=new THREE.Mesh(new THREE.BoxGeometry(0.019,0.070,0.006),MAT.groundStud);
+llaveCana.position.set(0,0.022,0.006); llavePiv.add(llaveCana);
+const llaveCabeza=roundedBox(0.072,0.105,0.009,MAT.jackBlack,0.018);
+llaveCabeza.position.set(0,0.098,0.010); llavePiv.add(llaveCabeza);
+const llaveAnilla=new THREE.Mesh(new THREE.TorusGeometry(0.021,0.005,6,16),MAT.groundStud);
+llaveAnilla.position.set(0,0.168,0.010); llavePiv.add(llaveAnilla);
 registerPart(llaveBodyMesh,'Interruptor de contacto (llave)','Con la llave apagada, el pin de alimentación conmutada debe leer 0 V — es diseño, no una falla. Solo la alimentación constante debe seguir viva en esa posición.','#ff8c42');
 
 /* ---------- 6) MULTÍMETRO ---------- */
 const meterGroup=new THREE.Group(); meterGroup.position.set(1.7,0.78,0.9); scene.add(meterGroup);
-const meterBody=roundedBox(0.62,0.95,0.16,MAT.meterBody,0.06);
+/* UN MULTÍMETRO SE RECONOCE POR SU SELECTOR. Es lo que lo distingue de una caja
+   con pantalla, y es donde está la equivocación que más caro se paga —medir
+   corriente con el selector en volts—. Antes era un rectángulo liso con dos
+   discos: no se veía en qué función estaba puesto ni había nada que girar. */
+const meterBody=P3.multimetro(MATP,{ancho:0.62,alto:0.95,fondo:0.16,bornas:2,
+  visor:0.30,visorY:0.30,color:0x1d2a26});
 meterGroup.add(meterBody);
-registerPart(meterBody,'Multímetro','Instrumento que mide el voltaje entre la punta roja (el pin que elijas) y la punta negra (fija en la referencia de tierra verificada).','#5eead4');
+registerPart(meterBody,'Multímetro','Instrumento que mide el voltaje entre la punta roja (el pin que elijas) y la punta negra (fija en la referencia de tierra verificada). El selector está en tensión continua durante toda la práctica: aquí no se mide otra cosa.','#5eead4');
 
 const scrCanvas=document.createElement('canvas');
 scrCanvas.width=240; scrCanvas.height=180;
@@ -163,23 +203,18 @@ const scrTex=new THREE.CanvasTexture(scrCanvas);
 scrTex.colorSpace=THREE.SRGBColorSpace;
 scrTex.minFilter=THREE.LinearFilter;
 scrTex.generateMipmaps=false;
-const screenMesh=new THREE.Mesh(new THREE.PlaneGeometry(0.48,0.37),new THREE.MeshBasicMaterial({map:scrTex,toneMapped:false}));
-screenMesh.position.set(0,0.22,0.085);
-meterGroup.add(screenMesh);
+const screenMesh=new THREE.Mesh(new THREE.PlaneGeometry(0.48,0.285),new THREE.MeshBasicMaterial({map:scrTex,toneMapped:false}));
+meterBody.userData.pantalla.add(screenMesh);
 registerPart(screenMesh,'Pantalla del multímetro','Muestra el pin actualmente sondeado y su lectura en vivo.','#5eead4');
 
-const jackRed=new THREE.Mesh(new THREE.CylinderGeometry(0.028,0.028,0.04,14),MAT.jackRed);
-jackRed.rotation.x=Math.PI/2; jackRed.position.set(-0.10,-0.34,0.085);
-meterGroup.add(jackRed);
+const jackRed=meterBody.userData.bornas[0];
 registerPart(jackRed,'Entrada roja (V, sonda móvil)','Aquí sale la punta roja, la que mueves de pin en pin al tocar el conector de la ECU.','#e0483c');
 
-const jackBlack=new THREE.Mesh(new THREE.CylinderGeometry(0.028,0.028,0.04,14),MAT.jackBlack);
-jackBlack.rotation.x=Math.PI/2; jackBlack.position.set(0.10,-0.34,0.085);
-meterGroup.add(jackBlack);
+const jackBlack=meterBody.userData.bornas[1];
 registerPart(jackBlack,'Entrada negra (COM, fija)','Aquí sale la punta negra (COM), fija en la referencia de tierra verificada durante todo el laboratorio.','#2a2a2a');
 
 const meterLed=new THREE.Mesh(new THREE.SphereGeometry(0.03,12,12),MAT.busLed);
-meterLed.position.set(0.24,0.42,0.085);
+meterLed.position.set(0.245,0.435,0.085);
 meterGroup.add(meterLed);
 registerPart(meterLed,'Indicador de actividad de bus (CAN)','Se mantiene en verde en los 4 casos de este laboratorio: ninguno de ellos involucra al bus CAN — un recordatorio de que no todo lo que inspeccionas resulta estar fallando.','#3ad9c2');
 
@@ -409,6 +444,9 @@ S.setAnimate((dt,time)=>{
   meterLed.material.emissiveIntensity = !energized?0.05:(0.5+0.3*pulse);
   cargaBulb.material.emissiveIntensity = (energized && scenarioKey==='tierra' && cargaActiva) ? (0.6+0.4*pulse) : 0.05;
   llaveRing.material.emissiveIntensity = (energized && scenarioKey==='conmutada' && llaveOn) ? (0.6+0.4*pulse) : 0.05;
+  /* La llave gira a la posición de marcha y vuelve, con el mismo estado que lee
+     el pin de alimentación conmutada. */
+  llavePiv.rotation.z += ((llaveOn?-Math.PI*0.30:0)-llavePiv.rotation.z)*Math.min(1,dt*9);
 
   if(time-(updateScreen._t||0)>0.22){ updateScreen(); updateScreen._t=time; }
 

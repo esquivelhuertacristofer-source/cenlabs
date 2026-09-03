@@ -3565,3 +3565,159 @@ export function bornera(mat, opts = {}) {
     boca: (i) => new THREE.Vector3((i - (vias - 1) / 2) * paso, alto * 0.36, fondo * 0.52) };
   return g;
 }
+
+
+/* ==========================================================================
+   §13 · INSTRUMENTOS DE DIAGNÓSTICO
+   Los aparatos que se tienen EN LA MANO. Un instrumento de mano se reconoce por
+   tres cosas y ninguna es la caja: por dónde se agarra (el sobremoldeado de
+   goma), por dónde se manda (el teclado o el selector) y por dónde sale el
+   cable. Un rectángulo con una pantalla pegada no es ninguna de las tres.
+   Convenio: la cara del frontal mira a +Z y el origen está en el centro del
+   cuerpo; `userData.pantalla` es el ancla donde el laboratorio cuelga SU lienzo.
+   ========================================================================== */
+
+/**
+ * ESCÁNER DE DIAGNÓSTICO de mano. Cuerpo con sobremoldeado de goma en los dos
+ * costados —por ahí se agarra y por eso sobrevive a una caída en el taller—,
+ * visor rebajado en su marco, teclado en cruz con la tecla de aceptar en el
+ * centro y dos teclas de función, y el prensaestopas por donde sale el cable
+ * hacia el conector de diagnóstico.
+ *
+ * La cruz de teclas no es adorno: un escáner se maneja recorriendo menús
+ * —modo $01, $07, $03, $02— y sin teclas no se ve por dónde se recorre nada.
+ */
+export function escanerOBD(mat, opts = {}) {
+  const { ancho = 1.15, alto = 1.70, fondo = 0.24,
+          color = 0x152420, goma = 0x0c1512, visor = 0.60, seg = 3 } = opts;
+  const g = new THREE.Group();
+  const W = ancho, A = alto, F = fondo;
+  const matC = new THREE.MeshStandardMaterial({ color, roughness: 0.52, metalness: 0.30 });
+  const matG = new THREE.MeshStandardMaterial({ color: goma, roughness: 0.96, metalness: 0.0 });
+  const matT = new THREE.MeshStandardMaterial({ color: 0x2b3138, roughness: 0.80, metalness: 0.05 });
+  const cue = new THREE.Mesh(extruido(contornoRedondeado(
+    [[-W / 2, -A / 2], [W / 2, -A / 2], [W / 2, A / 2], [-W / 2, A / 2]], W * 0.12, 4),
+    { espesor: F, bisel: F * 0.10 }), matC);
+  cue.castShadow = true; g.add(cue);
+  /* EL SOBREMOLDEADO: dos costillas de goma que envuelven los cantos. */
+  for (const sx of [-1, 1]) {
+    const b = new THREE.Mesh(extruido(contornoRedondeado(
+      [[-W * 0.055, -A * 0.40], [W * 0.055, -A * 0.40], [W * 0.055, A * 0.40], [-W * 0.055, A * 0.40]],
+      W * 0.05, 3), { espesor: F * 1.06, bisel: F * 0.10 }), matG);
+    b.position.x = sx * (W / 2 - W * 0.028); g.add(b);
+  }
+  /* EL VISOR: marco rebajado y el ancla donde va el lienzo del laboratorio. */
+  const vw = W * 0.80, vh = A * visor, vy = A * 0.165;
+  const mar = new THREE.Mesh(extruido(
+    [[-vw / 2 - W * 0.045, -vh / 2 - W * 0.045], [vw / 2 + W * 0.045, -vh / 2 - W * 0.045],
+     [vw / 2 + W * 0.045, vh / 2 + W * 0.045], [-vw / 2 - W * 0.045, vh / 2 + W * 0.045]],
+    { huecos: [[[-vw / 2, -vh / 2], [vw / 2, -vh / 2], [vw / 2, vh / 2], [-vw / 2, vh / 2]]],
+      espesor: F * 0.14, bisel: F * 0.02 }), matT);
+  mar.position.set(0, vy, F / 2 - F * 0.03); g.add(mar);
+  const pan = new THREE.Group(); pan.position.set(0, vy, F / 2 + 0.004); g.add(pan);
+  /* EL TECLADO: cruz de cuatro flechas, aceptar en el centro y dos de función. */
+  const teclas = [];
+  const kc = A * -0.28, k = W * 0.115;
+  const pone = (x, y, w, h, r) => {
+    const t = new THREE.Mesh(extruido(contornoRedondeado(
+      [[-w / 2, -h / 2], [w / 2, -h / 2], [w / 2, h / 2], [-w / 2, h / 2]], r, 3),
+      { espesor: F * 0.16, bisel: F * 0.03 }), matG);
+    t.position.set(x, y, F / 2 - F * 0.02); g.add(t); teclas.push(t); return t;
+  };
+  pone(0, kc + k * 1.15, k, k * 0.78, k * 0.22);
+  pone(0, kc - k * 1.15, k, k * 0.78, k * 0.22);
+  pone(-k * 1.15, kc, k * 0.78, k, k * 0.22);
+  pone(k * 1.15, kc, k * 0.78, k, k * 0.22);
+  const ok = new THREE.Mesh(new THREE.CylinderGeometry(k * 0.44, k * 0.44, F * 0.18, 20), matT);
+  ok.rotation.x = Math.PI / 2; ok.position.set(0, kc, F / 2 - F * 0.01); g.add(ok);
+  for (const sx of [-1, 1]) pone(sx * W * 0.24, A * -0.44, W * 0.26, A * 0.045, W * 0.02);
+  /* EL PRENSAESTOPAS y su alivio de tensión: por aquí sale el cable. */
+  const pe = new THREE.Mesh(new THREE.CylinderGeometry(F * 0.30, F * 0.34, A * 0.045, 16), matT);
+  pe.position.set(0, A / 2 + A * 0.02, 0); g.add(pe);
+  const al = new THREE.Mesh(revolucion([
+    [0, 0], [F * 0.28, 0], [F * 0.20, A * 0.055], [F * 0.15, A * 0.10], [0, A * 0.10]], { seg: 16 }), matG);
+  al.position.set(0, A / 2 + A * 0.04, 0); g.add(al);
+  g.userData = { ancho: W, alto: A, fondo: F, pantalla: pan, teclas,
+                 visor: { ancho: vw, alto: vh },
+                 salida: new THREE.Vector3(0, A / 2 + A * 0.14, 0) };
+  return g;
+}
+
+/**
+ * MULTÍMETRO DIGITAL de mano. El SELECTOR GIRATORIO es la pieza: es lo que
+ * distingue un multímetro de una caja con una pantalla, y es donde está la
+ * decisión que más se equivoca —medir corriente con el selector en volts, o al
+ * revés—. Por eso lleva su testigo apuntando y sus marcas alrededor. Debajo,
+ * las bornas: la de común y las de las magnitudes, separadas y de distinto
+ * color porque cambiar de borna es parte de cambiar de medida.
+ *
+ * `userData.selector` es el grupo que gira (el laboratorio le pone el ángulo) y
+ * `userData.pantalla` el ancla del lienzo. Las bornas salen en `userData.bornas`.
+ */
+export function multimetro(mat, opts = {}) {
+  const { ancho = 0.62, alto = 0.95, fondo = 0.16, color = 0x1d2a26,
+          bornas: nB = 3, marcas = 8, visor = 0.24, visorY = 0.30 } = opts;
+  const g = new THREE.Group();
+  const W = ancho, A = alto, F = fondo;
+  const met = mat.cromo || mat.acero || mat.aluminio;
+  const matC = new THREE.MeshStandardMaterial({ color, roughness: 0.55, metalness: 0.25 });
+  const matG = new THREE.MeshStandardMaterial({ color: 0x101614, roughness: 0.95, metalness: 0.0 });
+  const matM = new THREE.MeshStandardMaterial({ color: 0xd7dee6, roughness: 0.5, metalness: 0.1 });
+  const cue = new THREE.Mesh(extruido(contornoRedondeado(
+    [[-W / 2, -A / 2], [W / 2, -A / 2], [W / 2, A / 2], [-W / 2, A / 2]], W * 0.13, 4),
+    { espesor: F, bisel: F * 0.12 }), matC);
+  cue.castShadow = true; g.add(cue);
+  for (const sx of [-1, 1]) {                       // el sobremoldeado del canto
+    const b = new THREE.Mesh(extruido(contornoRedondeado(
+      [[-W * 0.05, -A * 0.34], [W * 0.05, -A * 0.34], [W * 0.05, A * 0.34], [-W * 0.05, A * 0.34]],
+      W * 0.045, 3), { espesor: F * 1.08, bisel: F * 0.12 }), matG);
+    b.position.x = sx * (W / 2 - W * 0.024); g.add(b);
+  }
+  const vw = W * 0.78, vh = A * visor, vy = A * visorY;
+  const mar = new THREE.Mesh(extruido(
+    [[-vw / 2 - W * 0.05, -vh / 2 - W * 0.05], [vw / 2 + W * 0.05, -vh / 2 - W * 0.05],
+     [vw / 2 + W * 0.05, vh / 2 + W * 0.05], [-vw / 2 - W * 0.05, vh / 2 + W * 0.05]],
+    { huecos: [[[-vw / 2, -vh / 2], [vw / 2, -vh / 2], [vw / 2, vh / 2], [-vw / 2, vh / 2]]],
+      espesor: F * 0.18, bisel: F * 0.03 }), matG);
+  mar.position.set(0, vy, F / 2 - F * 0.04); g.add(mar);
+  const pan = new THREE.Group(); pan.position.set(0, vy, F / 2 + 0.004); g.add(pan);
+  /* LAS MARCAS del dial, alrededor del selector: sin ellas girar no significa
+     nada. Son rayas —cada laboratorio pone las suyas con texto si las quiere—,
+     pero tienen que estar para que el selector sea un selector. */
+  const rs = W * 0.26, cy = -A * 0.13;
+  for (let i = 0; i < marcas; i++) {
+    const a = -Math.PI * 0.72 + (i / (marcas - 1)) * Math.PI * 1.44;
+    const m = new THREE.Mesh(new THREE.BoxGeometry(W * 0.018, W * 0.075, F * 0.05), matM);
+    m.position.set(Math.sin(a) * rs * 1.26, cy + Math.cos(a) * rs * 1.26, F / 2 - F * 0.01);
+    m.rotation.z = -a; g.add(m);
+  }
+  /* EL SELECTOR: cuerpo estriado y testigo. Gira sobre +Z. */
+  const sel = new THREE.Group(); sel.position.set(0, cy, F / 2 - F * 0.02); g.add(sel);
+  const cub = new THREE.Mesh(new THREE.CylinderGeometry(rs, rs * 1.06, F * 0.44, 26), matG);
+  cub.rotation.x = Math.PI / 2; cub.position.z = F * 0.20; cub.castShadow = true; sel.add(cub);
+  for (let i = 0; i < 12; i++) {                    // el estriado por el que se gira
+    const a = i / 12 * Math.PI * 2;
+    const e = new THREE.Mesh(new THREE.BoxGeometry(rs * 0.10, rs * 0.10, F * 0.40), matC);
+    e.position.set(Math.cos(a) * rs * 0.98, Math.sin(a) * rs * 0.98, F * 0.20); sel.add(e);
+  }
+  const tes = new THREE.Mesh(new THREE.BoxGeometry(rs * 0.16, rs * 0.86, F * 0.10), matM);
+  tes.position.set(0, rs * 0.46, F * 0.42); sel.add(tes);
+  /* LAS BORNAS, con su casquillo metálico y su aro de color. */
+  /* Rojo, negro (comun) y rojo otra vez es el orden clasico de tres bornas; con
+     cuatro se anade la de amperios altos. El laboratorio puede pasar los suyos. */
+  const bornas = [], cols = [0xd64545, 0x14181e, 0xd64545, 0xd8a12a];
+  for (let i = 0; i < nB; i++) {
+    const x = (i - (nB - 1) / 2) * W * 0.30;
+    const bg = new THREE.Group(); bg.position.set(x, -A * 0.40, F / 2 - F * 0.05); g.add(bg);
+    const an = new THREE.Mesh(new THREE.CylinderGeometry(W * 0.075, W * 0.075, F * 0.14, 18),
+      new THREE.MeshStandardMaterial({ color: cols[i % cols.length], roughness: 0.6, metalness: 0.08 }));
+    an.rotation.x = Math.PI / 2; an.position.z = F * 0.06; bg.add(an);
+    const hu = new THREE.Mesh(new THREE.CylinderGeometry(W * 0.042, W * 0.042, F * 0.16, 16), met);
+    hu.rotation.x = Math.PI / 2; bg.add(hu);
+    bornas.push(bg);
+  }
+  g.userData = { ancho: W, alto: A, fondo: F, pantalla: pan, selector: sel, bornas,
+                 visor: { ancho: vw, alto: vh },
+                 boca: (i) => new THREE.Vector3((i - (nB - 1) / 2) * W * 0.30, -A * 0.40, F / 2 + F * 0.09) };
+  return g;
+}
