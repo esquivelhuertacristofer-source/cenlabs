@@ -761,23 +761,21 @@ function tuboEntre(a,b,r,mat){
   m.quaternion.setFromUnitVectors(V3(0,1,0),dir.clone().normalize());
   return m;
 }
+/* Los nombres con los que trabaja la biblioteca de piezas (`P3`, que el molde
+   ya importa), traducidos una vez a los materiales de este laboratorio. */
+const MATP={aluminio:MAT.aceroC, acero:MAT.acero, cobre:MAT.oro, cromo:MAT.piston,
+  chapa:MAT.aceroC, hierro:MAT.acero, negro:MAT.negro, goma:MAT.mang,
+  blanco:MAT.piston, ceramica:MAT.acero};
+/* EL MANÓMETRO de la casa, con DIVISIONES. Una esfera lisa con una aguja no es
+   un instrumento: no se puede leer entre marcas, que es justo lo que se hace
+   con un manómetro cuando la caída no cae en una cifra redonda. */
 function mkManometro(r,rotulo){
-  const g=new THREE.Group();
-  const caja=new THREE.Mesh(new THREE.CylinderGeometry(r,r,0.035,24),MAT.acero);
-  caja.rotation.x=Math.PI/2; g.add(caja);
-  const esf=new THREE.Mesh(new THREE.CircleGeometry(r*0.86,24),
-    new THREE.MeshBasicMaterial({color:'#e8eef7',toneMapped:false}));
-  esf.position.z=0.019; g.add(esf);
-  const ag=new THREE.Group();
-  const a=new THREE.Mesh(new THREE.BoxGeometry(r*0.72,0.008,0.005),
-    new THREE.MeshBasicMaterial({color:'#c0392b',toneMapped:false}));
-  a.position.x=r*0.30; ag.add(a); ag.position.z=0.022; g.add(ag);
-  const eje=new THREE.Mesh(new THREE.CylinderGeometry(0.010,0.010,0.012,10),MAT.negro);
-  eje.rotation.x=Math.PI/2; eje.position.z=0.024; g.add(eje);
-  g.userData.aguja=ag; g.userData.rot=rotulo;
+  const g=P3.manometro(MATP,{d:2*r,divisiones:20,barrido:Math.PI*1.5,
+    fondo:0xe8eef7,color:0xc0392b,racor:false});
+  g.userData.rot=rotulo;
   return g;
 }
-function setManometro(g,frac){ g.userData.aguja.rotation.z=Math.PI*0.75-Math.PI*1.5*clamp(frac,0,1); }
+function setManometro(g,frac){ g.userData.marca(clamp(frac,0,1)); }
 
 const maq=new THREE.Group(); scene.add(maq);
 const M3={};
@@ -800,17 +798,14 @@ const gPack=new THREE.Group(); maq.add(gPack);
 
   const gm=new THREE.Group(); gm.position.set(1.42,0,0); gm.userData.key='bomba'; gPack.add(gm);
   const bas=roundedBox(1.10,0.10,0.62,MAT.aceroC,0.02); bas.position.set(0,0.90,0); gm.add(bas);
-  const mot=new THREE.Mesh(new THREE.CylinderGeometry(0.25,0.25,0.62,26),MAT.acero);
-  mot.rotation.z=Math.PI/2; mot.position.set(-0.24,1.26,0); gm.add(mot);
-  for(let i=0;i<16;i++){
-    const ang=i*Math.PI/8;
-    const al=new THREE.Mesh(new THREE.BoxGeometry(0.60,0.03,0.05),MAT.aceroC);
-    al.position.set(-0.24,1.26+0.255*Math.cos(ang),0.255*Math.sin(ang));
-    al.rotation.x=ang; gm.add(al);
-  }
-  const cja=new THREE.Mesh(new THREE.BoxGeometry(0.16,0.30,0.20),MAT.negro);
-  cja.position.set(-0.24,1.60,0); gm.add(cja);
-  const bmb=new THREE.Mesh(new THREE.CylinderGeometry(0.17,0.17,0.30,20),MAT.aceroC);
+  // El motor de la casa: aletas repartidas por la carcasa, tapas y caja de
+  // bornes. Un cilindro liso con dieciséis palitos pegados no es un motor.
+  const mot=P3.carcasaMotor(MATP,{d:0.50,largo:0.62,nAletas:16,patas:false,bornes:true});
+  mot.position.set(-0.24,1.26,0); gm.add(mot);
+  // La bomba, con su brida de acoplamiento y su cuerpo torneado.
+  const bmb=new THREE.Mesh(P3.revolucion([
+    [0,-0.15],[0.17,-0.15],[0.17,0.02],[0.20,0.02],[0.20,0.07],[0.17,0.07],
+    [0.17,0.15],[0,0.15]],{seg:24}),MAT.aceroC);
   bmb.rotation.z=Math.PI/2; bmb.position.set(0.26,1.26,0); gm.add(bmb);
   const vent=new THREE.Group(); vent.position.set(-0.58,1.26,0); gm.add(vent);
   for(let i=0;i<7;i++){
@@ -926,12 +921,16 @@ function trazado(rk,i,n){
   const A=A_PACK.clone(), B=B_MAQ.clone();
   if(rk==='directa')
     return [A,V3(2.16,1.52,dz),V3(3.50,1.52,dz),B];
+  /* Los quiebros son EXACTAMENTE los codos que declara el trazado: 2 en la
+     directa, 6 en la perimetral y 10 en la compacta. Antes se dibujaban 5 y 9
+     mientras el panel cobraba 6 y 10, y un alumno que los contara encontraba
+     que la cuenta de longitud equivalente no cuadra con lo que ve. */
   if(rk==='perimetral')
-    return [A,V3(2.16,1.52,dz),V3(2.16,1.52,1.06+dz*0.4),V3(2.86,1.36,1.06+dz*0.4),
-            V3(3.50,1.52,1.06+dz*0.4),V3(3.50,1.52,dz),B];
+    return [A,V3(2.16,1.52,dz),V3(2.16,1.52,1.06+dz*0.4),V3(2.60,1.36,1.06+dz*0.4),
+            V3(3.12,1.36,1.06+dz*0.4),V3(3.50,1.52,1.06+dz*0.4),V3(3.50,1.52,dz),B];
   return [A,V3(2.16,1.42,dz),V3(2.16,2.00,dz),V3(2.52,2.00,dz),V3(2.52,1.40,dz),
           V3(2.88,1.40,dz),V3(2.88,2.00,dz),V3(3.24,2.00,dz),V3(3.24,1.40,dz),
-          V3(3.50,1.44,dz),B];
+          V3(3.50,1.40,dz),V3(3.50,1.52,dz),B];
 }
 let CURVAS=[], GOTAS=[], fase=0, lastT=0;
 function rehazRuta(){
@@ -947,14 +946,73 @@ function rehazRuta(){
     const g=new THREE.Mesh(new THREE.TubeGeometry(cv,140,rad,14,false),mat);
     g.userData.key='linea'; gRuta.add(g);
     const R=RUTAS[p.rk];
-    // los accesorios que el trazado declara, puestos donde el tubo dobla
+    /* LOS ACCESORIOS, dibujados como accesorios. Una bolita en cada quiebro no
+       dice nada; un CODO tiene cuerpo, dos bocas y sus tuercas, y eso es lo que
+       hace ver por qué un codo «pesa» treinta diámetros de tubo recto: el
+       aceite entra, choca, gira y vuelve a acelerar, y esa pérdida ocurre
+       dentro de esa pieza. Se dibujan tantos como cobra el panel. */
     const pts=trazado(p.rk,i,p.nlin);
+    const boca=(gr,d,largo,rTuerca)=>{
+      const u=d.clone().normalize();
+      const q=new THREE.Quaternion().setFromUnitVectors(V3(0,1,0),u);
+      const cu=new THREE.Mesh(new THREE.CylinderGeometry(rad*1.30,rad*1.30,largo,14),MAT.aceroC);
+      cu.quaternion.copy(q); cu.position.copy(u).multiplyScalar(largo/2); gr.add(cu);
+      const tu=new THREE.Mesh(new THREE.CylinderGeometry(rTuerca,rTuerca,rad*1.15,6),MAT.oro);
+      tu.quaternion.copy(q); tu.position.copy(u).multiplyScalar(largo*0.86); gr.add(tu);
+    };
     for(let j=1;j<pts.length-1;j++){
-      const co=new THREE.Mesh(new THREE.SphereGeometry(rad*1.35,14,10),MAT.aceroC);
-      co.position.copy(pts[j]); co.userData.key='accesorios'; gRuta.add(co);
+      const co=new THREE.Group(); co.position.copy(pts[j]); co.userData.key='accesorios';
+      const nu=new THREE.Mesh(new THREE.SphereGeometry(rad*1.32,16,12),MAT.aceroC);
+      co.add(nu);                                  // el codo del cuerpo forjado
+      boca(co,pts[j-1].clone().sub(pts[j]),rad*2.4,rad*1.75);
+      boca(co,pts[j+1].clone().sub(pts[j]),rad*2.4,rad*1.75);
+      co.traverse(o=>{ if(o.isMesh) o.userData.key='accesorios'; });
+      gRuta.add(co);
     }
-    const vlv=new THREE.Mesh(new THREE.BoxGeometry(rad*3.2,rad*3.2,rad*2.6),MAT.oro);
-    vlv.position.copy(cv.getPointAt(0.5)); vlv.userData.key='valvula'; gRuta.add(vlv);
+    /* LAS TES que declara el trazado, con su derivación TAPONADA: una te no es
+       un ensanchamiento del tubo, es una bifurcación —y en un circuito montado,
+       la salida que no se usa lleva un tapón—. La perimetral tiene una y la
+       compacta dos: ahora se pueden contar. */
+    for(let k=0;k<R.tes;k++){
+      const u=(k+1)/(R.tes+1)*0.86+0.07;
+      const P=cv.getPointAt(u), T=cv.getTangentAt(u).normalize();
+      const te=new THREE.Group(); te.position.copy(P); te.userData.key='accesorios';
+      const cu=new THREE.Mesh(new THREE.CylinderGeometry(rad*1.28,rad*1.28,rad*3.0,14),MAT.aceroC);
+      cu.quaternion.setFromUnitVectors(V3(0,1,0),T); te.add(cu);
+      // la derivación sale perpendicular al tubo, hacia arriba en lo posible
+      const der=new THREE.Vector3(0,1,0).sub(T.clone().multiplyScalar(T.y));
+      if(der.lengthSq()<1e-4) der.set(0,0,1);
+      der.normalize();
+      const qd=new THREE.Quaternion().setFromUnitVectors(V3(0,1,0),der);
+      const br=new THREE.Mesh(new THREE.CylinderGeometry(rad*1.20,rad*1.20,rad*2.6,14),MAT.aceroC);
+      br.quaternion.copy(qd); br.position.copy(der).multiplyScalar(rad*1.3); te.add(br);
+      const tap=new THREE.Mesh(new THREE.CylinderGeometry(rad*1.55,rad*1.55,rad*1.2,6),MAT.oro);
+      tap.quaternion.copy(qd); tap.position.copy(der).multiplyScalar(rad*3.0); te.add(tap);
+      te.traverse(o=>{ if(o.isMesh) o.userData.key='accesorios'; });
+      gRuta.add(te);
+    }
+    /* LA VÁLVULA DE BOLA, con su maneta. La maneta no es adorno: puesta EN LÍNEA
+       con el tubo está abierta y atravesada está cerrada, y es lo primero que se
+       mira cuando un circuito no da caudal. */
+    const uv=0.5, Pv=cv.getPointAt(uv), Tv=cv.getTangentAt(uv).normalize();
+    const vlv=new THREE.Group(); vlv.position.copy(Pv); vlv.userData.key='valvula';
+    const qv=new THREE.Quaternion().setFromUnitVectors(V3(0,1,0),Tv);
+    const cpo=new THREE.Mesh(new THREE.CylinderGeometry(rad*1.85,rad*1.85,rad*3.0,20),MAT.oro);
+    cpo.quaternion.copy(qv); vlv.add(cpo);
+    [-1,1].forEach(sg=>{ const hx=new THREE.Mesh(new THREE.CylinderGeometry(rad*1.55,rad*1.55,rad*1.3,6),MAT.aceroC);
+      hx.quaternion.copy(qv); hx.position.copy(Tv).multiplyScalar(sg*rad*2.1); vlv.add(hx); });
+    const arr=new THREE.Vector3(0,1,0).sub(Tv.clone().multiplyScalar(Tv.y));
+    if(arr.lengthSq()<1e-4) arr.set(0,0,1);
+    arr.normalize();
+    const qa=new THREE.Quaternion().setFromUnitVectors(V3(0,1,0),arr);
+    const cue=new THREE.Mesh(new THREE.CylinderGeometry(rad*0.55,rad*0.55,rad*1.6,10),MAT.aceroC);
+    cue.quaternion.copy(qa); cue.position.copy(arr).multiplyScalar(rad*2.3); vlv.add(cue);
+    const man=new THREE.Mesh(new THREE.BoxGeometry(rad*0.8,rad*0.55,rad*5.0),MAT.rojo);
+    man.position.copy(arr).multiplyScalar(rad*3.2);
+    man.quaternion.setFromUnitVectors(V3(0,0,1),Tv);   // en línea = abierta
+    vlv.add(man);
+    vlv.traverse(o=>{ if(o.isMesh) o.userData.key='valvula'; });
+    gRuta.add(vlv);
     for(let b=0;b<7;b++){
       const s=new THREE.Mesh(new THREE.SphereGeometry(rad*0.52,10,8),matG);
       gRuta.add(s); GOTAS.push({m:s,cv:cv,off:b/7});
