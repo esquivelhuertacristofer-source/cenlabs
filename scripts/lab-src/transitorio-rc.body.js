@@ -287,39 +287,47 @@ function trace(x1,z1,x2,z2){
 }
 
 const RES3D={};
+/* Los nombres con los que trabaja la biblioteca de piezas (`P3`, que el molde ya
+   importa), traducidos una vez a los materiales de este laboratorio. */
+const MATP={
+  aluminio:std({color:0x9aa3ad,roughness:0.34,metalness:0.86}),
+  acero:MAT.lead, cromo:MAT.lead,
+  cobre:std({color:0xb87333,roughness:0.35,metalness:0.75}),
+  chapa:std({color:0x8f98a3,roughness:0.40,metalness:0.80}),
+  negro:std({color:0x14181e,roughness:0.62,metalness:0.06}),
+  goma:std({color:0x14181e,roughness:0.80,metalness:0.02}),
+  blanco:std({color:0xd7dee6,roughness:0.40,metalness:0.20}),
+  ceramica:std({color:0xd7dee6,roughness:0.60,metalness:0.05}),
+};
+/* LA RESISTENCIA, con la forma que tiene en la mano: cuerpo abarrilado con
+   hombros, las CUATRO BANDAS —tres de valor y la de tolerancia, separada, que
+   es la que dice por que lado se empieza a leer— y las patas dobladas que bajan
+   a la placa. Un tubo con cuatro rayas equiespaciadas vale para dos valores
+   distintos segun por donde se lea, y ese es justo el ejercicio. */
 function makeRes3D(id,x,z,vert){
-  const g=new THREE.Group();g.position.set(x,0.58,z);if(vert)g.rotation.y=Math.PI/2;
-  const body=sh(new THREE.Mesh(new THREE.CylinderGeometry(0.045,0.045,0.20,16),std({color:0x9a815c,roughness:0.9,metalness:0})));
-  body.rotation.z=Math.PI/2;g.add(body);
-  [-1,1].forEach(s=>{
-    const l=new THREE.Mesh(new THREE.CylinderGeometry(0.008,0.008,0.075,8),MAT.lead);
-    l.rotation.z=Math.PI/2;l.position.x=s*0.1375;g.add(l);
-    const pin=new THREE.Mesh(new THREE.CylinderGeometry(0.008,0.008,0.06,8),MAT.lead);
-    pin.position.set(s*0.17,-0.03,0);g.add(pin);
-  });
-  const bands=[];
-  [-0.060,-0.020,0.020,0.070].forEach(bx=>{
-    const b=new THREE.Mesh(new THREE.CylinderGeometry(0.047,0.047,0.02,16),std({color:0x1a1a1a,roughness:0.6,metalness:0}));
-    b.rotation.z=Math.PI/2;b.position.x=bx;g.add(b);bands.push(b);
-  });
-  g.userData={el:id};
-  scene.add(g);RES3D[id]={g,bands};
+  const g=P3.resistencia(MATP,{largo:0.20,d:0.090,patas:0.11,paso:0.34,
+    bandas:[0x1a1a1a,0x1a1a1a,0x1a1a1a,0x1a1a1a]});
+  g.position.set(x,0.50,z); if(vert)g.rotation.y=Math.PI/2;
+  g.traverse(o=>{ if(o.isMesh){o.castShadow=true;o.receiveShadow=true;} });
+  g.userData.el=id;
+  scene.add(g);RES3D[id]={g,bands:g.userData.bandas};
 }
 makeRes3D('R',1.35,0.62,false);
-
+/* EL ELECTROLITICO, con el engarce del fondo, la FRANJA del negativo y la CRUZ
+   de alivio de la tapa: una entalla hecha a proposito para que, si el
+   condensador se hincha, reviente por ahi y no por el fondo —que es por donde
+   saldria disparado—. El rotulo del valor va debajo de la cruz, como el
+   serigrafiado de uno de verdad. */
 function makeCap3D(x,z){
-  const g=new THREE.Group();g.position.set(x,0.62,z);
-  const can=sh(new THREE.Mesh(new THREE.CylinderGeometry(0.09,0.09,0.22,20),std({color:0x1f3a52,roughness:0.5,metalness:0.15})));
-  g.add(can);
+  const g=P3.condensadorRadial(MATP,{d:0.18,alto:0.24,patas:0.11,
+    lata:0x1f3a52,franja:0xcfe8ff});
+  g.position.set(x,0.50,z);
+  g.traverse(o=>{ if(o.isMesh){o.castShadow=true;o.receiveShadow=true;} });
   const cv=document.createElement('canvas');cv.width=256;cv.height=256;
   const tx=new THREE.CanvasTexture(cv);tx.colorSpace=THREE.SRGBColorSpace;tx.minFilter=THREE.LinearFilter;tx.generateMipmaps=false;
-  const top=new THREE.Mesh(new THREE.CircleGeometry(0.088,20),new THREE.MeshBasicMaterial({map:tx,toneMapped:false}));
-  top.rotation.x=-Math.PI/2;top.position.y=0.111;g.add(top);
-  [-1,1].forEach(s=>{
-    const lead=new THREE.Mesh(new THREE.CylinderGeometry(0.006,0.006,0.09,8),MAT.lead);
-    lead.position.set(s*0.03,-0.155,0);g.add(lead);
-  });
-  g.userData={el:'C'};
+  const top=new THREE.Mesh(new THREE.CircleGeometry(0.085,20),new THREE.MeshBasicMaterial({map:tx,toneMapped:false}));
+  top.rotation.x=-Math.PI/2;top.position.y=0.239;g.add(top);
+  g.userData.el='C';
   scene.add(g);
   return{g,cv,tx};
 }
