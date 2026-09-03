@@ -20,6 +20,17 @@ const MAT = {
   laser: std({ color: 0x220000, emissive: 0xff2b2b, emissiveIntensity: 0.0, roughness: 0.4, metalness: 0.0 }),
 };
 
+/* Los nombres con los que trabaja la biblioteca de piezas (`P3`, que el molde ya
+   importa), traducidos una vez a los materiales de este laboratorio. */
+const MATP = {
+  aluminio: MAT.probe, acero: MAT.probe, cromo: MAT.probe, chapa: MAT.probe,
+  cobre: std({ color: 0xb87333, roughness: 0.35, metalness: 0.75 }),
+  negro: std({ color: 0x14181e, roughness: 0.62, metalness: 0.06 }),
+  goma: MAT.toolGrip,
+  blanco: std({ color: 0xd7dee6, roughness: 0.40, metalness: 0.20 }),
+  ceramica: std({ color: 0xd7dee6, roughness: 0.60, metalness: 0.05 }),
+};
+
 /* ===================== 2. Hover / picking ===================== */
 const HOVER_LABELS = {};
 function registerPart(mesh, name, desc) {
@@ -75,19 +86,43 @@ const scrTexTC = document.createElement('canvas');
 scrTexTC.width = 256; scrTexTC.height = 128;
 const scrCtxTC = scrTexTC.getContext('2d');
 const scrTexObjTC = new THREE.CanvasTexture(scrTexTC);
+/* La pantalla estaba centrada en 1.42 y mide 0.22 de alto: su borde superior
+   caia en 1.53 y la tapa de la caja esta en 1.50, o sea que sobresalia. Baja a
+   1.33 y se le pone MARCO, que es lo que tiene cualquier instrumento. */
 const tcScreen = new THREE.Mesh(new THREE.PlaneGeometry(0.4, 0.22), new THREE.MeshBasicMaterial({ map: scrTexObjTC }));
-tcScreen.position.set(-2.3, 1.42, 0.81);
+tcScreen.position.set(-2.3, 1.33, 0.81);
 tcGroup.add(tcScreen);
+const tcMarco = new THREE.Mesh(P3.extruido(
+  [[-0.23, -0.14], [0.23, -0.14], [0.23, 0.14], [-0.23, 0.14]],
+  { huecos: [[[-0.20, -0.11], [0.20, -0.11], [0.20, 0.11], [-0.20, 0.11]]],
+    espesor: 0.024, bisel: 0.005 }), MAT.probe);
+tcMarco.position.set(-2.3, 1.33, 0.798);
+tcGroup.add(tcMarco);
 
-const tcLed = new THREE.Mesh(new THREE.SphereGeometry(0.035, 12, 12), MAT.led.clone());
-tcLed.position.set(-2.06, 1.42, 0.81);
-tcGroup.add(registerPart(tcLed, 'cjc_led', 'Indicador de compensación de junta fría (CJC). Encendido cuando el lector está midiendo activamente la temperatura de su propio bloque de terminales.'));
+const tcLedG = P3.led(MATP, { d: 0.075, color: 0x2ad9c2, patas: 0.05 });
+tcLedG.rotation.x = Math.PI / 2;
+tcLedG.position.set(-2.44, 1.10, 0.80);
+tcGroup.add(registerPart(tcLedG, 'cjc_led', 'Indicador de compensación de junta fría (CJC). Encendido cuando el lector está midiendo activamente la temperatura de su propio bloque de terminales.'));
+const tcLed = { material: tcLedG.userData.material };
 
-const tcBead = new THREE.Mesh(new THREE.SphereGeometry(0.05, 12, 12), MAT.bead);
+/* EL ZOCALO DE TERMOPAR del lector, con su conector miniatura enchufado. Aqui
+   dentro, en las palas, esta LA UNION DE REFERENCIA: es exactamente el sitio
+   cuya temperatura tiene que medir la compensacion de junta fria, y por eso el
+   LED de CJC esta al lado y no en cualquier otra parte de la caja. */
+const tcPlug = P3.conectorTermopar(MATP, { ancho: 0.19, alto: 0.12, fondo: 0.20, color: 0x2e8b57 });
+tcPlug.position.set(-2.3, 0.90, 0.80);
+tcGroup.add(registerPart(tcPlug, 'conector_tc', 'Conector miniatura de termopar tipo K (verde, IEC 60584-3), enchufado en el zócalo del lector. Sus dos palas son de ANCHURA DISTINTA para que no pueda meterse invertido: invertirlo cambiaría el signo del voltaje medido. En estas palas está la unión de referencia (junta fría) que el lector debe compensar.'));
+
+/* EL TERMOPAR no es una bolita: son DOS HILOS de aleaciones distintas trenzados
+   y fundidos en una PERLA. Que se toquen en un solo punto ES el sensor —efecto
+   Seebeck— y por eso cualquier empalme de mas en el cable es otra union. */
+const tcBead = P3.unionTermopar(MATP, { d: 0.09, hilo: 0.018, largo: 0.30,
+  colorA: 0xc8b560, colorB: 0xb9c2cb });
+tcBead.rotation.z = 0.80;
 tcBead.position.set(-0.46, 0.9, -0.55);
 tcGroup.add(registerPart(tcBead, 'termopar', 'Termopar tipo K. Une dos aleaciones distintas (Cromel/Alumel) que generan un voltaje proporcional a la diferencia de temperatura entre la punta y la unión de referencia — efecto Seebeck (IEC 60584). El color verde del cable corresponde al código de color IEC 60584-3 para Tipo K.'));
 
-const tcWire = cableTube(new THREE.Vector3(-2.15, 1.35, 0.75), new THREE.Vector3(-0.46, 0.95, -0.55), MAT.wireTC);
+const tcWire = cableTube(new THREE.Vector3(-2.30, 0.90, 1.03), new THREE.Vector3(-0.68, 1.11, -0.55), MAT.wireTC);
 tcGroup.add(registerPart(tcWire, 'cable_tc', 'Cable de termopar Tipo K (código de color verde, IEC 60584-3). Cualquier unión adicional en este cable con metal distinto introduce otra unión termoeléctrica no deseada.'));
 
 /* --- RTD (derecha) --- */
@@ -103,18 +138,40 @@ scrTexRTD.width = 256; scrTexRTD.height = 128;
 const scrCtxRTD = scrTexRTD.getContext('2d');
 const scrTexObjRTD = new THREE.CanvasTexture(scrTexRTD);
 const rtdScreen = new THREE.Mesh(new THREE.PlaneGeometry(0.4, 0.22), new THREE.MeshBasicMaterial({ map: scrTexObjRTD }));
-rtdScreen.position.set(2.3, 1.42, 0.81);
+rtdScreen.position.set(2.3, 1.33, 0.81);
 rtdGroup.add(rtdScreen);
+const rtdMarco = new THREE.Mesh(P3.extruido(
+  [[-0.23, -0.14], [0.23, -0.14], [0.23, 0.14], [-0.23, 0.14]],
+  { huecos: [[[-0.20, -0.11], [0.20, -0.11], [0.20, 0.11], [-0.20, 0.11]]],
+    espesor: 0.024, bisel: 0.005 }), MAT.probe);
+rtdMarco.position.set(2.3, 1.33, 0.798);
+rtdGroup.add(rtdMarco);
 
-const rtdProbe = new THREE.Mesh(new THREE.CylinderGeometry(0.045, 0.045, 0.5, 16), MAT.probe);
-rtdProbe.rotation.z = Math.PI / 2;
-rtdProbe.position.set(0.7, 0.9, -0.55);
+/* LA BORNERA DE CUATRO VIAS del lector. No es adorno: son las cuatro vias las
+   que hacen posible la conexion Kelvin —dos llevan la corriente y dos miden la
+   tension sin que por ellas circule nada—, y por eso en 2 hilos solo se ocupan
+   dos y la resistencia del cable se suma a la de la sonda. Va girada un cuarto
+   de vuelta: los tornillos miran al frente y los cables entran por abajo, que
+   es como se monta una bornera en un panel. */
+const rtdBorn = P3.bornera(MATP, { vias: 4, paso: 0.10, alto: 0.11, fondo: 0.12, patas: 0.05 });
+rtdBorn.rotation.x = Math.PI / 2;
+rtdBorn.position.set(2.3, 1.02, 0.80);
+rtdGroup.add(registerPart(rtdBorn, 'bornera_rtd', 'Bornera de 4 vías del lector. En conexión a 2 hilos sólo se usan dos y la resistencia de los cables se suma a la de la RTD; en conexión a 4 hilos (Kelvin) un par inyecta la corriente y el otro par mide la tensión sin caída propia, cancelando ese error.'));
+
+/* LA SONDA no es un tubo liso: tiene PUNTA REDONDEADA —lo unico que toca la
+   pieza—, CABEZAL de transicion por el que se agarra y MUELLE ANTITIRONES,
+   que esta ahi porque el cable se rompe siempre justo en ese punto. */
+const rtdProbe = P3.sondaTemperatura(MATP, { largo: 0.34, d: 0.085 });
+rtdProbe.rotation.z = -Math.PI / 2;
+rtdProbe.position.set(0.45, 0.9, -0.55);
 rtdGroup.add(registerPart(rtdProbe, 'rtd', 'RTD Pt100. Resistencia de platino que cambia de valor de forma casi lineal con la temperatura: 100 Ω a 0 °C, +≈0.385 Ω por °C (coeficiente medio, IEC 60751).'));
 
-const rtdWireA1 = cableTube(new THREE.Vector3(2.15, 1.35, 0.75), new THREE.Vector3(0.7, 0.95, -0.55), MAT.wireRtdA, 0.02);
-const rtdWireB1 = cableTube(new THREE.Vector3(2.1, 1.3, 0.7), new THREE.Vector3(0.66, 0.92, -0.5), MAT.wireRtdB, 0.02);
-const rtdWireA2 = cableTube(new THREE.Vector3(2.2, 1.28, 0.68), new THREE.Vector3(0.75, 0.9, -0.52), MAT.wireRtdA, 0.017);
-const rtdWireB2 = cableTube(new THREE.Vector3(2.25, 1.32, 0.72), new THREE.Vector3(0.78, 0.93, -0.48), MAT.wireRtdB, 0.017);
+/* Cada hilo sale de SU via de la bornera y llega al muelle antitirones de la
+   sonda, no al aire ni a la mitad de la vaina. */
+const rtdWireA1 = cableTube(new THREE.Vector3(2.15, 0.958, 0.84), new THREE.Vector3(1.07, 0.94, -0.55), MAT.wireRtdA, 0.02);
+const rtdWireB1 = cableTube(new THREE.Vector3(2.25, 0.958, 0.84), new THREE.Vector3(1.07, 0.90, -0.58), MAT.wireRtdB, 0.02);
+const rtdWireA2 = cableTube(new THREE.Vector3(2.35, 0.958, 0.84), new THREE.Vector3(1.07, 0.87, -0.52), MAT.wireRtdA, 0.017);
+const rtdWireB2 = cableTube(new THREE.Vector3(2.45, 0.958, 0.84), new THREE.Vector3(1.07, 0.90, -0.51), MAT.wireRtdB, 0.017);
 rtdGroup.add(registerPart(rtdWireA1, 'cable_rtd', 'Cables de extensión de la RTD. En conexión a 2 hilos, su resistencia se suma directamente a la de la RTD y el lector no puede separarlas. En conexión a 4 hilos (Kelvin), un par mide corriente y el otro par mide tensión sin caída por los cables, cancelando ese error.'));
 rtdGroup.add(rtdWireB1);
 rtdGroup.add(registerPart(rtdWireA2, 'cable_rtd_2', 'Segundo par de hilos, activo sólo en conexión a 4 hilos (Kelvin).'));
@@ -124,31 +181,36 @@ rtdGroup.add(rtdWireB2);
 const irGroup = new THREE.Group();
 scene.add(irGroup);
 
-const irBody = roundedBox(0.34, 0.24, 0.6, MAT.toolBody, 0.06);
-irBody.position.set(0, 1.35, 1.7);
-irGroup.add(registerPart(irBody, 'pistola_ir', 'Pistola infrarroja. Mide la radiación infrarroja emitida por la superficie y la convierte a temperatura ASUMIENDO un valor de emisividad configurado por el usuario — no mide temperatura de forma directa ni por contacto.'));
-
-const irGrip = roundedBox(0.24, 0.42, 0.22, MAT.toolGrip, 0.08);
-irGrip.position.set(0, 1.1, 1.95);
-irGrip.rotation.x = 0.35;
-irGroup.add(registerPart(irGrip, 'empunadura_ir', 'Empuñadura de goma de la pistola infrarroja.'));
-
-const irBarrel = new THREE.Mesh(new THREE.CylinderGeometry(0.05, 0.06, 0.22, 16), MAT.probe);
-irBarrel.rotation.x = Math.PI / 2;
-irBarrel.position.set(0, 1.35, 1.35);
-irGroup.add(registerPart(irBarrel, 'lente_ir', 'Lente óptica de la pistola infrarroja. Recolecta la radiación infrarroja emitida por la superficie apuntada dentro de su campo de visión (spot size).'));
+/* LA PISTOLA, apoyada en el banco por la base de su culata. Lo que la convierte
+   en una pistola —y no en una caja con mango, que era lo que habia— es el
+   perfil: culata con nervios, GUARDAMONTE con el GATILLO dentro y OPTICA al
+   frente. Apunta hacia el bloque. */
+const irGun = P3.pistolaIR(MATP, { alto: 0.62, ancho: 0.20, cuerpo: 0xff8c1a });
+irGun.rotation.y = Math.PI / 2;
+irGun.position.set(0, 0.74, 1.55);
+irGroup.add(registerPart(irGun, 'pistola_ir', 'Pistola infrarroja. Mide la radiación infrarroja emitida por la superficie y la convierte a temperatura ASUMIENDO un valor de emisividad configurado por el usuario — no mide temperatura de forma directa ni por contacto.'));
+registerPart(irGun.userData.gatillo, 'gatillo_ir', 'Gatillo de la pistola. Mientras se mantiene apretado el instrumento mide de forma continua; al soltarlo, la última lectura queda retenida en pantalla (HOLD).');
 
 const scrTexIR = document.createElement('canvas');
 scrTexIR.width = 256; scrTexIR.height = 128;
 const scrCtxIR = scrTexIR.getContext('2d');
 const scrTexObjIR = new THREE.CanvasTexture(scrTexIR);
-const irScreen = new THREE.Mesh(new THREE.PlaneGeometry(0.24, 0.14), new THREE.MeshBasicMaterial({ map: scrTexObjIR }));
-irScreen.position.set(0, 1.36, 1.42);
-irScreen.rotation.x = -0.5;
-irGroup.add(irScreen);
+/* La pantalla va en el hueco que la propia pieza deja arriba, inclinado hacia
+   quien dispara: no hay que colocarla a ojo. */
+const irScreen = new THREE.Mesh(new THREE.PlaneGeometry(0.150, 0.075), new THREE.MeshBasicMaterial({ map: scrTexObjIR }));
+irScreen.position.z = 0.012;
+irGun.userData.pantalla.add(irScreen);
+
+/* EL HAZ DE PUNTERIA, a la altura de la boca del cañón. Se ve para que quede
+   claro adónde apunta el instrumento — y para que se vea también que el láser
+   NO mide: lo que mide es la óptica, y el punto rojo sólo señala el sitio. */
+const irBeam = new THREE.Mesh(new THREE.CylinderGeometry(0.006, 0.006, 0.981, 8), MAT.laser.clone());
+irBeam.rotation.x = Math.PI / 2;
+irBeam.position.set(0, 1.081, 0.6505);
+irGroup.add(irBeam);
 
 const laserDot = new THREE.Mesh(new THREE.CircleGeometry(0.035, 16), MAT.laser.clone());
-laserDot.position.set(0, 0.9, 0.16);
+laserDot.position.set(0, 1.081, 0.16);
 irGroup.add(registerPart(laserDot, 'punto_laser', 'Punto láser de puntería. El láser NO participa en la medición de temperatura: solo ayuda a apuntar el sensor óptico hacia el punto deseado (advertencia estándar de todo fabricante de pistolas IR).'));
 
 /* ===================== 4. Física — constantes declaradas ===================== */
@@ -261,8 +323,15 @@ function readingFor(key) {
 /* ===================== 7. Interacción — picker ===================== */
 let selectedName = null;
 pickerFor(scene, camera, renderer.domElement, (hit) => {
-  if (!hit || !hit.userData.partName) return;
-  selectedName = hit.userData.partName;
+  /* `pickerFor` entrega la INTERSECCION del rayo, no la malla: `hit.userData`
+     no existe y la linea anterior reventaba en cada clic, de modo que ningun
+     rotulo de pieza llego nunca a aparecer. Ademas hay que SUBIR por los padres,
+     porque las piezas de la biblioteca son grupos y lo que se toca es un hijo. */
+  if (!hit) return;
+  let o = hit.object;
+  while (o && !(o.userData && o.userData.partName)) o = o.parent;
+  if (!o) return;
+  selectedName = o.userData.partName;
   const desc = HOVER_LABELS[selectedName] || '';
   showToast(desc);
 });
@@ -456,7 +525,13 @@ S.setAnimate(() => {
   targetBody.material.emissive = new THREE.Color(0xff5a1a);
   targetBody.material.emissiveIntensity = energized ? glow : 0.0;
   tcLed.material.emissiveIntensity = (energized && scenarioKey === 'termopar' && MODE_STATE.termopar) ? 0.9 : 0.15;
-  laserDot.material.emissiveIntensity = (energized && scenarioKey === 'infrarrojo') ? 1.0 : 0.0;
+  const apunta = (energized && scenarioKey === 'infrarrojo') ? 1.0 : 0.0;
+  laserDot.material.emissiveIntensity = apunta;
+  irBeam.material.emissiveIntensity = apunta * 0.75;
+  irBeam.visible = apunta > 0;
+  /* El segundo par de hilos SOLO existe en la conexion a 4 hilos. Dibujarlo
+     siempre contradecia el propio enunciado del laboratorio. */
+  rtdWireA2.visible = rtdWireB2.visible = MODE_STATE.rtd;
   controls.update();
   renderer.render(scene, camera);
 });

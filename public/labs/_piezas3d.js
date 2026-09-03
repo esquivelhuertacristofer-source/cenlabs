@@ -2825,6 +2825,199 @@ export function ventosa(mat, opts = {}) {
 
 
 /* ==========================================================================
+   §12 · MEDIDA DE TEMPERATURA
+   --------------------------------------------------------------------------
+   Un termopar dibujado como una bolita y una RTD dibujada como un tubo liso
+   dejan fuera justo lo que se ensena: que el termopar MIDE EN LA UNION de dos
+   metales distintos —y por eso cualquier empalme de mas es otra union—, que la
+   sonda se agarra por su CABEZAL y no por el cable, y que el conector de
+   termopar esta POLARIZADO —una pala mas ancha que la otra— porque invertirlo
+   invierte el signo de la medida.
+   Convenio: eje +Y, con la PUNTA en y = 0. La sonda crece hacia +Y.
+   ========================================================================== */
+
+/**
+ * SONDA DE VAINA (RTD Pt100, termopar de vaina, termistor de proceso): la
+ * VAINA de acero con la PUNTA REDONDEADA que es lo unico que toca la pieza, el
+ * CABEZAL de transicion —el manguito donde la vaina se une al cable, la parte
+ * por la que se agarra— y el MUELLE ANTITIRONES, que esta ahi porque el cable
+ * se rompe siempre en ese punto y no en otro.
+ */
+export function sondaTemperatura(mat, opts = {}) {
+  const { largo = 0.50, d = 0.09, cabezal = true, muelle = true, seg = 20 } = opts;
+  const g = new THREE.Group();
+  const R = d / 2;
+  const met = mat.acero || mat.aluminio || mat.cromo;
+  const gom = mat.goma || mat.negro || met;
+  const va = new THREE.Mesh(revolucion(
+    [[0, 0], [R * 0.55, R * 0.14], [R * 0.87, R * 0.48], [R, R], [R, largo], [0, largo]],
+    { seg }), met);
+  va.castShadow = true; g.add(va);
+  let y = largo;
+  if (cabezal) {
+    const hc = d * 0.95;
+    const ca = new THREE.Mesh(new THREE.CylinderGeometry(R * 2.0, R * 2.0, hc, 6), met);
+    ca.position.y = y + hc / 2; ca.castShadow = true; g.add(ca);
+    const co = new THREE.Mesh(new THREE.CylinderGeometry(R * 1.35, R * 1.35, hc * 0.42, seg), met);
+    co.position.y = y + hc + hc * 0.21; g.add(co);
+    y += hc * 1.42;
+  }
+  if (muelle) {
+    const hm = d * 1.9, N = 7, SEG = 14, pts = [];
+    for (let i = 0; i <= N * SEG; i++) {
+      const t = i / (N * SEG), a = t * Math.PI * 2 * N;
+      pts.push(new THREE.Vector3(Math.cos(a) * R * 0.74, y + t * hm, Math.sin(a) * R * 0.74));
+    }
+    const mu = new THREE.Mesh(new THREE.TubeGeometry(
+      new THREE.CatmullRomCurve3(pts, false), N * SEG, R * 0.17, 6, false), gom);
+    mu.castShadow = true; g.add(mu);
+    y += hm;
+  }
+  g.userData = { largo, d, alto: y, punta: new THREE.Vector3(0, 0, 0),
+                 salida: new THREE.Vector3(0, y, 0) };
+  return g;
+}
+
+/**
+ * UNION DE TERMOPAR de bolita soldada: los DOS HILOS de aleaciones distintas,
+ * TRENZADOS entre si y fundidos en una PERLA. La perla es el sensor entero —no
+ * hay nada mas— y que sean dos hilos de metales distintos que se tocan en un
+ * solo punto es literalmente el efecto Seebeck dibujado. Un cable trenzado con
+ * dos colores tambien dice cual es cual sin leer nada.
+ */
+export function unionTermopar(mat, opts = {}) {
+  const { d = 0.09, hilo = 0.016, largo = 0.30, vueltas = 3.5,
+          colorA = 0xc8b560, colorB = 0xb9c2cb, seg = 16 } = opts;
+  const g = new THREE.Group();
+  const met = mat.acero || mat.aluminio || mat.cromo;
+  const per = new THREE.Mesh(new THREE.SphereGeometry(d / 2, seg, Math.max(8, seg / 2)), met);
+  per.castShadow = true; g.add(per);
+  const y0 = d * 0.30, rt = hilo * 0.95, N = Math.max(24, Math.round(vueltas * 12));
+  for (const [fase, col] of [[0, colorA], [Math.PI, colorB]]) {
+    const pts = [];
+    for (let i = 0; i <= N; i++) {
+      const t = i / N, a = fase + t * Math.PI * 2 * vueltas;
+      const r = rt * Math.min(1, t * 6);          // los dos hilos NACEN de la perla
+      pts.push(new THREE.Vector3(Math.cos(a) * r, y0 + t * (largo - y0), Math.sin(a) * r));
+    }
+    const h = new THREE.Mesh(new THREE.TubeGeometry(
+      new THREE.CatmullRomCurve3(pts, false), N, hilo / 2, 6, false),
+      new THREE.MeshStandardMaterial({ color: col, roughness: 0.42, metalness: 0.65 }));
+    h.castShadow = true; g.add(h);
+  }
+  g.userData = { d, largo, punta: new THREE.Vector3(0, 0, 0),
+                 salida: new THREE.Vector3(0, largo, 0) };
+  return g;
+}
+
+/**
+ * CONECTOR MINIATURA DE TERMOPAR, enchufado en su base: cuerpo plano de plastico
+ * del color de la norma —verde para tipo K en IEC 60584-3— y las DOS PALAS
+ * PLANAS, una MAS ANCHA que la otra. Esa diferencia de anchura no es un
+ * capricho de fabricacion: es lo unico que impide meterlo del reves, y meterlo
+ * del reves invierte el signo de la medida. Ahi dentro, en las palas, es donde
+ * esta la UNION DE REFERENCIA que la compensacion de junta fria tiene que medir.
+ * Eje +Z: el origen se pone EN LA CARA del panel y el cuerpo crece hacia +Z.
+ */
+export function conectorTermopar(mat, opts = {}) {
+  const { ancho = 0.19, alto = 0.12, fondo = 0.20, color = 0x2e8b57, pala = 0.09 } = opts;
+  const g = new THREE.Group();
+  const met = mat.acero || mat.aluminio || mat.cromo;
+  const matC = new THREE.MeshStandardMaterial({ color, roughness: 0.66, metalness: 0.04 });
+  const hueco = pala * 0.30;                       // el trozo de pala que se ve
+  const cue = new THREE.Mesh(extruido(contornoRedondeado(
+    [[-ancho / 2, -alto / 2], [ancho / 2, -alto / 2], [ancho / 2, alto / 2], [-ancho / 2, alto / 2]],
+    alto * 0.16, 3), { espesor: fondo, bisel: fondo * 0.06 }), matC);
+  cue.position.z = hueco + fondo / 2; cue.castShadow = true; g.add(cue);
+  const esp = alto * 0.16;
+  [[-ancho * 0.22, ancho * 0.30], [ancho * 0.24, ancho * 0.22]].forEach(([x, w]) => {
+    const pa = new THREE.Mesh(new THREE.BoxGeometry(w, esp, pala + hueco), met);
+    pa.position.set(x, 0, (hueco - pala) / 2); g.add(pa);
+  });
+  g.userData = { ancho, alto, fondo, palas: hueco,
+                 salida: new THREE.Vector3(0, 0, hueco + fondo) };
+  return g;
+}
+
+/**
+ * PISTOLA DE INFRARROJOS. Lo que la hace una pistola —y no una caja con mango—
+ * es el PERFIL: culata inclinada, GUARDAMONTE con su hueco y el GATILLO dentro,
+ * cuerpo que se estrecha hacia el morro y OPTICA al frente. El gatillo no es
+ * adorno: mientras se aprieta el instrumento mide, y al soltarlo la lectura
+ * queda retenida. La lente es lo que fija el campo de vision, o sea de que
+ * tamano es la mancha que se esta midiendo a cada distancia.
+ *
+ * Se dibuja de una pieza a partir de su SILUETA, con el hueco del guardamonte
+ * como agujero de la extrusion: recortar el hueco es lo que da el contorno.
+ * Apunta a +X y se apoya por la base de la culata en y = 0.
+ */
+export function pistolaIR(mat, opts = {}) {
+  const { alto = 0.60, ancho = 0.16, cuerpo = 0xff8c1a, seg = 18 } = opts;
+  const g = new THREE.Group();
+  const H = alto, A = ancho;
+  const P = (a) => a.map(([x, y]) => [x * H, y * H]);
+  const matC = new THREE.MeshStandardMaterial({ color: cuerpo, roughness: 0.50, metalness: 0.20 });
+  const gom = mat.goma || mat.negro || matC;
+  /* La goma de las cachas va un punto mas clara que la del resto: una superficie
+     negra y mate contra el cuerpo naranja no se lee como goma, se lee como un
+     agujero. Y va en NERVIOS, que es de lo que agarra la mano. */
+  const gomC = new THREE.MeshStandardMaterial({ color: 0x2b3138, roughness: 0.82, metalness: 0.06 });
+  const met = mat.acero || mat.aluminio || mat.cromo;
+  const oscuro = new THREE.MeshStandardMaterial({ color: 0x0b0f14, roughness: 0.22, metalness: 0.38 });
+
+  const perfil = contornoRedondeado(P([
+    [0.46, 0.70], [0.50, 0.64], [0.50, 0.46], [0.46, 0.40],
+    [0.25, 0.40], [0.25, 0.30], [0.23, 0.20], [0.17, 0.13],
+    [0.08, 0.12], [0.08, 0.00], [-0.14, 0.00], [-0.18, 0.16],
+    [-0.14, 0.40], [-0.18, 0.56], [-0.18, 0.74], [0.30, 0.76], [0.44, 0.72],
+  ]), H * 0.022, 3);
+  const guarda = contornoRedondeado(
+    P([[0.105, 0.180], [0.210, 0.180], [0.218, 0.362], [0.105, 0.362]]), H * 0.040, 5);
+  const cue = new THREE.Mesh(extruido(perfil, { huecos: [guarda], espesor: A, bisel: A * 0.10 }), matC);
+  cue.castShadow = true; g.add(cue);
+
+  const gat = new THREE.Mesh(extruido(contornoRedondeado(
+    P([[0.140, 0.196], [0.180, 0.208], [0.190, 0.350], [0.152, 0.350]]), H * 0.016, 3),
+    { espesor: A * 0.44, bisel: A * 0.04 }), gom);
+  gat.castShadow = true; g.add(gat);
+
+  for (const sz of [-1, 1]) for (let k = 0; k < 5; k++) {
+    const ri = new THREE.Mesh(new THREE.BoxGeometry(H * 0.17, H * 0.024, A * 0.06), gomC);
+    ri.position.set(-H * 0.040, H * (0.085 + k * 0.052), sz * (A / 2 + A * 0.012));
+    g.add(ri);
+  }
+
+  const can = new THREE.Mesh(new THREE.CylinderGeometry(H * 0.100, H * 0.115, H * 0.17, seg), matC);
+  can.rotation.z = -Math.PI / 2; can.position.set(H * 0.575, H * 0.55, 0);
+  can.castShadow = true; g.add(can);
+  const aro = new THREE.Mesh(new THREE.TorusGeometry(H * 0.100, H * 0.017, 8, seg), met);
+  aro.rotation.y = Math.PI / 2; aro.position.set(H * 0.657, H * 0.55, 0); g.add(aro);
+  const len = new THREE.Mesh(new THREE.CircleGeometry(H * 0.088, seg), oscuro);
+  len.rotation.y = Math.PI / 2; len.position.set(H * 0.660, H * 0.55, 0); g.add(len);
+
+  /* EL ANCLA DE LA PANTALLA: tres giros encadenados en vez de un Euler, para
+     que se lea lo que hace cada uno —tumbarla, inclinarla hacia quien dispara y
+     poner su «arriba» mirando a la culata— y no haya que fiarse del orden. */
+  const inc = new THREE.Group(); inc.position.set(H * 0.06, H * 0.768, 0); inc.rotation.z = 0.24;
+  const tum = new THREE.Group(); tum.rotation.x = -Math.PI / 2; inc.add(tum);
+  const ori = new THREE.Group(); ori.rotation.z = Math.PI / 2; tum.add(ori);
+  g.add(inc);
+  const vis = new THREE.Mesh(new THREE.BoxGeometry(A * 0.84, H * 0.20, H * 0.020), oscuro);
+  vis.position.z = -H * 0.008; ori.add(vis);
+  for (const sx of [-1, 1]) {
+    const b = new THREE.Mesh(new THREE.BoxGeometry(A * 0.17, H * 0.05, H * 0.028), gomC);
+    b.position.set(sx * A * 0.23, -H * 0.165, 0); ori.add(b);
+  }
+
+  const tapa = new THREE.Mesh(new THREE.BoxGeometry(H * 0.20, H * 0.022, A * 0.84), gomC);
+  tapa.position.set(-H * 0.03, H * 0.011, 0); g.add(tapa);
+
+  g.userData = { alto: H, ancho: A, gatillo: gat, pantalla: ori,
+                 boca: new THREE.Vector3(H * 0.66, H * 0.55, 0) };
+  return g;
+}
+
+/* ==========================================================================
    §11 · COMPONENTES DE PLACA
    --------------------------------------------------------------------------
    Un laboratorio de electronica dibujado con un rectangulo negro, un cilindro
