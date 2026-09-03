@@ -999,6 +999,13 @@ function buildSeparador(){
   return g;
 }
 
+/* Los nombres con los que trabaja la biblioteca de piezas (`P3`, que el molde
+   ya importa), traducidos una vez a los materiales de este laboratorio. */
+const MATP={aluminio:MAT.steel, acero:MAT.steelDk, cobre:MAT.brass, cromo:MAT.chrome,
+  chapa:MAT.steelDk, hierro:MAT.steelDk, negro:MAT.dark, goma:MAT.dark,
+  blanco:MAT.chrome, ceramica:MAT.chrome,
+  papel:std({color:0xd9d2bc,roughness:0.92,metalness:0.03})};
+
 function buildFiltros(){
   const g=new THREE.Group();
   const ids=['pre','coal','micro','carb'];
@@ -1010,10 +1017,26 @@ function buildFiltros(){
     const vasoMat=MAT.vidrio.clone(); vasoMat.color=new THREE.Color(cols[id]);
     const vaso=new THREE.Mesh(new THREE.CylinderGeometry(0.078,0.078,0.24,22),vasoMat);
     vaso.position.set(x,-0.13,0); g.add(vaso);
-    const cart=new THREE.Mesh(new THREE.CylinderGeometry(0.046,0.046,0.19,18),MAT.steelDk);
+    /* EL CARTUCHO. Lo que filtra es la SUPERFICIE, y el plisado es la manera de
+       meter un metro cuadrado de papel en un vaso de un palmo: un cilindro liso
+       no dice de dónde sale el área ni por qué un filtro se «cansa». El de
+       carbón activado es la excepción y va macizo a propósito: no retiene por
+       superficie sino por adsorción en un lecho de granos, y es el único de los
+       cuatro que se lleva el vapor de aceite. */
+    const cart = id==='carb'
+      ? new THREE.Mesh(new THREE.CylinderGeometry(0.052,0.052,0.19,20),
+          std({color:0x1a1c1f,roughness:0.96,metalness:0.02}))
+      : P3.filtroPlisado(MATP,{rExt:0.058,rInt:0.028,alto:0.19,pliegues:26});
     cart.position.set(x,-0.13,0); g.add(cart);
     const fondo=new THREE.Mesh(new THREE.CylinderGeometry(0.082,0.070,0.05,22),MAT.steelDk);
     fondo.position.set(x,-0.27,0); g.add(fondo);
+    // La JAULA del vaso: un vaso de plastico a 10 bar es una granada, y por eso
+    // todos los vasos de un tren de aire llevan una.
+    for(let k=0;k<5;k++){
+      const a=(k/5)*Math.PI*2;
+      const b=new THREE.Mesh(new THREE.BoxGeometry(0.009,0.22,0.009),MAT.steelDk);
+      b.position.set(x+Math.cos(a)*0.081,-0.13,Math.sin(a)*0.081); g.add(b);
+    }
     rig.bowls[id]={vaso,cab,mat:vasoMat};
   });
   nipples(g,1.04);

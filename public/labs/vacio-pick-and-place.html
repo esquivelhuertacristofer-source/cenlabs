@@ -834,18 +834,47 @@ function buildColector(){
   const lb=labelSprite('Colector de 6 bocas','#8A94A0'); lb.position.set(0,0.24,0); lb.scale.multiplyScalar(0.55); g.add(lb);
   return g;
 }
+/* Los nombres con los que trabaja la biblioteca de piezas (`P3`, que el molde
+   ya importa), traducidos una vez a los materiales de este laboratorio. */
+const MATP={aluminio:MAT.steel, acero:MAT.steelDk, cobre:MAT.brass, cromo:MAT.chrome,
+  chapa:MAT.steelDk, hierro:MAT.steelDk, negro:MAT.rubber, goma:MAT.rubber,
+  blanco:MAT.chrome, ceramica:MAT.chrome};
+
+/* EL CABEZAL DIBUJA LO QUE HAY ELEGIDO. Antes montaba siempre cuatro copas
+   planas iguales, dijera lo que dijera el catálogo, y eso tapaba justo la
+   decisión de la práctica: el número de ventosas y —sobre todo— si son PLANAS o
+   de FUELLE. El fuelle no es un adorno: sus pliegues son lo que le deja bajar
+   sobre una pieza que no está a la altura prevista y agarrar una superficie
+   curva, y es también lo que se dobla cuando la aceleración lateral aprieta. Un
+   cabezal que enseña cuatro copas planas mientras el panel dice «fuelle de 3,5
+   pliegues» está mintiendo sobre lo único que hay que decidir. */
+let cupsG=null;
+function refrescaVentosas(){
+  if(!cupsG) return;
+  while(cupsG.children.length){
+    const c=cupsG.children.pop();
+    c.traverse(o=>{ if(o.isMesh) o.geometry.dispose(); });
+  }
+  const cfg=cfgCI(), v=VENTOSAS[cfg.ventosa], n=cfg.numero;
+  const D=v.dExt/1000*3.2;                       // Ø 30 mm → 0,096 de mundo
+  const paso=n>1?Math.min(D*1.20,0.44/(n-1)):0;
+  // Los pliegues son los del catálogo: 1,5 y 3,5 se dibujan como 2 y 4 rebordes.
+  const fue=v.tipo==='fuelle'?(v.vol>=20?4:2):0;
+  for(let i=0;i<n;i++){
+    const vt=P3.ventosa(MATP,{d:D,fuelles:fue});
+    // La BOCA de todas queda a la misma altura, sea cual sea el fuelle: es la
+    // que toca la pieza, y es la cota que decide dónde para el eje Z.
+    vt.position.set((i-(n-1)/2)*paso,-0.17-vt.userData.alturaBoca,0);
+    vt.traverse(o=>{ if(o.isMesh) o.castShadow=true; });
+    cupsG.add(vt);
+  }
+}
 function buildVentosa(){
   const g=new THREE.Group();
   const pl=roundedBox(0.50,0.05,0.24,MAT.steelDk,0.02); pl.castShadow=true; g.add(pl);
-  const cups=new THREE.Group(); cups.name='cups';
-  for(let i=0;i<4;i++){ const x=-0.165+i*0.11;
-    const vast=new THREE.Mesh(new THREE.CylinderGeometry(0.014,0.014,0.09,12),MAT.chrome); vast.position.set(x,-0.07,0); cups.add(vast);
-    const cop=new THREE.Mesh(new THREE.CylinderGeometry(0.052,0.030,0.055,20,1,true),MAT.rubber);
-    cop.position.set(x,-0.14,0); cop.castShadow=true; cups.add(cop);
-    const lab=new THREE.Mesh(new THREE.TorusGeometry(0.050,0.008,10,24),MAT.rubber);
-    lab.rotation.x=Math.PI/2; lab.position.set(x,-0.166,0); cups.add(lab);
-  }
-  g.add(cups);
+  cupsG=new THREE.Group(); cupsG.name='cups';
+  g.add(cupsG);
+  refrescaVentosas();
   const lb=labelSprite('Cabezal de ventosas','#8A94A0'); lb.position.set(0,0.20,0); lb.scale.multiplyScalar(0.55); g.add(lb);
   return g;
 }
@@ -1588,7 +1617,7 @@ function syncBtns(){
   onOff('#prEst [data-k]','k',PR.k); onOff('#prFue [data-k]','k',PR.fuente);
   syncRetoBtns();
 }
-function refreshAll(){ RCI=evalua(POOL[CI.k],cfgCI()); syncBtns(); drawBoard(); updateTele(); }
+function refreshAll(){ RCI=evalua(POOL[CI.k],cfgCI()); refrescaVentosas(); syncBtns(); drawBoard(); updateTele(); }
 
 /* ---------- modos ---------- */
 const BOARD_CAM=[[-1.2,2.7,3.2],[-3.1,2.1,0.4]];

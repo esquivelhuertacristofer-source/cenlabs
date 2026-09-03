@@ -665,6 +665,11 @@ const MAT={bench:brush(0x2b2f34),frame:brush(0x22262c),leg:brush(0x14161b),body:
   carga:std(0x3a2f24,0.7,0.15)};
 const ACC='#8AB4F8', OK_HEX='#7CD992', BAD_HEX='#ff6b6b', WARN_HEX='#E9C46A', VIO='#C08CF8';
 
+/* Los nombres con los que trabaja la biblioteca de piezas (`P3`, que el molde
+   ya importa), traducidos una vez a los materiales de este laboratorio. */
+const MATP={aluminio:MAT.plate, acero:MAT.barrel, cobre:MAT.plate, cromo:MAT.rod,
+  chapa:MAT.plate, hierro:MAT.body, negro:MAT.valve, goma:MAT.valve,
+  blanco:MAT.rod, ceramica:MAT.rod, rojo:std(0xc0392b,0.5,0.3)};
 const HOVER_LABELS=new Map();
 function addHoverLabel(obj,text,color,pos,scale){
   const cv=document.createElement('canvas');cv.width=256;cv.height=64;const cx=cv.getContext('2d');
@@ -1072,25 +1077,41 @@ function boardClick(){
 const bench=roundedBox(4.1,0.5,1.9,MAT.bench,0.05);bench.position.set(2.05,0.25,0.55);scene.add(bench);
 bench.userData={title:'Banco de ensayo de un cilindro',info:'Un cilindro de doble efecto ISO 15552 con su electroválvula, su regulador y la carga que tiene que vencer.'};
 
-const GEO_CIL=new THREE.CylinderGeometry(1,1,1,28);
-const barrel=new THREE.Mesh(GEO_CIL,MAT.barrel);
-barrel.rotation.z=Math.PI/2;barrel.position.set(2.30,0.86,0.95);scene.add(barrel);
+/* EL CILINDRO, con lo que tiene un cilindro ISO 15552 de verdad: los CUATRO
+   TIRANTES que sujetan las tapas —la presión empuja las dos tapas hacia fuera y
+   son ellos los que aguantan, por eso este cilindro se puede desarmar—, el
+   cabezal TALADRADO por donde sale el vástago, y una toma a cada lado del
+   émbolo, que es lo que hace visible que las dos áreas son distintas y que de
+   ahí sale toda la práctica. Se REHACE al cambiar de catálogo: el diámetro no
+   se estira, porque estirar la malla estiraría también los tirantes. */
+const barrel=new THREE.Group();
+barrel.rotation.z=-Math.PI/2;              // el eje del cilindro, en +x
+barrel.position.set(2.30,0.86,0.95);scene.add(barrel);
 barrel.userData={title:'Cilindro de doble efecto',info:'El diámetro dibujado sigue el del catálogo seleccionado: la camisa crece con el Ø y con ella el área y la fuerza.'};
 addHoverLabel(barrel,'cilindro ISO 15552',ACC,new THREE.Vector3(2.30,1.45,0.95),1.9);
-
-const rod=new THREE.Mesh(GEO_CIL,MAT.rod);
-rod.rotation.z=Math.PI/2;rod.position.set(2.95,0.86,0.95);scene.add(rod);
+let cilP3=null, cilKey='';
+const CARRERA3D=0.42;
 const tip=roundedBox(0.07,0.20,0.20,MAT.plate,0.02);tip.position.set(3.28,0.86,0.95);scene.add(tip);
 const carga=roundedBox(0.34,0.34,0.34,MAT.carga,0.03);carga.position.set(3.52,0.86,0.95);scene.add(carga);
 carga.userData={title:'Carga',info:'La fuerza que el cilindro tiene que vencer. La relación de carga β compara esa fuerza con la útil del cilindro.'};
 addHoverLabel(carga,'carga',WARN_HEX,new THREE.Vector3(3.52,1.30,0.95),1.1);
 
-const valv=roundedBox(0.52,0.22,0.28,MAT.valve,0.03);valv.position.set(2.30,0.62,0.20);scene.add(valv);
+/* LA VÁLVULA 5/2, con sus dos solenoides y su base de placa. El pulsador rojo
+   de la punta de cada bobina no es adorno: es el accionamiento manual de
+   emergencia, y es lo primero que se toca para saber si una máquina parada lo
+   está por la parte eléctrica o por la neumática. */
+const valv=P3.valvulaDireccional(MATP,{ancho:0.52,alto:0.15,fondo:0.26,vias:5});
+valv.position.set(2.30,0.66,0.20);
+valv.traverse(o=>{if(o.isMesh)o.castShadow=true;});scene.add(valv);
 valv.userData={title:'Electroválvula 5/2',info:'Su caudal nominal Qn (l/min ANR con 6 bar y 1 bar de caída) es el que limita la velocidad alcanzable.'};
 addHoverLabel(valv,'válvula 5/2',VIO,new THREE.Vector3(2.30,1.00,0.20),1.5);
 
-const reg=new THREE.Mesh(new THREE.CylinderGeometry(0.11,0.13,0.30,20),MAT.body);
-reg.position.set(1.35,0.65,0.30);scene.add(reg);
+/* EL REGULADOR, con su sombrerete de membrana y su mando moleteado. Girar el
+   mando no fija ninguna presión: aprieta un muelle, y el equilibrio entre ese
+   muelle y la presión de salida es lo que da el valor. */
+const reg=P3.reguladorPresion(MATP,{d:0.22,alto:0.44});
+reg.position.set(1.35,0.52,0.30);
+reg.traverse(o=>{if(o.isMesh)o.castShadow=true;});scene.add(reg);
 reg.userData={title:'Regulador de presión',info:'Fija la presión de trabajo de la máquina, siempre por debajo de la de red. Bajarla ahorra aire… salvo que obligue a subir de diámetro.'};
 
 // manómetro
@@ -1132,13 +1153,22 @@ function drawMano(p,pRed){
 function updateHW(){
   const sc=curSc(),cfg=curCfg(),e=evalua(sc,cfg);
   const r=0.055+CILINDROS[cfg.cil].D/100*0.105;
-  barrel.scale.set(r,0.92,r);
   const rr=0.018+CILINDROS[cfg.cil].d/100*0.055;
-  rod.scale.set(rr,0.60,rr);
+  if(cilKey!==cfg.cil){
+    cilKey=cfg.cil;
+    if(cilP3){ barrel.remove(cilP3); cilP3.traverse(o=>{ if(o.isMesh) o.geometry.dispose(); }); }
+    cilP3=P3.cilindroHidraulico(MATP,
+      {d:2*r,carrera:CARRERA3D,vastago:2*rr,tirantes:4,horquilla:false});
+    cilP3.traverse(o=>{if(o.isMesh)o.castShadow=true;});
+    barrel.add(cilP3);
+  }
   const p=animP;
-  rod.position.x=2.92+0.30*p;
-  tip.position.x=3.22+0.30*p;
-  carga.position.x=3.48+0.30*p;
+  // El vástago sale por el +y LOCAL de la pieza, que es el +x del banco.
+  cilP3.userData.vastago.position.y=0.30*p;
+  const dC=2*r;
+  const xPunta=2.30+(CARRERA3D+0.85*dC)/2+(CARRERA3D+0.62*dC)-0.30*dC+0.30*p;
+  tip.position.x=xPunta;
+  carga.position.x=xPunta+0.26;
   const cs=0.22+Math.cbrt(sc.F/1400)*0.26;
   carga.scale.set(cs/0.34,cs/0.34,cs/0.34);
   ledD.material.emissiveIntensity=e.okD?1.4:0.10;
@@ -1507,7 +1537,13 @@ S.setAnimate((dt)=>{
   const ph=(animT%(2*dur))/dur;
   animP=ph<1?ph:2-ph;
   const p=animP;
-  rod.position.x=2.92+0.30*p;tip.position.x=3.22+0.30*p;carga.position.x=3.48+0.30*p;
+  // El vástago va dentro de la pieza: se mueve su grupo, no una malla suelta.
+  if(cilP3){
+    cilP3.userData.vastago.position.y=0.30*p;
+    const dC=cilP3.userData.d;
+    const xPunta=2.30+(CARRERA3D+0.85*dC)/2+(CARRERA3D+0.62*dC)-0.30*dC+0.30*p;
+    tip.position.x=xPunta; carga.position.x=xPunta+0.26;
+  }
 });
 ['fuerza','caudal','consumo','reto'].forEach(m=>{el('m_'+m).onclick=()=>{if(!autoRunning)setMode(m);};});
 el('btnAuto').onclick=()=>{if(!autoRunning)runAuto();};

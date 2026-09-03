@@ -956,6 +956,15 @@ const hwV={};
     const t=new THREE.Mesh(new THREE.CylinderGeometry(0.145,0.145,0.06,20),MAT.acero);
     t.position.set(x+(x>1.3?0.16:-0.16),1.02,0); t.rotation.z=Math.PI/2; grpValv.add(t); return b; };
   hwV.bobA=bob(0.62); hwV.bobB=bob(1.98);
+  /* El PULSADOR DE EMERGENCIA de la punta de cada bobina. No es adorno: es la
+     manera de mover la corredera con el dedo cuando no hay corriente, y es lo
+     primero que se toca para saber si una máquina parada lo está por la parte
+     eléctrica o por la hidráulica. */
+  for(const [x,sx] of [[0.62,-1],[1.98,1]]){
+    const pu=new THREE.Mesh(new THREE.CylinderGeometry(0.030,0.030,0.07,12),
+      emis('#c0392b',0.35));
+    pu.rotation.z=Math.PI/2; pu.position.set(x+sx*0.235,1.02,0); grpValv.add(pu);
+  }
   // ventana con la corredera a la vista
   const hueco=new THREE.Mesh(new THREE.BoxGeometry(0.86,0.13,0.03),std('#05070c',0.9,0.05));
   hueco.position.set(1.30,1.02,0.275); grpValv.add(hueco);
@@ -1004,6 +1013,24 @@ const CIL={x0:2.32, len:1.86, y:1.02, r:0.24};
   const tapa=x=>{ const t=new THREE.Mesh(new THREE.CylinderGeometry(CIL.r+0.04,CIL.r+0.04,0.10,28),MAT.cuerpo2);
     t.rotation.z=Math.PI/2; t.position.set(x,CIL.y,0); grpCil.add(t); return t; };
   tapa(CIL.x0); tapa(CIL.x0+CIL.len);
+  /* LOS CUATRO TIRANTES. La presión empuja las dos tapas hacia fuera con toda
+     el área del émbolo detrás, y son ellos los que las sujetan: por eso un
+     cilindro de tirantes se puede desarmar y uno soldado no, y por eso los
+     tirantes son lo primero que se mira cuando un cilindro «suda» por la tapa. */
+  for(let i=0;i<4;i++){
+    const a=(i+0.5)/4*Math.PI*2;
+    const t=new THREE.Mesh(new THREE.CylinderGeometry(0.022,0.022,CIL.len+0.16,10),MAT.acero);
+    t.rotation.z=Math.PI/2;
+    t.position.set(CIL.x0+CIL.len/2,CIL.y+Math.cos(a)*(CIL.r+0.03),Math.sin(a)*(CIL.r+0.03));
+    grpCil.add(t);
+    for(const sx of [-1,1]){
+      const tu=new THREE.Mesh(new THREE.CylinderGeometry(0.036,0.036,0.05,6),MAT.acero);
+      tu.rotation.z=Math.PI/2;
+      tu.position.set(CIL.x0+CIL.len/2+sx*(CIL.len/2+0.09),
+        CIL.y+Math.cos(a)*(CIL.r+0.03),Math.sin(a)*(CIL.r+0.03));
+      grpCil.add(tu);
+    }
+  }
   const sop=x=>{ const s=roundedBox(0.16,0.72,0.52,MAT.cuerpo2,0.03);
     s.position.set(x,CIL.y-0.44,0); grpCil.add(s); };
   sop(CIL.x0+0.14); sop(CIL.x0+CIL.len-0.14);
@@ -1044,6 +1071,16 @@ function manometro(x,y,z,hex,rot,pick){
   esf.position.z=0.038; g.add(esf);
   const arco=new THREE.Mesh(new THREE.RingGeometry(0.145,0.165,26,1,Math.PI*0.75,Math.PI*1.5),emis(hex,0.45));
   arco.position.z=0.041; g.add(arco);
+  // Las DIVISIONES de la esfera: sin ellas la aguja no marca nada, sólo apunta.
+  for(let i=0;i<=10;i++){
+    const a=Math.PI*0.75+(i/10)*Math.PI*1.5;
+    const lg=(i%5===0)?0.042:0.024;
+    const mk=new THREE.Mesh(new THREE.BoxGeometry(0.009,lg,0.005),
+      new THREE.MeshBasicMaterial({color:0xcfd8e3}));
+    const rr=0.140-lg/2;
+    mk.position.set(Math.cos(a)*rr,Math.sin(a)*rr,0.043);
+    mk.rotation.z=a-Math.PI/2; g.add(mk);
+  }
   const ag=new THREE.Mesh(new THREE.BoxGeometry(0.012,0.15,0.008),emis('#eaf1fb',0.8));
   ag.position.set(0,0.070,0.046); const piv=new THREE.Group(); piv.add(ag);
   piv.position.z=0.0; g.add(piv);
