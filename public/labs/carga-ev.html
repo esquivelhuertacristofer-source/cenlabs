@@ -183,6 +183,8 @@ import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
 import { RoundedBoxGeometry } from 'three/addons/geometries/RoundedBoxGeometry.js';
+import * as P3 from '/labs/_piezas3d.js';
+import { instalaDiag } from '/labs/_diag3d.js';
 import { EffectComposer } from 'three/addons/postprocessing/EffectComposer.js';
 import { RenderPass } from 'three/addons/postprocessing/RenderPass.js';
 import { GTAOPass } from 'three/addons/postprocessing/GTAOPass.js';
@@ -465,7 +467,14 @@ const MAT={
   glass:std({color:0x111820,roughness:0.05,metalness:0.4,transparent:true,opacity:0.55,envMapIntensity:1.5}),
   tire:std({color:0x111417,roughness:0.9,metalness:0}),
   ghost:std({color:0x4FD1C5,transparent:true,opacity:0.16,side:THREE.DoubleSide}),
+  aluminio:std({color:0x9aa4b0,roughness:0.46,metalness:0.78}),
+  negro:std({color:0x15181c,roughness:0.68,metalness:0.12}),
+  cobre:std({color:0xb8763c,roughness:0.32,metalness:1}),
+  blanco:std({color:0xd6dbe1,roughness:0.62,metalness:0.10}),
 };
+const MATP={aluminio:MAT.aluminio, acero:MAT.steel, cromo:MAT.steel, hierro:MAT.power,
+  negro:MAT.negro, cobre:MAT.cobre, verde:MAT.power, blanco:MAT.blanco,
+  goma:MAT.cable, ceramica:MAT.blanco, chapa:MAT.steel};
 function rbox(w,h,d,m,rf=0.12){const r=Math.min(w,h,d)*rf;const x=new THREE.Mesh(new RoundedBoxGeometry(w,h,d,4,r),m);x.castShadow=x.receiveShadow=true;return x;}
 
 /* ============================================================
@@ -487,8 +496,34 @@ const cabinetGroup=new THREE.Group(); stRoot.add(cabinetGroup);
 // ---- MÓDULO DE POTENCIA (rectificador AC-DC + convertidor DC-DC) ----
 const powerGroup=new THREE.Group(); stRoot.add(powerGroup);
 (function(){
-  const mod=rbox(0.5,0.62,0.4,MAT.power,0.15); mod.position.set(0,1.05,0); powerGroup.add(mod);
-  for(let i=0;i<5;i++){const fin=rbox(0.5,0.5,0.02,MAT.steel); fin.position.set(0,1.05,-0.2+i*0.1); powerGroup.add(fin);}
+  /* El modulo de potencia de un cargador rapido es un CAJON EXTRAIBLE de rack:
+     asas para sacarlo en caliente, rejilla de ventilacion con su ventilador, y
+     el disipador con las aletas por donde sale el calor. Es la pieza que se
+     cambia cuando un poste se averia, y por eso se reconoce por sus asas.     */
+  const mod=new THREE.Mesh(P3.normalizaUV(P3.extruido(P3.contornoRedondeado(
+    [[-0.25,-0.31],[0.25,-0.31],[0.25,0.31],[-0.25,0.31]],0.03,3),
+    {espesor:0.40,bisel:0.012}),2),MAT.power);
+  mod.rotation.x=Math.PI/2; mod.position.set(0,1.05,0); mod.castShadow=true; powerGroup.add(mod);
+  const hs=P3.disipador(MATP,{ancho:0.46,fondo:0.34,base:0.03,alto:0.13,aletas:11,espesorAleta:0.012});
+  hs.rotation.x=-Math.PI/2; hs.position.set(0,1.05,-0.20); powerGroup.add(hs);
+  // Las dos asas del cajon.
+  for(const sy of [-1,1]){
+    const asa=new THREE.Mesh(P3.extruido([
+      [-0.075,0],[0.075,0],[0.075,0.022],[0.052,0.022],[0.052,0.055],
+      [-0.052,0.055],[-0.052,0.022],[-0.075,0.022]],{espesor:0.028,bisel:0.005,curvaSeg:2}),
+      MAT.steel);
+    asa.position.set(sy*0.155,1.05,0.205); powerGroup.add(asa);
+  }
+  // El ventilador, con su rejilla y sus aspas.
+  const rejilla=new THREE.Mesh(P3.extruido(P3.contornoRedondeado(
+    [[-0.10,-0.10],[0.10,-0.10],[0.10,0.10],[-0.10,0.10]],0.02,3),
+    {huecos:[P3.circulo(0,0,0.085,26)],espesor:0.012}),MAT.negro);
+  rejilla.position.set(0,1.28,0.205); powerGroup.add(rejilla);
+  for(let k=0;k<7;k++){
+    const aspa=new THREE.Mesh(new THREE.BoxGeometry(0.070,0.016,0.006),MAT.negro);
+    aspa.position.set(Math.cos(k/7*Math.PI*2)*0.042,1.28+Math.sin(k/7*Math.PI*2)*0.042,0.198);
+    aspa.rotation.z=k/7*Math.PI*2; powerGroup.add(aspa);
+  }
 })();
 
 // ---- PROTECCIÓN / TIERRA ----
@@ -503,8 +538,29 @@ const groundGroup=new THREE.Group(); stRoot.add(groundGroup);
 // ---- PANEL / PANTALLA (HMI) ----
 const panelGroup=new THREE.Group(); stRoot.add(panelGroup);
 (function(){
-  const scr=rbox(0.5,0.6,0.06,MAT.screen); scr.position.set(0,1.6,0.29); panelGroup.add(scr);
-  const led=new THREE.Mesh(new THREE.SphereGeometry(0.1,20,20),std({color:0xff6b1a,emissive:0xff6b1a,emissiveIntensity:0.6})); led.position.set(0,2.05,0.27); panelGroup.add(led);
+  /* Un HMI de poste no es un rectangulo negro: es una pantalla ENMARCADA, con
+     su lector de tarjeta —por donde se identifica el usuario y arranca la
+     sesion— y la baliza de estado en lo alto, que es lo que se mira desde
+     lejos para saber si el poste esta libre, cargando o averiado.             */
+  const marco=new THREE.Mesh(P3.extruido(P3.contornoRedondeado(
+    [[-0.28,-0.34],[0.28,-0.34],[0.28,0.34],[-0.28,0.34]],0.04,3),
+    {huecos:[P3.contornoRedondeado([[-0.23,-0.29],[0.23,-0.29],[0.23,0.29],[-0.23,0.29]],0.03,3)],
+     espesor:0.05,bisel:0.008}),MAT.cabinet);
+  marco.position.set(0,1.6,0.30); panelGroup.add(marco);
+  const scr=new THREE.Mesh(new THREE.BoxGeometry(0.46,0.58,0.02),MAT.screen);
+  scr.position.set(0,1.6,0.29); panelGroup.add(scr);
+  const lector=new THREE.Mesh(P3.extruido(P3.contornoRedondeado(
+    [[-0.09,-0.055],[0.09,-0.055],[0.09,0.055],[-0.09,0.055]],0.02,3),
+    {espesor:0.05,bisel:0.008}),MAT.negro);
+  lector.position.set(0,1.19,0.29); panelGroup.add(lector);
+  const ondas=new THREE.Mesh(new THREE.TorusGeometry(0.030,0.005,6,20,Math.PI),MAT.blanco);
+  ondas.position.set(0,1.19,0.32); panelGroup.add(ondas);
+  // La baliza: cilindro traslucido, no una bola.
+  const baliza=new THREE.Mesh(new THREE.CylinderGeometry(0.075,0.075,0.11,24),
+    std({color:0xff6b1a,emissive:0xff6b1a,emissiveIntensity:0.6,transparent:true,opacity:0.85}));
+  baliza.position.set(0,2.05,0.10); panelGroup.add(baliza);
+  const tapaBal=new THREE.Mesh(new THREE.CylinderGeometry(0.082,0.082,0.02,24),MAT.cabinet);
+  tapaBal.position.set(0,2.115,0.10); panelGroup.add(tapaBal);
 })();
 
 // ---- CABLE + CONECTOR ----
@@ -513,7 +569,49 @@ let connectorTip=null;
 (function(){
   // cable coiled representation near the base
   for(let i=0;i<5;i++){const c=new THREE.Mesh(new THREE.TorusGeometry(0.22-i*0.01,0.035,8,24),MAT.cable);c.position.set(-0.35,0.32+i*0.01,0.25);c.rotation.x=Math.PI/2;cableGroup.add(c);}
-  const tip=new THREE.Mesh(new RoundedBoxGeometry(0.18,0.28,0.14,2,0.05),MAT.power); tip.position.set(-0.35,0.55,0.25); tip.userData.piece='connector'; cableGroup.add(tip);
+  /* ---- EL CONECTOR CCS ------------------------------------------------
+     Esta era la pieza clave del laboratorio y era un ladrillo. Un conector de
+     carga combinado se reconoce a un metro por su forma: arriba la parte de
+     ALTERNA con sus siete contactos en circulo, abajo los DOS contactos
+     gordos de CONTINUA, el pestillo que lo engancha al coche y la empunadura
+     con el gatillo. Y esos dos tamanos de contacto SON el concepto del
+     laboratorio: por los finos van la senal y la alterna lenta; por los
+     gruesos, los cientos de amperios de la carga rapida.                     */
+  const tip=new THREE.Group(); tip.position.set(-0.35,0.55,0.25); cableGroup.add(tip);
+  const cuerpoCon=new THREE.Mesh(P3.revolucion([
+    [0,-0.16],[0.070,-0.16],[0.078,-0.13],[0.078,0.02],[0.086,0.05],
+    [0.086,0.13],[0.070,0.155],[0,0.155]],{seg:26}),MAT.power);
+  cuerpoCon.castShadow=true; tip.add(cuerpoCon);
+  // La cara del conector: corona de siete contactos y dos de potencia.
+  const cara=new THREE.Mesh(P3.revolucion([
+    [0,0],[0.084,0],[0.084,0.018],[0,0.018]],{seg:26}),MAT.negro);
+  cara.position.y=0.150; tip.add(cara);
+  for(let k=0;k<7;k++){
+    const a=k/7*Math.PI*2;
+    const pin=new THREE.Mesh(new THREE.CylinderGeometry(0.010,0.010,0.05,10),MAT.blanco);
+    pin.position.set(Math.cos(a)*0.048,0.175,Math.sin(a)*0.048); tip.add(pin);
+  }
+  const dc=new THREE.Mesh(P3.revolucion([
+    [0,-0.055],[0.075,-0.055],[0.075,0.055],[0,0.055]],{seg:22}),MAT.negro);
+  dc.position.set(0,-0.185,0); tip.add(dc);
+  for(const sx of [-1,1]){
+    const pdc=new THREE.Mesh(new THREE.CylinderGeometry(0.024,0.024,0.06,14),MAT.blanco);
+    pdc.position.set(sx*0.038,-0.215,0); tip.add(pdc);
+  }
+  // El pestillo que lo engancha al coche, y el gatillo que lo suelta.
+  const pestillo=new THREE.Mesh(P3.extruido(P3.contornoRedondeado(
+    [[-0.020,-0.055],[0.020,-0.055],[0.020,0.055],[-0.020,0.055]],0.008,3),
+    {espesor:0.030,bisel:0.005}),MAT.negro);
+  pestillo.position.set(0,0.115,0.082); tip.add(pestillo);
+  const gatillo=new THREE.Mesh(P3.extruido(P3.contornoRedondeado(
+    [[-0.018,-0.045],[0.018,-0.045],[0.018,0.045],[-0.018,0.045]],0.010,3),
+    {espesor:0.045,bisel:0.006}),MAT.negro);
+  gatillo.position.set(0,0.03,0.090); tip.add(gatillo);
+  // El prensaestopas por donde entra el cable.
+  const prensa=new THREE.Mesh(P3.revolucion([
+    [0,0],[0.055,0],[0.055,0.045],[0.042,0.055],[0.042,0.090],[0,0.090]],{seg:16}),MAT.negro);
+  prensa.position.set(0,-0.25,0); prensa.rotation.z=Math.PI; tip.add(prensa);
+  tip.traverse(o=>{o.userData.piece='connector';});
   connectorTip=tip;
 })();
 
@@ -527,12 +625,43 @@ const carGroup=new THREE.Group(); carGroup.position.set(2.0,0,0.4); scene.add(ca
   const glass=rbox(1.8,0.52,1.38,MAT.glass,0.2); glass.position.set(-0.1,1.28,0); carGroup.add(glass);
   const hood=rbox(1.15,0.34,1.5,MAT.car,0.16); hood.position.set(1.15,0.92,0); carGroup.add(hood);
   [[-1.0,-0.8],[-1.0,0.8],[1.0,-0.8],[1.0,0.8]].forEach(([x,z])=>{
-    const t=new THREE.Mesh(new THREE.CylinderGeometry(0.4,0.4,0.3,28),MAT.tire);t.rotation.x=Math.PI/2;t.position.set(x,0.4,z);t.castShadow=true;carGroup.add(t);
-    const r=new THREE.Mesh(new THREE.CylinderGeometry(0.22,0.22,0.32,8),MAT.steel);r.rotation.x=Math.PI/2;r.position.set(x,0.4,z);carGroup.add(r);
+    // La rueda, con su dibujo y su llanta: un cilindro liso al lado de un
+    // coche lo convierte en un juguete de madera.
+    const rueda=P3.neumatico(MATP,{dExt:0.80,dLlanta:0.46,ancho:0.30,tacos:26,radios:5});
+    rueda.rotation.y=Math.PI/2; rueda.position.set(x,0.4,z); carGroup.add(rueda);
   });
 })();
-const chargePort=rbox(0.16,0.26,0.28,std({color:0x0a0a0a,emissive:0x000000}),0.1);
-chargePort.position.set(0.55,0.58,0.78); chargePort.userData.piece='port'; carGroup.add(chargePort);
+/* La TOMA del coche, que es la otra mitad del concepto: la misma corona de
+   siete contactos arriba y los dos gruesos abajo, dentro de su cazoleta y con
+   la tapa abatible. Si la toma no se parece al conector, no se ve que encajan
+   —y que encajen es justo lo que el alumno tiene que reconocer—.             */
+const chargePort=new THREE.Group();
+chargePort.position.set(0.55,0.58,0.78); carGroup.add(chargePort);
+const cazoleta=new THREE.Mesh(P3.extruido(P3.contornoRedondeado(
+  [[-0.11,-0.15],[0.11,-0.15],[0.11,0.15],[-0.11,0.15]],0.05,4),
+  {espesor:0.07,bisel:0.010}),MAT.negro);
+chargePort.add(cazoleta);
+const bocaAC=new THREE.Mesh(P3.revolucion([
+  [0.070,0],[0.084,0],[0.084,0.045],[0.070,0.045]],{seg:24}),MAT.negro);
+bocaAC.rotation.x=Math.PI/2; bocaAC.position.set(0,0.055,0.02); chargePort.add(bocaAC);
+for(let k=0;k<7;k++){
+  const a=k/7*Math.PI*2;
+  const h=new THREE.Mesh(new THREE.CylinderGeometry(0.011,0.011,0.03,10),
+    std({color:0x05070a,roughness:0.9,metalness:0.1}));
+  h.rotation.x=Math.PI/2;
+  h.position.set(Math.cos(a)*0.048,0.055+Math.sin(a)*0.048,0.045); chargePort.add(h);
+}
+for(const sx of [-1,1]){
+  const h=new THREE.Mesh(new THREE.CylinderGeometry(0.025,0.025,0.03,14),
+    std({color:0x05070a,roughness:0.9,metalness:0.1}));
+  h.rotation.x=Math.PI/2; h.position.set(sx*0.038,-0.085,0.045); chargePort.add(h);
+}
+// La tapa abatible, levantada.
+const tapaPuerto=new THREE.Mesh(P3.extruido(P3.contornoRedondeado(
+  [[-0.12,-0.16],[0.12,-0.16],[0.12,0.16],[-0.12,0.16]],0.05,4),
+  {espesor:0.014,bisel:0.004}),MAT.car);
+tapaPuerto.position.set(0,0.30,-0.02); tapaPuerto.rotation.x=-0.9; chargePort.add(tapaPuerto);
+chargePort.traverse(o=>{o.userData.piece='port'; if(o.isMesh)o.castShadow=true;});
 
 /* cable dinámico (se dibuja entre el conector y el auto durante la sesión) */
 let cableLine=null;
@@ -1057,6 +1186,10 @@ window.__test={
     groundInstalled:travel.ground.installed,panelInstalled:travel.panel.installed,cableInstalled:travel.cable.installed}),
   audioState:()=>({ctxState:audioCtx?.state||'none', vol:audioGain?.gain.value||0, soundOn}),
 };
+instalaDiag('carga-ev',{escena:scene,camara:camera,controles:controls,renderizador:renderer,
+  grupos:{gabinete:cabinetGroup,potencia:powerGroup,tierra:groundGroup,panel:panelGroup,
+          cable:cableGroup,coche:carGroup}});
+
 
 </script>
   <!-- Ficha técnica · Capa B del molde de lab 3D (componente compartido + contenido del lab) -->
