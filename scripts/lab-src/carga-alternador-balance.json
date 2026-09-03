@@ -1,0 +1,9 @@
+{
+  "donor": "gases-verificacion.html",
+  "out": "carga-alternador-balance.html",
+  "title": "CEN Labs · El circuito de carga: alternador, regulador y balance eléctrico — Laboratorio 3D",
+  "lt": "Motor de combustión interna · Mecánica",
+  "inspectHint": "👆 Monta el circuito de carga y haz el balance. Un alternador de 120 A no da 120 A: a ralentí da menos de la mitad, y el testigo del salpicadero no se enciende en ninguno de los casos en que el coche se está comiendo la batería",
+  "body": "carga-alternador-balance.body.js",
+  "fichas": ["_ficha-tecnica.js", "_ficha-carga-alternador-balance.js"]
+}

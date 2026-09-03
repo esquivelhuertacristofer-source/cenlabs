@@ -1,0 +1,3010 @@
+// ============================================================
+//   LAB — d6-A2 · EL CIRCUITO DE CARGA: ALTERNADOR Y BALANCE
+// ============================================================
+const mount=document.getElementById('stage');
+// Estas cifras sólo valen para el primer fotograma: en cuanto la escena arranca
+// el encuadre se CALCULA, porque depende del tamaño del vano y de la forma de la
+// ventana y no puede estar escrito a mano.
+const S=createStage(mount,{cam:[7.4,4.5,10.8],target:[0.4,1.90,0.20],
+  bgTop:'#151b23',bgBot:'#05070b',bloom:0.26,minD:2.6,maxD:42});
+const {scene}=S;
+const synth=makeSynth({type:'sawtooth',type2:'sine',filterFreq:820,Q:0.60});
+// `clamp`, `dec` y `barajaEn` NO se declaran aquí: los declara el motor sellado
+// que se empalma justo debajo, y declararlos dos veces es un SyntaxError que
+// mata la página entera antes de que exista window.__labDebug.
+const el=id=>document.getElementById(id);
+const TINTA='#e8eef6', CIAN='#5ad1e6', OK_HEX='#7cd992', WARN_HEX='#e9c46a',
+      BAD_HEX='#ff6b6b', GRIS='#7b8697', VIO='#b48ce0', NARANJA='#f0a05a',
+      AZUL='#6ea8fe', ROSA='#f28dbb', COBRE='#d08b5b';
+
+// ============================================================================
+//   EL MOTOR SELLADO · d6-A2
+//
+//   TESIS: un alternador de 120 A no da 120 A. Da los que su régimen le
+//   permite, y a ralentí eso es menos de la mitad. El testigo del salpicadero
+//   no vigila eso: sólo mira si el alternador EXCITA, no si ALCANZA. Por eso un
+//   coche con el circuito de carga perfecto puede descargar la batería toda la
+//   noche sin encender ninguna luz de aviso.
+//
+//   Todo lo de abajo se resuelve, nada está tabulado. El corazón es el
+//   rectificador trifásico de seis pulsos con reactancia de conmutación, que es
+//   de donde sale —sola, sin ponerla a mano— la curva característica del
+//   alternador y su corriente máxima asintótica.
+//
+//   FUENTES
+//   · Bosch, «Automotive Handbook» — alternadores de garras, curva
+//     característica, regulador y rectificador trifásico.
+//   · Bosch, «Automotive Electrics and Automotive Electronics» — el circuito de
+//     carga completo, la compensación térmica del regulador y el rizado.
+//   · SAE J56 — Alternators: método de ensayo y declaración de la curva de
+//     salida (la corriente nominal se declara a 6 000 rpm de alternador).
+//   · SAE J541 — Voltage Drop for Starting Motor Circuits: los mismos límites
+//     de caída de tensión valen para el cable de carga.
+//   · SAE J537 — Storage Batteries: el ensayo del que sale la resistencia
+//     interna de la batería.
+//   · DIN 72552 — numeración de bornes (B+, D+, DF, W).
+//   · Mohan, Undeland y Robbins, «Power Electronics» — rectificador de seis
+//     pulsos con conmutación, y de dónde sale la caída de (3/π)·X_s·I.
+//   · Denton, T., «Automobile Electrical and Electronic Systems» — diagnóstico
+//     del circuito de carga, rizado y prueba de caída en el cable de carga.
+// ============================================================================
+
+// El kit de la escena NO trae `clamp` ni `barajaEn`: viven por debajo del
+// marcador del donante y el ensamblador los recorta con el laboratorio anterior.
+const clamp = (x, a, b) => Math.max(a, Math.min(b, x));
+// El separador decimal del español es la COMA, y `toFixed` escribe un punto.
+// Lo usan las cadenas que el motor redacta para que las lea una persona.
+const dec = (x, d) => x.toFixed(d).replace('.', ',');
+// El separador de millares es U+202F, un espacio FINO que no rompe linea. Con un
+// espacio normal, `wrapText` puede partir «1 013» al final de un renglon, y eso
+// ya obligo a rehacer diez laboratorios. Hay una prueba de jest que lo vigila.
+const NBSP='\u202f';
+function num(x,d=1){
+  if(x===null||x===undefined||!isFinite(x)) return '—';
+  const s=Math.abs(x).toFixed(d), p=s.split('.');
+  let ent=p[0], out='';
+  while(ent.length>3){ out=NBSP+ent.slice(-3)+out; ent=ent.slice(0,-3); }
+  out=ent+out;
+  return (x<0?'−':'')+out+(p[1]?','+p[1]:'');
+}
+function barajaEn(a){
+  const r=a.slice();
+  for(let i=r.length-1;i>0;i--){ const j=Math.floor(Math.random()*(i+1)); [r[i],r[j]]=[r[j],r[i]]; }
+  return r;
+}
+
+// ============================================================================
+//  §1 · EL ALTERNADOR DE GARRAS
+//
+//  Un rotor con UN devanado de excitación entre dos coronas de garras que se
+//  entrelazan, y un estator trifásico. La tensión que induce es proporcional al
+//  flujo y al régimen —y el flujo lo pone el regulador con la corriente de
+//  campo—, pero el hierro se satura: a partir de cierta corriente de campo,
+//  meter más no da más flujo. Esa saturación es la primera razón de que un
+//  alternador tenga un techo.
+// ============================================================================
+const POLOS=6;              // pares de polos de garras (12 polos)
+const K_E=0.011380;         // V·s por unidad de flujo y por rad/s eléctrico
+const FLUJO_SAT=1.00;       // flujo de saturación, normalizado
+const I_F_MEDIO=1.55;       // A de campo a los que se alcanza medio flujo
+const I_F_MAX=4.60;         // A, lo que el regulador puede dar como mucho
+const L_S=0.00013752;       // H, inductancia síncrona por fase
+const V_DIODO_0=0.62;       // V, caída de un diodo a corriente pequeña
+const V_DIODO_R=0.00085;    // Ω, su resistencia dinámica
+
+/** Flujo por polo frente a la corriente de campo. Curva de saturación en forma
+ *  de hipérbola: la mitad del flujo se alcanza con `I_F_MEDIO` amperios y a
+ *  partir de ahí cada amperio de más vale menos. Normalizado. */
+function flujo(iCampo){
+  const i=Math.max(0,iCampo);
+  return FLUJO_SAT*i/(i+I_F_MEDIO);
+}
+/** Frecuencia eléctrica del estator. Hz. */
+const frecuencia = rpmAlt => rpmAlt*POLOS/60;
+/** Tensión eficaz por fase en vacío. V. */
+function femFase(rpmAlt, iCampo){
+  return K_E*flujo(iCampo)*2*Math.PI*frecuencia(rpmAlt);
+}
+/** Reactancia síncrona a ese régimen. Ω.
+ *
+ *  Que crezca con el régimen es LO QUE IMPORTA: la fem crece con las vueltas y
+ *  la reactancia que la frena también, así que la corriente que el alternador
+ *  puede dar tiende a un techo en vez de crecer sin parar. Ese techo es la
+ *  «corriente máxima» de la chapa, y no depende del régimen. */
+const reactancia = rpmAlt => 2*Math.PI*frecuencia(rpmAlt)*L_S;
+
+/** Caída de los dos diodos que conducen en cada instante. V. */
+const caidaDiodos = I => 2*(V_DIODO_0 + V_DIODO_R*Math.max(0,I));
+
+/** Tensión en vacío del puente rectificador de seis pulsos, antes de los
+ *  diodos. Es el resultado clásico: la media de la envolvente de las seis
+ *  crestas de una terna. V. */
+function vacioRectificado(rpmAlt, iCampo){
+  return 3*Math.SQRT2/Math.PI*Math.sqrt(3)*femFase(rpmAlt,iCampo);
+}
+/** Corriente continua que el alternador entrega contra una barra que está a
+ *  `vBarra` voltios, con `nDiodos` diodos sanos de los seis. A.
+ *
+ *  El modelo es el del rectificador de seis pulsos CON conmutación:
+ *      V_cc = V_vacío − (3/π)·X_s·I − 2·V_diodo(I)
+ *  y aquí se despeja al revés, porque lo que fija la tensión es la batería. */
+function corrienteAlternador(rpmAlt, iCampo, vBarra, nDiodos){
+  const nd=(nDiodos===undefined?6:nDiodos);
+  // Un diodo abierto deja UN pulso de cada seis sin rectificar. Y no sólo baja
+  // la envolvente: sube la reactancia efectiva, porque durante ese hueco la
+  // corriente tiene que salir por menos caminos. Por eso la merma que se mide
+  // en el banco es mayor que la que sugiere el simple recuento de diodos.
+  const mermaV = nd>=6 ? 1 : nd===5 ? 0.780 : 0.640;
+  const mermaX = nd>=6 ? 1 : nd===5 ? 1.350 : 1.700;
+  const X=reactancia(rpmAlt)*mermaX;
+  const v0=vacioRectificado(rpmAlt,iCampo)*mermaV;
+  const k=3/Math.PI*X + 2*V_DIODO_R;
+  const I=(v0 - 2*V_DIODO_0 - vBarra)/k;
+  return Math.max(0,I);
+}
+/** Corriente máxima ASINTÓTICA: la que el alternador daría a régimen infinito.
+ *  Sale sola del modelo y es la cifra que va escrita en la chapa. A. */
+function corrienteAsintotica(iCampo){
+  // A régimen alto, la fem y la reactancia crecen las dos con ω, así que el
+  // cociente no depende de ω: es una constante de la máquina.
+  const porRad=K_E*flujo(iCampo)*3*Math.SQRT2/Math.PI*Math.sqrt(3);
+  return porRad/(3/Math.PI*L_S);
+}
+
+// ============================================================================
+//  §2 · EL REGULADOR
+//
+//  No regula la tensión del alternador: regula la del punto donde MIDE. Y eso
+//  es media lección del laboratorio, porque si entre ese punto y la batería hay
+//  una resistencia, el regulador da por buena una tensión que a la batería no
+//  le llega.
+// ============================================================================
+const V_CONSIGNA_25=14.40;   // V a 25 °C
+const TC_REGULADOR=-0.010;   // V/K — el compensador térmico
+
+/** Consigna del regulador a esa temperatura. V. */
+function consigna(TC, desvio){
+  return V_CONSIGNA_25 + TC_REGULADOR*(TC-25) + (desvio||0);
+}
+
+// ============================================================================
+//  §3 · LA BATERÍA
+//  La misma del d6-A1, y por la misma razón: su resistencia interna se deduce
+//  del ensayo de arranque en frío de la SAE J537 y no es un parámetro libre.
+//  Aquí, además, es la que decide CUÁNTA corriente acepta: la carga no se le
+//  «mete», se le ofrece una tensión y ella toma la que su química le permite.
+// ============================================================================
+const VASOS=6;
+const DVDT_VASO=0.00021;    // V/(vaso·K)
+const K_ARRHENIUS=1218;     // K
+const POLARIZA=1.18;
+const T_CCA=-18, V_CCA=7.2;
+
+function tensionVaso(soc){ return 1.950 + 0.150*clamp(soc,0,1); }
+function tensionAbierta(bat, soc, TC){
+  const vasos=VASOS-(bat.vasosMuertos||0);
+  return vasos*(tensionVaso(soc) + DVDT_VASO*(TC-25));
+}
+function factorFrio(TC){
+  const T=Math.max(233.15,TC+273.15);
+  return Math.exp(K_ARRHENIUS*(1/T - 1/298.15));
+}
+function factorCarga(soc){ return 1 + 0.35*(1/Math.max(0.15,clamp(soc,0,1)) - 1); }
+function riReferencia(bat){
+  const E=VASOS*(tensionVaso(1) + DVDT_VASO*(T_CCA-25));
+  return (E-V_CCA)/(bat.cca*POLARIZA*factorFrio(T_CCA)*factorCarga(1));
+}
+function resistenciaInterna(bat, soc, TC){
+  const vivos=VASOS-(bat.vasosMuertos||0);
+  return riReferencia(bat)*factorFrio(TC)*factorCarga(soc)/(bat.saludRi||1)*(VASOS/Math.max(1,vivos));
+}
+/** Resistencia de POLARIZACIÓN: la que limita lo que la batería ACEPTA. Ω.
+ *
+ *  Es la diferencia grande entre cargar y descargar, y la que casi todo el mundo
+ *  se salta. Descargando, quien manda son los ohmios del plomo y las rejillas:
+ *  por eso una batería da setecientos amperios de golpe. Cargando NO: el sulfato
+ *  que hay que deshacer está dentro del poro de la placa y el ácido tiene que
+ *  llegar hasta él por difusión. Esa difusión pone una resistencia que crece a
+ *  lo bestia según la placa se limpia, y por eso una batería casi llena admite
+ *  cuatro amperios aunque se le ofrezcan catorce voltios y medio.
+ *
+ *  El ajuste es el de la curva de carga a tensión constante de una batería de
+ *  60 Ah: unos 26 A al 50 %, 10 A al 80 %, 5 A al 90 % y 2,6 A al 95 %. Escala
+ *  con la capacidad —una batería del doble de grande admite el doble— y empeora
+ *  con el frío por el mismo Arrhenius que todo lo demás. */
+const R_POL_REF=0.04545;    // Ω para 60 Ah al 90 % y 25 °C
+const M_POL=0.92;           // exponente del (1−SoC)
+function resistenciaPolarizacion(bat, soc, TC){
+  const q=clamp(soc,0,0.995);
+  const escala=60/(bat.ah||60);
+  return R_POL_REF*escala*factorFrio(TC)/Math.pow(1-q,M_POL);
+}
+/** Corriente que la batería toma —o entrega, si sale negativa— cuando la barra
+ *  está a `vBarra`. Positiva quiere decir que se está cargando. A.
+ *
+ *  La batería NO es la misma resistencia en los dos sentidos. Por debajo de su
+ *  tensión en vacío entrega, y ahí mandan los ohmios. Por encima acepta, y ahí
+ *  manda la polarización, que es diez o cien veces mayor. Poner la misma
+ *  resistencia en los dos lados es el error que hace que un balance de carga
+ *  calculado a mano dé cien amperios de carga donde el coche da ocho. */
+function corrienteBateria(bat, soc, TC, vBarra){
+  const voc=tensionAbierta(bat,soc,TC);
+  const ri=resistenciaInterna(bat,soc,TC);
+  if(vBarra<=voc) return (vBarra-voc)/ri;
+  return (vBarra-voc)/(ri+resistenciaPolarizacion(bat,soc,TC));
+}
+
+// ============================================================================
+//  §4 · LO QUE CONSUME EL COCHE
+//
+//  Y no todo consume igual. Una lámpara y una luneta térmica son RESISTENCIAS:
+//  si la barra se hunde, tiran menos. Una unidad de mando o una bomba de
+//  gasolina son consumos de POTENCIA constante: si la barra se hunde, tiran más
+//  corriente para sacar los mismos vatios. Mezclarlos da un balance que no se
+//  parece al de ningún coche.
+// ============================================================================
+const V_NOMINAL=13.5;       // V a los que están declaradas las potencias
+const CARGAS=[
+  {k:'motor',   rot:'Unidad de mando, bomba e inyección', w:170, tipo:'pot',  fijo:true,
+   nota:'Con el motor en marcha esto no se puede apagar.'},
+  {k:'cruce',   rot:'Luces de cruce',                     w:120, tipo:'res',
+   nota:'Dos de 55 W y las de posición.'},
+  {k:'luneta',  rot:'Luneta térmica',                     w:200, tipo:'res',
+   nota:'El consumo más bruto del coche, y se olvida encendido.'},
+  {k:'ventila', rot:'Ventilador del habitáculo al máximo',w:180, tipo:'res',
+   nota:'En invierno y en verano, siempre puesto.'},
+  {k:'limpia',  rot:'Limpiaparabrisas',                   w: 80, tipo:'pot',
+   nota:'Con lluvia va todo el rato.'},
+  {k:'radio',   rot:'Radio y pantalla',                   w: 45, tipo:'pot',
+   nota:'Poco, pero nunca se apaga.'},
+  {k:'niebla',  rot:'Antinieblas',                        w:110, tipo:'res',
+   nota:'Dos de 55 W más.'},
+  {k:'asiento', rot:'Asientos calefactados',              w:120, tipo:'res',
+   nota:'Dos plazas.'},
+  {k:'clima',   rot:'Embrague del compresor y electroventilador', w:230, tipo:'pot',
+   nota:'El aire acondicionado en verano, con el ventilador del radiador.'},
+];
+const CARGA_KEYS=CARGAS.map(c=>c.k);
+/** Corriente que pide un consumo con la barra a `v` voltios. A. */
+function corrienteCarga(c, v){
+  if(v<=0) return 0;
+  // Resistivo: la resistencia es fija, así que la corriente baja con la tensión.
+  // De potencia: los vatios son fijos, así que la corriente SUBE si la barra cae.
+  if(c.tipo==='res') return (c.w/V_NOMINAL)*(v/V_NOMINAL);
+  return c.w/v;
+}
+/** Corriente total de los consumos encendidos. A. */
+function corrienteCargas(encendidas, v){
+  let I=0;
+  for(const c of CARGAS) if(c.fijo||encendidas[c.k]) I+=corrienteCarga(c,v);
+  return I;
+}
+/** Y sus vatios de verdad a esa tensión, que no son los de la etiqueta. W. */
+function potenciaCargas(encendidas, v){ return corrienteCargas(encendidas,v)*v; }
+
+// ============================================================================
+//  §5 · EL CABLE DE CARGA Y LAS MASAS
+//  El mismo procedimiento del d6-A1, y la misma física. Pero aquí la corriente
+//  va al revés, y eso cambia quién se queda sin tensión: la batería.
+// ============================================================================
+const RHO_CU=1.724e-8, ALFA_CU=0.00393;
+function resistenciaCable(largo, seccionMM2, TC){
+  return RHO_CU*(1+ALFA_CU*(TC-20))*largo/(seccionMM2*1e-6);
+}
+const LIM_CARGA=0.30;   // V de caída admisible en el cable de carga, a plena carga
+const LIM_MASA=0.20;    // V en la masa del alternador
+
+// ============================================================================
+//  §6 · EL PUNTO DE FUNCIONAMIENTO
+//
+//  Nada de esto se declara: se busca, y con DOS bisecciones encajadas.
+//
+//  La de dentro reparte la corriente entre la batería y los consumos hasta que
+//  el nudo cuadra. La de fuera sube la corriente de campo hasta que el regulador
+//  ve su consigna en el punto donde MIDE —y ahí está la trampa del laboratorio,
+//  porque medir en el alternador y medir en la batería no es lo mismo en cuanto
+//  el cable de carga tiene resistencia.
+//
+//  Si con todo el campo que puede dar no llega a la consigna, el alternador se
+//  ha quedado corto: la barra se hunde por debajo de la consigna y la batería
+//  deja de cargarse y empieza a DESCARGARSE con el motor en marcha.
+// ============================================================================
+
+/** La forma LEGIBLE del nudo: con la barra a `v`, ¿cuánta corriente entra por
+ *  el cable de carga? Es la suma de lo que piden los consumos, uno a uno, más
+ *  lo que la batería acepta o entrega.
+ *
+ *  El solucionador NO llama a ésta —usa la versión precalculada de abajo, que
+ *  da lo mismo hasta el último bit y cuesta mil veces menos—, pero ésta es la
+ *  que se lee y la que las pruebas comparan contra la rápida. Dos formas de la
+ *  misma ecuación que dejasen de coincidir serían un error silencioso. */
+function corrienteDelNudo(bat, soc, TC, encendidas, v){
+  return corrienteCargas(encendidas,v) + corrienteBateria(bat,soc,TC,v);
+}
+/** Y la tensión de barra a la que ese nudo consume exactamente `iAlt`. V. */
+function tensionBarra(iAlt, bat, soc, TC, encendidas){
+  const f=v=>iAlt - corrienteDelNudo(bat,soc,TC,encendidas,v);
+  let lo=6, hi=18;
+  if(f(lo)<0) return lo;
+  if(f(hi)>0) return hi;
+  for(let i=0;i<40;i++){ const m=(lo+hi)/2; if(f(m)>0) lo=m; else hi=m; }
+  return (lo+hi)/2;
+}
+/** El nudo, con todo lo que NO depende de la tensión calculado una sola vez.
+ *
+ *  Esto no es una optimización cosmética. El punto de funcionamiento se busca
+ *  con bisecciones ENCAJADAS, y cada paso de la de fuera paga entera la de
+ *  dentro: dejar un `Math.exp` de Arrhenius dentro del bucle más interior lo
+ *  multiplica por miles. Aquí se separa lo constante —la tensión en vacío de la
+ *  batería, sus dos resistencias, la conductancia de los consumos resistivos y
+ *  los vatios de los de potencia— de lo que sí depende de la barra. */
+function nudo(bat, soc, TC, encendidas){
+  let gRes=0, wPot=0;
+  for(const c of CARGAS) if(c.fijo||encendidas[c.k]){
+    if(c.tipo==='res') gRes+=c.w/(V_NOMINAL*V_NOMINAL); else wPot+=c.w;
+  }
+  const voc=tensionAbierta(bat,soc,TC);
+  const ri=resistenciaInterna(bat,soc,TC);
+  const rp=ri+resistenciaPolarizacion(bat,soc,TC);
+  return {
+    voc, ri, rp, gRes, wPot,
+    cargas:v=>v>0?(gRes*v + wPot/v):0,
+    bateria:v=>v<=voc?(v-voc)/ri:(v-voc)/rp,
+    /** Lo que el nudo PIDE con la barra a `v`: los consumos más lo que la
+     *  batería acepte —o menos lo que entregue, si la barra está por debajo de
+     *  su tensión en vacío. A. */
+    pide:v=>(v>0?(gRes*v + wPot/v):0) + (v<=voc?(v-voc)/ri:(v-voc)/rp),
+  };
+}
+/** Estado eléctrico completo para una corriente de campo dada.
+ *
+ *  UNA sola bisección, sobre la tensión de la barra. Dada una barra, lo que el
+ *  coche pide sale de una fórmula; con esa corriente se sabe cuánto cae el
+ *  enlace y, por tanto, contra qué tensión trabaja el alternador; y de ahí,
+ *  cuánto da. La diferencia entre lo que da y lo que se pide es estrictamente
+ *  decreciente con la tensión de la barra —el alternador pierde unos diez
+ *  amperios por voltio y ningún consumo se acerca a eso—, así que hay una única
+ *  solución y se encuentra a bisección. */
+function reparto(iCampo, P){
+  const { rpmAlt, bat, soc, TC, encendidas, rLink, nDiodos, patina } = P;
+  const N=nudo(bat,soc,TC,encendidas);
+  const da=v=>{
+    const I=N.pide(v);
+    const rp=rpmAlt*factorPatinaje(patina,I);
+    return corrienteAlternador(rp,iCampo,v+rLink*I,nDiodos);
+  };
+  const h=v=>da(v)-N.pide(v);
+  let lo=6, hi=18;
+  let v;
+  if(h(lo)<=0) v=lo; else if(h(hi)>=0) v=hi;
+  else { for(let i=0;i<40;i++){ const m=(lo+hi)/2; if(h(m)>0) lo=m; else hi=m; } v=(lo+hi)/2; }
+  const I=Math.max(0,N.pide(v));
+  return { iAlt:I, vBarra:v, vAlt:v+rLink*I,
+    iBat:N.bateria(v), iCargas:N.cargas(v), iCampo:iCampo,
+    rpmAlt:rpmAlt*factorPatinaje(patina,I),
+    patinaje:1-factorPatinaje(patina,I) };
+}
+/** Y el regulador encima de todo: sube el campo hasta ver su consigna en el
+ *  punto donde mide. Si no llega con todo el campo, se queda a tope. */
+function regula(P, vObjetivo, sensa){
+  const punto=r=>(sensa==='bateria'?r.vBarra:r.vAlt);
+  const iMax=(P.iCampoMax===undefined?I_F_MAX:P.iCampoMax);
+  const rMax=reparto(iMax,P);
+  if(punto(rMax)<=vObjetivo) return Object.assign({},rMax,{saturado:true});
+  let lo=0, hi=iMax;
+  for(let i=0;i<34;i++){
+    const m=(lo+hi)/2;
+    if(punto(reparto(m,P))<vObjetivo) lo=m; else hi=m;
+  }
+  const r=reparto((lo+hi)/2,P);
+  return Object.assign({},r,{saturado:false});
+}
+/** Cuánto de las vueltas de la polea le llegan de verdad al alternador.
+ *
+ *  Una correa floja NO patina siempre: patina cuando hay par que transmitir, y
+ *  el par del alternador crece con la corriente. Por eso una correa floja se
+ *  porta bien en la revisión —donde no hay nada encendido— y se hunde justo la
+ *  noche que se le pide todo. Adimensional, de `patina` a 1. */
+function factorPatinaje(patina, iAlt){
+  if(!patina) return 1;
+  const carga=clamp(Math.max(0,iAlt)/120,0,3);
+  return patina + (1-patina)*Math.exp(-3.2*carga);
+}
+
+// ============================================================================
+//  §7 · LOS VEHÍCULOS
+//  Cuatro, elegidos para que el mismo fallo dé cuentas distintas: un utilitario
+//  con un alternador justo, un turismo con uno holgado, una furgoneta con el
+//  cable largo —la misma de d6-A1— y un taxi que pasa la vida al ralentí.
+// ============================================================================
+const VEHS={
+  util16:{ key:'util16', corto:'Utilitario 1.6', nombre:'Turismo 1.6 L, alternador de 120 A',
+    nota:'Polea de 2,7, ralentí de 720 rpm y el regulador midiendo en el propio alternador.',
+    alt:{nominal:120, iCampoMax:4.60}, relPolea:2.70, ralenti:720, crucero:2400,
+    bat:{cca:640, ah:60}, sensa:'alternador',
+    largoCarga:1.30, seccCarga:16, largoMasa:0.45, seccMasa:16 },
+  turismo:{ key:'turismo', corto:'Turismo 2.0', nombre:'Turismo 2.0 L con muchos consumos',
+    nota:'Polea más corta (3,1), ralentí de 680 rpm y el regulador midiendo EN LA BATERÍA.',
+    alt:{nominal:120, iCampoMax:4.60}, relPolea:3.10, ralenti:680, crucero:2200,
+    bat:{cca:760, ah:72}, sensa:'bateria',
+    largoCarga:1.70, seccCarga:25, largoMasa:0.55, seccMasa:25 },
+  furgo:{ key:'furgo', corto:'Furgoneta', nombre:'Furgoneta con la batería bajo el asiento',
+    nota:'Cable de carga de 3,20 m y regulador midiendo en la batería: compensa la caída, y eso se paga.',
+    alt:{nominal:120, iCampoMax:4.60}, relPolea:2.55, ralenti:750, crucero:2300,
+    bat:{cca:800, ah:80}, sensa:'bateria',
+    largoCarga:3.20, seccCarga:25, largoMasa:0.90, seccMasa:25 },
+  taxi:{ key:'taxi', corto:'Taxi', nombre:'Taxi de ciudad, casi siempre al ralentí',
+    nota:'Polea larga (2,95) para arañar amperios abajo, y el regulador midiendo en el alternador.',
+    alt:{nominal:120, iCampoMax:4.60}, relPolea:2.95, ralenti:700, crucero:1500,
+    bat:{cca:700, ah:70}, sensa:'alternador',
+    largoCarga:1.50, seccCarga:25, largoMasa:0.50, seccMasa:25 },
+};
+const VEH_KEYS=Object.keys(VEHS);
+/** Régimen del alternador a partir del del motor. rpm. */
+const rpmAlternador=(v,rpmMotor)=>rpmMotor*v.relPolea;
+
+// ============================================================================
+//  §8 · LOS MONTAJES
+//  Uno bien hecho y ocho averías. Cinco se ven en la tensión, tres NO, y una
+//  —la que más asusta— es la que no es ninguna avería.
+// ============================================================================
+const FALLAS={
+  sano:{ key:'sano', corto:'todo bien', sig:'sano', rot:'circuito de carga en buen estado',
+    pista:'Nada que buscar: si algo no cuadra, es el balance y no una avería.' },
+  cableCarga:{ key:'cableCarga', corto:'cable de carga con resistencia', sig:'cable+',
+    rot:'resistencia en el cable de carga B+',
+    R:{carga:0.030},
+    pista:'Mide la caída ENTRE el B+ del alternador y el borne de la batería, con carga.' },
+  masaAlt:{ key:'masaAlt', corto:'masa del alternador floja', sig:'masa floja',
+    rot:'masa del alternador con resistencia',
+    R:{masa:0.026},
+    pista:'La otra mitad del circuito, y la que casi nadie mide.' },
+  diodoAbierto:{ key:'diodoAbierto', corto:'un diodo abierto', sig:'diodo ab.', rot:'un diodo del puente abierto',
+    diodos:5,
+    pista:'La corriente máxima cae un tercio y el rizado se dispara. En continua casi no se ve.' },
+  diodoCorto:{ key:'diodoCorto', corto:'un diodo en corto', sig:'diodo cc', rot:'un diodo del puente en cortocircuito',
+    diodos:4, fugaAlt:2.40,
+    pista:'Además de dar menos, DESCARGA la batería con el motor parado.' },
+  reguladorBajo:{ key:'reguladorBajo', corto:'regulador con consigna baja', sig:'reg. bajo',
+    rot:'regulador ajustado 0,9 V por debajo',
+    dConsigna:-0.90,
+    pista:'La tensión es estable, correcta de aspecto y sencillamente baja.' },
+  reguladorAlto:{ key:'reguladorAlto', corto:'regulador con consigna alta', sig:'reg. alto',
+    rot:'regulador ajustado 1,1 V por encima',
+    dConsigna:1.10,
+    pista:'Gasea el electrolito y cuece la batería. Huele, y eso se nota antes que el multímetro.' },
+  escobillas:{ key:'escobillas', corto:'escobillas del alternador gastadas', sig:'escobillas',
+    rot:'escobillas y anillos rozantes gastados',
+    iCampoMax:1.30,
+    pista:'El campo no llega a su máximo: da menos amperios SIN que ninguna caída lo delate.' },
+  correa:{ key:'correa', corto:'correa que patina', sig:'correa', rot:'correa floja o cristalizada',
+    patina:0.62,
+    pista:'El alternador gira más despacio que la polea. Se oye antes de que se mida.' },
+};
+const FALLA_KEYS=Object.keys(FALLAS);
+function averia(k){ return FALLAS[k]||FALLAS.sano; }
+
+/** Resistencias sanas del enlace, por tramo. Ω. */
+function resistenciasSanas(v, TC){
+  return {
+    carga: resistenciaCable(v.largoCarga, v.seccCarga, TC) + 0.00035,
+    masa:  resistenciaCable(v.largoMasa, v.seccMasa, TC) + 0.00025,
+  };
+}
+function resistencias(v, TC, F){
+  const R=resistenciasSanas(v,TC);
+  if(F.R) for(const k in F.R) R[k]+=F.R[k];
+  return R;
+}
+
+// ============================================================================
+//  §9 · LAS SITUACIONES
+//  Cinco, y ninguna es rara: son cinco ratos de un día cualquiera.
+// ============================================================================
+const SITUACIONES=[
+  {k:'diaCarretera', rot:'De día en carretera', TC:20, soc:0.90, rpm:'crucero',
+   on:{}, nota:'Nada encendido salvo lo del motor.'},
+  {k:'nocheLluvia', rot:'De noche y lloviendo', TC:8, soc:0.80, rpm:'crucero',
+   on:{cruce:1,limpia:1,radio:1,ventila:1}, nota:'Lo normal de una noche de invierno.'},
+  {k:'atasco', rot:'Atasco, de noche y con todo puesto', TC:4, soc:0.70, rpm:'ralenti',
+   on:{cruce:1,limpia:1,radio:1,ventila:1,luneta:1,niebla:1,asiento:1},
+   nota:'El caso que descarga baterías sin encender ningún testigo.'},
+  {k:'veranoClima', rot:'Verano con el aire puesto', TC:38, soc:0.85, rpm:'ralenti',
+   on:{clima:1,ventila:1,radio:1}, nota:'Ralentí con el compresor y el electroventilador.'},
+  {k:'frioMañana', rot:'Mañana helada, recién arrancado', TC:-7, soc:0.55, rpm:'ralenti',
+   on:{cruce:1,luneta:1,ventila:1,asiento:1},
+   nota:'La batería viene medio vacía y todo lo que calienta está encendido.'},
+];
+const SIT_KEYS=SITUACIONES.map(s=>s.k);
+
+// ============================================================================
+//  §10 · EL ENSAYO
+//
+//  Aquí se junta todo: un vehículo, un montaje, una situación y un régimen, y
+//  sale el estado eléctrico completo MÁS lo que marca cada aparato —que no es
+//  lo mismo, porque los aparatos tienen resolución y redondean.
+// ============================================================================
+const FUGA_BASE=0.028;      // A, el consumo parásito normal de un coche parado
+const redondea=(x,p)=>Math.round(x/p)*p;
+/** Resolución de cada aparato del banco. Es lo que convierte el reto en un
+ *  problema: dos casos que difieren menos que esto son el MISMO caso. */
+const RESOL={ v:0.01, caida:0.01, i:1, rizado:0.010, rpm:10, fuga:0.001 };
+
+/** Rizado de alterna en el B+, de pico a pico. V.
+ *
+ *  El puente de seis pulsos deja un rizado a seis veces la frecuencia del
+ *  estator, y a esa frecuencia la reactancia síncrona lo frena seis veces más
+ *  que a la continua: por eso un puente sano riza poquísimo. Con un diodo roto
+ *  se pierde un pulso, el rizado baja a la segunda armónica o a la primera —
+ *  donde la reactancia frena mucho menos— y se dispara.
+ *
+ *  Lo que se MIDE, sin embargo, no es ese rizado: es lo que queda después de
+ *  que la batería se lo trague. Una batería sana es un sumidero de rizado de
+ *  unos pocos miliohmios, y por eso las cifras de este banco no se parecen a
+ *  los «tres voltios» del folclore, que salen de medir con la batería floja o
+ *  desembornada. */
+function rizadoPP(rpmAlt, iCampo, nDiodos, zBarra){
+  const nd=(nDiodos===undefined?6:nDiodos);
+  const alfa = nd>=6 ? 0.134 : nd===5 ? 0.55 : 0.80;
+  const orden = nd>=6 ? 6 : nd===5 ? 2 : 1;
+  const mermaV = nd>=6 ? 1 : nd===5 ? 0.780 : 0.640;
+  const mermaX = nd>=6 ? 1 : nd===5 ? 1.350 : 1.700;
+  const v0=vacioRectificado(rpmAlt,iCampo)*mermaV;
+  const xRz=orden*(3/Math.PI)*reactancia(rpmAlt)*mermaX;
+  if(xRz<=0) return 0;
+  return alfa*v0*zBarra/(zBarra+xRz);
+}
+/** Impedancia que la barra le ofrece al rizado: la batería en paralelo con los
+ *  consumos, más el enlace hasta donde se mide. Ω. */
+function impedanciaBarra(bat, soc, TC, encendidas, vBarra, rLink){
+  const gBat=1/Math.max(1e-4,resistenciaInterna(bat,soc,TC));
+  const gCar=vBarra>0 ? corrienteCargas(encendidas,vBarra)/vBarra : 0;
+  return rLink + 1/(gBat+gCar);
+}
+
+/** Ensayo completo.
+ *  @param vk clave de vehículo · @param fk clave de montaje · @param sk clave
+ *  de situación · @param opts {rpm, on, soc, TC} para forzar condiciones. */
+function ensayo(vk, fk, sk, opts){
+  const o=opts||{};
+  const v=VEHS[vk]||VEHS.util16;
+  const F=averia(fk);
+  const S=SITUACIONES.find(x=>x.k===sk)||SITUACIONES[0];
+  const TC=(o.TC===undefined||o.TC===null)?S.TC:o.TC;
+  const soc=(o.soc===undefined||o.soc===null)?S.soc:o.soc;
+  const rpmMotor=(o.rpm===undefined||o.rpm===null)
+    ? (S.rpm==='ralenti'?v.ralenti:v.crucero) : o.rpm;
+  const encendidas=Object.assign({},S.on,o.on||{});
+
+  const R=resistencias(v,TC,F);
+  const rLink=R.carga+R.masa;
+  const rpmAltNom=rpmAlternador(v,rpmMotor);
+  const P={ rpmAlt:rpmAltNom, bat:v.bat, soc, TC, encendidas, rLink,
+    nDiodos:(F.diodos===undefined?6:F.diodos), patina:F.patina,
+    iCampoMax:(F.iCampoMax===undefined?v.alt.iCampoMax:F.iCampoMax) };
+  const vObj=consigna(TC,F.dConsigna||0);
+  const r=regula(P,vObj,v.sensa);
+
+  // Lo que ve cada aparato.
+  const zB=impedanciaBarra(v.bat,soc,TC,encendidas,r.vBarra,rLink);
+  const rzV=rizadoPP(r.rpmAlt,r.iCampo,P.nDiodos,zB);
+  const vD=Math.min(r.vAlt,
+    vacioRectificado(r.rpmAlt,r.iCampo)*(P.nDiodos>=6?1:0.780) - 2*V_DIODO_0);
+  const brillo=clamp((r.vBarra-vD)/Math.max(1,r.vBarra),0,1);
+  const fuga=FUGA_BASE+(F.fugaAlt||0);
+
+  const med={
+    vBat:      redondea(r.vBarra, RESOL.v),
+    vAlt:      redondea(r.vAlt,   RESOL.v),
+    caidaCarga:redondea(r.iAlt*R.carga, RESOL.caida),
+    caidaMasa: redondea(r.iAlt*R.masa,  RESOL.caida),
+    iAlt:      redondea(r.iAlt, RESOL.i),
+    iBat:      redondea(r.iBat, RESOL.i),
+    rizado:    redondea(rzV, RESOL.rizado),
+    rpmAlt:    redondea(r.rpmAlt, RESOL.rpm),
+    fuga:      redondea(fuga, RESOL.fuga),
+    testigo:   brillo>0.06,
+  };
+  return { v, F, S, TC, soc, rpmMotor, rpmAltNom, encendidas, R, rLink,
+    vObj, r, med, zB, rizadoV:rzV, brillo, fuga,
+    iCampoMax:P.iCampoMax, nDiodos:P.nDiodos,
+    // El veredicto: el signo de la corriente de la batería con el motor EN
+    // MARCHA. Positivo, carga. Negativo, el coche se está comiendo la batería
+    // mientras rueda, y el testigo del salpicadero seguirá apagado.
+    carga: r.iBat>0.5, descarga: r.iBat<-0.5,
+    deficit: Math.max(0,-r.iBat),
+    saturado: !!r.saturado };
+}
+
+// ============================================================================
+//  §11 · LOS APARATOS Y EL CENSO
+//
+//  Nueve aparatos y nueve montajes. La pregunta del laboratorio no es «¿qué da
+//  cada avería?» sino la de al lado: «¿QUÉ APARATO LA VE, Y EN QUÉ CONDICIÓN?».
+//  Y la respuesta —esto es el censo— es que casi ninguno la ve solo, y que la
+//  condición importa más que el aparato.
+// ============================================================================
+const INSTR=[
+  {k:'vBat',      rot:'Voltímetro en bornes de batería',  sig:'V en la batería',
+   ud:'V',  dec:2, tol:RESOL.v,
+   nota:'La medida que hace todo el mundo, y la primera que se queda corta.'},
+  {k:'vAlt',      rot:'Voltímetro en el B+ del alternador',sig:'V en el B+',
+   ud:'V', dec:2, tol:RESOL.v,
+   nota:'Contra la propia carcasa, no contra el chasis.'},
+  {k:'caidaCarga',rot:'Caída en el cable de carga',       sig:'caída del cable',
+   ud:'V',  dec:2, tol:RESOL.caida,
+   nota:'Punta roja al B+, punta negra al borne de la batería, con carga.'},
+  {k:'caidaMasa', rot:'Caída en la masa del alternador',  sig:'caída de la masa',
+   ud:'V',  dec:2, tol:RESOL.caida,
+   nota:'La otra mitad del circuito. Casi nadie la mide.'},
+  {k:'iAlt',      rot:'Pinza en el cable del B+',         sig:'pinza en el B+',
+   ud:'A',  dec:0, tol:RESOL.i,
+   nota:'Lo que el alternador da DE VERDAD en esta condición.'},
+  {k:'iBat',      rot:'Pinza en el cable de la batería',  sig:'pinza en la batería',
+   ud:'A',  dec:0, tol:RESOL.i,
+   nota:'Con signo: positiva carga, negativa se está vaciando.'},
+  {k:'rizado',    rot:'Rizado de alterna en el B+',       sig:'rizado',
+   ud:'mV', dec:0, tol:RESOL.rizado,
+   esc:1000, nota:'De pico a pico, con la batería puesta.'},
+  {k:'rpmAlt',    rot:'Estroboscopio en la polea',        sig:'estroboscopio',
+   ud:'rpm',dec:0, tol:RESOL.rpm,
+   nota:'Lo que gira el alternador, no lo que gira el motor.'},
+  {k:'fuga',      rot:'Consumo parásito, motor parado',   sig:'fuga en parado',
+   ud:'A',  dec:3, tol:RESOL.fuga,
+   nota:'Otro ensayo, otro día: el coche apagado y cerrado.'},
+  {k:'testigo',   rot:'Testigo de carga del salpicadero', sig:'testigo',
+   ud:'',   dec:0, tol:0,
+   nota:'El único «aparato» que lleva el coche de serie.'},
+];
+const INSTR_KEYS=INSTR.map(i=>i.k);
+function instr(k){ return INSTR.find(i=>i.k===k); }
+/** Lo que marca un aparato en un ensayo, ya redondeado a su resolución. */
+function lectura(E, ik){ return E.med[ik]; }
+/** Cómo se escribe esa lectura en pantalla. */
+function lecturaTexto(E, ik){
+  const I=instr(ik); const x=E.med[ik];
+  if(ik==='testigo') return x?'ENCENDIDO':'apagado';
+  return num(x*(I.esc||1), I.dec)+(I.ud?NBSP+I.ud:'');
+}
+/** ¿Este aparato distingue estos dos montajes en esta condición? */
+function separa(ik, E1, E2){
+  const I=instr(ik);
+  if(ik==='testigo') return E1.med.testigo!==E2.med.testigo;
+  return Math.abs(E1.med[ik]-E2.med[ik]) > I.tol*0.5;
+}
+/** La firma completa de un montaje: lo que marcan LOS NUEVE aparatos. Dos
+ *  montajes con la misma firma son, en esa condición, el mismo montaje: no hay
+ *  medida que los separe y el diagnóstico es una moneda al aire. */
+function firma(E){
+  return INSTR_KEYS.map(k=>k==='testigo'?(E.med.testigo?'1':'0')
+    :E.med[k].toFixed(4)).join('|');
+}
+/** Autonomía que le queda a la batería si el coche está descargando. min.
+ *
+ *  Hasta el 30 % de carga, que es donde deja de arrancar; y con Peukert, porque
+ *  a corriente alta una batería no da los amperios-hora de la etiqueta. */
+const PEUKERT=1.15;
+function autonomiaMin(E){
+  if(!E.descarga) return null;
+  const ah=E.v.bat.ah;
+  const usable=ah*(E.soc-0.30);
+  if(usable<=0) return 0;
+  const I=E.deficit;
+  const i20=ah/20;
+  const efect=Math.pow(Math.max(1e-3,i20/I), PEUKERT-1);
+  return usable*efect/I*60;
+}
+/** El censo de un vehículo en una condición: para cada aparato, a cuántas de
+ *  las ocho averías separa del coche sano. */
+function censo(vk, sk, cond){
+  const base=ensayo(vk,'sano',sk,cond);
+  const filas=INSTR_KEYS.map(ik=>({ik, ve:[], n:0}));
+  for(const fk of FALLA_KEYS){
+    if(fk==='sano') continue;
+    const E=ensayo(vk,fk,sk,cond);
+    for(const f of filas) if(separa(f.ik,base,E)){ f.ve.push(fk); f.n++; }
+  }
+  return {base, filas};
+}
+/** Las clases de equivalencia: qué montajes son indistinguibles entre sí con
+ *  TODOS los aparatos a la vez, en esa condición. */
+function clases(vk, sk, cond){
+  const por=new Map();
+  for(const fk of FALLA_KEYS){
+    const f=firma(ensayo(vk,fk,sk,cond));
+    if(!por.has(f)) por.set(f,[]);
+    por.get(f).push(fk);
+  }
+  return [...por.values()];
+}
+/** Y el resumen que importa: cuántos casos quedan sin resolver. */
+function ambiguos(vk, sk, cond){
+  return clases(vk,sk,cond).filter(g=>g.length>1);
+}
+
+// ============================================================================
+//  §12 · EL RETO A CIEGAS
+//
+//  Un coche con un montaje que no se dice. El alumno puede poner las
+//  condiciones que quiera —régimen, consumos, situación— y leer los aparatos
+//  las veces que quiera. Y al final tiene que decir cuál de los nueve es.
+//
+//  Lo que se le corrige no es sólo si acertó. Se le corrige si SE LO HABÍA
+//  GANADO: con las condiciones que llegó a mirar, ¿quedaba un único montaje
+//  compatible, o quedaban tres y eligió bien de casualidad? Acertar sin haber
+//  cerrado el caso es lo mismo que fallar, sólo que con suerte.
+// ============================================================================
+const RETO={ activo:false, veh:'util16', falla:null, sit:'diaCarretera',
+  rpm:null, on:null, visitadas:[], hecho:false, elegida:null, acierto:null,
+  orden:FALLA_KEYS.slice() };
+
+/** La condición que está puesta ahora mismo en el banco del reto. */
+function retoCondicion(){
+  return { sit:RETO.sit, rpm:RETO.rpm, on:RETO.on?Object.assign({},RETO.on):null };
+}
+/** Dos condiciones son la misma si dan las mismas lecturas: se comparan por su
+ *  contenido, no por el orden en que se tocaron los mandos. */
+function claveCondicion(c){
+  const on=c.on?CARGA_KEYS.filter(k=>c.on[k]).sort().join('+'):'-';
+  return c.sit+'/'+(c.rpm===null||c.rpm===undefined?'auto':Math.round(c.rpm))+'/'+on;
+}
+/** El ensayo del reto con una condición dada (por omisión, la de ahora). */
+function retoEnsayo(c){
+  const cc=c||retoCondicion();
+  return ensayo(RETO.veh, RETO.falla||'sano', cc.sit, {rpm:cc.rpm, on:cc.on});
+}
+/** Los montajes que siguen siendo compatibles con TODO lo que se ha medido.
+ *  Es el conjunto que el alumno ha conseguido acorralar. */
+function retoCompatibles(){
+  const vivos=FALLA_KEYS.slice();
+  const fuera=new Set();
+  for(const c of RETO.visitadas){
+    const real=ensayo(RETO.veh, RETO.falla||'sano', c.sit, {rpm:c.rpm, on:c.on});
+    for(const fk of vivos){
+      if(fuera.has(fk)) continue;
+      const E=ensayo(RETO.veh, fk, c.sit, {rpm:c.rpm, on:c.on});
+      if(INSTR_KEYS.some(ik=>separa(ik,real,E))) fuera.add(fk);
+    }
+  }
+  return vivos.filter(fk=>!fuera.has(fk));
+}
+/** Anota la condición actual como visitada. Se llama al leer los aparatos. */
+function retoAnota(){
+  if(!RETO.activo||RETO.hecho) return false;
+  const c=retoCondicion(), k=claveCondicion(c);
+  if(RETO.visitadas.some(x=>claveCondicion(x)===k)) return false;
+  RETO.visitadas.push(c);
+  return true;
+}
+/** Un caso nuevo. `rnd` permite fijar la semilla en las pruebas. */
+function retoNuevo(rnd){
+  const r=rnd||Math.random;
+  RETO.activo=true; RETO.hecho=false; RETO.elegida=null; RETO.acierto=null;
+  RETO.veh=VEH_KEYS[Math.floor(r()*VEH_KEYS.length)%VEH_KEYS.length];
+  RETO.falla=FALLA_KEYS[Math.floor(r()*FALLA_KEYS.length)%FALLA_KEYS.length];
+  RETO.sit=SITUACIONES[0].k; RETO.rpm=null; RETO.on=null;
+  RETO.visitadas=[];
+  return RETO.veh;
+}
+function retoResponde(fk){
+  if(!RETO.activo||RETO.hecho) return null;
+  RETO.elegida=fk;
+  RETO.acierto=(fk===RETO.falla);
+  RETO.hecho=true;
+  return RETO.acierto;
+}
+/** El balance del caso, y sólo DESPUÉS de responder. */
+function retoResumen(){
+  if(!RETO.hecho) return null;
+  const comp=retoCompatibles();
+  const cerrado=comp.length===1 && comp[0]===RETO.falla;
+  // Y las condiciones que habrían cerrado el caso él solo, para enseñárselas.
+  const buenas=SITUACIONES.filter(s=>{
+    const A=ambiguos(RETO.veh,s.k,{});
+    return !A.some(g=>g.indexOf(RETO.falla)>=0);
+  }).map(s=>s.k);
+  return { veh:RETO.veh, falla:RETO.falla, elegida:RETO.elegida,
+    acierto:RETO.acierto, compatibles:comp, cerrado,
+    condiciones:RETO.visitadas.length, buenas };
+}
+
+// ============================================================================
+//  §13 · LAS DOS CIFRAS QUE CONTESTAN LA PREGUNTA DEL ALUMNO
+//
+//  «¿A cuántas vueltas deja de descargarse?» y «¿cuánto puede dar aquí?». La
+//  primera hay que buscarla con el modelo entero; la segunda es una cuenta.
+// ============================================================================
+
+/** Lo que el alternador PODRÍA dar a `rpmMotor` si la barra estuviera en la
+ *  consigna. Es la curva de la chapa, y no hace falta resolver nada para
+ *  sacarla: se lee directamente del modelo del rectificador. A. */
+function capacidad(vk, fk, sk, rpmMotor, TC){
+  const v=VEHS[vk], F=averia(fk);
+  const t=(TC===undefined||TC===null)
+    ? (SITUACIONES.find(x=>x.k===sk)||SITUACIONES[0]).TC : TC;
+  const vObj=consigna(t,F.dConsigna||0);
+  const iF=(F.iCampoMax===undefined?v.alt.iCampoMax:F.iCampoMax);
+  const nD=(F.diodos===undefined?6:F.diodos);
+  // Con la correa floja el régimen del alternador depende de la corriente, y la
+  // corriente del régimen. Aquí se cierra con cuatro pasadas de relajación, que
+  // es de sobra: el factor de patinaje es suave y contrae rápido.
+  let I=0;
+  for(let k=0;k<8;k++){
+    const rp=rpmAlternador(v,rpmMotor)*factorPatinaje(F.patina,I);
+    I=corrienteAlternador(rp,iF,vObj,nD);
+  }
+  return I;
+}
+/** El barrido: qué da el alternador y qué consume el coche a cada régimen, con
+ *  el modelo ENTERO y no con la fórmula de la chapa.
+ *
+ *  La diferencia importa. La curva de la chapa se levanta con la barra clavada
+ *  en la consigna, y en cuanto el alternador se queda corto la barra se hunde y
+ *  la máquina entrega MÁS de lo que esa curva promete —una batería vacía tira
+ *  del alternador—. Dibujar la curva de la chapa y encima el punto de trabajo
+ *  real deja el punto por encima de su propia curva, que es incomprensible.
+ *  Aquí las dos curvas salen del mismo sitio que el punto: del ensayo. */
+function barrido(vk, fk, sk, cond, rpm0, rpm1, n){
+  const c=cond||{}, a=rpm0===undefined?300:rpm0, b=rpm1===undefined?4000:rpm1;
+  const N=n===undefined?46:n, out=[];
+  for(let i=0;i<=N;i++){
+    const r=a+(b-a)*i/N;
+    const E=ensayo(vk,fk,sk,Object.assign({},c,{rpm:r}));
+    out.push({rpm:r, iAlt:E.r.iAlt, iCargas:E.r.iCargas, iBat:E.r.iBat,
+      vBarra:E.r.vBarra, rpmAlt:E.r.rpmAlt});
+  }
+  return out;
+}
+/** El régimen de motor a partir del cual el coche deja de comerse la batería.
+ *  `null` si no lo consigue ni a 6 000 rpm; `0` si lo consigue ya al ralentí. */
+function rpmEquilibrio(vk, fk, sk, cond){
+  const c=cond||{};
+  const da=r=>ensayo(vk,fk,sk,Object.assign({},c,{rpm:r})).r.iBat>=0;
+  let lo=280, hi=6000;
+  if(da(lo)) return 0;
+  if(!da(hi)) return null;
+  for(let i=0;i<24;i++){ const m=(lo+hi)/2; if(da(m)) hi=m; else lo=m; }
+  return (lo+hi)/2;
+}
+
+// ============================================================ T1 · FORMATOS, ESTADO Y MATERIALES
+
+// `NBSP` y `num` viven en el §0, dentro del motor: el pizarron escribe cifras
+// igual que el panel y las dos salen de la misma funcion.
+const volt=(x,d=2)=>num(x,d)+NBSP+'V';
+const mvolt=(x,d=0)=>num(x*1000,d)+NBSP+'mV';
+const amp=(x,d=0)=>num(x,d)+NBSP+'A';
+const ohm=(x,d=1)=>num(x*1000,d)+NBSP+'mΩ';
+const vat=(x,d=0)=>num(x,d)+NBSP+'W';
+const rpmT=x=>num(x,0)+NBSP+'rpm';
+const celC=(t,d=0)=>num(t,d)+NBSP+'°C';
+const pcc=(x,d=0)=>num(x,d)+NBSP+'%';
+const ahT=(x,d=0)=>num(x,d)+NBSP+'Ah';
+const minT=x=>x===null?'—':(x>=120?num(x/60,1)+NBSP+'h':num(x,0)+NBSP+'min');
+// El kit del donante no trae `corta`: sin ella, `syncCtrl` revienta la página
+// entera la primera vez que se pinta la barra de mandos.
+const corta=(s,n)=>s.length>n?s.slice(0,n-1)+'…':s;
+
+// ------------------------------------------------------------------- estado
+const G={
+  modo:'ensamble', veh:'util16', falla:'sano', sit:'diaCarretera',
+  rpm:null, on:null,
+  simUnlocked:false, resuelto:false,
+};
+const VH=()=>VEHS[G.veh];
+const FL=()=>FALLAS[G.falla];
+const SIT=()=>SITUACIONES.find(s=>s.k===G.sit)||SITUACIONES[0];
+/** La condición puesta en el banco: la situación MÁS lo que el alumno haya
+ *  tocado encima. `null` quiere decir «como venga en la situación». */
+const COND=()=>({rpm:G.rpm, on:G.on?Object.assign({},G.on):null});
+/** Los consumos que están encendidos AHORA, ya resueltos los `null`. */
+function encendidasAhora(){
+  return Object.assign({}, SIT().on, G.on||{});
+}
+const rpmAhora=()=>G.rpm===null?(SIT().rpm==='ralenti'?VH().ralenti:VH().crucero):G.rpm;
+
+// --------------------------------------------------------------------- memo
+// Cada casilla del censo resuelve DOS bisecciones encajadas de setenta pasos
+// cada una, y el censo tiene noventa casillas. Repintar el pizarrón a cada
+// fotograma sin memorizar tira la página al suelo.
+const MEMO=new Map();
+function memo(k,fn){ if(!MEMO.has(k)) MEMO.set(k,fn()); return MEMO.get(k); }
+function invalida(){ MEMO.clear(); }
+const CFGK=()=>[G.veh,G.sit,G.rpm===null?'auto':Math.round(G.rpm),
+  G.on?CARGA_KEYS.filter(k=>G.on[k]).join('+'):'-'].join('|');
+function EN_DE(f){ return memo('e|'+CFGK()+'|'+(f===undefined||f===null?G.falla:f),
+  ()=>ensayo(G.veh, f===undefined||f===null?G.falla:f, G.sit, COND())); }
+function EN(){ return EN_DE(G.falla); }
+function CENSO(){ return memo('c|'+CFGK(), ()=>censo(G.veh,G.sit,COND())); }
+function CLASES(){ return memo('k|'+CFGK(), ()=>clases(G.veh,G.sit,COND())); }
+
+// ---------------------------------------------------------------- veredictos
+// El veredicto NO es «la tensión está bien». Es el signo de la corriente de la
+// batería: si el coche se está comiendo la batería con el motor en marcha, da
+// igual lo bonita que sea la tensión.
+function veredicto(){
+  const r=EN();
+  if(r.descarga) return {nivel:'bad',rot:'EL COCHE SE ESTÁ COMIENDO LA BATERÍA'};
+  if(r.saturado) return {nivel:'warn',rot:'ALTERNADOR AL LÍMITE: NO LLEGA A SU CONSIGNA'};
+  if(r.med.vBat>15.0) return {nivel:'bad',rot:'SOBRETENSIÓN: SE ESTÁ COCIENDO LA BATERÍA'};
+  const lim=r.med.caidaCarga>LIM_CARGA||r.med.caidaMasa>LIM_MASA;
+  if(lim) return {nivel:'warn',rot:'CARGA, PERO HAY UN TRAMO QUE SE PASA DE CAÍDA'};
+  if(r.med.iBat<2 && r.soc<0.75) return {nivel:'warn',rot:'CARGA TAN DESPACIO QUE NO RECUPERA'};
+  return {nivel:'ok',rot:'CIRCUITO DE CARGA SANO'};
+}
+
+// ---------------------------------------------------------------- materiales
+const std=o=>new THREE.MeshStandardMaterial(o);
+const plas={color:0x2a3442,metalness:0.10,roughness:0.72};
+const MAT={
+  acero:   std({color:0x9aa6b4,metalness:0.86,roughness:0.34}),
+  // El alternador NO es aluminio pulido: con metalness 0,72 era el objeto más
+  // claro de la escena y se comía el resto del vano en cualquier captura.
+  aluminio:std({color:0x76808d,metalness:0.44,roughness:0.62}),
+  plomo:   std({color:0x5e6672,metalness:0.55,roughness:0.62}),
+  caja:    std({color:0x1e2836,metalness:0.12,roughness:0.78}),
+  tapa:    std({color:0x243044,metalness:0.14,roughness:0.70}),
+  cobre:   std({color:0xc07a48,metalness:0.90,roughness:0.32}),
+  aislante:std({color:0x141a24,metalness:0.05,roughness:0.90}),
+  rojo:    std({color:0xc0392b,metalness:0.20,roughness:0.62}),
+  negro:   std({color:0x171d27,metalness:0.20,roughness:0.66}),
+  goma:    std({color:0x101620,metalness:0.04,roughness:0.94}),
+  // La correa NO es del negro del vano: sobre un fondo oscuro y con la luz que
+  // hay, una goma a 0x101620 desaparece y el alumno no ve la transmisión.
+  correa:  std({color:0x4d5866,metalness:0.08,roughness:0.84}),
+  cristal: std({color:0x9fc7de,metalness:0.30,roughness:0.18,transparent:true,opacity:0.42}),
+  suelo:   std({color:0x11161e,metalness:0.06,roughness:0.94}),
+  verde:   std({color:0x2f7d51,metalness:0.20,roughness:0.60}),
+  // Aluminio fundido gris y mate: el bloque es el fondo del tema, no el tema.
+  bloque:  std({color:0x4a5260,metalness:0.52,roughness:0.64}),
+  banco:   std({color:0x232c38,metalness:0.10,roughness:0.72}),
+};
+
+// ============================================================ T2 · PIZARRÓN
+// Un lienzo 2D de 1024×768 pegado a un panel 3D. Se llama `bcv` y no `cv`
+// porque `cv` ya es la fábrica de lienzos del kit de la escena: reusar ese
+// nombre rompe la página entera antes de que arranque nada.
+const BW=1024, BH=768;
+const bcv=document.createElement('canvas'); bcv.width=BW; bcv.height=BH;
+const bx=bcv.getContext('2d');
+const btex=new THREE.CanvasTexture(bcv);
+// El ÚNICO MeshBasicMaterial legítimo de la escena. Se guarda aparte para que
+// el centinela de materiales por defecto pueda descartarlo por identidad y no
+// por su color, que es exactamente lo que tiene el material equivocado.
+const btexMat=new THREE.MeshBasicMaterial({map:btex,toneMapped:false});
+btex.colorSpace=THREE.SRGBColorSpace;
+
+const board=new THREE.Group();
+scene.add(board);
+// El tamaño del pizarrón se elige por lo que MIDE EN PANTALLA, no por lo que
+// parece razonable en metros: la textura tiene 1 024 px de ancho, y si sale a
+// 420 px de ventana el texto de 13 px llega al ojo a 5 y no se lee. El estándar
+// de la casa es ≥ 480 px en 1600×900, y se COMPRUEBA con
+// `window.__labDebug.anchoTableroPx`.
+const BW3=8.40, BH3=6.06, BY3=3.26;
+// ------------------------------------------------------------- primitivas 2D
+function bg(){
+  const g=bx.createLinearGradient(0,0,0,BH);
+  g.addColorStop(0,'#0d131c'); g.addColorStop(1,'#070a10');
+  bx.fillStyle=g; bx.fillRect(0,0,BW,BH);
+}
+function texto(t,x,y,o){
+  o=o||{};
+  const s=o.s||16, w=o.b?'700':'400', it=o.it?'italic ':'';
+  bx.font=it+w+' '+s+'px '+(o.mono?'ui-monospace,Menlo,Consolas,monospace':'Inter,system-ui,sans-serif');
+  bx.fillStyle=o.c||TINTA; bx.textAlign=o.al||'left'; bx.textBaseline='alphabetic';
+  bx.fillText(t,x,y);
+}
+function linea(pts,c,w,dash){
+  if(pts.length<2) return;
+  bx.save(); bx.strokeStyle=c; bx.lineWidth=w||2; bx.lineJoin='round'; bx.lineCap='round';
+  if(dash) bx.setLineDash(dash);
+  bx.beginPath(); bx.moveTo(pts[0][0],pts[0][1]);
+  for(let i=1;i<pts.length;i++) bx.lineTo(pts[i][0],pts[i][1]);
+  bx.stroke(); bx.restore();
+}
+function wrapText(t,x,y,w,lh,o){
+  o=o||{};
+  const s=o.s||14;
+  bx.font=(o.b?'700 ':'400 ')+s+'px Inter,system-ui,sans-serif';
+  bx.fillStyle=o.c||'#9aa6b6'; bx.textAlign='left'; bx.textBaseline='alphabetic';
+  let ln='', yy=y;
+  for(const p of t.split(' ')){
+    const test=ln?ln+' '+p:p;
+    if(bx.measureText(test).width>w&&ln){ bx.fillText(ln,x,yy); yy+=lh; ln=p; }
+    else ln=test;
+  }
+  if(ln){ bx.fillText(ln,x,yy); yy+=lh; }
+  return yy;
+}
+function rpanel(x,y,w,h,c,bd,rad){
+  const r=Math.min(rad===undefined?10:rad, w/2, h/2);
+  bx.save(); bx.beginPath();
+  bx.moveTo(x+r,y); bx.arcTo(x+w,y,x+w,y+h,r); bx.arcTo(x+w,y+h,x,y+h,r);
+  bx.arcTo(x,y+h,x,y,r); bx.arcTo(x,y,x+w,y,r); bx.closePath();
+  bx.fillStyle=c||'rgba(255,255,255,0.035)'; bx.fill();
+  if(bd){ bx.strokeStyle=bd; bx.lineWidth=1.4; bx.stroke(); }
+  bx.restore();
+}
+function chk(x,y,ok){
+  bx.save(); bx.lineWidth=2.6; bx.lineCap='round';
+  bx.strokeStyle=ok?OK_HEX:'#3a4658';
+  bx.beginPath(); bx.arc(x,y,9,0,Math.PI*2); bx.stroke();
+  if(ok){ bx.beginPath(); bx.moveTo(x-4.5,y); bx.lineTo(x-1,y+3.6); bx.lineTo(x+4.8,y-4); bx.stroke(); }
+  bx.restore();
+}
+function tabla(x,y,cols,rows,o){
+  o=o||{};
+  const rh=o.rh||26, fs=o.s||14, gap=o.gap===undefined?14:o.gap;
+  const ancho=cols.reduce((a,c)=>a+c.w+gap,0)-gap;
+  let cx=x;
+  cols.forEach(c=>{ texto(c.t,c.al==='right'?cx+c.w:cx,y,{s:fs,b:true,c:'#9aa6b6',al:c.al||'left'}); cx+=c.w+gap; });
+  linea([[x,y+8],[x+ancho,y+8]],'#243043',1.2);
+  rows.forEach((r,i)=>{
+    const yy=y+rh*(i+1)+6;
+    if(r.hl){ bx.save(); bx.fillStyle=r.hl; bx.fillRect(x-6,yy-rh+9,ancho+12,rh); bx.restore(); }
+    let px=x;
+    cols.forEach((c,j)=>{
+      const cell=r.v[j];
+      const val=Array.isArray(cell)?cell[0]:cell, col=Array.isArray(cell)?cell[1]:(r.c||TINTA);
+      texto(val,c.al==='right'?px+c.w:px,yy,{s:fs,c:col,al:c.al||'left',mono:c.mono,b:r.b});
+      px+=c.w+gap;
+    });
+  });
+  return y+rh*(rows.length+1)+6;
+}
+// Título que se encoge hasta caber: cambiar de vehículo cambia la longitud del
+// rótulo, y un rótulo largo se monta encima del de al lado sin avisar.
+function textoFit(t,x,y,maxW,o){
+  o=o||{};
+  let s=o.s||16;
+  while(s>11){
+    bx.font=(o.b?'700 ':'400 ')+s+'px Inter,system-ui,sans-serif';
+    if(bx.measureText(t).width<=maxW) break;
+    s-=0.5;
+  }
+  texto(t,x,y,Object.assign({},o,{s:s}));
+}
+function etiqueta(t,x,y,c,al){
+  bx.font='400 12px Inter,system-ui,sans-serif';
+  const w=bx.measureText(t).width+16, x0=(al==='right')?x-w:x;
+  rpanel(x0,y-14,w,20,'rgba(8,12,18,0.80)',null,6);
+  texto(t,x0+8,y,{s:12,c:c||TINTA});
+}
+function leyenda(x,y,items){
+  bx.font='400 13px Inter,system-ui,sans-serif';
+  const w=Math.max.apply(null,items.map(it=>bx.measureText(it[0]).width))+48;
+  rpanel(x-10,y-19,w,items.length*22+8,'rgba(8,12,18,0.80)','#1e2836',8);
+  let yy=y;
+  items.forEach(it=>{
+    bx.save(); bx.strokeStyle=it[1]; bx.lineWidth=3.2; bx.lineCap='round';
+    if(it[2]) bx.setLineDash(it[2]);
+    bx.beginPath(); bx.moveTo(x,yy-4); bx.lineTo(x+26,yy-4); bx.stroke(); bx.restore();
+    texto(it[0],x+34,yy,{s:13,c:'#c3ccd8'});
+    yy+=22;
+  });
+  return yy;
+}
+// Recorta al rectángulo de la gráfica. Sin esto, una curva que se sale por
+// arriba se pinta sobre la cabecera y nadie lo nota.
+function enCaja(P,fn){ bx.save(); bx.beginPath(); bx.rect(P.x,P.y,P.w,P.h); bx.clip(); fn(); bx.restore(); }
+
+function ejes(P,x0,x1,y0,y1,rx,ry,fx,fy,nx,ny){
+  const X=v=>P.x+(v-x0)/(x1-x0)*P.w;
+  const Y=v=>P.y+P.h-(v-y0)/(y1-y0)*P.h;
+  bx.save(); bx.strokeStyle='#1d2735'; bx.lineWidth=1;
+  for(let i=0;i<=nx;i++){ const v=x0+(x1-x0)*i/nx, xx=X(v);
+    bx.beginPath(); bx.moveTo(xx,P.y); bx.lineTo(xx,P.y+P.h); bx.stroke();
+    if(fx) texto(fx(v),xx,P.y+P.h+19,{s:12,c:'#7b8697',al:'center'}); }
+  for(let i=0;i<=ny;i++){ const v=y0+(y1-y0)*i/ny, yy=Y(v);
+    bx.beginPath(); bx.moveTo(P.x,yy); bx.lineTo(P.x+P.w,yy); bx.stroke();
+    if(fy) texto(fy(v),P.x-9,yy+4,{s:12,c:'#7b8697',al:'right'}); }
+  bx.restore();
+  bx.save(); bx.strokeStyle='#3a4658'; bx.lineWidth=1.5; bx.strokeRect(P.x,P.y,P.w,P.h); bx.restore();
+  if(rx) texto(rx,P.x+P.w/2,P.y+P.h+44,{s:13,c:'#9aa6b6',al:'center'});
+  if(ry){ bx.save(); bx.translate(P.x-58,P.y+P.h/2); bx.rotate(-Math.PI/2);
+    texto(ry,0,0,{s:13,c:'#9aa6b6',al:'center'}); bx.restore(); }
+  return {X:X,Y:Y};
+}
+function serieXY(M,pts,c,w,dash){ linea(pts.map(p=>[M.X(p[0]),M.Y(p[1])]),c,w,dash); }
+function punteo(M,x,y,c,r){
+  bx.save(); bx.fillStyle=c; bx.beginPath(); bx.arc(M.X(x),M.Y(y),r||4.5,0,Math.PI*2); bx.fill(); bx.restore();
+}
+// Línea de referencia horizontal. Si el nivel cae fuera del recuadro NO se
+// pinta: una línea de límite dibujada sobre el borde miente sobre dónde está.
+function nivel(P,M,v,c,rot,dash,izq){
+  const yy=M.Y(v);
+  if(yy<P.y-1||yy>P.y+P.h+1) return;
+  linea([[P.x,yy],[P.x+P.w,yy]],c,1.6,dash||[7,5]);
+  // Dos niveles cercanos con el rótulo en el mismo lado se pisan y las dos
+  // cifras se vuelven ilegibles. Por eso hay un lado a elegir.
+  if(rot){ if(izq) etiqueta(rot,P.x+8,yy-6,c);
+    else etiqueta(rot,P.x+P.w-8,yy-6,c,'right'); }
+}
+function nivelV(P,M,v,c,rot,dash,abajo){
+  const xx=M.X(v);
+  if(xx<P.x-1||xx>P.x+P.w+1) return;
+  linea([[xx,P.y],[xx,P.y+P.h]],c,1.6,dash||[7,5]);
+  // Arriba se monta debajo de la caja de la leyenda y el rótulo se pierde. El
+  // lado se elige, no se supone.
+  if(rot) etiqueta(rot,xx+6,abajo?(P.y+P.h-10):(P.y+16),c);
+}
+// Banda de veredicto al pie. La altura se MIDE a partir del texto que va a
+// llevar: una banda de altura fija recorta su tercera línea, el texto existe
+// pero no se ve, y ninguna prueba numérica puede darse cuenta.
+function lineasDe(t,w,s){
+  bx.font='400 '+s+'px Inter,system-ui,sans-serif';
+  let n=1, ln='';
+  for(const p of String(t).split(' ')){
+    const test=ln?ln+' '+p:p;
+    if(bx.measureText(test).width>w&&ln){ n++; ln=p; } else ln=test;
+  }
+  return n;
+}
+function banda(y,niv,rot,txt){
+  const SZ=12.5, LH=17, W=BW-120;
+  const h=Math.max(60, 32+lineasDe(txt,W,SZ)*LH+10);
+  const yy=Math.min(y, BH-14-h);
+  const col=niv==='bad'?BAD_HEX:(niv==='warn'?WARN_HEX:OK_HEX);
+  const fondo=niv==='bad'?'rgba(255,107,107,0.10)':(niv==='warn'?'rgba(233,196,106,0.10)':'rgba(124,217,146,0.10)');
+  rpanel(42,yy,BW-84,h,fondo,col,10);
+  texto(rot,60,yy+24,{s:14,b:true,c:col});
+  wrapText(txt,60,yy+44,W,LH,{s:SZ,c:'#c3ccd8'});
+  return yy+h;
+}
+
+// La columna derecha del pizarrón. Las gráficas llegan hasta x = 694 y el margen
+// del tablero está en 982, así que TODA tabla de la derecha vive entre esos dos
+// números. Escribir anchos a mano en cada vista deja las tablas cortadas por el
+// borde, y eso sólo se ve mirando la pantalla.
+const DER_X=708, DER_W=274;
+function tablaDer(y,rot,rows,o){
+  o=o||{};
+  const nv=rot.length-1;
+  const wv=nv===1?110:(nv===2?76:56), gap=8;
+  const w0=DER_W-(wv+gap)*nv;
+  const cols=[{t:rot[0]||'',w:w0}];
+  for(let i=0;i<nv;i++) cols.push({t:rot[i+1]||'',w:wv,al:'right'});
+  // Una fila con menos celdas que columnas pinta «undefined» en la última, y eso
+  // pasa desapercibido en cualquier prueba numérica: se rellena aquí.
+  rows.forEach(r=>{ while(r.v.length<cols.length) r.v.push(''); });
+  return tabla(DER_X,y,cols,rows,Object.assign({rh:25,s:13,gap:gap},o));
+}
+
+
+
+
+// --------------------------------------------- la geometría del vano motor
+// La escena es un vano motor abierto y visto por delante: el bloque a la
+// izquierda con el alternador arriba, la batería a la derecha, y entre los dos
+// el cable de carga y la caja de fusibles. La correa se ve ENTERA y con sus dos
+// poleas a escala, porque la relación de poleas es media lección.
+const K_VANO=1.34;
+function dims(v){
+  const K=K_VANO;
+  const L=1.36*K, W=0.96*K, H=0.94*K;
+  const yBloque=0.64*K;
+  const rCig=0.25*K;
+  return {
+    K, L, W, H, yBloque,
+    xBloque:-1.06*K, zBloque:0,
+    // La CARA DE LA DISTRIBUCIÓN: el extremo del bloque por donde sale el
+    // cigüeñal. La correa vive entera en el plano y-z de esta abscisa, porque
+    // los dos ejes son paralelos al cigüeñal y las dos poleas están enrasadas.
+    // Ponerla en el plano x-y —que es lo que sale si uno dibuja «la correa» sin
+    // pensar— deja las poleas cruzadas y la correa retorcida.
+    // Y la correa va bien SEPARADA de la cara del bloque: pegada a ella, el
+    // cuerpo del alternador se pone justo encima del plano de la correa desde
+    // donde mira la cámara y tapa la transmisión entera. El morro del cigüeñal
+    // hace de puente, que es como está en un motor de verdad.
+    xPol:-1.06*K+L/2+0.30*K,
+    // La polea del cigüeñal, abajo. La del alternador sale de ella dividiendo
+    // por la relación: así el 2,55 de la furgoneta y el 3,10 del turismo se VEN,
+    // y no hay que creérselos.
+    yCig:yBloque-H*0.40, zCig:-W*0.10, rCig,
+    rPolAlt:rCig/v.relPolea,
+    // El alternador, arriba y POR DELANTE del bloque, con su eje paralelo al
+    // cigüeñal y su polea enrasada con la del cigüeñal. Su x sale de ahí: la
+    // polea va en `xPol` y el cuerpo queda por delante, fuera del bloque.
+    yAlt:yBloque+H*0.42, zAlt:W*0.36,
+    rAlt:0.21*K, lAlt:0.46*K,
+    get xAlt(){ return this.xPol+this.lAlt*0.62; },
+    // La batería en su bandeja, al otro lado del vano.
+    xBat:1.42*K, yBat:0.34*K, zBat:0.12*K,
+    wBat:0.54*K, hBat:0.44*K, dBat:0.34*K,
+    // La caja de fusibles y relés: ahí cuelgan los consumos.
+    xFus:0.95*K, yFus:0.78*K, zFus:-0.55*K,
+    wFus:0.44*K, hFus:0.32*K, dFus:0.26*K,
+    // El larguero del chasis, por donde vuelve la masa.
+    xCha:0.30*K, yCha:0.16*K, zCha:-1.02*K,
+    // El banco de piezas, delante del vano: se ve entero y no tapa nada.
+    xBanco:0.14*K, zBanco:2.54*K,
+    yRot:0.24*K,
+    xIzq:-1.06*K-L*0.5-0.74*K,
+    xDer:1.42*K+0.54*K*0.5+0.62*K,
+  };
+}
+function colocaTablero(d){
+  board.rotation.y=0.70;
+  // El hueco no es decorativo: los rótulos del vano son sprites que sobresalen
+  // de la pieza que nombran, y con menos de un metro se pintan sobre el marco.
+  const medio=(BW3/2+0.13)*Math.cos(board.rotation.y);
+  board.position.set(d.xIzq-1.00*d.K-medio,0,0.95*d.K);
+}
+function puntosClave(){
+  const d=dims(VH());
+  const a=BW3/2, mx=a*Math.cos(board.rotation.y), mz=a*Math.sin(board.rotation.y);
+  const y0=BY3-BH3/2, y1=BY3+BH3/2, bp=board.position;
+  const pts=[
+    [bp.x-mx,y0,bp.z+mz],[bp.x+mx,y0,bp.z-mz],
+    [bp.x-mx,y1,bp.z+mz],[bp.x+mx,y1,bp.z-mz],
+    [d.xBloque-d.L/2,0.02,-d.W/2-0.30*d.K],
+    [d.xAlt+d.lAlt*0.6,d.yAlt+d.rAlt+0.30*d.K,d.zAlt],
+    [d.xPol,d.yCig-d.rCig,d.zCig],
+    [d.xBat+d.wBat/2,d.yBat+d.hBat+0.34*d.K,d.zBat],
+    [d.xCha,d.yCha,d.zCha],
+    [d.xDer,0.90*d.K,0],
+  ];
+  // El banco de piezas sólo entra en el encuadre MIENTRAS SE VE. Reservarle
+  // sitio con el banco escondido dejaba el vano del motor pequeño en una
+  // esquina y media pantalla en negro.
+  if(banco&&banco.visible) pts.push([d.xBanco,1.30,d.zBanco]);
+  return pts.map(p=>new THREE.Vector3(...p));
+}
+function zonaUtil(){
+  const rM=mount.getBoundingClientRect();
+  const W=rM.width||1600, H=rM.height||900;
+  let x0=0, x1=W;
+  const h=el('hud'), p=el('panel');
+  if(h){ const r=h.getBoundingClientRect();
+    if(r.width>0&&r.right-rM.left<W*0.60) x0=Math.max(x0,r.right-rM.left+18); }
+  if(p){ const r=p.getBoundingClientRect();
+    if(r.width>0&&r.left-rM.left>W*0.40) x1=Math.min(x1,r.left-rM.left-18); }
+  if(x1-x0<W*0.34){ x0=0; x1=W; }
+  return { W, H, x0, x1 };
+}
+function camTablero(d,off){
+  const c=board.position.clone(); c.y=BY3;
+  const n=new THREE.Vector3(Math.sin(board.rotation.y),0,Math.cos(board.rotation.y));
+  const dd=d||5.85;
+  const p=c.clone().addScaledVector(n,dd); p.y=BY3+0.13*dd;
+  const tg=new THREE.Vector3(Math.cos(board.rotation.y),0,-Math.sin(board.rotation.y));
+  const dx=(off===undefined)?-0.42:off;
+  p.addScaledVector(tg,dx); c.addScaledVector(tg,dx);
+  return [[p.x,p.y,p.z],[c.x,c.y,c.z]];
+}
+function camConjunto(margen){
+  const d=dims(VH()), Z=zonaUtil();
+  const asp=clamp(Z.W/Math.max(1,Z.H),0.60,2.60);
+  const m=(margen===undefined?1:margen);
+  const TV=0.4142, TH=TV*asp;                    // tangentes del medio ángulo
+  const nx0=(2*Z.x0/Z.W-1)/m, nx1=(2*Z.x1/Z.W-1)/m, ny=0.94/m;
+  const pts=puntosClave();
+  const mx=1.86*Math.cos(board.rotation.y);
+  let off=(((board.position.x-mx)+d.xDer)/2-board.position.x)/Math.cos(board.rotation.y);
+  const proy=(dist,o)=>{
+    const c=camTablero(dist,o);
+    const p=new THREE.Vector3(c[0][0],c[0][1],c[0][2]);
+    const q=new THREE.Vector3(c[1][0],c[1][1],c[1][2]);
+    const f=q.clone().sub(p).normalize();
+    const r=new THREE.Vector3().crossVectors(f,new THREE.Vector3(0,1,0)).normalize();
+    const u=new THREE.Vector3().crossVectors(r,f).normalize();
+    let a=Infinity,b=-Infinity,vy=0,zs=0,n=0,malo=false;
+    for(const v0 of pts){
+      const v=v0.clone().sub(p), z=v.dot(f);
+      if(z<=0.2){ malo=true; continue; }
+      a=Math.min(a,(v.dot(r)/z)/TH); b=Math.max(b,(v.dot(r)/z)/TH);
+      vy=Math.max(vy,Math.abs((v.dot(u)/z)/TV)); zs+=z; n++;
+    }
+    return { a, b, vy, z:n?zs/n:1, malo };
+  };
+  const cabe=(dist,o)=>{ const e=proy(dist,o); return !e.malo&&e.a>=nx0&&e.b<=nx1&&e.vy<=ny; };
+  let dist=26;
+  for(let it=0;it<7;it++){
+    if(cabe(26,off)){
+      let lo=3, hi=26;
+      for(let k=0;k<26;k++){ const mid=(lo+hi)/2; if(cabe(mid,off)) hi=mid; else lo=mid; }
+      dist=hi;
+    }else dist=26;
+    const e=proy(dist,off);
+    const dn=(nx0+nx1)/2-(e.a+e.b)/2;
+    if(Math.abs(dn)<0.012) break;
+    off-=dn*TH*e.z;
+  }
+  return camTablero(dist,off);
+}
+{
+  const marco=roundedBox(BW3+0.26,BH3+0.24,0.10,std({...plas,metalness:0.30,roughness:0.58}),0.05);
+  marco.position.y=BY3; board.add(marco);
+  const pl=new THREE.Mesh(new THREE.PlaneGeometry(BW3,BH3),btexMat);
+  pl.position.set(0,BY3,0.056); board.add(pl);
+  const pie=Math.max(0.10,BY3-BH3/2-0.12);
+  for(const sx of [-1,1]){
+    const p=new THREE.Mesh(new THREE.CylinderGeometry(0.05,0.06,pie,16),MAT.acero);
+    p.position.set(sx*BW3*0.42,pie/2,0); p.castShadow=true; board.add(p);
+  }
+}
+// ------------------------------------------------------- testigos y utilidades
+const emis=(c,i)=>std({color:c,emissive:c,emissiveIntensity:i||1.4,
+  roughness:0.42,metalness:0.10});
+MAT.ok=emis(0x2fbf62,1.5);
+MAT.bad=emis(0xff4d5e,1.5);
+MAT.avi=emis(0xe9c46a,1.4);
+MAT.apag=std({color:0x232a33,roughness:0.6,metalness:0.1});
+const nuevaFantasma=()=>std({color:0x5AD1E6,transparent:true,opacity:0.26,
+  depthWrite:false,side:THREE.DoubleSide});
+
+function cil(r0,r1,h,mat,seg){
+  const m=new THREE.Mesh(new THREE.CylinderGeometry(r0,r1,h,seg||22),mat);
+  m.castShadow=true; return m;
+}
+function tuboDe(pts,r,mat){
+  const m=new THREE.Mesh(new THREE.TubeGeometry(new THREE.CatmullRomCurve3(pts),
+    Math.max(12,pts.length*8),r,12,false),mat);
+  m.castShadow=true; return m;
+}
+// Deja el grupo con el origen en su centro geométrico, que es lo que el ensamble
+// necesita para llevarlo del banco a su sitio sin saltos.
+function centra(g){
+  const dentro=new THREE.Group();
+  while(g.children.length) dentro.add(g.children[0]);
+  const caja=new THREE.Box3().setFromObject(dentro);
+  const c=new THREE.Vector3(); caja.getCenter(c);
+  dentro.position.copy(c).negate();
+  g.add(dentro);
+  g.userData.home=c.clone(); g.userData.minY=caja.min.y-c.y;
+  g.position.copy(c); return g;
+}
+function borra(o){
+  o.traverse(n=>{ if(n.isMesh&&n.geometry) n.geometry.dispose(); });
+  if(o.userData.gm) o.userData.gm.dispose();
+  if(o.parent) o.parent.remove(o);
+}
+// OJO: esto sirve para una pieza construida alrededor de SU PROPIO ORIGEN —la
+// batería, el alternador, la caja de fusibles—, porque entonces `centra()` deja
+// el rótulo pegado a ella. Para una pieza construida entre dos puntos del vano
+// —los cables, la correa— el rótulo acaba en el ORIGEN DE LA ESCENA, que es
+// donde se juntaron los tres rótulos de d6-A1 sin que nadie lo viera. Esas
+// piezas ponen su sprite a mano, en un punto suyo.
+function rotulo(g,t,y,c){
+  const s=labelSprite(t,c||'#cfe0ee');
+  s.position.set(0,y,0); s.scale.multiplyScalar(0.50); g.add(s);
+}
+
+
+// ============================================================ T3 · LAS PIEZAS
+// Seis piezas, y las seis son EL CIRCUITO DE CARGA. El motor térmico no está
+// entre ellas: el motor es lo que hace girar la correa y no se monta. Que la
+// correa SÍ esté en la caja es la primera pregunta del laboratorio, porque casi
+// nadie la cuenta como parte del circuito eléctrico —y lo es.
+const RIG={piezas:{}, testigo:null, polea:null, cig:null, fusibles:[]};
+const PART={
+  bateria:{ rot:'Batería',
+    fn:'La que acepta la carga.',
+    sin:'Sin ella el alternador no tiene contra qué regular.',
+    para:'No es un depósito que se llene a la fuerza: es una reacción química que ACEPTA lo que puede. Casi llena admite cuatro amperios aunque se le ofrezcan catorce voltios y medio, y ese límite lo pone la difusión del ácido dentro de la placa, no el alternador.' },
+  alternador:{ rot:'Alternador',
+    fn:'Rotor de garras, estator trifásico y puente de seis diodos.',
+    sin:'Sin alternador el coche funciona… hasta que la batería se acaba.',
+    para:'Su chapa dice 120 A, y ésa es la corriente que daría a régimen INFINITO. A ralentí da menos de la mitad, y eso no es una avería: es la máquina.' },
+  correa:{ rot:'Correa y poleas',
+    fn:'La que multiplica las vueltas del cigüeñal.',
+    sin:'Sin correa el alternador gira a cero y el coche va sólo con la batería.',
+    para:'La relación de poleas decide si el alternador vive por encima o por debajo de su codo. Y una correa floja no patina siempre: patina cuando hay par que transmitir, o sea justo la noche que se le pide todo.' },
+  cableCarga:{ rot:'Cable de carga B+',
+    fn:'Del B+ del alternador al borne de la batería.',
+    sin:'Sin él la corriente no llega a la batería.',
+    para:'Es un CABLE, y se le exige que caiga lo que su longitud y su sección predicen. Con el regulador midiendo en la batería, una resistencia aquí NO se ve en el voltímetro: el regulador la compensa subiendo su propia tensión, y quien lo paga es el alternador.' },
+  masaAlt:{ rot:'Masa del alternador',
+    fn:'De la carcasa al bloque y del bloque al negativo.',
+    sin:'Sin masa el circuito no se cierra: la corriente busca la vuelta por donde no debe.',
+    para:'La mitad del circuito es la vuelta, y casi nadie la mide. Una masa con 26 mΩ hace exactamente el mismo daño que un positivo con 26 mΩ, y no la ve ningún voltímetro puesto en la batería.' },
+  consumos:{ rot:'Caja de fusibles y consumos',
+    fn:'Luces, luneta, ventilador, clima, la unidad de mando.',
+    sin:'Sin consumos no hay balance que hacer.',
+    para:'Y no todos consumen igual. Una lámpara es una RESISTENCIA: si la barra se hunde, tira menos. Una unidad de mando es un consumo de POTENCIA: si la barra se hunde, tira MÁS corriente. Mezclarlos da un balance que no se parece al de ningún coche.' },
+};
+const ORDEN=['bateria','alternador','correa','cableCarga','masaAlt','consumos'];
+const PARTS=ORDEN.map(k=>Object.assign({k:k},PART[k]));
+
+function haceBateria(){
+  const d=dims(VH()), g=new THREE.Group(), K=d.K;
+  const caja=roundedBox(d.wBat,d.hBat,d.dBat,MAT.caja,0.02*K);
+  caja.position.y=d.hBat/2; g.add(caja);
+  const tapa=roundedBox(d.wBat*0.98,0.05*K,d.dBat*0.98,MAT.tapa,0.015*K);
+  tapa.position.y=d.hBat+0.02*K; g.add(tapa);
+  for(let i=0;i<VASOS;i++){
+    const t=cil(0.022*K,0.022*K,0.03*K,MAT.tapa,14);
+    t.position.set((-2.5+i)*d.wBat/6.6, d.hBat+0.05*K, 0); g.add(t);
+  }
+  const pPos=cil(0.040*K,0.046*K,0.10*K,MAT.plomo,18);
+  pPos.position.set(d.wBat*0.34,d.hBat+0.07*K,d.dBat*0.24); g.add(pPos);
+  const pNeg=cil(0.034*K,0.040*K,0.10*K,MAT.plomo,18);
+  pNeg.position.set(-d.wBat*0.34,d.hBat+0.07*K,d.dBat*0.24); g.add(pNeg);
+  const mR=roundedBox(0.05*K,0.014*K,0.05*K,MAT.rojo,0.004*K);
+  mR.position.set(d.wBat*0.34,d.hBat+0.13*K,d.dBat*0.24); g.add(mR);
+  const mN=roundedBox(0.05*K,0.014*K,0.05*K,MAT.negro,0.004*K);
+  mN.position.set(-d.wBat*0.34,d.hBat+0.13*K,d.dBat*0.24); g.add(mN);
+  rotulo(g,'batería',d.hBat+0.30*K,'#cfe0ee');
+  g.position.set(d.xBat,d.yBat-d.hBat/2,d.zBat);
+  return centra(g);
+}
+function haceAlternador(){
+  const d=dims(VH()), g=new THREE.Group(), K=d.K;
+  // La carcasa: dos tapas de aluminio fundido con el estator en medio.
+  const cuerpo=cil(d.rAlt,d.rAlt,d.lAlt,MAT.aluminio,26);
+  cuerpo.rotation.z=Math.PI/2; g.add(cuerpo);
+  for(const sx of [-1,1]){
+    const t=cil(d.rAlt*1.04,d.rAlt*0.92,0.05*K,MAT.aluminio,26);
+    t.rotation.z=Math.PI/2; t.position.x=sx*d.lAlt*0.50; g.add(t);
+  }
+  // Las ventanas de ventilación, que es lo que lo hace reconocible de un vistazo.
+  for(let i=0;i<12;i++){
+    const a=i/12*Math.PI*2;
+    const v=roundedBox(0.03*K,0.024*K,0.024*K,MAT.negro,0.006*K);
+    v.position.set(-d.lAlt*0.50,Math.sin(a)*d.rAlt*0.66,Math.cos(a)*d.rAlt*0.66);
+    g.add(v);
+  }
+  // La polea va hacia el BLOQUE (−x), que es donde está la del cigüeñal, y el
+  // cuerpo queda por delante. Al revés, la polea caía fuera del plano de la
+  // correa y el alternador se metía dentro del bloque.
+  const pol=cil(d.rPolAlt,d.rPolAlt,0.07*K,MAT.acero,26);
+  pol.rotation.z=Math.PI/2; pol.position.x=-d.lAlt*0.62; g.add(pol);
+  g.userData.polea=pol;
+  // El ventilador, entre la polea y la carcasa.
+  for(let i=0;i<8;i++){
+    const a=i/8*Math.PI*2;
+    const p=roundedBox(0.010*K,0.07*K,0.03*K,MAT.acero,0.003*K);
+    p.position.set(-d.lAlt*0.54,Math.sin(a)*d.rAlt*0.44,Math.cos(a)*d.rAlt*0.44);
+    p.rotation.x=a; g.add(p);
+  }
+  // El borne B+ y el conector del regulador, arriba y por el lado de fuera.
+  const bplus=cil(0.026*K,0.026*K,0.06*K,MAT.cobre,14);
+  bplus.position.set(d.lAlt*0.24,d.rAlt*0.86,d.rAlt*0.30); g.add(bplus);
+  const reg=roundedBox(0.09*K,0.07*K,0.05*K,MAT.negro,0.010*K);
+  reg.position.set(d.lAlt*0.44,d.rAlt*0.30,d.rAlt*0.62); g.add(reg);
+  rotulo(g,'alternador',d.rAlt*2.0,'#5ad1e6');
+  g.position.set(d.xAlt,d.yAlt,d.zAlt);
+  return centra(g);
+}
+function haceCorrea(){
+  const d=dims(VH()), g=new THREE.Group(), K=d.K;
+  // La polea del cigüeñal viene CON la correa: sin correa no hay transmisión, y
+  // enseñar el cigüeñal solo daría a entender que el alternador ya está movido.
+  const cig=cil(d.rCig,d.rCig,0.09*K,MAT.acero,30);
+  cig.rotation.z=Math.PI/2; cig.position.set(d.xPol,d.yCig,d.zCig); g.add(cig);
+  const buje=cil(d.rCig*0.28,d.rCig*0.28,0.13*K,MAT.acero,16);
+  buje.rotation.z=Math.PI/2; buje.position.set(d.xPol,d.yCig,d.zCig); g.add(buje);
+  g.userData.cig=cig;
+  // La correa, ENTERA en el plano y-z: dos tramos rectos tangentes a las dos
+  // poleas y los dos arcos que las abrazan.
+  const A=new THREE.Vector2(d.yCig,d.zCig), B=new THREE.Vector2(d.yAlt,d.zAlt);
+  const dir=B.clone().sub(A); const L=dir.length()||1; dir.divideScalar(L);
+  const nor=new THREE.Vector2(-dir.y,dir.x);
+  for(const sg of [1,-1]){
+    const p0=A.clone().addScaledVector(nor,sg*d.rCig);
+    const p1=B.clone().addScaledVector(nor,sg*d.rPolAlt);
+    g.add(tuboDe([new THREE.Vector3(d.xPol,p0.x,p0.y),
+      new THREE.Vector3(d.xPol,p1.x,p1.y)],0.024*K,MAT.correa));
+  }
+  for(const [cy,cz,r] of [[A.x,A.y,d.rCig],[B.x,B.y,d.rPolAlt]]){
+    // Un toro nace en el plano x-y; girarlo un cuarto de vuelta sobre Y lo deja
+    // en el plano y-z, que es donde vive esta correa.
+    const arco=new THREE.Mesh(new THREE.TorusGeometry(r,0.024*K,10,40),MAT.correa);
+    arco.rotation.y=Math.PI/2;
+    arco.position.set(d.xPol,cy,cz); g.add(arco);
+  }
+  // El tensor, que es la pieza que se afloja. Va también en el plano.
+  const ten=cil(0.055*K,0.055*K,0.05*K,MAT.acero,20);
+  ten.rotation.z=Math.PI/2;
+  ten.position.set(d.xPol,(d.yCig+d.yAlt)/2-0.14*K,(d.zCig+d.zAlt)/2-0.30*K);
+  g.add(ten);
+  { const sp=labelSprite('correa · relación '+dec(VH().relPolea,2)+':1','#e9c46a');
+    sp.position.set(d.xPol,d.yCig+0.16*K,d.zCig+d.rCig+0.42*K);
+    sp.scale.multiplyScalar(0.50); g.add(sp); }
+  return centra(g);
+}
+function haceCableCarga(){
+  const d=dims(VH()), g=new THREE.Group(), K=d.K;
+  const a=new THREE.Vector3(d.xAlt+d.lAlt*0.24, d.yAlt+d.rAlt*0.92, d.zAlt+d.rAlt*0.30);
+  const b=new THREE.Vector3(d.xBat+d.wBat*0.34, d.yBat+d.hBat/2+0.16*K, d.zBat+d.dBat*0.24);
+  // El cable cuelga, y cuánto cuelga depende de lo largo que sea: los 3,20 m de
+  // la furgoneta se VEN, no hay que creérselos.
+  const cae=0.10*K+Math.min(0.44*K, VH().largoCarga*0.12*K);
+  const m=a.clone().lerp(b,0.50); m.y-=cae; m.z+=0.18*K;
+  const m2=a.clone().lerp(b,0.22); m2.y-=cae*0.60; m2.z+=0.11*K;
+  const m3=a.clone().lerp(b,0.78); m3.y-=cae*0.70; m3.z+=0.13*K;
+  // La sección se ve: un cable de menos sección es un cable más fino.
+  const r=(0.018+0.012*Math.sqrt(VH().seccCarga/25))*K;
+  g.add(tuboDe([a,m2,m,m3,b],r,MAT.rojo));
+  for(const p of [a,b]){ const l=cil(r*1.5,r*1.5,0.05*K,MAT.cobre,12);
+    l.position.copy(p); g.add(l); }
+  { const sp=labelSprite('cable de carga B+','#ff6b6b');
+    sp.position.set(m.x,m.y+0.34*K,m.z+0.10*K);
+    sp.scale.multiplyScalar(0.50); g.add(sp); }
+  return centra(g);
+}
+function haceMasaAlt(){
+  const d=dims(VH()), g=new THREE.Group(), K=d.K;
+  // Dos tramos en serie, porque en un coche son dos: carcasa→bloque y
+  // bloque→negativo por el larguero. Por eso la masa se mide ENTERA, con la
+  // punta negra en el borne y la roja en la carcasa.
+  const a=new THREE.Vector3(d.xAlt+d.lAlt*0.30, d.yAlt-d.rAlt*0.80, d.zAlt-d.rAlt*0.40);
+  const c=new THREE.Vector3(d.xBloque+d.L*0.30, d.yBloque-d.H*0.42, d.zCha+0.26*K);
+  const b=new THREE.Vector3(d.xBat-d.wBat*0.34, d.yBat+d.hBat/2+0.14*K, d.zBat+d.dBat*0.24);
+  const m1=a.clone().lerp(c,0.5); m1.y-=0.08*K;
+  const m2=c.clone().lerp(b,0.5); m2.y-=0.12*K;
+  const rt=(0.020+0.010*Math.sqrt(VH().seccMasa/25))*K;
+  g.add(tuboDe([a,m1,c],rt,MAT.negro));
+  g.add(tuboDe([c,m2,b],rt,MAT.negro));
+  for(const p of [a,c,b]){ const l=cil(rt*1.4,rt*1.4,0.04*K,MAT.acero,12);
+    l.position.copy(p); g.add(l); }
+  // Este rótulo NO va sobre el centro de la pieza: ahí se monta justo encima del
+  // del cable de carga, que pasa por el mismo sitio. Se lleva al codo de abajo,
+  // que es además donde está la mitad del circuito que nadie mide.
+  { const sp=labelSprite('masa del alternador','#7b8697');
+    sp.position.set(c.x,c.y+0.44*K,c.z-0.20*K); sp.scale.multiplyScalar(0.50); g.add(sp); }
+  return centra(g);
+}
+function haceConsumos(){
+  const d=dims(VH()), g=new THREE.Group(), K=d.K;
+  const caja=roundedBox(d.wFus,d.hFus,d.dFus,MAT.negro,0.02*K); g.add(caja);
+  const tap=roundedBox(d.wFus*0.94,0.03*K,d.dFus*0.94,MAT.tapa,0.010*K);
+  tap.position.y=d.hFus*0.50+0.015*K; g.add(tap);
+  // Un fusible por consumo, y los de potencia constante en cobre para que se
+  // distingan de los resistivos de un vistazo. Nueve fusibles, nueve consumos.
+  RIG.fusibles=[];
+  CARGAS.forEach((c,i)=>{
+    const col=i%5, fil=Math.floor(i/5);
+    const m=std({color:c.tipo==='pot'?0xc07a48:0x3a4658,metalness:0.30,roughness:0.60});
+    const f=roundedBox(0.045*K,0.055*K,0.022*K,m,0.006*K);
+    f.position.set((col-2)*d.wFus*0.185, d.hFus*0.50+0.045*K, (fil-0.5)*d.dFus*0.40);
+    g.add(f);
+    RIG.fusibles.push({k:c.k, mat:m});
+  });
+  // Y el mazo que baja hacia el chasis.
+  const a=new THREE.Vector3(0,-d.hFus*0.50,d.dFus*0.30);
+  const b=new THREE.Vector3(0.10*K,-d.hFus*0.50-0.34*K,d.dFus*0.30+0.16*K);
+  g.add(tuboDe([a,a.clone().lerp(b,0.5),b],0.024*K,MAT.aislante));
+  rotulo(g,'consumos',d.hFus*0.5+0.28*K,'#e9c46a');
+  g.position.set(d.xFus,d.yFus,d.zFus);
+  return centra(g);
+}
+const FABRICA={ bateria:haceBateria, alternador:haceAlternador, correa:haceCorrea,
+  cableCarga:haceCableCarga, masaAlt:haceMasaAlt, consumos:haceConsumos };
+
+// ============================================== T4 · EL VANO Y EL ENSAMBLE
+const ASM={done:new Set(), sel:null};
+
+/** Dónde va cada pieza cuando está montada.
+ *
+ *  Hay dos clases de pieza y NO se colocan igual. La batería, el alternador y la
+ *  caja de fusibles se construyen alrededor de su propio origen, y para ésas hay
+ *  que decir dónde van. La correa, el cable de carga y la masa se construyen
+ *  entre DOS puntos del vano —o sea, ya en coordenadas del mundo—, y para ésas
+ *  el sitio no se dice: es el que `centra()` les dejó anotado en `userData.home`
+ *  al recolocarles el origen. Decirles (0,0,0) las mueve un metro largo de su
+ *  sitio, y el hueco fantasma se va con ellas. */
+function ancla(){
+  const d=dims(VH());
+  return {
+    bateria:    new THREE.Vector3(d.xBat, d.yBat, d.zBat),
+    alternador: new THREE.Vector3(d.xAlt, d.yAlt, d.zAlt),
+    consumos:   new THREE.Vector3(d.xFus, d.yFus, d.zFus),
+  };
+}
+function posDe(k,o){
+  const A=ancla();
+  if(A[k]) return A[k].clone();
+  if(o&&o.userData&&o.userData.home) return o.userData.home.clone();
+  return new THREE.Vector3();
+}
+
+// Lo que SIEMPRE está: el suelo, el bloque del motor, el larguero del chasis y
+// el testigo del salpicadero. No se montan porque no son el circuito de carga:
+// son aquello sobre lo que el circuito trabaja. Que el testigo esté SIEMPRE y
+// no se monte es parte de la lección, porque es el único aviso que un conductor
+// tiene y va a estar apagado casi siempre que haga falta.
+let vano=null;
+function levantaVano(){
+  if(vano){ borra(vano); vano=null; }
+  const g=new THREE.Group(); vano=g;
+  const d=dims(VH()), K=d.K;
+
+  const piso=new THREE.Mesh(new THREE.PlaneGeometry(22,22),MAT.suelo);
+  piso.rotation.x=-Math.PI/2; piso.receiveShadow=true; g.add(piso);
+
+  const bl=roundedBox(d.L,d.H,d.W,MAT.bloque,0.05*K);
+  bl.position.set(d.xBloque,d.yBloque,d.zBloque); g.add(bl);
+  // La tapa de balancines, para que el bloque se lea como un motor.
+  const tapa=roundedBox(d.L*0.76,0.16*K,d.W*0.54,MAT.bloque,0.03*K);
+  tapa.position.set(d.xBloque,d.yBloque+d.H/2+0.08*K,d.zBloque-d.W*0.10); g.add(tapa);
+  // Y la campana del embrague, al fondo.
+  const campana=cil(d.H*0.46,d.H*0.46,0.24*K,MAT.bloque,26);
+  campana.rotation.z=Math.PI/2;
+  campana.position.set(d.xBloque+d.L/2+0.12*K,d.yBloque-d.H*0.10,d.zBloque); g.add(campana);
+  { const s=labelSprite(VH().corto,'#9aa6b6');
+    s.position.set(d.xBloque,d.yBloque+d.H/2+0.52*K,d.zBloque);
+    s.scale.multiplyScalar(0.56); g.add(s); }
+
+  // El morro del cigüeñal, que es lo que saca la polea fuera del bloque. Sin él
+  // la polea flotaba a medio metro de la cara del motor.
+  { const morro=cil(d.rCig*0.30,d.rCig*0.30,(d.xPol-(d.xBloque+d.L/2))*1.10,MAT.acero,18);
+    morro.rotation.z=Math.PI/2;
+    morro.position.set((d.xBloque+d.L/2+d.xPol)/2,d.yCig,d.zCig); g.add(morro); }
+
+  // El soporte del alternador, que es lo que lo sujeta al bloque.
+  const sop=roundedBox(0.34*K,0.09*K,0.08*K,MAT.aluminio,0.02*K);
+  sop.position.set((d.xBloque+d.L/2+d.xAlt)/2,d.yAlt-d.rAlt*0.86,d.zAlt-0.10*K);
+  g.add(sop);
+
+  // Y el soporte de la caja de fusibles. Sin él, la caja flotaba en el aire en
+  // medio del vano: en una captura de pantalla eso se ve enseguida y no hay
+  // ninguna comprobación numérica que pueda darse cuenta.
+  const patas=roundedBox(0.07*K,d.yFus-0.06*K,0.07*K,MAT.negro,0.015*K);
+  patas.position.set(d.xFus,(d.yFus-0.06*K)/2,d.zFus); g.add(patas);
+  const pieFus=roundedBox(d.wFus*0.86,0.04*K,d.dFus*0.86,MAT.negro,0.01*K);
+  pieFus.position.set(d.xFus,0.02*K,d.zFus); g.add(pieFus);
+
+  // El larguero del chasis, por donde vuelve la masa.
+  const lar=roundedBox(2.90*K,0.13*K,0.16*K,MAT.negro,0.02*K);
+  lar.position.set(d.xCha*0.4,d.yCha,d.zCha); g.add(lar);
+
+  // La bandeja de la batería.
+  const ban=roundedBox(d.wBat*1.16,0.05*K,d.dBat*1.16,MAT.negro,0.01*K);
+  ban.position.set(d.xBat,d.yBat-d.hBat/2-0.03*K,d.zBat); g.add(ban);
+  for(const sx of [-1,1]){
+    const p=roundedBox(0.05*K,d.yBat-d.hBat/2,0.05*K,MAT.negro,0.01*K);
+    p.position.set(d.xBat+sx*d.wBat*0.44,(d.yBat-d.hBat/2)/2,d.zBat); g.add(p);
+  }
+
+  // El testigo de carga del salpicadero.
+  const tm=MAT.apag.clone();
+  const tst=cil(0.075*K,0.075*K,0.02*K,tm,20);
+  tst.rotation.x=Math.PI/2;
+  tst.position.set(d.xBat-0.24*K, d.yBat+d.hBat+0.66*K, d.zBat-0.34*K);
+  g.add(tst); RIG.testigo=tm;
+  { const s=labelSprite('testigo de carga','#7b8697');
+    s.position.set(d.xBat-0.24*K, d.yBat+d.hBat+0.84*K, d.zBat-0.34*K);
+    s.scale.multiplyScalar(0.40); g.add(s); }
+
+  scene.add(g);
+}
+const STAGE_S=0.66;
+const BENCH={cols:3,dx:1.12,dz:1.10,top:0.90,pedH:0.24};
+const NFIL=Math.ceil(PARTS.length/BENCH.cols), PED_Y=BENCH.top+BENCH.pedH;
+function pedXZ(i){
+  const d=dims(VH());
+  const c=i%BENCH.cols, f=Math.floor(i/BENCH.cols);
+  return [d.xBanco+(c-(BENCH.cols-1)/2)*BENCH.dx, d.zBanco+(f-(NFIL-1)/2)*BENCH.dz];
+}
+const peds=[];
+let banco=null;
+function levantaBanco(){
+  if(banco){ borra(banco); banco=null; }
+  peds.length=0;
+  const g=new THREE.Group(); banco=g;
+  const d=dims(VH());
+  const w=BENCH.cols*BENCH.dx+0.42, dd=NFIL*BENCH.dz+0.42;
+  const losa=roundedBox(w,0.10,dd,MAT.banco,0.04);
+  losa.position.set(d.xBanco,BENCH.top,d.zBanco); g.add(losa);
+  for(const sx of [-1,1]) for(const sz of [-1,1]){
+    const pa=roundedBox(0.10,BENCH.top,0.10,MAT.acero,0.20);
+    pa.position.set(d.xBanco+sx*(w/2-0.15),BENCH.top/2,d.zBanco+sz*(dd/2-0.15)); g.add(pa);
+  }
+  PARTS.forEach((p,i)=>{
+    const [x,z]=pedXZ(i), pg=new THREE.Group(); pg.position.set(x,0,z);
+    const cu=cil(0.23,0.27,BENCH.pedH,MAT.banco,26);
+    cu.position.y=BENCH.top+BENCH.pedH/2; pg.add(cu);
+    const pl=cil(0.25,0.25,0.03,MAT.acero,26); pl.position.y=PED_Y; pg.add(pl);
+    const mm=emis(0x2AA6B8,0.85);
+    const an=new THREE.Mesh(new THREE.TorusGeometry(0.26,0.013,10,40),mm);
+    an.rotation.x=-Math.PI/2; an.position.y=PED_Y+0.02; pg.add(an);
+    const lb=labelSprite(String(i+1),'#9fb2c6');
+    lb.position.set(0,BENCH.top+0.14,0); lb.scale.multiplyScalar(0.44); pg.add(lb);
+    g.add(pg); peds.push({mat:mm});
+  });
+  scene.add(g);
+}
+function muestraBanco(v){ if(banco) banco.visible=v; }
+function pedLibre(i){ const p=peds[i]; if(!p) return;
+  p.mat.color.setHex(0x2AA6B8); p.mat.emissive.setHex(0x2AA6B8); p.mat.emissiveIntensity=0.85; }
+function pedHecho(i){ const p=peds[i]; if(!p) return;
+  p.mat.color.setHex(0x7CD992); p.mat.emissive.setHex(0x7CD992); p.mat.emissiveIntensity=0.30; }
+
+// ---------------------------------------------------------------- ensamble
+let fantasmas=[], moviles=[], tweens=[], montadas=[];
+let animT=0;
+const ease=x=>x<0.5?4*x*x*x:1-Math.pow(-2*x+2,3)/2;
+let toastT=null;
+function showToast(html,ms){
+  const t=el('toast'); t.innerHTML=html; t.classList.add('show');
+  clearTimeout(toastT); toastT=setTimeout(()=>t.classList.remove('show'),ms||3800);
+}
+function limpiaKit(){
+  [...fantasmas,...moviles,...montadas].forEach(o=>borra(o));
+  fantasmas=[]; moviles=[]; montadas=[]; tweens=[]; ASM.sel=null;
+  RIG.piezas={}; RIG.polea=null; RIG.cig=null;
+}
+function haz(p){ const g=FABRICA[p.k](); g.userData.pid=p.k; return g; }
+function registra(o){
+  RIG.piezas[o.userData.id]=o;
+  if(o.userData.id==='alternador') RIG.polea=o.userData.polea||null;
+  if(o.userData.id==='correa') RIG.cig=o.userData.cig||null;
+}
+function reposiciona(){
+  montadas.forEach(o=>{
+    if(tweens.some(w=>w.o===o)) return;
+    o.position.copy(posDe(o.userData.id,o));
+  });
+  fantasmas.forEach(f=>{
+    const p=posDe(f.userData.id,f);
+    f.position.copy(p); f.userData.home=p.clone();
+  });
+}
+function montaKit(){
+  limpiaKit();
+  PARTS.forEach(p=>{
+    const g=haz(p); g.userData.kind='placed'; g.userData.id=p.k;
+    scene.add(g); montadas.push(g); ASM.done.add(p.k); registra(g);
+  });
+  peds.forEach((_,i)=>pedHecho(i));
+  reposiciona();
+}
+function initAssembly(){
+  limpiaKit(); ASM.done.clear();
+  PARTS.forEach((p,i)=>{
+    const g=haz(p);
+    g.scale.setScalar(STAGE_S);
+    const [x,z]=pedXZ(i);
+    const baseY=PED_Y+0.03-g.userData.minY*STAGE_S;
+    g.position.set(x,baseY,z);
+    g.userData.kind='part'; g.userData.id=p.k;
+    g.userData.baseY=baseY; g.userData.fase=i*1.7; g.userData.lift=0;
+    scene.add(g); moviles.push(g);
+
+    const f=haz(p), gm=nuevaFantasma();
+    f.traverse(o=>{ if(o.isMesh){ o.material=gm; o.castShadow=false; o.receiveShadow=false; }
+                    if(o.isSprite) o.visible=false; });
+    f.userData.kind='slot'; f.userData.id=p.k; f.userData.gm=gm; f.userData.shake=0;
+    scene.add(f); fantasmas.push(f);
+    pedLibre(i);
+  });
+  reposiciona(); muestraHueco(null); muestraBanco(true);
+  G.simUnlocked=false; G.resuelto=false;
+  S.setCinematicIdle(false);
+  const c=camConjunto(0.98);
+  S.moveTo(c[0],c[1],1.3);
+}
+function muestraHueco(id){
+  fantasmas.forEach(f=>{ f.visible=!ASM.done.has(f.userData.id)&&(!id||f.userData.id===id); });
+}
+function selPieza(o){
+  if(ASM.sel===o){ deselec(); return; }
+  deselec(); ASM.sel=o; o.userData.lift=0.16;
+  muestraHueco(o.userData.id); synth.beep(660,0.06,0.04);
+  showToast('<b>'+PART[o.userData.id].rot+'</b> en la mano. Ahora toca su <b>hueco luminoso</b>.',2600);
+}
+function deselec(){ if(ASM.sel){ ASM.sel.userData.lift=0; ASM.sel=null; } muestraHueco(null); }
+function colocaPieza(o,f){
+  const p=PART[o.userData.id], i=ORDEN.indexOf(o.userData.id);
+  f.visible=false;
+  tweens.push({o, p0:o.position.clone(), p1:posDe(o.userData.id,o),
+    s0:o.scale.x, s1:1, t:0, dur:0.85,
+    fin:()=>{ o.userData.kind='placed'; o.userData.lift=0; registra(o); }});
+  ASM.done.add(o.userData.id); ASM.sel=null; pedHecho(i);
+  montadas.push(o); moviles=moviles.filter(m=>m!==o);
+  synth.beep(880,0.07,0.05); setTimeout(()=>synth.beep(1174,0.09,0.05),90);
+  showToast('✔ <b>'+p.rot+'</b> instalado. '+p.sin,4400);
+  muestraHueco(null); pintaTablero();
+  if(ASM.done.size===PARTS.length) finEnsamble();
+}
+function huecoMal(f){
+  // Se guarda la X de origen: sin eso, cada rechazo desplazaba el hueco un poco
+  // más y a la quinta equivocación el fantasma ya no estaba donde va la pieza.
+  f.userData.homeX=f.position.x; f.userData.shake=0.5; synth.beep(200,0.12,0.05);
+  showToast('<span class="bad">✗ Esa pieza no va en ese hueco.</span>',2000);
+}
+function finEnsamble(){
+  G.simUnlocked=true; syncCtrl();
+  // El banco vacío se APAGA: sus aros luminosos se quedaban en primer plano
+  // sembrando de resplandor el pizarrón, y un banco sin piezas no informa nada.
+  muestraBanco(false);
+  synth.beep(523,0.10,0.05); setTimeout(()=>synth.beep(784,0.14,0.05),130);
+  showToast('🎉 <b>Circuito de carga montado.</b> Se abren los seis modos de trabajo.',4600);
+  S.setCinematicIdle(true);
+  afterEdit();
+  // Y se vuelve a encuadrar: el banco de piezas acaba de esconderse, y sin este
+  // reencuadre la cámara sigue reservándole media pantalla a una mesa vacía.
+  const c=camConjunto(MARGEN[G.modo]||1.00); S.moveTo(c[0],c[1],1.1);
+}
+function autoAssemble(){
+  const pend=PARTS.filter(p=>!ASM.done.has(p.k));
+  pend.forEach((p,n)=>setTimeout(()=>{
+    const o=moviles.find(m=>m.userData.id===p.k), f=fantasmas.find(x=>x.userData.id===p.k);
+    if(o&&f&&!ASM.done.has(p.k)) colocaPieza(o,f);
+  },320+n*640));
+  return 320+pend.length*640+900;
+}
+function conEtiqueta(o){ let n=o; while(n){ if(n.userData&&n.userData.kind) return n; n=n.parent; } return null; }
+pickerFor(scene,S.camera,mount,hit=>{
+  if(!hit){ deselec(); return; }
+  const t=conEtiqueta(hit.object);
+  if(!t){ deselec(); return; }
+  const k=t.userData.kind;
+  if(k==='part') selPieza(t);
+  else if(k==='slot'){
+    if(!ASM.sel){ showToast('Primero toca una <b>pieza</b> del banco.',2200); return; }
+    if(t.userData.id===ASM.sel.userData.id) colocaPieza(ASM.sel,t); else huecoMal(t);
+  }else if(k==='placed'){
+    showToast('<b>'+PART[t.userData.id].rot+'</b> — '+PART[t.userData.id].para,5600);
+  }
+});
+// ------------------------------------------------------------- cabecera común
+// Toda vista dice, con las mismas palabras y en el mismo sitio, qué vehículo,
+// qué montaje y en qué condición. Sin eso, una captura del pizarrón no
+// significa nada: el mismo circuito a ralentí y a 2 400 rpm son dos ensayos
+// distintos, y con la luneta encendida o apagada, otros dos.
+function cabecera(titulo,sub,ciego){
+  const v=VH(), F=FL(), s=SIT();
+  bg();
+  // El texto de la izquierda llega hasta 587 y el de la derecha empieza en 646:
+  // con los anchos de antes —600 y 352— el subtítulo se metía DEBAJO del rótulo
+  // naranja de la condición y las dos cosas se leían a la vez.
+  textoFit(titulo,42,44,545,{s:23,b:true});
+  if(sub) wrapText(sub,42,68,545,17,{s:13.5,c:'#8f9bad'});
+  const enc=encendidasAhora();
+  const nOn=CARGAS.filter(c=>c.fijo||enc[c.k]).length;
+  const dcho=[
+    [v.corto+' · '+num(v.alt.nominal,0)+NBSP+'A · sensa en '+
+      (v.sensa==='bateria'?'la batería':'el alternador'), CIAN],
+    [ciego?'montaje desconocido':(G.falla==='sano'?'circuito sano':F.corto),
+      ciego?GRIS:(G.falla==='sano'?GRIS:WARN_HEX)],
+    [s.rot+' · '+rpmT(rpmAhora())+' · '+nOn+(nOn===1?' consumo':' consumos'), NARANJA],
+  ];
+  let yy=32;
+  for(const d of dcho){ textoFit(d[0],BW-42,yy,336,{s:13,c:d[1],al:'right',b:true}); yy+=20; }
+  linea([[42,86],[BW-42,86]],'#1b2432',1.2);
+  return 86;
+}
+
+// ============================================================ T5 · LAS VISTAS
+
+function vistaEnsamble(){
+  const y0=cabecera('Monta el circuito de carga',
+    'Seis piezas, y las seis son EL CIRCUITO. La correa está entre ellas a propósito: casi nadie la cuenta como parte del circuito eléctrico, y lo es.');
+  const P={x:104,y:y0+34,w:556};
+  let y=P.y+6;
+  texto('LAS SEIS PIEZAS',P.x,y,{s:13,b:true,c:'#9aa6b6'}); y+=26;
+  for(const p of PARTS){
+    const hecho=ASM.done.has(p.k);
+    chk(P.x,y-4,hecho);
+    texto(p.rot,P.x+26,y,{s:14.5,b:true,c:hecho?OK_HEX:TINTA});
+    y+=18;
+    y=wrapText(hecho?p.para:p.sin,P.x+26,y,P.w-40,17,{s:12.5,c:hecho?'#9aa6b6':GRIS});
+    y+=10;
+  }
+  const D={x:DER_X,y:y0+34,w:DER_W};
+  const lnV=lineasDe(VH().nota,D.w,12.5);
+  const hCaja=22+22+18+lnV*17+10+25*7+14;
+  rpanel(D.x-10,D.y-22,D.w+20,hCaja,'rgba(255,255,255,0.030)','#1e2836',10);
+  texto('ESTE VEHÍCULO',D.x,D.y-2,{s:13,b:true,c:'#9aa6b6'});
+  let yy=D.y+22;
+  texto(VH().corto,D.x,yy,{s:14,b:true,c:CIAN}); yy+=18;
+  yy=wrapText(VH().nota,D.x,yy,D.w,17,{s:12.5,c:'#9aa6b6'})+10;
+  tablaDer(yy,['dato','valor'],[
+    {v:['alternador',num(VH().alt.nominal,0)+NBSP+'A']},
+    {v:['relación de poleas',dec(VH().relPolea,2)+':1']},
+    {v:['ralentí',rpmT(VH().ralenti)]},
+    {v:['batería',num(VH().bat.cca,0)+NBSP+'A / '+ahT(VH().bat.ah)]},
+    {v:['cable de carga',dec(VH().largoCarga,2)+NBSP+'m / '+num(VH().seccCarga,0)+NBSP+'mm²']},
+    {v:['masa',dec(VH().largoMasa,2)+NBSP+'m / '+num(VH().seccMasa,0)+NBSP+'mm²']},
+    {v:['el regulador mide en',VH().sensa==='bateria'?'la batería':'el alternador']},
+  ]);
+  const falta=PARTS.length-ASM.done.size;
+  banda(624, falta?'warn':'ok', falta?('FALTAN '+falta+' PIEZAS'):'CIRCUITO COMPLETO',
+    falta
+      ? 'Mientras falte una pieza los otros seis modos están cerrados. En un coche de verdad tampoco se hace un balance de carga sobre un circuito que no se cierra.'
+      : 'Ya se puede medir. Empieza por «la curva», que es la vista que desmonta la cifra de la chapa: un alternador de 120 A no da 120 A.');
+}
+
+function vistaCurva(){
+  const v=VH(), r=EN(), F=FL();
+  const y0=cabecera('Lo que el alternador puede dar',
+    'La chapa dice 120 A y ésa es la corriente que daría a régimen INFINITO. Lo que da aquí lo deciden las vueltas, y a ralentí eso es menos de la mitad.');
+  const rpm0=300, rpm1=4000;
+  const P={x:104,y:y0+42,w:556,h:330};
+  const asint=corrienteAsintotica(F.iCampoMax===undefined?v.alt.iCampoMax:F.iCampoMax);
+  // Las dos curvas salen del ENSAYO, no de la fórmula de la chapa: así el punto
+  // de trabajo cae exactamente encima de la suya y el cruce de las dos ES el
+  // régimen de equilibrio, sin tener que creerse ninguna cifra aparte.
+  const B=memo('b|'+CFGK()+'|'+G.falla,
+    ()=>barrido(G.veh,G.falla,G.sit,COND(),rpm0,rpm1));
+  const Bs=(G.falla==='sano')?null:memo('bs|'+CFGK(),
+    ()=>barrido(G.veh,'sano',G.sit,COND(),rpm0,rpm1));
+  const yMax=Math.max(v.alt.nominal*1.22, asint*1.06,
+    ...B.map(q=>q.iAlt), ...B.map(q=>q.iCargas))*1.04;
+  const M=ejes(P,rpm0,rpm1,0,yMax,'régimen del MOTOR (rpm)','corriente (A)',
+    x=>num(x,0),yy=>num(yy,0),6,6);
+  const eq=memo('eq|'+CFGK()+'|'+G.falla, ()=>rpmEquilibrio(G.veh,G.falla,G.sit,COND()));
+  enCaja(P,()=>{
+    if(Bs) serieXY(M,Bs.map(q=>[q.rpm,q.iAlt]),GRIS,1.8,[6,4]);
+    serieXY(M,B.map(q=>[q.rpm,q.iCargas]),NARANJA,2.4,[5,5]);
+    serieXY(M,B.map(q=>[q.rpm,q.iAlt]),CIAN,3.2);
+    nivel(P,M,v.alt.nominal,VIO,'la chapa: '+amp(v.alt.nominal),[6,4]);
+    nivel(P,M,asint,ROSA,'a régimen infinito: '+amp(asint,1),[3,4]);
+    nivelV(P,M,v.ralenti,GRIS,'ralentí',[4,4]);
+    if(eq) nivelV(P,M,eq,OK_HEX,'deja de descargarse: '+rpmT(eq),[5,4],true);
+    punteo(M,rpmAhora(),r.r.iAlt,r.descarga?BAD_HEX:OK_HEX,6);
+  });
+  leyenda(P.x+16,P.y+P.h+72,[['lo que da',CIAN],
+    ['si estuviera sano',GRIS,[6,4]],['lo que se consume',NARANJA,[5,5]],
+    ['la cifra de la chapa',VIO,[6,4]]]);
+
+  let y=y0+34;
+  const capSAE=capacidad(G.veh,G.falla,G.sit,rpmAhora());
+  y=tablaDer(y,['a este régimen','valor'],[
+    {v:['motor',rpmT(rpmAhora())],c:GRIS},
+    {v:['alternador',rpmT(r.med.rpmAlt)],b:true,c:CIAN},
+    {v:['a su consigna daría',amp(capSAE,1)],c:GRIS},
+    {v:['y aquí da',amp(r.r.iAlt,1)],b:true},
+    {v:['de la chapa',pcc(r.r.iAlt/v.alt.nominal*100)],
+      c:r.r.iAlt<v.alt.nominal*0.5?WARN_HEX:TINTA},
+  ]);
+  y+=16;
+  y=tablaDer(y,['el balance','A'],[
+    {v:['consumen',amp(r.r.iCargas,1)],c:NARANJA},
+    {v:['a la batería',amp(r.r.iBat,1)],b:true,c:r.descarga?BAD_HEX:OK_HEX},
+    {v:['equilibrio a',eq===null?'nunca':(eq===0?'ralentí':rpmT(eq))],
+      c:eq===null?BAD_HEX:(eq&&eq>v.ralenti?WARN_HEX:OK_HEX)},
+  ]);
+  y+=16;
+  // Y la cifra que desmonta la chapa, medida en la curva y no afirmada.
+  const capRal=capacidad(G.veh,'sano',G.sit,v.ralenti);
+  tablaDer(y,['la chapa, de cerca','A'],[
+    {v:['a '+rpmT(v.ralenti),amp(capRal,1)],c:WARN_HEX,b:true},
+    {v:['a 6 000 rpm de alternador',
+      amp(capacidad(G.veh,'sano',G.sit,6000/v.relPolea),1)]},
+    {v:['a régimen infinito',amp(asint,1)],c:GRIS},
+  ]);
+  const pctRal=capRal/v.alt.nominal*100;
+  banda(628, r.descarga?'bad':(eq&&eq>v.ralenti?'warn':'ok'),
+    r.descarga?'A ESTE RÉGIMEN NO LLEGA':(eq&&eq>v.ralenti?'AL RALENTÍ NO LLEGARÍA':'CUBRE Y SOBRA'),
+    'Al ralentí de este coche —'+rpmT(v.ralenti)+', o sea '+rpmT(rpmAlternador(v,v.ralenti))+
+    ' de alternador— la máquina sana da '+amp(capRal,1)+
+    ', que es el '+pcc(pctRal)+' de lo que dice su chapa. No es una avería: es que la fem crece con las vueltas y la reactancia que la frena también, así que la corriente sube tumbada hacia un techo que sólo se alcanza a régimen infinito. Y la curva de aquí es la de VERDAD: cuando la barra se hunde, el alternador entrega más que a su consigna, porque una batería vacía tira de él.');
+}
+
+function vistaBalance(){
+  const v=VH(), r=EN(), enc=encendidasAhora();
+  const y0=cabecera('El balance eléctrico',
+    'Sumar vatios de etiqueta y dividir por doce está mal: la mitad de los consumos son resistencias y la otra mitad, potencias constantes.');
+  const filas=CARGAS.filter(c=>c.fijo||enc[c.k]);
+  const P={x:104,y:y0+44,w:556,h:322};
+  const iMax=Math.max(...filas.map(c=>corrienteCarga(c,r.r.vBarra)))*1.24;
+  const M=ejes(P,0,Math.max(6,iMax),0,filas.length,'corriente (A)','',x=>num(x,0),null,6,filas.length);
+  enCaja(P,()=>{
+    filas.forEach((c,i)=>{
+      const I=corrienteCarga(c,r.r.vBarra), Inom=corrienteCarga(c,V_NOMINAL);
+      const y1=M.Y(filas.length-i-0.82), y2=M.Y(filas.length-i-0.18);
+      const col=c.tipo==='pot'?COBRE:AZUL;
+      bx.save(); bx.fillStyle=c.tipo==='pot'?'rgba(208,139,91,0.34)':'rgba(110,168,254,0.30)';
+      bx.fillRect(M.X(0),y1,M.X(I)-M.X(0),y2-y1);
+      bx.strokeStyle=col; bx.lineWidth=1.5; bx.strokeRect(M.X(0),y1,M.X(I)-M.X(0),y2-y1);
+      bx.restore();
+      // La marca de lo que pediría a 13,5 V: enseña de un vistazo hacia qué lado
+      // se mueve cada clase de consumo cuando la barra no está donde debería.
+      linea([[M.X(Inom),y1-2],[M.X(Inom),y2+2]],'#cfe0ee',1.6,[3,3]);
+      texto(corta(c.rot,30),M.X(0)+8,(y1+y2)/2+4,{s:12,c:'#e8eef6'});
+      // La cifra va SIEMPRE a la derecha de las dos marcas. Pegada al final de
+      // la barra, la marca de puntos de «lo que pediría a 13,5 V» le cruzaba los
+      // dígitos por la mitad cada vez que las dos casi coincidían.
+      texto(amp(I,1),Math.max(M.X(I),M.X(Inom))+10,(y1+y2)/2+4,{s:12,b:true,c:col});
+    });
+  });
+  // La caja de la leyenda empieza 19 px por encima de esta ordenada, y el
+  // rótulo del eje de las X vive en P.y+P.h+44: con +58 se pisaban.
+  leyenda(P.x+16,P.y+P.h+76,[['resistivo: si baja la barra, tira MENOS',AZUL],
+    ['de potencia: si baja la barra, tira MÁS',COBRE],
+    ['lo que pediría a 13,5 V','#cfe0ee',[3,3]]]);
+
+  const wReal=potenciaCargas(enc,r.r.vBarra), wEtiq=filas.reduce((a,c)=>a+c.w,0);
+  let y=y0+34;
+  y=tablaDer(y,['el balance','A'],[
+    {v:['consumen',amp(r.r.iCargas,1)],c:NARANJA,b:true},
+    {v:['da el alternador',amp(r.r.iAlt,1)],c:CIAN,b:true},
+    {v:['a la batería',amp(r.r.iBat,1)],b:true,c:r.descarga?BAD_HEX:OK_HEX},
+    {v:['la barra está a',volt(r.med.vBat)]},
+  ]);
+  y+=16;
+  y=tablaDer(y,['los vatios','W'],[
+    {v:['suma de etiquetas',vat(wEtiq)],c:GRIS},
+    {v:['de verdad, aquí',vat(wReal)],b:true},
+    {v:['la cuenta de la etiqueta se equivoca en',
+      pcc(Math.abs(wReal-wEtiq)/Math.max(1,wEtiq)*100,1)],
+      c:Math.abs(wReal-wEtiq)/Math.max(1,wEtiq)>0.05?WARN_HEX:GRIS}]);
+  y+=16;
+  const aut=autonomiaMin(r);
+  tablaDer(y,['si descarga','valor'],[
+    {v:['déficit',r.descarga?amp(r.deficit,1):'—'],c:r.descarga?BAD_HEX:GRIS},
+    {v:['carga inicial',pcc(r.soc*100)],c:GRIS},
+    {v:['hasta no arrancar',minT(aut)],b:r.descarga,c:r.descarga?BAD_HEX:GRIS},
+  ]);
+  const V=veredicto();
+  banda(628,V.nivel,V.rot, r.descarga
+    ? ('Con el motor en marcha, la batería está dando '+amp(r.deficit,1)+
+       ' en vez de recibirlos. A este ritmo quedan '+minT(aut)+
+       ' antes de que la carga baje del 30 % y el coche deje de arrancar. Y el testigo del salpicadero está '+
+       (r.med.testigo?'ENCENDIDO':'APAGADO')+'.')
+    : ('El alternador cubre los '+amp(r.r.iCargas,1)+' de los consumos y le sobran '+
+       amp(r.r.iBat,1)+' para la batería. Ojo con la cifra: a '+volt(r.med.vBat)+
+       ' y con la batería al '+pcc(r.soc*100)+', lo que ella ACEPTA no lo decide el alternador.'));
+}
+
+function vistaCaidas(){
+  const v=VH(), r=EN();
+  const Rsana=resistenciasSanas(v,r.TC);
+  const y0=cabecera('Las caídas del circuito de carga',
+    'La corriente va al revés que en el arranque, y por eso el que se queda sin tensión es quien debería estar cargándose. Y hay dos tramos: el positivo y la vuelta.');
+  const TR=[
+    {k:'carga', rot:'cable de carga B+', cae:r.r.iAlt*r.R.carga, toca:Rsana.carga*r.r.iAlt,
+     lim:LIM_CARGA, R:r.R.carga, Rs:Rsana.carga},
+    {k:'masa',  rot:'masa del alternador', cae:r.r.iAlt*r.R.masa, toca:Rsana.masa*r.r.iAlt,
+     lim:LIM_MASA,  R:r.R.masa,  Rs:Rsana.masa},
+  ];
+  const P={x:126,y:y0+46,w:512,h:296};
+  const maxV=Math.max(0.42, ...TR.map(t=>t.cae*1.30));
+  const M=ejes(P,0,2,0,maxV,'','caída (V)',null,vv=>num(vv,2),2,5);
+  enCaja({x:P.x,y:P.y,w:P.w,h:P.h+42},()=>{
+    TR.forEach((t,i)=>{
+      const mal=t.cae>t.lim;
+      const x0=M.X(i+0.20), x1=M.X(i+0.80), yb=M.Y(0), yt=M.Y(t.cae);
+      bx.save(); bx.fillStyle=mal?'rgba(255,107,107,0.34)':'rgba(124,217,146,0.26)';
+      bx.fillRect(x0,yt,x1-x0,yb-yt);
+      bx.strokeStyle=mal?BAD_HEX:OK_HEX; bx.lineWidth=1.6; bx.strokeRect(x0,yt,x1-x0,yb-yt);
+      bx.restore();
+      linea([[x0,M.Y(t.toca)],[x1,M.Y(t.toca)]],'#9aa6b6',1.6,[4,3]);
+      texto(volt(t.cae),(x0+x1)/2,yt-8,{s:13,b:true,c:mal?BAD_HEX:OK_HEX,al:'center'});
+      texto(t.rot,(x0+x1)/2,P.y+P.h+19,{s:12,c:'#7b8697',al:'center'});
+      texto('límite '+volt(t.lim),(x0+x1)/2,P.y+P.h+34,{s:11,c:VIO,al:'center'});
+    });
+  });
+  leyenda(P.x+14,P.y+P.h+62,[['lo que cae',OK_HEX],['lo que le tocaría por su sección',GRIS,[4,3]]]);
+
+  let y=y0+34;
+  y=tablaDer(y,['la escalera','V'],[
+    {v:['B+ del alternador',volt(r.med.vAlt)],c:CIAN,b:true},
+    {v:['− cable de carga',volt(r.med.caidaCarga)],
+      c:r.med.caidaCarga>LIM_CARGA?BAD_HEX:GRIS},
+    {v:['= borne de batería',volt(r.med.vBat)],b:true},
+    {v:['− masa del alternador',volt(r.med.caidaMasa)],
+      c:r.med.caidaMasa>LIM_MASA?BAD_HEX:GRIS},
+    {v:['corriente',amp(r.r.iAlt,1)],c:GRIS},
+  ]);
+  y+=16;
+  y=tablaDer(y,['las resistencias','mΩ'],[
+    {v:['cable, medida',ohm(r.R.carga)],c:r.R.carga>Rsana.carga*1.5?BAD_HEX:TINTA},
+    {v:['cable, la suya',ohm(Rsana.carga)],c:GRIS},
+    {v:['masa, medida',ohm(r.R.masa)],c:r.R.masa>Rsana.masa*1.5?BAD_HEX:TINTA},
+    {v:['masa, la suya',ohm(Rsana.masa)],c:GRIS},
+  ]);
+  y+=16;
+  // La trampa del sensado, y se dice con las dos cifras de ESTE coche.
+  const sensa=v.sensa==='bateria';
+  tablaDer(y,['dónde mide el regulador',''],[
+    {v:[sensa?'en la batería':'en el alternador',''],c:CIAN,b:true},
+    {v:['consigna',volt(r.vObj)],c:GRIS},
+    {v:['la ve en',volt(sensa?r.med.vBat:r.med.vAlt)]},
+    {v:['y el otro extremo queda a',volt(sensa?r.med.vAlt:r.med.vBat)],
+      b:true,c:(sensa?r.med.vAlt:r.med.vBat)>15.2?BAD_HEX:TINTA},
+  ]);
+  const exc=r.med.caidaCarga>LIM_CARGA||r.med.caidaMasa>LIM_MASA;
+  const txt=sensa
+    ? ('El regulador mide EN LA BATERÍA, así que la caída del cable no la ve: la compensa subiendo su propia tensión hasta '+
+       volt(r.med.vAlt)+'. El voltímetro puesto en el borne marca '+volt(r.med.vBat)+
+       ' y parece que todo está bien. Quien paga la resistencia del cable es el alternador, que trabaja '+
+       volt(Math.max(0,r.med.vAlt-r.vObj))+' por encima de su consigna.')
+    : ('El regulador mide EN EL ALTERNADOR, así que todo lo que se pierda por el camino se lo come la batería: él ve '+
+       volt(r.med.vAlt)+' y en el borne quedan '+volt(r.med.vBat)+
+       '. Aquí la avería del cable SÍ se ve con el voltímetro de siempre, y en el coche de al lado no.');
+  banda(628, exc?'warn':'ok',
+    exc?'HAY UN TRAMO QUE SE PASA DE CAÍDA':'LOS DOS TRAMOS ESTÁN DENTRO', txt);
+}
+
+function vistaBanco(){
+  const r=EN();
+  const y0=cabecera('El banco de aparatos',
+    'Nueve medidas y un testigo. Ninguna resuelve el circuito ella sola, y la que hace todo el mundo es la que menos separa justo donde todo el mundo la hace.');
+  const base=EN_DE('sano');
+  // dy = 112 y no 120: con 120, la quinta fila acababa en 700 y la banda de
+  // veredicto —que se pega al pie del lienzo— se le montaba encima.
+  const cols=2, dx=274, dy=112;
+  const x0=104, yTop=y0+26;
+  INSTR.forEach((I,i)=>{
+    const c=i%cols, f=Math.floor(i/cols);
+    const x=x0+c*dx, y=yTop+f*dy;
+    const dif=G.falla!=='sano'&&separa(I.k,base,r);
+    rpanel(x,y,dx-18,dy-8,'rgba(255,255,255,0.030)',dif?WARN_HEX:'#1e2836',9);
+    texto(corta(I.rot,34),x+12,y+21,{s:12,c:'#9aa6b6'});
+    const val=lecturaTexto(r,I.k);
+    const col=I.k==='testigo'?(r.med.testigo?BAD_HEX:GRIS)
+      :(dif?WARN_HEX:TINTA);
+    textoFit(val,x+12,y+52,dx-40,{s:22,b:true,c:col,mono:true});
+    texto(corta(I.nota,44),x+12,y+74,{s:11,c:'#66707e'});
+    if(dif) texto('≠ sano: '+lecturaTexto(base,I.k),x+12,y+91,{s:11,c:WARN_HEX});
+    else if(G.falla!=='sano') texto('igual que un coche sano',x+12,y+91,{s:11,c:GRIS});
+    else texto('referencia',x+12,y+91,{s:11,c:GRIS});
+  });
+  const C=CENSO();
+  const ven=G.falla==='sano'?0:INSTR_KEYS.filter(k=>separa(k,base,r)).length;
+  banda(yTop+5*dy+10, G.falla==='sano'?'ok':(ven?'warn':'bad'),
+    G.falla==='sano'?'ESTE ES EL PATRÓN'
+      :(ven?('LO VEN '+ven+' DE LOS 10 APARATOS'):'NO LO VE NINGUNO DE LOS 10'),
+    G.falla==='sano'
+      ? 'Con el circuito sano, estas diez lecturas son la referencia contra la que se comparan las ocho averías. Cámbialo de montaje y mira cuáles se mueven: en esta condición hay averías que no mueven ninguna.'
+      : (ven
+        ? ('En ESTA condición el montaje se delata en '+ven+' de las diez medidas. Cambia la situación o el régimen y vuelve a mirar: la lista cambia, y ése es el oficio.')
+        : ('En esta condición, este montaje da exactamente las mismas diez lecturas que un coche sano. No es que el aparato falle: es que la condición no le pide al circuito aquello que no puede dar.')));
+}
+
+function vistaCenso(){
+  const y0=cabecera('El censo: qué ve cada aparato',
+    'Marcada quiere decir que ESE aparato, en ESTA condición, distingue ese montaje de un coche sano. Las filas vacías aquí no sirven de nada.');
+  const C=CENSO();
+  const malas=FALLA_KEYS.filter(k=>k!=='sano');
+  const x0=250, cw=54, y1=y0+52;
+  malas.forEach((fk,j)=>{
+    const cx=x0+cw*j+cw/2;
+    bx.save(); bx.translate(cx,y1-8); bx.rotate(-Math.PI/3.4);
+    texto(FALLAS[fk].sig,0,0,{s:11.5,c:'#9aa6b6'});
+    bx.restore();
+  });
+  linea([[104,y1+4],[x0+cw*malas.length,y1+4]],'#243043',1.2);
+  INSTR.forEach((I,i)=>{
+    const y=y1+30+i*30;
+    const fila=C.filas.find(f=>f.ik===I.k);
+    // El nombre se ENCOGE hasta caber en su columna: con `corta` a 26 caracteres
+    // los rótulos largos llegaban hasta la cifra de la derecha y el número se
+    // leía pegado a la última letra.
+    textoFit(I.sig,104,y+4,124,{s:12,c:fila.n?TINTA:GRIS});
+    texto(String(fila.n),238,y+4,{s:12,b:true,al:'right',
+      c:fila.n>=5?OK_HEX:(fila.n?WARN_HEX:'#3a4658')});
+    malas.forEach((fk,j)=>{
+      const cx=x0+cw*j+cw/2, ve=fila.ve.indexOf(fk)>=0;
+      bx.save();
+      if(ve){ bx.fillStyle='rgba(124,217,146,0.85)'; bx.beginPath();
+        bx.arc(cx,y,6.4,0,Math.PI*2); bx.fill(); }
+      else { bx.strokeStyle='#2c3646'; bx.lineWidth=1.4; bx.beginPath();
+        bx.arc(cx,y,6.4,0,Math.PI*2); bx.stroke(); }
+      bx.restore();
+    });
+  });
+  // Y debajo, lo único que de verdad importa: qué montajes son indistinguibles.
+  const amb=ambiguos(G.veh,G.sit,COND());
+  const yAmb=y1+30+INSTR.length*30+22;
+  texto('CON LOS DIEZ APARATOS A LA VEZ',104,yAmb,{s:13,b:true,c:'#9aa6b6'});
+  let yy=yAmb+22;
+  if(!amb.length){
+    texto('los nueve montajes dan lecturas distintas: esta condición resuelve el caso ella sola',
+      104,yy,{s:12.5,c:OK_HEX});
+  }else{
+    for(const g of amb){
+      texto('indistinguibles: '+g.map(k=>FALLAS[k].sig).join(' = '),104,yy,{s:12.5,c:WARN_HEX});
+      yy+=20;
+    }
+  }
+  // Y las situaciones que SÍ resolverían el caso: sin esto, el hueco de abajo
+  // se quedaba vacío y el alumno no sabía hacia dónde mover la condición.
+  yy+=8;
+  const buenas=SITUACIONES.filter(s2=>ambiguos(G.veh,s2.k,{}).length===0);
+  texto('SITUACIONES QUE RESUELVEN LAS NUEVE ELLAS SOLAS',104,yy+14,
+    {s:13,b:true,c:'#9aa6b6'});
+  texto(buenas.length?buenas.map(s2=>s2.rot).join(' · ')
+    :'ninguna de las cinco: en este coche hace falta mirar en más de una',
+    104,yy+36,{s:12.5,c:buenas.length?OK_HEX:WARN_HEX});
+  const mejor=C.filas.slice().sort((a,b)=>b.n-a.n)[0];
+  const peor=C.filas.filter(f=>f.n===0).length;
+  banda(628, amb.length?'warn':'ok',
+    amb.length?('QUEDAN '+amb.reduce((a,g)=>a+g.length,0)+' MONTAJES SIN SEPARAR')
+      :'ESTA CONDICIÓN RESUELVE LOS NUEVE',
+    'Aquí el aparato que más separa es «'+instr(mejor.ik).rot+'», con '+mejor.n+' de 8, y hay '+
+    peor+' que no separan ninguno. '+
+    (amb.length
+      ? 'Los montajes que quedan juntos no se distinguen POR NADA en esta condición: hay que cambiar de condición, no de aparato. Prueba a subir el régimen o a encender la luneta.'
+      : 'Y no era la condición que uno elegiría: fíjate en cuál es, y compárala con la de la revisión de taller.'));
+}
+
+// El reto trabaja con SU propia condición, que es la que el alumno tiene puesta
+// en los mandos. Se copia aquí y no se lee de `G` dentro del motor, para que el
+// motor del reto no dependa del estado de la interfaz.
+function retoSync(){
+  if(!RETO.activo) return;
+  RETO.sit=G.sit; RETO.rpm=G.rpm;
+  RETO.on=G.on?Object.assign({},G.on):null;
+}
+function RE(){ retoSync(); return memo('re|'+CFGK(), ()=>retoEnsayo()); }
+
+function vistaReto(){
+  if(!RETO.activo) armaReto();
+  retoSync();
+  // Mirar los aparatos en una condición ES medirla: se anota sola. Si no se
+  // anotara, «montajes en pie» contaría descartes que el alumno no ha hecho.
+  retoAnota();
+  const v=VEHS[RETO.veh], r=RE();
+  const y0=cabecera('Reto: uno de los nueve montajes',
+    'El montaje no se dice. Cambia la condición, lee los aparatos y acorrala: no basta con acertar, hay que haberlo CERRADO.',true);
+  // Los diez aparatos, en dos columnas y sin adornos.
+  const cols=2, dx=274, dy=62, x0=104, yTop=y0+22;
+  INSTR.forEach((I,i)=>{
+    const c=i%cols, f=Math.floor(i/cols);
+    const x=x0+c*dx, y=yTop+f*dy;
+    rpanel(x,y,dx-18,dy-12,'rgba(255,255,255,0.030)','#1e2836',9);
+    texto(I.sig.charAt(0).toUpperCase()+I.sig.slice(1),x+12,y+19,{s:11.5,c:'#9aa6b6'});
+    textoFit(lecturaTexto(r,I.k),x+12,y+43,dx-40,
+      {s:18,b:true,mono:true,c:I.k==='testigo'&&r.med.testigo?BAD_HEX:TINTA});
+  });
+  const comp=RETO.hecho?retoResumen().compatibles:retoCompatibles();
+  // Los nueve montajes, SIEMPRE los nueve y siempre en el mismo orden, con los
+  // descartados tachados. Enseñar sólo los que quedan escondía el trabajo hecho:
+  // lo que el alumno tiene que ver es cuántos ha ido tumbando.
+  const yCand=yTop+5*dy+14;
+  texto('LOS NUEVE MONTAJES',104,yCand,{s:13,b:true,c:'#9aa6b6'});
+  FALLA_KEYS.forEach((fk,i)=>{
+    const c=i%2, f=Math.floor(i/2);
+    const x=104+c*268, y=yCand+24+f*20;
+    const vivo=comp.indexOf(fk)>=0;
+    const acer=RETO.hecho&&fk===RETO.falla;
+    texto((vivo?'○ ':'✕ ')+corta(FALLAS[fk].corto,30),x,y,
+      {s:12,c:acer?OK_HEX:(vivo?TINTA:'#46505f'),b:acer});
+  });
+  const yCond=yCand+24+5*20+14;
+  texto('CONDICIONES QUE HAS MIRADO',104,yCond,{s:13,b:true,c:'#9aa6b6'});
+  let yy=yCond+21;
+  const vis=RETO.visitadas.slice(-3);
+  if(!vis.length) texto('ninguna todavía',104,yy,{s:12.5,c:GRIS});
+  for(const c of vis){
+    const s2=SITUACIONES.find(x=>x.k===c.sit)||SITUACIONES[0];
+    const on=c.on?CARGA_KEYS.filter(k=>c.on[k]).length:0;
+    texto('· '+s2.rot+' · '+(c.rpm===null||c.rpm===undefined?'régimen de la situación':rpmT(c.rpm))+
+      (on?(' · '+on+' consumos'):''),104,yy,{s:12,c:'#9aa6b6'});
+    yy+=18;
+  }
+  let y=y0+34;
+  y=tablaDer(y,['el caso',''],[
+    {v:['coche',v.corto],c:CIAN,b:true},
+    {v:['montaje',RETO.hecho?corta(FALLAS[RETO.falla].sig,18):'desconocido'],
+      c:RETO.hecho?WARN_HEX:GRIS,b:true},
+    {v:['condiciones vistas',String(RETO.visitadas.length)]},
+    {v:['montajes en pie',comp.length+' de '+FALLA_KEYS.length],
+      b:true,c:comp.length===1?OK_HEX:(comp.length<4?WARN_HEX:GRIS)},
+  ]);
+  y+=16;
+  const rows=comp.slice(0,9).map(k=>({v:[FALLAS[k].sig,''],
+    c:(RETO.hecho&&k===RETO.falla)?OK_HEX:TINTA,
+    b:(RETO.hecho&&k===RETO.falla)}));
+  y=tablaDer(y,['siguen siendo posibles',''],rows.length?rows:[{v:['—','']}]);
+
+  if(!RETO.hecho){
+    banda(628, comp.length===1?'ok':'warn',
+      comp.length===1?'CASO CERRADO: ENTREGA EL DICTAMEN':'AÚN QUEDAN '+comp.length+' POSIBLES',
+      comp.length===1
+        ? 'Con lo que has medido sólo queda un montaje compatible. Eso es cerrar un caso: no es que lo hayas adivinado, es que lo demás está descartado por medidas tuyas.'
+        : 'Con lo que llevas medido, '+comp.length+' montajes darían exactamente estas lecturas. Cambia de condición: sube el régimen, enciende la luneta, ponte en el atasco. Un aparato nuevo no te va a servir; una condición nueva, sí.');
+  }else{
+    const R=retoResumen();
+    const nivel=R.acierto?(R.cerrado?'ok':'warn'):'bad';
+    const rot=R.acierto?(R.cerrado?'ACERTADO Y CERRADO':'ACERTADO, PERO NO CERRADO')
+      :'FALLADO: ERA «'+FALLAS[R.falla].corto.toUpperCase()+'»';
+    banda(628,nivel,rot,
+      (R.acierto
+        ? (R.cerrado
+          ? 'Y te lo habías ganado: con las '+R.condiciones+' condiciones que miraste, ningún otro montaje daba estas lecturas.'
+          : 'Pero no te lo habías ganado: con lo que mediste quedaban '+R.compatibles.length+
+            ' montajes compatibles —'+R.compatibles.map(k=>FALLAS[k].sig).join(', ')+
+            '— y elegiste bien de casualidad.')
+        : 'Era «'+FALLAS[R.falla].rot+'». '+FALLAS[R.falla].pista)+
+      ' Las situaciones que habrían separado este montaje de todos los demás ella sola: '+
+      (R.buenas.length?R.buenas.map(k=>(SITUACIONES.find(s=>s.k===k)||{rot:k}).rot).join(', ')
+        :'ninguna de las cinco; hacía falta más de una.')+'.');
+  }
+}
+
+// ===================================== T6 · LO QUE SE MUEVE POR FOTOGRAMA
+function anima(dt){
+  animT+=dt;
+  // Las piezas del banco flotan y giran despacio para que se vean por todos los
+  // lados sin tener que orbitar la cámara.
+  moviles.forEach(o=>{
+    const u=o.userData;
+    o.rotation.y+=dt*0.42;
+    const s=Math.sin(animT*1.5+u.fase)*0.018;
+    o.position.y=u.baseY+s+(u.lift||0);
+  });
+  fantasmas.forEach(f=>{
+    // El temblor se mide SIEMPRE desde la abscisa buena, guardada al empezar:
+    // sumarlo a la posición actual dejaba el fantasma corrido un poco más a la
+    // derecha en cada rechazo, y a los seis intentos ya no coincidía con su hueco.
+    if(f.userData.shake>0){
+      f.userData.shake=Math.max(0,f.userData.shake-dt*2.4);
+      f.position.x=f.userData.homeX+Math.sin(animT*40)*f.userData.shake*0.05;
+      if(f.userData.shake===0) f.position.x=f.userData.homeX;
+    }
+    if(f.userData.gm) f.userData.gm.opacity=0.18+0.10*Math.sin(animT*2.6);
+  });
+  for(let i=tweens.length-1;i>=0;i--){
+    const w=tweens[i]; w.t+=dt/w.dur;
+    const k=ease(Math.min(1,w.t));
+    w.o.position.lerpVectors(w.p0,w.p1,k);
+    const s=w.s0+(w.s1-w.s0)*k; w.o.scale.setScalar(s);
+    if(w.t>=1){ w.o.position.copy(w.p1); w.o.scale.setScalar(w.s1); w.fin&&w.fin(); tweens.splice(i,1); }
+  }
+  // Las poleas giran a la velocidad que les toca, y la del alternador a la SUYA:
+  // si la correa patina, se ve girar más despacio de lo que la relación manda.
+  if(G.simUnlocked){
+    const r=(G.modo==='reto')?RE():EN();
+    if(RIG.cig) RIG.cig.rotation.x+=dt*rpmAhora()/60*2*Math.PI*0.06;
+    if(RIG.polea) RIG.polea.rotation.x+=dt*r.med.rpmAlt/60*2*Math.PI*0.06;
+    // Y los fusibles de los consumos encendidos se iluminan.
+    const enc=encendidasAhora();
+    for(const f of RIG.fusibles){
+      const c=CARGAS.find(x=>x.k===f.k);
+      const on=c&&(c.fijo||enc[c.k]);
+      f.mat.emissive.setHex(on?(c.tipo==='pot'?0xc07a48:0x6ea8fe):0x000000);
+      f.mat.emissiveIntensity=on?0.55:0;
+    }
+    // El testigo del salpicadero. Casi nunca se enciende, y ésa es la lección.
+    if(RIG.testigo){
+      const enc2=r.med.testigo;
+      const c=enc2?0xff4d5e:0x232a33;
+      RIG.testigo.color.setHex(c); RIG.testigo.emissive.setHex(enc2?c:0x000000);
+      RIG.testigo.emissiveIntensity=enc2?(1.1+0.4*Math.sin(animT*5)):0;
+    }
+  }
+}
+
+// =========================================== T7 · HUD, MANDOS Y TELEMETRÍA
+const MODES=['ensamble','curva','balance','caidas','banco','censo','reto'];
+const MODE_META={
+  ensamble:['· montaje','EL CIRCUITO DE CARGA'],
+  curva:   ['· curva',  'LO QUE PUEDE DAR'],
+  balance: ['· balance','LO QUE ENTRA Y LO QUE SALE'],
+  caidas:  ['· caídas', 'EL CAMINO Y LA VUELTA'],
+  banco:   ['· banco',  'LOS DIEZ APARATOS'],
+  censo:   ['· censo',  'QUIÉN VE QUÉ'],
+  reto:    ['· reto',   'UN MONTAJE QUE NO SE DICE'],
+};
+const HUD_TXT={
+  ensamble:'Seis piezas. La correa es una de ellas: casi nadie la cuenta como parte del circuito eléctrico, y lo es.',
+  curva:'La chapa dice 120 A. Ésa es la corriente a régimen infinito. A ralentí da menos de la mitad.',
+  balance:'Sumar vatios y dividir por doce está mal: la mitad de los consumos suben la corriente cuando la barra baja.',
+  caidas:'Dos tramos, no uno. Y dónde mide el regulador decide cuál de los dos se ve con el voltímetro.',
+  banco:'Diez medidas. Ninguna resuelve el circuito ella sola, y la que hace todo el mundo es la que menos separa.',
+  censo:'Marca dónde cada aparato distingue una avería de un coche sano. Busca las filas vacías.',
+  reto:'No basta con acertar: hay que haber CERRADO el caso. Cambiar de condición separa más que cambiar de aparato.',
+};
+function pintaHUD(){
+  const m=MODE_META[G.modo]||MODE_META.ensamble;
+  el('hud').innerHTML='<h1>'+m[1]+'</h1><p>'+HUD_TXT[G.modo]+'</p>';
+}
+
+el('panel').innerHTML=
+  '<h4>Circuito de carga</h4>'+
+  '<div id="ctrl"></div>'+
+  '<div id="retobox" style="display:none">'+
+    '<div class="gl" style="margin:10px 0 4px"><span>Tu dictamen: qué montaje es</span></div>'+
+    '<div class="btns" id="dxreto"></div>'+
+    '<div class="modebar" style="margin-top:8px">'+
+      '<button class="b" id="btnPista">Pista</button>'+
+      '<button class="b on" id="btnEntrega">Entregar dictamen</button>'+
+      '<button class="b" id="btnOtro">Otro caso</button>'+
+    '</div>'+
+  '</div>'+
+  '<div id="tele"></div>'+
+  '<div class="console" id="report"></div>'+
+  '<div class="modebar" style="margin-top:10px">'+
+    '<button class="b auto" id="btnAuto">▶︎ Recorrido guiado</button>'+
+  '</div>'+
+  '<h4 class="sec">Comprueba lo que has leído</h4>'+
+  '<div id="quiz"></div>';
+
+function fila(rot,attr,ops,cur){
+  const filas=Math.max(1,Math.ceil(ops.length/3));
+  let h='<div class="gl" style="margin:9px 0 4px"><span>'+rot+'</span></div>';
+  let i=0;
+  for(let f=0;f<filas;f++){
+    const n=Math.ceil((ops.length-i)/(filas-f));
+    h+='<div class="modebar">'+ops.slice(i,i+n).map(o=>
+      '<button class="b'+(String(o[0])===String(cur)?' on':'')+'" '+attr+'="'+o[0]+'">'+o[1]+'</button>'
+    ).join('')+'</div>';
+    i+=n;
+  }
+  return h;
+}
+const RPMS=[['auto','de la situación'],['800','800'],['1100','1100'],
+  ['1500','1500'],['2100','2100'],['3000','3000']];
+function syncCtrl(){
+  const ciego=(G.modo==='reto');
+  // Los modos que no son el montaje se ofrecen SIEMPRE, pero deshabilitados
+  // hasta que el circuito esté completo: esconderlos haría creer que no existen.
+  let h='<div class="gl" style="margin:9px 0 4px"><span>Vista</span></div>';
+  const dis=m=>(m!=='ensamble'&&!G.simUnlocked)?' disabled':'';
+  h+='<div class="modebar">'+MODES.slice(0,4).map(m=>
+    '<button class="b'+(G.modo===m?' on':'')+dis(m)+'" data-mode="'+m+'">'+MODE_META[m][0]+'</button>').join('')+'</div>';
+  h+='<div class="modebar">'+MODES.slice(4).map(m=>
+    '<button class="b'+(G.modo===m?' on':'')+dis(m)+'" data-mode="'+m+'">'+MODE_META[m][0]+'</button>').join('')+'</div>';
+  h+=fila('Vehículo','data-veh',VEH_KEYS.map(k=>[k,VEHS[k].corto]),G.veh);
+  if(G.modo==='ensamble'){
+    h+='<div class="modebar" style="margin-top:8px">'+
+       '<button class="b" id="btnMonta">Montar solo</button>'+
+       '<button class="b" id="btnDesmonta">Desmontar</button></div>';
+  }
+  if(G.simUnlocked){
+    h+=fila('Situación','data-sit',SIT_KEYS.map(k=>
+      [k,corta((SITUACIONES.find(s=>s.k===k)||{rot:k}).rot,16)]),G.sit);
+    h+=fila('Régimen del motor','data-rpm',RPMS,G.rpm===null?'auto':String(G.rpm));
+    // Los consumos: los ocho que se pueden apagar. El de la unidad de mando no
+    // está porque con el motor en marcha no se puede apagar, y decir lo
+    // contrario sería mentir sobre el balance.
+    const enc=encendidasAhora();
+    h+='<div class="gl" style="margin:9px 0 4px"><span>Consumos</span></div>';
+    const conm=CARGAS.filter(c=>!c.fijo);
+    for(let i=0;i<conm.length;i+=2){
+      h+='<div class="modebar">'+conm.slice(i,i+2).map(c=>
+        '<button class="b'+(enc[c.k]?' on':'')+'" data-carga="'+c.k+'">'+
+        corta(c.rot,18)+'</button>').join('')+'</div>';
+    }
+    if(!ciego)
+      h+=fila('Montaje','data-falla',FALLA_KEYS.map(k=>[k,corta(FALLAS[k].corto,16)]),G.falla);
+  }
+  el('ctrl').innerHTML=h;
+  el('retobox').style.display=ciego?'':'none';
+  if(ciego){
+    // Las nueve opciones se BARAJAN: en orden fijo, la posición de la respuesta
+    // sería una pista, y en este laboratorio la respuesta no puede filtrarse por
+    // ninguna superficie.
+    el('dxreto').innerHTML=RETO.orden.map(k=>
+      '<button class="b dx'+(RETO.elegida===k?' on':'')+'" data-dx="'+k+'">'+
+      corta(FALLAS[k].corto,30)+'</button>').join('');
+  }
+}
+
+// ----------------------------------------------------------------- telemetría
+const glf=(l,v,c)=>'<div class="g"><div class="gl"><span>'+l+'</span><b'+(c?' class="'+c+'"':'')+'>'+v+'</b></div></div>';
+function pintaTele(){
+  let h='';
+  if(!G.simUnlocked){
+    h+=glf('Piezas instaladas',ASM.done.size+' / '+PARTS.length,
+      ASM.done.size===PARTS.length?'good':'warn');
+    h+=glf('Siguiente',(PARTS.find(p=>!ASM.done.has(p.k))||{rot:'—'}).rot);
+    el('tele').innerHTML=h; return;
+  }
+  if(G.modo==='reto'){
+    const v=VEHS[RETO.veh], r=RE();
+    const comp=RETO.hecho?retoResumen().compatibles:retoCompatibles();
+    h+=glf('Coche',v.corto);
+    h+=glf('Situación',SIT().rot);
+    h+=glf('Régimen',rpmT(rpmAhora()));
+    for(const i of INSTR) h+=glf(corta(i.rot,26),lecturaTexto(r,i.k));
+    h+=glf('Condiciones vistas',String(RETO.visitadas.length));
+    h+=glf('Montajes en pie',comp.length+' de '+FALLA_KEYS.length,
+      comp.length===1?'good':(comp.length<4?'warn':''));
+    el('tele').innerHTML=h; return;
+  }
+  const r=EN(), v=VH(), q=veredicto();
+  h+=glf('Motor',rpmT(rpmAhora()));
+  h+=glf('Alternador',rpmT(r.med.rpmAlt),r.r.patinaje>0.02?'warn':'');
+  h+=glf('Podría dar',amp(capacidad(G.veh,G.falla,G.sit,rpmAhora()),1));
+  h+=glf('Da',amp(r.r.iAlt,1),r.saturado?'warn':'');
+  h+=glf('Consumen',amp(r.r.iCargas,1));
+  h+=glf('A la batería',amp(r.r.iBat,1),r.descarga?'bad':'good');
+  h+=glf('Barra',volt(r.med.vBat),r.med.vBat<13.0?'bad':(r.med.vBat>15.0?'bad':'good'));
+  h+=glf('B+ del alternador',volt(r.med.vAlt),r.med.vAlt>15.2?'warn':'');
+  h+=glf('Consigna',volt(r.vObj));
+  h+=glf('Cae el cable',volt(r.med.caidaCarga),r.med.caidaCarga>LIM_CARGA?'bad':'');
+  h+=glf('Cae la masa',volt(r.med.caidaMasa),r.med.caidaMasa>LIM_MASA?'bad':'');
+  h+=glf('Rizado',mvolt(r.med.rizado),r.med.rizado>0.10?'warn':'');
+  h+=glf('Fuga con el motor parado',amp(r.med.fuga,3),r.med.fuga>0.05?'bad':'');
+  h+=glf('Testigo de carga',r.med.testigo?'ENCENDIDO':'apagado',r.med.testigo?'bad':'');
+  h+=glf('Autonomía si descarga',minT(autonomiaMin(r)),r.descarga?'bad':'');
+  h+=glf('Veredicto',q.rot,q.nivel==='bad'?'bad':(q.nivel==='warn'?'warn':'good'));
+  el('tele').innerHTML=h;
+}
+function pintaInforme(){
+  if(!G.simUnlocked){
+    el('report').innerHTML='<span class="mono">Faltan '+(PARTS.length-ASM.done.size)+
+      ' piezas.</span> Toca una pieza del banco y después su hueco luminoso. '+
+      'Las seis son el circuito de carga, y la correa es una de ellas.';
+    return;
+  }
+  if(G.modo==='reto'){
+    const v=VEHS[RETO.veh];
+    let hh='<b>'+v.corto+'</b>. El cliente dice que por las mañanas le cuesta arrancar. ';
+    if(RETO.hecho){
+      const R=retoResumen();
+      hh+=R.acierto
+        ? ('<b class="good">Dictamen correcto:</b> era '+FALLAS[R.falla].rot+'. '+
+           (R.cerrado?'Y lo habías cerrado.':'<b class="warn">Pero no lo habías cerrado.</b>'))
+        : ('<b class="bad">No era eso:</b> era '+FALLAS[R.falla].rot+'.');
+    }else{
+      hh+='Cambia la condición y mira los aparatos. Cerrar el caso es dejar UN solo montaje compatible.';
+    }
+    el('report').innerHTML=hh; return;
+  }
+  const r=EN(), v=VH();
+  let hh='';
+  if(r.descarga)
+    hh+='<b class="bad">Con el motor en marcha, la batería está dando '+amp(r.deficit,1)+'.</b> '+
+      'El alternador entrega '+amp(r.r.iAlt,1)+' y los consumos piden '+amp(r.r.iCargas,1)+
+      '. Quedan '+minT(autonomiaMin(r))+' antes de que no arranque, y el testigo del salpicadero está '+
+      (r.med.testigo?'encendido':'<b>apagado</b>')+'.';
+  else if(r.saturado)
+    hh+='<b class="warn">El alternador está a tope de campo y no llega a su consigna.</b> '+
+      'Ve '+volt(v.sensa==='bateria'?r.med.vBat:r.med.vAlt)+' donde quiere '+volt(r.vObj)+
+      '. Carga, pero sólo '+amp(r.r.iBat,1)+', y con la batería al '+pcc(r.soc*100)+' eso no la recupera.';
+  else if(r.med.caidaCarga>LIM_CARGA||r.med.caidaMasa>LIM_MASA)
+    hh+='<b class="warn">Carga, pero un tramo se pasa:</b> el cable cae '+volt(r.med.caidaCarga)+
+      ' (límite '+volt(LIM_CARGA)+') y la masa '+volt(r.med.caidaMasa)+' (límite '+volt(LIM_MASA)+
+      '). Con '+amp(r.r.iAlt,1)+' circulando, eso son '+ohm(r.R.carga)+' y '+ohm(r.R.masa)+'.';
+  else
+    hh+='Circuito de carga sano: la barra está a '+volt(r.med.vBat)+' con el alternador dando '+
+      amp(r.r.iAlt,1)+', los consumos se llevan '+amp(r.r.iCargas,1)+' y a la batería le llegan '+
+      amp(r.r.iBat,1)+'. Ojo: a '+pcc(r.soc*100)+' de carga, lo que ella ACEPTA no lo decide el alternador.';
+  el('report').innerHTML=hh;
+}
+
+function pintaTablero(){
+  if(G.modo==='ensamble') vistaEnsamble();
+  else if(G.modo==='curva') vistaCurva();
+  else if(G.modo==='balance') vistaBalance();
+  else if(G.modo==='caidas') vistaCaidas();
+  else if(G.modo==='banco') vistaBanco();
+  else if(G.modo==='censo') vistaCenso();
+  else vistaReto();
+  btex.needsUpdate=true;
+}
+function pinta(){ pintaTablero(); pintaTele(); pintaInforme(); syncCtrl(); pintaPregunta(); }
+function afterEdit(){ invalida(); pinta(); }
+
+const MARGEN={ensamble:0.98, curva:0.96, balance:0.96, caidas:0.96,
+  banco:0.96, censo:0.95, reto:0.96};
+function armaReto(){
+  retoNuevo();
+  // El reto empieza SIEMPRE en la condición de la revisión de taller —el coche
+  // rodando y sin nada encendido—, que es justo la peor de las cinco. Que sea la
+  // peor no se dice: se descubre.
+  G.sit=RETO.sit; G.rpm=null; G.on=null;
+  RETO.orden=barajaEn(FALLA_KEYS.slice());
+  invalida();
+}
+function cambiaVehiculo(k){
+  if(!VEHS[k]) return;
+  G.veh=k; G.resuelto=false; invalida();
+  levantaVano(); levantaBanco();
+  colocaTablero(dims(VH()));
+  if(G.simUnlocked) montaKit(); else initAssembly();
+  if(G.modo==='reto') armaReto();
+  pintaHUD(); afterEdit(); refrescaPregunta();
+  const t=camConjunto(MARGEN[G.modo]||1.00); S.moveTo(t[0],t[1],0.9);
+}
+function setMode(m){
+  if(!MODE_META[m]) return;
+  if(m!=='ensamble'&&!G.simUnlocked){
+    showToast('<b>Primero hay que montar el circuito.</b> Faltan '+
+      (PARTS.length-ASM.done.size)+' piezas.',3000);
+    return;
+  }
+  const entro=(m==='reto'&&G.modo!=='reto');
+  G.modo=m;
+  if(m==='ensamble'){ if(ASM.done.size<PARTS.length) initAssembly(); }
+  else if(ASM.done.size<PARTS.length){ montaKit(); }
+  muestraBanco(m==='ensamble'&&ASM.done.size<PARTS.length);
+  pintaHUD();
+  if(entro) armaReto();
+  if(m!=='reto') RETO.activo=false;
+  afterEdit(); refrescaPregunta();
+  const t=camConjunto(MARGEN[m]||1.00); S.moveTo(t[0],t[1],0.8);
+}
+function setSit(k){
+  if(!SITUACIONES.some(s=>s.k===k)) return;
+  // Cambiar de situación tira los consumos que el alumno había tocado a mano:
+  // una situación ES un juego de consumos, y arrastrar los de la anterior daría
+  // una condición que no es ninguna de las cinco y que el censo no contempla.
+  G.sit=k; G.on=null; G.resuelto=false; afterEdit(); refrescaPregunta();
+}
+function setRpm(v){
+  G.rpm=(v==='auto')?null:Number(v);
+  G.resuelto=false; afterEdit(); refrescaPregunta();
+}
+function toggleCarga(k){
+  const c=CARGAS.find(x=>x.k===k);
+  if(!c||c.fijo) return;
+  if(!G.on) G.on=Object.assign({},SIT().on);
+  G.on[k]=G.on[k]?0:1;
+  G.resuelto=false; afterEdit(); refrescaPregunta();
+}
+function setFalla(k){
+  if(!FALLAS[k]||G.modo==='reto') return;
+  G.falla=k; G.resuelto=false; afterEdit(); refrescaPregunta();
+}
+
+// ============================== T8 · CUESTIONARIO, RECORRIDO Y ARRANQUE
+let QCACHE=null, QI=0, QSEL=null;
+// Las preguntas se DERIVAN del estado: cambiar de coche, de situación o de
+// régimen las rehace con las cifras nuevas. Ninguna respuesta está escrita a
+// mano, y por eso ninguna se puede aprender de memoria.
+function preguntas(){
+  if(!G.simUnlocked) return [];
+  const v=VH(), r=EN(), C=CENSO(), s=SIT();
+  const Q=[];
+  const capRal=capacidad(G.veh,'sano',G.sit,v.ralenti);
+  Q.push({t:'Este alternador lleva escrito '+amp(v.alt.nominal)+' en la chapa y al ralentí de este coche —'+
+      rpmT(v.ralenti)+'— puede dar '+amp(capRal,1)+'. ¿Por qué?',
+    ops:[['Porque la fem crece con las vueltas y la reactancia que la frena también: la corriente sube tumbada hacia un techo que sólo se alcanza a régimen infinito',true],
+      ['Porque el regulador limita la corriente a ralentí para no cargar el motor',false],
+      ['Porque la cifra de la chapa está medida en frío y a ralentí el alternador ya está caliente',false],
+      ['Porque a ralentí el rotor no llega a saturar el hierro y por eso da la mitad',false]]});
+  const res=CARGAS.filter(c=>c.tipo==='res').length, pot=CARGAS.length-res;
+  Q.push({t:'De los '+CARGAS.length+' consumos, '+res+' son resistivos y '+pot+
+      ' son de potencia constante. Si la barra se hunde de 14,4 a 12,5 V, ¿qué pasa con la corriente total?',
+    ops:[['Los resistivos tiran menos y los de potencia tiran MÁS, así que la suma baja mucho menos de lo que uno esperaría',true],
+      ['Baja toda proporcionalmente a la tensión, porque toda carga es óhmica',false],
+      ['Sube toda, porque al bajar la tensión todos los consumos compensan',false],
+      ['No cambia: el consumo de un coche está fijado por su fusiblera',false]]});
+  const iAcc=corrienteBateria(v.bat,r.soc,r.TC,r.vObj);
+  Q.push({t:'Con la batería al '+pcc(r.soc*100)+' y '+celC(r.TC)+
+      ', ofrecerle '+volt(r.vObj)+' hace que acepte '+amp(iAcc,1)+'. ¿Quién pone ese límite?',
+    ops:[['La polarización: el sulfato está dentro del poro de la placa y el ácido tiene que llegar por difusión, y esa resistencia crece según la placa se limpia',true],
+      ['El regulador del alternador, que corta la carga por encima de esa corriente',false],
+      ['La resistencia interna de la batería, la misma que da los amperios de arranque',false],
+      ['El fusible principal, que no deja pasar más',false]]});
+  const sensa=v.sensa==='bateria';
+  const rc=EN_DE('cableCarga');
+  Q.push({t:'En este coche el regulador mide en '+(sensa?'LA BATERÍA':'EL ALTERNADOR')+
+      '. Con 30 mΩ de más en el cable de carga, el borne de la batería marca '+
+      volt(rc.med.vBat)+' y el B+ del alternador '+volt(rc.med.vAlt)+'. ¿Qué se deduce?',
+    ops:[sensa
+        ? ['Que el regulador compensa la caída que no ve subiendo su propia tensión: el voltímetro en el borne no delata el cable, y quien lo paga es el alternador',true]
+        : ['Que la caída se la come la batería: el regulador ya tiene su consigna en el alternador y no sube más, así que el cable SÍ se ve con el voltímetro de siempre',true],
+      ['Que el cable no influye, porque el regulador siempre entrega la consigna en los dos extremos',false],
+      ['Que el alternador está averiado, porque su tensión no coincide con la de la batería',false],
+      ['Que hay que subir la consigna del regulador para compensarlo',false]]});
+  const desc=FALLA_KEYS.filter(k=>EN_DE(k).descarga);
+  const conTest=FALLA_KEYS.filter(k=>EN_DE(k).med.testigo);
+  Q.push({t:'En esta condición, '+desc.length+' de los '+FALLA_KEYS.length+
+      ' montajes descargan la batería con el motor en marcha, y el testigo del salpicadero se enciende en '+
+      conTest.length+'. ¿Qué vigila ese testigo?',
+    ops:[['Si el alternador EXCITA, no si ALCANZA: se alimenta del propio estator, y mientras la máquina genere algo se apaga aunque no llegue ni de lejos a cubrir el consumo',true],
+      ['La tensión de la batería, y se enciende por debajo de 12 V',false],
+      ['La corriente de carga, y se enciende cuando la batería se descarga',false],
+      ['El estado de la correa, por eso se enciende si patina',false]]});
+  const vacias=C.filas.filter(f=>f.n===0);
+  const mejor=C.filas.slice().sort((a,b)=>b.n-a.n)[0];
+  Q.push({t:'En esta condición, el aparato que más separa es «'+instr(mejor.ik).rot+
+      '» con '+mejor.n+' de 8, y hay '+vacias.length+' que no separan ninguno. ¿Qué conviene cambiar para ver más?',
+    ops:[['La condición: subir el régimen o encender consumos le pide al circuito lo que aquí no se le está pidiendo, y entonces las averías se separan solas',true],
+      ['El aparato: hay que buscar un multímetro de más resolución',false],
+      ['El vehículo: en otro coche estas averías sí se verían',false],
+      ['Nada: si los aparatos no ven nada es que el circuito está sano',false]]});
+  const eq=rpmEquilibrio(G.veh,'sano',G.sit,COND());
+  Q.push({t:'Sano y en esta situación, el coche deja de comerse la batería a partir de '+
+      (eq===null?'ningún régimen alcanzable':(eq===0?'cualquier régimen, incluido el ralentí':rpmT(eq)))+
+      ', y su ralentí es '+rpmT(v.ralenti)+'. ¿Qué significa esa cifra?',
+    ops:[['Que por debajo de ahí el alternador no cubre el consumo y la diferencia sale de la batería, sin que se encienda nada en el salpicadero',true],
+      ['Que por debajo de ahí el alternador deja de excitarse',false],
+      ['Que por debajo de ahí el regulador desconecta la carga para proteger la batería',false],
+      ['Que es el régimen mínimo al que el motor se mantiene en marcha',false]]});
+  return Q;
+}
+function bancoQ(){
+  if(!QCACHE){ QCACHE=preguntas();
+    QCACHE.forEach(q=>{ q.baraja=barajaEn(q.ops.map(o=>({o:o}))); }); }
+  return QCACHE;
+}
+function refrescaPregunta(){ QCACHE=null; QI=0; QSEL=null; pintaPregunta(); }
+function pintaPregunta(){
+  // Sin circuito montado NO hay preguntas, y el banco en caché no se entera: al
+  // desmontar, `pinta()` volvería a pintar las del ensayo que acaba de
+  // desaparecer. La condición de verdad es el mode-lock.
+  const B=G.simUnlocked?bancoQ():[];
+  if(!B.length){ el('quiz').innerHTML=
+    '<div class="lt">Las preguntas se abren cuando el circuito está montado.</div>'; return; }
+  const q=B[QI%B.length];
+  let h='<div class="lt">Pregunta '+((QI%B.length)+1)+' de '+B.length+'</div>';
+  h+='<div class="console">'+q.t+'</div>';
+  h+='<div class="btns">'+q.baraja.map((b,i)=>{
+    const bien=b.o[1];
+    const cls=QSEL===null?'':(bien?' right':(i===QSEL?' wrong':''));
+    return '<button class="b dx'+cls+'" data-q="'+i+'">'+b.o[0]+'</button>';
+  }).join('')+'</div>';
+  h+='<div class="modebar" style="margin-top:8px"><button class="b" data-qnext="1">Siguiente pregunta</button></div>';
+  el('quiz').innerHTML=h;
+}
+function pregunta(i){
+  const B=bancoQ(); if(!B.length) return;
+  const q=B[QI%B.length];
+  if(QSEL!==null) return;
+  QSEL=i;
+  if(q.baraja[i].o[1]) G.resuelto=true;
+  synth.beep(q.baraja[i].o[1]?700:210,0.10,0.06);
+  pintaPregunta();
+}
+// ------------------------------------------------------------------- el reto
+/** La pista NO señala un aparato: señala una CONDICIÓN. Y se calcula sobre los
+ *  montajes que SIGUEN EN PIE —que el alumno ya conoce—, nunca sobre el que hay
+ *  escondido, para que ni el texto ni el cálculo puedan filtrar la respuesta. */
+function pistaReto(){
+  const comp=retoCompatibles();
+  if(comp.length<=1){
+    showToast('<b>Ya está cerrado.</b> Sólo queda un montaje compatible: entrega el dictamen.',3400);
+    return;
+  }
+  let mejor=null, mejorN=-1;
+  for(const s of SITUACIONES){
+    const firmas=new Set(comp.map(fk=>firma(ensayo(RETO.veh,fk,s.k,{}))));
+    if(firmas.size>mejorN){ mejorN=firmas.size; mejor=s; }
+  }
+  showToast('<b>Prueba en:</b> '+mejor.rot+'<br>Ahí los '+comp.length+
+    ' montajes que te quedan se reparten en '+mejorN+' lecturas distintas.',5000);
+}
+function eligeFalla(k){
+  if(!FALLAS[k]||RETO.hecho) return;
+  RETO.elegida=k; syncCtrl();
+}
+function entregaConAviso(){
+  if(RETO.hecho){ showToast('Este caso ya está entregado. Pide <b>otro caso</b>.',2800); return; }
+  if(!RETO.elegida){
+    showToast('<b>Elige primero qué montaje es.</b> El dictamen es la parte que se corrige.',3200);
+    return;
+  }
+  const ok=retoResponde(RETO.elegida);
+  synth.beep(ok?700:200,0.14,0.07);
+  afterEdit(); refrescaPregunta();
+}
+function otroCoche(){
+  armaReto(); afterEdit(); refrescaPregunta();
+  showToast('<b>Otro caso.</b> Otro coche y otro montaje, y otra vez desde la condición de taller.',3200);
+}
+
+// ------------------------------------------------------------ recorrido guiado
+let AUTO=null;
+function paraAuto(){ if(AUTO){ clearTimeout(AUTO); AUTO=null; }
+  const b=el('btnAuto'); if(b) b.disabled=false; }
+function runAuto(){
+  paraAuto();
+  el('btnAuto').disabled=true;
+  const pasos=[];
+  let espera=3900;
+  if(ASM.done.size<PARTS.length){
+    pasos.push(()=>{ setMode('ensamble');
+      showToast('<b>1 · El circuito de carga.</b> Batería, alternador, correa, cable, masa y consumos. La correa es una pieza eléctrica: sin ella no hay corriente.',3400); });
+    pasos.push(()=>{ autoAssemble(); });
+    espera=PARTS.length*640+1800;
+  }
+  const resto=[
+    ()=>{ cambiaVehiculo('util16'); G.falla='sano'; G.sit='diaCarretera'; G.rpm=null; G.on=null;
+      afterEdit(); setMode('curva');
+      showToast('<b>La chapa miente por omisión</b><br>120 A a régimen infinito. Al ralentí de este coche, menos de la mitad. No es una avería: es la máquina.',5000); },
+    ()=>{ G.sit='atasco'; G.rpm=null; G.on=null; afterEdit(); refrescaPregunta();
+      showToast('<b>El atasco</b><br>De noche, con todo puesto y al ralentí. Mira dónde queda la línea del consumo respecto de la curva.',4800); },
+    ()=>{ setMode('balance');
+      showToast('<b>Y el balance</b><br>Sumar vatios de etiqueta está mal: la mitad de los consumos tira MÁS corriente cuando la barra se hunde.',4800); },
+    ()=>{ setMode('banco');
+      showToast('<b>Diez aparatos</b><br>Y el testigo del salpicadero apagado, con la batería vaciándose a la vista de todos.',4800); },
+    ()=>{ G.falla='cableCarga'; afterEdit(); refrescaPregunta(); setMode('caidas');
+      showToast('<b>Treinta miliohmios en el cable</b><br>Fíjate en dónde mide el regulador de este coche, y en cuál de los dos extremos se entera.',5200); },
+    ()=>{ cambiaVehiculo('furgo'); G.falla='cableCarga'; G.sit='diaCarretera'; G.rpm=null; G.on=null;
+      afterEdit(); refrescaPregunta();
+      showToast('<b>La misma avería, otro coche</b><br>Éste mide en la batería: el borne marca lo que debe y el alternador se cuece. El voltímetro de siempre no lo ve.',5600); },
+    ()=>{ cambiaVehiculo('util16'); G.falla='escobillas'; G.sit='diaCarretera';
+      afterEdit(); refrescaPregunta(); setMode('censo');
+      showToast('<b>El censo</b><br>Escobillas gastadas, en la condición de la revisión: ni un solo aparato de los diez lo separa de un coche sano.',5600); },
+    ()=>{ G.sit='atasco'; G.rpm=null; G.on=null; afterEdit(); refrescaPregunta();
+      showToast('<b>Y ahora en el atasco</b><br>La misma avería y el mismo censo. Lo que ha cambiado no es el aparato: es lo que se le está pidiendo al circuito.',5400); },
+    ()=>{ setMode('reto');
+      showToast('<b>Ahora tú</b><br>Un montaje que no se dice. No basta con acertar: hay que dejar UN solo montaje compatible.',4600); },
+  ];
+  const todos=pasos.concat(resto);
+  let i=0;
+  const tic=()=>{ if(i>=todos.length){ paraAuto(); return; }
+    const primera=(i===0&&pasos.length>0);
+    todos[i++]();
+    AUTO=setTimeout(tic, (i===2&&pasos.length>0)?espera:(primera?1200:4600)); };
+  tic();
+}
+
+// ------------------------------------------------------------------- sucesos
+// Un ÚNICO despachador delegado. Nada de onclick en el HTML generado: el cuerpo
+// del laboratorio va dentro de un <script type="module"> y sus funciones no
+// existen en el ámbito global, así que un onclick inline no encuentra nada.
+document.addEventListener('click',ev=>{
+  const b=ev.target.closest('button'); if(!b||b.disabled) return;
+  const id=b.id;
+  if(id==='btnAuto'){ runAuto(); return; }
+  if(id==='btnPista'){ pistaReto(); return; }
+  if(id==='btnEntrega'){ entregaConAviso(); return; }
+  if(id==='btnOtro'){ otroCoche(); return; }
+  if(id==='btnMonta'){ paraAuto(); autoAssemble(); return; }
+  if(id==='btnDesmonta'){ paraAuto(); initAssembly(); afterEdit(); return; }
+  if(b.dataset.mode){ paraAuto(); setMode(b.dataset.mode); return; }
+  if(b.dataset.veh){ paraAuto(); cambiaVehiculo(b.dataset.veh); return; }
+  if(b.dataset.sit){ paraAuto(); setSit(b.dataset.sit); return; }
+  if(b.dataset.rpm){ paraAuto(); setRpm(b.dataset.rpm); return; }
+  if(b.dataset.carga){ paraAuto(); toggleCarga(b.dataset.carga); return; }
+  if(b.dataset.falla){ paraAuto(); setFalla(b.dataset.falla); return; }
+  if(b.dataset.dx){ eligeFalla(b.dataset.dx); return; }
+  if(b.dataset.q!==undefined){ pregunta(Number(b.dataset.q)); return; }
+  if(b.dataset.qnext){ QI++; QSEL=null; pintaPregunta(); return; }
+});
+document.addEventListener('keydown',ev=>{
+  if(ev.target&&/^(INPUT|TEXTAREA)$/.test(ev.target.tagName)) return;
+  const i=Number(ev.key);
+  if(i>=1&&i<=MODES.length){ paraAuto(); setMode(MODES[i-1]); }
+});
+
+// ------------------------------------------------------------------- el puente
+function reporta(){
+  if(typeof window.__labReporta==='function'){
+    try{ window.__labReporta({resuelto:G.resuelto}); }catch(e){}
+  }
+}
+setInterval(reporta,4000);
+
+// ------------------------------------------------------------------- depuración
+let PINTADAS=0;
+window.__labDebug={
+  get mode(){ return G.modo; },
+  get solved(){ return G.resuelto; },
+  get vehiculo(){ return G.veh; },
+  get falla(){ return G.falla; },
+  get simUnlocked(){ return G.simUnlocked; },
+  get montadas(){ return ASM.done.size; },
+  get piezas(){ return PARTS.length; },
+  get frames(){ return PINTADAS; },
+  get cfg(){ return {veh:G.veh, sit:G.sit, falla:G.falla,
+    rpm:G.rpm===null?null:G.rpm, rpmEfectivo:rpmAhora(),
+    on:CARGA_KEYS.filter(k=>encendidasAhora()[k])}; },
+  get veh(){ const v=VH(); return {key:v.key, corto:v.corto, nombre:v.nombre,
+    nominal:v.alt.nominal, iCampoMax:v.alt.iCampoMax, relPolea:v.relPolea,
+    ralenti:v.ralenti, crucero:v.crucero, sensa:v.sensa,
+    bat:{cca:v.bat.cca, ah:v.bat.ah, vasos:VASOS},
+    largoCarga:v.largoCarga, seccCarga:v.seccCarga,
+    largoMasa:v.largoMasa, seccMasa:v.seccMasa}; },
+  lect(f){
+    const r=EN_DE(f);
+    return {vBarra:r.r.vBarra, vAlt:r.r.vAlt, iAlt:r.r.iAlt, iBat:r.r.iBat,
+      iCargas:r.r.iCargas, iCampo:r.r.iCampo, rpmAlt:r.r.rpmAlt,
+      patinaje:r.r.patinaje, saturado:r.saturado, carga:r.carga,
+      descarga:r.descarga, deficit:r.deficit, vObj:r.vObj,
+      R:Object.assign({},r.R), rLink:r.rLink, zB:r.zB, rizado:r.rizadoV,
+      brillo:r.brillo, fuga:r.fuga, TC:r.TC, soc:r.soc,
+      rpmMotor:r.rpmMotor, rpmAltNom:r.rpmAltNom, nDiodos:r.nDiodos,
+      iCampoMax:r.iCampoMax, autonomia:autonomiaMin(r),
+      med:Object.assign({},r.med)}; },
+  capacidad(rpm,f){ return capacidad(G.veh,f===undefined?G.falla:f,G.sit,rpm); },
+  equilibrio(f){ return rpmEquilibrio(G.veh,f===undefined?G.falla:f,G.sit,COND()); },
+  censo(){ const C=CENSO();
+    return {filas:C.filas.map(f=>({instr:f.ik, n:f.n, ve:f.ve.slice()})),
+      base:Object.assign({},C.base.med)}; },
+  clases(){ return CLASES().map(g=>g.slice()); },
+  ambiguos(){ return ambiguos(G.veh,G.sit,COND()).map(g=>g.slice()); },
+  // `null` quiere decir «la de la situación» en todo el laboratorio, así que
+  // aquí tiene que querer decir lo mismo. Mirando sólo `undefined`, un `null` se
+  // colaba como cero grados y devolvía unas resistencias sanas más altas SIN dar
+  // ningún error: quien las comparara con las del ensayo vería una diferencia
+  // que no existe.
+  sanas(TC){ return resistenciasSanas(VH(),
+    (TC===undefined||TC===null)?EN().TC:TC); },
+  // Lo que las piezas del vano DICEN: de una textura no se lee texto, y el 3D
+  // también puede regalar la respuesta de un reto a ciegas.
+  get rotulos(){ return PARTS.map(p=>p.rot).concat(['bloque','larguero',
+    'bandeja','testigo de carga','soporte']); },
+  get retoCfg(){ return {veh:RETO.veh, activo:RETO.activo, hecho:RETO.hecho,
+    elegida:RETO.elegida, acierto:RETO.acierto,
+    condiciones:RETO.visitadas.length,
+    compatibles:retoCompatibles(),
+    orden:RETO.orden.slice(),
+    lecturas:Object.assign({},RE().med)}; },
+  elige(k){ eligeFalla(k); },
+  entrega(){ entregaConAviso(); return RETO.acierto===true; },
+  otroCaso(){ otroCoche(); },
+  pista(){ pistaReto(); },
+  armaCaso(falla,o){ o=o||{};
+    if(!RETO.activo) armaReto();
+    if(!FALLAS[falla]) return false;
+    RETO.falla=falla;
+    if(o.veh&&VEHS[o.veh]){ RETO.veh=o.veh; G.veh=o.veh;
+      levantaVano(); levantaBanco(); colocaTablero(dims(VH())); montaKit(); }
+    RETO.visitadas=[]; RETO.hecho=false; RETO.elegida=null; RETO.acierto=null;
+    invalida(); pinta(); refrescaPregunta(); return true; },
+  monta(){ autoAssemble(); },
+  // Los mandos. Hacen EXACTAMENTE lo que hace un dedo sobre la barra de vistas:
+  // si se saltaran `setMode`, la Capa 2 estaría probando un camino que ningún
+  // alumno recorre.
+  setMode(m){ setMode(m); },
+  setVeh(k){ cambiaVehiculo(k); },
+  setFalla(f){ if(!FALLAS[f]) return false; setFalla(f); return G.falla===f; },
+  setSit(k){ setSit(k); },
+  setRpm(v){ setRpm(v); },
+  toggleCarga(k){ toggleCarga(k); },
+  desmonta(){ initAssembly(); afterEdit(); },
+  get K(){ return {MODES:MODES.slice(), FALLAS:FALLA_KEYS.slice(),
+    VEHS:VEH_KEYS.slice(), PIEZAS:ORDEN.slice(), INSTR:INSTR_KEYS.slice(),
+    SITS:SIT_KEYS.slice(), CARGAS:CARGA_KEYS.slice(),
+    TIPO:CARGAS.map(c=>c.tipo), FIJAS:CARGAS.filter(c=>c.fijo).map(c=>c.k),
+    LIM:{carga:LIM_CARGA, masa:LIM_MASA},
+    RESOL:Object.assign({},RESOL),
+    ROT:FALLA_KEYS.map(k=>FALLAS[k].corto),
+    SIG:FALLA_KEYS.map(k=>FALLAS[k].sig)}; },
+  get panel(){ return {ctrl:(el('ctrl')||{}).textContent||'',
+    tele:(el('tele')||{}).textContent||'',
+    report:(el('report')||{}).textContent||'',
+    quiz:(el('quiz')||{}).textContent||'',
+    hud:(el('hud')||{}).textContent||''}; },
+  get toastOpacidad(){ const t=el('toast');
+    return t?Number(getComputedStyle(t).opacity):0; },
+  // Caza mallas cuyo material no sea un material de verdad: three se las salta
+  // EN SILENCIO y la pieza no existe en pantalla sin que salte ningún error.
+  get materialesFalsos(){
+    const malas=[];
+    scene.traverse(o=>{ if(o.isMesh&&(!o.material||o.material.isMaterial!==true))
+      malas.push(o.type+':'+(o.name||'?')); });
+    return malas;
+  },
+  // Y caza mallas con el material POR DEFECTO de three.js, que es lo que queda
+  // cuando el nombre del material está mal escrito: three pone el suyo, blanco y
+  // sin luz, y la pieza se come la escena. El centinela de arriba no puede verlo
+  // —ese material es válido— y en esta escena todo es MeshStandardMaterial salvo
+  // el lienzo del pizarrón, que se descarta por identidad.
+  get materialesPorDefecto(){
+    const malas=[];
+    scene.traverse(o=>{
+      if(!o.isMesh||!o.material||o.material===btexMat) return;
+      const m=o.material;
+      if(m.isMeshBasicMaterial&&!m.map&&m.color&&m.color.getHex()===0xffffff)
+        malas.push(o.type+':'+(o.name||o.userData.id||'?'));
+    });
+    return malas;
+  },
+  // Y caza posiciones NaN, que es como el banco de piezas se quedó una tarde
+  // entera fuera de la escena sin dar un solo error por consola.
+  get posicionesNaN(){
+    const malas=[];
+    scene.traverse(o=>{ const p=o.position;
+      if(!isFinite(p.x)||!isFinite(p.y)||!isFinite(p.z))
+        malas.push(o.type+':'+(o.name||o.userData.id||'?')); });
+    return malas;
+  },
+  // Y caza piezas colocadas LEJOS de su sitio. El ensamble mueve cada pieza a su
+  // ancla, y una pieza construida en coordenadas del mundo no tiene ancla que
+  // declarar: si el ancla se pone a cero, la pieza y su hueco se van un metro de
+  // donde deberían y en el 3D no se nota si no se mira con cuidado.
+  get piezasDescolocadas(){
+    const malas=[];
+    for(const o of montadas.concat(fantasmas)){
+      const d=posDe(o.userData.id,o).distanceTo(o.position);
+      if(d>0.20) malas.push(o.userData.id+':'+d.toFixed(2));
+    }
+    return malas;
+  },
+  get tableroPNG(){ return bcv.toDataURL('image/png'); },
+  get anchoTableroPx(){
+    const c=S.camera, r=S.renderer.domElement.getBoundingClientRect();
+    const m=new THREE.Vector3(BW3/2,BY3,0.06).applyMatrix4(board.matrixWorld).project(c);
+    const q=new THREE.Vector3(-BW3/2,BY3,0.06).applyMatrix4(board.matrixWorld).project(c);
+    return Math.abs(m.x-q.x)/2*r.width;
+  },
+};
+
+// ------------------------------------------------------------------- arranque
+levantaVano();
+levantaBanco();
+colocaTablero(dims(VH()));
+initAssembly();
+pintaHUD();
+pinta();
+refrescaPregunta();
+S.setAnimate(dt=>{ PINTADAS++; anima(dt); });
+S.start();
+{ const t=camConjunto(MARGEN.ensamble); S.moveTo(t[0],t[1],0.01); }
+addEventListener('resize',()=>{ S.resize();
+  const t=camConjunto(MARGEN[G.modo]||1.00); S.moveTo(t[0],t[1],0.4); });

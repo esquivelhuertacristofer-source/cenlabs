@@ -4226,6 +4226,138 @@ Sales de esta práctica con una regla que vale para toda la vida profesional: si
     "titulo": "El Arranque: Caídas de Tensión y Arranque en Frío",
     "videoUrl": "",
   },
+  "mecanica-126": {
+    "acento": "#5AD1E6",
+    "aplicaciones": [
+      {
+        "area": "El alternador que se cambia y estaba bien",
+        "ejemplo": "Es la factura injusta más común del circuito de carga. El cliente dice que la batería se le queda, se mide a ralentí, se ven cincuenta y pocos amperios donde la chapa dice ciento veinte y se cambia el alternador. Aquí se ve por qué esa medida no puede decidir nada: al ralentí, un alternador sano da entre el cuarenta y tres y el cincuenta y uno por ciento de su chapa en los cuatro coches del laboratorio. Lo que hay que medir no es la corriente contra la chapa, es la corriente contra el CONSUMO, y eso es un balance.",
+      },
+      {
+        "area": "La batería que se queda y nadie encuentra por qué",
+        "ejemplo": "Coches de reparto urbano, taxis, vehículos de servicio que pasan la vida a ralentí con el aire, la emisora y las luces. El censo de este laboratorio pone números a lo que en el taller es una sospecha: en setenta y tres de las ciento ochenta casillas el coche descarga con el motor en marcha, y en ninguna de ellas se enciende el testigo. El técnico que sabe hacer un balance puede decirle a una flota que el problema no es la batería ni el alternador, sino el perfil de uso, y proponer una solución —subir el ralentí, cambiar la polea, quitar consumo— con la cuenta encima de la mesa.",
+      },
+      {
+        "area": "Sobretensión que se lleva las lámparas y cuece la batería",
+        "ejemplo": "Un vehículo al que se le funden bombillas y se le evapora el electrolito. Con un regulador de sensado remoto y una resistencia en el cable de carga, el borne de la batería marca perfecto y el alternador trabaja casi dos voltios por encima de su consigna. La avería está en un cable, y sólo aparece si se mide la caída con carga o si se pone el voltímetro en el B+ del alternador contra su propia carcasa. Saber de qué tipo es el regulador antes de interpretar el voltímetro es la diferencia entre encontrarla y no encontrarla.",
+      },
+      {
+        "area": "La fuga que vacía una batería en una noche",
+        "ejemplo": "Un diodo del puente en corto deja pasar corriente de la batería al estator con el motor parado: aquí, dos coma cuatro amperios, que vacían una batería de sesenta amperios-hora en una noche. Es una de las averías que un consumo parásito medido con el coche cerrado delata inmediatamente y que ningún ensayo con el motor en marcha resuelve del todo. El laboratorio la pone como un aparato más precisamente para que el alumno vea que hay medidas que sólo se pueden hacer en otro momento y con otro procedimiento.",
+      },
+      {
+        "area": "Interpretar un rizado sin creerse el folclore",
+        "ejemplo": "En el taller circula la cifra de «tres voltios de rizado» como umbral de un diodo roto, y con una batería sana en su sitio no se llega ni de lejos: aquí son diez milivoltios con el puente sano y ciento cincuenta con un diodo abierto. El alumno aprende que la cifra del folclore viene de medir con la batería floja o desembornada, y aprende también un confundidor real: una masa floja sube el rizado medido a sesenta milivoltios sin que haya ningún diodo roto, porque lo que se mide es el rizado por la impedancia del punto de medida.",
+      },
+      {
+        "area": "Diseñar el ensayo antes de comprar el aparato",
+        "ejemplo": "La lección más transferible del laboratorio no es de alternadores. De las veinte condiciones posibles, sólo cuatro separan los nueve montajes ellas solas, y la condición en la que se hacen las revisiones no está entre ellas. Ante una medida que no distingue, el reflejo caro es comprar un aparato mejor; el reflejo bueno es preguntarse qué le está pidiendo el ensayo al sistema y cambiar la condición. Eso vale para un circuito de carga, para una instalación industrial y para cualquier diagnóstico que el alumno haga en su vida.",
+      },
+    ],
+    "bienvenida": "Vas a montar un circuito de carga pieza a pieza: la batería, el alternador, la correa, el cable de carga, la masa del alternador y la caja de fusibles con los consumos. Seis piezas, y las seis son el circuito. Fíjate en una que a lo mejor no esperabas: la correa. Casi nadie la cuenta como parte del circuito eléctrico, y lo es. Sin correa el alternador gira a cero, y una correa floja no patina siempre: patina cuando hay par que transmitir, o sea justo la noche en que se le pide todo.
+
+La tesis de la práctica cabe en una frase: un alternador de ciento veinte amperios no da ciento veinte amperios. Ésa es la corriente que daría a régimen infinito, y no es una manera de hablar. La fuerza electromotriz de cada fase crece con las vueltas, y la reactancia síncrona que la frena crece con las vueltas exactamente igual, porque las dos van con la velocidad angular. Cuando despejas la corriente continua del puente rectificador, el cociente entre las dos ya no depende del régimen: es una constante de la máquina. En este alternador, ciento cincuenta y uno coma seis amperios. La cifra de la chapa —ciento veinte— es sencillamente el punto de esa curva a seis mil revoluciones de alternador, que es como la declara la norma.
+
+Abre la primera vista y míralo. La curva sube tumbada. Al ralentí de los cuatro coches del laboratorio, con relaciones de poleas entre dos coma cincuenta y cinco y tres coma diez, la misma máquina da cincuenta y tres coma dos, sesenta coma ocho, cincuenta y uno coma seis y cincuenta y ocho coma nueve amperios: entre el cuarenta y tres y el cincuenta y uno por ciento de lo que dice su chapa. No es una avería. Es la máquina, y la relación de poleas es media máquina.
+
+Ahora pon el atasco: de noche, lloviendo, con las luces, la luneta térmica, el ventilador, los antinieblas, el limpiaparabrisas, la radio y los asientos calefactados, y el motor al ralentí. El coche está sano, sin una sola avería. Consume setenta y tres coma dos amperios, el alternador entrega sesenta y cinco coma ocho, y los siete coma cuatro que faltan los pone la batería. La barra cae a doce coma veintiséis voltios y quedan dos horas y cuarenta antes de que la carga baje del treinta por ciento y el coche deje de arrancar. Y el arreglo no es cambiar nada: bastarían setecientas noventa y tres revoluciones de ralentí en vez de setecientas veinte. Por eso un coche sube el ralentí cuando conectas el aire acondicionado.
+
+Mira ahora el testigo del salpicadero. Está apagado. Levanta el censo entero —cuatro coches por nueve montajes por cinco situaciones, ciento ochenta casillas— y cuéntalo: en setenta y tres casillas el coche se está comiendo la batería con el motor en marcha, y el testigo se enciende en cero. No está roto. Está haciendo exactamente lo que le toca, que es otra cosa: se alimenta del propio estator a través del trío de diodos de excitación, así que vigila si el alternador EXCITA, no si ALCANZA. Mientras la máquina genere algo, el testigo se apaga aunque no cubra ni la mitad del consumo.
+
+La segunda trampa grande es dónde mide el regulador, y es la que separa a un técnico de alguien que aprieta tornillos. Pon treinta miliohmios de más en el cable de carga del utilitario, que sensa en el propio alternador: el borne de la batería baja de catorce coma cuarenta y cinco a trece coma cero seis voltios y la avería salta a la primera. Pon exactamente la misma avería en la furgoneta, que sensa en la batería: el borne marca catorce coma cincuenta y siete voltios exactos, los mismos que sana. No es que la avería no esté: es que el regulador la compensa subiendo su propia tensión hasta dieciséis coma cuarenta y uno voltios. La misma avería, invisible en un coche y evidente en el otro, y en el que es invisible el que se cuece es el alternador. La única medida que la delata en los dos es la caída de tensión en el cable, con carga.
+
+Luego está el balance, que casi nadie hace bien. Sumar los vatios de las etiquetas y dividir por doce está mal, y no por poco. Hay dos clases de consumo y se portan al revés. Una lámpara o una luneta térmica son resistencias: si la barra se hunde, tiran menos. Una unidad de mando, una bomba de gasolina o el electroventilador con su electrónica son consumos de potencia constante: si la barra se hunde, tiran más corriente para sacar los mismos vatios. Entre trece coma cinco y doce coma tres voltios, el total de este coche pasa de noventa y tres coma cero a noventa y dos coma cero amperios: un uno coma uno por ciento. La intuición de que si baja la tensión el coche gasta menos es falsa, y la cuenta de la etiqueta se equivoca aquí en un doce coma cinco por ciento.
+
+Y la batería tampoco es lo que parece. Descargándola manda su resistencia óhmica, y por eso da setecientos amperios de golpe en un arranque. Cargándola manda otra cosa: el sulfato que hay que deshacer está dentro del poro de la placa y el ácido tiene que llegar hasta él por difusión. Esa polarización es dos órdenes de magnitud mayor que la resistencia óhmica y crece a lo bestia según la placa se limpia. A catorce coma cuatro voltios, la batería de sesenta amperios-hora del utilitario admite veintitrés coma dos amperios al cincuenta por ciento de carga, nueve coma uno al ochenta, cuatro coma seis al noventa y dos coma cuatro al noventa y cinco. A siete grados bajo cero, tres coma uno al noventa. Ésa es la razón física de que una batería no se recupere en trayectos cortos de invierno: no es que el alternador no dé, es que ella no acepta.
+
+Termina con el censo y el reto, que es donde se junta todo. El censo marca, casilla a casilla, qué aparato distingue qué montaje de un coche sano en la condición que tengas puesta. Y la conclusión te va a sorprender: de las veinte condiciones del laboratorio, sólo cuatro separan los nueve montajes ellas solas, y la que más resuelve es un ralentí de verano con el aire puesto. La condición en la que se hace la revisión de taller —de día en carretera y sin nada encendido— no resuelve en ninguno de los cuatro coches. Y hay una avería, las escobillas gastadas, que en esa condición no ve ninguno de los diez aparatos: da exactamente las mismas diez lecturas que un coche sano. En el atasco se separan por más de cincuenta amperios. No es que el aparato falle: es que la condición no le está pidiendo al circuito aquello que no puede dar.
+
+El reto te da un coche con un montaje que no se dice, y no te corrige sólo si aciertas: te corrige si te lo habías ganado. Con las condiciones que llegaste a mirar, ¿quedaba un único montaje compatible, o quedaban tres y elegiste bien de casualidad? Acertar sin cerrar el caso es lo mismo que fallar, sólo que con suerte.
+
+Sales de esta práctica con una regla que vale para toda la vida profesional: cuando la medida no separa, no cambies de aparato. Cambia de condición.",
+    "codigo": "MEC-126",
+    "conceptos": [
+      {
+        "descripcion": "La fem crece con las vueltas y la reactancia que la frena también, así que el cociente tiende a un techo: 151,6 A. Los 120 A de la chapa son un punto de esa curva, no un máximo.",
+        "icono": "📈",
+        "nombre": "La cifra de la chapa es la corriente a régimen INFINITO",
+      },
+      {
+        "descripcion": "Entre 51,6 y 60,8 A en los cuatro coches: del 43 % al 51 % de la chapa. La relación de poleas es media máquina, y no es una avería: es la máquina.",
+        "icono": "🐌",
+        "nombre": "Al ralentí da menos de la mitad",
+      },
+      {
+        "descripcion": "Consume 73,2 A y el alternador da 65,8: la batería pone los 7,4 que faltan y quedan 2,8 h. Bastarían 793 rpm de ralentí en vez de 720.",
+        "icono": "🚦",
+        "nombre": "Un coche SANO se come la batería en un atasco",
+      },
+      {
+        "descripcion": "De 180 casillas, en 73 la batería se está vaciando con el motor en marcha. El testigo se enciende en CERO, porque se alimenta del propio estator.",
+        "icono": "💡",
+        "nombre": "El testigo no vigila el balance: vigila la excitación",
+      },
+      {
+        "descripcion": "El mismo cable malo: el borne baja a 13,06 V en el coche que sensa en el alternador, y marca 14,57 V exactos en el que sensa en la batería. Ahí el alternador se va a 16,41 V.",
+        "icono": "🎛️",
+        "nombre": "Dónde mide el regulador decide qué avería se ve",
+      },
+      {
+        "descripcion": "Cuatro de los nueve consumos son de potencia constante y SUBEN la corriente cuando la barra baja. El total sólo cae un 1,1 % entre 13,5 y 12,3 V.",
+        "icono": "⚖️",
+        "nombre": "Sumar vatios y dividir por doce está mal",
+      },
+      {
+        "descripcion": "A 14,4 V admite 23,2 A al 50 %, 4,6 al 90 % y 2,4 al 95 %; a −7 °C, 3,1 al 90 %. El límite lo pone la difusión del ácido, no el alternador.",
+        "icono": "🔋",
+        "nombre": "La batería no acepta lo que se le ofrece: lo que puede",
+      },
+      {
+        "descripcion": "Descargando manda el plomo; cargando manda la polarización, dos órdenes de magnitud mayor. Poner la misma en los dos lados da 100 A de carga donde el coche da 8.",
+        "icono": "🩺",
+        "nombre": "Cargar y descargar NO son la misma resistencia",
+      },
+      {
+        "descripcion": "Una masa con 26 mΩ hace el mismo daño que un positivo con 26 mΩ, y no la ve ningún voltímetro puesto en la batería. Hay que medir las dos caídas.",
+        "icono": "📉",
+        "nombre": "La masa es la mitad del circuito de carga también",
+      },
+      {
+        "descripcion": "Con la batería puesta, 10 mV sano y 150 con un diodo abierto. Los «tres voltios» del folclore salen de medir con la batería floja o desembornada.",
+        "icono": "〰️",
+        "nombre": "El rizado no son tres voltios: son milivoltios",
+      },
+      {
+        "descripcion": "Patina cuando hay par que transmitir. Impecable en la revisión, y en el atasco el alternador gira 1 460 rpm en vez de 1 944. El testigo no se entera.",
+        "icono": "🔗",
+        "nombre": "La correa es una pieza eléctrica, y no patina siempre",
+      },
+      {
+        "descripcion": "De 20 condiciones, sólo 4 resuelven los nueve montajes ellas solas, y la de la revisión de taller no está entre ellas. Un aparato nuevo no sirve.",
+        "icono": "🎯",
+        "nombre": "Cuando la medida no separa, cambia de CONDICIÓN",
+      },
+    ],
+    "duracion": 50,
+    "mision": [
+      "Monta el circuito de carga completo: batería, alternador, correa, cable de carga, masa y consumos. Explica por qué la correa es una pieza de un circuito ELÉCTRICO.",
+      "Abre la vista de la curva con el coche sano y localiza tres cifras: lo que da al ralentí, lo que da a 6 000 rpm de alternador y la asíntota. Calcula qué porcentaje de la chapa es la primera.",
+      "Cambia de vehículo sin tocar nada más y anota cómo se mueve la curva. Relaciona el desplazamiento con la relación de poleas de cada coche.",
+      "Pon el atasco con el coche sano y haz el balance: cuánto consume, cuánto da el alternador y cuánto sale o entra en la batería. Anota el signo.",
+      "Sube el régimen poco a poco en esa misma situación y busca el punto exacto en el que la corriente de la batería cambia de signo. Compáralo con el ralentí del coche.",
+      "Abre el balance y clasifica los nueve consumos en resistivos y de potencia constante. Baja la barra y comprueba cuáles suben y cuáles bajan.",
+      "Compara la suma de los vatios de las etiquetas con los vatios de verdad a la tensión que hay. Calcula el error de la cuenta rápida.",
+      "Pon 30 mΩ de más en el cable de carga en el utilitario y luego en la furgoneta, sin cambiar nada más. Anota los cuatro voltímetros y explica por qué la misma avería se ve en uno y no en el otro.",
+      "Mide las dos caídas —cable y masa— en los nueve montajes y comprueba que cada una es su resistencia por la corriente. Localiza los dos montajes que se pasan de límite.",
+      "Pon un diodo abierto de noche a 2 400 rpm y busca cuál de los diez aparatos lo delata. Explica por qué la tensión no lo ve.",
+      "Pon las escobillas gastadas en la condición de revisión y cuenta cuántos aparatos las separan de un coche sano. Después ponlas en el atasco y vuelve a contar.",
+      "Recorre las cinco situaciones con el censo abierto y anota, para cada una, qué montajes quedan indistinguibles. Identifica cuál es la condición que más resuelve.",
+      "Resuelve el reto a ciegas: cambia de condición hasta dejar UN solo montaje compatible antes de entregar el dictamen. Si aciertas sin haberlo cerrado, vuelve a empezar y hazlo bien.",
+    ],
+    "subtitulo": "Motor de combustión interna · la cifra de la chapa que no se alcanza nunca, el coche sano que descarga en un atasco, el testigo que no vigila el balance y el regulador que esconde la avería según dónde mide",
+    "titulo": "El Circuito de Carga: Alternador, Regulador y Balance Eléctrico",
+    "videoUrl": "",
+  },
   "mecanica-13": {
     "acento": "#2A9D8F",
     "aplicaciones": [
@@ -19885,6 +20017,7 @@ exports[`golden master — stores de datos (invariante ante la migración a src/
   "mecanica-123": [],
   "mecanica-124": [],
   "mecanica-125": [],
+  "mecanica-126": [],
   "mecanica-13": [],
   "mecanica-14": [],
   "mecanica-15": [],
@@ -20245,6 +20378,7 @@ exports[`golden master — stores de datos (invariante ante la migración a src/
   "mecanica-123",
   "mecanica-124",
   "mecanica-125",
+  "mecanica-126",
   "mecanica-13",
   "mecanica-14",
   "mecanica-15",

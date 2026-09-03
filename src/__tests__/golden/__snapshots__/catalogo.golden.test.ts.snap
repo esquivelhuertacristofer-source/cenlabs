@@ -1541,6 +1541,16 @@ exports[`golden master — catálogo por categoría (invariante ante extracción
     "teoria": "Doce y medio en los bornes no significa doce y medio en el arranque. Ocho de los nueve montajes dan EXACTAMENTE 12,59 V en reposo: sin corriente no hay caída, y una avería de conexión no puede verse con la llave quitada. El límite de 0,20 V es POR CONEXIÓN, y una furgoneta sana con 3,5 m de cable cae 0,30 V sin estar averiada. Y hay una avería —las escobillas gastadas— que este procedimiento no puede encontrar: las cinco caídas salen bien y el coche gira a 191 rpm en vez de 216.",
     "titulo": "El Arranque: Caídas de Tensión y Arranque en Frío",
   },
+  {
+    "duracion": "50 min",
+    "estado": "activo",
+    "id": "mecanica-126",
+    "modulo": "Motor de Combustión Interna",
+    "orden": 126,
+    "simuladorHtml": "/labs/carga-alternador-balance.html",
+    "teoria": "Un alternador de 120 A no da 120 A: esa cifra es la corriente a régimen infinito, y al ralentí da entre el 43 % y el 51 % de ella. Por eso un coche SANO se come la batería en un atasco con todo encendido, y bastarían 793 rpm de ralentí en vez de 720 para que no lo hiciera. De las 180 casillas del censo, en 73 la batería se está vaciando con el motor en marcha y el testigo del salpicadero se enciende en CERO: vigila si el alternador excita, no si alcanza.",
+    "titulo": "El Circuito de Carga: Alternador, Regulador y Balance Eléctrico",
+  },
 ]
 `;
 
@@ -1702,6 +1712,7 @@ exports[`golden master — catálogo por categoría (invariante ante extracción
   "mecanica-123",
   "mecanica-124",
   "mecanica-125",
+  "mecanica-126",
   "mecanica-13",
   "mecanica-14",
   "mecanica-15",
