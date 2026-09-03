@@ -231,18 +231,27 @@
     return g;
   }
 
+  /* Los nombres con los que trabaja la biblioteca de piezas (`P3`, que el molde
+     ya importa), traducidos una vez a los materiales de este laboratorio. */
+  const MATP = {
+    aluminio: std({ color: 0x9aa3ad, roughness: 0.34, metalness: 0.86 }),
+    acero: std(MAT.lead), cromo: std(MAT.lead),
+    cobre: std({ color: 0xb87333, roughness: 0.35, metalness: 0.75 }),
+    chapa: std({ color: 0x8f98a3, roughness: 0.40, metalness: 0.80 }),
+    negro: std({ color: 0x14181e, roughness: 0.62, metalness: 0.06 }),
+    goma: std({ color: 0x14181e, roughness: 0.80, metalness: 0.02 }),
+    blanco: std({ color: 0xd7dee6, roughness: 0.40, metalness: 0.20 }),
+    ceramica: std({ color: 0xd7dee6, roughness: 0.60, metalness: 0.05 }),
+  };
+  /* LOS COMPONENTES, con la forma que tienen en la mano: patas por donde se
+     sueldan y marcas que se leen —bandas, banda de catodo, cara plana del
+     TO-92, aleta del TO-220—. Cada marca evita una averia distinta. */
   function makeResistor3D() {
-    const g = new THREE.Group();
-    const body = new THREE.Mesh(new THREE.CylinderGeometry(0.035, 0.035, 0.14, 16), std({ color: 0xc9a46b, roughness: 0.5, metalness: 0.15 }));
-    body.rotation.z = Math.PI / 2;
-    g.add(body);
-    for (const s of [-1, 1]) {
-      const leg = new THREE.Mesh(new THREE.CylinderGeometry(0.006, 0.006, 0.08, 8), std(MAT.lead));
-      leg.rotation.z = Math.PI / 2;
-      leg.position.x = s * 0.11;
-      g.add(leg);
-    }
-    g.userData.body = body;
+    const g = P3.resistencia(MATP, { largo: 0.13, d: 0.055, patas: 0.05, paso: 0.21,
+      bandas: [0x333333, 0x333333, 0x333333, 0x333333] });
+    g.userData.bands = g.userData.bandas;
+    g.userData.bandMeshes = g.userData.bandas;
+    g.userData.body = g.userData.cuerpo;
     return g;
   }
 
@@ -516,11 +525,11 @@
   benchG.add(beamGaugeG);
 
   const icG = makeDIP3D();
-  icG.position.set(0.15, 0.06, 0.1);
+  icG.position.set(0.15, 0.016, 0.1);
   benchG.add(icG);
 
   const rgG = makeResistor3D();
-  rgG.position.set(0.42, 0.06, -0.05);
+  rgG.position.set(0.42, 0.016, -0.05);
   benchG.add(rgG);
 
   const bridgeResG = new THREE.Group();

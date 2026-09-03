@@ -532,22 +532,28 @@
     const l2 = new THREE.Mesh(geo, m); l2.position.set(0.16, 0, 0); l2.rotation.z = Math.PI / 2;
     g.add(l1, l2);
   }
+
+  /* Los nombres con los que trabaja la biblioteca de piezas (`P3`, que el molde
+     ya importa), traducidos una vez a los materiales de este laboratorio. */
+  const MATP = {
+    aluminio: std({ color: 0x9aa3ad, roughness: 0.34, metalness: 0.86 }),
+    acero: std(MAT.lead), cromo: std(MAT.lead),
+    cobre: std({ color: 0xb87333, roughness: 0.35, metalness: 0.75 }),
+    chapa: std({ color: 0x8f98a3, roughness: 0.40, metalness: 0.80 }),
+    negro: std({ color: 0x14181e, roughness: 0.62, metalness: 0.06 }),
+    goma: std({ color: 0x14181e, roughness: 0.80, metalness: 0.02 }),
+    blanco: std({ color: 0xd7dee6, roughness: 0.40, metalness: 0.20 }),
+    ceramica: std({ color: 0xd7dee6, roughness: 0.60, metalness: 0.05 }),
+  };
+  /* LOS COMPONENTES, con la forma que tienen en la mano: patas por donde se
+     sueldan y marcas que se leen —bandas, banda de catodo, cara plana del
+     TO-92, aleta del TO-220—. Cada marca evita una averia distinta. */
   function makeResistor3D() {
-    const g = new THREE.Group();
-    const body = new THREE.Mesh(new THREE.CylinderGeometry(0.05, 0.05, 0.26, 20), new THREE.MeshStandardMaterial(std(0xf0dca0)));
-    body.rotation.z = Math.PI / 2;
-    g.add(body);
-    leads(g);
-    const bands = [];
-    for (let i = 0; i < 4; i++) {
-      const band = new THREE.Mesh(new THREE.CylinderGeometry(0.052, 0.052, 0.018, 20), new THREE.MeshStandardMaterial({ color: 0x333333 }));
-      band.rotation.z = Math.PI / 2;
-      band.position.x = -0.09 + i * 0.06;
-      g.add(band);
-      bands.push(band);
-    }
-    g.userData.body = body;
-    g.userData.bands = bands;
+    const g = P3.resistencia(MATP, { largo: 0.24, d: 0.095, patas: 0.075, paso: 0.36,
+      bandas: [0x333333, 0x333333, 0x333333, 0x333333] });
+    g.userData.bands = g.userData.bandas;
+    g.userData.bandMeshes = g.userData.bandas;
+    g.userData.body = g.userData.cuerpo;
     return g;
   }
   function paintBands(g, r) {
@@ -578,12 +584,12 @@
     return g;
   }
 
-  const r1G = makeResistor3D(); r1G.position.set(-0.7, 0.085, 1.0); benchG.add(r1G);
-  const r2G = makeResistor3D(); r2G.position.set(-0.15, 0.085, 1.0); benchG.add(r2G);
+  const r1G = makeResistor3D(); r1G.position.set(-0.7, 0.035, 1.0); benchG.add(r1G);
+  const r2G = makeResistor3D(); r2G.position.set(-0.15, 0.035, 1.0); benchG.add(r2G);
   const bjtG = makeBJT3D(); bjtG.position.set(0.5, 0.15, 1.0); benchG.add(bjtG);
-  const rcG = makeResistor3D(); rcG.position.set(1.2, 0.085, 1.0); benchG.add(rcG);
-  const rlG = makeResistor3D(); rlG.position.set(1.9, 0.085, 1.0); benchG.add(rlG);
-  const reG = makeResistor3D(); reG.position.set(0.0, 0.085, 1.75); benchG.add(reG);
+  const rcG = makeResistor3D(); rcG.position.set(1.2, 0.035, 1.0); benchG.add(rcG);
+  const rlG = makeResistor3D(); rlG.position.set(1.9, 0.035, 1.0); benchG.add(rlG);
+  const reG = makeResistor3D(); reG.position.set(0.0, 0.035, 1.75); benchG.add(reG);
   const ceG = makeCap3D(); ceG.position.set(0.5, 0.115, 1.75); benchG.add(ceG);
 
   function refreshBenchSel() {

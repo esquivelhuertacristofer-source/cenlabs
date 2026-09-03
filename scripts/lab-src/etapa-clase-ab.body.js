@@ -243,70 +243,52 @@
     to92Body: { color: 0x2b2b2b, roughness: 0.6, metalness: 0.2 },
   };
   function std(spec) { return new THREE.MeshStandardMaterial(spec); }
-
   function makeTO220_3D(bodyColor) {
-    const g = new THREE.Group();
-    const body = new THREE.Mesh(new THREE.BoxGeometry(0.15, 0.2, 0.05), std({ color: bodyColor || MAT.to220Body.color, roughness: 0.55, metalness: 0.2 }));
-    g.add(body);
-    const tab = new THREE.Mesh(new THREE.BoxGeometry(0.12, 0.09, 0.015), std(MAT.tab));
-    tab.position.set(0, 0.13, -0.02);
-    g.add(tab);
-    for (let i = -1; i <= 1; i++) {
-      const leg = new THREE.Mesh(new THREE.CylinderGeometry(0.008, 0.008, 0.14, 8), std(MAT.lead));
-      leg.position.set(i * 0.045, -0.17, 0.02);
-      g.add(leg);
-    }
-    g.userData.body = body;
+    const g = P3.to220(MATP, { ancho: 0.17, alto: 0.24, fondo: 0.055, patas: 0.07,
+      paso: 0.045, cuerpo: bodyColor || MAT.to220Body.color });
+    g.userData.body = g.userData.cuerpo;
     return g;
   }
+  /* EL DISIPADOR es un PEINE: base gruesa y aletas finas. Lo que enfria es la
+     superficie de las aletas, no el volumen del taco, y por eso un disipador
+     con las aletas juntas rinde menos que uno con menos aletas y mas separadas.
+     Dibujado de una pieza, esa idea no se ve. */
   function makeHeatsink3D() {
-    const g = new THREE.Group();
-    const base = new THREE.Mesh(new THREE.BoxGeometry(0.55, 0.06, 0.42), std(MAT.heatBase));
-    g.add(base);
-    const fins = [];
-    const n = 7;
-    for (let i = 0; i < n; i++) {
-      const fin = new THREE.Mesh(new THREE.BoxGeometry(0.55, 0.24, 0.025), std(MAT.heatFin));
-      fin.position.set(0, 0.15, -0.19 + i * (0.38 / (n - 1)));
-      g.add(fin);
-      fins.push(fin);
-    }
-    const fan = new THREE.Mesh(new THREE.CylinderGeometry(0.16, 0.16, 0.04, 20), std({ color: 0x2b2f36, roughness: 0.6, metalness: 0.3 }));
-    fan.rotation.x = Math.PI / 2;
-    fan.position.set(0, 0.15, 0.32);
-    fan.visible = false;
-    g.add(fan);
-    g.userData = { base, fins, fan };
+    const g = P3.disipador(MATP, { ancho: 0.55, fondo: 0.42, base: 0.06, alto: 0.24,
+      aletas: 7, espesorAleta: 0.025 });
+    const fan = new THREE.Mesh(new THREE.CylinderGeometry(0.16, 0.16, 0.04, 20),
+      std({ color: 0x2b2f36, roughness: 0.6, metalness: 0.3 }));
+    fan.rotation.x = Math.PI / 2; fan.position.set(0, 0.18, 0.32);
+    fan.visible = false; g.add(fan);
+    g.userData.fan = fan;
     return g;
   }
   function makeTO92_3D() {
-    const g = new THREE.Group();
-    const body = new THREE.Mesh(new THREE.CylinderGeometry(0.05, 0.05, 0.07, 16), std(MAT.to92Body));
-    g.add(body);
-    for (let i = -1; i <= 1; i++) {
-      const leg = new THREE.Mesh(new THREE.CylinderGeometry(0.005, 0.005, 0.09, 6), std(MAT.lead));
-      leg.position.set(i * 0.022, -0.075, 0);
-      g.add(leg);
-    }
-    g.userData.body = body;
+    const g = P3.to92(MATP, { d: 0.11, alto: 0.16, patas: 0.11, paso: 0.030 });
+    g.userData.body = g.userData.cuerpo;
     return g;
   }
+
+  /* Los nombres con los que trabaja la biblioteca de piezas (`P3`, que el molde
+     ya importa), traducidos una vez a los materiales de este laboratorio. */
+  const MATP = {
+    aluminio: std({ color: 0x9aa3ad, roughness: 0.34, metalness: 0.86 }),
+    acero: std(MAT.lead), cromo: std(MAT.lead),
+    cobre: std({ color: 0xb87333, roughness: 0.35, metalness: 0.75 }),
+    chapa: std({ color: 0x8f98a3, roughness: 0.40, metalness: 0.80 }),
+    negro: std({ color: 0x14181e, roughness: 0.62, metalness: 0.06 }),
+    goma: std({ color: 0x14181e, roughness: 0.80, metalness: 0.02 }),
+    blanco: std({ color: 0xd7dee6, roughness: 0.40, metalness: 0.20 }),
+    ceramica: std({ color: 0xd7dee6, roughness: 0.60, metalness: 0.05 }),
+  };
+  /* LOS COMPONENTES, con la forma que tienen en la mano: patas por donde se
+     sueldan y marcas que se leen —bandas, banda de catodo, cara plana del
+     TO-92, aleta del TO-220—. Cada marca evita una averia distinta. */
   function makeResistor3D(bandColor) {
-    const g = new THREE.Group();
-    const body = new THREE.Mesh(new THREE.CylinderGeometry(0.032, 0.032, 0.15, 16), std(MAT.resBody));
-    body.rotation.z = Math.PI / 2;
-    g.add(body);
-    const band = new THREE.Mesh(new THREE.CylinderGeometry(0.034, 0.034, 0.014, 16), std({ color: bandColor || 0x333333, roughness: 0.5, metalness: 0.2 }));
-    band.rotation.z = Math.PI / 2;
-    band.position.x = 0.035;
-    g.add(band);
-    for (let s = -1; s <= 1; s += 2) {
-      const leg = new THREE.Mesh(new THREE.CylinderGeometry(0.006, 0.006, 0.07, 8), std(MAT.lead));
-      leg.rotation.z = Math.PI / 2;
-      leg.position.x = s * 0.11;
-      g.add(leg);
-    }
-    g.userData.body = body;
+    const g = P3.resistencia(MATP, { largo: 0.17, d: 0.070, patas: 0.09, paso: 0.28,
+      bandas: [bandColor || 0x333333, 0x1a1a1a, 0x1a1a1a] });
+    g.userData.bands = g.userData.bandas;
+    g.userData.body = g.userData.cuerpo;
     return g;
   }
 
@@ -542,13 +524,13 @@
   pcb.position.set(0.5, 0.62, 1.0);
   benchG.add(mesa, pcb);
 
-  const heatG = makeHeatsink3D(); heatG.position.set(-0.35, 0.68, 1.0); benchG.add(heatG);
-  const npnG = makeTO220_3D(0x1c1c1c); npnG.position.set(-0.55, 0.86, 1.05); npnG.rotation.z = 0.05; benchG.add(npnG);
-  const pnpG = makeTO220_3D(0x241414); pnpG.position.set(-0.16, 0.86, 1.05); pnpG.rotation.z = -0.05; benchG.add(pnpG);
-  const biasG = makeTO92_3D(); biasG.position.set(0.45, 0.72, 1.0); benchG.add(biasG);
-  const r1G = makeResistor3D(0xd4a017); r1G.position.set(0.68, 0.72, 1.0); benchG.add(r1G);
-  const r2G = makeResistor3D(0x8a2be2); r2G.position.set(0.9, 0.72, 1.0); benchG.add(r2G);
-  const rlG = makeResistor3D(0x2255aa); rlG.position.set(1.5, 0.72, 1.0); benchG.add(rlG);
+  const heatG = makeHeatsink3D(); heatG.position.set(-0.35, 0.635, 1.0); benchG.add(heatG);
+  const npnG = makeTO220_3D(0x1c1c1c); npnG.position.set(-0.55, 0.70, 1.05); npnG.rotation.z = 0.05; benchG.add(npnG);
+  const pnpG = makeTO220_3D(0x241414); pnpG.position.set(-0.16, 0.70, 1.05); pnpG.rotation.z = -0.05; benchG.add(pnpG);
+  const biasG = makeTO92_3D(); biasG.position.set(0.45, 0.635, 1.0); benchG.add(biasG);
+  const r1G = makeResistor3D(0xd4a017); r1G.position.set(0.68, 0.635, 1.0); benchG.add(r1G);
+  const r2G = makeResistor3D(0x8a2be2); r2G.position.set(0.9, 0.635, 1.0); benchG.add(r2G);
+  const rlG = makeResistor3D(0x2255aa); rlG.position.set(1.5, 0.635, 1.0); benchG.add(rlG);
   S.scene.add(benchG);
 
   function refreshBenchSel() {
