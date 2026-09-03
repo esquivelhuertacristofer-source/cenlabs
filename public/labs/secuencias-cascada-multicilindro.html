@@ -470,7 +470,7 @@ function makeSynth(opts={}){
 
 // ===================== 1. ESCENA =====================
 const mount=document.getElementById('stage');
-const S=createStage(mount,{cam:[5.4,3.0,7.6],target:[1.4,1.05,0.50],bgTop:'#0d1017',bgBot:'#05060a',bloom:0.42,minD:3.0,maxD:20});
+const S=createStage(mount,{cam:[5.2,2.6,5.6],target:[1.9,0.95,0.55],bgTop:'#0d1017',bgBot:'#05060a',bloom:0.42,minD:3.0,maxD:20});
 const {scene}=S;
 const synth=makeSynth({type:'square',type2:'sine',filterFreq:2400,Q:0.7});
 const el=id=>document.getElementById(id);
@@ -1690,7 +1690,7 @@ function showToast(html){
 
 // ===================== 11. MODOS Y CONTROLES =====================
 const MODE_META={
-  reparto:{nombre:'Reparto',cam:[[4.2,3.0,6.8],[1.20,1.05,0.50]],
+  reparto:{nombre:'Reparto',cam:[[5.2,2.6,5.6],[1.90,0.95,0.55]],
     mision:'Parte la secuencia en grupos: dentro de un grupo ningún cilindro puede repetirse.'},
   mando:{nombre:'Mando',cam:[[5.4,2.7,5.6],[2.60,1.15,0.55]],
     mision:'Elige qué final de carrera cierra el grupo 1 y comprueba si la máquina ejecuta la secuencia pedida.'},

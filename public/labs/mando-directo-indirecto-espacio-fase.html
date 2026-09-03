@@ -471,7 +471,7 @@ function makeSynth(opts={}){
 
 // ===================== 1. ESCENA =====================
 const mount=document.getElementById('stage');
-const S=createStage(mount,{cam:[5.6,3.1,7.8],target:[0.7,1.05,0.4],bgTop:'#0d1017',bgBot:'#05060a',bloom:0.42,minD:3.2,maxD:18});
+const S=createStage(mount,{cam:[5.4,2.7,5.4],target:[2.0,0.95,0.6],bgTop:'#0d1017',bgBot:'#05060a',bloom:0.42,minD:3.2,maxD:18});
 const {scene}=S;
 const synth=makeSynth({type:'square',type2:'sine',filterFreq:2400,Q:0.7});
 const el=id=>document.getElementById(id);
@@ -1569,7 +1569,7 @@ function showToast(html){const t=el('toast');t.innerHTML=html;t.classList.add('s
 
 // ===================== 10. MODOS Y CONTROLES =====================
 const MODE_META={
-  mando:{nombre:'Mando',cam:[[5.6,3.1,7.8],[0.7,1.05,0.4]],
+  mando:{nombre:'Mando',cam:[[5.4,2.7,5.4],[2.0,0.95,0.6]],
     mision:'Compara las dos arquitecturas sobre la misma estación: cuántas válvulas se montan, qué caudal llega y qué lleva el tubo largo.'},
   linea:{nombre:'Línea',cam:[[3.4,2.3,6.6],[1.5,0.95,0.5]],
     mision:'Elige el tubo. Los dos criterios tiran en sentidos opuestos: fino corre el aire, gordo tarda en llenarse.'},
