@@ -769,21 +769,45 @@ const senG=new THREE.Group();senG.position.set(-1.32,0.78,0.10);benchG.add(senG)
 const senBase=roundedBox(0.34,0.20,0.30,MAT.body,0.02);senBase.position.set(0,0.10,0);senG.add(senBase);
 const senProbe=new THREE.Mesh(new THREE.CylinderGeometry(0.028,0.028,0.46,14),MAT.steel);
 senProbe.rotation.z=Math.PI/2.4;senProbe.position.set(-0.24,0.24,0);senG.add(senProbe);
+/* Los nombres con los que trabaja la biblioteca de piezas (`P3`, que el molde ya
+   importa), traducidos una vez a los materiales de este laboratorio. */
+const MATP={
+  aluminio:MAT.steel, acero:MAT.steel, cromo:MAT.steel, chapa:MAT.steel,
+  cobre:std(0xb87333,0.35,0.75), negro:MAT.dark,
+  goma:std(0x14181e,0.8,0.02), blanco:std(0xd7dee6,0.4,0.2),
+  ceramica:std(0xd7dee6,0.6,0.05),
+};
+/* Los LED, con su CUPULA y el CHAFLAN del catodo en la pestana. El chaflan y la
+   pata corta son las dos marcas que dicen cual es el negativo; un disquito de
+   color no dice ni que es un LED. */
+function ledP3(mat,d){
+  const g=P3.led(MATP,{d:d||0.062,patas:0.05});
+  const base=g.userData.material;
+  g.traverse(o=>{ if(o.isMesh && o.material===base) o.material=mat; });
+  return g;
+}
 const senMat=emis(SCCOL[0]);
-const senLed=new THREE.Mesh(new THREE.CylinderGeometry(0.03,0.03,0.02,14),senMat);
-senLed.rotation.x=Math.PI/2;senLed.position.set(0,0.14,0.16);senG.add(senLed);
+const senLed=ledP3(senMat,0.062);
+senLed.position.set(0,0.20,0.16);senG.add(senLed);
 senBase.userData={title:'Cabeza del sensor',info:'Entrega una tensión proporcional a la magnitud física, con su propia impedancia de fuente y su propio ruido. Nada de lo que venga después puede arreglar lo que aquí se pierda.'};
 addHoverLabel(senBase,'Sensor',SCCOL[0],new THREE.Vector3(-1.32,1.30,0.10).add(benchG.position),1.3);
 
 // --- acondicionamiento
 const ampG=new THREE.Group();ampG.position.set(-0.62,0.78,0.06);benchG.add(ampG);
 const ampPcb=roundedBox(0.66,0.035,0.48,MAT.pcb,0.02);ampG.add(ampPcb);
-const ampChip=roundedBox(0.20,0.05,0.18,MAT.dark,0.01);ampChip.position.set(-0.10,0.04,0.04);ampG.add(ampChip);
+/* LOS INTEGRADOS, en DIP: cuerpo con la MUESCA y el PUNTO DE LA PATILLA 1 —sin
+   ellos no se sabe por donde empieza el pinout— y las patas dobladas por las que
+   se sueldan. Un taco liso no es un integrado. */
+const ampChip=P3.dip(MATP,{pines:8,paso:0.048,ancho:0.15,alto:0.045,patas:0.045});
+ampChip.position.set(-0.10,0.0175,0.04);ampG.add(ampChip);
 const ampMat=emis(OK_HEX);
-const ampLed=new THREE.Mesh(new THREE.CylinderGeometry(0.03,0.03,0.03,14),ampMat);
-ampLed.position.set(0.18,0.04,0.14);ampG.add(ampLed);
-const filtCap=new THREE.Mesh(new THREE.CylinderGeometry(0.05,0.05,0.13,16),MAT.glass);
-filtCap.position.set(0.16,0.09,-0.12);ampG.add(filtCap);
+const ampLed=ledP3(ampMat,0.058);
+ampLed.position.set(0.18,0.0175,0.14);ampG.add(ampLed);
+/* EL CONDENSADOR del filtro, electrolitico: engarce, CRUZ DE ALIVIO y FRANJA
+   DEL NEGATIVO. */
+const filtCap=P3.condensadorRadial(MATP,{d:0.11,alto:0.15,patas:0.05,paso:0.06,
+  lata:0x1f3a52,franja:0xcfe8ff});
+filtCap.position.set(0.16,0.0175,-0.12);ampG.add(filtCap);
 ampPcb.userData={title:'Acondicionamiento y filtro antialias',info:'Amplifica hasta llenar el rango del convertidor sin salirse, aísla la impedancia del sensor con un seguidor y corta por arriba lo que no pertenece a la banda útil.'};
 addHoverLabel(ampPcb,'Amplificador · filtro',OK_HEX,new THREE.Vector3(-0.62,1.28,0.06).add(benchG.position),1.9);
 filtCap.userData={title:'Filtro antialias',info:'Dos polos reales iguales: 1/(1+(f/f_c)²). En f_c la señal ya perdió 6 dB, no 3. Lo que este filtro deje pasar por encima de f_s/2 volverá plegado y nada podrá separarlo después.'};
@@ -791,10 +815,14 @@ filtCap.userData={title:'Filtro antialias',info:'Dos polos reales iguales: 1/(1+
 // --- multiplexor y muestreo/retención
 const shG=new THREE.Group();shG.position.set(0.16,0.78,0.02);benchG.add(shG);
 const shPcb=roundedBox(0.58,0.035,0.46,MAT.pcb,0.02);shG.add(shPcb);
-const muxChip=roundedBox(0.18,0.05,0.16,MAT.dark,0.01);muxChip.position.set(-0.14,0.04,0.02);shG.add(muxChip);
+const muxChip=P3.dip(MATP,{pines:16,paso:0.030,ancho:0.14,alto:0.045,patas:0.045});
+muxChip.position.set(-0.14,0.0175,0.02);shG.add(muxChip);
+/* EL CONDENSADOR DE RETENCION. Es el que tiene que cargarse dentro de la
+   ventana de muestreo, asi que es el que se enciende cuando esta cargando. */
 const shCapMat=emis(WARN_HEX);
-const shCap=new THREE.Mesh(new THREE.CylinderGeometry(0.055,0.055,0.14,18),shCapMat);
-shCap.position.set(0.14,0.10,0.02);shG.add(shCap);
+const shCap=P3.condensadorRadial(MATP,{d:0.12,alto:0.16,patas:0.05,paso:0.065});
+shCap.userData.cuerpo.material=shCapMat;
+shCap.position.set(0.14,0.0175,0.02);shG.add(shCap);
 shPcb.userData={title:'Multiplexor y muestreo/retención',info:'El condensador de retención tiene que cargarse a través de la impedancia de la fuente y del multiplexor. Si no llega a mejor de medio LSB dentro de la ventana, la muestra sale mal aunque el resto de la cadena sea perfecta.'};
 addHoverLabel(shPcb,'MUX · S&H',WARN_HEX,new THREE.Vector3(0.16,1.26,0.02).add(benchG.position),1.4);
 shCap.userData={title:'Condensador de retención',info:'C_SH = 14 pF. τ = (R_fuente + 1 kΩ)·C_SH y el establecimiento a medio LSB cuesta (n+1)·ln2·τ: cuantos más bits, más tiempo hay que esperar.'};
@@ -802,13 +830,14 @@ shCap.userData={title:'Condensador de retención',info:'C_SH = 14 pF. τ = (R_fu
 // --- convertidor
 const adcG=new THREE.Group();adcG.position.set(0.98,0.78,0.02);benchG.add(adcG);
 const adcPcb=roundedBox(0.70,0.035,0.50,MAT.pcb,0.02);adcG.add(adcPcb);
-const adcChip=roundedBox(0.30,0.06,0.26,MAT.dark,0.01);adcChip.position.set(-0.04,0.045,0.02);adcG.add(adcChip);
+const adcChip=P3.dip(MATP,{pines:20,paso:0.032,ancho:0.22,alto:0.05,patas:0.045});
+adcChip.position.set(-0.04,0.0175,0.02);adcG.add(adcChip);
 const sarMat=emis(VIO);
-const sarLed=new THREE.Mesh(new THREE.CylinderGeometry(0.03,0.03,0.03,14),sarMat);
-sarLed.position.set(0.24,0.04,0.16);adcG.add(sarLed);
+const sarLed=ledP3(sarMat,0.058);
+sarLed.position.set(0.24,0.0175,0.16);adcG.add(sarLed);
 const refMat=emis(ACC);
-const refLed=new THREE.Mesh(new THREE.CylinderGeometry(0.026,0.026,0.03,14),refMat);
-refLed.position.set(0.24,0.04,-0.14);adcG.add(refLed);
+const refLed=ledP3(refMat,0.052);
+refLed.position.set(0.24,0.0175,-0.14);adcG.add(refLed);
 adcChip.userData={title:'Convertidor analógico-digital',info:'Compara la muestra retenida contra la referencia y entrega un número entero. Todo el juego está en el tamaño del escalón: LSB = V_REF/2ⁿ.'};
 addHoverLabel(adcChip,'ADC',VIO,new THREE.Vector3(0.98,1.28,0.02).add(benchG.position),1.1);
 refLed.userData={title:'Referencia de tensión',info:'Fija el fondo de escala. Si la referencia es la propia alimentación, todo lo que la ensucie se cuela en la medida; si la medida es ratiométrica, en cambio, ser la alimentación es justo lo que hace falta.'};
