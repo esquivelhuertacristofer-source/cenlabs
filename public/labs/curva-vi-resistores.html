@@ -706,25 +706,31 @@ const AM=makeMeterCase(2.55,0.98,MAT.psu);
 AM.g.userData={title:'Amperímetro (en SERIE)',info:'Se conecta EN SERIE dentro del lazo: toda la corriente del resistor pasa también por él, con baja impedancia (idealmente cero) para no añadir caída de tensión.'};
 addHoverLabel(AM.g,'Amperímetro · serie','#FFB703',new THREE.Vector3(0,0.5,0),0.75);
 
+/* Los nombres con los que trabaja la biblioteca de piezas (`P3`, que el molde ya
+   importa), traducidos una vez a los materiales de este laboratorio. */
+const MATP={
+  aluminio:MAT.lead, acero:MAT.lead, cromo:MAT.lead, chapa:MAT.lead,
+  cobre:std({color:0xb87333,roughness:0.35,metalness:0.75}),
+  negro:std({color:0x14181e,roughness:0.62,metalness:0.06}),
+  goma:std({color:0x14181e,roughness:0.80,metalness:0.02}),
+  blanco:std({color:0xd7dee6,roughness:0.40,metalness:0.20}),
+  ceramica:std({color:0xd7dee6,roughness:0.60,metalness:0.05}),
+};
+/* LA RESISTENCIA, que es de lo que trata esta practica. Cuerpo abarrilado con
+   hombros, las TRES BANDAS DE VALOR agrupadas y la de TOLERANCIA separada al
+   otro extremo —esa separacion es la que dice por que lado se empieza a leer, y
+   sin ella el mismo dibujo vale para dos valores distintos— y las patas
+   dobladas. El panel cambia las cuatro bandas con el valor y la tolerancia
+   elegidos, asi que aqui el codigo de colores se lee de verdad. */
 const RES={};
 (function(){
-  const g=new THREE.Group();g.position.set(1.6,0.62,0.6);
-  const body=sh(new THREE.Mesh(new THREE.CylinderGeometry(0.05,0.05,0.22,16),std({color:0x9a815c,roughness:0.9,metalness:0})));
-  body.rotation.z=Math.PI/2;g.add(body);
-  [-1,1].forEach(s=>{
-    const l=new THREE.Mesh(new THREE.CylinderGeometry(0.009,0.009,0.085,8),MAT.lead);
-    l.rotation.z=Math.PI/2;l.position.x=s*0.152;g.add(l);
-    const pin=new THREE.Mesh(new THREE.CylinderGeometry(0.009,0.009,0.06,8),MAT.lead);
-    pin.position.set(s*0.19,-0.03,0);g.add(pin);
-  });
-  const bands=[];
-  [-0.066,-0.022,0.022,0.078].forEach(bx=>{
-    const b=new THREE.Mesh(new THREE.CylinderGeometry(0.052,0.052,0.022,16),std({color:0x1a1a1a,roughness:0.6,metalness:0}));
-    b.rotation.z=Math.PI/2;b.position.x=bx;g.add(b);bands.push(b);
-  });
-  g.userData={special:'resistor'};
-  scene.add(g);RES.g=g;RES.bands=bands;
-  addHoverLabel(g,'Toca para leer las bandas','#4FD1C5',new THREE.Vector3(0,0.14,0),0.7);
+  const g=P3.resistencia(MATP,{largo:0.22,d:0.10,patas:0.06,paso:0.38,
+    bandas:[0x1a1a1a,0x1a1a1a,0x1a1a1a,0x1a1a1a],cuerpo:0x9a815c});
+  g.position.set(1.6,0.62-g.userData.alturaEje,0.6);
+  g.traverse(o=>{ if(o.isMesh){o.castShadow=true;o.receiveShadow=true;} });
+  g.userData.special='resistor';
+  scene.add(g);RES.g=g;RES.bands=g.userData.bandas;
+  addHoverLabel(g,'Toca para leer las bandas','#4FD1C5',new THREE.Vector3(0,0.22,0),0.7);
 })();
 
 function cable(ax,ay,az,bx,by,bz,mat){

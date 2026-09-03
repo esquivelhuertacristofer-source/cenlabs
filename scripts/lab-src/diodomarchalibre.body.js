@@ -377,41 +377,60 @@ switchG.position.set(0.5,0.62,1.35);
 switchG.userData={act:'switch3d',title:'Switch — abre/cierra el circuito'};
 benchG.add(switchG);
 
+/* Los nombres con los que trabaja la biblioteca de piezas (`P3`, que el molde ya
+   importa), traducidos una vez a los materiales de este laboratorio. */
+const MATP={
+  aluminio:MAT.cobre, acero:MAT.cobre, cromo:MAT.cobre, chapa:MAT.cobre,
+  cobre:MAT.coilBody,
+  negro:std({color:0x14181e,roughness:0.62,metalness:0.06}),
+  goma:std({color:0x14181e,roughness:0.80,metalness:0.02}),
+  blanco:std({color:0xd7dee6,roughness:0.40,metalness:0.20}),
+  ceramica:std({color:0xd7dee6,roughness:0.60,metalness:0.05}),
+};
+/* LA BOBINA: carrete con sus dos pestanas, nucleo de hierro y el HILO A LA
+   VISTA, vuelta a vuelta. Que sean vueltas alrededor de un nucleo no es un
+   detalle decorativo: es lo que hace que la corriente no pueda cortarse de
+   golpe, y de ahi sale toda la practica. Cinco donas ensartadas en una barra no
+   ensenaban ni una vuelta. */
 const coilG=new THREE.Group();
-for(let i=0;i<5;i++){
-  const ring=new THREE.Mesh(new THREE.TorusGeometry(0.26,0.06,10,20),MAT.coilBody);
-  ring.rotation.y=Math.PI/2;
-  ring.position.x=i*0.16;
-  coilG.add(ring);
+{
+  const LC=0.86, RC=0.26, N=15, SEG=28;
+  const pts=[];
+  for(let i=0;i<=N*SEG;i++){
+    const t=i/(N*SEG), a=t*Math.PI*2*N;
+    pts.push(new THREE.Vector3(-0.10+t*LC,Math.cos(a)*RC,Math.sin(a)*RC));
+  }
+  const hilo=new THREE.Mesh(new THREE.TubeGeometry(
+    new THREE.CatmullRomCurve3(pts,false),N*SEG,0.028,7,false),MAT.coilBody);
+  hilo.castShadow=true;coilG.add(hilo);
+  const nucleo=new THREE.Mesh(new THREE.CylinderGeometry(0.115,0.115,1.10,20),MAT.cobre);
+  nucleo.rotation.z=Math.PI/2;nucleo.position.x=0.32;coilG.add(nucleo);
+  [-0.14,0.78].forEach(x=>{
+    const pes=new THREE.Mesh(new THREE.CylinderGeometry(0.30,0.30,0.035,24),MAT.cobre);
+    pes.rotation.z=Math.PI/2;pes.position.x=x;coilG.add(pes);
+  });
 }
-const coilCore=new THREE.Mesh(new THREE.CylinderGeometry(0.07,0.07,0.9,10),MAT.cobre);
-coilCore.rotation.z=Math.PI/2;
-coilCore.position.x=0.32;
-coilG.add(coilCore);
 coilG.position.set(1.9,0.72,1.35);
 coilG.userData={act:'coil',title:'Bobina de carga — campo magnético'};
 benchG.add(coilG);
 
+/* EL DIODO, con SU BANDA DE CATODO alrededor del cuerpo y las patas formadas.
+   La banda es la unica marca que dice hacia donde conduce, y esta practica
+   tiene un mando —«diodo instalado en reversa»— cuya consecuencia es justo
+   ponerla del otro lado. */
 function makeDiode3D(colorHex){
-  const g=new THREE.Group();
-  const body=new THREE.Mesh(new THREE.CylinderGeometry(0.09,0.09,0.42,14),std({color:colorHex,metalness:0.25,roughness:0.5}));
-  body.rotation.z=Math.PI/2;
-  g.add(body);
-  const band=new THREE.Mesh(new THREE.CylinderGeometry(0.093,0.093,0.05,14),MAT.diodeBand);
-  band.rotation.z=Math.PI/2; band.position.x=0.15;
-  g.add(band);
-  const lead1=new THREE.Mesh(new THREE.CylinderGeometry(0.015,0.015,0.3,6),MAT.cobre);
-  lead1.rotation.z=Math.PI/2; lead1.position.x=-0.36; g.add(lead1);
-  const lead2=lead1.clone(); lead2.position.x=0.36; g.add(lead2);
+  const g=P3.diodoAxial(MATP,{largo:0.42,d:0.18,patas:0.06,paso:0.90,
+    cuerpo:colorHex,banda:MAT.diodeBand.color.getHex(),catodo:1});
+  g.traverse(o=>{ if(o.isMesh) o.castShadow=true; });
   return g;
 }
 const diodeG=makeDiode3D(0x2e2e2e);
-diodeG.position.set(2.9,0.85,0.75);
+diodeG.position.set(2.9,0.85-diodeG.userData.alturaEje,0.75);
 diodeG.userData={act:'diode3d',title:'Diodo de protección'};
 benchG.add(diodeG);
 
 const zenerG=makeDiode3D(0x1c3c66);
-zenerG.position.set(2.9,0.85,1.75);
+zenerG.position.set(2.9,0.85-zenerG.userData.alturaEje,1.75);
 zenerG.userData={act:'zener3d',title:'Zener de clamp activo'};
 benchG.add(zenerG);
 
@@ -429,7 +448,7 @@ function refreshBenchSel(){
 function refreshBenchDyn(iNow){
   const load=curLoad();
   const frac = iNow!=null && solveDiode(load,curR(),Lval,0.001).I0>0 ? Math.min(iNow/(load.vsupply/curR()),1) : (switchClosed?1:0);
-  coilG.children.forEach(function(m){ if(m.material&&m.material.emissive){ m.material.emissiveIntensity=0.15+frac*1.1; m.material.emissive.setHex(frac>0.02?0x1c8a6a:0x000000); } });
+  coilG.traverse(function(m){ if(m.isMesh&&m.material&&m.material.emissive){ m.material.emissiveIntensity=0.15+frac*1.1; m.material.emissive.setHex(frac>0.02?0x1c8a6a:0x000000); } });
   paintDisplay(medidorD,[switchClosed&&iNow==null?fmtI(load.vsupply/curR()):fmtI(iNow!=null?iNow:0),'I bobina'],iNow!=null&&iNow>0.0005?'#f2b705':'#7fdcc4');
 }
 
