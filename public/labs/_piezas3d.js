@@ -119,6 +119,25 @@ export function extruido(contorno, opts = {}) {
   return g;
 }
 
+/**
+ * Reescala las UV de una geometria para que una textura la cubra `veces` veces.
+ *
+ * `ExtrudeGeometry` genera las UV en UNIDADES DEL MUNDO: una pieza de tres
+ * unidades de ancho repite la textura tres veces, y con la proporcion cambiada
+ * si no es cuadrada. Un grano fino de fundicion se convierte asi en grava, y no
+ * hay forma de darse cuenta mirando el codigo —solo mirando la pieza.
+ */
+export function normalizaUV(geo, veces = 1) {
+  geo.computeBoundingBox();
+  const b = geo.boundingBox, uv = geo.attributes.uv;
+  if (!uv) return geo;
+  const w = Math.max(1e-6, b.max.x - b.min.x), h = Math.max(1e-6, b.max.y - b.min.y);
+  const d = Math.max(w, h) / veces;
+  for (let i = 0; i < uv.count; i++) uv.setXY(i, uv.getX(i) / d, uv.getY(i) / d);
+  uv.needsUpdate = true;
+  return geo;
+}
+
 function aShape(pts) {
   if (pts instanceof THREE.Shape) return pts;
   const s = new THREE.Shape();
@@ -377,7 +396,11 @@ export function piston(mat, opts = {}) {
     p.push([R, y], [rSeg, y], [rSeg, y - D * ancho], [R, y - D * ancho], [R, y - D * ancho]);
     y -= D * (ancho + 0.055) * hueco;
   }
-  p.push([R, -H * 0.42], [R * 0.985, -H * 0.5]);
+  // El escalón entre la zona de segmentos y la falda: dos décimas de milímetro
+  // en un pistón de verdad, aquí exagerado para que se vea que están a
+  // diámetros distintos.
+  p.push([R, y + D * 0.010], [R * 0.972, y - D * 0.004], [R * 0.972, -H * 0.42],
+         [R * 0.955, -H * 0.5]);
   // Y de vuelta por DENTRO: el hueco de la falda, que es donde va el pie de la
   // biela. Un pistón macizo no deja sitio para la biela, y eso ya no es una
   // simplificación: es enseñar una pieza que no podría funcionar.
@@ -393,14 +416,16 @@ export function piston(mat, opts = {}) {
     s.rotation.x = Math.PI / 2; s.position.y = ys; g.add(s);
     ys -= D * (i === 1 ? 0.117 : 0.100);
   }
-  // La falda, recortada por los dos lados del bulón. Dos cajas que la cortan no
-  // se pueden hacer sin CSG, así que se hace al revés: la falda es un par de
-  // zapatas, no un tubo.
+  // Los dos ALIVIOS de la falda: en un pistón de verdad la falda está recortada
+  // por los lados del bulón para dejar pasar el contrapeso del cigüeñal, y por
+  // eso un pistón visto de frente y visto de perfil no se parecen. Sin CSG no se
+  // puede restar, así que se marcan con dos rebajes pegados por fuera.
   for (const s of [1, -1]) {
-    const zap = new THREE.Mesh(
-      revolucion([[R * 0.93, 0], [R, 0], [R, -H * 0.42], [R * 0.98, -H * 0.5], [R * 0.93, -H * 0.5]],
-        { seg: 24, fase: -0.62 + (s < 0 ? Math.PI : 0), arco: 1.24 }), mat.aluminio);
-    zap.position.y = -D * 0.30; zap.castShadow = true; g.add(zap);
+    const al = new THREE.Mesh(
+      revolucion([[R * 0.80, -H * 0.50], [R * 0.955, -H * 0.50],
+                  [R * 0.955, -H * 0.14], [R * 0.80, -H * 0.10]],
+        { seg: 20, fase: (s > 0 ? -0.44 : Math.PI - 0.44), arco: 0.88 }), mat.negro || mat.hierro);
+    g.add(al);
   }
   if (bulon) {
     const b = new THREE.Mesh(
@@ -632,10 +657,14 @@ export function bujia(mat, opts = {}) {
   const rs = rosca(mat, { r: R * 0.83, paso: largo * 0.035, vueltas: 7, grueso: largo * 0.014 });
   rs.position.y = -largo * 0.17; g.add(rs);
   // Electrodo central y electrodo de masa, con su hueco entre los dos: la
-  // chispa salta ahí y en ningún otro sitio.
+  // chispa salta ahí y en ningún otro sitio. El electrodo central lleva material
+  // PROPIO —clonado, no compartido— porque quien encienda una bujía va a
+  // encenderla poniéndole emisivo a su material, y con el material compartido se
+  // encenderían las cuatro a la vez.
   const cen = new THREE.Mesh(
-    new THREE.CylinderGeometry(R * 0.10, R * 0.10, largo * 0.10, 10), mat.acero);
+    new THREE.CylinderGeometry(R * 0.10, R * 0.10, largo * 0.10, 10), mat.acero.clone());
   cen.position.y = -largo * 0.34; g.add(cen);
+  g.userData.chispa = cen;
   const masa = new THREE.Mesh(
     new THREE.TorusGeometry(R * 0.55, R * 0.09, 6, 12, Math.PI * 0.62), mat.acero);
   masa.rotation.y = Math.PI / 2; masa.rotation.z = -Math.PI * 0.31;

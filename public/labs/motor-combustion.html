@@ -187,6 +187,7 @@ import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
 import { RoundedBoxGeometry } from 'three/addons/geometries/RoundedBoxGeometry.js';
+import * as P3 from '/labs/_piezas3d.js';
 import { EffectComposer } from 'three/addons/postprocessing/EffectComposer.js';
 import { RenderPass } from 'three/addons/postprocessing/RenderPass.js';
 import { GTAOPass } from 'three/addons/postprocessing/GTAOPass.js';
@@ -405,6 +406,7 @@ const scene=new THREE.Scene();
 scene.background=gradientBG('#1c140e','#05030a');
 const pmrem=new THREE.PMREMGenerator(renderer);
 scene.environment=pmrem.fromScene(new RoomEnvironment(renderer),0.04).texture;
+scene.environmentIntensity=0.95;
 scene.environmentIntensity=1.1;
 
 const camera=new THREE.PerspectiveCamera(44,innerWidth/innerHeight,0.1,200);
@@ -420,7 +422,11 @@ key.shadow.mapSize.set(2048,2048);key.shadow.camera.near=0.5;key.shadow.camera.f
 const sd=8;Object.assign(key.shadow.camera,{left:-sd,right:sd,top:sd,bottom:-sd});
 key.shadow.bias=-0.0003;key.shadow.normalBias=0.02;scene.add(key);
 const rim=new THREE.SpotLight(0x4FD1C5,75,30,Math.PI/5,0.4,1.5);rim.position.set(-7,6,-5);scene.add(rim);
-const fill=new THREE.DirectionalLight(0xffd9a0,0.5);fill.position.set(-4,3,7);scene.add(fill);
+const fill=new THREE.DirectionalLight(0xffd9a0,0.7);fill.position.set(-4,3,7);scene.add(fill);
+// La lámpara del corte: entra de frente y baja, que es por donde se mira un
+// motor abierto. Sin ella el interior del bloque queda a oscuras y todo el
+// trabajo de seccionarlo no se ve.
+const corte=new THREE.DirectionalLight(0xdfe9ff,0.85);corte.position.set(0.6,2.4,7);scene.add(corte);
 scene.add(new THREE.HemisphereLight(0xc8b49f,0x140d08,0.4));
 
 /* reflective floor */
@@ -458,67 +464,306 @@ platGlow.rotation.x=-Math.PI/2;platGlow.position.y=0.21;scene.add(platGlow);
 const Talu=castAluminum(),Tsteel=brushedMetal(),Tpeel=orangePeel(0.62,0.22,0.08),Trub=rubber();
 const std=o=>new THREE.MeshStandardMaterial(o);
 const MAT={
-  block:std({color:0x8893a0,roughness:0.55,metalness:0.92,map:Talu.map,roughnessMap:Talu.roughnessMap,normalMap:Talu.normalMap,normalScale:new THREE.Vector2(0.6,0.6),envMapIntensity:1.1}),
-  iron:std({color:0x515a64,roughness:0.78,metalness:0.8,map:Talu.map,roughnessMap:Talu.roughnessMap,normalMap:Talu.normalMap,normalScale:new THREE.Vector2(0.9,0.9)}),
+  block:std({color:0x8e97a1,roughness:0.54,metalness:0.55,map:Talu.map,roughnessMap:Talu.roughnessMap,normalMap:Talu.normalMap,normalScale:new THREE.Vector2(0.34,0.34),envMapIntensity:1.3}),
+  iron:std({color:0x59626b,roughness:0.68,metalness:0.60,map:Talu.map,roughnessMap:Talu.roughnessMap,normalMap:Talu.normalMap,normalScale:new THREE.Vector2(0.45,0.45),envMapIntensity:1.2}),
   steel:std({color:0xc2cad3,roughness:0.3,metalness:1,map:Tsteel.map,roughnessMap:Tsteel.roughnessMap,normalMap:Tsteel.normalMap,envMapIntensity:1.4}),
   chrome:std({color:0xeef2f6,roughness:0.06,metalness:1,envMapIntensity:1.7}),
   cover:std({color:0xffffff,roughness:0.3,metalness:0.25,map:Tpeel.map,normalMap:Tpeel.normalMap,normalScale:new THREE.Vector2(0.5,0.5)}),
   ghost:std({color:0x4FD1C5,transparent:true,opacity:0.16,side:THREE.DoubleSide}),
   boreGlass:std({color:0x3a4148,roughness:0.35,metalness:0.5,transparent:true,opacity:0.32,side:THREE.DoubleSide}),
+  // El plástico y el cobre no estaban porque hasta ahora no había ninguna pieza
+  // que no fuese de metal: un conector, una junta tórica o un aislador de bujía
+  // pintados de acero se leen como metal, y no lo son.
+  negro:std({color:0x1e2227,roughness:0.62,metalness:0.15}),
+  cobre:std({color:0xb8763c,roughness:0.32,metalness:1}),
 };
 const bolt=(s=0.05)=>{const b=new THREE.Mesh(new THREE.CylinderGeometry(s,s,s*0.7,6),std({color:0x9aa2ab,roughness:0.35,metalness:1}));b.castShadow=true;return b;};
 function rbox(w,h,d,m,rf=0.08){const r=Math.min(w,h,d)*rf;const x=new THREE.Mesh(new RoundedBoxGeometry(w,h,d,4,r),m);x.castShadow=x.receiveShadow=true;return x;}
 
 /* ============================================================
    MOTOR — partes ensamblables
+
+   Las cuatro piezas se hacen con la biblioteca de piezas: el bloque tiene
+   cilindros DE VERDAD —agujeros pasantes en la plataforma, no cilindros de
+   cristal pegados encima—, el cigüeñal tiene las muñequillas descentradas
+   media carrera, los pistones tienen cabeza, segmentos y falda, y las bielas
+   ARTICULAN: el pie sigue al bulón y la cabeza a la muñequilla, que es
+   justamente lo que convierte el empuje en par y lo que un despiece estático
+   no puede enseñar.
+
+   Las cotas están atadas entre sí y no se pueden tocar por separado: el radio
+   de manivela es media carrera, el cuello de la biela es 3,25 veces ese radio, y
+   de esos dos números y de la altura del eje del cigüeñal sale TODO lo demás,
+   empezando por dónde está el pistón en cada instante. Cambiar uno a mano y no
+   los otros despega el pie de la biela del bulón.
    ============================================================ */
 const motor=new THREE.Group(); motor.position.set(0,1.0,0); scene.add(motor);
 const bY=0.0;
 
-// ---- BLOCK (cárter bajo: deja expuestos cilindros, pistones y cigüeñal — no es una caja sólida) ----
+const CIL=4;                       // cilindros
+const XCIL=i=>-0.96+i*0.64;        // eje de cada cilindro
+const DCIL=0.62;                   // diámetro del cilindro
+const DPIS=0.58;                   // diámetro del pistón: entra con holgura
+const YCIG=bY+0.30;                // eje del cigüeñal
+const RMAN=0.22;                   // radio de manivela = media carrera
+const YDECK=bY+1.67;               // plano de junta de culata
+const YBUL=p=>p+PIS_BULON;         // altura del bulón según la del pistón
+const PIS_BULON=-DPIS*0.22;        // el bulón, respecto al centro del pistón
+// La relación biela-manivela de un motor de calle está entre 3 y 3,5. No es un
+// número decorativo: de él depende cuánto se desvía el movimiento del pistón de
+// un coseno, y esa desviación es la que hace que un motor de carrera corta suba
+// de vueltas. Con 1,7 —que es lo que salía de las cotas viejas— la biela iba
+// más tumbada que ninguna biela real.
+const LBIE=RMAN*3.25;
+// El pistón NO se mueve como un coseno. Va más deprisa cerca del punto muerto
+// superior que del inferior, porque la biela tiene largo finito y se tumba. Con
+// un coseno la animación queda simétrica —que es falso— y además el pie de la
+// biela deja de caer sobre el bulón, porque la geometría y la animación dejan de
+// contar lo mismo.
+function alturaPiston(cyl, cycleDeg){
+  const fase=(cyl===2||cyl===3)?180:0;
+  const th=((cycleDeg+fase)%360)*Math.PI/180;
+  const sn=RMAN*Math.sin(th);
+  return YCIG+RMAN*Math.cos(th)+Math.sqrt(LBIE*LBIE-sn*sn)-PIS_BULON;
+}
+
+// `extruido` deja las UV en UNIDADES DEL MUNDO, así que una plancha de tres
+// unidades de ancho repite la textura tres veces y con la proporción cambiada:
+// el grano de la fundición se ve como grava. Todas las planchas de este motor
+// pasan por aquí.
+const plancha=(c,o)=>P3.normalizaUV(P3.extruido(c,o),4);
+
+// Materiales que la biblioteca de piezas espera. Son los mismos de siempre,
+// sólo que con los nombres que ella usa.
+const MATP={aluminio:MAT.block, acero:MAT.steel, hierro:MAT.iron, cromo:MAT.chrome,
+  negro:MAT.negro, goma:MAT.negro, ceramica:MAT.cover, blanco:MAT.cover,
+  cobre:MAT.cobre, friccion:MAT.negro};
+
+// Contorno de una pieza CORTADA por delante: el borde de atrás y los dos
+// costados están enteros, y el frente se abre justo hasta el plano de corte,
+// rodeando por detrás cada uno de los cilindros. Es la silueta de un motor de
+// corte de taller, y es la única forma de que se vea el mecanismo trabajando
+// sin recurrir a paredes de cristal, que no existen en ningún motor.
+// OJO CON EL SIGNO. Estas planchas se tumban con `rotation.x = -PI/2`, y eso
+// manda el eje local +Y al MUNDO -Z: lo que en el contorno se dibuje «arriba»
+// acaba mirando hacia el FONDO de la escena. Así que en todos los contornos de
+// aquí abajo, más es hacia atrás y menos es hacia el espectador. Costó una
+// captura entera darse cuenta de que el corte estaba hecho por el lado que no
+// se ve.
+const ZCORTE=-0.10;                // plano por el que se abre el motor
+const ZFONDO=0.80;                 // la pared de atrás, que se queda entera
+function contornoCortado(r, xs){
+  const a0=Math.asin(Math.min(0.999,Math.abs(ZCORTE)/r));
+  const xI=-1.46, xD=1.46;
+  const c=[[xD,ZCORTE],[xD,ZFONDO],[xI,ZFONDO],[xI,ZCORTE],[xI+0.17,ZCORTE]];
+  // Los cilindros, del de la izquierda al de la derecha: el borde entra por el
+  // plano de corte, rodea el cilindro POR DETRÁS y vuelve a salir. Entre dos
+  // cilindros queda el puente de material, que en un bloque de camisas pegadas
+  // —siamés— es finísimo, y aquí también.
+  for(let i=0;i<xs.length;i++){
+    for(let k=0;k<=26;k++){
+      const t=(Math.PI+a0)+(-a0-(Math.PI+a0))*(k/26);
+      // Sin el signo cambiado: el borde tiene que HUNDIRSE hacia atrás para
+      // vaciar el cilindro. Con el signo al revés lo que hace es abultarse hacia
+      // delante, y en vez de un cilindro hueco sale un lomo macizo tapándolo.
+      c.push([xs[i]+Math.cos(t)*r, Math.sin(t)*r]);
+    }
+  }
+  c.push([xD-0.17,ZCORTE]);
+  return c;
+}
+
+// ---- BLOQUE: plataforma con cuatro cilindros pasantes, bancada y cárter ----
 const blockGroup=new THREE.Group(); motor.add(blockGroup);
 (function(){
-  const main=rbox(2.8,0.62,1.6,MAT.block);main.position.y=bY+0.31;main.userData.piece='block';blockGroup.add(main);
-  for(let i=0;i<3;i++){const fin=rbox(2.82,0.04,1.62,MAT.block);fin.position.y=bY+0.1+i*0.18;fin.userData.piece='block';blockGroup.add(fin);}
-  // camisas de cilindro visibles — suben desde el cárter hasta justo bajo la culata
-  for(let i=0;i<4;i++){const bore=new THREE.Mesh(new THREE.CylinderGeometry(0.32,0.32,1.5,28,1,true),MAT.boreGlass);bore.position.set(-0.96+i*0.64,bY+0.92,0);bore.userData.piece='cylinder';blockGroup.add(bore);
-    const rim=new THREE.Mesh(new THREE.TorusGeometry(0.32,0.025,10,28),MAT.iron);rim.position.set(-0.96+i*0.64,bY+1.67,0);rim.userData.piece='cylinder';blockGroup.add(rim);}
-  const pan=rbox(2.5,0.4,1.3,MAT.iron);pan.position.y=bY-0.18;pan.userData.piece='block';blockGroup.add(pan);
-  for(let x=-1.2;x<=1.2;x+=0.6)for(let z=-0.65;z<=0.65;z+=1.3){const b=bolt();b.position.set(x,bY+0.63,z);blockGroup.add(b);}
-})();
-
-// ---- CRANKSHAFT ----
-const crankGroup=new THREE.Group(); motor.add(crankGroup);
-(function(){
-  const shaft=new THREE.Mesh(new THREE.CylinderGeometry(0.14,0.14,2.9,24),MAT.steel);shaft.rotation.z=Math.PI/2;shaft.userData.piece='crank';crankGroup.add(shaft);
-  for(let i=0;i<4;i++){const cw=rbox(0.16,0.6,0.5,MAT.steel);cw.position.set(-0.96+i*0.64,0,0.2*((i===0||i===3)?1:-1));cw.userData.piece='crank';crankGroup.add(cw);}
-  crankGroup.position.set(0,bY+0.3,0);
-})();
-
-// ---- PISTONS (4) with rods — timing per firing order ----
-const pistonGroup=new THREE.Group(); motor.add(pistonGroup);
-const pistons=[];
-(function(){
-  for(let i=0;i<4;i++){const u=new THREE.Group();
-    const crown=new THREE.Mesh(new THREE.CylinderGeometry(0.3,0.3,0.36,28),MAT.chrome);crown.castShadow=true;crown.userData.piece='piston';u.add(crown);
-    for(let r=0;r<3;r++){const ring=new THREE.Mesh(new THREE.TorusGeometry(0.305,0.012,8,28),MAT.steel);ring.rotation.x=Math.PI/2;ring.position.y=0.06-r*0.06;ring.userData.piece='piston';u.add(ring);}
-    const rod=rbox(0.1,0.66,0.12,MAT.steel);rod.position.y=-0.52;rod.userData.piece='rod';u.add(rod);
-    // combustion flash light inside cylinder (for power stroke)
-    const flash=new THREE.PointLight(0xff5a1e,0,1.5,2);flash.position.y=0.3;u.add(flash);
-    u.position.set(-0.96+i*0.64,bY+1.28,0);pistonGroup.add(u);
-    pistons.push({grp:u,flash,cyl:i+1}); // cyl number = position+1
+  const marca=o=>{o.userData.piece='block';o.castShadow=o.receiveShadow=true;return o;};
+  // El cuerpo: una plancha con CUATRO AGUJEROS. Que los cilindros sean agujeros
+  // de verdad y no tubos pegados es lo que deja ver el pistón dentro de su
+  // cilindro, que es la mitad de lo que este laboratorio quiere enseñar.
+  const alto=1.06, yc=YDECK-alto/2;
+  const cuerpo=new THREE.Mesh(plancha(
+    P3.contornoRedondeado(contornoCortado(DCIL/2,[0,1,2,3].map(XCIL)),0.05,3),
+    {espesor:alto,bisel:0.022}),MAT.block);
+  cuerpo.rotation.x=-Math.PI/2; cuerpo.position.y=yc; blockGroup.add(marca(cuerpo));
+  // Las camisas de hierro, cortadas por el mismo plano. Son de otro material a
+  // propósito: un bloque de aluminio no roza contra un segmento, y por eso un
+  // bloque de aluminio lleva camisas de hierro metidas a presión.
+  const aCam=Math.asin(Math.min(0.999,Math.abs(ZCORTE)/(DCIL/2)));
+  for(let i=0;i<CIL;i++){
+    const cam=new THREE.Mesh(P3.revolucion(
+      [[DCIL/2-0.024,-alto/2],[DCIL/2,-alto/2],[DCIL/2,alto/2],[DCIL/2-0.024,alto/2]],
+      {seg:34,fase:aCam,arco:Math.PI*2-2*aCam}),MAT.iron);
+    cam.position.set(XCIL(i),yc,0); cam.userData.piece='cylinder'; blockGroup.add(cam);
+  }
+  // La bancada: cinco almas con su medio cojinete y su sombrerete atornillado.
+  // Son las que sujetan el cigüeñal, y son la razón de que un bloque pese.
+  for(let k=0;k<5;k++){
+    const x=-1.28+k*0.64;
+    const alma=new THREE.Mesh(plancha(
+      P3.contornoRedondeado([[-0.62,-0.30],[0.62,-0.30],[0.62,0.30],[-0.62,0.30]],0.10,4),
+      {huecos:[P3.circulo(0,0,0.155,24)],espesor:0.13,bisel:0.014}),MAT.block);
+    alma.rotation.y=Math.PI/2; alma.position.set(x,YCIG,0);
+    blockGroup.add(marca(alma));
+    const somb=new THREE.Mesh(new THREE.BoxGeometry(0.12,0.10,0.44),MAT.iron);
+    somb.position.set(x,YCIG-0.26,0); blockGroup.add(marca(somb));
+    for(const s of [1,-1]){
+      const t=P3.tornilloHex(MATP,{d:0.036,largo:0.16,arandela:false});
+      t.position.set(x,YCIG-0.30,s*0.17); t.rotation.x=Math.PI; blockGroup.add(t);
+    }
+  }
+  // La falda del cárter: el bloque baja hasta por debajo del eje del cigüeñal y
+  // lo abraza. Es un marco, no un tapón, porque por dentro tienen que verse las
+  // almas de la bancada y el cigüeñal girando entre ellas.
+  const falda=new THREE.Mesh(plancha(
+    P3.contornoRedondeado([[-1.46,ZFONDO],[1.46,ZFONDO],[1.46,ZCORTE],[1.30,ZCORTE],
+      [1.30,0.62],[-1.30,0.62],[-1.30,ZCORTE],[-1.46,ZCORTE]],0.08,3),
+    {espesor:0.66,bisel:0.02}),MAT.block);
+  falda.rotation.x=-Math.PI/2; falda.position.y=bY+0.28; blockGroup.add(marca(falda));
+  // El cárter, con su tapón de vaciado. El tapón es la pieza que todo el mundo
+  // ha visto y casi nadie sabe nombrar.
+  const carter=new THREE.Mesh(plancha(
+    P3.contornoRedondeado([[-1.34,0.70],[1.34,0.70],[1.34,ZCORTE],[-1.34,ZCORTE]],0.14,4),
+    {espesor:0.32,bisel:0.03}),MAT.iron);
+  carter.rotation.x=-Math.PI/2; carter.position.y=bY-0.21; blockGroup.add(marca(carter));
+  const tapon=new THREE.Mesh(new THREE.CylinderGeometry(0.045,0.045,0.05,6),MAT.steel);
+  tapon.position.set(0.92,bY-0.38,-0.30); blockGroup.add(marca(tapon));
+  // Y la brida de la campana del embrague, que es por donde el motor se une a
+  // la caja de cambios: sin ella el bloque se queda en un ladrillo con agujeros.
+  const brida=new THREE.Mesh(plancha(
+    P3.contornoRedondeado([[-0.55,-0.30],[0.20,-0.30],[0.20,0.86],[-0.55,0.86]],0.20,6),
+    {espesor:0.09,bisel:0.014}),MAT.block);
+  brida.rotation.y=Math.PI/2; brida.position.set(1.48,bY+0.42,0);
+  blockGroup.add(marca(brida));
+  // Los espárragos de culata, en las cuatro esquinas de cada cilindro.
+  for(let i=0;i<CIL;i++)for(const s of [1,-1]){
+    const t=P3.tornilloHex(MATP,{d:0.032,largo:0.20});
+    t.position.set(XCIL(i)+0.32,YDECK-0.02,s*0.62); blockGroup.add(t);
   }
 })();
 
-// ---- HEAD + cam cover + spark plugs ----
+// ---- CIGÜEÑAL: cuatro muñequillas a 0-180-180-0, que es un cuatro en línea ----
+const crankGroup=new THREE.Group(); motor.add(crankGroup);
+let MUNEQ=[];
+(function(){
+  const cig=P3.ciguenal(MATP,{n:CIL,paso:0.64,carrera:RMAN*2,dApoyo:0.28,dMuneq:0.20,
+    angulos:[0,Math.PI,Math.PI,0],volante:true});
+  cig.traverse(o=>{if(o.isMesh)o.userData.piece='crank';});
+  MUNEQ=cig.userData.muñequillas;
+  crankGroup.add(cig);
+  crankGroup.position.set(0,YCIG,0);
+})();
+
+// ---- PISTONES y BIELAS ----
+// El grupo del pistón se mueve en vertical, como antes. La biela ya no cuelga de
+// él: es una pieza aparte que se recoloca en cada fotograma entre el bulón y la
+// muñequilla, que es lo que hace un mecanismo de manivela.
+const pistonGroup=new THREE.Group(); motor.add(pistonGroup);
+const pistons=[];
+(function(){
+  for(let i=0;i<CIL;i++){
+    const u=new THREE.Group();
+    const pis=P3.piston(MATP,{D:DPIS});
+    pis.traverse(o=>{if(o.isMesh)o.userData.piece='piston';});
+    u.add(pis);
+    // La luz de la combustión vive DENTRO del pistón, justo encima de la
+    // cabeza: es donde arde la mezcla y no en el centro geométrico.
+    const flash=new THREE.PointLight(0xff5a1e,0,1.5,2);flash.position.y=DPIS*0.50;u.add(flash);
+    u.position.set(XCIL(i),bY+1.28,0);
+    pistonGroup.add(u);
+    const bie=P3.biela(MATP,{largo:LBIE,dPie:0.115,dCabeza:0.215,espesor:0.095});
+    bie.traverse(o=>{if(o.isMesh)o.userData.piece='rod';});
+    // La biela se construye con la CABEZA en su origen y el pie a `largo` por
+    // encima. Colocarla es, por tanto, poner el origen en la muñequilla y
+    // girarla hasta que el pie caiga en el bulón.
+    pistonGroup.add(bie);
+    pistons.push({grp:u,flash,cyl:i+1,biela:bie});
+  }
+})();
+/** Recoloca las cuatro bielas entre su muñequilla y su bulón. */
+function colocaBielas(){
+  const c=Math.cos(crankGroup.rotation.x), s=Math.sin(crankGroup.rotation.x);
+  pistons.forEach((p,i)=>{
+    const m=MUNEQ[i];
+    // La muñequilla, ya girada: el cigüeñal gira alrededor de X, así que la
+    // vuelta se hace en el plano Y-Z.
+    const my=YCIG+m.y*c-m.z*s, mz=m.y*s+m.z*c;
+    const by=YBUL(p.grp.position.y);
+    p.biela.position.set(XCIL(i),my,mz);
+    // El pie tiene que caer en el bulón, que está en el plano z=0.
+    p.biela.rotation.set(0,0,0);
+    p.biela.rotateX(Math.atan2(-mz,by-my));
+  });
+}
+
+// ---- CULATA: cámaras, válvulas, muelles, árbol de levas y tapa ----
 const headGroup=new THREE.Group(); motor.add(headGroup);
 const plugs=[];
+const valvulas=[];
 (function(){
-  const deck=rbox(2.9,0.42,1.65,MAT.block);deck.position.y=bY+1.92;deck.userData.piece='head';headGroup.add(deck);
-  const cover=rbox(2.7,0.5,1.3,MAT.cover);cover.position.y=bY+2.35;cover.userData.piece='head';headGroup.add(cover);
-  for(let x=-1.1;x<=1.1;x+=0.44)[0.55,-0.55].forEach(z=>{const b=bolt(0.045);b.position.set(x,bY+2.61,z);b.userData.piece='head';headGroup.add(b);});
-  for(let i=0;i<4;i++){const plug=new THREE.Mesh(new THREE.CylinderGeometry(0.05,0.07,0.32,16),MAT.chrome.clone());plug.position.set(-0.96+i*0.64,bY+2.66,0);plug.userData.piece='plug';headGroup.add(plug);
-    plugs.push({mesh:plug,cyl:i+1});}
+  const marca=o=>{o.userData.piece='head';o.castShadow=o.receiveShadow=true;return o;};
+  const YCU=YDECK+0.24;            // centro del cuerpo de la culata
+  // El cuerpo, con los cuatro alojamientos de bujía pasantes.
+  const cuerpo=new THREE.Mesh(plancha(
+    P3.contornoRedondeado([[-1.46,ZFONDO],[1.46,ZFONDO],[1.46,ZCORTE],[-1.46,ZCORTE]],0.09,3),
+    {huecos:[0,1,2,3].map(i=>P3.circulo(XCIL(i),0.30,0.075,16)),espesor:0.46,bisel:0.022}),
+    MAT.block);
+  cuerpo.rotation.x=-Math.PI/2; cuerpo.position.y=YCU; headGroup.add(marca(cuerpo));
+  // Las CÁMARAS DE COMBUSTIÓN: cuatro casquetes vaciados en la cara de abajo.
+  // Su volumen es el que manda en la relación de compresión, que es la cifra
+  // sobre la que gira toda la fase 2 del laboratorio.
+  for(let i=0;i<CIL;i++){
+    const cam=new THREE.Mesh(P3.revolucion(
+      [[0,-0.10],[DCIL*0.30,-0.095],[DCIL*0.44,-0.055],[DCIL*0.48,0],[DCIL*0.48,0.02],[0,0.02]],
+      {seg:30,fase:Math.PI*0.06,arco:Math.PI*1.88}),MAT.iron);
+    cam.position.set(XCIL(i),YDECK+0.01,0); headGroup.add(marca(cam));
+    // El techo de la cámara, que en el corte es lo que cierra por arriba.
+  }
+  // Dos VÁLVULAS por cilindro, con su muelle y su platillo. Se ven porque este
+  // laboratorio habla del ciclo de cuatro tiempos, y sin válvulas un ciclo de
+  // cuatro tiempos no se puede contar.
+  for(let i=0;i<CIL;i++)for(const [k,z] of [[0,-0.19],[1,0.19]]){
+    const v=P3.valvula(MATP,{d:0.20,largo:0.62,vastago:0.045});
+    v.traverse(o=>{if(o.isMesh)o.userData.piece='head';});
+    v.position.set(XCIL(i),YDECK+0.06,z-0.30);
+    v.rotation.x=(z<0?1:-1)*0.16;      // las de admisión y escape, inclinadas
+    headGroup.add(v);
+    const mu=P3.muelle(MATP,{r:0.062,largo:0.20,vueltas:6,hilo:0.012});
+    mu.position.set(XCIL(i),YDECK+0.44,z*0.92-0.30); headGroup.add(mu);
+    const pl=new THREE.Mesh(new THREE.CylinderGeometry(0.072,0.072,0.018,18),MAT.steel);
+    pl.position.set(XCIL(i),YDECK+0.55,z*0.92-0.30); headGroup.add(pl);
+    valvulas.push({obj:v,cyl:i+1,esc:k===1,y0:YDECK+0.06});
+  }
+  // Los dos ÁRBOLES DE LEVAS, uno por fila de válvulas. Las levas son círculo
+  // base más nariz: la diferencia entre los dos radios ES el alzado.
+  for(const [z,fase] of [[-0.19,0],[0.19,Math.PI*0.55]]){
+    const ar=P3.arbolLevas(MATP,{n:CIL,paso:0.64,dEje:0.11,rBase:0.075,alzado:0.045,
+      ancho:0.085,angulos:[0,Math.PI,Math.PI,0].map(a=>a+fase)});
+    ar.traverse(o=>{if(o.isMesh)o.userData.piece='head';});
+    ar.position.set(0,YDECK+0.66,z*0.92-0.30); headGroup.add(ar);
+  }
+  // La TAPA DE BALANCINES, con su tapón de llenado de aceite. Es la pieza que
+  // se ve al abrir el capó, y por eso es la que da la cara.
+  const tapa=new THREE.Mesh(plancha(
+    P3.contornoRedondeado([[-1.38,0.70],[1.38,0.70],[1.38,ZCORTE],[-1.38,ZCORTE]],0.16,4),
+    {espesor:0.30,bisel:0.035}),MAT.cover);
+  tapa.rotation.x=-Math.PI/2; tapa.position.y=YDECK+0.92; headGroup.add(marca(tapa));
+  const boca=new THREE.Mesh(P3.revolucion(
+    [[0.10,0],[0.10,0.07],[0.125,0.07],[0.125,0.10],[0,0.10]],{seg:24}),MAT.negro);
+  boca.position.set(-1.02,YDECK+1.07,0.30); headGroup.add(marca(boca));
+  for(let x=-1.16;x<=1.17;x+=0.58)for(const z of [0.60,-0.60]){
+    const t=P3.tornilloHex(MATP,{d:0.030,largo:0.12});
+    t.position.set(x,YDECK+1.07,z); headGroup.add(t);
+  }
+  // Las cuatro BUJÍAS, roscadas en el centro de su cámara.
+  for(let i=0;i<CIL;i++){
+    const b=P3.bujia(MATP,{d:0.115,largo:0.60});
+    b.traverse(o=>{if(o.isMesh)o.userData.piece='plug';});
+    b.position.set(XCIL(i),YDECK+0.62,-0.30);
+    headGroup.add(b);
+    // Lo que se enciende es el ELECTRODO, no la bujía entera: la chispa salta
+    // en la punta y ahí es donde tiene que verse.
+    plugs.push({mesh:b.userData.chispa,cyl:i+1});
+  }
 })();
 
 
@@ -664,6 +909,42 @@ function pieceWhyBlocked(key){
    ============================================================ */
 
 let rpm=0,trpm=0,running=false,crankAngle=0;
+// Un asidero para las pruebas. Estos laboratorios son de los primeros y no
+// tienen ninguno: no hay forma de montar el motor ni de arrancarlo si no es a
+// base de clics a ciegas sobre coordenadas de pantalla, y una prueba que
+// depende de dónde cae un botón deja de valer en cuanto se mueve el botón.
+window.__labDebug={
+  arma(k){ if(travel[k]&&!travel[k].installed) installPiece(k); },
+  armaTodo(){ PIECE_ORDER.forEach(k=>{ const t=travel[k];
+    if(t){ t.active=false; t.installed=true; t.t=1; PIECE_GROUP[k].position.set(0,0,0);
+      if(trays[k])trays[k].visible=false; if(lbls[k])lbls[k].visible=false; } }); },
+  corre(r){ running=true; trpm=r||3000; showStrokes=true; },
+  para(){ running=false; trpm=0; },
+  get montadas(){ return PIECE_ORDER.filter(k=>travel[k].installed); },
+  get rpm(){ return rpm; },
+  get anguloCigueñal(){ return crankAngle; },
+  // ¿Cae el pie de cada biela sobre su bulón? Es la comprobación que dice si la
+  // geometría y la animación están contando lo mismo: si se separan, el
+  // mecanismo se ve roto y ninguna cifra se entera.
+  get bielasSueltas(){
+    const malas=[], v=new THREE.Vector3(), w=new THREE.Vector3();
+    pistons.forEach((p,i)=>{
+      p.biela.getWorldPosition(v);
+      const pie=new THREE.Vector3(0,LBIE,0).applyQuaternion(p.biela.getWorldQuaternion(new THREE.Quaternion())).add(v);
+      p.grp.getWorldPosition(w); w.y+=PIS_BULON;
+      const d=pie.distanceTo(w);
+      if(d>0.02) malas.push((i+1)+':'+d.toFixed(3));
+    });
+    return malas;
+  },
+  // Poner la cámara donde haga falta. Sin esto, una captura sólo puede mirar
+  // desde donde la dejó la última animación, que casi nunca es de donde se ve
+  // la pieza que se quiere revisar.
+  mira(x,y,z,tx,ty,tz){ controls.autoRotate=false; cinematicSpin=false;
+    camera.position.set(x,y,z); controls.target.set(tx||0,ty||1.4,tz||0); controls.update(); },
+  get piezasNaN(){ const m=[]; scene.traverse(o=>{ const q=o.position;
+    if(!isFinite(q.x)||!isFinite(q.y)||!isFinite(q.z)) m.push(o.type); }); return m; },
+};
 
 /* ---- cámara cinemática para "observa el ciclo de 4 tiempos": encuadre + auto-órbita que cede al usuario ---- */
 let cinematicSpin=false, lastDragTime=-99;
@@ -680,13 +961,6 @@ let compRatio=ICE.CR;
 function powerAngleFor(cyl){ const idx=firingOrder.indexOf(cyl); return idx<0?0:idx*180; }
 // piston vertical position: 2 mechanical revs = 720° cycle. Piston goes up/down each 180° (every stroke).
 // Physical piston height depends only on crank (180° period), but WHICH stroke depends on cycle phase.
-function pistonHeight(cyl, cycleDeg){
-  // crank position: piston at TDC at 0,360,720; BDC at 180,540 -> use cos on mechanical angle
-  // inline-4: cyls 1&4 move together; cyls 2&3 are 180° out of phase
-  const phase = (cyl===2||cyl===3)?180:0;
-  const mechRev = (cycleDeg+phase)%360;
-  return Math.cos(mechRev*Math.PI/180); // +1 at TDC, -1 at BDC
-}
 function strokeOf(cyl, cycleDeg){
   // at this cyl's power angle, it's at START of power (TDC). Strokes: intake,comp,power,exhaust
   const rel=((cycleDeg - powerAngleFor(cyl))%720+720)%720;
@@ -1013,9 +1287,7 @@ function animate(){
   if(travel.pistons.installed){
     pistons.forEach((p,i)=>{
       const cyl=p.cyl;
-      const h=pistonHeight(cyl, crankAngle); // -1..1
-      // firing-order vibration: wrong order makes pistons jolt
-      p.grp.position.y=bY+1.0+h*0.34;
+      p.grp.position.y=alturaPiston(cyl, crankAngle);
       const st=strokeOf(cyl,crankAngle);
       // combustion flash at start of power stroke (st===0 and near TDC)
       const dead=(deadCylinder===cyl);
@@ -1033,6 +1305,9 @@ function animate(){
       const pl=plugs[i];if(pl){pl.mesh.material.emissive||=new THREE.Color();
         pl.mesh.material.emissive.setHex((!dead&&rel<60&&rpm>50)?0x66ccff:0x000000);}
     });
+    // Y las bielas detrás de sus pistones: es lo último que se mueve porque
+    // depende de dónde hayan quedado los otros dos.
+    colocaBielas();
   }
   // telemetry phase 2
   if(phase===1){const T=deadCylinder?torqueAt(rpm)*0.72:torqueAt(rpm);const P=T*(2*Math.PI*rpm/60)/1000;
