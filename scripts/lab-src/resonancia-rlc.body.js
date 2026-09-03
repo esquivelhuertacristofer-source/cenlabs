@@ -26,7 +26,7 @@
 
 /* ---------- 1. ESCENA ---------- */
 const mount = document.getElementById('stage');
-const S = createStage(mount, { cam: [3.0, 2.2, 6.6], target: [0.4, 1.2, 0.0], bgTop: '#0d1a17', bgBot: '#04060a', bloom: 0.35, minD: 3.0, maxD: 16 });
+const S = createStage(mount, { cam: [3.6, 2.3, 5.4], target: [1.40, 1.00, 0.55], bgTop: '#0d1a17', bgBot: '#04060a', bloom: 0.35, minD: 3.0, maxD: 16 });
 const { scene } = S;
 const synth = makeSynth({ type: 'sine', type2: 'triangle', filterFreq: 2600, Q: 0.8 });
 
@@ -190,16 +190,38 @@ function numOr(id) { const v = parseFloat(document.getElementById(id).value); re
 const std = (o) => new THREE.MeshStandardMaterial(o);
 const sh = (m) => { m.castShadow = true; m.receiveShadow = true; return m; };
 const brush = brushedMetal(), rub = rubber(), plas = techPlastic(0.12, 0.16, 0.15);
+/* `techPlastic` devuelve un MAPA de color, y ese mapa MULTIPLICA al `color` del
+   material: con el plástico oscuro de arriba, cualquier color que se le ponga
+   encima sale casi negro. Por eso el banco y los dos aparatos se veían como
+   siluetas sin cara, con la pantalla flotando en el vacío. Para lo que tiene
+   que verse —la chapa de los instrumentos y la tapa del banco— hace falta un
+   plástico claro de verdad, no un color claro sobre un mapa oscuro. */
+const plasClaro = techPlastic(0.40, 0.44, 0.43);
 const MAT = {
-  bench: std({ ...plas, color: 0x22302c, roughness: 0.85, metalness: 0.05 }),
+  bench: std({ ...plasClaro, color: 0x8d9a96, roughness: 0.85, metalness: 0.05 }),
   frame: std({ ...brush, color: 0x3a4440, roughness: 0.55, metalness: 0.85 }),
   leg: std({ ...brush, color: 0x3a4440, roughness: 0.55, metalness: 0.85 }),
-  gen: std({ ...plas, color: 0x1c2622, roughness: 0.35, metalness: 0.15 }),
-  scopeBox: std({ ...plas, color: 0x161f1c, roughness: 0.35, metalness: 0.15 }),
+  gen: std({ ...plasClaro, color: 0xb6c0be, roughness: 0.52, metalness: 0.28 }),
+  scopeBox: std({ ...plasClaro, color: 0x99a3a1, roughness: 0.50, metalness: 0.24 }),
   cableCh1: std({ ...rub, color: 0x2e7d74, roughness: 1.0, metalness: 0 }),
   cableCh2: std({ ...rub, color: 0xb5661f, roughness: 1.0, metalness: 0 }),
   knobDark: std({ color: 0x0e1412, roughness: 0.5, metalness: 0.4 }),
 };
+/* Los nombres con los que trabaja la biblioteca de piezas (`P3`, que el molde
+   ya importa), traducidos una vez a los materiales de este laboratorio. */
+const MATP = {
+  aluminio: std({ ...brush, color: 0x8f979f, roughness: 0.55, metalness: 0.60 }),
+  acero:    std({ ...brush, color: 0x9aa2a9, roughness: 0.34, metalness: 0.85 }),
+  cromo:    std({ ...brush, color: 0xc9d1d6, roughness: 0.22, metalness: 0.90 }),
+  chapa:    std({ ...brush, color: 0x828a91, roughness: 0.45, metalness: 0.75 }),
+  cobre:    std({ color: 0xb87333, roughness: 0.35, metalness: 0.75 }),
+  negro:    std({ ...plas, color: 0x13181c, roughness: 0.62, metalness: 0.06 }),
+  goma:     std({ ...rub, color: 0x0f1216, roughness: 0.94, metalness: 0.0 }),
+  blanco:   std({ color: 0xd7dee6, roughness: 0.42, metalness: 0.15 }),
+  rojo:     std({ color: 0xd64545, roughness: 0.50, metalness: 0.10 }),
+  ceramica: std({ color: 0xd9dcd6, roughness: 0.62, metalness: 0.04 }),
+};
+
 const HOVER_LABELS = new Map();
 function addHoverLabel(obj, text, color, pos, scale) {
   const lb = labelSprite(text, color);
@@ -370,9 +392,13 @@ const bench = sh(new THREE.Mesh(new THREE.BoxGeometry(2.4, 0.5, 1.3), MAT.bench)
 bench.position.set(1.75, 0.25, 0.85);
 scene.add(bench);
 
+const YB = 0.50;                     // la tapa del banco, de donde arranca todo
+
 function makeGen(x, label, title) {
+  /* Los dos aparatos estaban a 0,95 de altura: veinte centímetros POR ENCIMA de
+     la tapa, flotando. Un instrumento de mesa se apoya en la mesa. */
   const g = new THREE.Group();
-  g.position.set(x, 0.95, 0.55);
+  g.position.set(x, YB + 0.25, 0.42);
   const box = sh(roundedBox(0.62, 0.5, 0.42, MAT.gen, 0.03));
   g.add(box);
   const cv = document.createElement('canvas'); cv.width = 256; cv.height = 200;
@@ -389,11 +415,21 @@ function makeGen(x, label, title) {
   g.add(knob);
   box.userData = { title, info: label };
   addHoverLabel(box, label, '#4FD1C5', new THREE.Vector3(0, 0.35, 0), 0.85);
+  /* Las dos bornas por las que el aparato se conecta al circuito: sin ellas los
+     cables salían del aire. */
+  const bocas = [];
+  [-1, 1].forEach((sx, i) => {
+    const b = P3.bornaBanana(MATP, { d: 0.078, color: i ? 0x2a5fa8 : 0xd64545 });
+    b.rotation.x = -Math.PI / 2;
+    b.position.set(sx * 0.15, -0.16, 0.212);
+    g.add(b);
+    bocas.push(g.position.clone().add(new THREE.Vector3(sx * 0.15, -0.16, 0.212 + b.userData.boca.y)));
+  });
   scene.add(g);
-  return { g, cv, tx, knob };
+  return { g, cv, tx, knob, bocas };
 }
-const gen1 = makeGen(0.95, 'GEN1', 'Generador de barrido de frecuencia');
-const gen2 = makeGen(1.85, 'GEN2', 'Detector de nivel |Z|');
+const gen1 = makeGen(0.92, 'GEN1', 'Generador de barrido de frecuencia');
+const gen2 = makeGen(2.58, 'GEN2', 'Detector de nivel |Z|');
 
 function drawGenDisplay(genObj, l1, l2, accent) {
   const c = genObj.cv.getContext('2d');
@@ -406,24 +442,184 @@ function drawGenDisplay(genObj, l1, l2, accent) {
   genObj.tx.needsUpdate = true;
 }
 
-const scopeBox = sh(roundedBox(0.85, 0.55, 0.55, MAT.scopeBox, 0.03));
-scopeBox.position.set(1.4, 0.98, 1.15);
+const scopeBox = sh(roundedBox(0.72, 0.46, 0.34, MAT.scopeBox, 0.03));
+scopeBox.position.set(1.75, YB + 0.23, 0.40);
 scopeBox.userData = { title: 'Analizador de barrido (referencia física)', info: 'La medición real ocurre en el pizarrón — este cajón representa el instrumento conectado al circuito.' };
 addHoverLabel(scopeBox, 'Analizador de barrido', '#FF8A5B', new THREE.Vector3(0, 0.4, 0), 0.85);
 scene.add(scopeBox);
 
 function cable(ax, ay, az, bx, by, bz, mat) {
-  const mid = new THREE.Vector3((ax + bx) / 2, Math.max(ay, by) + 0.18, (az + bz) / 2);
+  const mid = new THREE.Vector3((ax + bx) / 2, Math.max(ay, by) + 0.10, (az + bz) / 2);
   const curve = new THREE.CatmullRomCurve3([new THREE.Vector3(ax, ay, az), mid, new THREE.Vector3(bx, by, bz)]);
   const geo = new THREE.TubeGeometry(curve, 20, 0.012, 8, false);
   const m = new THREE.Mesh(geo, mat);
   scene.add(m);
   return m;
 }
-const cbl1 = cable(0.95, 0.72, 0.55, 1.4, 0.75, 1.05, MAT.cableCh1);
-const cbl2 = cable(1.85, 0.72, 0.55, 1.4, 0.75, 1.25, MAT.cableCh2);
+const cbl1 = cable(0.92, YB + 0.47, 0.58, 1.52, YB + 0.32, 0.56, MAT.cableCh1);
+const cbl2 = cable(2.58, YB + 0.47, 0.58, 1.98, YB + 0.32, 0.56, MAT.cableCh2);
+
+/* ===================== EL CIRCUITO, MONTADO CON MÓDULOS =====================
+   La práctica entera trata de que XL = ωL y XC = 1/ωC se cancelan a una
+   frecuencia concreta, y de que la R decide lo AFILADA que sale la curva. Los
+   tres protagonistas no estaban en la escena: sólo la tapa y dos cajones. Aquí
+   están, cada uno sobre su módulo de banco, y el cableado se rehace al cambiar
+   de topología —en serie la impedancia cae a su MÍNIMO en f₀ y en paralelo sube
+   a su MÁXIMO, y eso no se entiende si el montaje se dibuja igual en los dos.
+   Los componentes se rearman sólo cuando cambia su valor: más ohmios son más
+   vueltas de nicromo, más milihenrios más vueltas sobre el hierro y más
+   microfaradios una lata mayor. La proporción es ilustrativa; la dirección, la
+   de verdad. */
+const MOD_Z = 1.05, NODO_Z = 1.35;
+const XR = 1.00, XL = 1.72, XC = 2.44;
+const MAT_LEAD = std({ ...rub, color: 0xc8443a, roughness: 1.0, metalness: 0 });
+const MAT_LEAD2 = std({ ...rub, color: 0x2a5fa8, roughness: 1.0, metalness: 0 });
+const MAT_PATA = std({ color: 0xb87333, roughness: 0.40, metalness: 0.80 });
+
+function ponModulo(x, z, ancho, bornas, colores, titulo, info, etiqueta) {
+  const m = P3.moduloBanco(MATP, { ancho, fondo: 0.30, alto: 0.050, color: 0x2b333a,
+    bornas, dBorna: 0.078, colores });
+  m.position.set(x, YB, z);
+  m.traverse(o => { if (o.isMesh) { o.castShadow = true; o.receiveShadow = true; } });
+  scene.add(m);
+  m.userData.title = titulo; m.userData.info = info;
+  addHoverLabel(m, etiqueta, '#8ad6c8', new THREE.Vector3(0, 0.44, 0), 0.72);
+  return m;
+}
+const modR = ponModulo(XR, MOD_Z, 0.44, [-1, 1], [0xd64545, 0x2a5fa8],
+  'Resistencia de banco', 'Resistencia bobinada de potencia. En resonancia XL y XC se cancelan y sólo queda ella: por eso Z vale exactamente R en f₀ (serie), y por eso es la R —y no L ni C— la que decide el factor de calidad Q.', 'R');
+const modL = ponModulo(XL, MOD_Z, 0.44, [-1, 1], [0xd64545, 0x2a5fa8],
+  'Bobina de banco', 'Bobina sobre núcleo de chapa E-I. Su reactancia XL = ωL CRECE con la frecuencia; es la rama que domina por encima de f₀.', 'L');
+const modC = ponModulo(XC, MOD_Z, 0.44, [-1, 1], [0xd64545, 0x2a5fa8],
+  'Condensador de banco', 'Condensador de lata. Su reactancia XC = 1/ωC BAJA con la frecuencia; es la rama que domina por debajo de f₀. Donde las dos se igualan está la resonancia.', 'C');
+const nodoA = ponModulo(1.28, NODO_Z, 0.40, [-1, -0.34, 0.34, 1],
+  [0xd64545, 0xd64545, 0xd64545, 0xd64545],
+  'Nodo común (lado vivo)', 'En paralelo los tres componentes comparten los dos MISMOS nodos. Ese es el montaje en el que |Z| sube a su máximo en resonancia en vez de bajar.', 'nodo 1');
+const nodoB = ponModulo(2.16, NODO_Z, 0.40, [-1, -0.34, 0.34, 1],
+  [0x2a5fa8, 0x2a5fa8, 0x2a5fa8, 0x2a5fa8],
+  'Nodo común (lado de retorno)', 'El segundo nodo compartido del montaje en paralelo: con los dos puestos, los tres componentes ven el mismo voltaje.', 'nodo 2');
+
+/** El punto de enchufe de una borna, ya en coordenadas de la escena. */
+function boca(mod, i) { return mod.position.clone().add(mod.userData.bocas[i]); }
+
+const compR = { g: new THREE.Group(), v: -1 }, compL = { g: new THREE.Group(), v: -1 },
+      compC = { g: new THREE.Group(), v: -1 };
+[compR, compL, compC].forEach(c => scene.add(c.g));
+compR.g.position.set(XR, YB + 0.050, MOD_Z + 0.03);
+compL.g.position.set(XL, YB + 0.050, MOD_Z + 0.03);
+compC.g.position.set(XC, YB + 0.050, MOD_Z + 0.03);
+function vacia(g) { while (g.children.length) { const o = g.children.pop();
+  o.traverse(q => { if (q.isMesh) q.geometry.dispose(); }); } }
+function patillas(g, dx, y) {           // los dos hilos que bajan del componente a sus bornas
+  for (const sx of [-1, 1]) {
+    const a = new THREE.Vector3(sx * dx, y, 0), b = new THREE.Vector3(sx * 0.176, -0.036, -0.084);
+    const m = new THREE.Vector3((a.x + b.x) / 2, Math.max(a.y, b.y) * 0.72, (a.z + b.z) / 2 - 0.02);
+    const t = new THREE.Mesh(new THREE.TubeGeometry(
+      new THREE.CatmullRomCurve3([a, m, b]), 16, 0.0085, 7), MAT_PATA);
+    t.castShadow = true; g.add(t);
+  }
+}
+function ponR(ohm) {
+  if (compR.v === ohm) return; compR.v = ohm; vacia(compR.g);
+  /* El rango de esta práctica va de 8 Ω en serie a 2,2 kΩ en paralelo, así que
+     las vueltas se reparten en logaritmo y se topan: si no, la de 2,2 kΩ sería
+     una madeja que no cabe en el módulo. */
+  const n = Math.max(8, Math.min(30, Math.round(8 + 8 * Math.log(ohm / 8) / Math.log(10))));
+  const r = P3.resistenciaBobinada(MATP, { largo: 0.30, d: 0.088, vueltas: n,
+    hilo: Math.max(0.008, 0.0145 - 0.0022 * Math.log(ohm / 8) / Math.log(10)) });
+  r.position.y = 0.075; r.traverse(o => { if (o.isMesh) o.castShadow = true; });
+  compR.g.add(r);
+  patillas(compR.g, 0.131, 0.075);
+}
+function ponL(mh) {
+  if (compL.v === mh) return; compL.v = mh; vacia(compL.g);
+  const n = Math.round(5 + 5 * Math.log(mh / 10) / Math.log(10));
+  const b = P3.bobinaHierro(MATP, { ancho: 0.17, alto: 0.21, prof: 0.095, chapas: 8,
+    vueltas: Math.max(5, n), hilo: 0.0105, capas: 2 });
+  b.position.y = 0.115; b.traverse(o => { if (o.isMesh) o.castShadow = true; });
+  compL.g.add(b);
+  patillas(compL.g, 0.10, 0.045);
+}
+function ponC(uf) {
+  if (compC.v === uf) return; compC.v = uf; vacia(compC.g);
+  const d = 0.085 + 0.055 * Math.log(uf / 1) / Math.log(10);
+  const c = P3.condensador(MATP, { d, alto: d * 1.55, bornes: 2,
+    aislante: std({ color: 0x2a4a68, roughness: 0.42, metalness: 0.24 }) });
+  c.traverse(o => { if (o.isMesh) o.castShadow = true; });
+  compC.g.add(c);
+  patillas(compC.g, d * 0.45, d * 1.62);
+}
+
+/* EL PRECINTO del Reto. El componente sellado no puede dibujarse a su valor: se
+   leería la respuesta contando vueltas o midiendo la lata, y el ejercicio
+   dejaría de ser una medida para ser una inspección. */
+const selloG = new THREE.Group(); selloG.visible = false; scene.add(selloG);
+{
+  const oro = std({ color: 0xd8a12a, roughness: 0.55, metalness: 0.15,
+    emissive: 0xd8a12a, emissiveIntensity: 0.22 });
+  const tapa = new THREE.Mesh(new THREE.BoxGeometry(0.30, 0.012, 0.20), oro);
+  tapa.position.y = 0.006; selloG.add(tapa);
+  for (const sx of [-1, 1]) {
+    const c = new THREE.Mesh(new THREE.BoxGeometry(0.012, 0.09, 0.20), oro);
+    c.position.set(sx * 0.144, -0.045, 0); selloG.add(c);
+  }
+  selloG.traverse(o => { if (o.isMesh) { o.castShadow = true; o.raycast = () => {}; } });
+}
+function ponSello(k) {
+  const m = k === 'R' ? modR : (k === 'L' ? modL : (k === 'C' ? modC : null));
+  selloG.visible = !!m;
+  if (m) selloG.position.set(m.position.x, YB + 0.28, MOD_Z + 0.03);
+}
+
+/* El cableado. Se rehace entero al cambiar de topología: es lo único que
+   distingue las dos, y tiene que verse. */
+const cablesG = new THREE.Group(); scene.add(cablesG);
+let cableTopo = '';
+function latiguillo(a, b, mat) {
+  const m = a.clone().lerp(b, 0.5);
+  m.y = Math.max(a.y, b.y) + 0.05 + Math.min(0.11, a.distanceTo(b) * 0.09);
+  const t = new THREE.Mesh(new THREE.TubeGeometry(
+    new THREE.CatmullRomCurve3([a, m, b]), 24, 0.011, 7), mat);
+  t.castShadow = true; cablesG.add(t);
+  for (const p of [a, b]) {
+    const cl = new THREE.Mesh(new THREE.CylinderGeometry(0.017, 0.017, 0.05, 10), MATP.cromo);
+    cl.position.copy(p).y -= 0.015; cablesG.add(cl);
+  }
+}
+function ponCables(topo) {
+  if (cableTopo === topo) return; cableTopo = topo;
+  vacia(cablesG);
+  const FA = gen1.bocas[0], FB = gen1.bocas[1], SA = gen2.bocas[0], SB = gen2.bocas[1];
+  const R0 = boca(modR, 0), R1 = boca(modR, 1), L0 = boca(modL, 0), L1 = boca(modL, 1),
+        C0 = boca(modC, 0), C1 = boca(modC, 1);
+  if (topo === 'serie') {
+    nodoA.visible = false; nodoB.visible = false;
+    latiguillo(FA, R0, MAT_LEAD);
+    latiguillo(R1, L0, MAT_LEAD);
+    latiguillo(L1, C0, MAT_LEAD);
+    latiguillo(C1, SA, MAT_LEAD);
+    latiguillo(SB, FB, MAT_LEAD2);
+  } else {
+    nodoA.visible = true; nodoB.visible = true;
+    latiguillo(FA, boca(nodoA, 0), MAT_LEAD);
+    latiguillo(boca(nodoA, 1), R0, MAT_LEAD);
+    latiguillo(boca(nodoA, 2), L0, MAT_LEAD);
+    latiguillo(boca(nodoA, 3), C0, MAT_LEAD);
+    latiguillo(R1, boca(nodoB, 1), MAT_LEAD2);
+    latiguillo(L1, boca(nodoB, 2), MAT_LEAD2);
+    latiguillo(C1, boca(nodoB, 3), MAT_LEAD2);
+    latiguillo(boca(nodoB, 0), SA, MAT_LEAD2);
+    latiguillo(SB, FB, MAT_LEAD2);
+  }
+}
 
 function refreshNet3D() {
+  const sell = mode === 'reto' ? retoSealedKey : '';
+  ponR(sell === 'R' ? 22 : currentR());
+  ponL(sell === 'L' ? 22 : currentL());
+  ponC(sell === 'C' ? 4.7 : currentC());
+  ponSello(sell);
+  ponCables(currentTopology());
   drawGenDisplay(gen1, TOPO_LABELS[currentTopology()], 'GEN. BARRIDO', '#4FD1C5');
   let l1, l2;
   if (mode === 'explora') { l1 = 'f₀,Q'; l2 = 'en vivo'; }
@@ -521,9 +717,9 @@ function toastPart(id) {
 
 /* ---------- 9. MODOS Y SELBAR ---------- */
 const MODE_META = {
-  explora: { nombre: 'Explora', cam: [[3.0, 2.2, 6.6], [0.4, 1.2, 0.0]], mision: 'Elige la topología y ajusta R, L y C. Observa cómo se mueve f₀ sobre la curva |Z(f)| y cómo cambia su forma según Q.' },
+  explora: { nombre: 'Explora', cam: [[3.6, 2.3, 5.4], [1.40, 1.00, 0.55]], mision: 'Elige la topología y ajusta R, L y C. Observa cómo se mueve f₀ sobre la curva |Z(f)| y cómo cambia su forma según Q.' },
   medicion: { nombre: 'Medición', cam: [[-0.2, 2.0, 3.4], [-1.0, 1.6, -0.5]], mision: 'El circuito es conocido pero f₀ y Q están sellados. Ubica el cursor de pico/valle por inspección visual, deja que los de media potencia se ajusten solos, y mide.' },
-  reto: { nombre: 'Reto', cam: [[2.4, 1.9, 4.0], [1.5, 1.0, 0.5]], mision: 'Un componente está sellado. Mide f₀ y Q con el analizador y despeja su valor con las ecuaciones de inversión de la topología activa.' },
+  reto: { nombre: 'Reto', cam: [[3.0, 1.8, 3.9], [1.70, 0.78, 0.85]], mision: 'Un componente está sellado. Mide f₀ y Q con el analizador y despeja su valor con las ecuaciones de inversión de la topología activa.' },
 };
 function buildSelBar() {
   const bar = el('selbar');
