@@ -17,7 +17,7 @@
 
 // ============================== 1) ESCENA ==============================
 const mount=document.getElementById('stage');
-const S=createStage(mount,{cam:[3.0,2.4,7.0],target:[0.5,1.3,0.1],bgTop:'#0d1a17',bgBot:'#04060a',bloom:0.35,minD:3.0,maxD:16});
+const S=createStage(mount,{cam:[0,4.3,6.9],target:[0,1.15,0.5],bgTop:'#0d1a17',bgBot:'#04060a',bloom:0.35,minD:3.0,maxD:16});
 const {scene}=S;
 const synth=makeSynth({type:'sine',type2:'triangle',filterFreq:2600,Q:0.8});
 
@@ -122,12 +122,8 @@ function addHoverLabel(obj,text,color,pos,scale){
 }
 
 // ============================== 5) PIZARRÓN (esquema + osciloscopio en un solo canvas) ==============================
-const boardG=new THREE.Group();boardG.position.set(-1.05,0,-0.85);boardG.rotation.y=0.16;scene.add(boardG);
+const boardG=new THREE.Group();boardG.position.set(0,2.3-1.85*0.77,-1.55);boardG.scale.setScalar(0.77);scene.add(boardG);
 const frame=sh(roundedBox(3.62,2.77,0.12,MAT.frame,0.03));frame.position.set(0,1.85,0);boardG.add(frame);
-[-1.5,1.5].forEach(x=>{
-  const leg=sh(new THREE.Mesh(new THREE.CylinderGeometry(0.05,0.06,0.56,10),MAT.leg));
-  leg.position.set(x,0.28,0);boardG.add(leg);
-});
 const bCv=document.createElement('canvas');bCv.width=1024;bCv.height=768;
 const bTex=new THREE.CanvasTexture(bCv);
 bTex.colorSpace=THREE.SRGBColorSpace;bTex.minFilter=THREE.LinearFilter;bTex.generateMipmaps=false;
@@ -277,17 +273,9 @@ function boardClick(u,v){
 }
 
 // ============================== 6) BANCO 3D ==============================
-const bench=sh(roundedBox(2.9,0.5,1.6,MAT.bench,0.05));bench.position.set(1.75,0.25,0.85);scene.add(bench);
-bench.userData={title:'Banco de trabajo',info:'Montaje físico del circuito RC: fuente, resistor y capacitor.'};
-
-function trace(x1,z1,x2,z2){
-  const w=Math.abs(x2-x1)||0.045,d=Math.abs(z2-z1)||0.045;
-  const t=new THREE.Mesh(new THREE.BoxGeometry(Math.max(w,0.045),0.015,Math.max(d,0.045)),MAT.trace);
-  t.position.set((x1+x2)/2,0.515,(z1+z2)/2);t.receiveShadow=true;scene.add(t);
-  return t;
-}
-
-const RES3D={};
+/* El pizarrón (esquema + osciloscopio) va arriba y al fondo; debajo, el montaje
+   REAL sobre un protoboard: la fuente en el estante y, cableado a mano, el
+   resistor y el capacitor con su encapsulado de verdad. */
 /* Los nombres con los que trabaja la biblioteca de piezas (`P3`, que el molde ya
    importa), traducidos una vez a los materiales de este laboratorio. */
 const MATP={
@@ -300,113 +288,137 @@ const MATP={
   blanco:std({color:0xd7dee6,roughness:0.40,metalness:0.20}),
   ceramica:std({color:0xd7dee6,roughness:0.60,metalness:0.05}),
 };
-/* LA RESISTENCIA, con la forma que tiene en la mano: cuerpo abarrilado con
-   hombros, las CUATRO BANDAS —tres de valor y la de tolerancia, separada, que
-   es la que dice por que lado se empieza a leer— y las patas dobladas que bajan
-   a la placa. Un tubo con cuatro rayas equiespaciadas vale para dos valores
-   distintos segun por donde se lea, y ese es justo el ejercicio. */
-function makeRes3D(id,x,z,vert){
-  const g=P3.resistencia(MATP,{largo:0.20,d:0.090,patas:0.11,paso:0.34,
-    bandas:[0x1a1a1a,0x1a1a1a,0x1a1a1a,0x1a1a1a]});
-  g.position.set(x,0.50,z); if(vert)g.rotation.y=Math.PI/2;
-  g.traverse(o=>{ if(o.isMesh){o.castShadow=true;o.receiveShadow=true;} });
-  g.userData.el=id;
-  scene.add(g);RES3D[id]={g,bands:g.userData.bandas};
-}
-makeRes3D('R',1.35,0.62,false);
-/* EL ELECTROLITICO, con el engarce del fondo, la FRANJA del negativo y la CRUZ
-   de alivio de la tapa: una entalla hecha a proposito para que, si el
-   condensador se hincha, reviente por ahi y no por el fondo —que es por donde
-   saldria disparado—. El rotulo del valor va debajo de la cruz, como el
-   serigrafiado de uno de verdad. */
-function makeCap3D(x,z){
-  const g=P3.condensadorRadial(MATP,{d:0.18,alto:0.24,patas:0.11,
-    lata:0x1f3a52,franja:0xcfe8ff});
-  g.position.set(x,0.50,z);
-  g.traverse(o=>{ if(o.isMesh){o.castShadow=true;o.receiveShadow=true;} });
-  const cv=document.createElement('canvas');cv.width=256;cv.height=256;
-  const tx=new THREE.CanvasTexture(cv);tx.colorSpace=THREE.SRGBColorSpace;tx.minFilter=THREE.LinearFilter;tx.generateMipmaps=false;
-  const top=new THREE.Mesh(new THREE.CircleGeometry(0.085,20),new THREE.MeshBasicMaterial({map:tx,toneMapped:false}));
-  top.rotation.x=-Math.PI/2;top.position.y=0.239;g.add(top);
-  g.userData.el='C';
-  scene.add(g);
-  return{g,cv,tx};
-}
-function drawCapLabel(cv,tx,valueStr){
-  const c=cv.getContext('2d');
-  c.fillStyle='#13314a';c.beginPath();c.arc(128,128,120,0,Math.PI*2);c.fill();
-  c.strokeStyle='#3a6a8f';c.lineWidth=6;c.beginPath();c.arc(128,128,116,0,Math.PI*2);c.stroke();
-  c.fillStyle='#cfe8ff';c.font='bold 34px Outfit, sans-serif';c.textAlign='center';
-  c.fillText(valueStr,128,120);
-  c.font='16px Outfit, sans-serif';c.fillStyle='#8fb3d9';
-  c.fillText('CAP · +',128,150);
-  tx.needsUpdate=true;
-}
-const capReal=makeCap3D(1.7,0.62);
-drawCapLabel(capReal.cv,capReal.tx,fmtC(selC));
+const BANCO=P3.bancoPrototipos(MATP,{cols:18,K:1.75,instrumentos:1});
+const prot=BANCO.userData.prot,circG=BANCO.userData.circ,H=BANCO.userData.H,KB=BANCO.userData.K;
+const railNear=BANCO.userData.rielCerca;
+prot.userData.title='Protoboard';prot.userData.info='Placa de pruebas sin soldadura: las cinco posiciones de cada columna están unidas por dentro; los rieles + y − llevan la alimentación a todo lo largo.';
+const fuenteBox=BANCO.userData.instrumento(0);
+fuenteBox.g.position.x=-1.65;   // a la izquierda, sobre sus rieles: los cables no cruzan el visor
+fuenteBox.g.userData.el='V';
+addHoverLabel(fuenteBox.g,'Fuente V','#f0a5a5',new THREE.Vector3(0,0.45,0),0.75);
+const cableMat={rojo:0xd64545,negro:0x1b1f24,azul:0x2a5fa8,amarillo:0xe0a21c,verde:0x2f9e5b,naranja:0xe07b22};
+function rotula(obj,txt,col,y){addHoverLabel(obj,txt,col,new THREE.Vector3(0,y,0),0.5/KB);}
 
-const capSealed=sh(roundedBox(0.24,0.24,0.24,MAT.caja,0.04));
-capSealed.position.set(1.7,0.62,0.62);
-capSealed.visible=false;
-capSealed.userData={el:'C'};
-scene.add(capSealed);
-const capSealedLabel=labelSprite('❓ C','#FFB703');
-capSealedLabel.position.set(1.7,0.84,0.62);
-capSealedLabel.visible=false;
-scene.add(capSealedLabel);
-
-const psCv=[],psTex=[];
-function makePSU(x){
-  const g=new THREE.Group();g.position.set(x,0.72,0.25);scene.add(g);
-  const box=sh(roundedBox(0.52,0.44,0.40,MAT.psu,0.06));g.add(box);
-  const cv=document.createElement('canvas');cv.width=256;cv.height=96;
-  const tx=new THREE.CanvasTexture(cv);
-  tx.colorSpace=THREE.SRGBColorSpace;tx.minFilter=THREE.LinearFilter;tx.generateMipmaps=false;
-  const pl=new THREE.Mesh(new THREE.PlaneGeometry(0.40,0.15),new THREE.MeshBasicMaterial({map:tx,toneMapped:false}));
-  pl.position.set(0,0.06,0.205);g.add(pl);
-  const postR=sh(new THREE.Mesh(new THREE.CylinderGeometry(0.03,0.03,0.10,10),MAT.jackRed));postR.position.set(-0.13,0.27,0.10);g.add(postR);
-  const postB=sh(new THREE.Mesh(new THREE.CylinderGeometry(0.03,0.03,0.10,10),MAT.jackBlk));postB.position.set(0.13,0.27,0.10);g.add(postB);
-  g.userData={el:'V'};
-  psCv[0]=cv;psTex[0]=tx;
-  addHoverLabel(g,'Fuente V','#f0a5a5',new THREE.Vector3(0,0.55,0),0.8);
+/* Los capacitores que NO trae la biblioteca: el de DISCO cerámico (gota de
+   epoxi naranja con el código «104» = 10·10⁴ pF = 100 nF) y el de PELÍCULA en
+   caja (poliéster metalizado, con el valor impreso). Los de 1 µF y 4.7 µF son
+   electrolíticos —polarizados— y vienen de la biblioteca. */
+function tintaPlano(w,h,pinta,pw,ph){
+  const cv=document.createElement('canvas');cv.width=pw;cv.height=ph;
+  pinta(cv.getContext('2d'),pw,ph);
+  const tx=new THREE.CanvasTexture(cv);tx.colorSpace=THREE.SRGBColorSpace;tx.anisotropy=8;
+  const m=new THREE.Mesh(new THREE.PlaneGeometry(w,h),new THREE.MeshStandardMaterial({map:tx,transparent:true,roughness:0.55,
+    depthWrite:false,polygonOffset:true,polygonOffsetFactor:-2,polygonOffsetUnits:-2}));
+  m.renderOrder=2;return m;
+}
+function patasRadiales(g,paso,yBase){
+  [-1,1].forEach(s=>{
+    const l=new THREE.Mesh(new THREE.CylinderGeometry(0.0125,0.0125,yBase+0.10,8),MATP.cromo);
+    l.position.set(s*paso/2,(yBase-0.10)/2,0);g.add(l);
+  });
+}
+function capDisco(paso){
+  const g=new THREE.Group();
+  const R=0.15,t=0.045,yc=0.27;
+  const per=[[0,-t],[R*0.88,-t],[R,-t*0.45],[R,t*0.45],[R*0.88,t],[0,t]];
+  const cue=new THREE.Mesh(P3.revolucion(per,{seg:32}),std({color:0xd68a2e,roughness:0.42,metalness:0.0}));
+  cue.rotation.x=Math.PI/2;cue.position.y=yc;g.add(cue);
+  const tx=tintaPlano(0.22,0.17,(c,w,h)=>{
+    c.fillStyle='#3a1d08';c.textAlign='center';c.textBaseline='middle';
+    c.font='bold 120px sans-serif';c.fillText('104',w/2,h*0.40);
+    c.font='64px sans-serif';c.fillText('50V  Z5U',w/2,h*0.80);
+  },512,384);
+  tx.position.set(0,yc,t+0.002);g.add(tx);
+  patasRadiales(g,paso,yc-R*0.8);
   return g;
 }
-const psuGroup=makePSU(1.05);
+function capPelicula(paso){
+  const g=new THREE.Group();
+  const w=0.44,h=0.32,d=0.17,yc=h/2+0.10;
+  const cue=new THREE.Mesh(new THREE.BoxGeometry(w,h,d),std({color:0x1f4e9a,roughness:0.40,metalness:0.0}));
+  cue.position.y=yc;g.add(cue);
+  const tx=tintaPlano(w*0.9,h*0.8,(c,pw,ph)=>{
+    c.fillStyle='#dfe9f7';c.textAlign='center';c.textBaseline='middle';
+    c.font='bold 150px sans-serif';c.fillText('.47 µF',pw/2,ph*0.38);
+    c.font='80px sans-serif';c.fillText('63V   MKT   10 %',pw/2,ph*0.76);
+  },768,512);
+  tx.position.set(0,yc,d/2+0.002);g.add(tx);
+  patasRadiales(g,paso,0.10);
+  return g;
+}
+/* El capacitor SELLADO del reto: un bloque de resina negra con el rótulo
+   «C = ?»; del valor, ni una marca a la vista. */
+function capSellado(paso){
+  const g=new THREE.Group();
+  const cv=document.createElement('canvas');cv.width=512;cv.height=256;
+  const c=cv.getContext('2d');
+  c.fillStyle='#1a2320';c.fillRect(0,0,512,256);
+  c.strokeStyle='#3a6a8f';c.lineWidth=6;c.strokeRect(8,8,496,240);
+  c.fillStyle='#8fb3d9';c.textAlign='center';c.font='bold 92px sans-serif';c.fillText('C = ?',256,125);
+  c.font='30px sans-serif';c.fillStyle='#6d8fb0';c.fillText('CAPACITOR SELLADO',256,195);
+  const tx=new THREE.CanvasTexture(cv);tx.colorSpace=THREE.SRGBColorSpace;tx.anisotropy=8;
+  const cuerpo=new THREE.Mesh(new THREE.BoxGeometry(0.56,0.32,0.30),
+    [MAT.caja,MAT.caja,MAT.caja,MAT.caja,std({map:tx,roughness:0.6}),MAT.caja]);
+  cuerpo.position.y=0.26;g.add(cuerpo);
+  patasRadiales(g,paso,0.10);
+  return g;
+}
+/* Cada valor del panel tiene su pieza: 100 nF disco, 470 nF película y los dos
+   mayores electrolíticos, con el valor y la tensión escritos en la funda. */
+function tipoCap(C){
+  if(C<=150e-9)return{paso:0.2,mk:()=>capDisco(0.2)};
+  if(C<=500e-9)return{paso:0.3,mk:()=>capPelicula(0.3)};
+  return{paso:0.1,mk:()=>P3.electrolitico(MATP,{d:0.20,alto:0.43,paso:0.1,valor:fmtC(C).replace(/\s/g,'').replace('uF','µF'),volt:'16V'})};
+}
+
+/* LA ZONA DE MONTAJE: el capacitor se rehace cuando cambia C (o al entrar o
+   salir del reto); el resistor sólo repinta sus bandas. */
+let rG=null,cG=null,circKey='';
+function armaCircuito(){
+  const reto=mode==='reto';
+  const key=reto?'sellado':'C'+currentC();
+  if(key===circKey)return;
+  circKey=key;
+  BANCO.userData.limpia();BANCO.userData.reiniciaRieles();
+  function wire(a,b,col,o){const w=P3.puente(MATP,a,b,Object.assign({color:col},o||{}));circG.add(w);return w;}
+  // R: de la fila c, col 4 (hacia +V) a col 8 (nodo con el capacitor)
+  rG=P3.resistorAxial(MATP,{ohm:currentR(),paso:0.4});
+  {const A=H(4,'c'),B=H(8,'c');rG.position.copy(A).lerp(B,0.5);rG.position.y=A.y;}
+  rG.userData.el='R';circG.add(rG);rotula(rG,'R','#4FD1C5',0.30);
+  wire(H(4,'e'),railNear('+',4),cableMat.rojo);
+  // C: atrás; su pata negativa (−X) va a tierra, la positiva al nodo R–C
+  const t=reto?{paso:0.3,mk:()=>capSellado(0.3)}:tipoCap(currentC());
+  const cn=12,cp=cn+Math.round(t.paso*10);
+  cG=t.mk();
+  {const A=H(cn,'i'),B=H(cp,'i');cG.position.copy(A).lerp(B,0.5);cG.position.y=A.y;}
+  cG.userData.el='C';circG.add(cG);rotula(cG,reto?'Capacitor sellado':'C','#8fb3d9',0.62);
+  wire(H(8,'e'),H(cp,'g'),cableMat.azul,{minAlto:0.22,alto:0.28});
+  const tierra=wire(H(cn,'j'),railNear('-',cn),cableMat.negro);
+  tierra.userData.title='Referencia (tierra)';
+  tierra.userData.info='Terminal de retorno del circuito RC — el mismo nodo que la referencia (0 V) del osciloscopio.';
+  BANCO.userData.cable(0,0,railNear('+',1),cableMat.rojo,{alto:0.09});
+  BANCO.userData.cable(0,1,railNear('-',2),cableMat.negro,{alto:0.09});
+  circG.traverse(o=>{if(o.isMesh){o.castShadow=true;o.receiveShadow=true;}});
+}
+BANCO.traverse(o=>{if(o.isMesh){o.castShadow=true;o.receiveShadow=true;}});
+scene.add(BANCO);
+
 function drawPSU(){
-  const cv=psCv[0],c=cv.getContext('2d');
-  c.fillStyle='#071410';c.fillRect(0,0,256,96);
-  c.strokeStyle='rgba(79,209,197,0.4)';c.lineWidth=3;c.strokeRect(3,3,250,90);
-  c.fillStyle='#4FD1C5';c.font='bold 40px Outfit, sans-serif';c.textAlign='center';
-  c.fillText(V.toFixed(2)+' V',128,62);
-  psTex[0].needsUpdate=true;
+  const cx=fuenteBox.cx,cv=fuenteBox.cv,w=cv.width,h=cv.height;
+  cx.clearRect(0,0,w,h);
+  cx.fillStyle='#08120f';cx.fillRect(0,0,w,h);
+  cx.fillStyle='#4FD1C5';cx.textAlign='center';
+  cx.font='bold '+Math.round(h*0.22)+'px monospace';
+  cx.fillText('V',w/2,h*0.30);
+  cx.font='bold '+Math.round(h*0.44)+'px monospace';
+  cx.fillText(V.toFixed(2)+' V',w/2,h*0.80);
+  fuenteBox.tex.needsUpdate=true;
 }
 drawPSU();
 
-function cable(ax,ay,az,bx,by,bz,mat){
-  const a=new THREE.Vector3(ax,ay,az),b=new THREE.Vector3(bx,by,bz);
-  const m=a.clone().lerp(b,0.5);m.y=Math.max(a.y,b.y)+0.16;
-  const t=new THREE.Mesh(new THREE.TubeGeometry(new THREE.CatmullRomCurve3([a,m,b]),24,0.015,8),mat);
-  t.castShadow=true;scene.add(t);
-  return t;
-}
-const cbl1=cable(0.92,0.99,0.35,1.18,0.62,0.62,MAT.cableRed);
-const cbl2=cable(1.18,0.99,0.35,1.52,0.62,0.62,MAT.cableBlk);
-const tr1=trace(0.95,0.62,1.18,0.62);
-const tr2=trace(1.52,0.62,1.7,0.62);
-
-const groundPost=sh(new THREE.Mesh(new THREE.CylinderGeometry(0.028,0.034,0.16,12),MAT.jackBlk));
-groundPost.position.set(2.15,0.66,0.62);scene.add(groundPost);
-groundPost.userData={title:'Referencia (tierra)',info:'Terminal de retorno del circuito RC — el mismo nodo que la referencia (0 V) del osciloscopio.'};
-
 function refreshNet3D(){
-  const r=RES3D['R'],b=bandsFor(currentR());
-  [b.d1,b.d2,b.mult].forEach((dig,i)=>r.bands[i].material.color.set(BAND_COLORS[dig]));
-  r.bands[3].material.color.set('#c9a227');
-  const reto=mode==='reto';
-  capReal.g.visible=!reto;
-  capSealed.visible=reto;
-  capSealedLabel.visible=reto;
-  if(!reto)drawCapLabel(capReal.cv,capReal.tx,fmtC(currentC()));
+  armaCircuito();
+  rG.userData.ponValor(currentR());
 }
 
 // ============================== 7) HUD Y PANEL ==============================
@@ -492,9 +504,9 @@ function toastPart(id){
 
 // ============================== 9) MODOS Y SELBAR ==============================
 const MODE_META={
-  explora:{nombre:'Explora',cam:[[3.0,2.4,7.0],[0.4,1.3,0.0]],mision:'Cambia R y C, observa la forma de la curva de carga/descarga y verifica que τ=R·C predice el 63.2 %/36.8 % en cada combinación.'},
-  medicion:{nombre:'Medición',cam:[[-0.3,2.1,3.6],[-1.0,1.75,-0.6]],mision:'Elige una base de tiempo adecuada para la τ actual y mide τ con el cursor sobre la traza — contrasta tu lectura contra R·C.'},
-  reto:{nombre:'Reto',cam:[[2.6,2.0,4.2],[1.6,1.0,0.55]],mision:'Capacitor sellado: conoces R pero no C. Mide τ en el osciloscopio y despeja C=τ/R.'},
+  explora:{nombre:'Explora',cam:[[0,4.3,6.9],[0,1.15,0.5]],mision:'Cambia R y C, observa la forma de la curva de carga/descarga y verifica que τ=R·C predice el 63.2 %/36.8 % en cada combinación.'},
+  medicion:{nombre:'Medición',cam:[[0,2.7,3.5],[0,2.2,-1.55]],mision:'Elige una base de tiempo adecuada para la τ actual y mide τ con el cursor sobre la traza — contrasta tu lectura contra R·C.'},
+  reto:{nombre:'Reto',cam:[[0,3.5,6.4],[0,1.1,0.6]],mision:'Capacitor sellado: conoces R pero no C. Mide τ en el osciloscopio y despeja C=τ/R.'},
 };
 function buildSelBar(){
   const bar=el('selbar');
@@ -814,10 +826,6 @@ async function runAuto(){
 }
 
 // ============================== 15) ANIMACIÓN, EVENTOS E INICIO ==============================
-S.setAnimate((dt,time)=>{
-  const s=1+Math.sin(time*3)*0.12;
-  capSealedLabel.scale.setScalar(s);
-});
 
 ['explora','medicion','reto'].forEach(m=>{el('m_'+m).onclick=()=>{if(!autoRunning)setMode(m);};});
 el('btnAuto').onclick=runAuto;

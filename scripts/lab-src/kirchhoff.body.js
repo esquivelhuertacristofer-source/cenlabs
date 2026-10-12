@@ -21,7 +21,7 @@
    ============================================================ */
 
 const mount=document.getElementById('stage');
-const S=createStage(mount,{cam:[3.1,2.5,7.2],target:[0.5,1.3,0.1],bgTop:'#0d1a17',bgBot:'#04060a',bloom:0.35,minD:3.0,maxD:18});
+const S=createStage(mount,{cam:[0,4.3,6.9],target:[0,1.15,0.5],bgTop:'#0d1a17',bgBot:'#04060a',bloom:0.35,minD:3.0,maxD:18});
 const {scene}=S;
 const synth=makeSynth({type:'sine',type2:'triangle',filterFreq:2600,Q:0.8});
 
@@ -192,12 +192,8 @@ function addHoverLabel(obj,text,color,pos,scale){
 /* ============================================================
    4) PIZARRÓN — esquema IEC 60617 vivo (canvas → textura)
    ============================================================ */
-const boardG=new THREE.Group();boardG.position.set(-1.05,0,-0.85);boardG.rotation.y=0.16;scene.add(boardG);
+const boardG=new THREE.Group();boardG.position.set(0,2.3-1.85*0.8,-1.55);boardG.scale.setScalar(0.8);scene.add(boardG);
 const frame=sh(roundedBox(3.62,2.77,0.12,MAT.frame,0.03));frame.position.set(0,1.85,0);boardG.add(frame);
-[-1.5,1.5].forEach(x=>{
-  const leg=sh(new THREE.Mesh(new THREE.CylinderGeometry(0.05,0.06,0.56,10),MAT.leg));
-  leg.position.set(x,0.28,0);boardG.add(leg);
-});
 const bCv=document.createElement('canvas');bCv.width=1024;bCv.height=768;
 const bTex=new THREE.CanvasTexture(bCv);
 bTex.colorSpace=THREE.SRGBColorSpace;bTex.minFilter=THREE.LinearFilter;bTex.generateMipmaps=false;
@@ -352,28 +348,11 @@ function boardClick(u,v){
 
 /* ============================================================
    5) BANCO 3D — realización física de la red
+   El pizarrón (el esquema vivo) va arriba y al fondo; debajo, la MISMA red
+   montada sobre un protoboard: las dos fuentes en el estante y, cableados a
+   mano, los cinco resistores con las bandas de su valor y los puntos de prueba
+   de los nodos A, B y de la referencia.
    ============================================================ */
-const bench=sh(roundedBox(3.1,0.5,1.9,MAT.bench,0.05));bench.position.set(1.7,0.25,0.9);scene.add(bench);
-bench.userData={title:'Banco de trabajo',info:'La misma red del esquema, montada físicamente: fuentes, resistores con su código de colores y puntos de prueba.'};
-const pcb=sh(roundedBox(2.3,0.06,1.3,MAT.pcb,0.02));pcb.position.set(1.7,0.53,1.05);scene.add(pcb);
-pcb.userData={title:'Tarjeta de la red',info:'Cada resistor lleva las bandas de su valor REAL (código de colores E12 ±5 %). Tócalos para leerlos.'};
-addHoverLabel(pcb,'Realización física de la red','#4FD1C5',new THREE.Vector3(0,0.62,0),0.9);
-
-function trace(x1,z1,x2,z2){
-  const w=Math.abs(x2-x1)||0.045,d=Math.abs(z2-z1)||0.045;
-  const t=new THREE.Mesh(new THREE.BoxGeometry(Math.max(w,0.045),0.015,Math.max(d,0.045)),MAT.trace);
-  t.position.set((x1+x2)/2,0.565,(z1+z2)/2);t.receiveShadow=true;scene.add(t);
-}
-// riel superior segmentado entre terminales (P→R1→A→R3→B→R5→Q)
-trace(0.80,0.70,0.955,0.70);trace(1.295,0.70,1.45,0.70);trace(1.45,0.70,1.575,0.70);
-trace(1.925,0.70,2.05,0.70);trace(2.05,0.70,2.175,0.70);trace(2.525,0.70,2.65,0.70);
-// derivaciones verticales A y B (a R2 / R4)
-trace(1.45,0.70,1.45,0.93);trace(1.45,1.27,1.45,1.50);
-trace(2.05,0.70,2.05,0.93);trace(2.05,1.27,2.05,1.50);
-// riel de referencia (un solo nodo: continuo)
-trace(0.80,1.50,2.65,1.50);
-
-const RES3D={};
 /* Los nombres con los que trabaja la biblioteca de piezas (`P3`, que el molde ya
    importa), traducidos una vez a los materiales de este laboratorio. */
 const MATP={
@@ -386,77 +365,87 @@ const MATP={
   blanco:std({color:0xd7dee6,roughness:0.40,metalness:0.20}),
   ceramica:std({color:0xd7dee6,roughness:0.60,metalness:0.05}),
 };
-/* LA RESISTENCIA, con la forma que tiene en la mano: cuerpo abarrilado con
-   hombros, las CUATRO BANDAS —tres de valor y la de tolerancia, separada, que
-   es la que dice por que lado se empieza a leer— y las patas dobladas que bajan
-   a la placa. Un tubo con cuatro rayas equiespaciadas vale para dos valores
-   distintos segun por donde se lea, y ese es justo el ejercicio. */
-function makeRes3D(id,x,z,vert){
-  const g=P3.resistencia(MATP,{largo:0.20,d:0.090,patas:0.11,paso:0.34,
-    bandas:[0x1a1a1a,0x1a1a1a,0x1a1a1a,0x1a1a1a]});
-  g.position.set(x,0.56,z); if(vert)g.rotation.y=Math.PI/2;
-  g.traverse(o=>{ if(o.isMesh){o.castShadow=true;o.receiveShadow=true;} });
-  g.userData.el=id;
-  scene.add(g);RES3D[id]={g,bands:g.userData.bandas};
-}
-makeRes3D('R1',1.125,0.70,false);makeRes3D('R3',1.75,0.70,false);makeRes3D('R5',2.35,0.70,false);
-makeRes3D('R2',1.45,1.10,true);makeRes3D('R4',2.05,1.10,true);
+const BANCO=P3.bancoPrototipos(MATP,{cols:22,K:1.45,instrumentos:2});
+const prot=BANCO.userData.prot,circG=BANCO.userData.circ,H=BANCO.userData.H,KB=BANCO.userData.K;
+const railNear=BANCO.userData.rielCerca;
+prot.userData.title='Protoboard';prot.userData.info='Cada resistor lleva las bandas de su valor REAL (código de colores E12 ±5 %). Las cinco posiciones de cada columna están unidas por dentro: cada columna es un nodo. Tócalos para leerlos.';
+const PS=[BANCO.userData.instrumento(0),BANCO.userData.instrumento(1)];
+['V1','V2'].forEach((id,i)=>{
+  PS[i].g.userData.el=id;
+  addHoverLabel(PS[i].g,'Fuente '+id,'#f0a5a5',new THREE.Vector3(0,0.45,0),0.75);
+});
+const cableMat={rojo:0xd64545,negro:0x1b1f24,azul:0x2a5fa8,amarillo:0xe0a21c,verde:0x2f9e5b,naranja:0xe07b22};
+function rotula(obj,txt,col,y){addHoverLabel(obj,txt,col,new THREE.Vector3(0,y,0),0.5/KB);}
 
-const psCv=[],psTex=[];
-function makePSU(i,x,id){
-  const g=new THREE.Group();g.position.set(x,0.72,0.25);scene.add(g);
-  const box=sh(roundedBox(0.52,0.44,0.40,MAT.psu,0.06));g.add(box);
-  const cv=document.createElement('canvas');cv.width=256;cv.height=96;
-  const tx=new THREE.CanvasTexture(cv);
-  tx.colorSpace=THREE.SRGBColorSpace;tx.minFilter=THREE.LinearFilter;tx.generateMipmaps=false;
-  const pl=new THREE.Mesh(new THREE.PlaneGeometry(0.40,0.15),new THREE.MeshBasicMaterial({map:tx,toneMapped:false}));
-  pl.position.set(0,0.06,0.205);g.add(pl);
-  const postR=sh(new THREE.Mesh(new THREE.CylinderGeometry(0.03,0.03,0.10,10),MAT.jackRed));postR.position.set(-0.13,0.27,0.10);g.add(postR);
-  const postB=sh(new THREE.Mesh(new THREE.CylinderGeometry(0.03,0.03,0.10,10),MAT.jackBlk));postB.position.set(0.13,0.27,0.10);g.add(postB);
-  g.userData={el:id};
-  psCv[i]=cv;psTex[i]=tx;
-  addHoverLabel(g,'Fuente '+id,'#f0a5a5',new THREE.Vector3(0,0.55,0),0.8);
-}
-makePSU(0,0.85,'V1');makePSU(1,2.55,'V2');
-function drawPSU(i){
-  const cv=psCv[i],c=cv.getContext('2d'),v=EL(i===0?'V1':'V2').value;
-  c.fillStyle='#071410';c.fillRect(0,0,256,96);
-  c.strokeStyle='rgba(79,209,197,0.4)';c.lineWidth=3;c.strokeRect(3,3,250,90);
-  c.fillStyle='#4FD1C5';c.font='bold 40px Outfit, sans-serif';c.textAlign='center';
-  c.fillText(v.toFixed(2)+' V',128,62);
-  psTex[i].needsUpdate=true;
-}
-
-function cable(ax,ay,az,bx,by,bz,mat){
-  const a=new THREE.Vector3(ax,ay,az),b=new THREE.Vector3(bx,by,bz);
-  const m=a.clone().lerp(b,0.5);m.y=Math.max(a.y,b.y)+0.18;
-  const t=new THREE.Mesh(new THREE.TubeGeometry(new THREE.CatmullRomCurve3([a,m,b]),24,0.015,8),mat);
-  t.castShadow=true;scene.add(t);
-}
-cable(0.72,0.99,0.35,0.80,0.60,0.70,MAT.cableRed);
-cable(0.98,0.99,0.35,0.80,0.60,1.50,MAT.cableBlk);
-cable(2.42,0.99,0.35,2.65,0.60,0.70,MAT.cableRed);
-cable(2.68,0.99,0.35,2.65,0.60,1.50,MAT.cableBlk);
-
+/* PUNTO DE PRUEBA: un poste metálico clavado en el agujero del nodo, con su
+   capuchón de color en lo alto y, sobre él, el halo que pulsa cuando se
+   selecciona el nodo. Es lo que el alumno toca (o el multímetro) para medir. */
 const TP_GLOW={};
-function makeTP(node,x,z,mat,color,name,info){
-  const g=new THREE.Group();g.position.set(x,0,z);scene.add(g);
-  const post=sh(new THREE.Mesh(new THREE.CylinderGeometry(0.028,0.034,0.16,12),mat));post.position.y=0.66;g.add(post);
-  const glow=new THREE.Mesh(new THREE.SphereGeometry(0.045,12,10),new THREE.MeshBasicMaterial({color,transparent:true,opacity:0.45,toneMapped:false}));
-  glow.position.y=0.78;glow.raycast=()=>{};g.add(glow);TP_GLOW[node]=glow;
+function puntoPrueba(node,hueco,colCap,colHex,name,info){
+  const g=new THREE.Group();
+  const poste=new THREE.Mesh(new THREE.CylinderGeometry(0.02,0.02,0.30,10),MATP.cromo);
+  poste.position.y=0.12;g.add(poste);
+  const cap=new THREE.Mesh(new THREE.CylinderGeometry(0.055,0.065,0.10,16),std({color:colCap,roughness:0.55}));
+  cap.position.y=0.30;g.add(cap);
+  const glow=new THREE.Mesh(new THREE.SphereGeometry(0.05,12,10),new THREE.MeshBasicMaterial({color:colHex,transparent:true,opacity:0.45,toneMapped:false}));
+  glow.position.y=0.40;glow.raycast=()=>{};g.add(glow);TP_GLOW[node]=glow;
+  g.position.copy(hueco);
   g.userData={node,title:name,info};
-  addHoverLabel(g,name,'#4FD1C5',new THREE.Vector3(0,1.02,0),0.7);
+  rotula(g,name,'#4FD1C5',0.62);
+  return g;
 }
-makeTP(2,1.45,0.70,MAT.jackRed,0x4FD1C5,'TP-A · nodo A','Punto de prueba del nodo A: clic para ver su balance de corrientes (LCK).');
-makeTP(3,2.05,0.70,MAT.jackRed,0x4FD1C5,'TP-B · nodo B','Punto de prueba del nodo B: clic para ver su balance de corrientes (LCK).');
-makeTP(0,1.75,1.50,MAT.jackBlk,0x8a9299,'TP-ref · 0 V','Referencia de la red (la tierra del esquema): también cumple la LCK.');
+
+/* LA ZONA DE MONTAJE: la red es siempre la misma (sólo cambian los valores, que
+   repintan las bandas), así que se arma una vez. */
+const RG={};
+(function armaCircuito(){
+  BANCO.userData.limpia();BANCO.userData.reiniciaRieles();
+  function wire(a,b,col,o){const w=P3.puente(MATP,a,b,Object.assign({color:col},o||{}));circG.add(w);return w;}
+  function res(id,c1,f1,c2,f2){
+    const g=P3.resistorAxial(MATP,{ohm:EL(id).value,paso:Math.abs(c2-c1)*0.1});
+    const A=H(c1,f1),B=H(c2,f2);g.position.copy(A).lerp(B,0.5);g.position.y=A.y;
+    g.userData.el=id;circG.add(g);rotula(g,id,'#4FD1C5',0.30);RG[id]=g;return g;
+  }
+  // malla superior: P —R1— A —R3— B —R5— Q (filas alternadas: la columna une las patas)
+  res('R1',4,'c',8,'c');
+  res('R3',8,'a',14,'a');
+  res('R5',14,'c',18,'c');
+  // ramas a tierra, por detrás del canal: R2 cuelga de A y R4 de B
+  res('R2',8,'h',12,'h');
+  wire(H(8,'e'),H(8,'f'),cableMat.azul,{minAlto:0.18,alto:0.2});
+  wire(H(12,'j'),railNear('-',12),cableMat.negro);
+  res('R4',14,'h',18,'h');
+  wire(H(14,'e'),H(14,'f'),cableMat.azul,{minAlto:0.18,alto:0.2});
+  wire(H(18,'j'),railNear('-',18),cableMat.negro);
+  // los puntos de prueba de los nodos A, B y de la referencia
+  circG.add(puntoPrueba(2,H(8,'e'),0xd64545,0x4FD1C5,'TP-A · nodo A','Punto de prueba del nodo A: clic para ver su balance de corrientes (LCK).'));
+  circG.add(puntoPrueba(3,H(14,'e'),0xd64545,0x4FD1C5,'TP-B · nodo B','Punto de prueba del nodo B: clic para ver su balance de corrientes (LCK).'));
+  circG.add(puntoPrueba(0,railNear('-',11),0x14181c,0x8a9299,'TP-ref · 0 V','Referencia de la red (la tierra del esquema): también cumple la LCK.'));
+  // las fuentes: V1 (+) a la entrada de R1 y V2 (+) al extremo de R5; los dos (−) a la referencia
+  const cab=(i,j,h,c)=>{const w=BANCO.userData.cable(i,j,h,c,{alto:0.09});w.userData.tubo.material.roughness=0.8;return w;};
+  cab(0,0,H(4,'d'),cableMat.rojo);
+  cab(0,1,railNear('-',2),cableMat.negro);
+  cab(1,0,H(18,'d'),cableMat.naranja);
+  cab(1,1,railNear('-',20),cableMat.negro);
+  circG.traverse(o=>{if(o.isMesh){o.castShadow=true;o.receiveShadow=true;}});
+})();
+BANCO.traverse(o=>{if(o.isMesh){o.castShadow=true;o.receiveShadow=true;}});
+scene.add(BANCO);
+
+function drawPSU(i){
+  const I=PS[i],cx=I.cx,cv=I.cv,w=cv.width,h=cv.height,v=EL(i===0?'V1':'V2').value;
+  cx.clearRect(0,0,w,h);
+  cx.fillStyle='#08120f';cx.fillRect(0,0,w,h);
+  cx.fillStyle='#4FD1C5';cx.textAlign='center';
+  cx.font='bold '+Math.round(h*0.22)+'px monospace';
+  cx.fillText(i===0?'V1':'V2',w/2,h*0.30);
+  cx.font='bold '+Math.round(h*0.44)+'px monospace';
+  cx.fillText(v.toFixed(2)+' V',w/2,h*0.80);
+  I.tex.needsUpdate=true;
+}
 
 function refreshNet3D(){
-  ['R1','R2','R3','R4','R5'].forEach(id=>{
-    const e=EL(id),r=RES3D[id],b=bandsFor(e.value);
-    [b.d1,b.d2,b.mult].forEach((dig,i)=>r.bands[i].material.color.set(BAND_COLORS[dig]));
-    r.bands[3].material.color.set('#c9a227'); // oro = ±5 % (serie E12)
-  });
+  ['R1','R2','R3','R4','R5'].forEach(id=>RG[id].userData.ponValor(EL(id).value));
   drawPSU(0);drawPSU(1);
 }
 
@@ -545,10 +534,10 @@ function toastEl(id){
    8) MODOS + SELECCIÓN
    ============================================================ */
 const MODE_META={
-  explora:{nombre:'Explora',cam:[[3.1,2.5,7.2],[0.5,1.3,0.1]],mision:'Reconoce la red: 2 fuentes, 5 resistores, los nodos A y B, y las 3 mallas.'},
-  nodos:{nombre:'Nodos · LCK',cam:[[-0.2,2.1,3.9],[-0.9,1.75,-0.8]],mision:'LCK: en cada nodo, la suma algebraica de corrientes es cero. Selecciona un nodo.'},
-  mallas:{nombre:'Mallas · LVK',cam:[[-0.1,2.2,4.3],[-0.9,1.75,-0.8]],mision:'LVK: alrededor de cualquier lazo cerrado, subidas y caídas de tensión suman cero.'},
-  reto:{nombre:'Reto',cam:[[0.6,2.3,5.6],[0.2,1.3,0.2]],mision:'Predice V_A y V_B ANTES de que el simulador te los muestre.'},
+  explora:{nombre:'Explora',cam:[[0,4.3,6.9],[0,1.15,0.5]],mision:'Reconoce la red: 2 fuentes, 5 resistores, los nodos A y B, y las 3 mallas.'},
+  nodos:{nombre:'Nodos · LCK',cam:[[0,4.0,6.1],[0,1.45,0.1]],mision:'LCK: en cada nodo, la suma algebraica de corrientes es cero. Selecciona un nodo.'},
+  mallas:{nombre:'Mallas · LVK',cam:[[0,4.0,6.1],[0,1.45,0.1]],mision:'LVK: alrededor de cualquier lazo cerrado, subidas y caídas de tensión suman cero.'},
+  reto:{nombre:'Reto',cam:[[0,4.1,6.8],[0,1.1,0.5]],mision:'Predice V_A y V_B ANTES de que el simulador te los muestre.'},
 };
 /* Valores de la red (5 R + 2 fuentes) <-> red viva. Explora y Reto usan REDES DISTINTAS:
    así, cambiar de pestaña nunca muestra V_A y V_B del mismo caso que se está retando. */

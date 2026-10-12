@@ -53,7 +53,7 @@
 (function () {
   'use strict';
   const mount = document.getElementById('stage');
-  const S = createStage(mount, { cam: [3.4, 2.6, 7.6], target: [0.5, 1.2, 0.3], bgTop: '#0d1a1a', bgBot: '#040a08', bloom: 0.35, minD: 3.0, maxD: 18 });
+  const S = createStage(mount, { cam: [0, 4.5, 6.9], target: [0, 1.2, 0.45], bgTop: '#0d1a1a', bgBot: '#040a08', bloom: 0.35, minD: 3.0, maxD: 18 });
   const synth = makeSynth();
 
   function el(id) { return document.getElementById(id); }
@@ -186,21 +186,6 @@
   };
   function std(spec) { return new THREE.MeshStandardMaterial(spec); }
 
-  const BAND_COLORS = [0x1a1a1a, 0x8B4513, 0xff0000, 0xffa500, 0xffff00, 0x00ff00, 0x0000ff, 0x8B00FF, 0x808080, 0xffffff];
-  function bandsFor(ohms) {
-    const s = ohms.toExponential(1).split('e');
-    const digit1 = Math.floor(Number(s[0]));
-    const digit2 = Math.round((Number(s[0]) - digit1) * 10);
-    const exp = Number(s[1]);
-    return [BAND_COLORS[digit1], BAND_COLORS[digit2], BAND_COLORS[Math.max(0, exp)] || 0x1a1a1a];
-  }
-  function paintBands(group, ohms) {
-    const bands = bandsFor(ohms);
-    if (group.userData.bandMeshes) {
-      group.userData.bandMeshes.forEach((m, i) => m.material.color.setHex(bands[i]));
-    }
-  }
-
   /* Los nombres con los que trabaja la biblioteca de piezas (`P3`, que el molde
      ya importa), traducidos una vez a los materiales de este laboratorio. */
   const MATP = {
@@ -213,39 +198,6 @@
     blanco: std({ color: 0xd7dee6, roughness: 0.4, metalness: 0.2 }),
     ceramica: std({ color: 0xd7dee6, roughness: 0.6, metalness: 0.05 }),
   };
-  /* LOS COMPONENTES, con la forma que tienen en la mano. Lo que convierte un
-     taco en un componente son las PATAS —por donde entra la corriente y por
-     donde se suelda— y las MARCAS: las bandas de la resistencia, la banda del
-     catodo, la muesca de la patilla 1, la franja del negativo. Cada marca evita
-     una averia distinta y ninguna estaba dibujada. */
-  function makeResistor3D() {
-    const g = P3.resistencia(MATP, { largo: 0.26, d: 0.09, patas: 0.10, paso: 0.38,
-      bandas: [0x1a1a1a, 0x1a1a1a, 0x1a1a1a], cuerpo: MAT.resistorBody.color });
-    g.userData.bandMeshes = g.userData.bandas;
-    g.userData.bands = g.userData.bandas;
-    g.userData.body = g.userData.cuerpo;
-    return g;
-  }
-  function makeDIP3D() {
-    const g = P3.dip(MATP, { pines: 8, paso: 0.075, ancho: 0.17, alto: 0.055, patas: 0.09 });
-    g.userData.body = g.userData.cuerpo;
-    return g;
-  }
-  function makeDisplayBox(w, h, dp, cw, ch) {
-    const g = new THREE.Group();
-    const frame = new THREE.Mesh(new THREE.BoxGeometry(w, h, dp), std({ color: 0x111318, roughness: 0.7, metalness: 0.2 }));
-    g.add(frame);
-    const canvas = document.createElement('canvas');
-    canvas.width = cw; canvas.height = ch;
-    const ctx = canvas.getContext('2d');
-    const tex = new THREE.CanvasTexture(canvas);
-    const screen = new THREE.Mesh(new THREE.PlaneGeometry(w * 0.9, h * 0.82), new THREE.MeshBasicMaterial({ map: tex }));
-    screen.position.z = dp / 2 + 0.002;
-    g.add(screen);
-    g.userData = { canvas, ctx, tex };
-    return g;
-  }
-
   // ---------- Glifos de esquemático ----------
   function line(ctx, x1, y1, x2, y2, w, col) {
     ctx.strokeStyle = col || '#8fe3d0'; ctx.lineWidth = w || 2;
@@ -474,53 +426,204 @@
   }
 
   // ---------- Escena: tablero ----------
+  /* El pizarrón (esquemático + lazo de histéresis) va arriba y al fondo; debajo, el
+     montaje REAL sobre un protoboard: LM393 en su DIP-8, R1, R2 y Rpu con las bandas
+     de su valor, el cableado que cambia entre inversor y no inversor, y en el
+     estante la fuente, el generador (rampa + ruido), el osciloscopio y el medidor. */
   const boardCanvas = document.createElement('canvas');
   boardCanvas.width = 1024; boardCanvas.height = 768;
   const bctx = boardCanvas.getContext('2d');
   const boardTex = new THREE.CanvasTexture(boardCanvas);
   const boardMat = new THREE.MeshBasicMaterial({ map: boardTex });
-  const boardPlane = new THREE.Mesh(new THREE.PlaneGeometry(4.2, 3.15), boardMat);
-  boardPlane.position.set(0.5, 2.0, -1.2);
-  const boardFrame = new THREE.Mesh(new THREE.BoxGeometry(4.32, 3.27, 0.06), std({ color: 0x1b1f24, roughness: 0.8, metalness: 0.2 }));
-  boardFrame.position.set(0.5, 2.0, -1.24);
-  const boardG = new THREE.Group();
-  boardG.add(boardFrame, boardPlane);
-  S.scene.add(boardG);
 
   // ---------- Escena: banco ----------
-  const benchG = new THREE.Group();
-  const mesa = new THREE.Mesh(new THREE.BoxGeometry(3.6, 0.12, 1.8), std({ color: 0x2b2f36, roughness: 0.85, metalness: 0.1 }));
-  mesa.position.set(0.5, 0.55, 1.0);
-  const pcb = new THREE.Mesh(new THREE.BoxGeometry(2.6, 0.03, 1.2), std({ color: 0x0e4d33, roughness: 0.7, metalness: 0.1 }));
-  pcb.position.set(0.5, 0.62, 1.0);
-  benchG.add(mesa, pcb);
+  /* ---------- Piezas del banco que la biblioteca aún no trae ---------- */
+  // Código EIA de tres cifras de un cerámico: 100 nF → «104».
+  function codigoEIA(F) {
+    const pF = F * 1e12;
+    let e = Math.floor(Math.log10(pF)) - 1;
+    let m = Math.round(pF / Math.pow(10, e));
+    if (m >= 100) { m = Math.round(m / 10); e += 1; }
+    return String(m) + String(Math.max(0, e));
+  }
+  // Cerámico de disco: lenteja ocre con el código EIA impreso y dos patas rectas.
+  function ceramicoDisco(F, volt) {
+    const R = 0.115, t = 0.07, paso = 0.1, yc = R + 0.10;
+    const g = new THREE.Group();
+    const cuerpo = new THREE.Mesh(P3.revolucion([[0, -t / 2], [R * 0.90, -t / 2], [R, -t * 0.18],
+      [R, t * 0.18], [R * 0.90, t / 2], [0, t / 2]], { seg: 32 }),
+      new THREE.MeshStandardMaterial({ color: 0xc98a3a, roughness: 0.55, metalness: 0.05 }));
+    cuerpo.rotation.x = Math.PI / 2; cuerpo.position.y = yc; cuerpo.castShadow = true; g.add(cuerpo);
+    const cv = document.createElement('canvas'); cv.width = 256; cv.height = 192;
+    const c = cv.getContext('2d');
+    c.fillStyle = '#3a2410'; c.textAlign = 'center'; c.textBaseline = 'middle';
+    c.font = 'bold 92px sans-serif'; c.fillText(codigoEIA(F), 128, 78);
+    c.font = '52px sans-serif'; c.fillText(volt || '50V', 128, 150);
+    const tx = new THREE.CanvasTexture(cv); tx.colorSpace = THREE.SRGBColorSpace; tx.anisotropy = 8;
+    const tinta = new THREE.Mesh(new THREE.PlaneGeometry(R * 1.45, R * 1.45 * 0.75),
+      new THREE.MeshStandardMaterial({ map: tx, transparent: true, roughness: 0.6, depthWrite: false,
+        polygonOffset: true, polygonOffsetFactor: -2, polygonOffsetUnits: -2 }));
+    tinta.position.set(0, yc, t / 2 + 0.002); g.add(tinta);
+    for (const sx of [-1, 1]) {
+      const pata = new THREE.Mesh(new THREE.CylinderGeometry(0.011, 0.011, yc + 0.12, 8), MATP.acero);
+      pata.position.set(sx * paso / 2, (yc - 0.12) / 2 - 0.0, 0); g.add(pata);
+    }
+    g.userData = { F: F, paso: paso };
+    return g;
+  }
+  // Osciloscopio de banco (P3.osciloscopioBanco) reducido sobre el estante, con un
+  // lienzo propio para la pantalla y cables que salen de sus BNC.
+  function osciloscopioEnEstante(BANCO, x, esc, cw) {
+    const g = P3.osciloscopioBanco(MATP, { ancho: 1.9, alto: 1.2, fondo: 0.8, pantallaX: -0.30, pantallaY: 0.12,
+      visor: [1.04, 0.80],
+      mandos: [{ id: 'tiempo', x: 0.50, y: 0.34, r: 0.085, rotulo: 'BASE T.' }, { id: 'nivel', x: 0.80, y: 0.34, r: 0.085, rotulo: 'NIVEL' },
+               { id: 'v1', x: 0.50, y: 0.00, r: 0.085, rotulo: 'V/DIV' }, { id: 'v2', x: 0.80, y: 0.00, r: 0.085, rotulo: 'POS.' }],
+      bnc: [{ x: 0.55, color: 0xe0c040 }, { x: 0.82, color: 0x4fc3f7 }] });
+    const vis = g.userData.visor;
+    const cv = document.createElement('canvas'); cv.width = cw || 416; cv.height = Math.round((cw || 416) * vis.alto / vis.ancho);
+    const cx = cv.getContext('2d');
+    const tex = new THREE.CanvasTexture(cv); tex.colorSpace = THREE.SRGBColorSpace; tex.anisotropy = 8;
+    const screen = new THREE.Mesh(new THREE.PlaneGeometry(vis.ancho, vis.alto), new THREE.MeshBasicMaterial({ map: tex, toneMapped: false }));
+    g.userData.pantalla.add(screen);
+    g.scale.setScalar(esc);
+    g.position.set(x, BANCO.userData.estanteY + g.userData.apoyo * esc, -1.15);
+    BANCO.add(g);
+    return { g: g, cv: cv, cx: cx, tex: tex, screen: screen, esc: esc };
+  }
+  // Un cable de colores desde una boca de instrumento (en coordenadas del mundo) hasta un agujero.
+  function cableDesde(BANCO, circG, boca, agujero, color) {
+    const prot = BANCO.userData.prot, K = BANCO.userData.K;
+    const B = boca.clone().sub(prot.position).multiplyScalar(1 / K);
+    const w = P3.puente(MATP, agujero, B, { color: color, r: 0.026 / K, alto: 0.30, pinB: false });
+    circG.add(w); return w;
+  }
+  function bocaInstrumento(inst, j) {
+    inst.g.updateMatrixWorld(true);
+    return inst.bocas[j].clone().applyMatrix4(inst.g.matrixWorld);
+  }
+  function bocaBNC(esc, j) {
+    esc.g.updateMatrixWorld(true);
+    const b = esc.g.userData.bnc[j];
+    return new THREE.Vector3(0, 0, 0.10).applyMatrix4(b.matrixWorld);
+  }
+  // Un lienzo pensado para `base` px de ancho se pinta escalado sobre el real, sin tocar sus cotas.
+  function lienzo(box, base) {
+    const cv = box.userData.canvas, c = box.userData.ctx, k = cv.width / base;
+    c.setTransform(k, 0, 0, k, 0, 0);
+    return { c: c, W: cv.width / k, H: cv.height / k };
+  }
+  function cajaDe(inst) { return { userData: { canvas: inst.cv, ctx: inst.cx, tex: inst.tex } }; }
+  // Recorta el pizarrón al tramo del lienzo (480 de 768 px) que de verdad se pinta; las UV
+  // remapeadas hacen que boardClick siga leyendo píxeles de lienzo correctos.
+  function pizarronRecortado(boardMat, marcoMat) {
+    const FR = 480 / 768;
+    const geo = new THREE.PlaneGeometry(4.2, 3.15 * FR);
+    const uv = geo.attributes.uv; for (let i = 0; i < uv.count; i++) uv.setY(i, 1 - FR + uv.getY(i) * FR);
+    const plano = new THREE.Mesh(geo, boardMat);
+    const marco = new THREE.Mesh(new THREE.BoxGeometry(4.32, 3.15 * FR + 0.12, 0.06), marcoMat);
+    marco.position.z = -0.04;
+    const g = new THREE.Group(); g.add(marco, plano);
+    g.scale.setScalar(0.78); g.position.set(0, 2.5, -1.55);
+    return { g: g, plano: plano, marco: marco };
+  }
+  const PZ = pizarronRecortado(boardMat, std({ color: 0x1b1f24, roughness: 0.8, metalness: 0.2 }));
+  const boardG = PZ.g, boardPlane = PZ.plano, boardFrame = PZ.marco;
+  S.scene.add(boardG);
 
-  // Todos apoyan en la CARA de la placa: la biblioteca dibuja cada
-  // componente con y = 0 en la placa y las patas por debajo.
-  const Y_PCB = 0.635;
-  const r1G = makeResistor3D(); r1G.position.set(-0.7, Y_PCB, 1.0); benchG.add(r1G);
-  const r2G = makeResistor3D(); r2G.position.set(-0.1, Y_PCB, 1.0); benchG.add(r2G);
-  const rpuG = makeResistor3D(); rpuG.position.set(0.5, Y_PCB, 1.0); benchG.add(rpuG);
-  const icG = makeDIP3D(); icG.position.set(1.15, Y_PCB, 1.0); benchG.add(icG);
+  const BANCO = P3.bancoPrototipos(MATP, { cols: 18, K: 1.7, instrumentos: 3,
+    dims: [{ ancho: 0.84, alto: 0.56, visorAlto: 0.60 }, { ancho: 0.84, alto: 0.50 }, { ancho: 0.92, alto: 0.64, visorAlto: 0.68 }] });
+  const benchG = BANCO;
+  const circG = BANCO.userData.circ, H = BANCO.userData.H;
+  const railNear = BANCO.userData.rielCerca;
+  const fuenteInst = BANCO.userData.instrumento(0);
+  const genInst = BANCO.userData.instrumento(1);
+  const medidorInst = BANCO.userData.instrumento(2);
+  fuenteInst.g.position.x = -1.72; genInst.g.position.x = -0.72; medidorInst.g.position.x = 1.62;
+  const scopeInst = osciloscopioEnEstante(BANCO, 0.42, 0.52, 416);
+  const fuenteBox = cajaDe(fuenteInst), genBox = cajaDe(genInst), medidorBox = cajaDe(medidorInst), scopeBox = cajaDe(scopeInst);
+  const CABLE = { rojo: 0xd64545, negro: 0x1b1f24, azul: 0x2a5fa8, amarillo: 0xe0a21c, verde: 0x2f9e5b, naranja: 0xe07b22 };
+
+  /* LA ZONA DE MONTAJE. Inversor y no inversor se cablean distinto —quién entra
+     por IN− o por IN+, y si hace falta el divisor de Vref—, así que la placa se
+     rehace al cambiar de topología; los valores sólo repintan bandas. */
+  let r1G = null, r2G = null, rpuG = null, icG = null, circKey = '';
+  function armaCircuito() {
+    const key = state.topology;
+    if (key === circKey) return;
+    circKey = key;
+    BANCO.userData.limpia(); BANCO.userData.reiniciaRieles();
+    const inv = state.topology === 'inv';
+    function wire(a, b, col, o) { const w = P3.puente(MATP, a, b, Object.assign({ color: col }, o || {})); circG.add(w); return w; }
+    function res(ohm, c1, f1, c2, f2) {
+      const g = P3.resistorAxial(MATP, { ohm: ohm, paso: Math.abs(c2 - c1) * 0.1 });
+      g.position.copy(H(c1, f1)).lerp(H(c2, f2), 0.5); g.position.y = H(c1, f1).y;
+      circG.add(g); return g;
+    }
+    // LM393: 1 OUT · 2 IN− · 3 IN+ · 4 GND delante; 8 V+ detrás (el comparador B queda libre).
+    const DC = 7;
+    icG = P3.dipRotulado(MATP, { pines: 8, rotulo: 'LM393', rotulo2: 'CEN LABS' });
+    icG.position.copy(H(DC + 1.5, 'e')).lerp(H(DC + 1.5, 'f'), 0.5); icG.position.y = H(DC, 'e').y;
+    circG.add(icG);
+    const alto = { minAlto: 0.30 };
+    wire(H(DC, 'g'), railNear('+', DC), CABLE.rojo);                  // pin 8 → +Vcc
+    wire(H(DC + 3, 'd'), railNear('-', DC + 3), CABLE.negro, alto);   // pin 4 → GND
+    // Rpu (colector abierto): de la salida a +Vcc
+    rpuG = res(RPU, DC, 'd', DC - 4, 'd');
+    wire(H(DC - 4, 'e'), railNear('+', DC - 4), CABLE.rojo, alto);
+    // R2: realimentación positiva, de la salida a IN+ (puente corto de su extremo a la salida)
+    r2G = res(curR2(), DC + 2, 'b', DC - 2, 'b');
+    wire(H(DC - 2, 'c'), H(DC, 'c'), CABLE.verde);
+    let nodoIN, nodoINb;
+    if (inv) {
+      // vin entra por IN−; R1 de IN+ a GND
+      r1G = res(curR1(), DC + 2, 'c', DC + 6, 'c');
+      wire(H(DC + 6, 'e'), railNear('-', DC + 6), CABLE.negro, alto);
+      nodoIN = H(DC + 1, 'a'); nodoINb = H(DC + 1, 'c');
+    } else {
+      // vin entra por R1 hasta IN+; Vref = Vcc/2 en IN− con un divisor de dos resistores iguales
+      r1G = res(curR1(), DC + 2, 'c', DC + 6, 'c');
+      nodoIN = H(DC + 6, 'a'); nodoINb = H(DC + 6, 'b');
+      wire(H(DC + 1, 'd'), H(DC + 7, 'g'), CABLE.amarillo, alto);      // IN− → nodo del divisor
+      const ra = res(10000, DC + 7, 'h', DC + 10, 'h'); ra.userData.title = 'Divisor Vref: 10 kΩ a +Vcc';
+      wire(H(DC + 10, 'j'), railNear('+', DC + 10), CABLE.rojo);
+      const rb = res(10000, DC + 7, 'i', DC + 4, 'i'); rb.userData.title = 'Divisor Vref: 10 kΩ a GND';
+      wire(H(DC + 4, 'g'), railNear('-', DC + 4), CABLE.negro);
+    }
+    // instrumentos: Vcc en los rieles; el generador (vin) en su nodo; el medidor en IN+
+    cableDesde(BANCO, circG, bocaInstrumento(fuenteInst, 0), railNear('+', 3), CABLE.rojo);
+    cableDesde(BANCO, circG, bocaInstrumento(fuenteInst, 1), railNear('-', 4), CABLE.negro);
+    cableDesde(BANCO, circG, bocaInstrumento(genInst, 0), nodoIN, CABLE.amarillo);
+    cableDesde(BANCO, circG, bocaInstrumento(genInst, 1), railNear('-', 5), CABLE.negro);
+    cableDesde(BANCO, circG, bocaBNC(scopeInst, 0), nodoINb, CABLE.amarillo);
+    cableDesde(BANCO, circG, bocaBNC(scopeInst, 1), H(DC, 'a'), CABLE.naranja);
+    cableDesde(BANCO, circG, bocaInstrumento(medidorInst, 0), H(DC + 2, 'd'), CABLE.verde);
+    cableDesde(BANCO, circG, bocaInstrumento(medidorInst, 1), railNear('-', 14), CABLE.negro);
+    circG.traverse(function (o) { if (o.isMesh) { o.castShadow = true; o.receiveShadow = true; } });
+  }
+  armaCircuito();
+  boardPlane.castShadow = false; boardFrame.receiveShadow = true;
   S.scene.add(benchG);
 
   function refreshBenchSel() {
-    paintBands(r1G, curR1());
-    paintBands(r2G, curR2());
-    paintBands(rpuG, RPU);
-    icG.userData.body.material.color.setHex(DEVS.lm393.color);
+    armaCircuito();
+    r1G.userData.ponValor(curR1());
+    r2G.userData.ponValor(curR2());
   }
 
-  const fuenteBox = makeDisplayBox(0.7, 0.42, 0.06, 220, 132);
-  fuenteBox.position.set(-1.35, 0.95, 1.0); fuenteBox.rotation.y = 0.06 * Math.PI;
-  const medidorBox = makeDisplayBox(0.7, 0.5, 0.06, 220, 156);
-  medidorBox.position.set(1.75, 0.98, 1.0); medidorBox.rotation.y = -0.06 * Math.PI;
-  const scopeBox = makeDisplayBox(1.0, 0.62, 0.06, 260, 160);
-  scopeBox.position.set(0.5, 1.42, 0.62); scopeBox.rotation.x = -0.06 * Math.PI;
-  benchG.add(fuenteBox, medidorBox, scopeBox);
-
+  function drawGenScreen() {
+    const L = lienzo(genBox, 220), c = L.c, W = L.W, Hh = L.H;
+    c.fillStyle = '#0b1310'; c.fillRect(0, 0, W, Hh);
+    c.fillStyle = '#5fb8ff'; c.font = 'bold 15px sans-serif';
+    c.fillText('rampa 0 – ' + fmtV(curVCC()), 12, 28);
+    c.fillStyle = '#8fe3d0'; c.font = '13px sans-serif';
+    c.fillText('ruido ' + (curNoise() > 0 ? fmtV(curNoise()) + ' pico' : 'sin ruido'), 12, 50);
+    c.strokeStyle = '#5fb8ff'; c.lineWidth = 2; c.beginPath();
+    c.moveTo(12, Hh * 0.88); c.lineTo(W / 2, Hh * 0.62); c.lineTo(W - 12, Hh * 0.88);
+    c.stroke();
+    genBox.userData.tex.needsUpdate = true;
+  }
   function drawFuenteScreen() {
-    const { ctx, canvas, tex } = fuenteBox.userData;
+    const L = lienzo(fuenteBox, 220), ctx = L.c, canvas = { width: L.W, height: L.H }, tex = fuenteBox.userData.tex;
     ctx.fillStyle = '#0b1310'; ctx.fillRect(0, 0, canvas.width, canvas.height);
     ctx.fillStyle = '#8fe3d0'; ctx.font = 'bold 16px sans-serif';
     ctx.fillText('Vcc = ' + fmtV(curVCC()), 14, 30);
@@ -531,7 +634,7 @@
     tex.needsUpdate = true;
   }
   function drawMedidorScreen() {
-    const { ctx, canvas, tex } = medidorBox.userData;
+    const L = lienzo(medidorBox, 220), ctx = L.c, canvas = { width: L.W, height: L.H }, tex = medidorBox.userData.tex;
     ctx.fillStyle = '#0b1310'; ctx.fillRect(0, 0, canvas.width, canvas.height);
     ctx.font = '13px sans-serif';
     if (state.hide) {
@@ -553,7 +656,7 @@
     tex.needsUpdate = true;
   }
   function drawScopeScreen() {
-    const { ctx, canvas, tex } = scopeBox.userData;
+    const L = lienzo(scopeBox, 260), ctx = L.c, canvas = { width: L.W, height: L.H }, tex = scopeBox.userData.tex;
     ctx.fillStyle = '#05100c'; ctx.fillRect(0, 0, canvas.width, canvas.height);
     ctx.strokeStyle = '#12312a'; ctx.lineWidth = 1;
     for (let i = 0; i <= 4; i++) { const y = 10 + i * (canvas.height - 20) / 4; line(ctx, 10, y, canvas.width - 10, y, 1, '#12312a'); }
@@ -581,7 +684,8 @@
     ctx.fillText('vin / vout · osciloscopio', 12, canvas.height - 4);
     tex.needsUpdate = true;
   }
-  function refreshBenchDyn() { drawFuenteScreen(); drawMedidorScreen(); drawScopeScreen(); }
+  function refreshBenchDyn() { drawFuenteScreen(); drawGenScreen(); drawMedidorScreen(); drawScopeScreen(); }
+
 
   // ---------- HUD ----------
   el('hud').innerHTML = `

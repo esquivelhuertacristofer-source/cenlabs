@@ -1,6 +1,6 @@
 // ============================== 1) ESCENA ==============================
 const mount=document.getElementById('stage');
-const S=createStage(mount,{cam:[2.6,3.1,6.3],target:[1.3,1.1,0.5],bgTop:'#0d1a17',bgBot:'#04060a',bloom:0.3,minD:2.6,maxD:14});
+const S=createStage(mount,{cam:[0,4.3,6.9],target:[0,1.15,0.5],bgTop:'#0d1a17',bgBot:'#04060a',bloom:0.3,minD:2.6,maxD:14});
 const {scene}=S;
 const synth=makeSynth({type:'sine',type2:'square',filterFreq:1200,Q:1});
 
@@ -250,15 +250,10 @@ function drawBoard(){
   bTex.needsUpdate=true;
 }
 const boardG=new THREE.Group();
-boardG.position.set(1.3,1.95,-0.55);
+boardG.position.set(0,2.3,-1.55);boardG.scale.setScalar(0.85);
 scene.add(boardG);
-const bFrame=sh(roundedBox(3.2,2.0,0.08,std({color:0x1a2420,roughness:0.7}),0.04));
+const bFrame=sh(roundedBox(3.14,2.4,0.08,std({color:0x1a2420,roughness:0.7}),0.04));
 boardG.add(bFrame);
-[-1.35,1.35].forEach(sx=>{
-  const leg=sh(new THREE.Mesh(new THREE.CylinderGeometry(0.05,0.05,1.85,10),MAT.bench));
-  leg.position.set(sx,-1.9,-0.02);
-  boardG.add(leg);
-});
 const bCv=document.createElement('canvas');bCv.width=1024;bCv.height=768;
 const bTex=new THREE.CanvasTexture(bCv);
 bTex.colorSpace=THREE.SRGBColorSpace;bTex.minFilter=THREE.LinearFilter;bTex.generateMipmaps=false;
@@ -295,103 +290,76 @@ function toastResistor(k){
 }
 
 // ============================== 6) BANCO 3D ==============================
-const bench=sh(roundedBox(3.0,0.5,1.9,MAT.bench,0.05));
-bench.position.set(1.3,0.25,0.7);
-scene.add(bench);
-
-const RES_X=[0.35,0.95,1.55,2.15];
-const RES_X_REV=[...RES_X].reverse();
-const RES3D={};
+/* El pizarrón (esquema + perfil de voltaje) va arriba y al fondo; debajo, la
+   cadena de 8 resistores MONTADA de verdad sobre un protoboard: cuatro en la
+   fila delantera, de izquierda a derecha, y los otros cuatro en la trasera, de
+   vuelta, cableados a mano con la fuente en el estante. */
 /* Los nombres con los que trabaja la biblioteca de piezas (`P3`, que el molde ya
    importa), traducidos una vez a los materiales de este laboratorio. */
 const MATP={
-  aluminio:MAT.lead, acero:MAT.lead, cromo:MAT.lead, chapa:MAT.lead,
+  aluminio:std({color:0x9aa3ad,roughness:0.34,metalness:0.86}),
+  acero:MAT.lead, cromo:MAT.lead,
   cobre:std({color:0xb87333,roughness:0.35,metalness:0.75}),
+  chapa:std({color:0x8f98a3,roughness:0.40,metalness:0.80}),
   negro:std({color:0x14181e,roughness:0.62,metalness:0.06}),
   goma:std({color:0x14181e,roughness:0.80,metalness:0.02}),
   blanco:std({color:0xd7dee6,roughness:0.40,metalness:0.20}),
   ceramica:std({color:0xd7dee6,roughness:0.60,metalness:0.05}),
 };
-/* LA RESISTENCIA, con la forma que tiene en la mano: cuerpo abarrilado con
-   hombros, las CUATRO BANDAS —tres de valor y la de TOLERANCIA, separada, que
-   es la que dice por que extremo se empieza a leer— y las patas dobladas que
-   bajan a la placa. En un lab de diagnostico esto no es adorno: el primer paso
-   de la busqueda es leer el codigo de colores y comparar con lo medido, y un
-   tubo con cuatro rayas equiespaciadas vale para dos valores segun por donde se
-   lea. */
-function makeRes3D(id,x,z){
-  const g=P3.resistencia(MATP,{largo:0.20,d:0.090,patas:0.05,paso:0.34,
-    bandas:[0x1a1a1a,0x1a1a1a,0x1a1a1a,0x1a1a1a],cuerpo:0x9a815c});
-  g.position.set(x,0.58,z);
-  g.traverse(o=>{ if(o.isMesh){o.castShadow=true;o.receiveShadow=true;} });
-  g.userData.el=id;
-  scene.add(g);RES3D[id]={g,bands:g.userData.bandas};
-  addHoverLabel(g,id,'#4FD1C5',new THREE.Vector3(0,0.20,0),0.7);
-}
-RES_X.forEach((x,i)=>makeRes3D('R'+(i+1),x,0.35));
-RES_X_REV.forEach((x,i)=>makeRes3D('R'+(5+i),x,1.05));
-for(let k=1;k<=8;k++){
-  const {d1,d2,mult}=bandsFor(RNOM[k-1]);
-  const r=RES3D['R'+k];
-  [d1,d2,mult].forEach((dig,i)=>r.bands[i].material.color.set(BAND_COLORS[dig]));
-  r.bands[3].material.color.set('#c9a227');
-}
+const BANCO=P3.bancoPrototipos(MATP,{cols:22,K:1.45,instrumentos:1});
+const prot=BANCO.userData.prot,circG=BANCO.userData.circ,H=BANCO.userData.H,KB=BANCO.userData.K;
+const railNear=BANCO.userData.rielCerca;
+prot.userData.title='Protoboard';prot.userData.info='Placa de pruebas sin soldadura: las cinco posiciones de cada columna están unidas por dentro; los rieles + y − llevan la alimentación a todo lo largo.';
+const fuenteBox=BANCO.userData.instrumento(0);
+fuenteBox.g.position.x=-1.65;   // a la izquierda, sobre sus rieles: los cables no cruzan el visor
+fuenteBox.g.userData.el='V';
+addHoverLabel(fuenteBox.g,'Fuente V','#f0a5a5',new THREE.Vector3(0,0.45,0),0.75);
+const cableMat={rojo:0xd64545,negro:0x1b1f24,azul:0x2a5fa8,amarillo:0xe0a21c,verde:0x2f9e5b,naranja:0xe07b22};
+function rotula(obj,txt,col,y){addHoverLabel(obj,txt,col,new THREE.Vector3(0,y,0),0.5/KB);}
 
-function trace(x1,z1,x2,z2){
-  const dx=x2-x1,dz=z2-z1,len=Math.hypot(dx,dz);
-  const m=sh(new THREE.Mesh(new THREE.BoxGeometry(len,0.012,0.05),MAT.trace));
-  m.position.set((x1+x2)/2,0.515,(z1+z2)/2);
-  m.rotation.y=-Math.atan2(dz,dx);
-  scene.add(m);
-  return m;
-}
-for(let k=1;k<4;k++)trace(RES_X[k-1]+0.17,0.35,RES_X[k]-0.17,0.35);
-for(let k=0;k<3;k++)trace(RES_X_REV[k]-0.17,1.05,RES_X_REV[k+1]+0.17,1.05);
-trace(2.15,0.35+0.17,2.15,1.05-0.17);
+/* LA CADENA, sobre la placa: R1…R4 delante y R5…R8 detrás. Los resistores
+   consecutivos se alternan de fila para no compartir agujero (los une la
+   columna), y el paso de la fila delantera a la trasera se hace con un puente
+   que cruza el canal. Los valores son los nominales; la falla no se dibuja:
+   encontrarla es justo lo que se pide. */
+const RES3D={};
+(function armaCircuito(){
+  BANCO.userData.limpia();BANCO.userData.reiniciaRieles();
+  function wire(a,b,col,o){const w=P3.puente(MATP,a,b,Object.assign({color:col},o||{}));circG.add(w);return w;}
+  function res(k,c1,f1,c2,f2){
+    const g=P3.resistorAxial(MATP,{ohm:RNOM[k-1],paso:Math.abs(c2-c1)*0.1});
+    const A=H(c1,f1),B=H(c2,f2);g.position.copy(A).lerp(B,0.5);g.position.y=A.y;
+    g.userData.el='R'+k;circG.add(g);rotula(g,'R'+k,'#4FD1C5',0.30);RES3D['R'+k]=g;return g;
+  }
+  const C=[3,7,11,15,19];
+  for(let k=1;k<=4;k++)res(k,C[k-1],k%2?'c':'a',C[k],k%2?'c':'a');
+  // el paso al segundo tramo: P4 (col 19) cruza el canal
+  wire(H(19,'e'),H(19,'f'),cableMat.azul,{minAlto:0.18,alto:0.2});
+  for(let k=5;k<=8;k++){const i=k-5;res(k,C[4-i],k%2?'h':'j',C[3-i],k%2?'h':'j');}
+  // la fuente: + a la entrada de R1, − al final de R8 (P8)
+  wire(H(3,'e'),railNear('+',3),cableMat.rojo);
+  const gnd=wire(H(3,'g'),railNear('-',3),cableMat.negro);
+  gnd.userData.title='Referencia (P8)';
+  gnd.userData.info='Terminal de referencia (0 V) — el retorno de la fuente ideal.';
+  BANCO.userData.cable(0,0,railNear('+',1),cableMat.rojo,{alto:0.09});
+  BANCO.userData.cable(0,1,railNear('-',2),cableMat.negro,{alto:0.09});
+  circG.traverse(o=>{if(o.isMesh){o.castShadow=true;o.receiveShadow=true;}});
+})();
+BANCO.traverse(o=>{if(o.isMesh){o.castShadow=true;o.receiveShadow=true;}});
+scene.add(BANCO);
 
-function cable(ax,ay,az,bx,by,bz,mat){
-  const a=new THREE.Vector3(ax,ay,az),b=new THREE.Vector3(bx,by,bz);
-  const m=a.clone().lerp(b,0.5);m.y=Math.max(a.y,b.y)+0.16;
-  const t=new THREE.Mesh(new THREE.TubeGeometry(new THREE.CatmullRomCurve3([a,m,b]),24,0.015,8),mat);
-  t.castShadow=true;scene.add(t);
-  return t;
-}
-
-const psCv=[],psTex=[];
-function makePSU(x,z){
-  const g=new THREE.Group();g.position.set(x,0.72,z);scene.add(g);
-  const box=sh(roundedBox(0.52,0.44,0.40,MAT.psu,0.06));g.add(box);
-  const cv=document.createElement('canvas');cv.width=256;cv.height=96;
-  const tx=new THREE.CanvasTexture(cv);
-  tx.colorSpace=THREE.SRGBColorSpace;tx.minFilter=THREE.LinearFilter;tx.generateMipmaps=false;
-  const pl=new THREE.Mesh(new THREE.PlaneGeometry(0.40,0.15),new THREE.MeshBasicMaterial({map:tx,toneMapped:false}));
-  pl.position.set(0,0.06,0.205);g.add(pl);
-  const postR=sh(new THREE.Mesh(new THREE.CylinderGeometry(0.03,0.03,0.10,10),MAT.jackRed));postR.position.set(-0.13,0.27,0.10);g.add(postR);
-  const postB=sh(new THREE.Mesh(new THREE.CylinderGeometry(0.03,0.03,0.10,10),MAT.jackBlk));postB.position.set(0.13,0.27,0.10);g.add(postB);
-  g.userData={el:'V'};
-  psCv[0]=cv;psTex[0]=tx;
-  addHoverLabel(g,'Fuente V','#f0a5a5',new THREE.Vector3(0,0.55,0),0.8);
-  return g;
-}
 function drawPSU(){
-  const cv=psCv[0],c=cv.getContext('2d');
-  c.fillStyle='#071410';c.fillRect(0,0,256,96);
-  c.strokeStyle='rgba(79,209,197,0.4)';c.lineWidth=3;c.strokeRect(3,3,250,90);
-  c.fillStyle='#4FD1C5';c.font='bold 40px Outfit, sans-serif';c.textAlign='center';
-  c.fillText(V_SRC.toFixed(2)+' V',128,62);
-  psTex[0].needsUpdate=true;
+  const cx=fuenteBox.cx,cv=fuenteBox.cv,w=cv.width,h=cv.height;
+  cx.clearRect(0,0,w,h);
+  cx.fillStyle='#08120f';cx.fillRect(0,0,w,h);
+  cx.fillStyle='#4FD1C5';cx.textAlign='center';
+  cx.font='bold '+Math.round(h*0.22)+'px monospace';
+  cx.fillText('V',w/2,h*0.30);
+  cx.font='bold '+Math.round(h*0.44)+'px monospace';
+  cx.fillText(V_SRC.toFixed(2)+' V',w/2,h*0.80);
+  fuenteBox.tex.needsUpdate=true;
 }
-const psuGroup=makePSU(-0.05,0.35);
 drawPSU();
-
-const groundPost=sh(new THREE.Mesh(new THREE.CylinderGeometry(0.028,0.034,0.16,12),MAT.jackBlk));
-groundPost.position.set(-0.05,0.58,1.05);
-groundPost.userData={title:'Referencia (P8)',info:'Terminal de referencia (0 V) — el retorno de la fuente ideal.'};
-scene.add(groundPost);
-
-cable(-0.05-0.13,0.99,0.35+0.10, RES_X[0]-0.17,0.58,0.35, MAT.cableRed);
-cable(-0.05+0.13,0.99,0.35+0.10, -0.05,0.58,1.05, MAT.cableBlk);
-cable(-0.05,0.58,1.05, RES_X_REV[3]-0.17,0.58,1.05, MAT.cableBlk);
 
 function refreshNet3D(){drawPSU();}
 
@@ -476,9 +444,9 @@ function toastPart(id){
 
 // ============================== 9) MODOS Y SELBAR ==============================
 const MODE_META={
-  explora:{nombre:'Explora',cam:[[2.6,3.1,6.3],[1.3,1.1,0.5]],mision:'Provoca cualquier falla en cualquier resistor y compara las 3 firmas de voltaje en la gráfica de perfil.'},
-  diagnostico:{nombre:'Diagnóstico',cam:[[2.2,2.7,5.6],[1.3,1.4,-0.1]],mision:'Localiza el circuito abierto sellado por bisección — mide el punto medio del tramo sospechoso.'},
-  reto:{nombre:'Reto',cam:[[2.2,2.7,5.6],[1.3,1.4,-0.1]],mision:'Falla sellada de tipo Y posición desconocidos. Mide libremente y reporta tu diagnóstico.'},
+  explora:{nombre:'Explora',cam:[[0,4.3,6.9],[0,1.15,0.5]],mision:'Provoca cualquier falla en cualquier resistor y compara las 3 firmas de voltaje en la gráfica de perfil.'},
+  diagnostico:{nombre:'Diagnóstico',cam:[[0,4.0,6.1],[0,1.45,0.1]],mision:'Localiza el circuito abierto sellado por bisección — mide el punto medio del tramo sospechoso.'},
+  reto:{nombre:'Reto',cam:[[0,4.0,6.1],[0,1.45,0.1]],mision:'Falla sellada de tipo Y posición desconocidos. Mide libremente y reporta tu diagnóstico.'},
 };
 function buildSelBar(){
   const bar=el('selbar');

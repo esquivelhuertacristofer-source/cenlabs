@@ -492,7 +492,7 @@ function makeSynth(opts={}){
 (function () {
   'use strict';
   const mount = document.getElementById('stage');
-  const S = createStage(mount, { cam: [3.4, 2.6, 7.6], target: [0.5, 1.2, 0.3], bgTop: '#0d1a1a', bgBot: '#040a08', bloom: 0.35, minD: 3.0, maxD: 18 });
+  const S = createStage(mount, { cam: [0, 4.5, 6.9], target: [0, 1.2, 0.45], bgTop: '#0d1a1a', bgBot: '#040a08', bloom: 0.35, minD: 3.0, maxD: 18 });
   const synth = makeSynth();
 
   function el(id) { return document.getElementById(id); }
@@ -596,21 +596,6 @@ function makeSynth(opts={}){
   };
   function std(spec) { return new THREE.MeshStandardMaterial(spec); }
 
-  const BAND_COLORS = [0x1a1a1a, 0x8B4513, 0xff0000, 0xffa500, 0xffff00, 0x00ff00, 0x0000ff, 0x8B00FF, 0x808080, 0xffffff];
-  function bandsFor(ohms) {
-    const s = ohms.toExponential(1).split('e');
-    const digit1 = Math.floor(Number(s[0]));
-    const digit2 = Math.round((Number(s[0]) - digit1) * 10);
-    const exp = Number(s[1]);
-    return [BAND_COLORS[digit1], BAND_COLORS[digit2], BAND_COLORS[Math.max(0, exp)] || 0x1a1a1a];
-  }
-  function paintBands(group, ohms) {
-    const bands = bandsFor(ohms);
-    if (group.userData.bandMeshes) {
-      group.userData.bandMeshes.forEach((m, i) => m.material.color.setHex(bands[i]));
-    }
-  }
-
   /* Los nombres con los que trabaja la biblioteca de piezas (`P3`, que el molde
      ya importa), traducidos una vez a los materiales de este laboratorio. */
   const MATP = {
@@ -623,45 +608,6 @@ function makeSynth(opts={}){
     blanco: std({ color: 0xd7dee6, roughness: 0.4, metalness: 0.2 }),
     ceramica: std({ color: 0xd7dee6, roughness: 0.6, metalness: 0.05 }),
   };
-  /* LOS COMPONENTES, con la forma que tienen en la mano. Lo que convierte un
-     taco en un componente son las PATAS —por donde entra la corriente y por
-     donde se suelda— y las MARCAS: las bandas de la resistencia, la banda del
-     catodo, la muesca de la patilla 1, la franja del negativo. Cada marca evita
-     una averia distinta y ninguna estaba dibujada. */
-  function makeResistor3D() {
-    const g = P3.resistencia(MATP, { largo: 0.26, d: 0.09, patas: 0.10, paso: 0.38,
-      bandas: [0x1a1a1a, 0x1a1a1a, 0x1a1a1a], cuerpo: MAT.resistorBody.color });
-    g.userData.bandMeshes = g.userData.bandas;
-    g.userData.bands = g.userData.bandas;
-    g.userData.body = g.userData.cuerpo;
-    return g;
-  }
-  function makeCapacitor3D() {
-    const g = P3.condensadorRadial(MATP, { d: 0.17, alto: 0.22, patas: 0.10,
-      lata: MAT.capBody.color, franja: 0xdbe6f2 });
-    g.userData.body = g.userData.cuerpo;
-    return g;
-  }
-  function makeDIP3D() {
-    const g = P3.dip(MATP, { pines: 8, paso: 0.075, ancho: 0.17, alto: 0.055, patas: 0.09 });
-    g.userData.body = g.userData.cuerpo;
-    return g;
-  }
-  function makeDisplayBox(w, h, dp, cw, ch) {
-    const g = new THREE.Group();
-    const frame = new THREE.Mesh(new THREE.BoxGeometry(w, h, dp), std({ color: 0x111318, roughness: 0.7, metalness: 0.2 }));
-    g.add(frame);
-    const canvas = document.createElement('canvas');
-    canvas.width = cw; canvas.height = ch;
-    const ctx = canvas.getContext('2d');
-    const tex = new THREE.CanvasTexture(canvas);
-    const screen = new THREE.Mesh(new THREE.PlaneGeometry(w * 0.9, h * 0.82), new THREE.MeshBasicMaterial({ map: tex }));
-    screen.position.z = dp / 2 + 0.002;
-    g.add(screen);
-    g.userData = { canvas, ctx, tex };
-    return g;
-  }
-
   // ---------- Glifos de esquemático ----------
   function line(ctx, x1, y1, x2, y2, w, col) {
     ctx.strokeStyle = col || '#8fe3d0'; ctx.lineWidth = w || 2;
@@ -822,98 +768,232 @@ function makeSynth(opts={}){
   }
 
   // ---------- Escena: tablero ----------
+  /* El pizarrón (esquemático + curva) va arriba y al fondo; debajo, el montaje
+     REAL sobre un protoboard: fuente a un lado, medidor al otro, el osciloscopio
+     en medio y, entre todos, el astable cableado con los encapsulados de verdad. */
   const boardCanvas = document.createElement('canvas');
   boardCanvas.width = 1024; boardCanvas.height = 768;
   const bctx = boardCanvas.getContext('2d');
   const boardTex = new THREE.CanvasTexture(boardCanvas);
   const boardMat = new THREE.MeshBasicMaterial({ map: boardTex });
-  const boardPlane = new THREE.Mesh(new THREE.PlaneGeometry(4.2, 3.15), boardMat);
-  boardPlane.position.set(0.5, 2.0, -1.2);
-  const boardFrame = new THREE.Mesh(new THREE.BoxGeometry(4.32, 3.27, 0.06), std({ color: 0x1b1f24, roughness: 0.8, metalness: 0.2 }));
-  boardFrame.position.set(0.5, 2.0, -1.24);
+  /* El lienzo sólo usa sus 480 px de arriba (de 768): el pizarrón enseña esa franja,
+     con las UV remapeadas, así que boardClick sigue leyendo píxeles de lienzo bien. */
+  const FR = 480 / 768;
+  const boardGeo = new THREE.PlaneGeometry(4.2, 3.15 * FR);
+  { const uv = boardGeo.attributes.uv; for (let i = 0; i < uv.count; i++) uv.setY(i, 1 - FR + uv.getY(i) * FR); }
+  const boardPlane = new THREE.Mesh(boardGeo, boardMat);
+  const boardFrame = new THREE.Mesh(new THREE.BoxGeometry(4.32, 3.15 * FR + 0.12, 0.06), std({ color: 0x1b1f24, roughness: 0.8, metalness: 0.2 }));
+  boardFrame.position.z = -0.04;
   const boardG = new THREE.Group();
   boardG.add(boardFrame, boardPlane);
+  boardG.scale.setScalar(0.78); boardG.position.set(0, 2.5, -1.55);
   S.scene.add(boardG);
 
   // ---------- Escena: banco ----------
-  const benchG = new THREE.Group();
-  const mesa = new THREE.Mesh(new THREE.BoxGeometry(3.6, 0.12, 1.8), std({ color: 0x2b2f36, roughness: 0.85, metalness: 0.1 }));
-  mesa.position.set(0.5, 0.55, 1.0);
-  const pcb = new THREE.Mesh(new THREE.BoxGeometry(2.6, 0.03, 1.2), std({ color: 0x0e4d33, roughness: 0.7, metalness: 0.1 }));
-  pcb.position.set(0.5, 0.62, 1.0);
-  benchG.add(mesa, pcb);
+  /* ---------- Piezas del banco que la biblioteca aún no trae ---------- */
+  // Código EIA de tres cifras de un cerámico: 100 nF → «104».
+  function codigoEIA(F) {
+    const pF = F * 1e12;
+    let e = Math.floor(Math.log10(pF)) - 1;
+    let m = Math.round(pF / Math.pow(10, e));
+    if (m >= 100) { m = Math.round(m / 10); e += 1; }
+    return String(m) + String(Math.max(0, e));
+  }
+  // Cerámico de disco: lenteja ocre con el código EIA impreso y dos patas rectas.
+  function ceramicoDisco(F, volt) {
+    const R = 0.115, t = 0.07, paso = 0.1, yc = R + 0.10;
+    const g = new THREE.Group();
+    const cuerpo = new THREE.Mesh(P3.revolucion([[0, -t / 2], [R * 0.90, -t / 2], [R, -t * 0.18],
+      [R, t * 0.18], [R * 0.90, t / 2], [0, t / 2]], { seg: 32 }),
+      new THREE.MeshStandardMaterial({ color: 0xc98a3a, roughness: 0.55, metalness: 0.05 }));
+    cuerpo.rotation.x = Math.PI / 2; cuerpo.position.y = yc; cuerpo.castShadow = true; g.add(cuerpo);
+    const cv = document.createElement('canvas'); cv.width = 256; cv.height = 192;
+    const c = cv.getContext('2d');
+    c.fillStyle = '#3a2410'; c.textAlign = 'center'; c.textBaseline = 'middle';
+    c.font = 'bold 92px sans-serif'; c.fillText(codigoEIA(F), 128, 78);
+    c.font = '52px sans-serif'; c.fillText(volt || '50V', 128, 150);
+    const tx = new THREE.CanvasTexture(cv); tx.colorSpace = THREE.SRGBColorSpace; tx.anisotropy = 8;
+    const tinta = new THREE.Mesh(new THREE.PlaneGeometry(R * 1.45, R * 1.45 * 0.75),
+      new THREE.MeshStandardMaterial({ map: tx, transparent: true, roughness: 0.6, depthWrite: false,
+        polygonOffset: true, polygonOffsetFactor: -2, polygonOffsetUnits: -2 }));
+    tinta.position.set(0, yc, t / 2 + 0.002); g.add(tinta);
+    for (const sx of [-1, 1]) {
+      const pata = new THREE.Mesh(new THREE.CylinderGeometry(0.011, 0.011, yc + 0.12, 8), MATP.acero);
+      pata.position.set(sx * paso / 2, (yc - 0.12) / 2 - 0.0, 0); g.add(pata);
+    }
+    g.userData = { F: F, paso: paso };
+    return g;
+  }
+  // Osciloscopio de banco (P3.osciloscopioBanco) reducido sobre el estante, con un
+  // lienzo propio para la pantalla y cables que salen de sus BNC.
+  function osciloscopioEnEstante(BANCO, x, esc, cw) {
+    const g = P3.osciloscopioBanco(MATP, { ancho: 1.9, alto: 1.2, fondo: 0.8, pantallaX: -0.30, pantallaY: 0.12,
+      visor: [1.04, 0.80],
+      mandos: [{ id: 'tiempo', x: 0.50, y: 0.34, r: 0.085, rotulo: 'BASE T.' }, { id: 'nivel', x: 0.80, y: 0.34, r: 0.085, rotulo: 'NIVEL' },
+               { id: 'v1', x: 0.50, y: 0.00, r: 0.085, rotulo: 'V/DIV' }, { id: 'v2', x: 0.80, y: 0.00, r: 0.085, rotulo: 'POS.' }],
+      bnc: [{ x: 0.55, color: 0xe0c040 }, { x: 0.82, color: 0x4fc3f7 }] });
+    const vis = g.userData.visor;
+    const cv = document.createElement('canvas'); cv.width = cw || 416; cv.height = Math.round((cw || 416) * vis.alto / vis.ancho);
+    const cx = cv.getContext('2d');
+    const tex = new THREE.CanvasTexture(cv); tex.colorSpace = THREE.SRGBColorSpace; tex.anisotropy = 8;
+    const screen = new THREE.Mesh(new THREE.PlaneGeometry(vis.ancho, vis.alto), new THREE.MeshBasicMaterial({ map: tex, toneMapped: false }));
+    g.userData.pantalla.add(screen);
+    g.scale.setScalar(esc);
+    g.position.set(x, BANCO.userData.estanteY + g.userData.apoyo * esc, -1.15);
+    BANCO.add(g);
+    return { g: g, cv: cv, cx: cx, tex: tex, screen: screen, esc: esc };
+  }
+  // Un cable de colores desde una boca de instrumento (en coordenadas del mundo) hasta un agujero.
+  function cableDesde(BANCO, circG, boca, agujero, color) {
+    const prot = BANCO.userData.prot, K = BANCO.userData.K;
+    const B = boca.clone().sub(prot.position).multiplyScalar(1 / K);
+    const w = P3.puente(MATP, agujero, B, { color: color, r: 0.026 / K, alto: 0.30, pinB: false });
+    circG.add(w); return w;
+  }
+  function bocaInstrumento(inst, j) {
+    inst.g.updateMatrixWorld(true);
+    return inst.bocas[j].clone().applyMatrix4(inst.g.matrixWorld);
+  }
+  function bocaBNC(esc, j) {
+    esc.g.updateMatrixWorld(true);
+    const b = esc.g.userData.bnc[j];
+    return new THREE.Vector3(0, 0, 0.10).applyMatrix4(b.matrixWorld);
+  }
+  const BANCO = P3.bancoPrototipos(MATP, { cols: 18, K: 1.7, instrumentos: 2,
+    dims: [{ ancho: 0.84, alto: 0.50 }, { ancho: 0.92, alto: 0.56, visorAlto: 0.62 }] });
+  const benchG = BANCO;
+  const circG = BANCO.userData.circ, H = BANCO.userData.H;
+  const railNear = BANCO.userData.rielCerca;
+  const fuenteInst = BANCO.userData.instrumento(0);
+  const medidorInst = BANCO.userData.instrumento(1);
+  const scopeInst = osciloscopioEnEstante(BANCO, 0, 0.56, 416);
+  const fuenteBox = { userData: { canvas: fuenteInst.cv, ctx: fuenteInst.cx, tex: fuenteInst.tex } };
+  const medidorBox = { userData: { canvas: medidorInst.cv, ctx: medidorInst.cx, tex: medidorInst.tex } };
+  const scopeBox = { userData: { canvas: scopeInst.cv, ctx: scopeInst.cx, tex: scopeInst.tex } };
+  const CABLE = { rojo: 0xd64545, negro: 0x1b1f24, azul: 0x2a5fa8, amarillo: 0xe0a21c, verde: 0x2f9e5b, naranja: 0xe07b22 };
 
-  // Todos apoyan en la CARA de la placa: la biblioteca dibuja cada
-  // componente con y = 0 en la placa y las patas por debajo.
-  const Y_PCB = 0.635;
-  const raG = makeResistor3D(); raG.position.set(-0.7, Y_PCB, 1.0); benchG.add(raG);
-  const rbG = makeResistor3D(); rbG.position.set(-0.1, Y_PCB, 1.0); benchG.add(rbG);
-  const capG = makeCapacitor3D(); capG.position.set(0.5, Y_PCB, 1.0); benchG.add(capG);
-  const icG = makeDIP3D(); icG.position.set(1.15, Y_PCB, 1.0); benchG.add(icG);
+  /* LA ZONA DE MONTAJE. Lo que depende del tipo de capacitor (cerámico o
+     electrolítico) se rehace aquí; los resistores sólo repintan sus bandas. */
+  let raG = null, rbG = null, capG = null, icG = null, ctrlG = null, circKey = '';
+  function esElectrolitico(c) { return c >= 1e-6; }
+  function armaCircuito() {
+    const key = state.iC;
+    if (key === circKey) return;
+    circKey = key;
+    BANCO.userData.limpia(); BANCO.userData.reiniciaRieles();
+    function wire(a, b, col, o) { const w = P3.puente(MATP, a, b, Object.assign({ color: col }, o || {})); circG.add(w); return w; }
+    function res(ohm, c1, f1, c2, f2) {
+      const g = P3.resistorAxial(MATP, { ohm: ohm, paso: Math.abs(c2 - c1) * 0.1 });
+      g.position.copy(H(c1, f1)).lerp(H(c2, f2), 0.5); g.position.y = H(c1, f1).y;
+      circG.add(g); return g;
+    }
+    // El NE555 a caballo del canal: 1 GND · 2 TRIG · 3 OUT · 4 RESET delante; 8 VCC · 7 DIS · 6 THR · 5 CTRL detrás.
+    const DC = 10;
+    icG = P3.dipRotulado(MATP, { pines: 8, rotulo: 'NE555', rotulo2: 'CEN LABS' });
+    icG.position.copy(H(DC + 1.5, 'e')).lerp(H(DC + 1.5, 'f'), 0.5); icG.position.y = H(DC, 'e').y;
+    circG.add(icG);
+    const alto = { minAlto: 0.30 };
+    // alimentación y masa del integrado
+    wire(H(DC, 'g'), railNear('+', DC), CABLE.rojo);                 // pin 8 → VCC
+    wire(H(DC + 3, 'c'), railNear('+', DC + 3), CABLE.rojo, alto);   // pin 4 (RESET) → VCC
+    wire(H(DC, 'c'), railNear('-', DC), CABLE.negro, alto);          // pin 1 → GND
+    // RA: de VCC al pin 7 (DIS). RB: del pin 7 al pin 6 (THR). THR y TRIG, unidos.
+    raG = res(curRA(), DC + 1, 'h', DC - 3, 'h');
+    wire(H(DC - 3, 'j'), railNear('+', DC - 3), CABLE.naranja);
+    rbG = res(curRB(), DC + 2, 'i', DC - 2, 'i');
+    wire(H(DC - 2, 'g'), H(DC + 1, 'g'), CABLE.amarillo);            // extremo de RB → pin 7
+    wire(H(DC + 1, 'd'), H(DC + 2, 'g'), CABLE.verde, { minAlto: 0.30 }); // pin 2 ↔ pin 6
+    // C entre TRIG y GND: electrolítico (≥ 1 µF) o cerámico, a la izquierda del integrado
+    const cM = DC - 2, cP = DC - 1;
+    if (esElectrolitico(curC())) {
+      capG = P3.electrolitico(MATP, { valor: fmtC(curC()).replace(' ', ''), volt: '16V', d: 0.22, alto: 0.36 });
+    } else {
+      capG = ceramicoDisco(curC(), '50V');
+    }
+    capG.position.copy(H(cM + 0.5, 'a')); capG.position.y = H(cM, 'a').y;
+    circG.add(capG);
+    wire(H(cP, 'c'), H(DC + 1, 'c'), CABLE.azul);                    // + de C → TRIG
+    wire(H(cM, 'd'), H(DC, 'd'), CABLE.negro);                       // − de C → GND (columna del pin 1)
+    // desacoplo del pin 5 (CTRL): 10 nF a tierra. No interviene en el cálculo (ver ficha).
+    ctrlG = ceramicoDisco(1e-8, '50V');
+    ctrlG.position.copy(H(DC + 4.5, 'h')); ctrlG.position.y = H(DC, 'h').y;
+    circG.add(ctrlG);
+    wire(H(DC + 3, 'g'), H(DC + 4, 'g'), CABLE.naranja);             // pin 5 → pata del cerámico
+    wire(H(DC + 5, 'j'), railNear('-', DC + 5), CABLE.negro);
+    // instrumentos: fuente en los rieles, medidor en OUT, osciloscopio en Vc (CH1) y OUT (CH2)
+    cableDesde(BANCO, circG, bocaInstrumento(fuenteInst, 0), railNear('+', 2), CABLE.rojo);
+    cableDesde(BANCO, circG, bocaInstrumento(fuenteInst, 1), railNear('-', 3), CABLE.negro);
+    cableDesde(BANCO, circG, bocaInstrumento(medidorInst, 0), H(DC + 2, 'c'), CABLE.amarillo);
+    cableDesde(BANCO, circG, bocaInstrumento(medidorInst, 1), railNear('-', 16), CABLE.verde);
+    cableDesde(BANCO, circG, bocaBNC(scopeInst, 0), H(DC + 2, 'j'), CABLE.amarillo);   // CH1 en THR/TRIG = Vc, por detrás
+    cableDesde(BANCO, circG, bocaBNC(scopeInst, 1), H(DC + 2, 'b'), CABLE.azul);
+    circG.traverse(function (o) { if (o.isMesh) { o.castShadow = true; o.receiveShadow = true; } });
+  }
+  armaCircuito();
+  boardPlane.castShadow = false; boardFrame.receiveShadow = true;
   S.scene.add(benchG);
 
   function refreshBenchSel() {
-    paintBands(raG, curRA());
-    paintBands(rbG, curRB());
-    icG.userData.body.material.color.setHex(DEV.color);
+    armaCircuito();
+    raG.userData.ponValor(curRA());
+    rbG.userData.ponValor(curRB());
   }
 
-  const fuenteBox = makeDisplayBox(0.7, 0.42, 0.06, 220, 132);
-  fuenteBox.position.set(-1.35, 0.95, 1.0); fuenteBox.rotation.y = 0.06 * Math.PI;
-  const medidorBox = makeDisplayBox(0.7, 0.5, 0.06, 220, 156);
-  medidorBox.position.set(1.75, 0.98, 1.0); medidorBox.rotation.y = -0.06 * Math.PI;
-  const scopeBox = makeDisplayBox(1.0, 0.62, 0.06, 260, 160);
-  scopeBox.position.set(0.5, 1.42, 0.62); scopeBox.rotation.x = -0.06 * Math.PI;
-  benchG.add(fuenteBox, medidorBox, scopeBox);
-
   function drawFuenteScreen() {
-    const { ctx, canvas, tex } = fuenteBox.userData;
-    ctx.fillStyle = '#0b1310'; ctx.fillRect(0, 0, canvas.width, canvas.height);
-    ctx.fillStyle = '#8fe3d0'; ctx.font = 'bold 16px sans-serif';
-    ctx.fillText('Vcc = ' + fmtV(curVCC()), 14, 30);
-    ctx.font = '13px sans-serif';
-    ctx.fillText(DEV.name + ' astable', 14, 54);
-    ctx.fillText('RA=' + fmtR(curRA()) + ' RB=' + fmtR(curRB()), 14, 74);
-    ctx.fillText('C=' + fmtC(curC()), 14, 94);
+    const { ctx, canvas, tex } = fuenteBox.userData; const w = canvas.width, h = canvas.height;
+    ctx.fillStyle = '#08120f'; ctx.fillRect(0, 0, w, h);
+    ctx.textAlign = 'left'; ctx.fillStyle = '#4FD1C5';
+    ctx.font = 'bold ' + Math.round(h * 0.30) + 'px monospace';
+    ctx.fillText('Vcc ' + fmtV(curVCC()), w * 0.05, h * 0.34);
+    ctx.font = Math.round(h * 0.17) + 'px monospace'; ctx.fillStyle = '#8fe3d0';
+    ctx.fillText('RA ' + fmtR(curRA()) + '  RB ' + fmtR(curRB()), w * 0.05, h * 0.62);
+    ctx.fillText('C ' + fmtC(curC()), w * 0.05, h * 0.86);
     tex.needsUpdate = true;
   }
   function drawMedidorScreen() {
-    const { ctx, canvas, tex } = medidorBox.userData;
-    ctx.fillStyle = '#0b1310'; ctx.fillRect(0, 0, canvas.width, canvas.height);
-    ctx.font = '13px sans-serif';
+    const { ctx, canvas, tex } = medidorBox.userData; const w = canvas.width, h = canvas.height;
+    ctx.fillStyle = '#08120f'; ctx.fillRect(0, 0, w, h);
+    ctx.textAlign = 'left';
     if (state.hide) {
-      ctx.fillStyle = '#6b8a83'; ctx.font = 'bold 18px sans-serif';
-      ctx.fillText('f: ?   duty: ?', 14, 40);
-      ctx.fillText('¿cuánto valen?', 14, 66);
+      ctx.fillStyle = '#6b8a83'; ctx.font = 'bold ' + Math.round(h * 0.17) + 'px monospace';
+      ctx.fillText('f: ?   duty: ?', w * 0.06, h * 0.40);
+      ctx.fillText('¿cuánto valen?', w * 0.06, h * 0.74);
     } else {
       const res = curSolve();
-      ctx.fillStyle = '#5fb8ff'; ctx.fillText('f = ' + fmtHz(res.f), 14, 26);
-      ctx.fillStyle = '#8fe3d0'; ctx.fillText('T = ' + fmtT(res.T), 14, 46);
-      ctx.fillText('tHigh = ' + fmtT(res.tHigh), 14, 66);
-      ctx.fillStyle = '#f59e0b'; ctx.fillText('tLow = ' + fmtT(res.tLow), 14, 86);
-      ctx.fillStyle = '#8fe3d0'; ctx.fillText('duty = ' + fmtPct(res.duty), 14, 106);
-      ctx.font = 'bold 13px sans-serif';
-      if (res.warnRA) { ctx.fillStyle = '#ef4444'; ctx.fillText('RA < 1kΩ recomendado', 14, 128); }
-      else { ctx.fillStyle = '#22c55e'; ctx.fillText('OK', 14, 128); }
+      const f1 = Math.round(h * 0.15);
+      ctx.font = 'bold ' + f1 + 'px monospace';
+      ctx.fillStyle = '#5fb8ff'; ctx.fillText('f = ' + fmtHz(res.f), w * 0.05, h * 0.18);
+      ctx.fillStyle = '#8fe3d0'; ctx.fillText('T = ' + fmtT(res.T), w * 0.05, h * 0.40);
+      ctx.fillText('duty ' + fmtPct(res.duty), w * 0.05, h * 0.62);
+      ctx.font = Math.round(h * 0.13) + 'px monospace';
+      ctx.fillStyle = '#8fe3d0'; ctx.fillText('tH ' + fmtT(res.tHigh), w * 0.58, h * 0.40);
+      ctx.fillStyle = '#f59e0b'; ctx.fillText('tL ' + fmtT(res.tLow), w * 0.58, h * 0.62);
+      ctx.font = 'bold ' + Math.round(h * 0.15) + 'px monospace';
+      if (res.warnRA) { ctx.fillStyle = '#ef4444'; ctx.fillText('RA < 1kΩ recomendado', w * 0.05, h * 0.90); }
+      else { ctx.fillStyle = '#22c55e'; ctx.fillText('OK', w * 0.05, h * 0.90); }
     }
     tex.needsUpdate = true;
   }
   function drawScopeScreen() {
     const { ctx, canvas, tex } = scopeBox.userData;
-    ctx.fillStyle = '#05100c'; ctx.fillRect(0, 0, canvas.width, canvas.height);
+    const k = canvas.width / 260;                    // las cotas de abajo están pensadas para 260 px de ancho
+    ctx.setTransform(k, 0, 0, k, 0, 0);
+    const W = canvas.width / k, Hh = canvas.height / k;
+    ctx.fillStyle = '#05100c'; ctx.fillRect(0, 0, W, Hh);
     ctx.strokeStyle = '#12312a'; ctx.lineWidth = 1;
-    for (let i = 0; i <= 4; i++) { const y = 10 + i * (canvas.height - 20) / 4; line(ctx, 10, y, canvas.width - 10, y, 1, '#12312a'); }
+    for (let i = 0; i <= 4; i++) { const y = 10 + i * (Hh - 20) / 4; line(ctx, 10, y, W - 10, y, 1, '#12312a'); }
+    for (let i = 0; i <= 6; i++) { const x = 10 + i * (W - 20) / 6; line(ctx, x, 10, x, Hh - 10, 1, '#12312a'); }
     if (state.hide) {
       ctx.fillStyle = '#556677'; ctx.font = '11px sans-serif';
-      ctx.fillText('Vc / Vout ocultos — predice antes de revelar', 12, canvas.height / 2);
-      tex.needsUpdate = true;
+      ctx.fillText('Vc / Vout ocultos — predice antes de revelar', 12, Hh / 2);
+      tex.needsUpdate = true; ctx.setTransform(1, 0, 0, 1, 0, 0);
       return;
     }
     const res = curSolve();
     const pts = curveVC(res, 160);
     const Vcc = res.Vcc;
-    const toX = t => 10 + t * (canvas.width - 20);
-    const toY = v => (canvas.height - 10) - (v / Vcc) * (canvas.height - 20);
+    const toX = t => 10 + t * (W - 20);
+    const toY = v => (Hh - 10) - (v / Vcc) * (Hh - 20);
     ctx.strokeStyle = '#5fb8ff'; ctx.lineWidth = 1.5; ctx.beginPath();
     pts.forEach((p, i) => { const x = toX(p.tFrac), y = toY(p.v); if (i === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y); });
     ctx.stroke();
@@ -926,10 +1006,11 @@ function makeSynth(opts={}){
     }
     ctx.stroke();
     ctx.fillStyle = '#6b8a83'; ctx.font = '10px sans-serif';
-    ctx.fillText('Vc / Vout · osciloscopio', 12, canvas.height - 4);
-    tex.needsUpdate = true;
+    ctx.fillText('Vc / Vout · osciloscopio', 12, Hh - 2);
+    tex.needsUpdate = true; ctx.setTransform(1, 0, 0, 1, 0, 0);
   }
   function refreshBenchDyn() { drawFuenteScreen(); drawMedidorScreen(); drawScopeScreen(); }
+
 
   // ---------- HUD ----------
   el('hud').innerHTML = `

@@ -461,7 +461,7 @@ function makeSynth(opts={}){
    ============================================================ */
 
 const mount=document.getElementById('stage');
-const S=createStage(mount,{cam:[2.7,2.2,4.6],target:[1.6,1.0,0.5],bgTop:'#0d1a17',bgBot:'#04060a',bloom:0.35,minD:2.6,maxD:16});
+const S=createStage(mount,{cam:[0,4.3,6.9],target:[0,1.15,0.5],bgTop:'#0d1a17',bgBot:'#04060a',bloom:0.35,minD:2.6,maxD:16});
 const {scene}=S;
 const synth=makeSynth({type:'sine',type2:'triangle',filterFreq:2600,Q:0.8});
 
@@ -594,12 +594,8 @@ function addHoverLabel(obj,text,color,pos,scale){
 /* ============================================================
    4) PANTALLA — curva V–I en vivo (canvas → textura)
    ============================================================ */
-const boardG=new THREE.Group();boardG.position.set(-0.95,0,-0.55);boardG.rotation.y=0.12;scene.add(boardG);
+const boardG=new THREE.Group();boardG.position.set(0,2.3-1.85*0.77,-1.55);boardG.scale.setScalar(0.77);scene.add(boardG);
 const frame=sh(roundedBox(3.62,2.77,0.12,MAT.frame,0.03));frame.position.set(0,1.85,0);boardG.add(frame);
-[-1.5,1.5].forEach(x=>{
-  const leg=sh(new THREE.Mesh(new THREE.CylinderGeometry(0.05,0.06,0.56,10),MAT.leg));
-  leg.position.set(x,0.28,0);boardG.add(leg);
-});
 const bCv=document.createElement('canvas');bCv.width=1024;bCv.height=768;
 const bTex=new THREE.CanvasTexture(bCv);
 bTex.colorSpace=THREE.SRGBColorSpace;bTex.minFilter=THREE.LinearFilter;bTex.generateMipmaps=false;
@@ -681,34 +677,11 @@ function drawBoard(){
 
 /* ============================================================
    5) BANCO 3D — fuente, resistor bajo prueba, voltímetro y amperímetro
+   El pizarrón (la curva V–I) va arriba y al fondo; debajo, en el estante, la
+   fuente ajustable y los dos multímetros, y sobre el protoboard el resistor con
+   las bandas de SU valor, con el amperímetro EN SERIE y el voltímetro EN
+   PARALELO cableados a mano.
    ============================================================ */
-const bench=sh(roundedBox(3.0,0.5,1.7,MAT.bench,0.05));bench.position.set(1.6,0.25,0.6);scene.add(bench);
-bench.userData={title:'Banco de medición',info:'Fuente ajustable, resistor bajo prueba y dos multímetros: uno en SERIE (amperímetro) y otro en PARALELO (voltímetro).'};
-
-function makeMeterCase(x,z,mat){
-  const cv=document.createElement('canvas');cv.width=256;cv.height=96;
-  const tx=new THREE.CanvasTexture(cv);
-  tx.colorSpace=THREE.SRGBColorSpace;tx.minFilter=THREE.LinearFilter;tx.generateMipmaps=false;
-  const g=new THREE.Group();g.position.set(x,0.72,z);scene.add(g);
-  const box=sh(roundedBox(0.50,0.42,0.38,mat,0.06));g.add(box);
-  const pl=new THREE.Mesh(new THREE.PlaneGeometry(0.38,0.15),new THREE.MeshBasicMaterial({map:tx,toneMapped:false}));
-  pl.position.set(0,0.05,0.20);g.add(pl);
-  return {g,cv,tx};
-}
-const PSU=makeMeterCase(0.62,0.6,MAT.psu);
-const postR=sh(new THREE.Mesh(new THREE.CylinderGeometry(0.03,0.03,0.10,10),MAT.jackRed));postR.position.set(-0.13,0.27,0.10);PSU.g.add(postR);
-const postB=sh(new THREE.Mesh(new THREE.CylinderGeometry(0.03,0.03,0.10,10),MAT.jackBlk));postB.position.set(0.13,0.27,0.10);PSU.g.add(postB);
-PSU.g.userData={title:'Fuente ajustable',info:'Barre 8 tensiones fijas (0.15×…1.05× de 12 V) para trazar la curva V–I.'};
-addHoverLabel(PSU.g,'Fuente de banco','#f0a5a5',new THREE.Vector3(0,0.5,0),0.75);
-
-const VM=makeMeterCase(2.55,0.22,MAT.psu);
-VM.g.userData={title:'Voltímetro (en PARALELO)',info:'Se conecta EN PARALELO con el resistor: mide la misma diferencia de potencial en sus dos terminales, con alta impedancia de entrada (idealmente infinita) para no desviar corriente.'};
-addHoverLabel(VM.g,'Voltímetro · paralelo','#4FD1C5',new THREE.Vector3(0,0.5,0),0.75);
-
-const AM=makeMeterCase(2.55,0.98,MAT.psu);
-AM.g.userData={title:'Amperímetro (en SERIE)',info:'Se conecta EN SERIE dentro del lazo: toda la corriente del resistor pasa también por él, con baja impedancia (idealmente cero) para no añadir caída de tensión.'};
-addHoverLabel(AM.g,'Amperímetro · serie','#FFB703',new THREE.Vector3(0,0.5,0),0.75);
-
 /* Los nombres con los que trabaja la biblioteca de piezas (`P3`, que el molde ya
    importa), traducidos una vez a los materiales de este laboratorio. */
 const MATP={
@@ -719,6 +692,22 @@ const MATP={
   blanco:std({color:0xd7dee6,roughness:0.40,metalness:0.20}),
   ceramica:std({color:0xd7dee6,roughness:0.60,metalness:0.05}),
 };
+const BANCO=P3.bancoPrototipos(MATP,{cols:22,K:1.45,instrumentos:3});
+const prot=BANCO.userData.prot,circG=BANCO.userData.circ,H=BANCO.userData.H,KB=BANCO.userData.K;
+const railNear=BANCO.userData.rielCerca;
+prot.userData.title='Protoboard';prot.userData.info='Placa de pruebas sin soldadura: las cinco posiciones de cada columna están unidas por dentro; los rieles + y − llevan la alimentación a todo lo largo.';
+const PSU=BANCO.userData.instrumento(0),AM=BANCO.userData.instrumento(1),VM=BANCO.userData.instrumento(2);
+PSU.g.userData.title='Fuente ajustable';
+PSU.g.userData.info='Barre 8 tensiones fijas (0.15×…1.05× de 12 V) para trazar la curva V–I.';
+AM.g.userData.title='Amperímetro (en SERIE)';
+AM.g.userData.info='Se conecta EN SERIE dentro del lazo: toda la corriente del resistor pasa también por él, con baja impedancia (idealmente cero) para no añadir caída de tensión.';
+VM.g.userData.title='Voltímetro (en PARALELO)';
+VM.g.userData.info='Se conecta EN PARALELO con el resistor: mide la misma diferencia de potencial en sus dos terminales, con alta impedancia de entrada (idealmente infinita) para no desviar corriente.';
+addHoverLabel(PSU.g,'Fuente de banco','#f0a5a5',new THREE.Vector3(0,0.45,0),0.75);
+addHoverLabel(AM.g,'Amperímetro · serie','#FFB703',new THREE.Vector3(0,0.45,0),0.75);
+addHoverLabel(VM.g,'Voltímetro · paralelo','#4FD1C5',new THREE.Vector3(0,0.45,0),0.75);
+const cableMat={rojo:0xd64545,negro:0x1b1f24,azul:0x2a5fa8,amarillo:0xe0a21c,verde:0x2f9e5b,naranja:0xe07b22};
+
 /* LA RESISTENCIA, que es de lo que trata esta practica. Cuerpo abarrilado con
    hombros, las TRES BANDAS DE VALOR agrupadas y la de TOLERANCIA separada al
    otro extremo —esa separacion es la que dice por que lado se empieza a leer, y
@@ -726,62 +715,52 @@ const MATP={
    dobladas. El panel cambia las cuatro bandas con el valor y la tolerancia
    elegidos, asi que aqui el codigo de colores se lee de verdad. */
 const RES={};
-(function(){
-  const g=P3.resistencia(MATP,{largo:0.22,d:0.10,patas:0.06,paso:0.38,
-    bandas:[0x1a1a1a,0x1a1a1a,0x1a1a1a,0x1a1a1a],cuerpo:0x9a815c});
-  g.position.set(1.6,0.62-g.userData.alturaEje,0.6);
-  g.traverse(o=>{ if(o.isMesh){o.castShadow=true;o.receiveShadow=true;} });
+(function armaCircuito(){
+  BANCO.userData.limpia();BANCO.userData.reiniciaRieles();
+  function wire(a,b,col,o){const w=P3.puente(MATP,a,b,Object.assign({color:col},o||{}));circG.add(w);return w;}
+  const g=P3.resistencia(MATP,{largo:0.34,d:0.13,patas:0.08,paso:0.5,
+    bandas:[0x1a1a1a,0x1a1a1a,0x1a1a1a,0x1a1a1a],cuerpo:0xcdb687});
+  const A=H(9,'a'),B=H(14,'a');g.position.copy(A).lerp(B,0.5);g.position.y=A.y;
   g.userData.special='resistor';
-  scene.add(g);RES.g=g;RES.bands=g.userData.bandas;
-  addHoverLabel(g,'Toca para leer las bandas','#4FD1C5',new THREE.Vector3(0,0.22,0),0.7);
+  addHoverLabel(g,'Toca para leer las bandas','#4FD1C5',new THREE.Vector3(0,0.30,0),0.5/KB);
+  circG.add(g);RES.g=g;RES.bands=g.userData.bandas;
+  // lazo serie: PSU(+) → amperímetro → resistor → riel(−) → PSU(−)
+  const cab=(i,j,h,c,o)=>{const w=BANCO.userData.cable(i,j,h,c,o);w.userData.tubo.material.roughness=0.8;return w;};
+  cab(0,0,H(5,'e'),cableMat.rojo,{alto:0.09});             // PSU +  → columna 5
+  cab(1,0,H(5,'d'),cableMat.rojo,{alto:0.09});             // AM  +  → columna 5
+  cab(1,1,H(9,'e'),cableMat.amarillo,{alto:0.09});         // AM  −  → columna 9 (pata izquierda de RX)
+  wire(H(14,'e'),railNear('-',14),cableMat.negro);         // pata derecha de RX → riel −
+  cab(0,1,railNear('-',3),cableMat.negro,{alto:0.09});     // PSU −  → riel −
+  // voltímetro en PARALELO: mismas dos columnas que el resistor
+  cab(2,0,H(9,'d'),cableMat.verde,{alto:0.09});
+  cab(2,1,railNear('-',15),cableMat.negro,{alto:0.09});
+  circG.traverse(o=>{if(o.isMesh){o.castShadow=true;o.receiveShadow=true;}});
 })();
+BANCO.traverse(o=>{if(o.isMesh){o.castShadow=true;o.receiveShadow=true;}});
+scene.add(BANCO);
 
-function cable(ax,ay,az,bx,by,bz,mat){
-  const a=new THREE.Vector3(ax,ay,az),b=new THREE.Vector3(bx,by,bz);
-  const m=a.clone().lerp(b,0.5);m.y=Math.max(a.y,b.y)+0.16;
-  const t=new THREE.Mesh(new THREE.TubeGeometry(new THREE.CatmullRomCurve3([a,m,b]),24,0.014,8),mat);
-  t.castShadow=true;scene.add(t);
+function lcd(I,tit,col,renglon1,renglon2){
+  const cx=I.cx,cv=I.cv,w=cv.width,h=cv.height;
+  cx.clearRect(0,0,w,h);
+  cx.fillStyle='#08120f';cx.fillRect(0,0,w,h);
+  cx.fillStyle=col;cx.textAlign='center';
+  cx.font='bold '+Math.round(h*0.22)+'px monospace';
+  cx.fillText(renglon1,w/2,h*0.30);
+  cx.font='bold '+Math.round(h*0.40)+'px monospace';
+  cx.fillText(renglon2,w/2,h*0.80);
+  I.tex.needsUpdate=true;
 }
-// lazo serie: PSU(+) → amperímetro → resistor → amperímetro → PSU(−)
-cable(0.49,0.99,0.70,1.41,0.62,0.60,MAT.cableRed);
-cable(1.79,0.62,0.60,2.55,0.72,1.16,MAT.cableRed);
-cable(2.55,0.72,1.16,0.75,0.99,0.70,MAT.cableBlk);
-// voltímetro en PARALELO: ambas puntas a los mismos nodos que el resistor
-cable(1.41,0.62,0.60,2.55,0.72,0.40,MAT.cableBlk);
-cable(1.79,0.62,0.60,2.55,0.72,0.40,MAT.cableRed);
-
 function drawPSU(){
-  const c=PSU.cv.getContext('2d');
-  c.fillStyle='#071410';c.fillRect(0,0,256,96);
-  c.strokeStyle='rgba(240,165,165,0.4)';c.lineWidth=3;c.strokeRect(3,3,250,90);
   const n=points.length,done=n>=SETPOINTS.length;
-  c.fillStyle='#f0a5a5';c.font='bold 14px Outfit, sans-serif';c.textAlign='center';
-  c.fillText(done?'BARRIDO COMPLETO':'PUNTO '+(n+1)+'/'+SETPOINTS.length,128,26);
-  c.font='bold 30px Outfit, sans-serif';
-  c.fillText((done?SETPOINTS[SETPOINTS.length-1]:SETPOINTS[n]).toFixed(2)+' V',128,64);
-  PSU.tx.needsUpdate=true;
+  lcd(PSU,'PSU','#f0a5a5',done?'BARRIDO OK':'PUNTO '+(n+1)+'/'+SETPOINTS.length,(done?SETPOINTS[SETPOINTS.length-1]:SETPOINTS[n]).toFixed(2)+' V');
 }
 function drawVM(){
-  const c=VM.cv.getContext('2d');
-  c.fillStyle='#071410';c.fillRect(0,0,256,96);
-  c.strokeStyle='rgba(79,209,197,0.4)';c.lineWidth=3;c.strokeRect(3,3,250,90);
   const last=points[points.length-1];
-  c.fillStyle='#4FD1C5';c.font='bold 15px Outfit, sans-serif';c.textAlign='center';
-  c.fillText('VOLTS',128,26);
-  c.font='bold 32px Outfit, sans-serif';
-  c.fillText(last?last.V.toFixed(decimalsForRes(last.vRes))+' V':'— V',128,64);
-  VM.tx.needsUpdate=true;
+  lcd(VM,'VM','#4FD1C5','VOLTS',last?last.V.toFixed(decimalsForRes(last.vRes))+' V':'— V');
 }
 function drawAM(){
-  const c=AM.cv.getContext('2d');
-  c.fillStyle='#071410';c.fillRect(0,0,256,96);
-  c.strokeStyle='rgba(255,183,3,0.4)';c.lineWidth=3;c.strokeRect(3,3,250,90);
   const last=points[points.length-1];
-  c.fillStyle='#FFB703';c.font='bold 15px Outfit, sans-serif';c.textAlign='center';
-  c.fillText('AMPS',128,26);
-  c.font='bold 32px Outfit, sans-serif';
-  c.fillText(last?(last.I*1000).toFixed(decimalsForRes(last.iRes))+' mA':'— mA',128,64);
-  AM.tx.needsUpdate=true;
+  lcd(AM,'AM','#FFB703','AMPS',last?(last.I*1000).toFixed(decimalsForRes(last.iRes))+' mA':'— mA');
 }
 function refresh3D(){
   const R0=currentNominal(),tol=currentTol();
@@ -869,8 +848,8 @@ function toastResistor(){
    8) MODOS + SELECCIÓN
    ============================================================ */
 const MODE_META={
-  explora:{nombre:'Explora',cam:[[2.7,2.2,4.6],[1.6,1.0,0.5]],mision:'Mide la curva V–I de 4 resistores conocidos y valida su tolerancia con datos reales.'},
-  reto:{nombre:'Reto',cam:[[2.9,2.0,4.2],[1.6,1.0,0.5]],mision:'La resistencia real está oculta. Lee las bandas, mide, ajusta y decide: PASA o FALLA.'},
+  explora:{nombre:'Explora',cam:[[0,4.3,6.9],[0,1.15,0.5]],mision:'Mide la curva V–I de 4 resistores conocidos y valida su tolerancia con datos reales.'},
+  reto:{nombre:'Reto',cam:[[0,4.1,6.8],[0,1.1,0.5]],mision:'La resistencia real está oculta. Lee las bandas, mide, ajusta y decide: PASA o FALLA.'},
 };
 function setMode(k){
   mode=k;

@@ -22,7 +22,7 @@
    ============================================================ */
 
 const mount=document.getElementById('stage');
-const S=createStage(mount,{cam:[3.1,2.5,7.2],target:[0.5,1.3,0.1],bgTop:'#0d1a17',bgBot:'#04060a',bloom:0.35,minD:3.0,maxD:18});
+const S=createStage(mount,{cam:[0,4.3,6.9],target:[0,1.15,0.5],bgTop:'#0d1a17',bgBot:'#04060a',bloom:0.35,minD:3.0,maxD:18});
 const {scene}=S;
 const synth=makeSynth({type:'sine',type2:'triangle',filterFreq:2600,Q:0.8});
 
@@ -220,12 +220,8 @@ function addHoverLabel(obj,text,color,pos,scale){
 /* ============================================================
    4) PIZARRÓN — esquema IEC 60617 vivo (canvas → textura)
    ============================================================ */
-const boardG=new THREE.Group();boardG.position.set(-1.05,0,-0.85);boardG.rotation.y=0.16;scene.add(boardG);
+const boardG=new THREE.Group();boardG.position.set(0,2.3-1.85*0.77,-1.55);boardG.scale.setScalar(0.77);scene.add(boardG);
 const frame=sh(roundedBox(3.62,2.77,0.12,MAT.frame,0.03));frame.position.set(0,1.85,0);boardG.add(frame);
-[-1.5,1.5].forEach(x=>{
-  const leg=sh(new THREE.Mesh(new THREE.CylinderGeometry(0.05,0.06,0.56,10),MAT.leg));
-  leg.position.set(x,0.28,0);boardG.add(leg);
-});
 const bCv=document.createElement('canvas');bCv.width=1024;bCv.height=768;
 const bTex=new THREE.CanvasTexture(bCv);
 bTex.colorSpace=THREE.SRGBColorSpace;bTex.minFilter=THREE.LinearFilter;bTex.generateMipmaps=false;
@@ -419,25 +415,11 @@ function boardClick(u,v){
 
 /* ============================================================
    5) BANCO 3D — realización física del divisor (R1, R2, RL + V1)
+   El pizarrón (esquema) va arriba y al fondo; debajo, el montaje REAL sobre un
+   protoboard: la fuente en el estante y, cableados a mano, los resistores con
+   las bandas de su valor. En el modo Corriente la fuente es de corriente y los
+   dos resistores quedan en paralelo.
    ============================================================ */
-const bench=sh(roundedBox(3.1,0.5,1.9,MAT.bench,0.05));bench.position.set(1.7,0.25,0.9);scene.add(bench);
-bench.userData={title:'Banco de trabajo',info:'El divisor de tensión montado físicamente: fuente, R1, R2 y la carga conmutable RL.'};
-const pcb=sh(roundedBox(2.3,0.06,1.3,MAT.pcb,0.02));pcb.position.set(1.7,0.53,1.05);scene.add(pcb);
-pcb.userData={title:'Tarjeta del divisor',info:'R1 y R2 llevan las bandas de su valor REAL (código de colores E12 ±5 %). RL se conecta/desconecta desde el modo Carga.'};
-addHoverLabel(pcb,'Realización física del divisor','#4FD1C5',new THREE.Vector3(0,0.62,0),0.9);
-
-function trace(x1,z1,x2,z2){
-  const w=Math.abs(x2-x1)||0.045,d=Math.abs(z2-z1)||0.045;
-  const t=new THREE.Mesh(new THREE.BoxGeometry(Math.max(w,0.045),0.015,Math.max(d,0.045)),MAT.trace);
-  t.position.set((x1+x2)/2,0.565,(z1+z2)/2);t.receiveShadow=true;scene.add(t);
-}
-trace(0.80,0.70,0.955,0.70);
-trace(1.295,0.70,2.05,0.70);
-trace(1.45,0.70,1.45,0.93);trace(1.45,1.27,1.45,1.50);
-trace(2.05,0.70,2.05,0.93);trace(2.05,1.27,2.05,1.50);
-trace(0.80,1.50,2.65,1.50);
-
-const RES3D={};
 /* Los nombres con los que trabaja la biblioteca de piezas (`P3`, que el molde ya
    importa), traducidos una vez a los materiales de este laboratorio. */
 const MATP={
@@ -450,84 +432,124 @@ const MATP={
   blanco:std({color:0xd7dee6,roughness:0.40,metalness:0.20}),
   ceramica:std({color:0xd7dee6,roughness:0.60,metalness:0.05}),
 };
-/* LA RESISTENCIA, con la forma que tiene en la mano: cuerpo abarrilado con
-   hombros, las CUATRO BANDAS —tres de valor y la de tolerancia, separada, que
-   es la que dice por que lado se empieza a leer— y las patas dobladas que bajan
-   a la placa. Un tubo con cuatro rayas equiespaciadas vale para dos valores
-   distintos segun por donde se lea, y ese es justo el ejercicio. */
-function makeRes3D(id,x,z,vert){
-  const g=P3.resistencia(MATP,{largo:0.20,d:0.090,patas:0.11,paso:0.34,
-    bandas:[0x1a1a1a,0x1a1a1a,0x1a1a1a,0x1a1a1a]});
-  g.position.set(x,0.56,z); if(vert)g.rotation.y=Math.PI/2;
-  g.traverse(o=>{ if(o.isMesh){o.castShadow=true;o.receiveShadow=true;} });
-  g.userData.el=id;
-  scene.add(g);RES3D[id]={g,bands:g.userData.bandas};
+const BANCO=P3.bancoPrototipos(MATP,{cols:22,K:1.45,instrumentos:1});
+const prot=BANCO.userData.prot,circG=BANCO.userData.circ,H=BANCO.userData.H,KB=BANCO.userData.K;
+const railNear=BANCO.userData.rielCerca;
+prot.userData.title='Protoboard';prot.userData.info='Placa de pruebas sin soldadura: las cinco posiciones de cada columna están unidas por dentro; los rieles + y − llevan la alimentación a todo lo largo.';
+const fuenteBox=BANCO.userData.instrumento(0);
+fuenteBox.g.position.x=-1.65;   // a la izquierda, sobre sus rieles: los cables no cruzan el visor
+fuenteBox.g.userData.el='V1';
+addHoverLabel(fuenteBox.g,'Fuente','#f0a5a5',new THREE.Vector3(0,0.45,0),0.75);
+const cableMat={rojo:0xd64545,negro:0x1b1f24,azul:0x2a5fa8,amarillo:0xe0a21c,verde:0x2f9e5b,naranja:0xe07b22};
+function rotula(obj,txt,col,y){addHoverLabel(obj,txt,col,new THREE.Vector3(0,y,0),0.5/KB);}
+function tintaPlano(w,h,pinta,pw,ph){
+  const cv=document.createElement('canvas');cv.width=pw;cv.height=ph;
+  pinta(cv.getContext('2d'),pw,ph);
+  const tx=new THREE.CanvasTexture(cv);tx.colorSpace=THREE.SRGBColorSpace;tx.anisotropy=8;
+  const m=new THREE.Mesh(new THREE.PlaneGeometry(w,h),new THREE.MeshStandardMaterial({map:tx,transparent:true,roughness:0.55,
+    depthWrite:false,polygonOffset:true,polygonOffsetFactor:-2,polygonOffsetUnits:-2}));
+  m.renderOrder=2;return m;
 }
-makeRes3D('R1',1.125,0.70,false);
-makeRes3D('R2',1.45,1.10,true);
-makeRes3D('RL',2.05,1.10,true);
-
-const psCv=[],psTex=[];
-function makePSU(i,x,id){
-  const g=new THREE.Group();g.position.set(x,0.72,0.25);scene.add(g);
-  const box=sh(roundedBox(0.52,0.44,0.40,MAT.psu,0.06));g.add(box);
-  const cv=document.createElement('canvas');cv.width=256;cv.height=96;
-  const tx=new THREE.CanvasTexture(cv);
-  tx.colorSpace=THREE.SRGBColorSpace;tx.minFilter=THREE.LinearFilter;tx.generateMipmaps=false;
-  const pl=new THREE.Mesh(new THREE.PlaneGeometry(0.40,0.15),new THREE.MeshBasicMaterial({map:tx,toneMapped:false}));
-  pl.position.set(0,0.06,0.205);g.add(pl);
-  const postR=sh(new THREE.Mesh(new THREE.CylinderGeometry(0.03,0.03,0.10,10),MAT.jackRed));postR.position.set(-0.13,0.27,0.10);g.add(postR);
-  const postB=sh(new THREE.Mesh(new THREE.CylinderGeometry(0.03,0.03,0.10,10),MAT.jackBlk));postB.position.set(0.13,0.27,0.10);g.add(postB);
-  g.userData={el:id};
-  psCv[i]=cv;psTex[i]=tx;
-  addHoverLabel(g,'Fuente '+id,'#f0a5a5',new THREE.Vector3(0,0.55,0),0.8);
-}
-makePSU(0,0.85,'V1');
-function drawPSU(i){
-  const cv=psCv[i],c=cv.getContext('2d'),v=EL('V1').value;
-  c.fillStyle='#071410';c.fillRect(0,0,256,96);
-  c.strokeStyle='rgba(79,209,197,0.4)';c.lineWidth=3;c.strokeRect(3,3,250,90);
-  c.fillStyle='#4FD1C5';c.font='bold 40px Outfit, sans-serif';c.textAlign='center';
-  c.fillText(v.toFixed(2)+' V',128,62);
-  psTex[i].needsUpdate=true;
-}
-
-function cable(ax,ay,az,bx,by,bz,mat){
-  const a=new THREE.Vector3(ax,ay,az),b=new THREE.Vector3(bx,by,bz);
-  const m=a.clone().lerp(b,0.5);m.y=Math.max(a.y,b.y)+0.18;
-  const t=new THREE.Mesh(new THREE.TubeGeometry(new THREE.CatmullRomCurve3([a,m,b]),24,0.015,8),mat);
-  t.castShadow=true;scene.add(t);
-}
-cable(0.72,0.99,0.35,0.80,0.60,0.70,MAT.cableRed);
-cable(0.98,0.99,0.35,0.80,0.60,1.50,MAT.cableBlk);
-
 const TP_GLOW={};
-function makeTP(id,x,z,mat,color,name,info){
-  const g=new THREE.Group();g.position.set(x,0,z);scene.add(g);
-  const post=sh(new THREE.Mesh(new THREE.CylinderGeometry(0.028,0.034,0.16,12),mat));post.position.y=0.66;g.add(post);
-  const glow=new THREE.Mesh(new THREE.SphereGeometry(0.045,12,10),new THREE.MeshBasicMaterial({color,transparent:true,opacity:0.55,toneMapped:false}));
-  glow.position.y=0.78;glow.raycast=()=>{};g.add(glow);TP_GLOW[id]=glow;
-  g.userData={title:name,info};
-  addHoverLabel(g,name,'#4FD1C5',new THREE.Vector3(0,1.02,0),0.7);
+/* Los PUNTOS DE PRUEBA, como bornas de 4 mm sobre su zócalo, con la etiqueta
+   serigrafiada junto a ellas. */
+function bornaPrueba(id,rotulo,color,colorHex,name,info){
+  const g=new THREE.Group();
+  const zoc=new THREE.Mesh(new THREE.CylinderGeometry(0.12,0.14,0.06,20),std({color:0x1b2420,roughness:0.7}));
+  zoc.position.y=0.03;g.add(zoc);
+  const b=P3.bornaBanana(MATP,{d:0.18,alto:0.12,color});b.position.y=0.06;g.add(b);
+  const glow=new THREE.Mesh(new THREE.TorusGeometry(0.135,0.008,8,28),new THREE.MeshBasicMaterial({color:colorHex,transparent:true,opacity:0.6,toneMapped:false}));
+  glow.rotation.x=Math.PI/2;glow.position.y=0.07;glow.raycast=()=>{};g.add(glow);
+  TP_GLOW[id]=glow;
+  const letra=tintaPlano(0.34,0.17,(c,w,h)=>{c.fillStyle='#4a463c';c.font='bold 120px sans-serif';c.textAlign='center';c.textBaseline='middle';c.fillText(rotulo,w/2,h/2);},384,192);
+  letra.rotation.x=-Math.PI/2;letra.position.set(0,0.004,0.22);g.add(letra);
+  g.userData.title=name;g.userData.info=info;
+  rotula(g,name,'#4FD1C5',0.55);
+  return g;
 }
-makeTP('vo',1.45,0.70,MAT.jackRed,0x4FD1C5,'TP-Vo · nodo de salida','Punto de prueba de Vo: clic para ver el voltaje de salida y el error de carga en vivo.');
-makeTP('ref',1.75,1.50,MAT.jackBlk,0x8a9299,'TP-ref · 0 V','Referencia del divisor (la tierra del esquema).');
+
+/* LA ZONA DE MONTAJE: una topología para los modos de tensión (Explora, Carga y
+   Reto) y otra para el de Corriente; los valores sólo repintan las bandas. */
+const RG={};let gndRL=null,circKey='';
+function armaCircuito(){
+  const key=mode==='corriente'?'i':'v';
+  if(key===circKey)return;
+  circKey=key;
+  BANCO.userData.limpia();BANCO.userData.reiniciaRieles();
+  for(const k in RG)delete RG[k];
+  for(const k in TP_GLOW)delete TP_GLOW[k];
+  gndRL=null;
+  function wire(a,b,col,o){const w=P3.puente(MATP,a,b,Object.assign({color:col},o||{}));circG.add(w);return w;}
+  function res(id,valor,c1,f1,c2,f2){
+    const g=P3.resistorAxial(MATP,{ohm:valor,paso:Math.abs(c2-c1)*0.1});
+    const A=H(c1,f1),B=H(c2,f2);g.position.copy(A).lerp(B,0.5);g.position.y=A.y;
+    g.userData.el=id;circG.add(g);rotula(g,id,'#4FD1C5',0.30);RG[id]=g;return g;
+  }
+  if(key==='v'){
+    fuenteBox.g.userData.el='V1';
+    res('R1',EL('R1').value,2,'c',6,'c');
+    wire(H(2,'e'),railNear('+',2),cableMat.rojo);
+    res('R2',EL('R2').value,6,'h',10,'h');
+    wire(H(6,'e'),H(6,'f'),cableMat.azul,{minAlto:0.18,alto:0.2});
+    wire(H(10,'j'),railNear('-',10),cableMat.negro);
+    res('RL',EL('RL').value,6,'a',11,'a');
+    gndRL=wire(H(11,'e'),railNear('-',11),cableMat.verde);
+    gndRL.userData.title='Conexión de RL a tierra';
+    gndRL.userData.info='La carga RL sólo carga al divisor cuando esta pata está a tierra (modo Carga, con RL conectada).';
+    // los puntos de prueba: Vo (rojo) en el nodo R1–R2 y la referencia (negra) a tierra
+    const bV=bornaPrueba('vo','Vo',0xd64545,0x4FD1C5,'TP-Vo · nodo de salida','Punto de prueba de Vo: clic para ver el voltaje de salida y el error de carga en vivo.');
+    const bR=bornaPrueba('ref','0 V',0x14181e,0x8a9299,'TP-ref · 0 V','Referencia del divisor (la tierra del esquema).');
+    bV.position.copy(H(16,'c'));bR.position.copy(H(19,'c'));
+    circG.add(bV,bR);
+    wire(H(6,'d'),H(16,'c').clone().add(new THREE.Vector3(0,0.12,0)),cableMat.amarillo,{pinB:false,minAlto:0.14,alto:0.2});
+    wire(H(19,'d'),railNear('-',19),cableMat.negro,{minAlto:0.12,alto:0.2});
+  }else{
+    fuenteBox.g.userData.el='I0';
+    res('R1c',ELI('R1c').value,6,'c',10,'c');
+    res('R2c',ELI('R2c').value,6,'a',10,'a');
+    wire(H(6,'e'),railNear('+',6),cableMat.rojo);
+    wire(H(10,'e'),railNear('-',10),cableMat.negro);
+  }
+  BANCO.userData.cable(0,0,railNear('+',1),cableMat.rojo,{alto:0.09});
+  BANCO.userData.cable(0,1,railNear('-',2),cableMat.negro,{alto:0.09});
+  circG.traverse(o=>{if(o.isMesh){o.castShadow=true;o.receiveShadow=true;}});
+}
+BANCO.traverse(o=>{if(o.isMesh){o.castShadow=true;o.receiveShadow=true;}});
+scene.add(BANCO);
+
+function drawPSU(){
+  const cx=fuenteBox.cx,cv=fuenteBox.cv,w=cv.width,h=cv.height;
+  cx.clearRect(0,0,w,h);
+  cx.fillStyle='#08120f';cx.fillRect(0,0,w,h);
+  cx.fillStyle='#4FD1C5';cx.textAlign='center';
+  cx.font='bold '+Math.round(h*0.22)+'px monospace';
+  const corr=mode==='corriente';
+  cx.fillText(corr?'I0':'V1',w/2,h*0.30);
+  cx.font='bold '+Math.round(h*0.44)+'px monospace';
+  cx.fillText(corr?(ELI('I0').value*1000).toFixed(1)+' mA':EL('V1').value.toFixed(2)+' V',w/2,h*0.80);
+  fuenteBox.tex.needsUpdate=true;
+}
 
 let rlBadge=null;
 function updateRLBadge(){
-  if(rlBadge){scene.remove(rlBadge);}
+  if(rlBadge){prot.remove(rlBadge);}
+  rlBadge=null;
+  if(mode==='corriente')return;
   const on=EL('RL').on;
   rlBadge=labelSprite(on?'RL · ON':'RL · OFF',on?'#4FD1C5':'#FFB703');
-  rlBadge.position.set(2.05,1.05,1.10);
-  scene.add(rlBadge);
+  rlBadge.scale.multiplyScalar(0.5/KB);
+  rlBadge.position.copy(H(11.5,'a')).add(new THREE.Vector3(0,0.42,0.30));
+  prot.add(rlBadge);
 }
 function refreshNet3D(){
-  ['R1','R2','RL'].forEach(id=>{
-    const e=EL(id),r=RES3D[id],b=bandsFor(e.value);
-    [b.d1,b.d2,b.mult].forEach((dig,i)=>r.bands[i].material.color.set(BAND_COLORS[dig]));
-    r.bands[3].material.color.set('#c9a227'); // oro = ±5 % (serie E12)
-  });
-  drawPSU(0);
+  armaCircuito();
+  if(mode==='corriente'){
+    RG.R1c.userData.ponValor(ELI('R1c').value);RG.R2c.userData.ponValor(ELI('R2c').value);
+  }else{
+    ['R1','R2','RL'].forEach(id=>RG[id].userData.ponValor(EL(id).value));
+    gndRL.visible=!!EL('RL').on;
+  }
+  drawPSU();
   updateRLBadge();
 }
 
@@ -632,10 +654,10 @@ function toastVo(){
    8) MODOS + SELECCIÓN
    ============================================================ */
 const MODE_META={
-  explora:{nombre:'Explora',cam:[[3.1,2.5,7.2],[0.5,1.3,0.1]],mision:'Elige R1 y R2 y observa Vo ideal (sin carga) sobre el esquema IEC 60617.'},
-  carga:{nombre:'Carga',cam:[[-0.2,2.1,3.9],[-0.9,1.75,-0.8]],mision:'Conecta RL y observa a Vo caer por debajo del ideal — contrástalo con Thévenin (Vth, Rth).'},
-  corriente:{nombre:'Corriente',cam:[[-0.1,2.2,4.3],[-0.9,1.75,-0.8]],mision:'Un segundo circuito, con fuente de corriente ideal: el reparto I1/I2 es inverso a la resistencia.'},
-  reto:{nombre:'Reto',cam:[[0.6,2.3,5.6],[0.2,1.3,0.2]],mision:'Diseña R1 y R2: cumple Vo objetivo, error de carga ≤5 % y corriente de reposo ≤25 mA a la vez.'},
+  explora:{nombre:'Explora',cam:[[0,4.3,6.9],[0,1.15,0.5]],mision:'Elige R1 y R2 y observa Vo ideal (sin carga) sobre el esquema IEC 60617.'},
+  carga:{nombre:'Carga',cam:[[0,2.7,3.5],[0,2.2,-1.55]],mision:'Conecta RL y observa a Vo caer por debajo del ideal — contrástalo con Thévenin (Vth, Rth).'},
+  corriente:{nombre:'Corriente',cam:[[0,4.3,6.9],[0,1.15,0.5]],mision:'Un segundo circuito, con fuente de corriente ideal: el reparto I1/I2 es inverso a la resistencia.'},
+  reto:{nombre:'Reto',cam:[[0,4.1,6.8],[0,1.1,0.5]],mision:'Diseña R1 y R2: cumple Vo objetivo, error de carga ≤5 % y corriente de reposo ≤25 mA a la vez.'},
 };
 function setMode(k){
   mode=k;
@@ -925,7 +947,7 @@ pickerFor(scene,S.camera,S.renderer.domElement,hit=>{
   let o=hit.object;
   while(o){
     const u=o.userData||{};
-    if(u.el){toastEl(u.el,false);return;}
+    if(u.el){toastEl(u.el,mode==='corriente');return;}
     if(u.title){showToast(`<b style="color:var(--accent2)">${u.title}</b><br><span style="color:var(--dim);font-size:11px">${u.info}</span>`);return;}
     o=o.parent;
   }

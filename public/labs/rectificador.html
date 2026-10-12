@@ -457,7 +457,7 @@ function makeSynth(opts={}){
    variantes de fórmula incompatibles publicadas — se omite deliberadamente).
    ============================================================ */
 const mount=document.getElementById('stage');
-const S=createStage(mount,{cam:[3.1,2.5,7.2],target:[0.5,1.3,0.1],bgTop:'#0d1a17',bgBot:'#04060a',bloom:0.35,minD:3.0,maxD:18});
+const S=createStage(mount,{cam:[0,4.5,6.9],target:[0,1.2,0.45],bgTop:'#0d1a17',bgBot:'#04060a',bloom:0.35,minD:3.0,maxD:18});
 const synth=makeSynth({type:'sine',type2:'triangle',filterFreq:2600,Q:0.8});
 
 /* ---------- 1) Modelo físico ---------- */
@@ -641,10 +641,6 @@ const MAT={
   cap:std({color:0x2a3a52,roughness:0.35,metalness:0.5}),
   xfmr:std({color:0x33261a,roughness:0.5,metalness:0.2}),
 };
-const BAND_COLORS=['#1a1a1a','#7a4a1e','#d23b3b','#e8871e','#e8d21e','#3fae3f','#2e6fe0','#8a4fd6','#8a8a8a','#e8e8e8'];
-function bandsFor(v){const exp=Math.floor(Math.log10(v))-1,dd=Math.round(v/Math.pow(10,exp));
-  return {d1:Math.floor(dd/10),d2:dd%10,mult:exp+1};}
-
 /* ---------- 4) Pizarrón (esquema + osciloscopio) ---------- */
 const bCv=document.createElement('canvas');bCv.width=1024;bCv.height=768;
 const bCx=bCv.getContext('2d');const bTex=new THREE.CanvasTexture(bCv);bTex.colorSpace=THREE.SRGBColorSpace;
@@ -808,50 +804,19 @@ function boardClick(u,v){
 }
 
 /* ---------- 5) Banco 3D ---------- */
+/* El pizarrón (esquema + osciloscopio) va arriba y al fondo; debajo, el montaje
+   REAL sobre un protoboard: en el estante, la fuente de CA, el TRANSFORMADOR con su
+   bornera de secundario y el medidor; sobre la placa, los diodos DO-41 con su banda
+   de cátodo hacia donde conducen, el electrolítico de filtro y la carga. Los rieles
+   son la salida: «+» es Vout y «−» es la masa. */
 const boardG=new THREE.Group();
 const board=new THREE.Mesh(new THREE.PlaneGeometry(2.6,1.95),new THREE.MeshStandardMaterial({map:bTex,roughness:0.55,metalness:0.05}));
 board.userData.title='Esquema y osciloscopio';
 const boardFrame=new THREE.Mesh(new THREE.BoxGeometry(2.68,2.03,0.05),MAT.frame);
 boardFrame.position.z=-0.03;
 boardG.add(boardFrame,board);
-boardG.position.set(-1.05,1.75,-0.85);boardG.rotation.y=0.16;
+boardG.scale.setScalar(1.0);boardG.position.set(0,2.3,-1.55);
 S.scene.add(boardG);
-
-const benchG=new THREE.Group();
-const mesa=new THREE.Mesh(new THREE.BoxGeometry(3.6,0.12,2.2),MAT.bench);
-mesa.position.set(0.6,-0.06,0.9);benchG.add(mesa);
-const pcb=new THREE.Mesh(new THREE.BoxGeometry(2.6,0.03,1.5),MAT.pcb);
-pcb.position.set(0.6,0.02,0.9);benchG.add(pcb);
-function trace(x0,z0,x1,z1,w){
-  const dx=x1-x0,dz=z1-z0,len=Math.hypot(dx,dz);
-  const m=new THREE.Mesh(new THREE.BoxGeometry(len,0.006,w||0.03),MAT.trace);
-  m.position.set((x0+x1)/2,0.037,(z0+z1)/2);m.rotation.y=-Math.atan2(dz,dx);
-  benchG.add(m);
-}
-function leads(g){
-  const l1=new THREE.Mesh(new THREE.CylinderGeometry(0.012,0.012,0.16,10),MAT.lead);
-  l1.rotation.z=Math.PI/2;l1.position.x=-0.16;g.add(l1);
-  const l2=l1.clone();l2.position.x=0.16;g.add(l2);
-}
-function cable(pts,mat){
-  const curve=new THREE.CatmullRomCurve3(pts.map(p=>new THREE.Vector3(...p)));
-  const geo=new THREE.TubeGeometry(curve,24,0.014,8,false);
-  const m=new THREE.Mesh(geo,mat);benchG.add(m);return m;
-}
-function makeDisplayBox(w,h,dp,cw,ch){
-  const g=new THREE.Group();
-  const body=new THREE.Mesh(new THREE.BoxGeometry(w,h,dp),MAT.scope);g.add(body);
-  const cv=document.createElement('canvas');cv.width=cw;cv.height=ch;
-  const cx=cv.getContext('2d');const tex=new THREE.CanvasTexture(cv);tex.colorSpace=THREE.SRGBColorSpace;
-  const screen=new THREE.Mesh(new THREE.PlaneGeometry(w*0.86,h*0.78),
-    new THREE.MeshStandardMaterial({map:tex,emissive:0x0a1512,emissiveMap:tex,emissiveIntensity:0.6,roughness:0.4}));
-  screen.position.z=dp/2+0.001;g.add(screen);
-  return {g,cv,cx,tex,screen};
-}
-const fuenteBox=makeDisplayBox(0.62,0.42,0.14,256,180);
-fuenteBox.g.position.set(-0.15,0.42,0.55);benchG.add(fuenteBox.g);
-const medidorBox=makeDisplayBox(0.62,0.42,0.14,256,180);
-medidorBox.g.position.set(0.55,0.42,0.55);benchG.add(medidorBox.g);
 
 /* Los nombres con los que trabaja la biblioteca de piezas (`P3`, que el molde ya
    importa), traducidos una vez a los materiales de este laboratorio. */
@@ -865,111 +830,170 @@ const MATP={
   blanco:std({color:0xd7dee6,roughness:0.40,metalness:0.20}),
   ceramica:std({color:0xd7dee6,roughness:0.60,metalness:0.05}),
 };
-// Todo lo que va en la placa apoya en su CARA: la biblioteca dibuja cada
-// componente con y = 0 en la placa y las patas por debajo, atravesandola.
-const Y_PCB=0.035;
-/* EL TRANSFORMADOR de la fuente, como el que hay en cualquier banco: NUCLEO E-I
-   de chapas apiladas, carrete partido —primario y secundario, cada uno en su
-   hueco, sobre EL MISMO hierro— y el fleje de sujecion con sus patas. El bloque
-   liso con dos cilindros pegados a los lados no decia de donde sale la tension
-   del secundario; asi se ve que sale de un devanado enrollado sobre el mismo
-   nucleo que el otro. */
+const BANCO=P3.bancoPrototipos(MATP,{cols:18,K:1.7,instrumentos:2,
+  dims:[{ancho:0.84,alto:0.56,visorAlto:0.60},{ancho:0.92,alto:0.58,visorAlto:0.64}]});
+const benchG=BANCO;
+const circG=BANCO.userData.circ,H=BANCO.userData.H,railNear=BANCO.userData.rielCerca;
+const KB3=BANCO.userData.K,EY=BANCO.userData.estanteY;
+const fuenteBox=BANCO.userData.instrumento(0);
+const medidorBox=BANCO.userData.instrumento(1);
+fuenteBox.g.position.x=-1.72;medidorBox.g.position.x=1.50;
+fuenteBox.g.userData.title='Fuente de CA (primario del transformador)';fuenteBox.g.userData.act='src3d';
+medidorBox.g.userData.title='Medidor Vdc / Vr(pp)';
+const CABLE={rojo:0xd64545,negro:0x1b1f24,azul:0x2a5fa8,amarillo:0xe0a21c,verde:0x2f9e5b,naranja:0xe07b22};
+
+/* EL TRANSFORMADOR, sobre el estante: núcleo E-I con el carrete partido —primario a
+   la izquierda, secundario a la derecha, sobre el MISMO hierro— y, a su lado, la
+   BORNERA de tres vías del secundario (A · CT · B). Del primario salen los cables a
+   la fuente; del secundario, los de la placa. */
+const XF_ESC=1.85,XF_X=-0.72;
 const xfmrG=P3.transformadorEI(MATP,{ancho:0.30,alto:0.34,prof:0.22,chapas:9});
-xfmrG.userData.act='src3d';xfmrG.userData.title='Fuente CA (secundario)';
-xfmrG.position.set(-1.55,0.19,1.15);benchG.add(xfmrG);
+xfmrG.scale.setScalar(XF_ESC);
+xfmrG.position.set(XF_X,EY-xfmrG.userData.base*XF_ESC,-1.15);
+xfmrG.userData.act='src3d';xfmrG.userData.title='Transformador (secundario · Vrms)';
+BANCO.add(xfmrG);
+const bornG=P3.bornera(MATP,{vias:3,paso:0.13,alto:0.11,fondo:0.12,cuerpo:0x1c5fa8});
+bornG.scale.setScalar(1.7);bornG.position.set(0.30,EY+0.06*1.7,-1.0);
+bornG.userData.title='Bornera del secundario (A · CT · B)';bornG.userData.act='src3d';
+BANCO.add(bornG);
+// Rótulos serigrafiados de la bornera
+(function(){
+  ['A','CT','B'].forEach((t,i)=>{
+    const cv=document.createElement('canvas');cv.width=96;cv.height=64;const c=cv.getContext('2d');
+    c.fillStyle='#e8edf2';c.font='bold 40px sans-serif';c.textAlign='center';c.textBaseline='middle';c.fillText(t,48,34);
+    const tx=new THREE.CanvasTexture(cv);tx.colorSpace=THREE.SRGBColorSpace;
+    const m=new THREE.Mesh(new THREE.PlaneGeometry(0.11,0.075),new THREE.MeshBasicMaterial({map:tx,transparent:true,depthWrite:false}));
+    m.position.set((i-1)*0.13,0.055,0.0605);bornG.add(m);
+  });
+})();
 
-// Diodos (hasta 4 instancias, visibilidad y color según topología/dispositivo)
-const dioG=new THREE.Group();
-/* LOS DIODOS, cada uno con SU BANDA DE CATODO alrededor del cuerpo y las patas
-   dobladas metidas en la placa. La banda es la unica marca que dice hacia donde
-   conduce: en el puente, dos de los cuatro van con la banda al reves que los
-   otros dos, y equivocarse ahi es cortocircuitar el secundario. */
-const DIO3D=[0,1,2,3].map(i=>{
-  const g=P3.diodoAxial(MATP,{largo:0.16,d:0.070,patas:0.06,paso:0.22,
-    cuerpo:DIODES.si.color,banda:0x111111,catodo:1});
-  g.userData.act='topo3d';g.userData.title='Red de diodos';
-  g.position.set(-0.56+i*0.30,Y_PCB,0.30);
-  dioG.add(g);
-  return {g,body:g.userData.cuerpo,band:g.userData.banda};
-});
-benchG.add(dioG);
-
-/* LA RESISTENCIA DE CARGA, con el cuerpo abarrilado y las TRES BANDAS de valor
-   que el panel cambia cuando se mueve R_L: aqui el codigo de colores se lee de
-   verdad. */
-const resP3=P3.resistencia(MATP,{largo:0.22,d:0.085,patas:0.06,paso:0.34,
-  bandas:[0x000000,0x000000,0x000000],cuerpo:0xe8d9b0});
-const resG=new THREE.Group();resG.add(resP3);
-const resBody=resP3.userData.cuerpo;
-const bandMeshes=resP3.userData.bandas;
-resG.userData.act='res3d';resG.userData.title='Resistor de carga R_L';
-resG.position.set(0.15,Y_PCB,1.15);benchG.add(resG);
-
-/* EL CONDENSADOR DE FILTRO, electrolitico: de pie, con el engarce del fondo, la
-   CRUZ DE ALIVIO de la tapa y la FRANJA DEL NEGATIVO. Las tres marcas son las de
-   uno de verdad, y la franja es la que importa: un electrolitico al reves a la
-   salida de un rectificador revienta por la cruz. */
-const capP3=P3.condensadorRadial(MATP,{d:0.18,alto:0.24,patas:0.06,paso:0.10,
-  lata:0x1f3a52,franja:0xcfe8ff});
-const capG=new THREE.Group();capG.add(capP3);
-const capBody=capP3.userData.cuerpo;
-capG.userData.act='cap3d';capG.userData.title='Capacitor de filtro';
-capG.position.set(0.55,Y_PCB,1.15);benchG.add(capG);
-
-/* LAS PISTAS Y LAS ISLAS de la placa. Solo se dibujan las que son ciertas en
-   TODAS las topologias: las islas de entrada, las de cada diodo y el lazo que
-   pone el condensador EN PARALELO con la carga —la unica conexion que no cambia
-   al pasar de media onda a puente—. */
-function isla(x,z){
-  const m=new THREE.Mesh(new THREE.CylinderGeometry(0.026,0.026,0.005,14),MAT.trace);
-  m.position.set(x,0.037,z);benchG.add(m);
+/* Un cable de color entre dos puntos cualesquiera del MUNDO (o un agujero del
+   protoboard, que va en coordenadas locales de la placa). */
+function aLocal(w){return w.clone().sub(BANCO.userData.prot.position).multiplyScalar(1/KB3);}
+function cableLibre(a,b,col,o){
+  const w=P3.puente(MATP,aLocal(a),aLocal(b),Object.assign({color:col,r:0.024/KB3,alto:0.30,pinA:false,pinB:false},o||{}));
+  circG.add(w);return w;
 }
-DIO3D.forEach(d=>{isla(d.g.position.x-0.11,0.30);isla(d.g.position.x+0.11,0.30);});
-[[-0.02,1.15],[0.32,1.15],[0.50,1.15],[0.60,1.15],[-0.50,0.50]].forEach(a=>isla(a[0],a[1]));
-trace(0.32,1.15,0.50,1.15,0.045);
-trace(-0.02,1.15,-0.02,1.42,0.045);
-trace(-0.02,1.42,0.60,1.42,0.045);
-trace(0.60,1.42,0.60,1.15,0.045);
+function cableAHoyo(w,hoyo,col,o){
+  const g=P3.puente(MATP,hoyo,aLocal(w),Object.assign({color:col,r:0.024/KB3,alto:0.30,pinB:false},o||{}));
+  circG.add(g);return g;
+}
+function bocaMundo(inst,j){inst.g.updateMatrixWorld(true);return inst.bocas[j].clone().applyMatrix4(inst.g.matrixWorld);}
+function bocaBornera(i){bornG.updateMatrixWorld(true);return bornG.userData.boca(i).clone().applyMatrix4(bornG.matrixWorld);}
 
-cable([[-1.40,0.13,1.22],[-1.05,0.17,0.85],[-0.67,0.05,0.30]],MAT.cableRed);
-cable([[-1.40,0.13,1.08],[-1.05,0.11,0.80],[-0.50,0.05,0.50]],MAT.cableBlk);
-
+/* LA ZONA DE MONTAJE: lo que cambia con la topología, el diodo, el filtro y el tipo
+   de carga se rehace aquí; el valor de R_L sólo repinta bandas o rótulo. */
+let DIO3D=[],resG=null,capG=null,circKey='';
+function esCemento(){return curR()<1000;}
+function rotCarga(){const r=curR();return (r>=1000?(r/1000)+' kΩ':r+' Ω');}
+function armaCircuito(){
+  const key=topKey+'|'+dsel+'|'+Cidx+'|'+(esCemento()?'c':'a');
+  if(key===circKey)return;
+  circKey=key;
+  BANCO.userData.limpia();BANCO.userData.reiniciaRieles();
+  const wire=(a,b,col,o)=>{const w=P3.puente(MATP,a,b,Object.assign({color:col},o||{}));circG.add(w);return w;};
+  const alto={minAlto:0.30};
+  // Diodo DO-41 entre dos agujeros: la banda de cátodo mira hacia el cátodo (+1 = derecha)
+  const diodo=(c1,f1,c2,f2,catodo,n)=>{
+    const g=P3.diodoRectificador(MATP,{rotulo:dsel==='si'?'1N4007':'1N5819',catodo:catodo,paso:Math.abs(c2-c1)*0.1});
+    g.position.copy(H(c1,f1)).lerp(H(c2,f2),0.5);g.position.y=H(c1,f1).y;
+    g.userData.act='topo3d';g.userData.title='Diodo D'+n+' ('+(dsel==='si'?'1N4007':'1N5819')+') · banda = cátodo';
+    circG.add(g);DIO3D.push(g);return g;
+  };
+  DIO3D=[];
+  const A=5,P=9,B=13;                       // columnas de los nodos: AC1 · salida · AC2
+  let nodoA=null,nodoB=null,nodoCT=null;
+  if(topKey==='halfwave'){
+    diodo(A,'c',P,'c',1,1);
+    wire(H(P,'e'),railNear('+',P),CABLE.rojo,alto);
+    nodoA=H(A,'a');nodoB=railNear('-',2);
+  }else if(topKey==='centertap'){
+    diodo(A,'c',P,'c',1,1);
+    diodo(B,'b',P,'b',-1,2);
+    wire(H(P,'e'),railNear('+',P),CABLE.rojo,alto);
+    nodoA=H(A,'a');nodoB=H(B,'a');nodoCT=railNear('-',2);
+  }else{
+    diodo(A-4,'c',A,'c',1,3);               // N → AC1
+    diodo(A,'b',P,'b',1,1);                 // AC1 → +
+    diodo(B,'c',P,'c',-1,2);                // AC2 → +
+    diodo(B+4,'b',B,'b',-1,4);              // N → AC2
+    wire(H(P,'e'),railNear('+',P),CABLE.rojo,alto);
+    wire(H(A-4,'e'),railNear('-',A-4),CABLE.negro,alto);
+    wire(H(B+4,'e'),railNear('-',B+4),CABLE.negro,alto);
+    nodoA=H(A,'a');nodoB=H(B,'a');
+  }
+  // Carga: cemento de potencia (R_L baja) o 1/4 W con bandas
+  if(esCemento()){
+    resG=P3.resistenciaCemento(MATP,{rotulo:rotCarga(),paso:0.6});
+    resG.position.copy(H(10,'h')).lerp(H(16,'h'),0.5);resG.position.y=H(10,'h').y;
+    wire(H(10,'j'),railNear('+',10),CABLE.rojo,alto);wire(H(16,'j'),railNear('-',16),CABLE.negro,alto);
+  }else{
+    resG=P3.resistorAxial(MATP,{ohm:curR(),paso:0.4});
+    resG.position.copy(H(11,'h')).lerp(H(15,'h'),0.5);resG.position.y=H(11,'h').y;
+    wire(H(11,'j'),railNear('+',11),CABLE.rojo,alto);wire(H(15,'j'),railNear('-',15),CABLE.negro,alto);
+  }
+  resG.userData.act='res3d';resG.userData.title='Resistor de carga R_L';circG.add(resG);
+  // Filtro: electrolítico, más grande cuanta más capacidad (− a la izquierda, + a la derecha)
+  capG=null;
+  if(Cidx>0){
+    const uF=curC()*1e6,gr=uF<=47?0:uF<=220?1:uF<=470?2:3;
+    capG=P3.electrolitico(MATP,{valor:(uF>=1000?(uF/1000)+'mF':uF+'µF'),volt:'50V',d:[0.18,0.22,0.28,0.34][gr],alto:[0.30,0.38,0.46,0.56][gr],manga:0x1b3358});
+    capG.position.copy(H(2.5,'h'));capG.position.y=H(2,'h').y;
+    capG.userData.act='cap3d';capG.userData.title='Capacitor de filtro (franja = negativo)';circG.add(capG);
+    wire(H(2,'j'),railNear('-',2),CABLE.negro,{minAlto:0.50});wire(H(3,'j'),railNear('+',3),CABLE.rojo,{minAlto:0.50});
+  }
+  // Secundario del transformador → bornera → placa
+  const sal=new THREE.Vector3(xfmrG.userData.salida.x,xfmrG.userData.salida.y,xfmrG.userData.salida.z).multiplyScalar(XF_ESC).add(xfmrG.position);
+  const pri=new THREE.Vector3(-xfmrG.userData.salida.x,xfmrG.userData.salida.y,xfmrG.userData.salida.z).multiplyScalar(XF_ESC).add(xfmrG.position);
+  [[0,CABLE.amarillo,0.00],[1,CABLE.verde,0.06],[2,CABLE.naranja,0.12]].forEach(([i,col,dz])=>{
+    const p=sal.clone();p.z+=dz*0.5-0.03;p.y+=0.03*i;
+    cableLibre(p,bocaBornera(i),col,{alto:0.12});
+  });
+  cableAHoyo(bocaBornera(0),nodoA,CABLE.amarillo);                     // A → ánodo
+  if(topKey==='centertap')cableAHoyo(bocaBornera(1),nodoCT,CABLE.verde);  // CT → masa
+  cableAHoyo(bocaBornera(2),nodoB,CABLE.naranja);                      // B → masa o 2.º ánodo
+  // Primario: de la fuente de CA a la entrada del transformador
+  cableLibre(bocaMundo(fuenteBox,0),pri.clone().add(new THREE.Vector3(0,0.04,0.02)),CABLE.rojo,{alto:0.16});
+  cableLibre(bocaMundo(fuenteBox,1),pri.clone().add(new THREE.Vector3(0,-0.03,-0.04)),CABLE.negro,{alto:0.16});
+  // El medidor mide Vout entre los rieles
+  cableAHoyo(bocaMundo(medidorBox,0),railNear('+',17),CABLE.rojo);
+  cableAHoyo(bocaMundo(medidorBox,1),railNear('-',18),CABLE.negro);
+  circG.traverse(o=>{if(o.isMesh){o.castShadow=true;o.receiveShadow=true;}});
+}
+armaCircuito();
 benchG.traverse(o=>{if(o.isMesh){o.castShadow=true;o.receiveShadow=true;}});
 board.castShadow=false;boardFrame.receiveShadow=true;
 S.scene.add(benchG);
 
 function drawFuenteScreen(){
-  const cx=fuenteBox.cx,cv=fuenteBox.cv;cx.clearRect(0,0,cv.width,cv.height);
-  cx.fillStyle='#06110d';cx.fillRect(0,0,cv.width,cv.height);
-  cx.fillStyle='#4FD1C5';cx.font='bold 22px monospace';cx.textAlign='center';
-  cx.fillText(Vrms.toFixed(1)+' V',cv.width/2,70);
-  cx.fillStyle='#8FB3AC';cx.font='13px monospace';
-  cx.fillText('Vrms · '+FLBL[freqIdx],cv.width/2,100);
-  cx.fillText(TOPOS[topKey].name,cv.width/2,130);
+  const cx=fuenteBox.cx,cv=fuenteBox.cv,w=cv.width,h=cv.height;cx.clearRect(0,0,w,h);
+  cx.fillStyle='#06110d';cx.fillRect(0,0,w,h);
+  cx.fillStyle='#4FD1C5';cx.font='bold '+Math.round(h*0.30)+'px monospace';cx.textAlign='center';
+  cx.fillText(Vrms.toFixed(1)+' V',w/2,h*0.40);
+  cx.fillStyle='#8FB3AC';cx.font=Math.round(h*0.17)+'px monospace';
+  cx.fillText('Vrms · '+FLBL[freqIdx],w/2,h*0.66);
+  cx.fillText(TOPOS[topKey].name,w/2,h*0.90);
   fuenteBox.tex.needsUpdate=true;
 }
 function drawMedidorScreen(){
-  const cx=medidorBox.cx,cv=medidorBox.cv;cx.clearRect(0,0,cv.width,cv.height);
-  cx.fillStyle='#06110d';cx.fillRect(0,0,cv.width,cv.height);
+  const cx=medidorBox.cx,cv=medidorBox.cv,w=cv.width,h=cv.height;cx.clearRect(0,0,w,h);
+  cx.fillStyle='#06110d';cx.fillRect(0,0,w,h);
   const hide=(mode==='predice'&&!predRevealed);
-  cx.fillStyle='#FFB703';cx.font='bold 20px monospace';cx.textAlign='center';
-  cx.fillText(hide?'¿?':fmtV(RES?RES.vdc:0),cv.width/2,60);
-  cx.fillStyle='#8FB3AC';cx.font='12px monospace';cx.fillText('Vdc',cv.width/2,80);
-  cx.fillStyle='#4FD1C5';cx.font='bold 16px monospace';
-  cx.fillText(hide?'¿?':fmtV(RES?RES.vrpp:0),cv.width/2,115);
-  cx.fillStyle='#8FB3AC';cx.font='12px monospace';cx.fillText('Vr(pp)',cv.width/2,133);
+  cx.textAlign='center';
+  cx.fillStyle='#FFB703';cx.font='bold '+Math.round(h*0.26)+'px monospace';
+  cx.fillText(hide?'¿?':fmtV(RES?RES.vdc:0),w/2,h*0.30);
+  cx.fillStyle='#8FB3AC';cx.font=Math.round(h*0.14)+'px monospace';cx.fillText('Vdc',w/2,h*0.46);
+  cx.fillStyle='#4FD1C5';cx.font='bold '+Math.round(h*0.22)+'px monospace';
+  cx.fillText(hide?'¿?':fmtV(RES?RES.vrpp:0),w/2,h*0.74);
+  cx.fillStyle='#8FB3AC';cx.font=Math.round(h*0.14)+'px monospace';cx.fillText('Vr(pp)',w/2,h*0.92);
   medidorBox.tex.needsUpdate=true;
 }
 function refreshBenchSel(){
-  const n=TOPOS[topKey].ndiodos;
-  DIO3D.forEach((d,i)=>{d.g.visible=i<n;d.body.material.color.setHex(curD().color);});
-  const bd=bandsFor(curR());
-  bandMeshes[0].material.color.set(BAND_COLORS[bd.d1]);
-  bandMeshes[1].material.color.set(BAND_COLORS[bd.d2]);
-  bandMeshes[2].material.color.set(BAND_COLORS[Math.max(0,Math.min(9,bd.mult))]);
-  capG.visible=Cidx>0;
+  armaCircuito();
+  if(!esCemento())resG.userData.ponValor(curR());else resG.userData.ponTexto(rotCarga());
 }
 function refreshBenchDyn(){drawFuenteScreen();drawMedidorScreen();}
+
 
 /* ---------- 6) HUD + panel ---------- */
 document.getElementById('hud').innerHTML=`
@@ -1087,13 +1111,13 @@ function showToast(msg){const t=el('toast');t.textContent=msg;t.classList.add('s
 
 /* ---------- 8) Modos ---------- */
 const MODE_META={
-  explora:{nombre:'Explora',cam:[[3.1,2.5,7.2],[0.5,1.3,0.1]],
+  explora:{nombre:'Explora',cam:[[0,4.5,6.9],[0,1.2,0.45]],
     mision:'Cambia topología, dispositivo, Vrms, R y C — observa cómo cambian Vdc, el rizo y el PIV que debe soportar cada diodo.'},
-  predice:{nombre:'Predice',cam:[[-0.1,2.2,4.3],[-0.9,1.75,-0.8]],
+  predice:{nombre:'Predice',cam:[[0,2.5,2.9],[0,2.2,-1.55]],
     mision:'Se te da un circuito completo (topología, dispositivo, Vrms, R, C). Predice Vdc, Vr(pp), PIV y si es seguro — ANTES de ver el osciloscopio.'},
-  barrido:{nombre:'Barrido',cam:[[-0.2,2.1,3.9],[-0.9,1.75,-0.8]],
+  barrido:{nombre:'Barrido',cam:[[0,2.5,2.9],[0,2.2,-1.55]],
     mision:'Recorre la capacitancia de filtro con todo lo demás fijo y confirma la relación inversa entre C y el rizo.'},
-  reto:{nombre:'Reto',cam:[[0.6,2.3,5.6],[0.2,1.3,0.2]],
+  reto:{nombre:'Reto',cam:[[0,4.3,6.6],[0,1.2,0.45]],
     mision:'Con R_L y la frecuencia de línea fijas, elige topología, dispositivo, Vrms y C para cumplir un objetivo de Vdc y rizo con margen de seguridad en el PIV.'},
 };
 /* Al salir de una predicción sin contestar el banco no puede conservar el
