@@ -1,303 +1,193 @@
 "use client";
-
-import React, { useEffect, useRef } from 'react';
+/**
+ * Q10 · Destilación fraccionada — mesa de laboratorio (R3F + kit).
+ *
+ *   Balón de 500 mL con la mezcla etanol–agua en una manta calefactora (sobre gato de laboratorio),
+ *   columna Vigreux, cabeza de destilación con el termómetro a la altura de la salida lateral,
+ *   condensador Liebig con mangueras al recirculador, alargadera y probeta receptora; aparte, un
+ *   cilindro con el alcoholímetro que mide la muestra del destilado acumulado.
+ *
+ *   Todo sale del estado del store: ebullición (burbujas, vapor, gotas) sólo cuando hay caudal;
+ *   el termómetro de la cabeza marca `tempCabeza` y el alcoholímetro flota donde le toca por el
+ *   % v/v del destilado. La escena no dice cuánto calentar: sólo lo que se ve y se mide.
+ */
+import React, { useMemo, useRef } from 'react';
 import * as THREE from 'three';
-import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
-import { EffectComposer } from 'three/examples/jsm/postprocessing/EffectComposer.js';
-import { RenderPass } from 'three/examples/jsm/postprocessing/RenderPass.js';
-import { ShaderPass } from 'three/examples/jsm/postprocessing/ShaderPass.js';
+import { useFrame } from '@react-three/fiber';
+import {
+  LabCanvas, EncuadrarCaja, MatrazBalon, Probeta, Termometro, SoporteUniversal, Nuez, Pinza, Cable, Etiqueta,
+  defBalon, defProbeta, alturaSuperficie, COLORES_LIQUIDO, useMateriales, esfera, cilindro,
+} from '../_kit';
+import {
+  MantaCalefactora, GatoLaboratorio, ControladorManta, ColumnaVigreux, CabezaDestilacion, CABEZA, CondensadorLiebig, LIEBIG,
+  OLIVA_SALIDA, OLIVA_ENTRADA, AdaptadorSalida, trayectoAdaptador, Alcoholimetro, ALC, marcaAlcoholimetro, Recirculador,
+  AbrazaderaTubo, Burbujas, MANTA_CENTRO_Y,
+} from './piezas';
 
-interface Destilacion3DSceneProps {
-    temp: number;
-    volMezcla: number; // 0 to 100
-    volDestilado: number; // 0 to 100
-    pureza: number;
-    tasa?: number; // mL/s de destilado (0 = no hierve)
+type V3 = [number, number, number];
+
+export interface Destilacion3DProps {
+  /** temperatura del líquido del matraz (°C) */
+  temp: number;
+  /** volumen de mezcla que queda en el matraz (mL) */
+  volMatraz: number;
+  /** volumen de destilado acumulado en la probeta (mL) */
+  volDestilado: number;
+  /** % v/v de etanol del destilado acumulado */
+  pureza: number;
+  /** caudal de destilado (mL/s); > 0 = hierve */
+  tasa: number;
+  /** temperatura del vapor en la cabeza de la columna (°C) */
+  tempCabeza: number;
+  /** consigna de la manta (°C) */
+  consigna: number;
 }
 
-// Cinematic Shader - Diamond State Standard
-const CinematicShader = {
-    uniforms: {
-        "tDiffuse": { value: null },
-        "amount": { value: 0.0015 },
-        "vignette": { value: 0.5 },
-        "time": { value: 0.0 }
-    },
-    vertexShader: `
-        varying vec2 vUv;
-        void main() {
-            vUv = uv;
-            gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
-        }
-    `,
-    fragmentShader: `
-        uniform sampler2D tDiffuse;
-        uniform float amount;
-        uniform float vignette;
-        uniform float time;
-        varying vec2 vUv;
+// ── cotas del montaje (1 u = 1 dm) ──
+const defBal = defBalon(500);
+const Y_GATO = 0.5;
+const Y_BALON = Y_GATO + MANTA_CENTRO_Y - 0.525;            // el fondo del balón queda concéntrico con el casquete
+const Y_BOCA = Y_BALON + defBal.altura;                      // borde del cuello del balón
+const LARGO_COL = 1.75;                                      // 1,5 de columna + 0,25 de junta dentro del cuello
+const Y_COL = Y_BOCA - 0.28;
+const Y_CABEZA = Y_COL + LARGO_COL - 0.2;
+const ANG = CABEZA.anguloBrazo;                              // el condensador sigue el rumbo del brazo lateral
+const P_COND: V3 = [CABEZA.fin[0], Y_CABEZA + CABEZA.fin[1], 0];
+const FIN_COND: V3 = [P_COND[0] + LIEBIG.largo * Math.cos(ANG), P_COND[1] - LIEBIG.largo * Math.sin(ANG), 0];
+const defProb = defProbeta(100);
+const defJar = defProbeta(100);
+const Y_BOCA_PROBETA = defProb.altura;
+const ARCO = trayectoAdaptador(ANG, 0);
+const ARCO_FIN: V3 = [ARCO[ARCO.length - 3], ARCO[ARCO.length - 2], 0];
+const Y_PUNTA = Y_BOCA_PROBETA - 0.15;                       // la alargadera entra en la probeta
+const CAIDA = FIN_COND[1] + ARCO_FIN[1] - Y_PUNTA;
+const X_PROBETA = FIN_COND[0] + ARCO_FIN[0];
+const POS_JAR: V3 = [3.1, 0, 1.15];
+const POS_RECIRC: V3 = [4.0, 0, -3.0];
+const POS_CONTROL: V3 = [-2.1, 0, 0.55];
+const VOL_MUESTRA = 95;                                      // mL de muestra en el cilindro del alcoholímetro
 
-        float random(vec2 co) {
-            return fract(sin(dot(co.xy ,vec2(12.9898,78.233))) * 43758.5453);
-        }
+const enCond = (l: V3): V3 => [P_COND[0] + l[0] * Math.cos(ANG), P_COND[1] - l[0] * Math.sin(ANG), l[2]];
 
-        void main() {
-            vec2 uv = vUv;
-            vec4 color = texture2D(tDiffuse, uv);
-            
-            float r = texture2D(tDiffuse, uv + vec2(amount, 0.0)).r;
-            float g = texture2D(tDiffuse, uv).g;
-            float b = texture2D(tDiffuse, uv - vec2(amount, 0.0)).b;
-            
-            float noise = (random(uv + time * 0.01) - 0.5) * 0.03;
-            float dist = distance(uv, vec2(0.5));
-            float vig = smoothstep(1.0, 0.1, dist * vignette);
-            
-            vec3 finalColor = vec3(r, g, b) + noise;
-            gl_FragColor = vec4(finalColor, 1.0) * vig;
-        }
-    `
-};
+/** Gotas de condensado que caen de la alargadera a la probeta con frecuencia ligada al caudal. */
+function Gotas({ tasa, ySup }: { tasa: number; ySup: number }) {
+  const m = useMateriales();
+  const refs = [useRef<THREE.Mesh>(null), useRef<THREE.Mesh>(null)];
+  const fase = useRef(0);
+  const geo = useMemo(() => esfera(0.03, 10), []);
+  useFrame((_, dtReal) => {
+    const dt = Math.min(dtReal, 0.05);
+    fase.current += dt * (0.5 + Math.min(3, tasa * 2));
+    const alto = Math.max(0.05, Y_PUNTA - 0.08 - ySup);
+    refs.forEach((r, i) => {
+      const g = r.current; if (!g) return;
+      g.visible = tasa > 0.02;
+      if (!g.visible) return;
+      const f = (fase.current + i * 0.5) % 1;
+      g.position.set(X_PROBETA, Y_PUNTA - 0.08 - f * f * alto, 0);
+      g.scale.setScalar(f < 0.15 ? f / 0.15 : 1);
+    });
+  });
+  return <>{refs.map((r, i) => <mesh key={i} ref={r} geometry={geo} material={m.liquido('#d8ecf2')} visible={false} />)}</>;
+}
 
-export default function Destilacion3DScene({ temp, volMezcla, volDestilado, pureza, tasa = 0 }: Destilacion3DSceneProps) {
-    const containerRef = useRef<HTMLDivElement>(null);
-    // El bucle se monta una vez y lee las props por ref: antes las capturaba del
-    // primer render y la escena no reaccionaba a la manta ni al destilado.
-    const stateRef = useRef({ temp, volMezcla, volDestilado, pureza, tasa });
-    stateRef.current = { temp, volMezcla, volDestilado, pureza, tasa };
-    const engineRef = useRef<{
-        scene: THREE.Scene;
-        camera: THREE.PerspectiveCamera;
-        renderer: THREE.WebGLRenderer;
-        composer: EffectComposer;
-        controls: OrbitControls;
-        frameId: number;
-        liquidMezcla?: THREE.Mesh;
-        liquidDestilado?: THREE.Mesh;
-        bubbleParticles?: THREE.Points;
-        steamParticles?: THREE.Points;
-        dripParticles?: THREE.Points;
-    } | null>(null);
+/** Alcoholímetro que flota en la muestra: su marca de % v/v queda a ras de la superficie. */
+function AlcoholimetroFlotante({ pct, ySup, yFondo, flota }: { pct: number; ySup: number; yFondo: number; flota: boolean }) {
+  const ref = useRef<THREE.Group>(null);
+  const obj = flota ? Math.max(yFondo + 0.01, ySup - marcaAlcoholimetro(pct)) : yFondo + 0.01;
+  useFrame((_, dt) => {
+    const g = ref.current; if (!g) return;
+    g.position.y += (obj - g.position.y) * (1 - Math.exp(-Math.min(dt, 0.05) * 3));
+    g.rotation.z += ((flota ? 0 : 0.06) - g.rotation.z) * 0.1;
+  });
+  return <group ref={ref} position={[0, obj, 0]}><Alcoholimetro /></group>;
+}
 
-    useEffect(() => {
-        if (!containerRef.current) return;
+function Montaje(p: Destilacion3DProps) {
+  const m = useMateriales();
+  const hierve = p.tasa > 0;
+  const ySupBalon = Y_BALON + Math.max(0.1, alturaSuperficie(defBal, p.volMatraz));
+  const ySupProbeta = alturaSuperficie(defProb, Math.max(0.01, p.volDestilado));
+  const hayMuestra = p.volDestilado >= 2;
+  const ySupJar = alturaSuperficie(defJar, VOL_MUESTRA);
+  const yFondoJar = defJar.interior[0][1];
+  const dirCond: V3 = [Math.cos(ANG), -Math.sin(ANG), 0];
+  const yClampCond = P_COND[1] - 1.65 * Math.sin(ANG);
+  const xClampCond = P_COND[0] + 1.65 * Math.cos(ANG);
+  const rizoManguera = useMemo(() => ({ out: enCond(OLIVA_SALIDA), inn: enCond(OLIVA_ENTRADA) }), []);
+  const nozzleOut: V3 = [POS_RECIRC[0] + 0.35, 1.1 + 0.3, POS_RECIRC[2]];
+  const nozzleIn: V3 = [POS_RECIRC[0] - 0.35, 1.1 + 0.3, POS_RECIRC[2]];
 
-        const width = containerRef.current.clientWidth;
-        const height = containerRef.current.clientHeight;
+  return (
+    <group>
+      {/* gato, manta y balón */}
+      <GatoLaboratorio />
+      <MantaCalefactora position={[0, Y_GATO, 0]} calor={hierve ? 1 : Math.min(1, Math.max(0, (p.consigna - p.temp) / 80))} />
+      <MatrazBalon capacidad={500} position={[0, Y_BALON, 0]} liquido={{ volumenML: Math.max(1, p.volMatraz), color: '#dcecef' }} />
+      {/* piedras de ebullición y burbujas */}
+      {[[-0.18, 0.1], [0.14, -0.12], [0.02, 0.2], [-0.1, -0.22]].map(([x, z], i) => (
+        <mesh key={i} geometry={esfera(0.04, 8)} material={m.ceramica} position={[x, Y_BALON + defBal.grosor + 0.06, z]} scale={[1, 0.8, 1]} />
+      ))}
+      <Burbujas activa={hierve} rMax={0.3} yFondo={Y_BALON + defBal.grosor + 0.08} ySup={ySupBalon} />
 
-        const scene = new THREE.Scene();
-        scene.background = new THREE.Color(0x02040a);
-        scene.fog = new THREE.FogExp2(0x02040a, 0.01);
+      {/* columna Vigreux y cabeza con el termómetro */}
+      <ColumnaVigreux position={[0, Y_COL, 0]} largo={LARGO_COL} vapor={hierve ? 1 : 0} />
+      <CabezaDestilacion position={[0, Y_CABEZA, 0]} vapor={hierve ? 1 : 0} />
+      <Termometro position={[0, Y_CABEZA + 0.4, 0]} temperatura={p.tempCabeza} longitud={2.5} liquido="alcohol" />
 
-        const camera = new THREE.PerspectiveCamera(40, width / height, 0.1, 1000);
-        camera.position.set(0, 15, 45);
+      {/* condensador Liebig, inclinado en el rumbo del brazo lateral */}
+      <group position={P_COND} rotation={[0, 0, -ANG]}><CondensadorLiebig /></group>
+      <AdaptadorSalida position={FIN_COND} angulo={ANG} caida={CAIDA} />
+      <Cable desde={rizoManguera.inn} hasta={nozzleIn} holgura={0.5} grosor={0.04} color="#8fc7e4" />
+      <Cable desde={rizoManguera.out} hasta={nozzleOut} holgura={0.5} grosor={0.04} color="#8fc7e4" />
+      <Recirculador position={POS_RECIRC} />
 
-        const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true, powerPreference: "high-performance" });
-        renderer.setSize(width, height);
-        renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
-        renderer.toneMapping = THREE.ACESFilmicToneMapping;
-        containerRef.current.appendChild(renderer.domElement);
+      {/* soportes: uno sujeta la columna; otro, el condensador por su camisa */}
+      <SoporteUniversal position={[-0.26, 0, -2.8]} alturaVarilla={3.6}>
+        <Nuez altura={Y_COL + 1.05}>
+          <Pinza tipo="matraz" diametro={0.26} largo={2.8} />
+        </Nuez>
+      </SoporteUniversal>
+      <SoporteUniversal position={[xClampCond - 0.26, 0, -2.8]} alturaVarilla={Math.ceil(yClampCond + 0.6)}>
+        <Nuez altura={yClampCond}>
+          <AbrazaderaTubo radio={0.18} largo={2.8} dir={dirCond} />
+        </Nuez>
+      </SoporteUniversal>
 
-        const controls = new OrbitControls(camera, renderer.domElement);
-        controls.enableDamping = true;
-        controls.maxPolarAngle = Math.PI / 2;
+      {/* receptor: probeta de 100 mL con el destilado y gotas que caen */}
+      <Probeta capacidad={100} position={[X_PROBETA, 0, 0]} liquido={p.volDestilado > 0.05 ? { volumenML: Math.min(100, p.volDestilado), color: '#dcecf1' } : undefined} />
+      <Gotas tasa={p.tasa} ySup={p.volDestilado > 0.05 ? ySupProbeta : 0.2} />
 
-        const composer = new EffectComposer(renderer);
-        composer.addPass(new RenderPass(scene, camera));
-        const cinematicPass = new ShaderPass(CinematicShader);
-        composer.addPass(cinematicPass);
+      {/* cilindro con el alcoholímetro (muestra del destilado acumulado) */}
+      <group position={POS_JAR}>
+        <Probeta capacidad={100} liquido={hayMuestra ? { volumenML: VOL_MUESTRA, color: '#dcecf1' } : undefined} />
+        <AlcoholimetroFlotante pct={p.pureza} ySup={ySupJar} yFondo={yFondoJar} flota={hayMuestra} />
+      </group>
 
-        // Lighting
-        scene.add(new THREE.AmbientLight(0xffffff, 0.2));
-        const mainLight = new THREE.SpotLight(0xffffff, 100);
-        mainLight.position.set(20, 40, 20);
-        scene.add(mainLight);
+      {/* controlador de la manta */}
+      <ControladorManta position={POS_CONTROL} rotation={[0, 0.3, 0]} consigna={p.consigna} calentando={p.consigna > p.temp + 1} />
+      <Cable desde={[POS_CONTROL[0] + 0.7, 0.35, POS_CONTROL[2] - 0.35]} hasta={[0.72, Y_GATO + 0.3, 0.05]} holgura={0.45} grosor={0.03} color="#23282c" ySuelo={0} />
 
-        const rimLight = new THREE.PointLight(0x0ea5e9, 30);
-        rimLight.position.set(-20, 10, -10);
-        scene.add(rimLight);
+      {/* rótulos */}
+      <Etiqueta texto="Columna Vigreux" position={[-0.95, Y_COL + 0.85, 0.2]} tamano={0.17} fondo="#ffffff" borde="#9aa6ad" color="#12202b" peso={600} />
+      <Etiqueta texto="Condensador Liebig" position={[2.5, yClampCond + 0.55, 0.2]} tamano={0.17} fondo="#ffffff" borde="#9aa6ad" color="#12202b" peso={600} />
+      <Etiqueta texto="Alcoholímetro" position={[POS_JAR[0], 0.12, POS_JAR[2] + 0.6]} tamano={0.17} fondo="#ffffff" borde="#9aa6ad" color="#12202b" peso={600} />
+      <Etiqueta texto="Receptor" position={[X_PROBETA, 0.12, 0.75]} tamano={0.17} fondo="#ffffff" borde="#9aa6ad" color="#12202b" peso={600} />
+      <Etiqueta texto="Manta" position={[POS_CONTROL[0], 0.12, POS_CONTROL[2] + 0.8]} tamano={0.17} fondo="#ffffff" borde="#9aa6ad" color="#12202b" peso={600} />
+    </group>
+  );
+}
 
-        // --- MODELS ---
-
-        // 1. Manta de Calentamiento
-        const mantleGeo = new THREE.CylinderGeometry(6, 6, 4, 32);
-        const mantleMat = new THREE.MeshStandardMaterial({ color: 0x1e293b, roughness: 0.5, metalness: 0.5 });
-        const mantle = new THREE.Mesh(mantleGeo, mantleMat);
-        mantle.position.set(-12, 2, 0);
-        scene.add(mantle);
-
-        // 2. Matraz de Destilación (Bola)
-        const matrazGeo = new THREE.SphereGeometry(5, 32, 32);
-        const glassMat = new THREE.MeshPhysicalMaterial({
-            color: 0xffffff,
-            transmission: 0.95,
-            roughness: 0.05,
-            thickness: 0.5,
-            transparent: true,
-            opacity: 0.2
-        });
-        const matraz = new THREE.Mesh(matrazGeo, glassMat);
-        matraz.position.set(-12, 7, 0);
-        scene.add(matraz);
-
-        // Líquido Mezcla
-        const liquidGeo = new THREE.SphereGeometry(4.8, 32, 32, 0, Math.PI * 2, Math.PI / 2, Math.PI);
-        const liquidMat = new THREE.MeshPhysicalMaterial({
-            color: 0x3b82f6,
-            transmission: 0.5,
-            transparent: true,
-            opacity: 0.7
-        });
-        const liquidMezcla = new THREE.Mesh(liquidGeo, liquidMat);
-        liquidMezcla.position.set(-12, 7, 0);
-        scene.add(liquidMezcla);
-
-        // 3. Columna de Fraccionamiento (Cilindro con perlas)
-        const colGeo = new THREE.CylinderGeometry(1, 1, 12, 32);
-        const col = new THREE.Mesh(colGeo, glassMat);
-        col.position.set(-12, 16, 0);
-        scene.add(col);
-
-        // 4. Refrigerante (Tubo inclinado)
-        const refGeo = new THREE.CylinderGeometry(1.5, 1.5, 25, 32);
-        const ref = new THREE.Mesh(refGeo, glassMat);
-        ref.rotation.z = -Math.PI / 4;
-        ref.position.set(-2, 15, 0);
-        scene.add(ref);
-
-        // 5. Matraz Receptor (Erlenmeyer)
-        const createErlenmeyer = (x: number, y: number) => {
-            const group = new THREE.Group();
-            const bodyGeo = new THREE.CylinderGeometry(1, 5, 8, 32);
-            const body = new THREE.Mesh(bodyGeo, glassMat);
-            group.add(body);
-            group.position.set(x, y, 0);
-            return group;
-        };
-        const receptor = createErlenmeyer(10, 4);
-        scene.add(receptor);
-
-        // Líquido Destilado
-        const destLiquidGeo = new THREE.CylinderGeometry(1, 4.8, 8, 32);
-        const destLiquidMat = new THREE.MeshPhysicalMaterial({
-            color: 0x10b981,
-            transmission: 0.5,
-            transparent: true,
-            opacity: 0.6
-        });
-        const liquidDestilado = new THREE.Mesh(destLiquidGeo, destLiquidMat);
-        liquidDestilado.position.set(10, 4, 0);
-        scene.add(liquidDestilado);
-
-        // --- PARTICLES ---
-        const createParticles = (count: number, color: number, size: number) => {
-            const geo = new THREE.BufferGeometry();
-            const pos = new Float32Array(count * 3);
-            geo.setAttribute('position', new THREE.BufferAttribute(pos, 3));
-            const mat = new THREE.PointsMaterial({ color, size, transparent: true, opacity: 0, blending: THREE.AdditiveBlending });
-            return new THREE.Points(geo, mat);
-        };
-
-        const bubbles = createParticles(30, 0xffffff, 0.1);
-        const steam = createParticles(50, 0xffffff, 0.2);
-        const drips = createParticles(10, 0x60a5fa, 0.3);
-        scene.add(bubbles, steam, drips);
-
-        engineRef.current = {
-            scene, camera, renderer, composer, controls, frameId: 0,
-            liquidMezcla, liquidDestilado, bubbleParticles: bubbles, steamParticles: steam, dripParticles: drips
-        };
-
-        let time = 0;
-        const animate = () => {
-            time += 0.016;
-            const eng = engineRef.current;
-            if (!eng) return;
-
-            eng.controls.update();
-            cinematicPass.uniforms.time.value = time;
-            const { volMezcla, volDestilado, tasa } = stateRef.current;
-            const hierve = tasa > 0;
-            const intensidad = Math.min(1, tasa / 2); // 2 mL/s ≈ ebullición vigorosa
-
-            // Sync Liquids
-            const mezLevel = (volMezcla / 100);
-            eng.liquidMezcla!.scale.set(1, mezLevel, 1);
-            eng.liquidMezcla!.position.y = 7 - (1 - mezLevel) * 2.5;
-
-            const destLevel = (volDestilado / 100);
-            eng.liquidDestilado!.scale.set(1, destLevel, 1);
-            eng.liquidDestilado!.position.y = 4 - (1 - destLevel) * 4;
-            
-            // El destilado (etanol + agua) es incoloro: su pureza se lee con el
-            // alcoholímetro del panel, no con el color.
-
-            // Animación Burbujas (Ebullición)
-            if (hierve) {
-                const bPos = eng.bubbleParticles!.geometry.attributes.position.array as Float32Array;
-                (eng.bubbleParticles!.material as THREE.PointsMaterial).opacity = 0.3 + 0.5 * intensidad;
-                for(let i=0; i<30; i++) {
-                    const t = (time + i/30) % 1;
-                    bPos[i*3] = -12 + (Math.random() - 0.5) * 6 * mezLevel;
-                    bPos[i*3+1] = 7 - 4 + t * 8 * mezLevel;
-                    bPos[i*3+2] = (Math.random() - 0.5) * 6 * mezLevel;
-                }
-                eng.bubbleParticles!.geometry.attributes.position.needsUpdate = true;
-            }
-
-            // Animación Vapor (Columna)
-            if (hierve) {
-                const sPos = eng.steamParticles!.geometry.attributes.position.array as Float32Array;
-                (eng.steamParticles!.material as THREE.PointsMaterial).opacity = 0.1 + 0.3 * intensidad;
-                for(let i=0; i<50; i++) {
-                    const t = (time * 0.5 + i/50) % 1;
-                    sPos[i*3] = -12 + (Math.random() - 0.5) * 1.5;
-                    sPos[i*3+1] = 10 + t * 15;
-                    sPos[i*3+2] = (Math.random() - 0.5) * 1.5;
-                }
-                eng.steamParticles!.geometry.attributes.position.needsUpdate = true;
-            }
-
-            // Animación Goteo (Receptor)
-            if (hierve) {
-                const dPos = eng.dripParticles!.geometry.attributes.position.array as Float32Array;
-                (eng.dripParticles!.material as THREE.PointsMaterial).opacity = 1;
-                for(let i=0; i<10; i++) {
-                    const t = (time * 1.2 + i/10) % 1;
-                    dPos[i*3] = 10;
-                    dPos[i*3+1] = 10 - t * 6;
-                    dPos[i*3+2] = 0;
-                }
-                eng.dripParticles!.geometry.attributes.position.needsUpdate = true;
-            } else {
-                (eng.dripParticles!.material as THREE.PointsMaterial).opacity = 0;
-            }
-
-            eng.composer.render();
-            eng.frameId = requestAnimationFrame(animate);
-        };
-        animate();
-
-        const contenedor = containerRef.current;
-        const ro = new ResizeObserver(() => {
-            const w = contenedor.clientWidth, h = contenedor.clientHeight;
-            if (w === 0 || h === 0) return;
-            camera.aspect = w / h; camera.updateProjectionMatrix();
-            renderer.setSize(w, h); composer.setSize(w, h);
-        });
-        ro.observe(contenedor);
-
-        return () => {
-            ro.disconnect();
-            if (engineRef.current) cancelAnimationFrame(engineRef.current.frameId);
-            controls.dispose();
-            composer.dispose();
-            renderer.dispose();
-            // Sin esto, en modo estricto (doble montaje) quedaban DOS lienzos apilados.
-            if (contenedor.contains(renderer.domElement)) contenedor.removeChild(renderer.domElement);
-            engineRef.current = null;
-        };
-    }, []);
-
-    return <div ref={containerRef} className="w-full h-full outline-none" />;
+export default function Destilacion3DScene(props: Destilacion3DProps) {
+  void COLORES_LIQUIDO; void cilindro; void ALC;
+  return (
+    <LabCanvas
+      fondo="laboratorio"
+      camara={{ posicion: [1, 5.5, 14], objetivo: [1.0, 3.0, 0], fov: 35 }}
+      controles={{ minDistancia: 5, maxDistancia: 30, cajaObjetivo: [[-2, 0.5, -3], [5, 6, 2]] }}
+    >
+      <EncuadrarCaja caja={[[-3.0, 0, -3.4], [5.0, 6.8, 3.3]]} margen={1.0} direccion={[0.0, 0.25, 1]} />
+      <Montaje {...props} />
+    </LabCanvas>
+  );
 }
