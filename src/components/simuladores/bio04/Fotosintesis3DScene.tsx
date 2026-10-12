@@ -1,409 +1,180 @@
 "use client";
 
-import React, { useRef, useMemo, Suspense } from 'react';
-import { Canvas, useFrame } from '@react-three/fiber';
-import {
-  Float,
-  Stars,
-  Sparkles,
-  ContactShadows,
-  PerspectiveCamera,
-  OrbitControls,
-  MeshDistortMaterial,
-} from '@react-three/drei';
-import { EffectComposer, Bloom, ChromaticAberration, Vignette, Noise } from '@react-three/postprocessing';
+/**
+ * Montaje clásico de la fotosíntesis con Elodea (1 u = 1 dm):
+ * rama de Elodea bajo un embudo INVERTIDO dentro de un vaso con agua; el vástago del
+ * embudo entra en un tubo colector graduado, lleno de agua e invertido, donde se
+ * acumula el O₂; lámpara LED de color sobre un carro en un banco óptico graduado
+ * (la distancia es la del lab); luxómetro cuántico y termómetro.
+ *
+ * Ligado al modelo del dominio (nada decorativo):
+ *   · burbujas → tasa neta tasaNetaB4(color, distancia) (cero si no supera la respiración);
+ *   · columna de gas → O₂ del ensayo: sube de 0 al valor durante la medición y queda
+ *     en el del último ensayo registrado;
+ *   · luxómetro → ppfdB4(distancia); termómetro → sube al acercar la lámpara.
+ * La meta de O₂ y la mejor luz NO se dibujan: son lo que el alumno descubre.
+ */
+import React, { useEffect, useMemo, useRef } from 'react';
 import * as THREE from 'three';
-import { tasaNetaB4, ppfdB4, PMAX_B4, RESPIRACION_B4, PPFD_10CM_B4 } from '@/domain/biologia';
+import { useFrame } from '@react-three/fiber';
+import { Line } from '@react-three/drei';
+import {
+  LabCanvas, useMateriales, VasoPrecipitado, Embudo, TuboEnsayo, Termometro, Cable, Etiqueta,
+  defVaso, defEmbudo, defTubo, alturaSuperficie, cilindro, geoCache,
+} from '../_kit';
+import { tasaNetaB4, ppfdB4, o2EnsayoB4, PMAX_B4, RESPIRACION_B4 } from '@/domain/biologia';
 import type { ColorLuzB4 } from '@/store/types';
+import { BancoOptico, LamparaLED, RamaElodea, Luxometro, SensorPAR, BurbujasO2, Y_BANCO, LUZ_HEX } from './piezas';
 
-// Solo el color de dibujo: la productividad sale del MISMO modelo que mide el ensayo (tasaNetaB4).
-const SPECTRUM: Record<string, { hex: string }> = {
-  blanco:   { hex: '#ffffff' },
-  rojo:     { hex: '#ef4444' },
-  azul:     { hex: '#3b82f6' },
-  verde:    { hex: '#22c55e' },
-  amarillo: { hex: '#f59e0b' },
-};
-const CA_OFFSET = new THREE.Vector2(0.0008, 0.0008);
+interface Props {
+  simulando: boolean;
+  colorLuz: ColorLuzB4;
+  distancia: number;
+  /** distancia mínima segura (la lámpara calienta el agua por debajo) */
+  dMin: number;
+  /** O₂ (mL) del último ensayo registrado; 0 si no hay */
+  ultimoO2: number;
+}
 
-const SUN_Y = 17;          // altura de la fuente de luz
-const CANOPY_Y = 3.4;      // "tapa" del cloroplasto donde rebota la luz verde
-const GRANA_Y = -0.4;      // plano del estroma donde se absorbe la luz útil
+const DUR_VISUAL = 2.5;      // s reales que representan los 10 min del ensayo
+const K = 1.3;                        // escala visual del montaje (vaso, embudo, tubo, termómetro); la distancia a la lámpara no se escala
+const P = (x: number, y: number, z: number): [number, number, number] => [x * K, y * K, z * K];
+const ETQ = { tamano: 0.19, fondo: '#ffffffe6' } as const;
 
-// ── Fotón: cae desde el sol. Con luz verde UNA PARTE rebota (la clorofila absorbe
-//    menos el verde, pero la hoja aún absorbe la mayoría y SÍ hace fotosíntesis con él);
-//    los demás se absorben en los grana y disparan la fase luminosa. ──
-function Photon({ hex, isGreen, speed, phase, seedX, seedZ, active }: {
-  hex: string; isGreen: boolean; speed: number; phase: number; seedX: number; seedZ: number; active: boolean;
-}) {
-  const ref = useRef<THREE.Mesh>(null);
+// ── geometría del montaje ──
+const SF = 0.8;                       // escala del embudo
+const defV = defVaso(600), defF = defEmbudo(75), defT = defTubo('13x100');
+const H_TUBO = 1.8;                   // alargamiento vertical del tubo colector (capilar graduado)
+const ESC_T = 0.8;                    // escala radial del tubo
+const R_IN = defT.radioInteriorEn(defT.altura * 0.5) * ESC_T;
+const ML_POR_U = 0.001 / (Math.PI * R_IN * R_IN); // longitud (u) que ocupa 1 mL en la columna
+const R_OUT = defT.radioMax * ESC_T;
+const Y_AGUA = Y_BANCO + alturaSuperficie(defV, 560);
+const Y_BOCA = Y_BANCO + 0.14;       // boca del embudo (sobre tres perlas de vidrio)
+const Y_PUNTA = Y_BOCA + defF.altura * SF;
+const Y_TUBO0 = Y_AGUA - 0.12;       // extremo abierto del tubo: bajo el nivel del agua
+const Y_TUBO1 = Y_TUBO0 + defT.altura * H_TUBO;
+const Y_CERO = Y_TUBO1 - 0.15;       // marca de 0 mL (el gas se acumula bajo la cúpula)
 
-  useFrame((state) => {
-    const m = ref.current;
-    if (!m) return;
-    if (!active) { m.visible = false; return; }
-    m.visible = true;
-
-    const t = ((state.clock.elapsedTime * speed) + phase) % 1; // 0..1 ciclo
-    const mat = m.material as THREE.MeshBasicMaterial;
-
-    if (isGreen) {
-      // Desciende hasta la membrana y rebota hacia arriba, desvaneciéndose.
-      if (t < 0.5) {
-        const k = t / 0.5;
-        m.position.y = THREE.MathUtils.lerp(SUN_Y, CANOPY_Y, k);
-        m.position.x = seedX * (1 - k * 0.25);
-        m.position.z = seedZ * (1 - k * 0.25);
-        mat.opacity = 1;
-      } else {
-        const k = (t - 0.5) / 0.5;
-        m.position.y = THREE.MathUtils.lerp(CANOPY_Y, CANOPY_Y + 9, k);
-        m.position.x = seedX * (0.75 + k * 0.6);   // se dispersa al reflejarse
-        m.position.z = seedZ * (0.75 + k * 0.6);
-        mat.opacity = 1 - k;
-      }
-      m.scale.setScalar(0.18);
-    } else {
-      // Absorción: penetra hasta los grana y se apaga (energía capturada).
-      m.position.y = THREE.MathUtils.lerp(SUN_Y, GRANA_Y, t);
-      m.position.x = seedX * (1 - t * 0.55);        // converge hacia el centro
-      m.position.z = seedZ * (1 - t * 0.55);
-      const fade = t < 0.82 ? 1 : 1 - (t - 0.82) / 0.18;
-      mat.opacity = fade;
-      m.scale.setScalar(0.16 + Math.sin(t * Math.PI) * 0.06);
-    }
-  });
-
+function Rotulo3D({ texto, desde, hasta, ancla = [0.5, 0.5] }: { texto: string; desde: [number, number, number]; hasta: [number, number, number]; ancla?: [number, number] }) {
   return (
-    <mesh ref={ref}>
-      <sphereGeometry args={[1, 8, 8]} />
-      <meshBasicMaterial color={hex} transparent toneMapped={false} />
-    </mesh>
+    <group>
+      <Line points={[desde, hasta]} color="#46535c" lineWidth={1.2} />
+      <Etiqueta texto={texto} position={hasta} {...ETQ} ancla={ancla} />
+    </group>
   );
 }
 
-function PhotonField({ hex, isGreen, irradiance, active }: {
-  hex: string; isGreen: boolean; irradiance: number; active: boolean;
-}) {
-  const count = Math.round(18 + irradiance * 62); // 18..80 según irradiancia
-  const seeds = useMemo(() =>
-    Array.from({ length: 80 }).map(() => {
-      const a = Math.random() * Math.PI * 2;
-      const r = Math.sqrt(Math.random()) * 6.5;
-      return {
-        seedX: Math.cos(a) * r,
-        seedZ: Math.sin(a) * r,
-        speed: 0.22 + Math.random() * 0.3,
-        phase: Math.random(),
-      };
-    }), []);
+function Montaje({ simulando, colorLuz, distancia, dMin, ultimoO2 }: Props) {
+  const m = useMateriales();
+  const hex = LUZ_HEX[colorLuz] ?? '#ffffff';
+  const xLamp = distancia / 10;
+  const ppfd = ppfdB4(distancia);
+  const tasa = tasaNetaB4(colorLuz, distancia);
+  const r = Math.max(0, Math.min(1, tasa / (PMAX_B4 - RESPIRACION_B4)));
+  const nBurb = tasa <= 0.002 ? 0 : Math.round(4 + 32 * r);
+  const temperatura = Math.min(46, 22 + 12 * (dMin / Math.max(distancia, 1)) ** 2);
+
+  // ── columna de gas (mL) ──
+  const gasRef = useRef(ultimoO2);
+  const interfaz = useRef<THREE.Group>(null);
+  const agua = useRef<THREE.Mesh>(null);
+  const t0 = useRef<number | null>(null);
+  const objetivo = o2EnsayoB4(colorLuz, distancia);
+  const yIntRef = useRef(Y_CERO - ultimoO2 * ML_POR_U);
+  const [yInt, setYInt] = React.useState(Y_CERO - ultimoO2 * ML_POR_U);
+  useEffect(() => { t0.current = null; if (simulando) gasRef.current = 0; }, [simulando]);
+  useFrame(({ clock }, dt) => {
+    let v = gasRef.current;
+    if (simulando) {
+      if (t0.current === null) t0.current = clock.elapsedTime;
+      v = objetivo * Math.min(1, (clock.elapsedTime - t0.current) / DUR_VISUAL);
+    } else {
+      v += (ultimoO2 - v) * (1 - Math.exp(-dt * 6));
+    }
+    gasRef.current = v;
+    const y = Math.max(Y_TUBO0 + 0.05, Y_CERO - v * ML_POR_U);
+    if (Math.abs(y - yIntRef.current) > 0.002) { yIntRef.current = y; setYInt(y); }
+  });
+
+  const matAgua = useMemo(() => m.liquido('#4f9fc8'), [m]);
+  const matMenisco = useMemo(() => new THREE.MeshStandardMaterial({ color: '#1d5878', roughness: 0.4 }), []);
+  useEffect(() => () => matMenisco.dispose(), [matMenisco]);
+  const hojas = useMemo(() => Array.from({ length: 12 }, (_, i): [number, number, number] => [Math.sin(i * 2.4) * 0.11, Y_BANCO + 0.25 + (i / 12) * 0.5, Math.cos(i * 2.4) * 0.11]), []);
+  const marcas = useMemo(() => Array.from({ length: 36 }, (_, k) => ({ k, mL: k / 10 })), []);
+  const R_BOCA = 0.375 * SF * 0.96, H_CONO = 0.46, R_VASTAGO = 0.03;
+  const geoCono = useMemo(() => geoCache('bio04:cono', () => new THREE.CylinderGeometry(R_VASTAGO, R_BOCA, H_CONO, 40, 1, true)), [R_BOCA]);
+  const geoAro = useMemo(() => geoCache('bio04:aro', () => new THREE.TorusGeometry(R_BOCA, 0.011, 8, 48)), [R_BOCA]);
+  const matCono = useMemo(() => new THREE.MeshPhysicalMaterial({ color: '#c6e6ef', roughness: 0.12, transparent: true, opacity: 0.4, side: THREE.DoubleSide, depthWrite: false }), []);
+  const matAro = useMemo(() => new THREE.MeshPhysicalMaterial({ color: '#8fb9c6', roughness: 0.2 }), []);
+  useEffect(() => () => { matCono.dispose(); matAro.dispose(); }, [matCono, matAro]);
+  const matMarca = useMemo(() => m.impreso('#1b2b4a'), [m]);
+  const cajaMarca = useMemo(() => geoCache('bio04:marca', () => new THREE.BoxGeometry(1, 1, 1)), []);
 
   return (
     <group>
-      {seeds.slice(0, count).map((s, i) => (
-        <Photon key={i} hex={hex} isGreen={isGreen && i % 3 === 0} active={active}
-          speed={s.speed} phase={s.phase} seedX={s.seedX} seedZ={s.seedZ} />
-      ))}
-    </group>
-  );
-}
+      <BancoOptico />
 
-// ── Pila de tilacoides (un granum). Brillo y latido según productividad. ────────
-function Granum({ position, productivity, active }: {
-  position: [number, number, number]; productivity: number; active: boolean;
-}) {
-  const ref = useRef<THREE.Group>(null);
-  const discs = [0, 0.34, 0.68, 1.02, 1.36];
+      <group scale={K}>
+      {/* vaso con agua, embudo invertido y rama de Elodea */}
+      <group position={[0, Y_BANCO, 0]} rotation={[0, 2.4, 0]}><VasoPrecipitado capacidad={600} liquido={{ volumenML: 560, color: '#cfe6ef' }} /></group>
+      {[0, 1, 2].map((i) => <mesh key={i} geometry={geoCache('bio04:perla', () => new THREE.SphereGeometry(1, 12, 8))} material={m.vidrio} position={[Math.cos(i * 2.094) * 0.27, Y_BANCO + 0.075, Math.sin(i * 2.094) * 0.27]} scale={0.055} />)}
+      <group position={[0.02, Y_BANCO + 0.06, 0]}><RamaElodea largo={0.85} /></group>
+      <group position={[0, Y_PUNTA, 0]} rotation={[Math.PI, 0, 0]} scale={SF}><Embudo diametro={75} /></group>
 
-  useFrame((state) => {
-    if (!ref.current) return;
-    const t = state.clock.elapsedTime;
-    const pulse = active ? 1 + Math.sin(t * 3 + position[0]) * 0.04 * productivity : 1;
-    ref.current.scale.y = pulse;
-  });
+      {/* realce del embudo: cono de vidrio y aro de la boca (el vidrio barato casi no se ve a esta distancia) */}
+      <mesh geometry={geoCono} material={matCono} position={[0, Y_BOCA + H_CONO / 2, 0]} renderOrder={0} />
+      <mesh geometry={geoAro} material={matAro} position={[0, Y_BOCA, 0]} rotation={[Math.PI / 2, 0, 0]} />
 
-  const glow = active ? 0.4 + productivity * 4.5 : 0.08;
-
-  return (
-    <group ref={ref} position={position}>
-      {discs.map((y, i) => (
-        <mesh key={i} position={[0, y, 0]} rotation={[Math.PI / 2, 0, 0]} castShadow>
-          <cylinderGeometry args={[1.15, 1.15, 0.22, 40]} />
-          <meshStandardMaterial
-            color={active ? '#34d399' : '#0f3d2e'}
-            emissive="#10b981"
-            emissiveIntensity={glow}
-            roughness={0.25}
-            metalness={0.1}
-            toneMapped={false}
-          />
-        </mesh>
-      ))}
-    </group>
-  );
-}
-
-// ── Chispa de la cadena transportadora de electrones, saltando entre grana. ─────
-function ElectronSpark({ a, b, phase, productivity }: {
-  a: [number, number, number]; b: [number, number, number]; phase: number; productivity: number;
-}) {
-  const ref = useRef<THREE.Mesh>(null);
-  const va = useMemo(() => new THREE.Vector3(...a), [a]);
-  const vb = useMemo(() => new THREE.Vector3(...b), [b]);
-
-  useFrame((state) => {
-    const m = ref.current;
-    if (!m) return;
-    const t = ((state.clock.elapsedTime * (0.5 + productivity)) + phase) % 1;
-    m.position.lerpVectors(va, vb, t);
-    m.position.y += Math.sin(t * Math.PI) * 1.2; // arco
-    (m.material as THREE.MeshBasicMaterial).opacity = Math.sin(t * Math.PI);
-  });
-
-  return (
-    <mesh ref={ref}>
-      <sphereGeometry args={[0.13, 8, 8]} />
-      <meshBasicMaterial color="#fde047" transparent toneMapped={false} />
-    </mesh>
-  );
-}
-
-// ── Burbuja de O₂: emerge de los grana y asciende (solo si hay producción). ─────
-function OxygenBubble({ delay, productivity }: { delay: number; productivity: number }) {
-  const ref = useRef<THREE.Mesh>(null);
-  const seed = useMemo(() => ({ x: Math.random() * 5 - 2.5, z: Math.random() * 5 - 2.5 }), []);
-
-  useFrame((state) => {
-    const m = ref.current;
-    if (!m) return;
-    const span = 5;
-    const t = ((state.clock.elapsedTime + delay) % span) / span; // 0..1
-    m.position.y = GRANA_Y + t * 9;
-    m.position.x = seed.x + Math.sin(t * 5) * 0.4;
-    m.position.z = seed.z + Math.cos(t * 5) * 0.4;
-    const s = (0.12 + t * 0.34) * (0.4 + productivity);
-    m.scale.setScalar(s);
-    (m.material as THREE.MeshPhysicalMaterial).opacity = (1 - t) * 0.7;
-  });
-
-  return (
-    <mesh ref={ref}>
-      <sphereGeometry args={[1, 16, 16]} />
-      <meshPhysicalMaterial
-        color="#a7f3d0" transparent opacity={0.6}
-        roughness={0} metalness={0} transmission={0.9} thickness={0.5}
-        toneMapped={false}
-      />
-    </mesh>
-  );
-}
-
-// ── Molécula de glucosa (C₆H₁₂O₆): anillo hexagonal de carbonos, el producto. ──
-function Glucose({ delay, productivity }: { delay: number; productivity: number }) {
-  const ref = useRef<THREE.Group>(null);
-  const seed = useMemo(() => ({ x: Math.random() * 4 - 2, z: Math.random() * 4 - 2 }), []);
-
-  useFrame((state) => {
-    const g = ref.current;
-    if (!g) return;
-    const span = 7;
-    const t = (((state.clock.elapsedTime + delay) % span) / span);
-    g.position.y = GRANA_Y + 0.5 + t * 7;
-    g.position.x = seed.x;
-    g.position.z = seed.z;
-    g.rotation.y = state.clock.elapsedTime * 0.8;
-    g.rotation.x = state.clock.elapsedTime * 0.5;
-    const vis = t < 0.85 ? 1 : 1 - (t - 0.85) / 0.15;
-    g.scale.setScalar((0.5 + productivity * 0.5) * vis);
-  });
-
-  return (
-    <group ref={ref}>
-      {Array.from({ length: 6 }).map((_, i) => {
-        const a = (i / 6) * Math.PI * 2;
-        return (
-          <mesh key={i} position={[Math.cos(a) * 0.45, 0, Math.sin(a) * 0.45]}>
-            <sphereGeometry args={[0.16, 16, 16]} />
-            <meshStandardMaterial color="#fbbf24" emissive="#f59e0b" emissiveIntensity={1.4} roughness={0.3} toneMapped={false} />
-          </mesh>
-        );
-      })}
-    </group>
-  );
-}
-
-// ── El cloroplasto completo (envoltura lente + estroma + grana + cadenas). ──────
-function Chloroplast({ hex, isGreen, irradiance, productivity, active }: {
-  hex: string; isGreen: boolean; irradiance: number; productivity: number; active: boolean;
-}) {
-  const ref = useRef<THREE.Group>(null);
-
-  useFrame((state) => {
-    if (ref.current) ref.current.rotation.y = state.clock.elapsedTime * 0.08;
-  });
-
-  // Disposición de los grana sobre el estroma.
-  const grana: [number, number, number][] = [
-    [3, GRANA_Y, 0], [-3, GRANA_Y, 1.6], [0.5, GRANA_Y, -3.4],
-    [-1.6, GRANA_Y, -1.4], [2, GRANA_Y, 3.2],
-  ];
-
-  return (
-    <group ref={ref}>
-      {/* Envoltura (doble membrana) — forma de lente biconvexa */}
-      <mesh scale={[1, 0.5, 1]}>
-        <sphereGeometry args={[6.6, 64, 64]} />
-        <MeshDistortMaterial
-          color={'#064e3b'}
-          transparent opacity={0.22}
-          roughness={0.1} metalness={0.2}
-          transmission={0.6} thickness={2}
-          distort={0.12} speed={1.2}
-          emissive={'#022c22'} emissiveIntensity={0.4}
-          side={THREE.DoubleSide}
-        />
-      </mesh>
-
-      {/* Estroma luminoso interior */}
-      <mesh scale={[1, 0.5, 1]}>
-        <sphereGeometry args={[6.0, 32, 32]} />
-        <meshBasicMaterial
-          color={active ? '#10b981' : '#053b2c'}
-          transparent opacity={active ? 0.06 + productivity * 0.12 : 0.04}
-          toneMapped={false}
-        />
-      </mesh>
-
-      {grana.map((p, i) => (
-        <Granum key={i} position={p} productivity={productivity} active={active} />
-      ))}
-
-      {/* Cadena transportadora de electrones entre grana adyacentes */}
-      {active && productivity > 0.04 && grana.map((p, i) => {
-        const q = grana[(i + 1) % grana.length];
-        return (
-          <ElectronSpark key={`e${i}`}
-            a={[p[0], p[1] + 0.7, p[2]]} b={[q[0], q[1] + 0.7, q[2]]}
-            phase={i / grana.length} productivity={productivity} />
-        );
-      })}
-
-      {/* Reflejo parcial de la luz verde sobre la membrana */}
-      {isGreen && (
-        <mesh position={[0, CANOPY_Y - 0.2, 0]} rotation={[-Math.PI / 2, 0, 0]}>
-          <ringGeometry args={[2.5, 6.4, 48]} />
-          <meshBasicMaterial color={hex} transparent opacity={0.18 + irradiance * 0.25} side={THREE.DoubleSide} toneMapped={false} />
-        </mesh>
-      )}
-    </group>
-  );
-}
-
-// ── Fuente de luz: sol cuyo tamaño/brillo aparente sigue el inverso del cuadrado.
-function SpectrumSun({ hex, irradiance }: { hex: string; irradiance: number }) {
-  const ref = useRef<THREE.Mesh>(null);
-  const haloRef = useRef<THREE.Mesh>(null);
-  const r = 0.7 + irradiance * 2.2; // grande de cerca, pequeño de lejos
-
-  useFrame((state) => {
-    const p = 1 + Math.sin(state.clock.elapsedTime * 2) * 0.03;
-    if (ref.current) ref.current.scale.setScalar(p);
-    if (haloRef.current) haloRef.current.scale.setScalar(p * 1.6);
-  });
-
-  return (
-    <group position={[0, SUN_Y, 0]}>
-      <mesh ref={ref}>
-        <sphereGeometry args={[r, 32, 32]} />
-        <meshBasicMaterial color={hex} toneMapped={false} />
-      </mesh>
-      <mesh ref={haloRef}>
-        <sphereGeometry args={[r, 32, 32]} />
-        <meshBasicMaterial color={hex} transparent opacity={0.15} toneMapped={false} />
-      </mesh>
-      <pointLight color={hex} intensity={20 + irradiance * 120} distance={60} decay={1.5} />
-    </group>
-  );
-}
-
-// ── Haz de luz volumétrico (god-ray) del sol al cloroplasto. ────────────────────
-function LightBeam({ hex, irradiance }: { hex: string; irradiance: number }) {
-  const h = SUN_Y - CANOPY_Y;
-  return (
-    <mesh position={[0, (SUN_Y + CANOPY_Y) / 2, 0]}>
-      {/* cono: vértice arriba (sol), base abajo (cloroplasto) */}
-      <coneGeometry args={[7, h, 48, 1, true]} />
-      <meshBasicMaterial
-        color={hex} transparent opacity={0.04 + irradiance * 0.1}
-        side={THREE.DoubleSide} depthWrite={false}
-        blending={THREE.AdditiveBlending} toneMapped={false}
-      />
-    </mesh>
-  );
-}
-
-export default function Fotosintesis3DScene({ simulando, colorLuz, distancia }: {
-  simulando: boolean; colorLuz: ColorLuzB4; distancia: number;
-}) {
-  const spec = SPECTRUM[colorLuz] || SPECTRUM.blanco;
-  const hex = spec.hex;
-  const isGreen = colorLuz === 'verde';
-
-  // Irradiancia normalizada (inverso del cuadrado) solo para el tamaño/brillo de la lámpara.
-  const irradiance = THREE.MathUtils.clamp(Math.sqrt(ppfdB4(distancia) / PPFD_10CM_B4), 0.1, 1);
-  // Productividad = tasa NETA del modelo (saturación + espectro − respiración) normalizada.
-  const productivity = THREE.MathUtils.clamp(tasaNetaB4(colorLuz, distancia) / (PMAX_B4 - RESPIRACION_B4), 0, 1);
-  const active = simulando;
-
-  const o2Count = active ? Math.round(productivity * 16) : 0;     // 0 con luz verde
-  const glucoseCount = active ? Math.round(productivity * 4) : 0;
-
-  return (
-    <Canvas shadows dpr={[1, 2]} gl={{ antialias: true }} camera={{ position: [0, 8, 24], fov: 42 }}>
-      <color attach="background" args={['#020617']} />
-      <fog attach="fog" args={['#020617', 28, 60]} />
-
-      <Suspense fallback={null}>
-        <PerspectiveCamera makeDefault position={[0, 8, 24]} fov={42} />
-
-        <ambientLight intensity={0.35 + irradiance * 0.25} color={hex} />
-        <hemisphereLight args={['#0b2e22', '#020617', 0.5]} />
-        <directionalLight position={[6, 14, 8]} intensity={0.6 + irradiance * 1.2} color={hex} castShadow />
-
-        <SpectrumSun hex={hex} irradiance={irradiance} />
-        {active && <LightBeam hex={hex} irradiance={irradiance} />}
-
-        <Float speed={1.1} rotationIntensity={0.15} floatIntensity={0.4}>
-          <Chloroplast hex={hex} isGreen={isGreen} irradiance={irradiance} productivity={productivity} active={active} />
-        </Float>
-
-        {active && <PhotonField hex={hex} isGreen={isGreen} irradiance={irradiance} active={active} />}
-
-        {Array.from({ length: o2Count }).map((_, i) => (
-          <OxygenBubble key={`o2-${i}`} delay={i * 0.35} productivity={productivity} />
+      {/* tubo colector graduado, invertido, lleno de agua (el gas queda bajo la cúpula) */}
+      <group position={[0, Y_TUBO1, 0]} rotation={[Math.PI, 0, 0]} scale={[ESC_T, H_TUBO, ESC_T]}><TuboEnsayo tamano="13x100" /></group>
+      <mesh ref={agua} geometry={cilindro(1, 1, 1, 24)} material={matAgua} position={[0, (Y_TUBO0 + yInt) / 2, 0]} scale={[R_IN - 0.004, Math.max(0.01, yInt - Y_TUBO0), R_IN - 0.004]} />
+      <mesh geometry={cilindro(1, 1, 1, 24)} material={matMenisco} position={[0, yInt, 0]} scale={[R_IN - 0.003, 0.012, R_IN - 0.003]} />
+      <group ref={interfaz}>
+        {marcas.map(({ k, mL }) => {
+          const y = Y_CERO - mL * ML_POR_U;
+          const largo = k % 10 === 0 ? 0.075 : k % 5 === 0 ? 0.055 : 0.032;
+          return <mesh key={k} geometry={cajaMarca} material={matMarca} position={[-R_OUT * 0.15, y, R_OUT * 0.97]} scale={[largo, 0.004, 0.003]} />;
+        })}
+        {[0, 1, 2, 3].map((n) => (
+          <Etiqueta key={n} texto={String(n)} position={[0.14, Y_CERO - n * ML_POR_U, 0.05]} tamano={0.16} color="#1b2b4a" peso={700} fondo={null} />
         ))}
-        {Array.from({ length: glucoseCount }).map((_, i) => (
-          <Glucose key={`glu-${i}`} delay={i * 1.3 + 0.5} productivity={productivity} />
-        ))}
+        <Etiqueta texto="mL de O₂" position={[0.24, Y_CERO + 0.28, 0.05]} tamano={0.17} color="#1b2b4a" peso={700} fondo={null} />
+      </group>
+      <BurbujasO2 n={nBurb} hojas={hojas} cuello={[0, Y_BOCA + 0.5, 0]} yInterfaz={yInt - 0.015} ciclo={0.22 + 0.2 * r} />
 
-        <ContactShadows position={[0, -3.6, 0]} opacity={0.45} scale={36} blur={2.4} far={10} color="#022c22" />
-        <Stars radius={120} depth={50} count={4000} factor={4} saturation={0} fade speed={0.6} />
-        <Sparkles count={active ? 140 : 50} scale={26} size={active ? 3 : 1.4} speed={0.4} color={hex} opacity={0.5} />
+      {/* termómetro en el agua */}
+      <Termometro position={[0.3, Y_BANCO + 0.06, 0.24]} temperatura={temperatura} min={10} max={50} longitud={1.7} />
 
-        <OrbitControls
-          enableZoom enablePan={false}
-          minDistance={14} maxDistance={40}
-          maxPolarAngle={Math.PI / 2.05} minPolarAngle={Math.PI / 5}
-          autoRotate={false} autoRotateSpeed={0.4}
-        />
+      </group>
 
-        <EffectComposer multisampling={8}>
-          <Bloom luminanceThreshold={0.25} mipmapBlur intensity={active ? 1.9 : 1.1} radius={0.6} />
-          <ChromaticAberration offset={CA_OFFSET} />
-          <Vignette offset={0.18} darkness={1.0} />
-          <Noise opacity={0.035} />
-        </EffectComposer>
-      </Suspense>
-    </Canvas>
+      {/* lámpara en el riel: su lente está a `distancia` cm del eje del tubo */}
+      <group position={[xLamp, 0, 0]}><LamparaLED hex={hex} /></group>
+      <pointLight position={[xLamp - 0.25, 1.05, 0]} color={hex} intensity={2 + 7 * Math.min(1, ppfd / 500)} distance={9} decay={1.4} />
+
+      {/* luxómetro: sensor frente a la lámpara y pantalla en el banco */}
+      <group position={[1.05, 0, 0.55]}><SensorPAR /></group>
+      <group position={[1.3, 0, -0.5]}><Luxometro ppfd={ppfd} /></group>
+      <Cable desde={[1.05, Y_BANCO + 0.12, 0.55]} hasta={[1.3, Y_BANCO + 0.12, -0.42]} color="#1d1f22" ySuelo={Y_BANCO} holgura={0.25} />
+
+      {/* rótulos (coordenadas del montaje ya escaladas) */}
+      <Rotulo3D texto="Tubo colector" desde={P(-R_OUT, Y_TUBO1 - 0.5, 0)} hasta={[-0.95, (Y_TUBO1 - 0.5) * K, 0.2]} ancla={[1, 0.5]} />
+      <Rotulo3D texto="Elodea" desde={P(-0.12, Y_BANCO + 0.45, 0.1)} hasta={[-1.05, 0.55 * K, 0.4]} ancla={[1, 0.5]} />
+      <Rotulo3D texto="Embudo invertido" desde={P(0.2, Y_BOCA + 0.55, 0.05)} hasta={[0.95, 2.05, 0.3]} ancla={[0, 0.5]} />
+      <Rotulo3D texto="Termómetro" desde={P(0.3, Y_BANCO + 1.5, 0.24)} hasta={[0.95, 2.75, 0.3]} ancla={[0, 0.5]} />
+    </group>
+  );
+}
+
+export default function Fotosintesis3DScene(props: Props) {
+  return (
+    <LabCanvas
+      fondo="laboratorio"
+      mesa={{ ancho: 24, fondo: 6 }}
+      camara={{ posicion: [-0.6, 3.4, 11.6], objetivo: [1.65, 1.55, 0], fov: 38 }}
+      controles={{ minDistancia: 3, maxDistancia: 20, maxPolar: 1.45, cajaObjetivo: [[-1, 0.8, -1], [5, 3, 1]] }}
+    >
+      <Montaje {...props} />
+    </LabCanvas>
   );
 }

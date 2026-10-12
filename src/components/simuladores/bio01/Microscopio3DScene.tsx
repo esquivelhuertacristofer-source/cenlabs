@@ -1,32 +1,47 @@
 "use client";
 
-import React from 'react';
-import { Canvas } from '@react-three/fiber';
-import { PerspectiveCamera } from '@react-three/drei';
-import * as THREE from 'three';
-import LivingCellScene from './LivingCellScene';
+/**
+ * Vista por el OCULAR del microscopio: campo circular con la preparación.
+ * El desenfoque y el brillo vienen del DOMINIO (desenfoqueB1, brilloEfectivoB1):
+ * aquí sólo se aplican, igual que lo haría el ajuste de foco y el reóstato.
+ */
+import React, { useEffect, useRef, useState } from 'react';
+import CampoOcular, { type Muestra } from './CampoOcular';
 
-export default function Microscopio3DScene(props: any) {
-  const { isDarkMode, iluminacion, enfoqueZ, objetivoMag, posicionX, posicionY, muestra } = props;
+interface Props {
+  muestra: Muestra;
+  objetivoMag: number;
+  posicionX: number;
+  posicionY: number;
+  /** px de CSS (desenfoqueB1) */
+  desenfoque: number;
+  /** brillo efectivo del dominio (brilloEfectivoB1): 60 = imagen normal */
+  brillo: number;
+  /** objetivo de 100x sin aceite: la imagen se vuelve lechosa */
+  lechoso?: boolean;
+}
 
+export default function Microscopio3DScene({ muestra, objetivoMag, posicionX, posicionY, desenfoque, brillo, lechoso = false }: Props) {
+  const ref = useRef<HTMLDivElement>(null);
+  const [D, setD] = useState(0);
+  useEffect(() => {
+    const el = ref.current; if (!el) return;
+    const ro = new ResizeObserver(([e]) => setD(Math.floor(Math.min(e.contentRect.width, e.contentRect.height) - 6)));
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, []);
   return (
-    <div className="w-full h-full relative overflow-hidden bg-black">
-      <Canvas shadows dpr={[1, 2]} gl={{ antialias: true }}>
-        <PerspectiveCamera makeDefault position={[0, 0, 10]} fov={35} />
-        
-        <LivingCellScene 
-          enfoque={enfoqueZ} 
-          iluminacion={iluminacion} 
-          isDarkMode={isDarkMode} 
-          magnificacion={objetivoMag} 
-          muestra={muestra || 'vegetal'}
-          posicionX={posicionX}
-          posicionY={posicionY}
-        />
-        
-      </Canvas>
-
-      <div className="absolute inset-0 z-50 pointer-events-none shadow-[inset_0_0_200px_rgba(0,0,0,1)] border-[40px] border-black rounded-full" />
+    <div ref={ref} className="relative flex h-full w-full items-center justify-center bg-[#08090c]">
+      {D > 40 && (
+        <div className="relative shrink-0 overflow-hidden rounded-full" style={{ width: D, height: D, boxShadow: '0 0 0 5px #1c1f24, 0 0 0 6px #3a3f46' }}>
+          <div className="absolute" style={{ inset: '-5%', filter: `blur(${desenfoque.toFixed(2)}px) brightness(${Math.max(0.05, brillo / 60).toFixed(2)})` }}>
+            <CampoOcular muestra={muestra} mag={objetivoMag} posX={posicionX} posY={posicionY} />
+          </div>
+          {lechoso && <div className="pointer-events-none absolute inset-0" style={{ background: 'radial-gradient(circle, rgba(255,255,255,0.22), rgba(255,255,255,0.10))' }} />}
+          {/* viñeteo del ocular: la luz cae hacia el borde del campo */}
+          <div className="pointer-events-none absolute inset-0 rounded-full" style={{ boxShadow: 'inset 0 0 ' + Math.round(D * 0.12) + 'px ' + Math.round(D * 0.03) + 'px rgba(0,0,0,0.55)' }} />
+        </div>
+      )}
     </div>
   );
 }

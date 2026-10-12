@@ -1,10 +1,11 @@
 "use client";
 
 import React, { useEffect, useCallback, useMemo, useState } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
 import { useSimuladorStore } from '@/store/simuladorStore';
-import { Diamond, Terminal, Keyboard, RotateCcw, Zap, CheckCircle } from 'lucide-react';
+import { Keyboard, RotateCcw, CheckCircle, Atom } from 'lucide-react';
+import LabLayout, { Lectura, GrupoControles, BotonLab } from './simulador/LabLayout';
 import Sintesis3DScene from './simuladores/bio03/Sintesis3DScene';
+import { COLOR_BASE } from './simuladores/bio03/piezas';
 import { COMPLEMENTO_ARN, CODIGO_GENETICO, anticodonB3, LIBERACION_B3, MAX_ERRORES_B3 } from '@/domain/biologia';
 
 /** ¿La tecla viene de un campo de texto (la bitácora, el chat…)? Entonces no es para el lab. */
@@ -69,119 +70,114 @@ export default function PilotoSintesisProteinas({ onValidate }: { onValidate?: (
     }
   }, [fase, currentIndex, proteina.length]);
 
-  return (
-    <div className="w-full h-full relative overflow-hidden bg-[#020617] font-['Outfit']">
+  const nTrans = arnMensajero.length;
 
-      <div className="absolute top-6 left-0 right-0 z-[200] px-10 flex justify-between items-center pointer-events-none">
-        <div className="flex items-center gap-3 bg-purple-600/90 border-2 border-white/40 px-6 py-2 rounded-full">
-          <Diamond size={16} className="text-white" />
-          <span className="text-xs font-black text-white uppercase tracking-[0.2em]">Dogma central · BIO-03</span>
+  const escena = (
+    <div className="relative h-full w-full">
+      <Sintesis3DScene
+        fase={fase}
+        adnPlantilla={adnPlantilla}
+        arnMensajero={arnMensajero}
+        currentIndex={fase === 'transcripcion' ? nTrans : currentIndex}
+        proteina={proteina}
+        terminada={terminada}
+        exportando={showTransition}
+      />
+      {showTransition && (
+        <div className="pointer-events-none absolute inset-x-3 bottom-3 rounded-xl border border-white/15 bg-[#0f1a2b]/90 px-4 py-2 text-center text-[12px] font-semibold text-slate-100 backdrop-blur">
+          Exportación del ARNm: sale del núcleo por un poro nuclear y llega a un ribosoma en el citoplasma.
         </div>
-        <button onClick={() => resetB3()} className="pointer-events-auto flex items-center gap-2 bg-white/5 hover:bg-white/10 border border-white/20 px-6 py-2 rounded-full transition-all">
-          <RotateCcw size={16} className="text-white/60" />
-          <span className="text-[10px] font-black text-white/60 uppercase tracking-widest">Nuevo gen</span>
-        </button>
-      </div>
-
-      <div className="absolute inset-0 z-0">
-        <Sintesis3DScene
-          fase={fase}
-          currentIndex={fase === 'transcripcion' ? arnMensajero.length : currentIndex}
-          proteinaCount={proteina.length}
-          adnPlantilla={adnPlantilla}
-        />
-      </div>
-
-      <div className="absolute inset-0 z-10 pointer-events-none p-10 flex flex-col justify-between">
-        <div className="flex justify-between items-start pt-12">
-          <div className="bg-black/70 backdrop-blur-3xl border-l-8 border-purple-500 p-6 rounded-r-3xl">
-            <div className="flex items-center gap-3 mb-2"><Terminal className="text-purple-400" size={18} /><span className="text-xs font-black text-purple-400 uppercase tracking-[0.3em]">{fase === 'transcripcion' ? 'Núcleo' : 'Citoplasma · ribosoma'}</span></div>
-            <h2 className="text-3xl font-black text-white uppercase tracking-tighter">{fase === 'transcripcion' ? 'Transcripción' : 'Traducción'}</h2>
-            <div className="mt-3 text-[11px] font-bold text-white/60">Errores de apareamiento: <span className={errores > MAX_ERRORES_B3 ? 'text-rose-400' : 'text-emerald-400'}>{errores}</span> (máx. {MAX_ERRORES_B3})</div>
-          </div>
-          {proteina.length > 0 && (
-            <div className="bg-black/70 backdrop-blur-3xl p-5 rounded-3xl max-w-md">
-              <span className="text-[10px] font-black text-emerald-400 uppercase tracking-[0.3em]">Cadena polipeptídica (N→C)</span>
-              <div className="flex flex-wrap gap-2 mt-2">
-                {proteina.map((aa) => <span key={aa.id} className="px-2 py-1 rounded-lg text-xs font-black text-white" style={{ backgroundColor: aa.color }}>{aa.name}</span>)}
-              </div>
-            </div>
-          )}
+      )}
+      {terminada && (
+        <div className="absolute inset-x-3 bottom-3 flex items-center justify-between gap-3 rounded-xl border border-emerald-400/40 bg-[#0c2a22]/90 px-4 py-2 backdrop-blur">
+          <span className="flex items-center gap-2 text-[12px] font-semibold text-white"><CheckCircle className="shrink-0 text-emerald-400" size={18} /> El ribosoma llegó al codón de paro y liberó la proteína.</span>
+          <BotonLab onClick={() => onValidate?.()}>Validar práctica</BotonLab>
         </div>
-
-        <div className="w-full flex justify-center">
-          <div className="w-full max-w-5xl bg-black/80 backdrop-blur-3xl rounded-[3rem] border-2 border-white/10 p-8">
-            <div className="flex flex-col gap-6 text-center">
-              <div className="flex flex-col gap-2">
-                <span className="text-xs font-black text-white/40 uppercase tracking-[0.3em]">ADN · hebra molde (3&apos;→5&apos;)</span>
-                <div className="flex gap-1.5 justify-center flex-wrap">
-                  {adnPlantilla.split('').map((base, i) => (
-                    <div key={i} className={`w-10 h-12 flex items-center justify-center font-mono text-xl font-black border-2 rounded-xl ${i === arnMensajero.length && fase === 'transcripcion' ? 'bg-purple-600 border-white text-white scale-110' : i < arnMensajero.length ? 'border-purple-500/20 text-purple-300/30' : 'border-white/10 text-white/50'}`}>{base}</div>
-                  ))}
-                </div>
-              </div>
-              <div className="flex flex-col gap-2">
-                <span className="text-xs font-black text-cyan-400 uppercase tracking-[0.3em]">ARNm (5&apos;→3&apos;)</span>
-                <div className="flex gap-1.5 min-h-[48px] justify-center flex-wrap">
-                  {arnMensajero.split('').map((base, i) => (
-                    <div key={i} className={`w-10 h-12 flex items-center justify-center font-mono text-xl font-black rounded-xl border-2 border-cyan-500 bg-cyan-500/20 text-cyan-300 ${fase === 'traduccion' && !terminada && i >= currentIndex && i < currentIndex + 3 ? 'ring-4 ring-cyan-400' : ''}`}>{base}</div>
-                  ))}
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        <div className="flex flex-col items-center gap-4">
-          {fase === 'transcripcion' && (
-            <div className="flex gap-5 pointer-events-auto">
-              {['A', 'U', 'C', 'G'].map((base) => (
-                <motion.button key={base} whileHover={{ scale: 1.08, y: -6 }} whileTap={{ scale: 0.92 }} onClick={() => transcribirBase(base)}
-                  className={`w-20 h-20 rounded-3xl border-4 flex items-center justify-center text-4xl font-black font-mono ${base === 'A' ? 'bg-emerald-500/20 border-emerald-500 text-emerald-400' : base === 'U' ? 'bg-rose-500/20 border-rose-500 text-rose-400' : base === 'C' ? 'bg-cyan-500/20 border-cyan-500 text-cyan-400' : 'bg-orange-500/20 border-orange-500 text-orange-400'}`}>
-                  {base}
-                </motion.button>
-              ))}
-            </div>
-          )}
-          {fase === 'traduccion' && !terminada && (
-            <div className="flex flex-col items-center gap-3 pointer-events-auto">
-              <span className="text-[11px] font-black text-white/60 uppercase tracking-widest">Codón en el sitio A: <span className="font-mono text-cyan-300 text-base">{codonActual}</span> · elige el ARNt que aparea</span>
-              <div className="flex gap-4">
-                {opciones.map((op, i) => (
-                  <motion.button key={op + i} whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }} onClick={() => advanceRibosoma(op)}
-                    className="min-w-[120px] px-5 py-4 rounded-2xl border-2 border-emerald-400/60 bg-emerald-500/10 text-white">
-                    <span className="block text-[9px] font-black text-white/40 uppercase">{i + 1}</span>
-                    {op === LIBERACION_B3
-                      ? <span className="text-sm font-black">Factor de liberación</span>
-                      : <span className="font-mono text-xl font-black">ARNt <span className="text-emerald-300">{op}</span></span>}
-                  </motion.button>
-                ))}
-              </div>
-            </div>
-          )}
-          {terminada && (
-            <div className="flex items-center gap-4 bg-emerald-600/20 border border-emerald-400/50 px-6 py-3 rounded-2xl pointer-events-auto">
-              <CheckCircle className="text-emerald-400" size={20} />
-              <span className="text-sm font-bold text-white">El ribosoma llegó al codón de paro y liberó la proteína.</span>
-              <button onClick={() => onValidate?.()} className="px-5 py-2 bg-emerald-500 text-black rounded-xl text-xs font-black uppercase tracking-widest">Validar práctica</button>
-            </div>
-          )}
-          <div className="bg-white/5 px-6 py-2 rounded-full border border-white/10 flex items-center gap-3">
-            <Keyboard size={14} className="text-white/40" />
-            <span className="text-[10px] font-black text-white/40 uppercase tracking-widest">{fase === 'transcripcion' ? 'Teclas A, U, C, G para transcribir' : 'Teclas 1–4 para elegir el ARNt'}</span>
-          </div>
-        </div>
-      </div>
-
-      <AnimatePresence>
-        {showTransition && (
-          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="absolute inset-0 z-[300] bg-[#020617]/95 flex flex-col items-center justify-center pointer-events-none">
-            <Zap className="text-purple-500" size={80} />
-            <h3 className="text-white text-4xl font-black uppercase tracking-[0.4em] mt-10">Exportación del ARNm</h3>
-            <p className="text-purple-300 font-bold mt-4 text-center max-w-md">El ARNm sale del núcleo por un poro nuclear y llega a un ribosoma en el citoplasma.</p>
-          </motion.div>
-        )}
-      </AnimatePresence>
+      )}
     </div>
   );
+
+  const barra = (
+    <>
+      <Lectura etiqueta="Dogma central" valor={fase === 'transcripcion' ? 'Transcripción · núcleo' : 'Traducción · ribosoma'} acento />
+      <Lectura etiqueta="Errores de apareamiento" valor={`${errores} (máx. ${MAX_ERRORES_B3})`} />
+      {proteina.length > 0 && (
+        <div className="flex shrink-0 items-center gap-1 rounded-lg border border-white/10 bg-white/[0.04] px-2 py-1">
+          <span className="mr-1 text-[10px] font-semibold uppercase tracking-wider text-slate-400">Cadena N→C</span>
+          {proteina.map((aa) => <span key={aa.id} className="rounded px-1.5 py-0.5 text-[11px] font-bold text-white" style={{ backgroundColor: aa.color }}>{aa.name}</span>)}
+        </div>
+      )}
+      <BotonLab variante="secundario" onClick={() => resetB3()}><RotateCcw size={14} /> Nuevo gen</BotonLab>
+    </>
+  );
+
+  const casilla = (b: string, extra: string) => (
+    <div className={`flex h-8 w-7 items-center justify-center rounded-md border font-mono text-[14px] font-bold ${extra}`}>{b}</div>
+  );
+
+  const controles = (
+    <div className="flex flex-col gap-2.5">
+      <div className="flex flex-col gap-1">
+        <span className="text-[10px] font-semibold uppercase tracking-wider text-slate-400">ADN · hebra molde (3′→5′)</span>
+        <div className="flex flex-wrap gap-1">
+          {adnPlantilla.split('').map((base, i) => (
+            <React.Fragment key={i}>{casilla(base, i === nTrans && fase === 'transcripcion' ? 'border-white bg-[#219EBC] text-white' : i < nTrans || fase === 'traduccion' ? 'border-white/10 text-slate-500' : 'border-white/15 text-slate-200')}</React.Fragment>
+          ))}
+        </div>
+      </div>
+      <div className="flex flex-col gap-1">
+        <span className="text-[10px] font-semibold uppercase tracking-wider text-cyan-300">ARNm (5′→3′)</span>
+        <div className="flex min-h-[32px] flex-wrap gap-1">
+          {arnMensajero.split('').map((base, i) => (
+            <React.Fragment key={i}>{casilla(base, `border-cyan-400/60 bg-cyan-500/15 text-cyan-200 ${fase === 'traduccion' && !terminada && i >= currentIndex && i < currentIndex + 3 ? 'ring-2 ring-cyan-300' : ''}`)}</React.Fragment>
+          ))}
+        </div>
+      </div>
+      {fase === 'transcripcion' && (
+        <GrupoControles>
+          <span className="text-[11px] font-semibold text-slate-300">Aparea la base siguiente:</span>
+          {['A', 'U', 'C', 'G'].map((base) => (
+            <button key={base} type="button" onClick={() => transcribirBase(base)}
+              className="flex h-10 w-12 items-center justify-center rounded-xl border-2 font-mono text-xl font-bold text-white hover:brightness-125"
+              style={{ borderColor: COLOR_BASE[base], backgroundColor: COLOR_BASE[base] + '33' }}>
+              {base}
+            </button>
+          ))}
+          <span className="flex items-center gap-1.5 text-[10px] text-slate-400"><Keyboard size={13} /> Teclas A, U, C, G</span>
+        </GrupoControles>
+      )}
+      {fase === 'traduccion' && !terminada && (
+        <div className="flex flex-col gap-1.5">
+          <span className="text-[11px] font-semibold text-slate-300">Codón en el sitio A: <span className="font-mono text-base text-cyan-300">{codonActual}</span> · elige el ARNt que aparea</span>
+          <GrupoControles>
+            {opciones.map((op, i) => (
+              <button key={op + i} type="button" onClick={() => advanceRibosoma(op)}
+                className="min-w-[116px] rounded-xl border border-emerald-400/50 bg-emerald-500/10 px-3 py-2 text-left text-white hover:bg-emerald-500/20">
+                <span className="block text-[9px] font-bold text-white/40">{i + 1}</span>
+                {op === LIBERACION_B3
+                  ? <span className="text-[13px] font-bold">Factor de liberación</span>
+                  : <span className="font-mono text-base font-bold">ARNt <span className="text-emerald-300">{op}</span></span>}
+              </button>
+            ))}
+            <span className="flex items-center gap-1.5 text-[10px] text-slate-400"><Keyboard size={13} /> Teclas 1–4</span>
+          </GrupoControles>
+        </div>
+      )}
+    </div>
+  );
+
+  const lateral = (
+    <div className="space-y-3 text-slate-300">
+      <p className="flex gap-2"><Atom size={16} className="mt-0.5 shrink-0 text-purple-300" />
+        {fase === 'transcripcion' ? 'La ARN polimerasa abre la hélice y empareja cada base de la hebra molde: A–U, T–A, C–G, G–C.' : 'Cada codón del ARNm lo lee un ARNt cuyo anticodón es complementario. En el codón de paro entra un factor de liberación, no un ARNt.'}
+      </p>
+      <div className="flex flex-col gap-1 text-[11px]">
+        {Object.entries({ A: 'Adenina', 'U / T': 'Uracilo / Timina', C: 'Citosina', G: 'Guanina' }).map(([k, v]) => (
+          <span key={k} className="flex items-center gap-2"><i className="inline-block h-3 w-3 rounded-full" style={{ backgroundColor: COLOR_BASE[k[0]] }} /> <b>{k}</b> {v}</span>
+        ))}
+      </div>
+    </div>
+  );
+
+  return <LabLayout escena={escena} barraSuperior={barra} controles={controles} panelLateral={lateral} tituloPanel="Bases" />;
 }

@@ -1,150 +1,75 @@
 "use client";
 
-import React, { useRef, useMemo, Suspense } from 'react';
-import { Canvas, useFrame } from '@react-three/fiber';
-import { 
-  OrbitControls, PerspectiveCamera, 
-  Float, MeshDistortMaterial, ContactShadows,
-  Sparkles, Stars, MeshWobbleMaterial
-} from '@react-three/drei';
-import { motion } from 'framer-motion';
-import * as THREE from 'three';
+/**
+ * Ósmosis: la célula en su medio. Todo sale del estado del lab:
+ *   · tipo, volumen (V/V₀ en %) y lisada → forma de la célula (crenación, turgencia,
+ *     plasmólisis, hemólisis);
+ *   · concExt / glucosaExt → cuántos iones y moléculas de glucosa hay en el medio;
+ *   · tendencia → sentido en que cruzan las moléculas de agua.
+ * Los solutos del interior son una cantidad FIJA (se conservan): lo que cambia es el
+ * volumen. La osmolaridad del citoplasma —la incógnita— no se dibuja.
+ */
+import React from 'react';
+import { Line } from '@react-three/drei';
+import { LabCanvas, Etiqueta } from '../_kit';
+import { Eritrocito, CelulaVegetal, Hemolisis, Medio } from './piezas';
 
-// ── NUBE DE ENERGÍA QUÍMICA (Glow Particles) ──
-function BioEnergy({ count, color, speed = 1 }: any) {
-  return (
-    <Sparkles 
-      count={count}
-      scale={8}
-      size={6}
-      speed={speed}
-      color={color}
-      opacity={0.4}
-      noise={1}
-    />
-  );
+interface Props {
+  tipo: 'animal' | 'vegetal';
+  volumen: number;
+  concExt: number;
+  glucosaExt?: number;
+  lisada?: boolean;
+  tendencia?: 'gana' | 'pierde' | 'estable';
 }
 
-// ── ERITROCITO "DIAMOND GLOW" ──
-function Eritrocito({ volumen }: { volumen: number }) {
-  const meshRef = useRef<THREE.Mesh>(null);
-  const safeVol = isNaN(volumen) ? 100 : volumen;
-  const scale = safeVol / 100;
-  const isStressed = safeVol > 165;
+const MAX_CONC = 0.4;
+const cuenta = (c: number) => Math.round((Math.max(0, c) / MAX_CONC) * 70);
+const ETQ = { tamano: 0.15, fondo: '#ffffffe6' } as const;
 
-  useFrame((state) => {
-    if (!meshRef.current) return;
-    const t = state.clock.getElapsedTime();
-    const f = Math.max(0.2, Math.min(1.0, 0.35 * (safeVol / 100)));
-    meshRef.current.scale.set(scale * 1.5, scale * f, scale * 1.5);
-    meshRef.current.rotation.y += 0.01;
-  });
-
+function Rotulo3D({ texto, desde, hasta, lado = 'der' }: { texto: string; desde: [number, number, number]; hasta: [number, number, number]; lado?: 'izq' | 'der' }) {
   return (
     <group>
-      <mesh ref={meshRef}>
-        <sphereGeometry args={[1.5, 64, 64]} />
-        <MeshWobbleMaterial 
-          color={isStressed ? "#ff0000" : "#ef4444"}
-          factor={isStressed ? 1 : 0.2} 
-          speed={isStressed ? 5 : 1}
-          emissive={isStressed ? "#ff0000" : "#991b1b"}
-          emissiveIntensity={isStressed ? 15 : 2}
-          transparent
-          opacity={0.8}
-          roughness={0}
-          metalness={0.8}
-        />
-      </mesh>
-      {/* Brillo interno (Core) */}
-      <mesh scale={[0.8, 0.8, 0.8]}>
-        <sphereGeometry args={[1.5, 32, 32]} />
-        <meshBasicMaterial color="#ffffff" transparent opacity={0.1} />
-      </mesh>
+      <Line points={[desde, hasta]} color="#e9eef2" lineWidth={1.2} />
+      <Etiqueta texto={texto} position={hasta} {...ETQ} ancla={lado === 'izq' ? [1, 0.5] : [0, 0.5]} />
     </group>
   );
 }
 
-// ── CÉLULA VEGETAL "DIAMOND GLOW" ──
-function CelulaVegetal({ volumen }: { volumen: number }) {
-  const safeVol = isNaN(volumen) ? 100 : volumen;
-  // La pared limita el volumen a ≈ 108 % (turgencia); por debajo de ≈ 90 % la membrana se separa (plasmólisis).
-  const vScale = Math.max(0.4, Math.min(0.98, 0.98 * safeVol / 108));
-  const isTurgid = safeVol >= 106;
-
+export default function Transporte3DScene({ tipo, volumen, concExt, glucosaExt = 0, lisada = false, tendencia = 'estable' }: Props) {
+  const v = Number.isFinite(volumen) ? volumen : 100;
+  const flujo = lisada ? 0 : tendencia === 'gana' ? 1 : tendencia === 'pierde' ? -1 : 0;
+  const vegetal = tipo === 'vegetal';
+  const k = Math.min(0.985, Math.max(0.3, Math.cbrt(v / 108) * 0.985));
   return (
-    <group>
-      {/* Pared de Cristal */}
-      <mesh>
-        <boxGeometry args={[4.4, 5, 4.4]} />
-        <meshStandardMaterial 
-          color="#10b981" 
-          transparent 
-          opacity={0.2} 
-          roughness={0} 
-          metalness={1}
-          emissive="#059669"
-          emissiveIntensity={0.5}
-        />
-      </mesh>
-      {/* Membrana Vibrante */}
-      <mesh scale={[vScale, vScale * 1.1, vScale]}>
-        <boxGeometry args={[4, 4.6, 4]} />
-        <MeshWobbleMaterial 
-          color={isTurgid ? "#22c55e" : "#059669"}
-          factor={isTurgid ? 0.2 : 0.05}
-          speed={2}
-          emissive={isTurgid ? "#22c55e" : "#064e3b"}
-          emissiveIntensity={isTurgid ? 5 : 1}
-          transparent
-          opacity={0.6}
-        />
-      </mesh>
-      {/* Vacuola de Luz */}
-      <mesh scale={[vScale * 0.6, vScale * 0.8, vScale * 0.6]}>
-        <sphereGeometry args={[1.8, 32, 32]} />
-        <meshBasicMaterial color="#38bdf8" transparent opacity={0.6} />
-      </mesh>
-    </group>
-  );
-}
-
-export default function Transporte3DScene({ tipo, volumen, concExt, glucosaExt = 0 }: any) {
-  return (
-    <div className="w-full h-full relative bg-gradient-to-b from-[#020617] to-[#010409]">
-      <Canvas dpr={[1, 2]}>
-        <Suspense fallback={null}>
-          <PerspectiveCamera makeDefault position={[0, 5, 12]} fov={35} />
-          <OrbitControls enablePan={false} makeDefault />
-          
-          {/* Iluminación Dramática */}
-          <ambientLight intensity={0.5} />
-          <pointLight position={[10, 10, 10]} intensity={10} color="#38bdf8" />
-          <pointLight position={[-10, -10, -10]} intensity={10} color="#f43f5e" />
-          <spotLight position={[0, 20, 0]} intensity={15} angle={0.5} penumbra={1} color="#ffffff" />
-
-          {/* Partículas Estilo Diamond */}
-          <BioEnergy count={40} color="#4ade80" speed={0.5} /> {/* NaCl */}
-          <BioEnergy count={30} color="#fbbf24" speed={0.3} /> {/* Glucosa */}
-          
-          <Float speed={2} rotationIntensity={0.5} floatIntensity={1}>
-            {tipo === 'animal' ? <Eritrocito volumen={volumen} /> : <CelulaVegetal volumen={volumen} />}
-          </Float>
-
-          <Stars radius={50} depth={50} count={3000} factor={4} saturation={0} fade speed={1} />
-          <ContactShadows position={[0, -5, 0]} opacity={0.5} scale={20} blur={2} far={10} color="#000000" />
-        </Suspense>
-      </Canvas>
-      
-      {/* HUD Overlay Cinematográfico */}
-      <div className="absolute inset-0 pointer-events-none border-[40px] border-[#38bdf8]/5 rounded-[4rem] mix-blend-screen" />
-      
-      {/* Escáner Sutil */}
-      <motion.div 
-        animate={{ top: ['10%', '90%', '10%'] }}
-        transition={{ duration: 8, repeat: Infinity, ease: "easeInOut" }}
-        className="absolute left-0 w-full h-[2px] bg-gradient-to-r from-transparent via-cyan-500/20 to-transparent z-50 pointer-events-none"
+    <LabCanvas
+      fondo="pizarron"
+      camara={{ posicion: [0, 2.0, 12.4], objetivo: [0, 0, 0], fov: 35 }}
+      controles={{ minDistancia: 5, maxDistancia: 16, paneo: false, maxPolar: 2.4 }}
+    >
+      <Medio
+        na={cuenta(concExt)} cl={cuenta(concExt)} glucosa={cuenta(glucosaExt)}
+        interior={vegetal ? 34 : 0}
+        excluir={vegetal ? [2.05, 1.45, 1.45] : [1.75, 1.75, 1.75]}
+        escalaInterior={vegetal ? [1.9 * k, 1.25 * k, 1.25 * k] : [1, 1, 1]}
+        flujo={flujo}
       />
-    </div>
+      {vegetal ? (
+        <>
+          <CelulaVegetal volumen={v} />
+          <Rotulo3D texto="Pared celular" desde={[1.95, 1.3, -0.3]} hasta={[2.3, 1.75, -0.3]} />
+          <Rotulo3D texto="Membrana plasmática" desde={[-1.65 * k, -0.9, 0.3]} hasta={[-2.3, -1.75, 0.3]} lado="izq" />
+          <Rotulo3D texto="Vacuola" desde={[0.9, 0.15, 0.2]} hasta={[2.3, 0.2, 0.2]} />
+          <Rotulo3D texto="Cloroplasto" desde={[0.9 * k, -0.55, 0.45]} hasta={[2.3, -0.85, 0.45]} />
+        </>
+      ) : lisada ? (
+        <Hemolisis />
+      ) : (
+        <>
+          <Eritrocito volumen={v} />
+          <Etiqueta texto="Eritrocito" position={[0, 2.2, 0]} {...ETQ} />
+        </>
+      )}
+    </LabCanvas>
   );
 }
