@@ -4697,10 +4697,22 @@ export function bancoPrototipos(mat, opts = {}) {
   };
   const aProt = (ins, j) => ins.userData.bocas[j].clone().add(ins.position)
     .sub(prot.position).multiplyScalar(1 / K);
+  /* Una borna, un cable. Los labs que rearman la placa vuelven a cablear los
+     instrumentos tras `limpia()`, que sólo vacía `circ`; como el cable cuelga
+     de `prot`, cada rearmado dejaba el anterior colgando. Recablear la misma
+     borna sustituye el cable viejo, y el que se cablea una sola vez al montar
+     sigue ahí después de `limpia()`. */
+  const cables = new Map();
   const cable = (i, j, agujero, col, extra = {}) => {
+    const clave = i + '/' + j;
+    const viejo = cables.get(clave);
+    if (viejo) {
+      prot.remove(viejo);
+      viejo.traverse((o) => { if (o.geometry) o.geometry.dispose(); });
+    }
     const w = puente(mat, agujero, aProt(lista[i], j),
       Object.assign({ color: col, r: 0.026 / K, alto: 0.30, pinB: false }, extra));
-    prot.add(w); return w;
+    prot.add(w); cables.set(clave, w); return w;
   };
   const instrumento = (i) => {
     const u = lista[i].userData;
@@ -7605,5 +7617,800 @@ export function bateriaAutomocion(mat, opts = {}) {
   g.userData = { alto, ancho, fondo,
     positivo: poste(1, alto * 0.046, alto * 0.036, 0xc23b3b),
     negativo: poste(-1, alto * 0.040, alto * 0.031, 0x20242a) };
+  return g;
+}
+
+/* ==========================================================================
+   §19 · ENTRENADOR LÓGICO, PLC, LAZO 4-20 mA, PUENTE H Y KNX (mec3d · sistemas digitales)
+   --------------------------------------------------------------------------
+   Los laboratorios de lógica y automatización se montaban con «una placa verde
+   con cuatro LEDs sobre una losa». Aquí está lo que un técnico espera ver en
+   su banco: el ENTRENADOR LÓGICO de maleta (protoboard, interruptores, LEDs,
+   displays de 7 segmentos, reloj manual y fuente de 5 V), el PLC compacto en
+   riel DIN con su fuente de 24 V, el transmisor de campo del lazo 4-20 mA, el
+   driver de puente H con su motor de CD y la botonera de pared del bus KNX.
+   Todo a escala de PULGADA, como §15: un paso de protoboard es 0,1.
+
+   Convenio: los entrenadores y módulos de banco tienen su origen en el centro
+   de la planta y apoyan en y = 0; las piezas de riel DIN miran a +Z y tienen
+   su origen en el centro de su base, como las de §17.
+   ========================================================================== */
+
+const _s19Hex = (c) => '#' + c.toString(16).padStart(6, '0');
+const _s19Cromo = (mat) => mat.cromo || mat.acero || mat.aluminio;
+
+/** Contorno de un segmento de display (hexágono alargado) en horizontal. */
+function _s19Segmento(L, t, vertical) {
+  const p = [[-L / 2, 0], [-L / 2 + t / 2, t / 2], [L / 2 - t / 2, t / 2], [L / 2, 0], [L / 2 - t / 2, -t / 2], [-L / 2 + t / 2, -t / 2]];
+  return vertical ? p.map(([x, y]) => [y, x]) : p;
+}
+
+/**
+ * DISPLAY DE 7 SEGMENTOS (cátodo común, de los de 0,56"): cuerpo negro, ventana
+ * ahumada y siete segmentos hexagonales —a, b, c, d, e, f, g— más el punto
+ * decimal. Cada segmento tiene SU material, así que el laboratorio enciende el
+ * patrón que quiera con `ponSeg`. Mira a +Z; para ponerlo sobre un panel se
+ * tumba con rotation.x = −π/2 (o se inclina un poco hacia el que mira).
+ *   userData.seg[0..6] segmentos a…g · userData.dp el punto · ponSeg(mascara, v)
+ */
+export function display7seg(mat, opts = {}) {
+  const { alto = 0.8, color = 0xff4a35, apagado = 0x2a1613 } = opts;
+  const g = new THREE.Group();
+  const h = alto, w = alto * 0.62, d = alto * 0.20;
+  const cue = _bmPlancha(w, h, d, _bmMat(0x14161a, 0.55, 0.08), w * 0.05, d * 0.08); g.add(cue);
+  const vent = new THREE.Mesh(new THREE.PlaneGeometry(w * 0.88, h * 0.90),
+    new THREE.MeshStandardMaterial({ color: 0x1a0f0f, roughness: 0.28, metalness: 0.05 }));
+  vent.position.z = d / 2 + 0.002; g.add(vent);
+  const t = alto * 0.09, L = alto * 0.36, gap = t * 0.18, s = L + gap, xv = (L + gap) / 2;
+  const zS = d / 2 + 0.005;
+  const seg = [], pos = [[0, s, 0], [xv, s / 2, 1], [xv, -s / 2, 1], [0, -s, 0], [-xv, -s / 2, 1], [-xv, s / 2, 1], [0, 0, 0]];
+  pos.forEach(([x, y, v]) => {
+    const m = new THREE.Mesh(extruido(_s19Segmento(L, t, v), { espesor: 0.014 }),
+      new THREE.MeshStandardMaterial({ color: apagado, emissive: color, emissiveIntensity: 0, roughness: 0.4, metalness: 0.05 }));
+    m.position.set(x, y, zS); g.add(m); seg.push(m);
+  });
+  const dp = new THREE.Mesh(new THREE.CylinderGeometry(t * 0.55, t * 0.55, 0.014, 12),
+    new THREE.MeshStandardMaterial({ color: apagado, emissive: color, emissiveIntensity: 0, roughness: 0.4 }));
+  dp.rotation.x = Math.PI / 2; dp.position.set(xv + t * 1.15, -s - t * 0.2, zS); g.add(dp);
+  // patillas en los dos cantos (las que se ven si se mira de lado)
+  const met = _s19Cromo(mat);
+  for (const sy of [-1, 1]) for (let i = 0; i < 5; i++) {
+    const pa = new THREE.Mesh(new THREE.BoxGeometry(w * 0.04, 0.05, 0.012), met);
+    pa.position.set((i - 2) * w * 0.2, sy * (h / 2 + 0.018), -d * 0.3); g.add(pa);
+  }
+  /** mascara: lista de 7 (o más) valores; v es la intensidad emisiva de los encendidos. */
+  const ponSeg = (mascara, v = 1.3, hex = color) => {
+    seg.forEach((m, i) => { const on = !!(mascara && mascara[i]); m.material.emissiveIntensity = on ? v : 0.02;
+      m.material.color.setHex(on ? hex : apagado); m.material.emissive.setHex(hex); });
+  };
+  g.userData = { alto: h, ancho: w, fondo: d, seg, dp, ponSeg };
+  return g;
+}
+
+/**
+ * INTERRUPTOR DE PALANCA (toggle) de panel: tuerca hexagonal cromada, funda de
+ * goma y la palanca con su bola. `pon(true)` la inclina hacia el fondo (ON, el
+ * lado de arriba en un panel) y `pon(false)` hacia el que mira. Origen en la
+ * cara del panel.
+ */
+export function palancaToggle(mat, opts = {}) {
+  const { largo = 0.20, color = 0xc8ced4 } = opts;
+  const g = new THREE.Group();
+  const met = _s19Cromo(mat);
+  const cue = _bmCaja(0.17, 0.06, 0.15, _bmMat(0x15181c, 0.6, 0.1), 0, 0.03, 0); g.add(cue);
+  const tuerca = _bmCil(0.072, 0.03, met, 6); tuerca.position.y = 0.075; g.add(tuerca);
+  const funda = new THREE.Mesh(revolucion([[0, 0], [0.04, 0], [0.034, 0.03], [0.022, 0.05], [0, 0.05]], { seg: 14 }), _bmMat(0x20252b, 0.8, 0.02));
+  funda.position.y = 0.09; g.add(funda);
+  const pal = new THREE.Group(); pal.position.y = 0.12; g.add(pal);
+  const bar = _bmCil(0.016, largo, _bmMat(color, 0.25, 0.9), 12, 0.011); bar.position.y = largo / 2; pal.add(bar);
+  const bola = new THREE.Mesh(new THREE.SphereGeometry(0.03, 14, 10), _bmMat(color, 0.2, 0.9)); bola.position.y = largo; pal.add(bola);
+  const pon = (on) => { pal.rotation.x = on ? -0.55 : 0.55; };
+  pon(false);
+  g.userData = { palanca: pal, pon };
+  return g;
+}
+
+/**
+ * PULSADOR REDONDO de panel (el del reloj manual): aro cromado y casquete
+ * rojo. `pulsar(v)` lo hunde de 0 a 1. Origen en la cara del panel.
+ */
+export function pulsadorPanel(mat, opts = {}) {
+  const { color = 0xd64545, d = 0.26 } = opts;
+  const g = new THREE.Group(), R = d / 2;
+  const aro = new THREE.Mesh(revolucion([[R * 0.78, 0], [R, 0], [R, 0.035], [R * 0.90, 0.055], [R * 0.78, 0.055]], { seg: 28 }), _s19Cromo(mat));
+  aro.castShadow = true; g.add(aro);
+  const cap = new THREE.Mesh(revolucion([[0, 0], [R * 0.74, 0], [R * 0.74, 0.03], [R * 0.60, 0.058], [0, 0.066]], { seg: 26 }),
+    _bmMat(color, 0.38, 0.05)); cap.position.y = 0.022; cap.castShadow = true; g.add(cap);
+  g.userData = { cap, pulsar: (v) => { cap.position.y = 0.022 - 0.02 * Math.max(0, Math.min(1, v)); } };
+  return g;
+}
+
+/**
+ * LED INDICADOR DE PANEL: aro cromado y lente de domo con SU material (el
+ * laboratorio sólo toca `lente.material.emissiveIntensity` y `.color`). Origen
+ * en la cara del panel.
+ */
+export function ledPanel(mat, opts = {}) {
+  const { color = 0x8ab4f8, apagado = null, r = 0.075 } = opts;
+  const g = new THREE.Group();
+  const aro = new THREE.Mesh(revolucion([[r * 0.86, 0], [r * 1.22, 0], [r * 1.22, 0.022], [r * 1.05, 0.034], [r * 0.86, 0.034]], { seg: 24 }), _s19Cromo(mat));
+  g.add(aro);
+  const dom = [[0, 0], [r * 0.9, 0]];
+  for (let k = 1; k <= 8; k++) { const a = (k / 8) * Math.PI / 2; dom.push([r * 0.9 * Math.cos(a), r * 0.95 * Math.sin(a)]); }
+  const lente = new THREE.Mesh(revolucion(dom, { seg: 22 }), new THREE.MeshStandardMaterial({
+    color: apagado == null ? color : apagado, emissive: color, emissiveIntensity: 0.12, roughness: 0.22, metalness: 0.0 }));
+  lente.position.y = 0.012; g.add(lente);
+  g.userData = { lente };
+  return g;
+}
+
+/**
+ * ENTRENADOR LÓGICO DE BANCO (maleta): chasis con su labio, panel serigrafiado,
+ * protoboard central con rieles, una franja de LEDs de estado con su jack de
+ * entrada cada uno, una franja de interruptores de palanca con su jack de
+ * salida, y la franja trasera con la fuente (bornas +5 V / GND, interruptor y
+ * LED de encendido), el reloj manual (pulsador + LED), de 0 a 3 displays de 7
+ * segmentos y —opcional— una pantalla de estado. Es el equipo con el que se
+ * enseñan los contadores, los registros, los MUX o los sumadores, y lo que
+ * cambia de una práctica a otra son los CHIPS y los PUENTES que se montan en
+ * el protoboard.
+ *
+ * Escala de pulgada (paso 0,1): con 24 columnas mide ~3,8 de ancho. El grupo se
+ * puede escalar entero. Origen en el centro de la planta, apoyo en y = 0.
+ *
+ *   H(col, fila)          punto de un agujero, en coordenadas del PROTOBOARD
+ *                         (lo que piden `dip`, `cable` y `circ`)
+ *   Hg(col, fila)         el mismo punto en coordenadas del GRUPO
+ *   dip(col, {pines, rotulo, rotulo2})  monta un DIP con la pata 1 en (col,'e')
+ *   ptoPata(chip, k)      la pata k de un chip montado, en coordenadas del protoboard
+ *   cable(A, B, color)    puente de protoboard entre dos agujeros ([col,fila] o Vector3)
+ *   hilo(A, B, color)     cable largo entre dos puntos en coordenadas del GRUPO
+ *                         (de un jack a otro, de la borna a la placa…)
+ *   leds[i]               la lente del LED i (izq → der): material propio
+ *   ledJack(i) · swJack(i) · bornas.{mas,gnd}   puntos de enganche, en el GRUPO
+ *   sw[i].userData.pon(bool)   palancas · clk.userData.pulsar(v) · clkLed · pwrLed
+ *   disp[i].userData.ponSeg(mascara7) · pantalla  (Mesh con material básico: se le pone `.map`)
+ */
+export function entrenadorLogico(mat, opts = {}) {
+  const { cols = 24, rieles = 'tras', nLed = 8, nSw = 8, nDisp = 0, dispColor = 0xff4a35,
+          pantalla = null, ledColor = 0x8ab4f8, ledColores = null, ledRotulos = null, swRotulos = null,
+          rotulo = 'ENTRENADOR LÓGICO', serie = 'CEN-DL1 · 5 V', panel = 0x1d3850, protoColor = 0x9c988a,
+          pantallaRotulo = 'ESTADO', dispAlto = 0.70 } = opts;
+  const g = new THREE.Group();
+  const met = _s19Cromo(mat);
+  const prot = protoboard(mat, { cols, rieles, color: protoColor });
+  const pu = prot.userData;
+  const paso = 0.36;
+  const W = Math.max(pu.ancho + 1.0, Math.max(nLed, nSw) * paso + 0.8, 3.6);
+  const FRENTE = 1.15, ATRAS = 1.10;
+  const D = pu.fondo + FRENTE + ATRAS;
+  const HC = 0.30;
+  const zF = D / 2, zS = zF - FRENTE, zB = -D / 2 + ATRAS;      // franja delantera / trasera
+  prot.position.set(0, HC, zS - pu.zMax);
+  g.add(prot);
+  const circ = new THREE.Group(); prot.add(circ);
+
+  // ---- chasis con su labio y la placa del panel (donde va la serigrafía)
+  const Wp = W - 0.20, Dp = D - 0.20;
+  const mCaja = _bmMat(0x1b2128, 0.5, 0.3);
+  const caja = _bmPlancha(W, D, HC + 0.05, mCaja, 0.16, 0.03,
+    [_bmRect(Wp, Dp, 0.08).map(([x, y]) => [x, y])]);
+  caja.rotation.x = -Math.PI / 2; caja.position.y = (HC + 0.05) / 2; g.add(caja);
+  const fondoCaja = _bmCaja(W - 0.04, 0.05, D - 0.04, mCaja, 0, 0.025, 0); g.add(fondoCaja);
+
+  // ---- serigrafía: una sola textura sobre la cara superior del panel
+  const S = 300;
+  const px = (x) => (x + Wp / 2) * S, pz = (z) => (z + Dp / 2) * S;
+  const xLed = (i) => (i - (nLed - 1) / 2) * paso, xSw = (i) => (i - (nSw - 1) / 2) * paso;
+  const zLedJ = zS + 0.14, zLed = zS + 0.34, zLedL = zS + 0.52, zSwJ = zS + 0.70, zSw = zS + 0.90, zSwL = zS + 1.07;
+  const zb = -D / 2 + 0.70;                                        // línea de centros de la franja trasera
+  const xPw = -W / 2 + 0.45, xRk = -W / 2 + 1.12, xClk = -W / 2 + 1.62, xClkL = -W / 2 + 1.98;
+  const xReg0 = -W / 2 + 2.25, xReg1 = W / 2 - 0.14;               // la región de displays / pantalla
+  const pitD = dispAlto * 0.62 * 1.10;
+  const txP = _etiqueta(Math.round(Wp * S), Math.round(Dp * S), (c, w, h) => {
+    c.fillStyle = _s19Hex(panel); c.fillRect(0, 0, w, h);
+    const gr = c.createLinearGradient(0, 0, 0, h); gr.addColorStop(0, 'rgba(255,255,255,0.06)'); gr.addColorStop(1, 'rgba(0,0,0,0.10)');
+    c.fillStyle = gr; c.fillRect(0, 0, w, h);
+    const tinta = 'rgba(236,242,246,0.92)';
+    c.fillStyle = tinta; c.strokeStyle = 'rgba(236,242,246,0.70)'; c.lineWidth = 2.2; c.textBaseline = 'middle';
+    const T = (txt, x, z, tam, al = 'center', col = tinta) => { c.font = `bold ${tam}px sans-serif`; c.textAlign = al; c.fillStyle = col; c.fillText(txt, px(x), pz(z)); };
+    const caja2 = (x0, z0, x1, z1) => { c.beginPath(); c.roundRect ? c.roundRect(px(x0), pz(z0), px(x1) - px(x0), pz(z1) - pz(z0), 8) : c.rect(px(x0), pz(z0), px(x1) - px(x0), pz(z1) - pz(z0)); c.stroke(); };
+    // título y serie, a lo largo del borde trasero
+    T(rotulo, -W / 2 + 0.34, -D / 2 + 0.30, 40, 'left');
+    T(serie, W / 2 - 0.34, -D / 2 + 0.30, 26, 'right', 'rgba(236,242,246,0.65)');
+    c.beginPath(); c.moveTo(px(-W / 2 + 0.32), pz(-D / 2 + 0.46)); c.lineTo(px(W / 2 - 0.32), pz(-D / 2 + 0.46)); c.stroke();
+    // fuente
+    caja2(-W / 2 + 0.24, zb - 0.30, -W / 2 + 1.34, zb + 0.34);
+    T('FUENTE', -W / 2 + 0.79, zb - 0.20, 20); T('+5 V', xPw, zb + 0.24, 21, 'center', '#ffb3aa'); T('GND', xPw + 0.30, zb + 0.24, 21);
+    T('ON', xRk, zb + 0.24, 21);
+    // reloj
+    caja2(-W / 2 + 1.44, zb - 0.30, -W / 2 + 2.14, zb + 0.34);
+    T('RELOJ', xClk + 0.18, zb - 0.20, 20); T('CLK', xClk, zb + 0.24, 21); T('LED', xClkL, zb + 0.24, 18);
+    // displays / pantalla
+    if (nDisp || pantalla) {
+      caja2(xReg0 - 0.08, zb - 0.30, xReg1 + 0.06, zb + 0.34);
+      T(nDisp && !pantalla ? 'DISPLAYS 7 SEG' : (pantalla ? pantallaRotulo : ''), (xReg0 + xReg1) / 2, zb - 0.22, 18);
+    }
+    // LEDs y jacks
+    for (let i = 0; i < nLed; i++) T(ledRotulos ? ledRotulos[i] : 'L' + i, xLed(i), zLedL, 22);
+    T('SALIDAS', xLed(0) - 0.40, zLed, 21, 'right');
+    for (let i = 0; i < nSw; i++) T(swRotulos ? swRotulos[i] : 'S' + i, xSw(i), zSwL, 22);
+    T('ENTRADAS', xSw(0) - 0.40, zSw, 21, 'right');
+  });
+  txP.wrapS = txP.wrapT = THREE.ClampToEdgeWrapping;
+  const mPlaca = new THREE.MeshStandardMaterial({ map: txP, roughness: 0.55, metalness: 0.05 });
+  const mLado = _bmMat(0x1a2128, 0.6, 0.2);
+  const plato = new THREE.Mesh(new THREE.BoxGeometry(Wp, 0.04, Dp), [mLado, mLado, mPlaca, mLado, mLado, mLado]);
+  plato.position.set(0, HC - 0.02, 0); plato.receiveShadow = true; g.add(plato);
+
+  // ---- bornas de la fuente, interruptor y LEDs de encendido y reloj
+  const bMas = bornaBanana(mat, { d: 0.17, color: 0xd64545 }); bMas.position.set(xPw, HC, zb); g.add(bMas);
+  const bGnd = bornaBanana(mat, { d: 0.17, color: 0x15181c }); bGnd.position.set(xPw + 0.30, HC, zb); g.add(bGnd);
+  const marcoRk = _bmCaja(0.20, 0.03, 0.30, met, xRk, HC + 0.015, zb - 0.03); g.add(marcoRk);
+  const rk = _bmCaja(0.16, 0.06, 0.24, _bmMat(0x14181c, 0.45, 0.1), xRk, HC + 0.055, zb - 0.03); rk.rotation.x = -0.22; g.add(rk);
+  const pwrLed = ledPanel(mat, { color: 0x6fe39a, r: 0.055 }); pwrLed.position.set(xRk, HC, zb - 0.34 + 0.06); g.add(pwrLed);
+  pwrLed.userData.lente.material.emissiveIntensity = 1.0;
+  const clk = pulsadorPanel(mat, { d: 0.26 }); clk.position.set(xClk, HC, zb - 0.02); g.add(clk);
+  const clkLed = ledPanel(mat, { color: 0x7cd992, r: 0.058 }); clkLed.position.set(xClkL, HC, zb - 0.02); g.add(clkLed);
+
+  // ---- LEDs de estado y sus jacks
+  const leds = [], ledJacks = [];
+  for (let i = 0; i < nLed; i++) {
+    const col = ledColores ? ledColores[i % ledColores.length] : ledColor;
+    const l = ledPanel(mat, { color: col, apagado: 0x2a3550, r: 0.07 }); l.position.set(xLed(i), HC, zLed); g.add(l);
+    leds.push(l.userData.lente);
+    const j = bornaBanana(mat, { d: 0.10, alto: 0.04, color: 0x8c949c }); j.position.set(xLed(i), HC, zLedJ); g.add(j);
+    ledJacks.push(_V(xLed(i), HC + 0.036, zLedJ));
+  }
+  // ---- interruptores de palanca y sus jacks
+  const sw = [], swJacks = [];
+  for (let i = 0; i < nSw; i++) {
+    const s = palancaToggle(mat, {}); s.position.set(xSw(i), HC, zSw); g.add(s); sw.push(s);
+    const j = bornaBanana(mat, { d: 0.10, alto: 0.04, color: 0xd6b84a }); j.position.set(xSw(i), HC, zSwJ); g.add(j);
+    swJacks.push(_V(xSw(i), HC + 0.036, zSwJ));
+  }
+
+  // ---- región de displays y pantalla, inclinados hacia quien mira
+  const TILT = 0.55;
+  const inclina = (obj, h, d) => {
+    obj.rotation.x = -Math.PI / 2 + TILT;
+    obj.position.y = HC + (h / 2) * Math.sin(TILT) + (d / 2) * Math.cos(TILT) + 0.01;
+  };
+  const disp = []; let xCur = xReg0 + 0.04;
+  for (let i = 0; i < nDisp; i++) {
+    const d7 = display7seg(mat, { alto: dispAlto, color: dispColor });
+    inclina(d7, dispAlto, dispAlto * 0.2); d7.position.x = xCur + dispAlto * 0.31; d7.position.z = zb + 0.02;
+    xCur += pitD; g.add(d7); disp.push(d7);
+  }
+  let pant = null;
+  if (pantalla) {
+    const rest = xReg1 - xCur - 0.04;
+    const pw = Math.min(pantalla.ancho || rest, rest), ph = pantalla.alto || pw * 0.62;
+    const mar = _bmPlancha(pw + 0.08, ph + 0.08, 0.07, _bmMat(0x101317, 0.5, 0.2), 0.03, 0.01);
+    const gp = new THREE.Group(); gp.add(mar);
+    pant = new THREE.Mesh(new THREE.PlaneGeometry(pw, ph), new THREE.MeshBasicMaterial({ color: 0x0a141c }));
+    pant.position.z = 0.036; gp.add(pant);
+    inclina(gp, ph + 0.08, 0.07); gp.position.x = xCur + 0.02 + pw / 2; gp.position.z = zb + 0.02; g.add(gp);
+    pant.userData = { ancho: pw, alto: ph };
+  }
+
+  // ---- pies de goma y cierres (lo que dice «maleta»)
+  for (const sx of [-1, 1]) for (const sz of [-1, 1]) {
+    const pie = _bmCil(0.09, 0.05, _bmMat(0x0c0e11, 0.9, 0.0), 14); pie.position.set(sx * (W / 2 - 0.25), -0.02, sz * (D / 2 - 0.25)); g.add(pie);
+  }
+  for (const sx of [-1, 1]) {
+    const cie = _bmCaja(0.34, 0.12, 0.05, met, sx * W * 0.28, HC * 0.45, zF + 0.012); g.add(cie);
+    const asa = _bmCaja(0.26, 0.05, 0.03, _bmMat(0x14181c, 0.5, 0.2), sx * W * 0.28, HC * 0.45, zF + 0.04); g.add(asa);
+  }
+  g.position.y = 0.0;
+
+  // ---- utilidades de montaje
+  const H = (col, fila) => pu.hoyo(col, fila);
+  const Hg = (col, fila) => pu.hoyo(col, fila).add(prot.position);
+  const aPunto = (p) => Array.isArray(p) ? pu.hoyo(p[0], p[1]) : p;
+  const dipM = (col, o = {}) => {
+    const pines = o.pines || 16;
+    const c = dipRotulado(mat, { pines, rotulo: o.rotulo || '74HC00', rotulo2: o.rotulo2 || 'CEN LABS' });
+    const p1 = pu.hoyo(col, 'e');
+    c.position.set(p1.x + ((pines / 2 - 1) / 2) * 0.1, p1.y, 0); circ.add(c); return c;
+  };
+  const ptoPata = (chip, k) => chip.userData.pata(k).add(chip.position);
+  const cable = (A, B, color = 0xd64545, o = {}) => { const w = puente(mat, aPunto(A), aPunto(B), { color, ...o }); circ.add(w); return w; };
+  const hilo = (A, B, color = 0xd64545, o = {}) => { const w = puente(mat, A, B, { color, r: 0.024, alto: 0.5, sale: 0.10, ...o }); g.add(w); return w; };
+  g.traverse((o) => { if (o.isMesh) { o.castShadow = true; o.receiveShadow = true; } });
+  g.userData = Object.assign(g.userData || {}, { prot, circ, H, Hg, dip: dipM, ptoPata, cable, hilo, leds, sw, disp,
+    pantalla: pant, clk, clkLed: clkLed.userData.lente, pwrLed: pwrLed.userData.lente, alto: HC, ancho: W, fondo: D,
+    ledJack: (i) => ledJacks[i].clone(), swJack: (i) => swJacks[i].clone(),
+    bornas: { mas: _V(xPw, HC + 0.056, zb), gnd: _V(xPw + 0.30, HC + 0.056, zb) } });
+  return g;
+}
+
+/* --------------------------------------------------------------------------
+   §19-B · AUTOMATIZACIÓN EN RIEL DIN: PLC compacto, fuente de 24 V, relé
+   temporizador, panel HMI, estación de mando y aparatos modulares KNX
+   --------------------------------------------------------------------------
+   Todo mira a +Z y tiene el origen en el centro de su cuerpo, igual que el
+   contactor de §17 y a su escala (un contactor mide 0,34 de ancho: 45 mm).
+   Los LED de estado son lentes con SU material (`userData.di[i]`,
+   `.led`…): el laboratorio sólo toca `material.emissiveIntensity`/`.color`. */
+
+/** Lente plana de LED de un aparato (media esfera aplastada), con su propio material. */
+function _s19Lente(color, r = 0.018, apagado = null) {
+  const m = new THREE.Mesh(new THREE.SphereGeometry(r, 12, 8), new THREE.MeshStandardMaterial({
+    color: apagado == null ? color : apagado, emissive: color, emissiveIntensity: 0.12, roughness: 0.3, metalness: 0 }));
+  m.scale.z = 0.45; return m;
+}
+/** Tornillo de borne visto de frente (cabeza cromada con su ranura). */
+function _s19Tornillo(mat, r = 0.016) {
+  const t = new THREE.Mesh(revolucion([[0, 0], [r, 0], [r, 0.006], [r * 0.8, 0.010], [0, 0.010]], { seg: 12 }),
+    new THREE.MeshStandardMaterial({ color: 0xcdd3d9, roughness: 0.32, metalness: 0.85 }));
+  t.rotation.x = Math.PI / 2; return t;
+}
+
+/**
+ * PLC COMPACTO en riel DIN (tipo CPU 1214C): cuerpo gris claro con las dos
+ * PUERTAS de bornes oscuras —arriba las entradas, abajo las salidas—, una fila
+ * de LED verdes de entradas DI justo bajo la puerta de arriba y otra de salidas
+ * DQ sobre la de abajo, la columna de estado (RUN/STOP, ERROR, MANT), la placa
+ * con el nombre de la CPU y el puerto Ethernet. Es lo que un electricista
+ * identifica sin leer nada.
+ *   userData.di[i] · dq[i] · run · stop · err · maint  (lentes con material propio)
+ *   userData.bornasSup[i] · bornasInf[i]               (puntos de enganche del cable)
+ */
+export function plcCompacto(mat, opts = {}) {
+  const { ancho = 0.90, alto = 0.78, fondo = 0.44, nDI = 8, nDQ = 6, rotulo = 'CPU 1214C', sub = 'DC/DC/DC',
+          marca = 'CEN-PLC', color = 0xc4c9cf } = opts;
+  const g = new THREE.Group();
+  const W = ancho, H = alto, F = fondo / 2;
+  const mC = _bmMat(color, 0.55, 0.05), mD = _bmMat(0x2b3037, 0.6, 0.08);
+  const cue = _bmPlancha(W, H, fondo, mC, 0.022, 0.008); g.add(cue);
+  const hP = H * 0.21, zP = F + 0.012, zFr = F + 0.0345;              // puertas de bornes
+  const nSup = nDI + 2, nInf = nDQ + 2;
+  const bornasSup = [], bornasInf = [];
+  const puerta = (s, n, rotulos) => {
+    const y = s * (H / 2 - hP / 2);
+    const pt = _bmCaja(W * 0.97, hP, 0.047, mD, 0, y, zP); g.add(pt);
+    const tx = _etiqueta(512, Math.round(512 * hP / (W * 0.97)), (c, w, h) => {
+      c.clearRect(0, 0, w, h); c.textAlign = 'center'; c.textBaseline = 'middle';
+      for (let i = 0; i < n; i++) {
+        const x = w * (0.08 + 0.84 * i / (n - 1));
+        c.fillStyle = 'rgba(0,0,0,0.38)'; c.fillRect(x - w * 0.020, h * (s > 0 ? 0.50 : 0.18), w * 0.040, h * 0.30);
+        c.fillStyle = '#d5dade'; c.font = 'bold ' + Math.round(h * 0.17) + 'px sans-serif';
+        c.fillText(rotulos[i], x, h * (s > 0 ? 0.28 : 0.88));
+      }
+    });
+    const pl = _tinta(tx, W * 0.97, hP); pl.position.set(0, y, zFr + 0.0005); g.add(pl);
+    for (let i = 0; i < n; i++) {
+      const x = (-0.5 + (0.08 + 0.84 * i / (n - 1))) * W * 0.97;
+      const ts = _s19Tornillo(mat, 0.017); ts.position.set(x, y + s * (-hP * 0.0) + (s > 0 ? -hP * 0.0 : 0), zFr + 0.004); g.add(ts);
+      (s > 0 ? bornasSup : bornasInf).push(_V(x, y, zFr + 0.03));
+    }
+  };
+  const rotSup = ['1M', ...Array.from({ length: nDI }, (_, i) => '.' + i), '2M'].slice(0, nSup);
+  const rotInf = ['3L+', ...Array.from({ length: nDQ }, (_, i) => '.' + i), 'M'].slice(0, nInf);
+  puerta(1, nSup, rotSup); puerta(-1, nInf, rotInf);
+  // franja central: serigrafía, placa y estado
+  const Hm = H - 2 * hP - 0.02, Wm = W * 0.96;
+  const yDI = Hm / 2 - 0.045, yDQ = -Hm / 2 + 0.045;
+  const S = 420;
+  const txM = _etiqueta(Math.round(Wm * S), Math.round(Hm * S), (c, w, h) => {
+    c.fillStyle = _s19Hex(color); c.fillRect(0, 0, w, h);
+    c.textBaseline = 'middle'; c.textAlign = 'center';
+    const px = (x) => (x + Wm / 2) * S, py = (y) => (Hm / 2 - y) * S;
+    c.fillStyle = '#2a2f35'; c.font = 'bold ' + Math.round(S * 0.034) + 'px sans-serif';
+    for (let i = 0; i < nDI; i++) c.fillText('.' + i, px(((-0.5 + (0.08 + 0.84 * (i + 1) / (nSup - 1))) * W * 0.97)), py(yDI - 0.040));
+    for (let i = 0; i < nDQ; i++) c.fillText('.' + i, px(((-0.5 + (0.08 + 0.84 * (i + 1) / (nInf - 1))) * W * 0.97)), py(yDQ + 0.040));
+    c.textAlign = 'left'; c.fillText('DI a', px(-Wm / 2 + 0.01), py(yDI)); c.fillText('DQ a', px(-Wm / 2 + 0.01), py(yDQ));
+    // columna de estado
+    c.font = 'bold ' + Math.round(S * 0.036) + 'px sans-serif';
+    c.fillText('RUN/STOP', px(-W * 0.34 + 0.05), py(0.075)); c.fillText('ERROR', px(-W * 0.34 + 0.05), py(0.0)); c.fillText('MANT', px(-W * 0.34 + 0.05), py(-0.075));
+    // placa de la CPU
+    c.fillStyle = '#e8ecef'; c.fillRect(px(-W * 0.02), py(0.105), W * 0.34 * S, 0.21 * S);
+    c.strokeStyle = '#7b848c'; c.lineWidth = 2; c.strokeRect(px(-W * 0.02), py(0.105), W * 0.34 * S, 0.21 * S);
+    c.fillStyle = '#14181e'; c.textAlign = 'center';
+    c.font = 'bold ' + Math.round(S * 0.050) + 'px sans-serif'; c.fillText(rotulo, px(W * 0.15), py(0.062));
+    c.font = Math.round(S * 0.034) + 'px sans-serif'; c.fillText(sub + ' · ' + marca, px(W * 0.15), py(0.005));
+    c.fillStyle = '#0f5f8f'; c.fillRect(px(-W * 0.02), py(-0.085), W * 0.34 * S, 0.026 * S);
+    c.fillStyle = '#e8ecef'; c.font = 'bold ' + Math.round(S * 0.022) + 'px sans-serif'; c.fillText('PROFINET · 24 V DC', px(W * 0.15), py(-0.072));
+    // puerto Ethernet
+    c.fillStyle = '#2a2f35'; c.font = Math.round(S * 0.028) + 'px sans-serif'; c.fillText('X1 P1', px(W * 0.405), py(-0.12));
+  });
+  const fr = new THREE.Mesh(new THREE.PlaneGeometry(Wm, Hm), new THREE.MeshStandardMaterial({ map: txM, roughness: 0.55, metalness: 0.03 }));
+  fr.position.set(0, 0, F + 0.0012); g.add(fr);
+  const lentes = (n, y, col, nT) => Array.from({ length: n }, (_, i) => {
+    const l = _s19Lente(col, 0.017, 0x28442f); l.position.set((-0.5 + (0.08 + 0.84 * (i + 1) / (nT - 1))) * W * 0.97, y, F + 0.004); g.add(l); return l; });
+  const di = lentes(nDI, yDI, 0x7cd992, nSup), dq = lentes(nDQ, yDQ, 0x7cd992, nInf);
+  const run = _s19Lente(0x7cd992, 0.020, 0x28442f), stop = _s19Lente(0xe9a23b, 0.020, 0x4a3a1a), err = _s19Lente(0xff5a4d, 0.020, 0x4a2220), maint = _s19Lente(0xe9a23b, 0.020, 0x4a3a1a);
+  run.position.set(-W * 0.40, 0.075, F + 0.004); stop.position.set(-W * 0.40 + 0.05, 0.075, F + 0.004);
+  err.position.set(-W * 0.40, 0.0, F + 0.004); maint.position.set(-W * 0.40, -0.075, F + 0.004);
+  // el estado por defecto es RUN
+  [run, stop, err, maint].forEach((l) => g.add(l));
+  run.material.emissiveIntensity = 1.0;
+  // puerto Ethernet RJ45: marco, escudo cromado y dos LED de enlace
+  const rj = _bmCaja(0.115, 0.075, 0.03, _bmMat(0x14171b, 0.6, 0.1), W * 0.405, -0.045, F + 0.004); g.add(rj);
+  const esc = _bmCaja(0.085, 0.052, 0.024, _s19Cromo(mat), W * 0.405, -0.045, F + 0.012); g.add(esc);
+  const hue = _bmCaja(0.062, 0.030, 0.012, _bmMat(0x050607, 0.9, 0), W * 0.405, -0.047, F + 0.022); g.add(hue);
+  const lk = _s19Lente(0x7cd992, 0.010, 0x28442f), ac = _s19Lente(0xe9a23b, 0.010, 0x4a3a1a);
+  lk.position.set(W * 0.405 - 0.04, -0.092, F + 0.004); ac.position.set(W * 0.405 + 0.04, -0.092, F + 0.004); g.add(lk, ac);
+  lk.material.emissiveIntensity = 0.8;
+  // tacón del riel DIN
+  const tac = _bmCaja(W * 0.5, 0.034, 0.03, _bmMat(0x8a929a, 0.5, 0.3), 0, -H / 2 + 0.02, -F - 0.012); g.add(tac);
+  g.userData = { ancho: W, alto: H, fondo, di, dq, run, stop, err, maint, link: lk, act: ac, bornasSup, bornasInf, frente: F + 0.035 };
+  return g;
+}
+
+/**
+ * FUENTE DE ALIMENTACIÓN DE 24 V PARA RIEL (tipo SITOP/QUINT): cuerpo gris
+ * oscuro escalonado, bornes de entrada (L, N, PE) abajo y de salida (+ + − −)
+ * arriba, la placa con 24 V DC / 5 A, el LED «DC OK» y el potenciómetro de
+ * ajuste de tensión. `userData.ok` es el LED (material propio).
+ */
+export function fuenteRiel24(mat, opts = {}) {
+  const { ancho = 0.40, alto = 0.78, fondo = 0.42, rotulo = '24 V DC · 5 A', color = 0x39414a } = opts;
+  const g = new THREE.Group();
+  const W = ancho, H = alto, F = fondo / 2;
+  g.add(_cuerpoEscalonado(mat, W, H, F, _bmMat(color, 0.6, 0.08), 0.80));
+  const sup = [], inf = [];
+  for (let i = 0; i < 4; i++) {
+    const x = (i - 1.5) * W * 0.235;
+    const b = _bornePotencia(mat, 0.072); b.position.set(x, 0.32 * H, F * 0.80 + 0.023); g.add(b);
+    _rotuloIEC(g, ['+', '+', '−', '−'][i], x, 0.465 * H, F * 0.80 + 0.001, 0.07, 36);
+    sup.push(_V(x, 0.38 * H, F * 0.80 + 0.055));
+  }
+  for (let i = 0; i < 3; i++) {
+    const x = (i - 1) * W * 0.30;
+    const b = _bornePotencia(mat, 0.072); b.position.set(x, -0.355 * H, F * 0.80 + 0.023); g.add(b);
+    _rotuloIEC(g, ['L', 'N', 'PE'][i], x, -0.468 * H, F * 0.80 + 0.001, 0.07, 32);
+    inf.push(_V(x, -0.41 * H, F * 0.80 + 0.055));
+  }
+  const zF = F + 0.008;
+  const pl = _etiqueta(256, 180, (c, w, h) => {
+    c.fillStyle = '#e9edf0'; c.fillRect(0, 0, w, h);
+    c.fillStyle = '#14181e'; c.textAlign = 'center'; c.textBaseline = 'middle';
+    c.font = 'bold 36px sans-serif'; c.fillText(rotulo, w / 2, h * 0.22);
+    c.font = '17px sans-serif'; c.fillText('IN 100–240 V~ · OUT 24 V', w / 2, h * 0.46);
+    c.fillStyle = '#2b6cb0'; c.fillRect(0, h * 0.62, w, h * 0.16);
+    c.fillStyle = '#fff'; c.font = 'bold 22px sans-serif'; c.fillText('DC OK', w * 0.74, h * 0.70); c.fillText('V adj', w * 0.20, h * 0.70);
+    c.fillStyle = '#14181e'; c.font = '20px sans-serif'; c.fillText('FUENTE CONMUTADA', w / 2, h * 0.92);
+  });
+  const placa = new THREE.Mesh(new THREE.PlaneGeometry(W * 0.86, W * 0.86 * 180 / 256), new THREE.MeshStandardMaterial({ map: pl, roughness: 0.5 }));
+  placa.position.set(0, -0.05 * H, zF); g.add(placa);
+  const ok = _s19Lente(0x6fe39a, 0.021, 0x1d3a28); ok.position.set(W * 0.24, -0.05 * H - 0.040, zF + 0.002); g.add(ok); ok.material.emissiveIntensity = 1.0;
+  const pot = new THREE.Mesh(revolucion([[0, 0], [0.032, 0], [0.032, 0.012], [0.026, 0.018], [0, 0.018]], { seg: 18 }), _bmMat(0xd0d5da, 0.4, 0.5));
+  pot.rotation.x = Math.PI / 2; pot.position.set(-W * 0.24, -0.05 * H - 0.040, zF + 0.002); g.add(pot);
+  const ra = _bmCaja(0.05, 0.007, 0.006, _bmMat(0x14181e, 0.7, 0.1), -W * 0.24, -0.05 * H - 0.040, zF + 0.022); ra.rotation.z = 0.5; g.add(ra);
+  const tac = _bmCaja(W * 0.62, 0.032, 0.03, _bmMat(0x8a929a, 0.5, 0.3), 0, -H / 2 + 0.018, -F - 0.012); g.add(tac);
+  g.userData = { ancho: W, alto: H, fondo, ok, bornasSup: sup, bornasInf: inf, frente: F };
+  return g;
+}
+
+/**
+ * RELÉ TEMPORIZADOR DE 22,5 mm (el TON de estrella-delta): cuerpo claro
+ * escalonado, la escala de tiempo con su perilla, el selector de función, los
+ * LED de alimentación «U» y de relé «R» y los bornes A1/15/18 arriba, A2/16
+ * abajo. `userData.ledU` y `userData.ledR` son lentes con material propio;
+ * `perilla` gira con rotation.z.
+ */
+export function temporizadorRiel(mat, opts = {}) {
+  const { ancho = 0.20, alto = 0.62, fondo = 0.36, rotulo = 'KT1', rango = '0,1–30 s', funcion = 'TON', color = 0xcfd4d9 } = opts;
+  const g = new THREE.Group();
+  const W = ancho, H = alto, F = fondo / 2;
+  g.add(_cuerpoEscalonado(mat, W, H, F, _bmMat(color, 0.55, 0.05), 0.76));
+  const zF = F + 0.008;
+  const ba = ['A1', '15', '18'], bb = ['A2', '16'];
+  ba.forEach((t, i) => { const x = (i - 1) * W * 0.30; const b = _bornePotencia(mat, 0.060); b.position.set(x, 0.32 * H, F * 0.76 + 0.020); g.add(b); _rotuloIEC(g, t, x, 0.465 * H, F * 0.76 + 0.001, 0.07, 30); });
+  bb.forEach((t, i) => { const x = (i - 0.5) * W * 0.40; const b = _bornePotencia(mat, 0.060); b.position.set(x, -0.355 * H, F * 0.76 + 0.020); g.add(b); _rotuloIEC(g, t, x, -0.468 * H, F * 0.76 + 0.001, 0.07, 30); });
+  const pl = _etiqueta(256, 256, (c, w, h) => {
+    c.fillStyle = '#e9edf0'; c.fillRect(0, 0, w, h);
+    c.fillStyle = '#14181e'; c.textAlign = 'center'; c.textBaseline = 'middle';
+    c.font = 'bold 54px sans-serif'; c.fillText(rotulo, w / 2, h * 0.14);
+    c.font = '30px sans-serif'; c.fillText(funcion + ' · ' + rango, w / 2, h * 0.30);
+    c.strokeStyle = '#14181e'; c.lineWidth = 3;
+    c.beginPath(); c.arc(w / 2, h * 0.64, w * 0.34, Math.PI * 0.8, Math.PI * 2.2); c.stroke();
+    for (let k = 0; k <= 10; k++) { const a = Math.PI * 0.8 + (Math.PI * 1.4) * k / 10; c.beginPath();
+      c.moveTo(w / 2 + Math.cos(a) * w * 0.34, h * 0.64 + Math.sin(a) * w * 0.34); c.lineTo(w / 2 + Math.cos(a) * w * 0.40, h * 0.64 + Math.sin(a) * w * 0.40); c.stroke(); }
+    c.font = '26px sans-serif'; c.fillText('U', w * 0.20, h * 0.93); c.fillText('R', w * 0.80, h * 0.93);
+  });
+  const placa = new THREE.Mesh(new THREE.PlaneGeometry(W * 0.92, W * 0.92), new THREE.MeshStandardMaterial({ map: pl, roughness: 0.5 }));
+  placa.position.set(0, -0.045 * H, zF); g.add(placa);
+  const perilla = new THREE.Group(); perilla.position.set(0, -0.045 * H + W * 0.92 * (0.64 - 0.5) * -1, zF + 0.002);
+  const pe = new THREE.Mesh(revolucion([[0, 0], [W * 0.17, 0], [W * 0.17, 0.016], [W * 0.14, 0.024], [0, 0.024]], { seg: 22 }), _bmMat(0x2b3037, 0.5, 0.2));
+  pe.rotation.x = Math.PI / 2; perilla.add(pe);
+  const pu = _bmCaja(0.012, W * 0.14, 0.010, _bmMat(0xe9a23b, 0.5, 0.1), 0, W * 0.07, 0.027); perilla.add(pu);
+  g.add(perilla);
+  const ledU = _s19Lente(0x6fe39a, 0.015, 0x1d3a28), ledR = _s19Lente(0xe9a23b, 0.015, 0x4a3a1a);
+  ledU.position.set(-W * 0.30, -0.045 * H - W * 0.92 * 0.43, zF + 0.003); ledR.position.set(W * 0.30, ledU.position.y, zF + 0.003);
+  g.add(ledU, ledR); ledU.material.emissiveIntensity = 1.0;
+  const tac = _bmCaja(W * 0.62, 0.030, 0.03, _bmMat(0x8a929a, 0.5, 0.3), 0, -H / 2 + 0.018, -F - 0.012); g.add(tac);
+  g.userData = { ancho: W, alto: H, fondo, ledU, ledR, perilla, frente: F };
+  return g;
+}
+
+/**
+ * PANEL DE OPERADOR (HMI táctil): marco negro con su pantalla y la franja de
+ * teclas de función. `userData.pantalla` es un Mesh de material básico al que
+ * el laboratorio le pone su canvas en `.material.map` (y `color` a 0xffffff).
+ * `userData.ancho/alto` son las medidas de la pantalla. Frente a +Z.
+ */
+export function panelHMI(mat, opts = {}) {
+  const { ancho = 0.90, alto = 0.62, fondo = 0.09, teclas = 4, rotulo = 'HMI' } = opts;
+  const g = new THREE.Group();
+  const marco = _bmPlancha(ancho, alto, fondo, _bmMat(0x181b1f, 0.45, 0.25), 0.03, 0.010); g.add(marco);
+  const sw = ancho * 0.90, sh = alto * 0.70;
+  const aro = _bmPlancha(sw + 0.02, sh + 0.02, 0.012, _bmMat(0x07090b, 0.5, 0.1), 0.012, 0.003); aro.position.set(0, alto * 0.06, fondo / 2 + 0.001); g.add(aro);
+  const pant = new THREE.Mesh(new THREE.PlaneGeometry(sw, sh), new THREE.MeshBasicMaterial({ color: 0x0a141c }));
+  pant.position.set(0, alto * 0.06, fondo / 2 + 0.009); g.add(pant);
+  for (let i = 0; i < teclas; i++) {
+    const t = _bmPlancha(ancho * 0.13, alto * 0.065, 0.014, _bmMat(0x3a4048, 0.6, 0.2), 0.008, 0.003);
+    t.position.set((i - (teclas - 1) / 2) * ancho * 0.18, -alto * 0.40, fondo / 2 + 0.002); g.add(t);
+    _rotuloIEC(g, 'F' + (i + 1), t.position.x, t.position.y, fondo / 2 + 0.012, 0.07, 36, '#d5dade');
+  }
+  _rotuloIEC(g, rotulo, ancho * 0.40, -alto * 0.40, fondo / 2 + 0.003, 0.12, 36, '#8c949c');
+  g.userData = { ancho: sw, alto: sh, fondo, pantalla: pant, frente: fondo / 2 };
+  return g;
+}
+
+/**
+ * ESTACIÓN DE MANDO: la placa con sus pulsadores, selectores y pilotos de 22 mm
+ * en fila, cada uno con su aro cromado y su rótulo. `items`: lista de
+ * { tipo: 'pulsador' | 'hongo' | 'selector' | 'piloto', color, rotulo }.
+ * `userData.items[i]` = { grupo, cap, lente } (el piloto trae `lente` con
+ * material propio; el pulsador, `pulsar(v)`; el selector, `pon(k)` con k 0/1/2).
+ */
+export function mandoPanel(mat, opts = {}) {
+  const { items = [{ tipo: 'pulsador', color: 0x2f9e6a, rotulo: 'MARCHA' }, { tipo: 'hongo', color: 0xd64545, rotulo: 'PARO' }, { tipo: 'piloto', color: 0x6fe39a, rotulo: 'MOTOR' }],
+          paso = 0.20, fondo = 0.10 } = opts;
+  const g = new THREE.Group();
+  const n = items.length, W = n * paso + 0.06, H = 0.34;
+  g.add(_bmPlancha(W, H, fondo, _bmMat(0x59626c, 0.55, 0.15), 0.03, 0.008));
+  const met = _s19Cromo(mat);
+  const out = items.map((it, i) => {
+    const x = (i - (n - 1) / 2) * paso, gr = new THREE.Group(); gr.position.set(x, 0.03, fondo / 2); g.add(gr);
+    const aro = new THREE.Mesh(revolucion([[0.040, 0], [0.058, 0], [0.058, 0.012], [0.050, 0.018], [0.040, 0.018]], { seg: 24 }), met);
+    aro.rotation.x = Math.PI / 2; gr.add(aro);
+    const res = { grupo: gr };
+    if (it.tipo === 'piloto') {
+      const dom = [[0, 0], [0.042, 0]];
+      for (let k = 1; k <= 8; k++) { const a = (k / 8) * Math.PI / 2; dom.push([0.042 * Math.cos(a), 0.030 * Math.sin(a)]); }
+      const len = new THREE.Mesh(revolucion(dom, { seg: 22 }), new THREE.MeshStandardMaterial({ color: new THREE.Color(it.color).multiplyScalar(0.28), emissive: it.color, emissiveIntensity: 0.15, roughness: 0.25 }));
+      len.rotation.x = Math.PI / 2; len.position.z = 0.012; gr.add(len); res.lente = len;
+    } else if (it.tipo === 'selector') {
+      const cap = new THREE.Mesh(revolucion([[0, 0], [0.036, 0], [0.032, 0.030], [0.020, 0.036], [0, 0.036]], { seg: 20 }), _bmMat(0x14181c, 0.5, 0.1));
+      cap.rotation.x = Math.PI / 2; cap.position.z = 0.010; gr.add(cap);
+      const pal = _bmCaja(0.014, 0.060, 0.016, _bmMat(0xe9ecef, 0.4, 0.1), 0, 0.012, 0.050); const pv = new THREE.Group(); pv.add(pal); pv.position.z = 0; cap.add(pv);
+      pv.rotation.set(0, 0, 0); res.cap = cap; res.pon = (k) => { pal.parent.rotation.z = (1 - k) * 0.7; };
+      res.pon(1);
+    } else {
+      const r = it.tipo === 'hongo' ? 0.050 : 0.040;
+      const cap = new THREE.Mesh(revolucion(it.tipo === 'hongo'
+        ? [[0, 0], [r, 0], [r, 0.020], [r * 0.86, 0.036], [0, 0.044]] : [[0, 0], [r, 0], [r, 0.014], [r * 0.80, 0.026], [0, 0.028]], { seg: 24 }),
+        _bmMat(it.color, 0.4, 0.05));
+      cap.rotation.x = Math.PI / 2; cap.position.z = 0.012; gr.add(cap); res.cap = cap;
+      res.pulsar = (v) => { cap.position.z = 0.012 - 0.012 * Math.max(0, Math.min(1, v)); };
+    }
+    _rotuloIEC(g, it.rotulo, x, -0.095, fondo / 2 + 0.001, paso * 0.92, 30, '#f1f4f7');
+    return res;
+  });
+  g.userData = { ancho: W, alto: H, fondo, items: out, frente: fondo / 2 };
+  return g;
+}
+
+/**
+ * APARATO MODULAR DE RIEL (KNX): fuente de bus, actuador de n canales,
+ * repetidor, pasarela IP. Cuerpo claro escalonado de `unidades` módulos de
+ * 18 mm, el conector de BUS rojo/negro arriba, los bornes de salida abajo, la
+ * placa con el nombre y, por canal, un pulsador de maniobra manual con su LED.
+ *   tipo: 'fuente' | 'actuador' | 'repetidor' | 'pasarela'
+ *   userData.led (el primero) · leds[i] · bus (punto del conector) · bornasInf[i]
+ */
+export function moduloDIN(mat, opts = {}) {
+  const { unidades = 2, tipo = 'actuador', rotulo = 'ACTUADOR', canales = unidades >= 4 ? 4 : 1,
+          alto = 0.62, fondo = 0.36, color = 0xc9ced4, sub = '' } = opts;
+  const g = new THREE.Group();
+  const W = unidades * 0.135, H = alto, F = fondo / 2;
+  g.add(_cuerpoEscalonado(mat, W, H, F, _bmMat(color, 0.5, 0.05), 0.76));
+  const zF = F + 0.008;
+  // placa de nombre
+  const ph = H * 0.20;
+  const pl = _etiqueta(256, Math.round(256 * ph / (W * 0.88)), (c, w, h) => {
+    c.fillStyle = '#2b3037'; c.fillRect(0, 0, w, h); c.fillStyle = '#e8edf1'; c.textAlign = 'center'; c.textBaseline = 'middle';
+    const fs = Math.min(h * 0.46, w / (rotulo.length * 0.62 + 1)); c.font = 'bold ' + fs + 'px sans-serif'; c.fillText(rotulo, w / 2, h * 0.38);
+    c.font = Math.round(h * 0.26) + 'px sans-serif'; c.fillStyle = '#7ad39a'; c.fillText(sub || 'KNX', w / 2, h * 0.76);
+  });
+  const placa = new THREE.Mesh(new THREE.PlaneGeometry(W * 0.88, ph), new THREE.MeshStandardMaterial({ map: pl, roughness: 0.5 })); placa.position.set(0, 0.04 * H, zF); g.add(placa);
+  // canales: pulsador manual + LED
+  const leds = [], bornasInf = [];
+  const nC = tipo === 'actuador' ? canales : 1;
+  for (let i = 0; i < nC; i++) {
+    const x = (i - (nC - 1) / 2) * (W * 0.88 / Math.max(1, nC));
+    if (tipo === 'actuador') { const b = _bmCaja(Math.min(0.07, W * 0.18), 0.034, 0.012, _bmMat(0x8f979f, 0.4, 0.5), x, -0.065 * H, zF + 0.004); g.add(b); }
+    const l = _s19Lente(0xe9c46a, 0.012, 0x4a3f1a); l.position.set(x, -0.065 * H + 0.040, zF + 0.003); g.add(l); leds.push(l);
+  }
+  if (tipo === 'fuente') {
+    const bob = new THREE.Mesh(new THREE.TorusGeometry(W * 0.10, W * 0.035, 10, 22), _bmMat(0xb87333, 0.45, 0.7));
+    bob.position.set(0, -0.13 * H, zF + 0.012); bob.scale.z = 0.5; g.add(bob);
+  }
+  if (tipo === 'pasarela') {
+    const rj = _bmCaja(W * 0.40, 0.055, 0.03, _bmMat(0x14171b, 0.6, 0.1), 0, -0.085 * H, zF + 0.010); g.add(rj);
+    g.add(_bmCaja(W * 0.30, 0.036, 0.022, _s19Cromo(mat), 0, -0.085 * H, zF + 0.020));
+  }
+  // conector de bus (rojo +, negro −) y bornes de salida
+  const bus = new THREE.Group(); bus.position.set(0, 0.36 * H, F * 0.76 + 0.03);
+  bus.add(_bmCaja(W * 0.52, 0.060, 0.045, _bmMat(0x1d2126, 0.6, 0.05)));
+  [[-1, 0xd64545], [1, 0x14181c]].forEach(([s, c]) => { const p = _bmCil(0.016, 0.050, _bmMat(c, 0.5, 0.1), 12); p.rotation.x = Math.PI / 2; p.position.set(s * W * 0.14, 0, 0.012); bus.add(p); });
+  g.add(bus);
+  const nB = Math.max(2, Math.min(4, Math.round(W / 0.13)));
+  for (let i = 0; i < nB; i++) {
+    const x = (i - (nB - 1) / 2) * W * 0.80 / nB * 1.2; const b = _bornePotencia(mat, Math.min(0.07, W / nB * 0.8)); b.position.set(x, -0.355 * H, F * 0.76 + 0.020); g.add(b);
+    bornasInf.push(_V(x, -0.41 * H, F * 0.76 + 0.050));
+  }
+  const tac = _bmCaja(W * 0.70, 0.030, 0.03, _bmMat(0x8a929a, 0.5, 0.3), 0, -H / 2 + 0.018, -F - 0.012); g.add(tac);
+  g.userData = { ancho: W, alto: H, fondo, leds, led: leds[0], bus: _V(0, 0.40 * H, F * 0.76 + 0.06), bornasInf, frente: F };
+  return g;
+}
+
+/**
+ * PULSADOR / SENSOR DE PARED (empotrable): marco cuadrado blanco con sus dos
+ * balancines y el LED de estado. `userData.lente` es el LED (material propio),
+ * `balancin[0/1]` giran con rotation.x. Frente a +Z; origen en el centro.
+ */
+export function pulsadorPared(mat, opts = {}) {
+  const { lado = 0.34, color = 0xf0efea, ledColor = 0x6fe39a } = opts;
+  const g = new THREE.Group();
+  const marco = _bmPlancha(lado, lado, 0.035, _bmMat(color, 0.45, 0.02), lado * 0.08, 0.008); g.add(marco);
+  const mB = _bmMat(0xe3e2dc, 0.4, 0.02);
+  const balancin = [-1, 1].map((s) => {
+    const b = _bmPlancha(lado * 0.38, lado * 0.62, 0.02, mB, 0.02, 0.006); b.position.set(s * lado * 0.21, lado * 0.06, 0.028); b.rotation.x = 0.07; g.add(b); return b; });
+  const lente = _s19Lente(ledColor, 0.014, 0x1d3a28); lente.position.set(0, -lado * 0.36, 0.022); g.add(lente);
+  const raya = _bmCaja(0.004, lado * 0.60, 0.004, _bmMat(0x9a9a92, 0.6, 0.0), 0, lado * 0.06, 0.020); g.add(raya);
+  g.userData = { lado, lente, balancin };
+  return g;
+}
+
+/* --------------------------------------------------------------------------
+   §19-C · INSTRUMENTACIÓN DE CAMPO Y ELECTRÓNICA EMBEBIDA: transmisor de campo
+   de 2 hilos, placa de microcontrolador y encoder óptico
+   -------------------------------------------------------------------------- */
+
+/**
+ * TRANSMISOR DE CAMPO DE 2 HILOS (presión / nivel): la conexión a proceso con
+ * su hexágono y su rosca, el cuello, la CAJA DE ELECTRÓNICA cilíndrica pintada
+ * con sus dos tapas roscadas —una de ellas con la ventana del indicador—, la
+ * entrada de cable con su prensaestopas y el cable que sale. Es el aparato que
+ * se ve en lo alto de cualquier tanque instrumentado. Eje +Y: el origen está en
+ * la cara inferior del hexágono (la rosca queda por debajo, y negativa).
+ *   userData.cable   punto donde nace el cable del lazo (arriba)
+ *   userData.ponLCD(l1, l2)   repinta las dos líneas del indicador
+ */
+export function transmisorCampo(mat, opts = {}) {
+  const { color = 0x2f5f9e, texto1 = '11,04 mA', texto2 = '44,0 %', escala = 1 } = opts;
+  const g = new THREE.Group();
+  const met = _s19Cromo(mat);
+  const mAc = _bmMat(0xaab2ba, 0.32, 0.85), mPint = _bmMat(color, 0.38, 0.35), mNeg = _bmMat(0x15181c, 0.7, 0.1);
+  // conexión a proceso: rosca, hexágono y cuello
+  const ros = _bmCil(0.052, 0.09, mAc, 18); ros.position.y = -0.045; g.add(ros);
+  for (let i = 0; i < 5; i++) { const fi = _bmCil(0.056, 0.008, mAc, 18); fi.position.y = -0.015 - i * 0.016; g.add(fi); }
+  const hex = _bmCil(0.092, 0.05, mAc, 6); hex.position.y = 0.025; g.add(hex);
+  const cue = _bmCil(0.062, 0.14, mAc, 20); cue.position.y = 0.12; g.add(cue);
+  const modulo = _bmCil(0.085, 0.07, mAc, 24); modulo.position.y = 0.225; g.add(modulo);
+  // caja de electrónica (eje X)
+  const Y = 0.33, R = 0.105, L = 0.34;
+  const caja = new THREE.Mesh(revolucion([[0, -L / 2], [R, -L / 2], [R, L / 2], [0, L / 2]], { seg: 32 }), mPint);
+  caja.rotation.z = Math.PI / 2; caja.position.y = Y; caja.castShadow = true; g.add(caja);
+  const base = _bmCaja(0.17, 0.05, 0.16, mPint, 0, Y - R * 0.86, 0); g.add(base);
+  for (const s of [-1, 1]) {
+    const tapa = new THREE.Mesh(revolucion([[0, 0], [R * 1.04, 0], [R * 1.04, 0.05], [R * 0.96, 0.07], [R * 0.60, 0.11], [0, 0.125]], { seg: 32 }), mPint);
+    tapa.rotation.z = -s * Math.PI / 2; tapa.position.set(s * (L / 2 - 0.008), Y, 0); tapa.castShadow = true; g.add(tapa);
+    const aro = new THREE.Mesh(new THREE.TorusGeometry(R * 1.03, 0.008, 8, 32), mNeg);
+    aro.rotation.y = Math.PI / 2; aro.position.set(s * (L / 2 + 0.002), Y, 0); g.add(aro);
+  }
+  // ventana del indicador, al frente
+  const vc = document.createElement('canvas'); vc.width = 256; vc.height = 128; const vx = vc.getContext('2d');
+  const vt = new THREE.CanvasTexture(vc); vt.colorSpace = THREE.SRGBColorSpace; vt.anisotropy = 8;
+  const ponLCD = (l1, l2) => {
+    vx.fillStyle = '#b9c8b4'; vx.fillRect(0, 0, 256, 128);
+    vx.fillStyle = '#1b2a1b'; vx.textAlign = 'center'; vx.textBaseline = 'middle';
+    vx.font = 'bold 54px monospace'; vx.fillText(l1, 128, 46); vx.font = 'bold 36px monospace'; vx.fillText(l2, 128, 100);
+    vt.needsUpdate = true;
+  };
+  ponLCD(texto1, texto2);
+  const mar = _bmPlancha(0.22, 0.12, 0.018, mNeg, 0.02, 0.004); mar.position.set(0, Y + 0.012, R - 0.004); mar.rotation.x = -0.05; g.add(mar);
+  const lcd = new THREE.Mesh(new THREE.PlaneGeometry(0.195, 0.095), new THREE.MeshStandardMaterial({ map: vt, emissive: 0x16241a, emissiveMap: vt, emissiveIntensity: 0.5, roughness: 0.35 }));
+  lcd.position.set(0, Y + 0.012, R + 0.0065); lcd.rotation.x = -0.05; g.add(lcd);
+  // placa de características en la parte trasera/baja del cuello
+  const pl = _bmRotulo('LT-4201\n4–20 mA · HART', 0.10, 0.06, '#d8dde2', '#14181e'); pl.position.set(0, 0.255, 0.064); pl.rotation.x = -0.3; g.add(pl);
+  // entrada de cable: cuello hexagonal, prensaestopas y cable
+  const ent = _bmCil(0.032, 0.05, mAc, 6); ent.position.set(0.075, Y + R + 0.012, 0); g.add(ent);
+  const pre = new THREE.Mesh(revolucion([[0, 0], [0.026, 0], [0.020, 0.05], [0.014, 0.075], [0, 0.075]], { seg: 14 }), mNeg);
+  pre.position.set(0.075, Y + R + 0.036, 0); g.add(pre);
+  g.userData = { cable: _V(0.075, Y + R + 0.115, 0), lcd, ponLCD, alto: Y + R + 0.12 };
+  g.scale.setScalar(escala);
+  return g;
+}
+
+/**
+ * PLACA DE MICROCONTROLADOR tipo UNO (ATmega328P): circuito azul con los dos
+ * regletas de cabeceras negras —digitales arriba, analógicas y alimentación
+ * abajo—, el conector USB-B y el de alimentación a un lado, el chip DIP-28
+ * rotulado, el cristal de 16 MHz, el botón de reset y los LED ON / L / TX / RX.
+ * Escala de pulgada (2,7 × 2,1); escálala entera. Origen en el centro, apoyada
+ * en y = 0 (la cara superior de la placa está en y = 0,06).
+ *   userData.led13 · ledTx · ledRx · ledOn  lentes con material propio
+ *   userData.pin(i)  punta del pin digital i (0…13), en coordenadas de la pieza
+ */
+export function placaMicro(mat, opts = {}) {
+  const { color = 0x0e6a8c, rotulo = 'CEN-UNO', chip = 'ATmega328P' } = opts;
+  const g = new THREE.Group();
+  const met = _s19Cromo(mat);
+  const W = 2.7, D = 2.1, T = 0.06;
+  const mP = _bmMat(color, 0.50, 0.12);
+  const pcb = _bmPlancha(W, D, T, mP, 0.10, 0.012);
+  pcb.rotation.x = -Math.PI / 2; pcb.position.y = T / 2; g.add(pcb);
+  // serigrafía
+  const px = (x) => (x + W / 2) * 150, pz = (z) => (z + D / 2) * 150;
+  const ser = _etiqueta(Math.round(W * 150), Math.round(D * 150), (c, w, h) => {
+    c.clearRect(0, 0, w, h); c.fillStyle = 'rgba(240,246,250,0.92)'; c.textAlign = 'center'; c.textBaseline = 'middle';
+    c.font = 'bold ' + Math.round(h * 0.075) + 'px sans-serif'; c.fillText(rotulo, px(0.45), pz(-0.30));
+    c.font = Math.round(h * 0.040) + 'px sans-serif'; c.fillText('DIGITAL (PWM ~)', px(0.45), pz(-0.80)); c.fillText('POWER · ANALOG IN', px(0.25), pz(0.80));
+    c.font = Math.round(h * 0.034) + 'px sans-serif'; c.fillText('RESET', px(-0.96), pz(-0.02));
+    [['L', 0.0], ['TX', 0.28], ['RX', 0.56], ['ON', 0.84]].forEach(([t, x]) => c.fillText(t, px(x), pz(-0.50)));
+    c.strokeStyle = 'rgba(240,246,250,0.7)'; c.lineWidth = 2; c.strokeRect(px(-0.34), pz(0.02), 1.60 * 150, 0.46 * 150);
+  });
+  const tn = _tinta(ser, W, D); tn.rotation.x = -Math.PI / 2; tn.position.y = T + 0.002; g.add(tn);
+  // conectores del costado izquierdo (que mira a −X)
+  const usb = _bmCaja(0.62, 0.42, 0.50, met, -W / 2 + 0.22, T + 0.21, -0.52); g.add(usb);
+  const usbH = _bmCaja(0.04, 0.26, 0.36, _bmMat(0x090a0c, 0.9, 0), -W / 2 - 0.095, T + 0.21, -0.52); g.add(usbH);
+  const dc = _bmCaja(0.56, 0.42, 0.52, _bmMat(0x14161a, 0.6, 0.1), -W / 2 + 0.18, T + 0.21, 0.55); g.add(dc);
+  const dcH = _bmCil(0.09, 0.05, _bmMat(0x050607, 0.9, 0), 16); dcH.rotation.z = Math.PI / 2; dcH.position.set(-W / 2 - 0.10, T + 0.22, 0.55); g.add(dcH);
+  // cabeceras
+  const hd = tiraPines(mat, { n: 18, paso: 0.1, alto: 0.26, pin: 0.10, patas: 0 }); hd.position.set(0.42, T, -D / 2 + 0.11); g.add(hd);
+  const ha = tiraPines(mat, { n: 8, paso: 0.1, alto: 0.26, pin: 0.10, patas: 0 }); ha.position.set(0.12 - 0.35, T, D / 2 - 0.11); g.add(ha);
+  const hb = tiraPines(mat, { n: 6, paso: 0.1, alto: 0.26, pin: 0.10, patas: 0 }); hb.position.set(0.12 + 0.75, T, D / 2 - 0.11); g.add(hb);
+  // chip DIP-28, cristal, reset, regulador, condensadores
+  const ic = dipRotulado(mat, { pines: 28, rotulo: chip, rotulo2: 'AVR · 16 MHz', alto: 0.14 }); ic.position.set(0.45, T, 0.25); g.add(ic);
+  const cri = _bmCaja(0.40, 0.11, 0.17, _bmMat(0xc9ced3, 0.28, 0.9), -0.50, T + 0.055, 0.12); g.add(cri);
+  const rst = _bmCaja(0.22, 0.10, 0.22, _bmMat(0xd8d0b8, 0.5, 0.1), -0.96, T + 0.05, -0.20); g.add(rst);
+  const rstB = _bmCil(0.055, 0.04, _bmMat(0x14161a, 0.6, 0.1), 14); rstB.position.set(-0.96, T + 0.115, -0.20); g.add(rstB);
+  const reg = _bmCaja(0.22, 0.16, 0.14, _bmMat(0x14161a, 0.6, 0.1), -0.80, T + 0.08, 0.50); g.add(reg);
+  const aleta = _bmCaja(0.22, 0.02, 0.10, met, -0.80, T + 0.17, 0.46); g.add(aleta);
+  [[-0.55, 0.62], [-0.30, 0.62], [-0.95, -0.62]].forEach(([x, z]) => { const c = _bmCil(0.075, 0.18, _bmMat(0x20262c, 0.5, 0.3), 14); c.position.set(x, T + 0.09, z); g.add(c); });
+  // LED ON / L / TX / RX
+  const ledOn = _s19Lente(0x6fe39a, 0.035, 0x1d3a28), led13 = _s19Lente(0xe9a23b, 0.035, 0x4a3a1a), ledTx = _s19Lente(0x7aa8ff, 0.035, 0x1d2a4a), ledRx = _s19Lente(0x7aa8ff, 0.035, 0x1d2a4a);
+  [[led13, 0.0], [ledTx, 0.28], [ledRx, 0.56], [ledOn, 0.84]].forEach(([l, x]) => { l.rotation.x = -Math.PI / 2; l.position.set(x, T + 0.012, -0.62); g.add(l); });
+  ledOn.material.emissiveIntensity = 1.0;
+  g.userData = { ancho: W, fondo: D, alto: T, led13, ledTx, ledRx, ledOn, chip: ic,
+    pin: (i) => hd.position.clone().add(hd.userData.punta(17 - i)) };
+  return g;
+}
+
+/**
+ * ENCODER ÓPTICO incremental: el DISCO ranurado calado al eje y la HORQUILLA
+ * (diodo emisor y fototransistor, uno a cada lado) por donde pasan las ranuras.
+ * Eje en X. `userData.disco` es el grupo que gira (rotation.x).
+ */
+export function encoderOptico(mat, opts = {}) {
+  const { d = 0.40, ranuras = 24 } = opts;
+  const g = new THREE.Group(), R = d / 2;
+  const disco = new THREE.Group(); g.add(disco);
+  const hue = [];
+  for (let i = 0; i < ranuras; i++) {
+    const a0 = (i / ranuras) * Math.PI * 2, a1 = a0 + Math.PI * 2 / ranuras * 0.5;
+    const r0 = R * 0.66, r1 = R * 0.92;
+    hue.push([[r0 * Math.cos(a0), r0 * Math.sin(a0)], [r1 * Math.cos(a0), r1 * Math.sin(a0)], [r1 * Math.cos(a1), r1 * Math.sin(a1)], [r0 * Math.cos(a1), r0 * Math.sin(a1)]]);
+  }
+  const circ = Array.from({ length: 48 }, (_, k) => [R * Math.cos(k / 48 * Math.PI * 2), R * Math.sin(k / 48 * Math.PI * 2)]);
+  const dm = new THREE.Mesh(extruido(circ, { espesor: 0.014, huecos: hue }), _bmMat(0x20252b, 0.45, 0.4));
+  dm.rotation.y = Math.PI / 2; dm.castShadow = true; disco.add(dm);
+  const cubo = _bmCil(R * 0.26, 0.05, _s19Cromo(mat), 20); cubo.rotation.z = Math.PI / 2; disco.add(cubo);
+  const pu = _bmCaja(0.016, R * 0.10, R * 0.10, _bmMat(0xe9c46a, 0.4, 0.1), 0, R * 0.52, 0); disco.add(pu);
+  // horquilla fija: U que abraza la corona de ranuras en la parte alta
+  const hq = new THREE.Group(); hq.position.set(0, R * 0.79, 0);
+  const mH = _bmMat(0x14171b, 0.55, 0.12);
+  const aw = R * 0.18;
+  hq.add(_bmCaja(0.02, R * 0.30, aw, mH, -0.03, 0, 0)); hq.add(_bmCaja(0.02, R * 0.30, aw, mH, 0.03, 0, 0));
+  hq.add(_bmCaja(0.08, 0.03, aw, mH, 0, R * 0.15 + 0.015, 0));
+  const le = _s19Lente(0xff5a4d, 0.008, 0x4a2220); le.rotation.y = Math.PI / 2; le.position.set(-0.019, 0, 0); le.material.emissiveIntensity = 0.9; hq.add(le);
+  g.add(hq);
+  g.userData = { disco, horquilla: hq, d };
   return g;
 }

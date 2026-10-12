@@ -19,7 +19,7 @@
 
 // ===================== 1. ESCENA =====================
 const mount=document.getElementById('stage');
-const S=createStage(mount,{cam:[5.0,3.0,7.2],target:[0.5,1.05,0.4],bgTop:'#0d1017',bgBot:'#05060a',bloom:0.44,minD:3.2,maxD:16});
+const S=createStage(mount,{cam:[1.3,2.5,5.9],target:[-0.05,1.7,0.9],bgTop:'#0d1017',bgBot:'#05060a',bloom:0.22,exposure:0.86,minD:2.2,maxD:16});
 const {scene}=S;
 const synth=makeSynth({type:'square',type2:'sine',filterFreq:2400,Q:0.7});
 const el=id=>document.getElementById(id);
@@ -356,7 +356,7 @@ function addHoverLabel(obj,text,color,pos,scale){
 
 // ===================== 5. PIZARRÓN =====================
 const boardG=new THREE.Group();
-boardG.position.set(-1.15,0,-0.95);boardG.rotation.y=0.2;scene.add(boardG);
+boardG.position.set(-7.2,0,-2.2);boardG.rotation.y=0.55;scene.add(boardG);
 const frame=roundedBox(3.9,2.9,0.12,MAT.frame,0.06);frame.position.set(0,1.9,0);boardG.add(frame);
 [-1.65,1.65].forEach(x=>{const leg=new THREE.Mesh(new THREE.CylinderGeometry(0.05,0.06,1.9,16),MAT.leg);leg.position.set(x,0.92,0);boardG.add(leg);});
 const bCv=document.createElement('canvas');bCv.width=1024;bCv.height=768;
@@ -890,51 +890,144 @@ function boardClick(){
 }
 
 // ===================== 7. ESCENA 3D: CÉLULA NEUMÁTICA =====================
-const bench=roundedBox(3.9,0.5,1.9,MAT.bench,0.05);bench.position.set(1.95,0.25,0.55);scene.add(bench);
-bench.userData={title:'Célula neumática de dos cilindros',info:'Dos cilindros de doble efecto con sus electroválvulas 5/2 biestables y cuatro sensores reed.'};
-// cilindro A — horizontal
-const cylA=new THREE.Mesh(new THREE.CylinderGeometry(0.13,0.13,0.90,24),MAT.barrel);
-cylA.rotation.z=Math.PI/2;cylA.position.set(2.55,0.78,0.95);scene.add(cylA);
-cylA.userData={title:'Cilindro A',info:'Doble efecto. Su carrera y sus tiempos los fija el regulador de caudal unidireccional; los reed a0 y a1 confirman los fines de carrera.'};
-addHoverLabel(cylA,'Cilindro A',ACC,new THREE.Vector3(2.55,1.25,0.95),1.3);
-const rodA=new THREE.Mesh(new THREE.CylinderGeometry(0.045,0.045,0.52,16),MAT.rod);
-rodA.rotation.z=Math.PI/2;rodA.position.set(3.02,0.78,0.95);scene.add(rodA);
-const tipA=roundedBox(0.06,0.16,0.16,MAT.plate,0.02);tipA.position.set(3.30,0.78,0.95);scene.add(tipA);
-// cilindro B — vertical
-const cylB=new THREE.Mesh(new THREE.CylinderGeometry(0.11,0.11,0.66,24),MAT.barrel);
-cylB.position.set(1.05,0.90,0.95);scene.add(cylB);
-cylB.userData={title:'Cilindro B',info:'Doble efecto, montado en vertical. Los reed b0 y b1 confirman sus fines de carrera dentro de una banda magnética.'};
-addHoverLabel(cylB,'Cilindro B',VIO,new THREE.Vector3(1.05,1.60,0.95),1.3);
-const rodB=new THREE.Mesh(new THREE.CylinderGeometry(0.04,0.04,0.42,16),MAT.rod);
-rodB.position.set(1.05,1.36,0.95);scene.add(rodB);
-const tipB=roundedBox(0.16,0.06,0.16,MAT.plate,0.02);tipB.position.set(1.05,1.60,0.95);scene.add(tipB);
-// electroválvulas
-const valA=roundedBox(0.46,0.20,0.26,MAT.valve,0.03);valA.position.set(2.55,0.62,0.20);scene.add(valA);
-valA.userData={title:'Electroválvula 5/2 biestable · cilindro A',info:'Dos solenoides, sin muelle de retorno: la posición del carrete es la memoria. Con las dos bobinas energizadas no conmuta.'};
-const valB=roundedBox(0.46,0.20,0.26,MAT.valve,0.03);valB.position.set(1.05,0.62,0.20);scene.add(valB);
-valB.userData={title:'Electroválvula 5/2 biestable · cilindro B',info:'Igual que la de A: un impulso basta para conmutar, y el carrete conserva la posición al quitar la orden.'};
-addHoverLabel(valA,'5/2 biestable',WARN_HEX,new THREE.Vector3(1.80,0.95,0.20),1.7);
-// chip de estado
-const chCv=document.createElement('canvas');chCv.width=180;chCv.height=180;const chTex=new THREE.CanvasTexture(chCv);
-const chFace=new THREE.Mesh(new THREE.PlaneGeometry(0.5,0.5),new THREE.MeshBasicMaterial({map:chTex,transparent:true}));
-chFace.rotation.x=-Math.PI/2;chFace.position.set(1.85,0.515,0.95);scene.add(chFace);
-function makeLED(x,z,color){const m=new THREE.Mesh(new THREE.SphereGeometry(0.042,16,16),std(color,0.4,0.1));m.position.set(x,0.53,z);m.material.emissive=new THREE.Color(color);m.material.emissiveIntensity=0.15;scene.add(m);return m;}
-// pilotos: A+, A−, B+, B−
-const actLEDs=[makeLED(3.05,-0.15,0x8AB4F8),makeLED(2.75,-0.15,0x8AB4F8),makeLED(2.45,-0.15,0xC08CF8),makeLED(2.15,-0.15,0xC08CF8)];
-const almLED=makeLED(1.75,-0.15,0xff6b6b);
-const clkLED=makeLED(1.45,-0.15,0xE9C46A);
-addHoverLabel(actLEDs[0],'A+ · A− · B+ · B−',ACC,new THREE.Vector3(2.60,0.95,-0.15),1.8);
+// Célula neumática de dos cilindros con su tablero de maniobra: arriba el PLC compacto con su fuente de 24 V y el HMI;
+// abajo, sobre la mesa de perfil, los cilindros A (horizontal) y B (vertical), sus electroválvulas 5/2 biestables
+// (una bobina con LED por cada extremo), los sensores reed y el pupitre de mando.
+// Tablero de maniobra con piezas reales de la biblioteca (§17 y §19-B de _piezas3d.js): el montaje se arma en un grupo
+// a la escala de la biblioteca (un contactor mide 0,34; el PLC, ~1) y se escala entero para llenar el encuadre.
+const MATP={aluminio:std(0xb6bdc4,0.42,0.7),acero:std(0x8f979f,0.38,0.85),cromo:std(0xc4cad0,0.3,0.9),cobre:std(0xb87333,0.4,0.8),
+  negro:std(0x14181e,0.62,0.06),goma:std(0x14181e,0.85,0.02),blanco:std(0xd7dee6,0.4,0.2),ceramica:std(0xd7dee6,0.6,0.05),
+  hierro:std(0x4a4f55,0.55,0.7),chapa:std(0x9aa2aa,0.5,0.6)};
+const TAB=new THREE.Group();                 // origen = centro del gabinete; la cara de la placa de montaje está en z = 0
+function tabGab(W,H,D){                      // gabinete con su placa naranja y un zócalo; sin sombra propia para no oscurecer el interior
+  const g=P3.gabinete(MATP,{ancho:W,alto:H,fondo:D,puerta:false,color:0x8c949b,colorPlaca:0xc4701a});
+  g.position.set(0,-H/2,-g.userData.placa);g.traverse(o=>{if(o.isMesh)o.castShadow=false;});TAB.add(g);
+  const z=new THREE.Mesh(new THREE.BoxGeometry(W*0.96,0.07,D*0.9),std(0x23282e,0.7,0.2));z.position.set(0,-H/2-0.035,D/2-0.034);TAB.add(z);
+  return g;
+}
+function monta(o,x,y,riel=true){const fo=o.userData.fondo!=null?o.userData.fondo:2*o.userData.frente;   // panelHMI no publica `fondo`, sólo `frente` (= fondo/2)
+  o.position.set(x,y,fo/2+(riel?0.043:0.012));TAB.add(o);return o;}
+function rielDe(o,x0,x1,centro=false){const r=P3.rielDIN(MATP,{largo:x1-x0});r.position.set((x0+x1)/2,centro?o.position.y:o.position.y-o.userData.alto/2+0.018,0);TAB.add(r);return r;}
+function canalH(x0,x1,y,cs){const c=P3.canaleta(MATP,{largo:x1-x0,ancho:0.10,alto:0.07,cables:cs||[0x8a5a2e,0x3c4046,0x2f9e6a]});c.position.set((x0+x1)/2,y,0);TAB.add(c);return c;}
+function hilo(pts,col,r=0.011){const m=new THREE.Mesh(new THREE.TubeGeometry(new THREE.CatmullRomCurve3(pts,false,'catmullrom',0.3),48,r,6,false),std(col,0.6,0.05));m.castShadow=true;TAB.add(m);return m;}
+const sumaV=(o,v)=>o.position.clone().add(v);
+const lblPos=(x,y,z)=>TAB.localToWorld(new THREE.Vector3(x,y,z));
+function colorLed(l,on,off){l._c=[on,off];return l;}
+function lampa(l,on,hi=1.1,lo=0.12){if(!l)return;l.material.emissiveIntensity=on?hi:lo;if(l._c)l.material.color.setHex(on?l._c[0]:l._c[1]);}
+// cable de fuerza/mando con trazado ortogonal (baja, recorre horizontal y llega) entre dos puntos del tablero
+function enlaza(A,B,col,z=0.10,r=0.011,dy=0){const s=B.y>=A.y?1:-1,ym=(A.y+B.y)/2+dy,V3=(x,y,zz)=>new THREE.Vector3(x,y,zz);
+  return hilo([A,V3(A.x,A.y+0.05*s,Math.max(A.z,0)+0.04),V3(A.x,ym,z),V3(B.x,ym,z),V3(B.x,B.y-0.05*s,Math.max(B.z,0)+0.04),B],col,r);}
+TAB.scale.setScalar(1.35);TAB.position.set(0,2.72,0);scene.add(TAB);
+const gab=tabGab(2.3,1.05,0.5);
+Object.assign(gab.userData,{title:'Tablero de maniobra',info:'El PLC resuelve el GRAFCET cada scan y energiza las bobinas de las electroválvulas; el HMI muestra la etapa activa.'});
+const fte=monta(P3.fuenteRiel24(MATP,{}),-0.88,0.0);
+const plc=monta(P3.plcCompacto(MATP,{ancho:0.90,rotulo:'CPU 1214C',sub:'DC/DC/DC',marca:'CEN-PLC'}),-0.18,0.0);
+const hmi=monta(P3.panelHMI(MATP,{ancho:0.66,alto:0.50,rotulo:'HMI'}),0.78,0.0,false);
+rielDe(fte,-1.08,-0.68);rielDe(plc,-0.63,0.27);
+{ const A=(o,v)=>o.position.clone().add(v);
+  enlaza(A(fte,fte.userData.bornasSup[0]),A(plc,plc.userData.bornasSup[0]),0xb83a3a,0.10,0.011,0.12);
+  enlaza(A(fte,fte.userData.bornasSup[3]),A(plc,plc.userData.bornasSup[plc.userData.bornasSup.length-1]),0x2457b0,0.10,0.011,0.16); }
+
+// bastidor: dos postes de perfil que llevan el tablero a la altura de trabajo
+for(const sx of [-1,1]){const pt=new THREE.Mesh(new THREE.BoxGeometry(0.09,2.0,0.09),std(0x4a5058,0.55,0.5));pt.position.set(sx*1.3,1.0,0.05);pt.castShadow=true;scene.add(pt);}
+/* ---- la mesa de perfil de aluminio ---- */
+const MESA_Y=0.85,CZ=1.35;
+const mesa=new THREE.Group();scene.add(mesa);
+{ const top=roundedBox(3.3,0.09,1.15,std(0x7f8892,0.45,0.6),0.03);top.position.set(0,MESA_Y-0.045,CZ);mesa.add(top);top.receiveShadow=true;
+  for(const z of [-0.36,0,0.36]){const pf=new THREE.Mesh(new THREE.BoxGeometry(3.2,0.03,0.08),std(0xb6bdc4,0.4,0.7));pf.position.set(0,MESA_Y+0.015,CZ+z);mesa.add(pf);
+    const ra=new THREE.Mesh(new THREE.BoxGeometry(3.2,0.004,0.028),std(0x14181e,0.7,0.1));ra.position.set(0,MESA_Y+0.031,CZ+z);mesa.add(ra);}
+  for(const sx of [-1,1])for(const sz of [-1,1]){const lg=new THREE.Mesh(new THREE.BoxGeometry(0.08,MESA_Y-0.09,0.08),std(0x4a5058,0.55,0.5));lg.position.set(sx*1.55,(MESA_Y-0.09)/2,CZ+sz*0.5);lg.castShadow=true;mesa.add(lg);} }
+mesa.userData={title:'Mesa de montaje',info:'Perfil de aluminio con ranura en T: cilindros, válvulas y pupitre se fijan a ella.'};
+
+/* ---- cilindro de doble efecto (eje X, vástago hacia +X): camisa, tapas, tirantes, racores, guía, vástago y dos sensores reed ---- */
+const ALU=std(0xaab2bb,0.4,0.7),BRONCE=std(0xb98c4a,0.4,0.8),NEGRO=std(0x14181e,0.62,0.06);
+function buildCil(L,carrera,color){
+  const g=new THREE.Group(),LC=L/2,R=0.115;
+  const cam=new THREE.Mesh(new THREE.CylinderGeometry(R,R,L,36),std(color,0.35,0.55));cam.rotation.z=Math.PI/2;cam.castShadow=true;g.add(cam);
+  for(const s of [-1,1]){
+    const t=roundedBox(0.09,0.29,0.29,ALU,0.03);t.position.x=s*(LC+0.045);t.castShadow=true;g.add(t);
+    const rc=new THREE.Mesh(P3.revolucion([[0,0],[0.026,0],[0.026,0.028],[0.020,0.034],[0.020,0.066],[0,0.066]],{seg:12}),BRONCE);rc.position.set(s*(LC+0.045),0.145,0);g.add(rc);
+  }
+  for(const sy of [-1,1])for(const sz of [-1,1]){const tr=new THREE.Mesh(new THREE.CylinderGeometry(0.013,0.013,L+0.18,8),std(0xcfd5db,0.3,0.85));tr.rotation.z=Math.PI/2;tr.position.set(0,sy*0.108,sz*0.108);g.add(tr);}
+  const gu=new THREE.Mesh(P3.revolucion([[0.046,0],[0.078,0],[0.078,0.05],[0.046,0.05]],{seg:18}),BRONCE);gu.rotation.z=-Math.PI/2;gu.position.x=LC+0.09;g.add(gu);
+  const rod=new THREE.Group();g.add(rod);
+  const x0=LC+0.10-0.45;                                             // en reposo la punta asoma 0,10 por la guía
+  const vs=new THREE.Mesh(new THREE.CylinderGeometry(0.038,0.038,0.9,20),MAT.rod);vs.rotation.z=Math.PI/2;vs.position.x=x0;vs.castShadow=true;rod.add(vs);
+  const hor=roundedBox(0.07,0.17,0.17,MAT.plate,0.02);hor.position.x=x0+0.45+0.035;rod.add(hor);   // la horquilla / el patín de la punta
+  const sens=[-1,1].map((s)=>{const sb=roundedBox(0.075,0.032,0.032,NEGRO,0.008);sb.position.set(s*(LC-0.13),R+0.012,0.04);g.add(sb);
+    const l=new THREE.Mesh(new THREE.SphereGeometry(0.019,12,8),new THREE.MeshStandardMaterial({color:0x2a4a34,emissive:0x7CD992,emissiveIntensity:0.12,roughness:0.3}));
+    l.position.set(s*(LC-0.13),R+0.034,0.04);l.scale.y=0.5;g.add(l);return colorLed(l,0x7CD992,0x2a4a34);});
+  g.userData={rod,x0,carrera,sens,LC};
+  return g;
+}
+/* ---- electroválvula 5/2 biestable: cuerpo, DOS bobinas con su conector y su LED, accionamientos manuales y silenciadores ---- */
+function buildValve(rotulo,on,off){
+  const g=new THREE.Group();
+  const cu=roundedBox(0.36,0.17,0.22,std(0x56626f,0.45,0.55),0.02);cu.castShadow=true;g.add(cu);
+  const lens=[];
+  for(const s of [-1,1]){
+    const bo=roundedBox(0.11,0.14,0.14,NEGRO,0.015);bo.position.x=s*0.235;bo.castShadow=true;g.add(bo);
+    const cn=roundedBox(0.05,0.035,0.06,std(0x2a2f36,0.6,0.1),0.008);cn.position.set(s*0.235,0.088,0);g.add(cn);
+    const l=new THREE.Mesh(new THREE.SphereGeometry(0.022,12,8),new THREE.MeshStandardMaterial({color:off,emissive:on,emissiveIntensity:0.12,roughness:0.3}));
+    l.position.set(s*0.235,0.116,0.0);l.scale.y=0.5;g.add(l);lens.push(colorLed(l,on,off));
+    const mn=new THREE.Mesh(new THREE.CylinderGeometry(0.016,0.016,0.02,10),BRONCE);mn.rotation.x=Math.PI/2;mn.position.set(s*0.14,0.03,0.115);g.add(mn);
+    const sil=new THREE.Mesh(P3.revolucion([[0,0],[0.024,0],[0.024,0.04],[0.017,0.048],[0,0.048]],{seg:12}),BRONCE);sil.position.set(s*0.10,0.085,0);g.add(sil);
+  }
+  for(let k=0;k<3;k++){const px=new THREE.Mesh(P3.revolucion([[0,0],[0.02,0],[0.02,0.024],[0,0.024]],{seg:10}),BRONCE);px.rotation.x=Math.PI/2;px.position.set(-0.06+k*0.06,-0.02,0.11);g.add(px);}
+  const pl=new THREE.CanvasTexture((()=>{const c=document.createElement('canvas');c.width=128;c.height=48;const x=c.getContext('2d');x.fillStyle='#dfe4e8';x.fillRect(0,0,128,48);x.fillStyle='#14181e';x.font='bold 30px sans-serif';x.textAlign='center';x.textBaseline='middle';x.fillText(rotulo,64,26);return c;})());
+  pl.colorSpace=THREE.SRGBColorSpace;const pm=new THREE.Mesh(new THREE.PlaneGeometry(0.14,0.052),new THREE.MeshStandardMaterial({map:pl,roughness:0.5}));pm.position.set(0,0.03,0.1115);g.add(pm);
+  g.userData={lens};return g;
+}
+const cylA=buildCil(0.80,0.42,0x2f8fa3),cylB=buildCil(0.62,0.34,0xc9792e);
+cylA.position.set(0.50,MESA_Y+0.22,CZ);scene.add(cylA);
+cylB.rotation.z=Math.PI/2;cylB.position.set(-1.05,MESA_Y+0.045+0.31+0.04,CZ);scene.add(cylB);
+{ const pie=(x,y,z,w,h,d)=>{const p=roundedBox(w,h,d,ALU,0.012);p.position.set(x,y,z);p.castShadow=true;scene.add(p);};          // pies de fijación a la mesa
+  for(const s of [-1,1])pie(0.50+s*0.445,MESA_Y+0.05,CZ,0.08,0.10,0.32);
+  pie(-1.05,MESA_Y+0.02,CZ,0.38,0.04,0.38); }
+const valA=buildValve('5/2 · A',0x8AB4F8,0x1f2e4a),valB=buildValve('5/2 · B',0xC08CF8,0x32204a);
+valA.position.set(0.50,MESA_Y+0.085,CZ+0.52);valB.position.set(-1.05,MESA_Y+0.085,CZ+0.52);scene.add(valA,valB);
+function manguera(pts,col){const m=new THREE.Mesh(new THREE.TubeGeometry(new THREE.CatmullRomCurve3(pts,false,'catmullrom',0.4),40,0.014,6,false),std(col,0.5,0.1));m.castShadow=true;scene.add(m);return m;}
+{ const V3=(x,y,z)=>new THREE.Vector3(x,y,z),ya=MESA_Y+0.22;
+  manguera([V3(0.50-0.06,MESA_Y+0.17,CZ+0.52),V3(0.40,MESA_Y+0.30,CZ+0.40),V3(0.12,ya+0.20,CZ+0.20),V3(0.50-0.445,ya+0.145,CZ+0.04)],0x2457b0);   // Y1: tapa trasera
+  manguera([V3(0.50+0.06,MESA_Y+0.17,CZ+0.52),V3(0.60,MESA_Y+0.34,CZ+0.40),V3(0.85,ya+0.22,CZ+0.20),V3(0.50+0.445,ya+0.145,CZ+0.04)],0x3b7bd8);
+  const yb=MESA_Y+0.395;
+  manguera([V3(-1.05-0.06,MESA_Y+0.17,CZ+0.52),V3(-1.20,MESA_Y+0.40,CZ+0.36),V3(-1.18,yb-0.20,CZ+0.14),V3(-1.05-0.145,yb-0.31-0.045,CZ+0.02)],0x6a3fb0);
+  manguera([V3(-1.05+0.06,MESA_Y+0.17,CZ+0.52),V3(-0.90,MESA_Y+0.50,CZ+0.36),V3(-0.92,yb+0.30,CZ+0.16),V3(-1.05-0.145,yb+0.31+0.045,CZ+0.02)],0x8a5ed0); }
+/* ---- pupitre de mando sobre la mesa ---- */
+const mando=P3.mandoPanel(MATP,{paso:0.15,items:[{tipo:'pulsador',color:0x2f9e6a,rotulo:'MARCHA'},{tipo:'hongo',color:0xd64545,rotulo:'PARO'},{tipo:'piloto',color:0xff6b6b,rotulo:'ALARMA'},{tipo:'piloto',color:0x6fe39a,rotulo:'CICLO'}]});
+mando.rotation.x=-0.35;mando.position.set(-0.28,MESA_Y+0.19,CZ+0.50);scene.add(mando);
+{ const ap=roundedBox(0.52,0.10,0.26,std(0x4a5058,0.6,0.4),0.02);ap.position.set(-0.28,MESA_Y+0.05,CZ+0.50);scene.add(ap); }
+// compatibilidad con el resto del lab: los mismos nombres que usaba la placa anterior
+const actLEDs=[valA.userData.lens[0],valA.userData.lens[1],valB.userData.lens[0],valB.userData.lens[1]];   // A+, A−, B+, B−
+const almLED=mando.userData.items[2].lente,clkLED=plc.userData.maint,okLED=mando.userData.items[3].lente;
+colorLed(almLED,0xff6b6b,0x4a2020);colorLed(okLED,0x6fe39a,0x1f4630);
+const rodA=cylA.userData.rod,rodB=cylB.userData.rod;
+const chCv=document.createElement('canvas');chCv.width=344;chCv.height=262;const chTex=new THREE.CanvasTexture(chCv);
+chTex.colorSpace=THREE.SRGBColorSpace;chTex.anisotropy=8;hmi.userData.pantalla.material.map=chTex;hmi.userData.pantalla.material.color.setHex(0xffffff);hmi.userData.pantalla.material.needsUpdate=true;
+Object.assign(plc.userData,{title:'PLC · GRAFCET',info:'Resuelve el GRAFCET cada scan: activa las bobinas de las dos electroválvulas según la etapa y los sensores reed.'});
+Object.assign(fte.userData,{title:'Fuente de 24 V DC',info:'Alimenta el PLC, las bobinas de las válvulas y los sensores.'});
+Object.assign(hmi.userData,{title:'Panel HMI',info:'Muestra la etapa activa del GRAFCET y avisa del bloqueo por señales opuestas.'});
+Object.assign(cylA.userData,{title:'Cilindro A',info:'Doble efecto. Su carrera y sus tiempos los fija el regulador de caudal unidireccional; los reed a0 y a1 confirman los fines de carrera.'});
+Object.assign(cylB.userData,{title:'Cilindro B',info:'Doble efecto, montado en vertical. Los reed b0 y b1 confirman sus fines de carrera dentro de una banda magnética.'});
+Object.assign(valA.userData,{title:'Electroválvula 5/2 biestable · cilindro A',info:'Dos solenoides, sin muelle de retorno: la posición del carrete es la memoria. Con las dos bobinas energizadas no conmuta.'});
+Object.assign(valB.userData,{title:'Electroválvula 5/2 biestable · cilindro B',info:'Igual que la de A: un impulso basta para conmutar, y el carrete conserva la posición al quitar la orden.'});
+Object.assign(mando.userData,{title:'Pupitre de mando',info:'Marcha, paro de emergencia, piloto de alarma por señales opuestas y piloto de ciclo completo.'});
+addHoverLabel(cylA,'Cilindro A',ACC,new THREE.Vector3(0.50,MESA_Y+0.62,CZ),1.0);
+addHoverLabel(cylB,'Cilindro B',VIO,new THREE.Vector3(-1.05,MESA_Y+1.35,CZ),1.0);
+addHoverLabel(valA,'5/2 biestable · A',WARN_HEX,new THREE.Vector3(0.50,MESA_Y+0.42,CZ+0.52),1.2);
+addHoverLabel(valB,'5/2 biestable · B',WARN_HEX,new THREE.Vector3(-1.05,MESA_Y+0.42,CZ+0.52),1.2);
+addHoverLabel(plc,'PLC · GRAFCET',ACC,lblPos(-0.18,0.55,0.5),1.1);
 almLED.userData={title:'Piloto de señales opuestas',info:'Se enciende si las dos bobinas de una misma válvula están energizadas a la vez: el carrete deja de obedecer.'};
 clkLED.userData={title:'Reloj de scan',info:'Un flanco por ciclo de scan del PLC ('+DT+' ms en este modelo).'};
 
 function drawChip3D(label,accept,bad){
-  const c=chCv.getContext('2d');c.clearRect(0,0,180,180);
-  c.fillStyle='rgba(20,23,27,0.92)';c.fillRect(0,0,180,180);
-  c.strokeStyle=bad?BAD_HEX:accept?OK_HEX:ACC;c.lineWidth=4;c.strokeRect(4,4,172,172);
-  c.fillStyle='#C7D6F5';c.font='bold 13px Outfit, sans-serif';c.textAlign='center';c.fillText('GRAFCET · ETAPA',90,30);
-  c.font='bold 19px Outfit, sans-serif';c.fillStyle=bad?BAD_HEX:accept?OK_HEX:'#F4EFEA';
-  c.fillText(label.length>12?label.slice(0,11)+'…':label,90,100);
-  if(bad){c.font='bold 14px Outfit, sans-serif';c.fillStyle=BAD_HEX;c.fillText('⚠ BLOQUEO',90,140);}
+  const c=chCv.getContext('2d'),w=chCv.width,h=chCv.height;c.clearRect(0,0,w,h);
+  c.fillStyle='rgba(20,23,27,0.96)';c.fillRect(0,0,w,h);
+  c.strokeStyle=bad?BAD_HEX:accept?OK_HEX:ACC;c.lineWidth=5;c.strokeRect(5,5,w-10,h-10);
+  c.fillStyle='#C7D6F5';c.font='bold 22px Outfit, sans-serif';c.textAlign='center';c.fillText('GRAFCET · ETAPA',w/2,44);
+  c.font='bold 36px Outfit, sans-serif';c.fillStyle=bad?BAD_HEX:accept?OK_HEX:'#F4EFEA';
+  c.fillText(label.length>13?label.slice(0,12)+'…':label,w/2,136);
+  if(bad){c.font='bold 26px Outfit, sans-serif';c.fillStyle=BAD_HEX;c.fillText('⚠ BLOQUEO',w/2,208);}
   chTex.needsUpdate=true;
 }
 // fotogramas DERIVADOS de la corrida medida (no escritos a mano)
@@ -973,12 +1066,14 @@ function frames(){if(!framesCache)framesCache=hwFrames();return framesCache;}
 function hwCount(){return Math.max(1,frames().length);}
 function updateHW(){
   const fs=frames(),step=hwStep%Math.max(1,fs.length),fr=fs[step]||{label:'—',acts:[0,0,0,0],pA:0,pB:0};
-  actLEDs.forEach((l,i)=>{l.material.emissiveIntensity=(fr.acts&&fr.acts[i])?1.4:0.12;});
-  almLED.material.emissiveIntensity=fr.alarm?1.6:0.10;
-  clkLED.material.emissiveIntensity=(step%2)?1.3:0.2;
-  const pA=fr.pA||0,pB=fr.pB||0;
-  rodA.position.x=3.02+0.42*pA;tipA.position.x=3.30+0.42*pA;
-  rodB.position.y=1.36+0.34*pB;tipB.position.y=1.60+0.34*pB;
+  const a=fr.acts||[0,0,0,0],pA=fr.pA||0,pB=fr.pB||0;
+  actLEDs.forEach((l,i)=>lampa(l,a[i],0.7,0.12));
+  plc.userData.dq.slice(0,4).forEach((l,i)=>lampa(l,a[i],1.0));
+  lampa(almLED,fr.alarm,0.6,0.05);lampa(okLED,fr.accept&&!fr.bad,0.5,0.05);
+  lampa(clkLED,(step%2)===1,1.1,0.12);
+  rodA.position.x=cylA.userData.x0+cylA.userData.carrera*pA;rodB.position.x=cylB.userData.x0+cylB.userData.carrera*pB;
+  lampa(cylA.userData.sens[0],pA<0.03,1.0,0.12);lampa(cylA.userData.sens[1],pA>0.97,1.0,0.12);
+  lampa(cylB.userData.sens[0],pB<0.03,1.0,0.12);lampa(cylB.userData.sens[1],pB>0.97,1.0,0.12);
   drawChip3D(fr.label,!!fr.accept,!!fr.bad);
 }
 
@@ -1040,9 +1135,9 @@ function showToast(html){const t=el('toast');t.innerHTML=html;t.classList.add('s
 
 // ===================== 10. MODOS Y CONTROLES =====================
 const MODE_META={
-  explora:{nombre:'Explora',cam:[[5.0,3.0,7.2],[0.5,1.05,0.4]],mision:'Conduce una electroválvula 5/2 biestable scan a scan: comprueba que un impulso basta, que al quitar la orden el carrete recuerda, y qué ocurre cuando energizas las dos bobinas a la vez.'},
-  aplica:{nombre:'Aplica',cam:[[4.8,2.9,7.0],[0.6,1.00,0.5]],mision:'Diagnostica el método combinacional en las cuatro células, sigue el GRAFCET etapa a etapa y compara las reglas de avance y de asignación de salidas en banco nominal y degradado.'},
-  reto:{nombre:'Reto',cam:[[4.9,2.8,7.1],[0.6,1.00,0.5]],mision:'Programa el GRAFCET de una célula: receptividades, regla de desactivación y asignación de salidas. Cada decisión se califica por separado.'},
+  explora:{nombre:'Explora',cam:[[1.3,2.5,5.9],[-0.05,1.7,0.9]],mision:'Conduce una electroválvula 5/2 biestable scan a scan: comprueba que un impulso basta, que al quitar la orden el carrete recuerda, y qué ocurre cuando energizas las dos bobinas a la vez.'},
+  aplica:{nombre:'Aplica',cam:[[0.6,2.4,5.9],[-0.05,1.7,0.9]],mision:'Diagnostica el método combinacional en las cuatro células, sigue el GRAFCET etapa a etapa y compara las reglas de avance y de asignación de salidas en banco nominal y degradado.'},
+  reto:{nombre:'Reto',cam:[[1.9,2.4,5.7],[-0.05,1.7,0.9]],mision:'Programa el GRAFCET de una célula: receptividades, regla de desactivación y asignación de salidas. Cada decisión se califica por separado.'},
 };
 function lbl(t){return `<span class="lbl">${t}</span>`;}
 function optBtns(key,opts,cur){return opts.map(([v,t])=>`<button class="b sm ${String(cur)===String(v)?'on':''}" data-${key}="${v}">${t}</button>`).join('');}
@@ -1306,12 +1401,15 @@ pickerFor(scene,S.camera,S.renderer.domElement,hit=>{
   let o=hit.object;while(o){if(o.userData&&o.userData.title){showToast('<b>'+o.userData.title+'</b><br>'+(o.userData.info||''));return;}o=o.parent;}
 });
 (function hoverLoop(){
-  const ray=new THREE.Raycaster(),dom=S.renderer.domElement;let mx=0,my=0;
-  dom.addEventListener('pointermove',e=>{const r=dom.getBoundingClientRect();mx=((e.clientX-r.left)/r.width)*2-1;my=-((e.clientY-r.top)/r.height)*2+1;});
+  const ray=new THREE.Raycaster(),dom=S.renderer.domElement;let mx=0,my=0,mov=false,hovered=false;
+  dom.addEventListener('pointermove',e=>{const r=dom.getBoundingClientRect();mx=((e.clientX-r.left)/r.width)*2-1;my=-((e.clientY-r.top)/r.height)*2+1;mov=true;});
+  // sólo se recalcula al mover el puntero y la etiqueta es de lo PRIMERO que el rayo toca (el tablero tapa lo que hay detrás)
   function tick(){
-    ray.setFromCamera({x:mx,y:my},S.camera);let hovered=false;
-    for(const [obj,spr] of HOVER_LABELS){if(!obj.visible){spr.visible=false;continue;}const on=ray.intersectObject(obj,true).length>0;spr.visible=on;if(on)hovered=true;}
-    dom.style.cursor=hovered?'pointer':'default';requestAnimationFrame(tick);
+    if(mov){mov=false;ray.setFromCamera({x:mx,y:my},S.camera);hovered=false;
+      const hit=ray.intersectObjects(scene.children,true).find(h=>!h.object.isSprite&&h.object.visible);const cadena=new Set();for(let o=hit&&hit.object;o;o=o.parent)cadena.add(o);
+      for(const [obj,spr] of HOVER_LABELS){const on=obj.visible&&cadena.has(obj);spr.visible=on;if(on)hovered=true;}
+      dom.style.cursor=hovered?'pointer':'default';}
+    requestAnimationFrame(tick);
   }
   tick();
 })();

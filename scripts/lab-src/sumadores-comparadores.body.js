@@ -14,7 +14,7 @@
 
 // ===================== 1. ESCENA =====================
 const mount=document.getElementById('stage');
-const S=createStage(mount,{cam:[4.8,2.9,7.0],target:[0.4,1.05,0.3],bgTop:'#0d1017',bgBot:'#05060a',bloom:0.44,minD:3.2,maxD:16});
+const S=createStage(mount,{cam:[4.2,3.3,5.4],target:[0.9,0.65,0.8],bgTop:'#0d1017',bgBot:'#05060a',bloom:0.44,minD:3.2,maxD:16});
 const {scene}=S;
 const synth=makeSynth({type:'square',type2:'sine',filterFreq:2400,Q:0.7});
 const el=id=>document.getElementById(id);
@@ -445,49 +445,79 @@ function boardClick(){
 }
 
 // ===================== 7. ESCENA 3D: ENTRENADOR =====================
-const bench=roundedBox(3.7,0.5,1.8,MAT.bench,0.05);bench.position.set(1.9,0.25,0.55);scene.add(bench);
-bench.userData={title:'Banco de aritmética binaria',info:'Conduce el bloque activo: entradas → cadena de acarreo → resultado.'};
-const pcb=roundedBox(2.4,0.08,1.2,MAT.pcb,0.03);pcb.position.set(1.95,0.54,0.5);scene.add(pcb);
-pcb.userData={title:'Tarjeta del sumador/comparador',info:'Recorre las posiciones y enciende bits de suma, acarreos y salidas de comparación.'};
-addHoverLabel(pcb,'Entrenador aritmético',ACC,new THREE.Vector3(1.95,1.35,0.5),1.6);
-const chip=roundedBox(0.56,0.14,0.5,MAT.chip,0.02);chip.position.set(1.35,0.63,0.55);scene.add(chip);
-const chCv=document.createElement('canvas');chCv.width=180;chCv.height=180;const chTex=new THREE.CanvasTexture(chCv);
-const chFace=new THREE.Mesh(new THREE.PlaneGeometry(0.5,0.5),new THREE.MeshBasicMaterial({map:chTex,transparent:true}));
-chFace.rotation.x=-Math.PI/2;chFace.position.set(1.35,0.705,0.55);scene.add(chFace);
-chip.userData={title:'Bloque aritmético',info:'Sumador completo, sumador de N bits o comparador.'};
-function makeLED(x,z,color){const m=new THREE.Mesh(new THREE.SphereGeometry(0.045,16,16),std(color,0.4,0.1));m.position.set(x,0.62,z);m.material.emissive=new THREE.Color(color);m.material.emissiveIntensity=0.15;scene.add(m);return m;}
-// LEDs de bits de suma (LSB a la derecha), acarreos (fila trasera) y comparación
-const bitLEDs=[];for(let i=0;i<4;i++)bitLEDs.push(makeLED(2.55-i*0.32,0.62,0x8AB4F8));
-const carryLEDs=[];for(let i=0;i<5;i++)carryLEDs.push(makeLED(2.71-i*0.32,0.90,0xE9C46A));
-const cmpLEDs=[makeLED(2.05,0.35,0x7CD992),makeLED(2.4,0.35,0x8AB4F8),makeLED(2.75,0.35,0xff6b6b)];
-addHoverLabel(bitLEDs[0],'bits de suma',ACC,new THREE.Vector3(1.95,1.05,0.62),1.2);
-addHoverLabel(carryLEDs[0],'cadena de acarreo',WARN_HEX,new THREE.Vector3(1.95,1.05,0.90),1.4);
+// Entrenador lógico de banco (biblioteca de piezas §19): protoboard con 74HC283 (sumador de 4 bits), 74HC85 (comparador de 4 bits),
+// 74HC86 (XOR, para invertir B al restar) y 74HC08, interruptores A3…A0 / B3…B0 / Cin, LEDs de acarreo, suma y comparación.
+const MATP={aluminio:std(0xb6bdc4,0.42,0.7),acero:std(0x8f979f,0.38,0.85),cromo:std(0xc4cad0,0.3,0.9),cobre:std(0xb87333,0.4,0.8),
+  negro:std(0x14181e,0.62,0.06),goma:std(0x14181e,0.85,0.02),blanco:std(0xd7dee6,0.4,0.2),ceramica:std(0xd7dee6,0.6,0.05),hierro:std(0x4a4f55,0.55,0.7),chapa:std(0x9aa2aa,0.5,0.6)};
+const TR=P3.entrenadorLogico(MATP,{cols:36,nLed:12,nSw:9,pantalla:{ancho:1.8,alto:1.0},
+  ledColores:[0xE9C46A,0xE9C46A,0xE9C46A,0xE9C46A,0xE9C46A,0x8AB4F8,0x8AB4F8,0x8AB4F8,0x8AB4F8,0x7CD992,0x8AB4F8,0xff6b6b],
+  ledRotulos:['C4','C3','C2','C1','C0','S3','S2','S1','S0','A>B','A=B','A<B'],swRotulos:['A3','A2','A1','A0','B3','B2','B1','B0','Cin'],
+  rotulo:'ENTRENADOR ARITMÉTICO',serie:'74HC283 · 85 · 5 V',pantallaRotulo:'BLOQUE'});
+TR.scale.setScalar(0.72);TR.position.set(1.0,0,0.9);scene.add(TR);
+const TU=TR.userData;
+TR.userData=Object.assign(TU,{title:'Banco de aritmética binaria',info:'Conduce el bloque activo: entradas → cadena de acarreo → resultado.'});
+{ // 74HC283 + 74HC85 + 74HC86 + 74HC08: alimentación, entradas A/B/Cin desde los interruptores y salidas a los LED
+  const c1=2,c2=11,c3=20,c4=28,rl=TU.prot.userData.riel;
+  TU.dip(c1,{pines:16,rotulo:'74HC283',rotulo2:'SUMADOR 4b'});
+  TU.dip(c2,{pines:16,rotulo:'74HC85',rotulo2:'COMPARADOR'});
+  TU.dip(c3,{pines:14,rotulo:'74HC86',rotulo2:'XOR ×4'});
+  TU.dip(c4,{pines:14,rotulo:'74HC08',rotulo2:'AND ×4'});
+  const fr=(c,k)=>c+k-1, bk=(c,n,k)=>c+n-k;                                       // columna de la pata k (frente k≤n/2, fondo el resto)
+  [[c1,16],[c2,16],[c3,14],[c4,14]].forEach(([c,n],i)=>{
+    TU.cable([bk(c,n,n),'j'],rl('+','tras',1+i*6),0xb83232);                      // Vcc (última pata)
+    TU.cable([fr(c,n/2),'a'],rl('-','tras',3+i*6),0x2a2e34);                      // GND (pata n/2)
+  });
+  // 74HC283: A1…A4 = patas 5,3,15,12 · B1…B4 = 6,2,14,11 · Σ1…Σ4 = 4,1,13,10 · C0 = 7 · C4 = 9
+  const pA=[12,15,3,5], pB=[11,14,2,6], pS=[10,13,1,4];                           // de A4 a A1 (izquierda → derecha en los interruptores)
+  const col283=(p)=>p<=8?fr(c1,p):bk(c1,16,p), fila283=(p)=>p<=8?'a':'j';
+  pA.forEach((p,k)=>TU.hilo(TU.swJack(k),TU.Hg(col283(p),fila283(p)),0xc9a227,{alto:0.32}));
+  pB.forEach((p,k)=>TU.hilo(TU.swJack(4+k),TU.Hg(col283(p),fila283(p)),0xc9791a,{alto:0.32}));
+  TU.hilo(TU.swJack(8),TU.Hg(fr(c1,7),'a'),0xb8a12a,{alto:0.32});                 // Cin → C0
+  pS.forEach((p,k)=>TU.hilo(TU.Hg(col283(p),fila283(p)),TU.ledJack(5+k),0x2f6fc0,{alto:0.32}));   // Σ4…Σ1 → S3…S0
+  TU.hilo(TU.Hg(col283(9),fila283(9)),TU.ledJack(0),0xb8921f,{alto:0.32});        // C4 → LED de acarreo final
+  // 74HC85: el bus A y B se puentea desde el sumador (A0=10, A1=12, A2=13, A3=15 · B0=9, B1=11, B2=14, B3=1) y las salidas 5,6,7 van a los LED
+  [[10,5],[12,3],[13,15],[15,12]].forEach(([p85,p283])=>TU.cable([bk(c2,16,p85),'i'],[col283(p283),'i'],0x2f8f56));
+  [5,6,7].forEach((p,k)=>TU.hilo(TU.Hg(fr(c2,p),'a'),TU.ledJack(9+k),[0x2f8f56,0x2f6fc0,0xc03a3a][k],{alto:0.32}));
+  TU.cable([fr(c2,2),'b'],rl('-','tras',20),0x2a2e34);                            // A<B (entrada de cascada) a GND
+  TU.cable([fr(c2,4),'b'],rl('-','tras',22),0x2a2e34);                            // A>B (entrada de cascada) a GND
+  TU.cable([fr(c2,3),'b'],rl('+','tras',21),0xb83232);                            // A=B (entrada de cascada) a Vcc
+}
+// compatibilidad con el resto del lab: los mismos nombres que usaba la placa anterior
+const carryLEDs=[TU.leds[4],TU.leds[3],TU.leds[2],TU.leds[1],TU.leds[0]];       // índice i = acarreo C_i (C0 = Cin, a la derecha)
+const bitLEDs=[TU.leds[8],TU.leds[7],TU.leds[6],TU.leds[5]];                    // índice i = bit de suma i (LSB a la derecha)
+const cmpLEDs=[TU.leds[9],TU.leds[10],TU.leds[11]];
+const chCv=document.createElement('canvas');chCv.width=324;chCv.height=180;const chTex=new THREE.CanvasTexture(chCv);
+chTex.colorSpace=THREE.SRGBColorSpace;chTex.anisotropy=8;TU.pantalla.material.map=chTex;TU.pantalla.material.color.setHex(0xffffff);TU.pantalla.material.needsUpdate=true;
+TU.pantalla.userData={title:'Bloque aritmético',info:'Sumador completo, sumador de N bits o comparador.'};
+addHoverLabel(TR,'Entrenador aritmético',ACC,new THREE.Vector3(1.0,2.05,1.0),1.6);
+bitLEDs[0].userData={title:'Bits de suma',info:'Un LED por bit del resultado (S3…S0, LSB a la derecha); el resaltado marca el bit que se está sumando.'};
+carryLEDs[1].userData={title:'Cadena de acarreo',info:'C0 es el acarreo de entrada; Ci entra al bit i. Se enciende donde hay acarreo.'};
 cmpLEDs[0].userData={title:'Salidas del comparador',info:'A>B (verde), A=B (azul), A<B (rojo).'};
 
 function drawChip3D(dev,step){
-  const c=chCv.getContext('2d');c.clearRect(0,0,180,180);
+  const c=chCv.getContext('2d');c.clearRect(0,0,324,180);
   const acc=dev.kind==='cmp'?ACC:(dev.kind==='fa'?WARN_HEX:OK_HEX);
-  c.fillStyle='rgba(20,23,27,0.92)';c.fillRect(0,0,180,180);
-  c.strokeStyle=acc;c.lineWidth=4;c.strokeRect(4,4,172,172);
+  c.fillStyle='rgba(20,23,27,0.92)';c.fillRect(0,0,324,180);
+  c.strokeStyle=acc;c.lineWidth=4;c.strokeRect(4,4,316,172);
   c.fillStyle='#C7D6F5';c.font='bold 14px Outfit, sans-serif';c.textAlign='center';
   if(dev.kind==='fa'){const a=(step>>2)&1,b=(step>>1)&1,ci=step&1,r=fullAdder(a,b,ci);
-    c.fillText('SUMADOR COMPLETO',90,28);
-    c.font='13px Outfit, sans-serif';c.fillStyle='#9fb0cf';c.fillText('a='+a+' b='+b+' cin='+ci,90,58);
-    c.font='bold 28px Outfit, sans-serif';c.fillStyle=r.s?OK_HEX:'#5a6472';c.fillText('S='+r.s,58,108);
-    c.fillStyle=r.cout?WARN_HEX:'#5a6472';c.fillText('C='+r.cout,126,108);
-    c.font='12px Outfit, sans-serif';c.fillStyle='#9fb0cf';c.fillText('S=a⊕b⊕cin',90,150);
+    c.fillText('SUMADOR COMPLETO',162,28);
+    c.font='13px Outfit, sans-serif';c.fillStyle='#9fb0cf';c.fillText('a='+a+' b='+b+' cin='+ci,162,58);
+    c.font='bold 28px Outfit, sans-serif';c.fillStyle=r.s?OK_HEX:'#5a6472';c.fillText('S='+r.s,130,108);
+    c.fillStyle=r.cout?WARN_HEX:'#5a6472';c.fillText('C='+r.cout,198,108);
+    c.font='12px Outfit, sans-serif';c.fillStyle='#9fb0cf';c.fillText('S=a⊕b⊕cin',162,150);
   }else if(dev.kind==='cmp'){const r=compareU(dev.A,dev.B,dev.n),sym=r.gt?'A > B':(r.lt?'A < B':'A = B');
-    c.fillText('COMPARADOR '+dev.n+' bit',90,28);
-    c.font='14px Outfit, sans-serif';c.fillStyle='#9fb0cf';c.fillText(dev.A+' vs '+dev.B,90,60);
-    c.font='bold 30px Outfit, sans-serif';c.fillStyle=ACC;c.fillText(sym,90,112);
-    c.font='12px Outfit, sans-serif';c.fillStyle='#9fb0cf';c.fillText('cascada desde MSB',90,150);
+    c.fillText('COMPARADOR '+dev.n+' bit',162,28);
+    c.font='14px Outfit, sans-serif';c.fillStyle='#9fb0cf';c.fillText(dev.A+' vs '+dev.B,162,60);
+    c.font='bold 30px Outfit, sans-serif';c.fillStyle=ACC;c.fillText(sym,162,112);
+    c.font='12px Outfit, sans-serif';c.fillStyle='#9fb0cf';c.fillText('cascada desde MSB',162,150);
   }else{const N=dev.n,r=rippleAdd(dev.A,dev.B,dev.cin,N);
-    c.fillText('SUMADOR '+N+' bit',90,28);
-    c.font='14px Outfit, sans-serif';c.fillStyle='#9fb0cf';c.fillText(dev.A+' + '+dev.B+(dev.cin?' + 1':''),90,58);
-    if(dev.hide){c.font='bold 30px Outfit, sans-serif';c.fillStyle='#5a6472';c.fillText('= ?',90,108);
-      c.font='12px Outfit, sans-serif';c.fillStyle='#9fb0cf';c.fillText('se calcula al comprobar',90,148);}
-    else{c.font='bold 30px Outfit, sans-serif';c.fillStyle=OK_HEX;c.fillText('= '+r.val,90,108);
-    c.font='12px Outfit, sans-serif';c.fillStyle=r.cout?WARN_HEX:'#9fb0cf';c.fillText('Cout = '+r.cout,90,148);}
+    c.fillText('SUMADOR '+N+' bit',162,28);
+    c.font='14px Outfit, sans-serif';c.fillStyle='#9fb0cf';c.fillText(dev.A+' + '+dev.B+(dev.cin?' + 1':''),162,58);
+    if(dev.hide){c.font='bold 30px Outfit, sans-serif';c.fillStyle='#5a6472';c.fillText('= ?',162,108);
+      c.font='12px Outfit, sans-serif';c.fillStyle='#9fb0cf';c.fillText('se calcula al comprobar',162,148);}
+    else{c.font='bold 30px Outfit, sans-serif';c.fillStyle=OK_HEX;c.fillText('= '+r.val,162,108);
+    c.font='12px Outfit, sans-serif';c.fillStyle=r.cout?WARN_HEX:'#9fb0cf';c.fillText('Cout = '+r.cout,162,148);}
   }
   chTex.needsUpdate=true;
 }
@@ -497,19 +527,23 @@ function updateHW(){
   bitLEDs.forEach(l=>l.visible=false);carryLEDs.forEach(l=>l.visible=false);cmpLEDs.forEach(l=>l.visible=false);
   if(dev.kind==='fa'){
     const a=(step>>2)&1,b=(step>>1)&1,ci=step&1,r=fullAdder(a,b,ci);
-    bitLEDs[0].visible=true;bitLEDs[0].material.emissiveIntensity=r.s?1.5:0.12;bitLEDs[0].material.color.setHex(r.s?0x7CD992:0x243026);
-    carryLEDs[0].visible=true;carryLEDs[0].material.emissiveIntensity=r.cout?1.5:0.12;carryLEDs[0].material.color.setHex(r.cout?0xE9C46A:0x2a2a20);
+    bitLEDs[0].visible=true;bitLEDs[0].material.emissiveIntensity=r.s?0.95:0.12;bitLEDs[0].material.color.setHex(r.s?0x7CD992:0x243026);
+    carryLEDs[1].visible=true;carryLEDs[1].material.emissiveIntensity=r.cout?0.95:0.12;carryLEDs[1].material.color.setHex(r.cout?0xE9C46A:0x2a2a20);
   }else if(dev.kind==='cmp'){
     const r=compareU(dev.A,dev.B,dev.n),arr=[r.gt,r.eq,r.lt],cols=[0x7CD992,0x8AB4F8,0xff6b6b];
-    cmpLEDs.forEach((l,i)=>{l.visible=true;l.material.emissiveIntensity=arr[i]?1.5:0.1;l.material.color.setHex(arr[i]?cols[i]:0x2a3550);});
+    cmpLEDs.forEach((l,i)=>{l.visible=true;l.material.emissiveIntensity=arr[i]?0.95:0.1;l.material.color.setHex(arr[i]?cols[i]:0x2a3550);});
   }else{
     const N=dev.n,r=rippleAdd(dev.A,dev.B,dev.cin,N);
     for(let i=0;i<N;i++){const l=bitLEDs[i];l.visible=true;const s=r.bits[i],active=(i===step);
-      l.material.emissiveIntensity=active?1.5:(s?0.7:0.12);l.material.color.setHex(s?(active?0x7CD992:0x3a5a44):(active?0x8AB4F8:0x2a3550));}
+      l.material.emissiveIntensity=active?0.95:(s?0.6:0.12);l.material.color.setHex(s?(active?0x7CD992:0x3a5a44):(active?0x8AB4F8:0x2a3550));}
     for(let i=0;i<=N;i++){const l=carryLEDs[i];l.visible=true;const cv=r.carries[i],active=(i===step||i===step+1);
-      l.material.emissiveIntensity=(cv&&active)?1.5:(cv?0.6:0.1);l.material.color.setHex(cv?0xE9C46A:0x2a2a20);}
+      l.material.emissiveIntensity=(cv&&active)?0.95:(cv?0.55:0.1);l.material.color.setHex(cv?0xE9C46A:0x2a2a20);}
     if(dev.hide){bitLEDs.forEach(l=>l.visible=false);carryLEDs.forEach(l=>l.visible=false);}   // reto: la suma se ve al comprobar
   }
+  // interruptores: reflejan los operandos A, B y el acarreo de entrada del bloque activo
+  const aV=dev.kind==='fa'?((step>>2)&1):(dev.A||0), bV=dev.kind==='fa'?((step>>1)&1):(dev.B||0), ciV=dev.kind==='fa'?(step&1):(dev.cin?1:0);
+  for(let k=0;k<4;k++){TU.sw[k].userData.pon((aV>>(3-k))&1);TU.sw[4+k].userData.pon((bV>>(3-k))&1);}
+  TU.sw[8].userData.pon(ciV);
   drawChip3D(dev,step);
 }
 
@@ -569,9 +603,9 @@ function showToast(html){const t=el('toast');t.innerHTML=html;t.classList.add('s
 
 // ===================== 10. MODOS Y CONTROLES =====================
 const MODE_META={
-  explora:{nombre:'Explora',cam:[[4.8,2.9,7.0],[0.4,1.05,0.3]],mision:'Elige un bloque (sumador completo, sumador de N bits o comparador) y condúcelo: cambia las entradas y observa el acarreo, la suma o el veredicto.'},
-  aplica:{nombre:'Aplica',cam:[[4.6,2.8,6.8],[0.4,1.05,0.3]],mision:'Comprueba que restar es sumar el complemento a 2 (A−B=A+¬B+1), cómo se detecta el desbordamiento con signo, y que la igualdad es la AND de los XNOR.'},
-  reto:{nombre:'Reto',cam:[[4.7,2.7,6.9],[0.5,1.0,0.4]],mision:'Construye un restador: configura lo que entra por el puerto B del sumador y su acarreo inicial para que el sumador calcule A − B.'},
+  explora:{nombre:'Explora',cam:[[4.2,3.3,5.4],[0.9,0.65,0.8]],mision:'Elige un bloque (sumador completo, sumador de N bits o comparador) y condúcelo: cambia las entradas y observa el acarreo, la suma o el veredicto.'},
+  aplica:{nombre:'Aplica',cam:[[4.1,3.2,5.3],[0.9,0.65,0.8]],mision:'Comprueba que restar es sumar el complemento a 2 (A−B=A+¬B+1), cómo se detecta el desbordamiento con signo, y que la igualdad es la AND de los XNOR.'},
+  reto:{nombre:'Reto',cam:[[4.15,3.25,5.35],[0.9,0.65,0.8]],mision:'Construye un restador: configura lo que entra por el puerto B del sumador y su acarreo inicial para que el sumador calcule A − B.'},
 };
 function lbl(t){return `<span class="lbl">${t}</span>`;}
 function buildControls(){

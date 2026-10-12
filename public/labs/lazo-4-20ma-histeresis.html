@@ -453,7 +453,7 @@ function makeSynth(opts={}){
 
 // ===================== 1. ESCENA =====================
 const mount=document.getElementById('stage');
-const S=createStage(mount,{cam:[5.2,3.1,7.4],target:[0.6,1.05,0.4],bgTop:'#0d1017',bgBot:'#05060a',bloom:0.44,minD:3.2,maxD:16});
+const S=createStage(mount,{cam:[4.9,3.3,6.2],target:[1.7,1.15,0.35],bgTop:'#0d1017',bgBot:'#05060a',bloom:0.44,minD:3.2,maxD:16});
 const {scene}=S;
 const synth=makeSynth({type:'square',type2:'sine',filterFreq:2400,Q:0.7});
 const el=id=>document.getElementById(id);
@@ -1253,45 +1253,6 @@ function boardClick(){
 }
 
 // ===================== 7. ESCENA 3D: LAZO CON PANEL DE INSTRUMENTOS =====================
-const bench=roundedBox(3.9,0.5,1.9,MAT.bench,0.05);bench.position.set(1.95,0.25,0.55);scene.add(bench);
-bench.userData={title:'Banco de instrumentación',info:'Tanque con transmisor de nivel de 2 hilos, cable de par trenzado, panel de instrumentos y grupo de bombeo.'};
-
-// --- tanque con nivel ---
-const tankG=new THREE.Group();tankG.position.set(0.85,0.5,0.55);scene.add(tankG);
-const tankMat=new THREE.MeshStandardMaterial({color:0x8fa3bd,roughness:0.15,metalness:0.1,transparent:true,opacity:0.22});
-const tankShell=new THREE.Mesh(new THREE.BoxGeometry(0.86,1.20,0.86),tankMat);tankShell.position.y=0.62;tankG.add(tankShell);
-const liquid=new THREE.Mesh(new THREE.BoxGeometry(0.80,1,0.80),std(0x2f6fb5,0.25,0.05));
-liquid.material.transparent=true;liquid.material.opacity=0.75;tankG.add(liquid);
-const tankBase=roundedBox(0.96,0.06,0.96,MAT.plate,0.02);tankBase.position.y=0.03;tankG.add(tankBase);
-tankShell.userData={title:'Tanque del proceso',info:'La variable de proceso es el nivel. El transmisor la convierte en una corriente de 4 a 20 mA proporcional al rango calibrado.'};
-addHoverLabel(tankShell,'Proceso',VIO,new THREE.Vector3(0.85,1.95,0.55),1.5);
-
-// --- transmisor de 2 hilos ---
-const txG=new THREE.Group();txG.position.set(0.85,0.5,0.55);scene.add(txG);
-const txBody=new THREE.Mesh(new THREE.CylinderGeometry(0.13,0.13,0.22,20),MAT.steel);txBody.position.set(0,1.36,0);txG.add(txBody);
-const txHead=new THREE.Mesh(new THREE.CylinderGeometry(0.09,0.11,0.10,20),MAT.dark);txHead.position.set(0,1.51,0);txG.add(txHead);
-txBody.userData={title:'Transmisor de nivel (2 hilos)',info:'No genera tensión: REGULA la corriente que consume, entre 4 y 20 mA. Necesita una tensión mínima en bornes para funcionar.'};
-addHoverLabel(txBody,'Transmisor 2 hilos',ACC,new THREE.Vector3(0.85,2.15,0.55),2.0);
-
-// --- cable de par trenzado hacia el panel ---
-const cableMat=new THREE.MeshStandardMaterial({color:0x3a6ea5,roughness:0.5,metalness:0.2});
-const cablePts=[new THREE.Vector3(0.85,1.56,0.55),new THREE.Vector3(1.35,1.72,0.35),new THREE.Vector3(2.05,1.60,0.15),new THREE.Vector3(2.62,1.28,0.12)];
-const cable=new THREE.Mesh(new THREE.TubeGeometry(new THREE.CatmullRomCurve3(cablePts),40,0.022,10,false),cableMat);scene.add(cable);
-cable.userData={title:'Cable de par trenzado',info:'Su resistencia de ida y vuelta se come parte del presupuesto de tensión del lazo. No falsea la medida, pero puede impedir que la corriente llegue a 20,5 mA.'};
-addHoverLabel(cable,'Cable del lazo',ACC,new THREE.Vector3(1.7,2.0,0.2),1.9);
-
-// --- PANEL DE INSTRUMENTOS (molde S+P) ---
-const panelG=new THREE.Group();panelG.position.set(2.95,0.5,0.10);panelG.rotation.y=-0.22;scene.add(panelG);
-const panelBox=roundedBox(1.50,1.00,0.14,MAT.body,0.04);panelBox.position.set(0,0.62,0);panelG.add(panelBox);
-const pCv=document.createElement('canvas');pCv.width=600;pCv.height=400;
-const pTex=new THREE.CanvasTexture(pCv);
-const panelFace=new THREE.Mesh(new THREE.PlaneGeometry(1.40,0.92),new THREE.MeshBasicMaterial({map:pTex}));
-panelFace.position.set(0,0.62,0.075);panelG.add(panelFace);
-[-0.62,0.62].forEach(x=>{const scr=new THREE.Mesh(new THREE.CylinderGeometry(0.02,0.02,0.03,10),MAT.shiny);
-  scr.rotation.x=Math.PI/2;scr.position.set(x,0.62,0.075);panelG.add(scr);});
-panelBox.userData={title:'Panel de instrumentos',info:'Indicador de corriente, porcentaje de señal, tensión sobre la resistencia de medida, estado NAMUR NE 43 y salida al contactor.'};
-addHoverLabel(panelBox,'Panel de instrumentos',OK_HEX,new THREE.Vector3(2.95,1.85,0.10),2.4);
-
 /* Los nombres con los que trabaja la biblioteca de piezas (`P3`, que el molde ya
    importa), traducidos una vez a los materiales de este laboratorio. */
 const MATP={
@@ -1300,16 +1261,77 @@ const MATP={
   goma:std(0x14181e,0.8,0.02), blanco:std(0xd7dee6,0.4,0.2),
   ceramica:std(0xd7dee6,0.6,0.05),
 };
-/* LA RESISTENCIA DE MEDIDA, con sus bandas: aqui el codigo de colores importa
-   de verdad, porque la practica se juega entre 250 Ω (1-5 V) y 500 Ω (2-10 V) y
-   confundirlas cambia toda la escala de la entrada analogica. */
+// --- banco de instrumentación: tablero con patas (el tablero apoya en y = 0,5)
+const bench=roundedBox(3.9,0.08,2.0,MAT.bench,0.03);bench.position.set(1.75,0.46,0.55);scene.add(bench);
+bench.userData={title:'Banco de instrumentación',info:'Tanque con transmisor de nivel de 2 hilos, cuadro del lazo con su fuente de 24 V y su indicador, y grupo de bombeo.'};
+[[0.0,-0.35],[3.6,-0.35],[0.0,1.4],[3.6,1.4]].forEach(p=>{
+  const lg=new THREE.Mesh(new THREE.CylinderGeometry(0.05,0.05,0.42,12),MAT.leg);lg.position.set(p[0],0.21,p[1]);scene.add(lg);});
+
+// --- tanque de proceso: recipiente cilíndrico con patas, aros y brida superior ---
+const tankG=new THREE.Group();tankG.position.set(0.85,0.5,0.55);scene.add(tankG);
+const tankMat=new THREE.MeshStandardMaterial({color:0x8fa3bd,roughness:0.15,metalness:0.1,transparent:true,opacity:0.22,depthWrite:false});
+const tankShell=new THREE.Mesh(new THREE.CylinderGeometry(0.43,0.43,1.2,36,1,true),tankMat);tankShell.position.y=0.62;tankG.add(tankShell);
+const liquid=new THREE.Mesh(new THREE.CylinderGeometry(0.40,0.40,1,32),std(0x2f6fb5,0.25,0.05));
+liquid.material.transparent=true;liquid.material.opacity=0.75;tankG.add(liquid);
+const tankBase=roundedBox(1.0,0.06,1.0,MAT.plate,0.02);tankBase.position.y=0.03;tankG.add(tankBase);
+[[0,1],[0,-1],[1,0],[-1,0]].forEach(([x,z])=>{const pata=new THREE.Mesh(new THREE.CylinderGeometry(0.025,0.025,0.10,10),MAT.steel);pata.position.set(x*0.36,0.06,z*0.36);tankG.add(pata);});
+const aroTop=new THREE.Mesh(new THREE.TorusGeometry(0.43,0.022,10,40),MAT.steel);aroTop.rotation.x=Math.PI/2;aroTop.position.y=1.22;tankG.add(aroTop);
+const aroBot=aroTop.clone();aroBot.position.y=0.10;tankG.add(aroBot);
+const tapa=new THREE.Mesh(new THREE.CylinderGeometry(0.43,0.43,0.04,36),MAT.plate);tapa.position.y=1.24;tankG.add(tapa);
+const bocal=new THREE.Mesh(new THREE.CylinderGeometry(0.13,0.13,0.05,24),MAT.steel);bocal.position.y=1.285;tankG.add(bocal);
+tankShell.userData={title:'Tanque del proceso',info:'La variable de proceso es el nivel. El transmisor la convierte en una corriente de 4 a 20 mA proporcional al rango calibrado.'};
+addHoverLabel(tankShell,'Proceso',VIO,new THREE.Vector3(0.85,2.15,0.55),1.5);
+
+// --- transmisor de campo de 2 hilos (cabezal con indicador, sobre la brida del tanque) ---
+const txG=P3.transmisorCampo(MATP,{escala:1.55});txG.position.set(0.85,0.5+1.31,0.55);scene.add(txG);
+Object.assign(txG.userData,{title:'Transmisor de nivel (2 hilos)',info:'No genera tensión: REGULA la corriente que consume, entre 4 y 20 mA. Necesita una tensión mínima en bornes para funcionar.'});
+addHoverLabel(txG,'Transmisor 2 hilos',ACC,new THREE.Vector3(0.85,3.0,0.55),2.0);
+
+// --- CUADRO DEL LAZO: gabinete con fuente de 24 V, regleta de bornes y pilotos; el indicador, sobre el techo ---
+const cabG=new THREE.Group();cabG.position.set(2.75,0.5,0.10);cabG.rotation.y=-0.18;scene.add(cabG);
+const cab=P3.gabinete(MATP,{ancho:1.55,alto:1.10,fondo:0.32,puerta:false,color:0x8c949b,colorPlaca:0xc4701a});cabG.add(cab);
+const zP=cab.userData.placa;
+const railY=0.34;
+const rail=P3.rielDIN(MATP,{largo:1.30});rail.position.set(0,railY,zP);cabG.add(rail);
+const psu=P3.fuenteRiel24(MATP,{});psu.scale.setScalar(0.78);psu.position.set(-0.46,railY+0.78*0.39-0.01,zP+0.18);cabG.add(psu);
+Object.assign(psu.userData,{title:'Fuente de 24 V',info:'Alimenta el lazo: el transmisor y la resistencia de medida van en serie con ella. Lo que sobra de 24 V es lo que puede caer en el cable.'});
+const regleta=P3.regletaBornes(MATP,{vias:4,rotulos:['+24','TX+','TX−','0 V'],colores:[0xc23b3b,0x2f6fb5,0x2f6fb5,0x24282e]});
+regleta.position.set(0.12,railY+0.02,zP+0.095);cabG.add(regleta);
+Object.assign(regleta.userData,{title:'Regleta del lazo',info:'Aquí llegan los dos hilos del transmisor y se cierra el lazo con la resistencia de medida.'});
+const pilotos=P3.mandoPanel(MATP,{items:[{tipo:'piloto',color:0x7CD992,rotulo:'MEDIDA'},{tipo:'piloto',color:0xE9C46A,rotulo:'AVISO'},{tipo:'piloto',color:0xff6b6b,rotulo:'FALLA'},{tipo:'piloto',color:0xC08CF8,rotulo:'BOMBA'}],paso:0.20});
+pilotos.position.set(0.24,0.84,zP+0.07);cabG.add(pilotos);
+Object.assign(pilotos.userData,{title:'Pilotos del lazo',info:'Medida válida, aviso de fuera de rango, falla NE 43 y bomba en marcha.'});
+// indicador de lazo (panel HMI) con el canvas que ya dibujaba el panel de instrumentos
+const hmiG=new THREE.Group();hmiG.position.set(0,1.10+0.50,0.0);cabG.add(hmiG);
+const hmi=P3.panelHMI(MATP,{ancho:1.10,alto:0.94,teclas:4,rotulo:'4–20 mA'});hmi.rotation.x=-0.10;hmiG.add(hmi);
+[-0.42,0.42].forEach(x=>{const poste=new THREE.Mesh(new THREE.CylinderGeometry(0.03,0.03,0.12,10),MAT.steel);poste.position.set(x,-0.50,-0.03);hmiG.add(poste);});
+const pCv=document.createElement('canvas');pCv.width=600;pCv.height=400;
+const pTex=new THREE.CanvasTexture(pCv);pTex.colorSpace=THREE.SRGBColorSpace;pTex.anisotropy=8;
+hmi.userData.pantalla.material.map=pTex;hmi.userData.pantalla.material.color.setHex(0xffffff);hmi.userData.pantalla.material.needsUpdate=true;
+const panelBox=hmi;
+Object.assign(hmi.userData,{title:'Indicador de lazo (entrada analógica)',info:'Indicador de corriente, porcentaje de señal, tensión sobre la resistencia de medida, estado NAMUR NE 43 y salida al contactor.'});
+addHoverLabel(hmi,'Indicador de lazo',OK_HEX,new THREE.Vector3(2.75,3.05,0.10),2.4);
+
+// --- la RESISTENCIA DE MEDIDA, con sus bandas: aquí el código de colores importa de verdad, porque la práctica
+// se juega entre 250 Ω (1-5 V) y 500 Ω (2-10 V) y confundirlas cambia toda la escala de la entrada analógica.
 const rBlock=P3.resistencia(MATP,{largo:0.22,d:0.095,patas:0.07,paso:0.36,
   bandas:[0xd42a2a,0xb03a2e,0x8a5a2c,0xc9a227],cuerpo:0xe8d9b0});
-rBlock.position.set(2.95,0.52,0.62);
+rBlock.position.set(2.30,0.52,0.78);
 rBlock.traverse(o=>{ if(o.isMesh){o.castShadow=true;o.receiveShadow=true;} });
 scene.add(rBlock);
 rBlock.userData={title:'Resistencia de medida',info:'Cierra el lazo y convierte la corriente en tensión para la entrada analógica: 250 Ω dan 1–5 V y 500 Ω dan 2–10 V.'};
 
+// --- el cable del lazo (par trenzado): del prensaestopas del transmisor a la regleta, y de la regleta a la resistencia ---
+cabG.updateMatrixWorld(true);txG.updateMatrixWorld(true);
+const cabW=(p)=>cabG.localToWorld(p.clone());
+const cableMat=new THREE.MeshStandardMaterial({color:0x3a6ea5,roughness:0.5,metalness:0.2});
+const pTx=txG.localToWorld(txG.userData.cable.clone());
+const pReg=cabW(new THREE.Vector3(0.12,railY+0.14,zP+0.20));
+const cablePts=[pTx,new THREE.Vector3(pTx.x+0.35,pTx.y+0.28,pTx.z-0.05),new THREE.Vector3(1.75,2.05,-0.15),new THREE.Vector3(pReg.x-0.35,pReg.y+0.55,pReg.z+0.1),pReg];
+const cable=new THREE.Mesh(new THREE.TubeGeometry(new THREE.CatmullRomCurve3(cablePts),60,0.022,10,false),cableMat);cable.castShadow=true;scene.add(cable);
+cable.userData={title:'Cable de par trenzado',info:'Su resistencia de ida y vuelta se come parte del presupuesto de tensión del lazo. No falsea la medida, pero puede impedir que la corriente llegue a 20,5 mA.'};
+addHoverLabel(cable,'Cable del lazo',ACC,new THREE.Vector3(1.7,2.35,0.2),1.9);
+const cable2=new THREE.Mesh(new THREE.TubeGeometry(new THREE.CatmullRomCurve3([cabW(new THREE.Vector3(0.20,railY+0.12,zP+0.20)),new THREE.Vector3(2.62,0.95,0.55),new THREE.Vector3(2.45,0.62,0.74),new THREE.Vector3(2.38,0.60,0.78)]),30,0.016,8,false),cableMat);scene.add(cable2);
 // --- grupo de bombeo ---
 const pumpG=new THREE.Group();pumpG.position.set(1.75,0.5,1.15);scene.add(pumpG);
 /* EL GRUPO DE BOMBEO. El motor gana su silueta —aletas, tapa del ventilador,
@@ -1336,13 +1358,11 @@ const pumpBase=roundedBox(0.80,0.06,0.34,MAT.plate,0.02);pumpBase.position.set(0
 Object.assign(motor.userData,{title:'Grupo de bombeo',info:'El contactor lo arranca y lo para. Cada arranque calienta el motor: por eso el número de arranques por hora es un límite de diseño, no un capricho.'});
 addHoverLabel(motor,'Bomba',VIO,new THREE.Vector3(1.75,1.15,1.15),1.5);
 
-// --- LEDs de estado ---
-function makeLED(x,z,color){const m=new THREE.Mesh(new THREE.SphereGeometry(0.042,16,16),std(color,0.4,0.1));
-  m.position.set(x,0.53,z);m.material.emissive=new THREE.Color(color);m.material.emissiveIntensity=0.15;scene.add(m);return m;}
-const ledOk=makeLED(3.55,0.62,0x7CD992);
-const ledWarn=makeLED(3.55,0.42,0xE9C46A);
-const ledBad=makeLED(3.55,0.22,0xff6b6b);
-const ledPump=makeLED(1.75,0.53,1.52);
+// --- pilotos de estado: los del cuadro (lentes con material propio)
+const ledOk=pilotos.userData.items[0].lente;
+const ledWarn=pilotos.userData.items[1].lente;
+const ledBad=pilotos.userData.items[2].lente;
+const ledPump=pilotos.userData.items[3].lente;
 
 // --- fotogramas DERIVADOS de una corrida medida (nunca escritos a mano) ---
 function framesFromTank(sc,cfg){
@@ -1444,6 +1464,7 @@ function updateHW(){
   ledPump.material.emissiveIntensity=fr.pump?1.5:0.10;
   // eje de la bomba girando cuando está en marcha
   if(fr.pump)motor.rotation.x+=0.35;
+  txG.userData.ponLCD(n2(fr.i)+' mA',n1(pctOf(fr.i))+' %');
   drawPanel3D(fr,curLp());
 }
 
@@ -1495,9 +1516,9 @@ function showToast(html){const t=el('toast');t.innerHTML=html;t.classList.add('s
 
 // ===================== 10. MODOS Y CONTROLES =====================
 const MODE_META={
-  explora:{nombre:'Explora',cam:[[5.2,3.1,7.4],[0.6,1.05,0.4]],mision:'Recorre la variable de proceso y comprueba qué corriente sale, qué tensión se lee y cómo clasifica la NE 43 cada valor.'},
-  aplica:{nombre:'Aplica',cam:[[5.0,3.0,7.2],[0.7,1.00,0.5]],mision:'Tres estudios: errores de calibración, presupuesto de tensión del lazo y banda muerta del control on/off.'},
-  reto:{nombre:'Reto',cam:[[5.1,2.9,7.3],[0.7,1.00,0.5]],mision:'Elige rango, calibre y banda muerta. Los tres se califican por separado sobre el motor verificado.'},
+  explora:{nombre:'Explora',cam:[[4.5,3.2,5.6],[1.7,1.2,0.35]],mision:'Recorre la variable de proceso y comprueba qué corriente sale, qué tensión se lee y cómo clasifica la NE 43 cada valor.'},
+  aplica:{nombre:'Aplica',cam:[[4.4,3.1,5.5],[1.7,1.2,0.35]],mision:'Tres estudios: errores de calibración, presupuesto de tensión del lazo y banda muerta del control on/off.'},
+  reto:{nombre:'Reto',cam:[[4.5,3.0,5.6],[1.7,1.2,0.35]],mision:'Elige rango, calibre y banda muerta. Los tres se califican por separado sobre el motor verificado.'},
 };
 function lbl(t){return `<span class="lbl">${t}</span>`;}
 function optBtns(key,opts,cur){return opts.map(([v,t])=>`<button class="b sm ${String(cur)===String(v)?'on':''}" data-${key}="${v}">${t}</button>`).join('');}

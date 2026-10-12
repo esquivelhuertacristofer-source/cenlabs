@@ -25,7 +25,7 @@
 
 // ===================== 1. ESCENA =====================
 const mount=document.getElementById('stage');
-const S=createStage(mount,{cam:[5.4,3.2,7.6],target:[0.7,1.05,0.3],bgTop:'#0d1017',bgBot:'#05060a',bloom:0.46,minD:3.2,maxD:16});
+const S=createStage(mount,{cam:[4.6,3.6,6.0],target:[1.7,1.25,0.15],bgTop:'#0d1017',bgBot:'#05060a',bloom:0.46,minD:3.2,maxD:16});
 const {scene}=S;
 const synth=makeSynth({type:'square',type2:'sine',filterFreq:2400,Q:0.7});
 const el=id=>document.getElementById(id);
@@ -769,52 +769,66 @@ function boardClick(){
 }
 
 // ===================== 7. ESCENA 3D =====================
-const benchG=new THREE.Group();benchG.position.set(1.15,0,0.35);scene.add(benchG);
-const bench=roundedBox(3.3,0.12,1.6,MAT.bench,0.03);bench.position.set(0,0.72,0);benchG.add(bench);
-[[-1.5,-0.65],[1.5,-0.65],[-1.5,0.65],[1.5,0.65]].forEach(p=>{
+const benchG=new THREE.Group();benchG.position.set(1.45,0,0.35);scene.add(benchG);
+const bench=roundedBox(3.9,0.12,1.4,MAT.bench,0.03);bench.position.set(0.30,0.72,-0.10);benchG.add(bench);
+[[-1.55,-0.68],[2.15,-0.68],[-1.55,0.46],[2.15,0.46]].forEach(p=>{
   const lg=new THREE.Mesh(new THREE.CylinderGeometry(0.05,0.05,0.66,12),MAT.leg);
   lg.position.set(p[0],0.33,p[1]);benchG.add(lg);
 });
 
-// --- placa del microcontrolador
-const mcuG=new THREE.Group();mcuG.position.set(-1.15,0.78,0.16);benchG.add(mcuG);
-const mcuPcb=roundedBox(0.72,0.035,0.5,MAT.pcb,0.02);mcuG.add(mcuPcb);
-const mcuChip=roundedBox(0.22,0.05,0.22,MAT.dark,0.01);mcuChip.position.set(-0.08,0.04,0);mcuG.add(mcuChip);
-const gateMat=emis(ACC);
-const gateLed=new THREE.Mesh(new THREE.CylinderGeometry(0.035,0.035,0.03,14),gateMat);
-gateLed.position.set(0.22,0.04,0.14);mcuG.add(gateLed);
-const timLed=new THREE.Mesh(new THREE.CylinderGeometry(0.028,0.028,0.03,14),emis(VIO));
-timLed.position.set(0.22,0.04,-0.10);mcuG.add(timLed);
-mcuPcb.userData={title:'Microcontrolador',info:'El temporizador cuenta a 16 MHz. Prescaler y TOP fijan a la vez la frecuencia del PWM y el número de códigos de duty.'};
-addHoverLabel(mcuPcb,'MCU · temporizador',ACC,new THREE.Vector3(-1.15,1.35,0.16).add(benchG.position),1.5);
-
-// --- driver de puerta
-const drvG=new THREE.Group();drvG.position.set(-0.42,0.78,0.12);benchG.add(drvG);
-const drvBox=roundedBox(0.34,0.24,0.34,MAT.body,0.02);drvBox.position.set(0,0.12,0);drvG.add(drvBox);
-const drvLed=new THREE.Mesh(new THREE.CylinderGeometry(0.03,0.03,0.02,14),emis(WARN_HEX));
-drvLed.rotation.x=Math.PI/2;drvLed.position.set(0,0.18,0.18);drvG.add(drvLed);
-drvBox.userData={title:'Driver de puerta',info:'Traduce la señal lógica a la puerta de los MOSFET e inserta el tiempo muerto. Su velocidad de conmutación pone un techo de frecuencia que el temporizador no conoce.'};
-addHoverLabel(drvBox,'Driver · tiempo muerto',WARN_HEX,new THREE.Vector3(-0.42,1.25,0.12).add(benchG.position),1.8);
-
-// --- puente en H
-const brG=new THREE.Group();brG.position.set(0.28,0.78,0.05);benchG.add(brG);
-const brPcb=roundedBox(0.86,0.035,0.62,MAT.pcb,0.02);brG.add(brPcb);
-const qMats=[emis(OK_HEX),emis(OK_HEX),emis(OK_HEX),emis(OK_HEX)];
-const Q_POS=[[-0.26,0.18],[-0.26,-0.18],[0.26,0.18],[0.26,-0.18]];  // HA, LA, HB, LB
 /* Los nombres con los que trabaja la biblioteca de piezas (`P3`, que el molde ya
    importa), traducidos una vez a los materiales de este laboratorio. */
 const MATP={
-  aluminio:MAT.plate, acero:MAT.shiny, cromo:MAT.shiny, chapa:MAT.plate,
+  aluminio:MAT.plate, acero:MAT.steel, cromo:MAT.steel, chapa:MAT.plate,
   cobre:MAT.copper, negro:MAT.dark,
   goma:std(0x14181e,0.8,0.02), blanco:std(0xd7dee6,0.4,0.2),
   ceramica:std(0xd7dee6,0.6,0.05),
 };
+const BY=0.78;                                  // cara del tablero
+// un hilo con su aislante, por una lista de puntos en coordenadas del banco
+function hilo3(pts,col,r){
+  const m=new THREE.Mesh(new THREE.TubeGeometry(new THREE.CatmullRomCurve3(pts.map(p=>new THREE.Vector3(p[0],p[1],p[2]))),28,r||0.014,8,false),std(col,0.5,0.1));
+  m.castShadow=true;benchG.add(m);return m;
+}
+// un rótulo de serigrafía sobre una placa (plano, mira a +Y)
+function serigrafia(txt,w,h,x,y,z,col){
+  const cv=document.createElement('canvas');cv.width=512;cv.height=Math.max(32,Math.round(512*h/w));const c=cv.getContext('2d');
+  c.fillStyle=col||'rgba(236,242,246,0.92)';c.textAlign='center';c.textBaseline='middle';c.font='bold '+Math.round(cv.height*0.55)+'px sans-serif';c.fillText(txt,cv.width/2,cv.height/2);
+  const t=new THREE.CanvasTexture(cv);t.colorSpace=THREE.SRGBColorSpace;t.anisotropy=8;
+  const m=new THREE.Mesh(new THREE.PlaneGeometry(w,h),new THREE.MeshStandardMaterial({map:t,transparent:true,roughness:0.6,depthWrite:false,polygonOffset:true,polygonOffsetFactor:-2,polygonOffsetUnits:-2}));
+  m.rotation.x=-Math.PI/2;m.position.set(x,y,z);m.renderOrder=2;return m;
+}
+
+// --- placa del microcontrolador (tipo UNO, ATmega328P): el LED L (pin 13) hace de «puerta» y el TX marca el temporizador
+const mcuG=new THREE.Group();mcuG.position.set(-1.02,BY,0.18);benchG.add(mcuG);
+const mcu=P3.placaMicro(MATP,{});mcu.scale.setScalar(0.38);mcuG.add(mcu);
+const gateMat=mcu.userData.led13.material;
+const timLed=mcu.userData.ledTx;
+const mcuPcb=mcu;
+Object.assign(mcu.userData,{title:'Microcontrolador',info:'El temporizador cuenta a 16 MHz. Prescaler y TOP fijan a la vez la frecuencia del PWM y el número de códigos de duty.'});
+addHoverLabel(mcuPcb,'MCU · temporizador',ACC,new THREE.Vector3(-1.02,1.35,0.18).add(benchG.position),1.5);
+
+// --- driver de puerta: módulo con su integrado de medio puente (IR2104), su condensador de arranque y el LED de tiempo muerto
+const drvG=new THREE.Group();drvG.position.set(-0.30,BY,0.14);benchG.add(drvG);
+const drvBox=P3.placa(MATP,{ancho:0.52,fondo:0.40,espesor:0.035,verde:std(0x7a1f1f,0.55,0.15)});drvBox.position.y=0.0175;drvG.add(drvBox);
+const drvIc=P3.dipRotulado(MATP,{pines:8,rotulo:'IR2104',rotulo2:'DRIVER',alto:0.10,patas:0.04});drvIc.scale.setScalar(0.85);drvIc.position.set(-0.04,0.035,0.0);drvG.add(drvIc);
+const drvCap=P3.electrolitico(MATP,{d:0.20,alto:0.30,paso:0.1,valor:'10µF',volt:'25V'});drvCap.scale.setScalar(0.5);drvCap.position.set(0.17,0.035,-0.10);drvG.add(drvCap);
+const drvLedP=P3.ledPanel(MATP,{color:0xE9C46A,apagado:0x4a3a1a,r:0.035});drvLedP.position.set(0.17,0.035,0.12);drvG.add(drvLedP);
+const drvLed=drvLedP.userData.lente;
+drvG.add(serigrafia('DRIVER · DEAD TIME',0.46,0.045,0,0.036,0.165));
+drvBox.userData={title:'Driver de puerta',info:'Traduce la señal lógica a la puerta de los MOSFET e inserta el tiempo muerto. Su velocidad de conmutación pone un techo de frecuencia que el temporizador no conoce.'};
+addHoverLabel(drvBox,'Driver · tiempo muerto',WARN_HEX,new THREE.Vector3(-0.30,1.25,0.14).add(benchG.position),1.8);
+
+// --- puente en H: placa de potencia con cuatro MOSFET en TO-220, diodo de rueda libre, shunt, condensador y bornes
+const brG=new THREE.Group();brG.position.set(0.42,BY,0.05);benchG.add(brG);
+const brPcb=P3.placa(MATP,{ancho:0.90,fondo:0.64,espesor:0.035,verde:std(0x14352a,0.6,0.15)});brPcb.position.y=0.0175;brG.add(brPcb);
+const qMats=[emis(OK_HEX),emis(OK_HEX),emis(OK_HEX),emis(OK_HEX)];
+const Q_POS=[[-0.26,0.18],[-0.26,-0.18],[0.26,0.18],[0.26,-0.18]];  // HA, LA, HB, LB
 /* LOS CUATRO MOSFET, en TO-220 de verdad: cuerpo de plastico, ALETA con su
    agujero —la aleta es por donde sale el calor, y es la que se enciende aqui
-   cuando el transistor conduce— y las tres patas metidas en la placa. Cajitas
-   con una pegatina encima no dejaban ver ni por donde se atornillan. */
+   cuando el transistor conduce— y las tres patas metidas en la placa. */
 const qMesh=Q_POS.map((p,i)=>{
-  const g=new THREE.Group();g.position.set(p[0],0.0175,p[1]);brG.add(g);
+  const g=new THREE.Group();g.position.set(p[0],0.035,p[1]);brG.add(g);
   const to=P3.to220(MATP,{ancho:0.15,alto:0.20,fondo:0.05,patas:0.05,paso:0.042,
     cuerpo:MAT.dark.color.getHex()});
   to.userData.aleta.material=qMats[i];
@@ -828,14 +842,34 @@ const diodeMat=emis(BAD_HEX);
 const diode=P3.diodoAxial(MATP,{largo:0.16,d:0.066,patas:0.05,paso:0.24,
   cuerpo:0x14181c,banda:0xe8e8e8,catodo:1});
 diode.userData.cuerpo.material=diodeMat;
-diode.position.set(0,0.0175,0);brG.add(diode);
-const shunt=roundedBox(0.16,0.05,0.07,MAT.copper,0.01);shunt.position.set(0,0.05,-0.26);brG.add(shunt);
+diode.position.set(0,0.035,0);brG.add(diode);
+const shunt=P3.resistenciaCemento(MATP,{largo:0.20,alto:0.09,ancho:0.09,paso:0.30,rotulo:'0,1 Ω'});shunt.position.set(0,0.035,-0.26);shunt.scale.setScalar(0.8);brG.add(shunt);
+const cBus=P3.electrolitico(MATP,{d:0.26,alto:0.40,paso:0.1,valor:'470µF',volt:'35V',manga:0x1b3358});cBus.scale.setScalar(0.62);cBus.position.set(-0.33,0.035,-0.02);brG.add(cBus);
+const bornIn=P3.bornera(MATP,{vias:2,paso:0.13,alto:0.11,fondo:0.12,cuerpo:0x1c5fa8});bornIn.position.set(-0.41,0.035,-0.24);bornIn.rotation.y=Math.PI/2;brG.add(bornIn);
+const bornOut=P3.bornera(MATP,{vias:2,paso:0.13,alto:0.11,fondo:0.12,cuerpo:0x1c5fa8});bornOut.position.set(0.42,0.035,0.0);bornOut.rotation.y=Math.PI/2;brG.add(bornOut);
+brG.add(serigrafia('PUENTE EN H · 4×MOSFET',0.62,0.05,0.04,0.037,0.29));
+brG.add(serigrafia('VCC',0.12,0.035,-0.37,0.037,-0.32));brG.add(serigrafia('MOTOR',0.16,0.035,0.38,0.037,-0.12));
 brPcb.userData={title:'Puente de potencia',info:'Cuatro MOSFET en dos ramas. Se encienden en diagonal para dar tensión al motor y, en el tramo apagado, la corriente recircula por el diodo o por el transistor de abajo.'};
-addHoverLabel(brPcb,'Puente en H',OK_HEX,new THREE.Vector3(0.28,1.30,0.05).add(benchG.position),1.4);
+addHoverLabel(brPcb,'Puente en H',OK_HEX,new THREE.Vector3(0.42,1.30,0.05).add(benchG.position),1.4);
 diode.userData={title:'Diodo de rueda libre',info:'Cierra el camino de la corriente cuando el transistor se apaga. Cuesta V_f = 0,70 V: por eso la rectificación síncrona sube un poco la recta.'};
 
+// --- fuente de banco (detrás del puente): su pantalla muestra Vcc y la corriente media
+const psu=P3.instrumentoConPantalla(MATP,{ancho:0.90,alto:0.50,fondo:0.36,mandos:2,bornas:[0xd64545,0x14181e]});
+psu.position.set(1.15,BY+0.525+psu.userData.apoyo,-0.62);benchG.add(psu);
+const psuCv=psu.userData.cv,psuCx=psu.userData.cx,psuTex=psu.userData.tex;
+function drawPsu(vcc,i){
+  const w=psuCv.width,h=psuCv.height;
+  psuCx.fillStyle='#07120d';psuCx.fillRect(0,0,w,h);
+  psuCx.fillStyle='#7CD992';psuCx.textAlign='left';psuCx.textBaseline='middle';
+  psuCx.font='bold '+Math.round(h*0.42)+'px monospace';psuCx.fillText(n1(vcc)+' V',w*0.06,h*0.30);
+  psuCx.fillStyle='#E9C46A';psuCx.fillText(n2(i)+' A',w*0.06,h*0.74);
+  psuTex.needsUpdate=true;
+}
+Object.assign(psu.userData,{title:'Fuente de banco',info:'Alimenta el puente: su tensión es la Vcc del escenario y su pantalla muestra la corriente media que toma el motor.'});
+addHoverLabel(psu,'Fuente de banco',OK_HEX,new THREE.Vector3(1.15,2.05,-0.62).add(benchG.position),1.4);
+
 // --- motor y carga
-const mtG=new THREE.Group();mtG.position.set(1.30,0.78,0.0);benchG.add(mtG);
+const mtG=new THREE.Group();mtG.position.set(1.50,BY,0.0);benchG.add(mtG);
 /* EL MOTOR, con la silueta por la que se reconoce: ALETAS —la superficie por la
    que evacua lo que no convierte en par; en PWM ese calor incluye el de la
    conmutacion—, TAPA DEL VENTILADOR con el ventilador calado al eje (a media
@@ -843,36 +877,52 @@ const mtG=new THREE.Group();mtG.position.set(1.30,0.78,0.0);benchG.add(mtG);
    duty), PATAS y CAJA DE BORNES. */
 const mtBody=P3.maquinaElectrica(MATP,{d:0.52,largo:0.62,eje:0.32,aletas:14});
 mtBody.position.set(0,0.34,0);mtG.add(mtBody);
+// el encoder óptico: el disco ranurado va calado en la punta del eje y la horquilla queda fija
 const shaftG=new THREE.Group();shaftG.position.set(0.31,0.34,0);mtG.add(shaftG);
-const disc=new THREE.Mesh(new THREE.CylinderGeometry(0.20,0.20,0.045,28),MAT.plate);
-disc.rotation.z=Math.PI/2;disc.position.set(0.36,0,0);shaftG.add(disc);
+const enc=P3.encoderOptico(MATP,{d:0.40,ranuras:24});enc.position.set(0.31+0.36,0.34,0);mtG.add(enc);
+const disc=enc.userData.disco;enc.remove(disc);disc.position.set(0.36,0,0);shaftG.add(disc);
 const markMat=emis(WARN_HEX);markMat.emissiveIntensity=0.9;
 const mark=new THREE.Mesh(new THREE.BoxGeometry(0.03,0.15,0.05),markMat);
 mark.position.set(0.385,0.10,0);shaftG.add(mark);
 Object.assign(mtBody.userData,{title:'Motor de imán permanente',info:'La velocidad sigue a la tensión MEDIA, no al valor instantáneo: la inductancia del inducido alisa la corriente entre pulso y pulso.'});
-addHoverLabel(mtBody,'Motor de CD',VIO,new THREE.Vector3(1.30,1.35,0).add(benchG.position),1.4);
+addHoverLabel(mtBody,'Motor de CD',VIO,new THREE.Vector3(1.50,1.35,0).add(benchG.position),1.4);
 mark.userData={title:'Marca del eje',info:'Gira a la velocidad que da el punto de trabajo. En la zona muerta se queda quieta aunque el duty ya no sea cero.'};
+enc.userData.title='Encoder óptico';enc.userData.info='Disco ranurado y horquilla óptica: cuenta las ranuras para medir la velocidad real del eje.';
 
 // --- carga
-const loadG=new THREE.Group();loadG.position.set(1.30,0.78,-0.52);benchG.add(loadG);
+const loadG=new THREE.Group();loadG.position.set(1.50,BY,-0.52);benchG.add(loadG);
 const loadBase=roundedBox(0.5,0.08,0.34,MAT.frame,0.02);loadBase.position.set(0,0.04,0);loadG.add(loadBase);
 const drum=new THREE.Mesh(new THREE.CylinderGeometry(0.15,0.15,0.30,24),MAT.body);
 drum.rotation.z=Math.PI/2;drum.position.set(0,0.26,0);loadG.add(drum);
 loadBase.userData={title:'Carga mecánica',info:'Fricción seca, fricción viscosa y par de carga. La fricción seca es la que crea la zona muerta del duty.'};
 
-// --- panel de instrumentos (molde S+P)
-const panelG=new THREE.Group();panelG.position.set(3.05,0.5,0.05);panelG.rotation.y=-0.24;scene.add(panelG);
-const panelBox=roundedBox(1.50,1.00,0.14,MAT.body,0.04);panelBox.position.set(0,0.62,0);panelG.add(panelBox);
+// --- estante trasero: sostiene la fuente y el osciloscopio por encima del montaje
+const estante=roundedBox(3.3,0.05,0.70,MAT.frame,0.02);estante.position.set(0.30,BY+0.50,-0.62);benchG.add(estante);
+[-1.30,1.90].forEach(x=>{const po=new THREE.Mesh(new THREE.CylinderGeometry(0.035,0.04,0.50,10),MAT.leg);po.position.set(x,BY+0.25,-0.62);benchG.add(po);});
+// --- instrumentos: osciloscopio de banco sobre el estante (la pantalla enseña el canvas de siempre)
+const scope=P3.osciloscopioBanco(MATP,{ancho:1.5,alto:0.96,fondo:0.62,visor:[0.96,0.64],pantallaX:-0.20,pantallaY:0.12,
+  mandos:[{id:'v',x:0.50,y:0.22,r:0.085,rotulo:'V/DIV'},{id:'t',x:0.50,y:-0.06,r:0.085,rotulo:'T/DIV'}],
+  bnc:[{x:0.38,color:0xe9c46a,id:'c1'},{x:0.62,color:0x7cd992,id:'c2'}]});
+scope.position.set(-0.50,BY+0.525+scope.userData.apoyo,-0.62);benchG.add(scope);
 const pCv=document.createElement('canvas');pCv.width=600;pCv.height=400;
-const pTex=new THREE.CanvasTexture(pCv);
-const panelFace=new THREE.Mesh(new THREE.PlaneGeometry(1.40,0.92),new THREE.MeshBasicMaterial({map:pTex}));
-panelFace.position.set(0,0.62,0.075);panelG.add(panelFace);
-[-0.62,0.62].forEach(x=>{const scr=new THREE.Mesh(new THREE.CylinderGeometry(0.02,0.02,0.03,10),MAT.shiny);
-  scr.rotation.x=Math.PI/2;scr.position.set(x,0.62,0.075);panelG.add(scr);});
-[-0.30,0.30].forEach(x=>{const lg=new THREE.Mesh(new THREE.CylinderGeometry(0.035,0.04,0.62,12),MAT.leg);
-  lg.position.set(x,-0.19,0);panelG.add(lg);});
-panelBox.userData={title:'Osciloscopio y tacómetro',info:'Muestra la onda del nodo del motor en un periodo y el punto de trabajo que sale de ella: tensión media, corriente, rizado y velocidad.'};
-addHoverLabel(panelBox,'Instrumentos',ACC,new THREE.Vector3(0,1.5,0.1).add(panelG.position),1.6);
+const pTex=new THREE.CanvasTexture(pCv);pTex.colorSpace=THREE.SRGBColorSpace;pTex.anisotropy=8;
+const panelFace=new THREE.Mesh(new THREE.PlaneGeometry(0.96,0.64),new THREE.MeshBasicMaterial({map:pTex}));
+scope.userData.pantalla.add(panelFace);
+const panelBox=scope;
+Object.assign(scope.userData,{title:'Osciloscopio y tacómetro',info:'Muestra la onda del nodo del motor en un periodo y el punto de trabajo que sale de ella: tensión media, corriente, rizado y velocidad.'});
+addHoverLabel(panelBox,'Instrumentos',ACC,new THREE.Vector3(-0.50,2.55,-0.62).add(benchG.position),1.6);
+
+// --- cableado: fuente → puente, MCU → driver → puente, puente → motor
+const pPsu=(j)=>psu.userData.bocas[j].clone().add(psu.position);
+hilo3([[pPsu(0).x,pPsu(0).y,pPsu(0).z],[pPsu(0).x-0.10,BY+0.62,-0.25],[0.10,BY+0.30,-0.28],[0.0,BY+0.12,-0.19]],0xd64545,0.020);
+hilo3([[pPsu(1).x,pPsu(1).y,pPsu(1).z],[pPsu(1).x-0.15,BY+0.55,-0.20],[0.12,BY+0.24,-0.30],[0.0,BY+0.12,-0.25]],0x2a2e34,0.020);
+const dpin=(i)=>{const p=mcu.userData.pin(i).clone().multiplyScalar(0.38).add(mcuG.position);return [p.x,p.y,p.z];};
+hilo3([dpin(9),[-0.70,BY+0.36,-0.02],[-0.52,BY+0.22,0.06],[-0.44,BY+0.11,0.10]],0xe9c46a,0.012);
+hilo3([dpin(10),[-0.68,BY+0.32,-0.05],[-0.52,BY+0.18,0.10],[-0.44,BY+0.11,0.14]],0x7cd992,0.012);
+hilo3([[-0.16,BY+0.08,0.05],[-0.02,BY+0.26,0.10],[0.10,BY+0.24,0.10],[0.16,BY+0.12,0.23]],0xe9c46a,0.012);
+hilo3([[-0.16,BY+0.08,0.20],[-0.02,BY+0.26,0.26],[0.12,BY+0.30,0.30],[0.16,BY+0.12,0.23]],0x7cd992,0.012);
+hilo3([[0.84,BY+0.11,0.05],[1.05,BY+0.48,0.15],[1.28,BY+0.78,0.02],[1.50,BY+0.74,0.0]],0x2f6fb5,0.020);
+hilo3([[0.84,BY+0.11,0.09],[1.08,BY+0.44,0.25],[1.32,BY+0.74,0.06],[1.52,BY+0.74,0.0]],0xb03a2e,0.020);
 
 // ===================== 8. FOTOGRAMAS, PANEL 3D Y HUD =====================
 function conduct(sc,m,ph){
@@ -988,6 +1038,7 @@ function updateHW(){
   mtBody.userData.gira(shaftAng);   // el eje y el ventilador, calados juntos
   drum.rotation.x=shaftAng*0.4;
   markMat.emissiveIntensity=Math.abs(fr.rpm)<0.5?0.15:0.9;
+  drawPsu(sc.vcc,fr.i);
   drawPanel3D(fr);
 }
 
@@ -1038,11 +1089,11 @@ function showToast(html){const t=el('toast');t.innerHTML=html;t.classList.add('s
 
 // ===================== 11. MODOS Y CONTROLES =====================
 const MODE_META={
-  explora:{nombre:'Explora',cam:[[5.4,3.2,7.6],[0.7,1.05,0.3]],
+  explora:{nombre:'Explora',cam:[[4.2,3.4,5.4],[1.7,1.15,0.15]],
     mision:'Mueve el duty y el temporizador y mira qué pasa a la vez con la onda, la velocidad y el rizado.'},
-  aplica:{nombre:'Aplica',cam:[[4.4,3.0,6.6],[0.9,1.10,0.2]],
+  aplica:{nombre:'Aplica',cam:[[3.9,3.3,5.1],[1.7,1.15,0.15]],
     mision:'Tres estudios: la recta V(D) de los cuatro modos, el rizado frente a la frecuencia y lo que se lleva el tiempo muerto.'},
-  reto:{nombre:'Reto',cam:[[5.0,3.0,7.2],[0.6,1.05,0.3]],
+  reto:{nombre:'Reto',cam:[[4.2,3.3,5.3],[1.7,1.15,0.15]],
     mision:'Elige temporizador, tiempo muerto y modo de recirculación para esta máquina. Las tres decisiones se califican por separado.'},
 };
 function lbl(t){return `<span class="lbl">${t}</span>`;}

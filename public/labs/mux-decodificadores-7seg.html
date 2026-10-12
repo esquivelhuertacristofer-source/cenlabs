@@ -448,7 +448,7 @@ function makeSynth(opts={}){
 
 // ===================== 1. ESCENA =====================
 const mount=document.getElementById('stage');
-const S=createStage(mount,{cam:[4.8,2.9,7.0],target:[0.4,1.05,0.3],bgTop:'#0d1017',bgBot:'#05060a',bloom:0.44,minD:3.2,maxD:16});
+const S=createStage(mount,{cam:[4.2,3.3,5.4],target:[0.9,0.65,0.8],bgTop:'#0d1017',bgBot:'#05060a',bloom:0.44,minD:3.2,maxD:16});
 const {scene}=S;
 const synth=makeSynth({type:'square',type2:'sine',filterFreq:2400,Q:0.7});
 const el=id=>document.getElementById(id);
@@ -919,77 +919,94 @@ function boardClick(){
 }
 
 // ===================== 7. ESCENA 3D: ENTRENADOR =====================
-const bench=roundedBox(3.7,0.5,1.8,MAT.bench,0.05);bench.position.set(1.9,0.25,0.55);scene.add(bench);
-bench.userData={title:'Banco de bloques combinacionales',info:'Conduce el dispositivo activo: entradas → circuito → salida.'};
-const pcb=roundedBox(2.4,0.08,1.2,MAT.pcb,0.03);pcb.position.set(1.95,0.54,0.5);scene.add(pcb);
-pcb.userData={title:'Tarjeta del dispositivo',info:'Recorre las entradas y enciende salidas/segmentos según el bloque activo.'};
-addHoverLabel(pcb,'Entrenador digital',ACC,new THREE.Vector3(1.95,1.35,0.5),1.4);
-// chip / carátula
-const chip=roundedBox(0.56,0.14,0.5,MAT.chip,0.02);chip.position.set(1.35,0.63,0.55);scene.add(chip);
-const chCv=document.createElement('canvas');chCv.width=180;chCv.height=180;const chTex=new THREE.CanvasTexture(chCv);
-const chFace=new THREE.Mesh(new THREE.PlaneGeometry(0.5,0.5),new THREE.MeshBasicMaterial({map:chTex,transparent:true}));
-chFace.rotation.x=-Math.PI/2;chFace.position.set(1.35,0.705,0.55);scene.add(chFace);
-chip.userData={title:'Bloque combinacional',info:'MUX, decodificador o decodificador BCD→7 segmentos.'};
-// display 7 segmentos en 3D
-const segGroup=new THREE.Group();segGroup.position.set(2.75,1.02,0.5);scene.add(segGroup);
-const segMeshes=[];
-const L=0.24,T=0.05,Dz=0.04, yTop=L/2+T/2, xR=L/2+T/2, xL=-(L/2+T/2);
-function addSeg(w,h,x,y,col){const m=new THREE.Mesh(new THREE.BoxGeometry(w,h,Dz),std(0x242a31,0.5,0.1));m.position.set(x,y,0);m.material.emissive=new THREE.Color(col);m.material.emissiveIntensity=0;segGroup.add(m);segMeshes.push(m);return m;}
-addSeg(L,T,0,yTop,0x7CD992);          // a
-addSeg(T,L,xR,yTop/2,0x7CD992);       // b
-addSeg(T,L,xR,-yTop/2,0x7CD992);      // c
-addSeg(L,T,0,-yTop,0x7CD992);         // d
-addSeg(T,L,xL,-yTop/2,0x7CD992);      // e
-addSeg(T,L,xL,yTop/2,0x7CD992);       // f
-addSeg(L,T,0,0,0x7CD992);             // g
-segGroup.userData={title:'Display de 7 segmentos',info:'Enciende el patrón a-g del valor mostrado.'};
-addHoverLabel(segGroup.children[0],'7 segmentos',OK_HEX,new THREE.Vector3(2.75,1.5,0.5),1.0);
-// LEDs de salida (one-hot / datos) + LED Y del MUX
-function makeLED(x,z,color){const m=new THREE.Mesh(new THREE.SphereGeometry(0.045,16,16),std(color,0.4,0.1));m.position.set(x,0.62,z);m.material.emissive=new THREE.Color(color);m.material.emissiveIntensity=0.15;scene.add(m);return m;}
-const outLEDs=[];for(let i=0;i<8;i++)outLEDs.push(makeLED(1.85+i*0.15,0.86,0x8AB4F8));
-const yLED=makeLED(3.15,0.2,0x7CD992);yLED.scale.set(1.35,1.35,1.35);yLED.position.z=0.5;
+// Entrenador lógico de banco (biblioteca de piezas §19): protoboard con 74HC151 (MUX 8:1), 74HC138 (decodificador 3→8)
+// y 7447 (BCD→7 segmentos), LEDs de salida, interruptores de selección, display de 7 segmentos real y pantalla.
+const MATP={aluminio:std(0xb6bdc4,0.42,0.7),acero:std(0x8f979f,0.38,0.85),cromo:std(0xc4cad0,0.3,0.9),cobre:std(0xb87333,0.4,0.8),
+  negro:std(0x14181e,0.62,0.06),goma:std(0x14181e,0.85,0.02),blanco:std(0xd7dee6,0.4,0.2),ceramica:std(0xd7dee6,0.6,0.05),hierro:std(0x4a4f55,0.55,0.7),chapa:std(0x9aa2aa,0.5,0.6)};
+const TR=P3.entrenadorLogico(MATP,{cols:30,nLed:9,nSw:4,nDisp:1,pantalla:{ancho:1.35,alto:1.0},dispAlto:0.74,
+  ledColores:[0x8AB4F8,0x8AB4F8,0x8AB4F8,0x8AB4F8,0x8AB4F8,0x8AB4F8,0x8AB4F8,0x8AB4F8,0x7CD992],
+  ledRotulos:['0','1','2','3','4','5','6','7','Y'],swRotulos:['S0','S1','S2','EN/D3'],
+  rotulo:'ENTRENADOR COMBINACIONAL',serie:'74HC151 · 138 · 47',pantallaRotulo:'DISPOSITIVO',dispColor:0x7CD992});
+TR.scale.setScalar(0.80);TR.position.set(1.0,0,0.9);scene.add(TR);
+const TU=TR.userData;
+TR.userData=Object.assign(TU,{title:'Banco de bloques combinacionales',info:'Conduce el dispositivo activo: entradas → circuito → salida.'});
+{ // 74HC151 (MUX 8:1), 74HC138 (decodificador 3→8) y 7447 (BCD→7 seg) con su alimentación, selección, salidas y display
+  const c1=2,c2=11,c3=20,rl=TU.prot.userData.riel;
+  TU.dip(c1,{pines:16,rotulo:'74HC151',rotulo2:'MUX 8:1'});
+  TU.dip(c2,{pines:16,rotulo:'74HC138',rotulo2:'DEC 3→8'});
+  TU.dip(c3,{pines:16,rotulo:'7447',rotulo2:'BCD→7SEG'});
+  const fr=(c,k)=>c+k-1, bk=(c,k)=>c+16-k;                                       // columna de la pata k (frente k≤8, fondo k≥9)
+  [c1,c2,c3].forEach((c,i)=>{
+    TU.cable([bk(c,16),'j'],rl('+','tras',2+i*8),0xb83232);                       // pata 16 (Vcc)
+    TU.cable([fr(c,8),'a'],rl('-','tras',6+i*8),0x2a2e34);                        // pata 8 (GND)
+  });
+  // 74HC151: datos D0…D3 y D4…D7 a Vcc/GND (la palabra de datos), selección S0…S2 y habilitación desde los interruptores, Y al LED
+  [4,2,15,13].forEach(p=>TU.cable([p>8?bk(c1,p):fr(c1,p),p>8?'h':'b'],rl('+','tras',p>8?3+p%3:3+p%3),0xc9791a));
+  [3,1,14,12].forEach(p=>TU.cable([p>8?bk(c1,p):fr(c1,p),p>8?'g':'c'],rl('-','tras',p>8?9+p%3:9+p%3),0x2a2e34));
+  [11,10,9].forEach((p,k)=>TU.hilo(TU.swJack(k),TU.Hg(bk(c1,p),'j'),[0xc9a227,0xb8921f,0xb87d1f][k],{alto:0.32}));
+  TU.hilo(TU.swJack(3),TU.Hg(fr(c1,7),'a'),0xc9a227,{alto:0.32});                 // /E
+  TU.hilo(TU.Hg(fr(c1,5),'a'),TU.ledJack(8),0x2f8f56,{alto:0.32});                // Y
+  // 74HC138: Y0…Y7 a los ocho LED (pata 15…9 y 7)
+  [15,14,13,12,11,10,9,7].forEach((p,k)=>TU.hilo(TU.Hg(p>8?bk(c2,p):fr(c2,p),p>8?'j':'a'),TU.ledJack(k),0x2f6fc0,{alto:0.32}));
+  [0,1,2].forEach(k=>TU.cable([fr(c2,k+1),'b'],rl('-','tras',13+k),0x2a2e34));    // A, B, C a un nivel fijo
+  TU.cable([fr(c2,6),'b'],rl('+','tras',16),0xb83232);                            // G1 a Vcc
+  // 7447: alimentado y con /LT, /BI, /RBI a Vcc (lámpara en operación normal); sus salidas a…g van al display
+  [3,4,5].forEach(k=>TU.cable([fr(c3,k),'b'],rl('+','tras',17+k),0xb83232));
+}
+// compatibilidad con el resto del lab: los mismos nombres que usaba la placa anterior
+const segMeshes=TU.disp[0].userData.seg;
+const outLEDs=TU.leds.slice(0,8), yLED=TU.leds[8];
+const chCv=document.createElement('canvas');chCv.width=243;chCv.height=180;const chTex=new THREE.CanvasTexture(chCv);
+chTex.colorSpace=THREE.SRGBColorSpace;chTex.anisotropy=8;TU.pantalla.material.map=chTex;TU.pantalla.material.color.setHex(0xffffff);TU.pantalla.material.needsUpdate=true;
+TU.pantalla.userData={title:'Bloque combinacional',info:'MUX, decodificador o decodificador BCD→7 segmentos.'};
+TU.disp[0].userData=Object.assign(TU.disp[0].userData,{title:'Display de 7 segmentos',info:'Enciende el patrón a-g del valor mostrado.'});
+addHoverLabel(TR,'Entrenador digital',ACC,new THREE.Vector3(1.0,2.05,1.0),1.4);
+addHoverLabel(TU.disp[0],'7 segmentos',OK_HEX,TU.disp[0].position.clone().multiplyScalar(0.8).add(TR.position).add(new THREE.Vector3(0,0.5,0)),1.0);
 yLED.userData={title:'Salida Y (MUX)',info:'Refleja Y = D[sel] cuando EN=1.'};
-addHoverLabel(yLED,'Y',OK_HEX,new THREE.Vector3(3.15,0.45,0.5),0.5);
+outLEDs[0].userData={title:'Salidas / datos',info:'Un LED por línea: datos D0…D7 (MUX) o salidas Y0…Y7 (decodificador); el resaltado marca la línea seleccionada.'};
 
 function drawChip3D(dev,step,digit){
-  const c=chCv.getContext('2d');c.clearRect(0,0,180,180);
+  const c=chCv.getContext('2d');c.clearRect(0,0,243,180);
   const acc=dev.kind==='dec'?DEC_HEX:(dev.kind==='seg'?OK_HEX:ACC);
-  c.fillStyle='rgba(20,23,27,0.92)';c.fillRect(0,0,180,180);
-  c.strokeStyle=acc;c.lineWidth=4;c.strokeRect(4,4,172,172);
+  c.fillStyle='rgba(20,23,27,0.92)';c.fillRect(0,0,243,180);
+  c.strokeStyle=acc;c.lineWidth=4;c.strokeRect(4,4,235,172);
   c.fillStyle='#C7D6F5';c.font='bold 15px Outfit, sans-serif';c.textAlign='center';
   if(dev.kind==='mux'){const N=1<<dev.n,y=mux(dev.data,step,dev.en);
-    c.fillText('MUX '+N+':1',90,32);
-    c.font='14px Outfit, sans-serif';c.fillStyle='#9fb0cf';c.fillText('sel='+step.toString(2).padStart(dev.n,'0'),90,64);
-    c.font='bold 40px Outfit, sans-serif';c.fillStyle=y?OK_HEX:'#5a6472';c.fillText('Y='+y,90,120);
-    c.font='13px Outfit, sans-serif';c.fillStyle=dev.en?OK_HEX:BAD_HEX;c.fillText(dev.en?'EN=1':'EN=0',90,152);
+    c.fillText('MUX '+N+':1',122,32);
+    c.font='14px Outfit, sans-serif';c.fillStyle='#9fb0cf';c.fillText('sel='+step.toString(2).padStart(dev.n,'0'),122,64);
+    c.font='bold 40px Outfit, sans-serif';c.fillStyle=y?OK_HEX:'#5a6472';c.fillText('Y='+y,122,120);
+    c.font='13px Outfit, sans-serif';c.fillStyle=dev.en?OK_HEX:BAD_HEX;c.fillText(dev.en?'EN=1':'EN=0',122,152);
   }else if(dev.kind==='dec'){const N=1<<dev.n;
-    c.fillText('DEC '+dev.n+':'+N,90,32);
-    c.font='14px Outfit, sans-serif';c.fillStyle='#9fb0cf';c.fillText('in='+step.toString(2).padStart(dev.n,'0'),90,64);
-    c.font='bold 34px Outfit, sans-serif';c.fillStyle=DEC_HEX;c.fillText('Y'+step,90,116);
-    c.font='13px Outfit, sans-serif';c.fillStyle='#9fb0cf';c.fillText('one-hot',90,150);
+    c.fillText('DEC '+dev.n+':'+N,122,32);
+    c.font='14px Outfit, sans-serif';c.fillStyle='#9fb0cf';c.fillText('in='+step.toString(2).padStart(dev.n,'0'),122,64);
+    c.font='bold 34px Outfit, sans-serif';c.fillStyle=DEC_HEX;c.fillText('Y'+step,122,116);
+    c.font='13px Outfit, sans-serif';c.fillStyle='#9fb0cf';c.fillText('one-hot',122,150);
   }else{
-    c.fillText('BCD→7seg',90,32);
-    c.font='bold 60px Outfit, sans-serif';c.fillStyle=OK_HEX;c.fillText(String(digit),90,120);
-    c.font='13px Outfit, sans-serif';c.fillStyle='#9fb0cf';c.fillText('dígito',90,152);
+    c.fillText('BCD→7seg',122,32);
+    c.font='bold 60px Outfit, sans-serif';c.fillStyle=OK_HEX;c.fillText(String(digit),122,120);
+    c.font='13px Outfit, sans-serif';c.fillStyle='#9fb0cf';c.fillText('dígito',122,152);
   }
   chTex.needsUpdate=true;
 }
 function hwCount(){const dev=curDevice();return dev.kind==='seg'?10:(1<<dev.n);}
 function updateHW(){
   const dev=curDevice();const cnt=hwCount();const step=hwStep%cnt;
-  segMeshes.forEach(m=>{m.material.emissiveIntensity=0.03;m.material.color.setHex(0x242a31);});
+  TU.disp[0].userData.ponSeg(null);
   outLEDs.forEach(l=>{l.visible=false;});yLED.visible=false;
   let digit=0;
-  if(dev.kind==='seg'){digit=step;const on=segOf(digit);segMeshes.forEach((m,i)=>{const s=on[i];m.material.emissiveIntensity=s?1.3:0.03;m.material.color.setHex(s?0x7CD992:0x242a31);});}
+  if(dev.kind==='seg'){digit=step;const on=segOf(digit);TU.disp[0].userData.ponSeg(on,0.8,0x7CD992);}
   else if(dev.kind==='mux'){const N=1<<dev.n,y=mux(dev.data,step,dev.en);digit=step;const on=segOf(digit);
-    segMeshes.forEach((m,i)=>{const s=on[i];m.material.emissiveIntensity=s?0.85:0.03;m.material.color.setHex(s?0x8AB4F8:0x242a31);});
+    TU.disp[0].userData.ponSeg(on,0.7,0x8AB4F8);
     for(let i=0;i<N;i++){const l=outLEDs[i];l.visible=true;const d=dev.data[i]?1:0,selHere=(i===step);
-      l.material.emissiveIntensity=selHere?1.4:(d?0.55:0.12);l.material.color.setHex(selHere?(d?0x7CD992:0xff6b6b):(d?0x3a5a44:0x2a3550));}
-    yLED.visible=true;yLED.material.emissiveIntensity=y?1.5:0.12;yLED.material.color.setHex(y?0x7CD992:0x243026);
+      l.material.emissiveIntensity=selHere?0.95:(d?0.55:0.12);l.material.color.setHex(selHere?(d?0x7CD992:0xff6b6b):(d?0x3a5a44:0x2a3550));}
+    yLED.visible=true;yLED.material.emissiveIntensity=y?0.95:0.12;yLED.material.color.setHex(y?0x7CD992:0x243026);
   }else{const N=1<<dev.n,o=decoder(step,dev.n,dev.en);digit=step;const on=segOf(digit);
-    segMeshes.forEach((m,i)=>{const s=on[i];m.material.emissiveIntensity=s?0.85:0.03;m.material.color.setHex(s?0xE9C46A:0x242a31);});
-    for(let i=0;i<N;i++){const l=outLEDs[i];l.visible=true;const hot=o[i];l.material.emissiveIntensity=hot?1.5:0.12;l.material.color.setHex(hot?0x7CD992:0x2a3550);}
+    TU.disp[0].userData.ponSeg(on,0.7,0xE9C46A);
+    for(let i=0;i<N;i++){const l=outLEDs[i];l.visible=true;const hot=o[i];l.material.emissiveIntensity=hot?0.95:0.12;l.material.color.setHex(hot?0x7CD992:0x2a3550);}
   }
+  // interruptores: reflejan la selección (S0…S2) y la habilitación / bit 3 del dígito
+  [0,1,2].forEach(k=>TU.sw[k].userData.pon((step>>k)&1));
+  TU.sw[3].userData.pon(dev.kind==='seg'?((step>>3)&1):(dev.en?1:0));
   drawChip3D(dev,step,digit);
 }
 
@@ -1049,9 +1066,9 @@ function showToast(html){const t=el('toast');t.innerHTML=html;t.classList.add('s
 
 // ===================== 10. MODOS Y CONTROLES =====================
 const MODE_META={
-  explora:{nombre:'Explora',cam:[[4.8,2.9,7.0],[0.4,1.05,0.3]],mision:'Elige un bloque (MUX, decodificador o display 7seg) y condúcelo: cambia selección/datos, entrada o dígito y observa la salida.'},
-  aplica:{nombre:'Aplica',cam:[[4.6,2.8,6.8],[0.4,1.05,0.3]],mision:'Comprueba que un MUX (D_i=f(i)) o un decodificador+OR realizan cualquier función, y cómo cada segmento del display es una función booleana.'},
-  reto:{nombre:'Reto',cam:[[4.7,2.7,6.9],[0.5,1.0,0.4]],mision:'Configura los datos del MUX (y la habilitación) para que realice la función objetivo.'},
+  explora:{nombre:'Explora',cam:[[4.2,3.3,5.4],[0.9,0.65,0.8]],mision:'Elige un bloque (MUX, decodificador o display 7seg) y condúcelo: cambia selección/datos, entrada o dígito y observa la salida.'},
+  aplica:{nombre:'Aplica',cam:[[4.1,3.2,5.3],[0.9,0.65,0.8]],mision:'Comprueba que un MUX (D_i=f(i)) o un decodificador+OR realizan cualquier función, y cómo cada segmento del display es una función booleana.'},
+  reto:{nombre:'Reto',cam:[[4.15,3.25,5.35],[0.9,0.65,0.8]],mision:'Configura los datos del MUX (y la habilitación) para que realice la función objetivo.'},
 };
 function lbl(t){return `<span class="lbl">${t}</span>`;}
 function buildControls(){

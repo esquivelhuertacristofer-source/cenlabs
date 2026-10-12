@@ -16,7 +16,7 @@
 
 // ===================== 1. ESCENA =====================
 const mount=document.getElementById('stage');
-const S=createStage(mount,{cam:[4.6,2.8,6.9],target:[0.2,1.15,0.3],bgTop:'#0d1017',bgBot:'#05060a',bloom:0.42,minD:3.2,maxD:16});
+const S=createStage(mount,{cam:[4.2,3.3,5.4],target:[0.9,0.65,0.8],bgTop:'#0d1017',bgBot:'#05060a',bloom:0.42,minD:3.2,maxD:16});
 const {scene}=S;
 const synth=makeSynth({type:'square',type2:'sine',filterFreq:2400,Q:0.7});
 const el=id=>document.getElementById(id);
@@ -441,30 +441,50 @@ function boardClick(){
 }
 
 // ===================== 7. ESCENA 3D: ENTRENADOR LÓGICO =====================
-const bench=roundedBox(3.4,0.5,1.7,MAT.bench,0.05);bench.position.set(1.7,0.25,0.6);scene.add(bench);
-bench.userData={title:'Banco del entrenador lógico',info:'Aplica la función: entradas → circuito → salida.'};
-const pcb=roundedBox(1.7,0.08,1.0,MAT.pcb,0.03);pcb.position.set(1.9,0.54,0.55);scene.add(pcb);
-pcb.userData={title:'Tarjeta lógica',info:'Cicla las combinaciones de entrada y enciende la salida F cuando vale 1.'};
-addHoverLabel(pcb,'Entrenador lógico',ACC,new THREE.Vector3(1.9,1.25,0.55),1.2);
-// chip central con carátula
-const chip=roundedBox(0.5,0.14,0.5,MAT.chip,0.02);chip.position.set(1.9,0.63,0.55);scene.add(chip);
-const chCv=document.createElement('canvas');chCv.width=160;chCv.height=160;const chTex=new THREE.CanvasTexture(chCv);
-const chFace=new THREE.Mesh(new THREE.PlaneGeometry(0.44,0.44),new THREE.MeshBasicMaterial({map:chTex,transparent:true}));
-chFace.rotation.x=-Math.PI/2;chFace.position.set(1.9,0.705,0.55);scene.add(chFace);
-chip.userData={title:'Circuito lógico',info:'Realiza la función mínima F(A,B,C,D).'};
-// LEDs de entrada + salida
-function makeLED(x,z,color){
-  const m=new THREE.Mesh(new THREE.SphereGeometry(0.05,18,18),std(color,0.4,0.1));
-  m.position.set(x,0.62,z);m.material.emissive=new THREE.Color(color);m.material.emissiveIntensity=0.15;scene.add(m);return m;
+// Entrenador lógico de banco (biblioteca de piezas §19): protoboard con 74HC04 (NOT), 74HC08 (AND) y 74HC32 (OR) —la realización AND-OR
+// de dos niveles—, interruptores A…D, LED de entrada y de salida F, display de 7 segmentos con el mintérmino y pantalla de la función.
+const MATP={aluminio:std(0xb6bdc4,0.42,0.7),acero:std(0x8f979f,0.38,0.85),cromo:std(0xc4cad0,0.3,0.9),cobre:std(0xb87333,0.4,0.8),
+  negro:std(0x14181e,0.62,0.06),goma:std(0x14181e,0.85,0.02),blanco:std(0xd7dee6,0.4,0.2),ceramica:std(0xd7dee6,0.6,0.05),hierro:std(0x4a4f55,0.55,0.7),chapa:std(0x9aa2aa,0.5,0.6)};
+const TR=P3.entrenadorLogico(MATP,{cols:26,nLed:5,nSw:4,nDisp:1,pantalla:{ancho:1.0,alto:1.0},dispAlto:0.74,
+  ledColores:[0x8AB4F8,0x8AB4F8,0x8AB4F8,0x8AB4F8,0x7CD992],ledRotulos:['A','B','C','D','F'],swRotulos:['A','B','C','D'],
+  rotulo:'ENTRENADOR LÓGICO',serie:'74HC04 · 08 · 32',pantallaRotulo:'FUNCIÓN',dispColor:0xff4a35});
+TR.scale.setScalar(0.92);TR.position.set(1.0,0,0.9);scene.add(TR);
+const TU=TR.userData;
+TR.userData=Object.assign(TU,{title:'Banco del entrenador lógico',info:'Aplica la función: entradas → circuito → salida.'});
+{ // 74HC04 (NOT), 74HC08 (AND) y 74HC32 (OR): una realización AND-OR decorativa, F = A'·B + C·D, con su Vcc, GND, entradas y salida
+  const c1=2,c2=10,c3=18,rl=TU.prot.userData.riel;
+  TU.dip(c1,{pines:14,rotulo:'74HC04',rotulo2:'NOT ×6'});
+  TU.dip(c2,{pines:14,rotulo:'74HC08',rotulo2:'AND ×4'});
+  TU.dip(c3,{pines:14,rotulo:'74HC32',rotulo2:'OR ×4'});
+  [c1,c2,c3].forEach((c,i)=>{
+    TU.cable([c,'j'],rl('+','tras',1+i*7),0xb83232);                              // pata 14 (Vcc)
+    TU.cable([c+6,'a'],rl('-','tras',3+i*7),0x2a2e34);                            // pata 7 (GND)
+  });
+  TU.cable([c1+1,'c'],[c2,'c'],0x2f8f56);                                         // A' (salida de la NOT) → entrada de la AND
+  TU.cable([c2+2,'d'],[c3,'d'],0x2f8f56);                                         // A'·B → OR
+  TU.cable([c2+5,'c'],[c3+1,'c'],0x2f8f56);                                       // C·D → OR
+  TU.hilo(TU.swJack(0),TU.Hg(c1,'a'),0xc9a227,{alto:0.32});                       // A → NOT
+  TU.hilo(TU.swJack(1),TU.Hg(c2+1,'a'),0xc9a227,{alto:0.32});                     // B → AND
+  TU.hilo(TU.swJack(2),TU.Hg(c2+3,'a'),0xc9a227,{alto:0.32});                     // C → AND
+  TU.hilo(TU.swJack(3),TU.Hg(c2+4,'a'),0xc9a227,{alto:0.32});                     // D → AND
+  [[c1,0],[c2+1,1],[c2+3,2],[c2+4,3]].forEach(([col,i])=>TU.hilo(TU.Hg(col,'b'),TU.ledJack(i),0x2f6fc0,{alto:0.32}));   // LED de entrada
+  TU.hilo(TU.Hg(c3+2,'a'),TU.ledJack(4),0x2f8f56,{alto:0.32});                    // F (salida de la OR)
 }
-const inLEDs=[makeLED(1.32,0.30,0x8AB4F8),makeLED(1.32,0.45,0x8AB4F8),makeLED(1.32,0.60,0x8AB4F8),makeLED(1.32,0.75,0x8AB4F8)];
-const inLabels=inLEDs.map((l,i)=>addHoverLabel(l,VN[i],ACC,new THREE.Vector3(1.32,0.78,0.30+0.15*i),0.5));
-const outLED=makeLED(2.5,0.55,0x7CD992);outLED.scale.set(1.25,1.25,1.25);
+// compatibilidad con el resto del lab: los mismos nombres que usaba la placa anterior
+const inLEDs=TU.leds.slice(0,4), outLED=TU.leds[4];
+const HEX7=[[1,1,1,1,1,1,0],[0,1,1,0,0,0,0],[1,1,0,1,1,0,1],[1,1,1,1,0,0,1],[0,1,1,0,0,1,1],[1,0,1,1,0,1,1],[1,0,1,1,1,1,1],[1,1,1,0,0,0,0],
+  [1,1,1,1,1,1,1],[1,1,1,1,0,1,1],[1,1,1,0,1,1,1],[0,0,1,1,1,1,1],[1,0,0,1,1,1,0],[0,1,1,1,1,0,1],[1,0,0,1,1,1,1],[1,0,0,0,1,1,1]];   // 0…F (a…g)
+const chCv=document.createElement('canvas');chCv.width=160;chCv.height=160;const chTex=new THREE.CanvasTexture(chCv);
+chTex.colorSpace=THREE.SRGBColorSpace;chTex.anisotropy=8;TU.pantalla.material.map=chTex;TU.pantalla.material.color.setHex(0xffffff);TU.pantalla.material.needsUpdate=true;
+TU.pantalla.userData={title:'Circuito lógico',info:'Realiza la función mínima F(A,B,C,D).'};
+TU.disp[0].userData=Object.assign(TU.disp[0].userData,{title:'Mintérmino actual',info:'La combinación de entrada ABCD en hexadecimal (m0…m15).'});
+addHoverLabel(TR,'Entrenador lógico',ACC,new THREE.Vector3(1.0,2.05,1.0),1.2);
 outLED.userData={title:'Salida F',info:'Se enciende cuando la función vale 1 para la combinación de entrada actual.'};
-addHoverLabel(outLED,'F',OK_HEX,new THREE.Vector3(2.5,0.8,0.55),0.5);
+inLEDs[0].userData={title:'Entradas A…D',info:'La combinación de entrada que se está aplicando (A es el bit más significativo).'};
 function drawChip(fn,input,F){
   const c=chCv.getContext('2d');c.clearRect(0,0,160,160);
-  c.fillStyle=F?'rgba(124,217,146,0.18)':'rgba(20,23,27,0.9)';c.fillRect(0,0,160,160);
+  c.fillStyle='#14171b';c.fillRect(0,0,160,160);   // fondo opaco: el material de la pantalla ignora el alfa
+  if(F){c.fillStyle='rgba(124,217,146,0.18)';c.fillRect(0,0,160,160);}
   c.strokeStyle=F?OK_HEX:hexA(ACC,0.5);c.lineWidth=4;c.strokeRect(4,4,152,152);
   c.fillStyle='#C7D6F5';c.font='bold 15px Outfit, sans-serif';c.textAlign='center';c.fillText('F(A..'+VN[fn.n-1]+')',80,30);
   c.font='bold 34px Outfit, sans-serif';c.fillStyle=F?OK_HEX:'#5a6472';c.fillText('F='+F,80,86);
@@ -476,9 +496,11 @@ function updateHW(){
   const fn=curFn();const N=1<<fn.n;hwInput=hwInput%N;
   const set=new Set(fn.mts), F=set.has(hwInput)?1:0;
   inLEDs.forEach((l,i)=>{const on=(i<fn.n)&&(((hwInput>>(fn.n-1-i))&1)===1);
-    l.visible=(i<fn.n);l.material.emissiveIntensity=on?1.1:0.12;l.material.color.setHex(on?0xBFD4FF:0x2a3550);
-    if(inLabels[i])inLabels[i].visible=false;});
-  outLED.material.emissiveIntensity=F?1.4:0.12;outLED.material.color.setHex(F?0x7CD992:0x243026);
+    l.visible=(i<fn.n);l.material.emissiveIntensity=on?0.95:0.12;l.material.color.setHex(on?0x8AB4F8:0x2a3550);});
+  outLED.material.emissiveIntensity=F?0.95:0.12;outLED.material.color.setHex(F?0x7CD992:0x243026);
+  // interruptores y display: reflejan la combinación de entrada ABCD (A = bit más significativo; con n<4 las altas quedan en 0)
+  for(let k=0;k<4;k++){const bit=3-k-(4-fn.n);TU.sw[k].userData.pon(bit>=0?((hwInput>>bit)&1):0);}
+  TU.disp[0].userData.ponSeg(HEX7[hwInput&15],0.8,0xff4a35);
   drawChip(fn,hwInput,F);
 }
 
@@ -538,9 +560,9 @@ function showToast(html){const t=el('toast');t.innerHTML=html;t.classList.add('s
 
 // ===================== 10. MODOS Y CONTROLES =====================
 const MODE_META={
-  explora:{nombre:'Explora',cam:[[4.6,2.8,6.9],[0.2,1.15,0.3]],mision:'Elige el número de variables y enciende salidas en la tabla. Observa el mapa, la forma canónica y la mínima, y cuánto se ahorra.'},
-  agrupa:{nombre:'Agrupa',cam:[[4.3,2.7,6.6],[0.2,1.15,0.3]],mision:'Estudia cómo los lazos del mapa eliminan variables. Enfoca cada grupo para ver qué variables sobreviven en su término.'},
-  reto:{nombre:'Reto',cam:[[4.4,2.6,6.7],[0.4,1.1,0.4]],mision:'Cubre todos los unos de la función usando implicantes primos con el mínimo coste en literales.'},
+  explora:{nombre:'Explora',cam:[[4.2,3.3,5.4],[0.9,0.65,0.8]],mision:'Elige el número de variables y enciende salidas en la tabla. Observa el mapa, la forma canónica y la mínima, y cuánto se ahorra.'},
+  agrupa:{nombre:'Agrupa',cam:[[4.1,3.2,5.3],[0.9,0.65,0.8]],mision:'Estudia cómo los lazos del mapa eliminan variables. Enfoca cada grupo para ver qué variables sobreviven en su término.'},
+  reto:{nombre:'Reto',cam:[[4.15,3.25,5.35],[0.9,0.65,0.8]],mision:'Cubre todos los unos de la función usando implicantes primos con el mínimo coste en literales.'},
 };
 function lbl(t){return `<span class="lbl">${t}</span>`;}
 function buildControls(){

@@ -450,7 +450,7 @@ function makeSynth(opts={}){
 
 // ===================== 1. ESCENA =====================
 const mount=document.getElementById('stage');
-const S=createStage(mount,{cam:[4.8,2.9,7.0],target:[0.4,1.05,0.3],bgTop:'#0d1017',bgBot:'#05060a',bloom:0.44,minD:3.2,maxD:16});
+const S=createStage(mount,{cam:[4.2,3.3,5.4],target:[0.9,0.65,0.8],bgTop:'#0d1017',bgBot:'#05060a',bloom:0.44,minD:3.2,maxD:16});
 const {scene}=S;
 const synth=makeSynth({type:'square',type2:'sine',filterFreq:2400,Q:0.7});
 const el=id=>document.getElementById(id);
@@ -870,42 +870,69 @@ function boardClick(){
 }
 
 // ===================== 7. ESCENA 3D: ENTRENADOR =====================
-const bench=roundedBox(3.7,0.5,1.8,MAT.bench,0.05);bench.position.set(1.9,0.25,0.55);scene.add(bench);
-bench.userData={title:'Banco del controlador',info:'Los LEDs muestran los actuadores/salida; el chip muestra el estado actual de la FSM.'};
-const pcb=roundedBox(2.4,0.08,1.2,MAT.pcb,0.03);pcb.position.set(1.95,0.54,0.5);scene.add(pcb);
-pcb.userData={title:'Tarjeta de la FSM',info:'Registro de estado (flip-flops) + lógica de estado siguiente + lógica de salida.'};
-addHoverLabel(pcb,'Controlador de estados',ACC,new THREE.Vector3(1.95,1.35,0.5),1.7);
-const chip=roundedBox(0.56,0.14,0.5,MAT.chip,0.02);chip.position.set(1.35,0.63,0.55);scene.add(chip);
-const chCv=document.createElement('canvas');chCv.width=180;chCv.height=180;const chTex=new THREE.CanvasTexture(chCv);
-const chFace=new THREE.Mesh(new THREE.PlaneGeometry(0.5,0.5),new THREE.MeshBasicMaterial({map:chTex,transparent:true}));
-chFace.rotation.x=-Math.PI/2;chFace.position.set(1.35,0.705,0.55);scene.add(chFace);
-chip.userData={title:'Registro de estado',info:'El estado actual de la máquina; cambia en cada flanco según la lógica de estado siguiente.'};
-function makeLED(x,z,color){const m=new THREE.Mesh(new THREE.SphereGeometry(0.045,16,16),std(color,0.4,0.1));m.position.set(x,0.62,z);m.material.emissive=new THREE.Color(color);m.material.emissiveIntensity=0.15;scene.add(m);return m;}
-// 4 LEDs de actuador + 1 LED de salida/aceptación + 1 LED de reloj
-const actLEDs=[makeLED(2.65,0.75,0x7CD992),makeLED(2.35,0.75,0x8AB4F8),makeLED(2.05,0.75,0xE9C46A),makeLED(1.75,0.75,0xC08CF8)];
-const outLED=makeLED(2.85,0.35,0x7CD992);
-const clkLED=makeLED(1.95,0.35,0xC08CF8);
-addHoverLabel(actLEDs[0],'actuadores / salida',ACC,new THREE.Vector3(2.2,1.05,0.75),1.5);
+// Entrenador lógico de banco (biblioteca de piezas §19): protoboard con 2×74HC74 (registro de estado de flip-flops D),
+// 74HC08 y 74HC32 (lógica de estado siguiente y de salida), LEDs de actuadores y de salida, reloj manual y pantalla del estado.
+const MATP={aluminio:std(0xb6bdc4,0.42,0.7),acero:std(0x8f979f,0.38,0.85),cromo:std(0xc4cad0,0.3,0.9),cobre:std(0xb87333,0.4,0.8),
+  negro:std(0x14181e,0.62,0.06),goma:std(0x14181e,0.85,0.02),blanco:std(0xd7dee6,0.4,0.2),ceramica:std(0xd7dee6,0.6,0.05),hierro:std(0x4a4f55,0.55,0.7),chapa:std(0x9aa2aa,0.5,0.6)};
+const TR=P3.entrenadorLogico(MATP,{cols:32,nLed:5,nSw:2,pantalla:{ancho:1.8,alto:1.0},
+  ledColores:[0x7CD992,0x8AB4F8,0xE9C46A,0xC08CF8,0x7CD992],ledRotulos:['ACT1','ACT2','ACT3','ACT4','SALIDA'],swRotulos:['X','RST'],
+  rotulo:'ENTRENADOR DE FSM',serie:'74HC74 · 08 · 32',pantallaRotulo:'ESTADO'});
+TR.scale.setScalar(0.80);TR.position.set(1.0,0,0.9);scene.add(TR);
+const TU=TR.userData;
+TR.userData=Object.assign(TU,{title:'Banco del controlador',info:'Los LEDs muestran los actuadores/salida; la pantalla muestra el estado actual de la FSM.'});
+{ // registro de estado (2×74HC74), lógica de estado siguiente y salida (74HC08, 74HC32): Vcc, GND, reloj, entradas y salidas
+  const c1=2,c2=10,c3=18,c4=26,rl=TU.prot.userData.riel;
+  TU.dip(c1,{pines:14,rotulo:'74HC74',rotulo2:'ESTADO A'});
+  TU.dip(c2,{pines:14,rotulo:'74HC74',rotulo2:'ESTADO B'});
+  TU.dip(c3,{pines:14,rotulo:'74HC08',rotulo2:'AND ×4'});
+  TU.dip(c4,{pines:14,rotulo:'74HC32',rotulo2:'OR ×4'});
+  const fr=(c,k)=>c+k-1, bk=(c,k)=>c+14-k;                                       // columna de la pata k (frente k≤7, fondo k≥8)
+  [c1,c2,c3,c4].forEach((c,i)=>{
+    TU.cable([bk(c,14),'j'],rl('+','tras',1+i*6),0xb83232);                       // pata 14 (Vcc)
+    TU.cable([fr(c,7),'a'],rl('-','tras',3+i*6),0x2a2e34);                        // pata 7 (GND)
+  });
+  TU.cable([fr(c1,4),'b'],rl('+','tras',4),0xb83232);                             // 1/PRE a Vcc
+  TU.cable([bk(c2,10),'h'],rl('+','tras',10),0xb83232);                           // 2/PRE a Vcc
+  TU.cable([bk(c2,13),'h'],rl('+','tras',11),0xb83232);                           // 2/CLR a Vcc
+  TU.cable([fr(c1,3),'b'],[bk(c2,11),'i'],0xb8921f);                              // reloj común a los dos flip-flops
+  TU.cable([fr(c1,5),'c'],[fr(c3,2),'c'],0x2f8f56);                               // Q del registro de estado → compuerta AND
+  TU.cable([fr(c3,3),'d'],[fr(c4,1),'d'],0x2f8f56);                               // salida de la AND → OR
+  TU.hilo(TU.clk.position.clone().setY(TU.alto+0.08),TU.Hg(fr(c1,3),'a'),0xb8921f,{alto:0.4});
+  TU.hilo(TU.swJack(0),TU.Hg(fr(c3,1),'a'),0xc9a227,{alto:0.32});                 // X
+  TU.hilo(TU.swJack(1),TU.Hg(fr(c1,1),'a'),0xc9791a,{alto:0.32});                 // RST → 1/CLR
+  TU.hilo(TU.Hg(fr(c1,5),'a'),TU.ledJack(0),0x2f8f56,{alto:0.32});                // Q  → ACT1
+  TU.hilo(TU.Hg(fr(c1,6),'a'),TU.ledJack(1),0x2f6fc0,{alto:0.32});                // /Q → ACT2
+  TU.hilo(TU.Hg(bk(c2,9),'j'),TU.ledJack(2),0xc9a227,{alto:0.32});                // 2Q → ACT3
+  TU.hilo(TU.Hg(bk(c2,8),'j'),TU.ledJack(3),0x8a5cc8,{alto:0.32});                // 2/Q → ACT4
+  TU.hilo(TU.Hg(fr(c3,3),'a'),TU.ledJack(4),0x2f8f56,{alto:0.32});                // 1Y de la AND → SALIDA
+}
+// compatibilidad con el resto del lab: los mismos nombres que usaba la placa anterior
+const actLEDs=TU.leds.slice(0,4), outLED=TU.leds[4], clkLED=TU.clkLed;
+const chCv=document.createElement('canvas');chCv.width=324;chCv.height=180;const chTex=new THREE.CanvasTexture(chCv);
+chTex.colorSpace=THREE.SRGBColorSpace;chTex.anisotropy=8;TU.pantalla.material.map=chTex;TU.pantalla.material.color.setHex(0xffffff);TU.pantalla.material.needsUpdate=true;
+addHoverLabel(TR,'Controlador de estados',ACC,new THREE.Vector3(1.0,2.05,1.0),1.7);
+TU.pantalla.userData={title:'Registro de estado',info:'El estado actual de la máquina; cambia en cada flanco según la lógica de estado siguiente.'};
+actLEDs[0].userData={title:'Actuadores / salida',info:'Un LED por actuador (en el tanque: válvula de entrada, bomba, motor de mezcla y válvula de drenaje); dependen sólo del estado (Moore).'};
 outLED.userData={title:'Salida / aceptación',info:'Se enciende cuando la FSM emite 1 (detector: patrón hallado).'};
 clkLED.userData={title:'Reloj (CLK)',info:'Un flanco por paso; el estado avanza según la lógica de estado siguiente.'};
 
 function drawChip3D(label,accept){
-  const c=chCv.getContext('2d');c.clearRect(0,0,180,180);
-  c.fillStyle='rgba(20,23,27,0.92)';c.fillRect(0,0,180,180);
-  c.strokeStyle=accept?OK_HEX:ACC;c.lineWidth=4;c.strokeRect(4,4,172,172);
-  c.fillStyle='#C7D6F5';c.font='bold 13px Outfit, sans-serif';c.textAlign='center';c.fillText('ESTADO',90,30);
+  const c=chCv.getContext('2d');c.clearRect(0,0,324,180);
+  c.fillStyle='rgba(20,23,27,0.92)';c.fillRect(0,0,324,180);
+  c.strokeStyle=accept?OK_HEX:ACC;c.lineWidth=4;c.strokeRect(4,4,316,172);
+  c.fillStyle='#C7D6F5';c.font='bold 13px Outfit, sans-serif';c.textAlign='center';c.fillText('ESTADO',162,30);
   c.font='bold 24px Outfit, sans-serif';c.fillStyle=accept?OK_HEX:'#F4EFEA';
-  c.fillText(label.length>9?label.slice(0,8)+'…':label,90,100);
-  if(accept){c.font='bold 14px Outfit, sans-serif';c.fillStyle=OK_HEX;c.fillText('▲ salida=1',90,140);}
+  c.fillText(label.length>9?label.slice(0,8)+'…':label,162,100);
+  if(accept){c.font='bold 14px Outfit, sans-serif';c.fillStyle=OK_HEX;c.fillText('▲ salida=1',162,140);}
   chTex.needsUpdate=true;
 }
 function hwCount(){return Math.max(1,hwFrames().length);}
 function updateHW(){
   const frames=hwFrames(),step=hwStep%Math.max(1,frames.length),fr=frames[step]||{label:'—',acts:[0,0,0,0]};
-  actLEDs.forEach((l,i)=>{const on=fr.acts&&fr.acts[i];l.material.emissiveIntensity=on?1.4:0.12;});
+  actLEDs.forEach((l,i)=>{const on=fr.acts&&fr.acts[i];l.material.emissiveIntensity=on?0.95:0.12;});
   const outOn=fr.accept||fr.out;
-  outLED.material.emissiveIntensity=outOn?1.4:0.15;outLED.material.color.setHex(outOn?0x7CD992:0x2a3550);
-  clkLED.material.emissiveIntensity=(step%2)?1.3:0.2;
+  outLED.material.emissiveIntensity=outOn?0.95:0.15;outLED.material.color.setHex(outOn?0x7CD992:0x2a3550);
+  clkLED.material.emissiveIntensity=(step%2)?0.9:0.2;
   drawChip3D(fr.label,!!fr.accept);
 }
 
@@ -965,9 +992,9 @@ function showToast(html){const t=el('toast');t.innerHTML=html;t.classList.add('s
 
 // ===================== 10. MODOS Y CONTROLES =====================
 const MODE_META={
-  explora:{nombre:'Explora',cam:[[4.8,2.9,7.0],[0.4,1.05,0.3]],mision:'Conduce una FSM: en el detector de secuencia alimenta bits y observa el estado avanzar (cambia entre Moore y Mealy); en el proceso industrial avanza el ciclo del tanque y mira las salidas por estado.'},
-  aplica:{nombre:'Aplica',cam:[[4.6,2.8,6.8],[0.4,1.05,0.3]],mision:'Compara Moore y Mealy sobre el mismo detector (diagrama de tiempos: Mealy reacciona antes, Moore registra un ciclo después) y lee la tabla de estados completa del proceso.'},
-  reto:{nombre:'Reto',cam:[[4.7,2.7,6.9],[0.5,1.0,0.4]],mision:'Diseña la máquina de estados de un proceso industrial: completa la tabla de transición (el ciclo de etapas) y la de salidas (un actuador por estado).'},
+  explora:{nombre:'Explora',cam:[[4.2,3.3,5.4],[0.9,0.65,0.8]],mision:'Conduce una FSM: en el detector de secuencia alimenta bits y observa el estado avanzar (cambia entre Moore y Mealy); en el proceso industrial avanza el ciclo del tanque y mira las salidas por estado.'},
+  aplica:{nombre:'Aplica',cam:[[4.1,3.2,5.3],[0.9,0.65,0.8]],mision:'Compara Moore y Mealy sobre el mismo detector (diagrama de tiempos: Mealy reacciona antes, Moore registra un ciclo después) y lee la tabla de estados completa del proceso.'},
+  reto:{nombre:'Reto',cam:[[4.15,3.25,5.35],[0.9,0.65,0.8]],mision:'Diseña la máquina de estados de un proceso industrial: completa la tabla de transición (el ciclo de etapas) y la de salidas (un actuador por estado).'},
 };
 function lbl(t){return `<span class="lbl">${t}</span>`;}
 function buildControls(){
