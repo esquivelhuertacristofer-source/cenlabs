@@ -166,7 +166,8 @@ export default function BitacoraSnell({ onValidate }: { onValidate?: () => void 
           <div className="p-3 bg-black/30 rounded-xl">
             <span className="text-[8px] font-black text-pink-400/60 uppercase block">θ₂ Refracción</span>
             <span className="text-lg font-black text-white font-mono">
-              {isTIR ? <span className="text-red-400 text-sm">TIR</span> : `${theta2.toFixed(1)}°`}
+              {/* Con el medio misterioso θ₂ es la MEDICIÓN del alumno: se lee en el disco graduado, no aquí. */}
+              {isTIR ? <span className="text-red-400 text-sm">TIR</span> : esMisterio ? <span className="text-sm">mídelo</span> : `${theta2.toFixed(1)}°`}
             </span>
           </div>
           <div className="p-3 bg-black/30 rounded-xl">
@@ -177,7 +178,8 @@ export default function BitacoraSnell({ onValidate }: { onValidate?: () => void 
           <div className="p-3 bg-black/30 rounded-xl">
             <span className="text-[8px] font-black text-white/30 uppercase block">θ Crítico</span>
             <span className="text-sm font-black text-white font-mono">
-              {isNaN(criticalAngle) ? 'N/A' : `${criticalAngle.toFixed(1)}°`}
+              {/* sen θc = n₂/n₁: con el medio misterioso daría n₂ sin medir nada. */}
+              {esMisterio ? '?' : isNaN(criticalAngle) ? 'N/A' : `${criticalAngle.toFixed(1)}°`}
             </span>
           </div>
         </div>

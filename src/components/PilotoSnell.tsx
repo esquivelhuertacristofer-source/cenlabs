@@ -3,7 +3,8 @@
 import React, { useEffect, useState } from 'react';
 import { useShallow } from 'zustand/react/shallow';
 import { useSimuladorStore } from '@/store/simuladorStore';
-import { Zap, RefreshCcw, Info, CheckCircle2 } from 'lucide-react';
+import { RefreshCcw, ShieldCheck, CheckCircle2 } from 'lucide-react';
+import LabLayout, { Lectura, GrupoControles, Deslizador, BotonLab } from './simulador/LabLayout';
 import { ANGULO_MIN_M7, ANGULO_MAX_M7 } from '@/domain/matematicas';
 import Snell3DScene from './simuladores/mat07/Snell3DScene';
 
@@ -42,138 +43,74 @@ export default function PilotoSnell({ onValidate }: { onValidate?: () => void })
   }, []);
 
   return (
-    <div className="w-full h-full bg-[#0c1222] relative overflow-hidden flex flex-col font-sans text-white">
-
-      {/* ── ESCENA 3D (FULL SCREEN) ── */}
-      <div className="absolute inset-0 z-0">
-        <Snell3DScene
-          n1={n1} n2={n2} n2Misterio={n2Misterio}
-          anguloIncidencia={anguloIncidencia}
-          status={status}
-          laserColor={laserColor}
-        />
-      </div>
-
-      {/* ── OVERLAY ── */}
-      <div className="relative z-10 p-6 flex flex-col h-full pointer-events-none">
-
-        {/* TOP BAR */}
-        <div className="flex justify-between items-start">
-            <div className="flex items-center gap-3">
-                <div className="w-9 h-9 rounded-lg bg-cyan-500/10 border border-cyan-500/30 flex items-center justify-center">
-                    <Zap className="text-cyan-400" size={18} />
-                </div>
-                <div>
-                    <h2 className="text-lg font-black text-white uppercase tracking-tight">Óptica de Precisión</h2>
-                    <div className="text-[9px] font-bold text-cyan-400/70 uppercase tracking-widest">
-                        Ley de Snell • MAT-07
-                    </div>
-                </div>
-            </div>
-
-            <div className="pointer-events-auto">
-                <div className="bg-black/50 backdrop-blur-xl border border-white/10 px-5 py-3 rounded-2xl flex items-center gap-6 shadow-2xl">
-                    <div className="text-right">
-                        <span className="text-[8px] font-black text-slate-500 uppercase block tracking-widest">n₁</span>
-                        <span className="text-xl font-black text-white tabular-nums">{n1.toFixed(3)}</span>
-                    </div>
-                    <div className="h-8 w-px bg-white/10" />
-                    <div className="text-right">
-                        <span className="text-[8px] font-black text-slate-500 uppercase block tracking-widest">n₂</span>
-                        <span className="text-xl font-black text-cyan-400 tabular-nums">
-                            {n2 === 'misterio' ? '???' : (n2 as number).toFixed(3)}
-                        </span>
-                    </div>
-                </div>
-            </div>
+    <LabLayout
+      tituloPanel="Ley de Snell"
+      barraSuperior={
+        <div className="flex min-w-0 flex-1 flex-wrap items-center gap-1.5">
+          <Lectura etiqueta="n₁ (aire)" valor={n1.toFixed(3)} />
+          <Lectura etiqueta="n₂" valor="?" acento />
+          <Lectura etiqueta="θ₁" valor={`${anguloIncidencia}°`} />
+          <Lectura etiqueta="θ₂" valor="mídelo en el disco" />
         </div>
-
-        {/* BOTTOM BAR */}
-        <div className="mt-auto flex justify-between items-end gap-3 pointer-events-auto">
-            {/* Fórmula */}
-            <div className="bg-black/40 backdrop-blur-md border border-white/5 px-5 py-3 rounded-2xl">
-                <div className="flex items-center gap-2 mb-1">
-                    <Info size={12} className="text-cyan-400/60" />
-                    <span className="text-[9px] font-black text-white/50 uppercase tracking-widest">Ley de Snell</span>
-                </div>
-                <p className="text-sm font-black text-cyan-300/80 font-mono">
-                    n₁·sin(θ₁) = n₂·sin(θ₂)
-                </p>
-            </div>
-
-            {/* Selector de Láser + Controles */}
-            <div className="flex flex-wrap items-center justify-end gap-3 min-w-0">
-                {/* Selector de color de láser */}
-                <div className="bg-black/50 backdrop-blur-xl border border-white/10 px-3 py-2 rounded-2xl flex items-center gap-1.5">
-                    {LASER_OPTIONS.map(opt => (
-                      <button
-                        key={opt.id}
-                        onClick={() => { setLaserColor(opt.id as any); audio?.playPop(); }}
-                        className={`relative w-8 h-8 rounded-lg flex items-center justify-center transition-all ${
-                          laserColor === opt.id
-                            ? 'ring-2 ring-white/60 scale-110'
-                            : 'opacity-50 hover:opacity-80'
-                        }`}
-                        title={opt.label}
-                      >
-                        <div className={`w-5 h-5 rounded-md ${opt.bg}`} />
-                      </button>
-                    ))}
-                </div>
-
-                {/* Ángulo de incidencia θ₁ (desde la normal) */}
-                <div className="bg-black/50 backdrop-blur-xl border border-white/10 px-4 py-3 rounded-2xl flex flex-col gap-1 w-48">
-                    <div className="flex justify-between items-center">
-                        <span className="text-[8px] font-black text-slate-500 uppercase tracking-widest">Ángulo θ₁</span>
-                        <span className="text-xs font-black font-mono text-cyan-300">{anguloIncidencia}°</span>
-                    </div>
-                    <input
-                        type="range" min={ANGULO_MIN_M7} max={ANGULO_MAX_M7} step={1} value={anguloIncidencia}
-                        onChange={e => setAnguloM7(parseInt(e.target.value))}
-                        className="w-full accent-cyan-400"
-                    />
-                </div>
-
-                <button
-                    onClick={() => { setAnguloM7(45); setUserInputM7(''); audio?.playPop(); }}
-                    title="Reiniciar ángulo y respuesta (el medio no cambia)"
-                    className="w-12 h-12 rounded-xl bg-white/5 border border-white/10 flex items-center justify-center text-white/30 hover:bg-white/10 hover:text-white transition-all group"
-                >
-                    <RefreshCcw size={18} className="group-active:rotate-180 transition-transform duration-500" />
-                </button>
-
-                {/* Entrada de índice n2 */}
-                <div className="bg-black/50 backdrop-blur-xl border border-white/10 px-4 py-3 rounded-2xl flex items-center gap-3">
-                    <div className="flex flex-col gap-1">
-                        <span className="text-[8px] font-black text-slate-500 uppercase tracking-widest">Tu valor n₂</span>
-                        <input
-                            type="text"
-                            inputMode="decimal"
-                            value={userInputN2}
-                            onChange={e => setUserInputM7(e.target.value)}
-                            placeholder="n₂"
-                            className="w-24 bg-white/5 border border-white/10 rounded-xl px-3 py-1.5 text-sm font-black font-mono text-white outline-none focus:border-cyan-500 transition-all"
-                        />
-                    </div>
-                    <button
-                        onClick={() => onValidate?.()}
-                        className={`px-4 py-2 rounded-xl font-black text-[9px] uppercase tracking-widest transition-all border ${
-                            status === 'success'
-                                ? 'bg-emerald-600 border-emerald-400 text-white'
-                                : 'bg-cyan-600 border-cyan-500 text-white hover:bg-cyan-500'
-                        }`}
-                    >
-                        {status === 'success' ? 'Calibrado' : 'Calibrar / Verificar'}
-                    </button>
-                    {status === 'error' && (
-                        <span className="text-[9px] font-black text-rose-400 uppercase tracking-widest">Valor incorrecto</span>
-                    )}
-                    {status === 'success' && <CheckCircle2 size={16} className="text-emerald-400" />}
-                </div>
-            </div>
+      }
+      esquina={
+        <div className="rounded-md bg-black/45 px-2 py-1 text-[10px] font-semibold uppercase tracking-wider text-slate-300">
+          Óptica · refracción en un bloque semicircular
         </div>
-      </div>
-
-    </div>
+      }
+      escena={
+        <div className="absolute inset-0 bg-[#34434b]">
+          <Snell3DScene n1={n1} n2={n2} n2Misterio={n2Misterio} anguloIncidencia={anguloIncidencia} status={status} laserColor={laserColor} />
+        </div>
+      }
+      panelLateral={
+        <div className="space-y-3">
+          <div>
+            <span className="mb-1 block text-[10px] font-semibold uppercase text-slate-400">Ley de Snell</span>
+            <div className="border-l-2 border-cyan-400/50 pl-3 font-mono text-[13px] font-bold text-cyan-200">n₁·sen θ₁ = n₂·sen θ₂</div>
+          </div>
+          <p className="text-[12px] leading-snug text-slate-300">
+            Los dos ángulos se miden desde la normal (la recta a rayas). Lee θ₂ en la escala del disco, donde el rayo refractado sale del bloque. Con θ₁ grande el error de lectura pesa menos al despejar n₂.
+          </p>
+          <p className="text-[12px] leading-snug text-slate-300">
+            La luz blanca se abre en colores: con ella no hay un único θ₂ que medir. Para medir usa un láser de un solo color.
+          </p>
+        </div>
+      }
+      controles={
+        <div className="space-y-2">
+          <GrupoControles className="items-center">
+            <div className="flex flex-col gap-1">
+              <span className="text-[11px] font-semibold text-slate-300">Láser</span>
+              <div className="flex gap-1 rounded-lg border border-white/10 bg-white/[0.04] p-0.5">
+                {LASER_OPTIONS.map((opt) => (
+                  <button key={opt.id} type="button" title={opt.label} aria-label={`Láser ${opt.label}`}
+                    onClick={() => { setLaserColor(opt.id as typeof laserColor); audio?.playPop(); }}
+                    className={`flex h-7 w-8 items-center justify-center rounded-md ${laserColor === opt.id ? 'bg-white/15 ring-1 ring-white/60' : 'opacity-60 hover:opacity-100'}`}>
+                    <i className={`block h-4 w-4 rounded ${opt.bg}`} />
+                  </button>
+                ))}
+              </div>
+            </div>
+            <Deslizador etiqueta="Ángulo de incidencia θ₁" valor={anguloIncidencia} min={ANGULO_MIN_M7} max={ANGULO_MAX_M7} paso={1} unidad="°" ancho="w-52" onChange={(v) => setAnguloM7(v)} />
+            <BotonLab variante="secundario" title="Reiniciar ángulo y respuesta (el medio no cambia)" onClick={() => { setAnguloM7(45); setUserInputM7(''); audio?.playPop(); }}>
+              <RefreshCcw size={14} /> Reiniciar
+            </BotonLab>
+          </GrupoControles>
+          <GrupoControles className="items-end">
+            <label className="flex flex-col gap-1">
+              <span className="text-[11px] font-semibold text-slate-300">Tu valor de n₂</span>
+              <input type="text" inputMode="decimal" value={userInputN2} onChange={(e) => setUserInputM7(e.target.value)} placeholder="p. ej. 1.52"
+                className="h-8 w-28 rounded-lg border border-white/15 bg-white/[0.05] px-2.5 font-mono text-[13px] font-semibold text-white outline-none focus:border-[#219EBC]" />
+            </label>
+            <BotonLab variante={status === 'success' ? 'primario' : 'acento'} onClick={() => onValidate?.()}>
+              <ShieldCheck size={14} /> {status === 'success' ? 'Calibrado' : 'Calibrar / Verificar'}
+            </BotonLab>
+            {status === 'success' && <span role="status" className="flex items-center gap-1.5 text-[12px] font-semibold text-emerald-300"><CheckCircle2 size={14} /> n₂ correcto</span>}
+            {status === 'error' && <span role="status" className="text-[12px] font-semibold text-rose-300">Valor incorrecto: revisa el cociente de senos.</span>}
+          </GrupoControles>
+        </div>
+      }
+    />
   );
 }

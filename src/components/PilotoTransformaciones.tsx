@@ -4,12 +4,8 @@ import React, { useEffect, useState } from 'react';
 import { useShallow } from 'zustand/react/shallow';
 import { useSimuladorStore } from '@/store/simuladorStore';
 import { validarM6, matrizM6, RANGO_T_M6, ESCALA_MIN_M6, ESCALA_MAX_M6 } from '@/domain/matematicas';
-import { motion, AnimatePresence } from 'framer-motion';
-import {
-  Rocket, Target, RefreshCcw, ShieldCheck,
-  Zap, Activity, Compass, Bot,
-  Move, RotateCw, Maximize
-} from 'lucide-react';
+import { RefreshCcw, ShieldCheck, CheckCircle2 } from 'lucide-react';
+import LabLayout, { Lectura, GrupoControles, Deslizador, BotonLab } from './simulador/LabLayout';
 import Transformaciones3DScene from './simuladores/mat06/Transformaciones3DScene';
 
 /**
@@ -32,7 +28,7 @@ export default function PilotoTransformaciones({ onValidate }: { onValidate?: ()
     setMounted(true);
     setAsistente({
       visible: true,
-      text: "Bienvenido al Centro de Control Vectorial. Acopla la nave con la silueta objetivo: lee en la rejilla su posición, su giro y su tamaño, y aplica la traslación, la rotación y la escala que la producen.",
+      text: "Bienvenido al taller de transformaciones. Acopla la placa con la silueta objetivo: lee en la rejilla su posición, su giro y su tamaño, y aplica la traslación, la rotación y la escala que la producen.",
       pose: "thinking"
     });
     return () => setAsistente({ visible: false });
@@ -54,147 +50,67 @@ export default function PilotoTransformaciones({ onValidate }: { onValidate?: ()
 
   if (!mounted) return null;
 
+  const fmt = (v: number) => (Math.abs(v) < 5e-4 ? 0 : v).toFixed(2).replace('-', '−');
+
   return (
-    <div className="w-full h-full bg-[#020617] relative overflow-hidden flex flex-col font-['Outfit'] text-white">
-
-      {/* ── GIANT TELEMETRY BACKGROUND ── */}
-      <div className="absolute inset-0 flex items-center justify-center pointer-events-none opacity-10 z-0">
-        <span className="text-[14rem] font-black font-mono text-amber-500 select-none italic">
-          {tx.toFixed(1)},{ty.toFixed(1)}
-        </span>
-      </div>
-
-      {/* ── CHECKLIST HUD (DIAMOND STANDARD) ── */}
-      <div className="absolute top-12 left-1/2 -translate-x-1/2 z-50 w-full max-w-[600px] px-6 pointer-events-none">
-        <div className="bg-[#0f172a]/80 backdrop-blur-3xl border border-amber-500/30 p-4 rounded-[2rem] shadow-[0_0_50px_rgba(245,158,11,0.1)] pointer-events-auto">
-          <div className="flex items-center justify-between gap-4">
-            <div className="flex items-center gap-3">
-              <div className="p-2 bg-amber-500/20 rounded-xl">
-                <Rocket className="text-amber-400" size={16} />
-              </div>
-              <div>
-                <h4 className="text-[10px] font-black text-amber-300 uppercase tracking-widest leading-none">Navegación Vectorial</h4>
-                <p className="text-[9px] font-bold text-slate-500 uppercase tracking-widest mt-1">MAT-06 • Transformaciones</p>
-              </div>
-            </div>
-            <div className="flex gap-2">
-              {[
-                { step: 1, label: "Traslación" },
-                { step: 2, label: "Rotación" },
-                { step: 3, label: "Sincronía" }
-              ].map((s) => (
-                <div key={s.step} className={`px-4 py-1.5 rounded-full border flex items-center gap-2 transition-all ${pasoActual >= s.step ? 'bg-amber-600 border-amber-400 text-white' : 'bg-slate-800/50 border-slate-700 text-slate-500'}`}>
-                   {pasoActual > s.step ? <ShieldCheck size={10} /> : <div className="w-1.5 h-1.5 rounded-full bg-current" />}
-                   <span className="text-[9px] font-black uppercase tracking-widest">{s.label}</span>
-                </div>
-              ))}
-            </div>
+    <LabLayout
+      tituloPanel="Matriz"
+      barraSuperior={
+        <div className="flex min-w-0 flex-1 flex-wrap items-center gap-1.5">
+          <Lectura etiqueta="Traslación" valor={`T(${tx.toFixed(1)}; ${ty.toFixed(1)})`} acento />
+          <Lectura etiqueta="Giro" valor={`${rotacion}°`} />
+          <Lectura etiqueta="Escala" valor={`×${escala.toFixed(1)}`} />
+        </div>
+      }
+      esquina={
+        <div className="rounded-md bg-black/45 px-2 py-1 text-[10px] font-semibold uppercase tracking-wider text-slate-300">
+          Transformaciones · paso {Math.max(1, pasoActual)}/3
+        </div>
+      }
+      escena={
+        <div className="absolute inset-0 bg-[#34434b]">
+          <Transformaciones3DScene tx={tx} ty={ty} rotacion={rotacion} escala={escala} target={target} status={status} />
+          <div className="pointer-events-none absolute bottom-2 left-2 flex flex-wrap gap-x-3 gap-y-1 rounded-md bg-black/45 px-2 py-1 text-[10px] font-semibold text-slate-200">
+            <span className="flex items-center gap-1.5"><i className="inline-block h-2 w-3 rounded-sm border border-dashed border-slate-100 bg-white/25" />Silueta objetivo (1 cuadro = 1 unidad)</span>
+            <span className="flex items-center gap-1.5"><i className="inline-block h-2 w-3 rounded-sm" style={{ background: status === 'success' ? '#34d399' : '#f59e0b' }} />Tu placa · punto = pivote</span>
           </div>
         </div>
-      </div>
-
-      {/* ── ESCENA 3D (BACKGROUND) ── */}
-      <div className="absolute inset-0 z-0">
-        <Transformaciones3DScene tx={tx} ty={ty} rotacion={rotacion} escala={escala} target={target} status={status} />
-      </div>
-
-      {/* ── HUD SUPERIOR: TELEMETRÍA ── */}
-      <div className="relative z-10 p-10 flex flex-col h-full pointer-events-none mt-20">
-        <div className="flex justify-between items-start">
-            <div className="flex gap-4 pointer-events-auto">
-                <HUDCard label="Vector Traslación" value={`T(${tx.toFixed(1)}, ${ty.toFixed(1)})`} icon={<Move size={14} />} color="#f59e0b" />
-                <HUDCard label="Rotación / Escala" value={`${rotacion}° | x${escala.toFixed(1)}`} icon={<RotateCw size={14} />} color="#10b981" />
-            </div>
-
-            <div className="bg-black/60 backdrop-blur-xl border border-white/10 p-6 rounded-[2.5rem] shadow-2xl pointer-events-auto">
-                <div className="text-right">
-                    <span className="text-[9px] font-black text-slate-500 uppercase block mb-2 italic">Tu matriz M = T·R·S</span>
-                    <div className="grid grid-cols-3 gap-x-4 gap-y-1 font-mono text-sm font-black text-white tabular-nums border-l-2 border-r-2 border-white/30 px-3">
-                       {M.flat().map((v, i) => <span key={i} className="text-right">{(Math.abs(v) < 5e-4 ? 0 : v).toFixed(2)}</span>)}
-                    </div>
-                    <span className="text-[8px] font-bold text-slate-500 block mt-2">Objetivo: la silueta blanca de la rejilla (1 cuadro = 1 unidad)</span>
-                </div>
-            </div>
-        </div>
-
-        {/* Notificación de Bloqueo */}
-        <AnimatePresence>
-            {isTargetLocked && (
-                <motion.div initial={{ scale: 0, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} exit={{ scale: 0, opacity: 0 }} className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 pointer-events-none">
-                    <div className="relative flex flex-col items-center">
-                        <Compass size={240} className="text-emerald-500/20 animate-spin-slow" strokeWidth={0.5} />
-                        <div className="absolute inset-0 flex flex-col items-center justify-center">
-                            <span className="text-[12px] font-black text-emerald-400 uppercase tracking-[0.5em] mb-4">Acoplada</span>
-                            <div className="px-8 py-3 bg-emerald-500 text-white rounded-full font-black text-sm uppercase tracking-widest shadow-2xl">
-                                Valida tu práctica
-                            </div>
-                        </div>
-                    </div>
-                </motion.div>
-            )}
-        </AnimatePresence>
-
-        {/* Dock de Control Inferior */}
-        <div className="mt-auto flex justify-between items-end gap-10 pointer-events-auto">
-            <div className="bg-[#0A1121]/90 backdrop-blur-3xl border border-white/10 p-10 rounded-[3rem] flex-1 shadow-2xl grid grid-cols-2 gap-16">
-                <div className="space-y-6">
-                    <SimSlider label="Traslación X" value={tx} min={-RANGO_T_M6} max={RANGO_T_M6} step={0.1} color="amber" onChange={(v: any) => { setTransformM6(v, ty, rotacion, escala); audio?.playPop(); }} />
-                    <SimSlider label="Traslación Y" value={ty} min={-RANGO_T_M6} max={RANGO_T_M6} step={0.1} color="amber" onChange={(v: any) => { setTransformM6(tx, v, rotacion, escala); audio?.playPop(); }} />
-                </div>
-                <div className="space-y-6">
-                    <SimSlider label="Rotación (°)" value={rotacion} min={0} max={360} step={5} color="emerald" onChange={(v: any) => { setTransformM6(tx, ty, v, escala); audio?.playPop(); }} />
-                    <SimSlider label="Escala" value={escala} min={ESCALA_MIN_M6} max={ESCALA_MAX_M6} step={0.1} color="emerald" onChange={(v: any) => { setTransformM6(tx, ty, rotacion, v); audio?.playPop(); }} />
-                </div>
-            </div>
-
-            <div className="flex flex-col gap-4">
-                <button onClick={() => { resetM6(); audio?.playPop(); }} title="Devuelve la nave al origen (el objetivo no cambia)" className="w-16 h-16 rounded-2xl bg-white/5 border border-white/10 flex items-center justify-center text-slate-500 hover:text-white transition-all shadow-xl">
-                    <RefreshCcw size={24} />
-                </button>
-                <button
-                  onClick={() => onValidate?.()}
-                  className={`w-20 h-20 rounded-3xl border flex items-center justify-center transition-all shadow-2xl ${status === 'success' ? 'bg-emerald-600 border-emerald-400 text-white' : 'bg-amber-600 border-amber-500 text-white hover:scale-105 active:scale-95'}`}
-                >
-                    {status === 'success' ? <ShieldCheck size={32} /> : <Target size={32} />}
-                </button>
-                {status === 'error' && (
-                  <div className="bg-rose-900/90 border border-rose-500/50 text-rose-300 text-[9px] font-black uppercase tracking-widest px-3 py-2 rounded-xl shadow-lg text-center">
-                    Ajusta los vectores
-                  </div>
-                )}
-            </div>
-        </div>
-      </div>
-
-
-    </div>
-  );
-}
-
-function HUDCard({ label, value, icon, color }: any) {
-  return (
-    <div className={`px-8 py-5 rounded-[2rem] border border-white/10 flex items-center gap-5 transition-all bg-[#0A1121]/80 backdrop-blur-md shadow-2xl`}>
-      <div className="w-12 h-12 rounded-2xl flex items-center justify-center shadow-inner" style={{ background: `${color}20`, color }}>
-        {icon}
-      </div>
-      <div>
-        <span className="block text-[9px] font-black uppercase tracking-[0.2em] text-white/30 mb-1">{label}</span>
-        <span className="block text-xl font-black text-white tracking-tighter leading-none italic font-mono">{value}</span>
-      </div>
-    </div>
-  );
-}
-
-function SimSlider({ label, value, min, max, step, color, onChange }: any) {
-    const accent = color === 'amber' ? 'accent-amber-500' : 'accent-emerald-500';
-    const text = color === 'amber' ? 'text-amber-400' : 'text-emerald-400';
-    return (
+      }
+      panelLateral={
         <div className="space-y-3">
-            <div className="flex justify-between items-center px-1">
-                <span className="text-[10px] font-black text-slate-500 uppercase tracking-widest">{label}</span>
-                <span className={`text-[12px] font-black ${text} font-mono bg-white/5 px-2 py-0.5 rounded-lg border border-white/5 shadow-inner`}>{value.toFixed(1)}</span>
+          <div>
+            <span className="mb-1 block text-[10px] font-semibold uppercase text-slate-400">Tu matriz M = T·R·S</span>
+            <div className="grid grid-cols-3 gap-x-3 gap-y-1 border-x-2 border-white/30 px-3 py-1 font-mono text-[13px] font-semibold tabular-nums text-white">
+              {M.flat().map((v, i) => <span key={i} className="text-right">{fmt(v)}</span>)}
             </div>
-            <input type="range" min={min} max={max} step={step} value={value} onChange={e => onChange(parseFloat(e.target.value))} className={`w-full h-1.5 bg-white/10 rounded-full appearance-none cursor-pointer ${accent}`} />
+          </div>
+          <p className="text-[12px] leading-snug text-slate-300">
+            Primero se escala, luego se gira alrededor del pivote y al final se traslada. Lee en la rejilla dónde está la silueta objetivo, hacia dónde mira y qué tan grande es.
+          </p>
         </div>
-    );
+      }
+      controles={
+        <div className="space-y-2">
+          <GrupoControles>
+            <Deslizador etiqueta="Traslación X" valor={tx} min={-RANGO_T_M6} max={RANGO_T_M6} paso={0.1} decimales={1} ancho="w-44" onChange={(v) => { setTransformM6(v, ty, rotacion, escala); audio?.playPop(); }} />
+            <Deslizador etiqueta="Traslación Y" valor={ty} min={-RANGO_T_M6} max={RANGO_T_M6} paso={0.1} decimales={1} ancho="w-44" onChange={(v) => { setTransformM6(tx, v, rotacion, escala); audio?.playPop(); }} />
+            <Deslizador etiqueta="Rotación" valor={rotacion} min={0} max={360} paso={5} unidad="°" ancho="w-44" onChange={(v) => { setTransformM6(tx, ty, v, escala); audio?.playPop(); }} />
+            <Deslizador etiqueta="Escala" valor={escala} min={ESCALA_MIN_M6} max={ESCALA_MAX_M6} paso={0.1} decimales={1} ancho="w-44" onChange={(v) => { setTransformM6(tx, ty, rotacion, v); audio?.playPop(); }} />
+          </GrupoControles>
+          <GrupoControles className="items-center">
+            <BotonLab variante="secundario" title="Devuelve la placa al origen (el objetivo no cambia)" onClick={() => { resetM6(); audio?.playPop(); }}>
+              <RefreshCcw size={14} /> Reiniciar
+            </BotonLab>
+            <BotonLab variante={status === 'success' ? 'primario' : 'acento'} onClick={() => onValidate?.()}>
+              <ShieldCheck size={14} /> {status === 'success' ? 'Acoplada' : 'Validar'}
+            </BotonLab>
+            {isTargetLocked && status !== 'success' && (
+              <span role="status" className="flex items-center gap-1.5 text-[12px] font-semibold text-emerald-300"><CheckCircle2 size={14} /> Coincide: valida tu práctica</span>
+            )}
+            {status === 'error' && <span role="status" className="text-[12px] font-semibold text-rose-300">Aún no coincide: ajusta traslación, giro y escala.</span>}
+          </GrupoControles>
+        </div>
+      }
+    />
+  );
 }

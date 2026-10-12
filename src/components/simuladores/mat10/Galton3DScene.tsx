@@ -1,36 +1,45 @@
 "use client";
 
-import React, { useRef, useMemo, useState, useEffect, useCallback } from 'react';
-import { Canvas, useFrame } from '@react-three/fiber';
-import { OrbitControls, RoundedBox, ContactShadows } from '@react-three/drei';
+/* ────────────────────────────────────────────────────────────────────────────
+   Galton3DScene — tablero de Galton sobre el pizarrón: embudo, 10 filas de clavos
+   de acero, tabiques de acrílico y repisa numerada (k = desvíos a la derecha).
+
+   Las bolitas caen con la física de siempre (cada clavo las manda a la derecha
+   con probabilidad p) y, al llegar a la pila de su contenedor, se cuentan en el
+   store. La pila de cada contenedor es una columna cuya altura es proporcional a
+   su cuenta (escala relativa al contenedor más lleno); sobre ella se dibuja, en
+   esa misma escala, la curva normal N(np, np(1−p)) de De Moivre–Laplace y la
+   marca de lo esperado por la binomial. La repisa rotula las cuentas (con una
+   pequeña demora para no re-dibujar el texto en cada bolita).
+
+   La escena NO escribe μ ni σ teóricas: el alumno las calcula.
+──────────────────────────────────────────────────────────────────────────── */
+
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import * as THREE from 'three';
+import { useFrame } from '@react-three/fiber';
 import { useShallow } from 'zustand/react/shallow';
 import { useSimuladorStore } from '@/store/simuladorStore';
 import { pmfBinomialM10 } from '@/domain/matematicas';
+import { LabCanvas } from '../_kit';
+import { Trazo, EncuadreSuave } from '../mat_comun_1a5/trazos';
+import { Clavos, MarcoGalton, FILAS, COLS, SEP, Y_BASE } from './piezas';
 
 interface Galton3DSceneProps {
   probabilidad: number;
   contenedores: number[];
 }
 
-const ROWS = 10;
-const PEG_SX = 1.0;
-const PEG_SY = 1.0;
 const BALL_R = 0.28;
-const COLS = ROWS + 1;
 const MAX_BALLS = 200;
-
+const HIST_MAX_H = 3.3;
 const BIN_COLORS = [
-  '#7c3aed','#6366f1','#3b82f6','#0ea5e9','#06b6d4',
-  '#14b8a6','#22c55e','#84cc16','#eab308','#f97316','#ef4444',
+  '#7c3aed', '#6366f1', '#3b82f6', '#0ea5e9', '#06b6d4',
+  '#14b8a6', '#22c55e', '#84cc16', '#eab308', '#f97316', '#ef4444',
 ];
 
-/* ═══════════════════════════════════════════════════════════
-   BALL SYSTEM — Uses ref-based physics, no state re-renders
-   ═══════════════════════════════════════════════════════════ */
-function BallSystem({ probabilidad }: {
-  probabilidad: number;
-}) {
+/* ── Bolitas: física por referencias, sin re-renders ───────────────────────── */
+function BallSystem({ probabilidad, alturas }: { probabilidad: number; alturas: React.MutableRefObject<number[]> }) {
   const meshRef = useRef<THREE.InstancedMesh>(null!);
   const dummy = useMemo(() => new THREE.Object3D(), []);
   const { bolitasPendientes, contenedores, contarBolitaM10, setGalton10 } = useSimuladorStore(useShallow((s) => ({
@@ -38,20 +47,19 @@ function BallSystem({ probabilidad }: {
     contarBolitaM10: s.contarBolitaM10, setGalton10: s.setGalton10,
   })));
 
-  // Ball pool — all refs, never triggers re-render
   const pool = useRef({
-    x:      new Float32Array(MAX_BALLS),
-    y:      new Float32Array(MAX_BALLS),
-    vy:     new Float32Array(MAX_BALLS),
-    bounces:new Int32Array(MAX_BALLS),
-    active: new Uint8Array(MAX_BALLS),  // 0=dead, 1=falling
-    hue:    new Float32Array(MAX_BALLS),
+    x: new Float32Array(MAX_BALLS),
+    y: new Float32Array(MAX_BALLS),
+    vy: new Float32Array(MAX_BALLS),
+    bounces: new Int32Array(MAX_BALLS),
+    active: new Uint8Array(MAX_BALLS),
+    hue: new Float32Array(MAX_BALLS),
   });
   const spawnTimer = useRef(0);
   const pendingToSpawn = useRef(0);
   const colorObj = useMemo(() => new THREE.Color(), []);
 
-  // Consumer pattern: take pending balls from store and spawn them locally
+  // Consumidor: toma del store las bolitas pendientes y las suelta localmente.
   useEffect(() => {
     if (bolitasPendientes > 0) {
       pendingToSpawn.current += bolitasPendientes;
@@ -61,8 +69,7 @@ function BallSystem({ probabilidad }: {
 
   // Vaciado: `vaciarGaltonM10`, `setProbabilidadM10` y los reinicios crean un
   // arreglo de contenedores NUEVO y vacío. Sólo entonces se descarta la cola y
-  // las bolitas en vuelo (lanzar no cambia la referencia de `contenedores`, así
-  // que no borra lo que se acaba de pedir).
+  // las bolitas en vuelo (lanzar no cambia la referencia de `contenedores`).
   useEffect(() => {
     if (contenedores.some((c) => c > 0)) return;
     pendingToSpawn.current = 0;
@@ -74,12 +81,12 @@ function BallSystem({ probabilidad }: {
     const p = pool.current;
     for (let i = 0; i < MAX_BALLS; i++) {
       if (!p.active[i]) {
-        p.x[i]       = (Math.random() - 0.5) * 0.1;
-        p.y[i]       = ROWS * PEG_SY + 2.5;
-        p.vy[i]      = -0.5;
-        p.bounces[i] = ROWS;
-        p.active[i]  = 1;
-        p.hue[i]     = 0.05 + Math.random() * 0.12;
+        p.x[i] = (Math.random() - 0.5) * 0.1;
+        p.y[i] = FILAS * SEP + 2.5;
+        p.vy[i] = -0.5;
+        p.bounces[i] = FILAS;
+        p.active[i] = 1;
+        p.hue[i] = 0.05 + Math.random() * 0.12;
         return true;
       }
     }
@@ -88,22 +95,18 @@ function BallSystem({ probabilidad }: {
 
   useFrame((_, delta) => {
     if (!meshRef.current) return;
-    const dt   = Math.min(delta, 0.033);
-    const G    = 28;
-    const p    = pool.current;
-    const startY = ROWS * PEG_SY + 2.5;
+    const dt = Math.min(delta, 0.033);
+    const G = 28;
+    const p = pool.current;
 
-    // Spawn logic based on local queue
     spawnTimer.current += delta;
     if (spawnTimer.current >= 0.1 && pendingToSpawn.current > 0) {
       spawnTimer.current = 0;
       if (spawnBall()) pendingToSpawn.current--;
     }
 
-    let visible = 0;
     for (let i = 0; i < MAX_BALLS; i++) {
       if (!p.active[i]) {
-        // Hide inactive balls far below scene
         dummy.position.set(0, -999, 0);
         dummy.scale.setScalar(0.001);
         dummy.updateMatrix();
@@ -111,312 +114,151 @@ function BallSystem({ probabilidad }: {
         continue;
       }
 
-      // Physics
       p.vy[i] -= G * dt;
-      p.y[i]  += p.vy[i] * dt;
+      p.y[i] += p.vy[i] * dt;
 
-      // Peg collisions — each of the ROWS levels
+      // choque con el clavo de cada nivel
       if (p.bounces[i] > 0) {
-        const row  = ROWS - p.bounces[i];       // 0..9
-        const pegY = (ROWS - row) * PEG_SY;     // top=ROWS, bottom=1
-        const dy   = p.y[i] - pegY;
+        const row = FILAS - p.bounces[i];            // 0..9
+        const pegY = (FILAS - row) * SEP;            // arriba = FILAS, abajo = 1
+        const dy = p.y[i] - pegY;
         if (dy < BALL_R + 0.1 && dy > -(BALL_R + 0.1) && p.vy[i] < 0) {
           p.bounces[i]--;
-          p.x[i] += (Math.random() < probabilidad ? PEG_SX * 0.5 : -PEG_SX * 0.5);
+          p.x[i] += (Math.random() < probabilidad ? SEP * 0.5 : -SEP * 0.5);
           p.vy[i] = 2.5 + Math.random() * 2.0;
-          p.y[i]  = pegY + BALL_R + 0.12;
+          p.y[i] = pegY + BALL_R + 0.12;
         }
       }
 
-      // Settle at bottom
-      if (p.y[i] < -1.5 && p.bounces[i] <= 0) {
-        p.active[i] = 0;
-        // Tras 10 rebotes de ±PEG_SX/2, x = (D − 5)·PEG_SX con D = nº de
-        // desvíos a la derecha (0…10): el contenedor ES D = round(x/PEG_SX + 5).
-        const bi = Math.round(p.x[i] / PEG_SX + (COLS - 1) / 2);
-        const finalBin = Math.max(0, Math.min(COLS - 1, bi));
-        contarBolitaM10(finalBin);
-        // Hide
-        dummy.position.set(0, -999, 0);
-        dummy.scale.setScalar(0.001);
-        dummy.updateMatrix();
-        meshRef.current.setMatrixAt(i, dummy.matrix);
-        continue;
+      // Tras 10 rebotes de ±SEP/2, x = (D − 5)·SEP con D = nº de desvíos a la
+      // derecha (0…10): el contenedor ES D = round(x/SEP + 5).
+      if (p.bounces[i] <= 0) {
+        const bi = Math.max(0, Math.min(COLS - 1, Math.round(p.x[i] / SEP + (COLS - 1) / 2)));
+        // la bolita se cuenta al tocar la pila de su contenedor
+        const techoPila = Y_BASE + (alturas.current[bi] ?? 0) + BALL_R;
+        if (p.y[i] < techoPila) {
+          p.active[i] = 0;
+          contarBolitaM10(bi);
+          dummy.position.set(0, -999, 0);
+          dummy.scale.setScalar(0.001);
+          dummy.updateMatrix();
+          meshRef.current.setMatrixAt(i, dummy.matrix);
+          continue;
+        }
       }
 
-      // Kill if lost
       if (p.y[i] < -15) { p.active[i] = 0; continue; }
 
-      // Render
       dummy.position.set(p.x[i], p.y[i], 0);
       dummy.scale.setScalar(1);
       dummy.updateMatrix();
       meshRef.current.setMatrixAt(i, dummy.matrix);
-
-      // Color
-      colorObj.setHSL(p.hue[i], 0.85, 0.52);
+      colorObj.setHSL(p.hue[i], 0.8, 0.5);
       meshRef.current.setColorAt(i, colorObj);
-      visible++;
     }
 
     meshRef.current.instanceMatrix.needsUpdate = true;
-    if (meshRef.current.instanceColor) {
-      meshRef.current.instanceColor.needsUpdate = true;
-    }
+    if (meshRef.current.instanceColor) meshRef.current.instanceColor.needsUpdate = true;
   });
 
   // Búfer de color creado una vez al montar (ninguna bolita sale transparente).
   useEffect(() => {
     if (!meshRef.current || meshRef.current.instanceColor) return;
     const colors = new Float32Array(MAX_BALLS * 3);
-    colorObj.setHSL(0.08, 0.85, 0.52);
-    for (let i = 0; i < MAX_BALLS; i++) {
-      colors[i*3]   = colorObj.r;
-      colors[i*3+1] = colorObj.g;
-      colors[i*3+2] = colorObj.b;
-    }
+    colorObj.setHSL(0.08, 0.8, 0.5);
+    for (let i = 0; i < MAX_BALLS; i++) { colors[i * 3] = colorObj.r; colors[i * 3 + 1] = colorObj.g; colors[i * 3 + 2] = colorObj.b; }
     meshRef.current.instanceColor = new THREE.InstancedBufferAttribute(colors, 3);
   }, [colorObj]);
 
-  return (
-    <instancedMesh
-      ref={meshRef}
-      args={[undefined, undefined, MAX_BALLS]}
-      frustumCulled={false}
-    >
-      <sphereGeometry args={[BALL_R, 16, 16]} />
-      <meshStandardMaterial
-        metalness={0.5}
-        roughness={0.2}
-        emissive="#f97316"
-        emissiveIntensity={0.5}
-        vertexColors
-      />
-    </instancedMesh>
-  );
+  const geo = useMemo(() => new THREE.SphereGeometry(BALL_R, 18, 14), []);
+  const mat = useMemo(() => new THREE.MeshStandardMaterial({ metalness: 0.55, roughness: 0.22 }), []);
+  useEffect(() => () => { geo.dispose(); mat.dispose(); }, [geo, mat]);
+  return <instancedMesh ref={meshRef} args={[geo, mat, MAX_BALLS]} frustumCulled={false} castShadow />;
 }
 
-/* ═══════════════════════════════════════════════════════════
-   PEGS — Metallic spheres at each peg position
-   ═══════════════════════════════════════════════════════════ */
-function Pegs() {
-  const meshRef = useRef<THREE.InstancedMesh>(null!);
-  const dummy   = useMemo(() => new THREE.Object3D(), []);
-
-  const positions = useMemo<[number, number, number][]>(() => {
-    const ps: [number, number, number][] = [];
-    for (let row = 0; row < ROWS; row++) {
-      const y   = (ROWS - row) * PEG_SY;
-      const num = row + 1;
-      const w   = (num - 1) * PEG_SX;
-      for (let i = 0; i < num; i++) ps.push([-w / 2 + i * PEG_SX, y, 0]);
-    }
-    return ps;
-  }, []);
-
-  useEffect(() => {
-    if (!meshRef.current) return;
-    positions.forEach((pos, i) => {
-      dummy.position.set(...pos);
-      dummy.updateMatrix();
-      meshRef.current.setMatrixAt(i, dummy.matrix);
-    });
-    meshRef.current.instanceMatrix.needsUpdate = true;
-  }, [positions, dummy]);
-
-  return (
-    <instancedMesh ref={meshRef} args={[undefined, undefined, positions.length]}>
-      <sphereGeometry args={[0.09, 12, 12]} />
-      <meshStandardMaterial color="#334155" metalness={0.95} roughness={0.05} />
-    </instancedMesh>
-  );
-}
-
-/* ═══════════════════════════════════════════════════════════
-   HISTOGRAM — Animated bars with smooth lerp
-   ═══════════════════════════════════════════════════════════ */
-const HIST_MAX_H = 5.5;
-const HIST_BASE_Y = -3.2;
-function HistogramBars({ contenedores }: { contenedores: number[] }) {
-  const maxC      = Math.max(1, ...contenedores);
-  const MAX_H     = HIST_MAX_H;
-  const BASE_Y    = HIST_BASE_Y;
-  const barsRef   = useRef<(THREE.Mesh | null)[]>([]);
-  const heights   = useRef<number[]>(new Array(COLS).fill(0.02));
-
+/* ── Pilas de cada contenedor (columnas con transición suave) ──────────────── */
+function Pilas({ contenedores, alturas }: { contenedores: number[]; alturas: React.MutableRefObject<number[]> }) {
+  const maxC = Math.max(1, ...contenedores);
+  const refs = useRef<(THREE.Mesh | null)[]>([]);
+  const mats = useMemo(() => BIN_COLORS.map((c) => new THREE.MeshStandardMaterial({ color: c, roughness: 0.35, metalness: 0.15 })), []);
+  const geo = useMemo(() => new THREE.BoxGeometry(SEP * 0.84, 1, 0.55), []);
+  useEffect(() => () => { mats.forEach((m) => m.dispose()); geo.dispose(); }, [mats, geo]);
   useFrame(() => {
     for (let i = 0; i < COLS; i++) {
-      const target = Math.max(0.02, (contenedores[i] / maxC) * MAX_H);
-      heights.current[i] += (target - heights.current[i]) * 0.06;
-      const mesh = barsRef.current[i];
-      if (mesh) {
-        const h = heights.current[i];
-        mesh.scale.y = h;
-        mesh.position.y = BASE_Y + h * 0.5;
-      }
+      const objetivo = Math.max(0.02, ((contenedores[i] ?? 0) / maxC) * HIST_MAX_H);
+      alturas.current[i] += (objetivo - alturas.current[i]) * 0.1;
+      const m = refs.current[i];
+      if (m) { m.scale.y = alturas.current[i]; m.position.y = Y_BASE + alturas.current[i] / 2; }
     }
   });
-
   return (
     <group>
-      {Array.from({ length: COLS }, (_, i) => {
-        const x     = (i - (COLS - 1) / 2) * PEG_SX;
-        const color = BIN_COLORS[i];
-        return (
-          <mesh
-            key={i}
-            ref={el => { barsRef.current[i] = el; }}
-            position={[x, -3.2, 0]}
-          >
-            <boxGeometry args={[PEG_SX * 0.82, 1, 0.8]} />
-            <meshStandardMaterial color={color} metalness={0.1} roughness={0.4} />
-          </mesh>
-        );
-      })}
-      {/* Bin dividers */}
-      {Array.from({ length: COLS + 1 }, (_, i) => (
-        <mesh key={`d${i}`} position={[(i - COLS / 2) * PEG_SX, -2, 0]}>
-          <boxGeometry args={[0.04, 2.8, 0.85]} />
-          <meshStandardMaterial color="#94a3b8" transparent opacity={0.4} />
-        </mesh>
+      {Array.from({ length: COLS }, (_, i) => (
+        <mesh key={i} ref={(el) => { refs.current[i] = el; }} geometry={geo} material={mats[i]} position={[(i - (COLS - 1) / 2) * SEP, Y_BASE, 0]} />
       ))}
     </group>
   );
 }
 
-/* ═══════════════════════════════════════════════════════════
-   CURVA ESPERADA — N·f(k) de la normal N(np, np(1−p)) (De Moivre–Laplace),
-   en la MISMA escala que las barras (cuentas / máximo observado · MAX_H).
-   Un único búfer de 101 puntos que se reescribe sólo cuando cambian los datos.
-   ═══════════════════════════════════════════════════════════ */
-const PUNTOS_CURVA = 101;
-function GaussianCurve({ contenedores, probabilidad }: { contenedores: number[]; probabilidad: number }) {
-  const { geo, linea } = useMemo(() => {
-    const g = new THREE.BufferGeometry();
-    g.setAttribute('position', new THREE.Float32BufferAttribute(new Float32Array(PUNTOS_CURVA * 3), 3));
-    const m = new THREE.LineBasicMaterial({ color: '#e11d48', transparent: true, opacity: 0.85 });
-    const l = new THREE.Line(g, m);
-    l.visible = false;
-    return { geo: g, linea: l };
-  }, []);
-  useEffect(() => () => { geo.dispose(); (linea.material as THREE.Material).dispose(); }, [geo, linea]);
-
+/* ── Curva esperada y marcas de la binomial, en la misma escala que las pilas ── */
+function Esperado({ contenedores, probabilidad }: { contenedores: number[]; probabilidad: number }) {
   const total = contenedores.reduce((a, b) => a + b, 0);
   const maxC = Math.max(1, ...contenedores);
-
-  useEffect(() => {
-    linea.visible = total >= 10;
-    if (total < 10) return;
-    const mu     = ROWS * probabilidad;
-    const sigma  = Math.sqrt(ROWS * probabilidad * (1 - probabilidad));
-    const pos = geo.getAttribute('position') as THREE.BufferAttribute;
-    for (let t = 0; t < PUNTOS_CURVA; t++) {
-      const k  = -0.5 + (t / (PUNTOS_CURVA - 1)) * COLS;      // contenedor continuo −0.5…10.5
-      const g  = Math.exp(-0.5 * ((k - mu) / sigma) ** 2) / (sigma * Math.sqrt(2 * Math.PI));
-      const h  = Math.min(HIST_MAX_H * 1.4, (total * g / maxC) * HIST_MAX_H);
-      pos.setXYZ(t, (k - (COLS - 1) / 2) * PEG_SX, h + HIST_BASE_Y, 0.5);
+  const curva = useMemo<[number, number][]>(() => {
+    if (total < 10) return [];
+    const mu = FILAS * probabilidad, sigma = Math.sqrt(FILAS * probabilidad * (1 - probabilidad));
+    const pts: [number, number][] = [];
+    for (let t = 0; t <= 80; t++) {
+      const k = -0.5 + (t / 80) * COLS;
+      const g = Math.exp(-0.5 * ((k - mu) / sigma) ** 2) / (sigma * Math.sqrt(2 * Math.PI));
+      pts.push([(k - (COLS - 1) / 2) * SEP, Y_BASE + Math.min(HIST_MAX_H * 1.2, ((total * g) / maxC) * HIST_MAX_H)]);
     }
-    pos.needsUpdate = true;
-    geo.computeBoundingSphere();
-  }, [total, maxC, probabilidad, geo, linea]);
-
-  return (
-    <primitive object={linea} />
-  );
-}
-
-/* Marca de lo esperado por contenedor (N·P(K = k)) para comparar con cada barra. */
-function EsperadoBinomial({ contenedores, probabilidad }: { contenedores: number[]; probabilidad: number }) {
-  const total = contenedores.reduce((a, b) => a + b, 0);
-  const maxC = Math.max(1, ...contenedores);
-  if (total < 10) return null;
+    return pts;
+  }, [total, maxC, probabilidad]);
+  const marcas = useMemo(() => (total < 10 ? [] : Array.from({ length: COLS }, (_, k) => ({
+    x: (k - (COLS - 1) / 2) * SEP, y: Y_BASE + Math.min(HIST_MAX_H * 1.2, ((total * pmfBinomialM10(k, probabilidad)) / maxC) * HIST_MAX_H),
+  }))), [total, maxC, probabilidad]);
+  if (!curva.length) return null;
   return (
     <group>
-      {Array.from({ length: COLS }, (_, k) => {
-        const h = Math.min(HIST_MAX_H * 1.4, (total * pmfBinomialM10(k, probabilidad) / maxC) * HIST_MAX_H);
-        return (
-          <mesh key={k} position={[(k - (COLS - 1) / 2) * PEG_SX, HIST_BASE_Y + h, 0.45]}>
-            <boxGeometry args={[PEG_SX * 0.86, 0.06, 0.06]} />
-            <meshBasicMaterial color="#0f172a" />
-          </mesh>
-        );
-      })}
+      <Trazo pts={curva} color="#ff5d73" radio={0.04} z={0.5} />
+      {marcas.map((m, k) => <Trazo key={k} pts={[[m.x - SEP * 0.42, m.y], [m.x + SEP * 0.42, m.y]]} color="#ffe08a" radio={0.03} z={0.42} />)}
     </group>
   );
 }
 
-/* ═══════════════════════════════════════════════════════════
-   MACHINE FRAME
-   ═══════════════════════════════════════════════════════════ */
-function MachineFrame() {
-  const H = ROWS * PEG_SY + 5.5;
-  const W = COLS * PEG_SX + 1.2;
-  const C = '#1e293b';
-
+function Contenido({ probabilidad, contenedores }: Galton3DSceneProps) {
+  const alturas = useRef<number[]>(new Array(COLS).fill(0.02));
+  // instantánea con demora: curva y rótulos no se regeneran con cada bolita
+  const [foto, setFoto] = useState(contenedores);
+  const ultima = useRef(contenedores);
+  ultima.current = contenedores;
+  useEffect(() => {
+    const vacio = !contenedores.some((c) => c > 0);
+    if (vacio) { setFoto(contenedores); return; }
+    const id = setTimeout(() => setFoto(ultima.current), 280);
+    return () => clearTimeout(id);
+  }, [contenedores]);
+  const hay = foto.some((c) => c > 0);
   return (
-    <group>
-      {[-1, 1].map(s => (
-        <RoundedBox key={s} args={[0.2, H, 1.0]} radius={0.05}
-          position={[s * (W / 2 + 0.1), H / 2 - 3.8, 0]}>
-          <meshStandardMaterial color={C} metalness={0.4} roughness={0.5} />
-        </RoundedBox>
-      ))}
-      <RoundedBox args={[W + 0.4, 0.2, 1.0]} radius={0.05} position={[0, H - 3.8, 0]}>
-        <meshStandardMaterial color={C} metalness={0.4} roughness={0.5} />
-      </RoundedBox>
-      <RoundedBox args={[W + 1.5, 0.3, 1.6]} radius={0.08} position={[0, -3.8, 0]} receiveShadow>
-        <meshStandardMaterial color="#0f172a" metalness={0.5} roughness={0.4} />
-      </RoundedBox>
-      {/* Funnel */}
-      {[-1, 1].map(s => (
-        <RoundedBox key={`f${s}`} args={[0.1, 1.8, 0.9]} radius={0.03}
-          position={[s * 0.55, ROWS * PEG_SY + 2.3, 0]}
-          rotation={[0, 0, s * 0.22]}>
-          <meshStandardMaterial color="#475569" metalness={0.6} roughness={0.3} />
-        </RoundedBox>
-      ))}
-    </group>
+    <>
+      <EncuadreSuave caja={[[-7.4, -6.9, 0], [7.4, 15.4, 0]]} margen={1.03} />
+      <MarcoGalton cuentas={hay ? foto : null} />
+      <Clavos />
+      <Pilas contenedores={contenedores} alturas={alturas} />
+      <Esperado contenedores={foto} probabilidad={probabilidad} />
+      <BallSystem probabilidad={probabilidad} alturas={alturas} />
+    </>
   );
 }
 
-/* ═══════════════════════════════════════════════════════════
-   MAIN SCENE
-   ═══════════════════════════════════════════════════════════ */
-export default function Galton3DScene({ probabilidad, contenedores }: Galton3DSceneProps) {
-
+export default function Galton3DScene(props: Galton3DSceneProps) {
   return (
-    <div className="w-full h-full bg-[#f1f5f9]">
-      <Canvas
-        shadows
-        camera={{ position: [0, 4, 17], fov: 52 }}
-        gl={{ antialias: true, toneMapping: THREE.ACESFilmicToneMapping, toneMappingExposure: 1.4 }}
-      >
-        <color attach="background" args={['#f1f5f9']} />
-
-        <ambientLight intensity={0.85} />
-        <directionalLight position={[5, 14, 14]} intensity={1.1} color="#ffffff" castShadow />
-        <directionalLight position={[-4, 10, 10]} intensity={0.35} color="#dbeafe" />
-        <pointLight position={[0, 14, 7]} intensity={0.5} color="#fef3c7" />
-
-        <MachineFrame />
-        <Pegs />
-        <BallSystem probabilidad={probabilidad} />
-        <HistogramBars contenedores={contenedores} />
-        <GaussianCurve contenedores={contenedores} probabilidad={probabilidad} />
-        <EsperadoBinomial contenedores={contenedores} probabilidad={probabilidad} />
-
-        <ContactShadows position={[0, -3.9, 0]} opacity={0.2} scale={22} blur={2} far={8} />
-
-        <OrbitControls
-          makeDefault
-          target={[0, 3, 0]}
-          enablePan={false}
-          minDistance={11}
-          maxDistance={32}
-          minPolarAngle={Math.PI * 0.15}
-          maxPolarAngle={Math.PI * 0.6}
-        />
-      </Canvas>
+    <div className="absolute inset-0">
+      <LabCanvas fondo="pizarron" camara={{ posicion: [0, 4, 30], objetivo: [0, 4.5, 0], fov: 35 }}
+        controles={{ minDistancia: 10, maxDistancia: 60, maxPolar: Math.PI * 0.62, minPolar: Math.PI * 0.3 }}>
+        <Contenido {...props} />
+      </LabCanvas>
     </div>
   );
 }
