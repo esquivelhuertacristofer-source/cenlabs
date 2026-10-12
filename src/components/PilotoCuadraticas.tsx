@@ -1,14 +1,10 @@
 "use client";
 
 import React, { useMemo, useState, useEffect } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
 import { useShallow } from 'zustand/react/shallow';
 import { useSimuladorStore } from '@/store/simuladorStore';
-import {
-  Target, Activity, ShieldCheck,
-  RefreshCcw, BookOpen, FunctionSquare, Pi, CheckCircle2,
-} from 'lucide-react';
-import ComplexPlaneMonitor from './ComplexPlaneMonitor';
+import { Activity, ShieldCheck, RefreshCcw, BookOpen, Pi, CheckCircle2 } from 'lucide-react';
+import LabLayout, { Lectura, GrupoControles, Deslizador, BotonLab } from './simulador/LabLayout';
 import Cuadraticas3DScene from './simuladores/mat01/Cuadraticas3DScene';
 import {
   solveQuadratic, formatQuadratic,
@@ -78,173 +74,111 @@ export default function PilotoCuadraticas({ onValidate }: { onValidate?: () => v
 
   if (!mounted) return null;
 
-  return (
-    <div className="relative w-full h-full bg-[#020617] flex items-center justify-center overflow-hidden font-['Outfit'] text-white">
+  const CONTEXTO: Record<string, string> = {
+    lanzamiento_proyectil: 'Trayectoria de un proyectil',
+    arquitectura_arco: 'Arco estructural',
+    focalizacion_antena: 'Antena parabólica',
+    parabola_basica: 'Plano cartesiano',
+  };
 
-      {/* ── CHECKLIST HUD (DIAMOND STANDARD) ── */}
-      <div className="absolute top-12 left-1/2 -translate-x-1/2 z-50 w-full max-w-[600px] px-6 pointer-events-none">
-        <div className="bg-[#0f172a]/80 backdrop-blur-3xl border border-rose-500/30 p-4 rounded-[2rem] shadow-[0_0_50px_rgba(244,63,94,0.15)] pointer-events-auto">
-          <div className="flex items-center justify-between gap-4">
-            <div className="flex items-center gap-3">
-              <div className="p-2 bg-rose-500/20 rounded-xl">
-                <FunctionSquare className="text-rose-400" size={16} />
+  return (
+    <LabLayout
+      tituloPanel="Formas"
+      barraSuperior={
+        <div className="flex min-w-0 flex-1 flex-wrap items-center gap-1.5">
+          <Lectura etiqueta="Tu f(x)" valor={currentEq} acento />
+          <Lectura etiqueta="Foco" valor={focusReady ? `(${vh.toFixed(1)}; ${focusY.toFixed(1)})` : '—'} />
+          <Lectura etiqueta="Directriz" valor={focusReady ? `y = ${directrixY.toFixed(1)}` : '—'} />
+          {puntos.map((pt) => {
+            const tuyo = a * pt.x * pt.x + b * pt.x + c;
+            const ok = Math.abs(tuyo - pt.y) < 0.05;
+            return (
+              <div key={pt.x} title={`En x = ${pt.x}: medida ${pt.y.toFixed(1)}, tu parábola ${tuyo.toFixed(1)}`}
+                className={`flex shrink-0 items-baseline gap-1.5 rounded-lg border px-2 py-1 ${ok ? 'border-emerald-400/50 bg-emerald-500/10' : 'border-[#FB8500]/40 bg-[#FB8500]/10'}`}>
+                <span className="text-[10px] font-semibold uppercase tracking-wider text-slate-400">x = {pt.x}</span>
+                <span className="font-mono text-[13px] font-semibold tabular-nums text-[#FFB703]">{pt.y.toFixed(1)}</span>
+                <span className="text-[10px] text-slate-500">medida</span>
+                <span className={`font-mono text-[13px] font-semibold tabular-nums ${ok ? 'text-emerald-300' : 'text-white'}`}>{tuyo.toFixed(1)}</span>
+                <span className="text-[10px] text-slate-500">tuya</span>
               </div>
-              <div>
-                <h4 className="text-[10px] font-black text-rose-300 uppercase tracking-widest leading-none">Sincronía Algebraica</h4>
-                <p className="text-[9px] font-bold text-slate-500 uppercase tracking-widest mt-1">MAT-01 • Protocolo Parábola</p>
-              </div>
-            </div>
-            <div className="flex gap-2">
-              {[
-                { step: 1, label: "Parámetros" },
-                { step: 2, label: "Cálculo" },
-                { step: 3, label: "Sincronía" }
-              ].map((s) => (
-                <div key={s.step} className={`px-4 py-1.5 rounded-full border flex items-center gap-2 transition-all ${pasoActual >= s.step ? 'bg-rose-500 border-rose-400 text-white' : 'bg-slate-800/50 border-slate-700 text-slate-500'}`}>
-                   {pasoActual > s.step ? <ShieldCheck size={10} /> : <div className="w-1.5 h-1.5 rounded-full bg-current" />}
-                   <span className="text-[9px] font-black uppercase tracking-widest">{s.label}</span>
-                </div>
-              ))}
-            </div>
+            );
+          })}
+        </div>
+      }
+      esquina={
+        <div className="rounded-md bg-black/45 px-2 py-1 text-[10px] font-semibold uppercase tracking-wider text-slate-300">
+          {CONTEXTO[cuadraticas.escenario as string] ?? CONTEXTO.parabola_basica} · paso {Math.max(1, pasoActual)}/3
+        </div>
+      }
+      escena={
+        <div className="absolute inset-0 bg-[#34434b]">
+          <Cuadraticas3DScene a={a} b={b} c={c} target={target} currentRes={currentRes} escenario={cuadraticas.escenario as any} puntosObjetivo={puntos} />
+          <div className="pointer-events-none absolute bottom-2 left-2 flex flex-wrap gap-x-3 gap-y-1 rounded-md bg-black/45 px-2 py-1 text-[10px] font-semibold text-slate-200">
+            <Leyenda color="#ff6b9b" texto="Tu parábola" />
+            <Leyenda color="#fb8500" texto="Guía y puntos medidos" />
+            <Leyenda color="#4cc9f0" texto="Foco y rayos" />
+            <Leyenda color="#f25c54" texto="Directriz" />
+            {currentRes.delta < 0 && <Leyenda color="#c77dff" texto="Raíces complejas (Argand)" />}
           </div>
         </div>
-      </div>
-
-      {/* ── HUD SUPERIOR: TELEMETRÍA ── */}
-      <div className="absolute top-36 left-7 right-7 flex justify-between items-start z-20 pointer-events-none gap-4">
-
-        {/* Panel de Formas (de TU parábola) */}
-        <motion.div initial={{ x: -20, opacity: 0 }} animate={{ x: 0, opacity: 1 }} className="flex flex-col gap-4 pointer-events-auto max-w-[320px]">
-          <div className="bg-black/60 backdrop-blur-3xl p-6 rounded-[2.5rem] border border-white/10 shadow-2xl group">
-             <span className="text-[9px] font-black text-rose-500 uppercase tracking-[0.2em] mb-4 block">Tu función</span>
-             <div className="font-mono text-2xl font-black text-white mb-6 leading-tight italic tracking-tighter">
-                {currentEq}
-             </div>
-             <div className="grid grid-cols-2 gap-3">
-                <DataChip label="Foco" value={focusReady ? `(${vh.toFixed(1)}, ${focusY.toFixed(1)})` : '—'} color="cyan" />
-                <DataChip label="Directriz" value={focusReady ? `y = ${directrixY.toFixed(1)}` : '—'} color="rose" />
-             </div>
+      }
+      panelLateral={
+        <div className="space-y-3">
+          <EquivFormRow label="Forma vértice" color="rose" formula={forms.vertexForm} />
+          {forms.factored && <EquivFormRow label="Forma factorizada" color="amber" formula={forms.factored} />}
+          <div className="grid grid-cols-2 gap-2">
+            <DataChip label="Vieta · suma (−b/a)" value={Number.isFinite(domainInfo.vietaSum) ? domainInfo.vietaSum.toFixed(2) : '—'} color="cyan" />
+            <DataChip label="Vieta · producto (c/a)" value={Number.isFinite(domainInfo.vietaProduct) ? domainInfo.vietaProduct.toFixed(2) : '—'} color="amber" />
           </div>
-
-          <div className="bg-black/40 backdrop-blur-2xl p-6 rounded-[2rem] border border-white/5 space-y-4">
-             <EquivFormRow label="Forma Vértice" color="rose" formula={forms.vertexForm} />
-             {forms.factored && <EquivFormRow label="Forma Factorizada" color="amber" formula={forms.factored} />}
-             <div className="grid grid-cols-2 gap-3 pt-1">
-                <DataChip label="Vieta · Suma (−b/a)" value={Number.isFinite(domainInfo.vietaSum) ? domainInfo.vietaSum.toFixed(2) : '—'} color="cyan" />
-                <DataChip label="Vieta · Producto (c/a)" value={Number.isFinite(domainInfo.vietaProduct) ? domainInfo.vietaProduct.toFixed(2) : '—'} color="amber" />
-             </div>
-          </div>
-        </motion.div>
-
-        {/* Panel Objetivo: SOLO datos medidos, nunca la ecuación */}
-        <motion.div initial={{ x: 20, opacity: 0 }} animate={{ x: 0, opacity: 1 }} className="flex flex-col gap-4 pointer-events-auto">
-          <div className="bg-[#FB8500]/10 backdrop-blur-3xl p-6 rounded-[2.5rem] border border-[#FB8500]/30 shadow-2xl min-w-[280px]">
-             <div className="flex justify-between items-start mb-3">
-                <span className="text-[9px] font-black text-[#FB8500] uppercase tracking-[0.2em]">Puntos medidos de la trayectoria</span>
-                <Target size={18} className="text-[#FB8500] animate-pulse" />
-             </div>
-             <div className="grid grid-cols-3 gap-2 text-center font-mono">
-                <span className="text-[8px] font-black text-slate-500 uppercase">x</span>
-                <span className="text-[8px] font-black text-slate-500 uppercase">y medida</span>
-                <span className="text-[8px] font-black text-slate-500 uppercase">tu f(x)</span>
-                {puntos.map((pt) => {
-                  const tuyo = a * pt.x * pt.x + b * pt.x + c;
-                  const ok = Math.abs(tuyo - pt.y) < 0.05;
-                  return (
-                    <React.Fragment key={pt.x}>
-                      <span className="text-sm font-black text-white">{pt.x}</span>
-                      <span className="text-sm font-black text-[#FB8500]">{pt.y.toFixed(1)}</span>
-                      <span className={`text-sm font-black ${ok ? 'text-emerald-400' : 'text-slate-300'}`}>{tuyo.toFixed(1)}</span>
-                    </React.Fragment>
-                  );
-                })}
-             </div>
-             <p className="text-[9px] text-slate-400 mt-3 leading-snug max-w-[260px]">
-               Plantea f(−1), f(0) y f(1) con a, b, c desconocidos y resuelve el sistema.
-             </p>
-          </div>
-
-          <ComplexPlaneMonitor roots={currentRes.roots} isVisible={currentRes.delta < 0} />
-        </motion.div>
-      </div>
-
-      {/* ── ESCENA GRÁFICA 3D ── */}
-      <div className="absolute inset-0 z-10 pointer-events-auto">
-        <Cuadraticas3DScene a={a} b={b} c={c} target={target} currentRes={currentRes} escenario={cuadraticas.escenario as any} puntosObjetivo={puntos} />
-      </div>
-
-      {/* ── DOCK DE CONTROL INFERIOR ── */}
-      <div className="absolute bottom-8 left-1/2 -translate-x-1/2 w-full max-w-[1200px] px-8 z-40">
-        <motion.div initial={{ y: 50, opacity: 0 }} animate={{ y: 0, opacity: 1 }} className="bg-[#0A1121]/90 backdrop-blur-3xl border border-white/10 rounded-[3rem] p-8 shadow-2xl flex items-center justify-between gap-10">
-          <div className="flex-1 flex gap-12">
-            <CoefficientSlider label="Amplitud (a)" value={a} min={-5} max={5} step={0.1} color="rose" onChange={(v: number) => { setCoefsM1(v, b, c); audioEngine?.playPop(); }} />
-            <CoefficientSlider label="Simetría (b)" value={b} min={-10} max={10} step={0.5} color="cyan" onChange={(v: number) => { setCoefsM1(a, v, c); audioEngine?.playPop(); }} />
-            <CoefficientSlider label="Intercepto (c)" value={c} min={-10} max={10} step={0.5} color="amber" onChange={(v: number) => { setCoefsM1(a, b, v); audioEngine?.playPop(); }} />
-          </div>
-
-          <div className="flex items-center gap-4 border-l border-white/10 pl-10">
-             <button
-               onClick={() => {
-                 audioEngine?.playSuccess();
-                 setAsistente({ text: "Punto de telemetría capturado. Los datos han sido registrados en tu Bitácora Algebraica.", pose: "happy" });
-
-                 const nuevoPunto = {
-                   id: `p-${Date.now().toString(36)}`,
-                   x: vh.toFixed(2),
-                   y: vk.toFixed(2),
-                   timestamp: "VÉRTICE " + new Date().toLocaleTimeString()
-                 };
-
-                 const logsPrevios = bitacoraData?.cuadraticas_points || [];
-                 setBitacora({
-                   ...bitacoraData,
-                   cuadraticas_points: [nuevoPunto, ...logsPrevios].slice(0, 10)
-                 });
-               }}
-               className="w-14 h-14 bg-white/5 hover:bg-white/10 rounded-2xl border border-white/10 flex items-center justify-center text-rose-400 transition-all group"
-               title="Registrar Vértice"
-             >
-                <Activity size={20} className="group-hover:scale-125 transition-transform" />
-             </button>
-             <button onClick={() => { resetM1(); audioEngine?.playPop(); setAsistente({ text: "Coeficientes reiniciados. La trayectoria objetivo sigue siendo la misma.", pose: "neutral" }); }} className="w-14 h-14 bg-white/5 hover:bg-white/10 rounded-2xl border border-white/10 flex items-center justify-center text-slate-500 transition-all">
-                <RefreshCcw size={20} />
-             </button>
-             {/* Estado de los cálculos de la bitácora (se verifican allí, no aquí) */}
-             <div className="flex flex-col gap-1.5">
-               <CalcChip ok={cuadraticas.deltaVerified ?? false} icon={<BookOpen size={11} />} label="Δ comprobado" />
-               <CalcChip ok={cuadraticas.vertexVerified ?? false} icon={<Pi size={11} />} label="Vértice comprobado" />
-             </div>
-             <button
-               onClick={() => onValidate?.()}
-               className={`h-16 px-8 rounded-2xl font-black text-[10px] uppercase tracking-widest flex items-center gap-3 shadow-xl transition-all ${status === 'success' ? 'bg-emerald-600' : 'bg-rose-600 shadow-rose-600/20 hover:bg-rose-500'}`}
-             >
-                <ShieldCheck size={18} />
-                {status === 'success' ? 'Sincronizado' : 'Validar'}
-             </button>
-          </div>
-        </motion.div>
-      </div>
-
-      {/* AVISO DE ESTADO (no modal) */}
-      <AnimatePresence>
-        {(status === 'success' || (status === 'error' && cuadraticas.mensajeFeedback)) && (
-          <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} className="absolute bottom-44 left-1/2 -translate-x-1/2 z-50 pointer-events-none">
-            <div className={`px-6 py-3 rounded-2xl border backdrop-blur-xl text-[11px] font-black flex items-center gap-2 ${status === 'success' ? 'bg-emerald-600/90 border-emerald-400 text-white' : 'bg-rose-950/90 border-rose-500/50 text-rose-200'}`}>
+          <p className="text-[12px] leading-snug text-slate-300">
+            Plantea f(−1), f(0) y f(1) con a, b, c desconocidos y resuelve el sistema.
+          </p>
+        </div>
+      }
+      controles={
+        <div className="space-y-2">
+          <GrupoControles>
+            <Deslizador etiqueta="Amplitud (a)" valor={a} min={-5} max={5} paso={0.1} decimales={1} ancho="w-44" onChange={(v) => { setCoefsM1(v, b, c); audioEngine?.playPop(); }} />
+            <Deslizador etiqueta="Simetría (b)" valor={b} min={-10} max={10} paso={0.5} decimales={1} ancho="w-44" onChange={(v) => { setCoefsM1(a, v, c); audioEngine?.playPop(); }} />
+            <Deslizador etiqueta="Intercepto (c)" valor={c} min={-10} max={10} paso={0.5} decimales={1} ancho="w-44" onChange={(v) => { setCoefsM1(a, b, v); audioEngine?.playPop(); }} />
+          </GrupoControles>
+          <GrupoControles className="items-center">
+            <BotonLab variante="secundario" title="Registrar vértice en la bitácora" onClick={() => {
+              audioEngine?.playSuccess();
+              setAsistente({ text: "Punto de telemetría capturado. Los datos han sido registrados en tu Bitácora Algebraica.", pose: "happy" });
+              const nuevoPunto = { id: `p-${Date.now().toString(36)}`, x: vh.toFixed(2), y: vk.toFixed(2), timestamp: "VÉRTICE " + new Date().toLocaleTimeString() };
+              const logsPrevios = bitacoraData?.cuadraticas_points || [];
+              setBitacora({ ...bitacoraData, cuadraticas_points: [nuevoPunto, ...logsPrevios].slice(0, 10) });
+            }}><Activity size={14} /> Registrar V</BotonLab>
+            <BotonLab variante="secundario" title="Reiniciar coeficientes" onClick={() => { resetM1(); audioEngine?.playPop(); setAsistente({ text: "Coeficientes reiniciados. La trayectoria objetivo sigue siendo la misma.", pose: "neutral" }); }}>
+              <RefreshCcw size={14} /> Reiniciar
+            </BotonLab>
+            <CalcChip ok={cuadraticas.deltaVerified ?? false} icon={<BookOpen size={11} />} label="Δ" />
+            <CalcChip ok={cuadraticas.vertexVerified ?? false} icon={<Pi size={11} />} label="Vértice" />
+            <BotonLab variante={status === 'success' ? 'primario' : 'acento'} onClick={() => onValidate?.()}>
+              <ShieldCheck size={14} /> {status === 'success' ? 'Sincronizado' : 'Validar'}
+            </BotonLab>
+          </GrupoControles>
+          {(status === 'success' || (status === 'error' && cuadraticas.mensajeFeedback)) && (
+            <div role="status" className={`flex items-center gap-2 rounded-lg border px-3 py-1.5 text-[12px] font-semibold ${status === 'success' ? 'border-emerald-400/50 bg-emerald-600/20 text-emerald-200' : 'border-rose-500/50 bg-rose-950/60 text-rose-200'}`}>
               {status === 'success' && <CheckCircle2 size={14} />}
               {cuadraticas.mensajeFeedback}
             </div>
-          </motion.div>
-        )}
-      </AnimatePresence>
-
-    </div>
+          )}
+        </div>
+      }
+    />
   );
+}
+
+function Leyenda({ color, texto }: { color: string; texto: string }) {
+  return <span className="flex items-center gap-1.5"><i className="inline-block h-2 w-2 rounded-full" style={{ background: color }} />{texto}</span>;
 }
 
 function CalcChip({ ok, icon, label }: { ok: boolean; icon: React.ReactNode; label: string }) {
   return (
-    <div className={`px-3 py-1.5 rounded-xl border text-[8px] font-black uppercase tracking-widest flex items-center gap-1.5 ${ok ? 'bg-emerald-700/60 border-emerald-500/50 text-emerald-200' : 'bg-white/5 border-white/10 text-slate-500'}`} title={ok ? '' : 'Compruébalo en la bitácora'}>
-      {icon}{label}{ok ? ' ✓' : ' · bitácora'}
+    <div className={`flex h-8 items-center gap-1.5 rounded-lg border px-2.5 text-[11px] font-semibold ${ok ? 'border-emerald-500/50 bg-emerald-700/40 text-emerald-200' : 'border-white/10 bg-white/5 text-slate-400'}`} title={ok ? '' : 'Compruébalo en la bitácora'}>
+      {icon}{label}{ok ? ' comprobado ✓' : ' · en bitácora'}
     </div>
   );
 }
@@ -252,32 +186,19 @@ function CalcChip({ ok, icon, label }: { ok: boolean; icon: React.ReactNode; lab
 function DataChip({ label, value, color }: { label: string; value: string; color: string }) {
   const colors: Record<string, string> = { rose: 'text-rose-400', emerald: 'text-emerald-400', slate: 'text-slate-400', cyan: 'text-cyan-400', amber: 'text-amber-400' };
   return (
-    <div className="p-3 bg-white/5 rounded-2xl border border-white/5">
-      <span className="text-[7px] font-black text-slate-500 uppercase block mb-1">{label}</span>
-      <span className={`text-[11px] font-black font-mono ${colors[color]}`}>{value}</span>
+    <div className="rounded-xl border border-white/5 bg-white/5 p-2">
+      <span className="mb-0.5 block text-[10px] font-semibold uppercase text-slate-400">{label}</span>
+      <span className={`font-mono text-[13px] font-bold ${colors[color]}`}>{value}</span>
     </div>
   );
 }
 
 function EquivFormRow({ label, color, formula }: { label: string; color: string; formula: string }) {
-  const colors: Record<string, string> = { rose: 'border-rose-500/30 text-rose-400', amber: 'border-amber-500/30 text-amber-400' };
+  const colors: Record<string, string> = { rose: 'border-rose-500/40 text-rose-300', amber: 'border-amber-500/40 text-amber-300' };
   return (
     <div>
-      <span className="text-[7px] font-black text-slate-500 uppercase block mb-1">{label}</span>
-      <div className={`pl-3 border-l-2 ${colors[color]} font-mono text-[10px] font-bold text-white/80`}>{formula}</div>
-    </div>
-  );
-}
-
-function CoefficientSlider({ label, value, min, max, step, color, onChange }: { label: string; value: number; min: number; max: number; step: number; color: string; onChange: (v: number) => void }) {
-  const accents: Record<string, string> = { rose: 'accent-rose-500', cyan: 'accent-cyan-400', amber: 'accent-amber-400' };
-  return (
-    <div className="flex-1 space-y-3">
-      <div className="flex justify-between items-center px-1">
-        <span className="text-[9px] font-black text-slate-500 uppercase tracking-widest">{label}</span>
-        <span className="text-[11px] font-black font-mono text-white bg-white/5 px-2 py-0.5 rounded-lg">{value.toFixed(1)}</span>
-      </div>
-      <input type="range" min={min} max={max} step={step} value={value} onChange={e => onChange(parseFloat(e.target.value))} className={`w-full h-1.5 bg-white/10 rounded-full appearance-none cursor-pointer ${accents[color]}`} />
+      <span className="mb-1 block text-[10px] font-semibold uppercase text-slate-400">{label}</span>
+      <div className={`border-l-2 pl-3 font-mono text-[12px] font-bold text-white/90 ${colors[color]}`}>{formula}</div>
     </div>
   );
 }

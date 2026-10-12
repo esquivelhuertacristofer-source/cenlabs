@@ -4,7 +4,8 @@ import React, { useMemo, useState, useEffect } from 'react';
 import { useShallow } from 'zustand/react/shallow';
 import { useSimuladorStore } from '@/store/simuladorStore';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Activity, ShieldCheck, Waves, AlertTriangle, ChevronRight, MapPin, Calendar, Skull, Flame, X, Sun, Moon, Target, CheckCircle2 } from 'lucide-react';
+import { MapPin, Calendar, Skull, Flame, X, CheckCircle2 } from 'lucide-react';
+import LabLayout, { Lectura, Deslizador, BotonLab } from './simulador/LabLayout';
 import Richter3DScene from './simuladores/mat03/Richter3DScene';
 import { SISMOS_M3 } from '@/domain/matematicas';
 
@@ -34,7 +35,7 @@ export default function PilotoRichter({ onValidate }: { onValidate?: () => void 
   const { magnitudActual, magnitudBase, isLogView, status, targetM, userInputFactor } = richter;
   const [mounted, setMounted] = useState(false);
   const [selectedEq, setSelectedEq] = useState<string | null>(null);
-  const [isLightMode, setIsLightMode] = useState(false);
+  const isLightMode = false;
   const sismoObjetivo = SISMOS_M3.find((x) => x.id === richter.escenario) ?? SISMOS_M3[0];
 
   const getModeColor = (color: string) => {
@@ -75,241 +76,112 @@ export default function PilotoRichter({ onValidate }: { onValidate?: () => void 
 
   if (!mounted) return null;
 
+  const impacto = magnitudActual < 3 ? 'MICRO' : magnitudActual < 5 ? 'MENOR' : magnitudActual < 7 ? 'MODERADO' : magnitudActual < 8 ? 'MAYOR' : 'CATASTRÓFICO';
+  const pasos = ['Magnitud', 'Log', 'Hito'];
+
   return (
-    <div className={`w-full h-full relative overflow-hidden flex flex-col font-['Outfit'] transition-colors duration-1000 ${isLightMode ? 'bg-slate-50 text-slate-900' : 'bg-[#020617] text-white'}`}>
-      
-      {/* DYNAMIC ATMOSPHERIC VIGNETTE */}
-      <div 
-        className="absolute inset-0 pointer-events-none z-[1] transition-all duration-1000"
-        style={{
-          background: `radial-gradient(circle at 50% 50%, transparent 40%, ${
-          magnitudActual > 7 
-            ? (isLightMode ? 'rgba(225,29,72,0.1)' : 'rgba(244,63,94,0.15)') 
-            : magnitudActual > 4 
-              ? (isLightMode ? 'rgba(217,119,6,0.08)' : 'rgba(251,146,60,0.1)') 
-              : (isLightMode ? 'rgba(3,105,161,0.05)' : 'rgba(56,189,248,0.05)')
-        } 100%)`,
-        }}
-      />
-      {/* Danger border pulse at high magnitudes */}
-      {magnitudActual > 7 && (
-        <motion.div 
-          animate={{ opacity: [0, 0.4, 0] }}
-          transition={{ repeat: Infinity, duration: 2 - (magnitudActual - 7) * 0.3 }}
-          className="absolute inset-0 pointer-events-none z-[2] border-2 rounded-none"
-          style={{ borderColor: magnitudActual > 8 ? '#ef4444' : '#f97316' }}
-        />
-      )}
-      {/* GIANT BG NUMBER */}
-      <div className="absolute inset-0 flex items-center justify-center pointer-events-none opacity-[0.04] z-0">
-        <span className="text-[16rem] font-black font-mono select-none italic" style={{ color: magnitudActual > 7 ? '#ef4444' : '#f43f5e' }}>{magnitudActual.toFixed(1)}</span>
-      </div>
-
-      {/* CHECKLIST HUD */}
-      <div className="absolute top-4 left-1/2 -translate-x-1/2 z-50 pointer-events-none">
-        <div className="bg-[#0f172a]/80 backdrop-blur-3xl border border-rose-500/30 px-4 py-2 rounded-full shadow-[0_0_40px_rgba(244,63,94,0.08)] pointer-events-auto flex items-center gap-3">
-          <div className="flex items-center gap-2">
-            <Activity className="text-rose-400" size={12} />
-            <span className="text-[8px] font-black text-rose-300 uppercase tracking-widest">MAT-03</span>
-          </div>
-          <div className="w-px h-4 bg-white/10" />
-          <div className="flex gap-1">
-            {[{ step: 1, label: "Magnitud" }, { step: 2, label: "Log" }, { step: 3, label: "Hito" }].map(s => (
-              <div key={s.step} className={`px-2.5 py-1 rounded-full border flex items-center gap-1 text-[7px] font-black uppercase tracking-widest transition-all ${pasoActual >= s.step ? 'bg-rose-600 border-rose-400 text-white' : 'bg-slate-800/50 border-slate-700 text-slate-500'}`}>
-                {pasoActual > s.step ? <ShieldCheck size={7} /> : <div className="w-1 h-1 rounded-full bg-current" />}
-                {s.label}
-              </div>
-            ))}
-          </div>
+    <LabLayout
+      tituloPanel="Sismos"
+      barraSuperior={
+        <div className="flex min-w-0 flex-1 flex-wrap items-center gap-1.5">
+          <Lectura etiqueta="Sismo objetivo" acento valor={`${sismoObjetivo.nombre}${sismoObjetivo.anio ? ` ${sismoObjetivo.anio}` : ''} · Mw ${targetM.toFixed(1)}`} />
+          <Lectura etiqueta="Base" valor={`Mw ${magnitudBase.toFixed(1)}`} />
+          <Lectura etiqueta="Experimental" valor={`Mw ${magnitudActual.toFixed(1)}`} />
+          <Lectura etiqueta="Impacto" valor={impacto} />
         </div>
-      </div>
-
-      {/* 3D SCENE */}
-      <div className="absolute inset-0 z-0">
-        <Richter3DScene magnitudActual={magnitudActual} magnitudBase={magnitudBase} escenario={richter.escenario} isLightMode={isLightMode} />
-      </div>
-
-      {/* HUD OVERLAY */}
-      <div className="relative z-10 p-5 flex flex-col h-full pointer-events-none">
-        
-        {/* TOP METRICS */}
-        <div className="flex justify-between items-start mt-10">
-          <div className="flex gap-2 pointer-events-auto">
-            <MiniCard label="Sismo objetivo" value={`${sismoObjetivo.nombre}${sismoObjetivo.anio ? ` ${sismoObjetivo.anio}` : ''} · Mw ${targetM.toFixed(1)}`} icon={<Target size={10} />} color="#fb923c" isLightMode={isLightMode} />
-            <MiniCard label="Base de comparación" value={`Mw ${magnitudBase.toFixed(1)}`} icon={<Waves size={10} />} color="#22d3ee" isLightMode={isLightMode} />
-            <MiniCard label="Experimental" value={`Mw ${magnitudActual.toFixed(1)}`} icon={<Waves size={10} />} color="#f43f5e" isLightMode={isLightMode} />
-          </div>
-          <div className="flex gap-2 pointer-events-auto">
-            <button 
-              onClick={() => setIsLightMode(!isLightMode)}
-              className={`p-3 rounded-xl backdrop-blur-xl border transition-all ${isLightMode ? 'bg-white/80 border-slate-200 text-slate-600 hover:bg-white' : 'bg-black/50 border-white/10 text-white/70 hover:bg-white/10'}`}
-            >
-              {isLightMode ? <Moon size={16} /> : <Sun size={16} />}
-            </button>
-            <div className={`backdrop-blur-xl border px-4 py-2 rounded-xl flex flex-col justify-center ${isLightMode ? 'bg-white/80 border-slate-200' : 'bg-black/50 border-white/10'}`}>
-              <span className="text-[7px] font-black text-slate-500 uppercase block">Impacto</span>
-            <span className={`text-sm font-black italic tracking-tighter ${magnitudActual > 7 ? 'text-rose-500' : magnitudActual > 4 ? 'text-amber-400' : 'text-emerald-400'}`}>
-              {magnitudActual < 3 ? 'MICRO' : magnitudActual < 5 ? 'MENOR' : magnitudActual < 7 ? 'MODERADO' : magnitudActual < 8 ? 'MAYOR' : 'CATASTRÓFICO'}
-            </span>
-          </div>
-          </div>
+      }
+      esquina={
+        <div className="rounded-md bg-black/45 px-2 py-1 text-[10px] font-semibold uppercase tracking-wider text-slate-300">
+          {pasos[Math.min(2, Math.max(0, pasoActual - 1))]} · paso {Math.max(1, pasoActual)}/3
         </div>
-
-        {/* EXPANDED EARTHQUAKE DETAIL CARD (center overlay) */}
-        <AnimatePresence>
-          {activeEq && (
-            <motion.div
-              initial={{ opacity: 0, scale: 0.9, y: 20 }}
-              animate={{ opacity: 1, scale: 1, y: 0 }}
-              exit={{ opacity: 0, scale: 0.9, y: 20 }}
-              className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 z-[60] pointer-events-auto w-[520px]"
-            >
-              <div className={`backdrop-blur-3xl border-2 rounded-[2rem] shadow-2xl overflow-hidden ${isLightMode ? 'bg-white/95 text-slate-900' : 'bg-[#0A1121]/95 text-white'}`} style={{ borderColor: `${getModeColor(activeEq.color)}40` }}>
-                {/* Image */}
-                <div className="relative h-48 overflow-hidden">
-                  <img src={activeEq.imagen} alt={activeEq.nombre} className="w-full h-full object-cover" />
-                  <div className="absolute inset-0 bg-gradient-to-t from-[#0A1121] via-[#0A1121]/30 to-transparent" />
-                  <button onClick={() => setSelectedEq(null)} className="absolute top-3 right-3 w-8 h-8 bg-black/60 backdrop-blur-md rounded-full flex items-center justify-center border border-white/10 hover:bg-white/10 transition-all">
-                    <X size={14} />
-                  </button>
-                  <div className="absolute bottom-4 left-5 right-5">
-                    <h3 className="text-2xl font-black text-white uppercase italic tracking-tight drop-shadow-md">{activeEq.nombre}</h3>
-                    <div className="flex items-center gap-3 mt-1">
-                      <span className="text-[9px] font-bold text-white/60 flex items-center gap-1"><MapPin size={8} />{activeEq.pais}</span>
-                      <span className="text-[9px] font-bold text-white/60 flex items-center gap-1"><Calendar size={8} />{activeEq.anio}</span>
-                      <span className="text-[9px] font-bold text-rose-300 flex items-center gap-1"><Skull size={8} />{activeEq.victimas}</span>
-                      <span className="text-sm font-black font-mono px-2 py-0.5 rounded-lg" style={{ color: getModeColor(activeEq.color), background: `${getModeColor(activeEq.color)}15` }}>Mw {activeEq.magnitud}</span>
+      }
+      escena={
+        <div className="absolute inset-0 bg-[#34434b]">
+          <Richter3DScene magnitudActual={magnitudActual} magnitudBase={magnitudBase} escenario={richter.escenario} objetivo={{ nombre: `${sismoObjetivo.nombre}${sismoObjetivo.anio ? ` ${sismoObjetivo.anio}` : ''}`, mw: targetM }} />
+          <AnimatePresence>
+            {activeEq && (
+              <motion.div
+                initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0.95 }}
+                className="absolute left-1/2 top-1/2 z-20 w-[min(92%,480px)] -translate-x-1/2 -translate-y-1/2"
+              >
+                <div className="overflow-hidden rounded-2xl border-2 bg-[#0A1121]/95 text-white shadow-2xl" style={{ borderColor: `${activeEq.color}60` }}>
+                  <div className="relative h-36 overflow-hidden">
+                    <img src={activeEq.imagen} alt={activeEq.nombre} className="h-full w-full object-cover" />
+                    <div className="absolute inset-0 bg-gradient-to-t from-[#0A1121] via-[#0A1121]/30 to-transparent" />
+                    <button onClick={() => setSelectedEq(null)} aria-label="Cerrar" className="absolute right-3 top-3 flex h-8 w-8 items-center justify-center rounded-full border border-white/10 bg-black/60 hover:bg-white/10"><X size={14} /></button>
+                    <div className="absolute bottom-3 left-4 right-4">
+                      <h3 className="text-xl font-black uppercase italic tracking-tight">{activeEq.nombre}</h3>
+                      <div className="mt-1 flex flex-wrap items-center gap-3 text-[11px] font-bold text-white/70">
+                        <span className="flex items-center gap-1"><MapPin size={10} />{activeEq.pais}</span>
+                        <span className="flex items-center gap-1"><Calendar size={10} />{activeEq.anio}</span>
+                        <span className="flex items-center gap-1 text-rose-300"><Skull size={10} />{activeEq.victimas}</span>
+                        <span className="rounded-lg px-2 py-0.5 font-mono text-sm font-black" style={{ color: activeEq.color, background: `${activeEq.color}25` }}>Mw {activeEq.magnitud}</span>
+                      </div>
+                    </div>
+                  </div>
+                  <div className="space-y-2 p-4">
+                    <p className="text-[12px] leading-relaxed text-slate-300">{activeEq.descripcion}</p>
+                    <div className="flex items-start gap-2 rounded-xl border border-white/5 bg-white/5 p-2.5">
+                      <Flame size={13} className="mt-0.5 shrink-0 text-amber-400" />
+                      <span className="text-[11px] font-semibold italic text-amber-200/90">{activeEq.dato}</span>
                     </div>
                   </div>
                 </div>
-                {/* Content */}
-                <div className="p-5 space-y-3">
-                  <p className={`text-[11px] font-medium leading-relaxed ${isLightMode ? 'text-slate-600' : 'text-slate-300'}`}>{activeEq.descripcion}</p>
-                  <div className={`flex items-start gap-2 rounded-xl p-3 border ${isLightMode ? 'bg-slate-50 border-slate-200' : 'bg-white/5 border-white/5'}`}>
-                    <Flame size={12} className="text-amber-400 mt-0.5 flex-shrink-0" />
-                    <span className={`text-[10px] font-bold italic ${isLightMode ? 'text-amber-700' : 'text-amber-200/80'}`}>{activeEq.dato}</span>
-                  </div>
-                </div>
+              </motion.div>
+            )}
+          </AnimatePresence>
+        </div>
+      }
+      panelLateral={
+        <div className="space-y-3 text-slate-300">
+          <p>Cada unidad de magnitud multiplica ×10 la amplitud de la onda (+20 dB) y mucho más la energía liberada. El papel del sismógrafo tiene escala fija: por eso el registro usa un atenuador en pasos de 10 dB.</p>
+          <p>Compara el sismo objetivo con la base Mw {magnitudBase.toFixed(1)} y calcula cuántas veces más energía liberó.</p>
+        </div>
+      }
+      controles={
+        <div className="space-y-2">
+          <div className="flex flex-wrap items-end gap-x-4 gap-y-2">
+            <div className="min-w-[220px] flex-1">
+              <Deslizador etiqueta="Control de magnitud" valor={magnitudActual} min={1} max={10} paso={0.1} decimales={1} unidad="Mw" ancho="w-full"
+                onChange={(v) => { setMagnitudM3(v); audio?.playPop(); }} />
+              <div className="mt-0.5 h-4 text-[11px] text-slate-400">
+                {closestEq && <>≈ <span className="font-semibold text-slate-200">{closestEq.nombre} ({closestEq.anio})</span></>}
               </div>
-            </motion.div>
-          )}
-        </AnimatePresence>
-
-        {/* ── BOTTOM SECTION: Controls + Earthquake Timeline ── */}
-        <div className="mt-auto space-y-3 pointer-events-auto">
-          
-          {/* EARTHQUAKE HORIZONTAL TIMELINE */}
-          <div className="flex gap-2 overflow-x-auto pb-1 scrollbar-none">
-            {EARTHQUAKES.map(eq => {
-              const isClosest = closestEq?.id === eq.id;
-              const isSelected = selectedEq === eq.id;
+            </div>
+            <BotonLab variante={isLogView ? 'primario' : 'secundario'} onClick={() => { toggleLogViewM3(); audio?.playPop(); }}>Escala log</BotonLab>
+          </div>
+          <div className="flex flex-wrap items-end gap-x-3 gap-y-2">
+            <div className="flex flex-col gap-1">
+              <span className="text-[11px] font-semibold text-slate-300">Factor energético 10^(1.5·ΔM)</span>
+              <div className="flex items-center gap-2">
+                <input
+                  type="text" inputMode="decimal" value={userInputFactor} onChange={(e) => setUserInputM3(e.target.value)} placeholder="E / E₀"
+                  className="h-8 w-28 rounded-lg border border-white/10 bg-white/5 px-3 font-mono text-[12px] font-bold text-white outline-none focus:border-rose-500"
+                />
+                <BotonLab variante={status === 'success' ? 'primario' : 'acento'} onClick={() => onValidate?.()}>
+                  {status === 'success' ? 'Verificado' : 'Verificar factor'}
+                </BotonLab>
+                {status === 'error' && <span role="status" className="text-[12px] font-semibold text-rose-300">Revisa el cálculo</span>}
+                {status === 'success' && <span role="status" className="flex items-center gap-1 text-[12px] font-semibold text-emerald-300"><CheckCircle2 size={13} /> Correcto</span>}
+              </div>
+            </div>
+            <GraficaEnergia mExp={magnitudActual} mBase={magnitudBase} log={isLogView} />
+          </div>
+          <div className="flex w-0 min-w-full gap-1.5 overflow-x-auto pb-1 [scrollbar-width:thin]" aria-label="Sismos históricos">
+            {EARTHQUAKES.map((eq) => {
+              const sel = selectedEq === eq.id;
               return (
-                <motion.button
-                  key={eq.id}
-                  whileHover={{ scale: 1.03, y: -2 }}
-                  whileTap={{ scale: 0.97 }}
-                  onClick={() => { setSelectedEq(isSelected ? null : eq.id); audio?.playPop(); }}
-                  className={`flex-shrink-0 rounded-xl border backdrop-blur-xl px-3 py-2 flex items-center gap-2.5 transition-all min-w-[150px] ${
-                    isSelected ? (isLightMode ? 'border-slate-300 bg-white shadow-lg' : 'border-white/30 bg-white/15 shadow-lg') 
-                    : isClosest ? (isLightMode ? 'border-rose-300 bg-rose-50 shadow-md' : 'border-rose-500/40 bg-rose-500/10 shadow-[0_0_15px_rgba(244,63,94,0.1)]') 
-                    : (isLightMode ? 'border-slate-200 bg-white/60 hover:bg-white hover:border-slate-300' : 'border-white/5 bg-black/40 hover:bg-white/5 hover:border-white/10')
-                  }`}
-                >
-                  <div className="w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0 relative" style={{ background: `${getModeColor(eq.color)}20` }}>
-                    <span className="text-[8px] font-black" style={{ color: getModeColor(eq.color) }}>{eq.anio}</span>
-                    {isClosest && <div className="absolute -top-0.5 -right-0.5 w-2 h-2 rounded-full bg-rose-500 animate-pulse shadow-[0_0_6px_rgba(244,63,94,0.6)]" />}
-                  </div>
-                  <div className="text-left min-w-0">
-                    <div className={`text-[9px] font-black truncate ${isLightMode ? 'text-slate-900' : 'text-white'}`}>{eq.nombre}</div>
-                    <div className="flex items-center gap-1.5">
-                      <span className="text-[7px] font-bold text-slate-500">{eq.pais}</span>
-                      <span className="text-[8px] font-black font-mono" style={{ color: getModeColor(eq.color) }}>Mw {eq.magnitud}</span>
-                    </div>
-                  </div>
-                  <ChevronRight size={10} className={`ml-auto flex-shrink-0 ${isLightMode ? 'text-slate-300' : 'text-white/20'}`} />
-                </motion.button>
+                <button key={eq.id} type="button" onClick={() => { setSelectedEq(sel ? null : eq.id); audio?.playPop(); }}
+                  className={`flex h-8 shrink-0 items-center gap-1.5 rounded-lg border px-2.5 text-[11px] font-semibold ${sel ? 'border-white/40 bg-white/15 text-white' : 'border-white/10 bg-white/[0.04] text-slate-300 hover:border-white/30'}`}>
+                  <i className="inline-block h-2 w-2 rounded-full" style={{ background: eq.color }} />
+                  {eq.nombre} {eq.anio} <span className="font-mono text-slate-400">Mw {eq.magnitud}</span>
+                </button>
               );
             })}
           </div>
-
-          {/* CONTROL DOCK */}
-          <div className={`backdrop-blur-3xl border p-5 rounded-[2rem] shadow-2xl flex items-center gap-8 ${isLightMode ? 'bg-white/90 border-slate-200' : 'bg-[#0A1121]/90 border-white/10'}`}>
-            <div className="flex-1 space-y-2">
-              <div className="flex justify-between items-center px-1">
-                <span className="text-[8px] font-black text-slate-500 uppercase tracking-widest">Control de Magnitud</span>
-                <span className={`text-[10px] font-black text-rose-500 font-mono px-2 py-0.5 rounded-lg border ${isLightMode ? 'bg-rose-50 border-rose-100' : 'bg-white/5 border-white/5'}`}>{magnitudActual.toFixed(1)} Mw</span>
-              </div>
-              <div className="relative">
-                <input type="range" min="1" max="10" step="0.1" value={magnitudActual} 
-                  onChange={e => { setMagnitudM3(parseFloat(e.target.value)); audio?.playPop(); }}
-                  className={`w-full h-1.5 rounded-full appearance-none cursor-pointer accent-rose-500 ${isLightMode ? 'bg-slate-200' : 'bg-white/10'}`} />
-                <div className="absolute top-0 left-0 right-0 h-1.5 pointer-events-none">
-                  {EARTHQUAKES.map(eq => (
-                    <div key={eq.id} className="absolute top-1/2 -translate-y-1/2 w-0.5 h-3 rounded-full opacity-50" style={{ left: `${((eq.magnitud - 1) / 9) * 100}%`, background: getModeColor(eq.color) }} />
-                  ))}
-                </div>
-              </div>
-              <AnimatePresence mode="wait">
-                {closestEq && (
-                  <motion.div key={closestEq.id} initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="flex items-center gap-1.5 px-1">
-                    <div className="w-1 h-1 rounded-full animate-pulse" style={{ background: getModeColor(closestEq.color) }} />
-                    <span className="text-[7px] font-bold text-slate-400">≈ <span className={isLightMode ? 'text-slate-700' : 'text-white/70'}>{closestEq.nombre} ({closestEq.anio})</span></span>
-                  </motion.div>
-                )}
-              </AnimatePresence>
-            </div>
-            <div className={`flex items-center gap-3 border-l pl-8 ${isLightMode ? 'border-slate-200' : 'border-white/10'}`}>
-              <button onClick={() => { toggleLogViewM3(); audio?.playPop(); }}
-                className={`px-5 py-2.5 rounded-xl font-black text-[8px] uppercase tracking-widest transition-all border ${isLogView ? 'bg-rose-500 border-rose-400 text-white shadow-lg' : (isLightMode ? 'bg-slate-100 border-slate-200 text-slate-400 hover:bg-slate-200' : 'bg-white/5 border-white/10 text-white/40 hover:bg-white/10')}`}>
-                Escala Log
-              </button>
-              <div className="flex flex-col gap-1">
-                <span className={`text-[7px] font-black uppercase tracking-widest ${isLightMode ? 'text-slate-500' : 'text-slate-500'}`}>
-                  Factor energético 10^(1.5·ΔM)
-                </span>
-                <div className="flex gap-2 items-center">
-                  <input
-                    type="text"
-                    inputMode="decimal"
-                    value={userInputFactor}
-                    onChange={e => setUserInputM3(e.target.value)}
-                    placeholder="E / E₀"
-                    className={`w-28 px-3 py-2 rounded-xl text-[11px] font-black font-mono outline-none border transition-all ${isLightMode ? 'bg-white border-slate-200 text-slate-900' : 'bg-white/5 border-white/10 text-white focus:border-rose-500'}`}
-                  />
-                  <button
-                    onClick={() => onValidate?.()}
-                    className={`px-4 py-2 rounded-xl font-black text-[8px] uppercase tracking-widest transition-all border ${status === 'success' ? 'bg-emerald-600 border-emerald-400 text-white' : 'bg-rose-600 border-rose-500 text-white hover:bg-rose-500'}`}
-                  >
-                    {status === 'success' ? 'Verificado' : 'Verificar Factor'}
-                  </button>
-                  {status === 'error' && (
-                    <span className="text-[9px] font-black text-rose-400 uppercase tracking-widest">Revisa el cálculo</span>
-                  )}
-                  {status === 'success' && (
-                    <span className="text-[9px] font-black text-emerald-400 uppercase tracking-widest flex items-center gap-1"><CheckCircle2 size={11} /> Correcto</span>
-                  )}
-                </div>
-              </div>
-              <GraficaEnergia mExp={magnitudActual} mBase={magnitudBase} log={isLogView} isLightMode={isLightMode} />
-            </div>
-          </div>
         </div>
-      </div>
-
-
-      {/* COLLAPSE WARNING */}
-      <AnimatePresence>
-        {magnitudActual > 9.0 && (
-          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="absolute inset-0 z-[100] flex items-center justify-center pointer-events-none bg-rose-600/15 backdrop-blur-[2px]">
-            <div className="bg-rose-600 border border-rose-400 px-10 py-5 rounded-[2.5rem] shadow-[0_0_80px_rgba(244,63,94,0.5)] flex flex-col items-center">
-              <AlertTriangle className="text-white mb-2 animate-bounce" size={36} />
-              <h2 className="text-4xl font-black text-white uppercase italic tracking-tighter">Colapso Estructural</h2>
-              <p className="text-rose-100 font-bold text-[9px] uppercase tracking-widest mt-1 animate-pulse">Integridad en Peligro</p>
-            </div>
-          </motion.div>
-        )}
-      </AnimatePresence>
-    </div>
+      }
+    />
   );
 }
 
@@ -318,8 +190,8 @@ export default function PilotoRichter({ onValidate }: { onValidate?: () => void 
  * ~0 frente a los sismos grandes); en logarítmica es una RECTA de pendiente 1.5
  * por unidad de Mw. Marca solo la magnitud experimental, sin rotular su factor.
  */
-function GraficaEnergia({ mExp, mBase, log, isLightMode }: { mExp: number; mBase: number; log: boolean; isLightMode: boolean }) {
-  const W = 220, H = 90, M0 = 1, M1 = 10;
+function GraficaEnergia({ mExp, mBase, log }: { mExp: number; mBase: number; log: boolean }) {
+  const W = 220, H = 78, M0 = 1, M1 = 10;
   const yLog = (m: number) => 1.5 * (m - mBase);                 // log10(E/E_base)
   const yMin = yLog(M0), yMax = yLog(M1);
   const yDe = (m: number) => log
@@ -334,35 +206,23 @@ function GraficaEnergia({ mExp, mBase, log, isLightMode }: { mExp: number; mBase
   const yDecada = (d: number) => H - ((d - yMin) / (yMax - yMin)) * H;
   const decadas = log ? Array.from({ length: Math.floor(yMax) - Math.ceil(yMin) + 1 }, (_, i) => Math.ceil(yMin) + i) : [];
   return (
-    <div className={`rounded-xl p-2 border ${isLightMode ? 'bg-white border-slate-200' : 'bg-black/40 border-white/5'}`}>
-      <div className="flex justify-between gap-3 text-[7px] font-black uppercase tracking-widest text-slate-500 mb-1">
+    <div className="rounded-xl border border-white/5 bg-black/40 p-2">
+      <div className="mb-1 flex justify-between gap-3 text-[10px] font-semibold uppercase tracking-wider text-slate-400">
         <span>E/E₀ vs Mw</span><span>{log ? 'eje y logarítmico' : 'eje y lineal'}</span>
       </div>
       <svg width={W} height={H} viewBox={`0 0 ${W} ${H}`}>
         {decadas.map((d) => (
           <g key={d}>
-            <line x1={0} x2={W} y1={yDecada(d)} y2={yDecada(d)} stroke={isLightMode ? '#e2e8f0' : '#1e293b'} strokeWidth={1} />
-            {d % 2 === 0 && <text x={2} y={yDecada(d) - 2} fontSize={7} fill="#64748b">{`10^${d}`}</text>}
+            <line x1={0} x2={W} y1={yDecada(d)} y2={yDecada(d)} stroke="#1e293b" strokeWidth={1} />
+            {d % 2 === 0 && <text x={2} y={yDecada(d) - 2} fontSize={8} fill="#94a3b8">{`10^${d}`}</text>}
           </g>
         ))}
         {[2, 4, 6, 8, 10].map((m) => (
-          <text key={m} x={xDe(m) - 3} y={H - 1} fontSize={7} fill="#64748b">{m}</text>
+          <text key={m} x={xDe(m) - 3} y={H - 1} fontSize={8} fill="#94a3b8">{m}</text>
         ))}
         <polyline points={pts} fill="none" stroke="#f43f5e" strokeWidth={2} />
         <circle cx={xDe(mExp)} cy={yDe(mExp)} r={3.5} fill="#facc15" />
       </svg>
-    </div>
-  );
-}
-
-function MiniCard({ label, value, icon, color, isLightMode }: any) {
-  return (
-    <div className={`px-4 py-2.5 rounded-xl border flex items-center gap-2.5 backdrop-blur-md shadow-xl ${isLightMode ? 'bg-white/80 border-slate-200' : 'bg-[#0A1121]/80 border-white/10'}`}>
-      <div className="w-7 h-7 rounded-lg flex items-center justify-center" style={{ background: `${color}20`, color }}>{icon}</div>
-      <div>
-        <span className={`block text-[7px] font-black uppercase tracking-widest ${isLightMode ? 'text-slate-400' : 'text-white/30'}`}>{label}</span>
-        <span className={`block text-base font-black tracking-tighter leading-none italic font-mono ${isLightMode ? 'text-slate-900' : 'text-white'}`}>{value}</span>
-      </div>
     </div>
   );
 }
