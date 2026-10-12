@@ -675,7 +675,7 @@ const CLAMP_RANGES=[6,60,600];
 const CLAMP_COUNTS=6000;
 const CLAMP_SPEC={pct:2.0, dig:5};
 const SHUNT_SPEC={pct:0.5, dig:2, counts:2000};
-const OFFSET_HALL_CD=1.20;
+let OFFSET_HALL_CD=1.20;
 
 const SCEN_ORDER=['arranque','calefactor','testigo'];
 const SCEN_META={
@@ -701,17 +701,57 @@ const SCEN_META={
     respuesta:'offset',
   },
 };
-const DX_HINT={
-  carga: 'Al insertar el shunt en serie, R_shunt se suma a la resistencia del lazo: la corriente REAL baja (efecto de carga / error de inserción). Pinza y shunt coinciden porque ambos miden la MISMA corriente ya alterada.',
-  ampere: 'Una pinza mide la corriente neta encerrada por su mordaza (ley de Ampère). Si abraza el vivo Y el neutro de un cordón dúplex, la corriente de ida y la de vuelta se cancelan — por eso marca ≈0 A aunque el calefactor esté prendido. Es el mismo principio que usa un interruptor GFCI/RCD.',
-  offset: 'El sensor Hall de CD tiene un pequeño offset de cero (aquí ~1.2 A) que no se nota en corrientes grandes, pero domina por completo una corriente pequeña como la de una bobina de relevador (0.2 A). Por eso hay que tarar el instrumento antes de medir señales pequeñas.',
-  falla: 'Antes de sospechar que el instrumento está descalibrado, compara contra una segunda medición (p. ej. el shunt) y revisa el procedimiento — casi siempre la discrepancia tiene una explicación física, no una falla del equipo.',
-};
+/* ---------- datos de los casos: se sortean al abrir el lab y al resembrar el caso ----------
+   La demostración guiada usa DEMO: otras cifras que nunca salen del sorteo. */
+const pick=a=>a[Math.floor(Math.random()*a.length)];
+const shuffled=a=>{ const b=a.slice(); for(let i=b.length-1;i>0;i--){ const j=Math.floor(Math.random()*(i+1)); [b[i],b[j]]=[b[j],b[i]]; } return b; };
+const DEMO={ arranque:{rLoop:0.0125,shuntRated:150}, calefactor:{potenciaNominal:900}, testigo:{rLoop:40,off:1.0} };
+function seedCase(key){
+  const m=SCEN_META[key];
+  if(key==='arranque'){ const p=[m.rLoop,m.shuntRated]; do{ m.rLoop=pick([0.010,0.014,0.020]); m.shuntRated=pick([100,200]); }while(m.rLoop===p[0]&&m.shuntRated===p[1]); }
+  else if(key==='calefactor'){ const p=m.potenciaNominal; do{ m.potenciaNominal=pick([600,800,1000,1200]); }while(m.potenciaNominal===p); }
+  else { const p=[m.rLoop,OFFSET_HALL_CD]; do{ m.rLoop=pick([30,60,100,150]); OFFSET_HALL_CD=pick([0.8,1.2,1.6]); }while(m.rLoop===p[0]&&OFFSET_HALL_CD===p[1]); }
+}
+['arranque','calefactor','testigo'].forEach(seedCase);
+const guardaDatos=()=>({ arranque:{rLoop:SCEN_META.arranque.rLoop,shuntRated:SCEN_META.arranque.shuntRated}, calefactor:{potenciaNominal:SCEN_META.calefactor.potenciaNominal}, testigo:{rLoop:SCEN_META.testigo.rLoop,off:OFFSET_HALL_CD} });
+function restauraDatos(d){
+  Object.assign(SCEN_META.arranque,d.arranque); Object.assign(SCEN_META.calefactor,d.calefactor);
+  SCEN_META.testigo.rLoop=d.testigo.rLoop; OFFSET_HALL_CD=d.testigo.off;
+}
 
+/* ---------- explicaciones y banco de opciones ---------- */
 function rLoopOf(m){ return m.rLoop!==undefined ? m.rLoop : (m.vSrc*m.vSrc/m.potenciaNominal); }
 function rShuntOf(m){ return (m.shuntMv/1000)/m.shuntRated; }
 function iTrueOf(m){ return m.vSrc/rLoopOf(m); }
 function iLoadedOf(m){ return m.vSrc/(rLoopOf(m)+rShuntOf(m)); }
+const fmtP=p=>p<1?p.toFixed(2)+' %':p<10?p.toFixed(1)+' %':p.toFixed(0)+' %';
+function numerosDe(key){ const m=SCEN_META[key], iT=iTrueOf(m), iL=iLoadedOf(m); return {iT,iL,p:(iT-iL)/iT*100,off:OFFSET_HALL_CD}; }
+const DX_HINT={
+  carga:n=>`Al insertar el shunt en serie, R_shunt se suma a la resistencia del lazo: la corriente REAL baja de ${n.iT.toFixed(2)} A a ${n.iL.toFixed(2)} A (${fmtP(n.p)}). Es el efecto de carga / error de inserción; pinza y shunt coinciden porque ambos miden la MISMA corriente ya alterada.`,
+  ampere:n=>`Una pinza mide la corriente neta encerrada por su mordaza (ley de Ampère). Si abraza el vivo Y el neutro de un cordón dúplex, la corriente de ida y la de vuelta (${n.iT.toFixed(2)} A) se cancelan: marca ≈0 A aunque el calefactor esté prendido. Es el mismo principio que usa un interruptor GFCI/RCD.`,
+  offset:n=>`El sensor Hall de CD tiene un pequeño offset de cero (aquí ~${n.off.toFixed(1)} A) que no se nota en corrientes grandes, pero domina una corriente pequeña como la de esta bobina (${n.iT.toFixed(2)} A). Por eso hay que tarar el instrumento antes de medir señales pequeñas.`,
+  falla:()=>'Antes de sospechar que el instrumento está descalibrado, compara contra una segunda medición (p. ej. el shunt) y revisa el procedimiento: casi siempre la discrepancia tiene una explicación física, no una falla del equipo.',
+};
+/* Cada opción lleva su concepto Y una cifra. Solo la correcta trae las cifras que
+   el instrumento realmente muestra; las demás son otros conceptos (con sus propias
+   cifras para este circuito) o el mismo concepto con una cifra equivocada. */
+function frase(c,n,f){
+  if(c==='carga') return `Efecto de carga: al insertar el shunt la corriente real baja ${fmtP(n.p*f)}`;
+  if(c==='ampere') return `Cancelación (ley de Ampère): vivo y neutro juntos en la mordaza, neto ≈${(f===1?0:n.iT*f/4).toFixed(1)} A`;
+  if(c==='offset') return `Error de cero (offset): sin tarar, la pinza suma ≈${(n.off*f).toFixed(1)} A fijos a la corriente`;
+  return `Descalibración: la pinza está dañada y su lectura sale ${Math.round(3*f)} % de más`;
+}
+function buildQuiz(key){
+  const n=numerosDe(key), C=SCEN_META[key].respuesta;
+  const W='Pista: compara qué cambia al mover los controles de "Instrumento" y si la cifra de la opción coincide con lo que muestra el panel.';
+  const ok={t:frase(C,n,1),ok:true,why:DX_HINT[C](n),concepto:C};
+  const mal=[
+    ...['carga','ampere','offset','falla'].filter(c=>c!==C).map(c=>({t:frase(c,n,1),ok:false,why:W,concepto:c})),
+    {t:frase(C,n,0.5),ok:false,why:W,concepto:C}, {t:frase(C,n,2),ok:false,why:W,concepto:C},
+  ];
+  const vistos=new Set([ok.t]);
+  return {pregunta:'¿Qué explica la diferencia?', concepto:C, opciones:[ok,...mal.filter(o=>{ if(vistos.has(o.t)) return false; vistos.add(o.t); return true; })]};
+}
 
 function clampRangeFor(reading){
   const a=Math.abs(reading);
@@ -753,6 +793,12 @@ let clampPos='vivo';
 let zeroed=false;
 let energized=false;
 let insertedOnce=false;
+/* Contabilidad del reto. Tres fallos seguidos en un caso lo resiembran. */
+const answered={arranque:false,calefactor:false,testigo:false};
+const fallosCaso={arranque:0,calefactor:0,testigo:0};
+const RETO={intentos:0,resiembras:0};
+let quizNow={pregunta:'',opciones:[]};
+let autoRunning=false;
 
 function computeTargets(){
   const m=SCEN_META[scenarioKey];
@@ -847,12 +893,7 @@ document.getElementById('panel').innerHTML=`
     <button class="b" id="sh_in">Shunt en serie</button>
   </div>
   <h4 class="sec">¿Qué explica la diferencia?</h4>
-  <div class="btns">
-    <button class="b dx" data-dx="carga">A · Efecto de carga: el instrumento cambió el circuito que mide</button>
-    <button class="b dx" data-dx="ampere">B · Cancelación (ley de Ampère): mide corriente neta, no un solo conductor</button>
-    <button class="b dx" data-dx="offset">C · Error de cero (offset): hay que tarar antes de medir señales pequeñas</button>
-    <button class="b dx" data-dx="falla">D · El instrumento está descalibrado o dañado</button>
-  </div>
+  <div class="btns" id="dxbtns"></div>
   <div class="btns">
     <button class="b auto" id="btnAuto">✨ Demostración guiada (carga, cancelación, offset)</button>
     <button class="b primary" id="btnEnergize">⚡ Energizar circuito</button>
@@ -968,6 +1009,7 @@ function setScenario(key){
   cableNeutralReturn.visible=(scenarioKey==='calefactor');
   refreshCaseLabel();
   setConsole();
+  refreshQuestion();
 }
 el('s_arranque').onclick=()=>setScenario('arranque');
 el('s_calefactor').onclick=()=>setScenario('calefactor');
@@ -1026,64 +1068,117 @@ el('btnNew').onclick=()=>{
   setScenario(SCEN_ORDER[(i+1)%SCEN_ORDER.length]);
 };
 
-document.querySelectorAll('.b.dx').forEach(btn=>{
-  btn.onclick=()=>{
-    if(!energized){ showToast('Primero energiza el circuito.'); return; }
-    const pick=btn.dataset.dx; clearDx();
-    const m=SCEN_META[scenarioKey];
-    if(pick===m.respuesta){
-      btn.classList.add('right'); synth.beep(1046,0.12,0.06);
-      showToast(`<span style="color:var(--good)">✔ Correcto</span><br><span style="color:var(--dim);font-size:11px">${DX_HINT[pick]}</span>`);
+function renderQuiz(){
+  el('dxbtns').innerHTML=quizNow.opciones.map((o,i)=>`<button class="b dx" data-i="${i}">${'ABCD'[i]} · ${o.t}</button>`).join('');
+  el('dxbtns').querySelectorAll('.b.dx').forEach(btn=>{ btn.onclick=()=>answer(+btn.dataset.i); });
+}
+/* Una correcta + 3 del banco de distractores, barajadas: ni la posición ni el
+   largo delatan la respuesta, y tras una resiembra salen otras cifras. */
+function refreshQuestion(){
+  const q=buildQuiz(scenarioKey);
+  const buenas=q.opciones.filter(o=>o.ok), malas=q.opciones.filter(o=>!o.ok);
+  // como mucho UNA variante del mismo concepto con cifra equivocada: si no, el concepto repetido delata la respuesta
+  const misma=shuffled(malas.filter(o=>o.concepto===q.concepto)), otras=shuffled(malas.filter(o=>o.concepto!==q.concepto));
+  quizNow={pregunta:q.pregunta,opciones:shuffled(buenas.concat(misma.slice(0,1),otras.slice(0,2)))};
+  renderQuiz();
+}
+function resiembra(){
+  fallosCaso[scenarioKey]=0; RETO.resiembras++;
+  seedCase(scenarioKey);
+  insertedOnce=false; setShunt(false);          // setShunt refresca la consola
+  refreshQuestion();
+}
+function answer(i){
+  if(!energized){ showToast('Primero energiza el circuito.'); return; }
+  if(autoRunning) return;                 // la demostración enseña, no puntúa
+  if(answered[scenarioKey]){ showToast('Este caso ya está resuelto: pasa al siguiente.'); return; }
+  const o=quizNow.opciones[i]; clearDx();
+  const btn=el('dxbtns').children[i];
+  RETO.intentos++;
+  if(o.ok){
+    btn.classList.add('right'); answered[scenarioKey]=true; fallosCaso[scenarioKey]=0; synth.beep(1046,0.12,0.06);
+    showToast(`<span style="color:var(--good)">✔ Correcto</span><br><span style="color:var(--dim);font-size:11px">${o.why}</span>`);
+  } else {
+    btn.classList.add('wrong'); synth.beep(220,0.15,0.06);
+    fallosCaso[scenarioKey]++;
+    if(fallosCaso[scenarioKey]>=3){
+      resiembra();
+      showToast(`<span style="color:var(--bad)">✗ Tres fallos en este caso.</span><br><span style="color:var(--dim);font-size:11px">Cambian las cifras del circuito y las opciones: vuelve a medir con calma.</span>`);
     } else {
-      btn.classList.add('wrong'); synth.beep(220,0.15,0.06);
-      showToast(`<span style="color:var(--bad)">✗ No es la explicación principal aquí.</span><br><span style="color:var(--dim);font-size:11px">Pista: compara qué cambia al mover los controles de "Instrumento".</span>`);
+      showToast(`<span style="color:var(--bad)">✗ No es la explicación principal aquí.</span><br><span style="color:var(--dim);font-size:11px">${o.why} (fallos en este caso: ${fallosCaso[scenarioKey]}/3)</span>`);
     }
-  };
-});
+  }
+}
 
 const soundBtn=document.getElementById('soundBtn');
 soundBtn.onclick=()=>{const on=synth.toggle();soundBtn.textContent=on?'🔊':'🔇';soundBtn.classList.toggle('on',on);};
 
 const sleep=ms=>new Promise(r=>setTimeout(r,ms));
-let autoRunning=false;
 async function runAuto(){
   if(autoRunning) return;
   autoRunning=true;
   const btn=el('btnAuto'); const label=btn.textContent;
   btn.disabled=true; btn.classList.add('on'); btn.textContent='⏳ Demostración en curso…';
+  const panel=document.getElementById('panel'); panel.style.pointerEvents='none';   // el alumno no toca los controles a mitad
+  const prev={datos:guardaDatos(),escenario:scenarioKey,shuntIn,clampMode,clampPos,zeroed,energized,insertedOnce,quiz:quizNow};
   try{
+    // La demostración trabaja con OTRAS cifras (DEMO): lo del alumno no se toca.
+    restauraDatos({arranque:DEMO.arranque,calefactor:DEMO.calefactor,testigo:{rLoop:DEMO.testigo.rLoop,off:DEMO.testigo.off}});
     setScenario('arranque'); setShunt(false); setClampMode('hall');
     zeroed=true; el('btnZero').classList.add('on'); el('btnZero').textContent='🎯 Tarada (CD)';
     clearDx();
-    if(!energized){ showToast('Paso 1 · Energizando el circuito de arranque…'); el('btnEnergize').click(); await sleep(1600); }
-    showToast('Paso 2 · La pinza mide ≈200.00 A sin tocar el circuito.'); await sleep(2200);
+    const nA=numerosDe('arranque');
+    if(!energized){ showToast('Paso 1 · Energizando el circuito de arranque (cifras de ejemplo)…'); el('btnEnergize').click(); await sleep(1600); }
+    showToast('Paso 2 · La pinza mide ≈'+nA.iT.toFixed(2)+' A sin tocar el circuito.'); await sleep(2200);
     showToast('Paso 3 · Insertamos el shunt EN SERIE…'); setShunt(true); await sleep(2200);
-    showToast('Paso 4 · La corriente REAL bajó a ≈189.83 A: el shunt cargó el circuito.'); await sleep(2600);
-    document.querySelector('.b.dx[data-dx="carga"]').click(); await sleep(2600);
+    showToast('Paso 4 · La corriente REAL bajó a ≈'+nA.iL.toFixed(2)+' A ('+fmtP(nA.p)+'): el shunt cargó el circuito.'); await sleep(2600);
+    showToast('<span style="color:var(--good)">✔ Explicación</span><br><span style="color:var(--dim);font-size:11px">'+DX_HINT.carga(nA)+'</span>'); await sleep(3000);
 
-    setScenario('calefactor'); setShunt(false); clearDx();
-    showToast('Paso 5 · Calefactor de 1200 W en 127 V CA. Pinza sobre el vivo: ≈9.45 A.'); await sleep(2600);
+    setScenario('calefactor'); setShunt(false);
+    const nC=numerosDe('calefactor');
+    showToast('Paso 5 · Calefactor de '+SCEN_META.calefactor.potenciaNominal+' W en 127 V CA. Pinza sobre el vivo: ≈'+nC.iT.toFixed(2)+' A.'); await sleep(2600);
     showToast('Paso 6 · Ahora abrazamos vivo + neutro juntos…'); setClampPos('ambos'); await sleep(2400);
     showToast('Paso 7 · La lectura cae a ≈0 A aunque el calefactor sigue encendido.'); await sleep(2600);
-    document.querySelector('.b.dx[data-dx="ampere"]').click(); await sleep(2600);
+    showToast('<span style="color:var(--good)">✔ Explicación</span><br><span style="color:var(--dim);font-size:11px">'+DX_HINT.ampere(nC)+'</span>'); await sleep(3000);
     setClampPos('vivo');
 
-    setScenario('testigo'); setShunt(false); clearDx();
+    setScenario('testigo'); setShunt(false);
     zeroed=false; el('btnZero').classList.remove('on'); el('btnZero').textContent='🎯 Cero (tara CD)'; setConsole();
-    showToast('Paso 8 · Bobina de relevador: solo 0.20 A reales.'); await sleep(2400);
-    showToast('Paso 9 · Sin tarar, el offset del sensor Hall (~1.2 A) domina la lectura: marca ≈1.40 A.'); await sleep(2800);
-    document.querySelector('.b.dx[data-dx="offset"]').click(); await sleep(2200);
+    const nT=numerosDe('testigo');
+    showToast('Paso 8 · Bobina de relevador: solo '+nT.iT.toFixed(2)+' A reales.'); await sleep(2400);
+    showToast('Paso 9 · Sin tarar, el offset del sensor Hall (~'+nT.off.toFixed(1)+' A) domina la lectura: marca ≈'+(nT.iT+nT.off).toFixed(2)+' A.'); await sleep(2800);
+    showToast('<span style="color:var(--good)">✔ Explicación</span><br><span style="color:var(--dim);font-size:11px">'+DX_HINT.offset(nT)+'</span>'); await sleep(3000);
     showToast('Paso 10 · Al presionar "Cero" antes de medir, la lectura vuelve a ser fiel a la realidad.');
     zeroed=true; el('btnZero').classList.add('on'); el('btnZero').textContent='🎯 Tarada (CD)'; setConsole(); await sleep(2400);
 
-    showToast('<span style="color:var(--good)">✔ Fin de la demostración: carga, cancelación y offset — tres formas en que un instrumento puede "mentir" si no entiendes cómo mide.</span>');
+    showToast('<span style="color:var(--good)">✔ Fin de la demostración: carga, cancelación y offset, con cifras de ejemplo. Tu avance en el reto no cambió.</span>');
+    await sleep(1800);
   } finally {
-    btn.disabled=false; btn.classList.remove('on'); btn.textContent=label;
+    restauraDatos(prev.datos);
     autoRunning=false;
+    setScenario(prev.escenario);
+    setShunt(prev.shuntIn); setClampMode(prev.clampMode); setClampPos(prev.clampPos);
+    zeroed=prev.zeroed; el('btnZero').classList.toggle('on',zeroed); el('btnZero').textContent=zeroed?'🎯 Tarada (CD)':'🎯 Cero (tara CD)';
+    if(energized!==prev.energized) el('btnEnergize').click();
+    insertedOnce=prev.insertedOnce;
+    quizNow=prev.quiz; renderQuiz(); setConsole();
+    panel.style.pointerEvents='';
+    btn.disabled=false; btn.classList.remove('on'); btn.textContent=label;
   }
 }
 el('btnAuto').onclick=runAuto;
 
+window.__labDebug={
+  get mode(){ return scenarioKey; },
+  get solved(){ return Object.values(answered).every(Boolean); },
+  get intentos(){ return RETO.intentos; },
+  state(){ return {caso:scenarioKey,energizado:energized,answered:{...answered},intentos:RETO.intentos,
+    fallos:{...fallosCaso},resiembras:RETO.resiembras,resuelto:Object.values(answered).every(Boolean),autoRunning}; },
+  datos(){ return guardaDatos(); },
+  setScenario(k){ setScenario(k); },
+  energiza(){ if(!energized) el('btnEnergize').click(); },
+  opciones(){ return [...document.querySelectorAll('#dxbtns .b.dx')].map((b,i)=>({t:b.textContent,ok:!!quizNow.opciones[i].ok})); },
+};
 setScenario('arranque');
 S.start();
 </script>

@@ -376,8 +376,9 @@ function copperWinding(){
 
 /* ============================================================
    ESTACIÓN DE CARGA EV — LABORATORIO DIDÁCTICO
-   Referencia: carga DC rápida CHAdeMO Nissan LEAF (40kWh, pico 50kW, bus 350V —
-   mismo vehículo/bus del motor e inversor del set)
+   Referencia: carga DC rápida con conector CCS Combo (batería de 40 kWh, estación de
+   50 kW, bus 350 V —el mismo bus del motor e inversor del set—; a 350 V, 50 kW son
+   143 A, por debajo de los 200 A de un CCS sin refrigeración líquida)
    ============================================================ */
 const EVCHG={
   V_bus:350, P_max:50, capacity_kWh:40,
@@ -558,7 +559,7 @@ const panelGroup=new THREE.Group(); stRoot.add(panelGroup);
   // La baliza: cilindro traslucido, no una bola.
   const baliza=new THREE.Mesh(new THREE.CylinderGeometry(0.075,0.075,0.11,24),
     std({color:0xff6b1a,emissive:0xff6b1a,emissiveIntensity:0.6,transparent:true,opacity:0.85}));
-  baliza.position.set(0,2.05,0.10); panelGroup.add(baliza);
+  baliza.position.set(0,2.05,0.10); baliza.userData.baliza=true; panelGroup.add(baliza);
   const tapaBal=new THREE.Mesh(new THREE.CylinderGeometry(0.082,0.082,0.02,24),MAT.cabinet);
   tapaBal.position.set(0,2.115,0.10); panelGroup.add(tapaBal);
 })();
@@ -797,7 +798,7 @@ function onPickGeneric(hit){
 const PIECE_INFO={
   cabinet:{tipo:'Estructura / carcasa',nombre:'Gabinete (dispensador)',funcion:'Es el armazón y la carcasa de la estación de carga. Protege del clima y de la manipulación toda la electrónica interna, y le da soporte físico al módulo de potencia, las protecciones y la pantalla. Es lo primero que se instala porque todo lo demás se monta dentro de él.'},
   power:{tipo:'Electrónica de potencia',nombre:'Módulo rectificador AC-DC',funcion:'Toma la corriente alterna (AC) de la red eléctrica y la convierte en corriente directa (DC) regulada que la batería del vehículo necesita. Incluye el rectificador AC-DC y el convertidor DC-DC. Sus aletas disipan el calor generado al manejar decenas de kilowatts.'},
-  ground:{tipo:'Seguridad eléctrica',nombre:'Protección y puesta a tierra',funcion:'Desconecta la estación al instante ante cualquier fuga de corriente, protegiendo al usuario. A los cientos de volts y más de 100 A de una carga rápida, es la pieza que hace segura toda la instalación: no es opcional.'},
+  ground:{tipo:'Seguridad eléctrica',nombre:'Protección y puesta a tierra',funcion:'Agrupa dos cosas distintas: la puesta a tierra, que da a una corriente de fuga un camino seguro hacia el suelo en vez de pasar por la persona, y el dispositivo de protección (diferencial o monitor de aislamiento), que detecta esa fuga y desconecta la estación. A los cientos de volts y más de 100 A de una carga rápida, juntas hacen segura la instalación: no son opcionales.'},
   panel:{tipo:'Interfaz humana (HMI)',nombre:'Pantalla de estado',funcion:'Muestra al usuario el estado de la sesión: potencia entregada, corriente, tiempo restante y porcentaje de batería (SOC). Es lo único con lo que el conductor interactúa directamente; el resto trabaja internamente.'},
   connector:{tipo:'Acoplamiento de carga',nombre:'Conector / pistola CCS',funcion:'Es la punta del cable que se acopla al puerto del vehículo. Lleva la corriente directa ya convertida hasta la batería y contiene los pines de potencia y de comunicación. Sus contactos deben estar limpios: un mal contacto aumenta la resistencia y limita la corriente real.'},
   cable:{tipo:'Conducción de energía',nombre:'Cable de carga',funcion:'Conduce la alta corriente de la carga rápida desde el módulo de potencia hasta el conector. Al circular corriente elevada se calienta, por lo que suele ir refrigerado; si su enfriamiento es insuficiente, el sistema baja la potencia para proteger el aislamiento.'},
@@ -865,7 +866,7 @@ function step_power(){
 }
 function step_ground(){
   showTeach('Fase 1 · Paso 3','Instala la protección y tierra',
-    `<p>El sistema de <b>protección y puesta a tierra</b> desconecta la estación instantáneamente ante cualquier fuga de corriente, protegiendo al usuario.</p>
+    `<p>La <b>puesta a tierra</b> da a cualquier corriente de fuga un camino seguro hacia el suelo, y el <b>dispositivo de protección</b> (diferencial o monitor de aislamiento) detecta esa fuga y desconecta la estación para proteger al usuario.</p>
      <div class="why"><b>No es opcional:</b> a los voltajes y corrientes de una carga rápida (cientos de volts, más de 100A), una falla sin protección sería letal. Esta pieza es la que hace segura toda la instalación.</div>
      <div class="task">Toca la pieza amarilla, o usa el botón, para instalar la protección.</div>`);
   setActions('Mesa de piezas',`<button class="b primary" data-act="place-ground"><span class="ic">⬇</span> Instalar protección/tierra</button>`);
@@ -881,7 +882,7 @@ function step_panel(){
 }
 function step_cable(){
   showTeach('Fase 1 · Paso 5','Instala el cable y el conector',
-    `<p>El <b>cable y conector</b> (CHAdeMO) es la última pieza: lleva la corriente directa ya convertida hasta la batería del vehículo.</p>
+    `<p>El <b>cable y conector</b> (CCS Combo) es la última pieza: lleva la corriente directa ya convertida hasta la batería del vehículo.</p>
      <div class="why"><b>Por qué al final:</b> conectar el cable antes de tener el resto funcionando sería enchufar un vehículo a una estación sin protección ni conversión de energía — peligroso e inútil.</div>
      <div class="task">Toca la pieza roja, o usa el botón, para instalar el cable y el conector.</div>`);
   setActions('Mesa de piezas',`<button class="b primary" data-act="place-cable"><span class="ic">⬇</span> Instalar cable + conector</button>`);
@@ -902,30 +903,55 @@ function startPhase2(){
   controls.target.set(-2.2,1.2,0); platGlow.material.opacity=0;
   challengeCurrent();
 }
+/* Los dos retos de cálculo se SIEMBRAN: cada alumno (y cada recarga, y cada vez
+   que agota tres intentos) recibe una estación y una batería distintas, así que
+   no hay una cifra fija que copiar ni se puede aprobar tanteando. */
+const pick=a=>a[Math.floor(Math.random()*a.length)];
+const R1={P:0,V:0,intentos:0,fallos:0,pistas:0,solved:false};
+const R2={cap:0,P:0,s0:0,s1:0,intentos:0,fallos:0,pistas:0,solved:false};
+function siembraR1(){
+  // El conector CCS de esta práctica no pasa de 200 A; se descartan casos fuera de rango
+  // y el de la estación de la Fase 3 (50 kW / 350 V), para no regalar el caso.
+  let P,V;
+  do{ P=pick([30,45,60,75,90]); V=pick([380,400,450,500]); }
+  while(P*1000/V>200||P*1000/V<40||(P===R1.P&&V===R1.V));
+  R1.P=P; R1.V=V; R1.fallos=0;
+}
+function siembraR2(){
+  let cap,P,s0,s1,t;
+  do{ cap=pick([40,52,60,75]); P=pick([30,50,75,100]); s0=pick([10,15,20,25]); s1=pick([40,45,50,55]);
+      t=(s1-s0)/100*cap/P*60; }
+  while(t<6||t>60||(cap===R2.cap&&P===R2.P&&s0===R2.s0&&s1===R2.s1));
+  R2.cap=cap; R2.P=P; R2.s0=s0; R2.s1=s1; R2.fallos=0;
+}
+siembraR1(); siembraR2();
+const corrienteReto=()=>maxCurrent(R1.P,R1.V);
+const tiempoReto=()=>chargeTimeHours((R2.s1-R2.s0)/100,R2.cap,R2.P)*60; // minutos
+const tolTiempo=c=>Math.max(0.5,0.03*c);
+const PISTAS_R1=['La potencia eléctrica es el producto de la tensión por la corriente.','Antes de dividir, expresa la potencia en W (no en kW).'];
+const PISTAS_R2=['La energía que entra a la batería es ΔSOC × capacidad; el tiempo es esa energía dividida entre la potencia.','Escribe el ΔSOC como fracción (no como %) y pasa el resultado de horas a minutos (×60).'];
+const contadorReto=r=>`<div class="mini"><span>Intentos</span><b id="cntI">${r.intentos}</b></div><div class="mini"><span>Pistas usadas</span><b id="cntP">${r.pistas}/2</b></div>`;
 function challengeCurrent(){
-  const answer=maxCurrent(EVCHG.P_max,EVCHG.V_bus);
-  window.__iAnswer=answer;
   showTeach('Fase 2 · Reto 1','Calcula la corriente de carga',
-    `<p>Esta estación entrega hasta <b>${EVCHG.P_max} kW</b> al bus de <b>${EVCHG.V_bus} V</b> del vehículo (el mismo bus del motor e inversor que ya armaste). La corriente que circula por el cable es:</p>
+    `<p>Otra estación de carga rápida en CD entrega hasta <b>${R1.P} kW</b> al bus de <b>${R1.V} V</b> de un vehículo (conector CCS). La corriente que circula por el cable es:</p>
      <div class="formula">I = P / V</div>
      <div class="task">¿Cuál es la corriente máxima, en A?</div>`);
   setActions('Tu cálculo',
     `<div class="calcbox"><label>Corriente (A)</label>
        <div class="calcrow"><input id="ansI" type="number" step="1" placeholder="¿?"><button class="b primary" data-act="check-i" style="flex:0 0 auto">✓</button></div>
-       <div class="mini" data-act="hint-i" style="cursor:pointer;text-decoration:underline"><span>¿Necesitas una pista?</span></div></div>`);
+       ${contadorReto(R1)}
+       <div class="mini" data-act="hint-i" style="cursor:pointer;text-decoration:underline"><span>¿Necesitas una pista? (máx. 2)</span></div></div>`);
 }
 function challengeTime(){
-  const answer=chargeTimeHours(0.30,EVCHG.capacity_kWh,EVCHG.P_max)*60; // minutos
-  window.__tAnswer=answer;
   showTeach('Fase 2 · Reto 2','Calcula el tiempo de carga',
-    `<p>La batería tiene <b>${EVCHG.capacity_kWh} kWh</b> de capacidad. Vas a cargar del 20% al 50% de SOC, dentro de la zona de <b>potencia constante</b> (${EVCHG.P_max}kW) de la curva de carga.</p>
+    `<p>Una batería de <b>${R2.cap} kWh</b> se carga con <b>${R2.P} kW</b> constantes del <b>${R2.s0}%</b> al <b>${R2.s1}%</b> de SOC (todo dentro de la zona de <b>potencia constante</b> de la curva de carga, antes de que empiece la atenuación).</p>
      <div class="formula">t = (ΔSOC · capacidad) / potencia</div>
-     <p>ΔSOC = 30% = 0.30</p>
      <div class="task">¿Cuánto tiempo toma, en minutos?</div>`);
   setActions('Tu cálculo',
     `<div class="calcbox"><label>Tiempo (min)</label>
        <div class="calcrow"><input id="ansT" type="number" step="0.1" placeholder="¿?"><button class="b primary" data-act="check-t" style="flex:0 0 auto">✓</button></div>
-       <div class="mini" data-act="hint-t" style="cursor:pointer;text-decoration:underline"><span>¿Necesitas una pista?</span></div></div>`);
+       ${contadorReto(R2)}
+       <div class="mini" data-act="hint-t" style="cursor:pointer;text-decoration:underline"><span>¿Necesitas una pista? (máx. 2)</span></div></div>`);
 }
 function challengeSession(){
   showTeach('Fase 2 · Reto 3','Observa una sesión de carga real',
@@ -933,7 +959,8 @@ function challengeSession(){
      <div class="why"><b>Por qué cae la potencia:</b> cargar rápido cuando la batería está casi llena generaría calor excesivo y dañaría las celdas. El sistema de gestión de batería (BMS) reduce la corriente por seguridad — el mismo principio que "no puedes llenar un vaso de un jalón cuando ya casi está lleno".</div>
      <div class="task">Sigue la secuencia y observa la telemetría en vivo.</div>`);
   setActions('Estación de carga',
-    `<div class="mini"><span>SOC batería</span><b id="d_soc">20%</b></div>
+    `<div class="mini"><span>Estado</span><b id="d_ses">Desconectado</b></div>
+     <div class="mini"><span>SOC batería</span><b id="d_soc">20%</b></div>
      <div class="mini"><span>Potencia</span><b id="d_pow">0 kW</b></div>
      <div class="mini"><span>Corriente</span><b id="d_cur">0 A</b></div>
      <div class="btns" style="display:flex;flex-direction:column;gap:7px;margin-top:10px">
@@ -941,6 +968,7 @@ function challengeSession(){
        <button class="b" data-act="auth"><span class="ic">💳</span> Autenticar</button>
        <button class="b" data-act="chgstart"><span class="ic">▶</span> Iniciar carga</button>
      </div>
+     <div class="mini" id="toP3note"><span>El diagnóstico se habilita cuando veas caer la potencia (SOC &gt; 65 %)</span></div>
      <button class="b primary" data-act="to-phase3" style="margin-top:8px" disabled id="toP3">Continuar al diagnóstico →</button>`);
   running=true;cinematicSpin=true; sessionState=0; soc=0.20;
   camCine.from.copy(camera.position); camCine.fromTarget.copy(controls.target);
@@ -954,43 +982,87 @@ function finishPhase2(){ document.querySelectorAll('.phase-tab')[1].classList.ad
    FASE 3: DIAGNÓSTICO
    ============================================================ */
 let fault=null;
+const FAULTS=['connector','auth','thermal','isolation','coldbat'];
+const DX={intentos:0,fallos:0,diagnosed:false,done:false,casos:0};
+let isoT=0;
+const FAULT_BTN={
+  connector:['🔌','Mal contacto en el conector'],
+  auth:['💳','Falla de autenticación/comunicación'],
+  thermal:['🌡️','Límite térmico del cable'],
+  isolation:['⚡','Falla de aislamiento (fuga a tierra)'],
+  coldbat:['🥶','Batería fría: el BMS limita la potencia']};
+function shuffle(a){ for(let i=a.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[a[i],a[j]]=[a[j],a[i]];} return a; }
+function nuevaFalla(){
+  const prev=fault;
+  do{ fault=pick(FAULTS); }while(fault===prev);
+  DX.casos++; DX.fallos=0; DX.diagnosed=false;
+  sessionState=3; soc=0.30; isoT=0; updateSessionUI();
+}
+function opcionesDx(){
+  return shuffle(FAULTS.slice()).map(k=>`<button class="b" data-act="dx-${k}"><span class="ic">${FAULT_BTN[k][0]}</span> ${FAULT_BTN[k][1]}</button>`).join('');
+}
 function startPhase3(){
-  phase=2;setPhaseTab(2);running=true;sessionState=3;soc=0.30;
-  const faults=['connector','auth','thermal'];fault=faults[Math.floor(Math.random()*faults.length)];
+  phase=2;setPhaseTab(2);running=true;
+  nuevaFalla();
   showTeach('Fase 3 · Diagnóstico','La carga falla en operación',
-    `<p>La sesión de carga está activa pero algo anda mal. Observa la telemetría e <b>identifica la falla</b>.</p>
+    `<p>La sesión de carga está activa pero algo anda mal. <b>Mira la telemetría</b> del panel de la derecha (estado, SOC, potencia y corriente) e <b>identifica la falla</b>. Hay cinco causas posibles y sólo una es la real; si fallas tres veces, el caso cambia.</p>
      <div class="task" id="symptomTask">Observa el síntoma y elige el diagnóstico.</div>`);
-  setActions('¿Cuál es la falla?',
-    `<button class="b" data-act="dx-connector"><span class="ic">🔌</span> Mal contacto en el conector</button>
-     <button class="b" data-act="dx-auth"><span class="ic">💳</span> Falla de autenticación/comunicación</button>
-     <button class="b" data-act="dx-thermal"><span class="ic">🌡️</span> Límite térmico del cable</button>`);
+  renderDx();
   setTimeout(()=>{const s=$('symptomTask');if(s)s.innerHTML=symptomEV(fault);},1300);
 }
+function renderDx(){
+  setActions('¿Cuál es la falla?',
+    `<div class="mini"><span>Estado</span><b id="d_ses">—</b></div>
+     <div class="mini"><span>SOC batería</span><b id="d_soc">30%</b></div>
+     <div class="mini"><span>Potencia</span><b id="d_pow">0 kW</b></div>
+     <div class="mini"><span>Corriente</span><b id="d_cur">0 A</b></div>
+     <div class="mini"><span>Intentos de diagnóstico</span><b id="d_try">${DX.intentos}</b></div>
+     <div class="btns" style="display:flex;flex-direction:column;gap:7px;margin-top:8px">${opcionesDx()}</div>`);
+}
 function symptomEV(f){
-  if(f==='connector')return 'SÍNTOMA: la carga inició, pero la potencia real es mucho menor a los 50kW esperados, y es inestable (sube y baja). ¿Qué lo causa?';
+  if(f==='connector')return 'SÍNTOMA: la carga inició, pero la potencia real es mucho menor a los 50 kW esperados y es inestable: sube y baja todo el tiempo. ¿Qué lo causa?';
   if(f==='auth')return 'SÍNTOMA: conectaste el cable, pero la sesión nunca pasa de "autenticando" — la carga no arranca. ¿Qué lo causa?';
-  if(f==='thermal')return 'SÍNTOMA: la carga arrancó bien a 50kW, pero después de un rato la potencia cae bruscamente aunque la batería sigue baja de SOC (no debería estar en zona de atenuación todavía). ¿Qué lo causa?';
+  if(f==='thermal')return 'SÍNTOMA: la carga arrancó bien a 50 kW, pero después de un rato la potencia cae bruscamente aunque la batería sigue baja de SOC (no debería estar en zona de atenuación todavía). ¿Qué lo causa?';
+  if(f==='isolation')return 'SÍNTOMA: la sesión llega a "Listo", la carga arranca a potencia normal y a los pocos segundos se corta sola; el equipo vuelve a "Listo" e intenta de nuevo, una y otra vez. ¿Qué lo causa?';
+  if(f==='coldbat')return 'SÍNTOMA: la carga arranca sin problemas y es perfectamente estable, pero la potencia se queda en unos 18 kW desde el principio y no sube, con el SOC lejos de estar lleno. ¿Qué lo causa?';
 }
 function diagnoseEV(choice){
-  const correct=(choice===fault);
-  if(correct){feedback('good','Diagnóstico correcto ✓',explainEVFault(fault)+' <b>Ahora corrígelo.</b>',true);
+  if(DX.done||DX.diagnosed) return;
+  DX.intentos++;
+  if(choice===fault){
+    DX.diagnosed=true;
+    feedback('good','Diagnóstico correcto ✓',explainEVFault(fault)+' <b>Ahora corrígelo.</b>',true);
     setActions('Reparación',`<button class="b primary good" data-act="repair-ev">🔧 Corregir la falla</button>`);
-  } else {feedback('bad','No es esa la falla','Eso ('+fnameEV(choice)+') daría otro síntoma: '+wrongExEV(choice)+' Observa otra vez.',true);}
+  } else {
+    DX.fallos++;
+    let txt='Eso ('+fnameEV(choice)+') daría otro síntoma: '+wrongExEV(choice)+' Observa otra vez la telemetría.';
+    if(DX.fallos>=3){
+      nuevaFalla();
+      txt='Eso ('+fnameEV(choice)+') daría otro síntoma: '+wrongExEV(choice)+' Con tres fallos el caso cambia: <b>hay una avería nueva</b>, vuelve a observar.';
+      const s=$('symptomTask'); if(s) s.innerHTML=symptomEV(fault);
+      renderDx();
+    } else { const t=$('d_try'); if(t) t.textContent=DX.intentos; }
+    feedback('bad','No es esa la falla',txt,true);
+  }
 }
 function explainEVFault(f){
-  if(f==='connector')return 'Un pin del conector con mal contacto (suciedad, desgaste) aumenta la resistencia de contacto. Eso limita la corriente real que puede pasar y la hace inestable, aunque el sistema "pida" 50kW.';
+  if(f==='connector')return 'Un pin del conector con mal contacto (suciedad, desgaste) aumenta la resistencia de contacto. Eso limita la corriente real que puede pasar y la hace inestable, aunque el sistema "pida" 50 kW.';
   if(f==='auth')return 'El protocolo de comunicación entre el vehículo y la estación (que verifica que ambos estén listos y autorizados) no completa su handshake. Sin esa confirmación, por seguridad, la estación nunca habilita la potencia.';
   if(f==='thermal')return 'El cable se calienta con la corriente alta sostenida. Si el sistema de enfriamiento del cable es insuficiente, la estación reduce la potencia para proteger el aislamiento — igual que el tradeoff de frecuencia que viste en el inversor, pero aplicado al cable.';
+  if(f==='isolation')return 'La estación mide el aislamiento entre el circuito de CD y tierra. Si una fuga lo degrada, el monitor de aislamiento (o el dispositivo diferencial) abre el contactor para proteger a las personas; al rearmar, la fuga reaparece y la sesión se corta otra vez.';
+  if(f==='coldbat')return 'Con la batería fría, el BMS limita la corriente de carga que admite para no dañar las celdas (deposición de litio). La estación puede dar 50 kW, pero acepta sólo lo que el BMS permite, de forma estable.';
 }
-function fnameEV(f){return f==='connector'?'mal contacto':f==='auth'?'falla de autenticación':'límite térmico';}
+function fnameEV(f){return {connector:'mal contacto',auth:'falla de autenticación',thermal:'límite térmico',isolation:'falla de aislamiento',coldbat:'batería fría'}[f];}
 function wrongExEV(f){
-  if(f==='connector')return 'un mal contacto da potencia baja e inestable desde el inicio, no impide la autenticación ni causa una caída repentina después de operar bien.';
+  if(f==='connector')return 'un mal contacto da potencia baja e INESTABLE desde el inicio, no impide la autenticación ni causa una caída repentina después de operar bien.';
   if(f==='auth')return 'una falla de autenticación impide que la carga arranque del todo, no causa potencia inestable ni una caída a mitad de sesión.';
   if(f==='thermal')return 'el límite térmico causa una caída de potencia DESPUÉS de operar bien un rato, no potencia inestable desde el inicio ni bloqueo en autenticación.';
+  if(f==='isolation')return 'una falla de aislamiento CORTA la sesión repetidamente (la carga arranca y se interrumpe), no deja una potencia baja y continua.';
+  if(f==='coldbat')return 'un BMS que limita por frío deja una potencia baja pero ESTABLE y continua desde el arranque, sin cortes ni oscilaciones.';
 }
 function repairEV(){
-  fault=null;
-  feedback('good','¡Reparado! 🎉','La estación vuelve a cargar de forma estable. Completaste las tres fases: la armaste, calculaste su corriente y tiempo de carga, y diagnosticaste una falla real de infraestructura EV.',true);
+  fault=null; sessionState=3; isoT=0; updateSessionUI(); DX.done=true;
+  feedback('good','¡Reparado! 🎉','La estación vuelve a cargar de forma estable. Completaste las tres fases: la armaste, calculaste corriente y tiempo de carga, y diagnosticaste una falla real de infraestructura EV.',true);
   document.querySelectorAll('.phase-tab')[2].classList.add('done');
   setActions('Laboratorio completado',`<button class="b primary" data-act="restart">↺ Reiniciar laboratorio</button>`);
 }
@@ -1036,16 +1108,18 @@ function handleAction(act,btn){
       feedback('good','Cable y conector en camino','Se conectan a la salida del módulo de potencia. Estación casi completa.');
       setTimeout(()=>finishPhase1(),1150); break;
     case 'check-i': checkCurrent(); break;
-    case 'hint-i': feedback('good','Pista',`I = P/V = ${EVCHG.P_max*1000}/${EVCHG.V_bus}. Divide potencia (en watts) entre voltaje.`); break;
+    case 'hint-i': if(R1.pistas<2){feedback('good','Pista '+(R1.pistas+1),PISTAS_R1[R1.pistas]);R1.pistas++;const e=$('cntP');if(e)e.textContent=R1.pistas+'/2';}else feedback('good','Sin más pistas','Ya usaste las dos pistas de este reto.'); break;
     case 'check-t': checkTime(); break;
-    case 'hint-t': feedback('good','Pista',`t = (0.30 × ${EVCHG.capacity_kWh}) / ${EVCHG.P_max} horas. Multiplica primero arriba, luego divide, luego convierte a minutos (×60).`); break;
+    case 'hint-t': if(R2.pistas<2){feedback('good','Pista '+(R2.pistas+1),PISTAS_R2[R2.pistas]);R2.pistas++;const e=$('cntP');if(e)e.textContent=R2.pistas+'/2';}else feedback('good','Sin más pistas','Ya usaste las dos pistas de este reto.'); break;
     case 'plug': if(sessionState===0){sessionState=1;drawCable(true);updateSessionUI();beep(660);feedback('good','Conector acoplado','El cable ya está conectado al puerto del vehículo.');}break;
     case 'auth': if(sessionState===1){sessionState=2;updateSessionUI();beep(880);feedback('good','Autenticado','Handshake completo entre vehículo y estación.');}else{beep(220,0.15);feedback('bad','Conecta primero','Primero acopla el conector.');}break;
-    case 'chgstart': if(sessionState===2){sessionState=3;updateSessionUI();beep(1100);feedback('good','Carga iniciada','Observa la potencia y el SOC subir en tiempo real.');setTimeout(()=>{const b=$('toP3');if(b)b.disabled=false;},2500);}else{beep(220,0.15);feedback('bad','Autentica primero','Primero completa la autenticación.');}break;
+    case 'chgstart': if(sessionState===2){sessionState=3;updateSessionUI();beep(1100);feedback('good','Carga iniciada','Observa la potencia y el SOC en la telemetría: el diagnóstico se habilita cuando veas caer la potencia.');}else{beep(220,0.15);feedback('bad','Autentica primero','Primero completa la autenticación.');}break;
     case 'to-phase3': running=true; cinematicSpin=false; controls.autoRotate=false; finishPhase2(); startPhase3(); break;
     case 'dx-connector': diagnoseEV('connector'); break;
     case 'dx-auth': diagnoseEV('auth'); break;
     case 'dx-thermal': diagnoseEV('thermal'); break;
+    case 'dx-isolation': diagnoseEV('isolation'); break;
+    case 'dx-coldbat': diagnoseEV('coldbat'); break;
     case 'repair-ev': repairEV(); break;
     case 'restart': location.reload(); break;
   }
@@ -1054,16 +1128,28 @@ function updateSessionUI(){
   if(ledMesh){const cols=[0xff6b1a,0xffd166,0x6fb6ff,0x37e0c7];ledMesh.material.color.setHex(cols[sessionState]);ledMesh.material.emissive.setHex(cols[sessionState]);}
 }
 function checkCurrent(){
-  const v=parseFloat(($('ansI')||{}).value); const correct=window.__iAnswer;
+  const v=parseFloat(($('ansI')||{}).value); const correct=corrienteReto();
   if(isNaN(v)){feedback('bad','Escribe un número','Ingresa la corriente en A.');return;}
-  if(Math.abs(v-correct)<3){feedback('good','¡Correcto! ✓',`I = ${EVCHG.P_max*1000}/${EVCHG.V_bus} = ${correct.toFixed(0)} A. Esa corriente es la que circula por el cable y el conector durante la carga rápida.`);setTimeout(()=>challengeTime(),1700);}
-  else{const d=v>correct?'alta':'baja';feedback('bad','Revisa el cálculo',`Tu resultado (${v}A) está ${d}. I = P/V = ${EVCHG.P_max*1000}/${EVCHG.V_bus} = ${correct.toFixed(0)} A.`);}
+  R1.intentos++;
+  if(Math.abs(v-correct)<1.5){R1.solved=true;feedback('good','¡Correcto! ✓',`I = ${R1.P*1000}/${R1.V} = ${correct.toFixed(0)} A. Esa corriente es la que circula por el cable y el conector durante la carga rápida.`);setTimeout(()=>challengeTime(),1700);return;}
+  R1.fallos++;
+  let msg=(v>0&&v<correct/50)?'Revisa las unidades: la potencia debe ir en W (no en kW) al dividir entre los volts.'
+    :`Tu resultado (${v} A) queda ${v>correct?'por encima':'por debajo'} de lo que sale con P = V · I y los datos del enunciado. Revisa el cálculo.`;
+  if(R1.fallos>=3){ siembraR1(); feedback('bad','El caso cambia',msg+' Con tres fallos el reto se reinicia con otra estación.',true); challengeCurrent(); }
+  else { feedback('bad','Revisa el cálculo',msg); const e=$('cntI'); if(e) e.textContent=R1.intentos; }
 }
 function checkTime(){
-  const v=parseFloat(($('ansT')||{}).value); const correct=window.__tAnswer;
+  const v=parseFloat(($('ansT')||{}).value); const correct=tiempoReto();
   if(isNaN(v)){feedback('bad','Escribe un número','Ingresa el tiempo en minutos.');return;}
-  if(Math.abs(v-correct)<2){feedback('good','¡Correcto! ✓',`t = (0.30×${EVCHG.capacity_kWh})/${EVCHG.P_max} = ${(correct/60).toFixed(2)} h = ${correct.toFixed(1)} min. Así se calcula el tiempo real de una parada de carga rápida.`);setTimeout(()=>challengeSession(),1700);}
-  else{const d=v>correct?'alto':'bajo';feedback('bad','Revisa el cálculo',`Tu resultado (${v}min) está ${d}. t = (0.30×${EVCHG.capacity_kWh})/${EVCHG.P_max} horas = ${correct.toFixed(1)} min.`);}
+  R2.intentos++;
+  if(Math.abs(v-correct)<=tolTiempo(correct)){R2.solved=true;feedback('good','¡Correcto! ✓',`t = (${((R2.s1-R2.s0)/100).toFixed(2)}×${R2.cap})/${R2.P} = ${(correct/60).toFixed(2)} h = ${correct.toFixed(1)} min. Así se calcula el tiempo real de una parada de carga rápida.`);setTimeout(()=>challengeSession(),1700);return;}
+  R2.fallos++;
+  let msg;
+  if(v>0&&Math.abs(v-correct/60)<=0.15*correct/60) msg='Ese número parece el tiempo en horas: el reto pide minutos.';
+  else if(v>=correct*30) msg='Revisa el ΔSOC: va como fracción (por ejemplo 0,30 para un 30 %), no como porcentaje.';
+  else msg=`Tu resultado (${v} min) queda ${v>correct?'por encima':'por debajo'} de lo que sale con t = (ΔSOC·capacidad)/potencia. Revisa el cálculo.`;
+  if(R2.fallos>=3){ siembraR2(); feedback('bad','El caso cambia',msg+' Con tres fallos el reto se reinicia con otra batería.',true); challengeTime(); }
+  else { feedback('bad','Revisa el cálculo',msg); const e=$('cntI'); if(e) e.textContent=R2.intentos; }
 }
 
 /* ============================================================
@@ -1072,7 +1158,7 @@ function checkTime(){
 const clock=new THREE.Clock();
 controls.addEventListener('start',()=>{ lastDragTime=clock.elapsedTime; camCine.active=false; });
 // LED en la pantalla (referencia visual del estado)
-function findLed(){ let m=null; panelGroup.traverse(o=>{if(o.isMesh&&o.geometry.type==='SphereGeometry')m=o;}); return m; }
+function findLed(){ let m=null; panelGroup.traverse(o=>{if(o.isMesh&&o.userData.baliza)m=o;}); return m; }
 /* ============================================================
    SONIDO — beeps de confirmación + zumbido de transformador durante la carga
    ============================================================ */
@@ -1125,21 +1211,34 @@ function animate(){
   });
 
   const allInstalled=PIECE_ORDER.every(k=>travel[k].installed);
+  let Pshow=0, Ishow=0;
   if(allInstalled && running){
     if(ledMesh)ledMesh.material.emissiveIntensity=0.4+0.4*Math.sin(t*(sessionState===3?8:2));
+    // Falla de aislamiento: la sesión se corta sola y reintenta, una y otra vez.
+    if(fault==='isolation'&&phase===2){
+      isoT+=dt;
+      if(sessionState===3&&isoT>1.6){sessionState=2;isoT=0;updateSessionUI();beep(220,0.15);}
+      else if(sessionState===2&&isoT>1.4){sessionState=3;isoT=0;updateSessionUI();}
+    }
     if(sessionState===3 && soc<1){
       let P=powerAtSOC(soc);
       if(fault==='connector') P*=0.35+0.15*Math.sin(t*6);
       if(fault==='thermal' && soc>0.40) P=Math.max(6,P*0.3);
-      if(fault==='auth'){P=0; sessionState=1;} // nunca debería llegar aquí si auth falla; salvaguarda
+      if(fault==='coldbat') P=Math.min(P,18);
+      if(fault==='auth'){P=0; sessionState=1; updateSessionUI();} // la autenticación nunca se completa
       soc=Math.min(1,soc+ P*(dt/3600)/EVCHG.capacity_kWh * 90); // acelerado x90 para demo (~30-40s ver la curva completa)
-      const I=maxCurrent(P,EVCHG.V_bus);
-      const set=(id,v)=>{const e=$(id);if(e)e.textContent=v;};
-      set('d_soc',Math.round(soc*100)+'%'); set('d_pow',P.toFixed(1)+' kW'); set('d_cur',I.toFixed(0)+' A');
+      Pshow=P; Ishow=maxCurrent(P,EVCHG.V_bus);
       updateAudio(true,P);
+      // La Fase 3 se habilita sólo cuando el alumno ya vio caer la potencia (reto 3 de la Fase 2).
+      if(phase===1 && soc>=0.65){const b=$('toP3');if(b&&b.disabled){b.disabled=false;const n=$('toP3note');if(n)n.style.display='none';}}
       if(soc>=1){sessionState=3;feedback('good','Carga completa','Batería al 100%.');}
     } else { updateAudio(false,0); }
   } else { updateAudio(false,0); }
+  {
+    const set=(id,v)=>{const e=$(id);if(e)e.textContent=v;};
+    set('d_ses',sessionNames[sessionState]); set('d_soc',Math.round(soc*100)+'%');
+    set('d_pow',Pshow.toFixed(1)+' kW'); set('d_cur',Ishow.toFixed(0)+' A');
+  }
 
   // cámara cinemática
   if(camCine.active){
@@ -1176,6 +1275,16 @@ function closeSheets(){teachEl.classList.remove('open');actionsEl.classList.remo
 if(bT)bT.onclick=()=>{const o=teachEl.classList.contains('open');closeSheets();if(!o){teachEl.classList.add('open');bT.classList.add('on');}};
 if(bA)bA.onclick=()=>{const o=actionsEl.classList.contains('open');closeSheets();if(!o){actionsEl.classList.add('open');bA.classList.add('on');}};
 
+window.__labDebug={
+  get mode(){ return phase===0?'armado':phase===1?'fundamento':'diagnostico'; },
+  get solved(){ return DX.done; },
+  get intentos(){ return R1.intentos+R2.intentos+DX.intentos; },
+  state(){ return {fase:phase,sessionState,soc:Math.round(soc*100),
+    r1:{solved:R1.solved,intentos:R1.intentos,fallos:R1.fallos,pistas:R1.pistas},
+    r2:{solved:R2.solved,intentos:R2.intentos,fallos:R2.fallos,pistas:R2.pistas},
+    dx:{diagnosed:DX.diagnosed,done:DX.done,intentos:DX.intentos,fallos:DX.fallos,casos:DX.casos},
+    resuelto:DX.done}; },
+};
 window.__test={
   start:()=>$('start').click(),
   action:(a)=>handleAction(a,null),

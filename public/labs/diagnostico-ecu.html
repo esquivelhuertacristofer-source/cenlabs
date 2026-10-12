@@ -692,6 +692,11 @@ let sensorADesconectado=false;
 let llaveOn=false;
 let selectedPin='bateria';
 const answered={sano:false,tierra:false,corto5v:false,conmutada:false};
+/* Contabilidad del reto de diagnóstico. Tres fallos seguidos en un caso lo
+   resiembran: salen otros distractores del banco y otro orden, para que no se
+   apruebe descartando una opción tras otra. */
+const fallosCaso={sano:0,tierra:0,corto5v:0,conmutada:0};
+const RETO={intentos:0,resiembras:0};
 
 function computeReading(key){
   switch(key){
@@ -710,7 +715,7 @@ function computeReading(key){
       return {v:'≤0.1 V',cls:'good',note:'caída bajo carga'};
     }
     case 'ref5v': {
-      if(scenarioKey==='corto5v' && cortoActivo && !sensorADesconectado) return {v:'≈0.3 V',cls:'bad',note:'arrastrada por Sensor A'};
+      if(scenarioKey==='corto5v' && cortoActivo && !sensorADesconectado) return {v:'≈0.3 V',cls:'bad',note:'colapsada: ¿qué la arrastra?'};
       return {v:'5.0 V',cls:'good',note:'riel de referencia'};
     }
     case 'canH': return {v:'2.5↔3.5 V',cls:'good',note:'transiciones limpias'};
@@ -720,7 +725,7 @@ function computeReading(key){
       if(scenarioKey==='corto5v'){
         if(!cortoActivo) return {v:'2.1 V',cls:'good',note:'dentro de rango'};
         if(sensorADesconectado) return {v:'— V',cls:'muted',note:'desconectado a propósito'};
-        return {v:'≈0.1 V',cls:'bad',note:'colapsada, corto interno'};
+        return {v:'≈0.1 V',cls:'bad',note:'colapsada'};
       }
       return {v:'2.1 V',cls:'good',note:'dentro de rango'};
     }
@@ -729,7 +734,7 @@ function computeReading(key){
       if(scenarioKey==='corto5v'){
         if(!cortoActivo) return {v:'0.9 V',cls:'good',note:'dentro de rango'};
         if(sensorADesconectado) return {v:'0.9 V',cls:'good',note:'recuperado'};
-        return {v:'≈0.15 V',cls:'bad',note:'arrastrada por el riel'};
+        return {v:'≈0.15 V',cls:'bad',note:'colapsada'};
       }
       return {v:'0.9 V',cls:'good',note:'dentro de rango'};
     }
@@ -751,37 +756,53 @@ const QUESTIONS={
   sano:{
     prompt:'La batería marca 12.6 V con la llave apagada y 14.2 V con el motor en marcha; ambas tierras caen ≤0.1 V bajo carga; la referencia de 5 V está en 5.0 V. ¿Qué concluyes?',
     opts:[
-      {t:'Hay un problema de tierra: el voltaje no debería cambiar entre 12.6 V y 14.2 V',ok:false},
-      {t:'Todo dentro de rango esperado: alimentación constante presente, tierras limpias y referencia estable — la ECU tiene una base eléctrica sana para trabajar',ok:true},
-      {t:'La referencia de 5 V debería ser idéntica a la de batería; hay una falla de regulación',ok:false},
-      {t:'El cambio de 12.6 V a 14.2 V indica un cortocircuito intermitente',ok:false},
+      {t:'Hay un problema de tierra: el voltaje de batería no debería cambiar entre 12.6 V y 14.2 V',ok:false},
+      {t:'Todo está en rango: alimentación, tierras y referencia sanas; la ECU tiene una base eléctrica correcta',ok:true},
+      {t:'La referencia de 5 V debería ser idéntica a la de batería, así que hay una falla de regulación',ok:false},
+      {t:'El salto de 12.6 V a 14.2 V delata un cortocircuito intermitente en la línea de alimentación',ok:false},
+    ],
+    extra:[
+      {t:'El alternador sobrecarga la batería: 14.2 V indica que su regulador de voltaje está defectuoso',ok:false},
+      {t:'Las tierras deberían marcar exactamente 0 V; cualquier valor distinto indica una falla de masa',ok:false},
     ],
   },
   tierra:{
     prompt:'Sin carga, la tierra de señal marca solo 0.05 V — parece sana. Al activar un consumidor y repetir la medición bajo carga, sube a 0.45 V, y los sensores MAP y TPS leen ambos más alto de lo esperado. ¿Qué está pasando?',
     opts:[
-      {t:'Los dos sensores fallaron al mismo tiempo, por coincidencia',ok:false},
-      {t:'La tierra de señal tiene alta resistencia (corrosión o mal contacto): no se nota en reposo, pero bajo carga cae más de 0.3 V, y ese desplazamiento se suma a cada lectura de sensor referida a esa tierra',ok:true},
-      {t:'La referencia de 5 V está arrastrada por un corto interno',ok:false},
-      {t:'Es un problema de la alimentación conmutada, no de la tierra',ok:false},
+      {t:'MAP y TPS fallaron al mismo tiempo, por pura coincidencia, y la tierra de señal no tiene nada que ver',ok:false},
+      {t:'La tierra de señal tiene resistencia alta: bajo carga cae más de 0.3 V y desplaza ambas lecturas de sensor',ok:true},
+      {t:'La referencia de 5 V está arrastrada por un corto interno en uno de los dos sensores de la ECU',ok:false},
+      {t:'Es un problema de la alimentación conmutada de la ECU, no de las tierras de señal de los sensores',ok:false},
+    ],
+    extra:[
+      {t:'La tierra de potencia está en corto con la batería y eleva toda lectura referida a masa',ok:false},
+      {t:'El consumidor activado genera ruido que el multímetro interpreta como una caída de tensión falsa',ok:false},
     ],
   },
   corto5v:{
     prompt:'La referencia de 5 V cae a ≈0.3 V y, al mismo tiempo, los sensores MAP y TPS —alimentados por esa misma referencia— muestran lecturas fuera de rango. Al desconectar el Sensor A, la referencia se recupera a 5.0 V y el Sensor B vuelve a leer normal. ¿Qué falla real hay?',
     opts:[
-      {t:'Tres fallas independientes y simultáneas: la referencia, el Sensor A y el Sensor B',ok:false},
-      {t:'El Sensor A tiene un corto interno a tierra que arrastra toda la referencia de 5 V compartida; el Sensor B nunca estuvo dañado — solo parecía fallar porque comparte el mismo riel',ok:true},
-      {t:'El Sensor B es el dañado, porque fue el que "se arregló" al desconectar A',ok:false},
-      {t:'La ECU necesita reprogramarse',ok:false},
+      {t:'Tres fallas independientes y simultáneas: la referencia, el Sensor A y el Sensor B a la vez',ok:false},
+      {t:'El Sensor A tiene un corto interno que arrastra la referencia compartida; el B nunca estuvo dañado',ok:true},
+      {t:'El Sensor B es el dañado, porque fue justo el que volvió a leer bien al desconectar el Sensor A',ok:false},
+      {t:'La ECU tiene el regulador de 5 V averiado y hay que reemplazarla o reprogramarla por completo',ok:false},
+    ],
+    extra:[
+      {t:'El arnés de la referencia está abierto en algún punto y los dos sensores se quedan sin alimentación',ok:false},
+      {t:'A la ECU le falta la tierra de señal, lo que contagió a la referencia que comparten los sensores',ok:false},
     ],
   },
   conmutada:{
     prompt:'Con la llave apagada, el pin de alimentación conmutada marca 0 V. A simple vista parece un circuito abierto. ¿Qué haces antes de concluir eso?',
     opts:[
-      {t:'Declarar de inmediato un circuito abierto y reemplazar el arnés',ok:false},
-      {t:'Confirmar el estado de la llave: este pin está diseñado para leer 0 V con la llave apagada y solo energizarse con contacto o marcha — hay que repetir la medición con la llave en marcha antes de concluir nada',ok:true},
-      {t:'Medir la tierra de potencia, porque el problema seguro está ahí',ok:false},
-      {t:'Es normal que cualquier pin de la ECU lea 0 V en algún momento; no amerita revisión',ok:false},
+      {t:'Declarar de inmediato un circuito abierto y reemplazar el arnés completo de la ECU',ok:false},
+      {t:'Confirmar el estado de la llave: este pin debe leer 0 V apagada, así que se repite con ella en marcha',ok:true},
+      {t:'Medir la tierra de potencia, porque el problema seguro está ahí y no en la alimentación',ok:false},
+      {t:'Asumir que cualquier pin de la ECU puede leer 0 V en algún momento y no revisar nada más',ok:false},
+    ],
+    extra:[
+      {t:'Cambiar el fusible de la alimentación conmutada antes de volver a medir cualquier otra cosa',ok:false},
+      {t:'Reemplazar la ECU, porque un pin sin tensión indica un driver interno quemado en la computadora',ok:false},
     ],
   },
 };
@@ -995,7 +1016,7 @@ function updateTele(){
 
 function refreshAll(){ updateTele(); updateScreen(); setConsole(); }
 function refreshCaseLabel(){ el('p_case').textContent='Caso '+(SCEN_ORDER.indexOf(scenarioKey)+1)+'/4'; }
-function refreshProgress(){ const n=Object.values(answered).filter(Boolean).length; el('p_progress').textContent=n+'/4 ✔'; }
+function refreshProgress(){ const n=Object.values(answered).filter(Boolean).length; el('p_progress').textContent=n+'/4 ✔ · intentos '+RETO.intentos; }
 function clearDx(){ document.querySelectorAll('.b.dx').forEach(b=>b.classList.remove('right','wrong')); }
 function shuffled(arr){
   const a=arr.slice();
@@ -1009,7 +1030,8 @@ function renderQuestion(){
   const q=QUESTIONS[scenarioKey];
   const qEl=el('q_prompt');
   qEl.textContent=q.prompt;
-  const opts=shuffled(q.opts);
+  const buenas=q.opts.filter(o=>o.ok), malas=q.opts.filter(o=>!o.ok).concat(q.extra||[]);
+  const opts=shuffled(buenas.concat(shuffled(malas).slice(0,3)));
   document.querySelectorAll('#dxWrap .b.dx').forEach((btn,i)=>{
     const o=opts[i];
     btn.textContent=String.fromCharCode(65+i)+' · '+o.t;
@@ -1063,18 +1085,30 @@ el('btnLlave').onclick=()=>{ llaveOn=!llaveOn; applyLlaveState(); refreshAll(); 
 document.querySelectorAll('#dxWrap .b.dx').forEach(btn=>{
   btn.onclick=()=>{
     if(!energized){ showToast('Primero conecta las puntas del multímetro.'); return; }
+    if(autoRunning) return;                 // la demostración enseña, no puntúa
+    if(answered[scenarioKey]){ showToast('Este caso ya está resuelto: pasa al siguiente.'); return; }
     const ok=btn.dataset.ok==='1';
     clearDx();
+    RETO.intentos++;
     if(ok){
       btn.classList.add('right');
       answered[scenarioKey]=true;
+      fallosCaso[scenarioKey]=0;
       refreshProgress();
       synth.beep(1046,0.12,0.06);
       showToast(`<span style="color:var(--good)">✔ Correcto</span><br><span style="color:var(--dim);font-size:11px">${DX_HINT[scenarioKey]}</span>`);
     } else {
       btn.classList.add('wrong');
       synth.beep(220,0.15,0.06);
-      showToast(`<span style="color:var(--bad)">✗ No es correcta.</span><br><span style="color:var(--dim);font-size:11px">Revisa la telemetría y el estado actual del sistema, luego inténtalo de nuevo.</span>`);
+      fallosCaso[scenarioKey]++;
+      if(fallosCaso[scenarioKey]>=3){
+        fallosCaso[scenarioKey]=0; RETO.resiembras++;
+        renderQuestion();
+        showToast(`<span style="color:var(--bad)">✗ Tres fallos en este caso.</span><br><span style="color:var(--dim);font-size:11px">Las opciones cambian: vuelve a mirar la telemetría y razona qué explica lo que ves.</span>`);
+      } else {
+        showToast(`<span style="color:var(--bad)">✗ No es correcta.</span><br><span style="color:var(--dim);font-size:11px">Revisa la telemetría y el estado actual del sistema, luego inténtalo de nuevo (fallos en este caso: ${fallosCaso[scenarioKey]}/3).</span>`);
+      }
+      refreshProgress();
     }
   };
 });
@@ -1109,12 +1143,14 @@ async function runAuto(){
   autoRunning=true;
   const btn=el('btnAuto'); const label=btn.textContent;
   btn.disabled=true; btn.classList.add('on'); btn.textContent='⏳ Demostración en curso…';
+  const previo={escenario:scenarioKey,energizado:energized};
+  const explica=()=>showToast(`<span style="color:var(--good)">✔ La explicación</span><br><span style="color:var(--dim);font-size:11px">${DX_HINT[scenarioKey]}</span>`);
   try{
     setScenario('sano');
     if(!energized){ showToast('Paso 1 · Conectando las puntas del multímetro…'); el('btnEnergize').click(); await sleep(1600); }
     selectPin('bateria'); refreshAll();
     showToast('Paso 2 · ECU sana: batería 12.6 V en reposo, tierras limpias, referencia de 5 V estable.'); await sleep(2800);
-    document.querySelector('#dxWrap .b.dx[data-ok="1"]').click(); await sleep(2400);
+    explica(); await sleep(2400);
 
     setScenario('tierra');
     selectPin('tierraSenal'); refreshAll();
@@ -1123,24 +1159,27 @@ async function runAuto(){
     showToast('Paso 4 · Con un consumidor activo, la misma tierra sube a 0.45 V: recién ahora aparece la falla.'); await sleep(2800);
     selectPin('sensorA'); refreshAll();
     showToast('Paso 5 · Y cada sensor referido a esa tierra queda desplazado por la misma cantidad.'); await sleep(2600);
-    document.querySelector('#dxWrap .b.dx[data-ok="1"]').click(); await sleep(2400);
+    explica(); await sleep(2400);
 
     setScenario('corto5v');
     selectPin('ref5v'); refreshAll();
     showToast('Paso 6 · Llega con 3 códigos de sensor "fuera de rango" a la vez — la referencia de 5 V está arrastrada a ≈0.3 V.'); await sleep(2800);
     el('btnDescA').click();
     showToast('Paso 7 · Al desconectar el Sensor A, la referencia se recupera y el Sensor B —que nunca estuvo dañado— vuelve a leer normal.'); await sleep(3000);
-    document.querySelector('#dxWrap .b.dx[data-ok="1"]').click(); await sleep(2400);
+    explica(); await sleep(2400);
 
     setScenario('conmutada');
     selectPin('conmutada'); refreshAll();
     showToast('Paso 8 · Con la llave apagada, este pin marca 0 V — a simple vista, parece un circuito abierto.'); await sleep(2800);
     el('btnLlave').click();
     showToast('Paso 9 · Con la llave en marcha, el mismo pin sube a 12.6 V: nunca estuvo abierto, solo estaba diseñado para apagarse con la llave.'); await sleep(3000);
-    document.querySelector('#dxWrap .b.dx[data-ok="1"]').click(); await sleep(2400);
+    explica(); await sleep(2400);
 
-    showToast('<span style="color:var(--good)">✔ Fin de la demostración: cuatro pines, cuatro comportamientos distintos — y solo uno de ellos era realmente una falla en la ECU misma.</span>');
+    showToast('<span style="color:var(--good)">✔ Fin de la demostración: cuatro pines, cuatro comportamientos distintos — y solo uno de ellos era realmente una falla en la ECU misma. Tu avance en los casos no cambió.</span>');
   } finally {
+    // El alumno se queda donde estaba: mismo caso y mismas puntas; sus respuestas no se tocaron.
+    setScenario(previo.escenario);
+    if(energized!==previo.energizado) el('btnEnergize').click();
     btn.disabled=false; btn.classList.remove('on'); btn.textContent=label;
     autoRunning=false;
   }
@@ -1148,6 +1187,16 @@ async function runAuto(){
 el('btnAuto').onclick=runAuto;
 
 /* ---------- 18) INIT ---------- */
+window.__labDebug={
+  get mode(){ return scenarioKey; },
+  get solved(){ return Object.values(answered).every(Boolean); },
+  get intentos(){ return RETO.intentos; },
+  state(){ return {caso:scenarioKey,energizado:energized,answered:{...answered},intentos:RETO.intentos,
+    fallos:{...fallosCaso},resiembras:RETO.resiembras,resuelto:Object.values(answered).every(Boolean),autoRunning}; },
+  setScenario(k){ setScenario(k); },
+  conecta(){ if(!energized) el('btnEnergize').click(); },
+  opciones(){ return [...document.querySelectorAll('#dxWrap .b.dx')].map(b=>({t:b.textContent,ok:b.dataset.ok==='1'})); },
+};
 setScenario('sano');
 refreshProgress();
 S.start();

@@ -633,6 +633,9 @@ function makeSynth(opts={}){
     _revealed: false, _sweepTrace: null, _predType: null, _reto: null,
   };
 
+  // Contabilidad del reto y de la predicción: tres fallos resiembran; la demostración no puntúa.
+  const RETO = { intentos: 0, resiembras: 0, fallos: 0, pistas: 0, solved: false, predFallos: 0, predOk: 0, tour: false };
+
   function curVex() { return VEX_VALS[state.iVEX]; }
   function curEps() { return EPS_VALS[state.iEPS]; }
   function curBridge() { return BRIDGE_TYPES[state.iBridge].key; }
@@ -1075,7 +1078,7 @@ function makeSynth(opts={}){
   };
   const MISIONES = {
     explora: 'FASE 1 · Explora: ajusta Vex, ε, tipo de puente y ganancia G. Observa cómo cambian Vbridge, VoutIdeal y el error inducido por CMRR.',
-    predice: 'FASE 2 · Predicción: antes de revelar el valor, predice Vbridge, VoutIdeal o si el error absoluto de CMRR depende del tipo de puente.',
+    predice: 'FASE 2 · Predicción: antes de revelar el valor, predice Vbridge, VoutIdeal o cómo cambia el error relativo de CMRR al cambiar la ganancia G.',
     medicion: 'FASE 3 · Medición: ejecuta un barrido de deformación ε y registra cómo evoluciona Vbridge, VoutIdeal y el error relativo.',
     reto: 'FASE 4 · Reto: dado un Vex y ε fijos, elige el tipo de puente y la ganancia G para alcanzar el VoutIdeal objetivo manteniendo el error de CMRR ≤2%.',
   };
@@ -1117,9 +1120,11 @@ function makeSynth(opts={}){
 
     <div id="retoWrap" style="display:none;margin-top:10px">
       <div id="retoBox"></div>
+      <div id="retoStat" style="font-size:11px;color:#8FB3AC;margin-top:4px"></div>
       <div class="btns" style="margin-top:6px">
         <button class="b" id="retoNew" style="flex:1 0 48%">Nuevo reto</button>
         <button class="b" id="retoCheck" style="flex:1 0 48%">Verificar diseño</button>
+        <button class="b" id="retoHint" style="flex:1 0 100%">💡 Pista (0/2)</button>
       </div>
     </div>
 
@@ -1130,16 +1135,32 @@ function makeSynth(opts={}){
     <button id="autoTour" class="b" style="width:100%;margin-top:10px">▶ Recorrido guiado</button>
   `;
 
-  function setMode(m) {
+  function rerollKnobs() {
+    state.iVEX = Math.floor(Math.random() * VEX_VALS.length);
+    state.iEPS = Math.floor(Math.random() * EPS_VALS.length);
+    state.iBridge = Math.floor(Math.random() * BRIDGE_TYPES.length);
+    state.iG = Math.floor(Math.random() * GAIN_VALS.length);
+  }
+  function applyModeUI(m) {
     state.mode = m;
     el('predWrap').style.display = m === 'predice' ? 'block' : 'none';
-    el('sweepWrap').style.display = m === 'medicion' ? 'block' : 'none';
     el('retoWrap').style.display = m === 'reto' ? 'block' : 'none';
-    state.hide = m === 'predice' && !state._revealed;
+    el('sweepWrap').style.display = m === 'medicion' ? 'block' : 'none';
     el('missionText').textContent = MISIONES[m];
+  }
+  function setMode(m) {
+    // Salir de «Predicción» sin responder: los mandos se re-sortean, así Explora no enseña el caso oculto.
+    if (state.mode === 'predice' && m !== 'predice' && !state._revealed) rerollKnobs();
+    applyModeUI(m);
+    state.hide = (m === 'predice' && !state._revealed);
     if (m === 'predice') genPredice();
     if (m === 'reto' && !state._reto) newReto();
     refreshAll();
+  }
+  function retoStatus() {
+    const s = el('retoStat'), h = el('retoHint');
+    if (s) s.textContent = 'Intentos fallidos: ' + RETO.fallos + '/3 · pistas usadas: ' + RETO.pistas + '/2 · intentos totales: ' + RETO.intentos;
+    if (h) h.textContent = '💡 Pista (' + RETO.pistas + '/2)';
   }
 
   function syncCtrlBtns() {
@@ -1150,53 +1171,88 @@ function makeSynth(opts={}){
     el('vG').textContent = fmtG(curG());
   }
 
+  // Clase de la respuesta de «gainerr» según el motor: el error relativo de CMRR (peor caso) al pasar de G=a a G=b.
+  function claseGainErr(a, b) {
+    const ea = solveInstrumentacion(curVex(), curEps(), curBridge(), GF, a).errPctMin;
+    const eb = solveInstrumentacion(curVex(), curEps(), curBridge(), GF, b).errPctMin;
+    const ratio = eb / ea;
+    if (Math.abs(ratio - 1) < 0.01) return 'igual';
+    return ratio < 1 ? 'baja' : 'sube';
+  }
   function genPredice() {
     state._revealed = false;
     state.hide = true;
+    RETO.predFallos = 0;
+    rerollKnobs();
     const r = Math.random();
     let type;
     if (r < 0.34) type = 'vbridge';
     else if (r < 0.67) type = 'voutideal';
-    else type = 'errsame';
+    else type = 'gainerr';
     state._predType = type;
     const box = el('predBox');
     if (type === 'vbridge') {
-      box.innerHTML = `<p>¿Cuál es el voltaje diferencial del puente Vbridge (en mV)?</p><input id="predInput" type="number" step="0.0001" placeholder="mV" />`;
+      box.innerHTML = '<p>¿Cuál es el voltaje diferencial del puente Vbridge (en mV) con los valores actuales?</p><input id="predInput" type="number" step="0.0001" placeholder="mV" />';
     } else if (type === 'voutideal') {
-      box.innerHTML = `<p>¿Cuál es el voltaje de salida ideal VoutIdeal=G·Vbridge (en V)?</p><input id="predInput" type="number" step="0.0001" placeholder="V" />`;
+      box.innerHTML = '<p>¿Cuál es el voltaje de salida ideal VoutIdeal=G·Vbridge (en V) con los valores actuales?</p><input id="predInput" type="number" step="0.0001" placeholder="V" />';
     } else {
-      box.innerHTML = `<p>Para el mismo Vex, ε y G: ¿el error absoluto de salida inducido por CMRR (en mV) cambia según el tipo de puente (¼, ½, completo)?</p>
-        <select id="predInput"><option value="si">Sí, cambia con el tipo de puente</option><option value="no">No, es el mismo error absoluto</option></select>`;
+      // el par de ganancias se sortea hasta que la respuesta (sube / baja / igual) sea una de las tres al azar
+      const objetivo = ['sube', 'baja', 'igual'][Math.floor(Math.random() * 3)];
+      let a = GAIN_VALS[0], b = GAIN_VALS[1];
+      for (let i = 0; i < 200; i++) {
+        a = GAIN_VALS[Math.floor(Math.random() * GAIN_VALS.length)];
+        b = GAIN_VALS[Math.floor(Math.random() * GAIN_VALS.length)];
+        if (a !== b && claseGainErr(a, b) === objetivo) break;
+      }
+      state._predGains = { a, b };
+      box.innerHTML = '<p>Con el mismo puente, Vex y ε del panel: ¿qué le pasa al error relativo de CMRR (peor caso, en % de la señal) si la ganancia pasa de G=' + a + ' a G=' + b + '?</p>' +
+        '<select id="predInput"><option value="sube">Sube</option><option value="baja">Baja</option><option value="igual">Se mantiene casi igual (±1 %)</option></select>';
     }
     refreshAll();
   }
 
   function checkPredice() {
+    if (RETO.tour) return;
+    if (state._revealed) { showToast('Esta predicción ya está respondida: pide un caso nuevo.', 'info'); return; }
     const res = curSolve();
     const type = state._predType;
-    let ok = false, real = '', guess = '';
+    let ok = false, real = '';
     if (type === 'vbridge') {
       const v = parseFloat(el('predInput').value);
       const realMv = res.Vbridge * 1e3;
       ok = isFinite(v) && Math.abs(v - realMv) <= Math.max(0.02 * Math.abs(realMv), 0.0005);
-      real = realMv.toFixed(4) + ' mV'; guess = String(v);
+      real = realMv.toFixed(4) + ' mV';
     } else if (type === 'voutideal') {
       const v = parseFloat(el('predInput').value);
       ok = isFinite(v) && Math.abs(v - res.VoutIdeal) <= Math.max(0.02 * Math.abs(res.VoutIdeal), 0.0005);
-      real = fmtVAuto(res.VoutIdeal); guess = String(v);
+      real = fmtVAuto(res.VoutIdeal);
     } else {
-      const v = el('predInput').value;
-      ok = v === 'no';
-      real = 'No (el error de salida depende solo de G, Vcm y CMRR(G) — no del tipo de puente)';
-      guess = v;
+      const g = state._predGains;
+      const c = claseGainErr(g.a, g.b);
+      ok = el('predInput').value === c;
+      real = { sube: 'sube', baja: 'baja', igual: 'se mantiene casi igual' }[c] + ' al pasar de G=' + g.a + ' a G=' + g.b;
     }
-    state._revealed = true;
-    state.hide = false;
-    refreshAll();
-    showToast(ok ? '✅ ¡Correcto! ' + real : '❌ Incorrecto. Valor real: ' + real, ok ? 'ok' : 'err');
+    RETO.intentos++;
+    if (ok) {
+      RETO.predOk++; RETO.predFallos = 0;
+      state._revealed = true; state.hide = false;
+      refreshAll();
+      showToast('✅ Correcto — valor real: ' + real, 'ok');
+      return;
+    }
+    RETO.predFallos++;
+    const lim = state._predType === 'gainerr' ? 2 : 3;
+    if (RETO.predFallos >= lim) {
+      RETO.resiembras++;
+      showToast('❌ Sin acierto tras ' + RETO.predFallos + ' intento(s): caso nuevo, con otros valores en los mandos.', 'warn');
+      genPredice();
+      return;
+    }
+    showToast('❌ Fuera de tolerancia. Revisa los mandos y razona de nuevo. (intentos fallidos: ' + RETO.predFallos + '/' + lim + ')', 'warn');
   }
 
   function newReto() {
+    const prev = state._reto;
     let vex, epsilon, hiddenBridge, hiddenG, voutTarget, hiddenErrPct;
     let tries = 0;
     do {
@@ -1210,29 +1266,54 @@ function makeSynth(opts={}){
       tries++;
       // el objetivo debe ser alcanzable por la combinación oculta misma: |VoutIdeal| en rango
       // realista Y error de CMRR ≤ 2%, o ningún par (puente,G) del grid resolverá el reto
-    } while ((Math.abs(voutTarget) > 12 || hiddenErrPct > 2) && tries < 40);
+    } while (((Math.abs(voutTarget) > 12 || hiddenErrPct > 2) || (prev && prev.vex === vex && prev.epsilon === epsilon && Math.abs(prev.voutTarget - voutTarget) < 1e-12)) && tries < 80);
     state._reto = { vex, epsilon, voutTarget, errorMaxPct: 2 };
-    el('retoBox').innerHTML = `
-      <p>Con <b>Vex=${fmtVex(vex)}</b> y <b>ε=${fmtEps(epsilon)}</b> (fijos), elige el tipo de puente y la ganancia G para lograr:</p>
-      <p><b>VoutIdeal ≈ ${fmtVAuto(voutTarget)}</b> (tolerancia ±5%)<br/>y error de CMRR (peor caso) ≤ 2% de la señal.</p>
-    `;
+    state._retoDone = false; RETO.fallos = 0; RETO.pistas = 0;
+    el('retoBox').innerHTML =
+      '<p>Con <b>Vex=' + fmtVex(vex) + '</b> y <b>ε=' + fmtEps(epsilon) + '</b> (fijos), elige el tipo de puente y la ganancia G para lograr:</p>' +
+      '<p><b>VoutIdeal ≈ ' + fmtVAuto(voutTarget) + '</b> (tolerancia ±5%)<br/>y error de CMRR (peor caso) ≤ 2% de la señal.</p>';
+    retoStatus();
     refreshAll();
   }
 
   function checkReto() {
+    if (RETO.tour) return;
     const t = state._reto;
     if (!t) return;
+    if (state._retoDone) { showToast('Este reto ya está resuelto: pulsa «Nuevo reto» para otro.', 'info'); return; }
     const res = curSolve();
     const vexOk = Math.abs(curVex() - t.vex) < 1e-9;
     const epsOk = Math.abs(curEps() - t.epsilon) < 1e-9;
     const tol = Math.max(0.05 * Math.abs(t.voutTarget), 0.001);
     const voutOk = Math.abs(res.VoutIdeal - t.voutTarget) <= tol;
     const errorOk = res.errPctMin <= t.errorMaxPct;
-    if (!vexOk) { showToast('❌ Ajusta Vex a ' + fmtVex(t.vex), 'err'); return; }
-    if (!epsOk) { showToast('❌ Ajusta ε a ' + fmtEps(t.epsilon), 'err'); return; }
-    if (!voutOk) { showToast('❌ VoutIdeal=' + fmtVAuto(res.VoutIdeal) + ', objetivo ' + fmtVAuto(t.voutTarget) + '. Cambia el tipo de puente o G.', 'err'); return; }
-    if (!errorOk) { showToast('❌ Error CMRR=' + fmtPct(res.errPctMin) + ' excede 2%. Prueba con un puente de mayor sensibilidad (½ o completo) o menor G.', 'err'); return; }
-    showToast('✅ Diseño válido: VoutIdeal=' + fmtVAuto(res.VoutIdeal) + ', error=' + fmtPct(res.errPctMin), 'ok');
+    RETO.intentos++;
+    if (vexOk && epsOk && voutOk && errorOk) {
+      state._retoDone = true; RETO.solved = true; RETO.fallos = 0;
+      showToast('✅ Diseño válido: VoutIdeal=' + fmtVAuto(res.VoutIdeal) + ', error=' + fmtPct(res.errPctMin), 'ok');
+      retoStatus();
+      return;
+    }
+    RETO.fallos++;
+    if (RETO.fallos >= 3) {
+      RETO.resiembras++;
+      showToast('❌ Tres intentos fallidos: reto nuevo, con otras condiciones.', 'err');
+      newReto();
+      return;
+    }
+    const falla = !(vexOk && epsOk) ? 'Vex o ε no coinciden con los fijados en el enunciado'
+      : !voutOk ? 'VoutIdeal queda fuera de la tolerancia del objetivo'
+      : 'el error de CMRR en el peor caso excede el 2 % de la señal';
+    showToast('❌ El diseño no cumple: ' + falla + '. (intentos fallidos: ' + RETO.fallos + '/3)', 'err');
+    retoStatus();
+  }
+  function pistaReto() {
+    if (RETO.tour || state.mode !== 'reto' || !state._reto) return;
+    if (RETO.pistas >= 2) { showToast('Ya usaste las 2 pistas de este reto.', 'info'); return; }
+    RETO.pistas++;
+    if (RETO.pistas === 1) showToast('💡 Pista 1/2: VoutIdeal=G·Vbridge, y con la misma Vex y ε cada tipo de puente entrega una Vbridge distinta; G sólo escala esa señal.', 'info');
+    else showToast('💡 Pista 2/2: el error de CMRR en % de la señal es Vcm/(CMRR·Vbridge): una señal mayor lo reduce, y el CMRR mínimo del INA128 cambia con G en el banco de ganancias.', 'info');
+    retoStatus();
   }
 
   async function runSweep() {
@@ -1285,54 +1366,50 @@ function makeSynth(opts={}){
 
   // ---------- Quiz ----------
   const QUIZ = [
-    {
-      q: '¿Por qué el cuarto de puente tiene un término no lineal (1+GF·ε/2) en el denominador, mientras que el medio puente y el puente completo son exactamente lineales?',
-      a: [
-        'Porque en ½ y puente completo los términos no lineales de los brazos activos adyacentes se cancelan entre sí',
-        'Porque el cuarto de puente usa una galga de menor calidad',
-        'Porque el voltaje de excitación Vex es distinto en cada configuración',
-      ],
-      correct: 0,
-    },
-    {
-      q: 'Al subir la ganancia G de 100 a 1000, el CMRR mínimo del INA128 se mantiene igual (120 dB) según la hoja de datos. ¿Qué le pasa al error de salida inducido por el voltaje de modo común?',
-      a: [
-        'Se mantiene igual, porque el CMRR no cambió',
-        'Sube proporcionalmente con G, porque el CMRR no mejoró al mismo ritmo que la ganancia',
-        'Baja, porque mayor ganancia siempre reduce el error relativo',
-      ],
-      correct: 1,
-    },
-    {
-      q: '¿Por qué el puente completo (4 galgas activas) es 4 veces más sensible que el cuarto de puente para la misma deformación ε?',
-      a: [
-        'Porque usa un Vex más alto automáticamente',
-        'Porque las 4 galgas contribuyen con el mismo signo de cambio diferencial, sumando su efecto',
-        'Porque el INA128 detecta mejor señales de 4 fuentes',
-      ],
-      correct: 1,
-    },
+    { q: "¿Por qué el cuarto de puente tiene un término no lineal (1+GF·ε/2) en el denominador, mientras que el medio puente y el puente completo son exactamente lineales?", a: [
+      "Porque en ½ y puente completo los términos no lineales de los brazos activos adyacentes se cancelan entre sí",
+      "Porque la galga del cuarto de puente se calienta más y su resistencia deja de variar de forma lineal con la deformación",
+      "Porque el cuarto de puente trabaja con un voltaje de excitación menor y por eso su salida se satura en deformaciones grandes",
+      "Porque en el medio puente y el puente completo el amplificador de instrumentación corrige la no linealidad por sí mismo"
+    ], correct: 0 },
+    { q: "Al subir la ganancia G de 100 a 1000, el CMRR mínimo del INA128 se mantiene igual (120 dB) según la hoja de datos. ¿Qué le pasa al error de salida inducido por el voltaje de modo común?", a: [
+      "Sube proporcionalmente con G, porque el CMRR no mejoró al mismo ritmo que la ganancia aplicada al voltaje de modo común",
+      "Se mantiene igual, porque el CMRR no cambió y el voltaje de modo común sigue siendo el mismo en la entrada del amplificador",
+      "Baja, porque mayor ganancia siempre reduce el error respecto de la señal de interés y con ello el error absoluto en la salida",
+      "Baja a la décima parte, porque el INA128 rechaza más el modo común cuanto más amplifica la señal diferencial de entrada"
+    ], correct: 0 },
+    { q: "¿Por qué el puente completo (4 galgas activas) es 4 veces más sensible que el cuarto de puente para la misma deformación ε?", a: [
+      "Porque las 4 galgas contribuyen con el mismo signo de cambio diferencial, sumando su efecto en la salida del puente",
+      "Porque usa un Vex más alto de forma automática cuando se conectan las cuatro galgas al amplificador de instrumentación",
+      "Porque el INA128 detecta mejor las señales cuando proceden de cuatro fuentes de voltaje distintas en sus dos entradas",
+      "Porque las cuatro galgas aumentan la resistencia total del puente y con ello el voltaje de salida a igual excitación Vex"
+    ], correct: 0 },
   ];
+  function shuffled(arr) {
+    const a = arr.slice();
+    for (let i = a.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      const tmp = a[i]; a[i] = a[j]; a[j] = tmp;
+    }
+    return a;
+  }
   let quizIdx = 0;
-  function buildQuiz() { quizIdx = 0; refreshQuestion(); }
+  let quizOpts = [];
+  function buildQuiz() { quizIdx = Math.floor(Math.random() * QUIZ.length); refreshQuestion(); }
   function refreshQuestion() {
-    const box = el('quizBox');
-    if (quizIdx >= QUIZ.length) { box.innerHTML = '<p style="color:#8FB3AC">✅ Cuestionario completo.</p>'; return; }
     const item = QUIZ[quizIdx];
+    const box = el('quizBox');
+    if (!box) return;
+    quizOpts = shuffled(item.a.map((opt, i) => ({ t: opt, ok: i === item.correct })));
     let html = '<div style="font-size:12px;color:#8FB3AC;margin-bottom:6px">Quiz rápido</div>';
     html += '<div style="font-size:13px;color:#EAF4F1;margin-bottom:8px">' + item.q + '</div>';
-    item.a.forEach((a, i) => { html += `<button class="b quizOpt" data-i="${i}" style="width:100%;text-align:left;margin-bottom:4px">${a}</button>`; });
+    quizOpts.forEach((opt, i) => { html += '<button class="b quizOpt" data-i="' + i + '" style="width:100%;text-align:left;margin-bottom:4px">' + opt.t + '</button>'; });
     box.innerHTML = html;
-    box.querySelectorAll('.quizOpt').forEach((btn) => {
+    box.querySelectorAll('.quizOpt').forEach(btn => {
       btn.addEventListener('click', () => {
-        const i = parseInt(btn.dataset.i, 10);
-        if (i === item.correct) {
-          showToast('✅ Correcto', 'ok');
-          quizIdx++;
-          refreshQuestion();
-        } else {
-          showToast('❌ Intenta de nuevo', 'err');
-        }
+        const i = Number(btn.dataset.i);
+        if (quizOpts[i].ok) { showToast('✅ Correcto', 'ok'); quizIdx = (quizIdx + 1) % QUIZ.length; refreshQuestion(); }
+        else { showToast('❌ Esa no es: vuelve a razonar la pregunta', 'warn'); }
       });
     });
   }
@@ -1376,7 +1453,7 @@ function makeSynth(opts={}){
     }
   });
 
-  async function runAuto() {
+  async function runAutoCore() {
     setMode('explora');
     await sleep(600);
     state.iVEX = 2; state.iEPS = 6; state.iBridge = 0; state.iG = 3;
@@ -1390,6 +1467,48 @@ function makeSynth(opts={}){
     await sleep(900);
     setMode('medicion');
     await runSweep();
+  }
+
+  // La demostración NO puntúa ni toca el reto: guarda el estado del alumno y lo repone al terminar.
+  function guardaEstado() {
+    const pi = el('predInput'), ps = el('predSelect');
+    return {
+      knobs: { iVEX: state.iVEX, iEPS: state.iEPS, iBridge: state.iBridge, iG: state.iG },
+      mode: state.mode, hide: state.hide, revealed: state._revealed, predType: state._predType,
+      reto: state._reto ? Object.assign({}, state._reto) : null, retoDone: !!state._retoDone,
+      sweep: state._sweepTrace ? state._sweepTrace.slice() : null,
+      predBox: el('predBox').innerHTML, retoBox: el('retoBox').innerHTML,
+      predVal: pi ? pi.value : null, predSel: ps ? ps.value : null,
+      fallos: RETO.fallos, pistas: RETO.pistas, predFallos: RETO.predFallos,
+    };
+  }
+  function reponeEstado(g) {
+    Object.assign(state, g.knobs);
+    state._predType = g.predType; state._revealed = g.revealed; state._reto = g.reto; state._retoDone = g.retoDone;
+    state._sweepTrace = g.sweep;
+    applyModeUI(g.mode);
+    state.hide = g.hide;
+    el('predBox').innerHTML = g.predBox; el('retoBox').innerHTML = g.retoBox;
+    const pi = el('predInput'), ps = el('predSelect');
+    if (pi && g.predVal !== null) pi.value = g.predVal;
+    if (ps && g.predSel !== null) ps.value = g.predSel;
+    RETO.fallos = g.fallos; RETO.pistas = g.pistas; RETO.predFallos = g.predFallos;
+    retoStatus();
+    refreshAll();
+  }
+  async function runAuto() {
+    if (RETO.tour) return;
+    RETO.tour = true;
+    const panel = el('panel'); panel.style.pointerEvents = 'none';
+    const btn = el('autoTour'); const lbl = btn.textContent; btn.disabled = true; btn.textContent = '⏳ Demostración en curso…';
+    const g = guardaEstado();
+    try { await runAutoCore(); await sleep(1200); }
+    finally {
+      RETO.tour = false;
+      reponeEstado(g);
+      panel.style.pointerEvents = ''; btn.disabled = false; btn.textContent = lbl;
+      showToast('Fin de la demostración: tus mandos y tu reto quedaron como los dejaste.', 'info');
+    }
   }
 
   // ---------- Wiring ----------
@@ -1422,6 +1541,7 @@ function makeSynth(opts={}){
   el('predCheck').addEventListener('click', checkPredice);
   el('retoNew').addEventListener('click', newReto);
   el('retoCheck').addEventListener('click', checkReto);
+  el('retoHint').addEventListener('click', pistaReto);
   el('sweepRun').addEventListener('click', runSweep);
   el('autoTour').addEventListener('click', runAuto);
 
@@ -1431,6 +1551,12 @@ function makeSynth(opts={}){
   S.start();
 
   window.__labDebug = {
+    get mode() { return state.mode; },
+    get solved() { return RETO.solved; },
+    get intentos() { return RETO.intentos; },
+    get autoRunning() { return RETO.tour; },
+    retoState() { return { fallos: RETO.fallos, pistas: RETO.pistas, intentos: RETO.intentos, resiembras: RETO.resiembras, resuelto: RETO.solved, predOk: RETO.predOk, predFallos: RETO.predFallos }; },
+    rerollKnobs, pistaReto,
     state, DEVS, GF, R_GAUGE,
     VEX_VALS, EPS_VALS, BRIDGE_TYPES, GAIN_VALS,
     bridgeOutput, cmrrDb, activeArms,

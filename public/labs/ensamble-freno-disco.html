@@ -604,7 +604,7 @@ const PART=Object.fromEntries(PARTS.map(p=>[p.id,p]));
 /* ---------- estado ---------- */
 const STAGE_S=0.42;                       // escala de exhibición de cada pieza sobre su pedestal
 const groups={}, ghosts={}, labels={};
-let placed={}, selectedId=null, progress=0, simUnlocked=false;
+let placed={}, selectedId=null, progress=0, simUnlocked=false, autoRunning=false, ensayosFallidos=0;
 const tweens=[];
 const trayObjs=[], ghostObjs=[], scratch=[];
 const knuckle=buildKnuckle(); knuckle.position.set(...HUB); scene.add(knuckle);
@@ -712,6 +712,7 @@ function placePart(id){
   else el('asmStatus').innerHTML=`Bien. Faltan <b>${PARTS.length-progress}</b>. Toca otra pieza y luego su hueco.`;
 }
 function wrongSlot(slotId){
+  ensayosFallidos++;
   synth.beep(180,0.16,0.06);
   const g=ghosts[slotId]; if(g) g.userData.shake=0.5;
   showToast(`<span style="color:var(--bad)">✗ Ahí no va esa pieza.</span><br><span style="color:var(--dim);font-size:11px">Ese hueco es para: ${PART[slotId].name}.</span>`);
@@ -728,6 +729,7 @@ function finishAssembly(){
 /* ---------- picker: tocar pieza → tocar hueco ---------- */
 function tagged(obj){ let o=obj; while(o){ if(o.userData && o.userData.kind) return o; o=o.parent; } return null; }
 pickerFor(scene,S.camera,mount,(hit)=>{
+  if(autoRunning) return;                     // durante la demostración el alumno no coloca piezas
   const t=hit?tagged(hit.object):null;
   if(!t){ if(selectedId) deselect(); return; }
   if(t.userData.kind==='part'){ selectPart(t.userData.id); }
@@ -968,10 +970,12 @@ el('btnReset').onclick=()=>{ initAssembly(); showToast('↺ Ensamble reiniciado 
 
 /* ---------- modo automático (guiado) — para quien no es ingeniero ---------- */
 const sleep=ms=>new Promise(r=>setTimeout(r,ms));
-let autoRunning=false;
 async function runAuto(){
   if(autoRunning) return; autoRunning=true; synth.init(); synth.resume();
   const btn=el('btnAuto'), label=btn.textContent; btn.disabled=true; btn.classList.add('on'); btn.textContent='⏳ Demostración en curso…';
+  const panel=el('panel'); panel.style.pointerEvents='none';
+  // la demostración arma y frena por su cuenta: lo que el alumno llevaba armado se guarda y se repone al final
+  const prev={placed:{...placed},sim:{...SIM},slider:+el('sl_p').value};
   try{
     if(progress<PARTS.length){
       showToast('Paso 1 · Armamos el freno pieza por pieza. Observa dónde va cada una.'); await sleep(1700);
@@ -989,13 +993,32 @@ async function runAuto(){
     showToast('🔥 El disco se pone <b>al rojo</b> (&gt;500 °C). Aquí aparece el <b>fade</b>: μ cae con el calor y el freno pierde eficacia.',4200); await sleep(3600);
     SIM.hold=false;   // se suelta el freno: ahora sí la rueda se detiene y el disco empieza a enfriarse
     showToast('<span style="color:var(--good)">✔ Regla de oro:</span> en bajadas largas usa <b>freno motor</b>; no “planches” el freno o se sobrecalienta.',4600);
-  } finally { btn.disabled=false; btn.classList.remove('on'); btn.textContent=label; autoRunning=false; }
+  } finally {
+    initAssembly();
+    ORDER.forEach(id=>{ if(prev.placed[id]){ selectPart(id); placePart(id); } });
+    if(simUnlocked){ Object.assign(SIM,prev.sim); el('sl_p').value=prev.slider; }
+    renderTelemetry();
+    showToast('Fin de la demostración: tu ensamble quedó como lo dejaste.');
+    panel.style.pointerEvents='';
+    btn.disabled=false; btn.classList.remove('on'); btn.textContent=label; autoRunning=false;
+  }
 }
 
 /* ---------- arranque ---------- */
 initAssembly();
 el('btnAuto').onclick=runAuto;
 showToast('👆 Toca una pieza del banco y luego su hueco luminoso para armar el freno.',4200);
+window.__labDebug={
+  get mode(){ return simUnlocked?'frenada':'ensamble'; },
+  get solved(){ return simUnlocked&&!autoRunning; },     // «ensamblado por el alumno»; la demostración no cuenta
+  get intentos(){ return ensayosFallidos; },
+  get autoRunning(){ return autoRunning; },
+  state(){ return {piezas:progress,total:PARTS.length,ensamblado:simUnlocked,intentosFallidos:ensayosFallidos,
+    presion:SIM.pressure,v:+SIM.v.toFixed(1),temp:+SIM.temp.toFixed(1),autoRunning}; },
+  coloca(id){ if(!placed[id]){ selectPart(id); placePart(id); } },
+  intentaHueco(slotId){ if(selectedId&&selectedId!==slotId) wrongSlot(slotId); },
+  selecciona(id){ selectPart(id); },
+};
 instalaDiag('ensamble-freno-disco',{escena:scene,camara:S.camera,controles:S.controls,
   renderizador:S.renderer, grupos:{}});
 

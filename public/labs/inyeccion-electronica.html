@@ -692,6 +692,8 @@ async function runAuto(){
   if(autoRunning) return; autoRunning=true;
   const b=document.getElementById('btnAuto'); const lbl=b.textContent;
   b.disabled=true; b.classList.add('on'); b.textContent='⏳ Demostración en curso…';
+  const panel=document.getElementById('panel'); panel.style.pointerEvents='none';
+  const prev={running,exploded,load:loadPct};            // la demostración no deja huella en lo que hacía el alumno
   try{
     if(running) document.getElementById('btnRun').click();
     if(exploded) document.getElementById('btnExplode').click();
@@ -712,6 +714,10 @@ async function runAuto(){
     autoSetLoad(40);
     showToast('<span style="color:var(--good)">✔ Idea clave:</span> el <b>ancho de pulso (y el combustible) crece con la carga</b> del motor. Mira el panel.');
   } finally {
+    if(running!==prev.running) document.getElementById('btnRun').click();
+    if(exploded!==prev.exploded) document.getElementById('btnExplode').click();
+    autoSetLoad(prev.load);
+    panel.style.pointerEvents='';
     b.disabled=false; b.classList.remove('on'); b.textContent=lbl; autoRunning=false;
   }
 }

@@ -837,50 +837,86 @@ const CURSOR_T_STATES=[
   {key:'ok',t1:0,t2:2.5},
 ];
 
+/* Las preguntas numéricas (sonda y FFT) se SIEMBRAN: cada alumno, y cada vez que
+   agota tres intentos, recibe otras cifras, distintas de las del escenario de
+   práctica de la pantalla (6 V y 1400 Hz), así que explorar no entrega la respuesta.
+   Las conceptuales llevan un banco de distractores: salen 3 de 5, barajados. */
+const pick=a=>a[Math.floor(Math.random()*a.length)];
+const shuffled=a=>{ const b=a.slice(); for(let i=b.length-1;i>0;i--){ const j=Math.floor(Math.random()*(i+1)); [b[i],b[j]]=[b[j],b[i]]; } return b; };
+const nf=(v,d=3)=>String(+(+v).toFixed(d));
 const QUESTIONS={
-  sonda:{
-    prompt:'Tu sonda física está en 10X, pero configuraste el canal del osciloscopio en 1X. La pantalla muestra un pico de 0.6 V. ¿Cuál es el voltaje REAL en la punta de la sonda?',
-    opts:[
-      {t:'0.06 V',ok:false},
-      {t:'0.6 V (lo que ya muestra la pantalla)',ok:false},
-      {t:'6 V',ok:true},
-      {t:'60 V',ok:false},
-    ],
-  },
   compensacion:{
     prompt:'¿Cómo se ve la onda cuadrada de calibración cuando la sonda 10X está SOBRE-compensada?',
     opts:[
-      {t:'Esquinas redondeadas que tardan en llegar al nivel plano',ok:false},
-      {t:'Flancos perfectamente rectos, sin distorsión',ok:false},
-      {t:'Pico de sobrepaso en cada flanco, que luego se asienta al nivel plano',ok:true},
-      {t:'La onda desaparece de la pantalla',ok:false},
+      {t:'Esquinas redondeadas que tardan un buen rato en llegar al nivel plano',ok:false},
+      {t:'Flancos perfectamente rectos y esquinas vivas, sin ninguna distorsión visible',ok:false},
+      {t:'Un pico de sobrepaso en cada flanco, que luego se asienta al nivel plano',ok:true},
+      {t:'La onda se aplana hasta casi desaparecer, porque la sonda atenúa de más',ok:false},
+    ],
+    extra:[
+      {t:'La onda se desplaza hacia arriba y pierde su nivel de cero, sin cambiar sus flancos',ok:false},
+      {t:'Los flancos se ven rectos, pero la onda cuadrada aparece con el doble de frecuencia',ok:false},
     ],
   },
   cursores:{
     prompt:'Colocas los cursores de tiempo en 2 cruces por cero, pero uno es de subida y el otro de bajada. El osciloscopio muestra Δt = 1.25 ms. Si la señal real tiene T = 2.5 ms, ¿qué salió mal?',
     opts:[
-      {t:'Nada — Δt = 1.25 ms es el periodo correcto',ok:false},
-      {t:'Mediste medio periodo (T/2) — los cursores deben ir en cruces del MISMO tipo',ok:true},
-      {t:'El osciloscopio está descalibrado',ok:false},
-      {t:'La frecuencia real es en realidad el doble de lo esperado',ok:false},
+      {t:'Nada: Δt = 1.25 ms es el periodo correcto de esta señal y no hay error',ok:false},
+      {t:'Mediste medio periodo: los dos cursores deben ir en cruces del mismo tipo',ok:true},
+      {t:'El osciloscopio está descalibrado y la base de tiempo se duplicó sola',ok:false},
+      {t:'La frecuencia real es el doble de lo esperado, y por eso Δt salió menor',ok:false},
     ],
-  },
-  fft:{
-    prompt:'Configuras el generador a 1400 Hz con Fs = 2000 Hz (Nyquist = 1000 Hz). ¿A qué frecuencia aparece el pico en la FFT?',
-    opts:[
-      {t:'1400 Hz — la FFT siempre muestra la frecuencia real',ok:false},
-      {t:'1000 Hz — el pico se queda pegado en Nyquist',ok:false},
-      {t:'600 Hz — la frecuencia se "reflejó" (aliasing) alrededor de Nyquist',ok:true},
-      {t:'2600 Hz — la frecuencia se suma con Fs',ok:false},
+    extra:[
+      {t:'Pusiste el cursor sobre el pico en lugar del cruce por cero, y eso acortó el Δt',ok:false},
+      {t:'Mediste dos periodos y el osciloscopio ya divide el resultado entre dos de forma automática',ok:false},
     ],
   },
 };
+const QGEN={
+  sonda:()=>{
+    let vr;
+    do{ vr=pick([2.5,3.5,4.5,7.5,8,12,15,18]); }while(vr===PROBE_V_TRUE);
+    const sh=vr/10;
+    const malas=shuffled([
+      {t:nf(sh)+' V (lo que ya muestra la pantalla)',ok:false},
+      {t:nf(sh/10)+' V',ok:false},
+      {t:nf(vr*10)+' V',ok:false},
+      {t:nf(vr/2)+' V',ok:false},
+      {t:nf(vr+sh)+' V',ok:false},
+    ]);
+    return {
+      prompt:'Tu sonda física está en 10X, pero configuraste el canal del osciloscopio en 1X. La pantalla muestra un pico de '+nf(sh)+' V. ¿Cuál es el voltaje REAL en la punta de la sonda?',
+      opts:[{t:nf(vr)+' V',ok:true}].concat(malas.slice(0,3)), extra:malas.slice(3),
+      hint:'La sonda en 10X divide entre 10 y el canal en 1X no lo corrige: '+nf(sh)+' V × 10 = '+nf(vr)+' V en la punta.',
+    };
+  },
+  fft:()=>{
+    const f=pick([1300,1600,1700,1800]);
+    const alias=Math.abs(f-FFT_FS);
+    const malas=shuffled([
+      {t:f+' Hz — la FFT siempre muestra la frecuencia real que entrega el generador',ok:false},
+      {t:'1000 Hz — el pico se queda pegado en Nyquist sin importar la frecuencia real',ok:false},
+      {t:(f+FFT_FS)+' Hz — la frecuencia real se suma con Fs al muestrear la señal',ok:false},
+      {t:(f-FFT_NYQ)+' Hz — se cuenta cuánto se pasó la señal por encima de Nyquist',ok:false},
+      {t:(f/2)+' Hz — al muestrear, la FFT divide entre dos la frecuencia real',ok:false},
+    ]);
+    return {
+      prompt:'Configuras el generador a '+f+' Hz con Fs = '+FFT_FS+' Hz (Nyquist = '+FFT_NYQ+' Hz). ¿A qué frecuencia aparece el pico en la FFT?',
+      opts:[{t:alias+' Hz — la frecuencia se "refleja" (aliasing) alrededor de Nyquist',ok:true}].concat(malas.slice(0,3)), extra:malas.slice(3),
+      hint:'Con Fs = '+FFT_FS+' Hz, lo que pasa de Nyquist se refleja: f_alias = |f_real − Fs| = |'+f+' − '+FFT_FS+'| = '+alias+' Hz. Por eso hay que muestrear a más del doble de la frecuencia más alta (Nyquist-Shannon).',
+    };
+  },
+};
+const qCur={};
+function getQ(key){ return qCur[key]||(qCur[key]=QGEN[key]?QGEN[key]():QUESTIONS[key]); }
+function reseedQ(key){ delete qCur[key]; return getQ(key); }
 const DX_HINT={
   sonda:'La sonda en 10X divide la señal entre 10 antes de llegar al osciloscopio: 6 V reales → 0.6 V en el conector BNC. Si el canal está en 1X, el osciloscopio NO vuelve a multiplicar, así que muestra 0.6 V. Para recuperar el valor real, multiplica manualmente por el factor real de la sonda: 0.6 V × 10 = 6 V.',
   compensacion:'Sobre-compensada = trimmer con demasiada capacitancia → la sonda "adelanta" los flancos rápidos, produciendo un pico de sobrepaso que decae hacia el nivel plano. (Sub-compensada sería lo opuesto: esquinas redondeadas que tardan en llegar al nivel plano.)',
   cursores:'Un periodo completo va de un cruce por cero al SIGUIENTE cruce del mismo tipo y misma dirección (p. ej. subida→subida). Mezclar un cruce de subida con uno de bajada mide solo medio periodo.',
   fft:'Con Fs = 2000 Hz, cualquier frecuencia real por encima de Nyquist (1000 Hz) aparece reflejada: f_alias = |f_real − Fs| = |1400 − 2000| = 600 Hz. Por eso es indispensable muestrear a más del doble de la frecuencia más alta presente en la señal (criterio de Nyquist-Shannon).',
 };
+const hintFor=k=>(getQ(k).hint)||DX_HINT[k];
 
 let scenarioKey='sonda';
 let energized=false;
@@ -890,6 +926,12 @@ let cursorType='v', cursorVKey='ok', cursorTKey='ok';
 let fftFreqKey='f200';
 let fftSpectrum=[], fftPeak=null, fftFreqNominal=FFT_FREQS[0].hz;
 let solved=false;
+/* Contabilidad del reto. `answered` sobrevive al cambio de caso (antes `solved` se
+   borraba al cambiar y el avance se perdía); tres fallos seguidos en un caso lo
+   resiembran con otras cifras u otros distractores. */
+const answered={sonda:false,compensacion:false,cursores:false,fft:false};
+const fallosCaso={sonda:0,compensacion:0,cursores:0,fft:0};
+const RETO={intentos:0,resiembras:0};
 
 function computeSpectrum(freqHz){
   const mags=[];
@@ -1108,7 +1150,7 @@ function updateTele(){
       const dt=Math.abs(st.t2-st.t1);
       setTele(
         ['Tipo de cursor','Cursor 1 (t1)','Cursor 2 (t2)','Δt = |t2−t1|','Interpretación'],
-        ['Tiempo',tf(st.t1,2)+' ms',tf(st.t2,2)+' ms',tf(dt,2)+' ms',cursorTKey==='ok'?'Periodo T correcto':(cursorTKey==='parcial'?'Solo medio periodo':'Sin sentido físico claro')],
+        ['Tiempo',tf(st.t1,2)+' ms',tf(st.t2,2)+' ms',tf(dt,2)+' ms',(answered.cursores||autoRunning)?(cursorTKey==='ok'?'Periodo T correcto':(cursorTKey==='parcial'?'Solo medio periodo':'Sin sentido físico claro')):'responde la pregunta para ver la interpretación'],
         ['','','',(cursorTKey==='ok'?'good':'warn'),'']
       );
     }
@@ -1122,16 +1164,18 @@ function updateTele(){
   }
 }
 
-function refreshCaseLabel(){ el('p_case').textContent=`Caso ${SCEN_ORDER.indexOf(scenarioKey)+1}/4`; }
+function refreshCaseLabel(){ el('p_case').textContent=`Caso ${SCEN_ORDER.indexOf(scenarioKey)+1}/4 · ${Object.values(answered).filter(Boolean).length}/4 ✔ · intentos ${RETO.intentos}`; }
 function clearDx(){ document.querySelectorAll('#dxWrap .b.dx').forEach(b=>b.classList.remove('right','wrong')); }
 
 const qEl=el('q_prompt');
 function renderQuestion(){
   qEl.style.textTransform='none';
-  const q=QUESTIONS[scenarioKey];
+  const q=getQ(scenarioKey);
   qEl.textContent=q.prompt;
+  const buenas=q.opts.filter(o=>o.ok), malas=q.opts.filter(o=>!o.ok).concat(q.extra||[]);
+  const opts=shuffled(buenas.concat(shuffled(malas).slice(0,3)));
   const btns=document.querySelectorAll('#dxWrap .b.dx');
-  btns.forEach((b,i)=>{ b.textContent=`${String.fromCharCode(65+i)}. ${q.opts[i].t}`; b.dataset.ok=q.opts[i].ok?'1':'0'; });
+  btns.forEach((b,i)=>{ b.textContent=`${String.fromCharCode(65+i)}. ${opts[i].t}`; b.dataset.ok=opts[i].ok?'1':'0'; });
   clearDx();
 }
 
@@ -1139,7 +1183,7 @@ function renderQuestion(){
 function setScenario(key){
   scenarioKey=key;
   clearDx();
-  solved=false;
+  solved=!!answered[key];
   ['s_sonda','s_compensacion','s_cursores','s_fft'].forEach(id=>el(id).classList.toggle('on',id==='s_'+key));
   el('ctrlSonda').style.display=key==='sonda'?'':'none';
   el('ctrlCompensacion').style.display=key==='compensacion'?'':'none';
@@ -1179,17 +1223,28 @@ document.querySelectorAll('#mb_fftfreq .b').forEach(btn=>btn.onclick=()=>setFftF
 document.querySelectorAll('#dxWrap .b.dx').forEach(btn=>{
   btn.onclick=()=>{
     if(!energized){ showToast('Conecta el generador antes de responder.'); return; }
+    if(autoRunning) return;                 // la demostración enseña, no puntúa
+    if(answered[scenarioKey]){ showToast('Este caso ya está resuelto: pasa al siguiente.'); return; }
     clearDx();
     const ok=btn.dataset.ok==='1';
     btn.classList.add(ok?'right':'wrong');
+    RETO.intentos++;
     if(ok){
-      solved=true;
+      solved=true; answered[scenarioKey]=true; fallosCaso[scenarioKey]=0;
       synth.beep(1100,0.09,0.05);
-      showToast(`<b>✔ Correcto</b><br>${DX_HINT[scenarioKey]}`);
+      showToast(`<b>✔ Correcto</b><br>${hintFor(scenarioKey)}`);
     } else {
       synth.beep(220,0.22,0.05);
-      showToast('✘ No es correcto. Revisa la telemetría e inténtalo de nuevo.');
+      fallosCaso[scenarioKey]++;
+      if(fallosCaso[scenarioKey]>=3){
+        fallosCaso[scenarioKey]=0; RETO.resiembras++;
+        reseedQ(scenarioKey); renderQuestion();
+        showToast('✘ Tres fallos en este caso: la pregunta cambia. Vuelve a mirar la telemetría y razona.');
+      } else {
+        showToast('✘ No es correcto. Revisa la telemetría e inténtalo de nuevo (fallos en este caso: '+fallosCaso[scenarioKey]+'/3).');
+      }
     }
+    refreshCaseLabel();
   };
 });
 
@@ -1233,6 +1288,9 @@ async function runAuto(){
   const prevLabel=btnAuto.textContent;
   btnAuto.disabled=true;
   btnAuto.textContent='▶ Demostración en curso…';
+  const previo={escenario:scenarioKey,energizado:energized,probe:probePosKey,channel:channelKey,comp:compKey,
+    cType:cursorType,cV:cursorVKey,cT:cursorTKey,fft:fftFreqKey};
+  const explica=txt=>showToast('<b>✔ La explicación</b><br>'+txt);
   try{
     if(!energized) btnEnergize.click();
 
@@ -1245,8 +1303,8 @@ async function runAuto(){
     setChannel('10x');
     showToast('Al poner el canal en 10X, el osciloscopio corrige: ahora lee los 6 V reales.');
     await sleep(2400);
-    document.querySelector('#dxWrap .b.dx[data-ok="1"]').click();
-    await sleep(2200);
+    explica(DX_HINT.sonda+' En la pregunta las cifras serán otras.');
+    await sleep(2800);
 
     setScenario('compensacion');
     setComp('sub');
@@ -1258,8 +1316,8 @@ async function runAuto(){
     setComp('ok');
     showToast('Compensación correcta: flancos rectos, sin redondeo ni sobrepaso.');
     await sleep(2200);
-    document.querySelector('#dxWrap .b.dx[data-ok="1"]').click();
-    await sleep(2200);
+    explica(DX_HINT.compensacion);
+    await sleep(2600);
 
     setScenario('cursores');
     setCursorType('t'); setCursorT('parcial');
@@ -1268,8 +1326,8 @@ async function runAuto(){
     setCursorT('ok');
     showToast('Con dos cruces del mismo tipo, Δt = T completo.');
     await sleep(2200);
-    document.querySelector('#dxWrap .b.dx[data-ok="1"]').click();
-    await sleep(2200);
+    explica(DX_HINT.cursores);
+    await sleep(2600);
 
     setScenario('fft');
     setFftFreq('f900');
@@ -1278,11 +1336,15 @@ async function runAuto(){
     setFftFreq('f1400');
     showToast('1400 Hz supera Nyquist: el pico "se refleja" y aparece en 600 Hz — esto es aliasing real.');
     await sleep(2800);
-    document.querySelector('#dxWrap .b.dx[data-ok="1"]').click();
-    await sleep(2200);
+    explica(DX_HINT.fft+' En la pregunta la frecuencia será otra.');
+    await sleep(2600);
 
-    showToast('Fin de la demostración: sonda 1X/10X, compensación, cursores y FFT/aliasing.');
+    showToast('Fin de la demostración: sonda 1X/10X, compensación, cursores y FFT/aliasing. Tu avance en las preguntas no cambió.');
   } finally {
+    // El alumno se queda donde estaba: mismo caso y mismos controles; sus respuestas no se tocaron.
+    setScenario(previo.escenario); setProbePos(previo.probe); setChannel(previo.channel); setComp(previo.comp);
+    setCursorType(previo.cType); setCursorV(previo.cV); setCursorT(previo.cT); setFftFreq(previo.fft);
+    if(energized!==previo.energizado) btnEnergize.click();
     autoRunning=false;
     btnAuto.disabled=false;
     btnAuto.textContent=prevLabel;
@@ -1291,6 +1353,16 @@ async function runAuto(){
 el('btnAuto').onclick=runAuto;
 
 // ===== Init =====
+window.__labDebug={
+  get mode(){ return scenarioKey; },
+  get solved(){ return Object.values(answered).every(Boolean); },
+  get intentos(){ return RETO.intentos; },
+  state(){ return {caso:scenarioKey,energizado:energized,answered:{...answered},intentos:RETO.intentos,
+    fallos:{...fallosCaso},resiembras:RETO.resiembras,resuelto:Object.values(answered).every(Boolean),autoRunning}; },
+  setScenario(k){ setScenario(k); },
+  conecta(){ if(!energized) btnEnergize.click(); },
+  opciones(){ return [...document.querySelectorAll('#dxWrap .b.dx')].map(b=>({t:b.textContent,ok:b.dataset.ok==='1'})); },
+};
 setScenario('sonda');
 S.start();
 </script>

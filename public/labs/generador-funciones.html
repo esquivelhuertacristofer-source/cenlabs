@@ -868,44 +868,81 @@ const OFFSET_LEVELS=[
   {key:'alto',v:2.2,label:'+2.2 V'},
 ];
 
+/* Las preguntas numéricas (carga, barrido y offset) se SIEMBRAN: cada alumno, y cada
+   vez que agota tres intentos, recibe otras cifras, distintas del escenario de
+   práctica de la pantalla (2.0 Vpp, f_c ≈ 995 Hz, +2.2 V), así que explorar no
+   entrega la respuesta. La conceptual (forma de onda) lleva un banco de
+   distractores: salen 3 de 5, barajados. */
+const pick=a=>a[Math.floor(Math.random()*a.length)];
+const shuffled=a=>{ const b=a.slice(); for(let i=b.length-1;i>0;i--){ const j=Math.floor(Math.random()*(i+1)); [b[i],b[j]]=[b[j],b[i]]; } return b; };
+const nf=(v,d=3)=>String(+(+v).toFixed(d));
+const fHz=v=>v>=1000?nf(v/1000)+' kHz':nf(v)+' Hz';
 const QUESTIONS={
-  carga:{
-    prompt:'El generador está configurado para carga de 50 Ω y (según su ajuste) entrega 2.0 Vpp. Lo conectas directo a la entrada de alta impedancia (Hi-Z) del osciloscopio, sin terminador. ¿Qué amplitud pico a pico muestra realmente la pantalla?',
-    opts:[
-      {t:'1.0 Vpp',ok:false},
-      {t:'2.0 Vpp (lo que el generador dice entregar)',ok:false},
-      {t:'4.0 Vpp — el doble, por la falta de terminación de 50 Ω',ok:true},
-      {t:'0.5 Vpp',ok:false},
-    ],
-  },
   forma:{
     prompt:'¿Por qué el espectro de una onda cuadrada muestra varios picos además de la frecuencia fundamental, mientras que una onda senoidal de la misma frecuencia muestra solo uno?',
     opts:[
-      {t:'La onda cuadrada tiene más ruido eléctrico',ok:false},
-      {t:'Toda onda periódica no senoidal es la suma de una fundamental más armónicos (serie de Fourier); la cuadrada aporta armónicos impares',ok:true},
-      {t:'El osciloscopio calcula mal la FFT de ondas cuadradas',ok:false},
-      {t:'La onda cuadrada en realidad tiene el doble de frecuencia',ok:false},
+      {t:'La onda cuadrada lleva más ruido eléctrico de fondo, y el espectro lo dibuja como una serie de picos secundarios',ok:false},
+      {t:'Una cuadrada es la suma de una fundamental y armónicos impares (serie de Fourier): esos son los picos extra',ok:true},
+      {t:'El osciloscopio calcula mal la FFT de las ondas cuadradas y dibuja picos que en realidad no existen',ok:false},
+      {t:'La onda cuadrada tiene en realidad el doble de frecuencia, y los picos extra son simplemente múltiplos de ese valor',ok:false},
     ],
-  },
-  barrido:{
-    prompt:'Barriste el generador en frecuencia a través de un filtro RC (f_c ≈ 995 Hz) y mediste la ganancia en cada paso. ¿Cuál frecuencia está MÁS CERCA del punto de −3 dB (70.7%)?',
-    opts:[
-      {t:'100 Hz',ok:false},
-      {t:'400 Hz',ok:false},
-      {t:'1 kHz',ok:true},
-      {t:'6 kHz',ok:false},
-    ],
-  },
-  offset:{
-    prompt:'Programas un offset de +2.2 V de CD sobre una señal senoidal de 1.0 V de amplitud (pico). El circuito solo puede mostrar sin distorsión hasta ±2.5 V. ¿Qué le pasa a la cresta positiva de la onda?',
-    opts:[
-      {t:'Nada, se ve una senoidal perfecta',ok:false},
-      {t:'Se recorta (clipping): la cresta se aplana en +2.5 V en vez de llegar a +3.2 V',ok:true},
-      {t:'La frecuencia se distorsiona',ok:false},
-      {t:'El osciloscopio se apaga automáticamente',ok:false},
+    extra:[
+      {t:'La cuadrada se muestrea a una frecuencia distinta que la senoidal, y esa diferencia crea los picos adicionales',ok:false},
+      {t:'Los picos extra son armónicos pares, que aparecen siempre que la onda tiene flancos rápidos',ok:false},
     ],
   },
 };
+const QGEN={
+  carga:()=>{
+    const vset=pick([1.0,1.5,2.5,3.0,4.0,5.0]);
+    const sube=pick([true,false]);   // true: Load=50 Ω y carga real Hi-Z (×2); false: Load=Hi-Z y carga real 50 Ω (×½)
+    const ok=sube?2*vset:vset/2;
+    const malas=shuffled((sube?[vset,vset/2,4*vset,vset/4]:[vset,2*vset,vset/4,4*vset]).filter(v=>v!==ok))
+      .map(v=>({t:nf(v)+' Vpp',ok:false}));
+    return sube?{
+      prompt:'El generador está configurado para carga de 50 Ω y su pantalla indica '+nf(vset)+' Vpp. Lo conectas directo a la entrada de alta impedancia (Hi-Z) del osciloscopio, sin terminador. ¿Qué amplitud pico a pico muestra realmente la pantalla del osciloscopio?',
+      opts:[{t:nf(ok)+' Vpp',ok:true}].concat(malas.slice(0,3)), extra:malas.slice(3),
+      hint:'Con Load = 50 Ω el generador calibra su amplitud suponiendo una carga de 50 Ω; sin ella no hay divisor de tensión y la amplitud real es el doble: 2 × '+nf(vset)+' = '+nf(ok)+' Vpp.',
+    }:{
+      prompt:'El generador está configurado para carga Hi-Z y su pantalla indica '+nf(vset)+' Vpp. Lo conectas a una carga de 50 Ω (un terminador) en vez de a alta impedancia. ¿Qué amplitud pico a pico llega realmente a esa carga?',
+      opts:[{t:nf(ok)+' Vpp',ok:true}].concat(malas.slice(0,3)), extra:malas.slice(3),
+      hint:'Con Load = Hi-Z el generador calibra su amplitud en circuito abierto; con una carga de 50 Ω la impedancia de salida (50 Ω) forma un divisor 1:2 y llega la mitad: '+nf(vset)+' / 2 = '+nf(ok)+' Vpp.',
+    };
+  },
+  barrido:()=>{
+    const c=pick([100,400,2500,6000]);
+    const fc=Math.round(c*pick([0.9,1.1]));
+    const malos=shuffled([50,100,200,400,800,1000,1600,2500,4000,6000,10000,15000].filter(v=>v/fc<0.5||v/fc>2)).map(v=>({t:fHz(v),ok:false}));
+    return {
+      prompt:'Barriste el generador en frecuencia a través de un filtro RC (f_c ≈ '+nf(fc)+' Hz) y mediste la ganancia en cada paso. ¿Cuál de estas frecuencias de prueba está MÁS CERCA del punto de −3 dB (70.7%)?',
+      opts:[{t:fHz(c),ok:true}].concat(malos.slice(0,3)), extra:malos.slice(3,5),
+      hint:'El punto de −3 dB está en f_c = 1/(2πRC) ≈ '+nf(fc)+' Hz; de las frecuencias propuestas, '+fHz(c)+' es la más cercana a ese punto.',
+    };
+  },
+  offset:()=>{
+    let off,amp,P;
+    do{ off=pick([0.5,1.2,1.6,2.0,2.4,2.8]); amp=pick([0.8,1.0,1.2,1.5]); P=+(off+amp).toFixed(2); }
+    while((off===2.2&&amp===1.0)||Math.abs(P-OFFSET_RAIL)<0.15);
+    const clip=P>OFFSET_RAIL;
+    const tClip='Se recorta (clipping): la cresta se aplana en +'+nf(OFFSET_RAIL)+' V en vez de llegar a +'+nf(P)+' V';
+    const tLibre='Llega completa a +'+nf(P)+' V: no hay recorte, porque queda por debajo del límite de +'+nf(OFFSET_RAIL)+' V';
+    const malas=shuffled([
+      {t:clip?tLibre:tClip,ok:false},
+      {t:'La frecuencia de la señal se distorsiona, porque el offset cambia su periodo',ok:false},
+      {t:'El osciloscopio se apaga automáticamente por sobretensión en la entrada',ok:false},
+      {t:'Se recorta la cresta negativa en −'+nf(OFFSET_RAIL)+' V en lugar de la positiva',ok:false},
+      {t:'La amplitud pico a pico se duplica, porque el offset se suma dos veces',ok:false},
+    ]);
+    return {
+      prompt:'Programas un offset de +'+nf(off)+' V de CD sobre una señal senoidal de '+nf(amp)+' V de amplitud (pico). El circuito solo puede mostrar sin distorsión hasta ±'+nf(OFFSET_RAIL)+' V. ¿Qué le pasa a la cresta positiva de la onda?',
+      opts:[{t:clip?tClip:tLibre,ok:true}].concat(malas.slice(0,3)), extra:malas.slice(3),
+      hint:'El pico real es V_offset + V_amplitud = '+nf(off)+' + '+nf(amp)+' = '+nf(P)+' V. '+(clip?'Como supera el límite de '+nf(OFFSET_RAIL)+' V, la cresta se recorta en línea recta.':'Como no supera el límite de '+nf(OFFSET_RAIL)+' V, la señal cabe completa.'),
+    };
+  },
+};
+const qCur={};
+function getQ(key){ return qCur[key]||(qCur[key]=QGEN[key]?QGEN[key]():QUESTIONS[key]); }
+function reseedQ(key){ delete qCur[key]; return getQ(key); }
 const DX_HINT={
   carga:'La salida del generador tiene una impedancia interna nominal de 50 Ω. Si el generador está calibrado asumiendo una carga de 50 Ω pero se conecta a una entrada de alta impedancia, no hay divisor de tensión: la amplitud real es el DOBLE de la programada (dato de hoja de fabricante: p. ej. "1 mVpp a 10 Vpp en 50 Ω / 2 mVpp a 20 Vpp en circuito abierto"). Por eso el ajuste de carga del generador y la carga real conectada deben coincidir.',
   forma:'Una onda cuadrada equivale, por serie de Fourier, a (4/π)·Σ[1/n·sin(n·ω·t)] para n impar (1,3,5,7…). Cada uno de esos términos aparece como un pico real en la FFT. Una onda senoidal, en cambio, es por definición un único tono — su espectro tiene un solo pico.',
@@ -921,6 +958,12 @@ let formaSpectrum=[];
 let bodeFreqKey='f100';
 const bodeVisited=new Set(['f100']);
 let offsetKey='cero';
+const hintFor=k=>(getQ(k).hint)||DX_HINT[k];
+/* Contabilidad del reto. Tres fallos seguidos en un caso lo resiembran con otras
+   cifras u otros distractores, para que no se apruebe descartando opciones. */
+const answered={carga:false,forma:false,barrido:false,offset:false};
+const fallosCaso={carga:0,forma:0,barrido:0,offset:0};
+const RETO={intentos:0,resiembras:0};
 
 function cargaFactor(){
   const vocFactor = genLoadKey==='50' ? 2 : 1;
@@ -1135,24 +1178,16 @@ function updateTele(){
   }
 }
 
-function refreshCaseLabel(){ el('p_case').textContent=`Caso ${SCEN_ORDER.indexOf(scenarioKey)+1}/4`; }
+function refreshCaseLabel(){ el('p_case').textContent=`Caso ${SCEN_ORDER.indexOf(scenarioKey)+1}/4 · ${Object.values(answered).filter(Boolean).length}/4 ✔ · intentos ${RETO.intentos}`; }
 function clearDx(){ document.querySelectorAll('#dxWrap .b.dx').forEach(b=>b.classList.remove('right','wrong')); }
-
-function shuffled(arr){
-  const a=arr.slice();
-  for(let i=a.length-1;i>0;i--){
-    const j=Math.floor(Math.random()*(i+1));
-    [a[i],a[j]]=[a[j],a[i]];
-  }
-  return a;
-}
 
 const qEl=el('q_prompt');
 function renderQuestion(){
   qEl.style.textTransform='none';
-  const q=QUESTIONS[scenarioKey];
+  const q=getQ(scenarioKey);
   qEl.textContent=q.prompt;
-  const opts=shuffled(q.opts);
+  const buenas=q.opts.filter(o=>o.ok), malas=q.opts.filter(o=>!o.ok).concat(q.extra||[]);
+  const opts=shuffled(buenas.concat(shuffled(malas).slice(0,3)));
   const btns=document.querySelectorAll('#dxWrap .b.dx');
   btns.forEach((b,i)=>{ b.textContent=`${String.fromCharCode(65+i)}. ${opts[i].t}`; b.dataset.ok=opts[i].ok?'1':'0'; });
   clearDx();
@@ -1191,16 +1226,28 @@ document.querySelectorAll('#mb_offset .b').forEach(btn=>btn.onclick=()=>setOffse
 document.querySelectorAll('#dxWrap .b.dx').forEach(btn=>{
   btn.onclick=()=>{
     if(!energized){ showToast('Conecta el generador antes de responder.'); return; }
+    if(autoRunning) return;                 // la demostración enseña, no puntúa
+    if(answered[scenarioKey]){ showToast('Este caso ya está resuelto: pasa al siguiente.'); return; }
     clearDx();
     const ok=btn.dataset.ok==='1';
     btn.classList.add(ok?'right':'wrong');
+    RETO.intentos++;
     if(ok){
+      answered[scenarioKey]=true; fallosCaso[scenarioKey]=0;
       synth.beep(1100,0.09,0.05);
-      showToast(`<b>✔ Correcto</b><br>${DX_HINT[scenarioKey]}`);
+      showToast(`<b>✔ Correcto</b><br>${hintFor(scenarioKey)}`);
     } else {
       synth.beep(220,0.22,0.05);
-      showToast('✘ No es correcto. Revisa la telemetría e inténtalo de nuevo.');
+      fallosCaso[scenarioKey]++;
+      if(fallosCaso[scenarioKey]>=3){
+        fallosCaso[scenarioKey]=0; RETO.resiembras++;
+        reseedQ(scenarioKey); renderQuestion();
+        showToast('✘ Tres fallos en este caso: la pregunta cambia. Vuelve a mirar la telemetría y razona.');
+      } else {
+        showToast('✘ No es correcto. Revisa la telemetría e inténtalo de nuevo (fallos en este caso: '+fallosCaso[scenarioKey]+'/3).');
+      }
     }
+    refreshCaseLabel();
   };
 });
 
@@ -1244,6 +1291,8 @@ async function runAuto(){
   const prevLabel=btnAuto.textContent;
   btnAuto.disabled=true;
   btnAuto.textContent='▶ Demostración en curso…';
+  const previo={escenario:scenarioKey,energizado:energized,gen:genLoadKey,real:actualLoadKey,wave:waveKey,bode:bodeFreqKey,offset:offsetKey};
+  const explica=txt=>showToast('<b>✔ La explicación</b><br>'+txt);
   try{
     if(!energized) btnEnergize.click();
 
@@ -1256,8 +1305,8 @@ async function runAuto(){
     setActualLoad('50');
     showToast('Al conectar el terminador de 50 Ω, la carga real coincide con el ajuste del generador: la amplitud vuelve a ser la programada.');
     await sleep(2600);
-    document.querySelector('#dxWrap .b.dx[data-ok="1"]').click();
-    await sleep(2200);
+    explica(DX_HINT.carga+' En la pregunta las cifras y la combinación de cargas serán otras.');
+    await sleep(2800);
 
     setScenario('forma');
     setWave('sine');
@@ -1266,8 +1315,8 @@ async function runAuto(){
     setWave('square');
     showToast('Una onda cuadrada de la misma frecuencia muestra la fundamental MÁS armónicos impares (3f, 5f, 7f, 9f…).');
     await sleep(2800);
-    document.querySelector('#dxWrap .b.dx[data-ok="1"]').click();
-    await sleep(2200);
+    explica(DX_HINT.forma);
+    await sleep(2800);
 
     setScenario('barrido');
     setBodeFreq('f100');
@@ -1279,8 +1328,8 @@ async function runAuto(){
     setBodeFreq('f6000');
     showToast('A 6 kHz, muy por encima del corte, el filtro atenúa fuertemente la señal.');
     await sleep(2600);
-    document.querySelector('#dxWrap .b.dx[data-ok="1"]').click();
-    await sleep(2200);
+    explica(DX_HINT.barrido+' En la pregunta el filtro tendrá otra frecuencia de corte.');
+    await sleep(2800);
 
     setScenario('offset');
     setOffset('cero');
@@ -1289,11 +1338,15 @@ async function runAuto(){
     setOffset('alto');
     showToast('Con +2.2 V de offset, la cresta positiva (2.2+1.0=3.2 V) supera el límite de 2.5 V: la onda se recorta (clipping).');
     await sleep(2800);
-    document.querySelector('#dxWrap .b.dx[data-ok="1"]').click();
-    await sleep(2200);
+    explica(DX_HINT.offset+' En la pregunta el offset y la amplitud serán otros.');
+    await sleep(2800);
 
-    showToast('Fin de la demostración: carga (50 Ω/Hi-Z), forma de onda (espectro), barrido/Bode (−3 dB) y offset de CD (clipping).');
+    showToast('Fin de la demostración: carga (50 Ω/Hi-Z), forma de onda (espectro), barrido/Bode (−3 dB) y offset de CD (clipping). Tu avance en las preguntas no cambió.');
   } finally {
+    // El alumno se queda donde estaba: mismo caso y mismos controles; sus respuestas no se tocaron.
+    setScenario(previo.escenario); setGenLoad(previo.gen); setActualLoad(previo.real); setWave(previo.wave);
+    setBodeFreq(previo.bode); setOffset(previo.offset);
+    if(energized!==previo.energizado) btnEnergize.click();
     autoRunning=false;
     btnAuto.disabled=false;
     btnAuto.textContent=prevLabel;
@@ -1302,6 +1355,16 @@ async function runAuto(){
 el('btnAuto').onclick=runAuto;
 
 // ===== Init =====
+window.__labDebug={
+  get mode(){ return scenarioKey; },
+  get solved(){ return Object.values(answered).every(Boolean); },
+  get intentos(){ return RETO.intentos; },
+  state(){ return {caso:scenarioKey,energizado:energized,answered:{...answered},intentos:RETO.intentos,
+    fallos:{...fallosCaso},resiembras:RETO.resiembras,resuelto:Object.values(answered).every(Boolean),autoRunning}; },
+  setScenario(k){ setScenario(k); },
+  conecta(){ if(!energized) btnEnergize.click(); },
+  opciones(){ return [...document.querySelectorAll('#dxWrap .b.dx')].map(b=>({t:b.textContent,ok:b.dataset.ok==='1'})); },
+};
 setActualLoad('50');
 setScenario('carga');
 S.start();

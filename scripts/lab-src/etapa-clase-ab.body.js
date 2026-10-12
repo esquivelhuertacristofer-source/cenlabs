@@ -225,6 +225,9 @@
     _sweepTrace: null, _predType: 'pdiss', _reto: null,
   };
 
+  // Contabilidad del reto y de la predicción: tres fallos resiembran; la demostración no puntúa.
+  const RETO = { intentos: 0, resiembras: 0, fallos: 0, pistas: 0, solved: false, predFallos: 0, predOk: 0, tour: false };
+
   function curVCC() { return VCC_VALS[state.iVCC]; }
   function curRL() { return RL_VALS[state.iRL]; }
   function curVoPkFrac() { return VOPK_FRAC_VALS[state.iVoPk]; }
@@ -685,9 +688,11 @@
     </div>
     <div id="retoWrap" style="display:none;margin-top:10px">
       <div id="retoBox"></div>
+      <div id="retoStat" style="font-size:11px;color:#8FB3AC;margin-top:4px"></div>
       <div class="btns" style="margin-top:6px">
         <button class="b" id="retoNew" style="flex:1 0 48%">Nuevo reto</button>
         <button class="b" id="retoCheck" style="flex:1 0 48%">Comprobar</button>
+        <button class="b" id="retoHint" style="flex:1 0 100%">💡 Pista (0/2)</button>
       </div>
     </div>
     <div id="sweepWrap" style="display:none;margin-top:10px">
@@ -712,16 +717,33 @@
     reto: 'Con el Vcc y RL asignados, elige la polarización (sin distorsión de cruce) y el disipador más pequeño que mantenga Tj seguro incluso en el PEOR CASO (Vo_pk=0.637·Vcc), no solo en tu ajuste actual.',
   };
 
-  function setMode(m) {
+  function rerollKnobs() {
+    state.iVCC = Math.floor(Math.random() * VCC_VALS.length);
+    state.iRL = Math.floor(Math.random() * RL_VALS.length);
+    state.iVoPk = Math.floor(Math.random() * VOPK_FRAC_VALS.length);
+    state.iBias = Math.floor(Math.random() * BIAS_VALS.length);
+    state.iHS = Math.floor(Math.random() * HEATSINK_VALS.length);
+  }
+  function applyModeUI(m) {
     state.mode = m;
-    state.hide = (m === 'predice' && !state._revealed);
     el('predWrap').style.display = m === 'predice' ? 'block' : 'none';
     el('retoWrap').style.display = m === 'reto' ? 'block' : 'none';
     el('sweepWrap').style.display = m === 'medicion' ? 'block' : 'none';
+    el('missionText').textContent = MISIONES[m];
+  }
+  function setMode(m) {
+    // Salir de «Predicción» sin responder: los mandos se re-sortean, así Explora no enseña el caso oculto.
+    if (state.mode === 'predice' && m !== 'predice' && !state._revealed) rerollKnobs();
+    applyModeUI(m);
+    state.hide = (m === 'predice' && !state._revealed);
     if (m === 'predice') genPredice();
     if (m === 'reto') newReto();
-    el('missionText').textContent = MISIONES[m];
     refreshAll();
+  }
+  function retoStatus() {
+    const s = el('retoStat'), h = el('retoHint');
+    if (s) s.textContent = 'Intentos fallidos: ' + RETO.fallos + '/3 · pistas usadas: ' + RETO.pistas + '/2 · intentos totales: ' + RETO.intentos;
+    if (h) h.textContent = '💡 Pista (' + RETO.pistas + '/2)';
   }
 
   function syncCtrlBtns() {
@@ -735,6 +757,12 @@
     state._revealed = false; state.hide = true;
     const p = Math.random();
     state._predType = p < 0.34 ? 'pdiss' : (p < 0.67 ? 'tj' : 'distortion');
+    RETO.predFallos = 0;
+    rerollKnobs();
+    if (state._predType === 'distortion') {   // mitad con distorsión, mitad sin: no se acierta apostando siempre lo mismo
+      const quiereSi = Math.random() < 0.5;
+      for (let i = 0; i < 80 && curSolve().distortion !== quiereSi; i++) rerollKnobs();
+    }
     const box = el('predBox');
     if (state._predType === 'pdiss') {
       box.innerHTML = '<p>Predice la disipación de potencia por transistor <b>Pdiss</b> (W) con los valores actuales de Vcc, RL y Vo_pk:</p>' +
@@ -752,6 +780,8 @@
     refreshAll();
   }
   function checkPredice() {
+    if (RETO.tour) return;
+    if (state._revealed) { showToast('Esta predicción ya está respondida: pide un caso nuevo.', 'info'); return; }
     const res = curSolve();
     let ok, real;
     if (state._predType === 'pdiss') {
@@ -768,9 +798,23 @@
       real = res.distortion ? 'Sí, hay distorsión de cruce' : 'No, la polarización es suficiente';
       ok = el('predSelect').value === (res.distortion ? 'si' : 'no');
     }
-    state._revealed = true; state.hide = false;
-    refreshAll();
-    showToast(ok ? '✅ Correcto — valor real: ' + real : '❌ No — valor real: ' + real, ok ? 'ok' : 'warn');
+    RETO.intentos++;
+    if (ok) {
+      RETO.predOk++; RETO.predFallos = 0;
+      state._revealed = true; state.hide = false;
+      refreshAll();
+      showToast('✅ Correcto — valor real: ' + real, 'ok');
+      return;
+    }
+    RETO.predFallos++;
+    const lim = state._predType === 'distortion' ? 1 : 3;
+    if (RETO.predFallos >= lim) {
+      RETO.resiembras++;
+      showToast('❌ Sin acierto tras ' + RETO.predFallos + ' intento(s): caso nuevo, con otros valores en los mandos.', 'warn');
+      genPredice();
+      return;
+    }
+    showToast('❌ Fuera de tolerancia. Revisa los mandos y razona de nuevo. (intentos fallidos: ' + RETO.predFallos + '/' + lim + ')', 'warn');
   }
 
   function retoFeasible(vcc, rl) {
@@ -785,36 +829,67 @@
     return false;
   }
   function newReto() {
+    const prev = state._reto;
     let vcc, rl, tries = 0;
     do {
       const vi = Math.floor(Math.random() * VCC_VALS.length);
       const ri = Math.floor(Math.random() * RL_VALS.length);
       vcc = VCC_VALS[vi]; rl = RL_VALS[ri];
       tries++;
-    } while (!retoFeasible(vcc, rl) && tries < 40);
+    } while (((prev && prev.vcc === vcc && prev.rl === rl) || !retoFeasible(vcc, rl)) && tries < 80);
     state._reto = { vcc, rl };
-    el('retoBox').innerHTML = `<p>Objetivo: con <b>Vcc=±${fmtV(vcc)}</b> y <b>RL=${fmtOhm(rl)}</b>, elige una polarización <b>sin distorsión de cruce</b> y el disipador <b>más pequeño</b> que mantenga <b>Tj≤130°C</b> incluso en el PEOR CASO de amplitud (Vo_pk=0.637·Vcc) — no solo en el Vo_pk que tengas ajustado ahora mismo.</p>`;
+    state._retoDone = false; RETO.fallos = 0; RETO.pistas = 0;
+    el('retoBox').innerHTML = '<p>Objetivo: con <b>Vcc=±' + fmtV(vcc) + '</b> y <b>RL=' + fmtOhm(rl) + '</b>, elige una polarización <b>sin distorsión de cruce</b> y el disipador <b>más pequeño</b> que mantenga <b>Tj≤130°C</b> incluso en el PEOR CASO de amplitud (Vo_pk=0.637·Vcc) — no solo en el Vo_pk que tengas ajustado ahora mismo.</p>';
+    retoStatus();
     refreshAll();
   }
+  // Índice del disipador más pequeño que cumple Tj<=130 °C en el peor caso con esa polarización (-1 si ninguno).
+  function disipadorMinimo(bias) {
+    for (let i = 0; i < HEATSINK_VALS.length; i++) {
+      if (solveClaseAB(curVCC(), curRL(), 2 / Math.PI, bias, HEATSINK_VALS[i], TA).Tj <= TJ_SAFE_MAX) return i;
+    }
+    return -1;
+  }
   function checkReto() {
+    if (RETO.tour) return;
     const t = state._reto;
+    if (!t) return;
+    if (state._retoDone) { showToast('Este reto ya está resuelto: pulsa «Nuevo reto» para otro.', 'info'); return; }
     const vccOk = Math.abs(curVCC() - t.vcc) < 1e-9;
     const rlOk = Math.abs(curRL() - t.rl) < 1e-9;
     const bias = curBias();
     const distOk = bias.vbeTotal >= DEADZONE_THRESHOLD;
     const worst = solveClaseAB(curVCC(), curRL(), 2 / Math.PI, bias, curHS(), TA);
     const thermOk = worst.Tj <= TJ_SAFE_MAX;
-    if (vccOk && rlOk && distOk && thermOk) {
-      showToast(`✅ Diseño válido: Tj en el peor caso=${fmtC(worst.Tj)}, sin distorsión de cruce, disipador=${curHS().short}`, 'ok');
-    } else if (!vccOk) {
-      showToast(`Ajusta Vcc a ±${fmtV(t.vcc)} (actual: ±${fmtV(curVCC())}).`, 'warn');
-    } else if (!rlOk) {
-      showToast(`Ajusta RL a ${fmtOhm(t.rl)} (actual: ${fmtOhm(curRL())}).`, 'warn');
-    } else if (!distOk) {
-      showToast(`Hay distorsión de cruce con la polarización "${bias.short}". Sube la polarización a Nominal AB o más.`, 'warn');
-    } else {
-      showToast(`Tj en el peor caso (Vo_pk=0.637·Vcc) = ${fmtC(worst.Tj)} supera el umbral de 130°C. Elige un disipador más grande.`, 'warn');
+    const minimoOk = thermOk && state.iHS === disipadorMinimo(bias);
+    RETO.intentos++;
+    if (vccOk && rlOk && distOk && thermOk && minimoOk) {
+      state._retoDone = true; RETO.solved = true; RETO.fallos = 0;
+      showToast('✅ Diseño válido: Tj en el peor caso=' + fmtC(worst.Tj) + ', sin distorsión de cruce, disipador=' + curHS().short, 'ok');
+      retoStatus();
+      return;
     }
+    RETO.fallos++;
+    if (RETO.fallos >= 3) {
+      RETO.resiembras++;
+      showToast('❌ Tres intentos fallidos: reto nuevo, con otras condiciones.', 'warn');
+      newReto();
+      return;
+    }
+    const falla = !(vccOk && rlOk) ? 'los valores asignados de Vcc o RL no coinciden con el enunciado'
+      : !distOk ? 'la polarización elegida deja distorsión de cruce'
+      : !thermOk ? 'el disipador no mantiene la unión por debajo del umbral en el peor caso de amplitud'
+      : 'el disipador cumple pero no es el más pequeño que lo logra';
+    showToast('❌ El diseño no cumple: ' + falla + '. (intentos fallidos: ' + RETO.fallos + '/3)', 'warn');
+    retoStatus();
+  }
+  function pistaReto() {
+    if (RETO.tour || state.mode !== 'reto' || !state._reto) return;
+    if (RETO.pistas >= 2) { showToast('Ya usaste las 2 pistas de este reto.', 'info'); return; }
+    RETO.pistas++;
+    if (RETO.pistas === 1) showToast('💡 Pista 1/2: Tj=Ta+Pdiss·ΣRθ, con ΣRθ=RθJC+RθCS+RθSA del disipador. La distorsión de cruce depende sólo de la polarización frente a ≈2·VBE_on.', 'info');
+    else showToast('💡 Pista 2/2: la amplitud que más calienta no es la que tienes ajustada ahora; evalúa cada disipador en esa amplitud y quédate con el más pequeño que cumple.', 'info');
+    retoStatus();
   }
 
   async function runSweep() {
@@ -866,9 +941,24 @@
 
   // ---------- Quiz ----------
   const QUIZ = [
-    { q: '¿Por qué la disipación máxima de los transistores de salida ocurre en Vo_pk≈0.637·Vcc y NO a swing completo (Vo_pk=Vcc)?', a: ['Porque Pdiss=Psupply−Pload es una parábola en Vo_pk: al principio Psupply crece más rápido que Pload, pero cerca del swing completo Pload (que crece con Vo_pk²) alcanza a Psupply (que crece linealmente), así que la diferencia tiene un máximo intermedio', 'Porque el transistor se satura antes de llegar a Vcc y deja de disipar potencia', 'Porque a swing completo toda la potencia se va a la carga y no queda ninguna diferencia que disipar'], correct: 0 },
-    { q: '¿Por qué una etapa Clase AB necesita algo de corriente de reposo (polarización) en vez de operar en Clase B pura (sin polarización)?', a: ['Porque sin polarización ningún transistor conduce cerca del cruce por cero de la señal, produciendo distorsión de cruce — una pequeña corriente de reposo mantiene ambos transistores apenas encendidos ahí', 'Porque sin polarización los transistores se dañan permanentemente', 'Porque la Clase B pura no puede alimentar cargas resistivas'], correct: 0 },
-    { q: 'El multiplicador de VBE usa un transistor con dos resistores para fijar la polarización en vez de solo dos diodos. ¿Cuál es la ventaja térmica de que sea un transistor y no diodos fijos?', a: ['Su VBE decrece con la temperatura igual que el VBE de los transistores de salida, así que la polarización seguida térmicamente compensa la deriva de la corriente de reposo cuando el disipador se calienta', 'Los transistores son más baratos que los diodos', 'Un transistor permite ajustar la ganancia de voltaje de la etapa de salida'], correct: 0 },
+    { q: "¿Por qué la disipación máxima de los transistores de salida ocurre en Vo_pk≈0.637·Vcc y NO a swing completo (Vo_pk=Vcc)?", a: [
+      "Porque Pdiss=Psupply−Pload es una parábola en Vo_pk: Psupply crece lineal y Pload con Vo_pk², por eso la diferencia tiene un máximo intermedio",
+      "Porque el transistor se satura antes de llegar al riel Vcc y por eso deja de disipar potencia cuando la señal de salida se acerca al máximo",
+      "Porque a swing completo la potencia de la fuente se reparte por igual entre la carga y los transistores y la disipación queda en su mínimo",
+      "Porque la corriente de reposo domina la disipación a bajo volumen y desaparece por completo cuando sube la amplitud de la señal de salida"
+    ], correct: 0 },
+    { q: "¿Por qué una etapa Clase AB necesita algo de corriente de reposo (polarización) en vez de operar en Clase B pura (sin polarización)?", a: [
+      "Porque sin polarización ningún transistor conduce cerca del cruce por cero de la señal, y una pequeña corriente de reposo elimina la distorsión de cruce",
+      "Porque sin polarización los transistores se dañan de forma permanente al conducir ambos a la vez durante el cruce por cero de la señal de entrada",
+      "Porque la Clase B pura no puede alimentar cargas resistivas y necesita una corriente de reposo para entregar potencia útil a la carga del amplificador",
+      "Porque sin polarización la ganancia de voltaje de la etapa cae a cero y la señal de entrada nunca llega a la carga conectada a la salida del amplificador"
+    ], correct: 0 },
+    { q: "El multiplicador de VBE usa un transistor con dos resistores para fijar la polarización en vez de solo dos diodos. ¿Cuál es la ventaja térmica de que sea un transistor y no diodos fijos?", a: [
+      "Su VBE decrece con la temperatura igual que el de los transistores de salida, así que la polarización compensa la deriva térmica de la corriente",
+      "Un transistor consume menos corriente que dos diodos fijos y por eso reduce la disipación de la propia red de polarización cuando la etapa está en reposo",
+      "El transistor permite ajustar la ganancia de voltaje de la etapa de salida sin cambiar las resistencias de polarización ni la corriente de reposo elegida",
+      "Su VBE aumenta con la temperatura y frena la corriente de reposo, al contrario de lo que haría un diodo fijo de silicio colocado en el mismo punto"
+    ], correct: 0 },
   ];
   function shuffled(arr) {
     const a = arr.slice();
@@ -894,7 +984,7 @@
       btn.addEventListener('click', () => {
         const i = Number(btn.dataset.i);
         if (quizOpts[i].ok) { showToast('✅ Correcto', 'ok'); quizIdx = (quizIdx + 1) % QUIZ.length; refreshQuestion(); }
-        else { showToast('❌ Intenta de nuevo', 'warn'); }
+        else { showToast('❌ Esa no es: vuelve a razonar la pregunta', 'warn'); }
       });
     });
   }
@@ -922,12 +1012,54 @@
     }
   });
 
-  async function runAuto() {
+  async function runAutoCore() {
     setMode('explora'); await sleep(600);
     state.iVCC = 3; state.iRL = 1; state.iVoPk = 1; state.iBias = 2; state.iHS = 2; refreshAll(); await sleep(900);
     state.iVoPk = 6; refreshAll(); await sleep(1000);
     state.iVoPk = 1; refreshAll(); await sleep(400);
     setMode('medicion'); await runSweep();
+  }
+
+  // La demostración NO puntúa ni toca el reto: guarda el estado del alumno y lo repone al terminar.
+  function guardaEstado() {
+    const pi = el('predInput'), ps = el('predSelect');
+    return {
+      knobs: { iVCC: state.iVCC, iRL: state.iRL, iVoPk: state.iVoPk, iBias: state.iBias, iHS: state.iHS },
+      mode: state.mode, hide: state.hide, revealed: state._revealed, predType: state._predType,
+      reto: state._reto ? Object.assign({}, state._reto) : null, retoDone: !!state._retoDone,
+      sweep: state._sweepTrace ? state._sweepTrace.slice() : null,
+      predBox: el('predBox').innerHTML, retoBox: el('retoBox').innerHTML,
+      predVal: pi ? pi.value : null, predSel: ps ? ps.value : null,
+      fallos: RETO.fallos, pistas: RETO.pistas, predFallos: RETO.predFallos,
+    };
+  }
+  function reponeEstado(g) {
+    Object.assign(state, g.knobs);
+    state._predType = g.predType; state._revealed = g.revealed; state._reto = g.reto; state._retoDone = g.retoDone;
+    state._sweepTrace = g.sweep;
+    applyModeUI(g.mode);
+    state.hide = g.hide;
+    el('predBox').innerHTML = g.predBox; el('retoBox').innerHTML = g.retoBox;
+    const pi = el('predInput'), ps = el('predSelect');
+    if (pi && g.predVal !== null) pi.value = g.predVal;
+    if (ps && g.predSel !== null) ps.value = g.predSel;
+    RETO.fallos = g.fallos; RETO.pistas = g.pistas; RETO.predFallos = g.predFallos;
+    retoStatus();
+    refreshAll();
+  }
+  async function runAuto() {
+    if (RETO.tour) return;
+    RETO.tour = true;
+    const panel = el('panel'); panel.style.pointerEvents = 'none';
+    const btn = el('autoTour'); const lbl = btn.textContent; btn.disabled = true; btn.textContent = '⏳ Demostración en curso…';
+    const g = guardaEstado();
+    try { await runAutoCore(); await sleep(1200); }
+    finally {
+      RETO.tour = false;
+      reponeEstado(g);
+      panel.style.pointerEvents = ''; btn.disabled = false; btn.textContent = lbl;
+      showToast('Fin de la demostración: tus mandos y tu reto quedaron como los dejaste.', 'info');
+    }
   }
 
   // ---------- Wiring ----------
@@ -948,6 +1080,7 @@
   el('predCheck').addEventListener('click', checkPredice);
   el('retoNew').addEventListener('click', newReto);
   el('retoCheck').addEventListener('click', checkReto);
+  el('retoHint').addEventListener('click', pistaReto);
   el('sweepRun').addEventListener('click', runSweep);
   el('autoTour').addEventListener('click', runAuto);
 
@@ -958,6 +1091,12 @@
   S.start();
 
   window.__labDebug = {
+    get mode() { return state.mode; },
+    get solved() { return RETO.solved; },
+    get intentos() { return RETO.intentos; },
+    get autoRunning() { return RETO.tour; },
+    retoState() { return { fallos: RETO.fallos, pistas: RETO.pistas, intentos: RETO.intentos, resiembras: RETO.resiembras, resuelto: RETO.solved, predOk: RETO.predOk, predFallos: RETO.predFallos }; },
+    rerollKnobs, pistaReto,
     state, DEV, VBE, RTH_JC, RTH_CS, RTH_JA_NO_HS, TJ_MAX, TJ_SAFE_MAX, DEADZONE_THRESHOLD,
     VCC_VALS, RL_VALS, VOPK_FRAC_VALS, BIAS_VALS, HEATSINK_VALS,
     solveClaseAB, pdissEachAtFrac, classifyTj, transferCurve, retoFeasible,

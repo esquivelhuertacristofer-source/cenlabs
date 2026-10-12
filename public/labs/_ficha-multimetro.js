@@ -3,7 +3,7 @@ fichaTecnica({
   title: 'Multímetro digital — exactitud, resolución y categorías',
   intro: 'Este laboratorio representa una <b>sesión de medición con un DMM de 6000 cuentas</b>: cuatro casos (fuente de CD, red de CA, resistor fuera de circuito y divisor de alta impedancia) donde la respuesta correcta no es un número, sino una <b>lectura ± incertidumbre</b> y una decisión de seguridad. La geometría es <b>procedural y didáctica</b>; donde el modelo simplifica, aquí se documenta.',
   s1: {
-    presentes: '<b>Presentes en el modelo:</b> display de 6000 cuentas con OL y barra analógica, selector de función (V⎓, V~, Ω, mA), autorrango y rango manual, bornes VΩ/COM/mA/10 A, impedancia de entrada de 10 MΩ, fusible de 400 mA y el rótulo de categorías CAT.',
+    presentes: '<b>Presentes en el modelo:</b> display de 6000 cuentas con OL y barra analógica, selector de función (V⎓, V~, Ω, mA), autorrango y rango manual, bornes VΩ/COM/mA/10 A, impedancia de entrada de 10 MΩ, fusible de 400 mA y el rótulo de categorías CAT. Las cifras de cada caso (tensión de la fuente, valor y tolerancia del resistor, resistencias y alimentación del divisor, variante de la pregunta de categoría) se sortean al abrir el lab y al resembrar el caso; la demostración guiada usa otras.',
     omitidos: [
       '<b>Deriva térmica y envejecimiento</b>: la especificación real es válida a 23 ± 5 °C y durante 1 año desde la calibración; fuera de eso se agregan términos.',
       '<b>Respuesta true-RMS con ondas no senoidales</b>: la exactitud de V~ aquí aplica a senoides; con recortes de fase o PWM el error real crece con el factor de cresta.',

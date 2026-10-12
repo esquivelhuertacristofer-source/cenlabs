@@ -7,7 +7,7 @@ fichaTecnica({
     omitidos: [
       '<b>Respuesta en frecuencia y ancho de banda</b> de la pinza: aquí se asume plana; en un instrumento real cae a alta frecuencia (armónicos, PWM).',
       '<b>Saturación del núcleo</b> a corrientes muy por encima del rango: el modelo satura la lectura al máximo de rango, no reproduce el colapso no lineal real.',
-      '<b>Deriva térmica del offset Hall</b>: el offset de cero aquí es fijo; en un sensor real cambia con la temperatura ambiente y con el autocalentamiento.',
+      '<b>Deriva térmica del offset Hall</b>: el offset de cero aquí es fijo dentro de cada caso (se sortea entre casos); en un sensor real cambia con la temperatura ambiente y con el autocalentamiento.',
       '<b>Sensibilidad a la posición del conductor</b> dentro de la mordaza: en la pinza real, un cable descentrado introduce error adicional; aquí la lectura no depende de dónde quede el conductor.',
       '<b>Disipación de potencia y calentamiento del shunt</b> a corriente nominal sostenida, y el consecuente error térmico de largo plazo.',
       '<b>Calibración trazable certificada</b>: el modelo aplica un presupuesto de exactitud fijo, no el proceso de calibración real contra un patrón.'
@@ -20,8 +20,8 @@ fichaTecnica({
       ['Instrumento', 'Exactitud', 'Rango / capacidad'],
       ['Pinza — modo Hall (CD y CA)', '±(2.0 % + 5 dígitos) · 6000 cuentas', '6 A · 60 A · 600 A (autorrango)'],
       ['Pinza — modo TC (solo CA)', 'mismo presupuesto que Hall en CA · <b>no mide CD</b>', '6 A · 60 A · 600 A (autorrango)'],
-      ['Offset de cero (modo Hall, CD)', '≈ 1.2 A típico si no se tara antes de medir', 'dominante en corrientes pequeñas (< 1 A)'],
-      ['Shunt patrón', '±(0.5 % + 2 dígitos) · 2000 cuentas', '75 mV a la corriente nominal (100 A / 10 A / 1 A según escenario)']
+      ['Offset de cero (modo Hall, CD)', '0.8 – 1.6 A en este lab (se sortea por caso) si no se tara antes de medir', 'dominante en corrientes pequeñas (< 1 A)'],
+      ['Shunt patrón', '±(0.5 % + 2 dígitos) · 2000 cuentas', '75 mV a la corriente nominal (100 o 200 A / 10 A / 1 A según escenario)']
     ]
   },
   s3: [

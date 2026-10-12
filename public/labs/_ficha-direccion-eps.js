@@ -3,13 +3,14 @@ fichaTecnica({
   title: 'Dirección asistida eléctrica (EPS)',
   intro: 'Este laboratorio representa una <b>dirección asistida eléctrica</b>: un <b>sensor de par</b> mide el esfuerzo del conductor y una ECU comanda un <b>motor eléctrico</b> que aporta asistencia a través de un reductor. La geometría es <b>procedural y didáctica</b>; donde el 3D simplifica, aquí se documenta.',
   s1: {
-    presentes: '<b>Presentes en el modelo:</b> sensor de par, motor eléctrico (BLDC/PMSM), ECU de la dirección, engranaje reductor, columna/cremallera y sensor de ángulo.',
+    presentes: '<b>Presentes en el modelo:</b> volante, columna con su sensor de par y junta cardán, motor de asistencia con su reductor de tornillo sin fin, cremallera con piñón, fuelles y barras de acoplamiento, y la ECU. Numéricamente: una ganancia de asistencia que depende de la velocidad y un par del conductor fijo.',
     omitidos: [
       '<b>Sensor de ángulo del volante (SAS)</b> y su calibración de punto medio.',
-      '<b>Junta universal / cardán</b> de la columna con su <b>marca de fase</b> (montaje en una sola posición).',
-      '<b>Sellos y guardapolvos</b> de la cremallera y los extremos de dirección.',
+      '<b>Marca de fase</b> de la junta cardán (montaje en una sola posición).',
+      '<b>Lazo real sensor → ECU → motor</b>: el par del conductor es una constante (3.0 N·m) y no se mide ni se filtra; no hay corriente de motor, dinámica de la cremallera ni retorno al centro.',
       '<b>Integración con ESP y ADAS</b> (mantenimiento de carril, aparcamiento asistido) por CAN.',
-      '<b>Protección térmica</b> del motor y, en algunos diseños, un embrague de seguridad.'
+      '<b>Protección térmica</b> del motor y, en algunos diseños, un embrague de seguridad.',
+      '<b>Tipo de motor</b> (con escobillas, BLDC o PMSM): no se modela ni se dibuja la electrónica de potencia.'
     ]
   },
   s2: {
@@ -40,8 +41,8 @@ fichaTecnica({
     ]
   },
   s5: {
-    modela: 'el <b>mapa de asistencia</b> (par de ayuda en función del par del conductor y la velocidad) y el lazo sensor → ECU → motor.',
-    noModela: 'la dinámica real de la cremallera, la autofijación térmica del motor ni la integración ADAS real.'
+    modela: 'la <b>ganancia de asistencia</b> en función de la velocidad (6.0 − v/25, con un mínimo de 1.5) aplicada a un par de conductor fijo de 3.0 N·m: par en cremallera = par del conductor × ganancia.',
+    noModela: 'el lazo de control real sensor → ECU → motor, la dinámica de la cremallera, la limitación térmica del motor ni la integración ADAS; el mapa de asistencia real es una tabla de la ECU (par × velocidad) y aquí solo se representa su dependencia de la velocidad.'
   },
   s6: [
     '<b>ISO 26262</b>: seguridad funcional (la dirección es un sistema crítico).',

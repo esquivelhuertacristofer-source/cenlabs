@@ -244,6 +244,9 @@
     _sweepTrace: null, _predType: 'vout', _reto: null,
   };
 
+  // Contabilidad del reto y de la predicción: tres fallos resiembran; la demostración no puntúa.
+  const RETO = { intentos: 0, resiembras: 0, fallos: 0, pistas: 0, solved: false, predFallos: 0, predOk: 0, tour: false };
+
   function curVIN() { return VIN_VALS[state.iVIN]; }
   function curD() { return D_VALS[state.iD]; }
   function curL() { return L_VALS[state.iL]; }
@@ -711,9 +714,11 @@
     </div>
     <div id="retoWrap" style="display:none;margin-top:10px">
       <div id="retoBox"></div>
+      <div id="retoStat" style="font-size:11px;color:#8FB3AC;margin-top:4px"></div>
       <div class="btns" style="margin-top:6px">
         <button class="b" id="retoNew" style="flex:1 0 48%">Nuevo reto</button>
         <button class="b" id="retoCheck" style="flex:1 0 48%">Comprobar</button>
+        <button class="b" id="retoHint" style="flex:1 0 100%">💡 Pista (0/2)</button>
       </div>
     </div>
     <div id="sweepWrap" style="display:none;margin-top:10px">
@@ -738,16 +743,33 @@
     reto: 'Con el Vin y D asignados, ajusta R, L y C para alcanzar el Vout objetivo en CCM, con un rizo de salida ΔVout menor al 2% de Vout.',
   };
 
-  function setMode(m) {
+  function rerollKnobs() {
+    state.iVIN = Math.floor(Math.random() * VIN_VALS.length);
+    state.iD = Math.floor(Math.random() * D_VALS.length);
+    state.iL = Math.floor(Math.random() * L_VALS.length);
+    state.iC = Math.floor(Math.random() * CAP_TABLE.length);
+    state.iR = Math.floor(Math.random() * R_VALS.length);
+  }
+  function applyModeUI(m) {
     state.mode = m;
-    state.hide = (m === 'predice' && !state._revealed);
     el('predWrap').style.display = m === 'predice' ? 'block' : 'none';
     el('retoWrap').style.display = m === 'reto' ? 'block' : 'none';
     el('sweepWrap').style.display = m === 'medicion' ? 'block' : 'none';
+    el('missionText').textContent = MISIONES[m];
+  }
+  function setMode(m) {
+    // Salir de «Predicción» sin responder: los mandos se re-sortean, así Explora no enseña el caso oculto.
+    if (state.mode === 'predice' && m !== 'predice' && !state._revealed) rerollKnobs();
+    applyModeUI(m);
+    state.hide = (m === 'predice' && !state._revealed);
     if (m === 'predice') genPredice();
     if (m === 'reto') newReto();
-    el('missionText').textContent = MISIONES[m];
     refreshAll();
+  }
+  function retoStatus() {
+    const s = el('retoStat'), h = el('retoHint');
+    if (s) s.textContent = 'Intentos fallidos: ' + RETO.fallos + '/3 · pistas usadas: ' + RETO.pistas + '/2 · intentos totales: ' + RETO.intentos;
+    if (h) h.textContent = '💡 Pista (' + RETO.pistas + '/2)';
   }
 
   function syncCtrlBtns() {
@@ -761,6 +783,12 @@
     state._revealed = false; state.hide = true;
     const p = Math.random();
     state._predType = p < 0.34 ? 'vout' : (p < 0.67 ? 'ripple' : 'mode');
+    RETO.predFallos = 0;
+    rerollKnobs();
+    if (state._predType === 'mode') {   // mitad CCM, mitad DCM: acertar no es cuestión de apostar siempre lo mismo
+      const quiereCCM = Math.random() < 0.5;
+      for (let i = 0; i < 80 && (curSolveBoost().mode === 'CCM') !== quiereCCM; i++) rerollKnobs();
+    }
     const box = el('predBox');
     if (state._predType === 'vout') {
       box.innerHTML = '<p>Predice el voltaje de salida real <b>Vout</b> (V) con los valores actuales de Vin, D, L y R — recuerda que en DCM Vout deja de ser simplemente Vin/(1−D):</p>' +
@@ -778,6 +806,8 @@
     refreshAll();
   }
   function checkPredice() {
+    if (RETO.tour) return;
+    if (state._revealed) { showToast('Esta predicción ya está respondida: pide un caso nuevo.', 'info'); return; }
     const res = curSolveBoost();
     let ok, real;
     if (state._predType === 'vout') {
@@ -795,24 +825,55 @@
       real = res.mode === 'CCM' ? 'CCM (conducción continua)' : 'DCM (conducción discontinua)';
       ok = el('predSelect').value === (res.mode === 'CCM' ? 'ccm' : 'dcm');
     }
-    state._revealed = true; state.hide = false;
-    refreshAll();
-    showToast(ok ? '✅ Correcto — valor real: ' + real : '❌ No — valor real: ' + real, ok ? 'ok' : 'warn');
+    RETO.intentos++;
+    if (ok) {
+      RETO.predOk++; RETO.predFallos = 0;
+      state._revealed = true; state.hide = false;
+      refreshAll();
+      showToast('✅ Correcto — valor real: ' + real, 'ok');
+      return;
+    }
+    RETO.predFallos++;
+    const lim = state._predType === 'mode' ? 1 : 3;
+    if (RETO.predFallos >= lim) {
+      RETO.resiembras++;
+      showToast('❌ Sin acierto tras ' + RETO.predFallos + ' intento(s): caso nuevo, con otros valores en los mandos.', 'warn');
+      genPredice();
+      return;
+    }
+    showToast('❌ Fuera de tolerancia. Revisa los mandos y razona de nuevo. (intentos fallidos: ' + RETO.predFallos + '/' + lim + ')', 'warn');
   }
 
+  // ¿Existe algún (L, C) que dé CCM y rizo de salida <= 2 % con estos Vin, D, R? Si no, el reto sería irresoluble.
+  function retoFactible(vin, d, r) {
+    for (const l of L_VALS) for (const c of CAP_TABLE) {
+      const res = solveBoost(vin, d, l, c.c, c.esr, FSW, r);
+      if (res.mode === 'CCM' && res.deltaVout / res.Vout * 100 <= 2) return true;
+    }
+    return false;
+  }
   function newReto() {
-    const vi = Math.floor(Math.random() * VIN_VALS.length);
-    const di = Math.floor(Math.random() * D_VALS.length);
-    const vin = VIN_VALS[vi], d = D_VALS[di];
+    const prev = state._reto;
+    let vin, d, r, tries = 0;
+    do {
+      vin = VIN_VALS[Math.floor(Math.random() * VIN_VALS.length)];
+      d = D_VALS[Math.floor(Math.random() * D_VALS.length)];
+      r = R_VALS[Math.floor(Math.random() * 4)];
+      tries++;
+    } while (((prev && prev.vin === vin && prev.d === d && prev.r === r) || !retoFactible(vin, d, r)) && tries < 80);
     const voutTarget = vin / (1 - d);
-    const ri = Math.floor(Math.random() * 4);
-    state._reto = { vin, d, vout: voutTarget, r: R_VALS[ri], rippleMaxPct: 2 };
-    el('retoBox').innerHTML = `<p>Objetivo: con <b>Vin=${fmtV(vin)}</b> y <b>D=${fmtD(d)}</b>, alcanza <b>Vout=${fmtV(voutTarget)}</b> sobre una carga <b>R=${fmtR(R_VALS[ri])}</b>, en <b>CCM</b>, con rizo de salida ΔVout ≤ <b>2%</b> de Vout. Ajusta Vin, D y R a esos valores, y elige L y C adecuados.</p>`;
+    state._reto = { vin, d, vout: voutTarget, r, rippleMaxPct: 2 };
+    state._retoDone = false; RETO.fallos = 0; RETO.pistas = 0;
+    el('retoBox').innerHTML = '<p>Objetivo: con <b>Vin=' + fmtV(vin) + '</b> y <b>D=' + fmtD(d) + '</b>, alcanza <b>Vout=' + fmtV(voutTarget) + '</b> sobre una carga <b>R=' + fmtR(r) + '</b>, en <b>CCM</b>, con rizo de salida ΔVout ≤ <b>2%</b> de Vout. Ajusta Vin, D y R a esos valores, y elige L y C adecuados.</p>';
+    retoStatus();
     refreshAll();
   }
   function checkReto() {
-    const res = curSolveBoost();
+    if (RETO.tour) return;
     const t = state._reto;
+    if (!t) return;
+    if (state._retoDone) { showToast('Este reto ya está resuelto: pulsa «Nuevo reto» para otro.', 'info'); return; }
+    const res = curSolveBoost();
     const vinOk = Math.abs(curVIN() - t.vin) < 1e-9;
     const dOk = Math.abs(curD() - t.d) < 1e-9;
     const rOk = Math.abs(curR() - t.r) < 1e-9;
@@ -820,21 +881,34 @@
     const voutOk = Math.abs(res.Vout - t.vout) <= Math.max(0.05 * t.vout, 0.05);
     const ripplePct = res.deltaVout / res.Vout * 100;
     const rippleOk = ripplePct <= t.rippleMaxPct;
+    RETO.intentos++;
     if (vinOk && dOk && rOk && ccmOk && voutOk && rippleOk) {
-      showToast(`✅ Diseño válido: Vout=${fmtV(res.Vout)}, ${res.mode}, rizo=${fmtPct(ripplePct)}`, 'ok');
-    } else if (!vinOk) {
-      showToast(`Ajusta Vin a ${fmtV(t.vin)} (actual: ${fmtV(curVIN())}).`, 'warn');
-    } else if (!dOk) {
-      showToast(`Ajusta D a ${fmtD(t.d)} (actual: ${fmtD(curD())}).`, 'warn');
-    } else if (!rOk) {
-      showToast(`Ajusta R a ${fmtR(t.r)} (actual: ${fmtR(curR())}).`, 'warn');
-    } else if (!ccmOk) {
-      showToast(`Estás en DCM (K=${res.K.toFixed(3)} < Kcrit=${res.Kcrit.toFixed(3)}). Sube L para subir K por encima de Kcrit.`, 'warn');
-    } else if (!voutOk) {
-      showToast(`Vout=${fmtV(res.Vout)} se alejó del objetivo ${fmtV(t.vout)}.`, 'warn');
-    } else {
-      showToast(`Rizo de salida ${fmtPct(ripplePct)} > 2%. Sube C, baja la ESR (elige otro capacitor), o sube L.`, 'warn');
+      state._retoDone = true; RETO.solved = true; RETO.fallos = 0;
+      showToast('✅ Diseño válido: Vout=' + fmtV(res.Vout) + ', ' + res.mode + ', rizo=' + fmtPct(ripplePct), 'ok');
+      retoStatus();
+      return;
     }
+    RETO.fallos++;
+    if (RETO.fallos >= 3) {
+      RETO.resiembras++;
+      showToast('❌ Tres intentos fallidos: reto nuevo, con otras condiciones.', 'warn');
+      newReto();
+      return;
+    }
+    const falla = !(vinOk && dOk && rOk) ? 'los valores asignados de Vin, D o R no coinciden con el enunciado'
+      : !ccmOk ? 'el convertidor no opera en el modo de conducción pedido'
+      : !voutOk ? 'el voltaje de salida se aleja del objetivo'
+      : 'el rizo de salida supera el límite';
+    showToast('❌ El diseño no cumple: ' + falla + '. (intentos fallidos: ' + RETO.fallos + '/3)', 'warn');
+    retoStatus();
+  }
+  function pistaReto() {
+    if (RETO.tour || state.mode !== 'reto' || !state._reto) return;
+    if (RETO.pistas >= 2) { showToast('Ya usaste las 2 pistas de este reto.', 'info'); return; }
+    RETO.pistas++;
+    if (RETO.pistas === 1) showToast('💡 Pista 1/2: el modo CCM/DCM lo decide K=2L/(R·Ts) frente a Kcrit(D)=D(1−D)²; el rizo de salida depende de la corriente que entrega el diodo y de la capacidad y la ESR de Cout.', 'info');
+    else showToast('💡 Pista 2/2: con Vin, D y R fijos, sólo L y C cambian el resultado. L mueve K y el rizo de IL; C y su ESR mueven ΔVout. Compáralo con la telemetría.', 'info');
+    retoStatus();
   }
 
   async function runSweep() {
@@ -882,25 +956,50 @@
 
   // ---------- Quiz ----------
   const QUIZ = [
-    { q: '¿Por qué el ciclo de trabajo en CCM da Vout/Vin=1/(1−D) en un boost?', a: ['Porque el balance volt-segundo del inductor en estado estable exige que el área de subida (durante D·Ts) y de bajada (durante (1−D)·Ts) sean iguales', 'Porque el diodo limita Vout a un valor fijo sin importar D', 'Porque D no afecta a Vout en un boost'], correct: 0 },
-    { q: 'Si a un D y Vin fijos vas reduciendo la corriente de carga (subiendo R) hasta cruzar a DCM, ¿qué le pasa al Vout real comparado con la predicción ingenua Vin/(1−D)?', a: ['Se queda exactamente igual', 'Sube por encima de la predicción de CCM — es el fenómeno de "subida de voltaje en carga ligera" que obliga a los reguladores reales a reducir D cuando baja la carga', 'Baja por debajo de la predicción de CCM'], correct: 1 },
-    { q: 'El TPS61030 real usa rectificación síncrona (un MOSFET en vez de diodo). ¿Por qué este simulador sigue modelando un diodo?', a: ['Porque el diodo ideal simplifica el modelo y mantiene las ecuaciones de M(D,K) y del límite CCM/DCM en su forma estándar de libro de texto, sin cambiar el comportamiento de conducción/no-conducción que determina el modo', 'Porque el TPS61030 realmente usa un diodo, no un MOSFET', 'Porque el diodo hace que el convertidor sea más eficiente que el MOSFET'], correct: 0 },
+    { q: "¿Por qué el ciclo de trabajo en CCM da Vout/Vin=1/(1−D) en un boost?", a: [
+      "Porque el balance volt-segundo del inductor en estado estable exige igualar lo que sube con Vin·D·Ts y lo que baja con (Vout−Vin)·(1−D)·Ts",
+      "Porque el diodo de salida fija Vout en un valor propio y D sólo decide cuánta corriente circula por el inductor en cada ciclo de conmutación",
+      "Porque la corriente media del diodo debe igualar a la del inductor, de modo que Vout queda fijado por la carga y no por el ciclo de trabajo",
+      "Porque el interruptor entrega energía a la salida durante D·Ts y el diodo la almacena en L durante (1−D)·Ts, lo que lleva a Vout=Vin·D"
+    ], correct: 0 },
+    { q: "Si a un D y Vin fijos vas reduciendo la corriente de carga (subiendo R) hasta cruzar a DCM, ¿qué le pasa al Vout real comparado con la predicción ingenua Vin/(1−D)?", a: [
+      "Sube por encima de la predicción de CCM: con poca carga el inductor se vacía y la energía sobrante eleva Vout hasta que el control reduce D",
+      "Se queda exactamente igual, porque Vin y D no cambiaron y sólo varía la corriente que entrega el diodo durante la parte del ciclo en que conduce",
+      "Baja por debajo de la predicción de CCM, porque el inductor ya no almacena energía suficiente en cada ciclo para sostener el voltaje de salida",
+      "Cae hasta Vin, porque en DCM el interruptor deja de elevar el voltaje y el diodo de salida pasa a conducir durante todo el periodo de conmutación"
+    ], correct: 0 },
+    { q: "El TPS61030 real usa rectificación síncrona (un MOSFET en vez de diodo). ¿Por qué este simulador sigue modelando un diodo?", a: [
+      "Porque el diodo ideal conserva las ecuaciones estándar de M(D,K) y del límite CCM/DCM, sin cambiar el criterio de conducción que decide el modo",
+      "Porque el TPS61030 usa un diodo en su etapa de potencia y por eso el modelo se limita a copiar el esquema interno del circuito integrado real",
+      "Porque un diodo siempre es más eficiente que un MOSFET síncrono, y así el modelo evita sobreestimar las pérdidas de conducción del convertidor",
+      "Porque el rectificador síncrono sólo funciona con ciclos de trabajo mayores del 50 % y el simulador permite ciclos de trabajo menores a ese valor"
+    ], correct: 0 },
   ];
+  function shuffled(arr) {
+    const a = arr.slice();
+    for (let i = a.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      const tmp = a[i]; a[i] = a[j]; a[j] = tmp;
+    }
+    return a;
+  }
   let quizIdx = 0;
+  let quizOpts = [];
   function buildQuiz() { quizIdx = Math.floor(Math.random() * QUIZ.length); refreshQuestion(); }
   function refreshQuestion() {
     const item = QUIZ[quizIdx];
     const box = el('quizBox');
     if (!box) return;
+    quizOpts = shuffled(item.a.map((opt, i) => ({ t: opt, ok: i === item.correct })));
     let html = '<div style="font-size:12px;color:#8FB3AC;margin-bottom:6px">Quiz rápido</div>';
     html += '<div style="font-size:13px;color:#EAF4F1;margin-bottom:8px">' + item.q + '</div>';
-    item.a.forEach((opt, i) => { html += '<button class="b quizOpt" data-i="' + i + '" style="width:100%;text-align:left;margin-bottom:4px">' + opt + '</button>'; });
+    quizOpts.forEach((opt, i) => { html += '<button class="b quizOpt" data-i="' + i + '" style="width:100%;text-align:left;margin-bottom:4px">' + opt.t + '</button>'; });
     box.innerHTML = html;
     box.querySelectorAll('.quizOpt').forEach(btn => {
       btn.addEventListener('click', () => {
         const i = Number(btn.dataset.i);
-        if (i === item.correct) { showToast('✅ Correcto', 'ok'); quizIdx = (quizIdx + 1) % QUIZ.length; refreshQuestion(); }
-        else { showToast('❌ Intenta de nuevo', 'warn'); }
+        if (quizOpts[i].ok) { showToast('✅ Correcto', 'ok'); quizIdx = (quizIdx + 1) % QUIZ.length; refreshQuestion(); }
+        else { showToast('❌ Esa no es: vuelve a razonar la pregunta', 'warn'); }
       });
     });
   }
@@ -928,12 +1027,54 @@
     }
   });
 
-  async function runAuto() {
+  async function runAutoCore() {
     setMode('explora'); await sleep(600);
     state.iVIN = 3; state.iD = 1; state.iL = 3; state.iC = 1; state.iR = 0; refreshAll(); await sleep(900);
     state.iR = 6; refreshAll(); await sleep(1000);
     state.iR = 0; refreshAll(); await sleep(400);
     setMode('medicion'); await runSweep();
+  }
+
+  // La demostración NO puntúa ni toca el reto: guarda el estado del alumno y lo repone al terminar.
+  function guardaEstado() {
+    const pi = el('predInput'), ps = el('predSelect');
+    return {
+      knobs: { iVIN: state.iVIN, iD: state.iD, iL: state.iL, iC: state.iC, iR: state.iR },
+      mode: state.mode, hide: state.hide, revealed: state._revealed, predType: state._predType,
+      reto: state._reto ? Object.assign({}, state._reto) : null, retoDone: !!state._retoDone,
+      sweep: state._sweepTrace ? state._sweepTrace.slice() : null,
+      predBox: el('predBox').innerHTML, retoBox: el('retoBox').innerHTML,
+      predVal: pi ? pi.value : null, predSel: ps ? ps.value : null,
+      fallos: RETO.fallos, pistas: RETO.pistas, predFallos: RETO.predFallos,
+    };
+  }
+  function reponeEstado(g) {
+    Object.assign(state, g.knobs);
+    state._predType = g.predType; state._revealed = g.revealed; state._reto = g.reto; state._retoDone = g.retoDone;
+    state._sweepTrace = g.sweep;
+    applyModeUI(g.mode);
+    state.hide = g.hide;
+    el('predBox').innerHTML = g.predBox; el('retoBox').innerHTML = g.retoBox;
+    const pi = el('predInput'), ps = el('predSelect');
+    if (pi && g.predVal !== null) pi.value = g.predVal;
+    if (ps && g.predSel !== null) ps.value = g.predSel;
+    RETO.fallos = g.fallos; RETO.pistas = g.pistas; RETO.predFallos = g.predFallos;
+    retoStatus();
+    refreshAll();
+  }
+  async function runAuto() {
+    if (RETO.tour) return;
+    RETO.tour = true;
+    const panel = el('panel'); panel.style.pointerEvents = 'none';
+    const btn = el('autoTour'); const lbl = btn.textContent; btn.disabled = true; btn.textContent = '⏳ Demostración en curso…';
+    const g = guardaEstado();
+    try { await runAutoCore(); await sleep(1200); }
+    finally {
+      RETO.tour = false;
+      reponeEstado(g);
+      panel.style.pointerEvents = ''; btn.disabled = false; btn.textContent = lbl;
+      showToast('Fin de la demostración: tus mandos y tu reto quedaron como los dejaste.', 'info');
+    }
   }
 
   // ---------- Wiring ----------
@@ -962,6 +1103,7 @@
   el('predCheck').addEventListener('click', checkPredice);
   el('retoNew').addEventListener('click', newReto);
   el('retoCheck').addEventListener('click', checkReto);
+  el('retoHint').addEventListener('click', pistaReto);
   el('sweepRun').addEventListener('click', runSweep);
   el('autoTour').addEventListener('click', runAuto);
 
@@ -972,6 +1114,12 @@
   S.start();
 
   window.__labDebug = {
+    get mode() { return state.mode; },
+    get solved() { return RETO.solved; },
+    get intentos() { return RETO.intentos; },
+    get autoRunning() { return RETO.tour; },
+    retoState() { return { fallos: RETO.fallos, pistas: RETO.pistas, intentos: RETO.intentos, resiembras: RETO.resiembras, resuelto: RETO.solved, predOk: RETO.predOk, predFallos: RETO.predFallos }; },
+    rerollKnobs, pistaReto,
     state, DEVS, FSW, VIN_VALS, D_VALS, L_VALS, CAP_TABLE, R_VALS,
     solveBoost, classifyMode, ilWaveform,
     curSolveBoost,

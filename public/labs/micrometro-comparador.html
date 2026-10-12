@@ -509,6 +509,13 @@ let caseKey='ejeA';        // caso activo dentro del instrumento actual
 let contact=false;         // husillo cerrado (mic) / comparador fijado (comp)
 let idx=0;                 // índice de punto/ángulo activo (solo comp)
 let solved=false; let simT=0;
+/* Contabilidad del reto. `solved` es el estado del caso que se ve; `answered`
+   recuerda cada caso. Tres fallos seguidos en un caso lo resiembran. */
+const answered={ejeA:false,ejeB:false,trinquete:false,runout:false,planitud:false};
+const fallosCaso={ejeA:0,ejeB:0,trinquete:0,runout:0,planitud:0};
+const RETO={intentos:0,resiembras:0};
+let quizNow={pregunta:'',opciones:[]};
+let autoRunning=false;
 const synth=makeSynth({type:'sine',type2:'sine',filterFreq:900,Q:1});
 
 const toast=document.getElementById('toast');
@@ -538,17 +545,17 @@ function decomposeMic(mm){
 }
 const CASES_MIC={
   ejeA:{
-    nombre:'Eje A · Ø nominal 12 mm (h7)', pieza:'Eje cilíndrico rectificado, Ø11.98 mm',
+    nombre:'Eje A · rectificado, Ø por medir', pieza:'Eje cilíndrico rectificado',
     trueDim:11.98, zeroErrorRaw:0,
     mision:'Caso 1 · Mide el diámetro del Eje A con el micrómetro (resolución 0.01 mm). Lee el manguito (mm y línea de 0.5 mm) y el tambor (centésimas) para formar la lectura de 3 términos.',
   },
   ejeB:{
-    nombre:'Eje B · Ø nominal 20 mm (h7)', pieza:'Eje cilíndrico rectificado, Ø19.97 mm',
+    nombre:'Eje B · rectificado, con error de indicación', pieza:'Eje cilíndrico rectificado',
     trueDim:19.97, zeroErrorRaw:0.02,
-    mision:'Caso 2 · Mide el diámetro del Eje B. Este micrómetro tiene un pequeño error de indicación (+0.02 mm): corrígelo con signo, igual que en el calibrador.',
+    mision:'Caso 2 · Mide el diámetro del Eje B. Este micrómetro tiene un pequeño error de indicación (se informa abajo): corrígelo con signo, igual que en el calibrador.',
   },
   trinquete:{
-    nombre:'Eje A · trinquete vs. tornillo de fijación', pieza:'Mismo eje rectificado, Ø11.98 mm',
+    nombre:'Eje A · trinquete vs. tornillo de fijación', pieza:'Mismo eje rectificado',
     trueDim:11.98, zeroErrorRaw:0,
     mision:'Caso 3 · Identifica qué mecanismo del micrómetro estandariza la fuerza de medición (trinquete) y cuál solo bloquea el husillo en su posición (tornillo de fijación).',
   },
@@ -580,8 +587,55 @@ const CASES_COMP={
   },
 };
 const CASE_ORDER_COMP=['runout','planitud'];
+/* ---------- SIEMBRA de los casos ----------
+   Los diámetros, el error de indicación y las lecturas del comparador se
+   sortean al abrir el lab y otra vez tras tres fallos en un mismo caso. La
+   demostración guiada usa cifras FIJAS (DEMO) que nunca son las del alumno. */
+const pick=a=>a[Math.floor(Math.random()*a.length)];
+const rnd=(lo,hi,st=0.01)=>+(lo+Math.round(Math.random()*(hi-lo)/st)*st).toFixed(3);
+const shuffled=a=>{ const b=a.slice(); for(let i=b.length-1;i>0;i--){ const j=Math.floor(Math.random()*(i+1)); [b[i],b[j]]=[b[j],b[i]]; } return b; };
+const DEMO={
+  ejeA:{trueDim:14.37,zeroErrorRaw:0},
+  ejeB:{trueDim:21.83,zeroErrorRaw:0.03},
+  runout:{readings:[0.00,0.02,0.05,0.06,0.03,0.01],tolerancia:0.05},
+  planitud:{readings:[0.010,0.040,0.020,0.065,0.030]},
+};
+function seedCase(key){
+  if(key==='ejeA'){
+    const c=CASES_MIC.ejeA;
+    do{ c.trueDim=rnd(8,16); }while(Math.abs(c.trueDim-DEMO.ejeA.trueDim)<0.3);
+    c.zeroErrorRaw=0;
+  } else if(key==='ejeB'){
+    const c=CASES_MIC.ejeB;
+    do{ c.trueDim=rnd(17,24.5); }while(Math.abs(c.trueDim-DEMO.ejeB.trueDim)<0.3);
+    c.zeroErrorRaw=pick([0.02,0.03,0.04,-0.02,-0.03]);
+  } else if(key==='runout'){
+    const c=CASES_COMP.runout; let r,tol,tir;
+    do{
+      const A=pick([0.02,0.03,0.04,0.05,0.06,0.08]), ph=Math.random()*Math.PI*2;
+      const raw=c.angles.map(a=>A/2*Math.sin(a*Math.PI/180+ph)+(Math.random()-0.5)*0.008);
+      r=raw.map(v=>+(Math.round((v-raw[0])/0.01)*0.01).toFixed(2)+0);
+      tol=pick([0.02,0.03,0.05]);
+      tir=+(Math.max(...r)-Math.min(...r)).toFixed(2);
+    }while(tir<0.02||Math.abs(tir-tol)<0.01||JSON.stringify(r)===JSON.stringify(DEMO.runout.readings));
+    c.readings=r; c.tolerancia=tol;
+  } else if(key==='planitud'){
+    const c=CASES_COMP.planitud; let r;
+    do{
+      const fl=pick([0.010,0.015,0.025,0.030,0.035,0.040,0.045,0.055,0.060,0.070]);
+      const off=pick([0,-0.010,0.010,-0.020]);
+      const n=c.puntos.length, iMin=Math.floor(Math.random()*n); let iMax;
+      do{ iMax=Math.floor(Math.random()*n); }while(iMax===iMin);
+      r=c.puntos.map((_,i)=> i===iMin?0 : i===iMax?fl : Math.round(Math.random()*fl/0.005)*0.005);
+      r=r.map(v=>+(v+off).toFixed(3));
+    }while(JSON.stringify(r)===JSON.stringify(DEMO.planitud.readings));
+    c.readings=r;
+  }
+}
+['ejeA','ejeB','runout','planitud'].forEach(seedCase);
+
 const CASE_ORDER={mic:CASE_ORDER_MIC, comp:CASE_ORDER_COMP};
-const CASE_LABEL={ejeA:'Eje A (Ø12 h7)', ejeB:'Eje B (Ø20 h7)', trinquete:'Trinquete', runout:'Runout (TIR)', planitud:'Planitud'};
+const CASE_LABEL={ejeA:'Eje A', ejeB:'Eje B (con error)', trinquete:'Trinquete', runout:'Runout (TIR)', planitud:'Planitud'};
 const CASE_CAM={
   mic:{
     ejeA:      [[0.6,2.3,3.2],[-1.0,1.55,0.05]],
@@ -612,73 +666,95 @@ function currentRawMM(){
   return arr[idx];
 }
 
-/* ---------- generador de opciones de quiz ---------- */
-function rotateArr(arr,seed){
-  let h=0; for(let i=0;i<seed.length;i++)h=(h*31+seed.charCodeAt(i))>>>0;
-  const r=h%arr.length; return arr.slice(r).concat(arr.slice(0,r));
-}
+/* ---------- generador de preguntas (banco de distractores) ----------
+   Cada caso tiene UNA opción correcta y un banco de distractores. Al
+   presentar la pregunta se eligen 3 del banco y se barajan; las cifras de la
+   pregunta salen de los datos sembrados del caso, nunca de un texto fijo. Los
+   mensajes de error NO dan la cifra ni la opción correcta: solo dicen qué
+   revisar. */
+const WHY_MAL_LECTURA='Esa cifra no sale de leer las tres escalas del visor y aplicar la corrección del error informado: vuelve a leer cada término.';
+const WHY_MAL_RANGO='Ese valor no corresponde a la definición: revisa qué lecturas intervienen y qué operación las convierte en el resultado pedido.';
+const f2=v=>v.toFixed(2), f3=v=>v.toFixed(3);
+
 function buildOptionsMic(key){
   const lc=LC_MIC;
-  const {rawQ,correctedQ}=caseReadingMic(key);
+  const {rawQ,correctedQ,zeroErrorQ}=caseReadingMic(key);
   const opts=[]; const seen=new Set();
-  const add=(val,why,ok=false)=>{ const k=val.toFixed(3); if(seen.has(k))return; seen.add(k); opts.push({t:val.toFixed(3)+' mm',ok,why}); };
-  add(correctedQ,'Es la lectura del micrómetro (manguito + tambor) corregida por el error de indicación del instrumento: valor correcto a reportar.',true);
-  if(Math.abs(rawQ-correctedQ)>1e-9){
-    const dz=rawQ-correctedQ;
-    add(rawQ,`Es la lectura CRUDA (${rawQ.toFixed(3)} mm) sin restar el error de indicación (${dz>=0?'+':''}${dz.toFixed(3)} mm) que este micrómetro ya tiene.`);
-  }
-  add(correctedQ-0.5,'Olvidaste sumar la línea de 0.5 mm del manguito: en un micrómetro de 0.01 mm la lectura tiene TRES términos (mm enteros + 0.5 mm si la línea media está descubierta + división del tambor×0.01) — omitir el segundo término es el error más común al empezar.');
-  add(correctedQ+0.01,'Error de una división del tambor de más: revisa con cuidado cuál línea del tambor coincide exactamente con la línea de referencia del manguito.');
-  add(correctedQ-0.01,'Error de una división del tambor de menos: revisa con cuidado cuál línea del tambor coincide exactamente con la línea de referencia del manguito.');
-  let k=2;
-  while(opts.length<4 && k<8){ add(correctedQ+k*lc,'Error de varias divisiones del tambor.'); if(opts.length<4)add(correctedQ-k*lc,'Error de varias divisiones del tambor.'); k++; }
-  const ok=opts.find(o=>o.ok), distractors=opts.filter(o=>!o.ok).slice(0,3);
-  return rotateArr([ok,...distractors],key+'mic');
+  const add=(val,why,ok=false)=>{ const k=f3(val); if(seen.has(k))return; seen.add(k); opts.push({t:f3(val)+' mm',ok,why}); };
+  add(correctedQ,'Es la lectura del micrómetro (manguito + línea de 0.5 mm + tambor × 0.01) corregida con el signo del error de indicación del instrumento: el valor que se reporta.',true);
+  if(Math.abs(zeroErrorQ)>1e-9){ add(rawQ,WHY_MAL_LECTURA); add(+(rawQ+zeroErrorQ).toFixed(3),WHY_MAL_LECTURA); }
+  [0.5,-0.5,lc,-lc,2*lc,-2*lc].forEach(d=>add(+(correctedQ+d).toFixed(3),WHY_MAL_LECTURA));
+  return opts;
 }
 function micQuizText(key){
   const c=CASES_MIC[key]; const {zeroErrorQ}=caseReadingMic(key);
-  const pregunta=`${c.mision}<br>Error de indicación de este micrómetro: <b>${zeroErrorQ>=0?'+':''}${zeroErrorQ.toFixed(3)} mm</b>. Lee el visor (manguito+tambor) y elige la <b>lectura corregida</b>.`;
+  const pregunta=`${c.mision}<br>Error de indicación de este micrómetro: <b>${zeroErrorQ>=0?'+':''}${f3(zeroErrorQ)} mm</b>. Lee el visor (manguito+tambor) y elige la <b>lectura corregida</b>.`;
   return {pregunta, opciones:buildOptionsMic(key)};
 }
 function trinqueteQuizText(){
   const pregunta='Caso 3 · En el husillo del micrómetro hay DOS mecanismos que se ven parecidos: el trinquete (al final del tambor) y el tornillo de fijación (en el arco del bastidor). ¿Qué hace cada uno?';
+  const W='Contrasta con lo que ves en el modelo: ¿cuál de los dos mecanismos gira sin hacer avanzar el husillo y cuál solo lo bloquea? Piensa en qué pasaría con la lectura.';
   const opciones=[
-    {t:'El trinquete desliza en vacío al alcanzar una fuerza de medición estándar (orden de 5–10 N según el fabricante), evitando que la fuerza de la mano afecte la lectura; el tornillo de fijación solo bloquea el husillo en su posición actual para poder retirar el instrumento sin perder la lectura.', ok:true, why:'Son dos funciones distintas y complementarias: el trinquete estandariza la fuerza de medición (repetibilidad entre operadores); el tornillo de fijación inmoviliza mecánicamente el husillo una vez tomada la lectura.'},
-    {t:'El trinquete y el tornillo de fijación son el mismo mecanismo con dos nombres distintos.', ok:false, why:'Son mecanismos físicamente distintos y con funciones distintas: uno estandariza fuerza (trinquete), el otro bloquea posición (tornillo de fijación).'},
-    {t:'El tornillo de fijación estandariza la fuerza de medición; el trinquete solo bloquea el husillo.', ok:false, why:'Es al revés: el trinquete (rueda estriada, gira en vacío) estandariza la fuerza; el tornillo de fijación (palanca o tornillo lateral) es el que bloquea la posición.'},
-    {t:'Ninguno de los dos mecanismos afecta la lectura; están ahí solo por comodidad ergonómica.', ok:false, why:'El trinquete SÍ afecta la lectura si no se usa: apretar el husillo directamente con los dedos (sin trinquete) aplica una fuerza de medición no estandarizada, que puede alterar la lectura — por eso todo procedimiento correcto exige usarlo.'},
+    {t:'El trinquete desliza en vacío al alcanzar la fuerza de medición del fabricante, de modo que la mano no altera la lectura; el tornillo de fijación solo inmoviliza el husillo para poder leer sin que se mueva.', ok:true, why:'El trinquete (rueda estriada que gira en vacío) estandariza la fuerza de medición y por eso la lectura es repetible entre operadores; el tornillo de fijación solo bloquea el husillo en su posición. La fuerza exacta es dato del fabricante, no de una norma general.'},
+    {t:'El tornillo de fijación desliza en vacío al alcanzar la fuerza de medición del fabricante, de modo que la mano no altera la lectura; el trinquete solo inmoviliza el husillo para poder leer sin que se mueva.', ok:false, why:W},
+    {t:'Ambos son el mismo mecanismo con dos nombres: una pieza que desliza en vacío al llegar a la fuerza de medición y que además inmoviliza el husillo en su posición para poder leer sin que se mueva.', ok:false, why:W},
+    {t:'Ninguno de los dos influye en la lectura: el trinquete es solo una rueda ergonómica para girar con más comodidad y el tornillo de fijación sirve para sujetar el micrómetro al soporte mientras se mide.', ok:false, why:W},
+    {t:'El trinquete ajusta el cero del instrumento girando el manguito con una llave; el tornillo de fijación fija la fuerza de medición en el valor elegido antes de cada serie de piezas del mismo lote.', ok:false, why:W},
+    {t:'El trinquete se usa solo con piezas blandas y con piezas de acero se gira el tambor directamente; el tornillo de fijación se aprieta siempre antes de medir para que el husillo no se desplace.', ok:false, why:W},
+    {t:'El tornillo de fijación se aprieta antes del contacto para que el yunque no se desplace al medir; el trinquete se retira del tambor para que la fuerza dependa de la sensibilidad de quien mide.', ok:false, why:W},
   ];
-  return {pregunta, opciones:rotateArr(opciones,'trinquete')};
+  return {pregunta, opciones};
 }
+/* Filas de opciones de los casos del comparador: cada fila es un VALOR (el
+   resultado del cálculo) y el veredicto que de él se sigue. Las erróneas se
+   descartan si su valor coincide con el correcto. */
+const vRun=(v,tol)=> v>tol+1e-9?'RECHAZA':'ACEPTA';
+const vPla=(v,h,k)=> v>k+1e-9?'RECHAZA en Clase H y en Clase K': v>h+1e-9?'RECHAZA en Clase H, ACEPTA en Clase K':'ACEPTA en ambas clases';
 function runoutQuizText(){
-  const st=runoutStats();
-  const mean=st.readings.reduce((a,b)=>a+b,0)/st.readings.length;
-  const pregunta=`Girando el eje en pasos de 60° obtuviste estas lecturas del comparador (desviación relativa, mm): ${st.angles.map((a,i)=>a+'°:'+st.readings[i].toFixed(2)).join(' · ')}. ¿Cuál es el TIR (Total Indicator Reading) y qué decides contra la tolerancia de ${st.tolerancia.toFixed(2)} mm?`;
-  const opciones=[
-    {t:`TIR = máx − mín = ${Math.max(...st.readings).toFixed(2)} − ${Math.min(...st.readings).toFixed(2)} = ${st.tir.toFixed(2)} mm (el valor NO se divide entre 2); como ${st.tir.toFixed(2)} mm > ${st.tolerancia.toFixed(2)} mm → RECHAZA.`, ok:true, why:'El TIR (runout) tolerado en un dibujo GD&T es el valor completo máx−mín de todo el giro, sin dividir entre 2 — dividir entre 2 da la EXCENTRICIDAD, una magnitud distinta usada para alineación/balanceo, no para comparar contra la tolerancia de runout.'},
-    {t:`Excentricidad = TIR/2 = ${st.ecc.toFixed(3)} mm; como ${st.ecc.toFixed(3)} mm > ${st.tolerancia.toFixed(2)} mm, también se rechaza.`, ok:false, why:'Confunde excentricidad con TIR: la tolerancia de runout del dibujo se compara contra el TIR completo (máx−mín), no contra TIR/2. La excentricidad es una magnitud derivada útil para otros fines, no la que se compara aquí.'},
-    {t:`Comparando solo las lecturas a 0° y 300° (ambas ${st.readings[0].toFixed(2)} mm), el TIR parecería 0.00 mm → pasa.`, ok:false, why:'Muestrear solo 2 de los 6 puntos puede ocultar el máximo real (aquí ocurre a 180°=0.05mm). El runout exige revisar el giro COMPLETO, no solo dos posiciones arbitrarias.'},
-    {t:`El TIR se calcula como el promedio de las 6 lecturas ≈ ${mean.toFixed(3)} mm → pasa.`, ok:false, why:'Confunde el promedio con el rango. El TIR es una medida de RANGO (máx−mín), no de tendencia central — el promedio no tiene significado metrológico aquí.'},
+  const st=runoutStats(); const r=st.readings, tol=st.tolerancia;
+  const mx=Math.max(...r), mn=Math.min(...r), mean=r.reduce((a,b)=>a+b,0)/r.length;
+  const fila=(formula,val,ok,why)=>({t:`${formula} = ${f3(val)} mm; frente a ${f2(tol)} mm → ${vRun(val,tol)}.`,ok,why,_v:val});
+  const tir=st.tir;
+  const pool=[
+    fila(`TIR = máx − mín = ${f2(mx)} − ${f2(mn)}`,tir,true,'TIR = máx − mín de TODA la vuelta, sin dividir entre 2, y se compara contra la tolerancia de runout del dibujo.'),
+    fila('TIR = (máx − mín) ÷ 2',tir/2,false,WHY_MAL_RANGO),
+    fila('TIR = 2 × (máx − mín)',tir*2,false,WHY_MAL_RANGO),
+    fila(`TIR = promedio de las ${r.length} lecturas`,mean,false,WHY_MAL_RANGO),
+    fila('TIR = lectura máxima de la vuelta',mx,false,WHY_MAL_RANGO),
   ];
-  return {pregunta, opciones:rotateArr(opciones,'runout')};
+  [[0,5],[0,1],[1,2],[2,4],[0,3]].forEach(([i,j])=>pool.push(fila(`TIR = diferencia entre las lecturas de ${st.angles[i]}° y ${st.angles[j]}°`,Math.abs(r[i]-r[j]),false,WHY_MAL_RANGO)));
+  const seen=new Set(); const opciones=[];
+  pool.forEach(o=>{ const k=f3(o._v); if(seen.has(k))return; seen.add(k); opciones.push(o); });
+  const pregunta=`Girando el eje en pasos de 60° obtuviste estas lecturas del comparador (desviación relativa, mm): ${st.angles.map((a,i)=>a+'°:'+f2(r[i])).join(' · ')}. ¿Cuál es el TIR (Total Indicator Reading) y qué decides frente a la tolerancia de runout del dibujo (${f2(tol)} mm)?`;
+  return {pregunta, opciones};
 }
 function planitudQuizText(){
-  const st=planitudStats();
-  const mean=st.readings.reduce((a,b)=>a+b,0)/st.readings.length;
-  const pregunta=`Recorriendo los 5 puntos de la placa obtuviste (mm, relativo): ${st.puntos.map((p,i)=>p+':'+st.readings[i].toFixed(3)).join(' · ')}. ¿Cuál es la planitud y qué decides contra las clases de tolerancia H (${st.tolH.toFixed(2)} mm) y K (${st.tolK.toFixed(2)} mm) de ISO 2768-2?`;
-  const opciones=[
-    {t:`Planitud = máx − mín entre los 5 puntos = ${Math.max(...st.readings).toFixed(3)} − ${Math.min(...st.readings).toFixed(3)} = ${st.flat.toFixed(3)} mm; RECHAZA contra Clase H (${st.tolH.toFixed(2)} mm) pero PASARÍA contra Clase K (${st.tolK.toFixed(2)} mm) — la clase de tolerancia elegida en el plano importa tanto como la medición.`, ok:true, why:'La planitud por el método de taller (indicador + placa de referencia) es el rango máx−mín entre todos los puntos muestreados; comparar el mismo dato contra distintas clases de tolerancia (ISO 2768-2) puede cambiar la decisión de aceptación.'},
-    {t:`Solo comparando dos esquinas opuestas (${st.readings[0].toFixed(3)} y ${st.readings[3].toFixed(3)} mm) la planitud parecería ${Math.abs(st.readings[3]-st.readings[0]).toFixed(3)} mm → pasa contra Clase H.`, ok:false, why:'Muestrear solo 2 de los 5 puntos puede ocultar el máximo real (aquí en la Esquina 3 = 0.045mm). La planitud exige revisar TODOS los puntos muestreados, no un par arbitrario.'},
-    {t:`Planitud = promedio de las 5 lecturas ≈ ${mean.toFixed(3)} mm → pasa contra Clase H.`, ok:false, why:'Confunde el promedio con el rango. La planitud es una medida de RANGO (máx−mín) entre los puntos muestreados, no de tendencia central.'},
-    {t:`Como el centro (${st.readings[4].toFixed(3)} mm) es el punto de referencia, la planitud es la desviación del centro respecto al promedio de las esquinas.`, ok:false, why:'No hay un punto de referencia privilegiado en la definición de taller: la planitud es el rango máx−mín entre TODOS los puntos muestreados (incl. el centro), sin tratar a ninguno como referencia especial.'},
+  const st=planitudStats(); const r=st.readings, h=st.tolH, k=st.tolK;
+  const mx=Math.max(...r), mn=Math.min(...r), mean=r.reduce((a,b)=>a+b,0)/r.length;
+  const esq=(r[0]+r[1]+r[2]+r[3])/4;
+  const fila=(formula,val,ok,why)=>({t:`${formula} = ${f3(val)} mm; ${vPla(val,h,k)}.`,ok,why,_v:val});
+  const flat=st.flat;
+  const pool=[
+    fila(`Planitud = máx − mín = ${f3(mx)} − ${f3(mn)}`,flat,true,'La planitud por el método de taller (indicador + placa de referencia) es el rango máx − mín entre TODOS los puntos muestreados; el mismo dato contra otra clase de tolerancia (ISO 2768-2) puede cambiar la decisión.'),
+    fila('Planitud = 2 × (máx − mín)',flat*2,false,WHY_MAL_RANGO),
+    fila('Planitud = (máx − mín) ÷ 2',flat/2,false,WHY_MAL_RANGO),
+    fila(`Planitud = promedio de los ${r.length} puntos`,Math.abs(mean),false,WHY_MAL_RANGO),
+    fila('Planitud = lectura máxima de la placa',Math.abs(mx),false,WHY_MAL_RANGO),
+    fila('Planitud = desviación del centro respecto al promedio de las esquinas',Math.abs(r[4]-esq),false,WHY_MAL_RANGO),
+    fila('Planitud = diferencia entre las esquinas opuestas 1 y 4',Math.abs(r[0]-r[3]),false,WHY_MAL_RANGO),
+    fila('Planitud = diferencia entre las esquinas opuestas 2 y 3',Math.abs(r[1]-r[2]),false,WHY_MAL_RANGO),
   ];
-  return {pregunta, opciones:rotateArr(opciones,'planitud')};
+  const seen=new Set(); const opciones=[];
+  pool.forEach(o=>{ const kk=f3(o._v); if(seen.has(kk))return; seen.add(kk); opciones.push(o); });
+  const pregunta=`Recorriendo los 5 puntos de la placa obtuviste (mm, relativo): ${st.puntos.map((p,i)=>p+':'+f3(r[i])).join(' · ')}. ¿Cuál es la planitud y qué decides contra las clases de tolerancia H (${f2(h)} mm) y K (${f2(k)} mm) de ISO 2768-2?`;
+  return {pregunta, opciones};
 }
 function currentQuiz(){
   if(instKey==='comp'){ return caseKey==='runout' ? runoutQuizText() : planitudQuizText(); }
   if(caseKey==='trinquete') return trinqueteQuizText();
   return micQuizText(caseKey);
 }
+
 
 /* ============================================================
    ESCENA 3D — 1) MICRÓMETRO (bastidor en C, eje de medición vertical)
@@ -816,11 +892,21 @@ function makeEje(trueDim,mat,labelTxt,infoTxt){
   lb.visible=false; lb.raycast=()=>{}; g.add(lb); HOVER_LABELS.set(barra,lb);
   return g;
 }
-const WK_GROUPS_MIC={
-  ejeA:makeEje(CASES_MIC.ejeA.trueDim, MAT.ejeA, 'Eje A · Ø11.98 mm','Eje cilíndrico rectificado, Ø nominal 12 mm (tolerancia h7). Mide su diámetro con el micrómetro.'),
-  ejeB:makeEje(CASES_MIC.ejeB.trueDim, MAT.ejeB, 'Eje B · Ø19.97 mm','Eje cilíndrico rectificado, Ø nominal 20 mm (tolerancia h7). Este micrómetro tiene error de indicación.'),
-  trinquete:makeEje(CASES_MIC.trinquete.trueDim, MAT.ejeC, 'Eje A · práctica de trinquete','Mismo eje del Caso 1 — aquí el objetivo es identificar el trinquete y el tornillo de fijación, no releer el diámetro.'),
+const EJE_META={
+  ejeA:[MAT.ejeA,'Eje A · rectificado','Eje cilíndrico rectificado. Mide su diámetro con el micrómetro.'],
+  ejeB:[MAT.ejeB,'Eje B · rectificado','Eje cilíndrico rectificado. Este micrómetro tiene error de indicación.'],
+  trinquete:[MAT.ejeC,'Eje A · práctica de trinquete','Mismo eje del Caso 1 — aquí el objetivo es identificar el trinquete y el tornillo de fijación, no releer el diámetro.'],
 };
+const creaEje=key=>makeEje(CASES_MIC[key].trueDim,...EJE_META[key]);
+const WK_GROUPS_MIC={ejeA:creaEje('ejeA'),ejeB:creaEje('ejeB'),trinquete:creaEje('trinquete')};
+/* La pieza se rehace con el diámetro sembrado (al resembrar y en la demostración). */
+function rebuildMic(key){
+  const old=WK_GROUPS_MIC[key], padre=old.parent;
+  if(padre) padre.remove(old);
+  old.traverse(o=>{ if(o.geometry) o.geometry.dispose(); });
+  WK_GROUPS_MIC[key]=creaEje(key);
+  if(padre) padre.add(WK_GROUPS_MIC[key]);
+}
 micG.add(WK_GROUPS_MIC.ejeA);
 
 /* ============================================================
@@ -944,7 +1030,7 @@ document.getElementById('hud').innerHTML=`
   <p>El micrómetro exige leer TRES escalas en cascada — milímetros, línea de 0.5 mm y centésimas del tambor — mientras que el comparador de carátula convierte un desplazamiento lineal en el giro de una aguja para comparar una pieza contra una referencia. Este laboratorio cierra el núcleo de metrología general: mide ejes con el micrómetro y evalúa runout y planitud con el comparador.</p>
   <div class="formula">Lectura (micrómetro) = mm enteros + [0.5 mm si la línea media es visible] + división del tambor × 0.01 mm<br>TIR = máx − mín (NO se divide entre 2) · Excentricidad = TIR/2<br>Planitud = máx − mín entre todos los puntos muestreados</div>
   <div class="legend">
-    <div class="li"><span class="dot" style="background:#8a949c"></span>Micrómetro · ejes rectificados (Ø12 / Ø20 h7)</div>
+    <div class="li"><span class="dot" style="background:#8a949c"></span>Micrómetro · ejes rectificados (Ø por medir)</div>
     <div class="li"><span class="dot" style="background:#C9A227"></span>Micrómetro · error de indicación</div>
     <div class="li"><span class="dot" style="background:#ff6b6b"></span>Comparador · runout (TIR), eje rotando</div>
     <div class="li"><span class="dot" style="background:#FFD166"></span>Comparador · planitud, placa 5 puntos</div>
@@ -1018,7 +1104,9 @@ function drawMicVisor(mm){
   c.fillStyle='#FFD166'; c.font='bold 13px Outfit, sans-serif';
   c.fillText('línea alineada: '+dec.thimbleDiv+' / 50',256,222);
   c.fillStyle='#EAF4F1'; c.font='bold 28px Outfit, sans-serif'; c.textAlign='right';
-  c.fillText(mm.toFixed(2)+' mm',492,245); c.textAlign='left';
+  if(solved||autoRunning||caseKey==='trinquete') c.fillText(mm.toFixed(2)+' mm',492,245);
+  else { c.fillStyle='#8FB3AC'; c.font='13px Outfit, sans-serif'; c.fillText('lee: mm + 0.5 + div × 0.01',492,245); }
+  c.textAlign='left';
   micTex.needsUpdate=true;
 }
 function drawCompDial(mm){
@@ -1056,7 +1144,7 @@ function updateTele(raw){
   const set=(id,txt,cls)=>{ const b=el(id); b.textContent=txt; b.className=cls||''; };
   if(instKey==='mic'){
     const c=CASES_MIC[caseKey]; const {zeroErrorQ}=caseReadingMic(caseKey);
-    set('t_raw', raw.toFixed(2)+' mm', contact?'good':'');
+    set('t_raw', (solved||autoRunning||caseKey==='trinquete')?raw.toFixed(2)+' mm':(contact?'— (léela en el visor)':'—'), contact?'good':'');
     set('t_ref', (zeroErrorQ>=0?'+':'')+zeroErrorQ.toFixed(3)+' mm (error indic.)', zeroErrorQ!==0?'warn':'good');
     set('t_lc','0.01 mm (tambor: 50 div.)','');
     set('t_case', c.nombre,'');
@@ -1082,17 +1170,21 @@ function updateReport(raw){
       html=`<b>${c.mision}</b><br><span class="mono">Lectura con trinquete (fuerza estandarizada): <b>${raw.toFixed(2)} mm</b><br>El trinquete garantiza que esta lectura sea repetible entre distintos operadores — NO se modela aquí un valor numérico "sin trinquete" (la magnitud exacta de ese error depende del operador y no está documentada con precisión suficiente para simularla).</span>`;
     } else {
       const {zeroErrorQ,correctedQ}=caseReadingMic(caseKey);
-      html=`<b>${c.mision}</b><br><span class="mono">Lectura del visor (manguito+tambor): <b>${raw.toFixed(3)} mm</b><br>Error de indicación del instrumento: <b>${(zeroErrorQ>=0?'+':'')+zeroErrorQ.toFixed(3)} mm</b><br>Lectura corregida = cruda − error = ${raw.toFixed(3)} − (${zeroErrorQ.toFixed(3)}) = <b>${correctedQ.toFixed(3)} mm</b></span>`;
+      if(solved||autoRunning){
+        html=`<b>${c.mision}</b><br><span class="mono">Lectura del visor (manguito+tambor): <b>${raw.toFixed(3)} mm</b><br>Error de indicación del instrumento: <b>${(zeroErrorQ>=0?'+':'')+zeroErrorQ.toFixed(3)} mm</b><br>Lectura corregida = cruda − error = ${raw.toFixed(3)} − (${zeroErrorQ.toFixed(3)}) = <b>${correctedQ.toFixed(3)} mm</b></span>`;
+      } else {
+        html=`<b>${c.mision}</b><br><span class="mono">Error de indicación del instrumento: <b>${(zeroErrorQ>=0?'+':'')+zeroErrorQ.toFixed(3)} mm</b><br>Lee el visor (mm del manguito + 0.5 mm si la línea media está descubierta + división del tambor × 0.01), corrige con el signo del error y responde.</span>`;
+      }
     }
   } else {
     if(!contact){
       html='<span class="mono">Comparador sin fijar. Pulsa "Fijar en cero" y usa "Siguiente punto" para recorrer las lecturas.</span>';
     } else if(caseKey==='runout'){
       const st=runoutStats();
-      html=`<b>${CASES_COMP.runout.mision}</b><br><span class="mono">Lecturas (0°→300°): ${st.readings.map((r,i)=>st.angles[i]+'°='+r.toFixed(2)).join(' · ')} mm<br>TIR = máx − mín = <b>${st.tir.toFixed(2)} mm</b> · Excentricidad = TIR/2 = ${st.ecc.toFixed(3)} mm<br>Tolerancia: ${st.tolerancia.toFixed(2)} mm → <b>${st.rechaza?'RECHAZA':'ACEPTA'}</b></span>`;
+      html=`<b>${CASES_COMP.runout.mision}</b><br><span class="mono">Lecturas (0°→300°): ${st.readings.map((r,i)=>st.angles[i]+'°='+r.toFixed(2)).join(' · ')} mm<br>Tolerancia de runout: ${st.tolerancia.toFixed(2)} mm${(solved||autoRunning)?`<br>TIR = máx − mín = <b>${st.tir.toFixed(2)} mm</b> · Excentricidad = TIR/2 = ${st.ecc.toFixed(3)} mm → <b>${st.rechaza?'RECHAZA':'ACEPTA'}</b>`:'<br>Calcula el TIR con estas lecturas y decide.'}</span>`;
     } else {
       const st=planitudStats();
-      html=`<b>${CASES_COMP.planitud.mision}</b><br><span class="mono">Lecturas: ${st.readings.map((r,i)=>st.puntos[i]+'='+r.toFixed(3)).join(' · ')} mm<br>Planitud = máx − mín = <b>${st.flat.toFixed(3)} mm</b><br>Clase H (${st.tolH.toFixed(2)} mm): <b>${st.rechazaH?'RECHAZA':'ACEPTA'}</b> · Clase K (${st.tolK.toFixed(2)} mm): <b>${st.pasaK?'ACEPTA':'RECHAZA'}</b></span>`;
+      html=`<b>${CASES_COMP.planitud.mision}</b><br><span class="mono">Lecturas: ${st.readings.map((r,i)=>st.puntos[i]+'='+r.toFixed(3)).join(' · ')} mm<br>Clase H: ${st.tolH.toFixed(2)} mm · Clase K: ${st.tolK.toFixed(2)} mm${(solved||autoRunning)?`<br>Planitud = máx − mín = <b>${st.flat.toFixed(3)} mm</b><br>Clase H: <b>${st.rechazaH?'RECHAZA':'ACEPTA'}</b> · Clase K: <b>${st.pasaK?'ACEPTA':'RECHAZA'}</b>`:'<br>Calcula la planitud con estas lecturas y decide.'}</span>`;
     }
   }
   el('report').innerHTML=html;
@@ -1121,22 +1213,47 @@ function renderCaseBar(){
 }
 function refreshCaseLabel(){ const order=CASE_ORDER[instKey]; el('p_case').textContent='Caso '+(order.indexOf(caseKey)+1)+'/'+order.length; }
 function clearDx(){ document.querySelectorAll('.b.dx').forEach(b=>b.classList.remove('right','wrong')); }
+function renderQuiz(){
+  el('q_text').innerHTML=quizNow.pregunta;
+  el('dxbtns').innerHTML=quizNow.opciones.map((o,i)=>`<button class="b dx" data-i="${i}">${'ABCD'[i]} · ${o.t}</button>`).join('');
+  el('dxbtns').querySelectorAll('.b.dx').forEach(btn=>{ btn.onclick=()=>answer(+btn.dataset.i); });
+}
+/* Una correcta + 3 del banco de distractores, barajadas: ni la posición ni el
+   largo delatan la respuesta, y tras una resiembra salen otras. */
 function refreshQuestion(){
   const q=currentQuiz();
-  el('q_text').innerHTML=q.pregunta;
-  el('dxbtns').innerHTML=q.opciones.map((o,i)=>`<button class="b dx" data-i="${i}">${'ABCD'[i]} · ${o.t}</button>`).join('');
-  el('dxbtns').querySelectorAll('.b.dx').forEach(btn=>{ btn.onclick=()=>answer(+btn.dataset.i); });
+  const buenas=q.opciones.filter(o=>o.ok), malas=q.opciones.filter(o=>!o.ok);
+  quizNow={pregunta:q.pregunta,opciones:shuffled(buenas.concat(shuffled(malas).slice(0,3)))};
+  renderQuiz();
+}
+function resiembra(){
+  fallosCaso[caseKey]=0; RETO.resiembras++;
+  if(caseKey in DEMO){ seedCase(caseKey); }
+  if(instKey==='mic'&&caseKey!=='trinquete'){ rebuildMic(caseKey); if(contact) micGapTargetMM=currentRawMM(); }
+  idx=0; solved=false;
+  if(caseKey==='runout'){ shaftAngleTarget=CASES_COMP.runout.angles[0]*Math.PI/180; shaftAngle=shaftAngleTarget; }
+  refreshQuestion(); refreshInstrument();
 }
 function answer(i){
   if(!contact){ showToast(instKey==='mic'?'Primero cierra el husillo sobre la pieza.':'Primero fija el comparador en cero.'); return; }
-  const q=currentQuiz(); const o=q.opciones[i]; clearDx();
+  if(autoRunning) return;                 // la demostración enseña, no puntúa
+  if(answered[caseKey]){ showToast('Este caso ya está resuelto: pasa al siguiente.'); return; }
+  const o=quizNow.opciones[i]; clearDx();
   const btn=el('dxbtns').children[i];
+  RETO.intentos++;
   if(o.ok){
-    btn.classList.add('right'); solved=true; synth.beep(1046,0.12,0.06);
+    btn.classList.add('right'); solved=true; answered[caseKey]=true; fallosCaso[caseKey]=0; synth.beep(1046,0.12,0.06);
     showToast(`<span style="color:var(--good)">✔ Correcto.</span><br><span style="color:var(--dim);font-size:11px">${o.why}</span>`);
+    refreshInstrument();
   }else{
     btn.classList.add('wrong'); synth.beep(220,0.15,0.06);
-    showToast(`<span style="color:var(--bad)">✗ Revisa la lectura.</span><br><span style="color:var(--dim);font-size:11px">${o.why}</span>`);
+    fallosCaso[caseKey]++;
+    if(fallosCaso[caseKey]>=3){
+      resiembra();
+      showToast(`<span style="color:var(--bad)">✗ Tres fallos en este caso.</span><br><span style="color:var(--dim);font-size:11px">Cambian los datos del caso: vuelve a medir con calma y razona cada paso.</span>`);
+    } else {
+      showToast(`<span style="color:var(--bad)">✗ Revisa tu resultado.</span><br><span style="color:var(--dim);font-size:11px">${o.why} (fallos en este caso: ${fallosCaso[caseKey]}/3)</span>`);
+    }
   }
 }
 
@@ -1145,7 +1262,7 @@ let micGapMM=PARK_MM, micGapTargetMM=PARK_MM;
 let shaftAngle=0, shaftAngleTarget=0;
 
 function setInst(key){
-  if(key===instKey) return;
+  if(key===instKey||autoRunning) return;
   const oldGrp = instKey==='mic'?micG:compG;
   const oldWk = instKey==='mic'?WK_GROUPS_MIC[caseKey]:WK_GROUPS_COMP[caseKey];
   oldGrp.remove(oldWk); scene.remove(oldGrp);
@@ -1161,12 +1278,13 @@ function setInst(key){
   if(key==='mic'){ micGapTargetMM=PARK_MM; }
   else if(caseKey==='runout'){ shaftAngleTarget=CASES_COMP.runout.angles[0]*Math.PI/180; shaftAngle=shaftAngleTarget; }
   renderCaseBar();
-  solved=false; clearDx(); refreshQuestion(); refreshCaseLabel();
+  solved=!!answered[caseKey]; clearDx(); refreshQuestion(); refreshCaseLabel();
   const meta=CASE_CAM[key][caseKey]; S.moveTo(meta[0],meta[1],1.3);
   refreshInstrument();
   showToast('🔀 '+(key==='mic'?'Micrómetro':'Comparador de carátula')+' — '+(key==='mic'?CASES_MIC[caseKey].nombre:CASES_COMP[caseKey].nombre));
 }
 function setCase(key){
+  if(autoRunning) return;
   const grp = instKey==='mic'?micG:compG;
   const groups = instKey==='mic'?WK_GROUPS_MIC:WK_GROUPS_COMP;
   grp.remove(groups[caseKey]);
@@ -1178,7 +1296,7 @@ function setCase(key){
   el('stepWrap').style.display = instKey==='comp' ? '' : 'none';
   if(instKey==='mic'){ micGapTargetMM=PARK_MM; }
   else if(key==='runout'){ shaftAngleTarget=CASES_COMP.runout.angles[0]*Math.PI/180; shaftAngle=shaftAngleTarget; }
-  solved=false; clearDx(); refreshQuestion(); refreshCaseLabel();
+  solved=!!answered[caseKey]; clearDx(); refreshQuestion(); refreshCaseLabel();
   const meta=CASE_CAM[instKey][key]; S.moveTo(meta[0],meta[1],1.3);
   refreshInstrument();
   showToast('🔀 '+(instKey==='mic'?CASES_MIC[key].nombre:CASES_COMP[key].nombre));
@@ -1237,16 +1355,23 @@ soundBtn.onclick=()=>{const on=synth.toggle();soundBtn.textContent=on?'🔊':'�
 
 /* ---------- Modo automático (guiado) ---------- */
 const sleep=ms=>new Promise(r=>setTimeout(r,ms));
-let autoRunning=false;
 async function runAuto(){
   if(autoRunning) return;
   autoRunning=true;
   const btn=el('btnAuto'); const label=btn.textContent;
   btn.disabled=true; btn.classList.add('on'); btn.textContent='⏳ Medición guiada en curso…';
+  const iKey=instKey, cKey=caseKey;
+  const prev={contact, idx, quiz:quizNow, mic:null, comp:null};
+  if(iKey==='mic'&&cKey!=='trinquete') prev.mic={trueDim:CASES_MIC[cKey].trueDim, zeroErrorRaw:CASES_MIC[cKey].zeroErrorRaw};
+  if(iKey==='comp') prev.comp={...CASES_COMP[cKey]};
   try{
     clearDx();
-    const iKey=instKey, cKey=caseKey;
-    if(!contact){ showToast('Paso 1 · '+(iKey==='mic'?'Cerramos el husillo sobre la pieza.':'Fijamos el comparador en cero.')); el('btnJaws').click(); await sleep(1700); }
+    // La demostración mide OTRA pieza (cifras DEMO): lo del alumno no se toca.
+    if(prev.mic){ Object.assign(CASES_MIC[cKey],DEMO[cKey]); rebuildMic(cKey); }
+    if(prev.comp){ Object.assign(CASES_COMP[cKey],DEMO[cKey]); }
+    if(iKey==='mic'&&contact) micGapTargetMM=currentRawMM();
+    refreshInstrument();
+    if(!contact){ showToast('Paso 1 · '+(iKey==='mic'?'Cerramos el husillo sobre la pieza de ejemplo.':'Fijamos el comparador en cero sobre la pieza de ejemplo.')); el('btnJaws').click(); await sleep(1700); }
     if(iKey==='mic'){
       if(cKey==='trinquete'){
         showToast('Paso 2 · Observa el trinquete (rueda estriada) vs. el tornillo de fijación (arco del bastidor).'); await sleep(2200);
@@ -1265,14 +1390,18 @@ async function runAuto(){
       }
       showToast('Paso final · Compara el rango (máx−mín) contra la tolerancia antes de responder.'); await sleep(2200);
     }
-    const q=currentQuiz(); const i=q.opciones.findIndex(o=>o.ok);
-    clearDx();
-    const dxBtn=el('dxbtns').children[i];
-    if(dxBtn){ dxBtn.classList.add('right'); solved=true; synth.beep(1046,0.12,0.06); }
-    showToast('<span style="color:var(--good)">✔ '+q.opciones[i].t+'</span><br><span style="color:var(--dim);font-size:11px">'+q.opciones[i].why+'</span>');
+    const ok=currentQuiz().opciones.find(o=>o.ok);
+    showToast('<span style="color:var(--good)">✔ Resultado de la pieza de ejemplo</span><br>'+ok.t+'<br><span style="color:var(--dim);font-size:11px">'+ok.why+' Tu avance en el reto no cambió.</span>'); await sleep(2600);
   } finally {
-    btn.disabled=false; btn.classList.remove('on'); btn.textContent=label;
+    if(prev.mic){ Object.assign(CASES_MIC[cKey],prev.mic); rebuildMic(cKey); }
+    if(prev.comp){ Object.assign(CASES_COMP[cKey],prev.comp); }
     autoRunning=false;
+    idx=prev.idx; if(iKey==='comp'&&cKey==='runout'){ shaftAngleTarget=CASES_COMP.runout.angles[idx]*Math.PI/180; }
+    if(contact!==prev.contact) el('btnJaws').click();
+    if(iKey==='mic'&&contact) micGapTargetMM=currentRawMM();
+    quizNow=prev.quiz; renderQuiz();
+    refreshInstrument();
+    btn.disabled=false; btn.classList.remove('on'); btn.textContent=label;
   }
 }
 el('btnAuto').onclick=runAuto;
@@ -1299,6 +1428,17 @@ S.setAnimate((dt,time)=>{
 });
 let lastDraw=0;
 
+window.__labDebug={
+  get mode(){ return instKey+':'+caseKey; },
+  get solved(){ return Object.values(answered).every(Boolean); },
+  get intentos(){ return RETO.intentos; },
+  state(){ return {inst:instKey,caso:caseKey,contacto:contact,answered:{...answered},intentos:RETO.intentos,
+    fallos:{...fallosCaso},resiembras:RETO.resiembras,resuelto:Object.values(answered).every(Boolean),autoRunning}; },
+  datos(){ return {mic:JSON.parse(JSON.stringify(CASES_MIC)),comp:JSON.parse(JSON.stringify(CASES_COMP))}; },
+  setInst(k){ setInst(k); }, setCase(k){ setCase(k); },
+  cierra(){ if(!contact) el('btnJaws').click(); },
+  opciones(){ return [...document.querySelectorAll('#dxbtns .b.dx')].map((b,i)=>({t:b.textContent,ok:!!quizNow.opciones[i].ok})); },
+};
 setCase('ejeA');
 </script>
   <!-- Ficha técnica · Capa B del molde de lab 3D (componente compartido + contenido del lab) -->

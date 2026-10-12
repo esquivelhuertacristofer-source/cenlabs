@@ -382,6 +382,31 @@ const INV={
   V_dc:350, n_igbt:6,
   f_sw_options:[2000,8000,15000,20000],
 };
+/* ---------- datos de los retos: se sortean al abrir el lab y al resembrar ---------- */
+const pickOne=a=>a[Math.floor(Math.random()*a.length)];
+const shuffledInv=a=>{ const b=a.slice(); for(let i=b.length-1;i>0;i--){ const j=Math.floor(Math.random()*(i+1)); [b[i],b[j]]=[b[j],b[i]]; } return b; };
+let M_IDX=0.90;                                   // índice de modulación del Reto 1
+const RETO_INV={intentos:0,resiembras:0,fallosV:0,fallosF:0,fallosDx:0,pistasV:0,hecho:false};
+function sorteaM(){ const p=M_IDX; do{ M_IDX=pickOne([0.75,0.80,0.85,0.90,0.95]); }while(M_IDX===p); }
+sorteaM();
+/* Reto 2: el requisito cambia, y con él la frecuencia que conviene. */
+const FREQ_CASOS=[
+  {req:'Para un motor silencioso sin sobrecalentar el inversor', ok:'mid'},
+  {req:'El inversor mueve una bomba industrial en una nave aislada acústicamente: el ruido no importa, pero el disipador es pequeño y hay que minimizar pérdidas', ok:'low'},
+  {req:'Es un banco de pruebas de laboratorio con refrigeración líquida sobrada que necesita la corriente de salida lo más suave posible, sin restricción de calor', ok:'high'},
+];
+let freqCaso=0;
+const FREQ_HZ={low:2000,mid:15000,high:20000};
+const FREQ_LABEL={
+  low:'<span class="ic">▼</span> 2 kHz — bajas pérdidas, motor ruidoso',
+  mid:'<span class="ic">●</span> 15 kHz — equilibrio silencioso',
+  high:'<span class="ic">▲</span> 20 kHz — máxima suavidad, más calor',
+};
+const FREQ_NOTA={
+  low:'A 2 kHz las pérdidas de conmutación son las más bajas, pero el rizado de corriente es grande y el motor zumba de forma audible.',
+  mid:'A 15 kHz el zumbido de conmutación ya es casi inaudible y las pérdidas son moderadas: es un compromiso.',
+  high:'A 20 kHz el rizado y el ruido casi desaparecen, pero las pérdidas de conmutación suben (≈33 % más que a 15 kHz, ya que crecen con la frecuencia).',
+};
 function peakPhaseVoltage(Vdc,m=1.0){ return m*Vdc/2; }
 function lineToLineRMS(Vdc,m=1.0){ return m*Vdc*Math.sqrt(3)/(2*Math.sqrt(2)); }
 
@@ -797,27 +822,43 @@ function startPhase2(){
   challengeVoltage();
 }
 function challengeVoltage(){
-  const answer=peakPhaseVoltage(INV.V_dc,1.0);
-  window.__vAnswer=answer;
   showTeach('Fase 2 · Reto 1','Calcula el voltaje pico de salida',
-    `<p>Este inversor toma el bus DC de <b>${INV.V_dc} V</b> (el mismo del motor eléctrico del set) y lo convierte en 3 fases de CA. Con modulación senoidal a máxima amplitud lineal, el voltaje pico de cada fase es:</p>
-     <div class="formula">V_fase,pico = Vdc / 2</div>
-     <div class="task">¿Cuál es el voltaje pico de fase, en V?</div>`);
+    `<p>Este inversor toma el bus DC de <b>${INV.V_dc} V</b> (el mismo del motor eléctrico del set) y lo convierte en 3 fases de CA con modulación senoidal. Hoy trabaja con un índice de modulación <b>m = ${M_IDX.toFixed(2)}</b> (la fracción de la amplitud máxima que usa).</p>
+     <div class="task">¿Cuál es el voltaje pico de cada fase, en V? <span class="mini" style="display:inline">Intentos fallidos: <b id="d_try">${RETO_INV.fallosV}</b>/3</span></div>`);
   setActions('Tu cálculo',
     `<div class="calcbox"><label>Voltaje pico de fase (V)</label>
        <div class="calcrow"><input id="ansV" type="number" step="1" placeholder="¿?"><button class="b primary" data-act="check-v" style="flex:0 0 auto">✓</button></div>
-       <div class="mini" data-act="hint-v" style="cursor:pointer;text-decoration:underline"><span>¿Necesitas una pista?</span></div></div>`);
+       <div class="mini" data-act="hint-v" style="cursor:pointer;text-decoration:underline"><span>¿Necesitas una pista? (máx. 2)</span></div></div>`);
 }
 let fSwChoice=15000;
 function challengeFreq(){
+  const caso=FREQ_CASOS[freqCaso];
   showTeach('Fase 2 · Reto 2','Elige la frecuencia de conmutación',
     `<p>Los IGBT pueden conmutar a distintas frecuencias portadora (2kHz a 20kHz). Esta frecuencia NO es la frecuencia de salida del motor — es cuántas veces por segundo se "trocea" la señal para sintetizar la onda senoidal.</p>
      <div class="why"><b>El tradeoff real:</b> a mayor frecuencia de conmutación, la onda de salida es más suave y el motor hace menos ruido audible (≥15kHz lo vuelve casi inaudible). Pero cada conmutación disipa energía en el IGBT como calor: más frecuencia = más pérdidas = más calor.</div>
-     <div class="task">Para un motor silencioso sin sobrecalentar el inversor, ¿qué frecuencia eliges?</div>`);
+     <div class="task">${caso.req}: ¿qué frecuencia eliges? <span class="mini" style="display:inline">Intentos fallidos: <b id="d_tryf">${RETO_INV.fallosF}</b>/3</span></div>`);
   setActions('Tu decisión',
-    `<button class="b" data-act="freq-low"><span class="ic">▼</span> 2 kHz — bajas pérdidas, motor ruidoso</button>
-     <button class="b" data-act="freq-mid"><span class="ic">●</span> 15 kHz — equilibrio silencioso</button>
-     <button class="b" data-act="freq-high"><span class="ic">▲</span> 20 kHz — máxima suavidad, más calor</button>`);
+    shuffledInv(['low','mid','high']).map(k=>`<button class="b" data-act="freq-${k}">${FREQ_LABEL[k]}</button>`).join(''));
+}
+function eligeFreq(k){
+  const caso=FREQ_CASOS[freqCaso];
+  RETO_INV.intentos++;
+  if(k===caso.ok){
+    RETO_INV.fallosF=0; fSwChoice=FREQ_HZ[k];
+    feedback('good','Buena elección ✓',FREQ_NOTA[k]+' Es la que equilibra ese requisito.');
+    setTimeout(()=>challengeSwitch(),1700);
+  } else {
+    RETO_INV.fallosF++;
+    if(RETO_INV.fallosF>=3){
+      RETO_INV.fallosF=0; RETO_INV.resiembras++;
+      const p=freqCaso; do{ freqCaso=Math.floor(Math.random()*FREQ_CASOS.length); }while(freqCaso===p);
+      feedback('bad','Tres intentos fallidos','Cambia el requisito del inversor: lee el nuevo enunciado y sopesa ruido contra pérdidas.');
+      setTimeout(()=>challengeFreq(),1500);
+    } else {
+      feedback('bad','No equilibra ese requisito',FREQ_NOTA[k]+` Sopesa ruido contra pérdidas para lo que pide el enunciado. (intentos fallidos: ${RETO_INV.fallosF}/3)`);
+      const t=$('d_tryf'); if(t) t.textContent=RETO_INV.fallosF;
+    }
+  }
 }
 function challengeSwitch(){
   showTeach('Fase 2 · Reto 3','Observa la conmutación generar las 3 fases',
@@ -906,14 +947,26 @@ function symptomInv(f){
 }
 function diagnoseInv(choice){
   const correct=(choice===fault);
-  if(correct){feedback('good','Diagnóstico correcto ✓',explainInvFault(fault)+' <b>Ahora corrígelo.</b>',true);
+  RETO_INV.intentos++;
+  if(correct){RETO_INV.fallosDx=0;feedback('good','Diagnóstico correcto ✓',explainInvFault(fault)+' <b>Ahora corrígelo.</b>',true);
     setActions('Reparación',`<button class="b primary good" data-act="repair-inv">🔧 Corregir la falla</button>`);
-  } else {feedback('bad','No es esa la falla','Eso ('+fnameInv(choice)+') daría otro síntoma: '+wrongExInv(choice)+' Observa otra vez.',true);}
+  } else {
+    RETO_INV.fallosDx++;
+    if(RETO_INV.fallosDx>=3){
+      // tres fallos: el inversor presenta otra falla distinta (no se aprueba por eliminación)
+      RETO_INV.fallosDx=0; RETO_INV.resiembras++;
+      const p=fault; const faults=['igbt','sequence','overheat'].filter(f=>f!==p); fault=faults[Math.floor(Math.random()*faults.length)];
+      feedback('bad','Tres intentos fallidos','El inversor presenta ahora OTRA falla: observa de nuevo el osciloscopio y el disipador.',true);
+      const s=$('symptomTask'); if(s) s.innerHTML=symptomInv(fault);
+    } else {
+      feedback('bad','No es esa la falla','Eso ('+fnameInv(choice)+') daría otro síntoma: '+wrongExInv(choice)+' Observa otra vez. (intentos fallidos: '+RETO_INV.fallosDx+'/3)',true);
+    }
+  }
 }
 function explainInvFault(f){
   if(f==='igbt')return 'Uno de los IGBT quedó en circuito abierto (dañado). Sin ese transistor conmutando, esa fase simplemente no se genera — el osciloscopio la muestra plana.';
   if(f==='sequence')return 'El firmware de la placa de control está disparando las compuertas con un desfase incorrecto (no 120°). Esto desbalancea el campo magnético del motor y causa vibración severa.';
-  if(f==='overheat')return 'La frecuencia de conmutación es demasiado alta para la capacidad de enfriamiento del disipador. El IGBT se calienta, su resistencia cambia, y la señal se degrada — justo el tradeoff que decidiste en la Fase 2.';
+  if(f==='overheat')return 'La frecuencia de conmutación es demasiado alta para la capacidad de enfriamiento del disipador. El IGBT se calienta, su resistencia cambia, y la señal se degrada — el tradeoff de la Fase 2: más frecuencia de conmutación, más pérdidas que el disipador debe evacuar.';
 }
 function fnameInv(f){return f==='igbt'?'IGBT en falla':f==='sequence'?'secuencia incorrecta':'sobrecalentamiento';}
 function wrongExInv(f){
@@ -922,7 +975,7 @@ function wrongExInv(f){
   if(f==='overheat')return 'el sobrecalentamiento degrada la amplitud de las 3 fases gradualmente, no elimina una fase ni cambia su espaciado.';
 }
 function repairInv(){
-  fault=null;
+  fault=null; RETO_INV.hecho=true;
   feedback('good','¡Reparado! 🎉','El inversor vuelve a generar las 3 fases limpias y balanceadas. Completaste las tres fases: lo armaste, calculaste su salida y frecuencia, y diagnosticaste una falla real de electrónica de potencia.',true);
   document.querySelectorAll('.phase-tab')[2].classList.add('done');
   setActions('Laboratorio completado',`<button class="b primary" data-act="restart">↺ Reiniciar laboratorio</button>`);
@@ -963,10 +1016,14 @@ function handleAction(act,btn){
       feedback('good','Busbarras en camino','Se conectan a la salida de los IGBT. Inversor casi completo.');
       setTimeout(()=>finishPhase1(),1150); break;
     case 'check-v': checkVoltage(); break;
-    case 'hint-v': feedback('good','Pista',`V_fase,pico = Vdc/2 = ${INV.V_dc}/2. Solo divide entre 2.`); break;
-    case 'freq-low': feedback('bad','Insuficiente','2kHz da bajas pérdidas, pero el motor sonará como un zumbido audible molesto — nada silencioso. Para un vehículo real eso no es aceptable. Prueba de nuevo.'); break;
-    case 'freq-mid': fSwChoice=15000; feedback('good','Buena elección ✓','15kHz está justo en el punto donde el oído humano deja de percibir el zumbido de conmutación, con pérdidas manejables para un disipador bien diseñado. Es el estándar típico en tracción automotriz.'); setTimeout(()=>challengeSwitch(),1700); break;
-    case 'freq-high': feedback('bad','Cuidado con el calor','20kHz sí es inaudible, pero duplica casi las pérdidas de conmutación frente a 15kHz — exige un disipador y enfriamiento más grandes de lo necesario. No es la opción más eficiente. Prueba de nuevo.'); break;
+    case 'hint-v':
+      if(RETO_INV.pistasV===0){ RETO_INV.pistasV=1; feedback('good','Pista 1 de 2','Cada fase se mide respecto al punto medio del bus: piensa cuánto puede alejarse de ese punto, como máximo, hacia cada riel.'); }
+      else if(RETO_INV.pistasV===1){ RETO_INV.pistasV=2; feedback('good','Pista 2 de 2','El máximo posible es una fracción fija del bus completo; el índice m dice qué parte de ese máximo se usa realmente.'); }
+      else feedback('good','Sin más pistas','Ya usaste las 2 pistas de este reto: razona con lo que tienes.');
+      break;
+    case 'freq-low': eligeFreq('low'); break;
+    case 'freq-mid': eligeFreq('mid'); break;
+    case 'freq-high': eligeFreq('high'); break;
     case 'toggle-run':
       switching=!switching;
       if(btn){btn.textContent=(switching?'⏸':'▶')+' Conmutación'; btn.classList.toggle('good',switching);}
@@ -981,10 +1038,24 @@ function handleAction(act,btn){
   }
 }
 function checkVoltage(){
-  const v=parseFloat(($('ansV')||{}).value); const correct=window.__vAnswer;
+  const v=parseFloat(($('ansV')||{}).value); const correct=peakPhaseVoltage(INV.V_dc,M_IDX);
   if(isNaN(v)){feedback('bad','Escribe un número','Ingresa el voltaje pico en V.');return;}
-  if(Math.abs(v-correct)<3){feedback('good','¡Correcto! ✓',`V_fase,pico = ${INV.V_dc}/2 = ${correct.toFixed(0)} V. Ese es el voltaje pico que alimenta al motor eléctrico del set — misma cifra, dos laboratorios conectados por la misma física.`);setTimeout(()=>challengeFreq(),1700);}
-  else{const d=v>correct?'alto':'bajo';feedback('bad','Revisa el cálculo',`Tu resultado (${v}V) está ${d}. V_fase,pico = Vdc/2 = ${INV.V_dc}/2 = ${correct.toFixed(0)} V.`);}
+  RETO_INV.intentos++;
+  const tol=Math.max(2,0.01*correct);
+  if(Math.abs(v-correct)<tol){RETO_INV.fallosV=0;feedback('good','¡Correcto! ✓',`V_fase,pico = m·Vdc/2 = ${M_IDX.toFixed(2)}×${INV.V_dc}/2 = ${correct.toFixed(0)} V. Con m = 1 sería ${peakPhaseVoltage(INV.V_dc).toFixed(0)} V, la cifra que alimenta al motor eléctrico del set: dos laboratorios conectados por la misma física.`);setTimeout(()=>challengeFreq(),1700);}
+  else{
+    RETO_INV.fallosV++;
+    const d=v>correct?'alto':'bajo';
+    const ingenuo=Math.abs(v-peakPhaseVoltage(INV.V_dc))<2;
+    if(RETO_INV.fallosV>=3){
+      RETO_INV.fallosV=0; RETO_INV.resiembras++; sorteaM();
+      feedback('bad','Tres intentos fallidos','Cambia el índice de modulación del inversor: vuelve a plantear el cálculo con el nuevo valor.');
+      setTimeout(()=>challengeVoltage(),1500);
+    } else {
+      feedback('bad','Revisa el cálculo',`Tu resultado (${v} V) está ${d}.`+(ingenuo?' ¿Aplicaste el índice de modulación m del enunciado?':' Revisa respecto a qué punto se mide la fase y qué fracción del máximo se usa.')+` (intentos fallidos: ${RETO_INV.fallosV}/3)`);
+      const t=$('d_try'); if(t) t.textContent=RETO_INV.fallosV;
+    }
+  }
 }
 
 /* ============================================================
@@ -1055,8 +1126,8 @@ function animate(){
     if(phase===1){
       const set=(id,v)=>{const e=$(id);if(e)e.textContent=v;};
       set('d_fsw',(fSwChoice/1000).toFixed(0)+' kHz');
-      set('d_vp',peakPhaseVoltage(INV.V_dc).toFixed(0)+' V');
-      set('d_vll',lineToLineRMS(INV.V_dc).toFixed(0)+' V');
+      set('d_vp',peakPhaseVoltage(INV.V_dc,M_IDX).toFixed(0)+' V');
+      set('d_vll',lineToLineRMS(INV.V_dc,M_IDX).toFixed(0)+' V');
     }
   }
 
@@ -1096,6 +1167,13 @@ function closeSheets(){teachEl.classList.remove('open');actionsEl.classList.remo
 if(bT)bT.onclick=()=>{const o=teachEl.classList.contains('open');closeSheets();if(!o){teachEl.classList.add('open');bT.classList.add('on');}};
 if(bA)bA.onclick=()=>{const o=actionsEl.classList.contains('open');closeSheets();if(!o){actionsEl.classList.add('open');bA.classList.add('on');}};
 
+window.__labDebug={
+  get mode(){ return ['armado','fundamento','diagnostico'][phase]||'armado'; },
+  get solved(){ return RETO_INV.hecho; },
+  get intentos(){ return RETO_INV.intentos; },
+  state(){ return {fase:phase,mIdx:M_IDX,freqCaso,fault,intentos:RETO_INV.intentos,resiembras:RETO_INV.resiembras,
+    fallos:{v:RETO_INV.fallosV,f:RETO_INV.fallosF,dx:RETO_INV.fallosDx},pistas:RETO_INV.pistasV,resuelto:RETO_INV.hecho}; },
+};
 window.__test={
   start:()=>$('start').click(),
   action:(a)=>handleAction(a,null),

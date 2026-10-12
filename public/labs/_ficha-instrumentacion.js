@@ -58,7 +58,5 @@ fichaTecnica({
     { name: 'Omega Engineering, nota técnica E-94 — "The Strain Gage"', note: 'Verificación cruzada del factor de galga típico.' },
     { name: 'Texas Instruments, hoja de datos INA128/INA129 (SBOS051)', note: 'Fórmula de ganancia G=1+50kΩ/R_G y tabla de CMRR mínimo/típico por ganancia.' },
     { name: 'Texas Instruments, sboa247/tidub00 — "Bridge Measurement Circuit"', note: 'Voltaje de modo común del puente Vcm≈Vex/2 y cálculo de error de salida inducido por CMRR.' },
-    { name: 'Nota curricular ⚑', note: 'La relación entre esta práctica y el programa oficial del sector mecánica-electrónica se documenta con trazabilidad en ficha.md; se recomienda validación por un experto en electrónica de instrumentación.' },
-    { name: 'Notas para el revisor experto', note: 'Se actualizará tras verificación técnica final del laboratorio.' },
   ],
 });

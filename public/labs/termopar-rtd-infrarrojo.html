@@ -649,7 +649,7 @@ laserDot.position.set(0, 1.081, 0.16);
 irGroup.add(registerPart(laserDot, 'punto_laser', 'Punto láser de puntería. El láser NO participa en la medición de temperatura: solo ayuda a apuntar el sensor óptico hacia el punto deseado (advertencia estándar de todo fabricante de pistolas IR).'));
 
 /* ===================== 4. Física — constantes declaradas ===================== */
-const T_AMB = 22.0; // °C — ambiente típico de taller (ilustrativo)
+let T_AMB = 22.0; // °C — ambiente de la unión de referencia (se sortea por caso)
 
 // Termopar tipo K
 const TC = {
@@ -692,6 +692,20 @@ function irIndicatedC(epsSet) {
   return celsiusOf(tApparentK);
 }
 
+/* ---------- datos de los casos: se sortean al abrir el lab y al resembrar el caso ----------
+   La demostración guiada usa DEMO: otras cifras que nunca salen del sorteo. */
+const pick = a => a[Math.floor(Math.random() * a.length)];
+const shuffled = a => { const b = a.slice(); for (let i = b.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [b[i], b[j]] = [b[j], b[i]]; } return b; };
+const DEMO = { T_AMB: 25, tcT: 310, rtdT: 100, rLead: 0.60, irT: 200, eps: 0.15 };
+function seedCase(key) {
+  if (key === 'termopar') { const p = [T_AMB, TC.tTrue]; do { T_AMB = pick([18, 22, 26, 30]); TC.tTrue = pick([180, 260, 340, 400]); } while (T_AMB === p[0] && TC.tTrue === p[1]); }
+  else if (key === 'rtd') { const p = [RTD.tTrue, RTD.rLead]; do { RTD.tTrue = pick([45, 85, 120, 160]); RTD.rLead = pick([0.20, 0.35, 0.50, 0.80]); } while (RTD.tTrue === p[0] && RTD.rLead === p[1]); }
+  else { const p = [IR.tTrueC, IR.epsActual]; do { IR.tTrueC = pick([90, 150, 220, 300]); IR.epsActual = pick([0.10, 0.20, 0.30]); } while (IR.tTrueC === p[0] && IR.epsActual === p[1]); }
+}
+['termopar', 'rtd', 'infrarrojo'].forEach(seedCase);
+const guardaDatos = () => ({ T_AMB, tcT: TC.tTrue, rtdT: RTD.tTrue, rLead: RTD.rLead, irT: IR.tTrueC, eps: IR.epsActual });
+function restauraDatos(d) { T_AMB = d.T_AMB; TC.tTrue = d.tcT; RTD.tTrue = d.rtdT; RTD.rLead = d.rLead; IR.tTrueC = d.irT; IR.epsActual = d.eps; }
+
 /* ===================== 5. Escenarios y diagnóstico ===================== */
 const SCEN_ORDER = ['termopar', 'rtd', 'infrarrojo'];
 const SCEN_META = {
@@ -711,21 +725,55 @@ const SCEN_META = {
     nombre: 'Pistola infrarroja',
     unidadCruda: 'ε config.',
     respuesta: 'emisividad',
-    modeLabels: ['Emisividad de fábrica (0.95)', 'Emisividad corregida (0.20)'],
+    get modeLabels() { return ['Emisividad de fábrica (' + IR.epsFactory.toFixed(2) + ')', 'Emisividad corregida (' + IR.epsActual.toFixed(2) + ')']; },
   },
 };
 
+/* Error que produce cada causa en ESTE caso (indicada − real). */
+function errorDe(c) {
+  if (c === 'junta_fria') return tcIndicated(false) - TC.tTrue;
+  if (c === 'resistencia_cable') return rtdIndicated(false) - RTD.tTrue;
+  if (c === 'emisividad') return irIndicatedC(IR.epsFactory) - IR.tTrueC;
+  return 3;
+}
+const fmtErr = e => Math.abs(e).toFixed(1) + ' °C ' + (e < 0 ? 'por debajo' : 'por encima') + ' del valor real';
 const DX_HINT = {
-  junta_fria: '✅ Correcto. Sin compensación de junta fría (CJC), el lector interpreta el voltaje como si la unión de referencia estuviera a 0 °C. El error resultante es igual, en magnitud, a la temperatura ambiente de esa unión — no es una falla del termopar.',
-  resistencia_cable: '✅ Correcto. En conexión a 2 hilos, la resistencia de los propios cables de extensión se suma a la de la RTD y el lector no tiene forma de separarlas. La conexión a 4 hilos (Kelvin) cancela ese error midiendo tensión sin corriente por los hilos de detección.',
-  emisividad: '✅ Correcto. La pistola infrarroja no mide temperatura directamente: infiere la temperatura a partir de la radiación emitida ASUMIENDO una emisividad. Si la superficie es más reflejante (menor ε) que el valor configurado, el instrumento subestima drásticamente la temperatura real.',
-  falla: '❌ No es lo más probable. Antes de sospechar de una falla o descalibración del instrumento, siempre compare la lectura contra un método de referencia y revise primero la técnica de medición (compensación, conexión, configuración) — es la causa más común de discrepancias en campo.',
+  junta_fria: () => '✅ Correcto. Sin compensación de junta fría (CJC), el lector interpreta el voltaje como si la unión de referencia estuviera a 0 °C. El error resultante es igual, en magnitud, a la temperatura ambiente de esa unión (' + T_AMB.toFixed(0) + ' °C aquí); no es una falla del termopar.',
+  resistencia_cable: () => '✅ Correcto. En conexión a 2 hilos, la resistencia de los propios cables de extensión (2 × ' + RTD.rLead.toFixed(2) + ' Ω) se suma a la de la RTD y el lector no tiene forma de separarlas: ' + errorDe('resistencia_cable').toFixed(1) + ' °C de error. La conexión a 4 hilos (Kelvin) cancela ese error midiendo tensión sin corriente en los hilos de sensado.',
+  emisividad: () => '✅ Correcto. La pistola infrarroja no mide temperatura directamente: infiere la temperatura a partir de la radiación emitida ASUMIENDO una emisividad. Si la superficie es más reflejante (ε = ' + IR.epsActual.toFixed(2) + ') que el valor configurado (' + IR.epsFactory.toFixed(2) + '), el instrumento subestima la temperatura: aquí ' + Math.abs(errorDe('emisividad')).toFixed(0) + ' °C por debajo.',
+  falla: () => '❌ No es lo más probable. Antes de sospechar de una falla o descalibración del instrumento, compara la lectura contra un método de referencia y revisa primero la técnica de medición (compensación, conexión, configuración).',
 };
+/* Cada opción lleva su causa Y una cifra de error. Solo la correcta trae la cifra
+   que la telemetría realmente muestra; las demás son otras causas (con la cifra
+   que producirían aquí) o la misma causa con una cifra equivocada. */
+function frase(c, f) {
+  if (c === 'junta_fria') return 'Falta de compensación de junta fría (CJC): la lectura sale ' + fmtErr(errorDe(c) * f);
+  if (c === 'resistencia_cable') return 'Resistencia de los cables de extensión (2 hilos): la lectura sale ' + fmtErr(errorDe(c) * f);
+  if (c === 'emisividad') return 'Emisividad configurada distinta a la real: la lectura sale ' + fmtErr(errorDe(c) * f);
+  return 'El instrumento está descalibrado o dañado: la lectura sale ' + fmtErr(errorDe(c) * f);
+}
+function buildQuiz(key) {
+  const C = SCEN_META[key].respuesta;
+  const W = 'Pista: compara el error que muestra la telemetría con la cifra de la opción y con lo que cambia al mover el modo del instrumento.';
+  const ok = { t: frase(C, 1), ok: true, why: DX_HINT[C](), concepto: C };
+  const mal = [
+    ...['junta_fria', 'resistencia_cable', 'emisividad', 'falla'].filter(c => c !== C).map(c => ({ t: frase(c, 1), ok: false, why: W, concepto: c })),
+    { t: frase(C, 0.5), ok: false, why: W, concepto: C }, { t: frase(C, 2), ok: false, why: W, concepto: C },
+  ];
+  const vistos = new Set([ok.t]);
+  return { concepto: C, opciones: [ok, ...mal.filter(o => { if (vistos.has(o.t)) return false; vistos.add(o.t); return true; })] };
+}
 
 /* ===================== 6. Estado ===================== */
 let scenarioKey = 'termopar';
 let midiendo = false;
 let energized = false;
+/* Contabilidad del reto. Tres fallos seguidos en un caso lo resiembran. */
+const answered = { termopar: false, rtd: false, infrarrojo: false };
+const fallosCaso = { termopar: 0, rtd: 0, infrarrojo: 0 };
+const RETO = { intentos: 0, resiembras: 0 };
+let quizNow = { opciones: [] };
+let autoRunning = false;
 const MODE_STATE = { termopar: false, rtd: false, infrarrojo: false };
 
 function readingFor(key) {
@@ -827,12 +875,7 @@ el('panel').innerHTML = `
     <div class="g"><div class="gl"><span>Modo del instrumento</span><b id="t_modo">—</b></div></div>
   </div>
   <h4 class="sec">¿Cuál es la causa del error observado?</h4>
-  <div class="btns" id="dxbtns">
-    <button class="b dx" data-dx="junta_fria">A · Falta de compensación de junta fría (CJC)</button>
-    <button class="b dx" data-dx="resistencia_cable">B · Resistencia de los cables de extensión (2 hilos)</button>
-    <button class="b dx" data-dx="emisividad">C · Emisividad configurada distinta a la real</button>
-    <button class="b dx" data-dx="falla">D · El instrumento está descalibrado o dañado</button>
-  </div>
+  <div class="btns" id="dxbtns"></div>
   <div class="console" id="dxfeedback"></div>
   <div class="btns">
     <button class="b auto" id="btnAuto">▶️ Demostración guiada</button>
@@ -917,6 +960,7 @@ function setScenario(key) {
   refreshModeBar();
   clearDx();
   updateTele();
+  refreshQuestion();
 }
 
 function setMode(v) {
@@ -941,18 +985,49 @@ el('btnNew').addEventListener('click', () => {
 el('btnMedir').addEventListener('click', () => setMedir(!midiendo));
 el('btnModeA').addEventListener('click', () => setMode(false));
 el('btnModeB').addEventListener('click', () => setMode(true));
-document.querySelectorAll('.b.dx').forEach(btn => {
-  btn.addEventListener('click', () => {
-    const key = btn.getAttribute('data-dx');
-    const correct = SCEN_META[scenarioKey].respuesta;
-    clearDx();
-    btn.classList.add(key === correct ? 'right' : 'wrong');
-    if (key !== correct) {
-      document.querySelector(`.b.dx[data-dx="${correct}"]`).classList.add('right');
+function renderQuiz() {
+  el('dxbtns').innerHTML = quizNow.opciones.map((o, i) => '<button class="b dx" data-i="' + i + '">' + 'ABCD'[i] + ' · ' + o.t + '</button>').join('');
+  el('dxbtns').querySelectorAll('.b.dx').forEach(btn => { btn.addEventListener('click', () => answer(+btn.dataset.i)); });
+}
+/* Una correcta + 3 del banco de distractores, barajadas: ni la posición ni el
+   largo delatan la respuesta, y tras una resiembra salen otras cifras. */
+function refreshQuestion() {
+  const q = buildQuiz(scenarioKey);
+  const buenas = q.opciones.filter(o => o.ok), malas = q.opciones.filter(o => !o.ok);
+  // como mucho UNA variante de la misma causa con cifra equivocada: si no, la causa repetida delata la respuesta
+  const misma = shuffled(malas.filter(o => o.concepto === q.concepto)), otras = shuffled(malas.filter(o => o.concepto !== q.concepto));
+  quizNow = { opciones: shuffled(buenas.concat(misma.slice(0, 1), otras.slice(0, 2))) };
+  renderQuiz();
+  el('dxfeedback').textContent = '';
+}
+function resiembra() {
+  fallosCaso[scenarioKey] = 0; RETO.resiembras++;
+  seedCase(scenarioKey);
+  MODE_STATE[scenarioKey] = false; refreshModeBar(); updateTele();
+  refreshQuestion();
+}
+function answer(i) {
+  if (!midiendo) { showToast('Primero inicia la medición.'); return; }
+  if (autoRunning) return;                 // la demostración enseña, no puntúa
+  if (answered[scenarioKey]) { showToast('Este caso ya está resuelto: pasa al siguiente.'); return; }
+  const o = quizNow.opciones[i];
+  clearDx();
+  const btn = el('dxbtns').children[i];
+  RETO.intentos++;
+  if (o.ok) {
+    btn.classList.add('right'); answered[scenarioKey] = true; fallosCaso[scenarioKey] = 0;
+    el('dxfeedback').textContent = o.why;
+  } else {
+    btn.classList.add('wrong');
+    fallosCaso[scenarioKey]++;
+    if (fallosCaso[scenarioKey] >= 3) {
+      resiembra();
+      el('dxfeedback').textContent = '✗ Tres fallos en este caso: cambian las cifras del instrumento y las opciones. Vuelve a medir con calma.';
+    } else {
+      el('dxfeedback').textContent = '✗ No es la causa principal aquí. ' + o.why + ' (fallos en este caso: ' + fallosCaso[scenarioKey] + '/3)';
     }
-    el('dxfeedback').textContent = DX_HINT[key];
-  });
-});
+  }
+}
 
 /* ===================== 12. Animación ===================== */
 S.setAnimate(() => {
@@ -975,46 +1050,73 @@ S.setAnimate(() => {
 function sleep(ms) { return new Promise(r => setTimeout(r, ms)); }
 
 el('btnAuto').addEventListener('click', async () => {
+  if (autoRunning) return;
+  autoRunning = true;
   el('btnAuto').disabled = true;
+  const panel = el('panel'); panel.style.pointerEvents = 'none';   // el alumno no toca los controles a mitad
+  const prev = { datos: guardaDatos(), escenario: scenarioKey, modos: { ...MODE_STATE }, midiendo, quiz: quizNow };
   try {
+    // La demostración trabaja con OTRAS cifras (DEMO): lo del alumno no se toca.
+    restauraDatos({ T_AMB: DEMO.T_AMB, tcT: DEMO.tcT, rtdT: DEMO.rtdT, rLead: DEMO.rLead, irT: DEMO.irT, eps: DEMO.eps });
     setScenario('termopar');
     setMode(false);
     setMedir(true);
-    showToast('Termopar sin compensación de junta fría: la lectura queda por debajo de la temperatura real.');
+    const eTC = errorDe('junta_fria');
+    showToast('Termopar sin compensación de junta fría (cifras de ejemplo): la lectura queda ' + fmtErr(eTC) + '.');
     await sleep(2800);
-    document.querySelector('.b.dx[data-dx="junta_fria"]').click();
-    await sleep(2400);
+    showToast(DX_HINT.junta_fria());
+    await sleep(3200);
     setMode(true);
     showToast('Con CJC activada, el lector suma la temperatura de su propia unión de referencia y corrige el error.');
     await sleep(2800);
 
     setScenario('rtd');
     setMode(false);
-    showToast('RTD a 2 hilos: la resistencia de los cables de extensión se suma a la de la RTD y eleva la lectura.');
+    showToast('RTD a 2 hilos: la resistencia de los cables de extensión se suma a la de la RTD y eleva la lectura ' + errorDe('resistencia_cable').toFixed(1) + ' °C.');
     await sleep(2800);
-    document.querySelector('.b.dx[data-dx="resistencia_cable"]').click();
-    await sleep(2400);
+    showToast(DX_HINT.resistencia_cable());
+    await sleep(3200);
     setMode(true);
     showToast('A 4 hilos (Kelvin), un par mide corriente y el otro mide tensión sin caída por los cables: el error desaparece.');
     await sleep(2800);
 
     setScenario('infrarrojo');
     setMode(false);
-    showToast('Pistola IR con emisividad de fábrica (0.95) sobre metal pulido (ε real ≈ 0.20): subestima la temperatura drásticamente.');
+    showToast('Pistola IR con emisividad de fábrica (' + IR.epsFactory.toFixed(2) + ') sobre metal pulido (ε real ≈ ' + IR.epsActual.toFixed(2) + '): la lectura queda ' + fmtErr(errorDe('emisividad')) + '.');
     await sleep(3000);
-    document.querySelector('.b.dx[data-dx="emisividad"]').click();
-    await sleep(2400);
+    showToast(DX_HINT.emisividad());
+    await sleep(3200);
     setMode(true);
     showToast('Al configurar la emisividad real de la superficie, la pistola IR indica la temperatura correcta.');
     await sleep(2800);
 
-    showToast('Demostración terminada. Cada instrumento mide un fenómeno físico distinto — y cada uno tiene su propio modo de fallar si se ignora su configuración.');
+    showToast('Demostración terminada (cifras de ejemplo). Tu avance en el reto no cambió.');
+    await sleep(1600);
   } finally {
+    restauraDatos(prev.datos);
+    autoRunning = false;
+    Object.assign(MODE_STATE, prev.modos);
+    setScenario(prev.escenario);
+    setMedir(prev.midiendo);
+    quizNow = prev.quiz; renderQuiz(); el('dxfeedback').textContent = '';
+    updateTele();
+    panel.style.pointerEvents = '';
     el('btnAuto').disabled = false;
   }
 });
 
 /* ===================== 14. Estado inicial ===================== */
+window.__labDebug = {
+  get mode() { return scenarioKey; },
+  get solved() { return Object.values(answered).every(Boolean); },
+  get intentos() { return RETO.intentos; },
+  state() { return { caso: scenarioKey, midiendo, answered: { ...answered }, intentos: RETO.intentos,
+    fallos: { ...fallosCaso }, resiembras: RETO.resiembras, resuelto: Object.values(answered).every(Boolean), autoRunning }; },
+  datos() { return guardaDatos(); },
+  setScenario(k) { setScenario(k); },
+  mide() { if (!midiendo) el('btnMedir').click(); },
+  opciones() { return [...document.querySelectorAll('#dxbtns .b.dx')].map((b, i) => ({ t: b.textContent, ok: !!quizNow.opciones[i].ok })); },
+};
 setScenario('termopar');
 setMedir(false);
 S.start();   // sin esto el bucle de render nunca arranca y el lienzo 3D se queda en negro

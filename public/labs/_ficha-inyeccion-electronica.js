@@ -3,8 +3,9 @@ fichaTecnica({
   title: 'Inyección electrónica de combustible (EFI / MPFI)',
   intro: 'Este laboratorio representa un <b>sistema de inyección electrónica</b>: la ECU pulsa los inyectores a partir de varios sensores para controlar la <b>mezcla aire-combustible</b>. La geometría es <b>procedural y didáctica</b>; donde el 3D simplifica, aquí se documenta.',
   s1: {
-    presentes: '<b>Presentes en el modelo:</b> inyectores, riel de combustible, bomba, regulador de presión, sensores (MAF/MAP, TPS, CKP, sonda lambda) y ECU.',
+    presentes: '<b>Presentes en el modelo:</b> cuatro inyectores, el riel de combustible con su regulador de presión, el múltiple de admisión, tres sensores (MAP, TPS y sonda O2) y la ECU. Sólo los inyectores se animan (destellan en el orden de encendido 1-3-4-2).',
     omitidos: [
+      '<b>Bomba de combustible</b>, y los sensores MAF, CKP y de temperatura: no están en el modelo.',
       '<b>Filtro y líneas</b> de combustible (con o sin retorno) y el amortiguador de pulsos.',
       '<b>Sensores de temperatura</b> (refrigerante ECT, aire IAT) y el cuerpo de aceleración electrónico / IAC.',
       '<b>Sistema EVAP</b> (canister, purga) contra vapores de combustible.',
@@ -40,8 +41,8 @@ fichaTecnica({
     ]
   },
   s5: {
-    modela: 'la relación de la ECU: sensores → ancho de pulso → mezcla, con <b>realimentación de la sonda lambda</b> (lazo cerrado) y el timing de inyección.',
-    noModela: 'la hidráulica real del riel, la atomización del combustible, la química de la combustión ni la dinámica de la bomba.'
+    modela: 'una relación didáctica entre la carga del motor y el ancho de pulso del inyector: PW = (2,2 + 13·carga) ms × una corrección que cae un poco con las rpm, más 1 ms de tiempo muerto, y el orden de destello 1-3-4-2. El régimen se toma como 800 + 45·carga rpm.',
+    noModela: 'el lazo cerrado con la sonda lambda (el sensor O2 sólo está dibujado: no corrige la mezcla), el cálculo de aire real (MAP/TPS no alimentan la fórmula), la hidráulica del riel, la atomización del combustible, la química de la combustión ni la dinámica de la bomba. Este laboratorio no incluye un reto evaluable: es una exploración guiada.'
   },
   s6: [
     '<b>SAE J1979</b> / <b>ISO 15031</b>: datos de diagnóstico y ajustes de combustible.',

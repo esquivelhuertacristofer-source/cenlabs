@@ -896,29 +896,64 @@ function startPhase2(){
   controls.target.set(0,1.6,0);
   challenge1();
 }
+/* ---------- datos de los retos: se sortean al abrir el lab y al resembrar ---------- */
+const pickOne=a=>a[Math.floor(Math.random()*a.length)];
+const shuffledM=a=>{ const b=a.slice(); for(let i=b.length-1;i>0;i--){ const j=Math.floor(Math.random()*(i+1)); [b[i],b[j]]=[b[j],b[i]]; } return b; };
+const RETO_M={intentos:0,resiembras:0,fallos1:0,fallos2:0,fallosDx:0,pistas1:0,hecho:false};
+const RPM_CASOS=[1200,1500,1800,2400,3000,3600,4500,6000];
+let rpmObjetivo=pickOne(RPM_CASOS);
+const POLOS_CASOS=[
+  {req:'Necesitas <b>más par de arranque</b> (para subir una pendiente) y aceptas una velocidad máxima menor.', ok:'more'},
+  {req:'Necesitas una <b>velocidad máxima mayor</b> a costa de tener menos par disponible.', ok:'less'},
+];
+const POLOS_OPC={
+  more:'Aumentar el número de polos del diseño',
+  less:'Reducir el número de polos del diseño',
+  swap:'Intercambiar dos fases del estátor',
+  open:'Dejar una fase del estátor desconectada',
+};
+let poloCaso=Math.floor(Math.random()*POLOS_CASOS.length);
 let challengeTarget;
 function challenge1(){
   // calc electrical frequency for a target rpm
-  const targetRpm=3000;
+  const targetRpm=rpmObjetivo;
   challengeTarget={type:'freq',rpm:targetRpm,answer:elecFreq(targetRpm)};
   showTeach('Fase 2 · Reto 1','Calcula la frecuencia eléctrica',
-    `<p>Para que el motor gire a una velocidad, el variador (inverter) debe alimentar el estátor a la <b>frecuencia eléctrica</b> correcta. La relación es:</p>
-     <p style="font-family:var(--mono);color:var(--accent2);text-align:center;font-size:15px">f = n · P / 120</p>
-     <p>donde <b>n</b> = rpm, <b>P</b> = número de polos. Este motor tiene <b>${EM57.poles} polos</b>.</p>
-     <div class="task">¿Qué frecuencia (Hz) se necesita para girar a <b>${targetRpm} rpm</b>?</div>`);
+    `<p>Para que el motor gire a una velocidad, el variador (inverter) debe alimentar el estátor a la <b>frecuencia eléctrica</b> correcta. Este motor tiene <b>${EM57.poles} polos</b>.</p>
+     <div class="task">¿Qué frecuencia (Hz) se necesita para girar a <b>${targetRpm} rpm</b>? <span class="mini" style="display:inline">Intentos fallidos: <b id="d_try1">${RETO_M.fallos1}</b>/3</span></div>`);
   setActions('Tu cálculo',
     `<div class="calcbox"><label>Frecuencia eléctrica (Hz)</label>
        <div class="calcrow"><input id="ans1" type="number" placeholder="¿?"><button class="b primary" data-act="check1" style="flex:0 0 auto">✓</button></div>
-       <div class="hintline" data-act="hint1">¿Necesitas una pista?</div></div>`);
+       <div class="hintline" data-act="hint1">¿Necesitas una pista? (máx. 2)</div></div>`);
 }
 function challenge2(){
-  showTeach('Fase 2 · Reto 2','Más par: ¿más o menos polos?',
-    `<p>Imagina que necesitas <b>más par de arranque</b> (para subir una pendiente). Tienes libertad de rediseñar el motor.</p>
-     <div class="why"><b>Pista conceptual:</b> cada par de polos contribuye al par. Pero más polos significa mayor frecuencia eléctrica para la misma velocidad, y eso limita la velocidad máxima por las pérdidas en el hierro.</div>
-     <div class="task">Para conseguir más par (a cambio de menos velocidad máxima), ¿qué haces con el número de polos?</div>`);
+  const caso=POLOS_CASOS[poloCaso];
+  showTeach('Fase 2 · Reto 2','Par contra velocidad: ¿qué se rediseña?',
+    `<p>Tienes libertad de rediseñar el motor.</p>
+     <div class="task">${caso.req} ¿Qué haces? <span class="mini" style="display:inline">Intentos fallidos: <b id="d_try2">${RETO_M.fallos2}</b>/3</span></div>`);
   setActions('Tu decisión',
-    `<button class="b" data-act="poles-more"><span class="ic">▲</span> Aumentar el número de polos</button>
-     <button class="b" data-act="poles-less"><span class="ic">▼</span> Reducir el número de polos</button>`);
+    shuffledM(['more','less','swap','open']).map(k=>`<button class="b" data-act="poles-${k}">${POLOS_OPC[k]}</button>`).join(''));
+}
+function eligePolos(k){
+  const caso=POLOS_CASOS[poloCaso];
+  RETO_M.intentos++;
+  if(k===caso.ok){
+    RETO_M.fallos2=0;
+    feedback('good','Correcto ✓', k==='more'
+      ?'Más polos = más par a la misma corriente, porque cada par de polos aporta par. El costo: mayor frecuencia eléctrica para la misma velocidad y, por tanto, menor velocidad máxima. Por eso los motores de rueda (in-wheel) usan muchos polos: mucho par, baja velocidad.'
+      :'Menos polos exigen menos frecuencia eléctrica para la misma velocidad, así que el motor alcanza más rpm antes de topar con el límite del hierro, a cambio de menos par.');
+    setTimeout(()=>challenge3(),1500);
+  } else {
+    RETO_M.fallos2++;
+    if(RETO_M.fallos2>=3){
+      RETO_M.fallos2=0; RETO_M.resiembras++; poloCaso=(poloCaso+1)%POLOS_CASOS.length;
+      feedback('bad','Tres intentos fallidos','Cambia el requisito del diseño: lee el nuevo enunciado.');
+      setTimeout(()=>challenge2(),1400);
+    } else {
+      feedback('bad','No cumple el requisito','Esa modificación no resuelve el compromiso entre par y velocidad máxima que pide el enunciado. (intentos fallidos: '+RETO_M.fallos2+'/3)');
+      const t=$('d_try2'); if(t) t.textContent=RETO_M.fallos2;
+    }
+  }
 }
 function challenge3(){
   showTeach('Fase 2 · Reto 3','Haz girar el motor',
@@ -970,13 +1005,31 @@ function applyFault(f){
   if(f==='magnet'){ if(magnetSlots[3]&&magnetSlots[3].magnet){magnetSlots[3].magnet.material=magMat(!magnetSlots[3].isNorth);} }
   if(f==='overspeed'){ trpm=EM57.rpm_max*1.05; }
 }
+function revertFault(f){
+  if(f==='phase')coils.forEach(c=>{if(c.phase===1)c.m.material.emissiveIntensity=0.5;});
+  if(f==='magnet'&&magnetSlots[3]&&magnetSlots[3].magnet)magnetSlots[3].magnet.material=magMat(magnetSlots[3].isNorth);
+  if(f==='overspeed')trpm=EM57.rpm_max*0.5;
+}
 function diagnose(choice){
   const correct = (choice===fault);
+  RETO_M.intentos++;
   if(correct){
+    RETO_M.fallosDx=0;
     feedback('good','Diagnóstico correcto ✓', explainFault(fault)+' <b>Ahora corrígelo.</b>',true);
     setActions('Reparación',`<button class="b primary good" data-act="repair">🔧 Corregir la falla</button>`);
   } else {
-    feedback('bad','No es esa la falla', 'Lo que elegiste ('+faultName(choice)+') produciría otro síntoma: '+wrongExplain(choice)+' Vuelve a observar el comportamiento y prueba otro diagnóstico.',true);
+    RETO_M.fallosDx++;
+    if(RETO_M.fallosDx>=3){
+      // tres fallos: el motor llega con OTRA falla (no se aprueba por eliminación)
+      RETO_M.fallosDx=0; RETO_M.resiembras++;
+      const prev=fault; revertFault(prev);
+      fault=pickOne(['phase','magnet','overspeed'].filter(x=>x!==prev));
+      applyFault(fault);
+      feedback('bad','Tres intentos fallidos','El motor presenta ahora OTRA falla: vuelve a observar su comportamiento y la telemetría.',true);
+      const s=$('symptomTask'); if(s) s.innerHTML=symptomText(fault);
+    } else {
+      feedback('bad','No es esa la falla', 'Lo que elegiste ('+faultName(choice)+') produciría otro síntoma: '+wrongExplain(choice)+' Vuelve a observar el comportamiento y prueba otro diagnóstico. (intentos fallidos: '+RETO_M.fallosDx+'/3)',true);
+    }
   }
 }
 function explainFault(f){
@@ -991,10 +1044,8 @@ function wrongExplain(f){
   if(f==='overspeed')return 'la sobrevelocidad calienta el hierro por alta frecuencia, no produce desequilibrio de corriente.';
 }
 function repair(){
-  if(fault==='phase')coils.forEach(c=>{if(c.phase===1)c.m.material.emissiveIntensity=0.5;});
-  if(fault==='magnet'&&magnetSlots[3]&&magnetSlots[3].magnet)magnetSlots[3].magnet.material=magMat(magnetSlots[3].isNorth);
-  if(fault==='overspeed')trpm=EM57.rpm_max*0.5;
-  fault=null;
+  revertFault(fault);
+  fault=null; RETO_M.hecho=true;
   feedback('good','¡Reparado! 🎉','El motor vuelve a operar correctamente. Completaste las tres fases: lo armaste, aplicaste la física para hacerlo girar, y diagnosticaste y corregiste una falla. Eso es el ciclo completo de un técnico en electromovilidad.',true);
   document.querySelectorAll('.phase-tab')[2].classList.add('done');
   setActions('Laboratorio completado',`<button class="b primary" data-act="restart">↺ Reiniciar laboratorio</button>`);
@@ -1027,9 +1078,15 @@ function handleAction(act,btn){
     case 'phase-acb': spinDir=-1; animateWiring([0,2,1]); feedback('bad','Secuencia A-C-B → giro invertido','Conectaste dos fases intercambiadas. El campo (y el motor) girará al REVÉS. Esto no daña el motor —de hecho así se invierte el giro a propósito— pero para esta máquina queríamos giro horario. Observa el pulso: recorre las bobinas en otro orden.'); setTimeout(()=>finishPhase1(),600); break;
     // phase 2
     case 'check1': checkCalc1(); break;
-    case 'hint1': feedback('good','Pista','Sustituye en f = n·P/120. Con n=3000 y P=8: f = 3000 × 8 / 120. Haz la cuenta.'); break;
-    case 'poles-more': feedback('good','Correcto ✓','Más polos = más par a la misma corriente, porque cada par de polos aporta par. El costo: mayor frecuencia eléctrica y por tanto menor velocidad máxima. Por eso los motores de rueda (in-wheel) usan muchos polos: mucho par, baja velocidad.'); setTimeout(()=>challenge3(),1500); break;
-    case 'poles-less': feedback('bad','Al revés','Menos polos da MENOS par pero permite más velocidad. Si quieres más par, necesitas MÁS polos. Piénsalo: cada par de polos es un "punto de agarre" extra para el campo. Inténtalo de nuevo.'); break;
+    case 'hint1':
+      if(RETO_M.pistas1===0){ RETO_M.pistas1=1; feedback('good','Pista 1 de 2','La frecuencia eléctrica depende de las rpm y del número de polos, no sólo de las vueltas por segundo: el campo da un ciclo completo cada vez que pasa un par de polos.'); }
+      else if(RETO_M.pistas1===1){ RETO_M.pistas1=2; feedback('good','Pista 2 de 2','Es la relación de la forma f = n·P/120 (n en rpm, P en polos). Sustituye tus valores.'); }
+      else feedback('good','Sin más pistas','Ya usaste las 2 pistas de este reto.');
+      break;
+    case 'poles-more': eligePolos('more'); break;
+    case 'poles-less': eligePolos('less'); break;
+    case 'poles-swap': eligePolos('swap'); break;
+    case 'poles-open': eligePolos('open'); break;
     case 'to-phase3': running=true; showField=false; cinematicSpin=false; controls.autoRotate=false; startPhase3(); break;
     case 'toggle-field': showField=!showField; if(btn){btn.textContent='🧲 Campo magnético: '+(showField?'ON':'OFF');btn.classList.toggle('good',showField);} break;
     // phase 3
@@ -1044,12 +1101,23 @@ function checkCalc1(){
   const v=parseFloat(($('ans1')||{}).value);
   const correct=challengeTarget.answer;
   if(isNaN(v)){feedback('bad','Escribe un número','Ingresa tu cálculo de la frecuencia en Hz.');return;}
+  RETO_M.intentos++;
   if(Math.abs(v-correct)<1){
-    feedback('good','¡Correcto! ✓',`f = 3000 × 8 / 120 = <b>${correct} Hz</b>. Esa es la frecuencia que el inverter debe generar para girar a 3000 rpm con 8 polos. A más polos, más frecuencia para la misma velocidad.`);
+    RETO_M.fallos1=0;
+    feedback('good','¡Correcto! ✓',`f = ${challengeTarget.rpm} × ${EM57.poles} / 120 = <b>${correct} Hz</b>. Esa es la frecuencia que el inverter debe generar para girar a ${challengeTarget.rpm} rpm con ${EM57.poles} polos. A más polos, más frecuencia para la misma velocidad.`);
     setTimeout(()=>challenge2(),1600);
   } else {
+    RETO_M.fallos1++;
     const diff=v>correct?'alto':'bajo';
-    feedback('bad','Revisa el cálculo',`Tu resultado (${v} Hz) está ${diff}. Recuerda: f = n·P/120 = 3000·8/120. El valor correcto es ${correct} Hz. ¿Quizás olvidaste dividir entre 120, o multiplicar por los polos? Inténtalo otra vez.`);
+    if(RETO_M.fallos1>=3){
+      RETO_M.fallos1=0; RETO_M.resiembras++;
+      const p=rpmObjetivo; do{ rpmObjetivo=pickOne(RPM_CASOS); }while(rpmObjetivo===p);
+      feedback('bad','Tres intentos fallidos','El variador debe llevar el motor a OTRA velocidad: vuelve a plantear el cálculo con el nuevo valor.');
+      setTimeout(()=>challenge1(),1500);
+    } else {
+      feedback('bad','Revisa el cálculo',`Tu resultado (${v} Hz) está ${diff}. Revisa cómo entran las rpm y el número de polos. (intentos fallidos: ${RETO_M.fallos1}/3)`);
+      const t=$('d_try1'); if(t) t.textContent=RETO_M.fallos1;
+    }
   }
 }
 
@@ -1186,6 +1254,13 @@ if(bT)bT.onclick=()=>{const o=teachEl.classList.contains('open');closeSheets();i
 if(bA)bA.onclick=()=>{const o=actionsEl.classList.contains('open');closeSheets();if(!o){actionsEl.classList.add('open');bA.classList.add('on');}};
 
 /* expose for tests */
+window.__labDebug={
+  get mode(){ return ['armado','fundamento','diagnostico'][phase]||'armado'; },
+  get solved(){ return RETO_M.hecho; },
+  get intentos(){ return RETO_M.intentos; },
+  state(){ return {fase:phase,rpmObjetivo,poloCaso,fault,intentos:RETO_M.intentos,resiembras:RETO_M.resiembras,
+    fallos:{f:RETO_M.fallos1,p:RETO_M.fallos2,dx:RETO_M.fallosDx},pistas:RETO_M.pistas1,resuelto:RETO_M.hecho}; },
+};
 window.__test={
   start:()=>$('start').click(),
   action:(a)=>{const fn=handleAction;fn(a,null);},

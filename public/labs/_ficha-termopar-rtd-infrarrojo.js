@@ -9,7 +9,7 @@ fichaTecnica({
       '<b>Ecuación cuadrática de Callendar-Van Dusen</b> para la RTD (obligatoria por debajo de 0 °C y para exactitud fina): aquí se usa la aproximación lineal R=R₀·(1+α·T) con el coeficiente medio α=0.003850 °C⁻¹ de IEC 60751.',
       '<b>Autocalentamiento (self-heating)</b> de la RTD por la corriente de excitación, ni la tolerancia de clase (A/B/AA) de una Pt100 individual fuera de especificación.',
       '<b>Radiación de fondo reflejada</b> por la superficie medida con la pistola IR, la transmisión atmosférica en la trayectoria óptica, el tamaño de punto (spot size) y la distancia focal del instrumento, ni el ruido del detector.',
-      '<b>Color real de radiación térmica visible</b>: el brillo del bloque caliente en la escena 3D es una convención didáctica (más cálido = más intenso), no la incandescencia real de un metal a estas temperaturas (150–260 °C, muy por debajo de ≈525 °C).',
+      '<b>Color real de radiación térmica visible</b>: el brillo del bloque caliente en la escena 3D es una convención didáctica (más cálido = más intenso), no la incandescencia real de un metal a estas temperaturas (90–400 °C según el caso, casi siempre por debajo de ≈525 °C).',
       '<b>Modelos comerciales específicos</b> de termopar, RTD o pistola IR: las constantes de coeficiente de Seebeck, resistencia de cable y emisividad son ilustrativas, no la hoja de datos certificada de un fabricante particular.'
     ]
   },
@@ -18,12 +18,12 @@ fichaTecnica({
     warn: 'Valores <b>representativos</b> de un termopar Tipo K, una RTD Pt100 y una pistola infrarroja de gama industrial/taller — no de una marca/modelo específico. Para trabajo real, usa la hoja de datos de <b>tu</b> instrumento.',
     rows: [
       ['Instrumento', 'Parámetro de referencia', 'Valor usado en el modelo'],
-      ['Termopar Tipo K', 'Coeficiente de Seebeck promedio (0–300 °C)', '≈ 0.041 mV/°C (IEC 60584-1, aproximación lineal)'],
-      ['Termopar Tipo K', 'Error sin compensación de junta fría (CJC)', 'igual a la temperatura ambiente del lector (aquí 22 °C)'],
+      ['Termopar Tipo K', 'Coeficiente de Seebeck promedio (0–400 °C)', '≈ 0.041 mV/°C (IEC 60584-1, aproximación lineal)'],
+      ['Termopar Tipo K', 'Error sin compensación de junta fría (CJC)', 'igual a la temperatura ambiente de la unión de referencia (18 – 30 °C, sorteada por caso)'],
       ['RTD Pt100', 'Resistencia nominal a 0 °C / coeficiente medio', 'R₀ = 100 Ω · α = 0.003850 °C⁻¹ (IEC 60751)'],
-      ['RTD Pt100', 'Resistencia de cable por hilo (ilustrativa)', '0.35 Ω/hilo · suma 2× en conexión a 2 hilos, se cancela a 4 hilos'],
+      ['RTD Pt100', 'Resistencia de cable por hilo (ilustrativa)', '0.20 – 0.80 Ω/hilo (sorteado por caso) · suma 2× en conexión a 2 hilos, se cancela a 4 hilos'],
       ['Pistola infrarroja', 'Emisividad de fábrica (típica en instrumentos de consumo/taller)', 'ε ≈ 0.95'],
-      ['Pistola infrarroja', 'Emisividad real de una superficie metálica pulida/oxidada (ejemplo)', 'ε ≈ 0.20 (rango real depende de la superficie: 0.02–0.9)']
+      ['Pistola infrarroja', 'Emisividad real de una superficie metálica pulida/oxidada (ejemplo)', 'ε = 0.10 – 0.30 según el caso (el rango real depende de la superficie: 0.02–0.9)']
     ]
   },
   s3: [

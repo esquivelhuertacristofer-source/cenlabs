@@ -687,31 +687,47 @@ const CASES={
 const QUESTIONS={
   noComm:{ prompt:'El sistema intentó conectar con el SDB y no lo logró. El DLC se ve en buen estado. ¿Qué determina el procedimiento?',
     opts:[
-      {t:'El sistema reintenta la conexión hasta en tres ocasiones; si no se logra, se registran marca, submarca y año modelo del vehículo y se notifica al propietario — no es un rechazo ni una aprobación.',ok:true},
-      {t:'Al no conectar, el vehículo se rechaza automáticamente por incumplimiento.',ok:false},
-      {t:'Al no conectar, el vehículo pasa automáticamente al método Dinámica sin importar el año modelo.',ok:false},
-      {t:'El sistema debe seguir intentando indefinidamente hasta lograr conexión.',ok:false},
+      {t:'Tras tres intentos fallidos se registran los datos del vehículo y se avisa al dueño: no es rechazo ni aprobación.',ok:true},
+      {t:'Al no lograr la conexión, el vehículo se rechaza de forma automática por incumplimiento de la norma.',ok:false},
+      {t:'Al no lograr la conexión, el vehículo pasa de forma automática al método Dinámica sin importar el año modelo.',ok:false},
+      {t:'El sistema debe seguir intentando la conexión de forma indefinida hasta que el SDB por fin responda.',ok:false},
+    ],
+    extra:[
+      {t:'Al no lograr la conexión, el vehículo se aprueba de forma provisional y se le cita a una segunda verificación.',ok:false},
+      {t:'Se sustituye el cable del DLC por uno nuevo y se repite la prueba hasta que el vehículo logre aprobar.',ok:false},
     ]},
   aprobado:{ prompt:'Los 5 monitores obligatorios del num. 4.1.1 están completados, 2 monitores NO obligatorios (Evaporativo y Fugas de A/C) siguen "no completado", y no hay códigos de falla confirmados. ¿Cuál es el resultado?',
     opts:[
-      {t:'APROBADO — la Tabla 1 exige monitores completados solo entre los señalados en el num. 4.1.1 (los obligatorios); los demás no entran en esa decisión.',ok:true},
-      {t:'NO EVALUABLE, porque no todos los 11 monitores están completados.',ok:false},
-      {t:'RECHAZADO, porque cualquier monitor incompleto invalida la verificación.',ok:false},
-      {t:'APROBADO, pero solo si además esos 2 monitores se completan en la siguiente revisión.',ok:false},
+      {t:'APROBADO: la Tabla 1 solo exige completados los monitores obligatorios del 4.1.1; los demás no cuentan.',ok:true},
+      {t:'NO EVALUABLE, porque no están completados los 11 monitores y la Tabla 1 pide que todos lo estén.',ok:false},
+      {t:'RECHAZADO, porque basta cualquier monitor incompleto para invalidar la verificación completa.',ok:false},
+      {t:'APROBADO, pero solo de forma condicional: esos 2 monitores deberán completarse en la siguiente revisión.',ok:false},
+    ],
+    extra:[
+      {t:'NO EVALUABLE, porque el sistema evaporativo es un monitor que siempre debe estar completo para decidir.',ok:false},
+      {t:'RECHAZADO, porque Evaporativo y Fugas de A/C incompletos generan un código pendiente que invalida todo.',ok:false},
     ]},
   rechazado:{ prompt:'Los 11 monitores están completados (readiness perfecto), pero el SDB reporta un código de falla confirmado P0300 en el monitor de Ignición en cilindros. ¿Cuál es el resultado?',
     opts:[
-      {t:'RECHAZADO — la Tabla 1 exige que no existan códigos de falla confirmados asociados a los monitores del 4.1.1; esto pesa aparte de que los monitores estén completados.',ok:true},
-      {t:'APROBADO, porque todos los monitores están completados y eso es lo único que exige la norma.',ok:false},
-      {t:'NO EVALUABLE, porque un código confirmado siempre significa que falta información.',ok:false},
-      {t:'El resultado depende del color del testigo MIL, no del código confirmado.',ok:false},
+      {t:'RECHAZADO: la Tabla 1 pide que no haya códigos confirmados, y eso pesa aparte de los monitores completos.',ok:true},
+      {t:'APROBADO, porque los 11 monitores están completados y eso es lo único que exige la norma para aprobar.',ok:false},
+      {t:'NO EVALUABLE, porque un código confirmado siempre significa que falta información para decidir.',ok:false},
+      {t:'El resultado depende únicamente del estado del testigo MIL y no del código confirmado que reporta el SDB.',ok:false},
+    ],
+    extra:[
+      {t:'RECHAZADO, pero solo si además el MIL está encendido de forma fija en el tablero del vehículo.',ok:false},
+      {t:'APROBADO, porque P0300 es un código genérico y la Tabla 1 solo rechaza por códigos específicos de cilindro.',ok:false},
     ]},
   noEvaluable:{ prompt:'El monitor de Eficiencia del convertidor catalítico (obligatorio) aparece "no completado". El monitor EGR aparece "no soportado" — el vehículo usa VVT en vez de EGR. No hay códigos confirmados. ¿Cuál es el resultado y por qué?',
     opts:[
-      {t:'NO EVALUABLE — por el monitor obligatorio "no completado" (Eficiencia del convertidor catalítico); el EGR "no soportado" no es un problema: ese monitor no aplica por diseño y tampoco es obligatorio.',ok:true},
-      {t:'NO EVALUABLE por el EGR, ya que un monitor no soportado siempre bloquea la verificación.',ok:false},
-      {t:'APROBADO, porque "no soportado" se cuenta como si estuviera completado.',ok:false},
-      {t:'RECHAZADO, porque dos monitores presentan alguna anomalía.',ok:false},
+      {t:'NO EVALUABLE: bloquea el obligatorio no completado (catalizador); el EGR no soportado no aplica ni es obligatorio.',ok:true},
+      {t:'NO EVALUABLE por el EGR, ya que un monitor "no soportado" siempre bloquea la verificación completa.',ok:false},
+      {t:'APROBADO, porque un monitor "no soportado" se cuenta como completado y el del catalizador no importa.',ok:false},
+      {t:'RECHAZADO, porque dos monitores presentan alguna anomalía y la Tabla 1 rechaza con dos o más.',ok:false},
+    ],
+    extra:[
+      {t:'RECHAZADO por el monitor del catalizador, porque un obligatorio incompleto equivale a un código confirmado.',ok:false},
+      {t:'APROBADO, porque el catalizador solo es obligatorio en vehículos con EGR y aquí el EGR no es soportado.',ok:false},
     ]},
 };
 const DX_HINT={
@@ -724,6 +740,12 @@ const DX_HINT={
 let connected=false, sdbLinked=null, connAttempt=0, connGen=0;
 let scenarioKey=SCEN_ORDER[0], mode='con';
 let dxSolved={noComm:false,aprobado:false,rechazado:false,noEvaluable:false};
+/* Contabilidad del reto de diagnóstico. Tres fallos seguidos en un caso lo
+   resiembran: salen otros distractores del banco y otro orden, para que no se
+   apruebe descartando una opción tras otra. */
+const fallosCaso={noComm:0,aprobado:0,rechazado:0,noEvaluable:0};
+const RETO={intentos:0,resiembras:0};
+function refreshIntentos(){ const e=document.getElementById('p_intentos'); if(e) e.textContent=Object.values(dxSolved).filter(Boolean).length+'/4 ✔ · intentos '+RETO.intentos; }
 
 function obligatoriosCompletados(){
   const cs=CASES[scenarioKey];
@@ -790,7 +812,7 @@ document.getElementById('hud').innerHTML=`
    PANEL (derecha)
    ============================================================ */
 document.getElementById('panel').innerHTML=`
-  <h4>Escáner · <span id="p_case" style="color:var(--accent2)">Caso 1/4</span></h4>
+  <h4>Escáner · <span id="p_case" style="color:var(--accent2)">Caso 1/4</span> · <span id="p_intentos" style="color:var(--dim);font-size:11px">0/4 ✔ · intentos 0</span></h4>
   <div class="modebar">
     <button class="b" id="s_noComm">1 · Sin conexión</button>
     <button class="b" id="s_aprobado">2 · Aprobado</button>
@@ -860,7 +882,8 @@ function renderVerdict(){
   }
   const v=computeVerdict();
   const chk=ok=> ok?'<b class="good">cumple</b>':'<b class="bad">no cumple</b>';
-  const reveal=dxSolved[scenarioKey];
+  const reveal=dxSolved[scenarioKey]||autoRunning;   // en la demostración se enseña la tabla; no puntúa
+  if(!reveal) return `<b>Tabla 1 · criterios de evaluación SDB</b><br><span class="mono">La evaluación criterio por criterio se muestra después de responder la pregunta diagnóstica. Antes, saca tus conclusiones de la conexión, los monitores (★ = obligatorios) y los códigos.</span>`;
   const bannerColor = reveal ? (v.code==='APROBADO'?'var(--good)':v.code==='RECHAZADO'?'var(--bad)':'var(--hv)') : 'var(--dim)';
   const bannerTxt = reveal ? {APROBADO:'✔ APROBADO', RECHAZADO:'✘ RECHAZADO', NO_EVALUABLE:'⚠ NO EVALUABLE'}[v.code] : '? Responde la pregunta diagnóstica para ver el resultado';
   return `<b>Tabla 1 · criterios de evaluación SDB</b>
@@ -895,7 +918,7 @@ function updateTele(){
   const milB=el('t_mil'); milB.textContent=cs.dtc?'encendido':'apagado'; milB.className=cs.dtc?'warn':'good';
   const v=computeVerdict();
   const verB=el('t_ver');
-  const reveal=dxSolved[scenarioKey];
+  const reveal=dxSolved[scenarioKey]||autoRunning;
   verB.textContent=reveal?v.code.replace('_',' '):'responde la pregunta';
   verB.className=reveal?(v.code==='APROBADO'?'good':v.code==='RECHAZADO'?'bad':'warn'):'';
 }
@@ -947,7 +970,7 @@ function drawToolScreen(){
     c.fillText('Sin códigos confirmados',18,168);
   }
   const v=computeVerdict();
-  const reveal=dxSolved[scenarioKey];
+  const reveal=dxSolved[scenarioKey]||autoRunning;
   const bannerTxt=reveal?{APROBADO:'APROBADO',RECHAZADO:'RECHAZADO',NO_EVALUABLE:'NO EVALUABLE'}[v.code]:'? ? ?';
   const bannerColor=reveal?{APROBADO:'#34d399',RECHAZADO:'#f4475e',NO_EVALUABLE:'#FFB703'}[v.code]:'#8FB3AC';
   c.fillStyle=bannerColor; c.font='bold 24px Outfit, sans-serif'; c.textAlign='center';
@@ -969,7 +992,8 @@ function renderQuestion(){
   const q=QUESTIONS[scenarioKey];
   el('q_prompt').textContent=q.prompt;
   const wrap=el('dxWrap'); wrap.innerHTML='';
-  const opts=shuffled(q.opts);
+  const buenas=q.opts.filter(o=>o.ok), malas=q.opts.filter(o=>!o.ok).concat(q.extra||[]);
+  const opts=shuffled(buenas.concat(shuffled(malas).slice(0,3)));
   opts.forEach((o,i)=>{
     const b=document.createElement('button');
     b.className='b dx'; b.dataset.i=String(i); b.dataset.ok=o.ok?'1':'0';
@@ -982,14 +1006,25 @@ function wireDx(){
   document.querySelectorAll('#dxWrap .b.dx').forEach(btn=>{
     btn.onclick=()=>{
       if(!connected||connAttempt>0){ showToast('Primero logra la conexión con el SDB.'); return; }
+      if(autoRunning) return;               // la demostración enseña, no puntúa
+      if(dxSolved[scenarioKey]){ showToast('Este caso ya está resuelto: pasa al siguiente.'); return; }
       clearDx();
+      RETO.intentos++;
       if(btn.dataset.ok==='1'){
         btn.classList.add('right'); synth.beep(1046,0.12,0.06);
-        dxSolved[scenarioKey]=true; setConsole();
+        dxSolved[scenarioKey]=true; fallosCaso[scenarioKey]=0; setConsole(); refreshIntentos();
         showToast(`<span style="color:var(--good)">✔ Correcto.</span><br><span style="color:var(--dim);font-size:11px">${DX_HINT[scenarioKey]}</span>`);
       }else{
         btn.classList.add('wrong'); synth.beep(220,0.15,0.06);
-        showToast(`<span style="color:var(--bad)">✗ Revisa la evidencia en el escáner.</span>`);
+        fallosCaso[scenarioKey]++;
+        if(fallosCaso[scenarioKey]>=3){
+          fallosCaso[scenarioKey]=0; RETO.resiembras++;
+          renderQuestion();
+          showToast(`<span style="color:var(--bad)">✗ Tres fallos en este caso.</span><br><span style="color:var(--dim);font-size:11px">Las opciones cambian: vuelve a mirar la evidencia del escáner y razona qué la explica.</span>`);
+        } else {
+          showToast(`<span style="color:var(--bad)">✗ Revisa la evidencia en el escáner</span> <span style="color:var(--dim);font-size:11px">(fallos en este caso: ${fallosCaso[scenarioKey]}/3).</span>`);
+        }
+        refreshIntentos();
       }
     };
   });
@@ -1065,35 +1100,51 @@ async function runAuto(){
   autoRunning=true;
   const btn=el('btnAuto'); const label=btn.textContent;
   btn.disabled=true; btn.classList.add('on'); btn.textContent='⏳ Demostración en curso…';
+  const previo={escenario:scenarioKey,modo:mode,conectado:connected};
+  const explica=()=>showToast(`<span style="color:var(--good)">✔ La explicación</span><br><span style="color:var(--dim);font-size:11px">${DX_HINT[scenarioKey]}</span>`);
   try{
     showToast('Paso 1 · Caso 1: el DLC se ve en buen estado. Energizamos el sistema y probamos la conexión.');
     if(connected) await setScenario('noComm'); else await connectScanner();
     setMode('con'); await sleep(1200);
-    document.querySelector('#dxWrap .b.dx[data-ok="1"]').click(); await sleep(2600);
+    explica(); await sleep(2600);
 
     await setScenario('aprobado'); setMode('mon');
     showToast('Paso 2 · Caso 2: los 5 monitores obligatorios (★) están completados; 2 no obligatorios siguen pendientes y no afectan el criterio 3.'); await sleep(3200);
     setMode('ver'); await sleep(2000);
-    document.querySelector('#dxWrap .b.dx[data-ok="1"]').click(); await sleep(2600);
+    explica(); await sleep(2600);
 
     await setScenario('rechazado'); setMode('dtc');
     showToast('Paso 3 · Caso 3: readiness perfecto (11/11), pero un código P0300 confirmado en un monitor obligatorio.'); await sleep(3000);
     setMode('ver'); await sleep(2000);
-    document.querySelector('#dxWrap .b.dx[data-ok="1"]').click(); await sleep(2600);
+    explica(); await sleep(2600);
 
     await setScenario('noEvaluable'); setMode('mon');
     showToast('Paso 4 · Caso 4: doble trampa — Eficiencia del convertidor catalítico (obligatorio) "no completado", EGR "no soportado" (vehículo con VVT, y tampoco es obligatorio).'); await sleep(3600);
     setMode('ver'); await sleep(2000);
-    document.querySelector('#dxWrap .b.dx[data-ok="1"]').click(); await sleep(2200);
+    explica(); await sleep(2200);
 
-    showToast('✔ Demostración completa. Recorre los 4 casos libremente con los modos Conexión/Monitores/Códigos/Resultado.');
+    showToast('✔ Demostración completa. Tu avance en los casos no cambió: recórrelos con los modos Conexión/Monitores/Códigos/Resultado.');
   }finally{
+    // El alumno se queda donde estaba: mismo caso, mismo modo y mismo estado del escáner.
+    autoRunning=false;
+    await setScenario(previo.escenario); setMode(previo.modo);
+    if(!previo.conectado && connected) disconnectScanner();
     btn.disabled=false; btn.classList.remove('on'); btn.textContent=label;
     autoRunning=false;
   }
 }
 el('btnAuto').onclick=runAuto;
 
+window.__labDebug={
+  get mode(){ return scenarioKey; },
+  get solved(){ return Object.values(dxSolved).every(Boolean); },
+  get intentos(){ return RETO.intentos; },
+  state(){ return {caso:scenarioKey,conectado:connected,answered:{...dxSolved},intentos:RETO.intentos,
+    fallos:{...fallosCaso},resiembras:RETO.resiembras,resuelto:Object.values(dxSolved).every(Boolean),autoRunning}; },
+  setScenario(k){ return setScenario(k); },
+  conecta(){ if(!connected) return connectScanner(); },
+  opciones(){ return [...document.querySelectorAll('#dxWrap .b.dx')].map(b=>({t:b.textContent,ok:b.dataset.ok==='1'})); },
+};
 setScenario(SCEN_ORDER[0]);
 </script>
   <!-- Ficha técnica · Capa B del molde de lab 3D (componente compartido + contenido del lab) -->

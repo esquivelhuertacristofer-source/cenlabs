@@ -40,11 +40,10 @@
        resolución + Tipo B de certificado → u_c → U), pero con cifras
        redondas apropiadas para un curso técnico, no de metrología
        especializada.
-     · Todos los datos "verdaderos" (las 5 lecturas, la resolución, el
-       certificado del bloque patrón) son constantes fijas elegidas a
-       mano — CERO Math.random(). Las estadísticas (media, s, u_A, u_c,
-       U) se CALCULAN en código a partir de esas constantes, nunca se
-       transcriben a mano, para evitar errores de redondeo silenciosos.
+     · Los datos de cada caso (lecturas, resolución, certificado) son cifras
+       ilustrativas SORTEADAS al abrir el lab y al resembrar el caso; las
+       estadísticas (media, s, u_A, u_c, U) se CALCULAN en código a partir de
+       ellas, nunca se transcriben a mano. La demostración usa DEMO.
      · La aguja del comparador en la escena 3D tiene una deflexión
        EXAGERADA a propósito (declarado en el contrato de fidelidad):
        las desviaciones reales de este ejercicio son de decenas de
@@ -84,6 +83,12 @@ let moduleKey='gum';       // 'gum' | 'traz'
 let caseKey='tipoA';       // caso activo dentro del módulo
 let active=false;          // gate genérico (equivalente a "contact" en otros labs)
 let readIdx=0;              // lecturas Tipo A reveladas (0..5)
+/* Contabilidad del reto. Tres fallos seguidos en un caso lo resiembran. */
+const answered={tipoA:false,tipoB_res:false,tipoB_cert:false,combinar:false,expandida:false,cadena:false,certificado:false};
+const fallosCaso={tipoA:0,tipoB_res:0,tipoB_cert:0,combinar:0,expandida:0,cadena:0,certificado:0};
+const RETO={intentos:0,resiembras:0};
+let quizNow={pregunta:'',opciones:[]};
+let autoRunning=false;
 const synth=makeSynth({type:'sine',type2:'sine',filterFreq:900,Q:1});
 
 const toast=document.getElementById('toast');
@@ -93,25 +98,52 @@ const HOVER_LABELS=new Map();
 /* ============================================================
    MODELO — PRESUPUESTO DE INCERTIDUMBRE GUM
    ============================================================ */
-const READINGS_MM=[10.0003,10.0005,10.0001,10.0004,10.0002]; // 5 lecturas fijas, mismo bloque patrón
-const RES_MM=0.001;      // resolución del comparador (1 µm)
-const CERT_U_MM=0.0001;  // incertidumbre expandida del certificado del bloque patrón
-const CERT_K=2;          // factor de cobertura declarado en ese certificado
-const K_EXP=2;            // factor de cobertura elegido para el resultado final (~95%)
+/* Datos de cada caso: se sortean al abrir el lab y otra vez tras tres fallos en
+   el caso. Los casos 4 y 5 llevan su PROPIO presupuesto (la pregunta lo da
+   completo) para que resembrar uno no cambie las cifras de otro ya resuelto.
+   La demostración guiada usa DEMO, que nunca coincide con lo del alumno. */
+const K_EXP=2;            // factor de cobertura del resultado final (~95%)
+const READ_STEP=0.001;    // paso de lectura del comparador de la estación (1 µm)
+const pick=a=>a[Math.floor(Math.random()*a.length)];
+const shuffled=a=>{ const b=a.slice(); for(let i=b.length-1;i>0;i--){ const j=Math.floor(Math.random()*(i+1)); [b[i],b[j]]=[b[j],b[i]]; } return b; };
+let READINGS_MM, RES_MM, CERT_U_MM, CERT_K;   // casos 1, 2 y 3 (y lo que dibuja la escena)
+let LAB_U_MM;                                  // certificado ilustrativo del laboratorio (módulo de trazabilidad)
+let SET4, SET5;                                // presupuestos de los casos 4 y 5
 
 function meanOf(arr){ return arr.reduce((a,b)=>a+b,0)/arr.length; }
 function stdevSample(arr){ const m=meanOf(arr); const ss=arr.reduce((a,b)=>a+(b-m)*(b-m),0); return Math.sqrt(ss/(arr.length-1)); }
-function gumStats(){
-  const n=READINGS_MM.length;
-  const mean=meanOf(READINGS_MM);
-  const s=stdevSample(READINGS_MM);
+const rndLecturas=()=>{ let r; do{ const b=pick([0,0,1]); r=Array.from({length:5},()=>+(10+(b+pick([0,1,2,3]))*READ_STEP).toFixed(4)); }while(stdevSample(r)<1e-9); return r; };
+const rndRes=()=>pick([0.001,0.002,0.005,0.01]);
+const rndCert=()=>({certU:pick([0.0001,0.0002,0.0003,0.0005]),certK:pick([2,2,3])});
+const rndSet=()=>({readings:rndLecturas(),res:rndRes(),...rndCert()});
+const DEMO={readings:[10.001,10.000,10.002,10.001,10.003],res:0.002,certU:0.0002,certK:3,labU:0.0004};
+const sameSet=(a,b)=>JSON.stringify([a.readings,a.res,a.certU,a.certK])===JSON.stringify([b.readings,b.res,b.certU,b.certK]);
+function seedCase(key){
+  if(key==='tipoA'){ do{ READINGS_MM=rndLecturas(); }while(JSON.stringify(READINGS_MM)===JSON.stringify(DEMO.readings)); }
+  else if(key==='tipoB_res'){ const prev=RES_MM; do{ RES_MM=rndRes(); }while(RES_MM===DEMO.res||RES_MM===prev); }
+  else if(key==='tipoB_cert'){
+    const p=[CERT_U_MM,CERT_K];
+    do{ const c=rndCert(); CERT_U_MM=c.certU; CERT_K=c.certK; }while((CERT_U_MM===DEMO.certU&&CERT_K===DEMO.certK)||(CERT_U_MM===p[0]&&CERT_K===p[1]));
+  }
+  else if(key==='combinar'){ do{ SET4=rndSet(); }while(sameSet(SET4,DEMO)); }
+  else if(key==='expandida'){ do{ SET5=rndSet(); }while(sameSet(SET5,DEMO)); }
+}
+['tipoA','tipoB_res','tipoB_cert','combinar','expandida'].forEach(seedCase);
+LAB_U_MM=pick([0.0002,0.0003,0.0005]);
+
+function gumStats(d){
+  d=d||{readings:READINGS_MM,res:RES_MM,certU:CERT_U_MM,certK:CERT_K};
+  const n=d.readings.length;
+  const mean=meanOf(d.readings);
+  const s=stdevSample(d.readings);
   const uA=s/Math.sqrt(n);
-  const uRes=RES_MM/Math.sqrt(12);
-  const uCert=CERT_U_MM/CERT_K;
+  const uRes=d.res/Math.sqrt(12);
+  const uCert=d.certU/d.certK;
   const uc=Math.sqrt(uA*uA+uRes*uRes+uCert*uCert);
   const U=K_EXP*uc;
   return {n,mean,s,uA,uRes,uCert,uc,U};
 }
+
 const fm=(v,dec=5)=>v.toFixed(dec)+' mm';
 const fmu=(v)=>'('+(v*1000).toFixed(2)+' µm)';
 const fmboth=(v,dec=5)=>fm(v,dec)+' '+fmu(v);
@@ -123,11 +155,11 @@ const CASES_GUM={
   },
   tipoB_res:{
     nombre:'Tipo B · resolución',
-    mision:'Caso 2 · El comparador tiene una resolución de 0.001 mm. Revisa el dato y calcula la incertidumbre estándar por resolución, asumiendo una distribución rectangular sobre la resolución completa.',
+    get mision(){ return 'Caso 2 · Un instrumento de la estación tiene una resolución de '+RES_MM.toFixed(3)+' mm. Revisa el dato y calcula la incertidumbre estándar por resolución, asumiendo una distribución rectangular sobre la resolución completa.'; },
   },
   tipoB_cert:{
     nombre:'Tipo B · certificado',
-    mision:'Caso 3 · El bloque patrón de referencia tiene un certificado de calibración vigente que declara U = 0.0001 mm con k=2. Revisa el certificado y calcula la incertidumbre estándar de esta fuente.',
+    get mision(){ return 'Caso 3 · El bloque patrón de referencia tiene un certificado de calibración vigente que declara U = '+CERT_U_MM.toFixed(4)+' mm con k='+CERT_K+'. Revisa el certificado y calcula la incertidumbre estándar de esta fuente.'; },
   },
   combinar:{
     nombre:'Combinar (ley de propagación)',
@@ -173,111 +205,115 @@ const CASE_CAM={
   },
 };
 
-/* ---------- generador de opciones de quiz (rotación determinista, sin azar) ---------- */
-function rotateArr(arr,seed){
-  let h=0; for(let i=0;i<seed.length;i++)h=(h*31+seed.charCodeAt(i))>>>0;
-  const r=h%arr.length; return arr.slice(r).concat(arr.slice(0,r));
-}
+/* ---------- generador de preguntas (banco de distractores) ----------
+   Cada pregunta tiene UNA opción correcta y un banco de distractores. Al
+   presentarla se eligen 3 del banco y se barajan; las cifras salen de los datos
+   sembrados del caso. Los mensajes de error NO dan la cifra ni la opción
+   correcta: solo dicen qué revisar. */
+const W_RAZON='La razón que das para la clasificación no corresponde a cómo define el GUM los tipos A y B: revisa en qué se basa esa clasificación.';
+const W_VALOR='Ese valor no sale de los datos del panel con la fórmula que corresponde: vuelve a calcularlo paso a paso.';
+const W_CONCEPTO='Esa afirmación no coincide con la definición de la norma: contrástala con lo que revisaste en la escena.';
+const fila=(t,ok,why,k)=>({t,ok,why,_k:k||t});
+const sinRepetir=arr=>{ const vistos=new Set(); return arr.filter(o=>{ if(vistos.has(o._k)) return false; vistos.add(o._k); return true; }); };
 
 function tipoAQuiz(){
   const st=gumStats();
   const pregunta=`${CASES_GUM.tipoA.mision}<br>Lecturas (mm): ${READINGS_MM.map(v=>v.toFixed(4)).join(' · ')}. ¿Por qué esta incertidumbre se clasifica como <b>Tipo A</b> y cómo se calcula u_A?`;
-  const opciones=[
-    {t:`Es Tipo A porque se obtiene por un método ESTADÍSTICO: n=${st.n} lecturas repetidas dan una media (${st.mean.toFixed(4)} mm) y una desviación estándar experimental s=${fm(st.s)}; la incertidumbre estándar de la media es u_A = s/√n = ${fmboth(st.uA)}.`, ok:true,
-     why:'El GUM (JCGM 100:2008, cláusula 4.2) clasifica Tipo A vs. Tipo B por el MÉTODO de evaluación (estadístico vs. no estadístico), no por cuál es "más confiable" — de hecho el GUM dice explícitamente que una evaluación Tipo B puede ser tan confiable como una Tipo A.'},
-    {t:'Es Tipo A porque es más confiable que una incertidumbre Tipo B.', ok:false,
-     why:'El GUM aclara explícitamente que una evaluación Tipo B "puede ser tan confiable como una evaluación Tipo A" (cláusula 4.3.1) — la clasificación no mide confiabilidad, mide el método de evaluación.'},
-    {t:`u_A = s = ${fm(st.s)} (la desviación estándar de las lecturas individuales, sin dividir entre √n).`, ok:false,
-     why:'Esa es la desviación estándar de las lecturas individuales. La incertidumbre estándar de la MEDIA —lo que se reporta como u_A— es s/√n, menor por un factor √n; confundir ambas es un error común.'},
-    {t:'Es Tipo A porque proviene de la resolución del instrumento.', ok:false,
-     why:'La resolución del instrumento es una fuente Tipo B (evaluación NO estadística, basada en la especificación del fabricante), no Tipo A.'},
-  ];
-  return {pregunta, opciones:rotateArr(opciones,'tipoA')};
+  const R=['porque se obtiene por un método estadístico sobre lecturas repetidas','porque es más confiable que cualquier evaluación Tipo B','porque proviene de la resolución del instrumento','porque proviene del certificado del patrón'];
+  const V=[{f:'s/√n',v:st.uA},{f:'s',v:st.s},{f:'s·√n',v:st.s*Math.sqrt(st.n)},{f:'s/n',v:st.s/st.n}];
+  const t=(r,v)=>`Es Tipo A ${R[r]}; u_A = ${V[v].f} = ${fmboth(V[v].v)}.`;
+  const K=(r,v)=>r+"|"+V[v].v.toFixed(5);
+  const opciones=sinRepetir([
+    fila(t(0,0),true,'El GUM (JCGM 100:2008, cláusula 4.2) clasifica Tipo A vs. Tipo B por el MÉTODO de evaluación (estadístico vs. no estadístico), no por cuál es "más confiable"; y la incertidumbre estándar de la MEDIA es s/√n, menor que la dispersión de las lecturas individuales.',K(0,0)),
+    fila(t(0,1),false,W_VALOR,K(0,1)), fila(t(0,2),false,W_VALOR,K(0,2)), fila(t(0,3),false,W_VALOR,K(0,3)),
+    fila(t(1,0),false,W_RAZON,K(1,0)), fila(t(2,0),false,W_RAZON,K(2,0)), fila(t(3,0),false,W_RAZON,K(3,0)), fila(t(1,1),false,W_RAZON,K(1,1)),
+  ]);
+  return {pregunta, opciones};
 }
 function tipoBResQuiz(){
-  const uCorr=RES_MM/Math.sqrt(12), uHalf=RES_MM/2, uSqrt3=RES_MM/Math.sqrt(3);
-  const pregunta=`${CASES_GUM.tipoB_res.mision}<br>Resolución del comparador: <b>${RES_MM.toFixed(3)} mm</b>.`;
-  const opciones=[
-    {t:`u = resolución/√12 = ${RES_MM.toFixed(3)}/√12 ≈ ${fmboth(uCorr)}`, ok:true,
-     why:'Para una escala digital/analógica de resolución conocida se asume una distribución rectangular sobre la resolución COMPLETA (GUM, Anexo F.2.2.1): u = (resolución)/√12.'},
-    {t:`u = resolución/2 = ${fmboth(uHalf)}`, ok:false,
-     why:'Trata la resolución completa como si ya fuera la semi-amplitud de una tolerancia declarada — es el error de conversión Tipo B más común en la práctica.'},
-    {t:`u = resolución/√3 = ${fmboth(uSqrt3)}`, ok:false,
-     why:'Esa fórmula (u=a/√3) es para la semi-amplitud "a" de una tolerancia declarada (p. ej. un rango ±a de fabricante), no para la resolución completa de un instrumento — son dos fórmulas Tipo B distintas que no deben intercambiarse.'},
-    {t:`u = resolución = ${RES_MM.toFixed(3)} mm, usada directamente sin asumir ninguna distribución.`, ok:false,
-     why:'Ignora que el GUM exige declarar una distribución de probabilidad (aquí, rectangular) para convertir una especificación en una incertidumbre estándar.'},
-  ];
-  return {pregunta, opciones:rotateArr(opciones,'tipoBres')};
+  const r=RES_MM;
+  const pregunta=`${CASES_GUM.tipoB_res.mision}<br>Resolución del instrumento: <b>${r.toFixed(3)} mm</b>.`;
+  const op=(f,div,ok,why)=>fila(`u = ${f} = ${fmboth(div)}`,ok,why,div.toFixed(5));
+  const opciones=sinRepetir([
+    op(`resolución/√12 = ${r.toFixed(3)}/√12`,r/Math.sqrt(12),true,'Para una escala de resolución conocida se asume una distribución rectangular sobre la resolución COMPLETA (GUM, Anexo F.2.2.1): u = (resolución)/√12.'),
+    op(`resolución/2 = ${r.toFixed(3)}/2`,r/2,false,W_VALOR),
+    op(`resolución/√3 = ${r.toFixed(3)}/√3`,r/Math.sqrt(3),false,W_VALOR),
+    op(`resolución = ${r.toFixed(3)}`,r,false,W_VALOR),
+    op(`resolución/√6 = ${r.toFixed(3)}/√6`,r/Math.sqrt(6),false,W_VALOR),
+    op(`resolución/12 = ${r.toFixed(3)}/12`,r/12,false,W_VALOR),
+  ]);
+  return {pregunta, opciones};
 }
 function tipoBCertQuiz(){
-  const uCorr=CERT_U_MM/CERT_K, uMul=CERT_U_MM*CERT_K, uDirect=CERT_U_MM, uK3=CERT_U_MM/3;
-  const pregunta=`${CASES_GUM.tipoB_cert.mision}<br>Certificado del bloque patrón: <b>U = ${CERT_U_MM.toFixed(4)} mm, k=${CERT_K}</b>.`;
-  const opciones=[
-    {t:`u = U/k = ${CERT_U_MM.toFixed(4)}/${CERT_K} = ${fmboth(uCorr)}`, ok:true,
-     why:'Cuando un certificado reporta una incertidumbre EXPANDIDA U con un factor de cobertura k, se recupera la incertidumbre estándar dividiendo entre k — relación inversa de U=k·u (GUM, cláusula 6.2.1).'},
-    {t:`u = U × k = ${fmboth(uMul)}`, ok:false, why:'Es la operación inversa a la correcta: hay que DESHACER el factor de cobertura (dividir), no aplicarlo de nuevo (multiplicar).'},
-    {t:`u = U = ${fmboth(uDirect)}, usando directamente la incertidumbre expandida del certificado.`, ok:false,
-     why:'Usar U directamente como si fuera la incertidumbre estándar sobreestima esta fuente por un factor k — siempre hay que dividir entre el factor de cobertura declarado antes de combinar.'},
-    {t:`u = U/3 = ${fmboth(uK3)}, asumiendo un factor de cobertura distinto al declarado.`, ok:false,
-     why:'El factor de cobertura no se supone — se LEE del certificado (aquí k=2); usar un valor distinto sin verificarlo es un error común al copiar presupuestos de otras mediciones.'},
-  ];
-  return {pregunta, opciones:rotateArr(opciones,'tipoBcert')};
+  const U=CERT_U_MM, k=CERT_K, otro=(k===2?3:2);
+  const pregunta=`${CASES_GUM.tipoB_cert.mision}<br>Certificado del bloque patrón: <b>U = ${U.toFixed(4)} mm, k=${k}</b>.`;
+  const op=(f,v,ok,why)=>fila(`u = ${f} = ${fmboth(v)}`,ok,why,v.toFixed(5));
+  const opciones=sinRepetir([
+    op(`U/k = ${U.toFixed(4)}/${k}`,U/k,true,'Cuando un certificado reporta una incertidumbre EXPANDIDA U con un factor de cobertura k, se recupera la incertidumbre estándar dividiendo entre k, la relación inversa de U=k·u (GUM, cláusula 6.2.1). El k se LEE del certificado.'),
+    op(`U × k = ${U.toFixed(4)} × ${k}`,U*k,false,W_VALOR),
+    op(`U = ${U.toFixed(4)}`,U,false,W_VALOR),
+    op(`U/${otro} = ${U.toFixed(4)}/${otro}`,U/otro,false,W_VALOR),
+    op(`U/√3 = ${U.toFixed(4)}/√3`,U/Math.sqrt(3),false,W_VALOR),
+    op(`U/k² = ${U.toFixed(4)}/${k*k}`,U/(k*k),false,W_VALOR),
+  ]);
+  return {pregunta, opciones};
 }
 function combinarQuiz(){
-  const st=gumStats();
-  const linSum=st.uA+st.uRes+st.uCert, maxTerm=Math.max(st.uA,st.uRes,st.uCert), avgTerm=linSum/3;
+  const st=gumStats(SET4);
+  const t=[st.uA,st.uRes,st.uCert];
+  const ord=t.slice().sort((a,b)=>b-a);
   const pregunta=`${CASES_GUM.combinar.mision}<br>u_A=${fm(st.uA)} · u_resolución=${fm(st.uRes)} · u_certificado=${fm(st.uCert)}. ¿Cuál es u_c?`;
-  const opciones=[
-    {t:`u_c = √(u_A² + u_res² + u_cert²) ≈ ${fmboth(st.uc)}`, ok:true,
-     why:'Ley de propagación de incertidumbre del GUM (ecuación 10), forma simplificada cuando los coeficientes de sensibilidad son 1: las fuentes se combinan en CUADRATURA (suma de cuadrados, raíz cuadrada), nunca linealmente.'},
-    {t:`u_c = u_A + u_res + u_cert = ${fmboth(linSum)} (suma lineal)`, ok:false,
-     why:'Sumar linealmente sobrestima la incertidumbre real. El GUM y NIST TN 1297 (§5) son explícitos: la combinación es en cuadratura (RSS), no una suma directa.'},
-    {t:`u_c = ${fmboth(maxTerm)}, solo la fuente dominante (la más grande de las tres).`, ok:false,
-     why:'Ignora la contribución de las demás fuentes solo porque son menores — en la ley de propagación TODAS las fuentes contribuyen, aunque su peso relativo varíe.'},
-    {t:`u_c = ${fmboth(avgTerm)}, el promedio de las tres.`, ok:false, why:'No tiene fundamento en la ley de propagación de incertidumbre del GUM — promediar no es la operación que define u_c.'},
-  ];
-  return {pregunta, opciones:rotateArr(opciones,'combinar')};
+  const op=(f,v,ok,why)=>fila(`u_c = ${f} ≈ ${fmboth(v)}`,ok,why,v.toFixed(5));
+  const opciones=sinRepetir([
+    op('√(u_A² + u_res² + u_cert²)',st.uc,true,'Ley de propagación de incertidumbre del GUM (ecuación 10), forma simplificada con coeficientes de sensibilidad 1: las fuentes se combinan en CUADRATURA (suma de cuadrados y raíz), nunca linealmente.'),
+    op('u_A + u_res + u_cert',t[0]+t[1]+t[2],false,W_VALOR),
+    op('la fuente dominante (la mayor de las tres)',ord[0],false,W_VALOR),
+    op('el promedio de las tres',(t[0]+t[1]+t[2])/3,false,W_VALOR),
+    op('√(suma de cuadrados de las dos mayores)',Math.hypot(ord[0],ord[1]),false,W_VALOR),
+    op('√(u_A² + u_res² + U_cert²), con U sin dividir entre k',Math.sqrt(st.uA*st.uA+st.uRes*st.uRes+SET4.certU*SET4.certU),false,W_VALOR),
+  ]);
+  return {pregunta, opciones};
 }
 function expandidaQuiz(){
-  const st=gumStats();
-  const uWrongDiv=st.uc/K_EXP;
-  const pregunta=`${CASES_GUM.expandida.mision}<br>u_c=${fm(st.uc)}, k=${K_EXP}. ¿Cuál es U y qué significa el resultado?`;
-  const opciones=[
-    {t:`U = k·u_c = ${K_EXP}×${fm(st.uc)} = ${fmboth(st.U)}. Resultado: (${st.mean.toFixed(4)} ± ${st.U.toFixed(4)}) mm, con un nivel de confianza de APROXIMADAMENTE 95% (no exactamente), asumiendo una distribución aproximadamente normal.`, ok:true,
-     why:'GUM, cláusula 6.3.3 (verbatim): tomar k=2 produce un intervalo con un nivel de confianza de APROXIMADAMENTE 95% — la palabra "aproximadamente" y la suposición de normalidad son parte de la afirmación, no un detalle menor.'},
-    {t:`U = u_c/k = ${fmboth(uWrongDiv)}`, ok:false, why:'Fórmula invertida: la incertidumbre expandida se obtiene MULTIPLICANDO u_c por k (U=k·u_c, GUM ecuación 18), no dividiendo.'},
-    {t:`U = k·u_c = ${fmboth(st.U)}, con exactamente 95.00% de confianza garantizado siempre, sin importar la distribución de los datos.`, ok:false,
-     why:'El GUM nunca afirma un 95% exacto ni incondicional — es una aproximación válida bajo el supuesto de una distribución aproximadamente normal.'},
-    {t:`U = k·u_c, y con k=2 el intervalo cubre el 100% de los valores posibles.`, ok:false, why:'Ningún factor de cobertura finito garantiza el 100% de los valores — k=2 se asocia a ~95%, k=3 a ~99% (GUM, cl. 6.3.3), nunca a certeza total.'},
-  ];
-  return {pregunta, opciones:rotateArr(opciones,'expandida')};
+  const st=gumStats(SET5);
+  const pregunta=`${CASES_GUM.expandida.mision}<br>u_c=${fm(st.uc)}, k=${K_EXP}, media=${st.mean.toFixed(4)} mm. ¿Cuál es U y qué significa el resultado?`;
+  const OKC='aproximadamente el 95% si la distribución es aproximadamente normal';
+  const op=(f,v,claim,ok,why)=>fila(`U = ${f} = ${fmboth(v)}; (${st.mean.toFixed(4)} ± ${v.toFixed(4)}) mm cubre ${claim}.`,ok,why,claim+"|"+v.toFixed(5));
+  const opciones=sinRepetir([
+    op(`k·u_c = ${K_EXP}×${fm(st.uc)}`,st.U,OKC,true,'GUM, cláusula 6.3.3: tomar k=2 produce un intervalo con un nivel de confianza de APROXIMADAMENTE 95%; la palabra "aproximadamente" y la suposición de normalidad son parte de la afirmación, no un detalle menor.'),
+    op(`u_c/k = ${fm(st.uc)}/${K_EXP}`,st.uc/K_EXP,OKC,false,W_VALOR),
+    op(`k·u_A = ${K_EXP}×${fm(st.uA)}`,K_EXP*st.uA,OKC,false,W_VALOR),
+    op(`k²·u_c = ${K_EXP*K_EXP}×${fm(st.uc)}`,K_EXP*K_EXP*st.uc,OKC,false,W_VALOR),
+    op(`k·u_c = ${K_EXP}×${fm(st.uc)}`,st.U,'exactamente el 95.00%, sin importar la distribución de los datos',false,W_CONCEPTO),
+    op(`k·u_c = ${K_EXP}×${fm(st.uc)}`,st.U,'el 100% de los valores posibles',false,W_CONCEPTO),
+  ]);
+  return {pregunta, opciones};
 }
 function cadenaQuiz(){
   const pregunta='Caso 6 · Según el VIM (JCGM 200:2012, definición 2.41), ¿qué es la trazabilidad metrológica de un resultado de medición?';
   const opciones=[
-    {t:'Es la propiedad de un resultado de medición por la cual puede relacionarse con una referencia mediante una cadena documentada e ININTERRUMPIDA de calibraciones, cada una con su incertidumbre. La trazabilidad NO garantiza por sí sola que la incertidumbre sea adecuada ni que no haya errores (VIM, nota 5) — solo garantiza el origen documentado de la referencia.', ok:true,
-     why:'Definición VIM 2.41 más su nota 5, ambas explícitas: la cadena documentada es la propiedad; la adecuación de la incertidumbre es un requisito APARTE que no se deduce solo de tener trazabilidad.'},
-    {t:'Es la garantía de que la medición es exacta, sin necesidad de reportar incertidumbre.', ok:false,
-     why:'Contradice directamente la nota 5 del VIM: la trazabilidad no garantiza exactitud ni sustituye el reporte de incertidumbre.'},
-    {t:'Es tener un certificado de calibración, sin importar su antigüedad ni qué laboratorio lo emitió.', ok:false,
-     why:'Un papel aislado no es una cadena — la trazabilidad exige que CADA eslabón (incluido el laboratorio emisor) esté documentado y sea vigente.'},
-    {t:'Es la propiedad de poder repetir la medición varias veces obteniendo el mismo resultado.', ok:false,
-     why:'Eso describe precisión/repetibilidad (VIM 2.15), un concepto relacionado pero distinto de la trazabilidad (VIM 2.41).'},
+    fila('Es la propiedad de un resultado por la que se liga a una referencia mediante una cadena documentada e ininterrumpida de calibraciones, cada una con su incertidumbre; por sí sola no asegura que ésta sea adecuada.',true,
+      'Definición VIM 2.41 más su nota 5: la cadena documentada es la propiedad; la adecuación de la incertidumbre es un requisito APARTE que no se deduce solo de tener trazabilidad.'),
+    fila('Es la garantía de que la medición es exacta: con un instrumento trazable ya no hace falta reportar la incertidumbre de medición, porque la cadena la absorbe completa en cada uno de sus eslabones.',false,W_CONCEPTO),
+    fila('Es contar con un certificado de calibración del instrumento, sin importar su antigüedad ni qué laboratorio lo emitió, porque el papel mismo demuestra que existe una cadena hasta el patrón nacional.',false,W_CONCEPTO),
+    fila('Es la propiedad de poder repetir la medición varias veces obteniendo el mismo resultado, es decir, que las lecturas repetidas coincidan entre sí dentro de la resolución del instrumento utilizado.',false,W_CONCEPTO),
+    fila('Es la acreditación del laboratorio ante la EMA: si el laboratorio está acreditado, toda medición hecha en cualquier taller con sus instrumentos queda trazable de forma automática, aunque estos no se calibren.',false,W_CONCEPTO),
+    fila('Es la comparación puntual del instrumento contra un patrón de taller en el momento de usarlo, sin necesidad de documentar el resultado ni la incertidumbre de ese patrón de referencia empleado.',false,W_CONCEPTO),
   ];
-  return {pregunta, opciones:rotateArr(opciones,'cadena')};
+  return {pregunta, opciones};
 }
 function certificadoQuiz(){
   const pregunta='Caso 7 · Un compañero afirma que todo certificado de calibración conforme a ISO/IEC 17025 DEBE incluir, por defecto, la "fecha de la próxima calibración". Revisa el certificado del panel. ¿Es correcta esa afirmación?';
   const opciones=[
-    {t:'No. ISO/IEC 17025:2017 (§7.8.4.3) NO exige por defecto incluir la fecha de la próxima calibración o un intervalo de recalibración — solo si el cliente lo solicita expresamente o lo exige una reglamentación aplicable. Sí son de inclusión obligatoria: la incertidumbre de medición, las condiciones de calibración, y una declaración de trazabilidad metrológica.', ok:true,
-     why:'§7.8.4.3 de la norma es explícito: la fecha de próxima calibración es condicional (a petición del cliente o por reglamento), no un contenido por defecto — un malentendido común de taller que este certificado ilustra deliberadamente omitiendo ese campo.'},
-    {t:'Sí, es obligatoria en todos los certificados sin excepción.', ok:false, why:'Es el malentendido exacto que corrige §7.8.4.3 de la norma: esa fecha es condicional, no un requisito universal.'},
-    {t:'No es necesario reportar la incertidumbre de medición si el instrumento es de uso general.', ok:false,
-     why:'Contradice §7.8.4.1(b): la incertidumbre de medición SÍ es de inclusión obligatoria en el certificado, sin excepción por "uso general".'},
-    {t:'El certificado no necesita declarar trazabilidad si el laboratorio está acreditado — la acreditación ya lo garantiza implícitamente.', ok:false,
-     why:'La declaración explícita de trazabilidad en el certificado (§7.8.4.1(c)) sigue siendo un requisito de contenido, independientemente de que el laboratorio esté acreditado.'},
+    fila('No. ISO/IEC 17025:2017 (§7.8.4.3) no la exige por defecto: solo si el cliente la solicita o una reglamentación la exige. Sí son obligatorios la incertidumbre, las condiciones y la trazabilidad.',true,
+      '§7.8.4.3 de la norma es explícito: la fecha de próxima calibración es condicional (a petición del cliente o por reglamento), no un contenido por defecto; incertidumbre, condiciones y declaración de trazabilidad sí son de inclusión obligatoria (§7.8.4.1).'),
+    fila('Sí, la norma la exige en todos los certificados sin excepción, porque sin esa fecha el certificado pierde validez y el instrumento no puede considerarse trazable en ningún uso posterior que se haga.',false,W_CONCEPTO),
+    fila('No es necesario reportar la incertidumbre de medición en el certificado si el instrumento es de uso general; basta con indicar el resultado de la calibración y las condiciones ambientales de la prueba.',false,W_CONCEPTO),
+    fila('El certificado no necesita declarar trazabilidad si el laboratorio está acreditado, porque la acreditación ya la garantiza de manera implícita para todas las calibraciones que emite ese mismo laboratorio.',false,W_CONCEPTO),
+    fila('Sí, aunque la fije el cliente: el laboratorio debe calcularla siempre con la deriva histórica del instrumento y anotarla, ya que es el contenido más importante que exige el numeral citado de la norma.',false,W_CONCEPTO),
+    fila('No, y además la norma la prohíbe: el laboratorio nunca debe sugerir un intervalo de recalibración aunque el cliente lo pida, pues eso corresponde exclusivamente al fabricante del instrumento que se calibra.',false,W_CONCEPTO),
   ];
-  return {pregunta, opciones:rotateArr(opciones,'certificado')};
+  return {pregunta, opciones};
 }
 function currentQuiz(){
   if(moduleKey==='traz'){ return caseKey==='cadena' ? cadenaQuiz() : certificadoQuiz(); }
@@ -355,7 +391,7 @@ const resCanvas=document.createElement('canvas'); resCanvas.width=256; resCanvas
 const resTex=new THREE.CanvasTexture(resCanvas); resTex.colorSpace=THREE.SRGBColorSpace; resTex.minFilter=THREE.LinearFilter; resTex.generateMipmaps=false;
 const resPanel=new THREE.Mesh(new THREE.PlaneGeometry(0.36,0.25), new THREE.MeshBasicMaterial({map:resTex,toneMapped:false}));
 resPanel.position.set(0.62,0.52,0.33); stationG.add(resPanel);
-resPanel.userData={title:'Especificación · resolución del comparador',info:'Dato Tipo B: la resolución del instrumento (0.001 mm) se convierte en incertidumbre estándar asumiendo una distribución rectangular, u = resolución/√12.'};
+resPanel.userData={title:'Especificación · resolución del instrumento',info:'Dato Tipo B: la resolución del instrumento (la de la placa) se convierte en incertidumbre estándar asumiendo una distribución rectangular, u = resolución/√12.'};
 const lbRes=labelSprite('Resolución del instrumento','#4FD1C5'); lbRes.position.set(0.62,0.72,0.33); lbRes.visible=false; lbRes.raycast=()=>{}; stationG.add(lbRes); HOVER_LABELS.set(resPanel,lbRes);
 
 // Placa pequeña: certificado del bloque patrón
@@ -481,7 +517,7 @@ function drawDial(value){
   }
   // deflexión EXAGERADA a propósito (ver contrato de fidelidad) — solo para que se vea algo en pantalla
   const dev = value==null ? 0 : (value-10.000);
-  const needleAng=(dev*400000-90)*Math.PI/180;
+  const needleAng=(dev/READ_STEP*30-90)*Math.PI/180;
   c.strokeStyle='#FFD166'; c.lineWidth=4; c.beginPath(); c.moveTo(cx,cy); c.lineTo(cx+Math.cos(needleAng)*(R-24),cy+Math.sin(needleAng)*(R-24)); c.stroke();
   c.fillStyle='#FFD166'; c.beginPath(); c.arc(cx,cy,8,0,Math.PI*2); c.fill();
   c.fillStyle='#4FD1C5'; c.font='bold 12px Outfit, sans-serif'; c.textAlign='center';
@@ -497,11 +533,11 @@ function drawResPanel(){
   c.fillStyle='#0a1512'; c.fillRect(0,0,256,180);
   c.strokeStyle='rgba(79,209,197,.45)'; c.lineWidth=3; c.strokeRect(4,4,248,172);
   c.fillStyle='#4FD1C5'; c.font='bold 15px Outfit, sans-serif'; c.textAlign='center';
-  c.fillText('COMPARADOR',128,34);
+  c.fillText('INSTRUMENTO',128,34);
   c.fillStyle='#EAF4F1'; c.font='bold 24px Outfit, sans-serif';
   c.fillText(RES_MM.toFixed(3)+' mm',128,92);
   c.fillStyle='#8FB3AC'; c.font='13px Outfit, sans-serif';
-  c.fillText('resolución (1 µm/división)',128,120);
+  c.fillText('resolución ('+(RES_MM*1000).toFixed(0)+' µm/división)',128,120);
   c.fillStyle='#5b8a80'; c.font='11px Outfit, sans-serif';
   c.fillText('dato Tipo B',128,150);
   resTex.needsUpdate=true;
@@ -533,7 +569,7 @@ function drawBoard(){
     ['Laboratorio:', 'Acreditado EMA · NMX-EC-17025-IMNC-2018'],
     ['Instrumento:', 'Comparador de carátula, resolución 0.001 mm'],
     ['Condiciones:', '20 °C de referencia (ISO 1) ± rango declarado'],
-    ['Incertidumbre expandida:', 'U = '+gumStats().U.toFixed(4)+' mm, k=2 (~95%)'],
+    ['Incertidumbre expandida:', 'U = '+LAB_U_MM.toFixed(4)+' mm, k=2 (~95%)'],
     ['Trazabilidad:', 'Trazable a patrones nacionales (CENAM) vía este laboratorio'],
   ];
   let y=76;
@@ -544,17 +580,19 @@ function drawBoard(){
   }
   c.strokeStyle='rgba(255,209,102,.4)'; c.lineWidth=1.5;
   c.beginPath(); c.moveTo(20,y+2); c.lineTo(540,y+2); c.stroke();
-  c.fillStyle='#FFD166'; c.font='12px Outfit, sans-serif';
-  c.fillText('Nota: NO incluye "próxima fecha de calibración" — ISO/IEC 17025 §7.8.4.3',28,y+26);
-  c.fillText('no la exige por defecto (solo si el cliente la solicita).',28,y+44);
+  c.fillStyle='#8FB3AC'; c.font='12px Outfit, sans-serif';
+  c.fillText('Ilustrativo: los campos mostrados son los del certificado de este laboratorio.',28,y+26);
   boardTex.needsUpdate=true;
 }
 drawResPanel(); drawCertPanel(); drawBoard(); drawDial(null);
 
 /* ---------- telemetría e informe ---------- */
+/* El resultado de un cálculo NO se escribe en el panel hasta que el caso está
+   respondido (o la demostración lo enseña): el panel da los DATOS, el
+   alumno hace la cuenta. */
+const revela=()=>!!answered[caseKey]||autoRunning;
 function updateTele(){
   const set=(id,txt,cls)=>{ const b=el(id); b.textContent=txt; b.className=cls||''; };
-  const st=gumStats();
   if(moduleKey==='gum'){
     if(caseKey==='tipoA'){
       const last=readIdx>0?READINGS_MM[readIdx-1].toFixed(4)+' mm':'—';
@@ -576,17 +614,19 @@ function updateTele(){
       set('t_case', CASES_GUM.tipoB_cert.nombre,'');
       set('t_est', active?'Revisado':'Sin revisar', active?'good':'warn');
     } else if(caseKey==='combinar'){
-      set('t_raw', st.uc.toFixed(5)+' mm', active?'good':'');
+      const st=gumStats(SET4);
+      set('t_raw', revela()?st.uc.toFixed(5)+' mm':(active?'— (calcúlalo)':'—'), active&&revela()?'good':'');
       set('t_ref', 'u_A, u_res, u_cert','warn');
       set('t_lc','u_c = √Σu² (cuadratura)','');
       set('t_case', CASES_GUM.combinar.nombre,'');
-      set('t_est', active?'Calculado':'Sin calcular', active?'good':'warn');
+      set('t_est', active?'Datos a la vista':'Sin revisar', active?'good':'warn');
     } else {
-      set('t_raw', st.U.toFixed(5)+' mm', active?'good':'');
+      const st=gumStats(SET5);
+      set('t_raw', revela()?st.U.toFixed(5)+' mm':(active?'— (calcúlalo)':'—'), active&&revela()?'good':'');
       set('t_ref', 'k=2 (~95%)','warn');
       set('t_lc','U = k·u_c','');
       set('t_case', CASES_GUM.expandida.nombre,'');
-      set('t_est', active?'Calculado':'Sin calcular', active?'good':'warn');
+      set('t_est', active?'Datos a la vista':'Sin revisar', active?'good':'warn');
     }
   } else {
     if(caseKey==='cadena'){
@@ -605,49 +645,56 @@ function updateTele(){
   }
 }
 function updateReport(){
-  const st=gumStats();
   let html='';
   if(moduleKey==='gum'){
     if(caseKey==='tipoA'){
       if(readIdx===0){ html='<span class="mono">Sin lecturas aún. Pulsa "Tomar lectura" para registrar la primera de 5.</span>'; }
       else{
+        const st=gumStats();
         const taken=READINGS_MM.slice(0,readIdx);
         html=`<b>${CASES_GUM.tipoA.mision}</b><br><span class="mono">Lecturas: ${taken.map(v=>v.toFixed(4)).join(' · ')} mm`;
         if(readIdx===READINGS_MM.length){
-          html+=`<br>Media = ${st.mean.toFixed(4)} mm · s = ${fm(st.s)} · u_A = s/√${st.n} = <b>${fmboth(st.uA)}</b></span>`;
+          html+= revela()
+            ? `<br>Media = ${st.mean.toFixed(4)} mm · s = ${fm(st.s)} · u_A = s/√${st.n} = <b>${fmboth(st.uA)}</b></span>`
+            : `<br>Con estas ${st.n} lecturas calcula la media, s y u_A, y responde.</span>`;
         } else { html+=` (${readIdx}/${READINGS_MM.length})</span>`; }
       }
     } else if(caseKey==='tipoB_res'){
+      const st=gumStats();
       html = active
-        ? `<b>${CASES_GUM.tipoB_res.mision}</b><br><span class="mono">Resolución = ${RES_MM.toFixed(3)} mm → u_res = resolución/√12 = <b>${fmboth(st.uRes)}</b></span>`
-        : '<span class="mono">Pulsa "Revisar dato" para inspeccionar la especificación del comparador.</span>';
+        ? `<b>${CASES_GUM.tipoB_res.mision}</b><br><span class="mono">Resolución = ${RES_MM.toFixed(3)} mm`+(revela()?` → u_res = resolución/√12 = <b>${fmboth(st.uRes)}</b>`:' → convierte esa especificación en incertidumbre estándar y responde.')+'</span>'
+        : '<span class="mono">Pulsa "Revisar dato" para inspeccionar la especificación del instrumento.</span>';
     } else if(caseKey==='tipoB_cert'){
+      const st=gumStats();
       html = active
-        ? `<b>${CASES_GUM.tipoB_cert.mision}</b><br><span class="mono">Certificado: U = ${CERT_U_MM.toFixed(4)} mm, k=${CERT_K} → u_cert = U/k = <b>${fmboth(st.uCert)}</b></span>`
+        ? `<b>${CASES_GUM.tipoB_cert.mision}</b><br><span class="mono">Certificado: U = ${CERT_U_MM.toFixed(4)} mm, k=${CERT_K}`+(revela()?` → u_cert = U/k = <b>${fmboth(st.uCert)}</b>`:' → obtén la incertidumbre estándar de esta fuente y responde.')+'</span>'
         : '<span class="mono">Pulsa "Revisar dato" para inspeccionar el certificado del bloque patrón.</span>';
     } else if(caseKey==='combinar'){
+      const st=gumStats(SET4);
       html = active
-        ? `<b>${CASES_GUM.combinar.mision}</b><br><span class="mono">u_A=${fm(st.uA)} · u_res=${fm(st.uRes)} · u_cert=${fm(st.uCert)}<br>u_c = √(u_A²+u_res²+u_cert²) = <b>${fmboth(st.uc)}</b></span>`
-        : '<span class="mono">Pulsa "Calcular" para combinar las tres fuentes en cuadratura.</span>';
+        ? `<b>${CASES_GUM.combinar.mision}</b><br><span class="mono">u_A=${fm(st.uA)} · u_res=${fm(st.uRes)} · u_cert=${fm(st.uCert)}`+(revela()?`<br>u_c = √(u_A²+u_res²+u_cert²) = <b>${fmboth(st.uc)}</b>`:'<br>Combina las tres fuentes y responde.')+'</span>'
+        : '<span class="mono">Pulsa "Ver datos" para tener a la vista las tres fuentes que hay que combinar.</span>';
     } else {
+      const st=gumStats(SET5);
       html = active
-        ? `<b>${CASES_GUM.expandida.mision}</b><br><span class="mono">U = k·u_c = 2×${fm(st.uc)} = <b>${fmboth(st.U)}</b><br>Resultado final: <b>(${st.mean.toFixed(4)} ± ${st.U.toFixed(4)}) mm, k=2 (~95%)</b></span>`
-        : '<span class="mono">Pulsa "Calcular" para aplicar el factor de cobertura k=2.</span>';
+        ? `<b>${CASES_GUM.expandida.mision}</b><br><span class="mono">u_c = ${fm(st.uc)} · k = ${K_EXP} · media = ${st.mean.toFixed(4)} mm`+(revela()?`<br>U = k·u_c = ${K_EXP}×${fm(st.uc)} = <b>${fmboth(st.U)}</b><br>Resultado final: <b>(${st.mean.toFixed(4)} ± ${st.U.toFixed(4)}) mm, k=2 (~95%)</b>`:'<br>Expande u_c y decide qué significa el resultado.')+'</span>'
+        : '<span class="mono">Pulsa "Ver datos" para tener a la vista u_c, k y la media.</span>';
     }
   } else {
     if(caseKey==='cadena'){
       html = active
-        ? `<b>${CASES_TRAZ.cadena.mision}</b><br><span class="mono">CENAM (patrón nacional) → Laboratorio acreditado EMA/ISO 17025 → Instrumento de taller.<br>Cada flecha es una calibración DOCUMENTADA con su propia incertidumbre — romper un eslabón, o que falte la incertidumbre en alguno, rompe la trazabilidad aunque exista "un papel".</span>`
+        ? `<b>${CASES_TRAZ.cadena.mision}</b><br><span class="mono">CENAM (patrón nacional) → Laboratorio acreditado EMA/ISO 17025 → Instrumento de taller.`+(revela()?'<br>Cada flecha es una calibración DOCUMENTADA con su propia incertidumbre: romper un eslabón, o que falte la incertidumbre en alguno, rompe la trazabilidad aunque el instrumento tenga un papel.':'<br>Piensa qué debe cumplir cada flecha y responde.')+'</span>'
         : '<span class="mono">Pulsa "Inspeccionar" (o toca cada nodo en la escena) para revisar la cadena.</span>';
     } else {
       html = active
-        ? `<b>${CASES_TRAZ.certificado.mision}</b><br><span class="mono">Revisa el tablero: incluye incertidumbre (U=${st.U.toFixed(4)} mm, k=2), condiciones y declaración de trazabilidad — y OMITE la "próxima fecha de calibración" a propósito.</span>`
+        ? `<b>${CASES_TRAZ.certificado.mision}</b><br><span class="mono">Revisa el tablero: ¿qué campos trae el certificado y cuáles no? Contrástalo con la afirmación y responde.</span>`
         : '<span class="mono">Pulsa "Revisar" para inspeccionar el certificado del laboratorio acreditado.</span>';
     }
   }
   el('report').innerHTML=html;
 }
 function refreshAll(){
+  drawResPanel(); drawCertPanel();
   drawDial(readIdx>0?READINGS_MM[readIdx-1]:null);
   updateTele(); updateReport();
 }
@@ -660,22 +707,45 @@ function renderCaseBar(){
 }
 function refreshCaseLabel(){ const order=CASE_ORDER[moduleKey]; el('p_case').textContent='Caso '+(order.indexOf(caseKey)+1)+'/'+order.length; }
 function clearDx(){ document.querySelectorAll('.b.dx').forEach(b=>b.classList.remove('right','wrong')); }
+function renderQuiz(){
+  el('q_text').innerHTML=quizNow.pregunta;
+  el('dxbtns').innerHTML=quizNow.opciones.map((o,i)=>`<button class="b dx" data-i="${i}">${'ABCD'[i]} · ${o.t}</button>`).join('');
+  el('dxbtns').querySelectorAll('.b.dx').forEach(btn=>{ btn.onclick=()=>answer(+btn.dataset.i); });
+}
+/* Una correcta + 3 del banco de distractores, barajadas: ni la posición ni el
+   largo delatan la respuesta, y tras una resiembra salen otras. */
 function refreshQuestion(){
   const q=currentQuiz();
-  el('q_text').innerHTML=q.pregunta;
-  el('dxbtns').innerHTML=q.opciones.map((o,i)=>`<button class="b dx" data-i="${i}">${'ABCD'[i]} · ${o.t}</button>`).join('');
-  el('dxbtns').querySelectorAll('.b.dx').forEach(btn=>{ btn.onclick=()=>answer(+btn.dataset.i); });
+  const buenas=q.opciones.filter(o=>o.ok), malas=q.opciones.filter(o=>!o.ok);
+  quizNow={pregunta:q.pregunta,opciones:shuffled(buenas.concat(shuffled(malas).slice(0,3)))};
+  renderQuiz();
+}
+function resiembra(){
+  fallosCaso[caseKey]=0; RETO.resiembras++;
+  seedCase(caseKey);                       // los casos conceptuales no llevan cifras: solo cambian las opciones
+  active=false; readIdx=0;
+  updateButtons(); refreshQuestion(); refreshAll();
 }
 function answer(i){
   if(!active){ showToast(caseKey==='tipoA'?'Primero toma las 5 lecturas.':'Primero revisa el dato con el botón correspondiente.'); return; }
-  const q=currentQuiz(); const o=q.opciones[i]; clearDx();
+  if(autoRunning) return;                 // la demostración enseña, no puntúa
+  if(answered[caseKey]){ showToast('Este caso ya está resuelto: pasa al siguiente.'); return; }
+  const o=quizNow.opciones[i]; clearDx();
   const btn=el('dxbtns').children[i];
+  RETO.intentos++;
   if(o.ok){
-    btn.classList.add('right'); synth.beep(1046,0.12,0.06);
+    btn.classList.add('right'); answered[caseKey]=true; fallosCaso[caseKey]=0; synth.beep(1046,0.12,0.06);
     showToast(`<span style="color:var(--good)">✔ Correcto.</span><br><span style="color:var(--dim);font-size:11px">${o.why}</span>`);
+    refreshAll();
   }else{
     btn.classList.add('wrong'); synth.beep(220,0.15,0.06);
-    showToast(`<span style="color:var(--bad)">✗ Revisa el cálculo.</span><br><span style="color:var(--dim);font-size:11px">${o.why}</span>`);
+    fallosCaso[caseKey]++;
+    if(fallosCaso[caseKey]>=3){
+      resiembra();
+      showToast(`<span style="color:var(--bad)">✗ Tres fallos en este caso.</span><br><span style="color:var(--dim);font-size:11px">Cambian los datos y las opciones: vuelve a revisar el dato y razona cada paso.</span>`);
+    } else {
+      showToast(`<span style="color:var(--bad)">✗ Revisa tu cálculo.</span><br><span style="color:var(--dim);font-size:11px">${o.why} (fallos en este caso: ${fallosCaso[caseKey]}/3)</span>`);
+    }
   }
 }
 function updateButtons(){
@@ -685,7 +755,7 @@ function updateButtons(){
   if(isTipoA){ el('btnStep').textContent='📏 Tomar lectura ('+readIdx+'/'+READINGS_MM.length+')'; el('btnStep').disabled = readIdx>=READINGS_MM.length; }
   else {
     const labels={
-      tipoB_res:'🔍 Revisar dato', tipoB_cert:'🔍 Revisar dato', combinar:'🧮 Calcular', expandida:'🧮 Calcular',
+      tipoB_res:'🔍 Revisar dato', tipoB_cert:'🔍 Revisar dato', combinar:'📋 Ver datos', expandida:'📋 Ver datos',
       cadena:'🔍 Inspeccionar cadena', certificado:'🔍 Revisar certificado',
     };
     el('btnJaws').textContent = labels[caseKey] || '🔍 Revisar dato';
@@ -693,17 +763,18 @@ function updateButtons(){
   }
 }
 function setModule(key){
-  if(key===moduleKey) return;
+  if(key===moduleKey||autoRunning) return;
   moduleKey=key; caseKey=CASE_ORDER[key][0]; active=false; readIdx=0;
   el('i_gum').classList.toggle('on',key==='gum');
   el('i_traz').classList.toggle('on',key==='traz');
   renderCaseBar(); updateButtons();
-  solved=false; clearDx(); refreshQuestion(); refreshCaseLabel();
+  clearDx(); refreshQuestion(); refreshCaseLabel();
   const meta=CASE_CAM[key][caseKey]; S.moveTo(meta[0],meta[1],1.3);
   refreshAll();
   showToast('🔀 '+(key==='gum'?'Presupuesto de incertidumbre (GUM)':'Trazabilidad metrológica'));
 }
 function setCase(key){
+  if(autoRunning) return;
   caseKey=key; active=false; readIdx=0;
   renderCaseBar(); updateButtons();
   clearDx(); refreshQuestion(); refreshCaseLabel();
@@ -711,7 +782,6 @@ function setCase(key){
   refreshAll();
   showToast('🔀 '+(moduleKey==='gum'?CASES_GUM[key].nombre:CASES_TRAZ[key].nombre));
 }
-let solved=false;
 el('i_gum').onclick=()=>setModule('gum');
 el('i_traz').onclick=()=>setModule('traz');
 el('btnNew').onclick=()=>{ const order=CASE_ORDER[moduleKey]; setCase(order[(order.indexOf(caseKey)+1)%order.length]); };
@@ -763,32 +833,35 @@ soundBtn.onclick=()=>{const on=synth.toggle();soundBtn.textContent=on?'🔊':'�
 
 /* ---------- Modo automático (guiado) ---------- */
 const sleep=ms=>new Promise(r=>setTimeout(r,ms));
-let autoRunning=false;
 async function runAuto(){
   if(autoRunning) return;
   autoRunning=true;
   const btn=el('btnAuto'); const label=btn.textContent;
   btn.disabled=true; btn.classList.add('on'); btn.textContent='⏳ Recorrido guiado en curso…';
+  const prev={active,readIdx,quiz:quizNow,READINGS_MM,RES_MM,CERT_U_MM,CERT_K,LAB_U_MM,SET4,SET5};
   try{
     clearDx();
     const mKey=moduleKey, cKey=caseKey;
+    // La demostración trabaja con OTROS datos (DEMO): lo del alumno no se toca.
+    READINGS_MM=DEMO.readings; RES_MM=DEMO.res; CERT_U_MM=DEMO.certU; CERT_K=DEMO.certK; LAB_U_MM=DEMO.labU; SET4=DEMO; SET5=DEMO;
+    active=false; readIdx=0; drawBoard(); updateButtons(); refreshAll();
     if(mKey==='gum' && cKey==='tipoA'){
-      showToast('Paso 1 · Tomamos las 5 lecturas repetidas de la misma pieza.'); await sleep(1400);
+      showToast('Paso 1 · Tomamos las 5 lecturas repetidas de la misma pieza (pieza de ejemplo).'); await sleep(1400);
       while(readIdx<READINGS_MM.length){ el('btnStep').click(); await sleep(900); }
       showToast('Paso 2 · Con las 5 lecturas calculamos media, s y u_A=s/√n.'); await sleep(1800);
     } else {
-      showToast('Paso 1 · Revisamos el dato de esta fuente.'); await sleep(1200);
+      showToast('Paso 1 · Revisamos el dato de esta fuente (datos de ejemplo).'); await sleep(1200);
       if(!active) el('btnJaws').click();
       await sleep(1600);
     }
-    const q=currentQuiz(); const i=q.opciones.findIndex(o=>o.ok);
-    clearDx();
-    const dxBtn=el('dxbtns').children[i];
-    if(dxBtn){ dxBtn.classList.add('right'); synth.beep(1046,0.12,0.06); }
-    showToast('<span style="color:var(--good)">✔ '+q.opciones[i].t+'</span><br><span style="color:var(--dim);font-size:11px">'+q.opciones[i].why+'</span>');
+    const ok=currentQuiz().opciones.find(o=>o.ok);
+    showToast('<span style="color:var(--good)">✔ Resultado del ejemplo</span><br>'+ok.t+'<br><span style="color:var(--dim);font-size:11px">'+ok.why+' Tu avance en el reto no cambió.</span>'); await sleep(2800);
   } finally {
-    btn.disabled=false; btn.classList.remove('on'); btn.textContent=label;
+    READINGS_MM=prev.READINGS_MM; RES_MM=prev.RES_MM; CERT_U_MM=prev.CERT_U_MM; CERT_K=prev.CERT_K; LAB_U_MM=prev.LAB_U_MM; SET4=prev.SET4; SET5=prev.SET5;
     autoRunning=false;
+    active=prev.active; readIdx=prev.readIdx; quizNow=prev.quiz; renderQuiz();
+    drawBoard(); updateButtons(); refreshAll();
+    btn.disabled=false; btn.classList.remove('on'); btn.textContent=label;
   }
 }
 el('btnAuto').onclick=runAuto;
@@ -803,4 +876,15 @@ S.setAnimate((dt,time)=>{
 });
 let lastDraw=0;
 
+window.__labDebug={
+  get mode(){ return moduleKey+':'+caseKey; },
+  get solved(){ return Object.values(answered).every(Boolean); },
+  get intentos(){ return RETO.intentos; },
+  state(){ return {modulo:moduleKey,caso:caseKey,active,readIdx,answered:{...answered},intentos:RETO.intentos,
+    fallos:{...fallosCaso},resiembras:RETO.resiembras,resuelto:Object.values(answered).every(Boolean),autoRunning}; },
+  datos(){ return {readings:READINGS_MM,res:RES_MM,certU:CERT_U_MM,certK:CERT_K,labU:LAB_U_MM,set4:SET4,set5:SET5}; },
+  setModule(k){ setModule(k); }, setCase(k){ setCase(k); },
+  revisa(){ if(caseKey==='tipoA'){ while(readIdx<READINGS_MM.length) el('btnStep').click(); } else if(!active) el('btnJaws').click(); },
+  opciones(){ return [...document.querySelectorAll('#dxbtns .b.dx')].map((b,i)=>({t:b.textContent,ok:!!quizNow.opciones[i].ok})); },
+};
 renderCaseBar(); updateButtons(); refreshQuestion(); refreshCaseLabel(); refreshAll();

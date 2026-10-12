@@ -685,22 +685,22 @@ document.getElementById('hud').innerHTML=`
     <div class="li"><span class="dot" style="background:#14181c"></span>Caja de fusible (izquierda)</div>
   </div>
   <div class="formula">V_pack = V_celda × celdas en serie</div>
-  <p style="font-size:12px">${PACK.Vcell}V × ${PACK.cellsSeries} celdas = ${V_pack.toFixed(0)}V — el mismo bus de alto voltaje que alimenta al motor y al inversor del set.</p>
+  <p style="font-size:12px">${PACK.Vcell}V × ${PACK.cellsSeries} celdas = ${V_pack.toFixed(0)}V — el mismo bus de alto voltaje que alimenta al motor y al inversor del set. El dibujo muestra 4 módulos de 12 celdas (48): es una simplificación de las 96 en serie del cálculo.</p>
   <div class="src">Ref: paquete Nissan LEAF 40kWh, arreglo 96s</div>`;
 document.getElementById('panel').innerHTML=`
   <h4>Telemetría</h4>
-  <div class="g"><div class="gl"><span>Voltaje del pack</span><b id="t_vpack">${V_pack.toFixed(0)} V</b></div></div>
+  <div class="g"><div class="gl"><span>Voltaje del pack</span><b id="t_vpack">${((3.0+(PACK.Vcell-3.0)*0.65)*PACK.cellsSeries).toFixed(0)} V</b></div></div>
   <div class="g"><div class="gl"><span>Capacidad</span><b>${Ah_pack.toFixed(0)} Ah</b></div></div>
   <div class="g"><div class="gl"><span>SOC</span><b id="t_soc">65%</b></div></div>
   <div class="btns">
     <button class="b auto" id="btnAuto">✨ Recorrido automático (guiado)</button>
     <button class="b" id="btnExplode">⤢ Despiece</button>
-    <button class="b" id="btnRun">▶ Simular balanceo BMS</button>
+    <button class="b" id="btnRun">▶ Simular carga con balanceo</button>
   </div>`;
 document.getElementById('btnExplode').onclick=(e)=>{exploded=!exploded;e.target.classList.toggle('on',exploded);};
 document.getElementById('btnRun').onclick=(e)=>{
   synth.init(); synth.resume();
-  running=!running;e.target.classList.toggle('on',running);e.target.textContent=(running?'⏸':'▶')+' Simular balanceo BMS';
+  running=!running;e.target.classList.toggle('on',running);e.target.textContent=(running?'⏸':'▶')+' Simular carga con balanceo';
   if(running){ S.moveTo([4.6,3.0,5.0],[0,0.5,0],1.3); S.setCinematicIdle(true); } else { S.setCinematicIdle(false); }
 };
 /* ===== Recorrido automático guiado (para quienes no son ingenieros) ===== */
@@ -710,6 +710,7 @@ async function runAuto(){
   if(autoRunning) return; autoRunning=true;
   const b=document.getElementById('btnAuto'); const lbl=b.textContent;
   b.disabled=true; b.classList.add('on'); b.textContent='⏳ Demostración en curso…';
+  const previo={exploded,running,soc};          // el alumno se queda como estaba
   try{
     if(running) document.getElementById('btnRun').click();
     if(exploded) document.getElementById('btnExplode').click();
@@ -722,16 +723,27 @@ async function runAuto(){
     await sleep(1600);
     if(!running) document.getElementById('btnRun').click();
     await sleep(600);
-    showToast('Paso 2 · El <b>BMS entra en balanceo</b>. Observa las celdas…');
+    showToast('Paso 2 · Se simula la <b>carga del pack</b> y el <b>BMS balancea</b> las celdas. Observa…');
     await sleep(3000);
     showToast('Fíjate: <b style="color:var(--hv)">dos celdas parpadean en naranja</b> — el BMS les drena un poco de carga para igualarlas con el resto. Así ninguna se sobrecarga.');
     await sleep(3600);
-    showToast('<span style="color:var(--good)">✔ Idea clave:</span> el BMS vigila y <b>equilibra cada celda</b>; por eso el pack dura más y es seguro. Mira cómo sube el SOC.');
+    showToast('<span style="color:var(--good)">✔ Idea clave:</span> el BMS vigila y <b>equilibra cada celda</b>; por eso el pack dura más y es seguro. El SOC y la tensión suben porque el pack se CARGA; el balanceo solo iguala las celdas, no aporta energía.');
+    await sleep(3600);
   } finally {
+    // se devuelve el pack al estado previo: despiece, simulación y SOC
+    if(running!==previo.running) document.getElementById('btnRun').click();
+    if(exploded!==previo.exploded) document.getElementById('btnExplode').click();
+    soc=previo.soc;
+    const set=(id,v)=>{const e=document.getElementById(id);if(e)e.textContent=v;};
+    set('t_soc',(soc*100).toFixed(0)+'%'); set('t_vpack',(THREE.MathUtils.lerp(3.0,PACK.Vcell,soc)*PACK.cellsSeries).toFixed(0)+' V');
     b.disabled=false; b.classList.remove('on'); b.textContent=lbl; autoRunning=false;
   }
 }
 document.getElementById('btnAuto').onclick=runAuto;
+window.__labDebug={
+  get mode(){ return running?'carga':'reposo'; },
+  state(){ return {exploded,running,soc,autoRunning}; },
+};
 const soundBtn=document.getElementById('soundBtn');
 soundBtn.onclick=()=>{const on=synth.toggle();soundBtn.textContent=on?'🔊':'🔇';soundBtn.classList.toggle('on',on);};
 

@@ -3,10 +3,10 @@ fichaTecnica({
   title: 'Sistema de frenos ABS (antibloqueo)',
   intro: 'Este laboratorio representa un <b>sistema de frenos con ABS</b>: sensores miden la velocidad de cada rueda y una unidad hidráulica <b>modula la presión</b> para evitar el bloqueo. La geometría es <b>procedural y didáctica</b>; donde el 3D simplifica, aquí se documenta.',
   s1: {
-    presentes: '<b>Presentes en el modelo:</b> sensores de velocidad de rueda, anillos dentados (tone rings), unidad hidráulica / modulador (HCU), ECU del ABS, cilindro maestro y frenos de rueda.',
+    presentes: '<b>Presentes en el modelo:</b> una rueda con su neumático, el disco, la mordaza, el sensor de velocidad con su rueda fónica (48 dientes), la unidad hidráulica (HCU) con sus ocho electroválvulas y el motor de la bomba de retorno <i>dibujados</i> (la animación los ilumina, pero no calcula presiones por canal) y la ECU del ABS. Se muestra una sola rueda; el ABS de 4 canales no se modela.',
     omitidos: [
-      '<b>Válvulas de admisión y escape</b> internas del HCU (una pareja por canal) y su control por solenoide.',
-      '<b>Bomba de retorno + acumuladores</b>: reponen presión durante la regulación.',
+      '<b>Cilindro maestro y servofreno</b>, y las líneas de freno completas.',
+      '<b>Comportamiento hidráulico</b> de las válvulas y de la bomba de retorno + acumuladores (el modelo las dibuja, pero la presión no se simula).',
       '<b>Sensor de presión, relés e integración con ESP/TCS</b> (control de estabilidad y tracción).',
       '<b>Interruptor de pedal, arnés y testigo</b> de advertencia del tablero.',
       '<b>Entrehierro y estado del anillo dentado</b>: crítico para una señal de velocidad limpia.'
@@ -40,8 +40,8 @@ fichaTecnica({
     ]
   },
   s5: {
-    modela: 'la lógica antibloqueo (detección de deslizamiento y modulación cíclica de presión) y la señal de velocidad de rueda.',
-    noModela: 'la hidráulica real del HCU, la distribución de presión en el circuito, la integración ESP/TCS ni el desgaste.'
+    modela: 'una lógica antibloqueo simplificada de umbral: el vehículo desacelera a 3,5 m/s² constantes desde 20 m/s y, si el deslizamiento (v_vehículo − v_rueda)/v_vehículo supera 20 %, la rueda se libera (acelera hacia la velocidad del vehículo); por debajo la rueda se frena. El deslizamiento oscila así cerca del 20 %. Es la lógica cualitativa de “mantener, liberar, aplicar”, no un controlador real.',
+    noModela: 'la curva μ–deslizamiento (la desaceleración del vehículo es constante e independiente del agarre), la hidráulica real del HCU, la distribución de presión, el tiempo de respuesta de las válvulas, la integración ESP/TCS ni el desgaste.'
   },
   s6: [
     '<b>FMVSS 135</b> (frenos de vehículo ligero) y <b>FMVSS 126</b> (control de estabilidad, ESC).',

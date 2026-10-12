@@ -787,31 +787,47 @@ const CASES={
 const QUESTIONS={
   pendiente:{ prompt:'El Modo $07 muestra P0300 PENDIENTE, el Modo $03 no tiene nada confirmado y el MIL está apagado. ¿Qué haces?',
     opts:[
-      {t:'El vehículo no tiene ninguna falla real; ignora la lectura.',ok:false},
-      {t:'Reprueba de inmediato la verificación vehicular por tener un código pendiente.',ok:false},
-      {t:'Un pendiente nace de una sola detección; hay que esperar el próximo ciclo de manejo que cumpla condiciones para confirmar (o no). Aún no amerita encender el MIL.',ok:true},
-      {t:'Borra la memoria de la ECU para "limpiar" el pendiente antes de seguir manejando.',ok:false},
+      {t:'El vehículo no tiene ninguna falla real; la lectura es un falso positivo y se puede ignorar sin consecuencias.',ok:false},
+      {t:'Reprueba de inmediato la verificación vehicular, porque basta un código pendiente para rechazar el vehículo.',ok:false},
+      {t:'Un pendiente nace de una sola detección: hay que esperar al próximo ciclo de manejo que lo confirme o lo descarte.',ok:true},
+      {t:'Borra la memoria de la ECU para "limpiar" el pendiente y poder seguir manejando como si nada hubiera pasado.',ok:false},
+    ],
+    extra:[
+      {t:'Cambia de inmediato las bujías y las bobinas de todos los cilindros, porque el código ya es una falla confirmada.',ok:false},
+      {t:'Considera el código confirmado desde ya y programa la reparación del cilindro que lo causó, sin esperar más.',ok:false},
     ]},
   confirmadoB:{ prompt:'DTC confirmado P0300 (genérico), tasa de fallos moderada, MIL encendida de forma CONTINUA (no parpadea). ¿Qué está pasando?',
     opts:[
-      {t:'El catalizador se está dañando en este instante; hay que apagar el motor de inmediato.',ok:false},
-      {t:'La tasa de fallos superó el umbral de emisiones (ventana amplia) pero no el umbral de riesgo para el catalizador (ventana corta); por eso el MIL queda fija, sin parpadear.',ok:true},
-      {t:'Una MIL fija siempre indica una falla eléctrica del propio testigo, no del motor.',ok:false},
-      {t:'P0300 genérico significa que el escáner no logró comunicarse con la ECU.',ok:false},
+      {t:'El catalizador se está dañando en este instante, así que hay que apagar el motor de inmediato.',ok:false},
+      {t:'La tasa de fallos superó el umbral de emisiones pero no el de riesgo para el catalizador: MIL fija.',ok:true},
+      {t:'Una MIL fija indica siempre una falla eléctrica del propio testigo del tablero, no del motor.',ok:false},
+      {t:'P0300 genérico significa que el escáner no logró comunicarse con la ECU y mostró un código de error.',ok:false},
+    ],
+    extra:[
+      {t:'La MIL fija avisa de que el cilindro 1 está desactivado y el motor trabaja con tres cilindros.',ok:false},
+      {t:'P0300 indica un fallo del sensor de posición del cigüeñal, no un fallo de encendido en los cilindros.',ok:false},
     ]},
   confirmadoA:{ prompt:'DTC confirmado P0302 (cilindro 2), tasa de fallos alta, MIL PARPADEANTE. ¿Por qué se pudo señalar un cilindro específico, y qué anuncia el parpadeo?',
     opts:[
-      {t:'La atribución es aleatoria; el parpadeo solo indica que el escáner sigue conectado.',ok:false},
-      {t:'Cuando la gran mayoría de los eventos de fallo detectados provienen del mismo cilindro, la ECU lo señala como origen; el parpadeo avisa en tiempo real que el fallo actual podría dañar el catalizador y exige atención inmediata.',ok:true},
-      {t:'El parpadeo es un adorno del tablero, sin relación con la severidad de la falla.',ok:false},
-      {t:'Un código de cilindro específico borra automáticamente cualquier código genérico previo.',ok:false},
+      {t:'La atribución es aleatoria; el parpadeo solo indica que el escáner sigue conectado al vehículo.',ok:false},
+      {t:'Casi todos los eventos vienen de ese cilindro; el parpadeo avisa de un riesgo inmediato para el catalizador.',ok:true},
+      {t:'El parpadeo es un adorno del tablero y no tiene relación con la severidad de la falla del motor.',ok:false},
+      {t:'Un código de cilindro específico borra automáticamente cualquier código genérico previo de la memoria.',ok:false},
+    ],
+    extra:[
+      {t:'La ECU elige el cilindro por su lugar en el orden de encendido; el parpadeo marca un código aún pendiente.',ok:false},
+      {t:'Se señala el cilindro cuyo sensor de oxígeno tarda más en responder; el parpadeo avisa de una fuga de escape.',ok:false},
     ]},
   sintesis:{ prompt:'En carga ligera el MIL está fija (no parpadea); al exigir el motor con una aceleración fuerte, el MIL empieza a parpadear, y al soltar el acelerador vuelve a quedar fija. ¿Cómo se explica esto?',
     opts:[
-      {t:'Es una falla del tablero; el testigo debería comportarse siempre igual sin importar la condición de manejo.',ok:false},
-      {t:'El parpadeo sigue al evento de fallo en tiempo real: bajo carga alta la tasa de fallos cruza el umbral de riesgo para el catalizador; al bajar la carga, el fallo actual deja de ser tan severo y el testigo vuelve a fija — aunque el código ya confirmado sigue guardado.',ok:true},
-      {t:'El parpadeo indica que se acaba de borrar un código de la memoria.',ok:false},
-      {t:'El MIL solo parpadea al conectar o desconectar el escáner del vehículo.',ok:false},
+      {t:'Es una falla del tablero: el testigo debería comportarse igual sin importar la condición de manejo.',ok:false},
+      {t:'El parpadeo sigue al fallo del momento: con carga alta se cruza el umbral del catalizador; al soltar vuelve a fija.',ok:true},
+      {t:'El parpadeo indica que se acaba de borrar un código de la memoria del vehículo, y se repite al acelerar.',ok:false},
+      {t:'El MIL solo parpadea al conectar o desconectar el escáner del vehículo, y no responde a la carga.',ok:false},
+    ],
+    extra:[
+      {t:'Al acelerar fuerte el código confirmado se borra de la memoria y vuelve a registrarse al soltar el pedal.',ok:false},
+      {t:'El MIL parpadea porque el monitor de encendido pasa a incompleto cada vez que sube la carga del motor.',ok:false},
     ]},
 };
 const DX_HINT={
@@ -824,6 +840,12 @@ const DX_HINT={
 let connected=false, mode='01', scenarioKey=SCEN_ORDER[0], cargaAlta=false;
 let rpmLive=0, stumbleFactor=1;
 let dxSolved={pendiente:false,confirmadoB:false,confirmadoA:false,sintesis:false};
+/* Contabilidad del reto de diagnóstico. Tres fallos seguidos en un caso lo
+   resiembran: salen otros distractores del banco y otro orden, para que no se
+   apruebe descartando una opción tras otra. */
+const fallosCaso={pendiente:0,confirmadoB:0,confirmadoA:0,sintesis:0};
+const RETO={intentos:0,resiembras:0};
+function refreshIntentos(){ const e=document.getElementById('p_intentos'); if(e) e.textContent=Object.values(dxSolved).filter(Boolean).length+'/4 ✔ · intentos '+RETO.intentos; }
 
 function currentMisfireRate(){
   const cs=CASES[scenarioKey];
@@ -926,7 +948,7 @@ document.getElementById('hud').innerHTML=`
    ============================================================ */
 function tf(v,dp=0){return (v===undefined||v===null)?'—':(+v).toFixed(dp);}
 document.getElementById('panel').innerHTML=`
-  <h4>Escáner · <span id="p_case" style="color:var(--accent2)">Caso 1/4</span></h4>
+  <h4>Escáner · <span id="p_case" style="color:var(--accent2)">Caso 1/4</span> · <span id="p_intentos" style="color:var(--dim);font-size:11px">0/4 ✔ · intentos 0</span></h4>
   <div class="modebar">
     <button class="b" id="s_pendiente">1 · Pendiente</button>
     <button class="b" id="s_confirmadoB">2 · Confirmado B</button>
@@ -1078,7 +1100,8 @@ function renderQuestion(){
   const q=QUESTIONS[scenarioKey];
   el('q_prompt').textContent=q.prompt;
   const wrap=el('dxWrap'); wrap.innerHTML='';
-  const opts=shuffled(q.opts);
+  const buenas=q.opts.filter(o=>o.ok), malas=q.opts.filter(o=>!o.ok).concat(q.extra||[]);
+  const opts=shuffled(buenas.concat(shuffled(malas).slice(0,3)));
   opts.forEach((o,i)=>{
     const b=document.createElement('button');
     b.className='b dx'; b.dataset.i=String(i); b.dataset.ok=o.ok?'1':'0';
@@ -1091,14 +1114,25 @@ function wireDx(){
   document.querySelectorAll('#dxWrap .b.dx').forEach(btn=>{
     btn.onclick=()=>{
       if(!connected){ showToast('Primero energiza el sistema.'); return; }
+      if(autoRunning) return;               // la demostración enseña, no puntúa
+      if(dxSolved[scenarioKey]){ showToast('Este caso ya está resuelto: pasa al siguiente.'); return; }
       clearDx();
+      RETO.intentos++;
       if(btn.dataset.ok==='1'){
         btn.classList.add('right'); synth.beep(1046,0.12,0.06);
-        dxSolved[scenarioKey]=true; setConsole();
+        dxSolved[scenarioKey]=true; fallosCaso[scenarioKey]=0; setConsole(); refreshIntentos();
         showToast(`<span style="color:var(--good)">✔ Correcto.</span><br><span style="color:var(--dim);font-size:11px">${DX_HINT[scenarioKey]}</span>`);
       }else{
         btn.classList.add('wrong'); synth.beep(220,0.15,0.06);
-        showToast(`<span style="color:var(--bad)">✗ Revisa la evidencia en el escáner.</span>`);
+        fallosCaso[scenarioKey]++;
+        if(fallosCaso[scenarioKey]>=3){
+          fallosCaso[scenarioKey]=0; RETO.resiembras++;
+          renderQuestion();
+          showToast(`<span style="color:var(--bad)">✗ Tres fallos en este caso.</span><br><span style="color:var(--dim);font-size:11px">Las opciones cambian: vuelve a mirar la evidencia del escáner y razona qué la explica.</span>`);
+        } else {
+          showToast(`<span style="color:var(--bad)">✗ Revisa la evidencia en el escáner</span> <span style="color:var(--dim);font-size:11px">(fallos en este caso: ${fallosCaso[scenarioKey]}/3).</span>`);
+        }
+        refreshIntentos();
       }
     };
   });
@@ -1157,35 +1191,50 @@ async function runAuto(){
   autoRunning=true;
   const btn=el('btnAuto'); const label=btn.textContent;
   btn.disabled=true; btn.classList.add('on'); btn.textContent='⏳ Demostración en curso…';
+  const previo={escenario:scenarioKey,modo:mode,conectado:connected};
+  const explica=()=>showToast(`<span style="color:var(--good)">✔ La explicación</span><br><span style="color:var(--dim);font-size:11px">${DX_HINT[scenarioKey]}</span>`);
   try{
     if(!connected){ showToast('Paso 1 · Energizamos el sistema.'); el('btnEnergize').click(); await sleep(1500); }
 
     setScenario('pendiente'); setMode('07');
     showToast('Paso 2 · Caso 1: un código PENDIENTE nace de una sola detección — el MIL sigue apagado.'); await sleep(2600);
-    document.querySelector('#dxWrap .b.dx[data-ok="1"]').click(); await sleep(2200);
+    explica(); await sleep(2200);
 
     setScenario('confirmadoB'); setMode('03');
     showToast('Paso 3 · Caso 2: se repitió el fallo ⇒ código CONFIRMADO. Cruza el umbral de emisiones pero no el de catalizador: MIL fija.'); await sleep(2800);
-    document.querySelector('#dxWrap .b.dx[data-ok="1"]').click(); await sleep(2200);
+    explica(); await sleep(2200);
 
     setScenario('confirmadoA'); setMode('03');
     showToast('Paso 4 · Caso 3: la mayoría de los eventos vienen del cilindro 2 ⇒ P0302. Tasa alta ⇒ MIL PARPADEANTE.'); await sleep(2800);
-    document.querySelector('#dxWrap .b.dx[data-ok="1"]').click(); await sleep(2200);
+    explica(); await sleep(2200);
 
     setScenario('sintesis'); setMode('03'); el('c_ligera').click();
     showToast('Paso 5 · Caso 4: en carga ligera el código ya confirmado mantiene el MIL fija.'); await sleep(2400);
     el('c_alta').click();
     showToast('Paso 6 · Al acelerar fuerte, la tasa de fallos actual cruza el umbral del catalizador: el MIL empieza a PARPADEAR en tiempo real.'); await sleep(2800);
-    document.querySelector('#dxWrap .b.dx[data-ok="1"]').click(); await sleep(2000);
+    explica(); await sleep(2000);
 
-    showToast('✔ Demostración completa. Recorre los 4 casos libremente con los modos $01/$07/$03/$02.');
+    showToast('✔ Demostración completa. Tu avance en los casos no cambió: recórrelos libremente con los modos $01/$07/$03/$02.');
   }finally{
+    // El alumno se queda donde estaba: mismo caso, mismo modo y mismo estado del escáner.
+    setScenario(previo.escenario); setMode(previo.modo);
+    if(connected!==previo.conectado) el('btnEnergize').click();
     btn.disabled=false; btn.classList.remove('on'); btn.textContent=label;
     autoRunning=false;
   }
 }
 el('btnAuto').onclick=runAuto;
 
+window.__labDebug={
+  get mode(){ return scenarioKey; },
+  get solved(){ return Object.values(dxSolved).every(Boolean); },
+  get intentos(){ return RETO.intentos; },
+  state(){ return {caso:scenarioKey,conectado:connected,answered:{...dxSolved},intentos:RETO.intentos,
+    fallos:{...fallosCaso},resiembras:RETO.resiembras,resuelto:Object.values(dxSolved).every(Boolean),autoRunning}; },
+  setScenario(k){ setScenario(k); },
+  conecta(){ if(!connected) el('btnEnergize').click(); },
+  opciones(){ return [...document.querySelectorAll('#dxWrap .b.dx')].map(b=>({t:b.textContent,ok:b.dataset.ok==='1'})); },
+};
 setScenario(SCEN_ORDER[0]);
 </script>
   <!-- Ficha técnica · Capa B del molde de lab 3D (componente compartido + contenido del lab) -->

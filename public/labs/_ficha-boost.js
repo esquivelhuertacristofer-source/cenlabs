@@ -59,7 +59,5 @@ fichaTecnica({
     { name: 'Texas Instruments, SNVA603 — "Flyback Converter Design"', note: 'Mención cualitativa de la topología flyback como pariente del boost.' },
     { name: 'Coilcraft — guía de diseño de convertidores flyback', note: 'Mención cualitativa adicional del flyback.' },
     { name: 'Analog Devices, AN-2583 — "Design Considerations for a Flyback Converter"', note: 'Mención cualitativa adicional del flyback.' },
-    { name: 'Nota curricular ⚑', note: 'La relación entre esta práctica y el programa oficial del sector mecánica-electrónica se documenta con trazabilidad en ficha.md; se recomienda validación por un experto en electrónica de potencia.' },
-    { name: 'Notas para el revisor experto', note: 'Se actualizará tras verificación técnica final del laboratorio.' },
   ],
 });

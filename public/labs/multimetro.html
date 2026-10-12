@@ -490,6 +490,13 @@ const MAT={
 /* ---------- estado ---------- */
 let scenarioKey='fuente'; let connected=false; let func='vdc'; let rangeSel='auto';
 let envKey='cat2'; let fuseBlown=false; let solved=false; let simT=0;
+/* Contabilidad del reto. `solved` es el estado del caso que se ve; `answered`
+   recuerda cada caso. Tres fallos seguidos en un caso lo resiembran. */
+const answered={fuente:false,tomacorriente:false,resistor:false,divisor:false};
+const fallosCaso={fuente:0,tomacorriente:0,resistor:0,divisor:0};
+const RETO={intentos:0,resiembras:0};
+let quizNow={pregunta:'',opciones:[]};
+let autoRunning=false;
 const synth=makeSynth({type:'sine',type2:'sine',filterFreq:900,Q:1});
 
 const toast=document.getElementById('toast');
@@ -508,11 +515,52 @@ const METER={
 const FUNC_LABEL={vdc:'V⎓',vac:'V~',ohm:'Ω',madc:'mA'};
 const KNOB_ANGLE={vdc:0.55,vac:0.18,ohm:-0.20,madc:-0.58};
 
-// Circuito del caso 4 (divisor) — el efecto de carga se deriva del modelo:
-const R1=1.0e6, R2=1.0e6, VS=10.00, R_ACTUAL=4687;   // resistor real dentro de su ±5 %
-const VNODE_IDEAL=VS*R2/(R1+R2);                      // 5.000 V
-const RP=R2*METER.zin/(R2+METER.zin);                 // R2 ∥ Z_in = 0.909 MΩ
-const VNODE_MED=VS*RP/(R1+RP);                        // 4.762 V con el DMM conectado
+/* ---------- datos de los casos: se sortean al abrir el lab y al resembrar el caso ----------
+   La demostración guiada usa DEMO, que no sale nunca del sorteo del alumno. */
+const pick=a=>a[Math.floor(Math.random()*a.length)];
+const shuffled=a=>{ const b=a.slice(); for(let i=b.length-1;i>0;i--){ const j=Math.floor(Math.random()*(i+1)); [b[i],b[j]]=[b[j],b[i]]; } return b; };
+let VF=5.000;                         // caso 1: salida de la fuente (V)
+let CAT_Q=0;                          // caso 2: variante de la pregunta (0 | 1 | 2)
+let RN=4700, RTOL=5, R_ACTUAL=4687;   // caso 3: valor nominal, tolerancia (%) y valor REAL del resistor
+let R1=1.0e6, R2=1.0e6, VS=10.00;     // caso 4: divisor
+let RP, VNODE_IDEAL, VNODE_MED;       // derivados del divisor (efecto de carga de Z_in)
+function recalcDiv(){
+  VNODE_IDEAL=VS*R2/(R1+R2);
+  RP=R2*METER.zin/(R2+METER.zin);              // R2 ∥ Z_in
+  VNODE_MED=VS*RP/(R1+RP);                     // con el DMM conectado
+}
+recalcDiv();
+const DEMO={VF:15.00,CAT_Q:0,RN:33000,RTOL:2,RA:33410,R1:2.2e6,R2:4.7e6,VS:12};
+const VF_LIST=[0.450,1.800,3.300,5.000,9.00,12.00,24.0];
+const RN_LIST=[470,1500,4700,22000,100000], RTOL_LIST=[1,2,5,10];
+const R_LIST=[100e3,470e3,1e6,2.2e6,4.7e6], VS_LIST=[5,9,10,12];
+function seedCase(key){
+  if(key==='fuente'){ const p=VF; do{ VF=pick(VF_LIST); }while(VF===p); }
+  else if(key==='tomacorriente'){ const p=CAT_Q; do{ CAT_Q=Math.floor(Math.random()*3); }while(CAT_Q===p); }
+  else if(key==='resistor'){
+    const p=[RN,RTOL];
+    do{ RN=pick(RN_LIST); RTOL=pick(RTOL_LIST); }while(RN===p[0]&&RTOL===p[1]);
+    R_ACTUAL=+(RN*(1+(Math.random()*2-1)*0.8*RTOL/100)).toPrecision(3);   // dentro de su tolerancia
+  }
+  else if(key==='divisor'){
+    const p=[R1,R2,VS];
+    do{ R1=pick(R_LIST); R2=pick(R_LIST); VS=pick(VS_LIST); recalcDiv(); }
+    while((R1===p[0]&&R2===p[1]&&VS===p[2])||(R1===DEMO.R1&&R2===DEMO.R2)||(VNODE_IDEAL-VNODE_MED)/VNODE_IDEAL<0.025);
+  }
+}
+['fuente','tomacorriente','resistor','divisor'].forEach(seedCase);
+const guardaDatos=()=>({VF,CAT_Q,RN,RTOL,R_ACTUAL,R1,R2,VS});
+function restauraDatos(d){ ({VF,CAT_Q,RN,RTOL,R_ACTUAL,R1,R2,VS}=d); recalcDiv(); }
+function datosDemo(){ restauraDatos({VF:DEMO.VF,CAT_Q:DEMO.CAT_Q,RN:DEMO.RN,RTOL:DEMO.RTOL,R_ACTUAL:DEMO.RA,R1:DEMO.R1,R2:DEMO.R2,VS:DEMO.VS}); }
+const fmtR=r=>r>=1e6?(r/1e6)+' MΩ':r>=1e3?(r/1e3)+' kΩ':r+' Ω';
+const fmtVF=v=>v<10?v.toFixed(3):v.toFixed(2);
+// código de colores de 4 bandas (IEC 60062): dos dígitos, multiplicador y tolerancia
+const COL_DIG=['#111111','#7b4a2a','#c73a3a','#e8892a','#e8c832','#3f9a4a','#3a5fc7','#7d3fc4','#8a8f94','#eeeeee'];
+const COL_TOL={1:'#7b4a2a',2:'#c73a3a',5:'#c9a227',10:'#c0c4c8'};
+function bandasResistor(r,tol){
+  const e=Math.floor(Math.log10(r))-1, d=Math.round(r/Math.pow(10,e));
+  return [COL_DIG[Math.floor(d/10)],COL_DIG[d%10],COL_DIG[e],COL_TOL[tol]];
+}
 let mainsV=127.0;                                     // la red deriva lentamente
 
 function scaleFor(fn,range){
@@ -545,7 +593,7 @@ function trueAtProbes(){
   }
   // mA: en paralelo con una fuente ⇒ corriente de falla ⇒ fusible
   if(scenarioKey==='fuente'||scenarioKey==='tomacorriente')return{blow:true};
-  if(scenarioKey==='divisor')return{v:VS/R1*1000};              // 10 V/1 MΩ = 0.010 mA
+  if(scenarioKey==='divisor')return{v:VS/(R1+R2)*1000};        // corriente de la rama R1+R2 sin carga
   return{v:0};
 }
 
@@ -576,9 +624,9 @@ const ENV_META={
 const SCEN_ORDER=['fuente','tomacorriente','resistor','divisor'];
 const SCEN_META={
   fuente:{
-    nombre:'Fuente de laboratorio 5 V', funcion:'vdc',
+    get nombre(){ return 'Fuente de laboratorio '+fmtVF(VF)+' V'; }, funcion:'vdc',
     porQue:'es voltaje de corriente directa (una fuente de laboratorio).',
-    mision:'Caso 1 · Mide la salida de la fuente en V⎓ y compara la incertidumbre en el rango 6 V vs 60 V.',
+    mision:'Caso 1 · Mide la salida de la fuente en V⎓ y compara la incertidumbre en distintos rangos.',
     cam:[[3.6,2.4,5.2],[0.4,1.0,0.1]],
     contactos:{red:[2.00,1.135,0.45], black:[2.27,1.135,0.45], rot:[0,0,0.15]},
   },
@@ -590,63 +638,103 @@ const SCEN_META={
     contactos:{red:[1.565,0.92,0.21], black:[1.735,0.92,0.21], rot:[Math.PI/2,0,0]},
   },
   resistor:{
-    nombre:'Resistor 4.7 kΩ ±5 %', funcion:'ohm',
+    get nombre(){ return 'Resistor '+fmtR(RN)+' ±'+RTOL+' %'; }, funcion:'ohm',
     porQue:'es una resistencia y está DESENERGIZADA — regla de oro del ohmímetro.',
-    mision:'Caso 3 · Mide el resistor fuera de circuito y decide si este DMM puede verificar su tolerancia de ±5 %.',
+    get mision(){ return 'Caso 3 · Mide el resistor fuera de circuito y decide si este DMM puede verificar su tolerancia de ±'+RTOL+' %.'; },
     cam:[[3.2,2.2,5.0],[0.5,0.7,0.1]],
     contactos:{red:[1.17,0.52,0.15], black:[2.13,0.52,0.15], rot:[0,0,0.15]},
   },
   divisor:{
-    nombre:'Divisor 1 MΩ / 1 MΩ', funcion:'vdc',
+    get nombre(){ return 'Divisor '+fmtR(R1)+' / '+fmtR(R2); }, funcion:'vdc',
     porQue:'buscamos el voltaje del nodo central del divisor (corriente directa).',
-    mision:'Caso 4 · Mide el nodo central del divisor (fuente de 10.00 V) y explica por qué NO lees 5.000 V.',
+    get mision(){ return 'Caso 4 · Mide el nodo central del divisor (fuente de '+VS.toFixed(2)+' V) y explica por qué NO lees '+VNODE_IDEAL.toFixed(3)+' V.'; },
     cam:[[3.2,2.3,5.4],[0.6,0.8,0.2]],
     contactos:{red:[1.91,0.33,0.37], black:[2.23,0.33,0.37], rot:[0,0,0.15]},
   },
 };
 
-/* ---------- pregunta de ingeniería por caso (opciones calculadas del modelo) ---------- */
-const U6=uNom('vdc',5,6), U60=uNom('vdc',5,60), U600=uNom('vdc',5,600);
-const UOHM=uNom('ohm',R_ACTUAL,6e3), TOL=4700*0.05;
-const UDIV=uNom('vdc',VNODE_MED,6);
-const QUIZ={
-  fuente:{
-    pregunta:'La fuente entrega ≈5 V. ¿Qué rango del DMM da la <b>menor incertidumbre</b>?',
+/* ---------- pregunta de ingeniería por caso (banco de distractores) ----------
+   Cada pregunta tiene UNA opción correcta y un banco de distractores; se eligen 3
+   y se barajan. Las cifras salen de los datos sembrados. Las opciones NO traen
+   los números del instrumento: hay que medir en el panel y decidir. Los avisos
+   de error no dan la respuesta, solo dicen qué revisar. */
+const W_CAT='Compara la categoría de cada punto con la impresa en la carátula del DMM (IEC 61010-1): la categoría clasifica la energía del transitorio disponible, no el voltaje.';
+const W_TUR='Esa justificación no resuelve la pregunta: compara la incertidumbre U que el propio DMM reporta con la tolerancia del componente.';
+const W_DIV='Esa causa no explica por qué el error aparece con el DMM conectado a ESTE nodo: revisa cómo afecta el instrumento al circuito que mide.';
+const W_RNG='Pruébalo en el panel: cambia de rango, mira la incertidumbre U y fíjate si el display marca OL.';
+const mejorRango=v=>METER.ranges.vdc.find(r=>Math.abs(v)<r)??METER.ranges.vdc[METER.ranges.vdc.length-1];
+function buildQuiz(key){
+  if(key==='fuente'){
+    const best=mejorRango(VF);
+    return {
+      pregunta:`La fuente entrega ≈${fmtVF(VF)} V. ¿Qué rango del DMM da la <b>menor incertidumbre</b>? Pruébalos en el panel.`,
+      opciones:METER.ranges.vdc.map(r=>{
+        const ok=r===best, U=uNom('vdc',VF,r);
+        return {t:`Rango ${rangeName('vdc',r)}`, ok,
+          why: ok ? `Es el rango más bajo SIN sobrerrango: usa más cuentas del display. U = ±(0.5 % × ${fmtVF(VF)} + 2 × ${(r/METER.counts)}) = ±${U.toFixed(3)} V.` : W_RNG};
+      }),
+    };
+  }
+  if(key==='tomacorriente'){
+    if(CAT_Q===0) return {
+      pregunta:'Tu DMM es <b>CAT III 600 V</b>. ¿En qué punto NO debes usarlo, aunque el voltaje sea el mismo (127 V)?',
+      opciones:[
+        {t:'Tomacorriente de pared (CAT II)', ok:false, why:W_CAT},
+        {t:'Tablero de distribución (CAT III)', ok:false, why:W_CAT},
+        {t:'Acometida / lado del medidor (CAT IV)', ok:true, why:'La categoría clasifica la ENERGÍA del transitorio disponible, no el voltaje: la acometida exige CAT IV. Un CAT III ahí arriesga un arco interno (IEC 61010-1).'},
+        {t:'En ninguno: 127 V es 127 V en todos lados', ok:false, why:W_CAT},
+      ]};
+    if(CAT_Q===1) return {
+      pregunta:'Tu DMM es <b>CAT III 600 V</b>. ¿Cuál es la categoría <b>más alta</b> de punto de medición donde puedes usarlo?',
+      opciones:[
+        {t:'CAT II (tomacorriente de pared)', ok:false, why:W_CAT},
+        {t:'CAT III (tablero de distribución)', ok:true, why:'Un DMM CAT III sirve hasta CAT III (y por debajo, CAT II); la acometida es CAT IV y queda fuera de su capacidad (IEC 61010-1).'},
+        {t:'CAT IV (acometida / medidor)', ok:false, why:W_CAT},
+        {t:'Cualquiera: la categoría depende solo del voltaje', ok:false, why:W_CAT},
+      ]};
+    return {
+      pregunta:'Los tres puntos de la escena son pared (CAT II), tablero (CAT III) y acometida (CAT IV). ¿En <b>cuántos</b> puedes usar este DMM <b>CAT III 600 V</b>?',
+      opciones:[
+        {t:'En uno solo', ok:false, why:W_CAT},
+        {t:'En dos', ok:true, why:'Pared (CAT II) y tablero (CAT III) están dentro de su categoría; la acometida (CAT IV) la excede (IEC 61010-1).'},
+        {t:'En los tres', ok:false, why:W_CAT},
+        {t:'En ninguno', ok:false, why:W_CAT},
+      ]};
+  }
+  if(key==='resistor'){
+    const rango=METER.ranges.ohm.find(r=>R_ACTUAL<r)??METER.ranges.ohm[METER.ranges.ohm.length-1];
+    const U=uNom('ohm',R_ACTUAL,rango), tol=RN*RTOL/100, tur=tol/U, puede=tur>=4;
+    const pregunta=`El resistor es ${fmtR(RN)} <b>±${RTOL} %</b> (±${tol.toFixed(tol<10?1:0)} Ω). Mídelo con el DMM y decide: ¿puede este DMM verificar su tolerancia?`;
+    const mal=[
+      {t:'Sí — basta con que la lectura caiga dentro de la banda de tolerancia del resistor', ok:false, why:W_TUR},
+      {t:'Sí — el ohmímetro no tiene error de medición y por eso sirve para esto', ok:false, why:W_TUR},
+      {t:'No — la resolución del DMM impide distinguir el valor de la tolerancia', ok:false, why:W_TUR},
+      {t:'No — haría falta un instrumento 100 veces más exacto que el resistor', ok:false, why:W_TUR},
+    ];
+    if(puede) return {pregunta, opciones:[{t:'Sí — la incertidumbre del DMM es al menos 4 veces menor que la tolerancia', ok:true,
+      why:`U ≈ ±${U.toFixed(U<10?1:0)} Ω frente a ±${tol.toFixed(tol<10?1:0)} Ω: relación ${tur.toFixed(1)}:1, que cumple la regla práctica de ≥4:1 (TUR); el veredicto "dentro/fuera de tolerancia" es confiable.`}, ...mal]};
+    return {pregunta, opciones:[{t:'No — la incertidumbre del DMM no es al menos 4 veces menor que la tolerancia', ok:true,
+      why:`U ≈ ±${U.toFixed(U<10?1:0)} Ω frente a ±${tol.toFixed(tol<10?1:0)} Ω: relación ${tur.toFixed(1)}:1, por debajo de la regla práctica de 4:1 (TUR); con este instrumento el veredicto "dentro/fuera de tolerancia" no es confiable.`},
+      {t:'Sí — la incertidumbre del DMM es menor que la tolerancia, y con eso alcanza', ok:false, why:W_TUR}, ...mal]};
+  }
+  // divisor
+  const UDIV=uNom('vdc',VNODE_MED,mejorRango(VNODE_MED));
+  const dif=VNODE_IDEAL-VNODE_MED;
+  const rm=x=>(x/1e6).toFixed(3);
+  return {
+    pregunta:`El divisor ${fmtR(R1)}/${fmtR(R2)} con ${VS.toFixed(2)} V debería dar <b>${VNODE_IDEAL.toFixed(3)} V</b>, pero lees ≈${VNODE_MED.toFixed(3)} V. ¿Por qué?`,
     opciones:[
-      {t:`Rango 60 V — U = ±${U60.toFixed(3)} V`, ok:false, why:`En 60 V la resolución cae a 0.01 V y U sube a ±${U60.toFixed(3)} V. Hay un rango mejor.`},
-      {t:`Rango 6 V — U = ±${U6.toFixed(3)} V`, ok:true, why:`El rango más bajo SIN sobrerrango usa más cuentas del display: U = ±(0.5 % × 5.000 + 2 × 0.001) = ±${U6.toFixed(3)} V.`},
-      {t:`Rango 600 V — U = ±${U600.toFixed(3)} V`, ok:false, why:`Con resolución de 0.1 V el término de dígitos domina: U = ±${U600.toFixed(3)} V, ~8× peor que en 6 V.`},
-      {t:'Rango 600 mV — es el más fino', ok:false, why:'5 V > 600 mV: el display marca OL. El rango óptimo es el MENOR que no sobrepasa la señal.'},
+      {t:'Efecto de carga: los 10 MΩ del DMM quedan en paralelo con R2', ok:true,
+       why:`R2 ∥ Z_in = ${rm(RP)} MΩ → V = ${VS.toFixed(2)} × ${rm(RP)}/(${rm(R1)} + ${rm(RP)}) = ${VNODE_MED.toFixed(3)} V. Es un error SISTEMÁTICO: se corrige por cálculo o con un instrumento de mayor Z_in.`},
+      {t:'La fuente de alimentación está descargada o su tensión ha bajado', ok:false, why:W_DIV},
+      {t:`Incertidumbre aleatoria del DMM (±${UDIV.toFixed(3)} V)`, ok:false, why:W_DIV},
+      {t:'El fusible de mA del DMM está dañado', ok:false, why:W_DIV},
+      {t:'Las tolerancias de R1 y R2 desplazan el nodo exactamente ese tanto', ok:false, why:W_DIV},
+      {t:'La resistencia de las puntas de prueba cae en serie con el nodo', ok:false, why:W_DIV},
+      {t:'La corriente de fuga de la tarjeta desvía parte de la corriente', ok:false, why:W_DIV},
     ],
-  },
-  tomacorriente:{
-    pregunta:'Tu DMM es <b>CAT III 600 V</b>. ¿En qué punto NO debes usarlo, aunque el voltaje sea el mismo (127 V)?',
-    opciones:[
-      {t:'Tomacorriente de pared (CAT II)', ok:false, why:'CAT II está DENTRO de la capacidad de un DMM CAT III: sí puedes medir ahí.'},
-      {t:'Tablero de distribución (CAT III)', ok:false, why:'El instrumento está certificado justo para CAT III 600 V: sí puedes medir ahí.'},
-      {t:'Acometida / lado del medidor (CAT IV)', ok:true, why:'La categoría clasifica la ENERGÍA del transitorio disponible, no el voltaje: la acometida exige CAT IV. Un CAT III ahí arriesga un arco interno (IEC 61010-1).'},
-      {t:'En ninguno: 127 V es 127 V en todos lados', ok:false, why:'El voltaje nominal es igual, pero un transitorio en la acometida tiene mucha más energía detrás: para eso existen las categorías.'},
-    ],
-  },
-  resistor:{
-    pregunta:`El resistor es 4.7 kΩ <b>±5 %</b> (±${TOL.toFixed(0)} Ω) y la U del DMM en 6 kΩ es ≈±${UOHM.toFixed(0)} Ω. ¿Puede este DMM verificar la tolerancia?`,
-    opciones:[
-      {t:'No — se necesita un instrumento 100× más exacto', ok:false, why:'La práctica industrial pide una relación de ~4:1 entre la tolerancia a verificar y la incertidumbre del instrumento (TUR), no 100:1.'},
-      {t:'No — la resolución de 1 Ω lo impide', ok:false, why:`La resolución (1 Ω) es 235× menor que la tolerancia: no es la limitante. Lo que importa es la incertidumbre total ±${UOHM.toFixed(0)} Ω.`},
-      {t:`Sí — U ≈ ±${UOHM.toFixed(0)} Ω es ~${(TOL/UOHM).toFixed(0)}× menor que ±${TOL.toFixed(0)} Ω`, ok:true, why:`Relación tolerancia/incertidumbre ≈ ${(TOL/UOHM).toFixed(1)}:1 — cumple la regla práctica de ≥4:1, así que el veredicto "dentro/fuera de ±5 %" es confiable.`},
-      {t:'Sí — el ohmímetro no tiene error', ok:false, why:`Todo instrumento tiene error: en 6 kΩ este DMM aporta ±(0.9 % + 1 dígito) = ±${UOHM.toFixed(0)} Ω.`},
-    ],
-  },
-  divisor:{
-    pregunta:`El divisor 1 MΩ/1 MΩ con 10.00 V debería dar <b>${VNODE_IDEAL.toFixed(3)} V</b>, pero lees ≈${VNODE_MED.toFixed(3)} V. ¿Por qué?`,
-    opciones:[
-      {t:'La batería de la fuente está baja', ok:false, why:'La fuente entrega 10.00 V estables; el error aparece solo en el nodo de ALTA impedancia — eso delata a la carga del instrumento, no a la fuente.'},
-      {t:'Efecto de carga: los 10 MΩ del DMM quedan en paralelo con R2', ok:true, why:`R2 ∥ Z_in = ${(RP/1e6).toFixed(3)} MΩ → V = 10 × ${(RP/1e6).toFixed(3)}/(1 + ${(RP/1e6).toFixed(3)}) = ${VNODE_MED.toFixed(3)} V. Es un error SISTEMÁTICO: se corrige por cálculo o con un instrumento de mayor Z_in.`},
-      {t:`Incertidumbre aleatoria del DMM (±${UDIV.toFixed(3)} V)`, ok:false, why:`La banda de exactitud es ±${UDIV.toFixed(3)} V, pero la desviación observada (≈${(VNODE_IDEAL-VNODE_MED).toFixed(3)} V) es ~9× mayor: no es ruido, es carga.`},
-      {t:'El fusible de mA está dañado', ok:false, why:'El fusible solo protege la entrada de corriente (mA); la función V⎓ no pasa por él.'},
-    ],
-  },
-};
+  };
+}
 
 /* ============================================================
    ESCENA 3D — 1) MULTÍMETRO (instrumento protagonista)
@@ -715,11 +803,11 @@ const SCEN_POS=new THREE.Vector3(1.65,0,0.15);
 function makeFuente(){
   const g=new THREE.Group(); g.position.copy(SCEN_POS);
   const box=roundedBox(1.5,0.95,1.05,MAT.psu,0.07); box.position.set(0,0.48,0); g.add(box);
-  box.userData={title:'Fuente de laboratorio',info:'Salida ajustada a 5.000 V⎓ de baja impedancia. En sus bornes, el efecto de carga del DMM es despreciable.'};
+  box.userData={title:'Fuente de laboratorio',info:'Salida ajustada a '+fmtVF(VF)+' V⎓ de baja impedancia. En sus bornes, el efecto de carga del DMM es despreciable.'};
   const pd=document.createElement('canvas'); pd.width=256; pd.height=96;
   { const c=pd.getContext('2d'); c.fillStyle='#071410'; c.fillRect(0,0,256,96);
     c.strokeStyle='rgba(79,209,197,.4)'; c.lineWidth=3; c.strokeRect(3,3,250,90);
-    c.fillStyle='#4FD1C5'; c.font='bold 44px Outfit, sans-serif'; c.textAlign='center'; c.fillText('5.000 V',128,62); }
+    c.fillStyle='#4FD1C5'; c.font='bold 44px Outfit, sans-serif'; c.textAlign='center'; c.fillText(fmtVF(VF)+' V',128,62); }
   const pt=new THREE.CanvasTexture(pd); pt.colorSpace=THREE.SRGBColorSpace;
   const pp=new THREE.Mesh(new THREE.PlaneGeometry(0.62,0.23), new THREE.MeshBasicMaterial({map:pt,toneMapped:false}));
   pp.position.set(-0.28,0.62,0.53); g.add(pp);
@@ -729,7 +817,7 @@ function makeFuente(){
   postR.userData={title:'Borne + (positivo)',info:'Salida positiva de la fuente. Aquí toca la punta roja.'};
   const postB=sh(new THREE.Mesh(new THREE.CylinderGeometry(0.045,0.045,0.18,14),MAT.jackBlk)); postB.position.set(0.62,1.045,0.30); g.add(postB);
   postB.userData={title:'Borne − (retorno)',info:'Retorno de la fuente. Aquí toca la punta negra (COM).'};
-  const lb=labelSprite('Fuente 5.000 V⎓','#4FD1C5'); lb.position.set(0,1.55,0.2);
+  const lb=labelSprite('Fuente '+fmtVF(VF)+' V⎓','#4FD1C5'); lb.position.set(0,1.55,0.2);
   lb.visible=false; lb.raycast=()=>{}; g.add(lb); HOVER_LABELS.set(box,lb);
   return g;
 }
@@ -774,14 +862,14 @@ function makeResistor(){
   pL.userData={title:'Poste de conexión',info:'Sujeta la terminal del resistor. Medición a 2 hilos: la resistencia de contacto entra en la lectura.'};
   pR.userData=pL.userData;
   const body=sh(new THREE.Mesh(new THREE.CylinderGeometry(0.10,0.10,0.55,20),MAT.resistor)); body.rotation.z=Math.PI/2; body.position.set(0,0.50,0); g.add(body);
-  body.userData={title:'Resistor axial 4.7 kΩ ±5 %',info:'Bandas amarillo·violeta·rojo = 47×100 Ω; oro = ±5 %. Su valor REAL está en algún punto de esa tolerancia: mídelo.'};
-  // bandas de color (código real: 4-7-×100-±5 %)
-  const BANDS=[['#e8c832',-0.16],['#7d3fc4',-0.08],['#c73a3a',0.00],['#c9a227',0.20]];
+  body.userData={title:'Resistor axial '+fmtR(RN)+' ±'+RTOL+' %',info:'Las bandas de color dan el valor nominal y la tolerancia (IEC 60062). Su valor REAL está en algún punto de esa tolerancia: mídelo.'};
+  // bandas de color (código real de 4 bandas, calculado del valor nominal)
+  const BANDS=bandasResistor(RN,RTOL).map((col,i)=>[col,[-0.16,-0.08,0.00,0.20][i]]);
   BANDS.forEach(([col,x])=>{ const b=new THREE.Mesh(new THREE.CylinderGeometry(0.105,0.105,0.035,20), std({color:new THREE.Color(col),roughness:0.6}));
     b.rotation.z=Math.PI/2; b.position.set(x,0.50,0); g.add(b); });
   [-1,1].forEach(s=>{ const w=new THREE.Mesh(new THREE.CylinderGeometry(0.016,0.016,0.21,8),MAT.wire);
     w.rotation.z=Math.PI/2; w.position.set(s*0.38,0.50,0); g.add(w); });
-  const lb=labelSprite('4.7 kΩ ±5 % (fuera de circuito)','#ffd166'); lb.position.set(0,0.95,0);
+  const lb=labelSprite(fmtR(RN)+' ±'+RTOL+' % (fuera de circuito)','#ffd166'); lb.position.set(0,0.95,0);
   lb.visible=false; lb.raycast=()=>{}; g.add(lb); HOVER_LABELS.set(body,lb);
   return g;
 }
@@ -791,23 +879,32 @@ function makeDivisor(){
   [-0.5,0.5].forEach(sx=>[-0.32,0.32].forEach(sz=>{ const so=new THREE.Mesh(new THREE.CylinderGeometry(0.03,0.03,0.12,10),MAT.wire);
     so.position.set(sx,0.06,sz); g.add(so); }));
   const pcb=roundedBox(1.15,0.06,0.78,MAT.pcb,0.02); pcb.position.set(0,0.15,0); g.add(pcb);
-  pcb.userData={title:'Divisor resistivo 1 MΩ / 1 MΩ',info:'Nodo de ALTA impedancia (R_th = 0.5 MΩ): el caso clásico donde los 10 MΩ del DMM sí pesan.'};
+  pcb.userData={title:'Divisor resistivo '+fmtR(R1)+' / '+fmtR(R2),info:'R1 y R2 en serie sobre la fuente; el nodo central (TP1) es el punto de medición.'};
   const mod=roundedBox(0.42,0.30,0.34,MAT.psu,0.05); mod.position.set(-0.30,0.33,-0.16); g.add(mod);
-  mod.userData={title:'Fuente 10.00 V',info:'Alimenta al divisor. Estable: el error del nodo NO viene de aquí.'};
-  const mkR=(x,name)=>{ const r=sh(new THREE.Mesh(new THREE.CylinderGeometry(0.055,0.055,0.30,14),MAT.resistor));
+  mod.userData={title:'Fuente '+VS.toFixed(2)+' V',info:'Alimenta al divisor.'};
+  const mkR=(x,name,val)=>{ const r=sh(new THREE.Mesh(new THREE.CylinderGeometry(0.055,0.055,0.30,14),MAT.resistor));
     r.rotation.z=Math.PI/2; r.position.set(x,0.24,-0.02); g.add(r);
-    r.userData={title:name,info:'1.000 MΩ. En serie forman el divisor: ideal V_nodo = 10 × R2/(R1+R2) = 5.000 V.'}; return r; };
-  mkR(0.10,'R1 · 1 MΩ'); mkR(0.42,'R2 · 1 MΩ');
+    r.userData={title:name,info:fmtR(val)+'. En serie forman el divisor: sin carga, V_nodo = Vs × R2/(R1+R2).'}; return r; };
+  mkR(0.10,'R1 · '+fmtR(R1),R1); mkR(0.42,'R2 · '+fmtR(R2),R2);
   const mkTP=(x,mat,name,info)=>{ const tp=sh(new THREE.Mesh(new THREE.CylinderGeometry(0.028,0.028,0.12,10),mat));
     tp.position.set(x,0.27,0.22); g.add(tp); tp.userData={title:name,info}; return tp; };
   mkTP(0.26,MAT.jackRed,'TP1 · nodo central','Punto de prueba del nodo R1–R2. Punta roja aquí.');
   mkTP(0.58,MAT.jackBlk,'TP0 · tierra (GND)','Referencia del circuito. Punta negra aquí.');
-  const lb=labelSprite('Divisor 1 MΩ / 1 MΩ · 10 V','#4FD1C5'); lb.position.set(0,0.75,0);
+  const lb=labelSprite('Divisor '+fmtR(R1)+' / '+fmtR(R2)+' · '+VS.toFixed(0)+' V','#4FD1C5'); lb.position.set(0,0.75,0);
   lb.visible=false; lb.raycast=()=>{}; g.add(lb); HOVER_LABELS.set(pcb,lb);
   return g;
 }
 
 const SCEN_GROUPS={fuente:makeFuente(),tomacorriente:makeTomacorriente(),resistor:makeResistor(),divisor:makeDivisor()};
+const SCEN_MAKERS={fuente:makeFuente,tomacorriente:makeTomacorriente,resistor:makeResistor,divisor:makeDivisor};
+/* El escenario se rehace con los datos sembrados (al resembrar y en la demostración). */
+function rebuildScenario(key){
+  const old=SCEN_GROUPS[key], enEscena=old.parent===scene;
+  if(enEscena) scene.remove(old);
+  old.traverse(o=>{ if(o.geometry) o.geometry.dispose(); });
+  SCEN_GROUPS[key]=SCEN_MAKERS[key]();
+  if(enEscena) scene.add(SCEN_GROUPS[key]);
+}
 
 /* ============================================================
    ESCENA 3D — 3) PUNTAS DE PRUEBA (se recolocan por escenario;
@@ -1048,29 +1145,52 @@ function setEnv(k){
 }
 ['cat2','cat3','cat4'].forEach(k=>{ el('e_'+k).onclick=()=>setEnv(k); });
 
-function refreshQuestion(){
-  const q=QUIZ[scenarioKey];
-  el('q_text').innerHTML=q.pregunta;
-  el('dxbtns').innerHTML=q.opciones.map((o,i)=>`<button class="b dx" data-i="${i}">${'ABCD'[i]} · ${o.t}</button>`).join('');
+function renderQuiz(){
+  el('q_text').innerHTML=quizNow.pregunta;
+  el('dxbtns').innerHTML=quizNow.opciones.map((o,i)=>`<button class="b dx" data-i="${i}">${'ABCD'[i]} · ${o.t}</button>`).join('');
   el('dxbtns').querySelectorAll('.b.dx').forEach(btn=>{ btn.onclick=()=>answer(+btn.dataset.i); });
+}
+/* Una correcta + 3 del banco de distractores, barajadas: ni la posición ni el
+   largo delatan la respuesta, y tras una resiembra salen otras. */
+function refreshQuestion(){
+  const q=buildQuiz(scenarioKey);
+  const buenas=q.opciones.filter(o=>o.ok), malas=q.opciones.filter(o=>!o.ok);
+  quizNow={pregunta:q.pregunta,opciones:shuffled(buenas.concat(shuffled(malas).slice(0,3)))};
+  renderQuiz();
+}
+function resiembra(){
+  fallosCaso[scenarioKey]=0; RETO.resiembras++;
+  seedCase(scenarioKey); rebuildScenario(scenarioKey);
+  solved=false; refreshQuestion(); refreshMeter();
 }
 function answer(i){
   if(!connected){ showToast('Primero conecta las puntas al punto de medición.'); return; }
-  const o=QUIZ[scenarioKey].opciones[i]; clearDx();
+  if(autoRunning) return;                 // la demostración enseña, no puntúa
+  if(answered[scenarioKey]){ showToast('Este caso ya está resuelto: pasa al siguiente.'); return; }
+  const o=quizNow.opciones[i]; clearDx();
   const btn=el('dxbtns').children[i];
+  RETO.intentos++;
   if(o.ok){
-    btn.classList.add('right'); solved=true; synth.beep(1046,0.12,0.06);
+    btn.classList.add('right'); solved=true; answered[scenarioKey]=true; fallosCaso[scenarioKey]=0; synth.beep(1046,0.12,0.06);
     showToast(`<span style="color:var(--good)">✔ Correcto.</span><br><span style="color:var(--dim);font-size:11px">${o.why}</span>`);
+    refreshMeter();
   }else{
     btn.classList.add('wrong'); synth.beep(220,0.15,0.06);
-    showToast(`<span style="color:var(--bad)">✗ Revisa el modelo.</span><br><span style="color:var(--dim);font-size:11px">${o.why}</span>`);
+    fallosCaso[scenarioKey]++;
+    if(fallosCaso[scenarioKey]>=3){
+      resiembra();
+      showToast(`<span style="color:var(--bad)">✗ Tres fallos en este caso.</span><br><span style="color:var(--dim);font-size:11px">Cambian los datos del caso: vuelve a medir con calma y razona cada paso.</span>`);
+    } else {
+      showToast(`<span style="color:var(--bad)">✗ Revisa el modelo.</span><br><span style="color:var(--dim);font-size:11px">${o.why} (fallos en este caso: ${fallosCaso[scenarioKey]}/3)</span>`);
+    }
   }
 }
 
 function setScenario(key){
+  if(autoRunning) return;
   scene.remove(SCEN_GROUPS[scenarioKey]);
   scenarioKey=key; scene.add(SCEN_GROUPS[key]);
-  solved=false; clearDx(); placeProbes(); refreshQuestion(); refreshCaseLabel();
+  solved=!!answered[key]; clearDx(); placeProbes(); refreshQuestion(); refreshCaseLabel();
   const esToma=key==='tomacorriente';
   el('envTitle').style.display=esToma?'':'none';
   el('envbar').style.display=esToma?'':'none';
@@ -1144,38 +1264,44 @@ soundBtn.onclick=()=>{const on=synth.toggle();soundBtn.textContent=on?'🔊':'�
    Conecta las puntas, elige función y rango, lee el informe con su banda U
    y contesta la pregunta del caso, explicando cada paso en lenguaje llano. */
 const sleep=ms=>new Promise(r=>setTimeout(r,ms));
-let autoRunning=false;
 async function runAuto(){
   if(autoRunning) return;
   autoRunning=true;
   const btn=el('btnAuto'); const label=btn.textContent;
   btn.disabled=true; btn.classList.add('on'); btn.textContent='⏳ Medición guiada en curso…';
+  const prev={datos:guardaDatos(),connected,func,rangeSel,quiz:quizNow,solved};
   try{
     clearDx();
-    const key=scenarioKey, meta=SCEN_META[key], q=QUIZ[key];
-    if(!connected){ showToast('Paso 1 · Conectamos las puntas: roja a '+(meta.funcion==='madc'?'mA':'VΩ')+', negra a COM.'); el('btnConnect').click(); await sleep(1700); }
+    const key=scenarioKey, meta=SCEN_META[key];
+    // La demostración trabaja con OTROS datos (DEMO): lo del alumno no se toca.
+    datosDemo(); CAT_Q=(prev.datos.CAT_Q+1)%3;
+    rebuildScenario(key); refreshMeter();
+    if(!connected){ showToast('Paso 1 · Conectamos las puntas: roja a '+(meta.funcion==='madc'?'mA':'VΩ')+', negra a COM (datos de ejemplo).'); el('btnConnect').click(); await sleep(1700); }
     setFunc(meta.funcion); showToast('Paso 2 · Función '+FUNC_LABEL[meta.funcion]+' — '+meta.porQue); await sleep(2300);
     setRange('auto'); showToast('Paso 3 · AUTO busca el rango más bajo sin sobrerrango: más cuentas = mejor resolución.'); await sleep(2300);
     if(key==='fuente'){
-      setRange(60); showToast('Paso 4 · A propósito en 60 V: mira en el panel cómo U sube a ±'+U60.toFixed(3)+' V.'); await sleep(2600);
-      setRange(6); showToast('Paso 5 · En 6 V, U baja a ±'+U6.toFixed(3)+' V: el rango óptimo es el MENOR sin OL.'); await sleep(2600);
+      const rs=METER.ranges.vdc, best=mejorRango(VF), alto=rs.find(r=>r>best);
+      if(alto){ setRange(alto); showToast('Paso 4 · A propósito en '+rangeName('vdc',alto)+': mira en el panel cómo U sube a ±'+uNom('vdc',VF,alto).toFixed(3)+' V.'); await sleep(2600); }
+      setRange(best); showToast('Paso 5 · En '+rangeName('vdc',best)+' (el menor sin OL), U baja a ±'+uNom('vdc',VF,best).toFixed(3)+' V.'); await sleep(2600);
     }else if(key==='tomacorriente'){
-      setEnv('cat3'); showToast('Paso 4 · Tablero = CAT III: nuestro DMM CAT III 600 V sí puede medir aquí.'); await sleep(2400);
-      setEnv('cat4'); await sleep(2600);
-      setEnv('cat2');
+      showToast('Paso 4 · Los botones Pared / Tablero / Acometida cambian el punto de medición: compara siempre la categoría del punto con la impresa en la carátula del DMM antes de medir.'); await sleep(3200);
     }else if(key==='resistor'){
-      showToast('Paso 4 · Compara: U ≈ ±'+UOHM.toFixed(0)+' Ω del DMM contra ±'+TOL.toFixed(0)+' Ω de tolerancia del componente (~5×).'); await sleep(2800);
+      const rango=METER.ranges.ohm.find(r=>R_ACTUAL<r)??METER.ranges.ohm[METER.ranges.ohm.length-1];
+      const U=uNom('ohm',R_ACTUAL,rango), tol=RN*RTOL/100;
+      showToast('Paso 4 · Compara: U ≈ ±'+U.toFixed(U<10?1:0)+' Ω del DMM contra ±'+tol.toFixed(tol<10?1:0)+' Ω de tolerancia del componente de ejemplo (relación '+(tol/U).toFixed(1)+':1).'); await sleep(3000);
     }else{
-      showToast('Paso 4 · El nodo debería dar '+VNODE_IDEAL.toFixed(3)+' V pero lee '+VNODE_MED.toFixed(3)+' V: los 10 MΩ del DMM cargan al divisor.'); await sleep(2800);
+      showToast('Paso 4 · Con los datos de ejemplo el nodo debería dar '+VNODE_IDEAL.toFixed(3)+' V pero lee '+VNODE_MED.toFixed(3)+' V: el instrumento carga al divisor.'); await sleep(3000);
     }
-    const i=q.opciones.findIndex(o=>o.ok);
-    clearDx();
-    const dxBtn=el('dxbtns').children[i];
-    if(dxBtn){ dxBtn.classList.add('right'); solved=true; synth.beep(1046,0.12,0.06); }
-    showToast('<span style="color:var(--good)">✔ '+q.opciones[i].t+'</span><br><span style="color:var(--dim);font-size:11px">'+q.opciones[i].why+'</span>');
+    const ok=buildQuiz(key).opciones.find(o=>o.ok);
+    showToast('<span style="color:var(--good)">✔ Resultado del ejemplo</span><br>'+ok.t+'<br><span style="color:var(--dim);font-size:11px">'+ok.why+' Tu avance en el reto no cambió.</span>'); await sleep(2800);
   } finally {
-    btn.disabled=false; btn.classList.remove('on'); btn.textContent=label;
+    restauraDatos(prev.datos); rebuildScenario(scenarioKey);
     autoRunning=false;
+    setFunc(prev.func); setRange(prev.rangeSel);
+    if(connected!==prev.connected) el('btnConnect').click();
+    solved=prev.solved; quizNow=prev.quiz; renderQuiz();
+    btn.disabled=false; btn.classList.remove('on'); btn.textContent=label;
+    refreshMeter();
   }
 }
 el('btnAuto').onclick=runAuto;
@@ -1192,6 +1318,17 @@ S.setAnimate((dt,time)=>{
   }
 });
 
+window.__labDebug={
+  get mode(){ return scenarioKey; },
+  get solved(){ return Object.values(answered).every(Boolean); },
+  get intentos(){ return RETO.intentos; },
+  state(){ return {caso:scenarioKey,conectado:connected,answered:{...answered},intentos:RETO.intentos,
+    fallos:{...fallosCaso},resiembras:RETO.resiembras,resuelto:Object.values(answered).every(Boolean),autoRunning}; },
+  datos(){ return guardaDatos(); },
+  setScenario(k){ setScenario(k); },
+  conecta(){ if(!connected) el('btnConnect').click(); },
+  opciones(){ return [...document.querySelectorAll('#dxbtns .b.dx')].map((b,i)=>({t:b.textContent,ok:!!quizNow.opciones[i].ok})); },
+};
 setFunc('vdc');
 setScenario('fuente');
 </script>

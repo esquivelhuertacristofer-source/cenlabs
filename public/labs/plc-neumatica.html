@@ -34,7 +34,7 @@
   .legend .li{display:flex;align-items:center;gap:8px;font-size:11.5px;color:#c4d0da}
   .legend .dot{width:10px;height:10px;border-radius:50%;flex:0 0 auto}
 
-  .panel{position:fixed;top:70px;right:18px;z-index:15;width:236px;background:var(--panel);backdrop-filter:blur(14px);border:1px solid var(--line);border-radius:16px;padding:18px}
+  .panel{position:fixed;top:70px;right:18px;z-index:15;width:236px;max-height:calc(100vh - 90px);overflow-y:auto;background:var(--panel);backdrop-filter:blur(14px);border:1px solid var(--line);border-radius:16px;padding:18px}
   .panel h4{font-family:var(--mono);font-size:10px;letter-spacing:.14em;text-transform:uppercase;color:var(--dim);margin-bottom:12px}
   .g{margin-bottom:11px}
   .gl{display:flex;justify-content:space-between;font-family:var(--mono);font-size:11px;color:var(--dim)}
@@ -546,9 +546,12 @@ marcaPlc.position.set(0,-0.13,0.092); plcGrp.add(marcaPlc);
    ventana el pistón se queda dentro y el laboratorio pierde lo único que de
    verdad enseña —que el aire empuja un émbolo y el émbolo arrastra el vástago—.
    Un tubo cerrado con un disco fuera no cuenta eso; cuenta lo contrario.      */
+// Cotas del cilindro (m de escena): la camisa mide 2·LCIL, el émbolo recorre entre
+// PX0 (retraído, pegado a la tapa trasera) y PX1 (extendido, pegado a la delantera).
+const LCIL=0.30, PX0=-(LCIL-0.04), PX1=LCIL-0.04, CARRERA=PX1-PX0, RL=0.76;
 function buildCylinder(x,color){
   const grp=new THREE.Group(); grp.position.set(x,0,0); group.add(grp);
-  const LC=0.45, RC=0.105;
+  const LC=LCIL, RC=0.105;
   // La camisa, abierta 90° hacia +Z para ver dentro.
   const body=new THREE.Mesh(P3.revolucion([
     [RC,-LC],[RC+0.012,-LC],[RC+0.012,LC],[RC,LC]],
@@ -579,16 +582,24 @@ function buildCylinder(x,color){
   const guia=new THREE.Mesh(P3.revolucion([
     [0.048,0],[0.085,0],[0.085,0.055],[0.048,0.055]],{seg:18}),MAT.bronce);
   guia.rotation.z=-Math.PI/2; guia.position.x=LC+0.09; grp.add(guia);
-  // El sensor magnético de final de carrera, en su ranura.
-  const sensor=new THREE.Mesh(new THREE.BoxGeometry(0.075,0.030,0.030),MAT.negro);
-  sensor.position.set(LC*0.62,0.118,0.055); grp.add(sensor);
+  // Los DOS sensores magnéticos de final de carrera, cada uno en su ranura y justo
+  // donde queda el imán del émbolo al llegar al tope: el de la izquierda confirma
+  // «retraído» (·0) y el de la derecha «extendido» (·1). Son lo que le dice al PLC
+  // que el paso terminó; sin ellos la secuencia tendría que avanzar a ciegas.
+  const sensores=[];
+  for(const [k,sx] of [[0,PX0],[1,PX1]]){
+    const sensor=new THREE.Mesh(new THREE.BoxGeometry(0.075,0.030,0.030),MAT.negro.clone());
+    sensor.position.set(sx,0.118,0.055); grp.add(sensor); sensores.push(sensor);
+  }
 
+  // El vástago: largo suficiente para que, con el émbolo en el fondo de la camisa,
+  // la punta siga asomando por el casquillo guía (si no, el vástago «desaparece»).
   const rod=new THREE.Mesh(P3.revolucion([
-    [0,-0.35],[0.045,-0.35],[0.045,0.30],[0.038,0.31],[0.038,0.35],[0,0.35]],{seg:18}),MAT.rod);
-  rod.rotation.z=-Math.PI/2; rod.position.set(0.75,0,0); rod.castShadow=true; grp.add(rod);
+    [0,-RL/2],[0.045,-RL/2],[0.045,RL/2-0.05],[0.038,RL/2-0.04],[0.038,RL/2],[0,RL/2]],{seg:18}),MAT.rod);
+  rod.rotation.z=-Math.PI/2; rod.position.set(PX0+RL/2,0,0); rod.castShadow=true; grp.add(rod);
   // El ÉMBOLO, que es la pieza que la ventana deja ver: dos juntas y el imán
   // entre ellas —el imán es lo que detecta el sensor de final de carrera—.
-  const piston=new THREE.Group(); piston.position.set(0.4,0,0); grp.add(piston);
+  const piston=new THREE.Group(); piston.position.set(PX0,0,0); grp.add(piston);
   const cuerpoEmb=new THREE.Mesh(P3.revolucion([
     [0,-0.030],[0.100,-0.030],[0.104,-0.020],[0.104,0.020],[0.100,0.030],[0,0.030]],{seg:24}),
     MAT.rod);
@@ -629,7 +640,7 @@ function buildCylinder(x,color){
   }
   const led=new THREE.Mesh(new THREE.BoxGeometry(0.035,0.020,0.010),MAT.led.clone());
   led.position.set(-0.06,0.045,0.068); valveGrp.add(led);
-  return {grp,rod,piston,valve,led};
+  return {grp,rod,piston,valve,led,sensores};
 }
 const cylA=buildCylinder(-0.6,0x37e0c7);
 const cylB=buildCylinder(1.0,0xff8a3a);
@@ -639,8 +650,12 @@ const parts=[
   {obj:plc,name:'PLC',desc:'Ejecuta la secuencia lógica programada, un paso a la vez.'},
   {obj:cylA.grp,name:'Cilindro A',desc:'Actuador neumático de doble efecto, primero en moverse.'},
   {obj:cylB.grp,name:'Cilindro B',desc:'Actuador neumático de doble efecto, se mueve tras A.'},
-  {obj:cylA.valve,name:'Válvula solenoide A',desc:'El PLC la energiza para avanzar o retraer el cilindro A.'},
-  {obj:cylB.valve,name:'Válvula solenoide B',desc:'El PLC la energiza para avanzar o retraer el cilindro B.'},
+  {obj:cylA.valve,name:'Válvula solenoide A',desc:'Válvula 5/2 monoestable: mientras el PLC la energiza, A va extendido; al soltarla, el muelle lo retrae.'},
+  {obj:cylB.valve,name:'Válvula solenoide B',desc:'Válvula 5/2 monoestable: mientras el PLC la energiza, B va extendido; al soltarla, el muelle lo retrae.'},
+  {obj:cylA.sensores[0],name:'Sensor A0',desc:'Final de carrera magnético: se activa cuando el imán del émbolo llega al fondo (A retraído).'},
+  {obj:cylA.sensores[1],name:'Sensor A1',desc:'Final de carrera magnético: se activa cuando A llega al extremo (extendido).'},
+  {obj:cylB.sensores[0],name:'Sensor B0',desc:'Final de carrera magnético: B retraído.'},
+  {obj:cylB.sensores[1],name:'Sensor B1',desc:'Final de carrera magnético: B extendido.'},
 ];
 instalaDiag('plc-neumatica',{escena:scene,camara:S.camera,controles:S.controls,
   renderizador:S.renderer, grupos:{plc:plcGrp,cilindroA:cylA.grp,cilindroB:cylB.grp}});
@@ -654,108 +669,294 @@ pickerFor(scene,S.camera,S.renderer.domElement,hit=>{
 });
 
 const homePLC=plc.position.clone();
-let exploded=false,running=false,seqIdx=0,seqT=0,posA=0,posB=0,lastStep=-1; // posA/posB: 0=retraído,1=extendido
+let exploded=false;
 const synth=makeSynth();
 
-function applyPositions(){
-  cylA.rod.position.x=0.75-(1-posA)*0.35; cylA.piston.position.x=0.4-(1-posA)*0.35;
-  cylB.rod.position.x=0.75-(1-posB)*0.35; cylB.piston.position.x=0.4-(1-posB)*0.35;
+/* ============================================================
+   LA MÁQUINA DE ESTADOS DEL PLC
+   La secuencia ya NO avanza por reloj: cada paso emite su orden, espera a que la
+   válvula conmute, deja que el émbolo recorra su carrera (con el tiempo que le
+   marca el estrangulador) y sólo avanza cuando el SENSOR de final de carrera de
+   ese cilindro confirma. Si el sensor no confirma, el PLC se queda esperando y
+   al cabo de T_ALARMA da alarma: así se ve por qué los finales de carrera existen.
+   Todo va en segundos reales (paso fijo de 1 ms), no en «por fotograma».
+   ============================================================ */
+const T_VALVULA=0.08;    // s que tarda en conmutar la válvula (bobina + carrete)
+const T_CONFIRMA=0.07;   // s que el PLC necesita ver el sensor activo (ciclo de escaneo)
+const T_ALARMA=2.0;      // s esperando una confirmación que no llega → alarma
+const H_SIM=1/1000;
+const ESTR_MIN=0.4, ESTR_MAX=2.0;   // rango del estrangulador: s por carrera completa
+const viaje={A:1.0,B:0.8};           // ajuste del alumno (Explora)
+const ST={ejecutando:false,paso:0,fase:'reposo',tFase:0,conf:0,espera:0,
+  pos:{A:0,B:0},Y:{A:false,B:false},tCiclo:0,cicloMedido:null,ciclos:0,
+  alarma:null,sensorB1Roto:false};
+let modo='explora';
+const RETO={tA:0,tB:0,intentos:0,fallos:0,pistas:0,solved:false,vistas:0,msg:'',ultima:null};
+const clamp01=v=>Math.max(0,Math.min(1,v));
+const tViaje=c=>modo==='reto'?(c==='A'?RETO.tA:RETO.tB):viaje[c];
+function sensorOn(c,ext){
+  if(ext&&c==='B'&&ST.sensorB1Roto) return false;    // sensor averiado: nunca confirma
+  return ext?ST.pos[c]>=1:ST.pos[c]<=0;
 }
-applyPositions();
+function entraPaso(){
+  const cmd=SEQ[ST.paso]; ST.Y[cmd[0]]=cmd[1]==='+';
+  ST.fase='valvula'; ST.tFase=0; ST.conf=0; ST.espera=0;
+  synth.beep(cmd[1]==='+'?880:520,0.1,0.07);
+}
+function tick(h){
+  if(!ST.ejecutando) return;
+  const cmd=SEQ[ST.paso], c=cmd[0], ext=cmd[1]==='+';
+  ST.tCiclo+=h; ST.tFase+=h;
+  if(ST.fase==='valvula'){
+    if(ST.tFase>=T_VALVULA){ ST.fase='mueve'; ST.tFase=0; }
+  } else if(ST.fase==='mueve'){
+    ST.pos[c]=clamp01(ST.pos[c]+(ext?1:-1)*h/tViaje(c));
+    if(ext?ST.pos[c]>=1:ST.pos[c]<=0){ ST.fase='confirma'; ST.tFase=0; }
+  } else if(ST.fase==='confirma'){
+    if(sensorOn(c,ext)){
+      ST.conf+=h;
+      if(ST.conf>=T_CONFIRMA){
+        ST.paso++;
+        if(ST.paso>=SEQ.length){ ST.paso=0; ST.cicloMedido=ST.tCiclo; ST.ciclos++; ST.tCiclo=0; }
+        entraPaso();
+      }
+    } else {
+      ST.espera+=h;
+      if(ST.espera>=T_ALARMA){
+        ST.alarma={paso:ST.paso,txt:'Alarma: el paso '+(ST.paso+1)+' ('+cmd+') no se confirma — el sensor '+c+(ext?'1':'0')+' no responde.'};
+        ST.ejecutando=false;
+      }
+    }
+  }
+}
+function arrancaPausa(){
+  if(ST.alarma) return;
+  ST.ejecutando=!ST.ejecutando;
+  if(ST.ejecutando&&ST.fase==='reposo') entraPaso();
+}
+function reinicia(){
+  ST.ejecutando=false; ST.paso=0; ST.fase='reposo'; ST.tFase=0; ST.conf=0; ST.espera=0;
+  ST.pos.A=0; ST.pos.B=0; ST.Y.A=false; ST.Y.B=false; ST.tCiclo=0; ST.cicloMedido=null;
+  ST.ciclos=0; ST.alarma=null;
+}
+/* Avanza la simulación `seg` segundos sin esperar al render (para pruebas). */
+function simula(seg){ for(let t=0;t<seg;t+=H_SIM) tick(H_SIM); }
 
+/* ---- el reto: «predice el tiempo de ciclo» ----------------------------------
+   El alumno ve los tiempos de carrera de A y de B (que fija el estrangulador) y
+   debe decir cuánto dura un ciclo completo A+ B+ A− B−. La suma de los cuatro
+   recorridos NO basta: en cada paso la válvula tarda en conmutar y el PLC espera
+   la confirmación del sensor. Eso se mide en Explora con SUS propios ajustes.   */
+const redondea1=v=>Math.round(v*10)/10;
+function siembra(){
+  let a,b;
+  do{ a=redondea1(0.5+Math.random()*1.3); b=redondea1(0.5+Math.random()*1.3); }
+  while(Math.abs(a-viaje.A)<0.05&&Math.abs(b-viaje.B)<0.05);
+  RETO.tA=a; RETO.tB=b; RETO.fallos=0; RETO.ultima=null;
+}
+const cicloExacto=(a,b)=>2*a+2*b+SEQ.length*(T_VALVULA+T_CONFIRMA);
+// 0,12 s: menos que lo que falta a la suma ingenua de los recorridos (4 × 0,15 = 0,6 s).
+const TOL_RETO=0.12;
+function compruebaReto(txt){
+  const v=parseFloat(String(txt).replace(',','.'));
+  if(!isFinite(v)){ RETO.msg='Escribe el tiempo en segundos (por ejemplo 4,2).'; return false; }
+  RETO.intentos++; RETO.ultima=v;
+  const real=cicloExacto(RETO.tA,RETO.tB), ingenua=2*RETO.tA+2*RETO.tB;
+  if(Math.abs(v-real)<=TOL_RETO){ RETO.solved=true; RETO.msg='Correcto: el ciclo es la suma de los cuatro recorridos más la espera de conmutación y confirmación de cada paso.'; return true; }
+  RETO.fallos++;
+  if(Math.abs(v-ingenua)<=TOL_RETO) RETO.msg='Tu cuenta sólo suma los recorridos de los cilindros. Pero el PLC también espera, en cada uno de los cuatro pasos, algo más antes de avanzar.';
+  else if(v<ingenua) RETO.msg='Te quedaste corto: ni sumando los cuatro recorridos llegas a esa cifra.';
+  else if(v>real) RETO.msg='Te pasaste: cuenta cuántos movimientos hay en un ciclo y cuánto tarda cada uno.';
+  else RETO.msg='Vas cerca de lo correcto, pero todavía no es el tiempo del ciclo completo.';
+  if(RETO.fallos>=3){ siembra(); RETO.vistas++; RETO.msg+=' Tras tres fallos el reto cambia: ahora son otros tiempos de carrera.'; reinicia(); }
+  return false;
+}
+const PISTAS=[
+  'Un ciclo A+ B+ A− B− tiene cuatro movimientos: cuenta cuánto recorre cada cilindro.',
+  'Entre un paso y el siguiente hay una espera fija. En Explora pon tus propios tiempos, deja correr la secuencia y compara el ciclo medido con tus recorridos.'];
+
+/* ---- aspecto: se actualiza cada fotograma a partir de ST ---- */
+const COL_A=0x226644, COL_B=0x664422;
+function pintaMaquina(){
+  for(const [c,cyl] of [['A',cylA],['B',cylB]]){
+    const px=PX0+ST.pos[c]*CARRERA;
+    cyl.piston.position.x=px; cyl.rod.position.x=px+RL/2;
+    const on=ST.Y[c];
+    cyl.valve.material.emissive.setHex(on?(c==='A'?COL_A:COL_B):0x000000);
+    cyl.led.material.emissive.setHex(on?(c==='A'?0x37e0c7:0xff8a3a):0x000000);
+    cyl.sensores[0].material.emissive.setHex(sensorOn(c,false)?0x22cc66:0x000000);
+    cyl.sensores[1].material.emissive.setHex(sensorOn(c,true)?0x22cc66:0x000000);
+  }
+  const activo=ST.ejecutando||ST.alarma;
+  leds.forEach((led,i)=>led.material.emissive.setHex(activo&&i===ST.paso?(ST.alarma?0xff2222:0xffd166):0x000000));
+}
+
+let acum=0;
 S.setAnimate((dt,t)=>{
   const ex=exploded?1:0;
   plc.position.x=THREE.MathUtils.lerp(plc.position.x,homePLC.x-ex*0.6,0.1);
   cylA.grp.position.y=THREE.MathUtils.lerp(cylA.grp.position.y,ex*0.35,0.1);
   cylB.grp.position.y=THREE.MathUtils.lerp(cylB.grp.position.y,-ex*0.35,0.1);
-
-  if(running){
-    seqT+=dt;
-    const stepDur=1.1;
-    if(seqT>=stepDur){ seqT=0; seqIdx=(seqIdx+1)%SEQ.length; }
-    const step=SEQ[seqIdx];
-    if(seqIdx!==lastStep){ lastStep=seqIdx; synth.beep(step[1]==='+'?880:520,0.1,0.07); }
-    const targetA = step==='A+'?1:(step==='A-'?0:posA);
-    const targetB = step==='B+'?1:(step==='B-'?0:posB);
-    posA=THREE.MathUtils.lerp(posA,targetA,0.12);
-    posB=THREE.MathUtils.lerp(posB,targetB,0.12);
-    applyPositions();
-    cylA.valve.material.emissive.setHex(step[0]==='A'?0x226644:0x000000);
-    cylB.valve.material.emissive.setHex(step[0]==='B'?0x664422:0x000000);
-    cylA.led.material.emissive.setHex(step[0]==='A'?0x37e0c7:0x000000);
-    cylB.led.material.emissive.setHex(step[0]==='B'?0xff8a3a:0x000000);
-    leds.forEach((led,i)=>led.material.emissive.setHex(i===seqIdx?0xffd166:0x000000));
-    const set=(id,v)=>{const e=document.getElementById(id);if(e)e.textContent=v;};
-    set('t_step',(seqIdx+1)+'/4 — '+step);
-    set('t_posA',(posA*100).toFixed(0)+'%'); set('t_posB',(posB*100).toFixed(0)+'%');
-  } else {
-    cylA.valve.material.emissive.setHex(0x000000);
-    cylB.valve.material.emissive.setHex(0x000000);
-    cylA.led.material.emissive.setHex(0x000000);
-    cylB.led.material.emissive.setHex(0x000000);
-    leds.forEach(led=>led.material.emissive.setHex(0x000000));
-  }
+  acum+=Math.min(dt,0.25);
+  while(acum>=H_SIM){ tick(H_SIM); acum-=H_SIM; }
+  pintaMaquina();
+  actualizaTelemetria();
 });
-S.start();
 
 document.getElementById('hud').innerHTML=`
   <div class="eyebrow">Mecatrónica · Automatización</div>
   <h2>Control Secuencial con PLC</h2>
-  <p>Un PLC ejecuta una secuencia lógica programada para controlar actuadores neumáticos. Este ejercicio clásico mueve 2 cilindros de doble efecto en el orden A+ B+ A- B-, cada paso confirmado antes de avanzar al siguiente.</p>
+  <p>Un PLC ejecuta una secuencia fija sobre dos cilindros de doble efecto: A+ B+ A− B−. <b>Cada paso arranca con la orden a la válvula y se da por terminado cuando el sensor de final de carrera lo confirma</b>; sólo entonces pasa al siguiente. Si el sensor falla, la máquina espera y da alarma.</p>
   <div class="legend">
-    <div class="li"><span class="dot" style="background:#14181c"></span>PLC (izquierda, con luces de paso)</div>
+    <div class="li"><span class="dot" style="background:#14181c"></span>PLC (izquierda): las cuatro luces marcan el paso en curso</div>
     <div class="li"><span class="dot" style="background:#37e0c7"></span>Cilindro A (centro)</div>
     <div class="li"><span class="dot" style="background:#ff8a3a"></span>Cilindro B (derecha)</div>
-    <div class="li"><span class="dot" style="background:#2a3038"></span>Válvulas solenoide 5/2 (bajo cada cilindro)</div>
+    <div class="li"><span class="dot" style="background:#2a3038"></span>Válvula 5/2 de un solenoide: su luz está encendida sólo mientras su cilindro debe estar extendido</div>
+    <div class="li"><span class="dot" style="background:#22cc66"></span>Sensor de final de carrera activo (dos por cilindro)</div>
   </div>
   <div class="formula">Secuencia: A+ → B+ → A− → B−</div>
-  <p style="font-size:12px">Cada cilindro tiene su propia válvula solenoide 5/2 que el PLC energiza en el momento correcto.</p>
-  <div class="src">Ref: ejercicio estándar de neumática secuencial (2 cilindros)</div>`;
+  <p style="font-size:12px">La velocidad de cada cilindro la fija un estrangulador de escape; aquí se ajusta como «tiempo de carrera».</p>`;
 document.getElementById('panel').innerHTML=`
+  <h4>Modo</h4>
+  <div class="btns" style="flex-direction:row;margin:0 0 10px">
+    <button class="b on" id="mdExplora" data-mode="explora" style="flex:1">Explora</button>
+    <button class="b" id="mdReto" data-mode="reto" style="flex:1">Reto</button>
+  </div>
+  <h4>Estranguladores</h4>
+  <div class="g"><div class="gl"><span>Carrera A</span><b id="v_tA">1,0 s</b></div><input type="range" id="sl_tA" min="${ESTR_MIN}" max="${ESTR_MAX}" step="0.1" value="1.0" style="width:100%"></div>
+  <div class="g"><div class="gl"><span>Carrera B</span><b id="v_tB">0,8 s</b></div><input type="range" id="sl_tB" min="${ESTR_MIN}" max="${ESTR_MAX}" step="0.1" value="0.8" style="width:100%"></div>
   <h4>Telemetría</h4>
   <div class="g"><div class="gl"><span>Paso actual</span><b id="t_step">— </b></div></div>
-  <div class="g"><div class="gl"><span>Posición A</span><b id="t_posA">0%</b></div></div>
-  <div class="g"><div class="gl"><span>Posición B</span><b id="t_posB">0%</b></div></div>
+  <div class="g"><div class="gl"><span>Posición A / B</span><b id="t_pos">0% / 0%</b></div></div>
+  <div class="g"><div class="gl"><span>Sensores A0 A1 B0 B1</span><b id="t_sens">1 0 1 0</b></div></div>
+  <div class="g"><div class="gl"><span>Salidas YA / YB</span><b id="t_out">0 / 0</b></div></div>
+  <div class="g"><div class="gl"><span>Último ciclo</span><b id="t_cic">—</b></div></div>
+  <div class="g"><div class="gl"><span>Estado</span><b id="t_est">En reposo</b></div></div>
+  <div id="retoBox" style="display:none;margin:8px 0;padding:10px;border:1px solid var(--hv);border-radius:10px;font-size:12px;color:var(--ink)"></div>
   <div class="btns">
     <button class="b auto" id="btnAuto">✨ Recorrido automático (guiado)</button>
     <button class="b" id="btnExplode">⤢ Despiece</button>
     <button class="b" id="btnRun">▶ Ejecutar secuencia</button>
+    <button class="b" id="btnReset">↺ Reiniciar</button>
+    <button class="b" id="btnFalla">⚠ Averiar sensor B1</button>
   </div>`;
-document.getElementById('btnExplode').onclick=(e)=>{exploded=!exploded;e.target.classList.toggle('on',exploded);};
-document.getElementById('btnRun').onclick=(e)=>{
+const $=id=>document.getElementById(id);
+const fmt=(v,d=1)=>v.toFixed(d).replace('.',',');
+const cacheTxt={};
+function setTxt(id,v){ if(cacheTxt[id]!==v){ cacheTxt[id]=v; const e=$(id); if(e) e.textContent=v; } }
+const FASES={reposo:'En reposo',valvula:'Conmutando válvula',mueve:'Cilindro en movimiento',confirma:'Esperando al sensor'};
+function actualizaTelemetria(){
+  setTxt('t_step',ST.fase==='reposo'&&!ST.ejecutando&&!ST.alarma&&ST.ciclos===0?'—':(ST.paso+1)+'/4 — '+SEQ[ST.paso]);
+  setTxt('t_pos',(ST.pos.A*100).toFixed(0)+'% / '+(ST.pos.B*100).toFixed(0)+'%');
+  setTxt('t_sens',[sensorOn('A',false),sensorOn('A',true),sensorOn('B',false),sensorOn('B',true)].map(b=>b?1:0).join(' '));
+  setTxt('t_out',(ST.Y.A?1:0)+' / '+(ST.Y.B?1:0));
+  setTxt('t_cic',modo==='reto'?'oculto en el reto':(ST.cicloMedido==null?'—':fmt(ST.cicloMedido,2)+' s'));
+  setTxt('t_est',ST.alarma?'ALARMA':(ST.ejecutando?FASES[ST.fase]:(ST.fase==='reposo'?'En reposo':'En pausa')));
+  const run=$('btnRun'); const txt=(ST.ejecutando?'⏸ Pausar':'▶ Ejecutar')+' secuencia';
+  if(run.textContent!==txt){ run.textContent=txt; run.classList.toggle('on',ST.ejecutando); }
+  if(ST.alarma) showAlarma(ST.alarma.txt);
+}
+let alarmaMostrada=null;
+function showAlarma(t){ if(alarmaMostrada!==t){ alarmaMostrada=t; showToast('<b style="color:var(--bad)">'+t+'</b>'); } }
+function pintaSliders(){
+  const a=tViaje('A'), b=tViaje('B'), bloq=modo==='reto';
+  $('sl_tA').value=a; $('sl_tB').value=b; $('sl_tA').disabled=bloq; $('sl_tB').disabled=bloq;
+  $('v_tA').textContent=fmt(a)+' s'; $('v_tB').textContent=fmt(b)+' s';
+}
+$('sl_tA').oninput=e=>{ if(modo==='explora'){ viaje.A=+e.target.value; pintaSliders(); } };
+$('sl_tB').oninput=e=>{ if(modo==='explora'){ viaje.B=+e.target.value; pintaSliders(); } };
+function pintaReto(){
+  const box=$('retoBox'); box.style.display=modo==='reto'?'block':'none';
+  if(modo!=='reto') return;
+  box.innerHTML=`<b style="color:var(--hv)">Reto · tiempo de ciclo</b><br>
+    Con las carreras fijadas arriba (A y B), ¿cuántos segundos dura <b>un ciclo completo</b> A+ B+ A− B−? Puedes ejecutar la secuencia y observarla; aquí el cronómetro está oculto.
+    <div style="margin-top:8px;display:flex;gap:6px"><input id="rtIn" type="text" inputmode="decimal" placeholder="s" style="flex:1;min-width:0;padding:7px;border-radius:7px;border:1px solid var(--line);background:#0c1513;color:var(--ink)" ${RETO.solved?'disabled':''}>
+    <button class="b" id="rtOk" style="padding:7px 10px" ${RETO.solved?'disabled':''}>Comprobar</button></div>
+    <div style="margin-top:6px;font-size:11px;color:var(--dim)">Intentos: <b id="rtInt">${RETO.intentos}</b> · Pistas usadas: <b>${RETO.pistas}</b>/2</div>
+    <div id="rtMsg" style="margin-top:6px;color:${RETO.solved?'var(--good)':'var(--ink)'}">${RETO.msg}</div>
+    <button class="b" id="rtPista" style="margin-top:6px;padding:6px" ${RETO.pistas>=2||RETO.solved?'disabled':''}>Pista</button>`;
+  const ok=$('rtOk'); if(ok) ok.onclick=()=>{ compruebaReto($('rtIn').value); pintaSliders(); pintaReto(); };
+  const inp=$('rtIn'); if(inp) inp.onkeydown=e=>{ if(e.key==='Enter') ok.click(); };
+  const pi=$('rtPista'); if(pi) pi.onclick=()=>{ if(RETO.pistas<2){ RETO.msg='Pista '+(RETO.pistas+1)+': '+PISTAS[RETO.pistas]; RETO.pistas++; pintaReto(); } };
+}
+function cambiaModo(m){
+  if(m===modo) return;
+  modo=m; reinicia(); ST.sensorB1Roto=false;
+  const bf=$('btnFalla'); bf.classList.remove('on'); bf.textContent='⚠ Averiar sensor B1'; bf.disabled=(m==='reto');
+  if(m==='reto'){ if(!RETO.tA){ siembra(); RETO.vistas++; } }
+  $('mdExplora').classList.toggle('on',m==='explora'); $('mdReto').classList.toggle('on',m==='reto');
+  pintaSliders(); pintaReto();
+}
+$('mdExplora').onclick=()=>cambiaModo('explora');
+$('mdReto').onclick=()=>cambiaModo('reto');
+
+$('btnExplode').onclick=(e)=>{exploded=!exploded;e.target.classList.toggle('on',exploded);};
+$('btnRun').onclick=()=>{
   synth.init(); synth.resume();
-  running=!running;e.target.classList.toggle('on',running);e.target.textContent=(running?'⏸':'▶')+' Ejecutar secuencia';
-  if(running){ lastStep=-1; S.moveTo([4.6,2.8,5.4],[0.2,0.4,0],1.3); S.setCinematicIdle(true); } else { S.setCinematicIdle(false); }
+  arrancaPausa();
+  if(ST.ejecutando){ S.moveTo([4.6,2.8,5.4],[0.2,0.4,0],1.3); S.setCinematicIdle(true); } else { S.setCinematicIdle(false); }
 };
-/* ===== Recorrido automático guiado (para quienes no son ingenieros) ===== */
+$('btnReset').onclick=()=>{ reinicia(); alarmaMostrada=null; S.setCinematicIdle(false); };
+$('btnFalla').onclick=(e)=>{ ST.sensorB1Roto=!ST.sensorB1Roto; e.target.classList.toggle('on',ST.sensorB1Roto);
+  e.target.textContent=ST.sensorB1Roto?'✔ Reparar sensor B1':'⚠ Averiar sensor B1'; };
+pintaSliders();
+
+/* ===== Recorrido automático guiado (para quienes no son ingenieros) =====
+   Es una DEMOSTRACIÓN: no toca el reto (ni lo resuelve) y, al terminar, deja la
+   máquina como la encontró (en marcha o parada, despiezada o no). */
 const sleep=ms=>new Promise(r=>setTimeout(r,ms));
 let autoRunning=false;
 async function runAuto(){
   if(autoRunning) return; autoRunning=true;
-  const b=document.getElementById('btnAuto'); const lbl=b.textContent;
+  const b=$('btnAuto'); const lbl=b.textContent;
+  const antes={ejecutando:ST.ejecutando,exploded};
   b.disabled=true; b.classList.add('on'); b.textContent='⏳ Demostración en curso…';
   try{
-    if(running) document.getElementById('btnRun').click();
-    if(exploded) document.getElementById('btnExplode').click();
+    if(ST.ejecutando) $('btnRun').click();
+    if(exploded) $('btnExplode').click();
     await sleep(600);
-    document.getElementById('btnExplode').click();
-    showToast('Paso 1 · <b style="color:var(--accent2)">Despiece</b>: el <b>PLC</b> (izquierda) y <b>dos cilindros</b>; cada cilindro tiene su <b>válvula solenoide</b> que el PLC energiza.');
+    $('btnExplode').click();
+    showToast('Paso 1 · <b style="color:var(--accent2)">Despiece</b>: el <b>PLC</b> (izquierda) y <b>dos cilindros</b>; cada cilindro tiene su <b>válvula</b> y dos <b>sensores</b> de final de carrera.');
     await sleep(3600);
-    document.getElementById('btnExplode').click();
+    $('btnExplode').click();
     showToast('Volvemos a armar el conjunto…');
     await sleep(1500);
-    if(!running) document.getElementById('btnRun').click();
+    if(!ST.ejecutando&&!ST.alarma) $('btnRun').click();
     await sleep(500);
-    showToast('Paso 2 · El PLC ejecuta la secuencia <b style="color:var(--accent2)">A+ → B+ → A− → B−</b>, un paso a la vez.');
-    await sleep(3200);
-    showToast('Fíjate en <b>«Paso actual»</b> y en las luces: cada válvula se energiza <b>en su turno</b> y el cilindro solo se mueve cuando le toca.');
+    showToast('Paso 2 · El PLC recorre <b style="color:var(--accent2)">A+ → B+ → A− → B−</b>. En cada paso emite la orden y <b>espera al sensor</b> del final de carrera.');
+    await sleep(3600);
+    showToast('Fíjate en <b>«Sensores»</b> y en las luces del PLC: el paso siguiente sólo arranca cuando el sensor del paso anterior se ha activado.');
     await sleep(4400);
-    showToast('<span style="color:var(--good)">✔ Idea clave:</span> el PLC <b>coordina los actuadores en orden</b> — es la base de cualquier línea de producción automatizada.');
+    showToast('<span style="color:var(--good)">✔ Idea clave:</span> el PLC <b>coordina los actuadores en orden y confirma cada paso con un sensor</b>.');
   } finally {
+    if(!antes.ejecutando&&ST.ejecutando) $('btnRun').click();
+    if(antes.ejecutando&&!ST.ejecutando&&!ST.alarma) $('btnRun').click();
+    if(antes.exploded!==exploded) $('btnExplode').click();
     b.disabled=false; b.classList.remove('on'); b.textContent=lbl; autoRunning=false;
   }
 }
-document.getElementById('btnAuto').onclick=runAuto;
+$('btnAuto').onclick=runAuto;
+
+window.__labDebug={
+  get mode(){ return modo; },
+  get solved(){ return RETO.solved; },
+  get intentos(){ return RETO.intentos; },
+  state(){ return {modo,paso:ST.paso,fase:ST.fase,ejecutando:ST.ejecutando,pos:{...ST.pos},Y:{...ST.Y},
+    sensores:{A0:sensorOn('A',false),A1:sensorOn('A',true),B0:sensorOn('B',false),B1:sensorOn('B',true)},
+    cicloMedido:ST.cicloMedido,ciclos:ST.ciclos,alarma:ST.alarma?ST.alarma.txt:null,
+    resuelto:RETO.solved,intentos:RETO.intentos,pistas:RETO.pistas,viaje:{A:tViaje('A'),B:tViaje('B')}}; },
+  setMode(m){ cambiaModo(m); },
+  simula(seg){ simula(seg); },
+  arranca(){ if(!ST.ejecutando) $('btnRun').click(); },
+  reinicia(){ reinicia(); },
+  setViaje(a,b){ viaje.A=a; viaje.B=b; pintaSliders(); },
+  averia(v){ ST.sensorB1Roto=!!v; },
+  comprueba(txt){ const r=compruebaReto(txt); pintaSliders(); pintaReto(); return r; },
+  retoCaso(){ return {tA:RETO.tA,tB:RETO.tB}; },
+  get piezasNaN(){ const m=[]; scene.traverse(o=>{ const q=o.position;
+    if(!isFinite(q.x)||!isFinite(q.y)||!isFinite(q.z)) m.push(o.type); }); return m; },
+};
+S.start();
 const soundBtn=document.getElementById('soundBtn');
 soundBtn.onclick=()=>{const on=synth.toggle();soundBtn.textContent=on?'🔊':'🔇';soundBtn.classList.toggle('on',on);};
 

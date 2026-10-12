@@ -3,7 +3,7 @@ fichaTecnica({
   title: 'Motor eléctrico (BLDC/PMSM o inducción)',
   intro: 'Este laboratorio representa un <b>motor eléctrico</b>: los devanados del estator crean un <b>campo magnético rotante</b> que arrastra al rotor. La geometría es <b>procedural y didáctica</b>; donde el 3D simplifica, aquí se documenta.',
   s1: {
-    presentes: '<b>Presentes en el modelo:</b> estator, rotor, devanados/bobinas, rodamientos, imanes (o barras de rotor), encoder y carcasa.',
+    presentes: '<b>Presentes en el modelo:</b> estator con su carcasa abierta (ventana de corte) y 48 ranuras con bobinas por fase, rotor con su eje escalonado y 8 imanes permanentes que el alumno coloca con polaridad alternada. Los rodamientos y el encoder no están modelados.',
     omitidos: [
       '<b>Aislamiento de ranura y barniz de impregnación</b> de los devanados.',
       '<b>Sensores de temperatura</b> (PTC / PT100) y de posición (resolver / efecto Hall).',
@@ -40,8 +40,8 @@ fichaTecnica({
     ]
   },
   s5: {
-    modela: 'el <b>campo magnético rotante</b> (secuencia de fases del estator → giro del rotor), la relación velocidad-polos-frecuencia y el par proporcional a la corriente.',
-    noModela: 'el electromagnetismo detallado (flujo, saturación, back-EMF), las pérdidas (cobre/hierro), la térmica ni la dinámica del control.'
+    modela: 'el <b>campo magnético rotante</b> (secuencia de fases A-B-C o A-C-B → sentido de giro), la relación velocidad-polos-frecuencia f = n·P/120 (8 polos) y la curva par-velocidad de un motor de tracción de 320 N·m / 110 kW: par constante hasta ≈3283 rpm y potencia constante por encima, hasta 10 500 rpm (700 Hz).',
+    noModela: 'el cálculo del par a partir de la corriente (el par sale de la curva, no de las corrientes), el electromagnetismo detallado (flujo, saturación, back-EMF), las pérdidas (cobre/hierro), la térmica ni la dinámica del control. Las fallas de la Fase 3 son cualitativas (visuales y de texto): sólo la sobrevelocidad cambia la telemetría.'
   },
   s6: [
     '<b>IEC 60034</b>: máquinas eléctricas rotativas (incl. IEC 60034-30 clases de eficiencia IE).',

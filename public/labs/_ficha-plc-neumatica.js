@@ -1,32 +1,33 @@
-/* Ficha técnica · Automatización PLC + neumática — contenido específico del lab */
+/* Ficha técnica · Control secuencial con PLC y neumática — contenido específico del lab */
 fichaTecnica({
-  title: 'Automatización PLC + neumática',
-  intro: 'Este laboratorio representa una <b>célula automatizada</b>: un PLC lee sensores y acciona <b>electroválvulas</b> que mueven <b>cilindros neumáticos</b> según una lógica de escalera. La geometría es <b>procedural y didáctica</b>; donde el 3D simplifica, aquí se documenta.',
+  title: 'Control secuencial con PLC y neumática',
+  intro: 'Este laboratorio representa una <b>secuencia A+ B+ A− B−</b> sobre dos <b>cilindros neumáticos de doble efecto</b>, cada uno con su <b>válvula 5/2 de un solenoide</b> y dos <b>sensores magnéticos de final de carrera</b>, gobernados por un PLC en riel DIN. La secuencia avanza <b>por confirmación de sensor</b>, no por reloj. La geometría es <b>procedural y didáctica</b>; donde el 3D simplifica, aquí se documenta.',
   s1: {
-    presentes: '<b>Presentes en el modelo:</b> CPU del PLC, módulos de E/S, electroválvulas (solenoides), cilindros neumáticos, unidad FRL y sensores (finales de carrera / inductivos).',
+    presentes: '<b>Presentes en el modelo:</b> PLC con sus borneras de entrada y salida y su riel DIN, dos cilindros de doble efecto seccionados (camisa, tapas, tirantes, casquillo guía, émbolo con imán y vástago), dos válvulas 5/2 monoestables (cuerpo, bobina, mando manual, silenciadores de escape), cuatro sensores de final de carrera (A0, A1, B0, B1) y los racores de las tapas.',
     omitidos: [
-      '<b>Fuente de 24 VDC</b>, protecciones y fusibles del tablero.',
-      '<b>Paro de emergencia y relé de seguridad</b> (categoría según ISO 13849).',
-      '<b>Silenciadores y estranguladores</b> de escape que regulan la velocidad del cilindro.',
-      '<b>Racores, mangueras y borneras</b>: toda la conexión física real.',
-      '<b>Compresor, tanque, secador y presostato</b> del suministro de aire.',
-      '<b>HMI y red industrial</b> (Profinet / Modbus / EtherNet-IP).'
+      '<b>Mangueras y cableado</b>: el 3D dibuja los racores y las borneras, pero no los tubos ni los cables que los unen.',
+      '<b>Unidad FRL, compresor, tanque y presostato</b>: se supone aire disponible y regulado; la presión, el caudal y la fuerza del cilindro (F = P·A) no se calculan.',
+      '<b>Estranguladores como pieza</b>: su efecto se reduce a un parámetro, el tiempo de carrera de cada cilindro; el 3D no los dibuja.',
+      '<b>Amortiguación de fin de carrera</b>: el tornillo regulable se dibuja, pero el émbolo se mueve a velocidad constante hasta el tope.',
+      '<b>Programa de escalera y editor</b>: la lógica es una máquina de estados fija (orden, conmutación, movimiento, confirmación) escrita en el código del laboratorio; el alumno no programa el PLC.',
+      '<b>Fuente de 24 VDC, protecciones, paro de emergencia y relé de seguridad</b>; HMI y redes industriales (Profinet / Modbus / EtherNet-IP).'
     ]
   },
   s2: {
-    title: 'Especificaciones típicas',
-    warn: 'Valores <b>representativos</b> de una célula didáctica. El diseño real depende de la máquina y de la norma de seguridad aplicable.',
+    title: 'Parámetros del modelo y valores típicos',
+    warn: 'Los tiempos de conmutación y de confirmación son <b>valores del modelo</b>, elegidos para que se aprecien en pantalla; un sistema real depende del tamaño de la válvula, la longitud de tubería y el tiempo de escaneo del PLC.',
     rows: [
-      ['Parámetro', 'Contexto', 'Valor típico'],
-      ['Presión de trabajo', 'neumática industrial', '4–8 bar (típ. 6 bar)'],
-      ['Tensión de E/S', 'lógica industrial', '24 VDC'],
-      ['Fuerza del cilindro', 'F = P · A (émbolo)', 'según Ø y presión'],
-      ['Sensores', 'salida PNP / NPN', '24 VDC'],
-      ['Válvula', 'distribuidora 5/2 o 3/2', 'solenoide 24 VDC']
+      ['Parámetro', 'Contexto', 'Valor'],
+      ['Tiempo de carrera de cada cilindro', 'lo fija el estrangulador (ajustable)', '0,4 – 2,0 s'],
+      ['Conmutación de la válvula por paso', 'modelo (típico real: decenas de ms)', '0,08 s'],
+      ['Confirmación del sensor por paso', 'modelo (ciclo de escaneo del PLC)', '0,07 s'],
+      ['Espera máxima sin confirmación', 'tras ella el PLC da alarma', '2,0 s'],
+      ['Presión de trabajo', 'contexto de neumática industrial (no se simula)', '4–8 bar (típ. 6 bar)'],
+      ['Tensión de E/S y de bobinas', 'lógica industrial', '24 VDC']
     ]
   },
   s3: [
-    'PLC + software de programación (lenguajes <b>IEC 61131-3</b>: escalera, FBD, ST).',
+    'PLC con software de programación (lenguajes <b>IEC 61131-3</b>: escalera, FBD, ST).',
     'Fuente de 24 VDC, multímetro y herramienta de crimpado.',
     'Manómetro y unidad <b>FRL</b> (filtro-regulador-lubricador) para acondicionar el aire.',
     'Paro de emergencia y componentes de seguridad; kit de racores y mangueras.'
@@ -35,14 +36,14 @@ fichaTecnica({
     intro: 'El orden del laboratorio es una <b>descomposición pedagógica</b>. Una puesta en marcha real añade:',
     items: [
       'Cableado según diagrama y evaluación de la <b>categoría de seguridad</b> (ISO 13849).',
-      'Ajustar la presión en la FRL y poner <b>silenciadores</b> en los escapes.',
-      'Programar, simular y hacer la <b>puesta en marcha</b> (commissioning).',
+      'Ajustar la presión en la FRL, abrir los estranguladores poco a poco y <b>poner silenciadores</b> en los escapes.',
+      'Programar, simular y hacer la <b>puesta en marcha</b> (commissioning), comprobando cada sensor con el LED del propio sensor.',
       'Aplicar <b>bloqueo/etiquetado (LOTO)</b> antes de intervenir y verificar fugas.'
     ]
   },
   s5: {
-    modela: 'la lógica de control (entradas → escalera → salidas), la secuencia de actuación y la fuerza del cilindro <b>F = P·A</b>.',
-    noModela: 'la neumática real (caudal, tiempos de conmutación, fugas), la seguridad funcional ni la dinámica del compresor.'
+    modela: 'una secuencia de dos cilindros con avance por confirmación de final de carrera, el estado de las salidas a las válvulas (YA, YB), el tiempo de ciclo como suma de recorridos más esperas por paso, y la alarma por falta de confirmación (sensor B1 averiable).',
+    noModela: 'la fuerza y la presión del cilindro, el caudal y los tiempos reales de conmutación, las fugas, la programación en escalera, la seguridad funcional ni la dinámica del compresor.'
   },
   s6: [
     '<b>IEC 61131-3</b>: lenguajes de programación de PLC.',

@@ -712,13 +712,30 @@ pickerFor(scene,S.camera,S.renderer.domElement,hit=>{
 /* ============================================================
    MODELO DE DATOS OBD-II — 4 escenarios de falla + estado sano
    ============================================================ */
+/* ---------- datos de los casos: se sortean al abrir el lab y al resembrar el caso ----------
+   La demostración guiada usa DEMOP: otras cifras que nunca salen del sorteo. */
+const pick=a=>a[Math.floor(Math.random()*a.length)];
+const shuffled=a=>{ const b=a.slice(); for(let i=b.length-1;i>0;i--){ const j=Math.floor(Math.random()*(i+1)); [b[i],b[j]]=[b[j],b[i]]; } return b; };
+const P={ vacuum:{ltftIdle:22,stftIdle:7}, maf:{mafIdle:2.1,mafRev:7.0,ltftIdle:16,ltftRev:15}, misfire:{cyl:3}, o2:{freq:0.3,amp:0.22} };
+const DEMOP={ vacuum:{ltftIdle:20,stftIdle:6}, maf:{mafIdle:2.4,mafRev:6.5,ltftIdle:14,ltftRev:13}, misfire:{cyl:2}, o2:{freq:0.45,amp:0.25} };
+function seedCase(key){
+  const p=P[key], q=JSON.stringify(p);
+  do{
+    if(key==='vacuum'){ p.ltftIdle=pick([18,20,22,24,26]); p.stftIdle=pick([5,6,7,8]); }
+    else if(key==='maf'){ p.mafIdle=pick([1.8,2.0,2.2,2.5]); p.mafRev=pick([6.0,6.5,7.0,7.5]); p.ltftIdle=pick([13,15,16,18]); p.ltftRev=p.ltftIdle-1; }
+    else if(key==='misfire'){ p.cyl=pick([1,2,3,4]); }
+    else { p.freq=pick([0.2,0.3,0.4,0.5]); p.amp=pick([0.20,0.22,0.25]); }
+  }while(JSON.stringify(p)===q||JSON.stringify(p)===JSON.stringify(DEMOP[key]));
+}
+['vacuum','maf','misfire','o2'].forEach(seedCase);
 const SCEN_ORDER=['vacuum','maf','misfire','o2'];
 const SCEN_META={
   vacuum:{ nombre:'Fuga de vacío', dtc:[['P0171','Sistema demasiado POBRE (Banco 1)']],
            monitor:'Sistema de combustible', respuesta:'vacuum' },
   maf:{    nombre:'Sensor MAF sucio', dtc:[['P0101','Rendimiento/rango del sensor MAF']],
            monitor:'Sistema de combustible', respuesta:'maf' },
-  misfire:{nombre:'Fallo de encendido cil. 3', dtc:[['P0303','Fallo de encendido — cilindro 3'],['P0300','Fallo de encendido aleatorio/múltiple']],
+  misfire:{get nombre(){ return 'Fallo de encendido cil. '+P.misfire.cyl; },
+           get dtc(){ return [['P030'+P.misfire.cyl,'Fallo de encendido — cilindro '+P.misfire.cyl],['P0300','Fallo de encendido aleatorio/múltiple']]; },
            monitor:'Fallo de encendido', respuesta:'misfire' },
   o2:{     nombre:'Sonda O2 perezosa', dtc:[['P0133','Respuesta lenta de la sonda O2 (B1S1)']],
            monitor:'Sensor de O2', respuesta:'o2' },
@@ -727,7 +744,7 @@ const SCEN_META={
 const DX_HINT={
   vacuum:'La mezcla pobre MEJORA al subir a 2500 rpm: el aire no medido pesa mucho a ralentí y poco a alto flujo. Compara LTFT en ralentí vs 2500.',
   maf:'El ajuste sigue alto en TODO el rango Y el valor de MAF es bajo para ese TPS/RPM ⇒ el propio sensor MAF miente.',
-  misfire:'RPM inestable + conteo de fallo en el cilindro 3 (cuadro congelado): es encendido/compresión, no mezcla.',
+  get misfire(){ return 'RPM inestable + conteo de fallo en el cilindro '+P.misfire.cyl+' (cuadro congelado): es encendido/compresión, no mezcla.'; },
   o2:'El voltaje de O2 se mueve LENTO (baja frecuencia de conmutación) aunque el nivel parezca normal ⇒ sonda O2 envejecida.',
 };
 
@@ -736,6 +753,11 @@ let rpmMode='idle';      // 'idle' | 'rev'
 let connected=false;
 let mode='01';           // '01' datos en vivo · '02' cuadro congelado · '03' DTC
 let solved=false;
+/* Contabilidad del reto. Tres fallos seguidos en un caso lo resiembran. */
+const answered={vacuum:false,maf:false,misfire:false,o2:false};
+const fallosCaso={vacuum:0,maf:0,misfire:0,o2:0};
+const RETO={intentos:0,resiembras:0};
+let quizNow={opciones:[]};
 
 function computeSteady(){
   const rev=rpmMode==='rev';
@@ -743,15 +765,15 @@ function computeSteady(){
     ? {rpm:2500,spd:0,ect:90,map:42,maf:11.5,tps:17,load:33,stft:1,ltft:2,o2freq:2.4,o2bias:0,o2amp:0.35,rpmJit:12,misfire:0}
     : {rpm:820, spd:0,ect:89,map:32,maf:3.4, tps:0, load:21,stft:1,ltft:2,o2freq:1.6,o2bias:0,o2amp:0.35,rpmJit:8, misfire:0};
   if(scenarioKey==='vacuum'){
-    if(rev){ d.ltft=6; d.stft=2; d.map+=3; d.o2bias=-0.03; }
-    else   { d.ltft=22; d.stft=7; d.map+=6; d.maf+=0.3; d.o2bias=-0.12; d.load+=4; }
+    if(rev){ d.ltft=Math.round(P.vacuum.ltftIdle*0.27); d.stft=2; d.map+=3; d.o2bias=-0.03; }
+    else   { d.ltft=P.vacuum.ltftIdle; d.stft=P.vacuum.stftIdle; d.map+=6; d.maf+=0.3; d.o2bias=-0.12; d.load+=4; }
   }else if(scenarioKey==='maf'){
-    if(rev){ d.maf=7.0; d.ltft=15; d.stft=4; d.o2bias=-0.06; }
-    else   { d.maf=2.1; d.ltft=16; d.stft=5; d.o2bias=-0.08; }
+    if(rev){ d.maf=P.maf.mafRev; d.ltft=P.maf.ltftRev; d.stft=4; d.o2bias=-0.06; }
+    else   { d.maf=P.maf.mafIdle; d.ltft=P.maf.ltftIdle; d.stft=5; d.o2bias=-0.08; }
   }else if(scenarioKey==='misfire'){
     d.rpmJit=rev?60:95; d.misfire=rev?9:24; d.ltft=4; d.stft=2; d.o2bias=-0.05; d.o2amp=0.28;
   }else if(scenarioKey==='o2'){
-    d.o2freq=0.3; d.o2amp=0.22; d.ltft=rev?8:9; d.stft=6;
+    d.o2freq=P.o2.freq; d.o2amp=P.o2.amp; d.ltft=rev?8:9; d.stft=6;
   }
   return d;
 }
@@ -776,11 +798,11 @@ S.setAnimate((dt,time)=>{
   // rpm en vivo con jitter (inestabilidad = fallo de encendido)
   rpmLive += (steady.rpm - rpmLive)*Math.min(1,dt*4);
   const jit=(Math.sin(time*13.3)+Math.sin(time*7.7))*0.5*steady.rpmJit;
-  // cilindros: encendido rítmico; en misfire el cil.3 falla intermitente
+  // cilindros: encendido rítmico; en misfire el cilindro sorteado falla intermitente
   const bank=(time*8)%4|0;
   cylMarks.forEach((c,i)=>{
     let fire=(i===bank);
-    if(scenarioKey==='misfire' && i===2){ misfirePhase+=dt; if(Math.sin(time*9.1)>0.2) fire=false; }
+    if(scenarioKey==='misfire' && i===P.misfire.cyl-1){ misfirePhase+=dt; if(Math.sin(time*9.1)>0.2) fire=false; }
     c.material.emissive.setHex(fire?0x2A9D8F:0x102a24);
     c.material.emissiveIntensity=fire?0.9:0.25;
   });
@@ -822,7 +844,7 @@ document.getElementById('hud').innerHTML=`
    ============================================================ */
 function tf(v,dp=0){return (v===undefined||v===null)?'—':(+v).toFixed(dp);}
 document.getElementById('panel').innerHTML=`
-  <h4>Escáner · <span id="p_case" style="color:var(--accent2)">Caso 1/4</span></h4>
+  <h4>Escáner · <span id="p_case" style="color:var(--accent2)">Caso 1/4</span> · <span id="p_intentos" style="color:var(--dim);font-size:11px">0/4 ✔ · intentos 0</span></h4>
   <div class="modebar">
     <button class="b on" id="m01">$01 En vivo</button>
     <button class="b" id="m02">$02 Congelado</button>
@@ -849,12 +871,7 @@ document.getElementById('panel').innerHTML=`
     <button class="b" id="r_rev">2500 rpm</button>
   </div>
   <h4 class="sec">Diagnóstico · causa raíz</h4>
-  <div class="btns">
-    <button class="b dx" data-dx="vacuum">A · Fuga de vacío (aire no medido)</button>
-    <button class="b dx" data-dx="maf">B · Sensor MAF sucio / fuera de rango</button>
-    <button class="b dx" data-dx="misfire">C · Fallo de encendido en un cilindro</button>
-    <button class="b dx" data-dx="o2">D · Sonda O2 lenta (envejecida)</button>
-  </div>
+  <div class="btns" id="dxbtns"></div>
   <div class="btns">
     <button class="b auto" id="btnAuto">✨ Armado y llenado automático (guiado)</button>
     <button class="b primary" id="btnConnect">🔌 Conectar escáner</button>
@@ -880,7 +897,7 @@ function setConsole(){
       `<span class="mono">RPM ${tf(f.rpm)} · Carga ${tf(f.load)}% · ECT ${tf(f.ect)}°C</span><br>`+
       `<span class="mono">MAP ${tf(f.map)} kPa · MAF ${tf(f.maf,1)} g/s</span><br>`+
       `<span class="mono">Ajuste total ${(f.stft+f.ltft>=0?'+':'')}${tf(f.stft+f.ltft)}%`+
-      (scenarioKey==='misfire'?` · Fallos cil.3: ${tf(f.misfire)}`:'')+`</span>`;
+      (scenarioKey==='misfire'?` · Fallos cil.${P.misfire.cyl}: ${tf(f.misfire)}`:'')+`</span>`;
   }else{
     const ready = 7; // 8 monitores, 1 incompleto por la falla activa
     consoleEl.innerHTML=`<b>Modo $01 · Datos en vivo (PID $01…)</b><br>`+
@@ -969,26 +986,70 @@ el('btnConnect').onclick=(e)=>{
 };
 
 el('btnNew').onclick=()=>{
+  if(autoRunning) return;
   const i=(SCEN_ORDER.indexOf(scenarioKey)+1)%SCEN_ORDER.length;
   scenarioKey=SCEN_ORDER[i];
-  solved=false; freeze=null; rpmMode='idle';
-  steady=computeSteady(); clearDx(); setRpm('idle'); refreshCaseLabel(); setMode('03');
+  solved=!!answered[scenarioKey]; freeze=null; rpmMode='idle';
+  steady=computeSteady(); clearDx(); setRpm('idle'); refreshCaseLabel(); refreshQuestion(); setMode('03');
   showToast('🔀 Nuevo caso cargado — lee los DTC (Modo $03) y diagnostica.');
 };
 
-document.querySelectorAll('.b.dx').forEach(btn=>{
-  btn.onclick=()=>{
-    if(!connected){ showToast('Primero conecta el escáner al DLC.'); return; }
-    const pick=btn.dataset.dx; clearDx();
-    if(pick===SCEN_META[scenarioKey].respuesta){
-      btn.classList.add('right'); solved=true; synth.beep(1046,0.12,0.06);
-      showToast(`<span style="color:var(--good)">✔ Correcto: ${SCEN_META[scenarioKey].nombre}.</span><br><span style="color:var(--dim);font-size:11px">${DX_HINT[scenarioKey]}</span>`);
+/* Causas posibles: las 4 del lab + un banco de causas que la evidencia descarta. */
+const CAUSAS={
+  vacuum:'Fuga de vacío (aire no medido)',
+  maf:'Sensor MAF sucio / fuera de rango',
+  misfire:'Fallo de encendido en un cilindro',
+  o2:'Sonda O2 lenta (envejecida)',
+};
+const CAUSAS_EXTRA=[
+  'Termostato abierto (motor muy frío)',
+  'Inyector con fuga (mezcla rica)',
+  'Catalizador saturado (baja eficiencia)',
+  'Sensor ECT desconectado o abierto',
+  'Módulo de encendido sin chispa total',
+  'Batería débil (caída de tensión)',
+];
+function refreshProgress(){ el('p_intentos').textContent=Object.values(answered).filter(Boolean).length+'/4 ✔ · intentos '+RETO.intentos; }
+function renderQuiz(){
+  el('dxbtns').innerHTML=quizNow.opciones.map((o,i)=>`<button class="b dx" data-i="${i}">${'ABCD'[i]} · ${o.t}</button>`).join('');
+  el('dxbtns').querySelectorAll('.b.dx').forEach(btn=>{ btn.onclick=()=>answer(+btn.dataset.i); });
+}
+/* La correcta + 3 distractores del banco (las otras causas y las que la evidencia
+   descarta), barajados: tras una resiembra salen otros y en otro orden. */
+function refreshQuestion(){
+  const C=SCEN_META[scenarioKey].respuesta;
+  const malas=Object.keys(CAUSAS).filter(k=>k!==C).map(k=>CAUSAS[k]).concat(CAUSAS_EXTRA);
+  quizNow={opciones:shuffled([{t:CAUSAS[C],ok:true}].concat(shuffled(malas).slice(0,3).map(t=>({t,ok:false}))))};
+  renderQuiz();
+}
+function resiembra(){
+  fallosCaso[scenarioKey]=0; RETO.resiembras++;
+  seedCase(scenarioKey);
+  freeze=null; steady=computeSteady();
+  refreshQuestion(); setConsole();
+}
+function answer(i){
+  if(!connected){ showToast('Primero conecta el escáner al DLC.'); return; }
+  if(autoRunning) return;                 // la demostración enseña, no puntúa
+  if(answered[scenarioKey]){ showToast('Este caso ya está resuelto: pasa al siguiente.'); return; }
+  const o=quizNow.opciones[i]; clearDx();
+  const btn=el('dxbtns').children[i];
+  RETO.intentos++;
+  if(o.ok){
+    btn.classList.add('right'); solved=true; answered[scenarioKey]=true; fallosCaso[scenarioKey]=0; synth.beep(1046,0.12,0.06);
+    showToast(`<span style="color:var(--good)">✔ Correcto: ${SCEN_META[scenarioKey].nombre}.</span><br><span style="color:var(--dim);font-size:11px">${DX_HINT[scenarioKey]}</span>`);
+  }else{
+    btn.classList.add('wrong'); synth.beep(220,0.15,0.06);
+    fallosCaso[scenarioKey]++;
+    if(fallosCaso[scenarioKey]>=3){
+      resiembra();
+      showToast(`<span style="color:var(--bad)">✗ Tres fallos en este caso.</span><br><span style="color:var(--dim);font-size:11px">Cambian las cifras del caso y las opciones: vuelve a leer la evidencia y razona qué la explica.</span>`);
     }else{
-      btn.classList.add('wrong'); synth.beep(220,0.15,0.06);
-      showToast(`<span style="color:var(--bad)">✗ Revisa la evidencia.</span><br><span style="color:var(--dim);font-size:11px">${DX_HINT[pick]}</span>`);
+      showToast(`<span style="color:var(--bad)">✗ Revisa la evidencia.</span><br><span style="color:var(--dim);font-size:11px">Contrasta DTC, cuadro congelado y ralentí vs 2500 rpm con lo que produciría esa causa (fallos en este caso: ${fallosCaso[scenarioKey]}/3).</span>`);
     }
-  };
-});
+  }
+  refreshProgress();
+}
 
 const soundBtn=document.getElementById('soundBtn');
 soundBtn.onclick=()=>{const on=synth.toggle();soundBtn.textContent=on?'🔊':'🔇';soundBtn.classList.toggle('on',on);};
@@ -1000,7 +1061,7 @@ soundBtn.onclick=()=>{const on=synth.toggle();soundBtn.textContent=on?'🔊':'�
 const AUTO_WATCH={
   vacuum:'Fíjate: el ajuste de combustible (LTFT) BAJA mucho al subir a 2500 rpm — el aire no medido pesa a ralentí.',
   maf:'Fíjate: el ajuste sigue ALTO en todo el rango y el MAF marca bajo (en rojo) — el propio sensor miente.',
-  misfire:'Fíjate: las rpm tiemblan y hay conteo de fallos en el cilindro 3 — es encendido, no mezcla.',
+  get misfire(){ return 'Fíjate: las rpm tiemblan y hay conteo de fallos en el cilindro '+P.misfire.cyl+' — es encendido, no mezcla.'; },
   o2:'Fíjate: la conmutación de la sonda O2 es LENTA (Hz en rojo) — sonda envejecida.',
 };
 const sleep=ms=>new Promise(r=>setTimeout(r,ms));
@@ -1010,8 +1071,12 @@ async function runAuto(){
   autoRunning=true;
   const btn=el('btnAuto'); const label=btn.textContent;
   btn.disabled=true; btn.classList.add('on'); btn.textContent='⏳ Demostración en curso…';
+  const previo={mode,rpmMode,connected,freeze,datos:JSON.parse(JSON.stringify(P)),quiz:quizNow};
+  const panel=el('panel'); panel.style.pointerEvents='none';   // el alumno no toca los controles a mitad
   try{
     clearDx();
+    // La demostración trabaja con OTRAS cifras (DEMOP): lo del alumno no se toca.
+    Object.keys(DEMOP).forEach(k=>Object.assign(P[k],DEMOP[k])); freeze=null; steady=computeSteady();
     if(!connected){ showToast('Paso 1 · Conectamos el escáner al conector DLC (pin 16 = +12 V).'); el('btnConnect').click(); await sleep(1600); }
     setMode('03'); showToast('Paso 2 · Leemos los códigos de falla (DTC) guardados en la computadora.'); await sleep(2300);
     setMode('02'); showToast('Paso 3 · Cuadro congelado: cómo estaba el motor cuando se registró la falla.'); await sleep(2300);
@@ -1019,18 +1084,32 @@ async function runAuto(){
     const key=scenarioKey;
     setRpm('rev'); showToast('Paso 5 · Prueba clave: subimos a 2500 rpm. '+AUTO_WATCH[key]); await sleep(3000);
     const meta=SCEN_META[key];
-    const dxBtn=document.querySelector('.b.dx[data-dx="'+meta.respuesta+'"]');
-    clearDx();
-    if(dxBtn){ dxBtn.classList.add('right'); solved=true; synth.beep(1046,0.12,0.06); }
-    showToast('<span style="color:var(--good)">✔ Causa raíz: '+meta.nombre+'.</span><br><span style="color:var(--dim);font-size:11px">'+DX_HINT[key]+'</span>');
+    showToast('<span style="color:var(--good)">✔ Causa raíz del ejemplo: '+meta.nombre+'.</span><br><span style="color:var(--dim);font-size:11px">'+DX_HINT[key]+' Tu avance en el reto no cambió.</span>');
+    await sleep(2800);
   } finally {
-    btn.disabled=false; btn.classList.remove('on'); btn.textContent=label;
+    Object.keys(previo.datos).forEach(k=>Object.assign(P[k],previo.datos[k]));
     autoRunning=false;
+    freeze=previo.freeze; steady=computeSteady();
+    setRpm(previo.rpmMode); setMode(previo.mode);
+    if(connected!==previo.connected) el('btnConnect').click();
+    quizNow=previo.quiz; renderQuiz(); setConsole();
+    panel.style.pointerEvents='';
+    btn.disabled=false; btn.classList.remove('on'); btn.textContent=label;
   }
 }
 el('btnAuto').onclick=runAuto;
 
-refreshCaseLabel();
+window.__labDebug={
+  get mode(){ return scenarioKey; },
+  get solved(){ return Object.values(answered).every(Boolean); },
+  get intentos(){ return RETO.intentos; },
+  state(){ return {caso:scenarioKey,conectado:connected,answered:{...answered},intentos:RETO.intentos,
+    fallos:{...fallosCaso},resiembras:RETO.resiembras,resuelto:Object.values(answered).every(Boolean),autoRunning}; },
+  datos(){ return JSON.parse(JSON.stringify(P)); },
+  conecta(){ if(!connected) el('btnConnect').click(); },
+  opciones(){ return [...document.querySelectorAll('#dxbtns .b.dx')].map((b,i)=>({t:b.textContent,ok:!!quizNow.opciones[i].ok})); },
+};
+refreshCaseLabel(); refreshQuestion();
 
 instalaDiag('escaner-obd',{escena:scene,camara:S.camera,controles:S.controls,
   renderizador:S.renderer, grupos:{conector:conn,escaner:tool,motor:eng}});

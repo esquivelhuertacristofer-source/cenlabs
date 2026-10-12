@@ -57,7 +57,5 @@ fichaTecnica({
     { name: 'Texas Instruments, SLVA630A — "Output Ripple Voltage of Buck Switching Regulators"', note: 'Composición del rizo de salida en componente capacitivo y componente por ESR.' },
     { name: 'Texas Instruments, LM2596 datasheet (SNVS124)', note: 'Parámetros del regulador y punto de referencia de diseño.' },
     { name: 'Erickson, R. & Maksimovic, D. — "Fundamentals of Power Electronics", cap. 2 y 5', note: 'Fundamento teórico del análisis volt-segundo y balance de carga en convertidores conmutados.' },
-    { name: 'Nota curricular ⚑', note: 'La relación entre esta práctica y el programa oficial del sector mecánica-electrónica se documenta con trazabilidad en ficha.md; se recomienda validación por un experto en electrónica de potencia.' },
-    { name: 'Notas para el revisor experto', note: 'Se actualizará tras verificación técnica final del laboratorio.' },
   ],
 });

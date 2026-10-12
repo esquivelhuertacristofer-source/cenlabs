@@ -774,50 +774,83 @@ const SCEN_LABEL={
   trigger:'Caso 3 · Trigger',
   fase:'Caso 4 · Fase entre canales',
 };
+/* Las preguntas numéricas (base de tiempo y fase) se SIEMBRAN: cada alumno, y cada
+   vez que se agotan tres intentos, recibe otra captura con otras cifras, y no es la
+   del escenario de práctica de la pantalla. Las conceptuales (acoplamiento y
+   disparo) llevan un banco de distractores: salen 3 de 5, barajados. */
+const pick=a=>a[Math.floor(Math.random()*a.length)];
+const shuffled=a=>{ const b=a.slice(); for(let i=b.length-1;i>0;i--){ const j=Math.floor(Math.random()*(i+1)); [b[i],b[j]]=[b[j],b[i]]; } return b; };
+const nf=(v,d=3)=>String(+(+v).toFixed(d));
 const QUESTIONS={
-  basetiempo:{
-    prompt:'Con la base de tiempo correcta (500 µs/div), un ciclo completo ocupa 4 divisiones horizontales. ¿Cuál es la frecuencia de la señal?',
-    opts:[
-      {t:'T = 4 ms → f = 250 Hz',ok:false},
-      {t:'T = 0.5 ms → f = 2000 Hz',ok:false},
-      {t:'T = 2 ms → f = 500 Hz',ok:true},
-      {t:'T = 5 ms → f = 200 Hz',ok:false},
-    ],
-  },
   acoplamiento:{
     prompt:'Quieres medir SOLO el offset de CD de esta señal, sin su componente de CA. ¿Cuál es el procedimiento correcto?',
     opts:[
-      {t:'Dejar el acoplamiento en AC y leer el valor pico',ok:false},
-      {t:'Cambiar a GND para marcar 0 V, luego a DC y medir el desplazamiento',ok:true},
-      {t:'Quedarse en GND y leer directamente donde está la traza',ok:false},
-      {t:'Reducir el volts/div hasta que la traza quepa en pantalla',ok:false},
+      {t:'Dejar el acoplamiento en AC y leer el valor pico de la señal',ok:false},
+      {t:'Marcar 0 V en GND, pasar a DC y medir cuánto se desplazó la traza',ok:true},
+      {t:'Quedarse en GND y leer directamente la altura a la que queda la traza',ok:false},
+      {t:'Reducir el volts/div hasta que toda la traza quepa en la pantalla',ok:false},
+    ],
+    extra:[
+      {t:'Ajustar el nivel de disparo al máximo de la señal y leer el valor del cursor',ok:false},
+      {t:'Cambiar a AC y medir cuánto se desplazó la traza respecto a la marca de GND',ok:false},
     ],
   },
   trigger:{
     prompt:'Modo Normal, nivel de disparo en +3.0 V; la señal real solo llega a ±2.0 V. ¿Qué observas en pantalla?',
     opts:[
-      {t:'La señal se ve perfectamente estable',ok:false},
-      {t:'El osciloscopio se apaga solo',ok:false},
-      {t:'La frecuencia medida se duplica',ok:false},
-      {t:'Pantalla congelada o vacía: la condición de disparo nunca se cumple',ok:true},
+      {t:'La señal se ve perfectamente estable, porque el modo Normal siempre sincroniza',ok:false},
+      {t:'El osciloscopio entra en protección y se apaga solo para cuidar la entrada',ok:false},
+      {t:'La frecuencia medida se duplica porque el disparo cuenta los dos flancos',ok:false},
+      {t:'Pantalla congelada o vacía: la señal nunca cruza el nivel de disparo',ok:true},
     ],
-  },
-  fase:{
-    prompt:'En el caso a medir: Δt = 0.5 ms entre los cruces por cero de CH1 y CH2, con T = 4 ms. ¿Cuál es el desfase?',
-    opts:[
-      {t:'Δφ = (0.5/4)° = 0.125°',ok:false},
-      {t:'Δφ = 360°×(0.5/4) = 45°',ok:true},
-      {t:'Δφ = 360°×(4/0.5) = 2880°',ok:false},
-      {t:'Δφ = 360°×(0.5×4) = 720°',ok:false},
+    extra:[
+      {t:'La traza se ve con ruido y muy estirada, porque el nivel de disparo recorta la amplitud',ok:false},
+      {t:'La señal aparece cortada a +3.0 V, porque el nivel de disparo limita la amplitud mostrada',ok:false},
     ],
   },
 };
+const QGEN={
+  basetiempo:()=>{
+    let td,n;
+    do{ td=pick([{us:100,l:'100 µs/div'},{us:200,l:'200 µs/div'},{us:500,l:'500 µs/div'},{us:1000,l:'1 ms/div'},{us:2000,l:'2 ms/div'}]);
+        n=pick([2,2.5,4,5]); }while(td.us===500&&n===4);   // ese es el escenario de práctica
+    const T=n*td.us/1000, f=1000/T;                          // ms, Hz
+    const fmt=(tm)=>'T = '+nf(tm)+' ms → f = '+nf(1000/tm)+' Hz';
+    const mult=[1,10,n/2,2*n,n+1,n-1,8].filter((m,i,a)=>m>0&&m!==n&&a.indexOf(m)===i);
+    const malas=shuffled(mult).map(m=>({t:fmt(m*td.us/1000),ok:false}));
+    return {
+      prompt:'En otra medición, la base de tiempo está en '+td.l+' y un ciclo completo de la señal ocupa '+nf(n)+' divisiones horizontales. ¿Cuál es la frecuencia de la señal?',
+      opts:[{t:fmt(T),ok:true}].concat(malas.slice(0,3)), extra:malas.slice(3),
+      hint:'Un ciclo ocupa '+nf(n)+' div × '+td.l.replace('/div','')+' = '+nf(T)+' ms, así que T = '+nf(T)+' ms y f = 1/T = '+nf(f)+' Hz.',
+    };
+  },
+  fase:()=>{
+    const [T,dt]=pick([[6,1],[8,2],[5,1],[10,1.5],[12,2],[9,1],[3,0.5],[8,1]]);
+    const deg=360*dt/T;
+    const malas=shuffled([
+      'Δφ = ('+nf(dt)+'/'+nf(T)+')° = '+nf(dt/T)+'°',
+      'Δφ = 360°×('+nf(T)+'/'+nf(dt)+') = '+nf(360*T/dt)+'°',
+      'Δφ = 360°×('+nf(dt)+'×'+nf(T)+') = '+nf(360*dt*T)+'°',
+      'Δφ = 180°×('+nf(dt)+'/'+nf(T)+') = '+nf(180*dt/T)+'°',
+      'Δφ = 90°×('+nf(dt)+'/'+nf(T)+') = '+nf(90*dt/T)+'°',
+    ]).map(t=>({t,ok:false}));
+    return {
+      prompt:'En otra captura: Δt = '+nf(dt)+' ms entre los cruces por cero de CH1 y CH2, con T = '+nf(T)+' ms. ¿Cuál es el desfase?',
+      opts:[{t:'Δφ = 360°×('+nf(dt)+'/'+nf(T)+') = '+nf(deg)+'°',ok:true}].concat(malas.slice(0,3)), extra:malas.slice(3),
+      hint:'Δφ° = 360° × (Δt/T) = 360° × ('+nf(dt)+' ms / '+nf(T)+' ms) = '+nf(deg)+'°.',
+    };
+  },
+};
+const qCur={};
+function getQ(key){ return qCur[key]||(qCur[key]=QGEN[key]?QGEN[key]():QUESTIONS[key]); }
+function reseedQ(key){ delete qCur[key]; return getQ(key); }
 const DX_HINT={
-  basetiempo:'A 500 µs/div, un ciclo completo ocupa 4 divisiones horizontales: T = 4 × 500 µs = 2 ms → f = 1/T = 500 Hz.',
+  basetiempo:'f = 1/T, con T = (divisiones que ocupa un ciclo) × (tiempo por división).',
   acoplamiento:'GND desconecta la entrada y siempre marca 0 V — es tu referencia. Cambia a DC y mide cuánto se desplazó la traza respecto a esa marca: esa distancia ES el offset de CD. AC, en cambio, elimina la CD con un filtro paso-alto (corte típico 5–10 Hz), así que nunca la mostrará.',
   trigger:'En Normal, el barrido solo ocurre si la señal cruza el nivel de disparo. Si ese nivel está fuera del rango real de la señal (aquí ±2.0 V), la condición nunca se cumple y la pantalla se congela o queda vacía — no significa que el instrumento esté descompuesto.',
-  fase:'Δφ° = 360° × (Δt/T) = 360° × (0.5 ms / 4 ms) = 360° × 0.125 = 45°.',
+  fase:'Δφ° = 360° × (Δt/T).',
 };
+const hintFor=k=>(getQ(k).hint)||DX_HINT[k];
 
 let scenarioKey='basetiempo';
 let energized=false;
@@ -829,6 +862,13 @@ let triggerLevelKey='alto';
 let single={armed:false,captured:false};
 let phaseKey='fase0';
 let solved=false;
+/* Contabilidad del reto. `answered` sobrevive al cambio de caso (antes `solved` se
+   borraba al cambiar y el avance se perdía); tres fallos seguidos en un caso lo
+   resiembran con otras cifras u otros distractores. */
+const answered={basetiempo:false,acoplamiento:false,trigger:false,fase:false};
+const fallosCaso={basetiempo:0,acoplamiento:0,trigger:0,fase:0};
+const RETO={intentos:0,resiembras:0};
+function refreshProgress(){ el('p_case').textContent='Caso '+(SCEN_ORDER.indexOf(scenarioKey)+1)+'/4 · '+Object.values(answered).filter(Boolean).length+'/4 ✔ · intentos '+RETO.intentos; }
 
 /* ---------- 9) ANIMACIÓN ---------- */
 const synth=makeSynth({type:'sine',type2:'sine',filterFreq:2200,Q:0.7});
@@ -1041,15 +1081,17 @@ function updateTele(){
   }
 }
 
-function refreshCaseLabel(){ el('p_case').textContent='Caso '+(SCEN_ORDER.indexOf(scenarioKey)+1)+'/4'; }
+function refreshCaseLabel(){ refreshProgress(); }
 function clearDx(){ document.querySelectorAll('.b.dx').forEach(b=>b.classList.remove('right','wrong')); }
 function renderQuestion(){
-  const q=QUESTIONS[scenarioKey];
+  const q=getQ(scenarioKey);
   const qEl=el('q_prompt');
   qEl.textContent=q.prompt;
   qEl.style.textTransform='none'; // uppercase would turn "µs" into "Ms" (Greek Mu ≈ Latin M), reading as milliseconds
+  const buenas=q.opts.filter(o=>o.ok), malas=q.opts.filter(o=>!o.ok).concat(q.extra||[]);
+  const opts=shuffled(buenas.concat(shuffled(malas).slice(0,3)));
   document.querySelectorAll('#dxWrap .b.dx').forEach((btn,i)=>{
-    const o=q.opts[i];
+    const o=opts[i];
     btn.textContent=String.fromCharCode(65+i)+' · '+o.t;
     btn.dataset.ok=o.ok?'1':'0';
   });
@@ -1060,7 +1102,7 @@ function setScenario(key){
   scenarioKey=key;
   clearDx();
   single.armed=false; single.captured=false;
-  solved=false;
+  solved=!!answered[key];
   ['s_basetiempo','s_acoplamiento','s_trigger','s_fase'].forEach(id=>el(id).classList.toggle('on',id==='s_'+key));
   el('ctrlBasetiempo').style.display = key==='basetiempo'?'':'none';
   el('ctrlAcoplamiento').style.display = key==='acoplamiento'?'':'none';
@@ -1111,18 +1153,29 @@ el('btnArm').onclick=()=>{
 document.querySelectorAll('#dxWrap .b.dx').forEach(btn=>{
   btn.onclick=()=>{
     if(!energized){ showToast('Primero conecta el generador de señales.'); return; }
+    if(autoRunning) return;                 // la demostración enseña, no puntúa
+    if(answered[scenarioKey]){ showToast('Este caso ya está resuelto: pasa al siguiente.'); return; }
     const ok=btn.dataset.ok==='1';
     clearDx();
+    RETO.intentos++;
     if(ok){
       btn.classList.add('right');
-      solved=true;
+      solved=true; answered[scenarioKey]=true; fallosCaso[scenarioKey]=0;
       synth.beep(1046,0.12,0.06);
-      showToast(`<span style="color:var(--good)">✔ Correcto</span><br><span style="color:var(--dim);font-size:11px">${DX_HINT[scenarioKey]}</span>`);
+      showToast(`<span style="color:var(--good)">✔ Correcto</span><br><span style="color:var(--dim);font-size:11px">${hintFor(scenarioKey)}</span>`);
     } else {
       btn.classList.add('wrong');
       synth.beep(220,0.15,0.06);
-      showToast(`<span style="color:var(--bad)">✗ No es correcta.</span><br><span style="color:var(--dim);font-size:11px">Revisa la pantalla y los controles actuales, luego inténtalo de nuevo.</span>`);
+      fallosCaso[scenarioKey]++;
+      if(fallosCaso[scenarioKey]>=3){
+        fallosCaso[scenarioKey]=0; RETO.resiembras++;
+        reseedQ(scenarioKey); renderQuestion();
+        showToast(`<span style="color:var(--bad)">✗ Tres fallos en este caso.</span><br><span style="color:var(--dim);font-size:11px">La pregunta cambia: vuelve a mirar la pantalla y razona con los controles.</span>`);
+      } else {
+        showToast(`<span style="color:var(--bad)">✗ No es correcta.</span><br><span style="color:var(--dim);font-size:11px">Revisa la pantalla y los controles actuales, luego inténtalo de nuevo (fallos en este caso: ${fallosCaso[scenarioKey]}/3).</span>`);
+      }
     }
+    refreshProgress();
   };
 });
 
@@ -1156,19 +1209,22 @@ async function runAuto(){
   autoRunning=true;
   const btn=el('btnAuto'); const label=btn.textContent;
   btn.disabled=true; btn.classList.add('on'); btn.textContent='⏳ Demostración en curso…';
+  const previo={escenario:scenarioKey,energizado:energized,timeDiv:timeDivKey,voltDiv:voltDivKey,coupling:couplingKey,
+    trigMode:triggerMode,trigLevel:triggerLevelKey,phase:phaseKey};
+  const explica=txt=>showToast(`<span style="color:var(--good)">✔ La explicación</span><br><span style="color:var(--dim);font-size:11px">${txt}</span>`);
   try{
     setScenario('basetiempo'); setTimeDiv('rapido'); setVoltDiv('ok');
     if(!energized){ showToast('Paso 1 · Conectando el generador de señales…'); el('btnEnergize').click(); await sleep(1600); }
     showToast('Paso 2 · A 50 µs/div la pantalla apenas muestra una fracción de un ciclo — no se puede leer el período.'); await sleep(2600);
     setTimeDiv('lento'); showToast('Paso 3 · A 5 ms/div hay demasiados ciclos comprimidos — tampoco es legible.'); await sleep(2600);
     setTimeDiv('ok'); showToast('Paso 4 · A 500 µs/div se ven ~2.5 ciclos limpios: T = 2 ms, f = 500 Hz.'); await sleep(2600);
-    document.querySelector('#dxWrap .b.dx[data-ok="1"]').click(); await sleep(2400);
+    explica('Con la base en 500 µs/div un ciclo ocupa 4 divisiones: T = 4 × 500 µs = 2 ms → f = 1/T = 500 Hz. Es el mismo cálculo que te pedirá la pregunta, con otras cifras.'); await sleep(2800);
 
     setScenario('acoplamiento'); setCoupling('gnd');
     showToast('Paso 5 · GND marca la referencia de 0 V, sin importar el offset real de la señal.'); await sleep(2400);
     setCoupling('dc'); showToast('Paso 6 · En DC, la traza se desplaza ≈2.5 V respecto a esa marca: ese es el offset de CD.'); await sleep(2600);
     setCoupling('ac'); showToast('Paso 7 · En AC, el filtro paso-alto quita el offset — la traza queda centrada en 0 V.'); await sleep(2600);
-    document.querySelector('#dxWrap .b.dx[data-ok="1"]').click(); await sleep(2400);
+    explica(DX_HINT.acoplamiento); await sleep(2800);
 
     setScenario('trigger'); setTriggerMode('normal'); setTriggerLevel('alto');
     showToast('Paso 8 · Normal + nivel +3.0 V: la señal nunca llega tan alto (±2.0 V) → pantalla SIN DISPARO.'); await sleep(2800);
@@ -1177,22 +1233,35 @@ async function runAuto(){
     setTriggerMode('single'); showToast('Paso 11 · Modo Single: arma la captura y espera UNA sola vez a que la señal cruce el nivel.'); await sleep(2600);
     el('btnArm').click(); await sleep(1800);
     showToast('Paso 12 · Captura única lograda — la pantalla queda retenida hasta que vuelvas a armar.'); await sleep(2600);
-    document.querySelector('#dxWrap .b.dx[data-ok="1"]').click(); await sleep(2400);
+    explica(DX_HINT.trigger); await sleep(2800);
 
     setScenario('fase'); setPhase('fase0');
     showToast('Paso 13 · En fase (0°): CH1 y CH2 se superponen exactamente.'); await sleep(2400);
     setPhase('reto'); showToast('Paso 14 · Caso a medir: Δt = 0.5 ms entre cruces por cero, con T = 4 ms.'); await sleep(2600);
-    showToast('Paso 15 · Δφ = 360°×(0.5/4) = 45°.'); await sleep(2400);
-    document.querySelector('#dxWrap .b.dx[data-ok="1"]').click(); await sleep(2200);
+    showToast('Paso 15 · Δφ = 360°×(0.5/4) = 45°. En la pregunta la captura tendrá otras cifras.'); await sleep(2800);
 
-    showToast('<span style="color:var(--good)">✔ Fin de la demostración: base de tiempo, acoplamiento, disparo y fase — cuatro habilidades básicas para leer cualquier osciloscopio.</span>');
+    showToast('<span style="color:var(--good)">✔ Fin de la demostración: base de tiempo, acoplamiento, disparo y fase — cuatro habilidades básicas para leer cualquier osciloscopio. Tu avance en las preguntas no cambió.</span>');
   } finally {
+    // El alumno se queda donde estaba: mismo caso y mismos controles; sus respuestas no se tocaron.
+    setScenario(previo.escenario); setTimeDiv(previo.timeDiv); setVoltDiv(previo.voltDiv); setCoupling(previo.coupling);
+    setTriggerMode(previo.trigMode); setTriggerLevel(previo.trigLevel); setPhase(previo.phase);
+    if(energized!==previo.energizado) el('btnEnergize').click();
     btn.disabled=false; btn.classList.remove('on'); btn.textContent=label;
     autoRunning=false;
   }
 }
 el('btnAuto').onclick=runAuto;
 
+window.__labDebug={
+  get mode(){ return scenarioKey; },
+  get solved(){ return Object.values(answered).every(Boolean); },
+  get intentos(){ return RETO.intentos; },
+  state(){ return {caso:scenarioKey,energizado:energized,answered:{...answered},intentos:RETO.intentos,
+    fallos:{...fallosCaso},resiembras:RETO.resiembras,resuelto:Object.values(answered).every(Boolean),autoRunning}; },
+  setScenario(k){ setScenario(k); },
+  conecta(){ if(!energized) el('btnEnergize').click(); },
+  opciones(){ return [...document.querySelectorAll('#dxWrap .b.dx')].map(b=>({t:b.textContent,ok:b.dataset.ok==='1'})); },
+};
 setScenario('basetiempo');
 S.start();
 </script>

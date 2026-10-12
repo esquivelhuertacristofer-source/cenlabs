@@ -40,8 +40,8 @@ fichaTecnica({
     ]
   },
   s5: {
-    modela: 'la <b>síntesis trifásica por PWM</b> (conmutación de 3 ramas a 120°) y la relación tensión/frecuencia (V/f) de la onda resultante.',
-    noModela: 'la física del semiconductor (pérdidas de conmutación y conducción), la EMI, la térmica real ni el control vectorial de par completo.'
+    modela: 'la <b>síntesis trifásica por PWM senoidal</b> (3 ramas desfasadas 120°), la tensión pico de fase V = m·Vdc/2 con el índice de modulación m y la tensión de línea resultante, y la secuencia de fases. El compromiso frecuencia de conmutación–ruido–calor se plantea de forma <b>cualitativa</b> (las pérdidas de conmutación crecen con la frecuencia: la cifra «≈33 % más a 20 kHz que a 15 kHz» supone proporcionalidad lineal).',
+    noModela: 'la física del semiconductor (pérdidas de conmutación y conducción reales), la relación V/f del motor, la EMI, la térmica real ni el control vectorial de par. Las tres fallas de la Fase 3 son cualitativas (visuales y de texto).'
   },
   s6: [
     '<b>IEC 61800</b>: accionamientos eléctricos de potencia ajustable.',

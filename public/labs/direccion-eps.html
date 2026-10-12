@@ -758,7 +758,7 @@ document.getElementById('hud').innerHTML=`
     <div class="li"><span class="dot" style="background:#14181c"></span>ECU EPS (derecha)</div>
   </div>
   <div class="formula">τ_total = τ_conductor × ganancia(velocidad)</div>
-  <p style="font-size:12px">La ganancia baja de forma casi lineal con la velocidad — más asistencia al maniobrar despacio, menos en carretera.</p>
+  <p style="font-size:12px">En este modelo la ganancia baja linealmente de 6.0× (parado) con la velocidad y se detiene en un mínimo de 1.5× a partir de ≈112 km/h; el par del conductor se fija en 3.0 N·m. Más asistencia al maniobrar despacio, menos en carretera.</p>
   <div class="src">Ref: curva de asistencia EPS típica (velocidad-dependiente)</div>`;
 document.getElementById('panel').innerHTML=`
   <h4>Telemetría</h4>
@@ -787,6 +787,7 @@ async function runAuto(){
   if(autoRunning) return; autoRunning=true;
   const b=document.getElementById('btnAuto'); const lbl=b.textContent;
   b.disabled=true; b.classList.add('on'); b.textContent='⏳ Demostración en curso…';
+  const previo={running,exploded,vel:vKmh};     // el alumno se queda como estaba
   try{
     if(running) document.getElementById('btnRun').click();
     if(exploded) document.getElementById('btnExplode').click();
@@ -804,13 +805,20 @@ async function runAuto(){
     autoSetSpeed(110);
     showToast('Paso 3 · <b>En autopista (110 km/h)</b>: la asistencia <b style="color:var(--hv)">baja</b> — el volante se siente más firme y estable.');
     await sleep(3800);
-    autoSetSpeed(50);
     showToast('<span style="color:var(--good)">✔ Idea clave:</span> la <b>ganancia de asistencia baja con la velocidad</b>. Mira el panel: mucha ayuda al estacionar, poca en carretera.');
+    await sleep(3600);
   } finally {
+    if(running!==previo.running) document.getElementById('btnRun').click();
+    if(exploded!==previo.exploded) document.getElementById('btnExplode').click();
+    autoSetSpeed(previo.vel);
     b.disabled=false; b.classList.remove('on'); b.textContent=lbl; autoRunning=false;
   }
 }
 document.getElementById('btnAuto').onclick=runAuto;
+window.__labDebug={
+  get mode(){ return running?'giro':'reposo'; },
+  state(){ return {exploded,running,vKmh,autoRunning}; },
+};
 const soundBtn=document.getElementById('soundBtn');
 soundBtn.onclick=()=>{const on=synth.toggle();soundBtn.textContent=on?'🔊':'🔇';soundBtn.classList.toggle('on',on);};
 

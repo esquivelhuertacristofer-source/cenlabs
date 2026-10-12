@@ -454,9 +454,12 @@ function makeSynth(opts={}){
      · Repetibilidad: 5 mediciones fijas del mismo objeto revelan una
        dispersión del operador (media, rango, s) que se compara contra la
        incertidumbre de resolución ±LC/2 — ninguna domina automáticamente.
-     · Todos los valores "verdaderos" y de error de cero son constantes fijas
-       elegidas a mano (mismo patrón que multimetro.body.js): CERO
-       Math.random() en la física del lab.
+     · Las cifras de cada caso (valor verdadero, error de cero, dispersión) se
+       SIEMBRAN al abrir el lab y se resiembran tras tres fallos en el caso, para
+       que no se apruebe por eliminación ni copiando; la FÍSICA del nonio no
+       lleva azar: dada la cifra sembrada, todo lo demás se calcula. La
+       demostración guiada usa SUS PROPIAS cifras fijas (DEMO) y deja el caso
+       del alumno como lo encontró.
    ============================================================ */
 const mount=document.getElementById('stage');
 const S=createStage(mount,{cam:[4.2,3.0,5.6],target:[0.0,1.15,0],bgTop:'#0d1a17',bgBot:'#04060a',bloom:0.35,minD:3.0,maxD:14});
@@ -516,7 +519,7 @@ function decompose(displayMM,resKeyLocal){
 // cero propio del instrumento en ESTE lab (se determina antes de medir).
 const CASES={
   externa:{
-    nombre:'Mordazas externas · diámetro de caña', pieza:'Perno M12 (diámetro de caña)',
+    nombre:'Mordazas externas · diámetro de caña', pieza:'Perno (diámetro de caña)',
     trueDim:11.93, zeroErrorRaw:0, tipo:'ext',
     mision:'Caso 1 · Mordazas EXTERNAS — mide el diámetro de la caña del perno y reporta la lectura del nonio.',
   },
@@ -544,6 +547,41 @@ const CASE_CAM={
   profundidad: [[3.6,2.3,3.2],[2.1,1.05,0.1]],
   repetibilidad:[[2.6,2.0,3.6],[0.55,1.25,0.15]],
 };
+
+/* ---------- SIEMBRA de los casos ---------- */
+const pick=a=>a[Math.floor(Math.random()*a.length)];
+const rnd=(lo,hi,st=0.01)=>+(lo+Math.round(Math.random()*(hi-lo)/st)*st).toFixed(2);
+const shuffled=a=>{ const b=a.slice(); for(let i=b.length-1;i>0;i--){ const j=Math.floor(Math.random()*(i+1)); [b[i],b[j]]=[b[j],b[i]]; } return b; };
+// Cifras fijas de la demostración guiada: nunca son las del alumno.
+const DEMO={
+  externa:{trueDim:11.93,zeroErrorRaw:0},
+  interna:{trueDim:24.17,zeroErrorRaw:0.04},
+  profundidad:{trueDim:8.36,zeroErrorRaw:-0.03},
+  repetibilidad:{trueDim:30.00,zeroErrorRaw:0,scatter:[-0.03,0.02,0.00,0.05,-0.04]},
+};
+function seedCase(key){
+  const c=CASES[key];
+  const qz=(v,lc)=>Math.round(v/lc)*lc;
+  do{
+    if(key==='externa'){ c.trueDim=rnd(9,15); c.zeroErrorRaw=0; }
+    else if(key==='interna'){ c.trueDim=rnd(14,32); c.zeroErrorRaw=pick([0.04,0.06,0.08]); }
+    else if(key==='profundidad'){ c.trueDim=rnd(4,14); c.zeroErrorRaw=pick([-0.03,-0.04,-0.06]); }
+    else{
+      c.trueDim=rnd(18,40); c.zeroErrorRaw=0;
+      // Dispersión sembrada que se vea con AMBAS resoluciones (rango > 0 también a 0.05 mm).
+      let sc,ok=false;
+      for(let n=0;n<50&&!ok;n++){
+        sc=Array.from({length:5},()=>pick([-5,-4,-3,-2,-1,0,1,2,3,4,5])/100);
+        ok=[0.05,0.02].every(lc=>{ const r=sc.map(d=>qz(c.trueDim+d,lc)); return Math.max(...r)-Math.min(...r)>1e-9; });
+      }
+      c.scatter=sc;
+    }
+  }while(c.trueDim===DEMO[key].trueDim);
+}
+const answered={externa:false,interna:false,profundidad:false,repetibilidad:false};
+const fallosCaso={externa:0,interna:0,profundidad:0,repetibilidad:0};
+const RETO={intentos:0,resiembras:0};
+let quizNow=null;
 
 function caseReading(key,resKeyLocal){
   const c=CASES[key]; const {lc}=RES_CFG[resKeyLocal];
@@ -579,32 +617,31 @@ function buildOptions(key,resKeyLocal){
   const {lc}=RES_CFG[resKeyLocal];
   const {rawQ,correctedQ}=caseReading(key,resKeyLocal);
   const opts=[]; const seen=new Set();
-  const add=(val,why,ok=false)=>{ const k=val.toFixed(3); if(seen.has(k))return; seen.add(k); opts.push({t:val.toFixed(3)+' mm',ok,why}); };
+  const add=(val,why,ok=false)=>{ if(val<=0)return; const k=val.toFixed(3); if(seen.has(k))return; seen.add(k); opts.push({t:val.toFixed(3)+' mm',ok,why}); };
   add(correctedQ,'Es la lectura del nonio corregida por el error de cero del instrumento: valor correcto a reportar.',true);
   if(Math.abs(rawQ-correctedQ)>1e-9){
-    const dz=rawQ-correctedQ;
-    add(rawQ,`Es la lectura CRUDA del nonio (${rawQ.toFixed(3)} mm) sin restar el error de cero (${dz>=0?'+':''}${dz.toFixed(3)} mm) que este instrumento ya tiene — todo calibrador con error de cero exige esta corrección antes de reportar.`);
+    add(rawQ,'Es la lectura CRUDA del nonio: falta aplicar la corrección por el error de cero que este instrumento ya tiene.');
   }
-  add(correctedQ+lc,'Error de una línea del nonio de más: revisa con cuidado cuál línea del nonio coincide exactamente con una línea de la escala principal en la lupa.');
-  add(correctedQ-lc,'Error de una línea del nonio de menos: revisa con cuidado cuál línea del nonio coincide exactamente con una línea de la escala principal en la lupa.');
-  add(correctedQ+1,'Error de 1 mm en la escala principal: se contó una raya milimétrica de más antes del cero del nonio.');
-  add(correctedQ-1,'Error de 1 mm en la escala principal: se contó una raya milimétrica de menos antes del cero del nonio.');
-  let k=2;
-  while(opts.length<4 && k<8){ add(correctedQ+k*lc,'Error de varias líneas del nonio.'); if(opts.length<4)add(correctedQ-k*lc,'Error de varias líneas del nonio.'); k++; }
-  const ok=opts.find(o=>o.ok), distractors=opts.filter(o=>!o.ok).slice(0,3);
-  return rotateArr([ok,...distractors],key+resKeyLocal);
+  const unaLinea='No es la línea del nonio que coincide: vuelve a mirar la lupa y revisa cuál línea queda alineada con la escala principal.';
+  const unMm='Hay un milímetro de diferencia: revisa cuántas rayas enteras de la escala principal quedan antes del cero del nonio.';
+  add(correctedQ+lc,unaLinea); add(correctedQ-lc,unaLinea);
+  add(correctedQ+1,unMm); add(correctedQ-1,unMm);
+  add(correctedQ+2*lc,unaLinea); add(correctedQ-2*lc,unaLinea);
+  return opts;
 }
 function repetQuizText(resKeyLocal){
   const {lc}=RES_CFG[resKeyLocal];
   const st=repetStats(resKeyLocal);
-  const pregunta=`Mediste 5 veces el mismo buje (Ø nominal 30.00 mm) con resolución ${lc.toFixed(2)} mm: lecturas ${st.readings.map(r=>r.toFixed(2)).join(', ')} mm → media ${st.mean.toFixed(3)} mm, rango R=${st.range.toFixed(2)} mm, desviación estándar muestral s=${st.s.toFixed(4)} mm. La incertidumbre de resolución es ±LC/2=±${st.uRes.toFixed(3)} mm. ¿Cómo interpretas esta dispersión?`;
+  const pregunta=`Mediste 5 veces el mismo buje (Ø nominal ${CASES.repetibilidad.trueDim.toFixed(2)} mm) con resolución ${lc.toFixed(2)} mm: lecturas ${st.readings.map(r=>r.toFixed(2)).join(', ')} mm → media ${st.mean.toFixed(3)} mm, rango R=${st.range.toFixed(2)} mm, desviación estándar muestral s=${st.s.toFixed(4)} mm. La incertidumbre de resolución es ±LC/2=±${st.uRes.toFixed(3)} mm. ¿Cómo interpretas esta dispersión?`;
   const opciones=[
-    {t:'Ambas incertidumbres importan: repetibilidad (operador) y resolución (instrumento) son de orden comparable — se combinan, ninguna se descarta.', ok:true, why:`s=${st.s.toFixed(4)} mm y ±LC/2=±${st.uRes.toFixed(3)} mm son del mismo orden de magnitud: la incertidumbre combinada (JCGM 100, GUM) es u_c=√(u_repetibilidad²+u_resolución²) — se calcula en detalle en la práctica de incertidumbre GUM.`},
-    {t:'Solo importa la resolución del instrumento (±LC/2); la dispersión entre mediciones es ruido sin significado metrológico.', ok:false, why:`Ignorar la dispersión observada (s=${st.s.toFixed(4)} mm) sería un error: es una fuente de incertidumbre Tipo A real (JCGM 100 §4.2), tan válida como la resolución del instrumento.`},
-    {t:'La dispersión indica que el calibrador está descompuesto y debe recalibrarse.', ok:false, why:`Un rango de ${st.range.toFixed(2)} mm entre 5 lecturas manuales con un instrumento de resolución ${lc.toFixed(2)} mm es normal (paralaje, fuerza de sujeción, técnica) — no implica falla del instrumento.`},
-    {t:'Un instrumento de precisión como este no debería mostrar NINGUNA dispersión entre mediciones repetidas del mismo objeto.', ok:false, why:'La repetibilidad del operador (Tipo A) está presente en TODA medición real, incluso con instrumentos de alta resolución — es, de hecho, el motivo por el que existe la estadística de incertidumbre.'},
+    {t:'Ambas fuentes aportan incertidumbre: la repetibilidad del operador (Tipo A) y la resolución del instrumento se combinan.', ok:true, why:`s=${st.s.toFixed(4)} mm y ±LC/2=±${st.uRes.toFixed(3)} mm son fuentes distintas y ninguna se descarta: la incertidumbre combinada (JCGM 100, GUM) es u_c=√(u_repetibilidad²+u_resolución²) — se calcula en detalle en la práctica de incertidumbre GUM.`},
+    {t:'Solo cuenta la resolución del instrumento (±LC/2); la dispersión entre mediciones es ruido sin valor metrológico alguno.', ok:false, why:'Revisa qué fuentes de incertidumbre aparecen en estos datos: la dispersión observada entre lecturas es una fuente de Tipo A real (JCGM 100 §4.2).'},
+    {t:'La dispersión demuestra que el calibrador está descompuesto y que debe enviarse a recalibrar antes de seguir midiendo.', ok:false, why:`Piensa si un rango de ${st.range.toFixed(2)} mm entre 5 lecturas manuales justifica declarar una falla del instrumento: la técnica del operador (paralaje, fuerza de sujeción) también produce dispersión.`},
+    {t:'Un instrumento de precisión no debería mostrar NINGUNA dispersión al medir varias veces el mismo objeto con cuidado.', ok:false, why:'Piensa si existe alguna medición real sin dispersión: la repetibilidad del operador está presente incluso con instrumentos de alta resolución.'},
+    {t:'Solo cuenta la dispersión entre mediciones (s); la resolución del instrumento es despreciable frente al operador.', ok:false, why:`Compara los dos números del enunciado: s=${st.s.toFixed(4)} mm frente a ±LC/2=±${st.uRes.toFixed(3)} mm. ¿Alguno de ellos se puede dejar fuera sin más?`},
+    {t:'Promediando las 5 lecturas la dispersión desaparece, así que la incertidumbre del resultado final es cero por construcción.', ok:false, why:'Piensa qué pasa con la incertidumbre al promediar: se reduce, pero no desaparece, y la resolución del instrumento sigue ahí.'},
   ];
-  return {pregunta, opciones:rotateArr(opciones,'repet'+resKeyLocal)};
+  return {pregunta, opciones};
 }
 function currentQuiz(){
   if(caseKey==='repetibilidad')return repetQuizText(resKey);
@@ -759,10 +796,10 @@ function makeExterna(){
   const rMM=CASES.externa.trueDim, r=(rMM*SCALE)/2, len=0.85;
   const rod=sh(new THREE.Mesh(new THREE.CylinderGeometry(r,r,len,24),MAT.bolt));
   rod.rotation.x=Math.PI/2; rod.position.set(rMM*SCALE/2,-0.30,0); g.add(rod);
-  rod.userData={title:'Perno M12 (caña)',info:'Diámetro de la caña del perno — pieza cilíndrica simple para practicar mordazas EXTERNAS.'};
+  rod.userData={title:'Perno (caña)',info:'Diámetro de la caña del perno — pieza cilíndrica simple para practicar mordazas EXTERNAS.'};
   const head=sh(new THREE.Mesh(new THREE.CylinderGeometry(r*1.7,r*1.7,r*1.1,6),MAT.bolt));
   head.rotation.x=Math.PI/2; head.position.set(rMM*SCALE/2,-0.30,len/2+r*0.7); g.add(head);
-  const lb=labelSprite('Perno M12 · caña','#ffd166'); lb.position.set(rMM*SCALE/2,0.05,0.35);
+  const lb=labelSprite('Perno · caña','#ffd166'); lb.position.set(rMM*SCALE/2,0.05,0.35);
   lb.visible=false; lb.raycast=()=>{}; g.add(lb); HOVER_LABELS.set(rod,lb);
   return g;
 }
@@ -796,8 +833,18 @@ function makeRepetibilidad(){
   lb.visible=false; lb.raycast=()=>{}; g.add(lb); HOVER_LABELS.set(rod,lb);
   return g;
 }
+CASE_ORDER.forEach(seedCase);
+const MAKERS={externa:makeExterna,interna:makeInterna,profundidad:makeProfundidad,repetibilidad:makeRepetibilidad};
 const WK_GROUPS={externa:makeExterna(),interna:makeInterna(),profundidad:makeProfundidad(),repetibilidad:makeRepetibilidad()};
 cal.add(WK_GROUPS[caseKey]);
+/* La pieza se dibuja con la cifra del caso: al resembrarlo (o al entrar y salir de la
+   demostración) se vuelve a construir, para que lo que se ve sea lo que se mide. */
+function rebuildCase(key){
+  const activo=(key===caseKey);
+  if(activo) cal.remove(WK_GROUPS[key]);
+  WK_GROUPS[key]=MAKERS[key]();
+  if(activo) cal.add(WK_GROUPS[key]);
+}
 
 S.start();
 
@@ -885,13 +932,15 @@ function drawLupa(rawMM,resKeyLocal){
   c.fillStyle='#FFD166'; c.font='bold 13px Outfit, sans-serif';
   c.fillText('nonio · línea alineada: '+dec.vernIndex+' / '+cfg.div,256,215);
   c.fillStyle='#EAF4F1'; c.font='bold 30px Outfit, sans-serif'; c.textAlign='right';
-  c.fillText(rawMM.toFixed(2)+' mm',492,245); c.textAlign='left';
+  if(caseKey==='repetibilidad'||solved||autoRunning) c.fillText(rawMM.toFixed(2)+' mm',492,245);
+  else { c.font='13px Outfit, sans-serif'; c.fillStyle='#8FB3AC'; c.fillText('lee: mm enteros + línea × LC',492,245); }
+  c.textAlign='left';
   lupaTex.needsUpdate=true;
 }
 function updateTele(rawMM){
   const set=(id,txt,cls)=>{ const b=el(id); b.textContent=txt; b.className=cls||''; };
   const {lc,div}=RES_CFG[resKey]; const c=CASES[caseKey];
-  set('t_raw', rawMM.toFixed(2)+' mm', jawsClosed?'good':'');
+  set('t_raw', (caseKey==='repetibilidad'||solved||autoRunning)?rawMM.toFixed(2)+' mm':(jawsClosed?'— (léela en la lupa)':'—'), jawsClosed?'good':'');
   if(caseKey==='repetibilidad'){
     set('t_zero','0.000 mm (ref.)','');
     set('t_case','Repetición '+(repIdx+1)+'/5','');
@@ -915,7 +964,7 @@ function updateReport(rawMM){
     if(solved){
       html=`<b>${c.mision}</b><br><span class="mono">Lectura cruda del nonio: <b>${rawMM.toFixed(3)} mm</b><br>Error de cero del instrumento: <b>${(zeroErrorQ>=0?'+':'')+zeroErrorQ.toFixed(3)} mm</b><br>Lectura corregida = cruda − error de cero = ${rawMM.toFixed(3)} − (${zeroErrorQ.toFixed(3)}) = <b>${correctedQ.toFixed(3)} mm</b></span>`;
     }else{
-      html=`<b>${c.mision}</b><br><span class="mono">Lectura cruda del nonio: <b>${rawMM.toFixed(3)} mm</b><br>Error de cero del instrumento: <b>${(zeroErrorQ>=0?'+':'')+zeroErrorQ.toFixed(3)} mm</b><br>Aplica <b>Lectura corregida = cruda − error de cero</b> y responde abajo — la lectura corregida se revela aquí al contestar.</span>`;
+      html=`<b>${c.mision}</b><br><span class="mono">Lectura cruda del nonio: <b>léela en la lupa</b> (mm enteros de la escala + línea alineada × LC)<br>Error de cero del instrumento: <b>${(zeroErrorQ>=0?'+':'')+zeroErrorQ.toFixed(3)} mm</b><br>Aplica <b>Lectura corregida = cruda − error de cero</b> y responde abajo — la lectura corregida se revela aquí al contestar.</span>`;
     }
   }
   el('report').innerHTML=html;
@@ -926,25 +975,44 @@ function refreshInstrument(){
 }
 
 /* ---------- interacción ---------- */
-function refreshCaseLabel(){ el('p_case').textContent='Caso '+(CASE_ORDER.indexOf(caseKey)+1)+'/4'; }
+function refreshCaseLabel(){ el('p_case').textContent='Caso '+(CASE_ORDER.indexOf(caseKey)+1)+'/4 · '+Object.values(answered).filter(Boolean).length+'/4 ✔ · intentos '+RETO.intentos; }
 function clearDx(){ document.querySelectorAll('.b.dx').forEach(b=>b.classList.remove('right','wrong')); }
+function renderQuiz(){
+  el('q_text').innerHTML=quizNow.pregunta;
+  el('dxbtns').innerHTML=quizNow.opciones.map((o,i)=>`<button class="b dx" data-i="${i}">${'ABCD'[i]} · ${o.t}</button>`).join('');
+  el('dxbtns').querySelectorAll('.b.dx').forEach(btn=>{ btn.onclick=()=>answer(+btn.dataset.i); });
+}
 function refreshQuestion(){
   const q=currentQuiz();
-  el('q_text').innerHTML=q.pregunta;
-  el('dxbtns').innerHTML=q.opciones.map((o,i)=>`<button class="b dx" data-i="${i}">${'ABCD'[i]} · ${o.t}</button>`).join('');
-  el('dxbtns').querySelectorAll('.b.dx').forEach(btn=>{ btn.onclick=()=>answer(+btn.dataset.i); });
+  const buenas=q.opciones.filter(o=>o.ok), malas=q.opciones.filter(o=>!o.ok);
+  quizNow={pregunta:q.pregunta,opciones:shuffled(buenas.concat(shuffled(malas).slice(0,3)))};
+  renderQuiz();
 }
 function answer(i){
   if(!jawsClosed){ showToast('Primero cierra las mordazas sobre la pieza.'); return; }
-  const q=currentQuiz(); const o=q.opciones[i]; clearDx();
+  if(autoRunning) return;                 // la demostración enseña, no puntúa
+  if(answered[caseKey]){ showToast('Este caso ya está resuelto: pasa al siguiente.'); return; }
+  const o=quizNow.opciones[i]; clearDx();
   const btn=el('dxbtns').children[i];
+  RETO.intentos++;
   if(o.ok){
-    btn.classList.add('right'); solved=true; synth.beep(1046,0.12,0.06);
+    btn.classList.add('right'); solved=true; answered[caseKey]=true; fallosCaso[caseKey]=0; synth.beep(1046,0.12,0.06);
     showToast(`<span style="color:var(--good)">✔ Correcto.</span><br><span style="color:var(--dim);font-size:11px">${o.why}</span>`);
+    refreshInstrument();
   }else{
     btn.classList.add('wrong'); synth.beep(220,0.15,0.06);
-    showToast(`<span style="color:var(--bad)">✗ Revisa la lectura.</span><br><span style="color:var(--dim);font-size:11px">${o.why}</span>`);
+    fallosCaso[caseKey]++;
+    if(fallosCaso[caseKey]>=3){
+      fallosCaso[caseKey]=0; RETO.resiembras++;
+      seedCase(caseKey); rebuildCase(caseKey); repIdx=0; solved=false;
+      sliderTargetX=targetSliderMM()*SCALE;
+      refreshQuestion(); refreshInstrument();
+      showToast(`<span style="color:var(--bad)">✗ Tres fallos en este caso.</span><br><span style="color:var(--dim);font-size:11px">La pieza cambia: ahora es otra medición. Vuelve a leer la lupa con calma.</span>`);
+    }else{
+      showToast(`<span style="color:var(--bad)">✗ Revisa la lectura.</span><br><span style="color:var(--dim);font-size:11px">${o.why} (fallos en este caso: ${fallosCaso[caseKey]}/3)</span>`);
+    }
   }
+  refreshCaseLabel();
 }
 
 function setRes(key){
@@ -952,7 +1020,7 @@ function setRes(key){
   ajustaNonio(RES_CFG[key].div);
   ['005','002'].forEach(k=>el('r_'+k).classList.toggle('on', ('0.'+k.slice(1))===key));
   sliderTargetX=targetSliderMM()*SCALE;
-  solved=false; clearDx(); refreshQuestion(); refreshInstrument();
+  solved=!!answered[caseKey]; clearDx(); refreshQuestion(); refreshInstrument();
 }
 el('r_005').onclick=()=>setRes('0.05');
 el('r_002').onclick=()=>setRes('0.02');
@@ -963,7 +1031,7 @@ function setCase(key){
   el('repWrap').style.display = key==='repetibilidad' ? '' : 'none';
   ['externa','interna','profundidad','repetibilidad'].forEach(k=>el('c_'+k).classList.toggle('on',k===key));
   sliderTargetX=targetSliderMM()*SCALE;
-  solved=false; clearDx(); refreshQuestion(); refreshCaseLabel();
+  solved=!!answered[key]; clearDx(); refreshQuestion(); refreshCaseLabel();
   const meta=CASE_CAM[key]; S.moveTo(meta[0],meta[1],1.3);
   refreshInstrument();
   showToast('🔀 '+CASES[key].nombre+' — cierra las mordazas y lee la lupa.');
@@ -1029,9 +1097,16 @@ async function runAuto(){
   autoRunning=true;
   const btn=el('btnAuto'); const label=btn.textContent;
   btn.disabled=true; btn.classList.add('on'); btn.textContent='⏳ Medición guiada en curso…';
+  // La demostración mide una pieza con SUS cifras (DEMO), no la del alumno: ni le
+  // regala la lectura de su caso ni toca sus respuestas. Al final se le devuelve su pieza.
+  const key=caseKey;
+  const guardado={caso:JSON.parse(JSON.stringify(CASES[key])),quiz:quizNow,rep:repIdx,solved,jaws:jawsClosed};
   try{
     clearDx();
-    const key=caseKey;
+    Object.assign(CASES[key],JSON.parse(JSON.stringify(DEMO[key])));
+    rebuildCase(key); repIdx=0; solved=false;
+    sliderTargetX=targetSliderMM()*SCALE; refreshQuestion(); refreshInstrument();
+    showToast('Demostración con una pieza de ejemplo: tu caso no se toca.'); await sleep(1800);
     if(!jawsClosed){ showToast('Paso 1 · Cerramos las mordazas sobre la pieza.'); el('btnJaws').click(); await sleep(1700); }
     if(key==='repetibilidad'){
       for(let i=0;i<5;i++){ repIdx=i; sliderTargetX=targetSliderMM()*SCALE; refreshInstrument();
@@ -1043,12 +1118,19 @@ async function runAuto(){
       showToast('Paso 3 · Error de cero conocido: '+(zeroErrorQ>=0?'+':'')+zeroErrorQ.toFixed(3)+' mm.'); await sleep(2200);
       showToast('Paso 4 · Lectura corregida = cruda − error de cero = '+correctedQ.toFixed(3)+' mm.'); await sleep(2400);
     }
-    const q=currentQuiz(); const i=q.opciones.findIndex(o=>o.ok);
+    const q=quizNow; const i=q.opciones.findIndex(o=>o.ok);
     clearDx();
     const dxBtn=el('dxbtns').children[i];
-    if(dxBtn){ dxBtn.classList.add('right'); solved=true; synth.beep(1046,0.12,0.06); }
+    if(dxBtn){ dxBtn.classList.add('right'); synth.beep(1046,0.12,0.06); }
     showToast('<span style="color:var(--good)">✔ '+q.opciones[i].t+'</span><br><span style="color:var(--dim);font-size:11px">'+q.opciones[i].why+'</span>');
+    await sleep(2800);
   } finally {
+    // El alumno recupera SU pieza, SU pregunta y su estado de mordazas.
+    Object.assign(CASES[key],guardado.caso);
+    rebuildCase(key); repIdx=guardado.rep; solved=guardado.solved;
+    quizNow=guardado.quiz; renderQuiz(); clearDx();
+    if(jawsClosed!==guardado.jaws) el('btnJaws').click();
+    sliderTargetX=targetSliderMM()*SCALE; refreshInstrument();
     btn.disabled=false; btn.classList.remove('on'); btn.textContent=label;
     autoRunning=false;
   }
@@ -1067,6 +1149,16 @@ S.setAnimate((dt,time)=>{
   }
 });
 
+window.__labDebug={
+  get mode(){ return caseKey; },
+  get solved(){ return Object.values(answered).every(Boolean); },
+  get intentos(){ return RETO.intentos; },
+  state(){ return {caso:caseKey,res:resKey,mordazas:jawsClosed,answered:{...answered},intentos:RETO.intentos,
+    fallos:{...fallosCaso},resiembras:RETO.resiembras,resuelto:Object.values(answered).every(Boolean),autoRunning}; },
+  setCase(k){ setCase(k); },
+  cierra(){ if(!jawsClosed) el('btnJaws').click(); },
+  opciones(){ return [...document.querySelectorAll('#dxbtns .b.dx')].map((b,i)=>({t:b.textContent,ok:!!quizNow.opciones[i].ok})); },
+};
 setRes('0.05');
 setCase('externa');
 </script>

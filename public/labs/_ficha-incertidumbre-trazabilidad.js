@@ -3,7 +3,7 @@ fichaTecnica({
   title: 'Incertidumbre de Medición (GUM) y Trazabilidad Metrológica',
   intro: 'Este laboratorio construye un <b>presupuesto de incertidumbre completo</b> siguiendo el GUM (JCGM 100:2008) sobre un caso único: un comparador de carátula midiendo cinco veces el mismo bloque patrón. Combina una incertidumbre Tipo A (estadística, de las lecturas repetidas) con dos incertidumbres Tipo B (resolución del instrumento, certificado del bloque patrón) por suma cuadrática, y expande el resultado con un factor de cobertura k. La segunda mitad recorre la <b>cadena de trazabilidad</b> real de México (CENAM → laboratorio acreditado EMA → instrumento de taller) y revisa un certificado de calibración para distinguir contenido obligatorio de opcional según ISO/IEC 17025.',
   s1: {
-    presentes: '<b>Presentes en el modelo:</b> incertidumbre Tipo A calculada por estadística real sobre 5 lecturas (u_A = s/√n), incertidumbre Tipo B de resolución (u = resolución/√12, distribución rectangular) e incertidumbre Tipo B de certificado (u = U_cert/k_cert), combinación cuadrática u_c = √(u_A²+u_res²+u_cert²), incertidumbre expandida U = k·u_c con k=2, cadena de trazabilidad de 3 eslabones (CENAM, laboratorio acreditado EMA, instrumento de taller), y un certificado de calibración ilustrativo que omite deliberadamente la próxima fecha de calibración para enseñar que ese dato NO es obligatorio por defecto.',
+    presentes: '<b>Presentes en el modelo:</b> incertidumbre Tipo A calculada por estadística real sobre 5 lecturas (u_A = s/√n), incertidumbre Tipo B de resolución (u = resolución/√12, distribución rectangular) e incertidumbre Tipo B de certificado (u = U_cert/k_cert), combinación cuadrática u_c = √(u_A²+u_res²+u_cert²), incertidumbre expandida U = k·u_c con k=2, cadena de trazabilidad de 3 eslabones (CENAM, laboratorio acreditado EMA, instrumento de taller), y un certificado de calibración ilustrativo cuyos campos hay que contrastar con la afirmación del Caso 7 (la norma no exige por defecto la próxima fecha de calibración).',
     omitidos: [
       '<b>Grados de libertad efectivos (Welch-Satterthwaite)</b>: el factor de cobertura k=2 se usa como aproximación estándar a "~95% de confianza"; el cálculo riguroso de grados de libertad efectivos (JCGM 100:2008, Anexo G) que determinaría el nivel de confianza exacto no se implementa aquí.',
       '<b>Deriva térmica y de largo plazo</b>: ni el bloque patrón ni el comparador cambian su comportamiento con la temperatura o el tiempo transcurrido desde la última calibración en este modelo.',
@@ -14,12 +14,12 @@ fichaTecnica({
   },
   s2: {
     title: 'Datos usados en el presupuesto de incertidumbre',
-    warn: 'Los valores de lecturas, resolución y certificado son <b>constantes ilustrativas elegidas a mano</b> para que el presupuesto sea claro y verificable — no provienen de un instrumento o certificado real específico. El procedimiento de cálculo (Tipo A, Tipo B, combinación cuadrática, expansión) es el que exige el GUM para cualquier caso real.',
+    warn: 'Los valores de lecturas, resolución y certificado son <b>cifras ilustrativas SORTEADAS</b> (cambian al abrir el lab y al resembrar un caso tras tres fallos; los casos 4 y 5 llevan cada uno su propio presupuesto) dentro de rangos elegidos para que el presupuesto sea claro y verificable — no provienen de un instrumento o certificado real específico. El procedimiento de cálculo (Tipo A, Tipo B, combinación cuadrática, expansión) es el que exige el GUM para cualquier caso real.',
     rows: [
       ['Fuente', 'Valor', 'Tipo'],
-      ['5 lecturas repetidas del bloque patrón', '10.0003 / 10.0005 / 10.0001 / 10.0004 / 10.0002 mm', 'Tipo A (estadística)'],
-      ['Resolución del comparador', '0.001 mm', 'Tipo B (u = resolución/√12)'],
-      ['Incertidumbre del certificado del bloque patrón', 'U = 0.0001 mm, k = 2', 'Tipo B (u = U/k)'],
+      ['5 lecturas repetidas del bloque patrón', 'alrededor de 10.000 mm, en pasos de 0.001 mm (la resolución del comparador de la estación)', 'Tipo A (estadística)'],
+      ['Resolución del instrumento del Caso 2', 'una de 0.001 / 0.002 / 0.005 / 0.01 mm', 'Tipo B (u = resolución/√12)'],
+      ['Incertidumbre del certificado del bloque patrón', 'U de 0.0001 a 0.0005 mm, con k = 2 o k = 3 según el certificado', 'Tipo B (u = U/k)'],
       ['Factor de cobertura aplicado al resultado final', 'k = 2 (≈ 95%, aproximado)', 'Expansión'],
     ]
   },
@@ -39,7 +39,7 @@ fichaTecnica({
     ]
   },
   s5: {
-    modela: 'el cálculo real de incertidumbre Tipo A por estadística de 5 lecturas repetidas (u_A = s/√n), incertidumbre Tipo B de resolución (u = resolución/√12) y de certificado (u = U/k), combinación por suma cuadrática (u_c = √Σuᵢ²) e incertidumbre expandida (U = k·u_c) — todas calculadas por funciones de código a partir de constantes fijas, nunca transcritas a mano; la cadena de trazabilidad de 3 eslabones (CENAM, laboratorio acreditado EMA, instrumento de taller); y un certificado de calibración que distingue explícitamente contenido obligatorio de opcional según ISO/IEC 17025:2017 §7.8.4.3.',
+    modela: 'el cálculo real de incertidumbre Tipo A por estadística de 5 lecturas repetidas (u_A = s/√n), incertidumbre Tipo B de resolución (u = resolución/√12) y de certificado (u = U/k), combinación por suma cuadrática (u_c = √Σuᵢ²) e incertidumbre expandida (U = k·u_c) — todas calculadas por funciones de código a partir de los datos sorteados de cada caso, nunca transcritas a mano; la cadena de trazabilidad de 3 eslabones (CENAM, laboratorio acreditado EMA, instrumento de taller); y un certificado de calibración que distingue explícitamente contenido obligatorio de opcional según ISO/IEC 17025:2017 §7.8.4.3.',
     noModela: 'los grados de libertad efectivos (Welch-Satterthwaite) que darían un nivel de confianza exacto en vez de la aproximación "k=2 ≈ 95%"; la deriva térmica o de largo plazo de ningún instrumento; la incertidumbre numérica propagada de cada eslabón individual de la cadena de trazabilidad; ni otras fuentes Tipo B más allá de resolución y certificado. La deflexión de la aguja del comparador en pantalla está intencionalmente exagerada para visibilidad — las desviaciones reales de este caso son de fracciones de micrómetro.'
   },
   s6: [

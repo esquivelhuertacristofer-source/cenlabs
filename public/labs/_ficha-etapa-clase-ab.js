@@ -61,7 +61,5 @@ fichaTecnica({
     { name: 'ON Semiconductor — hoja de datos TIP31C/TIP32C', note: 'RθJC, RθJA (sin disipador) y Tj_max de referencia del par complementario TO-220.' },
     { name: 'ON Semiconductor — nota de aplicación "Thermal Resistance — Theory and Practice"', note: 'Cadena térmica Tj=Ta+P·ΣRθ y criterios de selección de disipador.' },
     { name: 'JEDEC JESD51 (familia) y JESD51-14', note: 'JESD51 es la familia general de estándares de caracterización térmica bajo convección natural; JESD51-14 es el método específico de "doble interfaz transitoria" para medir RθJC de forma más precisa que una estimación basada solo en RθJA — consúltese al evaluar hojas de datos reales de disipadores y transistores.' },
-    { name: 'Nota curricular ⚑', note: 'La relación entre esta práctica y el programa oficial del sector mecánica-electrónica se documenta con trazabilidad en ficha.md; se recomienda validación por un experto en electrónica de potencia.' },
-    { name: 'Notas para el revisor experto', note: 'Se actualizará tras verificación técnica final del laboratorio.' },
   ],
 });

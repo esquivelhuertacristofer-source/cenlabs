@@ -891,44 +891,45 @@ function startPhase2(){
   controls.target.set(0,1.2,0); platGlow.material.opacity=0;
   challengeFK();
 }
-const FK_T1=40, FK_T2=20;
+/* ---------- datos de los retos: se sortean al abrir el lab y al resembrar ---------- */
+const pickOne=a=>a[Math.floor(Math.random()*a.length)];
+const RETO_B={intentos:0,resiembras:0,fallosFK:0,fallosT:0,fallosO:0,fallosDx:0,pistasFK:0,pistasT:0,pistasO:0,hecho:false};
+let FK_T1=40, FK_T2=20;
+function sorteaFK(){ const p=[FK_T1,FK_T2]; do{ FK_T1=pickOne([25,30,35,40,45,50,55,60]); FK_T2=pickOne([10,15,20,25,30,35,40]); }while(FK_T1===p[0]&&FK_T2===p[1]); }
+sorteaFK();
+let PAYLOAD_T=pickOne([0.15,0.2,0.3,0.35,0.4,0.45]);          // kg, Reto 2
+function sorteaT(){ const p=PAYLOAD_T; do{ PAYLOAD_T=pickOne([0.15,0.2,0.3,0.35,0.4,0.45]); }while(PAYLOAD_T===p); }
+let PAYMAX_O=pickOne([0.3,0.4,0.6,0.7]);                       // kg del servo hipotético, Reto 3
+function sorteaO(){ const p=PAYMAX_O; do{ PAYMAX_O=pickOne([0.3,0.4,0.6,0.7]); }while(PAYMAX_O===p); }
+const tauLimO=()=>+(torqueRequired(PAYMAX_O,ROBOT.reach_max_m)).toFixed(2);
+
 function challengeFK(){
-  const {py}=fwdKin(FK_T1,FK_T2);
-  const answer=py*1000; // mm
-  window.__fkAnswer=answer;
   showTeach('Fase 2 · Reto 1','Calcula la posición del efector final',
-    `<p>Con los ángulos <b>θ1=${FK_T1}°</b> (hombro) y <b>θ2=${FK_T2}°</b> (codo), la altura del efector final sobre el hombro es:</p>
-     <div class="formula">y = L1·sin(θ1) + L2·sin(θ1+θ2)</div>
-     <p>con L1=${(ROBOT.L1_m*100).toFixed(0)}cm, L2=${(ROBOT.L2_m*100).toFixed(0)}cm.</p>
-     <div class="why"><b>Pista:</b> primero calcula θ1+θ2 = ${FK_T1+FK_T2}°. Luego sin(${FK_T1}°)≈${Math.sin(FK_T1*Math.PI/180).toFixed(3)} y sin(${FK_T1+FK_T2}°)≈${Math.sin((FK_T1+FK_T2)*Math.PI/180).toFixed(3)}.</p>
-     <div class="task">¿Cuál es la altura "y" del efector final, en mm?</div>`);
+    `<p>Con los ángulos <b>θ1=${FK_T1}°</b> (hombro) y <b>θ2=${FK_T2}°</b> (codo), el brazo tiene eslabones de L1=${(ROBOT.L1_m*100).toFixed(0)} cm y L2=${(ROBOT.L2_m*100).toFixed(0)} cm, medidos en el plano vertical del brazo.</p>
+     <div class="task">¿Cuál es la altura "y" del efector final sobre el hombro, en mm? <span class="mini" style="display:inline">Intentos fallidos: <b id="d_tryfk">${RETO_B.fallosFK}</b>/3</span></div>`);
   setActions('Tu cálculo',
     `<div class="calcbox"><label>Altura y (mm)</label>
        <div class="calcrow"><input id="ansFK" type="number" step="1" placeholder="¿?"><button class="b primary" data-act="check-fk" style="flex:0 0 auto">✓</button></div>
-       <div class="mini" data-act="hint-fk" style="cursor:pointer;text-decoration:underline"><span>¿Necesitas una pista?</span></div></div>`);
+       <div class="mini" data-act="hint-fk" style="cursor:pointer;text-decoration:underline"><span>¿Necesitas una pista? (máx. 2)</span></div></div>`);
 }
 function challengeTorque(){
   const reach=ROBOT.reach_max_m;
-  const payload=0.4; // 400g
-  window.__torqueAnswer=torqueRequired(payload,reach);
   showTeach('Fase 2 · Reto 2','Calcula el par necesario',
-    `<p>Vas a levantar una pieza de <b>400 g</b> con el brazo totalmente extendido (alcance máximo, ${(reach*1000).toFixed(0)}mm). El par en la base debe vencer el peso de la carga a esa distancia:</p>
-     <div class="formula">τ = m · g · r</div>
-     <p>con g=9.81 m/s².</p>
-     <div class="task">¿Cuál es el par necesario τ, en N·m? (2 decimales)</div>`);
+    `<p>Vas a levantar una pieza de <b>${(PAYLOAD_T*1000).toFixed(0)} g</b> con el brazo totalmente extendido (alcance máximo, ${(reach*1000).toFixed(0)} mm). El par en el hombro debe vencer el peso de la carga a esa distancia (g = 9.81 m/s²).</p>
+     <div class="task">¿Cuál es el par necesario, en N·m? (2 decimales) <span class="mini" style="display:inline">Intentos fallidos: <b id="d_trytq">${RETO_B.fallosT}</b>/3</span></div>`);
   setActions('Tu cálculo',
     `<div class="calcbox"><label>Par τ (N·m)</label>
        <div class="calcrow"><input id="ansT" type="number" step="0.01" placeholder="¿?"><button class="b primary" data-act="check-torque" style="flex:0 0 auto">✓</button></div>
-       <div class="mini" data-act="hint-torque" style="cursor:pointer;text-decoration:underline"><span>¿Necesitas una pista?</span></div></div>`);
+       <div class="mini" data-act="hint-torque" style="cursor:pointer;text-decoration:underline"><span>¿Necesitas una pista? (máx. 2)</span></div></div>`);
 }
 function challengeOverload(){
-  showTeach('Fase 2 · Reto 3','¿Puede el brazo con esta carga?',
-    `<p>El motor del hombro está calificado para un <b>payload máximo de ${(ROBOT.payload_max_kg*1000).toFixed(0)}g</b> a alcance completo. Te piden mover una pieza de <b>800 g</b>.</p>
-     <div class="why"><b>Recuerda:</b> τ=m·g·r crece con la carga. Si el par requerido supera lo que el motor puede entregar, el brazo no sostiene la posición: tiembla o cae.</div>
-     <div class="task">¿El brazo puede con 800 g a alcance completo, sí o no?</div>`);
-  setActions('Tu decisión',
-    `<button class="b" data-act="load-yes"><span class="ic">✓</span> Sí, puede con la carga</button>
-     <button class="b" data-act="load-no"><span class="ic">✕</span> No, es sobrecarga</button>`);
+  showTeach('Fase 2 · Reto 3','¿Qué carga aguanta el hombro?',
+    `<p>Un servo hipotético del hombro entrega, como máximo, <b>${tauLimO().toFixed(2)} N·m</b> de par. Con el brazo totalmente extendido (${(ROBOT.reach_max_m*1000).toFixed(0)} mm) y g = 9.81 m/s², la carga crece el par requerido hasta que el hombro no puede sostenerla: tiembla o cae.</p>
+     <div class="task">¿Cuál es la carga máxima (payload) que puede sostener, en gramos? <span class="mini" style="display:inline">Intentos fallidos: <b id="d_tryov">${RETO_B.fallosO}</b>/3</span></div>`);
+  setActions('Tu cálculo',
+    `<div class="calcbox"><label>Payload máximo (g)</label>
+       <div class="calcrow"><input id="ansO" type="number" step="1" placeholder="¿?"><button class="b primary" data-act="check-over" style="flex:0 0 auto">✓</button></div>
+       <div class="mini" data-act="hint-over" style="cursor:pointer;text-decoration:underline"><span>¿Necesitas una pista? (máx. 2)</span></div></div>`);
 }
 function challengeMove(){
   showTeach('Fase 2 · Reto 4','Observa el brazo en movimiento',
@@ -1012,9 +1013,22 @@ function symptomArm(f){
 }
 function diagnoseArm(choice){
   const correct=(choice===fault);
-  if(correct){feedback('good','Diagnóstico correcto ✓',explainArmFault(fault)+' <b>Ahora corrígelo.</b>',true);
+  RETO_B.intentos++;
+  if(correct){RETO_B.fallosDx=0;feedback('good','Diagnóstico correcto ✓',explainArmFault(fault)+' <b>Ahora corrígelo.</b>',true);
     setActions('Reparación',`<button class="b primary good" data-act="repair-arm">🔧 Corregir la falla</button>`);
-  } else {feedback('bad','No es esa la falla','Eso ('+fnameArm(choice)+') daría otro síntoma: '+wrongExArm(choice)+' Observa otra vez.',true);}
+  } else {
+    RETO_B.fallosDx++;
+    if(RETO_B.fallosDx>=3){
+      // tres fallos: el brazo presenta OTRA falla y la secuencia reinicia
+      RETO_B.fallosDx=0; RETO_B.resiembras++;
+      const p=fault; fault=pickOne(['encoder','gripper','overload'].filter(x=>x!==p));
+      seqT=0; holding=false; cube.position.copy(sourcePos);
+      feedback('bad','Tres intentos fallidos','El brazo presenta ahora OTRA falla: deja correr la secuencia y observa de nuevo.',true);
+      const s=$('symptomTask'); if(s) s.innerHTML=symptomArm(fault);
+    } else {
+      feedback('bad','No es esa la falla','Eso ('+fnameArm(choice)+') daría otro síntoma: '+wrongExArm(choice)+' Observa otra vez. (intentos fallidos: '+RETO_B.fallosDx+'/3)',true);
+    }
+  }
 }
 function explainArmFault(f){
   if(f==='encoder')return 'El encoder le dice al controlador "en qué ángulo estoy", pero si está descalibrado, el ángulo reportado no coincide con el real. El brazo ejecuta el movimiento correcto según SU lectura equivocada, y termina en el lugar incorrecto.';
@@ -1028,7 +1042,7 @@ function wrongExArm(f){
   if(f==='overload')return 'la sobrecarga hace temblar y ceder el hombro bajo peso, no causa un error de puntería ni que la pinza suelte la pieza sin razón.';
 }
 function repairArm(){
-  fault=null; seqT=0;
+  fault=null; seqT=0; RETO_B.hecho=true;
   feedback('good','¡Reparado! 🎉','El brazo vuelve a operar con precisión. Completaste las tres fases: lo armaste, calculaste su cinemática y par, y diagnosticaste una falla real. Ese es el ciclo completo de un técnico en mecatrónica.',true);
   document.querySelectorAll('.phase-tab')[2].classList.add('done');
   setActions('Laboratorio completado',`<button class="b primary" data-act="restart">↺ Reiniciar laboratorio</button>`);
@@ -1064,11 +1078,23 @@ function handleAction(act,btn){
       feedback('good','Muñeca en camino','Se acopla en la punta del antebrazo. Brazo casi completo.');
       setTimeout(()=>finishPhase1(),1150); break;
     case 'check-fk': checkFK(); break;
-    case 'hint-fk': feedback('good','Pista',`y = L1·sin(θ1)+L2·sin(θ1+θ2) = ${(ROBOT.L1_m*100).toFixed(0)}·sin(${FK_T1}°) + ${(ROBOT.L2_m*100).toFixed(0)}·sin(${FK_T1+FK_T2}°) cm. Multiplica y suma en cm, luego convierte a mm (×10).`); break;
+    case 'hint-fk':
+      if(RETO_B.pistasFK===0){ RETO_B.pistasFK=1; feedback('good','Pista 1 de 2','La altura es la suma de lo que sube cada eslabón; el segundo eslabón forma con la horizontal el ángulo acumulado de las dos articulaciones.'); }
+      else if(RETO_B.pistasFK===1){ RETO_B.pistasFK=2; feedback('good','Pista 2 de 2','y = L1·sin(θ1) + L2·sin(θ1+θ2). Calcula en cm y convierte a mm (×10).'); }
+      else feedback('good','Sin más pistas','Ya usaste las 2 pistas de este reto.');
+      break;
     case 'check-torque': checkTorque(); break;
-    case 'hint-torque': feedback('good','Pista',`τ = m·g·r = 0.4 kg × 9.81 m/s² × ${ROBOT.reach_max_m} m. Multiplica los tres valores.`); break;
-    case 'load-no': feedback('good','Correcto ✓','800g supera el payload nominal de 500g. A alcance completo eso exige más par del que el motor puede entregar de forma sostenida — el brazo cedería. Por eso los robots siempre publican un payload máximo.'); setTimeout(()=>challengeMove(),1700); break;
-    case 'load-yes': feedback('bad','Revisa el cálculo','800g excede el payload nominal de 500g de este robot. A mayor carga, mayor par requerido (τ=m·g·r) — y el motor tiene un límite. Inténtalo de nuevo.'); break;
+    case 'hint-torque':
+      if(RETO_B.pistasT===0){ RETO_B.pistasT=1; feedback('good','Pista 1 de 2','El par es el peso de la carga (una fuerza) por la distancia a la que actúa: cuida las unidades (kg y m).'); }
+      else if(RETO_B.pistasT===1){ RETO_B.pistasT=2; feedback('good','Pista 2 de 2','τ = m·g·r. Multiplica los tres valores del enunciado.'); }
+      else feedback('good','Sin más pistas','Ya usaste las 2 pistas de este reto.');
+      break;
+    case 'check-over': checkOver(); break;
+    case 'hint-over':
+      if(RETO_B.pistasO===0){ RETO_B.pistasO=1; feedback('good','Pista 1 de 2','Es la misma relación que en el reto anterior, pero ahora se conoce el par y se busca la masa.'); }
+      else if(RETO_B.pistasO===1){ RETO_B.pistasO=2; feedback('good','Pista 2 de 2','m = τ / (g·r). Convierte el resultado de kg a g.'); }
+      else feedback('good','Sin más pistas','Ya usaste las 2 pistas de este reto.');
+      break;
     case 'play-sequence':
       seqPlaying=true; seqT=0; holding=false;
       if(btn){btn.textContent='⏸ Reiniciar secuencia';}
@@ -1082,17 +1108,43 @@ function handleAction(act,btn){
     case 'restart': location.reload(); break;
   }
 }
+function tresFallos(contador,resiembra,rehacer,aviso){
+  RETO_B[contador]=0; RETO_B.resiembras++; resiembra();
+  feedback('bad','Tres intentos fallidos',aviso);
+  setTimeout(rehacer,1500);
+}
 function checkFK(){
-  const v=parseFloat(($('ansFK')||{}).value); const correct=window.__fkAnswer;
+  const v=parseFloat(($('ansFK')||{}).value); const correct=fwdKin(FK_T1,FK_T2).py*1000;
   if(isNaN(v)){feedback('bad','Escribe un número','Ingresa tu cálculo de la altura en mm.');return;}
-  if(Math.abs(v-correct)<3){feedback('good','¡Correcto! ✓',`y = ${correct.toFixed(1)} mm. Esa es la altura real del efector final con θ1=${FK_T1}°, θ2=${FK_T2}°. Así calcula un robot su propia posición en cada instante.`);setTimeout(()=>challengeTorque(),1700);}
-  else{const d=v>correct?'alta':'baja';feedback('bad','Revisa el cálculo',`Tu resultado (${v}mm) está ${d}. y=${correct.toFixed(1)}mm. Repasa: primero θ1+θ2=${FK_T1+FK_T2}°, luego los senos, luego multiplica por cada longitud y suma.`);}
+  RETO_B.intentos++;
+  if(Math.abs(v-correct)<3){RETO_B.fallosFK=0;feedback('good','¡Correcto! ✓',`y = ${correct.toFixed(1)} mm. Esa es la altura real del efector final con θ1=${FK_T1}°, θ2=${FK_T2}°. Así calcula un robot su propia posición en cada instante.`);setTimeout(()=>challengeTorque(),1700);}
+  else{
+    RETO_B.fallosFK++;
+    if(RETO_B.fallosFK>=3) tresFallos('fallosFK',sorteaFK,challengeFK,'Cambian los ángulos de las articulaciones: vuelve a plantear el cálculo.');
+    else{const d=v>correct?'alta':'baja';feedback('bad','Revisa el cálculo',`Tu resultado (${v} mm) está ${d}. Revisa qué ángulo corresponde a cada eslabón y las unidades. (intentos fallidos: ${RETO_B.fallosFK}/3)`);const t=$('d_tryfk');if(t)t.textContent=RETO_B.fallosFK;}
+  }
 }
 function checkTorque(){
-  const v=parseFloat(($('ansT')||{}).value); const correct=window.__torqueAnswer;
+  const v=parseFloat(($('ansT')||{}).value); const correct=torqueRequired(PAYLOAD_T,ROBOT.reach_max_m);
   if(isNaN(v)){feedback('bad','Escribe un número','Ingresa tu cálculo del par en N·m.');return;}
-  if(Math.abs(v-correct)<0.05){feedback('good','¡Correcto! ✓',`τ = 0.4 × 9.81 × ${ROBOT.reach_max_m} = ${correct.toFixed(2)} N·m. Ese es el par mínimo que el motor del hombro debe entregar para sostener esa carga a alcance completo.`);setTimeout(()=>challengeOverload(),1700);}
-  else{const d=v>correct?'alto':'bajo';feedback('bad','Revisa el cálculo',`Tu resultado (${v} N·m) está ${d}. τ=m·g·r = 0.4×9.81×${ROBOT.reach_max_m} = ${correct.toFixed(2)} N·m.`);}
+  RETO_B.intentos++;
+  if(Math.abs(v-correct)<0.05){RETO_B.fallosT=0;feedback('good','¡Correcto! ✓',`τ = ${PAYLOAD_T} × 9.81 × ${ROBOT.reach_max_m} = ${correct.toFixed(2)} N·m. Ese es el par mínimo que el motor del hombro debe entregar para sostener esa carga a alcance completo.`);setTimeout(()=>challengeOverload(),1700);}
+  else{
+    RETO_B.fallosT++;
+    if(RETO_B.fallosT>=3) tresFallos('fallosT',sorteaT,challengeTorque,'Cambia la masa de la pieza: vuelve a plantear el cálculo.');
+    else{const d=v>correct?'alto':'bajo';feedback('bad','Revisa el cálculo',`Tu resultado (${v} N·m) está ${d}. Revisa los factores que entran en el par y sus unidades. (intentos fallidos: ${RETO_B.fallosT}/3)`);const t=$('d_trytq');if(t)t.textContent=RETO_B.fallosT;}
+  }
+}
+function checkOver(){
+  const v=parseFloat(($('ansO')||{}).value); const correct=PAYMAX_O*1000;
+  if(isNaN(v)){feedback('bad','Escribe un número','Ingresa el payload máximo en gramos.');return;}
+  RETO_B.intentos++;
+  if(Math.abs(v-correct)<20){RETO_B.fallosO=0;feedback('good','Correcto ✓',`m = τ/(g·r) = ${tauLimO().toFixed(2)} / (9.81 × ${ROBOT.reach_max_m}) ≈ ${correct.toFixed(0)} g. Por eso los robots siempre publican un payload máximo: más allá de él, el motor no sostiene el brazo extendido.`);setTimeout(()=>challengeMove(),1700);}
+  else{
+    RETO_B.fallosO++;
+    if(RETO_B.fallosO>=3) tresFallos('fallosO',sorteaO,challengeOverload,'Cambia el servo del hombro: vuelve a plantear el cálculo con su nuevo par.');
+    else{const d=v>correct?'alto':'bajo';feedback('bad','Revisa el cálculo',`Tu resultado (${v} g) está ${d}. Revisa cómo se despeja la masa y la conversión de unidades. (intentos fallidos: ${RETO_B.fallosO}/3)`);const t=$('d_tryov');if(t)t.textContent=RETO_B.fallosO;}
+  }
 }
 
 /* ============================================================
@@ -1232,6 +1284,13 @@ function closeSheets(){teachEl.classList.remove('open');actionsEl.classList.remo
 if(bT)bT.onclick=()=>{const o=teachEl.classList.contains('open');closeSheets();if(!o){teachEl.classList.add('open');bT.classList.add('on');}};
 if(bA)bA.onclick=()=>{const o=actionsEl.classList.contains('open');closeSheets();if(!o){actionsEl.classList.add('open');bA.classList.add('on');}};
 
+window.__labDebug={
+  get mode(){ return ['armado','fundamento','diagnostico'][phase]||'armado'; },
+  get solved(){ return RETO_B.hecho; },
+  get intentos(){ return RETO_B.intentos; },
+  state(){ return {fase:phase,angulos:[FK_T1,FK_T2],payloadT:PAYLOAD_T,payMaxO:PAYMAX_O,fault,intentos:RETO_B.intentos,
+    resiembras:RETO_B.resiembras,fallos:{fk:RETO_B.fallosFK,t:RETO_B.fallosT,o:RETO_B.fallosO,dx:RETO_B.fallosDx},resuelto:RETO_B.hecho}; },
+};
 window.__test={
   start:()=>$('start').click(),
   action:(a)=>handleAction(a,null),

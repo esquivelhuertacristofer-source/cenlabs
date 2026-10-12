@@ -592,7 +592,7 @@ pickerFor(scene,S.camera,S.renderer.domElement,hit=>{
 });
 
 const homes={wheel:wheelGrp.position.clone(),disc:discGrp.position.clone(),modulator:modulator.position.clone(),ecu:ecu.position.clone()};
-let exploded=false,running=false,vVehicle=20,vWheel=20,ang=0,braking=false,pulseT=0;
+let exploded=false,running=false,vVehicle=20,vWheel=20,ang=0,braking=false,pulseT=0,autoRunning=false;
 // El asidero de pruebas. Sin él una prueba sólo puede dar clics a ciegas sobre
 // coordenadas de pantalla, y deja de valer en cuanto se mueve un botón.
 window.__labDebug={
@@ -605,6 +605,8 @@ window.__labDebug={
   get dientes(){ return toneG.userData.dientes; },
   get piezasNaN(){ const m=[]; scene.traverse(o=>{ const q=o.position;
     if(!isFinite(q.x)||!isFinite(q.y)||!isFinite(q.z)) m.push(o.type); }); return m; },
+  get autoRunning(){ return autoRunning; },
+  state(){ return {frenando:running,despiezado:exploded,vVeh:+vVehicle.toFixed(2),vRueda:+vWheel.toFixed(2),autoRunning}; },
   mira(x,y,z,tx,ty,tz){ S.camera.position.set(x,y,z);
     if(S.controls){S.controls.target.set(tx||0,ty||1.1,tz||0);S.controls.update();} },
 };
@@ -627,8 +629,8 @@ S.setAnimate((dt,t)=>{
     ang+=vWheel*dt*1.3;
     wheelGrp.rotation.x=ang;
     const modActive=Math.sin(pulseT*14)>0;
-    modulator.material.emissive=modulator.material.emissive||new THREE.Color();
-    modulator.material.emissive.setHex(modActive?0x552200:0x000000);
+    // el modulador es un GRUPO de piezas: se ilumina el material propio de su bloque de aluminio
+    MAT.modulator.emissive.setHex(modActive?0x552200:0x000000);
     const set=(id,v)=>{const e=document.getElementById(id);if(e)e.textContent=v;};
     set('t_vveh',vVehicle.toFixed(1)+' m/s'); set('t_vwheel',vWheel.toFixed(1)+' m/s'); set('t_slip',(slip*100).toFixed(0)+'%');
     synth.update(80+vVehicle*8, modActive?260:0, modActive?0.045:0.018, 500+vVehicle*20);
@@ -672,11 +674,12 @@ document.getElementById('btnRun').onclick=(e)=>{
 document.getElementById('btnReset').onclick=()=>{running=false;braking=false;vVehicle=20;vWheel=20;pulseT=0;synth.update(0,0,0);S.setCinematicIdle(false);document.getElementById('btnRun').classList.remove('on');document.getElementById('btnRun').textContent='▶ Simular frenado';};
 /* ===== Recorrido automático guiado (para quienes no son ingenieros) ===== */
 const sleep=ms=>new Promise(r=>setTimeout(r,ms));
-let autoRunning=false;
 async function runAuto(){
   if(autoRunning) return; autoRunning=true;
   const b=document.getElementById('btnAuto'); const lbl=b.textContent;
   b.disabled=true; b.classList.add('on'); b.textContent='⏳ Demostración en curso…';
+  const panel=document.getElementById('panel'); panel.style.pointerEvents='none';
+  const prev={running,exploded,vVehicle,vWheel,pulseT};      // el recorrido no deja huella en lo que hacía el alumno
   try{
     if(running) document.getElementById('btnRun').click();
     if(exploded) document.getElementById('btnExplode').click();
@@ -693,12 +696,18 @@ async function runAuto(){
     await sleep(500);
     showToast('Paso 2 · <b>Frenada de pánico</b>: pisas el freno a fondo. Mira el <b>Deslizamiento</b> en el panel.');
     await sleep(2500);
-    showToast('Fíjate: el ABS mantiene el deslizamiento en la franja <b style="color:var(--good)">10–20%</b> pulsando la presión — la rueda sigue girando, <b>no se bloquea</b>.');
+    showToast('Fíjate: en este modelo simplificado el ABS libera presión cada vez que el deslizamiento pasa de <b style="color:var(--good)">20%</b> y la vuelve a aplicar al bajar — el deslizamiento oscila cerca de ese límite y la rueda sigue girando, <b>no se bloquea</b>.');
     await sleep(3000);
     showToast('<span style="color:var(--good)">✔ Idea clave:</span> frenar sin bloquear da la <b>máxima</b> fuerza de frenado y conserva el control de la dirección. Eso hace el ABS.');
     await sleep(400);
     document.getElementById('btnReset').click();
   } finally {
+    if(running) document.getElementById('btnRun').click();
+    document.getElementById('btnReset').click();
+    vVehicle=prev.vVehicle; vWheel=prev.vWheel; pulseT=prev.pulseT;
+    if(prev.running) document.getElementById('btnRun').click();
+    if(exploded!==prev.exploded) document.getElementById('btnExplode').click();
+    panel.style.pointerEvents='';
     b.disabled=false; b.classList.remove('on'); b.textContent=lbl; autoRunning=false;
   }
 }

@@ -461,19 +461,27 @@ const QUESTIONS={
   sano:{
     prompt:'En un bus CAN sano, ¿qué combinación de voltajes esperas ver en CAN_H y CAN_L durante un bit dominante?',
     opts:[
-      {t:'CAN_H ≈ 0 V y CAN_L ≈ 5 V',ok:false},
+      {t:'CAN_H ≈ 0 V y CAN_L ≈ 5 V, con diferencial de ≈ −5 V',ok:false},
       {t:'CAN_H ≈ 3.5 V y CAN_L ≈ 1.5 V (diferencial ≈ 2 V)',ok:true},
-      {t:'Ambas líneas en ≈2.5 V, sin diferencial',ok:false},
+      {t:'Ambas líneas en ≈2.5 V, sin ninguna diferencial',ok:false},
       {t:'CAN_H y CAN_L siempre son iguales, nunca hay diferencial',ok:false},
+    ],
+    extra:[
+      {t:'CAN_H ≈ 5 V y CAN_L ≈ 0 V (diferencial ≈ 5 V)',ok:false},
+      {t:'CAN_H ≈ 1.5 V y CAN_L ≈ 3.5 V (diferencial ≈ −2 V)',ok:false},
     ],
   },
   sin_term:{
     prompt:'Quitaste el terminador de 120 Ω del extremo B y cada flanco muestra ahora una oscilación amortiguada antes de asentarse. ¿A qué se debe?',
     opts:[
-      {t:'A un cortocircuito entre CAN_H y CAN_L',ok:false},
-      {t:'A que el osciloscopio necesita recalibrarse',ok:false},
-      {t:'A una impedancia sin adaptar en ese extremo: la señal se refleja y "rebota" antes de asentarse',ok:true},
-      {t:'Es el comportamiento normal de cualquier trama CAN, con o sin terminador',ok:false},
+      {t:'A un cortocircuito intermitente entre CAN_H y CAN_L en el conector de diagnóstico',ok:false},
+      {t:'A que el osciloscopio perdió su calibración de volts/div y deforma los flancos',ok:false},
+      {t:'A una impedancia sin adaptar en ese extremo: la señal se refleja y rebota antes de asentarse',ok:true},
+      {t:'Es el comportamiento normal de cualquier trama CAN, con o sin terminador en los extremos',ok:false},
+    ],
+    extra:[
+      {t:'A una falla del transceptor, que genera la oscilación por sí mismo en cada flanco',ok:false},
+      {t:'A que la trama perdió el arbitraje y los nodos están reintentando enviarla',ok:false},
     ],
   },
   corto:{
@@ -484,14 +492,22 @@ const QUESTIONS={
       {t:'Arbitraje normal entre dos nodos',ok:false},
       {t:'El bus está sano, solo hay poco tráfico',ok:false},
     ],
+    extra:[
+      {t:'Reflexión por una terminación mal adaptada',ok:false},
+      {t:'Acoplamiento CA activado en el osciloscopio',ok:false},
+    ],
   },
   arbitraje:{
     prompt:'La trama parece cortarse antes de tiempo. ¿Es necesariamente un error de bus?',
     opts:[
-      {t:'Sí, es una trama truncada por un error de bus',ok:false},
-      {t:'Sí, es un cortocircuito intermitente',ok:false},
-      {t:'No — es arbitraje normal: el nodo que transmitía recesivo detectó dominante en el bus, perdió y dejó de transmitir sin generar ningún error',ok:true},
-      {t:'No se puede saber sin un analizador de protocolo',ok:false},
+      {t:'Sí: una trama truncada así significa que el nodo transmisor detectó un error de bus y la abortó',ok:false},
+      {t:'Sí: es un cortocircuito intermitente entre CAN_H y CAN_L que corta la trama a mitad',ok:false},
+      {t:'No: es arbitraje normal; el nodo que mandaba recesivo vio dominante en el bus, perdió y se retiró',ok:true},
+      {t:'No se puede saber nada sin conectar un analizador de protocolo que decodifique la trama',ok:false},
+    ],
+    extra:[
+      {t:'Sí: el nodo B está averiado y debe reemplazarse porque dejó la trama incompleta',ok:false},
+      {t:'No: es un terminador faltante que acorta la trama al reflejar la señal',ok:false},
     ],
   },
 };
@@ -508,6 +524,11 @@ let terminadoBRemoved=false;
 let cortoActivo=false;
 let showGhost=false;
 const answered={sano:false,sin_term:false,corto:false,arbitraje:false};
+/* Contabilidad del reto de diagnóstico. Tres fallos seguidos en un caso lo
+   resiembran: salen otras opciones (otros distractores del banco) y otro orden,
+   para que no se apruebe descartando una a una. */
+const fallosCaso={sano:0,sin_term:0,corto:0,arbitraje:0};
+const RETO={intentos:0,resiembras:0};
 
 /* ---------- 12) ANIMACIÓN ---------- */
 const synth=makeSynth({type:'sine',type2:'sine',filterFreq:2200,Q:0.7});
@@ -650,7 +671,7 @@ function updateTele(){
 }
 
 function refreshCaseLabel(){ el('p_case').textContent='Caso '+(SCEN_ORDER.indexOf(scenarioKey)+1)+'/4'; }
-function refreshProgress(){ const n=Object.values(answered).filter(Boolean).length; el('p_progress').textContent=n+'/4 ✔'; }
+function refreshProgress(){ const n=Object.values(answered).filter(Boolean).length; el('p_progress').textContent=n+'/4 ✔ · intentos '+RETO.intentos; }
 function clearDx(){ document.querySelectorAll('.b.dx').forEach(b=>b.classList.remove('right','wrong')); }
 function shuffled(arr){
   const a=arr.slice();
@@ -665,7 +686,8 @@ function renderQuestion(){
   const qEl=el('q_prompt');
   qEl.textContent=q.prompt;
   qEl.style.textTransform='none'; // uppercase would turn "µs" into "Ms" (Griega mu ≈ Latina M)
-  const opts=shuffled(q.opts);
+  const buenas=q.opts.filter(o=>o.ok), malas=q.opts.filter(o=>!o.ok).concat(q.extra||[]);
+  const opts=shuffled(buenas.concat(shuffled(malas).slice(0,3)));
   document.querySelectorAll('#dxWrap .b.dx').forEach((btn,i)=>{
     const o=opts[i];
     btn.textContent=String.fromCharCode(65+i)+' · '+o.t;
@@ -723,11 +745,15 @@ el('btnGhost').onclick=()=>{ showGhost=!showGhost; applyGhostState(); updateTele
 document.querySelectorAll('#dxWrap .b.dx').forEach(btn=>{
   btn.onclick=()=>{
     if(!energized){ showToast('Primero conecta la sonda al bus.'); return; }
+    if(autoRunning) return;                 // la demostración enseña, no puntúa
+    if(answered[scenarioKey]){ showToast('Este caso ya está resuelto: pasa al siguiente.'); return; }
     const ok=btn.dataset.ok==='1';
     clearDx();
+    RETO.intentos++;
     if(ok){
       btn.classList.add('right');
       answered[scenarioKey]=true;
+      fallosCaso[scenarioKey]=0;
       refreshProgress();
       updateTele();
       synth.beep(1046,0.12,0.06);
@@ -735,7 +761,15 @@ document.querySelectorAll('#dxWrap .b.dx').forEach(btn=>{
     } else {
       btn.classList.add('wrong');
       synth.beep(220,0.15,0.06);
-      showToast(`<span style="color:var(--bad)">✗ No es correcta.</span><br><span style="color:var(--dim);font-size:11px">Revisa la pantalla y el estado actual del bus, luego inténtalo de nuevo.</span>`);
+      fallosCaso[scenarioKey]++;
+      if(fallosCaso[scenarioKey]>=3){
+        fallosCaso[scenarioKey]=0; RETO.resiembras++;
+        renderQuestion();
+        showToast(`<span style="color:var(--bad)">✗ Tres fallos en este caso.</span><br><span style="color:var(--dim);font-size:11px">Las opciones cambian: vuelve a mirar la pantalla y razona qué explica lo que ves.</span>`);
+      } else {
+        showToast(`<span style="color:var(--bad)">✗ No es correcta.</span><br><span style="color:var(--dim);font-size:11px">Revisa la pantalla y el estado actual del bus, luego inténtalo de nuevo (fallos en este caso: ${fallosCaso[scenarioKey]}/3).</span>`);
+      }
+      refreshProgress();
     }
   };
 });
@@ -771,29 +805,34 @@ async function runAuto(){
   autoRunning=true;
   const btn=el('btnAuto'); const label=btn.textContent;
   btn.disabled=true; btn.classList.add('on'); btn.textContent='⏳ Demostración en curso…';
+  const previo={escenario:scenarioKey,energizado:energized};
+  const explica=()=>showToast(`<span style="color:var(--good)">✔ La explicación</span><br><span style="color:var(--dim);font-size:11px">${DX_HINT[scenarioKey]}</span>`);
   try{
     setScenario('sano');
     if(!energized){ showToast('Paso 1 · Conectando la sonda al bus…'); el('btnEnergize').click(); await sleep(1600); }
     showToast('Paso 2 · Bus sano: CAN_H y CAN_L convergen en reposo (~2.5 V) y se separan ~2 V en cada bit dominante.'); await sleep(2800);
-    document.querySelector('#dxWrap .b.dx[data-ok="1"]').click(); await sleep(2400);
+    explica(); await sleep(2400);
 
     setScenario('sin_term');
     showToast('Paso 3 · Quitaste el terminador del extremo B: cada flanco ahora "rebota" (ringing) antes de asentarse.'); await sleep(2800);
     el('btnTerm').click(); showToast('Paso 4 · Repones el terminador — el rebote desaparece de inmediato.'); await sleep(2600);
     el('btnTerm').click(); showToast('Paso 5 · Lo vuelves a quitar: el efecto es atribuible a la terminación faltante.'); await sleep(2600);
-    document.querySelector('#dxWrap .b.dx[data-ok="1"]').click(); await sleep(2400);
+    explica(); await sleep(2400);
 
     setScenario('corto');
     showToast('Paso 6 · CAN_H y CAN_L en corto: la diferencial nunca se desarrolla, sin importar qué se intente transmitir.'); await sleep(2800);
-    document.querySelector('#dxWrap .b.dx[data-ok="1"]').click(); await sleep(2400);
+    explica(); await sleep(2400);
 
     setScenario('arbitraje');
     showToast('Paso 7 · Dos nodos transmiten a la vez. Antes de revelar nada: ¿esto te parece un error de bus?'); await sleep(2800);
     el('btnGhost').click(); showToast('Paso 8 · El nodo B transmitía recesivo justo donde el bus ya era dominante — perdió el arbitraje y se retiró sin generar ningún error.'); await sleep(3000);
-    document.querySelector('#dxWrap .b.dx[data-ok="1"]').click(); await sleep(2400);
+    explica(); await sleep(2400);
 
-    showToast('<span style="color:var(--good)">✔ Fin de la demostración: mismo tráfico intentado, cuatro resultados eléctricos distintos según el estado físico del bus.</span>');
+    showToast('<span style="color:var(--good)">✔ Fin de la demostración: mismo tráfico intentado, cuatro resultados eléctricos distintos según el estado físico del bus. Tu avance en los casos no cambió.</span>');
   } finally {
+    // El alumno se queda donde estaba: mismo caso y misma sonda; sus respuestas no se tocaron.
+    setScenario(previo.escenario);
+    if(energized!==previo.energizado) el('btnEnergize').click();
     btn.disabled=false; btn.classList.remove('on'); btn.textContent=label;
     autoRunning=false;
   }
@@ -801,6 +840,16 @@ async function runAuto(){
 el('btnAuto').onclick=runAuto;
 
 /* ---------- 17) INIT ---------- */
+window.__labDebug={
+  get mode(){ return scenarioKey; },
+  get solved(){ return Object.values(answered).every(Boolean); },
+  get intentos(){ return RETO.intentos; },
+  state(){ return {caso:scenarioKey,energizado:energized,answered:{...answered},intentos:RETO.intentos,
+    fallos:{...fallosCaso},resiembras:RETO.resiembras,resuelto:Object.values(answered).every(Boolean),autoRunning}; },
+  setScenario(k){ setScenario(k); },
+  conecta(){ if(!energized) el('btnEnergize').click(); },
+  opciones(){ return [...document.querySelectorAll('#dxWrap .b.dx')].map(b=>({t:b.textContent,ok:b.dataset.ok==='1'})); },
+};
 setScenario('sano');
 refreshProgress();
 S.start();
