@@ -1,526 +1,141 @@
 "use client";
 
-import React, { useRef, useMemo, Suspense } from 'react';
-import { Canvas, useFrame } from '@react-three/fiber';
-import {
-  OrbitControls,
-  PerspectiveCamera,
-  Stars,
-  Sparkles,
-  Html,
-  Float,
-} from '@react-three/drei';
-import { EffectComposer, Bloom, ChromaticAberration, Vignette } from '@react-three/postprocessing';
+/**
+ * Digestión enzimática en 3D: el BANCO (baño termostático a 37 °C con el tubo control y
+ * el tubo con enzima, medidor de pH, frasco de la enzima) y el APARATO DIGESTIVO con el
+ * corte de pared del órgano que el alumno elige.
+ *
+ * Qué se ve (y qué no):
+ *   · el indicador (Lugol / Biuret / fenolftaleína) muestra el sustrato que queda sin
+ *     digerir en el último ensayo; el control, sin enzima, no cambia; una enzima
+ *     desnaturalizada precipita; sin bilis la grasa forma una capa de aceite;
+ *   · el modelo anatómico NO marca dónde actúa la enzima ni dónde se absorbe: sólo señala
+ *     el órgano que PROPONE el alumno y el corte de pared muestra el que elige para la
+ *     absorción (vellosidades, pliegues, criptas…);
+ *   · los monómeros pasan a la sangre sólo cuando la práctica quedó validada.
+ */
+import React, { useEffect, useMemo, useRef } from 'react';
 import * as THREE from 'three';
+import { useFrame } from '@react-three/fiber';
+import { Line } from '@react-three/drei';
+import { LabCanvas, EncuadrarCaja, Etiqueta } from '../_kit';
+import { ENZIMAS_B9 } from '@/domain/biologia';
+import type { EnzimaB9, IncubacionB9, MacronutrienteB9, OrganoB9 } from '@/store/types';
+import { BanoTermostatico, GradillaDelBano, TuboMuestra, MedidorPH, SondaPH, FrascoEnzima, NOMBRE_INDICADOR } from './piezas';
+import { AparatoDigestivo, CortePared, Pin } from './anatomia';
 
-/* ────────────────────────────────────────────────────────────────────────────
-   SistemaDigestivo3DScene — Tracto digestivo 3D volumétrico y vivo.
-   El bolo se coloca en el órgano que el ALUMNO propone (organoRespuesta): la
-   escena no señala el órgano correcto. Se encoge según la hidrólisis medida en
-   el tubo de ensayo. Los monómeros solo pasan a la sangre desde el INTESTINO
-   DELGADO (vellosidades) y solo cuando la práctica quedó validada.
+const ETQ = { tamano: 0.34, fondo: '#ffffffec', color: '#10212b' } as const;
+const S_BANCO = 3.2;
+const POS_BANCO = new THREE.Vector3(-4.3, 0, 0.6);
+const POS_ANAT = new THREE.Vector3(4.5, 5.15, -0.5);
+const K_ANAT = 0.9;
+/** punto del modelo anatómico (coordenadas locales del aparato) en el mundo */
+const anat = (x: number, y: number, z = 0.6): [number, number, number] => [POS_ANAT.x + K_ANAT * x, POS_ANAT.y + K_ANAT * y, POS_ANAT.z + K_ANAT * z];
+const COLOR_MONOMERO: Record<MacronutrienteB9, string> = { almidon: '#22c55e', proteina: '#8b5cf6', lipido: '#fbbf24' };
+const NOMBRE_MONOMERO: Record<MacronutrienteB9, string> = { almidon: 'Glucosa', proteina: 'Aminoácidos', lipido: 'Ácidos grasos' };
 
-   Props:
-     macronutriente : 'almidon' | 'proteina' | 'lipido'
-     enzima         : enzima elegida o null
-     nivelPH        : pH del tubo (1..14)
-     hidrolisis     : 0..1 del último ensayo (0 si no hubo reacción)
-     reacciona      : el último ensayo hidrolizó algo
-     organoRespuesta: órgano propuesto por el alumno o null
-     absorbiendo    : práctica validada → liberar monómeros desde el delgado
-──────────────────────────────────────────────────────────────────────────── */
-
-const CA_OFFSET = new THREE.Vector2(0.0007, 0.0007);
-
-const NUTRIENTE_HEX: Record<string, string> = {
-  almidon: '#10b981',  // glucosa (verde)
-  proteina: '#8b5cf6', // aminoácido (violeta)
-  lipido: '#fbbf24',   // ácido graso (amarillo)
-};
-
-// Órganos del tracto: posición (nodo de la curva), radio del glow y etiqueta.
-type Organo = {
-  key: string;
-  label: string;
-  pos: THREE.Vector3;
-  color: string;
-  // Fracción del recorrido [tIni, tFin] donde este órgano está "en escena".
-  tIni: number;
-  tFin: number;
-};
-
-const ORGANOS: Organo[] = [
-  { key: 'boca',     label: 'Boca',              pos: new THREE.Vector3(-6.5, 5.2, 0),   color: '#f472b6', tIni: 0.00, tFin: 0.14 },
-  { key: 'esofago',  label: 'Esófago',           pos: new THREE.Vector3(-3.2, 2.4, 0),   color: '#fb7185', tIni: 0.14, tFin: 0.30 },
-  { key: 'estomago', label: 'Estómago',          pos: new THREE.Vector3(-2.4, -1.6, 0),  color: '#ef4444', tIni: 0.30, tFin: 0.55 },
-  { key: 'delgado',  label: 'Intestino Delgado', pos: new THREE.Vector3(1.8, -3.4, 0),   color: '#f59e0b', tIni: 0.55, tFin: 0.82 },
-  { key: 'grueso',   label: 'Intestino Grueso',  pos: new THREE.Vector3(5.6, -1.2, 0),   color: '#a16207', tIni: 0.82, tFin: 1.00 },
-];
-
-// Curva suave que atraviesa el tracto completo (Catmull-Rom por los órganos).
-function useTractCurve() {
-  return useMemo(() => {
-    const pts = [
-      new THREE.Vector3(-7.4, 6.2, 0.2),
-      ORGANOS[0].pos.clone(),
-      new THREE.Vector3(-4.8, 3.6, -0.3),
-      ORGANOS[1].pos.clone(),
-      new THREE.Vector3(-3.0, 0.4, 0.4),
-      ORGANOS[2].pos.clone(),
-      new THREE.Vector3(-0.6, -3.0, -0.3),
-      ORGANOS[3].pos.clone(),
-      new THREE.Vector3(3.6, -4.2, 0.4),
-      ORGANOS[4].pos.clone(),
-      new THREE.Vector3(6.4, 1.2, 0),
-    ];
-    return new THREE.CatmullRomCurve3(pts, false, 'catmullrom', 0.5);
-  }, []);
-}
-
-/* ── Tubo del tracto: la "carretera" translúcida por la que viaja el bolo. ───── */
-function TractTube({ curve }: { curve: THREE.CatmullRomCurve3 }) {
-  const geom = useMemo(
-    () => new THREE.TubeGeometry(curve, 240, 0.55, 20, false),
-    [curve],
-  );
-  return (
-    <mesh geometry={geom}>
-      <meshPhysicalMaterial
-        color="#fecaca"
-        transparent
-        opacity={0.14}
-        roughness={0.35}
-        metalness={0.05}
-        transmission={0.7}
-        thickness={1.2}
-        emissive="#fb7185"
-        emissiveIntensity={0.25}
-        side={THREE.DoubleSide}
-      />
-    </mesh>
-  );
-}
-
-/* ── Órgano: masa orgánica translúcida que se ilumina cuando está activa. ────── */
-function OrganMass({
-  organo,
-  active,
-  intensity,
-  compatible,
-}: {
-  organo: Organo;
-  active: boolean;
-  intensity: number;
-  compatible: boolean;
-}) {
-  const ref = useRef<THREE.Mesh>(null);
-  const glowRef = useRef<THREE.Mesh>(null);
-  const R = organo.key === 'estomago' ? 2.1 : organo.key.includes('intestino') || organo.key === 'delgado' || organo.key === 'grueso' ? 1.7 : 1.15;
-  const col = active && !compatible ? '#94a3b8' : organo.color;
-
-  useFrame((state) => {
-    const t = state.clock.getElapsedTime();
-    const pulse = 1 + Math.sin(t * 2.4 + organo.pos.x) * (active ? 0.06 : 0.02);
-    if (ref.current) ref.current.scale.setScalar(pulse);
-    if (glowRef.current) {
-      const g = (active ? 1.9 : 1.3) + Math.sin(t * 3 + organo.pos.y) * 0.12;
-      glowRef.current.scale.setScalar(g);
-    }
+/** Vena porta con partículas de monómeros que van del delgado al hígado (sólo tras validar). */
+function FlujoAbsorcion({ activo, color }: { activo: boolean; color: string }) {
+  const curva = useMemo(() => new THREE.CatmullRomCurve3([[0.2, -2.7, 0.35], [0.5, -1.7, 0.4], [0.2, -0.4, 0.4], [-0.45, 0.6, 0.38], [-0.9, 1.15, 0.3]].map((p) => new THREE.Vector3(p[0], p[1], p[2])), false, 'centripetal'), []);
+  const geoVena = useMemo(() => new THREE.TubeGeometry(curva, 60, 0.05, 8, false), [curva]);
+  useEffect(() => () => { geoVena.dispose(); }, [geoVena]);
+  const matVena = useMemo(() => new THREE.MeshStandardMaterial({ color: '#5b6fb8', roughness: 0.5 }), []);
+  const matP = useMemo(() => new THREE.MeshStandardMaterial({ color, emissive: color, emissiveIntensity: 0.35, roughness: 0.4 }), [color]);
+  useEffect(() => () => { matVena.dispose(); matP.dispose(); }, [matVena, matP]);
+  const bolas = useRef<(THREE.Mesh | null)[]>([]);
+  useFrame((s) => {
+    bolas.current.forEach((b, i) => {
+      if (!b) return;
+      b.visible = activo;
+      if (activo) { b.position.copy(curva.getPointAt((s.clock.elapsedTime * 0.18 + i / 8) % 1)); b.scale.setScalar(0.075); }
+    });
   });
-
-  const emissive = active ? 1.6 + intensity * 2.4 : 0.25;
-
+  const g = useMemo(() => new THREE.SphereGeometry(1, 10, 8), []);
+  useEffect(() => () => { g.dispose(); }, [g]);
   return (
-    <group position={organo.pos}>
-      <Float speed={1.4} rotationIntensity={0.15} floatIntensity={0.25}>
-        <mesh ref={ref}>
-          <sphereGeometry args={[R, 48, 48]} />
-          <meshPhysicalMaterial
-            color={col}
-            emissive={col}
-            emissiveIntensity={emissive}
-            roughness={0.3}
-            metalness={0.15}
-            transmission={0.35}
-            thickness={1.5}
-            transparent
-            opacity={active ? 0.82 : 0.5}
-          />
-        </mesh>
-      </Float>
-
-      {/* halo */}
-      <mesh ref={glowRef}>
-        <sphereGeometry args={[R, 24, 24]} />
-        <meshBasicMaterial
-          color={col}
-          transparent
-          opacity={active ? 0.16 : 0.05}
-          blending={THREE.AdditiveBlending}
-          depthWrite={false}
-        />
-      </mesh>
-
-      {/* siempre montada: montar/desmontar luces recompila shaders */}
-      <pointLight color={col} intensity={active ? 6 + intensity * 10 : 0} distance={12} />
-
-      {/* etiqueta del órgano */}
-      <Html center distanceFactor={16} position={[0, R + 0.9, 0]}>
-        <div
-          className="select-none pointer-events-none whitespace-nowrap px-3 py-1 rounded-full text-[11px] font-black uppercase tracking-widest"
-          style={{
-            color: '#fff',
-            background: active ? `${col}cc` : 'rgba(15,23,42,0.6)',
-            border: `1px solid ${active ? '#ffffff66' : '#ffffff22'}`,
-            boxShadow: active ? `0 0 20px ${col}` : 'none',
-            backdropFilter: 'blur(6px)',
-          }}
-        >
-          {organo.label}
-        </div>
-      </Html>
+    <group>
+      <mesh geometry={geoVena} material={matVena} />
+      {Array.from({ length: 8 }, (_, i) => <mesh key={i} ref={(el) => { bolas.current[i] = el; }} geometry={g} material={matP} visible={false} />)}
     </group>
   );
 }
 
-/* ── Bolo alimenticio: viaja por la curva; encoge al descomponerse. ─────────── */
-function Bolo({
-  curve,
-  progreso,
-  macroHex,
-  hidrolisis,
-  reacciona,
-}: {
-  curve: THREE.CatmullRomCurve3;
-  progreso: number;
-  macroHex: string;
-  hidrolisis: number;
-  reacciona: boolean;
-}) {
-  const ref = useRef<THREE.Group>(null);
-  const tRef = useRef(0);
-
-  useFrame((_, delta) => {
-    if (!ref.current) return;
-    // El bolo persigue la posición objetivo (progreso) suavemente.
-    const target = THREE.MathUtils.clamp(progreso, 0.02, 0.99);
-    tRef.current += (target - tRef.current) * Math.min(1, delta * 1.6);
-    const t = THREE.MathUtils.clamp(tRef.current, 0.001, 0.999);
-    const p = curve.getPointAt(t);
-    ref.current.position.copy(p);
-    ref.current.rotation.y += delta * 1.2;
-    ref.current.rotation.x += delta * 0.7;
-
-    // Se encoge según la fracción hidrolizada en el ensayo.
-    ref.current.scale.setScalar(THREE.MathUtils.lerp(0.85, 0.3, hidrolisis));
-  });
-
-  const col = macroHex;
-
-  return (
-    <group ref={ref}>
-      <mesh>
-        <icosahedronGeometry args={[0.55, 1]} />
-        <meshStandardMaterial
-          color={col}
-          emissive={col}
-          emissiveIntensity={reacciona ? 2.2 : 0.8}
-          roughness={0.4}
-          metalness={0.2}
-          flatShading
-        />
-      </mesh>
-      <pointLight color={col} intensity={4} distance={5} />
-    </group>
-  );
+export interface PropsDigestivo {
+  macronutriente: MacronutrienteB9;
+  enzima: EnzimaB9 | null;
+  nivelPH: number;
+  bilis: boolean;
+  ensayo: IncubacionB9 | null;
+  incubando: boolean;
+  organoRespuesta: OrganoB9 | null;
+  absorcionRespuesta: OrganoB9 | null;
+  absorbiendo: boolean;
 }
 
-/* ── Nutrientes liberados: monómeros que escapan del bolo cuando se digiere. ── */
-function NutrientRelease({
-  curve,
-  progreso,
-  macroHex,
-  active,
-}: {
-  curve: THREE.CatmullRomCurve3;
-  progreso: number;
-  macroHex: string;
-  active: boolean;
-}) {
-  const COUNT = 260;
-  const geomRef = useRef<THREE.BufferGeometry>(null);
-  const positions = useMemo(() => new Float32Array(COUNT * 3), []);
-  const seeds = useMemo(
-    () =>
-      Array.from({ length: COUNT }).map(() => ({
-        phase: Math.random(),
-        speed: 0.35 + Math.random() * 0.5,
-        spread: 0.4 + Math.random() * 1.6,
-        ang: Math.random() * Math.PI * 2,
-      })),
-    [],
+function Escena({ macronutriente, enzima, nivelPH, bilis, ensayo, incubando, organoRespuesta, absorcionRespuesta, absorbiendo }: PropsDigestivo) {
+  const agitando = useRef(false); agitando.current = incubando;
+  const nombreEnzima = enzima ? ENZIMAS_B9[enzima].nombre : 'sin elegir';
+  const hidrolisis = ensayo?.hidrolisis ?? 0;
+  const bilisTubo = ensayo ? ensayo.bilis : bilis;
+  const xe = 0.135, xc = -0.135;                     // posiciones de los tubos (local del banco)
+  const sondaTop = new THREE.Vector3(xe + 0.03, 2.1, -0.04);
+  const pins: Record<OrganoB9, [number, number]> = { boca: [0, 4.95], estomago: [0.9, 1.5], delgado: [0.0, -1.5], grueso: [-2.0, -1.0] };
+  const L = (txt: string, pos: [number, number, number], fin: [number, number, number], izq = false) => (
+    <>
+      <Etiqueta texto={txt} position={pos} ancla={[izq ? 1 : 0, 0.5]} {...ETQ} />
+      <Line points={[[pos[0] + (izq ? 0.04 : -0.04), pos[1], pos[2] - 0.05], fin]} color="#334155" lineWidth={1.2} />
+    </>
   );
-
-  useFrame((state) => {
-    if (!geomRef.current) return;
-    const emit = THREE.MathUtils.clamp(progreso, 0.02, 0.99);
-    const origin = curve.getPointAt(emit);
-    const time = state.clock.getElapsedTime();
-
-    for (let i = 0; i < COUNT; i++) {
-      const s = seeds[i];
-      const life = (time * s.speed + s.phase) % 1; // 0..1
-      const grow = life * s.spread;
-      const ix = i * 3;
-      // Los monómeros brotan del bolo y descienden hacia la sangre.
-      positions[ix] = origin.x + Math.cos(s.ang) * grow;
-      positions[ix + 1] = origin.y - life * 3.2 + Math.sin(s.ang) * grow * 0.4;
-      positions[ix + 2] = origin.z + Math.sin(s.ang) * grow;
-    }
-    geomRef.current.attributes.position.needsUpdate = true;
-  });
-
-  if (!active) return null;
-
-  return (
-    <points>
-      <bufferGeometry ref={geomRef}>
-        <bufferAttribute attach="attributes-position" args={[positions, 3]} count={COUNT} />
-      </bufferGeometry>
-      <pointsMaterial
-        color={macroHex}
-        size={0.18}
-        transparent
-        opacity={0.95}
-        depthWrite={false}
-        blending={THREE.AdditiveBlending}
-        sizeAttenuation
-        toneMapped={false}
-      />
-    </points>
-  );
-}
-
-/* ── Enzimas: orbitan el bolo actuando (cortando el polímero). ──────────────── */
-function EnzymeSwarm({
-  curve,
-  progreso,
-  compatible,
-  active,
-}: {
-  curve: THREE.CatmullRomCurve3;
-  progreso: number;
-  compatible: boolean;
-  active: boolean;
-}) {
-  const groupRef = useRef<THREE.Group>(null);
-  const N = 7;
-  const seeds = useMemo(
-    () =>
-      Array.from({ length: N }).map((_, i) => ({
-        ang: (i / N) * Math.PI * 2,
-        r: 1.1 + Math.random() * 0.6,
-        speed: 0.8 + Math.random() * 0.8,
-        yoff: Math.random() * Math.PI * 2,
-      })),
-    [],
-  );
-  const meshes = useRef<(THREE.Mesh | null)[]>([]);
-
-  useFrame((state) => {
-    if (!active) return;
-    const emit = THREE.MathUtils.clamp(progreso, 0.02, 0.99);
-    const origin = curve.getPointAt(emit);
-    const t = state.clock.getElapsedTime();
-    for (let i = 0; i < N; i++) {
-      const m = meshes.current[i];
-      if (!m) continue;
-      const s = seeds[i];
-      const a = s.ang + t * s.speed;
-      m.position.set(
-        origin.x + Math.cos(a) * s.r,
-        origin.y + Math.sin(t * 1.5 + s.yoff) * 0.5,
-        origin.z + Math.sin(a) * s.r,
-      );
-      m.rotation.y = a * 2;
-    }
-  });
-
-  if (!active) return null;
-  const col = compatible ? '#219ebc' : '#64748b';
-
-  return (
-    <group ref={groupRef}>
-      {seeds.map((_, i) => (
-        <mesh key={i} ref={(el) => { meshes.current[i] = el; }}>
-          <tetrahedronGeometry args={[0.22, 0]} />
-          <meshStandardMaterial
-            color={col}
-            emissive={col}
-            emissiveIntensity={compatible ? 2.4 : 0.6}
-            roughness={0.3}
-            metalness={0.4}
-          />
-        </mesh>
-      ))}
-    </group>
-  );
-}
-
-/* ── Torrente sanguíneo: partículas que fluyen bajo el intestino (absorción). ─ */
-function BloodStream({ intensity }: { intensity: number }) {
-  const COUNT = 120;
-  const geomRef = useRef<THREE.BufferGeometry>(null);
-  const positions = useMemo(() => new Float32Array(COUNT * 3), []);
-  const seeds = useMemo(
-    () =>
-      Array.from({ length: COUNT }).map(() => ({
-        x: Math.random() * 16 - 8,
-        y: -6 - Math.random() * 1.6,
-        z: Math.random() * 4 - 2,
-        speed: 1.5 + Math.random() * 2,
-      })),
-    [],
-  );
-
-  useFrame((_, delta) => {
-    if (!geomRef.current) return;
-    for (let i = 0; i < COUNT; i++) {
-      const s = seeds[i];
-      s.x += s.speed * delta * (0.4 + intensity);
-      if (s.x > 9) s.x = -9;
-      const ix = i * 3;
-      positions[ix] = s.x;
-      positions[ix + 1] = s.y;
-      positions[ix + 2] = s.z;
-    }
-    geomRef.current.attributes.position.needsUpdate = true;
-  });
-
-  return (
-    <points>
-      <bufferGeometry ref={geomRef}>
-        <bufferAttribute attach="attributes-position" args={[positions, 3]} count={COUNT} />
-      </bufferGeometry>
-      <pointsMaterial
-        color="#f87171"
-        size={0.22}
-        transparent
-        opacity={0.7}
-        depthWrite={false}
-        blending={THREE.AdditiveBlending}
-        sizeAttenuation
-        toneMapped={false}
-      />
-    </points>
-  );
-}
-
-/* ── Escena ─────────────────────────────────────────────────────────────────── */
-const tMedio = (key: string) => {
-  const o = ORGANOS.find((x) => x.key === key);
-  return o ? (o.tIni + o.tFin) / 2 : 0.05;
-};
-
-function Scene({ macronutriente, enzima, nivelPH, hidrolisis, reacciona, organoRespuesta, absorbiendo }: SceneProps) {
-  const curve = useTractCurve();
-  const macroHex = NUTRIENTE_HEX[macronutriente] || '#10b981';
-
-  const boloT = organoRespuesta ? tMedio(organoRespuesta) : 0.05;
-  const organoActivoIdx = organoRespuesta ? ORGANOS.findIndex((o) => o.key === organoRespuesta) : -1;
-  const compatible = reacciona;
-  const intensity = THREE.MathUtils.clamp(hidrolisis, 0.1, 1);
-  const tDelgado = tMedio('delgado');
-
   return (
     <>
-      <PerspectiveCamera makeDefault position={[0, 0, 20]} fov={48} />
-      <color attach="background" args={['#05030a']} />
-      <fog attach="fog" args={['#05030a', 24, 52]} />
-
-      <ambientLight intensity={0.35} />
-      <hemisphereLight args={['#3b0d16', '#020617', 0.4]} />
-      <directionalLight position={[8, 10, 12]} intensity={0.8} color="#fecaca" />
-
-      <TractTube curve={curve} />
-
-      {ORGANOS.map((o, i) => (
-        <OrganMass
-          key={o.key}
-          organo={o}
-          active={i === organoActivoIdx}
-          intensity={intensity}
-          compatible={compatible}
-        />
-      ))}
-
-      {/* Bolo viajando */}
-      <Bolo curve={curve} progreso={boloT} macroHex={macroHex} hidrolisis={hidrolisis} reacciona={reacciona} />
-
-      {/* Monómeros: solo se absorben en el intestino delgado */}
-      <NutrientRelease curve={curve} progreso={tDelgado} macroHex={macroHex} active={absorbiendo} />
-      <EnzymeSwarm curve={curve} progreso={boloT} compatible={compatible} active={enzima !== null && organoRespuesta !== null} />
-
-      {/* Torrente sanguíneo bajo el intestino */}
-      <BloodStream intensity={absorbiendo ? 1 : 0.05} />
-
-      {/* Indicador de pH flotante */}
-      <Html position={[0, 8, 0]} center distanceFactor={20}>
-        <div
-          className="select-none pointer-events-none px-4 py-1.5 rounded-full text-[11px] font-black uppercase tracking-[0.2em]"
-          style={{
-            color: '#fff',
-            background:
-              nivelPH < 6 ? 'rgba(244,63,94,0.4)' : nivelPH > 8 ? 'rgba(6,182,212,0.4)' : 'rgba(16,185,129,0.4)',
-            border: '1px solid #ffffff33',
-            backdropFilter: 'blur(6px)',
-          }}
-        >
-          pH {nivelPH.toFixed(1)}
-        </div>
-      </Html>
-
-      <Sparkles count={70} scale={[24, 16, 16]} size={2} speed={0.3} color="#fecaca" opacity={0.4} />
-      <Stars radius={90} depth={45} count={3000} factor={4} saturation={0} fade speed={0.6} />
-
-      <OrbitControls
-        enablePan={false}
-        enableZoom
-        minDistance={12}
-        maxDistance={34}
-        autoRotate={false}
-        autoRotateSpeed={0.45}
-        minPolarAngle={Math.PI / 6}
-        maxPolarAngle={Math.PI / 1.7}
-      />
-
-      <EffectComposer multisampling={8}>
-        <Bloom luminanceThreshold={0.18} mipmapBlur intensity={1.7} radius={0.7} />
-        <ChromaticAberration offset={CA_OFFSET} radialModulation={false} modulationOffset={0} />
-        <Vignette offset={0.2} darkness={1.05} />
-      </EffectComposer>
+      <EncuadrarCaja caja={[[-8.8, 0, -1.5], [10.9, 12.6, 4.8]]} direccion={[0, 0.12, 1]} margen={1.0} />
+      {/* ───── banco ───── */}
+      <group position={POS_BANCO.toArray()} scale={S_BANCO}>
+        <BanoTermostatico agitando={agitando}>
+          <GradillaDelBano>
+            <TuboMuestra position={[xc, 0.04, 0]} macro={macronutriente} hidrolisis={0} bilis={bilis} />
+            <TuboMuestra position={[xe, 0.04, 0]} macro={macronutriente} hidrolisis={hidrolisis} bilis={bilisTubo} desnaturalizada={ensayo?.resultado === 'desnaturalizada'} agitando={agitando} />
+            <SondaPH position={[xe + 0.03, 0.12, -0.04]} />
+          </GradillaDelBano>
+        </BanoTermostatico>
+        <MedidorPH ph={nivelPH} position={[1.0, 0, 1.0]} rotation={[0, -0.3, 0]} scale={0.8} sonda={[(sondaTop.x - 1.0 + 0.2) / 0.8, sondaTop.y / 0.8, (sondaTop.z - 1.0) / 0.8]} />
+        <FrascoEnzima nombre={nombreEnzima} position={[-1.0, 0, 1.0]} />
+      </group>
+      {L('Control (sin enzima)', [-4.5, 6.85, 2.0], [-4.72, 6.3, 1.9], true)}
+      {L('Tubo con enzima', [-3.9, 6.85, 2.0], [-3.9, 6.3, 1.9])}
+      <Etiqueta texto={`Indicador: ${NOMBRE_INDICADOR[macronutriente]}`} position={[-4.3, 0.45, 4.9]} {...ETQ} />
+      <Etiqueta texto={`Enzima: ${nombreEnzima}`} position={[-7.3, 0.45, 4.9]} tamano={0.28} fondo="#ffffffec" color="#10212b" />
+      {/* ───── corte de la pared del órgano elegido ───── */}
+      <CortePared position={[-4.3, 9.85, 0]} organo={absorcionRespuesta} macro={macronutriente} absorbiendo={absorbiendo} />
+      {/* ───── aparato digestivo ───── */}
+      <group position={POS_ANAT.toArray()} scale={K_ANAT}>
+        <AparatoDigestivo seleccion={organoRespuesta} />
+        <FlujoAbsorcion activo={absorbiendo} color={COLOR_MONOMERO[macronutriente]} />
+        {organoRespuesta && <Pin position={[pins[organoRespuesta][0], pins[organoRespuesta][1], 0.5]} />}
+      </group>
+      {organoRespuesta && <Etiqueta texto="tu respuesta" position={[anat(pins[organoRespuesta][0], 0)[0], anat(0, pins[organoRespuesta][1] + 0.95)[1], 1.2]} tamano={0.26} fondo="#f59e0b" color="#2b1a00" />}
+      {absorbiendo && <Etiqueta texto={`${NOMBRE_MONOMERO[macronutriente]} → sangre`} position={[anat(1.2, 0)[0], anat(0, -0.3)[1], 1.2]} ancla={[0, 0.5]} tamano={0.28} fondo="#ffffffec" />}
+      {L('Boca', [anat(2.6, 0)[0], anat(0, 4.3)[1], 1.2], anat(1.0, 4.2), false)}
+      {L('Glándula salival', [anat(-2.3, 0)[0], anat(0, 3.4)[1], 1.2], anat(-1.55, 3.85), true)}
+      {L('Hígado', [anat(-2.5, 0)[0], anat(0, 1.9)[1], 1.2], anat(-1.7, 1.5), true)}
+      {L('Vesícula biliar', [anat(-2.5, 0)[0], anat(0, 0.5)[1], 1.2], anat(-0.75, 0.62), true)}
+      {L('Estómago', [anat(2.6, 0)[0], anat(0, 1.3)[1], 1.2], anat(1.2, 1.0), false)}
+      {L('Páncreas', [anat(2.6, 0)[0], anat(0, -0.5)[1], 1.2], anat(1.6, -0.8), false)}
+      {L('Intestino delgado', [anat(2.9, 0)[0], anat(0, -2.6)[1], 1.2], anat(1.3, -2.7), false)}
+      {L('Intestino grueso', [anat(2.9, 0)[0], anat(0, -3.8)[1], 1.2], anat(2.05, -3.5), false)}
     </>
   );
 }
 
-interface SceneProps {
-  macronutriente: string;
-  enzima: string | null;
-  nivelPH: number;
-  hidrolisis: number;
-  reacciona: boolean;
-  organoRespuesta: string | null;
-  absorbiendo: boolean;
-}
-
-export default function SistemaDigestivo3DScene(props: SceneProps) {
+export default function SistemaDigestivo3DScene(props: PropsDigestivo) {
   return (
-    <div className="w-full h-full">
-      <Canvas shadows dpr={[1, 2]} gl={{ antialias: true }}>
-        <Suspense fallback={null}>
-          <Scene {...props} />
-        </Suspense>
-      </Canvas>
-    </div>
+    <LabCanvas
+      fondo="laboratorio"
+      mesa={{ ancho: 26, fondo: 11 }}
+      camara={{ posicion: [0.6, 6.5, 26], objetivo: [0.6, 5.5, 0], fov: 35 }}
+      controles={{ minDistancia: 6, maxDistancia: 42, maxPolar: 1.5, paneo: true, cajaObjetivo: [[-7, 1, -2], [8, 10, 4]] }}
+    >
+      <Escena {...props} />
+    </LabCanvas>
   );
 }

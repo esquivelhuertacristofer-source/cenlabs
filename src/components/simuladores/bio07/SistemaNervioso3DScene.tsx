@@ -1,455 +1,132 @@
 "use client";
 
-import React, { useRef, useMemo, Suspense } from 'react';
-import { Canvas, useFrame } from '@react-three/fiber';
-import {
-  OrbitControls,
-  PerspectiveCamera,
-  Stars,
-  Sparkles,
-  Html,
-} from '@react-three/drei';
-import { EffectComposer, Bloom, ChromaticAberration, Vignette } from '@react-three/postprocessing';
+/**
+ * Reflejo rotuliano en 3D (consulta): martillo de reflejos → tendón rotuliano → huso
+ * neuromuscular → neurona sensitiva → médula L3–L4 (sinapsis monosináptica con la
+ * motoneurona α) → axón motor → placa motora del cuádriceps → patada, con el EMG en el
+ * monitor. El impulso recorre cada tramo en la duración EXACTA de la fase que anima el
+ * Piloto (latencia medida en cámara lenta). La mielina del paciente NO se dibuja.
+ *
+ * Props: { fase: {estado, inicio, duracion}, fuerzaGolpe, ultimo: ensayo más reciente }.
+ */
+import React, { useRef } from 'react';
 import * as THREE from 'three';
+import { useFrame } from '@react-three/fiber';
+import { Line } from '@react-three/drei';
+import { LabCanvas, EncuadrarCaja, Etiqueta } from '../_kit';
+import { RETARDO_SINAPSIS_B7, RETARDO_PLACA_B7 } from '@/domain/biologia';
+import {
+  Consultorio, Pierna, SoporteYMartillo, MedulaAmpliada, Nervio, MonitorEMG, enMedula,
+  RUTA_SENSITIVA, RUTA_MOTORA, ANG_GOLPE, type EstadoEMG,
+} from './piezas';
 
-/* ────────────────────────────────────────────────────────────────────────────
-   SistemaNervioso3DScene — Neurona cinemática con potencial de acción vivo.
-   Biología real: el impulso viaja por el axón mielinizado saltando de nodo a
-   nodo de Ranvier (conducción saltatoria). En la terminal se liberan vesículas
-   de neurotransmisores que cruzan la hendidura sináptica hacia la neurona
-   receptora. El pulso recorre cada tramo en la duración EXACTA de la fase que
-   anima el Piloto (latencia medida en cámara lenta). La mielina se dibuja con un
-   espesor fijo: la del paciente es lo que el alumno debe diagnosticar.
-   Props: { fase: {estado, inicio, duracion}, fuerzaGolpe, status }.
-──────────────────────────────────────────────────────────────────────────── */
-
-export type Estado =
-  | 'reposo'
-  | 'golpe'
-  | 'viajando_sensorial'
-  | 'sinapsis'
-  | 'viajando_motor'
-  | 'contraccion';
-
-const CYAN = new THREE.Color('#22d3ee');   // impulso eléctrico
-const MAGENTA = new THREE.Color('#e879f9'); // neurotransmisores
-
-// Geometría del axón: recorre de -8 a +7 en X. La sinapsis vive cerca de +8.
-const AXON_START = -8;
-const AXON_END = 7;
-const AXON_LEN = AXON_END - AXON_START;
-const N_MYELIN = 9;                 // segmentos de mielina
-const SYNAPSE_X = 8.2;             // botón sináptico
-const RECEPTOR_X = 10.4;           // neurona receptora
-const CLEFT_A = 8.6;              // inicio de la hendidura
-const CLEFT_B = 9.9;             // fin de la hendidura
-
+export type Estado = 'reposo' | 'golpe' | 'viajando_sensorial' | 'sinapsis' | 'viajando_motor' | 'contraccion';
 /** Fase del arco que anima el Piloto: `inicio` en performance.now(), `duracion` en ms. */
 export interface FaseReflejo { estado: Estado; inicio: number; duracion: number }
+export interface EnsayoVisto { respuesta: boolean; latencia: number | null }
 
-const CA_OFFSET = new THREE.Vector2(0.0007, 0.0007);
-const EJE_Y = new THREE.Vector3(0, 1, 0);
-// Eferente: axón de la motoneurona α que sale de la neurona receptora hacia el cuádriceps.
-const MOTOR_START = RECEPTOR_X + 1.8;
-const MOTOR_END = RECEPTOR_X + 6;
+/** 1 ms fisiológico se muestra como 60 ms en pantalla (misma constante que el Piloto). */
+const CAMARA_LENTA = 60;
+const DUR_CONTRACCION_MS = 700;
+const ETQ = { tamano: 0.3, fondo: '#ffffffec', color: '#10212b' } as const;
+const suave = (x: number) => { const t = Math.min(1, Math.max(0, x)); return t * t * (3 - 2 * t); };
 
-// Un impulso está activo cuando viaja por un axón.
-function pulseActive(estado: Estado) {
-  return estado === 'viajando_sensorial' || estado === 'viajando_motor';
-}
-function synapseActive(estado: Estado) {
-  return estado === 'sinapsis';
-}
+interface Props { fase: FaseReflejo; fuerzaGolpe: number; status?: string; ultimo: EnsayoVisto | null }
 
-/* ── Soma (cuerpo neuronal) con dendritas ramificadas ─────────────────────── */
-function Soma({ intensity }: { intensity: number }) {
-  const ref = useRef<THREE.Mesh>(null);
-  const glowRef = useRef<THREE.Mesh>(null);
+function Escena({ fase, fuerzaGolpe, ultimo }: Props) {
+  const faseRef = useRef(fase); faseRef.current = fase;
+  const fuerzaRef = useRef(fuerzaGolpe); fuerzaRef.current = fuerzaGolpe;
+  const ultimoRef = useRef(ultimo); ultimoRef.current = ultimo;
+  const avSens = useRef(0), avMot = useRef(0), vesic = useRef(0), exc = useRef(0);
+  const pierna = useRef({ patada: 0, contraccion: 0 });
+  const angMartillo = useRef(ANG_GOLPE + 0.6);
+  const finGolpe = useRef<number | null>(null);
+  const eraGolpe = useRef(false);
 
-  const dendrites = useMemo(() => {
-    const arr: { dir: THREE.Vector3; len: number; quat: THREE.Quaternion; mid: THREE.Vector3; childQuat: THREE.Quaternion; childBase: THREE.Vector3 }[] = [];
-    for (let i = 0; i < 7; i++) {
-      const a = (i / 7) * Math.PI * 2 + 0.4;
-      const el = (Math.random() - 0.5) * 1.4;
-      const dir = new THREE.Vector3(
-        -Math.abs(Math.cos(a)) - 0.4,   // apuntan hacia -X (lejos del axón)
-        Math.sin(a) * 1.1 + el * 0.3,
-        Math.cos(a * 1.7) * 1.1,
-      ).normalize();
-      const len = 1.8 + Math.random() * 1.6;
-      const childDir = dir.clone().add(new THREE.Vector3(0, 0.6, 0.4)).normalize();
-      arr.push({
-        dir, len,
-        quat: new THREE.Quaternion().setFromUnitVectors(EJE_Y, dir),
-        mid: dir.clone().multiplyScalar(1.7 + len / 2),
-        childQuat: new THREE.Quaternion().setFromUnitVectors(EJE_Y, childDir),
-        childBase: dir.clone().multiplyScalar(1.7 + len * 0.65),
-      });
+  useFrame(() => {
+    const f = faseRef.current;
+    const ahora = performance.now();
+    const p = f.duracion > 0 ? Math.min(1, Math.max(0, (ahora - f.inicio) / f.duracion)) : 0;
+    const reposoAng = ANG_GOLPE + 0.35 + 0.0075 * fuerzaRef.current;
+    avSens.current = f.estado === 'viajando_sensorial' ? p : 0;
+    avMot.current = f.estado === 'viajando_motor' ? p : 0;
+    vesic.current = f.estado === 'sinapsis' ? p : 0;
+    exc.current = f.estado === 'sinapsis' ? p : f.estado === 'viajando_motor' ? 1 - p : 0;
+    // martillo: sube hasta el ángulo de la fuerza, cae sobre el tendón y rebota
+    if (f.estado === 'golpe') {
+      angMartillo.current = reposoAng + (ANG_GOLPE - reposoAng) * p * p;
+      eraGolpe.current = true; finGolpe.current = null;
+    } else {
+      if (eraGolpe.current) { finGolpe.current = ahora; eraGolpe.current = false; }
+      if (finGolpe.current !== null) {
+        const q = (ahora - finGolpe.current) / 650;
+        if (q >= 1) { finGolpe.current = null; angMartillo.current = reposoAng; }
+        else angMartillo.current = ANG_GOLPE + (reposoAng - ANG_GOLPE) * suave(q) + Math.sin(q * Math.PI * 2.4) * 0.07 * (1 - q);
+      } else angMartillo.current += (reposoAng - angMartillo.current) * 0.2;
     }
-    return arr;
-  }, []);
-
-  useFrame((state) => {
-    const t = state.clock.getElapsedTime();
-    const pulse = 1 + Math.sin(t * 2.2) * 0.05;
-    if (ref.current) ref.current.scale.setScalar(pulse);
-    if (glowRef.current) glowRef.current.scale.setScalar(1.5 + Math.sin(t * 1.7) * 0.12);
+    // patada: sube rápido y vuelve despacio; amplitud según la fuerza del golpe
+    if (f.estado === 'contraccion') {
+      const k = p < 0.3 ? suave(p / 0.3) : 1 - suave((p - 0.3) / 0.7);
+      pierna.current.patada = (0.25 + 0.004 * fuerzaRef.current) * k + Math.sin(p * Math.PI * 3.5) * 0.02 * (1 - p);
+      pierna.current.contraccion = k;
+    } else { pierna.current.patada = 0; pierna.current.contraccion = 0; }
   });
 
-  return (
-    <group position={[AXON_START - 0.6, 0, 0]}>
-      <mesh ref={ref}>
-        <sphereGeometry args={[2, 48, 48]} />
-        <meshStandardMaterial
-          color="#0e7490"
-          emissive={CYAN}
-          emissiveIntensity={0.6 + intensity * 1.4}
-          roughness={0.35}
-          metalness={0.3}
-        />
-      </mesh>
-      <mesh ref={glowRef}>
-        <sphereGeometry args={[2, 24, 24]} />
-        <meshBasicMaterial color={CYAN} transparent opacity={0.1} blending={THREE.AdditiveBlending} depthWrite={false} />
-      </mesh>
-      {/* núcleo */}
-      <mesh position={[0.2, 0.2, 0.4]}>
-        <sphereGeometry args={[0.8, 32, 32]} />
-        <meshStandardMaterial color="#155e75" emissive={CYAN} emissiveIntensity={1.4} roughness={0.2} />
-      </mesh>
-      <pointLight color={CYAN} intensity={6 + intensity * 8} distance={16} />
+  /** estado del monitor: instante del barrido (ms desde el golpe) según la fase. */
+  const leerEMG = (): EstadoEMG => {
+    const u = ultimoRef.current, f = faseRef.current;
+    if (!u) return { latencia: null, hayEnsayo: false, barrido: Infinity };
+    const L = u.latencia;
+    if (f.estado === 'reposo') return { latencia: L, hayEnsayo: true, barrido: Infinity };
+    if (f.estado === 'golpe' || L === null) return { latencia: L, hayEnsayo: true, barrido: f.estado === 'golpe' ? 0 : Infinity };
+    const p = f.duracion > 0 ? Math.min(1, Math.max(0, (performance.now() - f.inicio) / f.duracion)) : 0;
+    const c = L - RETARDO_SINAPSIS_B7 - RETARDO_PLACA_B7;
+    let t0 = 0, span = 0;
+    if (f.estado === 'viajando_sensorial') { t0 = 0; span = c / 2; }
+    else if (f.estado === 'sinapsis') { t0 = c / 2; span = RETARDO_SINAPSIS_B7; }
+    else if (f.estado === 'viajando_motor') { t0 = c / 2 + RETARDO_SINAPSIS_B7; span = c / 2 + RETARDO_PLACA_B7; }
+    else { t0 = L; span = DUR_CONTRACCION_MS / CAMARA_LENTA; }
+    return { latencia: L, hayEnsayo: true, barrido: t0 + span * p };
+  };
 
-      {/* dendritas ramificadas */}
-      {dendrites.map(({ len, quat, mid, childQuat, childBase }, i) => {
-        return (
-          <group key={i}>
-            <group position={[mid.x, mid.y, mid.z]} quaternion={quat}>
-              <mesh>
-                <cylinderGeometry args={[0.07, 0.18, len, 10]} />
-                <meshStandardMaterial color="#0e7490" emissive={CYAN} emissiveIntensity={0.5 + intensity} roughness={0.4} />
-              </mesh>
-            </group>
-            <group position={[childBase.x, childBase.y, childBase.z]} quaternion={childQuat}>
-              <mesh position={[0, 0.6, 0]}>
-                <cylinderGeometry args={[0.03, 0.09, 1.2, 8]} />
-                <meshStandardMaterial color="#0e7490" emissive={CYAN} emissiveIntensity={0.5 + intensity} roughness={0.4} />
-              </mesh>
-            </group>
-          </group>
-        );
-      })}
-    </group>
-  );
-}
-
-/* ── Axón con vainas de mielina segmentadas y nodos de Ranvier ────────────── */
-function Axon({ integridad }: { integridad: number }) {
-  const gap = AXON_LEN / N_MYELIN;
-  const sheathLen = gap * (0.55 + integridad * 0.35); // mielina más gruesa = mejor aislamiento
-  const nodesRef = useRef<THREE.Group>(null);
-
-  useFrame((state) => {
-    // sutil latido en los nodos de Ranvier
-    if (!nodesRef.current) return;
-    const t = state.clock.getElapsedTime();
-    nodesRef.current.children.forEach((c, i) => {
-      const s = 1 + Math.sin(t * 4 + i) * 0.08;
-      c.scale.setScalar(s);
-    });
-  });
-
-  return (
-    <group>
-      {/* núcleo del axón (fibra desnuda) */}
-      <mesh rotation={[0, 0, Math.PI / 2]} position={[(AXON_START + AXON_END) / 2, 0, 0]}>
-        <cylinderGeometry args={[0.18, 0.18, AXON_LEN + 1, 16]} />
-        <meshStandardMaterial color="#0369a1" emissive={CYAN} emissiveIntensity={0.4} roughness={0.5} />
-      </mesh>
-
-      {/* vainas de mielina */}
-      {Array.from({ length: N_MYELIN }).map((_, i) => {
-        const cx = AXON_START + gap * (i + 0.5);
-        return (
-          <mesh key={i} rotation={[0, 0, Math.PI / 2]} position={[cx, 0, 0]}>
-            <capsuleGeometry args={[0.42, sheathLen, 8, 20]} />
-            <meshStandardMaterial
-              color="#f8fafc"
-              emissive="#a5f3fc"
-              emissiveIntensity={0.25 + integridad * 0.5}
-              roughness={0.3}
-              metalness={0.15}
-            />
-          </mesh>
-        );
-      })}
-
-      {/* nodos de Ranvier (huecos entre vainas) */}
-      <group ref={nodesRef}>
-        {Array.from({ length: N_MYELIN - 1 }).map((_, i) => {
-          const cx = AXON_START + gap * (i + 1);
-          return (
-            <mesh key={i} position={[cx, 0, 0]}>
-              <sphereGeometry args={[0.24, 16, 16]} />
-              <meshStandardMaterial color="#0e7490" emissive={CYAN} emissiveIntensity={1.2} roughness={0.3} />
-            </mesh>
-          );
-        })}
-      </group>
-    </group>
-  );
-}
-
-/* ── Potencial de acción: anillo luminoso que salta de nodo a nodo ────────── */
-function ActionPotential({ fase, intensity }: {
-  fase: FaseReflejo; intensity: number;
-}) {
-  const ringRef = useRef<THREE.Mesh>(null);
-  const coreRef = useRef<THREE.Mesh>(null);
-  const lightRef = useRef<THREE.PointLight>(null);
-  const active = pulseActive(fase.estado);
-  const motor = fase.estado === 'viajando_motor';
-
-  useFrame((state) => {
-    const ring = ringRef.current;
-    const core = coreRef.current;
-    if (!ring || !core) return;
-    if (!active) { ring.visible = false; core.visible = false; if (lightRef.current) lightRef.current.intensity = 0; return; }
-    ring.visible = true; core.visible = true;
-
-    // Progreso 0..1 de la fase (una sola pasada) con "saltos" hacia los nodos (conducción saltatoria).
-    const raw = THREE.MathUtils.clamp((performance.now() - fase.inicio) / Math.max(1, fase.duracion), 0, 0.999);
-    const jumps = N_MYELIN;
-    const stepped = Math.floor(raw * jumps) / jumps;
-    const eased = stepped + (raw * jumps - Math.floor(raw * jumps)) ** 4 / jumps; // aterriza rápido en cada nodo
-    const x = motor ? MOTOR_START + eased * (MOTOR_END - MOTOR_START) : AXON_START + eased * AXON_LEN;
-
-    ring.position.x = x; core.position.x = x;
-    const flick = 0.85 + Math.sin(state.clock.getElapsedTime() * 40) * 0.15;
-    const scl = (0.7 + intensity * 0.6) * flick;
-    ring.scale.setScalar(scl);
-    core.scale.setScalar(scl);
-    if (lightRef.current) {
-      lightRef.current.position.x = x;
-      lightRef.current.intensity = (12 + intensity * 25) * flick;
-    }
-  });
-
-  return (
-    <group>
-      <mesh ref={ringRef} rotation={[0, 0, Math.PI / 2]}>
-        <torusGeometry args={[0.7, 0.16, 16, 40]} />
-        <meshBasicMaterial color={CYAN} transparent opacity={0.95} blending={THREE.AdditiveBlending} toneMapped={false} />
-      </mesh>
-      <mesh ref={coreRef}>
-        <sphereGeometry args={[0.32, 20, 20]} />
-        <meshBasicMaterial color="#ffffff" toneMapped={false} />
-      </mesh>
-      <pointLight ref={lightRef} color={CYAN} distance={12} />
-    </group>
-  );
-}
-
-/* ── Botón sináptico terminal ─────────────────────────────────────────────── */
-function SynapticBouton({ active }: { active: boolean }) {
-  const ref = useRef<THREE.Mesh>(null);
-  useFrame((state) => {
-    if (!ref.current) return;
-    const t = state.clock.getElapsedTime();
-    ref.current.scale.setScalar(active ? 1 + Math.sin(t * 8) * 0.08 : 1);
-  });
-  return (
-    <group position={[SYNAPSE_X, 0, 0]}>
-      <mesh ref={ref}>
-        <sphereGeometry args={[1.1, 40, 40]} />
-        <meshStandardMaterial
-          color="#0e7490"
-          emissive={CYAN}
-          emissiveIntensity={active ? 2.4 : 0.7}
-          roughness={0.3}
-          metalness={0.3}
-        />
-      </mesh>
-      {/* siempre montada: montar/desmontar luces recompila los shaders */}
-      <pointLight color={MAGENTA} intensity={active ? 18 : 0} distance={10} />
-    </group>
-  );
-}
-
-/* ── Neurona receptora (postsináptica) ────────────────────────────────────── */
-function Receptor({ estado }: { estado: Estado }) {
-  const ref = useRef<THREE.Mesh>(null);
-  const excited = estado === 'sinapsis' || estado === 'viajando_motor' || estado === 'contraccion';
-  useFrame((state) => {
-    if (!ref.current) return;
-    const t = state.clock.getElapsedTime();
-    ref.current.scale.setScalar(excited ? 1 + Math.sin(t * 5) * 0.06 : 1);
-  });
-  return (
-    <group position={[RECEPTOR_X, 0, 0]}>
-      <mesh ref={ref}>
-        <sphereGeometry args={[1.8, 40, 40]} />
-        <meshStandardMaterial
-          color="#701a75"
-          emissive={MAGENTA}
-          emissiveIntensity={excited ? 1.8 : 0.4}
-          roughness={0.4}
-          metalness={0.25}
-        />
-      </mesh>
-      {/* axón eferente de la motoneurona α (hacia el cuádriceps) */}
-      <mesh position={[(MOTOR_END - MOTOR_START) / 2 + 1.8, 0, 0]} rotation={[0, 0, Math.PI / 2]}>
-        <cylinderGeometry args={[0.12, 0.3, MOTOR_END - MOTOR_START, 12]} />
-        <meshStandardMaterial color="#701a75" emissive={MAGENTA} emissiveIntensity={excited ? 1.2 : 0.3} roughness={0.4} />
-      </mesh>
-      <pointLight color={MAGENTA} intensity={excited ? 12 : 3} distance={14} />
-    </group>
-  );
-}
-
-/* ── Vesículas de neurotransmisores cruzando la hendidura sináptica ───────── */
-function Neurotransmitters({ active }: { active: boolean }) {
-  const COUNT = 260;
-  const geomRef = useRef<THREE.BufferGeometry>(null);
-  const positions = useMemo(() => new Float32Array(COUNT * 3), []);
-  const seeds = useMemo(
-    () =>
-      Array.from({ length: COUNT }).map(() => ({
-        y: (Math.random() - 0.5) * 1.6,
-        z: (Math.random() - 0.5) * 1.6,
-        speed: 0.4 + Math.random() * 0.9,
-        phase: Math.random(),
-      })),
-    [],
-  );
-
-  useFrame((state) => {
-    if (!geomRef.current) return;
-    const t = state.clock.getElapsedTime();
-    for (let i = 0; i < COUNT; i++) {
-      const s = seeds[i];
-      const prog = active ? ((t * s.speed + s.phase) % 1) : 0;
-      const ix = i * 3;
-      // cruzan la hendidura de CLEFT_A → CLEFT_B con dispersión creciente
-      positions[ix] = CLEFT_A + prog * (CLEFT_B - CLEFT_A);
-      positions[ix + 1] = s.y * (0.4 + prog * 1.1);
-      positions[ix + 2] = s.z * (0.4 + prog * 1.1);
-    }
-    geomRef.current.attributes.position.needsUpdate = true;
-  });
-
-  return (
-    <points visible={active}>
-      <bufferGeometry ref={geomRef}>
-        <bufferAttribute attach="attributes-position" args={[positions, 3]} count={COUNT} />
-      </bufferGeometry>
-      <pointsMaterial
-        size={0.22}
-        color={MAGENTA}
-        transparent
-        opacity={0.95}
-        depthWrite={false}
-        blending={THREE.AdditiveBlending}
-        sizeAttenuation
-        toneMapped={false}
-      />
-    </points>
-  );
-}
-
-/* ── Hendidura sináptica (marco visual del espacio intersináptico) ────────── */
-function SynapticCleft({ active }: { active: boolean }) {
-  const ref = useRef<THREE.Mesh>(null);
-  useFrame((state) => {
-    if (!ref.current) return;
-    const mat = ref.current.material as THREE.MeshBasicMaterial;
-    mat.opacity = active ? 0.18 + Math.sin(state.clock.getElapsedTime() * 6) * 0.08 : 0.05;
-  });
-  const cx = (CLEFT_A + CLEFT_B) / 2;
-  return (
-    <mesh ref={ref} position={[cx, 0, 0]} rotation={[0, 0, Math.PI / 2]}>
-      <cylinderGeometry args={[1.5, 1.5, CLEFT_B - CLEFT_A, 32, 1, true]} />
-      <meshBasicMaterial color={MAGENTA} transparent opacity={0.08} side={THREE.DoubleSide} depthWrite={false} blending={THREE.AdditiveBlending} />
-    </mesh>
-  );
-}
-
-/* ── Escena ───────────────────────────────────────────────────────────────── */
-function Scene({ fase, fuerzaGolpe, status }: SceneProps) {
-  const estado = fase.estado;
-  // Espesor de mielina de referencia (fijo): no se dibuja la del paciente.
-  const integridad = 1;
-  const intensity = THREE.MathUtils.clamp(fuerzaGolpe / 100, 0.15, 1);
-  const synActive = synapseActive(estado);
-  const success = status === 'success';
-
+  const soma = enMedula(0.36, -0.44), cleft = enMedula(0.37, -0.3);
   return (
     <>
-      <PerspectiveCamera makeDefault position={[0, 5, 22]} fov={48} />
-      <color attach="background" args={['#04050d']} />
-      <fog attach="fog" args={['#04050d', 26, 55]} />
+      <EncuadrarCaja caja={[[-5.6, 0, -1], [11.6, 13.7, 1]]} direccion={[0, 0.02, 1]} margen={0.98} />
+      <Consultorio />
+      <Pierna estado={pierna} />
+      <SoporteYMartillo angulo={angMartillo} />
+      <MedulaAmpliada vesiculas={vesic} excitacion={exc} />
+      <Nervio puntos={RUTA_SENSITIVA} avance={avSens} color="#4c8fcf" />
+      <Nervio puntos={RUTA_MOTORA} avance={avMot} color="#d8884a" />
+      <MonitorEMG leer={leerEMG} />
 
-      <ambientLight intensity={0.32} />
-      <hemisphereLight intensity={0.3} groundColor="#020617" color="#164e63" />
-
-      <Soma intensity={intensity} />
-      <Axon integridad={integridad} />
-      <ActionPotential fase={fase} intensity={intensity} />
-      <SynapticBouton active={synActive} />
-      <SynapticCleft active={synActive} />
-      <Neurotransmitters active={synActive || success} />
-      <Receptor estado={estado} />
-
-      <Html position={[AXON_START, 3.4, 0]} center distanceFactor={16}>
-        <div className="text-[10px] font-black uppercase tracking-widest text-cyan-300/80 select-none pointer-events-none whitespace-nowrap">Neurona sensitiva (aferente)</div>
-      </Html>
-      <Html position={[RECEPTOR_X + 2, 2.8, 0]} center distanceFactor={16}>
-        <div className="text-[10px] font-black uppercase tracking-widest text-fuchsia-300/80 select-none pointer-events-none whitespace-nowrap">Motoneurona α (eferente)</div>
-      </Html>
-
-      {/* etiqueta de la hendidura */}
-      <Html position={[(CLEFT_A + CLEFT_B) / 2, 2.4, 0]} center distanceFactor={16}>
-        <div className="text-[10px] font-black uppercase tracking-widest text-fuchsia-300/80 select-none pointer-events-none drop-shadow-[0_0_8px_rgba(0,0,0,0.9)]">
-          Hendidura Sináptica
-        </div>
-      </Html>
-
-      <Sparkles count={70} scale={[26, 12, 20]} size={2} speed={0.3} color="#67e8f9" opacity={0.4} />
-      <Stars radius={90} depth={45} count={2800} factor={4} saturation={0} fade speed={0.6} />
-
-      <OrbitControls
-        enablePan={false}
-        enableZoom
-        minDistance={12}
-        maxDistance={40}
-        autoRotate={false}
-        autoRotateSpeed={0.45}
-        minPolarAngle={Math.PI / 6}
-        maxPolarAngle={Math.PI / 1.7}
-      />
-
-      <EffectComposer multisampling={8}>
-        <Bloom luminanceThreshold={0.18} mipmapBlur intensity={1.7} radius={0.72} />
-        <ChromaticAberration offset={CA_OFFSET} radialModulation={false} modulationOffset={0} />
-        <Vignette offset={0.2} darkness={1.05} />
-      </EffectComposer>
+      {/* rótulos (en el corte de la médula, las líneas señalan la estructura) */}
+      <Etiqueta texto="Médula espinal L3–L4 (ampliada)" position={[0.9, 13.35, 0.3]} {...ETQ} />
+      <Etiqueta texto="Hendidura sináptica" position={[-2.45, 9.8, 0.3]} ancla={[1, 0.5]} {...ETQ} />
+      <Line points={[[-2.4, 9.8, 0.25], [cleft.x - 0.08, cleft.y, 0.25]]} color="#334155" lineWidth={1.4} />
+      <Etiqueta texto="Motoneurona α" position={[-2.45, 8.6, 0.3]} ancla={[1, 0.5]} {...ETQ} />
+      <Line points={[[-2.4, 8.6, 0.25], [soma.x - 0.2, soma.y, 0.25]]} color="#334155" lineWidth={1.4} />
+      <Etiqueta texto="Neurona sensitiva" position={[3.4, 12.45, 0.3]} {...ETQ} />
+      <Line points={[[3.35, 12.2, 0.25], [3.22, 11.38, 0.25]]} color="#334155" lineWidth={1.4} />
+      <Etiqueta texto="Cuádriceps" position={[-2.0, 7.35, 0.3]} {...ETQ} />
+      <Etiqueta texto="Tendón rotuliano" position={[1.5, 3.85, 0.3]} ancla={[0, 0.5]} {...ETQ} />
+      <Line points={[[1.45, 3.9, 0.25], [0.95, 4.65, 0.25]]} color="#334155" lineWidth={1.4} />
+      <Etiqueta texto="Martillo de reflejos" position={[3.2, 7.35, 0.3]} ancla={[0, 0.5]} {...ETQ} />
+      <Etiqueta texto="Registro EMG" position={[8.5, 7.15, 0.3]} {...ETQ} />
     </>
   );
 }
 
-interface SceneProps {
-  fase: FaseReflejo;
-  fuerzaGolpe: number;
-  status: 'idle' | 'success' | 'error';
-}
-
-export default function SistemaNervioso3DScene(props: SceneProps) {
+export default function SistemaNervioso3DScene(props: Props) {
   return (
-    <div className="w-full h-full">
-      <Canvas shadows dpr={[1, 2]} gl={{ antialias: true }}>
-        <Suspense fallback={null}>
-          <Scene {...props} />
-        </Suspense>
-      </Canvas>
-    </div>
+    <LabCanvas
+      fondo="laboratorio"
+      mesa={false}
+      camara={{ posicion: [3.0, 6.9, 25], objetivo: [3.0, 6.8, 0], fov: 35 }}
+      controles={{ minDistancia: 6, maxDistancia: 40, maxPolar: 1.5, paneo: true, cajaObjetivo: [[-6, 2, -2], [12, 12, 2]] }}
+    >
+      <Escena {...props} />
+    </LabCanvas>
   );
 }

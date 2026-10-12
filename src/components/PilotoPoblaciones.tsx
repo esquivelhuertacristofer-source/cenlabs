@@ -1,12 +1,18 @@
 "use client";
 
 import React, { useEffect, useRef, useState } from 'react';
-import { Activity, ShieldCheck, Settings2, Play, Square } from 'lucide-react';
+import dynamic from 'next/dynamic';
+import { ShieldCheck, Play, Square, Activity } from 'lucide-react';
 import { useSimuladorStore } from '@/store/simuladorStore';
 import { audio } from '@/utils/audioEngine';
-import Poblaciones3DScene from './simuladores/bio10/Poblaciones3DScene';
 import { pasoRK4B10, extincionB10, equilibrioLVB10, DT_B10, T_OBJETIVO_B10, RANGOS_B10 } from '@/domain/biologia';
 import type { ParametrosLVB10 } from '@/store/types';
+import LabLayout, { Lectura, GrupoControles, Deslizador, BotonLab } from './simulador/LabLayout';
+
+const Poblaciones3DScene = dynamic(() => import('./simuladores/bio10/Poblaciones3DScene'), {
+  ssr: false,
+  loading: () => <div className="w-full h-full bg-[#0b1220] flex items-center justify-center text-emerald-400 font-black text-xs uppercase tracking-[0.3em]">Saliendo al prado...</div>,
+});
 
 /** Velocidad de reproducción: años simulados por segundo real. */
 const ANIOS_POR_SEGUNDO = 5;
@@ -91,86 +97,61 @@ export default function PilotoPoblaciones({ onValidate }: { onValidate?: () => v
 
   const eq = equilibrioLVB10(parametros);
   const historialEscena = corriendo || hud.hist.length > 0 ? hud.hist : historial;
+  const extincionVista = !corriendo && corrida ? corrida.extincion : false;
+
+  const slider = (etiqueta: string, k: keyof ParametrosLVB10) => (
+    <Deslizador key={k} etiqueta={etiqueta} valor={parametros[k]} min={RANGOS_B10[k].min} max={RANGOS_B10[k].max} paso={RANGOS_B10[k].paso}
+      decimales={3} ancho="w-52" onChange={(v) => cambiarParametro(k, v)} />
+  );
 
   return (
-    <div className="w-full h-full relative flex flex-col overflow-hidden bg-[#02040a] font-['Outfit'] text-white">
-      <div className="relative flex-1">
-        <Poblaciones3DScene presas={hud.x} depredadores={hud.y} historial={historialEscena} simulando={corriendo} />
-
-        <div className="absolute top-6 left-6 right-6 z-10 flex flex-wrap gap-3 pointer-events-none">
-          <div className="bg-black/60 backdrop-blur-xl border border-white/10 rounded-2xl px-5 py-3 max-w-sm">
-            <div className="flex items-center gap-2 text-[10px] font-black uppercase tracking-widest text-blue-300"><Activity size={12} /> Misión</div>
-            <p className="text-[11px] text-slate-300 mt-1">
-              Ajusta los parámetros para que presas y depredadores coexistan {T_OBJETIVO_B10} años sin que ninguna especie baje de 1 individuo.
-              Población inicial: {presasIniciales} presas y {depredadoresIniciales} depredadores.
-            </p>
+    <LabLayout
+      escena={
+        <Poblaciones3DScene
+          presas={hud.x} depredadores={hud.y} historial={historialEscena} simulando={corriendo}
+          inicial={{ x: presasIniciales, y: depredadoresIniciales }} equilibrio={{ x: eq.presas, y: eq.depredadores }} tMax={T_OBJETIVO_B10}
+          extincion={extincionVista}
+        />
+      }
+      barraSuperior={
+        <>
+          <Lectura etiqueta="Año" valor={hud.t.toFixed(1)} />
+          <Lectura etiqueta="Presas" valor={hud.x.toFixed(0)} />
+          <Lectura etiqueta="Depredadores" valor={hud.y.toFixed(0)} />
+          {!corriendo && corrida && (
+            <Lectura acento etiqueta="Resultado" valor={corrida.extincion
+              ? `colapso (${corrida.extincion}) · año ${corrida.t.toFixed(1)}`
+              : `sostenido ${corrida.t.toFixed(0)} años`} />
+          )}
+        </>
+      }
+      tituloPanel="Misión"
+      panelLateral={
+        <div className="flex flex-col gap-3 text-slate-300">
+          <p className="flex gap-2 text-[12px] leading-snug"><Activity size={16} className="mt-0.5 shrink-0 text-blue-300" />
+            Ajusta los parámetros para que presas y depredadores coexistan {T_OBJETIVO_B10} años sin que ninguna especie baje de 1 individuo.
+            Población inicial: {presasIniciales} presas y {depredadoresIniciales} depredadores.</p>
+          <div className="rounded-lg border border-white/10 bg-white/[0.04] p-2.5 text-[11px] space-y-1">
+            <div className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Punto de equilibrio de estos parámetros</div>
+            <div className="font-mono text-white">x* = γ/δ = {eq.presas.toFixed(1)} presas</div>
+            <div className="font-mono text-white">y* = α/β = {eq.depredadores.toFixed(1)} depredadores</div>
+            <p className="text-[10px] text-slate-500">Las poblaciones giran alrededor de este punto; cuanto más lejos arrancan, más amplia la oscilación.</p>
           </div>
-          <Dato label="Año" value={hud.t.toFixed(1)} />
-          <Dato label="Presas" value={hud.x.toFixed(0)} color="#ec4899" />
-          <Dato label="Depredadores" value={hud.y.toFixed(0)} color="#22d3ee" />
         </div>
-
-        {!corriendo && corrida && (
-          <div className={`absolute bottom-6 left-1/2 -translate-x-1/2 z-10 px-6 py-3 rounded-2xl text-[12px] font-black border ${corrida.extincion ? 'bg-rose-950/80 border-rose-500/50 text-rose-200' : 'bg-emerald-950/80 border-emerald-500/50 text-emerald-200'}`}>
-            {corrida.extincion
-              ? `Colapso en el año ${corrida.t.toFixed(1)}: se extinguieron las ${corrida.extincion}.`
-              : `El ecosistema se sostuvo ${corrida.t.toFixed(0)} años.`}
-          </div>
-        )}
-      </div>
-
-      <div className="h-[46%] shrink-0 overflow-y-auto bg-slate-900/80 border-t border-white/10 p-4 grid grid-cols-2 gap-4 content-start">
-        <div className="flex items-center gap-3"><Settings2 className="text-blue-400" size={18} /><h4 className="text-xs font-black uppercase tracking-widest">Parámetros (por año)</h4></div>
-        <SliderControl label="Natalidad de presas (α)" k="alpha" value={parametros.alpha} onChange={cambiarParametro} color="#EC4899" />
-        <SliderControl label="Tasa de captura (β)" k="beta" value={parametros.beta} onChange={cambiarParametro} color="#22d3ee" />
-        <SliderControl label="Mortalidad de depredadores (γ)" k="gamma" value={parametros.gamma} onChange={cambiarParametro} color="#3b82f6" />
-        <SliderControl label="Conversión presa → depredador (δ)" k="delta" value={parametros.delta} onChange={cambiarParametro} color="#fb8500" />
-
-        <div className="bg-white/5 border border-white/10 rounded-2xl p-4 text-[11px] text-slate-300 space-y-1">
-          <div className="text-[9px] font-black uppercase tracking-widest text-slate-500">Punto de equilibrio de estos parámetros</div>
-          <div className="font-mono">x* = γ/δ = {eq.presas.toFixed(1)} presas</div>
-          <div className="font-mono">y* = α/β = {eq.depredadores.toFixed(1)} depredadores</div>
-          <p className="text-[10px] text-slate-500">Las poblaciones giran alrededor de este punto; cuanto más lejos arrancan, más amplia la oscilación.</p>
-        </div>
-
-        <div className="flex gap-3">
-          <button onClick={corriendo ? detener : correr}
-            className={`flex-1 h-14 rounded-2xl font-black uppercase tracking-widest text-[11px] flex items-center justify-center gap-2 ${corriendo ? 'bg-amber-600' : 'bg-emerald-600 hover:bg-emerald-500'}`}>
-            {corriendo ? <Square size={16} fill="currentColor" /> : <Play size={16} fill="currentColor" />}
+      }
+      controles={
+        <GrupoControles>
+          {slider('Natalidad de presas (α)', 'alpha')}
+          {slider('Tasa de captura (β)', 'beta')}
+          {slider('Mortalidad de depredadores (γ)', 'gamma')}
+          {slider('Conversión presa → depredador (δ)', 'delta')}
+          <BotonLab variante={corriendo ? 'acento' : 'primario'} onClick={corriendo ? detener : correr}>
+            {corriendo ? <Square size={14} fill="currentColor" /> : <Play size={14} fill="currentColor" />}
             {corriendo ? 'Detener' : `Correr ${T_OBJETIVO_B10} años`}
-          </button>
-          <button onClick={() => onValidate?.()} disabled={corriendo}
-            className={`flex-1 h-14 rounded-2xl font-black uppercase tracking-widest text-[11px] flex items-center justify-center gap-2 disabled:opacity-40 ${status === 'success' ? 'bg-emerald-700' : 'bg-blue-600 hover:bg-blue-500'}`}>
-            <ShieldCheck size={16} /> Validar
-          </button>
-        </div>
-      </div>
-    </div>
-  );
-}
-
-function Dato({ label, value, color }: { label: string; value: string; color?: string }) {
-  return (
-    <div className="bg-black/60 backdrop-blur-xl border border-white/10 rounded-2xl px-4 py-3 text-right">
-      <div className="text-[9px] font-black uppercase tracking-widest text-slate-400">{label}</div>
-      <div className="text-2xl font-black font-mono tabular-nums" style={color ? { color } : undefined}>{value}</div>
-    </div>
-  );
-}
-
-function SliderControl({ label, k, value, onChange, color }: {
-  label: string; k: keyof ParametrosLVB10; value: number; onChange: (k: keyof ParametrosLVB10, v: number) => void; color: string;
-}) {
-  const r = RANGOS_B10[k];
-  return (
-    <div className="space-y-2">
-      <div className="flex justify-between items-center">
-        <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">{label}</span>
-        <span className="text-xs font-black font-mono" style={{ color }}>{value.toFixed(3)}</span>
-      </div>
-      <input type="range" min={r.min} max={r.max} step={r.paso} value={value}
-        onChange={(e) => onChange(k, parseFloat(e.target.value))}
-        className="w-full h-2 bg-white/5 rounded-full appearance-none cursor-pointer" style={{ accentColor: color }} />
-    </div>
+          </BotonLab>
+          <BotonLab variante={status === 'success' ? 'primario' : 'acento'} onClick={() => onValidate?.()} deshabilitado={corriendo}><ShieldCheck size={14} /> Validar</BotonLab>
+        </GrupoControles>
+      }
+    />
   );
 }

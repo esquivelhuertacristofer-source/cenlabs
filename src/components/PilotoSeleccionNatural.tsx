@@ -1,11 +1,17 @@
 "use client";
 
 import React from 'react';
+import dynamic from 'next/dynamic';
 import { useSimuladorStore } from '@/store/simuladorStore';
 import { audio } from '@/utils/audioEngine';
 import { Bird, Activity, ShieldCheck, RefreshCcw } from 'lucide-react';
-import SeleccionNatural3DScene from './simuladores/bio06/SeleccionNatural3DScene';
 import { qEstimadaB6, GENERACIONES_MIN_B6, GENERACIONES_MAX_B6 } from '@/domain/biologia';
+import LabLayout, { Lectura, GrupoControles, BotonLab } from './simulador/LabLayout';
+
+const SeleccionNatural3DScene = dynamic(() => import('./simuladores/bio06/SeleccionNatural3DScene'), {
+  ssr: false,
+  loading: () => <div className="w-full h-full bg-[#0b1220] flex items-center justify-center text-emerald-400 font-black text-xs uppercase tracking-[0.3em]">Saliendo al bosque...</div>,
+});
 
 /**
  * El alumno es el ave depredadora. Cada generación caza `cuota` polillas; las
@@ -39,79 +45,75 @@ export default function PilotoSeleccionNatural({ onValidate }: { onValidate?: ()
     audio?.playNotification();
   };
 
-  return (
-    <div className="w-full h-full relative bg-[#020617] overflow-hidden font-['Outfit'] text-white">
-      <div className="absolute inset-0 z-0">
-        <SeleccionNatural3DScene bugs={bugs} ambiente={ambiente} generacion={generacion} onHunt={handleHunt} />
-      </div>
+  const mensaje = agotado
+    ? 'Has llegado al máximo de generaciones.'
+    : puedeCazar
+      ? `Haz clic sobre las polillas que alcances a ver (${cuota - cazadas} por cazar).`
+      : 'Cuota cumplida: deja que las supervivientes se reproduzcan.';
 
-      {/* HUD superior */}
-      <div className="absolute top-6 left-6 right-6 z-10 flex justify-between items-start gap-4 pointer-events-none">
-        <div className="bg-black/70 backdrop-blur-xl border border-white/10 rounded-2xl p-4 max-w-sm">
-          <div className="text-[10px] font-black uppercase tracking-[0.25em] text-amber-400">Corteza del bosque</div>
-          <div className="text-lg font-black">{ambiente === 'industrial' ? 'Ennegrecida por hollín' : 'Clara, con líquenes'}</div>
-          <p className="text-[11px] text-slate-300 mt-1 leading-snug">
+  return (
+    <LabLayout
+      escena={<SeleccionNatural3DScene bugs={bugs} ambiente={ambiente} generacion={generacion} onHunt={handleHunt} />}
+      barraSuperior={
+        <>
+          <Lectura etiqueta="Corteza" valor={ambiente === 'industrial' ? 'hollín' : 'líquenes'} title={ambiente === 'industrial' ? 'Corteza ennegrecida por hollín' : 'Corteza clara, con líquenes'} />
+          <Lectura etiqueta="Gen." valor={generacion} title="Generación" />
+          <Lectura etiqueta="Cazadas" valor={`${cazadas}/${cuota}`} acento={puedeCazar} />
+          <Lectura etiqueta="Oscuras" valor={`${(fOscuras * 100).toFixed(0)} %`} />
+          <Lectura etiqueta="q est." valor={qEst.toFixed(2)} title="q ≈ √(fracción de polillas claras)" />
+        </>
+      }
+      tituloPanel="Población"
+      panelLateral={
+        <div className="flex flex-col gap-3 text-slate-300">
+          <p className="text-[12px] leading-snug">
             Eres el ave: caza {cuota} polillas por generación como lo haría un depredador que busca con la vista.
             Las supervivientes se reproducen. Completa entre {GENERACIONES_MIN_B6} y {GENERACIONES_MAX_B6} generaciones.
           </p>
-        </div>
-        <div className="flex gap-3">
-          <Dato label="Generación" value={`${generacion}`} />
-          <Dato label="Cazadas" value={`${cazadas}/${cuota}`} />
-          <Dato label="Fenotipo oscuro" value={`${(fOscuras * 100).toFixed(0)} %`} />
-          <Dato label="q ≈ √f(claras)" value={qEst.toFixed(2)} />
-        </div>
-      </div>
-
-      {/* Historial */}
-      {historial.length > 0 && (
-        <div className="absolute top-40 right-6 z-10 bg-black/70 backdrop-blur-xl border border-white/10 rounded-2xl p-4 text-[11px] font-mono pointer-events-none">
-          <div className="text-[9px] font-black uppercase tracking-widest text-slate-400 mb-1">Hijas de cada generación</div>
-          <table>
-            <thead><tr className="text-slate-500 text-[9px]"><th className="text-left pr-3">Gen</th><th className="pr-3">% oscuras</th><th>q est.</th></tr></thead>
-            <tbody>
-              {historial.map((h) => (
-                <tr key={h.gen}><td className="pr-3">{h.gen}</td><td className="pr-3 text-center">{(h.fOscuras * 100).toFixed(0)}</td><td className="text-center">{Math.sqrt(Math.max(0, 1 - h.fOscuras)).toFixed(2)}</td></tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      )}
-
-      {/* Dock inferior */}
-      <div className="absolute bottom-6 left-1/2 -translate-x-1/2 z-10 w-full max-w-4xl px-6">
-        <div className="bg-[#0f172a]/95 backdrop-blur-xl border border-white/10 rounded-[2rem] p-5 flex items-center justify-between gap-6">
-          <div className="flex items-center gap-4">
-            <div className="p-3 bg-amber-500/10 rounded-2xl"><Bird className="text-amber-500" size={22} /></div>
-            <p className="text-[11px] text-slate-300 font-bold max-w-xs">
-              {agotado ? 'Has llegado al máximo de generaciones.' : puedeCazar ? 'Haz clic sobre las polillas que alcances a ver.' : 'Cuota cumplida: deja que las supervivientes se reproduzcan.'}
-            </p>
+          <div className="rounded-lg border border-white/10 bg-white/[0.04] p-2.5">
+            <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Fenotipos vivos · gen. {generacion}</span>
+            <div className="mt-2 flex h-24 items-end gap-3">
+              <Barra etiqueta="Oscuras" pct={fOscuras * 100} color="#64748b" />
+              <Barra etiqueta="Claras" pct={(1 - fOscuras) * 100} color="#e2e0d3" />
+            </div>
+            <p className="mt-1.5 text-[10px] text-slate-500">Los heterocigotos Cc son oscuros: % oscuras ≠ p.</p>
           </div>
-          <div className="flex items-center gap-3">
-            <button onClick={siguiente} disabled={cazadas < cuota || agotado}
-              className="px-6 py-4 rounded-2xl font-black uppercase tracking-widest text-[11px] flex items-center gap-2 bg-violet-600 hover:bg-violet-500 disabled:opacity-40">
-              <Activity size={16} /> Siguiente generación
-            </button>
-            <button onClick={() => resetB6()}
-              className="px-5 py-4 rounded-2xl font-black uppercase tracking-widest text-[11px] flex items-center gap-2 bg-slate-700 hover:bg-slate-600">
-              <RefreshCcw size={16} /> Nueva población
-            </button>
-            <button onClick={() => onValidate?.()} disabled={historial.length === 0}
-              className={`px-6 py-4 rounded-2xl font-black uppercase tracking-widest text-[11px] flex items-center gap-2 disabled:opacity-40 ${status === 'success' ? 'bg-emerald-600' : 'bg-amber-600 hover:bg-amber-500'}`}>
-              <ShieldCheck size={16} /> Validar
-            </button>
-          </div>
+          {historial.length > 0 && (
+            <div className="rounded-lg border border-white/10 bg-white/[0.04] p-2.5">
+              <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Hijas de cada generación</span>
+              <table className="mt-1 w-full font-mono text-[11px]">
+                <thead><tr className="text-[9px] text-slate-500"><th className="text-left">Gen</th><th>% oscuras</th><th>q est.</th></tr></thead>
+                <tbody>
+                  {historial.map((h) => (
+                    <tr key={h.gen}><td>{h.gen}</td><td className="text-center">{(h.fOscuras * 100).toFixed(0)}</td><td className="text-center">{Math.sqrt(Math.max(0, 1 - h.fOscuras)).toFixed(2)}</td></tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
         </div>
-      </div>
-    </div>
+      }
+      controles={
+        <GrupoControles className="!items-center">
+          <div className="flex min-w-[200px] flex-1 items-center gap-2.5">
+            <Bird className="shrink-0 text-amber-400" size={20} />
+            <p className="text-[12px] font-semibold text-slate-300">{mensaje}</p>
+          </div>
+          <BotonLab onClick={siguiente} deshabilitado={cazadas < cuota || agotado}><Activity size={14} /> Siguiente generación</BotonLab>
+          <BotonLab variante="secundario" onClick={() => resetB6()}><RefreshCcw size={14} /> Nueva población</BotonLab>
+          <BotonLab variante={status === 'success' ? 'primario' : 'acento'} onClick={() => onValidate?.()} deshabilitado={historial.length === 0}><ShieldCheck size={14} /> Validar</BotonLab>
+        </GrupoControles>
+      }
+    />
   );
 }
 
-function Dato({ label, value }: { label: string; value: string }) {
+function Barra({ etiqueta, pct, color }: { etiqueta: string; pct: number; color: string }) {
   return (
-    <div className="bg-black/70 backdrop-blur-xl border border-white/10 rounded-2xl px-4 py-3 text-right">
-      <div className="text-[9px] font-black uppercase tracking-widest text-slate-400">{label}</div>
-      <div className="text-lg font-black font-mono">{value}</div>
+    <div className="flex h-full flex-1 flex-col items-center justify-end">
+      <span className="font-mono text-[13px] font-semibold text-white">{pct.toFixed(0)}%</span>
+      <div className="w-full rounded-t-md border border-white/20" style={{ height: `${Math.max(3, pct * 0.72)}%`, background: color }} />
+      <span className="mt-1 text-[9px] font-bold uppercase tracking-widest text-slate-400">{etiqueta}</span>
     </div>
   );
 }
