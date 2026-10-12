@@ -28,12 +28,23 @@
  *     abra instantáneo y que siga abriendo sin red. Y AQUÍ SÍ SE GUARDA lo que
  *     se descarga, que es lo que faltaba.
  *
+ * LO QUE FALLÓ DE ESTA REGLA (2026-10-12). «Inmutable dentro de un despliegue»
+ * era cierto para `/_next/static/` —lleva hash en el nombre— pero NO para
+ * `/labs/`: `_piezas3d.js`, `_puente.js` y las `_ficha-*.js` conservan el nombre
+ * entre despliegues, y la versión de la caché estaba escrita a mano y nunca se
+ * subía. Resultado: el HTML del lab llegaba nuevo (es navegación, red primero)
+ * pero importaba el `_piezas3d.js` VIEJO de la caché, sin las piezas nuevas; el
+ * módulo fallaba y el lab quedaba en blanco para todo el que ya lo había abierto.
+ * Por eso `/labs/` y `/labs-data/` van ahora RED PRIMERO con la caché de
+ * paracaídas (siguen abriendo sin internet), y sólo lo que trae hash o es medio
+ * (audio, imágenes) va caché primero.
+ *
  * LO QUE NO SE TOCA. Sólo se guarda lo de este mismo origen y sólo las
  * peticiones GET: meter en caché la respuesta de `/api/resultados` sería
  * servirle a un alumno la calificación de otro.
  */
 
-const VERSION = 'cen-labs-v2';
+const VERSION = 'cen-labs-v3';
 const CACHE = `${VERSION}`;
 
 /* Lo mínimo para que la plataforma abra sin red la primera vez. Los labs NO se
@@ -52,13 +63,29 @@ const SEMILLA = [
   '/alumno/laboratorio/matematicas',
 ];
 
-/** Lo que se guarda al pasar. Todo esto es inmutable dentro de un despliegue. */
+/** Archivos con nombre fijo que cambian entre despliegues: red primero. */
+function esLab(url) {
+  return url.pathname.startsWith('/labs/') || url.pathname.startsWith('/labs-data/');
+}
+
+/** Lo que se guarda al pasar y no cambia sin cambiar de nombre: caché primero. */
 function esActivo(url) {
-  return url.pathname.startsWith('/labs/')
-    || url.pathname.startsWith('/labs-data/')
-    || url.pathname.startsWith('/assets/')
+  return url.pathname.startsWith('/assets/')
     || url.pathname.startsWith('/images/')
     || url.pathname.startsWith('/_next/static/');
+}
+
+/** Red primero; si responde bien se guarda, y si no hay red se sirve la copia. */
+function redPrimero(req) {
+  return fetch(req)
+    .then((res) => {
+      if (res.ok && res.status === 200) {
+        const copia = res.clone();
+        caches.open(CACHE).then((c) => c.put(req, copia)).catch(() => {});
+      }
+      return res;
+    })
+    .catch(() => caches.match(req).then((r) => r ?? Response.error()));
 }
 
 self.addEventListener('install', (event) => {
@@ -97,6 +124,11 @@ self.addEventListener('fetch', (event) => {
         })
         .catch(() => caches.match(req).then((r) => r ?? caches.match('/'))),
     );
+    return;
+  }
+
+  if (esLab(url)) {
+    event.respondWith(redPrimero(req));
     return;
   }
 
