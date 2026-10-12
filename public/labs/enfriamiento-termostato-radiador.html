@@ -2035,13 +2035,16 @@ function vistaReto(){
   });
 
   const V=RETO.veredicto;
-  rpanel(96,608,886,138,'rgba(255,255,255,0.030)',V?(V.ok?'#2a4436':'#4a2b2b'):'#1e2836',10);
+  rpanel(96,608,886,138,'rgba(255,255,255,0.030)',V?'#2a4436':(RETO.fallo?'#4a2b2b':'#1e2836'),10);
   if(V){
-    texto(V.ok?'Acertaste':'Fallaste',110,634,{s:16,b:true,c:V.ok?OK_HEX:BAD_HEX});
+    texto('Acertaste',110,634,{s:16,b:true,c:OK_HEX});
     wrapText(V.plano,110,658,862,16,{s:12.5,c:'#c3ccd8'});
+  }else if(RETO.fallo){
+    texto('Diagnóstico no aceptado',110,634,{s:16,b:true,c:BAD_HEX});
+    wrapText(RETO.fallo+' Intento '+RETO.intentos+' de '+MAX_INTENTOS+'.',110,658,862,16,{s:12.5,c:'#c3ccd8'});
   }else{
-    texto('Sin entregar',110,634,{s:16,b:true,c:WARN_HEX});
-    wrapText('Compra en el panel las observaciones que necesites, elige una familia y entrega el diagnóstico. Entregar sin el refractómetro ni el detector de gases es legítimo —a veces basta—, pero el censo dice en qué máquinas no puede bastar.',
+    texto('Sin entregar · intentos '+RETO.intentos+' de '+MAX_INTENTOS+' · pistas '+RETO.pistas+' de '+MAX_PISTAS,110,634,{s:16,b:true,c:WARN_HEX});
+    wrapText((RETO.aviso?RETO.aviso+' ':'')+'Compra en el panel las observaciones que necesites, elige una familia y entrega el diagnóstico. Entregar sin el refractómetro ni el detector de gases es legítimo —a veces basta—, pero el censo dice en qué máquinas no puede bastar.',
       110,658,862,16,{s:12.5});
     texto('Motor en el banco: '+e.nombre,110,726,{s:12,c:'#7b8697'});
   }
@@ -3073,8 +3076,8 @@ function pintaTele(){
     h+=gl('Observaciones compradas',Object.keys(RETO.tomadas).length+' / '+OBS.length,
       Object.keys(RETO.tomadas).length?'':'warn');
     h+=gl('Familia elegida',RETO.eleccion||'ninguna todavía',RETO.eleccion?'':'warn');
-    if(RETO.veredicto) h+=gl('Diagnóstico entregado',RETO.veredicto.ok?'acertado':'fallado',
-      RETO.veredicto.ok?'good':'bad');
+    h+=gl('Intentos',RETO.intentos+' de '+MAX_INTENTOS,RETO.intentos?'warn':'');
+    if(RETO.veredicto) h+=gl('Diagnóstico entregado','acertado','good');
     el('tele').innerHTML=h;
     return;
   }
@@ -3204,6 +3207,13 @@ function setMode(m){
   if(G.modo==='ensamble'&&m!=='ensamble'&&ASM.done.size<PARTS.length){
     showToast('Faltan piezas por montar.',2200); return;
   }
+  // Al entrar al reto se guarda lo que el alumno tenía puesto, y al salir se
+  // devuelve: si no, la avería del caso se queda en el selector de escenarios y
+  // la siguiente vista la enseña con nombre y apellidos.
+  if(m==='reto'&&G.modo!=='reto') RETO.antes={esc:G.esc, mezcla:G.mezcla};
+  if(m!=='reto'&&G.modo==='reto'&&RETO.antes){
+    G.esc=RETO.antes.esc; G.mezcla=RETO.antes.mezcla; RETO.antes=null; RETO.caso=null; invalida();
+  }
   G.modo=m;
   // Volver a la vista de montaje NO desmonta lo ya montado. Si lo hiciera, mirar
   // cómo quedó el circuito costaría rehacerlo entero, y el alumno aprendería a
@@ -3244,7 +3254,9 @@ function setMode(m){
 // Las familias diagnosticables son exactamente las `clave` que declara el motor
 // sellado —FAMILIAS sale de ahí—: si mañana se añade un escenario con una clave
 // nueva, aparece solo en la lista en vez de quedarse fuera sin avisar.
-const RETO={caso:null, tomadas:{}, eleccion:null, veredicto:null, pistas:0};
+const RETO={caso:null, tomadas:{}, eleccion:null, veredicto:null, pistas:0,
+  intentos:0, fallo:'', aviso:'', orden:null, antes:null};
+const MAX_INTENTOS=3, MAX_PISTAS=2;
 
 function barajaEn(a){                       // Fisher-Yates, para que la posición
   for(let i=a.length-1;i>0;i--){            // de la respuesta no sea la pista
@@ -3260,6 +3272,10 @@ function armaReto(){
   // avería es precisamente la mezcla, el escenario la impone y eso ES el caso.
   G.mezcla=MQ().mezclaOEM;
   RETO.tomadas={}; RETO.eleccion=null; RETO.veredicto=null; RETO.pistas=0;
+  RETO.intentos=0; RETO.fallo=''; RETO.aviso='';
+  // Las opciones se barajan UNA vez por caso: reordenarlas en cada clic las movía
+  // bajo el dedo y no añadía nada a la posición fija que se quería evitar.
+  RETO.orden=barajaEn(FAMILIAS.slice());
   invalida(); pintaObsReto(); pintaDxReto();
 }
 // Valor legible de cada observación. Sale del motor sellado y se publica con la
@@ -3297,15 +3313,17 @@ function pintaObsReto(){
     (o.taller?'':'💰 ')+(OBS_CORTO[o.k]||corta(o.rot,30))+'</button>').join('');
 }
 function pintaDxReto(){
-  const ops=barajaEn(FAMILIAS.slice());
+  const ops=RETO.orden||FAMILIAS;
   el('dxreto').innerHTML=ops.map(f=>
     '<button class="b'+(RETO.eleccion===f?' on':'')+'" data-fam="'+f+'">'+f+'</button>').join('');
 }
 function pintaReto(){
   const R=el('report'), n=Object.keys(RETO.tomadas).length;
   let h='<b>Coche bajo diagnóstico:</b> '+MQ().nombre+'. Observaciones compradas: '+n+'/'+OBS.length+'. ';
-  if(RETO.veredicto) h+=(RETO.veredicto.ok?'<b class="good">Acertaste.</b> ':'<b class="bad">Fallaste.</b> ')+RETO.veredicto.texto;
-  else h+='Compra lo que necesites, elige la familia y entrega el diagnóstico.';
+  if(RETO.veredicto) h+='<b class="good">Acertaste.</b> '+RETO.veredicto.texto;
+  else if(RETO.fallo) h+='<b class="bad">Diagnóstico no aceptado.</b> '+RETO.fallo+' Intento '+RETO.intentos+' de '+MAX_INTENTOS+'.';
+  else h+=(RETO.aviso?RETO.aviso+' ':'')+'Compra lo que necesites, elige la familia y entrega el diagnóstico. Intentos: '+
+    RETO.intentos+' de '+MAX_INTENTOS+' · pistas: '+RETO.pistas+' de '+MAX_PISTAS+'.';
   R.innerHTML=h;
   const spec=el('retoSpec');
   spec.innerHTML=n
@@ -3314,24 +3332,50 @@ function pintaReto(){
     : '<span class="mono">Sin observaciones todavía.</span> Las seis primeras se toman con lo que hay en cualquier taller; el refractómetro y el detector de gases hay que pedirlos aparte.';
 }
 function pista(){
-  const e=MQ(), C=CENSO(), N=ESCEN_KEYS.length;
-  const tal=C.find(x=>x.sub.length===OBS.filter(o=>o.taller).length&&x.sub.every(o=>o.taller));
+  if(G.modo!=='reto'||RETO.veredicto) return;
+  if(RETO.pistas>=MAX_PISTAS){
+    showToast('<b>Sin más pistas</b><br>Ya has usado las '+MAX_PISTAS+' de este caso.',3000); return; }
+  // Sólo dos, de método —por dónde empezar y qué instrumento compara qué—, y
+  // ninguna describe la firma de una avería concreta.
   const p=[
-    'Empieza por las tres temperaturas del protocolo. Si las tres coinciden con las de un motor sano, la avería es de las que la aguja no ve: mira la presión del circuito.',
-    'El pirómetro sobre las dos mangueras del radiador separa mucho: un radiador FRÍO por los dos lados no es un radiador sucio, es un termostato que no abre.',
-    'Con todo lo que se mide en el taller se separan '+tal.resueltos+' de los '+N+
-      ' escenarios de este '+e.corto+'. '+(tal.resueltos===N
-        ? 'En esta máquina alcanza: si sigues dudando, es que falta tomar alguna.'
-        : 'En esta máquina NO alcanza: hay casos que sólo separan el refractómetro o el detector de gases.'),
+    'Empieza por las tres temperaturas del protocolo y compáralas con lo que daría un motor sano. Si las tres coinciden, la avería es de las que la aguja no ve.',
+    'El pirómetro sobre las dos mangueras del radiador mide el salto de temperatura entre entrada y salida: dice si el refrigerante está llegando al radiador y cuánto calor le deja.',
   ];
-  const i=Math.min(RETO.pistas,p.length-1);
   RETO.pistas++;
-  showToast('💡 '+p[i],6800);
+  showToast('💡 <b>Pista '+RETO.pistas+' de '+MAX_PISTAS+'</b><br>'+p[RETO.pistas-1],6800);
   synth.beep(520,0.07,0.04);
+  pintaReto();
 }
 function checkReto(){
+  if(RETO.veredicto) return;
   if(!RETO.eleccion){ showToast('Elige primero una familia de avería.',2200); return; }
   const e=MQ(), L=LECT(), ok=(RETO.eleccion===L.clave);
+  if(!ok){
+    // Al fallar NO se dice qué era: se dice qué se puede razonar con lo comprado.
+    // A los tres fallos el caso se cambia por otro, para que nadie apruebe
+    // tachando familias hasta que sólo quede una.
+    const sub=OBS.filter(o=>RETO.tomadas[o.k]);
+    const f=firmaObs(e,L,sub);
+    const vivos=ESCEN_KEYS.filter(k=>firmaObs(e,lecturas(e,k,{mezcla:G.mezcla,plaza:G.plaza,Tamb:G.Tamb}),sub)===f);
+    const fams=[...new Set(vivos.map(k=>ESCEN[k].clave))];
+    RETO.fallo = !sub.length
+      ? 'No has comprado ninguna observación: sin lecturas no hay nada que sostenga un diagnóstico.'
+      : (fams.indexOf(RETO.eleccion)<0
+        ? 'Tus propias observaciones ya descartaban la familia «'+RETO.eleccion+'»: no cuadra con lo que leíste.'
+        : (fams.length>1
+          ? 'Con lo comprado siguen en juego '+fams.length+' familias, incluida «'+RETO.eleccion+
+            '»: eso es una apuesta, no un diagnóstico. Compra la observación que las separe.'
+          : 'Esa familia no es. Vuelve a mirar las lecturas.'));
+    RETO.intentos++;
+    synth.beep(180,0.14,0.05);
+    if(RETO.intentos>=MAX_INTENTOS){
+      armaReto();
+      RETO.aviso='Tres diagnósticos fallados: este coche se cierra sin revelarlo y llega otro caso.';
+      showToast('<b>Caso nuevo</b><br>Tres intentos fallados. Otra avería montada.',3600);
+      afterEdit(); refrescaPregunta();
+    } else { pintaReto(); pintaTablero(); pintaTele(); }
+    return;
+  }
   const F=FALLAS[ESCEN[RETO.caso].falla];
   const forzada=ESCEN[RETO.caso].mezcla;
   const sano=lecturas(e,'sano',{mezcla:e.mezclaOEM,plaza:G.plaza,Tamb:G.Tamb});
@@ -3343,19 +3387,16 @@ function checkReto(){
     ' contra '+gC(sano.pts[2].dtRad)+', presión '+bar(L.pRel)+' contra '+bar(sano.pRel)+
     ', congelación '+gC(L.tCong,0)+' y detector de gases '+(L.gases?'POSITIVO':'negativo')+'.';
   let txt=queEra+' '+pruebas;
-  if(ok){
-    const compradas=Object.keys(RETO.tomadas).length;
-    if(compradas<3) txt+=' <span class="warn">Acertaste con sólo '+compradas+
-      ' observación'+(compradas===1?'':'es')+': acertar por corazonada y acertar por método se parecen en la respuesta y en nada en el taller.</span>';
-    G.resuelto=true;
-    synth.beep(660,0.09,0.05); setTimeout(()=>synth.beep(880,0.13,0.05),110);
-  }else{
-    synth.beep(180,0.14,0.05);
-  }
+  const compradas=Object.keys(RETO.tomadas).length;
+  if(compradas<3) txt+=' <span class="warn">Acertaste con sólo '+compradas+
+    ' observación'+(compradas===1?'':'es')+': acertar por corazonada y acertar por método se parecen en la respuesta y en nada en el taller.</span>';
+  G.resuelto=true;
+  synth.beep(660,0.09,0.05); setTimeout(()=>synth.beep(880,0.13,0.05),110);
+  RETO.fallo=''; RETO.aviso='';
   // Dos versiones del mismo veredicto: la del panel lleva etiquetas y la del
   // pizarrón va en texto plano, porque un lienzo 2D dibujaría las etiquetas
   // literales. Guardar sólo una obliga a que alguna de las dos mienta.
-  RETO.veredicto={ok, texto:txt, plano:txt.replace(/<[^>]+>/g,'')};
+  RETO.veredicto={ok:true, texto:txt, plano:txt.replace(/<[^>]+>/g,'')};
   pintaReto(); pintaTablero(); pintaTele();
 }
 
@@ -3372,8 +3413,8 @@ function preguntaDe(m){
     return {t:'Con el motor frío el termostato está cerrado y por el radiador no pasa nada. '+
       'Aun así la bomba mueve '+lpm(cer.Qtot)+'. ¿Por dónde va ese caudal?',
       ops:[['Por la derivación, que devuelve el refrigerante del bloque a la bomba sin pasar por el radiador',true],
-           ['No va a ninguna parte: la bomba trabaja contra la válvula cerrada',false],
-           ['Por el radiador igualmente, sólo que más despacio',false]],
+           ['No va a ninguna parte: la bomba trabaja contra la válvula cerrada y el caudal real es mínimo',false],
+           ['Por el radiador igualmente, sólo que más despacio, porque el termostato cerrado no corta del todo el paso',false]],
       exp:'La derivación existe para dos cosas: para que la bomba nunca trabaje contra una válvula cerrada y para que el bloque caliente PAREJO en vez de por zonas. Un circuito de refrigeración es un lazo cerrado con dos caminos, no uno.'};
   }
   if(m==='balance'){
@@ -3390,8 +3431,8 @@ function preguntaDe(m){
     return {t:'Con el termostato agarrotado abierto este motor se queda en '+gC(ab.T)+
       ' en vez de en '+gC(sn.T)+', y no enciende ninguna luz. ¿Es una avería?',
       ops:[['Sí: gasta más, se desgasta antes y la calefacción no calienta, y nada avisa',true],
-           ['No: mientras no recaliente, no hay nada que reparar',false],
-           ['Sólo en invierno; en verano da igual',false]],
+           ['No: mientras no recaliente no hay nada que reparar, porque un motor frío no sufre daño alguno',false],
+           ['Sólo en invierno; en verano da igual, porque con el calor ambiente el motor llega solo a su temperatura',false]],
       exp:'El termostato no está para enfriar: está para que el motor llegue pronto a su temperatura y se quede ahí. Un motor frío quema peor, diluye el aceite con combustible y desgasta más. Es la única avería de este laboratorio que el veredicto de marcha ABSUELVE, y por eso el frío se juzga aparte.'};
   }
   if(m==='radiador'){
@@ -3401,8 +3442,8 @@ function preguntaDe(m){
       'kg/s de aire por el frontal; a 120 km/h, '+num(rapido.mAire,2)+
       '. ¿Qué pasa si el ventilador arranca yendo a 120?',
       ops:[['Nada apreciable: manda el que más aire empuja, y a esa velocidad manda la marcha',mas==='r'],
-           ['Se suman los dos y entra bastante más aire',false],
-           ['Entra menos: el ventilador estorba al aire de la marcha',mas==='p']],
+           ['Se suman los dos y entra bastante más aire, porque ambos empujan por el mismo frontal',false],
+           ['Entra menos: el ventilador estorba al aire de la marcha y frena la circulación por el panal',mas==='p']],
       exp:'La velocidad del aire frente al radiador es la MAYOR de las dos, no la suma: el ventilador y la marcha empujan el mismo aire por el mismo sitio. Por eso un ventilador averiado no se nota en carretera y deja el coche tirado en un atasco.'};
   }
   if(m==='refrigerante'){
@@ -3411,8 +3452,8 @@ function preguntaDe(m){
     return {t:'El etilenglicol al 60 % se congela a '+gC(c60,0)+' y al 70 %, a '+gC(c70,0)+
       '. ¿Qué mezcla protege más del frío?',
       ops:[['La del 60 %: pasado el eutéctico, más glicol protege MENOS',peor],
-           ['La del 70 %: cuanto más glicol, más protección',!peor],
-           ['Las dos igual: por encima del 50 % la curva es plana',false]],
+           ['La del 70 %: cuanto más glicol, más protección, porque hay más anticongelante por litro',!peor],
+           ['Las dos igual: por encima del 50 % la curva de congelación es plana y da lo mismo',false]],
       exp:'La curva de congelación de la mezcla NO es monótona: baja hasta el eutéctico, cerca del '+
         num(G_EUTECTICO,0)+' % en volumen, y a partir de ahí vuelve a subir. Poner glicol de más no es prudencia: se congela antes, transporta menos calor por litro y transfiere peor.'};
   }
@@ -3423,8 +3464,8 @@ function preguntaDe(m){
     return {t:'Con las tres temperaturas del indicador y nada más se separan '+aguja.resueltos+
       ' de los '+N+' escenarios de este '+e.corto+'. ¿Por qué no llegan a los '+N+'?',
       ops:[['Porque hay averías que dejan la aguja donde estaba: el tapón no mueve la temperatura ni un grado',true],
-           ['Porque el indicador del tablero es poco preciso',false],
-           ['Porque haría falta medir en más puntos de trabajo',false]],
+           ['Porque el indicador del tablero es poco preciso y no distingue diferencias pequeñas entre escenarios',false],
+           ['Porque haría falta medir en más puntos de trabajo, y con tres puntos no alcanza para ninguna avería',false]],
       exp:'No es precisión ni número de puntos: el equilibrio térmico NO depende de la presión del circuito, así que un tapón que no aguanta da exactamente las mismas temperaturas que un sistema sano — y sin embargo se ha llevado media reserva hasta la ebullición.'};
   }
   if(m==='reto'){
@@ -3433,15 +3474,15 @@ function preguntaDe(m){
     return {t:'En cuesta, con el tapón agotado, este motor marca '+gC(tp.T)+
       ' y sano marca '+gC(sn.T)+': la misma cifra. ¿Qué se ha llevado el tapón por delante?',
       ops:[['El margen hasta la ebullición: de '+rotMargen(sn)+' a '+rotMargen(tp),true],
-           ['Nada mientras la temperatura no suba',false],
-           ['El caudal de la bomba, que ahora cavita',false]],
+           ['Nada mientras la temperatura no suba: el tapón sólo importa cuando el motor ya está recalentado',false],
+           ['El caudal de la bomba, que ahora cavita y mueve menos refrigerante por el bloque',false]],
       exp:'La temperatura de equilibrio sale del balance de calor, donde la presión no aparece. Lo que fija la presión es la temperatura a la que ese líquido HIERVE. Por eso esta avería no la ve el indicador del tablero: hay que buscarla con el comprobador de presión.'};
   }
   const s=EQ();
   return {t:'El indicador del tablero marca '+gC(s.T)+' y el testigo está apagado. ¿Qué NO se sabe con eso?',
-    ops:[['Cuánto margen queda hasta que el refrigerante hierva',true],
-         ['La temperatura de salida del bloque',false],
-         ['Si el motor está por encima de su alarma',false]],
+    ops:[['Cuánto margen queda hasta que el refrigerante hierva con la presión y la altitud de este circuito',true],
+         ['La temperatura del refrigerante en el punto donde está el sensor, que es justo lo que marca la aguja',false],
+         ['Si el motor está por encima de su alarma, que es lo que el testigo apagado ya indica',false]],
     exp:'La aguja mide temperatura, no reserva. El margen hasta la ebullición depende además de la presión del circuito y de la altitud de la plaza, y ninguna de las dos cosas se lee en el tablero.'};
 }
 function refrescaPregunta(){
@@ -3517,7 +3558,7 @@ el('panel').addEventListener('click',ev=>{
   if(b.dataset.v){ G.vKmh=+b.dataset.v; afterEdit(); refrescaPregunta(); return; }
   if(b.dataset.cf){ G.calefactor=(b.dataset.cf==='1'); afterEdit(); return; }
   if(b.dataset.obs){ mide(b.dataset.obs); return; }
-  if(b.dataset.fam){ RETO.eleccion=b.dataset.fam; pintaDxReto(); pintaTablero(); pintaTele(); return; }
+  if(b.dataset.fam){ RETO.eleccion=b.dataset.fam; RETO.fallo=''; pintaDxReto(); pintaTablero(); pintaTele(); pintaReto(); return; }
   if(b.dataset.q!==undefined){ responde(+b.dataset.q); return; }
 });
 function setMaquina(k){
@@ -3592,7 +3633,8 @@ window.__labDebug={
   get reto(){ return {caso:RETO.caso, tomadas:Object.keys(RETO.tomadas),
     valores:{...RETO.tomadas}, eleccion:RETO.eleccion,
     veredicto:RETO.veredicto?{ok:RETO.veredicto.ok}:null,
-    pistas:RETO.pistas, familias:FAMILIAS.slice()}; },
+    pistas:RETO.pistas, intentos:RETO.intentos, familias:FAMILIAS.slice()}; },
+  get intentos(){ return RETO.intentos; },
   get quiz(){ return QUIZ?{t:QUIZ.t, ops:QUIZ.ops.map(o=>o.rot), ok:QUIZ.ops.findIndex(o=>o.ok)}:null; },
   get autoRunning(){ return autoRunning; },
   get gotas(){ return {n:CIRC.gotas.length, vivas:CIRC.gotas.filter(g=>g.visible).length}; },
@@ -3603,7 +3645,7 @@ window.__labDebug={
   set:(k,v)=>{ G[k]=v; afterEdit(); refrescaPregunta(); },
   ensambla:()=>autoAssemble(),
   mide:k=>mide(k),
-  elige:f=>{ RETO.eleccion=f; pintaDxReto(); pintaTablero(); pintaTele(); },
+  elige:f=>{ RETO.eleccion=f; RETO.fallo=''; pintaDxReto(); pintaTablero(); pintaTele(); pintaReto(); },
   entrega:()=>checkReto(),
   pista:()=>pista(),
   retoNuevo:()=>{ armaReto(); afterEdit(); },

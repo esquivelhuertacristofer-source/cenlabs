@@ -1106,8 +1106,9 @@ function vReto(){
     texto(ok?'Diagnóstico correcto':'Diagnóstico incorrecto',60,y+30,{s:19,b:true,c:ok?OK_HEX:BAD_HEX});
     wrapText(RETO.veredicto.texto,60,y+60,BW-140,21,{s:14,c:'#c3ccd8'});
   }else{
-    wrapText('Cuando tengas el diagnóstico, elígelo abajo y entrégalo. Se te dirá si acertaste y, sobre todo, QUÉ observación '+
-      'lo demostraba: acertar por corazonada y acertar por método se parecen mucho en la respuesta y en nada en el taller.',
+    wrapText('Cuando tengas el diagnóstico, elígelo abajo y entrégalo. Tienes '+MAX_INTENTOS+' intentos (llevas '+RETO.intentos+
+      ') y '+MAX_PISTAS+' pistas (llevas '+RETO.pistas+'). Al acertar se te dirá QUÉ observación lo demostraba: acertar por corazonada '+
+      'y acertar por método se parecen mucho en la respuesta y en nada en el taller.'+(RETO.aviso?' '+RETO.aviso:''),
       42,y+16,BW-84,21,{s:14,c:'#8b95a4'});
   }
 }
@@ -2007,24 +2008,36 @@ function pintaTele(){
   const lect=G.golpeVis>0?barG(cc.golpes[Math.min(G.golpeVis,cc.golpes.length)-1],cc.pAtm):0;
   let h='';
   h+=gl('Cilindro instrumentado','n.º '+G.cil+' de '+e.ncil,'');
-  if(G.modo==='compresion'||G.modo==='humeda'||G.modo==='reto'){
+  // A ciegas la telemetría NO canta lo que no se ha medido: el valor final, el salto
+  // al mojar y la fuga sólo aparecen cuando se ha hecho esa prueba, y nada se
+  // colorea contra el límite (el color sería el veredicto). La diferencia entre
+  // cilindros se deduce del cuaderno, no se publica.
+  const rt=(G.modo==='reto');
+  const hecha=G.golpeVis>=G.golpes&&G.golpeVis>0;
+  if(G.modo==='compresion'||G.modo==='humeda'||rt){
     h+=gl('Manómetro ('+G.golpeVis+'/'+G.golpes+' golpes)',bar(lect),
-      G.golpeVis===0?'':(lect<L.limite?'bad':'good'));
-    h+=gl('Al completar los golpes',bar(c[G.humedo?'humedo':'seco']),
-      c[G.humedo?'humedo':'seco']<L.limite?'bad':'good');
+      rt||G.golpeVis===0?'':(lect<L.limite?'bad':'good'));
+    if(!rt||hecha)
+      h+=gl('Al completar los golpes',bar(c[G.humedo?'humedo':'seco']),
+        rt?'':(c[G.humedo?'humedo':'seco']<L.limite?'bad':'good'));
     h+=gl('Límite corregido por altitud',bar(L.limite),'warn');
-    h+=gl('Diferencia entre cilindros',pct(100-L.relativa)+' (máx '+num(e.tolRel,0)+' %)',
-      (100-L.relativa)>e.tolRel?'bad':'good');
+    if(!rt)
+      h+=gl('Diferencia entre cilindros',pct(100-L.relativa)+' (máx '+num(e.tolRel,0)+' %)',
+        (100-L.relativa)>e.tolRel?'bad':'good');
   }
-  if(G.modo==='humeda'||G.modo==='reto')
+  if(G.modo==='humeda'||(rt&&G.humedo&&hecha))
     h+=gl('Salto al mojar, contra la mediana',gr(c.subDef)+NBSP+'bar',
-      c.subDef>0.4?'warn':(c.subDef<-0.4?'bad':''));
-  if(G.modo==='fugas'||G.modo==='reto'){
+      rt?'':(c.subDef>0.4?'warn':(c.subDef<-0.4?'bad':'')));
+  if(G.modo==='fugas'||(rt&&G.soplando)){
     h+=gl('Fuga del cilindro '+G.cil,pct(fu.pct,1)+' (máx '+num(e.limFuga,0)+' %)',
-      fu.pct>=e.limFuga?'bad':(c.ruta!=='ninguna'?'warn':'good'));
+      rt?'':(fu.pct>=e.limFuga?'bad':(c.ruta!=='ninguna'?'warn':'good')));
     h+=gl('Presión en el cilindro',bar(fu.pCil,2)+' de '+bar(fu.pSup,1),'');
     h+=gl('El aire sale por',RUTA_ROT[fu.dominante]+' ('+pct(fu.rutas[fu.dominante]*100)+')',
-      c.ruta==='ninguna'?'good':'bad');
+      rt?'':(c.ruta==='ninguna'?'good':'bad'));
+  }
+  if(rt){
+    h+=gl('Intentos',RETO.intentos+' de '+MAX_INTENTOS,RETO.intentos?'warn':'');
+    h+=gl('Pistas',RETO.pistas+' de '+MAX_PISTAS);
   }
   if(G.modo==='censo'){
     const cen=CENSO(), min=cen.filter(x=>x.resueltos===x.n).sort((a,b)=>a.sub.length-b.sub.length)[0];
@@ -2083,7 +2096,7 @@ function afterEdit(){
   armaChorros(); pintaDestinos();
   pintaTablero(); pintaTele(); pintaInforme(); syncCtrlbar();
 }
-function setMode(m){
+function setMode(m,conserva){
   if(m!=='ensamble'&&!G.simUnlocked){
     showToast('Primero hay que <b>montar el puesto de prueba</b>.',2400);
     return;
@@ -2092,6 +2105,9 @@ function setMode(m){
     showToast('Faltan piezas por montar.',2200); return;
   }
   paraCompresion(); G.soplando=false;
+  // Al salir del diagnóstico a ciegas el estado del caso NO se queda montado en
+  // las vistas de exploración: dejaría la respuesta a un clic de distancia.
+  if(G.modo==='reto'&&m!=='reto'&&!conserva) G.esc='sano';
   G.modo=m;
   // Volver a la vista de montaje NO desmonta lo ya montado. Si lo hiciera, mirar
   // como quedo el puesto costaria rehacerlo entero, y el alumno aprenderia a no
@@ -2102,7 +2118,7 @@ function setMode(m){
   else limpiaChorros();
   if(m==='humeda') G.humedo=true;
   if(m==='compresion') G.humedo=false;
-  if(m==='reto') armaReto();
+  if(m==='reto'&&!conserva) armaReto();
   G.golpeVis=0; TH=0; thAcum=0;
   pintaHUD(); afterEdit(); refrescaPregunta();
   const CAM={ensamble:[[7.0,4.8,10.6],[0.8,1.90,0.20]],
@@ -2140,7 +2156,8 @@ const FAMILIAS=[
   ['distribucion, no sellado','Distribución: el sellado está bien'],
   ['arranque, no sellado','Arranque o batería: el sellado está bien'],
 ];
-const RETO={caso:null, pasos:[], hecho:[], notas:[], veredicto:null, pistas:0, eleccion:null};
+const MAX_INTENTOS=3, MAX_PISTAS=2;
+const RETO={caso:null, pasos:[], hecho:[], notas:[], veredicto:null, pistas:0, eleccion:null, intentos:0, aviso:''};
 
 function barajaEn(a){                       // Fisher-Yates, para que la posición
   for(let i=a.length-1;i>0;i--){            // de la respuesta no sea la pista
@@ -2148,8 +2165,10 @@ function barajaEn(a){                       // Fisher-Yates, para que la posici�
   }
   return a;
 }
-function armaReto(){
-  const e=MQ(), casos=casosReto(e);
+function armaReto(evita){
+  // `evita`: el caso que acaba de agotar sus intentos. El caso nuevo es OTRO, o
+  // se aprobaría por eliminación recorriendo las familias.
+  const e=MQ(), casos=casosReto(e).filter(k=>k!==evita);
   RETO.caso=casos[Math.floor(Math.random()*casos.length)];
   G.esc=RETO.caso;
   G.cilAv=Math.floor(Math.random()*(e.ncil-1));   // −1 para que junta2 tenga vecino
@@ -2161,7 +2180,7 @@ function armaReto(){
     {k:'fugas', rot:'Presuriza ese cilindro y escucha por dónde sale el aire'},
   ];
   RETO.hecho=[false,false,false];
-  RETO.notas=[]; RETO.veredicto=null; RETO.pistas=0; RETO.eleccion=null;
+  RETO.notas=[]; RETO.veredicto=null; RETO.pistas=0; RETO.eleccion=null; RETO.intentos=0; RETO.aviso='';
   pintaDxReto();
 }
 // Anota lo medido. Una nota se apunta una sola vez: la lista es el cuaderno del
@@ -2189,7 +2208,9 @@ function pintaDxReto(){
 function pintaReto(){
   const R=el('report');
   let h='<b>Motor bajo diagnóstico:</b> '+MQ().nombre+' · taller a '+ALT_ROT[G.alt]+'. ';
-  h+='Órdenes cumplidas: '+RETO.hecho.filter(Boolean).length+'/3. ';
+  h+='Órdenes cumplidas: '+RETO.hecho.filter(Boolean).length+'/3 · intentos: '+RETO.intentos+'/'+MAX_INTENTOS+
+    ' · pistas: '+RETO.pistas+'/'+MAX_PISTAS+'. ';
+  if(RETO.aviso) h+='<span class="warn">'+RETO.aviso+'</span> ';
   if(RETO.veredicto) h+=(RETO.veredicto.ok?'<b class="good">Acertaste.</b> ':'<b class="bad">Fallaste.</b> ')+RETO.veredicto.texto;
   else h+='Elige la familia de avería y entrega el diagnóstico.';
   R.innerHTML=h;
@@ -2200,24 +2221,29 @@ function pintaReto(){
   pintaTablero();
 }
 function pista(){
-  const L=LECT(), e=MQ();
+  if(G.modo!=='reto') return;
+  if(RETO.pistas>=MAX_PISTAS){ showToast('No quedan más pistas en este caso.',2400); return; }
+  const e=MQ();
+  // Dos pistas graduadas que orientan sobre CÓMO medir; ninguna lee un instrumento
+  // ni nombra una familia.
   const p=[
     'Empieza por la seca en los '+e.ncil+' cilindros: si todos marcan lo mismo, el problema no es de un cilindro.',
     'Si un cilindro está bajo, móntale aceite: el SIGNO del salto contra sus hermanos separa segmentos de válvula.',
-    'Si la seca está pareja pero baja en todos, mira el régimen de arranque ('+num(L.rpmArr,0)+
-      ' rpm) y la altitud ('+ALT_ROT[G.alt]+'): puede que el sellado no tenga nada que ver.',
   ];
-  const i=Math.min(RETO.pistas,p.length-1);
-  RETO.pistas++;
+  const i=RETO.pistas++;
   showToast('💡 '+p[i],6000);
+  pintaReto();
   synth.beep(520,0.07,0.04);
 }
 function checkReto(){
+  if(G.modo!=='reto') return;
   if(!RETO.eleccion){ showToast('Elige primero una familia de avería.',2200); return; }
+  if(RETO.veredicto&&RETO.veredicto.ok) return;           // este caso ya está resuelto
   const L=LECT(), ok=(RETO.eleccion===L.clave);
-  const c=L.cilindros.find(x=>x.falla!=='sano');
+  RETO.intentos++;
   let txt;
   if(ok){
+    const c=L.cilindros.find(x=>x.falla!=='sano');
     txt=(c?('Era el cilindro '+c.cil+': '+FALLAS[c.falla].rot+'. '+FALLAS[c.falla].nota)
           :('No había ninguna fuga: era '+ESCEN[RETO.caso].rot.toLowerCase()+'. '+
             'Todos los cilindros bajaron por igual, y eso ninguna comparación entre cilindros lo distingue de un motor sano.'))+
@@ -2228,14 +2254,23 @@ function checkReto(){
     G.resuelto=true;
     synth.beep(660,0.09,0.05); setTimeout(()=>synth.beep(880,0.13,0.05),110);
   }else{
-    txt='Era <b>'+ESCEN[RETO.caso].rot+'</b> ('+L.clave+'). '+
-      (c?('El cilindro '+c.cil+' fugaba un '+pct(c.fuga)+' por '+RUTA_ROT[FUGA(c.cil).dominante]+
-          ' y saltó '+gr(c.subida)+' bar al mojar.')
-        :('Ningún cilindro tenía fuga: los '+MQ().ncil+' marcaban lo mismo y el porcentaje de fuga estaba en norma. '+
-          'Sin la cifra absoluta corregida por altitud, ese caso es indistinguible de un motor sano.'));
+    // Al fallar NO se dice qué era ni se enseñan las cifras del caso. Sólo lo que
+    // se puede razonar con el cuaderno: qué órdenes faltan y cómo se separan las
+    // familias en general.
+    const faltan=RETO.pasos.filter((p,i)=>!RETO.hecho[i]).map(p=>p.rot.toLowerCase());
+    txt='Esa no es la familia. '+(faltan.length
+      ? 'Te faltan órdenes por cumplir ('+faltan.join('; ')+'): sin esas lecturas no hay con qué separar una familia de otra.'
+      : 'Con las tres órdenes hechas, vuelve a leer el cuaderno: el SIGNO del salto al mojar separa los segmentos de las válvulas, la ruta del aire separa la junta de la pared del cilindro, y la cifra absoluta contra el límite corregido por altitud separa un motor con fuga de uno con el arranque flojo.');
     synth.beep(180,0.14,0.05);
   }
   RETO.veredicto={ok,texto:txt};
+  if(!ok&&RETO.intentos>=MAX_INTENTOS){
+    // Tres fallos: el motor se va y llega otro con otra avería.
+    const previo=RETO.caso;
+    armaReto(previo);
+    RETO.aviso='Tres intentos fallidos: ese motor se ha ido y ha llegado otro, con otra avería.';
+    afterEdit(); refrescaPregunta(); showToast(RETO.aviso,4200); return;
+  }
   pintaReto(); pintaTablero();
 }
 
@@ -2251,17 +2286,17 @@ function preguntaDe(m){
     return {q:'Se repite la prueba con un comprobador de manguera larga: '+num(24,0)+' cm³ de volumen muerto en vez de '+num(8,0)+
         '. ¿Qué cambia a los ocho golpes?',
       ops:[['Nada en la lectura final ('+bar(p8)+' contra '+bar(p24)+'): sólo baja el primer golpe, de '+bar(u8)+' a '+bar(u24),true],
-           ['La lectura final baja en proporción al volumen añadido',false],
-           ['La lectura final sube, porque hay más aire acumulado',false],
-           ['Cambia el primer golpe y también la final, las dos por igual',false]],
+           ['La lectura final baja en proporción al volumen añadido, porque el aire se reparte en más espacio',false],
+           ['La lectura final sube, porque hay más aire acumulado en la manguera más larga',false],
+           ['Cambia el primer golpe y también la final, las dos por igual y en la misma proporción',false]],
       why:'La antirretorno hace de trinquete: sigue abriendo mientras el cilindro supere a la manguera, y deja de abrir justo cuando la manguera alcanza la presión que el cilindro daría sin ella. El volumen muerto cuesta GOLPES, no bares. Ojo: con un solo golpe sí baja la cifra, y por eso las prácticas de ciclo publican esa relación.'};
   }
   if(m==='humeda'){
     return {q:'Un cilindro sube MENOS que sus hermanos al echarle aceite. ¿Qué descarta eso?',
       ops:[['Los segmentos: el aceite los sellaría y la subida sería mayor, no menor',true],
-           ['La válvula de escape, porque el aceite la enfría',false],
-           ['La junta de culata, porque el aceite la taparía',false],
-           ['Nada: el salto al mojar no distingue familias',false]],
+           ['La válvula de escape, porque el aceite la enfría y la dilata contra su asiento',false],
+           ['La junta de culata, porque el aceite la taparía y la fuga se reduciría',false],
+           ['Nada: el salto al mojar no distingue familias de avería entre sí',false]],
       why:'El aceite se queda en la corona del pistón. Sella el hueco del aro y no llega ni al asiento de una válvula ni a la junta. Una subida por debajo de la de los demás dice que la fuga está donde el aceite no puede llegar.'};
   }
   if(m==='fugas'){
@@ -2269,9 +2304,9 @@ function preguntaDe(m){
     return {q:'Con el mismo motor sano, se cambia el restrictor de '+num(1.0,2)+' a '+num(1.30,2)+' mm. La fuga pasa del '+
         num(f0.pct,1)+' % al '+num(f13.pct,1)+' %. ¿Qué ha cambiado?',
       ops:[['El útil, no el motor: el porcentaje es del conjunto motor+fugómetro',true],
-           ['El motor: ahora fuga más porque entra más aire',false],
-           ['La medida está mal: el porcentaje no depende del restrictor',false],
-           ['La altitud, que altera la presión de suministro',false]],
+           ['El motor: ahora fuga más porque entra más aire por el restrictor grande',false],
+           ['La medida está mal: el porcentaje no depende del restrictor que se use',false],
+           ['La altitud, que altera la presión de suministro del aire comprimido',false]],
       why:'El porcentaje compara la caída contra un orificio de referencia. Al agrandar el de referencia, la misma fuga real pesa relativamente menos... o más, según de qué lado del equilibrio esté. Lo que NO cambia con el útil es por dónde sale el aire: por eso la ruta localiza y el porcentaje sólo cuantifica.'};
   }
   if(m==='censo'){
@@ -2279,9 +2314,9 @@ function preguntaDe(m){
     return {q:'Con las cuatro observaciones comparativas —déficit, salto, % y ruta— se resuelven '+sc.resueltos+' de '+sc.n+
         ' escenarios. ¿Qué se queda fuera?',
       ops:[['Motor sano, distribución movida y batería baja: los tres bajan todos los cilindros por igual',true],
-           ['Los que afectan a dos cilindros contiguos, como la junta de culata',false],
-           ['Los de válvula, porque el aceite no los toca',false],
-           ['Ninguno: las cuatro comparativas bastan',false]],
+           ['Los que afectan a dos cilindros contiguos, como la junta de culata entre ambos',false],
+           ['Los de válvula, porque el aceite no los toca y por tanto el salto no existe',false],
+           ['Ninguno: las cuatro comparativas bastan para separar los once escenarios',false]],
       why:'Comparar cilindro contra cilindro encuentra el cilindro malo. Nunca dice que el motor ENTERO está bajo, porque no hay contra qué compararlo dentro del motor. Para eso hace falta un dato externo: la cifra del manual, corregida por la altitud del taller.'};
   }
   if(m==='reto'){
@@ -2289,17 +2324,17 @@ function preguntaDe(m){
     return {q:'Un cilindro fuga un '+num(fa.pct,0)+' % —por debajo del límite del '+num(e.limFuga,0)+
         ' % que fija el manual— y el aire burbujea en el radiador. ¿Qué se hace?',
       ops:[['Se condena la junta de culata: no hay burbujeo aceptable, esté el porcentaje donde esté',true],
-           ['Se acepta: por debajo del límite no hay hallazgo',false],
-           ['Se repite con otro restrictor hasta que pase del límite',false],
-           ['Se mide la compresión: si está en norma, no hay nada',false]],
+           ['Se acepta: por debajo del límite de porcentaje no hay hallazgo que condenar',false],
+           ['Se repite con otro restrictor hasta que el porcentaje pase del límite',false],
+           ['Se mide la compresión: si está en norma, no hay nada que reparar',false]],
       why:'El límite de porcentaje acota lo que un motor sano puede soplar por donde SÍ sopla —los aros, hacia el cárter—. Un destino que ningún motor sano usa no tiene límite tolerable: se condena por el sitio.'};
   }
   const alt=2660, s0=compresion(e,{alt:0}), s2=compresion(e,{alt});
   return {q:'El mismo motor sano se mide a nivel del mar y en un taller a '+num(alt,0)+' m. ¿Qué pasa?',
     ops:[['Marca menos ('+bar(barG(s2.pico,s2.pAtm))+' contra '+bar(barG(s0.pico,s0.pAtm))+') sin estar peor: hay que corregir el límite',true],
-         ['Marca lo mismo: la compresión no depende del aire de fuera',false],
-         ['Marca más, porque el aire frío de altura es más denso',false],
-         ['Marca menos y hay que rectificarlo',false]],
+         ['Marca lo mismo: la compresión no depende de la presión del aire de fuera',false],
+         ['Marca más, porque el aire frío de altura es más denso y entra más masa',false],
+         ['Marca menos y hay que rectificarlo, porque el motor ha perdido compresión',false]],
     why:'La presión de arranque escala con la del aire que entra. Sin corregir el límite del manual por la altitud del taller se condenan motores sanos, y el factor de Toluca ('+num(pAtm(2660)/P_ATM0,3)+') es casi el mismo que la relación límite/estándar ('+num(e.limSeco/e.estandar,2)+'): un motor sano allí cae justo sobre el límite escrito a nivel del mar.'};
 }
 let QZ=null;
@@ -2322,9 +2357,24 @@ function respondeQuiz(i){
 function refrescaPregunta(){ construyeQuiz(); }
 
 // ---------------------------------------------------------------- recorrido
-let autoRunning=false;
+let autoRunning=false, SNAP=null;
+// El recorrido es una DEMOSTRACIÓN: al terminar devuelve el banco y el reto al
+// estado exacto en que estaban (caso, cilindro, lecturas del cuaderno, intentos y
+// pistas) y jamás toca el reto ni el éxito ya conseguido.
+function restauraAuto(){
+  const sn=SNAP; SNAP=null; if(!sn) return;
+  paraCompresion(); G.soplando=false; limpiaChorros();
+  Object.assign(G,sn.g);
+  Object.assign(RETO,sn.reto,{pasos:sn.reto.pasos.slice(), hecho:sn.reto.hecho.slice(), notas:sn.reto.notas.slice()});
+  reposiciona(); if(G.modo==='fugas'){ G.soplando=true; armaChorros(); }
+  setMode(G.modo,true);
+  if(G.modo==='reto'){ pintaDxReto(); pintaReto(); }
+}
 function runAuto(){
   if(autoRunning) return 0;
+  SNAP={g:{modo:G.modo, maq:G.maq, esc:G.esc, cilAv:G.cilAv, alt:G.alt, cil:G.cil, golpes:G.golpes, rpm:G.rpm,
+      dRest:G.dRest, vMan:G.vMan, humedo:G.humedo, resuelto:G.resuelto},
+    reto:{...RETO, pasos:RETO.pasos.slice(), hecho:RETO.hecho.slice(), notas:RETO.notas.slice()}};
   autoRunning=true; syncCtrlbar();
   const pasos=[];
   const add=(ms,fn)=>pasos.push([ms,fn]);
@@ -2341,7 +2391,7 @@ function runAuto(){
   add(4600,()=>{ G.esc='sano'; G.alt=2660; afterEdit();
     showToast('<b>Altitud.</b> Motor sano en Toluca: marca un 28 % menos y no está malo.',4400); });
   add(4400,()=>{ setMode('censo'); showToast('<b>5 · Censo.</b> Sin la cifra absoluta no se resuelven los once escenarios.',4400); });
-  add(4600,()=>{ G.alt=0; setMode('reto'); showToast('<b>6 · Reto.</b> Ahora te toca a ti.',3400);
+  add(4600,()=>{ restauraAuto(); showToast('<b>Fin del recorrido.</b> El banco vuelve a como lo dejaste; el reto sigue esperando.',3600);
     autoRunning=false; syncCtrlbar(); });
   let t=0; pasos.forEach(([ms,fn])=>{ t+=ms; setTimeout(fn,t); });
   return t+400;
@@ -2423,7 +2473,9 @@ window.__labDebug={
   get veredicto(){ return veredicto(); },
   get chorros(){ return CHORROS.map(c=>({ruta:c.ruta,f:c.f})); },
   get reto(){ return {caso:RETO.caso, hecho:RETO.hecho.slice(), notas:RETO.notas.slice(),
-                      eleccion:RETO.eleccion, veredicto:RETO.veredicto}; },
+                      eleccion:RETO.eleccion, veredicto:RETO.veredicto,
+                      intentos:RETO.intentos, maxIntentos:MAX_INTENTOS, pistas:RETO.pistas, maxPistas:MAX_PISTAS}; },
+  get intentos(){ return RETO.intentos; },
   get quiz(){ return QZ?{q:QZ.q, ops:QZ.ops.map(o=>o.t), ok:QZ.ops.findIndex(o=>o.ok)}:null; },
   get autoRunning(){ return autoRunning; },
   get pistones(){ return RIG.pist.map(p=>({cil:p.cil, y:+p.g.position.y.toFixed(6)})); },

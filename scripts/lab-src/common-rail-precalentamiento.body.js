@@ -1689,12 +1689,15 @@ function detectable(e,f,t){
   const V=EV_DE(f,t), q=loQueVe(V,e);
   return q.escaner||q.manometro||q.probeta||q.pinza||q.arranque;
 }
-const RETO={ falla:'sano', temp:25, medido:{}, elegido:null, veredicto:null, intentos:0 };
+const MAX_INTENTOS=3, MAX_PISTAS=2;
+const RETO={ falla:'sano', temp:25, medido:{}, elegido:null, veredicto:null, intentos:0,
+  pistas:0, fallo:'', aviso:'' };
 // El caso vive en RETO y NO se copia a G: si se copiara, salir del reto dejaría
 // la avería puesta y la siguiente vista la enseñaría con nombre y apellidos.
 function armaCaso(f,t){
   RETO.falla=f; RETO.temp=t; RETO.medido={};
   RETO.elegido=null; RETO.veredicto=null;
+  RETO.intentos=0; RETO.pistas=0; RETO.fallo=''; RETO.aviso='';
   reconstruye(); pinta();
 }
 function arma(){
@@ -1710,13 +1713,36 @@ function mide(k){
   if(!INSTR.some(i=>i.k===k)) return false;
   RETO.medido[k]=true; reconstruye(); pinta(); return true;
 }
-function elige(k){ RETO.elegido=k; pinta(); }
+function elige(k){ RETO.elegido=k; RETO.fallo=''; pinta(); }
+// Al fallar NO se dice qué pieza era ni qué avería había: se dice qué se puede
+// razonar con lo medido. A los tres fallos el coche se cambia por otro, para que
+// nadie apruebe tachando piezas hasta que sólo quede una.
+function retroFallo(){
+  const piezas=[];
+  FALLA_KEYS.filter(compatible).forEach(f=>{ if(piezas.indexOf(ESPERADO[f])<0) piezas.push(ESPERADO[f]); });
+  if(piezas.indexOf(RETO.elegido)<0)
+    return 'Esa pieza no cuadra con lo que has medido: tus propias lecturas ya la descartaban. Mira la tira de lo que sigue siendo posible.';
+  if(piezas.length>1)
+    return 'Con lo medido siguen en pie '+piezas.length+' piezas distintas que habría que tocar: aún no separas la que has elegido de las otras. Pide el instrumento que las separe.';
+  return 'No es ésa. Vuelve a mirar las lecturas.';
+}
 function entrega(){
   if(!RETO.elegido) return false;
+  RETO.aviso='';
+  if(RETO.elegido===ESPERADO[RETO.falla]){
+    RETO.veredicto=true; RETO.fallo='';
+    if(!G.resuelto){ G.resuelto=true; marcaResuelto(); }
+    pinta(); return true;
+  }
+  RETO.veredicto=null;
   RETO.intentos++;
-  RETO.veredicto=(RETO.elegido===ESPERADO[RETO.falla]);
-  if(RETO.veredicto&&!G.resuelto){ G.resuelto=true; marcaResuelto(); }
-  pinta(); return RETO.veredicto;
+  RETO.fallo=retroFallo();
+  if(RETO.intentos>=MAX_INTENTOS){
+    arma();
+    RETO.aviso='Tres dictámenes fallados: este coche se cierra sin revelarlo y llega otro.';
+    showToast('<b>Coche nuevo</b><br>Tres intentos fallados. Otro motor, otra avería.',3600);
+  }
+  pinta(); return false;
 }
 
 // Qué averías siguen siendo compatibles con lo MEDIDO. No es una ayuda: es la
@@ -1853,9 +1879,12 @@ function vistaReto(){
     niv='ok'; rot='DICTAMEN CORRECTO';
     txt='Era '+FALLAS[RETO.falla].rot+'. '+explicaCaso(V,e)+
       ' Lo resolviste con '+nPed+' instrumento'+(nPed===1?'':'s')+' y '+num(gasto,0)+' minutos.';
-  } else if(RETO.veredicto===false){
-    niv='bad'; rot='ESA PIEZA NO ERA';
-    txt='Era '+FALLAS[RETO.falla].rot+'. '+FALLAS[RETO.falla].pista+' '+explicaCaso(V,e);
+  } else if(RETO.fallo){
+    niv='bad'; rot='DICTAMEN NO ACEPTADO';
+    txt=RETO.fallo+' Intento '+RETO.intentos+' de '+MAX_INTENTOS+'.';
+  } else {
+    txt=(RETO.aviso?RETO.aviso+' ':'')+txt+' Intentos: '+RETO.intentos+' de '+MAX_INTENTOS+
+      ' · pistas: '+RETO.pistas+' de '+MAX_PISTAS+'.';
   }
   banda(Math.max(yt+18,640),niv,rot,txt);
 }
@@ -2406,10 +2435,9 @@ function syncCtrl(){
       '<button class="b dx'+(RETO.medido[i.k]?' on':'')+'" data-inst="'+i.k+'">'+
       i.rot+' · '+i.coste+'</button>').join('');
     el('dxreto').innerHTML=DICTAMEN.map(d=>{
-      const cls=RETO.veredicto===null
+      const cls=RETO.veredicto!==true
         ? (RETO.elegido===d.k?' on':'')
-        : (d.k===ESPERADO[RETO.falla]?' right'
-          :(d.k===RETO.elegido?' wrong':''));
+        : (d.k===ESPERADO[RETO.falla]?' right':'');
       return '<button class="b dx'+cls+'" data-dx="'+d.k+'">'+d.rot+'</button>';
     }).join('');
   }
@@ -2480,8 +2508,9 @@ function pintaInforme(){
     let h='<b>'+e.nombre+'</b>, motor a '+TEMP_ROT(RETO.temp)+'. ';
     h+='El cliente dice: '+queja(W)+'. ';
     if(RETO.veredicto===true) h+='<b class="good">Dictamen correcto:</b> era '+FALLAS[RETO.falla].rot+'.';
-    else if(RETO.veredicto===false) h+='<b class="bad">Esa pieza no era:</b> era '+FALLAS[RETO.falla].rot+'.';
-    else h+='Pide instrumentos y dictamina. Ninguno de ellos ve el motor entero.';
+    else if(RETO.fallo) h+='<b class="bad">Dictamen no aceptado.</b> '+RETO.fallo+' Intento '+RETO.intentos+' de '+MAX_INTENTOS+'.';
+    else h+=(RETO.aviso?RETO.aviso+' ':'')+'Pide instrumentos y dictamina. Ninguno de ellos ve el motor entero. Intentos: '+
+      RETO.intentos+' de '+MAX_INTENTOS+' · pistas: '+RETO.pistas+' de '+MAX_PISTAS+'.';
     el('report').innerHTML=h; return;
   }
   let h='<b>'+e.nombre+'.</b> ';
@@ -2548,8 +2577,24 @@ function marcaResuelto(){
   showToast('<b>Dictamen correcto</b><br>Era '+FALLAS[RETO.falla].rot+'.',3600);
 }
 function pistaReto(){
-  RETO.pistas=(RETO.pistas||0)+1;
-  showToast('<b>Pista</b><br>'+FALLAS[RETO.falla].pista,5200);
+  if(G.modo!=='reto'||RETO.veredicto===true) return;
+  if(RETO.pistas>=MAX_PISTAS){
+    showToast('<b>Sin más pistas</b><br>Ya has usado las '+MAX_PISTAS+' de este caso.',3000); return; }
+  // La pista orienta hacia el INSTRUMENTO que más estrecha lo posible con lo que
+  // ya has medido; no nombra la avería ni la pieza.
+  const sin=INSTR.filter(i=>!RETO.medido[i.k]);
+  if(!sin.length){ showToast('Ya has pedido todos los instrumentos. Ahora toca decidir.',3000); return; }
+  let mejor=sin[0], corte=Infinity;
+  for(const i of sin){
+    const guarda=RETO.medido; RETO.medido=Object.assign({},guarda); RETO.medido[i.k]=true;
+    const n=FALLA_KEYS.filter(compatible).length;
+    RETO.medido=guarda;
+    if(n<corte){ corte=n; mejor=i; }
+  }
+  RETO.pistas++;
+  showToast('<b>Pista '+RETO.pistas+' de '+MAX_PISTAS+' · prueba con:</b> '+mejor.rot+
+    '<br>Es el que más estrecha lo que sigue siendo posible con lo que llevas medido.',5200);
+  pinta();
 }
 function otroCoche(){ paraAuto(); arma(); refrescaPregunta(); }
 
@@ -2575,67 +2620,67 @@ function preguntas(){
       ms(tOnPil,2)+' del que '+ms(tmC,2)+' es tiempo muerto. Si el pulso sube un 5 %, ¿cuánto sube el combustible?',
     ops:[
       ['Mucho más de un 5 %, porque el aumento entero cae sobre la parte que de verdad inyecta, que es la más pequeña',true],
-      ['Exactamente un 5 %: el caudal es proporcional al tiempo de mando',false],
-      ['Menos de un 5 %, porque al abrir más se estrangula el orificio',false],
-      ['Nada: el tiempo muerto se lo come todo siempre',false],
+      ['Exactamente un 5 %, porque el caudal que sale del inyector es proporcional al tiempo que se le manda abrir',false],
+      ['Menos de un 5 %, porque al abrir más tiempo la aguja se estrangula el orificio y el caudal crece menos',false],
+      ['Nada, porque el tiempo muerto se lo come todo y el aumento de mando no llega a abrir más la aguja',false],
     ]});
   q.push({t:'El motor gira a '+rpmT(A.rpm)+' en el arranque y el exponente politrópico vale '+
       num(A.cils[0].n,3)+'. ¿Por qué una batería floja es un problema de COMPRESIÓN?',
     ops:[
       ['Porque girando despacio el calor de la compresión tiene tiempo de escaparse a la pared, el exponente baja y la carga no llega a la temperatura de autoencendido',true],
-      ['Porque con poca tensión los inyectores no abren y no entra combustible',false],
-      ['Porque las bujías incandescentes no llegan al rojo con poca tensión',false],
-      ['Porque el motor de arranque calienta el bloque y roba calor a la cámara',false],
+      ['Porque con poca tensión los inyectores no abren del todo y al cilindro no entra el combustible que haría falta',false],
+      ['Porque las bujías incandescentes no llegan al rojo con poca tensión y la mezcla no encuentra dónde prenderse',false],
+      ['Porque el motor de arranque calienta el bloque al girar y le roba a la cámara el calor que necesita la compresión',false],
     ]});
   q.push({t:'El retorno total mide '+mlm(R.retornoTotal,1)+' y la suma de los '+e.cil+
       ' inyectores, '+mlm(V.sumaIny,1)+'. ¿Qué significa la diferencia?',
     ops:[
       ['Que ese caudal ha vuelto al depósito sin pasar por ningún cilindro: se va por el regulador de presión',true],
-      ['Que un inyector está midiendo mal y hay que repetir la prueba',false],
-      ['Que hay aire en el circuito y las probetas se han llenado de espuma',false],
-      ['Que el filtro está reteniendo parte del caudal',false],
+      ['Que un inyector está midiendo mal la probeta y hay que repetir la prueba hasta que las cifras cuadren',false],
+      ['Que hay aire en el circuito y las probetas se han llenado de espuma, con lo que parte del volumen no se contabiliza',false],
+      ['Que el filtro está reteniendo parte del caudal de retorno y ese combustible no llega a la manguera de vuelta',false],
     ]});
   q.push({t:'De las '+num(C.total,0)+' casillas del censo de este motor, en '+num(mudo,0)+
       ' hay un síntoma y el escáner no tiene nada que declarar. ¿Qué conclusión práctica se saca?',
     ops:[
       ['Que la ausencia de código no certifica nada, y que un diagnóstico serio empieza por medir presión y retornos',true],
-      ['Que el sistema de diagnóstico a bordo de este motor está averiado',false],
-      ['Que hay que borrar los códigos y repetir el ciclo de conducción',false],
-      ['Que esos síntomas los está imaginando el cliente',false],
+      ['Que el sistema de diagnóstico a bordo de este motor está averiado y hay que sustituir la centralita antes de seguir',false],
+      ['Que hay que borrar los códigos de la memoria y repetir el ciclo de conducción hasta que el fallo vuelva a registrarse',false],
+      ['Que esos síntomas los está imaginando el cliente, porque sin código en el escáner no hay avería que encontrar',false],
     ]});
   if(G.falla==='sensorBajo'||G.falla==='sensorAlto')
     q.push({t:'El escáner enseña '+barF(R.pLeidaMed)+' y en el tubo hay '+barF(R.pMed)+
         '. ¿Por qué el ordenador no levanta ningún código?',
       ops:[
         ['Porque juzga la presión con la lectura del propio sensor averiado, y contra esa lectura el lazo está cerrando perfecto',true],
-        ['Porque el umbral del código es mucho más ancho que esa diferencia',false],
-        ['Porque el código de presión sólo se guarda después de tres ciclos de conducción',false],
-        ['Porque el sensor sólo se vigila con el motor parado',false],
+        ['Porque el umbral del código es mucho más ancho que esa diferencia y no llega a dispararse con una desviación así',false],
+        ['Porque el código de presión sólo se guarda después de tres ciclos de conducción seguidos con la desviación presente',false],
+        ['Porque el sensor sólo se vigila con el motor parado y llave puesta, y en marcha el ordenador no lo comprueba',false],
       ]});
   else
     q.push({t:'Con este motor la dosificación de la bomba va al '+pcc(R.mandoMed*100)+
         '. ¿Qué se está midiendo con ese número?',
       ops:[
         ['Cuánto caudal tiene que meter la bomba para sostener la presión: si sube sin que suba la demanda, algo se está fugando',true],
-        ['La cantidad de combustible que entra a los cilindros',false],
-        ['El rendimiento mecánico de la bomba de alta',false],
-        ['La proporción de combustible que vuelve al depósito',false],
+        ['La cantidad de combustible que acaba entrando a los cilindros en cada ciclo, medida directamente en la bomba',false],
+        ['El rendimiento mecánico de la bomba de alta presión, es decir, cuánta de su potencia se pierde en rozamientos',false],
+        ['La proporción de combustible que vuelve al depósito por la manguera de retorno respecto de lo que se bombea',false],
       ]});
   q.push({t:'Las bujías de este motor tienen una constante de '+seg(e.tauBujia,1)+
       ' y el ordenador precalienta '+seg(V.tPrecal,1)+'. Si envejecen y calientan menos pero SIGUEN consumiendo corriente, ¿qué pasa?',
     ops:[
       ['Que no hay código: el ordenador vigila el circuito, no la temperatura de la punta',true],
-      ['Que salta un P0380 en cuanto la temperatura baja del umbral',false],
-      ['Que el ordenador alarga solo el precalentamiento hasta compensarlo',false],
-      ['Que se nota igual en verano que en invierno',false],
+      ['Que salta un P0380 en cuanto la temperatura de la punta baja del umbral, porque el ordenador la vigila directamente',false],
+      ['Que el ordenador alarga solo el tiempo de precalentamiento hasta compensar la pérdida de temperatura de la punta',false],
+      ['Que se nota igual en verano que en invierno, porque la bujía envejecida falla con cualquier temperatura ambiente',false],
     ]});
   q.push({t:'La ventana útil de este arranque dura '+ms(A.ventana/1000,2)+
       ' y sale de ocho grados de giro. ¿Por qué encoge cuando el motor gira más deprisa?',
     ops:[
       ['Porque son GRADOS, no milisegundos: los mismos grados se recorren en menos tiempo cuanto más rápido gira',true],
-      ['Porque a más vueltas hay menos tiempo para inyectar',false],
-      ['Porque la turbulencia aumenta y apaga la llama',false],
-      ['Porque el retardo de encendido crece con el régimen',false],
+      ['Porque a más vueltas hay menos tiempo para inyectar, y el pulso de mando acaba cortándose antes de abrir la aguja',false],
+      ['Porque la turbulencia aumenta con el régimen y llega a apagar la llama antes de que la combustión se establezca',false],
+      ['Porque el retardo de encendido crece con el régimen y se come una parte cada vez mayor de la ventana disponible',false],
     ]});
   return q;
 }
@@ -2827,7 +2872,7 @@ window.__labDebug={
   get reto(){ return {falla:RETO.falla, temp:RETO.temp,
     medido:Object.assign({},RETO.medido), elegido:RETO.elegido,
     esperado:ESPERADO[RETO.falla], veredicto:RETO.veredicto,
-    pistas:RETO.pistas||0,
+    pistas:RETO.pistas||0, intentos:RETO.intentos,
     vivas:FALLA_KEYS.filter(compatible)}; },
   get preguntas(){ return preguntas().map(q=>({t:q.t, n:q.ops.length,
     correctas:q.ops.filter(o=>o[1]).length})); },
@@ -2853,6 +2898,7 @@ window.__labDebug={
   mide(k){ return mide(k); },
   elige(k){ elige(k); },
   entrega(){ return entrega(); },
+  get intentos(){ return RETO.intentos; },
   pista(){ pistaReto(); },
   arma(){ arma(); refrescaPregunta(); },
   // Para poner un caso concreto del reto sin depender del azar.

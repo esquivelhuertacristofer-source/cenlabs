@@ -75,7 +75,7 @@ function deltaFromDelayRpm(t_d_us,rpmVal){ return 6*PP*rpmVal*(t_d_us*1e-6); } /
 
 /* ---------- §2 Estado ---------- */
 let mode='explora', delta=0, icmd=4, rpm=4000, td=100;
-let MYST=null, retoSolved=false, retoMsg='';
+let MYST=null, retoSolved=false, retoMsg='', intentos=0, pistas=0;
 let solved=false, autoRunning=false;
 
 function genMystery(){
@@ -92,7 +92,7 @@ function genMystery(){
     const targetPct=Math.round(avgFrac(dT)*1000)/10;
     MYST={kind:'buscarDelta',deltaTarget:dT,targetPct,tol:1.0};
   }
-  retoSolved=false; retoMsg='';
+  retoSolved=false; retoMsg=''; intentos=0; pistas=0;
 }
 
 /* ---------- §3 Materiales ---------- */
@@ -456,7 +456,7 @@ function refreshBenchDyn(){
 
 /* ---------- §6 HUD + panel ---------- */
 document.getElementById('hud').innerHTML=`
-  <div class="eyebrow">D5 · Máquinas eléctricas — Conmutación electrónica</div>
+  <div class="eyebrow">Máquinas eléctricas · Conmutación electrónica</div>
   <h2>Conmutación Seis Pasos de un Motor BLDC/PMSM</h2>
   <p>Un motor BLDC/PMSM no tiene escobillas: un inversor trifásico conmuta la corriente entre sus tres fases en pasos de 60° eléctricos, siguiendo la posición del rotor — la <b>conmutación seis pasos</b>. Cuando esa conmutación está perfectamente alineada con la FEM trapezoidal inducida por los imanes del rotor (δ=0), el par entregado es máximo y prácticamente constante.</p>
   <p>Si la conmutación se retrasa o adelanta un ángulo <b>δ</b> respecto de la posición real del rotor — por ejemplo, por un accionamiento sensorless con retardo fijo en vez de sensores Hall — el par promedio cae y aparece <b>rizo de par</b>: el par instantáneo ya no es plano, sino que muestra rebajes en cada paso de conmutación.</p>
@@ -473,7 +473,7 @@ document.getElementById('hud').innerHTML=`
     <span class="fl">SÍ:</span> modela la forma trapezoidal ideal de la FEM inducida, el patrón de conmutación de seis pasos (120° de conducción, 60° flotante), la caída EXACTA en forma cerrada del par promedio y del rizo pico-pico en función del error de temporización δ, y el efecto de un retardo fijo de detección sensorless que crece con la velocidad del rotor.
     <span class="no">NO:</span> saturación magnética, armónicos reales de la modulación PWM del inversor, inductancia de fase (aquí la corriente conmuta instantáneamente, ⚑), inercia ni dinámica temporal del rotor, ni el algoritmo real de detección de cruce por cero de la FEM.
   </div>
-  <div class="src">Tratamiento estándar de conmutación trapezoidal seis pasos en motores BLDC/PMSM (p. ej. Yedamale, "Brushless DC (BLDC) Motor Fundamentals", Microchip AN885; Krishnan, "Electric Motor Drives"); K_T e I_cmd ⚑ ilustrativos, no verificados contra una máquina real. Extiende el motor de tracción de mecanica-1.</div>
+  <div class="src">Tratamiento estándar de conmutación trapezoidal seis pasos en motores BLDC/PMSM (p. ej. Yedamale, "Brushless DC (BLDC) Motor Fundamentals", Microchip AN885; Krishnan, "Electric Motor Drives"); K_T e I_cmd ⚑ ilustrativos, no verificados contra una máquina real. Extiende el laboratorio del motor de tracción.</div>
 `;
 
 document.getElementById('panel').innerHTML=`
@@ -653,10 +653,10 @@ function updateReport(){
   } else {
     if(MYST.kind==='calcularICmd'){
       L.push(`Reto: con δ = ${MYST.delta}° fijo, calcula I_cmd para T_avg = ${MYST.target.toFixed(2)} N·m.`);
-      L.push(retoSolved?`<span class="ok">${retoMsg}</span>`:'Escribe tu resultado en A y comprueba.');
+      L.push(retoSolved?`<span class="ok">${retoMsg}</span>`:'Escribe tu resultado en A y comprueba. Intentos fallidos: '+intentos+'/3.');
     } else {
       L.push(`Reto: ajusta δ hasta que T_avg caiga a ${MYST.targetPct.toFixed(1)}% del ideal.`);
-      L.push(retoSolved?`<span class="ok">${retoMsg}</span>`:'Mueve el deslizador de δ y observa la telemetría "T_avg %".');
+      L.push(retoSolved?`<span class="ok">${retoMsg}</span>`:'Mueve el deslizador de δ y observa la telemetría "T_avg %". Intentos fallidos: '+intentos+'/3.');
     }
   }
   el('report').innerHTML=L.map(s=>'<div>'+s+'</div>').join('');
@@ -665,28 +665,43 @@ function updateReport(){
 function refreshAll(){ drawBoard(); updateTele(); updateReport(); refreshBenchDyn(); }
 
 /* ---------- §10 Reto ---------- */
+/* Tolerancia que rechaza la respuesta ingenua: en «calcular I_cmd», ignorar el factor (1−δ²/7200) da T/K_T. */
+function retoTol(){
+  if(MYST.kind!=='calcularICmd') return MYST.tol;
+  const naive=MYST.target/K_T;
+  const d=Math.abs(MYST.answer-naive);
+  return Math.max(0.01,Math.min(MYST.tol,0.45*d));
+}
 function checkReto(){
-  if(!MYST) return;
+  if(!MYST||retoSolved) return;
   const v=parseFloat(el('retoInput').value.replace(',','.'));
   if(!isFinite(v)){
     el('retoOut').innerHTML='<span class="dtc">Escribe un número.</span>'; return;
   }
   let ok=false;
   if(MYST.kind==='calcularICmd'){
-    ok=Math.abs(v-MYST.answer)<=MYST.tol;
+    ok=Math.abs(v-MYST.answer)<=retoTol();
     if(ok) retoMsg=`I_cmd = T_target/(K_T·(1-δ²/7200)) = ${MYST.target.toFixed(2)}/(${K_T}×${avgFrac(MYST.delta).toFixed(4)}) = ${MYST.answer.toFixed(2)} A — con δ=${MYST.delta}° el par promedio cae a ${(avgFrac(MYST.delta)*100).toFixed(1)}% del ideal, así que hace falta más corriente para sostener el mismo par.`;
   } else {
     ok=Math.abs(Math.abs(v)-MYST.deltaTarget)<=MYST.tol;
     if(ok) retoMsg=`δ = ${MYST.deltaTarget}° hace que T_avg caiga exactamente a ${MYST.targetPct.toFixed(1)}% del ideal (T_avg(δ)=1-δ²/7200) — el modelo es simétrico, así que ±${MYST.deltaTarget}° dan el mismo resultado.`;
   }
   if(ok){
-    retoSolved=true; solved=true;
+    retoSolved=true; solved=true; clearDx(); refreshQuestion();
     el('retoOut').innerHTML=`<span class="ok">✔ ¡Correcto! (tolerancia ${tolText()})</span>`;
     synth.beep(880,.1,.08); setTimeout(()=>synth.beep(1175,.15,.08),140);
   } else {
-    retoMsg='';
-    el('retoOut').innerHTML=`<span class="dtc">✘ Aún no. Tolerancia: ${tolText()}</span>`;
+    retoMsg=''; intentos++;
     synth.beep(180,.12,.08);
+    if(intentos>=3){
+      newMystery();
+      el('retoOut').innerHTML='<span class="dtc">✘ Tres intentos fallidos: te dejo un caso NUEVO.</span>';
+      return;
+    }
+    let pista='';
+    if(intentos===1){ pistas=1; pista=MYST.kind==='calcularICmd'?' Pista 1: con δ≠0 el par promedio ya no es el ideal; piensa en cuánto cae.':' Pista 1: la telemetría “T_avg %” te dice cuánto par queda; compárala con el objetivo.'; }
+    else if(intentos===2){ pistas=2; pista=MYST.kind==='calcularICmd'?' Pista 2: calcula primero el factor (1−δ²/7200) y luego despeja la corriente.':' Pista 2: T_avg cae con δ², no linealmente: no esperes que a mitad de δ quede a mitad de par.'; }
+    el('retoOut').innerHTML=`<span class="dtc">✘ Aún no (intento ${intentos}/3). Tolerancia: ${tolText()}.</span>${pista}`;
   }
   refreshAll();
 }
@@ -710,17 +725,17 @@ function buildQuiz(){
     opciones:shuffle([
       {t:'El par promedio cae y aparece rizo (el par deja de ser plano)',ok:true,why:'Correcto: cada fase deja de conducir exactamente durante su ventana de FEM constante, así que aparecen tramos donde el producto eX·iX es menor — de ahí caen tanto el promedio como la planicie del par.'},
       {t:'El par promedio sube, aunque aparece algo de rizo',ok:false,why:'No: desalinear la conmutación nunca ayuda — el par promedio siempre cae o se mantiene igual (en δ=0), nunca sube.'},
-      {t:'No cambia nada mientras |δ|<60°',ok:false,why:'Sí cambia: incluso un δ pequeño reduce el par promedio en proporción a δ² y añade rizo proporcional a |δ|.'},
-      {t:'El motor deja de girar inmediatamente',ok:false,why:'No: el motor sigue girando con menos par disponible y más rizo; solo se detendría si el par de carga superara al par promedio disponible.'},
+      {t:'No cambia nada mientras el error de conmutación sea menor de 60° eléctricos',ok:false,why:'Sí cambia: incluso un δ pequeño reduce el par promedio en proporción a δ² y añade rizo proporcional a |δ|.'},
+      {t:'El motor deja de girar inmediatamente porque pierde la sincronía con el rotor',ok:false,why:'No: el motor sigue girando con menos par disponible y más rizo; solo se detendría si el par de carga superara al par promedio disponible.'},
     ]),
   };
   QUIZ.comparar={
     pregunta:'¿Por qué un accionamiento sensorless con retardo fijo de detección pierde más par al subir la velocidad del rotor?',
     opciones:shuffle([
-      {t:'Porque δ_ef=6·PP·rpm·t_d crece linealmente con la velocidad para un retardo fijo en segundos',ok:true,why:'Correcto: un retardo de tiempo fijo (t_d) representa un ángulo eléctrico cada vez mayor mientras más rápido gira el rotor, porque el rotor recorre más grados eléctricos en ese mismo tiempo.'},
-      {t:'Porque los sensores Hall se desgastan con la velocidad',ok:false,why:'No aplica aquí: el accionamiento sensorless de este comparativo no usa sensores Hall en absoluto — usa un algoritmo de detección de cruce por cero con un retardo fijo.'},
-      {t:'Porque I_cmd baja automáticamente a alta velocidad',ok:false,why:'No: I_cmd es un valor independiente que el usuario o el controlador de corriente fija; no cambia solo por la velocidad.'},
-      {t:'No pierde más par — el efecto es igual a cualquier velocidad',ok:false,why:'No: δ_ef depende de rpm; a baja velocidad el mismo retardo produce un δ_ef pequeño, a alta velocidad puede saturar el modelo (>60°).'},
+      {t:'Porque δ_ef=6·PP·rpm·t_d crece linealmente con la velocidad para un retardo fijo',ok:true,why:'Correcto: un retardo de tiempo fijo (t_d) representa un ángulo eléctrico cada vez mayor mientras más rápido gira el rotor, porque el rotor recorre más grados eléctricos en ese mismo tiempo.'},
+      {t:'Porque los sensores Hall se desgastan con la velocidad y entregan una posición cada vez más imprecisa',ok:false,why:'No aplica aquí: el accionamiento sensorless de este comparativo no usa sensores Hall en absoluto — usa un algoritmo de detección de cruce por cero con un retardo fijo.'},
+      {t:'Porque I_cmd baja automáticamente a alta velocidad y con ello cae el par promedio disponible',ok:false,why:'No: I_cmd es un valor independiente que el usuario o el controlador de corriente fija; no cambia solo por la velocidad.'},
+      {t:'No pierde más par: el efecto del retardo es igual a cualquier velocidad del rotor',ok:false,why:'No: δ_ef depende de rpm; a baja velocidad el mismo retardo produce un δ_ef pequeño, a alta velocidad puede saturar el modelo (>60°).'},
     ]),
   };
   if(MYST){
@@ -730,8 +745,8 @@ function buildQuiz(){
         opciones:shuffle([
           {t:'I_cmd = T_target / (K_T·(1-δ²/7200))',ok:true,why:'Correcto: T_avg=K_T·I_cmd·(1-δ²/7200); despejando I_cmd se obtiene esa expresión.'},
           {t:'I_cmd = T_target·K_T·(1-δ²/7200)',ok:false,why:'Está invertida: hay que DIVIDIR entre K_T·(1-δ²/7200), no multiplicar.'},
-          {t:'I_cmd = T_target / K_T',ok:false,why:'Falta el factor de corrección por δ: con δ≠0 el par promedio ya no es simplemente K_T·I_cmd.'},
-          {t:'I_cmd no depende de δ',ok:false,why:'Sí depende: con más error de conmutación, T_avg(δ) cae, así que hace falta más corriente para el mismo par objetivo.'},
+          {t:'I_cmd = T_target / (K_T·(1+δ²/7200))',ok:false,why:'El signo está al revés: el error de conmutación REDUCE el par promedio (1-δ²/7200), así que el divisor debe ser menor que K_T, no mayor.'},
+          {t:'I_cmd = T_target / (K_T·(1-δ/60))',ok:false,why:'El par promedio cae con δ², no linealmente con δ: el factor correcto es (1-δ²/7200).'},
         ]),
       };
     } else {
@@ -739,9 +754,9 @@ function buildQuiz(){
         pregunta:'Buscando por tanteo el δ que produce un T_avg% dado: ¿qué observas si te pasas del valor buscado y sigues aumentando |δ|?',
         opciones:shuffle([
           {t:'T_avg% sigue bajando — es una función decreciente de |δ|',ok:true,why:'Correcto: T_avg(δ)=1-δ²/7200 depende solo de |δ| (es simétrica) y decrece monótonamente conforme |δ| crece, hasta 50% en δ=±60°.'},
-          {t:'T_avg% empieza a subir de nuevo',ok:false,why:'No: en el rango ±60° modelado, T_avg% es monótonamente decreciente con |δ| — nunca vuelve a subir.'},
-          {t:'El rizo de par desaparece',ok:false,why:'Al revés: el rizo pico-pico=|δ|/60 crece con |δ|, no desaparece.'},
-          {t:'No hay forma de saberlo sin calcularlo primero',ok:false,why:'Sí la hay: la telemetría "T_avg %" se actualiza en vivo con cada movimiento del deslizador δ.'},
+          {t:'T_avg% empieza a subir de nuevo, porque el modelo es periódico en δ',ok:false,why:'No: en el rango ±60° modelado, T_avg% es monótonamente decreciente con |δ| — nunca vuelve a subir.'},
+          {t:'El rizo de par desaparece al pasar del valor buscado',ok:false,why:'Al revés: el rizo pico-pico=|δ|/60 crece con |δ|, no desaparece.'},
+          {t:'No hay forma de saberlo sin calcularlo primero a mano',ok:false,why:'Sí la hay: la telemetría "T_avg %" se actualiza en vivo con cada movimiento del deslizador δ.'},
         ]),
       };
     }
@@ -750,6 +765,7 @@ function buildQuiz(){
 function clearDx(){ el('dxbtns').innerHTML=''; }
 function refreshQuestion(){
   const q=QUIZ[mode]; if(!q) return;
+  if(mode==='reto'&&!retoSolved){ el('q_text').textContent='🔒 La pregunta de ingeniería de este reto se habilita al resolverlo: sus opciones darían la fórmula.'; el('dxbtns').innerHTML=''; return; }
   el('q_text').textContent=q.pregunta;
   const box=el('dxbtns'); box.innerHTML='';
   q.opciones.forEach((o,i)=>{
@@ -821,46 +837,37 @@ async function runSensorlessDemo(silent){
 }
 
 async function runAuto(){
-  if(autoRunning) return; autoRunning=true;
+  if(autoRunning) return;
+  if(mode==='reto'&&!retoSolved){ showToast('🔒 El recorrido barre δ y muestra el par: resuelve el reto (o pide un caso nuevo con 🔀) antes de verlo.'); synth.beep(220,.1,.07); return; }
+  autoRunning=true;
+  // DEMOSTRACIÓN: se guarda el estado del alumno y se restaura; el reto ni se toca ni se resuelve
+  const prev={mode,delta,icmd,rpm,td,rs:retoSolved,sv:solved};
   const b=el('btnAuto'); b.disabled=true; b.textContent='▶ En curso…';
   try{
     synth.init(); synth.resume();
     setMode('explora'); setIcmd(4);
-    showToast('1/5 · Explora: barremos δ de -60° a 60° con I_cmd=4 A.');
+    showToast('1/4 · Explora: barremos δ de -60° a 60° con I_cmd=4 A.');
     for(let v=DELTA_MIN;v<=DELTA_MAX;v+=4){ setDelta(v); await sleep(60); }
     setDelta(0);
     await sleep(300);
 
-    showToast('2/5 · Comparar: Hall (δ=0) contra sensorless con retardo fijo.');
+    showToast('2/4 · Comparar: Hall (δ=0) contra sensorless con retardo fijo.');
     setMode('comparar');
     await runHallDemo(true);
     await sleep(400);
     await runSensorlessDemo(true);
     await sleep(400);
 
-    showToast('3/5 · Reto: resolvemos un caso misterioso.');
-    setMode('reto');
-    if(MYST.kind==='buscarDelta'){
-      for(let v=0;v<=DELTA_MAX;v+=1){
-        setDelta(v);
-        if(Math.abs(avgFrac(v)*100-MYST.targetPct)<0.5) break;
-        await sleep(25);
-      }
-      el('retoInput').value=delta.toFixed(0);
-    } else {
-      el('retoInput').value=MYST.answer.toFixed(2);
-    }
-    checkReto();
-    await sleep(300);
+    showToast('3/4 · En el Reto te dan un caso (calcular I_cmd o hallar δ) y lo resuelves tú: el recorrido no lo hace por ti.');
+    await sleep(3000);
 
-    showToast('4/5 · Marcamos la respuesta correcta del quiz.');
-    const idx=QUIZ.reto.opciones.findIndex(o=>o.ok);
-    if(idx>=0) el('dxbtns').children[idx].click();
-    await sleep(600);
-
-    showToast('5/5 · Nuevo caso listo para intentar por tu cuenta.');
-    newMystery();
+    showToast('4/4 · Recorrido completo: te devuelvo al punto en que estabas.');
+    await sleep(900);
   } finally {
+    // restaurar: modo y mandos del alumno (en reto, setMode vuelve a poner los valores del caso)
+    setMode(prev.mode);
+    if(prev.mode!=='reto'){ setDelta(prev.delta); setIcmd(prev.icmd); setRpm(prev.rpm); setTd(prev.td); }
+    retoSolved=prev.rs; solved=prev.sv;
     autoRunning=false; b.disabled=false; b.textContent='✨ Recorrido guiado';
   }
 }
@@ -894,7 +901,8 @@ S.start();
 setMode('explora');
 
 window.__labDebug={
-  state:()=>({mode,delta,icmd,rpm,td,retoSolved,solved}),
+  state:()=>({mode,delta,icmd,rpm,td,retoSolved,solved,intentos,pistas}),
+  intentos:()=>intentos, pistas:()=>pistas, runAuto, retoTol,
   point:()=>({tAvg:tAvgNm(icmd,delta),tAvgPct:avgFrac(delta)*100,ripplePct:ripplePct(delta)}),
   trapEmf, trapStep, tNorm, avgFrac, minFrac, ripplePct, deltaFromDelayRpm, tAvgNm,
   mystery:()=>MYST?{...MYST}:null,

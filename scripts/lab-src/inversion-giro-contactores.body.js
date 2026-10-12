@@ -585,7 +585,7 @@ function drawTermico() {
 }
 
 let RETO = { active: false, m: 6, ts: 8, answer: 20 };
-let retoSolved = false;
+let retoSolved = false, intentos = 0;
 function pick(a) { return a[Math.floor(Math.random() * a.length)]; }
 function drawReto() {
   const r = RETO;
@@ -597,23 +597,38 @@ function drawReto() {
   const yy = wrapText(40, 230, 'Elige la clase de disparo (10, 20 o 30) más rápida que NO dispare en falso durante este arranque, pero sí proteja el motor ante una sobrecarga sostenida.', '#dfe7ee', 18, 920);
   labelAt(40, yy + 40, '¿Cuál es la clase mínima correcta? (elige abajo)', '#f4c95d', 22);
   if (retoSolved) labelAt(40, yy + 80, `✔ Correcto: Clase ${r.answer}`, '#43D9AD', 22);
+  else labelAt(40, yy + 80, `Intentos fallidos: ${intentos}/2`, '#8A94A0', 18);
   bTex.needsUpdate = true;
   const rt = el('retoText');
-  if (rt) rt.textContent = `m=${tf(r.m, 1)}×Ir · ts=${r.ts}s` + (retoSolved ? ` ✔ Correcto: Clase ${r.answer}` : '');
+  if (rt) rt.textContent = `m=${tf(r.m, 1)}×Ir · ts=${r.ts}s` + (retoSolved ? ` ✔ Correcto: Clase ${r.answer}` : ` · intentos fallidos: ${intentos}/2`);
 }
 function newChallenge() {
-  const s = pick(RETO_SCENARIOS);
+  // escenario distinto del que estaba en pantalla
+  let s;
+  do { s = pick(RETO_SCENARIOS); } while (RETO.active && s.m === RETO.m && s.ts === RETO.ts && RETO_SCENARIOS.length > 1);
   RETO = { active: true, m: s.m, ts: s.ts, answer: minClassFor(s.m, s.ts) };
-  retoSolved = false;
+  retoSolved = false; intentos = 0;
+  ['btnReto10', 'btnReto20', 'btnReto30'].forEach((id) => { const bt = el(id); if (bt) { bt.disabled = false; bt.classList.remove('wrong', 'right'); } });
   drawReto();
   showToast('🎲 Nuevo escenario de arranque generado.');
   synth.beep(520, 0.08, 0.05);
 }
 function checkReto(guessClase) {
+  if (retoSolved) return;
   const ok = Number(guessClase) === RETO.answer;
   retoSolved = ok;
-  if (ok) { showToast('<span style="color:var(--good)">✔ Correcto: clase mínima que no dispara en falso durante el arranque.</span>'); synth.beep(1046, 0.12, 0.06); }
-  else { showToast('<span style="color:var(--bad)">✗ No es correcto. Compara el tiempo de disparo de cada clase contra el tiempo de arranque.</span>'); synth.beep(180, 0.14, 0.06); }
+  const bt = el('btnReto' + Number(guessClase));
+  if (ok) {
+    if (bt) bt.classList.add('right');
+    ['btnReto10', 'btnReto20', 'btnReto30'].forEach((id) => { const x = el(id); if (x) x.disabled = true; });
+    showToast('<span style="color:var(--good)">✔ Correcto: clase mínima que no dispara en falso durante el arranque.</span>'); synth.beep(1046, 0.12, 0.06);
+  } else {
+    // con solo 3 opciones, el 2.º fallo ya delataría la tercera: a los 2 fallos el escenario se cambia
+    if (bt) { bt.classList.add('wrong'); bt.disabled = true; }
+    intentos++; synth.beep(180, 0.14, 0.06);
+    if (intentos >= 2) { newChallenge(); showToast('<span style="color:var(--bad)">✗ Dos intentos fallidos: te dejo un escenario NUEVO. Calcula el tiempo de disparo de cada clase a ese m y compáralo con el tiempo de arranque.</span>'); return; }
+    showToast('<span style="color:var(--bad)">✗ No es correcto (intento ' + intentos + '/2). Compara el tiempo de disparo de la clase que elegiste, a ese múltiplo m, con el tiempo real de arranque.</span>');
+  }
   drawReto();
 }
 
@@ -718,6 +733,7 @@ async function autoAssemble() {
 async function autoCircuitoTour() {
   if (autoRunning) return; autoRunning = true;
   const btn = el('btnAutoCirc'); if (btn) btn.disabled = true;
+  const prevC = { ...STATE.circ };   // demostración: se devuelve el circuito al estado del alumno
   pressParo(); await sleep(900);
   pressAdelante(); await sleep(1600);
   pressParo(); await sleep(700);
@@ -727,17 +743,20 @@ async function autoCircuitoTour() {
   pressAdelante(); await sleep(900);
   pressReversa(); await sleep(1800);
   toggleInterlock(); await sleep(1200);
+  Object.assign(STATE.circ, prevC); refreshAll();
   if (btn) btn.disabled = false; autoRunning = false;
 }
 async function autoTermicoTour() {
   if (autoRunning) return; autoRunning = true;
   const btn = el('btnAutoTerm'); if (btn) btn.disabled = true;
+  const prevT = { ...STATE.term };   // demostración: se devuelven m y clase al alumno
   for (const clase of CLASS_ORDER) {
     STATE.term.clase = clase;
     const sel = el('selClase'); if (sel) sel.value = String(clase);
     refreshAll(); await sleep(1500);
   }
   for (const m of [4, 5, 6, 7, 8]) { STATE.term.m = m; refreshAll(); await sleep(1200); }
+  Object.assign(STATE.term, prevT); { const sel = el('selClase'); if (sel) sel.value = String(prevT.clase); } refreshAll();
   if (btn) btn.disabled = false; autoRunning = false;
 }
 
@@ -785,7 +804,7 @@ S.start();
 
 /* ---------------- HUD ---------------- */
 document.getElementById('hud').innerHTML = `
-  <div class="eyebrow">Máquinas eléctricas · D5</div>
+  <div class="eyebrow">Máquinas eléctricas · Arrancadores</div>
   <h2>Inversión de giro con contactores y enclavamiento</h2>
   <p>Arma un arrancador reversible sobre un panel de montaje —dos contactores, enclavamiento mecánico y eléctrico, relevador térmico y botonera de 3 hilos— y luego explora por qué el enclavamiento es obligatorio, cómo se elige la clase de disparo de un relevador térmico y resuelve retos de selección.</p>
   <div class="formula">t_disparo = t_máx(clase) · (7.2 / m)²  ·  clases 10 / 20 / 30 según IEC 60947-4-1</div>
@@ -907,6 +926,9 @@ window.__labDebug = {
   get mode() { return mode; },
   get progress() { return progress; },
   get simUnlocked() { return simUnlocked; },
-  get reto() { return { ...RETO, solved: retoSolved }; },
+  get reto() { return { ...RETO, solved: retoSolved, intentos }; },
+  get solved() { return retoSolved; },
+  get intentos() { return intentos; },
+  checkReto, newChallenge,
   tripTime, minClassFor,
 };

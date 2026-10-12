@@ -42,12 +42,17 @@ function fmtMethod(m){return m==='dol'?'Directo en línea (DOL)':m==='yd'?'Estre
 
 /* ---------- 2 · Estado ---------- */
 let mode='explora', method='dol', a=0.65;
-let MYST=null, retoSolved=false, retoMsg='';
+let MYST=null, retoSolved=false, retoMsg='', intentos=0;
 let solved=false, autoRunning=false;
 
 const fmtPct=v=>(v>=0?'+':'')+v.toFixed(0)+' %';
 
 function genMystery(){
+  const sig=m=>m?m.kind+"|"+(m.method||"")+"|"+(m.tap==null?"":m.tap)+"|"+(m.Xmax||""):null;   // un caso nuevo debe ser distinto del anterior
+  const prevSig=sig(MYST);
+  do{ genMysteryRaw(); }while(prevSig&&sig(MYST)===prevSig);
+}
+function genMysteryRaw(){
   const kind=['iline','tstart','tap'][Math.floor(Math.random()*3)];
   if(kind==='tap'){
     const frac=0.2+Math.random()*0.4;
@@ -61,7 +66,7 @@ function genMystery(){
     const target=kind==='iline'?c.Iline:c.Tstart;
     MYST={kind,method:m,tap,target,tol:Math.max(0.05*target,0.05)};
   }
-  retoSolved=false;retoMsg='';
+  retoSolved=false;retoMsg='';intentos=0;
 }
 
 /* ---------- 3 · Materiales ---------- */
@@ -485,8 +490,8 @@ function updateReport(){
     L.push('En a = 1/√3 ≈ '+(AY*100).toFixed(1)+' %, k = 1/3: el autotransformador iguala EXACTO a Y-Δ (I_línea/I_FL = '+(ILR/3).toFixed(2)+', T_arranque/T_FL = '+(TLR/3).toFixed(2)+').');
     L.push('Mueve el tap y compara contra los puntos típicos comerciales (50/65/80 %) ⚑.');
   }else{
-    if(MYST.kind==='tap')L.push('Arranque directo: I_línea/I_FL = ILR = '+ILR+'. Límite exigido: Xmax = '+MYST.Xmax.toFixed(2)+'×I_FL. Despeja a de ILR·a² = Xmax → a = √(Xmax/ILR).');
-    else L.push('Dato: método = '+fmtMethod(MYST.method)+(MYST.tap!=null?', tap a = '+(MYST.tap*100).toFixed(0)+' %':'')+'. k = 1 (DOL) · 1/3 (Y-Δ) · a² (Auto).');
+    if(MYST.kind==='tap')L.push('Arranque directo: I_línea/I_FL = ILR = '+ILR+'. Límite exigido: Xmax = '+MYST.Xmax.toFixed(2)+'×I_FL.'+(retoSolved?' Se despeja a de ILR·a² = Xmax → a = √(Xmax/ILR).':''));
+    else L.push('Dato: método = '+fmtMethod(MYST.method)+(MYST.tap!=null?', tap a = '+(MYST.tap*100).toFixed(0)+' %':'')+'.'+(retoSolved?' k = 1 (DOL) · 1/3 (Y-Δ) · a² (Auto).':''));
     if(retoSolved)L.push('✔ '+retoMsg);
     else if(retoMsg)L.push(retoMsg);
   }
@@ -503,16 +508,23 @@ function checkReto(){
   if(!isFinite(v)){el('retoOut').innerHTML='<span class="dtc">Escribe un número.</span>';return;}
   const ok=Math.abs(v-MYST.target)<=MYST.tol;
   if(ok){
-    retoSolved=true;solved=true;
+    retoSolved=true;solved=true;clearDx();refreshQuestion();
     retoMsg=MYST.kind==='tap'
       ?'Exacto: a* = √(Xmax/ILR) = √('+MYST.Xmax.toFixed(2)+'/'+ILR+') = '+MYST.target.toFixed(2)+' %.'
       :'Exacto: '+(MYST.kind==='iline'?'I_línea/I_FL':'T_arranque/T_FL')+' = '+MYST.target.toFixed(3)+'.';
     el('retoOut').innerHTML='<span class="ok">✔ ¡Correcto! '+retoMsg+'</span>';
     synth.beep(880,.1,.08);setTimeout(()=>synth.beep(1175,.15,.08),140);
   }else{
-    retoMsg='';
-    el('retoOut').innerHTML='<span class="dtc">✘ Aún no. Tolerancia: ±'+tolText(MYST)+'</span>';
+    retoMsg='';intentos++;
     synth.beep(220,.15,.08);
+    if(intentos>=3){
+      newMystery();
+      showToast('Tres intentos fallidos: el caso se cambió por uno nuevo. Repasa cómo se escala cada método antes de volver a calcular.');
+      el('retoOut').innerHTML='<span class="dtc">✘ Tres intentos fallidos: te dejo un caso NUEVO. Intentos: 0/3.</span>';
+      return;
+    }
+    const dir=v<MYST.target?'por debajo':'por encima';
+    el('retoOut').innerHTML='<span class="dtc">✘ Aún no (intento '+intentos+'/3): tu valor queda '+dir+' de lo que da el método. Revisa el factor k y a qué cantidad se aplica. Tolerancia: ±'+tolText(MYST)+'.</span>';
   }
   refreshAll();
 }
@@ -536,23 +548,23 @@ let QUIZ={};
 function buildQuiz(){
   QUIZ.explora={pregunta:'¿Por qué la corriente de arranque en autotransformador (I_línea) se reduce por a² mientras que la corriente que ve el propio motor (I_motor) solo se reduce por a?',
     opciones:shuffle([
-      {t:'Porque el autotransformador refleja la impedancia del motor hacia la línea por a² (como cualquier transformador), pero el motor conectado al secundario ve directamente la tensión reducida por a sobre su propia impedancia',ok:true,
+      {t:'La línea ve la impedancia del motor reflejada por a² (como en cualquier transformador), pero el devanado solo recibe la tensión reducida por a',ok:true,
        why:'Correcto: la línea ve la impedancia del motor reflejada por a², pero el devanado del motor solo experimenta la tensión reducida a·V — por eso I_motor=ILR·a mientras I_línea=ILR·a².'},
-      {t:'Es un error de notación: ambas corrientes son siempre iguales en cualquier método de arranque',ok:false,
+      {t:'Es solo una diferencia de notación: en cualquier método de arranque la corriente de línea y la del motor son siempre idénticas',ok:false,
        why:'No — solo son iguales en DOL y Y-Δ (donde línea y devanado ven la misma corriente); en autotransformador se separan porque hay un transformador entre la línea y el motor.'},
-      {t:'Porque el motor tiene menos vueltas en su devanado que el autotransformador',ok:false,
+      {t:'Porque el devanado del motor tiene menos vueltas que el del autotransformador y por eso circula menos corriente por él',ok:false,
        why:'La razón no es el número de vueltas del motor sino la relación de transformación del autotrafo: refleja impedancia hacia la línea por a², pero solo escala tensión/corriente hacia el motor por a.'},
-      {t:'Porque el par de arranque siempre es igual a la corriente de línea',ok:false,
+      {t:'Porque el par de arranque es siempre igual a la corriente de línea, así que ambas se reducen por el mismo factor',ok:false,
        why:'El par de arranque escala con a² igual que I_línea (ambos con el mismo factor k=a²) — pero eso no explica la asimetría entre I_línea e I_motor, que es un efecto de transformación, no de par.'}])};
   QUIZ.comparar={pregunta:'¿Por qué el tap a=1/√3≈57.7% del autotransformador iguala EXACTAMENTE a Y-Δ en corriente y par de arranque?',
     opciones:shuffle([
-      {t:'Porque en ambos casos k=1/3: Y-Δ reduce la tensión de fase por 1/√3 (y la corriente/par de línea por (1/√3)²=1/3); el autotrafo con a=1/√3 da k=a²=1/3 — el mismo factor',ok:true,
+      {t:'Porque ambos dan k=1/3: Y-Δ reduce por (1/√3)² y el autotransformador con a=1/√3 da k=a²=1/3, el mismo factor',ok:true,
        why:'Correcto: ambos métodos reducen k a exactamente 1/3 en ese punto — como I_línea/I_FL y T_arranque/T_FL dependen solo de k, coinciden en TODOS sus valores, no solo en uno.'},
-      {t:'Es una coincidencia numérica sin relación física',ok:false,
+      {t:'Es una coincidencia numérica de este motor, sin relación física entre los dos métodos de arranque',ok:false,
        why:'No es coincidencia: ambos mecanismos (conexión estrella y tap de autotransformador) reducen la tensión aplicada al motor, y la corriente/par de arranque escalan con el cuadrado de esa reducción — 1/√3 es exactamente el punto donde ambos cuadrados coinciden en 1/3.'},
-      {t:'Porque a=1/√3 es el tap más usado comercialmente',ok:false,
+      {t:'Porque a=1/√3 es el tap más usado comercialmente en los autotransformadores de arranque',ok:false,
        why:'Los taps comerciales típicos (≈50/65/80%) son distintos de 1/√3≈57.7% — ese valor es un punto de igualdad matemática con Y-Δ, no necesariamente un tap estándar de catálogo.'},
-      {t:'Porque a esa altura el motor alcanza su velocidad nominal',ok:false,
+      {t:'Porque a esa altura el motor alcanza su velocidad nominal y la corriente se estabiliza',ok:false,
        why:'Este modelo compara solo el INSTANTE de arranque (rotor bloqueado), no la aceleración del motor — la velocidad no interviene en la comparación de k(a).'}])};
   if(MYST){
     if(MYST.kind==='tap'){
@@ -584,6 +596,7 @@ function buildQuiz(){
 function clearDx(){el('dxbtns').innerHTML='';}
 function refreshQuestion(){
   const q=QUIZ[mode];if(!q){el('q_text').textContent='';clearDx();return;}
+  if(mode==='reto'&&!retoSolved){ el('q_text').textContent='🔒 La pregunta de ingeniería de este reto se habilita al resolverlo: sus opciones darían la fórmula.'; el('dxbtns').innerHTML=''; return; }
   el('q_text').textContent=q.pregunta;
   const bx=el('dxbtns');bx.innerHTML='';
   q.opciones.forEach((o,i)=>{
@@ -623,7 +636,10 @@ pickerFor(S.scene,S.camera,S.renderer.domElement,hit=>{
 })();
 const sleep=ms=>new Promise(r=>setTimeout(r,ms));
 async function runAuto(){
-  if(autoRunning)return;autoRunning=true;
+  if(autoRunning)return;
+  if(mode==='reto'&&!retoSolved){showToast('<span style="color:var(--bad)">🔒 El recorrido muestra los valores de los tres métodos: resuelve el reto (o pide otro caso con 🔀) antes de verlo.</span>');return;}
+  autoRunning=true;
+  const prev={mode,method,a,rs:retoSolved,sv:solved};
   const b=el('btnAuto');b.disabled=true;b.textContent='✨ Recorriendo…';
   try{
     synth.init();synth.resume();
@@ -648,17 +664,18 @@ async function runAuto(){
     showToast('Tap = 1/√3 ≈ 57.7 %: k=1/3 — corriente y par IGUALAN exacto a Y-Δ.');
     await sleep(2600);
     setMode('comparar');await sleep(2600);
-    setMode('reto');
-    showToast('4/5 · Reto: calcula el dato desconocido antes de revelar la gráfica.');
-    await sleep(2400);
-    el('retoInput').value=MYST.target.toFixed(2);
-    await sleep(1000);checkReto();await sleep(2200);
-    const q=QUIZ.reto;const idx=q?q.opciones.findIndex(o=>o.ok):-1;
-    const btn=idx>=0?el('dxbtns').children[idx]:null;if(btn)btn.click();
-    await sleep(1400);
-    newMystery();
-    showToast('5/5 · Recorrido completo: te dejo un caso misterioso nuevo sin resolver — inténtalo tú, o pide otro (🔀).');
-  }finally{autoRunning=false;b.disabled=false;b.textContent='✨ Recorrido guiado';}
+    showToast('4/5 · En el Reto se te da un dato desconocido: calcula tú la corriente, el par o el tap. El recorrido NO lo resuelve por ti.');
+    await sleep(3000);
+    showToast('5/5 · Recorrido completo: te devuelvo al estado en que estabas. El reto sigue como lo dejaste.');
+    await sleep(1200);
+  }finally{
+    // demostración: devuelve al alumno su modo, método y tap; el reto no se toca ni se da por resuelto
+    setMode(prev.mode);
+    if(prev.mode!=='reto'){method=prev.method;a=prev.a;el('sTap').value=(a*100).toFixed(0);el('av').textContent=(a*100).toFixed(0)+' %';
+      ['dol','yd','auto'].forEach(mm=>el('mm_'+mm).classList.toggle('on',mm===method));syncTapEnabled();refreshAll();}
+    retoSolved=prev.rs;solved=prev.sv;
+    autoRunning=false;b.disabled=false;b.textContent='✨ Recorrido guiado';
+  }
 }
 S.setAnimate(()=>{ // la polea gira más rápido cuanto mayor es la corriente de arranque actual
   const cur=calc(method,a);
@@ -683,7 +700,8 @@ el('btnNew').onclick=newMystery;
 genMystery();buildQuiz();
 S.start();setMode('explora');
 window.__labDebug={
-  state:()=>({mode,method,a,retoSolved,solved}),
+  state:()=>({mode,method,a,retoSolved,solved,intentos}),
+  intentos:()=>intentos,runAuto,
   point:()=>calc(method,a),
   calc,kOf,effA,
   mystery:()=>MYST?{...MYST}:null,

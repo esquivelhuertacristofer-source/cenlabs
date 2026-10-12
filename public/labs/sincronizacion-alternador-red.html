@@ -486,11 +486,14 @@ function lampVoltages(Vg,th,sq){
 
 /* ---------- 2 · Estado ---------- */
 let mode='explora', Vgen=100, dF=0.15, seq='correcta', theta=0;
-let MYST=null, retoSolved=false, solved=false, lastAttempt=null;
+let MYST=null, retoSolved=false, solved=false, lastAttempt=null, intentos=0, pistas=0;
+// en el reto sin resolver, los ✓/✗ por condición y el veredicto GO/NO-GO darían la respuesta: se ocultan
+const hideVer=()=>mode==='reto'&&!retoSolved;
 let clockT=0, teleAcc=0, autoRunning=false;
 
 function genMystery(){
-  const kinds=['ok','voltaje','frecuencia','secuencia','angulo'];
+  const prevKind=MYST?MYST.kind:null;   // un caso nuevo debe ser de otra clase que el anterior
+  const kinds=['ok','voltaje','frecuencia','secuencia','angulo'].filter(k=>k!==prevKind);
   const kind=kinds[Math.floor(Math.random()*kinds.length)];
   let mV=100+(Math.random()*2-1)*2;    // ±2 % — dentro de tolerancia (±5 %)
   let mF=(Math.random()*2-1)*0.06;     // ±0.06 Hz — dentro de tolerancia (±0.1 Hz)
@@ -509,7 +512,7 @@ function genMystery(){
     mT=sg*(ANGTOL+5+Math.random()*80);           // 15–95° fuera
   }
   MYST={kind,Vgen:+mV.toFixed(2),dF:+mF.toFixed(3),seq:mS,theta:+mT.toFixed(1)};
-  retoSolved=false;
+  retoSolved=false; intentos=0; pistas=0;
 }
 function realKindOf(m){
   const r=evaluar(m.Vgen,m.dF,m.seq,m.theta);
@@ -630,9 +633,15 @@ function drawBoard(){
   let cx0=150;
   c.font='13px system-ui';
   chips.forEach(ch=>{const label=ch[0],okC=ch[1];
+    if(hideVer()){
+      rr(c,cx0,250,84,30,6,'#16211d','#3a5a52',2);
+      c.fillStyle='#8FB3AC';c.textAlign='center';
+      c.fillText(label+' ?',cx0+42,270);
+    }else{
     rr(c,cx0,250,84,30,6,okC?'#11331f':'#331414',okC?'#7bdc9a':'#e05555',2);
     c.fillStyle=okC?'#7bdc9a':'#e05555';c.textAlign='center';
     c.fillText(label+' '+(okC?'✓':'✗'),cx0+42,270);
+    }
     cx0+=96;
   });
   drawDial(c,290,470,120);
@@ -646,7 +655,6 @@ function attemptClose(){
   const r=evaluar(Vgen,dF,seq,theta);
   lastAttempt={...r,tAtClose:clockT};
   if(r.allOk){
-    solved=true;
     showToast('<span style="color:var(--good)">✔ Cierre exitoso — las 4 condiciones están dentro de tolerancia, sin golpe de par perceptible.</span>');
     synth.beep(880,.1,.08);setTimeout(()=>synth.beep(1175,.15,.08),140);
   }else{
@@ -802,7 +810,7 @@ document.getElementById('hud').innerHTML=`
   <span class="no">NO:</span> el "factor de choque" 2·sin(|θ|/2) es una magnitud ILUSTRATIVA de la
   severidad relativa del golpe de par, no una corriente ni un par real en amperios o N·m · IEC 60034
   ⚑ normaliza el DESEMPEÑO y la construcción de máquinas rotativas, no el PROCEDIMIENTO de
-  sincronización en sí (cita curricular de la lista maestra, no norma de procedimiento) · dinámica
+  sincronización en sí (referencia general del tema, no norma de procedimiento) · dinámica
   del regulador de velocidad/excitación durante el ajuste, transitorios electromecánicos reales del
   cierre, ni el relé de verificación de sincronismo (25) de una subestación real.</div>
   <div class="src">Ref: IEEE C50.12 / C50.13 ⚑ (límites prácticos de sincronización) · IEC 60034 ⚑
@@ -905,11 +913,13 @@ function set(id,txt,cls){const n=el(id);n.textContent=txt;
   n.classList.remove('good','warn','bad');if(cls)n.classList.add(cls);}
 function updateTele(){
   const r=evaluar(Vgen,dF,seq,theta);
-  set('t_v',(r.dV>=0?'+':'')+r.dV.toFixed(1)+' %',r.condV?'good':'bad');
-  set('t_f',(dF>=0?'+':'')+dF.toFixed(3)+' Hz',r.condF?'good':'bad');
-  set('t_seq',seq==='correcta'?'correcta':'INVERTIDA',r.condSeq?'good':'bad');
-  set('t_ang',r.th.toFixed(1)+' °',r.condAng?'good':'bad');
-  set('t_veredicto',r.allOk?'✔ LISTO PARA CERRAR':'✘ NO CERRAR',r.allOk?'good':'bad');
+  const hv=hideVer();
+  set('t_v',(r.dV>=0?'+':'')+r.dV.toFixed(1)+' %',hv?'':(r.condV?'good':'bad'));
+  set('t_f',(dF>=0?'+':'')+dF.toFixed(3)+' Hz',hv?'':(r.condF?'good':'bad'));
+  set('t_seq',seq==='correcta'?'correcta':'INVERTIDA',hv?'':(r.condSeq?'good':'bad'));
+  set('t_ang',r.th.toFixed(1)+' °',hv?'':(r.condAng?'good':'bad'));
+  if(hv)set('t_veredicto','¿? — decide tú','warn');
+  else set('t_veredicto',r.allOk?'✔ LISTO PARA CERRAR':'✘ NO CERRAR',r.allOk?'good':'bad');
 }
 function updateReport(){
   const rep=el('report');const L=[];
@@ -925,6 +935,7 @@ function updateReport(){
   }else{
     L.push('Condiciones: ΔV='+r.dV.toFixed(1)+'% · Δf='+dF.toFixed(3)+' Hz · secuencia '+(seq==='correcta'?'correcta':'invertida')+' · θ='+r.th.toFixed(1)+'°.');
     if(retoSolved)L.push('✔ Decisión registrada.');
+    else L.push('Intentos fallidos: '+intentos+'/3.');
   }
   rep.innerHTML=L.map(s=>'<div>'+s+'</div>').join('');
 }
@@ -934,29 +945,39 @@ function refreshAll(){
 
 /* ---------- 10 · Reto: decisión categórica GO/NO-GO ---------- */
 function checkReto(guess){
-  if(!MYST)return;
+  if(!MYST||retoSolved)return;
   const real=realKindOf(MYST);
   const r=evaluar(MYST.Vgen,MYST.dF,MYST.seq,MYST.theta);
   const ok=guess===real;
-  retoSolved=ok;if(ok)solved=true;
-  lastAttempt={...r,tAtClose:clockT};
-  document.querySelectorAll('#retoBtns [data-v]').forEach(b=>{
-    b.classList.remove('right','wrong');
-    if(b.dataset.v===real)b.classList.add('right');
-    else if(b.dataset.v===guess)b.classList.add('wrong');
-  });
+  const gb=document.querySelector('#retoBtns [data-v="'+guess+'"]');
   if(ok){
+    retoSolved=true;solved=true;
+    lastAttempt={...r,tAtClose:clockT};
+    if(gb)gb.classList.add('right');
+    document.querySelectorAll('#retoBtns [data-v]').forEach(b=>{b.disabled=true;});
     showToast('<span style="color:var(--good)">✔ Correcto: '+kindLabel(real)+'. ΔV='+r.dV.toFixed(1)+'% · Δf='+MYST.dF.toFixed(3)+' Hz · secuencia '+(MYST.seq==='correcta'?'correcta':'invertida')+' · θ='+r.th.toFixed(1)+'°.</span>');
     synth.beep(1046,.12,.06);
   }else{
-    showToast('<span style="color:var(--bad)">✘ No es correcto. Revisa las 4 lecturas del panel.</span>');
+    // el fallo no marca cuál era la correcta ni hace parpadear el interruptor: solo se descarta esa decisión
+    if(gb){gb.classList.add('wrong');gb.disabled=true;}
+    intentos++;
     synth.beep(180,.14,.06);
+    if(intentos>=3){
+      newMystery();
+      showToast('<span style="color:var(--bad)">✘ Tres intentos fallidos: te dejo un caso NUEVO. Compara cada lectura con su tolerancia, una por una.</span>');
+      return;
+    }
+    let pista='';
+    if(intentos===1){pistas=1;pista=' Pista 1: compara cada lectura con su tolerancia, una por una, antes de decidir.';}
+    else if(intentos===2){pistas=2;pista=' Pista 2: en estos casos a lo sumo UNA de las cuatro condiciones está fuera; recuerda que la aguja del sincronoscopio no ve la secuencia.';}
+    showToast('<span style="color:var(--bad)">✘ No es correcto (intento '+intentos+'/3).'+pista+'</span>');
   }
   refreshAll();
 }
 function newMystery(){
   genMystery();
-  document.querySelectorAll('#retoBtns [data-v]').forEach(b=>b.classList.remove('right','wrong'));
+  document.querySelectorAll('#retoBtns [data-v]').forEach(b=>{b.classList.remove('right','wrong');b.disabled=false;});
+  lastAttempt=null;
   buildQuiz();
   setMode('reto');
   showToast('Nuevo caso misterioso servido.');
@@ -985,23 +1006,23 @@ function buildQuiz(){
        why:'Eso se ajusta DESPUÉS de sincronizar, con la excitación del campo — no es lo que indica la aguja durante el proceso de sincronización.'}])};
   QUIZ.comparar={pregunta:'¿Por qué el método de las 3 lámparas SÍ revela una secuencia de fases invertida, y el sincronoscopio NO?',
     opciones:shuffle([
-      {t:'Porque las 3 lámparas comparan las 3 parejas de fases simultáneamente; con secuencia invertida no pueden apagarse las 3 a la vez, mientras que el sincronoscopio solo vigila una pareja',ok:true,
+      {t:'Porque las 3 lámparas comparan las 3 parejas de fases a la vez y con secuencia invertida no se apagan juntas, mientras el sincronoscopio vigila una sola pareja',ok:true,
        why:'Correcto: con secuencia correcta las 3 diferencias fasoriales se anulan juntas en θ=0; con secuencia invertida, cuando una se anula las otras dos NO — y el patrón de brillo rota en el tiempo.'},
-      {t:'Porque las lámparas son más sensibles eléctricamente que la bobina del sincronoscopio',ok:false,
+      {t:'Porque las lámparas son más sensibles eléctricamente que la bobina del sincronoscopio y detectan diferencias de ángulo más pequeñas',ok:false,
        why:'No es un tema de sensibilidad sino de CUÁNTAS parejas de fases observa cada instrumento: 1 (sincronoscopio) vs. 3 (lámparas).'},
-      {t:'Porque las lámparas miden frecuencia y el sincronoscopio mide tensión',ok:false,
+      {t:'Porque las lámparas miden la frecuencia de cada fase y el sincronoscopio mide solamente la tensión entre el alternador y la red',ok:false,
        why:'Ambos instrumentos responden, en el fondo, a la diferencia FASORIAL entre generador y red — ninguno mide frecuencia o tensión de forma aislada.'},
-      {t:'No hay diferencia real: ambos métodos detectan la secuencia invertida igual de bien',ok:false,
+      {t:'No hay diferencia real: ambos métodos detectan la secuencia invertida igual de bien, solo cambia la forma de mostrarla',ok:false,
        why:'Sí hay diferencia — es precisamente la limitación estructural del sincronoscopio de una sola pareja de fases lo que motiva verificar la secuencia con un método aparte (lámparas o indicador dedicado) antes de confiar en la aguja.'}])};
   QUIZ.reto={pregunta:'Si el sincronoscopio muestra la aguja detenida en SYNC (θ≈0°) pero la secuencia de fases está invertida, ¿es seguro cerrar el interruptor?',
     opciones:shuffle([
-      {t:'No — la secuencia invertida es una condición independiente del ángulo; cerrar conecta las fases en el orden equivocado sin importar qué tan cerca esté la aguja de SYNC',ok:true,
+      {t:'No — la secuencia invertida es independiente del ángulo: cerrar conecta las fases en orden equivocado aunque la aguja esté en SYNC',ok:true,
        why:'Correcto: las 4 condiciones (tensión, frecuencia, secuencia, ángulo) deben cumplirse TODAS. La aguja en SYNC solo confirma el ángulo de una pareja de fases — nada dice sobre la secuencia.'},
-      {t:'Sí — si la aguja está en SYNC, las 4 condiciones de sincronización están garantizadas',ok:false,
+      {t:'Sí — con la aguja en SYNC quedan garantizadas las 4 condiciones: tensión, frecuencia, secuencia y ángulo',ok:false,
        why:'Falso: es exactamente la trampa de este laboratorio. El sincronoscopio es ciego a la secuencia de fases por diseño.'},
-      {t:'Sí, siempre que la tensión también coincida',ok:false,
+      {t:'Sí, siempre que la tensión también coincida con la de la red dentro de la tolerancia de ±5 %',ok:false,
        why:'La tensión y el ángulo son solo 2 de las 4 condiciones — la secuencia sigue siendo independiente y debe verificarse aparte.'},
-      {t:'Depende de la potencia nominal del alternador',ok:false,
+      {t:'Depende de la potencia nominal del alternador: en máquinas pequeñas el orden de las fases no importa',ok:false,
        why:'La potencia nominal de la máquina no cambia el hecho físico de que conectar fases en el orden equivocado produce un cortocircuito/golpe severo — es un tema de las 4 condiciones, no de tamaño de máquina.'}])};
 }
 function clearDx(){el('dxbtns').innerHTML='';}
@@ -1047,7 +1068,11 @@ pickerFor(S.scene,S.camera,S.renderer.domElement,hit=>{
 })();
 const sleep=ms=>new Promise(res=>setTimeout(res,ms));
 async function runAuto(){
-  if(autoRunning)return;autoRunning=true;
+  if(autoRunning)return;
+  if(mode==='reto'&&!retoSolved){showToast('<span style="color:var(--bad)">🔒 El recorrido muestra qué condiciones fallan en sus propios ejemplos: resuelve el reto (o pide otro caso con 🔀) antes de verlo.</span>');return;}
+  autoRunning=true;
+  // DEMOSTRACIÓN: se guarda el estado del alumno y se restaura; el reto ni se toca ni se resuelve
+  const prev={mode,Vgen,dF,seq,theta,rs:retoSolved,sv:solved,la:lastAttempt};
   const b=el('btnAuto');b.disabled=true;b.textContent='✨ Recorriendo…';
   try{
     synth.init();synth.resume();
@@ -1056,32 +1081,38 @@ async function runAuto(){
     Vgen=100;el('sVgen').value=100;el('vv').textContent='100.0 V';
     dF=0.15;el('sDF').value=0.15;el('fv').textContent='0.150 Hz';
     theta=0;refreshAll();
-    showToast('1/6 · La aguja del sincronoscopio deriva porque Δf≠0: θ avanza 360·Δf grados por segundo.');
+    showToast('1/5 · La aguja del sincronoscopio deriva porque Δf≠0: θ avanza 360·Δf grados por segundo.');
     await sleep(2600);
     seq='invertida';['correcta','invertida'].forEach(s=>el('mm_'+s).classList.toggle('on',s==='invertida'));
     theta=0;dF=0;el('sDF').value=0;el('fv').textContent='0.000 Hz';refreshAll();
-    showToast('2/6 · Secuencia invertida con θ≈0°: la aguja se ve "en SYNC" — pero mira las lámparas: NO se apagan juntas.');
+    showToast('2/5 · Secuencia invertida con θ≈0°: la aguja se ve "en SYNC" — pero mira las lámparas: NO se apagan juntas.');
     await sleep(3200);
     seq='correcta';['correcta','invertida'].forEach(s=>el('mm_'+s).classList.toggle('on',s==='correcta'));
     Vgen=112;el('sVgen').value=112;el('vv').textContent='112.0 V';refreshAll();
-    showToast('3/6 · Intento de cierre con ΔV fuera de tolerancia (+12%)…');
+    showToast('3/5 · Intento de cierre con ΔV fuera de tolerancia (+12%)…');
     await sleep(1600);
     attemptClose();
     await sleep(2600);
     Vgen=100;el('sVgen').value=100;el('vv').textContent='100.0 V';
     dF=0;theta=0;refreshAll();
-    showToast('4/6 · Ahora con las 4 condiciones dentro de tolerancia: cierre exitoso.');
+    showToast('4/5 · Ahora con las 4 condiciones dentro de tolerancia: cierre exitoso.');
     await sleep(1600);
     attemptClose();
     await sleep(2400);
     setMode('comparar');
     seq='invertida';['correcta','invertida'].forEach(s=>el('mm_'+s).classList.toggle('on',s==='invertida'));
     refreshAll();
-    showToast('5/6 · Modo Comparar: el indicador dedicado de secuencia SÍ distingue 1-2-3 de 1-3-2 — el sincronoscopio, no.');
-    await sleep(3000);
-    newMystery();
-    showToast('6/6 · Recorrido completo: te dejo un caso misterioso nuevo sin resolver en modo Reto.');
-  }finally{autoRunning=false;b.disabled=false;b.textContent='✨ Recorrido guiado';}
+    showToast('5/5 · Modo Comparar: el indicador dedicado de secuencia SÍ distingue 1-2-3 de 1-3-2 — el sincronoscopio, no. En el Reto decides tú; te devuelvo al punto en que estabas.');
+    await sleep(3200);
+  }finally{
+    Vgen=prev.Vgen;dF=prev.dF;seq=prev.seq;theta=prev.theta;
+    el('sVgen').value=Vgen;el('vv').textContent=Vgen.toFixed(1)+' V';
+    el('sDF').value=dF;el('fv').textContent=dF.toFixed(3)+' Hz';
+    ['correcta','invertida'].forEach(s=>el('mm_'+s).classList.toggle('on',s===seq));
+    setMode(prev.mode);
+    retoSolved=prev.rs;solved=prev.sv;lastAttempt=prev.la;
+    autoRunning=false;b.disabled=false;b.textContent='✨ Recorrido guiado';
+  }
 }
 S.setAnimate((dt,t)=>{
   clockT=t;
@@ -1094,7 +1125,16 @@ S.setAnimate((dt,t)=>{
   altGiro+=dt*(0.6+0.4*(Vgen/100)); altMaq.userData.gira(altGiro);
 });
 /* wiring */
-['explora','comparar','reto'].forEach(m=>el('m_'+m).onclick=()=>setMode(m));
+['explora','comparar','reto'].forEach(m=>el('m_'+m).onclick=()=>{
+  if(autoRunning)return;
+  if(mode==='reto'&&!retoSolved&&m!=='reto'){
+    // salir al Explora con los mismos Vgen/Δf/θ/secuencia mostraría el veredicto vivo del caso del reto
+    showToast('<span style="color:var(--bad)">🔒 Resuelve el reto (o pide otro caso con 🔀) antes de salir a otro modo — ahí verías el veredicto de este mismo caso.</span>');
+    synth.beep(220,.1,.07);
+    return;
+  }
+  setMode(m);
+});
 ['correcta','invertida'].forEach(s=>el('mm_'+s).onclick=()=>setSeq(s));
 el('sVgen').addEventListener('input',()=>{Vgen=parseFloat(el('sVgen').value);
   el('vv').textContent=Vgen.toFixed(1)+' V';refreshAll();});
@@ -1108,7 +1148,8 @@ el('btnNew').onclick=newMystery;
 genMystery();buildQuiz();
 S.start();setMode('explora');
 window.__labDebug={
-  state:()=>({mode,Vgen,dF,seq,theta:wrapAngle(theta),retoSolved,solved}),
+  state:()=>({mode,Vgen,dF,seq,theta:wrapAngle(theta),retoSolved,solved,intentos,pistas}),
+  intentos:()=>intentos, pistas:()=>pistas, runAuto,
   evaluar:()=>evaluar(Vgen,dF,seq,theta),
   lamps:()=>lampVoltages(Vgen,theta,seq),
   mystery:()=>MYST?{...MYST}:null,

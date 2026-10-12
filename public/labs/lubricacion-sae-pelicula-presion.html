@@ -1219,6 +1219,9 @@ function ARR(o={}){
 }
 function LECT(){ return memo(`l|${G.maq}|${G.esc}|${G.aceite}`,
   ()=>lecturas(MQ(),G.esc,{aceite:G.aceite,Tarr:20})); }
+// Las lecturas de OTRO escenario con el mismo motor y aceite que el montado.
+function LECT_DE(esc){ return memo(`l|${G.maq}|${esc}|${G.aceite}`,
+  ()=>lecturas(MQ(),esc,{aceite:G.aceite,Tarr:20})); }
 function CENSO(){ return memo(`n|${G.maq}|${G.aceite}`,
   ()=>censoSub(MQ(),{aceite:G.aceite,Tarr:20})); }
 const J300=()=>memo(`j|${G.aceite}`,()=>cumpleJ300(AC()));
@@ -2817,9 +2820,16 @@ function armaGotas(){
 const FACTOR_GIRO=0.030;
 const FACTOR_GOTA=0.055;
 
+// Aceite del fabricante del motor montado (el que lleva un coche sano).
+const e0aceite=()=>MQ().aceiteOEM;
 function mueveAgujas(){
   if(!G.simUnlocked) return;
-  const e=MQ(), s=EST();
+  // A ciegas, el banco no puede enseñar gratis lo que se compra: la aguja, la luz,
+  // el nivel, la derivación, el antirretorno, el émbolo y el color de cada casquillo
+  // delatan la avería. Se pintan como un motor SANO con el aceite de su fabricante;
+  // lo comprado se lee en el panel.
+  const ciego=(G.modo==='reto');
+  const e=MQ(), s=ciego?EST({falla:'sano',aceite:e0aceite()}):EST();
   if(RIG.aguja) RIG.aguja.userData.setFrac(s.p/escalaMan(e));
   if(RIG.lampara){
     // La luz roja parpadea sólo si está encendida. Una luz que late apagada
@@ -2834,7 +2844,7 @@ function mueveAgujas(){
     RIG.deriv.material.emissiveIntensity=abierta?1.2:0.0;
   }
   if(RIG.antidren){
-    const roto=(FALLA()==='antidrenaje');
+    const roto=(!ciego&&FALLA()==='antidrenaje');
     RIG.antidren.material.emissive.setHex(roto?0xE9C46A:0x000000);
     RIG.antidren.material.emissiveIntensity=roto?0.9:0.0;
   }
@@ -2847,7 +2857,7 @@ function mueveAgujas(){
   if(RIG.aceite){
     const u=RIG.aceite.userData;
     if(u.y0===undefined) u.y0=RIG.aceite.position.y;
-    const bajo=(FALLA()==='nivelBajo');
+    const bajo=(!ciego&&FALLA()==='nivelBajo');
     RIG.aceite.scale.y=bajo?0.45:1.0;
     // Al encoger en Y la caja mengua respecto de su CENTRO: hay que bajarla la
     // mitad de lo que ha menguado o el aceite queda flotando sobre el fondo.
@@ -2867,7 +2877,7 @@ function mueveGotas(dt){
   const hay=G.simUnlocked&&CIRC.curva;
   CIRC.gotas.forEach(g=>{ g.visible=!!hay; });
   if(!hay) return;
-  const s=EST();
+  const s=(G.modo==='reto')?EST({falla:'sano',aceite:MQ().aceiteOEM}):EST();
   const sucio=!s.filtrado;
   CIRC.u=(CIRC.u+dt*s.Q*FACTOR_GOTA)%1;
   CIRC.gotas.forEach((g,i)=>{
@@ -3133,6 +3143,8 @@ function pintaTele(){
     h+=gl('Observaciones compradas',Object.keys(RETO.tomadas).length+' / '+OBS.length,
       Object.keys(RETO.tomadas).length?'':'warn');
     h+=gl('Familia elegida',RETO.eleccion||'ninguna todavía',RETO.eleccion?'':'warn');
+    h+=gl('Intentos',RETO.intentos+' de '+MAX_INTENTOS,RETO.intentos?'warn':'');
+    h+=gl('Pistas',RETO.pistas+' de '+MAX_PISTAS);
     if(RETO.veredicto) h+=gl('Diagnóstico entregado',RETO.veredicto.ok?'acertado':'fallado',
       RETO.veredicto.ok?'good':'bad');
     el('tele').innerHTML=h;
@@ -3253,7 +3265,7 @@ function afterEdit(){
   if(!rpmOps().includes(G.rpm)) G.rpm=2000;
   pintaTablero(); pintaTele(); pintaInforme(); syncCtrlbar();
 }
-function setMode(m){
+function setMode(m,conserva){
   if(m!=='ensamble'&&!G.simUnlocked){
     showToast('Primero hay que <b>montar el circuito</b>.',2400);
     return;
@@ -3261,13 +3273,16 @@ function setMode(m){
   if(G.modo==='ensamble'&&m!=='ensamble'&&ASM.done.size<PARTS.length){
     showToast('Faltan piezas por montar.',2200); return;
   }
+  // Al salir del diagnóstico a ciegas el escenario del caso NO se queda montado en
+  // las vistas de exploración: dejaría la respuesta a un clic de distancia.
+  if(G.modo==='reto'&&m!=='reto'&&!conserva) G.esc='sano';
   G.modo=m;
   // Volver a la vista de montaje NO desmonta lo ya montado. Si lo hiciera, mirar
   // cómo quedó el circuito costaría rehacerlo entero, y el alumno aprendería a
   // no volver nunca. Para practicar el montaje otra vez está «Volver a montar».
   if(m==='ensamble'){ if(ASM.done.size<PARTS.length) initAssembly(); }
   else if(ASM.done.size<PARTS.length){ montaKit(); }
-  if(m==='reto') armaReto();
+  if(m==='reto'&&!conserva) armaReto();
   pintaHUD(); afterEdit(); refrescaPregunta();
   // Encuadres. Los tres modos cuya materia está en el pizarrón van al pizarrón;
   // los dos que hablan del circuito montado van a un plano que coge el motor Y
@@ -3291,7 +3306,8 @@ function setMode(m){
 // declara el motor sellado: si mañana se añade un escenario con una clave nueva,
 // aparece sola en la lista en vez de quedarse fuera sin avisar.
 const FAMILIAS=[...new Set(ESCEN_KEYS.map(k=>ESCEN[k].clave))];
-const RETO={caso:null, tomadas:{}, eleccion:null, veredicto:null, pistas:0};
+const MAX_INTENTOS=3, MAX_PISTAS=2;
+const RETO={caso:null, tomadas:{}, eleccion:null, veredicto:null, pistas:0, intentos:0, aviso:''};
 
 function barajaEn(a){                       // Fisher-Yates, para que la posición
   for(let i=a.length-1;i>0;i--){            // de la respuesta no sea la pista
@@ -3299,14 +3315,16 @@ function barajaEn(a){                       // Fisher-Yates, para que la posici�
   }
   return a;
 }
-function armaReto(){
-  const casos=casosReto();
+function armaReto(evita){
+  // `evita`: el caso que acaba de agotar sus intentos. El caso nuevo es OTRO, o
+  // se aprobaría por eliminación recorriendo las familias.
+  const casos=casosReto().filter(k=>k!==evita);
   RETO.caso=casos[Math.floor(Math.random()*casos.length)];
   G.esc=RETO.caso;
   // El motor entra al taller con el aceite que pide su fabricante. Si la avería
   // es precisamente el aceite, el escenario lo impone y eso forma parte del caso.
   G.aceite=MQ().aceiteOEM;
-  RETO.tomadas={}; RETO.eleccion=null; RETO.veredicto=null; RETO.pistas=0;
+  RETO.tomadas={}; RETO.eleccion=null; RETO.veredicto=null; RETO.pistas=0; RETO.intentos=0; RETO.aviso='';
   invalida(); pintaObsReto(); pintaDxReto();
 }
 // Valor legible de cada observación. Sale del motor sellado, con la misma
@@ -3330,7 +3348,7 @@ function valorObs(k){
   return bar(cuant(L[k],o.res),2);
 }
 function mide(k){
-  if(G.modo!=='reto'||RETO.tomadas[k]) return;
+  if(G.modo!=='reto'||RETO.tomadas[k]||(RETO.veredicto&&RETO.veredicto.ok)) return;
   RETO.tomadas[k]=valorObs(k);
   synth.beep(560,0.06,0.04);
   pintaObsReto(); pintaReto(); pintaTablero();
@@ -3347,7 +3365,9 @@ function pintaDxReto(){
 }
 function pintaReto(){
   const R=el('report'), n=Object.keys(RETO.tomadas).length;
-  let h='<b>Motor bajo diagnóstico:</b> '+MQ().nombre+'. Observaciones compradas: '+n+'/'+OBS.length+'. ';
+  let h='<b>Motor bajo diagnóstico:</b> '+MQ().nombre+'. Observaciones compradas: '+n+'/'+OBS.length+
+    ' · intentos: '+RETO.intentos+'/'+MAX_INTENTOS+' · pistas: '+RETO.pistas+'/'+MAX_PISTAS+'. ';
+  if(RETO.aviso) h+='<span class="warn">'+RETO.aviso+'</span> ';
   if(RETO.veredicto) h+=(RETO.veredicto.ok?'<b class="good">Acertaste.</b> ':'<b class="bad">Fallaste.</b> ')+RETO.veredicto.texto;
   else h+='Compra lo que necesites, elige la familia y entrega el diagnóstico.';
   R.innerHTML=h;
@@ -3358,46 +3378,70 @@ function pintaReto(){
     : '<span class="mono">Sin observaciones todavía.</span> Las cuatro primeras se toman en el taller; las dos últimas cuestan un análisis y un desarme.';
 }
 function pista(){
+  if(G.modo!=='reto') return;
+  if(RETO.pistas>=MAX_PISTAS){ showToast('No quedan más pistas en este caso.',2400); return; }
   const e=MQ(), C=CENSO(), N=ESCEN_KEYS.length;
-  const tal=C.find(x=>x.sub.length===OBS.filter(o=>o.taller).length&&x.sub.every(o=>o.taller));
+  // Dos pistas graduadas que orientan sobre CÓMO elegir qué comprar; ninguna
+  // nombra una familia ni lee un instrumento.
   const p=[
-    'Empieza por las tres presiones. Si las tres coinciden con las de un motor sano, la avería es de las que el manómetro no ve.',
-    'Mira la luz y las vueltas en seco: hay una avería que sólo se paga al arrancar y no mueve la presión ni un dígito.',
-    'Con todo lo de taller se separan '+tal.resueltos+' de los '+N+' escenarios de este '+e.corto+
-      '. Si tu caso está entre los que quedan pegados, hace falta el análisis de aceite o el plastigage.',
+    'Empieza por las tres presiones: son las más baratas. Lo que importa no es cuánto valen, sino si se parecen a las de un motor sano.',
+    'Hay averías que no mueven la presión ni un dígito y se pagan en otro sitio: mira la luz, las vueltas en seco al arrancar o lo que sólo dicen el análisis de aceite y el plastigage.',
   ];
-  const i=Math.min(RETO.pistas,p.length-1);
-  RETO.pistas++;
+  const i=RETO.pistas++;
   showToast('💡 '+p[i],6500);
+  pintaReto();
   synth.beep(520,0.07,0.04);
 }
 function checkReto(){
+  if(G.modo!=='reto') return;
   if(!RETO.eleccion){ showToast('Elige primero una familia de avería.',2200); return; }
-  const e=MQ(), L=LECT(), s=EST({T:110,rpm:e.ralenti}), ok=(RETO.eleccion===L.clave);
-  const F=FALLAS[ESCEN[RETO.caso].falla];
-  const forzado=ESCEN[RETO.caso].aceite;
-  const queEra='Era <b>'+ESCEN[RETO.caso].rot+'</b> ('+L.clave+'). '+
-    (forzado?('El motor llevaba '+ACEITES[forzado].rot+'. '):'')+F.nota;
-  const pruebas='Lo que lo demostraba: presión en caliente a ralentí '+bar(L.pCalRal)+
-    ' contra '+bar(lecturas(e,'sano',{aceite:e.aceiteOEM}).pCalRal)+' del motor sano, '+
-    (isFinite(L.arr.vueltasSeco)?num(L.arr.vueltasSeco,1)+' vueltas en seco al arrancar':'una bomba que no ceba')+
-    ' y λ = '+num(s.peor.lam,2)+' en la peor bancada.';
+  if(RETO.veredicto&&RETO.veredicto.ok) return;           // este caso ya está resuelto
+  const e=MQ(), L=LECT(), ok=(RETO.eleccion===L.clave);
+  RETO.intentos++;
   let txt;
   if(ok){
+    const s=EST({T:110,rpm:e.ralenti});
+    const F=FALLAS[ESCEN[RETO.caso].falla];
+    const forzado=ESCEN[RETO.caso].aceite;
+    const queEra='Era <b>'+ESCEN[RETO.caso].rot+'</b> ('+L.clave+'). '+
+      (forzado?('El motor llevaba '+ACEITES[forzado].rot+'. '):'')+F.nota;
+    const pruebas='Lo que lo demostraba: presión en caliente a ralentí '+bar(L.pCalRal)+
+      ' contra '+bar(lecturas(e,'sano',{aceite:e.aceiteOEM}).pCalRal)+' del motor sano, '+
+      (isFinite(L.arr.vueltasSeco)?num(L.arr.vueltasSeco,1)+' vueltas en seco al arrancar':'una bomba que no ceba')+
+      ' y λ = '+num(s.peor.lam,2)+' en la peor bancada.';
     txt=queEra+' '+pruebas;
     const compradas=Object.keys(RETO.tomadas).length;
     if(compradas<3) txt+=' <span class="warn">Acertaste con sólo '+compradas+
-      ' observación'+(compradas===1?'':'es')+': acertar por corazonada y acertar por método se parecen en la respuesta y en nada en el taller.</span>';
+      ' observaci'+(compradas===1?'ón':'ones')+': acertar por corazonada y acertar por método se parecen en la respuesta y en nada en el taller.</span>';
     G.resuelto=true;
     synth.beep(660,0.09,0.05); setTimeout(()=>synth.beep(880,0.13,0.05),110);
   }else{
-    txt=queEra+' '+pruebas;
+    // Al fallar NO se dice qué era. Sólo lo que se puede razonar con lo comprado:
+    // si esa familia todavía cabía con las lecturas o ya no.
+    const sub=OBS.filter(o=>RETO.tomadas[o.k]);
+    let por;
+    if(!sub.length) por='No has comprado ninguna observación: sin lecturas no hay con qué descartar ni confirmar una familia.';
+    else{
+      const real=firmaObs(e,L,sub);
+      const cabe=ESCEN_KEYS.some(k=>k!=='sano'&&ESCEN[k].clave===RETO.eleccion&&firmaObs(e,LECT_DE(k),sub)===real);
+      por=cabe
+        ? 'Con las lecturas que llevas, esa familia todavía cabría, pero también cabe otra: te falta una observación que las distinga.'
+        : 'Las lecturas que llevas no encajan con esa familia: compara lo que mediste con lo que daría esa avería.';
+    }
+    txt='Esa no es la familia. '+por;
     synth.beep(180,0.14,0.05);
   }
   // Dos versiones del mismo veredicto: la del panel lleva etiquetas y la del
   // pizarron va en texto plano, porque un lienzo 2D dibujaria las etiquetas
   // literales. Guardar solo una obliga a que alguna de las dos mienta.
   RETO.veredicto={ok, texto:txt, plano:txt.replace(/<[^>]+>/g,'')};
+  if(!ok&&RETO.intentos>=MAX_INTENTOS){
+    // Tres fallos: el motor se va y llega otro con otra avería.
+    const previo=RETO.caso;
+    armaReto(previo);
+    RETO.aviso='Tres intentos fallidos: ese motor se ha ido y ha llegado otro, con otra avería.';
+    afterEdit(); showToast(RETO.aviso,4200); return;
+  }
   pintaReto(); pintaTablero();
 }
 
@@ -3421,9 +3465,9 @@ function preguntaDe(m){
     const fr=EST({T:20,rpm:e.ralenti}), ca=EST({T:110,rpm:e.ralenti});
     return {t:'Con el motor a ralentí, la presión pasa de '+bar(fr.p)+' en frío a '+bar(ca.p)+
       ' en caliente. ¿Qué ha cambiado?',
-      ops:[['La bomba entrega menos caudal al calentarse',false],
+      ops:[['La bomba entrega menos caudal al calentarse porque el aceite caliente se escapa por el rotor',false],
            ['El aceite se ha afinado y el circuito deja salir más por la misma presión',true],
-           ['La limitadora ha empezado a abrir al calentarse',false]],
+           ['La limitadora ha empezado a abrir al calentarse y recorta la presión de galería',false]],
       exp:'La bomba es volumétrica: entrega prácticamente lo mismo. Lo que cambia es la viscosidad, y con ella la fuga de cada cojinete. La presión es el equilibrio entre las dos cosas.'};
   }
   if(m==='pelicula'){
@@ -3444,8 +3488,8 @@ function preguntaDe(m){
       ' rpm de arranque y con '+ACEITES.a0w20.corto+', '+num(f.n,0)+
       '. El mínimo para que encienda es '+num(e.nMinArr,0)+'. ¿Qué ensayo de J300 mide eso?',
       ops:[['El CCS: viscosidad a cizalla alta, la que ve el motor de arranque',true],
-           ['El MRV: viscosidad a cizalla baja, la que ve la bomba',false],
-           ['La KV a 100 °C del grado de verano',false]],
+           ['El MRV: viscosidad a cizalla baja y a bajo régimen, la que ve la bomba',false],
+           ['La KV a 100 °C del grado de verano, que se mide con el aceite caliente',false]],
       exp:'J300 pide DOS ensayos de invierno porque miden cosas distintas: el CCS garantiza que el motor de arranque lo gire y el MRV, que la bomba lo aspire. Se puede pasar el primero y fallar el segundo, y entonces el motor gira EN SECO.'};
   }
   if(m==='censo'){
@@ -3453,25 +3497,25 @@ function preguntaDe(m){
     const man=C.find(x=>x.sub.length===3&&x.sub.every(o=>o.k.startsWith('p')));
     return {t:'Con las tres presiones del protocolo y nada más se separan '+man.resueltos+
       ' de los '+N+' escenarios de este '+e.corto+'. ¿Por qué no llegan a los '+N+'?',
-      ops:[['Porque el manómetro es poco preciso',false],
+      ops:[['Porque el manómetro tiene muy poca resolución y no distingue presiones parecidas entre sí',false],
            ['Porque hay averías que no cambian la presión: el filtro obstruido y el antirretorno roto la dejan idéntica',true],
-           ['Porque haría falta medir en más regímenes',false]],
+           ['Porque haría falta medir las presiones en más regímenes además de los tres del protocolo',false]],
       exp:'No es cuestión de precisión ni de más puntos: son dos averías cuya firma en presión es IDÉNTICA a la del motor sano, hasta el último dígito. Una se paga en desgaste y la otra, en vueltas en seco al arrancar.'};
   }
   if(m==='reto'){
     return {t:'Dos de los trece escenarios dejan la presión exactamente igual que la de un motor sano. ¿Cómo se cazan?',
       ops:[['Con el análisis de aceite y con las vueltas en seco al arrancar',true],
-           ['Midiendo la presión a más regímenes',false],
-           ['Con un manómetro de más resolución',false]],
+           ['Midiendo la presión en caliente a un número mayor de regímenes de giro',false],
+           ['Con un manómetro de más resolución y mejor calibrado que el de serie',false]],
       exp:'El filtro obstruido se delata en el análisis —el aceite lleva partículas— y el antirretorno roto, en las vueltas que el motor da en seco al arrancar. Ninguna de las dos cosas se lee en la galería.'};
   }
   const s=EST({T:110,rpm:e.ralenti,falla:'filtroSucio'}), b=EST({T:110,rpm:e.ralenti,falla:'sano'});
   return {t:'Con el filtro obstruido y su derivación abierta, la presión de galería a ralentí en caliente vale '+
     bar(s.p)+': exactamente la misma cifra que en el motor sano, '+bar(b.p)+
     '. ¿Qué pieza del circuito avisa de esa avería?',
-    ops:[['El manocontacto: para eso está',false],
+    ops:[['El manocontacto, porque la luz se enciende cuando la presión baja del mínimo',false],
          ['Ninguna de las que se montan: no hay señal, y por eso el filtro se cambia por kilómetros',true],
-         ['La limitadora, que abre antes',false]],
+         ['La limitadora, que abre antes de lo normal cuando el elemento se tapa por completo',false]],
     exp:'La derivación existe para que el motor no se quede SIN aceite cuando el elemento se tapa, y hace bien su trabajo: sigue llegando el mismo caudal. El precio es que llega sin filtrar y nada lo indica.'};
 }
 function refrescaPregunta(){
@@ -3503,10 +3547,26 @@ function otroCaso(){
 }
 
 // ----------------------------------------------------------- recorrido guiado
-let autoRunning=false, autoT=[];
-function paraAuto(){ autoT.forEach(t=>clearTimeout(t)); autoT=[]; autoRunning=false; syncCtrlbar(); }
+let autoRunning=false, autoT=[], SNAP=null;
+// El recorrido es una DEMOSTRACIÓN: al terminar o al cancelarse devuelve el banco
+// y el reto al estado exacto en que estaban (escenario del caso, lo comprado,
+// intentos y pistas) y jamás toca el reto ni el éxito ya conseguido.
+function paraAuto(){
+  autoT.forEach(t=>clearTimeout(t)); autoT=[]; autoRunning=false;
+  const sn=SNAP; SNAP=null;
+  if(sn){
+    Object.assign(G,sn.g);
+    Object.assign(RETO,sn.reto,{tomadas:{...sn.reto.tomadas}});
+    invalida();
+    setMode(G.modo,true);
+    if(G.modo==='reto'){ pintaObsReto(); pintaDxReto(); pintaReto(); }
+  }
+  syncCtrlbar();
+}
 function auto(){
   if(autoRunning){ paraAuto(); return; }
+  SNAP={g:{modo:G.modo, esc:G.esc, aceite:G.aceite, T:G.T, rpm:G.rpm, carga:G.carga, Tarr:G.Tarr, resuelto:G.resuelto},
+    reto:{...RETO, tomadas:{...RETO.tomadas}}};
   autoRunning=true; syncCtrlbar();
   const paso=[];
   let t=200;
@@ -3611,9 +3671,10 @@ window.__labDebug={
   get veredictoArr(){ return veredictoArranque(); },
   get reto(){ return {caso:RETO.caso, tomadas:Object.keys(RETO.tomadas),
     eleccion:RETO.eleccion, veredicto:RETO.veredicto?{ok:RETO.veredicto.ok}:null,
-    pistas:RETO.pistas, familias:FAMILIAS.slice()}; },
+    pistas:RETO.pistas, intentos:RETO.intentos, maxIntentos:MAX_INTENTOS, maxPistas:MAX_PISTAS, familias:FAMILIAS.slice()}; },
   get quiz(){ return QUIZ?{t:QUIZ.t, ops:QUIZ.ops.map(o=>o.rot), ok:QUIZ.ops.findIndex(o=>o.ok)}:null; },
   get autoRunning(){ return autoRunning; },
+  get intentos(){ return RETO.intentos; },
   get amp(){ return {existe:!!RIG.amp, visible:!!(RIG.amp&&RIG.amp.visible),
     factor:AMP.factor, frames:PINTADAS}; },
   get gotas(){ return {n:CIRC.gotas.length, vivas:CIRC.gotas.filter(g=>g.visible).length}; },

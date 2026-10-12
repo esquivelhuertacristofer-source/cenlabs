@@ -41,5 +41,5 @@ fichaTecnica({
     '⚑ NOM-016-ENER-2025 (DOF, código de documento 5765860, publicada 19/08/2025, vigente 15/02/2026) — Tabla 1: fuente primaria verificada directamente para los 4 puntos ancla usados. La norma declara explícitamente en su texto que no adoptó las etiquetas IE1–IE4 de ninguna norma internacional.',
     '⚑ IEC 60034-30-1 — clases de eficiencia IE1 a IE4: se usa únicamente como referencia contextual para explicar qué NO es la Tabla 1 de NOM-016; no se citan aquí umbrales numéricos específicos de IEC como datos verificados de este simulador.',
   ],
-  foot: 'Fuentes: NEMA MG-1 (Motors and Generators) · NOM-016-ENER-2025 (DOF, 19/08/2025) · IEC 60034-30-1 (referencia contextual). Elaborado para CEN Labs — Dominio D5, Transformadores y máquinas eléctricas.',
+  foot: 'Fuentes: NEMA MG-1 (Motors and Generators) · NOM-016-ENER-2025 (DOF, 19/08/2025) · IEC 60034-30-1 (referencia contextual). Elaborado para CEN Labs — Transformadores y máquinas eléctricas.',
 });

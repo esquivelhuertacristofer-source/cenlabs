@@ -216,9 +216,9 @@ function equivQuizText(){
   return { pregunta:`Con Xbl(${RB.fRated}Hz)=${RB.XblRated.toFixed(3)}Ω y el motor clasificado NEMA Diseño B, ¿cómo se reparte esta reactancia entre X1 (estátor) y X2' (rotor referido), y cómo se obtiene Xm?`,
     opciones: shuffle([
       {t:`X1=0.4·Xbl=${CIR.X1.toFixed(3)}Ω, X2'=0.6·Xbl=${CIR.X2.toFixed(3)}Ω; Xm=Xnl−X1=${CIR.Xnl.toFixed(3)}−${CIR.X1.toFixed(3)}=${CIR.Xm.toFixed(3)}Ω`, ok:true, why:'Diseño B reparte 40/60 (más peso al rotor); Xm se obtiene restando la reactancia de fuga del estátor de la reactancia total de vacío.'},
-      {t:`X1=X2'=0.5·Xbl=${(RB.XblRated/2).toFixed(3)}Ω (reparto igual)`, ok:false, why:'El reparto 50/50 corresponde a Diseño A/D o rotor devanado — el motor de este ensayo es Diseño B (40/60), no ese caso.'},
-      {t:`Xm=Xnl=${CIR.Xnl.toFixed(3)}Ω directamente, sin restar X1`, ok:false, why:'Xnl ya incluye la reactancia de fuga del estátor X1 en serie con Xm; hay que restarla o Xm queda sobrestimado.'},
-      {t:`X1=0.6·Xbl=${(0.6*RB.XblRated).toFixed(3)}Ω, X2'=0.4·Xbl=${(0.4*RB.XblRated).toFixed(3)}Ω (reparto invertido)`, ok:false, why:'Invierte la tabla NEMA — Diseño B da MÁS peso a X2\' (0.6) que a X1 (0.4), no al revés.'},
+      {t:`X1=X2'=0.5·Xbl=${(RB.XblRated/2).toFixed(3)}Ω; Xm=Xnl−X1=${CIR.Xnl.toFixed(3)}−${(RB.XblRated/2).toFixed(3)}=${(CIR.Xnl-RB.XblRated/2).toFixed(3)}Ω`, ok:false, why:'El reparto 50/50 corresponde a Diseño A/D o rotor devanado — el motor de este ensayo es Diseño B (40/60), no ese caso.'},
+      {t:`X1=0.4·Xbl=${CIR.X1.toFixed(3)}Ω, X2'=0.6·Xbl=${CIR.X2.toFixed(3)}Ω; Xm=Xnl=${CIR.Xnl.toFixed(3)}Ω directamente, sin restar X1`, ok:false, why:'Xnl ya incluye la reactancia de fuga del estátor X1 en serie con Xm; hay que restarla o Xm queda sobrestimado.'},
+      {t:`X1=0.6·Xbl=${(0.6*RB.XblRated).toFixed(3)}Ω, X2'=0.4·Xbl=${(0.4*RB.XblRated).toFixed(3)}Ω; Xm=Xnl−X1=${CIR.Xnl.toFixed(3)}−${(0.6*RB.XblRated).toFixed(3)}=${(CIR.Xnl-0.6*RB.XblRated).toFixed(3)}Ω`, ok:false, why:'Invierte la tabla NEMA — Diseño B da MÁS peso a X2\' (0.6) que a X1 (0.4), no al revés.'},
     ]) };
 }
 function currentQuiz(){
@@ -592,25 +592,42 @@ function refreshBench(){ drawReadings(); drawParams();
 function refreshAll(){ updateTele(); updateReport(); drawBoard(); refreshBench(); }
 
 /* ---------- quiz UI ---------- */
-let currentQ=null;
+let currentQ=null, intentos=0;
+const agotado={};   // caso -> true si se agotaron los 3 intentos; se libera al resolver otra pregunta
+function pintaIntentos(){ const l=el('intentosLbl'); if(l) l.textContent='Intentos fallidos: '+intentos+'/3'; }
 function clearDx(){ el('dxbtns').innerHTML=''; solved=false; }
 function refreshQuestion(){
   currentQ=currentQuiz();
-  el('q_text').innerHTML=currentQ.pregunta;
-  clearDx();
+  el('q_text').innerHTML=currentQ.pregunta+'<div id="intentosLbl" style="font-size:11px;color:var(--dim);margin-top:4px"></div>';
+  clearDx(); intentos=0; pintaIntentos();
   currentQ.opciones.forEach((o,i)=>{
     const b=document.createElement('button'); b.className='b'; b.textContent=o.t;
     b.onclick=()=>answer(i,currentQ); el('dxbtns').appendChild(b);
   });
+  if(agotado[caseKey]){ [...el('dxbtns').children].forEach(b=>b.disabled=true);
+    el('intentosLbl').textContent='Tres intentos fallidos en este ensayo: resuelve otro ensayo para recuperar una pregunta nueva.'; }
 }
 function answer(i,q){
-  const btns=[...el('dxbtns').children]; btns.forEach(b=>b.disabled=true);
+  if(agotado[caseKey]||solved) return;
+  const btns=[...el('dxbtns').children];
   const o=q.opciones[i];
-  btns[i].classList.add(o.ok?'ok':'bad');
-  if(!o.ok){ const okIdx=q.opciones.findIndex(x=>x.ok); btns[okIdx].classList.add('ok'); }
-  solved=o.ok;
-  synth.beep(o.ok?1046:220,o.ok?0.14:0.16,0.06);
-  showToast(`<b style="color:${o.ok?'var(--good)':'var(--bad)'}">${o.ok?'✔ Correcto.':'✗ No es correcto.'}</b><br><span style="color:var(--dim);font-size:11px">${o.why}</span>`,4600);
+  if(o.ok){
+    btns.forEach(b=>b.disabled=true);
+    btns[i].classList.add('ok');
+    solved=true; Object.keys(agotado).forEach(k=>delete agotado[k]);
+    synth.beep(1046,0.14,0.06);
+    showToast(`<b style="color:var(--good)">✔ Correcto.</b><br><span style="color:var(--dim);font-size:11px">${o.why}</span>`,4600);
+  } else {
+    // el fallo NO revela cuál es la correcta ni explica la respuesta: solo se descarta esta opción
+    btns[i].classList.add('bad'); btns[i].disabled=true;
+    intentos++; pintaIntentos(); solved=false;
+    synth.beep(220,0.16,0.06);
+    if(intentos>=3){
+      agotado[caseKey]=true; btns.forEach(b=>b.disabled=true);
+      el('intentosLbl').textContent='Tres intentos fallidos en este ensayo: resuelve otro ensayo para recuperar una pregunta nueva.';
+      showToast('<b style="color:var(--bad)">✗ Intentos agotados.</b><br><span style="color:var(--dim);font-size:11px">Repasa la ficha técnica y resuelve otro ensayo; al volver tendrás la pregunta de nuevo con las opciones barajadas.</span>',5200);
+    } else showToast('<b style="color:var(--bad)">✗ No es correcto</b> (intento '+intentos+'/3).<br><span style="color:var(--dim);font-size:11px">Vuelve a plantear el cálculo con las lecturas de los instrumentos y compara con tu resultado.</span>',3800);
+  }
   refreshAll();
 }
 
@@ -654,18 +671,23 @@ el('btnPower').onclick=()=>{
 const sleep=ms=>new Promise(res=>setTimeout(res,ms));
 let autoRunning=false;
 async function runAuto(){
+  // DEMOSTRACIÓN: energiza y comenta el ensayo, pero NO contesta la pregunta ni la da por resuelta;
+  // al terminar deja el banco como lo tenía el alumno.
   if(autoRunning) return; autoRunning=true; const btn=el('btnAuto'); if(btn) btn.disabled=true;
-  if(!active && caseKey!=='circuitoEquivalente'){ el('btnPower').click(); await sleep(1200); }
-  if(caseKey==='ensayoDC') showToast('Con el motor desenergizado, mide Rll con el óhmetro y calcula R1.',2600);
-  else if(caseKey==='rotorBloqueado') showToast('Rotor trabado: aplica tensión reducida a frecuencia reducida y lee V/I/P.',2600);
-  else if(caseKey==='ensayoVacio') showToast('Motor girando libre: lee V/I/P sin carga en el eje.',2600);
-  else showToast('Observa el circuito en T ensamblado y la curva par-deslizamiento resultante.',2600);
-  await sleep(1600);
-  refreshQuestion();
-  const okIdx=currentQ.opciones.findIndex(o=>o.ok);
-  await sleep(900);
-  const btns=[...el('dxbtns').children]; if(btns[okIdx]) btns[okIdx].click();
-  if(btn) btn.disabled=false; autoRunning=false;
+  const wasActive=active;
+  try{
+    if(!active && caseKey!=='circuitoEquivalente'){ el('btnPower').click(); await sleep(1200); }
+    if(caseKey==='ensayoDC') showToast('Con el motor desenergizado, mide Rll con el óhmetro y calcula R1.',2600);
+    else if(caseKey==='rotorBloqueado') showToast('Rotor trabado: aplica tensión reducida a frecuencia reducida y lee V/I/P.',2600);
+    else if(caseKey==='ensayoVacio') showToast('Motor girando libre: lee V/I/P sin carga en el eje.',2600);
+    else showToast('Observa el circuito en T ensamblado y la curva par-deslizamiento resultante.',2600);
+    await sleep(2600);
+    showToast('La pregunta de ingeniería la contestas tú: la demo no la responde por ti.',2600);
+    await sleep(2600);
+  } finally {
+    if(active!==wasActive && caseKey!=='circuitoEquivalente') el('btnPower').click();
+    if(btn) btn.disabled=false; autoRunning=false;
+  }
 }
 el('btnAuto').onclick=()=>runAuto();
 const soundBtn=document.getElementById('soundBtn');
@@ -695,6 +717,7 @@ window.__labDebug={
   torqueAt:(s)=>torqueAt(s,CIR),
   torqueCurvePoints:()=>torqueCurvePoints(CIR),
   currentQuiz:()=>currentQ,
+  intentos:()=>intentos, solved:()=>solved, runAuto,
   answer,
   boardClick,
 };

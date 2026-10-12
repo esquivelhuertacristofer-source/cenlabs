@@ -12,7 +12,7 @@ fichaTecnica({
   },
   s2: {
     title: 'Valores de referencia usados',
-    warn: 'IEC 60947-4-1 (Low-voltage switchgear and controlgear — Contactors and motor-starters) es la norma ancla real de esta práctica según la fila d5-15 de la lista maestra. La norma fija con confianza alta el tiempo MÁXIMO de disparo a 7.2×In para cada clase de relevador térmico (10A: 2–10 s · 10: ≤10 s · 20: ≤20 s · 30: ≤30 s) — estos máximos son los valores usados por la fórmula t = t_máx(clase)·(7.2/m)² que implementa el simulador. El tiempo MÍNIMO de disparo de cada clase no está fijado por la norma de forma única (depende de la curva del fabricante) y por eso el simulador NO lo presenta como un valor exacto, solo como una zona no modelada. Las convenciones de cableado del enclavamiento eléctrico (contacto NC cruzado en la bobina opuesta) y la inversión de fases (intercambio de dos de las tres líneas) son prácticas estándar de la industria eléctrica, no una cláusula numerada específica.',
+    warn: 'IEC 60947-4-1 (Low-voltage switchgear and controlgear — Contactors and motor-starters) es la norma de referencia de esta práctica. La norma fija con confianza alta el tiempo MÁXIMO de disparo a 7.2×In para cada clase de relevador térmico (10A: 2–10 s · 10: ≤10 s · 20: ≤20 s · 30: ≤30 s) — estos máximos son los valores usados por la fórmula t = t_máx(clase)·(7.2/m)² que implementa el simulador. El tiempo MÍNIMO de disparo de cada clase no está fijado por la norma de forma única (depende de la curva del fabricante) y por eso el simulador NO lo presenta como un valor exacto, solo como una zona no modelada. Las convenciones de cableado del enclavamiento eléctrico (contacto NC cruzado en la bobina opuesta) y la inversión de fases (intercambio de dos de las tres líneas) son prácticas estándar de la industria eléctrica, no una cláusula numerada específica.',
     rows: [
       ['Fuente', 'Valor', 'Nota'],
       ['IEC 60947-4-1 — Clase 10A', 'Máximo 2–10 s a 7.2×In', 'Relevador de disparo rápido; usado en arranques muy breves.'],
@@ -42,9 +42,9 @@ fichaTecnica({
     noModela: 'El simulador NO modela: el esquemático eléctrico normalizado completo con numeración IEC de contactos; el tiempo mínimo real de disparo de cada clase (depende del fabricante); el dimensionamiento de calibre de conductor, corriente de plena carga o ajuste Ir en amperios reales; el rebote de contactos, arco eléctrico o desgaste mecánico del contactor; ni el comportamiento térmico del motor bajo carga variable.',
   },
   s6: [
-    '✅ IEC 60947-4-1 — Low-voltage switchgear and controlgear: Part 4-1, Contactors and motor-starters. Norma ancla asignada explícitamente a esta práctica en la fila d5-15 de la lista maestra. Confianza alta en los tiempos MÁXIMOS de disparo por clase (10A/10/20/30) a 7.2×In, que son los valores que implementa la fórmula del simulador.',
+    '✅ IEC 60947-4-1 — Low-voltage switchgear and controlgear: Part 4-1, Contactors and motor-starters. Norma de referencia de esta práctica. Confianza alta en los tiempos MÁXIMOS de disparo por clase (10A/10/20/30) a 7.2×In, que son los valores que implementa la fórmula del simulador.',
     '⚑ Tiempo mínimo de disparo por clase: no está fijado de forma única por la norma (depende de la curva del fabricante) — el simulador declara explícitamente esta zona como no modelada, tanto en el HUD como en el tablero térmico.',
     '⚑ Convenciones de cableado del enclavamiento eléctrico e inversión de fases: prácticas estándar de la industria eléctrica ampliamente documentadas en literatura de control de motores; no se cita aquí una cláusula numerada específica más allá de IEC 60947-4-1 como marco general del arrancador.',
   ],
-  foot: 'Fuente: IEC 60947-4-1 (Contactors and motor-starters). Elaborado para CEN Labs — Dominio D5, Transformadores y máquinas eléctricas.',
+  foot: 'Fuente: IEC 60947-4-1 (Contactors and motor-starters). Elaborado para CEN Labs — Transformadores y máquinas eléctricas.',
 });

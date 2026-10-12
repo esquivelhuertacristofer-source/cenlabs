@@ -475,7 +475,7 @@ const selfExcites=(Rf,n)=>Rf<Rc(n);
 
 /* ---------- 2 · Estado ---------- */
 let mode='explora', Rf=150, nRpm=1200;
-let MYST=null, retoSolved=false, retoMsg='', predYN=null;
+let MYST=null, retoSolved=false, retoMsg='', predYN=null, intentos=0, pistas=0;
 let solved=false, autoRunning=false;
 
 const fmtV=v=>v.toFixed(1)+' V';
@@ -490,7 +490,7 @@ function genMystery(){
   const nM=+(600+Math.random()*900).toFixed(0);
   const ex=selfExcites(RfM,nM), bu=buildup(RfM,nM);
   MYST={Rf:RfM,n:nM,selfExcites:ex,Vt:bu.Vt,If:bu.If};
-  retoSolved=false;retoMsg='';predYN=null;
+  retoSolved=false;retoMsg='';predYN=null;intentos=0;pistas=0;
 }
 
 /* ---------- 3 · Materiales ---------- */
@@ -892,9 +892,9 @@ function updateReport(){
     L.push(exc?'Q actual: If = '+fmtI(bu.If)+', Vt = '+fmtV(bu.Vt):'Sin cruce con If>0: colapso total (Vt ≈ 0).');
   }else{
     L.push('Condición dada: Rf = '+fmtOhm(Rf)+', n = '+fmtRPM(nRpm)+' · constantes: Em = '+Em+' V, Ik = '+Ik+' A, n0 = '+n0+' rpm.');
-    L.push('1) Rc(n) = (Em/Ik)·(n/n0)  2) compara Rf con Rc(n)  3) si Rf<Rc(n): If* = Em·(n/n0)/Rf − Ik, Vt* = Rf·If*.');
+    if(retoSolved)L.push('Receta: 1) Rc(n) = (Em/Ik)·(n/n0)  2) compara Rf con Rc(n)  3) si Rf<Rc(n): If* = Em·(n/n0)/Rf − Ik, Vt* = Rf·If*.');
     if(retoSolved)L.push('✔ '+retoMsg);
-    else if(retoMsg)L.push(retoMsg);
+    else{if(retoMsg)L.push(retoMsg);L.push('Intentos fallidos: '+intentos+'/3.');}
   }
   rep.innerHTML=L.map(s=>'<div>'+s+'</div>').join('');
 }
@@ -904,7 +904,7 @@ function refreshAll(){
 
 /* ---------- 10 · Reto: condición misteriosa ---------- */
 function checkReto(){
-  if(!MYST)return;
+  if(!MYST||retoSolved)return;
   if(!predYN){el('retoOut').innerHTML='<span class="dtc">Primero elige SÍ o NO.</span>';return;}
   const raw=el('inVt').value.replace(',','.');const vtStu=parseFloat(raw);
   if(!isFinite(vtStu)){el('retoOut').innerHTML='<span class="dtc">Escribe tu Vt predicho en voltios (usa 0 si crees que colapsa).</span>';return;}
@@ -912,15 +912,23 @@ function checkReto(){
   const tol=MYST.selfExcites?Math.max(2,0.05*MYST.Vt):1.5;
   const okVt=Math.abs(vtStu-MYST.Vt)<=tol;
   if(okYN&&okVt){
-    retoSolved=true;solved=true;
+    retoSolved=true;solved=true;clearDx();refreshQuestion();
     retoMsg='Exacto: '+(MYST.selfExcites?'autoexcita':'colapsa')+' — Vt* = '+fmtV(MYST.Vt)+' (If* = '+fmtI(MYST.If)+', Rc(n) = '+fmtOhm(Rc(MYST.n))+').';
     el('retoOut').innerHTML='<span class="ok">✔ ¡Predicción correcta! '+retoMsg+'</span>';
     synth.beep(880,.1,.08);setTimeout(()=>synth.beep(1175,.15,.08),140);
   }else{
-    retoMsg='';
-    el('retoOut').innerHTML='<span class="dtc">✘ Aún no'+(okYN?'':' · revisa SÍ/NO')+(okVt?'':' · revisa Vt')
-      +'.</span> Calcula Rc(n) = (Em/Ik)·(n/n0) y compáralo con Rf.';
+    retoMsg='';intentos++;
     synth.beep(220,.15,.08);
+    if(intentos>=3){
+      newMystery();
+      showToast('Tres intentos fallidos: te dejo un caso NUEVO. Calcula Rc(n) con las constantes antes de predecir.');
+      return;
+    }
+    // sin decir cuál de las dos respuestas falla (el SÍ/NO es binario) ni dar el resultado; pistas graduadas, máx. 2
+    let pista='';
+    if(intentos===1){pistas=1;pista=' Pista 1: empieza por calcular la resistencia crítica a esa velocidad.';}
+    else if(intentos===2){pistas=2;pista=' Pista 2: Rf frente a Rc(n) decide el SÍ/NO; el Vt sale de cortar la recta Vt = Rf·If con la curva E0(If)·(n/n0).';}
+    el('retoOut').innerHTML='<span class="dtc">✘ Aún no (intento '+intentos+'/3): alguna de tus dos respuestas no coincide.</span>'+pista;
   }
   refreshAll();
 }
@@ -946,23 +954,23 @@ function buildQuiz(){
   const rc1200=Rc(1200);
   QUIZ.explora={pregunta:'A n = 1200 rpm (n0), la resistencia crítica es Rc = '+fmtOhm(rc1200)+'. Si subes Rf de 150 Ω a 240 Ω sin tocar n, ¿qué pasa con If* y Vt*?',
     opciones:shuffle([
-      {t:'Bajan los dos: la recta del campo gira hacia arriba y cruza la curva más cerca del origen',ok:true,
+      {t:'Bajan los dos: la recta del campo se vuelve más empinada y corta la curva más cerca del origen',ok:true,
        why:'Correcto: a mayor Rf, la recta Vt=Rf·If tiene más pendiente y corta E0(If) en un punto con If y Vt menores — cada vez más cerca del origen conforme Rf → Rc(n).'},
-      {t:'No cambian: el generador siempre entrega la misma Vt en vacío',ok:false,
+      {t:'No cambian: en vacío el generador entrega siempre la misma Vt, sin importar la resistencia del campo',ok:false,
        why:'Al revés: en vacío (sin carga) el ÚNICO punto de equilibrio posible es la intersección con la recta del campo, y esa recta SÍ depende de Rf.'},
-      {t:'Suben los dos: más resistencia siempre autoexcita mejor',ok:false,
+      {t:'Suben los dos: más resistencia de campo da más tensión y, por tanto, mejor autoexcitación',ok:false,
        why:'Es lo contrario: más Rf empuja la recta hacia la tangente con la curva — más cerca del colapso, no más lejos.'},
-      {t:'If* baja pero Vt* sube (Vt = Rf·If con Rf mayor)',ok:false,
+      {t:'If* baja pero Vt* sube, porque Vt = Rf·If y Rf aumentó más de lo que cayó If*',ok:false,
        why:'If* baja MÁS rápido de lo que Rf sube: el producto Rf·If* (que es Vt*) también cae al acercarte a la resistencia crítica.'}])};
   QUIZ.curva={pregunta:'¿Qué representa la pendiente de E0(If) evaluada en If = 0 (el origen)?',
     opciones:shuffle([
       {t:'La resistencia crítica a n0: Rc0 = Em/Ik = '+fmtOhm(Rc0),ok:true,
        why:'Correcto: cerca del origen E0(If) ≈ (Em/Ik)·If (lineal), así que su pendiente inicial ES Rc0. Cualquier Rf por arriba de esa pendiente nunca cruza la curva con If>0.'},
-      {t:'La tensión nominal Em = '+Em+' V',ok:false,
+      {t:'La tensión máxima de la curva, Em = '+Em+' V, hacia la que tiende la saturación',ok:false,
        why:'Em es la ASÍNTOTA de la curva (If → ∞), no su pendiente en el origen — son dos parámetros distintos de la saturación tipo Fröhlich.'},
-      {t:'La corriente de rodilla Ik = '+Ik+' A',ok:false,
+      {t:'La corriente de rodilla Ik = '+Ik+' A, donde la curva empieza a doblarse',ok:false,
        why:'Ik marca dónde la curva empieza a "doblar" hacia la saturación, no la pendiente inicial (que es el cociente Em/Ik).'},
-      {t:'Cero: toda curva de magnetización arranca plana',ok:false,
+      {t:'Cero: toda curva de magnetización arranca plana y solo sube más adelante',ok:false,
        why:'Al revés: E0(If) = Em·If/(Ik+If) tiene su pendiente MÁXIMA justo en If=0 — por eso ahí vive la resistencia crítica.'}])};
   if(MYST){
     QUIZ.reto={pregunta:'En el modo Reto te dan Rf y n; con las constantes conocidas puedes calcular Rc(n) = (Em/Ik)·(n/n0). ¿Cómo se usa ese número para decidir si autoexcita?',
@@ -980,6 +988,7 @@ function buildQuiz(){
 function clearDx(){el('dxbtns').innerHTML='';}
 function refreshQuestion(){
   const q=QUIZ[mode];if(!q){el('q_text').textContent='';clearDx();return;}
+  if(mode==='reto'&&!retoSolved){ el('q_text').textContent='🔒 La pregunta de ingeniería de este reto se habilita al resolverlo: sus opciones darían la fórmula.'; el('dxbtns').innerHTML=''; return; }
   el('q_text').textContent=q.pregunta;
   const bx=el('dxbtns');bx.innerHTML='';
   q.opciones.forEach((o,i)=>{
@@ -1019,7 +1028,11 @@ pickerFor(S.scene,S.camera,S.renderer.domElement,hit=>{
 })();
 const sleep=ms=>new Promise(r=>setTimeout(r,ms));
 async function runAuto(){
-  if(autoRunning)return;autoRunning=true;
+  if(autoRunning)return;
+  if(mode==='reto'&&!retoSolved){showToast('<span style="color:var(--bad)">🔒 El recorrido recorre la curva y los puntos de operación: resuelve el reto (o pide otro caso con 🔀) antes de verlo.</span>');return;}
+  autoRunning=true;
+  // DEMOSTRACIÓN: se guarda el estado del alumno y se restaura; el reto ni se toca ni se resuelve
+  const prev={mode,Rf,nRpm,rs:retoSolved,sv:solved};
   const b=el('btnAuto');b.disabled=true;b.textContent='✨ Recorriendo…';
   try{
     synth.init();synth.resume();
@@ -1040,25 +1053,34 @@ async function runAuto(){
     }
     showToast(selfExcites(Rf,nRpm)?'Casi en el borde: If* y Vt* colapsaron hacia cero.':'Rf superó Rc(n): el generador ya NO autoexcita — Vt* = 0.');
     await sleep(2800);
-    Rf=150;el('sRf').value=150;el('rfv').textContent=fmtOhm(150);refreshAll();
-    setMode('reto');
-    showToast('3/4 · Reto: te dan Rf y n. Calcula Rc(n) y predice SÍ/NO y Vt antes de revelar.');
-    await sleep(2600);
-    selectYN(MYST.selfExcites?'si':'no');
-    el('inVt').value=MYST.Vt.toFixed(1);
-    await sleep(1000);checkReto();await sleep(2200);
-    const q=QUIZ.reto;const idx=q?q.opciones.findIndex(o=>o.ok):-1;
-    const btn=idx>=0?el('dxbtns').children[idx]:null;if(btn)btn.click();
-    await sleep(1400);
-    newMystery();
-    showToast('4/4 · Recorrido completo: te dejo un caso misterioso nuevo sin resolver — inténtalo tú, o pide otro (🔀).');
-  }finally{autoRunning=false;b.disabled=false;b.textContent='✨ Recorrido guiado';}
+    showToast('3/4 · En el Reto te dan Rf y n: calculas Rc(n) y predices SÍ/NO y Vt tú. El recorrido no lo resuelve por ti.');
+    await sleep(3000);
+    showToast('4/4 · Recorrido completo: te devuelvo al punto en que estabas.');
+    await sleep(1200);
+  }finally{
+    setMode(prev.mode);
+    if(prev.mode!=='reto'){
+      Rf=prev.Rf;nRpm=prev.nRpm;
+      el('sRf').value=Rf;el('rfv').textContent=fmtOhm(Rf);el('sN').value=nRpm;el('nv').textContent=fmtRPM(nRpm);refreshAll();
+    }
+    retoSolved=prev.rs;solved=prev.sv;
+    autoRunning=false;b.disabled=false;b.textContent='✨ Recorrido guiado';
+  }
 }
 S.setAnimate(()=>{ // la polea del primomotor siempre gira, proporcional a n
   pulleyG.rotation.x+=0.006*(nRpm/n0);
 });
 /* wiring */
-['explora','curva','reto'].forEach(m=>el('m_'+m).onclick=()=>setMode(m));
+['explora','curva','reto'].forEach(m=>el('m_'+m).onclick=()=>{
+  if(autoRunning)return;
+  if(mode==='reto'&&!retoSolved&&m!=='reto'){
+    // salir al Explora con los sliders en Rf/n del caso mostraría el verdict y el Vt del mismo caso
+    showToast('<span style="color:var(--bad)">🔒 Resuelve el reto (o pide otro caso con 🔀) antes de salir a otro modo — así no ves el punto de operación ni la telemetría de este mismo caso.</span>');
+    synth.beep(220,0.1,0.05);
+    return;
+  }
+  setMode(m);
+});
 el('sRf').addEventListener('input',()=>{Rf=parseFloat(el('sRf').value);
   el('rfv').textContent=fmtOhm(Rf);refreshAll();});
 el('sN').addEventListener('input',()=>{nRpm=parseFloat(el('sN').value);
@@ -1072,7 +1094,8 @@ el('btnNew').onclick=newMystery;
 genMystery();buildQuiz();
 S.start();setMode('explora');
 window.__labDebug={
-  state:()=>({mode,Rf,n:nRpm,retoSolved,predYN,solved}),
+  state:()=>({mode,Rf,n:nRpm,retoSolved,predYN,solved,intentos,pistas}),
+  intentos:()=>intentos, pistas:()=>pistas, runAuto,
   point:()=>buildup(Rf,nRpm),
   rc:()=>Rc(nRpm),
   selfExcites:()=>selfExcites(Rf,nRpm),

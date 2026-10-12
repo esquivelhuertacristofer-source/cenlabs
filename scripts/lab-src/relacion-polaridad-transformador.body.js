@@ -460,24 +460,40 @@ function refreshAll(){ drawPlate(caseKey); updateTele(); updateReport(); }
 
 /* ---------- interacción ---------- */
 function refreshCaseLabel(){ el('p_case').textContent='Caso '+(CASE_ORDER.indexOf(caseKey)+1)+'/4'; }
+let curQ=null, intentos=0;
+const agotado={};   // caso -> true si se agotaron los 3 intentos; se libera al resolver otro caso
+function pintaIntentos(){ const l=el('intentosLbl'); if(l) l.textContent='Intentos fallidos: '+intentos+'/3'; }
 function clearDx(){ document.querySelectorAll('.b.dx').forEach(b=>b.classList.remove('right','wrong')); }
 function refreshQuestion(){
-  const q=currentQuiz();
-  el('q_text').innerHTML=q.pregunta;
+  // la pregunta se genera UNA vez por visualización: answer() debe juzgar las mismas opciones que se ven
+  const q=currentQuiz(); curQ=q; intentos=0;
+  el('q_text').innerHTML=q.pregunta+'<div id="intentosLbl" style="font-size:11px;color:var(--dim);margin-top:4px"></div>';
+  pintaIntentos();
   el('dxbtns').innerHTML=q.opciones.map((o,i)=>`<button class="b dx" data-i="${i}">${'ABCD'[i]} · ${o.t}</button>`).join('');
   el('dxbtns').querySelectorAll('.b.dx').forEach(btn=>{ btn.onclick=()=>answer(+btn.dataset.i); });
+  if(agotado[caseKey]){ el('dxbtns').querySelectorAll('.b.dx').forEach(b=>b.disabled=true);
+    el('intentosLbl').textContent='Tres intentos fallidos en este caso: resuelve otro caso para recuperar la pregunta.'; }
 }
 function answer(i){
   if(!active){ showToast('Primero energiza el banco.'); return; }
-  const q=currentQuiz(); const o=q.opciones[i]; clearDx();
-  const btn=el('dxbtns').children[i];
+  if(agotado[caseKey]||solved) return;
+  const q=curQ; const o=q.opciones[i];
+  const btn=el('dxbtns').children[i]; if(!btn||btn.disabled) return;
   if(o.ok){
-    btn.classList.add('right'); solved=true; synth.beep(1046,0.12,0.06);
+    clearDx(); btn.classList.add('right'); solved=true; Object.keys(agotado).forEach(k=>delete agotado[k]);
+    el('dxbtns').querySelectorAll('.b.dx').forEach(b=>b.disabled=true);
+    synth.beep(1046,0.12,0.06);
     updateTele(); updateReport();
     showToast(`<span style="color:var(--good)">✔ Correcto.</span><br><span style="color:var(--dim);font-size:11px">${o.why}</span>`);
   }else{
-    btn.classList.add('wrong'); synth.beep(220,0.15,0.06);
-    showToast(`<span style="color:var(--bad)">✗ Revisa el cálculo.</span><br><span style="color:var(--dim);font-size:11px">${o.why}</span>`);
+    // el fallo no revela la correcta ni explica la respuesta: solo se descarta esta opción
+    btn.classList.add('wrong'); btn.disabled=true; synth.beep(220,0.15,0.06);
+    intentos++; pintaIntentos();
+    if(intentos>=3){
+      agotado[caseKey]=true; el('dxbtns').querySelectorAll('.b.dx').forEach(b=>b.disabled=true);
+      el('intentosLbl').textContent='Tres intentos fallidos en este caso: resuelve otro caso para recuperar la pregunta.';
+      showToast('<span style="color:var(--bad)">✗ Intentos agotados.</span><br><span style="color:var(--dim);font-size:11px">Repasa la ficha técnica y resuelve otro caso; al volver tendrás la pregunta con las opciones barajadas.</span>');
+    }else showToast(`<span style="color:var(--bad)">✗ Revisa el cálculo</span> (intento ${intentos}/3).<br><span style="color:var(--dim);font-size:11px">Vuelve a plantearlo con Vap y la lectura de los voltímetros.</span>`);
   }
 }
 function setCase(key){
@@ -544,33 +560,24 @@ soundBtn.onclick=()=>{const on=synth.toggle();soundBtn.textContent=on?'🔊':'�
 const sleep=ms=>new Promise(r=>setTimeout(r,ms));
 let autoRunning=false;
 async function runAuto(){
+  // DEMOSTRACIÓN del procedimiento: lee los instrumentos pero NO contesta la pregunta ni la da por resuelta;
+  // al terminar deja el banco como lo tenía el alumno.
   if(autoRunning) return;
   autoRunning=true;
   const btn=el('btnAuto'); const label=btn.textContent;
   btn.disabled=true; btn.classList.add('on'); btn.textContent='⏳ Prueba guiada en curso…';
   const lockedBtns=[el('btnNew'), ...CASE_ORDER.map(k=>el('c_'+k))];
   lockedBtns.forEach(b=>{ b.disabled=true; });
+  const wasActive=active;
   try{
-    clearDx();
     const c=CASES[caseKey];
     if(c.tipo==='polaridad'){ showToast('Paso 1 · Puenteamos H1 con X1 (visible en la escena).'); await sleep(1400); }
     else { showToast('Paso 1 · Dejamos X1-X2 en circuito abierto (sin puente).'); await sleep(1400); }
     if(!active){ showToast('Paso 2 · Energizamos el banco con tensión reducida.'); el('btnPower').click(); await sleep(1600); }
-    if(c.tipo==='ratio'){
-      const st=ratioStats(caseKey);
-      showToast(`Paso 3 · Leemos Vap=${c.Vap.toFixed(2)} V y V2=${c.V2meas.toFixed(2)} V.`); await sleep(1800);
-      showToast(`Paso 4 · a medida = Vap/V2 = ${st.aMeasured.toFixed(4)} → desviación ${st.devPct.toFixed(2)}%.`); await sleep(2000);
-    }else{
-      const st=polarityStats(caseKey);
-      showToast(`Paso 3 · Leemos Vap=${c.Vap.toFixed(2)} V y V medida (H2-X2)=${st.Vmeas.toFixed(2)} V.`); await sleep(1800);
-      showToast(`Paso 4 · V medida ${st.detected==='sustractiva'?'<':'>'} V aplicada ⇒ polaridad ${st.detected.toUpperCase()}.`); await sleep(2000);
-    }
-    const q=currentQuiz(); const i=q.opciones.findIndex(o=>o.ok);
-    clearDx();
-    const dxBtn=el('dxbtns').children[i];
-    if(dxBtn){ dxBtn.classList.add('right'); solved=true; synth.beep(1046,0.12,0.06); updateTele(); updateReport(); }
-    showToast('<span style="color:var(--good)">✔ '+q.opciones[i].t+'</span><br><span style="color:var(--dim);font-size:11px">'+q.opciones[i].why+'</span>');
+    showToast(`Paso 3 · Leemos Vap=${c.Vap.toFixed(2)} V y la tensión del otro voltímetro en los instrumentos.`); await sleep(1800);
+    showToast('Paso 4 · Ahora el cálculo es tuyo: contesta la pregunta de ingeniería. La demostración no la responde por ti.'); await sleep(2400);
   } finally {
+    if(active!==wasActive) el('btnPower').click();
     btn.disabled=false; btn.classList.remove('on'); btn.textContent=label;
     lockedBtns.forEach(b=>{ b.disabled=false; });
     autoRunning=false;
@@ -594,3 +601,9 @@ S.setAnimate((dt,time)=>{
 });
 
 setCase('ratioSano');
+
+window.__labDebug={
+  caseKey:()=>caseKey, active:()=>active, solved:()=>solved, intentos:()=>intentos,
+  setCase, runAuto, answer, currentQuiz:()=>curQ,
+  state:()=>({caseKey,active,solved,intentos}),
+};

@@ -70,10 +70,14 @@ const T_DOL=TofS(1,F_BASE);        // par de arranque a rotor bloqueado en DOL a
 
 /* ---------- §2 Estado ---------- */
 let mode='explora', fCmd=60, tl=8;
-let MYST=null, retoSolved=false, retoMsg='';
+let MYST=null, retoSolved=false, retoMsg='', intentos=0, pistas=0;
 let solved=false, autoRunning=false;
 
 function genMystery(){
+  const prevTL=MYST?MYST.TL:null;   // un caso nuevo debe ser distinto del anterior
+  do{ genMysteryRaw(); }while(prevTL!==null&&MYST.TL===prevTL);
+}
+function genMysteryRaw(){
   const TL=Math.round(9+Math.random()*14);   // entero 9-23 → fMaxBeforeStall siempre dentro de [8,100] Hz
   const target=fMaxBeforeStall(TL);
   if(Math.random()<0.5){
@@ -81,7 +85,7 @@ function genMystery(){
   } else {
     MYST={kind:'buscarLimite',TL,target,tol:0.8};
   }
-  retoSolved=false; retoMsg='';
+  retoSolved=false; retoMsg=''; intentos=0; pistas=0;
 }
 
 /* ---------- §3 Materiales ---------- */
@@ -640,10 +644,10 @@ function updateReport(){
   } else {
     if(MYST.kind==='calaFrecuencia'){
       L.push(`Reto: calcula la frecuencia máxima antes del calado para TL = ${MYST.TL} N·m.`);
-      L.push(retoSolved?`<span class="ok">${retoMsg}</span>`:'Escribe tu resultado en Hz y comprueba.');
+      L.push(retoSolved?`<span class="ok">${retoMsg}</span>`:'Escribe tu resultado en Hz y comprueba. Intentos fallidos: '+intentos+'/3.');
     } else {
       L.push(`Reto: reduce f hasta encontrar el límite de calado para TL = ${MYST.TL} N·m.`);
-      L.push(retoSolved?`<span class="ok">${retoMsg}</span>`:'Mueve el deslizador de frecuencia y observa el régimen en la telemetría.');
+      L.push(retoSolved?`<span class="ok">${retoMsg}</span>`:'Mueve el deslizador de frecuencia y observa el régimen en la telemetría. Intentos fallidos: '+intentos+'/3.');
     }
   }
   el('report').innerHTML=L.map(s=>'<div>'+s+'</div>').join('');
@@ -653,7 +657,7 @@ function refreshAll(){ drawBoard(); updateTele(); updateReport(); refreshBenchDy
 
 /* ---------- §10 Reto ---------- */
 function checkReto(){
-  if(!MYST) return;
+  if(!MYST||retoSolved) return;
   const v=parseFloat(el('retoInput').value.replace(',','.'));
   if(!isFinite(v)){
     el('retoOut').innerHTML='<span class="dtc">Escribe un número.</span>'; return;
@@ -664,10 +668,19 @@ function checkReto(){
     retoMsg=`f_máx = f_base·√(Tmax_base/TL) = ${F_BASE}×√(${TMAX_BASE}/${MYST.TL}) = ${MYST.target.toFixed(2)} Hz — arriba de esta frecuencia, el debilitamiento de campo deja el par de ruptura por debajo de ${MYST.TL} N·m y el motor se cala.`;
     el('retoOut').innerHTML=`<span class="ok">✔ ¡Correcto! (tolerancia ${tolText()})</span>`;
     synth.beep(880,.1,.08); setTimeout(()=>synth.beep(1175,.15,.08),140);
+    clearDx(); refreshQuestion();   // la pregunta de ingeniería se habilita al resolver
   } else {
-    retoMsg='';
-    el('retoOut').innerHTML=`<span class="dtc">✘ Aún no. Tolerancia: ${tolText()}</span>`;
+    retoMsg=''; intentos++;
     synth.beep(180,.12,.08);
+    if(intentos>=3){
+      newMystery();
+      el('retoOut').innerHTML='<span class="dtc">✘ Tres intentos fallidos: te dejo un caso NUEVO.</span>';
+      return;
+    }
+    let pista='';
+    if(intentos===1){ pistas=1; pista=' Pista 1: arriba de la frecuencia base el par de ruptura cae; el límite es donde iguala al par de carga.'; }
+    else if(intentos===2){ pistas=2; pista=' Pista 2: la caída del par de ruptura es más que lineal con la frecuencia: revisa la curva en Comparar.'; }
+    el('retoOut').innerHTML=`<span class="dtc">✘ Aún no (intento ${intentos}/3). Tolerancia: ${tolText()}.</span>${pista}`;
   }
   refreshAll();
 }
@@ -690,18 +703,18 @@ function buildQuiz(){
     pregunta:'¿Por qué un variador V/f cambia el voltaje junto con la frecuencia, en vez de solo la frecuencia?',
     opciones:shuffle([
       {t:'Para mantener aproximadamente constante el flujo del entrehierro y el par disponible',ok:true,why:'Correcto: el flujo depende de V/f; si solo bajara f sin bajar V, el flujo (y las corrientes de magnetización) crecerían fuera de lo tolerable.'},
-      {t:'Para que el motor gire más rápido',ok:false,why:'No: la velocidad depende de f, no directamente de V — cambiar V solo no cambia la velocidad síncrona.'},
-      {t:'Para ahorrar energía en el propio variador',ok:false,why:'No: la ley V/f=cte es sobre el flujo del motor, no una medida de eficiencia interna del variador.'},
-      {t:'Es un requisito solo a frecuencias mayores a 60 Hz',ok:false,why:'Al revés: la ley V/f=cte aplica principalmente POR DEBAJO de la frecuencia base; arriba de ella el voltaje ya está saturado.'},
+      {t:'Para que el motor gire más rápido sin necesidad de aumentar su frecuencia de alimentación',ok:false,why:'No: la velocidad depende de f, no directamente de V — cambiar V solo no cambia la velocidad síncrona.'},
+      {t:'Para ahorrar energía dentro del propio variador, reduciendo sus pérdidas de conmutación',ok:false,why:'No: la ley V/f=cte es sobre el flujo del motor, no una medida de eficiencia interna del variador.'},
+      {t:'Es un requisito solo a frecuencias mayores a 60 Hz, donde el flujo tiende a saturarse',ok:false,why:'Al revés: la ley V/f=cte aplica principalmente POR DEBAJO de la frecuencia base; arriba de ella el voltaje ya está saturado.'},
     ]),
   };
   QUIZ.comparar={
     pregunta:'¿Qué le pasa al par de ruptura (Tmax) del motor cuando el variador sube la frecuencia arriba de la base (60 Hz)?',
     opciones:shuffle([
       {t:'Cae, porque el voltaje ya no puede seguir subiendo (debilitamiento de campo)',ok:true,why:'Correcto: arriba de f_base el variador satura el voltaje en su valor nominal, así que V/f ya no es constante y el flujo (y Tmax) caen con (f_base/f)².'},
-      {t:'Se mantiene exactamente igual en todo el rango',ok:false,why:'No: eso solo es cierto por debajo de la frecuencia base, donde V/f sí se mantiene constante.'},
-      {t:'Sube, porque el motor gira más rápido',ok:false,why:'Al revés: girar más rápido con menos flujo reduce el par de ruptura disponible, no lo aumenta.'},
-      {t:'Depende únicamente del par de carga TL',ok:false,why:'No: Tmax es una propiedad de la curva a esa frecuencia, no depende de cuánta carga se le pida al motor.'},
+      {t:'Se mantiene exactamente igual en todo el rango de frecuencias, sin importar el voltaje',ok:false,why:'No: eso solo es cierto por debajo de la frecuencia base, donde V/f sí se mantiene constante.'},
+      {t:'Sube, porque el motor gira más rápido y así dispone de más potencia mecánica',ok:false,why:'Al revés: girar más rápido con menos flujo reduce el par de ruptura disponible, no lo aumenta.'},
+      {t:'Depende únicamente del par de carga TL que se le pida al motor en ese momento',ok:false,why:'No: Tmax es una propiedad de la curva a esa frecuencia, no depende de cuánta carga se le pida al motor.'},
     ]),
   };
   if(MYST){
@@ -719,10 +732,10 @@ function buildQuiz(){
       QUIZ.reto={
         pregunta:'Buscando por prueba la frecuencia límite: ¿qué señal indica que acabas de cruzar el límite de calado?',
         opciones:shuffle([
-          {t:'El régimen pasa de "estable" a "CALADO — par insuficiente"',ok:true,why:'Correcto: justo debajo de f_máx el motor sostiene la carga con algo de deslizamiento; justo arriba, el par de ruptura ya no alcanza y no existe punto de operación estable.'},
-          {t:'La velocidad síncrona ns deja de calcularse',ok:false,why:'No: ns=120f/polos siempre existe, sea o no que el motor pueda sostener la carga a esa velocidad.'},
-          {t:'El par de carga TL cambia solo',ok:false,why:'No: TL está fijo por el reto; lo que cambia es si el motor puede o no sostenerlo a esa f.'},
-          {t:'No hay ninguna señal observable',ok:false,why:'Sí la hay: la telemetría muestra explícitamente el cambio de régimen estable a calado.'},
+          {t:'El régimen pasa de "estable" a "CALADO — par insuficiente" en la telemetría del motor',ok:true,why:'Correcto: justo debajo de f_máx el motor sostiene la carga con algo de deslizamiento; justo arriba, el par de ruptura ya no alcanza y no existe punto de operación estable.'},
+          {t:'La velocidad síncrona ns deja de calcularse y el display del variador se apaga',ok:false,why:'No: ns=120f/polos siempre existe, sea o no que el motor pueda sostener la carga a esa velocidad.'},
+          {t:'El par de carga TL cambia solo al cruzar cierta frecuencia, sin que muevas nada',ok:false,why:'No: TL está fijo por el reto; lo que cambia es si el motor puede o no sostenerlo a esa f.'},
+          {t:'No hay ninguna señal observable: el calado solo se detecta calculándolo antes',ok:false,why:'Sí la hay: la telemetría muestra explícitamente el cambio de régimen estable a calado.'},
         ]),
       };
     }
@@ -731,6 +744,7 @@ function buildQuiz(){
 function clearDx(){ el('dxbtns').innerHTML=''; }
 function refreshQuestion(){
   const q=QUIZ[mode]; if(!q) return;
+  if(mode==='reto'&&!retoSolved){ el('q_text').textContent='🔒 La pregunta de ingeniería de este reto se habilita al resolverlo: sus opciones darían la fórmula.'; el('dxbtns').innerHTML=''; return; }
   el('q_text').textContent=q.pregunta;
   const box=el('dxbtns'); box.innerHTML='';
   q.opciones.forEach((o,i)=>{
@@ -803,45 +817,37 @@ async function runRampDemo(silent){
 }
 
 async function runAuto(){
-  if(autoRunning) return; autoRunning=true;
+  if(autoRunning) return;
+  if(mode==='reto'&&!retoSolved){ showToast('🔒 El recorrido barre f y muestra el régimen de calado: resuelve el reto (o pide un caso nuevo con 🔀) antes de verlo.'); synth.beep(220,.1,.07); return; }
+  autoRunning=true;
+  // DEMOSTRACIÓN: se guarda el estado del alumno y se restaura; el reto ni se toca ni se resuelve
+  const prev={mode,fCmd,tl,rs:retoSolved,sv:solved};
   const b=el('btnAuto'); b.disabled=true; b.textContent='▶ En curso…';
   try{
     synth.init(); synth.resume();
     setMode('explora'); setTl(8);
-    showToast('1/5 · Explora: barremos f de 8 a 100 Hz con TL=8 N·m.');
+    showToast('1/4 · Explora: barremos f de 8 a 100 Hz con TL=8 N·m.');
     for(let v=FMIN;v<=FMAX;v+=4){ setFcmd(v); await sleep(70); }
     await sleep(300);
 
-    showToast('2/5 · Comparar: las cuatro curvas de referencia, juntas.');
+    showToast('2/4 · Comparar: las cuatro curvas de referencia, juntas.');
     setMode('comparar');
     for(const f of F_LEVELS){ setFcmd(f); await sleep(500); }
     await sleep(300);
 
-    showToast('3/5 · Comparamos arranque directo (DOL) contra arranque con rampa.');
+    showToast('3/4 · Comparamos arranque directo (DOL) contra arranque con rampa.');
     setMode('explora'); setTl(5);
     await runDOLDemo(true);
     await sleep(500);
     await runRampDemo(true);
     await sleep(400);
 
-    showToast('4/5 · Reto: resolvemos un caso misterioso.');
-    setMode('reto');
-    if(MYST.kind==='buscarLimite'){
-      for(let v=FMAX;v>=FMIN;v-=1){
-        setFcmd(v);
-        if(Math.abs(v-MYST.target)<0.6) break;
-        await sleep(30);
-      }
-    }
-    el('retoInput').value=MYST.target.toFixed(2);
-    checkReto();
-    const idx=QUIZ.reto.opciones.findIndex(o=>o.ok);
-    if(idx>=0) el('dxbtns').children[idx].click();
-    await sleep(600);
-
-    showToast('5/5 · Nuevo caso listo para intentar por tu cuenta.');
-    newMystery();
+    showToast('4/4 · En el Reto te dan un par de carga y encuentras tú la frecuencia límite. Te devuelvo al punto en que estabas.');
+    await sleep(3000);
   } finally {
+    setMode(prev.mode);
+    if(prev.mode!=='reto'){ setTl(prev.tl); setFcmd(prev.fCmd); }
+    retoSolved=prev.rs; solved=prev.sv;
     autoRunning=false; b.disabled=false; b.textContent='✨ Recorrido guiado';
   }
 }
@@ -876,7 +882,8 @@ S.start();
 setMode('explora');
 
 window.__labDebug={
-  state:()=>({mode,fCmd,tl,retoSolved,solved}),
+  state:()=>({mode,fCmd,tl,retoSolved,solved,intentos,pistas}),
+  intentos:()=>intentos, pistas:()=>pistas, runAuto,
   point:()=>({s:stableSlip(tl,fCmd),n:speedRpm(tl,fCmd)}),
   ns, vcmd, tmax, sm, TofS, stableSlip, speedRpm, fMaxBeforeStall, TatN,
   mystery:()=>MYST?{...MYST}:null,

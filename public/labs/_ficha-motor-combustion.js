@@ -40,8 +40,8 @@ fichaTecnica({
     ]
   },
   s5: {
-    modela: 'el <b>ciclo de 4 tiempos</b> (admisión-compresión-expansión-escape), el orden de encendido y la relación de RPM.',
-    noModela: 'la termodinámica de la combustión, la dinámica de gases, la lubricación, las holguras reales ni el balance/vibración.'
+    modela: 'el <b>ciclo de 4 tiempos</b> (admisión-compresión-expansión-escape), el orden de encendido, la relación de RPM y la <b>eficiencia térmica teórica del ciclo Otto</b> (η = 1 − 1/r<sup>γ−1</sup>) que se calcula en el Reto 1. Los retos llevan intentos contados y pistas con tope (dos).',
+    noModela: 'la termodinámica real de la combustión (sólo la fórmula del ciclo ideal), la dinámica de gases, la lubricación, las holguras reales ni el balance/vibración.'
   },
   s6: [
     '<b>ISO 898</b>: clases de resistencia de tornillos (por qué un TTY es de un solo uso).',

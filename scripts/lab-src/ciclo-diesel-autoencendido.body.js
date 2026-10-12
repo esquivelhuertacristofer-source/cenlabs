@@ -673,7 +673,15 @@ let animT=0, autoRunning=false, solved=false;
 // CONSTRUIBLES y quedan fuera del censo del pliego.
 const ST={mk:'urbano',r:16,soi:10,pIny:1800,fk:'uba'};
 const RETO={cfg:{mk:'marino'},ejes:{r:R_G[0],soi:SOI_G[0],pIny:PINY_G[0],fk:FUEL_KEYS[0]},
-            sol:null,nval:0,resuelto:false,msg:'',pistas:{fk:false,r:false,pIny:false}};
+            sol:null,nval:0,resuelto:false,msg:'',
+            // Dos pistas como máximo, registradas; ninguna da valores de la terna.
+            pistas:{p1:false,p2:false},pistaTxt:[],intentos:0,aviso:''};
+const MAX_INTENTOS=3, MAX_PISTAS=2;
+const nPistas=()=>(RETO.pistas.p1?1:0)+(RETO.pistas.p2?1:0);
+// El compacto urbano NO entra en el reto: su solución es justo el punto con que
+// arranca el modo de estudio (y el de los enunciados del cuestionario), así que
+// sortearlo sería regalarla. Las otras cuatro máquinas rotan.
+const RETO_MAQS=['tractor','camioneta','planta','marino'];
 let CUR=null;
 
 const ICONO={tractor:'🚜',camioneta:'🛻',planta:'🏭',urbano:'🚗',marino:'🚢'};
@@ -1360,18 +1368,16 @@ function vistaReto(){
                      :'esta máquina no puede montarla',
         250,yFin+66,construible(c)?colOk(ok):BAD_HEX,15,'left','700');
 
-  const pis=pisM(c.mk), PK=['fk','r','pIny'];
-  const pval=(i,v)=>i===0?FCOR[v]:(i===1?fN(v,0):f0(v)+' bar');
-  pis.forEach((p,i)=>{
-    const y=yFin+112+i*30, ab=RETO.pistas[PK[i]];
-    texto('pista '+f0(i+1)+' · '+p.txt,44,y,'#7f8b9c',14,'left','600');
-    texto(ab?pval(i,p.v):'· · ·',250,y,ab?AZUL:'#4a5568',15,'left','800');
-    if(ab) texto('quedan '+f0(p.n)+' válidas con esa elección',360,y,'#8f9bb0',13,'left','500');
-  });
+  texto('intentos '+f0(RETO.intentos)+' de '+MAX_INTENTOS+' · pistas '+f0(nPistas())+' de '+MAX_PISTAS,
+    44,yFin+112,'#7f8b9c',14,'left','600');
+  {
+    let yp=yFin+140;
+    RETO.pistaTxt.forEach(t=>{ yp=wrapText(t,44,yp,640,18,'#c8d3e2',13)+26; });
+  }
 
   nota(RETO.resuelto
     ? 'Firmada. La más barata no es la más eficiente: el precio del litro y el rendimiento tiran en sentidos distintos, y el pliego recorta por arriba las relaciones de compresión y los avances que más rinden.'
-    : 'Las pistas se abren en orden —combustible, relación de compresión, presión de riel— y ninguna toca el avance de inyección: ése lo tienes que encontrar tú con la vista del retardo.',
+    : (RETO.aviso?RETO.aviso+' ':'')+'Hay dos pistas como máximo y ninguna da un valor: orientan hacia dónde mirar. La calibración la cierras tú con el pliego y los costes.',
     yFin+218);
 
   rpanel(602);
@@ -1385,7 +1391,8 @@ function vistaReto(){
   fl.forEach(x=>io.row(CRIT_ROT[x.k],x.ok?'cumple':'NO',colOk(x.ok)));
   io.sep('ESTADO');
   io.row('válidas en la máquina',f0(cen.validas));
-  io.row('pistas abiertas',f0(PK.filter(k=>RETO.pistas[k]).length)+' de 3');
+  io.row('intentos',f0(RETO.intentos)+' de '+MAX_INTENTOS);
+  io.row('pistas usadas',f0(nPistas())+' de '+MAX_PISTAS);
   io.row('reto',RETO.resuelto?'FIRMADO':'sin firmar',colOk(RETO.resuelto));
 }
 
@@ -2026,26 +2033,50 @@ function buildControls(){
   const bp=el('btnPista');
   if(bp) bp.onclick=()=>{ if(autoRunning)return; pista(); };
 }
-// Una pista destapa UN eje de la solución, en orden combustible → r → riel, y
-// dice cuántas calibraciones válidas siguen compatibles. El avance de inyección
-// NO se destapa nunca: ese es el eje que hay que cerrar leyendo el pliego.
+// Dos pistas como máximo, y ninguna da un valor de la terna: orientan hacia DÓNDE
+// mirar. La primera dice cuál es el muro de esta máquina (el criterio que más
+// veces tumba EN SOLITARIO, que es el dato del censo); la segunda, en qué eje se
+// decide el gasto de combustible entre las calibraciones válidas.
+function ejeDecisivo(mk){
+  const v=valM(mk); let mejor=null, sp=-1;
+  for(const [e,campo] of [['fk','fuel'],['r','r'],['soi','soi'],['pIny','pIny']]){
+    const porVal={};
+    v.forEach(x=>{ const k=x[campo]; if(porVal[k]===undefined||x.coste5<porVal[k]) porVal[k]=x.coste5; });
+    const cs=Object.keys(porVal).map(k=>porVal[k]);
+    const spread=cs.length>1?Math.max.apply(null,cs)-Math.min.apply(null,cs):0;
+    if(spread>sp){ sp=spread; mejor=e; }
+  }
+  return mejor;
+}
 function pista(){
-  const i=PIS_EJE.findIndex(e=>!RETO.pistas[e]);
-  if(i<0){ showToast('💡 Ya has destapado los tres ejes que se destapan. El avance de inyección no se regala: ciérralo tú con el pliego.'); return; }
-  const eje=PIS_EJE[i], p=pisM(RETO.cfg.mk)[i];
-  if(!p){ showToast('💡 Esta máquina no tiene ninguna calibración válida: no hay nada que destapar.'); return; }
-  RETO.pistas[eje]=true; beep();
-  const val=eje==='fk'?FCOR[p.v]:(eje==='pIny'?f0(p.v)+' bar':f0(p.v));
-  showToast('💡 <b>'+EJE_ROT[eje]+' = '+val+'.</b> Con eso quedan '+f0(p.n)+' de las '+
-    f0(RETO.nval)+' calibraciones válidas de esta máquina'+
-    (p.n===RETO.nval?'. Esta pista no descarta ninguna: todas las válidas ya coincidían en ese eje.':'.'));
+  if(nPistas()>=MAX_PISTAS){ showToast('💡 Ya has usado las '+MAX_PISTAS+' pistas de este caso.'); return; }
+  const mk=RETO.cfg.mk, cn=censoM(mk);
+  if(!cn.validas){ showToast('💡 Esta máquina no tiene ninguna calibración válida: no hay nada que orientar.'); return; }
+  let txt;
+  if(!RETO.pistas.p1){
+    RETO.pistas.p1=true;
+    const dec=CRIT.slice().sort((a,b)=>cn.solo[b]-cn.solo[a])[0];
+    txt=cn.solo[dec]>0
+      ? 'De las '+f0(cn.n)+' calibraciones montables en esta máquina pasan '+f0(cn.validas)+
+        '. El muro es «'+CRIT_ROT[dec]+'»: es el criterio que más veces tumba una calibración él solo.'
+      : 'De las '+f0(cn.n)+' calibraciones montables en esta máquina pasan '+f0(cn.validas)+
+        '. Aquí ningún criterio tumba nada en solitario: las que se caen se caen por varios a la vez.';
+  }else{
+    RETO.pistas.p2=true;
+    txt='Entre las '+f0(RETO.nval)+' válidas, el eje donde más cambia el gasto de combustible es el de «'+
+      EJE_ROT[ejeDecisivo(mk)]+'». Compara el coste de las válidas moviendo ése.';
+  }
+  RETO.pistaTxt.push(txt);
+  beep();
+  showToast('💡 <b>Pista '+nPistas()+' de '+MAX_PISTAS+'.</b> '+txt);
   afterEdit();
 }
 function retoSolveBuild(){
   const mk=RETO.cfg.mk;
   RETO.sol=solM(mk); RETO.nval=valM(mk).length;
   RETO.ejes={mk,r:R_G[0],soi:SOI_G[0],pIny:PINY_G[0],fk:FUEL_KEYS[0]};
-  RETO.pistas={fk:false,r:false,pIny:false};
+  RETO.pistas={p1:false,p2:false}; RETO.pistaTxt=[];
+  RETO.intentos=0; RETO.aviso='';
   RETO.resuelto=false; RETO.msg='';
 }
 function updateScenarioInfo(){
@@ -2090,8 +2121,11 @@ function setMode(k){
 // estudio avanza al siguiente caso que enseña algo distinto del anterior.
 function newSignal(){
   const sig=(arr,v)=>arr[(arr.indexOf(v)+1)%arr.length];
-  const alOptimo=()=>{ const o=solM(ST.mk);
-    if(o){ ST.r=o.r; ST.soi=o.soi; ST.pIny=o.pIny; ST.fk=o.fuel; }
+  // Un ejemplo VÁLIDO pero no el más barato: llevar los mandos a la solución del
+  // reto era regalar la respuesta desde un modo de estudio.
+  const alOptimo=()=>{ const v=valM(ST.mk), o=solM(ST.mk);
+    const ej=v.filter(x=>x!==o).sort((a,b)=>b.coste5-a.coste5)[0]||o;
+    if(ej){ ST.r=ej.r; ST.soi=ej.soi; ST.pIny=ej.pIny; ST.fk=ej.fuel; }
     else { ST.r=opcionesR(ST.mk)[0]; ST.soi=SOI_G[2]; ST.pIny=opcionesP(ST.mk)[0]; ST.fk=FUEL_KEYS[0]; } };
   if(mode==='ciclo'||mode==='censo'){
     aplicaMaquina(sig(MAQ_KEYS,ST.mk)); alOptimo();
@@ -2105,7 +2139,7 @@ function newSignal(){
     ST.fk=sig(FUEL_KEYS,ST.fk);
     if(ST.fk===FUEL_KEYS[0]){ aplicaMaquina(sig(MAQ_KEYS,ST.mk)); ST.r=opcionesR(ST.mk).slice(-1)[0]; }
   }else{
-    RETO.cfg.mk=sig(MAQ_KEYS,RETO.cfg.mk);
+    RETO.cfg.mk=sig(RETO_MAQS,RETO.cfg.mk);
     retoSolveBuild();
   }
   solved=false;
@@ -2229,7 +2263,6 @@ function updateTele(){
     h+=teleRow('tu calibración',
       R.valida?'válida':(R.construible?'falla '+fallosDe(R).map(k=>CRIT_COR[k]).join(', '):'no montable'),cls2(R.valida));
     h+=teleRow('coste de combustible a '+f0(ANIOS)+' años',fin(R.coste5,0)+' €');
-    h+=teleRow('la más barata válida',s?f0(s.coste5)+' €':'—',cls2(!!s));
   }
   el('tele').innerHTML=h;
   updateLive();
@@ -2392,17 +2425,16 @@ function updateReport(){
         '. Aflojar cualquiera de ésos no abre ni una configuración nueva en esta máquina.\n'
       : '> Los '+f0(CRIT.length)+' criterios llegan a decidir en solitario alguna vez.\n';
     t+=s
-      ? '> La más barata que pasa: r = '+f0(s.r)+', SOI '+f0(s.soi)+'°, riel '+f0(s.pIny)+' bar con '+
-        FCOR[s.fuel]+' → '+f0(s.coste5)+' € de combustible a '+f0(ANIOS)+' años.'
+      ? '> Cuál de las '+f0(cn.validas)+' que pasan es la más barata de alimentar a '+f0(ANIOS)+
+        ' años no se dice aquí: es lo que pide el reto.'
       : '> Ninguna configuración pasa el pliego entero en esta máquina.';
   }else{
-    const vistas=PIS_EJE.filter(e=>RETO.pistas[e]).length;
     t='> Reto sobre '+P.nom+'. Rejilla montable: '+f0(censoM(c.mk).n)+' calibraciones, de las que '+
       f0(RETO.nval)+' pasan el pliego entero.\n';
     t+='> Se paga el combustible de '+f0(P.wAnio)+' kWh/año al freno durante '+f0(ANIOS)+' años, al '+
       'precio del combustible que elijas: '+FUEL_KEYS.map(k=>FCOR[k]+' '+f2(FUEL[k].precio)+' €/L').join(' · ')+'.\n';
-    t+='> Pistas destapadas: '+f0(vistas)+' de '+f0(PIS_EJE.length)+
-      '. El avance de inyección no se destapa nunca: ése lo cierras tú con el pliego.\n';
+    t+='> Intentos: '+f0(RETO.intentos)+' de '+MAX_INTENTOS+' · pistas: '+f0(nPistas())+' de '+MAX_PISTAS+
+      '. Ninguna pista da un valor de la terna.\n';
     t+='> Tu calibración: r = '+f0(c.r)+', SOI '+f0(c.soi)+'°, riel '+f0(c.pIny)+' bar, '+FCOR[c.fk]+
       ' → '+(R.valida?'válida, '+f0(R.coste5)+' €.\n'
                      :(R.construible?'rechazada por '+fallosDe(R).map(k=>CRIT_ROT[k]).join(', ')+'.\n'
@@ -2463,57 +2495,71 @@ function updateRetoSpec(){
     FCOR[c.fk]+' → '+(R.valida?'pasa el pliego, '+f0(R.coste5)+' €'
                              :(R.construible?'falla '+fallosDe(R).map(k=>CRIT_COR[k]).join(', ')
                                             :'no es montable'))+'</span>';
+  h+='<br><span class="mut">Intentos: '+f0(RETO.intentos)+' de '+MAX_INTENTOS+' · pistas: '+f0(nPistas())+
+    ' de '+MAX_PISTAS+'.</span>';
+  if(RETO.aviso) h+='<br><span style="color:'+WARN_HEX+'">'+RETO.aviso+'</span>';
   if(RETO.msg) h+='<br><br><b style="color:'+(RETO.resuelto?OK_HEX:WARN_HEX)+'">'+RETO.msg+'</b>';
   el('retoSpec').innerHTML=h;
 }
-// El botón se bloquea durante el recorrido guiado, pero la función NO: el propio
-// recorrido entrega dos calibraciones para que el pliego conteste en pantalla.
-function checkReto(){
+// El juicio puro: no toca ni `solved` ni los intentos. Lo usa Entregar y también
+// el recorrido guiado, que sólo DEMUESTRA y jamás firma el reto del alumno.
+function juzgaReto(){
   const mk=RETO.cfg.mk, S=RETO.sol, R=CUR;
-  if(!S){
-    RETO.msg='En esta máquina NINGUNA calibración pasa el pliego entero: no hay nada que firmar. '+
-      'Pasa a otra máquina con «Otro caso».';
-    RETO.resuelto=false;
-    synth.beep(180,0.22,0.05); afterEdit();
+  if(!S) return {ok:false, msg:'En esta máquina NINGUNA calibración pasa el pliego entero: no hay nada que firmar. '+
+      'Pasa a otra máquina con «Otro caso».'};
+  if(!R.construible)
+    return {ok:false, msg:'No es montable: '+(R.rMecOk?'':'r = '+f0(R.r)+' supera el máximo de '+f0(MAQ[mk].rMax)+'. ')+
+      (R.pInyOk?'':'el riel de '+f0(R.pIny)+' bar supera la bomba montada de '+f0(MAQ[mk].pInyMax)+' bar. ')+
+      'Las opciones marcadas con ⚠ el banco las simula, pero no se pueden montar en esta máquina.'};
+  if(!R.valida){
+    const f=fallosDe(R);
+    return {ok:false, msg:'Rechazada. Falla '+f0(f.length)+(f.length===1?' criterio: ':' criterios: ')+
+      f.map(k=>CRIT_ROT[k]).join(', ')+'. Mira la telemetría: cada fila lleva su límite al lado.'};
+  }
+  if(R.coste5>S.coste5+1e-6)
+    return {ok:false, msg:'Pasa el pliego, pero no es la más barata: hay otra válida que gasta menos '+
+      'combustible en '+f0(ANIOS)+' años. Quedan '+f0(RETO.nval)+' calibraciones válidas en esta máquina; '+
+      'busca entre ellas y compara el coste.'};
+  return {ok:true, msg:'Calibración firmada. r = '+f0(R.r)+', SOI '+f0(R.soi)+'°, riel '+f0(R.pIny)+' bar con '+
+    FCOR[R.fuel]+': pasa los '+f0(CRIT.length)+' criterios y es la más barata de las '+f0(RETO.nval)+
+    ' válidas — '+f0(R.coste5)+' € de combustible en '+f0(ANIOS)+' años, '+fin(R.bsfc,1)+' g/kWh, '+
+    pc1(R.etaB)+' al freno.'};
+}
+// El botón se bloquea durante el recorrido guiado, pero la función NO. Al fallar
+// NO se dice cuánto falta ni cuál era: se dice qué no cuadra. A los tres fallos el
+// caso se cambia por otro (otra máquina), para que nadie apruebe recorriendo las
+// pocas válidas hasta que una acierte.
+function checkReto(){
+  if(RETO.resuelto) return;
+  const j=juzgaReto();
+  RETO.aviso='';
+  if(j.ok){
+    RETO.msg=j.msg; RETO.resuelto=true; solved=true;
+    [523,659,784].forEach((f,i)=>setTimeout(()=>synth.beep(f,0.16,0.05),i*90));
+    afterEdit();
+    showToast('✅ Firmada: '+f0(CUR.coste5)+' € a '+f0(ANIOS)+' años.');
+    return;
+  }
+  RETO.resuelto=false; solved=false;
+  if(!RETO.sol){
+    RETO.msg=j.msg; synth.beep(180,0.22,0.05); afterEdit();
     showToast('⚠️ Esta máquina no tiene solución. Nada que entregar.');
     return;
   }
-  if(!R.construible){
-    RETO.msg='No es montable: '+(R.rMecOk?'':'r = '+f0(R.r)+' supera el máximo de '+f0(MAQ[mk].rMax)+'. ')+
-      (R.pInyOk?'':'el riel de '+f0(R.pIny)+' bar supera la bomba montada de '+f0(MAQ[mk].pInyMax)+' bar. ')+
-      'Las opciones marcadas con ⚠ el banco las simula, pero no se pueden montar en esta máquina.';
-    RETO.resuelto=false;
-    synth.beep(180,0.22,0.05); afterEdit();
-    showToast('⚠️ Esa calibración no se puede montar en esta máquina.');
+  RETO.intentos++;
+  RETO.msg=j.msg+' Intento '+f0(RETO.intentos)+' de '+MAX_INTENTOS+'.';
+  synth.beep(200,0.20,0.05);
+  if(RETO.intentos>=MAX_INTENTOS){
+    const sig=(arr,v)=>arr[(arr.indexOf(v)+1)%arr.length];
+    RETO.cfg.mk=sig(RETO_MAQS,RETO.cfg.mk);
+    retoSolveBuild();
+    RETO.aviso='Tres entregas sin acertar: este caso se cierra sin revelarlo y llega otra máquina.';
+    afterEdit();
+    showToast('🔀 <b>Caso nuevo.</b> Tres intentos sin acertar. Otra máquina, otro encargo.');
     return;
   }
-  if(!R.valida){
-    const f=fallosDe(R);
-    RETO.msg='Rechazada. Falla '+f0(f.length)+(f.length===1?' criterio: ':' criterios: ')+
-      f.map(k=>CRIT_ROT[k]).join(', ')+'. Mira la telemetría: cada fila lleva su límite al lado.';
-    RETO.resuelto=false;
-    synth.beep(200,0.20,0.05); afterEdit();
-    showToast('❌ Rechazada por '+f.map(k=>CRIT_COR[k]).join(', ')+'.');
-    return;
-  }
-  if(R.coste5>S.coste5+1e-6){
-    const dif=R.coste5-S.coste5;
-    RETO.msg='Pasa el pliego, pero no es la más barata: '+f0(R.coste5)+' € frente a los '+
-      f0(S.coste5)+' € de la mejor. Sobran '+f0(dif)+' € en '+f0(ANIOS)+' años. Quedan '+
-      f0(RETO.nval)+' calibraciones válidas en esta máquina; busca entre ellas.';
-    RETO.resuelto=false;
-    synth.beep(300,0.18,0.05); afterEdit();
-    showToast('🟡 Válida, pero '+f0(dif)+' € más cara que la mejor.');
-    return;
-  }
-  RETO.msg='Calibración firmada. r = '+f0(R.r)+', SOI '+f0(R.soi)+'°, riel '+f0(R.pIny)+' bar con '+
-    FCOR[R.fuel]+': pasa los '+f0(CRIT.length)+' criterios y es la más barata de las '+f0(RETO.nval)+
-    ' válidas — '+f0(R.coste5)+' € de combustible en '+f0(ANIOS)+' años, '+fin(R.bsfc,1)+' g/kWh, '+
-    pc1(R.etaB)+' al freno.';
-  RETO.resuelto=true; solved=true;
-  [523,659,784].forEach((f,i)=>setTimeout(()=>synth.beep(f,0.16,0.05),i*90));
   afterEdit();
-  showToast('✅ Firmada: '+f0(R.coste5)+' € a '+f0(ANIOS)+' años.');
+  showToast('⚠️ '+j.msg);
 }
 // ===================== 15. CUESTIONARIO =====================
 // Una pregunta por modo. Todas las cifras salen del motor sellado y están
@@ -2524,66 +2570,66 @@ const QUIZ={
     opciones:[
       {t:'Porque en el Otto todo el calor entra en el punto muerto superior y el gas se expande las 16 veces enteras; en el Diésel entra empujando el pistón, y después de la combustión ya sólo quedan 6,30 de expansión.',ok:true,
        why:'Ésa es la única diferencia entre los tres. En el Diésel ideal el calor entra a presión constante hasta r_c = 2,539, así que el gas ya ha bajado ahí antes de empezar a expandirse: le quedan 16/2,539 = 6,30. El Dual reparte (α = 1,279 a volumen constante y r_c = 2,048 a presión constante) y le quedan 7,81. Cuanto más tarde acabe de entrar el calor, menos carrera queda para cobrarlo.'},
-      {t:'Porque el ciclo Otto ideal se calcula con un γ mayor, al ser la mezcla de gasolina más ligera.',
+      {t:'Porque el ciclo Otto ideal se calcula con un γ mayor, al ser la mezcla de gasolina más ligera, y un γ mayor eleva el rendimiento de cualquier ciclo.',
        why:'Los tres techos usan exactamente γ = 1,4, el del aire frío, y el mismo calor. Si se cambiara el γ dejarían de ser comparables, y precisamente por eso el motor los calcula con la misma hipótesis.'},
-      {t:'Porque un motor de gasolina rinde más que uno diésel.',
+      {t:'Porque un motor de gasolina rinde más que uno diésel, y los techos ideales sólo reflejan esa diferencia entre tipos de motor.',
        why:'Al revés, y ése es el chiste: el diésel REAL de este banco da 46,44 % indicado y 38,29 % al freno, muy por encima de cualquier gasolina de calle, porque puede subir a r = 16 y trabajar con λ = 1,81. Lo que el techo compara no son motores, son formas de meter el calor a la MISMA relación de compresión.'},
-      {t:'Porque en el ciclo Diésel se quema más combustible para la misma carrera.',
+      {t:'Porque en el ciclo Diésel se quema más combustible para la misma carrera, y ese gasto extra no produce trabajo útil adicional.',
        why:'Se quema exactamente el mismo: 1'+NBSP+'143,6 J en los tres. Ésa es la condición del cálculo. Lo que cambia es CUÁNDO entra ese calor, no cuánto.'},
     ]},
   retardo:{pregunta:'En el compacto urbano (r 16 · SOI 10° · riel 1'+NBSP+'800 bar) el B20 inyecta 28,25 mg y el DMA marino sólo 27,06 mg — un 4,4 % menos de combustible. Y sin embargo el DMA levanta 10,45 bar/° de gradiente y el B20 se queda en 9,75. ¿Cómo puede hacer más ruido el que menos masa mete?',
     opciones:[
       {t:'Porque lo que hace el ruido no es la dosis, sino la parte de la dosis que se acumula SIN QUEMAR durante el retardo: el DMA tiene CN 42 y tarda 3,84° en encenderse; el B20, CN 54, tarda 3,61°.',ok:true,
        why:'Exacto. Ese retardo se paga entero en la premezcla: β pasa de 0,130 con B20 a 0,145 con DMA. Cuando por fin prende, ese 14,5 % de la dosis ya está mezclado y arde de golpe. El B20 mete más masa total, pero la mete casi toda cuando ya hay llama, y eso se quema al ritmo al que se mezcla, no de golpe.'},
-      {t:'Porque el DMA tiene más poder calorífico (42,9 frente a 41,1 MJ/kg) y por tanto libera más energía.',
+      {t:'Porque el DMA tiene más poder calorífico (42,9 frente a 41,1 MJ/kg) y por tanto libera más energía, que se suelta de golpe cuando el combustible prende.',
        why:'Libera exactamente la misma: la máquina pide 1'+NBSP+'143,6 J por ciclo y cilindro, y la dosis en masa se ajusta a cada combustible. Por eso el DMA, que tiene más poder calorífico, inyecta MENOS masa. La energía no explica la diferencia.'},
-      {t:'Porque el número de cetano mide la resistencia al autoencendido: cuanto más alto, más cuesta encender.',
+      {t:'Porque el número de cetano mide la resistencia al autoencendido: cuanto más alto, más cuesta encender, y por eso el B20 tarda más y quema con más violencia.',
        why:'Es justo al revés, y confundirlo con el octanaje es el error clásico. El octano mide la RESISTENCIA a encenderse solo, que es lo que se quiere en gasolina. El cetano mide la FACILIDAD: más cetano, menos retardo. Por eso el B20 (CN 54) es el más silencioso y el DMA (CN 42) el más ruidoso.'},
-      {t:'Porque el DMA es más denso (0,855 frente a 0,845) y sale más deprisa por la tobera.',
+      {t:'Porque el DMA es más denso (0,855 frente a 0,845) y sale más deprisa por la tobera, con lo que la masa inyectada por grado de giro es mayor.',
        why:'Sale algo más deprisa, sí: 25,99 g/s frente a 25,84. Pero eso es un 0,6 % de caudal, y actúa en contra del ruido, porque acorta la inyección. Los 0,70 bar/° de diferencia no salen de ahí: salen del retardo.'},
     ]},
   riel:{pregunta:'Subir el riel del compacto urbano de 600 a 1'+NBSP+'800 bar multiplica el caudal por 1,7945 (la raíz del salto de presión) pero multiplica por tres lo que cobra la bomba, de 0,160 a 0,479 bar de presión media. Una ganancia con raíz contra una pérdida lineal. ¿Por qué gana la raíz en este caso?',
     opciones:[
       {t:'Porque a 600 bar la inyección dura 41,10° y el 90 % no acaba de quemar hasta +65,75°: el ciclo se queda con una penalización por quemado tardío de ×0,8712 que vale muchísimo más que los 0,319 bar de la bomba.',ok:true,
        why:'Ésa es la cuenta. A 1'+NBSP+'800 bar la inyección baja a 22,90°, CA90 se adelanta a +38,70° y la penalización desaparece (×1,0000): la imep bruta sube de 10,974 a 14,370 bar. La bomba se lleva 0,319 bar más. Se ganan 3,396 y se pagan 0,319, así que la eficiencia al freno pasa de 28,79 % a 38,29 %. La raíz no gana siempre: gana mientras quede quemado tardío que rescatar.'},
-      {t:'Porque el caudal se multiplica por tres, igual que la presión.',
+      {t:'Porque el caudal se multiplica por tres, igual que la presión: la ganancia es lineal como la pérdida de la bomba, pero con mejor coeficiente, y por eso siempre gana.',
        why:'Se multiplica por 1,7945, que es √((1'+NBSP+'800 − 59,5)/(600 − 59,5)). La tobera es un orificio, y por un orificio el caudal va con la raíz del salto de presión. Triplicar la presión no triplica el caudal ni de lejos.'},
-      {t:'Porque a 1'+NBSP+'800 bar el retardo de autoencendido se acorta y la combustión empieza antes.',
+      {t:'Porque a 1'+NBSP+'800 bar el retardo de autoencendido se acorta y la combustión empieza antes, lo que adelanta todo el quemado y recupera rendimiento.',
        why:'El retardo es 3,66° a 600 bar y 3,66° a 1'+NBSP+'800 bar: no cambia. Hardenberg–Hase depende de la presión y la temperatura DEL GAS en el cilindro, no de la presión del riel. Lo que cambia es la duración de la inyección, no cuándo prende.'},
-      {t:'Porque a más presión el chorro se pulveriza más fino y el combustible libera más energía.',
+      {t:'Porque a más presión el chorro se pulveriza más fino y el combustible libera más energía por kilo, lo que compensa de sobra el coste de la bomba.',
        why:'Se pulveriza más fino y mezcla mejor, cierto, pero la energía que libera un kilo de gasóleo no depende de la presión a la que se inyecte. El poder calorífico es una propiedad del combustible. Lo que se gana es tiempo, no energía.'},
     ]},
   frio:{pregunta:'El tractor calienta el AIRE DE ADMISIÓN 50,5 K con la rejilla; el compacto urbano calienta el SITIO DEL ENCENDIDO 178,7 K con la bujía incandescente. En el punto muerto superior, ¿cuánto acaba valiendo cada aportación?',
     opciones:[
       {t:'La rejilla vale 135,0 K, porque la compresión multiplica la temperatura absoluta por r_ef^(n−1) = 2,673. La bujía vale sus 178,7 K y ni uno más, porque entra después de comprimir.',ok:true,
        why:'Eso es. Calentar antes de comprimir rinde casi el triple, porque el mismo factor que multiplica la temperatura del aire multiplica también lo que le hayas añadido. La bujía no juega a eso: calienta un punto caliente dentro de la cámara, ya al final de la carrera. Por eso 50,5 K de rejilla y 50,5 K de bujía no son la misma ayuda ni de lejos.'},
-      {t:'Las dos valen lo que dicen: 50,5 K la rejilla y 178,7 K la bujía.',
+      {t:'Las dos valen lo que dicen: 50,5 K la rejilla y 178,7 K la bujía, porque ambas son una aportación de temperatura que se suma al gas.',
        why:'La bujía sí, la rejilla no. Los 50,5 K entran en el aire ANTES de la compresión, y la compresión los multiplica junto con todo lo demás: el tractor llega al PMS con 851,7 K en lugar de los 716,7 que tendría sin rejilla.'},
-      {t:'La rejilla vale 50,5 · 1,4 = 70,7 K, con el γ del aire.',
+      {t:'La rejilla vale 50,5 · 1,4 = 70,7 K, con el γ del aire; la bujía vale 178,7 K, porque entra después de comprimir.',
        why:'Dos errores en uno. El factor no es γ, es r_ef^(n−1); y a 200 rpm de arrastre la compresión NO es adiabática: el motor declara una politrópica n = 1,3321 porque hay tiempo de sobra para que el calor se escape por las paredes frías. Con γ = 1,4 saldrían 165,0 K, un 22 % de más.'},
-      {t:'La bujía también se multiplica, porque está encendida durante toda la compresión.',
+      {t:'La bujía también se multiplica, porque está encendida durante toda la compresión, y la rejilla vale sólo lo que dice: 50,5 K.',
        why:'Está encendida, pero lo que calienta es el punto donde va a prender la primera gota, no la masa de aire que se está comprimiendo. El motor lo declara así: la rejilla se suma antes de comprimir y la bujía después. Son dos ayudas distintas, no dos versiones de la misma.'},
     ]},
   censo:{pregunta:'En la camioneta hay 400 calibraciones montables y el criterio de «arranque en frío» reprueba exactamente 300: tres cuartas partes justas. ¿Qué está diciendo una cifra tan redonda?',
     opciones:[
       {t:'Que tres de los cuatro combustibles gelifican a la temperatura de homologación, y con ellos se caen sus 100 configuraciones enteras, sin que importe la r, el avance ni el riel.',ok:true,
-       why:'Ésa es la lectura. La camioneta homologa a −20 °C y el CFPP del agrícola es −4, el del B20 −18 y el del DMA −6: los tres por encima. Gelificado, el gasóleo no llega a la tobera y da igual lo caliente que esté la cámara. De hecho, en las 400 no hay ni un solo fallo TÉRMICO: la bujía incandescente da margen de sobra. Y las 31 calibraciones válidas queman UBA, las cuatro.'},
-      {t:'Que la bujía incandescente de la camioneta no da suficiente temperatura y hay que subir la relación de compresión.',
+       why:'Ésa es la lectura. La camioneta homologa a −20 °C y el CFPP del agrícola es −4, el del B20 −18 y el del DMA −6: los tres por encima. Gelificado, el gasóleo no llega a la tobera y da igual lo caliente que esté la cámara. De hecho, en las 400 no hay ni un solo fallo TÉRMICO: la bujía incandescente da margen de sobra.'},
+      {t:'Que la bujía incandescente de la camioneta no da suficiente temperatura y hay que subir la relación de compresión para arrancar a −20 °C.',
        why:'Cero fallos térmicos en las 400. Las 300 bajas son todas por fluidez, y contra el gel la relación de compresión no puede hacer nada: el problema está antes de la cámara, en el filtro y la línea.'},
-      {t:'Que a −20 °C ningún gasóleo de la rejilla arranca en esta máquina.',
+      {t:'Que a −20 °C ningún gasóleo de la rejilla arranca en esta máquina, ni siquiera con la bujía incandescente a pleno rendimiento.',
        why:'El UBA de invierno arranca en las 100 configuraciones en que se usa: su CFPP es −28 °C. Por eso la cifra es 300 y no 400.'},
-      {t:'Que ése es el criterio que hay que relajar para recuperar más calibraciones.',
+      {t:'Que ése es el criterio que hay que relajar para recuperar más calibraciones, porque reprueba tres de cada cuatro configuraciones.',
        why:'Cuidado con esa lectura del censo: de las 300 bajas, sólo 91 se caen por el frío EN SOLITARIO; las otras 209 fallan además otra cosa y seguirían fuera. Aun así el frío es el decisor de esta máquina, con diferencia — pero por 91, no por 300.'},
     ]},
-  reto:{pregunta:'En el motor marino, la calibración más eficiente que el banco puede montar (r 16 · SOI 10° · riel 1'+NBSP+'400 bar con DMA) da 39,95 % al freno y sale 1'+NBSP+'950 € MÁS BARATA en cinco años que la que se firma. Cumple presión (135,7 de 140 bar), fase (CA50 9,90°), escape (748 de 772 K) y par (12,79 de 12,10 bar). ¿Por qué se rechaza?',
+  reto:{pregunta:'En el motor marino, la calibración más eficiente que el banco puede montar (r = 16) da 39,95 % al freno y sale MÁS BARATA en cinco años que la que se firma. Cumple presión (135,7 de 140 bar), fase (CA50 9,90°), escape (748 de 772 K) y par (12,79 de 12,10 bar). ¿Por qué se rechaza?',
     opciones:[
       {t:'Porque su gradiente de presión es 10,07 bar/° contra un límite de 9,4: es el único criterio que falla, y basta con uno.',ok:true,
-       why:'Ése es el punto del laboratorio. Un pliego no se aprueba por media: se aprueba entero. La firmada baja a r = 15, cede 0,23 puntos de rendimiento y paga 1'+NBSP+'950 € más de combustible, pero se queda en 9,39 bar/° — a una centésima del límite. Y no es un caso raro: en las CINCO máquinas la calibración más eficiente montable se cae, y en las cinco por lo mismo, el gradiente.'},
-      {t:'Porque r = 16 no se puede montar en el motor marino.',
+       why:'Ése es el punto del laboratorio. Un pliego no se aprueba por media: se aprueba entero. La que se firma cede algo de rendimiento y paga más combustible, pero se queda por debajo del límite. Y no es un caso raro: en las CINCO máquinas la calibración más eficiente montable se cae, y en las cinco por lo mismo, el gradiente.'},
+      {t:'Porque r = 16 no se puede montar en el motor marino, cuyo bloque no admite una relación de compresión tan alta.',
        why:'Sí se puede: r_máx del marino es exactamente 16. Es el tope, pero es montable, y por eso aparece en el censo como construible y reprobada, no como imposible.'},
-      {t:'Porque con DMA marino el motor no arrancaría en frío.',
-       why:'Arranca. El marino homologa a +5 °C y el CFPP del DMA es −6 °C: pasa con holgura. De hecho la calibración firmada quema ese mismo DMA — es el combustible más barato de los cuatro, 0,78 €/L.'},
-      {t:'Porque una diferencia de 0,23 puntos de eficiencia no justifica cambiar nada.',
+      {t:'Porque con el combustible que lleva el motor no arrancaría en frío y el pliego exige arrancar a la temperatura de homologación.',
+       why:'Arranca. El marino homologa a +5 °C y el CFPP de ese combustible es −6 °C: pasa con holgura.'},
+      {t:'Porque una diferencia de unas décimas de punto de eficiencia no justifica cambiar nada, y el pliego prefiere lo conservador.',
        why:'La diferencia va en el otro sentido: la rechazada es la MÁS eficiente y la MÁS barata. Si el pliego se pudiera negociar, ganaría ella. Lo que la tumba no es el dinero, es que 10,07 bar/° destroza cojinetes y hace un motor que nadie quiere oír.'},
     ]},
 };
@@ -2842,9 +2888,8 @@ function boardClick(){
   }else{
     showToast('<b>Reto de firma</b> · Se te pide la calibración válida más barata de ALIMENTAR '+
       'durante '+f0(ANIOS)+' años a '+f0(P.wAnio)+' kWh/año, no la más eficiente en un punto. Las '+
-      'tres pistas se abren de una en una y cada una dice cuántas de las válidas comparten un valor '+
-      'de ese eje: eso estrecha la búsqueda sin regalar la terna. El avance de inyección no se '+
-      'destapa nunca. Hay '+f0(RETO.nval)+' válidas.');
+      'dos pistas como máximo orientan hacia dónde mirar sin dar ningún valor de la terna, y a los '+
+      'tres intentos fallados el caso cambia. Hay '+f0(RETO.nval)+' válidas.');
   }
 }
 
@@ -2875,6 +2920,12 @@ async function runAuto(){
   const b=el('btnAuto'), rot=b.textContent;
   b.textContent='⏳ Recorriendo…';
   synth.init();synth.resume();clearDx();
+  // El recorrido es una DEMOSTRACIÓN: guarda el reto del alumno, hace la demo sobre
+  // OTRA máquina y al terminar lo devuelve tal cual estaba (sin resolver si no lo
+  // estaba). Jamás deja `solved` en true.
+  const snap={ mk:RETO.cfg.mk, ejes:{...RETO.ejes}, pistas:{...RETO.pistas},
+    pistaTxt:RETO.pistaTxt.slice(), intentos:RETO.intentos, aviso:RETO.aviso, msg:RETO.msg,
+    resuelto:RETO.resuelto, solved, tenia:!!RETO.sol, st:{...ST} };
   try{
     // --- 1. un ciclo entero y los tres techos que caben encima ----------
     aplicaMaquina('urbano'); ST.r=16; ST.soi=10; ST.pIny=1800; ST.fk='uba';
@@ -2993,7 +3044,7 @@ async function runAuto(){
     await sleep(6200);
 
     // --- 7. el encargo -------------------------------------------------
-    RETO.cfg.mk='marino'; retoSolveBuild();
+    RETO.cfg.mk=(snap.mk==='marino')?'planta':'marino'; retoSolveBuild();
     setMode('reto');
     {
       const P=MAQ[RETO.cfg.mk], s=RETO.sol, F=FUEL[s.fuel];
@@ -3019,7 +3070,7 @@ async function runAuto(){
         ' € más barata de alimentar. Suena a ganga. Entrégala y que conteste el pliego: falla por '+
         fal.map(k=>CRIT_COR[k]).join(' y ')+'.');
       await sleep(2600);
-      checkReto();
+      RETO.msg=juzgaReto().msg; afterEdit();
     }
     await sleep(6200);
 
@@ -3035,11 +3086,22 @@ async function runAuto(){
         '. Se pagan '+pc2(mejor.etaB-s.etaB)+' de rendimiento y '+fin(s.coste5-mejor.coste5,0)+
         ' € en '+f0(ANIOS)+' años. Ése es el precio de poder firmar.');
       await sleep(2600);
-      checkReto();
+      RETO.msg=juzgaReto().msg; afterEdit();
     }
     await sleep(6000);
     answer(quizCorrectIndex());
   } finally {
+    // Devuelve el reto del alumno, sin resolver si no lo estaba.
+    Object.assign(ST,snap.st);
+    RETO.cfg.mk=snap.mk;
+    if(snap.tenia){
+      RETO.sol=solM(snap.mk); RETO.nval=valM(snap.mk).length;
+      RETO.ejes=snap.ejes; RETO.pistas=snap.pistas; RETO.pistaTxt=snap.pistaTxt;
+      RETO.intentos=snap.intentos; RETO.aviso=snap.aviso; RETO.msg=snap.msg;
+      RETO.resuelto=snap.resuelto;
+    } else { RETO.sol=null; retoSolveBuild(); }
+    solved=snap.solved;
+    buildControls(); updateScenarioInfo(); if(mode==='reto') updateRetoSpec(); refreshAll();
     autoRunning=false;
     el('btnAuto').textContent=rot;
     buildControls();
@@ -3111,7 +3173,9 @@ window.__labDebug={
   st:()=>({...ST}), cur:()=>CUR, cfg:()=>cfgDe(mode), cfgDe,
   frame:()=>FR, idxFR, maq:()=>maqAct(),
   reto:()=>({cfg:{...RETO.cfg}, ejes:{...RETO.ejes}, sol:RETO.sol, nval:RETO.nval,
-             resuelto:RETO.resuelto, msg:RETO.msg, pistas:{...RETO.pistas}}),
+             resuelto:RETO.resuelto, msg:RETO.msg, pistas:{...RETO.pistas},
+             nPistas:nPistas(), intentos:RETO.intentos}),
+  intentos:()=>RETO.intentos,
   // --- setters equivalentes a los botones de la barra
   setMaquina:v=>{ aplicaMaquina(v); afterEdit(); },
   setR:v=>{ ST.r=Number(v); afterEdit(); },

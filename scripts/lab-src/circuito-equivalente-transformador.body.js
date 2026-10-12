@@ -173,11 +173,11 @@ function vacioQuizText(){
   const opciones=[
     {t:`Rc(BT)=Voc²/Poc=${fmtOhm(st.RcLV)}; S0=Voc·Ioc=${st.S0.toFixed(2)} VA, Q0=√(S0²−Poc²)=${st.Q0.toFixed(2)} VAR, Xm(BT)=Voc²/Q0=${fmtOhm(st.XmLV)}. Referidos a AT con a²=${st.a2.toFixed(2)}: Rc(AT)=${fmtOhm(st.RcHV)}, Xm(AT)=${fmtOhm(st.XmHV)}.`, ok:true,
       why:`La rama de magnetización se obtiene del triángulo de potencias del ensayo de vacío: S0=Voc·Ioc, Q0=√(S0²−Poc²), Rc=Voc²/Poc, Xm=Voc²/Q0 — todo en el lado donde se hizo la medición (BT). Para referir al lado de AT se multiplica por a²=(N1/N2)²=${st.a2.toFixed(2)}, no por a.`},
-    {t:`Rc(BT)=Voc/Ioc=${(c.Voc/c.Ioc).toFixed(2)} Ω (impedancia total de vacío tratada como resistencia).`, ok:false,
+    {t:`Rc(BT)=Voc/Ioc=${(c.Voc/c.Ioc).toFixed(2)} Ω; S0=Voc·Ioc=${st.S0.toFixed(2)} VA, Q0=√(S0²−Poc²)=${st.Q0.toFixed(2)} VAR, Xm(BT)=Voc²/Q0=${fmtOhm(st.XmLV)}. Referidos a AT con a²=${st.a2.toFixed(2)}: Rc(AT)=${fmtOhm(c.Voc/c.Ioc*st.a2)}, Xm(AT)=${fmtOhm(st.XmHV)}.`, ok:false,
       why:'Voc/Ioc da la IMPEDANCIA de vacío (Z0), no la resistencia de pérdidas en el núcleo Rc — confunde la rama paralelo Rc‖Xm con una sola resistencia serie.'},
-    {t:`Xm(BT)=Voc²/Poc=${fmtOhm(st.RcLV)} (usa Poc en vez de Q0 para la reactancia de magnetización).`, ok:false,
+    {t:`Rc(BT)=Voc²/Poc=${fmtOhm(st.RcLV)}; S0=Voc·Ioc=${st.S0.toFixed(2)} VA, Xm(BT)=Voc²/Poc=${fmtOhm(st.RcLV)} (con Poc en lugar de Q0). Referidos a AT con a²=${st.a2.toFixed(2)}: Rc(AT)=${fmtOhm(st.RcHV)}, Xm(AT)=${fmtOhm(st.RcHV)}.`, ok:false,
       why:'Poc es la potencia ACTIVA (pérdidas en el hierro), asociada a Rc; Xm requiere la potencia REACTIVA Q0=√(S0²−Poc²), no Poc directamente.'},
-    {t:`Al referir de BT a AT se divide entre a²: Rc(AT)=${(st.RcLV/st.a2).toFixed(4)} Ω.`, ok:false,
+    {t:`Rc(BT)=Voc²/Poc=${fmtOhm(st.RcLV)}; S0=Voc·Ioc=${st.S0.toFixed(2)} VA, Q0=√(S0²−Poc²)=${st.Q0.toFixed(2)} VAR, Xm(BT)=Voc²/Q0=${fmtOhm(st.XmLV)}. Referidos a AT dividiendo entre a²=${st.a2.toFixed(2)}: Rc(AT)=${(st.RcLV/st.a2).toFixed(4)} Ω, Xm(AT)=${(st.XmLV/st.a2).toFixed(4)} Ω.`, ok:false,
       why:`Referir una impedancia del lado de BAJA tensión al lado de ALTA tensión requiere MULTIPLICAR por a²=(N1/N2)², no dividir — las impedancias crecen al referirse hacia el lado de mayor número de vueltas.`},
   ];
   return {pregunta, opciones:shuffle(opciones)};
@@ -188,11 +188,11 @@ function cortoQuizText(){
   const opciones=[
     {t:`Zeq=Vsc/Isc=${fmtOhm(st.Zeq)}; Req=Psc/Isc²=${fmtOhm(st.Req)}; Xeq=√(Zeq²−Req²)=${fmtOhm(st.Xeq)}. %Z=Vsc/V1n×100=${fmtPct(st.pctZ)}.`, ok:true,
       why:`El ensayo de cortocircuito mide la rama serie: Zeq=Vsc/Isc es la impedancia total; Psc=Isc²·Req da la parte resistiva Req=Psc/Isc²; Xeq se obtiene por Pitágoras del triángulo de impedancias Zeq²=Req²+Xeq². %Z=Vsc/V1n×100=${fmtPct(st.pctZ)} es la impedancia porcentual de placa.`},
-    {t:`Req=Zeq=Vsc/Isc=${fmtOhm(st.Zeq)} (se asume que toda la impedancia de cortocircuito es resistiva).`, ok:false,
+    {t:`Zeq=Vsc/Isc=${fmtOhm(st.Zeq)}; Req=Zeq=${fmtOhm(st.Zeq)} (toda la impedancia se toma resistiva) y Xeq≈0, sin usar Psc. %Z=Vsc/V1n×100=${fmtPct(st.pctZ)}.`, ok:false,
       why:`Zeq=Vsc/Isc es la impedancia TOTAL (Req y Xeq combinadas); igualarla a Req ignora la reactancia de dispersión Xeq, que en este transformador es la componente dominante (${fmtOhm(st.Xeq)} frente a ${fmtOhm(st.Req)}).`},
-    {t:`Xeq=Zeq=${fmtOhm(st.Zeq)} (se asume Req≈0, ignorando las pérdidas de cortocircuito Psc).`, ok:false,
+    {t:`Zeq=Vsc/Isc=${fmtOhm(st.Zeq)}; se asume Req≈0, de modo que Xeq=Zeq=${fmtOhm(st.Zeq)}, ignorando las pérdidas de cortocircuito Psc. %Z=Vsc/V1n×100=${fmtPct(st.pctZ)}.`, ok:false,
       why:`Ignorar Req descarta la información que aporta Psc — la potencia de cortocircuito existe precisamente porque hay una componente resistiva Req=Psc/Isc²=${fmtOhm(st.Req)} distinta de cero.`},
-    {t:`%Z=Vsc/V2n×100=${(c.Vsc/c.v2n*100).toFixed(2)}% (usa la tensión nominal de BT en vez de la de AT).`, ok:false,
+    {t:`Zeq=Vsc/Isc=${fmtOhm(st.Zeq)}; Req=Psc/Isc²=${fmtOhm(st.Req)}; Xeq=√(Zeq²−Req²)=${fmtOhm(st.Xeq)}. %Z=Vsc/V2n×100=${(c.Vsc/c.v2n*100).toFixed(2)}% (con la tensión de BT).`, ok:false,
       why:`Vsc se aplicó y midió en el lado de AT, así que el %Z de placa debe referirse a V1n=${c.v1n} V, no a V2n.`},
   ];
   return {pregunta, opciones:shuffle(opciones)};
@@ -687,10 +687,14 @@ function updateReport(){
 function refreshAll(){ drawPlate(caseKey); updateTele(); updateReport(); drawBoard(); }
 
 function refreshCaseLabel(){}
+let intentos=0, curQ=null;
+const agotado={};   // caso -> true si se agotaron los 3 intentos; se libera al resolver otra pregunta
+function pintaIntentos(){ const l=el('intentosLbl'); if(l) l.textContent='Intentos fallidos: '+intentos+'/3'; }
 function clearDx(){ el('dxbtns').innerHTML=''; }
 function refreshQuestion(){
-  const q=currentQuiz();
-  el('q_text').innerHTML=q.pregunta;
+  const q=currentQuiz(); curQ=q;
+  el('q_text').innerHTML=q.pregunta+'<div id="intentosLbl" style="font-size:11px;color:var(--dim);margin-top:4px"></div>';
+  intentos=0; pintaIntentos();
   const box=el('dxbtns'); box.innerHTML='';
   q.opciones.forEach((o,i)=>{
     const b=document.createElement('button');
@@ -698,19 +702,30 @@ function refreshQuestion(){
     b.onclick=()=>answer(i,q);
     box.appendChild(b);
   });
+  if(agotado[caseKey]){ Array.from(box.children).forEach(b=>b.disabled=true);
+    el('intentosLbl').textContent='Tres intentos fallidos en este ensayo: resuelve otro para recuperar una pregunta nueva.'; }
 }
 function answer(i,q){
+  if(agotado[caseKey]||solved) return;
   const chosen=q.opciones[i];
-  const box=el('dxbtns');
-  Array.from(box.children).forEach((b,idx)=>{
-    b.disabled=true;
-    if(q.opciones[idx].ok) b.classList.add('ok');
-    else if(idx===i) b.classList.add('bad');
-  });
-  solved=chosen.ok;
-  synth.beep(chosen.ok?880:220,0.12,0.05);
-  updateTele(); updateReport();
-  showToast(`<b style="color:${chosen.ok?'var(--good)':'var(--bad)'}">${chosen.ok?'✔ Correcto':'✘ Revisa'}</b><br><span style="font-size:11px">${chosen.why}</span>`);
+  const box=el('dxbtns'); const btns=Array.from(box.children);
+  if(chosen.ok){
+    btns.forEach(b=>b.disabled=true); btns[i].classList.add('ok');
+    solved=true; Object.keys(agotado).forEach(k=>delete agotado[k]);
+    synth.beep(880,0.12,0.05);
+    updateTele(); updateReport();
+    showToast('<b style="color:var(--good)">✔ Correcto</b><br><span style="font-size:11px">'+chosen.why+'</span>');
+    return;
+  }
+  // el fallo NO revela cuál es la correcta ni explica la respuesta: solo se descarta esta opción
+  btns[i].classList.add('bad'); btns[i].disabled=true;
+  intentos++; pintaIntentos(); solved=false;
+  synth.beep(220,0.12,0.05);
+  if(intentos>=3){
+    agotado[caseKey]=true; btns.forEach(b=>b.disabled=true);
+    el('intentosLbl').textContent='Tres intentos fallidos en este ensayo: resuelve otro para recuperar una pregunta nueva.';
+    showToast('<b style="color:var(--bad)">✘ Intentos agotados</b><br><span style="font-size:11px">Repasa la ficha técnica y resuelve otro ensayo; al volver tendrás la pregunta de nuevo con las opciones barajadas.</span>');
+  } else showToast('<b style="color:var(--bad)">✘ Revisa</b> (intento '+intentos+'/3)<br><span style="font-size:11px">Vuelve a plantear el cálculo con las lecturas del banco y compáralo con tu resultado.</span>');
 }
 
 function setCase(key){
@@ -786,28 +801,31 @@ if(soundBtn){
 }
 
 function sleep(ms){ return new Promise(r=>setTimeout(r,ms)); }
+let autoRunning=false;
 async function runAuto(){
-  const c=CASES[caseKey];
-  if(!active){ el('btnPower').click(); await sleep(1400); }
-  if(c.mode==='test'){
-    showToast(c.otherTreatment==='open' ? '1️⃣ Deja el devanado no excitado en circuito abierto.' : '1️⃣ Cortocircuita el devanado de BT (X1-X2).');
-    await sleep(1600);
-    showToast('2️⃣ Aplica tensión reducida al devanado indicado y observa V, A y W.');
-    await sleep(1800);
-  }else{
-    showToast('1️⃣ Conecta la carga nominal del lado de BT.');
-    await sleep(1600);
-    showToast('2️⃣ Con Req/Xeq ya calculados, observa el resultado en el panel.');
-    await sleep(1800);
+  // DEMOSTRACIÓN: energiza y comenta el ensayo, pero NO responde la pregunta ni la da por resuelta;
+  // al terminar deja el banco como lo tenía el alumno.
+  if(autoRunning) return; autoRunning=true; const btn=el('btnAuto'); if(btn) btn.disabled=true;
+  const c=CASES[caseKey]; const wasActive=active;
+  try{
+    if(!active){ el('btnPower').click(); await sleep(1400); }
+    if(c.mode==='test'){
+      showToast(c.otherTreatment==='open' ? '1️⃣ Deja el devanado no excitado en circuito abierto.' : '1️⃣ Cortocircuita el devanado de BT (X1-X2).');
+      await sleep(1600);
+      showToast('2️⃣ Aplica tensión reducida al devanado indicado y observa V, A y W.');
+      await sleep(1800);
+    }else{
+      showToast('1️⃣ Conecta la carga nominal del lado de BT.');
+      await sleep(1600);
+      showToast('2️⃣ Con Req/Xeq ya calculados, observa el resultado en el panel.');
+      await sleep(1800);
+    }
+    showToast('3️⃣ Lee V, A y W en el panel y calcula tú el resultado. La pregunta de diagnóstico la contestas tú: la demo no la responde.');
+    await sleep(2600);
+  } finally {
+    if(active!==wasActive) el('btnPower').click();
+    if(btn) btn.disabled=false; autoRunning=false;
   }
-  showToast('3️⃣ Lee los resultados calculados en el panel de telemetría.');
-  await sleep(1800);
-  const q=currentQuiz();
-  refreshQuestion();
-  const idx=q.opciones.findIndex(o=>o.ok);
-  showToast('4️⃣ Responde la pregunta de diagnóstico.');
-  await sleep(1200);
-  el('dxbtns').children[idx].click();
 }
 el('btnAuto').onclick=runAuto;
 
@@ -828,3 +846,9 @@ S.setAnimate((dt,time)=>{
 });
 
 setCase('ensayoVacio');
+
+window.__labDebug={
+  caseKey:()=>caseKey, active:()=>active, solved:()=>solved, intentos:()=>intentos,
+  setCase, runAuto, answer, currentQuiz:()=>curQ,
+  state:()=>({caseKey,active,solved,intentos}),
+};

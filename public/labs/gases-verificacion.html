@@ -2229,11 +2229,14 @@ function vistaReto(){
       'Después dilo: aprueba, rechaza por tal criterio, o la medición no vale.',P.x+22,y,P.w-44,19,{s:13.5});
   }else{
     const V=RETO.V;
+    // Hasta entregar, las lecturas van SIN colorear: pintar en rojo lo que rebasa
+    // el límite es dictar el veredicto, y comparar con la tabla es el ejercicio.
+    const viv=!!(RETO.veredicto&&RETO.veredicto.ok);
     const filas=['CO','CO2','O2','HC','NOx'].map(g=>({v:[GAS_ROT[g],gasF(g,V.pts[0][g])],
-      c:V.pts[0].fallos.includes(g)?BAD_HEX:TINTA}));
+      c:viv&&V.pts[0].fallos.includes(g)?BAD_HEX:TINTA}));
     tabla(P.x+22,y,[{t:'gas',w:120},{t:'fase 1',w:120,al:'right'}],filas,{rh:24,s:13});
     const f2=['CO','CO2','O2','HC','NOx'].map(g=>({v:[GAS_ROT[g],gasF(g,V.pts[1][g])],
-      c:V.pts[1].fallos.includes(g)?BAD_HEX:TINTA}));
+      c:viv&&V.pts[1].fallos.includes(g)?BAD_HEX:TINTA}));
     tabla(P.x+300,y,[{t:'gas',w:120},{t:'fase 2',w:120,al:'right'}],f2,{rh:24,s:13});
     // Cinco filas de 24 px más la cabecera dejan la última línea base en y+150.
     y+=176;
@@ -2245,11 +2248,12 @@ function vistaReto(){
     {v:['año-modelo',anio(MQ().anio)]},
     {v:['método',MET_CORTO[G.metodo]]},
     {v:['tabla que aplica',limites(G.metodo,MQ().anio).tabla]},
-    {v:['avería','oculta hasta entregar'],c:WARN_HEX},
+    {v:['avería','oculta hasta acertar'],c:WARN_HEX},
+    {v:['intentos',RETO.intentos+' de '+MAX_INTENTOS+' · pistas '+RETO.pistas+' de '+MAX_PISTAS]},
   ]);
   const R=RETO.veredicto;
   banda(470, R?(R.ok?'ok':'bad'):'warn',
-    R?(R.ok?'Correcto':'No era eso'):'Sin entregar',
+    R?(R.ok?'Correcto':'Dictamen incorrecto'):'Sin entregar',
     R?R.texto
       :'Corre la prueba, mira los seis criterios y elige en el panel. Recuerda que hay tres desenlaces y no dos: una medición inválida no es un rechazo por emisiones, y decir «rechaza por CO» cuando lo que pasa es que entra aire por el escape es un diagnóstico equivocado con la cifra delante.');
 }
@@ -2572,8 +2576,11 @@ function pinta3D(dt){
     const w=gira*5.2;
     rodA.rotation.y+=w*dt; rodB.rotation.y+=w*dt;
   }
+  // A ciegas el piloto del analizador NO da el desenlace (verde/rojo/ámbar): sólo
+  // dice si está encendido. El color es el veredicto y hay que sacarlo de las cifras.
+  const aCiegas=(G.modo==='reto'&&!(RETO.veredicto&&RETO.veredicto.ok));
   if(ledAna) ledAna.material=!publicaPanel().enciende?MAT.apag
-    :(V.invalida?MAT.avi:(V.aprueba?MAT.ok:MAT.bad));
+    :(aCiegas?MAT.acero:(V.invalida?MAT.avi:(V.aprueba?MAT.ok:MAT.bad)));
   if(humoM&&humoM.visible){
     humoM.material.opacity=0.20+0.14*Math.sin(RELOJ*3.1);
     humoM.scale.y=1+0.12*Math.sin(RELOJ*2.3);
@@ -2706,11 +2713,13 @@ function publicaPanel(){
       lam:Q.lamCalc, mal:[], fuente:'libre'};
   }
   const V=VERIF(), p=V.pts[FASE()];
-  // `mal` marca en rojo lo que rebasa el límite. No es un chivatazo: el límite
-  // sale del año-modelo, que está a la vista, y la lectura también.
+  // `mal` marca en rojo lo que rebasa el límite. Fuera del reto es una ayuda de
+  // lectura; en el reto sería dictar el veredicto antes de entregar, así que allí
+  // no se marca nada hasta haber acertado.
+  const aCiegas=(G.modo==='reto'&&!(RETO.veredicto&&RETO.veredicto.ok));
   return {enciende:true, rot:p.rot,
     v:{CO:p.CO,CO2:p.CO2,O2:p.O2,HC:p.HC,NOx:p.NOx},
-    lam:p.lamCalc, mal:p.fallos, fuente:'prueba'};
+    lam:p.lamCalc, mal:aCiegas?[]:p.fallos, fuente:'prueba'};
 }
 
 // ----------------------------------------------------------------- telemetría
@@ -2729,17 +2738,21 @@ function pintaTele(){
     h+=gl('Tabla que aplica',lim.tabla+' · '+lim.rot);
     h+=gl('Límites','HC '+num(lim.HC,0)+' · CO '+num(lim.CO,1)+' · O₂ '+num(lim.O2,1)+
       (lim.NOx===null?' · sin NOx':' · NOx '+num(lim.NOx,0)));
-    h+=gl('Avería','oculta hasta entregar','warn');
+    h+=gl('Avería','oculta hasta acertar','warn');
+    h+=gl('Intentos',RETO.intentos+' de '+MAX_INTENTOS,RETO.intentos?'warn':'');
+    h+=gl('Pistas',RETO.pistas+' de '+MAX_PISTAS);
     if(!RETO.corrida){
       h+=gl('Muestra','sin tomar','warn');
     }else{
       RETO.V.pts.forEach((p,i)=>{
         h+=gl('Fase '+(i+1),p.rot);
+        // Sin colorear hasta acertar: el color sería el veredicto.
+        const viv=!!(RETO.veredicto&&RETO.veredicto.ok);
         for(const g of ['CO','CO2','O2','HC','NOx'])
-          h+=gl(GAS_ROT[g],gasF(g,p[g]),p.fallos.includes(g)?'bad':'good');
-        h+=gl('CO + CO₂',pcv(p.dilucion),p.dilBaja||p.dilAlta?'bad':'good');
+          h+=gl(GAS_ROT[g],gasF(g,p[g]),viv&&p.fallos.includes(g)?'bad':'');
+        h+=gl('CO + CO₂',pcv(p.dilucion),viv&&(p.dilBaja||p.dilAlta)?'bad':'');
         h+=gl('Factor Lambda',p.lamAplica?lamF(p.lamCalc):'no aplica aquí',
-          p.lamFalla?'bad':(p.lamAplica?'good':'warn'));
+          viv&&p.lamFalla?'bad':'');
       });
     }
     el('tele').innerHTML=h;
@@ -2852,20 +2865,21 @@ function cambiaMaquina(k){
 // poco cuando la vista lleva mucho texto.
 const MARGEN={quimica:1.00, cadena:0.98, catalizador:0.98, nox:0.98,
   traza:0.97, veredicto:0.96, censo:0.95, reto:0.96};
-function setMode(m){
-  // Al salir del reto sin haber entregado, el vehículo vuelve a estar sano: si
-  // no, la avería del caso se queda puesta y la siguiente vista la enseña con
-  // nombre y apellidos.
-  const salgoDelReto=(G.modo==='reto'&&m!=='reto'&&!RETO.veredicto);
+function setMode(m,conserva){
+  // Al salir del reto sin haberlo resuelto (haya o no un intento fallido), el
+  // vehículo vuelve a estar sano: si no, la avería del caso se queda puesta y la
+  // siguiente vista la enseña con nombre y apellidos.
+  const salgoDelReto=(G.modo==='reto'&&m!=='reto'&&!conserva&&!(RETO.veredicto&&RETO.veredicto.ok));
   G.modo=m;
   if(salgoDelReto){ G.esc='sano'; RETO.caso=null; RETO.corrida=false; invalida(); }
-  if(m==='reto') armaReto();
+  if(m==='reto'&&!conserva) armaReto();
   pintaHUD(); afterEdit(); refrescaPregunta();
   const t=camConjunto(MARGEN[m]||1.00); S.moveTo(t[0],t[1],1.1);
 }
 
 // ============================== T4b · RETO, CUESTIONARIO, RECORRIDO Y ARRANQUE
-const RETO={caso:null, corrida:false, V:null, sel:[], veredicto:null, pistas:0};
+const MAX_INTENTOS=3, MAX_PISTAS=2;
+const RETO={caso:null, corrida:false, V:null, sel:[], veredicto:null, pistas:0, intentos:0, aviso:''};
 
 function barajaEn(a){                       // Fisher-Yates, para que la posición
   for(let i=a.length-1;i>0;i--){            // de la respuesta no sea la pista
@@ -2877,14 +2891,16 @@ function barajaEn(a){                       // Fisher-Yates, para que la posici�
 // sistema sano. Que «sano» sea un caso posible es deliberado: un verificador que
 // siempre encuentra algo no está verificando.
 function RETO_CASOS(){ return escenariosDe(MQ()); }
-function armaReto(){
-  const casos=RETO_CASOS();
+function armaReto(evita){
+  // `evita`: el caso que acaba de agotar sus intentos. El caso nuevo es OTRO, o
+  // se aprobaría por eliminación probando desenlaces.
+  const casos=RETO_CASOS().filter(k=>k!==evita);
   RETO.caso=casos[Math.floor(Math.random()*casos.length)];
   G.esc=RETO.caso;
   // El método lo pone el centro, no el alumno: es la mitad del veredicto, y
   // poder cambiarlo mientras se dictamina convertiría el reto en un tanteo.
   G.metodo=METODOS[Math.floor(Math.random()*METODOS.length)];
-  RETO.corrida=false; RETO.V=null; RETO.sel=[]; RETO.veredicto=null; RETO.pistas=0;
+  RETO.corrida=false; RETO.V=null; RETO.sel=[]; RETO.veredicto=null; RETO.pistas=0; RETO.intentos=0; RETO.aviso='';
   G.resuelto=false;
   invalida(); pintaDxReto();
 }
@@ -2910,7 +2926,8 @@ function pintaDxReto(){
     '<button class="b'+(RETO.sel.includes(o[0])?' on':'')+'" data-dx="'+o[0]+'">'+o[1]+'</button>').join('');
 }
 function eligeDx(k){
-  if(G.modo!=='reto'||RETO.veredicto) return;
+  if(G.modo!=='reto'||(RETO.veredicto&&RETO.veredicto.ok)) return;
+  RETO.veredicto=null;                    // tras un fallo se puede volver a dictaminar
   // «Aprueba» y «no vale» son exclusivos de todo lo demás: un veredicto no puede
   // ser a la vez una aprobación y un rechazo por CO.
   if(k==='aprueba'||k==='invalida') RETO.sel=RETO.sel.includes(k)?[]:[k];
@@ -2930,6 +2947,8 @@ function esperadoReto(){
 function pintaReto(){
   let h='<b>Vehículo bajo verificación:</b> '+MQ().nombre+'. ';
   h+=RETO.corrida?'Muestra tomada por el '+MET_ROT[G.metodo]+'. ':'Muestra sin tomar. ';
+  h+='Intentos: '+RETO.intentos+'/'+MAX_INTENTOS+' · pistas: '+RETO.pistas+'/'+MAX_PISTAS+'. ';
+  if(RETO.aviso) h+='<span class="warn">'+RETO.aviso+'</span> ';
   if(RETO.veredicto)
     h+=(RETO.veredicto.ok?'<b class="good">Acertaste.</b> ':'<b class="bad">Fallaste.</b> ')+RETO.veredicto.texto;
   else if(!RETO.corrida) h+='Pulsa «Correr la prueba»: hasta que el equipo no chupe muestra, no hay nada que leer.';
@@ -2937,50 +2956,80 @@ function pintaReto(){
   el('report').innerHTML=h;
 }
 function pistaReto(){
-  if(G.modo!=='reto'||RETO.veredicto) return;
-  RETO.pistas++;
+  if(G.modo!=='reto'||(RETO.veredicto&&RETO.veredicto.ok)) return;
+  if(RETO.pistas>=MAX_PISTAS){ showToast('No quedan más pistas en este caso.',2400); return; }
+  // Dos pistas graduadas: la primera, por dónde empezar; la segunda, una regla
+  // de la norma que depende del método que toca. Ninguna dice el desenlace.
   const p=[
     'Antes que nada, la suma CO+CO₂. Si se ha caído por debajo de '+num(DIL_MIN,0)+' %, la muestra viene con aire y ninguna de las otras cinco lecturas significa lo que parece.',
-    'El límite no lo pone el motor: lo pone el AÑO-MODELO, y no es el mismo en las dos tablas. Mira contra qué casilla estás juzgando.',
-    'El Factor Lambda no aplica en marcha mínima (num. 4.2.2.1). Si la fase de ralentí sale con λ raro, no es un criterio: es una casilla que ahí no se rellena.',
-    'Con el método estático no hay límite de NOx ninguno. Una avería de NOx puede pasar la prueba entera sin que salte nada.',
-    'Basta que se caiga UNO (num. 5.1.5). Pero el dictamen tiene que decir cuáles se cayeron, no sólo que rechaza.',
-  ][Math.min(RETO.pistas-1,4)];
-  showToast('<b>Pista '+RETO.pistas+'</b><br>'+p,5200);
+    G.metodo==='estatico'
+      ? 'Compara cada gas con el límite de la tabla que le toca a este año-modelo. Y recuerda qué columnas tiene esa tabla: no todas las pruebas juzgan los mismos gases.'
+      : 'Compara cada gas con el límite de la tabla que le toca a este año-modelo, y mira en qué fase se juzga cada cosa: el Factor Lambda no se exige en marcha mínima (num. 4.2.2.1).',
+  ][RETO.pistas];
+  RETO.pistas++;
+  showToast('<b>Pista '+RETO.pistas+' de '+MAX_PISTAS+'</b><br>'+p,5200);
+  pintaReto();
 }
 function entregaReto(){
   if(G.modo!=='reto'||!RETO.sel.length) return;
+  if(RETO.veredicto&&RETO.veredicto.ok) return;           // este caso ya está resuelto
   if(!RETO.corrida){ showToast('<b>Todavía no hay muestra</b><br>Corre la prueba antes de dictaminar.',3200); return; }
   const esp=esperadoReto(), dado=RETO.sel.slice().sort();
   const ok=esp.join('|')===dado.join('|');
   const V=RETO.V, p0=V.pts[0], e=MQ(), lim=V.L;
   const rotDx=k=>(DX_OPS.find(o=>o[0]===k)||[k,k])[1];
-  let t='Era <b>'+ESCEN[RETO.caso].rot+'</b>. ';
-  t+='Por el '+MET_ROT[G.metodo]+', a un '+anio(e.anio)+' le toca la '+lim.tabla+
-     ' «'+lim.rot+'»: HC ≤ '+num(lim.HC,0)+', CO ≤ '+num(lim.CO,1)+', O₂ ≤ '+num(lim.O2,1)+
-     (lim.NOx===null?' y sin límite de NOx. ':' y NOx ≤ '+num(lim.NOx,0)+'. ');
-  t+='En la fase 1 el equipo publicó CO '+gasF('CO',p0.CO)+', CO₂ '+gasF('CO2',p0.CO2)+
-     ', O₂ '+gasF('O2',p0.O2)+', HC '+gasF('HC',p0.HC)+', NOx '+gasF('NOx',p0.NOx)+
-     ', con CO+CO₂ = '+pcv(p0.dilucion)+'. ';
-  t+='El dictamen correcto era «'+esp.map(rotDx).join(' + ')+'». ';
-  if(V.invalida)
-    t+='La suma CO+CO₂ está fuera de la ventana de la norma, así que esto no es un rechazo por emisiones: es una medición que no vale. ';
-  else if(V.aprueba)
-    t+='Ninguno de los criterios se rebasó. '+
-      (RETO.caso!=='sano'
-        ? 'Y sin embargo la avería estaba puesta: por este método, esta avería sale del centro con su comprobante.'
-        : 'El vehículo estaba sano de verdad.');
-  else
-    t+='Se cayó '+(esp.length>1?'más de un criterio':'un criterio')+', y con uno basta (num. 5.1.5). ';
-  const L=LECT_DE(RETO.caso);
-  if(L.discrepan)
-    t+=' Y ojo: por el otro método este mismo vehículo '+
-      ((G.metodo==='dinamico'?L.est:L.din).aprueba?'APROBARÍA':'también rechazaría')+'.';
-  if(!ok) t+=' Habías dicho «'+dado.map(rotDx).join(' + ')+'».';
-  if(RETO.pistas) t+=' Con '+num(RETO.pistas,0)+' pista'+(RETO.pistas>1?'s':'')+'.';
-  RETO.veredicto={ok,texto:t};
-  G.resuelto=ok;
+  RETO.intentos++;
+  if(ok){
+    let t='Era <b>'+ESCEN[RETO.caso].rot+'</b>. ';
+    t+='Por el '+MET_ROT[G.metodo]+', a un '+anio(e.anio)+' le toca la '+lim.tabla+
+       ' «'+lim.rot+'»: HC ≤ '+num(lim.HC,0)+', CO ≤ '+num(lim.CO,1)+', O₂ ≤ '+num(lim.O2,1)+
+       (lim.NOx===null?' y sin límite de NOx. ':' y NOx ≤ '+num(lim.NOx,0)+'. ');
+    t+='En la fase 1 el equipo publicó CO '+gasF('CO',p0.CO)+', CO₂ '+gasF('CO2',p0.CO2)+
+       ', O₂ '+gasF('O2',p0.O2)+', HC '+gasF('HC',p0.HC)+', NOx '+gasF('NOx',p0.NOx)+
+       ', con CO+CO₂ = '+pcv(p0.dilucion)+'. ';
+    t+='El dictamen correcto era «'+esp.map(rotDx).join(' + ')+'». ';
+    if(V.invalida)
+      t+='La suma CO+CO₂ está fuera de la ventana de la norma, así que esto no es un rechazo por emisiones: es una medición que no vale. ';
+    else if(V.aprueba)
+      t+='Ninguno de los criterios se rebasó. '+
+        (RETO.caso!=='sano'
+          ? 'Y sin embargo la avería estaba puesta: por este método, esta avería sale del centro con su comprobante.'
+          : 'El vehículo estaba sano de verdad.');
+    else
+      t+='Se cayó '+(esp.length>1?'más de un criterio':'un criterio')+', y con uno basta (num. 5.1.5). ';
+    const L=LECT_DE(RETO.caso);
+    if(L.discrepan)
+      t+=' Y ojo: por el otro método este mismo vehículo '+
+        ((G.metodo==='dinamico'?L.est:L.din).aprueba?'APROBARÍA':'también rechazaría')+'.';
+    if(RETO.pistas) t+=' Con '+num(RETO.pistas,0)+' pista'+(RETO.pistas>1?'s':'')+'.';
+    RETO.veredicto={ok:true,texto:t};
+    G.resuelto=true;
+  }else{
+    // Al fallar NO se dice cuál era el dictamen ni qué avería estaba puesta. Sólo
+    // lo que se puede razonar con las lecturas y los límites que están a la vista:
+    // si el desenlace general es otro, o si sobran o faltan criterios.
+    const cat=a=>a.includes('invalida')?'invalida':(a.includes('aprueba')?'aprueba':'rechaza');
+    let por;
+    if(cat(esp)!==cat(dado))
+      por='El desenlace general no es ese: antes de buscar criterios, decide si la muestra vale y si algún límite se rebasa.';
+    else{
+      const sobran=dado.filter(x=>!esp.includes(x)), faltan=esp.filter(x=>!dado.includes(x));
+      por=(sobran.length&&faltan.length)
+        ? 'El desenlace general es ese, pero entre lo que marcaste hay algún criterio que no se rebasa y falta alguno que sí.'
+        : (sobran.length
+          ? 'El desenlace general es ese, pero has marcado algún criterio que no se rebasa.'
+          : 'El desenlace general es ese, pero falta algún criterio que sí se rebasa.');
+    }
+    RETO.veredicto={ok:false,texto:'Ese no es el dictamen. '+por+' Compara cada lectura con su límite.'};
+  }
   synth.beep(ok?720:220,0.14,0.08);
+  if(!ok&&RETO.intentos>=MAX_INTENTOS){
+    // Tres fallos: ese vehículo se va y llega otro, con otra avería.
+    const previo=RETO.caso;
+    armaReto(previo);
+    RETO.aviso='Tres intentos fallidos: ese vehículo se ha ido y ha llegado otro.';
+    afterEdit(); refrescaPregunta(); showToast(RETO.aviso,4200); return;
+  }
   pintaReto(); pintaTablero(); pintaTele();
 }
 
@@ -3002,26 +3051,26 @@ function preguntas(){
       ['el mismo para todos los vehículos de gasolina',false]]});
   P.push({t:'El catalizador convierte CO en CO₂. ¿Qué le hace eso a la SUMA CO+CO₂?',
     ops:[['nada: el carbono ni se crea ni se destruye, y por eso esa suma mide la MUESTRA y no el motor',true],
-      ['la sube, porque el CO₂ pesa más que el CO',false],
-      ['la baja, porque parte del carbono se queda en el catalizador',false],
-      ['la deja en el 20,9 %, que es el valor del aire',false]]});
+      ['la sube, porque el CO₂ pesa más que el CO y la suma se mide en masa',false],
+      ['la baja, porque parte del carbono se queda retenido dentro del catalizador',false],
+      ['la deja siempre en el 20,9 %, que es el valor del oxígeno en el aire',false]]});
   P.push({t:'El equipo imprime un Factor Lambda de '+lamF(Q.lamCalc)+'. ¿De dónde lo ha sacado?',
     ops:[['lo CALCULA con Brettschneider a partir del CO, el CO₂, el O₂ y el HC que ha medido',true],
       ['lo lee de la sonda de oxígeno del propio vehículo por el conector de diagnóstico',false],
       ['lo mide con una celda de circonio propia, independiente de los cinco gases',false],
-      ['lo estima a partir del régimen y de la cilindrada',false]]});
+      ['lo estima a partir del régimen de giro y de la cilindrada del motor que se verifica',false]]});
   P.push({t:'En este motor la temperatura de pico es máxima en λ = '+lamF(B[iT].lam)+
       ' y el NOx en λ = '+lamF(B[iN].lam)+'. ¿Por qué no coinciden?',
     ops:[['porque el NOx va con la temperatura Y con el oxígeno disponible, y el oxígeno sólo crece hacia el lado pobre',true],
-      ['porque el catalizador desplaza el máximo hacia el lado pobre',false],
-      ['porque la medición del NOx llega con retraso por la manguera',false],
-      ['porque a esa temperatura el NO ya se ha descompuesto en N₂ y O₂',false]]});
+      ['porque el catalizador desplaza el máximo del NOx hacia el lado pobre al consumir oxígeno',false],
+      ['porque la medición del NOx llega con retraso por la manguera y corre el máximo hacia lo pobre',false],
+      ['porque a esa temperatura el NO ya se ha descompuesto en N₂ y O₂ y deja de contar como NOx',false]]});
   P.push({t:'La NOM-047 promedia los segundos '+num(ven[0],0)+' a '+num(ven[ven.length-1],0)+
       ' de la fase. ¿Por qué al final y no al principio?',
     ops:[['porque entre la sonda y la celda hay manguera: al principio de la fase la lectura todavía viene subiendo y saldría baja',true],
-      ['porque el motor tarda ese tiempo en calentarse y antes contamina más',false],
-      ['porque es el tiempo que el operador necesita para escribir la placa',false],
-      ['porque el rizo del instrumento es mayor al principio de la fase',false]]});
+      ['porque el motor tarda ese tiempo en calentarse y antes de esos segundos contamina bastante más',false],
+      ['porque es el tiempo que el operador necesita para escribir la placa y capturar el folio en el equipo',false],
+      ['porque el rizo del instrumento es mayor al principio de la fase y se amortigua con el tiempo',false]]});
   P.push({t:'NOM-041 num. 5.1.5: ¿cuándo cumple un vehículo?',
     ops:[['cuando no rebasa NINGUNO de los límites que le aplican',true],
       ['cuando la media de sus emisiones queda por debajo de la media de los límites',false],
@@ -3032,34 +3081,34 @@ function preguntas(){
     P.push({t:'Aquí la suma CO+CO₂ vale '+pcv(V.pts.find(p=>!p.valida).dilucion)+
         ', fuera de la ventana de '+num(DIL_MIN,0)+' a '+num(DIL_MAX,1)+' %. ¿Qué procede?',
       ops:[['la medición NO vale: se busca por dónde entra aire, se arregla y se vuelve a medir',true],
-        ['se rechaza el vehículo por exceso de emisiones',false],
-        ['se aprueba, porque una muestra diluida siempre da valores más bajos',false],
-        ['se repite la prueba por el otro método, que no tiene ese criterio',false]]});
+        ['se rechaza el vehículo por exceso de emisiones, porque la suma de gases se sale de la norma',false],
+        ['se aprueba, porque una muestra diluida siempre da valores más bajos y por tanto cumple',false],
+        ['se repite la prueba por el otro método, que no tiene ese criterio de dilución en la norma',false]]});
   if(PASAN().includes(G.esc)&&G.esc!=='sano')
     P.push({t:'Este vehículo APRUEBA por el '+MET_ROT[G.metodo]+' con «'+ESCEN[G.esc].rot+'» puesta. ¿Qué demuestra eso?',
       ops:[['que aprobar la verificación y tener el motor bien no son lo mismo: la norma mide lo que sale por la cola, no el estado del motor',true],
-        ['que la avería no existe: si no se ve en los gases, no está',false],
-        ['que el equipo de medición está descalibrado',false],
-        ['que hay que repetir la prueba hasta que la avería aparezca',false]]});
+        ['que la avería no existe: si no se ve en los gases de la cola, el motor no tiene nada',false],
+        ['que el equipo de medición está descalibrado y habría que enviarlo a calibrar de inmediato',false],
+        ['que hay que repetir la prueba hasta que la avería aparezca por fin en los gases medidos',false]]});
   if(lim.NOx===null)
     P.push({t:'La TABLA 2 no tiene columna de NOx. ¿Qué consecuencia tiene?',
       ops:[['que por el método estático una avería de NOx —una recirculación pegada, un avance excesivo— pasa la prueba sin que salte nada',true],
-        ['que el método estático mide el NOx pero no lo imprime',false],
-        ['que los vehículos verificados en estático no producen NOx',false],
-        ['que el NOx se juzga con el límite de la TABLA 1 aunque la prueba sea estática',false]]});
+        ['que el método estático mide el NOx igualmente pero no lo imprime en el comprobante final',false],
+        ['que los vehículos verificados en estático no producen NOx porque el motor casi no trabaja',false],
+        ['que el NOx se juzga con el límite de la TABLA 1 aunque la prueba sea estática, por analogía',false]]});
   if(L.discrepan&&L.soloPorTabla)
     P.push({t:'Este mismo vehículo, con estas mismas emisiones, aprueba por un método y rechaza por el otro. ¿Por qué?',
       ops:[['porque los cortes de año-modelo de las dos tablas no coinciden: 1990/1991 en la TABLA 1 y 1993/1994 en la TABLA 2',true],
-        ['porque el método dinámico mide con más exactitud',false],
-        ['porque en el dinámico el motor está caliente y en el estático no',false],
-        ['porque uno de los dos resultados es un error del equipo',false]]});
+        ['porque el método dinámico mide con más exactitud y por eso detecta lo que el estático no ve',false],
+        ['porque en el dinámico el motor está caliente y en el estático no, y el catalizador cambia',false],
+        ['porque uno de los dos resultados es un error del equipo y hay que repetir la prueba completa',false]]});
   if(Q.ef.red>0.5&&Q.nox0>1000)
     P.push({t:'El motor echa '+ppm(Q.nox0,0)+' de NOx y por la cola salen '+ppm(Q.medido.NOx,0)+
         '. ¿Qué está midiendo la verificación?',
       ops:[['lo que sale a la atmósfera, que es lo correcto para una norma ambiental, pero NO el estado del motor',true],
-        ['el estado del motor, porque el catalizador no altera el NOx',false],
-        ['un valor sin sentido: el NOx no se puede medir después del catalizador',false],
-        ['el promedio de los dos, que es lo que la norma define',false]]});
+        ['el estado del motor, porque el catalizador no altera el NOx que sale por la cola',false],
+        ['un valor sin sentido: el NOx no se puede medir después del catalizador por su temperatura',false],
+        ['el promedio de los dos, que es lo que la norma define para la prueba de cada fase',false]]});
   return P;
 }
 let QI=0, QSEL=null, QCACHE=null;
@@ -3094,10 +3143,27 @@ function pregunta(i){
 }
 
 // ------------------------------------------------------------ recorrido guiado
-let AUTO=null;
-function paraAuto(){ if(AUTO){ clearTimeout(AUTO); AUTO=null; } el('btnAuto').disabled=false; }
+let AUTO=null, SNAP=null;
+// El recorrido es una DEMOSTRACIÓN: al terminar o al cancelarse devuelve el banco
+// y el reto al estado exacto en que estaban (vehículo, caso, método, muestra,
+// dictamen a medias, intentos y pistas) y jamás toca el reto ni el éxito ya
+// conseguido.
+function restauraAuto(){
+  const sn=SNAP; SNAP=null; if(!sn) return;
+  if(G.maq!==sn.g.maq){ G.maq=sn.g.maq; }
+  Object.assign(G,sn.g);
+  Object.assign(RETO,sn.reto,{sel:sn.reto.sel.slice()});
+  invalida();
+  setMode(G.modo,true);
+  if(G.modo==='reto') pintaDxReto();
+  afterEdit(); refrescaPregunta();
+}
+function paraAuto(){ if(AUTO){ clearTimeout(AUTO); AUTO=null; } el('btnAuto').disabled=false; restauraAuto(); }
 function runAuto(){
   paraAuto();
+  SNAP={g:{modo:G.modo, maq:G.maq, esc:G.esc, metodo:G.metodo, libre:G.libre, lam:G.lam, carga:G.carga,
+      fase:G.fase, gasTraza:G.gasTraza, resuelto:G.resuelto},
+    reto:{...RETO, sel:RETO.sel.slice()}};
   el('btnAuto').disabled=true;
   const pasos=[
     ()=>{ cambiaMaquina('mpi04'); G.esc='sano'; G.metodo='estatico'; G.libre=true;
@@ -3131,8 +3197,7 @@ function runAuto(){
       showToast('<b>La cuenta</b><br>Cuántas averías atrapa cada criterio, y cuántas aprueban con la avería puesta.',3600); },
     ()=>{ G.metodo='dinamico'; afterEdit();
       showToast('<b>Y por el otro método</b><br>El número cambia. No porque un método sea mejor, sino porque a este año le tocan otros límites.',3800); },
-    ()=>{ setMode('reto');
-      showToast('<b>Tu turno</b><br>Llega un vehículo, no se dice qué tiene. Corre la prueba y dictamina.',3600); },
+    ()=>{ showToast('<b>Tu turno</b><br>El banco vuelve a como lo dejaste. Esta demostración no puntúa: el reto sigue esperando.',3600); },
   ];
   let i=0;
   const tic=()=>{ if(i>=pasos.length){ paraAuto(); return; } pasos[i++](); AUTO=setTimeout(tic,3000); };
@@ -3246,7 +3311,9 @@ window.__labDebug={
   get reto(){ return {caso:RETO.caso, metodo:G.metodo, corrida:RETO.corrida,
     sel:RETO.sel.slice(), esperado:RETO.corrida?esperadoReto():null,
     veredicto:RETO.veredicto?RETO.veredicto.ok:null, pistas:RETO.pistas,
+    intentos:RETO.intentos, maxIntentos:MAX_INTENTOS, maxPistas:MAX_PISTAS,
     casos:RETO_CASOS().slice()}; },
+  get intentos(){ return RETO.intentos; },
   get preguntas(){ return preguntas().map(q=>({t:q.t, n:q.ops.length,
     correctas:q.ops.filter(o=>o[1]).length})); },
   get texto(){ return el('report').textContent+' || '+el('tele').textContent; },
@@ -3267,7 +3334,7 @@ window.__labDebug={
   arma(){ armaReto(); afterEdit(); refrescaPregunta(); },
   // Para poder poner un caso concreto del reto sin depender del azar.
   armaCaso(k,met){ armaReto(); RETO.caso=k; G.esc=k; if(met) G.metodo=met;
-    RETO.corrida=false; RETO.V=null; RETO.sel=[]; RETO.veredicto=null;
+    RETO.corrida=false; RETO.V=null; RETO.sel=[]; RETO.veredicto=null; RETO.intentos=0; RETO.pistas=0; RETO.aviso='';
     invalida(); afterEdit(); refrescaPregunta(); },
 };
 

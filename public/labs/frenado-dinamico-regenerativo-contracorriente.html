@@ -513,9 +513,14 @@ function omegaT(rpmVal,Rext,t){ const w0=radPerS(rpmVal); const tau=J*(Rext+Ra)/
 let mode='explora', tipo='dinamico';
 let rpm0=1800, rext=2, eta=0.75;
 let MYST=null, retoSolved=false, retoMsg='';
-let solved=false, autoRunning=false, simRunning=false;
+let solved=false, autoRunning=false, simRunning=false, intentos=0, pistas=0;
 
 function genMystery(){
+  const sig=m=>m?m.kind+'|'+m.rpm+'|'+(m.rext||'')+'|'+(m.eta||''):null;   // un caso nuevo debe ser distinto del anterior
+  const prevSig=sig(MYST);
+  do{ genMysteryRaw(); }while(prevSig&&sig(MYST)===prevSig);
+}
+function genMysteryRaw(){
   const r=Math.random();
   const rr50=(lo,hi)=>Math.round((lo+Math.random()*(hi-lo))/50)*50;
   if(r<1/3){
@@ -536,7 +541,7 @@ function genMystery(){
     const target=Math.round(E*CONTRA_MULT*10)/10;
     MYST={kind:'contracorrienteEnergia',rpm:rpmv,target,tol:Math.max(30,target*0.03)};
   }
-  retoSolved=false; retoMsg='';
+  retoSolved=false; retoMsg=''; intentos=0; pistas=0;
 }
 
 /* ---------- §3 Materiales ---------- */
@@ -1029,7 +1034,7 @@ document.getElementById('hud').innerHTML=`
     <span class="fl">SÍ:</span> modela el balance energético EXACTO de los tres métodos a partir de E_k=½Jω₀² (forma cerrada), incluida la curva de decaimiento exponencial exacta ω(t)=ω₀e^(-t/τ) del frenado dinámico, el reparto de calor entre R_ext y R_a, y el resultado clásico de que el frenado a contracorriente idealizado sin carga disipa 3× la energía cinética inicial.
     <span class="no">NO:</span> la dinámica de par real (curva par-deslizamiento) de los frenados regenerativo y a contracorriente — usa una eficiencia η y multiplicadores de corriente ⚑ ilustrativos en su lugar; saturación magnética; inercia de carga variable; ni el comportamiento transitorio real del inversor de red.
   </div>
-  <div class="src">Fitzgerald/Kingsley/Umans, "Electric Machinery"; Chapman, "Electric Machinery Fundamentals" (frenado dinámico y a contracorriente de máquinas de inducción y CD); Rockwell Automation DRIVES-WP007A-EN-P (comparación práctica de métodos de frenado); NEMA MG-1 §14.46/§18.224 (referencias tangenciales, sin norma ancla específica). La energía recuperada en el frenado regenerativo puede almacenarse en un banco de baterías como el de mecanica-8 — la relación es conceptual (destino de la energía), no una extensión directa del mismo motor.</div>
+  <div class="src">Fitzgerald/Kingsley/Umans, "Electric Machinery"; Chapman, "Electric Machinery Fundamentals" (frenado dinámico y a contracorriente de máquinas de inducción y CD); Rockwell Automation DRIVES-WP007A-EN-P (comparación práctica de métodos de frenado); NEMA MG-1 §14.46/§18.224 (referencias tangenciales, sin norma específica). La energía recuperada en el frenado regenerativo puede almacenarse en un banco de baterías como el del laboratorio de batería y BMS — la relación es conceptual (destino de la energía), no una extensión directa del mismo motor.</div>
 `;
 
 document.getElementById('panel').innerHTML=`
@@ -1106,7 +1111,7 @@ const MODE_META={
 };
 const KIND_TIPO={dinamicoExt:'dinamico',regenRecuperada:'regenerativo',contracorrienteEnergia:'contracorriente'};
 
-function tolText(){ if(!MYST) return ''; return `± ${MYST.tol.toFixed(1)} J`; }
+function tolText(){ if(!MYST) return ''; return `± ${(MYST.target!=null?retoTol():MYST.tol).toFixed(1)} J`; }
 
 function syncTipoButtons(){
   ['tp_dinamico','tp_regen','tp_contra'].forEach(id=>el(id).classList.remove('on'));
@@ -1143,12 +1148,12 @@ function setMode(k){
     rpm0=MYST.rpm; el('sRpm0').value=rpm0; el('avRpm0').textContent=rpm0;
     if(MYST.kind==='dinamicoExt'){
       rext=MYST.rext; el('sRext').value=rext; el('avRext').textContent=rext.toFixed(1);
-      el('retoHint').textContent=`Con ω₀=${MYST.rpm} rpm y R_ext=${MYST.rext} Ω fijos (R_a=${Ra} Ω, J=${J} kg·m² conocidos), calcula la energía disipada específicamente en la resistencia externa durante el frenado dinámico. Usa E_k=½Jω₀² (ω₀ en rad/s) y E_ext=E_k·R_ext/(R_ext+R_a).`;
+      el('retoHint').textContent=`Con ω₀=${MYST.rpm} rpm y R_ext=${MYST.rext} Ω fijos (R_a=${Ra} Ω, J=${J} kg·m² conocidos), calcula la energía disipada específicamente en la resistencia externa durante el frenado dinámico. Dato: E_k=½Jω₀² (ω₀ en rad/s); el reparto entre resistencias lo viste en Explora.`;
     } else if(MYST.kind==='regenRecuperada'){
       eta=MYST.eta; el('sEta').value=eta; el('avEta').textContent=eta.toFixed(2);
-      el('retoHint').textContent=`Con ω₀=${MYST.rpm} rpm y una eficiencia de conversión η=${MYST.eta} (ilustrativa) fijas, calcula la energía recuperada hacia la red durante el frenado regenerativo. Usa E_k=½Jω₀² y E_recuperada=η·E_k.`;
+      el('retoHint').textContent=`Con ω₀=${MYST.rpm} rpm y una eficiencia de conversión η=${MYST.eta} (ilustrativa) fijas, calcula la energía recuperada hacia la red durante el frenado regenerativo. Dato: E_k=½Jω₀² (ω₀ en rad/s).`;
     } else {
-      el('retoHint').textContent=`Con ω₀=${MYST.rpm} rpm, calcula la energía TOTAL disipada como calor durante un frenado a contracorriente idealizado (sin carga mecánica) — tres veces la energía cinética inicial. Usa E_k=½Jω₀² y E_disipada=3·E_k.`;
+      el('retoHint').textContent=`Con ω₀=${MYST.rpm} rpm, calcula la energía TOTAL disipada como calor durante un frenado a contracorriente idealizado (sin carga mecánica). Dato: E_k=½Jω₀² (ω₀ en rad/s); cuántas veces E_k se disipa en este método lo viste en Explora y Comparar.`;
     }
     el('retoUnit').textContent='J';
   }
@@ -1235,7 +1240,7 @@ function updateReport(){
     } else {
       L.push(`Reto: con ω₀=${MYST.rpm} rpm, calcula la energía total disipada en un frenado a contracorriente ideal.`);
     }
-    L.push(retoSolved?`<span class="ok">${retoMsg}</span>`:'Escribe tu resultado en J y comprueba.');
+    L.push(retoSolved?`<span class="ok">${retoMsg}</span>`:'Escribe tu resultado en J y comprueba. Intentos fallidos: '+intentos+'/3.');
   }
   el('report').innerHTML=L.map(s=>'<div>'+s+'</div>').join('');
 }
@@ -1243,13 +1248,21 @@ function updateReport(){
 function refreshAll(){ drawBoard(); updateTele(); updateReport(); refreshBenchDyn(); }
 
 /* ---------- §10 Reto ---------- */
+/* La tolerancia nunca puede alcanzar la respuesta ingenua (olvidar un factor: dar E_k tal cual, o 2·E_k en contracorriente). */
+function retoTol(){
+  const E=Ek(MYST.rpm);
+  const naive=MYST.kind==='contracorrienteEnergia'?[E,2*E]:[E];
+  let tol=MYST.tol;
+  naive.forEach(nv=>{ const d=Math.abs(MYST.target-nv); if(d>1e-6) tol=Math.min(tol,0.45*d); });
+  return tol;
+}
 function checkReto(){
-  if(!MYST) return;
+  if(!MYST||retoSolved) return;
   const v=parseFloat(el('retoInput').value.replace(',','.'));
   if(!isFinite(v)){
     el('retoOut').innerHTML='<span class="dtc">Escribe un número.</span>'; return;
   }
-  const ok=Math.abs(v-MYST.target)<=MYST.tol;
+  const ok=Math.abs(v-MYST.target)<=retoTol();
   if(ok){
     if(MYST.kind==='dinamicoExt'){
       const d=dinamico(MYST.rpm,MYST.rext);
@@ -1261,13 +1274,21 @@ function checkReto(){
       const E=Ek(MYST.rpm);
       retoMsg=`E_k=½×${J}×(${MYST.rpm}×2π/60)²=${E.toFixed(1)} J. E_disipada=3×${E.toFixed(1)}=${MYST.target.toFixed(1)} J — casi el triple del calor de un frenado dinámico equivalente.`;
     }
-    retoSolved=true; solved=true;
+    retoSolved=true; solved=true; clearDx(); refreshQuestion();
     el('retoOut').innerHTML=`<span class="ok">✔ ¡Correcto! (tolerancia ${tolText()})</span>`;
     synth.beep(880,.1,.08); setTimeout(()=>synth.beep(1175,.15,.08),140);
   } else {
-    retoMsg='';
-    el('retoOut').innerHTML=`<span class="dtc">✘ Aún no. Tolerancia: ${tolText()}</span>`;
+    retoMsg=''; intentos++;
     synth.beep(180,.12,.08);
+    if(intentos>=3){
+      newMystery();
+      el('retoOut').innerHTML='<span class="dtc">✘ Tres intentos fallidos: te dejo un caso NUEVO.</span>';
+      return;
+    }
+    let pista='';
+    if(intentos===1){ pistas=1; pista=' Pista 1: empieza por la energía cinética almacenada en el volante a esa velocidad (ω en rad/s, no en rpm).'; }
+    else if(intentos===2){ pistas=2; pista=' Pista 2: ¿qué fracción de esa energía llega al elemento que piden? Revisa Explora para este método de frenado.'; }
+    el('retoOut').innerHTML=`<span class="dtc">✘ Aún no (intento ${intentos}/3). Tolerancia: ${tolText()}.</span>${pista}`;
   }
   refreshAll();
 }
@@ -1288,19 +1309,19 @@ function buildQuiz(){
   QUIZ.explora={
     pregunta:'¿Cuál de los tres métodos de frenado eléctrico permite recuperar energía en vez de disiparla toda como calor?',
     opciones:shuffle([
-      {t:'El regenerativo — devuelve energía a la red a través del inversor',ok:true,why:'Correcto: en el regenerativo, mientras el rotor gira por arriba de la velocidad síncrona, el motor actúa como generador y entrega energía de vuelta a la red.'},
-      {t:'El dinámico — toda la energía cinética se disipa en las resistencias',ok:false,why:'El dinámico disipa el 100% de E_k como calor en las resistencias; no recupera nada hacia la red.'},
-      {t:'El a contracorriente — disipa incluso más calor que el dinámico',ok:false,why:'El a contracorriente disipa aproximadamente 3× la energía cinética inicial como calor, más que el dinámico, no menos.'},
-      {t:'Los tres recuperan energía por igual',ok:false,why:'No: solo el regenerativo tiene una ruta de retorno de energía a la red; los otros dos disipan toda la energía como calor.'},
+      {t:'El regenerativo, que devuelve energía a la red a través del inversor',ok:true,why:'Correcto: en el regenerativo, mientras el rotor gira por arriba de la velocidad síncrona, el motor actúa como generador y entrega energía de vuelta a la red.'},
+      {t:'El dinámico, porque toda la energía cinética se disipa en las resistencias',ok:false,why:'El dinámico disipa el 100% de E_k como calor en las resistencias; no recupera nada hacia la red.'},
+      {t:'El a contracorriente, porque convierte parte de la energía cinética en electricidad',ok:false,why:'El a contracorriente disipa aproximadamente 3× la energía cinética inicial como calor, más que el dinámico, no menos.'},
+      {t:'Los tres recuperan energía por igual, solo cambia la rapidez con que frenan',ok:false,why:'No: solo el regenerativo tiene una ruta de retorno de energía a la red; los otros dos disipan toda la energía como calor.'},
     ]),
   };
   QUIZ.comparar={
     pregunta:'¿Por qué el frenado a contracorriente genera tanto calor (≈3×E_k) comparado con el dinámico (1×E_k), en el caso ideal sin carga?',
     opciones:shuffle([
-      {t:'Porque la energía eléctrica que sigue entrando desde la red durante el frenado se suma a la energía cinética del rotor, y ambas terminan como calor',ok:true,why:'Correcto: al invertir la secuencia, el campo del entrehierro gira en sentido contrario al rotor — la potencia eléctrica de la red y la energía cinética del rotor se convierten juntas en calor, en vez de solo la cinética como en el dinámico.'},
-      {t:'Porque la resistencia del rotor es tres veces mayor en este modo',ok:false,why:'No: la resistencia del rotor no cambia entre modos de frenado; lo que cambia es de dónde viene la energía que se disipa.'},
-      {t:'Porque el motor gira en sentido contrario más rápido que antes',ok:false,why:'El motor no llega a girar en reversa durante el frenado — se detiene en ω=0 (y ahí debe desconectarse); el factor 3× viene del balance energético, no de la velocidad.'},
-      {t:'Es un error de medición típico del modelo ideal, no un efecto real',ok:false,why:'Es un resultado real y clásico de la teoría de máquinas de inducción, no un artefacto de medición.'},
+      {t:'Porque la energía eléctrica que sigue entrando de la red se suma a la cinética del rotor y ambas terminan como calor',ok:true,why:'Correcto: al invertir la secuencia, el campo del entrehierro gira en sentido contrario al rotor — la potencia eléctrica de la red y la energía cinética del rotor se convierten juntas en calor, en vez de solo la cinética como en el dinámico.'},
+      {t:'Porque la resistencia del rotor se triplica al invertir la secuencia de fases del estátor',ok:false,why:'No: la resistencia del rotor no cambia entre modos de frenado; lo que cambia es de dónde viene la energía que se disipa.'},
+      {t:'Porque el motor llega a girar en sentido contrario más rápido que antes de frenar',ok:false,why:'El motor no llega a girar en reversa durante el frenado — se detiene en ω=0 (y ahí debe desconectarse); el factor 3× viene del balance energético, no de la velocidad.'},
+      {t:'Es un error de medición típico del modelo ideal y no corresponde a un efecto físico real',ok:false,why:'Es un resultado real y clásico de la teoría de máquinas de inducción, no un artefacto de medición.'},
     ]),
   };
   if(MYST){
@@ -1308,30 +1329,30 @@ function buildQuiz(){
       QUIZ.reto={
         pregunta:'¿Qué fracción de la energía cinética inicial se disipa en la resistencia externa (no en la resistencia interna del motor) durante un frenado dinámico?',
         opciones:shuffle([
-          {t:'R_ext/(R_ext+R_a)',ok:true,why:'Correcto: la energía se reparte entre las dos resistencias en serie en la misma proporción que se repartiría la disipación de potencia I²R en cualquier instante.'},
-          {t:'R_a/(R_ext+R_a)',ok:false,why:'Esa es la fracción que queda en la resistencia INTERNA del motor, no en la externa.'},
-          {t:'R_ext/R_a',ok:false,why:'Falta normalizar entre la suma de ambas resistencias — esta expresión no está acotada entre 0 y 1.'},
-          {t:'Siempre el 50%, sin importar los valores de R_ext y R_a',ok:false,why:'Solo sería 50% si R_ext=R_a; en general depende de la proporción entre ambas.'},
+          {t:'R_ext/(R_ext+R_a), la parte de la caída de tensión que cae en R_ext',ok:true,why:'Correcto: la energía se reparte entre las dos resistencias en serie en la misma proporción que se repartiría la disipación de potencia I²R en cualquier instante.'},
+          {t:'R_a/(R_ext+R_a), la parte de la caída de tensión que cae en R_a',ok:false,why:'Esa es la fracción que queda en la resistencia INTERNA del motor, no en la externa.'},
+          {t:'R_ext/R_a, el cociente entre las dos resistencias del circuito',ok:false,why:'Falta normalizar entre la suma de ambas resistencias — esta expresión no está acotada entre 0 y 1.'},
+          {t:'Siempre el 50 %, porque las dos resistencias están en serie y comparten la corriente',ok:false,why:'Solo sería 50% si R_ext=R_a; en general depende de la proporción entre ambas.'},
         ]),
       };
     } else if(MYST.kind==='regenRecuperada'){
       QUIZ.reto={
         pregunta:'¿Qué representa η en el modelo de frenado regenerativo de este simulador?',
         opciones:shuffle([
-          {t:'Una eficiencia de conversión instantánea/ilustrativa (0.60–0.90); la energía neta recuperada en un ciclo real suele ser menor',ok:true,why:'Correcto: η aquí es un parámetro simplificado para este frenado puntual, no la eficiencia de todo un ciclo de trabajo real, que suele ser bastante menor.'},
-          {t:'La eficiencia térmica del motor en operación normal',ok:false,why:'No: η no describe la eficiencia normal del motor, sino la fracción de energía cinética de ESTE frenado que se convierte en energía eléctrica útil.'},
-          {t:'El factor de potencia del inversor',ok:false,why:'El factor de potencia es una cantidad distinta (relación entre potencia activa y aparente); η aquí mide un balance de energía.'},
-          {t:'El deslizamiento del motor durante el frenado',ok:false,why:'El deslizamiento es una cantidad cinemática (diferencia relativa de velocidades); η es una eficiencia energética.'},
+          {t:'Una eficiencia de conversión ilustrativa (0.60–0.90); la recuperación neta de un ciclo real suele ser menor',ok:true,why:'Correcto: η aquí es un parámetro simplificado para este frenado puntual, no la eficiencia de todo un ciclo de trabajo real, que suele ser bastante menor.'},
+          {t:'La eficiencia térmica del motor en operación normal, medida a plena carga nominal',ok:false,why:'No: η no describe la eficiencia normal del motor, sino la fracción de energía cinética de ESTE frenado que se convierte en energía eléctrica útil.'},
+          {t:'El factor de potencia del inversor de red que devuelve la energía a la línea',ok:false,why:'El factor de potencia es una cantidad distinta (relación entre potencia activa y aparente); η aquí mide un balance de energía.'},
+          {t:'El deslizamiento del motor durante el frenado, referido a la velocidad síncrona',ok:false,why:'El deslizamiento es una cantidad cinemática (diferencia relativa de velocidades); η es una eficiencia energética.'},
         ]),
       };
     } else {
       QUIZ.reto={
         pregunta:'¿Por qué el frenado a contracorriente necesita un relé de velocidad cero o anti-plugging?',
         opciones:shuffle([
-          {t:'Porque si el motor no se desconecta exactamente en ω=0, seguirá conectado con secuencia invertida y arrancará a girar en reversa',ok:true,why:'Correcto: al invertir dos fases el motor frena, pero si sigue alimentado después de llegar a cero, simplemente continúa acelerando — ahora en sentido contrario.'},
-          {t:'Porque las resistencias externas se sobrecalientan a velocidad cero',ok:false,why:'El contracorriente típicamente no usa resistencias externas — el calor se disipa dentro de la propia máquina.'},
-          {t:'Porque el inversor de red no admite corriente cero',ok:false,why:'El contracorriente no involucra necesariamente un inversor de red — se implementa con contactores que invierten la secuencia de fases.'},
-          {t:'Por estética del arrancador, no por una razón física',ok:false,why:'Es una razón física real: sin ese relé, el motor arrancaría en reversa de forma automática e inesperada.'},
+          {t:'Porque si no se desconecta en ω=0, seguirá con secuencia invertida y arrancará a girar en reversa',ok:true,why:'Correcto: al invertir dos fases el motor frena, pero si sigue alimentado después de llegar a cero, simplemente continúa acelerando — ahora en sentido contrario.'},
+          {t:'Porque las resistencias externas se sobrecalientan cuando el motor llega a velocidad cero',ok:false,why:'El contracorriente típicamente no usa resistencias externas — el calor se disipa dentro de la propia máquina.'},
+          {t:'Porque el inversor de red no admite que la corriente del motor llegue a ser cero',ok:false,why:'El contracorriente no involucra necesariamente un inversor de red — se implementa con contactores que invierten la secuencia de fases.'},
+          {t:'Por estética y comodidad del arrancador, no por una razón física del frenado',ok:false,why:'Es una razón física real: sin ese relé, el motor arrancaría en reversa de forma automática e inesperada.'},
         ]),
       };
     }
@@ -1340,6 +1361,7 @@ function buildQuiz(){
 function clearDx(){ el('dxbtns').innerHTML=''; }
 function refreshQuestion(){
   const q=QUIZ[mode]; if(!q) return;
+  if(mode==='reto'&&!retoSolved){ el('q_text').textContent='🔒 La pregunta de ingeniería de este reto se habilita al resolverlo: sus opciones darían la fórmula.'; el('dxbtns').innerHTML=''; return; }
   el('q_text').textContent=q.pregunta;
   const box=el('dxbtns'); box.innerHTML='';
   q.opciones.forEach((o,i)=>{
@@ -1416,39 +1438,42 @@ async function runSimular(silent){
 }
 
 async function runAuto(){
-  if(autoRunning) return; autoRunning=true;
+  if(autoRunning) return;
+  if(mode==='reto'&&!retoSolved){ showToast('🔒 El recorrido muestra los resultados de los tres métodos: resuelve el reto (o pide un caso nuevo con 🔀) antes de verlo.'); synth.beep(220,.1,.07); return; }
+  autoRunning=true;
+  // DEMOSTRACIÓN: se guarda el estado del alumno y se restaura; el reto ni se toca ni se resuelve
+  const prev={mode,tipo,rpm0,rext,eta,rs:retoSolved,sv:solved};
   const b=el('btnAuto'); b.disabled=true; b.textContent='▶ En curso…';
   try{
     synth.init(); synth.resume();
     setMode('explora'); setTipo('dinamico'); setRpm0(1800); setRext(2);
-    showToast('1/5 · Explora: frenado dinámico — toda la energía se disipa como calor.');
+    showToast('1/4 · Explora: frenado dinámico — toda la energía se disipa como calor.');
     await runSimular(true);
     await sleep(300);
 
     setTipo('regenerativo'); setEta(0.75);
-    showToast('2/5 · Explora: frenado regenerativo — parte de la energía se recupera hacia la red.');
+    showToast('2/4 · Explora: frenado regenerativo — parte de la energía se recupera hacia la red.');
     await runSimular(true);
     await sleep(300);
 
     setTipo('contracorriente');
-    showToast('3/5 · Explora: a contracorriente — el más rápido, pero el que más calor y corriente exige.');
+    showToast('3/4 · Explora: a contracorriente — el más rápido, pero el que más calor y corriente exige.');
     await runSimular(true);
     await sleep(300);
 
-    showToast('4/5 · Comparar: los tres métodos lado a lado a la misma ω₀.');
+    showToast('4/4 · Comparar: los tres métodos lado a lado a la misma ω₀. En el Reto calculas tú la energía pedida; te devuelvo al punto en que estabas.');
     setMode('comparar');
-    await sleep(600);
-
-    showToast('5/5 · Reto: resolvemos un caso misterioso.');
-    setMode('reto');
-    el('retoInput').value=MYST.target.toFixed(1);
-    checkReto();
-    await sleep(300);
-    const idx=QUIZ.reto.opciones.findIndex(o=>o.ok);
-    if(idx>=0) el('dxbtns').children[idx].click();
-    await sleep(600);
-    newMystery();
+    await sleep(2800);
   } finally {
+    setMode(prev.mode);
+    if(prev.mode!=='reto'){
+      tipo=prev.tipo; syncTipoButtons();
+      rpm0=prev.rpm0; el('sRpm0').value=rpm0; el('avRpm0').textContent=rpm0;
+      rext=prev.rext; el('sRext').value=rext; el('avRext').textContent=rext.toFixed(1);
+      eta=prev.eta; el('sEta').value=eta; el('avEta').textContent=eta.toFixed(2);
+      clearDx(); refreshQuestion(); refreshAll();
+    }
+    retoSolved=prev.rs; solved=prev.sv;
     autoRunning=false; b.disabled=false; b.textContent='✨ Recorrido guiado';
   }
 }
@@ -1480,7 +1505,8 @@ S.start();
 setMode('explora');
 
 window.__labDebug={
-  state:()=>({mode,tipo,rpm0,rext,eta,retoSolved,solved}),
+  state:()=>({mode,tipo,rpm0,rext,eta,retoSolved,solved,intentos,pistas}),
+  intentos:()=>intentos, pistas:()=>pistas, runAuto, retoTol,
   point:()=>({ek:Ek(rpm0),dinamico:dinamico(rpm0,rext),regen:regen(rpm0,eta),contra:contra(rpm0)}),
   Ek, dinamico, regen, contra, omegaT,
   mystery:()=>MYST?{...MYST}:null,

@@ -79,7 +79,7 @@ function failLabel(m){
 /* ---------- 2 · Estado ---------- */
 let mode='explora';
 let hpSel=10, vSel=220, letterIdx=5, fsSel=1.0;   // letterIdx=5 → 'F'
-let scenario=null, candidate=null, retoSolved=false;
+let scenario=null, candidate=null, retoSolved=false, intentos=0;
 let autoRunning=false;
 
 function newChallenge(){
@@ -95,7 +95,7 @@ function newChallenge(){
   const plate={hp:candHp,v:vLL,hz:60,rpm:1750,fp:0.86,fs:candFs,cod:candLetter,dis:candDiseno,fases:3};
   scenario={hpReq,vLL,carga,ambiente,iArranqueMax,failMode};
   candidate={plate};
-  retoSolved=false;
+  retoSolved=false; intentos=0;
 }
 function currentNameplate(){
   if(mode==='reto'&&candidate)return candidate.plate;
@@ -431,7 +431,7 @@ function updateReport(){
     L.push(fsQualitativeNote(np.fs));
   }else{
     L.push('Candidato: '+np.hp+' HP, FS '+np.fs.toFixed(2)+', letra '+np.cod+', diseño '+np.dis+'.');
-    L.push(retoSolved?verdictExplain():'Compara cada dato del candidato contra los 4 requisitos mostrados en el tablero.');
+    L.push(retoSolved?verdictExplain():'Compara cada dato del candidato contra los 4 requisitos mostrados en el tablero. Intentos fallidos: '+intentos+'/3.');
   }
   el('report').innerHTML=L.map(s=>'<div>'+s+'</div>').join('');
 }
@@ -463,9 +463,12 @@ function checkVerdict(k){
     showToast('<span class="ok">✔ Correcto.</span> '+verdictExplain());
     synth.beep(880,.1,.08);setTimeout(()=>synth.beep(1175,.15,.08),140);
   }else{
-    btns[idx].classList.add('wrong');
-    showToast('✘ Aún no. Revisa los 4 criterios con calma: HP, FS, corriente de arranque y Diseño NEMA.');
+    // el fallo no revela la causa real ni la marca: solo se descarta ese veredicto
+    btns[idx].classList.add('wrong');btns[idx].disabled=true;
+    intentos++;
     synth.beep(220,.15,.08);
+    if(intentos>=3){startNewChallenge();showToast('✘ Tres intentos fallidos: te dejo un candidato NUEVO. Compara la placa contra los 4 requisitos, uno por uno.');return;}
+    showToast('✘ Aún no (intento '+intentos+'/3). Compara la placa del candidato contra cada uno de los 4 requisitos del tablero antes de decidir.');
   }
   refreshAll();
 }
@@ -482,10 +485,10 @@ let QUIZ={};
 function buildQuiz(){
   QUIZ.explora={pregunta:'¿La norma mexicana NOM-016-ENER-2025 usa las etiquetas internacionales IE1–IE4 para clasificar la eficiencia de los motores?',
     opciones:shuffle([
-      {t:'No: define su propia Tabla 1 de eficiencia mínima y aclara que no buscó concordancia con otra norma internacional',ok:true,why:'Correcto: NOM-016-ENER-2025 declara explícitamente que su Tabla 1 es un sistema propio, distinto de las clases IE de IEC 60034-30-1.'},
-      {t:'Sí: NOM-016 adoptó directamente las clases IE1 a IE4 de IEC 60034-30-1',ok:false,why:'No — NOM-016-ENER-2025 usa su propia Tabla 1 de porcentajes mínimos, no las etiquetas IE1–IE4.'},
-      {t:'Sí, pero solo para motores trifásicos de más de 100 HP',ok:false,why:'La Tabla 1 de NOM-016 aplica por rango de potencia con sus propios valores, pero en ningún caso usa las etiquetas IE1–IE4.'},
-      {t:'No aplica a motores eléctricos, solo a electrodomésticos',ok:false,why:'NOM-016-ENER-2025 es precisamente la norma mexicana de eficiencia energética para motores eléctricos.'},
+      {t:'No: define su propia Tabla 1 de eficiencia mínima y no busca concordancia con otra norma internacional',ok:true,why:'Correcto: NOM-016-ENER-2025 declara explícitamente que su Tabla 1 es un sistema propio, distinto de las clases IE de IEC 60034-30-1.'},
+      {t:'Sí: NOM-016 adoptó directamente las clases IE1 a IE4 de IEC 60034-30-1 para todos los motores',ok:false,why:'No — NOM-016-ENER-2025 usa su propia Tabla 1 de porcentajes mínimos, no las etiquetas IE1–IE4.'},
+      {t:'Sí, pero únicamente para motores trifásicos de más de 100 HP; por debajo usa otra tabla',ok:false,why:'La Tabla 1 de NOM-016 aplica por rango de potencia con sus propios valores, pero en ningún caso usa las etiquetas IE1–IE4.'},
+      {t:'No aplica a motores eléctricos industriales: se limita a electrodomésticos y climatización',ok:false,why:'NOM-016-ENER-2025 es precisamente la norma mexicana de eficiencia energética para motores eléctricos.'},
     ])};
   const letter=CODE_LETTERS[letterIdx][0],r=lockedRotorRange(hpSel,vSel,letter),e=CODE_LETTERS[letterIdx];
   const otherIdx=(letterIdx+6)%CODE_LETTERS.length,otherLetter=CODE_LETTERS[otherIdx][0],r2=lockedRotorRange(hpSel,vSel,otherLetter);
@@ -498,10 +501,10 @@ function buildQuiz(){
     ])};
   QUIZ.fs={pregunta:'¿Qué es el Factor de Servicio (FS) de un motor según NEMA MG-1?',
     opciones:shuffle([
-      {t:'Un margen de sobrecarga continua permitida sobre el HP nominal — no una recomendación de operación continua por encima de FS=1.00',ok:true,why:'Correcto: FS es un margen para sobrecargas ocasionales; operar sostenidamente por encima del HP nominal reduce la vida térmica del aislamiento.'},
-      {t:'La eficiencia mínima garantizada por el fabricante',ok:false,why:'Eso es la eficiencia nominal (otro campo de la placa) — el FS es un multiplicador de potencia, no un porcentaje de eficiencia.'},
-      {t:'El número máximo de arranques por hora permitidos',ok:false,why:'Ese es otro parámetro (ciclos de arranque), no lo que mide el Factor de Servicio.'},
-      {t:'El factor por el que se reduce el par de arranque',ok:false,why:'El FS no afecta directamente el par de arranque — es un margen de potencia continua, no un factor de reducción de par.'},
+      {t:'Un margen de sobrecarga permitida sobre el HP nominal, no una recomendación de operar por encima de FS=1.00',ok:true,why:'Correcto: FS es un margen para sobrecargas ocasionales; operar sostenidamente por encima del HP nominal reduce la vida térmica del aislamiento.'},
+      {t:'La eficiencia mínima que el fabricante garantiza a plena carga, expresada como porcentaje',ok:false,why:'Eso es la eficiencia nominal (otro campo de la placa) — el FS es un multiplicador de potencia, no un porcentaje de eficiencia.'},
+      {t:'El número máximo de arranques por hora que el motor admite sin sobrecalentar el devanado',ok:false,why:'Ese es otro parámetro (ciclos de arranque), no lo que mide el Factor de Servicio.'},
+      {t:'El factor por el que se reduce el par de arranque al conectar el motor a tensión reducida',ok:false,why:'El FS no afecta directamente el par de arranque — es un margen de potencia continua, no un factor de reducción de par.'},
     ])};
   if(scenario){
     QUIZ.reto={pregunta:'De los siguientes, ¿cuál NO es uno de los 4 criterios que este simulador evalúa para decidir si un motor candidato es apto?',
@@ -553,7 +556,11 @@ pickerFor(S.scene,S.camera,S.renderer.domElement,hit=>{
 })();
 const sleep=ms=>new Promise(r=>setTimeout(r,ms));
 async function runAuto(){
-  if(autoRunning)return;autoRunning=true;
+  if(autoRunning)return;
+  if(mode==='reto'&&!retoSolved){showToast('<span style="color:var(--bad)">🔒 Resuelve el reto (o pide otro candidato con 🔀) antes del recorrido: ahí se comparan placas de ejemplo.</span>');return;}
+  autoRunning=true;
+  // DEMOSTRACIÓN: se guarda el estado del alumno y se restaura; el reto ni se toca ni se resuelve
+  const prev={mode,hpSel,vSel,letterIdx,fsSel};
   const b=el('btnAuto');b.disabled=true;b.textContent='✨ Recorriendo…';
   try{
     synth.init();synth.resume();
@@ -573,14 +580,14 @@ async function runAuto(){
     await sleep(1200);
     fsSel=1.15;syncFsBtns();buildQuiz();refreshQuestion();refreshAll();
     await sleep(2600);
-    setMode('reto');
-    showToast('4/4 · Reto: revisa los 4 criterios (HP, FS, corriente de arranque, Diseño NEMA) antes de decidir.');
-    await sleep(2600);
-    if(!retoSolved)checkVerdict(scenario.failMode);
-    await sleep(2400);
-    startNewChallenge();
-    showToast('Recorrido completo: te dejo un motor candidato nuevo sin resolver — analízalo tú.');
-  }finally{autoRunning=false;b.disabled=false;b.textContent='✨ Recorrido guiado';}
+    showToast('4/4 · En el Reto revisas los 4 criterios (HP, FS, corriente de arranque, Diseño NEMA) y decides tú si el candidato es apto: el recorrido no lo decide por ti.');
+    await sleep(3000);
+  }finally{
+    hpSel=prev.hpSel;vSel=prev.vSel;letterIdx=prev.letterIdx;fsSel=prev.fsSel;
+    syncHpBtns();syncVBtns();syncFsBtns();el('sCod').value=letterIdx;syncCodVal();
+    setMode(prev.mode);
+    autoRunning=false;b.disabled=false;b.textContent='✨ Recorrido guiado';
+  }
 }
 // Gira lo que gira —eje y ventilador— y deja quieta la carcasa.
 let motGiro=0;
@@ -603,7 +610,8 @@ window.__labDebug={
   lockedRotorRange,continuousHP,efficiencyDisplay,
   onFieldClick,boardClick,
   setMode,mode:()=>mode,
-  checkVerdict,newChallenge:startNewChallenge,
+  checkVerdict,newChallenge:startNewChallenge,runAuto,
+  solved:()=>retoSolved, retoSolved:()=>retoSolved, intentos:()=>intentos,
   setHp:v=>{hpSel=v;syncHpBtns();buildQuiz();refreshQuestion();refreshAll();},
   setV:v=>{vSel=v;syncVBtns();buildQuiz();refreshQuestion();refreshAll();},
   setFs:v=>{fsSel=v;syncFsBtns();buildQuiz();refreshQuestion();refreshAll();},

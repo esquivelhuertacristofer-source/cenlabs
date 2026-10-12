@@ -67,6 +67,11 @@ let retoSolved=false;      // en reto: desfase/hora/grupo ocultos hasta acertar
 let retoMsg='';
 let solved=false;          // pregunta de ingeniería del modo actual
 let autoRunning=false;
+let intentos=0, pistas=0;  // intentos fallidos del reto actual (3 → caso nuevo) y pistas pedidas
+let qIntentos=0;           // fallos de la pregunta de ingeniería vigente
+const qAgotado={};         // modo → true si se agotaron sus 3 intentos; se libera al acertar otra pregunta
+// el rótulo del grupo se oculta en el reto sin resolver y, en el modo fasor, hasta contestar la pregunta del grupo
+const hideGrupo=()=>(mode==='reto'&&!retoSolved)||(mode==='fasor'&&!solved);
 let QUIZ={};
 
 /* ============================================================
@@ -250,9 +255,10 @@ function drawBoard(){
     c.fillText('Desfase = ¿? °  ·  Grupo = ¿?',WCLK.cx,WCLK.cy+WCLK.r+40);
   }else{
     c.fillStyle='#4FD1C5';
-    c.fillText('Desfase = '+g.lag.toFixed(0)+'°  ·  Grupo = '+g.label,WCLK.cx,WCLK.cy+WCLK.r+40);
+    c.fillText('Desfase = '+g.lag.toFixed(0)+'°  ·  Grupo = '+(hideGrupo()?'¿?':g.label),WCLK.cx,WCLK.cy+WCLK.r+40);
+    if(!hideGrupo()){
     c.font='14px Outfit, sans-serif';c.fillStyle='#8FB3AC';
-    c.fillText('familia de paralelismo: '+g.family,WCLK.cx,WCLK.cy+WCLK.r+62);
+    c.fillText('familia de paralelismo: '+g.family,WCLK.cx,WCLK.cy+WCLK.r+62);}
   }
   bTex.needsUpdate=true;
 }
@@ -272,7 +278,7 @@ function boardClick(u,v){
     showToast(`<b>Devanado secundario (BT)</b><br><span>Terminales X1/X2 de cada unidad. Topología actual: <b>${secondary==='Y'?'Estrella (Y)':'Delta (D)'}</b>.${secondary==='Y'?' El neutro (N) se deriva del punto común.':' Sin neutro accesible en delta.'}</span>`);
   }else if(best.zone==='clock'){
     if(!lockedReto&&mode!=='fasor')setMode('fasor');
-    const info=lockedReto?'Resultado oculto: este es el modo Reto, calcula tú el desfase y la hora.':`Grupo actual: <b>${g.label}</b> (desfase ${g.lag.toFixed(0)}°, hora ${g.clock}).`;
+    const info=lockedReto?'Resultado oculto: este es el modo Reto, calcula tú el desfase y la hora.':hideGrupo()?`Desfase ${g.lag.toFixed(0)}°, hora ${g.clock}. El rótulo del grupo lo nombras tú en la pregunta de ingeniería.`:`Grupo actual: <b>${g.label}</b> (desfase ${g.lag.toFixed(0)}°, hora ${g.clock}).`;
     showToast(`<b>Diagrama de reloj (IEC 60076-1)</b><br><span>La manecilla de AT se fija a las 12; la de BT indica el desfase en "horas" (1 hora = 30°). ${info}</span>`);
   }
   synth.beep(660,0.05,0.04);
@@ -413,7 +419,7 @@ function drawReadout(){
   c.fillText('GRUPO VECTORIAL',160,32);
   c.font='bold 40px Outfit, sans-serif';
   c.fillStyle=hide?'#FFB703':'#EAF4F1';
-  c.fillText(hide?'¿ ? ?':computeGroup(primary,secondary,polarity).label,160,84);
+  c.fillText((hide||hideGrupo())?'¿ ? ?':computeGroup(primary,secondary,polarity).label,160,84);
   rdTex.needsUpdate=true;
 }
 
@@ -440,7 +446,7 @@ document.getElementById('hud').innerHTML=`
   <div class="fid">
     <div class="ft">🔒 Contrato de fidelidad</div>
     <div class="fl"><b>Sí modela:</b> las 8 combinaciones posibles de este banco (Y/D en cada lado × polaridad de AT) y su grupo vectorial exacto según la convención de reloj de IEC 60076-1 (referencia de AT a las 12; BT se lee en la hora a la que atrasa); el efecto de invertir la polaridad de AT (giro de 180° del fasor de referencia).</div>
-    <div class="fl no"><b>NO modela:</b> el re-alambrado físico del banco cuando solo cambia la polaridad — invertir la polaridad es una convención de referencia (qué extremo se marca "H1"), no un recableado; aquí solo se mueve la marca de polaridad y se recalcula el fasor, mientras que los amarres 3D del banco se reconstruyen únicamente cuando cambia la topología Y/D de un lado. Tampoco modela impedancias, corrientes de excitación ni el detalle interno de cada unidad (ver práctica hermana d5-02).</div>
+    <div class="fl no"><b>NO modela:</b> el re-alambrado físico del banco cuando solo cambia la polaridad — invertir la polaridad es una convención de referencia (qué extremo se marca "H1"), no un recableado; aquí solo se mueve la marca de polaridad y se recalcula el fasor, mientras que los amarres 3D del banco se reconstruyen únicamente cuando cambia la topología Y/D de un lado. Tampoco modela impedancias, corrientes de excitación ni el detalle interno de cada unidad (ver el laboratorio de circuito equivalente del transformador).</div>
   </div>
   <div class="src">Ref: IEC 60076-1:2011 Cl. 3.10.6 / 7.1.5 · convención de reloj</div>`;
 
@@ -557,7 +563,7 @@ function updateTele(){
   el('t_pol').textContent=polarity==='normal'?'Normal':'Invertida';
   el('t_lag').textContent=hide?'¿?':g.lag.toFixed(0)+'°';
   el('t_clock').textContent=hide?'¿?':String(g.clock);
-  el('t_label').textContent=hide?'¿?':g.label;
+  el('t_label').textContent=(hide||hideGrupo())?'¿?':g.label;
 }
 function updateReport(){
   const g=computeGroup(primary,secondary,polarity);
@@ -574,18 +580,19 @@ function updateReport(){
     html=`<div class="ln">El fasor de AT se toma como <b>referencia</b> (12 en punto). Invertir su polaridad (H1↔H2) lo gira exactamente <b>180°</b>.</div>
     <div class="ln">θ1 = θ_ref(primario) ${polarity==='reversed'?'+ 180°':''} = <b>${g.th1}°</b>. Ángulo de salida = θ1 − θ_ref(secundario) = <b>${g.outputAngle}°</b>.</div>
     <div class="ln">Desfase (BT atrasa a AT) = ((−ángulo_salida) mod 360) = <b>${g.lag.toFixed(0)}°</b> → hora = redondeo(desfase/30) mod 12 = <b>${g.clock}</b>.</div>
-    <div class="ln">Grupo vectorial → <b>${g.label}</b> (familia ${g.family}).</div>`;
+    <div class="ln">${hideGrupo()?'Grupo vectorial → <b>¿?</b> — nómbralo en la pregunta de ingeniería.':'Grupo vectorial → <b>'+g.label+'</b> (familia '+g.family+').'}</div>`;
   }else{
-    html=retoMsg||`<div class="ln">Con la conexión dada (oculta arriba), calcula θ1, el ángulo de salida, el desfase en grados y la hora del reloj. Escribe tu predicción.</div>`;
+    html=(retoMsg||`<div class="ln">Con la conexión dada (oculta arriba), calcula θ1, el ángulo de salida, el desfase en grados y la hora del reloj. Escribe tu predicción.</div>`)+(retoSolved?'':`<div class="ln">Intentos fallidos: ${intentos}/3</div>`);
   }
   el('report').innerHTML=html;
 }
-function refreshAll(){drawBoard();updateTele();updateReport();}
+function refreshAll(){drawBoard();drawReadout();updateTele();updateReport();}
 
 /* ============================================================
    8) RETO
    ============================================================ */
 function checkReto(){
+  if(autoRunning||retoSolved)return;
   const pl=parseFloat((el('inLag').value||'').replace(',','.'));
   const pc=parseFloat((el('inClock').value||'').replace(',','.'));
   if(!isFinite(pl)||!isFinite(pc)){showToast('Escribe tu predicción de desfase (°) y hora.');return;}
@@ -597,14 +604,21 @@ function checkReto(){
     retoMsg=`<div class="ln ok">✔ Correcto: desfase = ${g.lag.toFixed(0)}° · hora = ${g.clock} · grupo = <b>${g.label}</b> (familia ${g.family}).</div>`;
   }else{
     synth.beep(220,0.15,0.06);
-    retoMsg=`<div class="ln bad">✗ Aún no. Revisa θ1 = θ_ref(primario)${polarity==='reversed'?' + 180°':''}, y el desfase = ((−(θ1 − θ_ref(secundario))) mod 360).</div>`;
+    intentos++;
+    if(intentos>=3){newChallenge();showToast('🔀 <b>Tres intentos fallidos.</b> Te dejo una conexión NUEVA: razona el cálculo desde cero.');return;}
+    // retroalimentación cualitativa, sin dar el resultado: primero qué campo no cuadra; con el 2.º fallo, un recordatorio del método
+    let q=(!okL&&!okC)?'Ni el desfase ni la hora coinciden con la conexión dada.':(!okL?'La hora puede ser razonable, pero tu desfase no corresponde a esa conexión.':'El desfase es el esperado, pero la hora del reloj no corresponde.');
+    q+=' Recuerda que 1 hora = 30° y que la hora y el desfase deben ser coherentes entre sí.';
+    if(intentos>=2){pistas=Math.min(pistas+1,2);q+=` Pista: θ1 parte de θ_ref(primario)${polarity==='reversed'?' más lo que aporta la polaridad invertida del primario':''}; el desfase sale de restarle θ_ref(secundario).`;}
+    retoMsg=`<div class="ln bad">✗ Aún no (intento ${intentos}/3). ${q}</div>`;
   }
   syncCtrlbar();refreshAll();
 }
 function newChallenge(){
+  if(autoRunning)return;
   const pick=a=>a[Math.floor(Math.random()*a.length)];
   primary=pick(['Y','D']);secondary=pick(['Y','D']);polarity=pick(['normal','reversed']);
-  retoSolved=false;retoMsg='';el('inLag').value='';el('inClock').value='';
+  retoSolved=false;retoMsg='';intentos=0;pistas=0;el('inLag').value='';el('inClock').value='';
   buildQuiz();
   if(mode!=='reto')setMode('reto');
   else{syncCtrlbar();solved=false;clearDx();refreshQuestion();refreshAll();}
@@ -649,10 +663,10 @@ function buildQuiz(){
   QUIZ.conexion={
     pregunta:'¿Qué distingue físicamente a la conexión en delta (D) de la conexión en estrella (Y)?',
     opciones:shuffle([
-      {t:'En delta los tres devanados forman un anillo cerrado; en estrella los tres finales se unen en un neutro común',ok:true,why:'Correcto: por eso la delta no tiene neutro accesible, y la estrella sí (si se necesita, se puede aterrizar).'},
-      {t:'En delta hay más devanados que en estrella',ok:false,why:'El número de devanados es siempre 3 (uno por unidad); lo que cambia es cómo se interconectan sus terminales.'},
-      {t:'La estrella siempre maneja más corriente que la delta',ok:false,why:'La corriente depende de la carga, no de la topología en sí; ambas configuraciones son válidas para distintos niveles de tensión de línea.'},
-      {t:'Son eléctricamente idénticas, solo cambia el dibujo',ok:false,why:'No son idénticas: cambian la tensión de línea vs. de fase, la disponibilidad de neutro, y el ángulo θ_ref que aporta cada lado (0° en Y, 30° en D).'},
+      {t:'En delta los devanados forman un anillo cerrado; en estrella los finales se unen en un neutro común',ok:true,why:'Correcto: por eso la delta no tiene neutro accesible, y la estrella sí (si se necesita, se puede aterrizar).'},
+      {t:'En delta hay más devanados que en estrella, porque cada fase lleva dos devanados en paralelo',ok:false,why:'El número de devanados es siempre 3 (uno por unidad); lo que cambia es cómo se interconectan sus terminales.'},
+      {t:'La estrella siempre maneja más corriente que la delta, sea cual sea la carga conectada',ok:false,why:'La corriente depende de la carga, no de la topología en sí; ambas configuraciones son válidas para distintos niveles de tensión de línea.'},
+      {t:'Son eléctricamente idénticas y solo cambia la forma de dibujarlas en el esquema del banco',ok:false,why:'No son idénticas: cambian la tensión de línea vs. de fase, la disponibilidad de neutro, y el ángulo θ_ref que aporta cada lado (0° en Y, 30° en D).'},
     ]),
   };
   QUIZ.fasor={
@@ -662,24 +676,50 @@ function buildQuiz(){
   QUIZ.reto={
     pregunta:'En el reto, ¿qué debes predecir antes de que el simulador revele el resultado?',
     opciones:shuffle([
-      {t:'El desfase en grados y la hora del reloj de la combinación dada',ok:true,why:'Correcto: la topología y polaridad ya están fijas (son el dato); tú calculas θ1, el ángulo de salida, el desfase y la hora.'},
-      {t:'Qué combinación de interruptores produce un grupo objetivo',ok:false,why:'En este reto los interruptores ya están fijados por el simulador; tu tarea es calcular el resultado, no buscarlo por ensayo y error.'},
-      {t:'El valor en volts de cada fase',ok:false,why:'Esta práctica no involucra magnitudes de tensión — solo el desfase angular relativo entre AT y BT.'},
-      {t:'El número de unidades del banco',ok:false,why:'El banco siempre tiene 3 unidades; eso no varía en el reto.'},
+      {t:'El desfase en grados y la hora del reloj de la combinación que se te da fija',ok:true,why:'Correcto: la topología y polaridad ya están fijas (son el dato); tú calculas θ1, el ángulo de salida, el desfase y la hora.'},
+      {t:'Qué combinación de interruptores hay que fijar para obtener un grupo objetivo',ok:false,why:'En este reto los interruptores ya están fijados por el simulador; tu tarea es calcular el resultado, no buscarlo por ensayo y error.'},
+      {t:'El valor en volts de cada fase del primario y del secundario del banco',ok:false,why:'Esta práctica no involucra magnitudes de tensión — solo el desfase angular relativo entre AT y BT.'},
+      {t:'El número de unidades monofásicas que componen el banco de transformadores',ok:false,why:'El banco siempre tiene 3 unidades; eso no varía en el reto.'},
     ]),
   };
 }
 function clearDx(){el('dxbtns').querySelectorAll('.b.dx').forEach(b=>b.classList.remove('right','wrong'));}
 function refreshQuestion(){
   const q=QUIZ[mode];
-  el('q_text').innerHTML=q.pregunta;
+  qIntentos=0;
+  el('q_text').innerHTML=q.pregunta+'<div id="qIntLbl" style="font-size:11px;color:var(--dim);margin-top:4px">Intentos fallidos: 0/3</div>';
   el('dxbtns').innerHTML=q.opciones.map((o,i)=>`<button class="b dx" data-i="${i}">${'ABCD'[i]} · ${o.t}</button>`).join('');
   el('dxbtns').querySelectorAll('.b.dx').forEach(btn=>{btn.onclick=()=>answer(+btn.dataset.i);});
+  if(qAgotado[mode]){el('dxbtns').querySelectorAll('.b.dx').forEach(b=>b.disabled=true);
+    el('qIntLbl').textContent='Tres intentos fallidos en esta pregunta: acierta otra para recuperarla.';}
 }
 function answer(i){
+  if(solved||qAgotado[mode])return;
   const q=QUIZ[mode],o=q.opciones[i],btn=el('dxbtns').querySelector(`[data-i="${i}"]`);
-  if(o.ok){btn.classList.add('right');solved=true;synth.beep(880,0.08,0.05);showToast('✅ <b>Correcto.</b><br><span>'+o.why+'</span>');}
-  else{btn.classList.add('wrong');synth.beep(180,0.12,0.05);showToast('❌ <b>No exactamente.</b><br><span>'+o.why+'</span>');}
+  if(!btn||btn.disabled)return;
+  if(o.ok){
+    btn.classList.add('right');solved=true;Object.keys(qAgotado).forEach(k=>delete qAgotado[k]);
+    el('dxbtns').querySelectorAll('.b.dx').forEach(b=>b.disabled=true);
+    synth.beep(880,0.08,0.05);showToast('✅ <b>Correcto.</b><br><span>'+o.why+'</span>');
+    refreshAll();
+  }else{
+    // el fallo no explica ni revela la correcta: solo se descarta esta opción
+    btn.classList.add('wrong');btn.disabled=true;synth.beep(180,0.12,0.05);
+    qIntentos++;el('qIntLbl').textContent='Intentos fallidos: '+qIntentos+'/3';
+    if(qIntentos>=3){
+      if(mode==='fasor'){ // caso nuevo: otra combinación de interruptores
+        const pick=a=>a[Math.floor(Math.random()*a.length)];
+        const prev=primary+secondary+polarity;
+        do{primary=pick(['Y','D']);secondary=pick(['Y','D']);polarity=pick(['normal','reversed']);}while(primary+secondary+polarity===prev);
+        refreshNet3D();syncCtrlbar();updatePolarityDots();buildQuiz();solved=false;refreshQuestion();refreshAll();
+        showToast('🔀 <b>Tres intentos fallidos.</b> Cambié la conexión del banco: vuelve a seguir el diagrama de reloj.');
+      }else{
+        qAgotado[mode]=true;el('dxbtns').querySelectorAll('.b.dx').forEach(b=>b.disabled=true);
+        el('qIntLbl').textContent='Tres intentos fallidos en esta pregunta: acierta otra para recuperarla.';
+        showToast('❌ <b>Intentos agotados.</b> Repasa la ficha y acierta otra pregunta para recuperar esta.');
+      }
+    }else showToast('❌ <b>No exactamente</b> (intento '+qIntentos+'/3). Vuelve a razonarlo con lo que ves en el banco.');
+  }
 }
 
 /* ============================================================
@@ -718,12 +758,25 @@ S.renderer.domElement.addEventListener('pointermove',e=>{
 const sleep=ms=>new Promise(res=>setTimeout(res,ms));
 async function runAuto(){
   if(autoRunning)return;
+  if(mode==='reto'&&!retoSolved){showToast('🔒 El recorrido muestra grupos y relojes de todas las combinaciones: resuelve el reto (o pide otro caso con 🔀) antes de verlo.');return;}
   autoRunning=true;el('btnAuto').disabled=true;
-  for(const m of ['explora','conexion','fasor']){setMode(m);await sleep(3800);}
-  setPolarity(polarity==='normal'?'reversed':'normal');await sleep(2600);
-  setPolarity(polarity==='normal'?'reversed':'normal');await sleep(1200);
-  newChallenge();await sleep(1200);
-  el('btnAuto').disabled=false;autoRunning=false;
+  // DEMOSTRACIÓN: se guarda el estado del alumno y se restaura al terminar; el reto ni se toca ni se da por resuelto
+  const prev={mode,primary,secondary,polarity,retoSolved,retoMsg,lag:el('inLag').value,clock:el('inClock').value,intentos,pistas,solved};
+  try{
+    for(const m of ['explora','conexion','fasor']){setMode(m);await sleep(3800);}
+    setPolarity(polarity==='normal'?'reversed':'normal');await sleep(2600);
+    setPolarity(polarity==='normal'?'reversed':'normal');await sleep(1200);
+    showToast('En el Reto, la conexión viene dada y el resultado oculto: el desfase y la hora los calculas tú. Te devuelvo al punto en que estabas.');
+    await sleep(2800);
+  }finally{
+    primary=prev.primary;secondary=prev.secondary;polarity=prev.polarity;
+    refreshNet3D();updatePolarityDots();buildQuiz();
+    retoSolved=prev.retoSolved;retoMsg=prev.retoMsg;intentos=prev.intentos;pistas=prev.pistas;
+    el('inLag').value=prev.lag;el('inClock').value=prev.clock;
+    setMode(prev.mode);
+    el('btnAuto').disabled=false;autoRunning=false;
+    syncCtrlbar();refreshAll();
+  }
 }
 
 S.setAnimate((dt,time)=>{
@@ -760,7 +813,9 @@ setMode('explora');
 
 /* gancho de verificación independiente (tests re-verifican la física en Node) */
 window.__labDebug={
-  state:()=>({primary,secondary,polarity}),
+  state:()=>({primary,secondary,polarity,mode,retoSolved,intentos,pistas}),
+  solved:()=>retoSolved, retoSolved:()=>retoSolved, intentos:()=>intentos, pistas:()=>pistas,
+  runAuto, checkReto, newChallenge, setMode,
   group:()=>computeGroup(primary,secondary,polarity),
   boardClick,
   mode:()=>mode,

@@ -458,7 +458,10 @@ let mode='ciclo', animT=0, autoRunning=false, solved=false;
 const ST={ mk:'sedan', r:8, av:16, lam:1.00 };
 const RETO={ cfg:{mk:'sedan'}, ejes:{r:R_G[0], lam:LAM_G[0], avance:AV_G[0]},
              sol:null, nval:0, resuelto:false, msg:'',
-             pistas:{r:false,lam:false,avance:false} };
+             // Dos pistas como máximo, registradas; ninguna da valores de la terna.
+             pistas:{p1:false,p2:false}, pistaTxt:[], intentos:0, aviso:'' };
+const MAX_INTENTOS=3, MAX_PISTAS=2;
+const nPistas=()=>(RETO.pistas.p1?1:0)+(RETO.pistas.p2?1:0);
 let CUR=null;
 
 const ICONO={moto:'🏍️',sedan:'🚗',planta:'🏭',turbo:'🌀',compet:'🏁'};
@@ -906,12 +909,8 @@ function vistaCenso(){
   q.row('descartadas por r > r_máx',f0(R_G.length*AV_G.length*LAM_G.length-C.n),GRIS);
   q.row('cumplen las siete',f0(C.validas),C.validas?OK_HEX:BAD_HEX);
   q.sep();
-  if(sol){
-    q.row('la más barata a '+f0(ANIOS)+' años','r '+f0(sol.r)+' · '+f0(sol.avance)+'° · λ '+f2(sol.lam),AMBAR);
-    q.row('coste de combustible',f0(sol.coste5)+' €');
-    q.row('η al freno',pc1(sol.etaB),OK_HEX);
-    q.row('empates en coste',f0(empM(c.mk).length));
-  }else q.row('la más barata','no hay ninguna válida',BAD_HEX);
+  if(!sol) q.row('calibraciones válidas','no hay ninguna',BAD_HEX);
+  else q.nota('Cuál de las válidas es la más barata de alimentar es el reto, y no se dice aquí.');
   q.sep();
   q.nota('La barra azul cuenta todas las veces que un criterio reprueba, aunque otros también lo '+
     'hagan. La roja cuenta sólo las veces que reprueba él solo. Manda la roja.');
@@ -942,17 +941,11 @@ function vistaReto(){
   if(RETO.resuelto){
     texto('✅ calibración firmada',66,y,OK_HEX,18,'left','800');
   }else{
-    const abiertas=PIS_EJE.filter(e=>RETO.pistas[e]);
-    if(abiertas.length){
-      texto('Pistas destapadas',66,y,'#8f9bb0',14,'left','700'); y+=26;
-      pisM(mk).forEach(p=>{
-        if(!RETO.pistas[p.eje]) return;
-        texto(p.rot,86,y,TINTA,14,'left','600');
-        texto('= '+(p.eje==='lam'?f2(p.v):f0(p.v)),330,y,AMBAR,15,'left','700');
-        texto('quedan '+f0(p.n)+' de '+f0(RETO.nval),430,y,'#7f8b9c',13,'left','600');
-        y+=24;
-      });
-    }
+    texto('Intentos '+f0(RETO.intentos)+' de '+MAX_INTENTOS+' · pistas '+f0(nPistas())+' de '+MAX_PISTAS,
+      66,y,'#8f9bb0',14,'left','700'); y+=26;
+    RETO.pistaTxt.forEach(t=>{
+      y=wrapText(t,86,y,590,18,'#c8d3e2',13)+26;
+    });
   }
   nota(RETO.msg||('De las '+f0(RETO.nval)+' calibraciones que pasan los siete criterios, sólo una '+
     'gasta menos combustible en '+f0(ANIOS)+' años. Y el combustible no cuesta lo mismo por litro '+
@@ -964,16 +957,16 @@ function vistaReto(){
   q.row('cilindrada unitaria',cm3(s.Vd)+' cm³');
   q.row('límite mecánico','r ≤ '+f0(P.rMax));
   q.sep();
-  q.row('r elegida',f0(RETO.ejes.r)+' : 1',RETO.pistas.r?AMBAR:'#dbe4f0');
-  q.row('λ elegido',f2(RETO.ejes.lam),RETO.pistas.lam?AMBAR:'#dbe4f0');
-  q.row('avance elegido',f0(RETO.ejes.avance)+'°',RETO.pistas.avance?AMBAR:'#dbe4f0');
+  q.row('r elegida',f0(RETO.ejes.r)+' : 1');
+  q.row('λ elegido',f2(RETO.ejes.lam));
+  q.row('avance elegido',f0(RETO.ejes.avance)+'°');
   q.sep();
   q.row('criterios que fallan',f0(fallosDe(s).length),colOk(s.valida));
   q.row('η al freno',pc1(s.etaB));
   q.row('consumo específico',fin(s.bsfc,0)+' g/kWh');
   q.sep();
-  q.nota('Cada pista fija un eje. Ninguna te da la terna: entre las que quedan hay que elegir '+
-    'por coste.');
+  q.nota('Hay dos pistas como máximo y ninguna da un valor: orientan, no resuelven. Entre las '+
+    'válidas hay que elegir por coste.');
 }
 
 const VISTAS={ciclo:vistaCiclo,compresion:vistaCompresion,mezcla:vistaMezcla,censo:vistaCenso,reto:vistaReto};
@@ -1496,25 +1489,49 @@ function buildControls(){
   const bp=el('btnPista');
   if(bp) bp.onclick=()=>{ if(autoRunning)return; pista(); };
 }
-// Una pista destapa UN eje de la calibración ganadora, en orden r → λ → avance, y
-// dice cuántas calibraciones válidas siguen compatibles con lo destapado. Ninguna
-// cierra la terna: el embudo llega a 1 sólo cuando ya has visto los tres ejes.
+// Dos pistas como máximo, y ninguna da un valor de la terna: orientan hacia DÓNDE
+// mirar. La primera dice cuál es el muro de esta máquina (el criterio que más
+// veces tumba EN SOLITARIO, que es el dato del censo); la segunda, en qué eje se
+// decide el gasto de combustible entre las calibraciones válidas.
+function ejeDecisivo(mk){
+  const v=valM(mk); let mejor=null, sp=-1;
+  for(const e of PIS_EJE){
+    const porVal={};
+    v.forEach(x=>{ const k=x[e]; if(porVal[k]===undefined||x.coste5<porVal[k]) porVal[k]=x.coste5; });
+    const cs=Object.keys(porVal).map(k=>porVal[k]);
+    const spread=cs.length>1?Math.max.apply(null,cs)-Math.min.apply(null,cs):0;
+    if(spread>sp){ sp=spread; mejor=e; }
+  }
+  return mejor;
+}
 function pista(){
-  const eje=PIS_EJE.find(e=>!RETO.pistas[e]);
-  if(!eje){ showToast('💡 Ya has destapado los tres ejes: la calibración está sobre la mesa, sólo falta entregarla.'); return; }
-  RETO.pistas[eje]=true; beep();
-  const P=pisM(RETO.cfg.mk).find(p=>p.eje===eje);
-  const val=eje==='lam'?f2(P.v):(eje==='avance'?f0(P.v)+'°':f0(P.v));
-  const quedan=f0(P.n)+' de las '+f0(RETO.nval)+' calibraciones válidas de esta máquina';
-  showToast('💡 <b>'+EJE_ROT[eje]+' = '+val+'.</b> Con eso quedan '+quedan+
-    (P.n===RETO.nval?'. Esta pista no descarta ninguna: todas las válidas ya coincidían en ese eje.':'.'));
+  if(nPistas()>=MAX_PISTAS){ showToast('💡 Ya has usado las '+MAX_PISTAS+' pistas de este caso.'); return; }
+  const mk=RETO.cfg.mk, cn=censoM(mk);
+  let txt;
+  if(!RETO.pistas.p1){
+    RETO.pistas.p1=true;
+    const dec=CRIT.slice().sort((a,b)=>cn.solo[b]-cn.solo[a])[0];
+    txt=cn.solo[dec]>0
+      ? 'De las '+f0(cn.n)+' calibraciones que caben en este bloque pasan '+f0(cn.validas)+
+        '. El muro de esta máquina es «'+CRIT_ROT[dec]+'»: es el criterio que más veces tumba una calibración él solo.'
+      : 'De las '+f0(cn.n)+' calibraciones que caben en este bloque pasan '+f0(cn.validas)+
+        '. Aquí ningún criterio tumba nada en solitario: las que se caen se caen por varios a la vez.';
+  }else{
+    RETO.pistas.p2=true;
+    txt='Entre las '+f0(RETO.nval)+' válidas, el eje donde más cambia el gasto de combustible es el de «'+
+      EJE_ROT[ejeDecisivo(mk)]+'». Compara el coste de las válidas moviendo ése.';
+  }
+  RETO.pistaTxt.push(txt);
+  beep();
+  showToast('💡 <b>Pista '+nPistas()+' de '+MAX_PISTAS+'.</b> '+txt);
   afterEdit();
 }
 function retoSolveBuild(){
   const mk=RETO.cfg.mk;
   RETO.sol=solM(mk); RETO.nval=valM(mk).length;
   RETO.ejes={r:R_G[0], lam:LAM_G[0], avance:AV_G[0]};
-  RETO.pistas={r:false,lam:false,avance:false};
+  RETO.pistas={p1:false,p2:false}; RETO.pistaTxt=[];
+  RETO.intentos=0; RETO.aviso='';
   RETO.resuelto=false; RETO.msg='';
 }
 function updateScenarioInfo(){
@@ -1564,8 +1581,11 @@ function setMode(k){
 // estudio avanza al siguiente caso que enseña algo distinto del anterior.
 function newSignal(){
   const sig=(arr,v)=>arr[(arr.indexOf(v)+1)%arr.length];
-  const alOptimo=()=>{ const o=solM(ST.mk);
-    if(o){ ST.r=o.r; ST.av=o.avance; ST.lam=o.lam; }
+  // Un ejemplo VÁLIDO pero no el más barato: llevar los mandos a la solución del
+  // reto era regalar la respuesta desde un modo de estudio.
+  const alOptimo=()=>{ const v=valM(ST.mk), o=solM(ST.mk);
+    const ej=v.filter(x=>x!==o).sort((a,b)=>b.coste5-a.coste5)[0]||o;
+    if(ej){ ST.r=ej.r; ST.av=ej.avance; ST.lam=ej.lam; }
     else { ST.r=R_G[0]; ST.av=AV_G[0]; ST.lam=1.00; } };
   if(mode==='ciclo'){
     ST.mk=sig(MAQ_KEYS,ST.mk); alOptimo();
@@ -1668,7 +1688,6 @@ function updateTele(){
     h+=teleRow('tu calibración',
       R.valida?'válida':'falla '+fallosDe(R).map(k=>CRIT_COR[k]).join(', '),cls2(R.valida));
     h+=teleRow('coste de combustible a '+f0(ANIOS)+' años',fin(R.coste5,0)+' €');
-    h+=teleRow('la más barata válida',s?f0(s.coste5)+' €':'—',cls2(!!s));
   }
   el('tele').innerHTML=h;
   updateLive();
@@ -1779,17 +1798,16 @@ function updateReport(){
         '. Aflojar cualquiera de ésos no abre ni una configuración nueva.\n'
       : '> Los '+f0(CRIT.length)+' criterios llegan a decidir en solitario alguna vez.\n';
     t+=s
-      ? '> La más barata que pasa: r = '+f0(s.r)+', avance '+f0(s.avance)+'°, λ = '+f2(s.lam)+
-        ' → '+f0(s.coste5)+' € de combustible a '+f0(ANIOS)+' años.'
+      ? '> Cuál de las '+f0(cn.validas)+' que pasan es la más barata de alimentar a '+f0(ANIOS)+
+        ' años no se dice aquí: es lo que pide el reto.'
       : '> Ninguna configuración pasa el pliego entero en esta máquina.';
   }else{
-    const vistas=PIS_EJE.filter(e=>RETO.pistas[e]).length;
     t='> Reto sobre '+P.nom+'. Rejilla construible: '+f0(censoM(c.mk).n)+' calibraciones, de las '+
       'que '+f0(RETO.nval)+' pasan el pliego entero.\n';
     t+='> Se paga el combustible de '+f0(P.wAnio)+' kWh/año al freno durante '+f0(ANIOS)+
       ' años, a '+f2(F.precio)+' €/L de '+F.nom+' ('+f3(F.rho)+' kg/L).\n';
-    t+='> Pistas destapadas: '+f0(vistas)+' de '+f0(PIS_EJE.length)+
-      '. Ninguna cierra la terna ella sola.\n';
+    t+='> Intentos: '+f0(RETO.intentos)+' de '+MAX_INTENTOS+' · pistas: '+f0(nPistas())+' de '+MAX_PISTAS+
+      '. Ninguna pista da un valor de la terna.\n';
     t+='> Tu calibración: r = '+f0(c.r)+', avance '+f0(c.av)+'°, λ = '+f2(c.lam)+' → '+
       (R.valida?'válida, '+f0(R.coste5)+' €.\n':'rechazada por '+fallosDe(R).map(k=>CRIT_ROT[k]).join(', ')+'.\n');
     t+=RETO.msg?'> '+RETO.msg
@@ -1826,33 +1844,62 @@ function updateRetoSpec(){
   h+='Objetivo: la calibración <b>válida</b> más barata de alimentar a '+f0(ANIOS)+' años. Hay '+
      f0(RETO.nval)+' válidas de las '+f0(cn.n)+' construibles'+
      (emp>1?' y '+f0(emp)+' empatan en el mínimo.':' y el mínimo es único.')+'<br>';
-  h+='Ahora mismo: <b>'+(R.valida?'válida':'no válida')+'</b>, '+fin(R.coste5,0)+' €'+
-     (s&&R.valida&&R.coste5>s.coste5?' ('+f0(R.coste5-s.coste5)+' € por encima de la mejor)':'')+'.';
+  // Lo que la simulación dice de TU calibración (válida o no, y cuánto gasta). Si es
+  // la más barata o no lo dice sólo «Entregar»: antes de entregar no hay veredicto.
+  h+='Ahora mismo: <b>'+(R.valida?'válida':'no válida')+'</b>, '+fin(R.coste5,0)+' €.<br>';
+  h+='Intentos: '+f0(RETO.intentos)+' de '+MAX_INTENTOS+' · pistas: '+f0(nPistas())+' de '+MAX_PISTAS+'.';
+  if(RETO.aviso) h+='<br><span style="color:'+WARN_HEX+'">'+RETO.aviso+'</span>';
   if(RETO.msg) h+='<br><span style="color:'+(RETO.resuelto?OK_HEX:WARN_HEX)+'">'+RETO.msg+'</span>';
   el('retoSpec').innerHTML=h;
 }
-function checkReto(){
+// El juicio puro: no toca ni `solved` ni los intentos. Lo usa Entregar y también
+// el recorrido guiado, que sólo DEMUESTRA y jamás firma el reto del alumno.
+function juzgaReto(){
   const R=CUR, s=RETO.sol, P=MAQ[RETO.cfg.mk];
-  if(!s){ RETO.msg='Esta máquina no tiene ninguna calibración válida en la rejilla.'; }
-  else if(!R.valida){
+  if(!s) return {ok:false, msg:'Esta máquina no tiene ninguna calibración válida en la rejilla.'};
+  if(!R.valida){
     const f=fallosDe(R);
-    RETO.msg='Todavía no: falla '+f.map(k=>CRIT_ROT[k]).join(', ')+
+    return {ok:false, msg:'Todavía no: falla '+f.map(k=>CRIT_ROT[k]).join(', ')+
       (R.rMecOk?'':' (y además r supera el límite mecánico del bloque)')+
-      '. Una calibración barata que no pasa el pliego no es barata: es un motor roto.';
-  }else if(R.coste5>s.coste5+1e-9){
-    RETO.msg='Válida, pero se bebe '+f0(R.coste5-s.coste5)+' € más de combustible en '+f0(ANIOS)+
-      ' años ('+pcm(R.coste5/s.coste5-1)+'). Con '+f0(P.wAnio)+' kWh/año al freno, cada punto de '+
-      'eficiencia que dejas sobre la mesa se paga '+f0(ANIOS)+' veces.';
-    RETO.resuelto=false;
-  }else{
-    RETO.resuelto=true; solved=true;
-    RETO.msg='✅ Calibración firmada: r '+f0(R.r)+' · avance '+f0(R.avance)+'° · λ '+f2(R.lam)+
-      ' → '+pc1(R.etaB)+' al freno y '+f0(R.coste5)+' € a '+f0(ANIOS)+' años.';
-    [523,659,784].forEach((f,i)=>setTimeout(()=>synth.beep(f,0.16,0.05),i*90));
+      '. Una calibración barata que no pasa el pliego no es barata: es un motor roto.'};
   }
-  if(!RETO.resuelto) synth.beep(220,0.12,0.05);
+  if(R.coste5>s.coste5+1e-9)
+    return {ok:false, msg:'Es válida, pero no es la que menos combustible gasta en '+f0(ANIOS)+
+      ' años: hay otra válida más barata. Con '+f0(P.wAnio)+' kWh/año al freno, cada punto de '+
+      'eficiencia que dejas sobre la mesa se paga '+f0(ANIOS)+' veces. Compara el coste de las '+
+      'válidas de esta máquina.'};
+  return {ok:true, msg:'✅ Calibración firmada: r '+f0(R.r)+' · avance '+f0(R.avance)+'° · λ '+f2(R.lam)+
+    ' → '+pc1(R.etaB)+' al freno y '+f0(R.coste5)+' € a '+f0(ANIOS)+' años.'};
+}
+// Al fallar NO se dice cuánto falta ni cuál era: se dice qué no cuadra. A los tres
+// fallos el caso se cambia por otro (otra máquina), para que nadie apruebe
+// recorriendo las pocas válidas hasta que una acierte.
+function checkReto(){
+  if(RETO.resuelto) return;
+  const j=juzgaReto();
+  RETO.aviso='';
+  if(j.ok){
+    RETO.resuelto=true; solved=true; RETO.msg=j.msg;
+    [523,659,784].forEach((f,i)=>setTimeout(()=>synth.beep(f,0.16,0.05),i*90));
+    afterEdit();
+    showToast('✅ '+RETO.msg);
+    return;
+  }
+  RETO.resuelto=false; solved=false;
+  RETO.intentos++;
+  RETO.msg=j.msg+' Intento '+f0(RETO.intentos)+' de '+MAX_INTENTOS+'.';
+  synth.beep(220,0.12,0.05);
+  if(RETO.intentos>=MAX_INTENTOS){
+    const sig=(arr,v)=>arr[(arr.indexOf(v)+1)%arr.length];
+    RETO.cfg.mk=sig(MAQ_KEYS,RETO.cfg.mk);
+    retoSolveBuild();
+    RETO.aviso='Tres entregas sin acertar: este caso se cierra sin revelarlo y llega otra máquina.';
+    afterEdit();
+    showToast('🔀 <b>Caso nuevo.</b> Tres intentos sin acertar. Otra máquina, otro encargo.');
+    return;
+  }
   afterEdit();
-  showToast((RETO.resuelto?'✅ ':'⚠️ ')+RETO.msg);
+  showToast('⚠️ '+RETO.msg);
 }
 
 // ===================== 15. CUESTIONARIO =====================
@@ -1860,59 +1907,59 @@ function checkReto(){
 // intuición: están comprobadas contra la simulación de la máquina que se nombra.
 let QORD=[], answered=false;
 const QUIZ={
-  ciclo:{pregunta:'El sedán con su calibración aceptada (r 12 · avance 4° · λ 1,00) tiene un techo ideal de aire frío del 62,99 %, pero entrega el 37,42 % al freno. De esos 25,57 puntos que se pierden por el camino, ¿dónde se va la mayor parte?',
+  ciclo:{pregunta:'El sedán con una calibración que el pliego acepta tiene un techo ideal de aire frío del 62,99 %, pero entrega el 37,42 % al freno. De esos 25,57 puntos que se pierden por el camino, ¿dónde se va la mayor parte?',
     opciones:[
       {t:'En la combustión real y el calor a las paredes: 19,01 puntos entre el techo con r efectiva y la eficiencia indicada.',ok:true,
        why:'Exacto. Ese tramo se lo comen cuatro cosas a la vez: la combustión dura 41,2° y no es instantánea, el 11,23 % del calor liberado se va a las paredes antes de empujar, el gas caliente tiene un γ mucho menor que el 1,4 del aire frío, y el escape se abre en +130° con presión todavía dentro. La fricción y el bombeo sólo se llevan 5,33 puntos, y el cierre tardío de admisión 1,24.'},
-      {t:'En la fricción y el bombeo, que son lo que separa la eficiencia indicada de la eficiencia al freno.',
+      {t:'En la fricción y el bombeo, que son lo que separa la eficiencia indicada de la eficiencia al freno en cualquier motor.',
        why:'Sólo 5,33 puntos: la imep bruta es 11,728 bar, el bombeo se lleva 0,200 y la fricción 1,262, y queda 10,266 bar al freno. Es un quinto de la brecha, no la mayor parte.'},
-      {t:'En el cierre tardío de la válvula de admisión, que baja la relación de compresión de 12 a 11,05.',
+      {t:'En el cierre tardío de la válvula de admisión, que baja la relación de compresión efectiva respecto de la geométrica.',
        why:'Ese efecto existe y está medido, pero es pequeño: el techo ideal pasa de 62,99 % con r geométrica a 61,75 % con r efectiva. 1,24 puntos de 25,57.'},
-      {t:'En el gas residual del ciclo anterior, que ocupa sitio y no quema.',
+      {t:'En el gas residual del ciclo anterior, que ocupa sitio en el cilindro y no llega a quemar nunca.',
        why:'El residual atrapado es el 2,84 % de la masa. Calienta la carga fresca a 344,5 K y diluye la mezcla, pero no es de lejos la partida grande: está incluido dentro del tramo de la combustión real.'},
     ]},
-  compresion:{pregunta:'El motor de competición quema metanol, RON 109, y en TODA la rejilla su integral de detonación no pasa de 0,438: nunca pica. Con avance 10° y λ 1,00 su eficiencia al freno sigue subiendo hasta r = 14 (40,60 %). ¿Por qué el pliego se planta en r = 13?',
+  compresion:{pregunta:'El motor de competición quema metanol, RON 109, y en TODA la rejilla su integral de detonación no pasa de 0,438: nunca pica. Con avance 10° y λ 1,00 su eficiencia al freno sigue subiendo hasta r = 14 (40,60 %), y sin embargo ese punto no pasa el pliego. ¿Por qué?',
     opciones:[
       {t:'Porque en r = 14 la presión de pico llega a 80,89 bar y el bloque admite 78: el muro deja de ser químico y pasa a ser estructural.',ok:true,
-       why:'Eso es. En r = 13 la presión de pico es 74,82 bar y pasa; en r = 14 son 80,89 contra un límite de 78 y se cae por presión, con I = 0,202. Que el combustible aguante no significa que el motor aguante: subir r sube la presión de pico aunque no haya la menor detonación.'},
-      {t:'Porque a partir de r = 13 la eficiencia al freno empieza a caer.',
-       why:'No cae: 39,89 % en r = 13 y 40,60 % en r = 14. El pliego no rechaza r = 14 por rendir menos, sino por romper el bloque.'},
-      {t:'Porque el metanol no admite relaciones de compresión tan altas.',
+       why:'Eso es. En r = 14 la presión de pico son 80,89 bar contra un límite de 78 y se cae por presión, con I = 0,202. Que el combustible aguante no significa que el motor aguante: subir r sube la presión de pico aunque no haya la menor detonación.'},
+      {t:'Porque a partir de cierta relación de compresión la eficiencia al freno empieza a caer y deja de compensar.',
+       why:'No cae: sigue subiendo hasta el 40,60 % en r = 14. El pliego no rechaza ese punto por rendir menos, sino por romper el bloque.'},
+      {t:'Porque el metanol no admite relaciones de compresión tan altas sin que la mezcla se autoencienda.',
        why:'Al revés: RON 109 y un calor de vaporización de 1 100 kJ/kg que enfría la carga. En esta máquina la detonación no reprueba ni una sola de las 210 configuraciones.'},
-      {t:'Porque la temperatura en la brida de escape se dispara al subir r.',
+      {t:'Porque la temperatura en la brida de escape se dispara al subir r y supera el límite del termopar.',
        why:'Baja, no sube: de 1 227 K en r = 8 a 1 100 K en r = 14, porque el gas se expande más antes de abrir el escape. De hecho las r bajas son las que se caen por temperatura de escape.'},
     ]},
   mezcla:{pregunta:'En la planta de gas LP con r 12 y avance 10°, la eficiencia INDICADA es máxima en λ = 1,10 (41,49 %) pero la eficiencia AL FRENO es máxima en λ = 1,00 (37,71 %). ¿Por qué no caen en el mismo dosado?',
     opciones:[
       {t:'Porque la fricción se resta en presión media, no en tanto por ciento: al empobrecer la imep cae mucho más de lo que cae la fmep.',ok:true,
-       why:'Exacto. De λ 1,00 a λ 1,10 la imep bruta baja de 11,690 a 10,701 bar (−8,5 %) mientras la fmep sólo baja de 0,982 a 0,931 bar (−5,2 %). Esa resta casi fija pesa cada vez más sobre una imep menor, y el máximo al freno se corre hacia el lado rico. Y aquí viene el remate: la que de verdad se puede vender es λ = 1,10, porque en λ = 1,00 la integral de detonación vale 1,169.'},
+       why:'Exacto. De λ 1,00 a λ 1,10 la imep bruta baja de 11,690 a 10,701 bar (−8,5 %) mientras la fmep sólo baja de 0,982 a 0,931 bar (−5,2 %). Esa resta casi fija pesa cada vez más sobre una imep menor, y el máximo al freno se corre hacia el lado rico.'},
       {t:'Porque a λ = 1,10 la combustión dura más (55,3° frente a 52,0°) y eso ya está descontado en la eficiencia indicada.',
        why:'La duración sí cambia y sí está dentro de la indicada, pero entonces la indicada tendría que ser peor en λ = 1,10, y es mejor. La duración no explica que los dos máximos se separen.'},
-      {t:'Porque a λ = 1,10 entra menos combustible y por eso el rendimiento sale más alto.',
+      {t:'Porque a λ = 1,10 entra menos combustible por ciclo y por eso el rendimiento calculado sale más alto.',
        why:'La eficiencia ya está dividida por el combustible que entra: es trabajo por unidad de energía química. Meter menos combustible no sube la eficiencia por sí solo.'},
-      {t:'Porque son dos medidas de cosas distintas y no tienen por qué compararse.',
+      {t:'Porque son dos medidas de cosas distintas, una del gas y otra del eje, y no tienen por qué compararse.',
        why:'Se comparan todo el rato, y en el mismo ciclo: la indicada es lo que el gas hace sobre el pistón y la del freno es lo que sale por el cigüeñal. Lo que hay entre las dos son el bombeo y la fricción, que es justo lo que mueve el máximo.'},
     ]},
   censo:{pregunta:'En la moto, «par entregado» reprueba 98 de las 180 configuraciones construibles y «temperatura de escape» reprueba 97: prácticamente empatan. Pero en solitario, el par sólo tumba 3 y el escape tumba 33. Si pudieras relajar UN criterio del pliego, ¿cuál te devolvería más configuraciones?',
     opciones:[
       {t:'La temperatura de escape: 33 configuraciones se caen sólo por él y todo lo demás ya lo cumplen.',ok:true,
        why:'Ésa es la lectura correcta del censo. Relajar el par recuperaría 3 configuraciones, porque las otras 95 que reprueba también fallan otra cosa a la vez y seguirían fuera. Un total alto sólo dice que ese criterio acompaña mucho; el que decide es el que reprueba solo.'},
-      {t:'El par entregado, porque es el que más configuraciones reprueba de todos.',
+      {t:'El par entregado, porque es el criterio que más configuraciones reprueba de todos, con 98 bajas.',
        why:'Es la trampa del censo. Reprueba 98 veces, pero 95 de ellas en compañía de otro criterio: si mañana bajaras el par mínimo exigido, esas 95 seguirían suspendiendo por lo otro. Recuperarías 3.'},
-      {t:'La presión máxima, que reprueba 72 veces y 18 en solitario.',
+      {t:'La presión máxima, que reprueba 72 configuraciones y es la única en tumbar a 18 de ellas.',
        why:'Es el segundo decisor de esta máquina, no el primero: 18 frente a 33. Buena intuición, cifra equivocada.'},
-      {t:'Los dos por igual, porque 98 y 97 son prácticamente el mismo número.',
+      {t:'Los dos por igual, porque 98 y 97 bajas son prácticamente el mismo número y dan el mismo resultado.',
        why:'Los totales son casi iguales y las consecuencias no: 3 frente a 33, once veces más. Por eso el censo dibuja dos barras y no una.'},
     ]},
-  reto:{pregunta:'El turbo GDI rinde 38,52 % al freno con r = 11 y avance 10°, casi dos puntos más que la calibración que sí se acepta (36,58 % con r = 10 y avance 4°). Todos los demás criterios los cumple: 88,51 bar contra un límite de 105, brida a 1 090 K contra 1 165, 17,13 bar de bmep contra 15,2 mínimos, λ = 1,00 dentro de la ventana del catalizador y r = 11 justo en el límite del bloque. ¿Por qué se descarta?',
+  reto:{pregunta:'El turbo GDI rinde 38,52 % al freno con r = 11 y avance 10°, más que cualquier calibración que el pliego acepta. Todos los demás criterios los cumple: 88,51 bar contra un límite de 105, brida a 1 090 K contra 1 165, 17,13 bar de bmep contra 15,2 mínimos, λ = 1,00 dentro de la ventana del catalizador y r = 11 justo en el límite del bloque. ¿Por qué se descarta?',
     opciones:[
       {t:'Porque su integral de detonación vale 1,530: la mezcla sin quemar se autoenciende antes de que le llegue la llama.',ok:true,
-       why:'Ése es el único criterio que falla, y basta. La cuenta de Livengood–Wu suma en cada paso el tiempo transcurrido dividido entre el retardo de autoencendido de Douaud–Eyzat; cuando llega a 1, la carga sin quemar se ha encendido sola. Una eficiencia que sólo existe hasta que el motor pica no es una eficiencia: la calibración aceptada retrasa la chispa a 4° y baja a r = 10 para dejar I en 0,880.'},
-      {t:'Porque la presión de pico se pasa del límite del bloque.',
+       why:'Ése es el único criterio que falla, y basta. La cuenta de Livengood–Wu suma en cada paso el tiempo transcurrido dividido entre el retardo de autoencendido de Douaud–Eyzat; cuando llega a 1, la carga sin quemar se ha encendido sola. Una eficiencia que sólo existe hasta que el motor pica no es una eficiencia: para que el pliego la acepte hay que retrasar la chispa o bajar la compresión hasta dejar I por debajo de 1.'},
+      {t:'Porque la presión de pico se pasa del límite que aguanta el bloque y el cilindro acabaría fisurándose.',
        why:'88,51 bar contra un límite de 105: sobra margen. El turbo tiene el bloque más fuerte de las cinco máquinas y aun así es el que peor lleva la compresión, por la presión de admisión.'},
-      {t:'Porque λ = 1,00 deja al catalizador de tres vías fuera de su ventana de trabajo.',
+      {t:'Porque λ = 1,00 deja al catalizador de tres vías fuera de su ventana de trabajo y los gases saldrían sin tratar.',
        why:'λ = 1,00 es justo el centro de la ventana 0,98–1,02 que exige el catalizador. Ese criterio lo cumple.'},
-      {t:'Porque el bloque no admite una relación de compresión de 11.',
+      {t:'Porque el bloque no admite una relación de compresión de 11, que supera el máximo mecánico de esta máquina.',
        why:'La admite exactamente: r_máx del turbo es 11. Es la única de las cinco máquinas que no puede pasar de ahí, pero 11 sí es construible.'},
     ]},
 };
@@ -2120,9 +2167,9 @@ function boardClick(){
       'solo nunca es la razón real de un rechazo. Sobreviven '+f0(cn.validas)+'.');
   }else{
     showToast('<b>Reto</b> · Se te pide la calibración válida más barata de alimentar durante '+
-      f0(ANIOS)+' años, no la más eficiente. Las tres pistas se abren de una en una y cada una dice '+
-      'cuántas de las válidas comparten un valor de ese eje: eso estrecha la búsqueda sin regalar la '+
-      'terna. Hay '+f0(RETO.nval)+' válidas.');
+      f0(ANIOS)+' años, no la más eficiente. Hay dos pistas como máximo: orientan hacia dónde '+
+      'mirar sin dar ningún valor de la terna, y a los tres intentos fallados el caso cambia. '+
+      'Hay '+f0(RETO.nval)+' válidas.');
   }
 }
 
@@ -2151,6 +2198,12 @@ async function runAuto(){
   autoRunning=true;
   const b=el('btnAuto'), rot=b.textContent;
   b.textContent='⏳ Recorriendo…';
+  // El recorrido es una DEMOSTRACIÓN: guarda el reto del alumno, hace la demo sobre
+  // OTRA máquina y al terminar lo devuelve tal cual estaba (sin resolver si no lo
+  // estaba). Jamás deja `solved` en true.
+  const snap={ mk:RETO.cfg.mk, ejes:{...RETO.ejes}, pistas:{...RETO.pistas},
+    pistaTxt:RETO.pistaTxt.slice(), intentos:RETO.intentos, aviso:RETO.aviso, msg:RETO.msg,
+    resuelto:RETO.resuelto, solved, tenia:!!RETO.sol, st:{...ST}, mode };
   synth.init();synth.resume();clearDx();
   try{
     // --- 1. un ciclo entero, y dónde se queda cada punto ----------------
@@ -2265,7 +2318,7 @@ async function runAuto(){
     await sleep(6200);
 
     // --- 7. el encargo -------------------------------------------------
-    RETO.cfg.mk='turbo'; retoSolveBuild();
+    RETO.cfg.mk=(snap.mk==='turbo')?'compet':'turbo'; retoSolveBuild();
     setMode('reto');
     {
       const P=MAQ[RETO.cfg.mk], F=FUEL[P.fuel], s=RETO.sol;
@@ -2293,7 +2346,7 @@ async function runAuto(){
         ', frente a '+pc1(s.etaB)+' de la aceptada más barata ('+pcm(mejor.etaB/s.etaB-1)+
         '). Entrégala y mira qué contesta el pliego.');
       await sleep(2400);
-      checkReto();
+      RETO.msg=juzgaReto().msg; afterEdit();
     }
     await sleep(6200);
 
@@ -2303,11 +2356,23 @@ async function runAuto(){
       RETO.ejes={r:s.r, avance:s.avance, lam:s.lam};
       RETO.msg=''; RETO.resuelto=false; afterEdit();
       await sleep(1800);
-      checkReto();
+      RETO.msg=juzgaReto().msg; afterEdit();
     }
     await sleep(6000);
     answer(quizCorrectIndex());
   } finally {
+    // Devuelve el reto del alumno, sin resolver si no lo estaba.
+    Object.assign(ST,snap.st);
+    RETO.cfg.mk=snap.mk;
+    if(snap.tenia){
+      RETO.sol=solM(snap.mk); RETO.nval=valM(snap.mk).length;
+      RETO.ejes=snap.ejes; RETO.pistas=snap.pistas; RETO.pistaTxt=snap.pistaTxt;
+      RETO.intentos=snap.intentos; RETO.aviso=snap.aviso; RETO.msg=snap.msg;
+      RETO.resuelto=snap.resuelto;
+    } else { RETO.sol=null; retoSolveBuild(); }
+    solved=snap.solved;
+    aplicaMaquina();
+    buildControls(); updateScenarioInfo(); updateRetoSpec(); refreshAll();
     autoRunning=false;
     el('btnAuto').textContent=rot;
     buildControls();
@@ -2357,7 +2422,9 @@ window.__labDebug={
   // --- estado vivo
   st:()=>({...ST}), cur:()=>CUR, cfg:()=>cfgDe(mode), frame:()=>FR, maq:()=>maqAct(),
   reto:()=>({cfg:{...RETO.cfg}, ejes:{...RETO.ejes}, sol:RETO.sol, nval:RETO.nval,
-             resuelto:RETO.resuelto, msg:RETO.msg, pistas:{...RETO.pistas}}),
+             resuelto:RETO.resuelto, msg:RETO.msg, pistas:{...RETO.pistas},
+             nPistas:nPistas(), intentos:RETO.intentos}),
+  intentos:()=>RETO.intentos,
   // --- setters equivalentes a los botones
   setMaquina:v=>{ ST.mk=v; aplicaMaquina(); afterEdit(); },
   setR:v=>{ ST.r=Number(v); aplicaMaquina(); afterEdit(); },

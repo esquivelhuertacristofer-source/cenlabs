@@ -132,7 +132,7 @@ fichaTecnica({
       ['Válidas por máquina', 'De las construibles de cada una', 'Tractor 75/320 · camioneta 31/400 · planta 42/240 · urbano 15/320 · marino 39/180', 'El urbano es el más estrecho: 15 combinaciones de 320. Homologa a −25 °C y encima gira a 3 600 rpm.'],
       ['El óptimo no es firmable', 'Mejor η_B construible de cada máquina', 'Tractor 37,78 % · camioneta 40,29 % · planta 39,74 % · urbano 38,89 % · marino 39,95 % — las CINCO fallan, y las cinco por ruido', 'Es el resultado central del laboratorio: el pliego no pide el mejor motor, pide el mejor motor que cumpla todo a la vez.'],
       ['Y tampoco es la más cara', 'Válida más cara vs firmada, a 5 años', 'Tractor +38 479 € · camioneta +2 277 € · planta +123 817 € · urbano +1 149 € · marino +361 686 €', 'En las cinco máquinas la válida más eficiente resulta ser también la más barata, así que la firmada gana los dos desempates a la vez.'],
-      ['Embudo de pistas', 'Combustible → relación de compresión → presión de riel', 'Tractor 75→24→2→1 · camioneta 31→31→4→1 · planta 42→22→4→1 · urbano 15→15→4→1 · marino 39→10→4→2', 'El SOI no se pista nunca: es lo último que queda por decidir. En la camioneta y el urbano la primera pista no descarta nada, porque el combustible ya estaba forzado por el frío.'],
+      ['Pistas del reto', 'Dos como máximo', 'Orientan sin dar valores', 'La primera nombra el muro de la máquina (el criterio que más veces tumba una calibración él solo); la segunda, el eje donde más cambia el coste entre las válidas. Ninguna revela combustible, r, SOI ni riel.'],
 
       ['Convergencia del paso', 'Runge-Kutta 4 a 0,5° · 0,25° · 0,125°', 'η_B 38,2945 → 38,3380 → 38,3385 % · p_max 117,8571 → 117,9800 bar', 'Halvar el paso mueve 0,0435 puntos de rendimiento y 0,1229 bar de pico; volver a halvarlo mueve 0,0005 puntos. El paso de 0,5° está a menos de 0,05 puntos de la respuesta convergida, y la ficha lo declara en vez de presumir de exactitud.'],
       ['Convergencia del escape', 'Bucle externo sobre T_esc', 'Desviación máxima sobre las 1 460 construibles: 0,04996 K · 0 sin converger · de 1 a 4 iteraciones', 'Todas convergen por debajo del umbral declarado de 0,05 K. Ninguna se queda a medias y ninguna se declara "no convergida".'],
@@ -150,7 +150,7 @@ fichaTecnica({
     'Modo riel: barrido de las cuatro presiones disponibles con la ley de la raíz cuadrada visible, la duración de inyección, el quemado tardío y lo que cuesta la bomba.',
     'Modo frío: politrópica de arrastre, aportación de la rejilla multiplicada por la compresión, aportación de la bujía sin multiplicar, umbral térmico del combustible y puerta del CFPP, todo sobre la misma barra de temperatura.',
     'Modo censo: las 640 combinaciones de cada máquina clasificadas por criterio, con las no construibles marcadas ⚠, y el recuento de cuántas veces cada criterio decide él solo.',
-    'Modo reto: buscar la calibración firmable más barata de cada máquina, con un embudo de tres pistas que nunca revela el ángulo de inyección.',
+    'Modo reto: buscar la calibración firmable más barata de las máquinas del reto (tractor, camioneta, planta y marino; el compacto urbano queda fuera porque es el punto de partida del modo de estudio), con dos pistas como máximo que orientan sin dar valores y tres intentos por caso: al tercer fallo llega otra máquina, y al fallar nunca se revela la respuesta.',
   ],
 
   s4: {
@@ -170,7 +170,7 @@ fichaTecnica({
       '12. Pon la camioneta a −20 °C y prueba los cuatro combustibles. Los cuatro superan el umbral térmico; tres no llegan al inyector. El B20, que es el que más margen térmico tiene, es uno de los tres.',
       '13. Abre el modo censo y busca por qué el urbano solo tiene 15 calibraciones válidas de 320. Después mira el criterio que más veces decide él solo: es el arranque en frío, con 204 de 1 460.',
       '14. Antes de ir al reto, busca la mejor calibración construible de cada máquina y lee por qué falla. En las cinco aparece el ruido de combustión.',
-      '15. Ahora sí, resuelve el reto de las cinco máquinas. Si te atascas, pide las pistas en orden; ninguna te dirá el ángulo de inyección, que es justo el mando que más cambia el resultado.',
+      '15. Ahora sí, resuelve el reto (tractor, camioneta, planta y marino). Si te atascas, tienes dos pistas; ninguna te dará un valor, sólo hacia dónde mirar.',
     ],
   },
 
@@ -192,6 +192,6 @@ fichaTecnica({
     'UNE-EN 590 y UNE-EN 116: requisitos del gasóleo de automoción y determinación del punto de obstrucción de filtro en frío (CFPP). Los grados de CFPP de los cuatro combustibles son valores de proyecto dentro de las clases de la norma.',
     'UNE-EN 14214 y UNE-EN 590 anexo: mezclas con éster metílico de ácidos grasos, de donde vienen el mayor cetano y el menor poder calorífico del B20.',
     'ISO 8178 e ISO 3046: condiciones de referencia y declaración de prestaciones de motores alternativos de combustión interna; es el marco del que se toma la idea de homologar a una temperatura declarada.',
-    'Verificación numérica propia: toda la física vive en un motor sellado, motor_diesel.mjs, verificado con test_diesel.mjs mediante 279 937 comprobaciones sin un solo fallo, incluidas la conservación de la energía paso a paso, la convergencia del escape en las 1 460 combinaciones construibles y el contraste de los tres ciclos ideales contra sus formas cerradas. Las cifras de esta ficha se extrajeron después con ficha_diesel.mjs, ficha2_diesel.mjs y ficha3_diesel.mjs, sin escribir a mano ni un solo número. El laboratorio ya construido se volvió a verificar dentro de un navegador real con pw_diesel.mjs: 161 756 comprobaciones más, también sin un solo fallo, contrastando punto por punto lo que se dibuja en pantalla contra lo que devuelve el motor sellado.',
+    'Verificación numérica propia: toda la física vive en un motor sellado, verificado mediante 279 937 comprobaciones sin un solo fallo, incluidas la conservación de la energía paso a paso, la convergencia del escape en las 1 460 combinaciones construibles y el contraste de los tres ciclos ideales contra sus formas cerradas. Las cifras de esta ficha se extrajeron después del propio motor, sin escribir a mano ni un solo número. El laboratorio ya construido se volvió a verificar dentro de un navegador real: 161 756 comprobaciones más, también sin un solo fallo, contrastando punto por punto lo que se dibuja en pantalla contra lo que devuelve el motor sellado.',
   ],
 });

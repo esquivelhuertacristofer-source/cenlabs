@@ -556,10 +556,14 @@ function estadoFP(Q1){
 
 /* ---------- §2 Estado ---------- */
 let mode='explora', psync=8000, loadKey='ninguna', ifPct=100;
-let MYST=null, retoSolved=false, retoMsg='';
+let MYST=null, retoSolved=false, retoMsg='', intentos=0, pistas=0;
 let solved=false, autoRunning=false;
 
 function genMystery(){
+  const prevSig=MYST?MYST.kind+"|"+MYST.P3+"|"+(MYST.loadKey||""):null;   // un caso nuevo debe ser distinto del anterior
+  do{ genMysteryRaw(); }while(prevSig&&MYST.kind+"|"+MYST.P3+"|"+(MYST.loadKey||"")===prevSig);
+}
+function genMysteryRaw(){
   if(Math.random()<0.25){
     const P3=Math.random()<0.5?8000:15000;
     const target=iaMinAt(P3);
@@ -570,7 +574,7 @@ function genMystery(){
     const r=fpCorrectionTarget(P3,lk);
     MYST={kind:'fpCorrection',P3,loadKey:lk,target:r.FPtotal,tol:0.01,limited:r.limited};
   }
-  retoSolved=false; retoMsg='';
+  retoSolved=false; retoMsg=''; intentos=0; pistas=0;
 }
 
 /* ---------- §3 Materiales ---------- */
@@ -1121,10 +1125,10 @@ function updateReport(){
   } else {
     if(MYST.kind==='minIa'){
       L.push(`Reto: calcula Ia_mín para P = ${(MYST.P3/1000).toFixed(0)} kW.`);
-      L.push(retoSolved?`<span class="ok">${retoMsg}</span>`:'Escribe tu resultado en amperes y comprueba.');
+      L.push(retoSolved?`<span class="ok">${retoMsg}</span>`:'Escribe tu resultado en amperes y comprueba. Intentos fallidos: '+intentos+'/3.');
     } else {
       L.push(`Reto: maximiza el FP total con ${LOADS[MYST.loadKey].label} y P = ${(MYST.P3/1000).toFixed(0)} kW.`);
-      L.push(retoSolved?`<span class="ok">${retoMsg}</span>`:'Mueve el reóstato If y observa el medidor de FP total.');
+      L.push(retoSolved?`<span class="ok">${retoMsg}</span>`:'Mueve el reóstato If y observa el medidor de FP total. Intentos fallidos: '+intentos+'/3.');
     }
   }
   el('report').innerHTML=L.map(s=>'<div>'+s+'</div>').join('');
@@ -1134,14 +1138,14 @@ function refreshAll(){ drawBoard(); updateTele(); updateReport(); refreshBenchDy
 
 /* ---------- §10 Reto ---------- */
 function checkReto(){
-  if(!MYST) return;
+  if(!MYST||retoSolved) return;
   const v=parseFloat(el('retoInput').value.replace(',','.'));
   if(!isFinite(v)){
     el('retoOut').innerHTML='<span class="dtc">Escribe un número.</span>'; return;
   }
   const ok=Math.abs(v-MYST.target)<=MYST.tol;
   if(ok){
-    retoSolved=true; solved=true;
+    retoSolved=true; solved=true; clearDx(); refreshQuestion();
     if(MYST.kind==='minIa'){
       retoMsg=`Ia_mín = P/(3·Vt) = ${MYST.P3}/(3×${VT.toFixed(2)}) = ${MYST.target.toFixed(2)} A — el punto más bajo de la curva V para esta carga, exactamente en FP unitario.`;
     } else {
@@ -1151,9 +1155,17 @@ function checkReto(){
     el('retoOut').innerHTML=`<span class="ok">✔ ¡Correcto! (tolerancia ${tolText()})</span>`;
     synth.beep(880,.1,.08); setTimeout(()=>synth.beep(1175,.15,.08),140);
   } else {
-    retoMsg='';
-    el('retoOut').innerHTML=`<span class="dtc">✘ Aún no. Tolerancia: ${tolText()}</span>`;
+    retoMsg=''; intentos++;
     synth.beep(180,.12,.08);
+    if(intentos>=3){
+      newMystery();
+      el('retoOut').innerHTML='<span class="dtc">✘ Tres intentos fallidos: te dejo un caso NUEVO.</span>';
+      return;
+    }
+    let pista='';
+    if(intentos===1){ pistas=1; pista=MYST.kind==='minIa'?' Pista 1: el fondo de la curva V es el punto de menor corriente para esa carga.':' Pista 1: el FP total combina la potencia activa del motor y de la carga con la reactiva de ambos.'; }
+    else if(intentos===2){ pistas=2; pista=MYST.kind==='minIa'?' Pista 2: en ese punto Q = 0, así que la corriente es solo activa.':' Pista 2: el máximo se alcanza cuando la reactiva del motor compensa la de la carga, salvo que antes llegue al límite térmico de la armadura.'; }
+    el('retoOut').innerHTML=`<span class="dtc">✘ Aún no (intento ${intentos}/3). Tolerancia: ${tolText()}.</span>${pista}`;
   }
   refreshAll();
 }
@@ -1175,19 +1187,19 @@ function buildQuiz(){
   QUIZ.explora={
     pregunta:'¿Qué le pasa a un motor síncrono cuando se sobreexcita (If alto)?',
     opciones:shuffle([
-      {t:'Se comporta como un capacitor, entregando reactivos a la red',ok:true,why:'Correcto: al sobreexcitar, Ef>Vt y el motor adelanta corriente respecto al voltaje — exactamente lo que hace un banco de capacitores.'},
-      {t:'Gira más rápido que en sincronismo',ok:false,why:'No: la velocidad síncrona depende de la frecuencia de la red, no de If.'},
-      {t:'Se desconecta automáticamente',ok:false,why:'No: mientras δ<90° el motor sigue sincronizado; solo se desconecta si pierde el paso.'},
-      {t:'Consume más reactivos de la red',ok:false,why:'Al revés: sobreexcitado ENTREGA reactivos; los consume cuando está subexcitado.'},
+      {t:'Se comporta como un capacitor y entrega reactivos a la red, porque su corriente adelanta a la tensión',ok:true,why:'Correcto: al sobreexcitar, Ef>Vt y el motor adelanta corriente respecto al voltaje — exactamente lo que hace un banco de capacitores.'},
+      {t:'Gira más rápido que la velocidad síncrona, porque un campo más intenso acelera el rotor',ok:false,why:'No: la velocidad síncrona depende de la frecuencia de la red, no de If.'},
+      {t:'Se desconecta de la red de inmediato, porque el exceso de excitación rompe el sincronismo',ok:false,why:'No: mientras δ<90° el motor sigue sincronizado; solo se desconecta si pierde el paso.'},
+      {t:'Consume más reactivos de la red, porque el campo mayor exige más magnetización',ok:false,why:'Al revés: sobreexcitado ENTREGA reactivos; los consume cuando está subexcitado.'},
     ]),
   };
   QUIZ.comparar={
     pregunta:'¿Por qué el mínimo de cada curva V ocurre en factor de potencia unitario?',
     opciones:shuffle([
       {t:'Porque ahí toda la corriente de armadura es componente activa (en fase con Vt)',ok:true,why:'Correcto: en FP unitario Q=0, así que Ia solo tiene componente en fase con Vt — la magnitud mínima posible para entregar esa P.'},
-      {t:'Porque ahí Xs vale cero',ok:false,why:'No: Xs es una constante de la máquina, no cambia con If.'},
-      {t:'Porque ahí el motor no gira',ok:false,why:'No: el motor sigue entregando la misma P mecánica en todo punto de la curva.'},
-      {t:'Es una coincidencia de esta gráfica',ok:false,why:'No: es una consecuencia directa del diagrama fasorial — se cumple para cualquier motor síncrono de rotor liso.'},
+      {t:'Porque ahí la reactancia síncrona Xs vale cero y el motor se comporta como una resistencia pura',ok:false,why:'No: Xs es una constante de la máquina, no cambia con If.'},
+      {t:'Porque ahí el motor deja de girar y toda la potencia se disipa como calor en el devanado',ok:false,why:'No: el motor sigue entregando la misma P mecánica en todo punto de la curva.'},
+      {t:'Es una coincidencia de esta gráfica, que cambiaría con otro motor de rotor liso',ok:false,why:'No: es una consecuencia directa del diagrama fasorial — se cumple para cualquier motor síncrono de rotor liso.'},
     ]),
   };
   if(MYST){
@@ -1195,20 +1207,20 @@ function buildQuiz(){
       QUIZ.reto={
         pregunta:'¿Qué fórmula da la corriente de armadura mínima de una curva V?',
         opciones:shuffle([
-          {t:'Ia_mín = P/(3·Vt), con P la carga trifásica',ok:true,why:'Correcto: en FP unitario Ia es puramente activa, así que P = 3·Vt·Ia y se despeja Ia.'},
-          {t:'Ia_mín = P·Xs/Vt',ok:false,why:'Esa expresión no tiene las unidades correctas para una corriente mínima en FP unitario.'},
-          {t:'Ia_mín = Vt/Xs',ok:false,why:'Esa sería una corriente de cortocircuito interna, no depende de la carga P.'},
-          {t:'Ia_mín es siempre igual a Ia nominal',ok:false,why:'No: Ia_mín depende de la carga mecánica P y suele ser mucho menor que Ia nominal.'},
+          {t:'Ia_mín = P/(3·Vt), con P la carga trifásica y Vt la tensión de fase',ok:true,why:'Correcto: en FP unitario Ia es puramente activa, así que P = 3·Vt·Ia y se despeja Ia.'},
+          {t:'Ia_mín = P·Xs/Vt, con Xs la reactancia síncrona del motor',ok:false,why:'Esa expresión no tiene las unidades correctas para una corriente mínima en FP unitario.'},
+          {t:'Ia_mín = Vt/Xs, la corriente que limita la reactancia síncrona',ok:false,why:'Esa sería una corriente de cortocircuito interna, no depende de la carga P.'},
+          {t:'Ia_mín es siempre igual a Ia nominal, sea cual sea la carga',ok:false,why:'No: Ia_mín depende de la carga mecánica P y suele ser mucho menor que Ia nominal.'},
         ]),
       };
     } else {
       QUIZ.reto={
         pregunta:'¿Qué limita cuánta reactiva puede entregar el motor síncrono como compensador?',
         opciones:shuffle([
-          {t:'La corriente nominal (térmica) de armadura',ok:true,why:'Correcto: aunque sobreexcitar más seguiría mejorando el FP del bus, la armadura no puede superar su corriente nominal sin sobrecalentarse.'},
-          {t:'La frecuencia de la red',ok:false,why:'La frecuencia fija la velocidad síncrona, no el límite de reactivos que puede entregar el motor.'},
-          {t:'El número de polos del motor',ok:false,why:'El número de polos afecta la velocidad, no directamente el límite de corriente de armadura.'},
-          {t:'No existe ningún límite práctico',ok:false,why:'Sí existe: pasar Ia nominal sostenidamente daña el aislamiento del devanado de armadura.'},
+          {t:'La corriente nominal (térmica) de armadura, que no puede superarse',ok:true,why:'Correcto: aunque sobreexcitar más seguiría mejorando el FP del bus, la armadura no puede superar su corriente nominal sin sobrecalentarse.'},
+          {t:'La frecuencia de la red, que impone un tope a la tensión interna Ef',ok:false,why:'La frecuencia fija la velocidad síncrona, no el límite de reactivos que puede entregar el motor.'},
+          {t:'El número de polos del motor, que fija cuánta reactiva admite el rotor',ok:false,why:'El número de polos afecta la velocidad, no directamente el límite de corriente de armadura.'},
+          {t:'No existe ningún límite práctico mientras el motor siga sincronizado',ok:false,why:'Sí existe: pasar Ia nominal sostenidamente daña el aislamiento del devanado de armadura.'},
         ]),
       };
     }
@@ -1217,6 +1229,7 @@ function buildQuiz(){
 function clearDx(){ el('dxbtns').innerHTML=''; }
 function refreshQuestion(){
   const q=QUIZ[mode]; if(!q) return;
+  if(mode==='reto'&&!retoSolved){ el('q_text').textContent='🔒 La pregunta de ingeniería de este reto se habilita al resolverlo: sus opciones darían la fórmula.'; el('dxbtns').innerHTML=''; return; }
   el('q_text').textContent=q.pregunta;
   const box=el('dxbtns'); box.innerHTML='';
   q.opciones.forEach((o,i)=>{
@@ -1261,45 +1274,37 @@ pickerFor(S.scene,S.camera,S.renderer.domElement,hit=>{
 
 const sleep=ms=>new Promise(r=>setTimeout(r,ms));
 async function runAuto(){
-  if(autoRunning) return; autoRunning=true;
+  if(autoRunning) return;
+  if(mode==='reto'&&!retoSolved){ showToast('🔒 El recorrido barre If y muestra las curvas: resuelve el reto (o pide un caso nuevo con 🔀) antes de verlo.'); synth.beep(220,.1,.07); return; }
+  autoRunning=true;
+  // DEMOSTRACIÓN: se guarda el estado del alumno y se restaura; el reto ni se toca ni se resuelve
+  const prev={mode,psync,loadKey,ifPct,rs:retoSolved,sv:solved};
   const b=el('btnAuto'); b.disabled=true; b.textContent='▶ En curso…';
   try{
     synth.init(); synth.resume();
     setMode('explora');
-    showToast('1/5 · Explora: barremos If de 60% a 180% con P=8kW.');
+    showToast('1/4 · Explora: barremos If de 60% a 180% con P=8kW.');
     setPsync(8000);
     for(let v=IF_MIN;v<=IF_MAX;v+=6){ ifPct=v; el('sIf').value=v; el('av').textContent=v.toFixed(0); refreshAll(); await sleep(90); }
     await sleep(400);
 
-    showToast('2/5 · Comparar: observa las tres curvas V juntas.');
+    showToast('2/4 · Comparar: observa las tres curvas V juntas.');
     setMode('comparar');
     for(const p of P_LEVELS){ setPsync(p); await sleep(500); }
     await sleep(300);
 
-    showToast('3/5 · Conectamos una carga industrial inductiva al bus.');
+    showToast('3/4 · Conectamos una carga industrial inductiva al bus.');
     setMode('explora'); setPsync(0); setLoad('B');
     for(let v=IF_MIN;v<=IF_MAX;v+=6){ ifPct=v; el('sIf').value=v; el('av').textContent=v.toFixed(0); refreshAll(); await sleep(80); }
     await sleep(400);
 
-    showToast('4/5 · Reto: resolvemos un caso misterioso.');
-    setMode('reto');
-    if(MYST.kind==='fpCorrection'){
-      const r=fpCorrectionTarget(MYST.P3,MYST.loadKey);
-      for(let v=IF_MIN;v<=IF_MAX;v+=4){
-        ifPct=v; el('sIf').value=v; el('av').textContent=v.toFixed(0); refreshAll();
-        if(Math.abs(v-r.IfPct)<3) break;
-        await sleep(50);
-      }
-    }
-    el('retoInput').value=MYST.target.toFixed(MYST.kind==='minIa'?2:3);
-    checkReto();
-    const idx=QUIZ.reto.opciones.findIndex(o=>o.ok);
-    if(idx>=0) el('dxbtns').children[idx].click();
-    await sleep(600);
-
-    showToast('5/5 · Nuevo caso listo para intentar por tu cuenta.');
-    newMystery();
+    showToast('4/4 · En el Reto te dan un caso (calcular Ia mínima o maximizar el FP total) y lo resuelves tú. Te devuelvo al punto en que estabas.');
+    await sleep(3000);
   } finally {
+    setMode(prev.mode);
+    if(prev.mode!=='reto'){ setPsync(prev.psync); setLoad(prev.loadKey); }
+    ifPct=prev.ifPct; el('sIf').value=ifPct; el('av').textContent=ifPct.toFixed(0); refreshAll();
+    retoSolved=prev.rs; solved=prev.sv;
     autoRunning=false; b.disabled=false; b.textContent='✨ Recorrido guiado';
   }
 }
@@ -1332,7 +1337,8 @@ S.start();
 setMode('explora');
 
 window.__labDebug={
-  state:()=>({mode,psync,loadKey,ifPct,retoSolved,solved}),
+  state:()=>({mode,psync,loadKey,ifPct,retoSolved,solved,intentos,pistas}),
+  intentos:()=>intentos, pistas:()=>pistas, runAuto,
   point:()=>motorPQ(efFromIf(ifPct),psync),
   motorPQ, efFromIf, ifFromEf, iaMinAt, efUnityPF, efAtIaRatedOver, efForQtarget, fpCorrectionTarget,
   mystery:()=>MYST?{...MYST}:null,

@@ -2379,18 +2379,21 @@ function setMode(k){
 // pareja de dientes: si dos calados dieran la misma clave el banco no podría
 // separarlos y sería injusto exigir uno de los dos. El censo dice que en estas
 // cuatro máquinas no ocurre, pero la regla se escribe igual.
-const RETO={ mk:'g16', sol:null, cand:[], pistas:0, pistaTxt:'', hecho:false, acierto:false, filtros:[] };
+const MAX_INTENTOS=3, MAX_PISTAS=2;
+const RETO={ mk:'g16', sol:null, cand:[], pistas:0, pistaTxt:'', hecho:false, acierto:false, filtros:[], intentos:0, aviso:'' };
 const azar=n=>Math.floor(Math.random()*n);
 function baraja(a){ for(let i=a.length-1;i>0;i--){ const j=azar(i+1); const t=a[i]; a[i]=a[j]; a[j]=t; } return a; }
 const claveDe=f=>claveSub(f,MED);
 
-function armaReto(fuerza){
+function armaReto(fuerza,evita){
   if(RETO.sol&&!fuerza) return;
   const mk=ARQ_KEYS[azar(ARQ_KEYS.length)];
-  const casos=cenM(mk).r;
+  // `evita`: el calado del caso que acaba de agotar sus intentos. El caso nuevo es
+  // OTRO, o se aprobaría por eliminación recorriendo calados.
+  const casos=cenM(mk).r.filter(c=>!(evita&&mk===evita.mk&&c.dAdm===evita.dA&&c.dEsc===evita.dE));
   const sol=casos[azar(casos.length)];
   RETO.mk=mk; RETO.sol={dA:sol.dAdm,dE:sol.dEsc};
-  RETO.pistas=0; RETO.pistaTxt=''; RETO.hecho=false; RETO.acierto=false; RETO.filtros=[];
+  RETO.pistas=0; RETO.pistaTxt=''; RETO.hecho=false; RETO.acierto=false; RETO.filtros=[]; RETO.intentos=0; RETO.aviso='';
   RETO.cand=casos.map(c=>({dA:c.dAdm,dE:c.dEsc}));
   if(ST.mk!==mk){ aplicaMaquina(mk); montaMaquina(); }
   ST.dA=0; ST.dE=0; ST.jx=0;
@@ -2411,7 +2414,9 @@ function pista(){
            c=>(c.dE!==0)===(s.dE!==0) ]);
   P.push([ 'la admisión está '+sg(s.dA), c=>Math.sign(c.dA)===Math.sign(s.dA) ]);
   if(!uno) P.push([ 'el escape está '+sg(s.dE), c=>Math.sign(c.dE)===Math.sign(s.dE) ]);
-  if(RETO.pistas>=P.length){ showToast('No quedan más pistas: ya está todo dicho.',2400); return; }
+  // Máximo dos pistas, de lo general a lo particular: la tercera y la cuarta ya
+  // dirían el sentido del desfase de cada árbol, que es la solución.
+  if(RETO.pistas>=Math.min(MAX_PISTAS,P.length)){ showToast('No quedan más pistas en este caso.',2400); return; }
   const [txt,f]=P[RETO.pistas];
   RETO.filtros.push(f); RETO.pistas++;
   RETO.pistaTxt=(RETO.pistaTxt?RETO.pistaTxt+' · ':'')+txt;
@@ -2421,17 +2426,31 @@ function pista(){
   pintaBoard(); pintaReto();
 }
 function checkReto(){
-  const s=RETO.sol; if(!s) return;
+  const s=RETO.sol; if(!s||RETO.hecho) return;
   const a=claveDe(firM(RETO.mk,ST.dA,ST.dE)), b=claveDe(firM(RETO.mk,s.dA,s.dE));
-  RETO.hecho=true; RETO.acierto=(a===b); solved=RETO.acierto;
+  RETO.acierto=(a===b); RETO.intentos++;
   if(RETO.acierto){
+    RETO.hecho=true; solved=true;
     synth.beep(660,0.09,0.05); setTimeout(()=>synth.beep(990,0.14,0.05),110);
     showToast('✔ <b>Diagnóstico correcto.</b> Admisión '+dtx(s.dA)+', escape '+dtx(s.dE)+'.',5200);
   }else{
     synth.beep(200,0.14,0.05);
-    showToast('✘ Ese calado no reproduce las lecturas del banco. Compara fila por fila.',4200);
+    if(RETO.intentos>=MAX_INTENTOS){
+      // Tres fallos: ese motor se va y llega otro con otro calado.
+      armaReto(true,{mk:RETO.mk,dA:s.dA,dE:s.dE});
+      RETO.aviso='Tres intentos fallidos: ese motor se ha ido y ha llegado otro, con otro calado.';
+      showToast('✘ '+RETO.aviso,4400);
+      aplicaReto();
+      return;
+    }
+    showToast('✘ Ese calado no reproduce las lecturas del banco. Compara fila por fila. Intento '+RETO.intentos+' de '+MAX_INTENTOS+'.',4200);
   }
   pintaBoard(); pintaReto();
+}
+// Después de resembrar el caso hay que repintar todo lo que depende de él.
+function aplicaReto(){
+  CUR=cfgDe('reto');
+  pintaBoard(); pintaTele(); pintaInforme(); pintaReto(); buildControls(); syncCtrlbar();
 }
 function pintaReto(){
   const box=el('retoSpec'); if(!box) return;
@@ -2444,11 +2463,13 @@ function pintaReto(){
     h+=m.cor+': <b>'+fN(a,m.dec)+'</b> '+m.uni+' · tu hipótesis <span class="'+(ig?'ok':'dtc')+'">'+
        fN(b,m.dec)+'</span><br>';
   });
-  h+='<span class="mono">calados compatibles: '+RETO.cand.length+' · pistas usadas: '+RETO.pistas+'</span>';
-  if(RETO.hecho) h+='<br><span class="'+(RETO.acierto?'ok':'dtc')+'">'+
-    (RETO.acierto?'✔ correcto':'✘ no coincide')+'</span>';
+  h+='<span class="mono">calados compatibles: '+RETO.cand.length+' · pistas: '+RETO.pistas+'/'+MAX_PISTAS+
+     ' · intentos: '+RETO.intentos+'/'+MAX_INTENTOS+'</span>';
+  if(RETO.aviso) h+='<br><span class="dtc">'+RETO.aviso+'</span>';
+  if(RETO.hecho) h+='<br><span class="ok">✔ correcto</span>';
+  else if(RETO.intentos) h+='<br><span class="dtc">✘ no coincide</span>';
   box.innerHTML=h;
-  el('btnPista').disabled=RETO.hecho;
+  el('btnPista').disabled=RETO.hecho||RETO.pistas>=MAX_PISTAS;
 }
 
 // ============================================================ §11 CUESTIONARIO
@@ -2486,9 +2507,9 @@ function preguntaDe(){
     ops:[[V.inter.any?'Sí: el alzado neto supera el hueco de la corona':'No: la válvula a alzado máximo cabe bajo el pistón en el PMS',true,
           V.inter.any?('Con el mando roto la válvula penetraría hasta '+mm(Math.max(V.inter.penetraA,V.inter.penetraE))+'.')
                      :('Ni con el árbol parado toca: '+mm(V.inter.LnetA)+' de alzado contra '+mm(V.inter.C0A)+' de hueco.')],
-         [V.inter.any?'No: con este calado no toca nada':'Sí: cualquier motor moderno lo es',false,
+         [V.inter.any?'No: con este calado no toca nada y por tanto no es interferente':'Sí: cualquier motor moderno lo es, porque todos llevan correa o cadena',false,
           'Interferente es una propiedad de la GEOMETRÍA. Que choque o no con este calado es otra pregunta.'],
-         ['Depende del calado del árbol',false,
+         ['Depende del calado del árbol, porque cambia la altura de la válvula en el PMS',false,
           'No. El criterio es pistón en el PMS y válvula a alzado máximo: ese caso existe siempre si se rompe el mando.']]};
   if(mode==='banco'){
     if(e.arboles===2) return {
@@ -2506,8 +2527,8 @@ function preguntaDe(){
   return { q:'¿Por qué el reto nunca propone dos calados que den las mismas cuatro lecturas?',
     ops:[['Porque serían indistinguibles con este banco y no habría respuesta única',true,
           'El censo de esta máquina da '+cn.unicas+' claves distintas para '+cn.n+' calados: no hay empates.'],
-         ['Porque el motor no puede saltar tantos dientes',false,'Sí puede: el censo recorre de −2 a +2 en cada árbol.'],
-         ['Porque el manómetro no tiene resolución',false,'La clave se compara con las cifras redondeadas que se muestran, no con decimales ocultos.']]};
+         ['Porque el motor no puede saltar tantos dientes de la correa sin romperse',false,'Sí puede: el censo recorre de −2 a +2 en cada árbol.'],
+         ['Porque el manómetro de compresión no tiene resolución para separarlos',false,'La clave se compara con las cifras redondeadas que se muestran, no con decimales ocultos.']]};
 }
 function construyeQuiz(){
   const p=preguntaDe();
@@ -2532,8 +2553,23 @@ function limpiaDx(){ QRESP=-1; }
 function refrescaPregunta(){ if(QRESP<0) construyeQuiz(); }
 
 // ============================================================ §12 RECORRIDO
+// El recorrido es una DEMOSTRACIÓN: al terminar devuelve el banco al estado en que
+// estaba (modo, calado que el alumno había puesto, juego de taqués) y jamás toca
+// el reto: ni lo resuelve, ni lo resiembra, ni gasta intentos o pistas.
+let SNAP=null;
+function restauraAuto(){
+  const sn=SNAP; SNAP=null; if(!sn) return;
+  Object.assign(ST,sn.st);
+  mode=sn.mode;
+  CUR=cfgDe(mode);
+  pintaHUD(); buildControls(); syncCtrlbar();
+  construyeQuiz(); limpiaDx();
+  pintaBoard(); pintaTele(); pintaInforme(); pintaReto();
+  S.moveTo(MODE_META[mode].cam[0],MODE_META[mode].cam[1]);
+}
 function runAuto(){
   if(autoRunning) return;
+  SNAP={mode, st:{dA:ST.dA, dE:ST.dE, jx:ST.jx, lref:ST.lref}};
   autoRunning=true; syncCtrlbar();
   const paso=[];
   if(!simUnlocked) paso.push([0,()=>{ showToast('Montando el tren pieza a pieza…',3000); autoAssemble(); },
@@ -2551,10 +2587,10 @@ function runAuto(){
   paso.push([0,()=>{ setMode('banco');
     showToast('Cuatro instrumentos. Lo que importa es cuántas averías distintas separa cada uno.',4600); },5200]);
   paso.push([0,()=>{ ST.dA=0; ST.dE=0; afterEdit(); setMode('marcas');
-    showToast('Vuelta al calado correcto. Te toca.',3400); },3600]);
+    showToast('Fin de la demostración: el banco vuelve a como lo dejaste. Esto no puntúa.',3400); },3600]);
   let t=0;
   paso.forEach(p=>{ setTimeout(p[1],t); t+=p[2]; });
-  setTimeout(()=>{ autoRunning=false; syncCtrlbar(); },t);
+  setTimeout(()=>{ autoRunning=false; restauraAuto(); syncCtrlbar(); },t);
 }
 function otroCaso(){
   if(mode==='reto'){ armaReto(true); pintaBoard(); pintaTele(); pintaInforme(); pintaReto();
@@ -2613,7 +2649,8 @@ window.__labDebug={
   auto(){ runAuto(); },
   otro(){ otroCaso(); },
   reto(){ return RETO.sol?{mk:RETO.mk,cand:RETO.cand.length,pistas:RETO.pistas,
-    hecho:RETO.hecho,acierto:RETO.acierto}:null; },
+    hecho:RETO.hecho,acierto:RETO.acierto,intentos:RETO.intentos,maxIntentos:MAX_INTENTOS,maxPistas:MAX_PISTAS}:null; },
+  get intentos(){ return RETO.intentos; },
   retoSol(){ return RETO.sol?{...RETO.sol}:null; },
   pista(){ pista(); return {n:RETO.pistas,cand:RETO.cand.length,txt:RETO.pistaTxt}; },
   entrega(){ checkReto(); return {acierto:RETO.acierto}; },

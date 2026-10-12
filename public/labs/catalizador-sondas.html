@@ -1861,8 +1861,10 @@ function vistaReto(){
     }
   }
   if(RETO.veredicto)
-    banda(Math.max(y,BH-160),RETO.veredicto.ok?'ok':'bad',
-      RETO.veredicto.ok?'ACERTASTE':'FALLASTE',RETO.veredicto.texto);
+    banda(Math.max(y,BH-160),'ok','ACERTASTE',RETO.veredicto.texto);
+  else if(RETO.fallo)
+    banda(Math.max(y,BH-160),'bad','DICTAMEN NO ACEPTADO',
+      RETO.fallo+' Intento '+num(RETO.intentos,0)+' de '+MAX_INTENTOS+'.');
 }
 
 // ================================== T3 · EL BANCO: LA LÍNEA DE ESCAPE EN ALTO
@@ -2395,7 +2397,8 @@ function pintaTablero(){
 }
 
 // ============================== T4b · RETO, CUESTIONARIO, RECORRIDO Y ARRANQUE
-const RETO={caso:null, V:null, sel:[], veredicto:null, pistas:0,
+const MAX_INTENTOS=3, MAX_PISTAS=2;
+const RETO={caso:null, V:null, sel:[], veredicto:null, pistas:0, intentos:0, fallo:'', aviso:'',
   medido:{escaner:false,osc:false,gases:false},
   antes:{edad:0,falla:'sano',metodo:'dinamico'}};
 
@@ -2438,8 +2441,8 @@ function eligeDx(k){
 
 // Los casos: no toda avería tiene sentido con toda edad. Se sortea la pareja y
 // se guarda; ni la edad ni la avería se enseñan en ninguna superficie.
-function armaReto(){
-  RETO.antes={edad:G.edad,falla:G.falla,metodo:G.metodo};
+function armaReto(conservaAntes){
+  if(!conservaAntes) RETO.antes={edad:G.edad,falla:G.falla,metodo:G.metodo};
   const e=MQ();
   const fallas=FALLA_KEYS.filter(k=>e.sondaPost||['sano','frio','fosforo','plomo'].indexOf(k)>=0);
   RETO.caso=fallas[Math.floor(Math.random()*fallas.length)];
@@ -2448,6 +2451,7 @@ function armaReto(){
   G.metodo=Math.random()<0.5?'dinamico':'estatico';
   RETO.V=evalua(e,{edad:edad,falla:RETO.caso});
   RETO.sel=[]; RETO.veredicto=null; RETO.pistas=0;
+  RETO.intentos=0; RETO.fallo=''; RETO.aviso='';
   RETO.medido={escaner:false,osc:false,gases:false};
   G.resuelto=false;
   invalida(); pintaDxReto();
@@ -2490,22 +2494,26 @@ function pintaReto(){
   h+='Se verifica por el '+MET_ROT[G.metodo]+'. ';
   const n=(RETO.medido.escaner?1:0)+(RETO.medido.osc?1:0)+(RETO.medido.gases?1:0);
   if(RETO.veredicto)
-    h+=(RETO.veredicto.ok?'<b class="good">Acertaste.</b> ':'<b class="bad">Fallaste.</b> ')+RETO.veredicto.texto;
+    h+='<b class="good">Acertaste.</b> '+RETO.veredicto.texto;
+  else if(RETO.fallo)
+    h+='<b class="bad">Dictamen no aceptado.</b> '+RETO.fallo+' Intento '+num(RETO.intentos,0)+' de '+MAX_INTENTOS+'.';
   else if(n===0) h+='No has medido nada todavía. Los tres instrumentos están arriba.';
-  else h+='Llevas '+num(n,0)+' de 3 instrumentos. Recuerda que puedes pedir los tres, y que dos de ellos leen por la MISMA sonda: si esa sonda miente, los dos mienten igual.';
+  else h+=(RETO.aviso?RETO.aviso+' ':'')+'Llevas '+num(n,0)+' de 3 instrumentos. Recuerda que puedes pedir los tres, y que dos de ellos leen por la MISMA sonda: si esa sonda miente, los dos mienten igual.';
+  if(!RETO.veredicto&&!RETO.fallo) h+=' Intentos: '+num(RETO.intentos,0)+' de '+MAX_INTENTOS+' · pistas: '+num(RETO.pistas,0)+' de '+MAX_PISTAS+'.';
   el('report').innerHTML=h;
 }
 function pistaReto(){
   if(G.modo!=='reto'||RETO.veredicto) return;
+  if(RETO.pistas>=MAX_PISTAS){
+    showToast('<b>Sin más pistas</b><br>Ya has usado las '+MAX_PISTAS+' de este caso.',3000); return; }
   RETO.pistas++;
+  // Sólo dos, y de método —cómo mirar—, nunca de qué tiene este coche.
   const p=[
     'Lo primero no es el código: es el tubo. Si por el tubo sale menos de lo que la norma admite, no hay catalizador que cambiar por mucho que el escáner se queje.',
-    'Una sonda posterior sana vive ALTA y quieta, sobre 0,6 V. Si la ves en 0,45 o más abajo sin oscilar, algo la está empujando hacia pobre — y el catalizador no hace eso.',
     'El almacenamiento y el índice del monitor leen los DOS por la sonda posterior. Si esos dos dicen que todo va bien y el analizador de gases dice que no, el que miente no es el analizador.',
-    'Si la conversión se ha caído pero el almacén sigue dando sus segundos, eso no es edad: el cerio y los metales preciosos se van juntos con los años. Es un veneno, y viene de algún sitio.',
-    'Con el método estático el NOx no tiene límite ninguno. Un catalizador que haya perdido sólo el rodio pasa esa prueba entera sin que salte nada.',
-  ][Math.min(RETO.pistas-1,4)];
-  showToast('<b>Pista '+RETO.pistas+'</b><br>'+p,5600);
+  ][RETO.pistas-1];
+  showToast('<b>Pista '+RETO.pistas+' de '+MAX_PISTAS+'</b><br>'+p,5600);
+  pintaReto();
 }
 function entregaReto(){
   if(G.modo!=='reto'||!RETO.sel.length) return;
@@ -2513,6 +2521,29 @@ function entregaReto(){
   if(n===0){ showToast('<b>Todavía no has medido nada</b><br>Usa al menos un instrumento antes de dictaminar.',3400); return; }
   const esp=esperadoReto(), dado=RETO.sel.slice().sort();
   const ok=esp.join('|')===dado.join('|');
+  if(!ok){
+    // Al fallar NO se dice qué era ni qué había que hacer: se dice en qué sentido
+    // no cuadra el dictamen y qué se puede razonar con lo medido. A los tres
+    // fallos el caso se cambia por otro, para que nadie apruebe por eliminación.
+    const sobra=dado.filter(x=>esp.indexOf(x)<0).length, falta=esp.filter(x=>dado.indexOf(x)<0).length;
+    let t='';
+    if(sobra) t+='Alguna de las acciones que marcaste no la piden los instrumentos. ';
+    if(falta) t+='Falta al menos una acción que sí piden. ';
+    t+=n<3 ? 'Has usado '+num(n,0)+' de los 3 instrumentos: lo que no has medido no lo puedes descartar.'
+      : 'Con los tres instrumentos en la mano, desconfía del que lee por una sonda que podría estar mintiendo y contrasta con lo que sale por el tubo.';
+    RETO.fallo=t;
+    RETO.intentos++;
+    G.resuelto=false;
+    synth.beep(220,0.14,0.08);
+    if(RETO.intentos>=MAX_INTENTOS){
+      const antes=Object.assign({},RETO.antes);
+      armaReto(true); RETO.antes=antes;
+      RETO.aviso='Tres dictámenes fallados: este coche se cierra sin revelarlo y llega otro.';
+      showToast('<b>Coche nuevo</b><br>Tres intentos fallados. Otro caso, otro catalizador.',3600);
+      afterEdit();
+    } else { pintaReto(); pintaTablero(); pintaTele(); }
+    return;
+  }
   const V=RETO.V, e=MQ(), lim=limites(G.metodo,e.anio);
   const rotDx=k=>{ const f=DX_OPS.filter(o=>o[0]===k)[0]; return f?f[1]:k; };
   let t='Era <b>'+FALLAS[RETO.caso].rot+'</b>, con el catalizador '+EDAD_ROT(G.edad).rot+
@@ -2533,12 +2564,12 @@ function entregaReto(){
     t+='Este coche no tiene sonda posterior: no hay monitor que valga y el único instrumento era el analizador. ';
   if(!V.apruebaEst!==!V.apruebaDin)
     t+='Por el otro método este mismo coche '+((G.metodo==='dinamico'?V.apruebaEst:V.apruebaDin)?'APROBARÍA':'también rechazaría')+'. ';
-  if(!ok) t+='Habías dicho «'+dado.map(rotDx).join(' + ')+'».';
   if(RETO.pistas) t+=' Con '+num(RETO.pistas,0)+' pista'+(RETO.pistas>1?'s':'')+'.';
   if(n<3) t+=' Y con '+num(n,0)+' de los 3 instrumentos.';
-  RETO.veredicto={ok:ok,texto:t};
-  G.resuelto=ok;
-  synth.beep(ok?720:220,0.14,0.08);
+  RETO.fallo=''; RETO.aviso='';
+  RETO.veredicto={ok:true,texto:t};
+  G.resuelto=true;
+  synth.beep(720,0.14,0.08);
   pintaReto(); pintaTablero(); pintaTele();
 }
 
@@ -2552,40 +2583,40 @@ function preguntas(){
       ' de media. ¿Por qué una sonda posterior sana se queda ALTA en vez de en el umbral?',
     ops:[
       ['Porque el gas que sale del catalizador viene equilibrado y lleva hidrógeno, y el circonio lee el hidrógeno como mezcla rica',true],
-      ['Porque el catalizador calienta el gas y una sonda caliente da más tensión',false],
-      ['Porque la sonda posterior lleva otra calibración de fábrica',false],
-      ['Porque el silenciador frena el gas y baja la presión del oxígeno',false],
+      ['Porque el catalizador calienta el gas al convertirlo y una sonda más caliente entrega siempre una tensión mayor',false],
+      ['Porque la sonda posterior lleva otra calibración de fábrica que desplaza su punto de trabajo hacia las tensiones altas',false],
+      ['Porque el silenciador frena el gas y baja la presión parcial del oxígeno que llega a la sonda de detrás',false],
     ]});
   q.push({t:'La prueba de almacenamiento da '+(V.osc.roto?seg(V.osc.t):'más de 20 s')+
       ' en marcha mínima. Si la misma prueba se hiciera en crucero, ¿qué saldría?',
     ops:[
       ['Bastante menos tiempo, porque el tiempo es la capacidad dividida entre el oxígeno que entra por segundo',true],
-      ['Lo mismo: la capacidad de la lata no depende del régimen',false],
-      ['Más tiempo, porque en crucero el catalizador está más caliente y guarda mejor',false],
-      ['No se puede hacer en crucero',false],
+      ['Lo mismo, porque la capacidad de la lata es una propiedad suya y no depende del régimen al que gire el motor',false],
+      ['Más tiempo, porque en crucero el catalizador está más caliente y un cerio caliente guarda más oxígeno',false],
+      ['No se puede hacer en crucero, porque el método sólo está definido con el motor en marcha mínima',false],
     ]});
   q.push({t:'El umbral del monitor está en '+num(INDICE_UMBRAL,2)+'. ¿De dónde sale ese número?',
     ops:[
       ['Se elige para que el monitor salte donde el HC de cola llega a 1,5 veces el límite de la norma',true],
-      ['Es la mitad exacta del recorrido de la sonda, por simetría',false],
-      ['Lo fija el fabricante de la sonda según su hoja de datos',false],
-      ['Es una constante física del cerio del recubrimiento',false],
+      ['Es la mitad exacta del recorrido de la sonda, por simetría entre el lado rico y el lado pobre',false],
+      ['Lo fija el fabricante de la sonda según su hoja de datos, y es igual para todos los coches',false],
+      ['Es una constante física del cerio del recubrimiento, medida una vez y válida para cualquier catalizador',false],
     ]});
   q.push({t:'De las '+num(C.total,0)+' celdas del censo de este coche, el ordenador se equivoca en '+
       num(C.mal,0)+'. ¿Qué conclusión práctica se saca?',
     ops:[
       ['Que un P0420 es una pista sobre el almacén de oxígeno, no un diagnóstico sobre el catalizador',true],
-      ['Que el monitor está mal diseñado y no debería usarse',false],
-      ['Que hay que cambiar el catalizador siempre que salte el código',false],
-      ['Que el analizador de gases y el escáner miden lo mismo con distinta precisión',false],
+      ['Que el monitor está mal diseñado y no debería usarse, porque se equivoca demasiadas veces para fiarse de él',false],
+      ['Que hay que cambiar el catalizador siempre que salte el código, porque el monitor nunca acusa a una lata sana',false],
+      ['Que el analizador de gases y el escáner miden lo mismo con distinta precisión, y da igual cuál se consulte',false],
     ]});
   if(!e.sondaPost)
     q.push({t:'Este coche es de '+anioF(e.anio)+' y no tiene sonda posterior. ¿Qué le pasa al monitor del catalizador?',
       ops:[
         ['No existe: sin esa sonda no hay nada que comparar, y el único instrumento que queda es el tubo de escape',true],
-        ['Funciona igual usando sólo la sonda anterior',false],
-        ['Funciona pero con menos precisión',false],
-        ['Lo suple el sensor de temperatura del escape',false],
+        ['Funciona igual usando sólo la sonda anterior, que ve el mismo gas y basta para juzgar la lata',false],
+        ['Funciona pero con menos precisión, porque estima el almacén de oxígeno a partir de las vueltas del motor',false],
+        ['Lo suple el sensor de temperatura del escape, que detecta cuándo la lata deja de convertir',false],
       ]});
   else
     q.push({t:'El coche va a '+ppm(V.gases.HC)+' de HC con el límite en '+ppm(lim.HC)+
@@ -2596,24 +2627,24 @@ function preguntas(){
           : (V.falsoPositivo
             ? 'Se busca qué hay entre el catalizador y el juicio, porque por el tubo no sale nada de más'
             : 'Se toman los dos como coherentes y se actúa sobre lo que los dos señalan'),true],
-        ['Se hace caso al escáner, que es el instrumento más moderno',false],
-        ['Se borra el código y se vuelve a medir dentro de unos días',false],
-        ['Se cambia el catalizador, que es lo que el código nombra',false],
+        ['Se hace caso al escáner, que es el instrumento más moderno y el que mejor conoce el estado del coche',false],
+        ['Se borra el código y se vuelve a medir dentro de unos días, a ver si vuelve a aparecer por sí solo',false],
+        ['Se cambia el catalizador, que es justo lo que el código nombra y por tanto lo que hay que reparar',false],
       ]});
   q.push({t:'Con esta lata la conversión va '+num(100*T.etaCO,0)+' % de CO y '+
       num(100*T.etaNOx,0)+' % de NOx. ¿Por qué pueden ir tan distintas?',
     ops:[
       ['Porque oxidar y reducir son trabajos opuestos y los hacen metales distintos: platino y paladio uno, rodio el otro',true],
-      ['Porque el NOx se mide con más error que el CO',false],
-      ['Porque el NOx sale del motor mucho después que el CO',false],
-      ['Porque el cerio sólo ayuda a la oxidación',false],
+      ['Porque el NOx se mide con más error que el CO, y esa incertidumbre aparente se interpreta como menos conversión',false],
+      ['Porque el NOx sale del motor mucho después que el CO y la lata tiene menos tiempo para convertirlo',false],
+      ['Porque el cerio sólo ayuda a la oxidación y no interviene en nada de lo que ocurre con los óxidos de nitrógeno',false],
     ]});
   q.push({t:'El almacén de oxígeno recorre ΔΘ = '+num(T.dTh,2)+' en cada oscilación. Si se rebaja la edad del catalizador, ¿qué le pasa a ese recorrido?',
     ops:[
       ['Se hace más pequeño: el mismo oxígeno cabe en un depósito mayor',true],
-      ['Se hace más grande, porque un catalizador nuevo reacciona más deprisa',false],
-      ['No cambia: lo fija la amplitud de la oscilación del ordenador',false],
-      ['Cambia sólo si además se cambia el régimen',false],
+      ['Se hace más grande, porque un catalizador nuevo reacciona más deprisa y el oxígeno tarda más en llenarlo',false],
+      ['No cambia: lo fija la amplitud de la oscilación que impone el ordenador y no el estado de la lata',false],
+      ['Cambia sólo si además se cambia el régimen, porque el recorrido depende del caudal y no de la edad',false],
     ]});
   return q;
 }
@@ -2775,7 +2806,9 @@ window.__labDebug={
   get reto(){ return {caso:RETO.caso, edad:G.edad, metodo:G.metodo,
     medido:Object.assign({},RETO.medido), sel:RETO.sel.slice(),
     esperado:RETO.V?esperadoReto():null,
-    veredicto:RETO.veredicto?RETO.veredicto.ok:null, pistas:RETO.pistas}; },
+    veredicto:RETO.veredicto?RETO.veredicto.ok:null, pistas:RETO.pistas,
+    intentos:RETO.intentos}; },
+  get intentos(){ return RETO.intentos; },
   get preguntas(){ return preguntas().map(q=>({t:q.t, n:q.ops.length,
     correctas:q.ops.filter(o=>o[1]).length})); },
   get texto(){ return el('report').textContent+' || '+el('tele').textContent; },
@@ -2803,6 +2836,7 @@ window.__labDebug={
     if(met) G.metodo=met;
     RETO.V=evalua(MQ(),{edad:G.edad,falla:falla});
     RETO.sel=[]; RETO.veredicto=null; RETO.pistas=0;
+    RETO.intentos=0; RETO.fallo=''; RETO.aviso='';
     RETO.medido={escaner:false,osc:false,gases:false};
     invalida(); afterEdit(); refrescaPregunta(); },
 };

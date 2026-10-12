@@ -417,7 +417,7 @@ function drawOperacion(){
   line(cx,cy,cx+Math.cos(aOut)*Rout,cy+Math.sin(aOut)*Rout,'#3d7fd6',5);
   line(cx,cy,cx+Math.cos(aIn)*Rin,cy+Math.sin(aIn)*Rin,'#e0b23c',5);
   labelAt(cx,cy-Rout-16,'Campo del estátor → ns','#3d7fd6',18,'center');
-  labelAt(cx,cy+Rin+34,'Rotor → n < ns','#e0b23c',18,'center');
+  labelAt(cx,cy+Rin+34,st.stalled?'Rotor bloqueado → n = 0':(st.s===0?'Rotor → n = ns (sin carga, s = 0)':'Rotor → n < ns'),'#e0b23c',18,'center');
   const rx=520;
   labelAt(rx,110,`f = ${tf(STATE.f,0)} Hz     p = ${STATE.p} polos`,'#dfe7ee',22);
   labelAt(rx,150,`ns = 120·f/p = ${tf(st.ns,0)} rpm`,'#dfe7ee',22);
@@ -427,6 +427,7 @@ function drawOperacion(){
   labelAt(rx,330,`T = ${tf(st.T,2)} N·m`,'#dfe7ee',20);
   labelAt(rx,370,`Pmec = ${tf(st.Pmech,0)} W`,'#dfe7ee',20);
   if(st.stalled) labelAt(40,700,'⚠ El motor se cala: TL supera el par máximo (de vuelco) — no hay punto de operación estable en movimiento.','#ff6b6b',18);
+  else if(STATE.TL>Tcurve(1)) labelAt(40,700,`Nota: con TL > T(s=1) = ${tf(Tcurve(1),2)} N·m este motor no arrancaría desde reposo; el punto mostrado supone que ya está girando (p. ej. arrancó en vacío y luego se cargó).`,'#f4c95d',16);
   bTex.needsUpdate=true;
 }
 
@@ -457,6 +458,7 @@ function drawCurva(){
   bCx.beginPath(); bCx.arc(opx,opy,9,0,Math.PI*2); bCx.fillStyle=st.stalled?'#ff6b6b':'#43D9AD'; bCx.fill();
   labelAt(opx+16,opy-10,`(${tf(st.n,0)} rpm, ${tf(st.T,2)} N·m)`,'#dfe7ee',18);
   if(st.stalled) labelAt(40,730,'⚠ TL > Tmáx: el motor se cala (rotor bloqueado, s=1)','#ff6b6b',18);
+  else if(STATE.TL>Tcurve(1)) labelAt(40,730,`Nota: TL > T(s=1) = ${tf(Tcurve(1),2)} N·m — desde reposo no arrancaría; el punto supone motor ya girando.`,'#f4c95d',15);
   bTex.needsUpdate=true;
 }
 
@@ -479,9 +481,10 @@ function drawReto(){
   labelAt(40,240,'ns = 120·f/p     s = (ns − n)/ns','#8A94A0',18);
   const dec=RETO.kind==='s'?4:0;
   if(retoSolved) labelAt(40,310,`✔ Correcto: ${tf(RETO.target,dec)}`,'#43D9AD',22);
+  else labelAt(40,310,`Intentos fallidos: ${intentos}/3`,'#8A94A0',18);
   bTex.needsUpdate=true;
   const rt=el('retoText');
-  if(rt) rt.textContent=dataLine+' — '+qLine+(retoSolved?` ✔ Correcto: ${tf(RETO.target,dec)}`:'');
+  if(rt) rt.textContent=dataLine+' — '+qLine+(retoSolved?` ✔ Correcto: ${tf(RETO.target,dec)}`:` (intentos fallidos: ${intentos}/3)`);
 }
 function drawBoard(){ if(mode==='operacion') drawOperacion(); else if(mode==='curva') drawCurva(); else if(mode==='reto') drawReto(); }
 
@@ -524,7 +527,7 @@ function syncCtrlbar(){ modes.forEach(m=>{ const b=el('m_'+m); if(b && m!=='ensa
 /* ---------- reto numérico ---------- */
 const F_SET=[50,60], P_SET=[2,4,6,8], S0_SET=[0.02,0.03,0.045,0.06,0.08,0.10,0.13,0.16], KIND_SET=['ns','s','n'];
 let RETO={active:false, f:60, p:4, ns:1800, kind:'ns', s0:null, nMeasured:null, target:1800};
-let retoSolved=false;
+let retoSolved=false, intentos=0;
 function newChallenge(){
   const pick=a=>a[Math.floor(Math.random()*a.length)];
   const f=pick(F_SET), p=pick(P_SET), ns=120*f/p;
@@ -534,22 +537,36 @@ function newChallenge(){
   else if(kind==='s'){ s0=pick(S0_SET); nMeasured=ns*(1-s0); target=s0; }
   else { s0=pick(S0_SET); target=ns*(1-s0); }
   RETO={active:true,f,p,ns,kind,s0,nMeasured,target};
-  retoSolved=false;
+  retoSolved=false; intentos=0;
   const inp=el('retoInput'); if(inp) inp.value='';
   drawReto();
   showToast('🎲 Nuevo reto generado.');
   synth.beep(520,0.08,0.05);
 }
+function retoTol(){
+  // La tolerancia debe rechazar la respuesta ingenua: en «n» contestar ns (olvidar el deslizamiento) difiere de n
+  // en s0·ns ≥ 15 rpm (con s0=0,02 y p=8, 50 Hz), así que la banda no puede pasar de ~±2 rpm (0,3 %).
+  // En «s» el tacómetro se muestra redondeado a rpm (error de s hasta ±0,5/ns ≈ 7·10⁻⁴), de ahí el piso de 0,0015.
+  if(RETO.kind==='ns') return 1;
+  if(RETO.kind==='s') return Math.max(0.0015,0.04*RETO.target);
+  return Math.max(0.003*RETO.target,2);
+}
 function checkReto(){
   const inp=el('retoInput'); if(!inp) return;
+  if(retoSolved) return;
   const v=parseFloat(inp.value);
   if(Number.isNaN(v)){ showToast('<span style="color:var(--bad)">Escribe un número.</span>'); return; }
-  const tol=RETO.kind==='ns'?1:RETO.kind==='s'?Math.max(0.05*RETO.target,0.005):Math.max(0.03*RETO.target,10);
-  const ok=Math.abs(v-RETO.target)<=tol;
+  const ok=Math.abs(v-RETO.target)<=retoTol();
   retoSolved=ok;
   const dec=RETO.kind==='s'?4:0;
-  if(ok){ showToast(`<span style="color:var(--good)">✔ Correcto: ${tf(RETO.target,dec)}</span>`); synth.beep(1046,0.12,0.06); }
-  else { showToast('<span style="color:var(--bad)">✗ No es correcto. Revisa la fórmula.</span>'); synth.beep(180,0.14,0.06); }
+  if(ok){ showToast(`<span style="color:var(--good)">✔ Correcto: ${tf(RETO.target,dec)}</span>`); synth.beep(1046,0.12,0.06); drawReto(); return; }
+  intentos++; synth.beep(180,0.14,0.06);
+  if(intentos>=3){ newChallenge(); showToast('<span style="color:var(--bad)">✗ Tres intentos fallidos: te dejo un reto NUEVO. Repasa las dos fórmulas del tablero antes de calcular.</span>'); return; }
+  // retroalimentación cualitativa: ni la respuesta ni el sentido del error
+  const pista = RETO.kind==='ns' ? 'Revisa de dónde sale ns y las unidades (rpm).'
+    : RETO.kind==='s' ? 'Recuerda que s es una fracción de ns, no una diferencia de rpm.'
+    : 'Recuerda que el rotor siempre gira por debajo de la velocidad síncrona: ¿qué te dice s sobre cuánto?';
+  showToast(`<span style="color:var(--bad)">✗ No es correcto (intento ${intentos}/3). ${pista}</span>`);
   drawReto();
 }
 
@@ -563,12 +580,14 @@ async function autoAssemble(){
 }
 async function autoSweep(){
   if(autoRunning) return; autoRunning=true; const btn=el('btnAuto2'); if(btn) btn.disabled=true;
+  const prev={...STATE};   // demostración: al terminar se devuelven los controles al alumno
   const seq=[[60,4,0],[60,4,10],[60,4,20],[60,4,23],[60,8,10],[50,4,10]];
   for(const [f,p,TL] of seq){
     STATE.f=f; STATE.p=p; STATE.TL=TL;
     el('sl_f').value=f; el('sl_p').value=p; el('sl_tl').value=TL;
     refreshAll(); await sleep(1700);
   }
+  Object.assign(STATE,prev); el('sl_f').value=prev.f; el('sl_p').value=prev.p; el('sl_tl').value=prev.TL; refreshAll();
   if(btn) btn.disabled=false; autoRunning=false;
 }
 
@@ -592,7 +611,7 @@ S.setAnimate((dt,t)=>{
     else if(gh.position.x!==gh.userData.homeX){ gh.position.x=gh.userData.homeX; } });
   if(simUnlocked && (mode==='operacion'||mode==='curva')){
     const st=motorState(STATE.f,STATE.p,STATE.TL);
-    const dRot=st.stalled?0:dt*Math.min(st.w,60)*0.15;
+    const dRot=st.stalled?0:dt*st.w*0.02;   // velocidad visual proporcional a n (3600 rpm ≈ 7,5 rad/s en pantalla)
     if(groups.rotor) groups.rotor.rotation.x+=dRot;
     if(groups.ventilador) groups.ventilador.rotation.x+=dRot;
   }
@@ -615,10 +634,10 @@ el('hud').innerHTML=`
   <div class="fid">
     <div class="ft">Contrato de fidelidad</div>
     <div class="fl">SÍ modela: <b>ns=120·f/p; s=(ns−n)/ns; la curva par-deslizamiento simplificada de Kloss T(s)=2·Tmáx/(s/sm+sm/s), con sm y Tmáx como parámetros ilustrativos fijos del simulador; distingue la rama estable (0&lt;s≤sm) del estancamiento cuando TL supera Tmáx.</b></div>
-    <div class="fl no">NO modela: <b>el circuito eléctrico equivalente (R1, X1, R2', X2', Xm — ver práctica d5-08), la relación V/f de un variador de frecuencia, corriente de arranque (inrush), calentamiento, ni la resistencia del estátor (se desprecia, como es estándar en la ecuación de Kloss simplificada). Tmáx y sm se tratan como constantes fijas, independientes de f — no hay debilitamiento de campo modelado.</b></div>
+    <div class="fl no">NO modela: <b>el circuito eléctrico equivalente (R1, X1, R2', X2', Xm — ver el laboratorio del circuito equivalente del motor de inducción), la relación V/f de un variador de frecuencia, corriente de arranque (inrush), calentamiento, ni la resistencia del estátor (se desprecia, como es estándar en la ecuación de Kloss simplificada). Tmáx y sm se tratan como constantes fijas, independientes de f — no hay debilitamiento de campo modelado.</b></div>
     <div class="fl no">Geometría <b>didáctica</b>: el número de ranuras del estátor (36) y de barras del rotor (28) es el de un dibujo, no el de un motor concreto, y el devanado se representa con doce bobinas por fase de paso 9 sin distinguir capas ni conexión serie-paralelo; omite el aislamiento de ranura, el balanceo dinámico del rotor y el detalle interno de la caja de conexiones. El diagrama de deslizamiento (modo Operación) es simbólico: el ángulo de atraso del rotor no está a escala temporal real.</div>
   </div>
-  <div class="src">Motor de ejemplo del simulador (jaula de ardilla), <b>no un datasheet real</b>: Tmáx=22 N·m, sm=0.18 (parámetros ilustrativos). El deslizador de frecuencia cubre 50-60 Hz (los dos estándares de red); no representa un variador de frecuencia. Referencias normativas generales: IEEE 112 (procedimiento de prueba de motores de inducción polifásicos) e IEC 60034 (máquinas eléctricas rotativas) — programa curricular ELE-II.1 / EM-II.1. ⚑ Cláusulas específicas sin confirmar por experto.</div>
+  <div class="src">Motor de ejemplo del simulador (jaula de ardilla), <b>no un datasheet real</b>: Tmáx=22 N·m, sm=0.18 (parámetros ilustrativos); T(s=1) = 7,67 N·m, así que con TL por encima de ese par el motor no arrancaría desde reposo: el simulador muestra el punto de régimen de un motor ya girando. El deslizador de frecuencia cubre 50-60 Hz (los dos estándares de red); no representa un variador de frecuencia. Referencias normativas generales: IEEE 112 (procedimiento de prueba de motores de inducción polifásicos) e IEC 60034 (máquinas eléctricas rotativas) — programa curricular ELE-II.1 / EM-II.1. Las cláusulas específicas no se citan: son referencia general del tema.</div>
   <div class="modebar">
     <button class="b on" id="m_ensamble">① Ensamble</button>
     <button class="b" id="m_operacion" disabled>② Operación</button>
@@ -698,5 +717,6 @@ window.__labDebug={
   motor:()=>motorState(STATE.f,STATE.p,STATE.TL),
   mode:()=>mode,
   progress:()=>({placed:{...placed},progress,simUnlocked}),
-  reto:()=>({...RETO,solved:retoSolved}),
+  reto:()=>({...RETO,solved:retoSolved,intentos}),
+  solved:()=>retoSolved, intentos:()=>intentos, checkReto, newChallenge, retoTol,
 };

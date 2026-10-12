@@ -914,7 +914,15 @@ let rpm=0,trpm=0,running=false,crankAngle=0;
 // tienen ninguno: no hay forma de montar el motor ni de arrancarlo si no es a
 // base de clics a ciegas sobre coordenadas de pantalla, y una prueba que
 // depende de dónde cae un botón deja de valer en cuanto se mueve el botón.
+// Estado de los retos: intentos visibles y expuestos, pistas con tope, y el éxito
+// del laboratorio (las tres fases) para el puente con la plataforma.
+const RETOS={ef:{intentos:0,pistas:0}, fire:{intentos:0,pistas:0}, dx:{intentos:0,pistas:0,reseed:0}, completado:false};
+const MAX_PISTAS=2, MAX_FALLOS_DX=2;     // con tres opciones, dos fallos ya dejarían una sola
 window.__labDebug={
+  get solved(){ return RETOS.completado; },
+  get intentos(){ return {eficiencia:RETOS.ef.intentos, encendido:RETOS.fire.intentos, diagnostico:RETOS.dx.intentos}; },
+  get pistas(){ return {eficiencia:RETOS.ef.pistas, encendido:RETOS.fire.pistas}; },
+  get falla(){ return fault; },
   arma(k){ if(travel[k]&&!travel[k].installed) installPiece(k); },
   armaTodo(){ PIECE_ORDER.forEach(k=>{ const t=travel[k];
     if(t){ t.active=false; t.installed=true; t.t=1; PIECE_GROUP[k].position.set(0,0,0);
@@ -1028,7 +1036,7 @@ function step_head(){
 function step_firing(){
   showTeach('Fase 1 · Paso 5','Define el orden de encendido',
     `<p>Las 4 bujías no encienden a la vez ni en orden 1-2-3-4. El <b>orden de encendido</b> define la secuencia para que el motor gire suave. Cada cilindro enciende cada <b>180°</b> de cigüeñal.</p>
-     <div class="why"><b>¿Por qué no 1-2-3-4?</b> Encender cilindros adyacentes seguidos (1 y 2) concentra esfuerzos y vibración. El orden <b>1-3-4-2</b> separa los encendidos para equilibrar el cigüeñal. Toca las casillas para fijar la secuencia.</div>
+     <div class="why"><b>¿Por qué no 1-2-3-4?</b> Los encendidos se reparten cada <b>180°</b>, y en cada media vuelta dos pistones están arriba y dos abajo (acuérdate del cigüeñal). Un encendido detrás de otro tiene que venir de pistones en posiciones <b>opuestas</b>, o el cigüeñal recibe golpes desbalanceados. Toca las casillas para fijar la secuencia, empezando por el cilindro 1.</div>
      <div class="task">Define el orden de encendido tocando los cilindros en secuencia.</div>`);
   setActions('Orden de encendido',
     `<div style="font-family:var(--mono);font-size:11px;color:var(--dim);margin-bottom:4px">Secuencia (toca en orden):</div>
@@ -1037,6 +1045,7 @@ function step_firing(){
        <div class="firecell" data-fire="3">3</div><div class="firecell" data-fire="4">4</div></div>
      <div class="mini"><span>Tu secuencia</span><b id="fireSeq">—</b></div>
      <button class="b" data-act="fire-reset" style="margin-top:8px">↺ Reiniciar secuencia</button>
+     <button class="b" data-act="hint-fire" style="margin-top:6px">💡 Pista (<span id="fireHN">0</span>/2) · intentos: <span id="fireIN">0</span></button>
      <button class="b primary" data-act="fire-confirm" style="margin-top:6px" disabled id="fireOk">Confirmar orden</button>`);
   fireSeq=[]; onPick=null;
   $('fireRow').querySelectorAll('[data-fire]').forEach(c=>c.onclick=()=>fireTap(parseInt(c.dataset.fire),c));
@@ -1067,12 +1076,12 @@ function challengeEff(){
     `<p>La eficiencia térmica máxima de un motor de gasolina depende de su <b>relación de compresión</b> (r). La fórmula del ciclo Otto es:</p>
      <div class="formula">η = 1 − 1/r^(γ−1)</div>
      <p>con γ = 1.4 (aire). Este motor tiene <b>r = ${ICE.CR}</b>.</p>
-     <div class="why"><b>Pista:</b> r^(γ−1) = ${ICE.CR}^0.4. Eso es ${Math.pow(ICE.CR,0.4).toFixed(3)}. Luego η = 1 − 1/${Math.pow(ICE.CR,0.4).toFixed(3)}. Da el resultado en porcentaje.</div>
+     <div class="why"><b>Método:</b> eleva r a (γ−1) = 0,4, calcula el inverso de ese número y réstalo de 1. Da el resultado en porcentaje.</div>
      <div class="task">¿Cuál es la eficiencia teórica (%) para r = ${ICE.CR}?</div>`);
   setActions('Tu cálculo',
     `<div class="calcbox"><label>Eficiencia térmica (%)</label>
        <div class="calcrow"><input id="ansEff" type="number" step="0.1" placeholder="¿?"><button class="b primary" data-act="check-eff" style="flex:0 0 auto">✓</button></div>
-       <div class="mini" data-act="hint-eff" style="cursor:pointer;text-decoration:underline"><span>¿Necesitas una pista?</span></div></div>`);
+       <div class="mini" data-act="hint-eff" style="cursor:pointer;text-decoration:underline"><span>¿Necesitas una pista? (<span id="effHN">0</span>/2) · intentos: <span id="effIN">0</span></span></div></div>`);
 }
 function challengeCR(){
   showTeach('Fase 2 · Reto 2','Más eficiencia: ¿subir o bajar la compresión?',
@@ -1116,7 +1125,7 @@ function startPhase3(){phase=2;setPhaseTab(2);running=true;trpm=2500;
     `<button class="b" data-act="dx-firing"><span class="ic">🔀</span> Orden de encendido incorrecto</button>
      <button class="b" data-act="dx-knock"><span class="ic">💥</span> Detonación (knock / compresión alta)</button>
      <button class="b" data-act="dx-dead"><span class="ic">⚰️</span> Cilindro muerto (sin chispa/compresión)</button>`);
-  setTimeout(()=>{const s=$('symptomTask');if(s)s.innerHTML=symptom(fault);},800);
+  setTimeout(()=>{const s=$('symptomTask');if(s)s.innerHTML=symptom(fault)+' <span class="mono">(intentos: '+RETOS.dx.intentos+'/'+MAX_FALLOS_DX+')</span>';},800);
 }
 function symptom(f){
   if(f==='firing')return 'SÍNTOMA: el motor vibra muy fuerte, petardea y apenas gira; suena completamente desordenado. ¿Qué lo causa?';
@@ -1132,7 +1141,27 @@ function diagnose(choice){
   const correct=(choice===fault);
   if(correct){feedback('good','Diagnóstico correcto ✓',explainFault(fault)+' <b>Ahora corrígelo.</b>',true);
     setActions('Reparación',`<button class="b primary good" data-act="repair">🔧 Corregir la falla</button>`);
-  } else {feedback('bad','No es esa la falla','Eso ('+fname(choice)+') daría otro síntoma: '+wrongEx(choice)+' Observa otra vez y prueba de nuevo.',true);}
+  } else {
+    RETOS.dx.intentos++;
+    if(RETOS.dx.intentos>=MAX_FALLOS_DX){
+      // Con tres opciones, tras dos fallos sólo quedaría una: se aprobaría por
+      // eliminación. El motor se va y llega otro con OTRA falla.
+      const previa=fault; undoFault(previa);
+      const otras=['firing','knock','dead'].filter(f=>f!==previa);
+      fault=otras[Math.floor(Math.random()*otras.length)]; applyFault(fault);
+      RETOS.dx.intentos=0; RETOS.dx.reseed++;
+      feedback('bad','Dos intentos fallidos','Ese motor se ha ido y ha llegado otro, con otra falla. Observa su síntoma desde cero.',true);
+      const sT=$('symptomTask'); if(sT) sT.innerHTML=symptom(fault)+' <span class="mono">(intentos: 0/'+MAX_FALLOS_DX+')</span>';
+      return;
+    }
+    feedback('bad','No es esa la falla','Eso ('+fname(choice)+') daría otro síntoma: '+wrongEx(choice)+' Observa otra vez y prueba de nuevo. Intentos: '+RETOS.dx.intentos+' de '+MAX_FALLOS_DX+'.',true);
+    const sT=$('symptomTask'); if(sT) sT.innerHTML=symptom(fault)+' <span class="mono">(intentos: '+RETOS.dx.intentos+'/'+MAX_FALLOS_DX+')</span>';
+  }
+}
+function undoFault(f){
+  if(f==='firing')firingOrder=[1,3,4,2];
+  if(f==='knock'){knock=false;compRatio=ICE.CR;}
+  if(f==='dead')deadCylinder=0;
 }
 function explainFault(f){
   if(f==='firing')return 'El orden 1-2-3-4 hace que cilindros adyacentes enciendan seguidos: el cigüeñal recibe golpes desbalanceados, vibra brutalmente y el motor casi no gira. Por eso el orden correcto es 1-3-4-2.';
@@ -1152,6 +1181,7 @@ function repair(){
   fault=null;
   feedback('good','¡Reparado! 🎉','El motor vuelve a funcionar suave. Completaste las tres fases: lo armaste, calculaste su termodinámica y diagnosticaste una falla real. Ese es el trabajo de un técnico automotriz.',true);
   document.querySelectorAll('.phase-tab')[2].classList.add('done');
+  RETOS.completado=true;
   setActions('Laboratorio completado',`<button class="b primary" data-act="restart">↺ Reiniciar laboratorio</button>`);
 }
 
@@ -1186,8 +1216,9 @@ function handleAction(act,btn){
       setTimeout(()=>step_firing(),1150); break;
     case 'fire-reset': fireSeq=[];$('fireRow').querySelectorAll('[data-fire]').forEach(c=>c.classList.remove('set'));$('fireSeq').textContent='—';$('fireOk').disabled=true;break;
     case 'fire-confirm': confirmFiring();break;
+    case 'hint-fire': hintFire();break;
     case 'check-eff': checkEff();break;
-    case 'hint-eff': feedback('good','Pista',`η = 1 − 1/${ICE.CR}^0.4. Primero ${ICE.CR}^0.4 = ${Math.pow(ICE.CR,0.4).toFixed(3)}. Luego 1/${Math.pow(ICE.CR,0.4).toFixed(3)} = ${(1/Math.pow(ICE.CR,0.4)).toFixed(3)}. Entonces η = 1 − ${(1/Math.pow(ICE.CR,0.4)).toFixed(3)} = ${(ottoEff(ICE.CR)).toFixed(3)} = ${(ottoEff(ICE.CR)*100).toFixed(1)}%.`);break;
+    case 'hint-eff': hintEff();break;
     case 'cr-up': feedback('good','Correcto ✓','Subir la compresión sube la eficiencia (más expansión de los gases = más trabajo extraído). El límite: con gasolina normal, pasar de ~10-11:1 causa detonación. Por eso los motores de alto rendimiento usan gasolina de mayor octanaje, que resiste más compresión.');setTimeout(()=>challengeCycle(),1700);break;
     case 'cr-down': feedback('bad','Al revés','Bajar la compresión REDUCE la eficiencia. La fórmula η = 1 − 1/r^(γ−1) crece con r. Para más eficiencia hay que SUBIR r (con cuidado de no detonar). Inténtalo de nuevo.');break;
     case 'toggle-strokes': showStrokes=!showStrokes;if(btn){btn.textContent='🏷️ Etiquetas de tiempos: '+(showStrokes?'ON':'OFF');btn.classList.toggle('good',showStrokes);}break;
@@ -1199,19 +1230,53 @@ function handleAction(act,btn){
     case 'restart': location.reload();break;
   }
 }
+function grupoCil(n){ return (n===1||n===4)?'A':'B'; }   // 1 y 4 suben juntos; 2 y 3 bajan juntos
+function hintFire(){
+  if(RETOS.fire.pistas>=MAX_PISTAS){ feedback('bad','Sin más pistas','Ya no quedan pistas en este paso. Razónalo con lo que sabes del cigüeñal.'); return; }
+  const t=[
+    'Recuerda el cigüeñal: los pistones 1 y 4 suben juntos mientras el 2 y el 3 bajan. Dos encendidos seguidos están separados 180°.',
+    'Si llamas A a {1, 4} y B a {2, 3}, un orden que equilibra el motor va alternando A, B, A, B.'
+  ][RETOS.fire.pistas];
+  RETOS.fire.pistas++; const n=$('fireHN'); if(n)n.textContent=RETOS.fire.pistas;
+  feedback('good','Pista '+RETOS.fire.pistas+' de '+MAX_PISTAS,t);
+}
 function confirmFiring(){
-  firingOrder=fireSeq.slice();
   const correct=fireSeq.join('-')==='1-3-4-2';
   const alsoValid=fireSeq.join('-')==='1-2-4-3'; // the reverse-rotation valid order
-  if(correct){feedback('good','¡Orden correcto! 1-3-4-2','Perfecto. Es el orden estándar de un 4 cilindros en línea: separa los encendidos para equilibrar el cigüeñal y dar marcha suave.');setTimeout(()=>finishPhase1(),1400);}
+  if(correct||alsoValid) firingOrder=fireSeq.slice();
+  if(correct){feedback('good','¡Orden correcto! 1-3-4-2','Perfecto. Es el orden estándar de un 4 cilindros en línea: alterna los pistones que suben con los que bajan, separa los encendidos y da marcha suave.');setTimeout(()=>finishPhase1(),1400);}
   else if(alsoValid){feedback('good','1-2-4-3 — también válido','Buen razonamiento: 1-2-4-3 es el orden correcto pero para giro inverso del cigüeñal. También equilibra. Usaremos este.');setTimeout(()=>finishPhase1(),1600);}
-  else{feedback('bad','Ese orden desbalancea el motor',`Tu secuencia ${fireSeq.join('-')} hace encender cilindros adyacentes muy seguidos, lo que causa vibración fuerte y marcha irregular. El orden correcto para un 4 cilindros en línea es 1-3-4-2. Reinicia e inténtalo.`);}
+  else{
+    // Al fallar NO se dice el orden correcto: se señala, con la propia secuencia
+    // del alumno, qué regla de las que él conoce está rompiendo.
+    RETOS.fire.intentos++; const n=$('fireIN'); if(n)n.textContent=RETOS.fire.intentos;
+    const malos=[]; for(let i=0;i+1<fireSeq.length;i++) if(grupoCil(fireSeq[i])===grupoCil(fireSeq[i+1])) malos.push(fireSeq[i]+'→'+fireSeq[i+1]);
+    const msg=malos.length
+      ? `En tu secuencia ${fireSeq.join('-')} hay encendidos seguidos de pistones que se mueven JUNTOS (${malos.join(', ')}): el cigüeñal recibe golpes desbalanceados. Reinicia y prueba otra.`
+      : `Tu secuencia ${fireSeq.join('-')} alterna pistones que suben y bajan, pero no es un orden que el motor use. Revisa por dónde empieza y en qué sentido recorre los grupos. Reinicia y prueba otra.`;
+    feedback('bad','Ese orden no equilibra el motor',msg);
+  }
+}
+function hintEff(){
+  if(RETOS.ef.pistas>=MAX_PISTAS){ feedback('bad','Sin más pistas','Ya no quedan pistas en este reto: ahora te toca restar.'); return; }
+  const x=Math.pow(ICE.CR,0.4);
+  // Dos pistas graduadas con los pasos INTERMEDIOS; el resultado final nunca se da.
+  const t=RETOS.ef.pistas===0
+    ? `Primero ${ICE.CR}^0.4 = ${x.toFixed(3)}.`
+    : `Luego 1/${x.toFixed(3)} = ${(1/x).toFixed(3)}. Falta el último paso.`;
+  RETOS.ef.pistas++; const n=$('effHN'); if(n)n.textContent=RETOS.ef.pistas;
+  feedback('good','Pista '+RETOS.ef.pistas+' de '+MAX_PISTAS,t);
 }
 function checkEff(){
   const v=parseFloat(($('ansEff')||{}).value);const correct=ottoEff(ICE.CR)*100;
   if(isNaN(v)){feedback('bad','Escribe un número','Ingresa la eficiencia en porcentaje.');return;}
   if(Math.abs(v-correct)<1.5){feedback('good','¡Correcto! ✓',`η = 1 − 1/${ICE.CR}^0.4 = <b>${correct.toFixed(1)}%</b>. Esa es la eficiencia TEÓRICA del ciclo Otto. Ojo: la real efectiva de un motor así es ~30-35%, porque hay pérdidas por fricción, bombeo y calor que el ciclo ideal no considera.`);setTimeout(()=>challengeCR(),1800);}
-  else{const d=v>correct?'alta':'baja';feedback('bad','Revisa el cálculo',`Tu resultado (${v}%) está ${d}. η = 1 − 1/${ICE.CR}^0.4 = 1 − ${(1/Math.pow(ICE.CR,0.4)).toFixed(3)} = ${correct.toFixed(1)}%. ¿Elevaste a 0.4 (que es γ−1) y luego dividiste 1 entre eso?`);}
+  else{
+    // Al fallar NO se da el resultado: sólo hacia dónde se desvía y qué paso revisar.
+    RETOS.ef.intentos++; const n=$('effIN'); if(n)n.textContent=RETOS.ef.intentos;
+    const d=v>correct?'por encima':'por debajo';
+    feedback('bad','Revisa el cálculo',`Tu resultado (${v}%) queda ${d} de lo esperado. Repasa los pasos: ¿elevaste r a 0,4 (que es γ−1), tomaste el inverso y lo restaste de 1? ¿Pasaste a porcentaje? Intentos: ${RETOS.ef.intentos}.`);
+  }
 }
 
 /* ============================================================

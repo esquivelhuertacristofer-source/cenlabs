@@ -488,7 +488,7 @@ function drawDiagnostico(){
 }
 
 function drawReto(){
-  const f=FALLAS[RETO.faultKey];
+  const f=retoLecturas();
   bCx.clearRect(0,0,1024,768); bCx.fillStyle='#0b1116'; bCx.fillRect(0,0,1024,768);
   labelAt(40,50,'Reto — ¿cuál es el diagnóstico?','#8fd1ff',26);
   labelAt(40,110,'Lecturas (motor desenergizado):','#8fd1ff',20);
@@ -500,9 +500,10 @@ function drawReto(){
   const yy=wrapText(40,340,`Síntoma: ${f.sintoma}`,'#dfe7ee',18,920);
   labelAt(40,yy+34,'¿Cuál es el diagnóstico? (elige abajo)','#f4c95d',24);
   if(retoSolved) labelAt(40,yy+74,`✔ Correcto: ${f.nombre}`,'#43D9AD',22);
+  else labelAt(40,yy+74,`Intentos fallidos: ${intentos}/3`,'#8A94A0',18);
   bTex.needsUpdate=true;
   const rt=el('retoText');
-  if(rt) rt.textContent=`C–R ${ohm(f.CR)} · C–S ${ohm(f.CS)} · S–R ${ohm(f.SR)} · tierra: ${f.tierra} · capacitor: ${f.capacitor} — ${f.sintoma}`+(retoSolved?` ✔ Correcto: ${f.nombre}`:'');
+  if(rt) rt.textContent=`C–R ${ohm(f.CR)} · C–S ${ohm(f.CS)} · S–R ${ohm(f.SR)} · tierra: ${f.tierra} · capacitor: ${f.capacitor} — ${f.sintoma}`+(retoSolved?` ✔ Correcto: ${f.nombre}`:` (intentos fallidos: ${intentos}/3)`);
 }
 function drawBoard(){ if(mode==='tipos') drawTipos(); else if(mode==='diagnostico') drawDiagnostico(); else if(mode==='reto') drawReto(); }
 
@@ -548,21 +549,44 @@ function setMode(k){
 function syncCtrlbar(){ modes.forEach(m=>{ const b=el('m_'+m); if(b && m!=='ensamble') b.disabled=!simUnlocked; }); }
 
 /* ---------- reto de diagnóstico ---------- */
-let RETO={active:false, faultKey:'sano'};
-let retoSolved=false;
+let RETO={active:false, faultKey:'sano', rP:2.0, rA:3.6};
+let retoSolved=false, intentos=0;
 function pick(a){ return a[Math.floor(Math.random()*a.length)]; }
+/* Las lecturas del reto NO son las de la tabla del modo Diagnóstico: cada caso trae resistencias de devanado propias
+   (otro motor), así que no se resuelve por coincidencia numérica con la tabla, sino razonando sobre qué devanado
+   o componente falla. Se conserva R(C–R)+R(C–S)=R(S–R) exacto en lecturas finitas. */
+function retoLecturas(){
+  const f=FALLAS[RETO.faultKey];
+  const CR=f.CR===Infinity?Infinity:RETO.rP, CS=f.CS===Infinity?Infinity:RETO.rA;
+  const SR=(CR===Infinity||CS===Infinity)?Infinity:+(CR+CS).toFixed(1);
+  return {...f,CR,CS,SR};
+}
 function newChallenge(){
-  RETO={active:true, faultKey:pick(FALLAS_ORDER)};
-  retoSolved=false;
+  const rP=+(1.4+Math.random()*2.4).toFixed(1);            // principal: 1,4–3,8 Ω
+  const rA=+(rP*(1.4+Math.random()*0.9)).toFixed(1);       // auxiliar: calibre más delgado, 1,4–2,3 veces el principal
+  RETO={active:true, faultKey:pick(FALLAS_ORDER), rP, rA};
+  retoSolved=false; intentos=0;
+  document.querySelectorAll('#retoBtns [data-falla]').forEach(b=>{ b.disabled=false; b.classList.remove('wrong','right'); });
   drawReto();
   showToast('🎲 Nuevo caso de diagnóstico generado.');
   synth.beep(520,0.08,0.05);
 }
 function checkReto(guessKey){
+  if(retoSolved) return;
   const ok=guessKey===RETO.faultKey;
   retoSolved=ok;
-  if(ok){ showToast(`<span style="color:var(--good)">✔ Correcto: ${FALLAS[RETO.faultKey].nombre}</span>`); synth.beep(1046,0.12,0.06); }
-  else { showToast('<span style="color:var(--bad)">✗ No es correcto. Revisa las lecturas.</span>'); synth.beep(180,0.14,0.06); }
+  const btn=document.querySelector('#retoBtns [data-falla="'+guessKey+'"]');
+  if(ok){
+    if(btn) btn.classList.add('right');
+    document.querySelectorAll('#retoBtns [data-falla]').forEach(b=>{ b.disabled=true; });
+    showToast(`<span style="color:var(--good)">✔ Correcto: ${FALLAS[RETO.faultKey].nombre}</span>`); synth.beep(1046,0.12,0.06);
+  } else {
+    // el fallo no revela cuál era: solo se descarta ese diagnóstico
+    if(btn){ btn.classList.add('wrong'); btn.disabled=true; }
+    intentos++; synth.beep(180,0.14,0.06);
+    if(intentos>=3){ newChallenge(); showToast('<span style="color:var(--bad)">✗ Tres intentos fallidos: te dejo un caso NUEVO. Compara las tres lecturas del óhmetro, la continuidad a tierra y el capacitor con el síntoma.</span>'); return; }
+    showToast(`<span style="color:var(--bad)">✗ No es correcto (intento ${intentos}/3). Revisa las tres lecturas entre terminales, la continuidad a tierra y el estado del capacitor junto con el síntoma.</span>`);
+  }
   drawReto();
 }
 
@@ -577,12 +601,16 @@ async function autoAssemble(){
 function syncTipoBtns(){ document.querySelectorAll('#tipoBtns [data-tipo]').forEach(b=>b.classList.toggle('on',b.dataset.tipo===STATE.tipo)); }
 async function autoTiposTour(){
   if(autoRunning) return; autoRunning=true; const btn=el('btnAutoTipos'); if(btn) btn.disabled=true;
+  const prevTipo=STATE.tipo;
   for(const key of TIPOS_ORDER){ STATE.tipo=key; syncTipoBtns(); refreshAll(); await sleep(1500); }
+  STATE.tipo=prevTipo; syncTipoBtns(); refreshAll();
   if(btn) btn.disabled=false; autoRunning=false;
 }
 async function autoDiagTour(){
   if(autoRunning) return; autoRunning=true; const btn=el('btnAutoDiag'); if(btn) btn.disabled=true;
+  const prevFalla=STATE.falla;
   for(const key of FALLAS_ORDER){ STATE.falla=key; const sel=el('selFalla'); if(sel) sel.value=key; refreshAll(); await sleep(1600); }
+  STATE.falla=prevFalla; { const sel=el('selFalla'); if(sel) sel.value=prevFalla; } refreshAll();
   if(btn) btn.disabled=false; autoRunning=false;
 }
 
@@ -632,8 +660,8 @@ el('hud').innerHTML=`
   <div class="fid">
     <div class="ft">Contrato de fidelidad</div>
     <div class="fl">SÍ modela: <b>la razón física por la que un devanado monofásico único no arranca un rotor detenido (campo pulsante); la comparación de rango de par de arranque, corriente, capacitores e interruptor centrífugo de las cuatro arquitecturas monofásicas más comunes (RSIR, CSIR, PSC, CSCR); seis escenarios de diagnóstico por resistencia entre terminales C-S-R, internamente consistentes (R(C–R)+R(C–S)=R(S–R) exacto); y el ensamble mecánico completo como precondición para desbloquear el resto de los modos.</b></div>
-    <div class="fl no">NO modela: <b>valores exactos de placa de un motor real (los rangos de par de arranque citados varían de fuente a fuente); la dinámica de arranque en el tiempo ni la curva par-velocidad completa (ver d5-06 para el motor trifásico); un multímetro con imprecisión de instrumento; ni el circuito interno específico de dos capacitores del motor CSCR (se representa como un único capacitor genérico en el ensamble 3D).</b></div>
-    <div class="fl no">La lista maestra <b>no asigna una norma ancla</b> a esta práctica — las referencias citadas (NEMA MG-1, textos de conversión electromecánica) son contexto, no una norma verificada cláusula por cláusula.</div>
+    <div class="fl no">NO modela: <b>valores exactos de placa de un motor real (los rangos de par de arranque citados varían de fuente a fuente); la dinámica de arranque en el tiempo ni la curva par-velocidad completa (para eso, el laboratorio del motor de inducción trifásico); un multímetro con imprecisión de instrumento; ni el circuito interno específico de dos capacitores del motor CSCR (se representa como un único capacitor genérico en el ensamble 3D).</b></div>
+    <div class="fl no">Esta práctica <b>no se apoya en una norma específica</b>: las referencias citadas (NEMA MG-1, textos de conversión electromecánica) son contexto, no una norma verificada cláusula por cláusula.</div>
   </div>
   <div class="src">Valor base ilustrativo del simulador (no una placa real): R_principal=2.0 Ω, R_auxiliar=3.6 Ω. Referencias: Fitzgerald/Kingsley/Umans y Chapman (teoría estándar de motores monofásicos); ⚑ NEMA MG-1 (clasificación general, referencia contextual). Programa curricular ELE-II.1.</div>
   <div class="modebar">
@@ -743,5 +771,6 @@ window.__labDebug={
   fallas:()=>FALLAS,
   mode:()=>mode,
   progress:()=>({placed:{...placed},progress,simUnlocked}),
-  reto:()=>({...RETO,solved:retoSolved}),
+  reto:()=>({...RETO,solved:retoSolved,intentos}),
+  solved:()=>retoSolved, retoSolved:()=>retoSolved, intentos:()=>intentos, checkReto, newChallenge, retoLecturas,
 };

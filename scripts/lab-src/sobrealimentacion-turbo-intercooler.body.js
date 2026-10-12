@@ -666,7 +666,7 @@ const FALLAS = {
   sano: { rot: 'nada: el motor está bien', corto: 'sano',
     pista: 'Lo que se vea aquí es lo que el ambiente hace, no una avería.' },
   sinIC: { rot: 'intercooler puenteado o sin caudal de aire', corto: 'sin intercooler',
-    pista: 'La presión es la de siempre y el par no está. Mira la TEMPERATURA de admisión antes de mirar nada más: la densidad es presión entre temperatura.' },
+    pista: 'El compresor sopla lo de siempre, pero el aire llega caliente y por eso pesa menos: la densidad es presión entre temperatura. En gasolina, además, el control de picado baja la consigna y el colector se queda con menos presión; en diésel no.' },
   icSucio: { rot: 'intercooler obstruido por suciedad', corto: 'intercooler sucio',
     pista: 'Enfría menos Y estorba más. Las dos cosas a la vez: compara la presión a la salida del compresor con la del colector.' },
   filtroSucio: { rot: 'filtro de aire saturado', corto: 'filtro sucio',
@@ -674,7 +674,7 @@ const FALLAS = {
   fugaCarga: { rot: 'manguito de carga reventado', corto: 'fuga de carga',
     pista: 'El compresor sopla lo que le piden y al colector no le llega. Compara los dos manómetros: entre ellos sólo debería estar el intercooler.' },
   wgAbierta: { rot: 'válvula de descarga pegada abierta', corto: 'descarga abierta',
-    pista: 'El escape se va por el atajo sin pasar por la turbina. No hay presión, y el escáner no tiene por qué enterarse.' },
+    pista: 'El escape se va por el atajo sin pasar por la turbina. No hay presión: el ordenador lo ve como presión baja (P0299), pero no sabe decir por qué.' },
   wgPegada: { rot: 'válvula de descarga pegada cerrada', corto: 'descarga cerrada',
     pista: 'Nada frena al turbo. La presión se dispara por encima de la consigna, y con ella la contrapresión y la temperatura antes de la turbina.' },
   escapeTapado: { rot: 'escape restringido aguas abajo de la turbina', corto: 'escape tapado',
@@ -740,14 +740,21 @@ const DTC_ROT = {
   P0401: 'P0401 · caudal de recirculación insuficiente',
 };
 function dtcDe(e, P) {
-  const obj = e.sopladoObj * P.carga;
+  // El ordenador mide la presión ABSOLUTA DEL COLECTOR (el MAP), no la que sale
+  // del compresor: una fuga de carga o un intercooler tapado dejan el compresor
+  // soplando lo que debe y el colector sin llegar. Y la consigna con la que
+  // compara es la que ÉL se pone, ya recortada por el control de picado: si él
+  // mismo la baja para no detonar, no ve una avería sino su propia orden.
+  const objAbs = Math.min(P.pObjetivo, P.pDeton);
+  const obj = objAbs - P.pAmb;                       // consigna efectiva, manométrica
+  const map = P.pAdm - P.pAmb;                       // lo que lee el sensor, manométrico
   // CONDICIONES DE HABILITACIÓN. El diagnóstico de presión baja sólo corre por
   // encima del régimen de soplado: por debajo, ningún turbo sano llega a la
   // consigna —eso es el retardo, no una avería— y un código que saltara ahí lo
   // haría en cada arranque en cuesta. Sin esto, el motor SANO daba P0299 a
   // 1 240 rpm a plena carga, que es un falso positivo de manual.
   const habilitado = P.carga > 0.55 && P.rpm >= e.rpmPar * 0.85 && obj > 1e4;
-  if (habilitado && P.soplado < obj * 0.80) return 'P0299';
+  if (habilitado && map < obj * 0.80) return 'P0299';
   // La sobrepresión, en cambio, se vigila SIEMPRE: pasarse de presión rompe el
   // turbo a cualquier régimen.
   if (P.soplado > e.sopladoMax * 1.02) return 'P0234';
@@ -776,7 +783,7 @@ function curva(e, o) {
   return { pts, parMax, potMax };
 }
 
-// Nueve averías por cinco regímenes. Que existan celdas donde el motor pierde
+// Ocho averías más el motor sano, por cinco regímenes. Que existan celdas donde el motor pierde
 // un tercio del par y el ordenador no tiene nada que declarar es el resultado
 // más incómodo de la práctica, y no está escrito: sale de recorrer la rejilla.
 function censo(e, o) {
@@ -1371,7 +1378,7 @@ const PART={
     para:'Vive dentro de un MAPA cerrado: para cada velocidad hay una curva de presión contra gasto, con el bombeo a la izquierda y el bloqueo a la derecha. Fuera de esa ventana no hay presión que valga.',
     nota:'Ya hay quien comprima.'},
   intercooler:{ rot:'Intercooler', fn:'Enfría el aire que sale del compresor.',
-    sin:'Sin él la presión es la misma y la densidad, no.',
+    sin:'Sin él el aire entra caliente: misma presión del compresor, menos densidad.',
     para:'Enfría Y estorba, las dos cosas a la vez. Por eso hay un tamaño óptimo: uno demasiado grande baja tanto la presión que se come lo que ganó bajando la temperatura.',
     nota:'Ahora el aire llega frío, que es lo que hace falta.'},
   mariposa:{ rot:'Mariposa', fn:'Decide cuánto aire deja pasar al motor.',
@@ -2437,7 +2444,7 @@ function vistaRespuesta(){
 }
 
 // ---------------------------------------------------------------- 6 · censo
-// Nueve averías por cinco regímenes. La pregunta que organiza la rejilla no es
+// Ocho averías más el motor sano, por cinco regímenes. La pregunta que organiza la rejilla no es
 // «qué se rompe», es: de todo lo que este motor puede tener roto, ¿cuánto de
 // ello llega al escáner? La respuesta se cuenta aquí, no se afirma.
 const CX0=232, CCW=142, CCH=36, CY0=150;
@@ -2455,7 +2462,7 @@ const CLASE_COL={
 };
 function vistaCenso(){
   const e=MQ(), C=CENSO();
-  cabecera('El censo: nueve averías contra cinco regímenes',
+  cabecera('El censo: ocho averías y el motor sano, contra cinco regímenes',
     'Cada celda es el motor entero resuelto con esa avería a ese régimen y a plena carga. El color dice qué se '+
     'ENTERA el ordenador, no qué de grave es: azul hay código, ámbar hay síntoma y NO hay código, rojo el motor está '+
     'fuera de sus límites.');
@@ -2505,7 +2512,7 @@ function vistaCenso(){
 }
 
 // ============================================================ T5b · EL RETO
-// Un caso a ciegas: el motor tiene una de las nueve averías —o ninguna—, y hay
+// Un caso a ciegas: el motor tiene una de las ocho averías —o ninguna—, y hay
 // seis instrumentos. Cada uno cuesta lo mismo: una consulta. Lo que se aprende
 // no es a adivinar, es CUÁL instrumento separa qué, y cuántos hacen falta.
 const INSTR=[
@@ -2522,8 +2529,9 @@ const INSTR=[
   {k:'mapa', rot:'El punto sobre el mapa del compresor',
    nota:'Márgenes hasta el bombeo y hasta el bloqueo.'},
 ];
+const MAX_INTENTOS=3, MAX_PISTAS=2, MIN_CONSULTAS=2;
 const RETO={falla:'sano', alt:0, Tamb:25, octanaje:91, rpm:0,
-  medido:{}, elegido:null, veredicto:null, intentos:0};
+  medido:{}, elegido:null, veredicto:null, intentos:0, pistas:0, aviso:''};
 function retoAmb(){ return {alt:RETO.alt,Tamb:RETO.Tamb,vAire:G.vAire,octanaje:RETO.octanaje}; }
 function retoEv(f){
   return memo('r|'+G.maq+'|'+f+'|'+RETO.alt+'|'+RETO.Tamb+'|'+RETO.octanaje+'|'+RETO.rpm,
@@ -2558,34 +2566,50 @@ function compatible(f){
   }
   return true;
 }
-function armaReto(){
+function armaReto(evita){
   const e=MQ();
-  const fs=FALLA_KEYS.slice();
+  // `evita`: la avería del caso que acaba de agotar sus intentos. El caso nuevo
+  // es OTRO, o se aprobaría por eliminación recorriendo las opciones.
+  const fs=FALLA_KEYS.filter(k=>k!==evita);
   RETO.falla=fs[Math.floor(Math.random()*fs.length)];
   RETO.alt=ALTS[Math.floor(Math.random()*3)].a;
   RETO.Tamb=[15,25,35][Math.floor(Math.random()*3)];
   RETO.octanaje=e.diesel?91:OCTS[Math.floor(Math.random()*OCTS.length)];
   const regs=regimenes(e);
   RETO.rpm=regs[1+Math.floor(Math.random()*(regs.length-1))].rpm;
-  RETO.medido={}; RETO.elegido=null; RETO.veredicto=null;
+  RETO.medido={}; RETO.elegido=null; RETO.veredicto=null; RETO.intentos=0; RETO.pistas=0; RETO.aviso='';
   invalida();
 }
-function mide(k){ RETO.medido[k]=true; RETO.veredicto=null; pinta(); }
+function mide(k){
+  if(G.modo!=='reto'||RETO.veredicto==='ok') return;
+  RETO.medido[k]=true; RETO.veredicto=null; RETO.aviso=''; pinta();
+}
 function eligeFalla(k){ RETO.elegido=k; pinta(); }
 function entrega(){
-  if(!RETO.elegido) return;
+  if(!RETO.elegido||G.modo!=='reto') return;
+  if(RETO.veredicto==='ok') return;                 // este caso ya está resuelto
   RETO.intentos++;
   const ok=RETO.elegido===RETO.falla;
   RETO.veredicto=ok?'ok':'mal';
+  RETO.aviso='';
   if(ok){
     G.resuelto=true; synth.beep(523,0.10,0.05); setTimeout(()=>synth.beep(784,0.14,0.05),130);
-  }else synth.beep(190,0.16,0.06);
+  }else{
+    synth.beep(190,0.16,0.06);
+    if(RETO.intentos>=MAX_INTENTOS){
+      // Tres fallos: el motor se va y llega otro con otra avería. Sin esto, tres
+      // opciones descartadas a tiro equivalen a una aprobada por eliminación.
+      armaReto(RETO.falla);
+      RETO.aviso='Tres intentos fallidos: ese motor se ha ido y ha llegado otro, con otra avería.';
+      showToast('<b>'+RETO.aviso+'</b>',4200);
+    }
+  }
   pinta(); reporta();
 }
 function vistaReto(){
   const e=MQ(), V=retoEv(RETO.falla);
   cabecera('Diagnóstico a ciegas',
-    'El motor tiene una de las nueve averías del censo —o ninguna—. Seis instrumentos, y el objetivo no es acertar a '+
+    'El motor tiene una de las ocho averías del censo —o ninguna—. Seis instrumentos, y el objetivo no es acertar a '+
     'la primera: es descubrir cuál de ellos separa de verdad y cuántos hacen falta.',true);
 
   texto('Instrumentos',42,120,{s:15,b:true});
@@ -2605,31 +2629,42 @@ function vistaReto(){
     }else y+=44;
   });
 
-  // Lo que queda en pie con lo medido.
+  // Lo que queda en pie con lo medido. Mientras no se haya acertado NO se
+  // publica: sería hacer la eliminación por el alumno, y eliminar es justo lo
+  // que hay que razonar con lo medido.
   const vivas=FALLA_KEYS.filter(compatible);
-  let yd=132;
-  yd=tablaDer(yd,['aún compatibles',''],
-    FALLA_KEYS.map(f=>({v:[corta(FALLAS[f].corto,20), compatible(f)?'sí':'—'],
-      c:compatible(f)?(RETO.elegido===f?CIAN:TINTA):'#4e5866'})))+14;
-  texto(vivas.length+' de '+FALLA_KEYS.length+' siguen en pie',DER_X,yd,{s:12.5,c:'#8d99a9'});
-  yd+=26;
-  if(RETO.elegido) texto('tu respuesta: '+FALLAS[RETO.elegido].corto,DER_X,yd,{s:12.5,b:true,c:CIAN});
+  const n=Object.keys(RETO.medido).length;
+  if(RETO.veredicto==='ok'){
+    let yd=132;
+    yd=tablaDer(yd,['con lo medido cabían',''],
+      FALLA_KEYS.map(f=>({v:[corta(FALLAS[f].corto,20), compatible(f)?'sí':'—'],
+        c:compatible(f)?(RETO.falla===f?CIAN:TINTA):'#4e5866'})))+14;
+    texto(vivas.length+' de '+FALLA_KEYS.length+' cabían con lo medido',DER_X,yd,{s:12.5,c:'#8d99a9'});
+  }else{
+    let yd=146;
+    texto('Intentos: '+RETO.intentos+' de '+MAX_INTENTOS,DER_X,yd,{s:13,b:true,c:RETO.intentos?WARN_HEX:'#8d99a9'});
+    yd+=22;
+    texto('Instrumentos usados: '+n+' de '+INSTR.length,DER_X,yd,{s:12.5,c:'#8d99a9'});
+    yd+=22;
+    texto('Pistas usadas: '+RETO.pistas+' de '+MAX_PISTAS,DER_X,yd,{s:12.5,c:'#8d99a9'});
+    yd+=34;
+    if(RETO.elegido) texto('tu respuesta: '+FALLAS[RETO.elegido].corto,DER_X,yd,{s:12.5,b:true,c:CIAN});
+  }
 
   const q=RETO.veredicto==='ok'
     ? {n:'ok',r:'ACERTASTE: '+FALLAS[RETO.falla].rot.toUpperCase(),
-       t:'Con '+Object.keys(RETO.medido).length+
-         (Object.keys(RETO.medido).length===1?' instrumento. ':' instrumentos. ')+
-         FALLAS[RETO.falla].pista}
+       t:'Con '+n+(n===1?' instrumento. ':' instrumentos. ')+FALLAS[RETO.falla].pista+
+         (vivas.length>1?' Ojo: con lo medido todavía cabían '+vivas.length+' averías; acertar entre varias es en parte suerte.':'')}
     : RETO.veredicto==='mal'
-    ? {n:'bad',r:'NO: NO ERA '+FALLAS[RETO.elegido].corto.toUpperCase(),
-       t:'Quedan '+vivas.length+' averías compatibles con lo que has medido, así que todavía hay por dónde tirar. '+
-         'Pista: '+FALLAS[RETO.elegido].pista}
-    : {n:'warn',r:'MIDE, DESCARTA Y ENTREGA',
-       t:vivas.length===FALLA_KEYS.length
-         ? 'Sin ninguna medida las nueve averías siguen en pie, más el motor sano. Empieza por el instrumento que creas '+
-           'que parte el problema en dos mitades parecidas: ese es el que más información da.'
-         : 'Con lo medido quedan '+vivas.length+'. Si dos averías siguen empatadas, es que ningún instrumento de los '+
-           'usados las separa: hace falta otro, no repetir el mismo.'};
+    ? {n:'bad',r:'NO: '+FALLAS[RETO.elegido].corto.toUpperCase()+' NO ES',
+       t:(compatible(RETO.elegido)
+           ? 'Con lo que has medido, esa avería todavía cabría, pero también cabe otra: te falta un instrumento que las separe.'
+           : 'Las lecturas que llevas no encajan con esa avería: compara lo medido con lo que daría.')+
+         ' Intentos: '+RETO.intentos+' de '+MAX_INTENTOS+'.'}
+    : {n:'warn',r:RETO.aviso?'OTRO MOTOR EN EL BANCO':'MIDE, DESCARTA Y ENTREGA',
+       t:(RETO.aviso?RETO.aviso+' ':'')+(n===0
+         ? 'Todavía no has medido nada. Empieza por el instrumento que creas que más separa las posibilidades.'
+         : 'Si dos explicaciones siguen empatadas con lo medido, es que ningún instrumento de los usados las separa: hace falta otro, no repetir el mismo.')};
   // La banda se coloca DEBAJO de la lista, que crece de 264 a 456 píxeles según
   // cuántos instrumentos se hayan pedido: con la y fija, el sexto instrumento se
   // metía dentro del recuadro del veredicto.
@@ -2685,7 +2720,12 @@ function anima(dt){
   }
   if(!G.simUnlocked) return;
 
-  const V=(G.modo==='reto')?retoEv(RETO.falla):EV();
+  // A ciegas, el banco no puede enseñar gratis lo que se compra: las ruedas y la
+  // trampilla dependen del tacómetro, y el núcleo del intercooler y el testigo,
+  // del escáner. Mientras no estén comprados se pintan como un motor sano.
+  const rt=(G.modo==='reto');
+  const VR=k=>rt?retoEv(RETO.medido[k]?RETO.falla:'sano'):EV();
+  const V=VR('taco'), Vi=VR('tmap');
   // Las dos ruedas del turbo giran EN EL MISMO EJE y a las MISMAS vueltas: es la
   // idea central de la máquina y por eso no se animan por separado.
   const w=(V.nTurbo||0)/60*2*Math.PI*0.012;   // rad/s en pantalla, ralentizado
@@ -2699,13 +2739,13 @@ function anima(dt){
   if(RIG.mariposa) RIG.mariposa.rotation.x=(1-clamp(V.carga,0,1))*Math.PI*0.44;
   // El núcleo del intercooler, del rojo del aire que entra al azul del que sale.
   if(RIG.matIC){
-    const t=clamp((V.TAdm-V.Tamb)/Math.max(1,V.T2-V.Tamb),0,1);
+    const t=clamp((Vi.TAdm-Vi.Tamb)/Math.max(1,Vi.T2-Vi.Tamb),0,1);
     RIG.matIC.color.setRGB(0.42+0.50*t, 0.52-0.10*t, 0.62-0.34*t);
   }
   // Y el testigo del sensor: sólo con CÓDIGO, ni un síntoma antes. Que se quede
   // apagado con el motor perdiendo un tercio del par es el resultado.
   if(RIG.testigo){
-    const on=!!V.dtc;
+    const on=!!Vi.dtc;
     RIG.testigo.material.emissive.setHex(on?0xe9a63a:0x000000);
     RIG.testigo.material.emissiveIntensity=on?(1.1+0.5*Math.sin(animT*4)):0;
     RIG.testigo.material.color.setHex(on?0x6a4a12:0x3a3116);
@@ -2729,7 +2769,7 @@ const HUD_TXT={
   camino:'Presión y temperatura en las seis estaciones. La densidad es presión ENTRE temperatura, y por eso las dos columnas se leen juntas.',
   intercooler:'Enfría y estorba a la vez. Prueba tamaños y busca el máximo; después quítalo y mira qué pasa con la misma presión.',
   respuesta:'Se pisa a fondo y se cronometra. El retardo no es un número del fabricante: sale de la inercia del eje contra el par neto.',
-  censo:'Nueve averías por cinco regímenes. Cuenta las casillas donde hay síntoma y el ordenador está mudo.',
+  censo:'Ocho averías y el motor sano, por cinco regímenes. Cuenta las casillas donde hay síntoma y el ordenador está mudo.',
   reto:'Llega un motor y nadie dice qué tiene. Seis instrumentos; el asunto no es acertar, es saber cuál separa.',
 };
 function pintaHUD(){
@@ -2810,7 +2850,7 @@ function syncCtrl(){
     el('dxreto').innerHTML=FALLA_KEYS.map(k=>{
       const cls=RETO.veredicto===null
         ? (RETO.elegido===k?' on':'')
-        : (k===RETO.falla?' right':(k===RETO.elegido?' wrong':''));
+        : (RETO.veredicto==='ok'&&k===RETO.falla?' right':(RETO.veredicto==='mal'&&k===RETO.elegido?' wrong':''));
       return '<button class="b dx'+cls+'" data-dx="'+k+'">'+FALLAS[k].corto+'</button>';
     }).join('');
   }
@@ -2841,6 +2881,8 @@ function pintaTele(){
       h+=glf('Descarga',pcc(V.xWG*100)); }
     if(M.mapa) h+=glf('Margen de bombeo',V.margenBombeo===null?'—':pcc(V.margenBombeo*100));
     h+=glf('Instrumentos usados',Object.keys(M).length+' de '+INSTR.length);
+    h+=glf('Intentos',RETO.intentos+' de '+MAX_INTENTOS,RETO.intentos?'warn':'');
+    h+=glf('Pistas',RETO.pistas+' de '+MAX_PISTAS);
     el('tele').innerHTML=h; return;
   }
   const V=EV(), q=veredicto();
@@ -2870,9 +2912,15 @@ function pintaInforme(){
   if(G.modo==='reto'){
     const W=retoEv(RETO.falla);
     let h='<b>'+e.nombre+'</b>, a '+rpmT(RETO.rpm)+' y plena carga, '+celC(RETO.Tamb)+' y '+met(RETO.alt)+'. ';
-    h+='El cliente dice: '+queja(W)+'. ';
+    // La queja del cliente delata la familia de la avería (silbido, aleteo,
+    // «no tira»): sólo se conoce al ver el par en el banco, no gratis.
+    h+=RETO.medido.banco?'El cliente dice: '+queja(W)+'. ':'El cliente no sabe decir qué le pasa. ';
+    h+='Intentos: '+RETO.intentos+'/'+MAX_INTENTOS+' · pistas: '+RETO.pistas+'/'+MAX_PISTAS+'. ';
+    if(RETO.aviso) h+='<span class="warn">'+RETO.aviso+'</span> ';
     if(RETO.veredicto==='ok') h+='<b class="good">Dictamen correcto:</b> era '+FALLAS[RETO.falla].rot+'.';
-    else if(RETO.veredicto==='mal') h+='<b class="bad">No era eso:</b> era '+FALLAS[RETO.falla].rot+'.';
+    else if(RETO.veredicto==='mal') h+='<b class="bad">No es esa.</b> '+(compatible(RETO.elegido)
+      ?'Con lo medido cabría, pero también cabe otra: falta un instrumento que las separe.'
+      :'Lo medido no encaja con esa avería.');
     else h+='Pide instrumentos y dictamina. Ninguno de ellos ve el motor entero.';
     el('report').innerHTML=h; return;
   }
@@ -2957,8 +3005,18 @@ function pintaTablero(){
 
 // ============================== T8 · CUESTIONARIO, RECORRIDO Y ARRANQUE
 function pistaReto(){
-  RETO.pistas=(RETO.pistas||0)+1;
-  showToast('<b>Pista</b><br>'+FALLAS[RETO.falla].pista,5600);
+  if(G.modo!=='reto') return;
+  if(RETO.pistas>=MAX_PISTAS){
+    showToast('<b>No quedan más pistas en este caso.</b><br>Lo que falta lo decide lo que midas.',3000); return; }
+  // Dos pistas graduadas que orientan sobre CÓMO leer los instrumentos y no
+  // nombran ninguna avería ni describen la oculta.
+  const P=[
+    'El escáner sólo ve la presión absoluta de colector y la temperatura de admisión. Lo que no pase por ahí hay que ir a buscarlo con otro instrumento.',
+    'Compara pares de lecturas: la presión a la salida del compresor contra la del colector, la contrapresión contra el soplado, el par contra lo que esa presión haría esperar.',
+  ];
+  const i=RETO.pistas++;
+  showToast('<b>Pista '+RETO.pistas+' de '+MAX_PISTAS+'</b><br>'+P[i],5600);
+  pinta();
 }
 function otroMotor(){ paraAuto(); armaReto(); refrescaPregunta(); pinta(); }
 function barajaEn(a){
@@ -2973,44 +3031,72 @@ let QCACHE=null, QI=0, QSEL=null;
 function preguntas(){
   const e=MQ();
   if(!G.simUnlocked) return [];
-  const V=EV(), sin=EV_DE('sinIC',RPM(),G.carga), C=CURVA('sano');
+  const V=EV_DE('sano',RPM(),G.carga), sin=EV_DE('sinIC',RPM(),G.carga), C=CURVA('sano');
   const alto=evalua(e,Object.assign({falla:'sano',rpm:RPM(),carga:1},AMB(),{alt:2660}));
   const llano=evalua(e,Object.assign({falla:'sano',rpm:RPM(),carga:1},AMB(),{alt:0}));
-  const wgP=EV_DE('wgPegada',RPM(),1);
+  // La descarga pegada CERRADA se pregunta en un régimen donde el eje de verdad
+  // se pasa de vueltas: a bajo régimen y en altura el mapa ni siquiera tiene
+  // solución (nTurbo nulo) y la pregunta saldría con «—» en lugar de cifras.
+  let wgP=EV_DE('wgPegada',RPM(),1);
+  if(wgP.nTurbo===null||wgP.nTurbo<=e.nMax){
+    const alt2=regimenes(e).map(R=>EV_DE('wgPegada',R.rpm,1)).reverse()
+      .find(v=>v.nTurbo!==null&&v.nTurbo>e.nMax);
+    if(alt2) wgP=alt2;
+  }
+  const pasaVueltas=wgP.nTurbo!==null&&wgP.nTurbo>e.nMax;
   const cen=CENSO();
   const Q=[];
-  Q.push({t:'Sin intercooler, la presión en el colector de este motor pasa de '+barA(V.pAdm)+' a '+barA(sin.pAdm)+
-      ', o sea prácticamente la misma, y sin embargo el par pasa de '+nm(V.par,0)+' a '+nm(sin.par,0)+'. ¿Por qué?',
-    ops:[['Porque la DENSIDAD es presión entre temperatura, y el aire pasa de '+cel(V.TAdm)+' a '+cel(sin.TAdm),true],
-      ['Porque el intercooler también comprime',false],
-      ['Porque sin intercooler el turbo gira menos',false],
-      ['Porque el ordenador da un código y corta',false]]});
+  const mismaP=Math.abs(sin.pAdm/V.pAdm-1)<0.05;      // diésel: el intercooler no cambia la presión
+  if(mismaP){
+    Q.push({t:'Sin intercooler, la presión en el colector de este motor pasa de '+barA(V.pAdm)+' a '+barA(sin.pAdm)+
+        ', o sea prácticamente la misma, y sin embargo el par pasa de '+nm(V.par,0)+' a '+nm(sin.par,0)+'. ¿Por qué?',
+      ops:[['Porque la DENSIDAD es presión entre temperatura, y el aire pasa de '+cel(V.TAdm)+' a '+cel(sin.TAdm),true],
+        ['Porque el intercooler también comprime el aire, y al quitarlo se pierde esa parte',false],
+        ['Porque sin intercooler el turbo gira menos y el compresor da menos aire',false],
+        ['Porque el ordenador da un código y corta la potencia para proteger el motor',false]]});
+  }else{
+    Q.push({t:'Sin intercooler, la presión en el colector de este motor de gasolina baja de '+barA(V.pAdm)+' a '+barA(sin.pAdm)+
+        ' y el par pasa de '+nm(V.par,0)+' a '+nm(sin.par,0)+'. ¿Por qué?',
+      ops:[['Porque el aire entra a '+cel(sin.TAdm)+' y no a '+cel(V.TAdm)+', y el control de picado baja la consigna para que no detone',true],
+        ['Porque el intercooler también comprime el aire, y al quitarlo se pierde esa parte de la presión',false],
+        ['Porque sin intercooler el turbo gira menos y el compresor ya no da la presión de antes',false],
+        ['Porque el ordenador detecta que falta el intercooler, da un código y corta la presión',false]]});
+  }
   Q.push({t:'Subiendo de 0 a 2 660 m, la presión ambiente baja de '+barA(llano.pAmb)+' a '+barA(alto.pAmb)+
       '. ¿Qué le pasa a este motor?',
     ops:[['Mantiene '+barA(alto.pAdm)+' en el colector y pierde sólo '+pcc((1-alto.par/llano.par)*100,1)+
         ' de par, pero el turbo sube a '+rpmT(alto.nTurbo),true],
-      ['Pierde presión de colector en la misma proporción que el ambiente',false],
-      ['No cambia nada: el turbo compensa sin coste',false],
-      ['Pierde un 30 % de par, como un motor atmosférico',false]]});
-  Q.push({t:'La válvula de descarga se queda pegada CERRADA. El soplado sube a '+barF(wgP.soplado)+
-      ' y el turbo a '+rpmT(wgP.nTurbo)+'. ¿Qué es lo grave?',
-    ops:[['Que '+rpmT(wgP.nTurbo)+' pasa de las '+rpmT(e.nMax)+' que el turbo aguanta',true],
-      ['Que el par sube, y eso rompe la caja de cambios',false],
-      ['Que el ordenador no puede leer la presión',false],
-      ['Nada: más presión siempre es mejor',false]]});
+      ['Pierde presión de colector en la misma proporción que baja el ambiente, y el par con ella',false],
+      ['No cambia nada: el turbo compensa la altura sin coste alguno para el motor ni para el eje',false],
+      ['Pierde un 30 % de par, como un motor atmosférico, porque el turbo no puede compensar',false]]});
+  if(pasaVueltas){
+    Q.push({t:'La válvula de descarga se queda pegada CERRADA. A '+rpmT(wgP.rpm)+' el soplado sube a '+barF(wgP.soplado)+
+        ' y el turbo a '+rpmT(wgP.nTurbo)+'. ¿Qué es lo grave?',
+      ops:[['Que '+rpmT(wgP.nTurbo)+' pasa de las '+rpmT(e.nMax)+' que el turbo aguanta',true],
+        ['Que el par sube demasiado y eso rompe la caja de cambios antes que el turbo',false],
+        ['Que el ordenador no puede leer la presión y pierde el control del motor',false],
+        ['Nada grave: con más presión el motor siempre da más potencia y va mejor',false]]});
+  }else{
+    Q.push({t:'La válvula de descarga se queda pegada CERRADA. A '+rpmT(wgP.rpm)+' el soplado sube a '+barF(wgP.soplado)+
+        ', y el máximo del sistema es '+barF(e.sopladoMax)+'. ¿Qué es lo grave?',
+      ops:[['Que el soplado pasa del máximo que el sistema aguanta y nada lo frena',wgP.soplado>e.sopladoMax],
+        ['Que el par sube demasiado y eso rompe la caja de cambios antes que el turbo',false],
+        ['Que el ordenador no puede leer la presión y pierde el control del motor',false],
+        ['Nada grave: con más presión el motor siempre da más potencia y va mejor',false]]});
+  }
   Q.push({t:'De las '+cen.total+' casillas del censo, '+cen.conAviso+' tienen síntoma. ¿Cuántas de ésas NO producen ningún código?',
     ops:[[String(cen.mudo)+' casillas',true],['ninguna: todo síntoma da código',false],
       [String(Math.max(0,cen.mudo-4))+' casillas',false],[String(cen.conAviso)+': ninguna da código',false]]});
   Q.push({t:'¿Qué mide de verdad el sensor que el ordenador usa para controlar el turbo?',
     ops:[['Presión absoluta de colector y temperatura de admisión, y nada más',true],
-      ['El gasto de aire y las vueltas del turbo',false],
-      ['La contrapresión antes de la turbina',false],
-      ['El margen que queda hasta el bombeo',false]]});
+      ['El gasto de aire que pasa por el compresor y las vueltas del turbo',false],
+      ['La contrapresión de escape que hay delante de la turbina del turbo',false],
+      ['El margen que queda hasta el bombeo en el mapa del compresor',false]]});
   Q.push({t:'El par máximo de este motor sale a '+rpmT(C.parMax.rpm)+' y no más abajo. ¿Por qué justo ahí?',
     ops:[['Porque es el primer régimen en el que la turbina reúne la potencia que el compresor pide para la consigna',true],
-      ['Porque ahí el ordenador abre la mariposa del todo',false],
-      ['Porque ahí el rendimiento volumétrico es máximo',false],
-      ['Porque el fabricante lo declara así en la ficha',false]]});
+      ['Porque es el régimen en el que el ordenador abre la mariposa del todo para dejar pasar el aire',false],
+      ['Porque es el régimen en el que el rendimiento volumétrico del motor llega a su máximo absoluto',false],
+      ['Porque es el régimen que el fabricante declara en la ficha, y el motor se calibra para él',false]]});
   return Q;
 }
 function bancoQ(){
@@ -3048,11 +3134,28 @@ function pregunta(i){
 }
 
 // ------------------------------------------------------------ recorrido guiado
-let AUTO=null;
+let AUTO=null, SNAP=null;
+// El recorrido es una DEMOSTRACIÓN: al terminar o al cancelarse devuelve el
+// banco y el reto al estado exacto en que estaban (vehículo, avería, ambiente,
+// caso a ciegas con sus instrumentos, intentos y pistas) y jamás toca el reto
+// ni el éxito ya conseguido.
+function restauraAuto(){
+  const sn=SNAP; SNAP=null; if(!sn) return;
+  if(G.maq!==sn.g.maq) cambiaMaquina(sn.g.maq);
+  Object.assign(G,sn.g);
+  Object.assign(RETO,sn.reto,{medido:{...sn.reto.medido}});
+  invalida();
+  setMode(G.modo);
+  pinta(); refrescaPregunta();
+}
 function paraAuto(){ if(AUTO){ clearTimeout(AUTO); AUTO=null; }
-  const b=el('btnAuto'); if(b) b.disabled=false; }
+  const b=el('btnAuto'); if(b) b.disabled=false;
+  restauraAuto(); }
 function runAuto(){
   paraAuto();
+  SNAP={g:{modo:G.modo, maq:G.maq, falla:G.falla, alt:G.alt, Tamb:G.Tamb, vAire:G.vAire,
+      octanaje:G.octanaje, rpm:G.rpm, carga:G.carga, resuelto:G.resuelto},
+    reto:{...RETO, medido:{...RETO.medido}}};
   el('btnAuto').disabled=true;
   const pasos=[];
   let espera=3900;
@@ -3071,7 +3174,7 @@ function runAuto(){
     ()=>{ setMode('intercooler');
       showToast('<b>Enfría y estorba</b><br>El par contra el tamaño del intercooler tiene un máximo interior. Más grande no es mejor.',4200); },
     ()=>{ G.falla='sinIC'; afterEdit(); refrescaPregunta();
-      showToast('<b>Sin intercooler</b><br>La misma presión y un tercio menos de par. En gasolina el control de picado además te quita la consigna.',4600); },
+      showToast('<b>Sin intercooler</b><br>El compresor sopla lo mismo, pero el aire llega caliente. En gasolina el control de picado baja la consigna para no detonar: menos presión de colector y un tercio menos de par, sin código.',5200); },
     ()=>{ G.falla='sano'; G.alt=2660; afterEdit(); refrescaPregunta(); setMode('mapa');
       showToast('<b>A 2 660 metros</b><br>El turbo mantiene la presión de colector, pero para conseguirlo se va a sus vueltas máximas.',4600); },
     ()=>{ G.alt=0; G.falla='wgPegada'; afterEdit(); refrescaPregunta(); setMode('respuesta');
@@ -3084,7 +3187,7 @@ function runAuto(){
     ()=>{ G.falla='sano'; afterEdit(); setMode('censo');
       showToast('<b>Cuarenta y cinco casillas</b><br>Cuenta las ámbar: hay síntoma y el ordenador está mudo. Ésa es la razón de que el manómetro siga existiendo.',4800); },
     ()=>{ setMode('reto');
-      showToast('<b>Ahora tú</b><br>Un motor, ningún dato. Pide instrumentos, mira cómo se estrecha la lista y dictamina.',4200); },
+      showToast('<b>Ahora tú</b><br>Un motor, ningún dato. Pide instrumentos y dictamina; esta demostración no puntúa.',4200); },
   ];
   const todos=pasos.concat(resto);
   let i=0;
@@ -3127,8 +3230,8 @@ function entregaConAviso(){
     showToast('<b>Elige primero qué tiene el motor</b><br>El dictamen es la parte que se corrige.',3200);
     return;
   }
-  if(!Object.keys(RETO.medido).length){
-    showToast('<b>Todavía no has medido nada</b><br>Pide al menos un instrumento antes de dictaminar.',3400);
+  if(Object.keys(RETO.medido).length<MIN_CONSULTAS){
+    showToast('<b>Con menos de '+MIN_CONSULTAS+' instrumentos es corazonada, no diagnóstico</b><br>Pide al menos '+MIN_CONSULTAS+' antes de dictaminar.',3600);
     return;
   }
   entrega();
@@ -3197,16 +3300,19 @@ window.__labDebug={
   // Lo que las chapas del banco DICEN: de una textura no se lee texto, y el 3D
   // también puede regalar la respuesta de un reto a ciegas.
   get rotulos(){ return PARTS.map(p=>p.rot).concat(['presión y temperatura','descarga','filtro de aire']); },
+  get intentos(){ return RETO.intentos; },
   get retoCfg(){ return {falla:RETO.falla, alt:RETO.alt, Tamb:RETO.Tamb,
     octanaje:RETO.octanaje, rpm:RETO.rpm, medido:Object.keys(RETO.medido),
     elegido:RETO.elegido, veredicto:RETO.veredicto,
+    intentos:RETO.intentos, maxIntentos:MAX_INTENTOS, pistas:RETO.pistas,
+    maxPistas:MAX_PISTAS, minConsultas:MIN_CONSULTAS,
     vivas:FALLA_KEYS.filter(compatible)}; },
   mide(k){ mide(k); },
   elige(k){ eligeFalla(k); },
   entrega(){ entrega(); return RETO.veredicto==='ok'; },
   armaCaso(falla,rpm){ RETO.falla=falla;
     if(rpm!==undefined) RETO.rpm=rpm;
-    RETO.medido={}; RETO.elegido=null; RETO.veredicto=null;
+    RETO.medido={}; RETO.elegido=null; RETO.veredicto=null; RETO.intentos=0; RETO.pistas=0; RETO.aviso='';
     invalida(); pinta(); refrescaPregunta(); },
   monta(){ autoAssemble(); },
   // Los mandos. Hacen EXACTAMENTE lo que hace un dedo sobre la barra de vistas:

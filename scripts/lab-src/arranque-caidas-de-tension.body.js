@@ -1976,7 +1976,9 @@ function vistaCenso(){
 // Un coche que no arranca y seis instrumentos. Cada medida que se pide mata a
 // unas cuantas averías, y NINGUNA las mata a todas menos una: hay que combinar.
 const RETO={falla:'sano', veh:'util16', vehRot:'', bat:0, sitio:'templado',
-  sitioRot:'', aceite:'s5w30', medido:{}, elegido:null, veredicto:null};
+  sitioRot:'', aceite:'s5w30', medido:{}, elegido:null, veredicto:null,
+  intentos:0, pistas:0, aviso:'', retro:''};
+const MAX_INTENTOS=3, MAX_PISTAS=2;
 
 function armaReto(){
   // Se elige de la lista de casos CON SOLUCIÓN. Los del punto ciego existen y el
@@ -1988,6 +1990,7 @@ function armaReto(){
   RETO.falla=c.falla; RETO.veh=c.veh; RETO.vehRot=v.corto; RETO.bat=v.bat.cca;
   RETO.sitio=c.sitio; RETO.sitioRot=E.rot; RETO.aceite=c.aceite;
   RETO.medido={}; RETO.elegido=null; RETO.veredicto=null;
+  RETO.intentos=0; RETO.pistas=0; RETO.aviso=''; RETO.retro='';
 }
 const retoPar=()=>{ const E=ESCENARIOS.find(x=>x.k===RETO.sitio);
   return {TC:E.TC, soc:E.soc, aceite:RETO.aceite}; };
@@ -1999,12 +2002,34 @@ function mide(k){
   synth.beep(720,0.06,0.04); afterEdit();
 }
 function eligeFalla(k){ if(!FALLAS[k]) return; RETO.elegido=k; afterEdit(); }
+// Al fallar NO se dice cuál era: se dice qué se puede razonar con lo medido. Y a
+// los tres fallos el caso se cambia por otro, para que nadie apruebe tachando
+// opciones hasta que sólo quede una.
+function retroFallo(){
+  const vivas=retoVivas(), f=RETO.elegido;
+  if(!vivas.includes(f))
+    return 'Tus propias lecturas ya descartaban «'+FALLAS[f].corto+'»: no cuadra con lo que mediste. Mira qué montajes siguen en pie.';
+  if(vivas.length>1)
+    return 'Con lo que has medido, «'+FALLAS[f].corto+'» y otros '+(vivas.length-1)+
+      ' montajes siguen en pie: eso es una apuesta, no un dictamen. Pide el instrumento que los separe.';
+  return 'No es ésa. Vuelve a mirar las lecturas.';
+}
 function entrega(){
   if(!RETO.elegido) return false;
+  RETO.aviso='';
   RETO.veredicto=(RETO.elegido===RETO.falla)?'ok':'mal';
-  if(RETO.veredicto==='ok'){ G.resuelto=true;
+  if(RETO.veredicto==='ok'){ G.resuelto=true; RETO.retro='';
     synth.beep(660,0.10,0.05); setTimeout(()=>synth.beep(990,0.14,0.05),120); }
-  else synth.beep(190,0.16,0.06);
+  else {
+    RETO.intentos++;
+    RETO.retro=retroFallo();
+    synth.beep(190,0.16,0.06);
+    if(RETO.intentos>=MAX_INTENTOS){
+      armaReto();
+      RETO.aviso='Tres dictámenes fallados: este caso se cierra sin revelarlo y llega otro coche, otra mañana y otro montaje.';
+      showToast('<b>Caso nuevo</b><br>Tres intentos fallados. Empieza de cero con otro coche.',3600);
+    }
+  }
   afterEdit(); return RETO.veredicto==='ok';
 }
 const retoVivas=()=>compatibles(VEHS[RETO.veh],retoPar(),RETO.medido);
@@ -2065,17 +2090,18 @@ function vistaReto(){
 
   if(RETO.veredicto){
     const bien=RETO.veredicto==='ok';
-    banda(624,bien?'ok':'bad',bien?'DICTAMEN CORRECTO':'NO ERA ÉSA',
-      (bien?'Era ':'Era ')+FALLAS[RETO.falla].rot+'. '+FALLAS[RETO.falla].pista+
-      (bien?'':' Vuelve a mirar: con los instrumentos que has pedido, seguían en pie '+
-        vivas.length+' montajes.'));
+    banda(624,bien?'ok':'bad',bien?'DICTAMEN CORRECTO':'NO ES ÉSA',
+      bien?('Era '+FALLAS[RETO.falla].rot+'. '+FALLAS[RETO.falla].pista)
+          :(RETO.retro+' Intento '+RETO.intentos+' de '+MAX_INTENTOS+'.'));
   } else {
     banda(624,'warn','PIDE INSTRUMENTOS Y DECIDE',
       'NINGUNO de los seis cierra los nueve montajes, así que no hay un instrumento que '+
       'aprenderse y aplicar siempre: alguno cierra ALGÚN caso él solo, y la gracia está en '+
       'saber cuál separa qué. Ojo con la pinza amperimétrica, que en un punto de '+
       'funcionamiento templado da la misma cifra para las nueve averías: no miente, '+
-      'sencillamente no es el instrumento de hoy.');
+      'sencillamente no es el instrumento de hoy.'+
+      (RETO.aviso?' '+RETO.aviso:'')+' Intentos: '+RETO.intentos+' de '+MAX_INTENTOS+
+      ' · pistas: '+RETO.pistas+' de '+MAX_PISTAS+'.');
   }
 }
 
@@ -2272,8 +2298,10 @@ function pintaInforme(){
     let h='<b>'+v.corto+'</b>, '+RETO.sitioRot+', aceite '+ACEITES[RETO.aceite].rot+
       '. El cliente dice que da una vuelta lenta y se queda. ';
     if(RETO.veredicto==='ok') h+='<b class="good">Dictamen correcto:</b> era '+FALLAS[RETO.falla].rot+'.';
-    else if(RETO.veredicto==='mal') h+='<b class="bad">No era eso:</b> era '+FALLAS[RETO.falla].rot+'.';
-    else h+='Pide instrumentos y dictamina. Ninguno de los seis ve el circuito entero.';
+    else if(RETO.veredicto==='mal') h+='<b class="bad">No es ésa.</b> '+RETO.retro+
+      ' Intento '+RETO.intentos+' de '+MAX_INTENTOS+'.';
+    else h+=(RETO.aviso?RETO.aviso+' ':'')+'Pide instrumentos y dictamina. Ninguno de los seis ve el circuito entero. Intentos: '+
+      RETO.intentos+' de '+MAX_INTENTOS+' · pistas: '+RETO.pistas+' de '+MAX_PISTAS+'.';
     el('report').innerHTML=h; return;
   }
   const r=EN(), v=VH();
@@ -2363,46 +2391,46 @@ function preguntas(){
   Q.push({t:'Con este coche y esta mañana, '+ind.n+' de los '+FALLA_KEYS.length+
       ' montajes dan exactamente '+volt(EN_DE(ind.mayor[0]).E0)+' en reposo. ¿Qué se deduce de esa medida?',
     ops:[['Que la batería tiene carga, y nada más: en reposo no circula corriente y una resistencia sin corriente no cae tensión',true],
-      ['Que el circuito está sano, porque la tensión es la correcta',false],
-      ['Que la batería está en buen estado, porque da su tensión nominal',false],
-      ['Que el arranque va a girar, porque tiene tensión suficiente',false]]});
+      ['Que el circuito está sano: si la tensión en los bornes es la correcta, ningún tramo puede tener una resistencia anómala',false],
+      ['Que la batería está en buen estado: una tensión nominal en reposo garantiza que aguantará la carga del arranque',false],
+      ['Que el arranque va a girar: con tensión suficiente en reposo, la corriente de arranque siempre llega al motor',false]]});
   const Rs=resistenciasSanas(v,s.TC);
   Q.push({t:'El cable positivo de este coche mide '+met(v.largoPos)+' de '+
       mm2(v.seccPos)+' y, sano, cae '+volt(Rs.cablePos*r.I)+' con '+amp(r.I)+
       '. ¿Está fuera del límite de 0,20 V?',
     ops:[['No, porque ese límite es POR CONEXIÓN: a un cable se le exige que caiga lo que su longitud y su sección predicen',true],
-      ['Sí, y hay que cambiarlo por uno de más sección',false],
-      ['Sí, pero se tolera porque el coche arranca igual',false],
-      ['No, porque el límite de 0,20 V sólo se aplica al lado de masa',false]]});
+      ['Sí, porque todo tramo que supere 0,20 V está averiado y hay que cambiarlo por uno de más sección y menos longitud',false],
+      ['Sí, pero se tolera: el coche arranca igual, así que el límite de 0,20 V es sólo orientativo para el cable positivo',false],
+      ['No, porque el límite de 0,20 V sólo se aplica al lado de masa; en el cable positivo no existe ningún límite',false]]});
   Q.push({t:'Unas escobillas gastadas suben la resistencia DENTRO del arranque. ¿Por qué el procedimiento de caídas de tensión no las encuentra?',
     ops:[['Porque mide conexiones, y el inducido no es una conexión: todas las caídas salen correctas y sólo la corriente y el régimen lo delatan',true],
-      ['Porque la caída del inducido es demasiado pequeña para medirla',false],
-      ['Porque el multímetro no llega a los bornes del arranque',false],
-      ['Porque las escobillas no aumentan la resistencia, sólo el desgaste mecánico',false]]});
+      ['Porque la caída de tensión del inducido es demasiado pequeña: queda por debajo de la resolución de cualquier multímetro de taller',false],
+      ['Porque el multímetro no llega a los bornes internos del arranque: sin abrirlo no hay forma de poner las puntas en el inducido',false],
+      ['Porque las escobillas gastadas no suben la resistencia del circuito, sólo producen un desgaste mecánico que se oye pero no se mide',false]]});
   const fria=ESCENARIOS[ESCENARIOS.length-1], cal=ESCENARIOS[0];
   const rF=ensayo(v,{TC:fria.TC,soc:fria.soc,aceite:G.aceite,falla:'sano'});
   const rC=ensayo(v,{TC:cal.TC,soc:cal.soc,aceite:G.aceite,falla:'sano'});
   Q.push({t:'El mismo coche sano gira a '+rpmT(rC.rpm)+' con '+celC(cal.TC)+
       ' y a '+rpmT(rF.rpm)+' con '+celC(fria.TC)+'. ¿Por qué las dos cosas a la vez?',
     ops:[['Porque el frío sube la resistencia interna de la batería y espesa el aceite: la que empuja da menos y el que se deja arrastrar pide más',true],
-      ['Sólo porque la batería pierde capacidad con el frío',false],
-      ['Sólo porque el aceite frío es más viscoso',false],
-      ['Porque el cobre de los cables conduce peor en frío',false]]});
+      ['Porque con el frío la batería pierde capacidad química y entrega menos corriente: el aceite no interviene en el régimen de arrastre',false],
+      ['Porque el aceite frío es más viscoso y el motor pide más par: la batería rinde igual a cualquier temperatura de trabajo',false],
+      ['Porque el cobre de los cables conduce peor en frío y la resistencia del circuito sube lo bastante para explicar todo el cambio',false]]});
   Q.push({t:'Un coche gira despacio. La pinza marca corriente ALTA. ¿Hacia dónde mira primero?',
     ops:[['Hacia la resistencia mecánica: si pasa mucha corriente, el circuito eléctrico está dejándola pasar y lo que cuesta es mover el motor',true],
-      ['Hacia una conexión con resistencia, porque toda corriente alta viene de un mal contacto',false],
-      ['Hacia la batería, porque está entregando de más',false],
-      ['Hacia el inducido, porque las escobillas siempre suben la corriente',false]]});
+      ['Hacia una conexión con resistencia: toda corriente alta viene de un mal contacto que obliga al arranque a consumir de más',false],
+      ['Hacia la batería: si entrega corriente de más es que sus celdas están en corto y hay que sustituirla antes de seguir',false],
+      ['Hacia el inducido: las escobillas gastadas suben siempre la corriente, así que es lo primero que hay que desmontar',false]]});
   Q.push({t:'De las '+C.total+' casillas del censo, en '+C.ciegas+' el coche no arranca y el procedimiento de caídas no señala nada. ¿Qué dice eso del método?',
     ops:[['Que descarta muy bien lo que sí ve, y que un resultado limpio no significa que no haya avería',true],
-      ['Que el método está mal planteado y conviene no usarlo',false],
-      ['Que hay que bajar el límite de 0,20 V para que salten más casos',false],
-      ['Que esas casillas son errores del modelo',false]]});
+      ['Que el método está mal planteado y conviene dejar de usarlo: un procedimiento que deja averías sin señalar no sirve',false],
+      ['Que hay que bajar el límite de 0,20 V hasta que el método señale también esas casillas y deje de haber puntos ciegos',false],
+      ['Que esas casillas son errores del modelo: en un coche real averiado las caídas de tensión siempre acaban delatando la avería',false]]});
   Q.push({t:'La pinza amperimétrica de taller resuelve al cuarto de centenar de amperios. ¿Por qué eso importa en el reto?',
     ops:[['Porque montajes que en el papel se separan por unos pocos amperios caen en la misma lectura, y entonces la pinza sola ya no distingue',true],
-      ['Porque una pinza siempre mide mal en corriente continua',false],
-      ['Porque la corriente de arranque es demasiado alta para cualquier pinza',false],
-      ['Porque la resolución sólo afecta a los voltímetros',false]]});
+      ['Porque una pinza amperimétrica mide mal la corriente continua y sólo es fiable en alterna, así que en el taller no se usa',false],
+      ['Porque la corriente de arranque es demasiado alta para el rango de cualquier pinza y su lectura se satura siempre',false],
+      ['Porque la resolución sólo afecta a los voltímetros: en una pinza la lectura no depende de en cuánto se redondee',false]]});
   return Q;
 }
 function bancoQ(){
@@ -2440,6 +2468,8 @@ function pregunta(i){
 function pistaReto(){
   const no=INSTR.filter(i=>RETO.medido[i.k]===undefined);
   if(!no.length){ showToast('Ya has usado los seis instrumentos. Ahora toca decidir.',3000); return; }
+  if(RETO.pistas>=MAX_PISTAS){ showToast('<b>Sin más pistas</b><br>Ya has usado las '+MAX_PISTAS+' de este caso.',3000); return; }
+  RETO.pistas++;
   // La pista NO es el primero de la lista: es el que más montajes descarta AHORA.
   // Un orden fijo enseña a repetir una receta; éste enseña a elegir instrumento.
   let mejor=no[0], corte=Infinity;
@@ -2447,7 +2477,8 @@ function pistaReto(){
     const d=informacionDe(i.k,VEHS[RETO.veh],retoPar(),RETO.medido,RETO.falla);
     if(d.despues<corte){ corte=d.despues; mejor=i; }
   }
-  showToast('<b>Prueba con:</b> '+mejor.rot+'<br>'+mejor.nota,4600);
+  showToast('<b>Pista '+RETO.pistas+' de '+MAX_PISTAS+' · prueba con:</b> '+mejor.rot+'<br>'+mejor.nota,4600);
+  afterEdit();
 }
 function otroCoche(){ armaReto(); afterEdit(); refrescaPregunta();
   showToast('<b>Otro caso.</b> Otro coche, otra mañana y otro montaje.',3000); }
@@ -2604,7 +2635,9 @@ window.__labDebug={
   get retoCfg(){ return {falla:RETO.falla, veh:RETO.veh, sitio:RETO.sitio,
     aceite:RETO.aceite, medido:Object.keys(RETO.medido),
     lecturas:Object.assign({},RETO.medido),
-    elegido:RETO.elegido, veredicto:RETO.veredicto, vivas:retoVivas()}; },
+    elegido:RETO.elegido, veredicto:RETO.veredicto, vivas:retoVivas(),
+    intentos:RETO.intentos, pistas:RETO.pistas}; },
+  get intentos(){ return RETO.intentos; },
   mide(k){ mide(k); },
   elige(k){ eligeFalla(k); },
   entrega(){ entrega(); return RETO.veredicto==='ok'; },
@@ -2616,6 +2649,7 @@ window.__labDebug={
       if(E){ RETO.sitio=E.k; RETO.sitioRot=E.rot; } }
     if(o.aceite&&ACEITES[o.aceite]) RETO.aceite=o.aceite;
     RETO.medido={}; RETO.elegido=null; RETO.veredicto=null;
+    RETO.intentos=0; RETO.pistas=0; RETO.aviso=''; RETO.retro='';
     invalida(); pinta(); refrescaPregunta(); },
   monta(){ autoAssemble(); },
   // Los mandos. Hacen EXACTAMENTE lo que hace un dedo sobre la barra de vistas:

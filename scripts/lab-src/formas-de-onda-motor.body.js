@@ -1812,8 +1812,9 @@ function vistaReto(){
         (E.separan.length?', y la separa '+E.separan.map(m=>OBS_CORTO[m.k]).join(' o ')+'.':'.')):'Con el taller corriente ya sale separada de las otras doce.'));
   }else{
     banda(600,'warn','Elige la familia en el panel de la derecha',
-      'Antes de elegir conviene pasar por las otras vistas: la de la rueda dice si la referencia es única, la de sincronía mide la fase con dos canales, la de tensión '+
-      'separa una alimentación caída de una masa con resistencia, y la de cazar el fallo dice cuántas veces hay que repetir un gesto para fiarse de un escáner.');
+      'Intentos: '+RETO.intentos+' de '+MAX_INTENTOS+' · pistas: '+RETO.pistas+' de '+MAX_PISTAS+'. '+
+      'Las otras vistas enseñan cómo se lee cada señal con un motor de práctica, no con éste: aquí sólo cuenta lo que compres. '+
+      (RETO.aviso?RETO.aviso:'Elige con lo que has medido, no con lo que sospechas.'));
   }
 }
 
@@ -2083,6 +2084,17 @@ function pintaOsc(){
   c.strokeStyle='#16202c'; c.lineWidth=1;
   for(let i=1;i<10;i++){ c.beginPath(); c.moveTo(W*i/10,0); c.lineTo(W*i/10,H); c.stroke(); }
   for(let i=1;i<6;i++){ c.beginPath(); c.moveTo(0,H*i/6); c.lineTo(W,H*i/6); c.stroke(); }
+  if(G.modo==='reto'){
+    // A ciegas el osciloscopio del banco está apagado: la onda es una observación
+    // de pago y se compra en el panel.
+    c.fillStyle='#6d7889'; c.font='600 16px Inter,system-ui,sans-serif'; c.textAlign='center';
+    c.fillText('osciloscopio sin señal',W/2,H/2-6);
+    c.font='400 13px Inter,system-ui,sans-serif';
+    c.fillText('las observaciones se compran en el panel',W/2,H/2+18);
+    c.textAlign='left';
+    oscTex.needsUpdate=true;
+    return;
+  }
   const s=serieCanal(G.canal);
   let a=Infinity,b=-Infinity;
   for(const p of s.pts){ a=Math.min(a,p[1]); b=Math.max(b,p[1]); }
@@ -2132,6 +2144,8 @@ function pinta3D(dt){
   // La mariposa: cerrada deja un hilo de paso, a fondo se pone en el eje.
   if(mariposa) mariposa.rotation.y=(0.12+G.acel*(Math.PI/2-0.20));
   // Los testigos dicen lo que dice el motor sellado, nunca lo que parece.
+  // A ciegas los testigos del banco y el osciloscopio no cantan el caso.
+  if(G.modo==='reto'){ [ckpLed,cmpLed,agujaMap,inyLed].forEach(m=>{ if(m) m.material=MAT.caja; }); pintaOsc(); return; }
   if(ckpLed) ckpLed.material=L.pts[1].pasa?(L.sincroniza?MAT.ok:MAT.avi):MAT.bad;
   if(cmpLed) cmpLed.material=!L.hayCmp?MAT.bad:(Math.abs(L.desfase)>UMBRAL_FASE?MAT.avi:MAT.ok);
   if(agujaMap) agujaMap.material=Math.abs(L.pts[1].vMap-LECT_DE('sano').pts[1].vMap)>1e-9?MAT.avi:MAT.ok;
@@ -2182,7 +2196,7 @@ const HUD_TXT={
     'Trece escenarios, trece observaciones, 8 191 juegos posibles. La pregunta útil no es cuánto marca cada instrumento, sino cuántas averías distintas separa. Y el resultado NO es el mismo en las cuatro máquinas.',
     'firma(sub) → clases de equivalencia'],
   reto:['Reto','Diagnostica a ciegas',
-    'El escenario está oculto. Mira las vistas que necesites y entrega la FAMILIA de avería. Hay averías que no ponen ningún código, y en una de las cuatro máquinas hay una que no deja huella en ningún instrumento.',
+    'El escenario está oculto. Compra las observaciones que necesites y entrega la FAMILIA de avería. Hay averías que no ponen ningún código, y en una de las cuatro máquinas hay una que no deja huella en ningún instrumento.',
     'diagnóstico = f(forma, amplitud, fase, cero, rizado, joroba)'],
 };
 function pintaHUD(){
@@ -2297,6 +2311,19 @@ function pintaTele(){
   const e=MQ(), L=LECT(), SN=LECT_DE('sano'), rpm=rpmVista();
   const ciego=(G.modo==='reto');
   let h='';
+  // A ciegas, la telemetría NO canta los datos del motor: cada observación cuesta,
+  // y sólo se publica lo comprado (en el recuadro del reto y en el pizarrón).
+  if(ciego){
+    h+=gl('Motor',e.corto);
+    h+=gl('Observaciones tomadas',Object.keys(RETO.tomadas).length+' / '+OBS.length,
+      Object.keys(RETO.tomadas).length?'':'warn');
+    h+=gl('Familia elegida',RETO.eleccion||'ninguna todavía',RETO.eleccion?'':'warn');
+    h+=gl('Intentos',RETO.intentos+' de '+MAX_INTENTOS,RETO.intentos?'warn':'');
+    h+=gl('Pistas',RETO.pistas+' de '+MAX_PISTAS);
+    h+=gl('Escenario','oculto hasta acertar','warn');
+    el('tele').innerHTML=h;
+    return;
+  }
   h+=gl('Régimen en pantalla',rpmT(rpm)+(enArranque()?'  (arranque)':''));
   h+=gl('Amplitud del cigüeñal',volt(ampCkp(e,rpm,FA()),3),
     ampCkp(e,rpm,FA())>=e.umbralCkp?'good':'bad');
@@ -2398,9 +2425,12 @@ function cambiaMaquina(k){
 }
 const MARGEN={sensores:1.00, rueda:0.96, sincro:0.96, tension:0.96,
   inyector:0.98, caza:0.96, censo:0.94, reto:0.96};
-function setMode(m){
+function setMode(m,conserva){
+  // Al salir del diagnóstico a ciegas el escenario del caso NO se queda montado en
+  // las vistas de exploración: dejaría la respuesta a un clic de distancia.
+  if(G.modo==='reto'&&m!=='reto'&&!conserva) G.esc='sano';
   G.modo=m;
-  if(m==='reto') armaReto();
+  if(m==='reto'&&!conserva) armaReto();
   pintaHUD(); afterEdit(); refrescaPregunta();
   // Encuadre. Todos los modos se leen en el pizarrón, y el banco tiene que caber
   // al lado: el encuadre sale del ancho real de los dos juntos y no de una
@@ -2410,7 +2440,8 @@ function setMode(m){
 }
 
 // ============================== T4b · RETO, CUESTIONARIO, RECORRIDO Y ARRANQUE
-const RETO={caso:null, tomadas:{}, eleccion:null, veredicto:null, pistas:0};
+const MAX_INTENTOS=3, MAX_PISTAS=2;
+const RETO={caso:null, tomadas:{}, eleccion:null, veredicto:null, pistas:0, intentos:0, aviso:''};
 
 function barajaEn(a){                       // Fisher-Yates, para que la posición
   for(let i=a.length-1;i>0;i--){            // de la respuesta no sea la pista
@@ -2418,11 +2449,13 @@ function barajaEn(a){                       // Fisher-Yates, para que la posici�
   }
   return a;
 }
-function armaReto(){
-  const casos=RETO_CASOS();
+function armaReto(evita){
+  // `evita`: el caso que acaba de agotar sus intentos. El caso nuevo es OTRO, o
+  // se aprobaría por eliminación recorriendo las familias.
+  const casos=RETO_CASOS().filter(k=>k!==evita);
   RETO.caso=casos[Math.floor(Math.random()*casos.length)];
   G.esc=RETO.caso;
-  RETO.tomadas={}; RETO.eleccion=null; RETO.veredicto=null; RETO.pistas=0;
+  RETO.tomadas={}; RETO.eleccion=null; RETO.veredicto=null; RETO.pistas=0; RETO.intentos=0; RETO.aviso='';
   G.resuelto=false;
   invalida(); pintaObsReto(); pintaDxReto();
 }
@@ -2431,7 +2464,9 @@ function armaReto(){
 // precisión infinita, y si la pantalla diera más dígitos que el censo, el censo
 // estaría contando otra cosa que la que se ve en pantalla.
 function valorObs(k){
-  const e=MQ(), L=LECT(), o=OBS.find(x=>x.k===k);
+  // En el reto, las lecturas son SIEMPRE las del caso, no las de lo que los mandos
+  // de exploración tengan montado.
+  const e=MQ(), L=(G.modo==='reto'&&RETO.caso)?LECT_DE(RETO.caso):LECT(), o=OBS.find(x=>x.k===k);
   if(k==='arranque') return L.arranca?'sí arranca':'NO arranca';
   if(k==='codigo')   return L.codigos.length?L.codigos.join(' · '):'ningún código';
   if(k==='tpsCerr')  return volt(cuant(L.pts[1].vTps,o.res),1);
@@ -2466,7 +2501,9 @@ function pintaDxReto(){
 }
 function pintaReto(){
   const R=el('report'), n=Object.keys(RETO.tomadas).length;
-  let h='<b>Coche bajo diagnóstico:</b> '+MQ().nombre+'. Observaciones tomadas: '+n+'/'+OBS.length+'. ';
+  let h='<b>Coche bajo diagnóstico:</b> '+MQ().nombre+'. Observaciones tomadas: '+n+'/'+OBS.length+
+    ' · intentos: '+RETO.intentos+'/'+MAX_INTENTOS+' · pistas: '+RETO.pistas+'/'+MAX_PISTAS+'. ';
+  if(RETO.aviso) h+='<span class="warn">'+RETO.aviso+'</span> ';
   if(RETO.veredicto) h+=(RETO.veredicto.ok?'<b class="good">Acertaste.</b> ':'<b class="bad">Fallaste.</b> ')+RETO.veredicto.texto;
   else h+='Toma las que necesites —las que llevan 💰 piden osciloscopio—, elige la familia y entrega el diagnóstico.';
   R.innerHTML=h;
@@ -2478,36 +2515,58 @@ function pintaReto(){
 }
 function pistaReto(){
   if(G.modo!=='reto') return;
-  RETO.pistas++;
-  const e=MQ(), L=LECT(), E=veredictoEngano();
+  if(RETO.pistas>=MAX_PISTAS){ showToast('No quedan más pistas en este caso.',2400); return; }
+  // Dos pistas graduadas que orientan sobre CÓMO elegir qué medir; ninguna lee
+  // un instrumento ni nombra una familia.
   const pistas=[
-    L.codigos.length
-      ? 'El escáner declara '+L.codigos.map(c=>CODIGO_ROT[c]).join(' y ')+'. Un código dice en qué circuito mirar, no qué le pasa.'
-      : 'El escáner sale limpio: no hay ni un código. Eso ya descarta la mitad de las familias del banco.',
-    E.gemelos.length
-      ? 'Con el taller corriente esta avería se confunde con '+E.gemelos.map(k=>ESC_CORTO[k]).join(' y ')+'. Hace falta osciloscopio para separarla.'
-      : 'Con el taller corriente esta avería ya sale separada de las otras doce. No hace falta gastar en osciloscopio.',
-    E.separan.length
-      ? 'La medida que la separa de todo lo demás es: '+E.separan.map(m=>OBS_CORTO[m.k]).join(' o ')+'.'
-      : 'No hay una sola medida que la separe: hay que combinar por lo menos dos.'
+    'Empieza por lo que no cuesta: intentar arrancar y leer los códigos. Un código dice en qué circuito mirar, no qué le pasa.',
+    'Las observaciones con 💰 piden osciloscopio. Antes de pagarlas, mira qué hueco te dejan las del taller corriente: dos averías pueden dar el mismo número en el escáner y ondas distintas.'
   ];
-  const t=pistas[Math.min(RETO.pistas,pistas.length)-1];
+  const t=pistas[RETO.pistas];
+  RETO.pistas++;
   showToast('💡 '+t,4600);
+  pintaReto();
   synth.beep(760,0.06,0.05);
 }
 function entregaReto(){
   if(G.modo!=='reto') return;
   if(!RETO.eleccion){ showToast('Elige primero una familia de avería.',2400); return; }
+  if(RETO.veredicto&&RETO.veredicto.ok) return;           // este caso ya está resuelto
+  const e=MQ();
   const ok=RETO.eleccion===ESCEN[RETO.caso].clave;
   const n=Object.keys(RETO.tomadas).length;
-  const E=veredictoEngano();
-  RETO.veredicto={ ok, texto:
-    'Era <b>'+ESCEN[RETO.caso].rot+'</b>, de la familia «'+ESCEN[RETO.caso].clave+'». '+
-    FALLAS[ESCEN[RETO.caso].falla].nota+
-    ' Lo resolviste con '+n+' observación'+(n===1?'':'es')+
-    (E.separan.length?', y la que de verdad la separaba era '+E.separan.map(m=>OBS_CORTO[m.k]).join(' o ')+'.':'.') };
-  G.resuelto=true;
+  RETO.intentos++;
+  if(ok){
+    const E=veredictoEngano();
+    RETO.veredicto={ ok:true, texto:
+      'Era <b>'+ESCEN[RETO.caso].rot+'</b>, de la familia «'+ESCEN[RETO.caso].clave+'». '+
+      FALLAS[ESCEN[RETO.caso].falla].nota+
+      ' Lo resolviste con '+n+' observaci'+(n===1?'ón':'ones')+
+      (E.separan.length?', y la que de verdad la separaba era '+E.separan.map(m=>OBS_CORTO[m.k]).join(' o ')+'.':'.') };
+    G.resuelto=true;
+  }else{
+    // Al fallar NO se dice qué era. Sólo lo que el alumno puede razonar con lo que
+    // ha tomado: si esa familia todavía cabía con sus lecturas o ya no.
+    const sub=OBS.filter(o=>RETO.tomadas[o.k]!==undefined);
+    let por;
+    if(!sub.length) por='No has tomado ninguna observación: sin lecturas no hay con qué descartar ni confirmar una familia.';
+    else{
+      const real=firmaObs(e,LECT_DE(RETO.caso),sub);
+      const cabe=ESCEN_KEYS.some(k=>ESCEN[k].clave===RETO.eleccion&&k!=='sano'&&firmaObs(e,LECT_DE(k),sub)===real);
+      por=cabe
+        ? 'Con las lecturas que llevas, esa familia todavía cabría, pero también cabe otra: te falta una observación que las distinga.'
+        : 'Las lecturas que llevas no encajan con esa familia: compara lo que mediste con lo que daría esa avería.';
+    }
+    RETO.veredicto={ ok:false, texto:'Esa no es la familia. '+por };
+  }
   synth.beep(ok?880:220,0.10,0.07);
+  if(!ok&&RETO.intentos>=MAX_INTENTOS){
+    // Tres fallos: el coche se va y llega otro con otra avería.
+    const previo=RETO.caso;
+    armaReto(previo);
+    RETO.aviso='Tres intentos fallidos: ese coche se ha ido y ha llegado otro, con otra avería.';
+    afterEdit(); showToast(RETO.aviso,4200); return;
+  }
   pintaReto(); pintaTablero(); pintaTele(); syncCtrlbar();
 }
 
@@ -2609,10 +2668,25 @@ function pregunta(i){
 }
 
 // ------------------------------------------------------------ recorrido guiado
-let AUTO=null;
-function paraAuto(){ if(AUTO){ clearTimeout(AUTO); AUTO=null; } el('btnAuto').disabled=false; }
+let AUTO=null, SNAP=null;
+// El recorrido es una DEMOSTRACIÓN: al terminar o al cancelarse devuelve el banco
+// y el reto al estado exacto en que estaban (motor, escenario del caso, lo que se
+// había tomado, intentos y pistas) y jamás toca el reto ni el éxito ya conseguido.
+function restauraAuto(){
+  const sn=SNAP; SNAP=null; if(!sn) return;
+  if(G.maq!==sn.g.maq) cambiaMaquina(sn.g.maq);
+  Object.assign(G,sn.g);
+  Object.assign(RETO,sn.reto,{tomadas:{...sn.reto.tomadas}});
+  invalida();
+  setMode(G.modo,true);
+  if(G.modo==='reto'){ pintaObsReto(); pintaDxReto(); pintaReto(); }
+  refrescaPregunta();
+}
+function paraAuto(){ if(AUTO){ clearTimeout(AUTO); AUTO=null; } el('btnAuto').disabled=false; restauraAuto(); }
 function runAuto(){
   if(AUTO) return;
+  SNAP={g:{modo:G.modo, maq:G.maq, esc:G.esc, rpm:G.rpm, acel:G.acel, canal:G.canal, barrido:G.barrido, resuelto:G.resuelto},
+    reto:{...RETO, tomadas:{...RETO.tomadas}}};
   el('btnAuto').disabled=true;
   const pasos=[
     ()=>{ G.maq='g16'; G.esc='sano'; G.rpm=ARQ.g16.ralenti; G.acel=0.30; G.canal='ckp';
@@ -2741,8 +2815,10 @@ window.__labDebug={
     escala:V.escala, cero:V.cero, cierreTarde:V.cierreTarde, malo:V.malo,
     gemelos:E.gemelos.slice(), separan:E.separan.map(m=>m.k), mudos:E.mudos.slice(),
     limpio:E.limpio, ciego:E.ciego, nivel:E.nivel}; },
+  get intentos(){ return RETO.intentos; },
   get reto(){ return {caso:RETO.caso, eleccion:RETO.eleccion,
     tomadas:Object.keys(RETO.tomadas), veredicto:RETO.veredicto?RETO.veredicto.ok:null,
+    intentos:RETO.intentos, maxIntentos:MAX_INTENTOS, pistas:RETO.pistas, maxPistas:MAX_PISTAS,
     familias:FAMILIAS_RETO().slice()}; },
   get preguntas(){ return preguntas().map(q=>({t:q.t, n:q.ops.length,
     correctas:q.ops.filter(o=>o[1]).length})); },

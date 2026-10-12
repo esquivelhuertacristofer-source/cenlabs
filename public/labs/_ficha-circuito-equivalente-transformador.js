@@ -1,7 +1,7 @@
 /* Ficha técnica — Circuito Equivalente por Ensayos de Vacío y Cortocircuito */
 fichaTecnica({
   title: 'Circuito equivalente por ensayos de vacío y cortocircuito — banco de tensión reducida',
-  intro: 'El modelo representa el mismo banco de pruebas de bajo voltaje de la práctica hermana d5-01 (variac, transformador de 4 terminales, panel de instrumentos), reutilizado aquí para dos ensayos de rutina distintos: el <b>ensayo de vacío</b> (circuito abierto, excitando el lado de baja tensión) y el <b>ensayo de cortocircuito</b> (excitando el lado de alta tensión con el de baja en corto). De ambos se obtiene el circuito equivalente completo (Rc, Xm, Req, Xeq), que luego se usa para predecir la regulación de voltaje y la eficiencia a plena carga sin necesidad de ensayar el transformador bajo carga real.',
+  intro: 'El modelo representa el mismo banco de pruebas de bajo voltaje del laboratorio de relación y polaridad (variac, transformador de 4 terminales, panel de instrumentos), reutilizado aquí para dos ensayos de rutina distintos: el <b>ensayo de vacío</b> (circuito abierto, excitando el lado de baja tensión) y el <b>ensayo de cortocircuito</b> (excitando el lado de alta tensión con el de baja en corto). De ambos se obtiene el circuito equivalente completo (Rc, Xm, Req, Xeq), que luego se usa para predecir la regulación de voltaje y la eficiencia a plena carga sin necesidad de ensayar el transformador bajo carga real.',
   s1: {
     presentes: 'Fuente de tensión reducida (variac) con dos terminales de salida; transformador con tanque, cuatro bujes/terminales rotulados (H1, H2 de alta tensión; X1, X2 de baja tensión) y placa de datos; puente de cortocircuito entre X1-X2 (visible solo en el ensayo de cortocircuito); banco de carga a plena capacidad (visible solo en los casos de regulación de voltaje y eficiencia); tres instrumentos de panel (voltímetro, amperímetro, wattmetro) con aguja y lectura digital; esquemático interactivo que alterna entre el diagrama del ensayo activo y el circuito equivalente resultante, con cada elemento identificable al tocarlo.',
     omitidos: [
@@ -17,7 +17,7 @@ fichaTecnica({
       ['Ensayo', 'Excitación', 'Otro devanado', 'Lecturas'],
       ['Vacío (OC)', 'BT (X1-X2), tensión reducida', 'AT (H1-H2) abierto', 'Voc=24.00 V · Ioc=1.04 A · Poc=8.00 W'],
       ['Cortocircuito (SC)', 'AT (H1-H2), hasta I nominal', 'BT (X1-X2) en corto', 'Vsc=13.20 V · Psc=12.90 W'],
-      ['Unidad', 'Control 500 VA, 220/24 V (misma unidad de d5-01)', '', 'a nominal = 220/24 = 9.1667'],
+      ['Unidad', 'Control 500 VA, 220/24 V (la misma unidad del laboratorio de relación y polaridad)', '', 'a nominal = 220/24 = 9.1667'],
     ],
   },
   s3: [
@@ -45,7 +45,7 @@ fichaTecnica({
   s6: [
     '<b>IEC 60076-1</b> — Transformadores de potencia, Parte 1: Generalidades. Cláusula 11.4 (medición de la impedancia de cortocircuito y la pérdida de carga) y Cláusula 11.5 (medición de la pérdida y corriente en vacío).',
     '<b>ANSI/IEEE C57.12.90</b> — Test Code for Liquid-Immersed Distribution, Power, and Regulating Transformers. Cláusula 8 (ensayos de rutina de vacío y cortocircuito).',
-    '<b>CFE K0000-04</b> — Especificación de transformadores de distribución y potencia (práctica mexicana, convención de terminales H1/H2-X1/X2, misma unidad de ejemplo que d5-01).',
+    '<b>CFE K0000-04</b> — Especificación de transformadores de distribución y potencia (práctica mexicana, convención de terminales H1/H2-X1/X2, misma unidad de ejemplo que el laboratorio de relación y polaridad).',
     '<b>NMX-J-116-ANCE / NMX-J-169-ANCE</b> — normas mexicanas de transformadores de distribución y potencia; ANCE las declara NO equivalentes directas a IEC ni a ANSI/IEEE.',
   ],
 });

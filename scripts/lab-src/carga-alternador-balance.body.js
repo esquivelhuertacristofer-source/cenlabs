@@ -736,7 +736,8 @@ function ambiguos(vk, sk, cond){
 // ============================================================================
 const RETO={ activo:false, veh:'util16', falla:null, sit:'diaCarretera',
   rpm:null, on:null, visitadas:[], hecho:false, elegida:null, acierto:null,
-  orden:FALLA_KEYS.slice() };
+  orden:FALLA_KEYS.slice(), intentos:0, pistas:0, aviso:'', retro:'' };
+const MAX_INTENTOS=3, MAX_PISTAS=2;
 
 /** La condición que está puesta ahora mismo en el banco del reto. */
 function retoCondicion(){
@@ -774,24 +775,45 @@ function retoAnota(){
   const c=retoCondicion(), k=claveCondicion(c);
   if(RETO.visitadas.some(x=>claveCondicion(x)===k)) return false;
   RETO.visitadas.push(c);
+  RETO.retro='';
   return true;
 }
 /** Un caso nuevo. `rnd` permite fijar la semilla en las pruebas. */
 function retoNuevo(rnd){
   const r=rnd||Math.random;
   RETO.activo=true; RETO.hecho=false; RETO.elegida=null; RETO.acierto=null;
+  RETO.intentos=0; RETO.pistas=0; RETO.aviso=''; RETO.retro='';
   RETO.veh=VEH_KEYS[Math.floor(r()*VEH_KEYS.length)%VEH_KEYS.length];
   RETO.falla=FALLA_KEYS[Math.floor(r()*FALLA_KEYS.length)%FALLA_KEYS.length];
   RETO.sit=SITUACIONES[0].k; RETO.rpm=null; RETO.on=null;
   RETO.visitadas=[];
   return RETO.veh;
 }
+/** Un dictamen sólo vale si está CERRADO: acertar con varios montajes aún en pie
+ *  es suerte, y no se acepta. Al fallar NO se dice cuál era: se dice por qué no
+ *  vale. A los tres fallos el caso se cambia por otro, para que nadie apruebe
+ *  tachando montajes hasta que sólo quede uno. */
 function retoResponde(fk){
   if(!RETO.activo||RETO.hecho) return null;
   RETO.elegida=fk;
-  RETO.acierto=(fk===RETO.falla);
-  RETO.hecho=true;
-  return RETO.acierto;
+  const comp=retoCompatibles();
+  if(fk===RETO.falla && comp.length===1){
+    RETO.acierto=true; RETO.hecho=true; RETO.retro=''; RETO.aviso='';
+    G.resuelto=true;
+    return true;
+  }
+  RETO.acierto=false;
+  RETO.intentos++;
+  RETO.retro = comp.length>1
+    ? 'Dictamen sin cerrar: con lo que has medido siguen en pie '+comp.length+
+      ' montajes, y un dictamen que no deja uno solo no se acepta, acierte o no. Cambia de condición y acorrala.'
+    : 'El caso estaba cerrado —tus medidas dejaban un solo montaje—, y no era el que elegiste. Revisa la lista de los que siguen en pie.';
+  RETO.elegida=null;
+  if(RETO.intentos>=MAX_INTENTOS){
+    armaReto();
+    RETO.aviso='Tres dictámenes sin aprobar: este caso se cierra sin revelarlo y llega otro coche y otro montaje.';
+  }
+  return false;
 }
 /** El balance del caso, y sólo DESPUÉS de responder. */
 function retoResumen(){
@@ -2337,25 +2359,21 @@ function vistaReto(){
     b:(RETO.hecho&&k===RETO.falla)}));
   y=tablaDer(y,['siguen siendo posibles',''],rows.length?rows:[{v:['—','']}]);
 
-  if(!RETO.hecho){
+  if(!RETO.hecho && RETO.retro){
+    banda(628,'bad','DICTAMEN NO ACEPTADO',
+      RETO.retro+' Intento '+RETO.intentos+' de '+MAX_INTENTOS+'.');
+  }else if(!RETO.hecho){
     banda(628, comp.length===1?'ok':'warn',
       comp.length===1?'CASO CERRADO: ENTREGA EL DICTAMEN':'AÚN QUEDAN '+comp.length+' POSIBLES',
-      comp.length===1
+      (RETO.aviso?RETO.aviso+' ':'')+(comp.length===1
         ? 'Con lo que has medido sólo queda un montaje compatible. Eso es cerrar un caso: no es que lo hayas adivinado, es que lo demás está descartado por medidas tuyas.'
-        : 'Con lo que llevas medido, '+comp.length+' montajes darían exactamente estas lecturas. Cambia de condición: sube el régimen, enciende la luneta, ponte en el atasco. Un aparato nuevo no te va a servir; una condición nueva, sí.');
+        : 'Con lo que llevas medido, '+comp.length+' montajes darían exactamente estas lecturas. Cambia de condición: sube el régimen, enciende la luneta, ponte en el atasco. Un aparato nuevo no te va a servir; una condición nueva, sí.')+
+      ' Intentos: '+RETO.intentos+' de '+MAX_INTENTOS+' · pistas: '+RETO.pistas+' de '+MAX_PISTAS+'.');
   }else{
     const R=retoResumen();
-    const nivel=R.acierto?(R.cerrado?'ok':'warn'):'bad';
-    const rot=R.acierto?(R.cerrado?'ACERTADO Y CERRADO':'ACERTADO, PERO NO CERRADO')
-      :'FALLADO: ERA «'+FALLAS[R.falla].corto.toUpperCase()+'»';
-    banda(628,nivel,rot,
-      (R.acierto
-        ? (R.cerrado
-          ? 'Y te lo habías ganado: con las '+R.condiciones+' condiciones que miraste, ningún otro montaje daba estas lecturas.'
-          : 'Pero no te lo habías ganado: con lo que mediste quedaban '+R.compatibles.length+
-            ' montajes compatibles —'+R.compatibles.map(k=>FALLAS[k].sig).join(', ')+
-            '— y elegiste bien de casualidad.')
-        : 'Era «'+FALLAS[R.falla].rot+'». '+FALLAS[R.falla].pista)+
+    banda(628,'ok','ACERTADO Y CERRADO',
+      'Era «'+FALLAS[R.falla].rot+'». '+FALLAS[R.falla].pista+
+      ' Te lo habías ganado: con las '+R.condiciones+' condiciones que miraste, ningún otro montaje daba estas lecturas.'+
       ' Las situaciones que habrían separado este montaje de todos los demás ella sola: '+
       (R.buenas.length?R.buenas.map(k=>(SITUACIONES.find(s=>s.k===k)||{rot:k}).rot).join(', ')
         :'ninguna de las cinco; hacía falta más de una.')+'.');
@@ -2574,12 +2592,12 @@ function pintaInforme(){
     let hh='<b>'+v.corto+'</b>. El cliente dice que por las mañanas le cuesta arrancar. ';
     if(RETO.hecho){
       const R=retoResumen();
-      hh+=R.acierto
-        ? ('<b class="good">Dictamen correcto:</b> era '+FALLAS[R.falla].rot+'. '+
-           (R.cerrado?'Y lo habías cerrado.':'<b class="warn">Pero no lo habías cerrado.</b>'))
-        : ('<b class="bad">No era eso:</b> era '+FALLAS[R.falla].rot+'.');
+      hh+='<b class="good">Dictamen correcto:</b> era '+FALLAS[R.falla].rot+'. Y lo habías cerrado.';
+    }else if(RETO.retro){
+      hh+='<b class="bad">Dictamen no aceptado.</b> '+RETO.retro+' Intento '+RETO.intentos+' de '+MAX_INTENTOS+'.';
     }else{
-      hh+='Cambia la condición y mira los aparatos. Cerrar el caso es dejar UN solo montaje compatible.';
+      hh+=(RETO.aviso?RETO.aviso+' ':'')+'Cambia la condición y mira los aparatos. Cerrar el caso es dejar UN solo montaje compatible. Intentos: '+
+        RETO.intentos+' de '+MAX_INTENTOS+' · pistas: '+RETO.pistas+' de '+MAX_PISTAS+'.';
     }
     el('report').innerHTML=hh; return;
   }
@@ -2693,23 +2711,23 @@ function preguntas(){
   Q.push({t:'Este alternador lleva escrito '+amp(v.alt.nominal)+' en la chapa y al ralentí de este coche —'+
       rpmT(v.ralenti)+'— puede dar '+amp(capRal,1)+'. ¿Por qué?',
     ops:[['Porque la fem crece con las vueltas y la reactancia que la frena también: la corriente sube tumbada hacia un techo que sólo se alcanza a régimen infinito',true],
-      ['Porque el regulador limita la corriente a ralentí para no cargar el motor',false],
-      ['Porque la cifra de la chapa está medida en frío y a ralentí el alternador ya está caliente',false],
-      ['Porque a ralentí el rotor no llega a saturar el hierro y por eso da la mitad',false]]});
+      ['Porque el regulador recorta a propósito la corriente a ralentí para no cargar el motor, y la libera a medida que suben las vueltas',false],
+      ['Porque la cifra de la chapa está medida en frío y a ralentí el alternador ya está caliente, con lo que pierde casi la mitad de su capacidad',false],
+      ['Porque a ralentí el rotor no llega a saturar el hierro, y un campo a medio saturar entrega sólo la mitad de la corriente nominal',false]]});
   const res=CARGAS.filter(c=>c.tipo==='res').length, pot=CARGAS.length-res;
   Q.push({t:'De los '+CARGAS.length+' consumos, '+res+' son resistivos y '+pot+
       ' son de potencia constante. Si la barra se hunde de 14,4 a 12,5 V, ¿qué pasa con la corriente total?',
     ops:[['Los resistivos tiran menos y los de potencia tiran MÁS, así que la suma baja mucho menos de lo que uno esperaría',true],
-      ['Baja toda proporcionalmente a la tensión, porque toda carga es óhmica',false],
-      ['Sube toda, porque al bajar la tensión todos los consumos compensan',false],
-      ['No cambia: el consumo de un coche está fijado por su fusiblera',false]]});
+      ['Baja toda en proporción a la tensión, porque toda carga del coche es óhmica y cumple la ley de Ohm sin más complicación',false],
+      ['Sube toda, porque al bajar la tensión cada consumo tira de más corriente para mantener la potencia que daba antes',false],
+      ['No cambia, porque el consumo de un coche lo fija la fusiblera y cada circuito pasa siempre la misma corriente',false]]});
   const iAcc=corrienteBateria(v.bat,r.soc,r.TC,r.vObj);
   Q.push({t:'Con la batería al '+pcc(r.soc*100)+' y '+celC(r.TC)+
       ', ofrecerle '+volt(r.vObj)+' hace que acepte '+amp(iAcc,1)+'. ¿Quién pone ese límite?',
     ops:[['La polarización: el sulfato está dentro del poro de la placa y el ácido tiene que llegar por difusión, y esa resistencia crece según la placa se limpia',true],
-      ['El regulador del alternador, que corta la carga por encima de esa corriente',false],
-      ['La resistencia interna de la batería, la misma que da los amperios de arranque',false],
-      ['El fusible principal, que no deja pasar más',false]]});
+      ['El regulador del alternador, que corta la carga en cuanto la batería pide más de esa corriente para proteger los diodos',false],
+      ['La resistencia interna de la batería, la misma que fija los amperios de arranque en frío y que no cambia con la carga',false],
+      ['El fusible principal del circuito de carga, que está dimensionado para no dejar pasar más corriente que ésa',false]]});
   const sensa=v.sensa==='bateria';
   const rc=EN_DE('cableCarga');
   Q.push({t:'En este coche el regulador mide en '+(sensa?'LA BATERÍA':'EL ALTERNADOR')+
@@ -2718,34 +2736,34 @@ function preguntas(){
     ops:[sensa
         ? ['Que el regulador compensa la caída que no ve subiendo su propia tensión: el voltímetro en el borne no delata el cable, y quien lo paga es el alternador',true]
         : ['Que la caída se la come la batería: el regulador ya tiene su consigna en el alternador y no sube más, así que el cable SÍ se ve con el voltímetro de siempre',true],
-      ['Que el cable no influye, porque el regulador siempre entrega la consigna en los dos extremos',false],
-      ['Que el alternador está averiado, porque su tensión no coincide con la de la batería',false],
-      ['Que hay que subir la consigna del regulador para compensarlo',false]]});
+      ['Que el cable no influye: el regulador entrega siempre su consigna y por eso la tensión es la misma en los dos extremos del cable',false],
+      ['Que el alternador está averiado, porque su tensión no coincide con la de la batería y un alternador sano siempre marca igual en ambos',false],
+      ['Que hay que subir la consigna del regulador para compensar la caída, porque el cable es una pérdida inevitable y fija',false]]});
   const desc=FALLA_KEYS.filter(k=>EN_DE(k).descarga);
   const conTest=FALLA_KEYS.filter(k=>EN_DE(k).med.testigo);
   Q.push({t:'En esta condición, '+desc.length+' de los '+FALLA_KEYS.length+
       ' montajes descargan la batería con el motor en marcha, y el testigo del salpicadero se enciende en '+
       conTest.length+'. ¿Qué vigila ese testigo?',
     ops:[['Si el alternador EXCITA, no si ALCANZA: se alimenta del propio estator, y mientras la máquina genere algo se apaga aunque no llegue ni de lejos a cubrir el consumo',true],
-      ['La tensión de la batería, y se enciende por debajo de 12 V',false],
-      ['La corriente de carga, y se enciende cuando la batería se descarga',false],
-      ['El estado de la correa, por eso se enciende si patina',false]]});
+      ['La tensión de la batería: se enciende en cuanto la barra baja de unos 12 V, y por eso avisa siempre que la batería se vacía',false],
+      ['La corriente de carga: se enciende cuando el alternador entrega menos de lo que consume el coche y la batería se está descargando',false],
+      ['El estado de la correa: se enciende si el alternador gira más despacio de lo debido, y por eso sirve de aviso general',false]]});
   const vacias=C.filas.filter(f=>f.n===0);
   const mejor=C.filas.slice().sort((a,b)=>b.n-a.n)[0];
   Q.push({t:'En esta condición, el aparato que más separa es «'+instr(mejor.ik).rot+
       '» con '+mejor.n+' de 8, y hay '+vacias.length+' que no separan ninguno. ¿Qué conviene cambiar para ver más?',
     ops:[['La condición: subir el régimen o encender consumos le pide al circuito lo que aquí no se le está pidiendo, y entonces las averías se separan solas',true],
-      ['El aparato: hay que buscar un multímetro de más resolución',false],
-      ['El vehículo: en otro coche estas averías sí se verían',false],
-      ['Nada: si los aparatos no ven nada es que el circuito está sano',false]]});
+      ['El aparato: hay que buscar un multímetro de más resolución, porque las diferencias entre montajes son demasiado pequeñas para estos',false],
+      ['El vehículo: en otro coche estas mismas averías sí se verían, porque cada modelo tiene su propio rizado y sus propias caídas',false],
+      ['Nada: si los aparatos no ven diferencia alguna entre montajes es que el circuito está sano y no hay nada que encontrar',false]]});
   const eq=rpmEquilibrio(G.veh,'sano',G.sit,COND());
   Q.push({t:'Sano y en esta situación, el coche deja de comerse la batería a partir de '+
       (eq===null?'ningún régimen alcanzable':(eq===0?'cualquier régimen, incluido el ralentí':rpmT(eq)))+
       ', y su ralentí es '+rpmT(v.ralenti)+'. ¿Qué significa esa cifra?',
     ops:[['Que por debajo de ahí el alternador no cubre el consumo y la diferencia sale de la batería, sin que se encienda nada en el salpicadero',true],
-      ['Que por debajo de ahí el alternador deja de excitarse',false],
-      ['Que por debajo de ahí el regulador desconecta la carga para proteger la batería',false],
-      ['Que es el régimen mínimo al que el motor se mantiene en marcha',false]]});
+      ['Que por debajo de ahí el alternador deja de excitarse, no genera nada y el testigo del salpicadero se enciende avisando',false],
+      ['Que por debajo de ahí el regulador desconecta la carga para proteger la batería, y el coche funciona sólo con lo almacenado',false],
+      ['Que es el régimen mínimo al que el motor se mantiene en marcha con la carga conectada, y por debajo de él se cala',false]]});
   return Q;
 }
 function bancoQ(){
@@ -2777,7 +2795,6 @@ function pregunta(i){
   const q=B[QI%B.length];
   if(QSEL!==null) return;
   QSEL=i;
-  if(q.baraja[i].o[1]) G.resuelto=true;
   synth.beep(q.baraja[i].o[1]?700:210,0.10,0.06);
   pintaPregunta();
 }
@@ -2796,12 +2813,16 @@ function pistaReto(){
     const firmas=new Set(comp.map(fk=>firma(ensayo(RETO.veh,fk,s.k,{}))));
     if(firmas.size>mejorN){ mejorN=firmas.size; mejor=s; }
   }
-  showToast('<b>Prueba en:</b> '+mejor.rot+'<br>Ahí los '+comp.length+
+  if(RETO.pistas>=MAX_PISTAS){
+    showToast('<b>Sin más pistas</b><br>Ya has usado las '+MAX_PISTAS+' de este caso.',3000); return; }
+  RETO.pistas++;
+  showToast('<b>Pista '+RETO.pistas+' de '+MAX_PISTAS+' · prueba en:</b> '+mejor.rot+'<br>Ahí los '+comp.length+
     ' montajes que te quedan se reparten en '+mejorN+' lecturas distintas.',5000);
+  afterEdit();
 }
 function eligeFalla(k){
   if(!FALLAS[k]||RETO.hecho) return;
-  RETO.elegida=k; syncCtrl();
+  RETO.elegida=k; RETO.retro=''; afterEdit();
 }
 function entregaConAviso(){
   if(RETO.hecho){ showToast('Este caso ya está entregado. Pide <b>otro caso</b>.',2800); return; }
@@ -2811,6 +2832,7 @@ function entregaConAviso(){
   }
   const ok=retoResponde(RETO.elegida);
   synth.beep(ok?700:200,0.14,0.07);
+  if(!ok&&RETO.aviso) showToast('<b>Caso nuevo</b><br>Tres intentos sin aprobar. Otro coche y otro montaje.',3600);
   afterEdit(); refrescaPregunta();
 }
 function otroCoche(){
@@ -2954,10 +2976,12 @@ window.__labDebug={
   get retoCfg(){ return {veh:RETO.veh, activo:RETO.activo, hecho:RETO.hecho,
     elegida:RETO.elegida, acierto:RETO.acierto,
     condiciones:RETO.visitadas.length,
+    intentos:RETO.intentos, pistas:RETO.pistas,
     compatibles:retoCompatibles(),
     orden:RETO.orden.slice(),
     lecturas:Object.assign({},RE().med)}; },
   elige(k){ eligeFalla(k); },
+  get intentos(){ return RETO.intentos; },
   entrega(){ entregaConAviso(); return RETO.acierto===true; },
   otroCaso(){ otroCoche(); },
   pista(){ pistaReto(); },
@@ -2968,6 +2992,7 @@ window.__labDebug={
     if(o.veh&&VEHS[o.veh]){ RETO.veh=o.veh; G.veh=o.veh;
       levantaVano(); levantaBanco(); colocaTablero(dims(VH())); montaKit(); }
     RETO.visitadas=[]; RETO.hecho=false; RETO.elegida=null; RETO.acierto=null;
+    RETO.intentos=0; RETO.pistas=0; RETO.aviso=''; RETO.retro='';
     invalida(); pinta(); refrescaPregunta(); return true; },
   monta(){ autoAssemble(); },
   // Los mandos. Hacen EXACTAMENTE lo que hace un dedo sobre la barra de vistas:

@@ -12,7 +12,7 @@ fichaTecnica({
   },
   s2: {
     title: 'Valores de referencia usados',
-    warn: 'La fila d5-10 de la lista maestra de prácticas no asigna una norma ancla a esta práctica (columna "Norma ancla" vacía). Los rangos de par de arranque por arquitectura y los grados de desfase eléctrico son valores típicos de texto de referencia en máquinas eléctricas (Fitzgerald/Kingsley/Umans, Chapman) y de catálogo, citados aquí como orientación cualitativa de ingeniería — no como umbrales normativos de una cláusula NOM o IEC específica. NEMA MG-1 se usa solo como referencia contextual general sobre motores monofásicos, sin cita de cláusula numerada. Las resistencias base de los seis escenarios de diagnóstico son valores de diseño didáctico construidos para que R(C-R) + R(C-S) = R(S-R) se cumpla siempre que ambas lecturas sean finitas —la relación serie esperada al medir dos devanados desde un terminal común— y no corresponden a la placa de un motor comercial real.',
+    warn: 'Esta práctica no se apoya en una norma específica. Los rangos de par de arranque por arquitectura y los grados de desfase eléctrico son valores típicos de texto de referencia en máquinas eléctricas (Fitzgerald/Kingsley/Umans, Chapman) y de catálogo, citados aquí como orientación cualitativa de ingeniería — no como umbrales normativos de una cláusula NOM o IEC específica. NEMA MG-1 se usa solo como referencia contextual general sobre motores monofásicos, sin cita de cláusula numerada. Las resistencias base de los seis escenarios de diagnóstico son valores de diseño didáctico construidos para que R(C-R) + R(C-S) = R(S-R) se cumpla siempre que ambas lecturas sean finitas —la relación serie esperada al medir dos devanados desde un terminal común— y no corresponden a la placa de un motor comercial real.',
     rows: [
       ['Fuente', 'Valor', 'Nota'],
       ['Fase partida (RSIR)', 'Par de arranque 100%–175% del nominal', 'Sin capacitor; devanado auxiliar de mayor resistencia. Menor par de arranque de las 4 arquitecturas.'],
@@ -43,7 +43,7 @@ fichaTecnica({
   s6: [
     '⚑ Fitzgerald/Kingsley/Umans — Electric Machinery, y Chapman — Máquinas Eléctricas: fuente de referencia estándar en la teoría del campo pulsante, el devanado auxiliar y las arquitecturas de motor monofásico (fase partida, capacitor de arranque, capacitor permanente, capacitor de arranque y marcha). Confianza alta en los conceptos cualitativos citados; los rangos numéricos de par de arranque se presentan como típicos de catálogo, no como cifras de una edición o página específica.',
     '⚑ NEMA MG-1 — Motors and Generators: referencia contextual general sobre construcción y clasificación de motores monofásicos de inducción. No se cita aquí ninguna cláusula numerada específica para los valores de par de arranque de este simulador.',
-    '⚑ Lista maestra de prácticas CEN Labs, fila d5-10 (ELE-II.1): no asigna norma ancla a esta práctica — de ahí que esta ficha use fuentes de texto de referencia en vez de una norma citada con número de cláusula.',
+    '⚑ Esta práctica no se apoya en una norma específica: por eso la ficha usa fuentes de texto de referencia en vez de una norma citada con número de cláusula.',
   ],
-  foot: 'Fuentes: Fitzgerald/Kingsley/Umans (Electric Machinery) · Chapman (Máquinas Eléctricas) · NEMA MG-1 (referencia contextual). Elaborado para CEN Labs — Dominio D5, Transformadores y máquinas eléctricas.',
+  foot: 'Fuentes: Fitzgerald/Kingsley/Umans (Electric Machinery) · Chapman (Máquinas Eléctricas) · NEMA MG-1 (referencia contextual). Elaborado para CEN Labs — Transformadores y máquinas eléctricas.',
 });

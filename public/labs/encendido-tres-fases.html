@@ -2244,10 +2244,14 @@ function vistaReto(){
 
   if(RETO.veredicto){
     const V=RETO.veredicto;
-    banda(500,V.ok?'good':'bad',V.ok?'Acertaste':'Fallaste',V.texto);
+    banda(500,'good','Acertaste',V.texto);
+  }else if(RETO.fallo){
+    banda(500,'bad','Diagnóstico no aceptado',
+      RETO.fallo+' Intento '+num(RETO.intentos,0)+' de '+MAX_INTENTOS+'.');
   }else{
     banda(500,'warn','Sin entregar',
-      'Llevas '+num(tom.length,0)+' de '+num(OBS.length,0)+' medidas. Recuerda lo que dice el censo de este banco: hay un techo para lo que se puede decidir sin osciloscopio, y una vez alcanzado, seguir midiendo gratis no separa nada más.');
+      (RETO.aviso?RETO.aviso+' ':'')+'Intentos: '+num(RETO.intentos,0)+' de '+MAX_INTENTOS+
+      ' · pistas: '+num(RETO.pistas,0)+' de '+MAX_PISTAS+'. Llevas '+num(tom.length,0)+' de '+num(OBS.length,0)+' medidas. Recuerda lo que dice el censo de este banco: hay un techo para lo que se puede decidir sin osciloscopio, y una vez alcanzado, seguir midiendo gratis no separa nada más.');
   }
 }
 
@@ -2860,7 +2864,9 @@ function setMode(m){
 }
 
 // ============================== T4b · RETO, CUESTIONARIO, RECORRIDO Y ARRANQUE
-const RETO={caso:null, tomadas:{}, eleccion:null, veredicto:null, pistas:0};
+const RETO={caso:null, tomadas:{}, eleccion:null, veredicto:null, pistas:0,
+  intentos:0, fallo:'', aviso:'', orden:null};
+const MAX_INTENTOS=3, MAX_PISTAS=2;
 
 function barajaEn(a){                       // Fisher-Yates, para que la posición
   for(let i=a.length-1;i>0;i--){            // de la respuesta no sea la pista
@@ -2873,6 +2879,10 @@ function armaReto(){
   RETO.caso=casos[Math.floor(Math.random()*casos.length)];
   G.esc=RETO.caso;
   RETO.tomadas={}; RETO.eleccion=null; RETO.veredicto=null; RETO.pistas=0;
+  RETO.intentos=0; RETO.fallo=''; RETO.aviso='';
+  // Las opciones se barajan UNA vez por caso: reordenarlas en cada clic las
+  // movía bajo el dedo y no añadía nada a la posición fija que se quería evitar.
+  RETO.orden=barajaEn(FAMILIAS_RETO().slice());
   G.resuelto=false;
   invalida(); pintaObsReto(); pintaDxReto();
 }
@@ -2911,48 +2921,75 @@ function pintaObsReto(){
     (o.taller?'':'💰 ')+(OBS_CORTO[o.k]||corta(o.rot,30))+'</button>').join('');
 }
 function pintaDxReto(){
-  const ops=barajaEn(FAMILIAS_RETO().slice());
+  const ops=RETO.orden||FAMILIAS_RETO();
   el('dxreto').innerHTML=ops.map(f=>
     '<button class="b'+(RETO.eleccion===f?' on':'')+'" data-fam="'+f+'">'+f+'</button>').join('');
 }
 function pintaReto(){
   const n=Object.keys(RETO.tomadas).length;
   let h='<b>Motor bajo diagnóstico:</b> '+MQ().nombre+'. Medidas tomadas: '+n+'/'+OBS.length+'. ';
-  if(RETO.veredicto) h+=(RETO.veredicto.ok?'<b class="good">Acertaste.</b> ':'<b class="bad">Fallaste.</b> ')+RETO.veredicto.texto;
-  else h+='Mide lo que necesites —las de 💰 piden osciloscopio—, elige la familia y entrega el diagnóstico.';
+  if(RETO.veredicto) h+='<b class="good">Acertaste.</b> '+RETO.veredicto.texto;
+  else if(RETO.fallo) h+='<b class="bad">Diagnóstico no aceptado.</b> '+RETO.fallo+' Intento '+RETO.intentos+' de '+MAX_INTENTOS+'.';
+  else h+=(RETO.aviso?RETO.aviso+' ':'')+'Mide lo que necesites —las de 💰 piden osciloscopio—, elige la familia y entrega el diagnóstico. Intentos: '+
+    RETO.intentos+' de '+MAX_INTENTOS+' · pistas: '+RETO.pistas+' de '+MAX_PISTAS+'.';
   el('report').innerHTML=h;
 }
 function pistaReto(){
   if(G.modo!=='reto'||RETO.veredicto) return;
+  if(RETO.pistas>=MAX_PISTAS){
+    showToast('<b>Sin más pistas</b><br>Ya has usado las '+MAX_PISTAS+' de este caso.',3000); return; }
   RETO.pistas++;
-  const e=MQ(), L=LECT_DE(RETO.caso);
-  // Las pistas NO dicen la avería: dicen qué mirar, que es lo que enseña.
+  // Las pistas NO dicen la avería: dicen qué mirar, que es lo que enseña. Sólo
+  // dos, y ninguna describe la firma de una avería concreta.
   const p=[
     'Empieza por lo que no cuesta: ¿hay código?, ¿se sostiene a ralentí?, ¿tira en carga? Con eso descartas familias enteras.',
-    'Si el escáner sale limpio y aun así algo va mal, la avería no ha llegado a frenar el cigüeñal lo bastante. Mira la traza.',
-    'La línea de disparo y el tiempo de quemado se reparten un presupuesto. Si el disparo sube y la chispa se acorta, el problema está en el camino; si el disparo NO se mueve y la chispa se acorta igual, el problema está en la bobina o en lo que la alimenta.',
-    'La tercera fase no mide la chispa: mide el devanado. Cuenta las oscilaciones.',
-    'Una línea de disparo BAJA con una chispa LARGA no es buena noticia: puede ser que el arco haya encontrado un camino que no pasa por la mezcla.',
-  ][Math.min(RETO.pistas-1,4)];
-  showToast('<b>Pista '+RETO.pistas+'</b><br>'+p,5200);
+    'La línea de disparo y el tiempo de quemado se reparten un presupuesto de energía. Mirar los dos a la vez dice más que cada uno por separado.',
+  ][RETO.pistas-1];
+  showToast('<b>Pista '+RETO.pistas+' de '+MAX_PISTAS+'</b><br>'+p,5200);
+  pintaReto();
 }
 function entregaReto(){
   if(G.modo!=='reto'||!RETO.eleccion) return;
   const e=MQ(), correcta=ESCEN[RETO.caso].clave;
   const ok=RETO.eleccion===correcta;
+  const n=Object.keys(RETO.tomadas).length;
+  if(!ok){
+    // Al fallar NO se dice qué era: se dice qué se puede razonar con lo medido. A
+    // los tres fallos el caso se cambia por otro, para que nadie apruebe
+    // tachando familias hasta que sólo quede una.
+    const sub=OBS.filter(o=>RETO.tomadas[o.k]!==undefined);
+    const f=firmaObs(e,LECT_DE(RETO.caso),sub);
+    const vivos=ESCEN_KEYS.filter(k=>firmaObs(e,LECT_DE(k),sub)===f);
+    const fams=[...new Set(vivos.map(k=>ESCEN[k].clave))];
+    RETO.fallo = fams.indexOf(RETO.eleccion)<0
+      ? 'Tus propias medidas ya descartaban la familia «'+RETO.eleccion+'»: no cuadra con lo que leíste.'
+      : (fams.length>1
+        ? 'Con lo medido siguen en juego '+num(fams.length,0)+' familias, incluida «'+RETO.eleccion+
+          '»: eso es una apuesta, no un diagnóstico. Compra la medida que las separe.'
+        : 'Esa familia no es. Vuelve a mirar las lecturas.');
+    RETO.intentos++;
+    G.resuelto=false;
+    synth.beep(220,0.14,0.08);
+    if(RETO.intentos>=MAX_INTENTOS){
+      armaReto();
+      RETO.aviso='Tres diagnósticos fallados: este motor se cierra sin revelarlo y llega otro caso.';
+      showToast('<b>Caso nuevo</b><br>Tres intentos fallados. Otra avería puesta.',3600);
+      afterEdit(); refrescaPregunta();
+    } else { pintaReto(); pintaTablero(); pintaTele(); }
+    return;
+  }
   const L=LECT_DE(RETO.caso), C=chispa(aplica(e,FALLAS[ESCEN[RETO.caso].falla]),G.rpm,
     presionChispa(e,G.carga,FALLAS[ESCEN[RETO.caso].falla]),FALLAS[ESCEN[RETO.caso].falla]);
-  const n=Object.keys(RETO.tomadas).length;
   const osc=OBS.filter(o=>!o.taller&&RETO.tomadas[o.k]!==undefined).length;
   let t='Era <b>'+escRot(RETO.caso)+'</b>, de la familia «'+correcta+'». ';
   t+='A '+rpmT(G.rpm)+' y '+pc(G.carga*100,0)+' de carga, el disparo pide '+kv(C.vDem)+
      ', el arco dura '+mili(C.tQ)+' y el timbre deja '+num(L.osc,0)+' oscilaciones. ';
   t+=L.codigos.length?'El escáner pone '+L.codigos.join(' · ')+'. ':'El escáner sale limpio. ';
   t+='Lo resolviste con '+n+' medidas, '+osc+' de ellas con osciloscopio.';
-  if(!ok) t+=' Habías dicho «'+RETO.eleccion+'».';
-  RETO.veredicto={ok,texto:t};
-  G.resuelto=ok;
-  synth.beep(ok?720:220,0.14,0.08);
+  RETO.fallo=''; RETO.aviso='';
+  RETO.veredicto={ok:true,texto:t};
+  G.resuelto=true;
+  synth.beep(720,0.14,0.08);
   pintaReto(); pintaTablero(); pintaTele();
 }
 
@@ -2966,52 +3003,52 @@ function preguntas(){
   Q.push({t:'A '+rpmT(G.rpm)+' con el '+pc(G.carga*100,0)+' de carga, ¿cuánto pide la línea de disparo en este motor?',
     ops:[[kv(C.vDem),true],[kv(C.vDisp),false],[kv(C.vQ),false],[kv(C.vDem*1.6),false]]});
   Q.push({t:'La bobina guarda '+mJ(C.eUtil)+' y romper el camino se lleva '+mJ(C.eCap)+'. ¿Cuánto dura el arco?',
-    ops:[[mili(C.tQ),true],[mili(C.tQ*2),false],[mili(C.tQ/2),false],['no se puede saber sin medirlo',false]]});
+    ops:[[mili(C.tQ),true],[mili(C.tQ*2),false],[mili(C.tQ/2),false],[mili(C.tQ*1.5),false]]});
   Q.push({t:'¿De dónde sale la tensión disponible de esta bobina, '+kv(C.vDisp)+'?',
     ops:[['de poner toda la energía guardada sobre la capacidad del secundario, V=√(2E/C₂)',true],
-      ['de multiplicar la tensión de batería por la relación de espiras',false],
-      ['de la ley de Paschen aplicada al hueco de la bujía',false],
-      ['de la resistencia del secundario por la corriente de arco',false]]});
+      ['de multiplicar la tensión de batería por la relación de espiras, sin que intervenga la energía guardada',false],
+      ['de la ley de Paschen aplicada al hueco de la bujía y a la presión del cilindro en ese instante',false],
+      ['de la resistencia del secundario por la corriente de arco que circula durante la chispa',false]]});
   Q.push({t:'Si sólo sube la línea de disparo y nada más cambia, ¿qué le pasa al tiempo de quemado?',
     ops:[['se acorta, porque romper el camino se lleva más energía del mismo presupuesto',true],
-      ['se alarga, porque hay más tensión disponible para el arco',false],
-      ['no cambia: son dos fases independientes',false],
-      ['depende del régimen, no de la tensión',false]]});
+      ['se alarga, porque con más tensión disponible el arco encuentra más energía para sostenerse',false],
+      ['no cambia, porque las dos fases son independientes y cada una tiene su propia reserva de energía',false],
+      ['depende del régimen del motor y no de la tensión que haya que romper al principio de la chispa',false]]});
   Q.push({t:'En este motor, ¿qué escenarios pone el escáner bajo el MISMO código P0301?',
     ops:[(()=>{const c=ESCEN_KEYS.filter(k=>LECT_DE(k).codigos.includes('P0301'));
       return [num(c.length,0)+' escenarios de '+num([...new Set(c.map(k=>ESCEN[k].clave))].length,0)+' familias distintas',true];})(),
-      ['sólo los de la familia «bobina»',false],['sólo los que dejan al motor sin chispa',false],
-      ['uno por familia, para poder distinguirlos',false]]});
+      ['sólo los de la familia «bobina», porque el código P0301 señala siempre al módulo de encendido',false],['sólo los que dejan al motor sin chispa en el cilindro número uno, y ningún otro',false],
+      ['uno por familia, para que el código sirva de huella y permita distinguir unas averías de otras',false]]});
   Q.push({t:'Contar las oscilaciones del final de la traza sirve para medir…',
     ops:[['el factor de calidad del devanado de la bobina',true],
-      ['cuánta mezcla ha quedado sin quemar',false],
+      ['cuánta mezcla ha quedado sin quemar al final',false],
       ['la separación de los electrodos de la bujía',false],
-      ['la presión del cilindro en el momento de la chispa',false]]});
+      ['la presión del cilindro cuando salta la chispa',false]]});
   // Preguntas que dependen de la avería puesta.
   if(C.camino==='via')
     Q.push({t:'Aquí la traza sale con el disparo más bajo y la chispa más larga que la sana. ¿Qué significa?',
       ops:[['que el arco ha encontrado un camino más barato por el aislador, donde no hay mezcla',true],
         ['que la bujía está nueva y funciona mejor que la de referencia',false],
         ['que la bobina da más energía de la cuenta',false],
-        ['que la compresión ha subido',false]]});
+        ['que la compresión del cilindro ha subido',false]]});
   if(L.osc<OSC_SANAS)
     Q.push({t:'Esta bobina carga '+amp(L.iBob)+' contra los '+amp(SN.iBob)+' de la sana y aun así da menos tensión. ¿Por qué?',
       ops:[['porque la energía va con L·i² y lo que se ha perdido es la inductancia',true],
-        ['porque la tensión no depende de la energía sino de la corriente',false],
-        ['porque el módulo corta antes por seguridad',false],
-        ['porque el secundario tiene más capacidad',false]]});
+        ['porque la tensión no depende de la energía guardada sino de la corriente',false],
+        ['porque el módulo de encendido corta antes por seguridad',false],
+        ['porque el secundario tiene ahora más capacidad',false]]});
   if(dwellRecortado(eA,G.rpm,F))
     Q.push({t:'A '+rpmT(G.rpm)+' el dwell se queda en '+mili(dwell(eA,G.rpm,F))+' de los '+mili(e.dwell*(F.dwellMul||1))+' pedidos. ¿Por qué?',
       ops:[['porque entre chispa y chispa sólo hay '+mili(periodoChispa(e,G.rpm))+' y hay que dejar guarda',true],
-        ['porque la batería no da más corriente a ese régimen',false],
-        ['porque el módulo lo acorta para no calentar la bobina',false],
-        ['porque la bujía ya no necesita tanta energía arriba',false]]});
+        ['porque la batería no da más corriente a ese régimen de giro',false],
+        ['porque el módulo lo acorta para no calentar la bobina de más',false],
+        ['porque la bujía ya no necesita tanta energía a ese régimen',false]]});
   if(L.compresion<COMPRESION_MIN)
     Q.push({t:'Aquí la chispa enciende la mezcla y aun así hay P0301. ¿Qué está pasando?',
       ops:[['el cilindro enciende pero no aporta par: es mecánico, y el escáner sólo ve que el cigüeñal se frena',true],
-        ['el escáner se ha equivocado: no hay avería',false],
-        ['la bobina falla intermitentemente y el escáner lo detecta',false],
-        ['el arco se va por el aislador',false]]});
+        ['el escáner se ha equivocado en este caso: en realidad no hay avería ninguna en el cilindro',false],
+        ['la bobina falla de forma intermitente y el escáner lo detecta como un fallo de combustión',false],
+        ['el arco se va por el aislador y la mezcla se queda sin encender en ese cilindro',false]]});
   return Q;
 }
 let QI=0, QSEL=null, QCACHE=null;
@@ -3105,7 +3142,7 @@ document.addEventListener('click',ev=>{
   if(b.dataset.carga!==undefined){ paraAuto(); G.carga=Number(b.dataset.carga); afterEdit(); refrescaPregunta(); return; }
   if(b.dataset.rpm!==undefined){ paraAuto(); G.rpm=Number(b.dataset.rpm); afterEdit(); refrescaPregunta(); return; }
   if(b.dataset.obs){ mide(b.dataset.obs); return; }
-  if(b.dataset.fam){ RETO.eleccion=b.dataset.fam; pintaDxReto(); pintaTablero(); return; }
+  if(b.dataset.fam){ RETO.eleccion=b.dataset.fam; RETO.fallo=''; pintaDxReto(); pintaTablero(); pintaReto(); return; }
   if(b.dataset.q!==undefined){ pregunta(Number(b.dataset.q)); return; }
   if(b.dataset.qnext){ QI++; QSEL=null; pintaPregunta(); return; }
 });
@@ -3185,7 +3222,10 @@ window.__labDebug={
   get rotulos(){ return ROTULOS.slice(); },
   get reto(){ return {caso:RETO.caso, eleccion:RETO.eleccion,
     tomadas:Object.keys(RETO.tomadas), veredicto:RETO.veredicto?RETO.veredicto.ok:null,
+    intentos:RETO.intentos, pistas:RETO.pistas,
     familias:FAMILIAS_RETO().slice()}; },
+  get intentos(){ return RETO.intentos; },
+  pista(){ pistaReto(); },
   get preguntas(){ return preguntas().map(q=>({t:q.t, n:q.ops.length,
     correctas:q.ops.filter(o=>o[1]).length})); },
   get texto(){ return el('report').textContent+' || '+el('tele').textContent; },
@@ -3196,7 +3236,7 @@ window.__labDebug={
   setRpm(r){ G.rpm=r; afterEdit(); },
   setMode(m){ setMode(m); },
   mide(k){ mide(k); },
-  eligeFam(f){ RETO.eleccion=f; pintaDxReto(); pintaTablero(); },
+  eligeFam(f){ RETO.eleccion=f; RETO.fallo=''; pintaDxReto(); pintaTablero(); pintaReto(); },
   entrega(){ entregaReto(); },
   obs(k){ return valorObs(k); },
   firma(sub){ return firmaObs(MQ(),LECT(),OBS.filter(o=>sub.includes(o.k))); },

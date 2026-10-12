@@ -2162,7 +2162,8 @@ const INSTR=[
 ];
 const RETO={falla:'sano', maq:'na16', sitio:'mar25', sitioRot:'', norma:'j1349',
   banco:'inercia', perdidas:'coastdown', marcha:2, pasada:3,
-  medido:{}, elegido:null, veredicto:null};
+  medido:{}, elegido:null, veredicto:null, intentos:0, pistas:0, aviso:'', retro:''};
+const MAX_INTENTOS=3, MAX_PISTAS=2;
 function retoPar(extra){
   const S1=ESCENARIOS.find(E=>E.k===RETO.sitio)||ESCENARIOS[0];
   return Object.assign({banco:RETO.banco, norma:RETO.norma, perdidas:RETO.perdidas,
@@ -2221,6 +2222,7 @@ function armaReto(){
   RETO.norma=NORMA_KEYS[1+Math.floor(Math.random()*(NORMA_KEYS.length-1))];
   RETO.marcha=Math.min(2+Math.floor(Math.random()*2),ARQ[RETO.maq].relaciones.length-1);
   RETO.medido={}; RETO.elegido=null; RETO.veredicto=null;
+  RETO.intentos=0; RETO.pistas=0; RETO.aviso=''; RETO.retro='';
   invalida();
 }
 function queja(V){
@@ -2235,16 +2237,39 @@ function mide(k){
   if(!INSTR.some(i=>i.k===k)) return;
   RETO.medido[k]=true; synth.beep(720,0.07,0.05); afterEdit(); refrescaPregunta();
 }
-function eligeFalla(k){ if(!FALLAS[k]) return; RETO.elegido=k; afterEdit(); }
+function eligeFalla(k){ if(!FALLAS[k]) return; RETO.elegido=k; RETO.retro=''; afterEdit(); }
+// Al fallar NO se dice qué era: se dice qué se puede razonar con lo medido. A los
+// tres fallos el caso se cambia por otro, para que nadie apruebe tachando
+// montajes hasta que sólo quede uno.
+function retroFallo(){
+  const vivas=FALLA_KEYS.filter(compatible), f=RETO.elegido;
+  if(vivas.indexOf(f)<0)
+    return 'Tus propias medidas ya descartaban «'+FALLAS[f].corto+'»: no cuadra con lo que leíste. Mira qué montajes siguen en pie.';
+  if(vivas.length>1)
+    return 'Con lo medido, «'+FALLAS[f].corto+'» y otros '+(vivas.length-1)+
+      ' montajes siguen en pie: eso es una apuesta, no un dictamen. Pide el instrumento que los separe.';
+  return 'No es ése. Vuelve a mirar las lecturas.';
+}
 function entrega(){
   if(!RETO.elegido) return false;
+  RETO.aviso='';
   const ok=RETO.elegido===RETO.falla;
-  RETO.veredicto=ok?'ok':'mal';
-  if(ok){ G.resuelto=true; synth.beep(523,0.10,0.05);
+  if(ok){
+    RETO.veredicto='ok'; RETO.retro='';
+    G.resuelto=true; synth.beep(523,0.10,0.05);
     setTimeout(()=>synth.beep(784,0.14,0.05),130);
-    showToast('✔ <b>Correcto.</b> Era '+FALLAS[RETO.falla].rot+'.',4600); }
-  else { synth.beep(200,0.14,0.06);
-    showToast('<span class="bad">✗ No era eso.</span> Era '+FALLAS[RETO.falla].rot+'.',4600); }
+    showToast('✔ <b>Correcto.</b> Era '+FALLAS[RETO.falla].rot+'.',4600);
+  } else {
+    RETO.veredicto=null;
+    RETO.intentos++;
+    RETO.retro=retroFallo();
+    synth.beep(200,0.14,0.06);
+    if(RETO.intentos>=MAX_INTENTOS){
+      armaReto();
+      RETO.aviso='Tres dictámenes fallados: este caso se cierra sin revelarlo y llega otro coche, otro sitio y otra norma.';
+      showToast('<b>Caso nuevo</b><br>Tres intentos fallados. Otro coche, otro sitio y otra norma.',3600);
+    } else showToast('<span class="bad">✗ Dictamen no aceptado.</span> Intento '+RETO.intentos+' de '+MAX_INTENTOS+'.',3600);
+  }
   afterEdit(); refrescaPregunta();
   return ok;
 }
@@ -2294,13 +2319,16 @@ function vistaReto(){
   texto(vivas.length+' de '+FALLA_KEYS.length,DER_X,y+2,{s:20,b:true,
     c:vivas.length===1?OK_HEX:(vivas.length<4?WARN_HEX:TINTA)}); y+=26;
   wrapText(vivas.map(k=>FALLAS[k].corto).join(' · '),DER_X,y+4,DER_W,17,{s:12.5,c:'#9aa6b6'});
-  const nivelV2=RETO.veredicto==='ok'?'ok':(RETO.veredicto==='mal'?'bad':'warn');
+  const nivelV2=RETO.veredicto==='ok'?'ok':(RETO.retro?'bad':'warn');
   const rot=RETO.veredicto==='ok'?'DICTAMEN CORRECTO'
-    :(RETO.veredicto==='mal'?'NO ERA ESO':'DIAGNÓSTICO A CIEGAS');
+    :(RETO.retro?'DICTAMEN NO ACEPTADO':'DIAGNÓSTICO A CIEGAS');
   const txt=RETO.veredicto
     ? 'Era '+FALLAS[RETO.falla].rot+'. '+FALLAS[RETO.falla].pista
-    : 'El cliente dice '+queja(V)+'. Has usado '+Object.keys(M).length+' de '+INSTR.length+
-      ' instrumentos. Ninguno de ellos ve la célula entera, y hay dos montajes que sólo se separan cambiando de máquina.';
+    : (RETO.retro
+      ? RETO.retro+' Intento '+RETO.intentos+' de '+MAX_INTENTOS+'.'
+      : (RETO.aviso?RETO.aviso+' ':'')+'El cliente dice '+queja(V)+'. Has usado '+Object.keys(M).length+' de '+INSTR.length+
+        ' instrumentos. Ninguno de ellos ve la célula entera, y hay dos montajes que sólo se separan cambiando de máquina. Intentos: '+
+        RETO.intentos+' de '+MAX_INTENTOS+' · pistas: '+RETO.pistas+' de '+MAX_PISTAS+'.');
   // La banda va a una altura FIJA. Colgada del alto del panel se montaba encima
   // de la columna derecha en cuanto había pocos instrumentos medidos.
   banda(624,nivelV2,rot,txt);
@@ -2460,9 +2488,9 @@ function syncCtrl(){
       '<button class="b dx'+(RETO.medido[i.k]?' on':'')+'" data-inst="'+i.k+'">'+
       corta(i.rot,42)+'</button>').join('');
     el('dxreto').innerHTML=FALLA_KEYS.map(k=>{
-      const cls=RETO.veredicto===null
+      const cls=RETO.veredicto!=='ok'
         ? (RETO.elegido===k?' on':'')
-        : (k===RETO.falla?' right':(k===RETO.elegido?' wrong':''));
+        : (k===RETO.falla?' right':'');
       return '<button class="b dx'+cls+'" data-dx="'+k+'">'+FALLAS[k].corto+'</button>';
     }).join('');
   }
@@ -2530,8 +2558,9 @@ function pintaInforme(){
     let h='<b>'+a.nombre+'</b>, '+BANCOS[RETO.banco].corto+', '+(RETO.marcha+1)+'ª marcha, '+RETO.sitioRot+'. ';
     h+='El cliente dice '+queja(W)+'. ';
     if(RETO.veredicto==='ok') h+='<b class="good">Dictamen correcto:</b> era '+FALLAS[RETO.falla].rot+'.';
-    else if(RETO.veredicto==='mal') h+='<b class="bad">No era eso:</b> era '+FALLAS[RETO.falla].rot+'.';
-    else h+='Pide instrumentos y dictamina. Ninguno de ellos ve la célula entera.';
+    else if(RETO.retro) h+='<b class="bad">Dictamen no aceptado.</b> '+RETO.retro+' Intento '+RETO.intentos+' de '+MAX_INTENTOS+'.';
+    else h+=(RETO.aviso?RETO.aviso+' ':'')+'Pide instrumentos y dictamina. Ninguno de ellos ve la célula entera. Intentos: '+
+      RETO.intentos+' de '+MAX_INTENTOS+' · pistas: '+RETO.pistas+' de '+MAX_PISTAS+'.';
     el('report').innerHTML=h; return;
   }
   const V=EV(), N=NORMAS[G.norma];
@@ -2611,54 +2640,54 @@ function preguntas(){
   Q.push({t:'En este sitio la presión es '+hpa(V.pAmb)+' y el vapor de agua se lleva '+hpa(V.pv)+
       '. ¿Qué presión usa la norma para corregir?',
     ops:[[hpa(V.pd)+': la presión de aire SECO, porque el vapor ocupa sitio y no quema',true],
-      [hpa(V.pAmb)+': la presión total, que es la que marca el barómetro',false],
-      ['La presión de referencia de la norma, '+hpa(N.pRef===null?V.pAmb:N.pRef),false],
-      ['La presión de colector del motor',false]]});
+      [hpa(V.pAmb)+': la presión total, que es la que marca el barómetro y la que entra por la admisión',false],
+      [hpa(N.pRef===null?V.pAmb:N.pRef)+': la presión de referencia de la norma, que sustituye a la medida en el sitio',false],
+      ['La presión de colector del motor a plena carga, que es la que de verdad llega a los cilindros',false]]});
   const otro=NORMA_KEYS.filter(k=>k!==G.norma&&k!=='observada')[0];
   const Co=memo('q|'+CFGK()+'|'+otro,()=>curva(e,Object.assign({},PAR(),{falla:G.falla,norma:otro})));
   const Vo=evalua(e,Object.assign({},PAR(),{falla:G.falla,norma:otro,rpm:Co.corrMax.rpm}));
   Q.push({t:'El mismo coche, el mismo día y la misma pasada dan '+cvF(V.potCorr)+' con la '+
       N.corto+' y '+cvF(Vo.potCorr)+' con la '+NORMAS[otro].corto+'. ¿Cuál es el bueno?',
     ops:[['Los dos, y ninguno vale sin decir con qué norma se ha corregido',true],
-      ['El más alto, porque es el que el motor puede dar',false],
-      ['El más bajo, porque es el conservador',false],
-      ['El de la SAE, porque es la norma más usada',false]]});
+      ['El más alto, porque es el que el motor puede dar cuando todo el ensayo está bien hecho',false],
+      ['El más bajo, porque es el conservador y el que ningún cliente podrá reclamar después',false],
+      ['El de la SAE, porque es la norma más usada y la que sirve de referencia a todas las demás',false]]});
   Q.push({t:'La SAE J1349 no corrige con un cociente de densidades: usa 1,18·D − 0,18. ¿De dónde salen esos dos números?',
     ops:[['De suponer 85 % de rendimiento mecánico: es la recta tangente a 0,85·D/(1 − 0,15·D) en D = 1',true],
-      ['De un ajuste estadístico sobre miles de ensayos',false],
-      ['De la diferencia entre potencia bruta y potencia neta',false],
-      ['De la corrección de humedad de la propia norma',false]]});
+      ['De un ajuste estadístico sobre miles de ensayos reales en banco, repartidos entre varios tipos de motor',false],
+      ['De la diferencia entre potencia bruta y potencia neta, que la norma reparte entre los accesorios del motor',false],
+      ['De la corrección de humedad de la propia norma, que se linealiza alrededor de la densidad de referencia',false]]});
   const cvv=V.cfVerd;
   Q.push({t:'Aquí la '+N.corto+' pide un factor de '+fac(V.cf)+' y este motor merece '+fac(cvv)+
       '. ¿Por qué se parecen tan poco?' ,
     ops:[e.sobrealimentado
         ? ['Porque está sobrealimentado: sostiene la presión ABSOLUTA de colector y no pierde lo que la fórmula supone',true]
         : ['Porque el factor está fuera del intervalo 0,93–1,07 y la fórmula ya no se parece a la curva',true],
-      ['Porque la estación mide mal la humedad',false],
-      ['Porque el banco de rodillos no mide el par real',false],
-      ['Porque la norma corrige la potencia bruta y no la neta',false]]});
+      ['Porque la estación meteorológica mide mal la humedad y el factor sale con un error que no tiene que ver con el motor',false],
+      ['Porque el banco de rodillos no mide el par real del motor y la corrección se aplica sobre una cifra equivocada',false],
+      ['Porque la norma corrige la potencia bruta y no la neta, con lo que el factor se aplica a una magnitud distinta',false]]});
   if(D) Q.push({t:'A lo largo de esta pasada, las pérdidas de transmisión van del '+
       pcc(D.fracMin*100)+' al '+pcc(D.fracMax*100)+' de la potencia. ¿Qué le pasa entonces a la regla del 15 %?',
     ops:[['Que no puede ser cierta en los dos extremos de una misma pasada, y menos en dos coches distintos',true],
-      ['Que es válida porque el 15 % cae dentro de ese rango',false],
-      ['Que hay que aplicarla sólo en el pico de potencia',false],
-      ['Que sólo falla en los coches de tracción trasera',false]]});
+      ['Que es válida, porque el 15 % cae dentro de ese rango y por eso sirve como promedio de toda la pasada',false],
+      ['Que hay que aplicarla sólo en el pico de potencia, que es el único punto en el que la cifra importa',false],
+      ['Que sólo falla en los coches de tracción trasera, donde la transmisión tiene más piezas y más pérdidas',false]]});
   if(BANCOS[G.banco].inercia){
     const m0=0, m1=e.relaciones.length-1;
     const f0=fraccionRobada(e,m0,G.banco), f1=fraccionRobada(e,m1,G.banco);
     Q.push({t:'En este banco de inercia, la primera marcha se queda el '+pcc(f0*100)+
         ' de la potencia y la última el '+pcc(f1*100)+'. ¿Por qué?',
       ops:[['Porque la inercia del rodillo referida al cigüeñal crece con el cuadrado de la marcha, y en corta el motor gasta más en acelerarse a sí mismo',true],
-        ['Porque en primera el neumático patina más',false],
-        ['Porque en primera el motor se calienta más',false],
-        ['Porque en marchas largas el rodillo gira más deprisa y mide mejor',false]]});
+        ['Porque en primera el neumático patina más sobre el rodillo y esa energía se descuenta de la potencia medida',false],
+        ['Porque en primera el motor se calienta más y la pérdida de rendimiento por temperatura se lleva buena parte de la potencia',false],
+        ['Porque en marchas largas el rodillo gira más deprisa y el captador mide mejor, con menos error relativo',false]]});
   }
   Q.push({t:'De las '+cen.total+' casillas del censo, '+cen.porCuenta+' tienen la culpa en la cuenta y '+
       cen.porMedida+' en la medida. ¿Qué dice eso?',
     ops:[['Que a partir de cierta altitud da igual lo bien montado que esté el banco: lo que estropea el número es la fórmula',true],
-      ['Que los bancos de rodillos están mal calibrados',false],
-      ['Que hay que medir siempre al nivel del mar',false],
-      ['Que la norma corrige de más en todos los casos',false]]});
+      ['Que los bancos de rodillos están mal calibrados y por eso la medida nunca llega a ser fiable del todo',false],
+      ['Que hay que medir siempre al nivel del mar, porque a otra altitud ningún banco puede dar una cifra válida',false],
+      ['Que la norma corrige de más en todos los casos, y por eso la cifra corregida sale siempre inflada',false]]});
   return Q;
 }
 function bancoQ(){
@@ -2696,7 +2725,10 @@ function pregunta(i){
 function pistaReto(){
   const no=INSTR.filter(i=>!RETO.medido[i.k]);
   if(!no.length){ showToast('Ya has usado los seis instrumentos. Ahora toca decidir.',3000); return; }
-  showToast('<b>Prueba con:</b> '+no[0].rot+'<br>'+no[0].nota,4600);
+  if(RETO.pistas>=MAX_PISTAS){ showToast('<b>Sin más pistas</b><br>Ya has usado las '+MAX_PISTAS+' de este caso.',3000); return; }
+  RETO.pistas++;
+  showToast('<b>Pista '+RETO.pistas+' de '+MAX_PISTAS+' · prueba con:</b> '+no[0].rot+'<br>'+no[0].nota,4600);
+  afterEdit();
 }
 function otroMotor(){ armaReto(); afterEdit(); refrescaPregunta();
   showToast('<b>Otro caso.</b> Otro coche, otro sitio y otra norma.',3000); }
@@ -2874,10 +2906,13 @@ window.__labDebug={
   get retoCfg(){ return {falla:RETO.falla, maq:RETO.maq, sitio:RETO.sitio,
     norma:RETO.norma, banco:RETO.banco, marcha:RETO.marcha, pasada:RETO.pasada,
     medido:Object.keys(RETO.medido), elegido:RETO.elegido, veredicto:RETO.veredicto,
+    intentos:RETO.intentos, pistas:RETO.pistas,
     vivas:FALLA_KEYS.filter(compatible)}; },
+  get intentos(){ return RETO.intentos; },
   mide(k){ mide(k); },
   elige(k){ eligeFalla(k); },
   entrega(){ entrega(); return RETO.veredicto==='ok'; },
+  pista(){ pistaReto(); },
   armaCaso(falla,o){ o=o||{};
     RETO.falla=falla;
     if(o.maq&&ARQ[o.maq]) RETO.maq=o.maq;
@@ -2888,6 +2923,7 @@ window.__labDebug={
     if(o.marcha!==undefined) RETO.marcha=Math.min(o.marcha,ARQ[RETO.maq].relaciones.length-1);
     RETO.marcha=Math.min(RETO.marcha,ARQ[RETO.maq].relaciones.length-1);
     RETO.medido={}; RETO.elegido=null; RETO.veredicto=null;
+    RETO.intentos=0; RETO.pistas=0; RETO.aviso=''; RETO.retro='';
     invalida(); pinta(); refrescaPregunta(); },
   monta(){ autoAssemble(); },
   // Los mandos. Hacen EXACTAMENTE lo que hace un dedo sobre la barra de vistas:
