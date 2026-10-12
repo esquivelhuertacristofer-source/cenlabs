@@ -262,14 +262,14 @@ function createStage(mount, opts={}){
   key.shadow.camera.near=0.5; key.shadow.camera.far=40;
   const sd=8; Object.assign(key.shadow.camera,{left:-sd,right:sd,top:sd,bottom:-sd});
   key.shadow.bias=-0.0003; key.shadow.normalBias=0.02; scene.add(key);
-  const rim = new THREE.SpotLight(0x2affce, 55, 30, Math.PI/5, 0.4, 1.5);
+  const rim = new THREE.SpotLight(0xdde7f0, 10, 30, Math.PI/5, 0.4, 1.5);
   rim.position.set(-7,6,-5); scene.add(rim);
   const fill = new THREE.DirectionalLight(0x6fb6ff, 0.5); fill.position.set(-4,3,7); scene.add(fill);
   scene.add(new THREE.HemisphereLight(0x9fb4c8, 0x10151b, 0.35));
 
   if(opts.floor!==false){
     const f = new THREE.Mesh(new THREE.CircleGeometry(40,80),
-      new THREE.MeshStandardMaterial({ color:0x0a0e13, roughness:0.26, metalness:0.62, envMapIntensity:1.15 }));
+      new THREE.MeshStandardMaterial({ color:0x0d1218, roughness:0.48, metalness:0.3, envMapIntensity:0.8 }));
     f.rotation.x=-Math.PI/2; f.receiveShadow=true; scene.add(f);
     for(let r=2;r<=8;r+=2){
       const ring=new THREE.Mesh(new THREE.RingGeometry(r-0.012,r+0.012,80),

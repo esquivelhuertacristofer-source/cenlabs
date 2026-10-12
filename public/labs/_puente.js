@@ -72,10 +72,17 @@
     return d && typeof d === 'object' ? d : null;
   }
 
+  /* SOLO SE LLAMAN FUNCIONES DE LECTURA. En 40 labs `quizAnswer` no consulta:
+     es `i => answer(i)`, la acción de RESPONDER el quiz. Llamarla sin argumento
+     ejecutaba `answer(undefined)`, que deshabilita los botones del quiz antes de
+     lanzar —y el try/catch se tragaba el error—: dentro del iframe el alumno no
+     podía contestar. Una función que pide parámetros es una acción, no una
+     lectura; se trata como «no observable». */
   function llama(d, nombre) {
     try {
       var v = d[nombre];
-      return typeof v === 'function' ? v() : v;
+      if (typeof v !== 'function') return v;
+      return v.length === 0 ? v() : undefined;
     } catch (e) { return undefined; }
   }
 

@@ -322,7 +322,7 @@ function createStage(mount, opts={}){
   // reflective showroom floor
   if(opts.floor!==false){
     const f = new THREE.Mesh(new THREE.CircleGeometry(40,80),
-      new THREE.MeshStandardMaterial({ color:0x0a0e13, roughness:0.26, metalness:0.62, envMapIntensity:1.15 }));
+      new THREE.MeshStandardMaterial({ color:0x0d1218, roughness:0.48, metalness:0.3, envMapIntensity:0.8 }));
     f.rotation.x=-Math.PI/2; f.receiveShadow=true; scene.add(f);
     for(let r=2;r<=8;r+=2){
       const ring=new THREE.Mesh(new THREE.RingGeometry(r-0.012,r+0.012,80),
