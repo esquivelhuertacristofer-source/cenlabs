@@ -52,7 +52,6 @@ fichaTecnica({
     '<b>Hojas de datos de los zener 1N4742A (12 V) y 1N4744A (15 V)</b>: voltaje de zener nominal usado en el clamp activo de este laboratorio.',
     '<b>TE Connectivity, Application Note 13C3344</b> (nota de aplicación de relevadores electromecánicos): referencia usada para confirmar que la inductancia de bobina no es una especificación que los fabricantes de relevadores publiquen habitualmente en hoja de datos — de ahí que este simulador trate L siempre como parámetro típico/ajustable, nunca de catálogo.',
     '<b>Hoja de datos del relevador Songle SRD-05VDC-SL-C</b>: voltaje de bobina (5 V) y resistencia de bobina (≈70 Ω) usados como los únicos valores de fabricante verificados de esta práctica; la inductancia de este mismo relevador NO está publicada por el fabricante y se trata como típica.',
-    '<b>Hoja de datos del MOSFET IRF540N</b>: Rds(on) = 0.033–0.044 Ω máx. a Vgs=10 V — cifra corregida en esta práctica tras un contraste adversarial que detectó una confusión frecuente en fuentes secundarias con la cifra 0.052–0.077 Ω, que en realidad corresponde al IRF540 sin el sufijo "N" (un dispositivo predecesor distinto).',
-    '<b>Nota curricular</b> ⚑: la correspondencia de esta práctica con la clave curricular EM-I.3 es un mapeo sugerido, pendiente de confirmación directa contra el temario oficial del curso — no se asume sin verificación.'
+    '<b>Hoja de datos del MOSFET IRF540N</b>: Rds(on) = 0.033–0.044 Ω máx. a Vgs=10 V — cifra corregida en esta práctica tras una revisión que detectó una confusión frecuente con la cifra 0.052–0.077 Ω, que en realidad corresponde al IRF540 sin el sufijo "N" (un dispositivo predecesor distinto).'
   ]
 });

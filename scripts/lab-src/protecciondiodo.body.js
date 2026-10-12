@@ -527,6 +527,7 @@ document.getElementById('panel').innerHTML=`
     <div id="retoAsk" style="font-size:12px;color:#8FB3AC"></div>
     <div class="btns" style="margin-top:6px">
       <button class="b primary" id="btnReto">Verificar diseño</button>
+      <button class="b sec" id="btnRetoPista">💡 Pista (máx. 2)</button>
       <button class="b sec" id="btnRetoNew">Nuevo reto</button>
     </div>
     <div id="retoResult" style="margin-top:6px;font-size:12px"></div>
@@ -537,6 +538,10 @@ document.getElementById('panel').innerHTML=`
   <div style="margin-top:10px">
     <div id="q_text" class="mono" style="font-size:12px;margin-bottom:6px"></div>
     <div id="dxbtns" class="btns"></div>
+  </div>
+
+  <div class="btns" style="margin-top:8px">
+    <button class="b auto" id="btnAuto">🚀 Tour guiado</button>
   </div>`;
 const el=function(id){return document.getElementById(id);};
 
@@ -561,6 +566,13 @@ const MISIONES={
 };
 let barCompare=false;
 function setMode(k){
+  // La predicción sin responder no se lleva a otro modo: el caso quedaría puesto y la telemetría daría la respuesta.
+  if(mode==='predice'&&k!=='predice'&&PRED&&!predRevealed){
+    const dk=Object.keys(DIODES),ck=Object.keys(CLAMPS);
+    cat=Math.random()<0.5?'cond':'prot';dsel=dk[Math.floor(Math.random()*dk.length)];csel=ck[Math.floor(Math.random()*ck.length)];
+    Ridx=Math.floor(Math.random()*RVALS.length);Vs=Math.round((2+Math.random()*13)*10)/10;PRED=null;
+    el('sVs').value=Vs;el('vVs').textContent=Vs.toFixed(1)+' V';
+  }
   mode=k;solved=false;
   MODES.forEach(function(m){el('m_'+m).classList.toggle('on',m===k);});
   el('p_mode').textContent=k==='explora'?'Explora':k==='predice'?'Predicción':k==='barrido'?'Barrido':'Reto';
@@ -572,7 +584,7 @@ function setMode(k){
   const inputs=document.querySelectorAll('#panel input[type=range]');
   for(let i=0;i<inputs.length;i++)inputs[i].disabled=lockAll;
   if(k==='predice')genPredice();
-  if(k==='reto'){cat='prot';if(!RETO)newReto();}
+  if(k==='reto'){cat='prot';if(!RETO)newReto();else{Vs=RETO.vs;el('sVs').value=Vs;el('vVs').textContent=Vs.toFixed(1)+' V';pintaReto(el('retoResult').innerHTML);}}
   syncCtrlBtns();clearDx();refreshQuestion();refreshBenchSel();refreshAll();
   S.moveTo(MODE_META[k].cam[0],MODE_META[k].cam[1],1.3);
 }
@@ -653,9 +665,8 @@ function updateReport(){
     L.push(sweeping?'Barriendo Vs…':'Pulsa "Barrer Vs" para trazar la curva del punto de operación, o "Comparar familia" para sobreponer las curvas de datasheet.');
     if(SWEEP.length>1)L.push(SWEEP.length+' puntos medidos entre '+SWEEP[0].vs.toFixed(1)+' V y '+SWEEP[SWEEP.length-1].vs.toFixed(1)+' V.');
   }else if(mode==='reto'){
-    L.push('Transitorio Vs = '+RETO.vs.toFixed(1)+' V a través de Rs(línea) = '+fmtR(RETO.rsLine)+'. El componente aguas abajo tolera hasta Vmax = '+RETO.vmax.toFixed(1)+' V.');
-    L.push('Elige el dispositivo de protección y Rs de tu circuito para que el nodo no supere Vmax, y (si usas el zener) que Iz se mantenga entre IZK e IZM.');
-    L.push(retoSolved?'¡Diseño válido!':'Ajusta y pulsa "Verificar diseño".');
+    L.push('Reto: línea normal de '+RETO.vnorm+' V, transitorio de '+RETO.vs.toFixed(1)+' V, Vmax = '+RETO.vmax.toFixed(1)+' V, fuente ≤ '+fmtI(RETO.imax)+'. El enunciado completo está arriba.');
+    L.push(retoSolved?'¡Diseño válido!':'Ajusta protector y Rs y pulsa "Verificar diseño" (sin veredicto antes).');
   }
   el('report').innerHTML=L.map(function(x){return '<div>• '+x+'</div>';}).join('');
 }
@@ -772,6 +783,7 @@ function genPredice(){
   syncCtrlBtns();
 }
 function checkPredice(){
+  if(predRevealed){showToast('Esa predicción ya se reveló: pulsa «Nueva predicción».');return;}
   let okAll=false,html='';
   const chip=function(ok){return ok?'✔':'✘';};
   if(predType==='A'){
@@ -801,68 +813,118 @@ function checkPredice(){
 }
 let predAnswerC=null;
 
-/* ---------- 12) Reto de diseño de protección ---------- */
+/* ---------- 12) Reto de diseño de protección ----------
+   Cada reto fija: tensión normal de la línea (Vnorm), transitorio (Vs), Vmax tolerado aguas abajo y la corriente
+   máxima que la fuente soporta. El alumno elige protector (zener / TVS) y Rs. Criterios (todos anunciados):
+   (1) nodo ≤ Vmax en el transitorio, (2) corriente de la fuente ≤ Imax, (3) zener con Iz dentro de [IZK, IZM],
+   (4) en operación normal, con la carga alimentada, el protector no conduce de forma apreciable y el nodo queda a ≥ 97 % de Vnorm.
+   Hay 1–3 diseños ganadores entre 16 y el arranque neutro no lo es. Sin veredicto en vivo; a los 3 fallos seguidos hay caso nuevo. */
+let intentos=0,fallosSeguidos=0,pistas=0;const pistaLog=[];
+function rndi(n){return Math.floor(Math.random()*n);}
+function iOfClamp(ck){return ck==='zen'?function(v){return izOfV(CLAMPS.zen,v);}:function(v){return iTvsOfV(CLAMPS.tvs,v);};}
+function evalRetoD(R,ck,ri){
+  const c=CLAMPS[ck],rs=RVALS[ri],iOf=iOfClamp(ck);
+  const t=solveClamp(iOf,R.vs,rs);
+  const n=solveClamp(function(v){return iOf(v)+R.iload;},R.vnorm,rs); // operación normal con la carga alimentada
+  const iSrc=(R.vs-t.v)/rs;
+  const okV=t.v<=R.vmax;
+  const okSrc=iSrc<=R.imax;
+  const okZ=ck==='zen'?(t.i>=c.izk&&t.i<=c.izm):true;
+  const okNorm=n.v>=0.97*R.vnorm;
+  return {t:t,okV:okV,okSrc:okSrc,okZ:okZ,okNorm:okNorm,ok:okV&&okSrc&&okZ&&okNorm};
+}
 function newReto(){
-  const keys=Object.keys(CLAMPS);
-  const rsLine=RVALS[1+Math.floor(Math.random()*(RVALS.length-2))];
-  const vs=Math.round((8+Math.random()*7)*10)/10;
-  const vmax=Math.round((6.6+Math.random()*2.2)*10)/10;
-  RETO={rsLine:rsLine,vs:vs,vmax:vmax};
-  csel=keys[0];Ridx=RVALS.indexOf(rsLine);Vs=vs;
-  retoSolved=false;
-  el('retoResult').innerHTML='';
-  el('retoAsk').textContent='';
+  let R=null,tries=0;
+  while(!R&&tries<2000){
+    tries++;
+    const c={vnorm:[3.3,5][rndi(2)],iload:[0.0005,0.001,0.002][rndi(3)],vs:8+0.5*rndi(15),vmax:Math.round((5.4+0.2*rndi(18))*10)/10,imax:[0.05,0.1,0.2][rndi(3)]};
+    let win=0;
+    Object.keys(CLAMPS).forEach(function(ck){RVALS.forEach(function(v,ri){if(evalRetoD(c,ck,ri).ok)win++;});});
+    const neutro=evalRetoD(c,'zen',3).ok;
+    if(win>=1&&win<=3&&!neutro)R=c;
+  }
+  if(!R)R={vnorm:3.3,iload:0.001,vs:12,vmax:6,imax:0.1};
+  RETO=R;
+  csel='zen';Ridx=3;Vs=R.vs;
+  retoSolved=false;fallosSeguidos=0;pistas=0;pistaLog.length=0;
+  if(typeof el==='function'&&el('sVs')){el('sVs').value=Vs;el('vVs').textContent=Vs.toFixed(1)+' V';}
+  pintaReto('');
+}
+function pintaReto(msg){
+  if(!RETO)return;
+  el('retoAsk').innerHTML='Línea normal de <b>'+RETO.vnorm+' V</b> con un transitorio de <b>'+RETO.vs.toFixed(1)+' V</b>. Elige <b>protector</b> (zener / TVS) y <b>Rs</b> para que: (1) el nodo no pase de <b>'+RETO.vmax.toFixed(1)+' V</b> en el transitorio, (2) la fuente entregue ≤ <b>'+fmtI(RETO.imax)+'</b>, (3) si usas zener, Iz quede entre IZK e IZM, y (4) en operación normal, alimentando una carga de <b>'+fmtI(RETO.iload)+'</b>, el protector no conduzca de forma apreciable y el nodo quede a ≥ 97 % de '+RETO.vnorm+' V. Sin veredicto hasta «Verificar diseño».'+
+    '<div style="font-size:11px;margin-top:4px">Intentos: <b id="retoIntentos">'+intentos+'</b> · Pistas: '+pistas+'/2'+(retoSolved?' · <b style="color:#3fae3f">✔ resuelto</b>':'')+'</div>'+
+    (pistaLog.length?'<div style="font-size:11px;margin-top:4px;color:#EAF4F1">'+pistaLog.map(function(h){return '💡 '+h;}).join('<br>')+'</div>':'');
+  el('retoResult').innerHTML=msg;
+}
+function retoPista(){
+  if(mode!=='reto'||!RETO)return;
+  if(pistas>=2){showToast('Ya usaste las 2 pistas de este reto.');return;}
+  const H=['Un TVS no conduce por debajo de su ruptura (≈ 6,4 V) y un zener de 5,1 V sí conduce algo a esa tensión: compara con la tensión normal de la línea.',
+    'Rs fija la corriente que pide la fuente en el transitorio, (Vs − Vnodo)/Rs: muy baja la desborda; pero en operación normal Rs también cae voltaje por la corriente de la carga: muy alta, el nodo se hunde.'];
+  pistaLog.push(H[pistas]);pistas++;pintaReto(el('retoResult').innerHTML);
 }
 function checkReto(){
-  const c=curClamp();
-  const iOfV=csel==='zen'?function(v){return izOfV(c,v);}:function(v){return iTvsOfV(c,v);};
-  const r=solveClamp(iOfV,RETO.vs,curR());
-  const okV=r.v<=RETO.vmax;
-  const okI=csel==='zen'?(r.i>=c.izk&&r.i<=c.izm):true;
-  const chip=function(ok){return ok?'✔':'✘';};
-  let html='<div>'+chip(okV)+' Voltaje del nodo: '+r.v.toFixed(2)+' V ≤ Vmax = '+RETO.vmax.toFixed(1)+' V</div>';
-  if(csel==='zen')html+='<div>'+chip(okI)+' Corriente del zener: '+fmtI(r.i)+' dentro de [IZK='+fmtI(c.izk)+', IZM='+fmtI(c.izm)+']</div>';
-  else html+='<div style="color:#8FB3AC;font-size:11px">TVS: IPP nominal ('+c.ipp.toFixed(1)+' A) muy por encima de la corriente de este circuito — no hay riesgo de exceder su capacidad de pulso aquí.</div>';
-  el('retoResult').innerHTML=html;
-  retoSolved=okV&&okI;solved=retoSolved;
-  synth.beep(retoSolved?880:220,.08,.06);
-  refreshAll();
+  if(!RETO)return;
+  // El enunciado manda: transitorio y categoría son los del reto.
+  cat='prot';Vs=RETO.vs;el('sVs').value=Vs;el('vVs').textContent=Vs.toFixed(1)+' V';
+  const e=evalRetoD(RETO,csel,Ridx);
+  intentos++;
+  retoSolved=e.ok;solved=e.ok;
+  const chip=function(ok,txt,bad){return '<div>'+(ok?'✔':'✘')+' '+(ok?txt:bad)+'</div>';};
+  let html=chip(e.okV,'El nodo queda dentro del límite del componente aguas abajo','El nodo supera el voltaje máximo tolerado en el transitorio')+
+    chip(e.okSrc,'La fuente entrega una corriente soportable','La fuente tendría que entregar más corriente de la que soporta')+
+    (csel==='zen'?chip(e.okZ,'Iz del zener dentro de [IZK, IZM]','Iz del zener fuera de [IZK, IZM] (no regula o se sobrecarga)'):'')+
+    chip(e.okNorm,'En operación normal el nodo queda en su tensión','En operación normal el nodo cae demasiado (el protector conduce o Rs es excesiva para la carga)');
+  if(e.ok){fallosSeguidos=0;html+='<div style="margin-top:4px;color:#3fae3f">¡Diseño válido!</div>';}
+  else{
+    fallosSeguidos++;html+='<div style="margin-top:4px">Aún no cumple todos los criterios.</div>';
+    if(fallosSeguidos>=3){newReto();pintaReto('<div>Tres fallos seguidos: se plantea un caso nuevo.</div>');syncCtrlBtns();refreshAll();synth.beep(220,.08,.06);return;}
+  }
+  pintaReto(html);
+  synth.beep(e.ok?880:220,.08,.06);
+  syncCtrlBtns();refreshAll();
 }
 
 /* ---------- 13) Quiz ---------- */
 let QUIZ={};
+let qOpts=[],qAns=-1;
 function buildQuiz(){
   QUIZ={
     explora:{
       pregunta:'¿Por qué un LED necesita un resistor limitador en serie y un rectificador de silicio, en un circuito bien diseñado, casi siempre también?',
       opciones:[
-        {t:'Porque su corriente crece muy rápido (exponencialmente) con pequeños cambios de voltaje, sin el resistor no hay forma de fijar el punto de operación',ok:true,why:'Correcto: sin un elemento que limite corriente, un voltaje de fuente fijo sobre un diodo sin resistencia serie llevaría a una corriente descontrolada.'},
-        {t:'Porque el LED no conduce corriente sin un resistor',ok:false,why:'No — el LED sí conduce sin resistor, y eso es justamente el problema: conduce demasiado.'},
-        {t:'Porque el resistor cambia el color de la luz del LED',ok:false,why:'No — el resistor no afecta el color; solo limita la corriente (y por tanto el brillo).'}
+        {t:'Porque su corriente crece muy rápido (exponencialmente) con pequeños cambios de voltaje: sin resistor no hay forma de fijar el punto de operación',ok:true,why:'Correcto: sin un elemento que limite corriente, un voltaje de fuente fijo sobre un diodo sin resistencia serie llevaría a una corriente destructiva.'},
+        {t:'Porque el LED no conduce corriente alguna mientras no tenga un resistor conectado en serie con él',ok:false,why:'No: el LED sí conduce sin resistor, y eso es justamente el problema, conduce demasiado.'},
+        {t:'Porque el resistor cambia el color de la luz del LED al modificar el voltaje que le llega',ok:false,why:'No: el resistor no afecta el color; solo limita la corriente (y por tanto el brillo).'},
+        {t:'Porque el resistor aumenta la caída de voltaje directo Vf del diodo y así lo protege del calor',ok:false,why:'No: el resistor no cambia el Vf del diodo; fija la corriente a través del diodo.'}
       ]
     },
     predice:{
       pregunta:'Al comparar Schottky vs. silicio a la misma corriente, ¿qué familia tiene menor caída de voltaje directo Vf?',
       opciones:[
-        {t:'Schottky — su unión metal-semiconductor tiene una barrera de potencial menor que una unión P-N de silicio',ok:true,why:'Correcto: por eso el Schottky se elige quan la prioridad es minimizar pérdidas de conducción (p.ej. rectificación de baja caída).'},
-        {t:'Silicio — siempre tiene menor Vf que cualquier Schottky',ok:false,why:'No — es al revés: el silicio típicamente cae ≈0.9-1.1 V a 1 A, más que el Schottky (≈0.55-0.60 V).'},
-        {t:'Son iguales — la familia de diodo no afecta Vf',ok:false,why:'No — Vf depende fuertemente de la tecnología de unión del diodo.'}
+        {t:'Schottky: su unión metal-semiconductor tiene una barrera de potencial menor que una unión P-N de silicio',ok:true,why:'Correcto: por eso el Schottky se elige cuando la prioridad es minimizar pérdidas de conducción (p. ej. rectificación de baja caída).'},
+        {t:'Silicio: su unión P-N siempre tiene menor Vf que cualquier Schottky a la misma corriente',ok:false,why:'No: es al revés; el silicio típicamente cae ≈0,9-1,1 V a 1 A, más que el Schottky (≈0,55-0,60 V).'},
+        {t:'Son iguales: la familia del diodo no afecta Vf, que solo depende de la corriente que circule',ok:false,why:'No: Vf depende fuertemente de la tecnología de unión del diodo.'},
+        {t:'El LED, porque emite luz y por eso necesita una caída menor que cualquier diodo rectificador',ok:false,why:'No: el LED tiene la mayor Vf de las tres familias (la unión de mayor ancho de banda prohibida).'}
       ]
     },
     barrido:{
-      pregunta:'En el barrido comparativo de protección (Zener vs. TVS), ¿por qué la curva del TVS es más "vertical" cerca de la ruptura que la del zener?',
+      pregunta:'En el barrido comparativo de protección (Zener vs. TVS), ¿por qué la curva del TVS es más «vertical» cerca de la ruptura que la del zener?',
       opciones:[
-        {t:'Porque su resistencia dinámica (Rdyn) es mucho menor que la impedancia dinámica del zener (Zzt)',ok:true,why:'Correcto: un Rdyn pequeño significa que el voltaje casi no sube aunque la corriente crezca mucho — ideal para clampear picos rápidos de alta corriente.'},
-        {t:'Porque el TVS no tiene resistencia dinámica',ok:false,why:'No — sí tiene (Rdyn≈0.064 Ω en este dispositivo), solo que es mucho menor que la del zener.'},
-        {t:'Porque el TVS se satura a una corriente fija',ok:false,why:'No — en este circuito el TVS no llega ni cerca de su límite de corriente de pulso (IPP).'}
+        {t:'Porque su resistencia dinámica (Rdyn) es mucho menor que la impedancia dinámica del zener (Zzt)',ok:true,why:'Correcto: un Rdyn pequeño significa que el voltaje casi no sube aunque la corriente crezca mucho; ideal para clampear picos rápidos de alta corriente.'},
+        {t:'Porque el TVS no tiene resistencia dinámica alguna y se comporta como una fuente ideal de voltaje',ok:false,why:'No: sí tiene (Rdyn≈0,064 Ω en este dispositivo), solo que mucho menor que la del zener.'},
+        {t:'Porque el TVS se satura a una corriente fija y deja de conducir más allá de ese límite',ok:false,why:'No: en este circuito el TVS no llega ni cerca de su límite de corriente de pulso (IPP).'},
+        {t:'Porque el TVS tiene un voltaje de ruptura mayor que el zener y eso endereza la curva',ok:false,why:'No: la pendiente de la curva la fija la resistencia dinámica, no el voltaje donde empieza la ruptura.'}
       ]
     },
     reto:{
-      pregunta:'¿Por qué la condición de diseño exige VRWM del dispositivo protector por debajo del voltaje normal de operación del circuito, pero VBR(mín) por arriba?',
+      pregunta:'¿Por qué la condición de diseño exige VRWM del protector por encima del voltaje normal del circuito, y VBR(mín) también por encima de él?',
       opciones:[
-        {t:'Para que el dispositivo no conduzca (ni tenga fuga relevante) en operación normal, pero sí limite el voltaje cuando llegue un transitorio por encima de lo normal',ok:true,why:'Correcto: VRWM marca el techo seguro de "no hacer nada"; VBR marca el piso donde empieza a actuar como protección.'},
-        {t:'Para que el dispositivo se destruya de forma segura ante cualquier transitorio',ok:false,why:'No — el objetivo es justo lo contrario: que el dispositivo sobreviva y proteja, no que se destruya.'},
-        {t:'Es una convención arbitraria sin relación con el voltaje normal del circuito',ok:false,why:'No es arbitrario — está directamente ligado al voltaje normal del circuito que se protege.'}
+        {t:'Para que el dispositivo no conduzca (ni tenga fuga relevante) en operación normal, pero sí limite el voltaje cuando llegue un transitorio por encima',ok:true,why:'Correcto: VRWM es el techo del voltaje de operación en el que el protector no hace nada; por encima de VBR empieza a actuar.'},
+        {t:'Para que el dispositivo se destruya de forma segura ante cualquier transitorio que llegue a la línea',ok:false,why:'No: el objetivo es justo lo contrario, que el dispositivo sobreviva y proteja.'},
+        {t:'Es una convención arbitraria, sin relación con el voltaje normal del circuito que se protege',ok:false,why:'No es arbitrario: está directamente ligado al voltaje normal del circuito.'},
+        {t:'Para que el dispositivo conduzca siempre un poco y mantenga caliente la unión durante la operación',ok:false,why:'No: un protector que conduce en operación normal consume potencia y deforma la señal.'}
       ]
     }
   };
@@ -877,12 +939,14 @@ function refreshQuestion(){
     const j=Math.floor(Math.random()*(i+1));
     const tmp=opciones[i];opciones[i]=opciones[j];opciones[j]=tmp;
   }
+  qOpts=opciones;qAns=-1;
   el('dxbtns').innerHTML=opciones.map(function(o,i){return '<button class="b" data-i="'+i+'">'+o.t+'</button>';}).join('');
   const btns=el('dxbtns').querySelectorAll('button');
   btns.forEach(function(b,i){
     b.onclick=function(){
       if(b.classList.contains('right')||b.classList.contains('wrong'))return;
       const o=opciones[i];
+      qAns=i;
       b.classList.add(o.ok?'right':'wrong');
       showToast(o.why);
       synth.beep(o.ok?880:220,.08,.06);
@@ -926,10 +990,13 @@ function dispatch3D(act){
 })();
 
 let autoRunning=false;
+/* El tour es una DEMOSTRACIÓN: no resuelve ni resiembra el reto y devuelve al alumno su modo, categoría,
+   dispositivo, Rs, Vs y comparación como estaban. */
 async function runAuto(){
   if(autoRunning)return;
   autoRunning=true;
   const b=el('btnAuto');b.disabled=true;b.textContent='Tour…';
+  const snap={mode:mode,cat:cat,dsel:dsel,csel:csel,Ridx:Ridx,Vs:Vs,barCompare:barCompare,SWEEP:SWEEP.slice()};
   try{
     setMode('explora');
     selCat('cond');selDevice('led');
@@ -941,17 +1008,26 @@ async function runAuto(){
     showToast('Cambiamos a Protección: ahora el dispositivo va en shunt (paralelo) para clampear el nodo.');
     await sleep(2600);
     Vs=12;el('sVs').value=12;el('vVs').textContent='12.0 V';onChange();
-    showToast('Con Vs por encima de la ruptura, el zener/TVS "clava" el voltaje del nodo cerca de su VZ/VBR.');
+    showToast('Con Vs por encima de la ruptura, el zener/TVS «clava» el voltaje del nodo cerca de su VZ/VBR.');
     await sleep(2600);
     setMode('barrido');
     toggleCompare();
-    showToast('Modo Barrido con comparación: superpone las curvas de zener y TVS para ver quién clampea más "duro".');
+    showToast('Modo Barrido con comparación: superpone las curvas de zener y TVS para ver quién clampea más «duro».');
     await sleep(2400);
     await runSweep();
     await sleep(800);
-    setMode('reto');
-    showToast('Reto: diseña la protección para que el nodo no supere el voltaje máximo del componente aguas abajo.');
+    showToast('Fin de la demostración: el reto sigue intacto; en él tendrás que elegir protector y Rs tú.');
+    await sleep(1800);
   }finally{
+    if(barCompare!==snap.barCompare)toggleCompare();
+    SWEEP.length=0;snap.SWEEP.forEach(function(p){SWEEP.push(p);});
+    // restaura la configuración del alumno (primero modo, luego valores: el modo reto/predicción fija lo suyo)
+    mode=snap.mode==='predice'||snap.mode==='reto'?'explora':snap.mode;
+    cat=snap.cat;dsel=snap.dsel;csel=snap.csel;Ridx=snap.Ridx;Vs=snap.Vs;
+    el('sVs').value=Vs;el('vVs').textContent=Vs.toFixed(1)+' V';
+    setMode(snap.mode);
+    if(snap.mode==='reto'){csel=snap.csel;Ridx=snap.Ridx;Vs=RETO?RETO.vs:snap.Vs;el('sVs').value=Vs;el('vVs').textContent=Vs.toFixed(1)+' V';cat='prot';}
+    syncCtrlBtns();refreshAll();
     autoRunning=false;b.disabled=false;b.textContent='🚀 Tour guiado';
   }
 }
@@ -976,10 +1052,11 @@ el('predNo').onclick=function(){predAnswerC=false;el('predNo').classList.add('on
 el('btnSweep').onclick=runSweep;
 el('btnCompare').onclick=toggleCompare;
 el('btnReto').onclick=checkReto;
+el('btnRetoPista').onclick=retoPista;
+el('btnAuto').onclick=runAuto;
 el('btnRetoNew').onclick=function(){newReto();refreshAll();};
 
 S.setAnimate(function(){});
-newReto();
 buildQuiz();
 syncCtrlBtns();
 refreshBenchSel();
@@ -991,6 +1068,11 @@ window.__labDebug={
   res:function(){return RES;},
   pred:function(){return PRED?Object.assign({},PRED,{type:predType}):null;},
   reto:function(){return RETO;},
+  get retoSolved(){return retoSolved;},
+  get intentos(){return intentos;},
+  get quizAnswer(){return qAns;},
+  get quizCorrectIndex(){return qOpts.findIndex(function(o){return o.ok;});},
+  runAuto:runAuto,retoPista:retoPista,evalRetoD:evalRetoD,
   sweep:function(){return SWEEP.slice();},
   iFwd:iFwd,vFwdAt:vFwdAt,izOfV:izOfV,iTvsOfV:iTvsOfV,solveFwd:solveFwd,solveClamp:solveClamp,
   setCat:selCat,setDevice:selDevice,setClamp:selClamp,setR:selR,

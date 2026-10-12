@@ -68,7 +68,7 @@
       name: '2N3904',
       hfeMin: 100, hfeMax: 300,
       vceSat: 0.2, vceSatMax: 0.3,
-      vceo: 40, icMax: 0.2, ptot: 0.625, ptotNote: '0.625W @ 25°C · hoja de datos de réplica (403 en fuente original)',
+      vceo: 40, icMax: 0.2, ptot: 0.625, ptotNote: '0.625W @ 25°C · hoja de datos de réplica de distribuidor',
       vaHint: null,
       color: 0x1f1f1f,
     },
@@ -76,7 +76,7 @@
       name: '2N2222A',
       hfeMin: 100, hfeMax: 300,
       vceSat: 0.3, vceSatMax: 0.3,
-      vceo: 40, icMax: 0.8, ptot: 0.5, ptotNote: '0.5W @ 25°C · síntesis por búsqueda web ⚑',
+      vceo: 40, icMax: 0.8, ptot: 0.5, ptotNote: '0.5W @ 25°C · valor de referencia orientativo',
       vaHint: 72, // Early voltage, estimación de orden de magnitud, SOLO modo avanzado
       color: 0x3a3a3a,
     },
@@ -201,6 +201,8 @@
     useRo: false,
     mode: 'explora',
     hide: false,
+    _predType: 'Q', _predDone: false, _revealed: false, _reto: null,
+    retoSolved: false, intentos: 0, fallosSeguidos: 0, pistas: 0, pistaLog: [],
   };
 
   function curDev() { return DEVS[state.devKey]; }
@@ -738,7 +740,7 @@
   <div class="fid"><span class="ft">CONTRATO DE FIDELIDAD</span>
   <span class="fl">SÍ:</span> Polarización DC por divisor (idéntica a d2-06): VBE=0.7V constante, β dentro del rango de hoja de datos, punto Q resuelto en forma cerrada. Modelo de pequeña señal hybrid-π: gm=ICQ/VT, rπ=β/gm, VT=25mV fijo. Ganancia con RE bypaseado: Av=−gm·(RC‖RL). Recta de carga DC vs. AC con pendientes distintas. BC547B: hFE solo como rango de hoja de datos (200–450), VCEsat corregido a 600mV máx @ IC=100mA/IB=5mA (condición de prueba real).<br>
   <span class="no">NO:</span> Av sin bypass (Av=−β·(RC‖RL)/[rπ+(β+1)·RE]) es una extensión propia por KVL incremental estándar, no viene explícita en la fuente. ro (Early) es opcional/modo avanzado: VA de 2N2222A es una estimación de orden de magnitud tomada de modelos SPICE de terceros, no una cifra de hoja de datos tabulada — BC547B/2N3904 no exponen esta opción. 2N2222A: VCEsat y límites vienen de síntesis por búsqueda web tras fallos de acceso a la hoja original. 2N3904: cifras de una réplica de distribuidor, hoja original con acceso bloqueado (HTTP 403).</div>
-  <div class="src">Ref: ON Semiconductor BC546/D Rev.6 (BC547B) · STMicroelectronics 2N3904 Preliminary Data Feb-2003 · réplicas de hoja de datos para 2N2222A · Boylestad &amp; Nashelsky, "Electronic Devices and Circuit Theory". Nota: MEC-I.2/ETR-I.2 están pendientes de confirmación con el equipo curricular.</div>`;
+  <div class="src">Ref: ON Semiconductor BC546/D Rev.6 (BC547B) · STMicroelectronics 2N3904 Preliminary Data Feb-2003 · réplicas de hoja de datos para 2N2222A · Boylestad &amp; Nashelsky, "Electronic Devices and Circuit Theory".</div>`;
 
   document.getElementById('panel').innerHTML = `
   <h4>Amplificador BJT · <span id="p_mode">Explora</span></h4>
@@ -787,6 +789,7 @@
     <div class="btns" style="margin-top:6px">
       <button class="b" id="retoNew" style="flex:1 0 48%">Nuevo reto</button>
       <button class="b" id="retoCheck" style="flex:1 0 48%">Verificar diseño</button>
+      <button class="b" id="retoHint" style="flex:1 0 100%">💡 Pista (máx. 2)</button>
     </div>
   </div>
 
@@ -818,14 +821,30 @@
     reto: 'Diseña un punto Q objetivo respetando el rango completo de β del dispositivo.',
   };
 
-  function setMode(m) {
+  // Config aleatoria para cada pregunta; nada del caso anterior queda puesto.
+  function rnd(n) { return Math.floor(Math.random() * n); }
+  function randomizeConfig() {
+    state.devKey = rnd(2) ? 'n2n3904' : 'bc547b';
+    state.beta = betaDefault(curDev());
+    state.iVCC = rnd(VCC_VALS.length); state.iR1 = rnd(R1_VALS.length); state.iR2 = rnd(R2_VALS.length);
+    state.iRC = rnd(RC_VALS.length); state.iRE = rnd(RE_VALS.length); state.iRL = rnd(RL_VALS.length);
+    state.iVIN = rnd(VIN_VALS.length); state.bypass = rnd(2) === 1;
+  }
+
+  // keep=true: solo cambia de pestaña (el tour restaura el modo sin resembrar nada).
+  function setMode(m, keep) {
+    const prev = state.mode;
+    // La pregunta sin responder no se lleva a Explora: la respuesta quedaría a la vista.
+    if (!keep && prev === 'predice' && m !== 'predice' && !state._revealed) randomizeConfig();
     state.mode = m;
     state.hide = (m === 'predice' && !state._revealed);
     const pw = el('predWrap'); if (pw) pw.style.display = m === 'predice' ? 'block' : 'none';
     const rw = el('retoWrap'); if (rw) rw.style.display = m === 'reto' ? 'block' : 'none';
     const sw = el('sweepWrap'); if (sw) sw.style.display = m === 'medicion' ? 'block' : 'none';
-    if (m === 'predice') genPredice();
-    if (m === 'reto') newReto();
+    if (!keep) {
+      if (m === 'predice') genPredice();
+      if (m === 'reto') newReto();
+    }
     refreshAll();
     const mm = el('missionText');
     if (mm) mm.textContent = MISIONES[m];
@@ -854,23 +873,28 @@
     });
   }
 
+  const INPUT_CSS = 'width:100%;background:#0c1a16;color:#EAF4F1;border:1px solid #1E3A34;padding:6px;border-radius:6px';
   function genPredice() {
     state._revealed = false;
+    state._predDone = false;
     state.hide = true;
+    // Cada pregunta es un caso nuevo; si el BJT queda en corte se vuelve a sortear para tener Av que predecir.
+    for (let k = 0; k < 20; k++) { randomizeConfig(); if (!curSolveDC().corte) break; }
     state._predType = Math.random() < 0.5 ? 'Q' : 'Av';
     const box = el('predBox');
     if (box) {
       box.innerHTML = state._predType === 'Q'
         ? '<p>¿El BJT queda en <b>corte</b>, <b>activa</b> o <b>saturación</b>?</p>' +
-          '<select id="predAnswerQ" style="width:100%;background:#0c1a16;color:#EAF4F1;border:1px solid #1E3A34;padding:6px;border-radius:6px">' +
+          '<select id="predAnswerQ" style="' + INPUT_CSS + '">' +
           '<option value="corte">Corte</option><option value="activa">Activa</option><option value="saturación">Saturación</option></select>'
-        : '<p>¿Cuál es aproximadamente <b>|Av|</b> con el bypass ' + (state.bypass ? 'activo' : 'inactivo') + '?</p>' +
-          '<input id="predAnswerAv" type="number" step="0.1" placeholder="V/V" style="width:100%;background:#0c1a16;color:#EAF4F1;border:1px solid #1E3A34;padding:6px;border-radius:6px">';
+        : '<p>¿Cuál es aproximadamente <b>|Av|</b> con el bypass ' + (state.bypass ? 'activo' : 'inactivo') + '? (±25 %)</p>' +
+          '<input id="predAnswerAv" type="number" step="0.1" placeholder="V/V" style="' + INPUT_CSS + '">';
     }
     refreshAll();
   }
 
   function checkPredice(guess) {
+    if (state._predDone) { showToast('Esa pregunta ya se reveló: pulsa «Nueva pregunta».', 'info'); return false; }
     const dc = curSolveDC();
     const ac = curSolveAC();
     let ok = false, real = '';
@@ -884,47 +908,97 @@
       real = fmtAv(answer);
     }
     state._revealed = true;
+    state._predDone = true;
     state.hide = false;
     refreshAll();
     showToast(ok ? '¡Correcto! → ' + real : 'No exactamente. Valor real: ' + real, ok ? 'ok' : 'warn');
     return ok;
   }
 
-  function newReto() {
-    const dev = curDev();
-    const betaLo = dev.hfeMin, betaHi = dev.hfeMax;
-    // ICsat real (incluye RE, a diferencia de la fórmula anterior VCC/(2·RC) que la ignoraba
-    // y podía pedir un ICQ objetivo por encima de ICsat — un reto imposible por construcción).
-    const ICsatReal = (curVCC() - dev.vceSat) / (curRC() + curRE());
-    const icTarget = ICsatReal * (0.3 + Math.random() * 0.35);
-    state._reto = { icTarget: icTarget, betaLo: betaLo, betaHi: betaHi };
-    const box = el('retoBox');
-    if (box) {
-      box.innerHTML = '<p>Diseña el divisor para lograr <b>ICQ ≈ ' + fmtI(icTarget) +
-        '</b>, válido para <b>todo β</b> del ' + dev.name + ' (' + betaLo + '–' + betaHi + ').</p>';
-    }
-  }
-
-  function checkReto() {
-    const dev = curDev();
-    const target = state._reto ? state._reto.icTarget : 0;
-    let worstErr = 0, minSwing = Infinity;
-    for (let b = dev.hfeMin; b <= dev.hfeMax; b += Math.max(1, Math.round((dev.hfeMax - dev.hfeMin) / 12))) {
-      const dc = solveDC(dev, b, curVCC(), curR1(), curR2(), curRC(), curRE());
-      const err = Math.abs(dc.IC - target) / Math.max(target, 1e-9);
-      worstErr = Math.max(worstErr, err);
-      const ac = solveAC(dev, b, dc, curRC(), curRE(), curRL(), state.bypass, state.useRo);
+  // ---------- Reto: ICQ objetivo robusto ante la dispersión de β ----------
+  // El enunciado fija dispositivo, VCC, RC, RE y el ICQ objetivo; el alumno elige R1 y R2.
+  // Criterio: con β entre el mínimo y el máximo de la hoja de datos, ICQ queda a ±20 % del objetivo.
+  // No hay veredicto en vivo; el caso se resiembra tras 3 fallos seguidos.
+  function evalReto(R, i1, i2) {
+    const dev = DEVS[R.devKey];
+    const paso = Math.max(1, Math.round((dev.hfeMax - dev.hfeMin) / 12));
+    let worstErr = 0, lowMin = Infinity, highMax = -Infinity, minSwing = Infinity;
+    for (let b = dev.hfeMin; b <= dev.hfeMax; b += paso) {
+      const dc = solveDC(dev, b, VCC_VALS[R.iVCC], R1_VALS[i1], R2_VALS[i2], RC_VALS[R.iRC], RE_VALS[R.iRE]);
+      const rel = (dc.IC - R.icTarget) / Math.max(R.icTarget, 1e-9);
+      worstErr = Math.max(worstErr, Math.abs(rel));
+      lowMin = Math.min(lowMin, rel); highMax = Math.max(highMax, rel);
+      const ac = solveAC(dev, b, dc, RC_VALS[R.iRC], RE_VALS[R.iRE], RL_VALS[state.iRL], state.bypass, state.useRo);
       if (ac.valid) minSwing = Math.min(minSwing, ac.maxSym);
     }
-    const withinTolerance = worstErr < 0.2;
-    const bonus = withinTolerance && minSwing > 0 && minSwing / curVCC() > 0.15;
-    showToast(
-      withinTolerance
-        ? ('¡Diseño robusto en todo el rango de β!' + (bonus ? ' Bono: swing bien centrado.' : ''))
-        : ('Error máximo en el rango de β: ' + (worstErr * 100).toFixed(0) + '% — ajusta el divisor.'),
-      withinTolerance ? 'ok' : 'warn'
-    );
-    return withinTolerance;
+    return { worstErr: worstErr, lowMin: lowMin, highMax: highMax, minSwing: minSwing, ok: worstErr < 0.2 };
+  }
+  function newReto() {
+    let R = null, tries = 0;
+    while (!R && tries < 300) {
+      tries++;
+      const devKey = rnd(2) ? 'n2n3904' : 'bc547b';
+      const dev = DEVS[devKey];
+      const c = { devKey: devKey, iVCC: rnd(VCC_VALS.length), iRC: rnd(RC_VALS.length), iRE: rnd(RE_VALS.length) };
+      const ICsatReal = (VCC_VALS[c.iVCC] - dev.vceSat) / (RC_VALS[c.iRC] + RE_VALS[c.iRE]);
+      c.icTarget = ICsatReal * (0.3 + Math.random() * 0.35);
+      // Debe existir al menos un divisor que lo cumpla, y el arranque neutro (R1/R2 de en medio) NO.
+      let hay = false;
+      for (let a = 0; a < R1_VALS.length && !hay; a++) for (let b = 0; b < R2_VALS.length; b++) if (evalReto(c, a, b).ok) { hay = true; break; }
+      if (hay && !evalReto(c, 2, 2).ok) R = c;
+    }
+    if (!R) R = { devKey: 'bc547b', iVCC: 1, iRC: 1, iRE: 1, icTarget: 0.002 };
+    state._reto = R;
+    state.devKey = R.devKey; state.beta = betaDefault(curDev());
+    state.iVCC = R.iVCC; state.iRC = R.iRC; state.iRE = R.iRE; state.iR1 = 2; state.iR2 = 2; state.iRL = 0;
+    state.retoSolved = false; state.fallosSeguidos = 0; state.pistas = 0; state.pistaLog = [];
+    renderReto('');
+    refreshAll();
+  }
+  function renderReto(msg) {
+    const box = el('retoBox');
+    if (!box || !state._reto) return;
+    const R = state._reto, dev = DEVS[R.devKey];
+    box.innerHTML = '<p>Con <b>' + dev.name + '</b>, VCC = <b>' + VCC_VALS[R.iVCC] + ' V</b>, RC = <b>' + fmtR(RC_VALS[R.iRC]) + '</b> y RE = <b>' + fmtR(RE_VALS[R.iRE]) +
+      '</b>, diseña el divisor (R1, R2) para <b>ICQ ≈ ' + fmtI(R.icTarget) + ' (±20 %)</b> con <b>cualquier β</b> del rango ' + dev.hfeMin + '–' + dev.hfeMax + '. Sin veredicto hasta «Verificar diseño».</p>' +
+      '<div style="font-size:11px;color:#8FB3AC">Intentos: <b id="retoIntentos">' + state.intentos + '</b> · Pistas: ' + state.pistas + '/2' +
+      (state.retoSolved ? ' · <b style="color:#3fae3f">✔ resuelto</b>' : '') + '</div>' +
+      (state.pistaLog.length ? '<div style="font-size:11px;margin-top:4px">' + state.pistaLog.map(function (h) { return '💡 ' + h; }).join('<br>') + '</div>' : '') +
+      (msg ? '<div style="font-size:12px;margin-top:6px;color:' + (state.retoSolved ? '#3fae3f' : '#E8871E') + '">' + msg + '</div>' : '');
+  }
+  function retoHint() {
+    if (state.mode !== 'reto' || !state._reto) return;
+    if (state.pistas >= 2) { showToast('Ya usaste las 2 pistas de este reto.', 'info'); return; }
+    const H = ['IC = β·IB sigue a β si el divisor no fija la tensión de base. ¿Qué relación debe cumplir la resistencia de Thévenin R1‖R2 frente a β·RE?',
+      'Con una base rígida, IE ≈ (VB − 0,7 V)/RE. Escoge R2/(R1+R2) para que esa corriente sea la pedida y comprueba que R1‖R2 sea pequeña frente a β_mín·RE.'];
+    state.pistaLog.push(H[state.pistas]); state.pistas++;
+    renderReto('');
+  }
+  function checkReto() {
+    if (!state._reto) return false;
+    const R = state._reto;
+    // El enunciado manda: se restituyen dispositivo, VCC, RC y RE del reto antes de evaluar.
+    state.devKey = R.devKey; state.beta = betaDefault(curDev());
+    state.iVCC = R.iVCC; state.iRC = R.iRC; state.iRE = R.iRE;
+    const e = evalReto(R, state.iR1, state.iR2);
+    state.intentos++;
+    let msg;
+    if (e.ok) {
+      state.retoSolved = true; state.fallosSeguidos = 0;
+      msg = '¡Diseño robusto en todo el rango de β!' + (e.minSwing > 0 && e.minSwing / curVCC() > 0.15 ? ' Bono: swing bien centrado.' : '');
+    } else {
+      state.retoSolved = false; state.fallosSeguidos++;
+      const f = [];
+      if (e.lowMin < -0.2) f.push('con algún β la ICQ queda por debajo de lo pedido');
+      if (e.highMax > 0.2) f.push('con algún β la ICQ queda por encima de lo pedido');
+      msg = 'Aún no: ' + f.join('; ') + '.';
+      if (e.lowMin < -0.2 && e.highMax > 0.2) msg += ' La ICQ sigue demasiado a β: el divisor no es lo bastante rígido.';
+      if (state.fallosSeguidos >= 3) { newReto(); msg += ' Tres fallos seguidos: se plantea un caso nuevo.'; }
+    }
+    renderReto(msg);
+    refreshAll();
+    showToast(msg, e.ok ? 'ok' : 'warn');
+    return e.ok;
   }
 
   async function runSweep() {
@@ -987,21 +1061,69 @@
     if (state.mode === 'medicion') updateReport();
   }
 
+  // ---------- Quiz ----------
+  // Opciones barajadas (Fisher–Yates) en cada pregunta; la correcta no va en posición fija ni es la más larga por sistema.
   const QUIZ = [
-    { q: '¿Qué hace el capacitor de bypass sobre RE?', a: ['Aumenta la ganancia AC al cortocircuitar RE en AC', 'Elimina la corriente DC de emisor', 'Sube el voltaje VCC'], correct: 0 },
-    { q: '¿Por qué la recta de carga AC tiene distinta pendiente que la DC?', a: ['Porque el capacitor de acoplo cambia la resistencia vista en AC (p.ej. añade RL, quita RE si hay bypass)', 'Porque la corriente DC deja de fluir', 'Porque VCC cambia con la señal'], correct: 0 },
-    { q: '¿Qué limita el swing hacia arriba (upSwing) de la señal de salida?', a: ['El corte del transistor (IC→0)', 'La saturación', 'El valor de VBE'], correct: 0 },
+    { q: '¿Qué hace el capacitor de bypass sobre RE?',
+      ok: 'Pone RE en corto solo en AC: sube la ganancia sin mover el punto Q de DC',
+      bad: ['Elimina la corriente continua de emisor y con ello desplaza el punto de operación del transistor', 'Aumenta el voltaje VCC efectivo que ve el colector mientras dura la señal de entrada', 'Filtra la señal de entrada para que solo pasen las frecuencias bajas hacia la base'] },
+    { q: '¿Por qué la recta de carga AC tiene una pendiente distinta de la DC?',
+      ok: 'Porque en AC los capacitores añaden RL en paralelo con RC y, con bypass, quitan RE',
+      bad: ['Porque la corriente continua deja de circular por el transistor cuando llega la señal', 'Porque VCC varía en proporción a la señal de entrada que se aplica al amplificador', 'Porque β cambia con la frecuencia y la recta gira alrededor del origen del plano'] },
+    { q: '¿Qué limita la excursión de salida hacia el lado de corte (upSwing)?',
+      ok: 'Que la corriente de colector llega a cero: ΔV máximo = ICQ·(resistencia de carga en AC)',
+      bad: ['La saturación del transistor, que fija VCE en VCEsat y cierra la excursión', 'El valor de VBE, que impide que la base suba más de 0,7 V respecto al emisor', 'La tensión de alimentación VCC, que se reparte por igual entre las dos excursiones'] },
+    { q: 'Sin bypass, ¿qué ocurre con la ganancia |Av| respecto a la de con bypass?',
+      ok: 'Baja bastante, porque RE degenera la ganancia: |Av| ≈ RC‖RL / (re + RE)',
+      bad: ['Sube, porque RE aumenta la corriente de colector durante la señal de entrada', 'Se mantiene igual, porque RE solo afecta el punto Q en DC y no a la señal', 'Se vuelve cero, porque RE bloquea toda componente alterna en el emisor'] },
+    { q: 'Un divisor de base «rígido» (R1‖R2 pequeña frente a β·RE) sirve para…',
+      ok: 'Que ICQ dependa poco de β y el punto Q se mantenga entre unidades del mismo modelo',
+      bad: ['Aumentar la ganancia AC sin cambiar RE ni el capacitor de bypass del emisor', 'Reducir la tensión VCE hasta que el transistor trabaje siempre en saturación', 'Eliminar la necesidad del capacitor de acoplo a la entrada del amplificador'] },
   ];
-  let quizIdx = 0;
-  function buildQuiz() { quizIdx = Math.floor(Math.random() * QUIZ.length); refreshQuestion(); }
+  let quizIdx = 0, quizOpts = [], quizAns = -1, quizFallos = 0;
+  function shuffled(arr) {
+    const a = arr.slice();
+    for (let i = a.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); const t = a[i]; a[i] = a[j]; a[j] = t; }
+    return a;
+  }
+  function buildQuiz(next) {
+    quizIdx = next ? (quizIdx + 1) % QUIZ.length : Math.floor(Math.random() * QUIZ.length);
+    const item = QUIZ[quizIdx];
+    quizOpts = shuffled([{ t: item.ok, ok: true }].concat(item.bad.map(function (t) { return { t: t, ok: false }; })));
+    quizAns = -1; quizFallos = 0;
+    refreshQuestion();
+  }
+  function quizCorrectIdx() { for (let i = 0; i < quizOpts.length; i++) if (quizOpts[i].ok) return i; return -1; }
   function refreshQuestion() {
     const box = el('quizBox');
     if (!box) return;
     const item = QUIZ[quizIdx];
-    box.innerHTML = '<p>' + item.q + '</p>' + item.a.map(function (a, i) {
-      return '<button class="quizOpt" data-i="' + i + '">' + a + '</button>';
-    }).join('');
+    const done = quizAns >= 0 && quizOpts[quizAns].ok;
+    let html = '<p>' + item.q + '</p>';
+    quizOpts.forEach(function (o, i) {
+      html += '<button class="quizOpt" data-i="' + i + '" ' + (o.gastada || done ? 'disabled ' : '') +
+        'style="' + (o.gastada ? 'opacity:.45' : '') + '">' + o.t + '</button>';
+    });
+    if (done) html += '<button class="quizOpt" id="quizNext" data-next="1">Siguiente pregunta</button>';
+    box.innerHTML = html;
   }
+  document.addEventListener('click', function (e) {
+    const t = e.target;
+    if (!t || !t.classList || !t.classList.contains('quizOpt')) return;
+    if (t.getAttribute('data-next')) { buildQuiz(true); return; }
+    const i = parseInt(t.getAttribute('data-i'), 10);
+    if (isNaN(i) || !quizOpts[i]) return;
+    quizAns = i;
+    if (quizOpts[i].ok) {
+      showToast('¡Correcto!', 'ok');
+    } else {
+      quizOpts[i].gastada = true;
+      quizFallos++;
+      if (quizFallos >= 2) { showToast('Dos fallos: se plantea otra pregunta.', 'warn'); buildQuiz(true); return; }
+      showToast('No es esa. Repasa la pregunta e inténtalo otra vez.', 'warn');
+    }
+    refreshQuestion();
+  });
 
   function actToast(id) {
     const labels = { r1: 'R1', r2: 'R2', rc: 'RC', re: 'RE', rl: 'RL', bjt: curDev().name, bypass: 'Cap. bypass CE', src: 'Fuente AC', cin: 'Cin', cout: 'Cout' };
@@ -1036,17 +1158,37 @@
     }
   });
 
+  // El tour es una DEMOSTRACIÓN: no toca el reto (nunca llama a checkReto) y al terminar
+  // —o si algo falla— devuelve la configuración, el modo y el estado del alumno.
+  let tourBusy = false;
   async function runAuto() {
-    setMode('explora');
-    await sleep(600);
-    state.iVCC = 1; state.iR1 = 2; state.iR2 = 2; refreshAll();
-    await sleep(800);
-    toggleBypass();
-    await sleep(800);
-    toggleBypass();
-    await sleep(400);
-    setMode('medicion');
-    await runSweep();
+    if (tourBusy) return;
+    tourBusy = true;
+    const btn = el('autoTour'); if (btn) btn.disabled = true;
+    const keys = ['devKey', 'beta', 'iVCC', 'iR1', 'iR2', 'iRC', 'iRE', 'iRL', 'iVIN', 'bypass', 'useRo', 'mode', 'hide', '_sweepTrace'];
+    const snap = {};
+    keys.forEach(function (k) { snap[k] = state[k]; });
+    try {
+      state.devKey = 'bc547b'; state.beta = betaDefault(curDev());
+      state.iVCC = 1; state.iR1 = 2; state.iR2 = 2; state.iRC = 1; state.iRE = 1; state.iRL = 0; state.iVIN = 1; state.bypass = true;
+      setMode('explora', true);
+      await sleep(600);
+      state.iVCC = 1; state.iR1 = 2; state.iR2 = 2; refreshAll();
+      await sleep(800);
+      toggleBypass();
+      await sleep(800);
+      toggleBypass();
+      await sleep(400);
+      setMode('medicion', true);
+      await runSweep();
+    } finally {
+      keys.forEach(function (k) { state[k] = snap[k]; });
+      setMode(snap.mode, true);
+      state.hide = snap.hide;
+      refreshAll();
+      if (btn) btn.disabled = false;
+      tourBusy = false;
+    }
   }
 
   // ---------------------------------------------------------------------
@@ -1097,21 +1239,14 @@
   if (retoBtn) retoBtn.addEventListener('click', newReto);
   const retoCheck = el('retoCheck');
   if (retoCheck) retoCheck.addEventListener('click', checkReto);
+  const retoHintBtn = el('retoHint');
+  if (retoHintBtn) retoHintBtn.addEventListener('click', retoHint);
 
   const sweepBtn = el('sweepRun');
   if (sweepBtn) sweepBtn.addEventListener('click', runSweep);
 
   const autoBtn = el('autoTour');
   if (autoBtn) autoBtn.addEventListener('click', runAuto);
-
-  document.addEventListener('click', function (e) {
-    if (e.target && e.target.classList && e.target.classList.contains('quizOpt')) {
-      const i = parseInt(e.target.getAttribute('data-i'), 10);
-      const ok = i === QUIZ[quizIdx].correct;
-      showToast(ok ? '¡Correcto!' : 'Incorrecto, intenta otra.', ok ? 'ok' : 'warn');
-      if (ok) buildQuiz();
-    }
-  });
 
   // ---------------------------------------------------------------------
   // Init
@@ -1135,7 +1270,15 @@
     checkPredice: checkPredice,
     newReto: newReto,
     checkReto: checkReto,
+    retoHint: retoHint,
     runSweep: runSweep,
+    runAuto: runAuto,
+    get mode() { return state.mode; },
+    get retoSolved() { return state.retoSolved; },
+    get intentos() { return state.intentos; },
+    get quizAnswer() { return quizAns; },
+    get quizCorrectIndex() { return quizCorrectIdx(); },
+    buildQuiz: buildQuiz,
     setDevice: function (k) { state.devKey = k; state.beta = betaDefault(curDev()); onChange(); },
     setIdx: function (which, i) {
       if (which === 'vcc') state.iVCC = i;

@@ -688,6 +688,13 @@ function selTopo(k){
   syncCtrlBtns(); refreshBenchSel(); refreshAll();
 }
 function setMode(k){
+  const prev=mode;
+  // La predicción sin responder no se lleva a otro modo: la telemetría de ese caso mostraría la respuesta.
+  if(prev==='predice'&&k!=='predice'&&PRED&&!predRevealed){
+    const otras=Object.keys(LOADS).filter(function(x){ return x!==PRED.loadKey; });
+    loadKey=otras[Math.floor(Math.random()*otras.length)]; diodeKey=LOADS[loadKey].diode; Lval=LOADS[loadKey].lTyp;
+    topo='diode'; reversed=false; PRED=null;
+  }
   mode=k; solved=false;
   const meta=MODE_META[k];
   S.moveTo(meta.cam[0],meta.cam[1],1.3);
@@ -704,7 +711,13 @@ function setMode(k){
   el('btnVerifTau').style.display = k==='barrido'? '':'none';
   el('btnCompare').style.display = k==='barrido'? '':'none';
   if(k==='predice'&&!PRED) genPredice();
-  if(k==='reto'&&!RETO) newReto();
+  if(k==='reto'){
+    if(!RETO) newReto();
+    else if(prev!=='reto'){ // volver al reto: misma carga y el arranque neutro; el progreso (resuelto, intentos) se conserva
+      loadKey=RETO.loadKey; diodeKey=LOADS[loadKey].diode; Lval=LOADS[loadKey].lTyp; topo='diode'; reversed=false; zenerKey='z12';
+      renderReto('');
+    }
+  }
   animating=false;
   if(k!=='explora') switchClosed=true;
   syncCtrlBtns(); clearDx(); refreshQuestion(); refreshBenchSel(); refreshAll();
@@ -823,6 +836,7 @@ function renderPred(){
   el('btnPredNew').onclick=genPredice;
 }
 function checkPredice(){
+  if(predRevealed){ showToast('Esa predicción ya se reveló: pulsa «Nueva predicción».'); return; }
   const v=parseFloat(el('predInput').value);
   if(isNaN(v)){ showToast('Escribe un número.'); return; }
   const tol = PRED.type==='A'? 0.22 : 0.10;
@@ -836,79 +850,121 @@ function checkPredice(){
   refreshAll();
 }
 
-/* ---------- 12) Reto de diseño ---------- */
+/* ---------- 12) Reto de diseño ----------
+   Cada reto fija carga e inductancia, un tiempo de apagado máximo y el pico de voltaje que aguanta el switch.
+   El alumno elige topología, diodo (Vf) y zener. Las metas se construyen alrededor de UN diseño semilla de
+   los seis posibles, de modo que 1 o 2 diseños cumplen y elegir "el clamp" a ciegas no basta.
+   Al fallar solo se dice qué criterio no se cumple (sin cifras del límite); a los 3 fallos seguidos hay caso nuevo. */
+let intentos=0, fallosSeguidos=0, pistas=0; const pistaLog=[];
+function disenosPosibles(load){
+  const out=[];
+  Object.keys(DIODES).forEach(function(dk){
+    const vf=DIODES[dk].vf;
+    out.push({topo:'diode',dk:dk,zk:null,res:solveDiode(load,load.r,load.lTyp,vf)});
+    Object.keys(ZENERS).forEach(function(zk){
+      out.push({topo:'clamp',dk:dk,zk:zk,res:solveClamp(load,load.r,load.lTyp,vf,ZENERS[zk].vz)});
+    });
+  });
+  return out;
+}
+function cumple(res,R){ return res.tOff*1000<=R.maxTOffMs && res.vPeak<=R.vSwitchBudget; }
 function newReto(){
   const keys=Object.keys(LOADS);
-  const lk=keys[Math.floor(Math.random()*keys.length)];
-  const load=LOADS[lk];
-  const dk=load.diode; const d=DIODES[dk];
-  const R=load.r, L=load.lTyp;
-  const resDiode=solveDiode(load,R,L,d.vf);
-  const factor=0.3+Math.random()*0.9;
-  const maxTOffMs=resDiode.tOff*1000*factor;
-  const margin=1.5+Math.random()*5.5;
-  // z15 (mayor Vz de las opciones) para que el presupuesto siga siendo válido si ese es el zener que el diseño realmente exige
-  const vSwitchBudget=load.vsupply+ZENERS.z15.vz+d.vf+margin;
-  RETO={loadKey:lk,loadName:load.name,diodeKey:dk,diodeName:d.name,maxTOffMs:maxTOffMs,vSwitchBudget:vSwitchBudget};
-  loadKey=lk; diodeKey=dk; Lval=L; topo='diode'; reversed=false; zenerKey='z12';
-  retoSolved=false;
-  renderReto();
+  let R=null, n=0;
+  while(!R && n<400){
+    n++;
+    const lk=keys[Math.floor(Math.random()*keys.length)];
+    const load=LOADS[lk];
+    const D=disenosPosibles(load);
+    const seed=D[Math.floor(Math.random()*D.length)];
+    const c={loadKey:lk,loadName:load.name,
+      maxTOffMs:seed.res.tOff*1000*(1.03+Math.random()*0.17),
+      vSwitchBudget:seed.res.vPeak*(1.01+Math.random()*0.06)};
+    const win=D.filter(function(d){return cumple(d.res,c);});
+    // 1 o 2 diseños ganadores, y el arranque neutro (diodo de la carga, sin clamp) NO es uno de ellos
+    const neutro=D.find(function(d){return d.topo==='diode'&&d.dk===load.diode;});
+    if(win.length>=1 && win.length<=2 && win.indexOf(neutro)<0) R=c;
+  }
+  if(!R){ const load=LOADS.songle; R={loadKey:'songle',loadName:load.name,maxTOffMs:0.5,vSwitchBudget:30}; }
+  RETO=R;
+  loadKey=R.loadKey; diodeKey=LOADS[R.loadKey].diode; Lval=LOADS[R.loadKey].lTyp; topo='diode'; reversed=false; zenerKey='z12';
+  retoSolved=false; solved=false; fallosSeguidos=0; pistas=0; pistaLog.length=0;
+  renderReto('');
   syncCtrlBtns(); refreshBenchSel(); refreshAll();
 }
-function renderReto(){
+function renderReto(msg){
   if(!RETO) return;
   el('retoBox').innerHTML=
-    '<div class="ask">Carga: <b>'+RETO.loadName+'</b> con '+RETO.diodeName+'.<br/>'+
+    '<div class="ask">Carga: <b>'+RETO.loadName+'</b>.<br/>'+
     'Meta: apaga la corriente en ≤ '+RETO.maxTOffMs.toFixed(2)+' ms, y el switch debe soportar ≤ '+RETO.vSwitchBudget.toFixed(1)+' V de pico.<br/>'+
-    'Elige la topología (diodo / clamp) y, si usas clamp, el zener.</div>'+
+    'Elige topología (diodo / clamp), el diodo y, si usas clamp, el zener. No hay veredicto hasta «Verificar diseño».</div>'+
     '<button class="ctrlBtn wide" id="btnRetoCheck">Verificar diseño</button>'+
+    '<button class="ctrlBtn wide" id="btnRetoHint">💡 Pista (máx. 2)</button>'+
     '<button class="ctrlBtn wide" id="btnRetoNew">Nuevo reto</button>'+
-    '<div id="retoResult"></div>';
+    '<div class="row">Intentos: <b id="retoIntentos">'+intentos+'</b> · Pistas: '+pistas+'/2'+(retoSolved?' · <span class="ok">✔ resuelto</span>':'')+'</div>'+
+    pistaLog.map(function(h){return '<div class="row">💡 '+h+'</div>';}).join('')+
+    '<div id="retoResult">'+(msg||'')+'</div>';
   el('btnRetoCheck').onclick=checkReto;
+  el('btnRetoHint').onclick=retoPista;
   el('btnRetoNew').onclick=newReto;
+}
+function retoPista(){
+  if(mode!=='reto'||!RETO) return;
+  if(pistas>=2){ showToast('Ya usaste las 2 pistas de este reto.'); return; }
+  const H=['Un Vf mayor y un zener de mayor Vz descargan la bobina más rápido; pero lo que se paga aparece como voltaje de pico sobre el switch (Vsupply + Vf, o + Vz + Vf).',
+    'Compara las dos metas a la vez: si el diseño es lo bastante rápido, mira si el pico aún cabe; si el pico cabe, mira si todavía puede ser más rápido.'];
+  pistaLog.push(H[pistas]); pistas++; renderReto('');
 }
 function chip(ok){ return '<span class="'+(ok?'ok':'bad')+'">'+(ok?'✔':'✘')+'</span>'; }
 function checkReto(){
   if(!RETO) return;
-  const load=LOADS[RETO.loadKey]; const d=DIODES[RETO.diodeKey];
-  let res;
-  if(topo==='diode'){ res=solveDiode(load,load.r,load.lTyp,d.vf); }
-  else if(topo==='clamp'){ res=solveClamp(load,load.r,load.lTyp,d.vf,curZener().vz); }
-  else { showToast('Sin protección no cumple ningún criterio.'); return; }
-  const tOffMs=res.tOff*1000;
-  const okT=tOffMs<=RETO.maxTOffMs;
+  const load=LOADS[RETO.loadKey]; const d=DIODES[diodeKey];
+  if(topo!=='diode'&&topo!=='clamp'){ showToast('Sin protección no cumple ningún criterio.'); return; }
+  // El enunciado manda: la carga y su inductancia son las del reto.
+  loadKey=RETO.loadKey; Lval=load.lTyp; reversed=false;
+  const res = topo==='diode' ? solveDiode(load,load.r,load.lTyp,d.vf) : solveClamp(load,load.r,load.lTyp,d.vf,curZener().vz);
+  const okT=res.tOff*1000<=RETO.maxTOffMs;
   const okV=res.vPeak<=RETO.vSwitchBudget;
+  intentos++;
   retoSolved=okT&&okV; solved=retoSolved;
-  let html='<div class="row">'+chip(okT)+' t_off='+tOffMs.toFixed(2)+' ms (meta ≤'+RETO.maxTOffMs.toFixed(2)+' ms)</div>';
-  html+='<div class="row">'+chip(okV)+' Vpico='+res.vPeak.toFixed(1)+' V (presupuesto ≤'+RETO.vSwitchBudget.toFixed(1)+' V)</div>';
-  html+='<div class="'+(retoSolved?'ok':'bad')+'">'+(retoSolved?'¡Diseño válido!':'Aún no cumple ambos criterios.')+'</div>';
-  el('retoResult').innerHTML=html;
-  if(retoSolved) synth.beep(880,.07,.05); else synth.beep(220,.08,.05);
+  let html='<div class="row">'+chip(okT)+' '+(okT?'apagado dentro de la meta':'apagado demasiado lento')+'</div>';
+  html+='<div class="row">'+chip(okV)+' '+(okV?'pico de voltaje dentro de lo que soporta el switch':'pico de voltaje mayor que el que soporta el switch')+'</div>';
+  if(retoSolved){ fallosSeguidos=0; html+='<div class="ok">¡Diseño válido! t_off='+(res.tOff*1000).toFixed(2)+' ms · Vpico='+res.vPeak.toFixed(1)+' V.</div>'; synth.beep(880,.07,.05); }
+  else {
+    fallosSeguidos++; html+='<div class="bad">Aún no cumple ambos criterios.</div>'; synth.beep(220,.08,.05);
+    if(fallosSeguidos>=3){ newReto(); renderReto('<div class="bad">Tres fallos seguidos: se plantea un caso nuevo.</div>'); return; }
+  }
+  renderReto(html); syncCtrlBtns(); refreshAll();
 }
 
 /* ---------- 13) Quiz ---------- */
 const QUIZ={
   explora:{pregunta:'¿Por qué es peligroso abrir el switch de una carga inductiva sin ninguna protección?',opciones:[
-    {t:'Porque la bobina exige mantener su corriente; sin trayectoria de descarga, V=L·dI/dt se dispara a un pico muy alto.',ok:true,why:'La bobina se opone a un cambio brusco de corriente — al no tener por dónde seguir circulando, el voltaje entre sus terminales se dispara.'},
-    {t:'Porque el switch consume más corriente al abrirse.',ok:false,why:'Un switch abierto no consume corriente; el problema es el colapso del campo magnético de la bobina.'},
-    {t:'Porque la fuente se cortocircuita al abrir el switch.',ok:false,why:'Al contrario: se interrumpe el circuito, y es justamente esa interrupción la que genera el pico de voltaje.'},
+    {t:'La bobina exige mantener su corriente; sin trayectoria de descarga, V=L·dI/dt se dispara a un pico enorme.',ok:true,why:'La bobina se opone a un cambio brusco de corriente: al no tener por dónde seguir circulando, el voltaje entre sus terminales se dispara.'},
+    {t:'El switch abierto sigue consumiendo corriente de la fuente y se sobrecalienta con rapidez.',ok:false,why:'Un switch abierto no conduce; el problema es el colapso del campo magnético de la bobina.'},
+    {t:'La fuente queda en cortocircuito en el instante en que el switch deja de conducir corriente.',ok:false,why:'Al contrario: se interrumpe el circuito, y esa interrupción es la que genera el pico de voltaje.'},
+    {t:'El campo magnético de la bobina se invierte y empuja corriente de vuelta hacia la fuente.',ok:false,why:'No hay camino hacia la fuente: la corriente sin trayectoria de descarga eleva el voltaje en el switch.'},
   ]},
   predice:{pregunta:'¿Por qué se prefiere un diodo Schottky (1N5819) sobre uno de silicio (1N4007) en un motor conmutado por PWM?',opciones:[
-    {t:'Porque su recuperación inversa (trr) es despreciable, y en PWM se conmuta miles de veces por segundo.',ok:true,why:'A alta frecuencia de conmutación, un trr no despreciable como el del 1N4007 sí importa; el Schottky enciende y apaga casi instantáneamente.'},
-    {t:'Porque tiene mayor Vf, disipando más energía y protegiendo mejor.',ok:false,why:'Es al revés: el Schottky tiene MENOR Vf que el 1N4007.'},
-    {t:'Porque soporta mayor voltaje inverso (Vrrm).',ok:false,why:'El 1N4007 tiene mayor Vrrm (1000V) que el 1N5819 (40V); la razón de preferirlo aquí es la velocidad, no el voltaje inverso.'},
+    {t:'Su recuperación inversa es despreciable y en PWM se conmuta miles de veces por segundo.',ok:true,why:'A alta frecuencia de conmutación, un trr no despreciable como el del 1N4007 sí importa; el Schottky enciende y apaga casi instantáneamente.'},
+    {t:'Tiene mayor Vf, así que disipa más energía y protege mejor a la bobina en cada apagado.',ok:false,why:'Es al revés: el Schottky tiene MENOR Vf que el 1N4007.'},
+    {t:'Soporta mayor voltaje inverso (Vrrm), y eso pesa más que la velocidad en una carga de PWM.',ok:false,why:'El 1N4007 tiene mayor Vrrm (1000 V) que el 1N5819 (40 V); la razón de preferir el Schottky es la velocidad, no el voltaje inverso.'},
+    {t:'Su corriente directa máxima es mucho mayor, y por eso es el único que aguanta el arranque.',ok:false,why:'Ese no es el motivo: la ventaja del Schottky aquí es su rapidez y su baja Vf.'},
   ]},
   barrido:{pregunta:'Con un diodo de marcha libre de Vf constante, ¿qué determina qué tan rápido decae la corriente?',opciones:[
-    {t:'τ=L/R fija la escala de tiempo, pero un Vf mayor añade más "empuje" de descarga y acelera el apagado (t_off menor).',ok:true,why:'t_off=τ·ln(1+I0·R/Vf): a mayor Vf, menor t_off para el mismo τ e I0.'},
-    {t:'Solo τ=L/R importa; Vf no afecta el tiempo de apagado.',ok:false,why:'Vf sí importa — aparece explícitamente en la fórmula de t_off, no solo τ.'},
-    {t:'Un Vf mayor siempre hace más lento el apagado.',ok:false,why:'Es lo contrario: un Vf mayor acelera el apagado, porque añade más voltaje de descarga contra la bobina.'},
+    {t:'τ=L/R fija la escala de tiempo, y un Vf mayor acelera el apagado: t_off=τ·ln(1+I0·R/Vf).',ok:true,why:'A mayor Vf, menor t_off para el mismo τ e I0.'},
+    {t:'Solo τ=L/R importa; el Vf del diodo no interviene en el tiempo de apagado de la bobina.',ok:false,why:'Vf sí importa: aparece explícitamente en la fórmula de t_off, no solo τ.'},
+    {t:'Un Vf mayor hace más lento el apagado, porque frena la circulación de corriente por el diodo.',ok:false,why:'Es lo contrario: un Vf mayor acelera el apagado, porque añade más voltaje de descarga contra la bobina.'},
+    {t:'Solo importa la tensión de la fuente, porque fija cuánta energía almacenó la bobina al inicio.',ok:false,why:'Esa energía (½·L·I0²) dice cuánto hay que disipar, pero el tiempo lo fijan τ y Vf.'},
   ]},
   reto:{pregunta:'¿Por qué un clamp activo (zener+diodo) apaga la corriente más rápido que un diodo de marcha libre simple, y qué cuesta a cambio?',opciones:[
-    {t:'El clamp fuerza un voltaje de descarga mucho mayor (Vz+Vf), acelerando dI/dt — pero el switch debe soportar Vsupply+Vz+Vf, un pico más alto.',ok:true,why:'Más voltaje de descarga = apagado más rápido, pero ese mismo voltaje aparece como estrés adicional sobre el switch.'},
-    {t:'El clamp no cambia la velocidad, solo protege contra sobrecorriente.',ok:false,why:'El clamp sí acelera el apagado — su propósito principal es justamente reducir t_off frente al diodo simple.'},
-    {t:'El clamp es más lento pero más barato.',ok:false,why:'Es lo contrario en velocidad: el clamp es más rápido, a costa de mayor voltaje pico sobre el switch.'},
+    {t:'Fuerza un voltaje de descarga mayor (Vz+Vf), acelerando dI/dt, y el switch debe soportar un pico más alto.',ok:true,why:'Más voltaje de descarga = apagado más rápido, pero ese mismo voltaje aparece como estrés adicional sobre el switch.'},
+    {t:'No cambia la velocidad del apagado: solo protege a la bobina contra una sobrecorriente.',ok:false,why:'El clamp sí acelera el apagado; su propósito principal es reducir t_off frente al diodo simple.'},
+    {t:'Apaga más lento que el diodo simple pero es más barato y baja el pico sobre el switch.',ok:false,why:'Es lo contrario en velocidad: el clamp es más rápido, a costa de mayor voltaje pico en el switch.'},
+    {t:'Apaga igual de rápido, y el único cambio es que el pico de voltaje en el switch es menor.',ok:false,why:'No: el pico sube (Vsupply+Vz+Vf) y el apagado es más rápido.'},
   ]},
 };
+let qOpts=[], qAns=-1;
 function buildQuiz(){ refreshQuestion(); }
 function clearDx(){
   const box=el('dxbtns'); if(!box)return;
@@ -923,12 +979,14 @@ function refreshQuestion(){
     const j=Math.floor(Math.random()*(i+1));
     const tmp=opciones[i]; opciones[i]=opciones[j]; opciones[j]=tmp;
   }
+  qOpts=opciones; qAns=-1;
   el('dxbtns').innerHTML=opciones.map(function(o,i){ return '<button class="b dx" data-i="'+i+'">'+o.t+'</button>'; }).join('');
   const btns=el('dxbtns').querySelectorAll('button');
   btns.forEach(function(b,i){
     b.onclick=function(){
       if(b.classList.contains('right')||b.classList.contains('wrong'))return;
       const o=opciones[i];
+      qAns=i;
       b.classList.add(o.ok?'right':'wrong');
       showToast(o.why);
       synth.beep(o.ok?880:220,.08,.06);
@@ -1056,7 +1114,11 @@ window.__labDebug={
   toggleSwitch:toggleSwitch,
   pred:function(){ return PRED; }, newPredice:genPredice, checkPredice:checkPredice,
   setPredInput:function(v){ if(el('predInput'))el('predInput').value=v; },
-  reto:function(){ return RETO; }, newReto:newReto, checkReto:checkReto,
+  reto:function(){ return RETO; }, newReto:newReto, checkReto:checkReto, retoPista:retoPista,
+  get retoSolved(){ return retoSolved; },
+  get intentos(){ return intentos; },
+  get quizAnswer(){ return qAns; },
+  get quizCorrectIndex(){ return qOpts.findIndex(function(o){ return o.ok; }); },
   captureNow:captureNow, verifTau:verifTau, setCursor:function(f){ cursorFrac=f; updateCursorReadout(); refreshAll(); },
   toggleCompare:toggleCompare,
 };

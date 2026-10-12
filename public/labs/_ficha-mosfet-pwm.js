@@ -21,7 +21,7 @@ fichaTecnica({
     rows: [
       ['Dispositivo / Término', 'Parámetros de hoja de datos o fórmula', 'Nota de sourcing'],
       ['IRF540N (potencia)', 'RDS(on)≤0.044Ω @VGS=10V/ID=16A · tr+tf=70ns @VDD=50V/ID=16A/RG=5.1Ω/VGS=10V · ID máx=33A(TC=25°C) · VDS máx=100V · Ptot=130W(TC=25°C)', 'International Rectifier/Infineon PD-94812 "IRF540NPbF" (11/3/03, revisión vigente en infineon.com).'],
-      ['IRLZ44N (nivel lógico)', 'RDS(on)≤0.022Ω @VGS=10V/ID=25A · tr+tf=99ns @VDD=28V/ID=25A/RG=3.4Ω/VGS=5.0V · ID máx=47A(TC=25°C) · VDS máx=55V · Ptot=110W(TC=25°C)', 'International Rectifier PD-9.1346B (25/8/97) — única hoja de datos localizada para este número de parte pese a búsqueda exhaustiva; no se encontró una reedición Infineon posterior que la reconfirme. Tratar como fuente única hasta nueva verificación.'],
+      ['IRLZ44N (nivel lógico)', 'RDS(on)≤0.022Ω @VGS=10V/ID=25A · tr+tf=99ns @VDD=28V/ID=25A/RG=3.4Ω/VGS=5.0V · ID máx=47A(TC=25°C) · VDS máx=55V · Ptot=110W(TC=25°C)', 'International Rectifier PD-9.1346B (25/8/97) — hoja de datos original de la parte; no se encontró una reedición Infineon posterior que la reconfirme. Tratar como fuente única hasta nueva verificación.'],
       ['2N7000 (señal pequeña)', 'RDS(on)≤5Ω @VGS=10V/ID=500mA · tr+tf: no especificado por ninguna hoja de datos consultada ⚑ → Psw y frecuencia de cruce "no disponible" en el simulador · ID máx=200mA continuos @TA=25°C · VDS máx=60V · Ptot=350mW(TC=25°C)', 'Fairchild "2N7000.SAM Rev. A1" (nov. 1995) + ON Semiconductor Rev.5 (reedición vigente). Ninguna de las dos hojas reporta tr/tf — dispositivo de señal pequeña, no pensado para conmutación de potencia PWM.'],
       ['Pérdida de conducción', 'Pcond = D·I²·RDS(on)', 'El MOSFET actúa como una resistencia RDS(on) durante la fracción D del periodo en que conduce; escala con el cuadrado de la corriente'],
       ['Pérdida de conmutación', 'Psw = ½·V·I·fsw·(tr+tf)', 'Aproximación lineal estándar de libro de texto de electrónica de potencia; escala linealmente con la frecuencia de conmutación'],
@@ -52,7 +52,7 @@ fichaTecnica({
   s6: [
     '<b>Ned Mohan, Tore M. Undeland, William P. Robbins</b>, <i>Power Electronics: Converters, Applications, and Design</i> (Wiley): modelo lineal de primer orden de la pérdida de conmutación Psw≈½·V·I·fsw·(tr+tf) — la referencia principal del motor de cálculo de esta práctica.',
     '<b>Hoja de datos International Rectifier/Infineon PD-94812 "IRF540NPbF"</b> (11/3/03, revisión vigente en infineon.com): RDS(on), tr, tf e ID/VDS/Ptot máximos del IRF540N modelado aquí.',
-    '<b>Hoja de datos International Rectifier PD-9.1346B</b> (25/8/97): RDS(on), tr, tf e ID/VDS/Ptot máximos del IRLZ44N — única hoja de datos localizada pese a búsqueda exhaustiva; no se encontró una reedición Infineon posterior (a diferencia del IRF540N).',
+    '<b>Hoja de datos International Rectifier PD-9.1346B</b> (25/8/97): RDS(on), tr, tf e ID/VDS/Ptot máximos del IRLZ44N — hoja de datos original de la parte; no se encontró una reedición Infineon posterior (a diferencia del IRF540N).',
     '<b>Hoja de datos Fairchild "2N7000.SAM Rev. A1"</b> (nov. 1995) + <b>ON Semiconductor Rev.5</b> (reedición vigente): RDS(on) y Ptot del 2N7000; ninguna de las dos reporta tr/tf para este dispositivo (ver s1 y s2).',
     '<b>IEC 60617</b>: símbolos gráficos para esquemas eléctricos (MOSFET, resistor, fuente CD) — el estándar de representación de este lab.'
   ]

@@ -43,6 +43,8 @@ let mode='explora', dsel='si', Ridx=3, Vs=5.0, TC=27, logY=false;
 let CAP=[];                                   // puntos capturados {v,i}
 let fit=null, ajusteOK=false, ajMsg='';       // ajuste de 2 puntos
 let MYST=null, retoSolved=false, retoMsg='';  // reto: diodo misterioso
+let intentos=0, fallosSeguidos=0, pistas=0; const pistaLog=[]; // contadores del reto (visibles y en __labDebug)
+let quizAnsMode={};                           // índice (barajado) elegido en la pregunta de cada modo
 let QPT={vd:0,id:0}, solved=false, autoRunning=false, sweeping=false;
 const curDiode=()=>mode==='reto'?MYST:DIODES[dsel];
 const TK=()=>TC+273.15;
@@ -62,6 +64,17 @@ function fitPoints(){                          // P1: primer punto con I ≥ 30�
 }
 function genMystery(){
   const pick=a=>a[Math.floor(Math.random()*a.length)];
+  for(let k=0;k<200;k++){
+    genMysteryUna(pick);
+    // la tolerancia debe rechazar la respuesta ingenua «Vd = 0,7 V, Id = (Vs−0,7)/R»
+    const ex=solveQ(MYST,TNOM,MYST.Vs,MYST.R);
+    const okV=Math.abs(0.7-ex.vd)<=Math.max(0.015,0.02*ex.vd);
+    const okI=Math.abs((MYST.Vs-0.7)/MYST.R-ex.id)<=0.05*ex.id;
+    if(!(okV&&okI))break;
+  }
+  fallosSeguidos=0;pistas=0;pistaLog.length=0;
+}
+function genMysteryUna(pick){
   const n=+(1.2+Math.random()*1.8).toFixed(3);
   const lo=Math.max(0.35,0.30*n);              // garantiza Is ≤ ~1e-7 → punto de 10 µA válido
   const vf=+(lo+Math.random()*(1.9-lo)).toFixed(4);
@@ -475,6 +488,7 @@ document.getElementById('panel').innerHTML=`
       <span style="display:inline-flex;align-items:center;gap:4px;white-space:nowrap">
         Id = <input id="inId" inputmode="decimal" style="width:64px;background:#11201c;border:1px solid #1E3A34;color:#EAF4F1;border-radius:6px;padding:4px 6px" placeholder="9.1"> mA</span>
       <button class="b primary" id="btnCheck" style="flex:1">✔ Comprobar</button>
+      <button class="b" id="btnPista" style="flex:0 0 auto">💡 Pista</button>
     </div>
     <div style="font-size:12px;margin-top:6px" id="retoOut"></div>
   </div>
@@ -589,8 +603,8 @@ function updateReport(){
     }
   }else{
     L.push('Dispositivo desconocido a 27 °C. Datos: 2 puntos medidos + condición (Vs, R).');
-    L.push('1) n = (V2 − V1)/(VT·ln(1000)) con VT = '+(VT(TNOM)*1e3).toFixed(2)+' mV · 2) Is = I1/e^(V1/(n·VT))');
-    L.push('3) Itera la recta de carga: Vd(0) ≈ V2 → Id = (Vs − Vd)/R → Vd = n·VT·ln(Id/Is) → repite 2–3 veces.');
+    L.push('Intentos: '+intentos+' · Pistas usadas: '+pistas+'/2 (botón 💡). Sin veredicto hasta «Comprobar».');
+    pistaLog.forEach(h=>L.push('💡 '+h));
     if(retoSolved)L.push('✔ '+retoMsg);
     else if(retoMsg)L.push(retoMsg);
   }
@@ -659,25 +673,33 @@ function checkReto(){
   const ex=solveQ(MYST,TNOM,MYST.Vs,MYST.R);
   const okV=Math.abs(vd-ex.vd)<=Math.max(0.015,0.02*ex.vd);
   const okI=Math.abs(idmA*1e-3-ex.id)<=0.05*ex.id;
+  intentos++;
   if(okV&&okI){
-    retoSolved=true;solved=true;
+    retoSolved=true;solved=true;fallosSeguidos=0;
     retoMsg='Exacto: Vd = '+fmtV(ex.vd)+', Id = '+fmtI(ex.id)+' · n = '+MYST.n.toFixed(3)+', Is = '+fmtIs(MYST.Is)+'. Curva revelada.';
     el('retoOut').innerHTML='<span class="ok">✔ ¡Predicción correcta! '+retoMsg+'</span>';
     synth.beep(880,.1,.08);setTimeout(()=>synth.beep(1175,.15,.08),140);
   }else{
-    retoMsg='';
-    el('retoOut').innerHTML='<span class="dtc">✘ Aún no'+(okV?'':' · revisa Vd')+(okI?'':' · revisa Id')
-      +'.</span> Itera otra vuelta: Id = (Vs − Vd)/R y Vd = n·VT·ln(Id/Is).';
+    retoMsg='';fallosSeguidos++;
+    el('retoOut').innerHTML='<span class="dtc">✘ Aún no (intento '+intentos+')'+(okV?'':' · el voltaje del diodo no coincide con tu modelo')+(okI?'':' · la corriente no coincide con la de la recta de carga')
+      +'.</span>';
     synth.beep(220,.15,.08);
+    if(fallosSeguidos>=3){newMystery('Tres fallos seguidos: te toca un diodo misterioso nuevo.');return;}
   }
   refreshAll();
 }
-function newMystery(){
+function retoPista(){
+  if(mode!=='reto'||!MYST)return;
+  if(pistas>=2){showToast('Ya usaste las 2 pistas de este reto.');return;}
+  const H=['Dos puntos de la exponencial dan la pendiente semilog: n sale de (V2 − V1)/(VT·ln(I2/I1)); luego Is sale de cualquiera de los dos puntos.',
+    'Con n e Is, el punto Q es donde la exponencial cruza la recta de carga Id = (Vs − Vd)/R: itera dos o tres veces partiendo de un Vd cercano al del punto más alto.'];
+  pistaLog.push(H[pistas]);pistas++;refreshAll();
+}
+function newMystery(msg){
   genMystery();el('inVd').value='';el('inId').value='';el('retoOut').innerHTML='';
   buildQuiz();
-  if(mode!=='reto')setMode('reto');
-  else{setMode('reto');}
-  showToast('Nuevo diodo misterioso servido: 2 puntos, una condición. A predecir.');
+  setMode('reto');
+  showToast(typeof msg==='string'?msg:'Nuevo diodo misterioso servido: 2 puntos, una condición. A predecir.');
 }
 
 /* ---------- 13 · Quiz de ingeniería (valores calculados en vivo) ---------- */
@@ -691,11 +713,11 @@ function buildQuiz(){
     opciones:[
       {t:'Cae exactamente a la mitad: '+half.toFixed(3)+' mA, ley de Ohm tal cual',ok:false,
        why:'Casi: Vd también baja ≈ n·VT·ln 2, así que Id = '+real.toFixed(3)+' mA, no '+half.toFixed(3)+'. La diferencia es pequeña pero conceptual: el diodo NO es una caída fija.'},
-      {t:'Cae a '+real.toFixed(3)+' mA — casi la mitad: la R manda y Vd apenas baja (≈ n·VT·ln 2)',ok:true,
+      {t:'Cae a '+real.toFixed(3)+' mA, casi la mitad: manda R y Vd apenas baja',ok:true,
        why:'Correcto: Vd solo baja unas décimas de mV a mV (logaritmo), así que Id ≈ (Vs − Vd)/R queda un pelo ARRIBA de la mitad exacta ('+half.toFixed(3)+' mA).'},
-      {t:'No cambia: el diodo fija la corriente en su valor exponencial',ok:false,
+      {t:'No cambia: el diodo fija la corriente en su valor exponencial, sea cual sea R',ok:false,
        why:'Al revés: el diodo fija (casi) el VOLTAJE; la corriente la dicta la recta de carga, o sea R.'},
-      {t:'Se duplica',ok:false,why:'Más R = menos corriente, nunca más: la recta de carga se aplana.'}]};
+      {t:'Se duplica, porque la recta de carga se vuelve más empinada con R',ok:false,why:'Más R = menos corriente, nunca más: la recta de carga se aplana.'}]};
   QUIZ.curva={pregunta:'En la zona exponencial (I ≫ Is), ¿cuántos mV sube Vd por cada década (×10) de corriente en este diodo a '+TC+' °C?',
     opciones:[
       {t:(VT(TK())*Math.LN10*1e3).toFixed(1)+' mV/década, siempre (n = 1)',ok:false,
@@ -708,30 +730,32 @@ function buildQuiz(){
        why:'En ejes LINEALES sí; pero en SEMILOG la exponencial es una recta perfecta (si I ≫ Is) — por eso el trazador tiene esa vista.'}]};
   QUIZ.ajuste={pregunta:'Para extraer n de dos puntos, ¿por qué exigimos I ≫ Is en ambos (aquí: P1 con I ≥ 30·Is)?',
     opciones:[
-      {t:'Para no quemar el diodo',ok:false,
+      {t:'Para no quemar el diodo con una corriente excesiva en la medida',ok:false,
        why:'La potencia limita por ARRIBA, no por abajo: aquí el problema de medir cerca de Is es matemático (el −1), no térmico.'},
       {t:'Para despreciar el −1: ln(I/Is + 1) ≈ ln(I/Is) y el semilog es recta de verdad',ok:true,
        why:'Correcto: cerca de Is el −1 pesa, la "recta" se curva y n sale sesgado. Con el Schottky (Is = 31.7 µA) se nota clarísimo.'},
       {t:'Porque el trazador no puede medir corrientes pequeñas',ok:false,
        why:'Los analizadores miden hasta pA. La restricción viene del MODELO: cerca de Is la aproximación logarítmica falla.'},
-      {t:'No es necesario: el ajuste da igual con cualquier par de puntos',ok:false,
+      {t:'No es necesario: el ajuste da igual con cualquier par de puntos de la curva',ok:false,
        why:'Pruébalo con el Schottky: P1 en 10 µA (≈ 0.3·Is) daría n ≈ 1.1 en vez de 1.37 — un 20 % de error sistemático.'}]};
   if(MYST){
     const ex=solveQ(MYST,TNOM,MYST.Vs,MYST.R);
     const i07=(MYST.Vs-0.7)/MYST.R;
-    const err=Math.abs(i07/ex.id-1)*100;
     QUIZ.reto={pregunta:'El modelo de "caída constante" (Vd ≈ 0.7 V) con esta condición (Vs = '+MYST.Vs.toFixed(0)+' V, R = '+fmtR(MYST.R)+') da Id = '+(i07*1e3).toFixed(2)+' mA. ¿Cómo se usa bien ese número?',
       opciones:[
         {t:'Es el resultado exacto: 0.7 V es una constante física del silicio',ok:false,
-         why:'No existe tal constante: Vf depende de Is, n, la corriente y T (este misterioso ni siquiera es un Si típico). Aquí el error es '+err.toFixed(0)+' %.'},
+         why:'No existe tal constante: Vf depende de Is, n, la corriente y T (este misterioso ni siquiera es un Si típico). Aquí tampoco coincide con el punto Q real.'},
         {t:'No sirve de nada: siempre hay que resolver la exponencial completa',ok:false,
          why:'Como punto de partida es valiosísimo (por eso lo enseña Sedra–Smith): convierte una trascendente en 2–3 iteraciones triviales.'},
-        {t:'Como SEMILLA de la iteración — aquí queda a '+err.toFixed(0)+' % del exacto, no es el resultado final',ok:true,
+        {t:'Como SEMILLA de la iteración: arranca la recta de carga, pero no es el resultado final',ok:true,
          why:'Correcto: 0.7 V arranca la recta de carga; luego Vd = n·VT·ln(Id/Is) refina. Dos o tres vueltas y convergiste al Q exacto.'},
         {t:'Mejor usar Id = Vs/R = '+(MYST.Vs/MYST.R*1e3).toFixed(2)+' mA e ignorar el diodo',ok:false,
          why:'Eso es el corte de la recta de carga con el eje I (Vd = 0), no el punto Q: sobreestima la corriente siempre.'}]};
   }
+  Object.keys(QUIZ).forEach(k=>{QUIZ[k].opciones=barajar(QUIZ[k].opciones);}); // Fisher–Yates: la correcta no tiene posición fija
+  quizAnsMode={};
 }
+function barajar(a){const b=a.slice();for(let i=b.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[b[i],b[j]]=[b[j],b[i]];}return b;}
 function clearDx(){el('dxbtns').innerHTML='';}
 function refreshQuestion(){
   const q=QUIZ[mode];if(!q){el('q_text').textContent='';clearDx();return;}
@@ -740,6 +764,7 @@ function refreshQuestion(){
   q.opciones.forEach((o,i)=>{
     const b=document.createElement('button');b.className='b dx';b.textContent='ABCD'[i]+') '+o.t;
     b.onclick=()=>{if(b.classList.contains('right')||b.classList.contains('wrong'))return;
+      quizAnsMode[mode]=i;
       b.classList.add(o.ok?'right':'wrong');
       showToast((o.ok?'✔ ':'✘ ')+o.why);synth.beep(o.ok?980:220,.12,.07);};
     bx.appendChild(b);});
@@ -778,9 +803,13 @@ pickerFor(S.scene,S.camera,S.renderer.domElement,hit=>{
     dom.style.cursor=tt?'pointer':'default';dom.title=tt||'';
   });
 })();
+/* El recorrido es una DEMOSTRACIÓN con diodos de catálogo: no resuelve ni toca el reto
+   (no teclea ni comprueba la respuesta del misterioso) y al terminar —o al fallar— devuelve
+   modo, diodo, Vs, R, T, escala y captura del alumno. */
 async function runAuto(){
   if(autoRunning)return;autoRunning=true;
   const b=el('btnAuto');b.disabled=true;b.textContent='✨ Recorriendo…';
+  const snap={mode,dsel,Vs,Ridx,TC,logY,CAP:CAP.map(p=>({...p})),fit,ajusteOK,solved};
   try{
     synth.init();synth.resume();
     setMode('explora');selDiode('si');
@@ -798,16 +827,23 @@ async function runAuto(){
     if(fp){const nRef=(fp[1].v-fp[0].v)/(VT(TNOM)*Math.log(fp[1].i/fp[0].i));
       el('inN').value=nRef.toFixed(3);await sleep(1200);checkFit();
       showToast('3/5 · Con 2 puntos extraes n (y de ahí Is): el modelo ahora es TUYO.');await sleep(3000);}
-    setMode('reto');
-    const ex=solveQ(MYST,TNOM,MYST.Vs,MYST.R);
-    showToast('4/5 · Reto: del par de puntos salen n e Is; la recta de carga se itera 2–3 veces.');
-    await sleep(2600);
-    el('inVd').value=ex.vd.toFixed(3);el('inId').value=(ex.id*1e3).toFixed(2);
-    await sleep(1000);checkReto();await sleep(2200);
-    const q=QUIZ.reto;const idx=q.opciones.findIndex(o=>o.ok);
-    const btn=el('dxbtns').children[idx];if(btn)btn.click();
-    showToast('5/5 · Recorrido completo: explora T (el coef. −2 mV/K emerge solo) o pide otro misterioso (🔀).');
-  }finally{autoRunning=false;b.disabled=false;b.textContent='✨ Recorrido guiado';}
+    showToast('4/5 · En el reto harás lo mismo con un diodo desconocido: de 2 puntos salen n e Is, y la recta de carga se itera.');
+    await sleep(2800);
+    showToast('5/5 · Fin de la demostración: el reto sigue intacto. Explora T (el coef. −2 mV/K emerge solo) o resuelve el misterioso.');
+    await sleep(1500);
+  }finally{
+    // restaura lo del alumno
+    el('inN').value='';el('ajOut').innerHTML='';
+    dsel=snap.dsel;syncDBtns();
+    setMode(snap.mode);
+    Vs=snap.Vs;el('sVs').value=Vs;el('vsv').textContent=Vs.toFixed(2)+' V';
+    if(snap.mode!=='reto'){TC=snap.TC;el('sT').value=TC;el('tv').textContent=TC+' °C';Ridx=snap.Ridx;syncRBtns();
+      CAP=snap.CAP;fit=snap.fit;ajusteOK=snap.ajusteOK;}
+    if(logY!==snap.logY)toggleLog();
+    solved=snap.solved;
+    buildQuiz();clearDx();refreshQuestion();refreshBenchSel();refreshAll();
+    autoRunning=false;b.disabled=false;b.textContent='✨ Recorrido guiado';
+  }
 }
 S.setAnimate(()=>{ // la luz del LED, con un pulso sutil
   if(gLed.visible&&ledGlow>0.1){
@@ -831,13 +867,17 @@ el('btnSweep').onclick=runSweep;
 el('btnLog').onclick=toggleLog;
 el('btnFit').onclick=checkFit;
 el('btnCheck').onclick=checkReto;
+el('btnPista').onclick=()=>{retoPista();};
 el('btnAuto').onclick=runAuto;
 el('btnNew').onclick=newMystery;
 /* init */
 genMystery();buildQuiz();syncDBtns();syncRBtns();refreshBenchSel();
 S.start();setMode('explora');
 window.__labDebug={
-  state:()=>({mode,dsel,Vs,R:R(),TC,logY,retoSolved,ajusteOK,sweeping,cap:CAP.length}),
+  state:()=>({mode,dsel,Vs,R:R(),TC,logY,retoSolved,ajusteOK,sweeping,cap:CAP.length,intentos,pistas,fallosSeguidos}),
+  get quizAnswer(){const v=quizAnsMode[mode];return typeof v==='number'?v:-1;},
+  get quizCorrectIndex(){const q=QUIZ[mode];return q?q.opciones.findIndex(o=>o.ok):-1;},
+  pista:retoPista,runAuto,buildQuiz,
   diode:()=>({key:dsel,...DIODES[dsel]}),
   mystery:()=>MYST?{...MYST}:null,
   q:()=>({...QPT}),

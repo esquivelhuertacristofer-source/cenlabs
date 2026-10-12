@@ -51,7 +51,6 @@ fichaTecnica({
     '<b>Malvino y Bates</b>, <i>Electronic Principles</i> (McGraw-Hill): estabilización del punto Q frente a la dispersión de β mediante polarización por divisor de voltaje con resistencia de emisor.',
     '<b>Hoja de datos ON Semiconductor BC546/BC547/BC548 (Rev. 6)</b>: hFE por grado (A/B/C), VCEsat, VBE(on) y Ptot del BC547B usado en este lab — nota de discrepancia entre fabricantes: NXP/Philips reporta Ptot = 500 mW para la misma referencia comercial en TO-92; se documenta la diferencia en lugar de elegir una sola cifra.',
     '<b>Hoja de datos STMicroelectronics 2N3904 (Preliminary Data, Feb-2003)</b>: hFE, VCEsat, VBEsat y Ptot del 2N3904 usado en este lab — nota de condición de medición: VCEsat, VBEsat y Ptot están especificados bajo pulso (300 µs, ciclo de trabajo ≤ 2 %), no en operación continua de DC.',
-    '<b>IEC 60617</b>: símbolos gráficos para esquemas eléctricos (transistor BJT, resistor, fuente CD) — el estándar de representación de este lab.',
-    '<b>Nota curricular</b> ⚑: la correspondencia de esta práctica con claves curriculares específicas (p. ej. MEC-I.2 / ETR-I.2) y la elección del transistor mostrado por defecto (BC547B vs. 2N3904) frente al kit físico real del laboratorio del curso quedan <b>pendientes de confirmación curricular</b> — no se asume ninguna de las dos sin verificación directa contra el temario y el inventario del curso.'
+    '<b>IEC 60617</b>: símbolos gráficos para esquemas eléctricos (transistor BJT, resistor, fuente CD) — el estándar de representación de este lab.'
   ]
 });

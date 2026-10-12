@@ -74,6 +74,7 @@ let zsel='z4728', Rsidx=4, RLidx=3, Vin=9, TC=25;
 let mode='explora', logY=false, solved=false;
 let PRED=null, predSolved=false, predRevealed=false;
 let RETO=null, retoSolved=false;
+let intentos=0, fallosSeguidos=0, pistas=0, pistaLog=[];
 let sweeping=false;
 const SWEEPV=[];
 let RES=null;
@@ -81,7 +82,7 @@ function curRs(){return RSVALS[Rsidx];}
 function curRl(){return RLVALS[RLidx];}
 function curZ(){return DEVS[zsel];}
 function curColor(){
-  if(!RES)return '#2e6fe0';
+  if(!RES||mode==='reto')return '#2e6fe0';
   if(RES.zone==='over')return '#d23b3b';
   if(RES.zone==='valid')return '#2e6fe0';
   return '#5a6b66';
@@ -482,6 +483,7 @@ document.getElementById('panel').innerHTML=`
   <div id="retoBox" style="display:none;margin-top:10px">
     <div class="btns">
       <button class="b primary" id="btnReto">Verificar diseño</button>
+      <button class="b sec" id="btnRetoPista">💡 Pista (máx. 2)</button>
       <button class="b sec" id="btnRetoNew">Nuevo reto</button>
     </div>
     <div id="retoResult" style="margin-top:6px;font-size:12px"></div>
@@ -492,6 +494,7 @@ document.getElementById('panel').innerHTML=`
   <div style="margin-top:10px">
     <div id="q_text" class="mono" style="font-size:12px;margin-bottom:6px"></div>
     <div id="dxbtns" class="btns"></div>
+    <div class="btns" style="margin-top:4px"><button class="b sec" id="btnQNext">Siguiente pregunta</button></div>
   </div>`;
 const el=function(id){return document.getElementById(id);};
 
@@ -512,10 +515,26 @@ const MISIONES={
   explora:'Explora libremente cómo Rs, RL y Vin afectan la regulación del zener.',
   predice:'Predice Vout e Iz antes de revelar el medidor.',
   barrido:'Mide la regulación de línea barriendo Vin y compara con la fórmula teórica.',
-  reto:'Diseña Rs para que el regulador funcione en todo el rango de Vin especificado.',
+  reto:'Elige zener y Rs para dar la tensión pedida en todo el rango de Vin, con la carga indicada.',
 };
-function setMode(k){
-  mode=k;solved=false;
+/* Al salir de una predicción sin contestar, el banco no debe conservar el caso
+   (si no, Explora regalaría la respuesta): se baraja la configuración. */
+function randomizeConfig(){
+  const keys=Object.keys(DEVS);
+  let z2,r2,l2,t=0;
+  do{
+    z2=keys[Math.floor(Math.random()*keys.length)];
+    r2=Math.floor(Math.random()*RSVALS.length);
+    l2=Math.floor(Math.random()*RLVALS.length);
+    t++;
+  }while(t<20&&z2===zsel&&r2===Rsidx&&l2===RLidx);
+  zsel=z2;Rsidx=r2;RLidx=l2;
+  Vin=Math.round((5+Math.random()*10)*10)/10;
+  el('sVin').value=Vin;el('vVin').textContent=Vin.toFixed(1)+' V';
+}
+function setMode(k,keep){
+  if(mode==='predice'&&k!=='predice'&&PRED&&!predRevealed&&!keep)randomizeConfig();
+  mode=k;solved=(k==='reto'&&retoSolved);
   MODES.forEach(function(m){el('m_'+m).classList.toggle('on',m===k);});
   el('p_mode').textContent=k==='explora'?'Explora':k==='predice'?'Predicción':k==='barrido'?'Barrido':'Reto';
   el('p_mision').textContent=MISIONES[k];
@@ -526,7 +545,7 @@ function setMode(k){
   const inputs=document.querySelectorAll('#panel input[type=range]');
   for(let i=0;i<inputs.length;i++)inputs[i].disabled=lockAll;
   if(k==='predice')genPredice();
-  if(k==='reto'){if(!RETO)newReto();zsel=RETO.zk;RLidx=RLVALS.indexOf(RETO.rl);}
+  if(k==='reto'){if(!RETO)newReto();RLidx=RLVALS.indexOf(RETO.rl);if(!keep)arrancaNoGanador();}
   syncCtrlBtns();clearDx();refreshQuestion();refreshBenchSel();refreshAll();
   S.moveTo(MODE_META[k].cam[0],MODE_META[k].cam[1],1.3);
 }
@@ -534,12 +553,12 @@ function syncCtrlBtns(){
   Object.keys(DEVS).forEach(function(k){el('z_'+k).classList.toggle('on',k===zsel);});
   RSVALS.forEach(function(v,i){el('rs_'+i).classList.toggle('on',i===Rsidx);});
   RLVALS.forEach(function(v,i){el('rl_'+i).classList.toggle('on',i===RLidx);});
+  /* En el reto la carga es parte del enunciado; zener y Rs los elige el alumno. */
   const retoLock=(mode==='reto');
-  Object.keys(DEVS).forEach(function(k){el('z_'+k).disabled=retoLock;});
+  RLVALS.forEach(function(v,i){el('rl_'+i).disabled=retoLock;});
 }
 function selDevice(k){
   if(mode==='predice'){showToast('En modo Predicción el diodo se elige aleatoriamente. Cambia a Explora para elegirlo tú.');return;}
-  if(mode==='reto'){showToast('En el Reto el diodo zener objetivo está fijo — ajusta Rs, RL y Vin para cumplir la especificación.');return;}
   zsel=k;onChange();
 }
 function selRs(i){
@@ -547,10 +566,11 @@ function selRs(i){
   Rsidx=i;onChange();
 }
 function selRl(i){
+  if(mode==='reto'){showToast('En el Reto la carga RL es parte del enunciado y no se cambia.');return;}
   if(mode==='predice'){showToast('En modo Predicción RL se elige aleatoriamente.');return;}
   RLidx=i;onChange();
 }
-function onChange(){syncCtrlBtns();buildQuiz();clearDx();refreshQuestion();refreshBenchSel();refreshAll();}
+function onChange(){syncCtrlBtns();refreshBenchSel();refreshAll();}
 
 /* ---------- 9) Telemetría + reporte ---------- */
 function set(id,txt,cls){const n=el(id);n.textContent=txt;n.classList.remove('good','warn','bad');if(cls)n.classList.add(cls);}
@@ -563,14 +583,14 @@ function updateTele(){
   const z=curZ();
   set('tVout',fmtV(RES.v));
   const izCls=(RES.iz<z.izk||RES.iz>z.izm)?'bad':(RES.iz>0.9*z.izm?'warn':'good');
-  set('tIz',fmtI(RES.iz),izCls);
+  set('tIz',fmtI(RES.iz),mode==='reto'?'':izCls);
   set('tIr',fmtI(RES.ir));
   set('tIl',fmtI(RES.il));
   const pzCls=RES.pz>z.ptot?'bad':(RES.pz>0.8*z.ptot?'warn':'good');
-  set('tPz',fmtP(RES.pz),pzCls);
+  set('tPz',fmtP(RES.pz),mode==='reto'?'':pzCls);
   const zoneTxt={cutoff:'Corte (no regula)',knee:'Codo (transición)',valid:'Regulación válida',over:'¡Sobrecorriente!'}[RES.zone];
   const zoneCls=RES.zone==='valid'?'good':(RES.zone==='over'?'bad':'warn');
-  set('tZone',zoneTxt,zoneCls);
+  set('tZone',mode==='reto'?'—':zoneTxt,mode==='reto'?'':zoneCls);
 }
 function updateReport(){
   const z=curZ();
@@ -588,8 +608,9 @@ function updateReport(){
     L.push(sweeping?'Barriendo Vin…':'Pulsa "Barrer Vin" para medir la regulación de línea.');
     if(SWEEPV.length>1)L.push(SWEEPV.length+' puntos medidos entre '+SWEEPV[0].vin.toFixed(1)+' V y '+SWEEPV[SWEEPV.length-1].vin.toFixed(1)+' V.');
   }else if(mode==='reto'){
-    L.push('Diseña con '+RETO.z.name+', RL = '+fmtR(RETO.rl)+': Rs debe regular entre Vin = '+RETO.vinMin+' V (con carga) y Vin = '+RETO.vinMax+' V (sin carga).');
-    L.push(retoSolved?'¡Diseño válido!':'Ajusta Rs y pulsa "Verificar diseño".');
+    L.push('Especificación: Vout nominal '+RETO.vo.toFixed(1)+' V, carga RL = '+fmtR(RETO.rl)+', Vin entre '+RETO.vinMin+' V y '+RETO.vinMax+' V (a Vin máx la carga puede estar desconectada).');
+    L.push('Elige el zener y la Rs. Margen exigido: Iz ≥ 1,05·IZK con carga a Vin mín e Iz ≤ 0,98·IZM sin carga a Vin máx.');
+    L.push('Intentos: '+intentos+(retoSolved?' · ¡Diseño válido!':' · Ajusta el diseño y pulsa "Verificar diseño".'));
   }
   el('report').innerHTML=L.map(function(x){return '<div>• '+x+'</div>';}).join('');
 }
@@ -638,6 +659,7 @@ async function runSweepV(){
 
 /* ---------- 11) Predicción ---------- */
 function genPredice(){
+  if(genPredice.intentos===undefined)genPredice.intentos=0;
   const keys=Object.keys(DEVS);
   const zk=keys[Math.floor(Math.random()*keys.length)];
   const rsIdx=Math.floor(Math.random()*RSVALS.length);
@@ -646,6 +668,11 @@ function genPredice(){
   const z=DEVS[zk];
   const rl=RLVALS[rlIdx];
   const r=solveShunt(z,vin,RSVALS[rsIdx],rl);
+  /* Se descartan los casos que resuelve la respuesta ingenua (Vout = VZ nominal,
+     Iz = (Vin − VZ)/Rs sin descontar la carga): la predicción debe exigir cálculo. */
+  const nv=z.vz,ni=(vin-z.vz)/RSVALS[rsIdx];
+  if(genPredice.intentos<40&&Math.abs(nv-r.v)<=0.08*r.v+0.05&&Math.abs(ni-r.iz)<=0.15*r.iz+0.002){genPredice.intentos++;return genPredice();}
+  genPredice.intentos=0;
   PRED={zk:zk,rsIdx:rsIdx,rlIdx:rlIdx,vin:vin,target:{v:r.v,iz:r.iz}};
   predSolved=false;predRevealed=false;
   zsel=zk;Rsidx=rsIdx;RLidx=rlIdx;Vin=vin;
@@ -655,6 +682,7 @@ function genPredice(){
   syncCtrlBtns();
 }
 function checkPredice(){
+  if(predRevealed)return; // ya revelada: no se puede reintentar contra el mismo caso
   const vIn=parseFloat(el('predV').value);
   const iIn=parseFloat(el('predI').value)/1000;
   const okV=Number.isFinite(vIn)&&Math.abs(vIn-PRED.target.v)<=0.08*PRED.target.v+0.05;
@@ -669,108 +697,229 @@ function checkPredice(){
 }
 
 /* ---------- 12) Reto de diseño ---------- */
-function cornerOK(z,rs,rl,vin){
-  const r=solveShunt(z,vin,rs,rl);
-  return r.iz>=z.izk*1.05&&r.iz<=z.izm*0.98;
+/* El enunciado da la tensión de salida, la carga y el rango de Vin. El alumno
+   elige el zener Y la Rs: ninguno de los dos viene puesto. Se cumple si
+   (1) el zener regula a esa tensión, (2) a Vin mín con carga Iz >= 1,05·IZK y
+   (3) a Vin máx sin carga Iz <= 0,98·IZM. Cada caso nuevo se siembra al azar y
+   se comprueba que tenga entre 1 y 3 diseños ganadores del total de 15. */
+function evalRetoD(R,zk,rsIdx){
+  const z=DEVS[zk],rs=RSVALS[rsIdx];
+  const c1=solveShunt(z,R.vinMin,rs,R.rl);
+  const c2=solveShunt(z,R.vinMax,rs,Infinity);
+  const okV=Math.abs(z.vz-R.vo)<=0.05;
+  const ok1=c1.iz>=z.izk*1.05;
+  const ok2=c2.iz<=z.izm*0.98;
+  return {okV:okV,ok1:ok1,ok2:ok2,ok:okV&&ok1&&ok2,c1:c1,c2:c2};
 }
-function rsValidFor(z,rs,vinMin,vinMax,rl){
-  return cornerOK(z,rs,rl,vinMin)&&cornerOK(z,rs,Infinity,vinMax);
+function ganadoresReto(R){
+  const g=[];
+  Object.keys(DEVS).forEach(function(zk){
+    RSVALS.forEach(function(rs,i){if(evalRetoD(R,zk,i).ok)g.push({zk:zk,rsIdx:i});});
+  });
+  return g;
+}
+/* Arranque neutro: el banco nunca empieza en un diseño ganador. */
+function arrancaNoGanador(){
+  if(!RETO||!evalRetoD(RETO,zsel,Rsidx).ok)return;
+  const keys=Object.keys(DEVS),malos=[];
+  keys.forEach(function(zk){RSVALS.forEach(function(rs,i){if(!evalRetoD(RETO,zk,i).ok)malos.push({zk:zk,rsIdx:i});});});
+  const m=malos[Math.floor(Math.random()*malos.length)];
+  zsel=m.zk;Rsidx=m.rsIdx;
 }
 function newReto(){
-  const keys=Object.keys(DEVS);
-  let tries=0,ok=false,zk,z,rl,vinMin,vinMax;
-  while(!ok&&tries<40){
+  const prev=RETO;
+  let R=null,tries=0;
+  while(!R&&tries<400){
     tries++;
-    zk=keys[Math.floor(Math.random()*keys.length)];
-    z=DEVS[zk];
-    rl=RLVALS[1+Math.floor(Math.random()*(RLVALS.length-2))];
-    const vz=vzk(z);
-    vinMin=Math.round((vz+1.2+Math.random()*1.5)*10)/10;
-    vinMax=Math.round((vinMin+2.5+Math.random()*3.5)*10)/10;
-    const validRs=RSVALS.filter(function(rs){return rsValidFor(z,rs,vinMin,vinMax,rl);});
-    if(validRs.length>0)ok=true;
+    const vo=[3.3,5.1][Math.floor(Math.random()*2)];
+    const rl=RLVALS[1+Math.floor(Math.random()*4)];
+    const vinMin=Math.round((vo+1.0+Math.random()*2.0)*10)/10;
+    const vinMax=Math.min(15,Math.round((vinMin+2.5+Math.random()*4.5)*10)/10);
+    if(prev&&prev.vo===vo&&prev.rl===rl&&prev.vinMin===vinMin&&prev.vinMax===vinMax)continue;
+    const c={vo:vo,rl:rl,vinMin:vinMin,vinMax:vinMax};
+    const n=ganadoresReto(c).length;
+    if(n>=1&&n<=3)R=c;
   }
-  if(!ok){zk='z4728';z=DEVS[zk];rl=470;vinMin=6;vinMax=12;}
-  RETO={zk:zk,z:z,rl:rl,vinMin:vinMin,vinMax:vinMax};
-  retoSolved=false;
+  if(!R)R={vo:5.1,rl:470,vinMin:7.5,vinMax:11};
+  RETO=R;
+  retoSolved=false;fallosSeguidos=0;pistas=0;pistaLog=[];
+  RLidx=RLVALS.indexOf(RETO.rl);
+  arrancaNoGanador();
   el('retoResult').innerHTML='';
 }
+function pintaReto(html){
+  const msg=html+
+    '<div style="font-size:11px;margin-top:4px">Intentos: <b id="retoIntentos">'+intentos+'</b> · Pistas: '+pistas+'/2'+(retoSolved?' · <b style="color:#3fae3f">✔ resuelto</b>':'')+'</div>'+
+    (pistaLog.length?'<div style="font-size:11px;margin-top:4px;color:#EAF4F1">'+pistaLog.map(function(h){return '💡 '+h;}).join('<br>')+'</div>':'');
+  el('retoResult').innerHTML=msg;
+}
+function retoPista(){
+  if(mode!=='reto'||!RETO)return;
+  if(pistas>=2){showToast('Ya usaste las 2 pistas de este reto.');return;}
+  let h;
+  if(pistas===0){
+    h='Empieza por la tensión pedida: no todos los zeners regulan a ella. Luego revisa las dos esquinas: Vin mínimo con carga (Iz mínima) y Vin máximo sin carga (Iz máxima).';
+  }else{
+    const e=evalRetoD(RETO,zsel,Rsidx);
+    if(!e.okV)h='El zener que tienes puesto no es el de la tensión pedida: compara la VZ marcada en cada botón.';
+    else if(!e.ok1&&!e.ok2)h='Con este zener, ninguna Rs cumple las dos esquinas a la vez: la corriente máxima que soporta es muy corta. Prueba otro zener de la misma VZ.';
+    else if(!e.ok1)h='Con Vin mínimo y carga conectada llega poca corriente al zener: una Rs demasiado grande lo deja por debajo del codo.';
+    else if(!e.ok2)h='Con Vin máximo y sin carga toda la corriente de Rs pasa por el zener: una Rs demasiado pequeña lo sobrecarga.';
+    else h='Tu diseño ya cumple las tres condiciones: pulsa «Verificar diseño».';
+  }
+  pistaLog.push(h);pistas++;
+  pintaReto(el('retoResult').innerHTML.replace(/<div style="font-size:11px;margin-top:4px">Intentos[\s\S]*$/,''));
+}
 function checkReto(){
-  const z=RETO.z,rs=curRs();
-  const c1=solveShunt(z,RETO.vinMin,rs,RETO.rl);
-  const c2=solveShunt(z,RETO.vinMax,rs,Infinity);
-  const ok1=c1.iz>=z.izk;
-  const ok2=c2.iz<=z.izm;
-  const okZsel=(zsel===RETO.zk);
-  const chip=function(ok){return ok?'✔':'✘';};
-  el('retoResult').innerHTML=
-    '<div>'+chip(okZsel)+' Diodo correcto: '+DEVS[RETO.zk].name+'</div>'+
-    '<div>'+chip(ok1)+' Regulación a Vin mín ('+RETO.vinMin+' V, con carga): Iz = '+fmtI(c1.iz)+' ≥ IZK = '+fmtI(z.izk)+'</div>'+
-    '<div>'+chip(ok2)+' Seguridad a Vin máx ('+RETO.vinMax+' V, sin carga): Iz = '+fmtI(c2.iz)+' ≤ IZM = '+fmtI(z.izm)+'</div>';
-  retoSolved=okZsel&&ok1&&ok2;solved=retoSolved;
-  synth.beep(retoSolved?880:220,.08,.06);
+  if(!RETO)return;
+  const e=evalRetoD(RETO,zsel,Rsidx);
+  intentos++;
+  retoSolved=e.ok;solved=e.ok;
+  const chip=function(ok,txt,bad){return '<div>'+(ok?'✔':'✘')+' '+(ok?txt:bad)+'</div>';};
+  let html=chip(e.okV,'El zener elegido regula a la tensión pedida','El zener elegido no regula a la tensión pedida')+
+    chip(e.ok1,'Con Vin mínimo y carga conectada, el zener sigue regulando con margen','Con Vin mínimo y carga conectada, el zener no mantiene la regulación con margen')+
+    chip(e.ok2,'Con Vin máximo y sin carga, Iz queda dentro de lo que soporta el zener','Con Vin máximo y sin carga, Iz excede lo que soporta el zener con margen');
+  if(e.ok){fallosSeguidos=0;html+='<div style="margin-top:4px;color:#3fae3f">¡Diseño válido!</div>';}
+  else{
+    fallosSeguidos++;html+='<div style="margin-top:4px">Aún no cumple todos los criterios.</div>';
+    if(fallosSeguidos>=3){
+      newReto();
+      pintaReto('<div>Tres fallos seguidos: se plantea un caso nuevo.</div>');
+      syncCtrlBtns();refreshBenchSel();refreshAll();synth.beep(220,.08,.06);return;
+    }
+  }
+  pintaReto(html);
+  synth.beep(e.ok?880:220,.08,.06);
   refreshAll();
 }
 
 /* ---------- 13) Quiz ---------- */
-let QUIZ={};
-function buildQuiz(){
-  QUIZ={
-    explora:{
-      pregunta:'¿Por qué el zener se conecta en polarización inversa en un regulador shunt?',
-      opciones:[
-        {t:'Porque en inversa opera en avalancha controlada, manteniendo un voltaje casi constante',ok:true,why:'Exacto: la región de avalancha es la que da la meseta plana de voltaje que hace útil al zener como regulador.'},
-        {t:'Porque así disipa menos potencia que en directa',ok:false,why:'No — de hecho en avalancha el zener puede disipar bastante potencia; se conecta así porque esa región regula voltaje, no por eficiencia.'},
-        {t:'Porque en directa el zener no conduce corriente',ok:false,why:'Falso — en directa un zener conduce igual que cualquier diodo normal (≈0.7 V), pero esa región no regula nada útil.'}
-      ]
-    },
-    predice:{
-      pregunta:'Si RL disminuye (más carga) y Rs, Vin y el zener no cambian, ¿qué le pasa a Vout mientras el zener siga en avalancha?',
-      opciones:[
-        {t:'Se mantiene casi constante — el zener absorbe la corriente que ya no toma RL',ok:true,why:'Correcto: esa es la esencia de la regulación shunt — el zener compensa cambios de carga mientras Iz no caiga bajo IZK.'},
-        {t:'Baja proporcionalmente a RL',ok:false,why:'No — eso pasaría sin zener (divisor resistivo simple). Con el zener en avalancha, Vout queda "clavado" cerca de VZK.'},
-        {t:'Sube porque hay menos corriente circulando',ok:false,why:'No — Vout no sube; el zener mantiene el voltaje casi fijo mientras siga regulando.'}
-      ]
-    },
-    barrido:{
-      pregunta:'¿Qué mide la "regulación de línea" dVout/dVin?',
-      opciones:[
-        {t:'Cuánto cambia Vout cuando cambia Vin, con Rs y RL fijos',ok:true,why:'Correcto: es la sensibilidad de Vout ante variaciones de la fuente — idealmente cercana a 0 en un buen regulador.'},
-        {t:'Cuánto cambia Vout cuando cambia RL',ok:false,why:'Eso es la regulación de carga (load regulation), no la de línea.'},
-        {t:'La eficiencia energética del regulador',ok:false,why:'No — la regulación de línea no mide eficiencia, mide estabilidad de Vout ante Vin.'}
-      ]
-    },
-    reto:{
-      pregunta:'¿Por qué el Reto verifica dos "esquinas" (Vin mín con carga, y Vin máx sin carga) y no solo un punto?',
-      opciones:[
-        {t:'Porque son los casos extremos: mínima corriente disponible para el zener y máxima corriente que debe soportar',ok:true,why:'Correcto: Vin mín + carga conectada minimiza Iz (riesgo de perder regulación); Vin máx + sin carga maximiza Iz (riesgo de exceder IZM).'},
-        {t:'Porque el zener cambia de VZ según el punto de operación',ok:false,why:'No — VZ nominal no cambia con el punto de operación en este modelo; lo que cambia es Iz.'},
-        {t:'Por convención arbitraria de diseño',ok:false,why:'No es arbitrario — son los dos escenarios físicos donde el diseño puede fallar.'}
-      ]
-    }
-  };
+/* Cada modo tiene 3 preguntas de 4 opciones. Las opciones se barajan con
+   Fisher–Yates al mostrar la pregunta, la correcta no es la más larga por
+   sistema y no se vuelve a barajar al mover los controles del banco. Tras 2
+   fallos en la misma pregunta se pasa a la siguiente. */
+function Q(pregunta,ok,okWhy,malas){
+  const ops=[{t:ok,ok:true,why:okWhy}];
+  malas.forEach(function(m){ops.push({t:m[0],ok:false,why:m[1]});});
+  return {pregunta:pregunta,opciones:ops};
 }
+const QUIZ={
+  explora:[
+    Q('¿Por qué el zener se conecta en polarización inversa en un regulador shunt?',
+      'Porque en inversa trabaja en avalancha y la tensión queda casi fija',
+      'Exacto: la región de avalancha es la que da la meseta plana de voltaje que hace útil al zener como regulador.',
+      [['Porque en inversa disipa menos potencia que en directa','No: en avalancha el zener puede disipar bastante potencia; se conecta así porque esa región regula, no por eficiencia.'],
+       ['Porque en directa el zener no deja pasar nada de corriente','Falso: en directa conduce como cualquier diodo (≈0,7 V), pero esa región no regula nada útil.'],
+       ['Porque en inversa su tensión sube en proporción a la corriente que pasa','No: justo en inversa la tensión casi no depende de la corriente, y por eso regula.']]),
+    Q('Con Vin y Rs fijos, al conectar la carga RL (antes abierta), ¿qué pasa con la corriente Iz del zener?',
+      'Disminuye, porque parte de la corriente de Rs se desvía a la carga',
+      'Correcto: Ir = Iz + Il. Como Ir casi no cambia (Vout sigue fija), lo que toma la carga se lo quita al zener.',
+      [['Aumenta, porque ahora hay un camino más para que circule la corriente','No: un camino adicional reparte la corriente de Rs, no la aumenta.'],
+       ['No cambia, porque el zener fija su propia corriente de manera constante','No: el zener fija su tensión, no su corriente; Iz es lo que sobra.'],
+       ['Se anula de inmediato en cuanto se conecta cualquier carga al regulador','No: mientras Vin alcance, el zener sigue conduciendo; solo baja.']]),
+    Q('Si Vin baja tanto que el zener queda por debajo de su codo, ¿qué pasa con Vout?',
+      'Deja de estar fija y pasa a seguir a Vin como en un divisor Rs–RL',
+      'Correcto: sin avalancha el zener no conduce apenas y el circuito se comporta como un divisor resistivo simple.',
+      [['Se mantiene exactamente en VZ porque el zener siempre regula, falte lo que falte','No: la regulación solo existe mientras el zener esté en avalancha.'],
+       ['Sube por encima de VZ para compensar la falta de corriente','No: sin avalancha nada empuja Vout por encima de la tensión de la fuente dividida.'],
+       ['Se invierte de polaridad al quedar el zener sin conducir','No: la polaridad no cambia; solo se pierde la regulación.']])
+  ],
+  predice:[
+    Q('Si RL disminuye (más carga) y Rs, Vin y el zener no cambian, ¿qué le pasa a Vout mientras el zener siga en avalancha?',
+      'Se mantiene casi constante: el zener absorbe lo que la carga ya no toma',
+      'Correcto: esa es la esencia de la regulación shunt; el zener compensa cambios de carga mientras Iz no caiga bajo IZK.',
+      [['Baja en proporción a RL, igual que en un simple divisor resistivo sin zener','No: eso pasaría sin zener. Con el zener en avalancha Vout queda clavada cerca de VZ.'],
+       ['Sube, porque al haber menos corriente por el zener aumenta su tensión','No: la tensión del zener casi no depende de la corriente en avalancha.'],
+       ['Se hace cero en cuanto RL baja de un cierto valor crítico de carga','No: solo se pierde regulación si Iz cae bajo el codo, y aun así Vout no es cero.']]),
+    Q('¿Qué relación usas para calcular a mano la corriente Iz con el zener regulando?',
+      'Iz = (Vin − Vout)/Rs − Vout/RL: lo que entrega Rs menos lo que toma RL',
+      'Correcto: es la ley de corrientes del nodo de salida con Vout ≈ VZ.',
+      [['Iz = Vin/(Rs + RL), como si el zener no estuviera conectado al circuito','No: eso ignora al zener; con él, Vout queda fija y la corriente se reparte distinto.'],
+       ['Iz = VZ/Rs, porque el zener fija la corriente de la rama en que está','No: VZ/Rs no es ninguna corriente del circuito; el zener fija tensión, no corriente.'],
+       ['Iz = Vout/RL, porque el zener y la carga están conectados en serie','No: están en paralelo, no en serie; la carga solo toma Il = Vout/RL.']]),
+    Q('Con el zener regulando y RL fija, si duplicas Rs, ¿qué le pasa a Iz?',
+      'Baja a menos de la mitad, porque la carga conserva su corriente',
+      'Correcto: Iz = (Vin − VZ)/Rs − Il. El primer término se divide entre 2 pero Il no cambia, así que Iz cae más que a la mitad.',
+      [['Se duplica, porque más resistencia significa más corriente de fuente','No: más Rs limita la corriente que sale de la fuente.'],
+       ['Queda igual, porque el zener mantiene constante su propia corriente','No: el zener mantiene su tensión; su corriente es lo que sobra.'],
+       ['Baja exactamente a la mitad, sin importar cuánto tome la carga','No: la carga sigue tomando Il, así que la caída en Iz es mayor que la mitad.']])
+  ],
+  barrido:[
+    Q('¿Qué mide la «regulación de línea» dVout/dVin?',
+      'Cuánto cambia Vout cuando cambia Vin, con Rs y RL fijos',
+      'Correcto: es la sensibilidad de Vout ante variaciones de la fuente; idealmente cercana a 0 en un buen regulador.',
+      [['Cuánto cambia Vout cuando cambia la carga RL con Vin fijo','No: eso es la regulación de carga, no la de línea.'],
+       ['La eficiencia energética del regulador a plena carga','No: la regulación de línea mide estabilidad de Vout, no eficiencia.'],
+       ['La potencia máxima que el zener puede disipar sin dañarse','No: eso es un dato de hoja de datos (PD), no una pendiente medida.']]),
+    Q('En el barrido, ¿por qué la pendiente dVout/dVin es pequeña cuando el zener regula?',
+      'Porque ZZT es mucho menor que Rs y pasa solo una fracción de ΔVin',
+      'Correcto: dVout/dVin = Rp/(Rp+Rs) con Rp = ZZT ∥ RL; si Rp ≪ Rs la fracción es pequeña.',
+      [['Porque el zener tiene resistencia dinámica infinita en avalancha','No: es al revés; en avalancha es muy pequeña, y por eso la tensión casi no se mueve.'],
+       ['Porque Rs se hace cero automáticamente al subir la tensión','No: Rs es un resistor fijo y no cambia con la tensión.'],
+       ['Porque la fuente de Vin limita sola su propia corriente de salida','No: es una fuente ideal; la limitación la hace Rs, no la fuente.']]),
+    Q('Con Rs y RL fijos, ¿cuál de los tres zeners da la peor regulación de línea en avalancha?',
+      'El de mayor impedancia dinámica ZZT, el 1N5231B con 17 Ω',
+      'Correcto: la pendiente crece con Rp = ZZT ∥ RL, y el 1N5231B tiene la ZZT más alta de los tres.',
+      [['El de menor VZ, el 1N4728A de 3,3 V, por tener menos tensión','No: lo que cuenta es ZZT, no el valor de VZ.'],
+       ['El de mayor potencia, el 1N4733A, por disipar más calor','No: la potencia máxima no fija la pendiente de regulación.'],
+       ['Los tres por igual, porque dependen solo de Rs y de Vin','No: la pendiente depende de ZZT de cada zener.']])
+  ],
+  reto:[
+    Q('¿Por qué el reto verifica dos esquinas (Vin mín con carga y Vin máx sin carga) y no un solo punto?',
+      'Son los extremos: la mínima corriente que recibe el zener y la máxima',
+      'Correcto: Vin mín con carga minimiza Iz (riesgo de perder regulación); Vin máx sin carga la maximiza (riesgo de sobrecorriente).',
+      [['Porque VZ cambia de valor según el punto de operación que se elija','No: VZ nominal no cambia en este modelo; lo que cambia es Iz.'],
+       ['Porque la norma de diseño exige siempre medir en exactamente dos puntos','No es un trámite: son los dos escenarios físicos donde el diseño puede fallar.'],
+       ['Porque con un punto intermedio el zener se daña por sobrecalentamiento','No: el punto intermedio es más benigno que ambos extremos.']]),
+    Q('Un diseño con Rs demasiado pequeña, ¿en qué esquina falla primero?',
+      'A Vin máximo sin carga, donde Iz supera lo que el zener soporta',
+      'Correcto: sin carga toda la corriente de Rs pasa por el zener, y con Rs baja esa corriente es máxima.',
+      [['A Vin mínimo con carga, donde el zener se queda sin corriente','No: ahí falla una Rs demasiado grande, no una pequeña.'],
+       ['En ninguna: más corriente siempre mejora la regulación','No: Iz tiene un tope (IZM); pasarlo daña el zener.'],
+       ['En la tensión de salida, que sube por encima de la VZ nominal','No: el exceso de corriente calienta el zener, no cambia la tensión nominal.']]),
+    Q('Un diseño con Rs demasiado grande, ¿qué problema tiene?',
+      'A Vin mínimo con carga llega poca corriente al zener y deja de regular',
+      'Correcto: la caída en Rs deja a Iz por debajo del codo IZK y el zener sale de avalancha.',
+      [['A Vin máximo sin carga el zener se sobrecalienta por exceso de corriente','No: ahí falla una Rs demasiado pequeña, no una grande.'],
+       ['Ninguno, porque una Rs grande solo protege más al zener','No: protege, pero a costa de dejarlo sin la corriente mínima para regular.'],
+       ['La carga recibe más tensión que VZ, por falta de caída en Rs','No: con Rs grande ocurre lo contrario; la tensión de salida cae.']])
+  ]
+};
+let qOpts=[],qAns=-1;
+const qIdx={explora:0,predice:0,barrido:0,reto:0};
+let qFallos=0;
 function clearDx(){el('dxbtns').innerHTML='';}
 function refreshQuestion(){
-  const q=QUIZ[mode];
-  if(!q)return;
-  el('q_text').textContent=q.pregunta;
+  const lista=QUIZ[mode];
+  if(!lista)return;
+  const q=lista[qIdx[mode]%lista.length];
+  el('q_text').textContent='('+(qIdx[mode]%lista.length+1)+'/'+lista.length+') '+q.pregunta;
   const opciones=q.opciones.slice();
   for(let i=opciones.length-1;i>0;i--){
     const j=Math.floor(Math.random()*(i+1));
     const tmp=opciones[i];opciones[i]=opciones[j];opciones[j]=tmp;
   }
+  qOpts=opciones;qAns=-1;qFallos=0;
   el('dxbtns').innerHTML=opciones.map(function(o,i){return '<button class="b" data-i="'+i+'">'+o.t+'</button>';}).join('');
   const btns=el('dxbtns').querySelectorAll('button');
   btns.forEach(function(b,i){
     b.onclick=function(){
       if(b.classList.contains('right')||b.classList.contains('wrong'))return;
       const o=opciones[i];
+      qAns=i;
       b.classList.add(o.ok?'right':'wrong');
       showToast(o.why);
       synth.beep(o.ok?880:220,.08,.06);
+      if(!o.ok){
+        qFallos++;
+        if(qFallos>=2){setTimeout(siguientePregunta,1400);}
+      }
     };
   });
+}
+function siguientePregunta(){
+  qIdx[mode]++;
+  refreshQuestion();
 }
 
 /* ---------- 14) Picking, hover, tour, eventos, init ---------- */
@@ -810,12 +959,15 @@ function dispatch3D(act){
 })();
 
 let autoRunning=false;
+/* El tour es una demostración: no verifica el reto, y al terminar deja el banco
+   y el modo tal como estaban. */
 async function runAuto(){
   if(autoRunning)return;
   autoRunning=true;
   const b=el('btnAuto');b.disabled=true;b.textContent='Tour…';
+  const snap={zsel:zsel,Rsidx:Rsidx,RLidx:RLidx,Vin:Vin,TC:TC,logY:logY,mode:mode};
   try{
-    setMode('explora');
+    setMode('explora',true);
     showToast('Bienvenido: un regulador zener shunt mantiene Vout casi constante pese a variaciones en Vin o RL.');
     await sleep(2600);
     selDevice('z4728');await sleep(1600);
@@ -829,14 +981,20 @@ async function runAuto(){
     showToast('En SEMILOG se ven las 4 décadas de corriente — IZK e IZM en la misma gráfica.');
     await sleep(2800);
     if(logY)toggleLog();
-    setMode('barrido');
+    setMode('barrido',true);
     showToast('Modo Barrido: mide cuánto varía Vout cuando Vin cambia — la regulación de línea.');
     await sleep(1800);
     await runSweepV();
     await sleep(1000);
-    setMode('reto');
-    showToast('Reto: elige Rs para que el regulador funcione en todo el rango de Vin especificado.');
+    showToast('En el Reto tú eliges el zener y la Rs para la tensión y el rango de Vin que pida el enunciado.');
+    await sleep(2400);
   }finally{
+    zsel=snap.zsel;Rsidx=snap.Rsidx;RLidx=snap.RLidx;Vin=snap.Vin;TC=snap.TC;
+    el('sVin').value=Vin;el('vVin').textContent=Vin.toFixed(1)+' V';
+    el('sTC').value=TC;el('vTC').textContent=TC+' °C';
+    if(logY!==snap.logY)toggleLog();
+    SWEEPV.length=0;el('sweepResult').innerHTML='';
+    setMode(snap.mode,true);
     autoRunning=false;b.disabled=false;b.textContent='🚀 Tour guiado';
   }
 }
@@ -860,13 +1018,14 @@ el('btnPred').onclick=checkPredice;
 el('btnPredNew').onclick=function(){genPredice();refreshAll();};
 el('btnSweep').onclick=runSweepV;
 el('btnReto').onclick=checkReto;
-el('btnRetoNew').onclick=function(){newReto();zsel=RETO.zk;RLidx=RLVALS.indexOf(RETO.rl);syncCtrlBtns();refreshAll();};
+el('btnRetoNew').onclick=function(){newReto();syncCtrlBtns();refreshBenchSel();refreshAll();};
+el('btnRetoPista').onclick=retoPista;
+el('btnQNext').onclick=siguientePregunta;
 el('btnLog').onclick=toggleLog;
 el('btnAuto').onclick=runAuto;
 
 S.setAnimate(function(){});
 newReto();
-buildQuiz();
 syncCtrlBtns();
 refreshBenchSel();
 S.start();
@@ -877,6 +1036,11 @@ window.__labDebug={
   res:function(){return RES;},
   pred:function(){return PRED;},
   reto:function(){return RETO;},
+  get retoSolved(){return retoSolved;},
+  get intentos(){return intentos;},
+  get quizAnswer(){return qAns;},
+  get quizCorrectIndex(){return qOpts.findIndex(function(o){return o.ok;});},
+  runAuto:runAuto,retoPista:retoPista,evalRetoD:evalRetoD,ganadoresReto:ganadoresReto,
   sweep:function(){return SWEEPV.slice();},
   vzk:vzk,v0:v0,vAtIzm:vAtIzm,izOfV:izOfV,solveShunt:solveShunt,
   setDevice:selDevice,setRs:selRs,setRl:selRl,

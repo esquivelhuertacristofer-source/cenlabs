@@ -4,7 +4,7 @@
     esquemático IEC 60617 con motor de cálculo + osciloscopio/instrumentos)
    Normatividad / referencia: IEC 60617; Shockley (1949); SPICE2 (UCB 1975);
    hojas de datos: Vishay 1N4001–1N4007 · STMicroelectronics 1N5817–1N5819 ·
-   Diodes Inc. DB101–DB107 (⚑ contrastar — otros fabricantes listan hasta 1.5 A
+   Diodes Inc. DB101–DB107 (contrastar — otros fabricantes listan hasta 1.5 A
    bajo el mismo número de parte de puente).
    Motor de cálculo: cada diodo obedece Shockley I = Is·(e^(V/(n·VT)) − 1) con
    VT fijo a 27 °C (la variación térmica ya se cubre a fondo en el lab de la
@@ -29,7 +29,7 @@ const synth=makeSynth({type:'sine',type2:'triangle',filterFreq:2600,Q:0.8});
 const KB=1.380649e-23, QE=1.602176634e-19, TNOM=300.15;
 const VTN=KB*TNOM/QE; // ≈25.87 mV @27°C — T fija (ver nota de alcance arriba)
 
-// Parámetros tipo-SPICE ⚑ ajustados para que Vf@If(AV) caiga dentro del rango
+// Parámetros tipo-SPICE ajustados para que Vf@If(AV) caiga dentro del rango
 // publicado de cada hoja de datos citada en la ficha técnica (no son un
 // curve-fit completo de la curva — son un modelo didáctico anclado al dato
 // más importante para el diseño: Vf a la corriente nominal).
@@ -39,7 +39,7 @@ const DIODES={
 };
 // Puente DB107: 4 uniones de silicio integradas — la física se modela
 // reutilizando DIODES.si en serie (idExpl2), pero el RATING de seguridad que
-// se compara es el del PAQUETE (hoja Diodes Inc. DB101–DB107) ⚑.
+// se compara es el del PAQUETE (hoja Diodes Inc. DB101–DB107).
 const DB107={name:'Puente DB107 (4 uniones Si integradas)', ifAvg:1.0, ifsm:50, vrrm:1000};
 
 const TOPOS={
@@ -157,6 +157,7 @@ let mode='explora', topKey='bridge', dsel='si', freqIdx=1, Ridx=2, Cidx=0, Vrms=
 let RES=null, solved=false, sweeping=false, autoRunning=false;
 let PRED=null, predRevealed=false, predSolved=false;
 let RETO=null, retoSolved=false;
+let intentos=0, fallosSeguidos=0, pistas=0, pistaLog=[];
 let SWEEPC=[];
 const sleep=ms=>new Promise(r=>setTimeout(r,ms));
 
@@ -186,19 +187,6 @@ function genPredice(){
   const safe=(piv<=rt.vrrm)&&(perDiodeAvg(tk,res.vdc,RVALS[ri])<=rt.ifAvg);
   PRED={topKey:tk,dsel:ds,freqIdx:fi,Ridx:ri,Cidx:ci,Vrms:vr,res,piv,safe};
   predRevealed=false;predSolved=false;
-}
-function genReto(){
-  const pick=a=>a[Math.floor(Math.random()*a.length)];
-  const tk=pick(TOPO_KEYS);
-  const ds=tk==='bridge'?'si':pick(['si','sch']);
-  const fi=pick([0,1]);
-  const ri=Math.floor(Math.random()*RVALS.length);
-  const vr=+(8+Math.random()*10).toFixed(1);
-  const ci=3+Math.floor(Math.random()*3);
-  const res=rectify(tk,DIODES[ds],vr,FREQS[fi],RVALS[ri],CVALS[ci]);
-  const rFactor=rippleFactorPct(res.vrpp,res.vdc);
-  RETO={rl:RVALS[ri],freqIdx:fi,vdcTarget:res.vdc,vdcTolPct:5,rippleMaxPct:+(rFactor*1.4).toFixed(2)};
-  retoSolved=false;
 }
 
 /* ---------- 3) Materiales ---------- */
@@ -563,7 +551,7 @@ document.getElementById('hud').innerHTML=`
     <div class="li"><span class="dot" style="background:#FFB703"></span>Vdc (promedio, línea punteada)</div>
   </div>
   <div class="fid"><span class="ft">CONTRATO DE FIDELIDAD</span>
-  <span class="fl">SÍ:</span> Shockley con parámetros tipo SPICE anclados al Vf de hoja de datos ⚑ · transitorio EXACTO
+  <span class="fl">SÍ:</span> Shockley con parámetros tipo SPICE anclados al Vf de hoja de datos · transitorio EXACTO
   del capacitor por Runge-Kutta 4 (no la aproximación lineal de rizo) · PIV por fórmula específica de topología
   (2Vm−Vf en media onda con filtro y center-tap, Vm−Vf en puente) y medido directamente de la forma de onda cuando
   el modelo lo permite · duplicación real de la frecuencia de rizo en center-tap/puente.<br>
@@ -571,7 +559,7 @@ document.getElementById('hud').innerHTML=`
   derrateo térmico ni ESR/envejecimiento del capacitor · ruptura por avalancha · distorsión de línea real ni EMI ·
   fórmula de corriente de pico del diodo (existen variantes publicadas incompatibles — se omite a propósito) ·
   variación de Vf con T (fija a 27 °C — el lab de la curva I–V del diodo ya cubre la térmica a fondo).</div>
-  <div class="src">Ref: Vishay 1N4001–4007 · ST 1N5817–5819 · Diodes Inc. DB101–DB107 ⚑ · Boylestad–Nashelsky · Sedra–Smith · IEC 60617</div>`;
+  <div class="src">Ref: Vishay 1N4001–4007 · ST 1N5817–5819 · Diodes Inc. DB101–DB107 · Boylestad–Nashelsky · Sedra–Smith · IEC 60617</div>`;
 document.getElementById('panel').innerHTML=`
   <h4>Banco de rectificación · <span id="p_mode">Explora</span></h4>
   <div class="modebar">
@@ -644,12 +632,14 @@ document.getElementById('panel').innerHTML=`
     <h4 class="sec">Reto de diseño</h4>
     <div style="font-size:12px;color:#8FB3AC;margin-bottom:6px" id="retoHint"></div>
     <button class="b primary" id="btnReto" style="width:100%">✔ Comprobar mi diseño</button>
+    <button class="b" id="btnRetoPista" style="width:100%;margin-top:6px">💡 Pista (máx. 2)</button>
     <div style="font-size:12px;margin-top:6px" id="retoOut"></div>
     <button class="b" id="btnNewReto" style="width:100%;margin-top:6px">🔀 Nuevo reto</button>
   </div>
   <h4 class="sec">Pregunta de ingeniería</h4>
   <div id="q_text" style="font-size:12px;margin-bottom:6px"></div>
   <div class="btns" id="dxbtns"></div>
+  <div class="btns" style="margin-top:4px"><button class="b" id="btnQNext">Siguiente pregunta</button></div>
   <div class="btns" style="margin-top:8px">
     <button class="b auto" id="btnAuto">✨ Recorrido guiado</button>
   </div>`;
@@ -671,8 +661,22 @@ const MODE_META={
   reto:{nombre:'Reto',cam:[[0.6,2.3,5.6],[0.2,1.3,0.2]],
     mision:'Con R_L y la frecuencia de línea fijas, elige topología, dispositivo, Vrms y C para cumplir un objetivo de Vdc y rizo con margen de seguridad en el PIV.'},
 };
-function setMode(k){
-  mode=k;solved=false;
+/* Al salir de una predicción sin contestar el banco no puede conservar el
+   caso (Explora regalaría la respuesta): se baraja la configuración. */
+function randomizeConfig(){
+  const pick=a=>a[Math.floor(Math.random()*a.length)];
+  let t=0;
+  do{
+    topKey=pick(TOPO_KEYS);dsel=topKey==='bridge'?'si':pick(['si','sch']);
+    freqIdx=pick([0,1]);Ridx=Math.floor(Math.random()*RVALS.length);
+    Cidx=Math.floor(Math.random()*CVALS.length);
+    Vrms=Math.round((6+Math.random()*16)*2)/2;t++;
+  }while(t<20&&PRED&&topKey===PRED.topKey&&dsel===PRED.dsel&&Cidx===PRED.Cidx&&Ridx===PRED.Ridx);
+  el('sVrms').value=Vrms;el('vsv').textContent=Vrms.toFixed(1)+' V';
+}
+function setMode(k,keep){
+  if(mode==='predice'&&k!=='predice'&&PRED&&!predRevealed&&!keep)randomizeConfig();
+  mode=k;solved=(k==='reto'&&retoSolved);
   ['explora','predice','barrido','reto'].forEach(m=>el('m_'+m).classList.toggle('on',m===k));
   el('p_mode').textContent=MODE_META[k].nombre;
   el('p_mision').textContent=MODE_META[k].mision;
@@ -690,7 +694,9 @@ function setMode(k){
   }
   if(k==='reto'){
     if(!RETO)genReto();
-    el('retoHint').textContent='Objetivo: Vdc ≈ '+fmtV(RETO.vdcTarget)+' (±5%) con rizo r ≤ '+RETO.rippleMaxPct.toFixed(1)+'% · R_L fija = '+fmtR(RETO.rl)+' · '+FLBL[RETO.freqIdx]+' (fijas) · elige topología, dispositivo, Vrms y C, y deja el PIV con ≥1.4× margen sobre el VRRM.';
+    aplicaEnunciado();
+    if(!keep&&!retoSolved&&evalRetoD(topKey,dsel,Vrms,Cidx).ok)arrancaNoGanador();
+    el('retoHint').textContent=textoObjetivo();
   }
   syncCtrlBtns();clearDx();refreshQuestion();refreshBenchSel();refreshAll();
   S.moveTo(MODE_META[k].cam[0],MODE_META[k].cam[1],1.3);
@@ -717,7 +723,7 @@ function selDiode(k){
   if(topKey==='bridge'){showToast('El puente DB107 se modela con silicio integrado — no es seleccionable por separado.');return;}
   if(dsel===k)return;dsel=k;onChange();
 }
-function onChange(){syncCtrlBtns();buildQuiz();clearDx();refreshQuestion();refreshBenchSel();refreshAll();}
+function onChange(){syncCtrlBtns();refreshBenchSel();refreshAll();}
 
 /* ---------- 9) Telemetría + reporte ---------- */
 function set(id,txt,cls){const n=el(id);n.textContent=txt;n.classList.remove('good','warn','bad');if(cls)n.classList.add(cls);}
@@ -730,14 +736,15 @@ function updateTele(){
   const piv=pivFormula(topKey,d,Vrms,curC(),RES.vdc/curR());
   const pivm=measuredPIV(topKey,RES.samples);
   const r=rippleFactorPct(RES.vrpp,RES.vdc);
-  set('t_vdc',fmtV(RES.vdc),'good');
-  set('t_vrpp',fmtV(RES.vrpp),'good');
-  set('t_r',r.toFixed(1)+' %',r>15?'warn':'good');
-  set('t_fr',TOPOS[topKey].kRipple+'× línea = '+(TOPOS[topKey].kRipple*curF())+' Hz','good');
-  set('t_piv',fmtV(piv),piv>rt.vrrm?'bad':piv>0.7*rt.vrrm?'warn':'good');
-  set('t_pivm',pivm===null?'— (no observable)':fmtV(pivm),'good');
-  set('t_id',fmtI(idc),idc>rt.ifAvg?'bad':idc>0.7*rt.ifAvg?'warn':'good');
-  set('t_ip',fmtI(ip),(rt.ifsm&&ip>rt.ifsm)?'bad':'good');
+  const cc=c=>mode==='reto'?'':c; // en el reto no hay veredicto en vivo
+  set('t_vdc',fmtV(RES.vdc),cc('good'));
+  set('t_vrpp',fmtV(RES.vrpp),cc('good'));
+  set('t_r',r.toFixed(1)+' %',cc(r>15?'warn':'good'));
+  set('t_fr',TOPOS[topKey].kRipple+'× línea = '+(TOPOS[topKey].kRipple*curF())+' Hz',cc('good'));
+  set('t_piv',fmtV(piv),cc(piv>rt.vrrm?'bad':piv>0.7*rt.vrrm?'warn':'good'));
+  set('t_pivm',pivm===null?'— (no observable)':fmtV(pivm),cc('good'));
+  set('t_id',fmtI(idc),cc(idc>rt.ifAvg?'bad':idc>0.7*rt.ifAvg?'warn':'good'));
+  set('t_ip',fmtI(ip),cc((rt.ifsm&&ip>rt.ifsm)?'bad':'good'));
 }
 function updateReport(){
   const L=[];
@@ -753,11 +760,7 @@ function updateReport(){
       if(SWEEPC.slope!==undefined)L.push('Pendiente log-log Vr(pp) vs C ≈ '+SWEEPC.slope.toFixed(2)+' (esperado ≈ −1: relación inversa).');
     } else L.push('Pulsa "Barrer C" para recorrer la capacitancia con el resto del circuito fijo.');
   } else if(mode==='reto'){
-    if(RES){
-      const r=rippleFactorPct(RES.vrpp,RES.vdc);
-      L.push('Actual: Vdc='+fmtV(RES.vdc)+' (objetivo '+fmtV(RETO.vdcTarget)+') · rizo='+r.toFixed(1)+'% (máx '+RETO.rippleMaxPct.toFixed(1)+'%)');
-    }
-    L.push(retoSolved?'✔ Diseño válido.':'Ajusta topología, dispositivo, Vrms o C y vuelve a comprobar.');
+    L.push('Intentos: '+intentos+(retoSolved?' · ✔ Diseño válido.':' · Ajusta topología, dispositivo, Vrms o C y pulsa "Comprobar mi diseño".'));
   }
   el('report').innerHTML=L.map(x=>'<div>• '+x+'</div>').join('');
 }
@@ -791,7 +794,7 @@ async function runSweepC(){
 
 /* ---------- 11) Predice ---------- */
 function checkPredice(){
-  if(!PRED)return;
+  if(!PRED||predRevealed)return; // ya revelada: no se reintenta contra el mismo caso
   const wantMult=parseInt((el('pf_1').classList.contains('on')?'1':el('pf_2').classList.contains('on')?'2':'0'));
   const vdcIn=parseFloat(el('inVdc').value),vrppIn=parseFloat(el('inVrpp').value),pivIn=parseFloat(el('inPiv').value);
   const safeIn=el('ps_si').classList.contains('on')?true:el('ps_no').classList.contains('on')?false:null;
@@ -817,85 +820,232 @@ function newPredice(){genPredice();applyPred();syncCtrlBtns();el('predOut').inne
   refreshAll();}
 
 /* ---------- 12) Reto ---------- */
-function checkReto(){
-  if(!RETO)return;
-  const d=curD(),res=rectify(topKey,d,Vrms,FREQS[RETO.freqIdx],RETO.rl,curC());
+/* El enunciado da Vdc objetivo, rizo máximo, R_L y frecuencia. El alumno elige
+   topología, dispositivo, Vrms y C. Cada caso se siembra con un diseño real
+   (en la rejilla del control de Vrms) que cumple el PIV con margen, así que
+   siempre hay solución; el arranque del banco nunca es un diseño ganador. */
+function evalRetoD(tk,ds,vr,ci){
+  const d=DIODES[ds],c=CVALS[ci];
+  const res=rectify(tk,d,vr,FREQS[RETO.freqIdx],RETO.rl,c);
   const r=rippleFactorPct(res.vrpp,res.vdc);
-  const piv=pivFormula(topKey,d,Vrms,curC(),res.vdc/RETO.rl);
-  const rt=ratingsFor(topKey,d);
+  const piv=pivFormula(tk,d,vr,c,res.vdc/RETO.rl);
+  const rt=ratingsFor(tk,d);
   const okVdc=Math.abs(res.vdc-RETO.vdcTarget)<=(RETO.vdcTolPct/100)*RETO.vdcTarget;
   const okRipple=r<=RETO.rippleMaxPct;
   const okPiv=piv*1.4<=rt.vrrm;
-  retoSolved=okVdc&&okRipple&&okPiv;solved=retoSolved;
-  el('retoOut').innerHTML=
-    (okVdc?'✔':'✘')+' Vdc='+fmtV(res.vdc)+' (objetivo '+fmtV(RETO.vdcTarget)+') · '+
-    (okRipple?'✔':'✘')+' rizo='+r.toFixed(1)+'% (máx '+RETO.rippleMaxPct.toFixed(1)+'%) · '+
-    (okPiv?'✔':'✘')+' PIV·1.4='+fmtV(piv*1.4)+' ≤ VRRM='+rt.vrrm+'V<br>'+
-    (retoSolved?'✔ Diseño válido.':'Ajusta topología, dispositivo, Vrms o C.');
-  synth.beep(retoSolved?980:220,.15,.07);
+  return {res,r,piv,rt,okVdc,okRipple,okPiv,ok:okVdc&&okRipple&&okPiv};
+}
+function genReto(){
+  const pick=a=>a[Math.floor(Math.random()*a.length)];
+  const prev=RETO;
+  let R=null,tries=0;
+  while(!R&&tries<60){
+    tries++;
+    const tk=pick(TOPO_KEYS);
+    const ds=tk==='bridge'?'si':pick(['si','sch']);
+    const fi=pick([0,1]);
+    const ri=Math.floor(Math.random()*RVALS.length);
+    const vr=Math.round((8+Math.random()*10)*2)/2;
+    const ci=3+Math.floor(Math.random()*3);
+    const res=rectify(tk,DIODES[ds],vr,FREQS[fi],RVALS[ri],CVALS[ci]);
+    const piv=pivFormula(tk,DIODES[ds],vr,CVALS[ci],res.vdc/RVALS[ri]);
+    if(piv*1.4>ratingsFor(tk,DIODES[ds]).vrrm)continue; // la semilla debe ser un diseño válido
+    const rFactor=rippleFactorPct(res.vrpp,res.vdc);
+    const cand={rl:RVALS[ri],freqIdx:fi,vdcTarget:res.vdc,vdcTolPct:5,rippleMaxPct:+(rFactor*1.4).toFixed(2)};
+    if(prev&&prev.rl===cand.rl&&prev.freqIdx===cand.freqIdx&&Math.abs(prev.vdcTarget-cand.vdcTarget)<0.5)continue;
+    R=cand;
+  }
+  RETO=R;
+  retoSolved=false;fallosSeguidos=0;pistas=0;pistaLog=[];
+}
+/* La carga y la frecuencia son parte del enunciado: el banco las toma de ahí. */
+function aplicaEnunciado(){
+  Ridx=RVALS.indexOf(RETO.rl);freqIdx=RETO.freqIdx;
+  el('sVrms').value=Vrms;
+}
+function arrancaNoGanador(){
+  // Arranque neutro: media onda sin filtro. Si por azar ganara, se sube Vrms.
+  topKey='halfwave';dsel='si';Cidx=0;Vrms=12;
+  if(evalRetoD(topKey,dsel,Vrms,Cidx).ok){Cidx=1;}
+  el('sVrms').value=Vrms;el('vsv').textContent=Vrms.toFixed(1)+' V';
+}
+function textoObjetivo(){
+  return 'Objetivo: Vdc ≈ '+fmtV(RETO.vdcTarget)+' (±5%) con rizo r ≤ '+RETO.rippleMaxPct.toFixed(1)+'% · R_L fija = '+fmtR(RETO.rl)+' · '+FLBL[RETO.freqIdx]+' (fijas) · elige topología, dispositivo, Vrms y C, y deja el PIV con ≥1.4× margen sobre el VRRM.';
+}
+function pintaReto(html){
+  el('retoOut').innerHTML=html+
+    '<div style="font-size:11px;margin-top:4px">Intentos: <b id="retoIntentos">'+intentos+'</b> · Pistas: '+pistas+'/2'+(retoSolved?' · <b style="color:#3fae3f">✔ resuelto</b>':'')+'</div>'+
+    (pistaLog.length?'<div style="font-size:11px;margin-top:4px;color:#EAF4F1">'+pistaLog.map(h=>'💡 '+h).join('<br>')+'</div>':'');
+}
+function retoPista(){
+  if(mode!=='reto'||!RETO)return;
+  if(pistas>=2){showToast('Ya usaste las 2 pistas de este reto.');return;}
+  let h;
+  if(pistas===0){
+    h='Vdc es aproximadamente Vm menos las caídas de diodo (una en media onda y center-tap, dos en el puente) y menos medio rizo. Ajusta Vrms para el Vdc, C para el rizo y revisa el PIV con margen.';
+  }else{
+    const e=evalRetoD(topKey,dsel,Vrms,Cidx);
+    if(!e.okVdc)h='Con tu diseño Vdc queda '+(e.res.vdc<RETO.vdcTarget?'por debajo':'por encima')+' del objetivo: ajusta Vrms (o la topología, que cambia las caídas de diodo).';
+    else if(!e.okRipple)h='El rizo excede el máximo pedido: más C, o una topología de onda completa, lo reducen.';
+    else if(!e.okPiv)h='El PIV con margen 1,4× no cabe en el VRRM del diodo: un Schottky de 40 V no aguanta Vrms altos; considera silicio o el puente.';
+    else h='Tu diseño ya cumple las tres condiciones: pulsa «Comprobar mi diseño».';
+  }
+  pistaLog.push(h);pistas++;
+  pintaReto(el('retoOut').innerHTML.replace(/<div style="font-size:11px;margin-top:4px">Intentos[\s\S]*$/,''));
+}
+function checkReto(){
+  if(!RETO)return;
+  const e=evalRetoD(topKey,dsel,Vrms,Cidx);
+  intentos++;
+  retoSolved=e.ok;solved=e.ok;
+  const chip=(ok,t,m)=>'<div>'+(ok?'✔ '+t:'✘ '+m)+'</div>';
+  let html=chip(e.okVdc,'Vdc dentro de ±5% del objetivo','Vdc fuera de ±5% del objetivo')+
+    chip(e.okRipple,'Rizo dentro del máximo pedido','Rizo por encima del máximo pedido')+
+    chip(e.okPiv,'PIV con margen 1,4× dentro del VRRM','PIV con margen 1,4× por encima del VRRM');
+  if(e.ok){fallosSeguidos=0;html+='<div style="margin-top:4px;color:#3fae3f">✔ Diseño válido.</div>';}
+  else{
+    fallosSeguidos++;html+='<div style="margin-top:4px">Aún no cumple todos los criterios.</div>';
+    if(fallosSeguidos>=3){
+      genReto();aplicaEnunciado();arrancaNoGanador();
+      el('retoHint').textContent=textoObjetivo();
+      pintaReto('<div>Tres fallos seguidos: se plantea un caso nuevo.</div>');
+      syncCtrlBtns();refreshBenchSel();refreshAll();synth.beep(220,.15,.07);return;
+    }
+  }
+  pintaReto(html);
+  synth.beep(e.ok?980:220,.15,.07);
   refreshAll();
 }
-function newReto(){genReto();retoSolved=false;el('retoOut').innerHTML='';
-  el('retoHint').textContent='Objetivo: Vdc ≈ '+fmtV(RETO.vdcTarget)+' (±5%) con rizo r ≤ '+RETO.rippleMaxPct.toFixed(1)+'% · R_L fija = '+fmtR(RETO.rl)+' · '+FLBL[RETO.freqIdx]+' (fijas) · elige topología, dispositivo, Vrms y C, y deja el PIV con ≥1.4× margen sobre el VRRM.';
-  refreshAll();}
+function newReto(){
+  genReto();aplicaEnunciado();arrancaNoGanador();
+  el('retoOut').innerHTML='';el('retoHint').textContent=textoObjetivo();
+  syncCtrlBtns();refreshBenchSel();refreshAll();}
 
 /* ---------- 13) Quiz de ingeniería ---------- */
-let QUIZ={};
-function buildQuiz(){
-  const vm=Math.SQRT2*Vrms;
-  QUIZ={
-    explora:{pregunta:'Con filtro capacitivo, ¿por qué un diodo de media onda necesita soportar PIV ≈ 2Vm y no solo Vm?',
-      opciones:[
-        {t:'Porque el capacitor queda cargado cerca de +Vm justo cuando la fuente cae a −Vm, y el diodo ve la diferencia entre ambos.',ok:true,
-         why:'Correcto: sin filtro el diodo solo ve Vm (la fuente cuando el diodo no conduce). Con filtro, el capacitor retiene +Vm mientras la fuente oscila hasta −Vm — el diodo bloqueado ve la suma de ambos, ≈2Vm.'},
-        {t:'Porque el diodo conduce el doble de tiempo con filtro.',ok:false,why:'Al revés: con filtro el diodo conduce MENOS tiempo (solo cerca del pico), no más — el PIV mayor viene de la carga retenida en el capacitor, no del tiempo de conducción.'},
-        {t:'Porque la frecuencia de rizo se duplica.',ok:false,why:'La frecuencia de rizo en media onda sigue siendo 1× la de línea, con o sin filtro — eso no cambia el PIV.'},
-      ]},
-    predice:{pregunta:'¿Por qué la frecuencia de rizo es 2× la de línea en center-tap y puente, pero solo 1× en media onda?',
-      opciones:[
-        {t:'Porque en center-tap/puente hay un pulso de carga por CADA semiciclo de la CA (positivo y negativo), mientras que en media onda solo el semiciclo positivo produce un pulso.',ok:true,
-         why:'Correcto: onda completa rectifica ambos semiciclos, así que el capacitor recibe un pulso de recarga cada medio periodo de línea → el doble de pulsos por segundo que en media onda.'},
-        {t:'Porque center-tap y puente usan más diodos, y más diodos siempre significan más rizo.',ok:false,why:'Más diodos no implica más rizo — de hecho onda completa tiene MENOS rizo que media onda para el mismo C y R, precisamente porque recarga el doble de veces por segundo.'},
-        {t:'Porque el transformador entrega el doble de voltaje.',ok:false,why:'El voltaje del transformador no determina la frecuencia de rizo; lo que importa es cuántos pulsos de corriente de carga llegan al capacitor por segundo.'},
-      ]},
-    barrido:{pregunta:'Si duplicas la capacitancia de filtro C (con todo lo demás fijo), ¿qué le pasa aproximadamente al rizo Vr(pp)?',
-      opciones:[
-        {t:'Se reduce a aproximadamente la mitad — Vr(pp) es aproximadamente inversamente proporcional a C.',ok:true,
-         why:'Correcto: el capacitor se descarga sobre R_L entre pulsos; el doble de capacitancia retiene el doble de carga para la misma caída de voltaje, así que la caída (el rizo) se reduce a la mitad — de ahí la pendiente ≈ −1 en log-log que mide el barrido.'},
-        {t:'Se mantiene igual — C no afecta el rizo, solo Vdc.',ok:false,why:'C es precisamente el parámetro que controla el rizo: más capacitancia sostiene mejor el voltaje entre pulsos de carga.'},
-        {t:'Se duplica también.',ok:false,why:'Es la relación opuesta — más capacitancia significa MENOS rizo, no más.'},
-      ]},
-    reto:{pregunta:'A igual Vdc de salida, ¿por qué el puente es la topología de onda completa más usada en fuentes reales frente al center-tap?',
-      opciones:[
-        {t:'Porque el puente solo requiere PIV ≈ Vm (la mitad que el center-tap, que requiere ≈2Vm) usando un transformador de un solo devanado secundario, aunque a costa de 2 caídas de diodo en vez de 1.',ok:true,
-         why:'Correcto: es el compromiso clásico — el puente permite diodos de menor VRRM y un transformador más simple (sin center-tap), pagando el precio de una caída de voltaje extra (2 uniones en serie) frente al center-tap.'},
-        {t:'Porque el puente tiene menos rizo que el center-tap para el mismo C.',ok:false,why:'Ambas topologías de onda completa tienen la MISMA frecuencia de rizo (2× línea) y, en igualdad de condiciones, un rizo comparable — esa no es la diferencia clave entre ellas.'},
-        {t:'Porque el puente usa menos diodos.',ok:false,why:'Es al revés: el puente usa 4 diodos y el center-tap solo 2 — la ventaja del puente es el PIV y el transformador más simple, no el conteo de diodos.'},
-      ]},
-  };
+/* Cada modo tiene 3 preguntas de 4 opciones. Las opciones se barajan con
+   Fisher–Yates al mostrar la pregunta, la correcta no es la más larga por
+   sistema y no se vuelve a barajar al mover los controles del banco. Tras 2
+   fallos en la misma pregunta se pasa a la siguiente. */
+function Q(pregunta,ok,okWhy,malas){
+  const ops=[{t:ok,ok:true,why:okWhy}];
+  malas.forEach(m=>ops.push({t:m[0],ok:false,why:m[1]}));
+  return {pregunta,opciones:ops};
 }
+const QUIZ={
+  explora:[
+    Q('Con filtro capacitivo, ¿por qué un diodo de media onda necesita soportar PIV ≈ 2Vm y no solo Vm?',
+      'Porque el capacitor retiene ≈ +Vm mientras la fuente baja a −Vm y el diodo ve ambos',
+      'Correcto: sin filtro el diodo solo ve Vm. Con filtro, el capacitor retiene +Vm mientras la fuente oscila hasta −Vm: el diodo bloqueado ve la suma, ≈2Vm.',
+      [['Porque con filtro el diodo conduce el doble de tiempo que sin filtro','Al revés: con filtro el diodo conduce MENOS tiempo (cerca del pico); el PIV mayor viene de la carga retenida en el capacitor.'],
+       ['Porque la frecuencia de rizo se duplica en cuanto se agrega el filtro','En media onda el rizo sigue siendo 1× la frecuencia de línea, con o sin filtro; eso no cambia el PIV.'],
+       ['Porque el capacitor eleva al doble el voltaje pico de la propia fuente','El capacitor no amplifica la fuente; solo retiene su pico y esa tensión se suma en el diodo bloqueado.']]),
+    Q('En un puente sin filtro, ¿por qué el pico de Vout queda por debajo de Vm?',
+      'Porque la corriente atraviesa dos diodos en serie y cada uno cae su Vf',
+      'Correcto: en cada semiciclo conducen dos uniones en serie, así que el pico de salida es Vm − 2Vf.',
+      [['Porque el puente reparte la tensión por igual entre sus cuatro diodos','No: en cada semiciclo solo conducen dos diodos; los otros dos están bloqueados.'],
+       ['Porque el transformador pierde tensión cada vez que el puente conduce','El transformador es ideal en este modelo; la pérdida está en los diodos.'],
+       ['Porque el capacitor aún no se ha cargado durante el primer ciclo','Sin filtro no hay capacitor: la caída es de los diodos, en todos los ciclos.']]),
+    Q('¿Por qué el Schottky tipo 1N5819 se descarta en rectificadores con Vrms alto?',
+      'Porque su VRRM de 40 V queda por debajo del PIV que aparece al subir Vrms',
+      'Correcto: el Schottky cae poco, pero su tensión inversa máxima es baja; con Vrms alto el PIV la rebasa.',
+      [['Porque su caída directa Vf es mayor que la del silicio a la misma corriente','Es al revés: el Schottky tiene la Vf más baja, esa es su ventaja.'],
+       ['Porque no conduce en polarización directa mientras la fuente sea de 60 Hz','Sí conduce; el Schottky rectifica perfectamente a 50 o 60 Hz.'],
+       ['Porque su corriente promedio máxima es siempre menor de 1 mA en el modelo','No: su IF(AV) en este modelo es 1 A, igual que la del silicio.']])
+  ],
+  predice:[
+    Q('¿Por qué la frecuencia de rizo es 2× la de línea en center-tap y puente, pero 1× en media onda?',
+      'Porque onda completa recarga el capacitor en CADA semiciclo y media onda solo en uno',
+      'Correcto: onda completa rectifica ambos semiciclos, así que hay el doble de pulsos de recarga por segundo.',
+      [['Porque center-tap y puente usan más diodos, y más diodos dan más rizo','Más diodos no implican más rizo; la onda completa tiene MENOS rizo que la media onda.'],
+       ['Porque el transformador entrega el doble de voltaje en esas dos topologías','El voltaje no fija la frecuencia de rizo; la fija cuántos pulsos de carga llegan por segundo.'],
+       ['Porque el capacitor se descarga más rápido cuando hay más diodos activos','No: la descarga la fija R·C; los diodos solo determinan cuándo hay pulsos de recarga.']]),
+    Q('Con el mismo C y la misma R_L, ¿qué topología deja menos rizo?',
+      'Una de onda completa, porque el capacitor cae menos entre recargas',
+      'Correcto: al recargarse el doble de veces por segundo, el capacitor tiene menos tiempo para descargarse entre pulsos.',
+      [['La de media onda, porque conduce menos tiempo y calienta menos','Conducir menos tiempo no baja el rizo: deja más tiempo entre recargas, y el rizo sube.'],
+       ['Todas por igual, porque el rizo depende solo de C y no de la topología','No: la topología fija cuántas recargas hay por ciclo de línea.'],
+       ['La de center-tap, porque tiene un devanado extra que absorbe el rizo','El devanado extra no filtra nada; el rizo lo controlan C, R_L y la frecuencia de recarga.']]),
+    Q('Si aumentas R_L (menos carga) con C fijo, ¿qué pasa con el rizo?',
+      'Disminuye, porque la constante de tiempo R·C es mayor y la descarga es más lenta',
+      'Correcto: con menos corriente de carga, el capacitor pierde menos tensión entre pulsos.',
+      [['Aumenta, porque hay más resistencia en serie con el capacitor','R_L no está en serie con el capacitor; está en paralelo y fija su descarga.'],
+       ['No cambia, porque el rizo lo fija únicamente el valor de la capacitancia','El rizo depende de C y de la corriente de carga, o sea de R_L.'],
+       ['Se duplica al duplicar la resistencia, igual que la tensión de salida','El rizo baja con R_L mayor; no crece de forma proporcional a ella.']])
+  ],
+  barrido:[
+    Q('Si duplicas la capacitancia de filtro C (todo lo demás fijo), ¿qué le pasa aproximadamente al rizo Vr(pp)?',
+      'Se reduce a la mitad aproximadamente: Vr(pp) es inversamente proporcional a C',
+      'Correcto: el doble de capacitancia retiene el doble de carga para la misma caída de tensión, por eso la pendiente log-log es ≈ −1.',
+      [['Se mantiene igual: C no afecta el rizo, solo cambia la tensión media Vdc','C es justamente el parámetro que controla el rizo.'],
+       ['Se duplica también, porque un capacitor mayor tarda más en recargarse','Es la relación opuesta: más capacitancia significa MENOS rizo.'],
+       ['Se reduce a la cuarta parte, porque el rizo es inverso al cuadrado de C','No: la relación es inversa simple (pendiente −1), no cuadrática.']]),
+    Q('Al aumentar C en el barrido, ¿qué pasa con la corriente de pico por diodo?',
+      'Aumenta: el diodo conduce pulsos más cortos y estrechos para recargar lo mismo',
+      'Correcto: con más C la conducción se concentra cerca del pico, y la misma carga promedio exige picos de corriente mayores.',
+      [['Disminuye, porque con menos rizo el diodo trabaja menos','La corriente promedio es la misma, pero se entrega en pulsos más estrechos y más altos.'],
+       ['Se mantiene igual, porque la carga R_L no cambió durante el barrido','Aunque R_L no cambie, la forma de la corriente del diodo sí cambia.'],
+       ['Se anula, porque el capacitor alimenta solo la carga desde el primer ciclo','El diodo tiene que recargar al capacitor en cada ciclo; su corriente no se anula.']]),
+    Q('La pendiente log-log ≈ −1 del barrido de C significa que…',
+      'Vr(pp) es inversamente proporcional a C en el intervalo medido',
+      'Correcto: una pendiente −1 en escala log-log es una ley inversa simple.',
+      [['Vr(pp) crece en proporción directa a C a lo largo de todo el barrido','Una pendiente negativa indica que el rizo baja al subir C.'],
+       ['Vdc es inversamente proporcional a C, por eso disminuye al filtrar','Vdc no baja con C; al contrario, tiende a subir hacia el pico.'],
+       ['El rizo no depende de C porque la pendiente es constante en el intervalo','Pendiente constante no es pendiente cero: aquí es −1, y sí hay dependencia.']])
+  ],
+  reto:[
+    Q('A igual Vdc, ¿por qué el puente es más usado en fuentes reales que el center-tap?',
+      'Porque pide PIV ≈ Vm y un secundario sencillo, pagando dos caídas de diodo',
+      'Correcto: el puente tolera diodos de menor VRRM y un transformador sin derivación, a costa de una caída de tensión extra.',
+      [['Porque el puente tiene menos rizo que el center-tap con el mismo C','Ambos son de onda completa y tienen la misma frecuencia de rizo.'],
+       ['Porque el puente usa menos diodos que el center-tap en total','Es al revés: el puente usa 4 diodos y el center-tap solo 2.'],
+       ['Porque el puente elimina la caída de tensión de los diodos en conducción','No: en el puente conducen dos uniones en serie, así que la caída es mayor.']]),
+    Q('¿Por qué el reto exige un margen 1,4× entre el PIV y el VRRM del diodo?',
+      'Porque los transitorios de línea pueden rebasar el pico nominal y no conviene operar al límite',
+      'Correcto: el VRRM es un máximo absoluto; el margen cubre variaciones de la red y picos.',
+      [['Porque el VRRM del diodo se duplica cuando la unión se calienta','No: el VRRM no crece con la temperatura.'],
+       ['Porque el margen compensa los 0,7 V de caída directa que se pierden','La caída directa no tiene relación con la tensión inversa que soporta el diodo.'],
+       ['Porque es un requisito arbitrario que no mejora la seguridad del diseño','Está ligado a la seguridad: operar justo en el límite deja sin holgura ante picos.']]),
+    Q('Si tu diseño cumple Vdc pero el rizo excede el máximo pedido, ¿qué ajuste ayuda?',
+      'Subir C, o pasar a una topología de onda completa, para que caiga menos entre recargas',
+      'Correcto: más capacitancia, o más recargas por ciclo, reducen la caída entre pulsos.',
+      [['Bajar C, para que el capacitor se cargue más rápido en cada pulso','Bajar C aumenta el rizo, no lo reduce.'],
+       ['Cambiar a Schottky sin tocar nada más, porque cae menos que el silicio','La diferencia de Vf es mínima frente al rizo y no resuelve el problema.'],
+       ['Bajar Vrms hasta que el pico de entrada sea menor que el objetivo','Bajar Vrms cambia Vdc, no el rizo relativo, y rompería el objetivo de tensión.']])
+  ]
+};
+let qOpts=[],qAns=-1;
+const qIdx={explora:0,predice:0,barrido:0,reto:0};
+let qFallos=0;
 function clearDx(){el('dxbtns').innerHTML='';}
 function refreshQuestion(){
-  const q=QUIZ[mode];if(!q)return;
-  el('q_text').textContent=q.pregunta;
+  const lista=QUIZ[mode];if(!lista)return;
+  const q=lista[qIdx[mode]%lista.length];
+  el('q_text').textContent='('+(qIdx[mode]%lista.length+1)+'/'+lista.length+') '+q.pregunta;
   el('dxbtns').innerHTML='';
   const opciones=q.opciones.slice();
   for(let i=opciones.length-1;i>0;i--){
     const j=Math.floor(Math.random()*(i+1));
     [opciones[i],opciones[j]]=[opciones[j],opciones[i]];
   }
+  qOpts=opciones;qAns=-1;qFallos=0;
   opciones.forEach((o,i)=>{
     const b=document.createElement('button');
     b.className='b';b.style.textAlign='left';
     b.textContent='ABCD'[i]+') '+o.t;
     b.onclick=()=>{
       if(b.classList.contains('right')||b.classList.contains('wrong'))return;
+      qAns=i;
       b.classList.add(o.ok?'right':'wrong');
       showToast((o.ok?'✔ ':'✘ ')+o.why);
       synth.beep(o.ok?980:220,o.ok?.12:.15,.07);
+      if(!o.ok){qFallos++;if(qFallos>=2)setTimeout(siguientePregunta,1400);}
     };
     el('dxbtns').appendChild(b);
   });
+}
+function siguientePregunta(){
+  qIdx[mode]++;
+  refreshQuestion();
 }
 
 /* ---------- 14) Picking, recorrido guiado, animación e init ---------- */
@@ -932,12 +1082,15 @@ pickerFor(S.scene,S.camera,S.renderer.domElement,hit=>{
     dom.style.cursor=title?'pointer':'default';dom.title=title;
   });
 })();
+/* El recorrido es una demostración: no comprueba el reto y, al terminar, deja
+   el banco y el modo como estaban. */
 async function runAuto(){
   if(autoRunning)return;autoRunning=true;
   const b=el('btnAuto');b.disabled=true;b.textContent='✨ Recorriendo…';
+  const snap={topKey,dsel,freqIdx,Ridx,Cidx,Vrms,mode};
   try{
     synth.init();synth.resume();
-    setMode('explora');topKey='halfwave';dsel='si';Cidx=0;syncCtrlBtns();onChange();
+    setMode('explora',true);topKey='halfwave';dsel='si';Cidx=0;syncCtrlBtns();onChange();
     showToast('1/5 · Media onda sin filtro: solo pasa el semiciclo positivo — mira el hueco en Vout.');
     await sleep(3000);
     Cidx=4;syncCtrlBtns();onChange();
@@ -946,14 +1099,19 @@ async function runAuto(){
     topKey='bridge';dsel='si';syncCtrlBtns();onChange();
     showToast('3/5 · Puente: onda completa, PIV≈Vm (la mitad), pero 2 caídas de diodo en vez de 1.');
     await sleep(3000);
-    setMode('barrido');
+    setMode('barrido',true);
     await runSweepC();
     showToast('4/5 · El barrido confirma: más C, menos rizo — pendiente log-log ≈ −1.');
     await sleep(2600);
-    setMode('reto');
-    showToast('5/5 · Reto: ajusta el circuito para cumplir el objetivo con margen de seguridad en el PIV.');
+    showToast('5/5 · En el Reto tú eliges topología, dispositivo, Vrms y C para el objetivo que pida el enunciado.');
     await sleep(2600);
-  } finally { autoRunning=false;b.disabled=false;b.textContent='✨ Recorrido guiado'; }
+  } finally {
+    topKey=snap.topKey;dsel=snap.dsel;freqIdx=snap.freqIdx;Ridx=snap.Ridx;Cidx=snap.Cidx;Vrms=snap.Vrms;
+    el('sVrms').value=Vrms;el('vsv').textContent=Vrms.toFixed(1)+' V';
+    SWEEPC=[];
+    setMode(snap.mode,true);
+    autoRunning=false;b.disabled=false;b.textContent='✨ Recorrido guiado';
+  }
 }
 S.setAnimate(()=>{});
 
@@ -985,18 +1143,25 @@ el('btnPred').onclick=checkPredice;
 el('btnNewPred').onclick=newPredice;
 el('btnReto').onclick=checkReto;
 el('btnNewReto').onclick=newReto;
+el('btnRetoPista').onclick=retoPista;
+el('btnQNext').onclick=siguientePregunta;
 el('btnAuto').onclick=runAuto;
 ['pf_1','pf_2'].forEach(id=>el(id).onclick=()=>{el('pf_1').classList.toggle('on',id==='pf_1');el('pf_2').classList.toggle('on',id==='pf_2');});
 ['ps_si','ps_no'].forEach(id=>el(id).onclick=()=>{el('ps_si').classList.toggle('on',id==='ps_si');el('ps_no').classList.toggle('on',id==='ps_no');});
 
 /* init */
-genReto();buildQuiz();syncCtrlBtns();refreshBenchSel();
+genReto();syncCtrlBtns();refreshBenchSel();
 S.start();setMode('explora');
 window.__labDebug={
-  state:()=>({mode,topKey,dsel,Vrms,freq:curF(),R:curR(),C:curC(),sweeping,predRevealed,predSolved,retoSolved}),
+  state:()=>({mode,topKey,dsel,Vrms,freq:curF(),R:curR(),C:curC(),Ridx,Cidx,sweeping,predRevealed,predSolved,retoSolved}),
   res:()=>RES?{...RES,samples:RES.samples.map(p=>({...p}))}:null,
   pred:()=>PRED?JSON.parse(JSON.stringify({...PRED,res:{...PRED.res,samples:undefined}})):null,
   reto:()=>RETO?{...RETO}:null,
+  get retoSolved(){return retoSolved;},
+  get intentos(){return intentos;},
+  get quizAnswer(){return qAns;},
+  get quizCorrectIndex(){return qOpts.findIndex(o=>o.ok);},
+  runAuto,retoPista,evalRetoD,
   sweep:()=>SWEEPC.map(p=>({...p})),
   rectify:(tk,dk,vr,fr,rl,c)=>rectify(tk,DIODES[dk],vr,fr,rl,c),
   pivFormula:(tk,dk,vr,c,idc)=>pivFormula(tk,DIODES[dk],vr,c,idc),

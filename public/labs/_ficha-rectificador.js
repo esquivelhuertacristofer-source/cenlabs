@@ -17,12 +17,12 @@ fichaTecnica({
   },
   s2: {
     title: 'Dispositivos, topologías y parámetros del modelo',
-    warn: 'Los parámetros de diodo son <b>valores tipo, anclados al Vf publicado a la corriente nominal</b> ⚑ — contrastar con la hoja de datos de la pieza física real antes de usar en diseño. Los valores de PIV/Vdc/rizo mostrados son la <b>solución exacta del modelo</b> (integración numérica), no lecturas de instrumento.',
+    warn: 'Los parámetros de diodo son <b>valores tipo, anclados al Vf publicado a la corriente nominal</b> — contrastar con la hoja de datos de la pieza física real antes de usar en diseño. Los valores de PIV/Vdc/rizo mostrados son la <b>solución exacta del modelo</b> (integración numérica), no lecturas de instrumento.',
     rows: [
       ['Elemento', 'Parámetros / rating (modelo)', 'Comportamiento típico'],
       ['Si (tipo 1N4007)', 'Is ≈ 0.84 nA · n ≈ 1.85 · VRRM = 1000 V · IF(AV) = 1.0 A @ 75 °C', 'Vf ≈ 1.0 V @ 1 A · IFSM = 30 A (8.3 ms)'],
-      ['Schottky (tipo 1N5819)', 'Is ≈ 1.0 nA · n ≈ 1.05 · VRRM = 40 V · IF(AV) = 1.0 A', 'Vf ≈ 0.56 V @ 1 A (banda de hoja de datos 0.45–0.60 V ⚑)'],
-      ['Puente DB107 (rating de paquete)', '4 uniones de Si integradas · VRRM = 1000 V · IF(AV) = 1.0 A @ 40 °C ⚑ · IFSM = 50 A', 'Física interna modelada con el diodo de Si; el rating de seguridad mostrado es el del paquete'],
+      ['Schottky (tipo 1N5819)', 'Is ≈ 1.0 nA · n ≈ 1.05 · VRRM = 40 V · IF(AV) = 1.0 A', 'Vf ≈ 0.56 V @ 1 A (banda de hoja de datos 0.45–0.60 V)'],
+      ['Puente DB107 (rating de paquete)', '4 uniones de Si integradas · VRRM = 1000 V · IF(AV) = 1.0 A @ 40 °C · IFSM = 50 A', 'Física interna modelada con el diodo de Si; el rating de seguridad mostrado es el del paquete'],
       ['Media onda', '1 diodo · PIV ≈ 2Vm − Vf (con filtro) · frecuencia de rizo = 1× línea', 'Menor costo, mayor rizo y mayor PIV requerido'],
       ['Center-tap', '2 diodos · PIV ≈ 2Vm − Vf · frecuencia de rizo = 2× línea', 'Requiere transformador con derivación central'],
       ['Puente', '4 diodos · PIV ≈ Vm − Vf · frecuencia de rizo = 2× línea', 'PIV requerido la mitad que center-tap; transformador de un solo devanado']
@@ -56,6 +56,6 @@ fichaTecnica({
     '<b>IEC 60617</b>: símbolos gráficos para esquemas eléctricos (diodo, fuente CA, capacitor, resistor) — el estándar de representación de este lab.',
     '<b>Hoja de datos Vishay 1N4001–1N4007</b>: VRRM, IF(AV) e IFSM del diodo de silicio de uso general modelado aquí.',
     '<b>Hoja de datos STMicroelectronics 1N5817–1N5819</b>: familia Schottky — el Vf usado (≈0.56 V @ 1 A) se ancla a la banda superior del rango publicado (0.45–0.60 V), evitando confundirlo con el valor típico del 1N5817 de menor corriente nominal.',
-    '<b>Hoja de datos Diodes Inc. DB101–DB107</b> ⚑: rating de IF(AV) del puente integrado — se señala que otros fabricantes listan hasta 1.5 A bajo el mismo número de parte DB107; contrastar siempre con la hoja de datos de la pieza física antes de usar en diseño.'
+    '<b>Hoja de datos Diodes Inc. DB101–DB107</b>: rating de IF(AV) del puente integrado — se señala que otros fabricantes listan hasta 1.5 A bajo el mismo número de parte DB107; contrastar siempre con la hoja de datos de la pieza física antes de usar en diseño.'
   ]
 });

@@ -16,7 +16,7 @@ fichaTecnica({
   },
   s2: {
     title: 'Dispositivos y parámetros del modelo',
-    warn: 'Los parámetros de cada zener son <b>valores de hoja de datos a la corriente de prueba estándar (IZT)</b> ⚑ — VZK, V0 e IZM mostrados en pantalla son <b>derivados por fórmula</b> a partir de ellos, no medidos de una pieza física. Contrastar siempre con la hoja de datos de la parte real antes de usar en diseño.',
+    warn: 'Los parámetros de cada zener son <b>valores de hoja de datos a la corriente de prueba estándar (IZT)</b> — VZK, V0 e IZM mostrados en pantalla son <b>derivados por fórmula</b> a partir de ellos, no medidos de una pieza física. Contrastar siempre con la hoja de datos de la parte real antes de usar en diseño.',
     rows: [
       ['Dispositivo', 'Parámetros de hoja de datos (@ 25 °C)', 'Comportamiento típico'],
       ['1N4728A', 'VZ = 3.3 V @ IZT = 76 mA · ZZT = 10 Ω · IZK = 1 mA · ZZK = 400 Ω · IZM = 276 mA · PD = 1 W', 'Codo suave, corriente de prueba alta — típico de zeners de bajo voltaje'],
@@ -40,12 +40,12 @@ fichaTecnica({
       'Calcular Rs con margen antes de energizar, nunca conectar el zener directamente a la fuente sin resistor serie — sin Rs, la corriente de avalancha no tiene límite y el dispositivo se destruye en milisegundos.',
       'Medir Iz insertando el amperímetro en serie con el zener (no con Rs), para no confundir Iz con la corriente total entregada por Rs (Ir = Iz + Il).',
       'Verificar experimentalmente el efecto de RL: al desconectar la carga (RL → abierto), toda la corriente de Rs pasa por el zener — confirmar que no se exceda IZM en esa condición, el peor caso de corriente para el dispositivo.',
-      'Contrastar la pendiente medida de Vout contra Vin (regulación de línea) con la fórmula teórica Rp/(Rp+Rs), y notar que a mayor ZZT (peor zener) o menor RL, la regulación empeora — esto es más fácil de ver en el laboratorio real, donde ningún zener tiene ZZT = 0.'
+      'Contrastar la pendiente medida de Vout contra Vin (regulación de línea) con la fórmula teórica Rp/(Rp+Rs), y notar que a mayor ZZT (peor zener) la regulación de línea empeora, mientras que una carga RL más pequeña la mejora, porque Rp = ZZT ∥ RL baja — esto es más fácil de ver en el laboratorio real, donde ningún zener tiene ZZT = 0.'
     ]
   },
   s5: {
     modela: 'el modelo zener lineal por tramos (corte, codo, avalancha) con VZK, V0 e IZM derivados por fórmula de parámetros reales de hoja de datos (VZ, IZT, ZZT, IZK, ZZK, IZM, PD); la solución exacta del circuito regulador shunt (Rs, zener, RL) por bisección numérica; la verificación de márgenes de seguridad de corriente y potencia contra los ratings del dispositivo; y la medición de regulación de línea (dVout/dVin) por barrido numérico, comparada contra la fórmula teórica de pequeña señal.',
-    noModela: 'el coeficiente de temperatura αVZ (sin valor único confiable en las hojas de datos consultadas — se muestra solo como nota cualitativa), la corriente de fuga sub-codo (idealizada en 0), la capacitancia de unión y la respuesta AC/transitoria del zener, el ruido de avalancha, la fuente y los resistores como elementos no ideales (sin resistencia interna ni tolerancia), ni el derrateo térmico de IZM y PD con la temperatura ambiente o de encapsulado.'
+    noModela: 'el coeficiente de temperatura αVZ (las hojas de datos no dan un valor único para todas las partes; se muestra solo como nota cualitativa), la corriente de fuga sub-codo (idealizada en 0), la capacitancia de unión y la respuesta AC/transitoria del zener, el ruido de avalancha, la fuente y los resistores como elementos no ideales (sin resistencia interna ni tolerancia), ni el derrateo térmico de IZM y PD con la temperatura ambiente o de encapsulado.'
   },
   s6: [
     '<b>Millman y Halkias</b>, <i>Electronic Devices and Circuits</i> (McGraw-Hill): modelo lineal por tramos del diodo zener y análisis del regulador shunt.',
@@ -54,6 +54,6 @@ fichaTecnica({
     '<b>IEC 60617</b>: símbolos gráficos para esquemas eléctricos (diodo zener, fuente CD, resistor) — el estándar de representación de este lab.',
     '<b>Hoja de datos ON Semiconductor 1N4728A–1N4764A</b>: familia de 1 W — VZ, ZZT, IZK, ZZK, IZM y PD de los dispositivos 1N4728A y 1N4733A modelados aquí.',
     '<b>Hoja de datos Vishay General Semiconductor 1N5221B–1N5281B</b>: familia de 500 mW — VZ, ZZT, IZK, ZZK, IZM y PD del dispositivo 1N5231B modelado aquí.',
-    '<b>Nota sobre αVZ</b> ⚑: distintos fabricantes reportan el coeficiente de temperatura de forma no uniforme entre partes de una misma familia (algunas hojas de datos lo omiten, otras lo dan solo para valores de VZ seleccionados); por eso este lab lo trata únicamente de forma cualitativa y no lo incluye en el motor de cálculo numérico.'
+    '<b>Nota sobre αVZ</b>: distintos fabricantes reportan el coeficiente de temperatura de forma no uniforme entre partes de una misma familia (algunas hojas de datos lo omiten, otras lo dan solo para valores de VZ seleccionados); por eso este lab lo trata únicamente de forma cualitativa y no lo incluye en el motor de cálculo numérico.'
   ]
 });

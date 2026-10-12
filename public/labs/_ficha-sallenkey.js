@@ -47,8 +47,6 @@ fichaTecnica({
     '<b>Texas Instruments</b>, "Analog Engineer\'s Circuit: Single-supply, 2nd-order, Sallen-Key low-pass filter circuit" (SBOA226) — https://www.ti.com/lit/an/sboa226/sboa226.pdf: ejemplo de diseño de referencia.',
     '<b>Texas Instruments</b>, hoja de datos del TL072 — https://www.ti.com/lit/ds/symlink/tl072.pdf: fuente de GBW, slew rate y offset de entrada.',
     '<b>Kenneth A. Kuhn</b>, "Sallen-Key Low-pass Filter" — http://www.kennethkuhn.com/students/ee351/filters/sallen_key_lp.pdf: nota técnica de referencia, consultada para contrastar la derivación de fc/K/Q y el comportamiento cerca de K→3.',
-    '<b>Sedra, A. S. y Smith, K. C.</b>, "Microelectronic Circuits": texto de referencia, consultado para contrastar la clasificación cualitativa de la respuesta según Q.',
-    '<b>Nota curricular</b> ⚑: la lista maestra (docs/LISTA-MAESTRA-200-PRACTICAS.md) asigna a esta práctica (d2-14) la trazabilidad "ETR-II.1", confirmada por lectura directa de la fila correspondiente en esa lista maestra; la correspondencia completa con el temario y el inventario oficial del curso queda pendiente de confirmación curricular directa por un responsable del área.',
-    '<b>Notas para el revisor experto:</b> esta sección se actualizará con hallazgos concretos tras la verificación con Playwright de esta práctica (errores de consola, sanidad física de fc/K/Q/magnitud/fase vía window.__labDebug, comportamiento de los 4 modos —incluyendo la clasificación de Q y el barrido de f/fc en modo Medición—, y correctitud visual de la curva de Bode y del osciloscopio 3D).'
+    '<b>Sedra, A. S. y Smith, K. C.</b>, "Microelectronic Circuits": texto de referencia, consultado para contrastar la clasificación cualitativa de la respuesta según Q.'
   ]
 });

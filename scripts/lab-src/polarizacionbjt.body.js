@@ -465,7 +465,7 @@ document.getElementById('hud').innerHTML=`
   <div class="fid"><span class="ft">CONTRATO DE FIDELIDAD</span>
   <span class="fl">SÍ:</span> Modelo de gran señal DC con VBE=0.7 V constante (interruptor con caída constante), IC=β·IB solo en región activa, criterio de saturación vía VCE(sat) del datasheet, criterio de corte vía IB≤0, criterio "rígido" RTH≤0.1·β·RE, dispersión real de hFE por hoja de datos (BC547B: 200–450 · 2N3904: 100–300 @ condiciones de prueba del fabricante), recta de carga con extremos IDEALES (IC(sat)=VCC/(RC+RE), VCE=VCC) mostrados como referencia geométrica — el punto Q real se resuelve con el modelo completo, no leído de la recta ideal.<br>
   <span class="no">NO:</span> Análisis de señal pequeña ni ganancia de voltaje/corriente AC, modelo completo de Ebers-Moll/Gummel-Poon, efecto Early (resistencia de salida finita), dinámica térmica en tiempo real (autocalentamiento), variabilidad tipo Monte Carlo entre unidades más allá del rango min/max del datasheet, física de ruptura más allá de los límites VCEO/VCBO/VEBO declarados, parásitos dependientes de frecuencia, cargas dinámicas/AC en el colector.</div>
-  <div class="src">Ref: ON Semiconductor BC546/D Rev.6 (BC547B) · STMicroelectronics 2N3904 Preliminary Data Feb-2003 · Boylestad &amp; Nashelsky, "Electronic Devices and Circuit Theory". Nota: MEC-I.2/ETR-I.2 y el transistor por defecto de esta práctica están pendientes de confirmación con el equipo curricular.</div>`;
+  <div class="src">Ref: ON Semiconductor BC546/D Rev.6 (BC547B) · STMicroelectronics 2N3904 Preliminary Data Feb-2003 · Boylestad &amp; Nashelsky, "Electronic Devices and Circuit Theory".</div>`;
 
 document.getElementById('panel').innerHTML=`
   <h4>Polarización BJT · <span id="p_mode">Explora</span></h4>
@@ -529,6 +529,7 @@ document.getElementById('panel').innerHTML=`
   <div id="retoBox" style="display:none;margin-top:10px">
     <div id="retoAsk" style="font-size:12px;color:#EAF4F1;margin-bottom:6px"></div>
     <button class="b" id="btnReto" style="width:100%">Verificar diseño</button>
+    <button class="b" id="btnPista" style="width:100%;margin-top:4px">💡 Pista (máx. 2)</button>
     <div id="retoResult" style="font-size:12px;margin-top:6px"></div>
   </div>
 
@@ -661,27 +662,72 @@ function checkPredice(kind,val){
   synth.beep(ok?880:220,.08,.06);
 }
 
+/* ---------- Reto: Q estable ante la dispersión de β ----------
+   El enunciado fija transistor, VCC y RC (se resiembran con cada reto). Criterio, evaluado con β mínimo y máximo
+   de la hoja de datos: (1) región activa en ambos extremos, (2) IC varía ≤ 12 % entre ambos, (3) VCE queda
+   entre 0,30 y 0,75 de VCC en ambos. No hay veredicto en vivo: solo al pulsar «Verificar». */
+let intentos=0,fallosSeguidos=0,pistas=0;const pistaLog=[];
+function rndi(n){return Math.floor(Math.random()*n);}
+function evalDiseno(R){
+  const dev=DEVS[R.devKey];
+  const lo=solveBJT('divisor',dev,dev.hfeMin,R.VCC,R.RC,curRE(),curRB(),curR1(),curR2());
+  const hi=solveBJT('divisor',dev,dev.hfeMax,R.VCC,R.RC,curRE(),curRB(),curR1(),curR2());
+  const activas=lo.region==='activa'&&hi.region==='activa';
+  const dIC=activas?(hi.IC-lo.IC)/lo.IC:null;
+  const vceOk=activas&&lo.VCE>=0.30*R.VCC&&hi.VCE>=0.30*R.VCC&&lo.VCE<=0.75*R.VCC&&hi.VCE<=0.75*R.VCC;
+  return {lo:lo,hi:hi,activas:activas,dIC:dIC,estable:activas&&dIC<=0.12,vceOk:vceOk,ok:activas&&dIC<=0.12&&vceOk};
+}
 function newReto(){
-  const dev=curDev();
+  devKey=rndi(2)?'n2n3904':'bc547b';
+  VCCidx=rndi(VCC_VALS.length);RCidx=rndi(RC_VALS.length);
+  topo='divisor';beta=curDev().hfeTyp;
   RETO={devKey:devKey,VCC:curVCC(),RC:curRC()};
-  retoSolved=false;
-  el('retoAsk').textContent='Diseña R1, R2 y RE (con VCC='+curVCC()+' V, RC='+fmtR(curRC())+', '+dev.name+', β real entre '+dev.hfeMin+' y '+dev.hfeMax+') para que el punto Q permanezca en la región ACTIVA en TODO el rango de β. Ajusta R1/R2/RE arriba y presiona Verificar.';
-  el('retoResult').textContent='';
+  retoSolved=false;fallosSeguidos=0;pistas=0;pistaLog.length=0;
+  syncCtrlBtns();RES=curSolve();
+  pintaReto('');
+}
+function pintaReto(msg){
+  if(!RETO)return;
+  const dev=DEVS[RETO.devKey];
+  el('retoAsk').innerHTML='Con <b>'+dev.name+'</b>, VCC = <b>'+RETO.VCC+' V</b> y RC = <b>'+fmtR(RETO.RC)+'</b>, diseña R1, R2 y RE para un punto Q <b>estable</b> ante la dispersión de β ('+dev.hfeMin+'–'+dev.hfeMax+'): activa en ambos extremos, IC con variación ≤ 12 % y VCE entre 0,30 y 0,75 de VCC. No hay veredicto hasta «Verificar diseño».'+
+    '<div style="font-size:11px;color:#8FB3AC;margin-top:4px">Intentos: <b id="retoIntentos">'+intentos+'</b> · Pistas: '+pistas+'/2'+(retoSolved?' · <b style="color:#3fae3f">✔ resuelto</b>':'')+'</div>'+
+    (pistaLog.length?'<div style="font-size:11px;margin-top:4px">'+pistaLog.map(function(h){return '💡 '+h;}).join('<br>')+'</div>':'');
+  el('retoResult').textContent=msg;
+  el('retoResult').style.color=retoSolved?'#3fae3f':'#d23b3b';
+}
+function retoPista(){
+  if(mode!=='reto'||!RETO)return;
+  if(pistas>=2){showToast('Ya usaste las 2 pistas de este reto.');return;}
+  const H=['Si IC sigue a β, el punto Q se mueve con la dispersión: ¿qué elemento realimenta la corriente de emisor y la frena?',
+    'Un divisor «rígido» fija VB aunque cambie IB: compara RTH = R1‖R2 con 0,1·β_mín·RE, y reparte VCC para que VCE quede lejos de los extremos.'];
+  pistaLog.push(H[pistas]);pistas++;pintaReto(el('retoResult').textContent);
 }
 function checkReto(){
-  const dev=curDev();
-  const lo=solveBJT('divisor',dev,dev.hfeMin,curVCC(),curRC(),curRE(),curRB(),curR1(),curR2());
-  const hi=solveBJT('divisor',dev,dev.hfeMax,curVCC(),curRC(),curRE(),curRB(),curR1(),curR2());
-  const rbb=(curR1()*curR2())/(curR1()+curR2());
-  const rigidoLo=isRigido(rbb,dev.hfeMin,curRE());
-  const ok=lo.region==='activa'&&hi.region==='activa';
-  retoSolved=ok;
-  let msg=ok?'¡Diseño válido! El punto Q permanece en activa para β='+dev.hfeMin+' (VCE='+lo.VCE.toFixed(2)+'V) y β='+dev.hfeMax+' (VCE='+hi.VCE.toFixed(2)+'V).':
-    'Aún no — con β='+dev.hfeMin+' la región es '+lo.region+' y con β='+dev.hfeMax+' es '+hi.region+'. Ambas deben ser "activa".';
-  msg+=rigidoLo?' Divisor rígido (RTH ≤ 0.1·β·RE): sí.':' Divisor rígido (RTH ≤ 0.1·β·RE): no — considera bajar R1‖R2 o subir RE.';
-  el('retoResult').textContent=msg;
-  el('retoResult').style.color=ok?'#3fae3f':'#d23b3b';
-  synth.beep(ok?880:220,.08,.06);
+  if(!RETO)return;
+  // El enunciado manda: se vuelve a poner el transistor, VCC y RC del reto antes de evaluar.
+  devKey=RETO.devKey;VCCidx=VCC_VALS.indexOf(RETO.VCC);RCidx=RC_VALS.indexOf(RETO.RC);topo='divisor';
+  syncCtrlBtns();RES=curSolve();refreshAll();
+  const e=evalDiseno(RETO);
+  intentos++;
+  let msg;
+  if(e.ok){
+    retoSolved=true;fallosSeguidos=0;
+    msg='¡Diseño válido! Con β='+curDev().hfeMin+' y β='+curDev().hfeMax+' el Q queda en activa (VCE='+e.lo.VCE.toFixed(2)+' V y '+e.hi.VCE.toFixed(2)+' V; IC varía '+(e.dIC*100).toFixed(1)+' %).';
+  }else{
+    retoSolved=false;fallosSeguidos++;
+    const f=[];
+    if(!e.activas){
+      if(e.lo.region!=='activa')f.push('con β mínimo el transistor queda en '+e.lo.region);
+      if(e.hi.region!=='activa')f.push('con β máximo el transistor queda en '+e.hi.region);
+    }else{
+      if(!e.estable)f.push('IC cambia demasiado con β: el Q no es estable');
+      if(!e.vceOk)f.push('VCE queda demasiado cerca de un extremo (corte o saturación) para algún β');
+    }
+    msg='Aún no: '+f.join('; ')+'.';
+    if(fallosSeguidos>=3){newReto();msg+=' Tres fallos seguidos: se plantea un caso nuevo (otro transistor, VCC y RC).';}
+  }
+  pintaReto(msg);
+  synth.beep(e.ok?880:220,.08,.06);
 }
 
 async function runSweep(){
@@ -731,7 +777,7 @@ function updateReport(){
   const rigido=topo==='divisor'?isRigido(rbb,beta,curRE()):null;
   let txt='VBB='+fmtV(RES.VBB)+' · RBB='+fmtR(rbb)+' · IB='+fmtI(RES.IB)+' · IC='+fmtI(RES.IC)+' · IE='+fmtI(RES.IE)+' · VCE='+fmtV(RES.VCE)+' · región: '+RES.region;
   if(RES.region==='saturacion')txt+=' · β forzado ≈ '+RES.betaForced.toFixed(1)+' (< β real del dispositivo)';
-  if(topo==='divisor')txt+=' · '+(rigido?'divisor RÍGIDO (RTH ≤ 0.1·β·RE)':'divisor NO rígido (RTH > 0.1·β·RE) — el punto Q depende más de β');
+  if(topo==='divisor'&&mode!=='reto')txt+=' · '+(rigido?'divisor RÍGIDO (RTH ≤ 0.1·β·RE)':'divisor NO rígido (RTH > 0.1·β·RE) — el punto Q depende más de β');
   el('report').textContent=txt;
 }
 function onChange(){
@@ -746,28 +792,45 @@ function refreshAll(){
   updateReport();
 }
 
+// Quiz: opciones barajadas (Fisher–Yates), correcta sin posición fija; el fallo no revela la correcta.
 const QUIZ=[
-  {q:'¿Qué región de operación tiene IB≈0 y VCE≈VCC?',opts:['Corte','Activa','Saturación'],a:0},
-  {q:'¿Qué elemento estabiliza el punto Q ante la dispersión de β en un divisor de voltaje?',opts:['RC','RE (realimentación negativa)','El propio BJT'],a:1},
-  {q:'¿Cuándo se considera "rígido" un divisor de voltaje de base?',opts:['Cuando R1=R2','Cuando RTH ≤ 0.1·β·RE','Cuando VCC es alto'],a:1},
-  {q:'En saturación, ¿qué relación deja de cumplirse?',opts:['IC=β·IB','VBE≈0.7V','IE=IC+IB'],a:0},
+  {q:'¿Qué región de operación tiene IB≈0 y VCE≈VCC?',ok:'Corte, porque la unión base-emisor no conduce',bad:['Activa, porque IC=β·IB mantiene VCE a mitad de VCC','Saturación, porque VCE cae hasta unas décimas de volt','Ruptura inversa, porque VCE supera a VCEO del transistor']},
+  {q:'¿Qué elemento estabiliza el punto Q ante la dispersión de β en un divisor de voltaje?',ok:'RE, que realimenta negativamente la corriente de emisor',bad:['RC, que fija la pendiente de la recta de carga y limita IC','El propio BJT, que compensa su β con la temperatura','R2, que absorbe toda la corriente de base en el divisor']},
+  {q:'¿Cuándo se considera «rígido» un divisor de voltaje de base?',ok:'Cuando RTH = R1‖R2 es pequeña frente a β·RE (RTH ≤ 0,1·β·RE)',bad:['Cuando R1 y R2 son iguales y entonces VB queda justo en VCC/2','Cuando VCC es mucho mayor que la caída VBE de la unión base-emisor','Cuando RC es mucho mayor que RE y limita así la corriente de colector']},
+  {q:'En saturación, ¿qué relación deja de cumplirse?',ok:'IC=β·IB: la corriente de colector queda limitada por el circuito externo',bad:['VBE≈0,7 V: la unión base-emisor deja de conducir por completo','IE=IC+IB: la ley de corrientes de Kirchhoff ya no aplica al transistor','VCE=VCC−IC·RC−IE·RE: la malla de colector queda abierta del todo']},
+  {q:'Con polarización FIJA (sin divisor ni RE), ¿por qué el punto Q depende tanto de β?',ok:'Porque IB queda fijada por VCC y RB, y entonces IC=β·IB sigue a β sin freno',bad:['Porque RB cambia de valor al variar β de una unidad a otra del mismo modelo','Porque VBE crece con β y por eso desplaza el punto Q hacia la zona de corte','Porque RC debe crecer en proporción a β para mantener VCE siempre constante']},
 ];
-let qIdx=0;
-function buildQuiz(){qIdx=0;refreshQuestion();}
+let qIdx=0,quizOpts=[],quizAns=-1,quizFallos=0;
+function barajar(a){const b=a.slice();for(let i=b.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));const t=b[i];b[i]=b[j];b[j]=t;}return b;}
+function buildQuiz(sig){
+  qIdx=sig?(qIdx+1)%QUIZ.length:Math.floor(Math.random()*QUIZ.length);
+  const q=QUIZ[qIdx];
+  quizOpts=barajar([{t:q.ok,ok:true}].concat(q.bad.map(function(t){return {t:t,ok:false};})));
+  quizAns=-1;quizFallos=0;
+  refreshQuestion();
+}
+function quizCorrectIdx(){for(let i=0;i<quizOpts.length;i++)if(quizOpts[i].ok)return i;return -1;}
 function refreshQuestion(){
   const q=QUIZ[qIdx];
+  const hecho=quizAns>=0&&quizOpts[quizAns].ok;
   el('quizQ').textContent=q.q;
-  el('quizOpts').innerHTML=q.opts.map(function(o,i){return '<button class="b" data-i="'+i+'">'+o+'</button>';}).join('');
-  el('quizOpts').querySelectorAll('button').forEach(function(btn){
+  el('quizOpts').innerHTML=quizOpts.map(function(o,i){
+    return '<button class="b" data-i="'+i+'"'+(o.gastada||hecho?' disabled':'')+(o.gastada?' style="opacity:.45"':'')+'>'+o.t+'</button>';
+  }).join('')+(hecho?'<button class="b" id="quizNext" style="width:100%">Siguiente pregunta</button>':'');
+  el('quizOpts').querySelectorAll('button[data-i]').forEach(function(btn){
     btn.addEventListener('click',function(){
       const i=parseInt(btn.getAttribute('data-i'),10);
-      const ok=i===q.a;
-      showToast(ok?'¡Correcto!':'No — repasa la definición.');
-      synth.beep(ok?880:220,.08,.06);
-      qIdx=(qIdx+1)%QUIZ.length;
-      setTimeout(refreshQuestion,700);
+      quizAns=i;
+      if(quizOpts[i].ok){showToast('¡Correcto!');synth.beep(880,.08,.06);}
+      else{
+        quizOpts[i].gastada=true;quizFallos++;synth.beep(220,.08,.06);
+        if(quizFallos>=2){showToast('Dos fallos: se plantea otra pregunta.');buildQuiz(true);return;}
+        showToast('No es esa: repasa la pregunta e inténtalo otra vez.');
+      }
+      refreshQuestion();
     });
   });
+  const nx=el('quizNext');if(nx)nx.addEventListener('click',function(){buildQuiz(true);});
 }
 
 function actToast(act){
@@ -843,12 +906,12 @@ R2_VALS.forEach(function(v,i){el('r2_'+i).addEventListener('click',function(){se
 el('sBeta').addEventListener('input',function(e){onBetaInput(e.target.value);});
 el('btnSweep').addEventListener('click',runSweep);
 el('btnReto').addEventListener('click',checkReto);
+el('btnPista').addEventListener('click',retoPista);
 el('btnAuto').addEventListener('click',runAuto);
 
 // init
 onChange();
 S.setAnimate(function(){});
-newReto();
 buildQuiz();
 syncCtrlBtns();
 refreshBenchSel();
@@ -859,7 +922,12 @@ window.__labDebug={
   state:function(){return {topo:topo,devKey:devKey,VCCidx:VCCidx,RCidx:RCidx,REidx:REidx,RBidx:RBidx,R1idx:R1idx,R2idx:R2idx,beta:beta,mode:mode};},
   res:function(){return RES;},
   pred:function(){return {PRED:PRED,predSolved:predSolved,predRevealed:predRevealed,predType:predType};},
-  reto:function(){return {RETO:RETO,retoSolved:retoSolved};},
+  reto:function(){return {RETO:RETO,retoSolved:retoSolved,solved:retoSolved,intentos:intentos,pistas:pistas};},
+  get retoSolved(){return retoSolved;},
+  get intentos(){return intentos;},
+  get quizAnswer(){return quizAns;},
+  get quizCorrectIndex(){return quizCorrectIdx();},
+  buildQuiz:buildQuiz,runAuto:runAuto,pista:retoPista,
   sweep:function(){return {fija:SWEEP_FIJA,div:SWEEP_DIV};},
   solveBJT:solveBJT,
   setTopo:selTopo,

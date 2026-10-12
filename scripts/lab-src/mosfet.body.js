@@ -58,7 +58,7 @@ const DEVS={
     qgNote:'48 nC típico @ ID=25 A, VDS=44 V, referencia de meseta Miller VGS=5 V.',
     rdsOn:0.022,
     ptot:110,
-    ptotNote:'110 W según International Rectifier PD-9.1346B (25/8/97) — única hoja de datos localizada para este número de parte pese a búsqueda exhaustiva; no se encontró una reedición Infineon posterior que la reconfirme. La cifra de 83 W que circula en algunas fuentes secundarias no pudo confirmarse en ninguna hoja de datos oficial.',
+    ptotNote:'110 W según International Rectifier PD-9.1346B (25/8/97), sin reedición Infineon posterior. Alguna fuente cita 83 W, cifra que no aparece en la hoja de datos oficial.',
     idMax:47,vdsMax:55,
     color:0x203a2e,
   },
@@ -516,7 +516,7 @@ document.getElementById('hud').innerHTML=`
   <div class="fid"><span class="ft">CONTRATO DE FIDELIDAD</span>
   <span class="fl">SÍ:</span> Modelo de canal largo de dos/tres regiones — corte (VGS≤Vth→ID=0), saturación (ID=k·(VGS−Vth)², ley cuadrática) y triodo/óhmica (ID=k·(2·(VGS−Vth)·VDS−VDS²)) — resuelto de forma autoconsistente sobre la recta de carga VDS=VDD−ID·RD, dispersión real de Vth por hoja de datos (IRF540N: 2.0–4.0 V · IRLZ44N: 1.0–2.0 V · 2N7000: 0.8–3.0 V), coeficiente k derivado de gfs y la corriente de prueba del fabricante (k=gfs²/(4·ID_test) — extensión propia de este simulador, no una cifra de catálogo directa), recta de carga con extremos IDEALES (ID(sat)=VDD/RD, VDS=VDD) mostrados como referencia geométrica, y estimación de primer orden del tiempo de encendido del driver t_on≈Qg/I_driver.<br>
   <span class="no">NO:</span> Resistencia de canal dependiente de temperatura (autocalentamiento), capacitancias no lineales completas (Ciss/Coss/Crss) más allá de la carga de compuerta total Qg, meseta de Miller explícita en la curva de encendido, impedancia de salida no ideal del driver real, límites dinámicos de área de operación segura (el simulador solo compara ID/Ptot instantáneos contra los máximos de catálogo como advertencia, no como física de falla térmica), ruptura por avalancha, ni λ (modulación de longitud de canal / resistencia de salida finita en saturación). El valor de "Vth típico" que usa el simulador es el punto medio del rango min–max del fabricante, no una cifra "typ" publicada — ningún fabricante consultado publica un valor típico de Vth para estos tres dispositivos.</div>
-  <div class="src">Ref: International Rectifier/Infineon PD-94812 (IRF540N) · International Rectifier/Infineon (IRLZ44N) · ON Semiconductor Rev.5 y Fairchild 1995 (2N7000). Nota: MEC-I.2 y el conjunto de dispositivos por defecto de esta práctica están pendientes de confirmación con el equipo curricular.</div>`;
+  <div class="src">Ref: International Rectifier/Infineon PD-94812 (IRF540N) · International Rectifier/Infineon (IRLZ44N) · ON Semiconductor Rev.5 y Fairchild 1995 (2N7000).</div>`;
 
 document.getElementById('panel').innerHTML=`
   <h4>MOSFET · <span id="p_mode">Explora</span></h4>
@@ -571,6 +571,7 @@ document.getElementById('panel').innerHTML=`
   <div id="retoBox" style="display:none;margin-top:10px">
     <div id="retoAsk" style="font-size:12px;color:#EAF4F1;margin-bottom:6px"></div>
     <button class="b" id="btnReto" style="width:100%">Verificar diseño</button>
+    <button class="b" id="btnPista" style="width:100%;margin-top:4px">💡 Pista (máx. 2)</button>
     <div id="retoResult" style="font-size:12px;margin-top:6px"></div>
   </div>
 
@@ -596,7 +597,7 @@ const MISIONES={
   explora:'Ajusta VDD/RD/VGS, cambia de dispositivo y desliza Vth para simular la dispersión de fábrica. Revisa también el driver de compuerta.',
   predice:'Antes de revelar el medidor, predice la región de operación o el punto Q exacto para una unidad con un Vth real distinto.',
   barrido:'Barre Vth entre el mínimo y el máximo real del dispositivo (con VDD/RD/VGS fijos) y observa cuánto se mueve el punto Q.',
-  reto:'Elige un VGS que mantenga el MOSFET en triodo (interruptor cerrado) para TODO el rango real de Vth del dispositivo.',
+  reto:'Elige dispositivo y VGS (limitado por el manejador) para que el MOSFET quede en triodo, con poca caída, con TODAS las unidades del rango real de Vth.',
 };
 
 function setMode(k){
@@ -607,6 +608,7 @@ function setMode(k){
   el('predBox').style.display=k==='predice'?'block':'none';
   el('barBox').style.display=k==='barrido'?'block':'none';
   el('retoBox').style.display=k==='reto'?'block':'none';
+  el('sVgs').max=10;
   if(k==='reto'){newReto();}
   if(k==='predice'){genPredice();}
   if(k==='barrido'){SWEEP_VTH.length=0;}
@@ -688,26 +690,80 @@ function checkPredice(kind,val){
   synth.beep(ok?880:220,.08,.06);
 }
 
+/* ---------- Reto: interruptor cerrado con TODAS las unidades ----------
+   Cada reto fija VDD, RD y la tensión máxima de compuerta que entrega el manejador (VGSmax).
+   El alumno elige dispositivo y VGS ≤ VGSmax. Criterio con Vth mínimo y máximo de fábrica:
+   triodo en ambos, VDS ≤ 0,25 V (caída de conducción despreciable) e ID ≤ ID máx. del catálogo.
+   No hay veredicto en vivo: solo al pulsar «Verificar». */
+let intentos=0,fallosSeguidos=0,pistas=0;const pistaLog=[];
+function rndi(n){return Math.floor(Math.random()*n);}
+const VGSMAX_VALS=[2.5,3.3,5,8];
+function evalDiseno(R,key,vg){
+  const dev=DEVS[key];
+  const lo=solveMOSFET(dev,dev.vthMin,R.VDD,R.RD,vg);
+  const hi=solveMOSFET(dev,dev.vthMax,R.VDD,R.RD,vg);
+  const triodo=lo.region==='triodo'&&hi.region==='triodo';
+  const caida=triodo&&Math.max(lo.VDS,hi.VDS)<=0.25;
+  const corriente=Math.max(lo.ID,hi.ID)<=dev.idMax;
+  return {lo:lo,hi:hi,vgOk:vg<=R.VGSmax+1e-9,triodo:triodo,caida:caida,corriente:corriente,ok:vg<=R.VGSmax+1e-9&&triodo&&caida&&corriente};
+}
+function dispositivosFactibles(R){
+  return Object.keys(DEVS).filter(function(k){return evalDiseno(R,k,R.VGSmax).ok;});
+}
 function newReto(){
-  const dev=curDev();
-  RETO={devKey:devKey,VDD:curVDD(),RD:curRD()};
-  retoSolved=false;
-  el('retoAsk').textContent='Con VDD='+curVDD()+' V, RD='+fmtR(curRD())+' y '+dev.name+' (Vth real entre '+dev.vthMin+' y '+dev.vthMax+' V), ajusta VGS arriba hasta que el MOSFET quede en TRIODO (interruptor cerrado) sin importar qué unidad real te toque. Presiona Verificar.';
-  el('retoResult').textContent='';
+  let R,n=0,ok=false;
+  do{
+    R={VDD:VDD_VALS[rndi(VDD_VALS.length)],RD:RD_VALS[rndi(RD_VALS.length)],VGSmax:VGSMAX_VALS[rndi(VGSMAX_VALS.length)]};
+    n++;
+    const f=dispositivosFactibles(R);
+    ok=f.length>0&&(f.length===1||Math.random()<0.3); // casos donde elegir bien el dispositivo importa, casi siempre
+  }while(!ok&&n<500);
+  RETO=R;
+  const fz=dispositivosFactibles(R),malos=Object.keys(DEVS).filter(function(k){return fz.indexOf(k)<0;});
+  if(malos.length)devKey=malos[0]; // el arranque no es ya la solución
+  VDDidx=VDD_VALS.indexOf(R.VDD);RDidx=RD_VALS.indexOf(R.RD);
+  VGS=Math.round(R.VGSmax*5)/10; // arranque neutro: la mitad de lo disponible
+  vth=(curDev().vthMin+curDev().vthMax)/2;
+  el('sVgs').max=R.VGSmax;
+  retoSolved=false;fallosSeguidos=0;pistas=0;pistaLog.length=0;
+  syncCtrlBtns();RES=curSolve();
+  pintaReto('');
+}
+function pintaReto(msg){
+  if(!RETO)return;
+  el('retoAsk').innerHTML='Interruptor de potencia: VDD = <b>'+RETO.VDD+' V</b>, RD = <b>'+fmtR(RETO.RD)+'</b>, y el manejador entrega como máximo <b>VGS = '+RETO.VGSmax+' V</b>. Elige el <b>dispositivo</b> y VGS para que, con <b>cualquier unidad</b> (Vth mínimo a máximo del catálogo), quede en <b>triodo</b> con VDS ≤ 0,25 V e ID dentro del máximo del catálogo. No hay veredicto hasta «Verificar diseño».'+
+    '<div style="font-size:11px;color:#8FB3AC;margin-top:4px">Intentos: <b id="retoIntentos">'+intentos+'</b> · Pistas: '+pistas+'/2'+(retoSolved?' · <b style="color:#3fae3f">✔ resuelto</b>':'')+'</div>'+
+    (pistaLog.length?'<div style="font-size:11px;margin-top:4px">'+pistaLog.map(function(h){return '💡 '+h;}).join('<br>')+'</div>':'');
+  el('retoResult').textContent=msg;
+  el('retoResult').style.color=retoSolved?'#3fae3f':'#d23b3b';
+}
+function retoPista(){
+  if(mode!=='reto'||!RETO)return;
+  if(pistas>=2){showToast('Ya usaste las 2 pistas de este reto.');return;}
+  const H=['Compara el Vth máximo de cada dispositivo con el VGS que te entrega el manejador: lo que sobra, VOV = VGS − Vth, es lo que abre el canal.',
+    'Aunque esté en triodo, la corriente que pide la carga (≈ VDD/RD) debe caber en el máximo del catálogo, y VDS ≈ ID/(2k·VOV) debe ser pequeña.'];
+  pistaLog.push(H[pistas]);pistas++;pintaReto(el('retoResult').textContent);
 }
 function checkReto(){
-  const dev=curDev();
-  const lo=solveMOSFET(dev,dev.vthMin,curVDD(),curRD(),VGS);
-  const hi=solveMOSFET(dev,dev.vthMax,curVDD(),curRD(),VGS);
-  const ok=lo.region==='triodo'&&hi.region==='triodo';
-  retoSolved=ok;
-  let msg=ok?'¡Diseño válido! El MOSFET queda en triodo tanto con Vth='+dev.vthMin+'V (VDS='+lo.VDS.toFixed(3)+'V) como con Vth='+dev.vthMax+'V (VDS='+hi.VDS.toFixed(3)+'V).':
-    'Aún no — con Vth='+dev.vthMin+'V la región es '+lo.region+' y con Vth='+dev.vthMax+'V es '+hi.region+'. Ambas deben ser "triodo". Sube VGS.';
-  const idHiOver=hi.ID>dev.idMax||lo.ID>dev.idMax;
-  msg+=idHiOver?' Advertencia: ID excede el máximo de catálogo ('+dev.idMax+' A) en al menos un extremo — en la realidad el dispositivo fallaría; considera subir RD.':'';
-  el('retoResult').textContent=msg;
-  el('retoResult').style.color=ok?'#3fae3f':'#d23b3b';
-  synth.beep(ok?880:220,.08,.06);
+  if(!RETO)return;
+  const e=evalDiseno(RETO,devKey,VGS);
+  intentos++;
+  let msg;
+  if(e.ok){
+    retoSolved=true;fallosSeguidos=0;
+    msg='¡Diseño válido! Con Vth='+curDev().vthMin+' V y '+curDev().vthMax+' V queda en triodo (VDS='+e.lo.VDS.toFixed(3)+' V y '+e.hi.VDS.toFixed(3)+' V; ID≈'+fmtI(e.hi.ID)+').';
+  }else{
+    retoSolved=false;fallosSeguidos++;
+    const f=[];
+    if(!e.vgOk)f.push('el manejador no entrega ese VGS');
+    if(!e.triodo)f.push('con alguna unidad el MOSFET no llega a triodo ('+(e.lo.region!=='triodo'?'Vth mínimo: '+e.lo.region:'')+(e.lo.region!=='triodo'&&e.hi.region!=='triodo'?'; ':'')+(e.hi.region!=='triodo'?'Vth máximo: '+e.hi.region:'')+')');
+    else if(!e.caida)f.push('la caída VDS en conducción es demasiado grande');
+    if(!e.corriente)f.push('la corriente supera el máximo de catálogo del dispositivo');
+    msg='Aún no: '+f.join('; ')+'.';
+    if(fallosSeguidos>=3){newReto();msg+=' Tres fallos seguidos: se plantea un caso nuevo.';}
+  }
+  pintaReto(msg);
+  synth.beep(e.ok?880:220,.08,.06);
 }
 
 async function runSweep(){
@@ -769,28 +825,45 @@ function refreshAll(){
   updateReport();
 }
 
+// Quiz: opciones barajadas (Fisher–Yates), correcta sin posición fija; el fallo no revela la correcta.
 const QUIZ=[
-  {q:'¿Qué distingue a la compuerta de un MOSFET de la base de un BJT?',opts:['Necesita más voltaje','No consume corriente DC continua (está aislada)','Siempre está a GND'],a:1},
-  {q:'¿En qué región un MOSFET de potencia se comporta como un interruptor "cerrado" de baja caída de voltaje?',opts:['Corte','Saturación','Triodo (óhmica)'],a:2},
-  {q:'¿Qué representa Qg, la carga de compuerta?',opts:['La corriente DC de fuga de la compuerta','La carga eléctrica que el driver debe entregar para encender el MOSFET','La capacidad de corriente del canal'],a:1},
-  {q:'Si dos MOSFET del mismo modelo salen de fábrica con Vth distinto, ¿qué le puede pasar al punto Q si VGS está fijo cerca del Vth máximo?',opts:['Nada, el punto Q no cambia','Puede quedar en corte con una unidad y en triodo con otra','El VDS siempre es cero'],a:1},
+  {q:'¿Qué distingue a la compuerta de un MOSFET de la base de un BJT?',ok:'Está aislada por el óxido: no consume corriente continua, solo carga la capacitancia',bad:['Necesita más tensión que la base porque su unión es de silicio','Está siempre conectada a tierra y solo la fuente recibe señal','Consume corriente continua proporcional a la corriente de drenaje']},
+  {q:'¿En qué región se comporta un MOSFET de potencia como interruptor «cerrado» de baja caída?',ok:'Triodo (óhmica), donde VDS es pequeña y el canal actúa como resistencia',bad:['Corte, porque la corriente nula evita cualquier caída de voltaje','Saturación, porque la corriente de drenaje ya no depende de VDS','Ruptura, porque el canal queda sometido a la tensión de avalancha']},
+  {q:'¿Qué representa Qg, la carga de compuerta?',ok:'La carga que el manejador debe entregar a la compuerta para encender el MOSFET',bad:['La corriente continua de fuga que circula por el óxido de compuerta','La capacidad de corriente máxima del canal en conducción continua','La carga almacenada en el diodo del cuerpo durante la conmutación']},
+  {q:'Dos MOSFET del mismo modelo tienen Vth distinto. Con VGS fijo cerca del Vth máximo, ¿qué puede pasar?',ok:'Una unidad queda casi en corte y otra en triodo: el punto Q depende de la unidad',bad:['Nada: el punto Q lo fija solo RD y la unidad no influye','VDS vale siempre cero porque el canal conduce con cualquier Vth','Todas las unidades quedan en saturación con la misma corriente']},
+  {q:'Con un manejador de 5 V, ¿por qué conviene un MOSFET de nivel lógico (Vth bajo) frente a otro de Vth 2–4 V?',ok:'Porque con Vth máximo bajo el exceso VGS−Vth sigue siendo grande y el canal abre bien',bad:['Porque el de nivel lógico tolera más tensión de drenaje que el estándar','Porque su corriente de compuerta es mayor y carga más rápido el óxido','Porque el de Vth alto solo puede trabajar en corte con 5 V de compuerta']},
 ];
-let qIdx=0;
-function buildQuiz(){qIdx=0;refreshQuestion();}
+let qIdx=0,quizOpts=[],quizAns=-1,quizFallos=0;
+function barajar(a){const b=a.slice();for(let i=b.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));const t=b[i];b[i]=b[j];b[j]=t;}return b;}
+function buildQuiz(sig){
+  qIdx=sig?(qIdx+1)%QUIZ.length:Math.floor(Math.random()*QUIZ.length);
+  const q=QUIZ[qIdx];
+  quizOpts=barajar([{t:q.ok,ok:true}].concat(q.bad.map(function(t){return {t:t,ok:false};})));
+  quizAns=-1;quizFallos=0;
+  refreshQuestion();
+}
+function quizCorrectIdx(){for(let i=0;i<quizOpts.length;i++)if(quizOpts[i].ok)return i;return -1;}
 function refreshQuestion(){
   const q=QUIZ[qIdx];
+  const hecho=quizAns>=0&&quizOpts[quizAns].ok;
   el('quizQ').textContent=q.q;
-  el('quizOpts').innerHTML=q.opts.map(function(o,i){return '<button class="b" data-i="'+i+'">'+o+'</button>';}).join('');
-  el('quizOpts').querySelectorAll('button').forEach(function(btn){
+  el('quizOpts').innerHTML=quizOpts.map(function(o,i){
+    return '<button class="b" data-i="'+i+'"'+(o.gastada||hecho?' disabled':'')+(o.gastada?' style="opacity:.45"':'')+'>'+o.t+'</button>';
+  }).join('')+(hecho?'<button class="b" id="quizNext" style="width:100%">Siguiente pregunta</button>':'');
+  el('quizOpts').querySelectorAll('button[data-i]').forEach(function(btn){
     btn.addEventListener('click',function(){
       const i=parseInt(btn.getAttribute('data-i'),10);
-      const ok=i===q.a;
-      showToast(ok?'¡Correcto!':'No — repasa la definición.');
-      synth.beep(ok?880:220,.08,.06);
-      qIdx=(qIdx+1)%QUIZ.length;
-      setTimeout(refreshQuestion,700);
+      quizAns=i;
+      if(quizOpts[i].ok){showToast('¡Correcto!');synth.beep(880,.08,.06);}
+      else{
+        quizOpts[i].gastada=true;quizFallos++;synth.beep(220,.08,.06);
+        if(quizFallos>=2){showToast('Dos fallos: se plantea otra pregunta.');buildQuiz(true);return;}
+        showToast('No es esa: repasa la pregunta e inténtalo otra vez.');
+      }
+      refreshQuestion();
     });
   });
+  const nx=el('quizNext');if(nx)nx.addEventListener('click',function(){buildQuiz(true);});
 }
 
 function actToast(act){
@@ -866,12 +939,12 @@ el('sVgs').addEventListener('input',function(e){onVgsInput(e.target.value);});
 el('sVth').addEventListener('input',function(e){onVthInput(e.target.value);});
 el('btnSweep').addEventListener('click',runSweep);
 el('btnReto').addEventListener('click',checkReto);
+el('btnPista').addEventListener('click',retoPista);
 el('btnAuto').addEventListener('click',runAuto);
 
 // init
 onChange();
 S.setAnimate(function(){});
-newReto();
 buildQuiz();
 syncCtrlBtns();
 refreshBenchSel();
@@ -882,7 +955,12 @@ window.__labDebug={
   state:function(){return {devKey:devKey,VDDidx:VDDidx,RDidx:RDidx,driverIdx:driverIdx,vth:vth,VGS:VGS,mode:mode};},
   res:function(){return RES;},
   pred:function(){return {PRED:PRED,predSolved:predSolved,predRevealed:predRevealed,predType:predType};},
-  reto:function(){return {RETO:RETO,retoSolved:retoSolved};},
+  reto:function(){return {RETO:RETO,retoSolved:retoSolved,solved:retoSolved,intentos:intentos,pistas:pistas};},
+  get retoSolved(){return retoSolved;},
+  get intentos(){return intentos;},
+  get quizAnswer(){return quizAns;},
+  get quizCorrectIndex(){return quizCorrectIdx();},
+  buildQuiz:buildQuiz,runAuto:runAuto,pista:retoPista,
   sweep:function(){return {vth:SWEEP_VTH};},
   solveMOSFET:solveMOSFET,
   setDevice:selDevice,

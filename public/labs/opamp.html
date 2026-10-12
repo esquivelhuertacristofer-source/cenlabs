@@ -475,10 +475,7 @@ NO (simplificado / extensión propia / no modelado):
 - Distorsión armónica de pequeña señal dentro del rango lineal, deriva térmica de Vos/Ib, y
   tolerancia de fabricación de Ri/Rf: no modeladas (mismo criterio que labs anteriores).
 
-Nota de rigor: las hojas de datos originales de Texas Instruments (LM358, TL072) no pudieron
-leerse directamente en este entorno (el renderizado de PDF no está disponible). Las cifras
-anteriores provienen de la convergencia de múltiples fuentes secundarias verificadas de forma
-cruzada, no de la lectura directa del PDF del fabricante.
+Nota: GBW y SR son valores típicos de hoja de datos, no garantizados.
 
 Fuentes: Texas Instruments LM358 datasheet (vía fuentes secundarias convergentes) · Texas
 Instruments/STMicroelectronics TL072 datasheet (vía fuentes secundarias convergentes) ·
@@ -549,18 +546,42 @@ Boylestad & Nashelsky, "Electronic Devices and Circuit Theory".
 
     const ceil = Vs - dev.dropPos;      // techo real de salida (V), referido a 0V central
     const floorMag = Vs - dev.dropNeg;  // piso real de salida, como magnitud (V)
-    const swingClipped = voutIdealAmp > ceil || voutIdealAmp > floorMag;
-    const voutRealAmp = Math.min(voutIdealAmp, ceil, floorMag);
-
     const requiredSlew = 2 * Math.PI * freq * voutIdealAmp; // V/s para senoidal sin distorsión
     const slewLimited = requiredSlew > dev.sr;
+    // Con slew-rate finito la salida NO alcanza la amplitud ideal: se simula el seguidor limitado
+    // (la salida sube/baja como máximo SR por segundo). En régimen profundo sale un triángulo
+    // simétrico de pico SR/(4f); cerca del umbral la salida sí llega a tocar el pico de la senoidal.
+    let slewPeak = voutIdealAmp, slewWave = null;
+    if (slewLimited && voutIdealAmp > 0 && freq > 0) {
+      const sim = slewSim(voutIdealAmp, freq, dev.sr);
+      slewPeak = sim.peak; slewWave = sim.wave;
+    }
+    const swingClipped = slewPeak > ceil || slewPeak > floorMag;
+    const voutRealAmp = Math.min(slewPeak, ceil, floorMag);
 
     return {
       avIdeal: avIdeal, avMag: avMag, noiseGain: noiseGain, fc: fc, avAtF: avAtF, avMagAtF: avMagAtF,
       voutIdealAmp: voutIdealAmp, ceil: ceil, floorMag: floorMag,
       swingClipped: swingClipped, voutRealAmp: voutRealAmp,
       requiredSlew: requiredSlew, slewLimited: slewLimited, zinInv: Ri,
+      slewPeak: slewPeak, slewWave: slewWave,
     };
+  }
+
+  // Seguidor con velocidad de variación limitada: v avanza hacia la senoidal objetivo como
+  // máximo SR·dt por paso. Se simulan varios periodos para llegar al régimen y se devuelve el
+  // último periodo (N muestras) y su pico.
+  function slewSim(A, f, sr) {
+    const N = 1024, periods = 8, T = 1 / f, dt = T / N, maxStep = sr * dt;
+    let v = 0, wave = new Array(N), peak = 0;
+    for (let k = 0; k < N * periods; k++) {
+      const tgt = A * Math.sin(2 * Math.PI * (k % N) / N);
+      const d = tgt - v;
+      v += Math.abs(d) <= maxStep ? d : (d > 0 ? maxStep : -maxStep);
+      if (k >= N * (periods - 1)) wave[k - N * (periods - 1)] = v;
+    }
+    for (let k = 0; k < N; k++) peak = Math.max(peak, Math.abs(wave[k]));
+    return { peak: peak, wave: wave };
   }
 
   function waveformPoints(res, freq, sr, n) {
@@ -568,13 +589,10 @@ Boylestad & Nashelsky, "Electronic Devices and Circuit Theory".
     const pts = [];
     const amp = res.voutIdealAmp;
     const sign = res.avIdeal < 0 ? -1 : 1;
-    const T = freq > 0 ? 1 / freq : 1;
     for (let i = 0; i < n; i++) {
       let v;
-      if (res.slewLimited && amp > 0) {
-        const half = T / 2;
-        const tt = ((i / n) * T) % T;
-        v = tt < half ? (-amp + sr * tt) : (amp - sr * (tt - half));
+      if (res.slewLimited && amp > 0 && res.slewWave) {
+        v = res.slewWave[Math.floor(i * res.slewWave.length / n)];
       } else {
         const th = (i / n) * Math.PI * 2;
         v = amp * Math.sin(th);
@@ -623,8 +641,14 @@ Boylestad & Nashelsky, "Electronic Devices and Circuit Theory".
     hide: false,
     _revealed: false,
     _sweepTrace: null,
-    _predType: 'av',
+    _predType: 'vout',
+    _predDone: false,
     _reto: null,
+    retoSolved: false,
+    intentos: 0,        // comprobaciones del reto (acumuladas)
+    fallosSeguidos: 0,  // a los 3 el reto se resiembra
+    pistas: 0,          // máx. 2 por reto
+    pistaLog: [],
   };
 
   function curDev() { return DEVS[state.devKey]; }
@@ -1105,17 +1129,17 @@ Boylestad & Nashelsky, "Electronic Devices and Circuit Theory".
     '</div>' +
     '<div class="fid">' +
     '<b>SÍ verificado:</b> Av ideal (Rf/Ri) · modelo de polo dominante fc=GBW/NG (NG=1+Rf/Ri) · GBW y SR ' +
-    'típicos de LM358/TL072 (convergencia de fuentes) · swing mínimo garantizado del TL072 · ' +
+    'típicos de LM358/TL072 · swing mínimo garantizado del TL072 · ' +
     'distorsión por slew-rate cuando el slew requerido excede el SR.<br>' +
     '<b>NO modelado:</b> headroom de salida como función real de la carga/temperatura (se usa un ' +
     'valor fijo por dispositivo) · corriente de salida máxima ni RL externa · Zin numérica del no ' +
     'inversor (solo cualitativa) · desfase entrada-salida · distorsión armónica en zona lineal · ' +
-    'Ib del TL072 proviene de una sola fuente, no cruzada dos veces.' +
+    'Ib del TL072 proviene de una sola fuente.' +
     '</div>' +
-    '<div class="src">Ref: Texas Instruments LM358 datasheet (fuentes secundarias convergentes) · ' +
-    'Texas Instruments/STMicroelectronics TL072 datasheet (fuentes secundarias convergentes) · ' +
+    '<div class="src">Ref: Texas Instruments LM358 datasheet · ' +
+    'Texas Instruments/STMicroelectronics TL072 datasheet · ' +
     'Sedra &amp; Smith, "Microelectronic Circuits" · Boylestad &amp; Nashelsky, "Electronic Devices ' +
-    'and Circuit Theory". Los PDF originales no pudieron leerse directamente en este entorno.</div>';
+    'and Circuit Theory".</div>';
 
   // ---------- Panel ----------
   document.getElementById('panel').innerHTML =
@@ -1153,6 +1177,7 @@ Boylestad & Nashelsky, "Electronic Devices and Circuit Theory".
     '<div class="btns" style="margin-top:6px">' +
     '<button class="b" id="retoNew" style="flex:1 0 48%">Nuevo reto</button>' +
     '<button class="b" id="retoCheck" style="flex:1 0 48%">Verificar diseño</button>' +
+    '<button class="b" id="retoHint" style="flex:1 0 100%">💡 Pista (máx. 2)</button>' +
     '</div></div>' +
     '<div id="sweepWrap" style="display:none;margin-top:10px">' +
     '<button class="b" id="sweepRun" style="width:100%">▶ Barrer frecuencia</button>' +
@@ -1176,14 +1201,33 @@ Boylestad & Nashelsky, "Electronic Devices and Circuit Theory".
     reto: 'Diseña Ri/Rf (y elige el op-amp correcto) para cumplir un objetivo simultáneo de ganancia y ancho de banda.',
   };
 
-  function setMode(m) {
+  // Config neutra al entrar al reto: la del reto anterior no debe pasar como «ya diseñada».
+  function resetConfig() {
+    state.devKey = 'lm358'; state.topology = 'inv';
+    state.iVS = 1; state.iRI = 2; state.iRF = 3; state.iVIN = 1; state.iFREQ = 1;
+  }
+  function rnd(n) { return Math.floor(Math.random() * n); }
+  function randomizeConfig() {
+    state.devKey = rnd(2) ? 'tl072' : 'lm358';
+    state.topology = rnd(2) ? 'inv' : 'noninv';
+    state.iVS = rnd(VS_VALS.length); state.iRI = rnd(RI_VALS.length); state.iRF = rnd(RF_VALS.length);
+    state.iVIN = rnd(VIN_VALS.length); state.iFREQ = rnd(FREQ_VALS.length);
+  }
+
+  // keep=true: solo cambia de pestaña (el tour restaura el modo sin resembrar nada).
+  function setMode(m, keep) {
+    const prev = state.mode;
+    // La pregunta sin responder no se lleva a Explora: la respuesta quedaría a la vista.
+    if (!keep && prev === 'predice' && m !== 'predice' && !state._revealed) randomizeConfig();
     state.mode = m;
     state.hide = (m === 'predice' && !state._revealed);
     const pw = el('predWrap'); if (pw) pw.style.display = m === 'predice' ? 'block' : 'none';
     const rw = el('retoWrap'); if (rw) rw.style.display = m === 'reto' ? 'block' : 'none';
     const sw = el('sweepWrap'); if (sw) sw.style.display = m === 'medicion' ? 'block' : 'none';
-    if (m === 'predice') genPredice();
-    if (m === 'reto') newReto();
+    if (!keep) {
+      if (m === 'predice') genPredice();
+      if (m === 'reto') { resetConfig(); newReto(); }
+    }
     refreshAll();
     const mm = el('missionText');
     if (mm) mm.textContent = MISIONES[m];
@@ -1217,38 +1261,44 @@ Boylestad & Nashelsky, "Electronic Devices and Circuit Theory".
   }
 
   // ---------- Predicción ----------
+  // Cada pregunta es un caso nuevo (config aleatoria) y se predice algo que NO sale de una
+  // sola división: la amplitud real de Vout (con el polo, el recorte y el slew) o fc.
+  const INPUT_CSS = 'width:100%;background:#0c1a16;color:#EAF4F1;border:1px solid #1E3A34;padding:6px;border-radius:6px';
   function genPredice() {
     state._revealed = false;
+    state._predDone = false;
     state.hide = true;
-    state._predType = Math.random() < 0.5 ? 'av' : 'bw';
+    randomizeConfig();
+    state._predType = Math.random() < 0.5 ? 'vout' : 'bw';
     const box = el('predBox');
     if (box) {
-      box.innerHTML = state._predType === 'av'
-        ? '<p>¿Cuál es aproximadamente <b>|Av|</b> con Ri y Rf actuales?</p>' +
-          '<input id="predAnswerAv" type="number" step="0.1" placeholder="V/V" style="width:100%;background:#0c1a16;color:#EAF4F1;border:1px solid #1E3A34;padding:6px;border-radius:6px">'
-        : '<p>¿La frecuencia actual (' + fmtHz(curFreq()) + ') está <b>dentro</b> o <b>fuera</b> del ancho de banda (−3dB)?</p>' +
-          '<select id="predAnswerBW" style="width:100%;background:#0c1a16;color:#EAF4F1;border:1px solid #1E3A34;padding:6px;border-radius:6px">' +
-          '<option value="dentro">Dentro</option><option value="fuera">Fuera</option></select>';
+      box.innerHTML = state._predType === 'vout'
+        ? '<p>Con esta configuración y f = <b>' + fmtHz(curFreq()) + '</b>, ¿cuál es la <b>amplitud pico real de Vout</b> (en mV)? ' +
+          'Considera el ancho de banda, el recorte por swing y el slew-rate.</p>' +
+          '<input id="predAnswerVout" type="number" step="1" placeholder="mV pico" style="' + INPUT_CSS + '">'
+        : '<p>¿Cuál es el <b>ancho de banda (−3 dB)</b> de este amplificador, en kHz? (±20 %)</p>' +
+          '<input id="predAnswerFc" type="number" step="1" placeholder="kHz" style="' + INPUT_CSS + '">';
     }
     refreshAll();
   }
 
   function checkPredice() {
+    if (state._predDone) { showToast('Esa pregunta ya se reveló: pulsa «Nueva pregunta».', 'info'); return false; }
     const res = curSolveOpAmp();
     let ok = false, real = '';
-    if (state._predType === 'av') {
-      const inp = el('predAnswerAv');
-      const guess = inp ? parseFloat(inp.value) : NaN;
-      ok = !isNaN(guess) && Math.abs(guess - res.avMag) / Math.max(res.avMag, 1e-9) < 0.15;
-      real = fmtAv(res.avMag);
+    if (state._predType === 'vout') {
+      const inp = el('predAnswerVout');
+      const guess = inp ? parseFloat(inp.value) / 1000 : NaN;
+      ok = !isNaN(guess) && Math.abs(guess - res.voutRealAmp) <= Math.max(0.15 * res.voutRealAmp, 0.01);
+      real = fmtV(res.voutRealAmp);
     } else {
-      const sel = el('predAnswerBW');
-      const guess = sel ? sel.value : '';
-      const answer = curFreq() <= res.fc ? 'dentro' : 'fuera';
-      ok = guess === answer;
-      real = answer + ' (fc=' + fmtHz(res.fc) + ')';
+      const inp = el('predAnswerFc');
+      const guess = inp ? parseFloat(inp.value) * 1000 : NaN;
+      ok = !isNaN(guess) && Math.abs(guess - res.fc) <= 0.2 * res.fc;
+      real = 'fc=' + fmtHz(res.fc);
     }
     state._revealed = true;
+    state._predDone = true;
     state.hide = false;
     refreshAll();
     showToast(ok ? '¡Correcto! → ' + real : 'No exactamente. Valor real: ' + real, ok ? 'ok' : 'warn');
@@ -1256,60 +1306,87 @@ Boylestad & Nashelsky, "Electronic Devices and Circuit Theory".
   }
 
   // ---------- Reto ----------
-  function retoFeasible(avTarget, bwTargetHz) {
-    // Recorre la rejilla discreta real (Ri×Rf×dispositivo×topología) para confirmar que existe
-    // al menos una combinación que cumpla Av≥avTarget y fc≥bwTargetHz con la fc corregida (GBW/NG).
-    for (const key in DEVS) {
-      const dev = DEVS[key];
-      for (let i = 0; i < RI_VALS.length; i++) {
-        for (let j = 0; j < RF_VALS.length; j++) {
-          const Ri = RI_VALS[i], Rf = RF_VALS[j];
-          const ng = 1 + Rf / Ri;
-          const fc = dev.gbw / ng;
-          if (fc < bwTargetHz) continue;
-          const avMagNoninv = ng;      // no inversor: Av = NG
-          const avMagInv = Rf / Ri;    // inversor: Av = NG − 1
-          if (avMagNoninv >= avTarget || avMagInv >= avTarget) return true;
-        }
-      }
-    }
-    return false;
-  }
-
+  // El objetivo se deriva de un diseño realizable de la rejilla (semilla): topología exigida,
+  // ventana de |Av| (±10 %) y ancho de banda mínimo. Una configuración fija no lo cumple por azar.
+  function fmtAvT(x) { return (x < 10 ? x.toFixed(1) : x.toFixed(0)); }
   function newReto() {
-    let avTarget, bwTargetKHz, bwTargetHz, tries = 0;
-    do {
-      avTarget = 5 + Math.floor(Math.random() * 46);
-      bwTargetKHz = 5 + Math.floor(Math.random() * 76);
-      bwTargetHz = bwTargetKHz * 1000;
+    let tries = 0, R = null;
+    while (!R && tries < 500) {
       tries++;
-    } while (!retoFeasible(avTarget, bwTargetHz) && tries < 200);
-    state._reto = { avTarget: avTarget, bwTargetHz: bwTargetHz };
-    const box = el('retoBox');
-    if (box) {
-      box.innerHTML = '<p>Diseña Ri/Rf (elige también el op-amp si hace falta) para lograr ' +
-        '<b>|Av| ≥ ' + avTarget + ' V/V</b> con un ancho de banda (−3dB) <b>≥ ' + bwTargetKHz + ' kHz</b>.</p>';
+      const topo = rnd(2) ? 'inv' : 'noninv';
+      const k = RF_VALS[rnd(RF_VALS.length)] / RI_VALS[rnd(RI_VALS.length)];
+      const ng = 1 + k;
+      const av = topo === 'inv' ? k : ng;
+      const needTL = rnd(2) === 1;
+      const fcSel = (needTL ? DEVS.tl072.gbw : DEVS.lm358.gbw) / ng;
+      if (av < 3 || av > 60 || fcSel < 8e3) continue;
+      const avC = av < 10 ? Math.round(av * 10) / 10 : Math.round(av);
+      const bw = Math.floor((needTL ? 0.92 : 0.85) * fcSel / 1000) * 1000;
+      R = { topo: topo, avC: avC, avMin: avC * 0.9, avMax: avC * 1.1, bwTargetHz: bw };
     }
+    if (!R) R = { topo: 'noninv', avC: 11, avMin: 9.9, avMax: 12.1, bwTargetHz: 80000 };
+    state._reto = R;
+    state.retoSolved = false;
+    state.fallosSeguidos = 0;
+    state.pistas = 0;
+    state.pistaLog = [];
+    renderReto('');
     refreshAll();
   }
 
+  function renderReto(msg) {
+    const box = el('retoBox');
+    if (!box || !state._reto) return;
+    const R = state._reto;
+    box.innerHTML = '<p>Diseña un amplificador <b>' + (R.topo === 'inv' ? 'inversor' : 'no inversor') +
+      '</b> con <b>|Av| entre ' + fmtAvT(R.avMin) + ' y ' + fmtAvT(R.avMax) + ' V/V</b> y un ancho de banda (−3 dB) <b>≥ ' +
+      (R.bwTargetHz / 1000) + ' kHz</b>. Elige también el op-amp, Ri y Rf. No hay veredicto hasta que pulses «Verificar diseño».</p>' +
+      '<div style="font-size:11px;color:#8FB3AC">Intentos: <b id="retoIntentos">' + state.intentos + '</b> · Pistas usadas: ' + state.pistas + '/2' +
+      (state.retoSolved ? ' · <b style="color:#3fae3f">✔ Reto resuelto</b>' : '') + '</div>' +
+      (state.pistaLog.length ? '<div style="font-size:11px;color:#EAF4F1;margin-top:4px">' + state.pistaLog.map(function (h) { return '💡 ' + h; }).join('<br>') + '</div>' : '') +
+      (msg ? '<div style="font-size:12px;margin-top:6px;color:' + (state.retoSolved ? '#3fae3f' : '#E8871E') + '">' + msg + '</div>' : '');
+  }
+
+  function retoHint() {
+    if (state.mode !== 'reto' || !state._reto) return;
+    if (state.pistas >= 2) { showToast('Ya usaste las 2 pistas de este reto.', 'info'); return; }
+    const HINTS = [
+      'La ganancia sólo depende de la relación Rf/Ri, no de sus valores absolutos. Recuerda que en el no inversor Av = 1 + Rf/Ri y en el inversor |Av| = Rf/Ri.',
+      'El ancho de banda lo fija la ganancia de ruido NG = 1 + Rf/Ri (fc = GBW/NG), también en el inversor. Con tu NG, compara el GBW de cada chip frente al fc exigido.',
+    ];
+    state.pistaLog.push(HINTS[state.pistas]);
+    state.pistas++;
+    renderReto('');
+  }
+
   function checkReto() {
-    const dev = curDev();
+    if (!state._reto) return false;
     const res = curSolveOpAmp();
-    const avOk = res.avMag >= state._reto.avTarget;
-    const bwOk = res.fc >= state._reto.bwTargetHz;
-    const ok = avOk && bwOk;
+    const R = state._reto;
+    const topoOk = state.topology === R.topo;
+    const avOk = res.avMag >= R.avMin && res.avMag <= R.avMax;
+    const bwOk = res.fc >= R.bwTargetHz;
+    const ok = topoOk && avOk && bwOk;
+    state.intentos++;
     let msg;
     if (ok) {
-      msg = '¡Diseño correcto! Av=' + fmtAv(res.avMag) + ', fc=' + fmtHz(res.fc) + '.';
+      state.retoSolved = true;
+      state.fallosSeguidos = 0;
+      msg = '¡Diseño correcto! |Av|=' + fmtAv(res.avMag) + ', fc=' + fmtHz(res.fc) + '.';
     } else {
-      const maxFcAtTarget = dev.gbw / state._reto.avTarget;
-      const possible = maxFcAtTarget >= state._reto.bwTargetHz;
-      msg = 'Aún no: Av=' + fmtAv(res.avMag) + (avOk ? ' ✓' : ' ✗ (falta ganancia)') +
-        ', fc=' + fmtHz(res.fc) + (bwOk ? ' ✓' : ' ✗ (falta ancho de banda)') + '.' +
-        (!possible ? ' Con ' + dev.name + ' el ancho de banda máximo posible a esa ganancia es ' +
-          fmtHz(maxFcAtTarget) + ' — prueba con el otro op-amp.' : '');
+      state.retoSolved = false;
+      state.fallosSeguidos++;
+      const f = [];
+      if (!topoOk) f.push('la topología no es la pedida');
+      if (!avOk) f.push(res.avMag < R.avMin ? 'te falta ganancia' : 'te sobra ganancia');
+      if (!bwOk) f.push('el ancho de banda no alcanza: la ganancia de ruido y el GBW del chip lo fijan');
+      msg = 'Aún no: ' + f.join('; ') + '.';
+      if (state.fallosSeguidos >= 3) {
+        newReto();
+        msg += ' Tres fallos seguidos: se plantea un caso nuevo.';
+      }
     }
+    renderReto(msg);
     showToast(msg, ok ? 'ok' : 'warn');
     return ok;
   }
@@ -1379,35 +1456,70 @@ Boylestad & Nashelsky, "Electronic Devices and Circuit Theory".
   }
 
   // ---------- Quiz ----------
+  // Opciones barajadas (Fisher–Yates) en cada pregunta; la correcta no va en posición fija.
   const QUIZ = [
-    { q: '¿Por qué el ancho de banda fc baja cuando aumenta la ganancia Rf/Ri?', a: ['Porque el producto ganancia×ancho de banda (GBW) es aproximadamente constante para un op-amp dado', 'Porque Rf se calienta y cambia de valor', 'Porque el osciloscopio no puede medir frecuencias altas'], correct: 0 },
-    { q: '¿Qué causa que la señal de salida se vuelva un triángulo en vez de una senoidal?', a: ['El slew rate finito del op-amp no puede seguir la pendiente requerida por la señal', 'El voltaje de alimentación es demasiado alto', 'Ri es demasiado grande'], correct: 0 },
-    { q: '¿Por qué el TL072 tolera mejor las señales rápidas y de mayor amplitud que el LM358?', a: ['Tiene un slew rate y un GBW mucho mayores (13 V/µs y 3 MHz típicos, frente a 0.3 V/µs y 1 MHz del LM358)', 'Tiene una carcasa más grande', 'Usa una tierra distinta'], correct: 0 },
+    { q: '¿Por qué el ancho de banda fc baja cuando aumenta la ganancia Rf/Ri?',
+      ok: 'Porque el producto ganancia×ancho de banda es casi constante: fc ≈ GBW/(1+Rf/Ri)',
+      bad: ['Porque Rf, al crecer, disipa más potencia y cambia su valor con la temperatura', 'Porque el osciloscopio atenúa las señales rápidas cuando la ganancia es alta', 'Porque la tensión ±Vs se reparte entre más resistencias y cae el margen'] },
+    { q: '¿Qué hace que una senoidal de salida se convierta en triángulo?',
+      ok: 'La salida no puede variar más rápido que el slew-rate y la señal exige más pendiente',
+      bad: ['La alimentación ±Vs es demasiado alta y el chip trabaja en zona lineal sin control', 'Ri es muy grande y forma con la capacitancia de entrada un filtro pasa-bajas', 'El polo dominante gira la fase 180° y la senoidal pasa a ser una rampa'] },
+    { q: '¿Por qué el TL072 tolera mejor señales rápidas y grandes que el LM358?',
+      ok: 'Tiene GBW y slew-rate mayores (típicos: 3 MHz y 13 V/µs, frente a 1 MHz y 0,3 V/µs)',
+      bad: ['Su encapsulado disipa más calor y por eso admite señales de mayor amplitud', 'Su ganancia en lazo abierto es infinita y la del LM358 es finita, sin más', 'Trabaja con una tierra flotante, de modo que el recorte nunca aparece en él'] },
+    { q: '¿Qué distingue al recorte por swing de la distorsión por slew-rate?',
+      ok: 'El recorte sólo depende de la amplitud frente al riel; el slew depende también de la frecuencia (2πf·Vpico)',
+      bad: ['El recorte sólo aparece en el inversor y el slew únicamente en el no inversor', 'El recorte depende de la frecuencia y el slew depende de la tensión de alimentación', 'Son el mismo fenómeno con distinto nombre según la hoja de datos del fabricante'] },
+    { q: 'Inversor con Rf=10 kΩ y Ri=1 kΩ: ¿qué ganancia fija el ancho de banda (fc = GBW/NG)?',
+      ok: 'NG = 11 (1+Rf/Ri), aunque |Av| sea 10',
+      bad: ['NG = 10, igual que |Av|, porque el signo no cuenta', 'NG = 9, porque el signo menos resta una unidad a |Av|', 'NG = 1, porque la entrada inversora es una tierra virtual'] },
+    { q: 'TL072 (GBW 3 MHz) como no inversor con Rf/Ri = 29: ¿qué fc se espera?',
+      ok: 'Cerca de 100 kHz (3 MHz / 30)',
+      bad: ['Cerca de 3 MHz, el GBW no depende de la ganancia', 'Cerca de 300 kHz (3 MHz / 10)', 'Cerca de 1 MHz, el de un LM358'] },
   ];
-  let quizIdx = 0;
-  function buildQuiz() { quizIdx = Math.floor(Math.random() * QUIZ.length); refreshQuestion(); }
+  let quizIdx = 0, quizOpts = [], quizAns = -1, quizFallos = 0;
+  function shuffled(arr) {
+    const a = arr.slice();
+    for (let i = a.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); const t = a[i]; a[i] = a[j]; a[j] = t; }
+    return a;
+  }
+  function buildQuiz(next) {
+    quizIdx = next ? (quizIdx + 1) % QUIZ.length : Math.floor(Math.random() * QUIZ.length);
+    const item = QUIZ[quizIdx];
+    quizOpts = shuffled([{ t: item.ok, ok: true }].concat(item.bad.map(function (t) { return { t: t, ok: false }; })));
+    quizAns = -1; quizFallos = 0;
+    refreshQuestion();
+  }
+  function quizCorrectIdx() { for (let i = 0; i < quizOpts.length; i++) if (quizOpts[i].ok) return i; return -1; }
   function refreshQuestion() {
     const box = el('quizBox');
     if (!box) return;
     const item = QUIZ[quizIdx];
+    const done = quizAns >= 0 && quizOpts[quizAns].ok;
     let html = '<div style="font-size:12px;color:#8FB3AC;margin-bottom:6px">Quiz rápido</div>';
     html += '<div style="font-size:13px;color:#EAF4F1;margin-bottom:8px">' + item.q + '</div>';
-    item.a.forEach(function (opt, i) {
-      html += '<button class="b quizOpt" data-i="' + i + '" style="width:100%;text-align:left;margin-bottom:4px">' + opt + '</button>';
+    quizOpts.forEach(function (o, i) {
+      html += '<button class="b quizOpt" data-i="' + i + '" ' + (o.gastada || done ? 'disabled ' : '') +
+        'style="width:100%;text-align:left;margin-bottom:4px' + (o.gastada ? ';opacity:.45' : '') + (done && o.ok ? ';outline:1px solid #3fae3f' : '') + '">' + o.t + '</button>';
     });
+    if (done) html += '<button class="b" id="quizNext" style="width:100%;margin-top:4px">Siguiente pregunta</button>';
     box.innerHTML = html;
     box.querySelectorAll('.quizOpt').forEach(function (b) {
       b.addEventListener('click', function () {
         const i = parseInt(b.getAttribute('data-i'), 10);
-        if (i === item.correct) {
+        quizAns = i;
+        if (quizOpts[i].ok) {
           showToast('¡Correcto!', 'ok');
-          quizIdx = (quizIdx + 1) % QUIZ.length;
-          refreshQuestion();
         } else {
-          showToast('No es esa. Intenta de nuevo.', 'warn');
+          quizOpts[i].gastada = true;
+          quizFallos++;
+          if (quizFallos >= 2) { showToast('Dos fallos: se plantea otra pregunta.', 'warn'); buildQuiz(true); return; }
+          showToast('No es esa. Repasa la pregunta e inténtalo otra vez.', 'warn');
         }
+        refreshQuestion();
       });
     });
+    const nx = el('quizNext'); if (nx) nx.addEventListener('click', function () { buildQuiz(true); });
   }
 
   // ---------- Interacción 3D ----------
@@ -1443,17 +1555,41 @@ Boylestad & Nashelsky, "Electronic Devices and Circuit Theory".
   });
 
   // ---------- Tour guiado ----------
+  // El tour es una DEMOSTRACIÓN: no toca el reto (nunca llama a checkReto) y al terminar
+  // —o si algo falla— devuelve la configuración, el modo y el estado del alumno.
+  let tourBusy = false;
   async function runAuto() {
-    setMode('explora');
-    await sleep(600);
-    state.iVS = 1; state.iRI = 2; state.iRF = 4; refreshAll();
-    await sleep(800);
-    toggleTopology();
-    await sleep(800);
-    toggleTopology();
-    await sleep(400);
-    setMode('medicion');
-    await runSweep();
+    if (tourBusy) return;
+    tourBusy = true;
+    const btn = el('autoTour'); if (btn) btn.disabled = true;
+    const snap = {
+      mode: state.mode, devKey: state.devKey, topology: state.topology,
+      iVS: state.iVS, iRI: state.iRI, iRF: state.iRF, iVIN: state.iVIN, iFREQ: state.iFREQ,
+      hide: state.hide, sweep: state._sweepTrace,
+    };
+    try {
+      state.devKey = 'lm358'; state.topology = 'inv';
+      state.iVS = 1; state.iRI = 2; state.iRF = 3; state.iVIN = 1; state.iFREQ = 1;
+      setMode('explora', true);
+      await sleep(600);
+      state.iRF = 4; refreshAll();
+      await sleep(800);
+      toggleTopology();
+      await sleep(800);
+      toggleTopology();
+      await sleep(400);
+      setMode('medicion', true);
+      await runSweep();
+    } finally {
+      state.devKey = snap.devKey; state.topology = snap.topology;
+      state.iVS = snap.iVS; state.iRI = snap.iRI; state.iRF = snap.iRF; state.iVIN = snap.iVIN; state.iFREQ = snap.iFREQ;
+      state._sweepTrace = snap.sweep;
+      setMode(snap.mode, true);
+      state.hide = snap.hide;
+      refreshAll();
+      if (btn) btn.disabled = false;
+      tourBusy = false;
+    }
   }
 
   // ---------- Wiring ----------
@@ -1482,6 +1618,7 @@ Boylestad & Nashelsky, "Electronic Devices and Circuit Theory".
   const predCheck = el('predCheck'); if (predCheck) predCheck.addEventListener('click', checkPredice);
   const retoNew = el('retoNew'); if (retoNew) retoNew.addEventListener('click', newReto);
   const retoCheck = el('retoCheck'); if (retoCheck) retoCheck.addEventListener('click', checkReto);
+  const retoHintBtn = el('retoHint'); if (retoHintBtn) retoHintBtn.addEventListener('click', retoHint);
   const sweepRun = el('sweepRun'); if (sweepRun) sweepRun.addEventListener('click', runSweep);
   const autoTour = el('autoTour'); if (autoTour) autoTour.addEventListener('click', runAuto);
 
@@ -1503,7 +1640,15 @@ Boylestad & Nashelsky, "Electronic Devices and Circuit Theory".
     checkPredice: checkPredice,
     newReto: newReto,
     checkReto: checkReto,
+    retoHint: retoHint,
     runSweep: runSweep,
+    runAuto: runAuto,
+    get mode() { return state.mode; },
+    get retoSolved() { return state.retoSolved; },
+    get intentos() { return state.intentos; },
+    get quizAnswer() { return quizAns; },
+    get quizCorrectIndex() { return quizCorrectIdx(); },
+    buildQuiz: buildQuiz,
     setDevice: function (k) { state.devKey = k; onChange(); },
     setIdx: function (which, i) {
       if (which === 'vs') state.iVS = i;

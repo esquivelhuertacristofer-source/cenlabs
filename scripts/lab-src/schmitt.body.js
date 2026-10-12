@@ -159,7 +159,8 @@
     topology: 'inv',
     iVCC: 1, iR1: 2, iR2: 2, iNOISE: 2,
     mode: 'explora', hide: false, _revealed: false,
-    _sweepTrace: null, _predType: 'vth', _reto: null,
+    _sweepTrace: null, _predType: 'vth', _reto: null, _predDone: false,
+    retoSolved: false, intentos: 0, fallosSeguidos: 0, pistas: 0, pistaLog: [],
   };
 
   function curVCC() { return VCC_VALS[state.iVCC]; }
@@ -630,6 +631,7 @@
       <div class="btns" style="margin-top:6px">
         <button class="b" id="retoNew" style="flex:1 0 48%">Nuevo reto</button>
         <button class="b" id="retoCheck" style="flex:1 0 48%">Comprobar</button>
+        <button class="b" id="retoHint" style="flex:1 0 100%">💡 Pista (máx. 2)</button>
       </div>
     </div>
     <div id="sweepWrap" style="display:none;margin-top:10px">
@@ -651,21 +653,31 @@
     explora: 'Ajusta Vcc, R1, R2 y el ruido; cambia de topología y observa cómo se mueve el lazo de histéresis y el osciloscopio.',
     predice: 'Antes de revelar el valor, predice el umbral pedido o si la señal va a conmutar limpio, rebotar, o quedar enganchada.',
     medicion: 'Ejecuta el barrido automático de R2 y observa cómo se ensancha el lazo — y baja el conteo de transiciones — al crecer la histéresis.',
-    reto: 'Con el ruido actual, diseña R1/R2 para lograr conmutación limpia sin volverte demasiado insensible a la señal real.',
+    reto: 'Con el Vcc y el ruido que da el reto, diseña R1/R2 para lograr conmutación limpia sin volverte demasiado insensible a la señal real.',
   };
 
-  function setMode(m) {
+  function rnd(n) { return Math.floor(Math.random() * n); }
+  function randomizeConfig() {
+    state.topology = rnd(2) ? 'inv' : 'noninv';
+    state.iVCC = rnd(VCC_VALS.length); state.iR1 = rnd(R1_VALS.length); state.iR2 = rnd(R2_VALS.length); state.iNOISE = rnd(NOISE_VALS.length);
+  }
+  // keep=true: solo cambia de pestaña (el tour restaura el modo sin resembrar nada).
+  function setMode(m, keep) {
+    const prev = state.mode;
+    // La pregunta sin responder no se lleva a Explora: la respuesta quedaría a la vista.
+    if (!keep && prev === 'predice' && m !== 'predice' && !state._revealed) randomizeConfig();
     state.mode = m;
     state.hide = (m === 'predice' && !state._revealed);
     el('predWrap').style.display = m === 'predice' ? 'block' : 'none';
     el('retoWrap').style.display = m === 'reto' ? 'block' : 'none';
     el('sweepWrap').style.display = m === 'medicion' ? 'block' : 'none';
-    if (m === 'predice') genPredice();
-    if (m === 'reto') newReto();
+    if (!keep) {
+      if (m === 'predice') genPredice();
+      if (m === 'reto') newReto();
+    }
     el('missionText').textContent = MISIONES[m];
     refreshAll();
   }
-
   function syncCtrlBtns() {
     MODES.forEach(m => { const b = el('btn-mode-' + m); if (b) b.classList.toggle('on', state.mode === m); });
     el('p_mode').textContent = MODE_META[state.mode].label;
@@ -680,18 +692,20 @@
     showToast('Topología: ' + (state.topology === 'inv' ? 'Inversor' : 'No inversor'), 'info');
   }
 
+  const INPUT_CSS = 'width:100%;background:#0c1a16;color:#EAF4F1;border:1px solid #1E3A34;padding:6px;border-radius:6px';
   function genPredice() {
-    state._revealed = false; state.hide = true;
+    state._revealed = false; state._predDone = false; state.hide = true;
+    randomizeConfig(); // cada pregunta es un caso nuevo
     state._predType = Math.random() < 0.5 ? 'vth' : 'chatter';
     const box = el('predBox');
     if (state._predType === 'vth') {
       const which = Math.random() < 0.5 ? 'VTH' : 'VTL';
       state._predWhich = which;
-      box.innerHTML = '<p>Predice <b>' + which + '</b> (V) con los valores actuales:</p>' +
-        '<input id="predInput" type="number" step="0.01" placeholder="V" style="width:100%;background:#0c1a16;color:#EAF4F1;border:1px solid #1E3A34;padding:6px;border-radius:6px">';
+      box.innerHTML = '<p>Predice <b>' + which + '</b> (V) con los valores actuales (±15 %):</p>' +
+        '<input id="predInput" type="number" step="0.01" placeholder="V" style="' + INPUT_CSS + '">';
     } else {
       box.innerHTML = '<p>¿Cómo conmuta la salida con los valores actuales?</p>' +
-        '<select id="predSelect" style="width:100%;background:#0c1a16;color:#EAF4F1;border:1px solid #1E3A34;padding:6px;border-radius:6px">' +
+        '<select id="predSelect" style="' + INPUT_CSS + '">' +
         '<option value="limpio">Conmutación limpia</option>' +
         '<option value="rebote">Rebote (chatter)</option>' +
         '<option value="enganchado">Enganchado (fuera de rango)</option>' +
@@ -700,6 +714,7 @@
     refreshAll();
   }
   function checkPredice() {
+    if (state._predDone) { showToast('Esa pregunta ya se reveló: pulsa «Nueva».', 'info'); return; }
     const res = curSolveSchmitt();
     let ok, real;
     if (state._predType === 'vth') {
@@ -714,32 +729,85 @@
       real = label;
       ok = el('predSelect').value === label;
     }
-    state._revealed = true; state.hide = false;
+    state._revealed = true; state._predDone = true; state.hide = false;
     refreshAll();
     showToast(ok ? '✅ Correcto — valor real: ' + real : '❌ No — valor real: ' + real, ok ? 'ok' : 'warn');
   }
 
+  // ---------- Reto: conmutación limpia sin volverse insensible ----------
+  // Cada reto fija Vcc y el ruido (≥ 0,02 V pico). Criterio, el mismo que se anuncia: 1,5× ≤ ΔV/ruido pico-a-pico ≤ 3×
+  // (y ΔV ≤ 60 % de Vcc), umbrales dentro de 0–Vcc y sin rebote en la simulación. El arranque neutro NO lo cumple.
+  // Sin veredicto en vivo; a los 3 fallos seguidos hay caso nuevo; 2 pistas graduadas.
+  function evalRetoDiseno(topo, vcc, r1, r2, noisePk) {
+    const res = solveSchmitt(topo, vcc, r1, r2);
+    const sim = simChatter(res, noisePk, 200);
+    const noisePP = noisePk * 2;
+    const ruido = res.deltaV >= 1.5 * noisePP;
+    const rango = !res.outOfRange;
+    const limpio = rango && sim.transitions <= 2;
+    const sensible = res.deltaV <= 3 * noisePP && res.deltaV <= 0.6 * vcc;
+    return { res: res, ruido: ruido, rango: rango, limpio: limpio, sensible: sensible, ok: ruido && rango && limpio && sensible };
+  }
   function newReto() {
-    const noisePP = curNoise() * 2;
-    state._reto = { noisePP };
-    el('retoBox').innerHTML = `<p>Con ruido pico-a-pico actual de ${fmtV(noisePP)}, ajusta R1/R2 (y la topología si quieres) para que ΔV ≥ 1.5× el ruido pico-a-pico, sin superar el 60% de Vcc.</p>`;
+    let R = null, tries = 0;
+    const prev = state._reto; // el caso nuevo no repite el anterior
+    while (!R && tries < 300) {
+      tries++;
+      const iV = rnd(VCC_VALS.length), iN = 2 + rnd(NOISE_VALS.length - 2);
+      let win = 0, total = 0;
+      ['inv', 'noninv'].forEach(tp => R1_VALS.forEach(r1 => R2_VALS.forEach(r2 => { total++; if (evalRetoDiseno(tp, VCC_VALS[iV], r1, r2, NOISE_VALS[iN]).ok) win++; })));
+      const neutro = evalRetoDiseno('inv', VCC_VALS[iV], R1_VALS[0], R2_VALS[5], NOISE_VALS[iN]);
+      if (win >= 2 && win <= total * 0.2 && !neutro.ok && !(prev && prev.iV === iV && prev.iN === iN)) R = { iV: iV, iN: iN };
+    }
+    if (!R) R = { iV: 1, iN: 3 };
+    state._reto = { iV: R.iV, iN: R.iN, noisePP: NOISE_VALS[R.iN] * 2 };
+    state.topology = 'inv'; state.iVCC = R.iV; state.iNOISE = R.iN; state.iR1 = 0; state.iR2 = 5; // arranque neutro
+    state.retoSolved = false; state.fallosSeguidos = 0; state.pistas = 0; state.pistaLog = [];
+    renderReto('');
     refreshAll();
   }
-  function checkReto() {
-    const res = curSolveSchmitt();
-    const noisePP = state._reto.noisePP;
-    const maxDelta = 0.6 * curVCC();
-    if (res.outOfRange) {
-      showToast('Estos R1/R2 sacan un umbral fuera de 0–Vcc: el comparador se queda enganchado. Reduce la relación R1/R2.', 'warn');
-    } else if (curSimChatter(res).transitions > 2) {
-      showToast(`ΔV=${fmtV(res.deltaV)} no basta frente al ruido de ${fmtV(noisePP)} pico-a-pico: la simulación muestra rebote. Sube R1 o baja R2.`, 'warn');
-    } else if (res.deltaV > maxDelta) {
-      showToast(`ΔV=${fmtV(res.deltaV)} supera 60% de Vcc (${fmtV(maxDelta)}): demasiado insensible. Baja R1 o sube R2.`, 'warn');
-    } else {
-      showToast(`✅ Diseño válido: ΔV=${fmtV(res.deltaV)} está dentro del rango seguro (sin rebote en la simulación).`, 'ok');
-    }
+  function renderReto(msg) {
+    const R = state._reto;
+    if (!R) return;
+    el('retoBox').innerHTML = `<p>Con Vcc = ${VCC_VALS[R.iV]} V y ruido pico-a-pico de ${fmtV(R.noisePP)}, ajusta R1/R2 (y la topología si quieres) para que ΔV quede entre 1,5× y 3× el ruido pico-a-pico (sin superar el 60 % de Vcc) y la simulación no rebote. Sin veredicto hasta «Comprobar».</p>` +
+      `<div style="font-size:11px;color:#8FB3AC">Intentos: <b id="retoIntentos">${state.intentos}</b> · Pistas: ${state.pistas}/2${state.retoSolved ? ' · <b style="color:#3fae3f">✔ resuelto</b>' : ''}</div>` +
+      (state.pistaLog.length ? '<div style="font-size:11px;margin-top:4px">' + state.pistaLog.map(h => '💡 ' + h).join('<br>') + '</div>' : '') +
+      (msg ? `<div style="font-size:12px;margin-top:6px;color:${state.retoSolved ? '#3fae3f' : '#E8871E'}">${msg}</div>` : '');
   }
-
+  function retoHint() {
+    if (state.mode !== 'reto' || !state._reto) return;
+    if (state.pistas >= 2) { showToast('Ya usaste las 2 pistas de este reto.', 'info'); return; }
+    const H = ['En la topología inversora ΔV = (Vcc − Vol)·R1/(R1+R2): solo depende de la relación R1/R2, no de sus valores absolutos.',
+      'Un lazo demasiado ancho te vuelve insensible a la señal real, y uno demasiado estrecho no frena el ruido: busca el término medio, y cuida que los umbrales no salgan de 0–Vcc.'];
+    state.pistaLog.push(H[state.pistas]); state.pistas++;
+    renderReto('');
+  }
+  function checkReto() {
+    if (!state._reto) return;
+    const R = state._reto;
+    state.iVCC = R.iV; state.iNOISE = R.iN; // el enunciado manda
+    const e = evalRetoDiseno(state.topology, curVCC(), curR1(), curR2(), curNoise());
+    state.intentos++;
+    let msg;
+    if (e.ok) {
+      state.retoSolved = true; state.fallosSeguidos = 0;
+      msg = `✅ Diseño válido: ΔV=${fmtV(e.res.deltaV)} está dentro del rango seguro (sin rebote en la simulación).`;
+    } else {
+      state.retoSolved = false; state.fallosSeguidos++;
+      const f = [];
+      if (!e.rango) f.push('un umbral queda fuera de 0–Vcc: el comparador se engancha');
+      else {
+        if (!e.ruido) f.push('el lazo es demasiado estrecho frente al ruido');
+        else if (!e.limpio) f.push('la simulación todavía muestra rebote');
+        if (!e.sensible) f.push('el lazo es demasiado ancho para este ruido: el circuito se vuelve insensible');
+      }
+      msg = 'Aún no: ' + f.join('; ') + '.';
+      if (state.fallosSeguidos >= 3) { newReto(); msg += ' Tres fallos seguidos: se plantea un caso nuevo.'; }
+    }
+    renderReto(msg);
+    refreshAll();
+    showToast(msg, e.ok ? 'ok' : 'warn');
+  }
   async function runSweep() {
     state._sweepTrace = [];
     for (let i = 0; i < R2_VALS.length; i++) {
@@ -783,30 +851,68 @@
   }
 
   // ---------- Quiz ----------
+  // Opciones barajadas (Fisher–Yates); la correcta no tiene posición fija ni es la más larga por sistema.
   const QUIZ = [
-    { q: '¿Por qué un comparador simple (sin histéresis) puede generar transiciones falsas con una señal ruidosa cerca del umbral?', a: ['Porque solo hay un umbral: cualquier cruce por ruido dispara un cambio de estado', 'Porque el LM393 es lento', 'Porque el ruido cambia Vcc'], correct: 0 },
-    { q: 'En la topología inversora, si aumentas R2 dejando R1 fijo, ¿qué le pasa a ΔV=VTH−VTL?', a: ['Disminuye, porque R1/(R1+R2) baja', 'Aumenta siempre', 'No cambia'], correct: 0 },
-    { q: 'En la topología no inversora, si R1/R2 es tan grande que VTL calculado da negativo, ¿qué pasa?', a: ['Nada, VTL negativo funciona igual', 'El comparador se engancha: una vez en HIGH, nunca vuelve a LOW dentro de 0–Vcc', 'Vout se vuelve negativo'], correct: 1 },
+    { q: '¿Por qué un comparador simple (sin histéresis) puede generar transiciones falsas con una señal ruidosa cerca del umbral?',
+      ok: 'Porque solo hay un umbral: cualquier cruce provocado por el ruido dispara un cambio de estado',
+      bad: ['Porque el LM393 es lento y deja pasar los picos de ruido hasta la salida sin filtrarlos', 'Porque el ruido modifica la tensión de alimentación Vcc y con ello el umbral de decisión', 'Porque la salida de colector abierto no puede cambiar de estado más de una vez por ciclo'] },
+    { q: 'En la topología inversora, si aumentas R2 dejando R1 fijo, ¿qué le pasa a ΔV=VTH−VTL?',
+      ok: 'Disminuye, porque la fracción R1/(R1+R2) que se realimenta baja',
+      bad: ['Aumenta, porque una R2 mayor entrega más tensión de salida al nodo de realimentación', 'No cambia, porque ΔV depende solo de Vcc y de la tensión de saturación baja Vol', 'Aumenta con el cuadrado de R2, porque la histéresis crece con la resistencia total'] },
+    { q: 'En la topología no inversora, si R1/R2 es tan grande que VTL calculado da negativo, ¿qué pasa?',
+      ok: 'El comparador se engancha: una vez en HIGH ya no vuelve a LOW dentro del rango 0–Vcc',
+      bad: ['Nada: un VTL negativo funciona igual porque el comparador acepta entradas bajo tierra', 'La salida Vout se vuelve negativa, porque el comparador pasa a alimentarse con tensión dual', 'El lazo de histéresis se hace más estrecho, porque VTL negativo reduce ΔV hasta cero'] },
+    { q: 'Con el mismo R1/R2, ¿qué efecto tiene subir el ruido de la señal sobre la conmutación limpia?',
+      ok: 'Hace falta una histéresis mayor que el ruido pico-a-pico; si no, aparecen cruces falsos y rebote',
+      bad: ['Ninguno: la histéresis ya elimina por sí misma cualquier ruido, sea cual sea su amplitud', 'Se necesita menos histéresis, porque el ruido ayuda a que la señal cruce más rápido el umbral', 'Solo importa la frecuencia del ruido y no su amplitud, ya que el umbral es de tensión continua'] },
+    { q: '¿Por qué conviene que ΔV no sea mucho mayor que el ruido pico-a-pico?',
+      ok: 'Porque una histéresis excesiva vuelve al circuito insensible a variaciones pequeñas de la señal real',
+      bad: ['Porque ΔV grande descarga el capacitor de salida y baja la frecuencia máxima de conmutación', 'Porque ΔV grande aumenta el consumo del LM393 y puede sobrecalentarlo con facilidad', 'Porque ΔV grande hace que Vout nunca llegue a Vcc, al caer la tensión en la resistencia'] },
   ];
-  let quizIdx = 0;
-  function buildQuiz() { quizIdx = Math.floor(Math.random() * QUIZ.length); refreshQuestion(); }
+  function shuffled(arr) {
+    const a = arr.slice();
+    for (let i = a.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      const tmp = a[i]; a[i] = a[j]; a[j] = tmp;
+    }
+    return a;
+  }
+  let quizIdx = 0, quizOpts = [], quizAns = -1, quizFallos = 0;
+  function buildQuiz(next) {
+    quizIdx = next ? (quizIdx + 1) % QUIZ.length : Math.floor(Math.random() * QUIZ.length);
+    const item = QUIZ[quizIdx];
+    quizOpts = shuffled([{ t: item.ok, ok: true }].concat(item.bad.map(t => ({ t: t, ok: false }))));
+    quizAns = -1; quizFallos = 0;
+    refreshQuestion();
+  }
+  function quizCorrectIdx() { return quizOpts.findIndex(o => o.ok); }
   function refreshQuestion() {
     const item = QUIZ[quizIdx];
     const box = el('quizBox');
     if (!box) return;
+    const done = quizAns >= 0 && quizOpts[quizAns].ok;
     let html = '<div style="font-size:12px;color:#8FB3AC;margin-bottom:6px">Quiz rápido</div>';
     html += '<div style="font-size:13px;color:#EAF4F1;margin-bottom:8px">' + item.q + '</div>';
-    item.a.forEach((opt, i) => { html += '<button class="b quizOpt" data-i="' + i + '" style="width:100%;text-align:left;margin-bottom:4px">' + opt + '</button>'; });
+    quizOpts.forEach((opt, i) => {
+      html += '<button class="b quizOpt" data-i="' + i + '" ' + (opt.gastada || done ? 'disabled ' : '') + 'style="width:100%;text-align:left;margin-bottom:4px' + (opt.gastada ? ';opacity:.45' : '') + '">' + opt.t + '</button>';
+    });
+    if (done) html += '<button class="b" id="quizNext" style="width:100%;margin-top:4px">Siguiente pregunta</button>';
     box.innerHTML = html;
     box.querySelectorAll('.quizOpt').forEach(btn => {
       btn.addEventListener('click', () => {
         const i = Number(btn.dataset.i);
-        if (i === item.correct) { showToast('✅ Correcto', 'ok'); quizIdx = (quizIdx + 1) % QUIZ.length; refreshQuestion(); }
-        else { showToast('❌ Intenta de nuevo', 'warn'); }
+        quizAns = i;
+        if (quizOpts[i].ok) { showToast('✅ Correcto', 'ok'); }
+        else {
+          quizOpts[i].gastada = true; quizFallos++;
+          if (quizFallos >= 2) { showToast('Dos fallos: se plantea otra pregunta.', 'warn'); buildQuiz(true); return; }
+          showToast('❌ No es esa: repasa la pregunta e inténtalo otra vez', 'warn');
+        }
+        refreshQuestion();
       });
     });
+    const nx = el('quizNext'); if (nx) nx.addEventListener('click', () => buildQuiz(true));
   }
-
   // ---------- Interacción 3D ----------
   function actToast(id) {
     const labels = { r1: 'R1', r2: 'R2', rpu: 'Rpu (pull-up)', cmp: 'LM393', src: 'Fuente vin', out: 'Vout' };
@@ -830,12 +936,30 @@
     }
   });
 
+  // El tour es una DEMOSTRACIÓN: no toca el reto (nunca llama a checkReto) y al terminar
+  // —o si algo falla— devuelve configuración, modo y barrido del alumno.
+  let tourBusy = false;
   async function runAuto() {
-    setMode('explora'); await sleep(600);
-    state.iVCC = 1; state.iR1 = 2; state.iR2 = 1; refreshAll(); await sleep(800);
-    toggleTopology(); await sleep(900);
-    toggleTopology(); await sleep(600);
-    setMode('medicion'); await runSweep();
+    if (tourBusy) return;
+    tourBusy = true;
+    const btn = el('autoTour'); if (btn) btn.disabled = true;
+    const keys = ['topology', 'iVCC', 'iR1', 'iR2', 'iNOISE', 'mode', 'hide', '_sweepTrace'];
+    const snap = {};
+    keys.forEach(k => { snap[k] = state[k]; });
+    try {
+      setMode('explora', true); await sleep(600);
+      state.iVCC = 1; state.iR1 = 2; state.iR2 = 1; refreshAll(); await sleep(800);
+      toggleTopology(); await sleep(900);
+      toggleTopology(); await sleep(600);
+      setMode('medicion', true); await runSweep();
+    } finally {
+      keys.forEach(k => { state[k] = snap[k]; });
+      setMode(snap.mode, true);
+      state.hide = snap.hide;
+      refreshAll();
+      if (btn) btn.disabled = false;
+      tourBusy = false;
+    }
   }
 
   // ---------- Wiring ----------
@@ -854,6 +978,7 @@
   el('predCheck').addEventListener('click', checkPredice);
   el('retoNew').addEventListener('click', newReto);
   el('retoCheck').addEventListener('click', checkReto);
+  el('retoHint').addEventListener('click', retoHint);
   el('sweepRun').addEventListener('click', runSweep);
   el('autoTour').addEventListener('click', runAuto);
 
@@ -866,6 +991,11 @@
   window.__labDebug = {
     state, DEVS, solveSchmitt, curSolveSchmitt, simChatter, curSimChatter,
     setMode, toggleTopology, genPredice, checkPredice, newReto, checkReto,
-    runSweep, refreshAll,
+    runSweep, refreshAll, retoHint, runAuto, buildQuiz, evalRetoDiseno,
+    get mode() { return state.mode; },
+    get retoSolved() { return state.retoSolved; },
+    get intentos() { return state.intentos; },
+    get quizAnswer() { return quizAns; },
+    get quizCorrectIndex() { return quizCorrectIdx(); },
   };
 })();

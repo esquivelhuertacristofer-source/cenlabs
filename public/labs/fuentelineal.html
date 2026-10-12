@@ -559,6 +559,8 @@ let RES=null, solved=false;
 let filterRevealed=false, voutRevealed=false;
 let PRED=null, predRevealed=false, predSolved=false;
 let RETO=null, retoSolved=false;
+let intentos=0, fallosSeguidos=0, pistas=0; const pistaLog=[];
+let qOpts=[], qAns=-1;
 let SWEEP=[], sweepMode='iout', sweeping=false, autoRunning=false;
 const sleep=ms=>new Promise(r=>setTimeout(r,ms));
 const el=id=>document.getElementById(id);
@@ -596,7 +598,7 @@ function genPredice(){
 function genReto(){
   const ioutTarget=0.2+Math.random()*0.6;
   RETO={ioutTarget, vline:114.3, ta:40, freqIdx:1};
-  retoSolved=false;
+  retoSolved=false; fallosSeguidos=0; pistas=0; pistaLog.length=0;
 }
 
 /* ---------- materiales ---------- */
@@ -1177,6 +1179,7 @@ document.getElementById('panel').innerHTML=`
   <div id="retoBox" style="display:none">
     <p id="retoHint"></p>
     <button class="b primary" id="btnReto">Verificar diseño</button>
+    <button class="b" id="btnRetoPista">💡 Pista (máx. 2)</button>
     <div id="retoOut"></div>
     <button class="b" id="btnNewReto">Nuevo reto</button>
   </div>
@@ -1208,6 +1211,12 @@ const MODE_META={
 function lockSet(ids,disabled){ ids.forEach(id=>{ const n=el(id); if(n) n.disabled=disabled; }); }
 
 function setMode(k){
+  // La predicción sin responder no se lleva a otro modo: el caso quedaría puesto y los osciloscopios darían la respuesta.
+  if(mode==='predice'&&k!=='predice'&&PRED&&!predRevealed){
+    xIdx=Math.floor(Math.random()*XFMR.length); freqIdx=Math.floor(Math.random()*FREQS.length);
+    Cidx=Math.floor(Math.random()*CVALS.length); hsIdx=Math.floor(Math.random()*HS.length); taIdx=Math.floor(Math.random()*TA_OPTS.length);
+    Vline=118+Math.random()*18; Iout=0.15+Math.random()*0.7; PRED=null;
+  }
   mode=k; solved=false;
   ['explora','predice','barrido','reto'].forEach(m=>el('m_'+m).classList.toggle('on',m===k));
   const meta=MODE_META[k];
@@ -1298,7 +1307,8 @@ function updateReport(){
     } else L.push('Aún no hay barrido. Elige qué variable barrer y pulsa "Ejecutar barrido".');
   } else if(mode==='reto'){
     L.push('Iout objetivo: '+fmtI(RETO.ioutTarget)+' · entregado actualmente: '+fmtI(RES.ioutAct)+'.');
-    L.push('Margen actual: '+fmtV(RES.headroomMargin)+' (meta ≥0.3V) · Tj actual: '+fmtT(th.tj)+' (meta ≤110°C) · rizo salida: '+(RES.voutRpp*1000).toFixed(0)+'mV (meta ≤20mV).');
+    L.push('Intentos: '+intentos+' · Pistas usadas: '+pistas+'/2. Sin veredicto hasta «Verificar diseño».');
+    pistaLog.forEach(h=>L.push('💡 '+h));
   }
   el('report').innerHTML=L.map(x=>'<div>• '+x+'</div>').join('');
 }
@@ -1331,6 +1341,7 @@ async function runSweep(){
 
 /* ---------- predice / reto ---------- */
 function checkPredice(){
+  if(predRevealed){ showToast('Esa predicción ya se reveló: pulsa «Nueva predicción» (o cambia de modo).'); return; }
   const vsecIn=parseFloat(el('inVsec').value), vdcIn=parseFloat(el('inVdcF').value), pdIn=parseFloat(el('inPd').value);
   const hOk=el('ph_si').classList.contains('on');
   const tOk=el('pt_si').classList.contains('on');
@@ -1359,14 +1370,32 @@ function checkReto(){
   const okHeadroom=RES.headroomMargin>=0.3;
   const okTj=th.tj<=110;
   const okRipple=RES.voutRpp<=0.02;
+  intentos++;
   retoSolved=okHeadroom&&okTj&&okRipple; solved=retoSolved;
   const chip=(ok,txt)=>`<div>${ok?'✔':'✘'} ${txt}</div>`;
+  let extra='';
+  if(retoSolved){ fallosSeguidos=0; }
+  else{
+    fallosSeguidos++;
+    if(fallosSeguidos>=3){ genReto(); setMode('reto'); showToast('Tres fallos seguidos: se plantea un caso nuevo.'); return; }
+  }
   el('retoOut').innerHTML =
-    chip(okHeadroom,'Margen = '+fmtV(RES.headroomMargin)+' (meta ≥0.3V)') +
-    chip(okTj,'Tj = '+fmtT(th.tj)+' (meta ≤110°C)') +
-    chip(okRipple,'Rizo salida = '+(RES.voutRpp*1000).toFixed(0)+'mV (meta ≤20mV)') +
-    `<div style="margin-top:6px;font-weight:600">${retoSolved?'✔ Diseño aprobado':'✘ Ajusta transformador / capacitor / disipador'}</div>`;
+    chip(okHeadroom,okHeadroom?'Margen de regulación suficiente':'Margen de regulación insuficiente') +
+    chip(okTj,okTj?'Tj dentro del límite':'Tj demasiado alta') +
+    chip(okRipple,okRipple?'Rizo de salida dentro de la meta':'Rizo de salida excesivo') +
+    `<div style="margin-top:6px;font-weight:600">${retoSolved?'✔ Diseño aprobado':'✘ Ajusta transformador / capacitor / disipador'}</div>` +
+    `<div style="font-size:11px;margin-top:4px">Intentos: <b id="retoIntentos">${intentos}</b> · Pistas: ${pistas}/2</div>` +
+    pistaLog.map(h=>`<div style="font-size:11px">💡 ${h}</div>`).join('');
   synth.beep(retoSolved?980:220,.15,.07);
+  refreshAll();
+}
+function retoPista(){
+  if(mode!=='reto'||!RETO) return;
+  if(pistas>=2){ showToast('Ya usaste las 2 pistas de este reto.'); return; }
+  const H=['El peor caso es la línea baja y la temperatura alta: el valle del rizo debe quedar por encima de Vout + dropout con la corriente pedida.',
+    'Lo que el regulador no entrega como salida lo disipa como calor: (Vfiltro − Vout)·Iout. Un secundario más alto da margen, pero cuesta Tj.'];
+  pistaLog.push(H[pistas]); pistas++;
+  el('retoOut').innerHTML=pistaLog.map(h=>`<div style="font-size:11px">💡 ${h}</div>`).join('')+`<div style="font-size:11px">Intentos: ${intentos} · Pistas: ${pistas}/2</div>`;
   refreshAll();
 }
 function newReto(){ genReto(); setMode('reto'); }
@@ -1377,27 +1406,31 @@ function buildQuiz(){
   QUIZ={
     explora:{ pregunta:'¿Qué le pasa a V_out si V_filtro cae por debajo de Vout+Vdropout en el valle del rizo?',
       opciones:[
-        {t:'Vout se mantiene perfectamente regulado', ok:false, why:'No: el regulador solo puede sostener Vout mientras tenga suficiente voltaje de entrada por encima del mínimo (dropout). Por debajo de ese margen, el transistor de paso ya no puede regular.'},
-        {t:'Vout cae y el rizo del filtro se "filtra" hacia la salida', ok:true, why:'Correcto: al perder margen de regulación, el regulador deja de recortar y Vout sigue aproximadamente a V_filtro−Vdropout, incluyendo su rizo.'},
-        {t:'El regulador se apaga por completo', ok:false, why:'No: no se apaga (salvo protección térmica), solo pierde regulación mientras siga habiendo algo de voltaje de entrada.'},
+        {t:'Vout cae y el rizo del filtro se "filtra" hacia la salida durante ese tramo', ok:true, why:'Correcto: al perder margen de regulación, el regulador deja de recortar y Vout sigue aproximadamente a V_filtro−Vdropout, incluyendo su rizo.'},
+        {t:'Vout se mantiene perfectamente regulado porque el transistor de paso compensa el valle', ok:false, why:'No: el regulador solo puede sostener Vout mientras tenga suficiente voltaje de entrada por encima del mínimo (dropout).'},
+        {t:'El regulador se apaga por completo hasta que V_filtro vuelve a subir en el siguiente pico', ok:false, why:'No: no se apaga (salvo protección térmica), solo pierde regulación mientras siga habiendo algo de voltaje de entrada.'},
+        {t:'Vout sube por encima de 5 V porque el regulador intenta compensar la caída de entrada', ok:false, why:'No: un regulador lineal no puede dar más tensión de la que recibe; en el valle Vout baja, no sube.'},
       ]},
     predice:{ pregunta:'¿Por qué el rizo del filtro tiene el doble de la frecuencia de línea, aunque la carga sea casi constante?',
       opciones:[
-        {t:'El puente conduce en ambos semiciclos, entregando un pulso de carga al capacitor 2 veces por ciclo de línea', ok:true, why:'Correcto: a diferencia de un rectificador de media onda, el puente recarga el capacitor en cada semiciclo — el doble de veces por segundo que la frecuencia de línea.'},
-        {t:'La corriente de quiescente Iq del regulador duplica la frecuencia', ok:false, why:'No: Iq es prácticamente constante y no tiene relación con la frecuencia del rizo.'},
-        {t:'El transformador invierte la fase', ok:false, why:'No: el transformador solo escala la amplitud; la duplicación de frecuencia viene del puente rectificador.'},
+        {t:'El puente conduce en ambos semiciclos y recarga el capacitor 2 veces por ciclo de línea', ok:true, why:'Correcto: a diferencia de un rectificador de media onda, el puente recarga el capacitor en cada semiciclo, el doble de veces por segundo que la frecuencia de línea.'},
+        {t:'La corriente de quiescente Iq del regulador duplica la frecuencia de la señal rectificada', ok:false, why:'No: Iq es prácticamente constante y no tiene relación con la frecuencia del rizo.'},
+        {t:'El transformador invierte la fase del secundario cada medio ciclo y duplica la frecuencia', ok:false, why:'No: el transformador solo escala la amplitud; la duplicación de frecuencia viene del puente rectificador.'},
+        {t:'El capacitor se carga y se descarga a través del regulador con una constante de tiempo fija', ok:false, why:'No: la frecuencia del rizo la fija el puente (2·f de línea), no la constante de tiempo de descarga.'},
       ]},
     barrido:{ pregunta:'Al barrer Iout, ¿cómo cambia la disipación de potencia Pd del regulador?',
       opciones:[
-        {t:'Crece aproximadamente lineal con Iout mientras (Vfiltro−Vout) se mantenga casi constante', ok:true, why:'Correcto: Pd≈(Vfiltro−Vout)·Iout+Vfiltro·Iq — el primer término crece linealmente con Iout si el resto se mantiene estable.'},
-        {t:'Se mantiene constante sin importar Iout', ok:false, why:'No: el término (Vfiltro−Vout)·Iout depende directamente de Iout.'},
-        {t:'Decrece porque el regulador se vuelve más eficiente a mayor corriente', ok:false, why:'No: un regulador lineal no gana eficiencia con la corriente — al contrario, disipa más.'},
+        {t:'Crece casi lineal con Iout mientras (Vfiltro−Vout) se mantenga estable', ok:true, why:'Correcto: Pd≈(Vfiltro−Vout)·Iout+Vfiltro·Iq; el primer término crece linealmente con Iout si el resto se mantiene estable.'},
+        {t:'Se mantiene constante sin importar Iout, porque el regulador disipa solo por su Iq', ok:false, why:'No: el término (Vfiltro−Vout)·Iout depende directamente de Iout.'},
+        {t:'Decrece, porque el regulador se vuelve más eficiente a mayor corriente de salida', ok:false, why:'No: un regulador lineal no gana eficiencia con la corriente; al contrario, disipa más.'},
+        {t:'Crece con el cuadrado de Iout, como la pérdida I²R de un resistor en serie', ok:false, why:'No: aquí la caída (Vfiltro−Vout) la fija el voltaje de entrada, de modo que la potencia crece con Iout, no con su cuadrado.'},
       ]},
-    reto:{ pregunta:'¿Por qué el modo Reto exige diseñar contra Vlínea mínima (114V) y no contra el valor nominal (127V)?',
+    reto:{ pregunta:'¿Por qué el modo Reto exige diseñar contra Vlínea mínima (114 V) y no contra el valor nominal (127 V)?',
       opciones:[
-        {t:'Porque a menor Vlínea, menor Vs_rms y menor V_filtro — el peor caso para el margen de regulación', ok:true, why:'Correcto: el peor caso de headroom ocurre cuando la línea está en su valor mínimo garantizado, no en el nominal.'},
-        {t:'Porque a menor Vlínea el regulador siempre disipa más potencia, y eso es lo único que importa', ok:false, why:'Incompleto: a menor Vlínea el regulador en realidad disipa MENOS (menor Vfiltro−Vout) — el riesgo real es perder margen de regulación, no el calor.'},
-        {t:'Porque el fabricante solo garantiza el diseño a 114V', ok:false, why:'No: esa cifra no viene del fabricante del regulador, sino de la variación real de la red eléctrica que el propio diseño debe tolerar.'},
+        {t:'A menor Vlínea, menor Vs_rms y menor V_filtro: es el peor caso para el margen de regulación', ok:true, why:'Correcto: el peor caso de headroom ocurre cuando la línea está en su valor mínimo, no en el nominal.'},
+        {t:'A menor Vlínea el regulador siempre disipa más potencia, y eso es lo único que importa', ok:false, why:'Incompleto: a menor Vlínea el regulador en realidad disipa MENOS (menor Vfiltro−Vout); el riesgo real es perder margen de regulación.'},
+        {t:'Porque el fabricante del regulador solo garantiza su funcionamiento con 114 V de entrada', ok:false, why:'No: esa cifra no viene del regulador, sino de la variación real de la red eléctrica que el diseño debe tolerar.'},
+        {t:'Porque a 114 V el rizo del filtro es siempre menor y por eso es el caso más exigente', ok:false, why:'No: el rizo depende de la corriente y de C; lo que empeora con la línea baja es el margen de regulación.'},
       ]},
   };
 }
@@ -1410,11 +1443,13 @@ function refreshQuestion(){
     const j=Math.floor(Math.random()*(i+1));
     const tmp=opciones[i];opciones[i]=opciones[j];opciones[j]=tmp;
   }
-  el('dxbtns').innerHTML=opciones.map((o,i)=>`<button class="b" data-i="${i}">${'ABC'[i]}) ${o.t}</button>`).join('');
+  qOpts=opciones; qAns=-1;
+  el('dxbtns').innerHTML=opciones.map((o,i)=>`<button class="b" data-i="${i}">${'ABCD'[i]}) ${o.t}</button>`).join('');
   Array.from(el('dxbtns').children).forEach(btn=>{
     btn.onclick=()=>{
       if(btn.classList.contains('right')||btn.classList.contains('wrong')) return;
       const o=opciones[+btn.dataset.i];
+      qAns=+btn.dataset.i;
       btn.classList.add(o.ok?'right':'wrong');
       showToast(o.why);
       synth.beep(o.ok?880:220,.12,.06);
@@ -1458,9 +1493,12 @@ S.renderer.domElement.addEventListener('pointermove',(e)=>{
   S.renderer.domElement.title=title;
 });
 
+/* El recorrido es una DEMOSTRACIÓN: no comprueba ni resuelve el reto y, al terminar o fallar,
+   devuelve modo, configuración, carga y revelados del alumno. */
 async function runAuto(){
   if(autoRunning) return; autoRunning=true;
   const btn=el('btnAuto'); const prevTxt=btn.textContent; btn.textContent='Recorriendo…'; btn.disabled=true;
+  const snap={mode,xIdx,freqIdx,Cidx,hsIdx,taIdx,Vline,Iout,filterRevealed,voutRevealed,SWEEP:SWEEP.slice(),sweepMode};
   try{
     setMode('explora'); filterRevealed=false; voutRevealed=false; refreshAll();
     showToast('Paso 1/5: esta es la fuente de línea sin revelar — toca el capacitor.'); await sleep(2800);
@@ -1470,9 +1508,15 @@ async function runAuto(){
     showToast('Paso 3/5: el regulador 7805 recorta V_filtro a 5V estables.'); await sleep(2800);
     setMode('barrido'); sweepMode='iout'; el('sm_iout').classList.add('on'); el('sm_c').classList.remove('on');
     showToast('Paso 4/5: barriendo Iout para ver el efecto de la carga y el foldback.'); await runSweep(); await sleep(2000);
-    setMode('reto');
-    showToast('Paso 5/5: ahora diseña tú una fuente que cumpla el peor caso.'); await sleep(2600);
+    showToast('Paso 5/5: en el reto diseñarás tú una fuente que cumpla el peor caso. El reto sigue intacto.'); await sleep(2600);
   } finally {
+    setMode(snap.mode);
+    if(snap.mode==='explora'||snap.mode==='barrido'){
+      xIdx=snap.xIdx; freqIdx=snap.freqIdx; Cidx=snap.Cidx; hsIdx=snap.hsIdx; taIdx=snap.taIdx; Vline=snap.Vline; Iout=snap.Iout;
+    }
+    filterRevealed=snap.filterRevealed; voutRevealed=snap.voutRevealed; SWEEP=snap.SWEEP; sweepMode=snap.sweepMode;
+    el('sm_iout').classList.toggle('on',sweepMode==='iout'); el('sm_c').classList.toggle('on',sweepMode!=='iout');
+    syncCtrlBtns(); refreshAll();
     autoRunning=false; btn.textContent=prevTxt; btn.disabled=false;
   }
 }
@@ -1504,6 +1548,7 @@ el('pt_no').onclick=()=>{ el('pt_no').classList.add('on'); el('pt_si').classList
 el('btnPred').onclick=()=>checkPredice();
 
 el('btnReto').onclick=()=>checkReto();
+el('btnRetoPista').onclick=()=>retoPista();
 el('btnNewReto').onclick=()=>newReto();
 
 el('btnAuto').onclick=()=>runAuto();
@@ -1523,7 +1568,12 @@ window.__labDebug={
   thermal:(pd,theta,ta)=>thermal(pd,theta,ta),
   setMode, setX:i=>{xIdx=i;onChange();}, setC:i=>{Cidx=i;onChange();}, setHS:i=>{hsIdx=i;onChange();},
   setVline:v=>{Vline=v;refreshAll();}, setIout:v=>{Iout=v;refreshAll();},
-  checkPredice, newPredice, checkReto, newReto, sweepC:runSweep, boardClick,
+  checkPredice, newPredice, checkReto, newReto, sweepC:runSweep, boardClick, runAuto, retoPista, buildQuiz,
+  get retoSolved(){ return retoSolved; },
+  get intentos(){ return intentos; },
+  get quizAnswer(){ return qAns; },
+  get quizCorrectIndex(){ return qOpts.findIndex(o=>o.ok); },
+  get mode(){ return mode; },
 };
 </script>
   <!-- Ficha técnica · Capa B del molde de lab 3D (componente compartido + contenido del lab) -->

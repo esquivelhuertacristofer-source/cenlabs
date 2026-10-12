@@ -48,8 +48,6 @@ fichaTecnica({
     '<b>ON Semiconductor</b>, "LM393 - Low Offset Voltage Dual Comparators" — https://www.onsemi.com/download/data-sheet/pdf/lm393-d.pdf: segunda fuente usada para cruzar la cifra de VOL — ver advertencia de discrepancia entre fabricantes en la sección 2.',
     '<b>Sedra y Smith</b>, <i>Microelectronic Circuits</i> (Oxford): análisis de nodo con superposición sobre comparadores con realimentación positiva — la referencia principal para la deducción analítica de VTH/VTL de esta práctica.',
     '<b>Boylestad y Nashelsky</b>, <i>Electronic Devices and Circuit Theory</i> (Pearson): tratamiento introductorio de comparadores y circuitos con histéresis.',
-    '<b>IEC 60617</b>: símbolos gráficos para esquemas eléctricos (comparador, resistor, fuente AC, tierra) — el estándar de representación de este lab.',
-    '<b>Nota curricular</b> ⚑: la lista maestra (docs/LISTA-MAESTRA-200-PRACTICAS.md) asigna a esta práctica (d2-12) la trazabilidad "MEC-I.2"; la correspondencia completa con el temario y el inventario oficial del curso queda pendiente de confirmación curricular directa por un responsable del área.',
-    '<b>Notas para el revisor experto:</b> esta sección se actualizará con hallazgos concretos tras la verificación con Playwright de esta práctica (errores de consola, sanidad física de VTH/VTL/ΔV vía window.__labDebug, comportamiento de los 4 modos —incluyendo la detección de enganche en la topología no inversora—, y correctitud visual del lazo de histéresis y del osciloscopio 3D con el conteo de transiciones).'
+    '<b>IEC 60617</b>: símbolos gráficos para esquemas eléctricos (comparador, resistor, fuente AC, tierra) — el estándar de representación de este lab.'
   ]
 });

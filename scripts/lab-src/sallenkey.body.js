@@ -139,7 +139,8 @@
   const state = {
     iR: 2, iC: 3, iRF: 5, iTESTR: 4,
     mode: 'explora', hide: false, _revealed: false,
-    _sweepTrace: null, _predType: 'f0', _reto: null,
+    _sweepTrace: null, _predType: 'f0', _reto: null, _predDone: false,
+    retoSolved: false, intentos: 0, fallosSeguidos: 0, pistas: 0, pistaLog: [],
   };
 
   function curR() { return R_VALS[state.iR]; }
@@ -619,6 +620,7 @@
       <div class="btns" style="margin-top:6px">
         <button class="b" id="retoNew" style="flex:1 0 48%">Nuevo reto</button>
         <button class="b" id="retoCheck" style="flex:1 0 48%">Comprobar</button>
+        <button class="b" id="retoHint" style="flex:1 0 100%">💡 Pista (máx. 2)</button>
       </div>
     </div>
     <div id="sweepWrap" style="display:none;margin-top:10px">
@@ -643,18 +645,27 @@
     reto: 'Diseña R, C y Rf para alcanzar una fc objetivo (±10%) con respuesta Butterworth (Q dentro de ±0.05 de 0.707).',
   };
 
-  function setMode(m) {
+  function rnd(n) { return Math.floor(Math.random() * n); }
+  function randomizeConfig() {
+    state.iR = rnd(R_VALS.length); state.iC = rnd(C_VALS.length); state.iRF = rnd(RF_VALS.length);
+  }
+  // keep=true: solo cambia de pestaña (el tour restaura el modo sin resembrar nada).
+  function setMode(m, keep) {
+    const prev = state.mode;
+    // La pregunta sin responder no se lleva a Explora: la respuesta quedaría a la vista.
+    if (!keep && prev === 'predice' && m !== 'predice' && !state._revealed) randomizeConfig();
     state.mode = m;
     state.hide = (m === 'predice' && !state._revealed);
     el('predWrap').style.display = m === 'predice' ? 'block' : 'none';
     el('retoWrap').style.display = m === 'reto' ? 'block' : 'none';
     el('sweepWrap').style.display = m === 'medicion' ? 'block' : 'none';
-    if (m === 'predice') genPredice();
-    if (m === 'reto') newReto();
+    if (!keep) {
+      if (m === 'predice') genPredice();
+      if (m === 'reto') newReto();
+    }
     el('missionText').textContent = MISIONES[m];
     refreshAll();
   }
-
   function syncCtrlBtns() {
     MODES.forEach(m => { const b = el('btn-mode-' + m); if (b) b.classList.toggle('on', state.mode === m); });
     el('p_mode').textContent = MODE_META[state.mode].label;
@@ -662,20 +673,22 @@
     Object.keys(spans).forEach(id => { const s = el(id); if (s) s.textContent = spans[id]; });
   }
 
+  const INPUT_CSS = 'width:100%;background:#0c1a16;color:#EAF4F1;border:1px solid #1E3A34;padding:6px;border-radius:6px';
   function genPredice() {
-    state._revealed = false; state.hide = true;
+    state._revealed = false; state._predDone = false; state.hide = true;
+    randomizeConfig(); // cada pregunta es un caso nuevo
     const p = Math.random();
     state._predType = p < 0.34 ? 'f0' : (p < 0.67 ? 'q' : 'type');
     const box = el('predBox');
     if (state._predType === 'f0') {
-      box.innerHTML = '<p>Predice <b>fc</b> (Hz) con los valores actuales de R y C:</p>' +
-        '<input id="predInput" type="number" step="0.1" placeholder="Hz" style="width:100%;background:#0c1a16;color:#EAF4F1;border:1px solid #1E3A34;padding:6px;border-radius:6px">';
+      box.innerHTML = '<p>Predice <b>fc</b> (Hz) con los valores actuales de R y C (±15 %):</p>' +
+        '<input id="predInput" type="number" step="0.1" placeholder="Hz" style="' + INPUT_CSS + '">';
     } else if (state._predType === 'q') {
       box.innerHTML = '<p>Predice <b>Q</b> con el Rf actual (Rg=10 kΩ fijo):</p>' +
-        '<input id="predInput" type="number" step="0.01" placeholder="Q" style="width:100%;background:#0c1a16;color:#EAF4F1;border:1px solid #1E3A34;padding:6px;border-radius:6px">';
+        '<input id="predInput" type="number" step="0.01" placeholder="Q" style="' + INPUT_CSS + '">';
     } else {
       box.innerHTML = '<p>¿Qué tipo de respuesta tiene el filtro con los valores actuales?</p>' +
-        '<select id="predSelect" style="width:100%;background:#0c1a16;color:#EAF4F1;border:1px solid #1E3A34;padding:6px;border-radius:6px">' +
+        '<select id="predSelect" style="' + INPUT_CSS + '">' +
         '<option value="over">Sobreamortiguada (sin pico)</option>' +
         '<option value="butter">Butterworth (máx. plana)</option>' +
         '<option value="peak">Con pico cerca de fc</option>' +
@@ -685,6 +698,7 @@
     refreshAll();
   }
   function checkPredice() {
+    if (state._predDone) { showToast('Esa pregunta ya se reveló: pulsa «Nueva».', 'info'); return; }
     const res = curSolveSallenKey();
     let ok, real;
     if (state._predType === 'f0') {
@@ -702,33 +716,72 @@
       real = cls.label;
       ok = el('predSelect').value === cls.key;
     }
-    state._revealed = true; state.hide = false;
+    state._revealed = true; state._predDone = true; state.hide = false;
     refreshAll();
     showToast(ok ? '✅ Correcto — valor real: ' + real : '❌ No — valor real: ' + real, ok ? 'ok' : 'warn');
   }
 
+  // ---------- Reto: fc objetivo con respuesta Butterworth ----------
+  // El objetivo sale de un par R–C de la rejilla; el arranque es neutro (Rf=0, Q=0,5) y en el reto no hay atajos.
+  // Sin veredicto en vivo; a los 3 fallos seguidos hay caso nuevo; 2 pistas graduadas.
+  function evalReto(R, res) {
+    const fOk = Math.abs(res.f0 - R.targetF0) / R.targetF0 <= 0.10;
+    const qOk = Math.abs(res.Q - Math.SQRT1_2) <= 0.05;
+    return { fOk: fOk, qOk: qOk, ok: fOk && qOk };
+  }
   function newReto() {
-    const ri = Math.floor(Math.random() * R_VALS.length);
-    const ci = Math.floor(Math.random() * C_VALS.length);
-    const target = solveSallenKey(R_VALS[ri], C_VALS[ci], RF_VALS[5], RG).f0;
-    state._reto = { targetF0: target };
-    el('retoBox').innerHTML = `<p>Objetivo: <b>fc ≈ ${fmtHz(target)}</b> con respuesta <b>Butterworth</b> (Q≈0.707). Ajusta R y C para fc, y Rf para Q.</p>`;
+    let R = null, tries = 0;
+    while (!R && tries < 200) {
+      tries++;
+      const ri = rnd(R_VALS.length), ci = rnd(C_VALS.length);
+      const c = { targetF0: solveSallenKey(R_VALS[ri], C_VALS[ci], RF_VALS[5], RG).f0 };
+      // el arranque neutro no debe cumplir ni la frecuencia
+      const neutro = solveSallenKey(R_VALS[2], C_VALS[3], RF_VALS[0], RG);
+      if (!evalReto(c, neutro).fOk) R = c;
+    }
+    if (!R) R = { targetF0: 3000 };
+    state._reto = R;
+    state.iR = 2; state.iC = 3; state.iRF = 0; // arranque neutro: Rf = 0 (K=1)
+    state.retoSolved = false; state.fallosSeguidos = 0; state.pistas = 0; state.pistaLog = [];
+    renderReto('');
     refreshAll();
   }
-  function checkReto() {
-    const res = curSolveSallenKey();
-    const target = state._reto.targetF0;
-    const fOk = Math.abs(res.f0 - target) / target <= 0.10;
-    const qOk = Math.abs(res.Q - Math.SQRT1_2) <= 0.05;
-    if (fOk && qOk) {
-      showToast(`✅ Diseño válido: fc=${fmtHz(res.f0)} (objetivo ${fmtHz(target)}), Q=${fmtQ(res.Q)}`, 'ok');
-    } else if (!fOk) {
-      showToast(`fc actual ${fmtHz(res.f0)} está lejos del objetivo ${fmtHz(target)} (±10%). Ajusta R o C — fc=1/(2πRC).`, 'warn');
-    } else {
-      showToast(`fc está bien, pero Q=${fmtQ(res.Q)} no es Butterworth (~0.707 ±0.05). Ajusta Rf.`, 'warn');
-    }
+  function renderReto(msg) {
+    const R = state._reto;
+    if (!R) return;
+    el('retoBox').innerHTML = `<p>Objetivo: <b>fc ≈ ${fmtHz(R.targetF0)}</b> (±10 %) con respuesta <b>Butterworth</b> (Q = 0,707 ± 0,05). Ajusta R y C para fc, y Rf para Q. Sin veredicto hasta «Comprobar».</p>` +
+      `<div style="font-size:11px;color:#8FB3AC">Intentos: <b id="retoIntentos">${state.intentos}</b> · Pistas: ${state.pistas}/2${state.retoSolved ? ' · <b style="color:#3fae3f">✔ resuelto</b>' : ''}</div>` +
+      (state.pistaLog.length ? '<div style="font-size:11px;margin-top:4px">' + state.pistaLog.map(h => '💡 ' + h).join('<br>') + '</div>' : '') +
+      (msg ? `<div style="font-size:12px;margin-top:6px;color:${state.retoSolved ? '#3fae3f' : '#E8871E'}">${msg}</div>` : '');
   }
-
+  function retoHint() {
+    if (state.mode !== 'reto' || !state._reto) return;
+    if (state.pistas >= 2) { showToast('Ya usaste las 2 pistas de este reto.', 'info'); return; }
+    const H = ['fc depende solo del producto R·C (fc = 1/(2πRC)); la ganancia del amplificador no la mueve.',
+      'Q depende solo de K = 1 + Rf/Rg (Q = 1/(3−K)): busca el Rf que da el Q pedido, con Rg = 10 kΩ.'];
+    state.pistaLog.push(H[state.pistas]); state.pistas++;
+    renderReto('');
+  }
+  function checkReto() {
+    if (!state._reto) return;
+    const res = curSolveSallenKey();
+    const e = evalReto(state._reto, res);
+    state.intentos++;
+    let msg;
+    if (e.ok) {
+      state.retoSolved = true; state.fallosSeguidos = 0;
+      msg = `✅ Diseño válido: fc=${fmtHz(res.f0)}, Q=${fmtQ(res.Q)}.`;
+    } else {
+      state.retoSolved = false; state.fallosSeguidos++;
+      const f = [];
+      if (!e.fOk) f.push(res.f0 > state._reto.targetF0 ? 'fc queda por encima del objetivo' : 'fc queda por debajo del objetivo');
+      if (!e.qOk) f.push(res.Q > Math.SQRT1_2 ? 'el filtro tiene más Q que Butterworth (con pico)' : 'el filtro tiene menos Q que Butterworth (sobreamortiguado)');
+      msg = 'Aún no: ' + f.join('; ') + '.';
+      if (state.fallosSeguidos >= 3) { newReto(); msg += ' Tres fallos seguidos: se plantea un caso nuevo.'; }
+    }
+    renderReto(msg);
+    showToast(msg, e.ok ? 'ok' : 'warn');
+  }
   async function runSweep() {
     state._sweepTrace = [];
     for (let i = 0; i < TESTR_VALS.length; i++) {
@@ -774,10 +827,23 @@
   }
 
   // ---------- Quiz ----------
+  // Opciones barajadas (Fisher–Yates); la correcta no tiene posición fija ni es la más larga por sistema.
   const QUIZ = [
-    { q: '¿Por qué un filtro Sallen-Key Butterworth (Q≈0.707) se considera de respuesta "máximamente plana"?', a: ['Porque la magnitud decae monótonamente hacia fc sin generar un pico de resonancia', 'Porque no tiene op-amp', 'Porque fc no depende de R ni de C'], correct: 0 },
-    { q: 'Si aumentas Rf (y por tanto K) dejando R y C fijos, ¿qué le pasa a fc?', a: ['No cambia — fc=1/(2πRC) solo depende de R y C', 'fc sube proporcionalmente a K', 'fc baja a la mitad'], correct: 0 },
-    { q: '¿Qué pasa cuando K se acerca a 3 (Rf muy grande frente a Rg)?', a: ['Nada relevante, el filtro sigue igual', 'Q crece sin límite y el circuito se acerca a la inestabilidad (oscilación)', 'fc se vuelve negativa'], correct: 1 },
+    { q: '¿Por qué un filtro Sallen-Key Butterworth (Q≈0,707) se considera de respuesta «máximamente plana»?',
+      ok: 'La magnitud decae sin generar pico de resonancia y es lo más plana posible en la banda pasante',
+      bad: ['Porque no usa op-amp y por eso no introduce ninguna ganancia en la banda pasante', 'Porque fc no depende de R ni de C y queda fija por la ganancia del amplificador', 'Porque su fase es cero en toda la banda y la magnitud no cae hasta el infinito'] },
+    { q: 'Si aumentas Rf (y por tanto K) dejando R y C fijos, ¿qué le pasa a fc?',
+      ok: 'No cambia: fc = 1/(2πRC) solo depende de R y C; lo que cambia es Q',
+      bad: ['Sube en proporción a K, porque el amplificador aporta más energía al filtro', 'Baja a la mitad cada vez que K aumenta una unidad, por la realimentación', 'Se desplaza hacia fc/K, porque la ganancia obliga a bajar el corte'] },
+    { q: '¿Qué pasa cuando K se acerca a 3 (Rf muy grande frente a Rg)?',
+      ok: 'Q crece sin límite y el circuito se acerca a la inestabilidad (oscilación)',
+      bad: ['Nada relevante: el filtro sigue igual porque K solo escala la banda pasante', 'fc se vuelve negativa y el filtro invierte su tipo de respuesta de paso bajo a alto', 'El filtro se vuelve sobreamortiguado porque la ganancia absorbe el pico de resonancia'] },
+    { q: 'Para Butterworth con R1=R2 y C1=C2, ¿qué ganancia K del amplificador se necesita?',
+      ok: 'K ≈ 1,586, porque Q = 1/(3−K) = 0,707',
+      bad: ['K = 1 (seguidor), porque da la respuesta más plana con componentes iguales', 'K = 2, porque da Q = 1 y la banda pasante más ancha posible', 'K = 3, porque ahí Q alcanza el valor máximo estable del filtro'] },
+    { q: 'Con K = 1 (seguidor) y componentes iguales, ¿qué tipo de respuesta resulta?',
+      ok: 'Sobreamortiguada (Q = 0,5): sin pico, pero con caída más suave antes de fc',
+      bad: ['Con pico de resonancia fuerte, porque el seguidor devuelve toda la señal a la entrada', 'Butterworth exacta, porque K = 1 es el valor natural de un seguidor de tensión', 'Inestable, porque la realimentación unitaria suma en fase con la entrada'] },
   ];
   function shuffled(arr) {
     const a = arr.slice();
@@ -787,27 +853,42 @@
     }
     return a;
   }
-  let quizIdx = 0;
-  let quizOpts = [];
-  function buildQuiz() { quizIdx = Math.floor(Math.random() * QUIZ.length); refreshQuestion(); }
+  let quizIdx = 0, quizOpts = [], quizAns = -1, quizFallos = 0;
+  function buildQuiz(next) {
+    quizIdx = next ? (quizIdx + 1) % QUIZ.length : Math.floor(Math.random() * QUIZ.length);
+    const item = QUIZ[quizIdx];
+    quizOpts = shuffled([{ t: item.ok, ok: true }].concat(item.bad.map(t => ({ t: t, ok: false }))));
+    quizAns = -1; quizFallos = 0;
+    refreshQuestion();
+  }
+  function quizCorrectIdx() { return quizOpts.findIndex(o => o.ok); }
   function refreshQuestion() {
     const item = QUIZ[quizIdx];
     const box = el('quizBox');
     if (!box) return;
-    quizOpts = shuffled(item.a.map((opt, i) => ({ t: opt, ok: i === item.correct })));
+    const done = quizAns >= 0 && quizOpts[quizAns].ok;
     let html = '<div style="font-size:12px;color:#8FB3AC;margin-bottom:6px">Quiz rápido</div>';
     html += '<div style="font-size:13px;color:#EAF4F1;margin-bottom:8px">' + item.q + '</div>';
-    quizOpts.forEach((opt, i) => { html += '<button class="b quizOpt" data-i="' + i + '" style="width:100%;text-align:left;margin-bottom:4px">' + opt.t + '</button>'; });
+    quizOpts.forEach((opt, i) => {
+      html += '<button class="b quizOpt" data-i="' + i + '" ' + (opt.gastada || done ? 'disabled ' : '') + 'style="width:100%;text-align:left;margin-bottom:4px' + (opt.gastada ? ';opacity:.45' : '') + '">' + opt.t + '</button>';
+    });
+    if (done) html += '<button class="b" id="quizNext" style="width:100%;margin-top:4px">Siguiente pregunta</button>';
     box.innerHTML = html;
     box.querySelectorAll('.quizOpt').forEach(btn => {
       btn.addEventListener('click', () => {
         const i = Number(btn.dataset.i);
-        if (quizOpts[i].ok) { showToast('✅ Correcto', 'ok'); quizIdx = (quizIdx + 1) % QUIZ.length; refreshQuestion(); }
-        else { showToast('❌ Intenta de nuevo', 'warn'); }
+        quizAns = i;
+        if (quizOpts[i].ok) { showToast('✅ Correcto', 'ok'); }
+        else {
+          quizOpts[i].gastada = true; quizFallos++;
+          if (quizFallos >= 2) { showToast('Dos fallos: se plantea otra pregunta.', 'warn'); buildQuiz(true); return; }
+          showToast('❌ No es esa: repasa la pregunta e inténtalo otra vez', 'warn');
+        }
+        refreshQuestion();
       });
     });
+    const nx = el('quizNext'); if (nx) nx.addEventListener('click', () => buildQuiz(true));
   }
-
   // ---------- Interacción 3D ----------
   function actToast(id) {
     const labels = { r1: 'R1', r2: 'R2', c1: 'C1 (realimentación)', c2: 'C2 (a GND)', rf: 'Rf', rg: 'Rg (fijo)', opamp: 'TL072 (U1)', src: 'Fuente vin', out: 'Vout' };
@@ -831,13 +912,31 @@
     }
   });
 
+  // El tour es una DEMOSTRACIÓN: no toca el reto (nunca llama a checkReto) y al terminar
+  // —o si algo falla— devuelve configuración, modo y barrido del alumno.
+  let tourBusy = false;
   async function runAuto() {
-    setMode('explora'); await sleep(600);
-    state.iR = 2; state.iC = 3; state.iRF = 0; refreshAll(); await sleep(800);
-    state.iRF = 5; refreshAll(); await sleep(900);
-    state.iRF = 11; refreshAll(); await sleep(900);
-    state.iRF = 5; refreshAll(); await sleep(400);
-    setMode('medicion'); await runSweep();
+    if (tourBusy) return;
+    tourBusy = true;
+    const btn = el('autoTour'); if (btn) btn.disabled = true;
+    const keys = ['iR', 'iC', 'iRF', 'iTESTR', 'mode', 'hide', '_sweepTrace'];
+    const snap = {};
+    keys.forEach(k => { snap[k] = state[k]; });
+    try {
+      setMode('explora', true); await sleep(600);
+      state.iR = 2; state.iC = 3; state.iRF = 0; refreshAll(); await sleep(800);
+      state.iRF = 5; refreshAll(); await sleep(900);
+      state.iRF = 11; refreshAll(); await sleep(900);
+      state.iRF = 5; refreshAll(); await sleep(400);
+      setMode('medicion', true); await runSweep();
+    } finally {
+      keys.forEach(k => { state[k] = snap[k]; });
+      setMode(snap.mode, true);
+      state.hide = snap.hide;
+      refreshAll();
+      if (btn) btn.disabled = false;
+      tourBusy = false;
+    }
   }
 
   // ---------- Wiring ----------
@@ -851,12 +950,13 @@
   wireStep('c', () => state.iC, v => state.iC = v, C_VALS.length - 1);
   wireStep('rf', () => state.iRF, v => state.iRF = v, RF_VALS.length - 1);
   wireStep('tr', () => state.iTESTR, v => state.iTESTR = v, TESTR_VALS.length - 1);
-  el('btnButter').addEventListener('click', () => { state.iRF = 5; refreshAll(); showToast('Rf=5.86 kΩ → K≈1.586 → Q≈0.707 (Butterworth)', 'info'); });
-  el('btnUnstable').addEventListener('click', () => { state.iRF = RF_VALS.length - 1; refreshAll(); showToast('Rf=19 kΩ → K≈2.9 → Q≈10 (cerca de inestabilidad)', 'warn'); });
+  el('btnButter').addEventListener('click', () => { if (state.mode === 'reto') { showToast('En el reto no hay atajos: diseña Rf tú.', 'info'); return; } state.iRF = 5; refreshAll(); showToast('Rf=5.86 kΩ → K≈1.586 → Q≈0.707 (Butterworth)', 'info'); });
+  el('btnUnstable').addEventListener('click', () => { if (state.mode === 'reto') { showToast('En el reto no hay atajos.', 'info'); return; } state.iRF = RF_VALS.length - 1; refreshAll(); showToast('Rf=19 kΩ → K≈2.9 → Q≈10 (cerca de inestabilidad)', 'warn'); });
   el('predNew').addEventListener('click', genPredice);
   el('predCheck').addEventListener('click', checkPredice);
   el('retoNew').addEventListener('click', newReto);
   el('retoCheck').addEventListener('click', checkReto);
+  el('retoHint').addEventListener('click', retoHint);
   el('sweepRun').addEventListener('click', runSweep);
   el('autoTour').addEventListener('click', runAuto);
 
@@ -871,6 +971,11 @@
     solveSallenKey, sallenKeyResponse, classifyQ,
     curSolveSallenKey, curResponse,
     setMode, genPredice, checkPredice, newReto, checkReto,
-    runSweep, refreshAll,
+    runSweep, refreshAll, retoHint, runAuto, buildQuiz,
+    get mode() { return state.mode; },
+    get retoSolved() { return state.retoSolved; },
+    get intentos() { return state.intentos; },
+    get quizAnswer() { return quizAns; },
+    get quizCorrectIndex() { return quizCorrectIdx(); },
   };
 })();

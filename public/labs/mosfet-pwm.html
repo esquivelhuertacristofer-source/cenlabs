@@ -486,10 +486,10 @@ const DEVS={
     name:'IRLZ44N (N-MOSFET nivel lógico)',
     rdsOn:0.022,
     ptot:110,
-    ptotNote:'110 W según International Rectifier PD-9.1346B (25/8/97) — única hoja de datos localizada para este número de parte pese a búsqueda exhaustiva; no se encontró una reedición Infineon posterior que la reconfirme. La cifra de 83 W que circula en algunas fuentes secundarias no pudo confirmarse en ninguna hoja de datos oficial.',
+    ptotNote:'110 W según International Rectifier PD-9.1346B (25/8/97), sin reedición Infineon posterior. Alguna fuente cita 83 W, cifra que no aparece en la hoja de datos oficial.',
     idMax:47,vdsMax:55,
     trPlusTf:99e-9,
-    trNote:'tr+tf=99 ns medido por International Rectifier a VDD=28 V, ID=25 A, RG=3.4 Ω, VGS=5.0 V (PD-9.1346B) — única hoja de datos localizada para este número de parte; condición de prueba fija del fabricante, no la de este circuito.',
+    trNote:'tr+tf=99 ns medido por International Rectifier a VDD=28 V, ID=25 A, RG=3.4 Ω, VGS=5.0 V (PD-9.1346B); condición de prueba fija del fabricante, no la de este circuito.',
     color:0x203a2e,
   },
   n2n7000:{
@@ -1072,6 +1072,7 @@ document.getElementById('panel').innerHTML=`
   <div id="retoBox" style="display:none;margin-top:10px">
     <div id="retoAsk" style="font-size:12px;color:#EAF4F1;margin-bottom:6px"></div>
     <button class="b" id="btnReto" style="width:100%">Verificar diseño</button>
+    <button class="b" id="btnPista" style="width:100%;margin-top:4px">💡 Pista (máx. 2)</button>
     <div id="retoResult" style="font-size:12px;margin-top:6px"></div>
   </div>
 
@@ -1097,7 +1098,7 @@ const MISIONES={
   explora:'Ajusta dispositivo, bus V, corriente I, ciclo D y frecuencia fsw, y observa cómo se reparten Pcond y Psw sobre la gráfica y el banco 3D.',
   predice:'Antes de revelar el medidor, predice qué pérdida domina o el valor de Ptot para la fsw actual.',
   barrido:'Barre fsw de 0 a 300 kHz (con V/I/D fijos) y observa cómo crece Psw mientras Pcond se mantiene plana.',
-  reto:'Encuentra la fsw máxima que mantiene a Ptot por debajo del máximo de catálogo del dispositivo.',
+  reto:'Para el caso dado, encuentra la fsw más alta que mantiene a Ptot dentro de lo que evacúa el disipador.',
 };
 
 function setMode(k){
@@ -1219,68 +1220,79 @@ function syncFswRange(){
     el('vFsw').textContent=fmtHz(fswHz);
   }
 }
-function refreshRetoText(){
-  if(mode!=='reto')return;
-  const dev=curDev();
-  if(dev.trPlusTf==null){
-    el('retoAsk').textContent=dev.name+' no tiene tr/tf publicado por el fabricante, así que Psw no es computable y este reto no aplica — elige IRF540N o IRLZ44N para intentarlo.';
-    el('btnReto').style.display='none';
-    return;
-  }
-  el('btnReto').style.display='block';
-  if(overVoltage()){
-    el('retoAsk').textContent='V='+fmtV(curV())+' ya excede VDS máx de catálogo ('+dev.vdsMax+' V) para '+dev.name+' — ningún valor de fsw arregla un bus fuera del rango de voltaje del dispositivo. Baja V primero.';
-    return;
-  }
-  const pc=curPcond();
-  if(pc>=dev.ptot){
-    el('retoAsk').textContent='Con V='+fmtV(curV())+', I='+fmtI(curI())+' y D='+Dpct.toFixed(0)+'%, Pcond ya vale '+fmtP(pc)+' — por sí sola excede el máximo de catálogo ('+fmtP(dev.ptot)+') sin sumar nada de Psw. No existe ninguna fsw que salve este diseño: baja I o D primero.';
-  }else{
-    el('retoAsk').textContent='Con V='+fmtV(curV())+', I='+fmtI(curI())+', D='+Dpct.toFixed(0)+'% y '+dev.name+' (Ptot máx catálogo '+fmtP(dev.ptot)+'), sube fsw con el deslizador hasta el límite más alto que NO exceda Ptot máx. Presiona Verificar cuando creas tener el máximo.';
-  }
+/* ---------- Reto: la fsw más alta que cabe en el disipador ----------
+   Cada reto fija dispositivo, V, I, D y la potencia que el disipador disponible puede evacuar (Pdis).
+   Se pide la fsw MÁS ALTA con Ptot ≤ Pdis (vale quedar hasta 10 % por debajo). El límite no se imprime:
+   al fallar solo se dice si te pasaste de potencia o si aún cabe más frecuencia. */
+let intentos=0,fallosSeguidos=0,pistas=0;const pistaLog=[];
+function rndi(n){return Math.floor(Math.random()*n);}
+function fMaxMargen(R){
+  const dev=DEVS[R.devKey];
+  const pc=R.D*R.I*R.I*dev.rdsOn;
+  return (R.Pdis-pc)/(0.5*R.V*R.I*dev.trPlusTf);
 }
 function newReto(){
-  RETO=true;
-  retoSolved=false;
-  el('retoResult').textContent='';
-  refreshRetoText();
+  let R,n=0,ok=false;
+  const FT=[40000,60000,80000,100000,120000,150000,200000,250000];
+  do{
+    const key=rndi(2)?'irlz44n':'irf540n';
+    const dev=DEVS[key];
+    const vs=V_VALS.filter(function(v){return v<=dev.vdsMax*0.9;});
+    R={devKey:key,V:vs[rndi(vs.length)],I:dev.idMax*(0.15+0.05*rndi(15)),D:Math.round((0.2+0.1*rndi(8))*10)/10};
+    const pc=R.D*R.I*R.I*dev.rdsOn;
+    const ft=FT[rndi(FT.length)];
+    const raw=pc+0.5*R.V*R.I*ft*dev.trPlusTf;
+    R.Pdis=Number(raw.toPrecision(2));
+    n++;
+    ok=pc/R.Pdis>=0.15&&pc/R.Pdis<=0.7&&R.Pdis<=0.8*dev.ptot&&fMaxMargen(R)>=20000&&fMaxMargen(R)<=270000;
+  }while(!ok&&n<5000);
+  RETO=R;
+  devKey=R.devKey;Vidx=V_VALS.indexOf(R.V);Iamp=R.I;Dpct=Math.round(R.D*100);fswHz=Math.round(FSW_MAX/6);
+  retoSolved=false;fallosSeguidos=0;pistas=0;pistaLog.length=0;
+  syncCtrlBtns();syncFswRange();RES=computeRES();
+  pintaReto('');
+}
+function pintaReto(msg){
+  const box=el('retoAsk');
+  if(!RETO){return;}
+  const dev=DEVS[RETO.devKey];
+  box.innerHTML=dev.name+' conmutando '+fmtI(RETO.I)+' a '+fmtV(RETO.V)+' con D = '+(RETO.D*100).toFixed(0)+' %. El disipador disponible evacúa como máximo <b>'+fmtP(RETO.Pdis)+'</b>. Ajusta <b>fsw</b> a la frecuencia <b>más alta</b> con la que Ptot se mantiene <b>≤ '+fmtP(RETO.Pdis)+'</b>; vale quedar hasta un 10 % por debajo del límite. No hay veredicto hasta «Verificar».'+
+    '<div style="font-size:11px;color:#8FB3AC;margin-top:4px">Intentos: <b id="retoIntentos">'+intentos+'</b> · Pistas: '+pistas+'/2'+(retoSolved?' · <b style="color:#3fae3f">✔ resuelto</b>':'')+'</div>'+
+    (pistaLog.length?'<div style="font-size:11px;margin-top:4px">'+pistaLog.map(function(h){return '💡 '+h;}).join('<br>')+'</div>':'');
+  el('retoResult').textContent=msg;
+  el('retoResult').style.color=retoSolved?'#3fae3f':'#d23b3b';
+}
+function refreshRetoText(){
+  // el enunciado se pinta en newReto/pintaReto; aquí solo se mantiene el botón visible en modo reto
+  if(mode!=='reto')return;
+  el('btnReto').style.display='block';
+}
+function retoPista(){
+  if(mode!=='reto'||!RETO)return;
+  if(pistas>=2){showToast('Ya usaste las 2 pistas de este reto.');return;}
+  const H=['Pcond no depende de fsw: réstala a la potencia que evacúa el disipador; lo que queda es lo que puede «gastar» la conmutación.',
+    'Psw crece linealmente con fsw: Psw = ½·V·I·fsw·(tr+tf). Con el presupuesto que te sobró, despeja la fsw.'];
+  pistaLog.push(H[pistas]);pistas++;pintaReto(el('retoResult').textContent);
 }
 function checkReto(){
-  const dev=curDev();
-  if(dev.trPlusTf==null)return;
-  if(overVoltage()){
-    el('retoResult').textContent='V ('+fmtV(curV())+') ya excede VDS máx de catálogo ('+dev.vdsMax+' V) — ninguna fsw arregla un bus fuera del rango de voltaje del dispositivo. Baja V primero.';
-    el('retoResult').style.color='#d23b3b';
-    retoSolved=false;
-    return;
-  }
-  const pc=curPcond();
-  if(pc>=dev.ptot){
-    el('retoResult').textContent='Este diseño no tiene solución válida — baja I o D para que Pcond quede por debajo de Ptot máx antes de buscar una fsw.';
-    el('retoResult').style.color='#d23b3b';
-    return;
-  }
-  const fMaxRealRaw=(dev.ptot-pc)/(0.5*curV()*curI()*dev.trPlusTf);
-  const offChart=fMaxRealRaw>FSW_MAX;
-  const fMaxReal=Math.min(fMaxRealRaw,FSW_MAX);
-  const f=curFsw();
-  const tol=Math.max(fMaxReal*0.1,1000);
-  const ok=f<=fMaxReal&&f>=fMaxReal-tol;
-  retoSolved=ok;
+  if(!RETO)return;
+  // El enunciado manda: V, I, D y dispositivo vuelven a los del reto antes de evaluar.
+  devKey=RETO.devKey;Vidx=V_VALS.indexOf(RETO.V);Iamp=RETO.I;Dpct=Math.round(RETO.D*100);
+  syncCtrlBtns();RES=computeRES();refreshAll();
+  const fm=fMaxMargen(RETO),f=curFsw();
+  const ok=f<=fm&&f>=0.9*fm;
+  intentos++;
   let msg;
-  if(offChart&&f>=fMaxReal){
-    msg='Con estos parámetros Ptot se mantiene por debajo del máximo de catálogo en todo el rango visible (hasta '+fmtHz(FSW_MAX)+') — el cruce real fsw≈'+fmtHz(fMaxRealRaw)+' queda fuera del rango práctico de PWM de potencia, así que la respuesta esperada es el tope del rango: '+fmtHz(FSW_MAX)+'.';
-    retoSolved=ok;
-  }else if(f>fMaxReal){
-    msg='Muy alto — a fsw='+fmtHz(f)+' Ptot ya excede el máximo de catálogo. El límite real es fsw≈'+fmtHz(fMaxRealRaw)+'.';
-  }else if(ok){
-    msg='¡Diseño válido! fsw='+fmtHz(f)+' está dentro del 10% del límite '+(offChart?('práctico (tope de rango '+fmtHz(FSW_MAX)+')'):('real (fsw máx≈'+fmtHz(fMaxRealRaw)+')'));
+  if(ok){
+    retoSolved=true;fallosSeguidos=0;
+    msg='¡Diseño válido! fsw='+fmtHz(f)+' mantiene Ptot dentro del disipador y aprovecha la frecuencia disponible.';
   }else{
-    msg='Válido pero conservador — fsw='+fmtHz(f)+' deja margen de sobra. El límite '+(offChart?('práctico es el tope de rango: '+fmtHz(FSW_MAX)):('real más ajustado es fsw≈'+fmtHz(fMaxRealRaw)))+'.';
+    retoSolved=false;fallosSeguidos++;
+    msg=f>fm?'Aún no: con esa fsw Ptot supera lo que evacúa el disipador — te pasaste.':'Aún no: el diseño es seguro pero conservador — aún cabe una fsw bastante más alta.';
+    if(fallosSeguidos>=3){newReto();msg+=' Tres fallos seguidos: se plantea un caso nuevo.';}
   }
-  el('retoResult').textContent=msg;
-  el('retoResult').style.color=ok?'#3fae3f':(f>fMaxReal?'#d23b3b':'#E8871E');
-  synth.beep(ok?880:(f>fMaxReal?220:500),.08,.06);
+  pintaReto(msg);
+  synth.beep(ok?880:220,.08,.06);
 }
 
 async function runSweep(){
@@ -1346,38 +1358,45 @@ function refreshAll(){
   updateReport();
 }
 
+// Quiz: opciones barajadas (Fisher–Yates), correcta sin posición fija; el fallo no revela la correcta.
 const QUIZ=[
-  {q:'¿De qué depende la pérdida de conducción Pcond de un MOSFET en PWM?',opts:['Solo de fsw','De RDS(on), la corriente de carga y el ciclo de trabajo D','Solo del voltaje de bus V'],a:1},
-  {q:'¿Por qué la pérdida de conmutación Psw crece con fsw?',opts:['Porque RDS(on) cambia con la frecuencia','Porque el MOSFET pasa por más transiciones de encendido/apagado por segundo, cada una con su propia energía disipada','Porque V baja al subir fsw'],a:1},
-  {q:'En la frecuencia de cruce fsw*, ¿qué es cierto?',opts:['Psw=0','Pcond=Psw','Ptot es mínimo'],a:1},
-  {q:'El 2N7000 no tiene tr/tf publicado por su fabricante. ¿Qué hace este simulador al respecto?',opts:['Inventa un valor típico razonable','Solo calcula Pcond y declara explícitamente que Psw no es computable','Usa el tr/tf del IRF540N como aproximación'],a:1},
+  {q:'¿De qué depende la pérdida de conducción Pcond de un MOSFET en PWM?',ok:'De RDS(on), del cuadrado de la corriente de carga y del ciclo de trabajo D',bad:['Solo de fsw, porque cada ciclo disipa la misma energía','Del voltaje de bus V y del tiempo de subida de la compuerta','De tr+tf, que fija cuánto dura el estado de conducción plena']},
+  {q:'¿Por qué la pérdida de conmutación Psw crece con fsw?',ok:'Cada transición disipa una energía fija ½·V·I·(tr+tf) y hay más transiciones por segundo',bad:['Porque RDS(on) aumenta con la frecuencia de la señal de compuerta','Porque el voltaje de bus V baja al subir fsw y la corriente sube','Porque el ciclo de trabajo D crece de forma automática con la frecuencia']},
+  {q:'En la frecuencia de cruce fsw*, ¿qué es cierto?',ok:'Pcond = Psw: por debajo domina la conducción y por encima la conmutación',bad:['Psw = 0: el MOSFET conmuta sin pérdidas a esa frecuencia exacta','Ptot es mínimo: más allá de fsw* la pérdida total vuelve a disminuir','Pcond = 0: la resistencia del canal deja de disipar potencia ahí']},
+  {q:'El 2N7000 no tiene tr/tf publicado. ¿Qué hace el simulador con él?',ok:'Calcula solo Pcond y declara que Psw no se puede computar sin esos datos',bad:['Inventa un valor típico razonable y lo usa como si fuera de catálogo','Usa el tr/tf del IRF540N como aproximación porque son de la misma familia','Supone Psw = 0 porque un MOSFET de señal pequeña no conmuta rápido']},
+  {q:'Subes fsw al doble con V, I y D fijos. ¿Cómo cambia Ptot?',ok:'Pcond no cambia y Psw se duplica, así que Ptot aumenta menos del doble',bad:['Se duplica entera, porque Pcond y Psw son proporcionales a fsw','Se mantiene, porque la energía por transición baja a la mitad','Aumenta con el cuadrado de fsw, por el término I²·RDS(on)']},
 ];
-function shuffled(arr){
-  const a=arr.slice();
-  for(let i=a.length-1;i>0;i--){
-    const j=Math.floor(Math.random()*(i+1));
-    const tmp=a[i];a[i]=a[j];a[j]=tmp;
-  }
-  return a;
+let qIdx=0,quizOpts=[],quizAns=-1,quizFallos=0;
+function barajar(a){const b=a.slice();for(let i=b.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));const t=b[i];b[i]=b[j];b[j]=t;}return b;}
+function buildQuiz(sig){
+  qIdx=sig?(qIdx+1)%QUIZ.length:Math.floor(Math.random()*QUIZ.length);
+  const q=QUIZ[qIdx];
+  quizOpts=barajar([{t:q.ok,ok:true}].concat(q.bad.map(function(t){return {t:t,ok:false};})));
+  quizAns=-1;quizFallos=0;
+  refreshQuestion();
 }
-let qIdx=0;
-let qOpts=[];
-function buildQuiz(){qIdx=0;refreshQuestion();}
+function quizCorrectIdx(){for(let i=0;i<quizOpts.length;i++)if(quizOpts[i].ok)return i;return -1;}
 function refreshQuestion(){
   const q=QUIZ[qIdx];
+  const hecho=quizAns>=0&&quizOpts[quizAns].ok;
   el('quizQ').textContent=q.q;
-  qOpts=shuffled(q.opts.map(function(o,i){return {t:o,ok:i===q.a};}));
-  el('quizOpts').innerHTML=qOpts.map(function(o,i){return '<button class="b" data-i="'+i+'">'+o.t+'</button>';}).join('');
-  el('quizOpts').querySelectorAll('button').forEach(function(btn){
+  el('quizOpts').innerHTML=quizOpts.map(function(o,i){
+    return '<button class="b" data-i="'+i+'"'+(o.gastada||hecho?' disabled':'')+(o.gastada?' style="opacity:.45"':'')+'>'+o.t+'</button>';
+  }).join('')+(hecho?'<button class="b" id="quizNext" style="width:100%">Siguiente pregunta</button>':'');
+  el('quizOpts').querySelectorAll('button[data-i]').forEach(function(btn){
     btn.addEventListener('click',function(){
       const i=parseInt(btn.getAttribute('data-i'),10);
-      const ok=qOpts[i].ok;
-      showToast(ok?'¡Correcto!':'No — repasa la definición.');
-      synth.beep(ok?880:220,.08,.06);
-      qIdx=(qIdx+1)%QUIZ.length;
-      setTimeout(refreshQuestion,700);
+      quizAns=i;
+      if(quizOpts[i].ok){showToast('¡Correcto!');synth.beep(880,.08,.06);}
+      else{
+        quizOpts[i].gastada=true;quizFallos++;synth.beep(220,.08,.06);
+        if(quizFallos>=2){showToast('Dos fallos: se plantea otra pregunta.');buildQuiz(true);return;}
+        showToast('No es esa: repasa la pregunta e inténtalo otra vez.');
+      }
+      refreshQuestion();
     });
   });
+  const nx=el('quizNext');if(nx)nx.addEventListener('click',function(){buildQuiz(true);});
 }
 
 function actToast(act){
@@ -1451,11 +1470,11 @@ el('sD').addEventListener('input',function(e){onDInput(e.target.value);});
 el('sFsw').addEventListener('input',function(e){onFswInput(e.target.value);});
 el('btnSweep').addEventListener('click',runSweep);
 el('btnReto').addEventListener('click',checkReto);
+el('btnPista').addEventListener('click',retoPista);
 el('btnAuto').addEventListener('click',runAuto);
 
 onChange();
 S.setAnimate(function(){});
-newReto();
 buildQuiz();
 syncCtrlBtns();
 S.start();
@@ -1465,7 +1484,12 @@ window.__labDebug={
   state:function(){return {devKey:devKey,Vidx:Vidx,Iamp:Iamp,Dpct:Dpct,fswHz:fswHz,mode:mode};},
   res:function(){return RES;},
   pred:function(){return {PRED:PRED,predSolved:predSolved,predRevealed:predRevealed,predType:predType};},
-  reto:function(){return {RETO:RETO,retoSolved:retoSolved};},
+  reto:function(){return {RETO:RETO,retoSolved:retoSolved,solved:retoSolved,intentos:intentos,pistas:pistas};},
+  get retoSolved(){return retoSolved;},
+  get intentos(){return intentos;},
+  get quizAnswer(){return quizAns;},
+  get quizCorrectIndex(){return quizCorrectIdx();},
+  buildQuiz:buildQuiz,runAuto:runAuto,pista:retoPista,fMaxMargen:fMaxMargen,
   sweep:function(){return {markerF:sweepMarkerF};},
   curPcond:curPcond,curPsw:curPsw,curPtot:function(){return computeRES().Ptot;},crossoverFsw:crossoverFsw,
   setDevice:selDevice,
